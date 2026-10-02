@@ -23,7 +23,10 @@ function suggestion(raw) {
 }
 
 function templates(raw) {
-  const all = [...asArray(raw.template), ...asArray(raw.generators).flatMap((g) => asArray(g?.template))]
+  const all = [
+    ...asArray(raw.template),
+    ...asArray(raw.generators).flatMap((g) => asArray(g?.template)),
+  ]
   return [...new Set(all.filter((t) => t === 'filepaths' || t === 'folders'))]
 }
 
@@ -73,7 +76,14 @@ async function command(raw, buildDir, loadDepth, maxLoadDepth) {
   let source = raw
   if (typeof raw.loadSpec === 'string' && loadDepth < maxLoadDepth) {
     const loaded = await loadModule(buildDir, raw.loadSpec)
-    if (loaded) source = { ...loaded, ...raw, subcommands: loaded.subcommands, options: loaded.options, args: loaded.args }
+    if (loaded)
+      source = {
+        ...loaded,
+        ...raw,
+        subcommands: loaded.subcommands,
+        options: loaded.options,
+        args: loaded.args,
+      }
   }
   const out = { names }
   if (text(source.description)) out.description = source.description
@@ -102,7 +112,8 @@ export async function writeFigSpecs(outDir) {
     const spec = await loadModule(buildDir, name)
     if (!spec) continue
     let json = JSON.stringify(await command({ ...spec, name }, buildDir, 0, MAX_LOAD_DEPTH))
-    if (json.length > MAX_SPEC_BYTES) json = JSON.stringify(await command({ ...spec, name }, buildDir, 0, 0))
+    if (json.length > MAX_SPEC_BYTES)
+      json = JSON.stringify(await command({ ...spec, name }, buildDir, 0, 0))
     if (!json || json === 'null' || json.length > MAX_SPEC_BYTES) continue
     writeFileSync(join(outDir, `${name}.json`), json)
     count++

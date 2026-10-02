@@ -33,7 +33,7 @@ import { focusSurface } from '../stores/surfaceSlotsStore'
 import { useUIStore } from '../stores/uiStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
 import { MenuContent, MenuItem, MenuSubContent, MenuSubTrigger } from './Menu'
-import { useAgentTargets } from './PickSendPanel'
+import { useAgentTargets, useNoAgentsText } from './PickSendPanel'
 import {
   ContextMenu,
   ContextMenuSeparator,
@@ -41,15 +41,15 @@ import {
   ContextMenuTrigger,
 } from './ui/context-menu'
 
-function sendPath(target: PickTarget, path: string): void {
-  if (!insertPathReference(target.paneId, path)) return
+async function sendPath(target: PickTarget, path: string): Promise<void> {
+  if (!(await insertPathReference(target, path))) return
   if (!target.sameWorkspace) return
   useLayoutStore.getState().focusPane(target.workspaceId, target.paneId)
   requestAnimationFrame(() => focusSurface(target.paneId))
 }
 
 function openInNewWorkspace(path: string, dir: boolean): void {
-  useUIStore.getState().leaveSettings()
+  useUIStore.getState().showWorkspaces()
   startNewWorkspace({ dir: dir ? path : parentOf(path) })
   if (!dir) openFileInWorkspace(path)
 }
@@ -104,6 +104,7 @@ export function FileMenuItems({
 }): JSX.Element {
   const d = useDict()
   const agents = useAgentTargets(workspaceId)
+  const noAgents = useNoAgentsText(workspaceId)
   const askOn = useChatAvailable()
   const workDir = useWorkspacesStore((s) => s.workspaces.find((w) => w.id === workspaceId)?.workDir)
   const relative = workDir ? relativePath(path, workDir) : null
@@ -160,13 +161,13 @@ export function FileMenuItems({
         <MenuSubTrigger icon={PaperPlaneTiltIcon}>{d.fileMenu.sendPath}</MenuSubTrigger>
         <MenuSubContent className="max-w-80">
           {agents.length === 0 ? (
-            <MenuItem disabled>{d.fileMenu.noAgents}</MenuItem>
+            <MenuItem disabled>{noAgents}</MenuItem>
           ) : (
             agents.map((target) => (
               <MenuItem
                 key={target.paneId}
                 leading={<span className={`dot ${target.state === 'none' ? '' : target.state}`} />}
-                onClick={() => sendPath(target, path)}
+                onClick={() => void sendPath(target, path)}
               >
                 {target.title}
               </MenuItem>

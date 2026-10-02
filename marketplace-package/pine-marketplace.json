@@ -2,6 +2,15 @@
   "name": "Pine extensions",
   "description": "Extensions for Pine that are not built in",
   "extensions": [
+    "extensions/lsp-bash",
+    "extensions/lsp-clangd",
+    "extensions/lsp-gopls",
+    "extensions/lsp-lua",
+    "extensions/lsp-marksman",
+    "extensions/lsp-pyright",
+    "extensions/lsp-rust-analyzer",
+    "extensions/lsp-typescript",
+    "extensions/lsp-yaml",
     "extensions/model-runtime"
   ],
   "unlisted": [

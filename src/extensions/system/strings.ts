@@ -1,3 +1,4 @@
+import { localized } from '../../shared/extensionLocales'
 export interface Strings {
   confirmTitle: string
   confirmMessage: (packages: string[], manager: string) => string
@@ -66,5 +67,5 @@ const zhHant: Strings = {
 }
 
 export function stringsFor(locale: string | undefined): Strings {
-  return locale?.startsWith('zh') ? zhHant : en
+  return localized({ en, 'zh-Hant': zhHant }, locale)
 }

@@ -19,7 +19,12 @@ import { CommandPalette } from './CommandPalette'
 vi.mock('../lib/colorize', () => ({ colorizeCode: async () => null }))
 
 const PANE = 'p-slash-term'
-const CHAT = { extId: 'assistant', name: 'Assistant', label: 'model-runtime · gemma' }
+const CHAT = {
+  extId: 'assistant',
+  name: 'Assistant',
+  label: 'model-runtime · gemma',
+  ref: { extId: 'assistant' },
+}
 
 function seedWorkspace(): void {
   useWorkspacesStore.setState({
@@ -131,7 +136,14 @@ describe('chat slash commands', () => {
     useBlocksStore.setState(blocksInit, true)
     useAssistStore.setState({ availability: {} })
     useSettingsStore.setState({
-      assistant: { chatHistory: true, mcpServers: [], skillFolders: [] },
+      assistant: {
+        chatHistory: true,
+        mcpServers: [],
+        skillFolders: [],
+        providers: [],
+        fastModel: null,
+        chatModel: null,
+      },
     })
     useWorkspacesStore.setState({ workspaces: [], activeWorkspaceId: null })
     useLayoutStore.setState({ byWorkspace: {} })
@@ -195,9 +207,8 @@ describe('chat slash commands', () => {
     const box = await openPane()
     await userEvent.type(box, '/')
     await userEvent.click(screen.getByRole('option', { name: /\/model/ }))
-    const card = await screen.findByRole('region', { name: 'Model' })
-    expect(card).toHaveTextContent('Answers come from model-runtime · gemma (Assistant).')
-    expect(box).toHaveFocus()
+    expect(await screen.findByRole('menuitem', { name: 'Manage models…' })).toBeInTheDocument()
+    expect(box).toHaveValue('')
   })
 
   it('closes the menu on Escape without closing the palette', async () => {
@@ -285,7 +296,14 @@ describe('chat slash commands', () => {
   it('/skill completes the configured skills and asks the model to load the chosen one', async () => {
     useAssistStore.setState({ availability: { chat: { ...CHAT, tools: 'native' } } })
     useSettingsStore.setState({
-      assistant: { chatHistory: true, mcpServers: [], skillFolders: ['/home/u/skills'] },
+      assistant: {
+        chatHistory: true,
+        mcpServers: [],
+        skillFolders: ['/home/u/skills'],
+        providers: [],
+        fastModel: null,
+        chatModel: null,
+      },
     })
     vi.mocked(window.pine.chatTools.skills).mockResolvedValue([
       { name: 'pdf', description: 'Read and fill PDFs', path: '/home/u/skills/pdf/SKILL.md' },

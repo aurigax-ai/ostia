@@ -1,9 +1,13 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { createPane } from '../layout/tree'
 import * as blockActions from '../lib/blockActions'
+import * as closeConfirm from '../lib/closeConfirm'
 import { useAttentionStore } from '../stores/attentionStore'
 import { useBlocksStore } from '../stores/blocksStore'
+import { useCloseConfirmStore } from '../stores/closeConfirmStore'
+import { useEditorStatus } from '../stores/editorStatusStore'
 import { useLayoutStore } from '../stores/layoutStore'
+import { useSandboxStore } from '../stores/sandboxStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
 import { useUpdateStore } from '../stores/updateStore'
@@ -131,6 +135,59 @@ describe('builtins route to store actions', () => {
     expect(r).toEqual({ ok: false, error: { code: 'command-failed', message: 'split exploded' } })
   })
 
+  describe('browser profile of a new browser pane', () => {
+    const openBrowserSpy = () =>
+      vi.spyOn(useLayoutStore.getState(), 'openBrowser').mockImplementation(() => {})
+    const workspaces = (kind: 'terminal' | 'scratch') =>
+      useWorkspacesStore.setState({
+        workspaces: [{ id: 's7', name: 'a', kind, workDir: '/a', state: 'idle' }],
+        activeWorkspaceId: 's7',
+      })
+
+    afterEach(() => useSandboxStore.setState({ enabled: {} }))
+
+    it('gives the human the shared profile', async () => {
+      workspaces('terminal')
+      const openBrowser = openBrowserSpy()
+      await commands.execWith(ctx('s7', null), 'browser.new', { url: 'http://a.test/' })
+      expect(openBrowser).toHaveBeenCalledWith('s7', 'http://a.test/', 'shared')
+    })
+
+    it('keeps a pane opened over the control socket isolated, whatever the args say', async () => {
+      workspaces('terminal')
+      const openBrowser = openBrowserSpy()
+      const remote: CommandContext = { ...ctx('s7', null), origin: 'remote' }
+      await commands.execWith(remote, 'browser.new', { url: 'http://a.test/', profile: 'shared' })
+      await commands.execWith(remote, 'browser.open')
+      expect(openBrowser).toHaveBeenNthCalledWith(1, 's7', 'http://a.test/', 'isolated')
+      expect(openBrowser).toHaveBeenNthCalledWith(2, 's7', 'about:blank', 'isolated')
+    })
+
+    it('keeps the human’s pane isolated in a scratch workspace', async () => {
+      workspaces('scratch')
+      const openBrowser = openBrowserSpy()
+      await commands.execWith(ctx('s7', null), 'browser.new')
+      expect(openBrowser).toHaveBeenCalledWith('s7', 'about:blank', 'isolated')
+    })
+
+    it('keeps the human’s pane isolated in a sandboxed workspace', async () => {
+      workspaces('terminal')
+      useSandboxStore.setState({ enabled: { s7: true } })
+      const openBrowser = openBrowserSpy()
+      await commands.execWith(ctx('s7', null), 'browser.new')
+      expect(openBrowser).toHaveBeenCalledWith('s7', 'about:blank', 'isolated')
+    })
+
+    it('gives a new browser tab the opener’s profile', async () => {
+      workspaces('terminal')
+      const newTab = vi.spyOn(useLayoutStore.getState(), 'newTab').mockImplementation(() => null)
+      await commands.execWith(ctx('s7', 'p1'), 'tab.newBrowser')
+      await commands.execWith({ ...ctx('s7', 'p1'), origin: 'remote' }, 'tab.newBrowser')
+      expect(newTab).toHaveBeenNthCalledWith(1, 's7', 'p1', 'browser', 'shared')
+      expect(newTab).toHaveBeenNthCalledWith(2, 's7', 'p1', 'browser', 'isolated')
+    })
+  })
+
   it('browser.open opens about:blank in the caller ctx workspace and propagates failures', async () => {
     const openBrowser = vi
       .spyOn(useLayoutStore.getState(), 'openBrowser')
@@ -138,7 +195,7 @@ describe('builtins route to store actions', () => {
 
     const ok = await commands.execWith(ctx('s7', null), 'browser.open')
     expect(ok.ok).toBe(true)
-    expect(openBrowser).toHaveBeenCalledWith('s7', 'about:blank')
+    expect(openBrowser).toHaveBeenCalledWith('s7', 'about:blank', 'shared')
 
     openBrowser.mockImplementation(() => {
       throw new Error('no browser')
@@ -373,6 +430,72 @@ describe('builtins route to store actions', () => {
     expect(closePane).toHaveBeenCalledWith('s1', 'pA')
   })
 
+  it('asks the human before closing a pane but closes at once for an agent on the socket', async () => {
+    const ask = vi.spyOn(closeConfirm, 'requestClosePane').mockResolvedValue()
+    const closePane = vi.spyOn(useLayoutStore.getState(), 'closePane').mockImplementation(() => {})
+
+    await commands.execWith(ctx('s1', 'pA'), 'pane.close', { paneId: 'pX' })
+    expect(ask).toHaveBeenCalledWith('s1', 'pX')
+    expect(closePane).not.toHaveBeenCalled()
+
+    ask.mockClear()
+    const fromSocket = { ...ctx('s1', 'pA'), target: { workspaceId: 's1', paneId: 'pA' } }
+    await commands.execWith(fromSocket, 'pane.close', { paneId: 'pX' })
+    expect(ask).not.toHaveBeenCalled()
+    expect(closePane).toHaveBeenCalledWith('s1', 'pX')
+  })
+
+  it('still asks the human when an agent closes a pane holding unsaved changes', async () => {
+    const ask = vi.spyOn(useCloseConfirmStore.getState(), 'ask').mockResolvedValue(false)
+    const editor = { ...createPane('editor'), filePath: '/w/notes.md' }
+    useWorkspacesStore.setState({
+      workspaces: [{ id: 's1', name: 'w', kind: 'terminal', workDir: '/w', state: 'idle' }],
+    })
+    useLayoutStore.setState({
+      byWorkspace: { s1: { root: editor, activePaneId: editor.id, zoomedPaneId: null } },
+    })
+    useEditorStatus.setState({ dirty: { '/w/notes.md': true } })
+    const fromSocket = { ...ctx('s1', editor.id), target: { workspaceId: 's1', paneId: editor.id } }
+
+    await commands.execWith(fromSocket, 'pane.close')
+
+    expect(ask).toHaveBeenCalledWith('pane', [
+      expect.objectContaining({ workspaceId: 's1', files: ['/w/notes.md'] }),
+    ])
+    expect(useLayoutStore.getState().byWorkspace.s1.root).toBe(editor)
+    useEditorStatus.setState({ dirty: {} })
+  })
+
+  it('refuses an agent closing a locked pane, and never lets the socket lock or unlock one', async () => {
+    const kept = { ...createPane('terminal'), locked: true as const }
+    useLayoutStore.setState({
+      byWorkspace: { s1: { root: kept, activePaneId: kept.id, zoomedPaneId: null } },
+    })
+    const fromSocket = { ...ctx('s1', kept.id), target: { workspaceId: 's1', paneId: kept.id } }
+
+    const refused = await commands.execWith(fromSocket, 'pane.close', { paneId: kept.id })
+
+    expect(refused).toMatchObject({ ok: false, error: { code: 'command-failed' } })
+    expect(refused.ok ? '' : refused.error.message).toContain('pane-locked')
+    expect(useLayoutStore.getState().byWorkspace.s1.root).toBe(kept)
+    expect(commands.isLocal('pane.toggleLock')).toBe(true)
+  })
+
+  it('toggles the lock of the target pane for the human', async () => {
+    const pane = createPane('terminal')
+    useLayoutStore.setState({
+      byWorkspace: { s1: { root: pane, activePaneId: pane.id, zoomedPaneId: null } },
+    })
+
+    await commands.execWith(ctx('s1', pane.id), 'pane.toggleLock')
+    expect(useLayoutStore.getState().isLocked('s1', pane.id)).toBe(true)
+    await commands.execWith(ctx('s1', pane.id), 'pane.close')
+    expect(useLayoutStore.getState().byWorkspace.s1.root).toMatchObject({ id: pane.id })
+
+    await commands.execWith(ctx('s1', pane.id), 'pane.toggleLock')
+    expect(useLayoutStore.getState().isLocked('s1', pane.id)).toBe(false)
+  })
+
   it('routes pane.focus to layout.focusPane', async () => {
     const focusPane = vi.spyOn(useLayoutStore.getState(), 'focusPane').mockImplementation(() => {})
 
@@ -421,9 +544,9 @@ describe('builtins route to store actions', () => {
     expect(movePane).not.toHaveBeenCalled()
   })
 
-  it('routes workspace.new to leaveSettings then addWorkspace, in that order', async () => {
-    const leaveSettings = vi
-      .spyOn(useUIStore.getState(), 'leaveSettings')
+  it('routes workspace.new to showWorkspaces then addWorkspace, in that order', async () => {
+    const showWorkspaces = vi
+      .spyOn(useUIStore.getState(), 'showWorkspaces')
       .mockImplementation(() => {})
     const addWorkspace = vi
       .spyOn(useWorkspacesStore.getState(), 'addWorkspace')
@@ -431,9 +554,9 @@ describe('builtins route to store actions', () => {
 
     await commands.execWith(ctx(null, null), 'workspace.new')
 
-    expect(leaveSettings).toHaveBeenCalled()
+    expect(showWorkspaces).toHaveBeenCalled()
     expect(addWorkspace).toHaveBeenCalled()
-    expect(leaveSettings.mock.invocationCallOrder[0]).toBeLessThan(
+    expect(showWorkspaces.mock.invocationCallOrder[0]).toBeLessThan(
       addWorkspace.mock.invocationCallOrder[0],
     )
   })
@@ -474,6 +597,15 @@ describe('builtins route to store actions', () => {
     await commands.execWith(ctx(null, null), 'app.openSettings')
 
     expect(openSettings).toHaveBeenCalled()
+  })
+
+  it('toggles the dashboard from dashboard.toggle without a target', async () => {
+    const byId = Object.fromEntries(commands.describe().map((c) => [c.id, c]))
+    expect(byId['dashboard.toggle'].target).toBe('none')
+    await commands.execWith(ctx(null, null), 'dashboard.toggle')
+    expect(useUIStore.getState().dashboardActive).toBe(true)
+    await commands.execWith(ctx(null, null), 'dashboard.toggle')
+    expect(useUIStore.getState().dashboardActive).toBe(false)
   })
 
   it('MGR-C43 quits through the window bridge and needs destructive', async () => {

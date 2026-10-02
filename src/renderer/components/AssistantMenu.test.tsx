@@ -37,6 +37,7 @@ const assistant: ExtensionInfo = {
   secretsSet: [],
   category: 'other',
   languages: [],
+  languageServers: [],
   iconThemes: [],
 }
 
@@ -46,6 +47,9 @@ const ready: AssistExtensionState = {
   label: 'model-runtime · gemma',
   setup: null,
   models: false,
+  providers: [],
+  kinds: [],
+  keysSet: [],
   features: [
     { id: 'chat', setting: 'chat', on: true, ready: true },
     { id: 'terminalCompletions', setting: 'terminalCompletions', on: true, ready: true },
@@ -72,11 +76,26 @@ describe('AssistantMenu', () => {
     vi.mocked(openChatPane).mockClear()
   })
 
-  function seed(overview: AssistExtensionState[]): void {
+  const CHAT_REF = { extId: 'assistant', provider: 'openai', model: 'gpt-big' }
+  const FAST_REF = { extId: 'assistant', provider: 'ollama', model: 'qwen' }
+
+  function seed(overview: AssistExtensionState[], configured = true): void {
     useExtensionsStore.setState({ list: [assistant] })
     useAssistStore.setState({
       overview,
-      availability: { chat: { extId: 'assistant', name: 'Assistant', label: 'x' } },
+      availability: {
+        chat: { extId: 'assistant', name: 'Assistant', label: 'x', ref: CHAT_REF },
+      },
+      catalog: configured
+        ? {
+            models: [
+              { ref: FAST_REF, group: 'Ollama', label: 'qwen', points: ['terminal', 'chat'] },
+              { ref: CHAT_REF, group: 'OpenAI', label: 'gpt-big', points: ['terminal', 'chat'] },
+            ],
+            chat: CHAT_REF,
+            fast: FAST_REF,
+          }
+        : { models: [], chat: null, fast: null },
     })
   }
 
@@ -94,7 +113,8 @@ describe('AssistantMenu', () => {
     await user.click(screen.getByRole('button', { name: 'Assistant' }))
     const features = await screen.findByRole('list', { name: 'Features' })
     expect(within(features).getAllByRole('listitem')).toHaveLength(2)
-    expect(screen.getByText('model-runtime · gemma')).toBeInTheDocument()
+    expect(screen.getByText('OpenAI · gpt-big')).toBeInTheDocument()
+    expect(screen.getByText('Ollama · qwen')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /settings|Models/i })).toBeNull()
     await user.click(screen.getByRole('switch', { name: 'Terminal completion' }))
     expect(setSetting).toHaveBeenCalledWith('assistant', 'terminalCompletions', false)
@@ -120,11 +140,11 @@ describe('AssistantMenu', () => {
   })
 
   it('offers only the setup call to action while the provider is not set up', async () => {
-    seed([{ ...ready, setup: 'no-provider' }])
+    seed([{ ...ready, setup: 'no-provider' }], false)
     render(<AssistantMenu />)
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: 'Assistant' }))
-    expect(await screen.findByText('No provider is chosen yet.')).toBeInTheDocument()
+    expect(await screen.findByText('No provider is set up yet.')).toBeInTheDocument()
     expect(screen.queryByRole('switch')).toBeNull()
     await user.click(screen.getByRole('button', { name: 'Set up the assistant' }))
     expect(useUIStore.getState().settingsActive).toBe(true)

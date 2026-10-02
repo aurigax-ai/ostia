@@ -1,0 +1,9 @@
+{
+  "manifest": {
+    "name": "YAML",
+    "description": "在編輯器中提供 YAML 的驗證、自動完成、懸停說明與格式化。此擴充功能內含 yaml-language-server，並以 {product} 自身的執行環境執行。",
+    "settings.schemaStore.title": "來自 schemastore.org 的結構描述",
+    "settings.schemaStore.description": "讓伺服器從 schemastore.org 取得結構描述目錄與相符的結構描述，用於 GitHub 工作流程或 Compose 等檔案"
+  },
+  "messages": {}
+}

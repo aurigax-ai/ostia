@@ -17,9 +17,7 @@ export interface Provider {
 export interface ProviderCatalog {
   kinds: readonly string[]
   keyRequired: ReadonlySet<string>
+  title: (kind: string, locale: string) => string
   defaultBaseUrl: (kind: string, env: NodeJS.ProcessEnv) => string
-  defaultFastModel: (kind: string) => string
   create: (kind: string, endpoint: Endpoint, apiKey: string | null) => Provider
 }
-
-export const NO_PROVIDER = 'none'

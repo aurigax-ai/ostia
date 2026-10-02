@@ -38,10 +38,18 @@ export function askAboutEditorSelection(
   if (!selection || !model) return false
   const text = model.getValueInRange(selection)
   if (!text.trim()) return false
+  const file = path ?? model.uri.path
+  const endLine =
+    selection.endColumn === 1 && selection.endLineNumber > selection.startLineNumber
+      ? selection.endLineNumber - 1
+      : selection.endLineNumber
   return attachAndOpenChat({
     kind: 'selection',
-    label: fmt(label, { path: path ?? model.uri.path, line: selection.startLineNumber }),
+    label: fmt(label, { path: file, line: selection.startLineNumber }),
     text: text.slice(0, CHAT_CONTEXT_TEXT_MAX),
+    path: file,
+    startLine: selection.startLineNumber,
+    endLine,
   })
 }
 

@@ -15,6 +15,7 @@ import { useAttentionStore } from '../stores/attentionStore'
 import { useBlocksStore } from '../stores/blocksStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useMergeConfirmStore } from '../stores/mergeConfirmStore'
+import { useSandboxStore } from '../stores/sandboxStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
 import { type Workspace, useWorkspacesStore } from '../stores/workspacesStore'
@@ -63,6 +64,7 @@ describe('DeckRail', () => {
     useAttentionStore.setState(attentionInit, true)
     useMergeConfirmStore.setState(mergeConfirmInit, true)
     useBlocksStore.setState(blocksInit, true)
+    useSandboxStore.setState({ enabled: {} })
     vi.restoreAllMocks()
   })
 
@@ -133,6 +135,49 @@ describe('DeckRail', () => {
     expect(screen.getByRole('button', { name: 'beta' })).toBeInTheDocument()
   })
 
+  it('shows the unread count in the row’s leading slot, before the title', () => {
+    seedWorkspaces()
+    const pane = createPane('terminal')
+    useLayoutStore.setState({
+      byWorkspace: { s1: { root: pane, activePaneId: pane.id, zoomedPaneId: null } },
+    })
+    useAttentionStore.setState({ byPane: { [pane.id]: { state: 'done', unread: true, at: 1 } } })
+    render(<DeckRail />)
+    const badge = within(rowFor(/alpha/)).getByRole('img', { name: '1 unread' })
+    expect(badge.closest('.tab-lead-wrap')).not.toBeNull()
+    expect(
+      badge.compareDocumentPosition(screen.getByText('alpha')) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+    expect(within(rowFor(/beta/)).queryByRole('img', { name: /unread/ })).toBeNull()
+  })
+
+  it('marks a workspace that holds a locked tab and offers no close button for it', () => {
+    seedWorkspaces()
+    const kept = { ...createPane('terminal'), locked: true as const }
+    useLayoutStore.setState({
+      byWorkspace: { s1: { root: kept, activePaneId: kept.id, zoomedPaneId: null } },
+    })
+    render(<DeckRail />)
+    expect(
+      within(rowFor(/alpha/)).getByRole('img', { name: /Holds a locked tab/ }),
+    ).toBeInTheDocument()
+    expect(within(rowFor(/alpha/)).queryByRole('button', { name: 'Close' })).toBeNull()
+    expect(within(rowFor(/beta/)).getByRole('button', { name: 'Close' })).toBeInTheDocument()
+  })
+
+  it('marks a sandboxed workspace row, and no other row', async () => {
+    seedWorkspaces()
+    vi.mocked(window.pine.sandbox.get).mockImplementation(async (id) => ({
+      enabled: id === 's1',
+      allowRead: [],
+      domains: [],
+      controls: {},
+    }))
+    render(<DeckRail />)
+    expect(await within(rowFor(/alpha/)).findByRole('img', { name: 'Sandboxed' })).toBeVisible()
+    expect(within(rowFor(/beta/)).queryByRole('img', { name: 'Sandboxed' })).toBeNull()
+  })
+
   it('keeps the close button on expanded rows', () => {
     seedWorkspaces()
     render(<DeckRail />)
@@ -155,13 +200,13 @@ describe('DeckRail', () => {
     const setActive = vi
       .spyOn(useWorkspacesStore.getState(), 'setActive')
       .mockImplementation(() => {})
-    const leaveSettings = vi.spyOn(useUIStore.getState(), 'leaveSettings')
+    const showWorkspaces = vi.spyOn(useUIStore.getState(), 'showWorkspaces')
 
     render(<DeckRail />)
     await userEvent.setup().click(screen.getByRole('button', { name: /beta/ }))
 
     expect(setActive).toHaveBeenCalledWith('s2')
-    expect(leaveSettings).toHaveBeenCalled()
+    expect(showWorkspaces).toHaveBeenCalled()
   })
 
   it('closes the clicked workspace with its own id', async () => {

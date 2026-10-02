@@ -47,11 +47,6 @@ export interface ColorScheme {
   colors: TerminalColors
 }
 
-export interface LanguageServerSpec {
-  languageId: string
-  label: string
-}
-
 export interface LanguageContribution {
   id: string
   label: string
@@ -61,7 +56,6 @@ export interface LanguageContribution {
 export interface PluginContributions {
   themes?: Theme[]
   colorSchemes?: ColorScheme[]
-  languageServers?: LanguageServerSpec[]
 }
 
 export interface PluginManifest {

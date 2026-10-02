@@ -1,0 +1,5 @@
+{
+  "packages": {
+    "pyright": "server/pyright"
+  }
+}

@@ -4,12 +4,16 @@ import {
   PICK_HTML_MAX,
   PICK_LOG_MAX,
   type PickCapture,
+  REPORT_SLUG_MAX,
   type RawPick,
+  nextPickReportNumber,
   normalizeCapture,
   pickBusMessage,
+  pickReportName,
   renderPickReport,
   reportReference,
   screenshotRect,
+  urlSlug,
 } from './pick'
 
 const raw: RawPick = {
@@ -108,7 +112,7 @@ function capture(over: Partial<PickCapture> = {}): PickCapture {
 describe('renderPickReport', () => {
   it('contains the note, selector, page, screenshot path, style and html', () => {
     const md = renderPickReport(capture(), '  The Pay button is cut off  ')
-    expect(md).toContain('# UI issue: button.primary  120×32')
+    expect(md).toContain('# Captured element: button.primary  120×32')
     expect(md).toContain('The Pay button is cut off')
     expect(md).toContain('- Selector: `[data-testid="pay"]`')
     expect(md).toContain('Checkout — http://localhost:5173/checkout')
@@ -148,10 +152,10 @@ describe('renderPickReport', () => {
 
 describe('pickBusMessage', () => {
   it('is JSON an agent can parse', () => {
-    const msg = JSON.parse(pickBusMessage(capture(), ' fix it ', '/tmp/r/ui-issue-1.md'))
+    const msg = JSON.parse(pickBusMessage(capture(), ' fix it ', '/tmp/r/capture-1.md'))
     expect(msg).toEqual({
-      kind: 'ui-issue',
-      report: '/tmp/r/ui-issue-1.md',
+      kind: 'capture',
+      report: '/tmp/r/capture-1.md',
       url: 'http://localhost:5173/checkout',
       selector: '[data-testid="pay"]',
       note: 'fix it',
@@ -161,12 +165,39 @@ describe('pickBusMessage', () => {
 
 describe('reportReference', () => {
   it('prefixes @ and ends with a space so the user can keep typing', () => {
-    expect(reportReference('/tmp/pine-reports-1000/ui-issue-3.md')).toBe(
-      '@/tmp/pine-reports-1000/ui-issue-3.md ',
+    expect(reportReference('/tmp/pine-reports-1000/capture-3.md')).toBe(
+      '@/tmp/pine-reports-1000/capture-3.md ',
     )
   })
 
   it('quotes a path containing whitespace', () => {
-    expect(reportReference('/tmp/my dir/ui-issue-1.md')).toBe('@"/tmp/my dir/ui-issue-1.md" ')
+    expect(reportReference('/tmp/my dir/capture-1.md')).toBe('@"/tmp/my dir/capture-1.md" ')
+  })
+})
+
+describe('pick report names', () => {
+  it('adds the page’s host and path as a slug, without its query or fragment', () => {
+    expect(urlSlug('https://www.GitHub.com/aurigax-ai/pine/pull/12?token=abc#files')).toBe(
+      'github-com-aurigax-ai-pine-pull-12',
+    )
+    expect(urlSlug('http://localhost:5173/')).toBe('localhost-5173')
+    expect(pickReportName(80, 'http://localhost:5173/cart')).toBe(
+      'capture-80-localhost-5173-cart.md',
+    )
+  })
+
+  it('clips a long slug and leaves it out for a page without a web address', () => {
+    const long = urlSlug(`https://example.com/${'a/'.repeat(60)}`)
+    expect(long.length).toBeLessThanOrEqual(REPORT_SLUG_MAX)
+    expect(long.endsWith('-')).toBe(false)
+    expect(pickReportName(3, 'about:blank')).toBe('capture-3.md')
+    expect(pickReportName(3, 'file:///etc/passwd')).toBe('capture-3.md')
+  })
+
+  it('numbers after the highest report in the folder, whatever its slug', () => {
+    expect(nextPickReportNumber([])).toBe(1)
+    expect(
+      nextPickReportNumber(['capture-2.md', 'capture-7-localhost-5173.md', 'selection-9.md']),
+    ).toBe(8)
   })
 })

@@ -6,7 +6,7 @@ import {
   type Message,
   type MessageReader,
   type MessageWriter,
-} from 'vscode-jsonrpc'
+} from 'vscode-jsonrpc/browser'
 
 export class IpcReader extends AbstractMessageReader implements MessageReader {
   private off: () => void = () => {}

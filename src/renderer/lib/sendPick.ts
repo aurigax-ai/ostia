@@ -1,5 +1,6 @@
 import { type PickCapture, type PickSendResult, reportReference } from '@shared/pick'
 import { type SelectionCapture, type SelectionSendError, selectionLabel } from '@shared/selection'
+import type { ReferenceInsert } from '@shared/types'
 import { useAttentionStore } from '../stores/attentionStore'
 import { useBlocksStore } from '../stores/blocksStore'
 import { canTypeInto } from './blockActions'
@@ -19,30 +20,63 @@ export function canInsertReference(paneId: string): boolean {
   return state !== undefined && AGENT_AT_PROMPT.has(state)
 }
 
-export function insertPathReference(targetPaneId: string, path: string): boolean {
-  const term = terminalFor(targetPaneId)
-  if (!term || !canInsertReference(targetPaneId)) return false
-  term.paste(reportReference(path))
+export interface ReferenceTarget {
+  paneId: string
+  via?: string
+}
+
+function insertReference(paneId: string, text: string): boolean {
+  const term = terminalFor(paneId)
+  if (!term || !canInsertReference(paneId)) return false
+  term.paste(text)
   return true
 }
 
+function markWorking(paneId: string, message: string): void {
+  signalPane(paneId, { type: 'set', state: 'working', message, at: Date.now() })
+}
+
+export function receiveReference(insert: ReferenceInsert): boolean {
+  const inserted = insertReference(insert.paneId, insert.text)
+  if (insert.note) markWorking(insert.paneId, insert.note)
+  return inserted
+}
+
+export async function sendReference(
+  target: ReferenceTarget,
+  text: string,
+  note?: string,
+): Promise<boolean> {
+  if (target.via === undefined) {
+    const inserted = insertReference(target.paneId, text)
+    if (note !== undefined) markWorking(target.paneId, note)
+    return inserted
+  }
+  return window.pine.windows
+    .insertReference({
+      workspaceId: target.via,
+      paneId: target.paneId,
+      text,
+      ...(note ? { note } : {}),
+    })
+    .catch(() => false)
+}
+
+export function insertPathReference(target: ReferenceTarget, path: string): Promise<boolean> {
+  return sendReference(target, reportReference(path))
+}
+
 async function deliverReport(
-  targetPaneId: string,
+  target: ReferenceTarget,
   path: string,
   note: string,
   fallback: string,
 ): Promise<boolean> {
-  const inserted = insertPathReference(targetPaneId, path)
+  const summary = note.trim().replace(/\s+/g, ' ').slice(0, ATTENTION_NOTE_MAX)
+  const inserted = await sendReference(target, reportReference(path), summary || fallback)
   if (!inserted) {
     await navigator.clipboard?.writeText(reportReference(path).trim()).catch(() => undefined)
   }
-  const summary = note.trim().replace(/\s+/g, ' ').slice(0, ATTENTION_NOTE_MAX)
-  signalPane(targetPaneId, {
-    type: 'set',
-    state: 'working',
-    message: summary || fallback,
-    at: Date.now(),
-  })
   return inserted
 }
 
@@ -54,6 +88,7 @@ export async function sendPickToPane(opts: {
   capture: PickCapture
   sourcePaneId: string
   targetPaneId: string
+  via?: string
   note: string
 }): Promise<SendPickOutcome> {
   const res = await window.pine.browser.pickSend({
@@ -64,7 +99,7 @@ export async function sendPickToPane(opts: {
   })
   if (!res.ok) return res
   const inserted = await deliverReport(
-    opts.targetPaneId,
+    { paneId: opts.targetPaneId, via: opts.via },
     res.path,
     opts.note,
     opts.capture.selector,
@@ -81,6 +116,7 @@ export async function sendSelectionToPane(opts: {
   image?: Uint8Array
   sourcePaneId: string
   targetPaneId: string
+  via?: string
   note: string
 }): Promise<SendSelectionOutcome> {
   const res = await window.pine.selection.send({
@@ -92,7 +128,7 @@ export async function sendSelectionToPane(opts: {
   })
   if (!res.ok) return res
   const inserted = await deliverReport(
-    opts.targetPaneId,
+    { paneId: opts.targetPaneId, via: opts.via },
     res.path,
     opts.note,
     selectionLabel(opts.capture),

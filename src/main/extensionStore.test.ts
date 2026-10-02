@@ -49,6 +49,21 @@ describe('ExtensionStore', () => {
     return d
   }
 
+  it('keeps the language servers the human switched off, and drops anything that is not a name', () => {
+    const path = join(tmp(), 'extensions.json')
+    new ExtensionStore(path).set('lsp', { enabled: true, approved: [], serversOff: ['pyright'] })
+    expect(new ExtensionStore(path).get('lsp')).toEqual({
+      enabled: true,
+      approved: [],
+      serversOff: ['pyright'],
+    })
+    writeFileSync(
+      path,
+      JSON.stringify({ lsp: { enabled: true, approved: [], serversOff: [1, 'ok', null] } }),
+    )
+    expect(new ExtensionStore(path).get('lsp')?.serversOff).toEqual(['ok'])
+  })
+
   it('persists records and reads them back in a new instance', () => {
     const path = join(tmp(), 'extensions.json')
     new ExtensionStore(path).set('demo', { enabled: true, approved: ['notify'] })

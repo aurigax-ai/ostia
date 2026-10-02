@@ -14,20 +14,31 @@ import {
   ASSIST_POINTS,
   ASSIST_UIS,
   type AssistAvailability,
+  type AssistCatalog,
   type AssistError,
   type AssistExtensionState,
   type AssistFeatureId,
+  type AssistKeyResult,
   type AssistModelChangeResult,
+  type AssistModelChoice,
+  type AssistModelClass,
+  type AssistModelRef,
+  type AssistModelSettings,
   type AssistModelsResult,
   type AssistOpenUiRequest,
   type AssistPoint,
+  type AssistProviderEntry,
   type AssistProviderInfo,
+  type AssistProviderKind,
+  type AssistProviderState,
   type AssistResponse,
   type AssistSetupProblem,
   type AssistStatus,
   type AssistUi,
   CHAT_STREAM_MAX,
+  choiceLabel,
   isAssistModelId,
+  modelClassOf,
   normalizeAssistError,
   normalizeAssistFeatures,
   normalizeAssistLabel,
@@ -35,11 +46,24 @@ import {
   normalizeAssistRequest,
   normalizeAssistResult,
   normalizeAssistStatus,
+  normalizeModelRef,
+  normalizeProviderKinds,
+  normalizeProviderStates,
   normalizeSetupProblem,
+  parseAssistModelSettings,
+  sameModelRef,
 } from '../shared/assist'
 import { ALL_CAPABILITIES, type Capability } from '../shared/capabilities'
 import { EXTENSION_API_ENV, EXTENSION_API_VERSION } from '../shared/extensionApi'
 import {
+  EXTENSION_BASE_LOCALE,
+  EXTENSION_LOCALES_DIR,
+  type ExtensionLocaleChangedPayload,
+  LOCALE_CHANGED_EVENT,
+  type LocaleCatalogs,
+} from '../shared/extensionLocales'
+import {
+  ASSIST_PROVIDERS_CHANGED_EVENT,
   DIFF_TEXT_MAX,
   EXTENSION_EVENT_TYPES,
   EXTENSION_ICONS,
@@ -51,6 +75,7 @@ import {
   type ExtensionEventType,
   type ExtensionIcon,
   type ExtensionInfo,
+  type ExtensionManifest,
   type ExtensionOpenDiffRequest,
   type ExtensionOpenPanelRequest,
   type ExtensionPanelContext,
@@ -82,10 +107,13 @@ import {
   validSettingValue,
 } from '../shared/extensions'
 import type { IconThemeContribution } from '../shared/iconTheme'
+import { LANGUAGE_SERVER_CAPABILITY, languageServerSummary } from '../shared/languageServers'
 import { quoteArgv } from '../shared/shellQuote'
 import type { Workflow } from '../shared/workflows'
 import { dropIdentity, hasCap, setCaps } from './capabilityStore'
 import { registerControlMethod } from './controlServer'
+import type { EditorLanguageSource } from './editorLanguages'
+import { loadLocaleCatalogs, manifestIn } from './extensionLocales'
 import {
   type DiscoveredExtension,
   type ExtensionRoot,
@@ -101,6 +129,7 @@ import {
   resolveExternal,
 } from './idRegistry'
 import type { LanguageSource } from './languagePacks'
+import type { LanguageServerSource } from './languageServers'
 
 export const MAX_RESTARTS = 3
 export const REQUEST_TIMEOUT_MS = 30_000
@@ -119,8 +148,12 @@ const ASSIST_CHUNK_MAX = 262_144
 
 type RunState = 'idle' | 'starting' | 'running' | 'crashed'
 
+interface LoadedExtension extends DiscoveredExtension {
+  catalogs: LocaleCatalogs
+}
+
 interface Runtime {
-  ext: DiscoveredExtension
+  ext: LoadedExtension
   proc: ChildProcess | null
   identity: PaneIdentity | null
   conn: MessageConnection | null
@@ -142,6 +175,8 @@ interface AssistRuntimeReport {
   lastError?: string
   label?: string
   models: boolean
+  providers?: AssistProviderState[]
+  kinds: AssistProviderKind[]
 }
 
 const SHORTCUT_IDS_MAX = 64
@@ -157,9 +192,10 @@ interface AssistStream {
 export interface AssistCallOptions {
   onChunk?: (text: string) => void
   token?: CancellationToken
+  model?: unknown
 }
 
-function newRuntime(ext: DiscoveredExtension): Runtime {
+function newRuntime(ext: LoadedExtension): Runtime {
   return {
     ext,
     proc: null,
@@ -233,8 +269,8 @@ function subdirectories(root: string): string[] {
   }
 }
 
-function manifestSignature(ext: DiscoveredExtension): string {
-  return JSON.stringify([ext.dir, ext.builtin, ext.manifest])
+function manifestSignature(ext: LoadedExtension): string {
+  return JSON.stringify([ext.dir, ext.builtin, ext.manifest, ext.catalogs])
 }
 
 export interface ExtensionHostDeps {
@@ -247,6 +283,7 @@ export interface ExtensionHostDeps {
   cwdForPane?: (paneId: string) => string | undefined
   locale?: () => string | undefined
   broadcast: (channel: string, payload: unknown) => void
+  onChanged?: () => void
   publishWorkspaceChips?: (chips: WorkspaceChip[]) => void
   openPanelIn: (req: ExtensionOpenPanelRequest) => void
   openDiffIn?: (req: ExtensionOpenDiffRequest) => void
@@ -258,6 +295,8 @@ export interface ExtensionHostDeps {
   interactiveTimeoutMs?: number
   log?: (extId: string, line: string) => void
   readExtensionSettings?: () => unknown
+  readAssistSettings?: () => { assistant?: unknown } | null
+  assistKeys?: ExtensionSecretStore
   assistTimeoutMs?: number
   openAssistUiIn?: (req: AssistOpenUiRequest) => void
   assistChatTimeoutMs?: number
@@ -403,6 +442,7 @@ export class ExtensionHost {
   private chips = new Map<string, PaneChip>()
   private workspaceChipSlots = new Map<string, WorkspaceChip>()
   private settings: Map<string, ExtensionSettingValues>
+  private assistSettings: AssistModelSettings
   private changes = new EventEmitter()
   private watchers: FSWatcher[] = []
   private readonly scheduleRescan = debounce(() => this.rescan(), RESCAN_DEBOUNCE_MS)
@@ -410,15 +450,31 @@ export class ExtensionHost {
   private assistStreams = new Map<string, AssistStream>()
   private assistSeq = 0
   private shortcuts: Record<string, string> = {}
+  private announcedLocale: string
 
   constructor(private readonly deps: ExtensionHostDeps) {
     this.changes.setMaxListeners(0)
     for (const ext of this.discover()) this.runtimes.set(ext.manifest.id, newRuntime(ext))
     this.settings = storedSettings(deps.readExtensionSettings?.())
+    this.assistSettings = parseAssistModelSettings(deps.readAssistSettings?.()?.assistant)
+    this.announcedLocale = this.currentLocale()
   }
 
-  private discover(): DiscoveredExtension[] {
-    return discoverExtensions(this.deps.roots, (dir, error) => this.log(dir, error))
+  private discover(): LoadedExtension[] {
+    return discoverExtensions(this.deps.roots, (dir, error) => this.log(dir, error)).map((ext) => ({
+      ...ext,
+      catalogs: loadLocaleCatalogs(ext.dir, ext.manifest, (problem) =>
+        this.log(ext.manifest.id, problem),
+      ),
+    }))
+  }
+
+  private manifestIn(rt: Runtime, locale: string | undefined): ExtensionManifest {
+    return manifestIn(rt.ext.manifest, rt.ext.catalogs, locale)
+  }
+
+  private shownName(rt: Runtime): string {
+    return this.manifestIn(rt, this.deps.locale?.()).name
   }
 
   private log(extId: string, line: string): void {
@@ -454,14 +510,16 @@ export class ExtensionHost {
     return value ? { argv: [value] } : null
   }
 
-  private commandsOf(rt: Runtime): ExtensionCommandContribution[] {
-    const declared = rt.ext.manifest.contributes.commands
+  private commandsOf(
+    rt: Runtime,
+    declared: ExtensionCommandContribution[] = rt.ext.manifest.contributes.commands,
+  ): ExtensionCommandContribution[] {
     const dynamic = [...rt.ready.values()].filter((c) => !declared.some((d) => d.id === c.id))
     return [...declared, ...dynamic]
   }
 
-  private info(rt: Runtime): ExtensionInfo {
-    const m = rt.ext.manifest
+  private info(rt: Runtime, locale: string | undefined): ExtensionInfo {
+    const m = this.manifestIn(rt, locale)
     const granted = this.granted(rt)
     return {
       id: m.id,
@@ -475,7 +533,7 @@ export class ExtensionHost {
       requested: m.capabilities,
       granted,
       unapproved: m.capabilities.filter((c) => !granted.includes(c)),
-      commands: this.commandsOf(rt),
+      commands: this.commandsOf(rt, m.contributes.commands),
       panel: m.contributes.panel
         ? { title: m.contributes.panel.title, icon: m.contributes.panel.icon }
         : null,
@@ -488,6 +546,7 @@ export class ExtensionHost {
       secretsSet: this.deps.secrets?.keys(m.id) ?? [],
       iconThemes: (m.contributes.iconThemes ?? []).map(({ id, label }) => ({ id, label })),
       languages: (m.contributes.languages ?? []).map(({ id, label }) => ({ id, label })),
+      languageServers: (m.contributes.languageServers ?? []).map(languageServerSummary),
     }
   }
 
@@ -499,7 +558,33 @@ export class ExtensionHost {
   }
 
   list(): ExtensionInfo[] {
-    return [...this.runtimes.values()].map((rt) => this.info(rt))
+    return this.listIn(this.deps.locale?.())
+  }
+
+  private listIn(locale: string | undefined): ExtensionInfo[] {
+    return [...this.runtimes.values()].map((rt) => this.info(rt, locale))
+  }
+
+  private currentLocale(): string {
+    return this.deps.locale?.() ?? EXTENSION_BASE_LOCALE
+  }
+
+  refreshLocale(): void {
+    const locale = this.currentLocale()
+    if (locale === this.announcedLocale) return
+    this.announcedLocale = locale
+    const payload: ExtensionLocaleChangedPayload = { locale }
+    for (const rt of this.runtimes.values()) {
+      void rt.conn
+        ?.sendNotification('ext.event', { type: LOCALE_CHANGED_EVENT, payload })
+        .catch(() => {})
+    }
+    this.changed()
+  }
+
+  getLocale(identity: PaneIdentity, conn: MessageConnection) {
+    this.runtimeOf(identity, conn)
+    return { ok: true, locale: this.currentLocale() }
   }
 
   workflows(): { extId: string; workflows: Workflow[] }[] {
@@ -527,6 +612,60 @@ export class ExtensionHost {
           language,
         })),
       )
+  }
+
+  editorLanguages(): EditorLanguageSource[] {
+    return [...this.runtimes.values()]
+      .filter((rt) => this.active(rt))
+      .flatMap((rt) =>
+        (rt.ext.manifest.contributes.editorLanguages ?? []).map((language) => ({
+          extId: rt.ext.manifest.id,
+          dir: rt.ext.dir,
+          language,
+        })),
+      )
+  }
+
+  private languageServerState(rt: Runtime, serverId: string): LanguageServerSource['state'] {
+    if (this.pending(rt)) return 'pending'
+    const record = this.record(rt)
+    if (!record.enabled) return 'off'
+    if (!this.granted(rt).includes(LANGUAGE_SERVER_CAPABILITY)) return 'pending'
+    return record.serversOff?.includes(serverId) ? 'off' : 'on'
+  }
+
+  languageServers(): LanguageServerSource[] {
+    return [...this.runtimes.values()].flatMap((rt) =>
+      (rt.ext.manifest.contributes.languageServers ?? []).map((server) => ({
+        extId: rt.ext.manifest.id,
+        extName: rt.ext.manifest.name,
+        dir: rt.ext.dir,
+        builtin: rt.ext.builtin,
+        state: this.languageServerState(rt, server.id),
+        server,
+        settingValues: this.settingValues(rt),
+      })),
+    )
+  }
+
+  setLanguageServerEnabled(extId: string, serverId: string, enabled: boolean): void {
+    const rt = this.runtimes.get(extId)
+    if (!rt || this.pending(rt)) return
+    const declared = rt.ext.manifest.contributes.languageServers ?? []
+    if (!declared.some((server) => server.id === serverId)) return
+    const record = this.record(rt)
+    const off = new Set(record.serversOff ?? [])
+    if (enabled) off.delete(serverId)
+    else off.add(serverId)
+    const { serversOff: _previous, ...kept } = record
+    this.deps.store.set(extId, {
+      ...kept,
+      enabled: enabled ? true : record.enabled,
+      approved: record.approved ?? [],
+      ...(off.size > 0 ? { serversOff: [...off] } : {}),
+    })
+    if (enabled && !record.enabled && this.eager(rt)) this.start(rt)
+    this.changed(rt)
   }
 
   iconThemes(): { dir: string; theme: IconThemeContribution }[] {
@@ -591,11 +730,13 @@ export class ExtensionHost {
     if (rt) this.changes.emit(rt.ext.manifest.id)
     this.deps.broadcast('extensions:changed', this.list())
     this.assistChanged()
+    this.deps.onChanged?.()
   }
 
   private assistChanged(): void {
     this.deps.broadcast('assist:availability', this.assistAvailability())
     this.deps.broadcast('assist:overview', this.assistOverview())
+    this.deps.broadcast('assist:catalog', this.assistCatalog())
   }
 
   private sidebarChanged(): void {
@@ -605,7 +746,8 @@ export class ExtensionHost {
   setEnabled(extId: string, enabled: boolean): ExtensionInfo[] {
     const rt = this.runtimes.get(extId)
     if (!rt) return this.list()
-    this.deps.store.set(extId, { enabled, approved: this.record(rt).approved ?? [] })
+    const record = this.record(rt)
+    this.deps.store.set(extId, { ...record, enabled, approved: record.approved ?? [] })
     rt.restarts = 0
     if (rt.state === 'crashed') rt.state = 'idle'
     if (!enabled) this.stop(rt)
@@ -618,7 +760,11 @@ export class ExtensionHost {
   approve(extId: string): ExtensionInfo[] {
     const rt = this.runtimes.get(extId)
     if (!rt) return this.list()
-    this.deps.store.set(extId, { enabled: true, approved: [...rt.ext.manifest.capabilities] })
+    this.deps.store.set(extId, {
+      ...this.record(rt),
+      enabled: true,
+      approved: [...rt.ext.manifest.capabilities],
+    })
     if (rt.identity) setCaps(rt.identity.externalId, this.granted(rt))
     if (startsWithWindow(rt)) this.start(rt)
     this.changed(rt)
@@ -660,7 +806,7 @@ export class ExtensionHost {
     this.watchRoots()
   }
 
-  private replace(rt: Runtime, ext: DiscoveredExtension): void {
+  private replace(rt: Runtime, ext: LoadedExtension): void {
     this.stop(rt)
     rt.ext = ext
     rt.restarts = 0
@@ -686,7 +832,9 @@ export class ExtensionHost {
     if (!this.watching) return
     this.closeWatchers()
     const roots = this.deps.roots.filter((r) => !r.builtin).map((r) => r.dir)
-    const dirs = [...roots, ...roots.flatMap(subdirectories)]
+    const extensionDirs = roots.flatMap(subdirectories)
+    const localeDirs = extensionDirs.map((dir) => join(dir, EXTENSION_LOCALES_DIR))
+    const dirs = [...roots, ...extensionDirs, ...localeDirs]
     for (const dir of dirs) {
       try {
         const watcher = watch(dir, () => this.scheduleRescan())
@@ -1215,6 +1363,7 @@ export class ExtensionHost {
     for (const [id, rt] of this.runtimes) {
       if (before.get(id) !== JSON.stringify(this.settingValues(rt))) this.sendSettings(rt)
     }
+    this.reloadAssistSettings()
     this.changed()
   }
 
@@ -1334,7 +1483,7 @@ export class ExtensionHost {
   }
 
   listForAgents() {
-    return this.list()
+    return this.listIn(undefined)
       .filter((e) => e.enabled)
       .map((e) => ({ id: e.id, name: e.name, status: e.status, commands: e.commands }))
   }
@@ -1350,7 +1499,7 @@ export class ExtensionHost {
     if (!this.deps.confirm) return fail('no-window')
     const req: ExtensionConfirmRequest = {
       extId: rt.ext.manifest.id,
-      extName: rt.ext.manifest.name,
+      extName: this.shownName(rt),
       title,
       message,
     }
@@ -1372,29 +1521,170 @@ export class ExtensionHost {
     return { ok: true, confirmed }
   }
 
-  private assistRuntime(point: AssistPoint): Runtime | undefined {
-    return [...this.runtimes.values()].find(
-      (rt) =>
-        this.active(rt) &&
-        rt.conn !== null &&
-        this.granted(rt).includes('assist') &&
-        rt.ext.manifest.contributes.assist.includes(point) &&
-        rt.assistStatus[point]?.ready === true,
+  private servesAssist(rt: Runtime): boolean {
+    return (
+      this.active(rt) &&
+      rt.conn !== null &&
+      rt.assistReport !== null &&
+      this.granted(rt).includes('assist')
     )
+  }
+
+  private modelChoices(): AssistModelChoice[] {
+    const out: AssistModelChoice[] = []
+    for (const rt of this.runtimes.values()) {
+      const report = rt.assistReport
+      if (!report || !this.servesAssist(rt)) continue
+      const extId = rt.ext.manifest.id
+      const points = ASSIST_POINTS.filter(
+        (point) =>
+          rt.ext.manifest.contributes.assist.includes(point) &&
+          rt.assistStatus[point]?.ready === true,
+      )
+      if (!report.providers) {
+        const name = this.shownName(rt)
+        const tools = rt.assistStatus.chat?.tools
+        const choice = { ref: { extId }, group: name, label: report.label ?? name, points }
+        out.push(tools ? { ...choice, tools } : choice)
+        continue
+      }
+      for (const provider of report.providers) {
+        if (provider.setup !== null) continue
+        for (const model of provider.models) {
+          const choice: AssistModelChoice = {
+            ref: { extId, provider: provider.id, model: model.id },
+            group: provider.name,
+            label: model.id,
+            points,
+          }
+          out.push(model.tools ? { ...choice, tools: model.tools } : choice)
+        }
+      }
+    }
+    return out
+  }
+
+  private offers(extId: string, modelClass: AssistModelClass): boolean {
+    const assist = this.runtimes.get(extId)?.ext.manifest.contributes.assist ?? []
+    return assist.some((point) => modelClassOf(point) === modelClass)
+  }
+
+  private selectedChoice(
+    modelClass: AssistModelClass,
+    choices: AssistModelChoice[],
+  ): AssistModelChoice | null {
+    const eligible = choices.filter((c) => this.offers(c.ref.extId, modelClass))
+    const wanted =
+      modelClass === 'chat' ? this.assistSettings.chatModel : this.assistSettings.fastModel
+    if (wanted) return eligible.find((c) => sameModelRef(c.ref, wanted)) ?? null
+    return eligible[0] ?? null
+  }
+
+  private assistTarget(
+    point: AssistPoint,
+    explicit: AssistModelRef | null,
+  ): { rt: Runtime; choice: AssistModelChoice } | null {
+    const choices = this.modelChoices()
+    const choice = explicit
+      ? choices.find((c) => sameModelRef(c.ref, explicit))
+      : this.selectedChoice(modelClassOf(point), choices)
+    if (!choice?.points.includes(point)) return null
+    const rt = this.runtimes.get(choice.ref.extId)
+    return rt ? { rt, choice } : null
+  }
+
+  assistCatalog(): AssistCatalog {
+    const models = this.modelChoices()
+    return {
+      models,
+      chat: this.selectedChoice('chat', models)?.ref ?? null,
+      fast: this.selectedChoice('fast', models)?.ref ?? null,
+    }
   }
 
   assistAvailability(): AssistAvailability {
     const out: AssistAvailability = {}
     for (const point of ASSIST_POINTS) {
-      const rt = this.assistRuntime(point)
-      if (!rt) continue
+      const target = this.assistTarget(point, null)
+      if (!target) continue
+      const { rt, choice } = target
       const status = rt.assistStatus[point]
-      const info: AssistProviderInfo = { extId: rt.ext.manifest.id, name: rt.ext.manifest.name }
-      if (status?.label) info.label = status.label
-      if (status?.tools) info.tools = status.tools
+      const info: AssistProviderInfo = {
+        extId: rt.ext.manifest.id,
+        name: this.shownName(rt),
+        ref: choice.ref,
+      }
+      const label = choice.ref.provider ? choiceLabel(choice) : status?.label
+      const tools = choice.ref.provider ? choice.tools : status?.tools
+      if (label) info.label = label
+      if (tools && point === 'chat') info.tools = tools
       out[point] = info
     }
     return out
+  }
+
+  private assistEntries(rt: Runtime): AssistProviderEntry[] {
+    const extId = rt.ext.manifest.id
+    return this.assistSettings.providers
+      .filter((p) => p.extId === extId && p.enabled)
+      .map((p) => ({
+        id: p.id,
+        kind: p.kind,
+        name: p.name,
+        baseUrl: p.baseUrl,
+        models: p.models,
+        apiKey: this.deps.assistKeys?.get(extId, p.id) ?? null,
+      }))
+  }
+
+  getAssistProviders(identity: PaneIdentity, conn: MessageConnection) {
+    const rt = this.runtimeOf(identity, conn)
+    if (rt.ext.manifest.contributes.assist.length === 0) {
+      return fail('not-contributed', 'manifest does not contribute assist')
+    }
+    return { ok: true, providers: this.assistEntries(rt) }
+  }
+
+  private sendAssistProviders(rt: Runtime): void {
+    if (!rt.conn || rt.ext.manifest.contributes.assist.length === 0) return
+    if (!this.granted(rt).includes('assist')) return
+    const payload = { providers: this.assistEntries(rt) }
+    void rt.conn
+      .sendNotification('ext.event', { type: ASSIST_PROVIDERS_CHANGED_EVENT, payload })
+      .catch(() => {})
+  }
+
+  reloadAssistSettings(): void {
+    const file = this.deps.readAssistSettings?.()
+    if (!file) return
+    const next = parseAssistModelSettings(file.assistant)
+    if (JSON.stringify(next) === JSON.stringify(this.assistSettings)) return
+    const before = new Map(
+      [...this.runtimes].map(([id, rt]) => [id, JSON.stringify(this.assistEntries(rt))]),
+    )
+    this.assistSettings = next
+    const keys = this.deps.assistKeys
+    for (const [id, rt] of this.runtimes) {
+      for (const key of keys?.keys(id) ?? []) {
+        const kept = this.assistSettings.providers.some((p) => p.extId === id && p.id === key)
+        if (!kept) keys?.set(id, key, null)
+      }
+      if (before.get(id) !== JSON.stringify(this.assistEntries(rt))) this.sendAssistProviders(rt)
+    }
+    this.assistChanged()
+  }
+
+  setAssistProviderKey(providerId: unknown, value: unknown): AssistKeyResult {
+    const config = this.assistSettings.providers.find((p) => p.id === providerId)
+    if (!config) return { ok: false, error: 'unknown-provider' }
+    if (value !== null && typeof value !== 'string') return { ok: false, error: 'invalid-value' }
+    if (!this.deps.assistKeys) return { ok: false, error: 'encryption-unavailable' }
+    const res = this.deps.assistKeys.set(config.extId, config.id, value)
+    if (!res.ok) return res
+    const rt = this.runtimes.get(config.extId)
+    if (rt) this.sendAssistProviders(rt)
+    this.assistChanged()
+    return { ok: true }
   }
 
   setAssistStatus(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
@@ -1414,7 +1704,9 @@ export class ExtensionHost {
       features: normalizeAssistFeatures(p.features).filter((f) => booleans.has(f.setting)),
       setup: normalizeSetupProblem(p.setup),
       models: p.models === true,
+      kinds: normalizeProviderKinds(p.kinds),
     }
+    if (Array.isArray(p.providers)) report.providers = normalizeProviderStates(p.providers)
     const lastError = normalizeAssistError(p.lastError)
     if (lastError) report.lastError = lastError
     const label = normalizeAssistLabel(p.label)
@@ -1428,14 +1720,18 @@ export class ExtensionHost {
     const out: AssistExtensionState[] = []
     for (const rt of this.runtimes.values()) {
       const report = rt.assistReport
-      if (!report || !this.active(rt) || !rt.conn || !this.granted(rt).includes('assist')) continue
+      if (!report || !this.servesAssist(rt)) continue
       const values = this.settingValues(rt)
+      const extId = rt.ext.manifest.id
       const state: AssistExtensionState = {
-        extId: rt.ext.manifest.id,
-        name: rt.ext.manifest.name,
+        extId,
+        name: this.shownName(rt),
         setup: report.setup,
         features: report.features.map((f) => ({ ...f, on: values[f.setting] === true })),
         models: report.models,
+        providers: report.providers ?? [],
+        kinds: report.kinds,
+        keysSet: this.deps.assistKeys?.keys(extId) ?? [],
       }
       if (report.label) state.label = report.label
       if (report.lastError) state.lastError = report.lastError
@@ -1451,13 +1747,14 @@ export class ExtensionHost {
     return this.granted(rt).includes('assist') ? rt : null
   }
 
-  async assistModels(extId: unknown): Promise<AssistModelsResult> {
+  async assistModels(extId: unknown, provider?: unknown): Promise<AssistModelsResult> {
     const rt = this.modelsRuntime(extId)
     const conn = rt?.conn
     if (!rt || !conn) return { ok: false, error: 'unavailable' }
+    const target = typeof provider === 'string' ? { provider } : {}
     try {
       const reply = await withTimeout(
-        conn.sendRequest('ext.assistModels', { action: 'list' }),
+        conn.sendRequest('ext.assistModels', { action: 'list', ...target }),
         this.deps.assistModelsTimeoutMs ?? ASSIST_MODELS_TIMEOUT_MS,
         `${rt.ext.manifest.id} models`,
       )
@@ -1472,14 +1769,20 @@ export class ExtensionHost {
     extId: unknown,
     id: unknown,
     loaded: unknown,
+    provider?: unknown,
   ): Promise<AssistModelChangeResult> {
     if (!isAssistModelId(id) || typeof loaded !== 'boolean') return { ok: false, error: 'invalid' }
     const rt = this.modelsRuntime(extId)
     const conn = rt?.conn
     if (!rt || !conn) return { ok: false, error: 'unavailable' }
+    const target = typeof provider === 'string' ? { provider } : {}
     try {
       const reply = (await withTimeout(
-        conn.sendRequest('ext.assistModels', { action: loaded ? 'load' : 'unload', id }),
+        conn.sendRequest('ext.assistModels', {
+          action: loaded ? 'load' : 'unload',
+          id,
+          ...target,
+        }),
         this.deps.assistModelsTimeoutMs ?? ASSIST_MODEL_CHANGE_TIMEOUT_MS,
         `${rt.ext.manifest.id} models`,
       )) as { ok?: unknown; error?: unknown } | null
@@ -1540,9 +1843,14 @@ export class ExtensionHost {
   ): Promise<AssistResponse<P>> {
     const request = normalizeAssistRequest(point, input)
     if (!request) return { ok: false, error: 'invalid' }
-    const rt = this.assistRuntime(point)
+    const explicit = opts.model === undefined ? null : normalizeModelRef(opts.model)
+    if (opts.model !== undefined && !explicit) return { ok: false, error: 'invalid' }
+    const target = this.assistTarget(point, explicit)
+    const rt = target?.rt
     const conn = rt?.conn
-    if (!rt || !conn) return { ok: false, error: 'unavailable' }
+    if (!target || !rt || !conn) return { ok: false, error: 'unavailable' }
+    const { provider, model } = target.choice.ref
+    const routed = provider && model ? { model: { provider, model } } : {}
     const requestId = `a${++this.assistSeq}`
     this.assistStreams.set(requestId, { rt, onChunk: opts.onChunk ?? (() => {}), sent: 0 })
     const source = new CancellationTokenSource()
@@ -1554,7 +1862,11 @@ export class ExtensionHost {
     try {
       const reply = await Promise.race([
         withTimeout(
-          conn.sendRequest('ext.assist', { point, requestId, input: request }, source.token),
+          conn.sendRequest(
+            'ext.assist',
+            { point, requestId, input: request, ...routed },
+            source.token,
+          ),
           timeoutMs,
           `${rt.ext.manifest.id} assist`,
         ),
@@ -1731,10 +2043,18 @@ export function registerExtensionMethods(host: () => ExtensionHost | null): void
     ...forExtension((h, id, conn, p) => h.setAssistStatus(id, conn, p)),
     cap: 'assist',
   })
+  registerControlMethod('ext.assistProviders', {
+    ...forExtension((h, id, conn) => h.getAssistProviders(id, conn)),
+    cap: 'assist',
+  })
   registerControlMethod('ext.assistChunk', {
     ...forExtension((h, id, conn, p) => h.assistChunk(id, conn, p)),
     cap: 'assist',
   })
+  registerControlMethod(
+    'ext.locale',
+    forExtension((h, id, conn) => h.getLocale(id, conn)),
+  )
   registerControlMethod(
     'ext.shortcuts',
     forExtension((h, id, conn, p) => h.getShortcuts(id, conn, p)),

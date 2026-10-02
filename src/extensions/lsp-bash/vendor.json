@@ -1,0 +1,5 @@
+{
+  "closures": {
+    "bash-language-server": "server/node_modules"
+  }
+}

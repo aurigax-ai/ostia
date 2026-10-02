@@ -3,7 +3,7 @@ import { useAttentionStore } from '../stores/attentionStore'
 import { useBlocksStore } from '../stores/blocksStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { focusSurface } from '../stores/surfaceSlotsStore'
-import { useUIStore } from '../stores/uiStore'
+import { coversWorkspaces, useUIStore } from '../stores/uiStore'
 import { useWindowsStore } from '../stores/windowsStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
 import {
@@ -30,7 +30,7 @@ export function workspaceOfPane(paneId: string): string | null {
 export function isPaneVisible(paneId: string): boolean {
   const workspaceId = workspaceOfPane(paneId)
   if (!workspaceId || workspaceId !== useWorkspacesStore.getState().activeWorkspaceId) return false
-  if (useUIStore.getState().settingsActive) return false
+  if (coversWorkspaces(useUIStore.getState())) return false
   const layout = useLayoutStore.getState().byWorkspace[workspaceId]
   if (!layout) return false
   if (layout.zoomedPaneId) return layout.zoomedPaneId === paneId
@@ -68,7 +68,7 @@ export function syncAllWorkspaceStates(): void {
 }
 
 export function viewActivePane(): void {
-  if (!document.hasFocus() || useUIStore.getState().settingsActive) return
+  if (!document.hasFocus() || coversWorkspaces(useUIStore.getState())) return
   const workspaceId = useWorkspacesStore.getState().activeWorkspaceId
   if (!workspaceId) return
   const paneId = useLayoutStore.getState().byWorkspace[workspaceId]?.activePaneId
@@ -94,7 +94,7 @@ export function goToWorkspace(index: number): boolean {
     window.pine.windows.focusWorkspace(target.id, false)
     return true
   }
-  useUIStore.getState().leaveSettings()
+  useUIStore.getState().showWorkspaces()
   useWorkspacesStore.getState().setActive(target.id)
   return true
 }
@@ -102,7 +102,7 @@ export function goToWorkspace(index: number): boolean {
 export function revealPane(paneId: string): boolean {
   const workspaceId = workspaceOfPane(paneId)
   if (!workspaceId) return false
-  useUIStore.getState().leaveSettings()
+  useUIStore.getState().showWorkspaces()
   if (useWorkspacesStore.getState().activeWorkspaceId !== workspaceId) {
     useWorkspacesStore.getState().setActive(workspaceId)
   }
@@ -165,7 +165,7 @@ export function startAttentionSync(): () => void {
     if (s.activeWorkspaceId !== prev.activeWorkspaceId) viewActivePane()
   })
   const offUi = useUIStore.subscribe((s, prev) => {
-    if (s.settingsActive !== prev.settingsActive) viewActivePane()
+    if (coversWorkspaces(s) !== coversWorkspaces(prev)) viewActivePane()
   })
   window.addEventListener('focus', viewActivePane)
   syncAllWorkspaceStates()

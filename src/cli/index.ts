@@ -12,6 +12,7 @@ import { RESUMABLE_AGENTS, isResumableAgent, resumeIdFromHookPayload } from '../
 import type { OpenFilesResult } from '../shared/openFiles'
 import type { CommandResult } from '../shared/types'
 import type { WorkflowEntry, WorkflowListing } from '../shared/workflows'
+import { runAskVerb } from './ask'
 import { runBrowse } from './browse'
 import { type FileProbe, fileWord, isClaimedWord, parseFileArg, refusalLine } from './fileArgs'
 import { runManagerVerb } from './manager'
@@ -375,6 +376,7 @@ const CORE_VERBS = new Set([
   'workspace.list',
   'workspace',
   'notify',
+  'ask',
   'state',
   'resume-token',
   'open',
@@ -736,6 +738,27 @@ function describeErrResult(res: ErrResult): string {
   return res.message ? `${res.error}: ${res.message}` : res.error
 }
 
+async function runAgentVerb(conn: MessageConnection): Promise<void> {
+  const { flags, rest } = parseFlags(process.argv.slice(4), ['name', 'cwd'])
+  const [agent, given] = rest
+  if (process.argv[3] !== 'run' || !agent || given === undefined) {
+    console.error('usage: pine agent run <agent> [--name N] [--cwd DIR] <prompt|->')
+    process.exitCode = 1
+    return
+  }
+  const prompt = given === '-' ? await readAllStdin() : given
+  const res = await conn.sendRequest<{ id: string; name: string; paneId: string } | ErrResult>(
+    'agent.run',
+    { agent, prompt, name: flags.name, ...(flags.cwd ? { cwd: resolvePath(flags.cwd) } : {}) },
+  )
+  if (isErrResult(res)) {
+    console.error(`pine: agent run failed (${describeErrResult(res)})`)
+    process.exitCode = 1
+    return
+  }
+  console.log(JSON.stringify(res))
+}
+
 async function runProcessVerb(conn: MessageConnection): Promise<void> {
   const sub = process.argv[3]
   const rawArgs = process.argv.slice(4)
@@ -935,7 +958,7 @@ async function runStateVerb(conn: MessageConnection): Promise<void> {
 
 const WORKSPACE_USAGE =
   'pine workspace: usage: workspace list [--json] | describe <text|-> | describe --clear | ' +
-  'group <name> | ungroup'
+  'group <name> | ungroup | dir [path]'
 
 interface WorkspaceListing {
   workspaceId: string
@@ -999,6 +1022,20 @@ async function runWorkspaceVerb(conn: MessageConnection): Promise<void> {
   }
   if (sub === 'ungroup') {
     await runWorkspaceCommand(conn, 'ungroup', 'workspace.ungroup')
+    return
+  }
+  if (sub === 'dir') {
+    const dir = resolvePath(rest[0] ?? '.')
+    const res = await conn.sendRequest<CommandResult>('command.exec', {
+      id: 'workspace.setFolder',
+      args: { dir },
+    })
+    if (res.ok) {
+      console.log(dir)
+    } else {
+      console.error(`pine workspace dir: ${res.error?.message ?? 'failed'}`)
+      process.exitCode = 1
+    }
     return
   }
   if (sub !== 'describe') {
@@ -1112,8 +1149,12 @@ const USAGE = `usage: pine <command> [args]
 commands:
   whoami | commands | info | cwd | pane.list | workspace.list | docs
   notify <title> [body]
+  ask "<question>" [--context <text|->] [--choice <label>]… [--multi] [--timeout <s>] [--json]
+                            ask the human and wait for the answer (exit 2 dismissed, 3 timed
+                            out, 4 pane closed)
   state <waiting|done|working|error|clear> [message|-] [--pane <externalId>]
   workspace describe <text|-> | --clear   one-line summary under this workspace in the sidebar
+  workspace dir [path]      make this folder (default: the current one) the workspace's folder
   workspace list [--json]   every workspace with its sidebar group (--json adds the groups)
   workspace group <name> | ungroup   move this workspace into a sidebar group, or out of it
   resume-token <claude|codex> <id|->  remember how to resume this pane's agent after a restart
@@ -1123,6 +1164,9 @@ commands:
   <file>... | open <file>...   show files in Pine's viewer, any path (file:line[:col] jumps)
   process run "<cmd>" [--name N] [--cwd DIR] | ls | logs | kill | restart <id|name>
                             run a command in a new terminal tab the human can watch
+  agent run <agent> [--name N] [--cwd DIR] <prompt|->
+                            start claude, codex or an agent the human configured in a new
+                            terminal tab with that prompt; talk to it with pine pane
   pane send <pane> <text> [--enter] | key <pane> <key>… | read <pane> [--lines N]
                             type into or read another terminal pane (asks the human unless
                             you opened it with pine process run)
@@ -1228,6 +1272,8 @@ async function main(): Promise<void> {
         console.error(`pine notify: ${res.error ?? 'failed'}`)
         process.exitCode = 1
       }
+    } else if (cmd === 'ask') {
+      process.exitCode = await runAskVerb(conn, process.argv.slice(3), readAllStdin)
     } else if (cmd === 'state') {
       await runStateVerb(conn)
     } else if (cmd === 'workspace') {
@@ -1245,6 +1291,8 @@ async function main(): Promise<void> {
       console.log(res.cli)
     } else if (cmd === 'process') {
       await runProcessVerb(conn)
+    } else if (cmd === 'agent') {
+      await runAgentVerb(conn)
     } else if (cmd === 'pane') {
       process.exitCode = await runPaneVerb(conn, process.argv.slice(3))
     } else if (cmd === 'vault') {
@@ -1283,7 +1331,7 @@ async function main(): Promise<void> {
       }
     } else {
       console.error(
-        `pine: unknown command '${cmd ?? ''}' (try: whoami, commands, info, cwd, pane.list, workspace.list, notify, state, open, docs, process, pane, vault, bus, settings, browse, gateway, ext)`,
+        `pine: unknown command '${cmd ?? ''}' (try: whoami, commands, info, cwd, pane.list, workspace.list, notify, ask, state, open, docs, process, pane, vault, bus, settings, browse, gateway, ext)`,
       )
       process.exitCode = 1
     }

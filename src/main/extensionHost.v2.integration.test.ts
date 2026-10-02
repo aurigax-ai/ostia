@@ -79,6 +79,7 @@ describe('Extension API v2 over a real control socket with the echo fixture', ()
     registerAttentionMethods({ execCommand })
     registerBrowseMethods({
       browserPanes: new Map(),
+      isSharedPane: () => false,
       execCommand,
       screenshotRoots: [dir],
       consoleBuffers: new Map(),

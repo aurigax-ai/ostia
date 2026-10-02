@@ -3,11 +3,14 @@ import { CancellationTokenSource } from 'vscode-jsonrpc/node'
 import {
   ASSIST_REQUEST_ID_PATTERN,
   type AssistAvailability,
+  type AssistCatalog,
   type AssistExtensionState,
+  type AssistKeyResult,
   type AssistModelChangeResult,
   type AssistModelsResult,
   type AssistPoint,
   type AssistResponse,
+  EMPTY_ASSIST_CATALOG,
   isAssistPoint,
 } from '../shared/assist'
 import type { AssistCallOptions } from './extensionHost'
@@ -18,11 +21,14 @@ export interface AssistHost {
   assistAvailability: () => AssistAvailability
   assistOverview: () => AssistExtensionState[]
   setShortcuts: (raw: unknown) => void
-  assistModels: (extId: unknown) => Promise<AssistModelsResult>
+  assistCatalog: () => AssistCatalog
+  setAssistProviderKey: (providerId: unknown, value: unknown) => AssistKeyResult
+  assistModels: (extId: unknown, provider?: unknown) => Promise<AssistModelsResult>
   setAssistModelLoaded: (
     extId: unknown,
     id: unknown,
     loaded: unknown,
+    provider?: unknown,
   ) => Promise<AssistModelChangeResult>
   assist: <P extends AssistPoint>(
     point: P,
@@ -55,6 +61,7 @@ export function createAssistRouter(host: () => AssistHost | null) {
     point: unknown,
     requestId: unknown,
     input: unknown,
+    model?: unknown,
   ): Promise<AssistResponse<AssistPoint>> => {
     const h = host()
     if (!h) return { ok: false, error: 'unavailable' }
@@ -78,6 +85,7 @@ export function createAssistRouter(host: () => AssistHost | null) {
     try {
       const res = await h.assist(point, input, {
         token: source.token,
+        ...(model === undefined || model === null ? {} : { model }),
         onChunk: (text) => {
           if (sender.isDestroyed()) return
           chunks += 1
@@ -99,21 +107,33 @@ export function registerAssistIpc(host: () => AssistHost | null): void {
   ipcMain.handle('assist:availability', () => host()?.assistAvailability() ?? {})
   ipcMain.handle(
     'assist:request',
-    (e: IpcMainInvokeEvent, point: unknown, requestId: unknown, input: unknown) =>
-      router.request(e.sender, point, requestId, input),
+    (e: IpcMainInvokeEvent, point: unknown, requestId: unknown, input: unknown, model: unknown) =>
+      router.request(e.sender, point, requestId, input, model),
   )
   ipcMain.on('assist:cancel', (e, requestId: unknown) => router.cancel(e.sender.id, requestId))
   ipcMain.handle('assist:overview', () => host()?.assistOverview() ?? [])
   ipcMain.on('assist:shortcuts', (_e, shortcuts: unknown) => host()?.setShortcuts(shortcuts))
   ipcMain.handle(
     'assist:models',
-    (_e, extId: unknown): Promise<AssistModelsResult> =>
-      host()?.assistModels(extId) ?? Promise.resolve({ ok: false, error: 'unavailable' }),
+    (_e, extId: unknown, provider: unknown): Promise<AssistModelsResult> =>
+      host()?.assistModels(extId, provider) ?? Promise.resolve({ ok: false, error: 'unavailable' }),
   )
   ipcMain.handle(
     'assist:set-model-loaded',
-    (_e, extId: unknown, id: unknown, loaded: unknown): Promise<AssistModelChangeResult> =>
-      host()?.setAssistModelLoaded(extId, id, loaded) ??
+    (
+      _e,
+      extId: unknown,
+      id: unknown,
+      loaded: unknown,
+      provider: unknown,
+    ): Promise<AssistModelChangeResult> =>
+      host()?.setAssistModelLoaded(extId, id, loaded, provider) ??
       Promise.resolve({ ok: false, error: 'unavailable' }),
+  )
+  ipcMain.handle('assist:catalog', () => host()?.assistCatalog() ?? EMPTY_ASSIST_CATALOG)
+  ipcMain.handle(
+    'assist:set-provider-key',
+    (_e, providerId: unknown, value: unknown): AssistKeyResult =>
+      host()?.setAssistProviderKey(providerId, value) ?? { ok: false, error: 'unavailable' },
   )
 }

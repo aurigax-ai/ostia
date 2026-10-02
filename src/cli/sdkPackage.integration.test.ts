@@ -1,6 +1,7 @@
 import { execFileSync, spawnSync } from 'node:child_process'
 import {
   cpSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -36,6 +37,9 @@ function manifestFiles(): string[] {
     join(repoRoot, 'sdk-package/template/pine.json'),
     join(repoRoot, 'test/fixtures/extensions/echo/pine.json'),
     join(repoRoot, 'test/fixtures/extensions-e2e/hello/pine.json'),
+    join(repoRoot, 'test/fixtures/extensions-lsp/fake-lang/pine.json'),
+    join(repoRoot, 'test/fixtures/extensions-lsp/fake-json/pine.json'),
+    join(repoRoot, 'test/fixtures/extensions-lsp/fake-grammar/pine.json'),
   ]
 }
 
@@ -58,10 +62,89 @@ describe('manifest schemas', () => {
       { ...base, contributes: { assist: ['everything'] } },
       { ...base, contributes: { languages: [{ id: 'not a tag', label: 'X', path: 'x.json' }] } },
       { ...base, contributes: { languages: [{ id: 'fr', label: 'Français', path: 'fr.yaml' }] } },
+      { ...base, locales: 'zh-Hant' },
+      { ...base, locales: ['../zh-Hant'] },
+      { ...base, locales: Array.from({ length: 33 }, (_, i) => `zh-T${i}`) },
       {
         ...base,
         contributes: { settings: { k: { type: 'color', default: '', description: 'd' } } },
       },
+      ...[
+        { id: 'Bad Id' },
+        { languages: [] },
+        { languages: ['Python'] },
+        { run: { node: 'main.py' } },
+        { run: { node: 'main.js', program: 'main' } },
+        { run: { program: '/usr/bin/main' } },
+        { run: { program: 'main', args: ['a'.repeat(201)] } },
+        { rootMarkers: ['a/b'] },
+        { settingPaths: { mode: 'a..b' } },
+        ...[
+          { url: 'http://github.com/o/r/t.gz' },
+          { url: 'https://evil.example/t.gz' },
+          { sha256: 'abc' },
+          { archive: 'rar' },
+          { executable: '../t' },
+        ].map((asset) => ({
+          run: {
+            download: {
+              program: 'demo',
+              version: '1.0.0',
+              assets: {
+                'linux-x64': {
+                  url: 'https://github.com/o/r/releases/download/1/t.gz',
+                  sha256: 'a'.repeat(64),
+                  archive: 'gz',
+                  executable: 't',
+                  ...asset,
+                },
+              },
+            },
+          },
+        })),
+        { run: { download: { program: 'demo', version: 'latest', assets: {} } } },
+        { run: { goInstall: { module: '-x', version: 'v1.0.0', binary: 'demo' } } },
+        { run: { goInstall: { module: 'example.org/x/demo', version: 'latest', binary: 'demo' } } },
+        { run: { goInstall: { module: 'example.org/x/demo', version: 'v1.0.0', binary: 'a/b' } } },
+      ].map((server) => ({
+        ...base,
+        capabilities: ['language-server'],
+        contributes: {
+          settings: { mode: { type: 'string', default: '', description: 'd' } },
+          languageServers: [
+            {
+              id: 'demo',
+              name: 'Demo',
+              languages: ['python'],
+              run: { program: 'demo' },
+              ...server,
+            },
+          ],
+        },
+      })),
+      ...[
+        { id: 'Bad Id' },
+        { id: 'typescript' },
+        { name: '' },
+        { extensions: ['gleam'] },
+        { filenames: ['a/b'] },
+        { grammar: 'grammar.js' },
+        { configuration: { lineComment: 'x'.repeat(11) } },
+        { configuration: { brackets: [['{']] } },
+      ].map((language) => ({
+        ...base,
+        contributes: {
+          editorLanguages: [
+            {
+              id: 'gleam',
+              name: 'Gleam',
+              extensions: ['.gleam'],
+              grammar: 'gleam.monarch.json',
+              ...language,
+            },
+          ],
+        },
+      })),
     ]
     for (const manifest of bad) {
       expect(parseManifest(manifest, '/ext').ok, JSON.stringify(manifest)).toBe(false)
@@ -71,6 +154,9 @@ describe('manifest schemas', () => {
     }
     expect(parseManifest(base, '/ext').ok).toBe(true)
     expect(extensionManifestSchema.safeParse(base).success).toBe(true)
+    const translated = { ...base, locales: ['zh-Hant', 'fr'] }
+    expect(parseManifest(translated, '/ext').ok).toBe(true)
+    expect(extensionManifestSchema.safeParse(translated).success).toBe(true)
   })
 
   it('describe a marketplace file', () => {
@@ -188,9 +274,65 @@ describe('the marketplace project, built the way its own repository builds it', 
       encoding: 'utf8',
     })
     expect(res.stdout.trim()).toBe(
-      'ok: marketplace "Pine extensions" with 1 extension(s), 2 unlisted',
+      'ok: marketplace "Pine extensions" with 10 extension(s), 2 unlisted',
     )
     expect(res.status).toBe(0)
+  })
+
+  it('ships each extension’s catalogs, and its panel files when it has a panel', () => {
+    const built = join(marketplace, 'extensions')
+    for (const id of readdirSync(built)) {
+      const manifest = JSON.parse(readFileSync(join(built, id, 'pine.json'), 'utf8'))
+      for (const tag of manifest.locales ?? []) {
+        expect(existsSync(join(built, id, 'locales', `${tag}.json`)), `${id} ${tag}`).toBe(true)
+      }
+    }
+    for (const file of ['panel.html', 'panel.css', 'panel.js', 'base.css', 'locales/en.json']) {
+      expect(existsSync(join(built, 'trellis', file)), file).toBe(true)
+    }
+    expect(readFileSync(join(built, 'trellis/base.css'), 'utf8')).toBe(
+      readFileSync(join(sdkPackage, 'panel.css'), 'utf8'),
+    )
+  })
+
+  it('ships the server every language extension runs from its own folder, as its package has it', () => {
+    const built = join(marketplace, 'extensions')
+    const servers = readdirSync(built).flatMap((id) => {
+      const manifest = JSON.parse(readFileSync(join(built, id, 'pine.json'), 'utf8'))
+      return (manifest.contributes?.languageServers ?? [])
+        .filter((server: { run: { node?: string } }) => server.run.node)
+        .map((server: { run: { node: string } }) => join(id, server.run.node))
+    })
+    expect(servers).toHaveLength(4)
+    for (const script of servers) expect(existsSync(join(built, script)), script).toBe(true)
+    const vendored = 'lsp-typescript/server/typescript-language-server/lib/cli.mjs'
+    expect(readFileSync(join(built, vendored), 'utf8')).toBe(
+      readFileSync(join(repoRoot, 'node_modules/typescript-language-server/lib/cli.mjs'), 'utf8'),
+    )
+  })
+
+  it('declares every package it vendors or bundles as a dependency of its own', () => {
+    const pkg = JSON.parse(readFileSync(join(marketplace, 'package.json'), 'utf8'))
+    const app = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8'))
+    for (const name of [
+      'bash-language-server',
+      'pyright',
+      'typescript',
+      'typescript-language-server',
+      'yaml-language-server',
+    ]) {
+      expect(pkg.devDependencies[name], name).toBe(app.devDependencies[name])
+      expect(pkg.devDependencies[name], name).toMatch(/^\d+\.\d+\.\d+$/)
+    }
+    for (const name of ['@phosphor-icons/core', 'mdast-util-from-markdown']) {
+      expect(pkg.devDependencies[name], name).toBeTruthy()
+    }
+  })
+
+  it('keeps a vendored node_modules folder in its repository', () => {
+    expect(readFileSync(join(marketplace, '.gitignore'), 'utf8').split('\n')).toContain(
+      '/node_modules',
+    )
   })
 })
 
@@ -242,6 +384,9 @@ describe('the SDK package, used the way an extension author uses it', () => {
       expect(pkg.devDependencies['@aurigax-ai/pine-extension-sdk']).toMatch(/^\^\d+\.\d+\.\d+$/)
       expect(readFileSync(join(made, '.gitignore'), 'utf8')).toBe('node_modules\ndist\n')
       expect(readdirSync(join(made, 'src'))).toEqual(['main.ts'])
+      const catalog = JSON.parse(readFileSync(join(made, 'locales/zh-Hant.json'), 'utf8'))
+      expect(Object.keys(catalog.manifest)).toEqual(['description', 'commands.greet.argument'])
+      expect(catalog.messages.greeting).toBe('你好，{name}')
     } finally {
       rmSync(parent, { recursive: true, force: true })
     }
@@ -274,7 +419,7 @@ describe('the SDK package, used the way an extension author uses it', () => {
     expect(res.status).toBe(0)
   })
 
-  it('reports a broken manifest, a linked file and a bad marketplace entry', () => {
+  it('reports a broken manifest, a linked file, a bad catalog and a bad marketplace entry', () => {
     const broken = join(project, 'broken')
     mkdirSync(broken)
     writeFileSync(join(broken, 'pine.json'), JSON.stringify({ id: 'broken' }))
@@ -286,6 +431,24 @@ describe('the SDK package, used the way an extension author uses it', () => {
     expect(runSdkCli(['validate', linked])).toEqual({
       code: 1,
       lines: ['pine.json: holds a link or special file, which a marketplace install refuses'],
+    })
+
+    const mistranslated = join(project, 'mistranslated')
+    cpSync(built, mistranslated, { recursive: true })
+    writeFileSync(
+      join(mistranslated, 'locales/zh-Hant.json'),
+      JSON.stringify({ manifest: { name: '哈囉', 'commands.wipe.title': '清除' } }),
+    )
+    expect(runSdkCli(['validate', mistranslated])).toEqual({
+      code: 1,
+      lines: [
+        "pine.json: locales/zh-Hant.json: manifest.commands.wipe.title: not a string this extension's manifest declares",
+      ],
+    })
+    rmSync(join(mistranslated, 'locales/zh-Hant.json'))
+    expect(runSdkCli(['validate', mistranslated])).toEqual({
+      code: 1,
+      lines: ['pine.json: locales/zh-Hant.json: missing'],
     })
 
     const marketplace = join(project, 'marketplace')
@@ -348,7 +511,9 @@ describe('the SDK package, used the way an extension author uses it', () => {
     const dir = mkdtempSync(join(tmpdir(), 'pine-sdk-host-'))
     const socketPath = join(dir, 'control.sock')
     const notify = vi.fn()
+    let language = 'en'
     const host = new ExtensionHost({
+      locale: () => language,
       roots: [{ dir: join(project, 'dist'), builtin: true }],
       store: new ExtensionStore(join(dir, 'extensions.json')),
       socketPath: () => socketPath,
@@ -383,7 +548,19 @@ describe('the SDK package, used the way an extension author uses it', () => {
       expect(await host.invoke('hello', 'greet', { argv: [] }, caller)).toMatchObject({
         ok: false,
         error: 'invalid-args',
+        message: 'greet <name>',
       })
+      expect(
+        await host.invoke('hello', 'greet', { argv: ['you'] }, { ...caller, locale: 'zh-Hant' }),
+      ).toMatchObject({ ok: true, text: '你好，you' })
+      expect(notify).toHaveBeenLastCalledWith(
+        expect.objectContaining({ title: '哈囉', body: '你好，you' }),
+      )
+      const title = (): string | undefined =>
+        host.list().find((e) => e.id === 'hello')?.commands[0].title
+      expect(title()).toBe('Hello: Greet')
+      language = 'zh-Hant'
+      expect(title()).toBe('哈囉：打招呼')
     } finally {
       host.stopAll()
       stopControlServer()

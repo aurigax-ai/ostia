@@ -1,0 +1,31 @@
+{
+  "id": "lsp-typescript",
+  "name": "TypeScript and JavaScript",
+  "version": "1.0.0",
+  "locales": ["zh-Hant"],
+  "api": "1.6",
+  "description": "TypeScript and JavaScript diagnostics, completion, hover and navigation in the editor. Ships typescript-language-server and TypeScript inside this extension and runs them with {product}'s own runtime; a project that has its own TypeScript uses that one.",
+  "category": "languages",
+  "capabilities": ["language-server"],
+  "contributes": {
+    "languageServers": [
+      {
+        "id": "typescript",
+        "name": "typescript-language-server",
+        "languages": ["typescript", "javascript"],
+        "documentLanguageIds": {
+          ".tsx": "typescriptreact",
+          ".jsx": "javascriptreact"
+        },
+        "run": {
+          "node": "server/typescript-language-server/lib/cli.mjs",
+          "args": ["--stdio"]
+        },
+        "rootMarkers": ["tsconfig.json", "jsconfig.json", "package.json"],
+        "initializationOptions": {
+          "tsserver": { "fallbackPath": "{extensionDir}/server/typescript/lib" }
+        }
+      }
+    ]
+  }
+}

@@ -31,6 +31,7 @@ function assistant(overrides: Partial<ExtensionInfo> = {}): ExtensionInfo {
     secretsSet: [],
     category: 'other',
     languages: [],
+    languageServers: [],
     ...overrides,
   }
 }

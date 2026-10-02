@@ -105,5 +105,7 @@ socket.on('connect', async () => {
     label: 'fake',
     models: true,
   })
-  await conn.sendRequest('ext.registerCommands', { commands: ['secret', 'events', 'status', 'shortcuts', 'openui'] })
+  await conn.sendRequest('ext.registerCommands', {
+    commands: ['secret', 'events', 'status', 'shortcuts', 'openui'],
+  })
 })

@@ -16,10 +16,14 @@ import { focusSurface } from '../stores/surfaceSlotsStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
 import { commands } from './registry'
 
-const registered = new Set<string>()
+const registered = new Map<string, string>()
 
 export function extensionCommandId(extId: string, command: string): string {
   return `${extId}.${command}`
+}
+
+function commandWording(ext: ExtensionInfo, command: ExtensionInfo['commands'][number]): string {
+  return JSON.stringify([command.title, command.category ?? ext.name, command.argument])
 }
 
 export function syncExtensionCommands(list: ExtensionInfo[]): void {
@@ -33,8 +37,9 @@ export function syncExtensionCommands(list: ExtensionInfo[]): void {
       if (command.palette) wanted.set(extensionCommandId(ext.id, command.id), { ext, command })
     }
   }
-  for (const id of [...registered]) {
-    if (!wanted.has(id)) {
+  for (const [id, wording] of [...registered]) {
+    const next = wanted.get(id)
+    if (!next || commandWording(next.ext, next.command) !== wording) {
       commands.unregister(id)
       registered.delete(id)
     }
@@ -68,7 +73,7 @@ export function syncExtensionCommands(list: ExtensionInfo[]): void {
         return res.data
       },
     })
-    registered.add(id)
+    registered.set(id, commandWording(ext, command))
   }
 }
 

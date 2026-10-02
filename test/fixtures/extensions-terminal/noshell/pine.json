@@ -2,7 +2,7 @@
   "id": "noshell",
   "name": "No Shell",
   "version": "0.1.0",
-  "api": "1.0",
+  "api": "1.6",
   "description": "Test fixture: asks for ext.openTerminal without the shell capability",
   "capabilities": ["notify"],
   "main": "main.js",

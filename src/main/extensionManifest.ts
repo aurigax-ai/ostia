@@ -2,7 +2,9 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { isAbsolute, join, relative, resolve } from 'node:path'
 import { type AssistPoint, isAssistPoint } from '../shared/assist'
 import { ALL_CAPABILITIES, type Capability } from '../shared/capabilities'
+import { parseEditorLanguages } from '../shared/editorLanguages'
 import { apiProblem } from '../shared/extensionApi'
+import { EXTENSION_LOCALES_MAX } from '../shared/extensionLocales'
 import {
   COMMAND_ARGUMENT_LABEL_MAX,
   EXTENSION_CATEGORIES,
@@ -25,6 +27,7 @@ import {
 } from '../shared/extensions'
 import { ICON_THEME_ID_PATTERN, type IconThemeContribution } from '../shared/iconTheme'
 import { LANGUAGE_ID_PATTERN, type LanguageContribution } from '../shared/languagePack'
+import { parseLanguageServers } from '../shared/languageServers'
 import { type Workflow, parseWorkflow } from '../shared/workflows'
 
 export const EXTENSION_ID_PATTERN = /^[a-z][a-z0-9-]{1,39}$/
@@ -32,6 +35,7 @@ export const COMMAND_ID_PATTERN = /^[a-z][a-z0-9-]{0,39}$/
 export const MAX_COMMANDS = 64
 export const MAX_WORKFLOWS = 64
 export const MAX_TEXT = 200
+export const MAX_DESCRIPTION = 500
 export const MAX_CHIPS = 8
 export const MAX_ICON_THEMES = 16
 export const MAX_LANGUAGES = 8
@@ -154,7 +158,7 @@ function parseSetting(key: string, raw: unknown): ExtensionSettingContribution |
   if (!EXTENSION_SETTING_TYPES.includes(raw.type as ExtensionSettingType)) {
     return `${where}: type must be one of ${EXTENSION_SETTING_TYPES.join(', ')}`
   }
-  const description = text(raw.description, 500)
+  const description = text(raw.description, MAX_DESCRIPTION)
   if (!description) return `${where}: missing description`
   const title = optionalTitle(raw.title)
   if (title === null) return `${where}: title must be 1-${EXTENSION_SETTING_TITLE_MAX} characters`
@@ -199,7 +203,7 @@ function optionalTitle(raw: unknown): string | undefined | null {
   return title
 }
 
-function hasControlCharacter(value: string): boolean {
+export function hasControlCharacter(value: string): boolean {
   for (let i = 0; i < value.length; i++) {
     const code = value.charCodeAt(i)
     if (code < 0x20 || code === 0x7f) return true
@@ -281,7 +285,7 @@ function parseSecrets(raw: unknown): ExtensionSecretContribution[] | string {
   for (const [key, value] of entries) {
     const where = `contributes.secrets.${key}`
     if (!SETTING_KEY_PATTERN.test(key)) return `${where}: invalid key`
-    const description = isRecord(value) ? text(value.description, 500) : null
+    const description = isRecord(value) ? text(value.description, MAX_DESCRIPTION) : null
     if (!description) return `${where}: missing description`
     const title = optionalTitle((value as Record<string, unknown>).title)
     if (title === null) return `${where}: title must be 1-${EXTENSION_SETTING_TITLE_MAX} characters`
@@ -349,6 +353,24 @@ function parseLanguages(raw: unknown, dir: string): LanguageContribution[] | str
   return languages
 }
 
+function parseLocales(raw: unknown): string[] | string {
+  if (raw === undefined) return []
+  if (!Array.isArray(raw) || raw.length > EXTENSION_LOCALES_MAX) {
+    return `locales must be an array of at most ${EXTENSION_LOCALES_MAX} language tags`
+  }
+  const locales: string[] = []
+  for (const tag of raw) {
+    if (typeof tag !== 'string' || !LANGUAGE_ID_PATTERN.test(tag)) {
+      return 'locales: each entry must be a language tag such as fr or zh-Hant'
+    }
+    if (locales.some((l) => l.toLowerCase() === tag.toLowerCase())) {
+      return `locales: duplicate '${tag}'`
+    }
+    locales.push(tag)
+  }
+  return locales
+}
+
 function parseWorkflows(raw: unknown): Workflow[] | string | undefined {
   if (raw === undefined) return undefined
   if (!Array.isArray(raw) || raw.length > MAX_WORKFLOWS) {
@@ -376,7 +398,8 @@ export function parseManifest(raw: unknown, dir: string): ManifestResult {
   if (raw.api === undefined) return { ok: false, error: 'missing api' }
   const incompatible = apiProblem(raw.api)
   if (incompatible) return { ok: false, error: incompatible }
-  const description = typeof raw.description === 'string' ? raw.description.slice(0, 500) : ''
+  const description =
+    typeof raw.description === 'string' ? raw.description.slice(0, MAX_DESCRIPTION) : ''
   const caps = capabilities(raw.capabilities, 'manifest')
   if (typeof caps === 'string') return { ok: false, error: caps }
   const category = raw.category === undefined ? 'other' : raw.category
@@ -433,6 +456,18 @@ export function parseManifest(raw: unknown, dir: string): ManifestResult {
   if (typeof iconThemes === 'string') return { ok: false, error: iconThemes }
   const languages = parseLanguages(contributes.languages, dir)
   if (typeof languages === 'string') return { ok: false, error: languages }
+  const locales = parseLocales(raw.locales)
+  if (typeof locales === 'string') return { ok: false, error: locales }
+  const languageServers = parseLanguageServers(contributes.languageServers, {
+    isInside: (path) => isInsideDir(dir, path),
+    capabilities: caps,
+    settingKeys: settings.map((setting) => setting.key),
+  })
+  if (typeof languageServers === 'string') return { ok: false, error: languageServers }
+  const editorLanguages = parseEditorLanguages(contributes.editorLanguages, (path) =>
+    isInsideDir(dir, path),
+  )
+  if (typeof editorLanguages === 'string') return { ok: false, error: editorLanguages }
   const needsMain =
     commands.length > 0 ||
     sidebarItems ||
@@ -458,11 +493,14 @@ export function parseManifest(raw: unknown, dir: string): ManifestResult {
     contributes: { commands, sidebarItems, paneChips, workspaceChips, settings, assist, secrets },
   }
   if (main) manifest.main = main
+  if (locales.length > 0) manifest.locales = locales
   if (panel) manifest.contributes.panel = panel
   if (workflows && workflows.length > 0) manifest.contributes.workflows = workflows
   if (completions !== undefined) manifest.contributes.completions = completions
   if (iconThemes.length > 0) manifest.contributes.iconThemes = iconThemes
   if (languages.length > 0) manifest.contributes.languages = languages
+  if (languageServers.length > 0) manifest.contributes.languageServers = languageServers
+  if (editorLanguages.length > 0) manifest.contributes.editorLanguages = editorLanguages
   return { ok: true, manifest }
 }
 

@@ -1,11 +1,13 @@
 import '@testing-library/jest-dom/vitest'
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createPortal } from 'react-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { commands } from '../commands/registry'
 import type { PaneNode } from '../layout/types'
 import { useBlocksStore } from '../stores/blocksStore'
+import { useQuestionsStore } from '../stores/questionsStore'
+import { useUIStore } from '../stores/uiStore'
 import { Pane } from './Pane'
 
 const pane: PaneNode = { type: 'pane', id: 'p9', kind: 'terminal', title: 'zsh' }
@@ -53,6 +55,38 @@ describe('Pane', () => {
     expect(frame).not.toHaveClass('dimmed')
   })
 
+  it('shows an open question on its pane and opens the dashboard at it', async () => {
+    useQuestionsStore.setState({
+      pending: [
+        {
+          id: 'question-4',
+          paneId: 'p9',
+          question: 'Which database?',
+          context: '',
+          choices: [],
+          mode: 'text',
+          at: 1,
+        },
+      ],
+    })
+    try {
+      render(<Pane tabs={[pane]} shownId={pane.id} active />)
+      const notice = screen.getByRole('region', { name: 'Agent asks' })
+      expect(notice).toHaveTextContent('Which database?')
+      await userEvent.setup().click(within(notice).getByRole('button', { name: 'Answer' }))
+      expect(useUIStore.getState().dashboardActive).toBe(true)
+      expect(useQuestionsStore.getState().focusId).toBe('question-4')
+    } finally {
+      useQuestionsStore.setState({ pending: [], focusId: null })
+      useUIStore.setState({ dashboardActive: false })
+    }
+  })
+
+  it('shows no question notice on a pane that asked nothing', () => {
+    render(<Pane tabs={[pane]} shownId={pane.id} active />)
+    expect(screen.queryByRole('region', { name: 'Agent asks' })).toBeNull()
+  })
+
   describe('tabs', () => {
     const a: PaneNode = { type: 'pane', id: 'pa', kind: 'terminal', title: 'claude' }
     const b: PaneNode = { type: 'pane', id: 'pb', kind: 'browser', title: 'localhost' }
@@ -85,6 +119,17 @@ describe('Pane', () => {
 
       await user.click(screen.getAllByRole('button', { name: 'Close tab' })[0])
       expect(exec).toHaveBeenCalledWith('pane.close', { paneId: 'pa' })
+    })
+
+    it('shows a locked tab with an unlock button in place of its close button', async () => {
+      const exec = vi.spyOn(commands, 'exec').mockResolvedValue({ ok: true, result: undefined })
+      render(<Pane tabs={[{ ...a, locked: true }, b]} shownId="pb" active />)
+      const locked = screen.getByRole('tab', { name: /claude/ }).closest('.pane-tab') as HTMLElement
+
+      expect(locked).toHaveClass('locked')
+      expect(within(locked).queryByRole('button', { name: 'Close tab' })).toBeNull()
+      await userEvent.setup().click(within(locked).getByRole('button', { name: 'Unlock tab' }))
+      expect(exec).toHaveBeenCalledWith('pane.toggleLock', { paneId: 'pa' })
     })
 
     it('closes a tab on middle-click and ignores other auxiliary buttons', () => {

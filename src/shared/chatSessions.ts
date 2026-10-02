@@ -1,4 +1,9 @@
-import { CHAT_CONTEXT_KINDS, type ChatContextItem, type ChatContextKind } from './assist'
+import {
+  type AssistModelRef,
+  type ChatContextItem,
+  normalizeChatContextItem,
+  normalizeModelRef,
+} from './assist'
 
 export interface ChatPart {
   type: string
@@ -30,6 +35,7 @@ export interface ChatSessionSummary {
   createdAt: number
   updatedAt: number
   model?: string
+  modelRef?: AssistModelRef
   messageCount: number
   trimmed?: boolean
 }
@@ -63,7 +69,6 @@ export const CHAT_SESSION_MESSAGES_MAX = 400
 const TEXT_MAX = 100_000
 const PART_JSON_MAX = 64 * 1024
 const PART_TYPE_PATTERN = /^[a-z][a-z0-9-]{0,63}$/
-const CONTEXT_TEXT_MAX = 20_000
 const SHORT_MAX = 200
 
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -133,14 +138,8 @@ function context(raw: unknown): ChatContextItem[] | undefined {
   if (!Array.isArray(raw)) return undefined
   const out: ChatContextItem[] = []
   for (const item of raw) {
-    if (!isRecord(item) || !CHAT_CONTEXT_KINDS.includes(item.kind as ChatContextKind)) continue
-    const label = short(item.label)
-    if (!label || typeof item.text !== 'string') continue
-    out.push({
-      kind: item.kind as ChatContextKind,
-      label,
-      text: item.text.slice(0, CONTEXT_TEXT_MAX),
-    })
+    const normalized = normalizeChatContextItem(item)
+    if (normalized) out.push(normalized)
   }
   return out.length > 0 ? out : undefined
 }
@@ -195,6 +194,8 @@ export function normalizeChatSession(raw: unknown): ChatSession | null {
   if (workspaceId) session.workspaceId = workspaceId
   const model = short(raw.model)
   if (model) session.model = model
+  const modelRef = normalizeModelRef(raw.modelRef)
+  if (modelRef) session.modelRef = modelRef
   if (raw.trimmed === true) session.trimmed = true
   return session
 }

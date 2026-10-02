@@ -81,7 +81,7 @@ writeJson('template/package.json', {
   devDependencies: { [packageName]: `^${app.version}`, ...template.devDependencies },
 })
 mkdirSync(join(out, 'docs'))
-cpSync('docs/EXTENSIONS.md', join(out, 'docs/EXTENSIONS.md'))
+cpSync('sdk-package/docs/EXTENSIONS.md', join(out, 'docs/EXTENSIONS.md'))
 
 const types = (entry) => `./types/extensions/sdk/${entry}.d.ts`
 writeJson('package.json', {

@@ -8,6 +8,10 @@ export default defineConfig({
     alias: {
       '@': resolve(__dirname, 'src/renderer'),
       '@shared': resolve(__dirname, 'src/shared'),
+      'vscode-jsonrpc/browser': resolve(
+        __dirname,
+        'node_modules/vscode-jsonrpc/lib/browser/main.js',
+      ),
       '@aurigax-ai/pine-extension-sdk/assist': resolve(__dirname, 'src/extensions/sdk/assist'),
       '@aurigax-ai/pine-extension-sdk': resolve(__dirname, 'src/extensions/sdk'),
     },

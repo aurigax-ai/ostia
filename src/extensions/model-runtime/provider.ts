@@ -76,8 +76,8 @@ export function modelRuntimeProvider(endpoint: Endpoint): Provider {
 export const MODEL_RUNTIME_CATALOG: ProviderCatalog = {
   kinds: [MODEL_RUNTIME],
   keyRequired: new Set(),
+  title: () => 'Model runtime',
   defaultBaseUrl: (_kind, env) =>
     env.XDG_RUNTIME_DIR ? `${UNIX_PREFIX}${env.XDG_RUNTIME_DIR}/model-runtime.sock` : '',
-  defaultFastModel: () => 'gemma',
   create: (_kind, endpoint) => modelRuntimeProvider(endpoint),
 }

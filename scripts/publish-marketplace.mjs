@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process'
 import { cpSync, existsSync, readdirSync, rmSync } from 'node:fs'
-import { basename, join, resolve } from 'node:path'
+import { join, resolve } from 'node:path'
 
 const source = 'out/marketplace'
 const kept = ['.git', 'node_modules', 'pnpm-lock.yaml']
@@ -16,7 +16,7 @@ for (const name of readdirSync(checkout).filter((name) => !kept.includes(name)))
 }
 cpSync(source, checkout, {
   recursive: true,
-  filter: (path) => basename(path) !== 'node_modules',
+  filter: (path) => path !== join(source, 'node_modules'),
 })
 for (const step of [['install', '--no-frozen-lockfile'], ['build']]) {
   execFileSync('pnpm', step, { cwd: checkout, stdio: 'inherit' })

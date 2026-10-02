@@ -124,7 +124,11 @@ describe('BlockMenu', () => {
   })
 
   it('opens the chat pane with the block output attached, without sending it', async () => {
-    useAssistStore.setState({ availability: { chat: { extId: 'assistant', name: 'Assistant' } } })
+    useAssistStore.setState({
+      availability: {
+        chat: { extId: 'assistant', name: 'Assistant', ref: { extId: 'assistant' } },
+      },
+    })
     const pane = createPane('terminal', 'zsh', '/w')
     useWorkspacesStore.setState({
       workspaces: [{ id: 'ws1', name: 'w', kind: 'terminal', workDir: '/w', state: 'idle' }],
@@ -150,13 +154,18 @@ describe('BlockMenu', () => {
 
   it('does not offer asking about output while the chat feature is off', async () => {
     useAssistStore.setState({
-      availability: { chat: { extId: 'assistant', name: 'Assistant' } },
+      availability: {
+        chat: { extId: 'assistant', name: 'Assistant', ref: { extId: 'assistant' } },
+      },
       overview: [
         {
           extId: 'assistant',
           name: 'Assistant',
           setup: null,
           models: false,
+          providers: [],
+          kinds: [],
+          keysSet: [],
           features: [{ id: 'chat', setting: 'chat', on: false, ready: true }],
         },
       ],
@@ -170,7 +179,7 @@ describe('BlockMenu', () => {
   })
 
   describe('Explain error', () => {
-    const chat = { extId: 'assistant', name: 'Assistant' }
+    const chat = { extId: 'assistant', name: 'Assistant', ref: { extId: 'assistant' } }
 
     const failBlock = (): string => {
       const s = useBlocksStore.getState()
@@ -213,6 +222,9 @@ describe('BlockMenu', () => {
             name: 'Assistant',
             setup: null,
             models: false,
+            providers: [],
+            kinds: [],
+            keysSet: [],
             features: [{ id: 'explainError', setting: 'explainError', on: false, ready: true }],
           },
         ],

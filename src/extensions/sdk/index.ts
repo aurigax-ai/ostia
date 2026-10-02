@@ -15,6 +15,7 @@ import type {
   AssistError,
   AssistModelList,
   AssistPoint,
+  AssistProviderEntry,
   AssistReport,
   AssistRequests,
   AssistResults,
@@ -22,6 +23,11 @@ import type {
 } from '../../shared/assist'
 import { ALL_CAPABILITIES } from '../../shared/capabilities'
 import { EXTENSION_API_ENV, EXTENSION_API_VERSION, apiProblem } from '../../shared/extensionApi'
+import {
+  EXTENSION_BASE_LOCALE,
+  type ExtensionLocaleChangedPayload,
+  LOCALE_CHANGED_EVENT,
+} from '../../shared/extensionLocales'
 import type {
   DiffContent,
   ExtensionCaller,
@@ -36,7 +42,11 @@ import type {
   SidebarKind,
   SidebarTone,
 } from '../../shared/extensions'
-import { SETTINGS_CHANGED_EVENT, TARGET_PANE_PARAM } from '../../shared/extensions'
+import {
+  ASSIST_PROVIDERS_CHANGED_EVENT,
+  SETTINGS_CHANGED_EVENT,
+  TARGET_PANE_PARAM,
+} from '../../shared/extensions'
 import { PANEL_SIZES_FILE, PanelSizeStore } from './panelSizes'
 import { PANEL_SIZES_PATH } from './split'
 
@@ -51,6 +61,15 @@ export type {
   PaneChipItem,
   SidebarTone,
 } from '../../shared/extensions'
+
+export {
+  type MessageVars,
+  type Translate,
+  formatMessage,
+  localized,
+  matchLocale,
+} from '../../shared/extensionLocales'
+export { createTranslator } from './i18n'
 
 export type AttentionVerb = 'waiting' | 'done' | 'working' | 'error' | 'clear'
 
@@ -111,11 +130,16 @@ export type PanelHandler = (
 
 export type SettingsHandler = (values: ExtensionSettingValues) => void
 
+export type LocaleHandler = (locale: string) => void
+
 export interface AssistContext {
   requestId: string
   signal: AbortSignal
   chunk: (text: string) => Promise<boolean>
+  model?: { provider: string; model: string }
 }
+
+export type AssistProvidersHandler = (providers: AssistProviderEntry[]) => void
 
 export class AssistFailure extends Error {
   constructor(
@@ -180,6 +204,8 @@ export interface PineExtension {
   getSettings: () => Promise<ExtensionSettingValues>
   setSetting: (key: string, value: ExtensionSettingValue | null) => Promise<ExtensionResult>
   onSettingsChanged: (handler: SettingsHandler) => void
+  getLocale: () => Promise<string>
+  onLocaleChanged: (handler: LocaleHandler) => void
   callAs: <T = unknown>(paneId: string, method: string, params?: object) => Promise<T>
   setAttention: (paneId: string, state: AttentionVerb, message?: string) => Promise<unknown>
   openDiff: (diff: DiffContent & { workspaceId?: string }) => Promise<ExtensionResult>
@@ -192,11 +218,13 @@ export interface PineExtension {
   getShortcuts: (ids: string[]) => Promise<Record<string, string | null>>
   openAssistUi: (ui: AssistUi, workspaceId?: string) => Promise<ExtensionResult>
   getSecret: (key: string) => Promise<string | null>
+  getAssistProviders: () => Promise<AssistProviderEntry[]>
+  onAssistProvidersChanged: (handler: AssistProvidersHandler) => void
 }
 
 export interface AssistModelsHandler {
-  list: () => Promise<AssistModelList>
-  setLoaded: (id: string, loaded: boolean) => Promise<void>
+  list: (provider?: string) => Promise<AssistModelList>
+  setLoaded: (id: string, loaded: boolean, provider?: string) => Promise<void>
 }
 
 export { EXTENSION_API_VERSION } from '../../shared/extensionApi'
@@ -257,7 +285,9 @@ export async function connect(): Promise<PineExtension> {
   let panelHandler: PanelHandler | null = null
   let eventHandler: EventHandler | null = null
   let settingsHandler: SettingsHandler | null = null
+  let localeHandler: LocaleHandler | null = null
   let assistHandler: AssistHandler | null = null
+  let providersHandler: AssistProvidersHandler | null = null
   let modelsHandler: AssistModelsHandler | null = null
 
   conn.onRequest(
@@ -275,7 +305,12 @@ export async function connect(): Promise<PineExtension> {
   conn.onRequest(
     'ext.assist',
     async (
-      params: { point: AssistPoint; requestId: string; input: never },
+      params: {
+        point: AssistPoint
+        requestId: string
+        input: never
+        model?: { provider: string; model: string }
+      },
       token: CancellationToken,
     ) => {
       if (!assistHandler) throw new Error('no assist handler')
@@ -286,6 +321,7 @@ export async function connect(): Promise<PineExtension> {
         return await assistHandler(params.point, params.input, {
           requestId: params.requestId,
           signal: abort.signal,
+          ...(params.model ? { model: params.model } : {}),
           chunk: async (text) => {
             if (abort.signal.aborted) return false
             const res = await conn.sendRequest<{ live?: unknown }>('ext.assistChunk', {
@@ -302,28 +338,46 @@ export async function connect(): Promise<PineExtension> {
       }
     },
   )
-  conn.onRequest('ext.assistModels', async (params: { action?: unknown; id?: unknown }) => {
-    if (!modelsHandler) throw new Error('no models handler')
-    if (params.action === 'list') return modelsHandler.list()
-    if ((params.action !== 'load' && params.action !== 'unload') || typeof params.id !== 'string') {
-      return { ok: false, error: 'invalid' }
-    }
-    try {
-      await modelsHandler.setLoaded(params.id, params.action === 'load')
-      return { ok: true }
-    } catch (err) {
-      return { ok: false, error: errorMessage(err) }
-    }
-  })
+  conn.onRequest(
+    'ext.assistModels',
+    async (params: { action?: unknown; id?: unknown; provider?: unknown }) => {
+      if (!modelsHandler) throw new Error('no models handler')
+      const provider = typeof params.provider === 'string' ? params.provider : undefined
+      if (params.action === 'list') return modelsHandler.list(provider)
+      if (
+        (params.action !== 'load' && params.action !== 'unload') ||
+        typeof params.id !== 'string'
+      ) {
+        return { ok: false, error: 'invalid' }
+      }
+      try {
+        await modelsHandler.setLoaded(params.id, params.action === 'load', provider)
+        return { ok: true }
+      } catch (err) {
+        return { ok: false, error: errorMessage(err) }
+      }
+    },
+  )
   conn.onRequest('ext.panel', async (params: { caller: ExtensionCaller; path?: string }) => {
     if (!panelHandler) throw new Error('no panel handler')
     return panelHandler(params.caller, params.path)
   })
   conn.onNotification(
     'ext.event',
-    (params: { type: ExtensionEventType | typeof SETTINGS_CHANGED_EVENT; payload: never }) => {
+    (params: {
+      type:
+        | ExtensionEventType
+        | typeof SETTINGS_CHANGED_EVENT
+        | typeof LOCALE_CHANGED_EVENT
+        | typeof ASSIST_PROVIDERS_CHANGED_EVENT
+      payload: never
+    }) => {
       if (params.type === SETTINGS_CHANGED_EVENT) {
         settingsHandler?.((params.payload as { values: ExtensionSettingValues }).values)
+      } else if (params.type === ASSIST_PROVIDERS_CHANGED_EVENT) {
+        providersHandler?.((params.payload as { providers: AssistProviderEntry[] }).providers)
+      } else if (params.type === LOCALE_CHANGED_EVENT) {
+        localeHandler?.((params.payload as ExtensionLocaleChangedPayload).locale)
       } else {
         eventHandler?.(params.type, params.payload)
       }
@@ -372,6 +426,13 @@ export async function connect(): Promise<PineExtension> {
     onSettingsChanged: (handler) => {
       settingsHandler = handler
     },
+    getLocale: async () => {
+      const res = await conn.sendRequest<{ locale?: unknown }>('ext.locale')
+      return typeof res?.locale === 'string' ? res.locale : EXTENSION_BASE_LOCALE
+    },
+    onLocaleChanged: (handler) => {
+      localeHandler = handler
+    },
     callAs: <T>(paneId: string, method: string, params?: object) =>
       conn.sendRequest<T>(method, { ...params, [TARGET_PANE_PARAM]: paneId }),
     setAttention: (paneId, state, message) =>
@@ -405,6 +466,15 @@ export async function connect(): Promise<PineExtension> {
     getSecret: async (key) => {
       const res = await conn.sendRequest<{ value?: unknown }>('ext.getSecret', { key })
       return typeof res?.value === 'string' ? res.value : null
+    },
+    getAssistProviders: async () => {
+      const res = await conn.sendRequest<{ providers?: AssistProviderEntry[] }>(
+        'ext.assistProviders',
+      )
+      return Array.isArray(res?.providers) ? res.providers : []
+    },
+    onAssistProvidersChanged: (handler) => {
+      providersHandler = handler
     },
   }
 }

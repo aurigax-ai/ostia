@@ -1,5 +1,6 @@
 import { PRODUCT_NAME } from '@shared/product'
 import { fmt, useDict } from '../i18n/useDict'
+import { withProductName } from '../lib/extensionSettingText'
 import { pendingApproval, useExtensionsStore } from '../stores/extensionsStore'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
@@ -43,7 +44,9 @@ export function ExtensionApprovalDialog(): JSX.Element {
               : fmt(d.extensions.approveNone, { app: PRODUCT_NAME })}
           </DialogDescription>
         </DialogHeader>
-        {ext?.description ? <p className="text-fg-muted text-ui-sm">{ext.description}</p> : null}
+        {ext?.description ? (
+          <p className="text-fg-muted text-ui-sm">{withProductName(ext.description)}</p>
+        ) : null}
         {caps.length > 0 ? (
           <ul aria-label={d.extensions.permissions} className="flex flex-wrap gap-1.5">
             {caps.map((cap) => (
@@ -51,6 +54,26 @@ export function ExtensionApprovalDialog(): JSX.Element {
                 <Badge variant="outline" className="font-mono text-ui-xs">
                   {cap}
                 </Badge>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        {ext && ext.languageServers.length > 0 ? (
+          <ul aria-label={d.languageServers.runsTitle} className="flex flex-col gap-1">
+            {ext.languageServers.map((server) => (
+              <li key={server.id} className="text-fg-muted text-ui-sm">
+                {fmt(d.languageServers.runs, {
+                  command: server.command,
+                  languages: server.languages.join(', '),
+                })}
+                {server.download ? (
+                  <span className="block">{fmt(d.languageServers.downloads, server.download)}</span>
+                ) : null}
+                {server.goInstall ? (
+                  <span className="block">
+                    {fmt(d.languageServers.goInstalls, server.goInstall)}
+                  </span>
+                ) : null}
               </li>
             ))}
           </ul>

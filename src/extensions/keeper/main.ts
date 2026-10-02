@@ -42,9 +42,10 @@ async function main(): Promise<void> {
   service.configure(serviceSettings(await ext.getSettings()))
   const messages = await startMessageServer()
 
-  const remember = (caller: ExtensionCaller): void => {
-    if (caller.locale) service.locale = caller.locale
-  }
+  service.locale = await ext.getLocale()
+  ext.onLocaleChanged((locale) => {
+    service.locale = locale
+  })
 
   const openPanel = async (caller: ExtensionCaller, path: string) => {
     if (!(await service.daemonRunning())) {
@@ -56,11 +57,9 @@ async function main(): Promise<void> {
 
   const handlers: Record<string, CommandHandler> = {
     open: async (_args, caller) => {
-      remember(caller)
       return openPanel(caller, '/')
     },
     approvals: async (_args, caller) => {
-      remember(caller)
       await service.tick()
       if (service.state !== 'ready') {
         return failure(service.state, service.unavailableMessage())
@@ -72,8 +71,7 @@ async function main(): Promise<void> {
     },
   }
 
-  ext.onPanel(async (caller, requested) => {
-    remember(caller)
+  ext.onPanel(async (_caller, requested) => {
     const base = await service.uiUrl()
     const path = requested ?? (service.approvals().length > 0 ? APPROVALS_PATH : '/')
     if (base) return { url: `${base}${path}` }

@@ -1,7 +1,8 @@
 import type { Terminal as Xterm } from '@xterm/xterm'
-import { type RefObject, useEffect, useRef, useState } from 'react'
+import { type RefObject, useEffect, useState } from 'react'
 import { fmt, useDict } from '../i18n/useDict'
 import { blockSpan, commandLine, stickyBlock } from '../lib/blocks'
+import { createCellBoxCache } from '../lib/cellBox'
 import { useExitPresence } from '../lib/useExitPresence'
 import { useBlocksStore } from '../stores/blocksStore'
 import { BlockMenu } from './BlockMenu'
@@ -46,7 +47,6 @@ export function Blocks({
 }): JSX.Element | null {
   const d = useDict()
   const [geo, setGeo] = useState<Geometry>(EMPTY)
-  const wiredRef = useRef(false)
   const blocks = useBlocksStore((s) => s.byPane[paneId])
   const selectedId = useBlocksStore((s) => s.selected[paneId])
 
@@ -56,16 +56,17 @@ export function Blocks({
     const host = hostRef.current
     if (!term || !host) return
 
+    const cells = createCellBoxCache(host)
     const recompute = (): void => {
       const state = useBlocksStore.getState()
       const list = state.byPane[paneId]
       const buf = term.buffer.active
-      const cellHeight = measureCellHeight(host)
-      if (!list || list.length === 0 || buf.type === 'alternate' || !cellHeight) {
+      const box = list && list.length > 0 && buf.type !== 'alternate' ? cells.get() : null
+      if (!list || !box) {
         setGeo((prev) => (prev === EMPTY ? prev : EMPTY))
         return
       }
-      const originTop = rowsOrigin(host)
+      const { cellHeight, originTop } = box
       const viewportY = buf.viewportY
       const cursorLine = buf.baseY + buf.cursorY
       const toBox = (start: number, end: number): Frame | null => {
@@ -105,14 +106,22 @@ export function Blocks({
 
     recompute()
 
-    if (wiredRef.current) return
-    wiredRef.current = true
+    const remeasure = (): void => {
+      cells.invalidate()
+      recompute()
+    }
     const offRender = term.onRender(recompute)
     const offScroll = term.onScroll(recompute)
+    const offResize = term.onResize(remeasure)
+    const boxObserver = new ResizeObserver(remeasure)
+    boxObserver.observe(host)
+    const screen = host.querySelector('.xterm-screen')
+    if (screen) boxObserver.observe(screen)
     return () => {
       offRender.dispose()
       offScroll.dispose()
-      wiredRef.current = false
+      offResize.dispose()
+      boxObserver.disconnect()
     }
   }, [paneId, blocks, selectedId, termRef, hostRef])
 
@@ -215,18 +224,29 @@ export function StickyHeader({
   )
 }
 
-function measureCellHeight(host: HTMLElement): number {
-  const row = host.querySelector('.xterm-rows > div') as HTMLElement | null
-  return row?.offsetHeight ?? 0
+function sameBox(a: Frame | null, b: Frame | null): boolean {
+  return a === b || (a !== null && b !== null && a.top === b.top && a.height === b.height)
 }
 
-function rowsOrigin(host: HTMLElement): number {
-  const screen = host.querySelector('.xterm-screen')
-  const parent = host.parentElement
-  if (!screen || !parent) return 0
-  return screen.getBoundingClientRect().top - parent.getBoundingClientRect().top
+function sameSticky(a: StickyInfo | null, b: StickyInfo | null): boolean {
+  if (a === null || b === null) return a === b
+  return (
+    a.blockId === b.blockId &&
+    a.command === b.command &&
+    a.running === b.running &&
+    a.exitCode === b.exitCode &&
+    a.line === b.line
+  )
 }
 
 function sameGeometry(a: Geometry, b: Geometry): boolean {
-  return JSON.stringify(a) === JSON.stringify(b)
+  return (
+    a.bars.length === b.bars.length &&
+    a.bars.every((bar, i) => {
+      const other = b.bars[i]
+      return bar.id === other.id && bar.attn === other.attn && sameBox(bar, other)
+    }) &&
+    sameBox(a.frame, b.frame) &&
+    sameSticky(a.sticky, b.sticky)
+  )
 }

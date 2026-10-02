@@ -227,6 +227,7 @@ export function ChatContextPicker({
 
 const KIND_ICONS = {
   file: FileIcon,
+  editor: FileIcon,
   browser: BrowserIcon,
   output: TextAlignLeftIcon,
   selection: SelectionIcon,

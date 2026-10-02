@@ -321,7 +321,7 @@ describe('InputEditor', () => {
   it('completes paths from the pane cwd on Tab and lists ambiguous matches', async () => {
     setMode('editor')
     idlePrompt()
-    vi.mocked(window.pine.fs.list).mockImplementation(async (path) =>
+    vi.mocked(window.pine.pty.listDir).mockImplementation(async (_pane, path) =>
       path === '/home/u/proj'
         ? [
             { name: 'src', dir: true },
@@ -367,7 +367,7 @@ describe('InputEditor', () => {
           }
         : null,
     )
-    vi.mocked(window.pine.fs.list).mockResolvedValue([{ name: 'package.json', dir: false }])
+    vi.mocked(window.pine.pty.listDir).mockResolvedValue([{ name: 'package.json', dir: false }])
     renderEditor()
     const user = userEvent.setup()
     await user.type(editor() as HTMLElement, 'git ch')
@@ -385,7 +385,7 @@ describe('InputEditor', () => {
     await user.keyboard('{Tab}')
     await waitFor(() => expect(editor()).toHaveValue('git add package.json '))
     vi.mocked(window.pine.completions.spec).mockReset()
-    vi.mocked(window.pine.fs.list).mockReset()
+    vi.mocked(window.pine.pty.listDir).mockReset()
   })
 
   it('receives history inserts instead of the shell line while it is shown', async () => {
@@ -491,7 +491,7 @@ describe('InputEditor', () => {
       setMode('editor')
       idlePrompt()
       vi.mocked(window.pine.pty.commands).mockResolvedValue(['docker', 'git', 'grep'])
-      vi.mocked(window.pine.fs.list).mockResolvedValue([{ name: 'Dockerfile', dir: false }])
+      vi.mocked(window.pine.pty.listDir).mockResolvedValue([{ name: 'Dockerfile', dir: false }])
       renderEditor()
       await waitFor(() => expect(window.pine.pty.commands).toHaveBeenCalledWith(PANE))
       const user = userEvent.setup()
@@ -556,8 +556,8 @@ describe('InputEditor', () => {
     const options = () => screen.queryAllByRole('option').map((o) => o.textContent)
 
     function folders(): void {
-      vi.mocked(window.pine.fs.list).mockReset()
-      vi.mocked(window.pine.fs.list).mockImplementation(async (path) => {
+      vi.mocked(window.pine.pty.listDir).mockReset()
+      vi.mocked(window.pine.pty.listDir).mockImplementation(async (_pane, path) => {
         if (path === '/home/u/proj') {
           return [
             { name: 'avail', dir: true },
@@ -600,7 +600,7 @@ describe('InputEditor', () => {
       expect(
         Array.from(row.querySelectorAll('.input-editor-menu-match'), (m) => m.textContent),
       ).toEqual(['avail-m', 'q'])
-      expect(window.pine.fs.list).toHaveBeenCalledTimes(1)
+      expect(window.pine.pty.listDir).toHaveBeenCalledTimes(1)
     })
 
     it('widens on Backspace, hides when nothing matches and comes back when something does', async () => {
@@ -665,7 +665,7 @@ describe('InputEditor', () => {
       const { user } = await openAvail()
       await user.keyboard('/')
       await waitFor(() => expect(options()).toEqual(['src/', 'docs/']))
-      expect(window.pine.fs.list).toHaveBeenLastCalledWith('/home/u/proj/avail')
+      expect(window.pine.pty.listDir).toHaveBeenLastCalledWith(PANE, '/home/u/proj/avail')
       expect(editor()).toHaveValue('cd avail/')
       await user.keyboard('d')
       expect(options()).toEqual(['docs/'])

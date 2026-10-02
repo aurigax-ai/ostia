@@ -1,6 +1,6 @@
 ---
 name: pine
-description: Use when a coding agent is running inside Pine (a terminal-workspace app) — detectable via the env vars PINE_SOCKET/PINE_TOKEN/PINE_PANE_ID/PINE_START_DIR — and wants to control its own pane or coordinate with other agents/panes in the workspace. Covers the `pine` CLI: identity (whoami), introspection (commands, docs), opening files, desktop notifications, pane attention state (pine state waiting/done), running commands in terminal tabs the human can watch (pine process), typing into and reading other terminal panes (pine pane send/key/read), an encrypted secret vault, sandboxed workspaces (asking for a domain, an exposed port or a secret: pine sandbox request-domain/expose, pine secret ls/get), a cross-agent message bus, driving the in-app browser with agent-browser's command contract (open/snapshot refs/click/fill/type/press/find/wait/get/eval/screenshot/cookies/storage/network/tabs/--json/batch, pick element), reading the selection reports (text, image regions, PDF text or regions, terminal output) a human sends from files and terminals Pine shows (@/tmp/pine-reports-*/selection-N.md), reading the human's saved command workflows (pine workflow list/show), building sidebar sections and panels for the human as data-only JSON views (pine view schema/validate/list/open), reading/writing app settings, learning the OS and asking the human to install system packages (pine system info/install — never run sudo yourself), and pairing/managing the LAN control gateway (a phone companion app, off by default, elevated, LAN/Tailscale only — no hosted relay). Boards, cards and knowledge entries are not Pine's: use the `trellis` CLI. Also covers the capability/elevation model and a recipe for two agents (e.g. Claude + Codex) in different panes coordinating work. Triggers on "pine", "pine CLI", "am I in Pine", "control the terminal workspace", "talk to the other pane/agent", "hand off a task to another agent", "pine bus/vault/settings/browse/gateway", "automate the browser", "agent browser automation in Pine", "pair a phone with Pine", "pine gateway", "selection-N.md", "the human sent me a selection", "build a sidebar/panel/dashboard in Pine", "pine view".
+description: Use when a coding agent is running inside Pine (a terminal-workspace app) — detectable via the env vars PINE_SOCKET/PINE_TOKEN/PINE_PANE_ID/PINE_START_DIR — and wants to control its own pane or coordinate with other agents/panes in the workspace. Covers the `pine` CLI: identity (whoami), introspection (commands, docs), opening files, desktop notifications, pane attention state (pine state waiting/done), asking the human a question and waiting for the answer (pine ask: free text, one choice or several), running commands in terminal tabs the human can watch (pine process), typing into and reading other terminal panes (pine pane send/key/read), an encrypted secret vault, sandboxed workspaces (asking for a domain, an exposed port or a secret: pine sandbox request-domain/expose, pine secret ls/get), a cross-agent message bus, driving the in-app browser with agent-browser's command contract (open/snapshot refs/click/fill/type/press/find/wait/get/eval/screenshot/cookies/storage/network/tabs/--json/batch, pick element), reading the selection reports (text, image regions, PDF text or regions, terminal output) a human sends from files and terminals Pine shows (@/tmp/pine-reports-*/selection-N.md), reading the human's saved command workflows (pine workflow list/show), building sidebar sections and panels for the human as data-only JSON views (pine view schema/validate/list/open), reading/writing app settings, learning the OS and asking the human to install system packages (pine system info/install — never run sudo yourself), and pairing/managing the LAN control gateway (a phone companion app, off by default, elevated, LAN/Tailscale only — no hosted relay). Boards, cards and knowledge entries are not Pine's: use the `trellis` CLI. Also covers the capability/elevation model and a recipe for two agents (e.g. Claude + Codex) in different panes coordinating work. Triggers on "pine", "pine CLI", "am I in Pine", "control the terminal workspace", "talk to the other pane/agent", "hand off a task to another agent", "pine bus/vault/settings/browse/gateway", "automate the browser", "agent browser automation in Pine", "pair a phone with Pine", "pine gateway", "selection-N.md", "the human sent me a selection", "build a sidebar/panel/dashboard in Pine", "pine view".
 ---
 
 # Pine — the agent toolbelt
@@ -83,8 +83,37 @@ task finishes, so a human supervising many panes can jump straight to yours (Ctr
 waiting pane clears `waiting`, and so does your command exiting: report `waiting` only while you
 are still running. Default capability `drive-self`. Printing an OSC 9 notification
 (`printf '\e]9;%s\a' "msg"`) marks the pane unread with that message; it counts as `waiting`
-only while an agent runs in the pane. For wiring
-Claude Code/Codex hooks to this automatically, see `docs/AGENT-HOOKS.md` in the Pine repo.
+only while an agent runs in the pane. Pine wires Claude Code's and Codex's own hooks to this
+when it starts them in a pane.
+
+## Ask the human — a question they can answer from anywhere
+
+```sh
+pine ask "Which database should the migration target?" \
+  --context "Adding the refunds table. Staging has last week's data; prod needs a window." \
+  --choice staging --choice production          # pick one; prints the label, then their reply
+pine ask "Which checks should I run?" --choice lint --choice unit --choice e2e --multi
+pine ask "What should the release note say?"    # no --choice: free text
+git diff --stat | pine ask "Ship this?" --context - --choice yes --choice no --json
+                                                # {"answered":true,"choices":["yes"],"text":"…"}
+pine ask "Continue?" --choice yes --choice no --timeout 600   # give up after 10 minutes
+```
+
+`pine ask` puts the question on Pine's dashboard with this workspace's name and folder, marks
+your pane waiting and notifies the human if they are away, then **waits** and prints the answer:
+the chosen labels one per line, then whatever they typed. The human can always type a reply,
+with or instead of a choice, so read the whole output. Exit code 0 means answered; 2 the human
+dismissed it, 3 it timed out, 4 the pane closed: on those, do not guess an answer.
+
+When to use it: you need a decision or a missing fact and the human may not be watching your
+pane. Prefer `--choice` (up to 12 short labels) over free text: it is one click for them. Always
+give `--context` that recaps what the work is and why you are asking, since they may be reading
+it hours later with nothing else on screen (`--context -` reads stdin). Ask one question at a
+time (a pane has at most 3 open) and keep working on anything that does not depend on the
+answer. The question lives only while the command runs: run it with your longest command
+timeout or in the background, because stopping the command withdraws the question. The answer
+only ever comes back as this command's output; nothing is typed into your pane. Default
+capability `drive-self`.
 
 ## Raw UI commands
 
@@ -98,6 +127,11 @@ pine pane.close
 pine workspace.new
 pine editor.open '{"path":"src/index.ts"}'   # the raw command: reuses the editor pane, home folder only
 ```
+
+`pine pane.close` (with `'{"paneId":"…"}'` for another pane, which needs `kill-pane`) closes
+the pane at once, even while a command runs in it; the human is asked only when it holds their
+unsaved file changes. A pane the human locked answers `pane-locked`: leave it open, you can't
+unlock it.
 
 `pine commands` is the authoritative list (id + argsSchema + capabilities) — check
 it before guessing an id or an args shape.
@@ -121,6 +155,13 @@ pine process restart <id|name>     # Ctrl+C, then the same line again in the sam
   interactive shell (zsh or bash), so the human's aliases and functions apply. Quote it once
   for your own shell: `pine process run "claude 'fix the login bug'" --name fixer`.
   It starts in your current folder unless you pass `--cwd`.
+- To hand work to another agent, `pine agent run claude "fix the login bug" --name fixer`
+  (or `codex`, or an agent name the human configured) does the quoting for you: the prompt is
+  passed as one argument, and `-` reads it from stdin for a long one. The agent opens in its own
+  tab where the human can watch it; it is tracked like any other process, so `pine process logs
+  fixer` shows what it printed, and `pine pane send <paneId> "..." --enter` and
+  `pine pane read <paneId>` let you answer it. An unknown name answers `unknown-agent`: start
+  that one with `pine process run` instead.
 - Status is `starting` (not typed yet), `running`, `exited(<code>)`, or `closed` (the human
   closed the tab; start it again with `pine process run`). Nothing survives a restart of
   Pine: a restored tab is an idle shell and the list is empty.
@@ -317,8 +358,9 @@ toolchains prefer user-space installers (mise, uv, pixi) inside the workspace.
 Pine has no kanban board or wiki of its own. Task boards, cards and knowledge entries live in
 Trellis: run the `trellis` CLI directly from your pane, following its own Claude Code skills
 (`trellis:trellis` for commands, `trellis:when-to-use-trellis` for when work belongs on a board,
-`trellis:writing-knowledge` for recording findings). Pine's `trellis` extension only *shows*
-Trellis to the human (board panel, per-workspace card counts, review notifications); see
+`trellis:writing-knowledge` for recording findings). Pine's `trellis` extension is the human's
+view of Trellis (a board, card and vault panel they act in, per-workspace card counts, review
+notifications); it has no verbs that change cards for you; see
 Extensions below. Files an older Pine left behind (`.pine/board.json`, `.pine/wiki.json`) are
 the user's data: don't read them as current state, and don't delete them.
 
@@ -382,8 +424,9 @@ If the user disabled one in Settings → Extensions you'll get `extension-disabl
 enable it yourself (there is no verb for that — only the human approves/enables extensions).
 `extension-unavailable` means its process didn't start or crashed; retry once, then tell the
 user. Third-party extensions show up the same way — check `pine ext ls` before assuming a verb.
-Built-in tool extensions: `pine trellis open|status|init` (the user's Trellis board for this
-project; `init` asks the human first) and `pine keeper open|approvals` (Keeper's dashboard and the
+Built-in tool extensions: `pine trellis open|card <REF>|vault|status|init` (the user's Trellis
+board, one card or the vault in a panel for the human; `status` counts open and claimed cards;
+`init` asks the human first; to change cards yourself use the `trellis` CLI) and `pine keeper open|approvals` (Keeper's dashboard and the
 pending-approval list — read-only; approving is always the human's job, never an agent's).
 
 ## Bus — cross-agent messages & handoffs
@@ -487,7 +530,7 @@ know agent-browser, replace `agent-browser` with `pine browse`. The whole group 
 The core loop:
 
 ```sh
-pine browse open localhost:3000        # loads the url; creates a browser pane if the workspace has none
+pine browse open localhost:3000        # loads the url; creates your own browser pane if you have none
 pine browse snapshot -i                # interactive elements with refs:  - button "Submit" [ref=e2]
 pine browse fill @e3 "ada@example.com" # act on refs from the snapshot
 pine browse click @e2
@@ -586,8 +629,8 @@ Relative paths resolve against your cwd and must stay under your home directory.
 
 **Tabs.** A tab is a browser pane in your workspace; its id is the pane's external id.
 Commands go to your active tab: the one `open` created, `tab new` opened or `tab <id>` switched to,
-else the first browser pane in your workspace. Another workspace's pane needs `--pane` and
-`all-workspaces`.
+else the first browser pane in your workspace that is not on the human's profile. Another
+workspace's pane needs `--pane` and `all-workspaces`.
 
 **Refs.** `snapshot` (and `find`) give each element an `eN` ref. An element keeps its ref across
 snapshots while it stays in the page; a navigation resets them, so snapshot again after `open`,
@@ -595,9 +638,15 @@ a link click or `back`. Same-origin iframes are inlined in the snapshot and thei
 directly; `frame <sel>` scopes selectors and snapshots to one iframe, `frame main` goes back.
 Refs live in an isolated JavaScript world, so the page can't read or fake them.
 
-**Isolation.** Each browser pane has its own in-memory cookie and storage jar; nothing is shared
-with other panes or with the user's Chrome. The human can see and edit the same cookies,
-local storage and session storage from the pane's storage button.
+**Profiles.** A browser pane you open (`open`, `tab new`, `click --new-tab`) has its own
+in-memory cookie and storage jar, shared with nothing and gone when it closes. Browser panes the
+human opens share their own persistent profile: their cookies, logins and open sessions.
+`pine browse tab` lists those as `[the human's browser profile…]` without their page, and
+`open` never falls back to one. Every command that targets one (`--pane`, or `tab <id>` then any
+command) shows the human an approval card for `credentials`, every time; it is never granted for
+the session. Use one only when the human asked you to work in their signed-in browser. Scratch
+and sandboxed workspaces never use the human's profile. The human can see and edit a pane's
+cookies, local storage and session storage from its storage button.
 
 **Console and errors** are captured from the moment the pane opens (500 entries each). `errors`
 also catches uncaught exceptions and unhandled rejections through a hook Pine adds to every page.
@@ -620,12 +669,12 @@ The human and the agent can both point at an element in a browser pane:
 
 - **Human → agent.** The human clicks **Point at element** in a browser pane's toolbar, clicks the
   broken thing, writes what's wrong, and sends it to a terminal pane. Pine writes a markdown
-  report to a private tmp dir (`/tmp/pine-reports-<uid>/ui-issue-N.md`) and:
+  report to a private tmp dir (`/tmp/pine-reports-<uid>/capture-N-<page>.md`, where `<page>` is the page's host and path) and:
   - pastes `@<report path> ` at that pane's prompt (never presses Enter) if the pane is at an idle
     shell prompt or its agent reported `pine state waiting`/`done`; otherwise the path goes to the
     human's clipboard;
   - delivers a bus message to that pane whose `text` is JSON:
-    `{"kind":"ui-issue","report":"<path>","url":"…","selector":"…","note":"…"}` (read it with
+    `{"kind":"capture","report":"<path>","url":"…","selector":"…","note":"…"}` (read it with
     `pine bus inbox`);
   - sets the pane's attention to `working` (no ring).
   Read the report file: it has the note, page URL/title, a robust CSS selector, role/name, box,
@@ -642,7 +691,7 @@ The human and the agent can both point at an element in a browser pane:
 
 The inspector runs in an isolated JavaScript world of the page, so page scripts can't see or
 fake it (synthetic clicks are ignored). For your real Chrome (logged-in workspaces, extensions,
-performance traces) use Chrome DevTools MCP instead: see `docs/CHROME.md` in the Pine repo.
+performance traces) use Chrome DevTools MCP instead.
 
 ### Selections sent from files and terminals (text, images, PDFs, terminal output)
 

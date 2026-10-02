@@ -1,7 +1,8 @@
-import type { AgentResume } from './agentResume'
+import type { AgentResume, ResumableAgent } from './agentResume'
 import type { AgentSessionInfo } from './agentSessionInfo'
 import type { ApprovalAnswer, ApprovalState } from './approvals'
 import type { AssistApi } from './assist'
+import type { BrowserProfile } from './browserProfile'
 import type {
   BrowserStorageRead,
   StorageEdit,
@@ -20,22 +21,31 @@ import type {
   CredentialSaveResult,
   CredentialSummary,
 } from './credentials'
+import type { EditorLanguagesApi } from './editorLanguages'
+import type { SuggestionsApi } from './extensionSuggestions'
 import type { ExtensionResult, ExtensionsApi } from './extensions'
 import type { IconThemesApi } from './iconTheme'
 import type { LanguagePacksApi } from './languagePack'
+import type { LspApi } from './languageServers'
 import type { MarketplaceApi } from './marketplace'
 import type { OpenFileVerdict } from './openFiles'
 import type { PickOutcome, PickSendRequest, PickSendResult, PickState, PickTheme } from './pick'
 import type { PromptSeparator } from './promptSettings'
+import type { QuestionReply, QuestionState } from './questions'
 import type { ReleaseCheckResult, ReleaseInfo } from './releases'
 import type {
-  DomainRefusal,
   PortsPolicy,
   SandboxControls,
+  SandboxEditError,
   SandboxEditResult,
+  SandboxEnableResult,
   SandboxExposeResult,
+  SandboxFixedPolicy,
   SandboxMergeRefusal,
+  SandboxPathKind,
   SandboxPortRow,
+  SandboxSwitches,
+  SandboxViolation,
   WorkspacePackages,
   WorkspaceSandbox,
 } from './sandbox'
@@ -136,6 +146,7 @@ export interface PtyAttachResult {
   cursor: number
   dropped: boolean
   sandboxed?: boolean
+  sandboxStamp?: string
   host?: boolean
   cols?: number
   rows?: number
@@ -155,14 +166,27 @@ export interface SecretsApi {
 
 export interface SandboxApi {
   get: (workspaceId: string) => Promise<WorkspaceSandbox | null>
-  setEnabled: (workspaceId: string, enabled: boolean) => Promise<WorkspaceSandbox | null>
-  setAllowRead: (workspaceId: string, paths: string[]) => Promise<SandboxEditResult>
+  setEnabled: (workspaceId: string, enabled: boolean) => Promise<SandboxEnableResult>
+  setPaths: (
+    workspaceId: string,
+    kind: SandboxPathKind,
+    paths: string[],
+  ) => Promise<SandboxEditResult>
+  checkPaths: (kind: SandboxPathKind, paths: string[]) => Promise<SandboxEditError[]>
   setDomains: (workspaceId: string, domains: string[]) => Promise<SandboxEditResult>
+  setDeniedDomains: (workspaceId: string, domains: string[]) => Promise<SandboxEditResult>
+  setSwitches: (
+    workspaceId: string,
+    switches: Partial<SandboxSwitches>,
+  ) => Promise<WorkspaceSandbox | null>
+  fixedPolicy: (workspaceId?: string) => Promise<SandboxFixedPolicy | null>
+  stamp: (workspaceId: string) => Promise<string | null>
+  violations: (workspaceId: string) => Promise<SandboxViolation[]>
+  clearViolations: (workspaceId: string) => Promise<boolean>
   setControls: (
     workspaceId: string,
     controls: Partial<SandboxControls>,
   ) => Promise<WorkspaceSandbox | null>
-  refusals: (workspaceId: string) => Promise<DomainRefusal[]>
   allowRefused: (workspaceId: string, host: string) => Promise<boolean>
   globalsChanged: () => Promise<boolean>
   setPackages: (
@@ -193,7 +217,9 @@ export interface PtyApi {
   foreground: (paneId: string) => Promise<string | null>
   promptContext: (paneId: string, want: PromptContextRequest) => Promise<PromptContext | null>
   onData: (paneId: string, cb: (data: string) => void) => () => void
-  onExit: (paneId: string, cb: (exitCode: number) => void) => () => void
+  onExit: (paneId: string, cb: (exitCode: number, closes: boolean) => void) => () => void
+  listDir: (paneId: string, dir: string) => Promise<FsEntry[]>
+  localPrompt: (paneId: string) => Promise<boolean>
   onSize: (paneId: string, cb: (cols: number, rows: number) => void) => () => void
   onRun: (cb: (paneId: string, command: string) => void) => () => void
 }
@@ -229,26 +255,6 @@ export type FsBinaryResult =
   | { ok: false; error: 'too-large'; size: number }
 
 export type FsKind = 'file' | 'dir'
-
-export interface LspStartResult {
-  id: string
-  root: string
-}
-
-export interface LspServerInfo {
-  languageId: string
-  command: string
-  installed: boolean
-}
-
-export interface LspApi {
-  list: () => Promise<LspServerInfo[]>
-  start: (languageId: string, filePath: string) => Promise<LspStartResult | null>
-  send: (id: string, message: unknown) => void
-  stop: (id: string) => void
-  onMessage: (id: string, cb: (message: unknown) => void) => () => void
-  onExit: (id: string, cb: () => void) => () => void
-}
 
 export interface SettingsApi {
   path: () => Promise<string>
@@ -337,9 +343,11 @@ export interface SnapshotPaneNode {
   extensionId?: string
   chatSessionId?: string
   viewName?: string
+  browserProfile?: BrowserProfile
   resume?: AgentResume
   agentRunning?: true
   hibernated?: true
+  locked?: true
 }
 
 export interface SnapshotSplitNode {
@@ -369,6 +377,7 @@ export interface SnapshotWorkspace {
   kind: 'agent' | 'terminal' | 'scratch'
   workDir: string
   projectDir?: string
+  anchored?: true
   root?: SnapshotNode
   activePaneId?: string
   origin?: WorkspaceOrigin
@@ -443,6 +452,47 @@ export interface WindowSummary {
   workspaces: WindowWorkspaceSummary[]
 }
 
+export type PaneAgentKind = ResumableAgent | 'other'
+
+export interface WindowPaneReport extends WindowPaneSummary {
+  agent?: PaneAgentKind
+  state?: AttentionState
+  cwd?: string
+}
+
+export interface WindowWorkspaceReport extends WindowWorkspaceSummary {
+  origin?: string
+  panes: WindowPaneReport[]
+}
+
+export interface OriginAgentTarget {
+  paneId: string
+  title: string
+  agent: PaneAgentKind
+  state: AttentionState
+  cwd?: string
+}
+
+export interface OriginAgents {
+  workspaceId: string
+  workspaceName: string
+  targets: OriginAgentTarget[]
+}
+
+export interface OriginReferenceRequest {
+  workspaceId: string
+  paneId: string
+  text: string
+  note?: string
+}
+
+export interface ReferenceInsert {
+  requestId: string
+  paneId: string
+  text: string
+  note?: string
+}
+
 export interface NewWorkspaceRequest {
   dir?: string
   name?: string
@@ -474,7 +524,7 @@ export interface WindowsApi {
   landing: (paneId: string) => Promise<boolean>
   give: (workspace: SnapshotWorkspace) => Promise<boolean>
   returnToMain: (workspaces: SnapshotWorkspace[]) => Promise<boolean>
-  report: (workspaces: WindowWorkspaceSummary[]) => void
+  report: (workspaces: WindowWorkspaceReport[]) => void
   focusWorkspace: (workspaceId: string, jumpToUnread: boolean) => void
   returnWorkspace: (workspaceId: string) => void
   newWorkspace: (request: NewWorkspaceRequest) => void
@@ -482,6 +532,11 @@ export interface WindowsApi {
   onAdopt: (cb: (workspaces: SnapshotWorkspace[]) => void) => () => void
   onActivateWorkspace: (cb: (workspaceId: string, jumpToUnread: boolean) => void) => () => void
   onReturnRequest: (cb: () => void) => () => void
+  originAgents: (workspaceId: string) => Promise<OriginAgents | null>
+  onOriginAgentsChanged: (cb: () => void) => () => void
+  insertReference: (request: OriginReferenceRequest) => Promise<boolean>
+  onInsertReference: (cb: (insert: ReferenceInsert) => void) => () => void
+  answerInsertReference: (requestId: string, inserted: boolean) => void
 }
 
 export type WorkspaceMergeError = 'not-owned' | 'manager' | SandboxMergeRefusal
@@ -563,6 +618,7 @@ export interface TerminalStateApi {
 }
 
 export interface BrowserApi {
+  claimProfile: (paneId: string, profile: BrowserProfile) => Promise<BrowserProfile>
   register: (paneId: string, webContentsId: number) => void
   unregister: (paneId: string) => void
   pickStart: (paneId: string, theme: PickTheme) => Promise<PickOutcome>
@@ -583,6 +639,7 @@ export interface WorkspaceProject {
   name: string
   display: string
   dir: string
+  repo: boolean
 }
 
 export type OpenPathResult = { ok: true } | { ok: false; error: 'not-found' | 'program' | 'failed' }
@@ -595,7 +652,7 @@ export interface FilesApi {
 export interface OpenPathApi {
   openDefault: (path: string) => Promise<OpenPathResult>
   reveal: (path: string) => Promise<OpenPathResult>
-  project: (dir: string) => Promise<WorkspaceProject | null>
+  project: (dir: string, exact?: boolean) => Promise<WorkspaceProject | null>
 }
 
 export interface AgentSessionApi {
@@ -633,6 +690,13 @@ export interface ApprovalsApi {
   answer: (id: string, answer: ApprovalAnswer) => Promise<boolean>
   revoke: (id: string) => Promise<boolean>
   onChange: (cb: (state: ApprovalState) => void) => () => void
+}
+
+export interface QuestionsApi {
+  state: () => Promise<QuestionState>
+  answer: (id: string, reply: QuestionReply) => Promise<boolean>
+  dismiss: (id: string) => Promise<boolean>
+  onChange: (cb: (state: QuestionState) => void) => () => void
 }
 
 export interface GatewayStatus {
@@ -749,6 +813,7 @@ export interface PineBridge {
   browser: BrowserApi
   selection: SelectionApi
   approvals: ApprovalsApi
+  questions: QuestionsApi
   credentials: CredentialsApi
   sandbox: SandboxApi
   secrets: SecretsApi
@@ -759,6 +824,7 @@ export interface PineBridge {
   files: FilesApi
   extensions: ExtensionsApi
   marketplace: MarketplaceApi
+  suggestions: SuggestionsApi
   externalEditor: ExternalEditorApi
   gateway: GatewayApi
   notifications: NotificationsApi
@@ -769,6 +835,7 @@ export interface PineBridge {
   chatTools: ChatToolsApi
   iconThemes: IconThemesApi
   languagePacks: LanguagePacksApi
+  editorLanguages: EditorLanguagesApi
   views: ViewsApi
 }
 

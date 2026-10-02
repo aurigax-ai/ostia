@@ -93,15 +93,17 @@ test('pick an element in a browser pane and send it to a terminal pane', async (
       .poll(() => guestEval<boolean>('!!document.querySelector("[data-pine-pick]")'))
       .toBe(false)
 
-    await panel.getByLabel("What's wrong?").fill('Checkout button is misaligned')
+    await panel.getByLabel('What’s wrong?').fill('Checkout button is misaligned')
     await expect(panel.getByRole('radio')).toHaveCount(1)
     await panel.getByRole('button', { name: 'Send' }).click()
 
     await expect(win.getByText(/The report is at its prompt/)).toBeVisible({ timeout: 15_000 })
     const terminal = win.locator('.xterm-rows').first()
-    await expect(terminal).toContainText(/@\S*ui-issue-\d+\.md/, { timeout: 15_000 })
+    await expect(terminal).toContainText(/@\S*capture-\d+\S*\.md/, {
+      timeout: 15_000,
+    })
     const text = (await terminal.textContent()) ?? ''
-    const match = text.match(/@(\S*ui-issue-\d+\.md)/)
+    const match = text.match(/@(\S*capture-\d+\S*\.md)/)
     expect(match).not.toBeNull()
     const report = readFileSync((match as RegExpMatchArray)[1], 'utf8')
     expect(report).toContain('[data-testid="broken-button"]')

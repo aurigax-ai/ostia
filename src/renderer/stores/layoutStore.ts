@@ -1,4 +1,5 @@
 import type { AgentResume } from '@shared/agentResume'
+import type { BrowserProfile } from '@shared/browserProfile'
 import type { DiffContent } from '@shared/extensions'
 import type { PanePlacement } from '@shared/types'
 import { create } from 'zustand'
@@ -13,9 +14,11 @@ import {
   findExtensionPane,
   findPane,
   findViewPane,
+  firstBrowserPane,
   firstPaneId,
   firstPaneOfKind,
   graftNode,
+  hasLockedPane,
   mergeLayouts,
   movePane,
   moveTab,
@@ -28,6 +31,7 @@ import {
   setPaneEditor,
   setPaneExtension,
   setPaneHibernated,
+  setPaneLocked,
   setPaneResume,
   setPaneTitle,
   setPaneUrl,
@@ -57,7 +61,12 @@ interface LayoutState {
   ensure: (workspaceId: string) => void
   hydrate: (layouts: Record<string, WorkspaceLayout>) => void
   split: (workspaceId: string, paneId: string, direction: Direction) => void
-  newTab: (workspaceId: string, paneId: string, kind: NewTabKind) => string | null
+  newTab: (
+    workspaceId: string,
+    paneId: string,
+    kind: NewTabKind,
+    browserProfile?: BrowserProfile,
+  ) => string | null
   closePane: (workspaceId: string, paneId: string) => void
   focusPane: (workspaceId: string, paneId: string) => void
   resize: (workspaceId: string, splitId: string, sizes: number[]) => void
@@ -69,12 +78,14 @@ interface LayoutState {
   setResume: (workspaceId: string, paneId: string, resume: AgentResume) => void
   setResumePending: (workspaceId: string, paneId: string, pending: boolean) => void
   setHibernated: (workspaceId: string, paneId: string, hibernated: boolean) => void
+  setLocked: (workspaceId: string, paneId: string, locked: boolean) => void
+  isLocked: (workspaceId: string, paneId?: string) => boolean
   setTitle: (workspaceId: string, paneId: string, title: string) => void
   openFile: (workspaceId: string, path: string) => void
   openFileTab: (workspaceId: string, path: string, paneId?: string) => void
   openFileBeside: (workspaceId: string, path: string) => void
   openTerminalTab: (workspaceId: string, cwd: string) => string | null
-  openBrowser: (workspaceId: string, url: string) => void
+  openBrowser: (workspaceId: string, url: string, profile: BrowserProfile) => void
   openExtensionPanel: (workspaceId: string, extensionId: string, title: string) => string | null
   openView: (workspaceId: string, viewName: string, title: string) => string | null
   openDiff: (workspaceId: string, content: DiffContent) => string | null
@@ -100,6 +111,10 @@ export interface OpenTerminalPlacement {
 function describeTerminal(root: LayoutNode, paneId: string, opts: OpenTerminalPlacement) {
   const withCwd = opts.cwd ? setPaneCwd(root, paneId, opts.cwd) : root
   return opts.title ? setPaneTitle(withCwd, paneId, opts.title) : withCwd
+}
+
+function workDirOf(workspaceId: string): string | undefined {
+  return useWorkspacesStore.getState().workspaces.find((w) => w.id === workspaceId)?.workDir
 }
 
 export type NewTabKind = Extract<SurfaceKind, 'terminal' | 'browser'>
@@ -199,10 +214,7 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     let createdPaneId: string | null = null
     set((s) => {
       if (s.byWorkspace[workspaceId]) return s
-      const workDir = useWorkspacesStore
-        .getState()
-        .workspaces.find((sess) => sess.id === workspaceId)?.workDir
-      const root = createPane('terminal', undefined, workDir)
+      const root = createPane('terminal', undefined, workDirOf(workspaceId))
       createdPaneId = firstPaneId(root)
       return {
         byWorkspace: {
@@ -231,7 +243,12 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       const next = patch(s, workspaceId, (l) => {
         const result = splitPane(l.root, paneId, direction)
         createdPaneId = result.newPaneId
-        return { ...l, root: result.root, activePaneId: result.newPaneId ?? l.activePaneId }
+        const workDir = workDirOf(workspaceId)
+        const root =
+          result.newPaneId && workDir
+            ? setPaneCwd(result.root, result.newPaneId, workDir)
+            : result.root
+        return { ...l, root, activePaneId: result.newPaneId ?? l.activePaneId }
       })
       return next ?? s
     })
@@ -240,16 +257,20 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     }
   },
 
-  newTab: (workspaceId, paneId, kind) => {
+  newTab: (workspaceId, paneId, kind, browserProfile = 'isolated') => {
     let createdPaneId: string | null = null
     set((s) => {
       const next = patch(s, workspaceId, (l) => {
         const target = findPane(l.root, paneId)
         if (!target) return l
-        const pane = createPane(kind, undefined, target.cwd)
+        const pane = createPane(
+          kind,
+          undefined,
+          kind === 'terminal' ? workDirOf(workspaceId) : undefined,
+        )
         const root =
           kind === 'browser'
-            ? setPaneBrowser(addTab(l.root, paneId, pane), pane.id, 'about:blank')
+            ? setPaneBrowser(addTab(l.root, paneId, pane), pane.id, 'about:blank', browserProfile)
             : addTab(l.root, paneId, pane)
         createdPaneId = pane.id
         return { ...l, root, activePaneId: pane.id, zoomedPaneId: null }
@@ -263,6 +284,7 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
   },
 
   closePane: (workspaceId, paneId) => {
+    if (get().isLocked(workspaceId, paneId)) return
     const current = get().byWorkspace[workspaceId]
     if (current?.root.type === 'pane' && current.root.id === paneId) {
       set((s) => {
@@ -395,6 +417,22 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
         : { byWorkspace: { ...s.byWorkspace, [workspaceId]: { ...layout, root } } }
     }),
 
+  setLocked: (workspaceId, paneId, locked) =>
+    set((s) => {
+      const layout = s.byWorkspace[workspaceId]
+      if (!layout || findPane(layout.root, paneId)?.kind === 'manager') return s
+      const root = setPaneLocked(layout.root, paneId, locked)
+      return root === layout.root
+        ? s
+        : { byWorkspace: { ...s.byWorkspace, [workspaceId]: { ...layout, root } } }
+    }),
+
+  isLocked: (workspaceId, paneId) => {
+    const root = get().byWorkspace[workspaceId]?.root
+    if (!root) return false
+    return paneId === undefined ? hasLockedPane(root) : findPane(root, paneId)?.locked === true
+  },
+
   openFile: (workspaceId, path) => {
     const title = path.split('/').pop() || path
     if (seedLayout(workspaceId, (p) => setPaneEditor(p, p.id, title, path))) return
@@ -485,12 +523,12 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     return paneId
   },
 
-  openBrowser: (workspaceId, url) => {
-    if (seedLayout(workspaceId, (p) => setPaneBrowser(p, p.id, url))) return
+  openBrowser: (workspaceId, url, profile) => {
+    if (seedLayout(workspaceId, (p) => setPaneBrowser(p, p.id, url, profile))) return
     let createdPaneId: string | null = null
     set((s) => {
       const next = patch(s, workspaceId, (l) => {
-        const existing = firstPaneOfKind(l.root, 'browser')
+        const existing = firstBrowserPane(l.root, profile)
         if (existing) {
           return {
             ...l,
@@ -501,7 +539,11 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
         const { root, newPaneId } = splitPane(l.root, l.activePaneId, 'horizontal')
         if (!newPaneId) return l
         createdPaneId = newPaneId
-        return { ...l, root: setPaneBrowser(root, newPaneId, url), activePaneId: newPaneId }
+        return {
+          ...l,
+          root: setPaneBrowser(root, newPaneId, url, profile),
+          activePaneId: newPaneId,
+        }
       })
       return next ?? s
     })

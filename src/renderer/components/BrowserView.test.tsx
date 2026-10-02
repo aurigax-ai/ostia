@@ -7,6 +7,7 @@ import { resetIds } from '../layout/tree'
 import { useAttentionStore } from '../stores/attentionStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { usePaneRecencyStore } from '../stores/paneRecencyStore'
+import { useSandboxStore } from '../stores/sandboxStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
 import { BrowserView } from './BrowserView'
 import { TooltipProvider } from './ui/tooltip'
@@ -79,7 +80,12 @@ function twoTerminals(): { workspaceId: string; a: string; b: string } {
 function renderView(workspaceId: string) {
   return render(
     <TooltipProvider>
-      <BrowserView workspaceId={workspaceId} paneId={BROWSER} url="http://localhost/" />
+      <BrowserView
+        workspaceId={workspaceId}
+        paneId={BROWSER}
+        url="http://localhost/"
+        profile="isolated"
+      />
     </TooltipProvider>,
   )
 }
@@ -160,7 +166,7 @@ describe('BrowserView send panel', () => {
 
   it('opens after a capture with the note focused and the most recent terminal selected', async () => {
     const { a } = await capturedPanel()
-    expect(screen.getByLabelText(/what's wrong/i)).toHaveFocus()
+    expect(screen.getByLabelText(/what’s wrong/i)).toHaveFocus()
     expect(screen.getByText('button#save 80×24')).toBeInTheDocument()
     const radios = screen.getAllByRole('radio')
     expect(radios).toHaveLength(2)
@@ -172,9 +178,9 @@ describe('BrowserView send panel', () => {
     const { b } = await capturedPanel()
     vi.mocked(window.pine.browser.pickSend).mockResolvedValue({
       ok: true,
-      path: '/tmp/pine-reports-1000/ui-issue-1.md',
+      path: '/tmp/pine-reports-1000/capture-1.md',
     })
-    await userEvent.type(screen.getByLabelText(/what's wrong/i), 'Save overlaps the footer')
+    await userEvent.type(screen.getByLabelText(/what’s wrong/i), 'Save overlaps the footer')
     await userEvent.click(screen.getAllByRole('radio')[1])
     await userEvent.click(screen.getByRole('button', { name: 'Send' }))
     expect(window.pine.browser.pickSend).toHaveBeenCalledWith({
@@ -230,6 +236,7 @@ describe('BrowserView address bar', () => {
     const { workspaceId } = twoTerminals()
     const { container } = renderView(workspaceId)
     const address = screen.getByRole('textbox', { name: /address/i })
+    await waitFor(() => expect(container.querySelector('webview')).not.toBeNull())
 
     navigated(container, 'http://localhost/docs')
     expect(address).toHaveValue('http://localhost/docs')
@@ -251,5 +258,62 @@ describe('BrowserView storage panel', () => {
     expect(toggle).toHaveAttribute('aria-pressed', 'true')
     await userEvent.click(toggle)
     expect(screen.queryByRole('region', { name: 'Storage' })).not.toBeInTheDocument()
+  })
+})
+
+describe('BrowserView profile', () => {
+  function renderWith(workspaceId: string, profile: 'shared' | 'isolated') {
+    return render(
+      <TooltipProvider>
+        <BrowserView
+          workspaceId={workspaceId}
+          paneId={BROWSER}
+          url="about:blank"
+          profile={profile}
+        />
+      </TooltipProvider>,
+    )
+  }
+
+  afterEach(() => useSandboxStore.setState({ enabled: {} }))
+
+  it('claims its profile from main and uses the partition main granted', async () => {
+    const { container } = renderWith('ws', 'shared')
+    await waitFor(() => expect(container.querySelector('webview')).not.toBeNull())
+    expect(window.pine.browser.claimProfile).toHaveBeenCalledWith(BROWSER, 'shared')
+    expect(container.querySelector('webview')?.getAttribute('partition')).toBe(
+      'persist:pine-browser',
+    )
+  })
+
+  it('falls back to its own isolated partition when main refuses the shared profile', async () => {
+    vi.mocked(window.pine.browser.claimProfile).mockResolvedValueOnce('isolated')
+    const { container } = renderWith('ws', 'shared')
+    await waitFor(() => expect(container.querySelector('webview')).not.toBeNull())
+    expect(container.querySelector('webview')?.getAttribute('partition')).toBe(
+      `pine-browser-${BROWSER}`,
+    )
+  })
+
+  it('asks only for an isolated profile in a sandboxed workspace', async () => {
+    useSandboxStore.setState({ enabled: { ws: true } })
+    const { container } = renderWith('ws', 'shared')
+    await waitFor(() => expect(container.querySelector('webview')).not.toBeNull())
+    expect(window.pine.browser.claimProfile).toHaveBeenCalledWith(BROWSER, 'isolated')
+    expect(window.pine.browser.claimProfile).not.toHaveBeenCalledWith(BROWSER, 'shared')
+  })
+
+  it('tells the human that storage changes reach every tab of their profile', async () => {
+    const { container } = renderWith('ws', 'shared')
+    await waitFor(() => expect(container.querySelector('webview')).not.toBeNull())
+    await userEvent.click(screen.getByRole('button', { name: 'Show storage' }))
+    expect(screen.getByText(/every browser tab that uses it/)).toBeInTheDocument()
+  })
+
+  it('says nothing about a shared profile on an isolated pane', async () => {
+    const { container } = renderWith('ws', 'isolated')
+    await waitFor(() => expect(container.querySelector('webview')).not.toBeNull())
+    await userEvent.click(screen.getByRole('button', { name: 'Show storage' }))
+    expect(screen.queryByText(/every browser tab that uses it/)).not.toBeInTheDocument()
   })
 })

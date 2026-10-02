@@ -61,10 +61,12 @@ function Flag({ on, label }: { on: boolean; label: string }): JSX.Element | null
 
 export function BrowserStoragePanel({
   paneId,
+  shared,
   refreshKey,
   onClose,
 }: {
   paneId: string
+  shared: boolean
   refreshKey: number
   onClose: () => void
 }): JSX.Element {
@@ -140,8 +142,14 @@ export function BrowserStoragePanel({
     session: t.emptySession,
   }
   const clearCopy: Record<StorageKind, { title: string; body: string }> = {
-    cookies: { title: t.clearCookiesTitle, body: t.clearCookiesBody },
-    local: { title: t.clearLocalTitle, body: fmt(t.clearLocalBody, { origin }) },
+    cookies: {
+      title: t.clearCookiesTitle,
+      body: shared ? t.clearCookiesSharedBody : t.clearCookiesBody,
+    },
+    local: {
+      title: t.clearLocalTitle,
+      body: fmt(shared ? t.clearLocalSharedBody : t.clearLocalBody, { origin }),
+    },
     session: { title: t.clearSessionTitle, body: fmt(t.clearSessionBody, { origin }) },
   }
 
@@ -294,6 +302,9 @@ export function BrowserStoragePanel({
             <IconButton icon={XIcon} label={t.close} onClick={onClose} />
           </div>
         </div>
+        {shared ? (
+          <p className="flex-none px-3 pt-1 text-fg-muted text-ui-xs">{t.sharedNotice}</p>
+        ) : null}
         {kind !== 'cookies' && origin ? (
           <div className="flex-none px-3 pt-1 font-mono text-fg-muted text-ui-xs">
             {fmt(t.origin, { origin })}

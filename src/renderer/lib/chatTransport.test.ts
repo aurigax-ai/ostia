@@ -77,7 +77,7 @@ describe('createAssistTransport', () => {
 
   it('passes the extension UI chunks through and stamps the model on the start chunk', async () => {
     useAssistStore.setState({
-      availability: { chat: { extId: 'a', name: 'A', label: 'fake · big' } },
+      availability: { chat: { extId: 'a', name: 'A', label: 'fake · big', ref: { extId: 'a' } } },
     })
     replyWith(
       [

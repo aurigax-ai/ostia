@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { LINK_MODIFIER_CLASS, attachLinkModifier } from './linkModifier'
+import { LINK_MODIFIER_CLASS, attachLinkModifier, linkTarget } from './linkModifier'
 
 describe('attachLinkModifier', () => {
   let detach: (() => void) | null = null
@@ -33,5 +33,14 @@ describe('attachLinkModifier', () => {
     expect(host.classList.contains(LINK_MODIFIER_CLASS)).toBe(true)
     window.dispatchEvent(new Event('blur'))
     expect(host.classList.contains(LINK_MODIFIER_CLASS)).toBe(false)
+  })
+})
+
+describe('linkTarget', () => {
+  it('follows the setting on a plain modifier click and flips it while Shift is held', () => {
+    expect(linkTarget(true, { shiftKey: false })).toBe('pane')
+    expect(linkTarget(true, { shiftKey: true })).toBe('system')
+    expect(linkTarget(false, { shiftKey: false })).toBe('system')
+    expect(linkTarget(false, { shiftKey: true })).toBe('pane')
   })
 })

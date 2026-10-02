@@ -32,9 +32,17 @@ interface ConsoleLine {
 
 interface TabLine {
   tabId: string
-  title: string
-  url: string
+  title?: string
+  url?: string
+  profile?: 'shared'
   active: boolean
+}
+
+export const SHARED_TAB_TEXT = "[the human's browser profile: driving it asks them each time]"
+
+function tabText(t: TabLine): string {
+  const rest = t.profile === 'shared' ? SHARED_TAB_TEXT : `${t.title}\t${t.url}`
+  return `${t.active ? '*' : ' '} ${t.tabId}\t${rest}`
 }
 
 interface RequestLine {
@@ -89,7 +97,7 @@ export function formatText(verb: string, data: Record<string, unknown> | null): 
     case 'tab': {
       const tabs = data.tabs as TabLine[] | undefined
       if (!tabs) return data.tabId !== undefined ? asText(data.tabId) : 'ok'
-      return tabs.map((t) => `${t.active ? '*' : ' '} ${t.tabId}\t${t.title}\t${t.url}`).join('\n')
+      return tabs.map(tabText).join('\n')
     }
     case 'network': {
       const requests = data.requests as RequestLine[] | undefined

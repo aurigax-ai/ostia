@@ -1,0 +1,13 @@
+{
+  "manifest": {
+    "name": "Python（Pyright）",
+    "description": "在編輯器中提供 Python 的診斷、自動完成、懸停說明與跳轉。此擴充功能內含 Pyright，並以 {product} 自身的執行環境執行。",
+    "settings.typeCheckingMode.title": "型別檢查",
+    "settings.typeCheckingMode.description": "Pyright 檢查型別的嚴格程度。專案中的 pyrightconfig.json 或 pyproject.toml 優先",
+    "settings.typeCheckingMode.valueTitles.off": "關閉",
+    "settings.typeCheckingMode.valueTitles.basic": "基本",
+    "settings.typeCheckingMode.valueTitles.standard": "標準",
+    "settings.typeCheckingMode.valueTitles.strict": "嚴格"
+  },
+  "messages": {}
+}

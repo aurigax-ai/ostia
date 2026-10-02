@@ -2,7 +2,7 @@ import { resolve } from 'node:path'
 import { ipcMain } from 'electron'
 import type { LanguageCatalog, LanguageContribution, LanguagePack } from '../shared/languagePack'
 import { isDangerousSegment } from '../shared/protoGuard'
-import { readConfined } from './iconThemes'
+import { readConfined } from './confinedRead'
 
 export const LANGUAGE_FILE_MAX_BYTES = 1024 * 1024
 export const LANGUAGE_MAX_DEPTH = 8

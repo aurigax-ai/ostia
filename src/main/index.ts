@@ -16,12 +16,15 @@ import {
 import type { IPty } from 'node-pty'
 import appIcon from '../../resources/icon.png?asset'
 import type { AgentResume } from '../shared/agentResume'
+import { SHARED_BROWSER_PARTITION, browserPartition } from '../shared/browserProfile'
 import { MANAGER_CAPABILITIES } from '../shared/capabilities'
 import { parseChatToolSettings } from '../shared/chatTools'
+import { languageForPath } from '../shared/editorLanguages'
+import { EXTENSION_SUGGESTIONS } from '../shared/extensionSuggestions'
 import type { ExtensionPanelContext, ExtensionResult, WorkspaceChip } from '../shared/extensions'
 import { MANAGER_FEATURE, managerAgents, parseManagerSettings } from '../shared/managerSettings'
 import { OPEN_FILES_MAX } from '../shared/openFiles'
-import { PRODUCT_NAME } from '../shared/product'
+import { OFFICIAL_MARKETPLACE, PRODUCT_NAME } from '../shared/product'
 import { parseSandboxGlobals } from '../shared/sandbox'
 import { quoteArgv } from '../shared/shellQuote'
 import type {
@@ -59,7 +62,9 @@ import {
   registerBrowseMethods,
 } from './browse'
 import { cancelPick, registerPickIpc, registerPickMethods } from './browsePick'
+import { BrowserProfiles } from './browserProfiles'
 import { registerBrowserStorageIpc } from './browserStorage'
+import { browserUserAgent } from './browserUserAgent'
 import { registerBusMethods } from './bus'
 import { dropIdentity, setCaps } from './capabilityStore'
 import { createChatSessionStore } from './chatSessions'
@@ -72,12 +77,14 @@ import { controlSocketPath, registerControlServer, stopControlServer } from './c
 import { registerCredentials } from './credentials'
 import { type Diagnostics, registerDiagnostics } from './diagnostics'
 import { registerDocsMethods } from './docs'
+import { registerEditorLanguageIpc } from './editorLanguages'
 import { emitPlatformEvent, emitSessionState, platformEvents } from './events'
 import { confirmForExtension } from './extensionConfirm'
 import { ExtensionHost, type TerminalOpenRequest, registerExtensionMethods } from './extensionHost'
 import type { ExtensionRoot } from './extensionManifest'
 import { createSecretStore } from './extensionSecrets'
 import { ExtensionStore } from './extensionStore'
+import { DismissedSuggestions, suggestionFor } from './extensionSuggestions'
 import { openInExternalEditor } from './externalEditor'
 import { FileWatches } from './fileWatch'
 import { readBinaryConfined } from './fsBinary'
@@ -99,12 +106,15 @@ import {
 } from './idRegistry'
 import { loadJson, saveJson, storePath } from './jsonStore'
 import { registerLanguagePackIpc } from './languagePacks'
+import { LanguageServers, scrubbedEnv } from './languageServers'
+import { registerLanguageServersIpc } from './languageServersIpc'
+import { atLocalPrompt } from './localPrompt'
 import { registerLoginFill } from './loginFill'
-import { killAllLsp, registerLspIpc } from './lsp'
+import { ManagedServers, downloadBaseUrl } from './managedServers'
 import { ManagerService, managerWindowId } from './manager'
 import { managerArgv, writeManagerClaudePlugin, writeManagerCodexContext } from './managerAgent'
 import { type ManagerLimiter, registerManagerMethods } from './managerMethods'
-import { Marketplace } from './marketplace'
+import { Marketplace, marketplaceId, normalizeMarketplaceUrl } from './marketplace'
 import { McpHost } from './mcpHost'
 import {
   postActionNotification,
@@ -116,6 +126,7 @@ import {
 import { OpenFileGrants } from './openFileGrants'
 import { registerOpenFileMethods } from './openFileMethods'
 import { registerOpenPathIpc } from './openPath'
+import type { OriginReach } from './originAgents'
 import { type PaneIo, registerPaneIoMethods } from './paneIo'
 import { listPanes, listWorkspaces, registerPaneListMethods } from './paneList'
 import { registerPaneResumeMethods } from './paneResume'
@@ -134,8 +145,9 @@ import { registerProjectRootIpc } from './projectRoot'
 import { KubeContextReader, NodeVersionResolver, promptContext } from './promptContext'
 import { type ReapReason, RecoveryBook, orphanVerdict, planRecovery } from './ptyReaper'
 import { PtySession, type SubscriberRole } from './ptySession'
+import { questions, registerQuestions } from './questions'
 import { exitAfterDeadline, planQuit } from './quitPlan'
-import { registerReleaseCheck } from './releaseCheck'
+import { registerReleaseCheck, releaseUserAgent } from './releaseCheck'
 import { attachWorkspace } from './sandbox/attachWorkspace'
 import { BrowserFence } from './sandbox/browserFence'
 import { registerSandboxMethods } from './sandbox/controlMethods'
@@ -146,11 +158,19 @@ import { packageCooldownEnv } from './sandbox/packageEnv'
 import { PackageRequests } from './sandbox/packageRequests'
 import { PortForwarder } from './sandbox/portForwarder'
 import { PortRequests } from './sandbox/portRequests'
+import { terminalInjectionOff, wrapForTerminal } from './sandbox/ptyWrap'
 import { sandboxFailureBanner } from './sandbox/spawnBanner'
 import { sandboxSpawnEnv } from './sandbox/spawnEnv'
 import { reportSandboxSpawnFailure } from './sandbox/spawnFailureNotice'
-import { srtVendorDir } from './sandbox/srtConfig'
+import { reachableContainerSockets, srtVendorDir } from './sandbox/srtConfig'
 import { SandboxStore } from './sandbox/store'
+import { ViolationLog, recordViolations } from './sandbox/violations'
+import {
+  type SandboxReadRules,
+  sandboxEntries,
+  sandboxPath,
+  visibleInSandbox,
+} from './sandbox/visibility'
 import { SandboxUnavailableError, WorkspaceSandboxes } from './sandbox/workspaceSandboxes'
 import { ScratchFolders, registerScratchIpc } from './scratchFolders'
 import { ScreenMirror } from './screenMirror'
@@ -161,8 +181,17 @@ import { WorkspaceAgents } from './secrets/workspaceAgents'
 import { registerSelectionIpc } from './selectionReport'
 import { type SettingsSyncHandle, startSettingsSync } from './settingsSyncIpc'
 import { ExecutableIndex, commandNames, readShellState } from './shellCommands'
+import { closesPaneOnExit } from './shellExit'
 import { INTEGRATION_DIR, shellIntegrationSpawnOptions } from './shellIntegration'
-import { SANDBOX_FEATURE, installHint, missingRequirements, onPath } from './systemRequirements'
+import {
+  SANDBOX_FEATURE,
+  installHint,
+  missingRequirements,
+  onPath,
+  programPath,
+  registerRequirements,
+  requirementLabel,
+} from './systemRequirements'
 import { registerSystemRequirementsIpc } from './systemRequirementsIpc'
 import { PTY_COLOR_ENV, PTY_TERM_NAME } from './terminalType'
 import { AppTray, closeAction, isHiddenLaunch, readCloseToTray } from './tray'
@@ -221,6 +250,8 @@ interface PtyEntry {
   stateFile: string
   workspaceId: string
   sandboxed: boolean
+  shell: string
+  sandboxStamp: string | null
   confinedBy: string | null
   keepAlive: boolean
   exitListeners: Set<(code: number) => void>
@@ -230,6 +261,34 @@ const ptys = new Map<string, PtyEntry>()
 const PTY_BUFFER_CAP = 1_000_000
 const executables = new ExecutableIndex()
 const promptSources = { node: new NodeVersionResolver(), kube: new KubeContextReader() }
+
+function listDir(dir: string): FsEntry[] {
+  try {
+    return readdirSync(dir, { withFileTypes: true })
+      .map((d) => ({ name: d.name, dir: d.isDirectory() }))
+      .sort((a, b) => (a.dir === b.dir ? a.name.localeCompare(b.name) : a.dir ? -1 : 1))
+  } catch {
+    return []
+  }
+}
+
+function holdsLocalPrompt(entry: PtyEntry): boolean {
+  return atLocalPrompt({
+    foreground: entry.pty.process,
+    shell: entry.shell,
+    sandboxed: entry.sandboxed,
+  })
+}
+
+function sandboxReadRules(entry: PtyEntry): SandboxReadRules | null {
+  if (!entry.sandboxed) return null
+  try {
+    const { denyRead, allowRead } = workspaceSandboxes.config(entry.workspaceId).filesystem
+    return { denyRead, allowRead: allowRead ?? [] }
+  } catch {
+    return { denyRead: ['/'], allowRead: [] }
+  }
+}
 
 function removeStateFile(entry: PtyEntry): void {
   rmSync(entry.stateFile, { force: true })
@@ -444,6 +503,7 @@ const workspaceSandboxes: WorkspaceSandboxes = new WorkspaceSandboxes({
     dataDirs: [app.getPath('userData'), dirname(storePath('workspaces', 'global'))],
     runtimeDir: process.env.XDG_RUNTIME_DIR,
     agentSockets: process.env.SSH_AUTH_SOCK ? [process.env.SSH_AUTH_SOCK] : [],
+    containerSockets: reachableContainerSockets(),
     socketPath: controlSocketPath(),
     srtVendorDir: srtVendorDir(app.getAppPath()),
     runtimeReads: [
@@ -454,14 +514,84 @@ const workspaceSandboxes: WorkspaceSandboxes = new WorkspaceSandboxes({
     ],
   }),
   workDir: (workspaceId) => workDirForWorkspace(workspaceId),
-  tmpRoot: privateTmpDir('pine-sandbox'),
+  tmpRoot: privateTmpDir('pine-sandbox-tmp'),
   nodePath: process.execPath,
   hostScript: join(app.getAppPath(), 'out/sandbox/host.mjs'),
   onAsk: (workspaceId, host, port) =>
     domainRequests.onBlocked(workspaceSandboxes.owner(workspaceId), host, port),
   onPackageBlocked: (workspaceId, pkg, reason) =>
     packageRequests.blocked(workspaceSandboxes.owner(workspaceId), pkg, reason),
+  onViolations: (workspaceId, lines) =>
+    recordViolations(
+      sandboxViolations,
+      (path) => workspaceSandboxes.writeRefusal(workspaceId, path),
+      workspaceSandboxes.owner(workspaceId),
+      lines,
+    ),
 })
+
+const sandboxViolations = new ViolationLog()
+
+let languageServers: LanguageServers | null = null
+
+function editorLanguageOf(path: string): string {
+  return languageForPath(
+    path,
+    (extensionHost?.editorLanguages() ?? []).map((source) => source.language),
+  )
+}
+
+const managedServers = new ManagedServers({
+  dir: join(app.getPath('userData'), 'language-servers'),
+  userAgent: releaseUserAgent(app.getVersion()),
+  findProgram: (program) => programPath(program),
+  env: () => scrubbedEnv(process.env),
+  baseUrl: downloadBaseUrl(app.isPackaged, process.env),
+})
+
+function sandboxCanRead(workspaceId: string, path: string): boolean {
+  try {
+    const { denyRead, allowRead } = workspaceSandboxes.config(workspaceId).filesystem
+    return visibleInSandbox(path, { denyRead, allowRead: allowRead ?? [] })
+  } catch {
+    return false
+  }
+}
+
+function createLanguageServers(): LanguageServers {
+  return new LanguageServers({
+    sources: () => extensionHost?.languageServers() ?? [],
+    nodePath: process.execPath,
+    env: () => process.env,
+    pane: (paneId) => getByPaneId(paneId),
+    confine: (path) => openFileGrants.confine(path),
+    workDir: (workspaceId) => workDirForWorkspace(workspaceId),
+    roots: fileRoots,
+    sandbox: {
+      owner: (workspaceId) =>
+        workspaceId !== '' && workspaceSandboxes.isEnabled(workspaceId)
+          ? workspaceSandboxes.owner(workspaceId)
+          : null,
+      readable: sandboxCanRead,
+      wrap: (workspaceId, command, extraReads) =>
+        workspaceSandboxes.wrap(workspaceId, command, 'bash', [], extraReads),
+      env: (workspaceId, env) => ({
+        ...sandboxSpawnEnv(env as Record<string, string>),
+        TMPDIR: workspaceSandboxes.tmpDir(workspaceId),
+      }),
+    },
+    findProgram: (program) => programPath(program),
+    languageOf: editorLanguageOf,
+    managed: managedServers,
+    registerRequirements,
+    post: (windowId, channel, ...args) => {
+      const win = windows.get(windowId)
+      if (win && !win.isDestroyed()) win.webContents.send(channel, ...args)
+    },
+    changed: (list) => broadcast('lsp:servers-changed', list),
+    log: (event, fields) => appLog?.info(event, fields),
+  })
+}
 
 function paneForWorkspace(workspaceId: string): string | undefined {
   for (const [paneId, entry] of ptys) {
@@ -472,6 +602,7 @@ function paneForWorkspace(workspaceId: string): string | undefined {
 
 const domainRequests: DomainRequests = new DomainRequests({
   isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
+  blockedDomains: (workspaceId) => workspaceSandboxes.resolved(workspaceId).deniedDomains,
   ask: async ({ workspaceId, paneId, host, origin }) => {
     const pane = paneId ? getByPaneId(paneId) : undefined
     const identity = pane ?? getByPaneId(paneForWorkspace(workspaceId) ?? '')
@@ -652,11 +783,24 @@ async function injectSecrets(
   return { env, notice }
 }
 
+const browserProfiles = new BrowserProfiles({
+  ownerOf: (paneId) => {
+    const identity = getByPaneId(paneId)
+    return identity ? { windowId: identity.windowId, workspaceId: identity.workspaceId } : null
+  },
+  isScratch: (workspaceId) => scratchFolders.isScratch(workspaceId),
+  isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
+})
+
 const browserFence = new BrowserFence({
   policy: (workspaceId) => {
     if (!workspaceId || !workspaceSandboxes.isEnabled(workspaceId)) return null
     const resolved = workspaceSandboxes.resolved(workspaceId)
-    return { browser: resolved.controls.browser, domains: resolved.domains }
+    return {
+      browser: resolved.controls.browser,
+      domains: resolved.domains,
+      denied: resolved.deniedDomains,
+    }
   },
   requestDomain: async (workspaceId, host) =>
     (await domainRequests.request(workspaceId, '', host)).ok,
@@ -704,6 +848,8 @@ let viewHost: ViewHost | null = null
 let mcpHost: McpHost | null = null
 let broker: WindowBroker | null = null
 const agentRunning = new AgentRunningPanes(() => broker?.persist())
+const reachesPane: OriginReach = (senderWindowId, sourcePaneId, targetPaneId) =>
+  broker?.reaches(senderWindowId, sourcePaneId, targetPaneId) ?? false
 let settingsSync: SettingsSyncHandle | null = null
 
 const EXTENSION_PARTITION_PREFIX = 'pine-ext-'
@@ -855,7 +1001,7 @@ function wireWindow(win: BrowserWindow): void {
     const extId = extensionOfPartition(params.partition)
     const allowed = extId
       ? (extensionHost?.isAllowedPanelUrl(extId, params.src) ?? false)
-      : params.partition?.startsWith('pine-browser')
+      : browserProfiles.acceptsAttach(params.partition, String(win.webContents.id))
     if (!allowed) {
       event.preventDefault()
       return
@@ -867,6 +1013,9 @@ function wireWindow(win: BrowserWindow): void {
   })
   win.webContents.on('did-attach-webview', (_e, guest) => {
     if (hardenExtensionGuest(guest)) return
+    const agent = browserUserAgent(guest.session.getUserAgent(), app.getName())
+    guest.session.setUserAgent(agent)
+    guest.setUserAgent(agent)
     instrumentBrowserGuest(guest)
     fenceBrowserGuest(guest)
     const wcId = guest.id
@@ -992,6 +1141,7 @@ function registerIpc(): void {
       if (identity) {
         dropIdentity(identity.externalId)
         approvals()?.forget(identity.externalId)
+        questions()?.forget(identity.externalId)
         extensionHost?.emitEvent('pane.closed', {
           paneId: identity.externalId,
           workspaceId: event.workspaceId,
@@ -1003,6 +1153,7 @@ function registerIpc(): void {
       if (ptys.has(event.paneId)) closedPanes.add(event.paneId)
       dropRestoredScrollback(event.paneId)
       hibernatedPanes.delete(event.paneId)
+      browserProfiles.forget(event.paneId)
       removePane(event.paneId)
       terminalState.delete(event.paneId)
       processes?.paneClosed(event.paneId)
@@ -1054,11 +1205,16 @@ function registerIpc(): void {
     }
   })
 
+  ipcMain.handle('browser:claim-profile', (e, paneId: unknown, profile: unknown) =>
+    browserProfiles.claim(paneId, String(e.sender.id), profile),
+  )
   ipcMain.on('browser:register', (e, paneId: string, webContentsId: number) => {
     const wid = String(e.sender.id)
     if (getByPaneId(paneId)?.windowId !== wid) return
     const gc = webContents.fromId(webContentsId)
     if (!gc || gc.getType() !== 'webview' || gc.hostWebContents?.id !== e.sender.id) return
+    const expected = browserPartition(browserProfiles.profileOf(paneId), paneId)
+    if (gc.session !== session.fromPartition(expected)) return
     browserPanes.set(paneId, webContentsId)
     instrumentBrowserGuest(gc)
   })
@@ -1157,6 +1313,32 @@ function registerMarketplaceIpc(marketplace: Marketplace): void {
     marketplace.installCode(id, code),
   )
   ipcMain.handle('marketplace:uninstall', (_e, extId: unknown) => marketplace.uninstall(extId))
+
+  const dismissed = new DismissedSuggestions(
+    join(app.getPath('userData'), 'extension-suggestions.json'),
+  )
+  ipcMain.handle('suggestions:for-file', (e, paneId: unknown, path: unknown) => {
+    if (typeof paneId !== 'string' || typeof path !== 'string') return null
+    if (getByPaneId(paneId)?.windowId !== String(e.sender.id)) return null
+    const file = openFileGrants.confine(path)
+    if (file === null) return null
+    return suggestionFor(file, {
+      servers: () => extensionHost?.languageServers() ?? [],
+      extensions: () => extensionHost?.list() ?? [],
+      listings: () => marketplace.languageListings(),
+      dismissed: () => dismissed.list(),
+      official: marketplaceId(normalizeMarketplaceUrl(OFFICIAL_MARKETPLACE) ?? ''),
+      languageOf: editorLanguageOf,
+    })
+  })
+  ipcMain.handle('suggestions:dismiss', (_e, extId: unknown) => dismissed.dismiss(extId))
+  ipcMain.handle('suggestions:install', (_e, extId: unknown) =>
+    marketplace.installSuggested(
+      extId,
+      OFFICIAL_MARKETPLACE,
+      typeof extId === 'string' && Object.hasOwn(EXTENSION_SUGGESTIONS, extId),
+    ),
+  )
 }
 
 function forgetWorkspaceRequests(workspaceId: string): void {
@@ -1168,6 +1350,7 @@ function forgetWorkspaceRequests(workspaceId: string): void {
 
 function forgetSandboxRuntime(workspaceId: string): void {
   workspaceSandboxes.forget(workspaceId)
+  sandboxViolations.clear(workspaceId)
   workspaceAgents.stop(workspaceId)
   secretService.forget(workspaceId)
 }
@@ -1213,10 +1396,7 @@ function registerPtyIpc(): void {
     missing: () => missingRequirements(SANDBOX_FEATURE),
     domains: domainRequests,
     ports: portRequests,
-    readPathEnv: () => ({
-      home: homedir(),
-      dataDirs: [app.getPath('userData'), dirname(storePath('workspaces', 'global'))],
-    }),
+    violations: sandboxViolations,
     refreshAll: () => workspaceSandboxes.refreshAll(),
   })
   registerSystemRequirementsIpc({
@@ -1226,6 +1406,7 @@ function registerPtyIpc(): void {
     systemExtensionEnabled: () =>
       extensionHost?.list().some((ext) => ext.id === 'system' && ext.enabled) ?? false,
     missing: (feature) => missingRequirements(feature),
+    label: requirementLabel,
     invokeInstall: (args, caller) =>
       extensionHost
         ? extensionHost.invoke('system', 'install', args, caller)
@@ -1278,6 +1459,7 @@ function registerPtyIpc(): void {
         cursor,
         dropped,
         sandboxed: existing.sandboxed,
+        ...(existing.sandboxStamp ? { sandboxStamp: existing.sandboxStamp } : {}),
         cols: existing.pty.cols,
         rows: existing.pty.rows,
       }
@@ -1328,6 +1510,7 @@ function registerPtyIpc(): void {
       ...PTY_COLOR_ENV,
     } as Record<string, string>
     let secretNotice = ''
+    let sandboxStamp: string | null = null
     let file = shell
     let args = integration.args
     let cwd = resolveCwd(opts.cwd)
@@ -1344,8 +1527,9 @@ function registerPtyIpc(): void {
           'bash',
           [stateFile],
         )
+        sandboxStamp = workspaceSandboxes.wrapStamp(workspaceId)
         file = '/bin/sh'
-        args = ['-c', wrapped]
+        args = ['-c', wrapForTerminal(wrapped, terminalInjectionOff())]
         env = {
           ...sandboxSpawnEnv(env),
           ...packageCooldownEnv(
@@ -1355,7 +1539,7 @@ function registerPtyIpc(): void {
           ...secrets.env,
         }
         env.TMPDIR = workspaceSandboxes.tmpDir(workspaceId)
-        cwd = sandboxCwd(cwd, workDirForWorkspace(workspaceId))
+        cwd = sandboxCwd(cwd, workspaceSandboxes.workDir(workspaceId))
       } catch (err) {
         const missing = err instanceof SandboxUnavailableError ? err.missing : []
         onSandboxSpawnFailure?.(workspaceId, missing)
@@ -1385,6 +1569,8 @@ function registerPtyIpc(): void {
       keepAlive: false,
       workspaceId,
       sandboxed,
+      shell,
+      sandboxStamp,
     })
     const { session } = entry
     if (sandboxed) {
@@ -1403,7 +1589,15 @@ function registerPtyIpc(): void {
     pty.onExit(({ exitCode }) => session.exit(exitCode))
     const { data, cursor, dropped } = session.since(0)
     session.addLiveSubscriber(mkSub())
-    return { created: true, buffer: data, cursor, dropped, sandboxed, host }
+    return {
+      created: true,
+      buffer: data,
+      cursor,
+      dropped,
+      sandboxed,
+      host,
+      ...(sandboxStamp ? { sandboxStamp } : {}),
+    }
   }
 
   ipcMain.on('pty:detach', (e, paneId: string) => {
@@ -1446,8 +1640,24 @@ function registerPtyIpc(): void {
   ipcMain.handle('pty:commands', async (e, paneId: string): Promise<string[]> => {
     const entry = ptys.get(paneId)
     if (!entry?.subs.has(String(e.sender.id))) return []
+    if (!holdsLocalPrompt(entry)) return []
     const state = await readShellState(entry.stateFile)
-    return commandNames(executables, state?.path ?? entry.spawnPath, state?.names ?? [])
+    const path = state?.path ?? entry.spawnPath
+    const rules = sandboxReadRules(entry)
+    return commandNames(executables, rules ? sandboxPath(path, rules) : path, state?.names ?? [])
+  })
+  ipcMain.handle('pty:local-prompt', (e, paneId: string): boolean => {
+    const entry = ptys.get(paneId)
+    return entry?.subs.has(String(e.sender.id)) === true && holdsLocalPrompt(entry)
+  })
+  ipcMain.handle('pty:list-dir', (e, paneId: string, dir: string): FsEntry[] => {
+    const entry = ptys.get(paneId)
+    if (!entry?.subs.has(String(e.sender.id)) || !holdsLocalPrompt(entry)) return []
+    const safe = resolveSafe(dir, fileRoots())
+    if (safe === null) return []
+    const rules = sandboxReadRules(entry)
+    const entries = listDir(safe)
+    return rules ? sandboxEntries(safe, entries, rules) : entries
   })
   ipcMain.handle(
     'pty:prompt-context',
@@ -1482,8 +1692,11 @@ function trackPty(
     keepAlive: boolean
     workspaceId?: string
     sandboxed?: boolean
+    shell?: string
+    sandboxStamp?: string | null
   },
 ): PtyEntry {
+  const spawnedAt = Date.now()
   const session = new PtySession({
     capBytes: PTY_BUFFER_CAP,
     onNoOwners: () => {
@@ -1501,8 +1714,13 @@ function trackPty(
       appLog?.info('pty-exit', { pane: paneId, code })
       if (entry.killTimer) clearTimeout(entry.killTimer)
       entry.killTimer = null
+      const closes = closesPaneOnExit({
+        ownExit: ptys.get(paneId) === entry,
+        code,
+        livedMs: Date.now() - spawnedAt,
+      })
       for (const wc of entry.subs.values()) {
-        if (!wc.isDestroyed()) wc.send(`pty:exit:${paneId}`, code)
+        if (!wc.isDestroyed()) wc.send(`pty:exit:${paneId}`, code, closes)
       }
       for (const listener of entry.exitListeners) listener(code)
       processes?.shellEnded(paneId, (from) => session.since(from))
@@ -1530,6 +1748,8 @@ function trackPty(
     exitListeners: new Set(),
     workspaceId: opts.workspaceId ?? '',
     sandboxed: opts.sandboxed ?? false,
+    shell: opts.shell ?? '',
+    sandboxStamp: opts.sandboxStamp ?? null,
     confinedBy: opts.sandboxed ? (opts.workspaceId ?? '') : null,
   }
   ptys.set(paneId, entry)
@@ -1651,13 +1871,7 @@ function registerFsIpc(): void {
   ipcMain.handle('fs:list', (_e, dir: string): FsEntry[] => {
     const safe = resolveSafe(dir, allowedRoots)
     if (safe === null) return []
-    try {
-      return readdirSync(safe, { withFileTypes: true })
-        .map((d) => ({ name: d.name, dir: d.isDirectory() }))
-        .sort((a, b) => (a.dir === b.dir ? a.name.localeCompare(b.name) : a.dir ? -1 : 1))
-    } catch {
-      return []
-    }
+    return listDir(safe)
   })
 
   ipcMain.handle('fs:stat', (_e, path: string): FsKind | null => {
@@ -1721,6 +1935,8 @@ function registerFsIpc(): void {
             win.webContents.send('settings:changed')
           }
         }
+        extensionHost?.refreshLocale()
+        extensionHost?.reloadAssistSettings()
       }
       return true
     } catch {
@@ -1845,6 +2061,10 @@ function extensionSecretStore() {
   return encryptedStore(storePath('extension-secrets', 'global'))
 }
 
+function assistKeyStore() {
+  return encryptedStore(storePath('assist-keys', 'global'))
+}
+
 function encryptedStore(path: string) {
   return createSecretStore({
     load: () => loadJson<unknown>(path, {}),
@@ -1853,6 +2073,17 @@ function encryptedStore(path: string) {
     encrypt: (plain) => safeStorage.encryptString(plain).toString('base64'),
     decrypt: (secret) => safeStorage.decryptString(Buffer.from(secret, 'base64')),
   })
+}
+
+function readSettingsFileOrNull(): { assistant?: unknown } | null {
+  try {
+    const parsed: unknown = JSON.parse(
+      readFileSync(join(app.getPath('userData'), 'settings.json'), 'utf8'),
+    )
+    return typeof parsed === 'object' && parsed !== null ? parsed : null
+  } catch (err) {
+    return (err as NodeJS.ErrnoException).code === 'ENOENT' ? {} : null
+  }
 }
 
 function readSettingsFile(): {
@@ -2054,12 +2285,14 @@ app.whenReady().then(() => {
   })
   loadRestoredScrollback()
   scratchFolders.sweep()
+  workspaceSandboxes.sweepTmp()
   registerScratchIpc(scratchFolders)
   registerIpc()
   registerPtyIpc()
   registerFsIpc()
-  registerSelectionIpc()
+  registerSelectionIpc(reachesPane)
   registerApprovals(revealWindow)
+  registerQuestions()
   registerCredentials()
   registerAppUpdate(requestQuit)
   registerReleaseCheck({
@@ -2068,7 +2301,6 @@ app.whenReady().then(() => {
     log: appLog,
   })
   registerAgentTranscriptIpc()
-  registerLspIpc()
   const notifyDeps = {
     execCommand,
     isScratchPane,
@@ -2136,6 +2368,7 @@ app.whenReady().then(() => {
       return true
     },
     cwdOfPane: (paneId) => terminalState.get(paneId)?.cwd,
+    agentArgv: (name) => managerAgents(managerSettings())[name] ?? null,
     interruptGraceMs: INTERRUPT_GRACE_MS,
   })
   processes = registry
@@ -2172,10 +2405,14 @@ app.whenReady().then(() => {
       extensionStore.reload()
       extensionHost?.reloadRecords()
     },
-    onSettingsPulled: () => extensionHost?.reloadSettings(),
+    onSettingsPulled: () => {
+      extensionHost?.reloadSettings()
+      extensionHost?.refreshLocale()
+    },
   })
   settingsSync.run()
   extensionHost = new ExtensionHost({
+    onChanged: () => languageServers?.refresh(),
     hostGrants: hostPaneGrants,
     isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
     roots: extensionRoots(),
@@ -2187,6 +2424,8 @@ app.whenReady().then(() => {
     cwdForPane: (paneId) => terminalState.get(paneId)?.cwd,
     locale: readLocale,
     readExtensionSettings: () => readSettingsFile().extensionSettings,
+    readAssistSettings: readSettingsFileOrNull,
+    assistKeys: assistKeyStore(),
     secrets: extensionSecretStore(),
     openAssistUiIn: (req) => sendToWorkspaceWindow(req.workspaceId, 'assist:open-ui', req),
     broadcast,
@@ -2200,6 +2439,13 @@ app.whenReady().then(() => {
   })
   registerExtensionMethods(() => extensionHost)
   registerExtensionIpc(extensionHost)
+  languageServers = createLanguageServers()
+  languageServers.refresh()
+  registerLanguageServersIpc({
+    servers: languageServers,
+    setEnabled: (extId, serverId, enabled) =>
+      extensionHost?.setLanguageServerEnabled(extId, serverId, enabled),
+  })
   registerMarketplaceIpc(
     new Marketplace({
       recordsPath: join(app.getPath('userData'), 'marketplaces.json'),
@@ -2211,11 +2457,14 @@ app.whenReady().then(() => {
           .filter((ext) => ext.builtin)
           .map((ext) => ext.id) ?? [],
       forget: (extId) => {
+        managedServers.forgetExtension(extId)
         extensionStore.delete(extId)
-        const secrets = extensionSecretStore()
-        for (const key of secrets.keys(extId)) secrets.set(extId, key, null)
+        for (const secrets of [extensionSecretStore(), assistKeyStore()]) {
+          for (const key of secrets.keys(extId)) secrets.set(extId, key, null)
+        }
       },
       rescan: () => extensionHost?.rescan(),
+      locale: readLocale,
     }),
   )
   registerAssistIpc(() => extensionHost)
@@ -2263,6 +2512,10 @@ app.whenReady().then(() => {
     languages: () => extensionHost?.languages() ?? [],
     onError: (extId, error) => console.warn(`[language pack ${extId}] ${error}`),
   })
+  registerEditorLanguageIpc({
+    languages: () => extensionHost?.editorLanguages() ?? [],
+    onError: (extId, error) => console.warn(`[editor language ${extId}] ${error}`),
+  })
   platformEvents.on('notify', (n: { title: string; body?: string; from: string }) =>
     extensionHost?.emitEvent('notification', n),
   )
@@ -2280,21 +2533,26 @@ app.whenReady().then(() => {
     ptyResize,
     ptyWrite,
   })
+  const sharedBrowser = session.fromPartition(SHARED_BROWSER_PARTITION)
+  sharedBrowser.setUserAgent(browserUserAgent(sharedBrowser.getUserAgent(), app.getName()))
+  const isSharedPane = (paneId: string): boolean => browserProfiles.isShared(paneId)
   registerBrowseMethods({
     allowNavigation: (workspaceId, url) => browserFence.check(workspaceId, url),
     browserPanes,
+    isSharedPane,
     execCommand,
     screenshotRoots: [homedir(), app.getPath('userData')],
     consoleBuffers,
     errorBuffers,
   })
-  registerPickMethods({ browserPanes, errorBuffers, broadcast })
-  registerPickIpc({ browserPanes, errorBuffers, broadcast })
+  registerPickMethods({ browserPanes, isSharedPane, errorBuffers, broadcast })
+  registerPickIpc({ browserPanes, isSharedPane, errorBuffers, broadcast }, reachesPane)
   registerBrowserStorageIpc((paneId, senderWindowId) =>
     ownedGuest(browserPanes, paneId, senderWindowId),
   )
   registerLoginFill({
     browserPanes,
+    isSharedPane,
     ownedGuest: (paneId, senderWindowId) => ownedGuest(browserPanes, paneId, senderWindowId),
   })
   registerControlServer({ execCommand, listCommandsFor, getTerminalState })
@@ -2331,6 +2589,7 @@ app.whenReady().then(() => {
     execCommand,
     agents: agentRunning,
     isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
+    isScratch: (workspaceId) => scratchFolders.isScratch(workspaceId),
     reveal: showWindow,
   })
   broker.register()
@@ -2408,7 +2667,7 @@ app.on('before-quit', (event) => {
     removeStateFile(entry)
   }
   ptys.clear()
-  killAllLsp()
+  languageServers?.stopAll()
   workspaceSandboxes.stopAll()
   workspaceAgents.stopAll()
   for (const workspaceId of scratchFolders.workspaceIds()) workspaceSandboxes.forget(workspaceId)

@@ -4,11 +4,18 @@ import type { Terminal } from '@xterm/xterm'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAttentionStore } from '../stores/attentionStore'
 import { useBlocksStore } from '../stores/blocksStore'
-import { canInsertReference, sendPickToPane, sendSelectionToPane } from './sendPick'
+import {
+  canInsertReference,
+  insertPathReference,
+  receiveReference,
+  sendPickToPane,
+  sendReference,
+  sendSelectionToPane,
+} from './sendPick'
 import { registerTerminal } from './terminalHandles'
 
 const TARGET = 'pane-agent'
-const REPORT = '/tmp/pine-reports-1000/ui-issue-3.md'
+const REPORT = '/tmp/pine-reports-1000/capture-3.md'
 
 const capture: PickCapture = {
   id: 'pick-1',
@@ -205,5 +212,97 @@ describe('sendSelectionToPane', () => {
     expect(await sendSelection()).toEqual({ ok: false, error: 'invalid' })
     expect(term.paste).not.toHaveBeenCalled()
     expect(useAttentionStore.getState().byPane[TARGET]).toBeUndefined()
+  })
+})
+
+describe('a target in the origin workspace of another window', () => {
+  const REMOTE = 'pane-far-agent'
+
+  it('asks main to insert the reference and never pastes or signals in this window', async () => {
+    vi.mocked(window.pine.windows.insertReference).mockResolvedValue(true)
+
+    const res = await sendPickToPane({
+      capture,
+      sourcePaneId: 'pane-browser',
+      targetPaneId: REMOTE,
+      via: 'w-moved',
+      note: '  Save   is misaligned ',
+    })
+
+    expect(res).toEqual({ ok: true, path: REPORT, inserted: true })
+    expect(window.pine.windows.insertReference).toHaveBeenCalledWith({
+      workspaceId: 'w-moved',
+      paneId: REMOTE,
+      text: `@${REPORT} `,
+      note: 'Save is misaligned',
+    })
+    expect(term.paste).not.toHaveBeenCalled()
+    expect(writeText).not.toHaveBeenCalled()
+    expect(useAttentionStore.getState().byPane[REMOTE]).toBeUndefined()
+  })
+
+  it('copies the reference when the owning window could not insert it', async () => {
+    vi.mocked(window.pine.windows.insertReference).mockResolvedValue(false)
+
+    const res = await sendPickToPane({
+      capture,
+      sourcePaneId: 'pane-browser',
+      targetPaneId: REMOTE,
+      via: 'w-moved',
+      note: '',
+    })
+
+    expect(res).toEqual({ ok: true, path: REPORT, inserted: false })
+    expect(writeText).toHaveBeenCalledWith(`@${REPORT}`)
+  })
+
+  it('sends a file path and chat text through main without a note', async () => {
+    vi.mocked(window.pine.windows.insertReference).mockResolvedValue(true)
+
+    expect(await insertPathReference({ paneId: REMOTE, via: 'w-moved' }, '/w/src/app.ts')).toBe(
+      true,
+    )
+    expect(await sendReference({ paneId: REMOTE, via: 'w-moved' }, 'pnpm test')).toBe(true)
+
+    expect(vi.mocked(window.pine.windows.insertReference).mock.calls).toEqual([
+      [{ workspaceId: 'w-moved', paneId: REMOTE, text: '@/w/src/app.ts ' }],
+      [{ workspaceId: 'w-moved', paneId: REMOTE, text: 'pnpm test' }],
+    ])
+  })
+
+  it('keeps a local target in this window', async () => {
+    idlePrompt()
+
+    expect(await insertPathReference({ paneId: TARGET }, '/w/src/app.ts')).toBe(true)
+
+    expect(term.paste).toHaveBeenCalledWith('@/w/src/app.ts ')
+    expect(window.pine.windows.insertReference).not.toHaveBeenCalled()
+  })
+})
+
+describe('receiveReference', () => {
+  const insert = { requestId: 'reference-1', paneId: TARGET, text: '@/tmp/r.md ', note: 'look' }
+
+  it('pastes a forwarded reference into a pane that can take one, without Enter', () => {
+    running()
+    useAttentionStore.getState().dispatch(TARGET, { type: 'set', state: 'waiting', at: 1 })
+
+    expect(receiveReference(insert)).toBe(true)
+
+    expect(term.paste).toHaveBeenCalledWith('@/tmp/r.md ')
+    expect(window.pine.pty.write).not.toHaveBeenCalled()
+    expect(useAttentionStore.getState().byPane[TARGET]).toMatchObject({
+      state: 'working',
+      message: 'look',
+    })
+  })
+
+  it('refuses a busy pane and a pane this window has no terminal for', () => {
+    running()
+
+    expect(receiveReference(insert)).toBe(false)
+    expect(receiveReference({ ...insert, paneId: 'pane-elsewhere', note: undefined })).toBe(false)
+
+    expect(term.paste).not.toHaveBeenCalled()
   })
 })

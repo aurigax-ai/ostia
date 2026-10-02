@@ -42,6 +42,7 @@ function ext(overrides: Partial<ExtensionInfo> = {}): ExtensionInfo {
     secretsSet: [],
     category: 'other',
     languages: [],
+    languageServers: [],
     iconThemes: [],
     ...overrides,
   }

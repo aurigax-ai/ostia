@@ -15,6 +15,7 @@ export function SandboxListEditor({
   label,
   desc,
   items,
+  fixed = [],
   inherited = [],
   placeholder,
   onChange,
@@ -22,6 +23,7 @@ export function SandboxListEditor({
   label: string
   desc?: string
   items: readonly string[]
+  fixed?: readonly string[]
   inherited?: readonly string[]
   placeholder: string
   onChange: (next: string[]) => Promise<ListEditResult>
@@ -59,18 +61,25 @@ export function SandboxListEditor({
     <fieldset aria-label={label} className="mb-4">
       <SubHead title={label} desc={desc} />
       <ul className="mb-2 flex flex-col gap-1">
+        {fixed.map((item) => (
+          <li key={`f-${item}`} className="flex items-center gap-2 text-fg-muted text-ui-sm">
+            <span className="min-w-0 flex-1 truncate font-mono">{item}</span>
+            <Badge variant="outline" className="text-ui-xs">
+              {d.sandbox.always}
+            </Badge>
+          </li>
+        ))}
         {inherited.map((item) => (
-          <li
-            key={`g-${item}`}
-            className="flex items-center gap-2 font-mono text-fg-muted text-ui-sm"
-          >
-            <span className="min-w-0 flex-1 truncate">{item}</span>
-            <Badge variant="outline">{d.sandbox.global}</Badge>
+          <li key={`g-${item}`} className="flex items-center gap-2 text-fg-muted text-ui-sm">
+            <span className="min-w-0 flex-1 truncate font-mono">{item}</span>
+            <Badge variant="outline" className="text-ui-xs">
+              {d.sandbox.global}
+            </Badge>
           </li>
         ))}
         {items.map((item) => (
-          <li key={item} className="flex items-center gap-2 font-mono text-fg text-ui-sm">
-            <span className="min-w-0 flex-1 truncate">{item}</span>
+          <li key={item} className="flex items-center gap-2 text-fg text-ui-sm">
+            <span className="min-w-0 flex-1 truncate font-mono">{item}</span>
             <IconButton
               icon={XIcon}
               label={fmt(d.sandbox.remove, { item })}

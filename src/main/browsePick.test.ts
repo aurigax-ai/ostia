@@ -19,7 +19,10 @@ const {
   DEFAULT_AGENT_PICK_TIMEOUT_MS,
   MAX_PICK_TIMEOUT_MS,
 } = await import('./browsePick')
-const { registerPane, removePane } = await import('./idRegistry')
+const { getByPaneId, registerPane, removePane } = await import('./idRegistry')
+
+const sameWindow = (sender: string, _source: string, target: string): boolean =>
+  getByPaneId(target)?.windowId === sender
 
 const raw: RawPick = {
   url: 'http://localhost/page',
@@ -56,6 +59,7 @@ const asGuest = (g: FakeGuest): Electron.WebContents => g as unknown as Electron
 function deps() {
   return {
     browserPanes: new Map<string, number>(),
+    isSharedPane: () => false,
     errorBuffers: new Map([[42, [{ level: 'error', text: 'boom', ts: 1 }]]]),
     broadcast: vi.fn(),
   }
@@ -167,23 +171,24 @@ describe('writePickReport', () => {
     const res = writePickReport(
       { captureId: id, sourcePaneId: 'browser-1', targetPaneId: 'term-1', note: 'misaligned' },
       'w1',
+      sameWindow,
     )
     if (!res.ok) throw new Error(res.error)
-    expect(res.path).toMatch(/pine-reports-\d+\/ui-issue-\d+\.md$/)
+    expect(res.path).toMatch(/pine-reports-\d+\/capture-\d+(-[a-z0-9-]+)?\.md$/)
     const md = readFileSync(res.path, 'utf8')
     expect(md).toContain('`#save`')
     expect(md).toContain('misaligned')
     expect(statSync(res.path).mode & 0o777).toBe(0o600)
     const [from, to, text] = vi.mocked(postBusMessage).mock.calls[0]
     expect(from).not.toBe(to)
-    expect(JSON.parse(text)).toMatchObject({ kind: 'ui-issue', report: res.path })
+    expect(JSON.parse(text)).toMatchObject({ kind: 'capture', report: res.path })
   })
 
   it('numbers reports so a second one never overwrites the first', async () => {
     const id = await captureId()
     const req = { captureId: id, sourcePaneId: 'browser-1', targetPaneId: 'term-1', note: '' }
-    const a = writePickReport(req, 'w1')
-    const b = writePickReport(req, 'w1')
+    const a = writePickReport(req, 'w1', sameWindow)
+    const b = writePickReport(req, 'w1', sameWindow)
     if (!a.ok || !b.ok) throw new Error('write failed')
     expect(a.path).not.toBe(b.path)
   })
@@ -194,6 +199,7 @@ describe('writePickReport', () => {
       writePickReport(
         { captureId: id, sourcePaneId: 'browser-1', targetPaneId: 'term-1', note: '' },
         'w2',
+        sameWindow,
       ),
     ).toEqual({ ok: false, error: 'not-found' })
   })
@@ -203,6 +209,7 @@ describe('writePickReport', () => {
       writePickReport(
         { captureId: 'pick-nope', sourcePaneId: 'browser-1', targetPaneId: 'term-1', note: '' },
         'w1',
+        sameWindow,
       ),
     ).toEqual({ ok: false, error: 'capture-expired' })
     const id = await captureId()
@@ -210,8 +217,27 @@ describe('writePickReport', () => {
       writePickReport(
         { captureId: id, sourcePaneId: 'term-1', targetPaneId: 'browser-1', note: '' },
         'w1',
+        sameWindow,
       ),
     ).toEqual({ ok: false, error: 'capture-expired' })
+  })
+
+  it('refuses a target the sender cannot reach and allows one it reaches in another window', async () => {
+    registerPane({ windowId: 'w9', workspaceId: 's9', paneId: 'agent-9' })
+    const id = await captureId()
+    const req = { captureId: id, sourcePaneId: 'browser-1', targetPaneId: 'agent-9', note: '' }
+
+    const refused = writePickReport(req, 'w1', sameWindow)
+    const asked: string[][] = []
+    const sent = writePickReport(req, 'w1', (...args) => {
+      asked.push(args)
+      return true
+    })
+    removePane('agent-9')
+
+    expect(refused).toEqual({ ok: false, error: 'not-found' })
+    expect(sent.ok).toBe(true)
+    expect(asked).toEqual([['w1', 'browser-1', 'agent-9']])
   })
 })
 

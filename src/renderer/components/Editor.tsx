@@ -12,9 +12,10 @@ import { useReducedMotion } from '../lib/motion'
 import { registerSelectionSender } from '../lib/selectionSenders'
 import { codeFontStack } from '../lib/uiFonts'
 import { attachWheelZoom } from '../lib/wheelZoom'
-import { openDocument } from '../lsp/client'
+import { documentSaved, openDocument } from '../lsp/client'
 import { useAskSelectionAction, useAssistCompletionsAction } from '../monaco/assistAction'
 import { langFor } from '../monaco/language'
+import { useLiveEditorSelection } from '../monaco/liveSelection'
 import { monaco } from '../monaco/setup'
 import { initialMonacoTheme, useMonacoTheme } from '../monaco/useMonacoTheme'
 import { isMac } from '../platform'
@@ -23,6 +24,7 @@ import { useEditorStatus } from '../stores/editorStatusStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { IconButton } from './IconButton'
+import { LanguageNotice } from './LanguageNotice'
 import { MarkdownPreview, type PreviewSelection, isMarkdownPath } from './MarkdownPreview'
 import { useSelectionSend } from './SelectionSend'
 import { ATTENTION_ALERT } from './attentionStyles'
@@ -199,6 +201,7 @@ export function EditorView({
       renderWhitespace: 'selection',
       padding: { top: 8 },
       inlineSuggest: { enabled: true },
+      'semanticHighlighting.enabled': true,
     })
     editorRef.current = editor
 
@@ -230,6 +233,7 @@ export function EditorView({
         return
       }
       savedVersions.set(model.uri.toString(), version)
+      documentSaved(model)
       useEditorStatus.getState().setDirty(fp, isDirty(model))
       setUnsavedPath(null)
       setDiskBar(null)
@@ -345,6 +349,7 @@ export function EditorView({
   const copyLinesLabel = d.fileMenu.copyLines
   useAssistCompletionsAction(editorRef)
   useAskSelectionAction(editorRef, pathRef)
+  useLiveEditorSelection(editorRef, pathRef, workspaceId, paneId)
 
   useEffect(() => {
     const editor = editorRef.current
@@ -398,6 +403,7 @@ export function EditorView({
     const editor = editorRef.current
     if (!editor || !filePath) return
     let alive = true
+    let releaseDocument = (): void => {}
     window.pine.fs.read(filePath).then((content) => {
       if (!alive || !editorRef.current) return
       if (content !== null && isBinary(content)) {
@@ -415,15 +421,16 @@ export function EditorView({
       if (!existing || !isDirty(existing)) diskBase.set(model.uri.toString(), content)
       editor.setModel(model)
       applyReveal(editor, filePath)
-      void openDocument(model, langFor(filePath))
+      releaseDocument = openDocument(model, paneId)
     })
     void window.pine.fs.watch(filePath)
     setDiskBar(null)
     return () => {
       alive = false
+      releaseDocument()
       window.pine.fs.unwatch(filePath)
     }
-  }, [filePath])
+  }, [filePath, paneId])
 
   useEffect(() => {
     const offChanged = window.pine.fs.onChanged((change) => {
@@ -484,6 +491,7 @@ export function EditorView({
 
   return (
     <>
+      {filePath && !binary ? <LanguageNotice paneId={paneId} filePath={filePath} /> : null}
       <div ref={hostRef} className="editor-host" style={binary ? { display: 'none' } : undefined} />
       {markdown && preview ? (
         <MarkdownPreview

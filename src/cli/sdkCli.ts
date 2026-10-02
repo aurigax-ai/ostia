@@ -9,6 +9,7 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { join, normalize, relative, resolve } from 'node:path'
+import { localeProblems } from '../main/extensionLocales'
 import { EXTENSION_ID_PATTERN, readManifest } from '../main/extensionManifest'
 import { parseMarketplaceManifest, planCopy } from '../main/marketplace'
 import { EXTENSION_MANIFEST_FILE, type ExtensionManifest } from '../shared/extensions'
@@ -38,6 +39,8 @@ type ExtensionCheck = { ok: true; manifest: ExtensionManifest } | { ok: false; p
 function checkExtension(dir: string): ExtensionCheck {
   const res = readManifest(dir)
   if (!res.ok) return { ok: false, problem: res.error }
+  const locales = localeProblems(dir, res.manifest)
+  if (locales.length > 0) return { ok: false, problem: locales.join('; ') }
   const plan = planCopy(dir)
   if (plan.ok) return { ok: true, manifest: res.manifest }
   return {
@@ -133,6 +136,7 @@ function unlist(dir: string, folder: string): SdkCliResult {
 const TEMPLATE_ID = 'hello'
 const TEMPLATE_NAME = 'Hello'
 const TEMPLATE_IGNORES = 'node_modules\ndist\n'
+const TEMPLATE_LOCALES = 'locales'
 
 function titleOf(id: string): string {
   return id
@@ -170,15 +174,27 @@ function create(id: string, target: string, templateDir: string): SdkCliResult {
     const scripts = pkg.scripts as Record<string, string>
     scripts.validate = scripts.validate.replace(`dist/${TEMPLATE_ID}`, `dist/${id}`)
   })
+  const renamed: string[] = []
   rewriteJson(join(target, EXTENSION_MANIFEST_FILE), (manifest) => {
     manifest.id = id
+    if (manifest.name !== name) renamed.push('name')
     manifest.name = name
     const { commands } = manifest.contributes as { commands: Record<string, string>[] }
     for (const command of commands) {
-      command.title = command.title.replace(TEMPLATE_NAME, name)
+      const title = command.title.replace(TEMPLATE_NAME, name)
+      if (command.title !== title) renamed.push(`commands.${command.id}.title`)
+      if (command.category !== name) renamed.push(`commands.${command.id}.category`)
+      command.title = title
       command.category = name
     }
   })
+  const catalogs = join(target, TEMPLATE_LOCALES)
+  for (const file of isDirectory(catalogs) ? readdirSync(catalogs) : []) {
+    rewriteJson(join(catalogs, file), (catalog) => {
+      const translated = (catalog.manifest ?? {}) as Record<string, string>
+      for (const slot of renamed) delete translated[slot]
+    })
+  }
   const folder = relative(process.cwd(), target) || '.'
   return {
     code: 0,
