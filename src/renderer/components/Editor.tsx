@@ -5,6 +5,7 @@ import { type RemoteFileError, isRemotePath, parseRemotePath } from '@shared/rem
 import { useEffect, useRef, useState } from 'react'
 import { externalEditorError, openPaneInExternalEditor } from '../commands/externalEditor'
 import { fmt, useDict } from '../i18n/useDict'
+import { runAppChord } from '../lib/chords'
 import { changedLines, minimalLineEdit } from '../lib/diskReload'
 import { registerEditorPosition } from '../lib/editorPositions'
 import { createAutoSave, saveFormatted } from '../lib/editorSave'
@@ -255,6 +256,9 @@ export function EditorView({
     })
     editorRef.current = editor
     setLiveEditor(editor)
+    const appChordKeys = editor.onKeyDown((e) => {
+      if (runAppChord(e.browserEvent, isMac)) e.stopPropagation()
+    })
 
     const saveRemote = async (
       model: monaco.editor.ITextModel,
@@ -463,6 +467,7 @@ export function EditorView({
     return () => {
       clearTimeout(highlightTimer)
       autoSave.cancel()
+      appChordKeys.dispose()
       contentSub.dispose()
       blurSub.dispose()
       detachWheelZoom()

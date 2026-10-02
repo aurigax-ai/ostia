@@ -21,7 +21,7 @@ import { WindowControls } from './components/WindowControls'
 import { WorkZone } from './components/WorkZone'
 import { WorkflowPicker } from './components/WorkflowPicker'
 import { TooltipProvider } from './components/ui/tooltip'
-import { WORKSPACE_GOTO, isAppChord, matchChord, workspaceIndex } from './lib/chords'
+import { runAppChord } from './lib/chords'
 import { confirmQuit, quitGroups } from './lib/closeConfirm'
 import { handleDocumentClipboardChord, syncClipboardChords } from './lib/documentClipboard'
 import { useMotionAttribute } from './lib/motion'
@@ -102,14 +102,7 @@ export function App(): JSX.Element {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (handleDocumentClipboardChord(e, isMac)) return
-      const chord = matchChord(e, isMac)
-      if (!isAppChord(chord)) return
-      e.preventDefault()
-      if (chord === WORKSPACE_GOTO) {
-        void commands.exec(chord, { index: workspaceIndex(e) })
-        return
-      }
-      void commands.exec(chord)
+      runAppChord(e, isMac)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
