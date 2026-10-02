@@ -18,6 +18,7 @@ export function SandboxListEditor({
   fixed = [],
   inherited = [],
   placeholder,
+  tagOf,
   onChange,
 }: {
   label: string
@@ -26,6 +27,7 @@ export function SandboxListEditor({
   fixed?: readonly string[]
   inherited?: readonly string[]
   placeholder: string
+  tagOf?: (item: string) => string | undefined
   onChange: (next: string[]) => Promise<ListEditResult>
 }): JSX.Element {
   const d = useDict()
@@ -33,6 +35,14 @@ export function SandboxListEditor({
   const [error, setError] = useState<string | null>(null)
   const errorText = (reason: string): string =>
     (d.sandbox.errors as Record<string, string>)[reason] ?? reason
+  const tag = (item: string): JSX.Element | null => {
+    const name = tagOf?.(item)
+    return name ? (
+      <Badge variant="outline" className="text-ui-xs">
+        {name}
+      </Badge>
+    ) : null
+  }
 
   const apply = async (next: string[]): Promise<boolean> => {
     const res = await onChange(next)
@@ -72,6 +82,7 @@ export function SandboxListEditor({
         {inherited.map((item) => (
           <li key={`g-${item}`} className="flex items-center gap-2 text-fg-muted text-ui-sm">
             <span className="min-w-0 flex-1 truncate font-mono">{item}</span>
+            {tag(item)}
             <Badge variant="outline" className="text-ui-xs">
               {d.sandbox.global}
             </Badge>
@@ -80,6 +91,7 @@ export function SandboxListEditor({
         {items.map((item) => (
           <li key={item} className="flex items-center gap-2 text-fg text-ui-sm">
             <span className="min-w-0 flex-1 truncate font-mono">{item}</span>
+            {tag(item)}
             <IconButton
               icon={XIcon}
               label={fmt(d.sandbox.remove, { item })}

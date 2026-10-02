@@ -86,6 +86,7 @@ export class WorkspaceSandboxes {
   private readonly sessionPackages = new Map<string, Set<string>>()
   private readonly mergedInto = new Map<string, string>()
   private readonly paneWrites = new Map<string, Set<string>>()
+  private readonly toldAboutHome = new Set<string>()
 
   private readonly pid: number
   private readonly instanceTmp: string
@@ -239,6 +240,13 @@ export class WorkspaceSandboxes {
     void this.refresh(owner)
   }
 
+  claimHomeNotice(workspaceId: string): boolean {
+    const owner = this.owner(workspaceId)
+    if (this.toldAboutHome.has(owner)) return false
+    this.toldAboutHome.add(owner)
+    return true
+  }
+
   tmpDir(workspaceId: string): string {
     return join(this.instanceTmp, workspaceId)
   }
@@ -331,6 +339,7 @@ export class WorkspaceSandboxes {
     this.sessionDomains.delete(workspaceId)
     this.sessionPackages.delete(workspaceId)
     this.paneWrites.delete(workspaceId)
+    this.toldAboutHome.delete(workspaceId)
     this.deps.store.remove(workspaceId)
     rmSync(this.tmpDir(workspaceId), { recursive: true, force: true })
   }
