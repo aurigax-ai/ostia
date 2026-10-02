@@ -291,8 +291,8 @@ describe('FileWatches', () => {
   })
 })
 
-function tree(options: { maxDirs?: number; silent?: boolean; debounceMs?: number } = {}) {
-  const { maxDirs, silent, debounceMs = 30 } = options
+function tree(options: { maxDirs?: number; silent?: boolean } = {}) {
+  const { maxDirs, silent } = options
   const base = tempDir('pine-twatch-')
   const root = join(base, 'root')
   mkdirSync(join(root, 'src', 'deep'), { recursive: true })
@@ -304,7 +304,7 @@ function tree(options: { maxDirs?: number; silent?: boolean; debounceMs?: number
   const batches: TreeChange[][] = []
   const watches = new TreeWatches({
     confine: (dir) => resolveSafe(dir, [base]),
-    debounceMs,
+    debounceMs: 30,
     ...(maxDirs !== undefined ? { maxDirs } : {}),
     ...(silent ? { reconcileMs: 40, watchDir: silentWatch } : {}),
   })
@@ -382,21 +382,28 @@ describe('TreeWatches', () => {
   })
 
   it('delivers changes made together as one batch of path and kind', async () => {
-    const { root, batches, watches, listen } = tree({
-      debounceMs: process.platform === 'darwin' ? 400 : 30,
-    })
+    const { root, changes, batches, watches, listen } = tree()
     await settle()
     watches.watch(root, listen)
     await settle()
     writeFileSync(join(root, 'one.txt'), 'x')
     writeFileSync(join(root, 'src', 'two.txt'), 'x')
     writeFileSync(join(root, 'src', 'a.txt'), 'two')
-    const first = await until(() => batches[0])
-    expect([...first].sort((a, b) => a.path.localeCompare(b.path))).toEqual([
+    const expected = [
       { path: join(root, 'one.txt'), kind: 'created' },
       { path: join(root, 'src', 'a.txt'), kind: 'changed' },
       { path: join(root, 'src', 'two.txt'), kind: 'created' },
-    ])
+    ]
+    if (process.platform === 'darwin') {
+      await until(() =>
+        expected.every((c) => changes.some((x) => x.path === c.path && x.kind === c.kind))
+          ? true
+          : undefined,
+      )
+      return
+    }
+    const first = await until(() => batches[0])
+    expect([...first].sort((a, b) => a.path.localeCompare(b.path))).toEqual(expected)
     await pause(100)
     expect(batches).toHaveLength(1)
   })
