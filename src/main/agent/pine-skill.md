@@ -797,7 +797,10 @@ system-facing, or dangerous is **elevated** and starts withheld: `send-other-pan
 A call that needs a capability your pane doesn't hold **asks the human** in Pine: the
 call waits (up to 90 s) while a card on your pane shows what you asked for and the human
 picks Allow once, Allow for this pane (lasts until the pane closes), or Deny. On approval
-the same call simply succeeds; you don't retry. Otherwise it fails before doing anything:
+the same call simply succeeds; you don't retry. Otherwise it fails before doing anything,
+and the error says which capability was needed and what it allows. Only the human can grant
+one (the approval card, or Settings); you cannot, so ask the human or do the work another
+way, and never retry in a loop:
 
 - `pine: denied: <caps>`: the human said no. Don't ask again for the same thing; say what
   you needed and why, and continue without it.
