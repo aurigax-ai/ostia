@@ -292,13 +292,16 @@ class GitExtension {
     repoFor: (cwd: string) => Promise<Repo | null>,
   ): Promise<void> {
     const stats = new Map<string, Promise<string>>()
-    const statsFor = (root: string): Promise<string> => {
-      let found = stats.get(root)
+    const statsFor = (repo: Repo): Promise<string> => {
+      let found = stats.get(repo.root)
       if (!found) {
-        found = lineChanges(root)
+        const untracked = repo.status.changes
+          .filter((c) => c.area === 'untracked')
+          .map((c) => c.path)
+        found = lineChanges(repo.root, untracked)
           .then(diffStatsChipText)
           .catch(() => '')
-        stats.set(root, found)
+        stats.set(repo.root, found)
       }
       return found
     }
@@ -309,7 +312,7 @@ class GitExtension {
       const branch = branchChipText(repo.status.branch)
       if (branch) next.set(`${workspaceId}\u0000${BRANCH_CHIP}`, branch)
       if (this.settings.showDiffStats) {
-        const diff = await statsFor(repo.root)
+        const diff = await statsFor(repo)
         if (diff) next.set(`${workspaceId}\u0000${DIFF_STATS_CHIP}`, diff)
       }
     }

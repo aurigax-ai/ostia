@@ -1,4 +1,10 @@
-import { type PickCapture, type PickSendResult, reportReference } from '@shared/pick'
+import {
+  type PickCapture,
+  type PickSendResult,
+  captureReferences,
+  reportReference,
+} from '@shared/pick'
+import type { RegionCapture } from '@shared/regionCapture'
 import { type SelectionCapture, type SelectionSendError, selectionLabel } from '@shared/selection'
 import type { ReferenceInsert } from '@shared/types'
 import { useAttentionStore } from '../stores/attentionStore'
@@ -68,14 +74,14 @@ export function insertPathReference(target: ReferenceTarget, path: string): Prom
 
 async function deliverReport(
   target: ReferenceTarget,
-  path: string,
+  references: string,
   note: string,
   fallback: string,
 ): Promise<boolean> {
   const summary = note.trim().replace(/\s+/g, ' ').slice(0, ATTENTION_NOTE_MAX)
-  const inserted = await sendReference(target, reportReference(path), summary || fallback)
+  const inserted = await sendReference(target, references, summary || fallback)
   if (!inserted) {
-    await navigator.clipboard?.writeText(reportReference(path).trim()).catch(() => undefined)
+    await navigator.clipboard?.writeText(references.trim()).catch(() => undefined)
   }
   return inserted
 }
@@ -84,27 +90,51 @@ export type SendPickOutcome =
   | { ok: true; path: string; inserted: boolean }
   | { ok: false; error: Extract<PickSendResult, { ok: false }>['error'] }
 
-export async function sendPickToPane(opts: {
-  capture: PickCapture
+interface CaptureSendOptions {
   sourcePaneId: string
   targetPaneId: string
   via?: string
   note: string
-}): Promise<SendPickOutcome> {
+  attachImage: boolean
+}
+
+async function deliverCapture(
+  res: PickSendResult,
+  opts: CaptureSendOptions,
+  fallback: string,
+): Promise<SendPickOutcome> {
+  if (!res.ok) return res
+  const inserted = await deliverReport(
+    { paneId: opts.targetPaneId, via: opts.via },
+    captureReferences(res.path, opts.attachImage ? res.imagePath : null),
+    opts.note,
+    fallback,
+  )
+  return { ok: true, path: res.path, inserted }
+}
+
+export async function sendPickToPane(
+  opts: CaptureSendOptions & { capture: PickCapture },
+): Promise<SendPickOutcome> {
   const res = await window.pine.browser.pickSend({
     captureId: opts.capture.id,
     sourcePaneId: opts.sourcePaneId,
     targetPaneId: opts.targetPaneId,
     note: opts.note,
   })
-  if (!res.ok) return res
-  const inserted = await deliverReport(
-    { paneId: opts.targetPaneId, via: opts.via },
-    res.path,
-    opts.note,
-    opts.capture.selector,
-  )
-  return { ok: true, path: res.path, inserted }
+  return deliverCapture(res, opts, opts.capture.selector)
+}
+
+export async function sendRegionToPane(
+  opts: CaptureSendOptions & { capture: RegionCapture },
+): Promise<SendPickOutcome> {
+  const res = await window.pine.browser.regionSend({
+    captureId: opts.capture.id,
+    sourcePaneId: opts.sourcePaneId,
+    targetPaneId: opts.targetPaneId,
+    note: opts.note,
+  })
+  return deliverCapture(res, opts, opts.capture.title || opts.capture.url)
 }
 
 export type SendSelectionOutcome =
@@ -129,7 +159,7 @@ export async function sendSelectionToPane(opts: {
   if (!res.ok) return res
   const inserted = await deliverReport(
     { paneId: opts.targetPaneId, via: opts.via },
-    res.path,
+    reportReference(res.path),
     opts.note,
     selectionLabel(opts.capture),
   )

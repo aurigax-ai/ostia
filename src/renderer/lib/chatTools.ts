@@ -3,6 +3,7 @@ import { parseEdits } from '@shared/chatEdits'
 import {
   BUILTIN_TOOL_ACCESS,
   type BuiltinChatTool,
+  CHAT_DIRTY_PATHS_MAX,
   type ChatFsError,
   type ChatFsFailure,
   type ChatFsResult,
@@ -18,6 +19,7 @@ import {
   isToolOn,
   knownVersion,
   modeFor,
+  nextSeq,
   requestApproval,
   useChatToolsStore,
 } from '../stores/chatToolsStore'
@@ -27,7 +29,7 @@ import { useSettingsStore } from '../stores/settingsStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
 import { workspaceTerminal } from './askContext'
 import { idleTerminals, insertInto, runInNewTerminal } from './chatActions'
-import { diffSummary } from './chatDiff'
+import { contentWith, editHunks, hunkCounts, settle } from './chatHunks'
 import {
   type ApprovalAnswer,
   READ_OUTSIDE_GRANT,
@@ -93,6 +95,7 @@ const FS_ERRORS: Record<ChatFsError, string> = {
   ambiguous:
     'old_text matches more than one place. Add surrounding lines so it matches once, or set replace_all.',
   'no-change': 'The edits leave the file unchanged.',
+  unsaved: 'The file has unsaved edits in the editor.',
 }
 
 export function fsErrorText(failure: ChatFsFailure, path: string): string {
@@ -339,6 +342,13 @@ function changedSinceRead(run: ToolRun, path: string, version: string | null): b
   return known !== null && known !== version
 }
 
+export function dirtyPaths(): string[] {
+  const { dirty } = useEditorStatus.getState()
+  return Object.keys(dirty)
+    .filter((path) => dirty[path])
+    .slice(0, CHAT_DIRTY_PATHS_MAX)
+}
+
 interface PlannedWrite {
   path: string
   existed: boolean
@@ -347,6 +357,11 @@ interface PlannedWrite {
   base: string | null
   outside: boolean
   symlink: boolean
+  unsaved: boolean
+}
+
+function partialNote(rejected: number, total: number): string {
+  return `The user rejected ${rejected} of ${total} changes, so the file differs from what you proposed. Read it again before editing it.`
 }
 
 async function applyWrite(
@@ -355,7 +370,6 @@ async function applyWrite(
   run: ToolRun,
   plan: PlannedWrite,
 ): Promise<ToolOutcome> {
-  const unsaved = useEditorStatus.getState().dirty[plan.path] === true
   const answer = await gate(
     run,
     {
@@ -363,23 +377,29 @@ async function applyWrite(
       access: 'write',
       outside: plan.outside,
       symlink: plan.symlink,
-      unsaved,
+      unsaved: plan.unsaved,
       repository: isRepositoryPath(plan.path),
     },
     input,
     { path: plan.path, exists: plan.existed, before: plan.before, after: plan.after },
   )
+  const store = useChatToolsStore.getState()
+  const chosen = store.hunkChoices[run.toolCallId] ?? []
+  store.clearHunks(run.toolCallId)
   if (answer && !answer.approved) return DENIED
+  const hunks = editHunks(plan.before, plan.after)
+  const decisions = answer ? settle(hunks.length, chosen) : hunks.map(() => null)
+  const content = answer ? contentWith(plan.before, plan.after, decisions) : plan.after
+  if (hunks.length > 0 && decisions.every((d) => d === 'rejected')) return DENIED
   const res = await window.pine.chatTools.write({
     path: plan.path,
     root: run.root,
     outside: plan.outside,
     symlinks: plan.symlink,
-    content: plan.after,
+    content,
     base: plan.base,
   })
   if (!res.ok) return writeFailure(run, res, plan.path)
-  const store = useChatToolsStore.getState()
   store.recordEdit({
     toolCallId: run.toolCallId,
     sessionId: run.sessionId,
@@ -393,10 +413,20 @@ async function applyWrite(
     symlink: plan.symlink,
     auto: answer === null,
     state: 'applied',
+    seq: nextSeq(run.sessionId),
+    decisions,
   })
   store.setVersion(run.sessionId, res.path, res.version)
-  const { added, removed } = diffSummary(plan.before, plan.after)
-  return { state: 'done', output: { path: res.path, created: res.created, added, removed } }
+  const { added, removed } = hunkCounts(hunks, decisions)
+  const rejected = decisions.filter((d) => d === 'rejected').length
+  const output = { path: res.path, created: res.created, added, removed }
+  return {
+    state: 'done',
+    output:
+      rejected > 0
+        ? { ...output, rejectedChanges: rejected, note: partialNote(rejected, hunks.length) }
+        : output,
+  }
 }
 
 async function editFile(input: Record<string, unknown>, run: ToolRun): Promise<ToolOutcome> {
@@ -406,7 +436,7 @@ async function editFile(input: Record<string, unknown>, run: ToolRun): Promise<T
   }
   const path = pathOf(input, run)
   const call = (outside: boolean) =>
-    window.pine.chatTools.plan({ path, root: run.root, edits, outside })
+    window.pine.chatTools.plan({ path, root: run.root, edits, outside, dirty: dirtyPaths() })
   let plan = await call(grantsFor(run.sessionId).has(READ_OUTSIDE_GRANT))
   if (!plan.ok && plan.error === 'outside-folder') {
     const answer = await gate(run, { name: 'edit_file', access: 'read', outside: true }, input, {
@@ -427,13 +457,18 @@ async function editFile(input: Record<string, unknown>, run: ToolRun): Promise<T
     base: plan.version,
     outside: plan.outside,
     symlink: plan.symlink,
+    unsaved: plan.unsaved,
   })
 }
 
 async function writeFile(input: Record<string, unknown>, run: ToolRun): Promise<ToolOutcome> {
   if (typeof input.content !== 'string') return { state: 'error', error: 'content is required' }
   const path = pathOf(input, run)
-  const preview = await window.pine.chatTools.preview({ path, root: run.root })
+  const preview = await window.pine.chatTools.preview({
+    path,
+    root: run.root,
+    dirty: dirtyPaths(),
+  })
   if (!preview.ok) return writeFailure(run, preview, path)
   if (preview.exists && changedSinceRead(run, preview.path, preview.version)) {
     return writeFailure(run, { ok: false, error: 'changed' }, preview.path)
@@ -449,6 +484,7 @@ async function writeFile(input: Record<string, unknown>, run: ToolRun): Promise<
     base: preview.version,
     outside: preview.outside,
     symlink: preview.symlink,
+    unsaved: preview.unsaved,
   })
 }
 
