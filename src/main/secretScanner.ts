@@ -46,7 +46,7 @@ export function libraryKinds(): RedactionKindInfo[] {
   }))
 }
 
-function reportedValues(message: LintMessage): string[] {
+function reportedValues(message: Pick<LintMessage, 'data'>): string[] {
   const data: unknown = message.data
   if (typeof data !== 'object' || data === null) return []
   return Object.values(data).filter(
@@ -54,16 +54,25 @@ function reportedValues(message: LintMessage): string[] {
   )
 }
 
-function spansOf(text: string, message: LintMessage, offset: number): SecretSpan[] {
+export function spansOf(
+  text: string,
+  message: Pick<LintMessage, 'ruleId' | 'range' | 'data'>,
+  offset: number,
+): SecretSpan[] {
   const kind = kindOfRule(message.ruleId)
   const [start, end] = message.range
-  const exact: SecretSpan[] = []
+  const reported: SecretSpan = { start: offset + start, end: offset + end, kind }
+  const beyond: SecretSpan[] = []
+  let shifted: SecretSpan | null = null
   for (const value of reportedValues(message)) {
     const at = text.indexOf(value, start)
-    if (at === -1 || at > end) continue
-    exact.push({ start: offset + at, end: offset + at + value.length, kind })
+    if (at === -1 || at > end || at + value.length <= end) continue
+    const span = { start: offset + at, end: offset + at + value.length, kind }
+    if (value.length === end - start) shifted = span
+    else beyond.push(span)
   }
-  return exact.length > 0 ? exact : [{ start: offset + start, end: offset + end, kind }]
+  if (shifted && beyond.length === 0) return [shifted]
+  return shifted ? [reported, shifted, ...beyond] : [reported, ...beyond]
 }
 
 function chunkEnd(text: string, start: number): number {

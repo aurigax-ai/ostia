@@ -4,7 +4,7 @@ import { resolve } from 'node:path'
 import { promisify } from 'node:util'
 import { describe, expect, it } from 'vitest'
 import { FAKE } from '../../test/fixtures/secrets/samples'
-import { SCAN_CHUNK_MAX, kindOfRule, libraryKinds, scanSecrets } from './secretScanner'
+import { SCAN_CHUNK_MAX, kindOfRule, libraryKinds, scanSecrets, spansOf } from './secretScanner'
 
 const run = promisify(execFile)
 const electronBinary = createRequire(__filename)('electron') as unknown as string
@@ -26,6 +26,38 @@ describe('libraryKinds', () => {
     expect(kinds.length).toBeGreaterThan(20)
     expect(new Set(kinds).size).toBe(kinds.length)
     for (const kind of kinds) expect(kind).toMatch(/^[a-z0-9][a-z0-9-]{0,47}$/)
+  })
+})
+
+describe('spansOf', () => {
+  const ruleId = '@secretlint/secretlint-rule-demo'
+  const text = 'name = ABCDEFGHIJKLMNOP tail'
+
+  it('uses the reported range when the reported value lies inside it', () => {
+    expect(spansOf(text, { ruleId, range: [7, 23], data: { PREFIX: 'ABCDEFGH' } }, 0)).toEqual([
+      { start: 7, end: 23, kind: 'demo' },
+    ])
+  })
+
+  it('moves a range that has the length of the value but starts at the name', () => {
+    expect(
+      spansOf(text, { ruleId, range: [0, 16], data: { KEY: 'ABCDEFGHIJKLMNOP' } }, 100),
+    ).toEqual([{ start: 107, end: 123, kind: 'demo' }])
+  })
+
+  it('adds a reported value that runs past the range, and never drops the range', () => {
+    expect(
+      spansOf(text, { ruleId, range: [7, 12], data: { KEY: 'CDEFGHIJKLMNOP tail' } }, 0),
+    ).toEqual([
+      { start: 7, end: 12, kind: 'demo' },
+      { start: 9, end: 28, kind: 'demo' },
+    ])
+  })
+
+  it('ignores reported data that is not in the text', () => {
+    expect(
+      spansOf(text, { ruleId, range: [7, 23], data: { FILE_NAME: 'secrets.json' } }, 0),
+    ).toEqual([{ start: 7, end: 23, kind: 'demo' }])
   })
 })
 
