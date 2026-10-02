@@ -1,5 +1,5 @@
-import { formatRelativeTime } from './relativeTime'
 import { isDangerousSegment } from './protoGuard'
+import { formatRelativeTime } from './relativeTime'
 
 export const VIEW_FILTERS = ['upper', 'lower', 'count', 'not', 'relative', 'time', 'date'] as const
 export type ViewFilter = (typeof VIEW_FILTERS)[number]

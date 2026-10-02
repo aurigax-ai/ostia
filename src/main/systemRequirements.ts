@@ -1,7 +1,7 @@
 import { constants, accessSync, statSync } from 'node:fs'
-import { findOnPath } from '../shared/pathLookup'
 import { MANAGER_FEATURE } from '../shared/managerSettings'
 import { MARKETPLACE_FEATURE } from '../shared/marketplace'
+import { findOnPath } from '../shared/pathLookup'
 import type { InstallHint, MissingRequirement } from '../shared/systemRequirements'
 import { needsPtyRelay } from './sandbox/ptyWrap'
 

@@ -1,8 +1,8 @@
 import { spawn } from 'node:child_process'
 import { constants, accessSync } from 'node:fs'
 import { isAbsolute } from 'node:path'
-import { findOnPath as findOnPathShared } from '../shared/pathLookup'
 import { splitArgs } from '../shared/argv'
+import { findOnPath as findOnPathShared } from '../shared/pathLookup'
 import type { ExternalEditorRequest, ExternalEditorResult } from '../shared/types'
 
 export function findOnPath(
@@ -43,7 +43,6 @@ export function expandTemplate(template: string, target: EditorTarget): string[]
   const argv = tokens.map((t) => t.replace(/\{(file|line|column)\}/g, (_m, key) => values[key]))
   return hasFile ? argv : [...argv, target.file]
 }
-
 
 export function resolveEditorTemplate(
   setting: string,

@@ -1,5 +1,5 @@
-import { isEqual } from 'es-toolkit'
 import type { OriginAgents } from '@shared/types'
+import { isEqual } from 'es-toolkit'
 import { useOriginAgentsStore } from '../stores/originAgentsStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
 

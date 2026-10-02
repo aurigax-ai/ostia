@@ -1,4 +1,3 @@
-import { isEqual } from 'es-toolkit'
 import {
   APICallError,
   type JSONSchema7,
@@ -13,6 +12,7 @@ import {
   streamText,
   wrapLanguageModel,
 } from 'ai'
+import { isEqual } from 'es-toolkit'
 import type { z } from 'zod'
 import { type AssistContext, AssistFailure } from '..'
 import type {
