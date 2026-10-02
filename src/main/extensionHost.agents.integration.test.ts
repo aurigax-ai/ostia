@@ -5,7 +5,11 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vites
 import type { ExtensionAgentOffer, ExtensionCaller } from '../shared/extensions'
 import type { CommandResult } from '../shared/types'
 import { registerControlServer, stopControlServer } from './controlServer'
-import { AGENT_TASKS_PER_MINUTE, type AgentOfferDelivery } from './extensionAgents'
+import {
+  AGENT_TASKS_PER_MINUTE,
+  type AgentOfferDelivery,
+  REACHED_PANES_MAX,
+} from './extensionAgents'
 import { ExtensionHost, type TerminalOpenRequest, registerExtensionMethods } from './extensionHost'
 import { ExtensionStore } from './extensionStore'
 import { type PaneIdentity, registerPane, removePane } from './idRegistry'
@@ -211,6 +215,46 @@ describe('ExtensionHost agent tasks: ext.agents, ext.runAgent, ext.offerToAgent,
     expect(
       await call('tasker', 'ext.runAgent', { workspaceId: 'w1', agent: 'claude', prompt: 'go' }),
     ).toMatchObject({ ok: true })
+  })
+
+  it('remembers at most REACHED_PANES_MAX panes, dropping closed ones first to make room', async () => {
+    focusPaneIn.mockReturnValue(true)
+    const ids: string[] = []
+    const runAndOpen = async (): Promise<string> => {
+      const pane = registerPane({
+        windowId: '7',
+        workspaceId: 'w1',
+        paneId: `pane-cap-${ids.length}`,
+      })
+      ids.push(pane.paneId)
+      openTerminalIn.mockResolvedValueOnce(pane.externalId)
+      clock += 60_001
+      const res = await call('tasker', 'ext.runAgent', {
+        workspaceId: 'w1',
+        agent: 'claude',
+        prompt: 'go',
+      })
+      expect(res).toEqual({ ok: true, paneId: pane.externalId })
+      return pane.externalId
+    }
+    const reached = async (externalId: string): Promise<boolean> => {
+      const res = await call('tasker', 'ext.focusPane', { paneId: externalId })
+      return res.ok === true
+    }
+    const external: string[] = []
+    for (let i = 0; i < REACHED_PANES_MAX; i++) external.push(await runAndOpen())
+
+    const overflow = await runAndOpen()
+    expect(await reached(overflow)).toBe(false)
+    expect(await reached(external[0] as string)).toBe(true)
+
+    removePane(ids[0] as string)
+    const replacement = await runAndOpen()
+    expect(await reached(replacement)).toBe(true)
+    expect(await reached(external[1] as string)).toBe(true)
+    expect(await reached(external[0] as string)).toBe(false)
+
+    for (const id of ids.slice(1)) removePane(id)
   })
 
   it('focuses only a pane the extension opened or the human picked for it', async () => {
