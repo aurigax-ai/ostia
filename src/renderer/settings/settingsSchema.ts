@@ -1,3 +1,4 @@
+import { GLOBAL_HOTKEY_MAX_LENGTH } from '../../shared/globalHotkey'
 import { PRODUCT_NAME } from '../../shared/product'
 import {
   CORE_CHIP_IDS,
@@ -577,6 +578,11 @@ export const SETTINGS_JSON_SCHEMA = {
         closeToTray: {
           type: 'boolean',
           description: `Closing the window hides ${PRODUCT_NAME} instead of quitting; your terminals keep running and a tray icon brings the window back. Quit from the tray icon. Needs a desktop with a system tray. Default: false.`,
+        },
+        globalHotkey: {
+          type: 'string',
+          maxLength: GLOBAL_HOTKEY_MAX_LENGTH,
+          description: `A system-wide shortcut that brings every ${PRODUCT_NAME} window up, or hides them to the tray when one has focus, e.g. "Ctrl+Alt+Space". Modifiers: Ctrl, Alt, Shift, Super, Cmd, Mod (Cmd on macOS, Ctrl elsewhere); needs one other than Shift. On Wayland it works only where the desktop lets apps register global shortcuts. Empty turns it off. Only you can change this, in Settings; agents cannot. Default: empty.`,
         },
         wrapTitles: {
           type: 'boolean',

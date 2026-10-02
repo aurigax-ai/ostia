@@ -58,3 +58,21 @@ test('OSC 52 leaves the clipboard alone by default', async () => {
     await app.close()
   }
 })
+
+test('workspaces.globalHotkey registers a system-wide shortcut and drops it when cleared', async () => {
+  const { app, win } = await launch({ workspaces: { globalHotkey: 'Ctrl+Alt+F9' } })
+  try {
+    await expect
+      .poll(() => app.evaluate(({ globalShortcut }) => globalShortcut.isRegistered('Ctrl+Alt+F9')))
+      .toBe(true)
+    await win.locator('.topbar').getByRole('button', { name: 'Settings' }).click()
+    const settings = win.getByRole('region', { name: 'Settings' })
+    await settings.getByRole('button', { name: 'Workspaces' }).click()
+    await settings.getByRole('textbox', { name: 'Show or hide hotkey' }).fill('')
+    await expect
+      .poll(() => app.evaluate(({ globalShortcut }) => globalShortcut.isRegistered('Ctrl+Alt+F9')))
+      .toBe(false)
+  } finally {
+    await app.close()
+  }
+})

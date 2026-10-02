@@ -34,6 +34,8 @@ describe('settingsStore terminal and pane settings', () => {
         separator: 'none',
       },
       theme: 'match',
+      shell: '',
+      osc52Write: false,
     })
     expect(store().panes).toEqual({
       dimInactive: true,
@@ -65,6 +67,8 @@ describe('settingsStore terminal and pane settings', () => {
       prompt: { style: 'pine', chips: ['cwd', 'git.branch'], sameLine: false, separator: 'none' },
       clipboardKeys: 'shift',
       theme: 'match',
+      shell: '',
+      osc52Write: false,
     })
     expect(store().panes.dimInactive).toBe(false)
     expect(store().panes.focusOnHover).toBe(false)

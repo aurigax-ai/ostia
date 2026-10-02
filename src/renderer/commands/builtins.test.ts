@@ -285,6 +285,21 @@ describe('builtins route to store actions', () => {
     expect(useSettingsStore.getState().terminal.warnOnRiskyPaste).toBe(true)
   })
 
+  it('settings.set refuses OSC 52 clipboard writes and the global hotkey', async () => {
+    const osc = await commands.execWith(ctx(null, null), 'settings.set', {
+      key: 'terminal.osc52Write',
+      value: true,
+    })
+    const hotkey = await commands.execWith(ctx(null, null), 'settings.set', {
+      key: 'workspaces',
+      value: { ...useSettingsStore.getState().workspaces, globalHotkey: 'Ctrl+Alt+Space' },
+    })
+    expect(osc.ok).toBe(false)
+    expect(hotkey.ok).toBe(false)
+    expect(useSettingsStore.getState().terminal.osc52Write).toBe(false)
+    expect(useSettingsStore.getState().workspaces.globalHotkey).toBe('')
+  })
+
   it('settings.set refuses the shell program, directly or via terminal', async () => {
     const direct = await commands.execWith(ctx(null, null), 'settings.set', {
       key: 'terminal.shell',
