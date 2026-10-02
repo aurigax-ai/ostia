@@ -1,4 +1,5 @@
 import { connect } from 'node:net'
+import { Agent, setGlobalDispatcher } from 'undici'
 import { afterEach, describe, expect, it } from 'vitest'
 import {
   FAKE_MCP_SERVER,
@@ -44,6 +45,8 @@ const noSecrets: ExtensionSecretStore = {
 }
 
 const fakes: FakeMcpHttp[] = []
+setGlobalDispatcher(new Agent())
+
 const hosts: McpHost[] = []
 const oauths: McpOAuth[] = []
 
