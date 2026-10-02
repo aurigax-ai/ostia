@@ -2132,6 +2132,13 @@ export const en = {
     autoResume: 'Resume agents after a restart',
     autoResumeDesc:
       'An agent session that was running when {product} quit resumes at its pane’s first idle prompt once the pane is visible. Background tabs and other workspaces resume when you open them. Only you can change this.',
+    groupAgentHooks: 'Integration',
+    claudeHooks: 'Claude Code integration',
+    claudeHooksDesc:
+      'Run claude with the Pine plugin: the CLI skill, resume tokens and attention hooks. Turn it off if it clashes with your own hooks. Applies to new terminals.',
+    codexHooks: 'Codex integration',
+    codexHooksDesc:
+      "Run codex sessions with Pine's hooks: resume tokens, attention state and the CLI context. Turn it off if it clashes with your own hooks. Applies to new terminals.",
     hibernate: 'Hibernate idle agents',
     hibernateDesc:
       'Stop the shell of an agent that is idle and out of sight once too many agents run. Only agents that stored a resume token; Resume brings them back.',
@@ -4376,6 +4383,13 @@ export const zhHant: Dict = {
     autoResume: '重新啟動後自動恢復代理程式',
     autoResumeDesc:
       '結束 {product} 時仍在執行的代理程式工作階段，會在其窗格顯示後、於第一個閒置提示字元自動恢復。背景分頁與其他工作區會在你開啟時才恢復。只有你能變更此設定。',
+    groupAgentHooks: '整合',
+    claudeHooks: 'Claude Code 整合',
+    claudeHooksDesc:
+      '以 Pine 外掛執行 claude：CLI 技能、恢復權杖與注意力掛鉤。若與你自己的掛鉤衝突可關閉。套用於新終端機。',
+    codexHooks: 'Codex 整合',
+    codexHooksDesc:
+      '以 Pine 掛鉤執行 codex 工作階段：恢復權杖、注意力狀態與 CLI 情境。若與你自己的掛鉤衝突可關閉。套用於新終端機。',
     hibernate: '讓閒置的代理程式休眠',
     hibernateDesc:
       '執行中的代理程式過多時，停止閒置且不在畫面上的代理程式的 shell。僅限已儲存繼續權杖的代理程式；按「繼續」即可恢復。',

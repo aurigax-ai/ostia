@@ -51,6 +51,7 @@ function seed(maxLiveTerminals: number): void {
     agents: {
       hibernation: { enabled: true, idleSeconds: 600, maxLiveTerminals },
       autoResume: false,
+      hooks: { claude: true, codex: true },
     },
   })
   useWorkspacesStore.setState({
@@ -123,6 +124,7 @@ describe('hibernateIdleAgents', () => {
       agents: {
         hibernation: { enabled: false, idleSeconds: 600, maxLiveTerminals: 0 },
         autoResume: false,
+        hooks: { claude: true, codex: true },
       },
     })
     expect(await hibernateIdleAgents(NOW)).toEqual([])

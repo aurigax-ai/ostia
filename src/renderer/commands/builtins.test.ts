@@ -300,6 +300,20 @@ describe('builtins route to store actions', () => {
     expect(useSettingsStore.getState().workspaces.globalHotkey).toBe('')
   })
 
+  it('settings.set refuses the agent hook switches, directly or via agents', async () => {
+    const direct = await commands.execWith(ctx(null, null), 'settings.set', {
+      key: 'agents.hooks.claude',
+      value: false,
+    })
+    const nested = await commands.execWith(ctx(null, null), 'settings.set', {
+      key: 'agents',
+      value: { ...useSettingsStore.getState().agents, hooks: { claude: true, codex: false } },
+    })
+    expect(direct.ok).toBe(false)
+    expect(nested.ok).toBe(false)
+    expect(useSettingsStore.getState().agents.hooks).toEqual({ claude: true, codex: true })
+  })
+
   it('settings.set refuses the shell program, directly or via terminal', async () => {
     const direct = await commands.execWith(ctx(null, null), 'settings.set', {
       key: 'terminal.shell',

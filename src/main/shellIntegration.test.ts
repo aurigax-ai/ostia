@@ -544,6 +544,15 @@ describe('shellIntegrationSpawnOptions', () => {
           'abc',
         ])
         expect(run('command claude plain')).toBe('plain')
+        const off = spawnSync(
+          'bash',
+          ['--norc', '-c', `source '${BASH_INIT}'; claude --resume abc`],
+          {
+            env: { PATH: `${bin}:/usr/bin:/bin`, PINE_CLI: '/x/cli.js', PINE_NO_CLAUDE_HOOKS: '1' },
+            encoding: 'utf8',
+          },
+        ).stdout.trim()
+        expect(off.split('\n')).toEqual(['--resume', 'abc'])
       } finally {
         rmSync(bin, { recursive: true, force: true })
       }
@@ -659,6 +668,14 @@ describe('shellIntegrationSpawnOptions', () => {
         [['--version']],
       ])('passes codex %j through untouched', (args) => {
         expect(run(`codex ${quote(args)}`)).toEqual(args)
+      })
+
+      it('runs codex untouched when its hooks are turned off', () => {
+        const out = spawnSync(shell, [noRc, '-c', `source '${wrapper}'; codex 'fix it'`], {
+          env: { PATH: `${bin}:/usr/bin:/bin`, PINE_CLI: '/x/cli.js', PINE_NO_CODEX_HOOKS: '1' },
+          encoding: 'utf8',
+        }).stdout.trim()
+        expect(out).toBe('fix it')
       })
 
       it('lets command codex bypass Pine', () => {
