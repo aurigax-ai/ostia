@@ -176,11 +176,45 @@ __pine_preexec() {
   __pine_executing=1
   local __pine_line
   __pine_line=$(LC_ALL=C HISTTIMEFORMAT= builtin history 1)
-  __pine_line=\${__pine_line#*[[:digit:]][* ] }
-  case "$__pine_line" in
-    *"$BASH_COMMAND"*) __pine_mark_e "$__pine_line" ;;
+  __pine_first_entry=\${__pine_line#"\${__pine_line%%[! ]*}"}
+  __pine_first_entry=\${__pine_first_entry%%[!0-9]*}
+  __pine_first_line=\${__pine_line#*[[:digit:]][* ] }
+  case "$__pine_first_line" in
+    *"$BASH_COMMAND"*) __pine_mark_e "$__pine_first_line" ;;
+    *) __pine_first_entry='' ;;
   esac
   printf '\\e]133;C\\e\\\\'
+}
+
+# Bash reads a pasted multi-line input one line at a time: when the first command starts, only
+# its own line is in the history, so the mark above carries just that line. Once every line has
+# run, report the history entries added since (first..last) as the block's whole command, before
+# the D mark. Anything unexpected in the listing (erasedups, history -c, a trimmed list) keeps
+# the first line.
+__pine_first_entry=''
+__pine_first_line=''
+__pine_mark_whole_command() {
+  [ -n "$__pine_first_entry" ] || return 0
+  local first=$__pine_first_entry last lines pad n nl=$'\\n'
+  __pine_first_entry=''
+  last=$(LC_ALL=C HISTTIMEFORMAT= builtin history 1)
+  last=\${last#"\${last%%[! ]*}"}
+  last=\${last%%[!0-9]*}
+  [ "$last" -gt "$first" ] 2>/dev/null || return 0
+  lines=$(LC_ALL=C HISTTIMEFORMAT= builtin history $((last - first + 1)))
+  printf -v pad '%5d' "$first"
+  case "$lines" in
+    "$pad"[*\\ ]" $__pine_first_line$nl"*) lines=\${lines#"$pad"[* ] } ;;
+    *) return 0 ;;
+  esac
+  for ((n = first + 1; n <= last; n++)); do
+    printf -v pad '%5d' "$n"
+    case "$lines" in
+      *"$nl$pad"[*\\ ]" "*) lines=\${lines/"$nl$pad"[* ] /$nl} ;;
+      *) return 0 ;;
+    esac
+  done
+  __pine_mark_e "$lines"
 }
 
 # Bash 5.1+ lets PROMPT_COMMAND be an array, and distros (e.g. /etc/bash.bashrc) often
@@ -228,6 +262,7 @@ unset PINE_HISTFILE
 __pine_prompt_command() {
   local ec=$?
   if [ "$__pine_executing" = "1" ]; then
+    __pine_mark_whole_command
     printf '\\e]133;D;%s\\e\\\\' "$ec"
     __pine_executing=0
   fi
