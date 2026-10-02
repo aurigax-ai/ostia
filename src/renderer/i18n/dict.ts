@@ -50,6 +50,10 @@ export const en = {
       'palette.toggle': 'Command Palette',
       'pane.close': 'Close Pane',
       'pane.focus': 'Focus Pane',
+      'pane.focusDown': 'Focus Pane Below',
+      'pane.focusLeft': 'Focus Pane on the Left',
+      'pane.focusRight': 'Focus Pane on the Right',
+      'pane.focusUp': 'Focus Pane Above',
       'pane.list': 'List Panes',
       'pane.move': 'Move Pane',
       'pane.moveTab': 'Move Tab',
@@ -89,6 +93,8 @@ export const en = {
       'workspace.new': 'New Workspace',
       'workspace.newGroup': 'Move Workspace to New Group',
       'workspace.newScratch': 'New Scratch Workspace',
+      'workspace.next': 'Next Workspace',
+      'workspace.previous': 'Previous Workspace',
       'workspace.save': 'Save Workspace',
       'workspace.setFolder': 'Set Workspace Folder',
       'workspace.toggleGroup': 'Collapse or Expand Workspace Group',
@@ -1277,6 +1283,11 @@ export const en = {
     closeToTray: 'Keep running in the tray',
     closeToTrayDesc:
       'Closing the window hides it and your terminals keep running. Use the tray icon to show it again or quit.',
+    globalHotkey: 'Show or hide hotkey',
+    globalHotkeyDesc:
+      'A system-wide shortcut, like Ctrl+Alt+Space, that brings every window up or hides them to the tray. Needs Ctrl, Alt, Super or Cmd. Empty turns it off.',
+    globalHotkeyInvalid:
+      'Not a shortcut. Use modifiers and one key joined by +, like Ctrl+Alt+Space.',
     wrapTitles: 'Wrap long titles',
     wrapTitlesDesc: 'Show workspace names on up to two lines instead of cutting them off.',
   },
@@ -1456,6 +1467,13 @@ export const en = {
     formatOnSave: 'Format on save',
     formatOnSaveDesc:
       'Format the file with the language server (or the built-in formatter) before saving. Files with no formatter are just saved.',
+    markdownPreview: 'Open Markdown as preview',
+    markdownPreviewDesc:
+      'Markdown files open in the rendered preview; the eye button switches to the source.',
+    diffLayout: 'Diff layout',
+    diffLayoutDesc: 'How a diff opens. The button in each diff switches it.',
+    diffSideBySide: 'Side by side',
+    diffInline: 'Inline',
   },
   keyboard: {
     title: 'Keyboard',
@@ -2183,6 +2201,13 @@ export const en = {
     autoResume: 'Resume agents after a restart',
     autoResumeDesc:
       'An agent session that was running when {product} quit resumes at its pane’s first idle prompt once the pane is visible. Background tabs and other workspaces resume when you open them. Only you can change this.',
+    groupAgentHooks: 'Integration',
+    claudeHooks: 'Claude Code integration',
+    claudeHooksDesc:
+      'Run claude with the {product} plugin: the CLI skill, resume tokens and attention hooks. Turn it off if it clashes with your own hooks. Applies to new terminals.',
+    codexHooks: 'Codex integration',
+    codexHooksDesc:
+      'Run codex sessions with {product}’s hooks: resume tokens, attention state and the CLI context. Turn it off if it clashes with your own hooks. Applies to new terminals.',
     hibernate: 'Hibernate idle agents',
     hibernateDesc:
       'Stop the shell of an agent that is idle and out of sight once too many agents run. Only agents that stored a resume token; Resume brings them back.',
@@ -2208,9 +2233,19 @@ export const en = {
     notifyCommandFinished: 'Long command finished',
     notifyCommandFinishedDesc:
       'A command that ran a while finished in a pane you are not watching.',
+    longCommandSeconds: 'Long command after (seconds)',
+    longCommandSecondsDesc:
+      'A command that runs at least this long notifies you when it finishes while {product} is in the background.',
+    groupBell: 'Terminal bell',
+    bell: 'When a program rings the bell',
+    bellDesc: 'Mark the pane for attention, also play the system sound, or ignore the bell.',
+    bellAttention: 'Mark for attention',
+    bellSound: 'Mark and play a sound',
+    bellOff: 'Ignore',
     groupTheme: 'Theme and motion',
     groupFonts: 'Fonts',
     groupCursor: 'Cursor',
+    groupKeyboard: 'Keyboard',
     groupRendering: 'Rendering',
     groupInput: 'Input',
     inputMode: 'Input mode',
@@ -2221,6 +2256,9 @@ export const en = {
     inputEditorVim: 'Vim keys in the input editor',
     inputEditorVimDesc:
       'Esc switches to normal mode (h j k l w b e 0 $ x dd dw cw u, with counts); i a A I o O return to insert mode. Enter runs the command from either mode.',
+    historySuggestions: 'History suggestions',
+    historySuggestionsDesc:
+      'Show the latest matching command from history as gray text in the input editor; Right arrow accepts it.',
     promptStyle: 'Prompt style',
     promptStyleDesc:
       '{product} prompt shows context chips in the input editor and gives new shells a plain "directory" prompt, so scrollback stays readable.',
@@ -2245,6 +2283,15 @@ export const en = {
     warnRiskyPaste: 'Confirm multi-line paste',
     warnRiskyPasteDesc:
       'Ask before pasting two or more lines into a terminal: a shell may run each line as soon as it arrives. A single line is always pasted without its trailing newline or control characters. Agents can’t change this.',
+    osc52Write: 'Let programs copy to the clipboard',
+    osc52WriteDesc:
+      'Programs such as tmux, vim or an agent over ssh may set the clipboard with OSC 52. They can never read it.',
+    primarySelection: 'Primary selection',
+    primarySelectionDesc:
+      'Selecting terminal text puts it in the primary selection, and a middle click pastes the primary selection. Off turns both off.',
+    macOptionIsMeta: 'Option as Meta',
+    macOptionIsMetaDesc:
+      'Send Option+key as Meta (Esc+key) so readline and fzf Alt shortcuts work. Option then no longer types special characters.',
     groupColors: 'Colors',
     minimumContrast: 'Minimum contrast ratio',
     minimumContrastDesc:
@@ -2281,6 +2328,9 @@ export const en = {
     restoreWorkspace: 'Restore workspace on launch',
     restoreWorkspaceDesc:
       'Reopen your workspaces, panes and terminal scrollback the next time {product} starts. Shells are always respawned fresh.',
+    shell: 'Shell',
+    shellDesc:
+      'Program new terminals run, with its arguments, like /usr/bin/fish. Empty uses your login shell. Blocks and the input editor need zsh or bash.',
     externalEditor: 'External editor',
     externalEditorDesc:
       '“auto” uses code, cursor or zed from your PATH. Empty turns it off. Placeholders: {file}, {line}, {column}.',
@@ -2378,6 +2428,10 @@ export const zhHant: Dict = {
       'palette.toggle': '指令面板',
       'pane.close': '關閉窗格',
       'pane.focus': '聚焦窗格',
+      'pane.focusDown': '聚焦下方窗格',
+      'pane.focusLeft': '聚焦左側窗格',
+      'pane.focusRight': '聚焦右側窗格',
+      'pane.focusUp': '聚焦上方窗格',
       'pane.list': '列出窗格',
       'pane.move': '移動窗格',
       'pane.moveTab': '移動分頁',
@@ -2417,6 +2471,8 @@ export const zhHant: Dict = {
       'workspace.new': '新增工作區',
       'workspace.newGroup': '將工作區移到新群組',
       'workspace.newScratch': '新增暫存工作區',
+      'workspace.next': '下一個工作區',
+      'workspace.previous': '上一個工作區',
       'workspace.save': '儲存工作區',
       'workspace.setFolder': '設定工作區資料夾',
       'workspace.toggleGroup': '收合或展開工作區群組',
@@ -3585,6 +3641,10 @@ export const zhHant: Dict = {
     confirmQuitDesc: '有指令執行中時，結束應用程式或關閉視窗前先詢問。',
     closeToTray: '在系統匣中繼續執行',
     closeToTrayDesc: '關閉視窗時會隱藏視窗，終端機繼續執行。可從系統匣圖示重新顯示或結束。',
+    globalHotkey: '顯示或隱藏快速鍵',
+    globalHotkeyDesc:
+      '系統層級的快速鍵（例如 Ctrl+Alt+Space），可叫出所有視窗或將其隱藏至系統匣。需含 Ctrl、Alt、Super 或 Cmd。留空則停用。',
+    globalHotkeyInvalid: '不是有效的快速鍵。請用 + 連接修飾鍵與一個按鍵，例如 Ctrl+Alt+Space。',
     wrapTitles: '長標題換行',
     wrapTitlesDesc: '工作區名稱最多顯示兩行，而不是截斷。',
   },
@@ -3759,6 +3819,12 @@ export const zhHant: Dict = {
     formatOnSave: '儲存時格式化',
     formatOnSaveDesc:
       '儲存前以語言伺服器（或內建格式化工具）格式化檔案。沒有格式化工具的檔案會直接儲存。',
+    markdownPreview: '以預覽開啟 Markdown',
+    markdownPreviewDesc: 'Markdown 檔案以轉譯後的預覽開啟；眼睛按鈕可切換到原始碼。',
+    diffLayout: '差異檢視版面',
+    diffLayoutDesc: '差異檢視開啟時的版面。每個差異檢視中的按鈕可切換。',
+    diffSideBySide: '並排',
+    diffInline: '內嵌',
   },
   keyboard: {
     title: '鍵盤',
@@ -4473,6 +4539,13 @@ export const zhHant: Dict = {
     autoResume: '重新啟動後自動恢復代理程式',
     autoResumeDesc:
       '結束 {product} 時仍在執行的代理程式工作階段，會在其窗格顯示後、於第一個閒置提示字元自動恢復。背景分頁與其他工作區會在你開啟時才恢復。只有你能變更此設定。',
+    groupAgentHooks: '整合',
+    claudeHooks: 'Claude Code 整合',
+    claudeHooksDesc:
+      '以 {product} 外掛執行 claude：CLI 技能、恢復權杖與注意力掛鉤。若與你自己的掛鉤衝突可關閉。套用於新終端機。',
+    codexHooks: 'Codex 整合',
+    codexHooksDesc:
+      '以 {product} 掛鉤執行 codex 工作階段：恢復權杖、注意力狀態與 CLI 情境。若與你自己的掛鉤衝突可關閉。套用於新終端機。',
     hibernate: '讓閒置的代理程式休眠',
     hibernateDesc:
       '執行中的代理程式過多時，停止閒置且不在畫面上的代理程式的 shell。僅限已儲存繼續權杖的代理程式；按「繼續」即可恢復。',
@@ -4497,9 +4570,18 @@ export const zhHant: Dict = {
     notifyAgentDoneDesc: '代理程式完成了這一輪。',
     notifyCommandFinished: '長時間指令完成',
     notifyCommandFinishedDesc: '在你沒有注視的面板中，執行較久的指令已完成。',
+    longCommandSeconds: '視為長指令的秒數',
+    longCommandSecondsDesc: '執行至少這麼久的指令，在 {product} 位於背景時完成會通知你。',
+    groupBell: '終端機響鈴',
+    bell: '程式響鈴時',
+    bellDesc: '標示面板需要注意、同時播放系統音效，或忽略響鈴。',
+    bellAttention: '標示需要注意',
+    bellSound: '標示並播放音效',
+    bellOff: '忽略',
     groupTheme: '主題與動態',
     groupFonts: '字型',
     groupCursor: '游標',
+    groupKeyboard: '鍵盤',
     groupRendering: '繪製',
     groupInput: '輸入',
     inputMode: '輸入模式',
@@ -4510,6 +4592,8 @@ export const zhHant: Dict = {
     inputEditorVim: '輸入編輯器使用 Vim 按鍵',
     inputEditorVimDesc:
       'Esc 切換到一般模式（h j k l w b e 0 $ x dd dw cw u，可加次數）；i a A I o O 回到插入模式。兩種模式下按 Enter 都會執行指令。',
+    historySuggestions: '歷史建議',
+    historySuggestionsDesc: '在輸入編輯器中以灰色文字顯示最近相符的歷史指令；按右方向鍵接受。',
     promptStyle: '提示字元樣式',
     promptStyleDesc:
       '{product} 提示字元會在輸入編輯器中顯示情境標籤，並讓新的 shell 使用簡易的「目錄」提示字元，讓捲動記錄保持易讀。',
@@ -4533,6 +4617,15 @@ export const zhHant: Dict = {
     warnRiskyPaste: '確認多行貼上',
     warnRiskyPasteDesc:
       '貼上兩行以上的文字到終端機前先詢問：shell 可能會在每一行送達時立即執行。單行文字一律去掉結尾換行與控制字元後貼上。代理程式無法變更此設定。',
+    osc52Write: '允許程式複製到剪貼簿',
+    osc52WriteDesc:
+      'tmux、vim 或透過 ssh 執行的代理程式等程式可用 OSC 52 設定剪貼簿，但永遠無法讀取。',
+    primarySelection: '主要選取區',
+    primarySelectionDesc:
+      '選取終端機文字時放入主要選取區，按滑鼠中鍵貼上主要選取區。關閉則兩者皆停用。',
+    macOptionIsMeta: 'Option 作為 Meta',
+    macOptionIsMetaDesc:
+      '將 Option+按鍵 送出為 Meta（Esc+按鍵），讓 readline 與 fzf 的 Alt 快速鍵可用。Option 將不再輸入特殊字元。',
     groupColors: '色彩',
     minimumContrast: '最低對比度',
     minimumContrastDesc: '調整比此對比度更難閱讀的終端機文字，1 至 21。1 表示關閉。',
@@ -4565,6 +4658,9 @@ export const zhHant: Dict = {
     restoreWorkspace: '啟動時還原工作區',
     restoreWorkspaceDesc:
       '下次啟動 {product} 時重新開啟工作區、面板與終端機捲動紀錄。Shell 一律重新啟動。',
+    shell: 'Shell',
+    shellDesc:
+      '新終端機執行的程式及其引數，例如 /usr/bin/fish。留空則使用登入 shell。指令區塊與輸入編輯器需要 zsh 或 bash。',
     externalEditor: '外部編輯器',
     externalEditorDesc:
       '「auto」會使用 PATH 中的 code、cursor 或 zed。留空則停用。預留位置：{file}、{line}、{column}。',

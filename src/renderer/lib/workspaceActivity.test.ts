@@ -6,7 +6,6 @@ import { useLayoutStore } from '../stores/layoutStore'
 import { useUIStore } from '../stores/uiStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
 import {
-  NOTIFY_AFTER_MS,
   isPaneViewed,
   isPaneVisible,
   jumpToLatestUnread,
@@ -24,9 +23,11 @@ function homeWorkspaceId(): string {
 
 describe('shouldNotifyCommandEnd', () => {
   it('notifies only for long commands while the window is unfocused', () => {
-    expect(shouldNotifyCommandEnd(NOTIFY_AFTER_MS, false)).toBe(true)
-    expect(shouldNotifyCommandEnd(NOTIFY_AFTER_MS - 1, false)).toBe(false)
-    expect(shouldNotifyCommandEnd(NOTIFY_AFTER_MS * 3, true)).toBe(false)
+    expect(shouldNotifyCommandEnd(10_000, false, 10)).toBe(true)
+    expect(shouldNotifyCommandEnd(9_999, false, 10)).toBe(false)
+    expect(shouldNotifyCommandEnd(30_000, true, 10)).toBe(false)
+    expect(shouldNotifyCommandEnd(3_000, false, 3)).toBe(true)
+    expect(shouldNotifyCommandEnd(59_000, false, 60)).toBe(false)
   })
 })
 

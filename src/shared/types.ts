@@ -100,6 +100,8 @@ export interface WindowControls {
   quit: () => void
   isMaximized: () => Promise<boolean>
   setZoom: (percent: number) => Promise<number>
+  beep: () => void
+  writePrimarySelection: (text: string) => void
   isSystemDark: () => Promise<boolean>
   onSystemDarkChange: (cb: (dark: boolean) => void) => () => void
   onMaximizeChange: (cb: (maximized: boolean) => void) => () => void
@@ -120,7 +122,6 @@ export interface PtySpawnOptions {
   cwd?: string
   cols: number
   rows: number
-  shell?: string
   role?: 'owner' | 'observer'
   sinceCursor?: number
   pinePrompt?: PinePromptSpawn

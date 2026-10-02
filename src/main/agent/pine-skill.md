@@ -487,7 +487,8 @@ doesn't exist (`unknown settings key`), the type differs, or the setting doesn't
 (`invalid value for <key>`, e.g. an enum value it doesn't list); look the key up with
 `pine settings schema <key>` instead of guessing. Keys that launch programs or grant
 permissions or guard the human (`behavior.externalEditor`, `behavior.checkForUpdates`,
-`notifications.command`, `agents.autoResume`, `terminal.warnOnRiskyPaste`, `capabilities`,
+`notifications.command`, `agents.autoResume`, `agents.hooks`, `terminal.warnOnRiskyPaste`,
+`terminal.shell`, `terminal.osc52Write`, `workspaces.globalHotkey`, `capabilities`,
 `approvals`, `sync`) are the human's; you can't set them. `get` with no key returns every
 readable setting; with a key it prints `null` if absent.
 

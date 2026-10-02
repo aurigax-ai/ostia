@@ -66,7 +66,16 @@ describe('parseTerminalSettings', () => {
       prompt: DEFAULT_TERMINAL_SETTINGS.prompt,
       clipboardKeys: 'shift',
       theme: 'match',
+      shell: '',
+      osc52Write: false,
+      primarySelection: true,
+      macOptionIsMeta: false,
     })
+  })
+
+  it('keeps the shell command as trimmed text and drops a non-string one', () => {
+    expect(parseTerminalSettings({ shell: '  /usr/bin/fish -l ' }).shell).toBe('/usr/bin/fish -l')
+    expect(parseTerminalSettings({ shell: ['fish'] }).shell).toBe('')
   })
 
   it('keeps a picked color scheme and links an empty, oversized or non-string one', () => {

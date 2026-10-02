@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, mkdtempSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { basename, join } from 'node:path'
 import { version } from '../../package.json'
+import { AGENT_HOOKS_OFF_ENV } from '../shared/agentHooks'
 import {
   AGENT_HOOK_EVENTS,
   AGENT_SKILL_ENTRY,
@@ -328,12 +329,12 @@ export function writeClaudePlugin(
   for (const skill of content.skills) writeSkillFiles(join(dir, 'skills', skill.id), skill)
 }
 
-function claudeWrapper(): string {
+export function claudeWrapper(): string {
   return [
     '',
     '# Run claude with the Pine plugin (CLI skill, extension skills and hooks, resume token,',
     '# attention hooks). `command claude` skips it.',
-    'if [ -n "$PINE_CLI" ]; then',
+    `if [ -n "$PINE_CLI" ] && [ -z "$${AGENT_HOOKS_OFF_ENV.claude}" ]; then`,
     '  claude() {',
     '    if [ -n "$PINE_AGENT_DIR" ] && [ -d "$PINE_AGENT_DIR/claude-plugin" ]; then',
     '      command claude --plugin-dir "$PINE_AGENT_DIR/claude-plugin" "$@"',
@@ -565,7 +566,7 @@ export function codexWrapper(): string {
     '  done',
     '  return 0',
     '}',
-    'if [ -n "$PINE_CLI" ]; then',
+    `if [ -n "$PINE_CLI" ] && [ -z "$${AGENT_HOOKS_OFF_ENV.codex}" ]; then`,
     '  codex() {',
     `    if [ -n "$PINE_AGENT_DIR" ] && [ -f "$PINE_AGENT_DIR/codex/${CODEX_HOOK_ARGS_FILE}" ] && __pine_codex_starts_session "$@"; then`,
     '      local -a __pine_codex_hook_args',

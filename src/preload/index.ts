@@ -128,6 +128,8 @@ const bridge: PineBridge = {
     quit: () => ipcRenderer.send('window:quit'),
     isMaximized: () => ipcRenderer.invoke('window:is-maximized') as Promise<boolean>,
     setZoom: (percent) => ipcRenderer.invoke('window:set-zoom', percent) as Promise<number>,
+    beep: () => ipcRenderer.send('window:beep'),
+    writePrimarySelection: (text) => ipcRenderer.send('window:write-primary', text),
     isSystemDark: () => ipcRenderer.invoke('window:system-dark') as Promise<boolean>,
     onSystemDarkChange: (cb) => {
       const handler = (_event: unknown, dark: boolean): void => cb(dark)

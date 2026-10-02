@@ -1,5 +1,7 @@
 import {
   type AutoSaveMode,
+  DIFF_LAYOUTS,
+  type DiffLayout,
   type LineNumberMode,
   OPEN_FILES_IN,
   type OpenFilesIn,
@@ -136,6 +138,10 @@ export function EditorSettingsSection(): JSX.Element {
     afterDelay: d.editorSettings.autoSaveAfterDelay,
     onFocusChange: d.editorSettings.autoSaveOnFocusChange,
   }
+  const diffLabel: Record<DiffLayout, string> = {
+    sideBySide: d.editorSettings.diffSideBySide,
+    inline: d.editorSettings.diffInline,
+  }
   const openInLabel: Record<OpenFilesIn, string> = {
     tab: d.editorSettings.openFilesInTab,
     split: d.editorSettings.openFilesInSplit,
@@ -167,6 +173,20 @@ export function EditorSettingsSection(): JSX.Element {
               value: m,
               label: numbersLabel[m],
             }))}
+          />
+        </ControlRow>
+        <ToggleRow
+          label={d.editorSettings.markdownPreview}
+          desc={d.editorSettings.markdownPreviewDesc}
+          checked={editor.markdownPreview}
+          onChange={(markdownPreview) => setEditor({ markdownPreview })}
+        />
+        <ControlRow label={d.editorSettings.diffLayout} desc={d.editorSettings.diffLayoutDesc}>
+          <SelectField
+            value={editor.diffLayout}
+            onChange={(diffLayout) => setEditor({ diffLayout })}
+            label={d.editorSettings.diffLayout}
+            options={DIFF_LAYOUTS.map((m) => ({ value: m, label: diffLabel[m] }))}
           />
         </ControlRow>
       </SettingsGroup>
