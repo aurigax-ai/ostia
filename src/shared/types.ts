@@ -49,6 +49,7 @@ import type {
   WorkspacePackages,
   WorkspaceSandbox,
 } from './sandbox'
+import type { SandboxReadPreset } from './sandboxPresets'
 import type { SecretEntry, SecretGrant } from './secrets'
 import type { SelectionSendRequest, SelectionSendResult } from './selection'
 import type { RequirementsReport } from './systemRequirements'
@@ -173,6 +174,7 @@ export interface SandboxApi {
     paths: string[],
   ) => Promise<SandboxEditResult>
   checkPaths: (kind: SandboxPathKind, paths: string[]) => Promise<SandboxEditError[]>
+  presets: () => Promise<SandboxReadPreset[]>
   setDomains: (workspaceId: string, domains: string[]) => Promise<SandboxEditResult>
   setDeniedDomains: (workspaceId: string, domains: string[]) => Promise<SandboxEditResult>
   setSwitches: (
