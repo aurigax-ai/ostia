@@ -170,6 +170,7 @@ describe('Pine prompt in the input editor', () => {
           assist: [],
           secrets: [],
           secretsSet: [],
+          settingsPage: null,
           category: 'other',
           languages: [],
           languageServers: [],

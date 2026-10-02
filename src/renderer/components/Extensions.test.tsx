@@ -31,6 +31,7 @@ function ext(overrides: Partial<ExtensionInfo>): ExtensionInfo {
     assist: [],
     secrets: [],
     secretsSet: [],
+    settingsPage: null,
     category: 'other',
     languages: [],
     languageServers: [],
