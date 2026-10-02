@@ -237,7 +237,7 @@ describe('SettingsPanel extensions nav', () => {
     const searchFor = async (text: string): Promise<void> => {
       await user.clear(search)
       await user.click(search)
-      await user.paste(text)
+      await user.keyboard(text)
     }
 
     await searchFor('scan interval')
@@ -310,7 +310,7 @@ describe('SettingsPanel extensions nav', () => {
       renderSettings()
       const user = userEvent.setup()
       await user.click(screen.getByRole('textbox', { name: 'Search settings' }))
-      await user.paste('board sync')
+      await user.keyboard('board sync')
       expect(within(nav()).getByRole('button', { name: 'Board sync' })).toBeInTheDocument()
       expect(within(nav()).queryByRole('button', { name: 'Ports' })).toBeNull()
     })

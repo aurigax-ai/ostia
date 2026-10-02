@@ -69,3 +69,13 @@ describe('firstMatchControl', () => {
     expect(firstMatchControl(null)).toBeNull()
   })
 })
+
+describe('highlightParts after matchesQuery', () => {
+  it('marks every match when the same query was just tested', () => {
+    expect(matchesQuery(['Cursor blink'], 'blink')).toBe(true)
+    expect(highlightParts('Cursor blink', 'blink')).toEqual([
+      { text: 'Cursor ', at: 0, match: false },
+      { text: 'blink', at: 7, match: true },
+    ])
+  })
+})

@@ -7,11 +7,37 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from 'react'
 import { highlightParts, matchesQuery } from '../lib/settingsSearch'
 
+export interface SearchStore {
+  get: () => string
+  set: (query: string) => void
+  subscribe: (listener: () => void) => () => void
+}
+
+export function createSearchStore(): SearchStore {
+  let query = ''
+  const listeners = new Set<() => void>()
+  return {
+    get: () => query,
+    set: (next) => {
+      if (next === query) return
+      query = next
+      for (const listener of [...listeners]) listener()
+    },
+    subscribe: (listener) => {
+      listeners.add(listener)
+      return () => listeners.delete(listener)
+    },
+  }
+}
+
+const IDLE_STORE = createSearchStore()
+
 interface SearchScope {
-  query: string
+  store: SearchStore
   forced: boolean
   register: () => () => void
 }
@@ -37,6 +63,11 @@ function useHitCounter(forwardTo?: () => () => void): [number, () => () => void]
   return [hits, register]
 }
 
+function useTextMatch(store: SearchStore | undefined, texts: SearchTexts): boolean {
+  const source = store ?? IDLE_STORE
+  return useSyncExternalStore(source.subscribe, () => matchesQuery(texts, source.get()))
+}
+
 function useReportHit(search: SearchScope | null, hit: boolean): void {
   const register = search?.register
   useLayoutEffect(() => {
@@ -50,16 +81,16 @@ function useScopeValue(
   forced: boolean,
   register: () => () => void,
 ): SearchScope | null {
-  const query = search?.query
+  const store = search?.store
   return useMemo(
-    () => (query === undefined ? null : { query, forced, register }),
-    [query, forced, register],
+    () => (store === undefined ? null : { store, forced, register }),
+    [store, forced, register],
   )
 }
 
 export function useSearchLeaf(texts: SearchTexts): boolean {
   const search = useSettingsSearch()
-  const hit = search !== null && matchesQuery(texts, search.query)
+  const hit = useTextMatch(search?.store, texts)
   useReportHit(search, hit)
   return hit
 }
@@ -71,7 +102,7 @@ export function useSearchRow(texts: SearchTexts): {
 } {
   const search = useSettingsSearch()
   const [childHits, register] = useHitCounter()
-  const hit = search !== null && (matchesQuery(texts, search.query) || childHits > 0)
+  const hit = useTextMatch(search?.store, texts) || childHits > 0
   useReportHit(search, hit)
   const scope = useScopeValue(search, search?.forced ?? false, register)
   return { hidden: search !== null && !hit && !search.forced, hit, scope }
@@ -84,7 +115,7 @@ export function useSearchGroup(texts: SearchTexts): {
 } {
   const search = useSettingsSearch()
   const [hits, register] = useHitCounter(search?.register)
-  const hit = search !== null && matchesQuery(texts, search.query)
+  const hit = useTextMatch(search?.store, texts)
   useReportHit(search, hit)
   const forced = search !== null && (search.forced || hit)
   const scope = useScopeValue(search, forced, register)
@@ -114,10 +145,14 @@ export function SearchGroup({
 
 export function Highlight({ text }: { text: string }): JSX.Element {
   const search = useSettingsSearch()
+  const store = search?.store ?? IDLE_STORE
+  const marked = useSyncExternalStore(store.subscribe, () =>
+    matchesQuery([text], store.get()) ? store.get() : '',
+  )
   if (!search) return <>{text}</>
   return (
     <>
-      {highlightParts(text, search.query).map((part) =>
+      {highlightParts(text, marked).map((part) =>
         part.match ? (
           <mark key={part.at} className="settings-search-mark">
             {part.text}
@@ -133,19 +168,19 @@ export function Highlight({ text }: { text: string }): JSX.Element {
 export function SettingsSearchSection({
   id,
   label,
-  query,
+  store,
   onHits,
   children,
 }: {
   id: string
   label: string
-  query: string
+  store: SearchStore
   onHits: (id: string, hits: number) => void
   children: ReactNode
 }): JSX.Element {
   const [hits, register] = useHitCounter()
-  const forced = matchesQuery([label], query)
-  const scope = useMemo(() => ({ query, forced, register }), [query, forced, register])
+  const forced = useTextMatch(store, [label])
+  const scope = useMemo(() => ({ store, forced, register }), [store, forced, register])
   const report = useRef(onHits)
   report.current = onHits
   useLayoutEffect(() => {

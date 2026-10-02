@@ -491,7 +491,7 @@ export function LanguagesSection(): JSX.Element {
   const servers = useLanguageServersStore((s) => s.list)
   const load = useLanguageServersStore((s) => s.load)
   useEffect(() => {
-    void load()
+    if (!useLanguageServersStore.getState().watching) void load()
     const onFocus = (): void => void load()
     window.addEventListener('focus', onFocus)
     return () => window.removeEventListener('focus', onFocus)
