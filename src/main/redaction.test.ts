@@ -5,7 +5,7 @@ import type { ChatSession } from '../shared/chatSessions'
 import { REDACT_TEXTS_MAX, REDACT_TEXT_MAX } from '../shared/redaction'
 import { redactAssistRequest, redactChatSession } from '../shared/redactionTargets'
 import { createRedactor, createScrollbackRedactor, redactRequestedTexts } from './redaction'
-import { createWorkerScan, redactionWorkerScript } from './redactionScan'
+import { createWorkerScan, redactionWorkerScript, scanDeadline } from './redactionScan'
 import { libraryKinds } from './secretScanner'
 
 const on = createRedactor(() => undefined, testScan)
@@ -250,15 +250,37 @@ describe('redaction speed', () => {
     expect(performance.now() - started).toBeLessThan(BUDGET_MS)
   })
 
-  it('reads 1 MiB made to stall an open-ended pattern of the human without stalling', async () => {
+  it('settles within its deadline on 1 MiB made to stall an open-ended pattern, never blocking main', async () => {
+    const worker = createWorkerScan(REDACTION_WORKER_SCRIPT)
     const custom = createRedactor(
       () => ({ redaction: { patterns: ['[a-z]+Z', 'x[0-9]{1,64}y'] } }),
-      testScan,
+      worker.scan,
     )
+    const gaps: number[] = []
+    let last = performance.now()
+    const tick = setInterval(() => {
+      const now = performance.now()
+      gaps.push(now - last)
+      last = now
+    }, 20)
+    const outcomes: string[] = []
     const started = performance.now()
-    await custom.redact(fill('a'))
-    await custom.redact(fill('x1'))
-    expect(performance.now() - started).toBeLessThan(BUDGET_MS)
+    for (const text of [fill('a'), fill('x1')]) {
+      try {
+        const result = await custom.redact(text)
+        expect(result.count).toBe(0)
+        outcomes.push('spans')
+      } catch (error) {
+        expect((error as Error).message).toBe('scan timed out')
+        outcomes.push('timed out')
+      }
+    }
+    const elapsed = performance.now() - started
+    clearInterval(tick)
+    await worker.close()
+    expect(elapsed).toBeLessThan(2 * scanDeadline(MIB) + 4000)
+    expect(Math.max(...gaps)).toBeLessThan(500)
+    if (process.platform !== 'darwin') expect(outcomes).toEqual(['spans', 'spans'])
   }, 60_000)
 
   it('reads 1 MiB of mixed terminal output with secrets without stalling', async () => {

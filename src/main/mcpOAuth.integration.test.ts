@@ -1,3 +1,5 @@
+import { connect } from 'node:net'
+import { Agent, setGlobalDispatcher } from 'undici'
 import { afterEach, describe, expect, it } from 'vitest'
 import {
   FAKE_MCP_SERVER,
@@ -11,6 +13,18 @@ import type { StoredSecrets } from './extensionSecrets'
 import { McpHost } from './mcpHost'
 import { McpOAuth, type McpOAuthBrowser } from './mcpOAuth'
 import { MCP_OAUTH_KEY, createMcpOAuthStore } from './mcpOAuthStore'
+
+function refusesConnections(url: string): Promise<boolean> {
+  const { hostname, port } = new URL(url)
+  return new Promise((resolve) => {
+    const socket = connect({ host: hostname, port: Number(port) })
+    socket.on('connect', () => {
+      socket.destroy()
+      resolve(false)
+    })
+    socket.on('error', () => resolve(true))
+  })
+}
 
 function http(url: string, overrides: Partial<McpServerSettings> = {}): McpServerSettings {
   return {
@@ -31,6 +45,8 @@ const noSecrets: ExtensionSecretStore = {
 }
 
 const fakes: FakeMcpHttp[] = []
+setGlobalDispatcher(new Agent())
+
 const hosts: McpHost[] = []
 const oauths: McpOAuth[] = []
 
@@ -263,15 +279,16 @@ describe('MCP OAuth sign-in against the fake protected server', () => {
     const forged = new URL(redirect)
     forged.searchParams.set('code', 'stolen')
     forged.searchParams.set('state', 'not-the-state')
-    expect((await fetch(forged)).status).toBe(400)
-    expect((await fetch(new URL('/other', redirect))).status).toBe(404)
+    const once = { headers: { connection: 'close' } }
+    expect((await fetch(forged, once)).status).toBe(400)
+    expect((await fetch(new URL('/other', redirect), once)).status).toBe(404)
 
     const granted = await fetch(authorization, { redirect: 'manual' })
-    const callback = await fetch(granted.headers.get('location') ?? '')
+    const callback = await fetch(granted.headers.get('location') ?? '', once)
     expect(callback.status).toBe(200)
     expect(await callback.text()).toContain('Signed in')
     expect(await pending).toEqual({ ok: true })
-    await expect(fetch(redirect)).rejects.toThrow()
+    expect(await refusesConnections(redirect.href)).toBe(true)
   })
 
   it('reports the exact reason when the human is refused at the authorization server', async () => {
@@ -291,7 +308,7 @@ describe('MCP OAuth sign-in against the fake protected server', () => {
     const timed = setup([http(server.url)], { browser: 'system', timeoutMs: 150 })
     expect(await signInToMcp(timed.deps, 'remote')).toEqual({ ok: false, error: 'timeout' })
     const redirect = new URL(timed.opened[0]).searchParams.get('redirect_uri') ?? ''
-    await expect(fetch(redirect)).rejects.toThrow()
+    expect(await refusesConnections(redirect)).toBe(true)
     expect(timed.stored()).toEqual({})
 
     const cancelled = setup([http(server.url)], { browser: 'system' })

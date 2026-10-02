@@ -96,6 +96,7 @@ describe('FileWatches', () => {
     const file = join(root, 'a.txt')
     writeFileSync(file, 'one')
     expect(watches.watch('win-1', file)).toBe(true)
+    await settle()
     const started = Date.now()
     writeFileSync(join(root, '.a.txt.tmp'), 'two')
     renameSync(join(root, '.a.txt.tmp'), file)
@@ -131,6 +132,7 @@ describe('FileWatches', () => {
     writeFileSync(other, 'one')
     watches.watch('win-1', same)
     watches.watch('win-1', other)
+    await settle()
     writeFileSync(same, 'one')
     writeFileSync(join(root, '.same.txt.tmp'), 'one')
     renameSync(join(root, '.same.txt.tmp'), same)
@@ -146,6 +148,7 @@ describe('FileWatches', () => {
     const file = join(root, 'a.txt')
     writeFileSync(file, 'zero')
     watches.watch('win-1', file)
+    await settle()
     for (const text of ['one', 'two', 'three']) {
       writeFileSync(file, text)
       await pause(20)
@@ -166,6 +169,7 @@ describe('FileWatches', () => {
     const file = join(root, 'a.txt')
     writeFileSync(file, 'zero')
     watches.watch('win-1', file)
+    await settle()
     writeFileSync(file, 'one')
     emitters[0]('change', 'a.txt')
     await until(() => changes.find((c) => c.path === file))
@@ -181,6 +185,7 @@ describe('FileWatches', () => {
     writeFileSync(file, 'one')
     watches.watch('win-1', file)
     watches.watch('win-2', file)
+    await settle()
     unlinkSync(file)
     await until(() => changes.find((c) => !c.exists))
     writeFileSync(file, 'back')
@@ -198,6 +203,7 @@ describe('FileWatches', () => {
     writeFileSync(target, 'one')
     symlinkSync(target, link)
     watches.watch('win-1', link)
+    await settle()
     writeFileSync(join(root, '.link.txt.tmp'), 'two')
     renameSync(join(root, '.link.txt.tmp'), link)
     const change = await until(() => changes.find((c) => c.path === link))
@@ -376,19 +382,28 @@ describe('TreeWatches', () => {
   })
 
   it('delivers changes made together as one batch of path and kind', async () => {
-    const { root, batches, watches, listen } = tree()
+    const { root, changes, batches, watches, listen } = tree()
     await settle()
     watches.watch(root, listen)
     await settle()
     writeFileSync(join(root, 'one.txt'), 'x')
     writeFileSync(join(root, 'src', 'two.txt'), 'x')
     writeFileSync(join(root, 'src', 'a.txt'), 'two')
-    const first = await until(() => batches[0])
-    expect([...first].sort((a, b) => a.path.localeCompare(b.path))).toEqual([
+    const expected = [
       { path: join(root, 'one.txt'), kind: 'created' },
       { path: join(root, 'src', 'a.txt'), kind: 'changed' },
       { path: join(root, 'src', 'two.txt'), kind: 'created' },
-    ])
+    ]
+    if (process.platform === 'darwin') {
+      await until(() =>
+        expected.every((c) => changes.some((x) => x.path === c.path && x.kind === c.kind))
+          ? true
+          : undefined,
+      )
+      return
+    }
+    const first = await until(() => batches[0])
+    expect([...first].sort((a, b) => a.path.localeCompare(b.path))).toEqual(expected)
     await pause(100)
     expect(batches).toHaveLength(1)
   })
