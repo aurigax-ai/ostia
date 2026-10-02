@@ -16,6 +16,7 @@ import {
   stepBlock,
 } from '../lib/blockActions'
 import { browserProfileIn, openerOf } from '../lib/browserProfile'
+import { announceBusMessage } from '../lib/busNotice'
 import { setKeybindingSetting } from '../lib/chords'
 import { closePaneForAgent, requestCloseOthers, requestClosePane } from '../lib/closeConfirm'
 import { wakePane } from '../lib/hibernationScheduler'
@@ -353,6 +354,17 @@ export function registerBuiltinCommands(): void {
       return {
         desktop: wantsDesktopBanner(useSettingsStore.getState().notifications, 'message', seen),
       }
+    },
+  })
+
+  registerCore<{ from?: unknown; text?: unknown }>({
+    id: 'attention.message',
+    category: 'pane',
+    hidden: true,
+    capabilities: ['notify'],
+    run: ({ from, text }, ctx) => {
+      if (!ctx.activePaneId) throw new Error('no target pane')
+      announceBusMessage(ctx.activePaneId, from, text)
     },
   })
 
