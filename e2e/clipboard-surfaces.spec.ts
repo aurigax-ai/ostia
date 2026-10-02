@@ -17,7 +17,7 @@ const RED_DOT_PNG =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg=='
 
 const READ_ONE_BYTE =
-  'sh -c \'stty raw -echo; b=$(dd bs=1 count=1 2>/dev/null | od -An -tx1 | tr -d " "); stty sane; echo byte_$b\''
+  'sh -c \'stty raw -echo; echo reading_$((3+4)); b=$(dd bs=1 count=1 2>/dev/null | od -An -tx1 | tr -d " "); stty sane; echo byte_$b\''
 
 interface Launched {
   app: ElectronApplication
@@ -83,6 +83,7 @@ test('the copy and paste chords work in a terminal and paste an image as Ctrl+V 
 
     await win.keyboard.type(READ_ONE_BYTE)
     await win.keyboard.press('Enter')
+    await expect(rows).toContainText('reading_7')
     await writeClipboardImage(app)
     await win.keyboard.press(chords.paste)
     await expect(rows).toContainText('byte_16', { timeout: 10_000 })
@@ -99,6 +100,7 @@ test('smart Ctrl+V hands an image-only clipboard to the program as Ctrl+V', asyn
     await win.locator('.xterm').first().click()
     await win.keyboard.type(READ_ONE_BYTE)
     await win.keyboard.press('Enter')
+    await expect(rows).toContainText('reading_7')
     await writeClipboardImage(app)
     await win.keyboard.press('Control+v')
     await expect(rows).toContainText('byte_16', { timeout: 10_000 })
@@ -232,6 +234,22 @@ test('the copy and paste chords work inside a browser pane', async () => {
       expect(roles, 'macOS copies and pastes in a guest through the Edit menu roles').toEqual(
         expect.arrayContaining(['copy', 'paste']),
       )
+      const editAction = (selector: string) =>
+        app.evaluate(({ Menu }, action) => Menu.sendActionToFirstResponder(action), selector)
+      await app.evaluate(({ app: electronApp, BrowserWindow }) => {
+        electronApp.focus({ steal: true })
+        BrowserWindow.getAllWindows()[0]?.focus()
+      })
+      await win.locator('.pane-slot:not([data-hidden]) webview').click()
+      await guestRun("document.getElementById('source').select()")
+      await editAction('copy:')
+      await expect.poll(() => readClipboard(app)).toBe('guest_copy')
+      await writeClipboard(app, 'guest_pasted')
+      await guestRun("document.getElementById('sink').focus()")
+      await editAction('paste:')
+      await expect
+        .poll(() => guestRun("document.getElementById('sink').value"))
+        .toBe('guest_pasted')
       return
     }
     await guestRun("document.getElementById('source').select()")

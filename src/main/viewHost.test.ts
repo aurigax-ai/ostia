@@ -40,6 +40,10 @@ function info(name: string): ViewInfo | undefined {
   return host?.list().find((v) => v.name === name)
 }
 
+function settleWatcher(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, process.platform === 'darwin' ? 600 : 0))
+}
+
 async function until<T>(read: () => T | undefined, timeoutMs = 5000): Promise<T> {
   const began = Date.now()
   for (;;) {
@@ -134,6 +138,7 @@ describe('ViewHost', () => {
 
   it('reloads on its own when a file is added, changed or removed', async () => {
     start().watch()
+    await settleWatcher()
     write('agents.json', VIEW)
     await until(() => info('agents'))
     write('agents.json', { ...VIEW, title: 'Renamed' })
@@ -146,6 +151,7 @@ describe('ViewHost', () => {
   it('creates the views folder when it does not exist yet', async () => {
     rmSync(dir, { recursive: true })
     start().watch()
+    await settleWatcher()
     write('late.json', VIEW)
     await until(() => info('late'))
   })
