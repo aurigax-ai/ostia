@@ -37,7 +37,7 @@ import {
   splitPane,
   tabsOf,
   tabsOfPane,
-  withoutKind,
+  withoutPanes,
 } from './tree'
 import type { LayoutNode } from './types'
 
@@ -324,6 +324,15 @@ describe('setPaneEditor', () => {
     expect(findPane(next, a.id)?.kind).toBe('terminal')
   })
 
+  it('gives a remote file no folder, so it never moves the local tree or workspace', () => {
+    const term = createPane('terminal', 'zsh', '/home/u/proj')
+    const next = setPaneEditor(term, term.id, 'app.conf', 'remote://abcdef012345/srv/app/app.conf')
+    const pane = findPane(next, term.id)
+    expect(pane?.kind).toBe('editor')
+    expect(pane?.filePath).toBe('remote://abcdef012345/srv/app/app.conf')
+    expect(pane && 'cwd' in pane).toBe(false)
+  })
+
   it('falls back to root cwd for a file at the filesystem root', () => {
     const root = createPane('terminal')
     const next = setPaneEditor(root, root.id, 'notes.txt', '/notes.txt')
@@ -409,26 +418,26 @@ describe('setPaneDiff', () => {
   })
 })
 
-describe('withoutKind', () => {
+describe('withoutPanes', () => {
   it('removes every pane of the kind and collapses single-child splits', () => {
     const a = createPane()
     const d1 = createPane('diff')
     const d2 = createPane('diff')
     const root = splitOf('horizontal', a, splitOf('vertical', d1, d2))
-    expect(withoutKind(root, 'diff')).toBe(a)
+    expect(withoutPanes(root, (pane) => pane.kind === 'diff')).toBe(a)
   })
 
   it('returns the same object when nothing matches and null when everything does', () => {
     const root = splitOf('horizontal', createPane(), createPane())
-    expect(withoutKind(root, 'diff')).toBe(root)
-    expect(withoutKind(createPane('diff'), 'diff')).toBeNull()
+    expect(withoutPanes(root, (pane) => pane.kind === 'diff')).toBe(root)
+    expect(withoutPanes(createPane('diff'), (pane) => pane.kind === 'diff')).toBeNull()
   })
 
   it('keeps the sizes of the surviving children', () => {
     const a = createPane()
     const b = createPane()
     const root = { ...splitOf('horizontal', a, createPane('diff'), b), sizes: [2, 1, 3] }
-    expect(withoutKind(root, 'diff')).toMatchObject({ sizes: [2, 3] })
+    expect(withoutPanes(root, (pane) => pane.kind === 'diff')).toMatchObject({ sizes: [2, 3] })
   })
 })
 
@@ -793,7 +802,7 @@ describe('tabs', () => {
     const a = createPane()
     const d = { ...createPane(), kind: 'diff' as const }
     const b = createPane()
-    const root = withoutKind(tabsOf(d.id, a, d, b), 'diff')
+    const root = withoutPanes(tabsOf(d.id, a, d, b), (pane) => pane.kind === 'diff')
     expect(root).toMatchObject({ type: 'tabs', activeId: b.id })
   })
 

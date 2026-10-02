@@ -56,6 +56,14 @@ import type { QuestionState } from '../shared/questions'
 import type { RegionCaptureOutcome, RegionCopyResult } from '../shared/regionCapture'
 import type { ReleaseCheckResult, ReleaseInfo } from '../shared/releases'
 import type {
+  RemoteFolder,
+  RemoteFolderAsk,
+  RemoteListResult,
+  RemoteReadResult,
+  RemoteStatResult,
+  RemoteWriteResult,
+} from '../shared/remoteFolders'
+import type {
   SandboxEditError,
   SandboxEditResult,
   SandboxEnableResult,
@@ -220,6 +228,34 @@ const bridge: PineBridge = {
       ipcRenderer.on('fs:changed', handler)
       return () => ipcRenderer.removeListener('fs:changed', handler)
     },
+  },
+  remoteFiles: {
+    folders: () => ipcRenderer.invoke('remote-files:folders') as Promise<RemoteFolder[]>,
+    onFolders: (cb) => {
+      const handler = (_e: unknown, folders: RemoteFolder[]): void => cb(folders)
+      ipcRenderer.on('remote-files:folders-changed', handler)
+      return () => ipcRenderer.removeListener('remote-files:folders-changed', handler)
+    },
+    close: (folderId) => ipcRenderer.invoke('remote-files:close', folderId) as Promise<boolean>,
+    onConfirm: (cb) => {
+      const handler = (_e: unknown, requestId: number, ask: RemoteFolderAsk): void => {
+        void cb(ask).then((approved) =>
+          ipcRenderer.send('remote-files:confirm-answer', requestId, approved),
+        )
+      }
+      ipcRenderer.on('remote-files:confirm', handler)
+      return () => ipcRenderer.removeListener('remote-files:confirm', handler)
+    },
+    list: (path) => ipcRenderer.invoke('remote-files:list', path) as Promise<RemoteListResult>,
+    stat: (path) => ipcRenderer.invoke('remote-files:stat', path) as Promise<RemoteStatResult>,
+    read: (path) => ipcRenderer.invoke('remote-files:read', path) as Promise<RemoteReadResult>,
+    write: (path, content, baseVersion) =>
+      ipcRenderer.invoke(
+        'remote-files:write',
+        path,
+        content,
+        baseVersion,
+      ) as Promise<RemoteWriteResult>,
   },
   lsp: {
     servers: () => ipcRenderer.invoke('lsp:servers') as Promise<LanguageServerInfo[]>,

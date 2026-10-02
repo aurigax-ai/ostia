@@ -9,6 +9,7 @@ import type { EditorLanguageContribution } from './editorLanguages'
 import type { IconThemeContribution, IconThemeInfo } from './iconTheme'
 import type { LanguageContribution, LanguageInfo } from './languagePack'
 import type { LanguageServerContribution, LanguageServerSummary } from './languageServers'
+import type { RemoteCwd } from './remoteFolders'
 import type { Workflow } from './workflows'
 
 export const EXTENSION_MANIFEST_FILE = 'pine.json'
@@ -330,6 +331,7 @@ export interface ExtensionCaller {
   cwd?: string
   locale?: string
   sandboxed?: boolean
+  remote?: RemoteCwd
   capabilities: Capability[]
 }
 

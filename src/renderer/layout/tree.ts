@@ -1,5 +1,6 @@
 import type { AgentResume } from '@shared/agentResume'
 import { type BrowserProfile, parseBrowserProfile } from '@shared/browserProfile'
+import { isRemotePath } from '@shared/remoteFolders'
 import type { PanePlacement } from '@shared/types'
 import { namespacedId } from '../lib/idNamespace'
 import type {
@@ -198,6 +199,14 @@ export function setPaneEditor(
   title: string,
   filePath: string,
 ): LayoutNode {
+  if (isRemotePath(filePath)) {
+    return mapPane(root, paneId, ({ cwd: _local, ...p }) => ({
+      ...p,
+      kind: 'editor',
+      title,
+      filePath,
+    }))
+  }
   const slash = filePath.lastIndexOf('/')
   const cwd = slash > 0 ? filePath.slice(0, slash) : '/'
   return mapPane(root, paneId, (p) => ({ ...named(p, title), kind: 'editor', filePath, cwd }))
@@ -299,13 +308,20 @@ function withoutTabs(tabs: TabsNode, keep: (pane: PaneNode) => boolean): LayoutN
   return { ...tabs, children, activeId: survivor.id }
 }
 
-export function withoutKind(root: LayoutNode, kind: SurfaceKind): LayoutNode | null {
-  if (root.type === 'pane') return root.kind === kind ? null : root
-  if (root.type === 'tabs') return withoutTabs(root, (p) => p.kind !== kind)
+export function isRemoteFilePane(pane: PaneNode): boolean {
+  return pane.kind === 'editor' && isRemotePath(pane.filePath)
+}
+
+export function withoutPanes(
+  root: LayoutNode,
+  drop: (pane: PaneNode) => boolean,
+): LayoutNode | null {
+  if (root.type === 'pane') return drop(root) ? null : root
+  if (root.type === 'tabs') return withoutTabs(root, (p) => !drop(p))
   const children: LayoutNode[] = []
   const sizes: number[] = []
   root.children.forEach((child, i) => {
-    const kept = withoutKind(child, kind)
+    const kept = withoutPanes(child, drop)
     if (kept) {
       children.push(kept)
       sizes.push(root.sizes[i] ?? 1)
