@@ -1,13 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import { FAKE, HARMLESS } from '../../test/fixtures/secrets/samples'
+import { REDACTION_WORKER_SCRIPT, testScan } from '../../test/redactionScan'
 import type { ChatSession } from '../shared/chatSessions'
 import { REDACT_TEXTS_MAX, REDACT_TEXT_MAX } from '../shared/redaction'
 import { redactAssistRequest, redactChatSession } from '../shared/redactionTargets'
 import { createRedactor, createScrollbackRedactor, redactRequestedTexts } from './redaction'
+import { createWorkerScan } from './redactionScan'
 import { libraryKinds } from './secretScanner'
 
-const on = createRedactor(() => undefined)
-const off = createRedactor(() => ({ redaction: { enabled: false } }))
+const on = createRedactor(() => undefined, testScan)
+const off = createRedactor(() => ({ redaction: { enabled: false } }), testScan)
 
 const LIBRARY_CASES: [name: string, secret: string, kind: string][] = [
   ['an AWS access key id', FAKE.awsAccessKeyId, 'aws'],
@@ -109,9 +111,12 @@ describe('createRedactor', () => {
   })
 
   it("applies the human's patterns and ignores an invalid one", async () => {
-    const custom = createRedactor(() => ({
-      redaction: { patterns: ['ACME-[0-9]{6}', '(a+)+b', 'ACME-['] },
-    }))
+    const custom = createRedactor(
+      () => ({
+        redaction: { patterns: ['ACME-[0-9]{6}', '(a+)+b', 'ACME-['] },
+      }),
+      testScan,
+    )
     const result = await custom.redact('ticket ACME-123456 aaaaab')
     expect(result.text).toBe('ticket [redacted:custom] aaaaab')
     expect(result.kinds).toEqual({ custom: 1 })
@@ -119,7 +124,7 @@ describe('createRedactor', () => {
 
   it('reads the settings again on every call', async () => {
     let privacy: unknown = { redaction: { enabled: false } }
-    const live = createRedactor(() => privacy)
+    const live = createRedactor(() => privacy, testScan)
     const text = `x ${FAKE.npm}`
     expect((await live.redact(text)).count).toBe(0)
     privacy = { redaction: { enabled: true } }
@@ -152,6 +157,56 @@ describe('createRedactor', () => {
   })
 })
 
+describe('the redaction worker', () => {
+  const STALLING = ['[a-z]+Z']
+  const HUGE = 'a'.repeat(8 * 1024 * 1024)
+
+  it('fails closed within its deadline when a pattern of the human never finishes', async () => {
+    const worker = createWorkerScan(REDACTION_WORKER_SCRIPT, () => 400)
+    const redactor = createRedactor(() => ({ redaction: { patterns: STALLING } }), worker.scan)
+    const started = performance.now()
+    await expect(redactor.redact(HUGE)).rejects.toThrow('scan timed out')
+    expect(performance.now() - started).toBeLessThan(3000)
+    await worker.close()
+  })
+
+  it('serves the next scan with a fresh worker after one timed out', async () => {
+    const worker = createWorkerScan(REDACTION_WORKER_SCRIPT, (length) =>
+      length > 1000 ? 300 : 5000,
+    )
+    await expect(worker.scan(HUGE, STALLING)).rejects.toThrow('scan timed out')
+    expect(await worker.scan(`k ${FAKE.npm}`, [])).toEqual([
+      expect.objectContaining({ kind: 'npm' }),
+    ])
+    await worker.close()
+  })
+
+  it('keeps the main event loop responsive while a slow scan runs', async () => {
+    const worker = createWorkerScan(REDACTION_WORKER_SCRIPT, () => 1500)
+    const gaps: number[] = []
+    let last = performance.now()
+    const tick = setInterval(() => {
+      const now = performance.now()
+      gaps.push(now - last)
+      last = now
+    }, 20)
+    const scan = worker.scan(HUGE, STALLING)
+    await expect(scan).rejects.toThrow('scan timed out')
+    clearInterval(tick)
+    await worker.close()
+    expect(gaps.length).toBeGreaterThan(20)
+    expect(Math.max(...gaps)).toBeLessThan(250)
+  })
+
+  it('answers queued scans in order', async () => {
+    const worker = createWorkerScan(REDACTION_WORKER_SCRIPT)
+    const redactor = createRedactor(() => undefined, worker.scan)
+    const results = await Promise.all(['a', `x ${FAKE.npm}`, 'b'].map((t) => redactor.redact(t)))
+    expect(results.map((r) => r.count)).toEqual([0, 1, 0])
+    await worker.close()
+  })
+})
+
 describe('redaction speed', () => {
   const MIB = 1024 * 1024
   const BUDGET_MS = process.platform === 'darwin' ? 30_000 : 5000
@@ -174,14 +229,20 @@ describe('redaction speed', () => {
   ]
 
   it.each(ADVERSARIAL)('reads 1 MiB of %s without stalling', async (_name, text) => {
-    const custom = createRedactor(() => ({ redaction: { patterns: ['ACME-[A-Za-z0-9]{32}'] } }))
+    const custom = createRedactor(
+      () => ({ redaction: { patterns: ['ACME-[A-Za-z0-9]{32}'] } }),
+      testScan,
+    )
     const started = performance.now()
     await custom.redact(text)
     expect(performance.now() - started).toBeLessThan(BUDGET_MS)
   })
 
   it('reads 1 MiB made to stall an open-ended pattern of the human without stalling', async () => {
-    const custom = createRedactor(() => ({ redaction: { patterns: ['[a-z]+Z', 'x[0-9]{1,64}y'] } }))
+    const custom = createRedactor(
+      () => ({ redaction: { patterns: ['[a-z]+Z', 'x[0-9]{1,64}y'] } }),
+      testScan,
+    )
     const started = performance.now()
     await custom.redact(fill('a'))
     await custom.redact(fill('x1'))

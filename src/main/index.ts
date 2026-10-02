@@ -164,6 +164,7 @@ import { PtySession, type SubscriberRole } from './ptySession'
 import { questions, registerQuestions } from './questions'
 import { exitAfterDeadline, planQuit } from './quitPlan'
 import { createRedactor, createScrollbackRedactor } from './redaction'
+import { createWorkerScan } from './redactionScan'
 import { registerReleaseCheck, releaseUserAgent } from './releaseCheck'
 import { confirmRemoteFolder, registerRemoteFolderConfirm } from './remoteFolderConfirm'
 import type { RemoteFolders } from './remoteFolders'
@@ -2854,7 +2855,13 @@ app.whenReady().then(() => {
   app.on('activate', revealApp)
 })
 
-const redactor = createRedactor(() => (readSettingsFile() as { privacy?: unknown }).privacy)
+const redactionScan = createWorkerScan(
+  join(app.getAppPath().replace(/\.asar$/, '.asar.unpacked'), 'out/redaction/worker.js'),
+)
+const redactor = createRedactor(
+  () => (readSettingsFile() as { privacy?: unknown }).privacy,
+  redactionScan.scan,
+)
 const redactScrollback = createScrollbackRedactor(redactor)
 let scrollbackSaves: Promise<void> = Promise.resolve()
 
