@@ -343,19 +343,37 @@ the renderer never gets a path.
 An extension gives the editor a language server by describing it in `contributes.languageServers`.
 It is data, not code: pine spawns the process, speaks LSP to it over stdio, and wires its answers
 into the editor. Providers are registered from what the server reports in `initialize`, with its
-trigger characters. Your extension never owns the process and needs no `main`.
+trigger characters, and from what it registers later with `client/registerCapability` (removed
+again on `client/unregisterCapability`); a registration's `documentSelector` is honoured by
+language id, scheme and glob. Your extension never owns the process and needs no `main`.
 
-What the editor uses when the server offers it: diagnostics (push), completion (text edits, extra
-edits such as auto-imports, snippets, resolve), hover, go to definition, references, rename with
-prepare, signature help, document symbols (the outline), document highlights, document and range
-formatting (also format on save), code actions (edits and commands, `workspace/applyEdit`),
-semantic tokens (full document) and inlay hints. Text is synced incrementally when the server
+What the editor uses when the server offers it: diagnostics (pushed, and pulled with
+`textDocument/diagnostic`: on open, after an edit and on `workspace/diagnostic/refresh`, with the
+previous result id; a diagnostic that arrives both ways is shown once), completion (text edits,
+extra edits such as auto-imports, snippets, resolve), hover, go to definition, references, rename
+with prepare, signature help, document symbols (the outline), document highlights, document and
+range formatting (also format on save), code actions (edits and commands, `workspace/applyEdit`),
+semantic tokens (full document), inlay hints, folding ranges (whole lines), code lens (with
+resolve and `workspace/codeLens/refresh`) and workspace symbols (the palette's `%` prefix, or
+Go to Symbol in Workspace, asks the servers of files open in the active workspace). A code lens
+is clickable only when its command is one the server lists in `executeCommandProvider.commands`
+(or registered for `workspace/executeCommand`); it then runs through `workspace/executeCommand`.
+Any other lens, such as one naming an editor command, is shown as text.
+
+A server that registers `workspace/didChangeWatchedFiles` is told about files created, changed
+and deleted under its root folder that match its globs (plain or relative patterns, with
+`kind`). A watcher based outside the root is ignored, nothing outside the root is ever reported,
+and `.git`, `.hg`, `.svn` and `node_modules` folders and linked folders are not watched; at most
+2000 folders are watched per root.
+
+Text is synced incrementally when the server
 asks for it, and `didSave` is sent when it asked for saves. A workspace edit changes open
 documents through the editor (undoable) and closed files on disk, and only inside the server's
 root folder: an edit that touches a file outside it, a URI that is not `file:`, or one that
 creates, renames or deletes files is refused as a whole. In a sandboxed workspace the root must
-also be inside the workspace folder, otherwise the server cannot edit at all. Not wired yet: pull diagnostics, workspace symbols, code lens,
-folding ranges, type hierarchy, and dynamic registration.
+also be inside the workspace folder, otherwise the server cannot edit at all. Not wired yet:
+type and call hierarchy, workspace-wide diagnostics, semantic token ranges and deltas, and dynamic
+registration of text synchronization.
 
 ```json
 {
@@ -396,8 +414,13 @@ folding ranges, type hierarchy, and dynamic registration.
 | `run` | Exactly one of four forms, each with optional `args`: `node`, `program`, `download` or `goInstall`. See [How the server's program gets there](#how-the-servers-program-gets-there). Nothing else is allowed in `run`. |
 | `run.args` | At most 32 strings of at most 200 characters. `{extensionDir}` and `{root}` are replaced, per argument. There is no shell: an argument is never split or expanded. |
 | `rootMarkers` | At most 16 file names. The server's root is the nearest folder, from the file upward, that holds one, never above the workspace folder. Without markers, or when none is found, the root is the workspace folder. |
-| `initializationOptions`, `settings` | JSON objects of at most 16 KiB each. String values get the same two replacements. `initializationOptions` goes into `initialize`; `settings` answers the server's `workspace/configuration` requests by section. |
+| `initializationOptions`, `settings` | JSON objects of at most 16 KiB each. String values get the same two replacements. `initializationOptions` goes into `initialize`; `settings` answers the server's `workspace/configuration` requests by section and, when it is not empty, is sent once as `workspace/didChangeConfiguration` right after `initialized`. |
 | `settingPaths` | Maps one of your own `contributes.settings` keys to a dotted path in `settings`. pine lays the human's value over `settings` before answering, and sends `workspace/didChangeConfiguration` when it changes. |
+
+The human can give any server their own program in Settings → Languages: an absolute path to an
+executable file, with extra arguments. It then runs instead of every `run` form (the program on
+`PATH`, the copy pine keeps, or the bundled script), with your `run.args` first and theirs after.
+An extension cannot set or read this choice.
 
 ### How the server's program gets there
 
@@ -1153,7 +1176,7 @@ Settings → Extensions → Marketplaces to install them.
 |---|---|
 | `lsp-rust-analyzer`, `lsp-clangd`, `lsp-lua`, `lsp-marksman` | One native language server each, with the `download` form: `rust-analyzer` 2026-09-28 (Linux, macOS and Windows on x64 and arm64), `clangd` 23.1.0 (Linux x64, macOS, Windows x64; other platforms use `PATH`), `lua-language-server` 3.19.1 (Linux and macOS on x64 and arm64, Windows x64) and `marksman` 2026-02-08 for Markdown (Linux x64 and arm64, macOS, Windows x64). Each pins the official GitHub release asset and its SHA-256 |
 | `lsp-gopls` | `gopls` for Go with the `goInstall` form: `go install golang.org/x/tools/gopls@v0.23.0` when no `gopls` is on `PATH`. Needs Go; without it Settings → Languages offers to install Go |
-| `lsp-typescript` | TypeScript and JavaScript in the editor: `typescript-language-server` 5.3.0 and TypeScript 5.9.3, copied unchanged from their npm packages into `server/` (the extension's `vendor.json` `packages`) and run with pine's Electron as Node. A project's own TypeScript is used when it has one. The app itself ships no TypeScript language features: without this extension a `.ts` or `.js` file is only highlighted |
+| `lsp-typescript` | TypeScript and JavaScript in the editor: `typescript-language-server` 5.3.0 and TypeScript 5.9.3, copied unchanged from their npm packages into `server/` (the extension's `vendor.json` `packages`) and run with pine's Electron as Node. A project's own TypeScript is used when it has one. Two settings, off by default, show reference and implementation counts as code lenses. The app itself ships no TypeScript language features: without this extension a `.ts` or `.js` file is only highlighted |
 | `lsp-pyright` | Python in the editor: Pyright 1.1.414, copied the same way (about 5,400 files, mostly type stubs). Setting `typeCheckingMode` |
 | `lsp-yaml` | YAML in the editor: `yaml-language-server` 1.24.0 with its 19 dependencies, copied unchanged into `server/node_modules/` (`vendor.json` `closures`). Setting `schemaStore` (off by default) lets the server fetch schemas from schemastore.org |
 | `lsp-bash` | Shell scripts in the editor: `bash-language-server` 5.8.1 with its 35 dependencies, copied the same way. It lints with `shellcheck` when that is on `PATH` |
