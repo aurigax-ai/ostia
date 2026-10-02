@@ -84,4 +84,17 @@ describe('WorkspaceSandboxes merge', () => {
     expect(existsSync(tmp)).toBe(false)
     expect(sandboxes.owner('src')).toBe('src')
   })
+
+  it('offers the hidden-home notice once per sandbox, shared by merged workspaces, and again after it is forgotten', () => {
+    const { store, sandboxes } = setup()
+    store.set('src', on())
+    store.set('dst', on())
+    expect(sandboxes.claimHomeNotice('dst')).toBe(true)
+    expect(sandboxes.claimHomeNotice('dst')).toBe(false)
+    expect(sandboxes.claimHomeNotice('src')).toBe(true)
+    sandboxes.merge('src', 'dst')
+    expect(sandboxes.claimHomeNotice('src')).toBe(false)
+    sandboxes.forget('dst')
+    expect(sandboxes.claimHomeNotice('dst')).toBe(true)
+  })
 })
