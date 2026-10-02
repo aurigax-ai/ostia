@@ -2,7 +2,7 @@
   "id": "trellis",
   "name": "Trellis",
   "version": "1.3.0",
-  "api": "1.6",
+  "api": "1.7",
   "description": "Your Trellis boards and vault as a panel: cards, claims, comments and entries, updated live as they change elsewhere; open and claimed cards per workspace, and a notice that opens the card when an agent moves it to review or blocked.",
   "category": "tools",
   "capabilities": ["read-board", "notify"],

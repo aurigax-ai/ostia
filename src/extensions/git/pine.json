@@ -2,7 +2,7 @@
   "id": "git",
   "name": "Git",
   "version": "2.1.0",
-  "api": "1.6",
+  "api": "1.7",
   "description": "Branch and changes per workspace and per terminal, a changes panel with stage, discard and commit (flat list or folder tree), a commit graph of the current, all or chosen branches, blame, and diffs of changed files.",
   "category": "scm",
   "capabilities": ["read-board"],
