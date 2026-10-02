@@ -498,6 +498,7 @@ describe('LanguageServers sessions', () => {
     expect(child.received.map((m) => m.method)).toEqual([
       'initialize',
       'initialized',
+      'workspace/didChangeConfiguration',
       'shutdown',
       'exit',
     ])
@@ -613,6 +614,27 @@ describe('LanguageServers configuration and log', () => {
     expect(h.posts.filter((p) => p.channel === `lsp:msg:${session.sessionId}`)).toEqual([])
   })
 
+  it('hands a server its settings right after initialized, and nothing to a server that declares none', async () => {
+    const h = harness()
+    const [session] = await h.servers.open('w1', 'p1', join(workDir, 'loose.txt'))
+    const { child } = h.spawned[0]
+    await initialize(h, session.sessionId)
+    await vi.waitFor(() =>
+      expect(child.received.slice(1)).toEqual([
+        { method: 'initialized', params: {} },
+        {
+          method: 'workspace/didChangeConfiguration',
+          params: { settings: { fake: { mode: 'calm', root: workDir } } },
+        },
+      ]),
+    )
+    writeFileSync(join(workDir, 'main.rs'), '')
+    const [plain] = await h.servers.open('w1', 'p1', join(workDir, 'main.rs'))
+    await initialize(h, plain.sessionId)
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    expect(h.spawned[1].child.received.map((m) => m.method)).toEqual(['initialize', 'initialized'])
+  })
+
   it('sends didChangeConfiguration to an initialized server when a mapped setting changes', async () => {
     const h = harness()
     const [session] = await h.servers.open('w1', 'p1', join(workDir, 'loose.txt'))
@@ -630,7 +652,7 @@ describe('LanguageServers configuration and log', () => {
     await new Promise((resolve) => setTimeout(resolve, 20))
     expect(
       child.received.filter((m) => m.method === 'workspace/didChangeConfiguration'),
-    ).toHaveLength(1)
+    ).toHaveLength(2)
   })
 
   it('logs the initialize result, failed requests by method and redacted stderr', async () => {

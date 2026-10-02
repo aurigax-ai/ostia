@@ -160,6 +160,62 @@ test('the TypeScript extension’s bundled server checks a .ts file; without it 
   }
 })
 
+test('the TypeScript server folds an import block, counts references above a function and finds a symbol in the workspace', async () => {
+  test.setTimeout(120_000)
+  const { app, win } = await launch(
+    {
+      'tsconfig.json': '{ "compilerOptions": { "strict": true } }\n',
+      'main.ts': [
+        "import { one } from './lib'",
+        "import { two } from './lib'",
+        "import { three } from './lib'",
+        'export function greetEveryone(name: string): string {',
+        '  return `hi ${name} ${one}${two}${three}`',
+        '}',
+        "export const greeting = greetEveryone('a')",
+        '',
+      ].join('\n'),
+      'lib.ts': 'export const one = 1\nexport const two = 2\nexport const three = 3\n',
+    },
+    fromMarketplace('lsp-typescript'),
+    { extensionSettings: { 'lsp-typescript': { referencesCodeLens: true } } },
+  )
+  try {
+    await approve(win, 'TypeScript and JavaScript', 'server/typescript-language-server/lib/cli.mjs')
+    await openWorkspace(win)
+    const editor = await openFile(win, 'main.ts')
+    const lines = editor.locator('.view-lines')
+
+    const lens = editor.locator('.codelens-decoration')
+    await expect(lens.filter({ hasText: '1 reference' }).first()).toBeVisible({ timeout: 60_000 })
+    await expect(lens.locator('a')).toHaveCount(0)
+
+    await expect(lines).toContainText('two')
+    await expect(async () => {
+      await editor
+        .locator('.view-line')
+        .filter({ hasText: 'one' })
+        .first()
+        .click({ position: { x: 30, y: 8 } })
+      await win.keyboard.press('Control+Shift+BracketLeft')
+      await expect(lines).not.toContainText('three }', { timeout: 2_000 })
+    }).toPass({ timeout: 30_000 })
+    await expect(lines).toContainText('greetEveryone')
+    await win.keyboard.press('Control+Shift+BracketRight')
+    await expect(lines).toContainText('three }', { timeout: 10_000 })
+
+    await win.keyboard.press('Control+Shift+P')
+    const palette = win.getByRole('dialog').filter({ has: win.getByRole('combobox') })
+    await palette.getByRole('combobox').fill('%greetEvery')
+    const symbol = palette.getByRole('option', { name: /greetEveryone/ }).first()
+    await expect(symbol).toContainText('main.ts:4', { timeout: 30_000 })
+    await symbol.click()
+    await expect(palette).toBeHidden()
+  } finally {
+    await app.close()
+  }
+})
+
 test('the Pyright extension’s bundled server checks a .py file', async () => {
   test.setTimeout(120_000)
   const { app, win } = await launch(
@@ -188,6 +244,16 @@ test('the Pyright extension’s bundled server checks a .py file', async () => {
         .filter({ hasText: /^greet$/ }),
     )
     await expect(signature).toContainText('def greet(name: str) -> str')
+
+    await win.keyboard.press('Escape')
+
+    await win.keyboard.press('Control+Shift+P')
+    const palette = win.getByRole('dialog').filter({ has: win.getByRole('combobox') })
+    await palette.getByRole('combobox').fill('%greet')
+    const symbol = palette.getByRole('option', { name: /greet/ }).first()
+    await expect(symbol).toContainText('main.py:1', { timeout: 30_000 })
+    await win.keyboard.press('Escape')
+    await expect(palette).toBeHidden()
 
     const row = await serverRow(win, 'Pyright')
     await expect(row.getByTestId('language-server-status')).toHaveText('Running (1 folder)')
