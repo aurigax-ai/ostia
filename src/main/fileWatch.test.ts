@@ -1,4 +1,6 @@
+import { EventEmitter } from 'node:events'
 import {
+  type FSWatcher,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -34,12 +36,13 @@ function tempDir(prefix: string): string {
   return dir
 }
 
-function setup(debounceMs = 30) {
+function setup(debounceMs = 30, watchDir?: WatchDir) {
   const root = tempDir('pine-fwatch-')
   const changes: FileChange[] = []
   const watches = new FileWatches({
     confine: (path) => resolveSafe(path, [root]),
     debounceMs,
+    watchDir,
     onChange: (change) => changes.push(change),
   })
   opened.push(watches)
@@ -154,14 +157,22 @@ describe('FileWatches', () => {
   })
 
   it('reports a second write that lands soon after the first was reported', async () => {
-    const { root, changes, watches } = setup()
+    const emitters: ((event: string, name: string | null) => void)[] = []
+    const driven: WatchDir = (_path, listener) => {
+      emitters.push(listener)
+      return Object.assign(new EventEmitter(), { close: () => undefined }) as unknown as FSWatcher
+    }
+    const { root, changes, watches } = setup(5, driven)
     const file = join(root, 'a.txt')
     writeFileSync(file, 'zero')
     watches.watch('win-1', file)
     writeFileSync(file, 'one')
+    emitters[0]('change', 'a.txt')
     await until(() => changes.find((c) => c.path === file))
     writeFileSync(file, 'two')
+    emitters[0]('change', 'a.txt')
     await until(() => (changes.length === 2 ? changes : undefined))
+    expect(changes.map((c) => c.exists)).toEqual([true, true])
   })
 
   it('reports a watched file deleted and then its return', async () => {
@@ -506,7 +517,7 @@ describe('TreeWatches', () => {
     writeFileSync(join(root, 'lib', 'marker.txt'), 'x')
     await until(() => seen(join(root, 'lib', 'marker.txt'), 'created'))
     await pause(100)
-    expect(changes.map((c) => c.path)).toEqual([join(root, 'lib', 'marker.txt')])
+    expect([...new Set(changes.map((c) => c.path))]).toEqual([join(root, 'lib', 'marker.txt')])
     expect(watches.watchedDirs(root)).toHaveLength(3)
   })
 

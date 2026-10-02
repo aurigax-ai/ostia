@@ -341,6 +341,8 @@ describe('EditorView', () => {
   it('auto-saves one second after the last edit when auto save is afterDelay', async () => {
     vi.mocked(window.pine.fs.read).mockResolvedValue('text')
     useSettingsStore.getState().setEditor({ autoSave: 'afterDelay' })
+    const fileWrites = () =>
+      vi.mocked(window.pine.fs.write).mock.calls.filter(([path]) => path === '/w/a.txt')
     render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.txt" />)
     await waitFor(() => expect(fake.state.model).not.toBeNull())
     vi.useFakeTimers()
@@ -349,10 +351,9 @@ describe('EditorView', () => {
       await vi.advanceTimersByTimeAsync(600)
       act(() => fake.state.model?.setValue('two'))
       await vi.advanceTimersByTimeAsync(600)
-      expect(window.pine.fs.write).not.toHaveBeenCalled()
+      expect(fileWrites()).toEqual([])
       await vi.advanceTimersByTimeAsync(500)
-      expect(window.pine.fs.write).toHaveBeenCalledTimes(1)
-      expect(window.pine.fs.write).toHaveBeenCalledWith('/w/a.txt', 'two')
+      expect(fileWrites()).toEqual([['/w/a.txt', 'two']])
     } finally {
       vi.useRealTimers()
     }

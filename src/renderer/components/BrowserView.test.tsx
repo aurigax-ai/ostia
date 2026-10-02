@@ -339,6 +339,7 @@ describe('BrowserView address bar', () => {
     const { workspaceId } = twoTerminals()
     const { container } = renderView(workspaceId)
     const address = screen.getByRole('textbox', { name: /address/i })
+    await waitFor(() => expect(container.querySelector('webview')).not.toBeNull())
     await userEvent.clear(address)
     await userEvent.type(address, 'proxmox.example.com')
 
@@ -354,10 +355,10 @@ describe('BrowserView address bar', () => {
     await waitFor(() => expect(container.querySelector('webview')).not.toBeNull())
 
     navigated(container, 'http://localhost/docs')
-    expect(address).toHaveValue('http://localhost/docs')
+    await waitFor(() => expect(address).toHaveValue('http://localhost/docs'))
 
     await userEvent.type(address, 'x{Escape}')
-    expect(address).toHaveValue('http://localhost/docs')
+    await waitFor(() => expect(address).toHaveValue('http://localhost/docs'))
   })
 })
 
