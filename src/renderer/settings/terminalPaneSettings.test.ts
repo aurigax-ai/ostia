@@ -67,6 +67,7 @@ describe('parseTerminalSettings', () => {
       clipboardKeys: 'shift',
       theme: 'match',
       shell: '',
+      osc52Write: false,
     })
   })
 

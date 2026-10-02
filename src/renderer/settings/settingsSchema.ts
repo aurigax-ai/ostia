@@ -306,6 +306,13 @@ export const SETTINGS_JSON_SCHEMA = {
             'line is always pasted without its trailing newline or control characters. Only ' +
             'you can change this, in Settings; agents cannot. Default: true.',
         },
+        osc52Write: {
+          type: 'boolean',
+          description:
+            'Let programs in a terminal set the clipboard with OSC 52 (tmux, vim and agents ' +
+            'over ssh copy this way). Programs can never read the clipboard. Only you can ' +
+            'change this, in Settings; agents cannot. Default: false.',
+        },
         shell: {
           type: 'string',
           maxLength: SHELL_SETTING_MAX_LENGTH,

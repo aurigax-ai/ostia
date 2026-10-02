@@ -2170,6 +2170,9 @@ export const en = {
     warnRiskyPaste: 'Confirm multi-line paste',
     warnRiskyPasteDesc:
       'Ask before pasting two or more lines into a terminal: a shell may run each line as soon as it arrives. A single line is always pasted without its trailing newline or control characters. Agents can’t change this.',
+    osc52Write: 'Let programs copy to the clipboard',
+    osc52WriteDesc:
+      'Programs such as tmux, vim or an agent over ssh may set the clipboard with OSC 52. They can never read it.',
     groupColors: 'Colors',
     minimumContrast: 'Minimum contrast ratio',
     minimumContrastDesc:
@@ -4386,6 +4389,9 @@ export const zhHant: Dict = {
     warnRiskyPaste: '確認多行貼上',
     warnRiskyPasteDesc:
       '貼上兩行以上的文字到終端機前先詢問：shell 可能會在每一行送達時立即執行。單行文字一律去掉結尾換行與控制字元後貼上。代理程式無法變更此設定。',
+    osc52Write: '允許程式複製到剪貼簿',
+    osc52WriteDesc:
+      'tmux、vim 或透過 ssh 執行的代理程式等程式可用 OSC 52 設定剪貼簿，但永遠無法讀取。',
     groupColors: '色彩',
     minimumContrast: '最低對比度',
     minimumContrastDesc: '調整比此對比度更難閱讀的終端機文字，1 至 21。1 表示關閉。',

@@ -92,6 +92,7 @@ const PROGRAM_SETTINGS: readonly {
   { group: 'agents', field: 'autoResume' },
   { group: 'terminal', field: 'warnOnRiskyPaste' },
   { group: 'terminal', field: 'shell' },
+  { group: 'terminal', field: 'osc52Write' },
 ]
 
 export function launchesProgram(key: string, value: unknown): string | null {

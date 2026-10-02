@@ -15,6 +15,7 @@ export interface TerminalSettings {
   clipboardKeys: ClipboardKeys
   theme: string
   shell: string
+  osc52Write: boolean
 }
 
 export const CLIPBOARD_KEYS = ['shift', 'smart'] as const
@@ -43,6 +44,7 @@ export const DEFAULT_TERMINAL_SETTINGS: TerminalSettings = {
   clipboardKeys: 'shift',
   theme: MATCH_PINE_THEME,
   shell: '',
+  osc52Write: false,
 }
 
 export const DEFAULT_PANE_SETTINGS: PaneSettings = {

@@ -26,6 +26,7 @@ import { currentScheme, terminalTheme, useScheme } from '../lib/colorScheme'
 import { acceptsPathDrop, droppedPaths, pathsAsInput } from '../lib/dropPaths'
 import { attachLinkModifier, linkModifierHeld, linkTarget } from '../lib/linkModifier'
 import { openFileAt } from '../lib/openFile'
+import { registerOsc52 } from '../lib/osc52'
 import { forgetPaneActivity, markPaneActivity } from '../lib/paneActivity'
 import { terminalNotification } from '../lib/paneAgent'
 import { planHumanPaste } from '../lib/pasteGate'
@@ -330,6 +331,11 @@ export function TerminalView({
       const chunk = parseOsc99(data, decodeBase64Utf8)
       return notifyFromTerminal(chunk ? kitty.push(chunk) : null)
     })
+    const oscClipboard = registerOsc52(term, {
+      enabled: () => useSettingsStore.getState().terminal.osc52Write,
+      replaying: () => replaying,
+      write: (text) => navigator.clipboard.writeText(text),
+    })
     const fileLinks = term.registerLinkProvider(
       createFileLinkProvider(term, {
         cwd: () => cwdRef.current,
@@ -598,6 +604,7 @@ export function TerminalView({
       oscNotify9.dispose()
       oscNotify777.dispose()
       oscNotify99.dispose()
+      oscClipboard.dispose()
       bell.dispose()
       copySelection.dispose()
       useLiveSelectionStore.getState().clear(paneId)

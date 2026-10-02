@@ -1182,6 +1182,7 @@ function TerminalSection(): JSX.Element {
   const setTerminal = useSettingsStore((s) => s.setTerminal)
   const promptStyle = useSettingsStore((s) => s.terminal.prompt.style)
   const shell = useSettingsStore((s) => s.terminal.shell)
+  const osc52Write = useSettingsStore((s) => s.terminal.osc52Write)
   const modeLabel: Record<InputMode, string> = {
     terminal: d.settings.inputModeTerminal,
     editor: d.settings.inputModeEditor,
@@ -1289,6 +1290,12 @@ function TerminalSection(): JSX.Element {
           desc={d.settings.warnRiskyPasteDesc}
           checked={warnOnRiskyPaste}
           onChange={(v) => setTerminal({ warnOnRiskyPaste: v })}
+        />
+        <ToggleRow
+          label={d.settings.osc52Write}
+          desc={d.settings.osc52WriteDesc}
+          checked={osc52Write}
+          onChange={(v) => setTerminal({ osc52Write: v })}
         />
       </SettingsGroup>
       <SettingsGroup title={d.settings.groupColors}>
