@@ -26,6 +26,11 @@ describe('expandHome', () => {
 })
 
 describe('resolveSafe — rejections', () => {
+  it('rejects a remote file address, which is never a local path', () => {
+    expect(resolveSafe('remote://abcdef012345/etc/passwd', [process.cwd(), '/'])).toBeNull()
+    expect(isPathAllowed('remote://abcdef012345/srv/app', ['/'])).toBe(false)
+  })
+
   it('rejects an absolute path outside every root (/etc/passwd)', () => {
     expect(resolveSafe('/etc/passwd', [root])).toBeNull()
   })

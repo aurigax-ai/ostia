@@ -6,6 +6,7 @@ export const REQUEST_TIMEOUT_MS = 30_000
 export const NOISE_MAX_BYTES = 64 * 1024
 export const HEADER_MAX_BYTES = 512
 export const ERROR_LINE_MAX = 240
+export const BUFFER_MAX_BYTES = 16 * 1024 * 1024
 
 export const HELPER_ERRORS = [
   'not-found',
@@ -55,7 +56,19 @@ export class ByteQueue {
   private ended = false
   private wake: (() => void) | null = null
 
+  constructor(
+    private readonly maxBytes = BUFFER_MAX_BYTES,
+    private readonly onOverflow: () => void = () => {},
+  ) {}
+
   push(chunk: Buffer): void {
+    if (this.ended) return
+    if (this.buffer.length + chunk.length > this.maxBytes) {
+      this.buffer = Buffer.alloc(0)
+      this.end()
+      this.onOverflow()
+      return
+    }
     this.buffer = this.buffer.length === 0 ? chunk : Buffer.concat([this.buffer, chunk])
     this.wake?.()
   }
@@ -119,7 +132,7 @@ interface Running {
 
 function start(argv: string[], spawnFn: SpawnSsh): Running {
   const child = spawnFn(argv)
-  const out = new ByteQueue()
+  const out = new ByteQueue(BUFFER_MAX_BYTES, () => child.kill('SIGTERM'))
   let stderr = ''
   let missing = false
   child.stdout.on('data', (chunk: Buffer) => out.push(chunk))
@@ -220,6 +233,25 @@ export interface HelperRequest {
 }
 
 const HEADER_PATTERN = /^(\d{1,9}) (ok|err) (\d{1,9}) ([\x21-\x7e]{1,128})$/
+const REQUEST_VERSION_PATTERN = /^[\x21-\x7e]{1,80}$/
+
+function hasControlChar(text: string): boolean {
+  for (let i = 0; i < text.length; i++) {
+    const code = text.charCodeAt(i)
+    if (code < 0x20 || code === 0x7f) return true
+  }
+  return false
+}
+
+export function requestLine(id: number, req: HelperRequest): string {
+  const version = req.version ?? '-'
+  const plain = [req.root, req.path].every((p) => p.startsWith('/') && !hasControlChar(p))
+  if (!plain || !REQUEST_VERSION_PATTERN.test(version) || !Number.isSafeInteger(req.number)) {
+    throw new HelperFailure('bad-request')
+  }
+  if (req.number < 0 || req.number > 999_999_999) throw new HelperFailure('bad-request')
+  return `${id} ${req.op} ${req.number} ${version} ${req.root}\t${req.path}\n`
+}
 
 export function parseHeader(
   line: string,
@@ -305,8 +337,12 @@ export class HelperChannel {
 
   private async exchange(req: HelperRequest): Promise<HelperReply> {
     if (this.closed) throw new HelperFailure('closed')
-    const id = this.nextId++
-    const line = `${id} ${req.op} ${req.number} ${req.version ?? '-'} ${req.root}\t${req.path}\n`
+    const id = this.nextId
+    const line = requestLine(id, req)
+    if ((req.payload?.length ?? 0) !== (req.op === 'write' ? req.number : 0)) {
+      throw new HelperFailure('bad-request')
+    }
+    this.nextId += 1
     const stdin = this.running.child.stdin
     stdin.write(line)
     if (req.payload && req.payload.length > 0) stdin.write(req.payload)

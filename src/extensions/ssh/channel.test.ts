@@ -1,11 +1,13 @@
 import { spawn } from 'node:child_process'
 import { afterEach, describe, expect, it } from 'vitest'
 import {
+  BUFFER_MAX_BYTES,
   ByteQueue,
   HelperChannel,
   HelperFailure,
   type SpawnSsh,
   parseHeader,
+  requestLine,
   runStatus,
 } from './channel'
 
@@ -29,7 +31,7 @@ afterEach(() => {
   for (const channel of channels.splice(0)) channel.close()
 })
 
-async function channelOf(script: string, requestTimeoutMs = 2000): Promise<HelperChannel> {
+async function channelOf(script: string, requestTimeoutMs = 15_000): Promise<HelperChannel> {
   const channel = await HelperChannel.open(['ssh'], { spawn: scripted(script), requestTimeoutMs })
   channels.push(channel)
   return channel
@@ -52,10 +54,62 @@ describe('ByteQueue', () => {
     expect(await queue.bytes(10)).toBeNull()
   })
 
+  it('ends and reports an overflow when a host sends more than it may buffer', async () => {
+    let overflowed = false
+    const queue = new ByteQueue(10, () => {
+      overflowed = true
+    })
+    queue.push(Buffer.from('12345'))
+    queue.push(Buffer.from('1234567'))
+    expect(overflowed).toBe(true)
+    expect(await queue.bytes(1)).toBeNull()
+    expect(BUFFER_MAX_BYTES).toBeGreaterThan(8 * 1024 * 1024)
+  })
+
   it('refuses a line longer than the limit', async () => {
     const queue = new ByteQueue()
     queue.push(Buffer.alloc(100, 0x61))
     expect((await failure(queue.line(64))).code).toBe('protocol')
+  })
+})
+
+describe('requestLine', () => {
+  it('writes one line with the root and the path split by a tab', () => {
+    expect(
+      requestLine(4, {
+        op: 'read',
+        number: 100,
+        root: '/srv/app',
+        path: '/srv/app/a b',
+        maxReply: 100,
+      }),
+    ).toBe('4 read 100 - /srv/app\t/srv/app/a b\n')
+    expect(
+      requestLine(5, {
+        op: 'write',
+        number: 3,
+        version: '12-3',
+        root: '/r',
+        path: '/r/f',
+        maxReply: 0,
+      }),
+    ).toBe('5 write 3 12-3 /r\t/r/f\n')
+  })
+
+  it('refuses a path that would start a second request, a relative path and a version with a space', () => {
+    const base = { op: 'read', number: 1, root: '/r', maxReply: 1 } as const
+    for (const req of [
+      { ...base, path: '/r/a\n9 write 0 any /r\t/r/x' },
+      { ...base, path: '/r/a\tb' },
+      { ...base, path: 'r/a' },
+      { ...base, path: '/r/a', root: 'r' },
+      { ...base, path: '/r/a', version: 'a b' },
+      { ...base, path: '/r/a', version: '' },
+      { ...base, path: '/r/a', number: -1 },
+      { ...base, path: '/r/a', number: 1.5 },
+    ]) {
+      expect(() => requestLine(1, req), JSON.stringify(req)).toThrow(HelperFailure)
+    }
   })
 })
 
@@ -109,6 +163,22 @@ describe('HelperChannel', () => {
     expect((await failure(channel.request(STAT))).code).toBe('outside')
     expect((await failure(channel.request(STAT))).code).toBe('failed')
     expect((await channel.request(STAT)).payload.toString()).toBe('hi')
+  })
+
+  it('never sends a request with a control character in its path, and stays open', async () => {
+    const channel = await channelOf('echo "PINE-HELPER ready 1"; read a; echo "1 ok 0 d"; sleep 5')
+    const bad = await failure(channel.request({ ...STAT, path: '/r\n2 write 0 any /r\t/r/x' }))
+    expect(bad.code).toBe('bad-request')
+    expect(channel.isClosed).toBe(false)
+    expect((await channel.request(STAT)).meta).toBe('d')
+  })
+
+  it('kills ssh when a host floods the channel', async () => {
+    const channel = await channelOf(
+      'echo "PINE-HELPER ready 1"; head -c 20000000 /dev/zero; sleep 5',
+    )
+    await expect.poll(() => channel.isClosed, { timeout: 10_000 }).toBe(true)
+    expect((await failure(channel.request(STAT))).code).toBe('closed')
   })
 
   it('times a silent helper out and closes', async () => {

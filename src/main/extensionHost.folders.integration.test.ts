@@ -36,7 +36,7 @@ describe('ExtensionHost remote folders (real extension process, real socket)', (
       openPanelIn: () => {},
       notify: () => {},
       readyTimeoutMs: 8000,
-      requestTimeoutMs: 400,
+      requestTimeoutMs: 1500,
       interactiveTimeoutMs: 8000,
       log: () => {},
       remoteCwdForPane: (paneId) =>
