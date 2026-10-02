@@ -6,9 +6,14 @@ export interface HighlightPart {
   match: boolean
 }
 
+let cachedPattern: { query: string; pattern: RegExp | null } | null = null
+
 function queryPattern(query: string): RegExp | null {
+  if (cachedPattern?.query === query) return cachedPattern.pattern
   const q = query.trim()
-  return q ? new RegExp(escapeRegExp(q), 'gi') : null
+  const pattern = q ? new RegExp(escapeRegExp(q), 'gi') : null
+  cachedPattern = { query, pattern }
+  return pattern
 }
 
 export function matchesQuery(
@@ -27,6 +32,7 @@ export function matchesQuery(
 export function highlightParts(text: string, query: string): HighlightPart[] {
   const pattern = queryPattern(query)
   if (!pattern || !text) return text ? [{ text, at: 0, match: false }] : []
+  pattern.lastIndex = 0
   const parts: HighlightPart[] = []
   let cursor = 0
   for (const found of text.matchAll(pattern)) {

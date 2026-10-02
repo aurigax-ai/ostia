@@ -225,7 +225,7 @@ export function MarketplaceSection(): JSX.Element {
   const add = useMarketplaceStore((s) => s.add)
   const [url, setUrl] = useState('')
   useEffect(() => {
-    void load()
+    if (!useMarketplaceStore.getState().loaded) void load()
     return useExtensionsStore.subscribe((next, previous) => {
       if (next.list !== previous.list) void load()
     })

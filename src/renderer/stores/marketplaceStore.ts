@@ -8,6 +8,7 @@ export interface MarketplaceFailure {
 
 interface MarketplaceStoreState {
   state: MarketplaceState
+  loaded: boolean
   busy: boolean
   failure: MarketplaceFailure | null
   load: () => Promise<void>
@@ -32,9 +33,10 @@ export const useMarketplaceStore = create<MarketplaceStoreState>((set) => {
   }
   return {
     state: { marketplaces: [], installed: [] },
+    loaded: false,
     busy: false,
     failure: null,
-    load: async () => set({ state: await window.pine.marketplace.list() }),
+    load: async () => set({ state: await window.pine.marketplace.list(), loaded: true }),
     add: (url) => run(() => window.pine.marketplace.add(url)),
     remove: (id) => run(() => window.pine.marketplace.remove(id)),
     refresh: (id) => run(() => window.pine.marketplace.refresh(id)),

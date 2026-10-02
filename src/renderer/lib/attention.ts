@@ -38,6 +38,7 @@ export function reduceAttention(prev: PaneAttention, event: AttentionEvent): Pan
         at: event.at,
       }
     case 'notify':
+      if (prev.state === 'waiting' && !event.waiting) return { ...prev, unread: true, at: event.at }
       return {
         state: event.waiting ? 'waiting' : prev.state,
         unread: true,
