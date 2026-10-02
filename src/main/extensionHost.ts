@@ -34,6 +34,7 @@ import {
   type AssistProviderKind,
   type AssistProviderState,
   type AssistResponse,
+  type AssistResults,
   type AssistSetupProblem,
   type AssistStatus,
   type AssistUi,
@@ -114,6 +115,8 @@ import {
 } from '../shared/extensions'
 import type { IconThemeContribution } from '../shared/iconTheme'
 import { LANGUAGE_SERVER_CAPABILITY, languageServerSummary } from '../shared/languageServers'
+import type { RedactionResult } from '../shared/redaction'
+import { redactAssistRequest } from '../shared/redactionTargets'
 import { quoteArgv } from '../shared/shellQuote'
 import type { Workflow } from '../shared/workflows'
 import type { AgentPluginSource } from './agentSkills'
@@ -247,6 +250,15 @@ function assistReply<P extends AssistPoint>(point: P, raw: unknown): AssistRespo
   return { ok: true, result: normalizeAssistResult(point, raw) }
 }
 
+export function withoutCorrection<P extends AssistPoint>(
+  point: P,
+  response: AssistResponse<P>,
+): AssistResponse<P> {
+  if (point !== 'input' || !response.ok) return response
+  const { corrected: _corrected, ...result } = response.result as AssistResults['input']
+  return { ok: true, result: result as AssistResults[P] }
+}
+
 function cancelled(token: CancellationToken | undefined): Promise<'cancelled'> {
   return new Promise((resolve) => {
     if (!token) return
@@ -319,6 +331,7 @@ export interface ExtensionHostDeps {
   readExtensionSettings?: () => unknown
   readAssistSettings?: () => { assistant?: unknown } | null
   assistKeys?: ExtensionSecretStore
+  redact?: (text: string) => Promise<RedactionResult>
   assistTimeoutMs?: number
   openAssistUiIn?: (req: AssistOpenUiRequest) => void
   assistChatTimeoutMs?: number
@@ -1990,8 +2003,19 @@ export class ExtensionHost {
     input: unknown,
     opts: AssistCallOptions = {},
   ): Promise<AssistResponse<P>> {
-    const request = normalizeAssistRequest(point, input)
-    if (!request) return { ok: false, error: 'invalid' }
+    const normalized = normalizeAssistRequest(point, input)
+    if (!normalized) return { ok: false, error: 'invalid' }
+    let request = normalized
+    let redacted = 0
+    if (this.deps.redact) {
+      try {
+        const safe = await redactAssistRequest(point, normalized, this.deps.redact)
+        request = safe.request
+        redacted = safe.count
+      } catch {
+        return { ok: false, error: 'failed' }
+      }
+    }
     const explicit = opts.model === undefined ? null : normalizeModelRef(opts.model)
     if (opts.model !== undefined && !explicit) return { ok: false, error: 'invalid' }
     const target = this.assistTarget(point, explicit)
@@ -2024,7 +2048,8 @@ export class ExtensionHost {
       if (reply === 'cancelled' || opts.token?.isCancellationRequested) {
         return { ok: false, error: 'cancelled' }
       }
-      return assistReply(point, reply)
+      const response = assistReply(point, reply)
+      return redacted > 0 ? withoutCorrection(point, response) : response
     } catch (err) {
       if (opts.token?.isCancellationRequested) return { ok: false, error: 'cancelled' }
       return { ok: false, error: 'failed', message: (err as Error).message }
