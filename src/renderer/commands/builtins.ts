@@ -91,6 +91,7 @@ const PROGRAM_SETTINGS: readonly {
   { group: 'notifications', field: 'command' },
   { group: 'agents', field: 'autoResume' },
   { group: 'terminal', field: 'warnOnRiskyPaste' },
+  { group: 'terminal', field: 'shell' },
 ]
 
 export function launchesProgram(key: string, value: unknown): string | null {

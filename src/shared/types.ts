@@ -111,7 +111,6 @@ export interface PtySpawnOptions {
   cwd?: string
   cols: number
   rows: number
-  shell?: string
   role?: 'owner' | 'observer'
   sinceCursor?: number
   pinePrompt?: PinePromptSpawn

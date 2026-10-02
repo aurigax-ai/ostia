@@ -1181,6 +1181,7 @@ function TerminalSection(): JSX.Element {
   const minimumContrast = useSettingsStore((s) => s.terminal.minimumContrast)
   const setTerminal = useSettingsStore((s) => s.setTerminal)
   const promptStyle = useSettingsStore((s) => s.terminal.prompt.style)
+  const shell = useSettingsStore((s) => s.terminal.shell)
   const modeLabel: Record<InputMode, string> = {
     terminal: d.settings.inputModeTerminal,
     editor: d.settings.inputModeEditor,
@@ -1316,6 +1317,16 @@ function TerminalSection(): JSX.Element {
           checked={restoreWorkspace}
           onChange={(v) => setBehavior({ restoreWorkspace: v })}
         />
+        <ControlRow label={d.settings.shell} desc={d.settings.shellDesc}>
+          <Input
+            value={shell}
+            spellCheck={false}
+            placeholder="$SHELL"
+            aria-label={d.settings.shell}
+            onChange={(e) => setTerminal({ shell: e.target.value })}
+            className="h-7 w-56 font-mono"
+          />
+        </ControlRow>
       </SettingsGroup>
     </div>
   )

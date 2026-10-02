@@ -28,6 +28,7 @@ import { OPEN_FILES_MAX } from '../shared/openFiles'
 import { OFFICIAL_MARKETPLACE, PRODUCT_NAME } from '../shared/product'
 import { parseSandboxGlobals } from '../shared/sandbox'
 import { quoteArgv } from '../shared/shellQuote'
+import { shellArgv } from '../shared/terminalShell'
 import type {
   AppInfo,
   CommandDescriptor,
@@ -1495,8 +1496,10 @@ function registerPtyIpc(): void {
         dropped: false,
       }
     }
-    const shell =
-      opts.shell ?? process.env.SHELL ?? (process.platform === 'win32' ? 'powershell.exe' : 'bash')
+    const [shell, ...shellArgs] = shellArgv(
+      readSettingsFile().terminal?.shell,
+      process.env.SHELL ?? (process.platform === 'win32' ? 'powershell.exe' : 'bash'),
+    )
     const resolved = attachWorkspace(getByPaneId(paneId)?.workspaceId, opts.workspaceId ?? '')
     if (!resolved.ok) {
       return {
@@ -1532,7 +1535,7 @@ function registerPtyIpc(): void {
     let secretNotice = ''
     let sandboxStamp: string | null = null
     let file = shell
-    let args = integration.args
+    let args = [...integration.args, ...shellArgs]
     let cwd = resolveCwd(opts.cwd)
     const host = opts.hostToken ? hostPaneGrants.consume(opts.hostToken) : false
     const sandboxed = !host && workspaceId !== '' && workspaceSandboxes.isEnabled(workspaceId)
@@ -1543,7 +1546,7 @@ function registerPtyIpc(): void {
         secretNotice = secrets.notice
         const wrapped = await workspaceSandboxes.wrap(
           workspaceId,
-          quoteArgv([shell, ...integration.args]),
+          quoteArgv([shell, ...args]),
           'bash',
           [stateFile],
         )
@@ -2116,6 +2119,7 @@ function readSettingsFile(): {
   workspaces?: unknown
   manager?: unknown
   assistant?: unknown
+  terminal?: { shell?: unknown }
 } {
   try {
     return JSON.parse(readFileSync(join(app.getPath('userData'), 'settings.json'), 'utf8'))
