@@ -114,7 +114,8 @@ describe('SettingsPanel search', () => {
     const user = userEvent.setup()
     expect(screen.getByRole('heading', { level: 2, name: 'Appearance' })).toBeInTheDocument()
 
-    await user.type(searchBox(), 'BLINK')
+    await user.click(searchBox())
+    await user.paste('BLINK')
 
     const terminal = result('terminal')
     expect(terminal).toBeVisible()
@@ -135,7 +136,8 @@ describe('SettingsPanel search', () => {
   it('lists only sections with matches in the nav, with their match count', async () => {
     renderSettings()
     const user = userEvent.setup()
-    await user.type(searchBox(), 'cursor blink')
+    await user.click(searchBox())
+    await user.paste('cursor blink')
 
     const terminal = within(nav()).getByRole('button', { name: 'Terminal' })
     expect(terminal).toHaveTextContent(/Terminal\s*1$/)
@@ -146,7 +148,8 @@ describe('SettingsPanel search', () => {
   it('finds a row by one of its option labels', async () => {
     renderSettings()
     const user = userEvent.setup()
-    await user.type(searchBox(), 'reduced')
+    await user.click(searchBox())
+    await user.paste('reduced')
 
     const motion = within(result('appearance')).getByRole('combobox', { name: 'Motion' })
     expect(rowOf(motion)).toBeVisible()
@@ -156,7 +159,8 @@ describe('SettingsPanel search', () => {
   it('shows a whole section when its title matches', async () => {
     renderSettings()
     const user = userEvent.setup()
-    await user.type(searchBox(), 'sidebar')
+    await user.click(searchBox())
+    await user.paste('sidebar')
 
     const sidebar = result('sidebar')
     expect(sidebar).toBeVisible()
@@ -166,7 +170,8 @@ describe('SettingsPanel search', () => {
   it('says nothing matches, and restores the open page when the query is cleared', async () => {
     renderSettings()
     const user = userEvent.setup()
-    await user.type(searchBox(), 'zzqx')
+    await user.click(searchBox())
+    await user.paste('zzqx')
 
     expect(screen.getByText('No settings match')).toBeInTheDocument()
     expect(within(nav()).queryAllByRole('listitem')).toHaveLength(0)
@@ -181,7 +186,9 @@ describe('SettingsPanel search', () => {
   it('moves to the first match on Enter and clears the query on Escape without closing', async () => {
     renderSettings()
     const user = userEvent.setup()
-    await user.type(searchBox(), 'copy on select{Enter}')
+    await user.click(searchBox())
+    await user.paste('copy on select')
+    await user.keyboard('{Enter}')
     expect(screen.getByRole('switch', { name: 'Copy on select' })).toHaveFocus()
 
     searchBox().focus()
@@ -199,7 +206,8 @@ describe('SettingsPanel search', () => {
     useSettingsStore.setState({ locale: 'zh-Hant' })
     renderSettings()
     const user = userEvent.setup()
-    await user.type(screen.getByRole('textbox', { name: zhHant.settings.search }), '游標閃爍')
+    await user.click(screen.getByRole('textbox', { name: zhHant.settings.search }))
+    await user.paste('游標閃爍')
 
     const blink = within(result('terminal')).getByRole('switch', {
       name: zhHant.settings.cursorBlink,
@@ -212,7 +220,8 @@ describe('SettingsPanel search', () => {
     useExtensionsStore.setState({ list: [BOARD] })
     renderSettings()
     const user = userEvent.setup()
-    await user.type(searchBox(), 'poll')
+    await user.click(searchBox())
+    await user.paste('poll')
 
     const page = result('extension-page:board')
     expect(page).toBeVisible()
@@ -242,7 +251,8 @@ describe('SettingsPanel search', () => {
     })
     renderSettings()
     const user = userEvent.setup()
-    await user.type(searchBox(), 'deploy')
+    await user.click(searchBox())
+    await user.paste('deploy')
 
     const views = result('views')
     expect(views).toBeVisible()
