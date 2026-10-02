@@ -1,5 +1,6 @@
 import type { PortsPolicy, SandboxPortRow } from '@shared/sandbox'
 import { useCallback, useEffect, useState } from 'react'
+import type { Dict } from '../i18n/dict'
 import { fmt, useDict } from '../i18n/useDict'
 import { openBrowserAs } from '../lib/browserProfile'
 import { isMac } from '../platform'
@@ -46,6 +47,10 @@ export function PortsPolicySelect({
   )
 }
 
+function exposeFailure(d: Dict, error: string): string {
+  return error === 'unix-sockets-off' ? d.sandbox.exposeNeedsUnixSockets : d.sandbox.exposeFailed
+}
+
 export function SandboxPortsTab({ workspaceId }: { workspaceId: string }): JSX.Element {
   const d = useDict()
   const [rows, setRows] = useState<SandboxPortRow[]>([])
@@ -64,7 +69,7 @@ export function SandboxPortsTab({ workspaceId }: { workspaceId: string }): JSX.E
 
   const expose = async (port: number): Promise<void> => {
     const res = await window.pine.sandbox.expose(workspaceId, port)
-    setError(res.ok ? null : fmt(d.sandbox.exposeFailed, { port, error: res.error }))
+    setError(res.ok ? null : fmt(exposeFailure(d, res.error), { port, error: res.error }))
     load()
   }
 
