@@ -9,12 +9,21 @@ vi.mock('electron', () => ({
   clipboard: { writeImage: vi.fn() },
   nativeImage: { createFromBuffer: vi.fn((buf: Buffer) => ({ fromBuffer: buf })) },
 }))
+vi.mock('./browse', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./browse')>()),
+  ownedGuest: vi.fn(),
+}))
 vi.mock('./bus', () => ({ postBusMessage: vi.fn(() => 'msg-1') }))
 
-const { clipboard } = await import('electron')
+const { clipboard, ipcMain } = await import('electron')
+const { ownedGuest } = await import('./browse')
 const { postBusMessage } = await import('./bus')
-const { captureRegion, copyRegionImage, writeRegionReport } = await import('./browseRegion')
+const { captureRegion, copyRegionImage, registerRegionIpc, writeRegionReport } = await import(
+  './browseRegion'
+)
 const { getByPaneId, registerPane, removePane } = await import('./idRegistry')
+
+const { PICK_NOTE_MAX } = await import('../shared/pick')
 
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3])
 
@@ -188,6 +197,29 @@ describe('writeRegionReport', () => {
     ).toEqual({ ok: false, error: 'capture-expired' })
   })
 
+  it('clips an oversized note and treats a non-string note as empty', async () => {
+    const id = await captured()
+    const send = (note: unknown) =>
+      writeRegionReport(
+        {
+          captureId: id,
+          sourcePaneId: 'browser-1',
+          targetPaneId: 'term-1',
+          note,
+        } as unknown as Parameters<typeof writeRegionReport>[0],
+        'w1',
+        sameWindow,
+      )
+    const long = send('x'.repeat(PICK_NOTE_MAX + 500))
+    const numeric = send(12345)
+    if (!long.ok || !numeric.ok) throw new Error('write failed')
+    const longNote = readFileSync(long.path, 'utf8').split('## Note\n\n')[1].split('\n')[0]
+    expect(longNote).toBe(`${'x'.repeat(PICK_NOTE_MAX - 1)}…`)
+    expect(readFileSync(numeric.path, 'utf8')).toContain('## Note\n\n(no note)\n')
+    const sent = vi.mocked(postBusMessage).mock.calls.map(([, , text]) => JSON.parse(text).note)
+    expect(sent).toEqual([`${'x'.repeat(PICK_NOTE_MAX - 1)}…`, ''])
+  })
+
   it('refuses a target the sender cannot reach', async () => {
     registerPane({ windowId: 'w9', workspaceId: 's9', paneId: 'agent-9' })
     const id = await captured()
@@ -209,5 +241,54 @@ describe('copyRegionImage', () => {
     expect(clipboard.writeImage).not.toHaveBeenCalled()
     expect(copyRegionImage('browser-1', id, 'w1')).toEqual({ ok: true })
     expect(clipboard.writeImage).toHaveBeenCalledWith({ fromBuffer: PNG })
+  })
+})
+
+describe('registerRegionIpc', () => {
+  const handler = (channel: string) => {
+    const call = vi.mocked(ipcMain.handle).mock.calls.find(([name]) => name === channel)
+    if (!call) throw new Error(`no handler ${channel}`)
+    return call[1] as (e: unknown, ...args: unknown[]) => Promise<unknown>
+  }
+  const sender = (id: number) => ({ sender: { id, getZoomFactor: () => 1 } })
+
+  it('captures only through a guest the sending window owns', async () => {
+    registerRegionIpc(new Map([['browser-1', 7]]), sameWindow)
+    const guest = fakeGuest()
+    vi.mocked(ownedGuest).mockReturnValueOnce(null)
+    expect(await handler('browser:region-capture')(sender(2), 'browser-1', request)).toEqual({
+      ok: false,
+      error: 'browser-not-ready',
+    })
+    expect(guest.capturePage).not.toHaveBeenCalled()
+    vi.mocked(ownedGuest).mockReturnValueOnce(asGuest(guest))
+    const outcome = (await handler('browser:region-capture')(sender(1), 'browser-1', request)) as {
+      ok: boolean
+    }
+    expect(outcome.ok).toBe(true)
+    expect(guest.capturePage).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(ownedGuest).mock.calls.map((c) => [c[1], c[2]])).toEqual([
+      ['browser-1', '2'],
+      ['browser-1', '1'],
+    ])
+  })
+})
+
+describe('stored regions', () => {
+  it('keeps only the five newest captures and evicts the oldest', async () => {
+    const ids: string[] = []
+    for (let i = 0; i < 6; i++) ids.push(await captured())
+    expect(copyRegionImage('browser-1', ids[0], 'w1')).toEqual({
+      ok: false,
+      error: 'capture-expired',
+    })
+    expect(copyRegionImage('browser-1', ids[1], 'w1')).toEqual({ ok: true })
+    expect(copyRegionImage('browser-1', ids[5], 'w1')).toEqual({ ok: true })
+    const stale = writeRegionReport(
+      { captureId: ids[0], sourcePaneId: 'browser-1', targetPaneId: 'term-1', note: '' },
+      'w1',
+      sameWindow,
+    )
+    expect(stale).toEqual({ ok: false, error: 'capture-expired' })
   })
 })

@@ -67,6 +67,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
+    "commander": "^14.0.3",
     "culori": "^4.0.2",
     "diff": "^9.0.0",
     "electron-log": "^5.4.4",

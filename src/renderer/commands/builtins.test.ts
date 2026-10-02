@@ -1121,6 +1121,68 @@ describe('agent notifications', () => {
     expect(useAttentionStore.getState().byPane[pane.id]?.state).toBe('waiting')
   })
 
+  it('marks the pane unread, never waiting, for a bus message and logs who sent it', async () => {
+    const pane = seedPane()
+    await commands.execWith(ctx('s1', pane.id), 'attention.message', {
+      from: 'api tests',
+      text: 'tests are green\x1b\x07\nsecond line',
+    })
+    expect(useAttentionStore.getState().byPane[pane.id]).toMatchObject({
+      state: 'none',
+      unread: true,
+      message: 'Message from api tests: tests are green',
+    })
+    expect(window.pine.notifications.post).toHaveBeenCalledWith({
+      paneId: pane.id,
+      kind: 'message',
+      title: 'Message from api tests',
+      body: 'tests are green',
+      desktop: true,
+    })
+  })
+
+  it('leaves a working agent working when a bus message arrives for it', async () => {
+    const pane = seedPane()
+    const blocks = useBlocksStore.getState()
+    blocks.promptStart(pane.id, { line: 0 }, null)
+    blocks.commandStart(pane.id, { line: 1 }, 'claude')
+    await commands.execWith(ctx('s1', pane.id), 'attention.set', { state: 'working' })
+    await commands.execWith(ctx('s1', pane.id), 'attention.message', { from: '', text: 'ping' })
+    expect(useAttentionStore.getState().byPane[pane.id]).toMatchObject({
+      state: 'working',
+      unread: true,
+      message: 'Message from another pane: ping',
+    })
+  })
+
+  it('keeps what a waiting agent waits for when a bus message arrives', async () => {
+    const pane = seedPane()
+    const blocks = useBlocksStore.getState()
+    blocks.promptStart(pane.id, { line: 0 }, null)
+    blocks.commandStart(pane.id, { line: 1 }, 'claude')
+    await commands.execWith(ctx('s1', pane.id), 'attention.set', {
+      state: 'waiting',
+      message: 'Allow Bash?',
+    })
+    useAttentionStore.getState().dispatch(pane.id, { type: 'view', at: 1 })
+    await commands.execWith(ctx('s1', pane.id), 'attention.message', { from: 'web', text: 'hi' })
+    expect(useAttentionStore.getState().byPane[pane.id]).toMatchObject({
+      state: 'waiting',
+      unread: true,
+      message: 'Allow Bash?',
+    })
+  })
+
+  it('reads a bus message at once in the pane being viewed and skips the banner', async () => {
+    const pane = seedPane()
+    viewWorkspace()
+    await commands.execWith(ctx('s1', pane.id), 'attention.message', { from: 'web', text: 'hi' })
+    expect(useAttentionStore.getState().byPane[pane.id]?.unread).toBe(false)
+    expect(window.pine.notifications.post).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Message from web', desktop: false }),
+    )
+  })
+
   it('tells pine notify to skip the banner for the pane being viewed unless whenFocused is on', async () => {
     const pane = seedPane()
     viewWorkspace()

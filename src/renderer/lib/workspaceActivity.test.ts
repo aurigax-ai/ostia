@@ -5,6 +5,7 @@ import { useBlocksStore } from '../stores/blocksStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useUIStore } from '../stores/uiStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
+import { POINTER_VIEW_MS, resetPointerView } from './pointerView'
 import {
   isPaneViewed,
   isPaneVisible,
@@ -13,6 +14,7 @@ import {
   signalPane,
   startAttentionSync,
   syncWorkspaceState,
+  viewPointedPane,
 } from './workspaceActivity'
 
 function homeWorkspaceId(): string {
@@ -53,6 +55,7 @@ describe('workspace activity + attention', () => {
     useAttentionStore.setState(attentionInit, true)
     useUIStore.setState(uiInit, true)
     resetIds()
+    resetPointerView()
     vi.restoreAllMocks()
   })
 
@@ -249,5 +252,46 @@ describe('workspace activity + attention', () => {
     } finally {
       stop()
     }
+  })
+
+  it('clears unread on a visible background pane the pointer reaches while the window is focused', () => {
+    const { workspaceId, panes } = setup()
+    focusWindow(false)
+    const active = useLayoutStore.getState().byWorkspace[workspaceId].activePaneId
+    const unfocused = panes.find((p) => p !== active) ?? ''
+    signalPane(unfocused, { type: 'set', state: 'done', at: 1 })
+    expect(attentionOf(unfocused).unread).toBe(true)
+    viewPointedPane(unfocused)
+    expect(attentionOf(unfocused).unread).toBe(true)
+    focusWindow(true)
+    viewPointedPane(unfocused)
+    expect(attentionOf(unfocused)).toMatchObject({ state: 'none', unread: false })
+  })
+
+  it('keeps unread on a pane in a background tab even when the pointer is reported over it', () => {
+    focusWindow(true)
+    const workspaceId = homeWorkspaceId()
+    useLayoutStore.getState().ensure(workspaceId)
+    const first = useLayoutStore.getState().byWorkspace[workspaceId].activePaneId
+    useLayoutStore.getState().newTab(workspaceId, first, 'terminal')
+    expect(isPaneVisible(first)).toBe(false)
+    signalPane(first, { type: 'set', state: 'done', at: 1 })
+    viewPointedPane(first)
+    expect(attentionOf(first)).toMatchObject({ state: 'done', unread: true })
+  })
+
+  it('counts a pointed-at pane as viewed for exactly the pointer window', () => {
+    const { workspaceId, panes } = setup()
+    focusWindow(true)
+    const active = useLayoutStore.getState().byWorkspace[workspaceId].activePaneId
+    const other = panes.find((p) => p !== active) ?? ''
+    const now = vi.spyOn(Date, 'now').mockReturnValue(50_000)
+    viewPointedPane(other)
+    now.mockReturnValue(50_000 + POINTER_VIEW_MS)
+    signalPane(other, { type: 'set', state: 'done', at: 1 })
+    expect(attentionOf(other)).toMatchObject({ state: 'none', unread: false })
+    now.mockReturnValue(50_001 + POINTER_VIEW_MS)
+    signalPane(other, { type: 'set', state: 'done', at: 2 })
+    expect(attentionOf(other)).toMatchObject({ state: 'done', unread: true })
   })
 })
