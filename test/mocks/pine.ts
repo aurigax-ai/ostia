@@ -6,7 +6,9 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
   const noopUnsub = () => () => {}
   const base: PineBridge = {
     ping: vi.fn().mockResolvedValue('pong'),
-    info: vi.fn().mockResolvedValue({ name: 'pine', version: '0.0.0', platform: 'linux' }),
+    info: vi
+      .fn()
+      .mockResolvedValue({ name: 'pine', version: '0.0.0', platform: 'linux', hostName: 'devbox' }),
     platform: 'linux',
     diagnostics: {
       report: vi.fn(),
@@ -142,6 +144,9 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       pickCancel: vi.fn(),
       pickSend: vi.fn().mockResolvedValue({ ok: false, error: 'not-found' }),
       onPickState: vi.fn(noopUnsub),
+      regionCapture: vi.fn().mockResolvedValue({ ok: false, error: 'browser-not-ready' }),
+      regionSend: vi.fn().mockResolvedValue({ ok: false, error: 'not-found' }),
+      regionCopy: vi.fn().mockResolvedValue({ ok: true }),
       storageRead: vi.fn().mockResolvedValue({ ok: false, error: 'browser-not-ready' }),
       storageSet: vi.fn().mockResolvedValue({ ok: true }),
       storageRemove: vi.fn().mockResolvedValue({ ok: true }),
@@ -153,6 +158,11 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
     files: {
       pathForFile: vi.fn(() => ''),
       admitDropped: vi.fn().mockResolvedValue([]),
+    },
+    clipboard: {
+      edit: vi.fn().mockResolvedValue(undefined),
+      hasImage: vi.fn().mockResolvedValue(false),
+      setChords: vi.fn(),
     },
     openPath: {
       openDefault: vi.fn().mockResolvedValue({ ok: true }),
@@ -265,6 +275,10 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       onOpenPanel: vi.fn(noopUnsub),
       onOpenDiff: vi.fn(noopUnsub),
       onOpenTerminal: vi.fn(noopUnsub),
+      onAgentOffer: vi.fn(noopUnsub),
+      onAgentOfferWithdrawn: vi.fn(noopUnsub),
+      answerAgentOffer: vi.fn(),
+      onFocusPane: vi.fn(noopUnsub),
     },
     assist: {
       availability: vi.fn().mockResolvedValue({}),
@@ -298,7 +312,7 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       preview: vi.fn().mockResolvedValue({ ok: false, error: 'not-found' }),
       plan: vi.fn().mockResolvedValue({ ok: false, error: 'not-found' }),
       write: vi.fn().mockResolvedValue({ ok: false, error: 'failed' }),
-      undo: vi.fn().mockResolvedValue({ ok: false, error: 'failed' }),
+      restore: vi.fn().mockResolvedValue({ ok: false, error: 'failed' }),
       skills: vi.fn().mockResolvedValue([]),
       loadSkill: vi.fn().mockResolvedValue({ ok: false, error: 'unknown-skill' }),
       mcpStatus: vi.fn().mockResolvedValue([]),

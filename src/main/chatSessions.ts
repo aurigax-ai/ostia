@@ -20,6 +20,7 @@ import {
   chatSummary,
   chatTitle,
   normalizeChatSession,
+  toolCallIdsOf,
 } from '../shared/chatSessions'
 
 export interface ChatSessionStoreOptions {
@@ -41,16 +42,25 @@ function sizeOf(session: ChatSession): number {
   return Buffer.byteLength(JSON.stringify(session))
 }
 
+function dropOrphanEdits(session: ChatSession): void {
+  if (!session.edits) return
+  const calls = toolCallIdsOf(session.messages)
+  const kept = session.edits.filter((e) => calls.has(e.toolCallId))
+  session.edits = kept.length > 0 ? kept : undefined
+}
+
 export function trimSession(session: ChatSession, maxBytes: number): number {
   let dropped = 0
   while (session.messages.length > 1 && sizeOf(session) > maxBytes) {
     session.messages.shift()
     dropped += 1
+    dropOrphanEdits(session)
   }
   while (session.messages.length > 0 && session.messages[0].role !== 'user') {
     session.messages.shift()
     dropped += 1
   }
+  dropOrphanEdits(session)
   if (dropped > 0) session.trimmed = true
   session.messageCount = session.messages.length
   return dropped

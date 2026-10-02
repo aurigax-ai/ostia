@@ -26,6 +26,7 @@ interface Draft {
   promptLine: LineAnchor
   inputLine: LineAnchor | null
   cwd: string | null
+  remote: boolean
 }
 
 interface BlocksState {
@@ -36,7 +37,7 @@ interface BlocksState {
   selected: Record<string, string | undefined>
   agentBlocks: Record<string, { blockId: string; agent: ResumableAgent } | undefined>
   markAgent: (paneId: string, agent: ResumableAgent) => void
-  promptStart: (paneId: string, line: LineAnchor, cwd: string | null) => void
+  promptStart: (paneId: string, line: LineAnchor, cwd: string | null, remote?: boolean) => void
   promptEnd: (paneId: string, line: LineAnchor) => void
   commandStart: (paneId: string, line: LineAnchor, command?: string) => void
   commandEnd: (paneId: string, line: LineAnchor, exitCode: number, endCol?: number) => void
@@ -61,8 +62,10 @@ export const useBlocksStore = create<BlocksState>((set) => ({
       return { agentBlocks: { ...s.agentBlocks, [paneId]: { blockId, agent } } }
     }),
 
-  promptStart: (paneId, line, cwd) =>
-    set((s) => ({ drafts: { ...s.drafts, [paneId]: { promptLine: line, inputLine: null, cwd } } })),
+  promptStart: (paneId, line, cwd, remote = false) =>
+    set((s) => ({
+      drafts: { ...s.drafts, [paneId]: { promptLine: line, inputLine: null, cwd, remote } },
+    })),
 
   promptEnd: (paneId, line) =>
     set((s) => {
@@ -73,7 +76,12 @@ export const useBlocksStore = create<BlocksState>((set) => ({
 
   commandStart: (paneId, line, command = '') =>
     set((s) => {
-      const draft = s.drafts[paneId] ?? { promptLine: line, inputLine: line, cwd: null }
+      const draft = s.drafts[paneId] ?? {
+        promptLine: line,
+        inputLine: line,
+        cwd: null,
+        remote: false,
+      }
       let prev = s.byPane[paneId] ?? []
       const staleId = s.running[paneId]
       if (staleId) {

@@ -82,3 +82,7 @@ export function pastePreview(text: string): PastePreview {
   flush(end)
   return { parts, truncated: text.length > PREVIEW_LIMIT }
 }
+
+export function planDraftPaste(text: string): string {
+  return planHumanPaste(text, false).text
+}

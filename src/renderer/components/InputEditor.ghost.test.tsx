@@ -48,7 +48,12 @@ function renderEditor(): InputEditorProps {
     suppressedPrompt: null,
     ownsFocus: () => true,
     termRef: {
-      current: { focus: vi.fn(), getSelection: () => '', scrollToBottom: vi.fn() } as never,
+      current: {
+        focus: vi.fn(),
+        getSelection: () => '',
+        hasSelection: () => false,
+        scrollToBottom: vi.fn(),
+      } as never,
     } as { current: Xterm },
     hostRef: { current: null },
     onSubmit: vi.fn(() => true),

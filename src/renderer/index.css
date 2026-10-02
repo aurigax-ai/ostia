@@ -2014,6 +2014,36 @@ button.prompt-chip:focus-visible {
   width: 100%;
 }
 
+.region-crop-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  cursor: crosshair;
+  outline: none;
+  touch-action: none;
+}
+
+.region-crop-box {
+  position: absolute;
+  border: 1px solid var(--brand);
+  background: var(--brand-glow);
+  pointer-events: none;
+}
+
+.region-crop-size {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  padding: 0 4px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-3);
+  color: var(--fg);
+  font-family: var(--font-code);
+  font-size: var(--text-ui-xs);
+  line-height: var(--text-ui-xs--line-height);
+  white-space: nowrap;
+}
+
 .pane-drop-layer {
   position: absolute;
   top: var(--tabstrip-h);
@@ -2354,6 +2384,15 @@ button.prompt-chip:focus-visible {
   to {
     opacity: 0;
   }
+}
+
+.settings-search-mark {
+  background: var(--brand-glow);
+  color: inherit;
+  border-radius: 2px;
+  text-decoration: underline;
+  text-decoration-color: var(--brand);
+  text-underline-offset: 3px;
 }
 
 .settings-anchor-highlight {

@@ -1,9 +1,9 @@
 {
   "id": "ssh",
   "name": "SSH",
-  "version": "1.0.0",
-  "api": "1.8",
-  "description": "Lists the hosts in your ssh config and opens an ssh session in a new terminal, through bastion hosts when you name them. A session an agent asks for opens only after you approve the exact command.",
+  "version": "1.1.0",
+  "api": "1.9",
+  "description": "Lists the hosts in your ssh config and opens an ssh session in a new terminal, through bastion hosts when you name them. Inside a session, commands show as blocks through a shell integration that lives only for that session. A session an agent asks for opens only after you approve the exact command.",
   "category": "tools",
   "capabilities": ["shell"],
   "main": "main.js",
@@ -30,6 +30,14 @@
         "usage": "show <host>",
         "palette": false
       }
-    ]
+    ],
+    "settings": {
+      "shellIntegration": {
+        "type": "boolean",
+        "title": "Shell integration in ssh sessions",
+        "default": true,
+        "description": "Command blocks and the current folder inside bash and zsh sessions: ssh runs with -t and a fixed command that writes a private temporary folder on the host, sources it as the shell starts and deletes it at once. Nothing is installed. Turn it off for hosts that refuse a remote command"
+      }
+    }
   }
 }

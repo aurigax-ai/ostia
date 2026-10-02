@@ -19,6 +19,7 @@ import { wireExtensionBridge } from './commands/extensionBridge'
 import { registerExternalEditorCommand } from './commands/externalEditor'
 import { wireManagerBridge } from './commands/managerBridge'
 import { wirePaneRunBridge } from './commands/paneRunBridge'
+import { registerRegionCaptureCommand } from './commands/regionCapture'
 import { registerSelectionSendCommand } from './commands/selectionSend'
 import { wireTerminalStateBridge } from './commands/terminalStateBridge'
 import { registerWindowCommands } from './commands/windowCommands'
@@ -31,6 +32,7 @@ import { errorDetails, reportError, startErrorReporting } from './lib/errorRepor
 import { startFileDropTracking } from './lib/fileDrop'
 import { startHibernation } from './lib/hibernationScheduler'
 import { livePaneIds } from './lib/livePanes'
+import { loadLocalHostName } from './lib/osc7'
 import { startAgentDetection } from './lib/paneAgent'
 import { startPaneDragTracking } from './lib/paneDrag'
 import { applyStoredRailWidth } from './lib/railWidth'
@@ -59,6 +61,7 @@ startErrorReporting()
 registerBuiltinCommands()
 registerExternalEditorCommand()
 registerSelectionSendCommand()
+registerRegionCaptureCommand()
 registerViewCommands()
 wireCommandBridge()
 wireTerminalStateBridge()
@@ -73,6 +76,7 @@ const root = createRoot(container)
 async function boot(): Promise<void> {
   await initWindow()
   registerWindowCommands(useWindowsStore.getState().detached)
+  await loadLocalHostName()
   try {
     await useSettingsStore.getState().init()
   } catch (err) {

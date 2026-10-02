@@ -9,6 +9,7 @@ export interface SshTarget {
   port?: number
   jump: string[]
   proxyCommand: boolean
+  remoteCommand: boolean
 }
 
 export type RunSsh = (args: string[]) => Promise<ToolRun>
@@ -19,6 +20,7 @@ export type Resolved =
   | { ok: false; error: 'resolve-failed'; reason: string | null }
 
 const UNSET = 'none'
+const DEFAULT_SESSION = 'default'
 
 function configValues(output: string): Map<string, string> {
   const values = new Map<string, string>()
@@ -35,6 +37,10 @@ function isSet(value: string | undefined): value is string {
   return value !== undefined && value !== '' && value !== UNSET
 }
 
+function hasOtherSession(value: string | undefined): boolean {
+  return value !== undefined && value !== DEFAULT_SESSION
+}
+
 export function parseTarget(alias: string, output: string): SshTarget {
   const values = configValues(output)
   const jump = values.get('proxyjump')
@@ -42,6 +48,7 @@ export function parseTarget(alias: string, output: string): SshTarget {
     alias,
     jump: isSet(jump) ? jump.split(',').filter(Boolean) : [],
     proxyCommand: isSet(values.get('proxycommand')),
+    remoteCommand: isSet(values.get('remotecommand')) || hasOtherSession(values.get('sessiontype')),
   }
   const user = values.get('user')
   if (isSet(user)) target.user = user

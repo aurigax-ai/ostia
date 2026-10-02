@@ -1,6 +1,3 @@
-import { isDangerousSegment } from '@shared/protoGuard'
-import { commands } from '../commands/registry'
-import { useSettingsStore } from '../stores/settingsStore'
 import {
   type ChordProblem,
   type ChordSpec,
@@ -13,9 +10,12 @@ import {
   parseChord,
   specFromEvent,
   stealsTerminalKey,
-} from './chordSpec'
+} from '@shared/chordSpec'
+import { isDangerousSegment } from '@shared/protoGuard'
+import { commands } from '../commands/registry'
+import { useSettingsStore } from '../stores/settingsStore'
 
-export type { KeyLike, KeybindingMap } from './chordSpec'
+export type { KeyLike, KeybindingMap } from '@shared/chordSpec'
 
 export type AppChord =
   | 'palette.toggle'
@@ -169,17 +169,6 @@ export function matchChord(e: KeyLike, mac: boolean): string | null {
   if (exact) return exact
   if (workspaceDigit(spec.key) === null) return null
   return bySignature.get(formatChord({ ...spec, key: DIGIT_RANGE }, mac)) ?? null
-}
-
-export function isNativeClipboardKey(e: KeyLike): boolean {
-  const spec = specFromEvent(e)
-  return (
-    spec?.meta === true &&
-    !spec.ctrl &&
-    !spec.alt &&
-    !spec.shift &&
-    (spec.key === 'c' || spec.key === 'v')
-  )
 }
 
 export function isAppChord(chord: string | null): chord is string {

@@ -21,3 +21,14 @@ export function smartClipboardAction(
   if (key === 'v') return 'paste'
   return null
 }
+
+export const PROGRAM_PASTE_KEY = '\x16'
+
+export function keyPastePlan(
+  text: string,
+  editorShown: boolean,
+  hasImage: boolean,
+): 'text' | 'program' | 'none' {
+  if (text) return 'text'
+  return !editorShown && hasImage ? 'program' : 'none'
+}

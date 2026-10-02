@@ -9,8 +9,10 @@ import {
   panelTranslator,
 } from '@aurigax-ai/pine-extension-sdk/panel'
 import arrowClockwise from '@phosphor-icons/core/regular/arrow-clockwise.svg'
+import caretDown from '@phosphor-icons/core/regular/caret-down.svg'
 import lockSimple from '@phosphor-icons/core/regular/lock-simple.svg'
 import plus from '@phosphor-icons/core/regular/plus.svg'
+import robot from '@phosphor-icons/core/regular/robot.svg'
 import userCircle from '@phosphor-icons/core/regular/user-circle.svg'
 import xIcon from '@phosphor-icons/core/regular/x.svg'
 import {
@@ -58,6 +60,11 @@ interface CardData {
   thread: CardThread | null
 }
 
+interface CardTask {
+  ref: string
+  agent: string | null
+}
+
 interface NewCardDraft {
   title: string
   body: string
@@ -98,6 +105,10 @@ let openSlug: string | null = null
 let entryData: VaultEntry | null = null
 let entryFailure: ExtensionResult | null = null
 let banner: string | null = null
+let notice: string | null = null
+let tasks = new Map<string, CardTask>()
+let agentNames: string[] | null = null
+let workMenu: string | null = null
 let busy = false
 let requestSeq = 0
 
@@ -332,7 +343,120 @@ function toolbar(): HTMLElement {
 }
 
 function bannerView(): HTMLElement | null {
-  return banner ? h('div', { class: 'banner error', role: 'alert' }, banner) : null
+  if (banner) return h('div', { class: 'banner error', role: 'alert' }, banner)
+  return notice ? h('div', { class: 'banner', role: 'status' }, notice) : null
+}
+
+function taskText(task: CardTask): string {
+  return task.agent ? p('task.started', { agent: task.agent }) : p('task.sent')
+}
+
+function taskButton(ref: string, key: string): HTMLElement | null {
+  const task = tasks.get(ref)
+  if (!task) return null
+  return h(
+    'button',
+    {
+      class: 'task',
+      'data-key': key,
+      'data-task': ref,
+      title: p('task.show'),
+      'aria-label': `${taskText(task)}. ${p('task.show')}`,
+      onclick: () => void focusTask(ref),
+    },
+    icon(robot),
+    taskText(task),
+  )
+}
+
+async function focusTask(ref: string): Promise<void> {
+  const res = await call('focus', { ref })
+  banner = res.ok ? null : errorText(res)
+  notice = null
+  if (!res.ok) await refresh()
+}
+
+async function toggleWorkMenu(ref: string): Promise<void> {
+  workMenu = workMenu === ref ? null : ref
+  render()
+  if (!workMenu || agentNames) return
+  const res = await call('agents')
+  agentNames = res.ok ? (res.data as { agents: string[] }).agents : []
+  render()
+}
+
+async function handOff(command: 'offer' | 'start', ref: string, agent?: string): Promise<void> {
+  workMenu = null
+  render()
+  const res = await call(command, {
+    ref,
+    board: boardData?.board.slug || undefined,
+    ...(agent ? { agent } : {}),
+  })
+  banner = res.ok ? null : errorText(res)
+  notice = res.ok && (res.data as { sent?: boolean }).sent === false ? p('work.notSent') : null
+  await refresh()
+}
+
+function workMenuView(ref: string): HTMLElement {
+  const names = agentNames
+  return h(
+    'div',
+    { class: 'work-menu', role: 'menu', 'aria-label': p('work.menu') },
+    h(
+      'button',
+      {
+        role: 'menuitem',
+        'data-key': 'work-send',
+        onclick: () => void handOff('offer', ref),
+      },
+      p('work.send'),
+    ),
+    h('p', { class: 'work-heading muted' }, p('work.start')),
+    names === null
+      ? h('p', { class: 'muted note' }, p('loading'))
+      : names.length === 0
+        ? h('p', { class: 'muted note' }, p('work.noAgents'))
+        : null,
+    ...(names ?? []).map((agent) =>
+      h(
+        'button',
+        {
+          role: 'menuitem',
+          'data-key': `work-start-${agent}`,
+          'data-agent': agent,
+          onclick: () => void handOff('start', ref, agent),
+        },
+        p('work.startAgent', { agent }),
+      ),
+    ),
+  )
+}
+
+function workRow(ref: string): HTMLElement {
+  const open = workMenu === ref
+  return h(
+    'div',
+    { class: 'work-row' },
+    h(
+      'div',
+      { class: 'work' },
+      h(
+        'button',
+        {
+          class: 'with-icon primary',
+          'data-key': 'work',
+          'aria-haspopup': 'menu',
+          'aria-expanded': open ? 'true' : 'false',
+          onclick: () => void toggleWorkMenu(ref),
+        },
+        p('work.button'),
+        icon(caretDown),
+      ),
+      open ? workMenuView(ref) : null,
+    ),
+    taskButton(ref, 'task-detail'),
+  )
 }
 
 function claimLine(card: TrellisCard): HTMLElement | null {
@@ -359,7 +483,7 @@ function labelChips(card: TrellisCard): HTMLElement | null {
 function cardTile(card: TrellisCard): HTMLElement {
   return h(
     'li',
-    {},
+    { class: tasks.has(card.ref) ? 'has-task' : '' },
     h(
       'button',
       {
@@ -374,6 +498,7 @@ function cardTile(card: TrellisCard): HTMLElement {
       labelChips(card),
       claimLine(card),
     ),
+    taskButton(card.ref, `task-${card.ref}`),
   )
 }
 
@@ -775,6 +900,7 @@ function detailView(ref: string): HTMLElement {
       h('span', { class: 'muted' }, p('card.updated', { time: relativeTime(card.updatedAt) })),
     ),
     claimControls(card),
+    workRow(card.ref),
     relationsView(card),
     card.body.trim() ? markdown(card.body) : h('p', { class: 'muted note' }, p('card.noBody')),
     threadView(cardData.thread),
@@ -984,10 +1110,17 @@ async function loadContext(): Promise<void> {
 }
 
 async function loadBoard(seq: number): Promise<void> {
-  const res = await call('board', { project, board: boardSlug ?? undefined })
+  const [res, working] = await Promise.all([
+    call('board', { project, board: boardSlug ?? undefined }),
+    call('tasks'),
+  ])
   if (seq !== requestSeq) return
   boardFailure = res.ok ? null : res
   if (res.ok) boardData = res.data as BoardData
+  if (working.ok) {
+    const list = (working.data as { tasks: CardTask[] }).tasks
+    tasks = new Map(list.map((task) => [task.ref, task]))
+  }
 }
 
 async function loadCard(seq: number, ref: string): Promise<void> {
@@ -1033,7 +1166,18 @@ document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape' || e.defaultPrevented) return
   const target = e.target as HTMLElement | null
   if (target?.closest('.new-card')) return
+  if (workMenu) {
+    workMenu = null
+    render()
+    return
+  }
   if (view === 'board' && openRef) closeCard()
+})
+
+document.addEventListener('pointerdown', (e) => {
+  if (!workMenu || (e.target as HTMLElement | null)?.closest('.work')) return
+  workMenu = null
+  render()
 })
 
 render()

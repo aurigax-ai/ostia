@@ -10,7 +10,7 @@ import {
 } from '../sdk'
 import { connectConfirm } from './confirm'
 import { ALIAS_PATTERN, type HostList } from './hosts'
-import { planConnect } from './plan'
+import { planConnect, withShellIntegration } from './plan'
 import { CONNECT_USAGE, SHOW_USAGE, type Strings, stringsFor } from './strings'
 import { type Resolved, type RunSsh, resolveTarget } from './target'
 
@@ -19,6 +19,7 @@ export interface SshDeps {
   run: RunSsh
   confirm: (req: ConfirmRequest) => Promise<boolean>
   openTerminal: (opts: OpenTerminalOptions) => Promise<OpenTerminalResult>
+  shellIntegration: () => Promise<boolean>
 }
 
 type Unresolved = Exclude<Resolved, { ok: true }>
@@ -61,11 +62,13 @@ export function sshCommands(deps: SshDeps): Record<'ls' | 'show' | 'connect', Co
       const s = stringsFor(caller.locale)
       const refused = sandboxed(caller, s)
       if (refused) return refused
-      const plan = planConnect(argvOf(args))
-      if (!plan) return failure('invalid-args', CONNECT_USAGE)
-      const resolved = await resolveTarget(plan.destination, deps.run)
+      const planned = planConnect(argvOf(args))
+      if (!planned) return failure('invalid-args', CONNECT_USAGE)
+      const resolved = await resolveTarget(planned.destination, deps.run)
       if (!resolved.ok) return resolveFailure(resolved, s)
-      const { command } = plan
+      const integrates = !resolved.target.remoteCommand && (await deps.shellIntegration())
+      const plan = integrates ? withShellIntegration(planned) : planned
+      const { command, shellIntegration } = plan
       if (caller.kind === 'pane') {
         const approved = await deps.confirm(connectConfirm(plan, resolved.target, s))
         if (!approved) {
@@ -88,10 +91,10 @@ export function sshCommands(deps: SshDeps): Record<'ls' | 'show' | 'connect', Co
           ok: false,
           error: 'not-opened',
           message: s.notOpened(opened.message ?? opened.error),
-          data: { approved: true, command },
+          data: { approved: true, command, shellIntegration },
         }
       }
-      return ok(undefined, { approved: true, command, paneId: opened.paneId })
+      return ok(undefined, { approved: true, command, shellIntegration, paneId: opened.paneId })
     },
   }
 }

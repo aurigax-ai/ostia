@@ -5,6 +5,7 @@ import {
   DEFAULT_APPROVAL_SETTINGS,
   parseApprovalSettings,
 } from '@shared/approvals'
+import { type KeybindingMap, parseKeybindings } from '@shared/chordSpec'
 import { create } from 'zustand'
 import {
   type AssistModelSettings,
@@ -43,7 +44,6 @@ import { type SandboxGlobals, parseSandboxGlobals } from '../../shared/sandbox'
 import { normalizeGroupName } from '../../shared/workspaceGroups'
 import { ZOOM_DEFAULT, clampZoom } from '../../shared/zoom'
 import type { Locale } from '../i18n/dict'
-import { type KeybindingMap, parseKeybindings } from '../lib/chordSpec'
 import { normalizeHex } from '../lib/color'
 import type { GroupRule } from '../lib/workspaceGroups'
 import { type UserAction, parseActions } from '../settings/actions'

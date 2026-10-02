@@ -81,7 +81,7 @@ describe('agent attention gates', () => {
     })
     useBlocksStore.setState({
       running: {},
-      drafts: { p1: { promptLine: { line: 0 }, inputLine: null, cwd: null } },
+      drafts: { p1: { promptLine: { line: 0 }, inputLine: null, cwd: null, remote: false } },
     })
     expect(terminalNotification('p1', 'hello', 5).waiting).toBe(false)
   })
@@ -96,7 +96,7 @@ describe('agent attention gates', () => {
 
   it('treats waiting or working at an idle prompt as a late report from an agent that exited', () => {
     useBlocksStore.setState({
-      drafts: { p1: { promptLine: { line: 0 }, inputLine: null, cwd: null } },
+      drafts: { p1: { promptLine: { line: 0 }, inputLine: null, cwd: null, remote: false } },
     })
     expect(isStaleAgentReport('p1', 'waiting')).toBe(true)
     expect(isStaleAgentReport('p1', 'working')).toBe(true)
