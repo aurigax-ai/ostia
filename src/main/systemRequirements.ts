@@ -1,5 +1,6 @@
 import { constants, accessSync, statSync } from 'node:fs'
-import { delimiter, join } from 'node:path'
+import { join } from 'node:path'
+import { findOnPath } from '../shared/pathLookup'
 import { MANAGER_FEATURE } from '../shared/managerSettings'
 import { MARKETPLACE_FEATURE } from '../shared/marketplace'
 import type { InstallHint, MissingRequirement } from '../shared/systemRequirements'
@@ -70,10 +71,7 @@ function isExecutable(file: string): boolean {
 }
 
 export function programPath(program: string, path = process.env.PATH ?? ''): string | null {
-  for (const dir of path.split(delimiter)) {
-    if (dir && isExecutable(join(dir, program))) return join(dir, program)
-  }
-  return null
+  return findOnPath(program, path, isExecutable)
 }
 
 export function onPath(program: string, path = process.env.PATH ?? ''): boolean {

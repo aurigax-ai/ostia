@@ -1,8 +1,17 @@
 import { spawn } from 'node:child_process'
 import { constants, accessSync } from 'node:fs'
-import { delimiter, isAbsolute, join } from 'node:path'
+import { isAbsolute, join } from 'node:path'
+import { findOnPath as findOnPathShared } from '../shared/pathLookup'
 import { splitArgs } from '../shared/argv'
 import type { ExternalEditorRequest, ExternalEditorResult } from '../shared/types'
+
+export function findOnPath(
+  bin: string,
+  pathEnv: string,
+  isExecutable: (p: string) => boolean,
+): string | null {
+  return findOnPathShared(bin, pathEnv, isExecutable)
+}
 
 export const AUTO_EDITOR = 'auto'
 
@@ -35,18 +44,6 @@ export function expandTemplate(template: string, target: EditorTarget): string[]
   return hasFile ? argv : [...argv, target.file]
 }
 
-export function findOnPath(
-  bin: string,
-  pathEnv: string,
-  isExecutable: (p: string) => boolean,
-): string | null {
-  for (const dir of pathEnv.split(delimiter)) {
-    if (!dir) continue
-    const candidate = join(dir, bin)
-    if (isExecutable(candidate)) return candidate
-  }
-  return null
-}
 
 export function resolveEditorTemplate(
   setting: string,
@@ -56,7 +53,7 @@ export function resolveEditorTemplate(
   const trimmed = setting.trim()
   if (!trimmed) return null
   if (trimmed !== AUTO_EDITOR) return trimmed
-  const found = KNOWN_EDITORS.find((e) => findOnPath(e.bin, pathEnv, isExecutable))
+  const found = KNOWN_EDITORS.find((e) => findOnPathShared(e.bin, pathEnv, isExecutable) !== null)
   return found?.template ?? null
 }
 
