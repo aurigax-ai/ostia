@@ -1,6 +1,7 @@
 import { type ChildProcess, spawn } from 'node:child_process'
 import { EventEmitter } from 'node:events'
 import { type FSWatcher, mkdirSync, readdirSync, watch } from 'node:fs'
+import { homedir } from 'node:os'
 import { isAbsolute, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { debounce } from 'es-toolkit'
@@ -63,10 +64,14 @@ import {
   type LocaleCatalogs,
 } from '../shared/extensionLocales'
 import {
+  AGENT_OFFER_LABEL_MAX,
+  AGENT_OFFER_TEXT_MAX,
+  AGENT_PROMPT_MAX,
   ASSIST_PROVIDERS_CHANGED_EVENT,
   DIFF_TEXT_MAX,
   EXTENSION_EVENT_TYPES,
   EXTENSION_ICONS,
+  type ExtensionAgentOffer,
   type ExtensionCaller,
   type ExtensionChip,
   type ExtensionChipContribution,
@@ -113,6 +118,17 @@ import type { Workflow } from '../shared/workflows'
 import { dropIdentity, hasCap, setCaps } from './capabilityStore'
 import { registerControlMethod } from './controlServer'
 import type { EditorLanguageSource } from './editorLanguages'
+import {
+  type AgentOfferDelivery,
+  REACHED_PANES_MAX,
+  agentName,
+  agentPrompt,
+  agentTaskLimiter,
+  offerLabel,
+  offerText,
+  workspaceFolder,
+  workspaceIdOf,
+} from './extensionAgents'
 import { loadLocaleCatalogs, manifestIn } from './extensionLocales'
 import {
   type DiscoveredExtension,
@@ -167,6 +183,8 @@ interface Runtime {
   panelOrigins: Set<string>
   assistStatus: AssistStatus
   assistReport: AssistRuntimeReport | null
+  offering: boolean
+  reached: Set<string>
 }
 
 interface AssistRuntimeReport {
@@ -211,6 +229,8 @@ function newRuntime(ext: LoadedExtension): Runtime {
     panelOrigins: new Set(),
     assistStatus: {},
     assistReport: null,
+    offering: false,
+    reached: new Set(),
   }
 }
 
@@ -312,6 +332,11 @@ export interface ExtensionHostDeps {
     n: { title: string; body?: string; from: string; extId: string; panelPath?: string },
     openPanel: () => void,
   ) => void
+  agentArgv?: (name: string) => string[] | null
+  agentNames?: () => string[]
+  offerToAgentIn?: (offer: Omit<ExtensionAgentOffer, 'requestId'>) => Promise<AgentOfferDelivery>
+  focusPaneIn?: (pane: PaneIdentity) => boolean
+  agentTaskClock?: () => number
 }
 
 const HOST_TERMINAL_NOTE = 'Runs outside the sandbox, in a terminal you can watch:'
@@ -451,6 +476,7 @@ export class ExtensionHost {
   private assistSeq = 0
   private shortcuts: Record<string, string> = {}
   private announcedLocale: string
+  private readonly agentTasks: ReturnType<typeof agentTaskLimiter>
 
   constructor(private readonly deps: ExtensionHostDeps) {
     this.changes.setMaxListeners(0)
@@ -458,6 +484,7 @@ export class ExtensionHost {
     this.settings = storedSettings(deps.readExtensionSettings?.())
     this.assistSettings = parseAssistModelSettings(deps.readAssistSettings?.()?.assistant)
     this.announcedLocale = this.currentLocale()
+    this.agentTasks = agentTaskLimiter(deps.agentTaskClock)
   }
 
   private discover(): LoadedExtension[] {
@@ -1480,7 +1507,109 @@ export class ExtensionHost {
     }
     if (!this.deps.openTerminalIn) return fail('no-window')
     const paneId = await this.deps.openTerminalIn(req)
-    return paneId ? { ok: true, paneId } : fail('not-opened', 'no workspace to open it in')
+    if (!paneId) return fail('not-opened', 'no workspace to open it in')
+    this.reach(rt, paneId)
+    return { ok: true, paneId }
+  }
+
+  private reach(rt: Runtime, paneId: string): void {
+    if (rt.reached.size >= REACHED_PANES_MAX) {
+      for (const id of rt.reached) if (resolveExternal(id)?.kind !== 'pane') rt.reached.delete(id)
+    }
+    if (rt.reached.size < REACHED_PANES_MAX) rt.reached.add(paneId)
+  }
+
+  private takeAgentTask(rt: Runtime): boolean {
+    return this.agentTasks.take(rt.ext.manifest.id).allowed
+  }
+
+  agentNames(identity: PaneIdentity, conn: MessageConnection) {
+    this.runtimeOf(identity, conn)
+    return { ok: true, agents: this.deps.agentNames?.() ?? [] }
+  }
+
+  async runAgent(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
+    const rt = this.runtimeOf(identity, conn)
+    const p = isPlainRecord(params) ? params : {}
+    const workspaceId = workspaceIdOf(p.workspaceId)
+    if (!workspaceId) return fail('invalid-params', 'workspaceId is required')
+    const agent = agentName(p.agent)
+    if (!agent) return fail('invalid-params', 'agent must be one of the names ext.agents lists')
+    const prompt = agentPrompt(p.prompt)
+    if (!prompt) {
+      return fail(
+        'invalid-params',
+        `prompt must be 1-${AGENT_PROMPT_MAX} characters without control characters other than newlines and tabs`,
+      )
+    }
+    const argv = this.deps.agentArgv?.(agent)
+    if (!argv) return fail('unknown-agent', 'no agent by that name')
+    if (!this.deps.openTerminalIn) return fail('no-window')
+    if (!this.takeAgentTask(rt)) return fail('rate-limited', 'too many agent tasks this minute')
+    const cwd = workspaceFolder(this.deps.workDirForWorkspace(workspaceId), homedir())
+    const paneId = await this.deps.openTerminalIn({
+      command: quoteArgv([...argv, prompt]),
+      workspaceId,
+      ...(cwd ? { cwd } : {}),
+    })
+    if (!paneId) return fail('not-opened', 'no workspace to open it in')
+    this.reach(rt, paneId)
+    return { ok: true, paneId }
+  }
+
+  async offerToAgent(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
+    const rt = this.runtimeOf(identity, conn)
+    const p = isPlainRecord(params) ? params : {}
+    const workspaceId = workspaceIdOf(p.workspaceId)
+    if (!workspaceId) return fail('invalid-params', 'workspaceId is required')
+    const text = offerText(p.text)
+    if (!text) {
+      return fail(
+        'invalid-params',
+        `text must be one line of 1-${AGENT_OFFER_TEXT_MAX} characters without control characters`,
+      )
+    }
+    const label = offerLabel(p.label)
+    if (!label) {
+      return fail(
+        'invalid-params',
+        `label must be one line of 1-${AGENT_OFFER_LABEL_MAX} characters without control characters`,
+      )
+    }
+    if (!this.deps.offerToAgentIn) return fail('no-window')
+    if (rt.offering) return fail('busy', 'an earlier offer is still waiting for the human')
+    if (!this.takeAgentTask(rt)) return fail('rate-limited', 'too many agent tasks this minute')
+    rt.offering = true
+    try {
+      const delivery = await this.deps.offerToAgentIn({
+        extId: rt.ext.manifest.id,
+        extName: this.shownName(rt),
+        workspaceId,
+        label,
+        text,
+      })
+      if (!delivery.delivered) return fail('unknown-workspace', 'no window holds that workspace')
+      if (!delivery.paneId) return { ok: true, sent: false }
+      this.reach(rt, delivery.paneId)
+      return { ok: true, sent: true, paneId: delivery.paneId }
+    } finally {
+      rt.offering = false
+    }
+  }
+
+  focusPane(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
+    const rt = this.runtimeOf(identity, conn)
+    const paneId = isPlainRecord(params) ? params.paneId : undefined
+    if (typeof paneId !== 'string' || !rt.reached.has(paneId)) {
+      return fail('not-reached', 'only a pane you opened or the human picked for you')
+    }
+    const pane = resolveExternal(paneId)
+    if (pane?.kind !== 'pane') {
+      rt.reached.delete(paneId)
+      return fail('unknown-pane', 'that pane is closed')
+    }
+    if (!this.deps.focusPaneIn) return fail('no-window')
+    return this.deps.focusPaneIn(pane) ? { ok: true } : fail('unknown-pane', 'that pane is closed')
   }
 
   listForAgents() {
@@ -2023,6 +2152,23 @@ export function registerExtensionMethods(host: () => ExtensionHost | null): void
     ...forExtension((h, id, conn, p) => h.openTerminal(id, conn, p)),
     cap: 'shell',
   })
+
+  registerControlMethod('ext.agents', {
+    ...forExtension((h, id, conn) => h.agentNames(id, conn)),
+    cap: 'shell',
+  })
+  registerControlMethod('ext.runAgent', {
+    ...forExtension((h, id, conn, p) => h.runAgent(id, conn, p)),
+    cap: 'shell',
+  })
+  registerControlMethod(
+    'ext.offerToAgent',
+    forExtension((h, id, conn, p) => h.offerToAgent(id, conn, p)),
+  )
+  registerControlMethod(
+    'ext.focusPane',
+    forExtension((h, id, conn, p) => h.focusPane(id, conn, p)),
+  )
 
   registerControlMethod('ext.list', {
     handler: () => host()?.listForAgents() ?? [],

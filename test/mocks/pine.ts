@@ -263,6 +263,10 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       onOpenPanel: vi.fn(noopUnsub),
       onOpenDiff: vi.fn(noopUnsub),
       onOpenTerminal: vi.fn(noopUnsub),
+      onAgentOffer: vi.fn(noopUnsub),
+      onAgentOfferWithdrawn: vi.fn(noopUnsub),
+      answerAgentOffer: vi.fn(),
+      onFocusPane: vi.fn(noopUnsub),
     },
     assist: {
       availability: vi.fn().mockResolvedValue({}),

@@ -3,6 +3,7 @@ import { clampZoom } from '@shared/zoom'
 import { useEffect } from 'react'
 import { commands } from './commands/registry'
 import { ActionConfirmDialog } from './components/ActionConfirmDialog'
+import { AgentOfferDialog } from './components/AgentOfferDialog'
 import { CloseConfirmDialog } from './components/CloseConfirmDialog'
 import { CommandPalette } from './components/CommandPalette'
 import { DeckRail } from './components/DeckRail'
@@ -123,6 +124,7 @@ export function App(): JSX.Element {
           <CloseConfirmDialog />
           <MergeConfirmDialog />
           <ActionConfirmDialog />
+          <AgentOfferDialog />
           <SandboxRequirementsDialog />
           <SandboxFolderDialog />
           <HistorySearch />
