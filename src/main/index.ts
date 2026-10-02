@@ -100,7 +100,7 @@ import { FileWatches, TreeWatches } from './fileWatch'
 import { readBinaryConfined } from './fsBinary'
 import { registerGatewayIpc, registerGatewayMethods } from './gateway'
 import { configureGatewayControl, stopGateway } from './gateway/server'
-import { GlobalHotkey, shouldHideWindows } from './globalHotkey'
+import { GlobalHotkey, toggleWindows } from './globalHotkey'
 import { clearGuestNetwork, watchGuestNetwork } from './guestNetwork'
 import { registerIconThemeIpc } from './iconThemes'
 import {
@@ -2428,12 +2428,7 @@ function showWindow(win: BrowserWindow): void {
 }
 
 function toggleAllWindows(): void {
-  const all = BrowserWindow.getAllWindows()
-  if (!appTray || !shouldHideWindows(all)) {
-    revealApp()
-    return
-  }
-  for (const win of all) if (!win.isDestroyed() && win.isVisible()) appTray.hide(win)
+  toggleWindows(BrowserWindow.getAllWindows(), appTray, revealApp)
 }
 
 function applyGlobalHotkey(): void {

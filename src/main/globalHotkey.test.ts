@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { GlobalHotkey, shouldHideWindows } from './globalHotkey'
+import { GlobalHotkey, shouldHideWindows, toggleWindows } from './globalHotkey'
 
 function registry(taken: readonly string[] = []) {
   const live = new Map<string, () => void>()
@@ -63,5 +63,51 @@ describe('shouldHideWindows', () => {
     expect(shouldHideWindows([win(true, false)])).toBe(false)
     expect(shouldHideWindows([win(false, false)])).toBe(false)
     expect(shouldHideWindows([])).toBe(false)
+  })
+})
+
+describe('toggleWindows', () => {
+  function windows(count: number) {
+    return Array.from({ length: count }, () => ({
+      shown: true,
+      isVisible() {
+        return this.shown
+      },
+      isFocused() {
+        return this.shown
+      },
+      isDestroyed: () => false,
+    }))
+  }
+
+  it('hides the focused windows to the tray, then reveals them, then hides them again', () => {
+    const list = windows(2)
+    const tray = {
+      hide: vi.fn((win: { shown: boolean }) => {
+        win.shown = false
+      }),
+    }
+    const reveal = vi.fn(() => {
+      for (const win of list) win.shown = true
+    })
+    toggleWindows(list, tray, reveal)
+    expect(tray.hide).toHaveBeenCalledTimes(2)
+    expect(list.map((w) => w.shown)).toEqual([false, false])
+    toggleWindows(list, tray, reveal)
+    expect(reveal).toHaveBeenCalledTimes(1)
+    expect(list.map((w) => w.shown)).toEqual([true, true])
+    toggleWindows(list, tray, reveal)
+    expect(tray.hide).toHaveBeenCalledTimes(4)
+  })
+
+  it('reveals when there is no tray or no window is focused', () => {
+    const reveal = vi.fn()
+    const hide = vi.fn()
+    toggleWindows(windows(1), null, reveal)
+    const unfocused = windows(1)
+    unfocused[0].shown = false
+    toggleWindows(unfocused, { hide }, reveal)
+    expect(reveal).toHaveBeenCalledTimes(2)
+    expect(hide).not.toHaveBeenCalled()
   })
 })

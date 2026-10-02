@@ -103,63 +103,6 @@ test('the primary selection takes only non-empty text up to the cap from the pag
   }
 })
 
-test('the global hotkey hides a focused window and brings it back', async () => {
-  test.setTimeout(60_000)
-  const { app, win } = await launch({ workspaces: { globalHotkey: 'Ctrl+Alt+F9' } })
-  try {
-    await app.evaluate(({ globalShortcut }) => {
-      const target = globalThis as unknown as { pressHotkey?: () => void }
-      const register = globalShortcut.register.bind(globalShortcut)
-      globalShortcut.register = (accelerator, callback) => {
-        target.pressHotkey = callback
-        return register(accelerator, callback)
-      }
-    })
-    await win.locator('.topbar').getByRole('button', { name: 'Settings' }).click()
-    const settings = win.getByRole('region', { name: 'Settings' })
-    await settings.getByRole('button', { name: 'Workspaces' }).click()
-    const field = settings.getByRole('textbox', { name: 'Show or hide hotkey' })
-    await field.fill('')
-    await expect
-      .poll(() => app.evaluate(({ globalShortcut }) => globalShortcut.isRegistered('Ctrl+Alt+F9')))
-      .toBe(false)
-    await field.fill('Ctrl+Alt+F9')
-    await expect
-      .poll(() => app.evaluate(({ globalShortcut }) => globalShortcut.isRegistered('Ctrl+Alt+F9')))
-      .toBe(true)
-    await app.evaluate(({ BrowserWindow }) => {
-      const target = globalThis as unknown as { windowCalls?: string[] }
-      const calls: string[] = []
-      target.windowCalls = calls
-      for (const w of BrowserWindow.getAllWindows()) {
-        let shown = true
-        w.isVisible = () => shown
-        w.isFocused = () => shown
-        w.hide = () => {
-          shown = false
-          calls.push('hide')
-        }
-        w.show = () => {
-          shown = true
-          calls.push('show')
-        }
-      }
-    })
-    const press = () =>
-      app.evaluate(() => (globalThis as unknown as { pressHotkey: () => void }).pressHotkey())
-    const calls = () =>
-      app.evaluate(() => (globalThis as unknown as { windowCalls: string[] }).windowCalls)
-    await press()
-    expect(await calls(), 'the hotkey hides the focused window').toEqual(['hide'])
-    await press()
-    expect(await calls(), 'the hotkey brings the hidden window back').toEqual(['hide', 'show'])
-    await press()
-    expect(await calls(), 'the hotkey hides it again').toEqual(['hide', 'show', 'hide'])
-  } finally {
-    await app.close()
-  }
-})
-
 test('OSC 52 sets the clipboard only while terminal.osc52Write is on', async () => {
   const { app, win } = await launch({ terminal: { osc52Write: true } })
   try {
