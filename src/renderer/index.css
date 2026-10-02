@@ -1861,11 +1861,11 @@ button.prompt-chip:focus-visible {
 .xterm-host {
   width: 100%;
   height: 100%;
-  padding: 4px 6px;
 }
 
 .xterm-host .xterm {
   height: 100%;
+  padding: 4px 6px;
 }
 
 .xterm-host:not(.link-modifier) .xterm .xterm-cursor-pointer {
@@ -1876,13 +1876,13 @@ button.prompt-chip:focus-visible {
   background-color: transparent;
 }
 
-.xterm-host .xterm-viewport::-webkit-scrollbar {
-  width: 8px;
+.xterm-host .xterm .xterm-scrollable-element > .scrollbar > .slider {
+  background: var(--scrollbar-thumb);
 }
 
-.xterm-host .xterm-viewport::-webkit-scrollbar-thumb {
-  background: var(--line-strong);
-  border-radius: var(--radius-sm);
+.xterm-host .xterm .xterm-scrollable-element > .scrollbar > .slider:hover,
+.xterm-host .xterm .xterm-scrollable-element > .scrollbar > .slider.active {
+  background: var(--scrollbar-thumb-hover);
 }
 
 .blocks-overlay {
