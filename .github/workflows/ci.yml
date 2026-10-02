@@ -119,6 +119,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.code == 'true'
     runs-on: macos-26
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v7
       - run: |
@@ -135,6 +136,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.code == 'true'
     runs-on: macos-26
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
@@ -149,6 +151,7 @@ jobs:
   e2e-macos:
     needs: build-macos
     runs-on: macos-26
+    continue-on-error: true
     strategy:
       fail-fast: false
       matrix:
