@@ -535,6 +535,7 @@ test('a tool-folder preset switched on in Settings makes the tool readable once 
 })
 
 test('tells a sandboxed shell that its home folder is hidden and that files written there are discarded', async () => {
+  test.skip(process.platform !== 'linux', 'the hidden-home notice is shown only on Linux')
   test.setTimeout(120_000)
   const { app, win, home } = await launch()
   try {
@@ -559,6 +560,7 @@ async function sttySize(win: Page, marker: string): Promise<string> {
 }
 
 test('behind the pty relay a sandboxed shell has its own terminal: Ctrl+C interrupts, Ctrl+Z suspends, a resize arrives and blocks show', async () => {
+  test.skip(process.platform !== 'linux', 'the pty relay exists only on Linux (TIOCSTI)')
   test.setTimeout(120_000)
   const { app, win } = await launch({ PINE_SANDBOX_PTY_RELAY: '1' })
   try {

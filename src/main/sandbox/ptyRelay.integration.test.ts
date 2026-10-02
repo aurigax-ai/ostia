@@ -126,108 +126,113 @@ afterAll(() => {
   if (root) rmSync(root, { recursive: true, force: true })
 })
 
-describe.runIf(runnable)('the pty relay in a real sandbox', () => {
-  it('gives the shell a controlling terminal of its own in a session bwrap started', async () => {
-    const session = await start('ctty')
-    const out = await run(
-      session,
-      'echo "tty=$(tty) leader=$(ps -o sid= -p $$ | tr -d " ")/$$ outer=${PINE_RELAY_TTY-unset} shell=$SHELL"',
-      /tty=\S+ leader/,
-    )
-    expect(out).toMatch(/tty=\/dev\/pts\/\d+ leader=(\d+)\/\1 outer=unset shell=\/bin\/bash/)
-  }, 60_000)
+describe.skipIf(!runnable)(
+  'the pty relay in a real sandbox (Linux only: TIOCSTI relay under bwrap)',
+  () => {
+    it('gives the shell a controlling terminal of its own in a session bwrap started', async () => {
+      const session = await start('ctty')
+      const out = await run(
+        session,
+        'echo "tty=$(tty) leader=$(ps -o sid= -p $$ | tr -d " ")/$$ outer=${PINE_RELAY_TTY-unset} shell=$SHELL"',
+        /tty=\S+ leader/,
+      )
+      expect(out).toMatch(/tty=\/dev\/pts\/\d+ leader=(\d+)\/\1 outer=unset shell=\/bin\/bash/)
+    }, 60_000)
 
-  it('leaves no sandboxed process with the pane’s terminal as its controlling terminal', async () => {
-    const session = await start('outer')
-    const outerTty = await run(
-      session,
-      'echo "relay=$(ps -o comm= -p $PPID) on=$(ps -o tty= -p $PPID | tr -d " ")="',
-      /relay=\S+ on=\S*=/,
-    )
-    expect(outerTty).toMatch(/relay=script on=\?=/)
-    const ttys = await run(
-      session,
-      'echo "ttys=$(ps -eo tty= | sort -u | tr -d " " | tr "\n" ,)="',
-      /ttys=[^$]*=\r/,
-    )
-    expect(ttys).toMatch(/ttys=\?,pts\/\d+,=/)
-  }, 60_000)
+    it('leaves no sandboxed process with the pane’s terminal as its controlling terminal', async () => {
+      const session = await start('outer')
+      const outerTty = await run(
+        session,
+        'echo "relay=$(ps -o comm= -p $PPID) on=$(ps -o tty= -p $PPID | tr -d " ")="',
+        /relay=\S+ on=\S*=/,
+      )
+      expect(outerTty).toMatch(/relay=script on=\?=/)
+      const ttys = await run(
+        session,
+        'echo "ttys=$(ps -eo tty= | sort -u | tr -d " " | tr "\n" ,)="',
+        /ttys=[^$]*=\r/,
+      )
+      expect(ttys).toMatch(/ttys=\?,pts\/\d+,=/)
+    }, 60_000)
 
-  it('interrupts, quits and suspends the running command and leaves the shell alive', async () => {
-    const session = await start('signals')
-    await startSleep(session)
-    session.term.write('\x03')
-    expect(await run(session, 'echo "rc=$?"', /rc=\d+/)).toContain('rc=130')
+    it('interrupts, quits and suspends the running command and leaves the shell alive', async () => {
+      const session = await start('signals')
+      await startSleep(session)
+      session.term.write('\x03')
+      expect(await run(session, 'echo "rc=$?"', /rc=\d+/)).toContain('rc=130')
 
-    await startSleep(session)
-    session.term.write('\x1c')
-    expect(await run(session, 'echo "rc=$?"', /rc=\d+/)).toContain('rc=131')
+      await startSleep(session)
+      session.term.write('\x1c')
+      expect(await run(session, 'echo "rc=$?"', /rc=\d+/)).toContain('rc=131')
 
-    const suspended = await startSleep(session)
-    session.term.write('\x1a')
-    await session.seen('Stopped', suspended)
-    const resumed = session.output().length
-    session.term.write('fg\r')
-    await session.seen("exec sleep 30'\r\n", resumed)
-    await new Promise((r) => setTimeout(r, 200))
-    session.term.write('\x03')
-    expect(await run(session, 'echo "rc=$?"', /rc=\d+/)).toContain('rc=130')
-  }, 60_000)
+      const suspended = await startSleep(session)
+      session.term.write('\x1a')
+      await session.seen('Stopped', suspended)
+      const resumed = session.output().length
+      session.term.write('fg\r')
+      await session.seen("exec sleep 30'\r\n", resumed)
+      await new Promise((r) => setTimeout(r, 200))
+      session.term.write('\x03')
+      expect(await run(session, 'echo "rc=$?"', /rc=\d+/)).toContain('rc=130')
+    }, 60_000)
 
-  it('passes a resize of the pane’s terminal on to the shell and its foreground command', async () => {
-    const session = await start('resize')
-    expect(await run(session, 'stty size', /\d+ \d+\r/)).toContain('24 80')
-    session.term.resize(100, 30)
-    await expect
-      .poll(async () => run(session, 'stty size', /\d+ \d+\r/), { timeout: 10_000 })
-      .toContain('30 100')
+    it('passes a resize of the pane’s terminal on to the shell and its foreground command', async () => {
+      const session = await start('resize')
+      expect(await run(session, 'stty size', /\d+ \d+\r/)).toContain('24 80')
+      session.term.resize(100, 30)
+      await expect
+        .poll(async () => run(session, 'stty size', /\d+ \d+\r/), { timeout: 10_000 })
+        .toContain('30 100')
 
-    const from = session.output().length
-    session.term.write(`sh -c 'trap "echo GOT-WINCH; exit 0" WINCH; echo READY; sleep 20 & wait'\r`)
-    await session.seen('READY\r', from)
-    session.term.resize(90, 20)
-    await session.seen('GOT-WINCH\r', from)
-  }, 60_000)
+      const from = session.output().length
+      session.term.write(
+        `sh -c 'trap "echo GOT-WINCH; exit 0" WINCH; echo READY; sleep 20 & wait'\r`,
+      )
+      await session.seen('READY\r', from)
+      session.term.resize(90, 20)
+      await session.seen('GOT-WINCH\r', from)
+    }, 60_000)
 
-  it('passes shell-integration marks through unchanged and echoes typed keys once', async () => {
-    const session = await start('bytes')
-    const marks = await run(
-      session,
-      String.raw`printf '\033]133;C\007out\033]633;E;a\\x3bb\007\033]133;D;0\007\n'`,
-      '\x1b]133;D;0\x07',
-    )
-    expect(marks).toContain('\x1b]133;C\x07out\x1b]633;E;a\\x3bb\x07\x1b]133;D;0\x07\r\n')
+    it('passes shell-integration marks through unchanged and echoes typed keys once', async () => {
+      const session = await start('bytes')
+      const marks = await run(
+        session,
+        String.raw`printf '\033]133;C\007out\033]633;E;a\\x3bb\007\033]133;D;0\007\n'`,
+        '\x1b]133;D;0\x07',
+      )
+      expect(marks).toContain('\x1b]133;C\x07out\x1b]633;E;a\\x3bb\x07\x1b]133;D;0\x07\r\n')
 
-    const from = session.output().length
-    session.term.write('cat\r')
-    await session.seen('cat\r\n', from)
-    const typed = session.output().length
-    session.term.write('relayed\r')
-    await session.seen('relayed\r\nrelayed\r\n', typed)
-    session.term.write('\x04')
-    await session.seen(PROMPT, typed)
-    expect(
-      session
-        .output()
-        .slice(typed)
-        .match(/relayed/g),
-    ).toHaveLength(2)
-  }, 60_000)
+      const from = session.output().length
+      session.term.write('cat\r')
+      await session.seen('cat\r\n', from)
+      const typed = session.output().length
+      session.term.write('relayed\r')
+      await session.seen('relayed\r\nrelayed\r\n', typed)
+      session.term.write('\x04')
+      await session.seen(PROMPT, typed)
+      expect(
+        session
+          .output()
+          .slice(typed)
+          .match(/relayed/g),
+      ).toHaveLength(2)
+    }, 60_000)
 
-  it('exits with the shell’s code and removes the resize pipe', async () => {
-    const session = await start('exit')
-    expect(existsSync(session.pipe)).toBe(true)
-    session.term.write('exit 7\r')
-    expect(await session.exited).toBe(7)
-    expect(existsSync(session.pipe)).toBe(false)
-  }, 60_000)
+    it('exits with the shell’s code and removes the resize pipe', async () => {
+      const session = await start('exit')
+      expect(existsSync(session.pipe)).toBe(true)
+      session.term.write('exit 7\r')
+      expect(await session.exited).toBe(7)
+      expect(existsSync(session.pipe)).toBe(false)
+    }, 60_000)
 
-  it('works with Unix sockets blocked, where srt runs the shell under its seccomp helper', async () => {
-    const session = await start('seccomp', { unixSockets: false })
-    await startSleep(session)
-    session.term.write('\x03')
-    expect(await run(session, 'echo "rc=$?"', /rc=\d+/)).toContain('rc=130')
-    session.term.write('exit 3\r')
-    expect(await session.exited).toBe(3)
-  }, 60_000)
-})
+    it('works with Unix sockets blocked, where srt runs the shell under its seccomp helper', async () => {
+      const session = await start('seccomp', { unixSockets: false })
+      await startSleep(session)
+      session.term.write('\x03')
+      expect(await run(session, 'echo "rc=$?"', /rc=\d+/)).toContain('rc=130')
+      session.term.write('exit 3\r')
+      expect(await session.exited).toBe(3)
+    }, 60_000)
+  },
+)

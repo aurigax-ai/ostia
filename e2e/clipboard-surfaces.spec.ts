@@ -9,6 +9,7 @@ import {
   expect,
   test,
 } from '@playwright/test'
+import { chords, isMac } from './chords'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { openWorkspace } from './helpers'
 
@@ -72,18 +73,18 @@ test('the copy and paste chords work in a terminal and paste an image as Ctrl+V 
     await win.keyboard.press('Enter')
     await expect(rows.locator('> div', { hasText: /^pinecopyword/ })).toHaveCount(1)
     await selectTerminalWord(win, 'pinecopyword')
-    await win.keyboard.press('Control+Shift+c')
+    await win.keyboard.press(chords.copy)
     await expect.poll(() => readClipboard(app)).toBe('pinecopyword')
 
     await writeClipboard(app, 'echo pasted_$((6*7))')
-    await win.keyboard.press('Control+Shift+v')
+    await win.keyboard.press(chords.paste)
     await win.keyboard.press('Enter')
     await expect(rows).toContainText('pasted_42')
 
     await win.keyboard.type(READ_ONE_BYTE)
     await win.keyboard.press('Enter')
     await writeClipboardImage(app)
-    await win.keyboard.press('Control+Shift+v')
+    await win.keyboard.press(chords.paste)
     await expect(rows).toContainText('byte_16', { timeout: 10_000 })
   } finally {
     await app.close()
@@ -91,6 +92,7 @@ test('the copy and paste chords work in a terminal and paste an image as Ctrl+V 
 })
 
 test('smart Ctrl+V hands an image-only clipboard to the program as Ctrl+V', async () => {
+  test.skip(isMac, 'smart Ctrl+C and Ctrl+V do not exist on macOS, which uses the Cmd keys')
   const { app, win } = await launch({ clipboardKeys: 'smart' })
   try {
     const rows = win.locator('.xterm-rows').first()
@@ -106,6 +108,7 @@ test('smart Ctrl+V hands an image-only clipboard to the program as Ctrl+V', asyn
 })
 
 test('the input editor copies on the chord and on smart Ctrl+C, and pastes on both', async () => {
+  test.skip(isMac, 'smart Ctrl+C and Ctrl+V do not exist on macOS, which uses the Cmd keys')
   const { app, win } = await launch({ clipboardKeys: 'smart', inputMode: 'editor' })
   try {
     const input = win.getByRole('textbox', { name: 'Command input' })
@@ -113,7 +116,7 @@ test('the input editor copies on the chord and on smart Ctrl+C, and pastes on bo
     await input.click()
     await win.keyboard.type('echo editor_copy')
     await win.keyboard.press('Shift+Home')
-    await win.keyboard.press('Control+Shift+c')
+    await win.keyboard.press(chords.copy)
     await expect.poll(() => readClipboard(app)).toBe('echo editor_copy')
 
     await writeClipboard(app, 'nothing')
@@ -127,7 +130,7 @@ test('the input editor copies on the chord and on smart Ctrl+C, and pastes on bo
     await expect(input).toHaveValue('')
 
     await writeClipboard(app, 'echo from_chord')
-    await win.keyboard.press('Control+Shift+v')
+    await win.keyboard.press(chords.paste)
     await expect(input).toHaveValue('echo from_chord')
     await win.keyboard.press('Control+c')
     await writeClipboard(app, 'echo from_ctrl_v\u0007')
@@ -147,24 +150,24 @@ test('the copy and paste chords work in Monaco and in a text field', async () =>
     const lines = win.locator('.monaco-editor .view-lines').first()
     await expect(lines).toContainText('monaco_text', { timeout: 15_000 })
     await lines.click()
-    await win.keyboard.press('Control+a')
-    await win.keyboard.press('Control+Shift+c')
+    await win.keyboard.press(chords.selectAll)
+    await win.keyboard.press(chords.copy)
     await expect.poll(() => readClipboard(app)).toBe('monaco_text\n')
 
-    await win.keyboard.press('Control+End')
+    await win.keyboard.press(chords.documentEnd)
     await writeClipboard(app, 'monaco_pasted')
-    await win.keyboard.press('Control+Shift+v')
+    await win.keyboard.press(chords.paste)
     await expect(lines).toContainText('monaco_pasted')
 
-    await win.keyboard.press('Control+Shift+p')
+    await win.keyboard.press(chords.palette)
     const palette = win.getByRole('combobox').first()
     await expect(palette).toBeFocused()
     await win.keyboard.type('palette_text')
-    await win.keyboard.press('Control+a')
-    await win.keyboard.press('Control+Shift+c')
+    await win.keyboard.press(chords.selectAll)
+    await win.keyboard.press(chords.copy)
     await expect.poll(() => readClipboard(app)).toBe('palette_text')
     await writeClipboard(app, 'field_pasted')
-    await win.keyboard.press('Control+Shift+v')
+    await win.keyboard.press(chords.paste)
     await expect(palette).toHaveValue('field_pasted')
   } finally {
     await app.close()
@@ -192,15 +195,19 @@ test('the copy and paste chords work inside a browser pane', async () => {
     )
   const guestChord = (keyCode: string) =>
     app.evaluate(
-      ({ webContents }, { keyCode, url }) => {
+      ({ webContents }, { keyCode, url, modifiers }) => {
         const guest = webContents
           .getAllWebContents()
           .find((wc) => wc.getType() === 'webview' && wc.getURL() === url)
         for (const type of ['keyDown', 'keyUp'] as const) {
-          guest?.sendInputEvent({ type, keyCode, modifiers: ['control', 'shift'] })
+          guest?.sendInputEvent({ type, keyCode, modifiers })
         }
       },
-      { keyCode, url },
+      {
+        keyCode,
+        url,
+        modifiers: isMac ? ['meta' as const] : ['control' as const, 'shift' as const],
+      },
     )
   try {
     await win.getByRole('button', { name: 'New browser tab' }).click()

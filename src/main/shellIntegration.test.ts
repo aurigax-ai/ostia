@@ -426,7 +426,7 @@ describe('shellIntegrationSpawnOptions', () => {
       }
     })
 
-    describe.runIf(process.platform === 'linux')('bash command line marks', () => {
+    describe.skipIf(process.platform !== 'linux')('bash command line marks (Linux only)', () => {
       const PASTE_START = '\x1b[200~'
       const PASTE_END = '\x1b[201~'
       const commandMarks = (typed: string, rcLines = ''): string[] => {
