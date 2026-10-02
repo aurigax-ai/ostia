@@ -46,6 +46,7 @@ import type {
 } from '../shared/types'
 import { clampZoom, zoomFactor } from '../shared/zoom'
 import { AgentRunningPanes } from './agentRunning'
+import { agentPluginContent } from './agentSkills'
 import { registerAgentTranscriptIpc } from './agentTranscript'
 import { type AppLog, LOG_FILE_NAME, createAppLog } from './appLog'
 import { registerAppUpdate } from './appUpdate'
@@ -191,7 +192,7 @@ import { ServerOverrides } from './serverOverrides'
 import { type SettingsSyncHandle, startSettingsSync } from './settingsSyncIpc'
 import { ExecutableIndex, commandNames, readShellState } from './shellCommands'
 import { closesPaneOnExit } from './shellExit'
-import { INTEGRATION_DIR, shellIntegrationSpawnOptions } from './shellIntegration'
+import { INTEGRATION_DIR, setAgentPlugins, shellIntegrationSpawnOptions } from './shellIntegration'
 import {
   SANDBOX_FEATURE,
   installHint,
@@ -868,6 +869,18 @@ const errorBuffers = new Map<number, ConsoleEntry[]>()
 const terminalState = new Map<string, TerminalStateSnapshot>()
 
 let extensionHost: ExtensionHost | null = null
+
+function refreshAgentPlugins(): void {
+  try {
+    setAgentPlugins(
+      agentPluginContent(extensionHost?.agentPlugins() ?? [], (extId, problem) =>
+        console.error(`[ext:${extId}] ${problem}`),
+      ),
+    )
+  } catch (err) {
+    console.error(`agent plugins: ${(err as Error).message}`)
+  }
+}
 let viewHost: ViewHost | null = null
 let mcpHost: McpHost | null = null
 let mcpOAuth: McpOAuth | null = null
@@ -2450,7 +2463,10 @@ app.whenReady().then(() => {
   })
   settingsSync.run()
   extensionHost = new ExtensionHost({
-    onChanged: () => languageServers?.refresh(),
+    onChanged: () => {
+      languageServers?.refresh()
+      refreshAgentPlugins()
+    },
     hostGrants: hostPaneGrants,
     isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
     roots: extensionRoots(),
@@ -2475,6 +2491,7 @@ app.whenReady().then(() => {
     confirm: (req) => confirmForExtension(req, windows.values()),
     notifyPanel: (n, open) => postPanelNotification(notifyDeps, n, open),
   })
+  refreshAgentPlugins()
   registerExtensionMethods(() => extensionHost)
   registerExtensionIpc(extensionHost)
   languageServers = createLanguageServers()

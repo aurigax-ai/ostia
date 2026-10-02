@@ -1,3 +1,8 @@
+import type {
+  AgentHookContribution,
+  AgentHookSummary,
+  AgentSkillContribution,
+} from './agentPlugins'
 import type { AssistPoint } from './assist'
 import type { Capability } from './capabilities'
 import type { EditorLanguageContribution } from './editorLanguages'
@@ -168,6 +173,8 @@ export interface ExtensionManifest {
     languages?: LanguageContribution[]
     languageServers?: LanguageServerContribution[]
     editorLanguages?: EditorLanguageContribution[]
+    agentSkills?: AgentSkillContribution[]
+    agentHooks?: AgentHookContribution[]
   }
 }
 
@@ -204,6 +211,8 @@ export interface ExtensionInfo {
   iconThemes: IconThemeInfo[]
   languages: LanguageInfo[]
   languageServers: LanguageServerSummary[]
+  agentSkills: string[]
+  agentHooks: AgentHookSummary[]
 }
 
 export const SIDEBAR_TONES = ['neutral', 'brand', 'ok', 'warn', 'error'] as const

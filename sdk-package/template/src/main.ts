@@ -12,6 +12,10 @@ async function main(): Promise<void> {
       await ext.notify(t('greetingTitle'), greeting)
       return ok(greeting, { name })
     },
+    'agent-hook': async (args, caller) => {
+      const event = cliArgs(args)?.argv[1]
+      return event === 'SessionStart' ? ok(translate(caller.locale)('agentContext')) : ok()
+    },
   })
 }
 

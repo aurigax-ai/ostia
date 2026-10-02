@@ -18,7 +18,7 @@ import {
   writeManagerClaudePlugin,
   writeManagerCodexContext,
 } from './managerAgent'
-import { writeClaudePlugin } from './shellIntegration'
+import { setAgentPlugins, writeClaudePlugin } from './shellIntegration'
 
 let dir = ''
 
@@ -111,6 +111,29 @@ describe('manager plugin', () => {
     writeManagerClaudePlugin(plugin, [review])
     writeManagerClaudePlugin(plugin, [])
     expect(existsSync(join(plugin, 'skills', 'review'))).toBe(false)
+  })
+
+  it('never carries extension skills or hooks, even while the worker plugin has them', () => {
+    dir = mkdtempSync(join(tmpdir(), 'pine-mgr-plugin-'))
+    setAgentPlugins({
+      skills: [
+        {
+          id: 'kit-review',
+          description: 'd',
+          files: [{ name: 'SKILL.md', data: Buffer.from('x') }],
+        },
+      ],
+      hooks: [{ extId: 'kit', event: 'SessionStart', command: 'on-hook' }],
+    })
+    const plugin = join(dir, 'plugin')
+    writeManagerClaudePlugin(plugin, [])
+    expect(existsSync(join(plugin, 'skills', 'kit-review'))).toBe(false)
+    expect(readFileSync(join(plugin, 'hooks', 'hooks.json'), 'utf8')).not.toContain('agent-hook')
+    const context = writeManagerCodexContext(join(dir, 'codex'), [])
+    expect(managerArgv(['codex'], { ...opts, codexContextFile: context }).join(' ')).not.toContain(
+      'agent-hook',
+    )
+    expect(readFileSync(context, 'utf8')).not.toContain('kit-review')
   })
 
   it('MGR-C28 the worker plugin never carries the manager skill', () => {

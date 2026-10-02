@@ -1,13 +1,16 @@
 {
   "manifest": {
     "name": "哈囉",
-    "description": "入門擴充功能：一個向你打招呼並發出通知的指令",
+    "description": "入門擴充功能：一個向你打招呼的指令，以及教程式代理使用它的技能與掛鉤",
     "commands.greet.title": "哈囉：打招呼",
     "commands.greet.category": "哈囉",
-    "commands.greet.argument": "名字"
+    "commands.greet.argument": "名字",
+    "commands.agent-hook.title": "哈囉：代理掛鉤",
+    "commands.agent-hook.category": "哈囉"
   },
   "messages": {
     "greetingTitle": "哈囉",
-    "greeting": "你好，{name}"
+    "greeting": "你好，{name}",
+    "agentContext": "這個擴充功能已啟用。當使用者請你向某人打招呼時，請使用它的 greet 技能。"
   }
 }

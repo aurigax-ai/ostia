@@ -198,6 +198,8 @@ describe('Uninstall in the installed list', () => {
       category: 'other',
       languages: [],
       languageServers: [],
+      agentSkills: [],
+      agentHooks: [],
       iconThemes: [],
     }
   }

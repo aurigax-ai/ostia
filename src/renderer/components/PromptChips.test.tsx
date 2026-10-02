@@ -174,6 +174,8 @@ describe('Pine prompt in the input editor', () => {
           category: 'other',
           languages: [],
           languageServers: [],
+          agentSkills: [],
+          agentHooks: [],
           iconThemes: [],
         },
       ],
