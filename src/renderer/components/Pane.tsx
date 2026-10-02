@@ -32,6 +32,8 @@ import {
   isPaneDrag,
   reportForeignDrop,
 } from '../lib/paneDrag'
+import { leavePane } from '../lib/pointerView'
+import { viewPointedPane } from '../lib/workspaceActivity'
 import { isMac } from '../platform'
 import { useApprovalsStore } from '../stores/approvalsStore'
 import { useAttentionStore } from '../stores/attentionStore'
@@ -122,6 +124,21 @@ export function Pane({ tabs, shownId, active, split = false }: PaneProps): JSX.E
       frame.removeEventListener('mousedown', cancel, true)
     }
   }, [focusOnHover, active, shown.id])
+  useEffect(() => {
+    const frame = frameRef.current
+    if (!frame) return
+    const point = (): void => viewPointedPane(shown.id)
+    const leave = (): void => leavePane(shown.id)
+    frame.addEventListener('mouseenter', point)
+    frame.addEventListener('mousemove', point)
+    frame.addEventListener('mouseleave', leave)
+    return () => {
+      leave()
+      frame.removeEventListener('mouseenter', point)
+      frame.removeEventListener('mousemove', point)
+      frame.removeEventListener('mouseleave', leave)
+    }
+  }, [shown.id])
   useEffect(() => {
     const frame = frameRef.current
     if (!frame) return
