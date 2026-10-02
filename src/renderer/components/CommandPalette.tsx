@@ -192,6 +192,7 @@ function ArgumentStep({
   return (
     <>
       <CommandInput
+        autoFocus
         placeholder={command.argument}
         value={value}
         onValueChange={onValueChange}
@@ -237,7 +238,12 @@ function ChoiceStep({
   }, [loadChoices])
   return (
     <>
-      <CommandInput placeholder={command.argument} value={value} onValueChange={onValueChange} />
+      <CommandInput
+        autoFocus
+        placeholder={command.argument}
+        value={value}
+        onValueChange={onValueChange}
+      />
       <CommandList>
         {choices !== null && choices.length === 0 ? (
           <CommandEmpty>{command.emptyChoices?.() ?? command.argument}</CommandEmpty>

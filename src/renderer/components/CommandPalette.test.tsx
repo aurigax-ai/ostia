@@ -190,6 +190,34 @@ describe('CommandPalette', () => {
       expect(useUIStore.getState().paletteOpen).toBe(false)
     })
 
+    it('puts the keyboard in the value input so the human types without clicking it', async () => {
+      const run = register()
+      useUIStore.setState({ paletteOpen: true })
+      render(<CommandPalette />)
+      await userEvent.type(await screen.findByRole('combobox'), 'Test: Open Card{Enter}')
+
+      const input = await screen.findByPlaceholderText('Card id')
+      expect(input).toHaveFocus()
+      await userEvent.keyboard('shop-12{Enter}')
+      expect(run).toHaveBeenCalledWith({ argument: 'shop-12' }, expect.anything())
+    })
+
+    it('puts the keyboard in the filter input of a command that offers choices', async () => {
+      commands.register<{ argument?: string }, void>({
+        id: 'test.card',
+        title: 'Test: Open Card',
+        argument: 'Card id',
+        choices: async () => [{ value: 'shop-12', label: 'Fix checkout' }],
+        run: vi.fn(),
+      })
+      useUIStore.setState({ paletteOpen: true })
+      render(<CommandPalette />)
+      await userEvent.type(await screen.findByRole('combobox'), 'Test: Open Card{Enter}')
+
+      expect(await screen.findByRole('option', { name: /Fix checkout/ })).toBeInTheDocument()
+      expect(screen.getByPlaceholderText('Card id')).toHaveFocus()
+    })
+
     it('reopens on the command list after the palette chord closed it mid-argument', async () => {
       const run = register()
       useUIStore.setState({ paletteOpen: true })
