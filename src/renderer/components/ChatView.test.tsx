@@ -10,6 +10,7 @@ import { firstPaneOfKind } from '../layout/tree'
 import { useAssistStore } from '../stores/assistStore'
 import { useBlocksStore } from '../stores/blocksStore'
 import { resetChats, useChatStore } from '../stores/chatStore'
+import { resetChatTools, useChatToolsStore } from '../stores/chatToolsStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useLiveSelectionStore } from '../stores/liveSelectionStore'
 import { useSettingsStore } from '../stores/settingsStore'
@@ -161,6 +162,9 @@ describe('chat', () => {
   afterEach(() => {
     cleanup()
     resetChats()
+    resetChatTools()
+    vi.mocked(window.pine.chatSessions.get).mockReset()
+    vi.mocked(window.pine.chatTools.restore).mockReset()
     useLiveSelectionStore.setState({ byWorkspace: {} })
     useChatStore.setState({
       current: {},
@@ -445,6 +449,86 @@ describe('chat', () => {
         chatSessionId: useChatStore.getState().current.w1,
       }),
     )
+  })
+
+  it('reopens a saved chat with Undo on its edits and a checkpoint on the question before them', async () => {
+    vi.mocked(window.pine.chatSessions.list).mockResolvedValue([
+      {
+        id: 's-edit',
+        workspaceId: 'w1',
+        title: 'Edit',
+        createdAt: 1,
+        updatedAt: 2,
+        messageCount: 2,
+      },
+    ])
+    vi.mocked(window.pine.chatSessions.get).mockResolvedValue({
+      id: 's-edit',
+      workspaceId: 'w1',
+      title: 'Edit',
+      createdAt: 1,
+      updatedAt: 2,
+      messageCount: 2,
+      messages: [
+        { id: 'u1', role: 'user', parts: [{ type: 'text', text: 'rename it' }] },
+        {
+          id: 'a1',
+          role: 'assistant',
+          parts: [
+            {
+              type: 'dynamic-tool',
+              toolName: 'edit_file',
+              toolCallId: 'e1',
+              state: 'output-available',
+              input: { path: 'a.ts' },
+              output: { path: '/home/u/proj/a.ts', created: false, added: 1, removed: 1 },
+            },
+          ],
+        },
+      ],
+      edits: [
+        {
+          toolCallId: 'e1',
+          path: '/home/u/proj/a.ts',
+          root: '/home/u/proj',
+          existed: true,
+          outside: false,
+          symlink: false,
+          auto: false,
+          state: 'applied',
+          version: 'v-new',
+          seq: 1,
+          decisions: ['accepted'],
+          before: 'old\n',
+          after: 'new\n',
+        },
+      ],
+    })
+    vi.mocked(window.pine.chatTools.restore).mockResolvedValue({
+      ok: true,
+      path: '/home/u/proj/a.ts',
+      removed: false,
+      version: 'v-old',
+    })
+    render(<ChatPane workspaceId="w1" paneId="p-chat" />)
+    const card = await screen.findByRole('region', { name: 'Edit to a.ts' })
+    expect(within(card).getByRole('button', { name: 'Undo' })).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Edits to review' })).toBeNull()
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Restore files to before this message' }),
+    )
+    const dialog = await screen.findByRole('dialog', {
+      name: 'Restore files to before this message?',
+    })
+    await userEvent.click(await within(dialog).findByRole('button', { name: 'Restore files (1)' }))
+    await waitFor(() => expect(useChatToolsStore.getState().edits.e1.state).toBe('undone'))
+    expect(
+      screen.queryByRole('button', { name: 'Restore files to before this message' }),
+    ).toBeNull()
+    expect(await screen.findByText('Files restored: 1.')).toBeInTheDocument()
+    await waitFor(() => expect(window.pine.chatSessions.save).toHaveBeenCalled())
+    const saved = vi.mocked(window.pine.chatSessions.save).mock.calls.at(-1)?.[0]
+    expect(saved?.edits?.[0]).toMatchObject({ toolCallId: 'e1', state: 'undone', version: 'v-old' })
   })
 
   it('names the model and counts seconds until the answer shows text', async () => {
