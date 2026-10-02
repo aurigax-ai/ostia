@@ -19,6 +19,7 @@ import { browserProfileIn, openerOf } from '../lib/browserProfile'
 import { announceBusMessage } from '../lib/busNotice'
 import { setKeybindingSetting } from '../lib/chords'
 import { closePaneForAgent, requestCloseOthers, requestClosePane } from '../lib/closeConfirm'
+import { focusActivePaneWhenReady } from '../lib/focusNewTerminal'
 import { wakePane } from '../lib/hibernationScheduler'
 import { mergeRefusalText } from '../lib/mergeRefusalText'
 import { startNewWorkspace, startScratchWorkspace } from '../lib/newWorkspace'
@@ -175,6 +176,7 @@ export function registerBuiltinCommands(): void {
       const target = paneId ?? ctx.activePaneId
       if (ctx.activeWorkspaceId && target) {
         useLayoutStore.getState().split(ctx.activeWorkspaceId, target, direction)
+        if (ctx.origin !== 'remote') focusActivePaneWhenReady(ctx.activeWorkspaceId)
       }
     },
   })
@@ -186,6 +188,7 @@ export function registerBuiltinCommands(): void {
       const target = args?.paneId ?? ctx.activePaneId
       if (ctx.activeWorkspaceId && target) {
         useLayoutStore.getState().newTab(ctx.activeWorkspaceId, target, 'terminal')
+        if (ctx.origin !== 'remote') focusActivePaneWhenReady(ctx.activeWorkspaceId)
       }
     },
   })
