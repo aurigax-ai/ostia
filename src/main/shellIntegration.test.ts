@@ -632,8 +632,11 @@ describe('shellIntegrationSpawnOptions', () => {
       expect(settings).toEqual(claudeHookSettings())
       const command = (event: string) => settings.hooks[event][0].hooks[0].command as string
       expect(command('SessionStart')).toContain('"$PINE_CLI" resume-token claude -')
-      expect(command('Notification')).toContain('state waiting -')
-      expect(command('Stop')).toContain('state done')
+      expect(command('Notification')).toContain('"$PINE_CLI" claude-hook Notification')
+      expect(command('Stop')).toContain('"$PINE_CLI" claude-hook Stop')
+      expect(command('StopFailure')).toContain('"$PINE_CLI" claude-hook StopFailure')
+      expect(settings.hooks.PreToolUse[0].matcher).toBe('AskUserQuestion|ExitPlanMode')
+      expect(command('PreToolUse')).toContain('"$PINE_CLI" claude-hook PreToolUse')
       expect(command('SessionStart')).toMatch(/^\[ -n "\$PINE_SOCKET" \] && .*\|\| true$/)
     })
 
@@ -925,12 +928,14 @@ describe('shellIntegrationSpawnOptions', () => {
       expect(commands('SessionStart')[0]).toContain('resume-token claude -')
       expect(commands('SessionStart')[1]).toBe(busHookCommand('SessionStart'))
       expect(commands('SessionStart')[2]).toContain('agent-hook kit on-hook claude SessionStart')
-      expect(commands('PreToolUse')).toEqual([extensionHookCommand(toolHook, 'claude')])
+      expect(hooks.PreToolUse[1].hooks.map((h) => h.command)).toEqual([
+        extensionHookCommand(toolHook, 'claude'),
+      ])
       expect(commands('Notification')[1]).toContain('agent-hook kit on-hook claude Notification')
       const codex = codexHookCommands(CONTEXT, content.hooks)
       expect(codex.PreToolUse).toEqual([extensionHookCommand(toolHook, 'codex')])
       expect(JSON.stringify(codex)).not.toContain('Notification')
-      expect(claudeHookSettings().hooks).not.toHaveProperty('PreToolUse')
+      expect(claudeHookSettings().hooks.PreToolUse).toHaveLength(1)
     })
 
     it('trusts each extension hook by its own Codex hash and handler index', () => {
