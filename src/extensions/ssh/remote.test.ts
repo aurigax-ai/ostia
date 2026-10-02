@@ -48,6 +48,33 @@ function session(
   return { out: `${run.stdout}${run.stderr}`, leftInTmp: readdirSync(tmp) }
 }
 
+function ptySession(shell: string, home: string, input: string): string {
+  const tmp = folder('pine-ssh-tmp-')
+  const quoted = `'${REMOTE_COMMAND.replaceAll("'", `'\\''`)}'`
+  const run = spawnSync('script', ['-qec', `${shell} -c ${quoted}`, '/dev/null'], {
+    cwd: home,
+    env: {
+      HOME: home,
+      SHELL: shell,
+      PATH: process.env.PATH ?? '/usr/bin:/bin',
+      TMPDIR: tmp,
+      TERM: 'xterm',
+    },
+    input,
+    encoding: 'utf8',
+    timeout: 20_000,
+  })
+  return run.stdout
+}
+
+function commandMarks(out: string): string[] {
+  return out
+    .split(`${ESC}]`)
+    .slice(1)
+    .map((osc) => osc.split(ST)[0])
+    .filter((osc) => osc.startsWith('633;E;') || /^133;[CD]/.test(osc))
+}
+
 function count(text: string, part: string): number {
   return text.split(part).length - 1
 }
@@ -126,5 +153,49 @@ describe('remote shell integration', () => {
     expect(out).toContain('PLAIN_SHELL')
     expect(out).not.toContain(`${ESC}]133;`)
     expect(leftInTmp).toEqual([])
+  })
+})
+
+describe('remote command marks', () => {
+  const tricky = (quote: string): string => `echo a\\b;c${quote}${ESC}d`
+  const escaped = String.raw`echo a\\b\x3bcd`
+
+  it('SSH-C39 escapes backslash and semicolon and drops control bytes in a zsh command mark', () => {
+    const home = folder('pine-ssh-home-')
+    writeFileSync(join(home, '.zshrc'), 'PROMPT="z> "\n')
+    const { out } = session(which('zsh'), home, `${tricky('')}\n`)
+    expect(out).toContain(mark(`633;E;${escaped}`))
+  })
+
+  it('SSH-C39 escapes backslash and semicolon and drops control bytes in a bash command mark', () => {
+    const home = folder('pine-ssh-home-')
+    writeFileSync(join(home, '.bash_profile'), 'PS1="b> "\n')
+    const { out } = session(which('bash'), home, `${tricky('\u0016')}\n`)
+    expect(out).toContain(mark(`633;E;${escaped}`))
+  })
+
+  it('SSH-C40 reports every line of a pasted multi-line input in bash as the whole command before D', () => {
+    const home = folder('pine-ssh-home-')
+    writeFileSync(
+      join(home, '.bash_profile'),
+      `PS1="b> "\nHISTFILE='${join(home, 'history')}'\nbind 'set enable-bracketed-paste on'\n`,
+    )
+    const typed = `${ESC}[200~echo pine_ml_1\recho pine_ml_2${ESC}[201~\rexit\r`
+    expect(commandMarks(ptySession(which('bash'), home, typed)).slice(0, 4)).toEqual([
+      '633;E;echo pine_ml_1',
+      '133;C',
+      String.raw`633;E;echo pine_ml_1\x0aecho pine_ml_2`,
+      '133;D;0',
+    ])
+  })
+
+  it('SSH-C40 reports a one-line bash command only once', () => {
+    const home = folder('pine-ssh-home-')
+    writeFileSync(join(home, '.bash_profile'), `PS1="b> "\nHISTFILE='${join(home, 'history')}'\n`)
+    expect(commandMarks(ptySession(which('bash'), home, 'echo solo\rexit\r')).slice(0, 3)).toEqual([
+      '633;E;echo solo',
+      '133;C',
+      '133;D;0',
+    ])
   })
 })
