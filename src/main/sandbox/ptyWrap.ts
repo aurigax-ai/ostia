@@ -45,9 +45,14 @@ export function sandboxedShellCommand(
   shellCommand: string,
   shellEnv: string | undefined,
   resizePipe: string | null,
+  portBridge: string | null = null,
 ): string {
-  if (!resizePipe) return shellCommand
+  const helpers = portBridge ? [portBridge] : []
+  if (!resizePipe) {
+    return helpers.length === 0 ? shellCommand : [...helpers, `exec ${shellCommand}`].join('\n')
+  }
   return [
+    ...helpers,
     `{ while read -r -n1 _; do kill -WINCH 0 2>/dev/null; done <>${quoteArg(resizePipe)}; } &`,
     `SHELL=${RELAY_SHELL} script -qec ${quoteArg(relayedShell(shellCommand, shellEnv))} /dev/null`,
     'exit $?',

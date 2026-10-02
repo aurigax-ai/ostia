@@ -27,7 +27,6 @@ const registry = new Map<string, Requirement[]>([
       { program: 'bwrap', package: 'bubblewrap', platforms: ['linux'] },
       { program: 'socat', package: 'socat', platforms: ['linux'] },
       { program: 'rg', package: 'ripgrep', platforms: ['linux', 'darwin'] },
-      { program: 'nsenter', package: 'util-linux', platforms: ['linux'] },
       { program: 'script', package: 'util-linux', platforms: ['linux'], onlyWithPtyRelay: true },
     ],
   ],
