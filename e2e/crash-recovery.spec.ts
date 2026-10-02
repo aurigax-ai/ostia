@@ -111,11 +111,13 @@ test('a renderer process crash reloads the window and keeps the shells alive', a
     })
     await expect.poll(() => mainLog(dataHome), { timeout: 15_000 }).toMatch(/render-process-gone/)
     const terminalText = () =>
-      app.evaluate(({ BrowserWindow }) =>
-        BrowserWindow.getAllWindows()[0]?.webContents.executeJavaScript(
-          "[...document.querySelectorAll('.xterm-rows')].map((r) => r.textContent).join('\\n')",
-        ),
-      )
+      app
+        .evaluate(({ BrowserWindow }) =>
+          BrowserWindow.getAllWindows()[0]?.webContents.executeJavaScript(
+            "[...document.querySelectorAll('.xterm-rows')].map((r) => r.textContent).join('\\n')",
+          ),
+        )
+        .catch(() => '')
     await expect
       .poll(terminalText, { timeout: 30_000, message: 'terminal text after the crash reload' })
       .toContain(`crashpid-${before}`)
