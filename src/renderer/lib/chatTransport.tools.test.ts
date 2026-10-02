@@ -179,6 +179,9 @@ describe('createAssistTransport with tools', () => {
     vi.mocked(window.pine.chatTools.plan).mockReset()
     vi.mocked(window.pine.chatTools.restore).mockReset()
     vi.mocked(window.pine.chatTools.mcpCall).mockReset()
+    vi.mocked(window.pine.privacy.redact).mockImplementation(async (texts) =>
+      texts.map((text) => ({ text, count: 0, kinds: {} })),
+    )
     sessionModel = null
     useAssistStore.setState({ availability: {}, catalog: EMPTY_ASSIST_CATALOG })
     resetChatTools()
@@ -217,6 +220,34 @@ describe('createAssistTransport with tools', () => {
     expect(chunks.filter((c) => c.type === 'start')).toHaveLength(1)
     expect(chunks.filter((c) => c.type === 'finish')).toHaveLength(1)
     expect(chunks.at(-1)?.type).toBe('finish')
+  })
+
+  it('redacts a tool result before it is shown, stored or sent back to the model', async () => {
+    vi.mocked(window.pine.privacy.redact).mockImplementation(async (texts) =>
+      texts.map((text) => {
+        const count = text.split('SECRET').length - 1
+        return { text: text.replaceAll('SECRET', '[redacted:test]'), count, kinds: {} }
+      }),
+    )
+    vi.mocked(window.pine.chatTools.read).mockResolvedValue({
+      ok: true,
+      path: '/proj/.env',
+      text: 'API_KEY=SECRET',
+      startLine: 1,
+      endLine: 1,
+      totalLines: 1,
+      truncated: false,
+      version: 'v-a',
+    })
+    replySequence([toolRound('t1', 'read_file', { path: '.env' }), textRound('done')])
+    const chunks = await drain(await sendWithTools([user('1', 'read .env')]))
+    expect(chunks.find((c) => c.type === 'tool-output-available')).toMatchObject({
+      toolCallId: 't1',
+      output: { path: '/proj/.env', text: 'API_KEY=[redacted:test]', totalLines: 1 },
+    })
+    const sent = requestAt(1).messages.at(-1)?.tools?.[0].output
+    expect(sent).toContain('API_KEY=[redacted:test]')
+    expect(sent).not.toContain('SECRET')
   })
 
   it('asks before reading outside the workspace folder', async () => {

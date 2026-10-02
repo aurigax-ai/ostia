@@ -19,6 +19,7 @@ import {
   screenshotRect,
 } from '../shared/pick'
 import { PICK_RUNTIME_GLOBAL, pickRuntimeScript } from '../shared/pickRuntime'
+import type { RedactText } from '../shared/redactionTargets'
 import { type ConsoleEntry, ownedGuest, resolveGuest } from './browse'
 import { postBusMessage } from './bus'
 import { registerControlMethod } from './controlServer'
@@ -198,11 +199,14 @@ function nextReportPath(dir: string, url: string): string {
   return join(dir, pickReportName(nextPickReportNumber(readdirSync(dir)), url))
 }
 
-export function writePickReport(
+const asWritten: RedactText = async (text) => text
+
+export async function writePickReport(
   req: PickSendRequest,
   senderWindowId: string,
   reaches: OriginReach,
-): PickSendResult {
+  redact: RedactText = asWritten,
+): Promise<PickSendResult> {
   const source = getByPaneId(req.sourcePaneId)
   const target = getByPaneId(req.targetPaneId)
   if (!source || source.windowId !== senderWindowId || !target) {
@@ -215,17 +219,24 @@ export function writePickReport(
   if (!stored || stored.paneId !== req.sourcePaneId) return { ok: false, error: 'capture-expired' }
   const note = clip(typeof req.note === 'string' ? req.note : '', PICK_NOTE_MAX)
   let path: string
+  let message: string
   try {
+    const report = await redact(renderPickReport(stored.capture, note))
     path = nextReportPath(privateTmpDir(REPORT_DIR_NAME), stored.capture.url)
-    writeFileSync(path, renderPickReport(stored.capture, note), { mode: 0o600, flag: 'wx' })
+    message = pickBusMessage(
+      { ...stored.capture, url: await redact(stored.capture.url) },
+      await redact(note),
+      path,
+    )
+    writeFileSync(path, report, { mode: 0o600, flag: 'wx' })
   } catch {
     return { ok: false, error: 'write-failed' }
   }
-  postBusMessage(source.externalId, target.externalId, pickBusMessage(stored.capture, note, path))
+  postBusMessage(source.externalId, target.externalId, message)
   return { ok: true, path, imagePath: stored.capture.screenshotPath }
 }
 
-export function registerPickIpc(deps: PickDeps, reaches: OriginReach): void {
+export function registerPickIpc(deps: PickDeps, reaches: OriginReach, redact: RedactText): void {
   ipcMain.handle('browser:pick-start', (e, paneId: string, theme?: unknown) => {
     const guest = ownedGuest(deps.browserPanes, paneId, String(e.sender.id))
     if (!guest) return { ok: false, error: 'browser-not-ready' } satisfies PickOutcome
@@ -239,7 +250,7 @@ export function registerPickIpc(deps: PickDeps, reaches: OriginReach): void {
     if (getByPaneId(paneId)?.windowId === String(e.sender.id)) cancelPick(paneId)
   })
   ipcMain.handle('browser:pick-send', (e, req: PickSendRequest) =>
-    writePickReport(req ?? ({} as PickSendRequest), String(e.sender.id), reaches),
+    writePickReport(req ?? ({} as PickSendRequest), String(e.sender.id), reaches, redact),
   )
 }
 

@@ -14,6 +14,7 @@ import {
 import type { ChatMessageMetadata } from '@shared/chatSessions'
 import type { ChatTransport, UIMessage, UIMessageChunk } from 'ai'
 import { assistRequest, chatModel } from '../stores/assistStore'
+import { redactToolOutput } from './chatRedaction'
 import { type ChatToolDef, type ToolOutcome, type ToolRun, chatToolDefs } from './chatTools'
 
 export type PineChatMessage = UIMessage<ChatMessageMetadata>
@@ -307,6 +308,16 @@ export function createAssistTransport(session?: TransportSession): ChatTransport
   }
 }
 
+async function redactedOutcome(outcome: ToolOutcome): Promise<ToolOutcome> {
+  if (outcome.state === 'done') {
+    return { state: 'done', output: await redactToolOutput(outcome.output) }
+  }
+  if (outcome.state === 'error') {
+    return { state: 'error', error: (await redactToolOutput(outcome.error)) as string }
+  }
+  return outcome
+}
+
 async function runCall(
   call: PendingCall,
   defs: ChatToolDef[],
@@ -337,6 +348,8 @@ async function runCall(
       outcome = { state: 'error', error: err instanceof Error ? err.message : String(err) }
     }
   }
+  if (signal.aborted) return null
+  outcome = await redactedOutcome(outcome)
   if (signal.aborted) return null
   if (outcome.state === 'done') {
     emit({ type: 'tool-output-available', toolCallId: call.id, output: outcome.output as never })
