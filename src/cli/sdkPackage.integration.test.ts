@@ -259,6 +259,12 @@ describe('extension API version', () => {
     const pkg = JSON.parse(readFileSync(join(sdkPackage, 'package.json'), 'utf8'))
     expect(pkg.pineExtensionApi).toBe(EXTENSION_API_VERSION)
   })
+
+  it('declares the pine-extension command in the form npm keeps when it publishes', () => {
+    const pkg = JSON.parse(readFileSync(join(sdkPackage, 'package.json'), 'utf8'))
+    expect(pkg.bin).toEqual({ 'pine-extension': 'dist/cli.cjs' })
+    expect(existsSync(join(sdkPackage, pkg.bin['pine-extension']))).toBe(true)
+  })
 })
 
 describe('the marketplace project, built the way its own repository builds it', () => {
