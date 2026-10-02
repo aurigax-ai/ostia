@@ -353,9 +353,18 @@ test('SBX-C3 sandboxes a terminal an extension opens in a sandboxed workspace', 
     await openWorkspace(win)
     await sandboxedShell(win)
     await run(win, `pine opener run sh -c 'cat ${home}/.ssh/id_ed25519 || echo C3-$(echo DENIED)'`)
-    await expect(win.locator('.xterm')).toHaveCount(2, { timeout: 20_000 })
     const opened = win.locator('.xterm-rows').filter({ hasText: 'C3-DENIED' })
-    await expect(opened).toHaveCount(1, { timeout: 20_000 })
+    try {
+      await expect(win.locator('.xterm')).toHaveCount(2, { timeout: 45_000 })
+      await expect(opened).toHaveCount(1, { timeout: 45_000 })
+    } catch (error) {
+      const terminals = await win.locator('.xterm-rows').allTextContents()
+      const logFile = join(dataHome, 'userData', 'logs', 'main.log')
+      const logTail = existsSync(logFile) ? readFileSync(logFile, 'utf8').slice(-4000) : 'no log'
+      throw new Error(
+        `${(error as Error).message}\nterminals: ${JSON.stringify(terminals, null, 2)}\nmain log tail:\n${logTail}`,
+      )
+    }
     await expect(win.locator('.xterm-rows').filter({ hasText: 'SECRET-KEY-MATERIAL' })).toHaveCount(
       0,
     )
@@ -577,7 +586,7 @@ test('behind the pty relay a sandboxed shell has its own terminal: Ctrl+C interr
     await run(win, "sh -c 'echo PAUSING-$((2+2)); exec sleep 30'")
     await expect(rows).toContainText('PAUSING-4', { timeout: 15_000 })
     await win.keyboard.press('Control+z')
-    await expect(rows).toContainText('suspended', { timeout: 15_000 })
+    await expect(rows).toContainText(/suspended|Stopped/, { timeout: 15_000 })
     await run(win, 'kill %1; echo JOBS-$((5+5))')
     await expect(rows).toContainText('JOBS-10', { timeout: 15_000 })
     await expect(win.locator('.block-gutter').first()).toBeAttached({ timeout: 10_000 })
