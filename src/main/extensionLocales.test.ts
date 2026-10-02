@@ -44,6 +44,7 @@ const demo = manifestOf({
       { id: 'stop', title: 'Stop' },
     ],
     panel: { title: 'Demo panel', entry: 'url' },
+    settingsPage: { title: 'Demo settings', icon: 'puzzle' },
     paneChips: [{ id: 'state', title: 'State' }],
     workspaceChips: [{ id: 'count', title: 'Count' }],
     settings: {
@@ -72,6 +73,7 @@ describe('manifestSlots', () => {
         'commands.run.argument',
         'commands.stop.title',
         'panel.title',
+        'settingsPage.title',
         'paneChips.state.title',
         'workspaceChips.count.title',
         'settings.mode.title',
@@ -125,6 +127,7 @@ describe('parseLocaleCatalog', () => {
           'commands.run.title': '   ',
           'commands.run.argument': 'x'.repeat(81),
           'panel.title': 'two\nlines',
+          'settingsPage.title': 'x'.repeat(81),
         },
       },
       demo,
@@ -136,6 +139,7 @@ describe('parseLocaleCatalog', () => {
       'manifest.commands.run.title: must be 1-200 characters',
       'manifest.commands.run.argument: must be 1-80 characters',
       'manifest.panel.title: must not contain control characters',
+      'manifest.settingsPage.title: must be 1-80 characters',
     ])
   })
 
@@ -270,6 +274,7 @@ describe('localizeManifest', () => {
     'commands.run.category': '示範類',
     'commands.run.argument': '目標',
     'panel.title': '示範面板',
+    'settingsPage.title': '示範設定',
     'paneChips.state.title': '狀態',
     'workspaceChips.count.title': '數量',
     'settings.mode.title': '模式',
@@ -289,6 +294,7 @@ describe('localizeManifest', () => {
       argument: '目標',
     })
     expect(shown.contributes.panel).toEqual({ title: '示範面板', entry: 'url' })
+    expect(shown.contributes.settingsPage).toEqual({ title: '示範設定', icon: 'puzzle' })
     expect(shown.contributes.paneChips).toEqual([{ id: 'state', title: '狀態' }])
     expect(shown.contributes.workspaceChips).toEqual([{ id: 'count', title: '數量' }])
     expect(shown.contributes.settings[0]).toMatchObject({
@@ -308,7 +314,18 @@ describe('localizeManifest', () => {
     const shown = localizeManifest(demo, { name: '示範' })
     expect(shown.description).toBe('A demo')
     expect(shown.contributes.commands.map((c) => c.title)).toEqual(['Run', 'Stop'])
+    expect(shown.contributes.settingsPage).toEqual({ title: 'Demo settings', icon: 'puzzle' })
     expect(shown.contributes.settings[1]).toEqual(demo.contributes.settings[1])
+  })
+
+  it('adds no settings page to a manifest without one', () => {
+    const plain = manifestOf({
+      contributes: { settings: { on: { type: 'boolean', default: true, description: 'On' } } },
+    })
+    expect(manifestSlots(plain).has('settingsPage.title')).toBe(false)
+    expect(
+      localizeManifest(plain, { 'settingsPage.title': '設定' }).contributes,
+    ).not.toHaveProperty('settingsPage')
   })
 
   it('leaves the manifest it was given untouched', () => {

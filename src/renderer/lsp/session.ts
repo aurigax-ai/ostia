@@ -2,6 +2,7 @@ import type { LspSessionInfo } from '@shared/languageServers'
 import { PRODUCT_NAME } from '@shared/product'
 import {
   type CancellationToken,
+  CancellationTokenSource,
   type MessageConnection,
   type MessageReader,
   type MessageWriter,
@@ -10,17 +11,30 @@ import {
 import type {
   ClientCapabilities,
   Diagnostic,
+  DiagnosticOptions,
   ServerCapabilities,
   TextDocumentContentChangeEvent,
   WorkspaceEdit,
 } from 'vscode-languageserver-protocol'
 import { monaco } from '../monaco/setup'
 import { normalizeUri, toLspRange } from './converters'
+import {
+  DIAGNOSTIC_METHOD,
+  DYNAMIC_METHODS,
+  type Registration,
+  overlayCapabilities,
+  parseRegistrations,
+  parseUnregistrations,
+  selectorMatches,
+} from './registrations'
 import { applyWorkspaceEdit } from './workspaceEdit'
 
 const SYNC_NONE = 0
 export const INITIALIZE_TIMEOUT_MS = 60_000
+export const PULL_DEBOUNCE_MS = 200
+export const PULL_MAX_RETRIES = 3
 const SYNC_INCREMENTAL = 2
+const SERVER_CANCELLED = -32802
 
 export const SEMANTIC_TOKEN_TYPES = [
   'namespace',
@@ -65,6 +79,7 @@ export const CLIENT_CAPABILITIES: ClientCapabilities = {
   textDocument: {
     synchronization: { dynamicRegistration: false, didSave: true },
     completion: {
+      dynamicRegistration: true,
       contextSupport: true,
       completionItem: {
         snippetSupport: true,
@@ -78,13 +93,14 @@ export const CLIENT_CAPABILITIES: ClientCapabilities = {
       },
       completionList: { itemDefaults: ['commitCharacters', 'insertTextFormat'] },
     },
-    hover: { contentFormat: ['markdown', 'plaintext'] },
-    definition: { linkSupport: true },
-    formatting: { dynamicRegistration: false },
-    rangeFormatting: { dynamicRegistration: false },
-    references: { dynamicRegistration: false },
-    rename: { prepareSupport: true },
+    hover: { dynamicRegistration: true, contentFormat: ['markdown', 'plaintext'] },
+    definition: { dynamicRegistration: true, linkSupport: true },
+    formatting: { dynamicRegistration: true },
+    rangeFormatting: { dynamicRegistration: true },
+    references: { dynamicRegistration: true },
+    rename: { dynamicRegistration: true, prepareSupport: true },
     signatureHelp: {
+      dynamicRegistration: true,
       contextSupport: true,
       signatureInformation: {
         documentationFormat: ['markdown', 'plaintext'],
@@ -92,9 +108,14 @@ export const CLIENT_CAPABILITIES: ClientCapabilities = {
         activeParameterSupport: true,
       },
     },
-    documentSymbol: { hierarchicalDocumentSymbolSupport: true, tagSupport: { valueSet: [1] } },
-    documentHighlight: { dynamicRegistration: false },
+    documentSymbol: {
+      dynamicRegistration: true,
+      hierarchicalDocumentSymbolSupport: true,
+      tagSupport: { valueSet: [1] },
+    },
+    documentHighlight: { dynamicRegistration: true },
     codeAction: {
+      dynamicRegistration: true,
       isPreferredSupport: true,
       disabledSupport: true,
       dataSupport: true,
@@ -116,6 +137,7 @@ export const CLIENT_CAPABILITIES: ClientCapabilities = {
       },
     },
     semanticTokens: {
+      dynamicRegistration: true,
       requests: { full: true },
       tokenTypes: [...SEMANTIC_TOKEN_TYPES],
       tokenModifiers: [...SEMANTIC_TOKEN_MODIFIERS],
@@ -123,16 +145,23 @@ export const CLIENT_CAPABILITIES: ClientCapabilities = {
       overlappingTokenSupport: false,
       multilineTokenSupport: false,
     },
-    inlayHint: { dynamicRegistration: false },
+    inlayHint: { dynamicRegistration: true },
+    foldingRange: { dynamicRegistration: true, lineFoldingOnly: true },
+    codeLens: { dynamicRegistration: true },
+    diagnostic: { dynamicRegistration: true, relatedDocumentSupport: true },
     publishDiagnostics: { relatedInformation: false, tagSupport: { valueSet: [1, 2] } },
   },
   workspace: {
     workspaceFolders: true,
     configuration: true,
     didChangeConfiguration: { dynamicRegistration: false },
+    didChangeWatchedFiles: { dynamicRegistration: true, relativePatternSupport: true },
     applyEdit: true,
     workspaceEdit: { documentChanges: true },
-    executeCommand: { dynamicRegistration: false },
+    executeCommand: { dynamicRegistration: true },
+    symbol: { dynamicRegistration: true },
+    codeLens: { refreshSupport: true },
+    diagnostics: { refreshSupport: true },
   },
   general: { positionEncodings: ['utf-16'] },
 }
@@ -140,11 +169,57 @@ export const CLIENT_CAPABILITIES: ClientCapabilities = {
 export interface LspSessionHooks {
   onDiagnostics: (uri: string, diagnostics: Diagnostic[]) => void
   onClosed: () => void
+  onCapabilitiesChanged?: () => void
+  onCodeLensRefresh?: () => void
 }
 
 interface SyncedDocument {
   version: number
+  languageId: string
   subscription: monaco.IDisposable
+}
+
+interface PulledDiagnostics {
+  resultId?: string
+  items: Diagnostic[]
+}
+
+interface PullState {
+  timer: ReturnType<typeof setTimeout> | null
+  running: CancellationTokenSource | null
+  retries: number
+}
+
+interface DiagnosticReport {
+  kind?: string
+  resultId?: string
+  items?: Diagnostic[]
+  relatedDocuments?: Record<string, DiagnosticReport>
+}
+
+function diagnosticIdentity(diagnostic: Diagnostic): string {
+  return JSON.stringify([
+    diagnostic.range,
+    diagnostic.severity ?? null,
+    diagnostic.code ?? null,
+    diagnostic.source ?? null,
+    diagnostic.message,
+  ])
+}
+
+export function mergeDiagnostics(
+  pushed: readonly Diagnostic[],
+  pulled: readonly Diagnostic[],
+): Diagnostic[] {
+  const seen = new Set<string>()
+  const out: Diagnostic[] = []
+  for (const diagnostic of [...pushed, ...pulled]) {
+    const identity = diagnosticIdentity(diagnostic)
+    if (seen.has(identity)) continue
+    seen.add(identity)
+    out.push(diagnostic)
+  }
+  return out
 }
 
 function folderName(root: string): string {
@@ -159,7 +234,11 @@ export class LspSession {
   capabilities: ServerCapabilities = {}
   private readonly conn: MessageConnection
   private readonly documents = new Map<string, SyncedDocument>()
-  private readonly diagnostics = new Map<string, Diagnostic[]>()
+  private readonly pushed = new Map<string, Diagnostic[]>()
+  private readonly pulled = new Map<string, PulledDiagnostics>()
+  private readonly pulls = new Map<string, PullState>()
+  private readonly registrations = new Map<string, Registration>()
+  private effective: ServerCapabilities | null = null
   private closed = false
 
   constructor(
@@ -173,17 +252,31 @@ export class LspSession {
     this.conn.onNotification(
       'textDocument/publishDiagnostics',
       (params: { uri: string; diagnostics: Diagnostic[] }) => {
-        const diagnostics = params.diagnostics ?? []
-        this.diagnostics.set(normalizeUri(params.uri), diagnostics)
-        this.hooks.onDiagnostics(params.uri, diagnostics)
+        const uri = normalizeUri(params.uri)
+        this.pushed.set(uri, params.diagnostics ?? [])
+        this.publish(uri)
       },
     )
     this.conn.onRequest('workspace/applyEdit', async (params: { edit: WorkspaceEdit }) => ({
       applied: await applyWorkspaceEdit(params.edit, this.info.editRoot),
     }))
     this.conn.onRequest('workspace/workspaceFolders', () => this.workspaceFolders())
-    this.conn.onRequest('client/registerCapability', () => null)
-    this.conn.onRequest('client/unregisterCapability', () => null)
+    this.conn.onRequest('client/registerCapability', (params: unknown) => {
+      this.register(parseRegistrations(params))
+      return null
+    })
+    this.conn.onRequest('client/unregisterCapability', (params: unknown) => {
+      this.unregister(parseUnregistrations(params))
+      return null
+    })
+    this.conn.onRequest('workspace/diagnostic/refresh', () => {
+      this.pullAll()
+      return null
+    })
+    this.conn.onRequest('workspace/codeLens/refresh', () => {
+      this.hooks.onCodeLensRefresh?.()
+      return null
+    })
     this.conn.onRequest('window/workDoneProgress/create', () => null)
     this.conn.onRequest('window/showMessageRequest', () => null)
     this.conn.onUnhandledNotification(() => {})
@@ -213,7 +306,68 @@ export class LspSession {
       timedOut,
     ]).finally(() => clearTimeout(timer))) as { capabilities?: ServerCapabilities } | null
     this.capabilities = result?.capabilities ?? {}
+    this.effective = null
     await this.conn.sendNotification('initialized', {})
+  }
+
+  private register(registrations: Registration[]): void {
+    if (this.closed || registrations.length === 0) return
+    for (const registration of registrations) {
+      this.registrations.delete(registration.id)
+      this.registrations.set(registration.id, registration)
+    }
+    this.capabilitiesChanged()
+    if (registrations.some((registration) => registration.method === DIAGNOSTIC_METHOD)) {
+      this.pullAll()
+    }
+  }
+
+  private unregister(ids: string[]): void {
+    let removed = false
+    let diagnostics = false
+    for (const id of ids) {
+      const registration = this.registrations.get(id)
+      if (!registration) continue
+      this.registrations.delete(id)
+      removed = true
+      diagnostics ||= registration.method === DIAGNOSTIC_METHOD
+    }
+    if (!removed || this.closed) return
+    this.capabilitiesChanged()
+    if (!diagnostics) return
+    for (const uri of [...this.pulled.keys()]) {
+      if (this.supports(DIAGNOSTIC_METHOD, uri)) continue
+      this.forgetPull(uri)
+      this.pulled.delete(uri)
+      this.publish(uri)
+    }
+  }
+
+  private capabilitiesChanged(): void {
+    this.effective = null
+    this.hooks.onCapabilitiesChanged?.()
+  }
+
+  effectiveCapabilities(): ServerCapabilities {
+    this.effective ??= overlayCapabilities(this.capabilities, this.registrations.values())
+    return this.effective
+  }
+
+  supports(method: string, uri: string): boolean {
+    const key = DYNAMIC_METHODS[method]
+    if (key === undefined) return false
+    if (this.capabilities[key]) return true
+    const document = { uri, languageId: this.documents.get(uri)?.languageId }
+    for (const registration of this.registrations.values()) {
+      if (registration.method === method && selectorMatches(registration.selector, document)) {
+        return true
+      }
+    }
+    return false
+  }
+
+  runsCommand(command: string): boolean {
+    return this.effectiveCapabilities().executeCommandProvider?.commands?.includes(command) === true
   }
 
   private syncKind(): number {
@@ -236,8 +390,105 @@ export class LspSession {
     return this.documents.has(uri)
   }
 
-  diagnosticsFor(uri: string): readonly Diagnostic[] {
-    return this.diagnostics.get(uri) ?? []
+  diagnosticsFor(uri: string): Diagnostic[] {
+    return mergeDiagnostics(this.pushed.get(uri) ?? [], this.pulled.get(uri)?.items ?? [])
+  }
+
+  private publish(uri: string): void {
+    this.hooks.onDiagnostics(uri, this.diagnosticsFor(uri))
+  }
+
+  private diagnosticOptions(): DiagnosticOptions | undefined {
+    const provider = this.effectiveCapabilities().diagnosticProvider
+    return typeof provider === 'object' && provider !== null ? provider : undefined
+  }
+
+  private pullState(uri: string): PullState {
+    let state = this.pulls.get(uri)
+    if (!state) {
+      state = { timer: null, running: null, retries: 0 }
+      this.pulls.set(uri, state)
+    }
+    return state
+  }
+
+  private forgetPull(uri: string): void {
+    const state = this.pulls.get(uri)
+    if (!state) return
+    if (state.timer) clearTimeout(state.timer)
+    state.running?.cancel()
+    this.pulls.delete(uri)
+  }
+
+  private schedulePull(uri: string, delayMs: number): void {
+    if (this.closed || !this.documents.has(uri) || !this.supports(DIAGNOSTIC_METHOD, uri)) return
+    const state = this.pullState(uri)
+    if (state.timer) clearTimeout(state.timer)
+    state.timer = setTimeout(() => {
+      state.timer = null
+      void this.pull(uri, state)
+    }, delayMs)
+  }
+
+  private pullAll(): void {
+    for (const uri of this.documents.keys()) this.schedulePull(uri, 0)
+  }
+
+  private pullAfterChange(uri: string): void {
+    if (this.diagnosticOptions()?.interFileDependencies) {
+      for (const open of this.documents.keys()) this.schedulePull(open, PULL_DEBOUNCE_MS)
+    } else {
+      this.schedulePull(uri, PULL_DEBOUNCE_MS)
+    }
+  }
+
+  private storeReport(uri: string, report: DiagnosticReport | undefined): void {
+    if (report?.kind !== 'full') return
+    this.pulled.set(uri, {
+      ...(typeof report.resultId === 'string' ? { resultId: report.resultId } : {}),
+      items: Array.isArray(report.items) ? report.items : [],
+    })
+    this.publish(uri)
+  }
+
+  private async pull(uri: string, state: PullState): Promise<void> {
+    if (this.closed || this.pulls.get(uri) !== state || !this.documents.has(uri)) return
+    state.running?.cancel()
+    const running = new CancellationTokenSource()
+    state.running = running
+    const identifier = this.diagnosticOptions()?.identifier
+    const previousResultId = this.pulled.get(uri)?.resultId
+    let report: DiagnosticReport | null
+    try {
+      report = (await this.conn.sendRequest(
+        DIAGNOSTIC_METHOD,
+        {
+          textDocument: { uri },
+          ...(identifier !== undefined ? { identifier } : {}),
+          ...(previousResultId !== undefined ? { previousResultId } : {}),
+        },
+        running.token,
+      )) as DiagnosticReport | null
+    } catch (err) {
+      if (this.pulls.get(uri) !== state || state.running !== running) return
+      state.running = null
+      const { code, data } = err as { code?: number; data?: { retriggerRequest?: boolean } }
+      const retry = code === SERVER_CANCELLED && data?.retriggerRequest !== false
+      if (retry && state.retries < PULL_MAX_RETRIES) {
+        state.retries += 1
+        this.schedulePull(uri, PULL_DEBOUNCE_MS)
+      }
+      return
+    }
+    if (this.pulls.get(uri) !== state || state.running !== running) return
+    state.running = null
+    state.retries = 0
+    if (!this.documents.has(uri) || !report) return
+    this.storeReport(uri, report)
+    for (const [related, relatedReport] of Object.entries(report.relatedDocuments ?? {})) {
+      const relatedUri = normalizeUri(related)
+      if (this.documents.has(relatedUri)) this.storeReport(relatedUri, relatedReport)
+    }
   }
 
   openDocument(model: monaco.editor.ITextModel, languageId: string): void {
@@ -245,6 +496,7 @@ export class LspSession {
     if (this.closed || this.documents.has(uri)) return
     const document: SyncedDocument = {
       version: 1,
+      languageId,
       subscription: model.onDidChangeContent((event) => {
         const kind = this.syncKind()
         if (kind === SYNC_NONE) return
@@ -261,12 +513,14 @@ export class LspSession {
           textDocument: { uri, version: document.version },
           contentChanges,
         })
+        this.pullAfterChange(uri)
       }),
     }
     this.documents.set(uri, document)
     this.notify('textDocument/didOpen', {
       textDocument: { uri, languageId, version: document.version, text: model.getValue() },
     })
+    this.schedulePull(uri, 0)
   }
 
   closeDocument(uri: string): void {
@@ -274,7 +528,9 @@ export class LspSession {
     if (!document) return
     document.subscription.dispose()
     this.documents.delete(uri)
-    this.diagnostics.delete(uri)
+    this.pushed.delete(uri)
+    this.pulled.delete(uri)
+    this.forgetPull(uri)
     this.notify('textDocument/didClose', { textDocument: { uri } })
   }
 
@@ -300,6 +556,7 @@ export class LspSession {
     if (this.closed) return
     this.closed = true
     for (const document of this.documents.values()) document.subscription.dispose()
+    for (const uri of [...this.pulls.keys()]) this.forgetPull(uri)
     this.documents.clear()
     this.hooks.onClosed()
   }

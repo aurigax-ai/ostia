@@ -14,6 +14,7 @@ import type { BuildInfo } from './buildInfo'
 import type { Capability, PhoneGrantableCap } from './capabilities'
 import type { ChatSessionsApi } from './chatSessions'
 import type { ChatToolsApi } from './chatTools'
+import type { ClipboardChords, ClipboardEdit } from './clipboardChords'
 import type { SpecCommand } from './completionSpec'
 import type {
   CredentialImportResult,
@@ -32,7 +33,23 @@ import type { OpenFileVerdict } from './openFiles'
 import type { PickOutcome, PickSendRequest, PickSendResult, PickState, PickTheme } from './pick'
 import type { PromptSeparator } from './promptSettings'
 import type { QuestionReply, QuestionState } from './questions'
+import type { PrivacyApi } from './redaction'
+import type {
+  RegionCaptureOutcome,
+  RegionCaptureRequest,
+  RegionCopyResult,
+  RegionSendRequest,
+} from './regionCapture'
 import type { ReleaseCheckResult, ReleaseInfo } from './releases'
+import type {
+  RemoteCwd,
+  RemoteFolder,
+  RemoteFolderAsk,
+  RemoteListResult,
+  RemoteReadResult,
+  RemoteStatResult,
+  RemoteWriteResult,
+} from './remoteFolders'
 import type {
   PortsPolicy,
   SandboxControls,
@@ -49,6 +66,7 @@ import type {
   WorkspacePackages,
   WorkspaceSandbox,
 } from './sandbox'
+import type { SandboxReadPreset } from './sandboxPresets'
 import type { SecretEntry, SecretGrant } from './secrets'
 import type { SelectionSendRequest, SelectionSendResult } from './selection'
 import type { RequirementsReport } from './systemRequirements'
@@ -62,6 +80,7 @@ export interface AppInfo {
   name: string
   version: string
   platform: Platform
+  hostName: string
 }
 
 export const RENDERER_ERROR_KINDS = ['error', 'rejection', 'render', 'surface'] as const
@@ -91,6 +110,8 @@ export interface WindowControls {
   quit: () => void
   isMaximized: () => Promise<boolean>
   setZoom: (percent: number) => Promise<number>
+  beep: () => void
+  writePrimarySelection: (text: string) => void
   isSystemDark: () => Promise<boolean>
   onSystemDarkChange: (cb: (dark: boolean) => void) => () => void
   onMaximizeChange: (cb: (maximized: boolean) => void) => () => void
@@ -111,7 +132,6 @@ export interface PtySpawnOptions {
   cwd?: string
   cols: number
   rows: number
-  shell?: string
   role?: 'owner' | 'observer'
   sinceCursor?: number
   pinePrompt?: PinePromptSpawn
@@ -145,6 +165,7 @@ export interface PtyAttachResult {
   buffer: string
   cursor: number
   dropped: boolean
+  shell?: string
   sandboxed?: boolean
   sandboxStamp?: string
   host?: boolean
@@ -173,6 +194,7 @@ export interface SandboxApi {
     paths: string[],
   ) => Promise<SandboxEditResult>
   checkPaths: (kind: SandboxPathKind, paths: string[]) => Promise<SandboxEditError[]>
+  presets: () => Promise<SandboxReadPreset[]>
   setDomains: (workspaceId: string, domains: string[]) => Promise<SandboxEditResult>
   setDeniedDomains: (workspaceId: string, domains: string[]) => Promise<SandboxEditResult>
   setSwitches: (
@@ -247,6 +269,17 @@ export interface FsApi {
   watch: (path: string) => Promise<boolean>
   unwatch: (path: string) => void
   onChanged: (cb: (change: { path: string; exists: boolean }) => void) => () => void
+}
+
+export interface RemoteFilesApi {
+  folders: () => Promise<RemoteFolder[]>
+  onFolders: (cb: (folders: RemoteFolder[]) => void) => () => void
+  close: (folderId: string) => Promise<boolean>
+  onConfirm: (cb: (ask: RemoteFolderAsk) => Promise<boolean>) => () => void
+  list: (path: string) => Promise<RemoteListResult>
+  stat: (path: string) => Promise<RemoteStatResult>
+  read: (path: string) => Promise<RemoteReadResult>
+  write: (path: string, content: string, baseVersion: string) => Promise<RemoteWriteResult>
 }
 
 export type FsBinaryResult =
@@ -348,6 +381,7 @@ export interface SnapshotPaneNode {
   agentRunning?: true
   hibernated?: true
   locked?: true
+  defaultTitle?: true
 }
 
 export interface SnapshotSplitNode {
@@ -611,6 +645,7 @@ export interface TerminalStateSnapshot {
   running: boolean
   blockCount: number
   lastExitCode?: number
+  remote?: RemoteCwd
 }
 
 export interface TerminalStateApi {
@@ -625,6 +660,9 @@ export interface BrowserApi {
   pickCancel: (paneId: string) => void
   pickSend: (req: PickSendRequest) => Promise<PickSendResult>
   onPickState: (cb: (state: PickState) => void) => () => void
+  regionCapture: (paneId: string, req: RegionCaptureRequest) => Promise<RegionCaptureOutcome>
+  regionSend: (req: RegionSendRequest) => Promise<PickSendResult>
+  regionCopy: (paneId: string, captureId: string) => Promise<RegionCopyResult>
   storageRead: (paneId: string) => Promise<BrowserStorageRead>
   storageSet: (paneId: string, edit: StorageEdit) => Promise<StorageWriteResult>
   storageRemove: (paneId: string, removal: StorageRemoval) => Promise<StorageWriteResult>
@@ -647,6 +685,12 @@ export type OpenPathResult = { ok: true } | { ok: false; error: 'not-found' | 'p
 export interface FilesApi {
   pathForFile: (file: File) => string
   admitDropped: (files: File[], workspaceId: string | null) => Promise<OpenFileVerdict[]>
+}
+
+export interface ClipboardApi {
+  edit: (edit: ClipboardEdit) => Promise<void>
+  hasImage: () => Promise<boolean>
+  setChords: (chords: ClipboardChords) => void
 }
 
 export interface OpenPathApi {
@@ -801,6 +845,7 @@ export interface PineBridge {
   pty: PtyApi
   manager: ManagerApi
   fs: FsApi
+  remoteFiles: RemoteFilesApi
   lsp: LspApi
   settings: SettingsApi
   sync: SyncApi
@@ -821,6 +866,7 @@ export interface PineBridge {
   update: AppUpdateApi
   agentSession: AgentSessionApi
   openPath: OpenPathApi
+  clipboard: ClipboardApi
   files: FilesApi
   extensions: ExtensionsApi
   marketplace: MarketplaceApi
@@ -832,6 +878,7 @@ export interface PineBridge {
   completions: CompletionsApi
   assist: AssistApi
   chatSessions: ChatSessionsApi
+  privacy: PrivacyApi
   chatTools: ChatToolsApi
   iconThemes: IconThemesApi
   languagePacks: LanguagePacksApi

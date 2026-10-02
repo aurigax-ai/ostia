@@ -1,20 +1,33 @@
 import { spawnSync } from 'node:child_process'
-import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import type { AgentPluginContent } from './agentSkills'
 import { privateTmpDir } from './privateTmp'
 import { type ShellState, parseShellState } from './shellCommands'
 import {
   CLAUDE_PLUGIN_MANIFEST,
   type CodexHookEvent,
+  busHookCommand,
   claudeHookSettings,
+  claudeWrapper,
   codexHookArgs,
   codexHookCommands,
   codexHookKey,
   codexHookTrustHash,
   codexWrapper,
+  extensionHookCommand,
   shellIntegrationSpawnOptions,
+  writeAgentPlugin,
   writeCodexIntegration,
 } from './shellIntegration'
 
@@ -24,7 +37,15 @@ const ZSH_ENV = join(INTEGRATION_DIR, '.zshenv')
 const ZSH_RC = join(INTEGRATION_DIR, '.zshrc')
 const BASH_INIT = join(INTEGRATION_DIR, 'init.bash')
 const BASH_RC = join(INTEGRATION_DIR, 'bashrc')
-const CLAUDE_PLUGIN = join(INTEGRATION_DIR, 'claude-plugin')
+const AGENT_DIR = shellIntegrationSpawnOptions('/bin/bash', {}).env.PINE_AGENT_DIR ?? ''
+const CLAUDE_PLUGIN = join(AGENT_DIR, 'claude-plugin')
+
+describe('test isolation', () => {
+  it("writes the integration files under this run's private temp folder", () => {
+    expect(process.env.TMPDIR).toMatch(/pine-vitest-/)
+    expect(INTEGRATION_DIR.startsWith(`${process.env.TMPDIR}/`)).toBe(true)
+  })
+})
 
 describe('shellIntegrationSpawnOptions', () => {
   describe('zsh', () => {
@@ -65,10 +86,10 @@ describe('shellIntegrationSpawnOptions', () => {
   })
 
   describe('bash', () => {
-    it('spawns with --rcfile pointing at the generated bashrc and no extra env', () => {
+    it('spawns with --rcfile pointing at the generated bashrc and only the agent plugin env', () => {
       const { args, env } = shellIntegrationSpawnOptions('/bin/bash', {})
       expect(args).toEqual(['--rcfile', BASH_RC])
-      expect(env).toEqual({})
+      expect(env).toEqual({ PINE_AGENT_DIR: AGENT_DIR })
     })
   })
 
@@ -82,6 +103,7 @@ describe('shellIntegrationSpawnOptions', () => {
         PINE_PROMPT_LINES: '2',
       })
       expect(shellIntegrationSpawnOptions('/bin/bash', {}, inline).env).toEqual({
+        PINE_AGENT_DIR: AGENT_DIR,
         PINE_PROMPT: 'pine',
         PINE_PROMPT_SEPARATOR: 'none',
         PINE_PROMPT_LINES: '1',
@@ -89,7 +111,9 @@ describe('shellIntegrationSpawnOptions', () => {
       expect(shellIntegrationSpawnOptions('zsh', { HOME: '/home/u' }).env).not.toHaveProperty(
         'PINE_PROMPT',
       )
-      expect(shellIntegrationSpawnOptions('/bin/bash', {}, null).env).toEqual({})
+      expect(shellIntegrationSpawnOptions('/bin/bash', {}, null).env).toEqual({
+        PINE_AGENT_DIR: AGENT_DIR,
+      })
       expect(shellIntegrationSpawnOptions('fish', {}, split)).toEqual({ args: [], env: {} })
     })
 
@@ -262,6 +286,7 @@ describe('shellIntegrationSpawnOptions', () => {
         expect.objectContaining({ PINE_HISTFILE: '/tmp/s/h' }),
       )
       expect(shellIntegrationSpawnOptions('bash', { HOME: home }, null, '/tmp/s/h').env).toEqual({
+        PINE_AGENT_DIR: AGENT_DIR,
         PINE_HISTFILE: '/tmp/s/h',
       })
       expect(shellIntegrationSpawnOptions('zsh', { HOME: home }).env).not.toHaveProperty(
@@ -376,6 +401,94 @@ describe('shellIntegrationSpawnOptions', () => {
       const init = readFileSync(BASH_INIT, 'utf8')
       expect(init).toContain('PROMPT_COMMAND=')
       expect(init).toMatch(/trap .*DEBUG/)
+    })
+
+    it('marks only real commands when the user’s PROMPT_COMMAND is an array', () => {
+      shellIntegrationSpawnOptions('/bin/bash', {})
+      const dir = mkdtempSync(join(tmpdir(), 'pine-bash-array-'))
+      try {
+        const rc = join(dir, 'rc')
+        writeFileSync(
+          rc,
+          `PS1='b> '\nPROMPT_COMMAND=(true)\nPROMPT_COMMAND+=('printf TICK')\nsource '${BASH_INIT}'\n`,
+        )
+        const out = spawnSync('bash', ['--rcfile', rc, '-i'], {
+          env: { HOME: dir, PATH: process.env.PATH ?? '/usr/bin:/bin', TERM: 'dumb' },
+          input: 'echo hi\nfalse\n',
+          encoding: 'utf8',
+        })
+        const text = `${out.stdout}${out.stderr}`
+        const marks = (body: string): number => text.split(`\u001b]133;${body}\u001b\\`).length - 1
+        expect(marks('C')).toBe(2)
+        expect(text.split('TICK').length - 1).toBe(marks('A'))
+      } finally {
+        rmSync(dir, { recursive: true, force: true })
+      }
+    })
+
+    describe.runIf(process.platform === 'linux')('bash command line marks', () => {
+      const PASTE_START = '\x1b[200~'
+      const PASTE_END = '\x1b[201~'
+      const commandMarks = (typed: string, rcLines = ''): string[] => {
+        shellIntegrationSpawnOptions('/bin/bash', {})
+        const dir = mkdtempSync(join(tmpdir(), 'pine-bash-lines-'))
+        try {
+          const rc = join(dir, 'rc')
+          writeFileSync(
+            rc,
+            `PS1='b> '\nHISTFILE='${join(dir, 'history')}'\nbind 'set enable-bracketed-paste on'\n${rcLines}\nsource '${BASH_INIT}'\n`,
+          )
+          const out = spawnSync('script', ['-qec', `bash --rcfile '${rc}' -i`, '/dev/null'], {
+            env: { HOME: dir, PATH: process.env.PATH ?? '/usr/bin:/bin', TERM: 'xterm' },
+            input: `${typed}\rexit\r`,
+            encoding: 'utf8',
+          })
+          return out.stdout
+            .split('\x1b]')
+            .slice(1)
+            .map((osc) => osc.split('\x1b\\')[0])
+            .filter((osc) => osc.startsWith('633;E;') || /^133;[CD]/.test(osc))
+        } finally {
+          rmSync(dir, { recursive: true, force: true })
+        }
+      }
+
+      it('reports every line of a pasted multi-line input as the whole command before D', () => {
+        const typed = `${PASTE_START}echo pine_ml_1\recho pine_ml_2${PASTE_END}`
+        expect(commandMarks(typed).slice(0, 4)).toEqual([
+          '633;E;echo pine_ml_1',
+          '133;C',
+          String.raw`633;E;echo pine_ml_1\x0aecho pine_ml_2`,
+          '133;D;0',
+        ])
+      })
+
+      it('reports a one-line command only once', () => {
+        expect(commandMarks('echo solo').slice(0, 3)).toEqual([
+          '633;E;echo solo',
+          '133;C',
+          '133;D;0',
+        ])
+      })
+
+      it('counts an unrecorded repeat of the previous command as the first line', () => {
+        const typed = `echo again\r${PASTE_START}echo again\recho after${PASTE_END}`
+        expect(commandMarks(typed, 'HISTCONTROL=ignoredups').slice(3, 7)).toEqual([
+          '633;E;echo again',
+          '133;C',
+          String.raw`633;E;echo again\x0aecho after`,
+          '133;D;0',
+        ])
+      })
+
+      it('keeps the first line when the history list was rewritten under the command', () => {
+        const typed = `echo b\recho q\r${PASTE_START}echo a\recho b\recho c${PASTE_END}`
+        expect(commandMarks(typed, 'HISTCONTROL=erasedups').slice(6, 9)).toEqual([
+          '633;E;echo a',
+          '133;C',
+          '133;D;0',
+        ])
+      })
     })
 
     describe.each([
@@ -524,6 +637,24 @@ describe('shellIntegrationSpawnOptions', () => {
       expect(command('SessionStart')).toMatch(/^\[ -n "\$PINE_SOCKET" \] && .*\|\| true$/)
     })
 
+    it('adds the unread bus messages as context when a session starts and a prompt is sent', () => {
+      const hooks = claudeHookSettings().hooks as Record<string, { hooks: { command: string }[] }[]>
+      const commands = (event: string) => hooks[event]?.[0]?.hooks.map((h) => h.command) ?? []
+      expect(commands('SessionStart')).toEqual([
+        expect.stringContaining('resume-token claude -'),
+        busHookCommand('SessionStart'),
+      ])
+      expect(commands('UserPromptSubmit')).toEqual([
+        expect.stringContaining('state working'),
+        busHookCommand('UserPromptSubmit'),
+      ])
+      expect(busHookCommand('UserPromptSubmit')).toBe(
+        '[ -n "$PINE_SOCKET" ] && ELECTRON_RUN_AS_NODE=1 "$PINE_NODE" "$PINE_CLI" bus hook UserPromptSubmit 2>/dev/null || true',
+      )
+      expect(commands('Stop').join(' ')).not.toContain('bus hook')
+      expect(commands('Notification').join(' ')).not.toContain('bus hook')
+    })
+
     it('makes claude in a Pine shell load the plugin and keep the user’s arguments', () => {
       shellIntegrationSpawnOptions('/bin/bash', {})
       const bin = mkdtempSync(join(tmpdir(), 'pine-fake-claude-'))
@@ -533,7 +664,7 @@ describe('shellIntegrationSpawnOptions', () => {
         chmodSync(fake, 0o755)
         const run = (script: string) =>
           spawnSync('bash', ['--norc', '-c', `source '${BASH_INIT}'; ${script}`], {
-            env: { PATH: `${bin}:/usr/bin:/bin`, PINE_CLI: '/x/cli.js' },
+            env: { PATH: `${bin}:/usr/bin:/bin`, PINE_CLI: '/x/cli.js', PINE_AGENT_DIR: AGENT_DIR },
             encoding: 'utf8',
           }).stdout.trim()
 
@@ -544,6 +675,39 @@ describe('shellIntegrationSpawnOptions', () => {
           'abc',
         ])
         expect(run('command claude plain')).toBe('plain')
+      } finally {
+        rmSync(bin, { recursive: true, force: true })
+      }
+    })
+
+    it.each([
+      ['bash', '--norc'],
+      ['zsh', '-f'],
+    ])('runs claude untouched in %s when its integration is turned off', (shell, noRc) => {
+      const bin = mkdtempSync(join(tmpdir(), 'pine-fake-claude-'))
+      try {
+        const fake = join(bin, 'claude')
+        writeFileSync(fake, '#!/bin/sh\nprintf "%s\\n" "$@"\n')
+        chmodSync(fake, 0o755)
+        const wrapper = join(bin, 'wrapper.sh')
+        writeFileSync(wrapper, claudeWrapper())
+        const agentDir = join(bin, 'agent')
+        const pluginDir = join(agentDir, 'claude-plugin')
+        mkdirSync(pluginDir, { recursive: true })
+        const run = (off: string) =>
+          spawnSync(shell, [noRc, '-c', `source '${wrapper}'; claude --resume abc`], {
+            env: {
+              PATH: `${bin}:/usr/bin:/bin`,
+              PINE_CLI: '/x/cli.js',
+              PINE_AGENT_DIR: agentDir,
+              PINE_NO_CLAUDE_HOOKS: off,
+            },
+            encoding: 'utf8',
+          })
+            .stdout.trim()
+            .split('\n')
+        expect(run('1')).toEqual(['--resume', 'abc'])
+        expect(run('')).toEqual(['--plugin-dir', pluginDir, '--resume', 'abc'])
       } finally {
         rmSync(bin, { recursive: true, force: true })
       }
@@ -569,22 +733,50 @@ describe('shellIntegrationSpawnOptions', () => {
 
     it('maps Codex events onto the resume token, the context and the attention state', () => {
       const commands = codexHookCommands(CONTEXT)
-      expect(commands.SessionStart[0]).toContain('"$PINE_CLI" resume-token codex -')
-      expect(commands.SessionStart[1]).toBe(
+      expect(Object.keys(commands)).toEqual([
+        'SessionStart',
+        'UserPromptSubmit',
+        'PermissionRequest',
+        'Stop',
+      ])
+      expect(commands.SessionStart?.[0]).toContain('"$PINE_CLI" resume-token codex -')
+      expect(commands.SessionStart?.[1]).toBe(
         `[ -n "$PINE_SOCKET" ] && cat '${CONTEXT}' 2>/dev/null || true`,
       )
-      expect(commands.UserPromptSubmit[0]).toContain('state working')
-      expect(commands.PermissionRequest[0]).toContain('state waiting -')
-      expect(commands.Stop[0]).toContain('state done')
+      expect(commands.SessionStart?.[2]).toBe(busHookCommand('SessionStart'))
+      expect(commands.SessionStart).toHaveLength(3)
+      expect(commands.UserPromptSubmit?.[0]).toContain('state working')
+      expect(commands.UserPromptSubmit).toEqual([
+        commands.UserPromptSubmit?.[0],
+        busHookCommand('UserPromptSubmit'),
+      ])
+      expect(commands.PermissionRequest?.[0]).toContain('state waiting -')
+      expect(commands.Stop?.[0]).toContain('state done')
       for (const command of Object.values(commands).flat()) {
         expect(command).toMatch(/^\[ -n "\$PINE_SOCKET" \] && .*\|\| true$/)
       }
     })
 
     it('hashes a hook the way codex-cli 0.157 computes its trust hash', () => {
-      const stop = codexHookCommands(CONTEXT).Stop[0]
+      const stop = codexHookCommands(CONTEXT).Stop?.[0] ?? ''
       expect(codexHookTrustHash('Stop', stop)).toBe(
         'sha256:04649370ec668e17edd8c909dda94fbdf1e5a71584fe8a58896fc903e330c6b1',
+      )
+    })
+
+    it('pins the trust hashes of the bus hooks, which print context', () => {
+      expect(codexHookTrustHash('UserPromptSubmit', busHookCommand('UserPromptSubmit'))).toBe(
+        'sha256:4bfedbba9685f8a168a1df284f33ad88f0a980f82dba90f09d10006d58a85607',
+      )
+      expect(codexHookTrustHash('SessionStart', busHookCommand('SessionStart'))).toBe(
+        'sha256:d8bd4869034c82c53d27c1602e741a045784c39171a4c6f2d98c29594dc095c5',
+      )
+      const state = codexHookArgs(CONTEXT).at(-1) ?? ''
+      expect(state).toContain(
+        '"/<session-flags>/config.toml:user_prompt_submit:0:1"={trusted_hash="sha256:4bfedbba9685f8a168a1df284f33ad88f0a980f82dba90f09d10006d58a85607"}',
+      )
+      expect(state).toContain(
+        '"/<session-flags>/config.toml:session_start:0:2"={trusted_hash="sha256:d8bd4869034c82c53d27c1602e741a045784c39171a4c6f2d98c29594dc095c5"}',
       )
     })
 
@@ -618,7 +810,7 @@ describe('shellIntegrationSpawnOptions', () => {
         writeFileSync(fake, '#!/bin/sh\nprintf "%s\\n" "$@"\n')
         chmodSync(fake, 0o755)
         wrapper = join(bin, 'wrapper.sh')
-        writeFileSync(wrapper, codexWrapper(CONTEXT))
+        writeFileSync(wrapper, codexWrapper())
       })
 
       afterAll(() => {
@@ -627,7 +819,11 @@ describe('shellIntegrationSpawnOptions', () => {
 
       const run = (script: string, pineCli: string | null = '/x/cli.js') =>
         spawnSync(shell, [noRc, '-c', `source '${wrapper}'; ${script}`], {
-          env: { PATH: `${bin}:/usr/bin:/bin`, ...(pineCli ? { PINE_CLI: pineCli } : {}) },
+          env: {
+            PATH: `${bin}:/usr/bin:/bin`,
+            PINE_AGENT_DIR: AGENT_DIR,
+            ...(pineCli ? { PINE_CLI: pineCli } : {}),
+          },
           encoding: 'utf8',
         })
           .stdout.trim()
@@ -645,7 +841,10 @@ describe('shellIntegrationSpawnOptions', () => {
         [['--', 'exec']],
       ])('injects the Pine hooks for an interactive session: codex %j', (args) => {
         const out = run(`codex ${quote(args)}`)
-        expect(out).toEqual([...codexHookArgs(CONTEXT), ...args])
+        expect(out).toEqual([
+          ...codexHookArgs(join(AGENT_DIR, 'codex', 'session-context.md')),
+          ...args,
+        ])
       })
 
       it.each([
@@ -661,6 +860,14 @@ describe('shellIntegrationSpawnOptions', () => {
         expect(run(`codex ${quote(args)}`)).toEqual(args)
       })
 
+      it('runs codex untouched when its hooks are turned off', () => {
+        const out = spawnSync(shell, [noRc, '-c', `source '${wrapper}'; codex 'fix it'`], {
+          env: { PATH: `${bin}:/usr/bin:/bin`, PINE_CLI: '/x/cli.js', PINE_NO_CODEX_HOOKS: '1' },
+          encoding: 'utf8',
+        }).stdout.trim()
+        expect(out).toBe('fix it')
+      })
+
       it('lets command codex bypass Pine', () => {
         expect(run('command codex resume abc')).toEqual(['resume', 'abc'])
       })
@@ -668,6 +875,129 @@ describe('shellIntegrationSpawnOptions', () => {
       it('defines no codex function outside a Pine pane', () => {
         expect(run('codex resume abc', null)).toEqual(['resume', 'abc'])
       })
+    })
+  })
+  describe('extension agent plugins', () => {
+    let root = ''
+    const CONTEXT = '/x/codex/session-context.md'
+    const toolHook = { extId: 'kit', event: 'PreToolUse' as const, command: 'on-tool' }
+    const content: AgentPluginContent = {
+      skills: [
+        {
+          id: 'kit-review',
+          description: 'Use when\nreviewing.',
+          files: [
+            { name: 'SKILL.md', data: Buffer.from('---\nname: kit-review\n---\n') },
+            { name: 'checklist.md', data: Buffer.from('- tests\n') },
+          ],
+        },
+      ],
+      hooks: [
+        { extId: 'kit', event: 'SessionStart', command: 'on-hook' },
+        toolHook,
+        { extId: 'kit', event: 'Notification', command: 'on-hook' },
+      ],
+    }
+
+    beforeAll(() => {
+      root = mkdtempSync(join(tmpdir(), 'pine-agent-plugins-'))
+    })
+
+    afterAll(() => {
+      rmSync(root, { recursive: true, force: true })
+    })
+
+    it('runs the extension’s own command through the pine CLI, never a shell string of its own', () => {
+      expect(
+        extensionHookCommand({ extId: 'kit', event: 'PreToolUse', command: 'on-tool' }, 'codex'),
+      ).toBe(
+        '[ -n "$PINE_SOCKET" ] && ELECTRON_RUN_AS_NODE=1 "$PINE_NODE" "$PINE_CLI" agent-hook kit on-tool codex PreToolUse 2>/dev/null || true',
+      )
+    })
+
+    it('adds extension hooks after Pine’s own, for the agents that have the event', () => {
+      const hooks = claudeHookSettings(content.hooks).hooks as Record<
+        string,
+        { hooks: { command: string }[] }[]
+      >
+      const commands = (event: string) => hooks[event]?.[0]?.hooks.map((h) => h.command) ?? []
+      expect(commands('SessionStart')).toHaveLength(3)
+      expect(commands('SessionStart')[0]).toContain('resume-token claude -')
+      expect(commands('SessionStart')[1]).toBe(busHookCommand('SessionStart'))
+      expect(commands('SessionStart')[2]).toContain('agent-hook kit on-hook claude SessionStart')
+      expect(commands('PreToolUse')).toEqual([extensionHookCommand(toolHook, 'claude')])
+      expect(commands('Notification')[1]).toContain('agent-hook kit on-hook claude Notification')
+      const codex = codexHookCommands(CONTEXT, content.hooks)
+      expect(codex.PreToolUse).toEqual([extensionHookCommand(toolHook, 'codex')])
+      expect(JSON.stringify(codex)).not.toContain('Notification')
+      expect(claudeHookSettings().hooks).not.toHaveProperty('PreToolUse')
+    })
+
+    it('trusts each extension hook by its own Codex hash and handler index', () => {
+      const args = codexHookArgs(CONTEXT, content.hooks)
+      const state = args[args.length - 1] ?? ''
+      const sessionStart = codexHookCommands(CONTEXT, content.hooks).SessionStart ?? []
+      expect(sessionStart).toHaveLength(4)
+      const hook = sessionStart[3] ?? ''
+      expect(state).toContain(
+        `${JSON.stringify(codexHookKey('SessionStart', 3))}={trusted_hash=${JSON.stringify(codexHookTrustHash('SessionStart', hook))}}`,
+      )
+      expect(codexHookKey('PreToolUse', 0)).toBe('/<session-flags>/config.toml:pre_tool_use:0:0')
+      expect(args).not.toContain('--dangerously-bypass-hook-trust')
+    })
+
+    it('writes one folder per content, with the skills for claude and codex', () => {
+      const dir = writeAgentPlugin(root, content)
+      expect(writeAgentPlugin(root, content)).toBe(dir)
+      expect(writeAgentPlugin(root, { skills: [], hooks: [] })).not.toBe(dir)
+      const plugin = join(dir, 'claude-plugin')
+      expect(readFileSync(join(plugin, 'skills', 'kit-review', 'checklist.md'), 'utf8')).toBe(
+        '- tests\n',
+      )
+      expect(readFileSync(join(plugin, 'skills', 'pine', 'SKILL.md'), 'utf8')).toMatch(
+        /^---\nname: pine/,
+      )
+      expect(JSON.parse(readFileSync(join(plugin, 'hooks', 'hooks.json'), 'utf8'))).toEqual(
+        claudeHookSettings(content.hooks),
+      )
+      const codexDir = join(dir, 'codex')
+      const context = readFileSync(join(codexDir, 'session-context.md'), 'utf8')
+      expect(context).toContain(
+        `- kit-review (${join(codexDir, 'skills', 'kit-review', 'SKILL.md')}): Use when reviewing.`,
+      )
+      expect(existsSync(join(codexDir, 'skills', 'kit-review', 'checklist.md'))).toBe(true)
+    })
+
+    it.skipIf(process.getuid?.() === 0)(
+      'returns an existing generation without writing anything under the root',
+      () => {
+        const dir = writeAgentPlugin(root, content)
+        const file = join(dir, 'claude-plugin', 'skills', 'kit-review', 'checklist.md')
+        writeFileSync(file, 'edited\n')
+        chmodSync(root, 0o500)
+        try {
+          expect(writeAgentPlugin(root, content)).toBe(dir)
+        } finally {
+          chmodSync(root, 0o700)
+        }
+        expect(readFileSync(file, 'utf8')).toBe('edited\n')
+      },
+    )
+
+    it('hands a shell exactly the Codex args it trusts, quoted', () => {
+      const dir = writeAgentPlugin(root, content)
+      const out = spawnSync(
+        'bash',
+        [
+          '--norc',
+          '-c',
+          `. '${join(dir, 'codex', 'hook-args.sh')}'; printf '%s\\n' "\${__pine_codex_hook_args[@]}"`,
+        ],
+        { encoding: 'utf8' },
+      ).stdout
+      expect(out.trimEnd().split('\n')).toEqual(
+        codexHookArgs(join(dir, 'codex', 'session-context.md'), content.hooks),
+      )
     })
   })
 })

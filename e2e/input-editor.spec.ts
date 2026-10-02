@@ -1,4 +1,4 @@
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { type Page, _electron as electron, expect, test } from '@playwright/test'
@@ -15,40 +15,40 @@ async function switchToEditorMode(win: Page): Promise<void> {
   await win.keyboard.press('Escape')
 }
 
-const MULTILINE_RECALL_BROKEN_ON_DEBIAN = existsSync('/etc/debian_version')
+for (const shell of ['/usr/bin/zsh', '/usr/bin/bash']) {
+  test(`the input editor runs a multi-line command and recalls it whole in ${shell}`, async () => {
+    test.setTimeout(60_000)
+    const launch = isolatedLaunch()
+    const app = await electron.launch({ ...launch, env: { ...launch.env, SHELL: shell } })
+    try {
+      const win = await app.firstWindow()
+      await win.waitForLoadState('domcontentloaded')
+      await openWorkspace(win)
+      const rows = win.locator('.xterm-rows').first()
+      const input = win.getByRole('textbox', { name: 'Command input' })
+      await switchToEditorMode(win)
+      await expect(input).toBeVisible()
+      await input.click()
 
-test('the input editor runs a multi-line command and recalls it whole', async () => {
-  test.fixme(MULTILINE_RECALL_BROKEN_ON_DEBIAN, 'PINE-30: recalled as its first line on Ubuntu')
-  test.setTimeout(60_000)
-  const app = await electron.launch(isolatedLaunch())
-  try {
-    const win = await app.firstWindow()
-    await win.waitForLoadState('domcontentloaded')
-    await openWorkspace(win)
-    const rows = win.locator('.xterm-rows').first()
-    const input = win.getByRole('textbox', { name: 'Command input' })
-    await switchToEditorMode(win)
-    await expect(input).toBeVisible()
-    await input.click()
+      await win.keyboard.type('echo pine_ml_1')
+      await win.keyboard.press('Shift+Enter')
+      await win.keyboard.type('echo pine_ml_2')
+      await expect(input).toHaveValue('echo pine_ml_1\necho pine_ml_2')
+      await win.keyboard.press('Enter')
+      await expect(rows).toContainText('pine_ml_2', { timeout: 15_000 })
+      await expect(input).toBeFocused()
 
-    await win.keyboard.type('echo pine_ml_1')
-    await win.keyboard.press('Shift+Enter')
-    await win.keyboard.type('echo pine_ml_2')
-    await expect(input).toHaveValue('echo pine_ml_1\necho pine_ml_2')
-    await win.keyboard.press('Enter')
-    await expect(rows).toContainText('pine_ml_2', { timeout: 15_000 })
-    await expect(input).toBeFocused()
-
-    await win.keyboard.press('ArrowUp')
-    await expect(input).toHaveValue('echo pine_ml_1\necho pine_ml_2')
-    await win.keyboard.press('Control+c')
-    await expect(input).toHaveValue('')
-    await win.keyboard.press('ArrowUp')
-    await expect(input).toHaveValue('echo pine_ml_1\necho pine_ml_2')
-  } finally {
-    await app.close()
-  }
-})
+      await win.keyboard.press('ArrowUp')
+      await expect(input).toHaveValue('echo pine_ml_1\necho pine_ml_2')
+      await win.keyboard.press('Control+c')
+      await expect(input).toHaveValue('')
+      await win.keyboard.press('ArrowUp')
+      await expect(input).toHaveValue('echo pine_ml_1\necho pine_ml_2')
+    } finally {
+      await app.close()
+    }
+  })
+}
 
 test('the input editor runs commands, walks history and steps aside for interactive programs', async () => {
   test.setTimeout(90_000)

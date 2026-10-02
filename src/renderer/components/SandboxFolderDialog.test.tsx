@@ -1,3 +1,4 @@
+import { PRODUCT_NAME } from '@shared/product'
 import '@testing-library/jest-dom/vitest'
 import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -45,6 +46,8 @@ describe('SandboxFolderDialog', () => {
         refusedFolder: { folder: '/home/u/.config', reason: 'pine-data' },
       }),
     )
-    expect(screen.getByRole('dialog')).toHaveTextContent('/home/u/.config holds Pine’s own data')
+    expect(screen.getByRole('dialog')).toHaveTextContent(
+      `/home/u/.config holds ${PRODUCT_NAME}’s own data`,
+    )
   })
 })

@@ -4,10 +4,18 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { registerBuiltinCommands } from '../commands/builtins'
 import { commands } from '../commands/registry'
+import { zhHant } from '../i18n/dict'
+import { languagesFrom } from '../lib/languagePacks'
+import { useEditorRevealStore } from '../stores/editorRevealStore'
 import { useLayoutStore } from '../stores/layoutStore'
+import { usePluginsStore } from '../stores/pluginsStore'
+import { useSettingsStore } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
 import { CommandPalette } from './CommandPalette'
+
+const searchWorkspaceSymbols = vi.hoisted(() => vi.fn())
+vi.mock('../lsp/client', () => ({ searchWorkspaceSymbols }))
 
 describe('CommandPalette', () => {
   let uiInit: ReturnType<typeof useUIStore.getState>
@@ -190,6 +198,34 @@ describe('CommandPalette', () => {
       expect(useUIStore.getState().paletteOpen).toBe(false)
     })
 
+    it('puts the keyboard in the value input so the human types without clicking it', async () => {
+      const run = register()
+      useUIStore.setState({ paletteOpen: true })
+      render(<CommandPalette />)
+      await userEvent.type(await screen.findByRole('combobox'), 'Test: Open Card{Enter}')
+
+      const input = await screen.findByPlaceholderText('Card id')
+      expect(input).toHaveFocus()
+      await userEvent.keyboard('shop-12{Enter}')
+      expect(run).toHaveBeenCalledWith({ argument: 'shop-12' }, expect.anything())
+    })
+
+    it('puts the keyboard in the filter input of a command that offers choices', async () => {
+      commands.register<{ argument?: string }, void>({
+        id: 'test.card',
+        title: 'Test: Open Card',
+        argument: 'Card id',
+        choices: async () => [{ value: 'shop-12', label: 'Fix checkout' }],
+        run: vi.fn(),
+      })
+      useUIStore.setState({ paletteOpen: true })
+      render(<CommandPalette />)
+      await userEvent.type(await screen.findByRole('combobox'), 'Test: Open Card{Enter}')
+
+      expect(await screen.findByRole('option', { name: /Fix checkout/ })).toBeInTheDocument()
+      expect(screen.getByPlaceholderText('Card id')).toHaveFocus()
+    })
+
     it('reopens on the command list after the palette chord closed it mid-argument', async () => {
       const run = register()
       useUIStore.setState({ paletteOpen: true })
@@ -214,6 +250,173 @@ describe('CommandPalette', () => {
       await userEvent.type(screen.getByPlaceholderText('Card id'), '   {Enter}')
       expect(run).not.toHaveBeenCalled()
       expect(useUIStore.getState().paletteOpen).toBe(true)
+    })
+  })
+  describe('languages', () => {
+    const initialPlugins = usePluginsStore.getState()
+    const initialSettings = useSettingsStore.getState()
+
+    const loadChinese = (): void => {
+      usePluginsStore.setState({
+        languages: languagesFrom([
+          { extId: 'langpack-zh-hant', id: 'zh-Hant', label: '繁體中文', catalog: zhHant },
+        ]),
+      })
+    }
+
+    afterEach(() => {
+      cleanup()
+      usePluginsStore.setState(initialPlugins, true)
+      useSettingsStore.setState(initialSettings, true)
+      commands.unregister('hello.open')
+    })
+
+    it('shows core commands in the human’s language and changes when they switch it', async () => {
+      loadChinese()
+      useUIStore.setState({ paletteOpen: true })
+      render(<CommandPalette />)
+      expect(await screen.findByRole('option', { name: /Split Pane Right/ })).toBeInTheDocument()
+
+      act(() => useSettingsStore.setState({ locale: 'zh-Hant' }))
+
+      expect(screen.getByRole('option', { name: /向右分割窗格/ })).toBeInTheDocument()
+      expect(screen.queryByRole('option', { name: /Split Pane Right/ })).toBeNull()
+      expect(screen.getByRole('group', { name: '窗格' })).toBeInTheDocument()
+
+      act(() => useSettingsStore.setState({ locale: 'en' }))
+
+      expect(screen.getByRole('option', { name: /Split Pane Right/ })).toBeInTheDocument()
+    })
+
+    it('finds a command by its translated title and by its English one', async () => {
+      loadChinese()
+      useSettingsStore.setState({ locale: 'zh-Hant' })
+      useUIStore.setState({ paletteOpen: true })
+      render(<CommandPalette />)
+      const input = await screen.findByRole('combobox')
+
+      await userEvent.type(input, 'Open Settings')
+      expect(await screen.findByRole('option', { name: /開啟設定/ })).toBeInTheDocument()
+      expect(screen.queryByRole('option', { name: /切換側邊欄/ })).toBeNull()
+
+      await userEvent.clear(input)
+      await userEvent.type(input, '開啟設定')
+      expect(await screen.findByRole('option', { name: /開啟設定/ })).toBeInTheDocument()
+      expect(screen.queryByRole('option', { name: /切換側邊欄/ })).toBeNull()
+    })
+
+    it('keeps the registry title English for agents while the palette shows Chinese', async () => {
+      loadChinese()
+      useSettingsStore.setState({ locale: 'zh-Hant' })
+      useUIStore.setState({ paletteOpen: true })
+      render(<CommandPalette />)
+      expect(await screen.findByRole('option', { name: /開啟設定/ })).toBeInTheDocument()
+
+      const described = commands.describe().find((c) => c.id === 'app.openSettings')
+      expect(described).toMatchObject({ title: 'Open Settings', category: 'App' })
+    })
+
+    it('shows an extension command as main sent it, beside translated core commands', async () => {
+      loadChinese()
+      useSettingsStore.setState({ locale: 'zh-Hant' })
+      commands.register({
+        id: 'hello.open',
+        title: '哈囉：開啟面板',
+        category: '哈囉',
+        run: () => {},
+      })
+      useUIStore.setState({ paletteOpen: true })
+      render(<CommandPalette />)
+
+      expect(await screen.findByRole('option', { name: /哈囉：開啟面板/ })).toBeInTheDocument()
+      expect(screen.getByRole('group', { name: '哈囉' })).toBeInTheDocument()
+      expect(screen.getByRole('option', { name: /開啟設定/ })).toBeInTheDocument()
+    })
+  })
+
+  describe('symbols in the workspace', () => {
+    const hit = {
+      id: 'ext/fake\n/src/web/lib/greet.ts\n12\n17\ngreet\n12',
+      name: 'greet',
+      kind: 12,
+      container: 'lib',
+      path: '/src/web/lib/greet.ts',
+      line: 12,
+      column: 17,
+      serverKey: 'ext/fake',
+    }
+
+    const seed = () => {
+      useWorkspacesStore.setState({
+        workspaces: [
+          { id: 'w2', name: 'web', kind: 'terminal', workDir: '/src/web', state: 'idle' },
+        ],
+        activeWorkspaceId: 'w2',
+      })
+      useLayoutStore.setState({
+        byWorkspace: {
+          w2: {
+            root: { type: 'pane', id: 'pane-3', title: 'a.ts', kind: 'editor' },
+            activePaneId: 'pane-3',
+            zoomedPaneId: null,
+          },
+        },
+      })
+    }
+
+    afterEach(() => {
+      searchWorkspaceSymbols.mockReset()
+      useEditorRevealStore.setState({ pending: {} })
+    })
+
+    it('opens on the symbol prefix from the command and asks the workspace’s servers as the human types', async () => {
+      seed()
+      searchWorkspaceSymbols.mockResolvedValue({ servers: 1, hits: [hit] })
+      render(<CommandPalette />)
+      act(() => {
+        void commands.exec('view.goToWorkspaceSymbol')
+      })
+      const input = await screen.findByRole('combobox')
+      expect(input).toHaveValue('%')
+      await userEvent.type(input, 'gre')
+
+      const option = await screen.findByRole('option', { name: /greet/ })
+      expect(option).toHaveTextContent('lib/greet.ts:12')
+      expect(searchWorkspaceSymbols).toHaveBeenLastCalledWith(new Set(['pane-3']), 'gre')
+      expect(screen.queryByRole('option', { name: /Open Settings/ })).toBeNull()
+    })
+
+    it('opens the file at the symbol and closes', async () => {
+      seed()
+      searchWorkspaceSymbols.mockResolvedValue({ servers: 1, hits: [hit] })
+      const openFile = vi.spyOn(useLayoutStore.getState(), 'openFile').mockImplementation(() => {})
+      useUIStore.setState({ paletteOpen: true, paletteSeed: '%' })
+      render(<CommandPalette />)
+      await userEvent.click(await screen.findByRole('option', { name: /greet/ }))
+
+      expect(openFile).toHaveBeenCalledWith('w2', '/src/web/lib/greet.ts')
+      expect(useEditorRevealStore.getState().pending['/src/web/lib/greet.ts']).toEqual({
+        line: 12,
+        column: 17,
+      })
+      expect(useUIStore.getState().paletteOpen).toBe(false)
+    })
+
+    it('says so when no language server in the workspace finds symbols', async () => {
+      seed()
+      searchWorkspaceSymbols.mockResolvedValue({ servers: 0, hits: [] })
+      useUIStore.setState({ paletteOpen: true, paletteSeed: '%' })
+      render(<CommandPalette />)
+      expect(await screen.findByRole('status')).toHaveTextContent(
+        'No running language server finds symbols in this workspace.',
+      )
+    })
+
+    it('asks nothing for a workspace without panes', async () => {
+      useUIStore.setState({ paletteOpen: true, paletteSeed: '%' })
+      render(<CommandPalette />)
+      expect(await screen.findByRole('status')).toBeInTheDocument()
+      expect(searchWorkspaceSymbols).not.toHaveBeenCalled()
     })
   })
 })

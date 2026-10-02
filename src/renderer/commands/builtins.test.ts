@@ -261,6 +261,29 @@ describe('builtins route to store actions', () => {
     expect(useSettingsStore.getState().agents.autoResume).toBe(false)
   })
 
+  it('settings.set and settings.unset refuse secret redaction, whole or by key', async () => {
+    const off = await commands.execWith(ctx(null, null), 'settings.set', {
+      key: 'privacy.redaction.enabled',
+      value: false,
+    })
+    const pattern = await commands.execWith(ctx(null, null), 'settings.set', {
+      key: 'privacy.redaction.patterns',
+      value: ['.+'],
+    })
+    const whole = await commands.execWith(ctx(null, null), 'settings.set', {
+      key: 'privacy',
+      value: { redaction: { enabled: false, patterns: [] } },
+    })
+    const unset = await commands.execWith(ctx(null, null), 'settings.unset', {
+      key: 'privacy.redaction.enabled',
+    })
+    for (const res of [off, pattern, whole, unset]) {
+      expect(res.ok).toBe(false)
+      if (!res.ok) expect(res.error.message).toBe('privacy can only be changed by you in Settings')
+    }
+    expect(useSettingsStore.getState().privacy.redaction).toEqual({ enabled: true, patterns: [] })
+  })
+
   it('settings.set and settings.unset refuse the multi-line paste confirmation, directly or via terminal', async () => {
     const direct = await commands.execWith(ctx(null, null), 'settings.set', {
       key: 'terminal.warnOnRiskyPaste',
@@ -283,6 +306,50 @@ describe('builtins route to store actions', () => {
     expect(unset.ok).toBe(false)
     expect(unrelated.ok).toBe(true)
     expect(useSettingsStore.getState().terminal.warnOnRiskyPaste).toBe(true)
+  })
+
+  it('settings.set refuses OSC 52 clipboard writes and the global hotkey', async () => {
+    const osc = await commands.execWith(ctx(null, null), 'settings.set', {
+      key: 'terminal.osc52Write',
+      value: true,
+    })
+    const hotkey = await commands.execWith(ctx(null, null), 'settings.set', {
+      key: 'workspaces',
+      value: { ...useSettingsStore.getState().workspaces, globalHotkey: 'Ctrl+Alt+Space' },
+    })
+    expect(osc.ok).toBe(false)
+    expect(hotkey.ok).toBe(false)
+    expect(useSettingsStore.getState().terminal.osc52Write).toBe(false)
+    expect(useSettingsStore.getState().workspaces.globalHotkey).toBe('')
+  })
+
+  it('settings.set refuses the agent hook switches, directly or via agents', async () => {
+    const direct = await commands.execWith(ctx(null, null), 'settings.set', {
+      key: 'agents.hooks.claude',
+      value: false,
+    })
+    const nested = await commands.execWith(ctx(null, null), 'settings.set', {
+      key: 'agents',
+      value: { ...useSettingsStore.getState().agents, hooks: { claude: true, codex: false } },
+    })
+    expect(direct.ok).toBe(false)
+    expect(nested.ok).toBe(false)
+    expect(useSettingsStore.getState().agents.hooks).toEqual({ claude: true, codex: true })
+  })
+
+  it('settings.set refuses the shell program, directly or via terminal', async () => {
+    const direct = await commands.execWith(ctx(null, null), 'settings.set', {
+      key: 'terminal.shell',
+      value: '/tmp/evil',
+    })
+    const nested = await commands.execWith(ctx(null, null), 'settings.set', {
+      key: 'terminal',
+      value: { ...useSettingsStore.getState().terminal, shell: '/tmp/evil' },
+    })
+    expect(direct.ok).toBe(false)
+    if (!direct.ok) expect(direct.error.message).toMatch(/terminal.shell/)
+    expect(nested.ok).toBe(false)
+    expect(useSettingsStore.getState().terminal.shell).toBe('')
   })
 
   it('settings.set and settings.unset refuse the automatic update check, directly or via behavior', async () => {
@@ -502,6 +569,33 @@ describe('builtins route to store actions', () => {
     await commands.execWith(ctx('s1', 'pA'), 'pane.focus', { paneId: 'pX' })
 
     expect(focusPane).toHaveBeenCalledWith('s1', 'pX')
+  })
+
+  it('moves focus to the pane beside the caller’s pane, and not while a pane is zoomed', async () => {
+    const left = createPane()
+    const right = createPane()
+    useLayoutStore.setState({
+      byWorkspace: {
+        s1: {
+          root: {
+            type: 'split',
+            id: 'sp',
+            direction: 'horizontal',
+            children: [left, right],
+            sizes: [1, 1],
+          },
+          activePaneId: left.id,
+          zoomedPaneId: null,
+        },
+      },
+    })
+    await commands.execWith(ctx('s1', left.id), 'pane.focusRight')
+    expect(useLayoutStore.getState().byWorkspace.s1.activePaneId).toBe(right.id)
+    await commands.execWith(ctx('s1', right.id), 'pane.focusRight')
+    expect(useLayoutStore.getState().byWorkspace.s1.activePaneId).toBe(right.id)
+    useLayoutStore.getState().zoomPane('s1', right.id, true)
+    await commands.execWith(ctx('s1', right.id), 'pane.focusLeft')
+    expect(useLayoutStore.getState().byWorkspace.s1.activePaneId).toBe(right.id)
   })
 
   it('routes pane.move to layout.movePane with source, target, and zone', async () => {
@@ -870,6 +964,16 @@ describe('workspace row commands', () => {
     expect(miss).toMatchObject({ ok: true, result: { switched: false } })
   })
 
+  it('steps to the next and previous workspace, wrapping at either end', async () => {
+    seed()
+    await commands.execWith(ctx(null, null), 'workspace.next')
+    expect(useWorkspacesStore.getState().activeWorkspaceId).toBe('w2')
+    await commands.execWith(ctx(null, null), 'workspace.next')
+    expect(useWorkspacesStore.getState().activeWorkspaceId).toBe('w1')
+    await commands.execWith(ctx(null, null), 'workspace.previous')
+    expect(useWorkspacesStore.getState().activeWorkspaceId).toBe('w2')
+  })
+
   it('moves the caller’s own workspace into a group by name, and out again', async () => {
     seed()
     const r = await commands.execWith(ctx('w2', 'p'), 'workspace.group', { name: 'review' })
@@ -1015,6 +1119,68 @@ describe('agent notifications', () => {
     blocks.commandStart(pane.id, { line: 1 }, 'claude')
     await commands.execWith(ctx('s1', pane.id), 'attention.set', { state: 'waiting' })
     expect(useAttentionStore.getState().byPane[pane.id]?.state).toBe('waiting')
+  })
+
+  it('marks the pane unread, never waiting, for a bus message and logs who sent it', async () => {
+    const pane = seedPane()
+    await commands.execWith(ctx('s1', pane.id), 'attention.message', {
+      from: 'api tests',
+      text: 'tests are green\x1b\x07\nsecond line',
+    })
+    expect(useAttentionStore.getState().byPane[pane.id]).toMatchObject({
+      state: 'none',
+      unread: true,
+      message: 'Message from api tests: tests are green',
+    })
+    expect(window.pine.notifications.post).toHaveBeenCalledWith({
+      paneId: pane.id,
+      kind: 'message',
+      title: 'Message from api tests',
+      body: 'tests are green',
+      desktop: true,
+    })
+  })
+
+  it('leaves a working agent working when a bus message arrives for it', async () => {
+    const pane = seedPane()
+    const blocks = useBlocksStore.getState()
+    blocks.promptStart(pane.id, { line: 0 }, null)
+    blocks.commandStart(pane.id, { line: 1 }, 'claude')
+    await commands.execWith(ctx('s1', pane.id), 'attention.set', { state: 'working' })
+    await commands.execWith(ctx('s1', pane.id), 'attention.message', { from: '', text: 'ping' })
+    expect(useAttentionStore.getState().byPane[pane.id]).toMatchObject({
+      state: 'working',
+      unread: true,
+      message: 'Message from another pane: ping',
+    })
+  })
+
+  it('keeps what a waiting agent waits for when a bus message arrives', async () => {
+    const pane = seedPane()
+    const blocks = useBlocksStore.getState()
+    blocks.promptStart(pane.id, { line: 0 }, null)
+    blocks.commandStart(pane.id, { line: 1 }, 'claude')
+    await commands.execWith(ctx('s1', pane.id), 'attention.set', {
+      state: 'waiting',
+      message: 'Allow Bash?',
+    })
+    useAttentionStore.getState().dispatch(pane.id, { type: 'view', at: 1 })
+    await commands.execWith(ctx('s1', pane.id), 'attention.message', { from: 'web', text: 'hi' })
+    expect(useAttentionStore.getState().byPane[pane.id]).toMatchObject({
+      state: 'waiting',
+      unread: true,
+      message: 'Allow Bash?',
+    })
+  })
+
+  it('reads a bus message at once in the pane being viewed and skips the banner', async () => {
+    const pane = seedPane()
+    viewWorkspace()
+    await commands.execWith(ctx('s1', pane.id), 'attention.message', { from: 'web', text: 'hi' })
+    expect(useAttentionStore.getState().byPane[pane.id]?.unread).toBe(false)
+    expect(window.pine.notifications.post).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Message from web', desktop: false }),
+    )
   })
 
   it('tells pine notify to skip the banner for the pane being viewed unless whenFocused is on', async () => {

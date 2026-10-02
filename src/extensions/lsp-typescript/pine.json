@@ -3,11 +3,25 @@
   "name": "TypeScript and JavaScript",
   "version": "1.0.0",
   "locales": ["zh-Hant"],
-  "api": "1.6",
+  "api": "1.11",
   "description": "TypeScript and JavaScript diagnostics, completion, hover and navigation in the editor. Ships typescript-language-server and TypeScript inside this extension and runs them with {product}'s own runtime; a project that has its own TypeScript uses that one.",
   "category": "languages",
   "capabilities": ["language-server"],
   "contributes": {
+    "settings": {
+      "referencesCodeLens": {
+        "type": "boolean",
+        "title": "Reference counts",
+        "default": false,
+        "description": "Show how many references each TypeScript class, interface, type and exported function has, on a line above it"
+      },
+      "implementationsCodeLens": {
+        "type": "boolean",
+        "title": "Implementation counts",
+        "default": false,
+        "description": "Show how many implementations each TypeScript interface and abstract class has, on a line above it"
+      }
+    },
     "languageServers": [
       {
         "id": "typescript",
@@ -23,7 +37,23 @@
         },
         "rootMarkers": ["tsconfig.json", "jsconfig.json", "package.json"],
         "initializationOptions": {
-          "tsserver": { "fallbackPath": "{extensionDir}/server/typescript/lib" }
+          "tsserver": {
+            "fallbackPath": "{extensionDir}/server/typescript/lib"
+          }
+        },
+        "settings": {
+          "typescript": {
+            "referencesCodeLens": {
+              "enabled": false
+            },
+            "implementationsCodeLens": {
+              "enabled": false
+            }
+          }
+        },
+        "settingPaths": {
+          "referencesCodeLens": "typescript.referencesCodeLens.enabled",
+          "implementationsCodeLens": "typescript.implementationsCodeLens.enabled"
         }
       }
     ]

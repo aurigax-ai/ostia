@@ -48,10 +48,20 @@ describe('blocksStore', () => {
   it('sets the draft on promptStart and fills inputLine on promptEnd', () => {
     const p = 'pane-draft'
     store().promptStart(p, at(4), '/tmp')
-    expect(store().drafts[p]).toEqual({ promptLine: at(4), inputLine: null, cwd: '/tmp' })
+    expect(store().drafts[p]).toEqual({
+      promptLine: at(4),
+      inputLine: null,
+      cwd: '/tmp',
+      remote: false,
+    })
 
     store().promptEnd(p, at(7))
-    expect(store().drafts[p]).toEqual({ promptLine: at(4), inputLine: at(7), cwd: '/tmp' })
+    expect(store().drafts[p]).toEqual({
+      promptLine: at(4),
+      inputLine: at(7),
+      cwd: '/tmp',
+      remote: false,
+    })
     expect(store().byPane[p]).toBeUndefined()
   })
 
@@ -59,7 +69,12 @@ describe('blocksStore', () => {
     const p = 'pane-overwrite'
     store().promptStart(p, at(10), '/a')
     store().promptStart(p, at(20), '/b')
-    expect(store().drafts[p]).toEqual({ promptLine: at(20), inputLine: null, cwd: '/b' })
+    expect(store().drafts[p]).toEqual({
+      promptLine: at(20),
+      inputLine: null,
+      cwd: '/b',
+      remote: false,
+    })
     expect(store().byPane[p]).toBeUndefined()
   })
 
@@ -102,6 +117,40 @@ describe('blocksStore', () => {
     expect(current.endLine).toBeNull()
     expect(store().running[p]).toBe(current.id)
     expect(current.id).not.toBe(closed.id)
+  })
+
+  it('replaces the block command when the shell reports the whole command at its end', () => {
+    const p = 'pane-whole'
+    store().promptStart(p, at(1), '/home')
+    store().commandStart(p, at(2), 'echo pine_ml_1')
+
+    store().commandEnd(p, at(5), 0, 0, 'echo pine_ml_1\necho pine_ml_2')
+
+    expect(store().byPane[p]?.[0]).toMatchObject({
+      command: 'echo pine_ml_1\necho pine_ml_2',
+      endLine: at(5),
+      exitCode: 0,
+    })
+  })
+
+  it('ignores a whole command that does not continue the one read at its start', () => {
+    const p = 'pane-forged'
+    store().promptStart(p, at(1), '/home')
+    store().commandStart(p, at(2), 'cat notes.txt')
+
+    store().commandEnd(p, at(5), 0, 0, 'rm -rf ~\necho gone')
+
+    expect(store().byPane[p]?.[0]?.command).toBe('cat notes.txt')
+  })
+
+  it('keeps the command read at its start when the end reports none', () => {
+    const p = 'pane-kept'
+    store().promptStart(p, at(1), '/home')
+    store().commandStart(p, at(2), 'ls -la')
+
+    store().commandEnd(p, at(5), 0)
+
+    expect(store().byPane[p]?.[0]?.command).toBe('ls -la')
   })
 
   it('commandEnd is a no-op when nothing is running (fresh pane)', () => {

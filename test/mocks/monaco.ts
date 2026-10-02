@@ -153,6 +153,23 @@ export class FakeModel {
   }
 }
 
+export class FakeEmitter<T> {
+  private readonly listeners = new Set<Listener<T>>()
+
+  readonly event = (listener: Listener<T>): { dispose: () => void } => {
+    this.listeners.add(listener)
+    return { dispose: () => this.listeners.delete(listener) }
+  }
+
+  fire(event: T): void {
+    for (const listener of [...this.listeners]) listener(event)
+  }
+
+  dispose(): void {
+    this.listeners.clear()
+  }
+}
+
 export interface Registration {
   kind: string
   language: string
@@ -246,6 +263,7 @@ export function createFakeMonaco(): FakeMonaco {
     InlayHintKind: { Type: 1, Parameter: 2 },
     SignatureHelpTriggerKind: { Invoke: 1, TriggerCharacter: 2, ContentChange: 3 },
     CodeActionTriggerType: { Invoke: 1, Auto: 2 },
+    FoldingRangeKind: { fromValue: (value: string) => ({ value }) },
   }
   const languages = new Proxy(constants, {
     get(target, property) {
@@ -271,6 +289,7 @@ export function createFakeMonaco(): FakeMonaco {
   })
   const monaco = {
     Uri: FakeUri,
+    Emitter: FakeEmitter,
     MarkerSeverity: { Hint: 1, Info: 2, Warning: 4, Error: 8 },
     MarkerTag: { Unnecessary: 1, Deprecated: 2 },
     editor: {

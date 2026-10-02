@@ -1,16 +1,23 @@
 import { describe, expect, it, vi } from 'vitest'
 
-const trays: { destroyed: boolean; menu: { label?: string; click?: () => void }[] }[] = []
+const trays: {
+  destroyed: boolean
+  tooltip: string
+  menu: { label?: string; click?: () => void }[]
+}[] = []
 
 vi.mock('electron', () => ({
   Menu: { buildFromTemplate: (items: unknown[]) => items },
   Tray: class {
     destroyed = false
+    tooltip = ''
     menu: unknown[] = []
     constructor() {
       trays.push(this as never)
     }
-    setToolTip(): void {}
+    setToolTip(text: string): void {
+      this.tooltip = text
+    }
     setContextMenu(menu: unknown[]): void {
       this.menu = menu
     }
@@ -22,7 +29,15 @@ vi.mock('electron', () => ({
   nativeImage: { createFromPath: () => ({ resize: () => ({}) }) },
 }))
 
-const { AppTray, closeAction, isHiddenLaunch, readCloseToTray, trayLabels } = await import('./tray')
+const {
+  AppTray,
+  closeAction,
+  isHiddenLaunch,
+  readCloseToTray,
+  trayLabels,
+  trayTooltip,
+  unreadWorkspaces,
+} = await import('./tray')
 
 function fakeWindow(events: string[]) {
   let visible = true
@@ -46,13 +61,18 @@ function fakeWindow(events: string[]) {
   } as unknown as Electron.BrowserWindow
 }
 
-function makeTray(events: string[], win: Electron.BrowserWindow) {
+function makeTray(
+  events: string[],
+  win: Electron.BrowserWindow,
+  setBadgeCount: (count: number) => void = () => undefined,
+) {
   return new AppTray({
     iconPath: '/icon.png',
     tooltip: 'Pine',
     locale: () => 'en',
     windows: () => [win],
     quit: () => events.push('quit'),
+    setBadgeCount,
   })
 }
 
@@ -103,6 +123,37 @@ describe('AppTray', () => {
     tray.hide(win)
     menuItem('Quit')()
     expect(events).toEqual(['hide', 'show', 'focus', 'quit'])
+  })
+})
+
+describe('unread count', () => {
+  const ws = (state: string, unreadAt: number) =>
+    ({ id: 'w', name: 'w', workDir: '/', state, unreadAt, panes: [] }) as never
+
+  it('counts workspaces with an unread notification or a waiting agent in every window', () => {
+    expect(
+      unreadWorkspaces([
+        { windowId: '1', detached: false, workspaces: [ws('idle', 5), ws('waiting', 0)] },
+        { windowId: '2', detached: true, workspaces: [ws('working', 0), ws('done', 9)] },
+      ]),
+    ).toBe(3)
+    expect(unreadWorkspaces([])).toBe(0)
+  })
+
+  it('puts the count in the tray tooltip and the badge, and drops it at zero', () => {
+    expect(trayTooltip('Pine', 0, 'en')).toBe('Pine')
+    expect(trayTooltip('Pine', 2, 'en')).toBe('Pine · 2 unread')
+    expect(trayTooltip('Pine', 2, 'zh-Hant')).toBe('Pine · 2 則未讀')
+    const events: string[] = []
+    const win = fakeWindow(events)
+    const badge = vi.fn()
+    const tray = makeTray(events, win, badge)
+    tray.setUnread(3)
+    tray.hide(win)
+    expect(trays.at(-1)?.tooltip).toBe('Pine · 3 unread')
+    tray.setUnread(0)
+    expect(trays.at(-1)?.tooltip).toBe('Pine')
+    expect(badge.mock.calls).toEqual([[3], [0]])
   })
 })
 

@@ -1,6 +1,7 @@
 import { SandboxManager } from '@anthropic-ai/sandbox-runtime'
 import type { SandboxRuntimeConfig } from '@anthropic-ai/sandbox-runtime'
 import { REGISTRY_HOSTS, parsePackageDownload } from '../../shared/packages'
+import { PRODUCT_NAME } from '../../shared/product'
 import { cachedLookups } from './packageLookups'
 import { type PackagePolicy, decidePackage } from './packagePolicy'
 import type { HostToMain, MainToHost } from './protocol'
@@ -30,7 +31,7 @@ function withFirewall(config: SandboxRuntimeConfig): SandboxRuntimeConfig {
         send({ type: 'package-blocked', pkg: ref, reason: decision.reason })
         return {
           action: 'deny' as const,
-          reason: `Pine's sandbox blocked ${ref.name}@${ref.version} (${decision.reason}). The human was asked; retry after they allow it.`,
+          reason: `${PRODUCT_NAME}'s sandbox blocked ${ref.name}@${ref.version} (${decision.reason}). The human was asked; retry after they allow it.`,
         }
       },
     },

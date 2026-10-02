@@ -3,6 +3,7 @@ import {
   type PromptSettings,
   parsePromptSettings,
 } from '../../shared/promptSettings'
+import { parseShellSetting } from '../../shared/terminalShell'
 import { MATCH_PINE_THEME, parseThemeChoice } from '../../shared/themeChoice'
 
 export interface TerminalSettings {
@@ -13,6 +14,10 @@ export interface TerminalSettings {
   prompt: PromptSettings
   clipboardKeys: ClipboardKeys
   theme: string
+  shell: string
+  osc52Write: boolean
+  primarySelection: boolean
+  macOptionIsMeta: boolean
 }
 
 export const CLIPBOARD_KEYS = ['shift', 'smart'] as const
@@ -40,6 +45,10 @@ export const DEFAULT_TERMINAL_SETTINGS: TerminalSettings = {
   prompt: DEFAULT_PROMPT_SETTINGS,
   clipboardKeys: 'shift',
   theme: MATCH_PINE_THEME,
+  shell: '',
+  osc52Write: false,
+  primarySelection: true,
+  macOptionIsMeta: false,
 }
 
 export const DEFAULT_PANE_SETTINGS: PaneSettings = {
@@ -88,6 +97,7 @@ export function parseTerminalSettings(raw: unknown): TerminalSettings {
       ? (source.clipboardKeys as ClipboardKeys)
       : DEFAULT_TERMINAL_SETTINGS.clipboardKeys,
     theme: parseThemeChoice(source.theme),
+    shell: parseShellSetting(source.shell),
   }
 }
 

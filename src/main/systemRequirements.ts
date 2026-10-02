@@ -1,18 +1,21 @@
 import { constants, accessSync, statSync } from 'node:fs'
-import { delimiter, join } from 'node:path'
 import { MANAGER_FEATURE } from '../shared/managerSettings'
 import { MARKETPLACE_FEATURE } from '../shared/marketplace'
 import type { InstallHint, MissingRequirement } from '../shared/systemRequirements'
+import { findOnPath } from './pathLookup'
+import { needsPtyRelay } from './sandbox/ptyWrap'
 
 export interface Requirement {
   program: string
   package: string
   platforms: NodeJS.Platform[]
+  onlyWithPtyRelay?: boolean
 }
 
 export interface RequirementEnv {
   platform?: NodeJS.Platform
   path?: string
+  ptyRelay?: boolean
 }
 
 export const SANDBOX_FEATURE = 'sandbox'
@@ -24,7 +27,7 @@ const registry = new Map<string, Requirement[]>([
       { program: 'bwrap', package: 'bubblewrap', platforms: ['linux'] },
       { program: 'socat', package: 'socat', platforms: ['linux'] },
       { program: 'rg', package: 'ripgrep', platforms: ['linux', 'darwin'] },
-      { program: 'nsenter', package: 'util-linux', platforms: ['linux'] },
+      { program: 'script', package: 'util-linux', platforms: ['linux'], onlyWithPtyRelay: true },
     ],
   ],
   [MANAGER_FEATURE, [{ program: 'ss', package: 'iproute2', platforms: ['linux'] }]],
@@ -66,10 +69,7 @@ function isExecutable(file: string): boolean {
 }
 
 export function programPath(program: string, path = process.env.PATH ?? ''): string | null {
-  for (const dir of path.split(delimiter)) {
-    if (dir && isExecutable(join(dir, program))) return join(dir, program)
-  }
-  return null
+  return findOnPath(program, path, isExecutable)
 }
 
 export function onPath(program: string, path = process.env.PATH ?? ''): boolean {
@@ -81,8 +81,10 @@ export function missingRequirements(
   env: RequirementEnv = {},
 ): MissingRequirement[] {
   const platform = env.platform ?? process.platform
+  const ptyRelay = env.ptyRelay ?? needsPtyRelay(false, undefined, platform)
   return (registry.get(feature) ?? [])
     .filter((r) => r.platforms.includes(platform) && !onPath(r.program, env.path))
+    .filter((r) => !r.onlyWithPtyRelay || ptyRelay)
     .map((r) => ({ program: r.program, package: r.package }))
 }
 

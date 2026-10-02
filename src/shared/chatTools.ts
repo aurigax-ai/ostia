@@ -190,6 +190,8 @@ export interface McpToolInfo {
   inputSchema: Record<string, unknown>
 }
 
+export type McpAuthState = 'required' | 'signing-in' | 'signed-in' | 'expired'
+
 export interface McpServerStatus {
   name: string
   transport: McpTransportKind
@@ -197,6 +199,7 @@ export interface McpServerStatus {
   error?: string
   tools: McpToolInfo[]
   secretsSet: string[]
+  auth?: McpAuthState
 }
 
 export interface SkillSummary {
@@ -220,6 +223,7 @@ export type ChatFsError =
   | 'no-match'
   | 'ambiguous'
   | 'no-change'
+  | 'unsaved'
 
 export interface ChatFsFailure {
   ok: false
@@ -280,6 +284,12 @@ export interface ChatSearchOutput {
   truncated: boolean
 }
 
+export interface ChatPreviewRequest {
+  path: string
+  root: string
+  dirty: string[]
+}
+
 export interface ChatPreviewOutput {
   path: string
   exists: boolean
@@ -287,6 +297,7 @@ export interface ChatPreviewOutput {
   version: string | null
   outside: boolean
   symlink: boolean
+  unsaved: boolean
 }
 
 export interface ChatPlanRequest {
@@ -294,6 +305,7 @@ export interface ChatPlanRequest {
   root: string
   edits: ChatEdit[]
   outside: boolean
+  dirty: string[]
 }
 
 export interface ChatPlanOutput {
@@ -303,6 +315,7 @@ export interface ChatPlanOutput {
   version: string
   outside: boolean
   symlink: boolean
+  unsaved: boolean
 }
 
 export interface ChatWriteRequest extends ChatFsTarget {
@@ -318,13 +331,15 @@ export interface ChatWriteOutput {
   version: string
 }
 
-export interface ChatUndoRequest extends ChatFsTarget {
+export interface ChatRestoreRequest extends ChatFsTarget {
   symlinks: boolean
-  wrote: string
-  restore: string | null
+  expected: string | null
+  content: string | null
+  dirty: string[]
+  check?: boolean
 }
 
-export interface ChatUndoOutput {
+export interface ChatRestoreOutput {
   path: string
   removed: boolean
   version: string | null
@@ -334,6 +349,21 @@ export type McpCallResult = { ok: true; output: string } | { ok: false; error: s
 
 export type McpSecretResult = { ok: true } | { ok: false; error: string }
 
+export type McpSignInError =
+  | 'unknown-server'
+  | 'not-http'
+  | 'in-progress'
+  | 'not-needed'
+  | 'encryption-unavailable'
+  | 'browser'
+  | 'timeout'
+  | 'cancelled'
+  | 'failed'
+
+export type McpSignInResult = { ok: true } | { ok: false; error: McpSignInError; detail?: string }
+
+export type McpTestResult = { ok: true; tools: number } | { ok: false; error: string }
+
 export type SkillLoadResult =
   | { ok: true; name: string; body: string; path: string }
   | { ok: false; error: string }
@@ -342,10 +372,10 @@ export interface ChatToolsApi {
   read: (req: ChatReadRequest) => Promise<ChatFsResult<ChatReadOutput>>
   list: (req: ChatFsTarget) => Promise<ChatFsResult<ChatListOutput>>
   search: (req: ChatSearchRequest) => Promise<ChatFsResult<ChatSearchOutput>>
-  preview: (req: Omit<ChatFsTarget, 'outside'>) => Promise<ChatFsResult<ChatPreviewOutput>>
+  preview: (req: ChatPreviewRequest) => Promise<ChatFsResult<ChatPreviewOutput>>
   plan: (req: ChatPlanRequest) => Promise<ChatFsResult<ChatPlanOutput>>
   write: (req: ChatWriteRequest) => Promise<ChatFsResult<ChatWriteOutput>>
-  undo: (req: ChatUndoRequest) => Promise<ChatFsResult<ChatUndoOutput>>
+  restore: (req: ChatRestoreRequest) => Promise<ChatFsResult<ChatRestoreOutput>>
   skills: () => Promise<SkillSummary[]>
   loadSkill: (name: string) => Promise<SkillLoadResult>
   mcpStatus: () => Promise<McpServerStatus[]>
@@ -355,6 +385,10 @@ export interface ChatToolsApi {
   mcpCall: (callId: string, server: string, tool: string, input: unknown) => Promise<McpCallResult>
   mcpCancel: (callId: string) => void
   setMcpSecret: (server: string, key: string, value: string | null) => Promise<McpSecretResult>
+  mcpSignIn: (server: string) => Promise<McpSignInResult>
+  mcpCancelSignIn: (server: string) => void
+  mcpSignOut: (server: string) => Promise<McpServerStatus[]>
+  mcpTest: (server: string) => Promise<McpTestResult>
 }
 
 export const CHAT_READ_LINES_MAX = 2000
@@ -365,3 +399,4 @@ export const CHAT_SEARCH_FILE_MAX = 1024 * 1024
 export const CHAT_READ_FILE_MAX = 4 * 1024 * 1024
 export const CHAT_WRITE_MAX = 1024 * 1024
 export const CHAT_QUERY_MAX = 200
+export const CHAT_DIRTY_PATHS_MAX = 256

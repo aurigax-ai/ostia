@@ -27,6 +27,7 @@ import type {
 import type { EditorLanguage } from '../shared/editorLanguages'
 import type { ExtensionSuggestion } from '../shared/extensionSuggestions'
 import type {
+  ExtensionAgentOffer,
   ExtensionInfo,
   ExtensionOpenDiffRequest,
   ExtensionOpenPanelRequest,
@@ -42,12 +43,26 @@ import type {
 } from '../shared/extensions'
 import type { LoadedIconTheme } from '../shared/iconTheme'
 import type { LanguagePack } from '../shared/languagePack'
-import type { LanguageServerInfo, LspLog, LspSessionInfo } from '../shared/languageServers'
+import type {
+  LanguageServerInfo,
+  LanguageServerOverrideResult,
+  LspLog,
+  LspSessionInfo,
+} from '../shared/languageServers'
 import type { MarketplaceResult, MarketplaceState } from '../shared/marketplace'
 import type { OpenFileVerdict } from '../shared/openFiles'
 import type { PickOutcome, PickSendResult, PickState } from '../shared/pick'
 import type { QuestionState } from '../shared/questions'
+import type { RegionCaptureOutcome, RegionCopyResult } from '../shared/regionCapture'
 import type { ReleaseCheckResult, ReleaseInfo } from '../shared/releases'
+import type {
+  RemoteFolder,
+  RemoteFolderAsk,
+  RemoteListResult,
+  RemoteReadResult,
+  RemoteStatResult,
+  RemoteWriteResult,
+} from '../shared/remoteFolders'
 import type {
   SandboxEditError,
   SandboxEditResult,
@@ -58,6 +73,7 @@ import type {
   SandboxViolation,
   WorkspaceSandbox,
 } from '../shared/sandbox'
+import type { SandboxReadPreset } from '../shared/sandboxPresets'
 import type { SecretEntry, SecretGrant } from '../shared/secrets'
 import type { SelectionSendResult } from '../shared/selection'
 import type { RequirementsReport } from '../shared/systemRequirements'
@@ -120,6 +136,8 @@ const bridge: PineBridge = {
     quit: () => ipcRenderer.send('window:quit'),
     isMaximized: () => ipcRenderer.invoke('window:is-maximized') as Promise<boolean>,
     setZoom: (percent) => ipcRenderer.invoke('window:set-zoom', percent) as Promise<number>,
+    beep: () => ipcRenderer.send('window:beep'),
+    writePrimarySelection: (text) => ipcRenderer.send('window:write-primary', text),
     isSystemDark: () => ipcRenderer.invoke('window:system-dark') as Promise<boolean>,
     onSystemDarkChange: (cb) => {
       const handler = (_event: unknown, dark: boolean): void => cb(dark)
@@ -211,6 +229,34 @@ const bridge: PineBridge = {
       return () => ipcRenderer.removeListener('fs:changed', handler)
     },
   },
+  remoteFiles: {
+    folders: () => ipcRenderer.invoke('remote-files:folders') as Promise<RemoteFolder[]>,
+    onFolders: (cb) => {
+      const handler = (_e: unknown, folders: RemoteFolder[]): void => cb(folders)
+      ipcRenderer.on('remote-files:folders-changed', handler)
+      return () => ipcRenderer.removeListener('remote-files:folders-changed', handler)
+    },
+    close: (folderId) => ipcRenderer.invoke('remote-files:close', folderId) as Promise<boolean>,
+    onConfirm: (cb) => {
+      const handler = (_e: unknown, requestId: number, ask: RemoteFolderAsk): void => {
+        void cb(ask).then((approved) =>
+          ipcRenderer.send('remote-files:confirm-answer', requestId, approved),
+        )
+      }
+      ipcRenderer.on('remote-files:confirm', handler)
+      return () => ipcRenderer.removeListener('remote-files:confirm', handler)
+    },
+    list: (path) => ipcRenderer.invoke('remote-files:list', path) as Promise<RemoteListResult>,
+    stat: (path) => ipcRenderer.invoke('remote-files:stat', path) as Promise<RemoteStatResult>,
+    read: (path) => ipcRenderer.invoke('remote-files:read', path) as Promise<RemoteReadResult>,
+    write: (path, content, baseVersion) =>
+      ipcRenderer.invoke(
+        'remote-files:write',
+        path,
+        content,
+        baseVersion,
+      ) as Promise<RemoteWriteResult>,
+  },
   lsp: {
     servers: () => ipcRenderer.invoke('lsp:servers') as Promise<LanguageServerInfo[]>,
     onServersChanged: (cb) => {
@@ -241,6 +287,12 @@ const bridge: PineBridge = {
     fetch: (serverKey) => ipcRenderer.invoke('lsp:fetch', serverKey) as Promise<void>,
     removeDownload: (serverKey) =>
       ipcRenderer.invoke('lsp:remove-download', serverKey) as Promise<void>,
+    setOverride: (serverKey, override) =>
+      ipcRenderer.invoke(
+        'extensions:set-language-server-program',
+        serverKey,
+        override,
+      ) as Promise<LanguageServerOverrideResult>,
   },
   settings: {
     path: () => ipcRenderer.invoke('settings:path') as Promise<string>,
@@ -359,6 +411,11 @@ const bridge: PineBridge = {
       ipcRenderer.on('browser:pick-state', handler)
       return () => ipcRenderer.removeListener('browser:pick-state', handler)
     },
+    regionCapture: (paneId, req) =>
+      ipcRenderer.invoke('browser:region-capture', paneId, req) as Promise<RegionCaptureOutcome>,
+    regionSend: (req) => ipcRenderer.invoke('browser:region-send', req) as Promise<PickSendResult>,
+    regionCopy: (paneId, captureId) =>
+      ipcRenderer.invoke('browser:region-copy', paneId, captureId) as Promise<RegionCopyResult>,
     storageRead: (paneId) =>
       ipcRenderer.invoke('browser:storage-read', paneId) as Promise<BrowserStorageRead>,
     storageSet: (paneId, edit) =>
@@ -376,6 +433,11 @@ const bridge: PineBridge = {
         files.map((file) => webUtils.getPathForFile(file)).filter((path) => path.length > 0),
         workspaceId,
       ) as Promise<OpenFileVerdict[]>,
+  },
+  clipboard: {
+    edit: (edit) => ipcRenderer.invoke('clipboard:edit', edit) as Promise<void>,
+    hasImage: () => ipcRenderer.invoke('clipboard:has-image') as Promise<boolean>,
+    setChords: (chords) => ipcRenderer.send('clipboard:set-chords', chords),
   },
   openPath: {
     openDefault: (path) =>
@@ -449,6 +511,7 @@ const bridge: PineBridge = {
       ) as Promise<SandboxEditResult>,
     checkPaths: (kind, paths) =>
       ipcRenderer.invoke('sandbox:check-paths', kind, paths) as Promise<SandboxEditError[]>,
+    presets: () => ipcRenderer.invoke('sandbox:presets') as Promise<SandboxReadPreset[]>,
     setDomains: (workspaceId, domains) =>
       ipcRenderer.invoke('sandbox:set-domains', workspaceId, domains) as Promise<SandboxEditResult>,
     setDeniedDomains: (workspaceId, domains) =>
@@ -638,6 +701,23 @@ const bridge: PineBridge = {
       ipcRenderer.on('extensions:open-terminal', handler)
       return () => ipcRenderer.removeListener('extensions:open-terminal', handler)
     },
+    onAgentOffer: (cb) => {
+      const handler = (_e: unknown, offer: ExtensionAgentOffer): void => cb(offer)
+      ipcRenderer.on('extensions:agent-offer', handler)
+      return () => ipcRenderer.removeListener('extensions:agent-offer', handler)
+    },
+    onAgentOfferWithdrawn: (cb) => {
+      const handler = (_e: unknown, requestId: string): void => cb(requestId)
+      ipcRenderer.on('extensions:agent-offer-withdrawn', handler)
+      return () => ipcRenderer.removeListener('extensions:agent-offer-withdrawn', handler)
+    },
+    answerAgentOffer: (requestId, paneId) =>
+      ipcRenderer.send('extensions:agent-offer-result', requestId, paneId),
+    onFocusPane: (cb) => {
+      const handler = (_e: unknown, paneId: string): void => cb(paneId)
+      ipcRenderer.on('extensions:focus-pane', handler)
+      return () => ipcRenderer.removeListener('extensions:focus-pane', handler)
+    },
   },
   assist: {
     availability: () => ipcRenderer.invoke('assist:availability') as Promise<AssistAvailability>,
@@ -689,6 +769,11 @@ const bridge: PineBridge = {
     saveFile: (name, content) =>
       ipcRenderer.invoke('chat:save-file', name, content) as Promise<ChatExportResult>,
   },
+  privacy: {
+    kinds: () => ipcRenderer.invoke('privacy:kinds'),
+    redact: (texts) => ipcRenderer.invoke('privacy:redact', texts),
+    preview: (text) => ipcRenderer.invoke('privacy:preview', text),
+  },
   chatTools: {
     read: (req) => ipcRenderer.invoke('chatTools:read', req),
     list: (req) => ipcRenderer.invoke('chatTools:list', req),
@@ -696,7 +781,7 @@ const bridge: PineBridge = {
     preview: (req) => ipcRenderer.invoke('chatTools:preview', req),
     plan: (req) => ipcRenderer.invoke('chatTools:plan', req),
     write: (req) => ipcRenderer.invoke('chatTools:write', req),
-    undo: (req) => ipcRenderer.invoke('chatTools:undo', req),
+    restore: (req) => ipcRenderer.invoke('chatTools:restore', req),
     skills: () => ipcRenderer.invoke('chatTools:skills'),
     loadSkill: (name) => ipcRenderer.invoke('chatTools:load-skill', name),
     mcpStatus: () => ipcRenderer.invoke('chatTools:mcp-status'),
@@ -712,6 +797,10 @@ const bridge: PineBridge = {
     mcpCancel: (callId) => ipcRenderer.send('chatTools:mcp-cancel', callId),
     setMcpSecret: (server, key, value) =>
       ipcRenderer.invoke('chatTools:set-mcp-secret', server, key, value),
+    mcpSignIn: (server) => ipcRenderer.invoke('chatTools:mcp-sign-in', server),
+    mcpCancelSignIn: (server) => ipcRenderer.send('chatTools:mcp-cancel-sign-in', server),
+    mcpSignOut: (server) => ipcRenderer.invoke('chatTools:mcp-sign-out', server),
+    mcpTest: (server) => ipcRenderer.invoke('chatTools:mcp-test', server),
   },
   externalEditor: {
     open: (req) => ipcRenderer.invoke('editor:open-external', req) as Promise<ExternalEditorResult>,

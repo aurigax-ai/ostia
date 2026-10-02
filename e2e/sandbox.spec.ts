@@ -64,7 +64,7 @@ async function sandboxedShell(win: Page): Promise<void> {
   await expect(restart).toHaveCount(0)
   const rows = win.locator('.xterm-rows').first()
   await expect(async () => {
-    await run(win, 'echo "sandbox=${HTTPS_PROXY:+on}"')
+    await run(win, 'echo sandbox=${HTTPS_PROXY:+on}')
     await expect(rows).toContainText('sandbox=on', { timeout: 2_000 })
   }).toPass({ timeout: 30_000 })
 }
@@ -202,6 +202,45 @@ test('SBX-C2 pine process run in a sandboxed workspace runs its command in a san
     await app.close()
   }
 })
+
+async function freePort(): Promise<number> {
+  const probe = createServer()
+  await new Promise<void>((resolve) => probe.listen(0, '127.0.0.1', resolve))
+  const { port } = probe.address() as AddressInfo
+  await new Promise((resolve) => probe.close(resolve))
+  return port
+}
+
+function serveInside(port: number, body: string): string {
+  const script = `require("http").createServer((q,r)=>r.end("${body}")).listen(${port},"127.0.0.1")`
+  return `ELECTRON_RUN_AS_NODE=1 "$PINE_NODE" -e '${script}' &`
+}
+
+for (const relay of [false, true]) {
+  const terminal = relay ? 'behind the pty relay' : 'on the pane’s own terminal'
+  test(`SBX-C45 pine sandbox expose forwards the port on this computer to a server in the sandbox once the human allows it, ${terminal}`, async () => {
+    test.skip(process.platform !== 'linux', 'macOS reaches sandboxed servers without forwarding')
+    test.setTimeout(120_000)
+    const port = await freePort()
+    const { app, win } = await launch(relay ? { PINE_SANDBOX_PTY_RELAY: '1' } : {})
+    try {
+      await sandboxedShell(win)
+      const rows = win.locator('.xterm-rows').first()
+      await run(win, `pine sandbox expose ${port}`)
+      const card = win.getByRole('region', { name: 'Agent permission request' })
+      await expect(card).toContainText(`wants to expose port ${port}`, { timeout: 20_000 })
+      await expect(fetch(`http://127.0.0.1:${port}/`)).rejects.toThrow()
+      await card.getByRole('button', { name: 'Allow for this workspace' }).click()
+      await expect(rows).toContainText(`exposed: 127.0.0.1:${port}`, { timeout: 15_000 })
+      await run(win, serveInside(port, 'INSIDE-C45'))
+      await expect(async () => {
+        expect(await (await fetch(`http://127.0.0.1:${port}/`)).text()).toBe('INSIDE-C45')
+      }).toPass({ timeout: 30_000 })
+    } finally {
+      await app.close()
+    }
+  })
+}
 
 const FAKE_BIN = join(__dirname, '../test/fixtures/system/bin')
 
@@ -347,7 +386,7 @@ test('SBX-C57 shows every sandbox setting on the workspace page and in Settings 
       ['Ports', 'When a new server starts'],
       ['Secrets', 'Env and file grants'],
       ['Packages', 'Cooldown (days)'],
-      ['Pine access', 'Act on other workspaces'],
+      ['pine access', 'Act on other workspaces'],
       ['Blocked', 'Nothing was blocked.'],
     ]
     for (const [tab, control] of tabs) {
@@ -433,7 +472,7 @@ async function restartShell(win: Page, marker: string): Promise<void> {
   await expect(restart).toHaveCount(0)
   const rows = win.locator('.xterm-rows').first()
   await expect(async () => {
-    await run(win, `echo "${marker}=\${HTTPS_PROXY:+on}"`)
+    await run(win, `echo ${marker}=\${HTTPS_PROXY:+on}`)
     await expect(rows).toContainText(`${marker}=on`, { timeout: 2_000 })
   }).toPass({ timeout: 30_000 })
 }
@@ -459,6 +498,101 @@ test('a folder added as writable in Settings can be written from the sandbox onc
     await run(win, `echo built > ${home}/builds/out.txt && echo AFTER-$((2+2))`)
     await expect(rows).toContainText('AFTER-4', { timeout: 15_000 })
     expect(readFileSync(join(home, 'builds', 'out.txt'), 'utf8')).toBe('built\n')
+  } finally {
+    await app.close()
+  }
+})
+
+test('a tool-folder preset switched on in Settings makes the tool readable once the shell restarts', async () => {
+  test.setTimeout(120_000)
+  const { app, win, home } = await launch()
+  try {
+    mkdirSync(join(home, '.bun', 'bin'), { recursive: true })
+    writeFileSync(join(home, '.bun', 'bin', 'bun'), 'BUN-BINARY-STANDIN')
+    await sandboxedShell(win)
+    const rows = win.locator('.xterm-rows').first()
+    await run(win, 'cat ~/.bun/bin/bun; echo BEFORE-$((1+1))')
+    await expect(rows).toContainText('BEFORE-2', { timeout: 15_000 })
+    await expect(rows).not.toContainText('BUN-BINARY-STANDIN')
+
+    const page = await openWorkspacePage(win, 'Files')
+    const presets = page.getByRole('group', { name: 'Tool folders' })
+    await expect(presets.getByRole('group', { name: 'Bun' })).toContainText('~/.bun')
+    await expect(presets.getByRole('group', { name: 'Deno' })).toHaveCount(0)
+    await presets.getByRole('group', { name: 'Bun' }).getByRole('switch').click()
+    const readable = page.getByRole('group', { name: 'Readable folders' })
+    await expect(readable.getByRole('button', { name: 'Remove ~/.bun' })).toBeVisible()
+    await expect(readable.getByRole('listitem').filter({ hasText: '~/.bun' })).toContainText('Bun')
+    await win.keyboard.press('Escape')
+
+    await restartShell(win, 'preset')
+    await run(win, 'cat ~/.bun/bin/bun; echo AFTER-$((2+2))')
+    await expect(rows).toContainText('AFTER-4', { timeout: 15_000 })
+    await expect(rows).toContainText('BUN-BINARY-STANDIN')
+  } finally {
+    await app.close()
+  }
+})
+
+test('tells a sandboxed shell that its home folder is hidden and that files written there are discarded', async () => {
+  test.setTimeout(120_000)
+  const { app, win, home } = await launch()
+  try {
+    await sandboxedShell(win)
+    const rows = win.locator('.xterm-rows').first()
+    await expect(rows).toContainText('your home folder is hidden here')
+    await expect(rows).toContainText('are discarded when this shell exits')
+    await run(win, 'echo kept > ~/lost.txt && cat ~/lost.txt && echo WROTE-$((3+3))')
+    await expect(rows).toContainText('WROTE-6', { timeout: 15_000 })
+    expect(existsSync(join(home, 'lost.txt'))).toBe(false)
+  } finally {
+    await app.close()
+  }
+})
+
+async function sttySize(win: Page, marker: string): Promise<string> {
+  const rows = win.locator('.xterm-rows').first()
+  await run(win, `echo ${marker}=$(stty size | tr -c 0-9 x)=`)
+  const pattern = new RegExp(`${marker}=(\\d+x\\d+)x=`)
+  await expect(rows).toContainText(pattern, { timeout: 15_000 })
+  return pattern.exec((await rows.textContent()) ?? '')?.[1] ?? ''
+}
+
+test('behind the pty relay a sandboxed shell has its own terminal: Ctrl+C interrupts, Ctrl+Z suspends, a resize arrives and blocks show', async () => {
+  test.setTimeout(120_000)
+  const { app, win } = await launch({ PINE_SANDBOX_PTY_RELAY: '1' })
+  try {
+    await sandboxedShell(win)
+    const rows = win.locator('.xterm-rows').first()
+    await run(win, 'echo "parent=$(ps -o comm= -p $PPID) tty=$(tty)"')
+    await expect(rows).toContainText(/parent=script tty=\/dev\/pts\/\d+/, { timeout: 15_000 })
+
+    await run(win, "sh -c 'echo SLEEPING-$((1+2)); exec sleep 30'; echo SLEPT-$((2+3))")
+    await expect(rows).toContainText('SLEEPING-3', { timeout: 15_000 })
+    await win.keyboard.press('Control+c')
+    await run(win, 'echo ALIVE-$((6*7))')
+    await expect(rows).toContainText('ALIVE-42', { timeout: 15_000 })
+    await expect(rows).not.toContainText('SLEPT-5')
+
+    await run(win, "sh -c 'echo PAUSING-$((2+2)); exec sleep 30'")
+    await expect(rows).toContainText('PAUSING-4', { timeout: 15_000 })
+    await win.keyboard.press('Control+z')
+    await expect(rows).toContainText('suspended', { timeout: 15_000 })
+    await run(win, 'kill %1; echo JOBS-$((5+5))')
+    await expect(rows).toContainText('JOBS-10', { timeout: 15_000 })
+    await expect(win.locator('.block-gutter').first()).toBeAttached({ timeout: 10_000 })
+
+    const before = await sttySize(win, 'W1')
+    expect(before).toMatch(/^\d+x\d+$/)
+    await app.evaluate(({ BrowserWindow }) => {
+      const main = BrowserWindow.getAllWindows()[0]
+      const [width, height] = main.getSize()
+      main.setSize(width - 240, height)
+    })
+    await expect(async () => {
+      const marker = `W${Date.now()}`
+      expect(await sttySize(win, marker)).not.toBe(before)
+    }).toPass({ timeout: 30_000 })
   } finally {
     await app.close()
   }
@@ -524,7 +658,7 @@ test('a refused connection shows up under Blocked with its host, and Clear empti
   }
 })
 
-test('with Unix sockets off the shell still starts, pine cannot reach Pine, and a write outside is listed', async () => {
+test('with Unix sockets off the shell still starts, pine cannot reach Pine, a port is not exposed and the Ports tab says why, and a write outside is listed', async () => {
   test.skip(process.platform !== 'linux', 'Linux blocks Unix sockets through seccomp')
   test.setTimeout(120_000)
   const { app, win } = await launch()
@@ -547,6 +681,19 @@ test('with Unix sockets off the shell still starts, pine cannot reach Pine, and 
     await run(win, 'echo x > /etc/pine-e2e-probe; echo PROBED-$((9+9))')
     await expect(rows).toContainText('PROBED-18', { timeout: 15_000 })
     await expect(win.locator('.block-gutter').first()).toBeAttached({ timeout: 10_000 })
+
+    const port = await freePort()
+    await run(win, serveInside(port, 'INSIDE-NOSOCK'))
+    const ports = await openWorkspacePage(win, 'Ports')
+    const server = ports.getByRole('listitem').filter({ hasText: `:${port}` })
+    await expect(server).toBeVisible({ timeout: 20_000 })
+    await expect(win.getByRole('region', { name: 'Agent permission request' })).toHaveCount(0)
+    await server.getByRole('button', { name: 'Expose' }).click()
+    await expect(ports.getByRole('alert')).toContainText(
+      `Port ${port} cannot be exposed while Unix sockets are off for this sandbox.`,
+    )
+    await expect(fetch(`http://127.0.0.1:${port}/`)).rejects.toThrow()
+    await win.keyboard.press('Escape')
 
     const blocked = await openWorkspacePage(win, 'Blocked')
     const row = blocked

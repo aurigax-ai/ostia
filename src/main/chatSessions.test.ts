@@ -2,7 +2,11 @@ import { mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import type { ChatSession, ChatSessionMessage } from '../shared/chatSessions'
+import {
+  CHAT_EDIT_TEXT_MAX,
+  type ChatSession,
+  type ChatSessionMessage,
+} from '../shared/chatSessions'
 import { createChatSessionStore } from './chatSessions'
 
 function msg(i: number, role: 'user' | 'assistant', text: string): ChatSessionMessage {
@@ -68,6 +72,88 @@ describe('createChatSessionStore', () => {
     expect(saved?.messages[0].role).toBe('user')
     expect(saved?.messages.at(-1)?.id).toBe('m9')
     expect(readFileSync(join(dir, 'a.json')).length).toBeLessThanOrEqual(2000)
+  })
+
+  it('keeps what Undo needs for each edit, without texts past the cap or for calls no longer in it', () => {
+    const store = createChatSessionStore({ dir })
+    const call = (id: string) => ({
+      type: 'dynamic-tool',
+      toolName: 'edit_file',
+      toolCallId: id,
+      state: 'output-available',
+      input: {},
+      output: { added: 1, removed: 1 },
+    })
+    const edit = (toolCallId: string, seq: number, text: string) => ({
+      toolCallId,
+      path: '/home/u/p/a.ts',
+      root: '/home/u/p',
+      existed: true,
+      outside: false,
+      symlink: false,
+      auto: true,
+      state: 'applied',
+      version: 'a'.repeat(64),
+      seq,
+      decisions: ['accepted', 'rejected', 'bogus'],
+      before: text,
+      after: `${text}!`,
+    })
+    const messages: ChatSessionMessage[] = [
+      msg(1, 'user', 'edit it'),
+      { id: 'm2', role: 'assistant', parts: [call('e1'), call('e2')] },
+    ]
+    store.save({
+      ...session('a', 1, messages),
+      edits: [
+        edit('e2', 2, 'x'.repeat(CHAT_EDIT_TEXT_MAX + 1)),
+        edit('e1', 1, 'small'),
+        edit('gone', 3, 'orphan'),
+        { ...edit('e1', 4, 'dup'), version: 'not-a-hash' },
+      ] as never,
+    })
+    const saved = store.get('a')?.edits ?? []
+    expect(saved.map((e) => e.toolCallId)).toEqual(['e1', 'e2'])
+    expect(saved[0]).toMatchObject({
+      before: 'small',
+      after: 'small!',
+      decisions: ['accepted', 'rejected', null],
+      state: 'applied',
+    })
+    expect(saved[1].before).toBeUndefined()
+    expect(saved[1].after).toBeUndefined()
+    expect(store.list()[0]).not.toHaveProperty('edits')
+  })
+
+  it('drops the edits of turns it trims', () => {
+    const store = createChatSessionStore({ dir, sessionMaxBytes: 2000 })
+    const messages: ChatSessionMessage[] = [
+      msg(0, 'user', 'x'.repeat(900)),
+      {
+        id: 'm1',
+        role: 'assistant',
+        parts: [{ type: 'dynamic-tool', toolName: 'write_file', toolCallId: 'old', state: 'x' }],
+      },
+      msg(2, 'user', 'y'.repeat(900)),
+      msg(3, 'assistant', 'done'),
+    ]
+    const edit = {
+      toolCallId: 'old',
+      path: '/home/u/p/a.ts',
+      root: '/home/u/p',
+      existed: false,
+      outside: false,
+      symlink: false,
+      auto: false,
+      state: 'applied',
+      version: null,
+      seq: 1,
+      decisions: [],
+    }
+    store.save({ ...session('a', 1, messages), edits: [edit] as never })
+    const saved = store.get('a')
+    expect(saved?.messages[0].id).toBe('m2')
+    expect(saved?.edits).toBeUndefined()
   })
 
   it('evicts the least recently updated sessions over the total cap, never the one saved', () => {

@@ -1,9 +1,15 @@
+import type {
+  AgentHookContribution,
+  AgentHookSummary,
+  AgentSkillContribution,
+} from './agentPlugins'
 import type { AssistPoint } from './assist'
 import type { Capability } from './capabilities'
 import type { EditorLanguageContribution } from './editorLanguages'
 import type { IconThemeContribution, IconThemeInfo } from './iconTheme'
 import type { LanguageContribution, LanguageInfo } from './languagePack'
 import type { LanguageServerContribution, LanguageServerSummary } from './languageServers'
+import type { RemoteCwd } from './remoteFolders'
 import type { Workflow } from './workflows'
 
 export const EXTENSION_MANIFEST_FILE = 'pine.json'
@@ -43,6 +49,11 @@ export interface ExtensionPanelContribution {
   title: string
   icon?: ExtensionIcon
   entry: string
+}
+
+export interface ExtensionSettingsPageContribution {
+  title: string
+  icon?: ExtensionIcon
 }
 
 export interface ExtensionChipContribution {
@@ -154,6 +165,7 @@ export interface ExtensionManifest {
     paneChips: ExtensionChipContribution[]
     workspaceChips: ExtensionChipContribution[]
     settings: ExtensionSettingContribution[]
+    settingsPage?: ExtensionSettingsPageContribution
     workflows?: Workflow[]
     completions?: string
     assist: AssistPoint[]
@@ -162,6 +174,8 @@ export interface ExtensionManifest {
     languages?: LanguageContribution[]
     languageServers?: LanguageServerContribution[]
     editorLanguages?: EditorLanguageContribution[]
+    agentSkills?: AgentSkillContribution[]
+    agentHooks?: AgentHookContribution[]
   }
 }
 
@@ -191,12 +205,15 @@ export interface ExtensionInfo {
   workspaceChips: ExtensionChipContribution[]
   settings: ExtensionSettingContribution[]
   settingValues: ExtensionSettingValues
+  settingsPage: ExtensionSettingsPageContribution | null
   assist: AssistPoint[]
   secrets: ExtensionSecretContribution[]
   secretsSet: string[]
   iconThemes: IconThemeInfo[]
   languages: LanguageInfo[]
   languageServers: LanguageServerSummary[]
+  agentSkills: string[]
+  agentHooks: AgentHookSummary[]
 }
 
 export const SIDEBAR_TONES = ['neutral', 'brand', 'ok', 'warn', 'error'] as const
@@ -314,6 +331,7 @@ export interface ExtensionCaller {
   cwd?: string
   locale?: string
   sandboxed?: boolean
+  remote?: RemoteCwd
   capabilities: Capability[]
 }
 
@@ -406,6 +424,36 @@ export interface OpenTerminalOptions {
   host?: boolean
 }
 
+export const AGENT_OFFER_TEXT_MAX = 2000
+export const AGENT_OFFER_LABEL_MAX = 120
+export const AGENT_PROMPT_MAX = 16_000
+
+export interface AgentOfferOptions {
+  workspaceId: string
+  text: string
+  label: string
+}
+
+export type AgentOfferResult =
+  | { ok: true; sent: false }
+  | { ok: true; sent: true; paneId: string }
+  | { ok: false; error: string; message?: string }
+
+export interface RunAgentOptions {
+  workspaceId: string
+  agent: string
+  prompt: string
+}
+
+export interface ExtensionAgentOffer {
+  requestId: string
+  extId: string
+  extName: string
+  workspaceId: string
+  label: string
+  text: string
+}
+
 export interface ExtensionOpenTerminalRequest {
   requestId: string
   command: string
@@ -442,4 +490,8 @@ export interface ExtensionsApi {
   onOpenPanel: (cb: (req: ExtensionOpenPanelRequest) => void) => () => void
   onOpenDiff: (cb: (req: ExtensionOpenDiffRequest) => void) => () => void
   onOpenTerminal: (cb: (req: ExtensionOpenTerminalRequest) => string | null) => () => void
+  onAgentOffer: (cb: (offer: ExtensionAgentOffer) => void) => () => void
+  onAgentOfferWithdrawn: (cb: (requestId: string) => void) => () => void
+  answerAgentOffer: (requestId: string, paneId: string | null) => void
+  onFocusPane: (cb: (paneId: string) => void) => () => void
 }

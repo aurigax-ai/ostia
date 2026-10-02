@@ -1,6 +1,7 @@
 import { OPEN_VIEW_COMMAND, type ViewInfo } from '@shared/views'
-import { commands } from '../commands/registry'
-import { currentDict, fmt } from '../i18n/useDict'
+import { registerCore } from '../commands/core'
+import { commands, wordedBy } from '../commands/registry'
+import { fmt } from '../i18n/useDict'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useUIStore } from '../stores/uiStore'
 import { enabledViews, useViewsStore } from '../stores/viewsStore'
@@ -52,8 +53,10 @@ function syncCommands(views: readonly ViewInfo[]): void {
     if (commands.has(id)) continue
     commands.register({
       id,
-      title: fmt(currentDict().views.open, { title: view.title }),
-      category: currentDict().views.category,
+      ...wordedBy((d) => ({
+        title: fmt(d.views.open, { title: view.title }),
+        category: d.commands.categories.views,
+      })),
       target: 'active',
       run: (_args, ctx) => {
         openView(view.name, ctx.activeWorkspaceId)
@@ -64,10 +67,9 @@ function syncCommands(views: readonly ViewInfo[]): void {
 }
 
 export function registerViewCommands(): void {
-  commands.register<{ name?: unknown } | undefined, { paneId: string }>({
+  registerCore<{ name?: unknown } | undefined, { paneId: string }>({
     id: OPEN_VIEW_COMMAND,
-    title: 'Open View',
-    category: 'Views',
+    category: 'views',
     hidden: true,
     target: 'active',
     argsSchema: { type: 'object', properties: { name: { type: 'string' } }, required: ['name'] },

@@ -8,6 +8,7 @@ import { createPane } from '../layout/tree'
 import { useExtensionsStore } from '../stores/extensionsStore'
 import { useIconThemeStore } from '../stores/iconThemeStore'
 import { useLayoutStore } from '../stores/layoutStore'
+import { useRemoteFoldersStore } from '../stores/remoteFoldersStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { type Workspace, useWorkspacesStore } from '../stores/workspacesStore'
 import { FilesView } from './FilesView'
@@ -65,9 +66,12 @@ function iconThemeExtension(): ExtensionInfo {
     assist: [],
     secrets: [],
     secretsSet: [],
+    settingsPage: null,
     category: 'other',
     languages: [],
     languageServers: [],
+    agentSkills: [],
+    agentHooks: [],
     iconThemes: [{ id: 'fixture-icons', label: 'Fixture Icons' }],
   }
 }
@@ -102,7 +106,110 @@ describe('FilesView', () => {
     useSettingsStore.setState(settingsInit, true)
     useExtensionsStore.setState(extensionsInit, true)
     useIconThemeStore.setState(iconThemeInit, true)
+    useRemoteFoldersStore.setState({ folders: [], pending: null })
     vi.restoreAllMocks()
+  })
+
+  describe('remote folders', () => {
+    const FOLDER = {
+      id: 'abcdef012345',
+      workspaceId: 's1',
+      extId: 'shelf',
+      extName: 'Shelf',
+      host: 'dev@db',
+      root: '/srv/app',
+    }
+    const ROOT = 'remote://abcdef012345/srv/app'
+
+    function remoteLists(listing: Record<string, { name: string; dir: boolean }[]>): void {
+      vi.mocked(window.pine.remoteFiles.list).mockImplementation(async (path) =>
+        listing[path]
+          ? { ok: true, entries: listing[path], truncated: false }
+          : { ok: false, error: 'unavailable' },
+      )
+    }
+
+    it('SSH-C65 shows a remote folder as its own section with a Remote badge, the host and the path', async () => {
+      seedWorkspace()
+      listReturns([{ name: 'local.ts', dir: false }])
+      remoteLists({ [ROOT]: [{ name: 'app.conf', dir: false }] })
+      useRemoteFoldersStore.setState({ folders: [FOLDER] })
+
+      render(<FilesView />)
+
+      const section = await screen.findByTestId('remote-folder')
+      expect(section).toHaveTextContent('Remote')
+      expect(section).toHaveTextContent('dev@db')
+      expect(section).toHaveTextContent('/srv/app')
+      expect(await screen.findByRole('button', { name: 'app.conf' })).toBeInTheDocument()
+      expect(screen.getByText('This computer')).toBeInTheDocument()
+      expect(await screen.findByRole('button', { name: 'local.ts' })).toBeInTheDocument()
+      expect(window.pine.remoteFiles.list).toHaveBeenCalledWith(ROOT)
+      expect(window.pine.fs.list).not.toHaveBeenCalledWith(ROOT)
+    })
+
+    it('shows no remote section for a folder of another workspace', async () => {
+      seedWorkspace()
+      listReturns([{ name: 'local.ts', dir: false }])
+      useRemoteFoldersStore.setState({ folders: [{ ...FOLDER, workspaceId: 'other' }] })
+
+      render(<FilesView />)
+
+      await screen.findByRole('button', { name: 'local.ts' })
+      expect(screen.queryByTestId('remote-folder')).not.toBeInTheDocument()
+      expect(window.pine.remoteFiles.list).not.toHaveBeenCalled()
+    })
+
+    it('opens a remote file in the editor by its remote path and lists a remote folder when expanded', async () => {
+      seedWorkspace()
+      listReturns([])
+      remoteLists({
+        [ROOT]: [
+          { name: 'conf', dir: true },
+          { name: 'app.conf', dir: false },
+        ],
+        [`${ROOT}/conf`]: [{ name: 'db.yaml', dir: false }],
+      })
+      useRemoteFoldersStore.setState({ folders: [FOLDER] })
+      const user = userEvent.setup()
+
+      render(<FilesView />)
+
+      await user.click(await screen.findByRole('button', { name: 'conf' }))
+      await user.click(await screen.findByRole('button', { name: 'db.yaml' }))
+      const layout = useLayoutStore.getState().byWorkspace.s1
+      const editor = layout.root.type === 'pane' ? layout.root : null
+      expect(JSON.stringify(layout.root)).toContain(`${ROOT}/conf/db.yaml`)
+      expect(editor?.cwd ?? CWD).toBe(CWD)
+      expect(window.pine.fs.list).not.toHaveBeenCalledWith(expect.stringContaining('remote://'))
+    })
+
+    it('says why a remote folder could not be listed', async () => {
+      seedWorkspace()
+      listReturns([])
+      remoteLists({})
+      useRemoteFoldersStore.setState({ folders: [FOLDER] })
+
+      render(<FilesView />)
+
+      expect(await screen.findByRole('alert')).toHaveTextContent('The host is not reachable')
+    })
+
+    it('closes a remote folder and reloads it from its head buttons', async () => {
+      seedWorkspace()
+      listReturns([])
+      remoteLists({ [ROOT]: [{ name: 'app.conf', dir: false }] })
+      useRemoteFoldersStore.setState({ folders: [FOLDER] })
+      const user = userEvent.setup()
+
+      render(<FilesView />)
+      await screen.findByRole('button', { name: 'app.conf' })
+
+      await user.click(screen.getByRole('button', { name: 'Reload' }))
+      await waitFor(() => expect(window.pine.remoteFiles.list).toHaveBeenCalledTimes(2))
+      await user.click(screen.getByRole('button', { name: 'Close remote folder' }))
+      expect(window.pine.remoteFiles.close).toHaveBeenCalledWith('abcdef012345')
+    })
   })
 
   it('renders the directory + file entries returned by fs.list', async () => {

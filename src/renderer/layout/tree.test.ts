@@ -5,6 +5,7 @@ import {
   allPanes,
   closePane,
   createPane,
+  createTerminalPane,
   findExtensionPane,
   findPane,
   firstPaneId,
@@ -16,9 +17,12 @@ import {
   movePane,
   moveTab,
   paneIds,
+  paneInDirection,
   placementOf,
   resetIds,
   selectTab,
+  setDefaultPaneTitle,
+  setDefaultPaneTitles,
   setPaneBrowser,
   setPaneCwd,
   setPaneDiff,
@@ -26,13 +30,14 @@ import {
   setPaneExtension,
   setPaneHibernated,
   setPaneLocked,
+  setPaneTitle,
   setPaneUrl,
   setSizes,
   splitOf,
   splitPane,
   tabsOf,
   tabsOfPane,
-  withoutKind,
+  withoutPanes,
 } from './tree'
 import type { LayoutNode } from './types'
 
@@ -319,6 +324,15 @@ describe('setPaneEditor', () => {
     expect(findPane(next, a.id)?.kind).toBe('terminal')
   })
 
+  it('gives a remote file no folder, so it never moves the local tree or workspace', () => {
+    const term = createPane('terminal', 'zsh', '/home/u/proj')
+    const next = setPaneEditor(term, term.id, 'app.conf', 'remote://abcdef012345/srv/app/app.conf')
+    const pane = findPane(next, term.id)
+    expect(pane?.kind).toBe('editor')
+    expect(pane?.filePath).toBe('remote://abcdef012345/srv/app/app.conf')
+    expect(pane && 'cwd' in pane).toBe(false)
+  })
+
   it('falls back to root cwd for a file at the filesystem root', () => {
     const root = createPane('terminal')
     const next = setPaneEditor(root, root.id, 'notes.txt', '/notes.txt')
@@ -404,26 +418,26 @@ describe('setPaneDiff', () => {
   })
 })
 
-describe('withoutKind', () => {
+describe('withoutPanes', () => {
   it('removes every pane of the kind and collapses single-child splits', () => {
     const a = createPane()
     const d1 = createPane('diff')
     const d2 = createPane('diff')
     const root = splitOf('horizontal', a, splitOf('vertical', d1, d2))
-    expect(withoutKind(root, 'diff')).toBe(a)
+    expect(withoutPanes(root, (pane) => pane.kind === 'diff')).toBe(a)
   })
 
   it('returns the same object when nothing matches and null when everything does', () => {
     const root = splitOf('horizontal', createPane(), createPane())
-    expect(withoutKind(root, 'diff')).toBe(root)
-    expect(withoutKind(createPane('diff'), 'diff')).toBeNull()
+    expect(withoutPanes(root, (pane) => pane.kind === 'diff')).toBe(root)
+    expect(withoutPanes(createPane('diff'), (pane) => pane.kind === 'diff')).toBeNull()
   })
 
   it('keeps the sizes of the surviving children', () => {
     const a = createPane()
     const b = createPane()
     const root = { ...splitOf('horizontal', a, createPane('diff'), b), sizes: [2, 1, 3] }
-    expect(withoutKind(root, 'diff')).toMatchObject({ sizes: [2, 3] })
+    expect(withoutPanes(root, (pane) => pane.kind === 'diff')).toMatchObject({ sizes: [2, 3] })
   })
 })
 
@@ -788,7 +802,7 @@ describe('tabs', () => {
     const a = createPane()
     const d = { ...createPane(), kind: 'diff' as const }
     const b = createPane()
-    const root = withoutKind(tabsOf(d.id, a, d, b), 'diff')
+    const root = withoutPanes(tabsOf(d.id, a, d, b), (pane) => pane.kind === 'diff')
     expect(root).toMatchObject({ type: 'tabs', activeId: b.id })
   })
 
@@ -927,5 +941,123 @@ describe('moveTab', () => {
     const root = splitOf('horizontal', a, b)
     expect(moveTab(root, a.id, a.id, true)).toBe(root)
     expect(moveTab(root, 'nope', b.id, true)).toBe(root)
+  })
+})
+
+describe('paneInDirection', () => {
+  const grid = (): LayoutNode => {
+    const left = createPane('terminal', 'left')
+    const topRight = createPane('terminal', 'top-right')
+    const bottomRight = createPane('terminal', 'bottom-right')
+    return splitOf('horizontal', left, splitOf('vertical', topRight, bottomRight))
+  }
+
+  it('returns the pane that shares the edge in the asked direction', () => {
+    const root = grid()
+    const [left, topRight, bottomRight] = allPanes(root).map((p) => p.id)
+    expect(paneInDirection(root, left, 'right')).toBe(topRight)
+    expect(paneInDirection(root, topRight, 'down')).toBe(bottomRight)
+    expect(paneInDirection(root, bottomRight, 'up')).toBe(topRight)
+    expect(paneInDirection(root, bottomRight, 'left')).toBe(left)
+  })
+
+  it('returns null at the outer edge and for a lone pane', () => {
+    const root = grid()
+    const [left, topRight] = allPanes(root).map((p) => p.id)
+    expect(paneInDirection(root, left, 'left')).toBeNull()
+    expect(paneInDirection(root, topRight, 'up')).toBeNull()
+    const lone = createPane()
+    expect(paneInDirection(lone, lone.id, 'right')).toBeNull()
+  })
+
+  it('follows split sizes and picks the neighbour nearest the middle of the pane', () => {
+    const a = createPane()
+    const b = createPane()
+    const c = createPane()
+    const d = createPane()
+    const right = { ...splitOf('vertical', b, c, d), sizes: [2, 1, 1] }
+    const root = splitOf('horizontal', a, right)
+    expect(paneInDirection(root, a.id, 'right')).toBe(c.id)
+  })
+
+  it('moves to the shown tab of a tab stack and from any tab of one', () => {
+    const a = createPane()
+    const t1 = createPane()
+    const t2 = createPane()
+    const root = splitOf('horizontal', a, tabsOf(t2.id, t1, t2))
+    expect(paneInDirection(root, a.id, 'right')).toBe(t2.id)
+    expect(paneInDirection(root, t1.id, 'left')).toBe(a.id)
+  })
+})
+
+describe('terminal default title', () => {
+  it('marks a terminal created without a title as holding its default title', () => {
+    expect(createPane()).toMatchObject({ kind: 'terminal', title: 'Terminal', defaultTitle: true })
+    expect(createTerminalPane('終端機', '/srv')).toMatchObject({
+      kind: 'terminal',
+      title: '終端機',
+      cwd: '/srv',
+      defaultTitle: true,
+    })
+  })
+
+  it('does not mark a terminal created with a title, or a pane of another kind', () => {
+    expect(createPane('terminal', 'pnpm dev').defaultTitle).toBeUndefined()
+    expect(createPane('editor').defaultTitle).toBeUndefined()
+    expect(createPane('browser').defaultTitle).toBeUndefined()
+  })
+
+  it('names an untouched terminal after its shell and keeps it open to the next shell', () => {
+    const pane = createPane()
+    const bash = setDefaultPaneTitle(pane, pane.id, 'bash')
+    expect(bash).toMatchObject({ title: 'bash', defaultTitle: true })
+    expect(setDefaultPaneTitle(bash, pane.id, 'fish')).toMatchObject({ title: 'fish' })
+    expect(setDefaultPaneTitle(bash, pane.id, 'bash')).toBe(bash)
+  })
+
+  it('keeps a title a program or a caller set when the shell is reported', () => {
+    const pane = createPane()
+    const titled = setPaneTitle(pane, pane.id, 'claude: fix the login bug')
+    expect(titled).toEqual({ ...pane, title: 'claude: fix the login bug', defaultTitle: undefined })
+    expect('defaultTitle' in titled).toBe(false)
+    expect(setDefaultPaneTitle(titled, pane.id, 'bash')).toBe(titled)
+    const given = createPane('terminal', 'pnpm dev')
+    expect(setDefaultPaneTitle(given, given.id, 'bash')).toBe(given)
+  })
+
+  it('treats a program title equal to the shell name as set, so a later shell keeps it', () => {
+    const pane = createPane()
+    const bash = setDefaultPaneTitle(pane, pane.id, 'bash')
+    const titled = setPaneTitle(bash, pane.id, 'bash')
+    expect(titled.type === 'pane' && titled.defaultTitle).toBeUndefined()
+    expect(setDefaultPaneTitle(titled, pane.id, 'zsh')).toBe(titled)
+    expect(setPaneTitle(titled, pane.id, 'bash')).toBe(titled)
+  })
+
+  it('resets every untouched terminal of a tree to one title and leaves the others', () => {
+    const fresh = createPane()
+    const untouched = { ...fresh, title: 'bash' }
+    const named = createPane('terminal', 'pnpm dev')
+    const editor = createPane('editor', 'a.ts')
+    const root = splitOf('horizontal', untouched, tabsOf(named.id, named, editor))
+    const reset = setDefaultPaneTitles(root, 'Terminal')
+    expect(allPanes(reset).map((p) => p.title)).toEqual(['Terminal', 'pnpm dev', 'a.ts'])
+    expect(setDefaultPaneTitles(reset, 'Terminal')).toBe(reset)
+  })
+
+  it('drops the mark when the pane becomes an editor, a browser or an extension panel', () => {
+    const [a, b, c] = [createPane(), createPane(), createPane()]
+    const editor = setPaneEditor(a, a.id, 'a.ts', '/srv/a.ts')
+    const browser = setPaneBrowser(b, b.id, 'https://example.com/')
+    const panel = setPaneExtension(c, c.id, 'git', 'Git')
+    for (const pane of [editor, browser, panel]) expect('defaultTitle' in pane).toBe(false)
+  })
+
+  it('splits with the pane it is given', () => {
+    const root = createPane()
+    const fresh = createTerminalPane('終端機')
+    const result = splitPane(root, root.id, 'horizontal', fresh)
+    expect(result.newPaneId).toBe(fresh.id)
+    expect(findPane(result.root, fresh.id)).toBe(fresh)
   })
 })

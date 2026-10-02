@@ -1,6 +1,7 @@
 import { isAbsolute } from 'node:path'
 import { ErrorCodes, ResponseError } from 'vscode-jsonrpc/node'
 import { MANAGER_AGENT_NAME } from '../shared/managerSettings'
+import { PRODUCT_NAME } from '../shared/product'
 import { quoteArgv } from '../shared/shellQuote'
 import { connHasCap } from './controlAuth'
 import {
@@ -294,12 +295,12 @@ const NOT_FOUND = { ok: false as const, error: 'not-found' as const }
 const NOT_OPENED = {
   ok: false as const,
   error: 'not-opened' as const,
-  message: 'Pine could not open a terminal tab',
+  message: `${PRODUCT_NAME} could not open a terminal tab`,
 }
 const UNKNOWN_AGENT = {
   ok: false as const,
   error: 'unknown-agent' as const,
-  message: 'Pine knows no agent by that name; start it with pine process run instead',
+  message: `${PRODUCT_NAME} knows no agent by that name; start it with pine process run instead`,
 }
 const CLOSED = {
   ok: false as const,

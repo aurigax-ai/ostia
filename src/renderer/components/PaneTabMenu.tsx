@@ -1,4 +1,5 @@
 import { AppWindowIcon, LockSimpleIcon, LockSimpleOpenIcon } from '@phosphor-icons/react'
+import { isRemotePath } from '@shared/remoteFolders'
 import type { ReactElement } from 'react'
 import { commands } from '../commands/registry'
 import { useDict } from '../i18n/useDict'
@@ -25,7 +26,10 @@ export function PaneTabMenu({
   const d = useDict()
   const actions = useSettingsStore((s) => s.actions)
   const tabActions = actionsFor(actions, 'tabMenu', pane.kind)
-  const file = pane.kind === 'editor' && workspaceId ? pane.filePath : undefined
+  const file =
+    pane.kind === 'editor' && workspaceId && !isRemotePath(pane.filePath)
+      ? pane.filePath
+      : undefined
   const movable = workspaceId !== null && canMovePane(workspaceId, pane.id)
   const lockable = workspaceId !== null && pane.kind !== 'manager'
   if (!file && tabActions.length === 0 && !movable && !lockable) return trigger

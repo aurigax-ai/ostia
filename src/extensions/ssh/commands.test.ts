@@ -1,7 +1,10 @@
 import { describe, expect, it, vi } from 'vitest'
+import { helperSource } from '../../../test/fixtures/ssh/remoteHost'
 import type { ExtensionCaller, OpenTerminalOptions } from '../../shared/extensions'
 import type { ConfirmRequest, OpenTerminalResult, ToolRun } from '../sdk'
 import { type SshDeps, sshCommands } from './commands'
+import { shippedHelper } from './helper'
+import { REMOTE_COMMAND } from './remote'
 import { CONNECT_USAGE, SHOW_USAGE } from './strings'
 
 const RESOLVED = ['user dev', 'hostname 10.0.0.5', 'port 2200', 'proxyjump b1', ''].join('\n')
@@ -10,7 +13,7 @@ function ran(stdout: string): ToolRun {
   return { code: 0, stdout, stderr: '', missing: false, timedOut: false }
 }
 
-function setup(run: SshDeps['run'] = async () => ran(RESOLVED)) {
+function setup(run: SshDeps['run'] = async () => ran(RESOLVED), integration = false) {
   const deps = {
     discover: vi.fn(() => ({ hosts: ['db', 'web'], truncated: false })),
     run: vi.fn(run),
@@ -19,6 +22,7 @@ function setup(run: SshDeps['run'] = async () => ran(RESOLVED)) {
       ok: true,
       paneId: 'pane-ssh',
     })),
+    shellIntegration: vi.fn(async () => integration),
   }
   return { deps, commands: sshCommands(deps) }
 }
@@ -93,7 +97,12 @@ describe('ssh connect', () => {
     const result = await commands.connect({ argv: ['dev@db'] }, userCaller())
     expect(result).toEqual({
       ok: true,
-      data: { approved: true, command: 'ssh -- dev@db', paneId: 'pane-ssh' },
+      data: {
+        approved: true,
+        command: 'ssh -- dev@db',
+        shellIntegration: false,
+        paneId: 'pane-ssh',
+      },
     })
     expect(deps.confirm).not.toHaveBeenCalled()
     expect(deps.run).toHaveBeenCalledWith(['-G', '--', 'dev@db'])
@@ -142,7 +151,7 @@ describe('ssh connect', () => {
     })
     expect(result).toEqual({
       ok: true,
-      data: { approved: true, command: 'ssh -- db', paneId: 'pane-ssh' },
+      data: { approved: true, command: 'ssh -- db', shellIntegration: false, paneId: 'pane-ssh' },
     })
   })
 
@@ -242,6 +251,98 @@ describe('ssh connect', () => {
     expect(denied.ok === false && denied.message).toBe(
       'the human denied the connection; nothing was opened',
     )
+  })
+})
+
+describe('ssh connect with shell integration', () => {
+  it('SSH-C30 opens ssh with -t and the fixed remote command and reports it', async () => {
+    const { deps, commands } = setup(undefined, true)
+    const result = await commands.connect({ argv: ['-p', '2200', 'dev@db'] }, userCaller())
+    expect(deps.openTerminal).toHaveBeenCalledWith({
+      command: ['ssh', '-p', '2200', '-t', '--', 'dev@db', REMOTE_COMMAND],
+      workspaceId: 'ws-1',
+      afterPaneId: 'pane-1',
+      title: 'dev@db',
+    })
+    expect(result).toEqual({
+      ok: true,
+      data: {
+        approved: true,
+        command: 'ssh -p 2200 -t -- dev@db',
+        shellIntegration: true,
+        paneId: 'pane-ssh',
+      },
+    })
+  })
+
+  it('SSH-C31 connects plainly when the human turned it off or the ssh config runs its own command', async () => {
+    const off = setup(undefined, false)
+    await off.commands.connect({ argv: ['db'] }, userCaller())
+    expect(off.deps.openTerminal.mock.calls[0][0].command).toEqual(['ssh', '--', 'db'])
+
+    const configured = setup(async () => ran(`${RESOLVED}remotecommand tmux new -A\n`), true)
+    const result = await configured.commands.connect({ argv: ['db'] }, userCaller())
+    expect(configured.deps.openTerminal.mock.calls[0][0].command).toEqual(['ssh', '--', 'db'])
+    expect(result).toMatchObject({ ok: true, data: { shellIntegration: false } })
+    expect(configured.deps.shellIntegration).not.toHaveBeenCalled()
+  })
+
+  it('SSH-C72 types the short session command on a host that has the helper, and says so in the confirm', async () => {
+    const helper = shippedHelper(helperSource())
+    const { deps } = setup(undefined, true)
+    const installedHelper = vi.fn<NonNullable<SshDeps['installedHelper']>>(async () => helper)
+    const withHelper = sshCommands({ ...deps, installedHelper })
+    const result = await withHelper.connect({ argv: ['-p', '2200', 'dev@db'] }, paneCaller())
+    expect(deps.openTerminal).toHaveBeenCalledWith({
+      command: ['ssh', '-p', '2200', '-t', '--', 'dev@db', helper.commands.session],
+      workspaceId: 'ws-1',
+      afterPaneId: 'pane-1',
+      title: 'dev@db',
+    })
+    expect(result).toMatchObject({
+      ok: true,
+      data: { command: 'ssh -p 2200 -t -- dev@db', shellIntegration: true },
+    })
+    expect(installedHelper.mock.calls[0][0].destination).toBe('dev@db')
+    const detail = deps.confirm.mock.calls[0][0].detail ?? ''
+    expect(detail).toContain('~/.pine/helper')
+    expect(detail).not.toContain('temporary folder')
+    expect(JSON.stringify(deps.openTerminal.mock.calls)).not.toContain(REMOTE_COMMAND)
+  })
+
+  it('SSH-C73 keeps the packed command when the host has no helper, and asks about none when integration is off', async () => {
+    const { deps } = setup(undefined, true)
+    const none = sshCommands({ ...deps, installedHelper: async () => null })
+    await none.connect({ argv: ['db'] }, userCaller())
+    expect(deps.openTerminal.mock.calls[0][0].command).toEqual([
+      'ssh',
+      '-t',
+      '--',
+      'db',
+      REMOTE_COMMAND,
+    ])
+
+    const off = setup(undefined, false)
+    const installedHelper = vi.fn<NonNullable<SshDeps['installedHelper']>>(async () =>
+      shippedHelper(helperSource()),
+    )
+    await sshCommands({ ...off.deps, installedHelper }).connect({ argv: ['db'] }, userCaller())
+    expect(installedHelper).not.toHaveBeenCalled()
+    expect(off.deps.openTerminal.mock.calls[0][0].command).toEqual(['ssh', '--', 'db'])
+  })
+
+  it('SSH-C32 shows the agent -t and what the integration does on the host before it connects', async () => {
+    const { deps, commands } = setup(undefined, true)
+    await commands.connect({ argv: ['db'] }, paneCaller({ locale: 'en' }))
+    const detail = deps.confirm.mock.calls[0][0].detail ?? ''
+    expect(detail).toContain('ssh -t -- db')
+    expect(detail).toContain('temporary folder')
+    expect(detail).toContain('Nothing is installed')
+    expect(detail.length).toBeLessThan(2000)
+
+    const plain = setup(undefined, false)
+    await plain.commands.connect({ argv: ['db'] }, paneCaller({ locale: 'en' }))
+    expect(plain.deps.confirm.mock.calls[0][0].detail).not.toContain('temporary folder')
   })
 })
 

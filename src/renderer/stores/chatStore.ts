@@ -1,8 +1,10 @@
 import { Chat } from '@ai-sdk/react'
 import { type AssistModelRef, CHAT_CONTEXT_MAX, type ChatContextItem } from '@shared/assist'
 import {
+  CHAT_EDIT_TEXT_MAX,
   CHAT_TITLE_MAX,
   type ChatSession,
+  type ChatSessionEdit,
   type ChatSessionMessage,
   type ChatSessionSummary,
   chatTitle,
@@ -10,6 +12,7 @@ import {
 import { create } from 'zustand'
 import { workspaceFolder } from '../lib/chatTools'
 import { type PineChatMessage, createAssistTransport, messageText } from '../lib/chatTransport'
+import { type ChatEditRecord, sessionEdits, useChatToolsStore } from './chatToolsStore'
 import { useSettingsStore } from './settingsStore'
 import { useWorkspacesStore } from './workspacesStore'
 
@@ -148,7 +151,19 @@ export function sessionOf(
   if (meta.workspaceId) session.workspaceId = meta.workspaceId
   if (model) session.model = model
   if (meta.modelRef) session.modelRef = meta.modelRef
+  const edits = sessionEdits(meta.id).map(storedEdit)
+  if (edits.length > 0) session.edits = edits
   return session
+}
+
+function storedEdit(edit: ChatEditRecord): ChatSessionEdit {
+  const { sessionId: _sessionId, undoError: _undoError, before, after, ...rest } = edit
+  const keep =
+    before !== undefined &&
+    after !== undefined &&
+    before.length <= CHAT_EDIT_TEXT_MAX &&
+    after.length <= CHAT_EDIT_TEXT_MAX
+  return keep ? { ...rest, before, after } : rest
 }
 
 export async function saveSession(sessionId: string): Promise<void> {
@@ -276,6 +291,7 @@ export async function openSession(
     if (session.modelRef) meta.modelRef = session.modelRef
     if (session.trimmed) meta.trimmed = true
     store.setMeta(meta)
+    useChatToolsStore.getState().loadEdits(session.id, session.edits ?? [])
     createChat(session.id, fromStored(session))
   }
   useChatStore.getState().setCurrent(chatKey(workspaceId), sessionId)

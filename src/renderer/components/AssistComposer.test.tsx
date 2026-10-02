@@ -143,6 +143,46 @@ describe('AssistComposer', () => {
     )
   })
 
+  it('says how many secrets will be taken out of the prompt before it is sent for a typo check', async () => {
+    vi.mocked(window.pine.privacy.redact).mockImplementation(async (texts) =>
+      texts.map((text) => {
+        const count = text.split('SECRET').length - 1
+        return { text: text.replaceAll('SECRET', '[redacted:test]'), count, kinds: {} }
+      }),
+    )
+    const term = fakeTerm()
+    unregister = registerTerminal(PANE, term)
+    answer(async () => ({ ok: true, result: {} }))
+    mount(term)
+    expect(screen.queryByTestId('assist-redaction-count')).toBeNull()
+    await userEvent.type(screen.getByRole('textbox'), 'use SECRET and SECRET')
+    expect(await screen.findByTestId('assist-redaction-count', {}, WAIT)).toHaveTextContent(
+      '2 secrets are not sent to the assistant',
+    )
+    vi.mocked(window.pine.privacy.redact).mockImplementation(async (texts) =>
+      texts.map((text) => ({ text, count: 0, kinds: {} })),
+    )
+  })
+
+  it('says how many secrets will be taken out of a command description', async () => {
+    vi.mocked(window.pine.privacy.redact).mockImplementation(async (texts) =>
+      texts.map((text) => ({ text, count: text.includes('SECRET') ? 1 : 0, kinds: {} })),
+    )
+    agentState.agent = null
+    idlePrompt()
+    const term = fakeTerm()
+    unregister = registerTerminal(PANE, term)
+    answer(async () => ({ ok: true, result: { suggestions: [] } }))
+    mount(term)
+    await userEvent.type(screen.getByRole('textbox'), 'curl with SECRET')
+    expect(await screen.findByTestId('assist-redaction-count', {}, WAIT)).toHaveTextContent(
+      '1 secret is not sent to the assistant',
+    )
+    vi.mocked(window.pine.privacy.redact).mockImplementation(async (texts) =>
+      texts.map((text) => ({ text, count: 0, kinds: {} })),
+    )
+  })
+
   it('reviews the prompt on Ctrl+Enter and lists the notes', async () => {
     const term = fakeTerm()
     unregister = registerTerminal(PANE, term)

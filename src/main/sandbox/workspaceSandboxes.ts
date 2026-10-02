@@ -3,6 +3,7 @@ import { mkdirSync, readdirSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import type { SandboxRuntimeConfig } from '@anthropic-ai/sandbox-runtime'
 import type { PackageRef } from '../../shared/packages'
+import { PRODUCT_NAME } from '../../shared/product'
 import {
   type ResolvedSandbox,
   type SandboxFixedPolicy,
@@ -55,7 +56,7 @@ const INSTANCE_TMP_NAME = /^\d+$/
 const FOLDER_PROBLEM_TEXT: Record<SandboxFolderProblem['reason'], string> = {
   home: 'is your home folder',
   'above-home': 'contains your home folder',
-  'pine-data': "holds Pine's own data",
+  'pine-data': `holds ${PRODUCT_NAME}'s own data`,
 }
 
 export function folderProblemMessage(problem: SandboxFolderProblem): string {
@@ -85,6 +86,7 @@ export class WorkspaceSandboxes {
   private readonly sessionPackages = new Map<string, Set<string>>()
   private readonly mergedInto = new Map<string, string>()
   private readonly paneWrites = new Map<string, Set<string>>()
+  private readonly toldAboutHome = new Set<string>()
 
   private readonly pid: number
   private readonly instanceTmp: string
@@ -238,6 +240,13 @@ export class WorkspaceSandboxes {
     void this.refresh(owner)
   }
 
+  claimHomeNotice(workspaceId: string): boolean {
+    const owner = this.owner(workspaceId)
+    if (this.toldAboutHome.has(owner)) return false
+    this.toldAboutHome.add(owner)
+    return true
+  }
+
   tmpDir(workspaceId: string): string {
     return join(this.instanceTmp, workspaceId)
   }
@@ -330,6 +339,7 @@ export class WorkspaceSandboxes {
     this.sessionDomains.delete(workspaceId)
     this.sessionPackages.delete(workspaceId)
     this.paneWrites.delete(workspaceId)
+    this.toldAboutHome.delete(workspaceId)
     this.deps.store.remove(workspaceId)
     rmSync(this.tmpDir(workspaceId), { recursive: true, force: true })
   }

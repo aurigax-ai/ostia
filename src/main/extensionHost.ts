@@ -1,14 +1,16 @@
 import { type ChildProcess, spawn } from 'node:child_process'
 import { EventEmitter } from 'node:events'
 import { type FSWatcher, mkdirSync, readdirSync, watch } from 'node:fs'
+import { homedir } from 'node:os'
 import { isAbsolute, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { debounce } from 'es-toolkit'
+import { debounce, isEqual } from 'es-toolkit'
 import {
   type CancellationToken,
   CancellationTokenSource,
   type MessageConnection,
 } from 'vscode-jsonrpc/node'
+import { AGENT_PLUGIN_CAPABILITY, agentSkillId, hookAgentsFor } from '../shared/agentPlugins'
 import {
   ASSIST_ERRORS,
   ASSIST_POINTS,
@@ -32,6 +34,7 @@ import {
   type AssistProviderKind,
   type AssistProviderState,
   type AssistResponse,
+  type AssistResults,
   type AssistSetupProblem,
   type AssistStatus,
   type AssistUi,
@@ -63,10 +66,14 @@ import {
   type LocaleCatalogs,
 } from '../shared/extensionLocales'
 import {
+  AGENT_OFFER_LABEL_MAX,
+  AGENT_OFFER_TEXT_MAX,
+  AGENT_PROMPT_MAX,
   ASSIST_PROVIDERS_CHANGED_EVENT,
   DIFF_TEXT_MAX,
   EXTENSION_EVENT_TYPES,
   EXTENSION_ICONS,
+  type ExtensionAgentOffer,
   type ExtensionCaller,
   type ExtensionChip,
   type ExtensionChipContribution,
@@ -108,11 +115,31 @@ import {
 } from '../shared/extensions'
 import type { IconThemeContribution } from '../shared/iconTheme'
 import { LANGUAGE_SERVER_CAPABILITY, languageServerSummary } from '../shared/languageServers'
+import type { RedactionResult } from '../shared/redaction'
+import { redactAssistRequest } from '../shared/redactionTargets'
+import {
+  FOLDER_CLOSED_EVENT,
+  type RemoteCwd,
+  type RemoteFilesRequest,
+  type RemoteFolder,
+} from '../shared/remoteFolders'
 import { quoteArgv } from '../shared/shellQuote'
 import type { Workflow } from '../shared/workflows'
+import type { AgentPluginSource } from './agentSkills'
 import { dropIdentity, hasCap, setCaps } from './capabilityStore'
 import { registerControlMethod } from './controlServer'
 import type { EditorLanguageSource } from './editorLanguages'
+import {
+  type AgentOfferDelivery,
+  REACHED_PANES_MAX,
+  agentName,
+  agentPrompt,
+  agentTaskLimiter,
+  offerLabel,
+  offerText,
+  workspaceFolder,
+  workspaceIdOf,
+} from './extensionAgents'
 import { loadLocaleCatalogs, manifestIn } from './extensionLocales'
 import {
   type DiscoveredExtension,
@@ -130,6 +157,7 @@ import {
 } from './idRegistry'
 import type { LanguageSource } from './languagePacks'
 import type { LanguageServerSource } from './languageServers'
+import { REMOTE_REQUEST_TIMEOUT_MS, RemoteFolders, type RemoteFoldersDeps } from './remoteFolders'
 
 export const MAX_RESTARTS = 3
 export const REQUEST_TIMEOUT_MS = 30_000
@@ -167,6 +195,8 @@ interface Runtime {
   panelOrigins: Set<string>
   assistStatus: AssistStatus
   assistReport: AssistRuntimeReport | null
+  offering: boolean
+  reached: Set<string>
 }
 
 interface AssistRuntimeReport {
@@ -211,6 +241,8 @@ function newRuntime(ext: LoadedExtension): Runtime {
     panelOrigins: new Set(),
     assistStatus: {},
     assistReport: null,
+    offering: false,
+    reached: new Set(),
   }
 }
 
@@ -223,6 +255,15 @@ function assistReply<P extends AssistPoint>(point: P, raw: unknown): AssistRespo
       : { ok: false, error: error as AssistError }
   }
   return { ok: true, result: normalizeAssistResult(point, raw) }
+}
+
+export function withoutCorrection<P extends AssistPoint>(
+  point: P,
+  response: AssistResponse<P>,
+): AssistResponse<P> {
+  if (point !== 'input' || !response.ok) return response
+  const { corrected: _corrected, ...result } = response.result as AssistResults['input']
+  return { ok: true, result: result as AssistResults[P] }
 }
 
 function cancelled(token: CancellationToken | undefined): Promise<'cancelled'> {
@@ -297,6 +338,7 @@ export interface ExtensionHostDeps {
   readExtensionSettings?: () => unknown
   readAssistSettings?: () => { assistant?: unknown } | null
   assistKeys?: ExtensionSecretStore
+  redact?: (text: string) => Promise<RedactionResult>
   assistTimeoutMs?: number
   openAssistUiIn?: (req: AssistOpenUiRequest) => void
   assistChatTimeoutMs?: number
@@ -312,6 +354,15 @@ export interface ExtensionHostDeps {
     n: { title: string; body?: string; from: string; extId: string; panelPath?: string },
     openPanel: () => void,
   ) => void
+  agentArgv?: (name: string) => string[] | null
+  agentNames?: () => string[]
+  offerToAgentIn?: (offer: Omit<ExtensionAgentOffer, 'requestId'>) => Promise<AgentOfferDelivery>
+  focusPaneIn?: (pane: PaneIdentity) => boolean
+  agentTaskClock?: () => number
+  remoteCwdForPane?: (paneId: string) => RemoteCwd | undefined
+  remoteFolders?: Pick<RemoteFoldersDeps, 'windowOfWorkspace' | 'refusal' | 'confirm'> & {
+    publish: (folders: RemoteFolders) => void
+  }
 }
 
 const HOST_TERMINAL_NOTE = 'Runs outside the sandbox, in a terminal you can watch:'
@@ -451,6 +502,8 @@ export class ExtensionHost {
   private assistSeq = 0
   private shortcuts: Record<string, string> = {}
   private announcedLocale: string
+  private readonly agentTasks: ReturnType<typeof agentTaskLimiter>
+  readonly remoteFolders: RemoteFolders | null
 
   constructor(private readonly deps: ExtensionHostDeps) {
     this.changes.setMaxListeners(0)
@@ -458,6 +511,8 @@ export class ExtensionHost {
     this.settings = storedSettings(deps.readExtensionSettings?.())
     this.assistSettings = parseAssistModelSettings(deps.readAssistSettings?.()?.assistant)
     this.announcedLocale = this.currentLocale()
+    this.agentTasks = agentTaskLimiter(deps.agentTaskClock)
+    this.remoteFolders = this.createRemoteFolders()
   }
 
   private discover(): LoadedExtension[] {
@@ -541,12 +596,18 @@ export class ExtensionHost {
       workspaceChips: m.contributes.workspaceChips,
       settings: m.contributes.settings,
       settingValues: this.settingValues(rt),
+      settingsPage: this.active(rt) ? (m.contributes.settingsPage ?? null) : null,
       assist: m.contributes.assist,
       secrets: m.contributes.secrets,
       secretsSet: this.deps.secrets?.keys(m.id) ?? [],
       iconThemes: (m.contributes.iconThemes ?? []).map(({ id, label }) => ({ id, label })),
       languages: (m.contributes.languages ?? []).map(({ id, label }) => ({ id, label })),
       languageServers: (m.contributes.languageServers ?? []).map(languageServerSummary),
+      agentSkills: (m.contributes.agentSkills ?? []).map((skill) => agentSkillId(m.id, skill.name)),
+      agentHooks: (m.contributes.agentHooks ?? []).map((hook) => ({
+        ...hook,
+        agents: hookAgentsFor(hook.event),
+      })),
     }
   }
 
@@ -666,6 +727,18 @@ export class ExtensionHost {
     })
     if (enabled && !record.enabled && this.eager(rt)) this.start(rt)
     this.changed(rt)
+  }
+
+  agentPlugins(): AgentPluginSource[] {
+    return [...this.runtimes.values()]
+      .filter((rt) => this.active(rt) && this.granted(rt).includes(AGENT_PLUGIN_CAPABILITY))
+      .map((rt) => ({
+        extId: rt.ext.manifest.id,
+        dir: rt.ext.dir,
+        skills: rt.ext.manifest.contributes.agentSkills ?? [],
+        hooks: rt.ext.manifest.contributes.agentHooks ?? [],
+      }))
+      .filter((source) => source.skills.length > 0 || source.hooks.length > 0)
   }
 
   iconThemes(): { dir: string; theme: IconThemeContribution }[] {
@@ -916,6 +989,7 @@ export class ExtensionHost {
     this.clearSidebarOf(id)
     this.clearChipsWhere((chip) => chip.extId === id)
     this.clearWorkspaceChipsWhere((chip) => chip.extId === id)
+    this.remoteFolders?.extensionGone(id)
     if (rt.stopping || !this.active(rt)) {
       rt.state = 'idle'
     } else if (rt.restarts < MAX_RESTARTS) {
@@ -963,6 +1037,7 @@ export class ExtensionHost {
     this.clearSidebarOf(id)
     this.clearChipsWhere((chip) => chip.extId === id)
     this.clearWorkspaceChipsWhere((chip) => chip.extId === id)
+    this.remoteFolders?.extensionGone(id)
   }
 
   stopAll(): void {
@@ -1060,6 +1135,8 @@ export class ExtensionHost {
     const locale = this.deps.locale?.()
     if (locale) caller.locale = locale
     if (this.deps.isSandboxed?.(identity.workspaceId)) caller.sandboxed = true
+    const remote = this.deps.remoteCwdForPane?.(identity.paneId)
+    if (remote) caller.remote = remote
     return caller
   }
 
@@ -1479,13 +1556,162 @@ export class ExtensionHost {
     }
     if (!this.deps.openTerminalIn) return fail('no-window')
     const paneId = await this.deps.openTerminalIn(req)
-    return paneId ? { ok: true, paneId } : fail('not-opened', 'no workspace to open it in')
+    if (!paneId) return fail('not-opened', 'no workspace to open it in')
+    this.reach(rt, paneId)
+    return { ok: true, paneId }
+  }
+
+  private reach(rt: Runtime, paneId: string): void {
+    if (rt.reached.size >= REACHED_PANES_MAX) {
+      for (const id of rt.reached) if (resolveExternal(id)?.kind !== 'pane') rt.reached.delete(id)
+    }
+    if (rt.reached.size < REACHED_PANES_MAX) rt.reached.add(paneId)
+  }
+
+  private takeAgentTask(rt: Runtime): boolean {
+    return this.agentTasks.take(rt.ext.manifest.id).allowed
+  }
+
+  agentNames(identity: PaneIdentity, conn: MessageConnection) {
+    this.runtimeOf(identity, conn)
+    return { ok: true, agents: this.deps.agentNames?.() ?? [] }
+  }
+
+  async runAgent(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
+    const rt = this.runtimeOf(identity, conn)
+    const p = isPlainRecord(params) ? params : {}
+    const workspaceId = workspaceIdOf(p.workspaceId)
+    if (!workspaceId) return fail('invalid-params', 'workspaceId is required')
+    const agent = agentName(p.agent)
+    if (!agent) return fail('invalid-params', 'agent must be one of the names ext.agents lists')
+    const prompt = agentPrompt(p.prompt)
+    if (!prompt) {
+      return fail(
+        'invalid-params',
+        `prompt must be 1-${AGENT_PROMPT_MAX} characters without control characters other than newlines and tabs`,
+      )
+    }
+    const argv = this.deps.agentArgv?.(agent)
+    if (!argv) return fail('unknown-agent', 'no agent by that name')
+    if (!this.deps.openTerminalIn) return fail('no-window')
+    if (!this.takeAgentTask(rt)) return fail('rate-limited', 'too many agent tasks this minute')
+    const cwd = workspaceFolder(this.deps.workDirForWorkspace(workspaceId), homedir())
+    const paneId = await this.deps.openTerminalIn({
+      command: quoteArgv([...argv, prompt]),
+      workspaceId,
+      ...(cwd ? { cwd } : {}),
+    })
+    if (!paneId) return fail('not-opened', 'no workspace to open it in')
+    this.reach(rt, paneId)
+    return { ok: true, paneId }
+  }
+
+  async offerToAgent(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
+    const rt = this.runtimeOf(identity, conn)
+    const p = isPlainRecord(params) ? params : {}
+    const workspaceId = workspaceIdOf(p.workspaceId)
+    if (!workspaceId) return fail('invalid-params', 'workspaceId is required')
+    const text = offerText(p.text)
+    if (!text) {
+      return fail(
+        'invalid-params',
+        `text must be one line of 1-${AGENT_OFFER_TEXT_MAX} characters without control characters`,
+      )
+    }
+    const label = offerLabel(p.label)
+    if (!label) {
+      return fail(
+        'invalid-params',
+        `label must be one line of 1-${AGENT_OFFER_LABEL_MAX} characters without control characters`,
+      )
+    }
+    if (!this.deps.offerToAgentIn) return fail('no-window')
+    if (rt.offering) return fail('busy', 'an earlier offer is still waiting for the human')
+    if (!this.takeAgentTask(rt)) return fail('rate-limited', 'too many agent tasks this minute')
+    rt.offering = true
+    try {
+      const delivery = await this.deps.offerToAgentIn({
+        extId: rt.ext.manifest.id,
+        extName: this.shownName(rt),
+        workspaceId,
+        label,
+        text,
+      })
+      if (!delivery.delivered) return fail('unknown-workspace', 'no window holds that workspace')
+      if (!delivery.paneId) return { ok: true, sent: false }
+      this.reach(rt, delivery.paneId)
+      return { ok: true, sent: true, paneId: delivery.paneId }
+    } finally {
+      rt.offering = false
+    }
+  }
+
+  focusPane(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
+    const rt = this.runtimeOf(identity, conn)
+    const paneId = isPlainRecord(params) ? params.paneId : undefined
+    if (typeof paneId !== 'string' || !rt.reached.has(paneId)) {
+      return fail('not-reached', 'only a pane you opened or the human picked for you')
+    }
+    const pane = resolveExternal(paneId)
+    if (pane?.kind !== 'pane') {
+      rt.reached.delete(paneId)
+      return fail('unknown-pane', 'that pane is closed')
+    }
+    if (!this.deps.focusPaneIn) return fail('no-window')
+    return this.deps.focusPaneIn(pane) ? { ok: true } : fail('unknown-pane', 'that pane is closed')
   }
 
   listForAgents() {
     return this.listIn(undefined)
       .filter((e) => e.enabled)
       .map((e) => ({ id: e.id, name: e.name, status: e.status, commands: e.commands }))
+  }
+
+  private createRemoteFolders(): RemoteFolders | null {
+    const deps = this.deps.remoteFolders
+    if (!deps) return null
+    const folders: RemoteFolders = new RemoteFolders({
+      windowOfWorkspace: deps.windowOfWorkspace,
+      refusal: deps.refusal,
+      confirm: deps.confirm,
+      publish: () => deps.publish(folders),
+      request: (extId, req) => this.filesRequest(extId, req),
+      closed: (folder) => this.folderClosed(folder),
+    })
+    return folders
+  }
+
+  private filesRequest(extId: string, req: RemoteFilesRequest): Promise<unknown> {
+    const rt = this.runtimes.get(extId)
+    if (!rt?.conn || !this.active(rt)) return Promise.reject(new Error('extension stopped'))
+    return withTimeout(
+      rt.conn.sendRequest('ext.files', req),
+      this.deps.requestTimeoutMs ?? REMOTE_REQUEST_TIMEOUT_MS,
+      `${extId} files`,
+    )
+  }
+
+  private folderClosed(folder: RemoteFolder): void {
+    const rt = this.runtimes.get(folder.extId)
+    void rt?.conn
+      ?.sendNotification('ext.event', {
+        type: FOLDER_CLOSED_EVENT,
+        payload: { folderId: folder.id },
+      })
+      .catch(() => {})
+  }
+
+  async openFolder(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
+    const rt = this.runtimeOf(identity, conn)
+    if (!this.remoteFolders) return fail('no-window')
+    return this.remoteFolders.open({ id: rt.ext.manifest.id, name: this.shownName(rt) }, params)
+  }
+
+  closeFolder(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
+    const rt = this.runtimeOf(identity, conn)
+    const folderId = (params as { folderId?: unknown } | null)?.folderId
+    const closed = this.remoteFolders?.closeByExtension(rt.ext.manifest.id, folderId) ?? false
+    return closed ? { ok: true } : fail('unknown-folder')
   }
 
   async confirm(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
@@ -1658,7 +1884,7 @@ export class ExtensionHost {
     const file = this.deps.readAssistSettings?.()
     if (!file) return
     const next = parseAssistModelSettings(file.assistant)
-    if (JSON.stringify(next) === JSON.stringify(this.assistSettings)) return
+    if (isEqual(next, this.assistSettings)) return
     const before = new Map(
       [...this.runtimes].map(([id, rt]) => [id, JSON.stringify(this.assistEntries(rt))]),
     )
@@ -1841,8 +2067,19 @@ export class ExtensionHost {
     input: unknown,
     opts: AssistCallOptions = {},
   ): Promise<AssistResponse<P>> {
-    const request = normalizeAssistRequest(point, input)
-    if (!request) return { ok: false, error: 'invalid' }
+    const normalized = normalizeAssistRequest(point, input)
+    if (!normalized) return { ok: false, error: 'invalid' }
+    let request = normalized
+    let redacted = 0
+    if (this.deps.redact) {
+      try {
+        const safe = await redactAssistRequest(point, normalized, this.deps.redact)
+        request = safe.request
+        redacted = safe.count
+      } catch {
+        return { ok: false, error: 'failed' }
+      }
+    }
     const explicit = opts.model === undefined ? null : normalizeModelRef(opts.model)
     if (opts.model !== undefined && !explicit) return { ok: false, error: 'invalid' }
     const target = this.assistTarget(point, explicit)
@@ -1875,7 +2112,8 @@ export class ExtensionHost {
       if (reply === 'cancelled' || opts.token?.isCancellationRequested) {
         return { ok: false, error: 'cancelled' }
       }
-      return assistReply(point, reply)
+      const response = assistReply(point, reply)
+      return redacted > 0 ? withoutCorrection(point, response) : response
     } catch (err) {
       if (opts.token?.isCancellationRequested) return { ok: false, error: 'cancelled' }
       return { ok: false, error: 'failed', message: (err as Error).message }
@@ -2023,6 +2261,23 @@ export function registerExtensionMethods(host: () => ExtensionHost | null): void
     cap: 'shell',
   })
 
+  registerControlMethod('ext.agents', {
+    ...forExtension((h, id, conn) => h.agentNames(id, conn)),
+    cap: 'shell',
+  })
+  registerControlMethod('ext.runAgent', {
+    ...forExtension((h, id, conn, p) => h.runAgent(id, conn, p)),
+    cap: 'shell',
+  })
+  registerControlMethod(
+    'ext.offerToAgent',
+    forExtension((h, id, conn, p) => h.offerToAgent(id, conn, p)),
+  )
+  registerControlMethod(
+    'ext.focusPane',
+    forExtension((h, id, conn, p) => h.focusPane(id, conn, p)),
+  )
+
   registerControlMethod('ext.list', {
     handler: () => host()?.listForAgents() ?? [],
   })
@@ -2071,5 +2326,13 @@ export function registerExtensionMethods(host: () => ExtensionHost | null): void
   registerControlMethod(
     'ext.confirm',
     forExtension((h, id, conn, p) => h.confirm(id, conn, p)),
+  )
+  registerControlMethod(
+    'ext.openFolder',
+    forExtension((h, id, conn, p) => h.openFolder(id, conn, p)),
+  )
+  registerControlMethod(
+    'ext.closeFolder',
+    forExtension((h, id, conn, p) => h.closeFolder(id, conn, p)),
   )
 }

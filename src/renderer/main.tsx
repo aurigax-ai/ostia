@@ -19,6 +19,7 @@ import { wireExtensionBridge } from './commands/extensionBridge'
 import { registerExternalEditorCommand } from './commands/externalEditor'
 import { wireManagerBridge } from './commands/managerBridge'
 import { wirePaneRunBridge } from './commands/paneRunBridge'
+import { registerRegionCaptureCommand } from './commands/regionCapture'
 import { registerSelectionSendCommand } from './commands/selectionSend'
 import { wireTerminalStateBridge } from './commands/terminalStateBridge'
 import { registerWindowCommands } from './commands/windowCommands'
@@ -31,6 +32,7 @@ import { errorDetails, reportError, startErrorReporting } from './lib/errorRepor
 import { startFileDropTracking } from './lib/fileDrop'
 import { startHibernation } from './lib/hibernationScheduler'
 import { livePaneIds } from './lib/livePanes'
+import { loadLocalHostName } from './lib/osc7'
 import { startAgentDetection } from './lib/paneAgent'
 import { startPaneDragTracking } from './lib/paneDrag'
 import { applyStoredRailWidth } from './lib/railWidth'
@@ -49,6 +51,7 @@ import { startPaneRecencySync } from './stores/paneRecencyStore'
 import { startSnapshotAutosave } from './stores/persistence'
 import { usePluginsStore } from './stores/pluginsStore'
 import { startQuestions } from './stores/questionsStore'
+import { wireRemoteFolders } from './stores/remoteFoldersStore'
 import { useSettingsStore } from './stores/settingsStore'
 import { useSystemThemeStore } from './stores/systemThemeStore'
 import { startUpdateWatch } from './stores/updateStore'
@@ -59,12 +62,14 @@ startErrorReporting()
 registerBuiltinCommands()
 registerExternalEditorCommand()
 registerSelectionSendCommand()
+registerRegionCaptureCommand()
 registerViewCommands()
 wireCommandBridge()
 wireTerminalStateBridge()
 wireExtensionBridge()
 wirePaneRunBridge()
 wireManagerBridge()
+wireRemoteFolders()
 
 const container = document.getElementById('root')
 if (!container) throw new Error('#root not found')
@@ -73,6 +78,7 @@ const root = createRoot(container)
 async function boot(): Promise<void> {
   await initWindow()
   registerWindowCommands(useWindowsStore.getState().detached)
+  await loadLocalHostName()
   try {
     await useSettingsStore.getState().init()
   } catch (err) {

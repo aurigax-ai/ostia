@@ -2,6 +2,7 @@
   "messages": {
     "usage": "greet <name>",
     "greetingTitle": "Hello",
-    "greeting": "Hello, {name}"
+    "greeting": "Hello, {name}",
+    "agentContext": "This extension is enabled. When the human asks you to greet someone, use its greet skill."
   }
 }

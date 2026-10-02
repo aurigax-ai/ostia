@@ -1,6 +1,7 @@
 import { findPane, paneIds } from '../layout/tree'
 import { type CommandBlock, useBlocksStore } from '../stores/blocksStore'
 import { useLayoutStore } from '../stores/layoutStore'
+import { useRemoteCwdStore } from '../stores/remoteCwdStore'
 
 const DEBOUNCE_MS = 100
 
@@ -25,6 +26,7 @@ function lastExitCode(list: CommandBlock[]): number | undefined {
 function flush(paneId: string): void {
   const blocks = useBlocksStore.getState()
   const list = blocks.byPane[paneId] ?? []
+  const remote = useRemoteCwdStore.getState().byPane[paneId]
   window.pine.terminalState.push({
     paneId,
     generation: blocks.gen[paneId] ?? 0,
@@ -32,6 +34,7 @@ function flush(paneId: string): void {
     running: blocks.running[paneId] !== undefined,
     blockCount: list.length,
     lastExitCode: lastExitCode(list),
+    ...(remote ? { remote } : {}),
   })
 }
 
@@ -74,6 +77,12 @@ export function wireTerminalStateBridge(): void {
       ) {
         scheduleFlush(id)
       }
+    }
+  })
+
+  useRemoteCwdStore.subscribe((state, prev) => {
+    for (const id of new Set([...Object.keys(state.byPane), ...Object.keys(prev.byPane)])) {
+      if (state.byPane[id] !== prev.byPane[id]) scheduleFlush(id)
     }
   })
 

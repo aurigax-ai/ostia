@@ -56,4 +56,17 @@ describe('unsaved files', () => {
   it('ERL-C18 does not list a clean file that was only changed and reloaded', () => {
     expect(unsavedFilesOf([file], {}, {})).toEqual([])
   })
+
+  it('lists a remote file with unsaved edits, so closing asks about it too', () => {
+    const remote: PaneNode = {
+      type: 'pane',
+      id: 'pr',
+      kind: 'editor',
+      title: 'app.conf',
+      filePath: 'remote://abcdef012345/srv/app/app.conf',
+    }
+    expect(
+      unsavedFilesOf([file, remote], { 'remote://abcdef012345/srv/app/app.conf': true }),
+    ).toEqual(['remote://abcdef012345/srv/app/app.conf'])
+  })
 })

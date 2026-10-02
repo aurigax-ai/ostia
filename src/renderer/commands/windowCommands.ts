@@ -3,33 +3,30 @@ import {
   moveWorkspaceToNewWindow,
   returnToMainWindow,
 } from '../lib/windowHandoff'
-import { commands } from './registry'
+import { registerCore } from './core'
 
 export function registerWindowCommands(detached: boolean): void {
   if (detached) {
-    commands.register<undefined, { moved: boolean }>({
+    registerCore<undefined, { moved: boolean }>({
       id: 'window.moveToMain',
-      title: 'Move Back to Main Window',
-      category: 'Window',
+      category: 'window',
       target: 'none',
       capabilities: ['drive-self'],
       run: async () => ({ moved: await returnToMainWindow() }),
     })
     return
   }
-  commands.register<undefined, { moved: boolean }>({
+  registerCore<undefined, { moved: boolean }>({
     id: 'workspace.moveToNewWindow',
-    title: 'Move Workspace to New Window',
-    category: 'Workspace',
+    category: 'workspace',
     capabilities: ['drive-self'],
     run: async (_args, ctx) => ({
       moved: ctx.activeWorkspaceId ? await moveWorkspaceToNewWindow(ctx.activeWorkspaceId) : false,
     }),
   })
-  commands.register<undefined, { moved: boolean }>({
+  registerCore<undefined, { moved: boolean }>({
     id: 'pane.moveToNewWindow',
-    title: 'Move Pane to New Window',
-    category: 'Pane',
+    category: 'pane',
     capabilities: ['drive-self'],
     run: async (_args, ctx) => ({
       moved:

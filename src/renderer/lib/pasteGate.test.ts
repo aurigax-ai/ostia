@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { confirmsGeneratedText, countLines, pastePreview, planHumanPaste } from './pasteGate'
+import {
+  confirmsGeneratedText,
+  countLines,
+  pastePreview,
+  planDraftPaste,
+  planHumanPaste,
+} from './pasteGate'
 
 describe('planHumanPaste', () => {
   it('pastes one plain line without asking, tabs kept', () => {
@@ -88,5 +94,12 @@ describe('pastePreview', () => {
     expect(long.truncated).toBe(true)
     expect(long.parts[0].text.length).toBe(20000)
     expect(pastePreview('short').truncated).toBe(false)
+  })
+})
+
+describe('planDraftPaste', () => {
+  it('strips control characters and a trailing newline but keeps the lines of a draft', () => {
+    expect(planDraftPaste('echo hi\x1b[201~\n')).toBe('echo hi[201~')
+    expect(planDraftPaste('one\ntwo\x07\n')).toBe('one\ntwo\n')
   })
 })

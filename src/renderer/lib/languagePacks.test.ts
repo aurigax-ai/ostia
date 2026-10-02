@@ -1,6 +1,7 @@
+import { PRODUCT_NAME } from '@shared/product'
 import { describe, expect, it } from 'vitest'
-import { en, zhHant } from '../i18n/dict'
-import { languagesFrom, mergeCatalog } from './languagePacks'
+import { en, withProductName, zhHant } from '../i18n/dict'
+import { BASE_LANGUAGE, languagesFrom, mergeCatalog } from './languagePacks'
 
 describe('mergeCatalog', () => {
   it('uses the translation where there is one and English everywhere else', () => {
@@ -16,11 +17,21 @@ describe('mergeCatalog', () => {
       pane: { tabs: { nested: 'not a string' }, invented: 'x' },
       invented: { a: 'b' },
     })
-    expect(dict).toEqual(en)
+    expect(dict).toEqual(BASE_LANGUAGE.catalog)
   })
 
   it('reproduces the full Traditional Chinese catalog from its JSON form', () => {
-    expect(mergeCatalog(JSON.parse(JSON.stringify(zhHant)))).toEqual(zhHant)
+    const named = JSON.parse(withProductName(JSON.stringify(zhHant)))
+    expect(mergeCatalog(JSON.parse(JSON.stringify(zhHant)))).toEqual(named)
+  })
+
+  it('names the product in English and in a pack, wherever a string writes {product}', () => {
+    const dict = mergeCatalog({ update: { title: '{product} 已更新' } })
+    expect(dict.update.title).toBe(`${PRODUCT_NAME} 已更新`)
+    expect(dict.sandbox.pineAccess).toBe(`${PRODUCT_NAME} access`)
+    expect(JSON.stringify(mergeCatalog(JSON.parse(JSON.stringify(zhHant))))).not.toContain(
+      '{product}',
+    )
   })
 })
 
@@ -35,6 +46,6 @@ describe('languagesFrom', () => {
       ['en', 'English'],
       ['fr', 'Français'],
     ])
-    expect(languages[0]?.catalog).toBe(en)
+    expect(languages[0]?.catalog).toBe(BASE_LANGUAGE.catalog)
   })
 })

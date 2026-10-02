@@ -31,9 +31,12 @@ const base = {
   iconThemes: [],
   secrets: [],
   secretsSet: [],
+  settingsPage: null,
   category: 'other',
   languages: [],
   languageServers: [],
+  agentSkills: [],
+  agentHooks: [],
 } satisfies Partial<ExtensionInfo>
 
 const assistant: ExtensionInfo = {

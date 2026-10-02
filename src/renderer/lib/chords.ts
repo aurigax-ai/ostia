@@ -1,6 +1,3 @@
-import { isDangerousSegment } from '@shared/protoGuard'
-import { commands } from '../commands/registry'
-import { useSettingsStore } from '../stores/settingsStore'
 import {
   type ChordProblem,
   type ChordSpec,
@@ -13,9 +10,12 @@ import {
   parseChord,
   specFromEvent,
   stealsTerminalKey,
-} from './chordSpec'
+} from '@shared/chordSpec'
+import { isDangerousSegment } from '@shared/protoGuard'
+import { commands } from '../commands/registry'
+import { useSettingsStore } from '../stores/settingsStore'
 
-export type { KeyLike, KeybindingMap } from './chordSpec'
+export type { KeyLike, KeybindingMap } from '@shared/chordSpec'
 
 export type AppChord =
   | 'palette.toggle'
@@ -33,6 +33,16 @@ export type AppChord =
   | 'view.zoomReset'
   | 'assist.compose'
   | 'dashboard.toggle'
+  | 'pane.splitRight'
+  | 'pane.splitDown'
+  | 'pane.focusLeft'
+  | 'pane.focusRight'
+  | 'pane.focusUp'
+  | 'pane.focusDown'
+  | 'pane.zoom'
+  | 'pane.close'
+  | 'workspace.next'
+  | 'workspace.previous'
 
 export type TerminalChord = 'copy' | 'paste' | 'find' | 'block.selectPrev' | 'block.selectNext'
 
@@ -66,6 +76,16 @@ export const DEFAULT_CHORDS: Readonly<
   'view.zoomReset': ['Cmd+0', 'Ctrl+0'],
   'assist.compose': ['Cmd+J', 'Ctrl+Shift+J'],
   'dashboard.toggle': ['Cmd+Shift+D', 'Ctrl+Shift+D'],
+  'pane.splitRight': ['Cmd+Alt+\\', 'Ctrl+Alt+\\'],
+  'pane.splitDown': ['Cmd+Alt+-', 'Ctrl+Alt+-'],
+  'pane.focusLeft': ['Cmd+Ctrl+Left', 'Ctrl+Shift+Alt+H'],
+  'pane.focusRight': ['Cmd+Ctrl+Right', 'Ctrl+Shift+Alt+L'],
+  'pane.focusUp': ['Cmd+Ctrl+Up', 'Ctrl+Shift+Alt+K'],
+  'pane.focusDown': ['Cmd+Ctrl+Down', 'Ctrl+Shift+Alt+J'],
+  'pane.zoom': ['Cmd+Shift+X', 'Ctrl+Shift+X'],
+  'pane.close': ['Cmd+Shift+W', 'Ctrl+Shift+W'],
+  'workspace.next': ['Cmd+Ctrl+]', 'Ctrl+Shift+PageDown'],
+  'workspace.previous': ['Cmd+Ctrl+[', 'Ctrl+Shift+PageUp'],
   copy: ['Cmd+C', 'Ctrl+Shift+C'],
   paste: ['Cmd+V', 'Ctrl+Shift+V'],
   find: ['Cmd+F', 'Ctrl+Shift+F'],
@@ -149,17 +169,6 @@ export function matchChord(e: KeyLike, mac: boolean): string | null {
   if (exact) return exact
   if (workspaceDigit(spec.key) === null) return null
   return bySignature.get(formatChord({ ...spec, key: DIGIT_RANGE }, mac)) ?? null
-}
-
-export function isNativeClipboardKey(e: KeyLike): boolean {
-  const spec = specFromEvent(e)
-  return (
-    spec?.meta === true &&
-    !spec.ctrl &&
-    !spec.alt &&
-    !spec.shift &&
-    (spec.key === 'c' || spec.key === 'v')
-  )
 }
 
 export function isAppChord(chord: string | null): chord is string {

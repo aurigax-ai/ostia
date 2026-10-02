@@ -1,20 +1,59 @@
+import { readFileSync } from 'node:fs'
 import { homedir } from 'node:os'
-import { connect, runTool } from '../sdk'
+import { join } from 'node:path'
+import { booleanSetting, connect, onShutdown, runTool } from '../sdk'
 import { sshCommands } from './commands'
+import { CONSENT_FILE, HelperConsent } from './consent'
+import { HelperFolders, Sessions } from './folders'
+import { shippedHelper } from './helper'
+import { type HelperDeps, helperCommands, installedHelper } from './helperCommands'
+import { HelperHosts } from './helperHosts'
 import { discoverHosts } from './hosts'
 
 const RESOLVE_TIMEOUT_MS = 5000
+const HELPER_SOURCE = join(__dirname, 'assets', 'helper.sh')
 
 async function main(): Promise<void> {
   const ext = await connect()
-  await ext.registerCommands(
-    sshCommands({
+  const helper = shippedHelper(readFileSync(HELPER_SOURCE))
+  const hosts = new HelperHosts({ helper })
+  const dataDir = process.env.PINE_EXTENSION_DATA
+  const consent = new HelperConsent(dataDir ? join(dataDir, CONSENT_FILE) : null)
+  const run = (args: string[]) => runTool('ssh', args, { timeoutMs: RESOLVE_TIMEOUT_MS })
+  const sessions = new Sessions()
+  const folders = new HelperFolders(hosts)
+  onShutdown(() => hosts.closeAll())
+  ext.onFiles(folders.handle)
+  ext.onFolderClosed((folderId) => folders.remove(folderId))
+  await ext.subscribe(['pane.closed'], (type, payload) => {
+    if (type === 'pane.closed' && 'paneId' in payload) sessions.closed(payload.paneId)
+  })
+  const helperDeps: HelperDeps = {
+    run,
+    confirm: (req) => ext.confirm(req),
+    enabled: async () => booleanSetting(await ext.getSettings(), 'remoteHelper', true),
+    consent,
+    hosts,
+    helper,
+    sessions,
+    folders,
+    openFolder: (opts) => ext.openFolder(opts),
+    closeFolder: (folderId) => ext.closeFolder(folderId),
+  }
+  await ext.registerCommands({
+    ...sshCommands({
       discover: () => discoverHosts(homedir()),
-      run: (args) => runTool('ssh', args, { timeoutMs: RESOLVE_TIMEOUT_MS }),
+      run,
       confirm: (req) => ext.confirm(req),
       openTerminal: (opts) => ext.openTerminal(opts),
+      shellIntegration: async () =>
+        booleanSetting(await ext.getSettings(), 'shellIntegration', true),
+      sessionOpened: (paneId, plan) => sessions.opened(paneId, plan),
+      installedHelper: async (plan) =>
+        (await helperDeps.enabled()) ? installedHelper(plan, helperDeps) : null,
     }),
-  )
+    ...helperCommands(helperDeps),
+  })
 }
 
 main().catch((err) => {

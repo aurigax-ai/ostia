@@ -32,6 +32,7 @@ conn.onRequest('ext.command', async ({ command, args, caller }) => {
   }
   if (command === 'crash') process.exit(3)
   if (command === 'stdin') return { ok: true, text: `stdin:${args.stdin}` }
+  if (command === 'argv') return { ok: true, data: args.argv }
   if (command === 'chip') return conn.sendRequest('ext.setPaneChip', args)
   if (command === 'unchip') return conn.sendRequest('ext.clearPaneChip', args)
   if (command === 'settings') return { ok: true, data: await conn.sendRequest('ext.getSettings') }
@@ -81,6 +82,7 @@ socket.on('connect', async () => {
       'workspaces',
       'crash',
       'stdin',
+      'argv',
       'chip',
       'unchip',
       'settings',

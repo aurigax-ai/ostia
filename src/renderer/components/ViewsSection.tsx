@@ -5,6 +5,7 @@ import { fmt, useDict } from '../i18n/useDict'
 import { useViewsStore } from '../stores/viewsStore'
 import { IconButton } from './IconButton'
 import { SectionHead } from './SettingsPanel'
+import { Highlight, useSearchGroup } from './SettingsSearch'
 import { Badge } from './ui/badge'
 import { Switch } from './ui/switch'
 import { viewIcon } from './viewIcons'
@@ -42,14 +43,22 @@ function ViewRow({ view }: { view: ViewInfo }): JSX.Element {
   const setEnabled = useViewsStore((s) => s.setEnabled)
   const Icon = viewIcon(view.icon)
   const placement = placementLabel(d, view)
+  const search = useSearchGroup([view.title, view.name, view.description])
   return (
-    <li className="flex flex-col rounded-sm px-3 py-2" data-view-row={view.name}>
+    <li
+      hidden={search.hidden}
+      data-search-hit={search.hit || undefined}
+      className="flex flex-col rounded-sm px-3 py-2"
+      data-view-row={view.name}
+    >
       <div className="flex items-start justify-between gap-6">
         <div className="flex min-w-0 flex-1 gap-2.5">
           <Icon size={14} className="mt-0.5 shrink-0 text-fg-muted" aria-hidden />
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <span className="truncate text-fg text-ui-base">{view.title}</span>
+              <span className="truncate text-fg text-ui-base">
+                <Highlight text={view.title} />
+              </span>
               {view.status === 'pending' ? (
                 <Badge variant="outline" className="text-ui-xs">
                   {d.views.pending}
@@ -61,7 +70,9 @@ function ViewRow({ view }: { view: ViewInfo }): JSX.Element {
               {placement ? ` · ${placement}` : ''}
             </p>
             {view.description ? (
-              <p className="mt-0.5 text-fg-muted text-ui-sm">{view.description}</p>
+              <p className="mt-0.5 text-fg-muted text-ui-sm">
+                <Highlight text={view.description} />
+              </p>
             ) : null}
             {view.status === 'pending' ? (
               <p className="mt-0.5 text-fg-muted text-ui-xs">{d.views.pendingNote}</p>

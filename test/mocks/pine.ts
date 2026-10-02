@@ -6,7 +6,9 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
   const noopUnsub = () => () => {}
   const base: PineBridge = {
     ping: vi.fn().mockResolvedValue('pong'),
-    info: vi.fn().mockResolvedValue({ name: 'pine', version: '0.0.0', platform: 'linux' }),
+    info: vi
+      .fn()
+      .mockResolvedValue({ name: 'pine', version: '0.0.0', platform: 'linux', hostName: 'devbox' }),
     platform: 'linux',
     diagnostics: {
       report: vi.fn(),
@@ -24,6 +26,8 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       quit: vi.fn(),
       isMaximized: vi.fn().mockResolvedValue(false),
       setZoom: vi.fn().mockImplementation((percent: number) => Promise.resolve(percent)),
+      beep: vi.fn(),
+      writePrimarySelection: vi.fn(),
       isSystemDark: vi.fn().mockResolvedValue(true),
       onSystemDarkChange: vi.fn(noopUnsub),
       onMaximizeChange: vi.fn(noopUnsub),
@@ -62,6 +66,16 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       unwatch: vi.fn(),
       onChanged: vi.fn(() => () => {}),
     },
+    remoteFiles: {
+      folders: vi.fn().mockResolvedValue([]),
+      onFolders: vi.fn(noopUnsub),
+      close: vi.fn().mockResolvedValue(true),
+      onConfirm: vi.fn(noopUnsub),
+      list: vi.fn().mockResolvedValue({ ok: false, error: 'unknown-folder' }),
+      stat: vi.fn().mockResolvedValue({ ok: false, error: 'unknown-folder' }),
+      read: vi.fn().mockResolvedValue({ ok: false, error: 'unknown-folder' }),
+      write: vi.fn().mockResolvedValue({ ok: false, error: 'unknown-folder' }),
+    },
     lsp: {
       servers: vi.fn().mockResolvedValue([]),
       onServersChanged: vi.fn(noopUnsub),
@@ -75,6 +89,7 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       log: vi.fn().mockResolvedValue({ entries: [], errors: {} }),
       fetch: vi.fn().mockResolvedValue(undefined),
       removeDownload: vi.fn().mockResolvedValue(undefined),
+      setOverride: vi.fn().mockResolvedValue({ servers: [] }),
     },
     settings: {
       path: vi.fn().mockResolvedValue('/tmp/pine-test/settings.json'),
@@ -139,6 +154,9 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       pickCancel: vi.fn(),
       pickSend: vi.fn().mockResolvedValue({ ok: false, error: 'not-found' }),
       onPickState: vi.fn(noopUnsub),
+      regionCapture: vi.fn().mockResolvedValue({ ok: false, error: 'browser-not-ready' }),
+      regionSend: vi.fn().mockResolvedValue({ ok: false, error: 'not-found' }),
+      regionCopy: vi.fn().mockResolvedValue({ ok: true }),
       storageRead: vi.fn().mockResolvedValue({ ok: false, error: 'browser-not-ready' }),
       storageSet: vi.fn().mockResolvedValue({ ok: true }),
       storageRemove: vi.fn().mockResolvedValue({ ok: true }),
@@ -150,6 +168,11 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
     files: {
       pathForFile: vi.fn(() => ''),
       admitDropped: vi.fn().mockResolvedValue([]),
+    },
+    clipboard: {
+      edit: vi.fn().mockResolvedValue(undefined),
+      hasImage: vi.fn().mockResolvedValue(false),
+      setChords: vi.fn(),
     },
     openPath: {
       openDefault: vi.fn().mockResolvedValue({ ok: true }),
@@ -185,6 +208,7 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       setEnabled: vi.fn().mockResolvedValue({ ok: false, reason: 'not-owned' }),
       setPaths: vi.fn().mockResolvedValue({ ok: false, errors: [] }),
       checkPaths: vi.fn().mockResolvedValue([]),
+      presets: vi.fn().mockResolvedValue([]),
       setDomains: vi.fn().mockResolvedValue({ ok: false, errors: [] }),
       setDeniedDomains: vi.fn().mockResolvedValue({ ok: false, errors: [] }),
       setSwitches: vi.fn().mockResolvedValue(null),
@@ -261,6 +285,10 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       onOpenPanel: vi.fn(noopUnsub),
       onOpenDiff: vi.fn(noopUnsub),
       onOpenTerminal: vi.fn(noopUnsub),
+      onAgentOffer: vi.fn(noopUnsub),
+      onAgentOfferWithdrawn: vi.fn(noopUnsub),
+      answerAgentOffer: vi.fn(),
+      onFocusPane: vi.fn(noopUnsub),
     },
     assist: {
       availability: vi.fn().mockResolvedValue({}),
@@ -287,6 +315,13 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       exportMarkdown: vi.fn().mockResolvedValue({ ok: false, error: 'cancelled' }),
       saveFile: vi.fn().mockResolvedValue({ ok: false, error: 'cancelled' }),
     },
+    privacy: {
+      kinds: vi.fn().mockResolvedValue([]),
+      redact: vi.fn(async (texts: string[]) =>
+        texts.map((text) => ({ text, count: 0, kinds: {} })),
+      ),
+      preview: vi.fn(async (text: string) => ({ text, count: 0, kinds: {} })),
+    },
     chatTools: {
       read: vi.fn().mockResolvedValue({ ok: false, error: 'not-found' }),
       list: vi.fn().mockResolvedValue({ ok: false, error: 'not-found' }),
@@ -294,7 +329,7 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       preview: vi.fn().mockResolvedValue({ ok: false, error: 'not-found' }),
       plan: vi.fn().mockResolvedValue({ ok: false, error: 'not-found' }),
       write: vi.fn().mockResolvedValue({ ok: false, error: 'failed' }),
-      undo: vi.fn().mockResolvedValue({ ok: false, error: 'failed' }),
+      restore: vi.fn().mockResolvedValue({ ok: false, error: 'failed' }),
       skills: vi.fn().mockResolvedValue([]),
       loadSkill: vi.fn().mockResolvedValue({ ok: false, error: 'unknown-skill' }),
       mcpStatus: vi.fn().mockResolvedValue([]),
@@ -304,6 +339,10 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       mcpCall: vi.fn().mockResolvedValue({ ok: false, error: 'not connected' }),
       mcpCancel: vi.fn(),
       setMcpSecret: vi.fn().mockResolvedValue({ ok: true }),
+      mcpSignIn: vi.fn().mockResolvedValue({ ok: true }),
+      mcpCancelSignIn: vi.fn(),
+      mcpSignOut: vi.fn().mockResolvedValue([]),
+      mcpTest: vi.fn().mockResolvedValue({ ok: true, tools: 0 }),
     },
     externalEditor: {
       open: vi.fn().mockResolvedValue({ ok: true, argv: [] }),

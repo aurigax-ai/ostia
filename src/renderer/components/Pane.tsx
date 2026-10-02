@@ -20,7 +20,7 @@ import { type DragEvent, useCallback, useEffect, useLayoutEffect, useRef } from 
 import { commands } from '../commands/registry'
 import { fmt, useDict } from '../i18n/useDict'
 import type { DropZone, PaneNode, SurfaceKind } from '../layout/types'
-import { needsRing } from '../lib/attention'
+import { needsYou, tabMark } from '../lib/attention'
 import { isIdlePrompt } from '../lib/blocks'
 import { useChordLabel } from '../lib/chords'
 import { type TabDrop, dropZoneAt, paneDropTarget, tabDropTarget } from '../lib/dropZone'
@@ -32,6 +32,8 @@ import {
   isPaneDrag,
   reportForeignDrop,
 } from '../lib/paneDrag'
+import { leavePane } from '../lib/pointerView'
+import { viewPointedPane } from '../lib/workspaceActivity'
 import { isMac } from '../platform'
 import { useApprovalsStore } from '../stores/approvalsStore'
 import { useAttentionStore } from '../stores/attentionStore'
@@ -88,7 +90,6 @@ export function Pane({ tabs, shownId, active, split = false }: PaneProps): JSX.E
   const attention = useAttentionStore((s) => s.byPane[shown.id])
   const approval = useApprovalsStore((s) => s.pending.find((r) => r.paneId === shown.id))
   const question = useQuestionsStore((s) => s.pending.find((q) => q.paneId === shown.id))
-  const ring = needsRing(attention)
   const unread = attention?.unread ?? false
   const frameRef = useRef<HTMLDivElement>(null)
   const dimInactive = useSettingsStore((s) => s.panes.dimInactive)
@@ -122,6 +123,21 @@ export function Pane({ tabs, shownId, active, split = false }: PaneProps): JSX.E
       frame.removeEventListener('mousedown', cancel, true)
     }
   }, [focusOnHover, active, shown.id])
+  useEffect(() => {
+    const frame = frameRef.current
+    if (!frame) return
+    const point = (): void => viewPointedPane(shown.id)
+    const leave = (): void => leavePane(shown.id)
+    frame.addEventListener('mouseenter', point)
+    frame.addEventListener('mousemove', point)
+    frame.addEventListener('mouseleave', leave)
+    return () => {
+      leave()
+      frame.removeEventListener('mouseenter', point)
+      frame.removeEventListener('mousemove', point)
+      frame.removeEventListener('mouseleave', leave)
+    }
+  }, [shown.id])
   useEffect(() => {
     const frame = frameRef.current
     if (!frame) return
@@ -221,7 +237,7 @@ export function Pane({ tabs, shownId, active, split = false }: PaneProps): JSX.E
 
   return (
     <div
-      className={`pane${active ? ' active' : ''}${split && !active && dimInactive ? ' dimmed' : ''}${ring ? ' attn-ring' : ''}`}
+      className={`pane${active ? ' active' : ''}${split && !active && dimInactive ? ' dimmed' : ''}`}
       data-attention={unread ? attention?.state : undefined}
       data-pane-id={shown.id}
       ref={frameRef}
@@ -298,11 +314,6 @@ export function Pane({ tabs, shownId, active, split = false }: PaneProps): JSX.E
         ) : null}
       </div>
 
-      {ring ? (
-        <span className="pane-attn-ring" aria-hidden="true">
-          <span key={attention?.at} className="pane-attn-pulse" />
-        </span>
-      ) : null}
       {shown.kind === 'terminal' ? null : <div className="pane-file-drop" />}
       {dragging ? (
         <div
@@ -370,8 +381,8 @@ function PaneTab({
     deleted: d.editor.diskMarkDeleted,
   }
   const attention = useAttentionStore((s) => s.byPane[pane.id])
-  const unread = attention?.unread ?? false
-  const ring = needsRing(attention)
+  const mark = tabMark(attention)
+  const loud = needsYou(attention)
   const workspaceId = useWorkspacesStore((s) => s.activeWorkspaceId)
 
   const tab = (
@@ -382,7 +393,7 @@ function PaneTab({
         pane.locked && 'locked',
         dropMark && `drop-${dropMark}`,
       )}
-      data-attention={unread ? attention?.state : undefined}
+      data-attention={mark ?? undefined}
       data-tab-id={pane.id}
       draggable
       onDragStart={(e) => {
@@ -410,9 +421,19 @@ function PaneTab({
           requestAnimationFrame(() => focusSurface(pane.id))
         }}
       >
+        {mark ? (
+          <span
+            className="pane-attn-mark"
+            role="img"
+            aria-label={
+              mark === 'waiting' || mark === 'error' ? d.attention.needsYou : d.attention.unread
+            }
+          />
+        ) : null}
         <Icon
+          key={loud ? attention?.at : undefined}
           size={16}
-          className="pane-kind"
+          className={cn('pane-kind', loud && 'pane-kind-blink')}
           aria-label={pane.hibernated ? d.pane.hibernated : undefined}
         />
         {dirty && !diskProblem ? (
@@ -425,13 +446,6 @@ function PaneTab({
           <Hint label={diskLabel[diskProblem]}>
             <span className="pane-disk-mark" role="img" aria-label={diskLabel[diskProblem]} />
           </Hint>
-        ) : null}
-        {unread ? (
-          <span
-            className={`pane-attn-mark${ring ? ' loud' : ''}`}
-            role="img"
-            aria-label={ring ? d.attention.needsYou : d.attention.unread}
-          />
         ) : null}
       </button>
       {pane.locked ? (

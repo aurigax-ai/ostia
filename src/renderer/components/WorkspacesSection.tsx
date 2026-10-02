@@ -1,3 +1,4 @@
+import { toAccelerator } from '@shared/globalHotkey'
 import { useEffect, useState } from 'react'
 import { useDict } from '../i18n/useDict'
 import {
@@ -109,6 +110,22 @@ export function WorkspacesSection(): JSX.Element {
           checked={settings.closeToTray}
           onChange={(v) => set({ closeToTray: v })}
         />
+        <ControlRow
+          label={d.workspaceSettings.globalHotkey}
+          desc={d.workspaceSettings.globalHotkeyDesc}
+        >
+          <Input
+            value={settings.globalHotkey}
+            spellCheck={false}
+            placeholder="Ctrl+Alt+Space"
+            aria-label={d.workspaceSettings.globalHotkey}
+            onChange={(e) => set({ globalHotkey: e.target.value })}
+            className="h-7 w-48 font-mono"
+          />
+        </ControlRow>
+        {settings.globalHotkey.trim() && !toAccelerator(settings.globalHotkey) ? (
+          <WarningNote>{d.workspaceSettings.globalHotkeyInvalid}</WarningNote>
+        ) : null}
       </SettingsGroup>
       <SettingsGroup title={d.workspaceSettings.groupSidebar}>
         <ToggleRow

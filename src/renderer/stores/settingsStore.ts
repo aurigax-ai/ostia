@@ -1,9 +1,12 @@
+import { type AgentHooks, DEFAULT_AGENT_HOOKS, parseAgentHooks } from '@shared/agentHooks'
 import {
   type ApprovalMode,
   type ApprovalSettings,
   DEFAULT_APPROVAL_SETTINGS,
   parseApprovalSettings,
 } from '@shared/approvals'
+import { type KeybindingMap, parseKeybindings } from '@shared/chordSpec'
+import { debounce } from 'es-toolkit'
 import { create } from 'zustand'
 import {
   type AssistModelSettings,
@@ -25,6 +28,7 @@ import {
   parseChatToolSettings,
 } from '../../shared/chatTools'
 import type { ExtensionSettingValues } from '../../shared/extensions'
+import { parseGlobalHotkey } from '../../shared/globalHotkey'
 import {
   DEFAULT_MANAGER_SETTINGS,
   type ManagerSettings,
@@ -37,11 +41,17 @@ import {
 } from '../../shared/notificationSettings'
 import { parsePromptSettings } from '../../shared/promptSettings'
 import { isDangerousSegment } from '../../shared/protoGuard'
+import {
+  DEFAULT_PRIVACY_SETTINGS,
+  type PrivacySettings,
+  type RedactionSettings,
+  parsePrivacySettings,
+  parseRedactionSettings,
+} from '../../shared/redaction'
 import { type SandboxGlobals, parseSandboxGlobals } from '../../shared/sandbox'
 import { normalizeGroupName } from '../../shared/workspaceGroups'
 import { ZOOM_DEFAULT, clampZoom } from '../../shared/zoom'
 import type { Locale } from '../i18n/dict'
-import { type KeybindingMap, parseKeybindings } from '../lib/chordSpec'
 import { normalizeHex } from '../lib/color'
 import type { GroupRule } from '../lib/workspaceGroups'
 import { type UserAction, parseActions } from '../settings/actions'
@@ -102,6 +112,7 @@ export interface HibernationSettings {
 export interface AgentSettings {
   hibernation: HibernationSettings
   autoResume: boolean
+  hooks: AgentHooks
 }
 
 export interface AssistantSettings extends ChatToolSettings, AssistModelSettings {
@@ -200,6 +211,7 @@ export interface Behavior {
   copyOnSelect: boolean
   inputMode: InputMode
   inputEditorVim: boolean
+  historySuggestions: boolean
   checkForUpdates: boolean
 }
 
@@ -219,6 +231,7 @@ export interface WorkspaceSettings {
   confirmQuit: boolean
   closeToTray: boolean
   wrapTitles: boolean
+  globalHotkey: string
 }
 
 export const DEFAULT_WORKSPACE_SETTINGS: WorkspaceSettings = {
@@ -229,6 +242,7 @@ export const DEFAULT_WORKSPACE_SETTINGS: WorkspaceSettings = {
   confirmQuit: true,
   closeToTray: true,
   wrapTitles: false,
+  globalHotkey: '',
 }
 
 export function parseWorkspaceSettings(raw: unknown): WorkspaceSettings {
@@ -241,6 +255,7 @@ export function parseWorkspaceSettings(raw: unknown): WorkspaceSettings {
       ? (raw.placement as NewWorkspacePlacement)
       : base.placement,
     defaultFolder: folder || base.defaultFolder,
+    globalHotkey: parseGlobalHotkey(raw.globalHotkey),
   }
 }
 
@@ -278,6 +293,7 @@ interface Persisted {
   actions: UserAction[]
   trustedActions: string[]
   sandbox?: SandboxGlobals
+  privacy: PrivacySettings
 }
 
 const DATA_KEYS: readonly string[] = [
@@ -321,6 +337,7 @@ const DEFAULTS: Persisted = {
     copyOnSelect: false,
     inputMode: 'terminal',
     inputEditorVim: false,
+    historySuggestions: true,
     checkForUpdates: true,
   },
   files: DEFAULT_FILE_TREE_SETTINGS,
@@ -338,7 +355,7 @@ const DEFAULTS: Persisted = {
     showExtensionItems: true,
     showSSH: true,
   },
-  agents: { hibernation: DEFAULT_HIBERNATION, autoResume: false },
+  agents: { hibernation: DEFAULT_HIBERNATION, autoResume: false, hooks: DEFAULT_AGENT_HOOKS },
   assistant: {
     chatHistory: true,
     ...DEFAULT_CHAT_TOOL_SETTINGS,
@@ -350,6 +367,7 @@ const DEFAULTS: Persisted = {
   actions: [],
   trustedActions: [],
   manager: DEFAULT_MANAGER_SETTINGS,
+  privacy: DEFAULT_PRIVACY_SETTINGS,
 }
 
 interface SettingsState extends Persisted {
@@ -373,9 +391,11 @@ interface SettingsState extends Persisted {
   setWorkspaces: (patch: Partial<WorkspaceSettings>) => void
   setSandbox: (next: SandboxGlobals) => Promise<void>
   setManager: (patch: Partial<ManagerSettings>) => void
+  setRedaction: (patch: Partial<RedactionSettings>) => Promise<void>
   setBrowser: (patch: Partial<BrowserSettings>) => void
   setEditor: (patch: Partial<EditorSettings>) => void
   setAutoResume: (autoResume: boolean) => void
+  setAgentHooks: (patch: Partial<AgentHooks>) => void
   setChatHistory: (chatHistory: boolean) => void
   setChatTools: (patch: Partial<ChatToolSettings>) => Promise<void>
   setAssistModels: (patch: Partial<AssistModelSettings>) => Promise<void>
@@ -444,6 +464,7 @@ export function parsePersisted(p: Partial<Persisted>): Persisted {
     agents: {
       hibernation: parseHibernation(p.agents?.hibernation),
       autoResume: p.agents?.autoResume === true,
+      hooks: parseAgentHooks(p.agents?.hooks),
     },
     assistant: {
       chatHistory: p.assistant?.chatHistory !== false,
@@ -461,6 +482,7 @@ export function parsePersisted(p: Partial<Persisted>): Persisted {
       ? p.trustedActions.filter((f): f is string => typeof f === 'string')
       : [],
     sandbox: p.sandbox === undefined ? undefined : parseSandboxGlobals(p.sandbox),
+    privacy: parsePrivacySettings(p.privacy),
   }
 }
 
@@ -533,8 +555,6 @@ function applySetting(s: SettingsState, path: string, value: unknown): SettingCh
   return { path, previous, value: getByPath(parsed, path), next }
 }
 
-let saveTimer: ReturnType<typeof setTimeout> | null = null
-
 async function writeSettings(s: SettingsState): Promise<void> {
   const snapshot: Persisted = {
     locale: s.locale,
@@ -560,17 +580,15 @@ async function writeSettings(s: SettingsState): Promise<void> {
     actions: s.actions,
     trustedActions: s.trustedActions,
     sandbox: s.sandbox,
+    privacy: s.privacy,
   }
   const path = await window.pine.settings.path()
   await window.pine.fs.write(path, `${JSON.stringify(snapshot, null, 2)}\n`)
 }
 
-function scheduleSave(get: () => SettingsState): void {
-  if (saveTimer) clearTimeout(saveTimer)
-  saveTimer = setTimeout(() => {
-    writeSettings(get()).catch((err: unknown) => console.error('[settings] save failed', err))
-  }, 300)
-}
+const scheduleSave = debounce((get: () => SettingsState): void => {
+  writeSettings(get()).catch((err: unknown) => console.error('[settings] save failed', err))
+}, 300)
 
 const extensionSettingsOf = (v: unknown): Record<string, ExtensionSettingValues> => {
   if (!isPlainObject(v)) return {}
@@ -705,6 +723,13 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     set((s) => ({ manager: parseManagerSettings({ ...s.manager, ...patch }) }))
     scheduleSave(get)
   },
+  setRedaction: async (patch) => {
+    set((s) => ({
+      privacy: { redaction: parseRedactionSettings({ ...s.privacy.redaction, ...patch }) },
+    }))
+    scheduleSave.cancel()
+    await writeSettings(get())
+  },
   setBrowser: (patch) => {
     set((s) => ({ browser: parseBrowserSettings({ ...s.browser, ...patch }) }))
     scheduleSave(get)
@@ -740,20 +765,22 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     set((s) => ({
       assistant: { ...s.assistant, ...parseChatToolSettings({ ...s.assistant, ...patch }) },
     }))
-    if (saveTimer) clearTimeout(saveTimer)
-    saveTimer = null
+    scheduleSave.cancel()
     await writeSettings(get())
   },
   setAssistModels: async (patch) => {
     set((s) => ({
       assistant: { ...s.assistant, ...parseAssistModelSettings({ ...s.assistant, ...patch }) },
     }))
-    if (saveTimer) clearTimeout(saveTimer)
-    saveTimer = null
+    scheduleSave.cancel()
     await writeSettings(get())
   },
   setAutoResume: (autoResume) => {
     set((s) => ({ agents: { ...s.agents, autoResume } }))
+    scheduleSave(get)
+  },
+  setAgentHooks: (patch) => {
+    set((s) => ({ agents: { ...s.agents, hooks: { ...s.agents.hooks, ...patch } } }))
     scheduleSave(get)
   },
   setHibernation: (patch) => {
@@ -783,8 +810,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     scheduleSave(get)
   },
   setSyncDir: async (dir) => {
-    if (saveTimer) clearTimeout(saveTimer)
-    saveTimer = null
+    scheduleSave.cancel()
     set({ sync: dir ? { dir } : undefined })
     await writeSettings(get())
   },

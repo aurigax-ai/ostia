@@ -3,10 +3,10 @@
   "id": "hello",
   "name": "Hello",
   "version": "0.1.0",
-  "api": "1.6",
-  "description": "Starter extension: one command that greets you and posts a notification",
+  "api": "1.11",
+  "description": "Starter extension: a command that greets you, and a skill and hook that teach coding agents to use it",
   "category": "other",
-  "capabilities": ["notify"],
+  "capabilities": ["notify", "agent-plugin"],
   "main": "main.js",
   "locales": ["zh-Hant"],
   "contributes": {
@@ -17,7 +17,16 @@
         "category": "Hello",
         "argument": "Name",
         "usage": "greet <name>"
+      },
+      {
+        "id": "agent-hook",
+        "title": "Hello: Agent hook",
+        "category": "Hello",
+        "palette": false,
+        "stdin": true
       }
-    ]
+    ],
+    "agentSkills": [{ "name": "greet", "path": "skills/greet" }],
+    "agentHooks": [{ "event": "SessionStart", "command": "agent-hook" }]
   }
 }

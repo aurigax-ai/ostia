@@ -6,6 +6,8 @@ import {
   parsePorcelainV2,
   parseShortstat,
   summarize,
+  textLineCount,
+  withUntracked,
 } from './status'
 
 describe('branchChipText', () => {
@@ -55,6 +57,32 @@ describe('diff stats', () => {
     expect(diffStatsChipText({ files: 1, added: 0, removed: 2 })).toBe('1 • -2')
     expect(diffStatsChipText({ files: 1, added: 0, removed: 0 })).toBe('1')
     expect(diffStatsChipText(null)).toBe('')
+  })
+})
+
+describe('textLineCount', () => {
+  it('counts lines with or without a final newline', () => {
+    expect(textLineCount(Buffer.from('a\nb\n'), 8000)).toBe(2)
+    expect(textLineCount(Buffer.from('a\nb'), 8000)).toBe(2)
+  })
+
+  it('counts nothing for an empty or binary file', () => {
+    expect(textLineCount(Buffer.alloc(0), 8000)).toBe(0)
+    expect(textLineCount(Buffer.from([65, 0, 10, 66]), 8000)).toBe(0)
+  })
+})
+
+describe('withUntracked', () => {
+  it('adds new files and their lines to the tracked changes', () => {
+    expect(withUntracked({ files: 2, added: 2, removed: 1 }, [5, 0])).toEqual({
+      files: 4,
+      added: 7,
+      removed: 1,
+    })
+  })
+
+  it('reports new files in a tree with no tracked changes', () => {
+    expect(withUntracked(null, [3])).toEqual({ files: 1, added: 3, removed: 0 })
   })
 })
 

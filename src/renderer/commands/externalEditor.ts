@@ -1,13 +1,14 @@
+import { isRemotePath } from '@shared/remoteFolders'
 import type { ExternalEditorResult } from '@shared/types'
 import { editorPositionOf } from '../lib/editorPositions'
 import { useSettingsStore } from '../stores/settingsStore'
-import { commands } from './registry'
+import { registerCore } from './core'
 
 export const OPEN_EXTERNAL_COMMAND = 'editor.openExternal'
 
 export function openPaneInExternalEditor(paneId: string): Promise<ExternalEditorResult> | null {
   const position = editorPositionOf(paneId)
-  if (!position) return null
+  if (!position || isRemotePath(position.file)) return null
   return window.pine.externalEditor.open({
     template: useSettingsStore.getState().behavior.externalEditor,
     file: position.file,
@@ -22,10 +23,9 @@ export function externalEditorError(res: ExternalEditorResult): string | null {
 }
 
 export function registerExternalEditorCommand(): void {
-  commands.register<undefined, { argv: string[] }>({
+  registerCore<undefined, { argv: string[] }>({
     id: OPEN_EXTERNAL_COMMAND,
-    title: 'Open in External Editor',
-    category: 'Editor',
+    category: 'editor',
     target: 'active',
     run: async (_args, ctx) => {
       const pending = ctx.activePaneId ? openPaneInExternalEditor(ctx.activePaneId) : null

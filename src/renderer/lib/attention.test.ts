@@ -6,13 +6,14 @@ import {
   aggregateWorkspaceState,
   latestUnread,
   latestWaitingAt,
-  needsRing,
+  needsYou,
   notificationMessage,
   paneLiveState,
   parseOsc9,
   parseOsc99,
   parseOsc777,
   reduceAttention,
+  tabMark,
   unreadCount,
 } from './attention'
 
@@ -60,6 +61,20 @@ describe('reduceAttention', () => {
       at,
     })
     expect(cli).toMatchObject({ state: 'working', unread: true })
+  })
+
+  it('keeps the message a waiting pane waits with when a non-waiting notification arrives', () => {
+    const waiting = pane({ state: 'waiting', message: 'approve?', unread: false })
+    expect(
+      reduceAttention(waiting, { type: 'notify', message: 'other', waiting: false, at }),
+    ).toEqual({ state: 'waiting', unread: true, message: 'approve?', at })
+  })
+
+  it('replaces the message when an already waiting pane signals a new wait', () => {
+    const waiting = pane({ state: 'waiting', message: 'approve?', unread: false })
+    expect(
+      reduceAttention(waiting, { type: 'notify', message: 'now this?', waiting: true, at }),
+    ).toEqual({ state: 'waiting', unread: true, message: 'now this?', at })
   })
 
   it('treats a bell as unread without changing the state', () => {
@@ -141,13 +156,29 @@ describe('reduceAttention', () => {
   })
 })
 
-describe('needsRing', () => {
-  it('rings only for unread waiting or error', () => {
-    expect(needsRing(pane({ state: 'waiting', unread: true }))).toBe(true)
-    expect(needsRing(pane({ state: 'error', unread: true }))).toBe(true)
-    expect(needsRing(pane({ state: 'waiting', unread: false }))).toBe(false)
-    expect(needsRing(pane({ state: 'done', unread: true }))).toBe(false)
-    expect(needsRing(undefined)).toBe(false)
+describe('needsYou', () => {
+  it('is true only for an unread waiting or error pane', () => {
+    expect(needsYou(pane({ state: 'waiting', unread: true }))).toBe(true)
+    expect(needsYou(pane({ state: 'error', unread: true }))).toBe(true)
+    expect(needsYou(pane({ state: 'waiting', unread: false }))).toBe(false)
+    expect(needsYou(pane({ state: 'done', unread: true }))).toBe(false)
+    expect(needsYou(undefined)).toBe(false)
+  })
+})
+
+describe('tabMark', () => {
+  it('marks a waiting pane whether or not it was viewed', () => {
+    expect(tabMark(pane({ state: 'waiting', unread: true }))).toBe('waiting')
+    expect(tabMark(pane({ state: 'waiting', unread: false }))).toBe('waiting')
+  })
+
+  it('marks error, done and plain notifications only while unread', () => {
+    expect(tabMark(pane({ state: 'error', unread: true }))).toBe('error')
+    expect(tabMark(pane({ state: 'done', unread: true }))).toBe('done')
+    expect(tabMark(pane({ state: 'none', unread: true }))).toBe('unread')
+    expect(tabMark(pane({ state: 'error', unread: false }))).toBeNull()
+    expect(tabMark(pane({ state: 'none', unread: false }))).toBeNull()
+    expect(tabMark(undefined)).toBeNull()
   })
 })
 

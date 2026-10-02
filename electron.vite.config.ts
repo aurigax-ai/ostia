@@ -6,7 +6,15 @@ import { fontDataUrl } from './scripts/fontDataUrl.mjs'
 
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin({ exclude: ['@ai-sdk/mcp'] })],
+    plugins: [
+      externalizeDepsPlugin({
+        exclude: [
+          '@ai-sdk/mcp',
+          '@secretlint/core',
+          '@secretlint/secretlint-rule-preset-recommend',
+        ],
+      }),
+    ],
     build: {
       rollupOptions: {
         input: { index: resolve('src/main/index.ts') },

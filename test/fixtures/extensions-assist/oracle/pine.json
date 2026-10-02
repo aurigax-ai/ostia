@@ -2,7 +2,7 @@
   "id": "oracle",
   "name": "Oracle",
   "version": "0.1.0",
-  "api": "1.6",
+  "api": "1.7",
   "description": "Test fixture for the assist contribution points",
   "capabilities": ["assist"],
   "main": "main.js",

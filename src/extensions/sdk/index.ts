@@ -29,6 +29,8 @@ import {
   LOCALE_CHANGED_EVENT,
 } from '../../shared/extensionLocales'
 import type {
+  AgentOfferOptions,
+  AgentOfferResult,
   DiffContent,
   ExtensionCaller,
   ExtensionEventPayloads,
@@ -39,6 +41,7 @@ import type {
   ExtensionSettingValues,
   OpenTerminalOptions,
   PaneChipItem,
+  RunAgentOptions,
   SidebarKind,
   SidebarTone,
 } from '../../shared/extensions'
@@ -47,10 +50,20 @@ import {
   SETTINGS_CHANGED_EVENT,
   TARGET_PANE_PARAM,
 } from '../../shared/extensions'
+import {
+  FOLDER_CLOSED_EVENT,
+  type RemoteFilesRequest,
+  type RemoteListResult,
+  type RemoteReadResult,
+  type RemoteStatResult,
+  type RemoteWriteResult,
+} from '../../shared/remoteFolders'
 import { PANEL_SIZES_FILE, PanelSizeStore } from './panelSizes'
 import { PANEL_SIZES_PATH } from './split'
 
 export type {
+  AgentOfferOptions,
+  AgentOfferResult,
   DiffContent,
   ExtensionCaller,
   ExtensionEventType,
@@ -59,6 +72,7 @@ export type {
   ExtensionSettingValues,
   OpenTerminalOptions,
   PaneChipItem,
+  RunAgentOptions,
   SidebarTone,
 } from '../../shared/extensions'
 
@@ -70,6 +84,46 @@ export {
   matchLocale,
 } from '../../shared/extensionLocales'
 export { createTranslator } from './i18n'
+
+export type {
+  RemoteCwd,
+  RemoteEntry,
+  RemoteFileError,
+  RemoteFilesOp,
+  RemoteFilesRequest,
+  RemoteListResult,
+  RemoteReadResult,
+  RemoteStatResult,
+  RemoteWriteResult,
+} from '../../shared/remoteFolders'
+export {
+  REMOTE_ENTRIES_MAX,
+  REMOTE_FILE_MAX_BYTES,
+  REMOTE_WRITE_ANY,
+  REMOTE_WRITE_NEW,
+} from '../../shared/remoteFolders'
+
+export type RemoteFilesResult =
+  | RemoteListResult
+  | RemoteStatResult
+  | RemoteReadResult
+  | RemoteWriteResult
+
+export type FilesHandler = (
+  req: RemoteFilesRequest,
+) => RemoteFilesResult | Promise<RemoteFilesResult>
+
+export type FolderClosedHandler = (folderId: string) => void
+
+export interface OpenFolderOptions {
+  workspaceId: string
+  host: string
+  path: string
+}
+
+export type OpenFolderResult =
+  | { ok: true; folderId: string }
+  | { ok: false; error: string; message?: string }
 
 export type AttentionVerb = 'waiting' | 'done' | 'working' | 'error' | 'clear'
 
@@ -210,6 +264,10 @@ export interface PineExtension {
   setAttention: (paneId: string, state: AttentionVerb, message?: string) => Promise<unknown>
   openDiff: (diff: DiffContent & { workspaceId?: string }) => Promise<ExtensionResult>
   openTerminal: (opts: OpenTerminalOptions) => Promise<OpenTerminalResult>
+  listAgents: () => Promise<string[]>
+  runAgent: (opts: RunAgentOptions) => Promise<OpenTerminalResult>
+  offerToAgent: (opts: AgentOfferOptions) => Promise<AgentOfferResult>
+  focusPane: (paneId: string) => Promise<ExtensionResult>
   listWorkspaces: () => Promise<WorkspaceInfo[]>
   listPanes: () => Promise<PaneInfo[]>
   onAssist: (handler: AssistHandler) => void
@@ -220,6 +278,10 @@ export interface PineExtension {
   getSecret: (key: string) => Promise<string | null>
   getAssistProviders: () => Promise<AssistProviderEntry[]>
   onAssistProvidersChanged: (handler: AssistProvidersHandler) => void
+  openFolder: (opts: OpenFolderOptions) => Promise<OpenFolderResult>
+  closeFolder: (folderId: string) => Promise<ExtensionResult>
+  onFiles: (handler: FilesHandler) => void
+  onFolderClosed: (handler: FolderClosedHandler) => void
 }
 
 export interface AssistModelsHandler {
@@ -289,6 +351,8 @@ export async function connect(): Promise<PineExtension> {
   let assistHandler: AssistHandler | null = null
   let providersHandler: AssistProvidersHandler | null = null
   let modelsHandler: AssistModelsHandler | null = null
+  let filesHandler: FilesHandler | null = null
+  let folderClosedHandler: FolderClosedHandler | null = null
 
   conn.onRequest(
     'ext.command',
@@ -358,6 +422,14 @@ export async function connect(): Promise<PineExtension> {
       }
     },
   )
+  conn.onRequest('ext.files', async (params: RemoteFilesRequest) => {
+    if (!filesHandler) return { ok: false, error: 'unavailable' }
+    try {
+      return await filesHandler(params)
+    } catch {
+      return { ok: false, error: 'failed' }
+    }
+  })
   conn.onRequest('ext.panel', async (params: { caller: ExtensionCaller; path?: string }) => {
     if (!panelHandler) throw new Error('no panel handler')
     return panelHandler(params.caller, params.path)
@@ -370,6 +442,7 @@ export async function connect(): Promise<PineExtension> {
         | typeof SETTINGS_CHANGED_EVENT
         | typeof LOCALE_CHANGED_EVENT
         | typeof ASSIST_PROVIDERS_CHANGED_EVENT
+        | typeof FOLDER_CLOSED_EVENT
       payload: never
     }) => {
       if (params.type === SETTINGS_CHANGED_EVENT) {
@@ -378,6 +451,8 @@ export async function connect(): Promise<PineExtension> {
         providersHandler?.((params.payload as { providers: AssistProviderEntry[] }).providers)
       } else if (params.type === LOCALE_CHANGED_EVENT) {
         localeHandler?.((params.payload as ExtensionLocaleChangedPayload).locale)
+      } else if (params.type === FOLDER_CLOSED_EVENT) {
+        folderClosedHandler?.((params.payload as { folderId: string }).folderId)
       } else {
         eventHandler?.(params.type, params.payload)
       }
@@ -445,6 +520,37 @@ export async function connect(): Promise<PineExtension> {
         return { ok: false, error: 'open-terminal-failed', message: errorMessage(err) }
       }
     },
+    listAgents: async () => {
+      try {
+        const res = await conn.sendRequest<{ agents?: unknown }>('ext.agents')
+        return Array.isArray(res?.agents)
+          ? res.agents.filter((a): a is string => typeof a === 'string')
+          : []
+      } catch {
+        return []
+      }
+    },
+    runAgent: async (opts) => {
+      try {
+        return await conn.sendRequest<OpenTerminalResult>('ext.runAgent', opts)
+      } catch (err) {
+        return { ok: false, error: 'run-agent-failed', message: errorMessage(err) }
+      }
+    },
+    offerToAgent: async (opts) => {
+      try {
+        return await conn.sendRequest<AgentOfferResult>('ext.offerToAgent', opts)
+      } catch (err) {
+        return { ok: false, error: 'offer-failed', message: errorMessage(err) }
+      }
+    },
+    focusPane: async (paneId) => {
+      try {
+        return await conn.sendRequest<ExtensionResult>('ext.focusPane', { paneId })
+      } catch (err) {
+        return failure('focus-failed', errorMessage(err))
+      }
+    },
     listWorkspaces: () => conn.sendRequest('workspace.list'),
     listPanes: () => conn.sendRequest('pane.list'),
     onAssist: (handler) => {
@@ -475,6 +581,26 @@ export async function connect(): Promise<PineExtension> {
     },
     onAssistProvidersChanged: (handler) => {
       providersHandler = handler
+    },
+    openFolder: async (opts) => {
+      try {
+        return await conn.sendRequest<OpenFolderResult>('ext.openFolder', opts)
+      } catch (err) {
+        return { ok: false, error: 'open-folder-failed', message: errorMessage(err) }
+      }
+    },
+    closeFolder: async (folderId) => {
+      try {
+        return await conn.sendRequest<ExtensionResult>('ext.closeFolder', { folderId })
+      } catch (err) {
+        return failure('close-folder-failed', errorMessage(err))
+      }
+    },
+    onFiles: (handler) => {
+      filesHandler = handler
+    },
+    onFolderClosed: (handler) => {
+      folderClosedHandler = handler
     },
   }
 }

@@ -37,6 +37,7 @@ function manifestFiles(): string[] {
     join(repoRoot, 'sdk-package/template/pine.json'),
     join(repoRoot, 'test/fixtures/extensions/echo/pine.json'),
     join(repoRoot, 'test/fixtures/extensions-e2e/hello/pine.json'),
+    join(repoRoot, 'test/fixtures/extensions-agent/agent-kit/pine.json'),
     join(repoRoot, 'test/fixtures/extensions-lsp/fake-lang/pine.json'),
     join(repoRoot, 'test/fixtures/extensions-lsp/fake-json/pine.json'),
     join(repoRoot, 'test/fixtures/extensions-lsp/fake-grammar/pine.json'),
@@ -53,6 +54,8 @@ describe('manifest schemas', () => {
 
   it('refuse what the loader refuses', () => {
     const base = { id: 'demo', name: 'Demo', version: '1.0.0', api: '1.0' }
+    const pageSettings = { mode: { type: 'string', default: '', description: 'd' } }
+    const agentHookCommand = { id: 'on-hook', title: 'Hook', palette: false, stdin: true }
     const bad: Record<string, unknown>[] = [
       { ...base, id: 'Bad Id' },
       { ...base, name: '' },
@@ -69,6 +72,12 @@ describe('manifest schemas', () => {
         ...base,
         contributes: { settings: { k: { type: 'color', default: '', description: 'd' } } },
       },
+      ...[{ title: 'Mine', icon: 'rocket' }, { icon: 'kanban' }, { title: 'x'.repeat(81) }].map(
+        (settingsPage) => ({
+          ...base,
+          contributes: { settings: pageSettings, settingsPage },
+        }),
+      ),
       ...[
         { id: 'Bad Id' },
         { languages: [] },
@@ -145,6 +154,18 @@ describe('manifest schemas', () => {
           ],
         },
       })),
+      ...[
+        { agentSkills: [{ name: 'Bad Name', path: 'skills/a' }] },
+        { agentSkills: [{ name: 'a', path: 'skills/a', files: ['run.sh'] }] },
+        { agentSkills: [{ name: 'a', path: 'skills/a', files: ['SKILL.md'] }] },
+        { agentHooks: [{ event: 'Startup', command: 'on-hook' }] },
+        { agentHooks: [{ event: 'Stop', command: 'rm -rf /' }] },
+      ].map((agent) => ({
+        ...base,
+        capabilities: ['agent-plugin'],
+        main: 'main.js',
+        contributes: { commands: [agentHookCommand], ...agent },
+      })),
     ]
     for (const manifest of bad) {
       expect(parseManifest(manifest, '/ext').ok, JSON.stringify(manifest)).toBe(false)
@@ -154,6 +175,24 @@ describe('manifest schemas', () => {
     }
     expect(parseManifest(base, '/ext').ok).toBe(true)
     expect(extensionManifestSchema.safeParse(base).success).toBe(true)
+    const paged = {
+      ...base,
+      contributes: { settings: pageSettings, settingsPage: { title: 'Mine', icon: 'kanban' } },
+    }
+    expect(parseManifest(paged, '/ext').ok).toBe(true)
+    expect(extensionManifestSchema.safeParse(paged).success).toBe(true)
+    const agent = {
+      ...base,
+      capabilities: ['agent-plugin'],
+      main: 'main.js',
+      contributes: {
+        commands: [agentHookCommand],
+        agentSkills: [{ name: 'review', path: 'skills/review', files: ['checklist.md'] }],
+        agentHooks: [{ event: 'SessionStart', command: 'on-hook' }],
+      },
+    }
+    expect(parseManifest(agent, '/ext').ok).toBe(true)
+    expect(extensionManifestSchema.safeParse(agent).success).toBe(true)
     const translated = { ...base, locales: ['zh-Hant', 'fr'] }
     expect(parseManifest(translated, '/ext').ok).toBe(true)
     expect(extensionManifestSchema.safeParse(translated).success).toBe(true)
@@ -293,6 +332,23 @@ describe('the marketplace project, built the way its own repository builds it', 
     expect(readFileSync(join(built, 'trellis/base.css'), 'utf8')).toBe(
       readFileSync(join(sdkPackage, 'panel.css'), 'utf8'),
     )
+  })
+
+  it('ships every file of the agent skills an extension declares, as the source has them', () => {
+    const built = join(marketplace, 'extensions')
+    const shipped = readdirSync(built).flatMap((id) => {
+      const manifest = JSON.parse(readFileSync(join(built, id, 'pine.json'), 'utf8'))
+      return (manifest.contributes?.agentSkills ?? []).flatMap(
+        (skill: { path: string; files?: string[] }) =>
+          ['SKILL.md', ...(skill.files ?? [])].map((file) => join(id, skill.path, file)),
+      )
+    })
+    expect(shipped).toEqual(['trellis/skills/card/SKILL.md'])
+    for (const file of shipped) {
+      expect(readFileSync(join(built, file), 'utf8'), file).toBe(
+        readFileSync(join(repoRoot, 'src/extensions', file), 'utf8'),
+      )
+    }
   })
 
   it('ships the server every language extension runs from its own folder, as its package has it', () => {

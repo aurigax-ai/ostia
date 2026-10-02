@@ -2,15 +2,27 @@ import { cn } from '@/lib/utils'
 import { AppWindowIcon } from '@phosphor-icons/react'
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { ASK_COMMAND_ID } from '../commands/askCommand'
-import { type CommandChoice, commands } from '../commands/registry'
+import {
+  type CommandChoice,
+  type CommandWording,
+  commandWording,
+  commands,
+} from '../commands/registry'
 import { fmt, useDict } from '../i18n/useDict'
 import { allPanes, firstPaneOfKind } from '../layout/tree'
 import type { PaneNode } from '../layout/types'
 import { useChatAvailable } from '../lib/assistFeatures'
 import { chordLabel } from '../lib/chords'
-import { PALETTE_MODES, type PaletteMode, paletteMode } from '../lib/paletteModes'
+import { openFileAt } from '../lib/openFile'
+import { PALETTE_MODES, type PaletteMode, paletteMode, paletteQuery } from '../lib/paletteModes'
 import { type RemoteWorkspace, remoteWorkspacesOf } from '../lib/windowWorkspaces'
 import { revealPane } from '../lib/workspaceActivity'
+import {
+  SYMBOL_SEARCH_DELAY_MS,
+  type WorkspaceSymbolResult,
+  findWorkspaceSymbols,
+  symbolPlace,
+} from '../lib/workspaceSymbolSearch'
 import { isMac } from '../platform'
 import { useAssistProvider } from '../stores/assistStore'
 import { chatFor, currentSessionId } from '../stores/chatStore'
@@ -46,6 +58,7 @@ export function CommandPalette(): JSX.Element {
   const open = useUIStore((s) => s.paletteOpen)
   const close = useUIStore((s) => s.closePalette)
   const openMode = useUIStore((s) => s.paletteMode)
+  const seed = useUIStore((s) => s.paletteSeed)
   const provider = useAssistProvider('chat')
   const chat = useChatAvailable() ? provider : null
   const [search, setSearch] = useState('')
@@ -70,6 +83,10 @@ export function CommandPalette(): JSX.Element {
     if (wasAsking.current) stopUnseenAnswer()
     wasAsking.current = false
   }, [open, askMode])
+
+  useEffect(() => {
+    if (open && seed) setSearch(seed)
+  }, [open, seed])
 
   const enterAsk = (seed: string): void => {
     setAskSeed(seed)
@@ -124,7 +141,15 @@ export function CommandPalette(): JSX.Element {
             }}
           />
           <CommandList>
-            <CommandEmpty>{d.palette.empty}</CommandEmpty>
+            {mode === 'symbols' ? (
+              <SymbolItems
+                query={paletteQuery(search)}
+                workspaceId={activeWorkspaceId}
+                onDone={finish}
+              />
+            ) : (
+              <CommandEmpty>{d.palette.empty}</CommandEmpty>
+            )}
             {mode === 'help' ? (
               <HelpItems
                 onPick={(symbol) => setSearch(symbol)}
@@ -192,6 +217,7 @@ function ArgumentStep({
   return (
     <>
       <CommandInput
+        autoFocus
         placeholder={command.argument}
         value={value}
         onValueChange={onValueChange}
@@ -237,7 +263,12 @@ function ChoiceStep({
   }, [loadChoices])
   return (
     <>
-      <CommandInput placeholder={command.argument} value={value} onValueChange={onValueChange} />
+      <CommandInput
+        autoFocus
+        placeholder={command.argument}
+        value={value}
+        onValueChange={onValueChange}
+      />
       <CommandList>
         {choices !== null && choices.length === 0 ? (
           <CommandEmpty>{command.emptyChoices?.() ?? command.argument}</CommandEmpty>
@@ -410,6 +441,83 @@ function TabItems({
   )
 }
 
+function SymbolItems({
+  query,
+  workspaceId,
+  onDone,
+}: {
+  query: string
+  workspaceId: string | null
+  onDone: () => void
+}): JSX.Element | null {
+  const d = useDict()
+  const [result, setResult] = useState<WorkspaceSymbolResult | null>(null)
+  useEffect(() => {
+    let live = true
+    const timer = setTimeout(() => {
+      void findWorkspaceSymbols(workspaceId, query).then((next) => {
+        if (live) setResult(next)
+      })
+    }, SYMBOL_SEARCH_DELAY_MS)
+    return () => {
+      live = false
+      clearTimeout(timer)
+    }
+  }, [query, workspaceId])
+  if (!result) return null
+  if (result.hits.length === 0) {
+    return (
+      <output className="block px-3 py-6 text-center text-fg-muted text-ui-sm">
+        {result.servers === 0
+          ? d.palette.symbolsNoServer
+          : query
+            ? d.palette.empty
+            : d.palette.symbolsHint}
+      </output>
+    )
+  }
+  const workDir = useWorkspacesStore
+    .getState()
+    .workspaces.find((w) => w.id === workspaceId)?.workDir
+  const symbol = symbolOf('symbols')
+  return (
+    <CommandGroup heading={d.palette.modes.symbols} forceMount>
+      {result.hits.map((hit) => {
+        const place = symbolPlace(hit, workDir)
+        return (
+          <CommandItem
+            key={hit.id}
+            value={`${symbol} ${hit.name} ${hit.path}:${hit.line}:${hit.column}`}
+            forceMount
+            onSelect={() => {
+              openFileAt(hit.path, hit.line, hit.column)
+              onDone()
+            }}
+          >
+            <span className="font-mono">{hit.name}</span>
+            {hit.container ? (
+              <span className="min-w-0 truncate text-fg-muted text-ui-xs">{hit.container}</span>
+            ) : null}
+            <ItemMeta mono>{place}</ItemMeta>
+          </CommandItem>
+        )
+      })}
+    </CommandGroup>
+  )
+}
+
+type RegisteredCommand = ReturnType<typeof commands.list>[number]
+
+interface PaletteCommand {
+  command: RegisteredCommand
+  shown: CommandWording
+}
+
+function searchValue(symbol: string, command: RegisteredCommand, shown: CommandWording): string {
+  const words = [shown.title, command.title, command.id, shown.category, command.category]
+  return [symbol, ...new Set(words.filter(Boolean))].join(' ')
+}
+
 function CommandItems({
   onDone,
   onAsk,
@@ -421,33 +529,36 @@ function CommandItems({
 }): JSX.Element {
   const d = useDict()
   useSettingsStore((s) => s.keybindings)
-  const byCat = new Map<string, ReturnType<typeof commands.list>>()
-  for (const c of commands.list()) {
-    if (c.hidden) continue
-    const cat = c.category ?? d.palette.general
-    byCat.set(cat, [...(byCat.get(cat) ?? []), c])
+  const groups = new Map<string, { heading: string; items: PaletteCommand[] }>()
+  for (const command of commands.list()) {
+    if (command.hidden) continue
+    const shown = commandWording(command, d)
+    const key = command.category ?? ''
+    const group = groups.get(key) ?? { heading: shown.category ?? d.palette.general, items: [] }
+    group.items.push({ command, shown })
+    groups.set(key, group)
   }
   const symbol = symbolOf('commands')
   return (
     <>
-      {[...byCat.entries()].map(([category, items]) => (
-        <CommandGroup key={category} heading={category}>
-          {items.map((c) => {
+      {[...groups.entries()].map(([key, group]) => (
+        <CommandGroup key={key} heading={group.heading}>
+          {group.items.map(({ command: c, shown }) => {
             const keys = chordLabel(c.id, isMac)
             return (
               <CommandItem
                 key={c.id}
-                value={`${symbol} ${c.title} ${c.id} ${c.category ?? ''}`}
+                value={searchValue(symbol, c, shown)}
                 onSelect={() => {
                   if (c.id === ASK_COMMAND_ID) {
                     onAskAssistant()
                     return
                   }
-                  if (c.argument) {
+                  if (shown.argument) {
                     onAsk({
                       id: c.id,
-                      title: c.title,
-                      argument: c.argument,
+                      title: shown.title,
+                      argument: shown.argument,
                       choices: c.choices,
                       emptyChoices: c.emptyChoices,
                     })
@@ -457,7 +568,7 @@ function CommandItems({
                   onDone()
                 }}
               >
-                <span>{c.title}</span>
+                <span>{shown.title}</span>
                 <ItemMeta mono>{c.id}</ItemMeta>
                 {keys ? <Kbd>{keys}</Kbd> : null}
               </CommandItem>

@@ -95,6 +95,7 @@ async function openBoard(win: Page): Promise<Locator> {
   await win.locator('[data-slot="command-input"]').fill('Views: Open Board')
   await waitForPaletteSelection(win, 'Views: Open Board')
   await win.keyboard.press('Enter')
+  await expect(win.locator('[data-slot="command"]')).toHaveCount(0)
   const pane = win.locator('.pane', { has: win.locator('[data-view="board"]') })
   await expect(pane).toBeVisible({ timeout: 10_000 })
   return pane
@@ -115,6 +116,7 @@ async function expectWidthNear(pane: Locator, width: number): Promise<void> {
 }
 
 test('a panel reopens at the width the human dragged it to, also after a restart', async () => {
+  test.setTimeout(90_000)
   const dataHome = freshDataHome()
   const viewsDir = join(dataHome, 'config', 'pine', 'views')
   mkdirSync(viewsDir, { recursive: true })
@@ -142,11 +144,11 @@ test('a panel reopens at the width the human dragged it to, also after a restart
     await expectWidthNear(pane, total / 2)
 
     const sash = split.locator('[class*="sash-module_sash"]').first()
+    await sash.hover()
     const box = await sash.boundingBox()
     if (!box) throw new Error('no splitter')
     const startX = box.x + box.width / 2
     const y = box.y + box.height / 2
-    await win.mouse.move(startX, y)
     await win.mouse.down()
     await win.mouse.move(startX + 20, y, { steps: 4 })
     await win.mouse.move(startX + total * 0.2, y, { steps: 10 })
@@ -159,7 +161,9 @@ test('a panel reopens at the width the human dragged it to, also after a restart
     await expectWidthNear(pane, draggedWidth)
 
     await closeBoard(win, pane)
-    await win.waitForTimeout(500)
+    await expect
+      .poll(() => win.evaluate(() => window.localStorage.getItem('panelSizes') ?? ''))
+      .toContain('view:board')
   } finally {
     await app.close()
   }

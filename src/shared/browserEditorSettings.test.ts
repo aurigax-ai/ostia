@@ -68,16 +68,27 @@ describe('parseBrowserSettings', () => {
 
   it('keeps valid values and drops invalid ones', () => {
     expect(
-      parseBrowserSettings({ searchEngine: 'kagi', openTerminalLinks: true, defaultZoom: 500 }),
+      parseBrowserSettings({
+        searchEngine: 'kagi',
+        openTerminalLinks: true,
+        defaultZoom: 500,
+        attachCaptureImage: false,
+      }),
     ).toEqual({
       ...DEFAULT_BROWSER_SETTINGS,
       searchEngine: 'kagi',
       openTerminalLinks: true,
       defaultZoom: 300,
+      attachCaptureImage: false,
     })
-    expect(parseBrowserSettings({ searchEngine: 'nope', openTerminalLinks: 'yes' })).toEqual(
-      DEFAULT_BROWSER_SETTINGS,
-    )
+    expect(
+      parseBrowserSettings({
+        searchEngine: 'nope',
+        openTerminalLinks: 'yes',
+        attachCaptureImage: 1,
+      }),
+    ).toEqual(DEFAULT_BROWSER_SETTINGS)
+    expect(DEFAULT_BROWSER_SETTINGS.attachCaptureImage).toBe(true)
   })
 })
 
@@ -99,8 +110,16 @@ describe('parseEditorSettings', () => {
       formatOnSave: true,
       openFilesIn: 'split',
       theme: 'rose-pine',
+      markdownPreview: true,
+      diffLayout: 'inline',
     }
     expect(parseEditorSettings(custom)).toEqual(custom)
+  })
+
+  it('opens Markdown as source and diffs side by side unless set otherwise', () => {
+    expect(parseEditorSettings({}).markdownPreview).toBe(false)
+    expect(parseEditorSettings({ markdownPreview: 'yes' }).markdownPreview).toBe(false)
+    expect(parseEditorSettings({ diffLayout: 'stacked' }).diffLayout).toBe('sideBySide')
   })
 
   it('links the editor colors to the Pine theme by default', () => {

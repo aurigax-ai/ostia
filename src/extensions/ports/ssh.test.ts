@@ -64,6 +64,10 @@ describe('sshLogin', () => {
     const login = sshLogin(['-J', 'b1', '-p', '2200', '--', 'dev@db'])
     expect(login).toEqual({ user: 'dev', host: 'db' })
     expect(login && sshLabel(login)).toBe('dev@db')
+    expect(sshLogin(['-p', '2200', '-t', '--', 'dev@db', "exec sh -c 'p=x'"])).toEqual({
+      user: 'dev',
+      host: 'db',
+    })
   })
 
   it('labels a login as user@host, or the host alone', () => {

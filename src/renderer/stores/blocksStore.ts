@@ -26,6 +26,7 @@ interface Draft {
   promptLine: LineAnchor
   inputLine: LineAnchor | null
   cwd: string | null
+  remote: boolean
 }
 
 interface BlocksState {
@@ -36,10 +37,16 @@ interface BlocksState {
   selected: Record<string, string | undefined>
   agentBlocks: Record<string, { blockId: string; agent: ResumableAgent } | undefined>
   markAgent: (paneId: string, agent: ResumableAgent) => void
-  promptStart: (paneId: string, line: LineAnchor, cwd: string | null) => void
+  promptStart: (paneId: string, line: LineAnchor, cwd: string | null, remote?: boolean) => void
   promptEnd: (paneId: string, line: LineAnchor) => void
   commandStart: (paneId: string, line: LineAnchor, command?: string) => void
-  commandEnd: (paneId: string, line: LineAnchor, exitCode: number, endCol?: number) => void
+  commandEnd: (
+    paneId: string,
+    line: LineAnchor,
+    exitCode: number,
+    endCol?: number,
+    wholeCommand?: string,
+  ) => void
   select: (paneId: string, blockId: string | null) => void
   resetPane: (paneId: string) => void
   dropPane: (paneId: string) => void
@@ -61,8 +68,10 @@ export const useBlocksStore = create<BlocksState>((set) => ({
       return { agentBlocks: { ...s.agentBlocks, [paneId]: { blockId, agent } } }
     }),
 
-  promptStart: (paneId, line, cwd) =>
-    set((s) => ({ drafts: { ...s.drafts, [paneId]: { promptLine: line, inputLine: null, cwd } } })),
+  promptStart: (paneId, line, cwd, remote = false) =>
+    set((s) => ({
+      drafts: { ...s.drafts, [paneId]: { promptLine: line, inputLine: null, cwd, remote } },
+    })),
 
   promptEnd: (paneId, line) =>
     set((s) => {
@@ -73,7 +82,12 @@ export const useBlocksStore = create<BlocksState>((set) => ({
 
   commandStart: (paneId, line, command = '') =>
     set((s) => {
-      const draft = s.drafts[paneId] ?? { promptLine: line, inputLine: line, cwd: null }
+      const draft = s.drafts[paneId] ?? {
+        promptLine: line,
+        inputLine: line,
+        cwd: null,
+        remote: false,
+      }
       let prev = s.byPane[paneId] ?? []
       const staleId = s.running[paneId]
       if (staleId) {
@@ -106,7 +120,7 @@ export const useBlocksStore = create<BlocksState>((set) => ({
       }
     }),
 
-  commandEnd: (paneId, line, exitCode, endCol = 0) =>
+  commandEnd: (paneId, line, exitCode, endCol, wholeCommand) =>
     set((s) => {
       const runningId = s.running[paneId]
       if (!runningId) return s
@@ -114,7 +128,15 @@ export const useBlocksStore = create<BlocksState>((set) => ({
       const idx = list.findIndex((b) => b.id === runningId)
       if (idx === -1) return s
       const next = list.slice()
-      next[idx] = { ...next[idx], endLine: line, endCol, exitCode, endedAt: Date.now() }
+      const firstLines = next[idx].command
+      next[idx] = {
+        ...next[idx],
+        command: wholeCommand?.startsWith(`${firstLines}\n`) ? wholeCommand : firstLines,
+        endLine: line,
+        endCol: endCol ?? 0,
+        exitCode,
+        endedAt: Date.now(),
+      }
       return {
         byPane: { ...s.byPane, [paneId]: next },
         running: { ...s.running, [paneId]: undefined },

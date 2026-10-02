@@ -1,11 +1,13 @@
 import { execFileSync } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
-import { homedir } from 'node:os'
+import { homedir, hostname } from 'node:os'
 import { dirname, join } from 'node:path'
 import {
   BrowserWindow,
   app,
+  clipboard,
+  globalShortcut,
   ipcMain,
   nativeTheme,
   safeStorage,
@@ -22,11 +24,14 @@ import { parseChatToolSettings } from '../shared/chatTools'
 import { languageForPath } from '../shared/editorLanguages'
 import { EXTENSION_SUGGESTIONS } from '../shared/extensionSuggestions'
 import type { ExtensionPanelContext, ExtensionResult, WorkspaceChip } from '../shared/extensions'
+import { languageServerKey } from '../shared/languageServers'
 import { MANAGER_FEATURE, managerAgents, parseManagerSettings } from '../shared/managerSettings'
 import { OPEN_FILES_MAX } from '../shared/openFiles'
 import { OFFICIAL_MARKETPLACE, PRODUCT_NAME } from '../shared/product'
+import { type RemoteCwd, normalizeRemoteCwd } from '../shared/remoteFolders'
 import { parseSandboxGlobals } from '../shared/sandbox'
 import { quoteArgv } from '../shared/shellQuote'
+import { shellArgv, shellName } from '../shared/terminalShell'
 import type {
   AppInfo,
   CommandDescriptor,
@@ -44,7 +49,9 @@ import type {
   WindowBounds,
 } from '../shared/types'
 import { clampZoom, zoomFactor } from '../shared/zoom'
+import { AGENT_OFFER_RESULT_CHANNEL, createAgentOfferRelay } from './agentOfferRelay'
 import { AgentRunningPanes } from './agentRunning'
+import { agentPluginContent } from './agentSkills'
 import { registerAgentTranscriptIpc } from './agentTranscript'
 import { type AppLog, LOG_FILE_NAME, createAppLog } from './appLog'
 import { registerAppUpdate } from './appUpdate'
@@ -62,14 +69,17 @@ import {
   registerBrowseMethods,
 } from './browse'
 import { cancelPick, registerPickIpc, registerPickMethods } from './browsePick'
+import { registerRegionIpc } from './browseRegion'
 import { BrowserProfiles } from './browserProfiles'
 import { registerBrowserStorageIpc } from './browserStorage'
 import { browserUserAgent } from './browserUserAgent'
 import { registerBusMethods } from './bus'
+import { announceBusMessage } from './busNotice'
 import { dropIdentity, setCaps } from './capabilityStore'
 import { createChatSessionStore } from './chatSessions'
 import { registerChatSessionIpc } from './chatSessionsIpc'
 import { registerChatToolsIpc } from './chatToolsIpc'
+import { type ClipboardEdits, registerClipboardEdits } from './clipboardEdits'
 import { confirmQuit, freezeAll, registerCloseGuard } from './closeGuard'
 import { registerCompletionIpc } from './completionSpecs'
 import { connHasCap, setCapFilter } from './controlAuth'
@@ -82,17 +92,19 @@ import { emitPlatformEvent, emitSessionState, platformEvents } from './events'
 import { confirmForExtension } from './extensionConfirm'
 import { ExtensionHost, type TerminalOpenRequest, registerExtensionMethods } from './extensionHost'
 import type { ExtensionRoot } from './extensionManifest'
-import { createSecretStore } from './extensionSecrets'
+import { type SecretStoreDeps, createSecretStore } from './extensionSecrets'
 import { ExtensionStore } from './extensionStore'
 import { DismissedSuggestions, suggestionFor } from './extensionSuggestions'
 import { openInExternalEditor } from './externalEditor'
-import { FileWatches } from './fileWatch'
+import { FileWatches, TreeWatches } from './fileWatch'
 import { readBinaryConfined } from './fsBinary'
 import { registerGatewayIpc, registerGatewayMethods } from './gateway'
 import { configureGatewayControl, stopGateway } from './gateway/server'
+import { GlobalHotkey, shouldHideWindows } from './globalHotkey'
 import { clearGuestNetwork, watchGuestNetwork } from './guestNetwork'
 import { registerIconThemeIpc } from './iconThemes'
 import {
+  type PaneIdentity,
   getByPaneId,
   markManager,
   panesOwnedBy,
@@ -116,6 +128,8 @@ import { managerArgv, writeManagerClaudePlugin, writeManagerCodexContext } from 
 import { type ManagerLimiter, registerManagerMethods } from './managerMethods'
 import { Marketplace, marketplaceId, normalizeMarketplaceUrl } from './marketplace'
 import { McpHost } from './mcpHost'
+import { McpOAuth, mcpOAuthBrowser } from './mcpOAuth'
+import { createMcpOAuthStore } from './mcpOAuthStore'
 import {
   postActionNotification,
   postNotification,
@@ -139,6 +153,8 @@ import {
   portalSupported,
 } from './portal'
 import { callerVerdict, procFs, ttysOf } from './portalCaller'
+import { acceptsPrimarySelection } from './primarySelection'
+import { registerPrivacyIpc } from './privacyIpc'
 import { privateTmpDir } from './privateTmp'
 import { INTERRUPT_GRACE_MS, type ProcessRegistry, registerProcessMethods } from './processManager'
 import { registerProjectRootIpc } from './projectRoot'
@@ -147,7 +163,10 @@ import { type ReapReason, RecoveryBook, orphanVerdict, planRecovery } from './pt
 import { PtySession, type SubscriberRole } from './ptySession'
 import { questions, registerQuestions } from './questions'
 import { exitAfterDeadline, planQuit } from './quitPlan'
+import { createRedactor, createScrollbackRedactor } from './redaction'
 import { registerReleaseCheck, releaseUserAgent } from './releaseCheck'
+import { confirmRemoteFolder, registerRemoteFolderConfirm } from './remoteFolderConfirm'
+import type { RemoteFolders } from './remoteFolders'
 import { attachWorkspace } from './sandbox/attachWorkspace'
 import { BrowserFence } from './sandbox/browserFence'
 import { registerSandboxMethods } from './sandbox/controlMethods'
@@ -156,10 +175,16 @@ import { HostPaneGrants } from './sandbox/hostPanes'
 import { registerSandboxIpc } from './sandbox/ipc'
 import { packageCooldownEnv } from './sandbox/packageEnv'
 import { PackageRequests } from './sandbox/packageRequests'
-import { PortForwarder } from './sandbox/portForwarder'
+import { PortBridge, bridgesPorts } from './sandbox/portBridge'
+import { PortForwarder, type SandboxPane } from './sandbox/portForwarder'
 import { PortRequests } from './sandbox/portRequests'
-import { terminalInjectionOff, wrapForTerminal } from './sandbox/ptyWrap'
-import { sandboxFailureBanner } from './sandbox/spawnBanner'
+import {
+  needsPtyRelay,
+  relayForced,
+  sandboxedShellCommand,
+  wrapForTerminal,
+} from './sandbox/ptyWrap'
+import { hiddenHomeNotice, sandboxFailureBanner } from './sandbox/spawnBanner'
 import { sandboxSpawnEnv } from './sandbox/spawnEnv'
 import { reportSandboxSpawnFailure } from './sandbox/spawnFailureNotice'
 import { reachableContainerSockets, srtVendorDir } from './sandbox/srtConfig'
@@ -179,10 +204,11 @@ import { prepareSecrets } from './secrets/secretInjection'
 import { SecretService } from './secrets/secretService'
 import { WorkspaceAgents } from './secrets/workspaceAgents'
 import { registerSelectionIpc } from './selectionReport'
+import { ServerOverrides } from './serverOverrides'
 import { type SettingsSyncHandle, startSettingsSync } from './settingsSyncIpc'
 import { ExecutableIndex, commandNames, readShellState } from './shellCommands'
 import { closesPaneOnExit } from './shellExit'
-import { INTEGRATION_DIR, shellIntegrationSpawnOptions } from './shellIntegration'
+import { INTEGRATION_DIR, setAgentPlugins, shellIntegrationSpawnOptions } from './shellIntegration'
 import {
   SANDBOX_FEATURE,
   installHint,
@@ -193,8 +219,8 @@ import {
   requirementLabel,
 } from './systemRequirements'
 import { registerSystemRequirementsIpc } from './systemRequirementsIpc'
-import { PTY_COLOR_ENV, PTY_TERM_NAME } from './terminalType'
-import { AppTray, closeAction, isHiddenLaunch, readCloseToTray } from './tray'
+import { PTY_COLOR_ENV, PTY_TERM_NAME, paneShellEnv } from './terminalType'
+import { AppTray, closeAction, isHiddenLaunch, readCloseToTray, unreadWorkspaces } from './tray'
 import {
   deleteGlobalVaultValue,
   registerVaultMethods,
@@ -220,6 +246,7 @@ import {
   loadRestoredScrollback,
   pendingRestoredScrollback,
   saveScrollback,
+  scrollbackToSave,
   stashScrollback,
   takeRestoredScrollback,
 } from './workspaceSnapshot'
@@ -252,6 +279,7 @@ interface PtyEntry {
   sandboxed: boolean
   shell: string
   sandboxStamp: string | null
+  portBridge: PortBridge | null
   confinedBy: string | null
   keepAlive: boolean
   exitListeners: Set<(code: number) => void>
@@ -558,9 +586,24 @@ function sandboxCanRead(workspaceId: string, path: string): boolean {
   }
 }
 
+const LANGUAGE_SERVER_WATCH_DEBOUNCE_MS = 300
+const languageServerWatches = new TreeWatches({
+  confine: (dir) => resolveSafe(dir, fileRoots()),
+  debounceMs: LANGUAGE_SERVER_WATCH_DEBOUNCE_MS,
+})
+
+const serverOverrides = new ServerOverrides(
+  join(app.getPath('userData'), 'language-server-programs.json'),
+)
+
 function createLanguageServers(): LanguageServers {
   return new LanguageServers({
-    sources: () => extensionHost?.languageServers() ?? [],
+    watchTree: (root, onChange) => languageServerWatches.watch(root, onChange),
+    sources: () =>
+      (extensionHost?.languageServers() ?? []).map((source) => {
+        const override = serverOverrides.get(languageServerKey(source.extId, source.server.id))
+        return override ? { ...source, override } : source
+      }),
     nodePath: process.execPath,
     env: () => process.env,
     pane: (paneId) => getByPaneId(paneId),
@@ -633,15 +676,20 @@ const domainRequests: DomainRequests = new DomainRequests({
 
 let onSandboxSpawnFailure: ((workspaceId: string, errors: string[]) => void) | null = null
 
-function sandboxedPids(workspaceId: string): number[] {
-  const pids: number[] = []
+function sandboxedPanes(workspaceId: string): SandboxPane[] {
+  const panes: SandboxPane[] = []
   for (const entry of ptys.values()) {
-    if (entry.workspaceId === workspaceId && entry.sandboxed) pids.push(entry.pty.pid)
+    if (entry.workspaceId === workspaceId && entry.sandboxed) {
+      panes.push({ pid: entry.pty.pid, bridge: entry.portBridge })
+    }
   }
-  return pids
+  return panes
 }
 
-const portForwarder = new PortForwarder({ pidsOf: sandboxedPids })
+const portForwarder = new PortForwarder({
+  panesOf: sandboxedPanes,
+  unixSocketsOff: (workspaceId) => !workspaceSandboxes.resolved(workspaceId).switches.unixSockets,
+})
 
 const PACKAGE_BATCH_MS = 600
 
@@ -844,8 +892,21 @@ const errorBuffers = new Map<number, ConsoleEntry[]>()
 const terminalState = new Map<string, TerminalStateSnapshot>()
 
 let extensionHost: ExtensionHost | null = null
+
+function refreshAgentPlugins(): void {
+  try {
+    setAgentPlugins(
+      agentPluginContent(extensionHost?.agentPlugins() ?? [], (extId, problem) =>
+        console.error(`[ext:${extId}] ${problem}`),
+      ),
+    )
+  } catch (err) {
+    console.error(`agent plugins: ${(err as Error).message}`)
+  }
+}
 let viewHost: ViewHost | null = null
 let mcpHost: McpHost | null = null
+let mcpOAuth: McpOAuth | null = null
 let broker: WindowBroker | null = null
 const agentRunning = new AgentRunningPanes(() => broker?.persist())
 const reachesPane: OriginReach = (senderWindowId, sourcePaneId, targetPaneId) =>
@@ -880,6 +941,7 @@ function extensionOfPartition(partition: string | undefined): string | null {
 }
 
 const instrumentedGuests = new WeakSet<Electron.WebContents>()
+let clipboardEdits: ClipboardEdits | null = null
 
 function instrumentBrowserGuest(gc: Electron.WebContents): void {
   const wcId = gc.id
@@ -960,6 +1022,7 @@ function requestQuit(): void {
 }
 const startedHidden = app.commandLine.hasSwitch('hidden')
 let appTray: AppTray | null = null
+let globalHotkey: GlobalHotkey | null = null
 let managerService: ManagerService | null = null
 let managerLimiter: ManagerLimiter | null = null
 let portal: Portal | null = null
@@ -1012,6 +1075,7 @@ function wireWindow(win: BrowserWindow): void {
     webPreferences.sandbox = true
   })
   win.webContents.on('did-attach-webview', (_e, guest) => {
+    clipboardEdits?.guardGuest(guest)
     if (hardenExtensionGuest(guest)) return
     const agent = browserUserAgent(guest.session.getUserAgent(), app.getName())
     guest.session.setUserAgent(agent)
@@ -1091,6 +1155,7 @@ function registerIpc(): void {
       name: PRODUCT_NAME,
       version: app.getVersion(),
       platform: process.platform,
+      hostName: hostname(),
     }),
   )
 
@@ -1111,6 +1176,10 @@ function registerIpc(): void {
         win.webContents.send('window:system-dark-changed', nativeTheme.shouldUseDarkColors)
       }
     }
+  })
+  ipcMain.on('window:beep', () => shell.beep())
+  ipcMain.on('window:write-primary', (_e, text: unknown) => {
+    if (acceptsPrimarySelection(process.platform, text)) clipboard.writeText(text, 'selection')
   })
   ipcMain.handle('window:set-zoom', (e, percent: unknown) => {
     const clamped = clampZoom(percent)
@@ -1161,10 +1230,12 @@ function registerIpc(): void {
       setWorkspaceWorkDir(event.workspaceId, event.workDir, windowId)
       scratchFolders.bind(event.workspaceId, event.workDir, windowId)
       extensionHost?.publishWorkspaceChips()
+      extensionHost?.remoteFolders?.ownerChanged(event.workspaceId)
     } else if (event.type === 'workspace-closed') {
       removeWorkspace(event.workspaceId)
       processes?.workspaceClosed(event.workspaceId)
       extensionHost?.clearWorkspaceChips(event.workspaceId)
+      extensionHost?.remoteFolders?.workspaceClosed(event.workspaceId)
       scratchFolders.remove(event.workspaceId)
       forgetWorkspaceRequests(event.workspaceId)
       forgetSandboxRuntime(event.workspaceId)
@@ -1284,10 +1355,12 @@ function registerExtensionIpc(host: ExtensionHost): void {
     ): Promise<ExtensionResult> => {
       const paneId = target?.paneId ? getByPaneId(target.paneId)?.externalId : undefined
       const cwd = target?.paneId ? terminalState.get(target.paneId)?.cwd : undefined
+      const remote = target?.paneId ? remoteCwdOfPane(target.paneId) : undefined
       const caller = host.userCaller(target?.workspaceId ?? null, {
         capabilities: host.commandCapabilities(extId, command),
         ...(paneId ? { paneId } : {}),
         ...(cwd ? { cwd } : {}),
+        ...(remote ? { remote } : {}),
       })
       return host.invoke(extId, command, host.paletteArgs(extId, command, argument), caller)
     },
@@ -1298,6 +1371,34 @@ function registerExtensionIpc(host: ExtensionHost): void {
       locale: String(context?.locale ?? 'en'),
       ...(context?.path === undefined ? {} : { path: String(context.path) }),
     }),
+  )
+}
+
+function remoteCwdOfPane(paneId: string): RemoteCwd | undefined {
+  return normalizeRemoteCwd(terminalState.get(paneId)?.remote) ?? undefined
+}
+
+function publishRemoteFolders(folders: RemoteFolders): void {
+  for (const [windowId, win] of windows) {
+    if (win.isDestroyed()) continue
+    win.webContents.send('remote-files:folders-changed', folders.forWindow(windowId))
+  }
+}
+
+function registerRemoteFilesIpc(host: ExtensionHost): void {
+  const folders = host.remoteFolders
+  if (!folders) return
+  registerRemoteFolderConfirm()
+  const sender = (e: Electron.IpcMainInvokeEvent): string => String(e.sender.id)
+  ipcMain.handle('remote-files:folders', (e) => folders.forWindow(sender(e)))
+  ipcMain.handle('remote-files:close', (e, folderId: unknown) =>
+    folders.closeByWindow(sender(e), folderId),
+  )
+  ipcMain.handle('remote-files:list', (e, path: unknown) => folders.list(sender(e), path))
+  ipcMain.handle('remote-files:stat', (e, path: unknown) => folders.stat(sender(e), path))
+  ipcMain.handle('remote-files:read', (e, path: unknown) => folders.read(sender(e), path))
+  ipcMain.handle('remote-files:write', (e, path: unknown, content: unknown, baseVersion: unknown) =>
+    folders.write(sender(e), path, content, baseVersion),
   )
 }
 
@@ -1458,6 +1559,7 @@ function registerPtyIpc(): void {
         buffer: data,
         cursor,
         dropped,
+        shell: shellName(existing.shell) || undefined,
         sandboxed: existing.sandboxed,
         ...(existing.sandboxStamp ? { sandboxStamp: existing.sandboxStamp } : {}),
         cols: existing.pty.cols,
@@ -1475,8 +1577,11 @@ function registerPtyIpc(): void {
         dropped: false,
       }
     }
-    const shell =
-      opts.shell ?? process.env.SHELL ?? (process.platform === 'win32' ? 'powershell.exe' : 'bash')
+    const settings = readSettingsFile()
+    const [shell, ...shellArgs] = shellArgv(
+      settings.terminal?.shell,
+      process.env.SHELL ?? (process.platform === 'win32' ? 'powershell.exe' : 'bash'),
+    )
     const resolved = attachWorkspace(getByPaneId(paneId)?.workspaceId, opts.workspaceId ?? '')
     if (!resolved.ok) {
       return {
@@ -1497,22 +1602,26 @@ function registerPtyIpc(): void {
     const cols = opts.cols || 80
     const rows = opts.rows || 24
     const stateFile = join(privateTmpDir('pine-shell-state'), randomUUID())
-    let env = {
-      ...process.env,
-      ...integration.env,
-      PINE_PANE_ID: identity.externalId,
-      PINE_TOKEN: identity.token,
-      PINE_START_DIR: opts.cwd ?? '',
-      PINE_SOCKET: controlSocketPath(),
-      PINE_CLI: join(app.getAppPath(), 'out/cli/index.js'),
-      PINE_NODE: process.execPath,
-      PINE_SHELL_STATE: stateFile,
-      ...PTY_COLOR_ENV,
-    } as Record<string, string>
+    let env = paneShellEnv({
+      parent: process.env,
+      integration: integration.env,
+      pane: {
+        PINE_PANE_ID: identity.externalId,
+        PINE_TOKEN: identity.token,
+        PINE_START_DIR: opts.cwd ?? '',
+        PINE_SOCKET: controlSocketPath(),
+        PINE_CLI: join(app.getAppPath(), 'out/cli/index.js'),
+        PINE_NODE: process.execPath,
+        PINE_SHELL_STATE: stateFile,
+      },
+      agentHooks: settings.agents?.hooks,
+    })
     let secretNotice = ''
     let sandboxStamp: string | null = null
+    let resizePipe: string | null = null
+    let portBridge: PortBridge | null = null
     let file = shell
-    let args = integration.args
+    let args = [...integration.args, ...shellArgs]
     let cwd = resolveCwd(opts.cwd)
     const host = opts.hostToken ? hostPaneGrants.consume(opts.hostToken) : false
     const sandboxed = !host && workspaceId !== '' && workspaceSandboxes.isEnabled(workspaceId)
@@ -1521,15 +1630,29 @@ function registerPtyIpc(): void {
         writeFileSync(stateFile, '', { mode: 0o600 })
         const secrets = await injectSecrets(workspaceId)
         secretNotice = secrets.notice
+        resizePipe = needsPtyRelay(relayForced(app.isPackaged, process.env))
+          ? join(workspaceSandboxes.tmpDir(workspaceId), `resize-${randomUUID()}`)
+          : null
+        portBridge = bridgesPorts(
+          process.platform,
+          workspaceSandboxes.resolved(workspaceId).switches.unixSockets,
+        )
+          ? await PortBridge.open(workspaceSandboxes.tmpDir(workspaceId))
+          : null
         const wrapped = await workspaceSandboxes.wrap(
           workspaceId,
-          quoteArgv([shell, ...integration.args]),
+          sandboxedShellCommand(
+            quoteArgv([shell, ...args]),
+            env.SHELL,
+            resizePipe,
+            portBridge?.command ?? null,
+          ),
           'bash',
           [stateFile],
         )
         sandboxStamp = workspaceSandboxes.wrapStamp(workspaceId)
         file = '/bin/sh'
-        args = ['-c', wrapForTerminal(wrapped, terminalInjectionOff())]
+        args = ['-c', wrapForTerminal(wrapped, resizePipe)]
         env = {
           ...sandboxSpawnEnv(env),
           ...packageCooldownEnv(
@@ -1541,6 +1664,7 @@ function registerPtyIpc(): void {
         env.TMPDIR = workspaceSandboxes.tmpDir(workspaceId)
         cwd = sandboxCwd(cwd, workspaceSandboxes.workDir(workspaceId))
       } catch (err) {
+        portBridge?.close()
         const missing = err instanceof SandboxUnavailableError ? err.missing : []
         onSandboxSpawnFailure?.(workspaceId, missing)
         return {
@@ -1552,7 +1676,10 @@ function registerPtyIpc(): void {
         }
       }
     }
-    if (ptys.has(paneId)) return attachPty(e, paneId, opts)
+    if (ptys.has(paneId)) {
+      portBridge?.close()
+      return attachPty(e, paneId, opts)
+    }
     const pty = mod.spawn(file, args, {
       name: PTY_TERM_NAME,
       cols,
@@ -1571,10 +1698,13 @@ function registerPtyIpc(): void {
       sandboxed,
       shell,
       sandboxStamp,
+      portBridge,
     })
     const { session } = entry
     if (sandboxed) {
       entry.exitListeners.add(() => {
+        if (resizePipe) rmSync(resizePipe, { force: true })
+        portBridge?.close()
         void workspaceSandboxes.cleanup(workspaceId)
         releaseMergedSandbox(workspaceId, entry)
       })
@@ -1584,6 +1714,10 @@ function registerPtyIpc(): void {
     const seam = hibernatedPanes.delete(paneId) ? HIBERNATE_SEAM : RESTORE_SEAM
     if (history) feedPty(entry, `${history}${seam}`)
     if (secretNotice) feedPty(entry, secretNotice)
+    if (sandboxed && workspaceSandboxes.claimHomeNotice(workspaceId)) {
+      const notice = hiddenHomeNotice()
+      if (notice) feedPty(entry, notice)
+    }
 
     pty.onData((d) => feedPty(entry, d))
     pty.onExit(({ exitCode }) => session.exit(exitCode))
@@ -1594,6 +1728,7 @@ function registerPtyIpc(): void {
       buffer: data,
       cursor,
       dropped,
+      shell: shellName(shell) || undefined,
       sandboxed,
       host,
       ...(sandboxStamp ? { sandboxStamp } : {}),
@@ -1694,6 +1829,7 @@ function trackPty(
     sandboxed?: boolean
     shell?: string
     sandboxStamp?: string | null
+    portBridge?: PortBridge | null
   },
 ): PtyEntry {
   const spawnedAt = Date.now()
@@ -1750,6 +1886,7 @@ function trackPty(
     sandboxed: opts.sandboxed ?? false,
     shell: opts.shell ?? '',
     sandboxStamp: opts.sandboxStamp ?? null,
+    portBridge: opts.portBridge ?? null,
     confinedBy: opts.sandboxed ? (opts.workspaceId ?? '') : null,
   }
   ptys.set(paneId, entry)
@@ -1937,6 +2074,7 @@ function registerFsIpc(): void {
         }
         extensionHost?.refreshLocale()
         extensionHost?.reloadAssistSettings()
+        applyGlobalHotkey()
       }
       return true
     } catch {
@@ -2065,14 +2203,18 @@ function assistKeyStore() {
   return encryptedStore(storePath('assist-keys', 'global'))
 }
 
-function encryptedStore(path: string) {
-  return createSecretStore({
+function encryptedFile(path: string): SecretStoreDeps {
+  return {
     load: () => loadJson<unknown>(path, {}),
     save: (data) => saveJson(path, data, { secure: true }),
     canEncrypt: () => safeStorage.isEncryptionAvailable(),
     encrypt: (plain) => safeStorage.encryptString(plain).toString('base64'),
     decrypt: (secret) => safeStorage.decryptString(Buffer.from(secret, 'base64')),
-  })
+  }
+}
+
+function encryptedStore(path: string) {
+  return createSecretStore(encryptedFile(path))
 }
 
 function readSettingsFileOrNull(): { assistant?: unknown } | null {
@@ -2089,9 +2231,11 @@ function readSettingsFileOrNull(): { assistant?: unknown } | null {
 function readSettingsFile(): {
   locale?: unknown
   extensionSettings?: unknown
-  workspaces?: unknown
+  workspaces?: { globalHotkey?: unknown }
   manager?: unknown
   assistant?: unknown
+  terminal?: { shell?: unknown }
+  agents?: { hooks?: unknown }
 } {
   try {
     return JSON.parse(readFileSync(join(app.getPath('userData'), 'settings.json'), 'utf8'))
@@ -2103,6 +2247,25 @@ function readSettingsFile(): {
 function readLocale(): string | undefined {
   const locale = readSettingsFile().locale
   return typeof locale === 'string' ? locale : undefined
+}
+
+const agentOffers = createAgentOfferRelay({
+  windowOf: (workspaceId) => workspaceWindowId(workspaceId),
+  send: (windowId, channel, payload) => {
+    const win = windows.get(windowId)
+    if (!win || win.isDestroyed()) return false
+    win.webContents.send(channel, payload)
+    return true
+  },
+  externalIdOf: (paneId) => getByPaneId(paneId)?.externalId,
+})
+
+function focusPaneInWindow(pane: PaneIdentity): boolean {
+  const win = windows.get(pane.windowId)
+  if (!win || win.isDestroyed()) return false
+  showWindow(win)
+  win.webContents.send('extensions:focus-pane', pane.paneId)
+  return true
 }
 
 const OPEN_TERMINAL_TIMEOUT_MS = 5000
@@ -2244,7 +2407,7 @@ function startPortal(): void {
   portal
     .start()
     .then((started) => {
-      if (!started) console.warn('[portal] another Pine owns the portal socket')
+      if (!started) console.warn(`[portal] another ${PRODUCT_NAME} owns the portal socket`)
     })
     .catch((err) => console.error('[portal] failed to start', err))
 }
@@ -2258,6 +2421,20 @@ function showWindow(win: BrowserWindow): void {
   if (win.isMinimized()) win.restore()
   win.show()
   win.focus()
+}
+
+function toggleAllWindows(): void {
+  const all = BrowserWindow.getAllWindows()
+  if (!appTray || !shouldHideWindows(all)) {
+    revealApp()
+    return
+  }
+  for (const win of all) if (!win.isDestroyed() && win.isVisible()) appTray.hide(win)
+}
+
+function applyGlobalHotkey(): void {
+  const status = globalHotkey?.apply(readSettingsFile().workspaces?.globalHotkey)
+  if (status === 'taken') console.warn('[global hotkey] the chosen shortcut is in use elsewhere')
 }
 
 function revealApp(): void {
@@ -2287,10 +2464,17 @@ app.whenReady().then(() => {
   scratchFolders.sweep()
   workspaceSandboxes.sweepTmp()
   registerScratchIpc(scratchFolders)
+  clipboardEdits = registerClipboardEdits({
+    ipc: ipcMain,
+    isAppWindow: (sender) => windows.get(String(sender.id))?.webContents === sender,
+    availableFormats: () => clipboard.availableFormats(),
+    mac: process.platform === 'darwin',
+  })
   registerIpc()
   registerPtyIpc()
   registerFsIpc()
-  registerSelectionIpc(reachesPane)
+  registerSelectionIpc(reachesPane, redactor.text)
+  registerPrivacyIpc(redactor)
   registerApprovals(revealWindow)
   registerQuestions()
   registerCredentials()
@@ -2306,6 +2490,7 @@ app.whenReady().then(() => {
     isScratchPane,
     windows: () => windows.values(),
     windowById: (id: string) => windows.get(id),
+    redact: redactor.text,
   }
   registerNotifyMethods(notifyDeps)
   registerSandboxMethods({ domains: domainRequests, ports: portRequests })
@@ -2396,7 +2581,21 @@ app.whenReady().then(() => {
     isScratch: (workspaceId) => scratchFolders.isScratch(workspaceId),
     execCommand,
   })
-  registerBusMethods({ managerSendAllowed: () => managerLimiter?.busAllowed() ?? true })
+  registerBusMethods({
+    managerSendAllowed: () => managerLimiter?.busAllowed() ?? true,
+    announce: (from, to, text) => {
+      void announceBusMessage(
+        {
+          execCommand,
+          listPanes: () => listPanes({ execCommand, getTerminalState, ptyPid, windowIds }),
+          listWorkspaces: () => listWorkspaces({ execCommand, windowIds }),
+        },
+        from,
+        to,
+        text,
+      ).catch(() => {})
+    },
+  })
   const extensionStore = new ExtensionStore(join(app.getPath('userData'), 'extensions.json'))
   settingsSync = startSettingsSync({
     userData: app.getPath('userData'),
@@ -2412,7 +2611,10 @@ app.whenReady().then(() => {
   })
   settingsSync.run()
   extensionHost = new ExtensionHost({
-    onChanged: () => languageServers?.refresh(),
+    onChanged: () => {
+      languageServers?.refresh()
+      refreshAgentPlugins()
+    },
     hostGrants: hostPaneGrants,
     isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
     roots: extensionRoots(),
@@ -2422,9 +2624,27 @@ app.whenReady().then(() => {
     dataDir: join(app.getPath('userData'), 'extension-data'),
     workDirForWorkspace,
     cwdForPane: (paneId) => terminalState.get(paneId)?.cwd,
+    remoteCwdForPane: remoteCwdOfPane,
+    remoteFolders: {
+      windowOfWorkspace: workspaceWindowId,
+      refusal: (workspaceId) =>
+        scratchFolders.isScratch(workspaceId)
+          ? 'scratch'
+          : workspaceSandboxes.isEnabled(workspaceId)
+            ? 'sandboxed'
+            : null,
+      confirm: (req) =>
+        confirmRemoteFolder(windows.get(workspaceWindowId(req.workspaceId) ?? ''), {
+          extName: req.extName,
+          host: req.host,
+          path: req.path,
+        }),
+      publish: publishRemoteFolders,
+    },
     locale: readLocale,
     readExtensionSettings: () => readSettingsFile().extensionSettings,
     readAssistSettings: readSettingsFileOrNull,
+    redact: redactor.redact,
     assistKeys: assistKeyStore(),
     secrets: extensionSecretStore(),
     openAssistUiIn: (req) => sendToWorkspaceWindow(req.workspaceId, 'assist:open-ui', req),
@@ -2436,15 +2656,25 @@ app.whenReady().then(() => {
     notify: (n) => postNotification(notifyDeps, n),
     confirm: (req) => confirmForExtension(req, windows.values()),
     notifyPanel: (n, open) => postPanelNotification(notifyDeps, n, open),
+    agentArgv: (name) => managerAgents(managerSettings())[name] ?? null,
+    agentNames: () => Object.keys(managerAgents(managerSettings())),
+    offerToAgentIn: (offer) => agentOffers.offer(offer),
+    focusPaneIn: focusPaneInWindow,
   })
+  refreshAgentPlugins()
   registerExtensionMethods(() => extensionHost)
   registerExtensionIpc(extensionHost)
+  registerRemoteFilesIpc(extensionHost)
+  ipcMain.on(AGENT_OFFER_RESULT_CHANNEL, (e, requestId: unknown, paneId: unknown) =>
+    agentOffers.answer(String(e.sender.id), requestId, paneId),
+  )
   languageServers = createLanguageServers()
   languageServers.refresh()
   registerLanguageServersIpc({
     servers: languageServers,
     setEnabled: (extId, serverId, enabled) =>
       extensionHost?.setLanguageServerEnabled(extId, serverId, enabled),
+    setOverride: (key, override) => serverOverrides.choose(key, override),
   })
   registerMarketplaceIpc(
     new Marketplace({
@@ -2458,6 +2688,7 @@ app.whenReady().then(() => {
           .map((ext) => ext.id) ?? [],
       forget: (extId) => {
         managedServers.forgetExtension(extId)
+        serverOverrides.forgetExtension(extId)
         extensionStore.delete(extId)
         for (const secrets of [extensionSecretStore(), assistKeyStore()]) {
           for (const key of secrets.keys(extId)) secrets.set(extId, key, null)
@@ -2470,19 +2701,30 @@ app.whenReady().then(() => {
   registerAssistIpc(() => extensionHost)
   registerChatSessionIpc(
     createChatSessionStore({ dir: join(dirname(storePath('chat', 'global')), 'chat-sessions') }),
+    redactor.text,
   )
-  const mcpSecrets = encryptedStore(storePath('mcp-secrets', 'global'))
+  const mcpSecretsPath = storePath('mcp-secrets', 'global')
+  const mcpSecrets = encryptedStore(mcpSecretsPath)
   const chatToolSettings = () => parseChatToolSettings(readSettingsFile().assistant)
+  mcpOAuth = new McpOAuth({
+    store: createMcpOAuthStore(encryptedFile(mcpSecretsPath)),
+    openExternal: openExternalSafe,
+    browser: mcpOAuthBrowser(app.isPackaged, process.env),
+    locale: readLocale,
+    onChange: () => mcpHost?.notify(),
+  })
   mcpHost = new McpHost({
     servers: () => chatToolSettings().mcpServers,
     secret: (server, key) => mcpSecrets.get(server, key),
     onStatus: (status) => broadcast('chatTools:mcp-status', status),
+    auth: mcpOAuth,
   })
   registerChatToolsIpc({
     roots: fileRoots,
     settings: chatToolSettings,
     mcp: mcpHost,
     secrets: mcpSecrets,
+    oauth: mcpOAuth,
   })
   const workflowDeps: WorkflowDeps = {
     userDir: join(configDir(), 'workflows'),
@@ -2546,7 +2788,12 @@ app.whenReady().then(() => {
     errorBuffers,
   })
   registerPickMethods({ browserPanes, isSharedPane, errorBuffers, broadcast })
-  registerPickIpc({ browserPanes, isSharedPane, errorBuffers, broadcast }, reachesPane)
+  registerPickIpc(
+    { browserPanes, isSharedPane, errorBuffers, broadcast },
+    reachesPane,
+    redactor.text,
+  )
+  registerRegionIpc(browserPanes, reachesPane, redactor.text)
   registerBrowserStorageIpc((paneId, senderWindowId) =>
     ownedGuest(browserPanes, paneId, senderWindowId),
   )
@@ -2582,7 +2829,10 @@ app.whenReady().then(() => {
     locale: readLocale,
     windows: () => BrowserWindow.getAllWindows(),
     quit: requestQuit,
+    setBadgeCount: (count) => app.setBadgeCount(count),
   })
+  globalHotkey = new GlobalHotkey(globalShortcut, toggleAllWindows)
+  applyGlobalHotkey()
   broker = new WindowBroker({
     createWindow,
     holdPtys,
@@ -2591,6 +2841,7 @@ app.whenReady().then(() => {
     isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
     isScratch: (workspaceId) => scratchFolders.isScratch(workspaceId),
     reveal: showWindow,
+    onList: (list) => appTray?.setUnread(unreadWorkspaces(list)),
   })
   broker.register()
   broker.openAll()
@@ -2604,16 +2855,29 @@ app.whenReady().then(() => {
   app.on('activate', revealApp)
 })
 
-function persistScrollback(): void {
-  if (broker && !broker.persisting) return
+const redactor = createRedactor(() => (readSettingsFile() as { privacy?: unknown }).privacy)
+const redactScrollback = createScrollbackRedactor(redactor)
+let scrollbackSaves: Promise<void> = Promise.resolve()
+
+function persistScrollback(): Promise<void> {
+  if (broker && !broker.persisting) return scrollbackSaves
+  let toSave: Record<string, string>
   try {
     const byPane = pendingRestoredScrollback()
     for (const [paneId, entry] of ptys) byPane[paneId] = entry.mirror.serialize()
-    saveScrollback(byPane, isScratchPane)
+    toSave = scrollbackToSave(byPane, isScratchPane)
   } catch (err) {
     console.error('[workspace] scrollback save failed', err)
+    return scrollbackSaves
   }
+  scrollbackSaves = scrollbackSaves
+    .then(async () => saveScrollback(await redactScrollback(toSave)))
+    .catch((err: unknown) => console.error('[workspace] scrollback save failed', err))
+  return scrollbackSaves
 }
+
+let scrollbackSavedForQuit = false
+let savingScrollbackForQuit = false
 
 const SCROLLBACK_AUTOSAVE_MS = 5000
 let lastScrollbackSignature = ''
@@ -2624,7 +2888,7 @@ function autosaveScrollback(): void {
   signature += `pending:${Object.keys(pendingRestoredScrollback()).length}`
   if (signature === lastScrollbackSignature) return
   lastScrollbackSignature = signature
-  persistScrollback()
+  void persistScrollback()
 }
 
 app.on('before-quit', (event) => {
@@ -2655,7 +2919,16 @@ app.on('before-quit', (event) => {
     })
     return
   }
-  persistScrollback()
+  if (!scrollbackSavedForQuit) {
+    event.preventDefault()
+    if (savingScrollbackForQuit) return
+    savingScrollbackForQuit = true
+    void persistScrollback().finally(() => {
+      scrollbackSavedForQuit = true
+      app.quit()
+    })
+    return
+  }
   broker?.persist()
   managerService?.shutdown()
   appLog?.info('app-quit', { ptys: ptys.size })
@@ -2668,6 +2941,7 @@ app.on('before-quit', (event) => {
   }
   ptys.clear()
   languageServers?.stopAll()
+  languageServerWatches.closeAll()
   workspaceSandboxes.stopAll()
   workspaceAgents.stopAll()
   for (const workspaceId of scratchFolders.workspaceIds()) workspaceSandboxes.forget(workspaceId)
@@ -2675,6 +2949,7 @@ app.on('before-quit', (event) => {
   scratchFolders.removeAll()
   portForwarder.stopAll()
   extensionHost?.stopAll()
+  mcpOAuth?.closeAll()
   mcpHost?.closeAll()
   viewHost?.stop()
   settingsSync?.stop()
@@ -2682,6 +2957,7 @@ app.on('before-quit', (event) => {
   portal?.stop()
   void stopGateway()
   appTray?.remove()
+  globalHotkey?.clear()
 })
 
 app.on('window-all-closed', () => {
