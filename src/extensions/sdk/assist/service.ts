@@ -1,3 +1,4 @@
+import { isEqual } from 'es-toolkit'
 import {
   APICallError,
   type JSONSchema7,
@@ -167,7 +168,7 @@ export class AssistantService {
       const entry = { ...raw, apiKey: raw.apiKey?.trim() ? raw.apiKey.trim() : null }
       const endpoint = endpointOf(entry, this.catalog, this.env)
       const problem = entryProblem(entry, this.catalog, this.env)
-      const same = previous.find((slot) => JSON.stringify(slot.entry) === JSON.stringify(entry))
+      const same = previous.find((slot) => isEqual(slot.entry, entry))
       return {
         entry,
         provider: endpoint ? this.catalog.create(entry.kind, endpoint, entry.apiKey) : null,

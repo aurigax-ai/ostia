@@ -1,3 +1,4 @@
+import { isEqual } from 'es-toolkit'
 import type { OriginAgents } from '@shared/types'
 import { useOriginAgentsStore } from '../stores/originAgentsStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
@@ -32,7 +33,7 @@ export async function refreshOriginAgents(): Promise<void> {
     byWorkspace[id] = found[i]
   })
   const current = useOriginAgentsStore.getState().byWorkspace
-  if (JSON.stringify(current) !== JSON.stringify(byWorkspace)) {
+  if (!isEqual(current, byWorkspace)) {
     useOriginAgentsStore.getState().setAll(byWorkspace)
   }
 }
