@@ -418,6 +418,25 @@ describe('settingsStore', () => {
       expect(written.extensionSettings).toEqual({ git: { fetch: true }, ports: { interval: 5 } })
     })
 
+    it('reloads settings.json saved in the editor, but not its own save', async () => {
+      vi.mocked(window.pine.fs.read).mockResolvedValue('{"locale":"en"}')
+      await store().init()
+      store().setTheme('dracula')
+      await vi.advanceTimersByTimeAsync(300)
+      const own = vi.mocked(window.pine.fs.write).mock.calls[0][1]
+
+      vi.mocked(window.pine.fs.read).mockResolvedValue(own)
+      store().setZoom(120)
+      await store().init()
+      expect(store().appearance.zoom).toBe(120)
+
+      const edited = JSON.parse(own)
+      edited.appearance.theme = 'pine-light'
+      vi.mocked(window.pine.fs.read).mockResolvedValue(JSON.stringify(edited, null, 2))
+      await store().init()
+      expect(store().appearance.theme).toBe('pine-light')
+    })
+
     it('logs a failed save instead of leaving the rejection unhandled', async () => {
       vi.mocked(window.pine.fs.read).mockResolvedValue('{"locale":"en"}')
       await store().init()
