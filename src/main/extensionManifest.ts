@@ -23,6 +23,7 @@ import {
   type ExtensionSettingContribution,
   type ExtensionSettingType,
   type ExtensionSettingUnit,
+  type ExtensionSettingsPageContribution,
   validSettingValue,
 } from '../shared/extensions'
 import { ICON_THEME_ID_PATTERN, type IconThemeContribution } from '../shared/iconTheme'
@@ -126,6 +127,29 @@ function parsePanel(raw: unknown, dir: string): ExtensionPanelContribution | str
   const icon = parseIcon(raw.icon)
   if (icon) panel.icon = icon
   return panel
+}
+
+function parseSettingsPage(
+  raw: unknown,
+  hasEntries: boolean,
+  assist: boolean,
+): ExtensionSettingsPageContribution | string | undefined {
+  if (raw === undefined) return undefined
+  if (!isRecord(raw)) return 'contributes.settingsPage: must be an object'
+  const title = text(raw.title, EXTENSION_SETTING_TITLE_MAX)
+  if (!title || hasControlCharacter(title)) {
+    return `contributes.settingsPage: title must be 1-${EXTENSION_SETTING_TITLE_MAX} characters`
+  }
+  const page: ExtensionSettingsPageContribution = { title }
+  if (raw.icon !== undefined) {
+    const icon = parseIcon(raw.icon)
+    if (!icon) return `contributes.settingsPage: icon must be one of ${EXTENSION_ICONS.join(', ')}`
+    page.icon = icon
+  }
+  if (!hasEntries) return 'contributes.settingsPage needs contributes.settings or secrets'
+  if (assist)
+    return 'contributes.settingsPage: assist extensions are set up in Settings → Assistant'
+  return page
 }
 
 function parseChips(
@@ -452,6 +476,12 @@ export function parseManifest(raw: unknown, dir: string): ManifestResult {
   if (typeof secrets === 'string') return { ok: false, error: secrets }
   const assist = parseAssist(contributes.assist, caps)
   if (typeof assist === 'string') return { ok: false, error: assist }
+  const settingsPage = parseSettingsPage(
+    contributes.settingsPage,
+    settings.length > 0 || secrets.length > 0,
+    assist.length > 0,
+  )
+  if (typeof settingsPage === 'string') return { ok: false, error: settingsPage }
   const iconThemes = parseIconThemes(contributes.iconThemes, dir)
   if (typeof iconThemes === 'string') return { ok: false, error: iconThemes }
   const languages = parseLanguages(contributes.languages, dir)
@@ -495,6 +525,7 @@ export function parseManifest(raw: unknown, dir: string): ManifestResult {
   if (main) manifest.main = main
   if (locales.length > 0) manifest.locales = locales
   if (panel) manifest.contributes.panel = panel
+  if (settingsPage) manifest.contributes.settingsPage = settingsPage
   if (workflows && workflows.length > 0) manifest.contributes.workflows = workflows
   if (completions !== undefined) manifest.contributes.completions = completions
   if (iconThemes.length > 0) manifest.contributes.iconThemes = iconThemes

@@ -530,6 +530,59 @@ describe('parseManifest', () => {
   })
 })
 
+describe('parseManifest — settings page', () => {
+  const settings = { mode: { type: 'string', default: '', description: 'How it runs' } }
+  const secrets = { token: { description: 'The token' } }
+  const parse = (contributes: Record<string, unknown>, extra: Record<string, unknown> = {}) =>
+    parseManifest(manifest({ contributes, ...extra }), DIR)
+
+  it('keeps a title and an icon for an extension with settings or secrets', () => {
+    const withSettings = parse({ settings, settingsPage: { title: 'Demo', icon: 'kanban' } })
+    expect(withSettings.ok && withSettings.manifest.contributes.settingsPage).toEqual({
+      title: 'Demo',
+      icon: 'kanban',
+    })
+    const withSecrets = parse({ secrets, settingsPage: { title: 'Demo' } })
+    expect(withSecrets.ok && withSecrets.manifest.contributes.settingsPage).toEqual({
+      title: 'Demo',
+    })
+  })
+
+  it('leaves the field out when the manifest has none', () => {
+    const res = parse({ settings })
+    expect(res.ok && res.manifest.contributes).not.toHaveProperty('settingsPage')
+  })
+
+  it('refuses a page with nothing to show', () => {
+    expect(parse({ settingsPage: { title: 'Demo' } })).toEqual({
+      ok: false,
+      error: 'contributes.settingsPage needs contributes.settings or secrets',
+    })
+  })
+
+  it('refuses a missing, long or multi-line title and an icon outside the list', () => {
+    for (const settingsPage of [
+      {},
+      { title: '' },
+      { title: 'x'.repeat(81) },
+      { title: 'two\nlines' },
+      { title: 'Demo', icon: 'skull' },
+      'Demo',
+      true,
+    ]) {
+      expect(parse({ settings, settingsPage }).ok, JSON.stringify(settingsPage)).toBe(false)
+    }
+  })
+
+  it('refuses a page on an assist extension, whose settings live in Settings → Assistant', () => {
+    const res = parse(
+      { settings, assist: ['chat'], settingsPage: { title: 'Demo' } },
+      { capabilities: ['assist'] },
+    )
+    expect(res.ok).toBe(false)
+  })
+})
+
 describe('parseManifest — locales', () => {
   const locales = (list: unknown) => parseManifest(manifest({ locales: list }), DIR)
 

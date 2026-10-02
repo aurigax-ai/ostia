@@ -194,6 +194,7 @@ describe('Uninstall in the installed list', () => {
       assist: [],
       secrets: [],
       secretsSet: [],
+      settingsPage: null,
       category: 'other',
       languages: [],
       languageServers: [],

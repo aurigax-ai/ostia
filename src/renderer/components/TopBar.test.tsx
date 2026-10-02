@@ -34,6 +34,7 @@ const git: ExtensionInfo = {
   assist: [],
   secrets: [],
   secretsSet: [],
+  settingsPage: null,
   category: 'other',
   languages: [],
   languageServers: [],

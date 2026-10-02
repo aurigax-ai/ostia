@@ -541,6 +541,7 @@ export class ExtensionHost {
       workspaceChips: m.contributes.workspaceChips,
       settings: m.contributes.settings,
       settingValues: this.settingValues(rt),
+      settingsPage: this.active(rt) ? (m.contributes.settingsPage ?? null) : null,
       assist: m.contributes.assist,
       secrets: m.contributes.secrets,
       secretsSet: this.deps.secrets?.keys(m.id) ?? [],
