@@ -23,7 +23,12 @@ import { canTypeInto, insertCommand, selectedBlockOutput, stepBlock } from '../l
 import { decodeCommandLine, readCommandText } from '../lib/blockText'
 import { openBrowserAs } from '../lib/browserProfile'
 import { isAppChord, matchChord } from '../lib/chords'
-import { PROGRAM_PASTE_KEY, keyPastePlan, smartClipboardAction } from '../lib/clipboardKeys'
+import {
+  PROGRAM_PASTE_KEY,
+  keyPastePlan,
+  pasteEventReadsClipboard,
+  smartClipboardAction,
+} from '../lib/clipboardKeys'
 import { currentScheme, terminalTheme, useScheme } from '../lib/colorScheme'
 import { acceptsPathDrop, droppedPaths, pathsAsInput } from '../lib/dropPaths'
 import { attachLinkModifier, linkModifierHeld, linkTarget } from '../lib/linkModifier'
@@ -198,6 +203,12 @@ export function TerminalView({
     }
     const interceptPaste = (e: ClipboardEvent): void => {
       const text = e.clipboardData?.getData('text/plain') ?? ''
+      if (pasteEventReadsClipboard(text, Boolean(inputEditorFor(paneId)), isMac)) {
+        e.preventDefault()
+        e.stopImmediatePropagation()
+        void pasteFromClipboard()
+        return
+      }
       if (!inputEditorFor(paneId)) {
         const plan = planPaste(text)
         if (!plan.confirm && plan.text === text) return

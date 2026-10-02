@@ -32,3 +32,11 @@ export function keyPastePlan(
   if (text) return 'text'
   return !editorShown && hasImage ? 'program' : 'none'
 }
+
+export function pasteEventReadsClipboard(
+  text: string,
+  editorShown: boolean,
+  mac: boolean,
+): boolean {
+  return mac && !text && !editorShown
+}
