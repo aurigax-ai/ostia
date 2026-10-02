@@ -26,7 +26,10 @@ export function SandboxFolderDialog(): JSX.Element {
           <DialogTitle>{d.sandbox.folderTitle}</DialogTitle>
           <DialogDescription>
             {refused
-              ? `${fmt(d.sandbox.folderReasons[refused.reason], { folder: refused.folder })} ${d.sandbox.folderAdvice}`
+              ? fmt(d.sandbox.folderRefused, {
+                  reason: fmt(d.sandbox.folderReasons[refused.reason], { folder: refused.folder }),
+                  advice: d.sandbox.folderAdvice,
+                })
               : ''}
           </DialogDescription>
         </DialogHeader>

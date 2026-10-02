@@ -414,7 +414,7 @@ function SecretRows({
             value={row.value}
             autoComplete="new-password"
             placeholder={row.saved ? t.secretSaved : undefined}
-            aria-label={row.saved ? `${row.key} ${t.secretValue}` : t.secretValue}
+            aria-label={row.saved ? fmt(t.secretValueFor, { key: row.key }) : t.secretValue}
             onChange={(e) => set(i, { value: e.target.value })}
             className="h-7 text-ui-sm"
           />

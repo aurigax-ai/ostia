@@ -10,7 +10,6 @@ import type {
   LspLog,
   LspLogEntry,
 } from '@shared/languageServers'
-import { PRODUCT_NAME } from '@shared/product'
 import type { RequirementsReport } from '@shared/systemRequirements'
 import { useEffect, useState } from 'react'
 import type { Dict } from '../i18n/dict'
@@ -53,12 +52,12 @@ function binaryNote(d: Dict, server: LanguageServerInfo): string | null {
     return fmt(t.usingPath, { program: server.program ?? server.command })
   }
   if (server.binary?.source === 'managed') {
-    return fmt(t.usingManaged, { app: PRODUCT_NAME, version: server.version ?? '' })
+    return fmt(t.usingManaged, { version: server.version ?? '' })
   }
   if (!server.fetchable || server.fetchHeld) return null
   return server.fetchCommand
-    ? fmt(t.willGoInstall, { app: PRODUCT_NAME, command: server.fetchCommand })
-    : fmt(t.willDownload, { app: PRODUCT_NAME, version: server.version ?? '' })
+    ? fmt(t.willGoInstall, { command: server.fetchCommand })
+    : fmt(t.willDownload, { version: server.version ?? '' })
 }
 
 function statusLabel(d: Dict, server: LanguageServerInfo): string {
@@ -145,7 +144,7 @@ function logLine(d: Dict, entry: LspLogEntry): string {
         reason: fmt(t.fetchReasons[entry.reason], { detail: entry.detail }),
       })
     case 'fetch-removed':
-      return fmt(t.logFetchRemoved, { app: PRODUCT_NAME })
+      return t.logFetchRemoved
   }
 }
 
@@ -178,7 +177,7 @@ function ServerLogDialog({
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>{fmt(t.logTitle, { name: server.name })}</DialogTitle>
-          <DialogDescription>{fmt(t.logDesc, { app: PRODUCT_NAME })}</DialogDescription>
+          <DialogDescription>{t.logDesc}</DialogDescription>
         </DialogHeader>
         {log && log.entries.length === 0 ? (
           <p className="text-fg-muted text-ui-sm">{t.logEmpty}</p>
@@ -334,7 +333,7 @@ function ServerRow({ server }: { server: LanguageServerInfo }): JSX.Element {
           {server.managedCopy ? (
             <IconButton
               icon={TrashIcon}
-              label={fmt(t.removeDownload, { name: server.name, app: PRODUCT_NAME })}
+              label={fmt(t.removeDownload, { name: server.name })}
               onClick={() => void window.pine.lsp.removeDownload(server.key)}
             />
           ) : null}

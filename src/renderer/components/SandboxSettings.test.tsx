@@ -1,3 +1,4 @@
+import { PRODUCT_NAME } from '@shared/product'
 import '@testing-library/jest-dom/vitest'
 import { DEFAULT_CONTROLS, type SandboxFixedPolicy, type WorkspaceSandbox } from '@shared/sandbox'
 import { act, render, screen, waitFor, within } from '@testing-library/react'
@@ -65,7 +66,7 @@ describe('sandbox settings', () => {
     vi.mocked(window.pine.sandbox.get).mockResolvedValue(WORKSPACE)
     vi.mocked(window.pine.sandbox.setControls).mockResolvedValue({ ...WORKSPACE, controls: {} })
     render(<WorkspaceSandboxPage workspaceId="ws" workspaceName="proj" />)
-    await userEvent.click(await screen.findByRole('tab', { name: 'Pine access' }))
+    await userEvent.click(await screen.findByRole('tab', { name: `${PRODUCT_NAME} access` }))
     const row = screen.getByRole('group', { name: 'Act on other workspaces' })
     expect(within(row).getByRole('switch')).toBeChecked()
     expect(row).toHaveTextContent('Overridden')
@@ -121,7 +122,7 @@ describe('sandbox filesystem settings', () => {
     await userEvent.type(within(hidden).getByRole('textbox'), '/run/user/1000')
     await userEvent.click(within(hidden).getByRole('button', { name: 'Add' }))
     expect(await within(hidden).findByRole('alert')).toHaveTextContent(
-      'Pine keeps that path closed',
+      `${PRODUCT_NAME} keeps that path closed`,
     )
     expect(useSettingsStore.getState().sandbox?.allowRead).toEqual([])
   })
@@ -329,7 +330,7 @@ describe('workspace sandbox page layout', () => {
       ['Ports', 'Ports'],
       ['Secrets', 'Secrets'],
       ['Packages', 'Packages'],
-      ['Pine access', 'Pine access'],
+      [`${PRODUCT_NAME} access`, `${PRODUCT_NAME} access`],
       ['Blocked', 'Blocked'],
     ]
     for (const [tab, heading] of groups) {

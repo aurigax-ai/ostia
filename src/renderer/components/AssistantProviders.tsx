@@ -128,7 +128,7 @@ function KeyRow({
   const t = d.assistantSettings
   const [draft, setDraft] = useState('')
   const [error, setError] = useState<string | null>(null)
-  const label = `${t.apiKey}: ${config.name}`
+  const label = fmt(t.apiKeyFor, { name: config.name })
   const store = (value: string | null): void => {
     void window.pine.assist.setProviderKey(config.id, value).then((res) => {
       setError(res.ok ? null : res.error)
@@ -244,7 +244,7 @@ function ProviderModels({ config }: { config: AssistProviderConfig }): JSX.Eleme
         {config.models.length === 0 ? (
           <p className="text-fg-muted text-ui-xs">{t.noProviderModels}</p>
         ) : (
-          <ul aria-label={`${t.providerModels}: ${config.name}`} className="flex flex-col">
+          <ul aria-label={fmt(t.modelsFor, { name: config.name })} className="flex flex-col">
             {config.models.map((id) => (
               <li key={id} className="flex items-center gap-1">
                 <span className="min-w-0 flex-1 truncate font-mono text-fg text-ui-sm">{id}</span>
@@ -321,7 +321,7 @@ function ProviderCard({
         <ControlRow label={t.providerName}>
           <CommittedInput
             value={config.name}
-            label={`${t.providerName}: ${config.name}`}
+            label={fmt(t.providerNameFor, { name: config.name })}
             onCommit={(name) => {
               if (name) patch({ name })
             }}
@@ -333,7 +333,7 @@ function ProviderCard({
         >
           <CommittedInput
             value={config.baseUrl}
-            label={`${t.baseUrl}: ${config.name}`}
+            label={fmt(t.baseUrlFor, { name: config.name })}
             placeholder={kind?.baseUrl}
             mono
             onCommit={(baseUrl) => patch({ baseUrl })}

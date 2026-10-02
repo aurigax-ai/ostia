@@ -1,7 +1,6 @@
 import { MagnifyingGlassIcon } from '@phosphor-icons/react'
-import { PRODUCT_NAME } from '@shared/product'
 import { useEffect, useState, useSyncExternalStore } from 'react'
-import { commands } from '../commands/registry'
+import { commandWording, commands } from '../commands/registry'
 import type { Dict } from '../i18n/dict'
 import { fmt, useDict } from '../i18n/useDict'
 import {
@@ -24,6 +23,7 @@ import {
   defaultChord,
   workspaceDigit,
 } from '../lib/chords'
+import { BASE_LANGUAGE } from '../lib/languagePacks'
 import { isMac } from '../platform'
 import { useSettingsStore } from '../stores/settingsStore'
 import { SectionHead, WarningNote } from './SettingsPanel'
@@ -41,16 +41,20 @@ const TERMINAL_TITLES: Record<string, (d: Dict) => string> = {
   find: (d) => d.keyboard.find,
 }
 
-const UNREGISTERED_TITLES: Record<string, (d: Dict) => string> = {
-  'assist.compose': (d) => d.keyboard.assistCompose,
-}
-
 function commandTitle(id: string, d: Dict): string {
   const terminal = TERMINAL_TITLES[id]
   if (terminal) return terminal(d)
-  const registered = commands.list().find((c) => c.id === id)?.title
-  if (registered) return registered
-  return UNREGISTERED_TITLES[id]?.(d) ?? id
+  const registered = commands.list().find((c) => c.id === id)
+  if (registered) return commandWording(registered, d).title
+  return (d.commands.titles as Record<string, string | undefined>)[id] ?? id
+}
+
+function matchesQuery(row: { id: string; title: string; english: string }, q: string): boolean {
+  const spec = chordOf(row.id, isMac)
+  const keys = spec ? chordText(spec, isMac).toLowerCase() : ''
+  return (
+    [row.title, row.english, row.id].some((t) => t.toLowerCase().includes(q)) || keys.includes(q)
+  )
 }
 
 export function problemText(problem: ChordProblem, d: Dict, mac: boolean): string {
@@ -251,9 +255,7 @@ function PendingChoice({
           {fmt(d.keyboard.conflict, { keys, command: commandTitle(other, d) })}
         </WarningNote>
       ))}
-      {pending.monaco ? (
-        <WarningNote>{fmt(d.keyboard.monaco, { keys, app: PRODUCT_NAME })}</WarningNote>
-      ) : null}
+      {pending.monaco ? <WarningNote>{fmt(d.keyboard.monaco, { keys })}</WarningNote> : null}
       <div className="flex gap-1">
         <Button size="xs" onClick={onConfirm}>
           {pending.conflicts.length > 0 ? d.keyboard.replace : d.keyboard.useAnyway}
@@ -274,19 +276,15 @@ export function KeyboardSection(): JSX.Element {
   useSyncExternalStore(subscribeCommands, commandsVersion)
 
   const rows = bindableIds()
-    .map((id) => ({ id, title: commandTitle(id, d) }))
+    .map((id) => ({
+      id,
+      title: commandTitle(id, d),
+      english: commandTitle(id, BASE_LANGUAGE.catalog),
+    }))
     .sort((a, b) => a.title.localeCompare(b.title))
 
   const q = query.trim().toLowerCase()
-  const visible = q
-    ? rows.filter((r) => {
-        const spec = chordOf(r.id, isMac)
-        const keys = spec ? chordText(spec, isMac).toLowerCase() : ''
-        return (
-          r.title.toLowerCase().includes(q) || r.id.toLowerCase().includes(q) || keys.includes(q)
-        )
-      })
-    : rows
+  const visible = q ? rows.filter((r) => matchesQuery(r, q)) : rows
 
   return (
     <section aria-label={d.keyboard.title}>

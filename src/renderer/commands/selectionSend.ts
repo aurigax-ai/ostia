@@ -1,13 +1,12 @@
 import { openSelectionSend } from '../lib/selectionSenders'
-import { commands } from './registry'
+import { registerCore } from './core'
 
 export const SEND_SELECTION_COMMAND = 'selection.sendToAgent'
 
 export function registerSelectionSendCommand(): void {
-  commands.register<undefined, { opened: true }>({
+  registerCore<undefined, { opened: true }>({
     id: SEND_SELECTION_COMMAND,
-    title: 'Send Selection to Agent',
-    category: 'Pane',
+    category: 'pane',
     target: 'active',
     run: (_args, ctx) => {
       if (!ctx.activePaneId || !openSelectionSend(ctx.activePaneId)) {

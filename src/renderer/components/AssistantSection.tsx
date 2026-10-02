@@ -14,7 +14,6 @@ import {
   sameModelRef,
 } from '@shared/assist'
 import type { ExtensionInfo } from '@shared/extensions'
-import { PRODUCT_NAME } from '@shared/product'
 import { useCallback, useEffect, useState } from 'react'
 import type { Dict } from '../i18n/dict'
 import { fmt, useDict } from '../i18n/useDict'
@@ -261,7 +260,7 @@ function Features({ chat }: { chat: boolean }): JSX.Element {
       {chat ? (
         <ToggleRow
           label={d.chat.saveHistory}
-          desc={fmt(d.assistantSettings.saveHistoryDesc, { app: PRODUCT_NAME })}
+          desc={d.assistantSettings.saveHistoryDesc}
           checked={history}
           onChange={(on) => useSettingsStore.getState().setChatHistory(on)}
         />
@@ -367,7 +366,7 @@ function LifecycleModels({
   }
   return (
     <SettingsGroup
-      title={`${t.models}: ${name}`}
+      title={fmt(t.modelsFor, { name })}
       desc={t.modelsLifecycleDesc}
       action={
         <IconButton icon={ArrowClockwiseIcon} label={t.refresh} onClick={() => void refresh()} />
@@ -381,7 +380,7 @@ function LifecycleModels({
         <p className="text-fg-muted text-ui-sm">{t.noModels}</p>
       ) : null}
       {result?.ok && result.models.length > 0 ? (
-        <ul aria-label={`${t.models}: ${name}`} className="flex flex-col gap-2">
+        <ul aria-label={fmt(t.modelsFor, { name })} className="flex flex-col gap-2">
           {result.models.map((model) => (
             <ModelRow
               key={model.id}

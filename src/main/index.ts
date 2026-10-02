@@ -2251,7 +2251,7 @@ function startPortal(): void {
   portal
     .start()
     .then((started) => {
-      if (!started) console.warn('[portal] another Pine owns the portal socket')
+      if (!started) console.warn(`[portal] another ${PRODUCT_NAME} owns the portal socket`)
     })
     .catch((err) => console.error('[portal] failed to start', err))
 }

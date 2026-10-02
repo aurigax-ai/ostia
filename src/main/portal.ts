@@ -9,6 +9,7 @@ import {
   createMessageConnection,
 } from 'vscode-jsonrpc/node'
 import { portalSocketPath as sharedPortalSocketPath } from '../shared/portal'
+import { PRODUCT_NAME } from '../shared/product'
 import type { InstallHint, MissingRequirement } from '../shared/systemRequirements'
 import { ManagerError, type ManagerService, parseOpenRequest } from './manager'
 import type { CallerVerdict } from './portalCaller'
@@ -58,15 +59,17 @@ export function requirementsError(missing: MissingRequirement[], hint: InstallHi
   const install = hint.command
     ? `Install it: ${hint.command}`
     : `Install the ${hint.packages.join(', ')} package.`
-  return `missing-requirements: Pine needs ${programs} to check who is asking. ${install}`
+  return `missing-requirements: ${PRODUCT_NAME} needs ${programs} to check who is asking. ${install}`
 }
 
 function verdictError(verdict: CallerVerdict): ResponseError<void> | null {
   if (verdict === 'inside') {
-    return refuse('inside-pine: the manager can only be opened from a terminal outside Pine')
+    return refuse(
+      `inside-pine: the manager can only be opened from a terminal outside ${PRODUCT_NAME}`,
+    )
   }
   if (verdict === 'unknown') {
-    return refuse('unknown-caller: Pine could not check where this request came from')
+    return refuse(`unknown-caller: ${PRODUCT_NAME} could not check where this request came from`)
   }
   return null
 }

@@ -1,4 +1,3 @@
-import { PRODUCT_NAME } from '@shared/product'
 import type { SyncStatus } from '@shared/types'
 import { useEffect, useMemo, useState } from 'react'
 import type { Dict } from '../i18n/dict'
@@ -14,7 +13,7 @@ const OFF: SyncStatus = { dir: null, state: 'off', lastSync: null, lastConflict:
 export function syncErrorText(d: Dict, error: string | undefined): string {
   if (error === 'missing') return d.sync.errMissing
   if (error === 'not-a-directory') return d.sync.errNotDir
-  if (error === 'same-as-local') return fmt(d.sync.errSame, { app: PRODUCT_NAME })
+  if (error === 'same-as-local') return d.sync.errSame
   if (error?.startsWith('invalid-json:')) {
     return fmt(d.sync.errInvalid, { files: error.slice('invalid-json:'.length) })
   }
@@ -85,7 +84,7 @@ export function SyncSection(): JSX.Element {
     <div>
       <SectionHead title={d.sync.title} desc={d.sync.desc} />
       <Separator className="mb-2" />
-      <ControlRow label={d.sync.folder} desc={fmt(d.sync.folderDesc, { app: PRODUCT_NAME })}>
+      <ControlRow label={d.sync.folder} desc={d.sync.folderDesc}>
         {dir ? (
           <Hint label={dir}>
             <span className="max-w-60 truncate font-mono text-fg-muted text-ui-sm">{dir}</span>

@@ -1,5 +1,6 @@
 import { ErrorCodes, ResponseError } from 'vscode-jsonrpc/node'
 import type { ManagerSettings } from '../shared/managerSettings'
+import { PRODUCT_NAME } from '../shared/product'
 import { type ControlMethod, registerControlMethod } from './controlServer'
 import { type PaneIdentity, resolveExternal } from './idRegistry'
 import { type PaneIo, inputBytes, readLineCount } from './paneIo'
@@ -105,7 +106,7 @@ export function registerManagerMethods(deps: ManagerMethodDeps): ManagerLimiter 
           ...(p.workspaceId === undefined ? {} : { workspaceId: p.workspaceId as string }),
           ...(p.name === undefined ? {} : { name: p.name as string }),
         })
-        if (!paneId) throw fail('spawn-failed: Pine could not open the worker')
+        if (!paneId) throw fail(`spawn-failed: ${PRODUCT_NAME} could not open the worker`)
         const identity = resolveExternal(paneId)
         if (identity?.kind === 'pane') workers.add(identity.paneId)
         return { paneId }
