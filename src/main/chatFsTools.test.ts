@@ -498,4 +498,72 @@ describe('restoreTool', () => {
     })
     expect(readFileSync(path, 'utf8')).toBe('private notes')
   })
+
+  it('refuses a path through a symlink unless the human allowed symlinks', async () => {
+    mkdirSync(join(project, 'real'))
+    writeFileSync(join(project, 'real', 'c.txt'), 'c')
+    symlinkSync(join(project, 'real'), join(project, 'alias'))
+    const aliased = join(project, 'alias', 'c.txt')
+    expect(await restore(aliased, versionOf('c'), 'x')).toMatchObject({
+      ok: false,
+      error: 'through-symlink',
+    })
+    expect(await restore(aliased, versionOf('c'), null)).toMatchObject({
+      ok: false,
+      error: 'through-symlink',
+    })
+    expect(readFileSync(join(project, 'real', 'c.txt'), 'utf8')).toBe('c')
+    expect(await restore(aliased, versionOf('c'), 'x', { symlinks: true })).toMatchObject({
+      ok: true,
+    })
+    expect(readFileSync(join(project, 'real', 'c.txt'), 'utf8')).toBe('x')
+  })
+
+  it('refuses a symlinked file itself even when symlinks are allowed', async () => {
+    symlinkSync(join(project, 'a.txt'), join(project, 'l.txt'))
+    expect(await restore(join(project, 'l.txt'), null, 'x')).toMatchObject({
+      ok: false,
+      error: 'through-symlink',
+    })
+    expect(
+      await restore(join(project, 'l.txt'), versionOf('one\ntwo\nthree needle\nfour'), 'x', {
+        symlinks: true,
+      }),
+    ).toMatchObject({ ok: false, error: 'not-a-file' })
+    expect(readFileSync(join(project, 'a.txt'), 'utf8')).toBe('one\ntwo\nthree needle\nfour')
+  })
+
+  it('refuses content over the size cap and accepts exactly the cap', async () => {
+    const path = join(project, 'a.txt')
+    const now = versionOf('one\ntwo\nthree needle\nfour')
+    expect(await restore(path, now, 'x'.repeat(CHAT_WRITE_MAX + 1))).toMatchObject({
+      ok: false,
+      error: 'too-large',
+    })
+    expect(await restore(path, now, 'x'.repeat(CHAT_WRITE_MAX + 1), { check: true })).toMatchObject(
+      { ok: false, error: 'too-large' },
+    )
+    expect(readFileSync(path, 'utf8')).toBe('one\ntwo\nthree needle\nfour')
+    expect(await restore(path, now, 'x'.repeat(CHAT_WRITE_MAX))).toMatchObject({ ok: true })
+    expect(readFileSync(path, 'utf8')).toHaveLength(CHAT_WRITE_MAX)
+  })
+
+  it('refuses content that is not a string', async () => {
+    const path = join(project, 'a.txt')
+    expect(
+      await restore(path, versionOf('one\ntwo\nthree needle\nfour'), 7 as never),
+    ).toMatchObject({ ok: false, error: 'too-large' })
+    expect(readFileSync(path, 'utf8')).toBe('one\ntwo\nthree needle\nfour')
+  })
+
+  it('refuses to create a file whose real folder lies outside the roots', async () => {
+    symlinkSync(outsideRoots, join(project, 'escape'))
+    expect(
+      await restore(join(project, 'escape', 'new.txt'), null, 'x', {
+        outside: true,
+        symlinks: true,
+      }),
+    ).toMatchObject({ ok: false, error: 'not-allowed' })
+    expect(existsSync(join(outsideRoots, 'new.txt'))).toBe(false)
+  })
 })
