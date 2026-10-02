@@ -29,15 +29,25 @@ function binDir(name: string, programs: string[]): string {
 describe('systemRequirements', () => {
   it('names the sandbox packages missing on Linux and nothing when all are there', () => {
     const some = binDir('some', ['socat'])
-    expect(missingRequirements(SANDBOX_FEATURE, { platform: 'linux', path: some })).toEqual([
+    const direct = { platform: 'linux' as const, ptyRelay: false }
+    expect(missingRequirements(SANDBOX_FEATURE, { ...direct, path: some })).toEqual([
       { program: 'bwrap', package: 'bubblewrap' },
       { program: 'rg', package: 'ripgrep' },
       { program: 'nsenter', package: 'util-linux' },
     ])
     const all = binDir('all', ['socat', 'bwrap', 'rg', 'nsenter'])
-    expect(missingRequirements(SANDBOX_FEATURE, { platform: 'linux', path: all })).toEqual([])
+    expect(missingRequirements(SANDBOX_FEATURE, { ...direct, path: all })).toEqual([])
     expect(missingRequirements(SANDBOX_FEATURE, { platform: 'darwin', path: some })).toEqual([
       { program: 'rg', package: 'ripgrep' },
+    ])
+  })
+
+  it('needs script from util-linux only where the sandboxed shell runs behind the pty relay', () => {
+    const all = binDir('no-script', ['socat', 'bwrap', 'rg', 'nsenter'])
+    const env = { platform: 'linux' as const, path: all }
+    expect(missingRequirements(SANDBOX_FEATURE, { ...env, ptyRelay: false })).toEqual([])
+    expect(missingRequirements(SANDBOX_FEATURE, { ...env, ptyRelay: true })).toEqual([
+      { program: 'script', package: 'util-linux' },
     ])
   })
 

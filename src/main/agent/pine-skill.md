@@ -338,7 +338,7 @@ ever writing plaintext. `--global` **writes** (`set`/`rm`) need the elevated
 
 If `echo $HTTPS_PROXY` prints an `http://srt…` address, your workspace is sandboxed: you can read
 and write only the workspace folder (plus a private `$TMPDIR`), and reach only allowed hosts.
-Nothing fails silently — ask the human:
+A refused connection or read does not fail silently — ask the human:
 
 ```bash
 pine sandbox request-domain api.example.com   # a card asks the human; prints "allowed: …" or exits 1
@@ -352,6 +352,11 @@ download returns 403 with the reason (malware, cooldown, deny list); the human w
 after they allow it. `pine vault get` is refused in a sandbox — use `pine secret get`. System
 packages still go through `pine system install` (it opens a Host terminal the human watches); for
 toolchains prefer user-space installers (mise, uv, pixi) inside the workspace.
+
+On Linux the rest of the home folder is hidden behind an empty in-memory copy. A write there
+(`~/.cache`, `~/.config`, a dotfile) succeeds, lasts only until the shell exits and never reaches
+the human's home. Keep what must last in the workspace folder; if a tool you need lives in a hidden
+folder, tell the human which one so they can add it under Settings › Sandbox.
 
 ## Boards, cards and knowledge — use Trellis
 
