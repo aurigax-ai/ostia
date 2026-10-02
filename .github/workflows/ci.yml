@@ -181,7 +181,7 @@ jobs:
       - if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
         with:
-          name: blob-macos-${{ matrix.group }}
+          name: macos-blob-${{ matrix.group }}
           path: blob-report
           retention-days: 3
 
