@@ -11,6 +11,7 @@ vi.mock('./bus', () => ({ postBusMessage: vi.fn(() => 'msg-1') }))
 const { postBusMessage } = await import('./bus')
 const { writeSelectionReport } = await import('./selectionReport')
 const { createRedactor } = await import('./redaction')
+const { testScan } = await import('../../test/redactionScan')
 const { SELECTION_IMAGE_MAX } = await import('../shared/selection')
 const { getByPaneId, registerPane, removePane } = await import('./idRegistry')
 
@@ -74,7 +75,7 @@ describe('writeSelectionReport with secret redaction', () => {
     })
 
   it('writes the report and the bus message with the secret redacted', async () => {
-    const redactor = createRedactor(() => undefined)
+    const redactor = createRedactor(() => undefined, testScan)
     const res = await writeSelectionReport(leaking(), 'w1', sameWindow, AT, redactor.text)
     if (!res.ok) throw new Error(res.error)
     const md = readFileSync(res.path, 'utf8')
@@ -87,7 +88,7 @@ describe('writeSelectionReport with secret redaction', () => {
   })
 
   it('writes the selection as it is while the setting is off', async () => {
-    const redactor = createRedactor(() => ({ redaction: { enabled: false } }))
+    const redactor = createRedactor(() => ({ redaction: { enabled: false } }), testScan)
     const res = await writeSelectionReport(leaking(), 'w1', sameWindow, AT, redactor.text)
     if (!res.ok) throw new Error(res.error)
     expect(readFileSync(res.path, 'utf8')).toContain(`const token = '${secret}'`)
