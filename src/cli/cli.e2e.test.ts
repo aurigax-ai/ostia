@@ -311,6 +311,7 @@ describe('pine CLI end-to-end (spawns the real out/cli/index.js against a live c
 
     it('reads the message from a Claude Code hook payload on stdin with -', async () => {
       const child = spawn(process.execPath, [cliPath, 'state', 'waiting', '-'], { env: env() })
+      child.stdin.on('error', () => {})
       child.stdin.end(
         JSON.stringify({
           hook_event_name: 'Notification',
@@ -327,6 +328,7 @@ describe('pine CLI end-to-end (spawns the real out/cli/index.js against a live c
 
     it('names the tool from a Codex PermissionRequest hook payload on stdin with -', async () => {
       const child = spawn(process.execPath, [cliPath, 'state', 'waiting', '-'], { env: env() })
+      child.stdin.on('error', () => {})
       child.stdin.end(
         JSON.stringify({
           session_id: '01a0f04d-431b-7012-9fd4-67cc678354bd',

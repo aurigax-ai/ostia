@@ -8,7 +8,8 @@ import {
   rmSync,
   writeFileSync,
 } from 'node:fs'
-import { createServer } from 'node:net'
+import { type Server, createServer as createHttpServer } from 'node:http'
+import { type AddressInfo, createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { build } from 'esbuild'
@@ -29,6 +30,9 @@ let runtimeDir: string
 let socketPath: string
 let host: SandboxHost
 let asks: string[]
+let origin: Server
+let originPort: number
+const originHosts: string[] = []
 
 function contents(path: string): string {
   try {
@@ -90,6 +94,12 @@ beforeAll(async () => {
   socketPath = join(runtimeDir, 'pine.sock')
   await new Promise<void>((resolve) => createServer().listen(socketPath, resolve))
   writeFileSync(join(runtimeDir, 'bus'), '')
+  origin = createHttpServer((req, res) => {
+    originHosts.push(String(req.headers.host).split(':')[0])
+    res.end('ORIGIN-REACHED')
+  })
+  await new Promise<void>((resolve) => origin.listen(0, '127.0.0.1', resolve))
+  originPort = (origin.address() as AddressInfo).port
   asks = []
   host = new SandboxHost({
     nodePath: process.execPath,
@@ -103,7 +113,7 @@ beforeAll(async () => {
     buildSrtConfig(
       {
         allowRead: ['~/.zshrc'],
-        domains: ['api.github.com'],
+        domains: ['allowed.localhost'],
         controls: DEFAULT_CONTROLS,
       },
       {
@@ -121,6 +131,7 @@ beforeAll(async () => {
 
 afterAll(() => {
   host?.stop()
+  origin?.close()
   if (root) rmSync(root, { recursive: true, force: true })
 })
 
@@ -173,11 +184,13 @@ describe('sandbox runtime', () => {
 
   it('SBX-C35 reaches allowed hosts and blocks the rest', async () => {
     const res = await run(
-      `curl -s -m 20 -o /dev/null -w "gh=%{http_code}\\n" https://api.github.com; curl -s -m 20 -o /dev/null -w "ex=%{http_code}\\n" https://example.com; true`,
+      `env -u NO_PROXY -u no_proxy curl -s -m 20 -w "|allowed=%{http_code}\\n" http://allowed.localhost:${originPort}/; env -u NO_PROXY -u no_proxy curl -s -m 20 -o /dev/null -w "blocked=%{http_code}\\n" http://blocked.localhost:${originPort}/; true`,
     )
-    expect(res.out).toMatch(/gh=[1-5]\d\d/)
-    expect(res.out).toContain('ex=000')
-    expect(asks).toContain('example.com')
+    expect(res.out).toContain('ORIGIN-REACHED|allowed=200')
+    expect(res.out).toContain('blocked=403')
+    expect(asks).toContain('blocked.localhost')
+    expect(originHosts).toContain('allowed.localhost')
+    expect(originHosts).not.toContain('blocked.localhost')
   }, 60_000)
 
   it('SBX-C55 keeps other unix sockets out of reach while the pine socket works', async () => {
