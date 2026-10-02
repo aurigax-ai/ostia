@@ -469,6 +469,23 @@ describe('LanguageServers sessions', () => {
     await vi.waitFor(() => expect(h.spawned[0]?.child.exited).toBe(true))
   })
 
+  it('tells a window that writes to a session that has ended, so its client stops waiting for an answer', async () => {
+    const h = harness()
+    const [session] = await h.servers.open('w1', 'p1', join(workDir, 'loose.txt'))
+    h.spawned[0].child.exit(1, null)
+    await vi.waitFor(() =>
+      expect(h.posts.at(-1)).toMatchObject({ channel: `lsp:exit:${session.sessionId}` }),
+    )
+    const before = h.posts.length
+    h.servers.send('w1', session.sessionId, { jsonrpc: '2.0', id: 9, method: 'initialize' })
+    expect(h.posts.slice(before)).toEqual([
+      { windowId: 'w1', channel: `lsp:exit:${session.sessionId}`, args: [] },
+    ])
+    h.servers.send('w1', 7, { jsonrpc: '2.0', id: 9, method: 'initialize' })
+    h.servers.send('w1', 'anything:else', { jsonrpc: '2.0', id: 9, method: 'initialize' })
+    expect(h.posts).toHaveLength(before + 1)
+  })
+
   it('takes messages and releases only from the window that opened the session', async () => {
     const h = harness()
     const [session] = await h.servers.open('w1', 'p1', join(workDir, 'loose.txt'))
@@ -498,6 +515,7 @@ describe('LanguageServers sessions', () => {
     expect(child.received.map((m) => m.method)).toEqual([
       'initialize',
       'initialized',
+      'workspace/didChangeConfiguration',
       'shutdown',
       'exit',
     ])
@@ -613,6 +631,27 @@ describe('LanguageServers configuration and log', () => {
     expect(h.posts.filter((p) => p.channel === `lsp:msg:${session.sessionId}`)).toEqual([])
   })
 
+  it('hands a server its settings right after initialized, and nothing to a server that declares none', async () => {
+    const h = harness()
+    const [session] = await h.servers.open('w1', 'p1', join(workDir, 'loose.txt'))
+    const { child } = h.spawned[0]
+    await initialize(h, session.sessionId)
+    await vi.waitFor(() =>
+      expect(child.received.slice(1)).toEqual([
+        { method: 'initialized', params: {} },
+        {
+          method: 'workspace/didChangeConfiguration',
+          params: { settings: { fake: { mode: 'calm', root: workDir } } },
+        },
+      ]),
+    )
+    writeFileSync(join(workDir, 'main.rs'), '')
+    const [plain] = await h.servers.open('w1', 'p1', join(workDir, 'main.rs'))
+    await initialize(h, plain.sessionId)
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    expect(h.spawned[1].child.received.map((m) => m.method)).toEqual(['initialize', 'initialized'])
+  })
+
   it('sends didChangeConfiguration to an initialized server when a mapped setting changes', async () => {
     const h = harness()
     const [session] = await h.servers.open('w1', 'p1', join(workDir, 'loose.txt'))
@@ -630,7 +669,7 @@ describe('LanguageServers configuration and log', () => {
     await new Promise((resolve) => setTimeout(resolve, 20))
     expect(
       child.received.filter((m) => m.method === 'workspace/didChangeConfiguration'),
-    ).toHaveLength(1)
+    ).toHaveLength(2)
   })
 
   it('logs the initialize result, failed requests by method and redacted stderr', async () => {
@@ -653,6 +692,228 @@ describe('LanguageServers configuration and log', () => {
       'api_key=[redacted]',
     ])
     expect(h.servers.log('unknown/key')).toEqual({ entries: [], errors: {} })
+  })
+})
+
+describe('LanguageServers watched files', () => {
+  function watching(): {
+    h: Harness
+    emit: (changes: { path: string; kind: 'created' | 'changed' | 'deleted' }[]) => void
+    watchedRoots: string[]
+    stopped: string[]
+  } {
+    const listeners = new Map<string, (changes: never[]) => void>()
+    const watchedRoots: string[] = []
+    const stopped: string[] = []
+    const h = harness({
+      watchTree: (root, onChange) => {
+        watchedRoots.push(root)
+        listeners.set(root, onChange as (changes: never[]) => void)
+        return () => {
+          stopped.push(root)
+          listeners.delete(root)
+        }
+      },
+    })
+    return {
+      h,
+      watchedRoots,
+      stopped,
+      emit: (changes) => {
+        for (const listener of [...listeners.values()]) listener(changes as never[])
+      },
+    }
+  }
+
+  function sentToServer(child: FakeChild): unknown[] {
+    return child.received
+      .filter((message) => message.method === 'workspace/didChangeWatchedFiles')
+      .map((message) => message.params)
+  }
+
+  it('watches the session root once a server registers watchers and still forwards the request to the window', async () => {
+    const { h, emit, watchedRoots } = watching()
+    const [session] = await h.servers.open('w1', 'p1', join(workDir, 'pkg', 'src', 'a.txt'))
+    await initialize(h, session.sessionId)
+    const [{ child }] = h.spawned
+    expect(watchedRoots).toEqual([])
+    void child.peer.sendRequest('client/registerCapability', {
+      registrations: [
+        { id: 'hover', method: 'textDocument/hover' },
+        {
+          id: 'files',
+          method: 'workspace/didChangeWatchedFiles',
+          registerOptions: { watchers: [{ globPattern: '**/*.toml' }] },
+        },
+      ],
+    })
+    await vi.waitFor(() => expect(watchedRoots).toEqual([join(workDir, 'pkg')]))
+    expect(
+      h.posts.some(
+        (post) => (post.args[0] as { method?: string }).method === 'client/registerCapability',
+      ),
+    ).toBe(true)
+    emit([
+      { path: join(workDir, 'pkg', 'fake.toml'), kind: 'changed' },
+      { path: join(workDir, 'pkg', 'src', 'a.txt'), kind: 'changed' },
+      { path: join(workDir, 'elsewhere.toml'), kind: 'created' },
+    ])
+    await vi.waitFor(() =>
+      expect(sentToServer(child)).toEqual([
+        { changes: [{ uri: `file://${join(workDir, 'pkg', 'fake.toml')}`, type: 2 }] },
+      ]),
+    )
+  })
+
+  it('stops watching when the last watcher is unregistered and when the server stops', async () => {
+    const { h, stopped, watchedRoots } = watching()
+    const [session] = await h.servers.open('w1', 'p1', join(workDir, 'pkg', 'src', 'a.txt'))
+    await initialize(h, session.sessionId)
+    const [{ child }] = h.spawned
+    const register = (): void => {
+      void child.peer.sendRequest('client/registerCapability', {
+        registrations: [
+          {
+            id: 'files',
+            method: 'workspace/didChangeWatchedFiles',
+            registerOptions: { watchers: [{ globPattern: '**' }] },
+          },
+        ],
+      })
+    }
+    register()
+    await vi.waitFor(() => expect(watchedRoots).toHaveLength(1))
+    void child.peer.sendRequest('client/unregisterCapability', {
+      unregisterations: [{ id: 'files', method: 'workspace/didChangeWatchedFiles' }],
+    })
+    await vi.waitFor(() => expect(stopped).toHaveLength(1))
+    register()
+    await vi.waitFor(() => expect(watchedRoots).toHaveLength(2))
+    await h.servers.restart('ext/fake')
+    expect(stopped).toHaveLength(2)
+  })
+
+  it('watches nothing for a registration whose watchers all sit outside the session root', async () => {
+    const { h, watchedRoots } = watching()
+    const [session] = await h.servers.open('w1', 'p1', join(workDir, 'pkg', 'src', 'a.txt'))
+    await initialize(h, session.sessionId)
+    const [{ child }] = h.spawned
+    void child.peer.sendRequest('client/registerCapability', {
+      registrations: [
+        {
+          id: 'files',
+          method: 'workspace/didChangeWatchedFiles',
+          registerOptions: {
+            watchers: [{ globPattern: { baseUri: `file://${tmp}`, pattern: '**' } }],
+          },
+        },
+      ],
+    })
+    await vi.waitFor(() =>
+      expect(
+        h.posts.some(
+          (post) => (post.args[0] as { method?: string }).method === 'client/registerCapability',
+        ),
+      ).toBe(true),
+    )
+    expect(watchedRoots).toEqual([])
+  })
+})
+
+describe('LanguageServers with a program the human chose', () => {
+  const chosen = { path: '/opt/mine/custom-ls', args: ['--verbose'] }
+
+  it('runs the chosen program instead of the one on PATH, with the server’s arguments then the human’s', async () => {
+    const h = harness({ overrideProblem: () => null })
+    h.sources = [
+      source(
+        { ...programServer, run: { program: 'prog-ls', args: ['--stdio'] } },
+        { override: chosen },
+      ),
+    ]
+    writeFileSync(join(workDir, 'main.rs'), '')
+    await h.servers.open('w1', 'p1', join(workDir, 'main.rs'))
+    expect(h.spawned).toHaveLength(1)
+    expect(h.spawned[0].command).toBe('/opt/mine/custom-ls')
+    expect(h.spawned[0].args).toEqual(['--stdio', '--verbose'])
+    expect(h.spawned[0].options.shell).toBe(false)
+    expect(h.spawned[0].options.env.ELECTRON_RUN_AS_NODE).toBeUndefined()
+    expect(h.servers.servers()[0]).toMatchObject({
+      status: 'running',
+      binary: { source: 'override' },
+      override: chosen,
+    })
+  })
+
+  it('replaces a bundled server’s runtime and script, and wins over a copy Pine keeps', async () => {
+    const h = harness({ overrideProblem: () => null })
+    h.sources = [source(nodeServer, { override: { path: '/opt/mine/custom-ls', args: [] } })]
+    h.copies.set('ext/fake', '/data/ls/ext/fake/1/bin/tool')
+    await h.servers.open('w1', 'p1', join(workDir, 'pkg', 'src', 'a.txt'))
+    const root = join(workDir, 'pkg')
+    expect(h.spawned[0].command).toBe('/opt/mine/custom-ls')
+    expect(h.spawned[0].args).toEqual(['--stdio', `--ext=${extensionDir}`, `--root=${root}`])
+    expect(h.spawned[0].options.env.ELECTRON_RUN_AS_NODE).toBeUndefined()
+  })
+
+  it('starts nothing, fetches nothing and says why when the chosen program can no longer run', async () => {
+    const h = harness({ overrideProblem: () => 'not-executable' })
+    h.sources = [source(programServer, { override: chosen })]
+    writeFileSync(join(workDir, 'main.rs'), '')
+    expect(await h.servers.open('w1', 'p1', join(workDir, 'main.rs'))).toEqual([])
+    expect(h.spawned).toHaveLength(0)
+    expect(h.fetchBinary).not.toHaveBeenCalled()
+    expect(h.servers.servers()[0]).toMatchObject({
+      status: 'override-invalid',
+      override: { ...chosen, problem: 'not-executable' },
+    })
+    expect(h.servers.servers()[0].binary).toBeUndefined()
+  })
+
+  it('needs no system program for a server whose program the human chose', () => {
+    const h = harness({ overrideProblem: () => null })
+    h.sources = [source(programServer, { override: chosen })]
+    h.programs.clear()
+    h.servers.refresh()
+    expect(h.requirements.size).toBe(0)
+    expect(h.servers.servers()[0].status).toBe('idle')
+  })
+
+  it('restarts a running server when the human chooses another program', async () => {
+    const h = harness({ overrideProblem: () => null })
+    writeFileSync(join(workDir, 'main.rs'), '')
+    h.sources = [source(programServer)]
+    const [first] = await h.servers.open('w1', 'p1', join(workDir, 'main.rs'))
+    expect(h.spawned[0].command).toBe('/usr/bin/prog-ls')
+    h.sources = [source(programServer, { override: chosen })]
+    h.servers.refresh()
+    await vi.waitFor(() =>
+      expect(h.posts.some((p) => p.channel === `lsp:exit:${first.sessionId}`)).toBe(true),
+    )
+    await h.servers.open('w1', 'p1', join(workDir, 'main.rs'))
+    expect(h.spawned[1].command).toBe('/opt/mine/custom-ls')
+  })
+
+  it('is refused in a sandbox that cannot read the program or what it links to, naming the folder', async () => {
+    const h = harness({
+      overrideProblem: () => null,
+      realPath: () => '/nix/store/abc/bin/custom-ls',
+    })
+    h.sources = [source(programServer, { override: chosen })]
+    h.sandboxed.add('ws1')
+    h.unreadable.add('/nix/store/abc/bin/custom-ls')
+    writeFileSync(join(workDir, 'main.rs'), '')
+    expect(await h.servers.open('w1', 'p1', join(workDir, 'main.rs'))).toEqual([])
+    expect(h.spawned).toHaveLength(0)
+    expect(h.servers.servers()[0]).toMatchObject({
+      status: 'sandbox-unavailable',
+      sandboxProblem: 'program-unreadable',
+      sandboxDetail: '/nix/store/abc/bin',
+    })
+    h.unreadable.clear()
+    await h.servers.restart('ext/prog')
+    await h.servers.open('w1', 'p1', join(workDir, 'main.rs'))
+    expect(h.wrap).toHaveBeenCalledWith('ws1', '/opt/mine/custom-ls --verbose', [])
   })
 })
 

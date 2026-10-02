@@ -2,7 +2,7 @@
   "id": "fake-grammar",
   "name": "Fake grammar",
   "version": "1.0.0",
-  "api": "1.6",
+  "api": "1.7",
   "description": "Test fixture: an editor language with a Monarch grammar and a fake server for it",
   "category": "languages",
   "capabilities": ["language-server"],

@@ -1,12 +1,23 @@
 import type { LspSessionInfo } from '@shared/languageServers'
-import type { Diagnostic } from 'vscode-languageserver-protocol'
+import type {
+  Diagnostic,
+  ServerCapabilities,
+  SymbolInformation,
+  WorkspaceSymbol,
+} from 'vscode-languageserver-protocol'
 import { claimedLanguages } from '../monaco/builtinFeatures'
 import { fileLanguage } from '../monaco/language'
 import { builtinFeatures, monaco } from '../monaco/setup'
 import { normalizeUri, toMarkers } from './converters'
-import { registerProviders } from './providers'
+import { refreshCodeLenses, registerProviders } from './providers'
+import { WORKSPACE_SYMBOL_METHOD } from './registrations'
 import { LspSession } from './session'
 import { IpcReader, IpcWriter } from './transport'
+import {
+  type WorkspaceSymbolHit,
+  mergeWorkspaceSymbolHits,
+  toWorkspaceSymbolHits,
+} from './workspaceSymbols'
 
 interface ClientSession {
   info: LspSessionInfo
@@ -27,7 +38,12 @@ interface OpenDocument {
 
 const sessions = new Map<string, ClientSession>()
 const documents = new Map<string, OpenDocument>()
-const providers = new Map<string, monaco.IDisposable>()
+interface ProviderSet {
+  signature: string
+  registration: monaco.IDisposable
+}
+
+const providers = new Map<string, ProviderSet>()
 let stopWatching: (() => void) | null = null
 
 function markerOwner(serverKey: string): string {
@@ -38,9 +54,46 @@ function providerKey(serverKey: string, language: string): string {
   return `${serverKey}\n${language}`
 }
 
-function sessionFor(serverKey: string, model: monaco.editor.ITextModel): LspSession | undefined {
-  const sessionId = documents.get(model.uri.toString())?.attached.get(serverKey)
-  return sessionId ? sessions.get(sessionId)?.session : undefined
+function sessionFor(
+  serverKey: string,
+  model: monaco.editor.ITextModel,
+  method: string,
+): LspSession | undefined {
+  const uri = model.uri.toString()
+  const sessionId = documents.get(uri)?.attached.get(serverKey)
+  const session = sessionId ? sessions.get(sessionId)?.session : undefined
+  return session?.supports(method, uri) ? session : undefined
+}
+
+function capabilitiesOf(serverKey: string): ServerCapabilities {
+  const merged: ServerCapabilities = {}
+  for (const entry of sessions.values()) {
+    if (entry.info.serverKey !== serverKey) continue
+    Object.assign(merged, { ...entry.session.effectiveCapabilities(), ...merged })
+  }
+  return merged
+}
+
+function syncProviders(serverKey: string, language: string): void {
+  const key = providerKey(serverKey, language)
+  const capabilities = capabilitiesOf(serverKey)
+  const signature = JSON.stringify(capabilities)
+  const current = providers.get(key)
+  if (current?.signature === signature) return
+  current?.registration.dispose()
+  providers.set(key, {
+    signature,
+    registration: registerProviders(language, capabilities, (model, method) =>
+      sessionFor(serverKey, model, method),
+    ),
+  })
+}
+
+function capabilitiesChanged(serverKey: string): void {
+  const prefix = `${serverKey}\n`
+  for (const key of [...providers.keys()]) {
+    if (key.startsWith(prefix)) syncProviders(serverKey, key.slice(prefix.length))
+  }
 }
 
 function applyDiagnostics(entry: ClientSession, uri: string, diagnostics: Diagnostic[]): void {
@@ -59,9 +112,9 @@ function disposeProvidersOf(serverKey: string): void {
   const stillServed = [...sessions.values()].some((entry) => entry.info.serverKey === serverKey)
   if (stillServed) return
   const prefix = `${serverKey}\n`
-  for (const [key, registration] of [...providers]) {
+  for (const [key, set] of [...providers]) {
     if (!key.startsWith(prefix)) continue
-    registration.dispose()
+    set.registration.dispose()
     providers.delete(key)
   }
 }
@@ -95,6 +148,8 @@ function ensureSession(info: LspSessionInfo): ClientSession {
     {
       onDiagnostics: (uri, diagnostics) => applyDiagnostics(entry, uri, diagnostics),
       onClosed: () => sessionEnded(info.sessionId),
+      onCapabilitiesChanged: () => capabilitiesChanged(info.serverKey),
+      onCodeLensRefresh: refreshCodeLenses,
     },
   )
   const entry: ClientSession = {
@@ -151,17 +206,8 @@ async function attach(document: OpenDocument): Promise<void> {
     }
     document.attached.set(info.serverKey, info.sessionId)
     entry.documents.add(uri)
-    const language = document.model.getLanguageId()
-    const key = providerKey(info.serverKey, language)
-    if (!providers.has(key)) {
-      providers.set(
-        key,
-        registerProviders(language, entry.session.capabilities, (model) =>
-          sessionFor(info.serverKey, model),
-        ),
-      )
-    }
     entry.session.openDocument(document.model, info.languageId)
+    syncProviders(info.serverKey, document.model.getLanguageId())
   }
 }
 
@@ -233,13 +279,44 @@ export function documentSaved(model: monaco.editor.ITextModel): void {
   }
 }
 
+export interface WorkspaceSymbolSearch {
+  servers: number
+  hits: WorkspaceSymbolHit[]
+}
+
+export async function searchWorkspaceSymbols(
+  paneIds: ReadonlySet<string>,
+  query: string,
+): Promise<WorkspaceSymbolSearch> {
+  const asked = new Set<ClientSession>()
+  for (const document of documents.values()) {
+    if (!paneIds.has(document.paneId)) continue
+    for (const sessionId of document.attached.values()) {
+      const entry = sessions.get(sessionId)
+      if (entry?.session.effectiveCapabilities().workspaceSymbolProvider) asked.add(entry)
+    }
+  }
+  const lists = await Promise.all(
+    [...asked].map(async (entry) =>
+      toWorkspaceSymbolHits(
+        entry.info.serverKey,
+        await entry.session.request<(SymbolInformation | WorkspaceSymbol)[]>(
+          WORKSPACE_SYMBOL_METHOD,
+          { query },
+        ),
+      ),
+    ),
+  )
+  return { servers: asked.size, hits: mergeWorkspaceSymbolHits(lists) }
+}
+
 export function resetLspClient(): void {
   for (const document of [...documents.values()]) {
     document.holders = 0
     close(document)
   }
   for (const sessionId of [...sessions.keys()]) sessionEnded(sessionId)
-  for (const registration of providers.values()) registration.dispose()
+  for (const set of providers.values()) set.registration.dispose()
   providers.clear()
   documents.clear()
   stopWatching?.()

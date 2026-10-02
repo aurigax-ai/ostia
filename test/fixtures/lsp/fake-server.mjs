@@ -1,5 +1,6 @@
-import { appendFileSync, readFileSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
+import { appendFileSync, readFileSync, readdirSync } from 'node:fs'
+import { join } from 'node:path'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import rpc from 'vscode-jsonrpc/node'
 
 const { StreamMessageReader, StreamMessageWriter, createMessageConnection } = rpc
@@ -27,6 +28,10 @@ function option(name) {
 }
 
 const caps = new Set((option('caps') ?? ALL_CAPS.join(',')).split(',').filter(Boolean))
+const lateCaps = new Set((option('late-caps') ?? '').split(',').filter(Boolean))
+const watchGlobs = (option('watch') ?? '').split(',').filter(Boolean)
+const LENS_COMMAND = 'fake.countRun'
+const diagnosticMode = option('diagnostics') ?? (caps.has('pullDiagnostics') ? 'pull' : 'push')
 const recordFile = option('record')
 const crashAfter = option('crash-after') === undefined ? null : Number(option('crash-after'))
 const slowInit = Number(option('slow-init') ?? 0)
@@ -52,6 +57,9 @@ const connection = createMessageConnection(
 const documents = new Map()
 let received = 0
 let clientConfiguration = false
+let lensRuns = 0
+const registered = new Map()
+const resultIds = new Map()
 
 function seen(method, params) {
   record({ method, params })
@@ -163,11 +171,92 @@ async function diagnosticsFor(uri, text) {
   return diagnostics
 }
 
+function pushes() {
+  return diagnosticMode === 'push' || diagnosticMode === 'both'
+}
+
 async function publish(uri) {
   const text = documents.get(uri)
-  if (text === undefined) return
+  if (text === undefined || !pushes()) return
   const diagnostics = await diagnosticsFor(uri, text)
   connection.sendNotification('textDocument/publishDiagnostics', { uri, diagnostics })
+}
+
+const LATE_REGISTRATIONS = {
+  hover: { method: 'textDocument/hover' },
+  folding: { method: 'textDocument/foldingRange' },
+  codeLens: { method: 'textDocument/codeLens', options: { resolveProvider: true } },
+  executeCommand: { method: 'workspace/executeCommand', options: { commands: [LENS_COMMAND] } },
+  workspaceSymbols: { method: 'workspace/symbol' },
+  pullDiagnostics: {
+    method: 'textDocument/diagnostic',
+    options: { identifier: 'fake', interFileDependencies: false, workspaceDiagnostics: false },
+  },
+  txtOnlyDefinition: {
+    method: 'textDocument/definition',
+    options: { documentSelector: [{ scheme: 'file', pattern: '**/*.txt' }] },
+  },
+}
+
+async function registerLate(names) {
+  const registrations = []
+  for (const name of names) {
+    const late = LATE_REGISTRATIONS[name]
+    if (!late) continue
+    registered.set(name, `late-${name}`)
+    registrations.push({
+      id: `late-${name}`,
+      method: late.method,
+      registerOptions: late.options ?? {},
+    })
+  }
+  if (watchGlobs.length > 0) {
+    registered.set('watch', 'late-watch')
+    registrations.push({
+      id: 'late-watch',
+      method: 'workspace/didChangeWatchedFiles',
+      registerOptions: { watchers: watchGlobs.map((globPattern) => ({ globPattern })) },
+    })
+  }
+  if (registrations.length === 0) return
+  await connection.sendRequest('client/registerCapability', { registrations })
+  record({ method: '$registered', ids: registrations.map((r) => r.id) })
+}
+
+async function unregisterLate(names) {
+  const unregisterations = []
+  for (const name of names) {
+    const id = registered.get(name)
+    if (!id) continue
+    registered.delete(name)
+    const method =
+      name === 'watch' ? 'workspace/didChangeWatchedFiles' : LATE_REGISTRATIONS[name].method
+    unregisterations.push({ id, method })
+  }
+  if (unregisterations.length === 0) return
+  await connection.sendRequest('client/unregisterCapability', { unregisterations })
+  record({ method: '$unregistered', ids: unregisterations.map((r) => r.id) })
+}
+
+function symbolLines(text) {
+  const found = []
+  text.split('\n').forEach((line, index) => {
+    const match = /^fn (\w+)/.exec(line)
+    if (match) found.push({ name: match[1], line, index })
+  })
+  return found
+}
+
+function foldingRanges(text) {
+  const ranges = []
+  const open = []
+  text.split('\n').forEach((line, index) => {
+    if (line.includes('BEGIN')) open.push(index)
+    if (line.includes('END') && open.length > 0) {
+      ranges.push({ startLine: open.pop(), endLine: index, kind: 'region' })
+    }
+  })
+  return ranges
 }
 
 function formattingEdits(text, range) {
@@ -186,7 +275,11 @@ connection.onRequest('initialize', async (params) => {
   clientConfiguration = params.capabilities?.workspace?.configuration === true
   if (slowInit > 0) await new Promise((resolve) => setTimeout(resolve, slowInit))
   const capabilities = {
-    textDocumentSync: { openClose: true, change: incremental ? 2 : 1, save: { includeText: false } },
+    textDocumentSync: {
+      openClose: true,
+      change: incremental ? 2 : 1,
+      save: { includeText: false },
+    },
   }
   if (caps.has('completion')) {
     capabilities.completionProvider = { triggerCharacters: ['.', '#'], resolveProvider: true }
@@ -210,10 +303,129 @@ connection.onRequest('initialize', async (params) => {
     }
   }
   if (caps.has('inlayHints')) capabilities.inlayHintProvider = true
+  if (caps.has('folding')) capabilities.foldingRangeProvider = true
+  if (caps.has('codeLens')) capabilities.codeLensProvider = { resolveProvider: true }
+  if (caps.has('executeCommand')) capabilities.executeCommandProvider = { commands: [LENS_COMMAND] }
+  if (caps.has('workspaceSymbols')) capabilities.workspaceSymbolProvider = true
+  if (caps.has('pullDiagnostics')) {
+    capabilities.diagnosticProvider = {
+      identifier: 'fake',
+      interFileDependencies: false,
+      workspaceDiagnostics: false,
+    }
+  }
   return { capabilities, serverInfo: { name: serverName, version: '1.0.0' } }
 })
 
-connection.onNotification('initialized', (params) => seen('initialized', params))
+connection.onNotification('initialized', (params) => {
+  seen('initialized', params)
+  if (lateCaps.size > 0 || watchGlobs.length > 0) void registerLate([...lateCaps])
+})
+
+connection.onNotification('workspace/didChangeWatchedFiles', (params) =>
+  seen('workspace/didChangeWatchedFiles', params),
+)
+
+connection.onRequest('textDocument/foldingRange', (params) => {
+  seen('textDocument/foldingRange', params)
+  return foldingRanges(documents.get(params.textDocument.uri) ?? '')
+})
+
+connection.onRequest('textDocument/codeLens', (params) => {
+  seen('textDocument/codeLens', params)
+  const lenses = []
+  for (const symbol of symbolLines(documents.get(params.textDocument.uri) ?? '')) {
+    const range = lineRange(symbol.index, symbol.line, symbol.name)
+    lenses.push({ range, data: { kind: 'run', name: symbol.name } })
+    lenses.push({
+      range,
+      command: { title: `${symbol.name}: client only`, command: 'fake.clientOnly' },
+    })
+  }
+  return lenses
+})
+
+connection.onRequest('codeLens/resolve', (lens) => {
+  seen('codeLens/resolve', lens)
+  return {
+    ...lens,
+    command: {
+      title: `Run ${lens.data.name} (${lensRuns} runs)`,
+      command: LENS_COMMAND,
+      arguments: [lens.data.name],
+    },
+  }
+})
+
+connection.onRequest('workspace/executeCommand', async (params) => {
+  seen('workspace/executeCommand', params)
+  if (params.command === LENS_COMMAND) {
+    lensRuns += 1
+    await connection.sendRequest('workspace/codeLens/refresh')
+  }
+  if (params.command === 'fake.refreshDiagnostics') {
+    await connection.sendRequest('workspace/diagnostic/refresh')
+  }
+  if (params.command === 'fake.unregister') await unregisterLate(params.arguments ?? [])
+  if (params.command === 'fake.register') await registerLate(params.arguments ?? [])
+  return null
+})
+
+connection.onRequest('workspace/symbol', (params) => {
+  seen('workspace/symbol', params)
+  const query = String(params.query ?? '').toLowerCase()
+  const symbols = []
+  const texts = new Map(documents)
+  for (const name of readdirSync(process.cwd())) {
+    const uri = pathToFileURL(join(process.cwd(), name)).href
+    if (!name.endsWith('.txt') || texts.has(uri)) continue
+    try {
+      texts.set(uri, readFileSync(join(process.cwd(), name), 'utf8'))
+    } catch {}
+  }
+  for (const [uri, text] of texts) {
+    for (const symbol of symbolLines(text)) {
+      if (!symbol.name.toLowerCase().includes(query)) continue
+      symbols.push({
+        name: symbol.name,
+        kind: 12,
+        containerName: 'fake',
+        location: { uri, range: lineRange(symbol.index, symbol.line, symbol.name) },
+      })
+    }
+  }
+  const outside = /^OUTSIDE (\S+)/m.exec([...documents.values()].join('\n'))
+  if (outside && 'outside'.includes(query)) {
+    symbols.push({
+      name: 'outside',
+      kind: 13,
+      location: {
+        uri: `file://${outside[1]}`,
+        range: { start: { line: 0, character: 0 }, end: { line: 0, character: 1 } },
+      },
+    })
+  }
+  return symbols
+})
+
+connection.onRequest('textDocument/diagnostic', async (params) => {
+  seen('textDocument/diagnostic', params)
+  const uri = params.textDocument.uri
+  const text = documents.get(uri) ?? ''
+  if (text.includes('BUSY') && !resultIds.has(`busy ${uri}`)) {
+    resultIds.set(`busy ${uri}`, 'seen')
+    throw new rpc.ResponseError(-32802, 'busy', { retriggerRequest: true })
+  }
+  const items = await diagnosticsFor(uri, text)
+  const resultId = `r-${JSON.stringify(items).length}-${items.length}-${text.length}`
+  if (params.previousResultId === resultId && resultIds.get(uri) === resultId) {
+    record({ method: '$report', kind: 'unchanged' })
+    return { kind: 'unchanged', resultId }
+  }
+  resultIds.set(uri, resultId)
+  record({ method: '$report', kind: 'full' })
+  return { kind: 'full', resultId, items }
+})
 
 connection.onNotification('textDocument/didOpen', (params) => {
   seen('textDocument/didOpen', params)
@@ -374,7 +586,10 @@ connection.onRequest('textDocument/documentSymbol', (params) => {
   ;(documents.get(params.textDocument.uri) ?? '').split('\n').forEach((line, index) => {
     const match = /^fn (\w+)/.exec(line)
     if (!match) return
-    const range = { start: { line: index, character: 0 }, end: { line: index, character: line.length } }
+    const range = {
+      start: { line: index, character: 0 },
+      end: { line: index, character: line.length },
+    }
     symbols.push({
       name: match[1],
       kind: 12,
