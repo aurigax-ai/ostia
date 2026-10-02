@@ -1,5 +1,5 @@
-import { isEqual } from 'es-toolkit'
 import type { IBufferLine, Terminal as Xterm } from '@xterm/xterm'
+import { isEqual } from 'es-toolkit'
 import { type RefObject, useEffect, useState } from 'react'
 import {
   type CellMetrics,

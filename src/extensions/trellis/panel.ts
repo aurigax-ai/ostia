@@ -8,7 +8,6 @@ import {
   onChange,
   panelTranslator,
 } from '@aurigax-ai/pine-extension-sdk/panel'
-import { formatRelativeTime } from '../../shared/relativeTime'
 import arrowClockwise from '@phosphor-icons/core/regular/arrow-clockwise.svg'
 import caretDown from '@phosphor-icons/core/regular/caret-down.svg'
 import lockSimple from '@phosphor-icons/core/regular/lock-simple.svg'
@@ -16,6 +15,7 @@ import plus from '@phosphor-icons/core/regular/plus.svg'
 import robot from '@phosphor-icons/core/regular/robot.svg'
 import userCircle from '@phosphor-icons/core/regular/user-circle.svg'
 import xIcon from '@phosphor-icons/core/regular/x.svg'
+import { formatRelativeTime } from '../../shared/relativeTime'
 import {
   type ShownColumn,
   type ThreadItem,
