@@ -111,6 +111,10 @@ export class RemoteFolders {
     return [...this.folders.values()].filter((f) => f.workspaceId === workspaceId)
   }
 
+  ownerChanged(workspaceId: string): void {
+    if (this.inWorkspace(workspaceId).length > 0) this.deps.publish()
+  }
+
   forWindow(windowId: string): RemoteFolder[] {
     return [...this.folders.values()].filter(
       (f) => this.deps.windowOfWorkspace(f.workspaceId) === windowId,

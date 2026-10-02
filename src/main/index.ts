@@ -1220,6 +1220,7 @@ function registerIpc(): void {
       setWorkspaceWorkDir(event.workspaceId, event.workDir, windowId)
       scratchFolders.bind(event.workspaceId, event.workDir, windowId)
       extensionHost?.publishWorkspaceChips()
+      extensionHost?.remoteFolders?.ownerChanged(event.workspaceId)
     } else if (event.type === 'workspace-closed') {
       removeWorkspace(event.workspaceId)
       processes?.workspaceClosed(event.workspaceId)

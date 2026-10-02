@@ -178,6 +178,11 @@ describe('RemoteFolders close', () => {
       ok: false,
       error: 'unknown-folder',
     })
+    s.publish.mockClear()
+    s.folders.ownerChanged('w1')
+    expect(s.publish).toHaveBeenCalledTimes(1)
+    s.folders.ownerChanged('w2')
+    expect(s.publish).toHaveBeenCalledTimes(1)
   })
 })
 
