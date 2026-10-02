@@ -1142,6 +1142,7 @@ function registerIpc(): void {
       }
     }
   })
+  ipcMain.on('window:beep', () => shell.beep())
   ipcMain.handle('window:set-zoom', (e, percent: unknown) => {
     const clamped = clampZoom(percent)
     e.sender.setZoomFactor(zoomFactor(clamped))

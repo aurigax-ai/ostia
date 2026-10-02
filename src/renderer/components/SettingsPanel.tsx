@@ -32,6 +32,13 @@ import {
 } from '@phosphor-icons/react'
 import type { ApprovalMode } from '@shared/approvals'
 import { type ExtensionInfo, PRODUCT_PLACEHOLDER } from '@shared/extensions'
+import {
+  BELL_MODES,
+  type BellMode,
+  LONG_COMMAND_MAX_SECONDS,
+  LONG_COMMAND_MIN_SECONDS,
+  clampLongCommandSeconds,
+} from '@shared/notificationSettings'
 import { PRODUCT_NAME } from '@shared/product'
 import type { AppInfo, Platform } from '@shared/types'
 import { ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from '@shared/zoom'
@@ -1010,6 +1017,11 @@ function NotificationsSection(): JSX.Element {
   const d = useDict()
   const n = useSettingsStore((s) => s.notifications)
   const set = useSettingsStore((s) => s.setNotifications)
+  const bellLabel: Record<BellMode, string> = {
+    attention: d.settings.bellAttention,
+    sound: d.settings.bellSound,
+    off: d.settings.bellOff,
+  }
   return (
     <div>
       <SectionHead title={d.settings.notifications} />
@@ -1063,6 +1075,24 @@ function NotificationsSection(): JSX.Element {
           checked={n.commandFinished}
           onChange={(v) => set({ commandFinished: v })}
         />
+        <NumberRow
+          label={d.settings.longCommandSeconds}
+          desc={d.settings.longCommandSecondsDesc}
+          value={n.longCommandSeconds}
+          min={LONG_COMMAND_MIN_SECONDS}
+          max={LONG_COMMAND_MAX_SECONDS}
+          onCommit={(v) => set({ longCommandSeconds: clampLongCommandSeconds(v) })}
+        />
+      </SettingsGroup>
+      <SettingsGroup title={d.settings.groupBell}>
+        <ControlRow label={d.settings.bell} desc={d.settings.bellDesc}>
+          <SelectField
+            value={n.bell}
+            onChange={(v) => set({ bell: v })}
+            label={d.settings.bell}
+            options={BELL_MODES.map((m) => ({ value: m, label: bellLabel[m] }))}
+          />
+        </ControlRow>
       </SettingsGroup>
     </div>
   )

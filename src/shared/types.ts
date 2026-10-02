@@ -92,6 +92,7 @@ export interface WindowControls {
   quit: () => void
   isMaximized: () => Promise<boolean>
   setZoom: (percent: number) => Promise<number>
+  beep: () => void
   isSystemDark: () => Promise<boolean>
   onSystemDarkChange: (cb: (dark: boolean) => void) => () => void
   onMaximizeChange: (cb: (maximized: boolean) => void) => () => void

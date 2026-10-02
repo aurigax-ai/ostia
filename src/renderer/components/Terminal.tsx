@@ -17,6 +17,7 @@ import {
   parseOsc99,
   parseOsc777,
 } from '../lib/attention'
+import { bellActions, createBellThrottle } from '../lib/bell'
 import { canTypeInto, insertCommand, selectedBlockOutput, stepBlock } from '../lib/blockActions'
 import { decodeCommandLine, readCommandText } from '../lib/blockText'
 import { openBrowserAs } from '../lib/browserProfile'
@@ -272,7 +273,11 @@ export function TerminalView({
       const block = runningId ? blocks.byPane[paneId]?.find((b) => b.id === runningId) : undefined
       blocks.commandEnd(paneId, anchor(), exitCode, term.buffer.active.cursorX)
       if (!block || replaying) return
-      const long = shouldNotifyCommandEnd(Date.now() - block.startedAt, document.hasFocus())
+      const long = shouldNotifyCommandEnd(
+        Date.now() - block.startedAt,
+        document.hasFocus(),
+        useSettingsStore.getState().notifications.longCommandSeconds,
+      )
       if (isPaneViewed(paneId) || (exitCode === 0 && !long)) {
         useAttentionStore.getState().dispatch(paneId, { type: 'waitEnded', at: Date.now() })
         return
@@ -364,9 +369,13 @@ export function TerminalView({
       const title = terminalTitle(raw)
       if (title) titles.push(title)
     })
+    const allowBellSound = createBellThrottle()
     const bell = term.onBell(() => {
-      if (replaying || isPaneViewed(paneId)) return
-      useAttentionStore.getState().dispatch(paneId, { type: 'bell', at: Date.now() })
+      if (replaying) return
+      const now = Date.now()
+      const act = bellActions(useSettingsStore.getState().notifications.bell, isPaneViewed(paneId))
+      if (act.sound && allowBellSound(now)) window.pine.window.beep()
+      if (act.attention) useAttentionStore.getState().dispatch(paneId, { type: 'bell', at: now })
     })
     const oscCwd = term.parser.registerOscHandler(7, (data) => {
       const path = decodeOsc7(data)

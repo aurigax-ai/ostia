@@ -20,10 +20,12 @@ import {
 } from './attention'
 import { globalWorkspaceOrder, latestRemoteUnread } from './windowWorkspaces'
 
-export const NOTIFY_AFTER_MS = 10_000
-
-export function shouldNotifyCommandEnd(durationMs: number, windowFocused: boolean): boolean {
-  return !windowFocused && durationMs >= NOTIFY_AFTER_MS
+export function shouldNotifyCommandEnd(
+  durationMs: number,
+  windowFocused: boolean,
+  thresholdSeconds: number,
+): boolean {
+  return !windowFocused && durationMs >= thresholdSeconds * 1000
 }
 
 export function workspaceOfPane(paneId: string): string | null {
