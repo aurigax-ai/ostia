@@ -104,7 +104,9 @@ test('on macOS the palette is Cmd+K, a rebound chord works from a terminal, a Ct
     await expect(palette(win)).toHaveCount(0)
     await win.keyboard.press('Meta+Shift+Y')
     await expect(palette(win)).toBeVisible()
+    await expect(win.getByRole('combobox').first()).toBeFocused()
     await win.keyboard.press('Escape')
+    await expect(palette(win)).toHaveCount(0)
 
     await openKeyboardSettings(win)
     await win.getByRole('button', { name: 'Reset Command Palette' }).click()
