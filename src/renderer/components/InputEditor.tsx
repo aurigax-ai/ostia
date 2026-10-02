@@ -16,7 +16,7 @@ import {
 import { useDict } from '../i18n/useDict'
 import { latestRequest, naturalCommandQuery } from '../lib/assistComposer'
 import { featureEnabled, setAssistFeature, useAssistFeature } from '../lib/assistFeatures'
-import { matchChord } from '../lib/chords'
+import { smartClipboardAction } from '../lib/clipboardKeys'
 import {
   type CompletionMatch,
   type CompletionOrigin,
@@ -26,6 +26,7 @@ import {
   markRuns,
   tabStep,
 } from '../lib/completionMatch'
+import { clipboardChordOf } from '../lib/documentClipboard'
 import { chipCatalog, promptExtensionChips, useChipCatalog } from '../lib/extensionChips'
 import {
   type CompletionItem,
@@ -45,6 +46,7 @@ import {
   suggestionWord,
 } from '../lib/inputEditor'
 import { applyLineEdit, lineEditOp, shellKeyBytes } from '../lib/lineEditing'
+import { planDraftPaste } from '../lib/pasteGate'
 import { cellBox, rowsToMake } from '../lib/promptOverlay'
 import { historyHiddenFrom } from '../lib/scratchPanes'
 import { type ShellToken, tokenizeShell } from '../lib/shellTokens'
@@ -834,18 +836,29 @@ export function InputEditor({
       else void complete(area)
       return
     }
+    const draftSelection = text.slice(area.selectionStart, area.selectionEnd)
+    const term = termRef.current
+    const smart = smartClipboardAction(
+      e,
+      useSettingsStore.getState().terminal.clipboardKeys,
+      Boolean(draftSelection) || Boolean(term?.hasSelection()),
+      isMac,
+    )
+    if (smart === 'paste') return
+    if (smart === 'copy' || clipboardChordOf(e, isMac) === 'copy') {
+      e.preventDefault()
+      if (draftSelection) void navigator.clipboard.writeText(draftSelection)
+      else if (term?.hasSelection()) {
+        void navigator.clipboard.writeText(term.getSelection())
+        if (smart) term.clearSelection()
+      }
+      return
+    }
     if (e.key.toLowerCase() === 'c' && e.ctrlKey && !e.shiftKey && !e.metaKey && !e.altKey) {
       e.preventDefault()
       setText('')
       setSelection({ start: 0, end: 0 })
       resetDraftState()
-      return
-    }
-    if (!isMac && matchChord(e, false) === 'copy') {
-      e.preventDefault()
-      const selected =
-        text.slice(area.selectionStart, area.selectionEnd) || termRef.current?.getSelection()
-      if (selected) void navigator.clipboard.writeText(selected)
       return
     }
     if (onLineEditKey(e)) return
@@ -897,7 +910,10 @@ export function InputEditor({
             onClick={() =>
               void navigator.clipboard
                 .readText()
-                .then((clip) => clip && typeAtCaret(clip))
+                .then((clip) => {
+                  const draft = planDraftPaste(clip)
+                  if (draft) typeAtCaret(draft)
+                })
                 .catch(() => {})
             }
           >
@@ -1115,6 +1131,11 @@ export function InputEditor({
               }}
               onScroll={(e) => {
                 if (overlayRef.current) overlayRef.current.scrollTop = e.currentTarget.scrollTop
+              }}
+              onPaste={(e) => {
+                e.preventDefault()
+                const draft = planDraftPaste(e.clipboardData.getData('text/plain'))
+                if (draft) typeAtCaret(draft)
               }}
               onCompositionStart={() => setComposing(true)}
               onCompositionEnd={() => setComposing(false)}
