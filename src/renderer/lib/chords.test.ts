@@ -1,7 +1,7 @@
+import { parseChord, stealsTerminalKey, usedByMonaco } from '@shared/chordSpec'
 import { afterEach, describe, expect, it } from 'vitest'
 import { commands } from '../commands/registry'
 import { useSettingsStore } from '../stores/settingsStore'
-import { parseChord, stealsTerminalKey, usedByMonaco } from './chordSpec'
 import {
   type KeyLike,
   bindableIds,
