@@ -2,10 +2,11 @@ import { ipcMain } from 'electron'
 import {
   type ChatFsTarget,
   type ChatPlanRequest,
+  type ChatPreviewRequest,
   type ChatReadRequest,
+  type ChatRestoreRequest,
   type ChatSearchRequest,
   type ChatToolSettings,
-  type ChatUndoRequest,
   type ChatWriteRequest,
   type McpSecretResult,
   type McpServerStatus,
@@ -18,8 +19,8 @@ import {
   planEditTool,
   previewTool,
   readTool,
+  restoreTool,
   searchTool,
-  undoTool,
   writeTool,
 } from './chatFsTools'
 import { listSkills, loadSkill } from './chatSkills'
@@ -79,10 +80,14 @@ export function registerChatToolsIpc(deps: ChatToolsDeps): void {
   ipcMain.handle('chatTools:read', (_e, req: ChatReadRequest) => readTool(req, deps.roots()))
   ipcMain.handle('chatTools:list', (_e, req: ChatFsTarget) => listTool(req, deps.roots()))
   ipcMain.handle('chatTools:search', (_e, req: ChatSearchRequest) => searchTool(req, deps.roots()))
-  ipcMain.handle('chatTools:preview', (_e, req: ChatFsTarget) => previewTool(req, deps.roots()))
+  ipcMain.handle('chatTools:preview', (_e, req: ChatPreviewRequest) =>
+    previewTool(req, deps.roots()),
+  )
   ipcMain.handle('chatTools:plan', (_e, req: ChatPlanRequest) => planEditTool(req, deps.roots()))
   ipcMain.handle('chatTools:write', (_e, req: ChatWriteRequest) => writeTool(req, deps.roots()))
-  ipcMain.handle('chatTools:undo', (_e, req: ChatUndoRequest) => undoTool(req, deps.roots()))
+  ipcMain.handle('chatTools:restore', (_e, req: ChatRestoreRequest) =>
+    restoreTool(req, deps.roots()),
+  )
   ipcMain.handle('chatTools:skills', () => listSkills(deps.settings().skillFolders))
   ipcMain.handle('chatTools:load-skill', (_e, name: unknown) =>
     loadSkill(deps.settings().skillFolders, name),
