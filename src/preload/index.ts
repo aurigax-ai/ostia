@@ -396,6 +396,11 @@ const bridge: PineBridge = {
         workspaceId,
       ) as Promise<OpenFileVerdict[]>,
   },
+  clipboard: {
+    edit: (edit) => ipcRenderer.invoke('clipboard:edit', edit) as Promise<void>,
+    hasImage: () => ipcRenderer.invoke('clipboard:has-image') as Promise<boolean>,
+    setChords: (chords) => ipcRenderer.send('clipboard:set-chords', chords),
+  },
   openPath: {
     openDefault: (path) =>
       ipcRenderer.invoke('shell:open-default', path) as Promise<OpenPathResult>,

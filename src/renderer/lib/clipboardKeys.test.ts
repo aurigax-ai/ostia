@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { smartClipboardAction } from './clipboardKeys'
+import { keyPastePlan, smartClipboardAction } from './clipboardKeys'
 
 const key = (
   k: string,
@@ -30,5 +30,21 @@ describe('smartClipboardAction', () => {
       smartClipboardAction(key('C', { ctrlKey: true, shiftKey: true }), 'smart', true, false),
     ).toBeNull()
     expect(smartClipboardAction(key('r', { ctrlKey: true }), 'smart', false, false)).toBeNull()
+  })
+})
+
+describe('keyPastePlan', () => {
+  it('pastes clipboard text whenever there is some', () => {
+    expect(keyPastePlan('ls', false, true)).toBe('text')
+    expect(keyPastePlan('ls', true, false)).toBe('text')
+  })
+
+  it('hands Ctrl+V to the program when the clipboard holds only an image', () => {
+    expect(keyPastePlan('', false, true)).toBe('program')
+  })
+
+  it('does nothing for an image while the input editor shows, or for an empty clipboard', () => {
+    expect(keyPastePlan('', true, true)).toBe('none')
+    expect(keyPastePlan('', false, false)).toBe('none')
   })
 })
