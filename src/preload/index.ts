@@ -712,6 +712,10 @@ const bridge: PineBridge = {
     mcpCancel: (callId) => ipcRenderer.send('chatTools:mcp-cancel', callId),
     setMcpSecret: (server, key, value) =>
       ipcRenderer.invoke('chatTools:set-mcp-secret', server, key, value),
+    mcpSignIn: (server) => ipcRenderer.invoke('chatTools:mcp-sign-in', server),
+    mcpCancelSignIn: (server) => ipcRenderer.send('chatTools:mcp-cancel-sign-in', server),
+    mcpSignOut: (server) => ipcRenderer.invoke('chatTools:mcp-sign-out', server),
+    mcpTest: (server) => ipcRenderer.invoke('chatTools:mcp-test', server),
   },
   externalEditor: {
     open: (req) => ipcRenderer.invoke('editor:open-external', req) as Promise<ExternalEditorResult>,
