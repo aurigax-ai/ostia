@@ -25,6 +25,7 @@ import {
   parseChatToolSettings,
 } from '../../shared/chatTools'
 import type { ExtensionSettingValues } from '../../shared/extensions'
+import { parseGlobalHotkey } from '../../shared/globalHotkey'
 import {
   DEFAULT_MANAGER_SETTINGS,
   type ManagerSettings,
@@ -219,6 +220,7 @@ export interface WorkspaceSettings {
   confirmQuit: boolean
   closeToTray: boolean
   wrapTitles: boolean
+  globalHotkey: string
 }
 
 export const DEFAULT_WORKSPACE_SETTINGS: WorkspaceSettings = {
@@ -229,6 +231,7 @@ export const DEFAULT_WORKSPACE_SETTINGS: WorkspaceSettings = {
   confirmQuit: true,
   closeToTray: true,
   wrapTitles: false,
+  globalHotkey: '',
 }
 
 export function parseWorkspaceSettings(raw: unknown): WorkspaceSettings {
@@ -241,6 +244,7 @@ export function parseWorkspaceSettings(raw: unknown): WorkspaceSettings {
       ? (raw.placement as NewWorkspacePlacement)
       : base.placement,
     defaultFolder: folder || base.defaultFolder,
+    globalHotkey: parseGlobalHotkey(raw.globalHotkey),
   }
 }
 

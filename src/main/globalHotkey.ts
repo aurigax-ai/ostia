@@ -1,0 +1,42 @@
+import { toAccelerator } from '../shared/globalHotkey'
+
+export interface ShortcutRegistry {
+  register: (accelerator: string, callback: () => void) => boolean
+  unregister: (accelerator: string) => void
+}
+
+export type HotkeyStatus = 'off' | 'registered' | 'taken'
+
+export class GlobalHotkey {
+  private current: string | null = null
+
+  constructor(
+    private readonly registry: ShortcutRegistry,
+    private readonly toggle: () => void,
+  ) {}
+
+  apply(setting: unknown): HotkeyStatus {
+    const next = toAccelerator(setting)
+    if (next === this.current) return next ? 'registered' : 'off'
+    this.clear()
+    if (!next) return 'off'
+    if (!this.registry.register(next, this.toggle)) return 'taken'
+    this.current = next
+    return 'registered'
+  }
+
+  clear(): void {
+    if (this.current) this.registry.unregister(this.current)
+    this.current = null
+  }
+}
+
+export interface ToggleWindow {
+  isVisible: () => boolean
+  isFocused: () => boolean
+  isDestroyed: () => boolean
+}
+
+export function shouldHideWindows(windows: readonly ToggleWindow[]): boolean {
+  return windows.some((w) => !w.isDestroyed() && w.isVisible() && w.isFocused())
+}

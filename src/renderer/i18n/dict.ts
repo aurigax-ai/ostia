@@ -1262,6 +1262,11 @@ export const en = {
     closeToTray: 'Keep running in the tray',
     closeToTrayDesc:
       'Closing the window hides it and your terminals keep running. Use the tray icon to show it again or quit.',
+    globalHotkey: 'Show or hide hotkey',
+    globalHotkeyDesc:
+      'A system-wide shortcut, like Ctrl+Alt+Space, that brings every window up or hides them to the tray. Needs Ctrl, Alt, Super or Cmd. Empty turns it off.',
+    globalHotkeyInvalid:
+      'Not a shortcut. Use modifiers and one key joined by +, like Ctrl+Alt+Space.',
     wrapTitles: 'Wrap long titles',
     wrapTitlesDesc: 'Show workspace names on up to two lines instead of cutting them off.',
   },
@@ -3520,6 +3525,10 @@ export const zhHant: Dict = {
     confirmQuitDesc: '有指令執行中時，結束應用程式或關閉視窗前先詢問。',
     closeToTray: '在系統匣中繼續執行',
     closeToTrayDesc: '關閉視窗時會隱藏視窗，終端機繼續執行。可從系統匣圖示重新顯示或結束。',
+    globalHotkey: '顯示或隱藏快速鍵',
+    globalHotkeyDesc:
+      '系統層級的快速鍵（例如 Ctrl+Alt+Space），可叫出所有視窗或將其隱藏至系統匣。需含 Ctrl、Alt、Super 或 Cmd。留空則停用。',
+    globalHotkeyInvalid: '不是有效的快速鍵。請用 + 連接修飾鍵與一個按鍵，例如 Ctrl+Alt+Space。',
     wrapTitles: '長標題換行',
     wrapTitlesDesc: '工作區名稱最多顯示兩行，而不是截斷。',
   },

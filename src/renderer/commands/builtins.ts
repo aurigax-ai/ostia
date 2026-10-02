@@ -83,7 +83,7 @@ interface WorkspaceGroupEntry {
 }
 
 const PROGRAM_SETTINGS: readonly {
-  group: 'behavior' | 'notifications' | 'agents' | 'terminal'
+  group: 'behavior' | 'notifications' | 'agents' | 'terminal' | 'workspaces'
   field: string
 }[] = [
   { group: 'behavior', field: 'externalEditor' },
@@ -93,6 +93,7 @@ const PROGRAM_SETTINGS: readonly {
   { group: 'terminal', field: 'warnOnRiskyPaste' },
   { group: 'terminal', field: 'shell' },
   { group: 'terminal', field: 'osc52Write' },
+  { group: 'workspaces', field: 'globalHotkey' },
 ]
 
 export function launchesProgram(key: string, value: unknown): string | null {
