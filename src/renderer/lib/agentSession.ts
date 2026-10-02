@@ -35,7 +35,7 @@ export function agentSession(
   if (pane.kind !== 'terminal' || !running || !agent) return null
   return {
     agent,
-    title: sessionTitle(pane.title, agent),
+    title: pane.defaultTitle ? null : sessionTitle(pane.title, agent),
     sessionId: pane.resume?.agent === agent ? pane.resume.id : null,
     command: running.command,
     cwd: running.cwd,
