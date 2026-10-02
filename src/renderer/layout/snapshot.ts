@@ -6,7 +6,7 @@ import type {
   SnapshotWorkspace,
   WorkspaceOrigin,
 } from '@shared/types'
-import { adoptIds, findPane, firstPaneId, withoutKind } from './tree'
+import { TERMINAL_TITLE, adoptIds, findPane, firstPaneId, withoutKind } from './tree'
 import type { LayoutNode, PaneNode } from './types'
 
 export interface RestorableWorkspace {
@@ -63,9 +63,10 @@ function persistableRoot(root: LayoutNode, workDir: string): LayoutNode {
     withoutKind(root, 'diff') ?? {
       type: 'pane',
       id: firstPaneId(root),
-      title: 'zsh',
+      title: TERMINAL_TITLE,
       kind: 'terminal',
       cwd: workDir,
+      defaultTitle: true,
     }
   )
 }

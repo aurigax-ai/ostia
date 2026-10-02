@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseShellSetting, shellArgv } from './terminalShell'
+import { parseShellSetting, shellArgv, shellName } from './terminalShell'
 
 describe('shellArgv', () => {
   it('falls back to the login shell when the setting is empty or not a string', () => {
@@ -34,5 +34,19 @@ describe('parseShellSetting', () => {
   it('keeps a trimmed string and drops anything else', () => {
     expect(parseShellSetting('  /bin/fish  ')).toBe('/bin/fish')
     expect(parseShellSetting(['fish'])).toBe('')
+  })
+})
+
+describe('shellName', () => {
+  it('names a shell by the last part of its program path', () => {
+    expect(shellName('/usr/bin/zsh')).toBe('zsh')
+    expect(shellName('/bin/bash')).toBe('bash')
+    expect(shellName('fish')).toBe('fish')
+    expect(shellName('C:\\Windows\\System32\\powershell.exe')).toBe('powershell.exe')
+  })
+
+  it('is empty when there is no program to name', () => {
+    expect(shellName('')).toBe('')
+    expect(shellName('/usr/bin/')).toBe('')
   })
 })
