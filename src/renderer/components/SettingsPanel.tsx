@@ -35,7 +35,7 @@ import { type ExtensionInfo, PRODUCT_PLACEHOLDER } from '@shared/extensions'
 import { PRODUCT_NAME } from '@shared/product'
 import type { AppInfo, Platform } from '@shared/types'
 import { ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from '@shared/zoom'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import appIcon from '../../../resources/icon.svg'
 import type { Dict, Locale } from '../i18n/dict'
 import { fmt, useDict, withProductName } from '../i18n/useDict'
@@ -153,6 +153,7 @@ type SectionId =
   | 'about'
   | 'sandbox'
   | 'workspace'
+  | 'extensionPage'
 
 interface ExtensionAnchor {
   id: string
@@ -188,6 +189,7 @@ export function SettingsPanel(): JSX.Element | null {
   const sandboxButtonRef = useRef<HTMLButtonElement>(null)
   const workspaces = useWorkspacesStore((s) => s.workspaces)
   const [anchor, setAnchor] = useState<ExtensionAnchor | null>(null)
+  const [pageExtId, setPageExtId] = useState<string | null>(null)
   const extensionsButtonRef = useRef<HTMLButtonElement>(null)
   const [query, setQuery] = useState('')
   const [searchHits, setSearchHits] = useState<Record<string, number>>({})
@@ -279,12 +281,16 @@ export function SettingsPanel(): JSX.Element | null {
     openSection('workspace')
   }
 
-  const openSection = (id: SectionId): void => {
-    setActive(id)
-    setAnchor(null)
+  const revealResult = (id: string): void => {
     contentRef.current
       ?.querySelector(`[data-settings-result="${id}"]`)
       ?.scrollIntoView({ block: 'start' })
+  }
+
+  const openSection = (id: SectionId): void => {
+    setActive(id)
+    setAnchor(null)
+    revealResult(id)
   }
 
   const openExtension = (id: string): void => {
@@ -292,9 +298,24 @@ export function SettingsPanel(): JSX.Element | null {
     setAnchor((prev) => ({ id, nonce: (prev?.nonce ?? 0) + 1 }))
   }
 
+  const openExtensionPage = (id: string): void => {
+    setActive('extensionPage')
+    setPageExtId(id)
+    setAnchor(null)
+    revealResult(extensionPageResultId(id))
+  }
+
   useEffect(() => {
     if (!requested) return
-    if (sections.some((s) => s.id === requested)) {
+    if (
+      requested === 'extensions' &&
+      requestedExtension &&
+      extensions.some((e) => e.id === requestedExtension && e.settingsPage)
+    ) {
+      setActive('extensionPage')
+      setPageExtId(requestedExtension)
+      setAnchor(null)
+    } else if (sections.some((s) => s.id === requested)) {
       setActive(requested as SectionId)
       if (requested === 'extensions' && requestedExtension) {
         setAnchor((prev) => ({ id: requestedExtension, nonce: (prev?.nonce ?? 0) + 1 }))
@@ -305,7 +326,7 @@ export function SettingsPanel(): JSX.Element | null {
       }
     }
     useUIStore.setState({ settingsSection: null, settingsExtension: null })
-  }, [requested, requestedExtension, sections])
+  }, [requested, requestedExtension, sections, extensions])
 
   const openSettingsFile = async (): Promise<void> => {
     const path = await window.pine.settings.path()
@@ -317,19 +338,27 @@ export function SettingsPanel(): JSX.Element | null {
 
   const q = query.trim().toLowerCase()
   const matchingExtensions = q ? extensions.filter((e) => extensionMatchesQuery(e, q)) : extensions
+  const hitsIn = (id: string): number => (q ? (searchHits[id] ?? 0) : 0)
+  const settingsPageExtensions = extensions.filter((e) => e.settingsPage)
+  const pageExtensions = q
+    ? settingsPageExtensions.filter(
+        (e) => extensionMatchesQuery(e, q) || hitsIn(extensionPageResultId(e.id)) > 0,
+      )
+    : settingsPageExtensions
+  const shownPage =
+    active === 'extensionPage' ? extensions.find((e) => e.id === pageExtId && e.settingsPage) : null
   const sandboxWorkspaces = workspaces
     .filter((w) => w.kind !== 'manager')
     .map((w) => ({ id: w.id, name: w.customName ?? w.name }))
   const matchingWorkspaces = q
     ? sandboxWorkspaces.filter((w) => w.name.toLowerCase().includes(q))
     : sandboxWorkspaces
-  const hitsIn = (id: SectionId): number => (q ? (searchHits[id] ?? 0) : 0)
   const visible = q
     ? sections.filter(
         (s) =>
           matchesQuery([s.label], q) ||
           hitsIn(s.id) > 0 ||
-          (s.id === 'extensions' && matchingExtensions.length > 0) ||
+          (s.id === 'extensions' && (matchingExtensions.length > 0 || pageExtensions.length > 0)) ||
           (s.id === 'sandbox' && matchingWorkspaces.length > 0),
       )
     : sections
@@ -363,7 +392,12 @@ export function SettingsPanel(): JSX.Element | null {
       {id === 'browser' ? <BrowserSettingsSection /> : null}
       {id === 'passwords' ? <PasswordsSection /> : null}
       {id === 'editor' ? <EditorSettingsSection /> : null}
-      {id === 'extensions' ? <ExtensionsPage anchor={anchor} /> : null}
+      {id === 'extensions' || (id === 'extensionPage' && !shownPage) ? (
+        <ExtensionsPage anchor={anchor} />
+      ) : null}
+      {id === 'extensionPage' && shownPage ? (
+        <ExtensionSettingsPage key={shownPage.id} ext={shownPage} />
+      ) : null}
       {id === 'views' ? <ViewsSection /> : null}
       {id === 'languageServers' ? <LanguagesSection /> : null}
       {id === 'remote' ? <GatewaySection /> : null}
@@ -434,24 +468,35 @@ export function SettingsPanel(): JSX.Element | null {
             <ul className="flex flex-col gap-0.5 px-2 pb-2">
               {visible.map((s) =>
                 s.id === 'extensions' ? (
-                  <NavDisclosure
-                    key={s.id}
-                    label={s.label}
-                    icon={s.icon}
-                    current={active === 'extensions' && !anchor}
-                    count={hitsIn(s.id)}
-                    emphasized={active === 'extensions'}
-                    items={extensionItems}
-                    itemCurrent="location"
-                    listId={EXTENSIONS_NAV_LIST_ID}
-                    listLabel={d.settings.extensionsNavList}
-                    expanded={extensionsChildrenShown}
-                    canToggle={q === '' && extensions.length > 0}
-                    buttonRef={extensionsButtonRef}
-                    onOpen={() => openSection('extensions')}
-                    onToggle={expandExtensions}
-                    onOpenItem={openExtension}
-                  />
+                  <Fragment key={s.id}>
+                    <NavDisclosure
+                      label={s.label}
+                      icon={s.icon}
+                      current={active === 'extensions' && !anchor}
+                      count={hitsIn(s.id)}
+                      emphasized={active === 'extensions'}
+                      items={extensionItems}
+                      itemCurrent="location"
+                      listId={EXTENSIONS_NAV_LIST_ID}
+                      listLabel={d.settings.extensionsNavList}
+                      expanded={extensionsChildrenShown}
+                      canToggle={q === '' && extensions.length > 0}
+                      buttonRef={extensionsButtonRef}
+                      onOpen={() => openSection('extensions')}
+                      onToggle={expandExtensions}
+                      onOpenItem={openExtension}
+                    />
+                    {pageExtensions.map((ext) => (
+                      <NavItem
+                        key={`page-${ext.id}`}
+                        label={pageTitle(ext)}
+                        icon={extensionIcon(ext.settingsPage?.icon)}
+                        current={shownPage?.id === ext.id}
+                        count={hitsIn(extensionPageResultId(ext.id))}
+                        onOpen={() => openExtensionPage(ext.id)}
+                      />
+                    ))}
+                  </Fragment>
                 ) : s.id === 'sandbox' ? (
                   <NavDisclosure
                     key={s.id}
@@ -472,21 +517,14 @@ export function SettingsPanel(): JSX.Element | null {
                     onOpenItem={openSandboxItem}
                   />
                 ) : (
-                  <li key={s.id}>
-                    <Button
-                      variant="ghost"
-                      onClick={() => openSection(s.id)}
-                      aria-current={active === s.id ? 'page' : undefined}
-                      className={cn(
-                        'w-full justify-start gap-2.5 font-normal text-ui-base',
-                        active === s.id ? 'bg-surface-2 text-fg' : 'text-fg-muted',
-                      )}
-                    >
-                      <s.icon className={active === s.id ? 'text-fg' : 'text-fg-muted'} />
-                      {s.label}
-                      <NavCount count={hitsIn(s.id)} />
-                    </Button>
-                  </li>
+                  <NavItem
+                    key={s.id}
+                    label={s.label}
+                    icon={s.icon}
+                    current={active === s.id}
+                    count={hitsIn(s.id)}
+                    onOpen={() => openSection(s.id)}
+                  />
                 ),
               )}
             </ul>
@@ -505,15 +543,29 @@ export function SettingsPanel(): JSX.Element | null {
                   <p className="text-fg-muted text-ui-sm">{d.settings.noMatches}</p>
                 ) : null}
                 {sections.map((s) => (
-                  <SettingsSearchSection
-                    key={s.id}
-                    id={s.id}
-                    label={s.label}
-                    query={q}
-                    onHits={onSearchHits}
-                  >
-                    {page(s.id)}
-                  </SettingsSearchSection>
+                  <Fragment key={s.id}>
+                    <SettingsSearchSection
+                      id={s.id}
+                      label={s.label}
+                      query={q}
+                      onHits={onSearchHits}
+                    >
+                      {page(s.id)}
+                    </SettingsSearchSection>
+                    {s.id === 'extensions'
+                      ? settingsPageExtensions.map((ext) => (
+                          <SettingsSearchSection
+                            key={ext.id}
+                            id={extensionPageResultId(ext.id)}
+                            label={pageTitle(ext)}
+                            query={q}
+                            onHits={onSearchHits}
+                          >
+                            <ExtensionSettingsPage ext={ext} />
+                          </SettingsSearchSection>
+                        ))
+                      : null}
+                  </Fragment>
                 ))}
               </>
             ) : (
@@ -532,6 +584,38 @@ function NavCount({ count }: { count: number }): JSX.Element | null {
     <span aria-hidden className="ml-auto text-fg-muted text-ui-xs tabular-nums">
       {count}
     </span>
+  )
+}
+
+function NavItem({
+  label,
+  icon: ItemIcon,
+  current,
+  count,
+  onOpen,
+}: {
+  label: string
+  icon: IconComponent
+  current: boolean
+  count: number
+  onOpen: () => void
+}): JSX.Element {
+  return (
+    <li>
+      <Button
+        variant="ghost"
+        onClick={onOpen}
+        aria-current={current ? 'page' : undefined}
+        className={cn(
+          'w-full justify-start gap-2.5 font-normal text-ui-base',
+          current ? 'bg-surface-2 text-fg' : 'text-fg-muted',
+        )}
+      >
+        <ItemIcon className={current ? 'text-fg' : 'text-fg-muted'} />
+        <span className="min-w-0 truncate">{label}</span>
+        <NavCount count={count} />
+      </Button>
+    </li>
   )
 }
 
@@ -1562,6 +1646,25 @@ function ExtensionsPage({ anchor }: { anchor: ExtensionAnchor | null }): JSX.Ele
   )
 }
 
+function pageTitle(ext: ExtensionInfo): string {
+  return withProductName(ext.settingsPage?.title ?? ext.name)
+}
+
+function extensionPageResultId(extId: string): string {
+  return `extension-page:${extId}`
+}
+
+function ExtensionSettingsPage({ ext }: { ext: ExtensionInfo }): JSX.Element {
+  const d = useDict()
+  const title = pageTitle(ext)
+  return (
+    <section aria-label={title}>
+      <SectionHead title={title} desc={fmt(d.extensions.settingsPageFrom, { name: ext.name })} />
+      <ExtensionSettingsForm ext={ext} bare />
+    </section>
+  )
+}
+
 function extensionStatusLabel(d: Dict, ext: ExtensionInfo): string {
   switch (ext.status) {
     case 'running':
@@ -1679,7 +1782,18 @@ export function ExtensionsSection({
                       />
                     </div>
                   </div>
-                  {!isAssistExtension(ext) ? (
+                  {ext.settingsPage ? (
+                    <Button
+                      variant="link"
+                      size="xs"
+                      className="h-5 self-start px-0 text-ui-sm"
+                      onClick={() =>
+                        useUIStore.getState().openSettings('extensions', { extension: ext.id })
+                      }
+                    >
+                      {d.extensions.openSettingsPage}
+                    </Button>
+                  ) : !isAssistExtension(ext) ? (
                     <ExtensionSettingsForm ext={ext} />
                   ) : ext.enabled ? (
                     <Button

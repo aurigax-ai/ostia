@@ -3,16 +3,19 @@ import { delimiter, join } from 'node:path'
 import { MANAGER_FEATURE } from '../shared/managerSettings'
 import { MARKETPLACE_FEATURE } from '../shared/marketplace'
 import type { InstallHint, MissingRequirement } from '../shared/systemRequirements'
+import { needsPtyRelay } from './sandbox/ptyWrap'
 
 export interface Requirement {
   program: string
   package: string
   platforms: NodeJS.Platform[]
+  onlyWithPtyRelay?: boolean
 }
 
 export interface RequirementEnv {
   platform?: NodeJS.Platform
   path?: string
+  ptyRelay?: boolean
 }
 
 export const SANDBOX_FEATURE = 'sandbox'
@@ -25,6 +28,7 @@ const registry = new Map<string, Requirement[]>([
       { program: 'socat', package: 'socat', platforms: ['linux'] },
       { program: 'rg', package: 'ripgrep', platforms: ['linux', 'darwin'] },
       { program: 'nsenter', package: 'util-linux', platforms: ['linux'] },
+      { program: 'script', package: 'util-linux', platforms: ['linux'], onlyWithPtyRelay: true },
     ],
   ],
   [MANAGER_FEATURE, [{ program: 'ss', package: 'iproute2', platforms: ['linux'] }]],
@@ -81,8 +85,10 @@ export function missingRequirements(
   env: RequirementEnv = {},
 ): MissingRequirement[] {
   const platform = env.platform ?? process.platform
+  const ptyRelay = env.ptyRelay ?? needsPtyRelay(false, undefined, platform)
   return (registry.get(feature) ?? [])
     .filter((r) => r.platforms.includes(platform) && !onPath(r.program, env.path))
+    .filter((r) => !r.onlyWithPtyRelay || ptyRelay)
     .map((r) => ({ program: r.program, package: r.package }))
 }
 

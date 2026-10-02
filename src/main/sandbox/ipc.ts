@@ -17,10 +17,12 @@ import {
   parseSwitches,
   parseWorkspacePackages,
 } from '../../shared/sandbox'
+import type { SandboxReadPreset } from '../../shared/sandboxPresets'
 import type { MissingRequirement } from '../../shared/systemRequirements'
 import type { DomainRequests } from './domainRequests'
 import { checkSandboxPaths } from './pathChecks'
 import type { PortRequests, PortRow } from './portRequests'
+import { availableReadPresets } from './presets'
 import type { ViolationLog } from './violations'
 import type { WorkspaceSandboxes } from './workspaceSandboxes'
 
@@ -146,6 +148,9 @@ export function registerSandboxIpc(deps: SandboxIpcDeps): void {
     const checked = checkSandboxPaths(key, list, deps.sandboxes.pathEnv())
     return checked.ok ? [] : checked.errors
   })
+  ipcMain.handle('sandbox:presets', (): SandboxReadPreset[] =>
+    availableReadPresets(deps.sandboxes.pathEnv()),
+  )
   ipcMain.handle(
     'sandbox:set-domains',
     (e, workspaceId: unknown, domains: unknown): SandboxEditResult => {

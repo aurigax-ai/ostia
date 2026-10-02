@@ -208,6 +208,12 @@ const contributes = z.looseObject({
   paneChips: chips.optional(),
   workspaceChips: chips.optional(),
   settings: z.record(settingKey, setting).optional(),
+  settingsPage: z
+    .looseObject({
+      title,
+      icon: z.enum(EXTENSION_ICONS).optional(),
+    })
+    .optional(),
   secrets: z.record(settingKey, secret).optional(),
   assist: z.array(z.enum(ASSIST_POINTS)).optional(),
   workflows: z.array(z.looseObject({})).max(MAX_WORKFLOWS).optional(),
