@@ -1,5 +1,7 @@
+import type { ChatSessionEdit } from '@shared/chatSessions'
 import type { ChatFsError, McpServerStatus, SkillSummary } from '@shared/chatTools'
 import { create } from 'zustand'
+import type { HunkDecision } from '../lib/chatHunks'
 import {
   type ApprovalAnswer,
   type ApprovalKind,
@@ -32,21 +34,8 @@ export interface PendingApproval {
   detail: ApprovalDetail
 }
 
-export type ChatEditState = 'applied' | 'undone'
-
-export interface ChatEditRecord {
-  toolCallId: string
+export interface ChatEditRecord extends ChatSessionEdit {
   sessionId: string
-  path: string
-  root: string
-  existed: boolean
-  before: string
-  after: string
-  version: string
-  outside: boolean
-  symlink: boolean
-  auto: boolean
-  state: ChatEditState
   undoError?: ChatFsError
 }
 
@@ -56,6 +45,7 @@ interface ChatToolsState {
   off: Record<string, string[]>
   mode: Record<string, ChatMode>
   edits: Record<string, ChatEditRecord>
+  hunkChoices: Record<string, (HunkDecision | null)[]>
   failures: Record<string, ChatFsError>
   versions: Record<string, Record<string, string>>
   mcp: McpServerStatus[]
@@ -65,6 +55,9 @@ interface ChatToolsState {
   toggle: (sessionId: string, key: string, on: boolean) => void
   setMode: (sessionId: string, mode: ChatMode) => void
   recordEdit: (edit: ChatEditRecord) => void
+  loadEdits: (sessionId: string, edits: readonly ChatSessionEdit[]) => void
+  chooseHunk: (toolCallId: string, index: number, decision: HunkDecision | null) => void
+  clearHunks: (toolCallId: string) => void
   recordFailure: (toolCallId: string, error: ChatFsError) => void
   setVersion: (sessionId: string, path: string, version: string | null) => void
 }
@@ -77,12 +70,30 @@ export const useChatToolsStore = create<ChatToolsState>((set) => ({
   off: {},
   mode: {},
   edits: {},
+  hunkChoices: {},
   failures: {},
   versions: {},
   mcp: [],
   skills: [],
   setMode: (sessionId, mode) => set((s) => ({ mode: { ...s.mode, [sessionId]: mode } })),
   recordEdit: (edit) => set((s) => ({ edits: { ...s.edits, [edit.toolCallId]: edit } })),
+  loadEdits: (sessionId, edits) =>
+    set((s) => {
+      const next = { ...s.edits }
+      for (const edit of edits) next[edit.toolCallId] = { ...edit, sessionId }
+      return { edits: next }
+    }),
+  chooseHunk: (toolCallId, index, decision) =>
+    set((s) => {
+      const choices = [...(s.hunkChoices[toolCallId] ?? [])]
+      choices[index] = decision
+      return { hunkChoices: { ...s.hunkChoices, [toolCallId]: choices } }
+    }),
+  clearHunks: (toolCallId) =>
+    set((s) => {
+      const { [toolCallId]: _gone, ...rest } = s.hunkChoices
+      return { hunkChoices: rest }
+    }),
   recordFailure: (toolCallId, error) =>
     set((s) => ({ failures: { ...s.failures, [toolCallId]: error } })),
   setVersion: (sessionId, path, version) =>
@@ -123,38 +134,14 @@ export function knownVersion(sessionId: string, path: string): string | null {
   return useChatToolsStore.getState().versions[sessionId]?.[path] ?? null
 }
 
-const undoing = new Set<string>()
-
-export async function undoEdit(toolCallId: string): Promise<void> {
-  const edit = useChatToolsStore.getState().edits[toolCallId]
-  if (!edit || edit.state !== 'applied' || undoing.has(toolCallId)) return
-  undoing.add(toolCallId)
-  try {
-    await undoNow(edit)
-  } finally {
-    undoing.delete(toolCallId)
-  }
+export function sessionEdits(sessionId: string): ChatEditRecord[] {
+  return Object.values(useChatToolsStore.getState().edits)
+    .filter((e) => e.sessionId === sessionId)
+    .sort((a, b) => a.seq - b.seq)
 }
 
-async function undoNow(edit: ChatEditRecord): Promise<void> {
-  const res = await window.pine.chatTools
-    .undo({
-      path: edit.path,
-      root: edit.root,
-      outside: edit.outside,
-      symlinks: edit.symlink,
-      wrote: edit.version,
-      restore: edit.existed ? edit.before : null,
-    })
-    .catch(() => ({ ok: false as const, error: 'failed' as const }))
-  const store = useChatToolsStore.getState()
-  if (!res.ok) {
-    store.recordEdit({ ...edit, undoError: res.error })
-    return
-  }
-  const { undoError: _cleared, ...rest } = edit
-  store.recordEdit({ ...rest, state: 'undone' })
-  store.setVersion(edit.sessionId, edit.path, res.version)
+export function nextSeq(sessionId: string): number {
+  return sessionEdits(sessionId).reduce((max, e) => Math.max(max, e.seq), 0) + 1
 }
 
 function dropPending(toolCallId: string): void {
@@ -234,6 +221,7 @@ export function resetChatTools(): void {
     off: {},
     mode: {},
     edits: {},
+    hunkChoices: {},
     failures: {},
     versions: {},
     mcp: [],

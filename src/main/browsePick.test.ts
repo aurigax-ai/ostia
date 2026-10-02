@@ -104,7 +104,7 @@ describe('runPick', () => {
     if (!outcome.ok) throw new Error(outcome.error)
     expect(outcome.capture.selector).toBe('#save')
     expect(outcome.capture.consoleErrors).toEqual([{ level: 'error', text: 'boom', ts: 1 }])
-    expect(guest.capturePage).toHaveBeenCalledWith({ x: 10, y: 10, width: 80, height: 24 })
+    expect(guest.capturePage).toHaveBeenCalledWith({ x: 0, y: 0, width: 106, height: 50 })
     const shot = outcome.capture.screenshotPath
     expect(shot).toMatch(/pine-reports-\d+\/pick-.*\.png$/)
     expect(readFileSync(shot as string, 'utf8')).toBe('png')
@@ -182,6 +182,8 @@ describe('writePickReport', () => {
     const [from, to, text] = vi.mocked(postBusMessage).mock.calls[0]
     expect(from).not.toBe(to)
     expect(JSON.parse(text)).toMatchObject({ kind: 'capture', report: res.path })
+    expect(res.imagePath).toMatch(/pine-reports-\d+\/pick-.*\.png$/)
+    expect(md).toContain(`![Captured element](${res.imagePath})`)
   })
 
   it('numbers reports so a second one never overwrites the first', async () => {

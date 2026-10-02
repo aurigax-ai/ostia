@@ -380,7 +380,7 @@ describe('built-in git extension against a real repository', () => {
         command: 'show',
         tone: 'neutral',
       })
-      expect(await until(() => chip('s1', 'diff-stats'))).toMatchObject({ text: '2 • +2 -1' })
+      expect(await until(() => chip('s1', 'diff-stats'))).toMatchObject({ text: '3 • +3 -1' })
       expect(chip('s2', 'branch')).toBeUndefined()
       expect(host.paneChips().filter((c) => c.extId === 'git')).toEqual([])
     })
@@ -390,7 +390,7 @@ describe('built-in git extension against a real repository', () => {
       await until(() => (chip('s1', 'diff-stats') ? undefined : true))
       expect(chip('s1', 'branch')?.text).toBe('main')
       expect(host.setSetting('git', 'showDiffStats', null).ok).toBe(true)
-      expect((await until(() => chip('s1', 'diff-stats'))).text).toBe('2 • +2 -1')
+      expect((await until(() => chip('s1', 'diff-stats'))).text).toBe('3 • +3 -1')
     })
 
     it('lists recent commits as text for people and as JSON with --json', async () => {

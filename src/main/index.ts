@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
-import { homedir } from 'node:os'
+import { homedir, hostname } from 'node:os'
 import { dirname, join } from 'node:path'
 import {
   BrowserWindow,
@@ -64,6 +64,7 @@ import {
   registerBrowseMethods,
 } from './browse'
 import { cancelPick, registerPickIpc, registerPickMethods } from './browsePick'
+import { registerRegionIpc } from './browseRegion'
 import { BrowserProfiles } from './browserProfiles'
 import { registerBrowserStorageIpc } from './browserStorage'
 import { browserUserAgent } from './browserUserAgent'
@@ -1129,6 +1130,7 @@ function registerIpc(): void {
       name: PRODUCT_NAME,
       version: app.getVersion(),
       platform: process.platform,
+      hostName: hostname(),
     }),
   )
 
@@ -2614,6 +2616,7 @@ app.whenReady().then(() => {
   })
   registerPickMethods({ browserPanes, isSharedPane, errorBuffers, broadcast })
   registerPickIpc({ browserPanes, isSharedPane, errorBuffers, broadcast }, reachesPane)
+  registerRegionIpc(browserPanes, reachesPane)
   registerBrowserStorageIpc((paneId, senderWindowId) =>
     ownedGuest(browserPanes, paneId, senderWindowId),
   )

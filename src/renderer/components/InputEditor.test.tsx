@@ -96,6 +96,20 @@ describe('InputEditor', () => {
     expect(editor()).toBeNull()
   })
 
+  it('SSH-C37 leaves a remote shell’s prompt to the terminal and comes back at a local prompt', () => {
+    setMode('editor')
+    act(() => {
+      useBlocksStore.getState().promptStart(PANE, { line: 0 }, null, true)
+      useBlocksStore.getState().promptEnd(PANE, { line: 0 })
+    })
+    renderEditor()
+    expect(editor()).toBeNull()
+    act(() => {
+      idlePrompt()
+    })
+    expect(editor()).toBeVisible()
+  })
+
   it('hides while a command runs and comes back with focus at the next prompt', () => {
     setMode('editor')
     idlePrompt()

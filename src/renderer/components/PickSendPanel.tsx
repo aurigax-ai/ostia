@@ -110,6 +110,7 @@ export interface PickSendPanelProps {
   sending: boolean
   onSend: (target: PickTarget, note: string) => void
   onClose: () => void
+  secondary?: { label: string; onClick: () => void }
 }
 
 export function PickSendPanel({
@@ -123,6 +124,7 @@ export function PickSendPanel({
   sending,
   onSend,
   onClose,
+  secondary,
 }: PickSendPanelProps): JSX.Element {
   const d = useDict()
   const [note, setNote] = useState('')
@@ -210,7 +212,12 @@ export function PickSendPanel({
           </RadioGroup>
         )}
       </fieldset>
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        {secondary ? (
+          <Button size="sm" variant="outline" disabled={sending} onClick={secondary.onClick}>
+            {secondary.label}
+          </Button>
+        ) : null}
         <Button size="sm" disabled={!target || sending} onClick={submit}>
           {d.send.send}
         </Button>

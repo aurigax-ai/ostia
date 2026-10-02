@@ -157,6 +157,7 @@ describe('pine ssh (real extension process, real socket, fake ssh)', () => {
       port: 2200,
       jump: ['b1', 'ops@b2:2222'],
       proxyCommand: false,
+      remoteCommand: false,
     })
     expect(confirm).not.toHaveBeenCalled()
     expect(openTerminalIn).not.toHaveBeenCalled()

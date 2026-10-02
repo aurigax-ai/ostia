@@ -386,6 +386,29 @@ describe('shellIntegrationSpawnOptions', () => {
       expect(init).toMatch(/trap .*DEBUG/)
     })
 
+    it('marks only real commands when the user’s PROMPT_COMMAND is an array', () => {
+      shellIntegrationSpawnOptions('/bin/bash', {})
+      const dir = mkdtempSync(join(tmpdir(), 'pine-bash-array-'))
+      try {
+        const rc = join(dir, 'rc')
+        writeFileSync(
+          rc,
+          `PS1='b> '\nPROMPT_COMMAND=(true)\nPROMPT_COMMAND+=('printf TICK')\nsource '${BASH_INIT}'\n`,
+        )
+        const out = spawnSync('bash', ['--rcfile', rc, '-i'], {
+          env: { HOME: dir, PATH: process.env.PATH ?? '/usr/bin:/bin', TERM: 'dumb' },
+          input: 'echo hi\nfalse\n',
+          encoding: 'utf8',
+        })
+        const text = `${out.stdout}${out.stderr}`
+        const marks = (body: string): number => text.split(`\u001b]133;${body}\u001b\\`).length - 1
+        expect(marks('C')).toBe(2)
+        expect(text.split('TICK').length - 1).toBe(marks('A'))
+      } finally {
+        rmSync(dir, { recursive: true, force: true })
+      }
+    })
+
     describe.each([
       ['bash', ['--norc'], BASH_INIT],
       ['zsh', ['-f'], ZSH_INIT],

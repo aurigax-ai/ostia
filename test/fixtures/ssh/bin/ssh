@@ -10,4 +10,25 @@ if [ "$1" = "-G" ]; then
   echo "fake ssh: Could not resolve hostname ${last##*@}" >&2
   exit 255
 fi
-echo "fake ssh session: $*"
+shown=
+remote=
+after_separator=
+destination=
+for arg in "$@"; do
+  if [ -n "$destination" ]; then
+    remote=$arg
+  elif [ -n "$after_separator" ]; then
+    destination=$arg
+    shown="$shown $arg"
+  else
+    [ "$arg" = "--" ] && after_separator=1
+    shown="$shown $arg"
+  fi
+done
+echo "fake ssh session:$shown"
+if [ -n "$remote" ]; then
+  echo "fake ssh remote command: yes"
+  if [ -n "$FAKE_SSH_REMOTE_SHELL" ]; then
+    exec env -i HOME="${FAKE_SSH_REMOTE_HOME:?FAKE_SSH_REMOTE_HOME is not set}" PATH="$PATH" TERM="$TERM" SHELL="$FAKE_SSH_REMOTE_SHELL" TMPDIR="${FAKE_SSH_REMOTE_TMP:-/tmp}" "$FAKE_SSH_REMOTE_SHELL" -c "$remote"
+  fi
+fi
