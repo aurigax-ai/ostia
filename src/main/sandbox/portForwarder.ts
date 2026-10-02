@@ -1,7 +1,7 @@
-import { spawn } from 'node:child_process'
 import { readFileSync, readdirSync, readlinkSync } from 'node:fs'
 import { type Server, type Socket, createServer } from 'node:net'
 import { parseProcStat } from '../../shared/procfs'
+import type { PortBridge } from './portBridge'
 
 export interface SandboxListener {
   port: number
@@ -10,10 +10,19 @@ export interface SandboxListener {
 
 export type ExposeResult =
   | { ok: true; port: number }
-  | { ok: false; error: 'port-in-use' | 'not-running' | 'unsupported' }
+  | { ok: false; error: 'port-in-use' | 'unsupported' | ExposeRefusal }
+
+export type ExposeRefusal = 'not-running' | 'unix-sockets-off'
+
+export interface SandboxPane {
+  pid: number
+  bridge: PortBridge | null
+}
 
 export interface PortForwarderDeps {
-  pidsOf: (workspaceId: string) => number[]
+  panesOf: (workspaceId: string) => SandboxPane[]
+  unixSocketsOff: (workspaceId: string) => boolean
+  listenersOf?: (pids: number[]) => SandboxListener[][]
 }
 
 const LISTEN = '0A'
@@ -51,8 +60,7 @@ function childrenMap(): Map<number, number[]> {
   return children
 }
 
-function descendants(roots: number[]): number[] {
-  const children = childrenMap()
+function descendants(roots: number[], children: Map<number, number[]>): number[] {
   const out: number[] = []
   const queue = [...roots]
   while (queue.length > 0) {
@@ -63,10 +71,10 @@ function descendants(roots: number[]): number[] {
   return out
 }
 
-export function findNamespacePid(roots: number[]): number | null {
+function namespacePid(tree: number[]): number | null {
   const own = netNamespace('self')
   return (
-    descendants(roots).find((pid) => {
+    tree.find((pid) => {
       const ns = netNamespace(pid)
       return ns !== null && ns !== own
     }) ?? null
@@ -107,6 +115,24 @@ function processOfInode(pids: number[], inode: string): string | null {
   return null
 }
 
+function listenersIn(tree: number[]): SandboxListener[] {
+  const pid = namespacePid(tree)
+  if (pid === null) return []
+  const seen = new Map<number, SandboxListener>()
+  for (const [inode, port] of listeningInodes(pid)) {
+    if (seen.has(port)) continue
+    const owner = processOfInode(tree, inode)
+    if (RUNTIME_BRIDGE_PORTS.has(port) && owner === RUNTIME_BRIDGE_PROCESS) continue
+    seen.set(port, { port, process: owner })
+  }
+  return [...seen.values()]
+}
+
+export function paneListeners(pids: number[]): SandboxListener[][] {
+  const children = childrenMap()
+  return pids.map((pid) => listenersIn(descendants([pid], children)))
+}
+
 interface Exposure {
   server: Server
   sockets: Set<Socket>
@@ -114,21 +140,17 @@ interface Exposure {
 
 export class PortForwarder {
   private readonly exposures = new Map<string, Map<number, Exposure>>()
+  private readonly listenersOf: (pids: number[]) => SandboxListener[][]
 
-  constructor(private readonly deps: PortForwarderDeps) {}
+  constructor(private readonly deps: PortForwarderDeps) {
+    this.listenersOf = deps.listenersOf ?? paneListeners
+  }
 
   listeners(workspaceId: string): SandboxListener[] {
-    const roots = this.deps.pidsOf(workspaceId)
-    const pid = findNamespacePid(roots)
-    if (pid === null) return []
-    const inodes = listeningInodes(pid)
-    const tree = descendants(roots)
+    const pids = this.deps.panesOf(workspaceId).map((pane) => pane.pid)
     const seen = new Map<number, SandboxListener>()
-    for (const [inode, port] of inodes) {
-      if (seen.has(port)) continue
-      const owner = processOfInode(tree, inode)
-      if (RUNTIME_BRIDGE_PORTS.has(port) && owner === RUNTIME_BRIDGE_PROCESS) continue
-      seen.set(port, { port, process: owner })
+    for (const listener of this.listenersOf(pids).flat()) {
+      if (!seen.has(listener.port)) seen.set(listener.port, listener)
     }
     return [...seen.values()].sort((a, b) => a.port - b.port)
   }
@@ -137,11 +159,18 @@ export class PortForwarder {
     return [...(this.exposures.get(workspaceId)?.keys() ?? [])].sort((a, b) => a - b)
   }
 
+  refusal(workspaceId: string): ExposeRefusal | null {
+    const panes = this.deps.panesOf(workspaceId)
+    if (panes.some((pane) => pane.bridge?.connected)) return null
+    return panes.length > 0 && this.deps.unixSocketsOff(workspaceId)
+      ? 'unix-sockets-off'
+      : 'not-running'
+  }
+
   async expose(workspaceId: string, port: number): Promise<ExposeResult> {
     if (this.exposures.get(workspaceId)?.has(port)) return { ok: true, port }
-    if (findNamespacePid(this.deps.pidsOf(workspaceId)) === null) {
-      return { ok: false, error: 'not-running' }
-    }
+    const refusal = this.refusal(workspaceId)
+    if (refusal) return { ok: false, error: refusal }
     const sockets = new Set<Socket>()
     const server = createServer((socket) => this.bridge(workspaceId, port, socket, sockets))
     const listening = await new Promise<boolean>((resolve) => {
@@ -173,36 +202,16 @@ export class PortForwarder {
   }
 
   private bridge(workspaceId: string, port: number, socket: Socket, sockets: Set<Socket>): void {
-    const pid = findNamespacePid(this.deps.pidsOf(workspaceId))
-    if (pid === null) {
+    socket.on('error', () => undefined)
+    const panes = this.deps.panesOf(workspaceId).filter((pane) => pane.bridge?.connected)
+    const listening = this.listenersOf(panes.map((pane) => pane.pid))
+    const serving = panes.find((_pane, i) => listening[i]?.some((l) => l.port === port))
+    if (!serving?.bridge) {
       socket.destroy()
       return
     }
     sockets.add(socket)
-    const child = spawn(
-      'nsenter',
-      [
-        '-t',
-        String(pid),
-        '--user',
-        '--net',
-        '--preserve-credentials',
-        'socat',
-        '-',
-        `TCP:127.0.0.1:${port}`,
-      ],
-      { stdio: ['pipe', 'pipe', 'ignore'] },
-    )
-    socket.pipe(child.stdin)
-    child.stdout.pipe(socket)
-    const end = (): void => {
-      sockets.delete(socket)
-      socket.destroy()
-      child.kill()
-    }
-    socket.on('error', end)
-    socket.on('close', end)
-    child.on('exit', end)
-    child.stdin.on('error', end)
+    socket.on('close', () => sockets.delete(socket))
+    void serving.bridge.dial(port, socket)
   }
 }

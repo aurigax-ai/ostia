@@ -1,4 +1,4 @@
-const escapeRegExp = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+import { escapeRegExp } from 'es-toolkit'
 
 export function browserUserAgent(defaultAgent: string, appName: string): string {
   const appToken = new RegExp(` ${escapeRegExp(appName)}/\\S+`, 'i')

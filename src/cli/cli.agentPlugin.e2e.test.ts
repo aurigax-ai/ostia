@@ -209,7 +209,7 @@ describe('extension agent skills and hooks reach a fake agent (real CLI, real so
     const sessionStart = args.find((arg) => arg.startsWith('hooks.SessionStart=')) ?? ''
     const commands = tomlCommands(sessionStart)
     const index = commands.findIndex((command) => command.includes(' agent-hook '))
-    expect(index).toBe(2)
+    expect(index).toBe(3)
     const command = commands[index] ?? ''
     expect(command).toContain('agent-hook agent-kit on-hook codex SessionStart')
     const state = args[args.length - 1] ?? ''

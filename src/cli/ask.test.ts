@@ -50,13 +50,24 @@ describe('parseAskArgs', () => {
     expect(parseAskArgs(['--', '--json', 'really?']).params.question).toBe('--json really?')
   })
 
+  it('reads flags written before the question and keeps a negative number as a word', () => {
+    expect(parseAskArgs(['--json', '--choice', 'yes', 'Offset', '-5', 'ok?'])).toEqual({
+      params: { question: 'Offset -5 ok?', choices: ['yes'], multi: false },
+      contextFromStdin: false,
+      json: true,
+    })
+  })
+
   it('refuses a missing question, multi without choices, a bad timeout and an unknown flag', () => {
     expect(() => parseAskArgs([])).toThrow(/usage: pine ask/)
     expect(() => parseAskArgs(['q', '--multi'])).toThrow(/--multi needs at least one --choice/)
     expect(() => parseAskArgs(['q', '--timeout', 'soon'])).toThrow(/--timeout expects seconds/)
     expect(() => parseAskArgs(['q', '--timeout', '0'])).toThrow(/--timeout expects seconds/)
     expect(() => parseAskArgs(['q', '--choice'])).toThrow(/--choice needs a value/)
-    expect(() => parseAskArgs(['q', '--force'])).toThrow(/unknown flag --force/)
+    expect(() => parseAskArgs(['q', '--force'])).toThrow(/unknown flag --force\nusage: pine ask/)
+    expect(() => parseAskArgs(['q', '--context'])).toThrow(
+      /--context needs a value\nusage: pine ask/,
+    )
   })
 })
 

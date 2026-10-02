@@ -264,6 +264,18 @@ describe('pine CLI end-to-end (spawns the real out/cli/index.js against a live c
     expect(res.stderr).toContain('pine open: missing <path>')
   })
 
+  it('rejects an unknown flag and a flag without its value before calling the app', async () => {
+    const env = withEnv({ PINE_SOCKET: socketPath, PINE_TOKEN: identity.token })
+
+    const unknown = await runPine(['vault', 'ls', '--globl'], env)
+    expect(unknown.code).toBe(1)
+    expect(unknown.stderr.trim()).toBe('pine: unknown flag --globl')
+
+    const missing = await runPine(['bus', 'wait', '--timeout'], env)
+    expect(missing.code).toBe(1)
+    expect(missing.stderr.trim()).toBe('pine: --timeout needs a value')
+  })
+
   it('rejects a non-numeric numeric flag instead of silently defaulting', async () => {
     const res = await runPine(
       ['bus', 'wait', '--timeout', 'soon'],
@@ -331,6 +343,13 @@ describe('pine CLI end-to-end (spawns the real out/cli/index.js against a live c
       })
     })
 
+    it('refuses --pane with nothing after it instead of setting the caller pane', async () => {
+      const res = await runPine(['state', 'done', '--pane'], env())
+      expect(res.code).toBe(1)
+      expect(res.stderr).toContain('pine: --pane needs a value')
+      expect(execCalls).toHaveLength(0)
+    })
+
     it('rejects an unknown state before touching the app', async () => {
       const res = await runPine(['state', 'sleeping'], env())
       expect(res.code).toBe(1)
@@ -349,6 +368,20 @@ describe('pine CLI end-to-end (spawns the real out/cli/index.js against a live c
       const allowed = await runPine(['state', 'done', '--pane', other.externalId], env())
       expect(allowed.code).toBe(0)
       expect(execCalls[0]?.target).toEqual({ windowId: 'w1', workspaceId: 's2', paneId: 'pOther' })
+    })
+
+    it('takes --pane before the state and keeps a message that starts with a dash', async () => {
+      grant(identity.externalId, 'all-workspaces')
+      const other = registerPane({ windowId: 'w1', workspaceId: 's2', paneId: 'pFlagFirst' })
+      const res = await runPine(
+        ['state', '--pane', other.externalId, 'waiting', '- pick a branch'],
+        env(),
+      )
+      expect(res.stderr).toBe('')
+      expect(execCalls[0]).toMatchObject({
+        target: { paneId: 'pFlagFirst' },
+        args: { state: 'waiting', message: '- pick a branch' },
+      })
     })
   })
 
@@ -396,6 +429,17 @@ describe('pine CLI end-to-end (spawns the real out/cli/index.js against a live c
       expect(parsed.error).toMatch(/usage: pine browse storage/)
     })
 
+    it('stores a negative number as the value, not as a flag', async () => {
+      grant(identity.externalId, 'browse')
+      const res = await runPine(
+        ['browse', 'storage', 'local', 'set', 'offset', '-5'],
+        withEnv({ PINE_SOCKET: socketPath, PINE_TOKEN: identity.token }),
+      )
+      expect(res.stderr).toBe('')
+      expect(res.code).toBe(0)
+      expect(received.at(-1)).toEqual({ area: 'local', sub: 'set', key: 'offset', value: '-5' })
+    })
+
     it('runs several commands over one connection with batch', async () => {
       grant(identity.externalId, 'browse')
       const before = received.length
@@ -426,6 +470,12 @@ describe('pine CLI end-to-end (spawns the real out/cli/index.js against a live c
         id: 'workspace.describe',
         args: { text: 'PR #7: fix refunds' },
       })
+    })
+
+    it('takes everything after -- as the text, flags included', async () => {
+      const res = await runPine(['workspace', 'describe', '--', '--clear', 'the', 'cache'], env())
+      expect(res.code).toBe(0)
+      expect(execCalls.at(-1)?.args).toEqual({ text: '--clear the cache' })
     })
 
     it('clears with --clear and refuses an empty description', async () => {

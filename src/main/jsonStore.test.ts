@@ -1,4 +1,13 @@
-import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs'
 import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -89,6 +98,25 @@ describe('jsonStore', () => {
       mkdirSync(dir, { recursive: true })
       writeFileSync(path, '{ not valid json', 'utf8')
       expect(loadJson(path, { fallback: true })).toEqual({ fallback: true })
+    })
+
+    it('keeps a secure store and its folder readable only by the owner', () => {
+      const path = join(dir, 'secure', 'store.json')
+      saveJson(path, { a: 1 }, { secure: true })
+      expect(statSync(path).mode & 0o777).toBe(0o600)
+      expect(statSync(join(dir, 'secure')).mode & 0o777).toBe(0o700)
+    })
+
+    it('replaces a symlink at the store path and leaves the file it pointed at alone', () => {
+      mkdirSync(dir, { recursive: true })
+      const target = join(dir, 'target.txt')
+      const path = join(dir, 'store.json')
+      writeFileSync(target, 'untouched', 'utf8')
+      symlinkSync(target, path)
+      saveJson(path, { a: 1 })
+      expect(lstatSync(path).isSymbolicLink()).toBe(false)
+      expect(loadJson(path, null)).toEqual({ a: 1 })
+      expect(readFileSync(target, 'utf8')).toBe('untouched')
     })
   })
 })

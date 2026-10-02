@@ -1,13 +1,9 @@
+import { escapeRegExp } from 'es-toolkit'
+
 export interface HighlightPart {
   text: string
   at: number
   match: boolean
-}
-
-const REGEX_SPECIALS = /[.*+?^${}()|[\]\\]/g
-
-function escapeRegExp(text: string): string {
-  return text.replace(REGEX_SPECIALS, '\\$&')
 }
 
 function queryPattern(query: string): RegExp | null {

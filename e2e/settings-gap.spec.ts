@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process'
 import { type Page, _electron as electron, expect, test } from '@playwright/test'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { openWorkspace } from './helpers'
@@ -30,11 +31,92 @@ test('terminal.shell starts new terminals in the chosen program with its argumen
   }
 })
 
+test('an unusable terminal.shell falls back to the login shell', async () => {
+  const { app, win } = await launch({ terminal: { shell: '"/bin/sh -i' } })
+  try {
+    const login = (process.env.SHELL ?? 'bash').split('/').pop()
+    await run(win, 'echo "proc=$(ps -p $$ -o comm= | tr -d \' -\')"')
+    await expect(win.locator('.xterm-rows').first()).toContainText(`proc=${login}`, {
+      timeout: 15_000,
+    })
+  } finally {
+    await app.close()
+  }
+})
+
+test('a sandboxed workspace wraps the shell chosen in terminal.shell', async () => {
+  const { app, win } = await launch({ terminal: { shell: '/bin/sh -i' } })
+  try {
+    await win.locator('.rail-row').first().click({ button: 'right' })
+    await win.getByRole('menuitemcheckbox', { name: 'Sandbox' }).click()
+    const restart = win.getByRole('button', { name: 'Restart to apply' })
+    await restart.click()
+    await expect(restart).toHaveCount(0)
+    const rows = win.locator('.xterm-rows').first()
+    await expect(async () => {
+      await run(win, 'echo "sandbox=${HTTPS_PROXY:+on} flags=$-"')
+      await expect(rows).toContainText(/sandbox=on flags=\S*i/, { timeout: 2_000 })
+    }).toPass({ timeout: 30_000 })
+  } finally {
+    await app.close()
+  }
+})
+
+test('the primary selection takes only non-empty text up to the cap from the page', async () => {
+  const { app, win } = await launch({})
+  try {
+    const send = (text: string) =>
+      win.evaluate((t) => {
+        ;(
+          window as unknown as { pine: { writePrimarySelection: (s: string) => void } }
+        ).pine.writePrimarySelection(t)
+      }, text)
+    const read = () => app.evaluate(({ clipboard }) => clipboard.readText('selection'))
+    await app.evaluate(({ clipboard }) => clipboard.writeText('sentinel', 'selection'))
+    await send('')
+    await send('x'.repeat(2 * 1024 * 1024))
+    await win.waitForTimeout(300)
+    expect(await read()).toBe('sentinel')
+    await send('from-the-page')
+    await expect.poll(read).toBe('from-the-page')
+    expect(await app.evaluate(({ clipboard }) => clipboard.readText('clipboard'))).not.toBe(
+      'from-the-page',
+    )
+  } finally {
+    await app.close()
+  }
+})
+
+test('the global hotkey hides a focused window and brings it back', async () => {
+  const hasXdotool = (() => {
+    try {
+      execFileSync('xdotool', ['version'], { stdio: 'ignore' })
+      return true
+    } catch {
+      return false
+    }
+  })()
+  test.skip(!hasXdotool, 'needs xdotool to press a global shortcut')
+  const { app } = await launch({ workspaces: { globalHotkey: 'Ctrl+Alt+F9' } })
+  try {
+    const visible = () =>
+      app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().some((w) => w.isVisible()))
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].focus())
+    await expect.poll(visible).toBe(true)
+    execFileSync('xdotool', ['key', 'ctrl+alt+F9'], { env: process.env })
+    await expect.poll(visible).toBe(false)
+    execFileSync('xdotool', ['key', 'ctrl+alt+F9'], { env: process.env })
+    await expect.poll(visible).toBe(true)
+  } finally {
+    await app.close()
+  }
+})
+
 test('OSC 52 sets the clipboard only while terminal.osc52Write is on', async () => {
   const { app, win } = await launch({ terminal: { osc52Write: true } })
   try {
     await app.evaluate(({ clipboard }) => clipboard.writeText('before'))
-    await run(win, "printf '\\033]52;c;%s\\a' \"$(printf pine-osc52 | base64)\"")
+    await run(win, 'printf \'\\033]52;c;%s\\a\' "$(printf pine-osc52 | base64)"')
     await expect
       .poll(() => app.evaluate(({ clipboard }) => clipboard.readText()), { timeout: 10_000 })
       .toBe('pine-osc52')
@@ -49,7 +131,7 @@ test('OSC 52 sets the clipboard only while terminal.osc52Write is on', async () 
 test('OSC 52 leaves the clipboard alone by default', async () => {
   const { app, win } = await launch({})
   try {
-    await run(win, "printf '\\033]52;c;%s\\a' \"$(printf pine-osc52-off | base64)\"; echo osc-sent")
+    await run(win, 'printf \'\\033]52;c;%s\\a\' "$(printf pine-osc52-off | base64)"; echo osc-sent')
     await expect(win.locator('.xterm-rows').first()).toContainText('osc-sent')
     await win.waitForTimeout(300)
     expect(await app.evaluate(({ clipboard }) => clipboard.readText())).not.toBe('pine-osc52-off')
@@ -130,9 +212,9 @@ test('default chords split a pane, move focus by direction and zoom it', async (
     await win.keyboard.press('Control+Shift+Alt+H')
     await expect(active).toHaveAttribute('data-pane-id', first ?? '')
     await win.keyboard.type('echo typed-in-left')
-    await expect(
-      win.locator(`.pane[data-pane-id="${first}"] .xterm-rows`),
-    ).toContainText('echo typed-in-left')
+    await expect(win.locator(`.pane[data-pane-id="${first}"] .xterm-rows`)).toContainText(
+      'echo typed-in-left',
+    )
 
     await win.keyboard.press('Control+Shift+Alt+L')
     await expect(active).toHaveAttribute('data-pane-id', second ?? '')
