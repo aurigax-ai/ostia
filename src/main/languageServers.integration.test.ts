@@ -9,6 +9,7 @@ import {
 } from '../../test/fixtures/lsp/installFakeExtension'
 import type { LanguageServerContribution } from '../shared/languageServers'
 import { readManifest } from './extensionManifest'
+import { TreeWatches } from './fileWatch'
 import { type LanguageServerSource, LanguageServers } from './languageServers'
 import { programPath } from './systemRequirements'
 
@@ -23,6 +24,10 @@ let extensionDir: string
 let servers: LanguageServers
 let sources: LanguageServerSource[]
 let posts: Posted[]
+const treeWatches = new TreeWatches({
+  confine: (dir) => (dir.startsWith(tmp) ? dir : null),
+  debounceMs: 30,
+})
 
 function record(root: string): { method: string; [key: string]: unknown }[] {
   return readFileSync(join(root, '.fake-lsp-record.jsonl'), 'utf8')
@@ -119,6 +124,7 @@ beforeEach(() => {
       retain: () => {},
     },
     registerRequirements: () => {},
+    watchTree: (root, onChange) => treeWatches.watch(root, onChange),
     post: (_windowId, channel, message) =>
       posted.push({ channel, message: message as Record<string, unknown> | undefined }),
     changed: () => {},
@@ -129,6 +135,7 @@ beforeEach(() => {
 
 afterEach(() => {
   servers.stopAll()
+  treeWatches.closeAll()
   rmSync(tmp, { recursive: true, force: true })
 })
 
@@ -214,6 +221,56 @@ describe('a real language server process', () => {
       () => expect(diagnostics(second.sessionId)).toEqual(['fake warning on line 1']),
       { timeout: 10_000 },
     )
+  })
+
+  it('tells a server that registered file watchers about matching files changed under its root', async () => {
+    const program: LanguageServerContribution = {
+      id: 'watcher',
+      name: 'Fake watcher',
+      languages: ['plaintext'],
+      run: {
+        program: 'pine-fake-lsp',
+        args: ['--record={root}/.fake-lsp-record.jsonl', '--watch=**/*.cfg'],
+      },
+      rootMarkers: [],
+    }
+    sources = [{ ...sources[0], server: program }]
+    const [session] = await servers.open('w1', 'p1', join(workDir, 'notes.txt'))
+    await initialize(session.sessionId)
+    const registration = (): Record<string, unknown> | undefined =>
+      messages(session.sessionId).find((m) => m.method === 'client/registerCapability')
+    await vi.waitFor(() => expect(registration()).toBeDefined(), { timeout: 10_000 })
+    servers.send('w1', session.sessionId, { jsonrpc: '2.0', id: registration()?.id, result: null })
+    await vi.waitFor(
+      () => expect(record(workDir).some((entry) => entry.method === '$registered')).toBe(true),
+      { timeout: 10_000 },
+    )
+
+    mkdirSync(join(workDir, 'conf'))
+    writeFileSync(join(workDir, 'conf', 'app.cfg'), 'a=1')
+    writeFileSync(join(workDir, 'conf', 'ignored.txt'), 'x')
+    const watched = (): { uri: string; type: number }[] =>
+      record(workDir)
+        .filter((entry) => entry.method === 'workspace/didChangeWatchedFiles')
+        .flatMap((entry) => (entry.params as { changes: { uri: string; type: number }[] }).changes)
+    await vi.waitFor(
+      () =>
+        expect(watched()).toEqual([
+          { uri: pathToFileURL(join(workDir, 'conf', 'app.cfg')).href, type: 1 },
+        ]),
+      { timeout: 10_000 },
+    )
+
+    servers.send('w1', session.sessionId, {
+      jsonrpc: '2.0',
+      id: 7,
+      method: 'workspace/executeCommand',
+      params: { command: 'fake.unregister', arguments: ['watch'] },
+    })
+    const unregistration = (): Record<string, unknown> | undefined =>
+      messages(session.sessionId).find((m) => m.method === 'client/unregisterCapability')
+    await vi.waitFor(() => expect(unregistration()).toBeDefined(), { timeout: 10_000 })
+    expect(treeWatches.watchedDirs(workDir)).toEqual([])
   })
 
   it('runs a program server found on PATH', async () => {

@@ -36,7 +36,14 @@ import {
 } from '../shared/languageServers'
 import { quoteArgv } from '../shared/shellQuote'
 import { type LogFields, redactSecrets } from './appLog'
+import type { TreeChange } from './fileWatch'
 import type { Requirement } from './systemRequirements'
+import {
+  type FileWatcher,
+  WATCHED_FILES_METHOD,
+  parseFileWatchers,
+  watchedFileEvents,
+} from './watchedFiles'
 
 export const LSP_IDLE_STOP_MS = 60_000
 export const LSP_MAX_RESTARTS = 5
@@ -104,6 +111,7 @@ export interface LanguageServersDeps {
   languageOf?: (path: string) => string
   managed: ManagedServerFiles
   registerRequirements: (feature: string, requirements: Requirement[], label?: string) => void
+  watchTree?: (root: string, onChange: (changes: TreeChange[]) => void) => (() => void) | null
   post: (windowId: string, channel: string, ...args: unknown[]) => void
   changed: (list: LanguageServerInfo[]) => void
   log?: (event: string, fields: LogFields) => void
@@ -132,6 +140,8 @@ interface Session {
   stopping: LspStopReason | null
   settings: JsonObject
   shutdownId: string | null
+  fileWatchers: Map<string, FileWatcher[]>
+  unwatch: (() => void) | null
   exited: Promise<void>
   resolveExited: () => void
 }
@@ -747,6 +757,8 @@ export class LanguageServers {
       stopping: null,
       settings: baseSettings(source, root),
       shutdownId: null,
+      fileWatchers: new Map(),
+      unwatch: null,
       exited,
       resolveExited,
     }
@@ -804,6 +816,8 @@ export class LanguageServers {
         this.write(session, { jsonrpc: '2.0', id, result })
         return
       }
+      if (method === 'client/registerCapability') this.watchFiles(session, message.params)
+      if (method === 'client/unregisterCapability') this.unwatchFiles(session, message.params)
     } else if (hasId) {
       if (id === session.shutdownId) {
         this.finishShutdown(session)
@@ -821,6 +835,53 @@ export class LanguageServers {
       }
     }
     this.deps.post(session.windowId, `lsp:msg:${session.id}`, message)
+  }
+
+  private watchFiles(session: Session, params: unknown): void {
+    const registrations =
+      isRecord(params) && Array.isArray(params.registrations) ? params.registrations : []
+    for (const registration of registrations) {
+      if (!isRecord(registration) || registration.method !== WATCHED_FILES_METHOD) continue
+      if (typeof registration.id !== 'string') continue
+      const watchers = parseFileWatchers(registration.registerOptions, session.root)
+      if (watchers.length > 0) session.fileWatchers.set(registration.id, watchers)
+    }
+    if (session.fileWatchers.size === 0 || session.unwatch || session.stopping !== null) return
+    session.unwatch =
+      this.deps.watchTree?.(session.root, (changes) => this.onTreeChange(session, changes)) ?? null
+  }
+
+  private unwatchFiles(session: Session, params: unknown): void {
+    const record = isRecord(params) ? params : {}
+    const list = Array.isArray(record.unregisterations)
+      ? record.unregisterations
+      : Array.isArray(record.unregistrations)
+        ? record.unregistrations
+        : []
+    for (const item of list) {
+      if (isRecord(item) && typeof item.id === 'string') session.fileWatchers.delete(item.id)
+    }
+    if (session.fileWatchers.size === 0) this.stopWatching(session)
+  }
+
+  private stopWatching(session: Session): void {
+    session.unwatch?.()
+    session.unwatch = null
+  }
+
+  private onTreeChange(session: Session, changes: TreeChange[]): void {
+    if (!session.initialized || session.stopping !== null) return
+    const events = watchedFileEvents(
+      [...session.fileWatchers.values()].flat(),
+      changes,
+      session.root,
+    )
+    if (events.length === 0) return
+    this.write(session, {
+      jsonrpc: '2.0',
+      method: WATCHED_FILES_METHOD,
+      params: { changes: events },
+    })
   }
 
   private noteInitialized(session: Session, result: unknown): void {
@@ -887,6 +948,7 @@ export class LanguageServers {
   stopAll(): void {
     this.stopped = true
     for (const session of [...this.sessions.values()]) {
+      this.stopWatching(session)
       if (session.stopping === null) {
         session.stopping = 'quit'
         if (session.initialized) {
@@ -913,6 +975,7 @@ export class LanguageServers {
     session.stopping = reason
     if (session.idleTimer) clearTimeout(session.idleTimer)
     session.idleTimer = null
+    this.stopWatching(session)
     this.note(session.key, { at: this.now(), kind: 'stop', reason })
     const grace = this.deps.stopGraceMs ?? LSP_STOP_GRACE_MS
     if (!session.initialized) {
@@ -943,6 +1006,7 @@ export class LanguageServers {
 
   private onExit(session: Session, code: number | null, signal: NodeJS.Signals | null): void {
     if (!this.sessions.delete(session.id)) return
+    this.stopWatching(session)
     if (session.idleTimer) clearTimeout(session.idleTimer)
     if (session.killTimer) clearTimeout(session.killTimer)
     session.idleTimer = null

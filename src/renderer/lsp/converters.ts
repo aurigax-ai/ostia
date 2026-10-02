@@ -3,6 +3,7 @@ import type {
   Diagnostic,
   DocumentHighlight,
   DocumentSymbol,
+  FoldingRange,
   Hover,
   InlayHint,
   InsertReplaceEdit,
@@ -320,4 +321,16 @@ export function rangesOverlap(a: Range, b: Range): boolean {
   const before = (x: Position, y: Position): boolean =>
     x.line < y.line || (x.line === y.line && x.character < y.character)
   return !before(a.end, b.start) && !before(b.end, a.start)
+}
+
+export function toFoldingRanges(
+  list: readonly FoldingRange[] | null | undefined,
+): monaco.languages.FoldingRange[] {
+  return (list ?? [])
+    .filter((range) => range.endLine > range.startLine)
+    .map((range) => ({
+      start: range.startLine + 1,
+      end: range.endLine + 1,
+      ...(range.kind ? { kind: monaco.languages.FoldingRangeKind.fromValue(range.kind) } : {}),
+    }))
 }

@@ -1,10 +1,12 @@
 import type {
   CodeAction,
+  CodeLens,
   Command,
   CompletionItem,
   CompletionList,
   DocumentHighlight,
   DocumentSymbol,
+  FoldingRange,
   Hover,
   InlayHint,
   Location,
@@ -25,6 +27,7 @@ import {
   rangesOverlap,
   toCompletion,
   toDocumentSymbols,
+  toFoldingRanges,
   toHighlights,
   toHover,
   toInlayHints,
@@ -88,10 +91,76 @@ function ensureApplyCommand(): void {
   )
 }
 
-export type SessionLookup = (model: monaco.editor.ITextModel) => LspSession | undefined
+export type SessionLookup = (
+  model: monaco.editor.ITextModel,
+  method: string,
+) => LspSession | undefined
 
 interface SessionCompletion extends LspCompletion {
   session: LspSession
+}
+
+interface SessionCodeLens extends monaco.languages.CodeLens {
+  lspLens: CodeLens
+  session: LspSession
+}
+
+let codeLensChanges: monaco.Emitter<monaco.languages.CodeLensProvider> | null = null
+
+function codeLensEmitter(): monaco.Emitter<monaco.languages.CodeLensProvider> {
+  codeLensChanges ??= new monaco.Emitter<monaco.languages.CodeLensProvider>()
+  return codeLensChanges
+}
+
+const codeLensProviders = new Set<monaco.languages.CodeLensProvider>()
+
+export function refreshCodeLenses(): void {
+  for (const provider of codeLensProviders) codeLensEmitter().fire(provider)
+}
+
+function toCodeLens(session: LspSession, lens: CodeLens): SessionCodeLens {
+  const { command } = lens
+  return {
+    range: toMonacoRange(lens.range),
+    ...(command
+      ? {
+          command: session.runsCommand(command.command)
+            ? { id: APPLY_CODE_ACTION_COMMAND, title: command.title, arguments: [session, command] }
+            : { id: '', title: command.title },
+        }
+      : {}),
+    lspLens: lens,
+    session,
+  }
+}
+
+function codeLensProvider(
+  capabilities: ServerCapabilities,
+  sessionOf: SessionLookup,
+): monaco.languages.CodeLensProvider {
+  const resolves = capabilities.codeLensProvider?.resolveProvider === true
+  return {
+    onDidChange: codeLensEmitter().event,
+    async provideCodeLenses(model, token) {
+      const session = sessionOf(model, 'textDocument/codeLens')
+      if (!session) return { lenses: [], dispose: () => {} }
+      const lenses = await session.request<CodeLens[]>(
+        'textDocument/codeLens',
+        { textDocument: { uri: model.uri.toString() } },
+        token,
+      )
+      return {
+        lenses: (lenses ?? []).map((lens) => toCodeLens(session, lens)),
+        dispose: () => {},
+      }
+    },
+    async resolveCodeLens(_model, codeLens, token) {
+      const { lspLens, session } = codeLens as Partial<SessionCodeLens>
+      if (!lspLens || !session || lspLens.command || !resolves) return codeLens
+      const resolved = await session.request<CodeLens>('codeLens/resolve', lspLens, token)
+      return resolved ? toCodeLens(session, resolved) : codeLens
+    },
+  }
 }
 
 const COMPLETION_INVOKED = 1
@@ -125,7 +194,7 @@ function completionProvider(
   return {
     triggerCharacters: options.triggerCharacters ?? [],
     async provideCompletionItems(model, position, context, token) {
-      const session = sessionOf(model)
+      const session = sessionOf(model, 'textDocument/completion')
       if (!session) return { suggestions: [] }
       const result = await session.request<CompletionItem[] | CompletionList>(
         'textDocument/completion',
@@ -205,7 +274,7 @@ export function registerProviders(
     registrations.push(
       languages.registerHoverProvider(language, {
         async provideHover(model, position, token) {
-          const session = sessionOf(model)
+          const session = sessionOf(model, 'textDocument/hover')
           if (!session) return null
           return toHover(
             await session.request<Hover>(
@@ -223,7 +292,7 @@ export function registerProviders(
     registrations.push(
       languages.registerDefinitionProvider(language, {
         async provideDefinition(model, position, token) {
-          const session = sessionOf(model)
+          const session = sessionOf(model, 'textDocument/definition')
           if (!session) return null
           return toLocations(
             await session.request<Location | Location[] | LocationLink[]>(
@@ -241,7 +310,7 @@ export function registerProviders(
     registrations.push(
       languages.registerDocumentFormattingEditProvider(language, {
         async provideDocumentFormattingEdits(model, options, token) {
-          const session = sessionOf(model)
+          const session = sessionOf(model, 'textDocument/formatting')
           if (!session) return null
           return toTextEdits(
             await session.request<TextEdit[]>(
@@ -262,7 +331,7 @@ export function registerProviders(
     registrations.push(
       languages.registerDocumentRangeFormattingEditProvider(language, {
         async provideDocumentRangeFormattingEdits(model, range, options, token) {
-          const session = sessionOf(model)
+          const session = sessionOf(model, 'textDocument/rangeFormatting')
           if (!session) return null
           return toTextEdits(
             await session.request<TextEdit[]>(
@@ -284,7 +353,7 @@ export function registerProviders(
     registrations.push(
       languages.registerReferenceProvider(language, {
         async provideReferences(model, position, context, token) {
-          const session = sessionOf(model)
+          const session = sessionOf(model, 'textDocument/references')
           if (!session) return null
           return toLocations(
             await session.request<Location[]>(
@@ -308,7 +377,7 @@ export function registerProviders(
     registrations.push(
       languages.registerRenameProvider(language, {
         async provideRenameEdits(model, position, newName, token) {
-          const session = sessionOf(model)
+          const session = sessionOf(model, 'textDocument/rename')
           if (!session) return { edits: [] }
           const edit = await session.request<WorkspaceEdit>(
             'textDocument/rename',
@@ -324,7 +393,7 @@ export function registerProviders(
         ...(prepares
           ? {
               async resolveRenameLocation(model, position, token) {
-                const session = sessionOf(model)
+                const session = sessionOf(model, 'textDocument/rename')
                 const prepared = session
                   ? await session.request<
                       Range | { range: Range; placeholder: string } | { defaultBehavior: boolean }
@@ -360,7 +429,7 @@ export function registerProviders(
         signatureHelpTriggerCharacters: options.triggerCharacters ?? [],
         signatureHelpRetriggerCharacters: options.retriggerCharacters ?? [],
         async provideSignatureHelp(model, position, token, context) {
-          const session = sessionOf(model)
+          const session = sessionOf(model, 'textDocument/signatureHelp')
           if (!session) return null
           const value = toSignatureHelp(
             await session.request<SignatureHelp>(
@@ -388,7 +457,7 @@ export function registerProviders(
     registrations.push(
       languages.registerDocumentSymbolProvider(language, {
         async provideDocumentSymbols(model, token) {
-          const session = sessionOf(model)
+          const session = sessionOf(model, 'textDocument/documentSymbol')
           if (!session) return null
           return toDocumentSymbols(
             await session.request<(DocumentSymbol | SymbolInformation)[]>(
@@ -406,7 +475,7 @@ export function registerProviders(
     registrations.push(
       languages.registerDocumentHighlightProvider(language, {
         async provideDocumentHighlights(model, position, token) {
-          const session = sessionOf(model)
+          const session = sessionOf(model, 'textDocument/documentHighlight')
           if (!session) return null
           return toHighlights(
             await session.request<DocumentHighlight[]>(
@@ -425,7 +494,7 @@ export function registerProviders(
     registrations.push(
       languages.registerCodeActionProvider(language, {
         async provideCodeActions(model, range, context, token) {
-          const session = sessionOf(model)
+          const session = sessionOf(model, 'textDocument/codeAction')
           if (!session) return null
           const lspRange = toLspRange(range)
           const result = await session.request<(CodeAction | Command)[]>(
@@ -471,7 +540,7 @@ export function registerProviders(
     registrations.push(
       languages.registerInlayHintsProvider(language, {
         async provideInlayHints(model, range, token) {
-          const session = sessionOf(model)
+          const session = sessionOf(model, 'textDocument/inlayHint')
           if (!session) return null
           const hints = toInlayHints(
             await session.request<InlayHint[]>(
@@ -486,6 +555,36 @@ export function registerProviders(
     )
   }
 
+  if (capabilities.foldingRangeProvider) {
+    registrations.push(
+      languages.registerFoldingRangeProvider(language, {
+        async provideFoldingRanges(model, _context, token) {
+          const session = sessionOf(model, 'textDocument/foldingRange')
+          if (!session) return null
+          const ranges = await session.request<FoldingRange[]>(
+            'textDocument/foldingRange',
+            { textDocument: { uri: model.uri.toString() } },
+            token,
+          )
+          return ranges ? toFoldingRanges(ranges) : null
+        },
+      }),
+    )
+  }
+
+  if (capabilities.codeLensProvider) {
+    ensureApplyCommand()
+    const provider = codeLensProvider(capabilities, sessionOf)
+    const registration = languages.registerCodeLensProvider(language, provider)
+    codeLensProviders.add(provider)
+    registrations.push({
+      dispose: () => {
+        codeLensProviders.delete(provider)
+        registration.dispose()
+      },
+    })
+  }
+
   const semantic = capabilities.semanticTokensProvider
   if (semantic?.legend && semantic.full) {
     const { legend } = semantic
@@ -496,7 +595,7 @@ export function registerProviders(
           tokenModifiers: [...legend.tokenModifiers],
         }),
         async provideDocumentSemanticTokens(model, _lastResultId, token) {
-          const session = sessionOf(model)
+          const session = sessionOf(model, 'textDocument/semanticTokens')
           if (!session) return null
           const tokens = await session.request<SemanticTokens>(
             'textDocument/semanticTokens/full',

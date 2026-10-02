@@ -86,7 +86,7 @@ import { createSecretStore } from './extensionSecrets'
 import { ExtensionStore } from './extensionStore'
 import { DismissedSuggestions, suggestionFor } from './extensionSuggestions'
 import { openInExternalEditor } from './externalEditor'
-import { FileWatches } from './fileWatch'
+import { FileWatches, TreeWatches } from './fileWatch'
 import { readBinaryConfined } from './fsBinary'
 import { registerGatewayIpc, registerGatewayMethods } from './gateway'
 import { configureGatewayControl, stopGateway } from './gateway/server'
@@ -558,8 +558,15 @@ function sandboxCanRead(workspaceId: string, path: string): boolean {
   }
 }
 
+const LANGUAGE_SERVER_WATCH_DEBOUNCE_MS = 300
+const languageServerWatches = new TreeWatches({
+  confine: (dir) => resolveSafe(dir, fileRoots()),
+  debounceMs: LANGUAGE_SERVER_WATCH_DEBOUNCE_MS,
+})
+
 function createLanguageServers(): LanguageServers {
   return new LanguageServers({
+    watchTree: (root, onChange) => languageServerWatches.watch(root, onChange),
     sources: () => extensionHost?.languageServers() ?? [],
     nodePath: process.execPath,
     env: () => process.env,
@@ -2668,6 +2675,7 @@ app.on('before-quit', (event) => {
   }
   ptys.clear()
   languageServers?.stopAll()
+  languageServerWatches.closeAll()
   workspaceSandboxes.stopAll()
   workspaceAgents.stopAll()
   for (const workspaceId of scratchFolders.workspaceIds()) workspaceSandboxes.forget(workspaceId)
