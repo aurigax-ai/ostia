@@ -5,6 +5,7 @@ import { Unicode11Addon } from '@xterm/addon-unicode11'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import { type FontWeight, type IMarker, Terminal as Xterm } from '@xterm/xterm'
 import '@xterm/xterm/css/xterm.css'
+import { isNativeClipboardKey } from '@shared/chordSpec'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { wantsDesktopBanner } from '../../shared/notificationSettings'
 import { currentDict, fmt } from '../i18n/useDict'
@@ -20,8 +21,8 @@ import {
 import { canTypeInto, insertCommand, selectedBlockOutput, stepBlock } from '../lib/blockActions'
 import { decodeCommandLine, readCommandText } from '../lib/blockText'
 import { openBrowserAs } from '../lib/browserProfile'
-import { isAppChord, isNativeClipboardKey, matchChord } from '../lib/chords'
-import { smartClipboardAction } from '../lib/clipboardKeys'
+import { isAppChord, matchChord } from '../lib/chords'
+import { PROGRAM_PASTE_KEY, keyPastePlan, smartClipboardAction } from '../lib/clipboardKeys'
 import { currentScheme, terminalTheme, useScheme } from '../lib/colorScheme'
 import { acceptsPathDrop, droppedPaths, pathsAsInput } from '../lib/dropPaths'
 import { attachLinkModifier, linkModifierHeld, linkTarget } from '../lib/linkModifier'
@@ -29,7 +30,7 @@ import { openFileAt } from '../lib/openFile'
 import { isLocalHost, parseOsc7 } from '../lib/osc7'
 import { forgetPaneActivity, markPaneActivity } from '../lib/paneActivity'
 import { terminalNotification } from '../lib/paneAgent'
-import { planHumanPaste } from '../lib/pasteGate'
+import { planDraftPaste, planHumanPaste } from '../lib/pasteGate'
 import { isTitlePinned } from '../lib/pinnedTitles'
 import { spawnPromptOption } from '../lib/promptChips'
 import { scrollUpSequence } from '../lib/promptOverlay'
@@ -168,27 +169,38 @@ export function TerminalView({
       planHumanPaste(text, useSettingsStore.getState().terminal.warnOnRiskyPaste)
     const requestPaste = (text: string): void => {
       if (disposed) return
+      const editor = inputEditorFor(paneId)
+      if (editor) {
+        const draft = planDraftPaste(text)
+        if (draft) editor.type(draft)
+        return
+      }
       const plan = planPaste(text)
       if (plan.confirm) setPendingPaste(plan.text)
       else if (plan.text) pasteConfirmed(plan.text)
     }
+    const pasteFromClipboard = async (): Promise<void> => {
+      const text = await navigator.clipboard.readText().catch(() => '')
+      if (disposed) return
+      const editorShown = Boolean(inputEditorFor(paneId))
+      const hasImage =
+        !text && !editorShown && (await window.pine.clipboard.hasImage().catch(() => false))
+      if (disposed) return
+      const plan = keyPastePlan(text, editorShown, hasImage)
+      if (plan === 'text') requestPaste(text)
+      else if (plan === 'program') term.input(PROGRAM_PASTE_KEY, true)
+    }
     const interceptPaste = (e: ClipboardEvent): void => {
       const text = e.clipboardData?.getData('text/plain') ?? ''
-      const plan = planPaste(text)
-      if (!plan.confirm && plan.text === text) return
+      if (!inputEditorFor(paneId)) {
+        const plan = planPaste(text)
+        if (!plan.confirm && plan.text === text) return
+      }
       e.preventDefault()
       e.stopImmediatePropagation()
       requestPaste(text)
     }
     host.addEventListener('paste', interceptPaste, true)
-    const pasteIntoEditor = (e: ClipboardEvent): void => {
-      const editor = inputEditorFor(paneId)
-      if (!editor || e.defaultPrevented) return
-      e.preventDefault()
-      e.stopImmediatePropagation()
-      editor.type(e.clipboardData?.getData('text/plain') ?? '')
-    }
-    host.addEventListener('paste', pasteIntoEditor, true)
     const focusEditorOnClick = (e: MouseEvent): void => {
       if (e.button !== 0 || term.hasSelection()) return
       inputEditorFor(paneId)?.focus()
@@ -218,7 +230,7 @@ export function TerminalView({
           void navigator.clipboard.writeText(term.getSelection())
           term.clearSelection()
         } else {
-          void navigator.clipboard.readText().then(requestPaste)
+          void pasteFromClipboard()
         }
         return false
       }
@@ -244,7 +256,7 @@ export function TerminalView({
         const selection = term.getSelection()
         if (selection) void navigator.clipboard.writeText(selection)
       } else {
-        void navigator.clipboard.readText().then(requestPaste)
+        void pasteFromClipboard()
       }
       return false
     })
@@ -592,7 +604,6 @@ export function TerminalView({
       input.dispose()
       bufferChange.dispose()
       host.removeEventListener('paste', interceptPaste, true)
-      host.removeEventListener('paste', pasteIntoEditor, true)
       host.removeEventListener('mouseup', focusEditorOnClick)
       pasteRef.current = () => {}
       offData()

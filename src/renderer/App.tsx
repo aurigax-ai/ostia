@@ -3,6 +3,7 @@ import { clampZoom } from '@shared/zoom'
 import { useEffect } from 'react'
 import { commands } from './commands/registry'
 import { ActionConfirmDialog } from './components/ActionConfirmDialog'
+import { AgentOfferDialog } from './components/AgentOfferDialog'
 import { CloseConfirmDialog } from './components/CloseConfirmDialog'
 import { CommandPalette } from './components/CommandPalette'
 import { DeckRail } from './components/DeckRail'
@@ -21,6 +22,7 @@ import { WorkflowPicker } from './components/WorkflowPicker'
 import { TooltipProvider } from './components/ui/tooltip'
 import { WORKSPACE_GOTO, isAppChord, matchChord, workspaceIndex } from './lib/chords'
 import { confirmQuit, quitGroups } from './lib/closeConfirm'
+import { handleDocumentClipboardChord, syncClipboardChords } from './lib/documentClipboard'
 import { useMotionAttribute } from './lib/motion'
 import { applyTheme, useEffectiveTheme } from './lib/theme'
 import { applyUiFonts } from './lib/uiFonts'
@@ -69,6 +71,8 @@ export function App(): JSX.Element {
     void startLanguageServices()
   }, [])
 
+  useEffect(() => syncClipboardChords(isMac), [])
+
   const extensionList = useExtensionsStore((s) => s.list)
   useEffect(() => {
     void extensionList
@@ -96,6 +100,7 @@ export function App(): JSX.Element {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (handleDocumentClipboardChord(e, isMac)) return
       const chord = matchChord(e, isMac)
       if (!isAppChord(chord)) return
       e.preventDefault()
@@ -123,6 +128,7 @@ export function App(): JSX.Element {
           <CloseConfirmDialog />
           <MergeConfirmDialog />
           <ActionConfirmDialog />
+          <AgentOfferDialog />
           <SandboxRequirementsDialog />
           <SandboxFolderDialog />
           <HistorySearch />

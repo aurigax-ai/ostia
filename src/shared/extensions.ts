@@ -422,6 +422,36 @@ export interface OpenTerminalOptions {
   host?: boolean
 }
 
+export const AGENT_OFFER_TEXT_MAX = 2000
+export const AGENT_OFFER_LABEL_MAX = 120
+export const AGENT_PROMPT_MAX = 16_000
+
+export interface AgentOfferOptions {
+  workspaceId: string
+  text: string
+  label: string
+}
+
+export type AgentOfferResult =
+  | { ok: true; sent: false }
+  | { ok: true; sent: true; paneId: string }
+  | { ok: false; error: string; message?: string }
+
+export interface RunAgentOptions {
+  workspaceId: string
+  agent: string
+  prompt: string
+}
+
+export interface ExtensionAgentOffer {
+  requestId: string
+  extId: string
+  extName: string
+  workspaceId: string
+  label: string
+  text: string
+}
+
 export interface ExtensionOpenTerminalRequest {
   requestId: string
   command: string
@@ -458,4 +488,8 @@ export interface ExtensionsApi {
   onOpenPanel: (cb: (req: ExtensionOpenPanelRequest) => void) => () => void
   onOpenDiff: (cb: (req: ExtensionOpenDiffRequest) => void) => () => void
   onOpenTerminal: (cb: (req: ExtensionOpenTerminalRequest) => string | null) => () => void
+  onAgentOffer: (cb: (offer: ExtensionAgentOffer) => void) => () => void
+  onAgentOfferWithdrawn: (cb: (requestId: string) => void) => () => void
+  answerAgentOffer: (requestId: string, paneId: string | null) => void
+  onFocusPane: (cb: (paneId: string) => void) => () => void
 }

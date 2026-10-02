@@ -157,6 +157,11 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       pathForFile: vi.fn(() => ''),
       admitDropped: vi.fn().mockResolvedValue([]),
     },
+    clipboard: {
+      edit: vi.fn().mockResolvedValue(undefined),
+      hasImage: vi.fn().mockResolvedValue(false),
+      setChords: vi.fn(),
+    },
     openPath: {
       openDefault: vi.fn().mockResolvedValue({ ok: true }),
       reveal: vi.fn().mockResolvedValue({ ok: true }),
@@ -268,6 +273,10 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       onOpenPanel: vi.fn(noopUnsub),
       onOpenDiff: vi.fn(noopUnsub),
       onOpenTerminal: vi.fn(noopUnsub),
+      onAgentOffer: vi.fn(noopUnsub),
+      onAgentOfferWithdrawn: vi.fn(noopUnsub),
+      answerAgentOffer: vi.fn(),
+      onFocusPane: vi.fn(noopUnsub),
     },
     assist: {
       availability: vi.fn().mockResolvedValue({}),
