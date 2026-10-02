@@ -100,7 +100,7 @@ class PortsExtension {
       await this.ext.setSidebarItem({ workspaceId: entry.workspaceId, key: entry.key, text: '' })
     }
     for (const [slot, entry] of next) {
-      if (this.shown.has(slot) && isEqual(this.shown.get(slot), entry)) continue
+      if (isEqual(this.shown.get(slot), entry)) continue
       await this.ext.setSidebarItem(entry)
     }
     this.shown = next
@@ -113,7 +113,7 @@ class PortsExtension {
       await this.ext.clearPaneChip(chip.paneId, chip.id)
     }
     for (const [slot, chip] of next) {
-      if (this.chips.has(slot) && isEqual(this.chips.get(slot), chip)) continue
+      if (isEqual(this.chips.get(slot), chip)) continue
       await this.ext.setPaneChip(chip)
     }
     this.chips = next
@@ -127,7 +127,7 @@ class PortsExtension {
     }
     const accepted = new Map<string, WorkspaceChipValue>()
     for (const [slot, chip] of next) {
-      if (this.workspaceChips.has(slot) && isEqual(this.workspaceChips.get(slot), chip)) {
+      if (isEqual(this.workspaceChips.get(slot), chip)) {
         accepted.set(slot, chip)
         continue
       }
