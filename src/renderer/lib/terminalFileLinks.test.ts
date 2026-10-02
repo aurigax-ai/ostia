@@ -93,4 +93,55 @@ describe('createFileLinkProvider', () => {
     )
     expect(links).toBeUndefined()
   })
+
+  it('evicts old entries when cache exceeds max size', async () => {
+    const stat = vi.fn(async (): Promise<'file' | 'dir' | null> => 'file')
+    const open = vi.fn()
+
+    const rows: { text: string }[] = [{ text: 'file0.ts' }]
+    for (let i = 1; i <= 550; i++) {
+      rows.push({ text: `file${i}.ts` })
+    }
+
+    const provider = createFileLinkProvider(fakeTerminal(rows), {
+      cwd: () => '/home/u/proj',
+      remote: () => false,
+      stat,
+      open,
+      modifierHeld: () => false,
+    })
+
+    await new Promise<void>((resolve) =>
+      provider.provideLinks(1, () => {
+        resolve()
+      }),
+    )
+    const firstCallCount = stat.mock.calls.length
+    expect(firstCallCount).toBeGreaterThan(0)
+
+    await new Promise<void>((resolve) =>
+      provider.provideLinks(1, () => {
+        resolve()
+      }),
+    )
+    const secondCallCount = stat.mock.calls.length
+    expect(secondCallCount).toBe(firstCallCount)
+
+    for (let i = 2; i <= 551; i++) {
+      stat.mockClear()
+      await new Promise<void>((resolve) =>
+        provider.provideLinks(i, () => {
+          resolve()
+        }),
+      )
+    }
+
+    stat.mockClear()
+    await new Promise<void>((resolve) =>
+      provider.provideLinks(1, () => {
+        resolve()
+      }),
+    )
+    expect(stat).toHaveBeenCalled()
+  })
 })
