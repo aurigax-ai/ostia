@@ -193,6 +193,7 @@ describe('a real language server process', () => {
       '$start',
       'initialize',
       'initialized',
+      'workspace/didChangeConfiguration',
       'shutdown',
       'exit',
     ])

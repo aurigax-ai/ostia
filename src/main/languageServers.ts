@@ -597,11 +597,14 @@ export class LanguageServers {
     const settings = baseSettings(source, session.root)
     if (JSON.stringify(settings) === JSON.stringify(session.settings)) return
     session.settings = settings
-    if (!session.initialized) return
+    if (session.initialized) this.sendSettings(session)
+  }
+
+  private sendSettings(session: Session): void {
     this.write(session, {
       jsonrpc: '2.0',
       method: 'workspace/didChangeConfiguration',
-      params: { settings },
+      params: { settings: session.settings },
     })
   }
 
@@ -950,6 +953,9 @@ export class LanguageServers {
         if (session.requests.size < MAX_TRACKED_REQUESTS) session.requests.set(id, method)
       } else if (method === 'initialized') {
         session.initialized = true
+        this.write(session, message)
+        if (Object.keys(session.settings).length > 0) this.sendSettings(session)
+        return
       }
     }
     this.write(session, message)

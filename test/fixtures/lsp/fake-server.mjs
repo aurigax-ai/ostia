@@ -1,5 +1,6 @@
-import { appendFileSync, readFileSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
+import { appendFileSync, readFileSync, readdirSync } from 'node:fs'
+import { join } from 'node:path'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import rpc from 'vscode-jsonrpc/node'
 
 const { StreamMessageReader, StreamMessageWriter, createMessageConnection } = rpc
@@ -374,7 +375,15 @@ connection.onRequest('workspace/symbol', (params) => {
   seen('workspace/symbol', params)
   const query = String(params.query ?? '').toLowerCase()
   const symbols = []
-  for (const [uri, text] of documents) {
+  const texts = new Map(documents)
+  for (const name of readdirSync(process.cwd())) {
+    const uri = pathToFileURL(join(process.cwd(), name)).href
+    if (!name.endsWith('.txt') || texts.has(uri)) continue
+    try {
+      texts.set(uri, readFileSync(join(process.cwd(), name), 'utf8'))
+    } catch {}
+  }
+  for (const [uri, text] of texts) {
     for (const symbol of symbolLines(text)) {
       if (!symbol.name.toLowerCase().includes(query)) continue
       symbols.push({

@@ -1,0 +1,28 @@
+{
+  "id": "fake-more",
+  "name": "Fake features",
+  "version": "1.0.0",
+  "api": "1.6",
+  "description": "Test fixture: a fake language server that folds, shows code lens, answers diagnostic pulls, finds workspace symbols and registers most of it after it started",
+  "category": "languages",
+  "capabilities": ["language-server"],
+  "contributes": {
+    "languageServers": [
+      {
+        "id": "fake",
+        "name": "Fake features server",
+        "languages": ["plaintext"],
+        "run": {
+          "node": "server/fake-server.cjs",
+          "args": [
+            "--record={root}/.fake-lsp-record.jsonl",
+            "--name=fake-features",
+            "--caps=symbols,executeCommand",
+            "--late-caps=hover,folding,codeLens,workspaceSymbols,pullDiagnostics",
+            "--watch=**/*.cfg"
+          ]
+        }
+      }
+    ]
+  }
+}
