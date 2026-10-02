@@ -1,6 +1,14 @@
 import { createHash } from 'node:crypto'
-import { type FSWatcher, existsSync, readFileSync, watch } from 'node:fs'
-import { basename, dirname } from 'node:path'
+import {
+  type Dirent,
+  type FSWatcher,
+  existsSync,
+  lstatSync,
+  readFileSync,
+  readdirSync,
+  watch,
+} from 'node:fs'
+import { basename, dirname, join } from 'node:path'
 
 export interface FileChange {
   path: string
@@ -119,5 +127,162 @@ export class FileWatches {
         this.deps.onChange({ path, exists: seen !== null, owners: [...current] })
       }, this.deps.debounceMs),
     )
+  }
+}
+
+export const TREE_WATCH_MAX_DIRS = 2000
+export const TREE_WATCH_SKIPPED_DIRS: readonly string[] = ['.git', '.hg', '.svn', 'node_modules']
+
+export type TreeChangeKind = 'created' | 'changed' | 'deleted'
+
+export interface TreeChange {
+  path: string
+  kind: TreeChangeKind
+}
+
+export interface TreeWatchesDeps {
+  confine: (dir: string) => string | null
+  debounceMs: number
+  maxDirs?: number
+}
+
+type TreeListener = (changes: TreeChange[]) => void
+
+interface TreeWatch {
+  dirs: Map<string, { watcher: FSWatcher; files: Set<string> }>
+  listeners: Set<TreeListener>
+  pending: Set<string>
+  timer: ReturnType<typeof setTimeout> | null
+}
+
+function entriesOf(dir: string): Dirent[] {
+  try {
+    return readdirSync(dir, { withFileTypes: true })
+  } catch {
+    return []
+  }
+}
+
+export class TreeWatches {
+  private readonly trees = new Map<string, TreeWatch>()
+
+  constructor(private readonly deps: TreeWatchesDeps) {}
+
+  watch(root: string, listener: TreeListener): (() => void) | null {
+    const safe = this.deps.confine(root)
+    if (safe === null) return null
+    let tree = this.trees.get(safe)
+    if (!tree) {
+      try {
+        if (!lstatSync(safe).isDirectory()) return null
+      } catch {
+        return null
+      }
+      tree = { dirs: new Map(), listeners: new Set(), pending: new Set(), timer: null }
+      this.trees.set(safe, tree)
+      this.scan(tree, safe, null)
+    }
+    const watched = tree
+    watched.listeners.add(listener)
+    return () => {
+      watched.listeners.delete(listener)
+      if (watched.listeners.size === 0 && this.trees.get(safe) === watched) this.close(safe)
+    }
+  }
+
+  watchedDirs(root: string): string[] {
+    return [...(this.trees.get(root)?.dirs.keys() ?? [])].sort()
+  }
+
+  closeAll(): void {
+    for (const root of [...this.trees.keys()]) this.close(root)
+  }
+
+  private close(root: string): void {
+    const tree = this.trees.get(root)
+    if (!tree) return
+    this.trees.delete(root)
+    if (tree.timer) clearTimeout(tree.timer)
+    for (const { watcher } of tree.dirs.values()) watcher.close()
+    tree.dirs.clear()
+    tree.listeners.clear()
+  }
+
+  private scan(tree: TreeWatch, start: string, created: TreeChange[] | null): void {
+    const queue = [start]
+    for (let dir = queue.shift(); dir !== undefined; dir = queue.shift()) {
+      if (tree.dirs.has(dir) || tree.dirs.size >= (this.deps.maxDirs ?? TREE_WATCH_MAX_DIRS)) {
+        continue
+      }
+      const watched = dir
+      let watcher: FSWatcher
+      try {
+        watcher = watch(watched, (_event, name) => {
+          if (name) this.touched(tree, join(watched, String(name)))
+        })
+      } catch {
+        continue
+      }
+      watcher.on('error', () => this.dropDir(tree, watched))
+      const files = new Set<string>()
+      tree.dirs.set(watched, { watcher, files })
+      for (const entry of entriesOf(watched)) {
+        if (entry.isDirectory()) {
+          if (!TREE_WATCH_SKIPPED_DIRS.includes(entry.name)) queue.push(join(watched, entry.name))
+          continue
+        }
+        files.add(entry.name)
+        created?.push({ path: join(watched, entry.name), kind: 'created' })
+      }
+    }
+  }
+
+  private dropDir(tree: TreeWatch, dir: string): TreeChange[] {
+    const deleted: TreeChange[] = []
+    const prefix = `${dir}/`
+    for (const [path, entry] of [...tree.dirs]) {
+      if (path !== dir && !path.startsWith(prefix)) continue
+      entry.watcher.close()
+      tree.dirs.delete(path)
+      for (const name of entry.files) deleted.push({ path: join(path, name), kind: 'deleted' })
+    }
+    return deleted
+  }
+
+  private touched(tree: TreeWatch, path: string): void {
+    tree.pending.add(path)
+    if (tree.timer) return
+    tree.timer = setTimeout(() => {
+      tree.timer = null
+      this.flush(tree)
+    }, this.deps.debounceMs)
+  }
+
+  private flush(tree: TreeWatch): void {
+    const changes: TreeChange[] = []
+    for (const path of tree.pending) {
+      const parent = tree.dirs.get(dirname(path))
+      if (!parent) continue
+      const name = basename(path)
+      let directory = false
+      let exists = true
+      try {
+        directory = lstatSync(path).isDirectory()
+      } catch {
+        exists = false
+      }
+      if (!exists) {
+        if (parent.files.delete(name)) changes.push({ path, kind: 'deleted' })
+        changes.push(...this.dropDir(tree, path))
+      } else if (directory) {
+        if (!TREE_WATCH_SKIPPED_DIRS.includes(name)) this.scan(tree, path, changes)
+      } else {
+        changes.push({ path, kind: parent.files.has(name) ? 'changed' : 'created' })
+        parent.files.add(name)
+      }
+    }
+    tree.pending.clear()
+    if (changes.length === 0) return
+    for (const listener of [...tree.listeners]) listener(changes)
   }
 }

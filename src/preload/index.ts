@@ -42,7 +42,12 @@ import type {
 } from '../shared/extensions'
 import type { LoadedIconTheme } from '../shared/iconTheme'
 import type { LanguagePack } from '../shared/languagePack'
-import type { LanguageServerInfo, LspLog, LspSessionInfo } from '../shared/languageServers'
+import type {
+  LanguageServerInfo,
+  LanguageServerOverrideResult,
+  LspLog,
+  LspSessionInfo,
+} from '../shared/languageServers'
 import type { MarketplaceResult, MarketplaceState } from '../shared/marketplace'
 import type { OpenFileVerdict } from '../shared/openFiles'
 import type { PickOutcome, PickSendResult, PickState } from '../shared/pick'
@@ -241,6 +246,12 @@ const bridge: PineBridge = {
     fetch: (serverKey) => ipcRenderer.invoke('lsp:fetch', serverKey) as Promise<void>,
     removeDownload: (serverKey) =>
       ipcRenderer.invoke('lsp:remove-download', serverKey) as Promise<void>,
+    setOverride: (serverKey, override) =>
+      ipcRenderer.invoke(
+        'extensions:set-language-server-program',
+        serverKey,
+        override,
+      ) as Promise<LanguageServerOverrideResult>,
   },
   settings: {
     path: () => ipcRenderer.invoke('settings:path') as Promise<string>,

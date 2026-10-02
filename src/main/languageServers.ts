@@ -11,6 +11,8 @@ import {
   type LanguageServerContribution,
   type LanguageServerFetchFailure,
   type LanguageServerInfo,
+  type LanguageServerOverride,
+  type LanguageServerOverrideProblem,
   type LanguageServerRun,
   type LanguageServerSandboxProblem,
   type LanguageServerStatus,
@@ -36,7 +38,15 @@ import {
 } from '../shared/languageServers'
 import { quoteArgv } from '../shared/shellQuote'
 import { type LogFields, redactSecrets } from './appLog'
+import type { TreeChange } from './fileWatch'
+import { overrideFileProblem } from './serverOverrides'
 import type { Requirement } from './systemRequirements'
+import {
+  type FileWatcher,
+  WATCHED_FILES_METHOD,
+  parseFileWatchers,
+  watchedFileEvents,
+} from './watchedFiles'
 
 export const LSP_IDLE_STOP_MS = 60_000
 export const LSP_MAX_RESTARTS = 5
@@ -44,6 +54,7 @@ export const LSP_RESTART_DELAY_MS = 500
 export const LSP_STABLE_RUN_MS = 60_000
 export const LSP_STOP_GRACE_MS = 2_000
 const HOST_SCOPE = 'host'
+const SESSION_ID_PATTERN = /^lsp-\d{1,12}$/
 const MAX_TRACKED_REQUESTS = 2_000
 const PROGRAM_PLATFORMS: NodeJS.Platform[] = ['linux', 'darwin', 'win32']
 const GO_PROGRAM = 'go'
@@ -57,6 +68,7 @@ export interface LanguageServerSource {
   state: 'on' | 'off' | 'pending'
   server: LanguageServerContribution
   settingValues: ExtensionSettingValues
+  override?: LanguageServerOverride
 }
 
 export interface LanguageServerPane {
@@ -104,6 +116,9 @@ export interface LanguageServersDeps {
   languageOf?: (path: string) => string
   managed: ManagedServerFiles
   registerRequirements: (feature: string, requirements: Requirement[], label?: string) => void
+  overrideProblem?: (path: string) => LanguageServerOverrideProblem | null
+  realPath?: (path: string) => string
+  watchTree?: (root: string, onChange: (changes: TreeChange[]) => void) => (() => void) | null
   post: (windowId: string, channel: string, ...args: unknown[]) => void
   changed: (list: LanguageServerInfo[]) => void
   log?: (event: string, fields: LogFields) => void
@@ -132,6 +147,8 @@ interface Session {
   stopping: LspStopReason | null
   settings: JsonObject
   shutdownId: string | null
+  fileWatchers: Map<string, FileWatcher[]>
+  unwatch: (() => void) | null
   exited: Promise<void>
   resolveExited: () => void
 }
@@ -154,6 +171,7 @@ interface ServerRecord {
 interface Binary {
   path: string
   managedFolder: string | null
+  override?: true
 }
 
 function failureOf(err: unknown): { reason: LanguageServerFetchFailure; detail: string } {
@@ -216,7 +234,20 @@ export function confinedScript(extensionDir: string, script: string): string | n
 }
 
 function sourceSignature(source: LanguageServerSource): string {
-  return JSON.stringify([source.dir, source.server.run, source.server.initializationOptions ?? {}])
+  return JSON.stringify([
+    source.dir,
+    source.server.run,
+    source.server.initializationOptions ?? {},
+    source.override ?? null,
+  ])
+}
+
+function realPathOf(path: string): string {
+  try {
+    return realpathSync(path)
+  } catch {
+    return path
+  }
 }
 
 function baseSettings(source: LanguageServerSource, root: string): JsonObject {
@@ -295,8 +326,18 @@ export class LanguageServers {
     return this.deps.managed.canFetch(run)
   }
 
+  private overrideProblem(source: LanguageServerSource): LanguageServerOverrideProblem | null {
+    if (!source.override) return null
+    return (this.deps.overrideProblem ?? overrideFileProblem)(source.override.path)
+  }
+
   private located(source: LanguageServerSource): Binary | null {
     const { run } = source.server
+    if (source.override) {
+      return this.overrideProblem(source) === null
+        ? { path: source.override.path, managedFolder: null, override: true }
+        : null
+    }
     const program = pathProgram(run)
     if (program === null) return null
     const onPath = this.deps.findProgram(program)
@@ -315,7 +356,8 @@ export class LanguageServers {
     if (source.state === 'off') return 'off'
     const { run } = source.server
     const record = this.record(key)
-    if (!isNodeRun(run) && this.located(source) === null) {
+    if (this.overrideProblem(source) !== null) return 'override-invalid'
+    if (!source.override && !isNodeRun(run) && this.located(source) === null) {
       if (record.fetching) return isGoInstallRun(run) ? 'installing' : 'downloading'
       if (record.fetchFailure) return isGoInstallRun(run) ? 'install-failed' : 'download-failed'
       if (!this.fetchable(source)) {
@@ -341,6 +383,7 @@ export class LanguageServers {
       const program = pathProgram(run)
       const version = pinnedVersion(run)
       const binary = source.state === 'on' ? this.located(source) : null
+      const overrideProblem = this.overrideProblem(source)
       const needsInstall = status === 'program-missing' || status === 'toolchain-missing'
       const failed = status === 'download-failed' || status === 'install-failed'
       return {
@@ -360,13 +403,24 @@ export class LanguageServers {
         ...(version !== null ? { version } : {}),
         ...(binary
           ? {
-              binary: binary.managedFolder
-                ? { source: 'managed' as const, ...(version !== null ? { version } : {}) }
-                : { source: 'path' as const },
+              binary: binary.override
+                ? { source: 'override' as const }
+                : binary.managedFolder
+                  ? { source: 'managed' as const, ...(version !== null ? { version } : {}) }
+                  : { source: 'path' as const },
+            }
+          : {}),
+        ...(source.override
+          ? {
+              override: {
+                path: source.override.path,
+                args: [...source.override.args],
+                ...(overrideProblem !== null ? { problem: overrideProblem } : {}),
+              },
             }
           : {}),
         ...(this.managedCopy(source) !== null ? { managedCopy: true } : {}),
-        ...(source.state === 'on' && !isNodeRun(run) && this.fetchable(source)
+        ...(source.state === 'on' && !source.override && !isNodeRun(run) && this.fetchable(source)
           ? { fetchable: true }
           : {}),
         ...(record.fetchHeld ? { fetchHeld: true } : {}),
@@ -403,7 +457,7 @@ export class LanguageServers {
       const { run } = source.server
       const version = pinnedVersion(run)
       if (version !== null) pinned.set(key, version)
-      const needed = this.requiredProgram(run)
+      const needed = source.override ? null : this.requiredProgram(run)
       if (needed === null) continue
       const feature = languageServerFeature(key)
       programs.add(feature)
@@ -493,6 +547,7 @@ export class LanguageServers {
     const found = this.located(source)
     if (found !== null) return found
     const record = this.record(key)
+    if (source.override) return null
     if (record.fetchFailure || record.fetchHeld || !this.fetchable(source)) return null
     await this.fetchNow(key, source)
     return this.located(source)
@@ -507,6 +562,7 @@ export class LanguageServers {
   async fetch(key: unknown): Promise<void> {
     const source = this.enabledSource(key)
     if (!source || typeof key !== 'string' || isNodeRun(source.server.run)) return
+    if (source.override) return
     this.record(key).fetchFailure = null
     this.record(key).fetchHeld = false
     if (this.located(source) !== null || !this.fetchable(source)) {
@@ -542,11 +598,14 @@ export class LanguageServers {
     const settings = baseSettings(source, session.root)
     if (JSON.stringify(settings) === JSON.stringify(session.settings)) return
     session.settings = settings
-    if (!session.initialized) return
+    if (session.initialized) this.sendSettings(session)
+  }
+
+  private sendSettings(session: Session): void {
     this.write(session, {
       jsonrpc: '2.0',
       method: 'workspace/didChangeConfiguration',
-      params: { settings },
+      params: { settings: session.settings },
     })
   }
 
@@ -648,7 +707,8 @@ export class LanguageServers {
     let command: string
     let managedFolder: string | null = null
     const args: string[] = []
-    if (!isNodeRun(run)) {
+    const { override } = source
+    if (override || !isNodeRun(run)) {
       const binary = await this.binaryFor(key, source)
       if (binary === null || this.stopped || !this.enabledSource(key)) return null
       command = binary.path
@@ -664,6 +724,7 @@ export class LanguageServers {
       env.ELECTRON_RUN_AS_NODE = '1'
     }
     args.push(...run.args.map((arg) => substitutePlaceholders(arg, source.dir, root)))
+    if (override) args.push(...override.args)
     const record = this.record(key)
     let spawnCommand = command
     let spawnArgs = args
@@ -679,12 +740,10 @@ export class LanguageServers {
         this.changed()
         return null
       }
-      if (
-        !isNodeRun(run) &&
-        managedFolder === null &&
-        !sandbox.readable(pane.workspaceId, command)
-      ) {
-        return refuse('program-unreadable', dirname(command))
+      if ((override || !isNodeRun(run)) && managedFolder === null) {
+        const real = override ? (this.deps.realPath ?? realPathOf)(command) : command
+        const hidden = [command, real].find((path) => !sandbox.readable(pane.workspaceId, path))
+        if (hidden !== undefined) return refuse('program-unreadable', dirname(hidden))
       }
       if (!sandbox.readable(pane.workspaceId, root)) return refuse('folder-unreadable', root)
       try {
@@ -693,7 +752,7 @@ export class LanguageServers {
           quoteArgv([command, ...args]),
           managedFolder !== null
             ? [managedFolder]
-            : isNodeRun(run) && !source.builtin
+            : !override && isNodeRun(run) && !source.builtin
               ? [source.dir]
               : [],
         )
@@ -747,6 +806,8 @@ export class LanguageServers {
       stopping: null,
       settings: baseSettings(source, root),
       shutdownId: null,
+      fileWatchers: new Map(),
+      unwatch: null,
       exited,
       resolveExited,
     }
@@ -804,6 +865,8 @@ export class LanguageServers {
         this.write(session, { jsonrpc: '2.0', id, result })
         return
       }
+      if (method === 'client/registerCapability') this.watchFiles(session, message.params)
+      if (method === 'client/unregisterCapability') this.unwatchFiles(session, message.params)
     } else if (hasId) {
       if (id === session.shutdownId) {
         this.finishShutdown(session)
@@ -823,6 +886,53 @@ export class LanguageServers {
     this.deps.post(session.windowId, `lsp:msg:${session.id}`, message)
   }
 
+  private watchFiles(session: Session, params: unknown): void {
+    const registrations =
+      isRecord(params) && Array.isArray(params.registrations) ? params.registrations : []
+    for (const registration of registrations) {
+      if (!isRecord(registration) || registration.method !== WATCHED_FILES_METHOD) continue
+      if (typeof registration.id !== 'string') continue
+      const watchers = parseFileWatchers(registration.registerOptions, session.root)
+      if (watchers.length > 0) session.fileWatchers.set(registration.id, watchers)
+    }
+    if (session.fileWatchers.size === 0 || session.unwatch || session.stopping !== null) return
+    session.unwatch =
+      this.deps.watchTree?.(session.root, (changes) => this.onTreeChange(session, changes)) ?? null
+  }
+
+  private unwatchFiles(session: Session, params: unknown): void {
+    const record = isRecord(params) ? params : {}
+    const list = Array.isArray(record.unregisterations)
+      ? record.unregisterations
+      : Array.isArray(record.unregistrations)
+        ? record.unregistrations
+        : []
+    for (const item of list) {
+      if (isRecord(item) && typeof item.id === 'string') session.fileWatchers.delete(item.id)
+    }
+    if (session.fileWatchers.size === 0) this.stopWatching(session)
+  }
+
+  private stopWatching(session: Session): void {
+    session.unwatch?.()
+    session.unwatch = null
+  }
+
+  private onTreeChange(session: Session, changes: TreeChange[]): void {
+    if (!session.initialized || session.stopping !== null) return
+    const events = watchedFileEvents(
+      [...session.fileWatchers.values()].flat(),
+      changes,
+      session.root,
+    )
+    if (events.length === 0) return
+    this.write(session, {
+      jsonrpc: '2.0',
+      method: WATCHED_FILES_METHOD,
+      params: { changes: events },
+    })
+  }
+
   private noteInitialized(session: Session, result: unknown): void {
     const info = isRecord(result) && isRecord(result.serverInfo) ? result.serverInfo : {}
     const text = (value: unknown): string => (typeof value === 'string' ? value.slice(0, 80) : '')
@@ -836,7 +946,13 @@ export class LanguageServers {
 
   send(windowId: string, sessionId: unknown, message: unknown): void {
     const session = typeof sessionId === 'string' ? this.sessions.get(sessionId) : undefined
-    if (!session || session.windowId !== windowId || session.stopping !== null) return
+    if (!session) {
+      if (typeof sessionId === 'string' && SESSION_ID_PATTERN.test(sessionId)) {
+        this.deps.post(windowId, `lsp:exit:${sessionId}`)
+      }
+      return
+    }
+    if (session.windowId !== windowId || session.stopping !== null) return
     if (!isRecord(message)) return
     const { id, method } = message
     if (typeof method === 'string') {
@@ -844,6 +960,9 @@ export class LanguageServers {
         if (session.requests.size < MAX_TRACKED_REQUESTS) session.requests.set(id, method)
       } else if (method === 'initialized') {
         session.initialized = true
+        this.write(session, message)
+        if (Object.keys(session.settings).length > 0) this.sendSettings(session)
+        return
       }
     }
     this.write(session, message)
@@ -887,6 +1006,7 @@ export class LanguageServers {
   stopAll(): void {
     this.stopped = true
     for (const session of [...this.sessions.values()]) {
+      this.stopWatching(session)
       if (session.stopping === null) {
         session.stopping = 'quit'
         if (session.initialized) {
@@ -913,6 +1033,7 @@ export class LanguageServers {
     session.stopping = reason
     if (session.idleTimer) clearTimeout(session.idleTimer)
     session.idleTimer = null
+    this.stopWatching(session)
     this.note(session.key, { at: this.now(), kind: 'stop', reason })
     const grace = this.deps.stopGraceMs ?? LSP_STOP_GRACE_MS
     if (!session.initialized) {
@@ -943,6 +1064,7 @@ export class LanguageServers {
 
   private onExit(session: Session, code: number | null, signal: NodeJS.Signals | null): void {
     if (!this.sessions.delete(session.id)) return
+    this.stopWatching(session)
     if (session.idleTimer) clearTimeout(session.idleTimer)
     if (session.killTimer) clearTimeout(session.killTimer)
     session.idleTimer = null

@@ -22,6 +22,7 @@ import { wakePane } from '../lib/hibernationScheduler'
 import { mergeRefusalText } from '../lib/mergeRefusalText'
 import { startNewWorkspace, startScratchWorkspace } from '../lib/newWorkspace'
 import { openRequestedFiles } from '../lib/openFile'
+import { GO_TO_WORKSPACE_SYMBOL_COMMAND, SYMBOLS_PREFIX } from '../lib/paletteModes'
 import { isStaleAgentReport } from '../lib/paneAgent'
 import { openWorkflowPicker } from '../lib/workflows'
 import {
@@ -605,6 +606,13 @@ export function registerBuiltinCommands(): void {
     category: 'view',
     target: 'none',
     run: () => useUIStore.getState().togglePalette(),
+  })
+
+  registerCore({
+    id: GO_TO_WORKSPACE_SYMBOL_COMMAND,
+    category: 'view',
+    target: 'none',
+    run: () => useUIStore.getState().openPalette('search', SYMBOLS_PREFIX),
   })
 
   registerCore({

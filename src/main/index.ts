@@ -22,6 +22,7 @@ import { parseChatToolSettings } from '../shared/chatTools'
 import { languageForPath } from '../shared/editorLanguages'
 import { EXTENSION_SUGGESTIONS } from '../shared/extensionSuggestions'
 import type { ExtensionPanelContext, ExtensionResult, WorkspaceChip } from '../shared/extensions'
+import { languageServerKey } from '../shared/languageServers'
 import { MANAGER_FEATURE, managerAgents, parseManagerSettings } from '../shared/managerSettings'
 import { OPEN_FILES_MAX } from '../shared/openFiles'
 import { OFFICIAL_MARKETPLACE, PRODUCT_NAME } from '../shared/product'
@@ -86,7 +87,7 @@ import { type SecretStoreDeps, createSecretStore } from './extensionSecrets'
 import { ExtensionStore } from './extensionStore'
 import { DismissedSuggestions, suggestionFor } from './extensionSuggestions'
 import { openInExternalEditor } from './externalEditor'
-import { FileWatches } from './fileWatch'
+import { FileWatches, TreeWatches } from './fileWatch'
 import { readBinaryConfined } from './fsBinary'
 import { registerGatewayIpc, registerGatewayMethods } from './gateway'
 import { configureGatewayControl, stopGateway } from './gateway/server'
@@ -181,6 +182,7 @@ import { prepareSecrets } from './secrets/secretInjection'
 import { SecretService } from './secrets/secretService'
 import { WorkspaceAgents } from './secrets/workspaceAgents'
 import { registerSelectionIpc } from './selectionReport'
+import { ServerOverrides } from './serverOverrides'
 import { type SettingsSyncHandle, startSettingsSync } from './settingsSyncIpc'
 import { ExecutableIndex, commandNames, readShellState } from './shellCommands'
 import { closesPaneOnExit } from './shellExit'
@@ -560,9 +562,24 @@ function sandboxCanRead(workspaceId: string, path: string): boolean {
   }
 }
 
+const LANGUAGE_SERVER_WATCH_DEBOUNCE_MS = 300
+const languageServerWatches = new TreeWatches({
+  confine: (dir) => resolveSafe(dir, fileRoots()),
+  debounceMs: LANGUAGE_SERVER_WATCH_DEBOUNCE_MS,
+})
+
+const serverOverrides = new ServerOverrides(
+  join(app.getPath('userData'), 'language-server-programs.json'),
+)
+
 function createLanguageServers(): LanguageServers {
   return new LanguageServers({
-    sources: () => extensionHost?.languageServers() ?? [],
+    watchTree: (root, onChange) => languageServerWatches.watch(root, onChange),
+    sources: () =>
+      (extensionHost?.languageServers() ?? []).map((source) => {
+        const override = serverOverrides.get(languageServerKey(source.extId, source.server.id))
+        return override ? { ...source, override } : source
+      }),
     nodePath: process.execPath,
     env: () => process.env,
     pane: (paneId) => getByPaneId(paneId),
@@ -2452,6 +2469,7 @@ app.whenReady().then(() => {
     servers: languageServers,
     setEnabled: (extId, serverId, enabled) =>
       extensionHost?.setLanguageServerEnabled(extId, serverId, enabled),
+    setOverride: (key, override) => serverOverrides.choose(key, override),
   })
   registerMarketplaceIpc(
     new Marketplace({
@@ -2465,6 +2483,7 @@ app.whenReady().then(() => {
           .map((ext) => ext.id) ?? [],
       forget: (extId) => {
         managedServers.forgetExtension(extId)
+        serverOverrides.forgetExtension(extId)
         extensionStore.delete(extId)
         for (const secrets of [extensionSecretStore(), assistKeyStore()]) {
           for (const key of secrets.keys(extId)) secrets.set(extId, key, null)
@@ -2685,6 +2704,7 @@ app.on('before-quit', (event) => {
   }
   ptys.clear()
   languageServers?.stopAll()
+  languageServerWatches.closeAll()
   workspaceSandboxes.stopAll()
   workspaceAgents.stopAll()
   for (const workspaceId of scratchFolders.workspaceIds()) workspaceSandboxes.forget(workspaceId)
