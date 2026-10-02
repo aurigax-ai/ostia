@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -166,5 +166,49 @@ describe('loadAgentSkill', () => {
     expect(agentSkillProblems(ext, res.manifest)).toEqual([
       "agent skill 'review': SKILL.md: name must be 'review'",
     ])
+  })
+})
+
+describe('the trellis extension', () => {
+  const dir = join(__dirname, '..', 'extensions', 'trellis')
+  const parsed = parseManifest(JSON.parse(readFileSync(join(dir, 'pine.json'), 'utf8')), dir)
+  if (!parsed.ok) throw new Error(parsed.error)
+  const manifest = parsed.manifest
+
+  it('declares its card skill and a SessionStart hook under the agent-plugin capability', () => {
+    expect(manifest.capabilities).toContain('agent-plugin')
+    expect(manifest.contributes.agentSkills).toEqual([
+      { name: 'card', path: 'skills/card', files: [] },
+    ])
+    expect(manifest.contributes.agentHooks).toEqual([
+      { event: 'SessionStart', command: 'session-context' },
+    ])
+    expect(agentSkillProblems(dir, manifest)).toEqual([])
+  })
+
+  it('ships a skill folder that loads as trellis-card and teaches the card commands', () => {
+    const [skill] = manifest.contributes.agentSkills ?? []
+    if (!skill) throw new Error('no skill')
+    const res = loadAgentSkill(dir, manifest.id, skill)
+    if (!res.ok) throw new Error(res.error)
+    expect(res.skill.id).toBe('trellis-card')
+    expect(res.skill.files.map((f) => f.name)).toEqual(['SKILL.md'])
+    const text = res.skill.files[0]?.data.toString() ?? ''
+    expect(text.split('\n')[1]).toBe('name: trellis-card')
+    for (const taught of [
+      'trellis card show <ref>',
+      'trellis card claim <ref>',
+      'trellis card comment <ref> --body',
+      'trellis card renew <ref>',
+      'trellis card move <ref> <column>',
+      'TRELLIS_AGENT',
+      'stderr',
+      '--body @notes.md',
+      'trellis vault new',
+      'trellis vault edit',
+    ]) {
+      expect(text, taught).toContain(taught)
+    }
+    expect(text).not.toMatch(/pine/i)
   })
 })

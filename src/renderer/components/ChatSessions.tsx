@@ -7,6 +7,7 @@ import {
   TrashIcon,
 } from '@phosphor-icons/react'
 import type { ChatSessionSummary } from '@shared/chatSessions'
+import { type RelativeStep, formatRelative } from '@shared/relativeTime'
 import { useEffect, useMemo, useState } from 'react'
 import { fmt, useDict } from '../i18n/useDict'
 import {
@@ -32,18 +33,17 @@ import { Input } from './ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover'
 import { Switch } from './ui/switch'
 
+const RELATIVE_STEPS: RelativeStep[] = [
+  ['day', 86_400],
+  ['hour', 3_600],
+  ['minute', 60],
+]
+
 export function relativeTime(at: number, now: number, locale: string): string {
   const seconds = Math.round((at - now) / 1000)
-  const units: [Intl.RelativeTimeFormatUnit, number][] = [
-    ['day', 86_400],
-    ['hour', 3_600],
-    ['minute', 60],
-  ]
+  const beyondMinute = Math.abs(seconds) >= 60 ? seconds : 0
   const format = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' })
-  for (const [unit, size] of units) {
-    if (Math.abs(seconds) >= size) return format.format(Math.round(seconds / size), unit)
-  }
-  return format.format(0, 'minute')
+  return formatRelative(beyondMinute, RELATIVE_STEPS, format)
 }
 
 export function filterSessions(

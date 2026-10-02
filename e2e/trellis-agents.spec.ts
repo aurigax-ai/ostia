@@ -28,13 +28,21 @@ function installApproved(dataHome: string, configHome: string, id: string): void
   )
 }
 
-function fakeClaude(dataHome: string, promptFile: string): string {
+function fakeClaude(dataHome: string, promptFile: string, skillFile: string): string {
   const bin = join(dataHome, 'bin')
   mkdirSync(bin, { recursive: true })
   const claude = join(bin, 'claude')
   writeFileSync(
     claude,
-    `#!/bin/sh\nfor arg; do last=$arg; done\nprintf '%s' "$last" > '${promptFile}'\necho fake-agent-ready\nexec cat\n`,
+    [
+      '#!/bin/sh',
+      'for arg; do [ "$prev" = --plugin-dir ] && plugin=$arg; prev=$arg; last=$arg; done',
+      `head -n 2 "$plugin/skills/trellis-card/SKILL.md" > '${skillFile}'`,
+      `printf '%s' "$last" > '${promptFile}'`,
+      'echo fake-agent-ready',
+      'exec cat',
+      '',
+    ].join('\n'),
   )
   chmodSync(claude, 0o755)
   return bin
@@ -86,7 +94,8 @@ test('a Trellis card goes to a new agent or to a running one, only on the humanâ
   )
   installApproved(dataHome, launch.env.XDG_CONFIG_HOME, 'trellis')
   const promptFile = join(dataHome, 'agent-prompt.txt')
-  const bin = fakeClaude(dataHome, promptFile)
+  const skillFile = join(dataHome, 'agent-skill.txt')
+  const bin = fakeClaude(dataHome, promptFile, skillFile)
   const app = await electron.launch({
     ...launch,
     env: {
@@ -133,6 +142,8 @@ test('a Trellis card goes to a new agent or to a running one, only on the humanâ
     await expect.poll(() => existsSync(promptFile), { timeout: 15_000 }).toBe(true)
     const prompt = readFileSync(promptFile, 'utf8')
     expect(prompt.split('\n')[0]).toBe('Work on Trellis card DEMO-3: Write the rollback runbook')
+    expect(prompt).toContain('Follow the trellis-card skill')
+    expect(readFileSync(skillFile, 'utf8')).toBe('---\nname: trellis-card\n')
     expect(prompt).toContain('`trellis card show DEMO-3`')
     expect(prompt).toContain('`trellis card claim DEMO-3`')
     expect(prompt).toContain('`trellis card move DEMO-3 review`')
