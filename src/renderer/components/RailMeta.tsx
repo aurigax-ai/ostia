@@ -51,7 +51,7 @@ export function SidebarItem({
           className={`ext-item ext-item-link tone-${item.tone}`}
           onClick={(e) => {
             e.stopPropagation()
-            openSidebarUrl(workspaceId, url)
+            openSidebarUrl(workspaceId, url, 'human')
           }}
         >
           {body}

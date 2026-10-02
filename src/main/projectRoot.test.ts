@@ -26,6 +26,7 @@ describe('describeProject', () => {
       name: 'app',
       display: '~/p/app',
       dir: '/home/u/p/app',
+      repo: true,
     })
   })
 
@@ -34,11 +35,13 @@ describe('describeProject', () => {
       name: 'Downloads',
       display: '~/Downloads',
       dir: '/home/u/Downloads',
+      repo: false,
     })
     expect(describeProject('/home/u', '/home/u', null)).toEqual({
       name: 'home',
       display: '~',
       dir: '/home/u',
+      repo: false,
     })
   })
 })

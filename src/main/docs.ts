@@ -15,11 +15,26 @@ const CLI_HELP = `pine — control-socket CLI
                                   kind,title,cwd,running,blockCount,lastExitCode}
   pine workspace.list               every workspace — {workspaceId,name,kind,workDir,state,groupId}
   pine notify <title> [body]     desktop notification + marks this pane unread in Pine
+  pine ask "<question>" [--context <text|->] [--choice <label>]… [--multi] [--timeout <seconds>] [--json]
+                                 ask the human a question and wait for the answer. It shows on
+                                 Pine's dashboard with this workspace's name and folder, marks
+                                 this pane waiting and notifies the human when they are away.
+                                 No --choice: free text. With --choice (up to 12): pick one, or
+                                 several with --multi; the human can always add a reply.
+                                 --context recaps what the work is (- reads stdin).
+                                 Prints the chosen labels one per line, then the reply; --json
+                                 prints {answered,choices,text}. Exit 0 answered, 2 dismissed,
+                                 3 timed out, 4 pane closed. It waits as long as it runs: if the
+                                 command is stopped, the question is withdrawn. At most 3 open
+                                 questions per pane
   pine state <waiting|done|working|error|clear> [message] [--pane <externalId>]
                                  set this pane's attention state (message '-' reads stdin;
                                  a JSON object on stdin contributes its "message" field,
                                  or names its "tool_name" for a permission request);
                                  --pane targets another pane (needs all-workspaces)
+  pine workspace dir [path]      make this folder (default: your current one) the workspace's folder:
+                                 its name, where new tabs start, and what its vault and chat tools
+                                 are scoped to. Refused for a sandboxed or scratch workspace
   pine workspace describe <text|-> | --clear
                                  show a short summary (Markdown links allowed) under this
                                  pane's workspace in the sidebar, e.g. the PR you're on
@@ -47,6 +62,11 @@ const CLI_HELP = `pine — control-socket CLI
                                  you, where the human can watch and type; your shell line is
                                  pasted as written and run by the tab's own shell (zsh or bash).
                                  Prints {id,name,paneId}; your pane keeps the focus
+  pine agent run <agent> [--name X] [--cwd P] <prompt|->   start another agent (claude, codex or
+                                 one the human configured) in a new terminal tab with that prompt
+                                 as its one argument, quoted for you (- reads it from stdin).
+                                 Same result and rules as process run: follow it with pine process
+                                 logs, talk to it with pine pane send and pine pane read
   pine process ls                id, name, status, paneId, command of this workspace's
                                  processes: starting, running, exited(code), or closed (the
                                  human closed the tab)
@@ -114,6 +134,7 @@ const CLI_HELP = `pine — control-socket CLI
   pine browse set viewport <w> <h> [scale] | media [dark|light] [reduced-motion]
                   | offline [on|off] | headers <json> | geo <lat> <lng>
   pine browse tab | tab new [url] | tab <tabId> | tab close [tabId]
+                  (a tab on the human's own browser profile asks them on every command)
   pine browse frame <sel|main> | dialog accept [text]|dismiss|status
   pine browse console [--clear] | errors [--clear] | highlight <sel> | inspect
   pine browse addinitscript <js> | removeinitscript <id> | addstyle <css>

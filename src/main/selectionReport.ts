@@ -16,6 +16,7 @@ import {
 import { REPORT_DIR_NAME } from './browsePick'
 import { postBusMessage } from './bus'
 import { getByPaneId } from './idRegistry'
+import type { OriginReach } from './originAgents'
 import { privateTmpDir } from './privateTmp'
 
 function asBytes(value: unknown): Uint8Array | null {
@@ -34,11 +35,15 @@ function freeStem(dir: string): string {
 export function writeSelectionReport(
   req: SelectionSendRequest,
   senderWindowId: string,
+  reaches: OriginReach,
   now: Date = new Date(),
 ): SelectionSendResult {
   const source = getByPaneId(req?.sourcePaneId)
   const target = getByPaneId(req?.targetPaneId)
   if (!source || source.windowId !== senderWindowId || !target) {
+    return { ok: false, error: 'not-found' }
+  }
+  if (!reaches(senderWindowId, source.paneId, target.paneId)) {
     return { ok: false, error: 'not-found' }
   }
   const capture = normalizeSelection(req.capture)
@@ -73,8 +78,8 @@ export function writeSelectionReport(
   return { ok: true, path, imagePath }
 }
 
-export function registerSelectionIpc(): void {
+export function registerSelectionIpc(reaches: OriginReach): void {
   ipcMain.handle('selection:send', (e, req: SelectionSendRequest) =>
-    writeSelectionReport(req ?? ({} as SelectionSendRequest), String(e.sender.id)),
+    writeSelectionReport(req ?? ({} as SelectionSendRequest), String(e.sender.id), reaches),
   )
 }

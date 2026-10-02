@@ -53,7 +53,7 @@ describe('UpdateCheck', () => {
     expect(screen.getByRole('button', { name: 'Checking…' })).toBeDisabled()
 
     await act(async () => finish({ status: 'latest', version: '1.0.0' }))
-    expect(screen.getByRole('status')).toHaveTextContent("You're on the latest version.")
+    expect(screen.getByRole('status')).toHaveTextContent('You’re on the latest version.')
     expect(screen.getByRole('button', { name: 'Check for updates' })).toBeEnabled()
     expect(screen.queryByRole('button', { name: 'View release' })).toBeNull()
   })
@@ -70,9 +70,9 @@ describe('UpdateCheck', () => {
   })
 
   it.each([
-    ['offline', "Couldn't reach GitHub. Check your connection and try again."],
+    ['offline', 'Couldn’t reach GitHub. Check your connection and try again.'],
     ['rate-limited', 'GitHub is limiting requests right now. Try again later.'],
-    ['unavailable', "Couldn't read the latest release. Try again later."],
+    ['unavailable', 'Couldn’t read the latest release. Try again later.'],
   ] as const)('shows a short error when the check fails as %s', async (error, text) => {
     answer({ status: 'error', error })
     render(<UpdateCheck />)
@@ -91,7 +91,7 @@ describe('UpdateCheck', () => {
 
     await waitFor(() =>
       expect(screen.getByRole('status')).toHaveTextContent(
-        "Couldn't read the latest release. Try again later.",
+        'Couldn’t read the latest release. Try again later.',
       ),
     )
   })

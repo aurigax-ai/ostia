@@ -1,0 +1,7 @@
+{
+  "manifest": {
+    "name": "Shell 腳本（Bash）",
+    "description": "在編輯器中為 Shell 腳本提供自動完成、懸停說明、跳轉與符號。此擴充功能內含 bash-language-server，並以 {product} 自身的執行環境執行。PATH 中有 shellcheck 時會用它檢查。"
+  },
+  "messages": {}
+}

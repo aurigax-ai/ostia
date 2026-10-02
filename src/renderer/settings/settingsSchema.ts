@@ -81,7 +81,7 @@ export const SETTINGS_JSON_SCHEMA = {
           type: 'string',
           description:
             'Theme id (built-in: adeberry, one-dark-vivid, instrument-night, dracula, oxocarbon, pine-light; ' +
-            'or a plugin theme). Default: adeberry.',
+            'or an extension theme). Default: adeberry.',
         },
         followSystem: {
           type: 'boolean',
@@ -597,7 +597,7 @@ export const SETTINGS_JSON_SCHEMA = {
           type: 'boolean',
           description:
             'Ctrl/Cmd+click on a web link in a terminal opens it in Pine’s browser pane instead of ' +
-            'the system browser. Default: false.',
+            'the system browser; with Shift as well, the other way for that click. Default: false.',
         },
         defaultZoom: {
           type: 'number',

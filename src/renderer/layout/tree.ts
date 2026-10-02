@@ -1,4 +1,5 @@
 import type { AgentResume } from '@shared/agentResume'
+import { type BrowserProfile, parseBrowserProfile } from '@shared/browserProfile'
 import type { PanePlacement } from '@shared/types'
 import { namespacedId } from '../lib/idNamespace'
 import type {
@@ -143,6 +144,19 @@ export function setPaneHibernated(
   })
 }
 
+export function setPaneLocked(root: LayoutNode, paneId: string, locked: boolean): LayoutNode {
+  return mapPane(root, paneId, (p) => {
+    if (Boolean(p.locked) === locked) return p
+    if (locked) return { ...p, locked: true }
+    const { locked: _locked, ...open } = p
+    return open
+  })
+}
+
+export function hasLockedPane(root: LayoutNode): boolean {
+  return allPanes(root).some((p) => p.locked === true)
+}
+
 export function firstPaneOfKind(node: LayoutNode, kind: SurfaceKind): PaneNode | null {
   return allPanes(node).find((p) => p.kind === kind) ?? null
 }
@@ -166,8 +180,28 @@ function titleFromUrl(url: string): string {
   }
 }
 
-export function setPaneBrowser(root: LayoutNode, paneId: string, url: string): LayoutNode {
-  return mapPane(root, paneId, (p) => ({ ...p, kind: 'browser', title: titleFromUrl(url), url }))
+export function setPaneBrowser(
+  root: LayoutNode,
+  paneId: string,
+  url: string,
+  profile?: BrowserProfile,
+): LayoutNode {
+  return mapPane(root, paneId, (p) => {
+    const next: PaneNode = { ...p, kind: 'browser', title: titleFromUrl(url), url }
+    if (profile === undefined) return next
+    const { browserProfile: _previous, ...rest } = next
+    return profile === 'shared' ? { ...rest, browserProfile: 'shared' } : rest
+  })
+}
+
+export function paneBrowserProfile(pane: PaneNode): BrowserProfile {
+  return parseBrowserProfile(pane.browserProfile)
+}
+
+export function firstBrowserPane(node: LayoutNode, profile: BrowserProfile): PaneNode | null {
+  return (
+    allPanes(node).find((p) => p.kind === 'browser' && paneBrowserProfile(p) === profile) ?? null
+  )
 }
 
 export function setPaneExtension(

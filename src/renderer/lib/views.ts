@@ -14,7 +14,7 @@ const OPEN_VIEW_PREFIX = `${OPEN_VIEW_COMMAND}.`
 export function openView(name: string, workspaceId: string | null): string | null {
   const view = enabledViews(useViewsStore.getState().views, 'panel').find((v) => v.name === name)
   if (!view || !workspaceId) return null
-  useUIStore.getState().leaveSettings()
+  useUIStore.getState().showWorkspaces()
   return useLayoutStore.getState().openView(workspaceId, view.name, view.title)
 }
 
@@ -26,7 +26,7 @@ export function runViewAction(
   workspaceId: string | undefined,
 ): void {
   if (action.kind === 'url') {
-    if (action.url) openSidebarUrl(workspaceId, action.url)
+    if (action.url) openSidebarUrl(workspaceId, action.url, 'human')
     return
   }
   void runCommandAction(

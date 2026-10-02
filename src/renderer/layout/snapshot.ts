@@ -19,6 +19,7 @@ export interface RestorableWorkspace {
   kind: 'agent' | 'terminal' | 'scratch'
   workDir: string
   projectDir?: string
+  anchored?: true
   origin?: WorkspaceOrigin
 }
 
@@ -109,6 +110,7 @@ function snapshotWorkspace(
     kind: workspace.kind,
     workDir: workspace.workDir,
     ...(workspace.projectDir ? { projectDir: workspace.projectDir } : {}),
+    ...(workspace.anchored ? { anchored: true as const } : {}),
     ...(workspace.origin ? { origin: copyOrigin(workspace.origin) } : {}),
     ...(layout && root
       ? {
@@ -173,6 +175,7 @@ export function restoreSnapshot(snapshot: AppSnapshot): {
       kind: s.kind,
       workDir: s.workDir,
       ...(s.projectDir ? { projectDir: s.projectDir } : {}),
+      ...(s.anchored ? { anchored: true as const } : {}),
       ...(s.origin ? { origin: copyOrigin(s.origin) } : {}),
     })
     if (!s.root) continue

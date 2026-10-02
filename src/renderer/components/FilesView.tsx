@@ -321,7 +321,7 @@ function RowIcon({
     )
   }
   const { Icon, color } = fileIcon(entry, open)
-  return <Icon size={14} className="file-icon" style={{ color }} />
+  return <Icon size={16} className="file-icon" style={{ color }} />
 }
 
 function visibilityOf(tree: TreeContext, fullPath: string): TreeVisibility | undefined {

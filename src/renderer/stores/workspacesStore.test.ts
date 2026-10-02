@@ -120,6 +120,28 @@ describe('workspacesStore', () => {
   })
 
   describe('closeWorkspace', () => {
+    it('keeps a workspace that holds a locked pane, alone or through closeOthers', () => {
+      const first = open('/a')
+      const second = open('/b')
+      const third = open('/c')
+      useLayoutStore.setState({
+        byWorkspace: {
+          [first.id]: {
+            root: { type: 'pane', id: 'p1', title: 'zsh', kind: 'terminal', locked: true },
+            activePaneId: 'p1',
+            zoomedPaneId: null,
+          },
+        },
+      })
+
+      useWorkspacesStore.getState().closeWorkspace(first.id)
+      expect(workspaces().map((w) => w.id)).toEqual([first.id, second.id, third.id])
+      expect(removeWorkspaceMock()).not.toHaveBeenCalled()
+
+      useWorkspacesStore.getState().closeOthers(third.id)
+      expect(workspaces().map((w) => w.id)).toEqual([first.id, third.id])
+    })
+
     it('removes a non-active workspace, leaves the active one, and drops its layout', () => {
       const first = open()
       useWorkspacesStore.getState().addWorkspace('/x/y')

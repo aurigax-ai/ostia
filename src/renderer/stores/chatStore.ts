@@ -1,5 +1,5 @@
 import { Chat } from '@ai-sdk/react'
-import { CHAT_CONTEXT_MAX, type ChatContextItem } from '@shared/assist'
+import { type AssistModelRef, CHAT_CONTEXT_MAX, type ChatContextItem } from '@shared/assist'
 import {
   CHAT_TITLE_MAX,
   type ChatSession,
@@ -21,6 +21,7 @@ export interface ChatSessionMeta {
   title: string
   createdAt: number
   model?: string
+  modelRef?: AssistModelRef
   trimmed?: boolean
   scratch?: boolean
 }
@@ -146,6 +147,7 @@ export function sessionOf(
   }
   if (meta.workspaceId) session.workspaceId = meta.workspaceId
   if (model) session.model = model
+  if (meta.modelRef) session.modelRef = meta.modelRef
   return session
 }
 
@@ -191,6 +193,7 @@ function createChat(sessionId: string, messages: PineChatMessage[]): Chat<PineCh
       sessionId,
       workspaceId: () => sessionWorkspace(sessionId),
       root: () => workspaceFolder(sessionWorkspace(sessionId)),
+      model: () => useChatStore.getState().meta[sessionId]?.modelRef ?? null,
     }),
     onFinish: () => void saveSession(sessionId),
   })
@@ -270,6 +273,7 @@ export async function openSession(
     }
     if (session.workspaceId) meta.workspaceId = session.workspaceId
     if (session.model) meta.model = session.model
+    if (session.modelRef) meta.modelRef = session.modelRef
     if (session.trimmed) meta.trimmed = true
     store.setMeta(meta)
     createChat(session.id, fromStored(session))
@@ -292,6 +296,14 @@ export function nameSession(sessionId: string, question: string): void {
   const title =
     text.length <= TITLE_FROM_QUESTION ? text : `${text.slice(0, TITLE_FROM_QUESTION).trimEnd()}…`
   if (title) store.setMeta({ ...meta, title })
+}
+
+export function setSessionModel(sessionId: string, modelRef: AssistModelRef): void {
+  const store = useChatStore.getState()
+  const meta = store.meta[sessionId]
+  if (!meta) return
+  store.setMeta({ ...meta, modelRef })
+  void saveSession(sessionId)
 }
 
 export function ensureSession(

@@ -56,6 +56,7 @@ const registry = registerProcessMethods({
     return true
   },
   cwdOfPane: () => undefined,
+  agentArgv: (name) => (name === 'claude' ? ['claude'] : null),
   interruptGraceMs: 50,
 })
 
@@ -184,6 +185,24 @@ describe('pine process (the real CLI against a live control server)', () => {
   it('run: starts in the folder the caller is in', async () => {
     await pine(['process', 'run', 'pnpm dev'], join(home, 'api'))
     expect(opened[0]).toMatchObject({ cwd: join(home, 'api'), title: 'pnpm' })
+  })
+
+  it('agent run: starts the agent in a tab with the prompt quoted, and refuses an unknown one', async () => {
+    const started = await pine(['agent', 'run', 'claude', '--name', 'fixer', "fix it; don't stop"])
+    expect(started.code).toBe(0)
+    expect(JSON.parse(started.stdout)).toMatchObject({ name: 'fixer', paneId: expect.any(String) })
+    expect(opened.at(-1)).toMatchObject({
+      command: "claude 'fix it; don'\\''t stop'",
+      title: 'fixer',
+      backgroundTab: true,
+    })
+
+    const count = opened.length
+    const unknown = await pine(['agent', 'run', 'aider', 'hello'])
+    expect(unknown.code).toBe(1)
+    expect(unknown.stderr).toContain('unknown-agent')
+    expect((await pine(['agent', 'run', 'claude'])).stderr).toContain('usage: pine agent run')
+    expect(opened).toHaveLength(count)
   })
 
   it('run: needs a command', async () => {

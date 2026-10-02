@@ -1,0 +1,24 @@
+{
+  "manifest": {
+    "description": "以你本機的 model-runtime 作為助理的提供者：已安裝的模型會出現在「設定 → 助理」的模型清單與對話的模型選擇器中，並可在那裡載入與卸載。要求只會送到這台電腦上執行環境的 socket。",
+    "commands.chat.title": "Model runtime：對話",
+    "settings.baseUrl.title": "位址",
+    "settings.baseUrl.description": "執行環境位址：unix:/path.sock 或 http(s) 網址。留空會使用 $XDG_RUNTIME_DIR/model-runtime.sock。",
+    "settings.typos.title": "錯字修正",
+    "settings.typos.description": "為你寫給代理程式的提示詞提供錯字修正",
+    "settings.promptReview.title": "提示詞檢查",
+    "settings.promptReview.description": "檢查你寫給代理程式的提示詞品質",
+    "settings.commandSuggest.title": "指令建議",
+    "settings.commandSuggest.description": "在提示列根據白話描述建議 shell 指令",
+    "settings.terminalCompletions.title": "終端機補全",
+    "settings.terminalCompletions.description": "在 shell 提示列為正在輸入的指令顯示灰色補全文字（會送出該行、資料夾、最近的指令與結束代碼，以及 git 分支等窗格標籤；絕不送出輸出內容）",
+    "settings.editorCompletions.title": "編輯器補全",
+    "settings.editorCompletions.description": "編輯器中的行內補全（會送出游標附近的程式碼）",
+    "settings.chat.title": "對話",
+    "settings.chat.description": "助理對話窗格，以及指令面板中的「詢問」",
+    "settings.explainError.title": "解釋錯誤",
+    "settings.explainError.description": "在失敗的指令區塊上解釋錯誤（按下時會送出該指令與其輸出）",
+    "settings.requestsPerMinute.title": "要求上限",
+    "settings.requestsPerMinute.description": "每項功能每分鐘最多的要求次數"
+  }
+}

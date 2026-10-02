@@ -10,6 +10,7 @@ import {
   firstPaneId,
   firstPaneOfKind,
   graftNode,
+  hasLockedPane,
   isPaneShown,
   mergeLayouts,
   movePane,
@@ -24,6 +25,7 @@ import {
   setPaneEditor,
   setPaneExtension,
   setPaneHibernated,
+  setPaneLocked,
   setPaneUrl,
   setSizes,
   splitOf,
@@ -799,6 +801,22 @@ describe('tabs', () => {
     resetIds()
     adoptIds(root)
     expect(Number(createPane().id.split('-')[1])).toBeGreaterThan(Number(root.id.split('-')[1]))
+  })
+})
+
+describe('setPaneLocked', () => {
+  it('marks and clears a pane, returning the same tree when nothing changes', () => {
+    const a = createPane()
+    const b = createPane()
+    const root = tabsOf(a.id, a, b)
+    expect(hasLockedPane(root)).toBe(false)
+    const locked = setPaneLocked(root, b.id, true)
+    expect(findPane(locked, b.id)).toMatchObject({ locked: true })
+    expect(hasLockedPane(locked)).toBe(true)
+    expect(setPaneLocked(locked, b.id, true)).toBe(locked)
+    const open = setPaneLocked(locked, b.id, false)
+    expect(findPane(open, b.id)).not.toHaveProperty('locked')
+    expect(hasLockedPane(open)).toBe(false)
   })
 })
 

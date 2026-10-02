@@ -98,6 +98,7 @@ function parseNode(raw: unknown, paneIds: string[], depth: number): SnapshotNode
     copyOptionalString(raw, pane, 'url')
     copyOptionalString(raw, pane, 'extensionId')
     if (pane.kind === 'chat') copyOptionalString(raw, pane, 'chatSessionId')
+    if (pane.kind === 'browser' && raw.browserProfile === 'shared') pane.browserProfile = 'shared'
     if (typeof raw.viewName === 'string' && VIEW_NAME.test(raw.viewName)) {
       pane.viewName = raw.viewName
     }
@@ -105,6 +106,7 @@ function parseNode(raw: unknown, paneIds: string[], depth: number): SnapshotNode
     if (resume) pane.resume = resume
     if (resume && raw.agentRunning === true) pane.agentRunning = true
     if (resume && raw.hibernated === true) pane.hibernated = true
+    if (raw.locked === true) pane.locked = true
     if (pane.kind === 'extension' && !pane.extensionId) return null
     if (pane.kind === 'view' && !pane.viewName) return null
     paneIds.push(id)
@@ -245,6 +247,7 @@ function parseWorkspace(
     ...(typeof entry.projectDir === 'string' && entry.projectDir
       ? { projectDir: entry.projectDir.slice(0, 4096) }
       : {}),
+    ...(entry.anchored === true ? { anchored: true as const } : {}),
     ...(root
       ? {
           root,

@@ -36,6 +36,7 @@ export async function fillFromStore(
 
 export function registerLoginFill(deps: {
   browserPanes: Map<string, number>
+  isSharedPane: (paneId: string) => boolean
   ownedGuest: (paneId: string, senderWindowId: string) => Electron.WebContents | null
 }): void {
   ipcMain.handle('credentials:for-page', (e, paneId: unknown): CredentialSummary[] => {
@@ -73,7 +74,9 @@ export function registerLoginFill(deps: {
       )
       if (!resolution.ok) return resolution
       const origin = normalizeOrigin(resolution.guest.getURL()) ?? resolution.guest.getURL()
-      await ensureCaps(ctx.authed, ctx.identity, ['credentials'], 'browse login', origin)
+      if (!deps.isSharedPane(resolution.rendererPaneId)) {
+        await ensureCaps(ctx.authed, ctx.identity, ['credentials'], 'browse login', origin)
+      }
       const res = await fillFromStore(resolution.guest, (list) =>
         typeof username === 'string' ? list.find((c) => c.username === username) : list[0],
       )

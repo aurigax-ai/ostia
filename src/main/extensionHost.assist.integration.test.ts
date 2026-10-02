@@ -94,9 +94,31 @@ describe('assist contribution points over a real control socket', () => {
       lastAvailability().chat ? lastAvailability() : undefined,
     )
     expect(availability).toEqual({
-      chat: { extId: 'oracle', name: 'Oracle', label: 'fake · big' },
-      command: { extId: 'oracle', name: 'Oracle', label: 'fake · small' },
-      terminal: { extId: 'oracle', name: 'Oracle', label: 'fake · small' },
+      chat: { extId: 'oracle', name: 'Oracle', label: 'fake · big', ref: { extId: 'oracle' } },
+      command: {
+        extId: 'oracle',
+        name: 'Oracle',
+        label: 'fake · small',
+        ref: { extId: 'oracle' },
+      },
+      terminal: {
+        extId: 'oracle',
+        name: 'Oracle',
+        label: 'fake · small',
+        ref: { extId: 'oracle' },
+      },
+    })
+    expect(host.assistCatalog()).toEqual({
+      models: [
+        {
+          ref: { extId: 'oracle' },
+          group: 'Oracle',
+          label: 'fake',
+          points: ['command', 'terminal', 'chat'],
+        },
+      ],
+      chat: { extId: 'oracle' },
+      fast: { extId: 'oracle' },
     })
     expect(host.list().find((e) => e.id === 'oracle')?.assist).toEqual([
       'chat',
@@ -204,6 +226,9 @@ describe('assist contribution points over a real control socket', () => {
         lastError: 'model busy',
         features: [{ id: 'chat', setting: 'chat', ready: true, on: true }],
         models: true,
+        providers: [],
+        kinds: [],
+        keysSet: [],
       },
     ])
     host.setSetting('oracle', 'chat', false)

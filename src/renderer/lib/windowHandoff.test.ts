@@ -2,6 +2,7 @@ import type { LifecycleEvent, SnapshotWorkspace, WindowSummary } from '@shared/t
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { createPane, paneIds as paneIdsOf, resetIds, splitPane } from '../layout/tree'
 import { useAttentionStore } from '../stores/attentionStore'
+import { useBlocksStore } from '../stores/blocksStore'
 import { useCloseConfirmStore } from '../stores/closeConfirmStore'
 import { useEditorStatus } from '../stores/editorStatusStore'
 import { useLayoutStore } from '../stores/layoutStore'
@@ -27,6 +28,7 @@ let attentionInit: ReturnType<typeof useAttentionStore.getState>
 let editorInit: ReturnType<typeof useEditorStatus.getState>
 let confirmInit: ReturnType<typeof useCloseConfirmStore.getState>
 let sandboxInit: ReturnType<typeof useSandboxStore.getState>
+let blocksInit: ReturnType<typeof useBlocksStore.getState>
 
 beforeAll(() => {
   workspacesInit = useWorkspacesStore.getState()
@@ -36,6 +38,7 @@ beforeAll(() => {
   editorInit = useEditorStatus.getState()
   confirmInit = useCloseConfirmStore.getState()
   sandboxInit = useSandboxStore.getState()
+  blocksInit = useBlocksStore.getState()
 })
 
 afterEach(() => {
@@ -46,6 +49,7 @@ afterEach(() => {
   useEditorStatus.setState(editorInit, true)
   useCloseConfirmStore.setState(confirmInit, true)
   useSandboxStore.setState(sandboxInit, true)
+  useBlocksStore.setState(blocksInit, true)
   resetIds()
   resetWorkspaceIds()
   setIdNamespace('')
@@ -386,5 +390,38 @@ describe('cross-window navigation', () => {
 
     expect(summary).toMatchObject({ id: workspaceId, name: 'API', unreadAt: 42 })
     expect(summary.panes.map((p) => p.id)).toContain(left)
+  })
+
+  it('reports which panes run an agent and the workspace a detached pane came from', () => {
+    const { workspaceId, left, right } = seedTwoPanes()
+    useWorkspacesStore.setState((s) => ({
+      workspaces: s.workspaces.map((w) => ({ ...w, origin: { workspaceId: 'w-home', index: 0 } })),
+    }))
+    useBlocksStore.setState({
+      running: { [left]: 'b1' },
+      agentBlocks: { [left]: { blockId: 'b1', agent: 'claude' } },
+    })
+    useAttentionStore.getState().dispatch(left, { type: 'set', state: 'waiting', at: 1 })
+
+    const [summary] = workspaceSummaries()
+
+    expect(summary).toMatchObject({ id: workspaceId, origin: 'w-home' })
+    expect(summary.panes.find((p) => p.id === left)).toMatchObject({
+      agent: 'claude',
+      state: 'waiting',
+    })
+    expect(summary.panes.find((p) => p.id === right)).toEqual({
+      id: right,
+      title: expect.any(String),
+    })
+  })
+
+  it('reports no origin for a workspace that moved whole', () => {
+    const { workspaceId } = seedTwoPanes()
+    useWorkspacesStore.setState((s) => ({
+      workspaces: s.workspaces.map((w) => ({ ...w, origin: { workspaceId, index: 0 } })),
+    }))
+
+    expect(workspaceSummaries()[0]).not.toHaveProperty('origin')
   })
 })

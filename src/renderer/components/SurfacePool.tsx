@@ -1,7 +1,8 @@
 import type { AgentResume } from '@shared/agentResume'
+import type { BrowserProfile } from '@shared/browserProfile'
 import { useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
-import { allPanes } from '../layout/tree'
+import { allPanes, paneBrowserProfile } from '../layout/tree'
 import type { LayoutNode, SurfaceKind } from '../layout/types'
 import { useDiffStore } from '../stores/diffStore'
 import { useLayoutStore } from '../stores/layoutStore'
@@ -28,6 +29,7 @@ interface SurfaceRef {
   extensionId?: string
   chatSessionId?: string
   viewName?: string
+  browserProfile: BrowserProfile
   hibernated?: true
   resume?: AgentResume
 }
@@ -54,6 +56,7 @@ function collect(node: LayoutNode, workspaceId: string, out: SurfaceRef[]): void
         extensionId: pane.extensionId,
         chatSessionId: pane.chatSessionId,
         viewName: pane.viewName,
+        browserProfile: paneBrowserProfile(pane),
         hibernated: pane.hibernated,
         resume: pane.resume,
       })
@@ -107,7 +110,12 @@ function Surface({
   ) : s.kind === 'manager' ? (
     <ManagerView paneId={s.paneId} />
   ) : s.kind === 'browser' ? (
-    <BrowserView workspaceId={s.workspaceId} paneId={s.paneId} url={s.url} />
+    <BrowserView
+      workspaceId={s.workspaceId}
+      paneId={s.paneId}
+      url={s.url}
+      profile={s.browserProfile}
+    />
   ) : s.kind === 'extension' && s.extensionId ? (
     <ExtensionPanelView extId={s.extensionId} workspaceId={s.workspaceId} paneId={s.paneId} />
   ) : s.kind === 'view' && s.viewName ? (

@@ -1,3 +1,4 @@
+import type { BrowserProfile } from '@shared/browserProfile'
 import type { PineBridge } from '@shared/types'
 import { vi } from 'vitest'
 
@@ -39,6 +40,8 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       write: vi.fn(),
       resize: vi.fn(),
       commands: vi.fn().mockResolvedValue([]),
+      listDir: vi.fn().mockResolvedValue([]),
+      localPrompt: vi.fn().mockResolvedValue(true),
       foreground: vi.fn().mockResolvedValue(null),
       promptContext: vi.fn().mockResolvedValue(null),
       onData: vi.fn(noopUnsub),
@@ -60,12 +63,18 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       onChanged: vi.fn(() => () => {}),
     },
     lsp: {
-      list: vi.fn().mockResolvedValue([]),
-      start: vi.fn().mockResolvedValue(null),
+      servers: vi.fn().mockResolvedValue([]),
+      onServersChanged: vi.fn(noopUnsub),
+      open: vi.fn().mockResolvedValue([]),
       send: vi.fn(),
-      stop: vi.fn(),
+      release: vi.fn(),
       onMessage: vi.fn(noopUnsub),
       onExit: vi.fn(noopUnsub),
+      setEnabled: vi.fn().mockResolvedValue([]),
+      restart: vi.fn().mockResolvedValue(undefined),
+      log: vi.fn().mockResolvedValue({ entries: [], errors: {} }),
+      fetch: vi.fn().mockResolvedValue(undefined),
+      removeDownload: vi.fn().mockResolvedValue(undefined),
     },
     settings: {
       path: vi.fn().mockResolvedValue('/tmp/pine-test/settings.json'),
@@ -106,6 +115,11 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       onAdopt: vi.fn(noopUnsub),
       onActivateWorkspace: vi.fn(noopUnsub),
       onReturnRequest: vi.fn(noopUnsub),
+      originAgents: vi.fn().mockResolvedValue(null),
+      onOriginAgentsChanged: vi.fn(noopUnsub),
+      insertReference: vi.fn().mockResolvedValue(false),
+      onInsertReference: vi.fn(noopUnsub),
+      answerInsertReference: vi.fn(),
     },
     lifecycle: {
       emit: vi.fn(),
@@ -118,6 +132,7 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       push: vi.fn(),
     },
     browser: {
+      claimProfile: vi.fn(async (_paneId: string, profile: BrowserProfile) => profile),
       register: vi.fn(),
       unregister: vi.fn(),
       pickStart: vi.fn().mockResolvedValue({ ok: false, error: 'cancelled' }),
@@ -167,11 +182,17 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
     sandbox: {
       onBlocked: vi.fn(() => () => {}),
       get: vi.fn().mockResolvedValue(null),
-      setEnabled: vi.fn().mockResolvedValue(null),
-      setAllowRead: vi.fn().mockResolvedValue({ ok: false, errors: [] }),
+      setEnabled: vi.fn().mockResolvedValue({ ok: false, reason: 'not-owned' }),
+      setPaths: vi.fn().mockResolvedValue({ ok: false, errors: [] }),
+      checkPaths: vi.fn().mockResolvedValue([]),
       setDomains: vi.fn().mockResolvedValue({ ok: false, errors: [] }),
+      setDeniedDomains: vi.fn().mockResolvedValue({ ok: false, errors: [] }),
+      setSwitches: vi.fn().mockResolvedValue(null),
+      fixedPolicy: vi.fn().mockResolvedValue(null),
+      stamp: vi.fn().mockResolvedValue(null),
+      violations: vi.fn().mockResolvedValue([]),
+      clearViolations: vi.fn().mockResolvedValue(true),
       setControls: vi.fn().mockResolvedValue(null),
-      refusals: vi.fn().mockResolvedValue([]),
       allowRefused: vi.fn().mockResolvedValue(true),
       globalsChanged: vi.fn().mockResolvedValue(true),
       setPackages: vi.fn().mockResolvedValue(null),
@@ -196,6 +217,12 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       revoke: vi.fn().mockResolvedValue(true),
       onChange: vi.fn(() => () => {}),
     },
+    questions: {
+      state: vi.fn().mockResolvedValue({ pending: [] }),
+      answer: vi.fn().mockResolvedValue(true),
+      dismiss: vi.fn().mockResolvedValue(true),
+      onChange: vi.fn(() => () => {}),
+    },
     marketplace: {
       list: vi.fn().mockResolvedValue({ marketplaces: [], installed: [] }),
       add: vi.fn().mockResolvedValue({ ok: true, state: { marketplaces: [], installed: [] } }),
@@ -209,6 +236,11 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
         ok: true,
         state: { marketplaces: [], installed: [] },
       }),
+    },
+    suggestions: {
+      forFile: vi.fn().mockResolvedValue(null),
+      dismiss: vi.fn().mockResolvedValue(undefined),
+      install: vi.fn().mockResolvedValue({ ok: true, state: { marketplaces: [], installed: [] } }),
     },
     extensions: {
       list: vi.fn().mockResolvedValue([]),
@@ -242,6 +274,9 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       reportShortcuts: vi.fn(),
       models: vi.fn().mockResolvedValue({ ok: false, error: 'unavailable' }),
       setModelLoaded: vi.fn().mockResolvedValue({ ok: true }),
+      catalog: vi.fn().mockResolvedValue({ models: [], chat: null, fast: null }),
+      onCatalog: vi.fn(noopUnsub),
+      setProviderKey: vi.fn().mockResolvedValue({ ok: true }),
     },
     chatSessions: {
       list: vi.fn().mockResolvedValue([]),
@@ -257,7 +292,9 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       list: vi.fn().mockResolvedValue({ ok: false, error: 'not-found' }),
       search: vi.fn().mockResolvedValue({ ok: false, error: 'not-found' }),
       preview: vi.fn().mockResolvedValue({ ok: false, error: 'not-found' }),
+      plan: vi.fn().mockResolvedValue({ ok: false, error: 'not-found' }),
       write: vi.fn().mockResolvedValue({ ok: false, error: 'failed' }),
+      undo: vi.fn().mockResolvedValue({ ok: false, error: 'failed' }),
       skills: vi.fn().mockResolvedValue([]),
       loadSkill: vi.fn().mockResolvedValue({ ok: false, error: 'unknown-skill' }),
       mcpStatus: vi.fn().mockResolvedValue([]),
@@ -316,6 +353,9 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       load: vi.fn().mockResolvedValue(null),
     },
     languagePacks: {
+      load: vi.fn().mockResolvedValue([]),
+    },
+    editorLanguages: {
       load: vi.fn().mockResolvedValue([]),
     },
     views: {

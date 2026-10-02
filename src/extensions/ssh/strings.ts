@@ -1,3 +1,4 @@
+import { localized } from '../../shared/extensionLocales'
 export const CONNECT_USAGE = 'connect [-J <hop>[,<hop>...]] [-p <port>] <[user@]host>'
 export const SHOW_USAGE = 'show <host>'
 
@@ -59,5 +60,5 @@ const zhHant: Strings = {
 }
 
 export function stringsFor(locale: string | undefined): Strings {
-  return locale?.startsWith('zh') ? zhHant : en
+  return localized({ en, 'zh-Hant': zhHant }, locale)
 }

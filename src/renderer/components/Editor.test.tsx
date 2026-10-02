@@ -4,6 +4,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { TARGET_PANE, seedSendTarget } from '../../../test/mocks/sendTarget'
 import { openSelectionSend } from '../lib/selectionSenders'
 import { useEditorStatus } from '../stores/editorStatusStore'
+import { useLiveSelectionStore } from '../stores/liveSelectionStore'
 import { useSettingsStore } from '../stores/settingsStore'
 
 const fake = vi.hoisted(() => {
@@ -92,6 +93,7 @@ const fake = vi.hoisted(() => {
     position: { lineNumber: number; column: number } | null
     selection: FakeSelection | null
     contentListeners: Listener[]
+    selectionListeners: Listener[]
     blurListeners: Listener[]
     formatRuns: (() => void) | null
     decorations: {
@@ -109,6 +111,7 @@ const fake = vi.hoisted(() => {
     position: null,
     selection: null,
     contentListeners: [],
+    selectionListeners: [],
     blurListeners: [],
     formatRuns: null,
     decorations: [],
@@ -157,6 +160,7 @@ const fake = vi.hoisted(() => {
       state.optionUpdates.push(o)
     },
     onDidChangeModelContent: (l: Listener) => listen(state.contentListeners, l),
+    onDidChangeCursorSelection: (l: Listener) => listen(state.selectionListeners, l),
     onDidBlurEditorText: (l: Listener) => listen(state.blurListeners, l),
     getAction: (id: string) =>
       id === 'editor.action.formatDocument' && state.formatRuns
@@ -190,7 +194,10 @@ const fake = vi.hoisted(() => {
 vi.mock('../monaco/setup', () => ({
   monaco: fake.monaco,
 }))
-vi.mock('../lsp/client', () => ({ openDocument: vi.fn().mockResolvedValue(undefined) }))
+vi.mock('../lsp/client', () => ({
+  openDocument: vi.fn(() => () => {}),
+  documentSaved: vi.fn(),
+}))
 
 const { EditorView, isBinary } = await import('./Editor')
 
@@ -648,6 +655,27 @@ describe('EditorView → Send Selection to Agent', () => {
       isEmpty: () => startLine === endLine && startColumn === endColumn,
     }
   }
+
+  it('reports the selected lines for the workspace’s chat, and clears them when the selection ends', async () => {
+    vi.mocked(window.pine.fs.read).mockResolvedValue('one\ntwo\nthree')
+    render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/src/a.ts" />)
+    await waitFor(() => expect(fake.state.model).not.toBeNull())
+    const reported = () => useLiveSelectionStore.getState().byWorkspace.w1
+
+    select(2, 1, 3, 6)
+    for (const listener of fake.state.selectionListeners) listener()
+    await waitFor(() =>
+      expect(reported()).toEqual({
+        paneId: 'p1',
+        source: { kind: 'editor', file: '/w/src/a.ts', startLine: 2, endLine: 3 },
+        text: 'two\nthree',
+      }),
+    )
+
+    select(3, 6, 3, 6)
+    for (const listener of fake.state.selectionListeners) listener()
+    await waitFor(() => expect(reported()).toBeUndefined())
+  })
 
   it('adds a context-menu action that opens the send panel with the file and range', async () => {
     vi.mocked(window.pine.fs.read).mockResolvedValue('one\ntwo\nthree')

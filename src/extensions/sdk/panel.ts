@@ -1,3 +1,9 @@
+import {
+  type LocaleCatalogs,
+  type Translate,
+  localized,
+  translatorFor,
+} from '../../shared/extensionLocales'
 import type { ExtensionResult } from '../../shared/extensions'
 import { PANEL_SIZES_PATH, parsePanelSizes, withPanelSize } from './split'
 
@@ -60,8 +66,11 @@ export function onChange(cb: () => void): void {
 }
 
 export function pickLocale<T>(dicts: { en: T } & Record<string, T>): T {
-  if (context.locale.startsWith('zh') && dicts['zh-Hant']) return dicts['zh-Hant']
-  return dicts[context.locale] ?? dicts.en
+  return localized(dicts, context.locale)
+}
+
+export function panelTranslator(catalogs: LocaleCatalogs): Translate {
+  return translatorFor(catalogs, context.locale)
 }
 
 type Child = Node | string | null | false | undefined

@@ -6,8 +6,7 @@ import { useWorkspacesStore } from '../stores/workspacesStore'
 import { canTypeInto, insertCommand, runWhenIdle } from './blockActions'
 import { isIdlePrompt } from './blocks'
 import { openFileInWorkspace } from './openFile'
-import { canInsertReference } from './sendPick'
-import { terminalFor } from './terminalHandles'
+import { type ReferenceTarget, sendReference } from './sendPick'
 
 export interface TerminalTarget {
   paneId: string
@@ -62,11 +61,8 @@ export function runInNewTerminal(
 
 export const runConfirmed = new Set<string>()
 
-export function sendToAgent(paneId: string, text: string): boolean {
-  const term = terminalFor(paneId)
-  if (!term || !canInsertReference(paneId)) return false
-  term.paste(text)
-  return true
+export function sendToAgent(target: ReferenceTarget, text: string): Promise<boolean> {
+  return sendReference(target, text)
 }
 
 const FILE_EXTENSIONS: Record<string, string> = {

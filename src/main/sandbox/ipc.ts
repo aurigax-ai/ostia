@@ -1,19 +1,27 @@
 import { ipcMain } from 'electron'
 import {
-  type DomainRefusal,
   PORTS_POLICIES,
   type PortsPolicy,
+  SANDBOX_LIST_MAX,
+  SANDBOX_PATH_KINDS,
   type SandboxControls,
+  type SandboxEditError,
   type SandboxEditResult,
+  type SandboxEnableResult,
+  type SandboxFixedPolicy,
+  type SandboxPathKind,
+  type SandboxViolation,
   type WorkspaceSandbox,
   checkDomainPattern,
   checkExposePort,
+  parseSwitches,
   parseWorkspacePackages,
 } from '../../shared/sandbox'
 import type { MissingRequirement } from '../../shared/systemRequirements'
 import type { DomainRequests } from './domainRequests'
+import { checkSandboxPaths } from './pathChecks'
 import type { PortRequests, PortRow } from './portRequests'
-import { type ReadPathEnv, checkReadPath } from './readPaths'
+import type { ViolationLog } from './violations'
 import type { WorkspaceSandboxes } from './workspaceSandboxes'
 
 export interface SandboxIpcDeps {
@@ -22,7 +30,7 @@ export interface SandboxIpcDeps {
   missing?: () => MissingRequirement[]
   domains?: DomainRequests
   ports?: PortRequests
-  readPathEnv?: () => ReadPathEnv
+  violations?: ViolationLog
   refreshAll?: () => void
 }
 
@@ -46,6 +54,36 @@ function parseControlsPatch(value: unknown): Partial<SandboxControls> | null {
   return out
 }
 
+function pathKind(value: unknown): SandboxPathKind | null {
+  return SANDBOX_PATH_KINDS.includes(value as SandboxPathKind) ? (value as SandboxPathKind) : null
+}
+
+const TOO_MANY: SandboxEditError = { value: '', reason: 'too-many' }
+
+type DomainListCheck = { ok: true; domains: string[] } | { ok: false; errors: SandboxEditError[] }
+
+function checkDomains(list: readonly string[]): DomainListCheck {
+  if (list.length > SANDBOX_LIST_MAX) return { ok: false, errors: [TOO_MANY] }
+  const domains: string[] = []
+  const errors: SandboxEditError[] = []
+  for (const value of list) {
+    const check = checkDomainPattern(value)
+    if (check.ok) domains.push(check.domain)
+    else errors.push({ value, reason: check.reason })
+  }
+  return errors.length > 0 ? { ok: false, errors } : { ok: true, domains: [...new Set(domains)] }
+}
+
+function withList<K extends keyof WorkspaceSandbox>(
+  current: WorkspaceSandbox,
+  key: K,
+  list: string[],
+  required: boolean,
+): WorkspaceSandbox {
+  const { [key]: _old, ...rest } = current
+  return (list.length > 0 || required ? { ...rest, [key]: list } : rest) as WorkspaceSandbox
+}
+
 export function ownsWorkspace(
   deps: Pick<SandboxIpcDeps, 'ownerWindow'>,
   senderId: number,
@@ -60,52 +98,113 @@ export function registerSandboxIpc(deps: SandboxIpcDeps): void {
   )
   ipcMain.handle(
     'sandbox:set-enabled',
-    (e, workspaceId: unknown, enabled: unknown): WorkspaceSandbox | null => {
+    (e, workspaceId: unknown, enabled: unknown): SandboxEnableResult => {
       if (!ownsWorkspace(deps, e.sender.id, workspaceId) || typeof enabled !== 'boolean') {
-        return null
+        return { ok: false, reason: 'not-owned' }
       }
-      if (enabled && (deps.missing?.() ?? []).length > 0) return null
-      return deps.sandboxes.update(workspaceId, (current) => ({ ...current, enabled }))
+      if (enabled && (deps.missing?.() ?? []).length > 0) {
+        return { ok: false, reason: 'missing-programs' }
+      }
+      const problem = enabled ? deps.sandboxes.folderProblem(workspaceId) : null
+      if (problem) return { ok: false, reason: 'folder', problem }
+      return {
+        ok: true,
+        settings: deps.sandboxes.update(workspaceId, (current) => ({ ...current, enabled })),
+      }
     },
   )
 
   ipcMain.handle(
-    'sandbox:set-allow-read',
-    (e, workspaceId: unknown, paths: unknown): SandboxEditResult => {
+    'sandbox:set-paths',
+    (e, workspaceId: unknown, kind: unknown, paths: unknown): SandboxEditResult => {
       const list = stringArray(paths)
-      if (!ownsWorkspace(deps, e.sender.id, workspaceId) || !list || !deps.readPathEnv) {
+      const key = pathKind(kind)
+      if (!ownsWorkspace(deps, e.sender.id, workspaceId) || !list || !key) {
         return { ok: false, errors: [] }
       }
-      const env = deps.readPathEnv()
-      const checked = list.map((path) => ({ path, check: checkReadPath(path, env) }))
-      const errors = checked.flatMap(({ path, check }) =>
-        check.ok ? [] : [{ value: path, reason: check.reason }],
-      )
-      if (errors.length > 0) return { ok: false, errors }
-      const allowRead = [...new Set(checked.map(({ check }) => (check.ok ? check.path : '')))]
+      if (list.length > SANDBOX_LIST_MAX) return { ok: false, errors: [TOO_MANY] }
+      const current = deps.sandboxes.settings(workspaceId)[key] ?? []
+      const added = list.filter((value) => !current.includes(value))
+      const checked = checkSandboxPaths(key, added, deps.sandboxes.pathEnv(workspaceId))
+      if (!checked.ok) return checked
+      const accepted = [...checked.paths]
+      const next = [
+        ...new Set(list.map((value) => (current.includes(value) ? value : accepted.shift()))),
+      ].filter((value): value is string => value !== undefined)
       return {
         ok: true,
-        settings: deps.sandboxes.update(workspaceId, (c) => ({ ...c, allowRead })),
+        settings: deps.sandboxes.update(workspaceId, (c) =>
+          withList(c, key, next, key === 'allowRead'),
+        ),
       }
     },
   )
+  ipcMain.handle('sandbox:check-paths', (_e, kind: unknown, paths: unknown): SandboxEditError[] => {
+    const list = stringArray(paths)
+    const key = pathKind(kind)
+    if (!list || !key) return [{ value: '', reason: 'invalid' }]
+    const checked = checkSandboxPaths(key, list, deps.sandboxes.pathEnv())
+    return checked.ok ? [] : checked.errors
+  })
   ipcMain.handle(
     'sandbox:set-domains',
     (e, workspaceId: unknown, domains: unknown): SandboxEditResult => {
       const list = stringArray(domains)
       if (!ownsWorkspace(deps, e.sender.id, workspaceId) || !list) return { ok: false, errors: [] }
-      const checked = list.map((value) => ({ value, check: checkDomainPattern(value) }))
-      const errors = checked.flatMap(({ value, check }) =>
-        check.ok ? [] : [{ value, reason: check.reason }],
-      )
-      if (errors.length > 0) return { ok: false, errors }
-      const next = [...new Set(checked.map(({ check }) => (check.ok ? check.domain : '')))]
+      const checked = checkDomains(list)
+      if (!checked.ok) return checked
       return {
         ok: true,
-        settings: deps.sandboxes.update(workspaceId, (c) => ({ ...c, domains: next })),
+        settings: deps.sandboxes.update(workspaceId, (c) => ({ ...c, domains: checked.domains })),
       }
     },
   )
+  ipcMain.handle(
+    'sandbox:set-denied-domains',
+    (e, workspaceId: unknown, domains: unknown): SandboxEditResult => {
+      const list = stringArray(domains)
+      if (!ownsWorkspace(deps, e.sender.id, workspaceId) || !list) return { ok: false, errors: [] }
+      const checked = checkDomains(list)
+      if (!checked.ok) return checked
+      return {
+        ok: true,
+        settings: deps.sandboxes.update(workspaceId, (c) =>
+          withList(c, 'deniedDomains', checked.domains, false),
+        ),
+      }
+    },
+  )
+  ipcMain.handle(
+    'sandbox:set-switches',
+    (e, workspaceId: unknown, patch: unknown): WorkspaceSandbox | null => {
+      const switches = patch === undefined ? null : parseSwitches(patch)
+      if (!ownsWorkspace(deps, e.sender.id, workspaceId) || !switches) return null
+      return deps.sandboxes.update(workspaceId, ({ switches: _old, ...rest }) =>
+        Object.keys(switches).length === 0 ? rest : { ...rest, switches },
+      )
+    },
+  )
+  ipcMain.handle('sandbox:fixed-policy', (e, workspaceId: unknown): SandboxFixedPolicy | null => {
+    if (workspaceId === undefined) return deps.sandboxes.fixedPolicy()
+    return ownsWorkspace(deps, e.sender.id, workspaceId)
+      ? deps.sandboxes.fixedPolicy(workspaceId)
+      : null
+  })
+  ipcMain.handle('sandbox:stamp', (e, workspaceId: unknown): string | null =>
+    ownsWorkspace(deps, e.sender.id, workspaceId) && deps.sandboxes.isEnabled(workspaceId)
+      ? deps.sandboxes.wrapStamp(workspaceId)
+      : null,
+  )
+  ipcMain.handle('sandbox:violations', (e, workspaceId: unknown): SandboxViolation[] =>
+    ownsWorkspace(deps, e.sender.id, workspaceId)
+      ? (deps.violations?.list(deps.sandboxes.owner(workspaceId)) ?? [])
+      : [],
+  )
+  ipcMain.handle('sandbox:clear-violations', (e, workspaceId: unknown): boolean => {
+    if (!ownsWorkspace(deps, e.sender.id, workspaceId)) return false
+    deps.violations?.clear(deps.sandboxes.owner(workspaceId))
+    return true
+  })
   ipcMain.handle(
     'sandbox:set-controls',
     (e, workspaceId: unknown, patch: unknown): WorkspaceSandbox | null => {
@@ -113,11 +212,6 @@ export function registerSandboxIpc(deps: SandboxIpcDeps): void {
       if (!ownsWorkspace(deps, e.sender.id, workspaceId) || !controls) return null
       return deps.sandboxes.update(workspaceId, (c) => ({ ...c, controls }))
     },
-  )
-  ipcMain.handle('sandbox:refusals', (e, workspaceId: unknown): DomainRefusal[] =>
-    ownsWorkspace(deps, e.sender.id, workspaceId)
-      ? (deps.domains?.refusals(workspaceId) ?? [])
-      : [],
   )
   ipcMain.handle('sandbox:allow-refused', (e, workspaceId: unknown, host: unknown): boolean => {
     if (!ownsWorkspace(deps, e.sender.id, workspaceId) || typeof host !== 'string') return false

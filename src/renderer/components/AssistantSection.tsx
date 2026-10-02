@@ -1,18 +1,24 @@
-import { ArrowClockwiseIcon, CopyIcon } from '@phosphor-icons/react'
-import type {
-  AssistExtensionState,
-  AssistFeatureId,
-  AssistFeatureState,
-  AssistModel,
-  AssistModelsResult,
-  AssistUi,
+import { ArrowClockwiseIcon } from '@phosphor-icons/react'
+import {
+  type AssistFeatureId,
+  type AssistFeatureState,
+  type AssistModel,
+  type AssistModelChoice,
+  type AssistModelClass,
+  type AssistModelRef,
+  type AssistModelsResult,
+  type AssistUi,
+  choiceLabel,
+  modelClassOf,
+  modelRefKey,
+  sameModelRef,
 } from '@shared/assist'
 import type { ExtensionInfo } from '@shared/extensions'
 import { PRODUCT_NAME } from '@shared/product'
 import { useCallback, useEffect, useState } from 'react'
 import type { Dict } from '../i18n/dict'
 import { fmt, useDict } from '../i18n/useDict'
-import { toggleAssistFeature } from '../lib/assistFeatures'
+import { featuresInUse, toggleAssistFeature } from '../lib/assistFeatures'
 import { openAssistUi } from '../lib/assistUi'
 import { useChordLabel } from '../lib/chords'
 import { isMac } from '../platform'
@@ -20,6 +26,7 @@ import { useAssistStore } from '../stores/assistStore'
 import { useExtensionsStore } from '../stores/extensionsStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
+import { AssistantProviders } from './AssistantProviders'
 import { ChatToolsSettings } from './ChatToolsSettings'
 import { ExtensionSettingsForm } from './ExtensionSettingsForm'
 import { IconButton } from './IconButton'
@@ -28,9 +35,15 @@ import { Badge } from './ui/badge'
 import { Button } from './ui/button'
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from './ui/empty'
 import { Item, ItemActions, ItemContent, ItemDescription, ItemTitle } from './ui/item'
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+} from './ui/select'
 import { Switch } from './ui/switch'
-
-const COPIED_MS = 1500
 
 interface Chords {
   chat: string | null
@@ -71,44 +84,126 @@ export function isAssistExtension(ext: ExtensionInfo): boolean {
   return ext.assist.length > 0
 }
 
-function Status({ state }: { state: AssistExtensionState }): JSX.Element {
+function offersClass(ext: ExtensionInfo | undefined, modelClass: AssistModelClass): boolean {
+  return ext?.assist.some((point) => modelClassOf(point) === modelClass) ?? false
+}
+
+function groupedChoices(
+  choices: AssistModelChoice[],
+): { group: string; items: AssistModelChoice[] }[] {
+  const out: { group: string; items: AssistModelChoice[] }[] = []
+  for (const choice of choices) {
+    const last = out.find((g) => g.group === choice.group)
+    if (last) last.items.push(choice)
+    else out.push({ group: choice.group, items: [choice] })
+  }
+  return out
+}
+
+function ModelField({
+  modelClass,
+  label,
+}: {
+  modelClass: AssistModelClass
+  label: string
+}): JSX.Element {
   const d = useDict()
-  const ready = state.features.some((f) => f.on && f.ready)
-  const problem = state.setup ? (d.assistMenu.setup[state.setup] ?? null) : null
-  const error =
-    problem ?? (state.lastError ? fmt(d.assistMenu.lastError, { error: state.lastError }) : null)
+  const catalog = useAssistStore((s) => s.catalog)
+  const list = useExtensionsStore((s) => s.list)
+  const choices = catalog.models.filter((choice) =>
+    offersClass(
+      list.find((e) => e.id === choice.ref.extId),
+      modelClass,
+    ),
+  )
+  const selected = catalog[modelClass]
+  const wanted = useSettingsStore((s) =>
+    modelClass === 'chat' ? s.assistant.chatModel : s.assistant.fastModel,
+  )
+  const current = choices.find((c) => sameModelRef(c.ref, selected))
+  if (choices.length === 0) {
+    return <span className="text-fg-muted text-ui-sm">{d.assistantSettings.noModelYet}</span>
+  }
+  const shown = current
+    ? choiceLabel(current)
+    : fmt(d.assistantSettings.modelGone, { model: wanted?.model ?? wanted?.extId ?? '' })
+  const pick = (key: string): void => {
+    const ref: AssistModelRef | undefined = choices.find((c) => modelRefKey(c.ref) === key)?.ref
+    if (!ref) return
+    void useSettingsStore
+      .getState()
+      .setAssistModels(modelClass === 'chat' ? { chatModel: ref } : { fastModel: ref })
+  }
   return (
-    <ControlRow label={d.assistantSettings.status} desc={state.label} error={error}>
-      <output className="text-fg-muted text-ui-sm">
-        {ready ? d.assistMenu.ready : d.assistMenu.notReady}
-      </output>
-    </ControlRow>
+    <Select
+      value={current ? modelRefKey(current.ref) : null}
+      onValueChange={(v) => pick(v as string)}
+    >
+      <SelectTrigger
+        size="sm"
+        aria-label={label}
+        aria-invalid={current ? undefined : true}
+        className="w-fit min-w-44 max-w-80"
+      >
+        <span className="min-w-0 truncate">{shown}</span>
+      </SelectTrigger>
+      <SelectContent>
+        {groupedChoices(choices).map(({ group, items }) => (
+          <SelectGroup key={group}>
+            <SelectLabel>{group}</SelectLabel>
+            {items.map((choice) => (
+              <SelectItem key={modelRefKey(choice.ref)} value={modelRefKey(choice.ref)}>
+                {choice.label}
+              </SelectItem>
+            ))}
+          </SelectGroup>
+        ))}
+      </SelectContent>
+    </Select>
+  )
+}
+
+function ModelsInUse(): JSX.Element {
+  const d = useDict()
+  const t = d.assistantSettings
+  return (
+    <SettingsGroup title={t.inUseTitle} desc={t.inUseDesc}>
+      <ControlRow label={t.chatModel} desc={t.chatModelDesc}>
+        <ModelField modelClass="chat" label={t.chatModel} />
+      </ControlRow>
+      <ControlRow label={t.fastModel} desc={t.fastModelDesc}>
+        <ModelField modelClass="fast" label={t.fastModel} />
+      </ControlRow>
+    </SettingsGroup>
   )
 }
 
 function FeatureRow({
   extId,
   feature,
+  model,
   keys,
 }: {
   extId: string
   feature: AssistFeatureState
+  model: string
   keys: Chords
 }): JSX.Element {
   const d = useDict()
   const name = d.assistMenu.feature[feature.id] ?? feature.id
-  const hints = featureHints(d, feature.id, keys)
+  const hints = [
+    fmt(d.assistantSettings.featureModel, { model }),
+    ...featureHints(d, feature.id, keys),
+  ]
   const ui = TRY_UI[feature.id]
   return (
-    <div className="flex items-start justify-between gap-6 py-1.5">
+    <div className="flex items-start justify-between gap-6 py-1.5" data-feature={feature.id}>
       <div className="min-w-0">
         <div className="text-fg text-ui-base">{name}</div>
         <p className="mt-0.5 text-fg-muted text-ui-sm">
           {d.assistantSettings.featureDesc[feature.id]}
         </p>
-        {hints.length > 0 ? (
-          <p className="mt-0.5 text-fg-muted text-ui-xs">{hints.join(' · ')}</p>
-        ) : null}
+        <p className="mt-0.5 text-fg-muted text-ui-xs">{hints.join(' · ')}</p>
       </div>
       <div className="flex shrink-0 items-center gap-2">
         {feature.on && !feature.ready ? (
@@ -120,7 +215,7 @@ function FeatureRow({
             size="sm"
             aria-label={fmt(d.assistantSettings.tryLabel, { feature: name })}
             onClick={() => {
-              useUIStore.getState().leaveSettings()
+              useUIStore.getState().showWorkspaces()
               openAssistUi({ extId, ui })
             }}
           >
@@ -137,20 +232,32 @@ function FeatureRow({
   )
 }
 
-function Features({ state, chat }: { state: AssistExtensionState; chat: boolean }): JSX.Element {
+function Features({ chat }: { chat: boolean }): JSX.Element {
   const d = useDict()
+  const overview = useAssistStore((s) => s.overview)
+  const catalog = useAssistStore((s) => s.catalog)
   const history = useSettingsStore((s) => s.assistant.chatHistory)
   const keys: Chords = {
     chat: useChordLabel('assist.chat', isMac),
     ask: useChordLabel('palette.toggle', isMac),
     compose: useChordLabel('assist.compose', isMac),
   }
+  const rows = featuresInUse({ overview, catalog })
   return (
     <SettingsGroup title={d.assistantSettings.features}>
-      <Status state={state} />
-      {state.features.map((feature) => (
-        <FeatureRow key={feature.id} extId={state.extId} feature={feature} keys={keys} />
-      ))}
+      {rows.length === 0 ? (
+        <p className="text-fg-muted text-ui-sm">{d.assistantSettings.featuresNeedModel}</p>
+      ) : (
+        rows.map((row) => (
+          <FeatureRow
+            key={row.feature.id}
+            extId={row.extId}
+            feature={row.feature}
+            model={row.model}
+            keys={keys}
+          />
+        ))
+      )}
       {chat ? (
         <ToggleRow
           label={d.chat.saveHistory}
@@ -178,20 +285,14 @@ function modelState(d: Dict, model: AssistModel): string {
 
 function ModelRow({
   model,
-  lifecycle,
   inUse,
   pending,
-  copied,
   onLifecycle,
-  onCopy,
 }: {
   model: AssistModel
-  lifecycle: boolean
   inUse: boolean
   pending: string | null
-  copied: boolean
   onLifecycle: () => void
-  onCopy: () => void
 }): JSX.Element {
   const d = useDict()
   const t = d.assistantSettings
@@ -206,11 +307,9 @@ function ModelRow({
             </Badge>
           ) : null}
         </ItemTitle>
-        {model.name || lifecycle ? (
-          <ItemDescription className="text-fg-muted text-ui-xs">
-            {[model.name, lifecycle ? modelState(d, model) : null].filter(Boolean).join(' · ')}
-          </ItemDescription>
-        ) : null}
+        <ItemDescription className="text-fg-muted text-ui-xs">
+          {[model.name, modelState(d, model)].filter(Boolean).join(' · ')}
+        </ItemDescription>
         {model.description ? (
           <ItemDescription className="text-fg-muted text-ui-xs">
             {model.description}
@@ -218,62 +317,58 @@ function ModelRow({
         ) : null}
       </ItemContent>
       <ItemActions>
-        {lifecycle ? (
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={pending !== null || model.installed === false || model.busy === true}
-            aria-busy={pending === model.id || undefined}
-            onClick={onLifecycle}
-          >
-            {pending === model.id ? t.working : model.loaded ? t.unload : t.load}
-          </Button>
-        ) : copied ? (
-          <output className="text-fg-muted text-ui-xs">{t.copied}</output>
-        ) : (
-          <IconButton icon={CopyIcon} label={fmt(t.copy, { id: model.id })} onClick={onCopy} />
-        )}
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={pending !== null || model.installed === false || model.busy === true}
+          aria-busy={pending === model.id || undefined}
+          onClick={onLifecycle}
+        >
+          {pending === model.id ? t.working : model.loaded ? t.unload : t.load}
+        </Button>
       </ItemActions>
     </Item>
   )
 }
 
-function Models({ ext }: { ext: ExtensionInfo }): JSX.Element {
+function LifecycleModels({
+  extId,
+  providerId,
+  name,
+}: {
+  extId: string
+  providerId: string
+  name: string
+}): JSX.Element {
   const d = useDict()
   const t = d.assistantSettings
+  const catalog = useAssistStore((s) => s.catalog)
   const [result, setResult] = useState<AssistModelsResult | null>(null)
   const [pending, setPending] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [copied, setCopied] = useState<string | null>(null)
   const refresh = useCallback(async () => {
-    setResult(await window.pine.assist.models(ext.id))
-  }, [ext.id])
+    setResult(await window.pine.assist.models(extId, providerId))
+  }, [extId, providerId])
   useEffect(() => {
     void refresh()
   }, [refresh])
-  useEffect(() => {
-    if (!copied) return
-    const timer = setTimeout(() => setCopied(null), COPIED_MS)
-    return () => clearTimeout(timer)
-  }, [copied])
   const inUse = new Set(
-    [ext.settingValues.fastModel, ext.settingValues.chatModel].filter(
-      (v): v is string => typeof v === 'string' && v !== '',
-    ),
+    [catalog.chat, catalog.fast]
+      .filter((ref) => ref?.extId === extId && ref.provider === providerId)
+      .map((ref) => ref?.model),
   )
-  const lifecycle = result?.ok === true && result.lifecycle
   const listError = !result ? null : result.ok ? (result.error ?? null) : result.error
   const change = async (model: AssistModel): Promise<void> => {
     setPending(model.id)
-    const res = await window.pine.assist.setModelLoaded(ext.id, model.id, !model.loaded)
+    const res = await window.pine.assist.setModelLoaded(extId, model.id, !model.loaded, providerId)
     setPending(null)
     setError(res.ok ? null : res.error)
     await refresh()
   }
   return (
     <SettingsGroup
-      title={t.models}
-      desc={lifecycle ? t.modelsLifecycleDesc : t.modelsCopyDesc}
+      title={`${t.models}: ${name}`}
+      desc={t.modelsLifecycleDesc}
       action={
         <IconButton icon={ArrowClockwiseIcon} label={t.refresh} onClick={() => void refresh()} />
       }
@@ -286,22 +381,14 @@ function Models({ ext }: { ext: ExtensionInfo }): JSX.Element {
         <p className="text-fg-muted text-ui-sm">{t.noModels}</p>
       ) : null}
       {result?.ok && result.models.length > 0 ? (
-        <ul aria-label={t.models} className="flex flex-col gap-2">
+        <ul aria-label={`${t.models}: ${name}`} className="flex flex-col gap-2">
           {result.models.map((model) => (
             <ModelRow
               key={model.id}
               model={model}
-              lifecycle={result.lifecycle}
               inUse={inUse.has(model.id)}
               pending={pending}
-              copied={copied === model.id}
               onLifecycle={() => void change(model)}
-              onCopy={() =>
-                void navigator.clipboard
-                  ?.writeText(model.id)
-                  .then(() => setCopied(model.id))
-                  .catch(() => undefined)
-              }
             />
           ))}
         </ul>
@@ -319,18 +406,24 @@ function ExtensionGroups({ ext }: { ext: ExtensionInfo }): JSX.Element {
   const d = useDict()
   const state = useAssistStore((s) => s.overview.find((o) => o.extId === ext.id))
   const omit = state?.features.map((f) => f.setting) ?? []
-  const hasProvider = ext.settings.some((s) => !omit.includes(s.key)) || ext.secrets.length > 0
+  const hasOwn = ext.settings.some((s) => !omit.includes(s.key)) || ext.secrets.length > 0
   return (
     <>
-      {state ? <Features state={state} chat={ext.assist.includes('chat')} /> : null}
-      {hasProvider ? (
-        <SettingsGroup title={d.assistantSettings.provider}>
+      {hasOwn ? (
+        <SettingsGroup title={fmt(d.assistantSettings.fromExtension, { name: ext.name })}>
           <ExtensionSettingsForm ext={ext} omit={omit} bare />
         </SettingsGroup>
       ) : null}
-      {state?.models ? (
-        <Models key={`${state.label ?? ''}:${state.setup ?? ''}`} ext={ext} />
-      ) : null}
+      {state?.providers
+        .filter((provider) => provider.lifecycle)
+        .map((provider) => (
+          <LifecycleModels
+            key={`${provider.id}:${provider.setup ?? ''}`}
+            extId={ext.id}
+            providerId={provider.id}
+            name={provider.name}
+          />
+        ))}
     </>
   )
 }
@@ -366,6 +459,9 @@ export function AssistantSection(): JSX.Element {
         </Empty>
       ) : (
         <>
+          <ModelsInUse />
+          <Features chat={chat} />
+          <AssistantProviders />
           {exts.map((ext) => (
             <ExtensionGroups key={ext.id} ext={ext} />
           ))}

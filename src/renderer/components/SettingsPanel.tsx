@@ -10,7 +10,6 @@ import {
   CopyIcon,
   DeviceMobileIcon,
   FileCodeIcon,
-  FolderSimpleIcon,
   GlobeIcon,
   type Icon as IconComponent,
   InfoIcon,
@@ -45,9 +44,11 @@ import { extensionMatchesQuery, withProductName } from '../lib/extensionSettingT
 import { useReducedMotion } from '../lib/motion'
 import { openFileInWorkspace } from '../lib/openFile'
 import {
+  EXTENSIONS_NAV_EXPANDED_KEY,
+  SANDBOX_NAV_EXPANDED_KEY,
   extensionAnchorId,
-  extensionsNavExpanded,
-  rememberExtensionsNavExpanded,
+  navExpanded,
+  rememberNavExpanded,
 } from '../lib/settingsNav'
 import { useEffectiveTheme } from '../lib/theme'
 import { isMac, platform } from '../platform'
@@ -62,7 +63,7 @@ import {
 } from '../settings/terminalPaneSettings'
 import { WINDOW_TITLE_MAX } from '../settings/windowTitle'
 import { useExtensionsStore } from '../stores/extensionsStore'
-import { type LspStatus, usePluginsStore } from '../stores/pluginsStore'
+import { usePluginsStore } from '../stores/pluginsStore'
 import {
   CURSOR_STYLES,
   type CursorStyle,
@@ -92,6 +93,7 @@ import { GatewaySection } from './GatewaySection'
 import { Hint } from './Hint'
 import { IconButton } from './IconButton'
 import { KeyboardSection } from './KeyboardSection'
+import { LanguagesSection } from './LanguagesSection'
 import { ManagerSection } from './ManagerSection'
 import { MarketplaceSection, UninstallExtensionButton } from './MarketplaceSection'
 import { PasswordsSection } from './PasswordsSection'
@@ -148,16 +150,32 @@ interface ExtensionAnchor {
 
 const ANCHOR_HIGHLIGHT_MS = 2000
 const EXTENSIONS_NAV_LIST_ID = 'settings-nav-extensions'
+const SANDBOX_NAV_LIST_ID = 'settings-nav-sandbox'
+const SANDBOX_DEFAULTS_ITEM = ''
+
+interface NavChild {
+  id: string
+  label: string
+  icon: IconComponent | null
+  current: boolean
+}
 
 export function SettingsPanel(): JSX.Element | null {
   const d = useDict()
   const open = useUIStore((s) => s.settingsActive)
-  const close = useUIStore((s) => s.leaveSettings)
+  const close = useUIStore((s) => s.showWorkspaces)
   const [active, setActive] = useState<SectionId>('appearance')
   const requested = useUIStore((s) => s.settingsSection)
   const requestedExtension = useUIStore((s) => s.settingsExtension)
   const extensions = useExtensionsStore((s) => s.list)
-  const [extensionsExpanded, setExtensionsExpanded] = useState(extensionsNavExpanded)
+  const [extensionsExpanded, setExtensionsExpanded] = useState(() =>
+    navExpanded(EXTENSIONS_NAV_EXPANDED_KEY),
+  )
+  const [sandboxExpanded, setSandboxExpanded] = useState(() =>
+    navExpanded(SANDBOX_NAV_EXPANDED_KEY),
+  )
+  const sandboxButtonRef = useRef<HTMLButtonElement>(null)
+  const workspaces = useWorkspacesStore((s) => s.workspaces)
   const [anchor, setAnchor] = useState<ExtensionAnchor | null>(null)
   const extensionsButtonRef = useRef<HTMLButtonElement>(null)
   const [query, setQuery] = useState('')
@@ -168,7 +186,10 @@ export function SettingsPanel(): JSX.Element | null {
   )
 
   useEffect(() => {
-    if (settingsRequest > 0) setActive('workspace')
+    if (settingsRequest === 0) return
+    setActive('workspace')
+    setSandboxExpanded(true)
+    rememberNavExpanded(SANDBOX_NAV_EXPANDED_KEY, true)
   }, [settingsRequest])
   const navRef = useRef<HTMLElement>(null)
 
@@ -211,7 +232,7 @@ export function SettingsPanel(): JSX.Element | null {
         { id: 'editor', icon: FileCodeIcon, label: d.editorSettings.title },
         { id: 'extensions', icon: PuzzlePieceIcon, label: d.settings.extensions },
         { id: 'views', icon: LayoutIcon, label: d.views.title },
-        { id: 'languageServers', icon: BracketsCurlyIcon, label: d.settings.languageServers },
+        { id: 'languageServers', icon: BracketsCurlyIcon, label: d.languageServers.title },
         { id: 'remote', icon: DeviceMobileIcon, label: d.settings.remote },
         { id: 'sync', icon: ArrowsClockwiseIcon, label: d.sync.title },
         { id: 'language', icon: TranslateIcon, label: d.settings.language },
@@ -222,7 +243,21 @@ export function SettingsPanel(): JSX.Element | null {
 
   const expandExtensions = (expanded: boolean): void => {
     setExtensionsExpanded(expanded)
-    rememberExtensionsNavExpanded(expanded)
+    rememberNavExpanded(EXTENSIONS_NAV_EXPANDED_KEY, expanded)
+  }
+
+  const expandSandbox = (expanded: boolean): void => {
+    setSandboxExpanded(expanded)
+    rememberNavExpanded(SANDBOX_NAV_EXPANDED_KEY, expanded)
+  }
+
+  const openSandboxItem = (id: string): void => {
+    if (id === SANDBOX_DEFAULTS_ITEM) {
+      openSection('sandbox')
+      return
+    }
+    useUIStore.setState({ settingsWorkspaceId: id })
+    openSection('workspace')
   }
 
   const openSection = (id: SectionId): void => {
@@ -242,7 +277,7 @@ export function SettingsPanel(): JSX.Element | null {
       if (requested === 'extensions' && requestedExtension) {
         setAnchor((prev) => ({ id: requestedExtension, nonce: (prev?.nonce ?? 0) + 1 }))
         setExtensionsExpanded(true)
-        rememberExtensionsNavExpanded(true)
+        rememberNavExpanded(EXTENSIONS_NAV_EXPANDED_KEY, true)
       } else {
         setAnchor(null)
       }
@@ -259,22 +294,49 @@ export function SettingsPanel(): JSX.Element | null {
   if (!open) return null
 
   const q = query.trim().toLowerCase()
-  const workspaceLabel = targetWorkspace
-    ? fmt(d.sandbox.workspacePage, { name: targetWorkspace.customName ?? targetWorkspace.name })
-    : null
-  const all = workspaceLabel
-    ? [...sections, { id: 'workspace' as const, icon: FolderSimpleIcon, label: workspaceLabel }]
-    : sections
   const matchingExtensions = q ? extensions.filter((e) => extensionMatchesQuery(e, q)) : extensions
+  const sandboxWorkspaces = workspaces
+    .filter((w) => w.kind !== 'manager')
+    .map((w) => ({ id: w.id, name: w.customName ?? w.name }))
+  const matchingWorkspaces = q
+    ? sandboxWorkspaces.filter((w) => w.name.toLowerCase().includes(q))
+    : sandboxWorkspaces
   const visible = q
-    ? all.filter(
+    ? sections.filter(
         (s) =>
           s.label.toLowerCase().includes(q) ||
-          (s.id === 'extensions' && matchingExtensions.length > 0),
+          (s.id === 'extensions' && matchingExtensions.length > 0) ||
+          (s.id === 'sandbox' && matchingWorkspaces.length > 0),
       )
-    : all
+    : sections
   const navExtensions = q ? matchingExtensions : extensions
   const extensionsChildrenShown = navExtensions.length > 0 && (q !== '' || extensionsExpanded)
+  const extensionItems: NavChild[] = navExtensions.map((ext) => ({
+    id: ext.id,
+    label: ext.name,
+    icon: ext.panel?.icon ? extensionIcon(ext.panel.icon) : null,
+    current: active === 'extensions' && anchor?.id === ext.id,
+  }))
+  const sandboxItems: NavChild[] = [
+    ...(q
+      ? []
+      : [
+          {
+            id: SANDBOX_DEFAULTS_ITEM,
+            label: d.sandbox.defaults,
+            icon: null,
+            current: active === 'sandbox',
+          },
+        ]),
+    ...matchingWorkspaces.map((w) => ({
+      id: w.id,
+      label: w.name,
+      icon: null,
+      current: active === 'workspace' && settingsWorkspaceId === w.id,
+    })),
+  ]
+  const sandboxChildrenShown = q ? matchingWorkspaces.length > 0 : sandboxExpanded
+  const inSandbox = active === 'sandbox' || active === 'workspace'
 
   return (
     <section
@@ -298,19 +360,40 @@ export function SettingsPanel(): JSX.Element | null {
             <ul className="flex flex-col gap-0.5 px-2 pb-2">
               {visible.map((s) =>
                 s.id === 'extensions' ? (
-                  <ExtensionsNavItem
+                  <NavDisclosure
                     key={s.id}
                     label={s.label}
                     icon={s.icon}
                     current={active === 'extensions' && !anchor}
-                    extensions={navExtensions}
-                    anchoredId={active === 'extensions' ? (anchor?.id ?? null) : null}
+                    emphasized={active === 'extensions'}
+                    items={extensionItems}
+                    itemCurrent="location"
+                    listId={EXTENSIONS_NAV_LIST_ID}
+                    listLabel={d.settings.extensionsNavList}
                     expanded={extensionsChildrenShown}
                     canToggle={q === '' && extensions.length > 0}
                     buttonRef={extensionsButtonRef}
                     onOpen={() => openSection('extensions')}
                     onToggle={expandExtensions}
-                    onOpenExtension={openExtension}
+                    onOpenItem={openExtension}
+                  />
+                ) : s.id === 'sandbox' ? (
+                  <NavDisclosure
+                    key={s.id}
+                    label={s.label}
+                    icon={s.icon}
+                    current={inSandbox && !sandboxChildrenShown}
+                    emphasized={inSandbox}
+                    items={sandboxItems}
+                    itemCurrent="page"
+                    listId={SANDBOX_NAV_LIST_ID}
+                    listLabel={d.sandbox.navList}
+                    expanded={sandboxChildrenShown}
+                    canToggle={q === ''}
+                    buttonRef={sandboxButtonRef}
+                    onOpen={() => openSection('sandbox')}
+                    onToggle={expandSandbox}
+                    onOpenItem={openSandboxItem}
                   />
                 ) : (
                   <li key={s.id}>
@@ -369,7 +452,7 @@ export function SettingsPanel(): JSX.Element | null {
             {active === 'editor' ? <EditorSettingsSection /> : null}
             {active === 'extensions' ? <ExtensionsPage anchor={anchor} /> : null}
             {active === 'views' ? <ViewsSection /> : null}
-            {active === 'languageServers' ? <LanguageServersSection /> : null}
+            {active === 'languageServers' ? <LanguagesSection /> : null}
             {active === 'remote' ? <GatewaySection /> : null}
             {active === 'sync' ? <SyncSection /> : null}
             {active === 'language' ? <LanguageSection /> : null}
@@ -381,33 +464,37 @@ export function SettingsPanel(): JSX.Element | null {
   )
 }
 
-function ExtensionsNavItem({
+function NavDisclosure({
   label,
   icon: SectionIcon,
   current,
-  extensions,
-  anchoredId,
+  emphasized,
+  items,
+  itemCurrent,
+  listId,
+  listLabel,
   expanded,
   canToggle,
   buttonRef,
   onOpen,
   onToggle,
-  onOpenExtension,
+  onOpenItem,
 }: {
   label: string
   icon: IconComponent
   current: boolean
-  extensions: ExtensionInfo[]
-  anchoredId: string | null
+  emphasized: boolean
+  items: NavChild[]
+  itemCurrent: 'page' | 'location'
+  listId: string
+  listLabel: string
   expanded: boolean
   canToggle: boolean
   buttonRef: React.RefObject<HTMLButtonElement>
   onOpen: () => void
   onToggle: (expanded: boolean) => void
-  onOpenExtension: (id: string) => void
+  onOpenItem: (id: string) => void
 }): JSX.Element {
-  const d = useDict()
-  const emphasized = current || anchoredId !== null
   return (
     <li>
       <div className={cn('flex items-center gap-0.5 rounded-lg', current && 'bg-surface-2')}>
@@ -437,9 +524,9 @@ function ExtensionsNavItem({
         {canToggle ? (
           <IconButton
             icon={CaretRightIcon}
-            label={d.settings.extensionsNavList}
+            label={listLabel}
             aria-expanded={expanded}
-            aria-controls={expanded ? EXTENSIONS_NAV_LIST_ID : undefined}
+            aria-controls={expanded ? listId : undefined}
             onClick={() => onToggle(!expanded)}
             className={cn('mr-1 [&_svg]:transition-transform', expanded && '[&_svg]:rotate-90')}
           />
@@ -447,37 +534,36 @@ function ExtensionsNavItem({
       </div>
       {expanded ? (
         <ul
-          id={EXTENSIONS_NAV_LIST_ID}
-          aria-label={d.settings.extensionsNavList}
+          id={listId}
+          aria-label={listLabel}
           className="mt-0.5 ml-4 flex flex-col gap-0.5 border-line border-l pl-1.5"
         >
-          {extensions.map((ext) => {
-            const ExtIcon = ext.panel?.icon ? extensionIcon(ext.panel.icon) : null
-            const isCurrent = anchoredId === ext.id
+          {items.map((item) => {
+            const ItemIcon = item.icon
             return (
-              <li key={ext.id}>
+              <li key={item.id}>
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => onOpenExtension(ext.id)}
+                  onClick={() => onOpenItem(item.id)}
                   onKeyDown={(e) => {
                     if (e.key === 'ArrowLeft') {
                       e.preventDefault()
                       buttonRef.current?.focus()
                     }
                   }}
-                  aria-current={isCurrent ? 'location' : undefined}
+                  aria-current={item.current ? itemCurrent : undefined}
                   className={cn(
                     'w-full justify-start gap-2 font-normal text-ui-sm',
-                    isCurrent ? 'bg-surface-2 text-fg' : 'text-fg-muted',
+                    item.current ? 'bg-surface-2 text-fg' : 'text-fg-muted',
                   )}
                 >
-                  {ExtIcon ? (
-                    <ExtIcon className={isCurrent ? 'text-fg' : 'text-fg-muted'} />
+                  {ItemIcon ? (
+                    <ItemIcon className={item.current ? 'text-fg' : 'text-fg-muted'} />
                   ) : (
                     <span aria-hidden className="size-4 shrink-0" />
                   )}
-                  <span className="min-w-0 truncate">{ext.name}</span>
+                  <span className="min-w-0 truncate">{item.label}</span>
                 </Button>
               </li>
             )
@@ -1405,7 +1491,7 @@ export function ExtensionsSection({
               id={extensionAnchorId(ext.id)}
               tabIndex={-1}
               aria-label={ext.name}
-              className="relative flex scroll-mt-3 flex-col rounded-sm px-3 py-2 outline-none"
+              className="relative -mx-3 flex scroll-mt-3 flex-col rounded-sm px-3 py-2 outline-none"
             >
               {flash?.id === ext.id ? (
                 <span
@@ -1476,48 +1562,6 @@ export function ExtensionsSection({
           ))}
         </ul>
       )}
-    </section>
-  )
-}
-
-const LSP_DOT: Record<LspStatus, string> = {
-  running: 'ok',
-  installed: 'brand',
-  missing: 'dim',
-  error: 'attn',
-}
-
-function LanguageServersSection(): JSX.Element {
-  const d = useDict()
-  const lsp = usePluginsStore((s) => s.lsp)
-  const load = usePluginsStore((s) => s.load)
-  useEffect(() => {
-    void load()
-  }, [load])
-  const statusLabel = (s: LspStatus): string =>
-    s === 'running'
-      ? d.lspStatus.running
-      : s === 'installed'
-        ? d.lspStatus.available
-        : s === 'error'
-          ? d.lspStatus.error
-          : d.lspStatus.notInstalled
-  return (
-    <section>
-      <SectionHead title={d.settings.languageServers} />
-      <div className="plugins">
-        {lsp.map((e) => (
-          <div key={e.languageId} className="plugin">
-            <span className={`dot plugin-dot ${LSP_DOT[e.status]}`} />
-            <span className="plugin-body">
-              <span className="plugin-name">{e.command}</span>
-              <span className="plugin-meta">
-                {e.languageId} · {statusLabel(e.status)}
-              </span>
-            </span>
-          </div>
-        ))}
-      </div>
     </section>
   )
 }

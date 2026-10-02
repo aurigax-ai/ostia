@@ -1,11 +1,42 @@
 import { findPane } from '../layout/tree'
 import { useLayoutStore } from '../stores/layoutStore'
-import { useWorkspacesStore } from '../stores/workspacesStore'
+import { useSandboxStore } from '../stores/sandboxStore'
+import { type Workspace, useWorkspacesStore } from '../stores/workspacesStore'
+
+export function isAnchored(workspace: Pick<Workspace, 'anchored'>): boolean {
+  return workspace.anchored === true
+}
+
+export function focusedDir(workspaceId: string): string | null {
+  const layout = useLayoutStore.getState().byWorkspace[workspaceId]
+  const cwd = layout ? findPane(layout.root, layout.activePaneId)?.cwd : undefined
+  return cwd?.startsWith('/') ? cwd : null
+}
+
+export function canMoveWorkspace(workspaceId: string): boolean {
+  const workspace = useWorkspacesStore.getState().workspaces.find((w) => w.id === workspaceId)
+  if (!workspace || workspace.kind === 'scratch' || workspace.kind === 'manager') return false
+  return !useSandboxStore.getState().enabled[workspaceId]
+}
+
+export async function moveWorkspaceTo(workspaceId: string, dir: string): Promise<boolean> {
+  if (!canMoveWorkspace(workspaceId)) return false
+  const project = await window.pine.openPath.project(dir, true)
+  if (!project) return false
+  useWorkspacesStore.getState().setProject(workspaceId, project, true)
+  return true
+}
+
+export async function anchorToFocusedPane(workspaceId: string): Promise<boolean> {
+  const dir = focusedDir(workspaceId)
+  return dir ? moveWorkspaceTo(workspaceId, dir) : false
+}
 
 export function focusedDirs(): Map<string, string> {
   const dirs = new Map<string, string>()
   const layouts = useLayoutStore.getState().byWorkspace
   for (const workspace of useWorkspacesStore.getState().workspaces) {
+    if (isAnchored(workspace)) continue
     const layout = layouts[workspace.id]
     const cwd = layout ? findPane(layout.root, layout.activePaneId)?.cwd : undefined
     const dir = cwd ?? (workspace.projectDir ? undefined : workspace.workDir)

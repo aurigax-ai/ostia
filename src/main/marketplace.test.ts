@@ -4,6 +4,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  readdirSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -14,12 +15,14 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { MARKETPLACE_MANIFEST_FILE } from '../shared/marketplace'
 import {
   EXTENSION_MAX_FILES,
+  GitError,
   type GitRunner,
   Marketplace,
   marketplaceId,
   normalizeMarketplaceUrl,
   parseMarketplaceManifest,
   planCopy,
+  runGit,
 } from './marketplace'
 
 const dirs: string[] = []
@@ -111,7 +114,9 @@ interface Harness {
   reopen: () => Marketplace
 }
 
-function harness(opts: { builtinIds?: string[]; git?: GitRunner } = {}): Harness {
+function harness(
+  opts: { builtinIds?: string[]; git?: GitRunner; locale?: () => string } = {},
+): Harness {
   const data = tmp()
   const extensionsDir = join(data, 'extensions')
   mkdirSync(extensionsDir)
@@ -129,6 +134,7 @@ function harness(opts: { builtinIds?: string[]; git?: GitRunner } = {}): Harness
         rescans++
       },
       gitMissing: () => false,
+      ...(opts.locale ? { locale: opts.locale } : {}),
       ...(opts.git ? { git: opts.git } : {}),
     })
   return {
@@ -242,6 +248,14 @@ describe('planCopy', () => {
     expect(planCopy(dir)).toEqual({ ok: false, error: 'invalid-extension' })
   })
 
+  it('takes an extension that ships a language server with thousands of small files', () => {
+    const dir = tmp()
+    mkdirSync(join(dir, 'server', 'stubs'), { recursive: true })
+    for (let i = 0; i < 5500; i++) writeFileSync(join(dir, 'server', 'stubs', `s${i}.pyi`), '')
+    const plan = planCopy(dir)
+    expect(plan.ok && plan.files.length).toBe(5500)
+  })
+
   it('refuses a folder with too many files', () => {
     const dir = tmp()
     for (let i = 0; i <= EXTENSION_MAX_FILES; i++) writeFileSync(join(dir, `f${i}`), '')
@@ -345,6 +359,32 @@ describe('Marketplace', () => {
       'extensions/broken: missing name',
       'extensions/missing: not a folder in the repository',
     ])
+  })
+
+  it('lists an extension in the language when it ships a catalog, and installs the catalog with it', async () => {
+    const repo = marketplaceRepo()
+    writeExtension(repo, 'extensions/weather', { ...weather('1.0.0'), locales: ['zh-Hant'] })
+    mkdirSync(join(repo, 'extensions/weather/locales'))
+    writeFileSync(
+      join(repo, 'extensions/weather/locales/zh-Hant.json'),
+      JSON.stringify({ manifest: { name: '天氣', description: '顯示天氣' } }),
+    )
+    commit(repo)
+    let locale = 'zh-Hant'
+    const h = harness({ locale: () => locale })
+    const { state } = await h.marketplace.add(repo)
+    expect(state.marketplaces[0]?.extensions[0]).toMatchObject({
+      id: 'weather',
+      name: '天氣',
+      description: '顯示天氣',
+    })
+    locale = 'en'
+    expect(h.marketplace.state().marketplaces[0]?.extensions[0]).toMatchObject({
+      name: 'Weather',
+      description: 'Shows the weather',
+    })
+    await h.marketplace.install(state.marketplaces[0]?.id, 'weather')
+    expect(existsSync(join(h.extensionsDir, 'weather', 'locales', 'zh-Hant.json'))).toBe(true)
   })
 
   it('installs an extension into the extensions folder and asks the host to rescan', async () => {
@@ -456,6 +496,139 @@ describe('Marketplace', () => {
     expect((await h.marketplace.uninstall('weather')).ok).toBe(true)
   })
 
+  it('lists the editor languages each offered extension’s language servers cover', async () => {
+    const repo = marketplaceRepo()
+    writeExtension(repo, 'extensions/gleam', {
+      id: 'gleam',
+      name: 'Gleam',
+      version: '1.0.0',
+      api: '1.0',
+      capabilities: ['language-server'],
+      contributes: {
+        languageServers: [
+          { id: 'a', name: 'A', languages: ['gleam', 'toml'], run: { program: 'gleam' } },
+          { id: 'b', name: 'B', languages: ['toml'], run: { program: 'taplo' } },
+        ],
+      },
+    })
+    writeFileSync(
+      join(repo, MARKETPLACE_MANIFEST_FILE),
+      JSON.stringify({ name: 'Test', extensions: ['extensions/weather', 'extensions/gleam'] }),
+    )
+    commit(repo)
+    const h = harness()
+    expect(h.marketplace.languageListings()).toEqual([])
+    await h.marketplace.add(repo)
+    const id = marketplaceId(repo)
+    expect(h.marketplace.languageListings()).toEqual([
+      { marketplaceId: id, extId: 'weather', name: 'Weather', languages: [] },
+      { marketplaceId: id, extId: 'gleam', name: 'Gleam', languages: ['gleam', 'toml'] },
+    ])
+    await h.marketplace.remove(id)
+    expect(h.marketplace.languageListings()).toEqual([])
+  })
+
+  it('installs a suggested extension from a marketplace that already lists it', async () => {
+    const repo = marketplaceRepo()
+    const clones: string[] = []
+    const h = harness({
+      git: async (args) => {
+        clones.push(args[args.length - 2])
+        await runGit(args)
+      },
+    })
+    await h.marketplace.add(repo)
+    const res = await h.marketplace.installSuggested('weather', 'aurigax-ai/pine-extensions', false)
+    expect(res.ok).toBe(true)
+    expect(existsSync(join(h.extensionsDir, 'weather', 'pine.json'))).toBe(true)
+    expect(clones).toEqual([repo])
+    expect(h.forgotten).toEqual(['weather'])
+  })
+
+  it('adds the official marketplace first when no marketplace lists the suggested extension', async () => {
+    const official = marketplaceRepo()
+    const cloned: string[] = []
+    const h = harness({
+      git: async (args) => {
+        cloned.push(args[args.length - 2])
+        await runGit([...args.slice(0, -2), official, args[args.length - 1]])
+      },
+    })
+    const res = await h.marketplace.installSuggested('weather', 'aurigax-ai/pine-extensions', false)
+    expect(res.ok).toBe(true)
+    expect(cloned).toEqual(['https://github.com/aurigax-ai/pine-extensions.git'])
+    expect(res.state.marketplaces.map((m) => m.url)).toEqual([
+      'https://github.com/aurigax-ai/pine-extensions.git',
+    ])
+    expect(existsSync(join(h.extensionsDir, 'weather', 'pine.json'))).toBe(true)
+  })
+
+  it('takes an extension the app itself suggests only from the official marketplace', async () => {
+    const squatter = marketplaceRepo()
+    const official = tmp()
+    git(official, 'init', '-b', 'main')
+    writeExtension(official, 'extensions/weather', {
+      ...weather('2.0.0'),
+      name: 'Official weather',
+    })
+    writeFileSync(
+      join(official, MARKETPLACE_MANIFEST_FILE),
+      JSON.stringify({ name: 'Official', extensions: ['extensions/weather'] }),
+    )
+    commit(official)
+    const h = harness({
+      git: async (args) => {
+        const url = args[args.length - 2]
+        await runGit([
+          ...args.slice(0, -2),
+          url === squatter ? squatter : official,
+          args[args.length - 1],
+        ])
+      },
+    })
+    await h.marketplace.add(squatter)
+    const res = await h.marketplace.installSuggested('weather', 'aurigax-ai/pine-extensions', true)
+    expect(res.ok).toBe(true)
+    expect(res.state.marketplaces).toHaveLength(2)
+    expect(
+      JSON.parse(readFileSync(join(h.extensionsDir, 'weather', 'pine.json'), 'utf8')).name,
+    ).toBe('Official weather')
+  })
+
+  it('installs nothing when the official marketplace does not have the extension or cannot be fetched', async () => {
+    const official = marketplaceRepo()
+    const h = harness({
+      git: async (args) => runGit([...args.slice(0, -2), official, args[args.length - 1]]),
+    })
+    expect(
+      await h.marketplace.installSuggested('nope', 'aurigax-ai/pine-extensions', false),
+    ).toMatchObject({
+      ok: false,
+      error: 'unknown-extension',
+    })
+    expect(
+      await h.marketplace.installSuggested('nope', 'aurigax-ai/pine-extensions', false),
+    ).toMatchObject({
+      ok: false,
+      error: 'unknown-extension',
+    })
+    expect(
+      await h.marketplace.installSuggested('../x', 'aurigax-ai/pine-extensions', false),
+    ).toMatchObject({
+      ok: false,
+      error: 'unknown-extension',
+    })
+    const offline = harness({
+      git: async () => {
+        throw new GitError('clone-failed', 'could not resolve host')
+      },
+    })
+    expect(
+      await offline.marketplace.installSuggested('weather', 'aurigax-ai/pine-extensions', false),
+    ).toMatchObject({ ok: false, error: 'clone-failed' })
+    expect(readdirSync(offline.extensionsDir)).toEqual([])
+  })
+
   it('never sends an unlisted extension to the window, only that the marketplace has some', async () => {
     const h = harness()
     const { state } = await h.marketplace.add(repoWithUnlisted())
@@ -517,5 +690,17 @@ describe('Marketplace', () => {
     expect(readFileSync(join(h.extensionsDir, 'tides', 'main.js'), 'utf8')).toContain('1.1.0')
     const removed = await h.marketplace.uninstall('tides')
     expect(removed.state.marketplaces[0]?.extensions.map((e) => e.id)).toEqual(['weather'])
+  })
+
+  it('keeps an unlisted extension out of the language listings and the suggested install', async () => {
+    const h = harness()
+    const { state } = await h.marketplace.add(repoWithUnlisted())
+    expect(h.marketplace.languageListings().map((l) => l.extId)).toEqual(['weather'])
+    const url = state.marketplaces[0]?.url ?? ''
+    expect(await h.marketplace.installSuggested('tides', url, true)).toMatchObject({
+      ok: false,
+      error: 'unknown-extension',
+    })
+    expect(existsSync(join(h.extensionsDir, 'tides'))).toBe(false)
   })
 })

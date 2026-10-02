@@ -1,4 +1,5 @@
 import { CHAT_TOOL_NAME_PATTERN } from './assist'
+import type { ChatEdit } from './chatEdits'
 import { isSkillPath } from './managerSettings'
 import { isDangerousSegment } from './protoGuard'
 
@@ -10,6 +11,7 @@ export const BUILTIN_CHAT_TOOLS = [
   'git_status',
   'load_skill',
   'propose_command',
+  'edit_file',
   'write_file',
   'open_file',
   'open_url',
@@ -17,7 +19,7 @@ export const BUILTIN_CHAT_TOOLS = [
 
 export type BuiltinChatTool = (typeof BUILTIN_CHAT_TOOLS)[number]
 
-export type ChatToolAccess = 'read' | 'act' | 'confirm'
+export type ChatToolAccess = 'read' | 'act' | 'write' | 'command'
 
 export const BUILTIN_TOOL_ACCESS: Readonly<Record<BuiltinChatTool, ChatToolAccess>> = {
   read_file: 'read',
@@ -26,8 +28,9 @@ export const BUILTIN_TOOL_ACCESS: Readonly<Record<BuiltinChatTool, ChatToolAcces
   terminal_context: 'read',
   git_status: 'read',
   load_skill: 'read',
-  propose_command: 'confirm',
-  write_file: 'confirm',
+  propose_command: 'command',
+  edit_file: 'write',
+  write_file: 'write',
   open_file: 'act',
   open_url: 'act',
 }
@@ -212,8 +215,21 @@ export type ChatFsError =
   | 'binary'
   | 'invalid'
   | 'failed'
+  | 'changed'
+  | 'through-symlink'
+  | 'no-match'
+  | 'ambiguous'
+  | 'no-change'
 
-export type ChatFsResult<T> = ({ ok: true } & T) | { ok: false; error: ChatFsError; path?: string }
+export interface ChatFsFailure {
+  ok: false
+  error: ChatFsError
+  path?: string
+  edit?: number
+  count?: number
+}
+
+export type ChatFsResult<T> = ({ ok: true } & T) | ChatFsFailure
 
 export interface ChatFsTarget {
   path: string
@@ -233,6 +249,7 @@ export interface ChatReadOutput {
   endLine: number
   totalLines: number
   truncated: boolean
+  version: string
 }
 
 export interface ChatDirEntry {
@@ -267,16 +284,50 @@ export interface ChatPreviewOutput {
   path: string
   exists: boolean
   text: string
+  version: string | null
+  outside: boolean
+  symlink: boolean
+}
+
+export interface ChatPlanRequest {
+  path: string
+  root: string
+  edits: ChatEdit[]
+  outside: boolean
+}
+
+export interface ChatPlanOutput {
+  path: string
+  before: string
+  after: string
+  version: string
+  outside: boolean
+  symlink: boolean
 }
 
 export interface ChatWriteRequest extends ChatFsTarget {
+  symlinks: boolean
   content: string
+  base: string | null
 }
 
 export interface ChatWriteOutput {
   path: string
   created: boolean
   bytes: number
+  version: string
+}
+
+export interface ChatUndoRequest extends ChatFsTarget {
+  symlinks: boolean
+  wrote: string
+  restore: string | null
+}
+
+export interface ChatUndoOutput {
+  path: string
+  removed: boolean
+  version: string | null
 }
 
 export type McpCallResult = { ok: true; output: string } | { ok: false; error: string }
@@ -291,8 +342,10 @@ export interface ChatToolsApi {
   read: (req: ChatReadRequest) => Promise<ChatFsResult<ChatReadOutput>>
   list: (req: ChatFsTarget) => Promise<ChatFsResult<ChatListOutput>>
   search: (req: ChatSearchRequest) => Promise<ChatFsResult<ChatSearchOutput>>
-  preview: (req: ChatFsTarget) => Promise<ChatFsResult<ChatPreviewOutput>>
+  preview: (req: Omit<ChatFsTarget, 'outside'>) => Promise<ChatFsResult<ChatPreviewOutput>>
+  plan: (req: ChatPlanRequest) => Promise<ChatFsResult<ChatPlanOutput>>
   write: (req: ChatWriteRequest) => Promise<ChatFsResult<ChatWriteOutput>>
+  undo: (req: ChatUndoRequest) => Promise<ChatFsResult<ChatUndoOutput>>
   skills: () => Promise<SkillSummary[]>
   loadSkill: (name: string) => Promise<SkillLoadResult>
   mcpStatus: () => Promise<McpServerStatus[]>

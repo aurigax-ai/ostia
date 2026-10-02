@@ -10,7 +10,10 @@ vi.mock('./bus', () => ({ postBusMessage: vi.fn(() => 'msg-1') }))
 const { postBusMessage } = await import('./bus')
 const { writeSelectionReport } = await import('./selectionReport')
 const { SELECTION_IMAGE_MAX } = await import('../shared/selection')
-const { registerPane, removePane } = await import('./idRegistry')
+const { getByPaneId, registerPane, removePane } = await import('./idRegistry')
+
+const sameWindow = (sender: string, _source: string, target: string): boolean =>
+  getByPaneId(target)?.windowId === sender
 
 const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3])
 const AT = new Date('2026-09-29T10:00:00.000Z')
@@ -62,7 +65,7 @@ afterEach(() => {
 
 describe('writeSelectionReport', () => {
   it('writes a private text report with the file, range, selection and note', () => {
-    const res = writeSelectionReport(request(), 'w1', AT)
+    const res = writeSelectionReport(request(), 'w1', sameWindow, AT)
     if (!res.ok) throw new Error(res.error)
     expect(res.path).toMatch(/pine-reports-\d+\/selection-\d+\.md$/)
     expect(res.imagePath).toBeNull()
@@ -76,7 +79,7 @@ describe('writeSelectionReport', () => {
   })
 
   it('posts a selection bus message from the source pane to the target pane', () => {
-    const res = writeSelectionReport(request(), 'w1', AT)
+    const res = writeSelectionReport(request(), 'w1', sameWindow, AT)
     if (!res.ok) throw new Error(res.error)
     const [from, to, text] = vi.mocked(postBusMessage).mock.calls[0]
     expect(from).not.toBe(to)
@@ -90,7 +93,12 @@ describe('writeSelectionReport', () => {
   })
 
   it('saves the PNG next to the report and references it', () => {
-    const res = writeSelectionReport(request({ capture: imageCapture, image: PNG }), 'w1', AT)
+    const res = writeSelectionReport(
+      request({ capture: imageCapture, image: PNG }),
+      'w1',
+      sameWindow,
+      AT,
+    )
     if (!res.ok) throw new Error(res.error)
     expect(res.imagePath).toBe(res.path.replace(/\.md$/, '.png'))
     expect([...readFileSync(res.imagePath as string)]).toEqual([...PNG])
@@ -101,41 +109,81 @@ describe('writeSelectionReport', () => {
   })
 
   it('numbers reports so a second one never overwrites the first', () => {
-    const a = writeSelectionReport(request({ capture: imageCapture, image: PNG }), 'w1', AT)
-    const b = writeSelectionReport(request({ capture: imageCapture, image: PNG }), 'w1', AT)
+    const a = writeSelectionReport(
+      request({ capture: imageCapture, image: PNG }),
+      'w1',
+      sameWindow,
+      AT,
+    )
+    const b = writeSelectionReport(
+      request({ capture: imageCapture, image: PNG }),
+      'w1',
+      sameWindow,
+      AT,
+    )
     if (!a.ok || !b.ok) throw new Error('write failed')
     expect(a.path).not.toBe(b.path)
     expect(a.imagePath).not.toBe(b.imagePath)
     expect(existsSync(a.imagePath as string)).toBe(true)
   })
 
+  it('refuses a target the sender cannot reach', () => {
+    const res = writeSelectionReport(request(), 'w1', () => false, AT)
+
+    expect(res).toEqual({ ok: false, error: 'not-found' })
+    expect(postBusMessage).not.toHaveBeenCalled()
+  })
+
+  it('writes the report for a target in another window that the sender reaches', () => {
+    registerPane({ windowId: 'w9', workspaceId: 's9', paneId: 'agent-9' })
+    const asked: string[][] = []
+    const res = writeSelectionReport(
+      request({ targetPaneId: 'agent-9' }),
+      'w1',
+      (...args) => {
+        asked.push(args)
+        return true
+      },
+      AT,
+    )
+    removePane('agent-9')
+
+    expect(res.ok).toBe(true)
+    expect(asked).toEqual([['w1', 'editor-1', 'agent-9']])
+  })
+
   it('refuses a sender window that does not own the source pane', () => {
-    expect(writeSelectionReport(request(), 'w2', AT)).toEqual({ ok: false, error: 'not-found' })
+    expect(writeSelectionReport(request(), 'w2', sameWindow, AT)).toEqual({
+      ok: false,
+      error: 'not-found',
+    })
   })
 
   it('refuses an unknown target pane', () => {
-    expect(writeSelectionReport(request({ targetPaneId: 'ghost' }), 'w1', AT)).toEqual({
+    expect(writeSelectionReport(request({ targetPaneId: 'ghost' }), 'w1', sameWindow, AT)).toEqual({
       ok: false,
       error: 'not-found',
     })
   })
 
   it('refuses an image capture without PNG bytes', () => {
-    expect(writeSelectionReport(request({ capture: imageCapture }), 'w1', AT)).toEqual({
+    expect(writeSelectionReport(request({ capture: imageCapture }), 'w1', sameWindow, AT)).toEqual({
       ok: false,
       error: 'invalid',
     })
     const jpeg = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 0, 0, 0, 0])
-    expect(writeSelectionReport(request({ capture: imageCapture, image: jpeg }), 'w1', AT)).toEqual(
-      { ok: false, error: 'invalid' },
-    )
+    expect(
+      writeSelectionReport(request({ capture: imageCapture, image: jpeg }), 'w1', sameWindow, AT),
+    ).toEqual({ ok: false, error: 'invalid' })
     expect(postBusMessage).not.toHaveBeenCalled()
   })
 
   it('refuses an image over the size cap', () => {
     const big = new Uint8Array(SELECTION_IMAGE_MAX + 1)
     big.set(PNG.subarray(0, 8))
-    expect(writeSelectionReport(request({ capture: imageCapture, image: big }), 'w1', AT)).toEqual({
+    expect(
+      writeSelectionReport(request({ capture: imageCapture, image: big }), 'w1', sameWindow, AT),
+    ).toEqual({
       ok: false,
       error: 'image-too-large',
     })
@@ -143,7 +191,7 @@ describe('writeSelectionReport', () => {
 
   it('refuses a malformed capture', () => {
     const bad = { ...textCapture, file: 'relative/path.ts' } as SelectionCapture
-    expect(writeSelectionReport(request({ capture: bad }), 'w1', AT)).toEqual({
+    expect(writeSelectionReport(request({ capture: bad }), 'w1', sameWindow, AT)).toEqual({
       ok: false,
       error: 'invalid',
     })

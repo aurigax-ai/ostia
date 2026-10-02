@@ -1,22 +1,15 @@
-import {
-  copyFileSync,
-  existsSync,
-  mkdirSync,
-  readdirSync,
-  rmSync,
-  statSync,
-  writeFileSync,
-} from 'node:fs'
+import { readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { build } from 'esbuild'
+import { buildExtension } from '../marketplace-package/build-extension.mjs'
 import { writeFigSpecs } from './completionSpecs.mjs'
 import { marketplaceIds } from './marketplace.mjs'
 
 const srcRoot = 'src/extensions'
 const builtinRoot = 'out/extensions'
 const published = marketplaceIds()
-const assets = ['pine.json', 'panel.html', 'panel.css']
+const panelBaseCss = join(srcRoot, 'sdk/panel.css')
 
 async function writeCatalog(exportName, file) {
   const bundle = resolve(builtinRoot, 'dict-build.mjs')
@@ -41,37 +34,8 @@ const ids = readdirSync(srcRoot).filter(
 )
 
 for (const id of ids) {
-  const src = join(srcRoot, id)
   const out = join(builtinRoot, id)
-  mkdirSync(out, { recursive: true })
-  for (const file of assets) {
-    if (existsSync(join(src, file))) copyFileSync(join(src, file), join(out, file))
-  }
-  if (existsSync(join(src, 'panel.html')))
-    copyFileSync(join(srcRoot, 'sdk/panel.css'), join(out, 'base.css'))
-  if (existsSync(join(src, 'main.ts'))) {
-    await build({
-      entryPoints: [join(src, 'main.ts')],
-      outfile: join(out, 'main.js'),
-      bundle: true,
-      platform: 'node',
-      format: 'cjs',
-      target: 'node20',
-      logLevel: 'warning',
-    })
-  }
-  if (existsSync(join(src, 'panel.ts'))) {
-    await build({
-      entryPoints: [join(src, 'panel.ts')],
-      outfile: join(out, 'panel.js'),
-      bundle: true,
-      platform: 'browser',
-      format: 'iife',
-      target: 'chrome120',
-      loader: { '.svg': 'text' },
-      logLevel: 'warning',
-    })
-  }
+  await buildExtension(join(srcRoot, id), out, panelBaseCss)
   if (id === 'completions') await writeFigSpecs(join(out, 'specs'))
   if (id === 'langpack-zh-hant') await writeCatalog('zhHant', join(out, 'zh-Hant.json'))
 }

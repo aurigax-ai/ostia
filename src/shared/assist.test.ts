@@ -1,11 +1,18 @@
 import { describe, expect, it } from 'vitest'
 import {
+  ASSIST_PROVIDERS_MAX,
   CHAT_CONTEXT_TEXT_MAX,
   CHAT_TOOL_OUTPUT_MAX,
   COMPLETION_PREFIX_MAX,
   normalizeAssistRequest,
   normalizeAssistResult,
   normalizeAssistStatus,
+  normalizeChatContextItem,
+  normalizeModelRef,
+  normalizeProviderKinds,
+  normalizeProviderStates,
+  parseAssistModelSettings,
+  sameModelRef,
 } from './assist'
 
 describe('normalizeAssistRequest', () => {
@@ -156,5 +163,206 @@ describe('normalizeAssistStatus', () => {
     expect(normalizeAssistStatus({ chat: { ready: true, tools: true } })).toEqual({
       chat: { ready: true },
     })
+  })
+})
+
+describe('parseAssistModelSettings', () => {
+  const ollama = {
+    id: 'ollama',
+    extId: 'assistant',
+    kind: 'ollama',
+    name: 'Ollama',
+    baseUrl: '',
+    enabled: true,
+    models: ['qwen'],
+  }
+
+  it('is empty for missing or malformed settings', () => {
+    for (const raw of [undefined, null, 'x', [], { providers: 'ollama' }]) {
+      expect(parseAssistModelSettings(raw)).toEqual({
+        providers: [],
+        fastModel: null,
+        chatModel: null,
+      })
+    }
+  })
+
+  it('keeps several providers with their own address, switch and models', () => {
+    const settings = parseAssistModelSettings({
+      providers: [
+        ollama,
+        {
+          id: 'openai-2',
+          extId: 'assistant',
+          kind: 'openai',
+          name: '  Work OpenAI  ',
+          baseUrl: ' https://proxy.example/v1 ',
+          enabled: false,
+          models: ['gpt-a', ' gpt-b ', 'gpt-a', '', 7],
+        },
+      ],
+      chatModel: { extId: 'assistant', provider: 'openai-2', model: 'gpt-a' },
+      fastModel: { extId: 'model-runtime', provider: 'model-runtime', model: 'gemma' },
+    })
+    expect(settings.providers).toEqual([
+      ollama,
+      {
+        id: 'openai-2',
+        extId: 'assistant',
+        kind: 'openai',
+        name: 'Work OpenAI',
+        baseUrl: 'https://proxy.example/v1',
+        enabled: false,
+        models: ['gpt-a', 'gpt-b'],
+      },
+    ])
+    expect(settings.chatModel).toEqual({ extId: 'assistant', provider: 'openai-2', model: 'gpt-a' })
+    expect(settings.fastModel).toEqual({
+      extId: 'model-runtime',
+      provider: 'model-runtime',
+      model: 'gemma',
+    })
+  })
+
+  it('drops providers without a usable id, kind or extension, duplicates and anything past the cap', () => {
+    const many = Array.from({ length: ASSIST_PROVIDERS_MAX + 4 }, (_, n) => ({
+      ...ollama,
+      id: `p${n}`,
+    }))
+    const settings = parseAssistModelSettings({
+      providers: [
+        { ...ollama, id: 'Bad Id' },
+        { ...ollama, id: '__proto__' },
+        { ...ollama, kind: 'Has Space' },
+        { ...ollama, extId: '' },
+        { ...ollama, baseUrl: 'x'.repeat(5000) },
+        ollama,
+        { ...ollama, name: 'Duplicate id' },
+        ...many,
+      ],
+    })
+    expect(settings.providers).toHaveLength(ASSIST_PROVIDERS_MAX)
+    expect(settings.providers[0]).toEqual(ollama)
+    expect(settings.providers[1].id).toBe('p0')
+  })
+
+  it('never carries a key, whatever the file says', () => {
+    const settings = parseAssistModelSettings({
+      providers: [{ ...ollama, apiKey: 'sk-in-the-wrong-place', secret: 'x' }],
+    })
+    expect(JSON.stringify(settings)).not.toContain('sk-in-the-wrong-place')
+    expect(Object.keys(settings.providers[0]).sort()).toEqual([
+      'baseUrl',
+      'enabled',
+      'extId',
+      'id',
+      'kind',
+      'models',
+      'name',
+    ])
+  })
+
+  it('reads a model reference to a plain extension or to one provider model', () => {
+    expect(normalizeModelRef({ extId: 'oracle' })).toEqual({ extId: 'oracle' })
+    expect(normalizeModelRef({ extId: 'a', provider: 'p', model: 'm', extra: 1 })).toEqual({
+      extId: 'a',
+      provider: 'p',
+      model: 'm',
+    })
+    expect(normalizeModelRef({ extId: 'a', provider: 'Bad Id', model: 'm' })).toEqual({
+      extId: 'a',
+    })
+    expect(normalizeModelRef({ provider: 'p', model: 'm' })).toBeNull()
+    expect(normalizeModelRef('a/p/m')).toBeNull()
+    expect(sameModelRef({ extId: 'a' }, { extId: 'a' })).toBe(true)
+    expect(sameModelRef({ extId: 'a', provider: 'p', model: 'm' }, { extId: 'a' })).toBe(false)
+    expect(sameModelRef(null, null)).toBe(true)
+  })
+})
+
+describe('provider reports', () => {
+  it('keeps valid provider states with their models and tool style', () => {
+    expect(
+      normalizeProviderStates([
+        {
+          id: 'ollama',
+          kind: 'ollama',
+          name: 'Ollama',
+          setup: 'unreachable',
+          lastError: 'connect ENOENT',
+          lifecycle: 'yes',
+          models: [
+            { id: 'qwen', tools: 'prompted' },
+            { id: 'qwen' },
+            { id: '' },
+            { id: 'x', tools: 1 },
+          ],
+        },
+        { id: 'ollama', kind: 'ollama' },
+        { id: 'Bad', kind: 'ollama' },
+        'nope',
+      ]),
+    ).toEqual([
+      {
+        id: 'ollama',
+        kind: 'ollama',
+        name: 'Ollama',
+        setup: 'unreachable',
+        lastError: 'connect ENOENT',
+        lifecycle: false,
+        models: [{ id: 'qwen', tools: 'prompted' }, { id: 'x' }],
+      },
+    ])
+    expect(normalizeProviderStates('x')).toEqual([])
+  })
+
+  it('keeps provider kinds with a title, a default address and whether a key is required', () => {
+    expect(
+      normalizeProviderKinds([
+        { id: 'openai', title: 'OpenAI', baseUrl: 'https://api.openai.com/v1', key: 'required' },
+        { id: 'ollama' },
+        { id: 'openai', title: 'Again' },
+        { id: 'No Good' },
+      ]),
+    ).toEqual([
+      { id: 'openai', title: 'OpenAI', baseUrl: 'https://api.openai.com/v1', key: 'required' },
+      { id: 'ollama', title: 'ollama', baseUrl: '', key: 'optional' },
+    ])
+  })
+})
+
+describe('chat context items', () => {
+  it('keeps an absolute file path and a valid line range, and drops anything else', () => {
+    expect(
+      normalizeChatContextItem({
+        kind: 'selection',
+        label: 'Selection a.ts:2-4',
+        text: 'x',
+        path: '/p/a.ts',
+        startLine: 2,
+        endLine: 4,
+      }),
+    ).toEqual({
+      kind: 'selection',
+      label: 'Selection a.ts:2-4',
+      text: 'x',
+      path: '/p/a.ts',
+      startLine: 2,
+      endLine: 4,
+    })
+    expect(
+      normalizeChatContextItem({ kind: 'editor', label: 'Open file', text: 'x', path: 'a.ts' }),
+    ).toEqual({ kind: 'editor', label: 'Open file', text: 'x' })
+    expect(
+      normalizeChatContextItem({
+        kind: 'selection',
+        label: 'S',
+        text: 'x',
+        path: '/p/a.ts',
+        startLine: 5,
+        endLine: 2,
+      }),
+    ).toEqual({ kind: 'selection', label: 'S', text: 'x', path: '/p/a.ts' })
+    expect(normalizeChatContextItem({ kind: 'nope', label: 'S', text: 'x' })).toBeNull()
   })
 })

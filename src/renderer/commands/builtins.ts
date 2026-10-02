@@ -16,8 +16,9 @@ import {
   rerunBlock,
   stepBlock,
 } from '../lib/blockActions'
+import { browserProfileIn, openerOf } from '../lib/browserProfile'
 import { setKeybindingSetting } from '../lib/chords'
-import { requestCloseOthers, requestClosePane } from '../lib/closeConfirm'
+import { closePaneForAgent, requestCloseOthers, requestClosePane } from '../lib/closeConfirm'
 import { wakePane } from '../lib/hibernationScheduler'
 import { mergeRefusalText } from '../lib/mergeRefusalText'
 import { startNewWorkspace, startScratchWorkspace } from '../lib/newWorkspace'
@@ -32,6 +33,7 @@ import {
   signalPane,
 } from '../lib/workspaceActivity'
 import { loadMergeTargets, requestMergeWorkspace } from '../lib/workspaceMerge'
+import { anchorToFocusedPane, canMoveWorkspace, moveWorkspaceTo } from '../lib/workspaceProjects'
 import { isMac } from '../platform'
 import { settingsSchemaAt } from '../settings/settingsSchema'
 import { useBlocksStore } from '../stores/blocksStore'
@@ -137,6 +139,7 @@ async function delegate(ctx: CommandContext, id: string, args?: unknown): Promis
 }
 
 const WORKSPACE_DIR = /^(\/|~(\/|$))/
+const PANE_LOCKED = 'pane-locked: the human locked this pane; only they can unlock it'
 
 export function registerBuiltinCommands(): void {
   commands.setContextProvider((): CommandContext => {
@@ -178,7 +181,8 @@ export function registerBuiltinCommands(): void {
     run: (args, ctx) => {
       const target = args?.paneId ?? ctx.activePaneId
       if (ctx.activeWorkspaceId && target) {
-        useLayoutStore.getState().newTab(ctx.activeWorkspaceId, target, 'browser')
+        const profile = browserProfileIn(ctx.activeWorkspaceId, openerOf(ctx))
+        useLayoutStore.getState().newTab(ctx.activeWorkspaceId, target, 'browser', profile)
       }
     },
   })
@@ -204,9 +208,31 @@ export function registerBuiltinCommands(): void {
     capabilities: ['kill-pane'],
     run: async (args, ctx) => {
       const target = args?.paneId ?? ctx.activePaneId
-      if (ctx.activeWorkspaceId && target) {
+      if (!ctx.activeWorkspaceId || !target) return
+      const layout = useLayoutStore.getState()
+      if (!ctx.target) {
         await requestClosePane(ctx.activeWorkspaceId, target)
+        return
       }
+      if (layout.isLocked(ctx.activeWorkspaceId, target)) throw new Error(PANE_LOCKED)
+      await closePaneForAgent(ctx.activeWorkspaceId, target)
+    },
+  })
+
+  commands.register<{ paneId?: string } | undefined>({
+    id: 'pane.toggleLock',
+    title: 'Lock or Unlock Pane',
+    category: 'Pane',
+    local: true,
+    run: (args, ctx) => {
+      const target = args?.paneId ?? ctx.activePaneId
+      if (!ctx.activeWorkspaceId || !target) return
+      const layout = useLayoutStore.getState()
+      layout.setLocked(
+        ctx.activeWorkspaceId,
+        target,
+        !layout.isLocked(ctx.activeWorkspaceId, target),
+      )
     },
   })
 
@@ -502,6 +528,36 @@ export function registerBuiltinCommands(): void {
   })
 
   commands.register({
+    id: 'workspace.useFocusedFolder',
+    title: 'Use This Pane’s Folder for the Workspace',
+    category: 'Workspace',
+    local: true,
+    run: async (_args, ctx) => {
+      if (ctx.activeWorkspaceId) await anchorToFocusedPane(ctx.activeWorkspaceId)
+    },
+  })
+
+  commands.register<{ dir: string }>({
+    id: 'workspace.setFolder',
+    title: 'Set Workspace Folder',
+    category: 'Workspace',
+    hidden: true,
+    capabilities: ['drive-self'],
+    run: async (args, ctx) => {
+      if (!ctx.activeWorkspaceId) throw new Error('no target workspace')
+      if (typeof args?.dir !== 'string' || !args.dir.startsWith('/')) {
+        throw new Error('missing folder')
+      }
+      if (!canMoveWorkspace(ctx.activeWorkspaceId)) {
+        throw new Error('fixed-folder: a sandboxed or scratch workspace keeps its folder')
+      }
+      if (!(await moveWorkspaceTo(ctx.activeWorkspaceId, args.dir))) {
+        throw new Error('not-a-folder: the folder must exist under your home folder')
+      }
+    },
+  })
+
+  commands.register({
     id: 'workspace.closeOthers',
     title: 'Close Other Workspaces',
     category: 'Workspace',
@@ -559,7 +615,7 @@ export function registerBuiltinCommands(): void {
         throw new Error('dir must be an absolute path or start with ~')
       }
       if (name !== undefined && typeof name !== 'string') throw new Error('name must be a string')
-      useUIStore.getState().leaveSettings()
+      useUIStore.getState().showWorkspaces()
       return { workspaceId: startNewWorkspace({ dir, name }) }
     },
   })
@@ -578,7 +634,7 @@ export function registerBuiltinCommands(): void {
       if (sandboxed !== undefined && typeof sandboxed !== 'boolean') {
         throw new Error('sandboxed must be a boolean')
       }
-      useUIStore.getState().leaveSettings()
+      useUIStore.getState().showWorkspaces()
       return { workspaceId: await startScratchWorkspace({ sandboxed }) }
     },
   })
@@ -634,6 +690,14 @@ export function registerBuiltinCommands(): void {
     category: 'App',
     target: 'none',
     run: () => useUIStore.getState().openSettings(),
+  })
+
+  commands.register({
+    id: 'dashboard.toggle',
+    title: 'Toggle Dashboard',
+    category: 'View',
+    target: 'none',
+    run: () => useUIStore.getState().toggleDashboard(),
   })
 
   commands.register({
@@ -718,7 +782,13 @@ export function registerBuiltinCommands(): void {
     target: 'active',
     run: (args, ctx) => {
       if (ctx.activeWorkspaceId) {
-        useLayoutStore.getState().openBrowser(ctx.activeWorkspaceId, args?.url || 'about:blank')
+        useLayoutStore
+          .getState()
+          .openBrowser(
+            ctx.activeWorkspaceId,
+            args?.url || 'about:blank',
+            browserProfileIn(ctx.activeWorkspaceId, openerOf(ctx)),
+          )
       }
     },
   })

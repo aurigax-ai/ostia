@@ -36,6 +36,11 @@ let tabSeq = 0
 let onInterrupt: ((paneId: string) => void) | null = null
 let openFails = false
 
+const AGENTS: Record<string, string[]> = {
+  claude: ['claude'],
+  reviewer: ['codex', '--model', 'o4'],
+}
+
 const registry = registerProcessMethods({
   openTab: async (req) => {
     if (openFails) return null
@@ -58,6 +63,7 @@ const registry = registerProcessMethods({
     ended.push(paneId)
     rings.delete(paneId)
   },
+  agentArgv: (name) => AGENTS[name] ?? null,
   hasShell: (paneId) => rings.has(paneId),
   runInPane: (paneId, command) => {
     reruns.push({ paneId, command })
@@ -135,6 +141,43 @@ afterEach(() => {
   for (const c of clients.splice(0)) c.dispose()
   stopControlServer()
   for (const workspaceId of ['ws1', 'ws2']) registry.workspaceClosed(workspaceId)
+})
+
+describe('agent.run', () => {
+  it('starts a known agent in a background tab with the prompt as one quoted argument', async () => {
+    cwds.set('agent-pane', '/home/u/proj')
+    const conn = await client(agent)
+    const prompt = `fix the "login" bug; don't touch $HOME`
+    const started = await conn.sendRequest<Started>('agent.run', { agent: 'reviewer', prompt })
+
+    expect(opened[0]).toMatchObject({
+      command: `codex --model o4 'fix the "login" bug; don'\\''t touch $HOME'`,
+      afterPaneId: 'agent-pane',
+      backgroundTab: true,
+      title: 'reviewer',
+      cwd: '/home/u/proj',
+    })
+    expect(started).toMatchObject({ name: 'reviewer', paneId: expect.any(String) })
+    const [info] = await conn.sendRequest<ProcessInfo[]>('process.list')
+    expect(info).toMatchObject({ name: 'reviewer', status: 'starting', paneId: started.paneId })
+  })
+
+  it('refuses an agent Pine does not know, a bad name and an empty prompt, opening nothing', async () => {
+    const conn = await client(agent)
+    await expect(conn.sendRequest('agent.run', { agent: 'aider', prompt: 'hi' })).resolves.toEqual(
+      expect.objectContaining({ ok: false, error: 'unknown-agent' }),
+    )
+    await expect(conn.sendRequest('agent.run', { agent: 'rm -rf', prompt: 'hi' })).rejects.toThrow(
+      'agent',
+    )
+    await expect(conn.sendRequest('agent.run', { agent: 'claude', prompt: '  ' })).rejects.toThrow(
+      'prompt',
+    )
+    await expect(
+      conn.sendRequest('agent.run', { agent: 'claude', prompt: 'x'.repeat(9000) }),
+    ).rejects.toThrow('too long')
+    expect(opened).toEqual([])
+  })
 })
 
 describe('process.run', () => {

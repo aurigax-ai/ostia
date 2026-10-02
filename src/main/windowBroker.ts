@@ -8,14 +8,26 @@ import type {
   SnapshotWorkspace,
   WindowBounds,
   WindowInfo,
-  WindowPaneSummary,
+  WindowPaneReport,
   WindowSummary,
-  WindowWorkspaceSummary,
+  WindowWorkspaceReport,
   WorkspaceLiveState,
 } from '../shared/types'
 import type { AgentRunningPanes } from './agentRunning'
 import { approvals } from './approvals'
 import { getByPaneId, panesOwnedBy, rehomePanes } from './idRegistry'
+import {
+  type OriginRules,
+  ReferenceRelay,
+  originAgentOwner,
+  originAgents,
+  parseAttentionState,
+  parsePaneAgent,
+  parseReferenceRequest,
+  reachesTarget,
+  summaryOf,
+} from './originAgents'
+import { questions } from './questions'
 import {
   Landings,
   MAIN_SLOT,
@@ -43,6 +55,7 @@ export interface WindowBrokerDeps {
   execCommand: (target: CommandTarget, id: string, args?: unknown) => Promise<CommandResult>
   agents: AgentRunningPanes
   isSandboxed: (workspaceId: string) => boolean
+  isScratch: (workspaceId: string) => boolean
   reveal: (win: BrowserWindow) => void
 }
 
@@ -62,15 +75,22 @@ const WORKSPACE_DIR = /^(~|\/)/
 const PANES_MAX = 64
 const LANDING_WAIT_MS = 500
 
-function parsePanes(raw: unknown): WindowPaneSummary[] {
+function parsePanes(raw: unknown): WindowPaneReport[] {
   if (!Array.isArray(raw)) return []
-  const panes: WindowPaneSummary[] = []
+  const panes: WindowPaneReport[] = []
   for (const entry of raw.slice(0, PANES_MAX)) {
     if (typeof entry !== 'object' || entry === null) continue
-    const { id, title } = entry as Record<string, unknown>
-    if (typeof id === 'string' && id && typeof title === 'string') {
-      panes.push({ id: id.slice(0, TEXT_MAX), title: title.slice(0, TEXT_MAX) })
-    }
+    const { id, title, agent, state, cwd } = entry as Record<string, unknown>
+    if (typeof id !== 'string' || !id || typeof title !== 'string') continue
+    const paneAgent = parsePaneAgent(agent)
+    const paneState = parseAttentionState(state)
+    panes.push({
+      id: id.slice(0, TEXT_MAX),
+      title: title.slice(0, TEXT_MAX),
+      ...(paneAgent ? { agent: paneAgent } : {}),
+      ...(paneState ? { state: paneState } : {}),
+      ...(typeof cwd === 'string' && cwd ? { cwd: cwd.slice(0, TEXT_MAX) } : {}),
+    })
   }
   return panes
 }
@@ -85,12 +105,12 @@ function workAreas(): WindowBounds[] {
   return [primary, ...others].map((d) => d.workArea)
 }
 
-function parseSummaries(raw: unknown): WindowWorkspaceSummary[] {
+export function parseReports(raw: unknown): WindowWorkspaceReport[] {
   if (!Array.isArray(raw)) return []
-  const out: WindowWorkspaceSummary[] = []
+  const out: WindowWorkspaceReport[] = []
   for (const entry of raw.slice(0, SUMMARY_MAX)) {
     if (typeof entry !== 'object' || entry === null) continue
-    const { id, name, workDir, state, unreadAt, panes } = entry as Record<string, unknown>
+    const { id, name, workDir, state, unreadAt, panes, origin } = entry as Record<string, unknown>
     if (typeof id !== 'string' || !id || typeof name !== 'string') continue
     out.push({
       id: id.slice(0, TEXT_MAX),
@@ -100,6 +120,7 @@ function parseSummaries(raw: unknown): WindowWorkspaceSummary[] {
         typeof state === 'string' && STATES.has(state) ? (state as WorkspaceLiveState) : 'idle',
       unreadAt: typeof unreadAt === 'number' && Number.isFinite(unreadAt) ? unreadAt : 0,
       panes: parsePanes(panes),
+      ...(typeof origin === 'string' && origin ? { origin: origin.slice(0, TEXT_MAX) } : {}),
     })
   }
   return out
@@ -110,7 +131,14 @@ export class WindowBroker {
   private readonly slots = new Map<string, string>()
   private readonly windows = new Map<string, BrowserWindow>()
   private readonly boot = new Map<string, AppSnapshot>()
-  private readonly reports = new Map<string, WindowWorkspaceSummary[]>()
+  private readonly reports = new Map<string, WindowWorkspaceReport[]>()
+  private readonly originRules: OriginRules
+  private readonly references = new ReferenceRelay((windowId, insert) => {
+    const win = this.windows.get(windowId)
+    if (!win || win.isDestroyed()) return false
+    win.webContents.send('windows:reference-insert', insert)
+    return true
+  })
   private readonly returning = new WeakSet<BrowserWindow>()
   private readonly closing = new WeakSet<BrowserWindow>()
   private readonly landings = new Landings()
@@ -119,6 +147,12 @@ export class WindowBroker {
   private boundsTimer: ReturnType<typeof setTimeout> | null = null
 
   constructor(private readonly deps: WindowBrokerDeps) {
+    this.originRules = {
+      isSandboxed: deps.isSandboxed,
+      isScratch: deps.isScratch,
+      isManagerPane: (paneId) => getByPaneId(paneId)?.manager === true,
+      ownerOfPane: (paneId) => getByPaneId(paneId)?.windowId,
+    }
     deps.agents.seed(this.book.merged(''))
   }
 
@@ -158,6 +192,7 @@ export class WindowBroker {
       this.slots.delete(windowId)
       this.windows.delete(windowId)
       this.reports.delete(windowId)
+      this.references.windowClosed(windowId)
       this.broadcastList()
     })
   }
@@ -197,6 +232,23 @@ export class WindowBroker {
     return undefined
   }
 
+  reaches(senderWindowId: string, sourcePaneId: string, targetPaneId: string): boolean {
+    return reachesTarget(this.reports, this.originRules, senderWindowId, sourcePaneId, targetPaneId)
+  }
+
+  private forwardReference(windowId: string, raw: unknown): Promise<boolean> {
+    const request = parseReferenceRequest(raw)
+    if (!request) return Promise.resolve(false)
+    const owner = originAgentOwner(
+      this.reports,
+      this.originRules,
+      windowId,
+      request.workspaceId,
+      request.paneId,
+    )
+    return owner ? this.references.forward(owner, request) : Promise.resolve(false)
+  }
+
   requestReturn(win: BrowserWindow, closing = false): void {
     const slot = this.slots.get(windowIdOf(win))
     if (!slot || slot === MAIN_SLOT) return
@@ -231,10 +283,9 @@ export class WindowBroker {
     }
     const paneIds = handoffPaneIds(workspace)
     const moved = rehomePanes(paneIds, windowId)
-    approvals()?.rehome(
-      moved.map((identity) => identity.externalId),
-      windowId,
-    )
+    const movedIds = moved.map((identity) => identity.externalId)
+    approvals()?.rehome(movedIds, windowId)
+    questions()?.rehome(movedIds, windowId)
     this.deps.holdPtys(paneIds)
   }
 
@@ -396,14 +447,16 @@ export class WindowBroker {
     return this.windowIds().map((windowId) => ({
       windowId,
       detached: this.slots.get(windowId) !== MAIN_SLOT,
-      workspaces: this.reports.get(windowId) ?? [],
+      workspaces: (this.reports.get(windowId) ?? []).map(summaryOf),
     }))
   }
 
   private broadcastList(): void {
     const list = this.list()
     for (const win of this.windows.values()) {
-      if (!win.isDestroyed()) win.webContents.send('windows:list', list)
+      if (win.isDestroyed()) continue
+      win.webContents.send('windows:list', list)
+      win.webContents.send('windows:origin-agents-changed')
     }
   }
 
@@ -495,8 +548,20 @@ export class WindowBroker {
     ipcMain.on('windows:report', (e, raw: unknown) => {
       const windowId = String(e.sender.id)
       if (!this.windows.has(windowId)) return
-      this.reports.set(windowId, parseSummaries(raw))
+      this.reports.set(windowId, parseReports(raw))
       this.broadcastList()
+    })
+
+    ipcMain.handle('windows:origin-agents', (e, workspaceId: unknown) =>
+      originAgents(this.reports, this.originRules, String(e.sender.id), workspaceId),
+    )
+
+    ipcMain.handle('windows:insert-reference', (e, raw: unknown) =>
+      this.forwardReference(String(e.sender.id), raw),
+    )
+
+    ipcMain.on('windows:reference-inserted', (e, requestId: unknown, inserted: unknown) => {
+      this.references.answer(String(e.sender.id), requestId, inserted)
     })
 
     ipcMain.on('windows:focus-workspace', (_e, workspaceId: unknown, jumpToUnread: unknown) => {

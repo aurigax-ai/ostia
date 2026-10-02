@@ -3,10 +3,12 @@ import type { AgentSessionInfo } from '../shared/agentSessionInfo'
 import type { ApprovalState } from '../shared/approvals'
 import type {
   AssistAvailability,
+  AssistCatalog,
   AssistChunk,
   AssistExtensionState,
   AssistOpenUiRequest,
 } from '../shared/assist'
+import type { BrowserProfile } from '../shared/browserProfile'
 import type { BrowserStorageRead, StorageWriteResult } from '../shared/browserStorage'
 import type { BuildInfo } from '../shared/buildInfo'
 import type {
@@ -22,6 +24,8 @@ import type {
   CredentialSaveResult,
   CredentialSummary,
 } from '../shared/credentials'
+import type { EditorLanguage } from '../shared/editorLanguages'
+import type { ExtensionSuggestion } from '../shared/extensionSuggestions'
 import type {
   ExtensionInfo,
   ExtensionOpenDiffRequest,
@@ -38,15 +42,20 @@ import type {
 } from '../shared/extensions'
 import type { LoadedIconTheme } from '../shared/iconTheme'
 import type { LanguagePack } from '../shared/languagePack'
+import type { LanguageServerInfo, LspLog, LspSessionInfo } from '../shared/languageServers'
 import type { MarketplaceResult, MarketplaceState } from '../shared/marketplace'
 import type { OpenFileVerdict } from '../shared/openFiles'
 import type { PickOutcome, PickSendResult, PickState } from '../shared/pick'
+import type { QuestionState } from '../shared/questions'
 import type { ReleaseCheckResult, ReleaseInfo } from '../shared/releases'
 import type {
-  DomainRefusal,
+  SandboxEditError,
   SandboxEditResult,
+  SandboxEnableResult,
   SandboxExposeResult,
+  SandboxFixedPolicy,
   SandboxPortRow,
+  SandboxViolation,
   WorkspaceSandbox,
 } from '../shared/sandbox'
 import type { SecretEntry, SecretGrant } from '../shared/secrets'
@@ -67,15 +76,15 @@ import type {
   GatewayPairResult,
   GatewaySetCapResult,
   GatewayStatus,
-  LspServerInfo,
-  LspStartResult,
   ManagerOpenPaneRequest,
   NotificationEntry,
   OpenPathResult,
+  OriginAgents,
   PineBridge,
   Platform,
   PromptContext,
   PtyAttachResult,
+  ReferenceInsert,
   RunningGroup,
   SnapshotWorkspace,
   SyncStatus,
@@ -153,6 +162,8 @@ const bridge: PineBridge = {
     write: (paneId, data) => ipcRenderer.send('pty:write', paneId, data),
     resize: (paneId, cols, rows) => ipcRenderer.send('pty:resize', paneId, cols, rows),
     commands: (paneId) => ipcRenderer.invoke('pty:commands', paneId) as Promise<string[]>,
+    listDir: (paneId, dir) => ipcRenderer.invoke('pty:list-dir', paneId, dir),
+    localPrompt: (paneId) => ipcRenderer.invoke('pty:local-prompt', paneId),
     foreground: (paneId) => ipcRenderer.invoke('pty:foreground', paneId) as Promise<string | null>,
     promptContext: (paneId, want) =>
       ipcRenderer.invoke('pty:prompt-context', paneId, want) as Promise<PromptContext | null>,
@@ -162,7 +173,7 @@ const bridge: PineBridge = {
       return () => ipcRenderer.removeListener(`pty:data:${paneId}`, handler)
     },
     onExit: (paneId, cb) => {
-      const handler = (_e: unknown, code: number): void => cb(code)
+      const handler = (_e: unknown, code: number, closes: boolean): void => cb(code, closes)
       ipcRenderer.on(`pty:exit:${paneId}`, handler)
       return () => ipcRenderer.removeListener(`pty:exit:${paneId}`, handler)
     },
@@ -201,21 +212,35 @@ const bridge: PineBridge = {
     },
   },
   lsp: {
-    list: () => ipcRenderer.invoke('lsp:list') as Promise<LspServerInfo[]>,
-    start: (languageId, filePath) =>
-      ipcRenderer.invoke('lsp:start', languageId, filePath) as Promise<LspStartResult | null>,
-    send: (id, message) => ipcRenderer.send('lsp:send', id, message),
-    stop: (id) => ipcRenderer.send('lsp:stop', id),
-    onMessage: (id, cb) => {
+    servers: () => ipcRenderer.invoke('lsp:servers') as Promise<LanguageServerInfo[]>,
+    onServersChanged: (cb) => {
+      const handler = (_e: unknown, list: LanguageServerInfo[]): void => cb(list)
+      ipcRenderer.on('lsp:servers-changed', handler)
+      return () => ipcRenderer.removeListener('lsp:servers-changed', handler)
+    },
+    open: (paneId, filePath) =>
+      ipcRenderer.invoke('lsp:open', paneId, filePath) as Promise<LspSessionInfo[]>,
+    send: (sessionId, message) => ipcRenderer.send('lsp:send', sessionId, message),
+    release: (sessionId) => ipcRenderer.send('lsp:release', sessionId),
+    onMessage: (sessionId, cb) => {
       const handler = (_e: unknown, message: unknown): void => cb(message)
-      ipcRenderer.on(`lsp:msg:${id}`, handler)
-      return () => ipcRenderer.removeListener(`lsp:msg:${id}`, handler)
+      ipcRenderer.on(`lsp:msg:${sessionId}`, handler)
+      return () => ipcRenderer.removeListener(`lsp:msg:${sessionId}`, handler)
     },
-    onExit: (id, cb) => {
+    onExit: (sessionId, cb) => {
       const handler = (): void => cb()
-      ipcRenderer.on(`lsp:exit:${id}`, handler)
-      return () => ipcRenderer.removeListener(`lsp:exit:${id}`, handler)
+      ipcRenderer.on(`lsp:exit:${sessionId}`, handler)
+      return () => ipcRenderer.removeListener(`lsp:exit:${sessionId}`, handler)
     },
+    setEnabled: (serverKey, enabled) =>
+      ipcRenderer.invoke('extensions:set-language-server', serverKey, enabled) as Promise<
+        LanguageServerInfo[]
+      >,
+    restart: (serverKey) => ipcRenderer.invoke('lsp:restart', serverKey) as Promise<void>,
+    log: (serverKey) => ipcRenderer.invoke('lsp:log', serverKey) as Promise<LspLog>,
+    fetch: (serverKey) => ipcRenderer.invoke('lsp:fetch', serverKey) as Promise<void>,
+    removeDownload: (serverKey) =>
+      ipcRenderer.invoke('lsp:remove-download', serverKey) as Promise<void>,
   },
   settings: {
     path: () => ipcRenderer.invoke('settings:path') as Promise<string>,
@@ -281,6 +306,22 @@ const bridge: PineBridge = {
       ipcRenderer.on('windows:return-request', handler)
       return () => ipcRenderer.removeListener('windows:return-request', handler)
     },
+    originAgents: (workspaceId) =>
+      ipcRenderer.invoke('windows:origin-agents', workspaceId) as Promise<OriginAgents | null>,
+    onOriginAgentsChanged: (cb) => {
+      const handler = (): void => cb()
+      ipcRenderer.on('windows:origin-agents-changed', handler)
+      return () => ipcRenderer.removeListener('windows:origin-agents-changed', handler)
+    },
+    insertReference: (request) =>
+      ipcRenderer.invoke('windows:insert-reference', request) as Promise<boolean>,
+    onInsertReference: (cb) => {
+      const handler = (_e: unknown, insert: ReferenceInsert): void => cb(insert)
+      ipcRenderer.on('windows:reference-insert', handler)
+      return () => ipcRenderer.removeListener('windows:reference-insert', handler)
+    },
+    answerInsertReference: (requestId, inserted) =>
+      ipcRenderer.send('windows:reference-inserted', requestId, inserted),
   },
   lifecycle: {
     emit: (event) => ipcRenderer.send('lifecycle:event', event),
@@ -304,6 +345,8 @@ const bridge: PineBridge = {
     push: (snapshot) => ipcRenderer.send('terminal:state', snapshot),
   },
   browser: {
+    claimProfile: (paneId, profile) =>
+      ipcRenderer.invoke('browser:claim-profile', paneId, profile) as Promise<BrowserProfile>,
     register: (paneId, webContentsId) =>
       ipcRenderer.send('browser:register', paneId, webContentsId),
     unregister: (paneId) => ipcRenderer.send('browser:unregister', paneId),
@@ -338,8 +381,8 @@ const bridge: PineBridge = {
     openDefault: (path) =>
       ipcRenderer.invoke('shell:open-default', path) as Promise<OpenPathResult>,
     reveal: (path) => ipcRenderer.invoke('shell:reveal', path) as Promise<OpenPathResult>,
-    project: (dir) =>
-      ipcRenderer.invoke('workspace:project', dir) as Promise<WorkspaceProject | null>,
+    project: (dir, exact) =>
+      ipcRenderer.invoke('workspace:project', dir, exact) as Promise<WorkspaceProject | null>,
   },
   agentSession: {
     info: (resume) =>
@@ -397,22 +440,43 @@ const bridge: PineBridge = {
     },
     get: (workspaceId) =>
       ipcRenderer.invoke('sandbox:get', workspaceId) as Promise<WorkspaceSandbox | null>,
-    setAllowRead: (workspaceId, paths) =>
+    setPaths: (workspaceId, kind, paths) =>
       ipcRenderer.invoke(
-        'sandbox:set-allow-read',
+        'sandbox:set-paths',
         workspaceId,
+        kind,
         paths,
       ) as Promise<SandboxEditResult>,
+    checkPaths: (kind, paths) =>
+      ipcRenderer.invoke('sandbox:check-paths', kind, paths) as Promise<SandboxEditError[]>,
     setDomains: (workspaceId, domains) =>
       ipcRenderer.invoke('sandbox:set-domains', workspaceId, domains) as Promise<SandboxEditResult>,
+    setDeniedDomains: (workspaceId, domains) =>
+      ipcRenderer.invoke(
+        'sandbox:set-denied-domains',
+        workspaceId,
+        domains,
+      ) as Promise<SandboxEditResult>,
+    setSwitches: (workspaceId, switches) =>
+      ipcRenderer.invoke(
+        'sandbox:set-switches',
+        workspaceId,
+        switches,
+      ) as Promise<WorkspaceSandbox | null>,
+    fixedPolicy: (workspaceId) =>
+      ipcRenderer.invoke('sandbox:fixed-policy', workspaceId) as Promise<SandboxFixedPolicy | null>,
+    stamp: (workspaceId) =>
+      ipcRenderer.invoke('sandbox:stamp', workspaceId) as Promise<string | null>,
+    violations: (workspaceId) =>
+      ipcRenderer.invoke('sandbox:violations', workspaceId) as Promise<SandboxViolation[]>,
+    clearViolations: (workspaceId) =>
+      ipcRenderer.invoke('sandbox:clear-violations', workspaceId) as Promise<boolean>,
     setControls: (workspaceId, controls) =>
       ipcRenderer.invoke(
         'sandbox:set-controls',
         workspaceId,
         controls,
       ) as Promise<WorkspaceSandbox | null>,
-    refusals: (workspaceId) =>
-      ipcRenderer.invoke('sandbox:refusals', workspaceId) as Promise<DomainRefusal[]>,
     allowRefused: (workspaceId, host) =>
       ipcRenderer.invoke('sandbox:allow-refused', workspaceId, host) as Promise<boolean>,
     globalsChanged: () => ipcRenderer.invoke('sandbox:globals-changed') as Promise<boolean>,
@@ -439,7 +503,7 @@ const bridge: PineBridge = {
         'sandbox:set-enabled',
         workspaceId,
         enabled,
-      ) as Promise<WorkspaceSandbox | null>,
+      ) as Promise<SandboxEnableResult>,
   },
   credentials: {
     forPage: (paneId) =>
@@ -464,6 +528,16 @@ const bridge: PineBridge = {
       return () => ipcRenderer.removeListener('approvals:changed', handler)
     },
   },
+  questions: {
+    state: () => ipcRenderer.invoke('questions:state') as Promise<QuestionState>,
+    answer: (id, reply) => ipcRenderer.invoke('questions:answer', id, reply) as Promise<boolean>,
+    dismiss: (id) => ipcRenderer.invoke('questions:dismiss', id) as Promise<boolean>,
+    onChange: (cb) => {
+      const handler = (_event: unknown, state: QuestionState): void => cb(state)
+      ipcRenderer.on('questions:changed', handler)
+      return () => ipcRenderer.removeListener('questions:changed', handler)
+    },
+  },
   selection: {
     send: (req) => ipcRenderer.invoke('selection:send', req) as Promise<SelectionSendResult>,
   },
@@ -478,6 +552,17 @@ const bridge: PineBridge = {
       ipcRenderer.invoke('marketplace:install-code', id, code) as Promise<MarketplaceResult>,
     uninstall: (extId) =>
       ipcRenderer.invoke('marketplace:uninstall', extId) as Promise<MarketplaceResult>,
+  },
+  suggestions: {
+    forFile: (paneId, path) =>
+      ipcRenderer.invoke(
+        'suggestions:for-file',
+        paneId,
+        path,
+      ) as Promise<ExtensionSuggestion | null>,
+    dismiss: (extId) => ipcRenderer.invoke('suggestions:dismiss', extId) as Promise<void>,
+    install: (extId) =>
+      ipcRenderer.invoke('suggestions:install', extId) as Promise<MarketplaceResult>,
   },
   extensions: {
     list: () => ipcRenderer.invoke('extensions:list') as Promise<ExtensionInfo[]>,
@@ -561,8 +646,8 @@ const bridge: PineBridge = {
       ipcRenderer.on('assist:availability', handler)
       return () => ipcRenderer.removeListener('assist:availability', handler)
     },
-    request: (point, requestId, input) =>
-      ipcRenderer.invoke('assist:request', point, requestId, input),
+    request: (point, requestId, input, model) =>
+      ipcRenderer.invoke('assist:request', point, requestId, input, model),
     cancel: (requestId) => ipcRenderer.send('assist:cancel', requestId),
     onChunk: (cb) => {
       const handler = (_e: unknown, chunk: AssistChunk): void => cb(chunk)
@@ -581,9 +666,17 @@ const bridge: PineBridge = {
       return () => ipcRenderer.removeListener('assist:open-ui', handler)
     },
     reportShortcuts: (shortcuts) => ipcRenderer.send('assist:shortcuts', shortcuts),
-    models: (extId) => ipcRenderer.invoke('assist:models', extId),
-    setModelLoaded: (extId, id, loaded) =>
-      ipcRenderer.invoke('assist:set-model-loaded', extId, id, loaded),
+    models: (extId, provider) => ipcRenderer.invoke('assist:models', extId, provider),
+    setModelLoaded: (extId, id, loaded, provider) =>
+      ipcRenderer.invoke('assist:set-model-loaded', extId, id, loaded, provider),
+    catalog: () => ipcRenderer.invoke('assist:catalog') as Promise<AssistCatalog>,
+    onCatalog: (cb) => {
+      const handler = (_e: unknown, catalog: AssistCatalog): void => cb(catalog)
+      ipcRenderer.on('assist:catalog', handler)
+      return () => ipcRenderer.removeListener('assist:catalog', handler)
+    },
+    setProviderKey: (providerId, value) =>
+      ipcRenderer.invoke('assist:set-provider-key', providerId, value),
   },
   chatSessions: {
     list: () => ipcRenderer.invoke('chat:list') as Promise<ChatSessionSummary[]>,
@@ -601,7 +694,9 @@ const bridge: PineBridge = {
     list: (req) => ipcRenderer.invoke('chatTools:list', req),
     search: (req) => ipcRenderer.invoke('chatTools:search', req),
     preview: (req) => ipcRenderer.invoke('chatTools:preview', req),
+    plan: (req) => ipcRenderer.invoke('chatTools:plan', req),
     write: (req) => ipcRenderer.invoke('chatTools:write', req),
+    undo: (req) => ipcRenderer.invoke('chatTools:undo', req),
     skills: () => ipcRenderer.invoke('chatTools:skills'),
     loadSkill: (name) => ipcRenderer.invoke('chatTools:load-skill', name),
     mcpStatus: () => ipcRenderer.invoke('chatTools:mcp-status'),
@@ -670,6 +765,9 @@ const bridge: PineBridge = {
   },
   languagePacks: {
     load: () => ipcRenderer.invoke('languagePacks:load') as Promise<LanguagePack[]>,
+  },
+  editorLanguages: {
+    load: () => ipcRenderer.invoke('editorLanguages:load') as Promise<EditorLanguage[]>,
   },
   views: {
     list: () => ipcRenderer.invoke('views:list') as Promise<ViewListing>,

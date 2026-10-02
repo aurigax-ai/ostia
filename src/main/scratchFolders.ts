@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto'
 import { type Dirent, lstatSync, mkdirSync, readdirSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { ipcMain, shell } from 'electron'
+import { processAlive } from './processAlive'
 
 export const SCRATCH_HISTORY_FILE = '.pine_history'
 
@@ -12,15 +13,6 @@ interface ScratchFolder {
   dir: string
   windowId: string
   workspaceId?: string
-}
-
-export function processAlive(pid: number): boolean {
-  try {
-    process.kill(pid, 0)
-    return true
-  } catch (err) {
-    return (err as NodeJS.ErrnoException).code === 'EPERM'
-  }
 }
 
 function isRealDir(path: string): boolean {

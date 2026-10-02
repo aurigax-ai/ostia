@@ -2,11 +2,9 @@
   "id": "oracle",
   "name": "Oracle",
   "version": "0.1.0",
-  "api": "1.0",
+  "api": "1.6",
   "description": "Test fixture for the assist contribution points",
-  "capabilities": [
-    "assist"
-  ],
+  "capabilities": ["assist"],
   "main": "main.js",
   "contributes": {
     "commands": [
@@ -36,12 +34,7 @@
         "palette": false
       }
     ],
-    "assist": [
-      "chat",
-      "command",
-      "input",
-      "terminal"
-    ],
+    "assist": ["chat", "command", "input", "terminal"],
     "secrets": {
       "apiKey": {
         "description": "Key for the fake provider"

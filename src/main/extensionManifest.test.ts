@@ -249,6 +249,58 @@ describe('parseManifest', () => {
     ).toEqual({ ok: false, error: 'contributes.secrets.apiKey: title must be 1-80 characters' })
   })
 
+  it('takes language servers as data, without a main process, when the capability is declared', () => {
+    const languageServers = [
+      {
+        id: 'pyright',
+        name: 'Pyright',
+        languages: ['python'],
+        run: { node: 'server/langserver.index.js', args: ['--stdio'] },
+        settingPaths: { mode: 'python.analysis.typeCheckingMode' },
+      },
+    ]
+    const settings = {
+      mode: { type: 'enum', values: ['basic', 'strict'], default: 'basic', description: 'Mode' },
+    }
+    const base = { id: 'lsp-demo', name: 'Demo', version: '1.0.0', api: '1.0' }
+    const res = parseManifest(
+      {
+        ...base,
+        category: 'languages',
+        capabilities: ['language-server'],
+        contributes: { settings, languageServers },
+      },
+      DIR,
+    )
+    expect(res.ok && res.manifest.main).toBeUndefined()
+    expect(res.ok && res.manifest.category).toBe('languages')
+    expect(res.ok && res.manifest.contributes.languageServers).toEqual([
+      { ...languageServers[0], rootMarkers: [] },
+    ])
+    expect(parseManifest({ ...base, contributes: { settings, languageServers } }, DIR)).toEqual({
+      ok: false,
+      error: "contributes.languageServers needs the 'language-server' capability",
+    })
+    expect(
+      parseManifest(
+        {
+          ...base,
+          capabilities: ['language-server'],
+          contributes: {
+            languageServers: [{ ...languageServers[0], run: { node: '../../evil.js' } }],
+          },
+        },
+        DIR,
+      ),
+    ).toMatchObject({ ok: false, error: expect.stringContaining('inside the extension') })
+    expect(
+      parseManifest(
+        { ...base, capabilities: ['language-server'], contributes: { languageServers } },
+        DIR,
+      ),
+    ).toMatchObject({ ok: false, error: expect.stringContaining("extension's settings") })
+  })
+
   it('defaults the category to other and refuses one it does not know', () => {
     const res = parseManifest(manifest({}), DIR)
     expect(res.ok && res.manifest.category).toBe('other')
@@ -256,7 +308,8 @@ describe('parseManifest', () => {
     expect(scm.ok && scm.manifest.category).toBe('scm')
     expect(parseManifest(manifest({ category: 'games' }), DIR)).toEqual({
       ok: false,
-      error: 'category must be one of ai, scm, tools, themes, langpack, completions, other',
+      error:
+        'category must be one of ai, scm, tools, themes, langpack, completions, languages, other',
     })
   })
 
@@ -308,6 +361,15 @@ describe('parseManifest', () => {
       'git',
       'keeper',
       'langpack-zh-hant',
+      'lsp-bash',
+      'lsp-clangd',
+      'lsp-gopls',
+      'lsp-lua',
+      'lsp-marksman',
+      'lsp-pyright',
+      'lsp-rust-analyzer',
+      'lsp-typescript',
+      'lsp-yaml',
       'model-runtime',
       'ports',
       'system',
@@ -465,6 +527,39 @@ describe('parseManifest', () => {
       DIR,
     )
     expect(res.ok && res.manifest.contributes.panel).toEqual({ title: 'P', entry: 'url' })
+  })
+})
+
+describe('parseManifest — locales', () => {
+  const locales = (list: unknown) => parseManifest(manifest({ locales: list }), DIR)
+
+  it('keeps the language tags an extension translates itself into', () => {
+    const res = locales(['zh-Hant', 'fr'])
+    expect(res.ok && res.manifest.locales).toEqual(['zh-Hant', 'fr'])
+  })
+
+  it('leaves the field out when nothing is declared', () => {
+    const res = parseManifest(manifest({}), DIR)
+    expect(res.ok && 'locales' in res.manifest).toBe(false)
+  })
+
+  it('refuses anything that is not a list of distinct language tags', () => {
+    const tag = 'locales: each entry must be a language tag such as fr or zh-Hant'
+    expect(locales('zh-Hant')).toEqual({
+      ok: false,
+      error: 'locales must be an array of at most 32 language tags',
+    })
+    expect(locales(['../zh-Hant'])).toEqual({ ok: false, error: tag })
+    expect(locales(['zh-Hant/x'])).toEqual({ ok: false, error: tag })
+    expect(locales([7])).toEqual({ ok: false, error: tag })
+    expect(locales(['zh-Hant', 'ZH-hant'])).toEqual({
+      ok: false,
+      error: "locales: duplicate 'ZH-hant'",
+    })
+    expect(
+      locales(Array.from({ length: 33 }, (_, i) => `x${String.fromCharCode(97 + (i % 26))}-A${i}`))
+        .ok,
+    ).toBe(false)
   })
 })
 

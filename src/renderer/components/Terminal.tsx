@@ -1,3 +1,4 @@
+import { CHAT_CONTEXT_TEXT_MAX } from '@shared/assist'
 import { FitAddon } from '@xterm/addon-fit'
 import { SearchAddon } from '@xterm/addon-search'
 import { Unicode11Addon } from '@xterm/addon-unicode11'
@@ -7,6 +8,7 @@ import '@xterm/xterm/css/xterm.css'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { wantsDesktopBanner } from '../../shared/notificationSettings'
 import { currentDict, fmt } from '../i18n/useDict'
+import { tail } from '../lib/askContext'
 import {
   KittyNotificationAssembler,
   type OscNotification,
@@ -17,11 +19,12 @@ import {
 } from '../lib/attention'
 import { canTypeInto, insertCommand, selectedBlockOutput, stepBlock } from '../lib/blockActions'
 import { decodeCommandLine, readCommandText } from '../lib/blockText'
+import { openBrowserAs } from '../lib/browserProfile'
 import { isAppChord, isNativeClipboardKey, matchChord } from '../lib/chords'
 import { smartClipboardAction } from '../lib/clipboardKeys'
 import { currentScheme, terminalTheme, useScheme } from '../lib/colorScheme'
 import { acceptsPathDrop, droppedPaths, pathsAsInput } from '../lib/dropPaths'
-import { attachLinkModifier, linkModifierHeld } from '../lib/linkModifier'
+import { attachLinkModifier, linkModifierHeld, linkTarget } from '../lib/linkModifier'
 import { openFileAt } from '../lib/openFile'
 import { forgetPaneActivity, markPaneActivity } from '../lib/paneActivity'
 import { terminalNotification } from '../lib/paneAgent'
@@ -33,6 +36,7 @@ import { registerSelectionSender } from '../lib/selectionSenders'
 import { createFileLinkProvider } from '../lib/terminalFileLinks'
 import { inputEditorFor, registerTerminal } from '../lib/terminalHandles'
 import { terminalTitle } from '../lib/terminalTitle'
+import { createTitleCommitter } from '../lib/titleCommit'
 import { terminalFontStack } from '../lib/uiFonts'
 import { loadWebglRenderer } from '../lib/webglRenderer'
 import { attachWheelZoom } from '../lib/wheelZoom'
@@ -46,6 +50,7 @@ import { isMac } from '../platform'
 import { useAttentionStore } from '../stores/attentionStore'
 import { type LineAnchor, useBlocksStore } from '../stores/blocksStore'
 import { useLayoutStore } from '../stores/layoutStore'
+import { useLiveSelectionStore } from '../stores/liveSelectionStore'
 import { useSandboxStore } from '../stores/sandboxStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { AssistComposer } from './AssistComposer'
@@ -136,8 +141,8 @@ export function TerminalView({
     term.loadAddon(
       new WebLinksAddon((e, uri) => {
         if (!linkModifierHeld(e, isMac)) return
-        if (useSettingsStore.getState().browser.openTerminalLinks) {
-          useLayoutStore.getState().openBrowser(workspaceIdRef.current, uri)
+        if (linkTarget(useSettingsStore.getState().browser.openTerminalLinks, e) === 'pane') {
+          openBrowserAs(workspaceIdRef.current, uri, 'human')
         } else {
           window.open(uri, '_blank')
         }
@@ -334,14 +339,24 @@ export function TerminalView({
       }),
     )
     const copySelection = term.onSelectionChange(() => {
+      useLiveSelectionStore
+        .getState()
+        .report(
+          workspaceIdRef.current,
+          paneId,
+          { kind: 'terminal' },
+          tail(term.getSelection(), CHAT_CONTEXT_TEXT_MAX),
+        )
       if (!useSettingsStore.getState().behavior.copyOnSelect || !term.hasSelection()) return
       void navigator.clipboard.writeText(term.getSelection())
     })
+    const titles = createTitleCommitter((title) => {
+      if (isTitlePinned(paneId)) return
+      useLayoutStore.getState().setTitle(workspaceIdRef.current, paneId, title)
+    })
     const titleChange = term.onTitleChange((raw) => {
       const title = terminalTitle(raw)
-      if (title && !isTitlePinned(paneId)) {
-        useLayoutStore.getState().setTitle(workspaceIdRef.current, paneId, title)
-      }
+      if (title) titles.push(title)
     })
     const bell = term.onBell(() => {
       if (replaying || isPaneViewed(paneId)) return
@@ -417,9 +432,9 @@ export function TerminalView({
         term.write(d)
       }
     })
-    const offExit = window.pine.pty.onExit(paneId, () => {
+    const offExit = window.pine.pty.onExit(paneId, (_code, closes) => {
       term.writeln('\r\n\x1b[2m[process exited]\x1b[0m')
-      if (useSandboxStore.getState().hostPanes[paneId]) {
+      if (closes || useSandboxStore.getState().hostPanes[paneId]) {
         useLayoutStore.getState().closePane(workspaceIdRef.current, paneId)
       }
     })
@@ -442,9 +457,9 @@ export function TerminalView({
           hostToken: useSandboxStore.getState().takeHostToken(paneId),
           ...spawnPromptOption(useSettingsStore.getState()),
         })
-        .then(({ buffer, sandboxed, host }) => {
+        .then(({ buffer, sandboxed, sandboxStamp, host }) => {
           if (disposed) return
-          useSandboxStore.getState().notePane(paneId, sandboxed ?? false)
+          useSandboxStore.getState().notePane(paneId, sandboxed ?? false, sandboxStamp)
           if (host) useSandboxStore.getState().noteHost(paneId)
           disposeMarkers()
           useBlocksStore.getState().resetPane(paneId)
@@ -585,10 +600,12 @@ export function TerminalView({
       oscNotify99.dispose()
       bell.dispose()
       copySelection.dispose()
+      useLiveSelectionStore.getState().clear(paneId)
       fileLinks.dispose()
       detachWheelZoom()
       detachLinkModifier()
       titleChange.dispose()
+      titles.cancel()
       promptMarker?.dispose()
       disposeMarkers()
       unregisterTerminal()

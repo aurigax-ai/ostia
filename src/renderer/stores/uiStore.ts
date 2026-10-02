@@ -16,6 +16,7 @@ interface UIState {
   settingsActive: boolean
   settingsSection: string | null
   settingsExtension: string | null
+  dashboardActive: boolean
   filesOpen: boolean
   digitHints: boolean
   promptPreviewPaneId: string | null
@@ -30,7 +31,9 @@ interface UIState {
   openSettings: (section?: string, options?: OpenSettingsOptions) => void
   openWorkspaceSettings: (workspaceId: string) => void
   closeSettings: () => void
-  leaveSettings: () => void
+  showWorkspaces: () => void
+  openDashboard: () => void
+  toggleDashboard: () => void
   toggleFiles: () => void
   showFiles: () => void
   setDigitHints: (shown: boolean) => void
@@ -44,6 +47,7 @@ export const useUIStore = create<UIState>((set) => ({
   settingsActive: false,
   settingsSection: null,
   settingsExtension: null,
+  dashboardActive: false,
   filesOpen: false,
   digitHints: false,
   promptPreviewPaneId: null,
@@ -60,6 +64,7 @@ export const useUIStore = create<UIState>((set) => ({
     set({
       settingsTabOpen: true,
       settingsActive: true,
+      dashboardActive: false,
       settingsSection: target.section,
       settingsExtension: target.extension,
       promptPreviewPaneId: options.previewPaneId ?? null,
@@ -69,12 +74,22 @@ export const useUIStore = create<UIState>((set) => ({
     set((s) => ({
       settingsTabOpen: true,
       settingsActive: true,
+      dashboardActive: false,
       settingsWorkspaceId: workspaceId,
       settingsRequest: s.settingsRequest + 1,
     })),
   closeSettings: () => set({ settingsTabOpen: false, settingsActive: false }),
-  leaveSettings: () => set({ settingsActive: false }),
+  showWorkspaces: () => set({ settingsActive: false, dashboardActive: false }),
+  openDashboard: () => set({ dashboardActive: true, settingsActive: false }),
+  toggleDashboard: () =>
+    set((s) => ({ dashboardActive: !s.dashboardActive, settingsActive: false })),
   toggleFiles: () => set((s) => ({ filesOpen: !s.filesOpen })),
   showFiles: () => set({ filesOpen: true }),
   setDigitHints: (digitHints) => set({ digitHints }),
 }))
+
+export function coversWorkspaces(
+  state: Pick<UIState, 'settingsActive' | 'dashboardActive'>,
+): boolean {
+  return state.settingsActive || state.dashboardActive
+}

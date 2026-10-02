@@ -25,6 +25,11 @@ The id is 2 to 40 lowercase letters, digits or dashes; it becomes the `pine <id>
 `~/.config/pine/extensions/weather`; Pine notices it within a moment and asks you to approve it.
 Then run `pine weather greet you` in a pane, or "Weather: Greet" from the palette.
 
+The project translates itself: `locales/zh-Hant.json` holds its manifest strings and messages in
+Traditional Chinese, `locales/en.json` its English messages, and `src/main.ts` answers in the
+caller's language with `createTranslator()`. See "Translations" in
+[docs/EXTENSIONS.md](docs/EXTENSIONS.md).
+
 Pine never runs a build, a package manager or a script from an extension, so ship one bundled
 `main.js`, as the generated `build.mjs` does.
 
@@ -40,7 +45,7 @@ The package is built: there is no install script to approve. It needs Node 20 or
 
 | Import | What it is |
 |---|---|
-| `@aurigax-ai/pine-extension-sdk` | `connect()` and the `PineExtension` API: commands, events, sidebar items, pane chips, settings, secrets, notifications, panels, diffs, terminals, `runTool`, `startPanelServer`, `onShutdown` |
+| `@aurigax-ai/pine-extension-sdk` | `connect()` and the `PineExtension` API: commands, events, sidebar items, pane chips, settings, secrets, notifications, panels, diffs, terminals, the human's language, `createTranslator`, `runTool`, `startPanelServer`, `onShutdown` |
 | `@aurigax-ai/pine-extension-sdk/panel` | For the page inside a panel: `call`, `onChange`, `context`, `h`, `icon`, panel sizes |
 | `@aurigax-ai/pine-extension-sdk/splitter` | A resizable split for panel pages |
 | `@aurigax-ai/pine-extension-sdk/panel.css` | Base panel styles on Pine's theme variables |
@@ -66,7 +71,7 @@ pnpm exec pine-extension unlist extensions/weather # hide it in Pine: installabl
 ```
 
 It exits 0 when Pine would accept it and prints one line per problem otherwise. For an extension it
-also checks what a marketplace install requires: regular files only, at most 2000 files and
+also checks what a marketplace install requires: regular files only, at most 8000 files and
 50 MiB. Run it on the folder you publish, not on a project folder that holds `node_modules`.
 
 ## Publish

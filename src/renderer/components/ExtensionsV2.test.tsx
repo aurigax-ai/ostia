@@ -35,6 +35,7 @@ function ext(overrides: Partial<ExtensionInfo>): ExtensionInfo {
     secretsSet: [],
     category: 'other',
     languages: [],
+    languageServers: [],
     iconThemes: [],
     ...overrides,
   }
@@ -156,7 +157,7 @@ describe('Extension API v2 UI', () => {
       await userEvent
         .setup()
         .click(screen.getByRole('button', { name: /Branch: :3000.*http:\/\/localhost:3000\// }))
-      expect(openBrowser).toHaveBeenCalledWith('s2', 'http://localhost:3000/')
+      expect(openBrowser).toHaveBeenCalledWith('s2', 'http://localhost:3000/', 'shared')
       expect(useWorkspacesStore.getState().activeWorkspaceId).toBe('s2')
       useLayoutStore.setState(layoutInit, true)
       useWorkspacesStore.setState(workspacesInit, true)
@@ -193,9 +194,11 @@ describe('Extension API v2 UI', () => {
           }),
         ],
       })
-      render(<PaneChips paneId="p1" />)
+      const { container } = render(<PaneChips paneId="p1" />)
       const user = userEvent.setup()
       expect(screen.queryByText(':3000')).toBeNull()
+      expect(container.querySelector('.pane-chip-dot')).not.toBeNull()
+      expect(screen.queryByText('2')).toBeNull()
 
       await user.click(screen.getByRole('button', { name: 'Branch: 2. Click to list them.' }))
       const copy = await screen.findByRole('button', { name: 'Copy http://localhost:5173/' })
@@ -205,7 +208,7 @@ describe('Extension API v2 UI', () => {
       await user.click(
         screen.getByRole('button', { name: 'Open http://localhost:3000/ in the browser pane' }),
       )
-      expect(openBrowser).toHaveBeenCalledWith('s2', 'http://localhost:3000/')
+      expect(openBrowser).toHaveBeenCalledWith('s2', 'http://localhost:3000/', 'shared')
       useLayoutStore.setState(layoutInit, true)
       useWorkspacesStore.setState(workspacesInit, true)
     })

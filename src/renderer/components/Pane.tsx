@@ -6,9 +6,9 @@ import {
   GitDiffIcon,
   GlobeIcon,
   type Icon as IconComponent,
+  LockSimpleIcon,
   MoonIcon,
   PlayIcon,
-  PlusIcon,
   RobotIcon,
   SquareSplitHorizontalIcon,
   SquareSplitVerticalIcon,
@@ -39,6 +39,7 @@ import { useBlocksStore } from '../stores/blocksStore'
 import { useEditorStatus } from '../stores/editorStatusStore'
 import { useExtensionsStore } from '../stores/extensionsStore'
 import { usePaneDnd } from '../stores/paneDndStore'
+import { useQuestionsStore } from '../stores/questionsStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { focusSurface, mountSurface, parkSurface } from '../stores/surfaceSlotsStore'
 import { useViewsStore } from '../stores/viewsStore'
@@ -49,6 +50,7 @@ import { PaneChips } from './ExtensionChips'
 import { Hint } from './Hint'
 import { IconButton } from './IconButton'
 import { PaneHeaderActions, PaneTabMenu } from './PaneTabMenu'
+import { QuestionNotice } from './QuestionNotice'
 import { HostPaneBadge, SandboxRestartButton } from './SandboxRestartButton'
 import { extensionIcon } from './extensionIcons'
 import { Button } from './ui/button'
@@ -85,6 +87,7 @@ export function Pane({ tabs, shownId, active, split = false }: PaneProps): JSX.E
   const tabDrop = usePaneDnd((s) => (s.overId === shown.id ? s.tab : null))
   const attention = useAttentionStore((s) => s.byPane[shown.id])
   const approval = useApprovalsStore((s) => s.pending.find((r) => r.paneId === shown.id))
+  const question = useQuestionsStore((s) => s.pending.find((q) => q.paneId === shown.id))
   const ring = needsRing(attention)
   const unread = attention?.unread ?? false
   const frameRef = useRef<HTMLDivElement>(null)
@@ -260,7 +263,7 @@ export function Pane({ tabs, shownId, active, split = false }: PaneProps): JSX.E
           <AgentSessionButton pane={shown} />
           <PaneHeaderActions pane={shown} />
           <IconButton
-            icon={PlusIcon}
+            icon={TerminalWindowIcon}
             label={d.pane.newTab}
             onClick={() => commands.exec('tab.new', { paneId: shown.id })}
           />
@@ -288,7 +291,11 @@ export function Pane({ tabs, shownId, active, split = false }: PaneProps): JSX.E
         {tabs.map((tab) => (
           <TabBody key={tab.id} pane={tab} shown={tab.id === shown.id} />
         ))}
-        {approval ? <ApprovalCard request={approval} paneTitle={shown.title} /> : null}
+        {approval ? (
+          <ApprovalCard request={approval} paneTitle={shown.title} />
+        ) : question ? (
+          <QuestionNotice question={question} />
+        ) : null}
       </div>
 
       {ring ? (
@@ -338,10 +345,8 @@ function PaneTab({
   showClose: boolean
 }): JSX.Element {
   const d = useDict()
-  const panelIcon = useExtensionsStore((s) =>
-    pane.kind === 'extension'
-      ? s.list.find((e) => e.id === pane.extensionId)?.panel?.icon
-      : undefined,
+  const panel = useExtensionsStore((s) =>
+    pane.kind === 'extension' ? s.list.find((e) => e.id === pane.extensionId)?.panel : undefined,
   )
   const viewIconName = useViewsStore((s) =>
     pane.kind === 'view' ? s.views.find((v) => v.name === pane.viewName)?.icon : undefined,
@@ -349,7 +354,7 @@ function PaneTab({
   const Icon = pane.hibernated
     ? MoonIcon
     : pane.kind === 'extension'
-      ? extensionIcon(panelIcon)
+      ? extensionIcon(panel?.icon)
       : pane.kind === 'view'
         ? viewIcon(viewIconName)
         : SURFACE_ICON[pane.kind]
@@ -371,7 +376,12 @@ function PaneTab({
 
   const tab = (
     <div
-      className={cn('pane-tab', selected && 'selected', dropMark && `drop-${dropMark}`)}
+      className={cn(
+        'pane-tab',
+        selected && 'selected',
+        pane.locked && 'locked',
+        dropMark && `drop-${dropMark}`,
+      )}
       data-attention={unread ? attention?.state : undefined}
       data-tab-id={pane.id}
       draggable
@@ -401,7 +411,7 @@ function PaneTab({
         }}
       >
         <Icon
-          size={14}
+          size={16}
           className="pane-kind"
           aria-label={pane.hibernated ? d.pane.hibernated : undefined}
         />
@@ -409,7 +419,7 @@ function PaneTab({
           <span className="dot pane-tab-dirty" role="img" aria-label={d.pane.unsaved} />
         ) : null}
         <span className={cn('title', diskProblem === 'deleted' && 'line-through')}>
-          {pane.title}
+          {panel?.title ?? pane.title}
         </span>
         {diskProblem ? (
           <Hint label={diskLabel[diskProblem]}>
@@ -424,7 +434,14 @@ function PaneTab({
           />
         ) : null}
       </button>
-      {showClose ? (
+      {pane.locked ? (
+        <IconButton
+          icon={LockSimpleIcon}
+          label={d.pane.unlock}
+          className="pane-tab-lock"
+          onClick={() => commands.exec('pane.toggleLock', { paneId: pane.id })}
+        />
+      ) : showClose ? (
         <IconButton
           icon={XIcon}
           label={d.pane.closeTab}

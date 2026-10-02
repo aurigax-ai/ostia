@@ -6,9 +6,15 @@ const root = process.argv.find((a, i) => i > 1 && !a.startsWith('--')) ?? proces
 const check = process.argv.includes('--check')
 
 const SCAN_DIRS = ['src', 'e2e', 'test', 'scripts']
-const ROOT_FILES = ['electron.vite.config.ts', 'vitest.config.ts', 'vitest.workspace.ts', 'playwright.config.ts']
+const ROOT_FILES = [
+  'electron.vite.config.ts',
+  'vitest.config.ts',
+  'vitest.workspace.ts',
+  'playwright.config.ts',
+]
 const SKIP = [/node_modules/, /src\/renderer\/components\/ui\//, /\.d\.ts$/]
-const DIRECTIVE = /^(\/\/|\/\*)\s*(biome-ignore|@ts-expect-error|@ts-ignore|@ts-nocheck|eslint-|@vite-ignore|webpackIgnore)|^\/\/\/\s*<reference/
+const DIRECTIVE =
+  /^(\/\/|\/\*)\s*(biome-ignore|@ts-expect-error|@ts-ignore|@ts-nocheck|eslint-|@vite-ignore|webpackIgnore)|^\/\/\/\s*<reference/
 
 function walk(dir, out) {
   let entries
@@ -46,7 +52,11 @@ function literalSpans(sf) {
 }
 
 function scriptRanges(file, text) {
-  const kind = file.endsWith('.tsx') ? ts.ScriptKind.TSX : file.endsWith('.mjs') ? ts.ScriptKind.JS : ts.ScriptKind.TS
+  const kind = file.endsWith('.tsx')
+    ? ts.ScriptKind.TSX
+    : file.endsWith('.mjs')
+      ? ts.ScriptKind.JS
+      : ts.ScriptKind.TS
   const sf = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, kind)
   const spans = literalSpans(sf)
   const inLiteral = (pos) => spans.some(([s, e]) => pos >= s && pos < e)

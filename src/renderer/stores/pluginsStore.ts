@@ -8,53 +8,21 @@ const collectThemes = (plugins: PluginManifest[]): Theme[] =>
 const collectColorSchemes = (plugins: PluginManifest[]): ColorScheme[] =>
   plugins.flatMap((p) => p.contributes.colorSchemes ?? [])
 
-export type LspStatus = 'running' | 'installed' | 'missing' | 'error'
-
-export interface LspEntry {
-  languageId: string
-  command: string
-  status: LspStatus
-}
-
 interface PluginsState {
   plugins: PluginManifest[]
   themes: Theme[]
   colorSchemes: ColorScheme[]
   languages: LanguageContribution[]
-  lsp: LspEntry[]
-  loaded: boolean
-  load: () => Promise<void>
   loadLanguages: () => Promise<void>
-  setLspStatus: (languageId: string, status: LspStatus) => void
 }
 
-export const usePluginsStore = create<PluginsState>((set, get) => ({
+export const usePluginsStore = create<PluginsState>((set) => ({
   plugins: BUILTIN_PLUGINS,
   themes: collectThemes(BUILTIN_PLUGINS),
   colorSchemes: collectColorSchemes(BUILTIN_PLUGINS),
   languages: [BASE_LANGUAGE],
-  lsp: [],
-  loaded: false,
-
-  load: async () => {
-    if (get().loaded) return
-    const servers = await window.pine.lsp.list()
-    set({
-      loaded: true,
-      lsp: servers.map((s) => ({
-        languageId: s.languageId,
-        command: s.command,
-        status: s.installed ? 'installed' : 'missing',
-      })),
-    })
-  },
 
   loadLanguages: async () => {
     set({ languages: languagesFrom(await window.pine.languagePacks.load()) })
   },
-
-  setLspStatus: (languageId, status) =>
-    set((st) => ({
-      lsp: st.lsp.map((e) => (e.languageId === languageId ? { ...e, status } : e)),
-    })),
 }))

@@ -19,7 +19,7 @@ function answer(req: FakeRequest): string {
   return ANSWER
 }
 
-test('a custom OpenAI-compatible provider set in Settings answers in Ask and suggests a command that is inserted, not run', async () => {
+test('an OpenAI-compatible provider added in Settings with two models answers in Ask with the chat model and suggests a command with the fast one, inserted, not run', async () => {
   const provider = await startFakeProvider(answer)
   const app = await electron.launch(isolatedLaunch())
   try {
@@ -31,21 +31,36 @@ test('a custom OpenAI-compatible provider set in Settings answers in Ask and sug
     const settings = win.getByRole('region', { name: 'Settings' })
     await expect(settings).toBeVisible({ timeout: 10_000 })
     await settings.getByRole('button', { name: 'Assistant', exact: true }).click()
-    const assistant = settings.getByRole('group', { name: 'Assistant settings' })
-    await assistant.getByRole('combobox', { name: 'Provider' }).click()
-    await win.getByRole('option', { name: 'OpenAI-compatible', exact: true }).click()
-    for (const [label, value] of [
-      ['Base URL', provider.url],
-      ['Fast model', 'fake-small'],
-      ['Chat model', 'fake-big'],
-    ]) {
-      const box = assistant.getByRole('textbox', { name: label, exact: true })
-      await box.fill(value)
-      await box.press('Enter')
-    }
-    await expect(settings).toContainText('openai-compatible · fake-small / fake-big', {
-      timeout: 15_000,
-    })
+    await expect(
+      settings.getByText('Add a provider and a model first. Nothing is sent until then.'),
+    ).toBeVisible()
+    await settings.getByRole('button', { name: 'Add provider' }).click()
+    await win.getByRole('menuitem', { name: 'OpenAI-compatible', exact: true }).click()
+    const card = settings.getByRole('listitem', { name: 'OpenAI-compatible' })
+    await expect(card.getByRole('status')).toHaveText('Needs a base URL', { timeout: 15_000 })
+    const url = card.getByRole('textbox', { name: 'Base URL: OpenAI-compatible' })
+    await url.fill(provider.url)
+    await url.press('Enter')
+    await expect(card.getByRole('status')).toHaveText('No models yet', { timeout: 15_000 })
+    const addModel = card.getByRole('combobox', { name: 'Model id for OpenAI-compatible' })
+    await addModel.click()
+    await win.getByRole('option', { name: 'fake-small', exact: true }).click()
+    await expect(card.getByRole('status')).toHaveText('Ready', { timeout: 15_000 })
+    await addModel.fill('fake-big')
+    await win.getByRole('option', { name: 'fake-big', exact: true }).click()
+    await expect(card.getByRole('list', { name: 'Models: OpenAI-compatible' })).toContainText(
+      'fake-big',
+    )
+    const fast = settings.getByRole('combobox', { name: 'Fast model' })
+    const chat = settings.getByRole('combobox', { name: 'Chat model' })
+    await expect(fast).toContainText('OpenAI-compatible · fake-small', { timeout: 15_000 })
+    await expect(chat).toContainText('OpenAI-compatible · fake-small')
+    await chat.click()
+    await win.getByRole('option', { name: 'fake-big', exact: true }).click()
+    await expect(chat).toContainText('OpenAI-compatible · fake-big', { timeout: 15_000 })
+    await expect(settings.locator('[data-feature="chat"]')).toContainText(
+      'Uses OpenAI-compatible · fake-big',
+    )
     await win.keyboard.press('Escape')
 
     await win.locator('.xterm').first().click()

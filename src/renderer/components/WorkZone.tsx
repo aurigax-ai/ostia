@@ -6,8 +6,9 @@ import { useChordLabel } from '../lib/chords'
 import { startNewWorkspace } from '../lib/newWorkspace'
 import { isMac } from '../platform'
 import { useLayoutStore } from '../stores/layoutStore'
-import { useUIStore } from '../stores/uiStore'
+import { coversWorkspaces, useUIStore } from '../stores/uiStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
+import { DashboardPanel } from './DashboardPanel'
 import { PaneTree } from './PaneTree'
 import { SettingsPanel } from './SettingsPanel'
 import { SurfacePool } from './SurfacePool'
@@ -18,7 +19,7 @@ import { Kbd } from './ui/kbd'
 export function WorkZone(): JSX.Element {
   const workspaces = useWorkspacesStore((s) => s.workspaces)
   const activeWorkspaceId = useWorkspacesStore((s) => s.activeWorkspaceId)
-  const settingsActive = useUIStore((s) => s.settingsActive)
+  const covered = useUIStore(coversWorkspaces)
   const awaitingResume = useLayoutStore((s) => workspacesAwaitingResume(s.byWorkspace).join('\n'))
   const [mounted, setMounted] = useState<string[]>(() =>
     activeWorkspaceId ? [activeWorkspaceId] : [],
@@ -48,14 +49,11 @@ export function WorkZone(): JSX.Element {
       {mounted
         .filter((id) => workspaces.some((s) => s.id === id))
         .map((id) => (
-          <WorkspaceLayer
-            key={id}
-            workspaceId={id}
-            active={id === activeWorkspaceId && !settingsActive}
-          />
+          <WorkspaceLayer key={id} workspaceId={id} active={id === activeWorkspaceId && !covered} />
         ))}
       <SurfacePool />
       <SettingsPanel />
+      <DashboardPanel />
     </section>
   )
 }
@@ -82,7 +80,7 @@ function WorkspaceLayer({
 
 function NoWorkspaces(): JSX.Element {
   const d = useDict()
-  const leaveSettings = useUIStore((s) => s.leaveSettings)
+  const showWorkspaces = useUIStore((s) => s.showWorkspaces)
   const newWorkspaceKeys = useChordLabel('workspace.new', isMac)
   return (
     <Empty className="workzone-empty">
@@ -94,7 +92,7 @@ function NoWorkspaces(): JSX.Element {
       </EmptyHeader>
       <Button
         onClick={() => {
-          leaveSettings()
+          showWorkspaces()
           startNewWorkspace()
         }}
       >

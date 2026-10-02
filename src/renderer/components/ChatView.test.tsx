@@ -11,6 +11,7 @@ import { useAssistStore } from '../stores/assistStore'
 import { useBlocksStore } from '../stores/blocksStore'
 import { resetChats, useChatStore } from '../stores/chatStore'
 import { useLayoutStore } from '../stores/layoutStore'
+import { useLiveSelectionStore } from '../stores/liveSelectionStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
@@ -21,7 +22,12 @@ import { CommandPalette } from './CommandPalette'
 vi.mock('../lib/colorize', () => ({ colorizeCode: async () => null }))
 
 const PANE = 'p-chat-term'
-const CHAT = { extId: 'assistant', name: 'Assistant', label: 'model-runtime · gemma' }
+const CHAT = {
+  extId: 'assistant',
+  name: 'Assistant',
+  label: 'model-runtime · gemma',
+  ref: { extId: 'assistant' },
+}
 
 function seedWorkspace(): void {
   useWorkspacesStore.setState({
@@ -155,6 +161,7 @@ describe('chat', () => {
   afterEach(() => {
     cleanup()
     resetChats()
+    useLiveSelectionStore.setState({ byWorkspace: {} })
     useChatStore.setState({
       current: {},
       meta: {},
@@ -167,7 +174,14 @@ describe('chat', () => {
     useBlocksStore.setState(blocksInit, true)
     useAssistStore.setState({ availability: {} })
     useSettingsStore.setState({
-      assistant: { chatHistory: true, mcpServers: [], skillFolders: [] },
+      assistant: {
+        chatHistory: true,
+        mcpServers: [],
+        skillFolders: [],
+        providers: [],
+        fastModel: null,
+        chatModel: null,
+      },
     })
     useWorkspacesStore.setState({ workspaces: [], activeWorkspaceId: null })
     useLayoutStore.setState({ byWorkspace: {} })
@@ -255,6 +269,55 @@ describe('chat', () => {
     expect(within(answer).getByRole('button', { name: 'Copy as Markdown' })).toBeInTheDocument()
   })
 
+  it('sends the text selected in the workspace with the next question by itself', async () => {
+    const { pending } = captureRequests()
+    idlePrompt()
+    useLiveSelectionStore
+      .getState()
+      .report(
+        'w1',
+        'p-editor',
+        { kind: 'editor', file: '/home/u/proj/src/a.ts', startLine: 2, endLine: 4 },
+        'two\nthree',
+      )
+    useUIStore.setState({ paletteOpen: true, paletteMode: 'ask' })
+    render(<CommandPalette />)
+
+    const chip = await screen.findByRole('button', { name: /Selection/ })
+    expect(chip).toHaveAttribute('aria-pressed', 'true')
+    expect(chip).toHaveTextContent('a.ts:2-4')
+    await ask('what is this?')
+    await waitFor(() => expect(pending).toHaveLength(1))
+    expect(pending[0].input).toMatchObject({
+      context: expect.arrayContaining([
+        {
+          kind: 'selection',
+          label: 'Selection a.ts:2-4',
+          text: 'two\nthree',
+          path: '/home/u/proj/src/a.ts',
+          startLine: 2,
+          endLine: 4,
+        },
+      ]),
+    })
+  })
+
+  it('leaves the selection out once the human switches its chip off', async () => {
+    const { pending } = captureRequests()
+    idlePrompt()
+    useLiveSelectionStore.getState().report('w1', PANE, { kind: 'terminal' }, 'ls -la')
+    useUIStore.setState({ paletteOpen: true, paletteMode: 'ask' })
+    render(<CommandPalette />)
+
+    const chip = await screen.findByRole('button', { name: /Selection/ })
+    await userEvent.click(chip)
+    expect(chip).toHaveAttribute('aria-pressed', 'false')
+    await ask('and this?')
+    await waitFor(() => expect(pending).toHaveLength(1))
+    const { context } = pending[0].input as { context: { kind: string }[] }
+    expect(context.some((item) => item.kind === 'selection')).toBe(false)
+  })
+
   it('disables Insert at prompt with the reason while the terminal runs a command', async () => {
     const { pending, chunk } = captureRequests()
     idlePrompt()
@@ -313,7 +376,14 @@ describe('chat', () => {
 
   it('keeps the chat in memory only while chat history is off', async () => {
     useSettingsStore.setState({
-      assistant: { chatHistory: false, mcpServers: [], skillFolders: [] },
+      assistant: {
+        chatHistory: false,
+        mcpServers: [],
+        skillFolders: [],
+        providers: [],
+        fastModel: null,
+        chatModel: null,
+      },
     })
     const { pending, chunk } = captureRequests()
     useUIStore.setState({ paletteOpen: true, paletteMode: 'ask' })
@@ -402,7 +472,11 @@ describe('chat', () => {
   })
 
   it('names the provider while waiting when it reports no model label', async () => {
-    useAssistStore.setState({ availability: { chat: { extId: 'assistant', name: 'Assistant' } } })
+    useAssistStore.setState({
+      availability: {
+        chat: { extId: 'assistant', name: 'Assistant', ref: { extId: 'assistant' } },
+      },
+    })
     const { pending } = captureRequests()
     render(<ChatPane workspaceId="w1" paneId="p-chat" />)
     await ask('hi')

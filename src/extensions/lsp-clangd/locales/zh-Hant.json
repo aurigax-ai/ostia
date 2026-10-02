@@ -1,0 +1,7 @@
+{
+  "manifest": {
+    "name": "C 與 C++（clangd）",
+    "description": "在編輯器中提供 C 與 C++ 的診斷、自動完成、懸停說明與跳轉。使用 PATH 中的 clangd；若沒有，{product} 會從 GitHub 下載固定版本，驗證後存放在自己的資料夾中。"
+  },
+  "messages": {}
+}

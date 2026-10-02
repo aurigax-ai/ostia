@@ -1,0 +1,34 @@
+{
+  "id": "fake-grammar",
+  "name": "Fake grammar",
+  "version": "1.0.0",
+  "api": "1.6",
+  "description": "Test fixture: an editor language with a Monarch grammar and a fake server for it",
+  "category": "languages",
+  "capabilities": ["language-server"],
+  "contributes": {
+    "editorLanguages": [
+      {
+        "id": "fakelang",
+        "name": "Fake language",
+        "extensions": [".fake"],
+        "filenames": ["Fakefile"],
+        "configuration": {
+          "lineComment": "//",
+          "blockComment": ["/*", "*/"],
+          "brackets": [["{", "}"], ["(", ")"]],
+          "autoClosingPairs": [["{", "}"], ["(", ")"]]
+        },
+        "grammar": "fakelang.monarch.json"
+      }
+    ],
+    "languageServers": [
+      {
+        "id": "fake",
+        "name": "Fake grammar server",
+        "languages": ["fakelang"],
+        "run": { "node": "server/fake-server.cjs", "args": ["--caps=hover"] }
+      }
+    ]
+  }
+}

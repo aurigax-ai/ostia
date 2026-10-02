@@ -1,8 +1,10 @@
 import type {
+  AttentionState,
   ScreenPoint,
   SnapshotNode,
   SnapshotWorkspace,
-  WindowWorkspaceSummary,
+  WindowPaneReport,
+  WindowWorkspaceReport,
   WorkspaceOrigin,
 } from '@shared/types'
 import type { RestorableWorkspace } from '../layout/snapshot'
@@ -10,6 +12,7 @@ import { restoreSnapshot, workspaceHandoff } from '../layout/snapshot'
 import { allPanes, findPane, paneIds, placementOf } from '../layout/tree'
 import type { LayoutNode, PaneNode } from '../layout/types'
 import { useAttentionStore } from '../stores/attentionStore'
+import { useBlocksStore } from '../stores/blocksStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { isMovable, liveAgentPanes } from '../stores/persistence'
 import { useSandboxStore } from '../stores/sandboxStore'
@@ -19,6 +22,9 @@ import { useWindowsStore } from '../stores/windowsStore'
 import { type Workspace, nextWorkspaceId, useWorkspacesStore } from '../stores/workspacesStore'
 import { confirmMove } from './closeConfirm'
 import { setIdNamespace } from './idNamespace'
+import { originWorkspaceId, startOriginAgentsSync } from './originAgents'
+import { runningAgent } from './paneAgent'
+import { receiveReference } from './sendPick'
 import { jumpToLatestUnreadIn, revealPane } from './workspaceActivity'
 
 const REPORT_DEBOUNCE_MS = 100
@@ -186,7 +192,7 @@ function rejoin(workspace: SnapshotWorkspace, home: string): string | null {
 }
 
 export function adoptWorkspaces(workspaces: SnapshotWorkspace[]): void {
-  useUIStore.getState().leaveSettings()
+  useUIStore.getState().showWorkspaces()
   const localIds = new Set(useWorkspacesStore.getState().workspaces.map((w) => w.id))
   const standalone: SnapshotWorkspace[] = []
   let focus: string | null = null
@@ -209,17 +215,30 @@ function focusPaneWhenReady(paneId: string): void {
 
 export function activateWorkspace(workspaceId: string, jumpToUnread: boolean): void {
   if (!findWorkspace(workspaceId)) return
-  useUIStore.getState().leaveSettings()
+  useUIStore.getState().showWorkspaces()
   if (jumpToUnread && jumpToLatestUnreadIn(workspaceId)) return
   useWorkspacesStore.getState().setActive(workspaceId)
 }
 
-export function workspaceSummaries(): WindowWorkspaceSummary[] {
+function paneReport(pane: PaneNode, state: AttentionState | undefined): WindowPaneReport {
+  const agent = pane.kind === 'terminal' ? runningAgent(pane.id) : null
+  if (!agent) return { id: pane.id, title: pane.title }
+  return {
+    id: pane.id,
+    title: pane.title,
+    agent,
+    state: state ?? 'none',
+    ...(pane.cwd ? { cwd: pane.cwd } : {}),
+  }
+}
+
+export function workspaceSummaries(): WindowWorkspaceReport[] {
   const { byPane } = useAttentionStore.getState()
   const { byWorkspace } = useLayoutStore.getState()
   return useWorkspacesStore.getState().workspaces.map((w) => {
     const layout = byWorkspace[w.id]
     let unreadAt = 0
+    const origin = originWorkspaceId(w)
     const panes = layout ? allPanes(layout.root) : []
     for (const pane of panes) {
       const attention = byPane[pane.id]
@@ -231,7 +250,8 @@ export function workspaceSummaries(): WindowWorkspaceSummary[] {
       workDir: w.projectDir ?? w.workDir,
       state: w.state,
       unreadAt,
-      panes: panes.map((p) => ({ id: p.id, title: p.title })),
+      panes: panes.map((p) => paneReport(p, byPane[p.id]?.state)),
+      ...(origin ? { origin } : {}),
     }
   })
 }
@@ -281,6 +301,9 @@ export function startWindowSync(): () => void {
     useWorkspacesStore.subscribe(schedule),
     useLayoutStore.subscribe(schedule),
     useAttentionStore.subscribe(schedule),
+    useBlocksStore.subscribe((s, prev) => {
+      if (s.running !== prev.running || s.agentBlocks !== prev.agentBlocks) schedule()
+    }),
     useWorkspacesStore.subscribe((s, prev) => {
       const empty = s.workspaces.length === 0 && prev.workspaces.length > 0
       if (empty && useWindowsStore.getState().detached) window.pine.window.close()
@@ -289,6 +312,10 @@ export function startWindowSync(): () => void {
     api.onAdopt(adoptWorkspaces),
     api.onActivateWorkspace(activateWorkspace),
     api.onReturnRequest(() => void returnToMainWindow()),
+    api.onInsertReference((insert) =>
+      api.answerInsertReference(insert.requestId, receiveReference(insert)),
+    ),
+    startOriginAgentsSync(),
   ]
   return () => {
     if (timer) clearTimeout(timer)

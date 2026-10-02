@@ -1,3 +1,4 @@
+import { localized } from '../../shared/extensionLocales'
 export interface Strings {
   noFile: string
   discardTitle: string
@@ -38,7 +39,7 @@ const en: Strings = {
 }
 
 const zhHant: Strings = {
-  noFile: '目前的窗格不是檔案。請先聚焦檔案檢視，再執行「Git: Blame File」。',
+  noFile: '目前的窗格不是檔案。請先聚焦檔案檢視，再執行「Git：逐行追溯檔案」。',
   discardTitle: '捨棄變更',
   discardMessage: (count) => `要捨棄 ${count} 個檔案的變更嗎？此動作無法復原。`,
   discardDetail: (paths) =>
@@ -53,5 +54,5 @@ const zhHant: Strings = {
 }
 
 export function stringsFor(locale: string | undefined): Strings {
-  return locale?.startsWith('zh') ? zhHant : en
+  return localized({ en, 'zh-Hant': zhHant }, locale)
 }

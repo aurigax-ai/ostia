@@ -1,0 +1,30 @@
+#!/bin/sh
+if [ -n "$FAKE_GO_LOG" ]; then
+  {
+    printf 'argv=%s\n' "$*"
+    printf 'GOBIN=%s\n' "$GOBIN"
+    printf 'GOFLAGS=[%s]\n' "$GOFLAGS"
+    printf 'cwd=%s\n' "$(pwd)"
+    env | grep -c '^PINE_' | sed 's/^/pine_vars=/'
+  } >> "$FAKE_GO_LOG"
+fi
+case "$FAKE_GO_MODE" in
+  fail)
+    echo "go: downloading example.org/x/tools v1.2.3" >&2
+    echo "go: build failed token=abcdef123456" >&2
+    exit 1 ;;
+  hang)
+    exec sleep 30 ;;
+  empty)
+    exit 0 ;;
+esac
+[ "$1" = "install" ] || { echo "fake go: only install is supported" >&2; exit 2; }
+module="${2%@*}"
+name="${module##*/}"
+echo "go: downloading $2" >&2
+if [ -n "$FAKE_GO_BINARY" ]; then
+  cp "$FAKE_GO_BINARY" "$GOBIN/$name"
+else
+  printf '#!/bin/sh\necho fake %s\n' "$name" > "$GOBIN/$name"
+fi
+chmod +x "$GOBIN/$name"

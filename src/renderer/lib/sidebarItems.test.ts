@@ -65,7 +65,7 @@ describe('openSidebarUrl', () => {
       ],
       activeWorkspaceId: 's1',
     })
-    openSidebarUrl('s2', 'http://localhost:5173/')
+    openSidebarUrl('s2', 'http://localhost:5173/', 'human')
     expect(useWorkspacesStore.getState().activeWorkspaceId).toBe('s2')
     expect(useLayoutStore.getState().byWorkspace.s2?.root).toMatchObject({
       kind: 'browser',
