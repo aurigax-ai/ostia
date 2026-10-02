@@ -1,3 +1,4 @@
+import { PRODUCT_NAME } from '../../shared/product'
 import {
   CORE_CHIP_IDS,
   MAX_PROMPT_CHIPS,
@@ -64,7 +65,7 @@ export function keybindingsSchema(ids: readonly string[]) {
 
 export const SETTINGS_JSON_SCHEMA = {
   $schema: 'http://json-schema.org/draft-07/schema#',
-  title: 'Pine Settings',
+  title: `${PRODUCT_NAME} Settings`,
   type: 'object',
   additionalProperties: false,
   properties: {
@@ -391,7 +392,7 @@ export const SETTINGS_JSON_SCHEMA = {
         sound: { type: 'boolean', description: 'Play the system sound with each banner.' },
         whenFocused: {
           type: 'boolean',
-          description: 'Also show banners for the pane you are looking at while Pine is focused.',
+          description: `Also show banners for the pane you are looking at while ${PRODUCT_NAME} is focused.`,
         },
         agentWaiting: {
           type: 'boolean',
@@ -446,12 +447,7 @@ export const SETTINGS_JSON_SCHEMA = {
       properties: {
         chatHistory: {
           type: 'boolean',
-          description:
-            'Save assistant chat sessions on this computer (never synced), so a chat pane ' +
-            'reopens its last session and you can search, rename, export or delete past ones. ' +
-            'Terminal output you add as context is stored only as the text that was sent. ' +
-            'Off keeps chats in memory until Pine quits. Only you can change this; pine ' +
-            'settings set refuses it. Default: true.',
+          description: `Save assistant chat sessions on this computer (never synced), so a chat pane reopens its last session and you can search, rename, export or delete past ones. Terminal output you add as context is stored only as the text that was sent. Off keeps chats in memory until ${PRODUCT_NAME} quits. Only you can change this; pine settings set refuses it. Default: true.`,
         },
         mcpServers: {
           type: 'array',
@@ -497,10 +493,7 @@ export const SETTINGS_JSON_SCHEMA = {
       properties: {
         autoResume: {
           type: 'boolean',
-          description:
-            "Resume an agent session that was running when Pine quit, at its pane's first idle " +
-            'prompt once the pane is visible. Only you can change this; pine settings set ' +
-            'refuses it. Default: false.',
+          description: `Resume an agent session that was running when ${PRODUCT_NAME} quit, at its pane's first idle prompt once the pane is visible. Only you can change this; pine settings set refuses it. Default: false.`,
         },
         hibernation: {
           type: 'object',
@@ -565,10 +558,7 @@ export const SETTINGS_JSON_SCHEMA = {
         },
         closeToTray: {
           type: 'boolean',
-          description:
-            'Closing the window hides Pine instead of quitting; your terminals keep running and ' +
-            'a tray icon brings the window back. Quit from the tray icon. Needs a desktop with a ' +
-            'system tray. Default: false.',
+          description: `Closing the window hides ${PRODUCT_NAME} instead of quitting; your terminals keep running and a tray icon brings the window back. Quit from the tray icon. Needs a desktop with a system tray. Default: false.`,
         },
         wrapTitles: {
           type: 'boolean',
@@ -595,9 +585,7 @@ export const SETTINGS_JSON_SCHEMA = {
         },
         openTerminalLinks: {
           type: 'boolean',
-          description:
-            'Ctrl/Cmd+click on a web link in a terminal opens it in Pine’s browser pane instead of ' +
-            'the system browser; with Shift as well, the other way for that click. Default: false.',
+          description: `Ctrl/Cmd+click on a web link in a terminal opens it in ${PRODUCT_NAME}’s browser pane instead of the system browser; with Shift as well, the other way for that click. Default: false.`,
         },
         defaultZoom: {
           type: 'number',
@@ -745,9 +733,7 @@ export const SETTINGS_JSON_SCHEMA = {
     manager: {
       type: 'object',
       additionalProperties: false,
-      description:
-        'The manager: one agent you start with `pine <agent>` from a terminal outside Pine. ' +
-        'Only you can change this (Settings → Manager); agents cannot set it.',
+      description: `The manager: one agent you start with \`pine <agent>\` from a terminal outside ${PRODUCT_NAME}. Only you can change this (Settings → Manager); agents cannot set it.`,
       properties: {
         agents: {
           type: 'object',
@@ -835,9 +821,7 @@ export const SETTINGS_JSON_SCHEMA = {
               'credentials',
             ],
           },
-          description:
-            'Elevated capabilities pre-granted to every pane (pane-scoped defaults already ' +
-            'cover the rest). Human-edited only; restart Pine to apply.',
+          description: `Elevated capabilities pre-granted to every pane (pane-scoped defaults already cover the rest). Human-edited only; restart ${PRODUCT_NAME} to apply.`,
         },
       },
     },

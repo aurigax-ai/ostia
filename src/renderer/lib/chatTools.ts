@@ -10,6 +10,7 @@ import {
   type SkillSummary,
   mcpToolName,
 } from '@shared/chatTools'
+import { PRODUCT_NAME } from '@shared/product'
 import { useBlocksStore } from '../stores/blocksStore'
 import {
   type ApprovalDetail,
@@ -76,7 +77,7 @@ function int(v: unknown): number | undefined {
 
 const FS_ERRORS: Record<ChatFsError, string> = {
   'outside-folder': 'That path is outside the workspace folder.',
-  'not-allowed': 'That path is outside the folders Pine may touch.',
+  'not-allowed': `That path is outside the folders ${PRODUCT_NAME} may touch.`,
   'not-found': 'No such file or folder.',
   'not-a-file': 'That path is not a regular file.',
   'not-a-directory': 'That path is not a folder.',
