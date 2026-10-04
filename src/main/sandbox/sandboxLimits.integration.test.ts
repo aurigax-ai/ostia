@@ -12,7 +12,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { build } from 'esbuild'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { PRODUCT_NAME } from '../../shared/product'
+import { PRODUCT_DISPLAY_NAME } from '../../shared/productDisplay'
 import {
   DEFAULT_SANDBOX_GLOBALS,
   type SandboxViolation,
@@ -332,7 +332,7 @@ describe('a workspace folder the sandbox cannot confine', () => {
   it('refuses a workspace whose folder holds Pine data', async () => {
     const { sandboxes } = start('data-folder', {}, join(home, '.local'))
     await expect(sandboxes.wrap('ws', 'bash', 'bash')).rejects.toThrow(
-      `holds ${PRODUCT_NAME}'s own data`,
+      `holds ${PRODUCT_DISPLAY_NAME}'s own data`,
     )
     sandboxes.stopAll()
   })

@@ -33,7 +33,7 @@ jobs:
       - run: pnpm exec electron-builder --linux AppImage dir --publish never
       - name: Archive the unpacked app
         run: |
-          name="pine-${GITHUB_REF_NAME#v}-linux-x64"
+          name="ostia-${GITHUB_REF_NAME#v}-linux-x64"
           mv dist/linux-unpacked "dist/$name"
           tar -C dist -czf "dist/$name.tar.gz" "$name"
       - uses: actions/upload-artifact@v7
@@ -87,8 +87,8 @@ jobs:
         run: pnpm exec electron-builder --mac dmg --arm64 --publish never
       - name: Gatekeeper accepts the notarized app
         run: |
-          spctl -a -vvv -t exec dist/mac-arm64/Pine.app
-          xcrun stapler validate dist/mac-arm64/Pine.app
+          spctl -a -vvv -t exec dist/mac-arm64/Ostia.app
+          xcrun stapler validate dist/mac-arm64/Ostia.app
       - name: Remove the temporary keychain and API key
         if: always()
         run: |

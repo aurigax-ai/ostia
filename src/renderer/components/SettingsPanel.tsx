@@ -40,7 +40,7 @@ import {
   LONG_COMMAND_MIN_SECONDS,
   clampLongCommandSeconds,
 } from '@shared/notificationSettings'
-import { PRODUCT_NAME } from '@shared/product'
+import { PRODUCT_DISPLAY_NAME } from '@shared/productDisplay'
 import type { AppInfo, Platform } from '@shared/types'
 import { ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from '@shared/zoom'
 import { Fragment, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -1996,7 +1996,7 @@ function AboutSection(): JSX.Element {
     const timer = setTimeout(() => setCopied(false), 1500)
     return () => clearTimeout(timer)
   }, [copied])
-  const name = info?.name ?? PRODUCT_NAME
+  const name = info?.name ?? PRODUCT_DISPLAY_NAME
   const version = info ? `v${info.version}` : '…'
   return (
     <section
