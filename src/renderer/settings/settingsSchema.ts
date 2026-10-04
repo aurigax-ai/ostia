@@ -4,7 +4,7 @@ import {
   LONG_COMMAND_MAX_SECONDS,
   LONG_COMMAND_MIN_SECONDS,
 } from '../../shared/notificationSettings'
-import { PRODUCT_NAME } from '../../shared/product'
+import { PRODUCT_DISPLAY_NAME } from '../../shared/productDisplay'
 import {
   CORE_CHIP_IDS,
   MAX_PROMPT_CHIPS,
@@ -73,7 +73,7 @@ export function keybindingsSchema(ids: readonly string[]) {
 
 export const SETTINGS_JSON_SCHEMA = {
   $schema: 'http://json-schema.org/draft-07/schema#',
-  title: `${PRODUCT_NAME} Settings`,
+  title: `${PRODUCT_DISPLAY_NAME} Settings`,
   type: 'object',
   additionalProperties: false,
   properties: {
@@ -436,7 +436,7 @@ export const SETTINGS_JSON_SCHEMA = {
         sound: { type: 'boolean', description: 'Play the system sound with each banner.' },
         whenFocused: {
           type: 'boolean',
-          description: `Also show banners for the pane you are looking at while ${PRODUCT_NAME} is focused.`,
+          description: `Also show banners for the pane you are looking at while ${PRODUCT_DISPLAY_NAME} is focused.`,
         },
         agentWaiting: {
           type: 'boolean',
@@ -464,7 +464,7 @@ export const SETTINGS_JSON_SCHEMA = {
           type: 'integer',
           minimum: LONG_COMMAND_MIN_SECONDS,
           maximum: LONG_COMMAND_MAX_SECONDS,
-          description: `Seconds a command must run before its end notifies you while ${PRODUCT_NAME} is in the background. Default: 10.`,
+          description: `Seconds a command must run before its end notifies you while ${PRODUCT_DISPLAY_NAME} is in the background. Default: 10.`,
         },
         bell: {
           type: 'string',
@@ -506,7 +506,7 @@ export const SETTINGS_JSON_SCHEMA = {
       properties: {
         chatHistory: {
           type: 'boolean',
-          description: `Save assistant chat sessions on this computer (never synced), so a chat pane reopens its last session and you can search, rename, export or delete past ones. Terminal output you add as context is stored only as the text that was sent. Off keeps chats in memory until ${PRODUCT_NAME} quits. Only you can change this; pine settings set refuses it. Default: true.`,
+          description: `Save assistant chat sessions on this computer (never synced), so a chat pane reopens its last session and you can search, rename, export or delete past ones. Terminal output you add as context is stored only as the text that was sent. Off keeps chats in memory until ${PRODUCT_DISPLAY_NAME} quits. Only you can change this; pine settings set refuses it. Default: true.`,
         },
         mcpServers: {
           type: 'array',
@@ -552,20 +552,20 @@ export const SETTINGS_JSON_SCHEMA = {
       properties: {
         autoResume: {
           type: 'boolean',
-          description: `Resume an agent session that was running when ${PRODUCT_NAME} quit, at its pane's first idle prompt once the pane is visible. Only you can change this; pine settings set refuses it. Default: false.`,
+          description: `Resume an agent session that was running when ${PRODUCT_DISPLAY_NAME} quit, at its pane's first idle prompt once the pane is visible. Only you can change this; pine settings set refuses it. Default: false.`,
         },
         hooks: {
           type: 'object',
           additionalProperties: false,
-          description: `${PRODUCT_NAME}’s integration for each agent CLI in new terminals. Turn one off if it clashes with your own hooks; that agent then runs untouched and reports no attention state or resume token on its own. Only you can change this, in Settings; agents cannot.`,
+          description: `${PRODUCT_DISPLAY_NAME}’s integration for each agent CLI in new terminals. Turn one off if it clashes with your own hooks; that agent then runs untouched and reports no attention state or resume token on its own. Only you can change this, in Settings; agents cannot.`,
           properties: {
             claude: {
               type: 'boolean',
-              description: `Run claude with the ${PRODUCT_NAME} plugin (CLI skill, resume token, attention hooks). Default: true.`,
+              description: `Run claude with the ${PRODUCT_DISPLAY_NAME} plugin (CLI skill, resume token, attention hooks). Default: true.`,
             },
             codex: {
               type: 'boolean',
-              description: `Run interactive codex sessions with ${PRODUCT_NAME}’s hooks (resume token, attention state, CLI context). Default: true.`,
+              description: `Run interactive codex sessions with ${PRODUCT_DISPLAY_NAME}’s hooks (resume token, attention state, CLI context). Default: true.`,
             },
           },
         },
@@ -632,12 +632,12 @@ export const SETTINGS_JSON_SCHEMA = {
         },
         closeToTray: {
           type: 'boolean',
-          description: `Closing the window hides ${PRODUCT_NAME} instead of quitting; your terminals keep running and a tray icon brings the window back. Quit from the tray icon. Needs a desktop with a system tray. Default: false.`,
+          description: `Closing the window hides ${PRODUCT_DISPLAY_NAME} instead of quitting; your terminals keep running and a tray icon brings the window back. Quit from the tray icon. Needs a desktop with a system tray. Default: false.`,
         },
         globalHotkey: {
           type: 'string',
           maxLength: GLOBAL_HOTKEY_MAX_LENGTH,
-          description: `A system-wide shortcut that brings every ${PRODUCT_NAME} window up, or hides them to the tray when one has focus, e.g. "Ctrl+Alt+Space". Modifiers: Ctrl, Alt, Shift, Super, Cmd, Mod (Cmd on macOS, Ctrl elsewhere); needs one other than Shift. On Wayland it works only where the desktop lets apps register global shortcuts. Empty turns it off. Only you can change this, in Settings; agents cannot. Default: empty.`,
+          description: `A system-wide shortcut that brings every ${PRODUCT_DISPLAY_NAME} window up, or hides them to the tray when one has focus, e.g. "Ctrl+Alt+Space". Modifiers: Ctrl, Alt, Shift, Super, Cmd, Mod (Cmd on macOS, Ctrl elsewhere); needs one other than Shift. On Wayland it works only where the desktop lets apps register global shortcuts. Empty turns it off. Only you can change this, in Settings; agents cannot. Default: empty.`,
         },
         wrapTitles: {
           type: 'boolean',
@@ -664,7 +664,7 @@ export const SETTINGS_JSON_SCHEMA = {
         },
         openTerminalLinks: {
           type: 'boolean',
-          description: `Ctrl/Cmd+click on a web link in a terminal opens it in ${PRODUCT_NAME}’s browser pane instead of the system browser; with Shift as well, the other way for that click. Default: false.`,
+          description: `Ctrl/Cmd+click on a web link in a terminal opens it in ${PRODUCT_DISPLAY_NAME}’s browser pane instead of the system browser; with Shift as well, the other way for that click. Default: false.`,
         },
         defaultZoom: {
           type: 'number',
@@ -834,7 +834,7 @@ export const SETTINGS_JSON_SCHEMA = {
         redaction: {
           type: 'object',
           additionalProperties: false,
-          description: `Secret redaction. Text that leaves ${PRODUCT_NAME} for an AI provider, or that it writes to disk (saved scrollback, the notification log, selection and pick reports), has detected secrets replaced with [redacted:<kind>]. The live terminal, the clipboard and your files are never changed.`,
+          description: `Secret redaction. Text that leaves ${PRODUCT_DISPLAY_NAME} for an AI provider, or that it writes to disk (saved scrollback, the notification log, selection and pick reports), has detected secrets replaced with [redacted:<kind>]. The live terminal, the clipboard and your files are never changed.`,
           properties: {
             enabled: { type: 'boolean', description: 'Default: true.' },
             patterns: {
@@ -854,7 +854,7 @@ export const SETTINGS_JSON_SCHEMA = {
     manager: {
       type: 'object',
       additionalProperties: false,
-      description: `The manager: one agent you start with \`pine <agent>\` from a terminal outside ${PRODUCT_NAME}. Only you can change this (Settings → Manager); agents cannot set it.`,
+      description: `The manager: one agent you start with \`pine <agent>\` from a terminal outside ${PRODUCT_DISPLAY_NAME}. Only you can change this (Settings → Manager); agents cannot set it.`,
       properties: {
         agents: {
           type: 'object',
@@ -942,7 +942,7 @@ export const SETTINGS_JSON_SCHEMA = {
               'credentials',
             ],
           },
-          description: `Elevated capabilities pre-granted to every pane (pane-scoped defaults already cover the rest). Human-edited only; restart ${PRODUCT_NAME} to apply.`,
+          description: `Elevated capabilities pre-granted to every pane (pane-scoped defaults already cover the rest). Human-edited only; restart ${PRODUCT_DISPLAY_NAME} to apply.`,
         },
       },
     },

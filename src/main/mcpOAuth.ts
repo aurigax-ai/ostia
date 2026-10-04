@@ -16,7 +16,7 @@ import type {
   McpSignInError,
   McpSignInResult,
 } from '../shared/chatTools'
-import { PRODUCT_NAME } from '../shared/product'
+import { PRODUCT_DISPLAY_NAME } from '../shared/productDisplay'
 import type { McpOAuthStore } from './mcpOAuthStore'
 
 export const MCP_OAUTH_TIMEOUT_MS = 5 * 60_000
@@ -49,12 +49,12 @@ function clip(text: string): string {
 
 const CALLBACK_PAGES = {
   en: {
-    done: `Signed in. You can close this tab and return to ${PRODUCT_NAME}.`,
-    failed: `Sign-in did not finish. Return to ${PRODUCT_NAME} and try again.`,
+    done: `Signed in. You can close this tab and return to ${PRODUCT_DISPLAY_NAME}.`,
+    failed: `Sign-in did not finish. Return to ${PRODUCT_DISPLAY_NAME} and try again.`,
   },
   'zh-Hant': {
-    done: `已登入。你可以關閉此分頁並回到 ${PRODUCT_NAME}。`,
-    failed: `登入未完成。請回到 ${PRODUCT_NAME} 再試一次。`,
+    done: `已登入。你可以關閉此分頁並回到 ${PRODUCT_DISPLAY_NAME}。`,
+    failed: `登入未完成。請回到 ${PRODUCT_DISPLAY_NAME} 再試一次。`,
   },
 } as const
 
@@ -71,7 +71,7 @@ function respond(res: ServerResponse, status: number, text: string): void {
     connection: 'close',
   })
   res.end(
-    `<!doctype html><meta charset="utf-8"><title>${escapeHtml(PRODUCT_NAME)}</title><p>${escapeHtml(text)}</p>`,
+    `<!doctype html><meta charset="utf-8"><title>${escapeHtml(PRODUCT_DISPLAY_NAME)}</title><p>${escapeHtml(text)}</p>`,
   )
 }
 
@@ -163,7 +163,7 @@ async function followWithFetch(url: URL): Promise<void> {
 
 function clientMetadata(redirectUrl: string): OAuthClientMetadata {
   return {
-    client_name: PRODUCT_NAME,
+    client_name: PRODUCT_DISPLAY_NAME,
     redirect_uris: [redirectUrl],
     grant_types: ['authorization_code', 'refresh_token'],
     response_types: ['code'],
@@ -375,7 +375,7 @@ export class McpOAuth {
       const client = await createMCPClient({
         transport: { type: 'http', url, headers, authProvider: provider },
         protocolVersionDiscovery: false,
-        clientName: PRODUCT_NAME,
+        clientName: PRODUCT_DISPLAY_NAME,
         initializationOptions: {
           timeout: this.deps.connectTimeoutMs ?? MCP_OAUTH_CONNECT_TIMEOUT_MS,
         },

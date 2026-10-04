@@ -1,5 +1,5 @@
 import type { ExtensionInfo, ExtensionSettingContribution } from '@shared/extensions'
-import { PRODUCT_NAME } from '@shared/product'
+import { PRODUCT_DISPLAY_NAME } from '@shared/productDisplay'
 import { describe, expect, it } from 'vitest'
 import {
   entryTitle,
@@ -79,7 +79,7 @@ describe('entryTitle', () => {
   })
 
   it('substitutes the product name in a title', () => {
-    expect(entryTitle(setting({ title: '{product} focus' }))).toBe(`${PRODUCT_NAME} focus`)
+    expect(entryTitle(setting({ title: '{product} focus' }))).toBe(`${PRODUCT_DISPLAY_NAME} focus`)
   })
 })
 

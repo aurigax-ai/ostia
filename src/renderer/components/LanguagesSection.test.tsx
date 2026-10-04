@@ -238,11 +238,11 @@ describe('LanguagesSection', () => {
     const managed = await screen.findByRole('listitem', { name: 'rust-analyzer' })
     expect(within(managed).getByText('Download')).toBeInTheDocument()
     expect(
-      within(managed).getByText('Using the copy pine keeps, version 2026-09-28.'),
+      within(managed).getByText('Using the copy Ostia keeps, version 2026-09-28.'),
     ).toBeInTheDocument()
     await user.click(
       within(managed).getByRole('button', {
-        name: 'Remove the copy of rust-analyzer that pine keeps',
+        name: 'Remove the copy of rust-analyzer that Ostia keeps',
       }),
     )
     expect(window.pine.lsp.removeDownload).toHaveBeenCalledWith('lsp-rust-analyzer/rust-analyzer')
@@ -266,7 +266,7 @@ describe('LanguagesSection', () => {
     const user = userEvent.setup()
     expect(
       await screen.findByText(
-        'Not on your PATH. pine downloads version 3.19.1 when a matching file opens.',
+        'Not on your PATH. Ostia downloads version 3.19.1 when a matching file opens.',
       ),
     ).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Fetch lua-language-server now' }))
@@ -311,7 +311,7 @@ describe('LanguagesSection', () => {
     expect(within(gopls).getByText('Install failed: it took too long')).toBeInTheDocument()
     expect(
       within(gopls).getByText(
-        'Not on your PATH. pine runs go install golang.org/x/tools/gopls@v0.23.0 when a matching file opens.',
+        'Not on your PATH. Ostia runs go install golang.org/x/tools/gopls@v0.23.0 when a matching file opens.',
       ),
     ).toBeInTheDocument()
   })
