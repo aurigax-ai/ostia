@@ -1,3 +1,5 @@
+appId: ai.aurigax.pine
+productName: Pine
 directories:
   output: dist
 files:
@@ -24,5 +26,10 @@ linux:
 mac:
   target: dmg
   category: public.app-category.developer-tools
+  icon: resources/icon.png
+  hardenedRuntime: true
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+  notarize: true
 win:
   target: nsis
