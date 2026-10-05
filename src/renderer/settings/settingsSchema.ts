@@ -193,7 +193,7 @@ export const SETTINGS_JSON_SCHEMA = {
           type: 'boolean',
           description:
             'Hold Cmd (macOS) or Ctrl and scroll over a terminal or the editor to change its ' +
-            'font size. Default: off on macOS, on elsewhere.',
+            'font size. Default: true.',
         },
         gpuAcceleration: {
           type: 'boolean',
