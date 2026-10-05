@@ -44,9 +44,9 @@ The agent sessions in these captures are scripted stand-ins running in the real 
 
 ## Install
 
-Ostia runs on macOS (Apple silicon) and Linux (x64). Windows is not supported.
+Ostia runs on macOS 13 Ventura or later (Apple silicon) and Linux (x64). Windows is not supported.
 
-### macOS (Apple silicon)
+### macOS 13 or later (Apple silicon)
 
 ```bash
 brew install --cask aurigax-ai/tap/ostia
