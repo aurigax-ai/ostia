@@ -93,6 +93,7 @@
 
   --radius: 10px;
   --rail-w: 240px;
+  --files-w: 260px;
   --rail-w-collapsed: 44px;
   --topbar-h: 36px;
   --tabstrip-h: 34px;
@@ -303,9 +304,10 @@
 
 .files-panel {
   grid-area: files;
+  position: relative;
   display: flex;
   flex-direction: column;
-  width: 260px;
+  width: var(--files-w);
   min-height: 0;
   overflow: hidden;
   background: var(--surface-1);
@@ -355,16 +357,25 @@
   width: var(--rail-w-collapsed);
 }
 
-.rail-resizer {
+.panel-resizer {
   position: absolute;
-  top: var(--topbar-h);
-  bottom: 0;
-  left: calc(var(--rail-w) - 4px);
   z-index: 20;
   width: 6px;
   cursor: col-resize;
   touch-action: none;
   outline: none;
+}
+
+.rail-resizer {
+  top: var(--topbar-h);
+  bottom: 0;
+  left: calc(var(--rail-w) - 4px);
+}
+
+.files-resizer {
+  top: 0;
+  bottom: 0;
+  right: -1px;
 }
 
 [class*="sash-module_sash"] {
@@ -375,7 +386,7 @@
   left: calc(var(--rail-w-collapsed) - 4px);
 }
 
-.rail-resizer::after {
+.panel-resizer::after {
   content: "";
   position: absolute;
   top: 0;
@@ -387,9 +398,9 @@
   transition: opacity var(--motion-fast) var(--ease-out);
 }
 
-.rail-resizer:hover::after,
-.rail-resizer:focus-visible::after,
-.rail-resizer[data-dragging]::after {
+.panel-resizer:hover::after,
+.panel-resizer:focus-visible::after,
+.panel-resizer[data-dragging]::after {
   opacity: 1;
 }
 
