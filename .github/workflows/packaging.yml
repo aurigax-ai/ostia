@@ -48,3 +48,28 @@ jobs:
           APT_GPG_FINGERPRINT=$fpr packaging/apt/build-repo.sh repo
       - name: Install and upgrade on Debian and Ubuntu
         run: packaging/apt/test-repo.sh repo
+
+  homebrew:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: ostia
+      - uses: actions/checkout@v7
+        with:
+          repository: aurigax-ai/homebrew-tap
+          path: tap
+      - run: ostia/packaging/homebrew/link-tap.sh tap
+      - name: Point the cask at the latest release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag=$(gh release view -R "$GITHUB_REPOSITORY" --json tagName -q .tagName)
+          echo "TAG=$tag" >> "$GITHUB_ENV"
+          ostia/packaging/homebrew/update-cask.sh tap/Casks/ostia.rb "$tag" "$GITHUB_REPOSITORY"
+          git -C tap diff
+      - run: brew style aurigax-ai/tap
+      - run: brew audit --cask --strict --online aurigax-ai/tap/ostia
+      - run: brew install --cask aurigax-ai/tap/ostia
+      - run: ostia/packaging/homebrew/check-installed.sh "${TAG#v}"
+      - run: brew uninstall --cask --zap aurigax-ai/tap/ostia
