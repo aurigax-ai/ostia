@@ -84,18 +84,18 @@ export function startAssistAvailability(): () => void {
     useAssistStore.getState().setOverview(overview)
   const applyCatalog = (catalog: AssistCatalog): void =>
     useAssistStore.getState().setCatalog(catalog)
-  const off = window.pine?.assist?.onAvailability?.(apply) ?? (() => {})
-  const offOverview = window.pine?.assist?.onOverview?.(applyOverview) ?? (() => {})
-  const offCatalog = window.pine?.assist?.onCatalog?.(applyCatalog) ?? (() => {})
-  void window.pine?.assist
+  const off = window.ostia?.assist?.onAvailability?.(apply) ?? (() => {})
+  const offOverview = window.ostia?.assist?.onOverview?.(applyOverview) ?? (() => {})
+  const offCatalog = window.ostia?.assist?.onCatalog?.(applyCatalog) ?? (() => {})
+  void window.ostia?.assist
     ?.catalog?.()
     .then(applyCatalog)
     .catch(() => {})
-  void window.pine?.assist
+  void window.ostia?.assist
     ?.availability?.()
     .then(apply)
     .catch(() => {})
-  void window.pine?.assist
+  void window.ostia?.assist
     ?.overview?.()
     .then(applyOverview)
     .catch(() => {})
@@ -131,19 +131,19 @@ export async function assistRequest<P extends AssistPoint>(
   let caughtUp: (() => void) | null = null
   let expected = Number.POSITIVE_INFINITY
   const offChunk = opts.onChunk
-    ? window.pine.assist.onChunk((chunk) => {
+    ? window.ostia.assist.onChunk((chunk) => {
         if (chunk.requestId !== requestId) return
         received += 1
         opts.onChunk?.(chunk.text)
         if (received >= expected) caughtUp?.()
       })
     : () => {}
-  const onAbort = (): void => window.pine.assist.cancel(requestId)
+  const onAbort = (): void => window.ostia.assist.cancel(requestId)
   opts.signal?.addEventListener('abort', onAbort, { once: true })
   try {
     const res = opts.model
-      ? await window.pine.assist.request(point, requestId, input, opts.model)
-      : await window.pine.assist.request(point, requestId, input)
+      ? await window.ostia.assist.request(point, requestId, input, opts.model)
+      : await window.ostia.assist.request(point, requestId, input)
     if (opts.onChunk && res.chunks && received < res.chunks) {
       expected = res.chunks
       await new Promise<void>((resolve) => {

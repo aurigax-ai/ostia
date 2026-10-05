@@ -81,11 +81,11 @@ describe('BrowserProfiles.claim', () => {
 
 describe('BrowserProfiles.acceptsAttach', () => {
   it('accepts an isolated pane partition', () => {
-    expect(profiles.acceptsAttach('pine-browser-p1', 'w1')).toBe(true)
+    expect(profiles.acceptsAttach('ostia-browser-p1', 'w1')).toBe(true)
   })
 
   it('refuses any other partition', () => {
-    for (const partition of ['pine-ext-git', 'persist:other', '', undefined]) {
+    for (const partition of ['ostia-ext-git', 'persist:other', '', undefined]) {
       expect(profiles.acceptsAttach(partition, 'w1')).toBe(false)
     }
   })

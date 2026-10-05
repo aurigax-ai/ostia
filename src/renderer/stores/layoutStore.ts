@@ -167,7 +167,7 @@ function seedLayout(workspaceId: string, make: (pane: PaneNode) => LayoutNode): 
   useLayoutStore.setState((s) => ({
     byWorkspace: { ...s.byWorkspace, [workspaceId]: layoutOf(make(pane)) },
   }))
-  window.pine?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId: pane.id })
+  window.ostia?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId: pane.id })
   return pane.id
 }
 
@@ -209,7 +209,7 @@ function openSingleton(
     return sized === created ? next : { byWorkspace: { ...next.byWorkspace, [workspaceId]: sized } }
   })
   if (createdPaneId) {
-    window.pine?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId: createdPaneId })
+    window.ostia?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId: createdPaneId })
   }
   return targetPaneId
 }
@@ -237,7 +237,7 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       }
     })
     if (createdPaneId) {
-      window.pine?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId: createdPaneId })
+      window.ostia?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId: createdPaneId })
     }
   },
 
@@ -253,7 +253,7 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     })
     for (const [workspaceId, layout] of Object.entries(layouts)) {
       for (const paneId of paneIds(layout.root)) {
-        window.pine?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId })
+        window.ostia?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId })
       }
     }
   },
@@ -274,7 +274,7 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       return next ?? s
     })
     if (createdPaneId) {
-      window.pine?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId: createdPaneId })
+      window.ostia?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId: createdPaneId })
     }
   },
 
@@ -296,7 +296,7 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       return next ?? s
     })
     if (createdPaneId) {
-      window.pine?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId: createdPaneId })
+      window.ostia?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId: createdPaneId })
     }
     return createdPaneId
   },
@@ -309,7 +309,7 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
         const { [workspaceId]: _emptied, ...byWorkspace } = s.byWorkspace
         return { byWorkspace }
       })
-      window.pine?.lifecycle?.emit?.({ type: 'pane-closed', workspaceId, paneId })
+      window.ostia?.lifecycle?.emit?.({ type: 'pane-closed', workspaceId, paneId })
       return
     }
     let removed = false
@@ -325,7 +325,7 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       return next ?? s
     })
     if (removed) {
-      window.pine?.lifecycle?.emit?.({ type: 'pane-closed', workspaceId, paneId })
+      window.ostia?.lifecycle?.emit?.({ type: 'pane-closed', workspaceId, paneId })
     }
   },
 
@@ -498,7 +498,7 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       return next ?? s
     })
     if (createdPaneId) {
-      window.pine?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId: createdPaneId })
+      window.ostia?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId: createdPaneId })
     }
   },
 
@@ -522,7 +522,7 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       return next ?? s
     })
     if (createdPaneId) {
-      window.pine?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId: createdPaneId })
+      window.ostia?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId: createdPaneId })
     }
   },
 
@@ -540,7 +540,7 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       return next ?? s
     })
     if (createdPaneId) {
-      window.pine?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId: createdPaneId })
+      window.ostia?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId: createdPaneId })
     }
   },
 
@@ -565,19 +565,18 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
             activePaneId: existing.id,
           }
         }
-        const { root, newPaneId } = splitPane(l.root, l.activePaneId, 'horizontal')
-        if (!newPaneId) return l
-        createdPaneId = newPaneId
+        const pane = createPane('browser')
+        createdPaneId = pane.id
         return {
           ...l,
-          root: setPaneBrowser(root, newPaneId, url, profile),
-          activePaneId: newPaneId,
+          root: setPaneBrowser(addTab(l.root, l.activePaneId, pane), pane.id, url, profile),
+          activePaneId: pane.id,
         }
       })
       return next ?? s
     })
     if (createdPaneId) {
-      window.pine?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId: createdPaneId })
+      window.ostia?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId: createdPaneId })
     }
   },
 
@@ -637,21 +636,20 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
             activePaneId: existing.id,
           }
         }
-        const { root, newPaneId } = splitPane(l.root, l.activePaneId, 'horizontal')
-        if (!newPaneId) return l
-        createdPaneId = newPaneId
-        diffPaneId = newPaneId
+        const pane = createPane('diff')
+        createdPaneId = pane.id
+        diffPaneId = pane.id
         return {
           ...l,
-          root: setPaneDiff(root, newPaneId, content.title, cwd),
-          activePaneId: newPaneId,
+          root: setPaneDiff(addTab(l.root, l.activePaneId, pane), pane.id, content.title, cwd),
+          activePaneId: pane.id,
         }
       })
       return next ?? s
     })
     if (diffPaneId) useDiffStore.getState().set(diffPaneId, content)
     if (createdPaneId) {
-      window.pine?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId: createdPaneId })
+      window.ostia?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId: createdPaneId })
     }
     return diffPaneId
   },
@@ -690,7 +688,7 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       return next ?? s
     })
     if (createdPaneId) {
-      window.pine?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId: createdPaneId })
+      window.ostia?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId: createdPaneId })
     }
     return createdPaneId
   },
@@ -704,7 +702,7 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     })
     if (layout) {
       for (const paneId of paneIds(layout.root)) {
-        window.pine?.lifecycle?.emit?.({ type: 'pane-closed', workspaceId, paneId })
+        window.ostia?.lifecycle?.emit?.({ type: 'pane-closed', workspaceId, paneId })
       }
     }
   },
@@ -753,7 +751,7 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       )
     })
     for (const paneId of paneIds(incoming.root)) {
-      window.pine?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId })
+      window.ostia?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId })
     }
   },
   merge: (sourceId, targetId) =>
@@ -776,7 +774,7 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     set((s) => ({ byWorkspace: { ...s.byWorkspace, ...layouts } }))
     for (const [workspaceId, layout] of Object.entries(layouts)) {
       for (const paneId of paneIds(layout.root)) {
-        window.pine?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId })
+        window.ostia?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId })
       }
     }
   },

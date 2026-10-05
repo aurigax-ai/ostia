@@ -100,7 +100,7 @@ let seq = 0
 let home = ''
 const liveChildren = new Set<ReturnType<typeof spawn>>()
 
-function pine(args: string[], cwd = home): Promise<RunResult> {
+function ostia(args: string[], cwd = home): Promise<RunResult> {
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, [cliPath, ...args], {
       cwd,
@@ -124,13 +124,13 @@ function pine(args: string[], cwd = home): Promise<RunResult> {
 }
 
 async function run(cmd: string, ...flags: string[]): Promise<{ id: string; tab: string }> {
-  const res = await pine(['process', 'run', cmd, ...flags])
+  const res = await ostia(['process', 'run', cmd, ...flags])
   expect(res.stderr).toBe('')
   return { id: JSON.parse(res.stdout).id, tab: `tab-${tabSeq}` }
 }
 
 beforeAll(() => {
-  home = realpathSync(mkdtempSync(join(tmpdir(), 'pine-cli-proc-')))
+  home = realpathSync(mkdtempSync(join(tmpdir(), 'ostia-cli-proc-')))
   mkdirSync(join(home, 'api'))
 })
 
@@ -141,7 +141,7 @@ afterAll(() => {
 
 beforeEach(() => {
   seq += 1
-  socketPath = join(tmpdir(), `pine-cli-proc-${process.pid}-${seq}.sock`)
+  socketPath = join(tmpdir(), `ostia-cli-proc-${process.pid}-${seq}.sock`)
   registerControlServer(
     {
       execCommand: async () => ({ ok: true }) as CommandResult,
@@ -165,7 +165,7 @@ afterEach(() => {
 describe('ostia process (the real CLI against a live control server)', () => {
   it('run: opens a tab with a long quoted command line exactly as the caller wrote it', async () => {
     const cmd = `claude 'review "src/main" && say it\\'s done' --model opus -p "two words"`
-    const res = await pine(['process', 'run', cmd, '--name', 'reviewer', '--cwd', 'api'])
+    const res = await ostia(['process', 'run', cmd, '--name', 'reviewer', '--cwd', 'api'])
 
     expect(res.stderr).toBe('')
     expect(res.code).toBe(0)
@@ -183,12 +183,12 @@ describe('ostia process (the real CLI against a live control server)', () => {
   })
 
   it('run: starts in the folder the caller is in', async () => {
-    await pine(['process', 'run', 'pnpm dev'], join(home, 'api'))
+    await ostia(['process', 'run', 'pnpm dev'], join(home, 'api'))
     expect(opened[0]).toMatchObject({ cwd: join(home, 'api'), title: 'pnpm' })
   })
 
   it('agent run: starts the agent in a tab with the prompt quoted, and refuses an unknown one', async () => {
-    const started = await pine(['agent', 'run', 'claude', '--name', 'fixer', "fix it; don't stop"])
+    const started = await ostia(['agent', 'run', 'claude', '--name', 'fixer', "fix it; don't stop"])
     expect(started.code).toBe(0)
     expect(JSON.parse(started.stdout)).toMatchObject({ name: 'fixer', paneId: expect.any(String) })
     expect(opened.at(-1)).toMatchObject({
@@ -198,24 +198,24 @@ describe('ostia process (the real CLI against a live control server)', () => {
     })
 
     const count = opened.length
-    const unknown = await pine(['agent', 'run', 'aider', 'hello'])
+    const unknown = await ostia(['agent', 'run', 'aider', 'hello'])
     expect(unknown.code).toBe(1)
     expect(unknown.stderr).toContain('unknown-agent')
-    expect((await pine(['agent', 'run', 'claude'])).stderr).toContain('usage: ostia agent run')
+    expect((await ostia(['agent', 'run', 'claude'])).stderr).toContain('usage: ostia agent run')
     expect(opened).toHaveLength(count)
   })
 
   it('run: needs a command', async () => {
-    const res = await pine(['process', 'run'])
+    const res = await ostia(['process', 'run'])
     expect(res.code).toBe(1)
     expect(res.stderr).toContain('missing "<cmd>"')
   })
 
   it('ls: prints each process with its status as the pane reports it', async () => {
-    expect((await pine(['process', 'ls'])).stdout.trim()).toBe('(no tracked processes)')
+    expect((await ostia(['process', 'ls'])).stdout.trim()).toBe('(no tracked processes)')
     const { id, tab } = await run('make build', '--name', 'build')
     const line = async (): Promise<string[]> =>
-      (await pine(['process', 'ls'])).stdout.trim().split('\t')
+      (await ostia(['process', 'ls'])).stdout.trim().split('\t')
 
     expect(await line()).toEqual([id, 'build', 'starting', expect.any(String), 'make build'])
     emit(tab, `${PROMPT}make build\r\n${C}compiling\r\n`)
@@ -228,19 +228,19 @@ describe('ostia process (the real CLI against a live control server)', () => {
     const { tab } = await run('pnpm test', '--name', 'test')
     emit(tab, `before\r\n${PROMPT}pnpm test\r\n${C}\x1b[32mone\x1b[0m\r\n`)
 
-    const first = await pine(['process', 'logs', 'test'])
+    const first = await ostia(['process', 'logs', 'test'])
     expect(first.code).toBe(0)
     expect(first.stdout).toBe('one\n')
     const cursor = /^\(cursor=(\d+)\)$/.exec(first.stderr.trim())?.[1]
     expect(cursor).toBeDefined()
 
     emit(tab, `two\r\n${exit(0)}${PROMPT}echo later\r\n${C}later\r\n`)
-    const second = await pine(['process', 'logs', 'test', '--since', String(cursor)])
+    const second = await ostia(['process', 'logs', 'test', '--since', String(cursor)])
     expect(second.stdout).toBe('two\n')
   })
 
   it('logs: fails on an unknown process', async () => {
-    const res = await pine(['process', 'logs', 'nope'])
+    const res = await ostia(['process', 'logs', 'nope'])
     expect(res.code).toBe(1)
     expect(res.stderr).toContain('process logs failed (not-found)')
   })
@@ -249,18 +249,18 @@ describe('ostia process (the real CLI against a live control server)', () => {
     const { tab } = await run('sleep 30', '--name', 'nap')
     emit(tab, `${PROMPT}sleep 30\r\n${C}`)
 
-    const res = await pine(['process', 'kill', 'nap'])
+    const res = await ostia(['process', 'kill', 'nap'])
     expect(res.code).toBe(0)
     expect(res.stdout.trim()).toBe('ok')
     expect(written).toEqual([{ paneId: tab, data: '\x03' }])
-    expect((await pine(['process', 'ls'])).stdout).toContain('exited(130)')
+    expect((await ostia(['process', 'ls'])).stdout).toContain('exited(130)')
   })
 
   it('restart: runs the same line again in the same tab', async () => {
     const { id, tab } = await run(`node app.js --name 'my app'`, '--name', 'app')
     emit(tab, `${PROMPT}node app.js\r\n${C}up\r\n`)
 
-    const res = await pine(['process', 'restart', 'app'])
+    const res = await ostia(['process', 'restart', 'app'])
     expect(res.code).toBe(0)
     expect(JSON.parse(res.stdout)).toMatchObject({ id, name: 'app' })
     expect(reruns).toEqual([{ paneId: tab, command: `node app.js --name 'my app'` }])
@@ -272,10 +272,10 @@ describe('ostia pane (the real CLI against a live control server)', () => {
   it('send and key: type into a tab the caller opened, addressed by process name', async () => {
     const { tab } = await run('cat', '--name', 'echo')
 
-    const send = await pine(['pane', 'send', 'echo', 'hello', 'world', '--enter'])
+    const send = await ostia(['pane', 'send', 'echo', 'hello', 'world', '--enter'])
     expect(send.stderr).toBe('')
     expect(send.stdout.trim()).toBe('ok')
-    const key = await pine(['pane', 'key', 'echo', 'ctrl-d'])
+    const key = await ostia(['pane', 'key', 'echo', 'ctrl-d'])
     expect(key.code).toBe(0)
 
     expect(written).toEqual([
@@ -287,15 +287,15 @@ describe('ostia pane (the real CLI against a live control server)', () => {
 
   it('read: prints the screen, and the pane state with --json', async () => {
     const { tab } = await run('cat', '--name', 'echo')
-    const text = await pine(['pane', 'read', 'echo', '--lines', '20'])
+    const text = await ostia(['pane', 'read', 'echo', '--lines', '20'])
     expect(text.stdout.trim()).toBe(`screen of ${tab} (20)`)
 
-    const json = JSON.parse((await pine(['pane', 'read', 'echo', '--json'])).stdout)
+    const json = JSON.parse((await ostia(['pane', 'read', 'echo', '--json'])).stdout)
     expect(json).toMatchObject({ text: `screen of ${tab} (200)`, cwd: '/w', running: true })
   })
 
   it('send: asks the human for a pane the caller did not open and fails when denied', async () => {
-    const res = await pine(['pane', 'send', other.externalId, 'rm -rf .', '--enter'])
+    const res = await ostia(['pane', 'send', other.externalId, 'rm -rf .', '--enter'])
     expect(res.code).toBe(1)
     expect(res.stderr).toContain('denied: type-other-pane')
     expect(request).toHaveBeenCalledTimes(1)
@@ -303,23 +303,23 @@ describe('ostia pane (the real CLI against a live control server)', () => {
   })
 
   it('read: asks the human for a pane the caller did not open and reads once allowed', async () => {
-    const denied = await pine(['pane', 'read', other.externalId])
+    const denied = await ostia(['pane', 'read', other.externalId])
     expect(denied.code).toBe(1)
     expect(denied.stderr).toContain('denied: read-other-pane')
 
     answer = 'once'
-    const allowed = await pine(['pane', 'read', other.externalId])
+    const allowed = await ostia(['pane', 'read', other.externalId])
     expect(allowed.code).toBe(0)
     expect(allowed.stdout.trim()).toBe('screen of other-pane (200)')
   })
 
   it('prints usage for a missing pane or an unknown key', async () => {
-    const usage = await pine(['pane', 'send'])
+    const usage = await ostia(['pane', 'send'])
     expect(usage.code).toBe(1)
     expect(usage.stderr).toContain('usage: ostia pane send')
 
     await run('cat', '--name', 'echo')
-    const key = await pine(['pane', 'key', 'echo', 'f13'])
+    const key = await ostia(['pane', 'key', 'echo', 'f13'])
     expect(key.code).toBe(1)
     expect(key.stderr).toContain('unknown-key: f13')
   })

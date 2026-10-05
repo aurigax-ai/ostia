@@ -56,8 +56,8 @@ afterEach(() => {
   resetChatTools()
   resetChats()
   useChatStore.setState(chatInit, true)
-  vi.mocked(window.pine.chatTools.restore).mockReset()
-  vi.mocked(window.pine.chatSessions.get).mockReset()
+  vi.mocked(window.ostia.chatTools.restore).mockReset()
+  vi.mocked(window.ostia.chatSessions.get).mockReset()
 })
 
 describe('reviewItems', () => {
@@ -84,7 +84,7 @@ describe('reviewItems', () => {
     acceptAll(reviewItems('s1', pending, edits))
     expect(await answer).toEqual({ approved: true, scope: 'once' })
     expect(useChatToolsStore.getState().edits.e1.decisions).toEqual(['accepted'])
-    expect(window.pine.chatTools.restore).not.toHaveBeenCalled()
+    expect(window.ostia.chatTools.restore).not.toHaveBeenCalled()
   })
 
   it('Reject all rejects the waiting edit and undoes the applied ones newest first', async () => {
@@ -92,7 +92,7 @@ describe('reviewItems', () => {
     store.recordEdit(edit({ toolCallId: 'e1', seq: 1, before: 'a0', after: 'a1', version: 'v1' }))
     store.recordEdit(edit({ toolCallId: 'e2', seq: 2, before: 'a1', after: 'a2', version: 'v2' }))
     const answer = wait('p1', '/proj/c.ts')
-    vi.mocked(window.pine.chatTools.restore).mockImplementation(
+    vi.mocked(window.ostia.chatTools.restore).mockImplementation(
       async (req: ChatRestoreRequest) => ({
         ok: true,
         path: req.path,
@@ -103,7 +103,7 @@ describe('reviewItems', () => {
     const { pending, edits } = useChatToolsStore.getState()
     await rejectAll(reviewItems('s1', pending, edits))
     expect(await answer).toEqual({ approved: false })
-    expect(vi.mocked(window.pine.chatTools.restore).mock.calls.map((c) => c[0].expected)).toEqual([
+    expect(vi.mocked(window.ostia.chatTools.restore).mock.calls.map((c) => c[0].expected)).toEqual([
       'v2',
       'v1',
     ])
@@ -165,7 +165,7 @@ describe('edits saved with the chat', () => {
         },
       ],
     }
-    vi.mocked(window.pine.chatSessions.get).mockResolvedValue(stored)
+    vi.mocked(window.ostia.chatSessions.get).mockResolvedValue(stored)
     expect(await openSession('w1', 's9')).toBe(true)
     expect(useChatToolsStore.getState().edits.e1).toMatchObject({
       sessionId: 's9',

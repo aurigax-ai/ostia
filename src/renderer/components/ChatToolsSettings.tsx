@@ -60,7 +60,7 @@ function updateServer(name: string, patch: Partial<McpServerSettings>): Promise<
 
 async function removeServer(server: McpServerSettings): Promise<void> {
   for (const key of server.secrets) {
-    await window.pine.chatTools.setMcpSecret(server.name, key, null)
+    await window.ostia.chatTools.setMcpSecret(server.name, key, null)
   }
   await saveMcpServers(
     useSettingsStore.getState().assistant.mcpServers.filter((s) => s.name !== server.name),
@@ -196,7 +196,7 @@ function ServerAuth({
   const [failure, setFailure] = useState<Extract<McpSignInResult, { ok: false }> | null>(null)
   const signIn = async (): Promise<void> => {
     setFailure(null)
-    const result = await window.pine.chatTools
+    const result = await window.ostia.chatTools
       .mcpSignIn(server.name)
       .catch((): McpSignInResult => ({ ok: false, error: 'failed' }))
     setFailure(result.ok || result.error === 'cancelled' ? null : result)
@@ -223,7 +223,7 @@ function ServerAuth({
             variant="outline"
             size="sm"
             aria-label={fmt(t.cancelSignInTo, { name: server.name })}
-            onClick={() => window.pine.chatTools.mcpCancelSignIn(server.name)}
+            onClick={() => window.ostia.chatTools.mcpCancelSignIn(server.name)}
           >
             {t.cancelSignIn}
           </Button>
@@ -235,7 +235,7 @@ function ServerAuth({
             aria-label={fmt(t.signOutOf, { name: server.name })}
             onClick={() => {
               setFailure(null)
-              void window.pine.chatTools.mcpSignOut(server.name)
+              void window.ostia.chatTools.mcpSignOut(server.name)
             }}
           >
             {t.signOut}
@@ -276,7 +276,7 @@ function ServerItem({
   }, [state, auth])
   const runTest = async (): Promise<void> => {
     setTest({ phase: 'running' })
-    const result = await window.pine.chatTools
+    const result = await window.ostia.chatTools
       .mcpTest(server.name)
       .catch((): McpTestResult => ({ ok: false, error: '' }))
     setTest({ phase: 'done', result })
@@ -341,7 +341,7 @@ function ServerItem({
           <Button
             variant="outline"
             size="sm"
-            onClick={() => void window.pine.chatTools.mcpReconnect(server.name)}
+            onClick={() => void window.ostia.chatTools.mcpReconnect(server.name)}
           >
             {state === 'idle' ? t.connect : t.reconnect}
           </Button>
@@ -448,7 +448,7 @@ function SkillFolders(): JSX.Element {
     await refreshSkills()
   }
   const add = async (): Promise<void> => {
-    const picked = await window.pine.sync.pickFolder()
+    const picked = await window.ostia.sync.pickFolder()
     if (picked === null) return
     const path = picked.replace(/\/+$/, '')
     if (!isSkillPath(path)) {

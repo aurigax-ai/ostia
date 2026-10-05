@@ -65,7 +65,7 @@ export function requirementsError(missing: MissingRequirement[], hint: InstallHi
 function verdictError(verdict: CallerVerdict): ResponseError<void> | null {
   if (verdict === 'inside') {
     return refuse(
-      `inside-pine: the manager can only be opened from a terminal outside ${PRODUCT_DISPLAY_NAME}`,
+      `inside-ostia: the manager can only be opened from a terminal outside ${PRODUCT_DISPLAY_NAME}`,
     )
   }
   if (verdict === 'unknown') {

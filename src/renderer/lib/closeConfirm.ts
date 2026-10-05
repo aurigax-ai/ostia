@@ -115,7 +115,7 @@ async function closeGroups(workspaces: readonly Workspace[]): Promise<RunningGro
   const counts: Record<string, number> = {}
   for (const workspace of workspaces) {
     if (workspace.kind !== 'scratch') continue
-    counts[workspace.id] = await window.pine.scratch.files(workspace.id).catch(() => 0)
+    counts[workspace.id] = await window.ostia.scratch.files(workspace.id).catch(() => 0)
   }
   return withScratchGroups(workspaces, groupsToConfirm(workspaces, confirmClose), counts)
 }

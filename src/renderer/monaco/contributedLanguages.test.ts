@@ -112,7 +112,7 @@ describe('applyEditorLanguages', () => {
   })
 
   it('loads what main validated', async () => {
-    vi.mocked(window.pine.editorLanguages.load).mockResolvedValue([language('nim')])
+    vi.mocked(window.ostia.editorLanguages.load).mockResolvedValue([language('nim')])
     await loadEditorLanguages()
     expect(fileLanguage('/p/a.nim')).toBe('nim')
   })

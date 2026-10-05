@@ -28,12 +28,12 @@ function idlePrompt(): LineAnchor {
   return anchor
 }
 
-function usePine(chips: string[], patch: { sameLine?: boolean; separator?: '$' | 'none' } = {}) {
+function useOstia(chips: string[], patch: { sameLine?: boolean; separator?: '$' | 'none' } = {}) {
   useSettingsStore.setState((s) => ({
     behavior: { ...s.behavior, inputMode: 'editor' },
     terminal: {
       ...s.terminal,
-      prompt: { style: 'pine', chips, sameLine: false, separator: 'none', ...patch },
+      prompt: { style: 'ostia', chips, sameLine: false, separator: 'none', ...patch },
     },
   }))
 }
@@ -60,7 +60,7 @@ function renderEditor() {
 
 const chipRow = () => screen.getByRole('list', { name: 'Prompt' })
 
-describe('Pine prompt in the input editor', () => {
+describe('Ostia prompt in the input editor', () => {
   let blocksInit: ReturnType<typeof useBlocksStore.getState>
   let settingsInit: ReturnType<typeof useSettingsStore.getState>
   let uiInit: ReturnType<typeof useUIStore.getState>
@@ -74,7 +74,7 @@ describe('Pine prompt in the input editor', () => {
   })
 
   beforeEach(() => {
-    vi.mocked(window.pine.pty.promptContext).mockResolvedValue(CONTEXT)
+    vi.mocked(window.ostia.pty.promptContext).mockResolvedValue(CONTEXT)
   })
 
   afterEach(() => {
@@ -82,7 +82,7 @@ describe('Pine prompt in the input editor', () => {
     useSettingsStore.setState(settingsInit, true)
     useUIStore.setState(uiInit, true)
     useExtensionsStore.setState(chipsInit, true)
-    vi.mocked(window.pine.pty.promptContext).mockReset()
+    vi.mocked(window.ostia.pty.promptContext).mockReset()
   })
 
   it('leaves the prompt to the shell with the shell prompt style', () => {
@@ -91,11 +91,11 @@ describe('Pine prompt in the input editor', () => {
     renderEditor()
     expect(screen.getByRole('textbox', { name: 'Command input' })).toBeVisible()
     expect(screen.queryByRole('list', { name: 'Prompt' })).toBeNull()
-    expect(window.pine.pty.promptContext).not.toHaveBeenCalled()
+    expect(window.ostia.pty.promptContext).not.toHaveBeenCalled()
   })
 
   it('shows the chips in order with the pane’s real values and hides empty ones', async () => {
-    usePine(['user', 'kube', 'cwd', 'exitCode'])
+    useOstia(['user', 'kube', 'cwd', 'exitCode'])
     idlePrompt()
     renderEditor()
     expect(await within(chipRow()).findByText('ada')).toBeVisible()
@@ -103,11 +103,11 @@ describe('Pine prompt in the input editor', () => {
       .getAllByRole('listitem')
       .map((li) => li.textContent)
     expect(labels).toEqual(['ada', '~/proj'])
-    expect(window.pine.pty.promptContext).toHaveBeenCalledWith(PANE, { node: false, kube: true })
+    expect(window.ostia.pty.promptContext).toHaveBeenCalledWith(PANE, { node: false, kube: true })
   })
 
   it('shows the last command’s exit code after it finishes', async () => {
-    usePine(['exitCode'])
+    useOstia(['exitCode'])
     idlePrompt()
     useBlocksStore.getState().commandStart(PANE, { line: 1 }, 'false')
     useBlocksStore.getState().commandEnd(PANE, { line: 2 }, 1)
@@ -118,7 +118,7 @@ describe('Pine prompt in the input editor', () => {
   })
 
   it('puts the chips and the separator on the input line when sameLine is on', async () => {
-    usePine(['cwd'], { sameLine: true, separator: '$' })
+    useOstia(['cwd'], { sameLine: true, separator: '$' })
     idlePrompt()
     const { container } = renderEditor()
     const line = container.querySelector('.input-editor-line')
@@ -128,7 +128,7 @@ describe('Pine prompt in the input editor', () => {
   })
 
   it('opens Files when the cwd chip is clicked', async () => {
-    usePine(['cwd'])
+    useOstia(['cwd'])
     idlePrompt()
     renderEditor()
     await userEvent.click(within(chipRow()).getByRole('button', { name: /Working directory/ }))
@@ -181,7 +181,7 @@ describe('Pine prompt in the input editor', () => {
         },
       ],
     })
-    usePine(['git.dirty', 'cwd', 'git.branch'])
+    useOstia(['git.dirty', 'cwd', 'git.branch'])
     idlePrompt()
     renderEditor()
     await within(chipRow()).findByText('~/proj')
@@ -225,7 +225,7 @@ describe('Pine prompt in the input editor', () => {
   it('offers Edit prompt (Settings → Prompt for this pane), Copy prompt and Copy working directory on right-click', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined)
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
-    usePine(['user', 'cwd'], { separator: '$' })
+    useOstia(['user', 'cwd'], { separator: '$' })
     idlePrompt()
     renderEditor()
     await within(chipRow()).findByText('ada')
@@ -245,12 +245,12 @@ describe('Pine prompt in the input editor', () => {
   })
 
   it('asks main again at each new prompt', async () => {
-    usePine(['user'])
+    useOstia(['user'])
     idlePrompt()
     renderEditor()
     await within(chipRow()).findByText('ada')
-    const calls = vi.mocked(window.pine.pty.promptContext).mock.calls.length
-    vi.mocked(window.pine.pty.promptContext).mockResolvedValue({ ...CONTEXT, user: 'root' })
+    const calls = vi.mocked(window.ostia.pty.promptContext).mock.calls.length
+    vi.mocked(window.ostia.pty.promptContext).mockResolvedValue({ ...CONTEXT, user: 'root' })
     act(() => {
       useBlocksStore.getState().commandStart(PANE, { line: 1 }, 'su')
       useBlocksStore.getState().commandEnd(PANE, { line: 2 }, 0)
@@ -258,6 +258,6 @@ describe('Pine prompt in the input editor', () => {
       useBlocksStore.getState().promptEnd(PANE, { line: 3 })
     })
     expect(await within(chipRow()).findByText('root')).toBeVisible()
-    expect(vi.mocked(window.pine.pty.promptContext).mock.calls.length).toBeGreaterThan(calls)
+    expect(vi.mocked(window.ostia.pty.promptContext).mock.calls.length).toBeGreaterThan(calls)
   })
 })

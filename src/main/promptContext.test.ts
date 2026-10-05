@@ -19,7 +19,7 @@ import type { ShellState } from './shellCommands'
 let root = ''
 
 beforeEach(() => {
-  root = mkdtempSync(join(tmpdir(), 'pine-prompt-'))
+  root = mkdtempSync(join(tmpdir(), 'ostia-prompt-'))
 })
 
 afterEach(() => {

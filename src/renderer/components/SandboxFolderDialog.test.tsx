@@ -18,7 +18,7 @@ afterEach(() => {
 
 describe('SandboxFolderDialog', () => {
   it('says why a home-folder workspace cannot be sandboxed, names the folder and leaves it off', async () => {
-    vi.mocked(window.pine.sandbox.setEnabled).mockResolvedValue({
+    vi.mocked(window.ostia.sandbox.setEnabled).mockResolvedValue({
       ok: false,
       reason: 'folder',
       problem: { folder: '/home/u', reason: 'home' },
@@ -35,7 +35,7 @@ describe('SandboxFolderDialog', () => {
     expect(useSandboxStore.getState().refusedFolder).toBeNull()
   })
 
-  it('words a folder above home and one holding Pine data differently', async () => {
+  it('words a folder above home and one holding Ostia data differently', async () => {
     render(<SandboxFolderDialog />)
     act(() =>
       useSandboxStore.setState({ refusedFolder: { folder: '/home', reason: 'above-home' } }),
@@ -43,7 +43,7 @@ describe('SandboxFolderDialog', () => {
     expect(await screen.findByRole('dialog')).toHaveTextContent('/home contains your home folder')
     act(() =>
       useSandboxStore.setState({
-        refusedFolder: { folder: '/home/u/.config', reason: 'pine-data' },
+        refusedFolder: { folder: '/home/u/.config', reason: 'ostia-data' },
       }),
     )
     expect(screen.getByRole('dialog')).toHaveTextContent(

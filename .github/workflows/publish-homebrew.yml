@@ -1,0 +1,78 @@
+name: Publish Homebrew
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        type: string
+        required: true
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to put in the cask, e.g. v0.5.8
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-homebrew
+  cancel-in-progress: false
+
+jobs:
+  cask:
+    runs-on: macos-26
+    environment: release-packages
+    env:
+      TAG: ${{ inputs.tag }}
+      CASK: tap/Casks/ostia.rb
+      HOMEBREW_GITHUB_API_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: ostia
+      - uses: actions/create-github-app-token@v3
+        id: app
+        with:
+          client-id: ${{ vars.OSTIA_RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.OSTIA_RELEASE_APP_PRIVATE_KEY }}
+          owner: aurigax-ai
+          repositories: homebrew-tap
+      - uses: actions/checkout@v7
+        with:
+          repository: aurigax-ai/homebrew-tap
+          token: ${{ steps.app.outputs.token }}
+          path: tap
+      - run: ostia/packaging/homebrew/link-tap.sh tap
+      - name: Install the version the tap has now
+        run: |
+          brew install --cask aurigax-ai/tap/ostia
+          ostia/packaging/homebrew/check-installed.sh "$(brew info --cask --json=v2 aurigax-ai/tap/ostia | jq -r '.casks[0].version')"
+      - name: Update the cask
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ostia/packaging/homebrew/update-cask.sh "$CASK" "$TAG" "$GITHUB_REPOSITORY"
+          git -C tap diff
+      - run: brew style aurigax-ai/tap
+      - run: brew audit --cask --strict --online aurigax-ai/tap/ostia
+      - name: Upgrade to the new version
+        run: |
+          brew upgrade --cask aurigax-ai/tap/ostia || true
+          ostia/packaging/homebrew/check-installed.sh "${TAG#v}"
+      - name: Push to aurigax-ai/homebrew-tap
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          SLUG: ${{ steps.app.outputs.app-slug }}
+        run: |
+          cd tap
+          if git diff --quiet; then
+            echo "the tap already has ${TAG#v}"
+            exit 0
+          fi
+          id=$(gh api "/users/$SLUG%5Bbot%5D" -q .id)
+          git config user.name "$SLUG[bot]"
+          git config user.email "$id+$SLUG[bot]@users.noreply.github.com"
+          git commit -am "feat: update ostia to ${TAG#v}"
+          git push origin HEAD:main

@@ -58,6 +58,19 @@ describe('startAutoResume', () => {
     expect(pending(pane.id)?.resumePending).toBeUndefined()
   })
 
+  it('never types a resume into a hibernated pane; waking it stays with the human', () => {
+    const pane = {
+      ...createPane('terminal'),
+      resume,
+      resumePending: true as const,
+      hibernated: true as const,
+    }
+    seed(pane, pane.id, true)
+    stop = startAutoResume()
+    expect(runWhenIdle).not.toHaveBeenCalled()
+    expect(workspacesAwaitingResume(useLayoutStore.getState().byWorkspace)).toEqual([])
+  })
+
   it('resumes a background tab and another workspace without waiting to be shown', () => {
     const front = createPane('terminal')
     const back = { ...createPane('terminal'), resume, resumePending: true as const }

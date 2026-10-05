@@ -414,7 +414,7 @@ describe('SettingsPanel', () => {
     expect(useSettingsStore.getState().appearance.followSystem).toBe(true)
     expect(screen.queryByRole('combobox', { name: 'Ostia theme' })).not.toBeInTheDocument()
     await user.click(screen.getByRole('combobox', { name: 'Light theme' }))
-    expect(await screen.findByRole('option', { name: 'Pine Light' })).toBeInTheDocument()
+    expect(await screen.findByRole('option', { name: 'Ostia Light' })).toBeInTheDocument()
     expect(screen.queryByRole('option', { name: 'Dracula' })).not.toBeInTheDocument()
     await user.keyboard('{Escape}')
 
@@ -483,7 +483,7 @@ describe('SettingsPanel', () => {
     expect(screen.getByTestId('accent-custom')).toHaveAttribute('data-selected', 'true')
   })
 
-  it('links the terminal colors to the pine theme until the match switch is turned off', async () => {
+  it('links the terminal colors to the ostia theme until the match switch is turned off', async () => {
     useSettingsStore.setState((s) => ({ appearance: { ...s.appearance, theme: 'dracula' } }))
     renderSettings()
     const user = userEvent.setup()

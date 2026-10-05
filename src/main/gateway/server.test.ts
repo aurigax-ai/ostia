@@ -116,7 +116,7 @@ describe('gateway server over a real WebSocket', () => {
 
   beforeAll(async () => {
     prevXdg = process.env.XDG_DATA_HOME
-    process.env.XDG_DATA_HOME = mkdtempSync(join(tmpdir(), 'pine-gateway-xdg-'))
+    process.env.XDG_DATA_HOME = mkdtempSync(join(tmpdir(), 'ostia-gateway-xdg-'))
     configureGatewayControl(deps)
     externalPaneId = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'p1' }).externalId
     const started = await startGateway({ host: '127.0.0.1', port: 0 })

@@ -1,0 +1,67 @@
+name: Publish apt
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        type: string
+        required: true
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to add to the apt repository, e.g. v0.5.8
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-apt
+  cancel-in-progress: false
+
+jobs:
+  apt:
+    runs-on: ubuntu-24.04
+    environment: release-packages
+    env:
+      TAG: ${{ inputs.tag }}
+      APT_REPO: aurigax-ai/apt
+      APT_URL: https://github.com/aurigax-ai/apt/releases/download/stable
+      APT_GPG_FINGERPRINT: 09A9471894A93B84050306482E074C4AF7EEE2CC
+    steps:
+      - uses: actions/checkout@v7
+      - name: Import the repository signing key
+        env:
+          APT_GPG_PRIVATE_KEY: ${{ secrets.APT_GPG_PRIVATE_KEY }}
+        run: |
+          printf '%s\n' "$APT_GPG_PRIVATE_KEY" | gpg --batch --import
+          gpg --batch --list-secret-keys "$APT_GPG_FINGERPRINT"
+      - name: Download the new package and the current repository
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p new repo
+          gh release download "$TAG" -R "$GITHUB_REPOSITORY" -p '*.deb' -D new
+          gh release download stable -R "$APT_REPO" -D repo
+          cp new/*.deb repo/
+          ls -l repo
+      - name: Prune and sign
+        run: |
+          command -v apt-ftparchive || sudo apt-get install -y apt-utils
+          packaging/apt/build-repo.sh repo
+      - name: Install and upgrade from the signed repository before uploading
+        run: packaging/apt/test-repo.sh repo
+      - uses: actions/create-github-app-token@v3
+        id: app
+        with:
+          client-id: ${{ vars.OSTIA_RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.OSTIA_RELEASE_APP_PRIVATE_KEY }}
+          owner: aurigax-ai
+          repositories: apt
+      - name: Upload to the stable release of aurigax-ai/apt
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+        run: packaging/apt/upload.sh repo "$APT_REPO" stable
+      - name: Install and upgrade from GitHub
+        run: packaging/apt/test-repo.sh "$APT_URL"

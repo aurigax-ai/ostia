@@ -10,8 +10,8 @@ let outside: string
 const confine = (path: string): string | null => resolveSafe(path, [root])
 
 beforeAll(() => {
-  root = mkdtempSync(join(tmpdir(), 'pine-fsbin-root-'))
-  outside = mkdtempSync(join(tmpdir(), 'pine-fsbin-out-'))
+  root = mkdtempSync(join(tmpdir(), 'ostia-fsbin-root-'))
+  outside = mkdtempSync(join(tmpdir(), 'ostia-fsbin-out-'))
   writeFileSync(join(root, 'pixel.png'), Buffer.from([0x89, 0x50, 0x4e, 0x47, 0, 1, 2, 255]))
   writeFileSync(join(root, 'big.bin'), Buffer.alloc(64))
   writeFileSync(join(outside, 'secret.bin'), Buffer.from('secret'))

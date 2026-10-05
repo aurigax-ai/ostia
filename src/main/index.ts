@@ -65,8 +65,8 @@ import { registerAssistIpc } from './assistIpc'
 import { registerAttentionMethods } from './attention'
 import {
   type ConsoleEntry,
+  OSTIA_ERROR_PREFIX,
   PAGE_ERROR_CATCHER_JS,
-  PINE_ERROR_PREFIX,
   clearGuestBrowseState,
   consoleLevelName,
   ownedGuest,
@@ -933,7 +933,7 @@ const reachesPane: OriginReach = (senderWindowId, sourcePaneId, targetPaneId) =>
   broker?.reaches(senderWindowId, sourcePaneId, targetPaneId) ?? false
 let settingsSync: SettingsSyncHandle | null = null
 
-const EXTENSION_PARTITION_PREFIX = 'pine-ext-'
+const EXTENSION_PARTITION_PREFIX = 'ostia-ext-'
 
 function configDir(): string {
   return appConfigDir()
@@ -975,7 +975,7 @@ function instrumentBrowserGuest(gc: Electron.WebContents): void {
         ts: Date.now(),
       }
       pushConsoleEntry(consoleBuffers, wcId, entry)
-      if (entry.level === 'error' || message.startsWith(PINE_ERROR_PREFIX)) {
+      if (entry.level === 'error' || message.startsWith(OSTIA_ERROR_PREFIX)) {
         pushConsoleEntry(errorBuffers, wcId, entry)
       }
     })
@@ -1624,7 +1624,7 @@ function registerPtyIpc(): void {
     const integration = shellIntegrationSpawnOptions(
       shell,
       process.env,
-      opts.pinePrompt ?? null,
+      opts.ostiaPrompt ?? null,
       scratchFolders.historyFile(workspaceId),
     )
     const cols = opts.cols || 80
@@ -2089,16 +2089,14 @@ function registerFsIpc(): void {
     if (typeof path === 'string') fileWatches?.unwatch(String(e.sender.id), path)
   })
 
-  ipcMain.handle('fs:write', (e, path: string, content: string): boolean => {
+  ipcMain.handle('fs:write', (_e, path: string, content: string): boolean => {
     const safe = openFileGrants.confine(path)
     if (safe === null) return false
     try {
       writeFileSync(safe, content, 'utf8')
       if (safe === settingsFile) {
         for (const win of windows.values()) {
-          if (!win.isDestroyed() && win.webContents.id !== e.sender.id) {
-            win.webContents.send('settings:changed')
-          }
+          if (!win.isDestroyed()) win.webContents.send('settings:changed')
         }
         extensionHost?.refreshLocale()
         extensionHost?.reloadAssistSettings()
@@ -2954,7 +2952,7 @@ function autosaveScrollback(): void {
 app.on('before-quit', (event) => {
   const plan = planQuit({
     approved: quitApproved,
-    requestedByPine: quitRequested,
+    requestedByOstia: quitRequested,
     platform: process.platform,
   })
   quitRequested = false

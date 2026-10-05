@@ -18,7 +18,7 @@ import { SandboxHost } from './hostClient'
 import { buildSrtConfig } from './srtConfig'
 
 const repoRoot = process.cwd()
-const hostScript = join(repoRoot, 'node_modules/.cache/pine-test/sandbox-host-files.mjs')
+const hostScript = join(repoRoot, 'node_modules/.cache/ostia-test/sandbox-host-files.mjs')
 
 let root: string
 let home: string
@@ -52,7 +52,7 @@ beforeAll(async () => {
     format: 'esm',
     packages: 'external',
   })
-  root = realpathSync(mkdtempSync(join(tmpdir(), 'pine-sbx-files-')))
+  root = realpathSync(mkdtempSync(join(tmpdir(), 'ostia-sbx-files-')))
   home = join(root, 'home')
   workDir = join(home, 'proj')
   dataDir = join(home, '.local/share/ostia')
@@ -71,7 +71,7 @@ beforeAll(async () => {
         workDir,
         tmpDir: join(root, 'tmp'),
         dataDirs: [dataDir],
-        socketPath: join(root, 'pine.sock'),
+        socketPath: join(root, 'ostia.sock'),
         runtimeReads: [],
       },
     ),
@@ -84,7 +84,7 @@ afterAll(() => {
 })
 
 describe('sandboxed files', () => {
-  it('SBX-C23 keeps Pine data hidden even when the human lists it as readable', async () => {
+  it('SBX-C23 keeps Ostia data hidden even when the human lists it as readable', async () => {
     const res = await run(`cat ${dataDir}/vault.json; true`)
     expect(res.out).not.toContain('VAULT-CIPHER')
   })

@@ -79,7 +79,7 @@ function diagnostics(sessionId: string): string[] {
 }
 
 beforeEach(() => {
-  tmp = realpathSync(mkdtempSync(join(tmpdir(), 'pine-lsp-int-')))
+  tmp = realpathSync(mkdtempSync(join(tmpdir(), 'ostia-lsp-int-')))
   workDir = join(tmp, 'work')
   mkdirSync(workDir)
   writeFileSync(join(workDir, 'notes.txt'), 'hello')
@@ -140,7 +140,7 @@ afterEach(() => {
 })
 
 describe('a real language server process', () => {
-  it('starts from the extension folder without Pine’s environment and speaks LSP both ways', async () => {
+  it('starts from the extension folder without Ostia’s environment and speaks LSP both ways', async () => {
     const file = join(workDir, 'notes.txt')
     const [session] = await servers.open('w1', 'p1', file)
     expect(session).toMatchObject({
@@ -152,7 +152,7 @@ describe('a real language server process', () => {
 
     const initialized = await initialize(session.sessionId)
     expect(initialized.result).toMatchObject({
-      serverInfo: { name: 'pine-fake-lsp' },
+      serverInfo: { name: 'ostia-fake-lsp' },
       capabilities: { hoverProvider: true, textDocumentSync: { change: 2 } },
     })
 
@@ -170,7 +170,7 @@ describe('a real language server process', () => {
     expect(start).toMatchObject({
       method: '$start',
       cwd: workDir,
-      pineEnv: [],
+      ostiaEnv: [],
       runAsNode: '1',
       argv: [`--record=${workDir}/.fake-lsp-record.jsonl`, '--sync=incremental'],
     })
@@ -230,7 +230,7 @@ describe('a real language server process', () => {
       name: 'Fake watcher',
       languages: ['plaintext'],
       run: {
-        program: 'pine-fake-lsp',
+        program: 'ostia-fake-lsp',
         args: ['--record={root}/.fake-lsp-record.jsonl', '--watch=**/*.cfg'],
       },
       rootMarkers: [],
@@ -279,7 +279,7 @@ describe('a real language server process', () => {
       id: 'program',
       name: 'Fake program',
       languages: ['plaintext'],
-      run: { program: 'pine-fake-lsp', args: ['--caps=hover', '--name=from-path'] },
+      run: { program: 'ostia-fake-lsp', args: ['--caps=hover', '--name=from-path'] },
       rootMarkers: [],
     }
     sources = [{ ...sources[0], server: program }]

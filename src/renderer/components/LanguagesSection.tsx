@@ -183,7 +183,7 @@ function ServerLogDialog({
   const [log, setLog] = useState<LspLog | null>(null)
   useEffect(() => {
     let live = true
-    void window.pine.lsp.log(server.key).then((next) => {
+    void window.ostia.lsp.log(server.key).then((next) => {
       if (live) setLog(next)
     })
     return () => {
@@ -336,7 +336,7 @@ function InstallProgram({ server }: { server: LanguageServerInfo }): JSX.Element
   useEffect(() => {
     if (!feature) return
     let live = true
-    void window.pine.system.requirements(feature).then((next) => {
+    void window.ostia.system.requirements(feature).then((next) => {
       if (live) setReport(next)
     })
     return () => {
@@ -349,7 +349,7 @@ function InstallProgram({ server }: { server: LanguageServerInfo }): JSX.Element
     return (
       <Button
         size="sm"
-        onClick={() => void window.pine.system.installRequirements(feature, workspaceId)}
+        onClick={() => void window.ostia.system.installRequirements(feature, workspaceId)}
       >
         {fmt(t.install, { name: server.name })}
       </Button>
@@ -432,7 +432,7 @@ function ServerRow({ server }: { server: LanguageServerInfo }): JSX.Element {
                 variant="outline"
                 size="sm"
                 className="mt-1"
-                onClick={() => void window.pine.lsp.fetch(server.key)}
+                onClick={() => void window.ostia.lsp.fetch(server.key)}
               >
                 {t.retry}
               </Button>
@@ -444,14 +444,14 @@ function ServerRow({ server }: { server: LanguageServerInfo }): JSX.Element {
             <IconButton
               icon={DownloadSimpleIcon}
               label={fmt(t.fetchNow, { name: server.name })}
-              onClick={() => void window.pine.lsp.fetch(server.key)}
+              onClick={() => void window.ostia.lsp.fetch(server.key)}
             />
           ) : null}
           {server.managedCopy ? (
             <IconButton
               icon={TrashIcon}
               label={fmt(t.removeDownload, { name: server.name })}
-              onClick={() => void window.pine.lsp.removeDownload(server.key)}
+              onClick={() => void window.ostia.lsp.removeDownload(server.key)}
             />
           ) : null}
           <IconButton

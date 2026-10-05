@@ -61,7 +61,7 @@ describe('AgentOfferDialog', () => {
     stores.forEach((store, i) => {
       store.setState(inits[i] as never, true)
     })
-    vi.mocked(window.pine.extensions.answerAgentOffer).mockClear()
+    vi.mocked(window.ostia.extensions.answerAgentOffer).mockClear()
   })
 
   it('shows nothing until an extension offers text', () => {
@@ -82,8 +82,8 @@ describe('AgentOfferDialog', () => {
 
     await user.click(screen.getByRole('button', { name: 'Send' }))
     expect(paste).toHaveBeenCalledWith(OFFER.text)
-    expect(window.pine.pty.write).not.toHaveBeenCalledWith('p-claude', '\r')
-    expect(window.pine.extensions.answerAgentOffer).toHaveBeenCalledWith('offer-1', 'p-claude')
+    expect(window.ostia.pty.write).not.toHaveBeenCalledWith('p-claude', '\r')
+    expect(window.ostia.extensions.answerAgentOffer).toHaveBeenCalledWith('offer-1', 'p-claude')
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
   })
 
@@ -93,7 +93,7 @@ describe('AgentOfferDialog', () => {
     act(() => useAgentOfferStore.getState().receive(OFFER))
     await user.click(await screen.findByRole('button', { name: 'Don’t send' }))
     expect(paste).not.toHaveBeenCalled()
-    expect(window.pine.extensions.answerAgentOffer).toHaveBeenCalledWith('offer-1', null)
+    expect(window.ostia.extensions.answerAgentOffer).toHaveBeenCalledWith('offer-1', null)
   })
 
   it('answers not sent and pastes nothing when the agent stopped before the click', async () => {
@@ -104,8 +104,8 @@ describe('AgentOfferDialog', () => {
     unregister()
     await user.click(screen.getByRole('button', { name: 'Send' }))
     expect(paste).not.toHaveBeenCalled()
-    expect(window.pine.extensions.answerAgentOffer).toHaveBeenCalledWith('offer-1', null)
-    expect(window.pine.extensions.answerAgentOffer).not.toHaveBeenCalledWith('offer-1', 'p-claude')
+    expect(window.ostia.extensions.answerAgentOffer).toHaveBeenCalledWith('offer-1', null)
+    expect(window.ostia.extensions.answerAgentOffer).not.toHaveBeenCalledWith('offer-1', 'p-claude')
   })
 
   it('says no agent runs and cannot send when the workspace has none', async () => {
@@ -122,6 +122,6 @@ describe('AgentOfferDialog', () => {
     await screen.findByRole('dialog')
     act(() => useAgentOfferStore.getState().withdraw('offer-1'))
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
-    expect(window.pine.extensions.answerAgentOffer).not.toHaveBeenCalled()
+    expect(window.ostia.extensions.answerAgentOffer).not.toHaveBeenCalled()
   })
 })

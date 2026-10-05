@@ -48,7 +48,7 @@ import {
   textEditsByUri,
 } from './workspaceEdit'
 
-export const APPLY_CODE_ACTION_COMMAND = 'pine.lsp.applyCodeAction'
+export const APPLY_CODE_ACTION_COMMAND = 'ostia.lsp.applyCodeAction'
 const CODE_ACTION_INVOKED = 1
 const CODE_ACTION_AUTOMATIC = 2
 let applyCommand: monaco.IDisposable | null = null

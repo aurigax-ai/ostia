@@ -19,23 +19,29 @@ export interface SplitOptions {
   collapseSecond?: boolean
 }
 
-const DRAGGING_CLASS = 'pine-split-dragging'
+const DRAGGING_CLASS = 'ostia-split-dragging'
 const observers = new Map<string, ResizeObserver>()
 
 export function splitter(opts: SplitOptions): HTMLElement {
   const { first, second } = opts
   let fraction = panelSize(opts.key) ?? opts.defaultFraction
   const handle = h('div', {
-    class: 'pine-split-handle',
+    class: 'ostia-split-handle',
     role: 'separator',
     tabindex: '0',
     'aria-orientation': 'horizontal',
     'aria-label': opts.label,
     'data-key': `split-${opts.key}`,
   })
-  first.classList.add('pine-split-first')
-  second.classList.add('pine-split-second')
-  const container = h('div', { class: 'pine-split', 'data-split': opts.key }, first, handle, second)
+  first.classList.add('ostia-split-first')
+  second.classList.add('ostia-split-second')
+  const container = h(
+    'div',
+    { class: 'ostia-split', 'data-split': opts.key },
+    first,
+    handle,
+    second,
+  )
 
   const total = (): number => Math.max(0, container.clientHeight - handle.offsetHeight)
   const bounds = (): SplitBounds => splitBounds(total(), opts.minFirst, opts.minSecond)

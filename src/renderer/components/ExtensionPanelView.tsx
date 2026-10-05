@@ -12,7 +12,7 @@ import { useSettingsStore } from '../stores/settingsStore'
 import { Button } from './ui/button'
 import { Empty, EmptyDescription } from './ui/empty'
 
-export const EXTENSION_PARTITION_PREFIX = 'pine-ext-'
+export const EXTENSION_PARTITION_PREFIX = 'ostia-ext-'
 
 function useThemeCss(): string {
   const activeTheme = useEffectiveTheme()
@@ -59,7 +59,7 @@ export function ExtensionPanelView({
       const context: ExtensionPanelContext = nav
         ? { workspaceId, locale, path: nav.path }
         : { workspaceId, locale }
-      window.pine.extensions
+      window.ostia.extensions
         .panel(extId, context)
         .then((res) => {
           if (isAlive()) setSource(res)

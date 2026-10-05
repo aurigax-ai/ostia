@@ -3,7 +3,7 @@ import type { ChatRestoreRequest } from '@shared/chatTools'
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import type { PineChatMessage } from '../lib/chatTransport'
+import type { OstiaChatMessage } from '../lib/chatTransport'
 import { type ChatEditRecord, resetChatTools, useChatToolsStore } from '../stores/chatToolsStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
 import { ChatCheckpointDialog } from './ChatCheckpointDialog'
@@ -39,7 +39,7 @@ const tool = (id: string) =>
     state: 'output-available',
   }) as never
 
-const MESSAGES: PineChatMessage[] = [
+const MESSAGES: OstiaChatMessage[] = [
   { id: 'u1', role: 'user', parts: [{ type: 'text', text: 'change things' }] },
   { id: 'a1', role: 'assistant', parts: [tool('e1'), tool('e2'), tool('e3')] },
 ]
@@ -54,7 +54,7 @@ afterEach(() => {
   cleanup()
   resetChatTools()
   useWorkspacesStore.setState(workspacesInit, true)
-  vi.mocked(window.pine.chatTools.restore).mockReset()
+  vi.mocked(window.ostia.chatTools.restore).mockReset()
 })
 
 function seed(): void {
@@ -75,7 +75,7 @@ function seed(): void {
 describe('ChatCheckpointDialog', () => {
   it('lists what goes back and what stays because the human changed it, then restores only the first', async () => {
     seed()
-    vi.mocked(window.pine.chatTools.restore).mockImplementation(async (req: ChatRestoreRequest) =>
+    vi.mocked(window.ostia.chatTools.restore).mockImplementation(async (req: ChatRestoreRequest) =>
       req.path.endsWith('mine.ts')
         ? { ok: false, error: 'changed', path: req.path }
         : {
@@ -104,11 +104,11 @@ describe('ChatCheckpointDialog', () => {
     const stays = screen.getByRole('list', { name: 'These stay as they are:' })
     expect(within(stays).getByText('mine.ts')).toBeInTheDocument()
     expect(within(stays).getByText('changed since the chat edited it')).toBeInTheDocument()
-    expect(window.pine.chatTools.restore).toHaveBeenCalledTimes(3)
+    expect(window.ostia.chatTools.restore).toHaveBeenCalledTimes(3)
     await userEvent.click(screen.getByRole('button', { name: 'Restore files (2)' }))
     await waitFor(() => expect(onClose).toHaveBeenCalled())
     const writes = vi
-      .mocked(window.pine.chatTools.restore)
+      .mocked(window.ostia.chatTools.restore)
       .mock.calls.map((c) => c[0])
       .filter((req) => !req.check)
     expect(writes.map((r) => [r.path, r.content])).toEqual([
@@ -122,7 +122,7 @@ describe('ChatCheckpointDialog', () => {
 
   it('writes nothing on Cancel', async () => {
     seed()
-    vi.mocked(window.pine.chatTools.restore).mockResolvedValue({
+    vi.mocked(window.ostia.chatTools.restore).mockResolvedValue({
       ok: true,
       path: '/x',
       removed: false,
@@ -143,7 +143,7 @@ describe('ChatCheckpointDialog', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
     expect(onClose).toHaveBeenCalled()
     expect(
-      vi.mocked(window.pine.chatTools.restore).mock.calls.every((c) => c[0].check === true),
+      vi.mocked(window.ostia.chatTools.restore).mock.calls.every((c) => c[0].check === true),
     ).toBe(true)
   })
 })

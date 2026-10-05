@@ -107,11 +107,11 @@ describe('BrowserView pick toggle', () => {
   it('starts a pick for this pane with the app theme and shows it as pressed', async () => {
     const { workspaceId } = twoTerminals()
     const pending = deferred<PickOutcome>()
-    vi.mocked(window.pine.browser.pickStart).mockReturnValue(pending.promise)
+    vi.mocked(window.ostia.browser.pickStart).mockReturnValue(pending.promise)
     renderView(workspaceId)
     expect(pickButton()).toHaveAttribute('aria-pressed', 'false')
     await userEvent.click(pickButton())
-    expect(window.pine.browser.pickStart).toHaveBeenCalledWith(
+    expect(window.ostia.browser.pickStart).toHaveBeenCalledWith(
       BROWSER,
       expect.objectContaining({ accent: expect.any(String), surface: expect.any(String) }),
     )
@@ -122,17 +122,17 @@ describe('BrowserView pick toggle', () => {
 
   it('cancels the running pick when toggled off', async () => {
     const { workspaceId } = twoTerminals()
-    vi.mocked(window.pine.browser.pickStart).mockReturnValue(new Promise(() => {}))
+    vi.mocked(window.ostia.browser.pickStart).mockReturnValue(new Promise(() => {}))
     renderView(workspaceId)
     await userEvent.click(pickButton())
     await userEvent.click(pickButton())
-    expect(window.pine.browser.pickCancel).toHaveBeenCalledWith(BROWSER)
+    expect(window.ostia.browser.pickCancel).toHaveBeenCalledWith(BROWSER)
   })
 
   it('shows the agent prompt when an agent started the pick', () => {
     const { workspaceId } = twoTerminals()
     let emit: (s: PickState) => void = () => {}
-    vi.mocked(window.pine.browser.onPickState).mockImplementation((cb) => {
+    vi.mocked(window.ostia.browser.onPickState).mockImplementation((cb) => {
       emit = cb
       return () => {}
     })
@@ -148,7 +148,7 @@ describe('BrowserView pick toggle', () => {
 
   it('reports a failed pick instead of failing silently', async () => {
     const { workspaceId } = twoTerminals()
-    vi.mocked(window.pine.browser.pickStart).mockResolvedValue({ ok: false, error: 'navigated' })
+    vi.mocked(window.ostia.browser.pickStart).mockResolvedValue({ ok: false, error: 'navigated' })
     renderView(workspaceId)
     await userEvent.click(pickButton())
     expect(await screen.findByText(/could not capture an element \(navigated\)/i)).toBeVisible()
@@ -160,7 +160,7 @@ describe('BrowserView send panel', () => {
     const panes = twoTerminals()
     usePaneRecencyStore.getState().touch(panes.a, 100)
     usePaneRecencyStore.getState().touch(panes.b, 50)
-    vi.mocked(window.pine.browser.pickStart).mockResolvedValue({ ok: true, capture })
+    vi.mocked(window.ostia.browser.pickStart).mockResolvedValue({ ok: true, capture })
     renderView(panes.workspaceId)
     await userEvent.click(pickButton())
     await screen.findByRole('region', { name: /send to agent/i })
@@ -179,15 +179,15 @@ describe('BrowserView send panel', () => {
 
   it('sends the note to the chosen pane and confirms in the browser pane', async () => {
     const { b } = await capturedPanel()
-    vi.mocked(window.pine.browser.pickSend).mockResolvedValue({
+    vi.mocked(window.ostia.browser.pickSend).mockResolvedValue({
       ok: true,
-      path: '/tmp/pine-reports-1000/capture-1.md',
+      path: '/tmp/ostia-reports-1000/capture-1.md',
       imagePath: null,
     })
     await userEvent.type(screen.getByLabelText(/what’s wrong/i), 'Save overlaps the footer')
     await userEvent.click(screen.getAllByRole('radio')[1])
     await userEvent.click(screen.getByRole('button', { name: 'Send' }))
-    expect(window.pine.browser.pickSend).toHaveBeenCalledWith({
+    expect(window.ostia.browser.pickSend).toHaveBeenCalledWith({
       captureId: 'pick-7',
       sourcePaneId: BROWSER,
       targetPaneId: b,
@@ -201,7 +201,7 @@ describe('BrowserView send panel', () => {
 
   it('keeps the panel and shows why when sending fails', async () => {
     await capturedPanel()
-    vi.mocked(window.pine.browser.pickSend).mockResolvedValue({ ok: false, error: 'write-failed' })
+    vi.mocked(window.ostia.browser.pickSend).mockResolvedValue({ ok: false, error: 'write-failed' })
     await userEvent.click(screen.getByRole('button', { name: 'Send' }))
     expect(await screen.findByText(/could not send the report \(write-failed\)/i)).toBeVisible()
     expect(screen.getByRole('region', { name: /send to agent/i })).toBeInTheDocument()
@@ -211,7 +211,7 @@ describe('BrowserView send panel', () => {
     await capturedPanel()
     await userEvent.keyboard('{Escape}')
     expect(screen.queryByRole('region', { name: /send to agent/i })).not.toBeInTheDocument()
-    expect(window.pine.browser.pickSend).not.toHaveBeenCalled()
+    expect(window.ostia.browser.pickSend).not.toHaveBeenCalled()
   })
 })
 
@@ -257,7 +257,7 @@ describe('BrowserView region capture', () => {
     fireEvent.keyDown(layer(), { key: 'Escape' })
     expect(screen.queryByRole('application', { name: /region capture/i })).toBeNull()
     expect(regionButton()).toHaveAttribute('aria-pressed', 'false')
-    expect(window.pine.browser.regionCapture).not.toHaveBeenCalled()
+    expect(window.ostia.browser.regionCapture).not.toHaveBeenCalled()
   })
 
   it('starts from the palette command only for its own pane', async () => {
@@ -272,17 +272,17 @@ describe('BrowserView region capture', () => {
 
   it('asks main to capture the dragged rectangle and offers send and copy', async () => {
     const panes = twoTerminals()
-    vi.mocked(window.pine.browser.regionCapture).mockResolvedValue({ ok: true, capture: region })
-    vi.mocked(window.pine.browser.regionSend).mockResolvedValue({
+    vi.mocked(window.ostia.browser.regionCapture).mockResolvedValue({ ok: true, capture: region })
+    vi.mocked(window.ostia.browser.regionSend).mockResolvedValue({
       ok: true,
-      path: '/tmp/pine-reports-1000/capture-2-localhost.md',
-      imagePath: '/tmp/pine-reports-1000/capture-2-localhost.png',
+      path: '/tmp/ostia-reports-1000/capture-2-localhost.md',
+      imagePath: '/tmp/ostia-reports-1000/capture-2-localhost.png',
     })
     renderView(panes.workspaceId)
     await userEvent.click(regionButton())
     drag()
 
-    expect(window.pine.browser.regionCapture).toHaveBeenCalledWith(BROWSER, {
+    expect(window.ostia.browser.regionCapture).toHaveBeenCalledWith(BROWSER, {
       rect: { x: 10, y: 20, width: 120, height: 80 },
       view: { width: 640, height: 480 },
     })
@@ -292,7 +292,7 @@ describe('BrowserView region capture', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Send' }))
     await waitFor(() =>
-      expect(window.pine.browser.regionSend).toHaveBeenCalledWith({
+      expect(window.ostia.browser.regionSend).toHaveBeenCalledWith({
         captureId: 'region-3',
         sourcePaneId: BROWSER,
         targetPaneId: expect.any(String),
@@ -306,20 +306,20 @@ describe('BrowserView region capture', () => {
 
   it('copies the image instead of sending when asked', async () => {
     const { workspaceId } = twoTerminals()
-    vi.mocked(window.pine.browser.regionCapture).mockResolvedValue({ ok: true, capture: region })
+    vi.mocked(window.ostia.browser.regionCapture).mockResolvedValue({ ok: true, capture: region })
     renderView(workspaceId)
     await userEvent.click(regionButton())
     drag()
     await screen.findByRole('region', { name: /send to agent/i })
     await userEvent.click(screen.getByRole('button', { name: 'Copy image' }))
-    expect(window.pine.browser.regionCopy).toHaveBeenCalledWith(BROWSER, 'region-3')
-    expect(window.pine.browser.regionSend).not.toHaveBeenCalled()
+    expect(window.ostia.browser.regionCopy).toHaveBeenCalledWith(BROWSER, 'region-3')
+    expect(window.ostia.browser.regionSend).not.toHaveBeenCalled()
     expect(await screen.findByText('Copied the image to the clipboard.')).toBeVisible()
   })
 
   it('says why when main refuses the capture', async () => {
     const { workspaceId } = twoTerminals()
-    vi.mocked(window.pine.browser.regionCapture).mockResolvedValue({ ok: false, error: 'empty' })
+    vi.mocked(window.ostia.browser.regionCapture).mockResolvedValue({ ok: false, error: 'empty' })
     renderView(workspaceId)
     await userEvent.click(regionButton())
     drag()
@@ -370,7 +370,7 @@ describe('BrowserView storage panel', () => {
     expect(screen.queryByRole('region', { name: 'Storage' })).not.toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Show storage' }))
     expect(screen.getByRole('region', { name: 'Storage' })).toBeInTheDocument()
-    expect(window.pine.browser.storageRead).toHaveBeenCalledWith(BROWSER)
+    expect(window.ostia.browser.storageRead).toHaveBeenCalledWith(BROWSER)
     const toggle = screen.getByRole('button', { name: 'Hide storage' })
     expect(toggle).toHaveAttribute('aria-pressed', 'true')
     await userEvent.click(toggle)
@@ -397,18 +397,18 @@ describe('BrowserView profile', () => {
   it('claims its profile from main and uses the partition main granted', async () => {
     const { container } = renderWith('ws', 'shared')
     await waitFor(() => expect(container.querySelector('webview')).not.toBeNull())
-    expect(window.pine.browser.claimProfile).toHaveBeenCalledWith(BROWSER, 'shared')
+    expect(window.ostia.browser.claimProfile).toHaveBeenCalledWith(BROWSER, 'shared')
     expect(container.querySelector('webview')?.getAttribute('partition')).toBe(
       'persist:pine-browser',
     )
   })
 
   it('falls back to its own isolated partition when main refuses the shared profile', async () => {
-    vi.mocked(window.pine.browser.claimProfile).mockResolvedValueOnce('isolated')
+    vi.mocked(window.ostia.browser.claimProfile).mockResolvedValueOnce('isolated')
     const { container } = renderWith('ws', 'shared')
     await waitFor(() => expect(container.querySelector('webview')).not.toBeNull())
     expect(container.querySelector('webview')?.getAttribute('partition')).toBe(
-      `pine-browser-${BROWSER}`,
+      `ostia-browser-${BROWSER}`,
     )
   })
 
@@ -416,8 +416,8 @@ describe('BrowserView profile', () => {
     useSandboxStore.setState({ enabled: { ws: true } })
     const { container } = renderWith('ws', 'shared')
     await waitFor(() => expect(container.querySelector('webview')).not.toBeNull())
-    expect(window.pine.browser.claimProfile).toHaveBeenCalledWith(BROWSER, 'isolated')
-    expect(window.pine.browser.claimProfile).not.toHaveBeenCalledWith(BROWSER, 'shared')
+    expect(window.ostia.browser.claimProfile).toHaveBeenCalledWith(BROWSER, 'isolated')
+    expect(window.ostia.browser.claimProfile).not.toHaveBeenCalledWith(BROWSER, 'shared')
   })
 
   it('tells the human that storage changes reach every tab of their profile', async () => {

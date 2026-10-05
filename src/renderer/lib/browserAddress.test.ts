@@ -18,8 +18,8 @@ describe('resolveAddress', () => {
   })
 
   it('searches with the chosen engine when the text is not a URL', () => {
-    expect(resolveAddress('pine terminal', { ...settings, searchEngine: 'bing' })).toBe(
-      'https://www.bing.com/search?q=pine%20terminal',
+    expect(resolveAddress('ostia terminal', { ...settings, searchEngine: 'bing' })).toBe(
+      'https://www.bing.com/search?q=ostia%20terminal',
     )
   })
 

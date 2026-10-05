@@ -33,12 +33,12 @@ describe('browser partitions', () => {
   it('names one persistent partition for the shared profile and one in-memory partition per isolated pane', () => {
     expect(browserPartition('shared', 'p1')).toBe(SHARED_BROWSER_PARTITION)
     expect(SHARED_BROWSER_PARTITION.startsWith('persist:')).toBe(true)
-    expect(browserPartition('isolated', 'p1')).toBe('pine-browser-p1')
+    expect(browserPartition('isolated', 'p1')).toBe('ostia-browser-p1')
     expect(browserPartition('isolated', 'p1')).not.toBe(browserPartition('isolated', 'p2'))
   })
 
   it('recognises only isolated pane partitions as isolated', () => {
-    expect(isIsolatedBrowserPartition('pine-browser-p1')).toBe(true)
+    expect(isIsolatedBrowserPartition('ostia-browser-p1')).toBe(true)
     expect(isIsolatedBrowserPartition(SHARED_BROWSER_PARTITION)).toBe(false)
     expect(isIsolatedBrowserPartition('persist:pine-browser-p1')).toBe(false)
     expect(isIsolatedBrowserPartition('pine-ext-git')).toBe(false)

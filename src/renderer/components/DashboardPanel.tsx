@@ -31,8 +31,6 @@ import { Hint } from './Hint'
 import { IconButton } from './IconButton'
 import { stateLabel, useLocalAgentTargets } from './PickSendPanel'
 import { QuestionCard } from './QuestionCard'
-import { ATTENTION_BADGE } from './attentionStyles'
-import { Badge } from './ui/badge'
 import { Button } from './ui/button'
 
 const OPEN_POPUP = '[role="dialog"], [role="listbox"], [role="menu"]'
@@ -275,14 +273,7 @@ function WorkspaceEntry({ workspace: w }: { workspace: Workspace }): JSX.Element
         </Button>
         <StateMark state={w.state} />
         {unread > 0 ? (
-          <Badge
-            variant="outline"
-            className={ATTENTION_BADGE}
-            role="img"
-            aria-label={fmt(d.rail.unread, { n: unread })}
-          >
-            {unread > 99 ? '99+' : unread}
-          </Badge>
+          <span className="unread-dot" role="img" aria-label={fmt(d.rail.unread, { n: unread })} />
         ) : null}
         <PathText path={w.projectDir ?? w.workDir} />
         <span className="ml-auto flex shrink-0 items-center gap-1">
@@ -351,7 +342,7 @@ function RemoteEntry({ workspace: w }: { workspace: RemoteWorkspace }): JSX.Elem
         size="sm"
         aria-label={fmt(d.dashboard.openWorkspace, { name: w.name })}
         className="h-auto min-w-0 justify-start p-0 font-medium text-fg text-ui-base"
-        onClick={() => window.pine.windows.focusWorkspace(w.id, false)}
+        onClick={() => window.ostia.windows.focusWorkspace(w.id, false)}
       >
         <span className="truncate">{w.name}</span>
       </Button>

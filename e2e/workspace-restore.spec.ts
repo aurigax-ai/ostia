@@ -58,7 +58,7 @@ test.beforeEach(() => {
 })
 
 test('restores the pane layout and terminal history after a restart', async () => {
-  const marker = `pine_restore_${Date.now()}`
+  const marker = `ostia_restore_${Date.now()}`
 
   const first = await launchApp(dataHome)
   try {
@@ -99,7 +99,7 @@ test('restores the pane layout and terminal history after a restart', async () =
 })
 
 test('restores terminal history after a crash (no before-quit)', async () => {
-  const marker = `pine_crash_${Date.now()}`
+  const marker = `ostia_crash_${Date.now()}`
   const first = await launchApp(dataHome)
   try {
     await openWorkspace(first.win)
@@ -154,7 +154,7 @@ async function paneLines(win: Page): Promise<string[]> {
 
 test('restores a clean final screen at a different window size', async () => {
   test.setTimeout(90_000)
-  const marker = `pine_resized_${Date.now()}`
+  const marker = `ostia_resized_${Date.now()}`
   seedSettings(dataHome, { ...DOM_RENDERER_SETTINGS, appearance: { terminal: { size: 8 } } })
 
   const first = await launchApp(dataHome)
@@ -288,7 +288,7 @@ test('restores tabs and offers to resume the agent a tab was running', async () 
     const term = first.win.locator('.pane-slot:not([data-hidden]) .xterm')
     await term.click()
     await waitForTerminalFocus(first.win)
-    await first.win.keyboard.type('pine resume-token claude ffe55127-cb1f-4efd')
+    await first.win.keyboard.type('ostia resume-token claude ffe55127-cb1f-4efd')
     await first.win.keyboard.press('Enter')
     await expect(first.win.getByRole('button', { name: /Resume claude/ })).toBeVisible({
       timeout: 15_000,

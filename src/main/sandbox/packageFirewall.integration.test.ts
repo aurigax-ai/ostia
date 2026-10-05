@@ -9,7 +9,7 @@ import { SandboxHost } from './hostClient'
 import { buildSrtConfig } from './srtConfig'
 
 const repoRoot = process.cwd()
-const hostScript = join(repoRoot, 'node_modules/.cache/pine-test/sandbox-host-packages.mjs')
+const hostScript = join(repoRoot, 'node_modules/.cache/ostia-test/sandbox-host-packages.mjs')
 
 let root: string
 let workDir: string
@@ -42,7 +42,7 @@ beforeAll(async () => {
     format: 'esm',
     packages: 'external',
   })
-  root = realpathSync(mkdtempSync(join(tmpdir(), 'pine-pkgfw-')))
+  root = realpathSync(mkdtempSync(join(tmpdir(), 'ostia-pkgfw-')))
   workDir = join(root, 'home', 'proj')
   mkdirSync(workDir, { recursive: true })
   host = new SandboxHost({
@@ -59,7 +59,7 @@ beforeAll(async () => {
         workDir,
         tmpDir: join(root, 'tmp'),
         dataDirs: [],
-        socketPath: join(root, 'pine.sock'),
+        socketPath: join(root, 'ostia.sock'),
         runtimeReads: [],
       },
     ),

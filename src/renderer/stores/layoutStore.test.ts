@@ -8,7 +8,7 @@ import { usePluginsStore } from './pluginsStore'
 import { useSettingsStore } from './settingsStore'
 import { useWorkspacesStore } from './workspacesStore'
 
-const emit = () => vi.mocked(window.pine.lifecycle.emit)
+const emit = () => vi.mocked(window.ostia.lifecycle.emit)
 const layoutOf = (sid: string) => useLayoutStore.getState().byWorkspace[sid]
 
 function ensure(sid: string): string {
@@ -482,8 +482,27 @@ describe('layoutStore', () => {
     })
   })
 
+  describe('openDiff', () => {
+    it('adds the diff as a tab of the focused pane in a split, not a new split', () => {
+      const { first, second } = twoPanes('sess')
+      useLayoutStore.getState().focusPane('sess', first)
+      const diffId = useLayoutStore
+        .getState()
+        .openDiff('sess', { title: 'a.ts', original: 'a', modified: 'b' } as never) as string
+      const layout = layoutOf('sess')
+      expect(layout.root.type).toBe('split')
+      expect(paneIds(layout.root)).toHaveLength(3)
+      expect(findPane(layout.root, diffId)?.kind).toBe('diff')
+      expect(layout.activePaneId).toBe(diffId)
+      expect(findPane(layout.root, second)).not.toBeNull()
+      const stacks = layout.root.type === 'split' ? layout.root.children : []
+      const stack = stacks.find((c) => c.type === 'tabs')
+      expect(stack && paneIds(stack)).toEqual([first, diffId])
+    })
+  })
+
   describe('openBrowser', () => {
-    it('with no browser pane, splits and creates a browser pane, emitting pane-created', () => {
+    it('with no browser pane, adds a browser tab beside the focused pane, emitting pane-created', () => {
       const terminal = ensure('sess')
       emit().mockClear()
 
@@ -494,6 +513,7 @@ describe('layoutStore', () => {
       const browser = findPane(layout.root, browserId)
 
       expect(ids).toHaveLength(2)
+      expect(layout.root.type).toBe('tabs')
       expect(browser?.kind).toBe('browser')
       expect(browser?.url).toBe('https://example.com/path')
       expect(browser?.title).toBe('example.com')

@@ -93,8 +93,8 @@ export async function applyClosedFileEdits(
   for (const [uri, list] of byUri) {
     if (openModel(uri)) continue
     const path = monaco.Uri.parse(uri).path
-    const text = await window.pine.fs.read(path)
-    if (text === null || !(await window.pine.fs.write(path, applyTextEdits(text, list)))) {
+    const text = await window.ostia.fs.read(path)
+    if (text === null || !(await window.ostia.fs.write(path, applyTextEdits(text, list)))) {
       applied = false
     }
   }

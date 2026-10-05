@@ -1,9 +1,9 @@
 import { gzipSync } from 'node:zlib'
 
-const ZSH_INIT = `typeset -g __pine_b_mark=$'%{\\e]133;B\\e\\\\%}'
-typeset -gi __pine_cmd_running=0
-__pine_osc7() { print -Pn '\\e]7;file://%M%d\\e\\\\' }
-__pine_mark_e() {
+const ZSH_INIT = `typeset -g __ostia_b_mark=$'%{\\e]133;B\\e\\\\%}'
+typeset -gi __ostia_cmd_running=0
+__ostia_osc7() { print -Pn '\\e]7;file://%M%d\\e\\\\' }
+__ostia_mark_e() {
   local s=$1
   s=\${s//\\\\/\\\\\\\\}
   s=\${s//;/\\\\x3b}
@@ -11,37 +11,37 @@ __pine_mark_e() {
   s=\${s//[[:cntrl:]]/}
   print -rn -- $'\\e]633;E;'"$s"$'\\e\\\\'
 }
-__pine_precmd() {
+__ostia_precmd() {
   local ec=$?
-  if (( __pine_cmd_running )); then
+  if (( __ostia_cmd_running )); then
     print -n "\\e]133;D;$ec\\e\\\\"
-    __pine_cmd_running=0
+    __ostia_cmd_running=0
   fi
-  __pine_osc7
+  __ostia_osc7
   print -n '\\e]133;A\\e\\\\'
   case "$PROMPT" in
-    *"$__pine_b_mark") ;;
-    *) PROMPT="\${PROMPT}\${__pine_b_mark}" ;;
+    *"$__ostia_b_mark") ;;
+    *) PROMPT="\${PROMPT}\${__ostia_b_mark}" ;;
   esac
 }
-__pine_preexec() {
-  __pine_cmd_running=1
-  __pine_mark_e "$1"
+__ostia_preexec() {
+  __ostia_cmd_running=1
+  __ostia_mark_e "$1"
   print -n '\\e]133;C\\e\\\\'
 }
 autoload -Uz add-zsh-hook
-add-zsh-hook precmd __pine_precmd
-add-zsh-hook preexec __pine_preexec
-add-zsh-hook chpwd __pine_osc7
+add-zsh-hook precmd __ostia_precmd
+add-zsh-hook preexec __ostia_preexec
+add-zsh-hook chpwd __ostia_osc7
 `
 
 const BASH_B_MARK = String.raw`\[\e]133;B\e\\\]`
 
-const BASH_INIT = `__pine_executing=0
-__pine_first=
-__pine_interactive_mode=
-__pine_osc7() { printf '\\e]7;file://%s%s\\e\\\\' "$HOSTNAME" "$PWD"; }
-__pine_mark_e() {
+const BASH_INIT = `__ostia_executing=0
+__ostia_first=
+__ostia_interactive_mode=
+__ostia_osc7() { printf '\\e]7;file://%s%s\\e\\\\' "$HOSTNAME" "$PWD"; }
+__ostia_mark_e() {
   local s=$1
   s=\${s//\\\\/\\\\\\\\}
   s=\${s//;/\\\\x3b}
@@ -49,27 +49,27 @@ __pine_mark_e() {
   s=\${s//[[:cntrl:]]/}
   printf '\\e]633;E;%s\\e\\\\' "$s"
 }
-__pine_preexec() {
+__ostia_preexec() {
   [ -n "$COMP_LINE" ] && return
-  [ "$__pine_interactive_mode" = on ] || return
-  __pine_interactive_mode=
+  [ "$__ostia_interactive_mode" = on ] || return
+  __ostia_interactive_mode=
   [ "$BASH_COMMAND" = "$PROMPT_COMMAND" ] && return
-  __pine_executing=1
+  __ostia_executing=1
   local line
   line=$(LC_ALL=C HISTTIMEFORMAT= builtin history 1)
-  __pine_first=\${line#"\${line%%[! ]*}"}
-  __pine_first=\${__pine_first%%[!0-9]*}
-  __pine_line=\${line#*[[:digit:]][* ] }
-  case "$__pine_line" in
-    *"$BASH_COMMAND"*) __pine_mark_e "$__pine_line" ;;
-    *) __pine_first= ;;
+  __ostia_first=\${line#"\${line%%[! ]*}"}
+  __ostia_first=\${__ostia_first%%[!0-9]*}
+  __ostia_line=\${line#*[[:digit:]][* ] }
+  case "$__ostia_line" in
+    *"$BASH_COMMAND"*) __ostia_mark_e "$__ostia_line" ;;
+    *) __ostia_first= ;;
   esac
   printf '\\e]133;C\\e\\\\'
 }
-__pine_mark_whole() {
-  [ -n "$__pine_first" ] || return 0
-  local f=$__pine_first l p n nl=$'\\n' e
-  __pine_first=
+__ostia_mark_whole() {
+  [ -n "$__ostia_first" ] || return 0
+  local f=$__ostia_first l p n nl=$'\\n' e
+  __ostia_first=
   l=$(LC_ALL=C HISTTIMEFORMAT= builtin history 1)
   l=\${l#"\${l%%[! ]*}"}
   l=\${l%%[!0-9]*}
@@ -78,7 +78,7 @@ __pine_mark_whole() {
   l=$(LC_ALL=C HISTTIMEFORMAT= builtin history $((e - f + 1)))
   printf -v p '%5d' "$f"
   case "$l" in
-    "$p"[*\\ ]" $__pine_line$nl"*) l=\${l#"$p"[* ] } ;;
+    "$p"[*\\ ]" $__ostia_line$nl"*) l=\${l#"$p"[* ] } ;;
     *) return 0 ;;
   esac
   for ((n = f + 1; n <= e; n++)); do
@@ -88,31 +88,31 @@ __pine_mark_whole() {
       *) return 0 ;;
     esac
   done
-  __pine_mark_e "$l"
+  __ostia_mark_e "$l"
 }
-__pine_orig_prompt_command=("\${PROMPT_COMMAND[@]}")
-__pine_prompt_command() {
+__ostia_orig_prompt_command=("\${PROMPT_COMMAND[@]}")
+__ostia_prompt_command() {
   local ec=$?
-  if [ "$__pine_executing" = 1 ]; then
-    __pine_mark_whole
+  if [ "$__ostia_executing" = 1 ]; then
+    __ostia_mark_whole
     printf '\\e]133;D;%s\\e\\\\' "$ec"
-    __pine_executing=0
+    __ostia_executing=0
   fi
-  __pine_osc7
+  __ostia_osc7
   printf '\\e]133;A\\e\\\\'
   local cmd
-  for cmd in "\${__pine_orig_prompt_command[@]}"; do
+  for cmd in "\${__ostia_orig_prompt_command[@]}"; do
     [ -n "$cmd" ] && eval "$cmd"
   done
   case "$PS1" in
     *'${BASH_B_MARK}') ;;
     *) PS1="\${PS1}"'${BASH_B_MARK}' ;;
   esac
-  __pine_interactive_mode=on
+  __ostia_interactive_mode=on
 }
 unset PROMPT_COMMAND
-PROMPT_COMMAND=__pine_prompt_command
-trap '__pine_preexec' DEBUG
+PROMPT_COMMAND=__ostia_prompt_command
+trap '__ostia_preexec' DEBUG
 `
 
 const ZSH_RECLAIM =
@@ -125,19 +125,19 @@ ${ZSH_RECLAIM}
   '.zprofile': `[ -f "$OSTIA_ZDOT/.zprofile" ] && source "$OSTIA_ZDOT/.zprofile"
 ${ZSH_RECLAIM}
 `,
-  '.zshrc': `__pine_init=$(<"$OSTIA_DIR/init.zsh")
+  '.zshrc': `__ostia_init=$(<"$OSTIA_DIR/init.zsh")
 rm -rf -- "$OSTIA_DIR"
 ZDOTDIR=$OSTIA_ZDOT
 unset OSTIA_DIR OSTIA_ZDOT
 [ -f "$ZDOTDIR/.zshrc" ] && source "$ZDOTDIR/.zshrc"
-eval "$__pine_init"
-unset __pine_init
+eval "$__ostia_init"
+unset __ostia_init
 `,
   'init.zsh': ZSH_INIT,
 }
 
 const BASH_FILES: Record<string, string> = {
-  bashrc: `__pine_init=$(<"$OSTIA_DIR/init.bash")
+  bashrc: `__ostia_init=$(<"$OSTIA_DIR/init.bash")
 rm -rf -- "$OSTIA_DIR"
 unset OSTIA_DIR
 [ -r /etc/profile ] && . /etc/profile
@@ -145,8 +145,8 @@ if [ -r "$HOME/.bash_profile" ]; then . "$HOME/.bash_profile"
 elif [ -r "$HOME/.bash_login" ]; then . "$HOME/.bash_login"
 elif [ -r "$HOME/.profile" ]; then . "$HOME/.profile"
 fi
-eval "$__pine_init"
-unset __pine_init
+eval "$__ostia_init"
+unset __ostia_init
 `,
   'init.bash': BASH_INIT,
 }
@@ -159,8 +159,8 @@ function writeFiles(files: Record<string, string>): string {
     .join('')
 }
 
-export const REMOTE_BOOTSTRAP = `__pine_ssh() {
-d=$(mktemp -d "\${TMPDIR:-/tmp}/pine-ssh.XXXXXX" 2>/dev/null) || return 0
+export const REMOTE_BOOTSTRAP = `__ostia_ssh() {
+d=$(mktemp -d "\${TMPDIR:-/tmp}/ostia-ssh.XXXXXX" 2>/dev/null) || return 0
 OSTIA_DIR=$d
 case "\${SHELL##*/}" in
 zsh)
@@ -170,7 +170,7 @@ ${writeFiles(BASH_FILES)}{ export OSTIA_DIR; exec "$SHELL" --rcfile "$d/bashrc" 
 esac
 rm -rf -- "$d"
 }
-__pine_ssh
+__ostia_ssh
 `
 
 function packed(text: string): string {

@@ -14,8 +14,8 @@ import { marketplaceIds, marketplaceProject } from './marketplace.mjs'
 
 const out = 'out/marketplace'
 const sdk = 'out/sdk'
-const sdkName = '@aurigax-ai/pine-extension-sdk'
-const repository = 'https://github.com/aurigax-ai/pine-extensions'
+const sdkName = '@aurigax-ai/ostia-extension-sdk'
+const repository = 'https://github.com/aurigax-ai/ostia-extensions'
 const toolFixtures = 'test/fixtures/tools'
 const app = JSON.parse(readFileSync('package.json', 'utf8'))
 const versionOf = (name) => app.dependencies[name] ?? app.devDependencies[name]
@@ -59,10 +59,10 @@ writeFileSync(
   join(out, 'package.json'),
   `${JSON.stringify(
     {
-      name: 'pine-extensions',
+      name: 'ostia-extensions',
       version: app.version,
       private: true,
-      description: 'Extensions for Pine that are not built in',
+      description: 'Extensions for Ostia that are not built in',
       license: app.license,
       repository: { type: 'git', url: `git+${repository}.git` },
       packageManager: app.packageManager,
@@ -71,7 +71,7 @@ writeFileSync(
         build: 'node build.mjs',
         typecheck: 'tsc --noEmit',
         test: 'vitest run',
-        validate: 'pine-extension validate .',
+        validate: 'ostia-extension validate .',
       },
       devDependencies: {
         [sdkName]: app.version,

@@ -43,7 +43,7 @@ describe('parsePromptChips', () => {
 })
 
 describe('parsePromptSettings', () => {
-  it('defaults to the shell prompt with Warp’s chip order limited to what Pine fills', () => {
+  it('defaults to the shell prompt with Warp’s chip order limited to what Ostia fills', () => {
     expect(parsePromptSettings(undefined)).toEqual(DEFAULT_PROMPT_SETTINGS)
     expect(DEFAULT_PROMPT_SETTINGS).toEqual({
       style: 'shell',
@@ -55,8 +55,9 @@ describe('parsePromptSettings', () => {
 
   it('validates each field on its own', () => {
     expect(
-      parsePromptSettings({ style: 'pine', chips: ['host'], sameLine: 'yes', separator: '>' }),
-    ).toEqual({ style: 'pine', chips: ['host'], sameLine: false, separator: '>' })
+      parsePromptSettings({ style: 'ostia', chips: ['host'], sameLine: 'yes', separator: '>' }),
+    ).toEqual({ style: 'ostia', chips: ['host'], sameLine: false, separator: '>' })
+    expect(parsePromptSettings({ style: 'ostia' }).style).toBe('ostia')
     expect(parsePromptSettings({ style: 'zsh', sameLine: true, separator: '#' })).toEqual({
       style: 'shell',
       chips: [...DEFAULT_PROMPT_CHIPS],

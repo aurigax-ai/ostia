@@ -84,7 +84,7 @@ describe('Extensions UI', () => {
 
     it('toggling an extension persists through the bridge', async () => {
       const setEnabled = vi.fn().mockResolvedValue([ext({ enabled: false, status: 'disabled' })])
-      window.pine.extensions.setEnabled = setEnabled
+      window.ostia.extensions.setEnabled = setEnabled
       useExtensionsStore.setState({ list: [ext({})] })
       render(<ExtensionsSection />)
 
@@ -222,7 +222,7 @@ describe('Extensions UI', () => {
         granted: pending.requested,
       }
       const approve = vi.fn().mockResolvedValue([approved])
-      window.pine.extensions.approve = approve
+      window.ostia.extensions.approve = approve
       useExtensionsStore.setState({ list: [pending] })
       render(<ExtensionApprovalDialog />)
 
@@ -234,7 +234,7 @@ describe('Extensions UI', () => {
 
     it('declining keeps the extension disabled and does not ask again this run', async () => {
       const setEnabled = vi.fn().mockResolvedValue([pending])
-      window.pine.extensions.setEnabled = setEnabled
+      window.ostia.extensions.setEnabled = setEnabled
       useExtensionsStore.setState({ list: [pending] })
       render(<ExtensionApprovalDialog />)
 
@@ -254,14 +254,14 @@ describe('Extensions UI', () => {
   describe('ExtensionPanelView', () => {
     it('resolves the panel source and renders it in the extension partition', async () => {
       const panel = vi.fn().mockResolvedValue({ ok: true, src: 'http://127.0.0.1:4100/?t=abc' })
-      window.pine.extensions.panel = panel
+      window.ostia.extensions.panel = panel
       useExtensionsStore.setState({ list: [ext({})] })
       const { container } = render(<ExtensionPanelView extId="demo" workspaceId="s1" paneId="p1" />)
 
       await waitFor(() => expect(container.querySelector('webview')).not.toBeNull())
       const webview = container.querySelector('webview') as HTMLElement
       expect(webview.getAttribute('src')).toBe('http://127.0.0.1:4100/?t=abc')
-      expect(webview.getAttribute('partition')).toBe('pine-ext-demo')
+      expect(webview.getAttribute('partition')).toBe('ostia-ext-demo')
       expect(panel).toHaveBeenCalledWith('demo', { workspaceId: 's1', locale: 'en' })
     })
 
@@ -270,7 +270,7 @@ describe('Extensions UI', () => {
         .fn()
         .mockResolvedValueOnce({ ok: false, error: 'extension crashed' })
         .mockResolvedValueOnce({ ok: true, src: 'http://127.0.0.1:4100/' })
-      window.pine.extensions.panel = panel
+      window.ostia.extensions.panel = panel
       useExtensionsStore.setState({ list: [ext({})] })
       const { container } = render(<ExtensionPanelView extId="demo" workspaceId="s1" paneId="p1" />)
 
@@ -282,7 +282,7 @@ describe('Extensions UI', () => {
 
     it('renders no webview for a disabled or missing extension', async () => {
       const panel = vi.fn()
-      window.pine.extensions.panel = panel
+      window.ostia.extensions.panel = panel
       useExtensionsStore.setState({ list: [ext({ enabled: false, status: 'disabled' })] })
       const { container, rerender } = render(
         <ExtensionPanelView extId="demo" workspaceId="s1" paneId="p1" />,
@@ -298,7 +298,7 @@ describe('Extensions UI', () => {
 
     it('says a restored pane’s extension no longer has a panel and offers to close it', async () => {
       const panel = vi.fn()
-      window.pine.extensions.panel = panel
+      window.ostia.extensions.panel = panel
       const exec = vi.spyOn(commands, 'exec').mockResolvedValue({ ok: true, result: undefined })
       useExtensionsStore.setState({
         list: [ext({ id: 'assistant', name: 'Assistant', panel: null })],

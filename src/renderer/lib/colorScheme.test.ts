@@ -25,25 +25,26 @@ describe('schemeForTheme', () => {
   })
 
   it('falls back to the first scheme of the same appearance for a theme naming an unknown scheme', () => {
-    const plugin: Theme = { ...theme('pine-light'), id: 'paper', colorScheme: 'missing' }
+    const plugin: Theme = { ...theme('ostia-light'), id: 'paper', colorScheme: 'missing' }
     expect(schemeForTheme(schemes, plugin).appearance).toBe('light')
     expect(schemeForTheme(schemes, { ...plugin, appearance: 'dark' }).appearance).toBe('dark')
   })
 })
 
 describe('resolveScheme', () => {
-  it('follows the Pine theme while linked', () => {
+  it('follows the Ostia theme while linked', () => {
     expect(resolveScheme(schemes, 'match', theme('dracula'))).toBe(scheme('dracula'))
-    expect(resolveScheme(schemes, 'match', theme('pine-light'))).toBe(scheme('pine-light'))
+    expect(resolveScheme(schemes, 'match', theme('ostia-light'))).toBe(scheme('ostia-light'))
+    expect(resolveScheme(schemes, 'pine-light', theme('adeberry'))).toBe(scheme('ostia-light'))
   })
 
-  it('keeps an unlinked pick whatever the Pine theme is', () => {
+  it('keeps an unlinked pick whatever the Ostia theme is', () => {
     for (const t of themes) {
       expect(resolveScheme(schemes, 'catppuccin-mocha', t)).toBe(scheme('catppuccin-mocha'))
     }
   })
 
-  it('falls back to the Pine theme scheme for an unknown id', () => {
+  it('falls back to the Ostia theme scheme for an unknown id', () => {
     expect(resolveScheme(schemes, 'no-such-scheme', theme('oxocarbon'))).toBe(scheme('oxocarbon'))
   })
 
@@ -51,7 +52,7 @@ describe('resolveScheme', () => {
     const choice = {
       followSystem: true,
       theme: 'adeberry',
-      lightTheme: 'pine-light',
+      lightTheme: 'ostia-light',
       darkTheme: 'dracula',
     }
     const resolved = (systemDark: boolean, pick: string) =>
@@ -61,7 +62,7 @@ describe('resolveScheme', () => {
         resolveTheme(themes, effectiveThemeId({ ...choice, systemDark })),
       ).id
     expect(resolved(true, 'match')).toBe('dracula')
-    expect(resolved(false, 'match')).toBe('pine-light')
+    expect(resolved(false, 'match')).toBe('ostia-light')
     expect(resolved(true, 'nord')).toBe('nord')
     expect(resolved(false, 'nord')).toBe('nord')
   })

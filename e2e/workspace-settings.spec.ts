@@ -107,7 +107,7 @@ test('quitting with a running command asks first, and Cancel keeps the window op
   try {
     await startLongCommand(win, 'quit')
 
-    await win.evaluate(() => window.pine.window.quit())
+    await win.evaluate(() => window.ostia.window.quit())
     const dialog = win.getByRole('dialog')
     await expect(dialog).toBeVisible({ timeout: 5_000 })
     await expect(dialog).toContainText('sleep 100')
@@ -116,13 +116,13 @@ test('quitting with a running command asks first, and Cancel keeps the window op
     expect(win.isClosed()).toBe(false)
     await expect(win.locator('.xterm').first()).toBeVisible()
 
-    await win.evaluate(() => window.pine.window.quit())
+    await win.evaluate(() => window.ostia.window.quit())
     await expect(dialog).toBeVisible({ timeout: 5_000 })
     await dialog.getByRole('button', { name: 'Cancel' }).click()
     await expect(dialog).toHaveCount(0)
     expect(win.isClosed()).toBe(false)
 
-    await win.evaluate(() => window.pine.window.quit())
+    await win.evaluate(() => window.ostia.window.quit())
     await expect(dialog).toBeVisible({ timeout: 5_000 })
     await Promise.all([
       app.waitForEvent('close'),

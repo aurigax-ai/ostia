@@ -16,7 +16,7 @@ import { registerPane } from './idRegistry'
 let socketCounter = 0
 function nextSocketPath(): string {
   socketCounter += 1
-  return join(tmpdir(), `pine-test-${process.pid}-${socketCounter}.sock`)
+  return join(tmpdir(), `ostia-test-${process.pid}-${socketCounter}.sock`)
 }
 
 const fakeDeps: ControlServerDeps = {

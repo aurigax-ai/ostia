@@ -1,4 +1,3 @@
-import { cn } from '@/lib/utils'
 import { TrayIcon } from '@phosphor-icons/react'
 import type { NotificationEntry } from '@shared/types'
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -24,8 +23,6 @@ import { useWorkspacesStore } from '../stores/workspacesStore'
 import { ApprovalsInbox } from './ApprovalsInbox'
 import { IconButton } from './IconButton'
 import { SectionTab, SectionTabsList } from './SectionTabs'
-import { ATTENTION_BADGE } from './attentionStyles'
-import { Badge } from './ui/badge'
 import { Button } from './ui/button'
 import { Empty, EmptyDescription } from './ui/empty'
 import { Item, ItemContent, ItemHeader } from './ui/item'
@@ -94,12 +91,12 @@ export function NotificationCenter(): JSX.Element {
     if (!open) return
     let live = true
     const load = (): void => {
-      void window.pine.notifications.list().then((list) => {
+      void window.ostia.notifications.list().then((list) => {
         if (live) setEntries(list.slice(0, LIST_LIMIT))
       })
     }
     load()
-    const off = window.pine.notifications.onChanged(load)
+    const off = window.ostia.notifications.onChanged(load)
     return () => {
       live = false
       off()
@@ -131,7 +128,7 @@ export function NotificationCenter(): JSX.Element {
                   )
                   setOpen(false)
                 } else if (entry.paneId) {
-                  if (!revealPane(entry.paneId)) window.pine.notifications.reveal(entry.paneId)
+                  if (!revealPane(entry.paneId)) window.ostia.notifications.reveal(entry.paneId)
                   setOpen(false)
                 }
               }}
@@ -176,15 +173,7 @@ export function NotificationCenter(): JSX.Element {
     <Popover open={open} onOpenChange={setOpen}>
       <span className="count-wrap">
         <PopoverTrigger render={<IconButton size="bar" icon={TrayIcon} label={label} />} />
-        {unread > 0 ? (
-          <Badge
-            variant="outline"
-            className={cn(ATTENTION_BADGE, 'count-badge')}
-            aria-hidden="true"
-          >
-            {unread > 99 ? '99+' : unread}
-          </Badge>
-        ) : null}
+        {unread > 0 ? <span className="count-dot" aria-hidden="true" /> : null}
       </span>
       <PopoverContent align="end" className="notif-popover">
         <div className="notif-head">
@@ -194,7 +183,7 @@ export function NotificationCenter(): JSX.Element {
             size="sm"
             disabled={entries.length === 0 && unread === 0}
             onClick={() => {
-              window.pine.notifications.clear()
+              window.ostia.notifications.clear()
               useAttentionStore.getState().markAllRead()
               setEntries([])
             }}

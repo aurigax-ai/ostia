@@ -7,7 +7,7 @@ import { PanelSizeStore } from './panelSizes'
 describe('PanelSizeStore', () => {
   let dir: string
   beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), 'pine-panel-sizes-'))
+    dir = mkdtempSync(join(tmpdir(), 'ostia-panel-sizes-'))
   })
   afterEach(() => rmSync(dir, { recursive: true, force: true }))
 

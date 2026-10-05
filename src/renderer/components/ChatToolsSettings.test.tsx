@@ -52,14 +52,14 @@ describe('ChatToolsSettings', () => {
     cleanup()
     useSettingsStore.setState(settingsInit, true)
     resetChatTools()
-    vi.mocked(window.pine.chatTools.setMcpSecret).mockReset().mockResolvedValue({ ok: true })
-    vi.mocked(window.pine.chatTools.mcpRefresh).mockReset().mockResolvedValue([])
-    vi.mocked(window.pine.chatTools.mcpSignIn).mockReset().mockResolvedValue({ ok: true })
-    vi.mocked(window.pine.chatTools.mcpCancelSignIn).mockReset()
-    vi.mocked(window.pine.chatTools.mcpSignOut).mockReset().mockResolvedValue([])
-    vi.mocked(window.pine.chatTools.mcpTest).mockReset().mockResolvedValue({ ok: true, tools: 0 })
-    vi.mocked(window.pine.chatTools.skills).mockReset().mockResolvedValue([])
-    vi.mocked(window.pine.sync.pickFolder).mockReset().mockResolvedValue(null)
+    vi.mocked(window.ostia.chatTools.setMcpSecret).mockReset().mockResolvedValue({ ok: true })
+    vi.mocked(window.ostia.chatTools.mcpRefresh).mockReset().mockResolvedValue([])
+    vi.mocked(window.ostia.chatTools.mcpSignIn).mockReset().mockResolvedValue({ ok: true })
+    vi.mocked(window.ostia.chatTools.mcpCancelSignIn).mockReset()
+    vi.mocked(window.ostia.chatTools.mcpSignOut).mockReset().mockResolvedValue([])
+    vi.mocked(window.ostia.chatTools.mcpTest).mockReset().mockResolvedValue({ ok: true, tools: 0 })
+    vi.mocked(window.ostia.chatTools.skills).mockReset().mockResolvedValue([])
+    vi.mocked(window.ostia.sync.pickFolder).mockReset().mockResolvedValue(null)
   })
 
   it('shows short empty states with their add actions and the access rows', () => {
@@ -102,7 +102,7 @@ describe('ChatToolsSettings', () => {
         disabledTools: [],
       },
     ])
-    expect(window.pine.chatTools.setMcpSecret).toHaveBeenCalledWith(
+    expect(window.ostia.chatTools.setMcpSecret).toHaveBeenCalledWith(
       'github',
       'GITHUB_TOKEN',
       'ghp_secret',
@@ -165,7 +165,7 @@ describe('ChatToolsSettings', () => {
         tools: [{ name: 'search', description: 'Search code', inputSchema: {} }],
       }),
     ]
-    vi.mocked(window.pine.chatTools.mcpRefresh).mockResolvedValue(live)
+    vi.mocked(window.ostia.chatTools.mcpRefresh).mockResolvedValue(live)
     useChatToolsStore.setState({ mcp: live })
     const user = userEvent.setup()
     render(<ChatToolsSettings />)
@@ -193,7 +193,7 @@ describe('ChatToolsSettings', () => {
       command: ['npx', '-y', 'other'],
       secrets: ['GITHUB_TOKEN'],
     })
-    expect(window.pine.chatTools.setMcpSecret).not.toHaveBeenCalled()
+    expect(window.ostia.chatTools.setMcpSecret).not.toHaveBeenCalled()
   })
 
   it('removes a server only after confirming, and deletes its secrets', async () => {
@@ -205,7 +205,7 @@ describe('ChatToolsSettings', () => {
     expect(servers()).toHaveLength(1)
     await user.click(within(dialog).getByRole('button', { name: 'Remove' }))
     await waitFor(() => expect(servers()).toEqual([]))
-    expect(window.pine.chatTools.setMcpSecret).toHaveBeenCalledWith('github', 'GITHUB_TOKEN', null)
+    expect(window.ostia.chatTools.setMcpSecret).toHaveBeenCalledWith('github', 'GITHUB_TOKEN', null)
   })
 
   it('offers Sign in only on a URL server that asked for it and shows why a sign-in failed', async () => {
@@ -220,8 +220,8 @@ describe('ChatToolsSettings', () => {
       }),
     ]
     seed([github, linear])
-    vi.mocked(window.pine.chatTools.mcpRefresh).mockResolvedValue(mcp)
-    vi.mocked(window.pine.chatTools.mcpSignIn).mockResolvedValue({
+    vi.mocked(window.ostia.chatTools.mcpRefresh).mockResolvedValue(mcp)
+    vi.mocked(window.ostia.chatTools.mcpSignIn).mockResolvedValue({
       ok: false,
       error: 'failed',
       detail: 'access_denied: Nope',
@@ -233,7 +233,7 @@ describe('ChatToolsSettings', () => {
     expect(screen.getAllByRole('button', { name: /^Sign in to / })).toHaveLength(1)
     expect(screen.queryByRole('button', { name: /^Sign out of / })).toBeNull()
     await user.click(screen.getByRole('button', { name: 'Sign in to linear' }))
-    expect(window.pine.chatTools.mcpSignIn).toHaveBeenCalledWith('linear')
+    expect(window.ostia.chatTools.mcpSignIn).toHaveBeenCalledWith('linear')
     expect(await screen.findByText('The sign-in failed. access_denied: Nope')).toHaveAttribute(
       'role',
       'alert',
@@ -250,20 +250,20 @@ describe('ChatToolsSettings', () => {
           .setMcp([status({ name: 'linear', transport: 'http', state: 'ready', auth })])
       })
     }
-    vi.mocked(window.pine.chatTools.mcpRefresh).mockResolvedValue([
+    vi.mocked(window.ostia.chatTools.mcpRefresh).mockResolvedValue([
       status({ name: 'linear', transport: 'http', state: 'error', auth: 'signing-in' }),
     ])
     render(<ChatToolsSettings />)
     expect(await screen.findByText('Waiting for you in the browser')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Sign in to linear' })).toBeNull()
     await user.click(screen.getByRole('button', { name: 'Cancel signing in to linear' }))
-    expect(window.pine.chatTools.mcpCancelSignIn).toHaveBeenCalledWith('linear')
+    expect(window.ostia.chatTools.mcpCancelSignIn).toHaveBeenCalledWith('linear')
 
     await show('signed-in')
     expect(screen.getByText('Signed in')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Sign in to linear' })).toBeNull()
     await user.click(screen.getByRole('button', { name: 'Sign out of linear' }))
-    expect(window.pine.chatTools.mcpSignOut).toHaveBeenCalledWith('linear')
+    expect(window.ostia.chatTools.mcpSignOut).toHaveBeenCalledWith('linear')
 
     await show('expired')
     expect(screen.getByText('Sign-in expired')).toBeInTheDocument()
@@ -276,13 +276,13 @@ describe('ChatToolsSettings', () => {
 
   it('tests a server and shows the tool count or the exact error', async () => {
     seed([github, linear])
-    vi.mocked(window.pine.chatTools.mcpTest)
+    vi.mocked(window.ostia.chatTools.mcpTest)
       .mockResolvedValueOnce({ ok: true, tools: 5 })
       .mockResolvedValueOnce({ ok: false, error: 'connect ECONNREFUSED 127.0.0.1:9' })
     const user = userEvent.setup()
     render(<ChatToolsSettings />)
     await user.click(screen.getByRole('button', { name: 'Test github' }))
-    expect(window.pine.chatTools.mcpTest).toHaveBeenCalledWith('github')
+    expect(window.ostia.chatTools.mcpTest).toHaveBeenCalledWith('github')
     expect(await screen.findByText('Test passed · 5 tools')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Test linear' }))
     expect(
@@ -291,8 +291,8 @@ describe('ChatToolsSettings', () => {
   })
 
   it('adds a skill folder from the folder picker, counts its skills and removes it', async () => {
-    vi.mocked(window.pine.sync.pickFolder).mockResolvedValue('/home/u/skills/')
-    vi.mocked(window.pine.chatTools.skills).mockResolvedValue([
+    vi.mocked(window.ostia.sync.pickFolder).mockResolvedValue('/home/u/skills/')
+    vi.mocked(window.ostia.chatTools.skills).mockResolvedValue([
       { name: 'deploy', description: '', path: '/home/u/skills/deploy/SKILL.md' },
       { name: 'other', description: '', path: '/elsewhere/other/SKILL.md' },
     ])
@@ -310,7 +310,7 @@ describe('ChatToolsSettings', () => {
   })
 
   it('refuses a picked folder that is not an absolute path', async () => {
-    vi.mocked(window.pine.sync.pickFolder).mockResolvedValue('relative/skills')
+    vi.mocked(window.ostia.sync.pickFolder).mockResolvedValue('relative/skills')
     const user = userEvent.setup()
     render(<ChatToolsSettings />)
     await act(async () => {

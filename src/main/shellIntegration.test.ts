@@ -12,7 +12,6 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import type { AgentPluginContent } from './agentSkills'
-import { privateTmpDir } from './privateTmp'
 import { type ShellState, parseShellState } from './shellCommands'
 import {
   CLAUDE_PLUGIN_MANIFEST,
@@ -26,12 +25,15 @@ import {
   codexHookTrustHash,
   codexWrapper,
   extensionHookCommand,
+  shellIntegrationDir,
+  shellIntegrationFiles,
   shellIntegrationSpawnOptions,
   writeAgentPlugin,
   writeCodexIntegration,
+  writeShellIntegration,
 } from './shellIntegration'
 
-const INTEGRATION_DIR = privateTmpDir('ostia-shell-integration')
+const INTEGRATION_DIR = shellIntegrationDir()
 const ZSH_INIT = join(INTEGRATION_DIR, 'init.zsh')
 const ZSH_ENV = join(INTEGRATION_DIR, '.zshenv')
 const ZSH_RC = join(INTEGRATION_DIR, '.zshrc')
@@ -42,8 +44,38 @@ const CLAUDE_PLUGIN = join(AGENT_DIR, 'claude-plugin')
 
 describe('test isolation', () => {
   it("writes the integration files under this run's private temp folder", () => {
-    expect(process.env.TMPDIR).toMatch(process.platform === 'darwin' ? /\/pv-/ : /pine-vitest-/)
+    expect(process.env.TMPDIR).toMatch(process.platform === 'darwin' ? /\/pv-/ : /ostia-vitest-/)
     expect(INTEGRATION_DIR.startsWith(`${process.env.TMPDIR}/`)).toBe(true)
+  })
+})
+
+describe('writeShellIntegration', () => {
+  let root: string
+  beforeAll(() => {
+    root = mkdtempSync(join(tmpdir(), 'ostia-shells-'))
+  })
+  afterAll(() => rmSync(root, { recursive: true, force: true }))
+
+  function otherBuild(dir: string): Record<string, string> {
+    const files = shellIntegrationFiles(dir)
+    return { ...files, '.zshrc': files['.zshrc'].replaceAll('OSTIA_', 'PINE_') }
+  }
+
+  it("keeps each build's files when another build writes into the same root", () => {
+    const ours = writeShellIntegration(root)
+    const theirs = writeShellIntegration(root, otherBuild)
+    expect(theirs).not.toBe(ours)
+    expect(readFileSync(join(ours, '.zshrc'), 'utf8')).toBe(shellIntegrationFiles(ours)['.zshrc'])
+    expect(readFileSync(join(theirs, '.zshrc'), 'utf8')).toContain('PINE_ZDOTDIR_ORIG')
+  })
+
+  it('reuses the folder of identical files and points them at it', () => {
+    const dir = writeShellIntegration(root)
+    expect(writeShellIntegration(root)).toBe(dir)
+    expect(readFileSync(join(dir, '.zshenv'), 'utf8')).toContain(`ZDOTDIR="${dir}"`)
+    expect(readFileSync(join(dir, 'bashrc'), 'utf8')).toContain(
+      `source "${join(dir, 'init.bash')}"`,
+    )
   })
 })
 
@@ -93,19 +125,19 @@ describe('shellIntegrationSpawnOptions', () => {
     })
   })
 
-  describe('Pine prompt', () => {
+  describe('Ostia prompt', () => {
     it('asks zsh and bash for the plain prompt through the environment only when enabled', () => {
       const split = { separator: '$' as const, sameLine: false }
       const inline = { separator: 'none' as const, sameLine: true }
       expect(shellIntegrationSpawnOptions('zsh', { HOME: '/home/u' }, split).env).toMatchObject({
-        OSTIA_PROMPT: 'pine',
+        OSTIA_PROMPT: 'ostia',
         OSTIA_PROMPT_SEPARATOR: '$',
         OSTIA_PROMPT_LINES: '2',
       })
       expect(shellIntegrationSpawnOptions('/bin/bash', {}, inline).env).toEqual({
         OSTIA_AGENT_DIR: AGENT_DIR,
         PINE_AGENT_DIR: AGENT_DIR,
-        OSTIA_PROMPT: 'pine',
+        OSTIA_PROMPT: 'ostia',
         OSTIA_PROMPT_SEPARATOR: 'none',
         OSTIA_PROMPT_LINES: '1',
       })
@@ -140,8 +172,8 @@ describe('shellIntegrationSpawnOptions', () => {
             "RPROMPT='right'",
             'typeset -i torn=0',
             'prompt_powerlevel9k_teardown() { (( torn++ )) }',
-            '__pine_precmd >/dev/null',
-            '__pine_precmd >/dev/null',
+            '__ostia_precmd >/dev/null',
+            '__ostia_precmd >/dev/null',
             'print -rn -- "$torn|$PROMPT|$RPROMPT|$OSTIA_PROMPT"',
           ].join('; '),
           env,
@@ -149,21 +181,25 @@ describe('shellIntegrationSpawnOptions', () => {
 
       it('puts the input on its own line under the cwd when the chips have their own row', () => {
         expect(
-          prompt({ OSTIA_PROMPT: 'pine', OSTIA_PROMPT_SEPARATOR: '$', OSTIA_PROMPT_LINES: '2' }),
+          prompt({ OSTIA_PROMPT: 'ostia', OSTIA_PROMPT_SEPARATOR: '$', OSTIA_PROMPT_LINES: '2' }),
         ).toBe(`1|%~\n$ %{${B_MARK}%}||`)
         expect(
-          prompt({ OSTIA_PROMPT: 'pine', OSTIA_PROMPT_SEPARATOR: 'none', OSTIA_PROMPT_LINES: '2' }),
+          prompt({
+            OSTIA_PROMPT: 'ostia',
+            OSTIA_PROMPT_SEPARATOR: 'none',
+            OSTIA_PROMPT_LINES: '2',
+          }),
         ).toBe(`1|%~\n%{${B_MARK}%}||`)
       })
 
       it('replaces the prompt with the cwd and separator, clears RPROMPT and keeps the B mark', () => {
-        expect(prompt({ OSTIA_PROMPT: 'pine', OSTIA_PROMPT_SEPARATOR: '%' })).toBe(
+        expect(prompt({ OSTIA_PROMPT: 'ostia', OSTIA_PROMPT_SEPARATOR: '%' })).toBe(
           `1|%~ %% %{${B_MARK}%}||`,
         )
-        expect(prompt({ OSTIA_PROMPT: 'pine', OSTIA_PROMPT_SEPARATOR: '$' })).toBe(
+        expect(prompt({ OSTIA_PROMPT: 'ostia', OSTIA_PROMPT_SEPARATOR: '$' })).toBe(
           `1|%~ $ %{${B_MARK}%}||`,
         )
-        expect(prompt({ OSTIA_PROMPT: 'pine', OSTIA_PROMPT_SEPARATOR: 'none' })).toBe(
+        expect(prompt({ OSTIA_PROMPT: 'ostia', OSTIA_PROMPT_SEPARATOR: 'none' })).toBe(
           `1|%~ %{${B_MARK}%}||`,
         )
       })
@@ -179,40 +215,40 @@ describe('shellIntegrationSpawnOptions', () => {
               'prompt_powerlevel9k_teardown() { (( torn++ )) }',
               `source '${ZSH_INIT}'`,
               'print -rn -- "$torn|$PROMPT"',
-              '__pine_precmd >/dev/null',
+              '__ostia_precmd >/dev/null',
               'print -rn -- "|$torn"',
             ].join('; '),
           ],
           {
-            env: { PATH: '/usr/bin:/bin', HOME: '/home/u', OSTIA_PROMPT: 'pine' },
+            env: { PATH: '/usr/bin:/bin', HOME: '/home/u', OSTIA_PROMPT: 'ostia' },
             encoding: 'utf8',
           },
         ).stdout
         expect(out).toBe('1|%~ |1')
       })
 
-      it('turns the powerlevel10k instant prompt off for the user’s rc only with the Pine prompt', () => {
-        const home = mkdtempSync(join(tmpdir(), 'pine-zsh-home-'))
+      it('turns the powerlevel10k instant prompt off for the user’s rc only with the Ostia prompt', () => {
+        const home = mkdtempSync(join(tmpdir(), 'ostia-zsh-home-'))
         try {
           writeFileSync(
             join(home, '.zshrc'),
             'print -rn -- "instant=${POWERLEVEL9K_INSTANT_PROMPT-unset}"\n',
           )
-          const seen = (pinePrompt: Record<string, string>): string => {
+          const seen = (ostiaPrompt: Record<string, string>): string => {
             const { env } = shellIntegrationSpawnOptions('zsh', { HOME: home })
             return spawnSync('zsh', ['-i', '-c', 'true'], {
-              env: { PATH: '/usr/bin:/bin', HOME: home, ...env, ...pinePrompt },
+              env: { PATH: '/usr/bin:/bin', HOME: home, ...env, ...ostiaPrompt },
               encoding: 'utf8',
             }).stdout
           }
-          expect(seen({ OSTIA_PROMPT: 'pine' })).toContain('instant=off')
+          expect(seen({ OSTIA_PROMPT: 'ostia' })).toContain('instant=off')
           expect(seen({})).toContain('instant=unset')
         } finally {
           rmSync(home, { recursive: true, force: true })
         }
       })
 
-      it('leaves the user’s prompt alone when the Pine prompt is off', () => {
+      it('leaves the user’s prompt alone when the Ostia prompt is off', () => {
         expect(prompt({})).toBe(`0|user> %{${B_MARK}%}|right|`)
       })
 
@@ -220,8 +256,8 @@ describe('shellIntegrationSpawnOptions', () => {
         const out = run(
           'zsh',
           ZSH_INIT,
-          'HOME=$PWD; __pine_precmd >/dev/null; print -rn -- "${(%)PROMPT}"',
-          { OSTIA_PROMPT: 'pine', OSTIA_PROMPT_SEPARATOR: '>' },
+          'HOME=$PWD; __ostia_precmd >/dev/null; print -rn -- "${(%)PROMPT}"',
+          { OSTIA_PROMPT: 'ostia', OSTIA_PROMPT_SEPARATOR: '>' },
         ).stdout
         expect(out.startsWith('~ > ')).toBe(true)
       })
@@ -234,8 +270,8 @@ describe('shellIntegrationSpawnOptions', () => {
           BASH_INIT,
           [
             "PS1='user> '",
-            `__pine_orig_prompt_command=("PS1='framework> '")`,
-            '__pine_prompt_command >/dev/null',
+            `__ostia_orig_prompt_command=("PS1='framework> '")`,
+            '__ostia_prompt_command >/dev/null',
             'printf "|%s|%s" "$PS1" "$OSTIA_PROMPT"',
           ].join('; '),
           env,
@@ -244,21 +280,21 @@ describe('shellIntegrationSpawnOptions', () => {
       }
 
       it('sets PS1 to the cwd and separator after the user’s PROMPT_COMMAND and keeps the B mark', () => {
-        expect(ps1({ OSTIA_PROMPT: 'pine', OSTIA_PROMPT_SEPARATOR: '>' })).toBe(
+        expect(ps1({ OSTIA_PROMPT: 'ostia', OSTIA_PROMPT_SEPARATOR: '>' })).toBe(
           `|\\w > ${BASH_B_MARK}|`,
         )
-        expect(ps1({ OSTIA_PROMPT: 'pine', OSTIA_PROMPT_SEPARATOR: 'none' })).toBe(
+        expect(ps1({ OSTIA_PROMPT: 'ostia', OSTIA_PROMPT_SEPARATOR: 'none' })).toBe(
           `|\\w ${BASH_B_MARK}|`,
         )
       })
 
       it('puts the input on its own line under the cwd when the chips have their own row', () => {
         expect(
-          ps1({ OSTIA_PROMPT: 'pine', OSTIA_PROMPT_SEPARATOR: '>', OSTIA_PROMPT_LINES: '2' }),
+          ps1({ OSTIA_PROMPT: 'ostia', OSTIA_PROMPT_SEPARATOR: '>', OSTIA_PROMPT_LINES: '2' }),
         ).toBe(`|\\w\\n> ${BASH_B_MARK}|`)
       })
 
-      it('keeps the framework’s PS1 when the Pine prompt is off', () => {
+      it('keeps the framework’s PS1 when the Ostia prompt is off', () => {
         expect(ps1({})).toBe(`|framework> ${BASH_B_MARK}|`)
       })
     })
@@ -267,7 +303,7 @@ describe('shellIntegrationSpawnOptions', () => {
   describe('scratch history', () => {
     let home: string
     beforeAll(() => {
-      home = mkdtempSync(join(tmpdir(), 'pine-histfile-home-'))
+      home = mkdtempSync(join(tmpdir(), 'ostia-histfile-home-'))
       writeFileSync(join(home, '.zshrc'), 'HISTFILE="$HOME/.zsh_history"\n')
       writeFileSync(join(home, '.bashrc'), 'HISTFILE="$HOME/.bash_history"\n')
       writeFileSync(join(home, '.zsh_history'), 'echo from-the-user-history\n')
@@ -310,7 +346,7 @@ describe('shellIntegrationSpawnOptions', () => {
     })
 
     it('keeps an interactive zsh from reading or writing the user history', () => {
-      const scratch = mkdtempSync(join(tmpdir(), 'pine-histfile-scratch-'))
+      const scratch = mkdtempSync(join(tmpdir(), 'ostia-histfile-scratch-'))
       const histFile = join(scratch, '.pine_history')
       writeFileSync(join(home, '.zshrc'), 'HISTFILE="$HOME/.zsh_history"\nSAVEHIST=100\n')
       const { args, env } = shellIntegrationSpawnOptions('zsh', { HOME: home }, null, histFile)
@@ -408,7 +444,7 @@ describe('shellIntegrationSpawnOptions', () => {
 
     it('marks only real commands when the user’s PROMPT_COMMAND is an array', () => {
       shellIntegrationSpawnOptions('/bin/bash', {})
-      const dir = mkdtempSync(join(tmpdir(), 'pine-bash-array-'))
+      const dir = mkdtempSync(join(tmpdir(), 'ostia-bash-array-'))
       try {
         const rc = join(dir, 'rc')
         writeFileSync(
@@ -434,7 +470,7 @@ describe('shellIntegrationSpawnOptions', () => {
       const PASTE_END = '\x1b[201~'
       const commandMarks = (typed: string, rcLines = ''): string[] => {
         shellIntegrationSpawnOptions('/bin/bash', {})
-        const dir = mkdtempSync(join(tmpdir(), 'pine-bash-lines-'))
+        const dir = mkdtempSync(join(tmpdir(), 'ostia-bash-lines-'))
         try {
           const rc = join(dir, 'rc')
           writeFileSync(
@@ -457,11 +493,11 @@ describe('shellIntegrationSpawnOptions', () => {
       }
 
       it('reports every line of a pasted multi-line input as the whole command before D', () => {
-        const typed = `${PASTE_START}echo pine_ml_1\recho pine_ml_2${PASTE_END}`
+        const typed = `${PASTE_START}echo ostia_ml_1\recho ostia_ml_2${PASTE_END}`
         expect(commandMarks(typed).slice(0, 4)).toEqual([
-          '633;E;echo pine_ml_1',
+          '633;E;echo ostia_ml_1',
           '133;C',
-          String.raw`633;E;echo pine_ml_1\x0aecho pine_ml_2`,
+          String.raw`633;E;echo ostia_ml_1\x0aecho ostia_ml_2`,
           '133;D;0',
         ])
       })
@@ -502,7 +538,7 @@ describe('shellIntegrationSpawnOptions', () => {
       let stateFile = ''
 
       beforeAll(() => {
-        dir = mkdtempSync(join(tmpdir(), 'pine-shell-state-'))
+        dir = mkdtempSync(join(tmpdir(), 'ostia-shell-state-'))
         stateFile = join(dir, 'state')
       })
 
@@ -522,11 +558,11 @@ describe('shellIntegrationSpawnOptions', () => {
           [
             ...noRc,
             '-c',
-            `source '${init}'; alias pine_ll='ls'; pine_fn() { :; }; _pine_private() { :; }; ${script}`,
+            `source '${init}'; alias ostia_ll='ls'; ostia_fn() { :; }; _ostia_private() { :; }; ${script}`,
           ],
           {
             env: {
-              PATH: '/pine/bin:/usr/bin:/bin',
+              PATH: '/ostia/bin:/usr/bin:/bin',
               HOME: '/home/u',
               ...(state ? { PINE_SHELL_STATE: state } : {}),
               ...extraEnv,
@@ -547,59 +583,59 @@ describe('shellIntegrationSpawnOptions', () => {
       }
 
       it('writes the PATH and its builtins, keywords, aliases and public functions to the state file, not the terminal', () => {
-        expect(report('__pine_report_shell')).toBe('')
+        expect(report('__ostia_report_shell')).toBe('')
         const { path, names } = readState()
-        expect(path).toBe('/pine/bin:/usr/bin:/bin')
-        expect(names).toEqual(expect.arrayContaining(['cd', 'if', 'pine_ll', 'pine_fn']))
-        expect(names).not.toContain('_pine_private')
-        expect(names).not.toContain('__pine_report_shell')
+        expect(path).toBe('/ostia/bin:/usr/bin:/bin')
+        expect(names).toEqual(expect.arrayContaining(['cd', 'if', 'ostia_ll', 'ostia_fn']))
+        expect(names).not.toContain('_ostia_private')
+        expect(names).not.toContain('__ostia_report_shell')
       })
 
       it('rewrites the file only when the PATH or the names changed', () => {
         const out = report(
           [
-            '__pine_report_shell',
+            '__ostia_report_shell',
             'rm -f "$PINE_SHELL_STATE"',
-            '__pine_report_shell',
+            '__ostia_report_shell',
             '[ -e "$PINE_SHELL_STATE" ] && echo rewritten',
             'PATH=/x:$PATH',
-            '__pine_report_shell',
+            '__ostia_report_shell',
           ].join('; '),
         )
         expect(out).toBe('')
-        expect(readState().path).toBe('/x:/pine/bin:/usr/bin:/bin')
+        expect(readState().path).toBe('/x:/ostia/bin:/usr/bin:/bin')
       })
 
       it('reports the virtualenv, conda env and KUBECONFIG, and rewrites when they change', () => {
-        expect(readStateAfter('__pine_report_shell')).toMatchObject({
+        expect(readStateAfter('__ostia_report_shell')).toMatchObject({
           virtualEnv: null,
           condaEnv: null,
           kubeconfig: null,
         })
         const out = report(
           [
-            '__pine_report_shell',
+            '__ostia_report_shell',
             'export VIRTUAL_ENV=/home/u/proj/.venv CONDA_DEFAULT_ENV=base KUBECONFIG=/k/a:/k/b',
-            '__pine_report_shell',
+            '__ostia_report_shell',
           ].join('; '),
         )
         expect(out).toBe('')
         expect(readState()).toMatchObject({
-          path: '/pine/bin:/usr/bin:/bin',
+          path: '/ostia/bin:/usr/bin:/bin',
           virtualEnv: '/home/u/proj/.venv',
           condaEnv: 'base',
           kubeconfig: '/k/a:/k/b',
         })
-        expect(readState().names).toEqual(expect.arrayContaining(['cd', 'pine_fn']))
+        expect(readState().names).toEqual(expect.arrayContaining(['cd', 'ostia_fn']))
       })
 
       it('drops newlines from a reported variable so it cannot shift the lines after it', () => {
-        report('__pine_report_shell', stateFile, { CONDA_DEFAULT_ENV: 'a\nb' })
+        report('__ostia_report_shell', stateFile, { CONDA_DEFAULT_ENV: 'a\nb' })
         expect(readState()).toMatchObject({ condaEnv: 'ab', kubeconfig: null })
       })
 
-      it('does nothing outside a Pine pane', () => {
-        expect(report('__pine_report_shell', null)).toBe('')
+      it('does nothing outside a Ostia pane', () => {
+        expect(report('__ostia_report_shell', null)).toBe('')
         expect(existsSync(stateFile)).toBe(false)
       })
     })
@@ -618,14 +654,15 @@ describe('shellIntegrationSpawnOptions', () => {
   })
 
   describe('claude hooks', () => {
-    it('writes a Claude Code plugin with the pine skill and its manifest', () => {
+    it('writes a Claude Code plugin with the ostia skill and its manifest', () => {
       shellIntegrationSpawnOptions('/bin/bash', {})
       const manifest = JSON.parse(
         readFileSync(join(CLAUDE_PLUGIN, '.claude-plugin', 'plugin.json'), 'utf8'),
       )
       expect(manifest).toEqual(CLAUDE_PLUGIN_MANIFEST)
-      const skill = readFileSync(join(CLAUDE_PLUGIN, 'skills', 'pine', 'SKILL.md'), 'utf8')
-      expect(skill).toMatch(/^---\nname: pine\ndescription: /)
+      const skill = readFileSync(join(CLAUDE_PLUGIN, 'skills', 'ostia', 'SKILL.md'), 'utf8')
+      expect(skill).toMatch(/^---\nname: ostia\ndescription: /)
+      expect(manifest.name).toBe('ostia')
       expect(skill).toContain('ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" "$OSTIA_CLI"')
     })
 
@@ -635,8 +672,13 @@ describe('shellIntegrationSpawnOptions', () => {
       expect(settings).toEqual(claudeHookSettings())
       const command = (event: string) => settings.hooks[event][0].hooks[0].command as string
       expect(command('SessionStart')).toContain('"${OSTIA_CLI:-$PINE_CLI}" resume-token claude -')
-      expect(command('Notification')).toContain('state waiting -')
-      expect(command('Stop')).toContain('state done')
+      expect(command('Notification')).toContain(
+        '"${OSTIA_CLI:-$PINE_CLI}" claude-hook Notification',
+      )
+      expect(command('Stop')).toContain('"${OSTIA_CLI:-$PINE_CLI}" claude-hook Stop')
+      expect(command('StopFailure')).toContain('"${OSTIA_CLI:-$PINE_CLI}" claude-hook StopFailure')
+      expect(settings.hooks.PreToolUse[0].matcher).toBe('AskUserQuestion|ExitPlanMode')
+      expect(command('PreToolUse')).toContain('"${OSTIA_CLI:-$PINE_CLI}" claude-hook PreToolUse')
       expect(command('SessionStart')).toMatch(
         /^\[ -n "\$\{OSTIA_SOCKET:-\$PINE_SOCKET\}" \] && .*\|\| true$/,
       )
@@ -660,9 +702,9 @@ describe('shellIntegrationSpawnOptions', () => {
       expect(commands('Notification').join(' ')).not.toContain('bus hook')
     })
 
-    it('makes claude in a Pine shell load the plugin and keep the user’s arguments', () => {
+    it('makes claude in a Ostia shell load the plugin and keep the user’s arguments', () => {
       shellIntegrationSpawnOptions('/bin/bash', {})
-      const bin = mkdtempSync(join(tmpdir(), 'pine-fake-claude-'))
+      const bin = mkdtempSync(join(tmpdir(), 'ostia-fake-claude-'))
       try {
         const fake = join(bin, 'claude')
         writeFileSync(fake, '#!/bin/sh\nprintf "%s\\n" "$@"\n')
@@ -689,7 +731,7 @@ describe('shellIntegrationSpawnOptions', () => {
       ['bash', '--norc'],
       ['zsh', '-f'],
     ])('runs claude untouched in %s when its integration is turned off', (shell, noRc) => {
-      const bin = mkdtempSync(join(tmpdir(), 'pine-fake-claude-'))
+      const bin = mkdtempSync(join(tmpdir(), 'ostia-fake-claude-'))
       try {
         const fake = join(bin, 'claude')
         writeFileSync(fake, '#!/bin/sh\nprintf "%s\\n" "$@"\n')
@@ -725,7 +767,7 @@ describe('shellIntegrationSpawnOptions', () => {
       ['zsh', '-f', ZSH_INIT],
     ])('defines ostia and the old pine name in %s, both running the CLI', (shell, noRc, init) => {
       shellIntegrationSpawnOptions(shell, { HOME: '/home/u' })
-      const dir = mkdtempSync(join(tmpdir(), 'pine-fake-node-'))
+      const dir = mkdtempSync(join(tmpdir(), 'ostia-fake-node-'))
       try {
         const node = join(dir, 'node')
         writeFileSync(node, '#!/bin/sh\nprintf "%s %s\\n" "$ELECTRON_RUN_AS_NODE" "$*"\n')
@@ -763,12 +805,12 @@ describe('shellIntegrationSpawnOptions', () => {
   describe('codex hooks', () => {
     const CONTEXT = '/x/codex/session-context.md'
 
-    it('writes the pine skill and a session context that points Codex at it', () => {
-      const dir = mkdtempSync(join(tmpdir(), 'pine-codex-integration-'))
+    it('writes the ostia skill and a session context that points Codex at it', () => {
+      const dir = mkdtempSync(join(tmpdir(), 'ostia-codex-integration-'))
       try {
         const { contextFile } = writeCodexIntegration(dir)
         const skill = readFileSync(join(dir, 'SKILL.md'), 'utf8')
-        expect(skill).toMatch(/^---\nname: pine\ndescription: /)
+        expect(skill).toMatch(/^---\nname: ostia\ndescription: /)
         const context = readFileSync(contextFile, 'utf8')
         expect(context).toContain(`read its guide: ${join(dir, 'SKILL.md')}`)
         expect(context).toContain('ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" "$OSTIA_CLI"')
@@ -804,9 +846,9 @@ describe('shellIntegrationSpawnOptions', () => {
     })
 
     it('hashes a hook the way codex-cli 0.157 computes its trust hash', () => {
-      const pineStop =
+      const ostiaStop =
         '[ -n "$PINE_SOCKET" ] && ELECTRON_RUN_AS_NODE=1 "$PINE_NODE" "$PINE_CLI" state done >/dev/null 2>&1 || true'
-      expect(codexHookTrustHash('Stop', pineStop)).toBe(
+      expect(codexHookTrustHash('Stop', ostiaStop)).toBe(
         'sha256:04649370ec668e17edd8c909dda94fbdf1e5a71584fe8a58896fc903e330c6b1',
       )
       const stop = codexHookCommands(CONTEXT).Stop?.[0] ?? ''
@@ -856,7 +898,7 @@ describe('shellIntegrationSpawnOptions', () => {
       let wrapper = ''
 
       beforeAll(() => {
-        bin = mkdtempSync(join(tmpdir(), 'pine-fake-codex-'))
+        bin = mkdtempSync(join(tmpdir(), 'ostia-fake-codex-'))
         const fake = join(bin, 'codex')
         writeFileSync(fake, '#!/bin/sh\nprintf "%s\\n" "$@"\n')
         chmodSync(fake, 0o755)
@@ -868,12 +910,12 @@ describe('shellIntegrationSpawnOptions', () => {
         rmSync(bin, { recursive: true, force: true })
       })
 
-      const run = (script: string, pineCli: string | null = '/x/cli.js') =>
+      const run = (script: string, ostiaCli: string | null = '/x/cli.js') =>
         spawnSync(shell, [noRc, '-c', `source '${wrapper}'; ${script}`], {
           env: {
             PATH: `${bin}:/usr/bin:/bin`,
             PINE_AGENT_DIR: AGENT_DIR,
-            ...(pineCli ? { PINE_CLI: pineCli } : {}),
+            ...(ostiaCli ? { PINE_CLI: ostiaCli } : {}),
           },
           encoding: 'utf8',
         })
@@ -890,7 +932,7 @@ describe('shellIntegrationSpawnOptions', () => {
         [['--sandbox', 'workspace-write', 'resume']],
         [['fork', '--last']],
         [['--', 'exec']],
-      ])('injects the Pine hooks for an interactive session: codex %j', (args) => {
+      ])('injects the Ostia hooks for an interactive session: codex %j', (args) => {
         const out = run(`codex ${quote(args)}`)
         expect(out).toEqual([
           ...codexHookArgs(join(AGENT_DIR, 'codex', 'session-context.md')),
@@ -919,11 +961,11 @@ describe('shellIntegrationSpawnOptions', () => {
         expect(out).toBe('fix it')
       })
 
-      it('lets command codex bypass Pine', () => {
+      it('lets command codex bypass Ostia', () => {
         expect(run('command codex resume abc')).toEqual(['resume', 'abc'])
       })
 
-      it('defines no codex function outside a Pine pane', () => {
+      it('defines no codex function outside a Ostia pane', () => {
         expect(run('codex resume abc', null)).toEqual(['resume', 'abc'])
       })
     })
@@ -951,14 +993,14 @@ describe('shellIntegrationSpawnOptions', () => {
     }
 
     beforeAll(() => {
-      root = mkdtempSync(join(tmpdir(), 'pine-agent-plugins-'))
+      root = mkdtempSync(join(tmpdir(), 'ostia-agent-plugins-'))
     })
 
     afterAll(() => {
       rmSync(root, { recursive: true, force: true })
     })
 
-    it('runs the extension’s own command through the pine CLI, never a shell string of its own', () => {
+    it('runs the extension’s own command through the ostia CLI, never a shell string of its own', () => {
       expect(
         extensionHookCommand({ extId: 'kit', event: 'PreToolUse', command: 'on-tool' }, 'codex'),
       ).toBe(
@@ -966,7 +1008,7 @@ describe('shellIntegrationSpawnOptions', () => {
       )
     })
 
-    it('adds extension hooks after Pine’s own, for the agents that have the event', () => {
+    it('adds extension hooks after Ostia’s own, for the agents that have the event', () => {
       const hooks = claudeHookSettings(content.hooks).hooks as Record<
         string,
         { hooks: { command: string }[] }[]
@@ -976,12 +1018,14 @@ describe('shellIntegrationSpawnOptions', () => {
       expect(commands('SessionStart')[0]).toContain('resume-token claude -')
       expect(commands('SessionStart')[1]).toBe(busHookCommand('SessionStart'))
       expect(commands('SessionStart')[2]).toContain('agent-hook kit on-hook claude SessionStart')
-      expect(commands('PreToolUse')).toEqual([extensionHookCommand(toolHook, 'claude')])
+      expect(hooks.PreToolUse[1].hooks.map((h) => h.command)).toEqual([
+        extensionHookCommand(toolHook, 'claude'),
+      ])
       expect(commands('Notification')[1]).toContain('agent-hook kit on-hook claude Notification')
       const codex = codexHookCommands(CONTEXT, content.hooks)
       expect(codex.PreToolUse).toEqual([extensionHookCommand(toolHook, 'codex')])
       expect(JSON.stringify(codex)).not.toContain('Notification')
-      expect(claudeHookSettings().hooks).not.toHaveProperty('PreToolUse')
+      expect(claudeHookSettings().hooks.PreToolUse).toHaveLength(1)
     })
 
     it('trusts each extension hook by its own Codex hash and handler index', () => {
@@ -1005,8 +1049,8 @@ describe('shellIntegrationSpawnOptions', () => {
       expect(readFileSync(join(plugin, 'skills', 'kit-review', 'checklist.md'), 'utf8')).toBe(
         '- tests\n',
       )
-      expect(readFileSync(join(plugin, 'skills', 'pine', 'SKILL.md'), 'utf8')).toMatch(
-        /^---\nname: pine/,
+      expect(readFileSync(join(plugin, 'skills', 'ostia', 'SKILL.md'), 'utf8')).toMatch(
+        /^---\nname: ostia/,
       )
       expect(JSON.parse(readFileSync(join(plugin, 'hooks', 'hooks.json'), 'utf8'))).toEqual(
         claudeHookSettings(content.hooks),
@@ -1042,7 +1086,7 @@ describe('shellIntegrationSpawnOptions', () => {
         [
           '--norc',
           '-c',
-          `. '${join(dir, 'codex', 'hook-args.sh')}'; printf '%s\\n' "\${__pine_codex_hook_args[@]}"`,
+          `. '${join(dir, 'codex', 'hook-args.sh')}'; printf '%s\\n' "\${__ostia_codex_hook_args[@]}"`,
         ],
         { encoding: 'utf8' },
       ).stdout

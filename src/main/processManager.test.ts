@@ -119,7 +119,7 @@ async function start(
 
 beforeEach(() => {
   seq += 1
-  socketPath = join(tmpdir(), `pine-proc-${process.pid}-${seq}.sock`)
+  socketPath = join(tmpdir(), `ostia-proc-${process.pid}-${seq}.sock`)
   registerControlServer(
     {
       execCommand: async () => ({ ok: true }) as CommandResult,
@@ -162,7 +162,7 @@ describe('agent.run', () => {
     expect(info).toMatchObject({ name: 'reviewer', status: 'starting', paneId: started.paneId })
   })
 
-  it('refuses an agent Pine does not know, a bad name and an empty prompt, opening nothing', async () => {
+  it('refuses an agent Ostia does not know, a bad name and an empty prompt, opening nothing', async () => {
     const conn = await client(agent)
     await expect(conn.sendRequest('agent.run', { agent: 'aider', prompt: 'hi' })).resolves.toEqual(
       expect.objectContaining({ ok: false, error: 'unknown-agent' }),
