@@ -2114,6 +2114,12 @@ const workspaceWindowId = firstKnownOwner(
   windowForWorkspace,
 )
 
+function openSettingsInFocusedWindow(): void {
+  const focused = BrowserWindow.getFocusedWindow()
+  const entry = [...windows].find(([, win]) => win === focused)
+  void execCommand({ windowId: entry?.[0], workspaceId: '', paneId: null }, 'app.openSettings')
+}
+
 function mainWindow(): BrowserWindow | undefined {
   return broker?.mainWindow() ?? [...windows.values()][0]
 }
@@ -2454,7 +2460,10 @@ app.on('second-instance', (_event, argv) => {
 })
 
 app.whenReady().then(() => {
-  installAppMenu(process.platform)
+  installAppMenu(process.platform, {
+    productName: PRODUCT_DISPLAY_NAME,
+    openSettings: openSettingsInFocusedWindow,
+  })
   const logDir = join(app.getPath('userData'), 'logs')
   appLog = createAppLog(join(logDir, LOG_FILE_NAME))
   diagnostics = registerDiagnostics({
