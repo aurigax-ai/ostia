@@ -109,8 +109,8 @@ describe('registerCore', () => {
     const registered = commands.list().find((c) => c.id === 'app.quit')
     commands.unregister('app.quit')
 
-    expect(registered?.title).toBe('Quit pine')
-    expect(registered && commandWording(registered, mergeCatalog(zhHant)).title).toBe('結束 pine')
+    expect(registered?.title).toBe('Quit Ostia')
+    expect(registered && commandWording(registered, mergeCatalog(zhHant)).title).toBe('結束 Ostia')
   })
 
   it('asks for the argument in the human’s language', () => {
