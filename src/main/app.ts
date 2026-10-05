@@ -246,7 +246,7 @@ import {
 import { registerSystemRequirementsIpc } from './systemRequirementsIpc'
 import { PTY_COLOR_ENV, PTY_TERM_NAME, paneShellEnv } from './terminalType'
 import { TMUX_MISSING, keepShellsBanner } from './tmux/keepShellsBanner'
-import { type KeptShell, KeptShells } from './tmux/keptShells'
+import { type KeptMeta, type KeptProcessMeta, type KeptShell, KeptShells } from './tmux/keptShells'
 import type { TmuxPane, TmuxServerOptions } from './tmux/tmuxServer'
 import { AppTray, closeAction, isHiddenLaunch, readCloseToTray, unreadWorkspaces } from './tray'
 import { OLD_PRODUCT_NAME, appConfigDir, configHome, dataHome } from './userDirs'
@@ -301,6 +301,7 @@ interface PtyEntry {
   paneId: string
   pty: PaneProcess
   kept: TmuxPane | null
+  keptMeta: KeptMeta | null
   session: PtySession
   mirror: ScreenMirror
   subs: Map<string, Electron.WebContents>
@@ -500,6 +501,33 @@ function savedPaneIds(): Set<string> | null {
   ]
   for (const workspace of workspaces) for (const id of handoffPaneIds(workspace)) ids.add(id)
   return ids
+}
+
+function keptProcessOf(paneId: string): KeptProcessMeta | undefined {
+  const entry = processes?.forPane(paneId)
+  if (!entry || entry.status === 'closed') return undefined
+  return {
+    name: entry.name,
+    cmd: entry.cmd,
+    ownerPaneId: entry.ownerPaneId,
+    startedAt: entry.startedAt,
+    status: entry.status,
+    ...(entry.cwd ? { cwd: entry.cwd } : {}),
+    ...(entry.exitCode !== undefined ? { exitCode: entry.exitCode } : {}),
+  }
+}
+
+function withKeptProcess(meta: KeptMeta): KeptMeta {
+  const { process: _old, ...base } = meta
+  const current = keptProcessOf(meta.paneId)
+  return current ? { ...base, process: current } : base
+}
+
+function syncKeptMeta(paneId: string): void {
+  const entry = ptys.get(paneId)
+  if (!entry?.kept || !entry.keptMeta) return
+  entry.keptMeta = withKeptProcess(entry.keptMeta)
+  entry.kept.setMeta(entry.keptMeta)
 }
 
 function keptLauncherDir(): string {
@@ -1836,6 +1864,7 @@ function registerPtyIpc(): void {
     }
     const keep = parseKeepShells(settings.terminal?.keepShells) && !sandboxed && !host
     let kept: TmuxPane | null = null
+    let keptMeta: KeptMeta | null = null
     if (keep) {
       if (!keptShellsOptions()) {
         return {
@@ -1845,6 +1874,15 @@ function registerPtyIpc(): void {
           dropped: false,
         }
       }
+      keptMeta = withKeptProcess({
+        paneId,
+        externalId: identity.externalId,
+        token: identity.token,
+        workspaceId,
+        shell,
+        stateFile,
+        spawnPath: env.PATH ?? '',
+      })
       try {
         kept = await keptShells.spawn({
           file,
@@ -1853,15 +1891,7 @@ function registerPtyIpc(): void {
           env: keptPaneEnv(env),
           cols,
           rows,
-          meta: {
-            paneId,
-            externalId: identity.externalId,
-            token: identity.token,
-            workspaceId,
-            shell,
-            stateFile,
-            spawnPath: env.PATH ?? '',
-          },
+          meta: keptMeta,
         })
       } catch (err) {
         return {
@@ -1887,6 +1917,7 @@ function registerPtyIpc(): void {
       })
     const entry = trackPty(paneId, pty, {
       kept,
+      keptMeta,
       cols,
       rows,
       subs: new Map([[subId, e.sender]]),
@@ -1957,6 +1988,7 @@ function registerPtyIpc(): void {
     const rows = opts.rows || pane.rows
     const entry = trackPty(paneId, pane, {
       kept: pane,
+      keptMeta: meta,
       cols,
       rows,
       subs: new Map([[subId, e.sender]]),
@@ -1973,6 +2005,18 @@ function registerPtyIpc(): void {
       screen = await pane.snapshot(cols, rows)
     } catch {}
     feedPty(entry, `${RESTORE_SEAM}${screen}`)
+    if (meta.process) {
+      processes?.adopt(
+        {
+          ...meta.process,
+          cwd: meta.process.cwd,
+          workspaceId: meta.workspaceId,
+          paneId,
+          externalPaneId: meta.externalId,
+        },
+        entry.session.cursor,
+      )
+    }
     pane.live()
     const { data, cursor, dropped } = entry.session.since(0)
     entry.session.addLiveSubscriber(sub)
@@ -2084,6 +2128,7 @@ function trackPty(
     sandboxStamp?: string | null
     portBridge?: PortBridge | null
     kept?: TmuxPane | null
+    keptMeta?: KeptMeta | null
   },
 ): PtyEntry {
   const spawnedAt = Date.now()
@@ -2143,6 +2188,7 @@ function trackPty(
     portBridge: opts.portBridge ?? null,
     confinedBy: opts.sandboxed ? (opts.workspaceId ?? '') : null,
     kept: opts.kept ?? null,
+    keptMeta: opts.keptMeta ?? null,
   }
   ptys.set(paneId, entry)
   return entry
@@ -2818,6 +2864,7 @@ app.whenReady().then(() => {
   })
   const registry = registerProcessMethods({
     openTab: openTerminalInWindow,
+    onChange: (entry) => syncKeptMeta(entry.paneId),
     ring: (paneId) => {
       const session = ptys.get(paneId)?.session
       return session ? (from) => session.since(from) : undefined

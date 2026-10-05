@@ -77,6 +77,13 @@ export interface RegistryDeps {
   ring: (paneId: string) => RingReader | undefined
   workspaceOfPane: (paneId: string) => string | undefined
   now: () => Date
+  onChange?: (entry: ProcessEntry) => void
+}
+
+export interface KeptProcess extends NewProcess {
+  startedAt: string
+  status: 'starting' | 'running' | 'exited'
+  exitCode?: number
 }
 
 interface Tracking {
@@ -125,7 +132,34 @@ export class ProcessRegistry {
     this.entries.set(id, entry)
     this.byPane.set(entry.paneId, entry)
     this.track(entry)
+    this.deps.onChange?.(entry)
     return entry
+  }
+
+  adopt(kept: KeptProcess, cursor: number): ProcessEntry {
+    const id = `proc-${++this.counter}`
+    const entry: ProcessEntry = {
+      id,
+      name: kept.name,
+      cmd: kept.cmd,
+      cwd: kept.cwd,
+      workspaceId: kept.workspaceId,
+      ownerPaneId: kept.ownerPaneId,
+      paneId: kept.paneId,
+      externalPaneId: kept.externalPaneId,
+      startedAt: kept.startedAt,
+      status: kept.status,
+      ...(kept.exitCode !== undefined ? { exitCode: kept.exitCode } : {}),
+      outputStart: cursor,
+    }
+    this.entries.set(id, entry)
+    this.byPane.set(entry.paneId, entry)
+    if (entry.status !== 'exited') this.track(entry)
+    return entry
+  }
+
+  forPane(paneId: string): ProcessEntry | undefined {
+    return this.byPane.get(paneId)
   }
 
   feed(paneId: string, data: string, endCursor: number): void {
@@ -136,6 +170,7 @@ export class ProcessRegistry {
       if (mark.kind === COMMAND_START && entry.status === 'starting') {
         entry.status = 'running'
         entry.outputStart = mark.end
+        this.deps.onChange?.(entry)
       } else if (mark.kind === COMMAND_END && entry.status === 'running') {
         this.finish(entry, mark.start, exitCodeOf(mark.arg))
         return
@@ -276,6 +311,7 @@ export class ProcessRegistry {
     entry.exitCode = exitCode
     if (entry.outputStart !== undefined) entry.outputEnd = Math.max(end, entry.outputStart)
     this.release(entry)
+    this.deps.onChange?.(entry)
   }
 }
 
@@ -289,6 +325,7 @@ export interface ProcessDeps {
   cwdOfPane: (paneId: string) => string | undefined
   agentArgv: (name: string) => string[] | null
   interruptGraceMs: number
+  onChange?: (entry: ProcessEntry) => void
 }
 
 const NOT_FOUND = { ok: false as const, error: 'not-found' as const }
@@ -367,6 +404,7 @@ export function registerProcessMethods(deps: ProcessDeps): ProcessRegistry {
     ring: deps.ring,
     workspaceOfPane: (paneId) => getByPaneId(paneId)?.workspaceId,
     now: () => new Date(),
+    ...(deps.onChange ? { onChange: deps.onChange } : {}),
   })
 
   const everyWorkspace = (ctx: ControlMethodContext): boolean =>

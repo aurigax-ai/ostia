@@ -4,6 +4,16 @@ import { join } from 'node:path'
 import type { NewWindowSpec } from './tmuxCommand'
 import { type KeptWindow, type TmuxPane, TmuxServer, type TmuxServerOptions } from './tmuxServer'
 
+export interface KeptProcessMeta {
+  name: string
+  cmd: string
+  cwd?: string
+  ownerPaneId: string
+  startedAt: string
+  status: 'starting' | 'running' | 'exited'
+  exitCode?: number
+}
+
 export interface KeptMeta {
   paneId: string
   externalId: string
@@ -12,6 +22,31 @@ export interface KeptMeta {
   shell: string
   stateFile: string
   spawnPath: string
+  process?: KeptProcessMeta
+}
+
+const PROCESS_STATUSES = new Set(['starting', 'running', 'exited'])
+
+function parseProcess(raw: unknown): KeptProcessMeta | undefined {
+  if (typeof raw !== 'object' || raw === null) return undefined
+  const r = raw as Record<string, unknown>
+  const name = text(r.name)
+  const cmd = text(r.cmd)
+  const ownerPaneId = text(r.ownerPaneId)
+  const startedAt = text(r.startedAt)
+  if (!name || !cmd || !ownerPaneId || !startedAt || !PROCESS_STATUSES.has(String(r.status))) {
+    return undefined
+  }
+  const cwd = text(r.cwd)
+  return {
+    name,
+    cmd,
+    ownerPaneId,
+    startedAt,
+    status: r.status as KeptProcessMeta['status'],
+    ...(cwd ? { cwd } : {}),
+    ...(Number.isInteger(r.exitCode) ? { exitCode: r.exitCode as number } : {}),
+  }
 }
 
 const TEXT_MAX = 4096
@@ -33,7 +68,8 @@ export function parseKeptMeta(raw: unknown): KeptMeta | null {
     spawnPath: text(r.spawnPath),
   }
   if (Object.values(fields).some((v) => v === null) || !fields.paneId || !fields.token) return null
-  return fields as KeptMeta
+  const keptProcess = parseProcess(r.process)
+  return { ...(fields as KeptMeta), ...(keptProcess ? { process: keptProcess } : {}) }
 }
 
 export interface KeptShell {
