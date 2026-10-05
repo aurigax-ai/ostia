@@ -54,7 +54,6 @@ import { ZOOM_DEFAULT, clampZoom } from '../../shared/zoom'
 import type { Locale } from '../i18n/dict'
 import { normalizeHex } from '../lib/color'
 import type { GroupRule } from '../lib/workspaceGroups'
-import { isMac } from '../platform'
 import { type UserAction, parseActions } from '../settings/actions'
 import {
   DEFAULT_FILE_TREE_SETTINGS,
@@ -341,7 +340,7 @@ const DEFAULTS: Persisted = {
     inputEditorVim: false,
     historySuggestions: true,
     checkForUpdates: true,
-    wheelZoom: !isMac,
+    wheelZoom: true,
   },
   files: DEFAULT_FILE_TREE_SETTINGS,
   terminal: DEFAULT_TERMINAL_SETTINGS,
