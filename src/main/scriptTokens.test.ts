@@ -109,7 +109,8 @@ describe('script token store', () => {
       id: created.id,
       caps: ['read-board', 'type-other-pane'],
     })
-    expect(verifyScriptToken(storeFile, `${created.token.slice(0, -1)}0`)).toBeUndefined()
+    const last = created.token.endsWith('0') ? '1' : '0'
+    expect(verifyScriptToken(storeFile, `${created.token.slice(0, -1)}${last}`)).toBeUndefined()
     expect(verifyScriptToken(storeFile, created.token.slice(6))).toBeUndefined()
   })
 
