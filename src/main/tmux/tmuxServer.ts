@@ -2,6 +2,7 @@ import { type ChildProcessWithoutNullStreams, execFile, spawn } from 'node:child
 import { lstatSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { type ControlEvent, ControlModeParser } from './controlMode'
+import { SCREEN_INFO_FORMAT, screenReplay } from './screenReplay'
 import { type NewWindowSpec, newWindowCommand, sendKeysCommands, tmuxQuote } from './tmuxCommand'
 import { tmuxConf } from './tmuxConf'
 
@@ -52,6 +53,7 @@ export interface KeptWindow {
 interface Waiter {
   resolve: (lines: string[]) => void
   reject: (err: Error) => void
+  onReply?: () => void
 }
 
 function run(tmux: string, args: string[], env: NodeJS.ProcessEnv): Promise<boolean> {
@@ -151,11 +153,24 @@ export class TmuxServer {
   }
 
   command(line: string): Promise<string[]> {
+    return this.batch([line]).then((replies) => replies[0] ?? [])
+  }
+
+  batch(lines: string[], onLastReply?: () => void): Promise<string[][]> {
     if (this.closed) return Promise.reject(new Error('tmux is gone'))
-    return new Promise((resolve, reject) => {
-      this.waiters.push({ resolve, reject })
-      this.client.stdin.write(`${line}\n`)
-    })
+    const replies = lines.map(
+      (_line, i) =>
+        new Promise<string[]>((resolve, reject) => {
+          const last = i === lines.length - 1
+          this.waiters.push({
+            resolve,
+            reject,
+            ...(last && onLastReply ? { onReply: onLastReply } : {}),
+          })
+        }),
+    )
+    this.client.stdin.write(`${lines.join(' ; ')}\n`)
+    return Promise.all(replies)
   }
 
   send(line: string): void {
@@ -165,8 +180,10 @@ export class TmuxServer {
   async spawn(
     spec: Omit<NewWindowSpec, 'session'> & { cols: number; rows: number; meta: unknown },
   ): Promise<TmuxPane> {
-    await this.command(`set -t ${tmuxQuote(TMUX_SESSION)} default-size ${spec.cols}x${spec.rows}`)
-    const [line] = await this.command(newWindowCommand({ ...spec, session: TMUX_SESSION }))
+    const [, [line]] = await this.batch([
+      `set -t ${tmuxQuote(TMUX_SESSION)} default-size ${spec.cols}x${spec.rows}`,
+      newWindowCommand({ ...spec, session: TMUX_SESSION }),
+    ])
     const [windowId, paneId, pid] = (line ?? '').split(' ')
     if (!windowId || !paneId) throw new Error('tmux did not open a window')
     this.send(`set -w -t ${windowId} ${META_OPTION} ${tmuxQuote(encodeMeta(spec.meta))}`)
@@ -251,6 +268,7 @@ export class TmuxServer {
     if (event.type === 'reply') {
       const waiter = this.waiters.shift()
       if (!waiter) return
+      waiter.onReply?.()
       if (event.ok) waiter.resolve(event.lines)
       else waiter.reject(new Error(event.lines.join('\n') || 'tmux command failed'))
     } else if (event.type === 'output') {
@@ -303,6 +321,7 @@ export class TmuxPane {
   private readonly exitListeners = new Set<Listener<{ exitCode: number; signal?: number }>>()
   private exited = false
   private detached = false
+  private held: string[] | null = null
 
   constructor(
     private readonly server: TmuxServer,
@@ -357,18 +376,43 @@ export class TmuxPane {
     this.server.send(`set -w -t ${this.windowId} ${META_OPTION} ${tmuxQuote(encodeMeta(meta))}`)
   }
 
-  capture(args: string): Promise<string[]> {
-    return this.server.command(`capture-pane -p -t ${this.paneId} ${args}`)
+  async snapshot(cols: number, rows: number): Promise<string> {
+    this.held = []
+    if (cols > 0 && rows > 0 && (cols !== this.cols || rows !== this.rows)) {
+      this.cols = cols
+      this.rows = rows
+      this.server.send(`resize-window -t ${this.windowId} -x ${cols} -y ${rows}`)
+    }
+    const [[alternate = '0']] = await this.server.batch([
+      `display-message -p -t ${this.paneId} "#{alternate_on}"`,
+    ])
+    const onAlternate = alternate === '1'
+    const lines = [
+      onAlternate
+        ? `capture-pane -p -e -a -t ${this.paneId}`
+        : `capture-pane -p -e -S - -t ${this.paneId}`,
+      ...(onAlternate ? [`capture-pane -p -e -t ${this.paneId}`] : []),
+      `display-message -p -t ${this.paneId} ${tmuxQuote(SCREEN_INFO_FORMAT)}`,
+    ]
+    const replies = await this.server.batch(lines, () => {
+      this.held = []
+    })
+    const info = replies[replies.length - 1]?.join('') ?? ''
+    return screenReplay(info, replies[0] ?? [], onAlternate ? (replies[1] ?? []) : null)
   }
 
-  query(format: string): Promise<string> {
-    return this.server
-      .command(`display-message -p -t ${this.paneId} ${tmuxQuote(format)}`)
-      .then((lines) => lines.join('\n'))
+  live(): void {
+    const held = this.held
+    this.held = null
+    if (held && held.length > 0) this.deliver(held.join(''))
   }
 
   deliver(data: string): void {
     if (this.detached) return
+    if (this.held) {
+      this.held.push(data)
+      return
+    }
     for (const listener of this.dataListeners) listener(data)
   }
 

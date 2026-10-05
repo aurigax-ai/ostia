@@ -141,6 +141,27 @@ describe('TmuxServer', () => {
     expect(out.text()).toContain('tmux=unset')
   })
 
+  it('KSH-C14 shows output that arrives during a snapshot exactly once and in order', async () => {
+    const server = await connect()
+    const pane = await spawnSh(
+      server,
+      'i=0; while [ $i -lt 4000 ]; do echo n$i; i=$((i+1)); done; sleep 5',
+      80,
+      24,
+    )
+    await new Promise((r) => setTimeout(r, 30))
+    let after = ''
+    pane.onData((d) => {
+      after += d
+    })
+    const screen = await pane.snapshot(80, 24)
+    pane.live()
+    await until(() => after.includes('n3999') || screen.includes('n3999'))
+    const numbers = [...`${screen}\n${after}`.matchAll(/n(\d+)/g)].map((m) => Number(m[1]))
+    const first = numbers[0] ?? 0
+    expect(numbers).toEqual(Array.from({ length: 4000 - first }, (_, i) => first + i))
+  })
+
   it('reports a shell that exits with its code', async () => {
     const server = await connect()
     const pane = await spawnSh(server, 'exit 7')
