@@ -76,6 +76,7 @@ test('the ports extension puts ports and ssh chips on the pane, and a port chip 
       .poll(() => browserUrls(app), { timeout: 15_000 })
       .toContain(`http://127.0.0.1:${port}/`)
 
+    await win.getByRole('tablist').getByRole('tab').first().click()
     await term.click()
     await win.keyboard.press('Control+C')
     await expect(portsChip).toHaveCount(0, { timeout: 20_000 })

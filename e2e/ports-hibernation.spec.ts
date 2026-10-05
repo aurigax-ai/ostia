@@ -63,6 +63,7 @@ test('a port a terminal listens on shows in the top bar and opens in the browser
       )
       .toContain(`http://localhost:${port}/`)
 
+    await win.getByRole('tablist').getByRole('tab').first().click()
     await win.locator('.xterm').first().click()
     await win.keyboard.press('Control+c')
     await expect(win.locator('.xterm-rows').first()).toContainText('Keyboard interrupt', {

@@ -207,6 +207,9 @@ describe('parseSnapshot', () => {
     })
     expect(rootOf({ agentRunning: true })).not.toHaveProperty('agentRunning')
     expect(
+      rootOf({ resume: { agent: 'claude', id: 'abc-1' }, agentRunning: true, hibernated: true }),
+    ).not.toHaveProperty('agentRunning')
+    expect(
       rootOf({ resume: { agent: 'claude', id: 'abc-1' }, agentRunning: 'yes' }),
     ).not.toHaveProperty('agentRunning')
   })

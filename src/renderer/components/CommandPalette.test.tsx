@@ -64,6 +64,25 @@ describe('CommandPalette', () => {
     expect(screen.queryByRole('option', { name: /Split Pane Right/ })).toBeNull()
   })
 
+  it('ranks the command whose words start with what was typed first, across groups', async () => {
+    commands.register({
+      id: 'ssh.connect',
+      title: 'SSH: Connect to Host…',
+      category: 'SSH',
+      run: vi.fn(),
+    })
+    try {
+      useUIStore.setState({ paletteOpen: true })
+      render(<CommandPalette />)
+      await userEvent.type(await screen.findByRole('combobox'), 'ssh connect')
+      await waitFor(() =>
+        expect(screen.getAllByRole('option')[0]).toHaveAccessibleName(/SSH: Connect to Host/),
+      )
+    } finally {
+      commands.unregister('ssh.connect')
+    }
+  })
+
   it('runs the selected command via commands.exec and closes the palette', async () => {
     useUIStore.setState({ paletteOpen: true })
     const exec = vi.spyOn(commands, 'exec').mockResolvedValue({ ok: true, result: undefined })

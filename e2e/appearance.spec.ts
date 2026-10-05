@@ -151,3 +151,25 @@ test('a recorded notification runs the configured command with its placeholders 
     await app.close()
   }
 })
+
+test('saving settings.json from the window applies it to that window and its Settings page', async () => {
+  const { app, win } = await launch({ appearance: { followSystem: false, theme: 'dracula' } })
+  try {
+    await expect(win.locator('html')).toHaveAttribute('data-theme', 'dracula')
+    const settings = await openAppearance(win)
+    const hex = settings.getByRole('textbox', { name: 'Custom accent hex' })
+    await expect(hex).toHaveValue('')
+
+    await win.evaluate(async () => {
+      const path = await window.ostia.settings.path()
+      const current = JSON.parse((await window.ostia.fs.read(path)) ?? '{}')
+      current.appearance = { ...current.appearance, theme: 'ostia-light', accent: '#ff8800' }
+      await window.ostia.fs.write(path, JSON.stringify(current, null, 2))
+    })
+
+    await expect(win.locator('html')).toHaveAttribute('data-theme', 'ostia-light')
+    await expect(hex).toHaveValue('#ff8800')
+  } finally {
+    await app.close()
+  }
+})

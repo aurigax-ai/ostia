@@ -12,6 +12,7 @@ import {
   isAgentHookEvent,
 } from '../shared/agentPlugins'
 import { dualEnv, shellEnv } from '../shared/appEnv'
+import { CLAUDE_QUESTION_TOOLS } from '../shared/claudeAttention'
 import { PRODUCT_NAME } from '../shared/product'
 import { type PromptSeparator, isPromptSeparator } from '../shared/promptSettings'
 import agentSkill from './agent/ostia-skill.md?raw'
@@ -324,21 +325,31 @@ function hooksFor(
     .map((hook) => extensionHookCommand(hook, agent))
 }
 
+const commandHook = (command: string) => ({ type: 'command', command })
+
 export function claudeHookSettings(extensionHooks: readonly ExtensionAgentHook[] = []): {
   hooks: Record<string, unknown[]>
 } {
   const own: Partial<Record<AgentHookEvent, string[]>> = {
     SessionStart: [hookCommand('resume-token claude -'), busHookCommand('SessionStart')],
     UserPromptSubmit: [hookCommand('state working'), busHookCommand('UserPromptSubmit')],
-    Notification: [hookCommand('state waiting -')],
-    Stop: [hookCommand('state done')],
+    Notification: [hookCommand('claude-hook Notification')],
+    Stop: [hookCommand('claude-hook Stop')],
   }
   const hooks: Record<string, unknown[]> = {}
   for (const event of AGENT_HOOK_EVENTS) {
     const commands = [...(own[event] ?? []), ...hooksFor(extensionHooks, 'claude', event)]
     if (commands.length === 0) continue
-    hooks[event] = [{ hooks: commands.map((command) => ({ type: 'command', command })) }]
+    hooks[event] = [{ hooks: commands.map(commandHook) }]
   }
+  hooks.PreToolUse = [
+    {
+      matcher: CLAUDE_QUESTION_TOOLS.join('|'),
+      hooks: [commandHook(hookCommand('claude-hook PreToolUse'))],
+    },
+    ...(hooks.PreToolUse ?? []),
+  ]
+  hooks.StopFailure = [{ hooks: [commandHook(hookCommand('claude-hook StopFailure'))] }]
   return { hooks }
 }
 

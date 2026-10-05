@@ -19,7 +19,9 @@ function runningPaneIds(node: SnapshotNode | undefined, out: Set<string>): void 
 }
 
 function markPane(pane: SnapshotPaneNode, panes: ReadonlySet<string>): SnapshotPaneNode {
-  return pane.resume && panes.has(pane.id) ? { ...pane, agentRunning: true } : pane
+  return pane.resume && !pane.hibernated && panes.has(pane.id)
+    ? { ...pane, agentRunning: true }
+    : pane
 }
 
 function markNode(node: SnapshotNode, panes: ReadonlySet<string>): SnapshotNode {

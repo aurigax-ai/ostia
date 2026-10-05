@@ -1,12 +1,9 @@
-import { cn } from '@/lib/utils'
 import { SquaresFourIcon } from '@phosphor-icons/react'
 import { fmt, useDict } from '../i18n/useDict'
 import { useApprovalsStore } from '../stores/approvalsStore'
 import { useQuestionsStore } from '../stores/questionsStore'
 import { useUIStore } from '../stores/uiStore'
 import { IconButton } from './IconButton'
-import { ATTENTION_BADGE } from './attentionStyles'
-import { Badge } from './ui/badge'
 
 export function useNeedsYouCount(): number {
   const questions = useQuestionsStore((s) => s.pending.length)
@@ -28,11 +25,7 @@ export function DashboardButton(): JSX.Element {
         aria-pressed={active}
         onClick={toggle}
       />
-      {waiting > 0 ? (
-        <Badge variant="outline" className={cn(ATTENTION_BADGE, 'count-badge')} aria-hidden="true">
-          {waiting > 99 ? '99+' : waiting}
-        </Badge>
-      ) : null}
+      {waiting > 0 ? <span className="count-dot" aria-hidden="true" /> : null}
     </span>
   )
 }

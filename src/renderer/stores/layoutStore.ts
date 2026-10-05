@@ -565,13 +565,12 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
             activePaneId: existing.id,
           }
         }
-        const { root, newPaneId } = splitPane(l.root, l.activePaneId, 'horizontal')
-        if (!newPaneId) return l
-        createdPaneId = newPaneId
+        const pane = createPane('browser')
+        createdPaneId = pane.id
         return {
           ...l,
-          root: setPaneBrowser(root, newPaneId, url, profile),
-          activePaneId: newPaneId,
+          root: setPaneBrowser(addTab(l.root, l.activePaneId, pane), pane.id, url, profile),
+          activePaneId: pane.id,
         }
       })
       return next ?? s
@@ -637,14 +636,13 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
             activePaneId: existing.id,
           }
         }
-        const { root, newPaneId } = splitPane(l.root, l.activePaneId, 'horizontal')
-        if (!newPaneId) return l
-        createdPaneId = newPaneId
-        diffPaneId = newPaneId
+        const pane = createPane('diff')
+        createdPaneId = pane.id
+        diffPaneId = pane.id
         return {
           ...l,
-          root: setPaneDiff(root, newPaneId, content.title, cwd),
-          activePaneId: newPaneId,
+          root: setPaneDiff(addTab(l.root, l.activePaneId, pane), pane.id, content.title, cwd),
+          activePaneId: pane.id,
         }
       })
       return next ?? s
