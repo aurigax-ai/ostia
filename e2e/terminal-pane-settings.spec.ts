@@ -87,6 +87,7 @@ test('a single-line paste goes straight in without its newline, and confirmation
     await win.locator('.xterm').first().click()
     await win.keyboard.press('Control+Shift+V')
     await expect(win.getByRole('dialog')).toHaveCount(0)
+    await expect(win.locator('.xterm-rows').first()).toContainText('echo ostiaquiet77')
     await win.keyboard.press('Enter')
     await expect(
       win.locator('.xterm-rows div', { hasText: /^ostiaquiet77\s*$/ }).first(),

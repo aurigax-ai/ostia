@@ -79,6 +79,7 @@ test('the copy and paste chords work in a terminal and paste an image as Ctrl+V 
 
     await writeClipboard(app, 'echo pasted_$((6*7))')
     await win.keyboard.press(chords.paste)
+    await expect(rows).toContainText('echo pasted_')
     await win.keyboard.press('Enter')
     await expect(rows).toContainText('pasted_42')
 
