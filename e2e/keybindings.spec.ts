@@ -184,6 +184,45 @@ test('on macOS Cmd+W closes the focused pane and leaves the app running, and the
   }
 })
 
+test('on macOS the app menu is named Ostia, its Settings item opens Settings, and it has no Reload', async () => {
+  test.skip(!isMac, 'the macOS application menu only exists on macOS')
+  const app = await electron.launch(isolatedLaunch())
+  try {
+    const win = await app.firstWindow()
+    await win.waitForLoadState('domcontentloaded')
+    await openWorkspace(win)
+
+    const menu = await app.evaluate(({ Menu }) => {
+      const items: { label: string; role: string; accelerator: string }[] = []
+      const walk = (m: Electron.Menu | null): void => {
+        for (const item of m?.items ?? []) {
+          items.push({
+            label: item.label,
+            role: item.role ?? '',
+            accelerator: String(item.accelerator ?? ''),
+          })
+          walk(item.submenu ?? null)
+        }
+      }
+      walk(Menu.getApplicationMenu())
+      return items
+    })
+    expect(menu[0].label).toBe('Ostia')
+    expect(menu.map((i) => i.label).filter((l) => /pine/i.test(l))).toEqual([])
+    expect(menu.map((i) => i.role)).not.toContain('reload')
+    expect(menu.map((i) => i.role)).not.toContain('forcereload')
+    expect(menu.map((i) => i.accelerator)).not.toContain('CmdOrCtrl+R')
+    expect(menu.find((i) => i.label === 'Settings…')?.accelerator).toBe('Cmd+,')
+
+    await app.evaluate(({ Menu }) =>
+      Menu.getApplicationMenu()?.getMenuItemById('settings')?.click(),
+    )
+    await expect(win.getByRole('region', { name: 'Settings' })).toBeVisible()
+  } finally {
+    await app.close()
+  }
+})
+
 test('on macOS the cmux keymap is opt-in: picking it makes ⌘D split the focused terminal', async () => {
   test.skip(!isMac, 'the cmux keymap is offered only on macOS')
   const app = await electron.launch(isolatedLaunch())
