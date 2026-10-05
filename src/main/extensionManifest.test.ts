@@ -361,6 +361,7 @@ describe('parseManifest', () => {
       'completions',
       'git',
       'keeper',
+      'keymap-macos',
       'langpack-zh-hant',
       'lsp-bash',
       'lsp-clangd',
