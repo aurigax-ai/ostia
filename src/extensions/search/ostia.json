@@ -1,0 +1,30 @@
+{
+  "id": "search",
+  "name": "Search",
+  "version": "1.0.0",
+  "api": "2.1",
+  "description": "Find text in the workspace's files and go to a file by name, with ripgrep. A panel for you; `find` and `files` for agents.",
+  "category": "tools",
+  "capabilities": [],
+  "main": "main.js",
+  "locales": ["zh-Hant"],
+  "contributes": {
+    "commands": [
+      {
+        "id": "find",
+        "title": "Find in Files",
+        "category": "Search",
+        "usage": "find <text> [--regex] [--case-sensitive] [--word] [--glob <pattern>]... [--json]",
+        "capabilities": ["read-board"]
+      },
+      {
+        "id": "files",
+        "title": "Go to File",
+        "category": "Search",
+        "usage": "files <name> [--limit <n>] [--json]",
+        "capabilities": ["read-board"]
+      }
+    ],
+    "panel": { "title": "Search", "icon": "magnifying-glass", "entry": "url" }
+  }
+}
