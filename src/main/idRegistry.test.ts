@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto'
 import { describe, expect, it } from 'vitest'
 import {
   getByPaneId,
@@ -7,9 +8,12 @@ import {
   rehomePanes,
   rehomeWorkspace,
   removePane,
+  registerExtension,
   removeWindow,
   resolveExternal,
   resolveToken,
+  setPaneIdSalt,
+  stablePaneExternalId,
   workspaceHasManager,
 } from './idRegistry'
 
@@ -146,5 +150,41 @@ describe('idRegistry', () => {
 
     expect(workspaceHasManager('s-mgr')).toBe(true)
     expect(workspaceHasManager('s-plain')).toBe(false)
+  })
+
+  it('gives a pane the same externalId after a restart but a fresh token', () => {
+    const salt = randomBytes(32)
+    setPaneIdSalt(salt)
+    const before = registerPane({ windowId: 'w-1', workspaceId: 's-r', paneId: 'pane-ab12cd-3' })
+    const { externalId, token } = before
+    removeWindow('w-1')
+    setPaneIdSalt(Buffer.from(salt))
+    const after = registerPane({ windowId: 'w-2', workspaceId: 's-r', paneId: 'pane-ab12cd-3' })
+
+    expect(after.externalId).toBe(externalId)
+    expect(after.externalId).toMatch(UUID_RE)
+    expect(after.token).not.toBe(token)
+    expect(resolveToken(token)).toBeUndefined()
+    expect(resolveExternal(externalId)).toBe(after)
+  })
+
+  it('derives different externalIds for different panes and different installs', () => {
+    const salt = randomBytes(32)
+    setPaneIdSalt(salt)
+    const a = stablePaneExternalId('pane-ab12cd-1')
+    const b = stablePaneExternalId('pane-ab12cd-2')
+    setPaneIdSalt(randomBytes(32))
+    const otherInstall = stablePaneExternalId('pane-ab12cd-1')
+
+    expect(a).toMatch(UUID_RE)
+    expect(a).not.toBe(b)
+    expect(a).not.toBe(otherInstall)
+  })
+
+  it('keeps minting random externalIds for extensions', () => {
+    const first = registerExtension('ext.stable-check').externalId
+    const second = registerExtension('ext.stable-check').externalId
+    expect(first).toMatch(UUID_RE)
+    expect(second).not.toBe(first)
   })
 })

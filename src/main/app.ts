@@ -118,6 +118,7 @@ import {
   removePane,
   removeWindow,
   resolveExternal,
+  setPaneIdSalt,
   windowOfWorkspace,
   workspaceHasManager,
 } from './idRegistry'
@@ -147,6 +148,7 @@ import { OpenFileGrants } from './openFileGrants'
 import { registerOpenFileMethods } from './openFileMethods'
 import { registerOpenPathIpc } from './openPath'
 import type { OriginReach } from './originAgents'
+import { loadPaneIdSalt } from './paneIdSalt'
 import { type PaneIo, registerPaneIoMethods } from './paneIo'
 import { listPanes, listWorkspaces, registerPaneListMethods } from './paneList'
 import { registerPaneResumeMethods } from './paneResume'
@@ -2481,6 +2483,7 @@ app.on('second-instance', (_event, argv) => {
 })
 
 app.whenReady().then(() => {
+  setPaneIdSalt(loadPaneIdSalt(storePath('pane-id-salt', 'global')))
   const appMenu = installAppMenu(process.platform, {
     productName: PRODUCT_DISPLAY_NAME,
     openSettings: openSettingsInFocusedWindow,
