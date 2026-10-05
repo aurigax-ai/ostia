@@ -55,6 +55,7 @@ function greeter(overrides: Partial<ExtensionInfo>): ExtensionInfo {
     secretsSet: [],
     settingsPage: null,
     iconThemes: [],
+    keymaps: [],
     languages: [],
     ...overrides,
   }

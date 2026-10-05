@@ -155,6 +155,7 @@ import {
   removeExtension,
   resolveExternal,
 } from './idRegistry'
+import type { KeymapSource } from './keymaps'
 import type { LanguageSource } from './languagePacks'
 import type { LanguageServerSource } from './languageServers'
 import { REMOTE_REQUEST_TIMEOUT_MS, RemoteFolders, type RemoteFoldersDeps } from './remoteFolders'
@@ -602,6 +603,11 @@ export class ExtensionHost {
       secretsSet: this.deps.secrets?.keys(m.id) ?? [],
       iconThemes: (m.contributes.iconThemes ?? []).map(({ id, label }) => ({ id, label })),
       languages: (m.contributes.languages ?? []).map(({ id, label }) => ({ id, label })),
+      keymaps: (m.contributes.keymaps ?? []).map(({ id, label, platform }) => ({
+        id,
+        label,
+        ...(platform ? { platform } : {}),
+      })),
       languageServers: (m.contributes.languageServers ?? []).map(languageServerSummary),
       agentSkills: (m.contributes.agentSkills ?? []).map((skill) => agentSkillId(m.id, skill.name)),
       agentHooks: (m.contributes.agentHooks ?? []).map((hook) => ({
@@ -671,6 +677,18 @@ export class ExtensionHost {
           extId: rt.ext.manifest.id,
           dir: rt.ext.dir,
           language,
+        })),
+      )
+  }
+
+  keymaps(): KeymapSource[] {
+    return [...this.runtimes.values()]
+      .filter((rt) => this.active(rt))
+      .flatMap((rt) =>
+        (rt.ext.manifest.contributes.keymaps ?? []).map((keymap) => ({
+          extId: rt.ext.manifest.id,
+          dir: rt.ext.dir,
+          keymap,
         })),
       )
   }

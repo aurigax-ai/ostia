@@ -41,6 +41,7 @@ const git: ExtensionInfo = {
   agentSkills: [],
   agentHooks: [],
   iconThemes: [],
+  keymaps: [],
 }
 
 describe('TopBar', () => {

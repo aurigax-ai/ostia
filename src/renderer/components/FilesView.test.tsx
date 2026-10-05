@@ -73,6 +73,7 @@ function iconThemeExtension(): ExtensionInfo {
     agentSkills: [],
     agentHooks: [],
     iconThemes: [{ id: 'fixture-icons', label: 'Fixture Icons' }],
+    keymaps: [],
   }
 }
 

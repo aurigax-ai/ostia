@@ -65,6 +65,26 @@ describe('manifest schemas', () => {
       { ...base, contributes: { assist: ['everything'] } },
       { ...base, contributes: { languages: [{ id: 'not a tag', label: 'X', path: 'x.json' }] } },
       { ...base, contributes: { languages: [{ id: 'fr', label: 'Français', path: 'fr.yaml' }] } },
+      ...[
+        { id: 'Cmux' },
+        { label: '' },
+        { label: 'x'.repeat(41) },
+        { path: 'cmux.yaml' },
+        { platform: 'win32' },
+      ].map((keymap) => ({
+        ...base,
+        contributes: { keymaps: [{ id: 'cmux', label: 'cmux', path: 'cmux.json', ...keymap }] },
+      })),
+      {
+        ...base,
+        contributes: {
+          keymaps: Array.from({ length: 9 }, (_, i) => ({
+            id: `k${i}`,
+            label: 'k',
+            path: 'k.json',
+          })),
+        },
+      },
       { ...base, locales: 'zh-Hant' },
       { ...base, locales: ['../zh-Hant'] },
       { ...base, locales: Array.from({ length: 33 }, (_, i) => `zh-T${i}`) },
@@ -193,6 +213,14 @@ describe('manifest schemas', () => {
     }
     expect(parseManifest(agent, '/ext').ok).toBe(true)
     expect(extensionManifestSchema.safeParse(agent).success).toBe(true)
+    const keyed = {
+      ...base,
+      contributes: {
+        keymaps: [{ id: 'cmux', label: 'macOS (cmux)', path: 'cmux.json', platform: 'darwin' }],
+      },
+    }
+    expect(parseManifest(keyed, '/ext').ok).toBe(true)
+    expect(extensionManifestSchema.safeParse(keyed).success).toBe(true)
     const translated = { ...base, locales: ['zh-Hant', 'fr'] }
     expect(parseManifest(translated, '/ext').ok).toBe(true)
     expect(extensionManifestSchema.safeParse(translated).success).toBe(true)

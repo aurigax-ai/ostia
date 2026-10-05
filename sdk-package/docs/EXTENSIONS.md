@@ -156,6 +156,7 @@ installs, updates or uninstalls, from Settings.
 | `contributes.secrets` | Up to 8 keys (same pattern as settings), each `{description}` and an optional `title` (same rules as a setting's). Settings → Extensions shows a password field per key; the value is stored encrypted in pine's data dir (never in `settings.json`, never synced) and never sent back to the renderer. Read it with `ext.getSecret`. |
 | `contributes.assist` | Which assist points you serve: any of `input`, `command`, `completion`, `terminal`, `chat` (see [Assist](#assist)). Needs the `assist` capability and `main`; such an extension starts with the window. |
 | `contributes.iconThemes[]` | Up to 16 `{id, label, path}` file icon themes in VS Code's format (`path` is the theme JSON inside the extension). Data only: no `main` needed. See [Icon themes](#icon-themes). |
+| `contributes.keymaps[]` | Up to 8 keymaps (API 1.12), each `{id, label, path, platform?}`: `id` lowercase letters, digits and dashes (unique in the extension), `label` (1–40 chars) the name shown in Settings → Keyboard, `path` a `.json` file inside the extension, `platform` optional `darwin` or `linux` to offer it on that platform only. Data only: no `main` and no capability needed. See [Keymaps](#keymaps). |
 | `contributes.languageServers[]` | Up to 8 language servers the editor talks to, as data: pine starts each one itself and speaks LSP to it. Needs the `language-server` capability; no `main` needed. See [Language servers](#language-servers). |
 | `contributes.editorLanguages[]` | Up to 16 languages the editor does not know yet, each with a Monarch grammar as JSON. Data only: no `main` and no capability needed. See [Editor languages](#editor-languages). |
 | `contributes.agentSkills[]` | Up to 8 skills (API 1.10) that pine gives claude and codex in your terminals: `{name, path, files?}`. Needs the `agent-plugin` capability. See [Agent skills and hooks](#agent-skills-and-hooks). |
@@ -231,7 +232,7 @@ add a command, a setting, an option or a title the manifest lacks, and it never 
 (`pine-extension validate` reports it as an error), and the rest of the catalog still applies.
 
 Not translatable: `id`s, `version`, `usage` (it is command syntax, shown to agents), enum `values`,
-`contributes.workflows`, and the `label`s of icon themes and languages (write a language's label
+`contributes.workflows`, and the `label`s of icon themes, keymaps and languages (write a language's label
 in that language). Keep `{product}` as it is.
 
 pine resolves the strings for the human's language before the interface sees them, string by
@@ -341,6 +342,68 @@ Main loads a theme only for an enabled extension and checks it: the theme JSON a
 each icon at most 512 KiB, all icons at most 48 MiB, every path inside the extension folder
 after resolving symlinks, and no symlinked file. Icons reach the renderer as `data:` URLs;
 the renderer never gets a path.
+
+## Keymaps
+
+A keymap is a set of shortcuts the human can switch to in one step, the way an editor offers
+other editors' keybindings. It is data only: a manifest entry and one JSON file, no process.
+
+```json
+{
+  "id": "keymap-macos",
+  "name": "macOS keymap (cmux)",
+  "version": "1.0.0",
+  "api": "1.12",
+  "contributes": {
+    "keymaps": [
+      { "id": "cmux", "label": "macOS (cmux)", "path": "assets/cmux.json", "platform": "darwin" }
+    ]
+  }
+}
+```
+
+The file maps command ids to chords, or to `null` to unbind a command:
+
+```json
+{
+  "bindings": {
+    "pane.splitRight": "Cmd+D",
+    "pane.splitDown": "Cmd+Shift+D",
+    "dashboard.toggle": "Cmd+Alt+D",
+    "view.toggleRail": null
+  }
+}
+```
+
+Chords are written as in the `keybindings` setting: modifiers `Ctrl`, `Shift`, `Alt` (`Option`),
+`Cmd` (`Meta`, `Super`) and `Mod` (Cmd on macOS, Ctrl elsewhere), then one key (`A`–`Z`, `0`–`9`,
+`F1`–`F24`, punctuation, `Up`, `Down`, `Left`, `Right`, `Enter`, `Space`, `Backspace`, `Delete`,
+`Home`, `End`, `PageUp`, `PageDown`, `Insert`); `workspace.goto` takes the range `1-9` and no
+other command does. A command id is any palette command, including another extension's
+(`<extId>.<command>`). Commands the file does not name keep their default.
+
+Nothing changes until the human picks the keymap in Settings → Keyboard → Keymap; the choice is
+the `keymap` setting, `"<extension id>/<keymap id>"` (`"keymap-macos/cmux"`), and `null`, the
+default, means pine's own shortcuts. Shortcuts resolve in three layers, and every place that
+shows or matches a shortcut (the Keyboard table, the palette and other shortcut hints, conflict warnings) sees the
+same result:
+
+1. pine's defaults;
+2. the chosen keymap's `bindings`, which replace or unbind defaults;
+3. the human's `keybindings`, which win over both. "Reset" on a row in Settings → Keyboard
+   removes the human's own chord, so the row goes back to the keymap's chord, or the default
+   when the keymap does not name the command.
+
+Main reads the file only for an enabled extension and only on the platform it is offered on
+(no symlinks, inside the extension, at most 64 KiB) and checks every entry for the computer it
+runs on. An entry pine cannot use (not a chord, a chord the shell needs such as plain
+`Ctrl+letter`, `Escape`, `Tab` or a key without Ctrl or Cmd, `1-9` on a command other than
+`workspace.goto`) is skipped, logged as `[keymap <ref>] skipped entries: …`, and listed in a
+warning under the picker; the rest of the keymap still applies. A file that cannot be read or
+has no `bindings` object leaves the default shortcuts in place and says so under the picker. A
+`keymap` setting that no enabled extension offers on this computer (the extension is disabled
+or removed, or the keymap is for another platform, as when settings sync from a Mac to Linux)
+counts as `null` and is kept, so the keymap comes back with its extension.
 
 ## Language servers
 

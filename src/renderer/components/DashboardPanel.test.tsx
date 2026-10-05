@@ -45,6 +45,7 @@ const git: ExtensionInfo = {
   agentSkills: [],
   agentHooks: [],
   iconThemes: [],
+  keymaps: [],
 }
 
 function question(id: string, paneId: string, text: string, at: number): QuestionRequest {
