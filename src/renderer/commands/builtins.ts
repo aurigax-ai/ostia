@@ -26,7 +26,7 @@ import { mergeRefusalText } from '../lib/mergeRefusalText'
 import { startNewWorkspace, startScratchWorkspace } from '../lib/newWorkspace'
 import { openRequestedFiles } from '../lib/openFile'
 import { GO_TO_WORKSPACE_SYMBOL_COMMAND, SYMBOLS_PREFIX } from '../lib/paletteModes'
-import { isStaleAgentReport } from '../lib/paneAgent'
+import { type PaneAgentReport, isStaleAgentReport, paneAgentReport } from '../lib/paneAgent'
 import { terminalFor } from '../lib/terminalHandles'
 import { openWorkflowPicker } from '../lib/workflows'
 import {
@@ -62,7 +62,7 @@ import { registerBrowserCommands } from './browserCommands'
 import { type CoreCommandId, registerCore } from './core'
 import { type CommandContext, commands } from './registry'
 
-interface PaneListEntry {
+interface PaneListEntry extends PaneAgentReport {
   paneId: string
   workspaceId: string
   kind: SurfaceKind
@@ -872,6 +872,7 @@ export function registerBuiltinCommands(): void {
             title: pane.title,
             cwd: pane.cwd,
             ...(pane.kind === 'editor' && pane.filePath ? { filePath: pane.filePath } : {}),
+            ...(pane.kind === 'terminal' ? paneAgentReport(pane.id, pane.resume) : {}),
           })
         }
       }
