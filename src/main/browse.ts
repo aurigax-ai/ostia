@@ -22,7 +22,7 @@ import type {
 } from '../shared/browseRuntime'
 import { type SnapshotNode, formatSnapshot } from '../shared/browseSnapshot'
 import type { StorageCookie } from '../shared/browserStorage'
-import { PRODUCT_NAME } from '../shared/product'
+import { PRODUCT_DISPLAY_NAME } from '../shared/productDisplay'
 import type { CommandResult, CommandTarget } from '../shared/types'
 import { jsArgs, runInBrowseWorld } from './browseWorld'
 import { clearStorage, listCookies, readWebStorage, writeCookie } from './browserStorage'
@@ -837,7 +837,7 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
   method('get', (guest, p) => {
     const sub = str(p.sub) ?? ''
     if (sub === 'cdp-url')
-      return fail('unsupported', `${PRODUCT_NAME} drives its own browser panes`)
+      return fail('unsupported', `${PRODUCT_DISPLAY_NAME} drives its own browser panes`)
     return world(guest, `get(${jsArgs(sub, str(p.target) ?? null, str(p.arg) ?? null)})`)
   })
 

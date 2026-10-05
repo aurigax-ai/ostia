@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="resources/icon.png" width="88" height="88" alt="Pine icon">
+  <img src="resources/icon.png" width="88" height="88" alt="Ostia icon">
 </p>
 
-<h1 align="center">Pine</h1>
+<h1 align="center">Ostia</h1>
 
 <p align="center">One workspace for you and your coding agents.</p>
 
@@ -14,9 +14,9 @@
   <a href="https://www.npmjs.com/package/@aurigax-ai/pine-extension-sdk">Write an extension</a>
 </p>
 
-![Pine with six projects in the sidebar, an agent session and the diff of its change](.github/readme/hero.webp)
+![Ostia with six projects in the sidebar, an agent session and the diff of its change](.github/readme/hero.webp)
 
-Pine is a terminal for Linux where Claude Code, Codex and your own shell share panes, a browser,
+Ostia is a terminal for Linux where Claude Code, Codex and your own shell share panes, a browser,
 diffs and approvals. It ships no agent of its own: any CLI that can run a shell command works.
 
 ## What it does
@@ -43,12 +43,12 @@ The agent sessions in these captures are scripted stand-ins running in the real 
 
 ## Install
 
-Pine has Linux builds for x64. Get the AppImage or the tarball from the
+Ostia has Linux builds for x64. Get the AppImage or the tarball from the
 [latest release](https://github.com/aurigax-ai/pine/releases/latest).
 
 ```bash
-chmod +x pine-*.AppImage
-./pine-*.AppImage
+chmod +x ostia-*.AppImage
+./ostia-*.AppImage
 ```
 
 ## Build from source

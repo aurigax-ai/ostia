@@ -1,5 +1,5 @@
 import { PRODUCT_PLACEHOLDER } from '../../shared/extensions'
-import { PRODUCT_NAME } from '../../shared/product'
+import { PRODUCT_DISPLAY_NAME } from '../../shared/productDisplay'
 
 export type Locale = string
 
@@ -4897,7 +4897,7 @@ export function resolveLocale(tag: string | undefined): Locale {
   return 'en'
 }
 
-export function withProductName(text: string, product: string = PRODUCT_NAME): string {
+export function withProductName(text: string, product: string = PRODUCT_DISPLAY_NAME): string {
   return text.split(PRODUCT_PLACEHOLDER).join(product)
 }
 

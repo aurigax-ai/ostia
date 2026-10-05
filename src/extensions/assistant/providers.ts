@@ -3,7 +3,7 @@ import { createOpenAI } from '@ai-sdk/openai'
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 import { createOpenRouter } from '@openrouter/ai-sdk-provider'
 import type { AssistModel, ChatToolMode } from '../../shared/assist'
-import { PRODUCT_NAME } from '../../shared/product'
+import { PRODUCT_DISPLAY_NAME } from '../../shared/productDisplay'
 import {
   type Endpoint,
   type FetchFn,
@@ -25,7 +25,7 @@ export const PROVIDER_KINDS = [
 export type ProviderKind = (typeof PROVIDER_KINDS)[number]
 
 export const ANTHROPIC_VERSION = '2023-06-01'
-export const OPENROUTER_HEADERS = { 'X-Title': PRODUCT_NAME }
+export const OPENROUTER_HEADERS = { 'X-Title': PRODUCT_DISPLAY_NAME }
 const MODELS_TIMEOUT_MS = 15_000
 const SHOW_TIMEOUT_MS = 5000
 const native = async (): Promise<ChatToolMode> => 'native'
