@@ -5,7 +5,7 @@ import { privateTmpDir, socketPath } from './privateTmp'
 
 describe('privateTmpDir', () => {
   it('creates a per-user directory only the owner can access', () => {
-    const dir = privateTmpDir(`pine-test-${process.pid}`)
+    const dir = privateTmpDir(`ostia-test-${process.pid}`)
     const st = statSync(dir)
     expect(st.isDirectory()).toBe(true)
     if (process.platform !== 'win32') {
@@ -15,7 +15,7 @@ describe('privateTmpDir', () => {
   })
 
   it('is idempotent', () => {
-    const name = `pine-test-idem-${process.pid}`
+    const name = `ostia-test-idem-${process.pid}`
     expect(privateTmpDir(name)).toBe(privateTmpDir(name))
   })
 })
@@ -24,7 +24,7 @@ describe('socketPath', () => {
   const longDir = `/private/var/folders/36/tjdph2t965j8snz9_vkdnw0r0000gn/T/ostia-sbx-501/12345/ws-abcdef-12/${'x'.repeat(20)}`
 
   it('keeps a path that fits where it was asked for', () => {
-    expect(socketPath('/tmp/a', 'pine-1.sock', 'darwin')).toBe('/tmp/a/pine-1.sock')
+    expect(socketPath('/tmp/a', 'ostia-1.sock', 'darwin')).toBe('/tmp/a/ostia-1.sock')
   })
 
   it('moves a path past the macOS limit to a short owned folder', () => {

@@ -24,7 +24,7 @@ import { ViolationLog, recordViolations } from './violations'
 import { SandboxUnavailableError, WorkspaceSandboxes } from './workspaceSandboxes'
 
 const repoRoot = process.cwd()
-const hostScript = join(repoRoot, 'node_modules/.cache/pine-test/sandbox-host-limits.mjs')
+const hostScript = join(repoRoot, 'node_modules/.cache/ostia-test/sandbox-host-limits.mjs')
 const linux = process.platform === 'linux'
 const seatbeltOrBwrap = linux || process.platform === 'darwin'
 
@@ -45,7 +45,7 @@ function start(name: string, settings: Partial<WorkspaceSandbox>, folder = workD
     basePaths: () => ({
       home,
       dataDirs: [dataDir],
-      socketPath: join(root, 'pine.sock'),
+      socketPath: join(root, 'ostia.sock'),
       runtimeReads: [],
     }),
     workDir: () => folder,
@@ -99,7 +99,7 @@ beforeAll(async () => {
     format: 'esm',
     packages: 'external',
   })
-  root = realpathSync(mkdtempSync(join(tmpdir(), 'pine-limits-')))
+  root = realpathSync(mkdtempSync(join(tmpdir(), 'ostia-limits-')))
   home = join(root, 'home')
   workDir = join(home, 'proj')
   dataDir = join(home, '.local/share/ostia')
@@ -192,7 +192,7 @@ describe.skipIf(!seatbeltOrBwrap)(
       expect(out).not.toContain('NOTES-README')
     }, 60_000)
 
-    it('never opens Pine data, even when the stored settings list it as writable', async () => {
+    it('never opens Ostia data, even when the stored settings list it as writable', async () => {
       const { sandboxes, run } = start('guard', { allowRead: [dataDir], allowWrite: [dataDir] })
       const out = await run(
         `cat ${dataDir}/vault.json || echo VAULT-HIDDEN; echo x > ${dataDir}/planted || echo PLANT-REFUSED`,
@@ -264,15 +264,15 @@ describe.skipIf(!linux)(
         switches: { unixSockets: false },
       })
       await run(
-        `echo ok > ${home}/builds/fine.txt; echo q > /dev/null; echo r > ${home}/builds/release/v2; echo x > /etc/pine-violation-probe; true`,
+        `echo ok > ${home}/builds/fine.txt; echo q > /dev/null; echo r > ${home}/builds/release/v2; echo x > /etc/ostia-violation-probe; true`,
       )
-      const list = await violations((v) => v.target === '/etc/pine-violation-probe')
+      const list = await violations((v) => v.target === '/etc/ostia-violation-probe')
       sandboxes.stopAll()
       expect(list).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
             kind: 'write',
-            target: '/etc/pine-violation-probe',
+            target: '/etc/ostia-violation-probe',
             reason: 'outside',
           }),
         ]),
@@ -297,12 +297,12 @@ describe.skipIf(!linux)(
       await run('true')
       sandboxes.update('ws', (current) => ({ ...current, allowWrite: ['~/builds'] }))
       await sandboxes.refresh('ws')
-      await run(`echo late > ${home}/builds/late.txt; echo x > /etc/pine-late-probe; true`)
-      const list = await violations((v) => v.target === '/etc/pine-late-probe')
+      await run(`echo late > ${home}/builds/late.txt; echo x > /etc/ostia-late-probe; true`)
+      const list = await violations((v) => v.target === '/etc/ostia-late-probe')
       sandboxes.stopAll()
       expect(store.get('ws').allowWrite).toEqual(['~/builds'])
       expect(readFileSync(join(home, 'builds/late.txt'), 'utf8')).toBe('late\n')
-      expect(list.some((v) => v.target === '/etc/pine-late-probe')).toBe(true)
+      expect(list.some((v) => v.target === '/etc/ostia-late-probe')).toBe(true)
       expect(list.some((v) => v.target.includes('late.txt'))).toBe(false)
     }, 60_000)
   },
@@ -329,7 +329,7 @@ describe('a workspace folder the sandbox cannot confine', () => {
     sandboxes.stopAll()
   })
 
-  it('refuses a workspace whose folder holds Pine data', async () => {
+  it('refuses a workspace whose folder holds Ostia data', async () => {
     const { sandboxes } = start('data-folder', {}, join(home, '.local'))
     await expect(sandboxes.wrap('ws', 'bash', 'bash')).rejects.toThrow(
       `holds ${PRODUCT_DISPLAY_NAME}'s own data`,

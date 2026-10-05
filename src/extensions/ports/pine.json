@@ -2,7 +2,7 @@
   "id": "ports",
   "name": "Ports",
   "version": "1.1.0",
-  "api": "1.16",
+  "api": "1.17",
   "description": "Shows the TCP ports a workspace's terminals listen on as a plug in the top bar (click it for the list, click a port to open it in the browser pane) and the login of a foreground ssh on its pane and in the sidebar.",
   "category": "tools",
   "capabilities": ["read-board"],

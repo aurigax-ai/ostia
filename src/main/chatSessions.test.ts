@@ -30,7 +30,7 @@ describe('createChatSessionStore', () => {
   let dir: string
 
   beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), 'pine-chat-'))
+    dir = mkdtempSync(join(tmpdir(), 'ostia-chat-'))
   })
 
   afterEach(() => rmSync(dir, { recursive: true, force: true }))

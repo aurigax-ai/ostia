@@ -14,7 +14,7 @@ export class IpcReader extends AbstractMessageReader implements MessageReader {
     super()
   }
   listen(callback: DataCallback): Disposable {
-    this.off = window.pine.lsp.onMessage(this.id, (message) => callback(message as Message))
+    this.off = window.ostia.lsp.onMessage(this.id, (message) => callback(message as Message))
     return { dispose: () => this.off() }
   }
 }
@@ -24,7 +24,7 @@ export class IpcWriter extends AbstractMessageWriter implements MessageWriter {
     super()
   }
   async write(message: Message): Promise<void> {
-    window.pine.lsp.send(this.id, message)
+    window.ostia.lsp.send(this.id, message)
   }
   end(): void {}
 }

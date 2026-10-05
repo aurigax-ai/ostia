@@ -39,7 +39,7 @@ async function storeServer(
   removedSecrets: string[],
 ): Promise<boolean> {
   for (const key of removedSecrets) {
-    await window.pine.chatTools.setMcpSecret(server.name, key, null)
+    await window.ostia.chatTools.setMcpSecret(server.name, key, null)
   }
   const servers = useSettingsStore.getState().assistant.mcpServers
   await useSettingsStore.getState().setChatTools({
@@ -49,7 +49,7 @@ async function storeServer(
   })
   let ok = true
   for (const [key, value] of Object.entries(secretValues)) {
-    const res = await window.pine.chatTools.setMcpSecret(server.name, key, value)
+    const res = await window.ostia.chatTools.setMcpSecret(server.name, key, value)
     if (!res.ok) ok = false
   }
   await refreshMcp()

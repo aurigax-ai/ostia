@@ -27,7 +27,7 @@ let dir: string
 const opened: { destroy?: () => void; close?: () => void }[] = []
 
 beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), 'pine-bridge-'))
+  dir = mkdtempSync(join(tmpdir(), 'ostia-bridge-'))
 })
 
 afterEach(() => {

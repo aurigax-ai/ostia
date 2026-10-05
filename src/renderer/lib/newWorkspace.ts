@@ -30,7 +30,7 @@ export function startNewWorkspace(opts: NewWorkspaceOptions = {}): string | null
   const { placement, inheritFolder, defaultFolder } = useSettingsStore.getState().workspaces
   const dir = opts.dir ?? newWorkspaceDir(inheritFolder, defaultFolder, focusedPaneCwd())
   if (useWindowsStore.getState().detached) {
-    window.pine.windows.newWorkspace({ dir, ...(opts.name ? { name: opts.name } : {}) })
+    window.ostia.windows.newWorkspace({ dir, ...(opts.name ? { name: opts.name } : {}) })
     return null
   }
   const store = useWorkspacesStore.getState()
@@ -50,10 +50,10 @@ export async function startScratchWorkspace(
 ): Promise<string | null> {
   const sandboxed = opts.sandboxed === true
   if (useWindowsStore.getState().detached) {
-    window.pine.windows.newWorkspace({ scratch: true, sandboxed })
+    window.ostia.windows.newWorkspace({ scratch: true, sandboxed })
     return null
   }
-  const dir = await window.pine.scratch.create()
+  const dir = await window.ostia.scratch.create()
   if (!dir) return null
   const { placement } = useSettingsStore.getState().workspaces
   const store = useWorkspacesStore.getState()

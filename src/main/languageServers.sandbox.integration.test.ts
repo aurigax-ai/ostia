@@ -15,7 +15,7 @@ import { WorkspaceSandboxes } from './sandbox/workspaceSandboxes'
 import { onPath } from './systemRequirements'
 
 const repoRoot = process.cwd()
-const hostScript = join(repoRoot, 'node_modules/.cache/pine-test/sandbox-host-lsp.mjs')
+const hostScript = join(repoRoot, 'node_modules/.cache/ostia-test/sandbox-host-lsp.mjs')
 const canSandbox =
   process.platform === 'linux' && ['bwrap', 'socat', 'rg'].every((program) => onPath(program))
 
@@ -90,13 +90,13 @@ beforeAll(async () => {
     format: 'esm',
     packages: 'external',
   })
-  root = realpathSync(mkdtempSync(join(tmpdir(), 'pine-lsp-sbx-')))
+  root = realpathSync(mkdtempSync(join(tmpdir(), 'ostia-lsp-sbx-')))
   home = join(root, 'home')
   workDir = join(home, 'proj')
   mkdirSync(workDir, { recursive: true })
   writeFileSync(join(home, 'secret.txt'), 'top secret\n')
   writeFileSync(join(workDir, 'inside.txt'), 'in the workspace\n')
-  extensionDir = installFakeLanguageExtension(join(home, '.config', 'pine', 'extensions'))
+  extensionDir = installFakeLanguageExtension(join(home, '.config', 'ostia', 'extensions'))
   const manifest = readManifest(extensionDir)
   if (!manifest.ok) throw new Error(manifest.error)
   const [server] = manifest.manifest.contributes.languageServers ?? []
@@ -117,7 +117,7 @@ beforeAll(async () => {
     basePaths: () => ({
       home,
       dataDirs: [],
-      socketPath: join(root, 'pine.sock'),
+      socketPath: join(root, 'ostia.sock'),
       runtimeReads: [],
     }),
     workDir: () => workDir,

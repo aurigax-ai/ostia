@@ -45,7 +45,7 @@ The package is built: there is no install script to approve. It needs Node 20 or
 
 | Import | What it is |
 |---|---|
-| `@aurigax-ai/ostia-extension-sdk` | `connect()` and the `PineExtension` API: commands, events, sidebar items, pane chips, settings, secrets, notifications, panels, diffs, terminals, the human's language, `createTranslator`, `runTool`, `startPanelServer`, `onShutdown` |
+| `@aurigax-ai/ostia-extension-sdk` | `connect()` and the `OstiaExtension` API (`PineExtension` is the same type under its old name): commands, events, sidebar items, pane chips, settings, secrets, notifications, panels, diffs, terminals, the human's language, `createTranslator`, `runTool`, `startPanelServer`, `onShutdown` |
 | `@aurigax-ai/ostia-extension-sdk/panel` | For the page inside a panel: `call`, `onChange`, `context`, `h`, `icon`, panel sizes |
 | `@aurigax-ai/ostia-extension-sdk/splitter` | A resizable split for panel pages |
 | `@aurigax-ai/ostia-extension-sdk/panel.css` | Base panel styles on Ostia's theme variables |

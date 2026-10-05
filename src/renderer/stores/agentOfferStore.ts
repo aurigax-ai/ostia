@@ -15,6 +15,6 @@ export const useAgentOfferStore = create<AgentOfferState>((set) => ({
     set((s) => ({ offers: s.offers.filter((o) => o.requestId !== requestId) })),
   answer: (requestId, paneId) => {
     set((s) => ({ offers: s.offers.filter((o) => o.requestId !== requestId) }))
-    window.pine.extensions.answerAgentOffer(requestId, paneId)
+    window.ostia.extensions.answerAgentOffer(requestId, paneId)
   },
 }))

@@ -23,7 +23,7 @@ function workspace(id: string, over: Partial<Workspace> = {}): Workspace {
 }
 
 function sandboxes(byId: Record<string, WorkspaceSandbox>): void {
-  vi.mocked(window.pine.sandbox.get).mockImplementation(async (id) => byId[id] ?? null)
+  vi.mocked(window.ostia.sandbox.get).mockImplementation(async (id) => byId[id] ?? null)
 }
 
 function seed(): void {
@@ -91,8 +91,8 @@ describe('workspace merge', () => {
     useChatStore.setState(chatInit, true)
     useUIStore.setState(uiInit, true)
     useMergeConfirmStore.setState(confirmInit, true)
-    vi.mocked(window.pine.sandbox.get).mockResolvedValue(null)
-    vi.mocked(window.pine.workspace.merge).mockResolvedValue({ ok: true })
+    vi.mocked(window.ostia.sandbox.get).mockResolvedValue(null)
+    vi.mocked(window.ostia.workspace.merge).mockResolvedValue({ ok: true })
     vi.clearAllMocks()
   })
 
@@ -156,11 +156,11 @@ describe('workspace merge', () => {
         chat: false,
         sandbox: false,
       })
-      expect(window.pine.workspace.merge).not.toHaveBeenCalled()
+      expect(window.ostia.workspace.merge).not.toHaveBeenCalled()
 
       useMergeConfirmStore.getState().answer(true)
       expect(await done).toBe(true)
-      expect(window.pine.workspace.merge).toHaveBeenCalledWith('w2', 'w1')
+      expect(window.ostia.workspace.merge).toHaveBeenCalledWith('w2', 'w1')
       expect(useWorkspacesStore.getState().workspaces.map((w) => w.id)).toEqual(['w1', 'w3'])
       expect(useWorkspacesStore.getState().activeWorkspaceId).toBe('w1')
       const target = useLayoutStore.getState().byWorkspace.w1
@@ -175,13 +175,13 @@ describe('workspace merge', () => {
       useMergeConfirmStore.getState().answer(false)
 
       expect(await done).toBe(false)
-      expect(window.pine.workspace.merge).not.toHaveBeenCalled()
+      expect(window.ostia.workspace.merge).not.toHaveBeenCalled()
       expect(useWorkspacesStore.getState().workspaces).toHaveLength(3)
     })
 
     it('changes nothing when main refuses the merge', async () => {
       seed()
-      vi.mocked(window.pine.workspace.merge).mockResolvedValue({
+      vi.mocked(window.ostia.workspace.merge).mockResolvedValue({
         ok: false,
         error: 'sandbox-differs',
       })

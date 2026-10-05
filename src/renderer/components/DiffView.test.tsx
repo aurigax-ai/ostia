@@ -96,7 +96,7 @@ describe('DiffView', () => {
       readOnly: true,
       originalEditable: false,
       renderSideBySide: true,
-      theme: 'pine-scheme-adeberry',
+      theme: 'ostia-scheme-adeberry',
     })
   })
 
@@ -153,7 +153,7 @@ describe('DiffView', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Open in external editor' }))
 
     await waitFor(() =>
-      expect(window.pine.externalEditor.open).toHaveBeenCalledWith({
+      expect(window.ostia.externalEditor.open).toHaveBeenCalledWith({
         template: 'auto',
         file: '/repo/src/a.ts',
         line: 7,

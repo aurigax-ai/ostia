@@ -18,7 +18,7 @@ const request: ApprovalRequest = {
 
 function listen(): (state: ApprovalState) => void {
   let receive: ((state: ApprovalState) => void) | undefined
-  vi.mocked(window.pine.approvals.onChange).mockImplementation((cb) => {
+  vi.mocked(window.ostia.approvals.onChange).mockImplementation((cb) => {
     receive = cb
     return () => {}
   })

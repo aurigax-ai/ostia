@@ -3,13 +3,13 @@ import type { UIMessageChunk } from 'ai'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { useAssistStore } from '../stores/assistStore'
 import {
-  type PineChatMessage,
+  type OstiaChatMessage,
   createAssistTransport,
   decodeChatError,
   toChatRequest,
 } from './chatTransport'
 
-function user(id: string, text: string, context?: PineChatMessage['metadata']): PineChatMessage {
+function user(id: string, text: string, context?: OstiaChatMessage['metadata']): OstiaChatMessage {
   return {
     id,
     role: 'user',
@@ -30,17 +30,17 @@ async function drain(stream: ReadableStream<UIMessageChunk>): Promise<UIMessageC
 
 function replyWith(chunks: string[], result: unknown): void {
   const listeners = new Set<(c: AssistChunk) => void>()
-  vi.mocked(window.pine.assist.onChunk).mockImplementation((cb) => {
+  vi.mocked(window.ostia.assist.onChunk).mockImplementation((cb) => {
     listeners.add(cb)
     return () => listeners.delete(cb)
   })
-  vi.mocked(window.pine.assist.request).mockImplementation(async (_point, requestId) => {
+  vi.mocked(window.ostia.assist.request).mockImplementation(async (_point, requestId) => {
     for (const text of chunks) for (const cb of listeners) cb({ requestId, text })
     return result as never
   })
 }
 
-const send = (messages: PineChatMessage[]) =>
+const send = (messages: OstiaChatMessage[]) =>
   createAssistTransport().sendMessages({
     trigger: 'submit-message',
     chatId: 'c1',
@@ -71,7 +71,7 @@ describe('toChatRequest', () => {
 
 describe('createAssistTransport', () => {
   afterEach(() => {
-    vi.mocked(window.pine.assist.request).mockReset()
+    vi.mocked(window.ostia.assist.request).mockReset()
     useAssistStore.setState({ availability: {} })
   })
 
@@ -98,7 +98,7 @@ describe('createAssistTransport', () => {
       'finish',
     ])
     expect(chunks[0]).toMatchObject({ messageMetadata: { model: 'fake · big' } })
-    expect(vi.mocked(window.pine.assist.request).mock.calls[0][2]).toEqual({
+    expect(vi.mocked(window.ostia.assist.request).mock.calls[0][2]).toEqual({
       messages: [{ role: 'user', content: 'hello' }],
       context: [],
     })

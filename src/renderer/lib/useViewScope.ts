@@ -30,7 +30,7 @@ function useNotifications(wanted: boolean): NotificationEntry[] {
     if (!wanted) return
     let live = true
     const load = (): void => {
-      void window.pine.notifications
+      void window.ostia.notifications
         .list()
         .then((entries) => {
           if (live) setList(entries)
@@ -38,7 +38,7 @@ function useNotifications(wanted: boolean): NotificationEntry[] {
         .catch(() => {})
     }
     load()
-    const off = window.pine.notifications.onChanged(load)
+    const off = window.ostia.notifications.onChanged(load)
     return () => {
       live = false
       off()

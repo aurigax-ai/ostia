@@ -92,8 +92,8 @@ describe('extension wording follows the list main resolved for the language', ()
   })
 
   beforeEach(async () => {
-    vi.mocked(window.pine.extensions.list).mockResolvedValue([ENGLISH])
-    vi.mocked(window.pine.extensions.onChanged).mockImplementation((cb) => {
+    vi.mocked(window.ostia.extensions.list).mockResolvedValue([ENGLISH])
+    vi.mocked(window.ostia.extensions.onChanged).mockImplementation((cb) => {
       announce = cb
       return () => {}
     })
@@ -139,7 +139,7 @@ describe('extension wording follows the list main resolved for the language', ()
 
     await userEvent.click(option)
     await waitFor(() =>
-      expect(window.pine.extensions.invoke).toHaveBeenCalledWith(
+      expect(window.ostia.extensions.invoke).toHaveBeenCalledWith(
         'greeter',
         'greet',
         { workspaceId: null, paneId: null },
@@ -207,11 +207,11 @@ describe('extension wording follows the list main resolved for the language', ()
         },
       ],
     })
-    vi.mocked(window.pine.marketplace.list).mockResolvedValue(listing('Weather'))
+    vi.mocked(window.ostia.marketplace.list).mockResolvedValue(listing('Weather'))
     render(<MarketplaceSection />)
     expect(await screen.findByRole('listitem', { name: 'Weather' })).toBeInTheDocument()
 
-    vi.mocked(window.pine.marketplace.list).mockResolvedValue(listing('天氣'))
+    vi.mocked(window.ostia.marketplace.list).mockResolvedValue(listing('天氣'))
     await act(async () => announce([TRADITIONAL_CHINESE]))
     expect(await screen.findByRole('listitem', { name: '天氣' })).toBeInTheDocument()
     expect(screen.queryByRole('listitem', { name: 'Weather' })).toBeNull()

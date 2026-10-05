@@ -33,7 +33,7 @@ function instance(
 }
 
 beforeEach(() => {
-  root = mkdtempSync(join(tmpdir(), 'pine-sbx-tmp-'))
+  root = mkdtempSync(join(tmpdir(), 'ostia-sbx-tmp-'))
 })
 
 afterEach(() => {

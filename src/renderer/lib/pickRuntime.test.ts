@@ -138,11 +138,11 @@ describe('start / cancel', () => {
     const r = runtime()
     const pending = r.start(theme)
     expect(r.active()).toBe(true)
-    expect(document.querySelector('[data-pine-pick]')).not.toBeNull()
+    expect(document.querySelector('[data-ostia-pick]')).not.toBeNull()
     r.cancel()
     await expect(pending).resolves.toBeNull()
     expect(r.active()).toBe(false)
-    expect(document.querySelector('[data-pine-pick]')).toBeNull()
+    expect(document.querySelector('[data-ostia-pick]')).toBeNull()
     expect(document.head.querySelector('style')).toBeNull()
   })
 
@@ -165,7 +165,7 @@ describe('start / cancel', () => {
     const first = r.start(theme)
     const second = r.start(theme)
     await expect(first).resolves.toBeNull()
-    expect(document.querySelectorAll('[data-pine-pick]')).toHaveLength(1)
+    expect(document.querySelectorAll('[data-ostia-pick]')).toHaveLength(1)
     r.cancel()
     await second
   })

@@ -50,7 +50,7 @@ function renderPanel(onClose = vi.fn(), shared = false) {
 }
 
 beforeEach(() => {
-  vi.mocked(window.pine.browser.storageRead).mockResolvedValue({ ok: true, snapshot })
+  vi.mocked(window.ostia.browser.storageRead).mockResolvedValue({ ok: true, snapshot })
 })
 
 afterEach(() => {
@@ -61,7 +61,7 @@ describe('BrowserStoragePanel', () => {
   it('reads this pane storage and lists cookies with their attributes', async () => {
     renderPanel()
     const table = await screen.findByRole('table', { name: 'Cookies' })
-    expect(window.pine.browser.storageRead).toHaveBeenCalledWith(PANE)
+    expect(window.ostia.browser.storageRead).toHaveBeenCalledWith(PANE)
     const sid = within(table).getByText('sid').closest('tr') as HTMLElement
     expect(within(sid).getByText('abc123')).toBeInTheDocument()
     expect(within(sid).getByText('shop.test')).toBeInTheDocument()
@@ -103,11 +103,11 @@ describe('BrowserStoragePanel', () => {
     renderPanel()
     await screen.findByRole('table', { name: 'Cookies' })
     await userEvent.click(screen.getByRole('button', { name: 'Delete sid' }))
-    expect(window.pine.browser.storageRemove).toHaveBeenCalledWith(PANE, {
+    expect(window.ostia.browser.storageRemove).toHaveBeenCalledWith(PANE, {
       kind: 'cookies',
       cookie: snapshot.cookies[0],
     })
-    await waitFor(() => expect(window.pine.browser.storageRead).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(window.ostia.browser.storageRead).toHaveBeenCalledTimes(2))
   })
 
   it('edits a value in a dialog and saves it to the page', async () => {
@@ -120,7 +120,7 @@ describe('BrowserStoragePanel', () => {
     await userEvent.clear(value)
     await userEvent.type(value, 'grace')
     await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
-    expect(window.pine.browser.storageSet).toHaveBeenCalledWith(PANE, {
+    expect(window.ostia.browser.storageSet).toHaveBeenCalledWith(PANE, {
       kind: 'local',
       key: 'user',
       value: 'grace',
@@ -135,7 +135,7 @@ describe('BrowserStoragePanel', () => {
     const dialog = await screen.findByRole('dialog', { name: 'Edit sid' })
     await userEvent.type(within(dialog).getByRole('textbox', { name: 'Value' }), 'x')
     await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
-    expect(window.pine.browser.storageSet).toHaveBeenCalledWith(PANE, {
+    expect(window.ostia.browser.storageSet).toHaveBeenCalledWith(PANE, {
       kind: 'cookies',
       cookie: { ...snapshot.cookies[0], value: 'abc123x' },
     })
@@ -148,9 +148,9 @@ describe('BrowserStoragePanel', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Clear all' }))
     const dialog = await screen.findByRole('dialog', { name: 'Clear session storage?' })
     expect(within(dialog).getByText(/https:\/\/shop\.test/)).toBeInTheDocument()
-    expect(window.pine.browser.storageClear).not.toHaveBeenCalled()
+    expect(window.ostia.browser.storageClear).not.toHaveBeenCalled()
     await userEvent.click(within(dialog).getByRole('button', { name: 'Clear' }))
-    expect(window.pine.browser.storageClear).toHaveBeenCalledWith(PANE, 'session')
+    expect(window.ostia.browser.storageClear).toHaveBeenCalledWith(PANE, 'session')
   })
 
   it('warns that clearing the shared profile signs out every tab that uses it, and still asks first', async () => {
@@ -159,7 +159,7 @@ describe('BrowserStoragePanel', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Clear all' }))
     const cookies = await screen.findByRole('dialog', { name: 'Clear all cookies?' })
     expect(within(cookies).getByText(/for every browser tab that uses it/)).toBeInTheDocument()
-    expect(window.pine.browser.storageClear).not.toHaveBeenCalled()
+    expect(window.ostia.browser.storageClear).not.toHaveBeenCalled()
     await userEvent.click(within(cookies).getByRole('button', { name: 'Cancel' }))
 
     await userEvent.click(screen.getByRole('tab', { name: /Local storage/ }))
@@ -167,7 +167,7 @@ describe('BrowserStoragePanel', () => {
     const local = await screen.findByRole('dialog', { name: 'Clear local storage?' })
     expect(within(local).getByText(/for every browser tab that uses it/)).toBeInTheDocument()
     await userEvent.click(within(local).getByRole('button', { name: 'Clear' }))
-    expect(window.pine.browser.storageClear).toHaveBeenCalledWith(PANE, 'local')
+    expect(window.ostia.browser.storageClear).toHaveBeenCalledWith(PANE, 'local')
   })
 
   it('copies a value to the clipboard', async () => {
@@ -181,7 +181,7 @@ describe('BrowserStoragePanel', () => {
   })
 
   it('reports a failed write and a failed read', async () => {
-    vi.mocked(window.pine.browser.storageRemove).mockResolvedValueOnce({
+    vi.mocked(window.ostia.browser.storageRemove).mockResolvedValueOnce({
       ok: false,
       error: 'storage-failed',
     })
@@ -191,7 +191,7 @@ describe('BrowserStoragePanel', () => {
     expect(
       await screen.findByText('Could not change storage (storage-failed).'),
     ).toBeInTheDocument()
-    vi.mocked(window.pine.browser.storageRead).mockResolvedValue({
+    vi.mocked(window.ostia.browser.storageRead).mockResolvedValue({
       ok: false,
       error: 'browser-not-ready',
     })
@@ -200,7 +200,7 @@ describe('BrowserStoragePanel', () => {
   })
 
   it('shows an empty state and closes', async () => {
-    vi.mocked(window.pine.browser.storageRead).mockResolvedValue({
+    vi.mocked(window.ostia.browser.storageRead).mockResolvedValue({
       ok: true,
       snapshot: { origin: 'https://shop.test', cookies: [], local: [], session: [] },
     })

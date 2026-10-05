@@ -5,7 +5,7 @@ import { afterAll, describe, expect, it } from 'vitest'
 import { checkSandboxPath } from './pathChecks'
 import { availableReadPresets } from './presets'
 
-const root = realpathSync(mkdtempSync(join(tmpdir(), 'pine-presets-')))
+const root = realpathSync(mkdtempSync(join(tmpdir(), 'ostia-presets-')))
 
 afterAll(() => rmSync(root, { recursive: true, force: true }))
 
@@ -60,7 +60,7 @@ describe('availableReadPresets', () => {
     expect(presets).toEqual([{ id: 'go', paths: ['~/go'] }])
   })
 
-  it('drops a tool folder that is a link into Pine’s data or a protected folder', () => {
+  it('drops a tool folder that is a link into Ostia’s data or a protected folder', () => {
     const env = machine('links', ['.volta'])
     symlinkSync(env.dataDirs[0], join(env.home, '.bun'))
     symlinkSync(env.runtimeDir, join(env.home, '.pyenv'))

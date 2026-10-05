@@ -17,11 +17,11 @@ export const useViewsStore = create<ViewsState>((set) => ({
   collapsed: {},
   apply: (listing) => set({ dir: listing.dir, views: listing.views }),
   load: async () => {
-    const listing = await window.pine.views.list()
+    const listing = await window.ostia.views.list()
     set({ dir: listing.dir, views: listing.views })
   },
   setEnabled: async (name, enabled) => {
-    const listing = await window.pine.views.setEnabled(name, enabled)
+    const listing = await window.ostia.views.setEnabled(name, enabled)
     set({ dir: listing.dir, views: listing.views })
   },
   toggleCollapsed: (name) =>

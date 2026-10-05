@@ -23,7 +23,7 @@ export function LoginButton({
   useEffect(() => {
     if (pageKey < 0) return
     let alive = true
-    void window.pine.credentials.forPage(paneId).then((list) => {
+    void window.ostia.credentials.forPage(paneId).then((list) => {
       if (alive) setLogins(list)
     })
     return () => {
@@ -33,7 +33,7 @@ export function LoginButton({
 
   const fill = async (login: CredentialSummary): Promise<void> => {
     setOpen(false)
-    const res = await window.pine.credentials.fill(paneId, login.id)
+    const res = await window.ostia.credentials.fill(paneId, login.id)
     onStatus(
       res.ok
         ? fmt(d.passwords.filled, { user: login.username || d.passwords.noUsername })
@@ -45,10 +45,10 @@ export function LoginButton({
 
   const saveFromPage = async (): Promise<void> => {
     setOpen(false)
-    const res = await window.pine.credentials.saveFromPage(paneId)
+    const res = await window.ostia.credentials.saveFromPage(paneId)
     if (res.ok) {
       onStatus(res.updated ? d.passwords.updated : d.passwords.saved)
-      setLogins(await window.pine.credentials.forPage(paneId))
+      setLogins(await window.ostia.credentials.forPage(paneId))
     } else {
       onStatus(
         res.error === 'encryption-unavailable'

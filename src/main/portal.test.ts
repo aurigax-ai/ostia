@@ -38,7 +38,7 @@ afterEach(() => {
 })
 
 async function startPortal(verdict: CallerVerdict = 'outside', missing: MissingRequirement[] = []) {
-  dir = mkdtempSync(join(tmpdir(), 'pine-portal-'))
+  dir = mkdtempSync(join(tmpdir(), 'ostia-portal-'))
   const path = join(dir, 'portal.sock')
   const ptys = new Map<string, FakePty>()
   let next = 0
@@ -162,7 +162,7 @@ describe('Portal', () => {
     expect(ptys.size).toBe(0)
   })
 
-  it('MGR-C11 refuses a caller from inside Pine before opening anything', async () => {
+  it('MGR-C11 refuses a caller from inside Ostia before opening anything', async () => {
     const { path, ptys } = await startPortal('inside')
     const c = await client(path)
     await expect(open(c.conn)).rejects.toThrow(/inside-ostia/)

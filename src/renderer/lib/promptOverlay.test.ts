@@ -35,7 +35,7 @@ describe('placePrompt', () => {
     expect(placePrompt({ ...base, rightPromptCol: 14 + MIN_INPUT_COLS - 1 })?.endCol).toBe(80)
   })
 
-  it('puts the Pine prompt chips on the row above and keeps the shell separator before the input', () => {
+  it('puts the Ostia prompt chips on the row above and keeps the shell separator before the input', () => {
     expect(placePrompt({ ...base, style: 'ostia', inputCol: 2 })).toMatchObject({
       col: 2,
       endCol: 80,
@@ -43,7 +43,7 @@ describe('placePrompt', () => {
     })
   })
 
-  it('covers the whole row for a same-line Pine prompt, which draws its own separator', () => {
+  it('covers the whole row for a same-line Ostia prompt, which draws its own separator', () => {
     expect(placePrompt({ ...base, style: 'ostia', sameLine: true })).toMatchObject({
       col: 0,
       endCol: 80,

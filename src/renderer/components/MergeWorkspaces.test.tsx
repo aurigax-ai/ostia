@@ -82,7 +82,7 @@ describe('merging workspaces', () => {
     useUIStore.setState(uiInit, true)
     useBlocksStore.setState(blocksInit, true)
     useMergeConfirmStore.setState(confirmInit, true)
-    vi.mocked(window.pine.sandbox.get).mockResolvedValue(null)
+    vi.mocked(window.ostia.sandbox.get).mockResolvedValue(null)
     vi.clearAllMocks()
   })
 
@@ -117,7 +117,7 @@ describe('merging workspaces', () => {
 
     it('shows a refused target disabled, with the reason', async () => {
       seed(['api', 'web'])
-      vi.mocked(window.pine.sandbox.get).mockImplementation(async (id) =>
+      vi.mocked(window.ostia.sandbox.get).mockImplementation(async (id) =>
         id === 'web' ? { ...emptyWorkspaceSandbox(), enabled: true } : null,
       )
       render(<DeckRail />)

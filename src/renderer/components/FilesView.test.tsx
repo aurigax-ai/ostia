@@ -82,7 +82,7 @@ function focusedPaneId(): string {
 }
 
 function listReturns(entries: { name: string; dir: boolean }[]): void {
-  vi.mocked(window.pine.fs.list).mockResolvedValue(entries)
+  vi.mocked(window.ostia.fs.list).mockResolvedValue(entries)
 }
 
 describe('FilesView', () => {
@@ -123,7 +123,7 @@ describe('FilesView', () => {
     const ROOT = 'remote://abcdef012345/srv/app'
 
     function remoteLists(listing: Record<string, { name: string; dir: boolean }[]>): void {
-      vi.mocked(window.pine.remoteFiles.list).mockImplementation(async (path) =>
+      vi.mocked(window.ostia.remoteFiles.list).mockImplementation(async (path) =>
         listing[path]
           ? { ok: true, entries: listing[path], truncated: false }
           : { ok: false, error: 'unavailable' },
@@ -145,8 +145,8 @@ describe('FilesView', () => {
       expect(await screen.findByRole('button', { name: 'app.conf' })).toBeInTheDocument()
       expect(screen.getByText('This computer')).toBeInTheDocument()
       expect(await screen.findByRole('button', { name: 'local.ts' })).toBeInTheDocument()
-      expect(window.pine.remoteFiles.list).toHaveBeenCalledWith(ROOT)
-      expect(window.pine.fs.list).not.toHaveBeenCalledWith(ROOT)
+      expect(window.ostia.remoteFiles.list).toHaveBeenCalledWith(ROOT)
+      expect(window.ostia.fs.list).not.toHaveBeenCalledWith(ROOT)
     })
 
     it('shows no remote section for a folder of another workspace', async () => {
@@ -158,7 +158,7 @@ describe('FilesView', () => {
 
       await screen.findByRole('button', { name: 'local.ts' })
       expect(screen.queryByTestId('remote-folder')).not.toBeInTheDocument()
-      expect(window.pine.remoteFiles.list).not.toHaveBeenCalled()
+      expect(window.ostia.remoteFiles.list).not.toHaveBeenCalled()
     })
 
     it('opens a remote file in the editor by its remote path and lists a remote folder when expanded', async () => {
@@ -182,7 +182,7 @@ describe('FilesView', () => {
       const editor = layout.root.type === 'pane' ? layout.root : null
       expect(JSON.stringify(layout.root)).toContain(`${ROOT}/conf/db.yaml`)
       expect(editor?.cwd ?? CWD).toBe(CWD)
-      expect(window.pine.fs.list).not.toHaveBeenCalledWith(expect.stringContaining('remote://'))
+      expect(window.ostia.fs.list).not.toHaveBeenCalledWith(expect.stringContaining('remote://'))
     })
 
     it('says why a remote folder could not be listed', async () => {
@@ -207,9 +207,9 @@ describe('FilesView', () => {
       await screen.findByRole('button', { name: 'app.conf' })
 
       await user.click(screen.getByRole('button', { name: 'Reload' }))
-      await waitFor(() => expect(window.pine.remoteFiles.list).toHaveBeenCalledTimes(2))
+      await waitFor(() => expect(window.ostia.remoteFiles.list).toHaveBeenCalledTimes(2))
       await user.click(screen.getByRole('button', { name: 'Close remote folder' }))
-      expect(window.pine.remoteFiles.close).toHaveBeenCalledWith('abcdef012345')
+      expect(window.ostia.remoteFiles.close).toHaveBeenCalledWith('abcdef012345')
     })
   })
 
@@ -233,13 +233,13 @@ describe('FilesView', () => {
     render(<FilesView />)
     await screen.findByRole('button', { name: 'syslog' })
 
-    expect(window.pine.fs.list).toHaveBeenCalledWith('/var/log')
-    expect(window.pine.fs.list).not.toHaveBeenCalledWith('/home/me/project')
+    expect(window.ostia.fs.list).toHaveBeenCalledWith('/var/log')
+    expect(window.ostia.fs.list).not.toHaveBeenCalledWith('/home/me/project')
   })
 
   it('re-lists when the focused pane cwd changes (follows the terminal)', async () => {
     seedWorkspace(CWD)
-    vi.mocked(window.pine.fs.list).mockImplementation(async (p) =>
+    vi.mocked(window.ostia.fs.list).mockImplementation(async (p) =>
       p === CWD ? [{ name: 'here.ts', dir: false }] : [{ name: 'elsewhere.ts', dir: false }],
     )
 
@@ -251,7 +251,7 @@ describe('FilesView', () => {
     })
 
     expect(await screen.findByRole('button', { name: 'elsewhere.ts' })).toBeInTheDocument()
-    expect(window.pine.fs.list).toHaveBeenCalledWith('/elsewhere')
+    expect(window.ostia.fs.list).toHaveBeenCalledWith('/elsewhere')
     expect(screen.queryByRole('button', { name: 'here.ts' })).not.toBeInTheDocument()
   })
 
@@ -271,7 +271,7 @@ describe('FilesView', () => {
     render(<FilesView />)
     await screen.findByRole('button', { name: 'anchored.ts' })
 
-    expect(window.pine.fs.list).toHaveBeenCalledWith('/anchor/dir')
+    expect(window.ostia.fs.list).toHaveBeenCalledWith('/anchor/dir')
   })
 
   it('opens a file via layoutStore.openFile with its full path when a file row is clicked', async () => {
@@ -299,7 +299,7 @@ describe('FilesView', () => {
 
   it('expands a directory in place and lists its children when a folder row is clicked', async () => {
     seedWorkspace(CWD)
-    vi.mocked(window.pine.fs.list).mockImplementation(async (p) => {
+    vi.mocked(window.ostia.fs.list).mockImplementation(async (p) => {
       if (p === CWD) return [{ name: 'src', dir: true }]
       if (p === `${CWD}/src`) return [{ name: 'app.ts', dir: false }]
       return []
@@ -312,12 +312,12 @@ describe('FilesView', () => {
     await userEvent.setup().click(dirRow)
 
     expect(await screen.findByRole('button', { name: 'app.ts' })).toBeInTheDocument()
-    expect(window.pine.fs.list).toHaveBeenCalledWith('/home/me/project/src')
+    expect(window.ostia.fs.list).toHaveBeenCalledWith('/home/me/project/src')
   })
 
   it('collapses an expanded directory when its row is clicked a second time', async () => {
     seedWorkspace(CWD)
-    vi.mocked(window.pine.fs.list).mockImplementation(async (p) => {
+    vi.mocked(window.ostia.fs.list).mockImplementation(async (p) => {
       if (p === CWD) return [{ name: 'src', dir: true }]
       if (p === `${CWD}/src`) return [{ name: 'app.ts', dir: false }]
       return []
@@ -405,7 +405,7 @@ describe('FilesView', () => {
 
   it('compacts a single-folder chain into one row when it is expanded', async () => {
     seedWorkspace(CWD)
-    vi.mocked(window.pine.fs.list).mockImplementation(async (p) => {
+    vi.mocked(window.ostia.fs.list).mockImplementation(async (p) => {
       if (p === CWD) return [{ name: 'src', dir: true }]
       if (p === `${CWD}/src`) return [{ name: 'main', dir: true }]
       if (p === `${CWD}/src/main`) return [{ name: 'java', dir: true }]
@@ -425,7 +425,7 @@ describe('FilesView', () => {
   it('expands folder by folder when compact folders is off', async () => {
     seedWorkspace(CWD)
     useSettingsStore.getState().setFiles({ compactFolders: false })
-    vi.mocked(window.pine.fs.list).mockImplementation(async (p) => {
+    vi.mocked(window.ostia.fs.list).mockImplementation(async (p) => {
       if (p === CWD) return [{ name: 'src', dir: true }]
       if (p === `${CWD}/src`) return [{ name: 'main', dir: true }]
       return []
@@ -509,7 +509,7 @@ describe('FilesView', () => {
       { name: 'notes.txt', dir: false },
     ])
     useExtensionsStore.setState({ list: [iconThemeExtension()] })
-    vi.mocked(window.pine.iconThemes.load).mockResolvedValue(ICON_THEME)
+    vi.mocked(window.ostia.iconThemes.load).mockResolvedValue(ICON_THEME)
     useSettingsStore.getState().setFiles({ iconTheme: 'fixture-icons' })
 
     render(<FilesView />)
@@ -517,7 +517,7 @@ describe('FilesView', () => {
     await waitFor(() =>
       expect(row.querySelector('img.file-icon-theme')).toHaveAttribute('src', 'data:ts'),
     )
-    expect(window.pine.iconThemes.load).toHaveBeenCalledWith('fixture-icons')
+    expect(window.ostia.iconThemes.load).toHaveBeenCalledWith('fixture-icons')
     expect(screen.getByRole('button', { name: 'notes.txt' }).querySelector('img')).toHaveAttribute(
       'src',
       'data:file',

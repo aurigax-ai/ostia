@@ -95,7 +95,7 @@ function McpRow({ server, sessionId }: { server: McpServerStatus; sessionId: str
             variant="link"
             size="xs"
             className="h-5 px-1 text-ui-xs"
-            onClick={() => void window.pine.chatTools.mcpReconnect(server.name)}
+            onClick={() => void window.ostia.chatTools.mcpReconnect(server.name)}
           >
             {server.state === 'idle' ? t.connect : t.reconnect}
           </Button>

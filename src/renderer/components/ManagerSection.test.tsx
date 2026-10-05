@@ -25,8 +25,8 @@ describe('ManagerSection', () => {
     cleanup()
     useSettingsStore.setState(settingsInit, true)
     useWorkspacesStore.setState(workspacesInit, true)
-    vi.mocked(window.pine.system.requirements).mockResolvedValue(null)
-    vi.mocked(window.pine.system.installRequirements).mockClear()
+    vi.mocked(window.ostia.system.requirements).mockResolvedValue(null)
+    vi.mocked(window.ostia.system.installRequirements).mockClear()
   })
 
   it('MGR-C34 lists the built-in presets and adds one typed as a command line', async () => {
@@ -108,18 +108,18 @@ describe('ManagerSection', () => {
   })
 
   it('MGR-C40 names the missing package and installs it through the approved flow', async () => {
-    vi.mocked(window.pine.system.requirements).mockResolvedValue(missingSs(true))
+    vi.mocked(window.ostia.system.requirements).mockResolvedValue(missingSs(true))
     useWorkspacesStore.setState({ activeWorkspaceId: 'w1' })
     render(<ManagerSection />)
     const user = userEvent.setup()
     expect(await screen.findByText(/needs iproute2/)).toBeInTheDocument()
-    expect(window.pine.system.requirements).toHaveBeenCalledWith('manager')
+    expect(window.ostia.system.requirements).toHaveBeenCalledWith('manager')
     await user.click(screen.getByRole('button', { name: 'Install' }))
-    expect(window.pine.system.installRequirements).toHaveBeenCalledWith('manager', 'w1')
+    expect(window.ostia.system.installRequirements).toHaveBeenCalledWith('manager', 'w1')
   })
 
   it('MGR-C40 shows the command to copy when the install flow is unavailable', async () => {
-    vi.mocked(window.pine.system.requirements).mockResolvedValue(missingSs(false))
+    vi.mocked(window.ostia.system.requirements).mockResolvedValue(missingSs(false))
     render(<ManagerSection />)
     expect(await screen.findByText('sudo pacman -S --needed iproute2')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Install' })).toBeNull()
@@ -127,7 +127,7 @@ describe('ManagerSection', () => {
   })
 
   it('MGR-C40 shows nothing when ss is installed', async () => {
-    vi.mocked(window.pine.system.requirements).mockResolvedValue({
+    vi.mocked(window.ostia.system.requirements).mockResolvedValue({
       missing: [],
       hint: { command: null, packages: [] },
       canInstall: false,

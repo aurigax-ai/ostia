@@ -191,22 +191,22 @@ export function answerApproval(toolCallId: string, answer: ApprovalAnswer): void
 }
 
 export async function refreshSkills(): Promise<SkillSummary[]> {
-  const skills = await window.pine.chatTools.skills().catch(() => [] as SkillSummary[])
+  const skills = await window.ostia.chatTools.skills().catch(() => [] as SkillSummary[])
   useChatToolsStore.getState().setSkills(skills)
   return skills
 }
 
 export async function refreshMcp(): Promise<McpServerStatus[]> {
-  const mcp = await window.pine.chatTools.mcpRefresh().catch(() => [] as McpServerStatus[])
+  const mcp = await window.ostia.chatTools.mcpRefresh().catch(() => [] as McpServerStatus[])
   useChatToolsStore.getState().setMcp(mcp)
   return mcp
 }
 
 export function startChatTools(): () => void {
   const off =
-    window.pine?.chatTools?.onMcpStatus?.((mcp) => useChatToolsStore.getState().setMcp(mcp)) ??
+    window.ostia?.chatTools?.onMcpStatus?.((mcp) => useChatToolsStore.getState().setMcp(mcp)) ??
     (() => {})
-  void window.pine?.chatTools
+  void window.ostia?.chatTools
     ?.mcpStatus?.()
     .then((mcp) => useChatToolsStore.getState().setMcp(mcp))
     .catch(() => {})

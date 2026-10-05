@@ -4,7 +4,7 @@ import { allPanes, resetIds, tabsOfPane } from '../layout/tree'
 import { useEditorRevealStore } from '../stores/editorRevealStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
-import { PINE_PATH_MIME } from './dropPaths'
+import { OSTIA_PATH_MIME } from './dropPaths'
 import { FILE_DRAG_ATTRIBUTE, startFileDropTracking } from './fileDrop'
 import { PANE_DND } from './paneDrag'
 
@@ -21,7 +21,7 @@ function dragEvent(type: string, types: string[], files: DroppedFile[] = []): Dr
 }
 
 function admitAll(): void {
-  vi.mocked(window.pine.files.admitDropped).mockImplementation(async (files) =>
+  vi.mocked(window.ostia.files.admitDropped).mockImplementation(async (files) =>
     files.map(
       (file): OpenFileVerdict => ({ ok: true, path: (file as unknown as DroppedFile).path }),
     ),
@@ -123,7 +123,7 @@ describe('file drops', () => {
 
   it('leaves pane drags and file-tree rows to their own handlers', async () => {
     twoPaneWorkspace()
-    for (const types of [[PANE_DND], [PINE_PATH_MIME], ['text/plain']]) {
+    for (const types of [[PANE_DND], [OSTIA_PATH_MIME], ['text/plain']]) {
       const over = dragEvent('dragover', types)
       const drop = dragEvent('drop', types, [{ path: '/tmp/a.txt' }])
       document.body.dispatchEvent(over)
@@ -133,7 +133,7 @@ describe('file drops', () => {
       expect(document.documentElement.hasAttribute(FILE_DRAG_ATTRIBUTE)).toBe(false)
     }
     await settled()
-    expect(window.pine.files.admitDropped).not.toHaveBeenCalled()
+    expect(window.ostia.files.admitDropped).not.toHaveBeenCalled()
   })
 
   it('opens nothing when the terminal body already took the drop', async () => {
@@ -148,7 +148,7 @@ describe('file drops', () => {
     await settled()
 
     expect(over.dataTransfer?.dropEffect).toBe('none')
-    expect(window.pine.files.admitDropped).not.toHaveBeenCalled()
+    expect(window.ostia.files.admitDropped).not.toHaveBeenCalled()
     expect(editorPaths()).toEqual([])
   })
 
@@ -161,7 +161,7 @@ describe('file drops', () => {
     await settled()
 
     expect(drop.defaultPrevented).toBe(true)
-    expect(window.pine.files.admitDropped).toHaveBeenCalledWith(
+    expect(window.ostia.files.admitDropped).toHaveBeenCalledWith(
       [{ path: '/tmp/a.txt' }, { path: '/mnt/b.png' }],
       useWorkspacesStore.getState().activeWorkspaceId,
     )
@@ -189,14 +189,14 @@ describe('file drops', () => {
     document.body.dispatchEvent(dragEvent('drop', ['Files'], [{ path: '/tmp/a.txt' }]))
     await settled()
 
-    expect(window.pine.files.admitDropped).toHaveBeenCalledWith([{ path: '/tmp/a.txt' }], null)
+    expect(window.ostia.files.admitDropped).toHaveBeenCalledWith([{ path: '/tmp/a.txt' }], null)
     expect(useWorkspacesStore.getState().workspaces).toHaveLength(1)
     expect(editorPaths()).toEqual(['/tmp/a.txt'])
   })
 
   it('opens the path main returned and tells the human about what it refused', async () => {
     twoPaneWorkspace()
-    vi.mocked(window.pine.files.admitDropped).mockResolvedValue([
+    vi.mocked(window.ostia.files.admitDropped).mockResolvedValue([
       { ok: true, path: '/data/real.log' },
       { ok: false, path: '/tmp/folder', error: 'directory' },
     ])
@@ -207,7 +207,7 @@ describe('file drops', () => {
     await settled()
 
     expect(editorPaths()).toEqual(['/data/real.log'])
-    expect(window.pine.notifications.post).toHaveBeenCalledWith(
+    expect(window.ostia.notifications.post).toHaveBeenCalledWith(
       expect.objectContaining({
         kind: 'error',
         title: '/tmp/folder is a folder. Drop files to view them.',
@@ -218,7 +218,7 @@ describe('file drops', () => {
 
   it('opens no workspace when every dropped item is refused', async () => {
     const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
-    vi.mocked(window.pine.files.admitDropped).mockResolvedValue([
+    vi.mocked(window.ostia.files.admitDropped).mockResolvedValue([
       { ok: false, path: '/tmp/folder', error: 'directory' },
     ])
 

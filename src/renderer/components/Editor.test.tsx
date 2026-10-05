@@ -233,19 +233,19 @@ describe('EditorView', () => {
     useSettingsStore.setState({
       editor: { ...useSettingsStore.getState().editor, markdownPreview: true },
     })
-    vi.mocked(window.pine.fs.read).mockResolvedValue('# Title\n\nPreview body')
+    vi.mocked(window.ostia.fs.read).mockResolvedValue('# Title\n\nPreview body')
     const md = render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/README.md" />)
     expect(await screen.findByText('Preview body')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Edit Markdown source' })).toBeInTheDocument()
     md.unmount()
-    vi.mocked(window.pine.fs.read).mockResolvedValue('const a = 1')
+    vi.mocked(window.ostia.fs.read).mockResolvedValue('const a = 1')
     render(<EditorView workspaceId="w1" paneId="p2" filePath="/w/a.ts" />)
     await waitFor(() => expect(fake.state.model).not.toBeNull())
     expect(screen.queryByRole('button', { name: 'Edit Markdown source' })).toBeNull()
   })
 
   it('scrolls without smooth animation while motion is reduced', async () => {
-    vi.mocked(window.pine.fs.read).mockResolvedValue('text')
+    vi.mocked(window.ostia.fs.read).mockResolvedValue('text')
     act(() => useSettingsStore.getState().setMotion('reduced'))
     render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.txt" />)
     await waitFor(() => expect(fake.state.model).not.toBeNull())
@@ -256,14 +256,14 @@ describe('EditorView', () => {
   })
 
   it('does not overwrite a model with unsaved edits when the file is reopened', async () => {
-    vi.mocked(window.pine.fs.read).mockResolvedValue('disk v1')
+    vi.mocked(window.ostia.fs.read).mockResolvedValue('disk v1')
     const { rerender } = render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.txt" />)
     await waitFor(() => expect(fake.state.model?.getValue()).toBe('disk v1'))
 
     act(() => fake.state.model?.setValue('my edit'))
     expect(useEditorStatus.getState().dirty['/w/a.txt']).toBe(true)
 
-    vi.mocked(window.pine.fs.read).mockResolvedValue('disk v2')
+    vi.mocked(window.ostia.fs.read).mockResolvedValue('disk v2')
     rerender(<EditorView workspaceId="w1" paneId="p1" filePath="/w/b.txt" />)
     await waitFor(() => expect(fake.state.model?.uri.path).toBe('/w/b.txt'))
     rerender(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.txt" />)
@@ -274,11 +274,11 @@ describe('EditorView', () => {
   })
 
   it('refreshes a clean model from disk when the file is reopened', async () => {
-    vi.mocked(window.pine.fs.read).mockResolvedValue('disk v1')
+    vi.mocked(window.ostia.fs.read).mockResolvedValue('disk v1')
     const { rerender } = render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.txt" />)
     await waitFor(() => expect(fake.state.model?.getValue()).toBe('disk v1'))
 
-    vi.mocked(window.pine.fs.read).mockResolvedValue('disk v2')
+    vi.mocked(window.ostia.fs.read).mockResolvedValue('disk v2')
     rerender(<EditorView workspaceId="w1" paneId="p1" filePath="/w/b.txt" />)
     await waitFor(() => expect(fake.state.model?.uri.path).toBe('/w/b.txt'))
     rerender(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.txt" />)
@@ -288,8 +288,8 @@ describe('EditorView', () => {
   })
 
   it('keeps the file dirty and shows an error when the write fails', async () => {
-    vi.mocked(window.pine.fs.read).mockResolvedValue('text')
-    vi.mocked(window.pine.fs.write).mockResolvedValue(false)
+    vi.mocked(window.ostia.fs.read).mockResolvedValue('text')
+    vi.mocked(window.ostia.fs.write).mockResolvedValue(false)
     render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.txt" />)
     await waitFor(() => expect(fake.state.model).not.toBeNull())
     act(() => fake.state.model?.setValue('changed'))
@@ -301,7 +301,7 @@ describe('EditorView', () => {
   })
 
   it('clears the dirty flag after a successful save', async () => {
-    vi.mocked(window.pine.fs.read).mockResolvedValue('text')
+    vi.mocked(window.ostia.fs.read).mockResolvedValue('text')
     render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.txt" />)
     await waitFor(() => expect(fake.state.model).not.toBeNull())
     act(() => fake.state.model?.setValue('changed'))
@@ -309,11 +309,11 @@ describe('EditorView', () => {
     act(() => fake.state.save?.())
 
     await waitFor(() => expect(useEditorStatus.getState().dirty['/w/a.txt']).toBeUndefined())
-    expect(window.pine.fs.write).toHaveBeenCalledWith('/w/a.txt', 'changed')
+    expect(window.ostia.fs.write).toHaveBeenCalledWith('/w/a.txt', 'changed')
   })
 
   it('formats the document before writing when format on save is on', async () => {
-    vi.mocked(window.pine.fs.read).mockResolvedValue('text')
+    vi.mocked(window.ostia.fs.read).mockResolvedValue('text')
     useSettingsStore.getState().setEditor({ formatOnSave: true })
     render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.txt" />)
     await waitFor(() => expect(fake.state.model).not.toBeNull())
@@ -322,12 +322,12 @@ describe('EditorView', () => {
 
     act(() => fake.state.save?.())
 
-    await waitFor(() => expect(window.pine.fs.write).toHaveBeenCalledWith('/w/a.txt', 'formatted'))
+    await waitFor(() => expect(window.ostia.fs.write).toHaveBeenCalledWith('/w/a.txt', 'formatted'))
     await waitFor(() => expect(useEditorStatus.getState().dirty['/w/a.txt']).toBeUndefined())
   })
 
   it('just saves when format on save is on but no formatter exists', async () => {
-    vi.mocked(window.pine.fs.read).mockResolvedValue('text')
+    vi.mocked(window.ostia.fs.read).mockResolvedValue('text')
     useSettingsStore.getState().setEditor({ formatOnSave: true })
     render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.txt" />)
     await waitFor(() => expect(fake.state.model).not.toBeNull())
@@ -335,14 +335,14 @@ describe('EditorView', () => {
 
     act(() => fake.state.save?.())
 
-    await waitFor(() => expect(window.pine.fs.write).toHaveBeenCalledWith('/w/a.txt', 'changed'))
+    await waitFor(() => expect(window.ostia.fs.write).toHaveBeenCalledWith('/w/a.txt', 'changed'))
   })
 
   it('auto-saves one second after the last edit when auto save is afterDelay', async () => {
-    vi.mocked(window.pine.fs.read).mockResolvedValue('text')
+    vi.mocked(window.ostia.fs.read).mockResolvedValue('text')
     useSettingsStore.getState().setEditor({ autoSave: 'afterDelay' })
     const fileWrites = () =>
-      vi.mocked(window.pine.fs.write).mock.calls.filter(([path]) => path === '/w/a.txt')
+      vi.mocked(window.ostia.fs.write).mock.calls.filter(([path]) => path === '/w/a.txt')
     render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.txt" />)
     await waitFor(() => expect(fake.state.model).not.toBeNull())
     vi.useFakeTimers()
@@ -360,36 +360,36 @@ describe('EditorView', () => {
   })
 
   it('does not auto-save on a timer when auto save is off', async () => {
-    vi.mocked(window.pine.fs.read).mockResolvedValue('text')
+    vi.mocked(window.ostia.fs.read).mockResolvedValue('text')
     render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.txt" />)
     await waitFor(() => expect(fake.state.model).not.toBeNull())
     vi.useFakeTimers()
     try {
       act(() => fake.state.model?.setValue('one'))
       await vi.advanceTimersByTimeAsync(5000)
-      expect(window.pine.fs.write).not.toHaveBeenCalled()
+      expect(window.ostia.fs.write).not.toHaveBeenCalled()
     } finally {
       vi.useRealTimers()
     }
   })
 
   it('auto-saves a dirty file when the editor loses focus and auto save is onFocusChange', async () => {
-    vi.mocked(window.pine.fs.read).mockResolvedValue('text')
+    vi.mocked(window.ostia.fs.read).mockResolvedValue('text')
     useSettingsStore.getState().setEditor({ autoSave: 'onFocusChange' })
     render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.txt" />)
     await waitFor(() => expect(fake.state.model).not.toBeNull())
     act(() => fake.state.model?.setValue('changed'))
-    expect(window.pine.fs.write).not.toHaveBeenCalled()
+    expect(window.ostia.fs.write).not.toHaveBeenCalled()
 
     act(() => {
       for (const l of fake.state.blurListeners) l()
     })
 
-    await waitFor(() => expect(window.pine.fs.write).toHaveBeenCalledWith('/w/a.txt', 'changed'))
+    await waitFor(() => expect(window.ostia.fs.write).toHaveBeenCalledWith('/w/a.txt', 'changed'))
   })
 
   it('shows a binary-file message instead of opening a file containing NUL bytes', async () => {
-    vi.mocked(window.pine.fs.read).mockResolvedValue('PNG\0\0data')
+    vi.mocked(window.ostia.fs.read).mockResolvedValue('PNG\0\0data')
     render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/blob.bin" />)
 
     expect(await screen.findByText(/Binary file/)).toBeInTheDocument()
@@ -403,8 +403,8 @@ describe('EditorView', () => {
     beforeEach(() => {
       changed = null
       disk = 'disk v1'
-      vi.mocked(window.pine.fs.read).mockImplementation(async () => disk)
-      vi.mocked(window.pine.fs.onChanged).mockImplementation((cb) => {
+      vi.mocked(window.ostia.fs.read).mockImplementation(async () => disk)
+      vi.mocked(window.ostia.fs.onChanged).mockImplementation((cb) => {
         changed = cb
         return () => {
           changed = null
@@ -415,7 +415,7 @@ describe('EditorView', () => {
     async function open(): Promise<void> {
       render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.txt" />)
       await waitFor(() => expect(fake.state.model?.getValue()).toBe('disk v1'))
-      await waitFor(() => expect(window.pine.fs.watch).toHaveBeenCalledWith('/w/a.txt'))
+      await waitFor(() => expect(window.ostia.fs.watch).toHaveBeenCalledWith('/w/a.txt'))
     }
 
     async function diskChanges(next: string | null): Promise<void> {
@@ -491,12 +491,12 @@ describe('EditorView', () => {
       act(() => fake.state.model?.setValue('my edit'))
       await diskChanges('agent edit')
       await screen.findByRole('alert')
-      vi.mocked(window.pine.fs.write).mockClear()
+      vi.mocked(window.ostia.fs.write).mockClear()
       await act(async () => {
         for (const l of fake.state.blurListeners) l()
         await new Promise((r) => setTimeout(r, 0))
       })
-      expect(window.pine.fs.write).not.toHaveBeenCalled()
+      expect(window.ostia.fs.write).not.toHaveBeenCalled()
     })
 
     it('ERL-C10 brings the bar back when the disk changes again after Keep mine', async () => {
@@ -513,28 +513,28 @@ describe('EditorView', () => {
       await open()
       act(() => fake.state.model?.setValue('my edit'))
       disk = 'agent edit'
-      vi.mocked(window.pine.fs.write).mockClear()
+      vi.mocked(window.ostia.fs.write).mockClear()
       await act(async () => {
         fake.state.save?.()
         await new Promise((r) => setTimeout(r, 0))
       })
-      expect(window.pine.fs.write).not.toHaveBeenCalled()
+      expect(window.ostia.fs.write).not.toHaveBeenCalled()
       for (const name of ['Overwrite', 'Compare', 'Cancel']) {
         expect(await screen.findByRole('button', { name })).toBeInTheDocument()
       }
       await userEvent.click(screen.getByRole('button', { name: 'Overwrite' }))
-      await waitFor(() => expect(window.pine.fs.write).toHaveBeenCalledWith('/w/a.txt', 'my edit'))
+      await waitFor(() => expect(window.ostia.fs.write).toHaveBeenCalledWith('/w/a.txt', 'my edit'))
     })
 
     it('ERL-C12 saves straight away when the disk still holds what was loaded', async () => {
       await open()
       act(() => fake.state.model?.setValue('my edit'))
-      vi.mocked(window.pine.fs.write).mockClear()
+      vi.mocked(window.ostia.fs.write).mockClear()
       await act(async () => {
         fake.state.save?.()
         await new Promise((r) => setTimeout(r, 0))
       })
-      await waitFor(() => expect(window.pine.fs.write).toHaveBeenCalledWith('/w/a.txt', 'my edit'))
+      await waitFor(() => expect(window.ostia.fs.write).toHaveBeenCalledWith('/w/a.txt', 'my edit'))
       expect(screen.queryByRole('alert')).toBeNull()
     })
 
@@ -543,12 +543,12 @@ describe('EditorView', () => {
       await diskChanges(null)
       expect(await screen.findByRole('alert')).toHaveTextContent('Deleted on disk')
       expect(fake.state.model?.getValue()).toBe('disk v1')
-      vi.mocked(window.pine.fs.write).mockClear()
+      vi.mocked(window.ostia.fs.write).mockClear()
       await act(async () => {
         fake.state.save?.()
         await new Promise((r) => setTimeout(r, 0))
       })
-      await waitFor(() => expect(window.pine.fs.write).toHaveBeenCalledWith('/w/a.txt', 'disk v1'))
+      await waitFor(() => expect(window.ostia.fs.write).toHaveBeenCalledWith('/w/a.txt', 'disk v1'))
     })
 
     it('ERL-C19 highlights the lines a reload changed, then removes the highlight', async () => {
@@ -620,17 +620,17 @@ describe('EditorView → Open in External Editor', () => {
   })
 
   it('opens the file at the cursor with the configured template', async () => {
-    vi.mocked(window.pine.fs.read).mockResolvedValue('text')
+    vi.mocked(window.ostia.fs.read).mockResolvedValue('text')
     render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a b.ts" />)
     await waitFor(() => expect(fake.state.model).not.toBeNull())
     fake.state.position = { lineNumber: 12, column: 5 }
 
-    const action = fake.state.actions.find((a) => a.id === 'pine.openExternal')
+    const action = fake.state.actions.find((a) => a.id === 'ostia.openExternal')
     expect(action?.label).toBe('Open in External Editor')
     act(() => action?.run())
 
     await waitFor(() =>
-      expect(window.pine.externalEditor.open).toHaveBeenCalledWith({
+      expect(window.ostia.externalEditor.open).toHaveBeenCalledWith({
         template: 'auto',
         file: '/w/a b.ts',
         line: 12,
@@ -640,8 +640,8 @@ describe('EditorView → Open in External Editor', () => {
   })
 
   it('tells the user how to configure an editor when none is found', async () => {
-    vi.mocked(window.pine.fs.read).mockResolvedValue('text')
-    vi.mocked(window.pine.externalEditor.open).mockResolvedValue({ ok: false, error: 'no-editor' })
+    vi.mocked(window.ostia.fs.read).mockResolvedValue('text')
+    vi.mocked(window.ostia.externalEditor.open).mockResolvedValue({ ok: false, error: 'no-editor' })
     render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.ts" />)
     await waitFor(() => expect(fake.state.model).not.toBeNull())
 
@@ -655,9 +655,9 @@ describe('EditorView → Send Selection to Agent', () => {
   let unseed: () => void
   beforeEach(() => {
     unseed = seedSendTarget('w1')
-    vi.mocked(window.pine.selection.send).mockResolvedValue({
+    vi.mocked(window.ostia.selection.send).mockResolvedValue({
       ok: true,
-      path: '/tmp/pine-reports-1/selection-1.md',
+      path: '/tmp/ostia-reports-1/selection-1.md',
       imagePath: null,
     })
   })
@@ -680,7 +680,7 @@ describe('EditorView → Send Selection to Agent', () => {
   }
 
   it('reports the selected lines for the workspace’s chat, and clears them when the selection ends', async () => {
-    vi.mocked(window.pine.fs.read).mockResolvedValue('one\ntwo\nthree')
+    vi.mocked(window.ostia.fs.read).mockResolvedValue('one\ntwo\nthree')
     render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/src/a.ts" />)
     await waitFor(() => expect(fake.state.model).not.toBeNull())
     const reported = () => useLiveSelectionStore.getState().byWorkspace.w1
@@ -703,7 +703,7 @@ describe('EditorView → Send Selection to Agent', () => {
   it('runs an app chord pressed in the editor and keeps the editor from seeing it', async () => {
     const ran = vi.fn()
     commands.register({ id: 'palette.toggle', title: 'Palette', run: ran })
-    vi.mocked(window.pine.fs.read).mockResolvedValue('one')
+    vi.mocked(window.ostia.fs.read).mockResolvedValue('one')
     render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/src/a.ts" />)
     await waitFor(() => expect(fake.state.model).not.toBeNull())
     const stopPropagation = vi.fn()
@@ -715,12 +715,12 @@ describe('EditorView → Send Selection to Agent', () => {
   })
 
   it('adds a context-menu action that opens the send panel with the file and range', async () => {
-    vi.mocked(window.pine.fs.read).mockResolvedValue('one\ntwo\nthree')
+    vi.mocked(window.ostia.fs.read).mockResolvedValue('one\ntwo\nthree')
     render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/src/a.ts" />)
     await waitFor(() => expect(fake.state.model).not.toBeNull())
     select(2, 1, 3, 6)
 
-    const action = fake.state.actions.find((a) => a.id === 'pine.sendSelection')
+    const action = fake.state.actions.find((a) => a.id === 'ostia.sendSelection')
     expect(action?.label).toBe('Send Selection to Agent')
     act(() => action?.run())
 
@@ -731,7 +731,7 @@ describe('EditorView → Send Selection to Agent', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Send' }))
 
     await waitFor(() =>
-      expect(window.pine.selection.send).toHaveBeenCalledWith({
+      expect(window.ostia.selection.send).toHaveBeenCalledWith({
         capture: {
           kind: 'text',
           file: '/w/src/a.ts',
@@ -749,7 +749,7 @@ describe('EditorView → Send Selection to Agent', () => {
   })
 
   it('answers the palette command for its pane and says so when nothing is selected', async () => {
-    vi.mocked(window.pine.fs.read).mockResolvedValue('text')
+    vi.mocked(window.ostia.fs.read).mockResolvedValue('text')
     render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.ts" />)
     await waitFor(() => expect(fake.state.model).not.toBeNull())
 
@@ -762,7 +762,7 @@ describe('EditorView → Send Selection to Agent', () => {
   })
 
   it('sends the Markdown preview selection with its source lines', async () => {
-    vi.mocked(window.pine.fs.read).mockResolvedValue('# Title\n\nBody text here')
+    vi.mocked(window.ostia.fs.read).mockResolvedValue('# Title\n\nBody text here')
     render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/README.md" />)
     await waitFor(() => expect(fake.state.model).not.toBeNull())
     await userEvent.click(screen.getByRole('button', { name: 'Preview Markdown' }))
@@ -780,7 +780,7 @@ describe('EditorView → Send Selection to Agent', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Send' }))
 
     await waitFor(() =>
-      expect(window.pine.selection.send).toHaveBeenCalledWith(
+      expect(window.ostia.selection.send).toHaveBeenCalledWith(
         expect.objectContaining({
           capture: {
             kind: 'text',

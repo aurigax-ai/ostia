@@ -106,7 +106,7 @@ async function dispatchDrag(
   await page.evaluate(
     ({ selector, type, init }) => {
       const dataTransfer = new DataTransfer()
-      dataTransfer.setData('application/x-pine-pane', init.paneId)
+      dataTransfer.setData('application/x-ostia-pane', init.paneId)
       const target = document.querySelector(selector)
       target?.dispatchEvent(
         new DragEvent(type, { bubbles: true, cancelable: true, dataTransfer, ...init }),
@@ -251,7 +251,7 @@ test('an agent in a detached pane asks for approval in its own window', async ()
       timeout: 15_000,
     })
 
-    await typeInTerminal(detached, 'pine settings set sidebar.showSSH false && echo APPROVED-RUN')
+    await typeInTerminal(detached, 'ostia settings set sidebar.showSSH false && echo APPROVED-RUN')
 
     const card = detached.getByRole('region', { name: 'Agent permission request' })
     await expect(card).toBeVisible({ timeout: 20_000 })
@@ -368,7 +368,7 @@ test('dropping a detached pane onto the main window moves it there and closes th
 
     const highlighted = await win.evaluate((paneId) => {
       const dataTransfer = new DataTransfer()
-      dataTransfer.setData('application/x-pine-pane', paneId)
+      dataTransfer.setData('application/x-ostia-pane', paneId)
       const frame = () => new Promise((resolve) => requestAnimationFrame(resolve))
       document.body.dispatchEvent(new DragEvent('dragenter', { bubbles: true, dataTransfer }))
       return frame()
@@ -420,7 +420,7 @@ test('closing a detached window while the main window is in the tray keeps it th
     await expect(win.locator('.xterm')).toHaveCount(2, { timeout: 15_000 })
     const detached = await movePaneOut(app, win, 1)
     await expect(detached.locator('.xterm')).toHaveCount(1, { timeout: 15_000 })
-    await win.evaluate(() => window.pine.window.close())
+    await win.evaluate(() => window.ostia.window.close())
     await expect.poll(() => visibleWindows(app).then((v) => v.sort())).toEqual([false, true])
 
     const closed = detached.waitForEvent('close')

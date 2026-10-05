@@ -27,7 +27,7 @@ test('MGR-C1 closing the window with close-to-tray on hides it and the shell kee
   try {
     await win.keyboard.type('sleep 2; echo after_hide_$((40+2))')
     await win.keyboard.press('Enter')
-    await win.evaluate(() => window.pine.window.close())
+    await win.evaluate(() => window.ostia.window.close())
 
     await expect
       .poll(() =>
@@ -49,8 +49,8 @@ test('MGR-C1 closing the window with close-to-tray on hides it and the shell kee
   }
 })
 
-test('MGR-C2 closing the window with close-to-tray off quits Pine', async () => {
+test('MGR-C2 closing the window with close-to-tray off quits Ostia', async () => {
   test.setTimeout(60_000)
   const { app, win } = await launch(false)
-  await Promise.all([app.waitForEvent('close'), win.evaluate(() => window.pine.window.close())])
+  await Promise.all([app.waitForEvent('close'), win.evaluate(() => window.ostia.window.close())])
 })

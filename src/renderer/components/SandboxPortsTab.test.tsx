@@ -5,10 +5,10 @@ import { describe, expect, it, vi } from 'vitest'
 import { SandboxPortsTab } from './SandboxPortsTab'
 
 async function exposeFails(error: string): Promise<void> {
-  vi.mocked(window.pine.sandbox.ports).mockResolvedValue([
+  vi.mocked(window.ostia.sandbox.ports).mockResolvedValue([
     { port: 5173, process: 'node', exposed: false },
   ])
-  vi.mocked(window.pine.sandbox.expose).mockResolvedValue({ ok: false, error })
+  vi.mocked(window.ostia.sandbox.expose).mockResolvedValue({ ok: false, error })
   render(<SandboxPortsTab workspaceId="ws" />)
   await userEvent.click(await screen.findByRole('button', { name: 'Expose' }))
 }
@@ -19,7 +19,7 @@ describe('SandboxPortsTab', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Port 5173 cannot be exposed while Unix sockets are off for this sandbox. Allow Unix sockets, then restart its terminals.',
     )
-    expect(window.pine.sandbox.expose).toHaveBeenCalledWith('ws', 5173)
+    expect(window.ostia.sandbox.expose).toHaveBeenCalledWith('ws', 5173)
   })
 
   it('names the reason when the port is taken on this computer', async () => {

@@ -60,7 +60,7 @@ function parentOf(path: string): string {
 }
 
 function openDefault(workspaceId: string, path: string): void {
-  void window.pine.openPath.openDefault(path).then((res) => {
+  void window.ostia.openPath.openDefault(path).then((res) => {
     if (res.ok) return
     const d = currentDict()
     reportFileProblem(
@@ -72,16 +72,18 @@ function openDefault(workspaceId: string, path: string): void {
 
 function openExternal(workspaceId: string, path: string): void {
   const template = useSettingsStore.getState().behavior.externalEditor
-  void window.pine.externalEditor.open({ template, file: path, line: 1, column: 1 }).then((res) => {
-    const d = currentDict()
-    if (res.ok) return
-    reportFileProblem(
-      workspaceId,
-      res.error === 'no-editor'
-        ? d.editor.externalNoEditor
-        : fmt(d.editor.externalFailed, { error: externalEditorError(res) ?? '' }),
-    )
-  })
+  void window.ostia.externalEditor
+    .open({ template, file: path, line: 1, column: 1 })
+    .then((res) => {
+      const d = currentDict()
+      if (res.ok) return
+      reportFileProblem(
+        workspaceId,
+        res.error === 'no-editor'
+          ? d.editor.externalNoEditor
+          : fmt(d.editor.externalFailed, { error: externalEditorError(res) ?? '' }),
+      )
+    })
 }
 
 export interface TreeVisibility {
@@ -93,13 +95,13 @@ export function FileMenuItems({
   workspaceId,
   path,
   dir = false,
-  inPine = false,
+  inOstia = false,
   visibility,
 }: {
   workspaceId: string
   path: string
   dir?: boolean
-  inPine?: boolean
+  inOstia?: boolean
   visibility?: TreeVisibility
 }): JSX.Element {
   const d = useDict()
@@ -114,7 +116,7 @@ export function FileMenuItems({
     <>
       {dir ? null : (
         <>
-          {inPine ? null : (
+          {inOstia ? null : (
             <MenuItem icon={FileIcon} onClick={() => openFileInWorkspace(path)}>
               {d.fileMenu.open}
             </MenuItem>
@@ -139,7 +141,7 @@ export function FileMenuItems({
       >
         {d.fileMenu.openTerminal}
       </MenuItem>
-      <MenuItem icon={FolderOpenIcon} onClick={() => void window.pine.openPath.reveal(path)}>
+      <MenuItem icon={FolderOpenIcon} onClick={() => void window.ostia.openPath.reveal(path)}>
         {d.fileMenu.reveal}
       </MenuItem>
       {visibility ? (

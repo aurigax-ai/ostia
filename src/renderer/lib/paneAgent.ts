@@ -51,7 +51,7 @@ export function startAgentDetection(): () => void {
   }
   const check = async (paneId: string, blockId: string): Promise<void> => {
     if (useBlocksStore.getState().running[paneId] !== blockId) return
-    const name = await window.pine.pty.foreground(paneId).catch(() => null)
+    const name = await window.ostia.pty.foreground(paneId).catch(() => null)
     if (!isResumableAgent(name) || useBlocksStore.getState().running[paneId] !== blockId) return
     useBlocksStore.getState().markAgent(paneId, name)
     cancel(paneId)

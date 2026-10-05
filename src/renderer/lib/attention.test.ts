@@ -51,7 +51,7 @@ describe('reduceAttention', () => {
     expect(reduceAttention(prev, { type: 'set', state: 'done', at }).message).toBeUndefined()
   })
 
-  it('turns a terminal notification into waiting + unread, or only unread for pine notify', () => {
+  it('turns a terminal notification into waiting + unread, or only unread for ostia notify', () => {
     const osc = reduceAttention(pane(), { type: 'notify', message: 'm', waiting: true, at })
     expect(osc).toMatchObject({ state: 'waiting', unread: true, message: 'm' })
     const cli = reduceAttention(pane({ state: 'working' }), {

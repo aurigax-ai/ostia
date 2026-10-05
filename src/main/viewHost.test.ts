@@ -55,7 +55,7 @@ async function until<T>(read: () => T | undefined, timeoutMs = 5000): Promise<T>
 }
 
 beforeEach(() => {
-  base = mkdtempSync(join(tmpdir(), 'pine-views-'))
+  base = mkdtempSync(join(tmpdir(), 'ostia-views-'))
   dir = join(base, 'views')
   mkdirSync(dir)
   storePath = join(base, 'views.json')
@@ -157,7 +157,7 @@ describe('ViewHost', () => {
   })
 })
 
-describe('pine skill', () => {
+describe('ostia skill', () => {
   it('teaches a view example that validates', () => {
     const skill = readFileSync(join(__dirname, 'agent', 'ostia-skill.md'), 'utf8')
     const section = skill.slice(skill.indexOf('## Views'))

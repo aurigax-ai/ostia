@@ -2,8 +2,8 @@ import { isEqual } from 'es-toolkit'
 import {
   type CommandHandler,
   type ExtensionSettingValues,
+  type OstiaExtension,
   type PaneChipValue,
-  type PineExtension,
   type WorkspaceChipValue,
   cliArgs,
   connect,
@@ -44,7 +44,7 @@ class PortsExtension {
   private pollMs = DEFAULT_POLL_SECONDS * 1000
   private host: PortHost = 'localhost'
 
-  constructor(private readonly ext: PineExtension) {}
+  constructor(private readonly ext: OstiaExtension) {}
 
   configure(values: ExtensionSettingValues): void {
     this.pollMs =

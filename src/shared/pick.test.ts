@@ -37,7 +37,7 @@ const extras = (over: Partial<CaptureExtras> = {}): CaptureExtras => ({
   id: 'pick-1',
   consoleErrors: [],
   failedRequests: [],
-  screenshotPath: '/tmp/pine-reports-1000/pick-1.png',
+  screenshotPath: '/tmp/ostia-reports-1000/pick-1.png',
   capturedAt: new Date('2026-09-28T10:00:00Z'),
   ...over,
 })
@@ -128,9 +128,9 @@ describe('renderPickReport', () => {
     expect(md).toContain('- Selector: `[data-testid="pay"]`')
     expect(md).toContain('Checkout — http://localhost:5173/checkout')
     expect(md).toContain(
-      '- Screenshot: /tmp/pine-reports-1000/pick-1.png (the element and up to 16 CSS px around it)',
+      '- Screenshot: /tmp/ostia-reports-1000/pick-1.png (the element and up to 16 CSS px around it)',
     )
-    expect(md).toContain('## Screenshot\n\n![Captured element](/tmp/pine-reports-1000/pick-1.png)')
+    expect(md).toContain('## Screenshot\n\n![Captured element](/tmp/ostia-reports-1000/pick-1.png)')
     expect(md).toContain('- display: inline-block')
     expect(md).toContain('```html\n<button data-testid="pay" class="primary">Pay</button>\n```')
   })
@@ -172,7 +172,7 @@ describe('pickBusMessage', () => {
     expect(msg).toEqual({
       kind: 'capture',
       report: '/tmp/r/capture-1.md',
-      image: '/tmp/pine-reports-1000/pick-1.png',
+      image: '/tmp/ostia-reports-1000/pick-1.png',
       url: 'http://localhost:5173/checkout',
       selector: '[data-testid="pay"]',
       note: 'fix it',
@@ -182,8 +182,8 @@ describe('pickBusMessage', () => {
 
 describe('reportReference', () => {
   it('prefixes @ and ends with a space so the user can keep typing', () => {
-    expect(reportReference('/tmp/pine-reports-1000/capture-3.md')).toBe(
-      '@/tmp/pine-reports-1000/capture-3.md ',
+    expect(reportReference('/tmp/ostia-reports-1000/capture-3.md')).toBe(
+      '@/tmp/ostia-reports-1000/capture-3.md ',
     )
   })
 

@@ -26,7 +26,7 @@ export function restoreFile(
   content: string | null,
   check = false,
 ): Promise<ChatFsResult<ChatRestoreOutput>> {
-  return window.pine.chatTools
+  return window.ostia.chatTools
     .restore({
       path: edit.path,
       root: edit.root,

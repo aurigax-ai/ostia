@@ -137,7 +137,7 @@ test('a recorded notification runs the configured command with its placeholders 
     await openWorkspace(win)
 
     await win.evaluate(() =>
-      window.pine.notifications.post({
+      window.ostia.notifications.post({
         paneId: 'pane-x',
         title: 'Build',
         body: 'all; green',

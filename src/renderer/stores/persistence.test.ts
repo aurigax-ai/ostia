@@ -11,7 +11,7 @@ import {
 import { useSettingsStore } from './settingsStore'
 import { useWorkspacesStore } from './workspacesStore'
 
-const save = () => vi.mocked(window.pine.workspace.save)
+const save = () => vi.mocked(window.ostia.workspace.save)
 const lastSnapshot = (): AppSnapshot => {
   const calls = save().mock.calls.filter((c) => c[0] !== null)
   const snapshot = calls.at(-1)?.[0]
@@ -76,7 +76,7 @@ describe('workspace autosave', () => {
       const kept = activeSid()
       useWorkspacesStore
         .getState()
-        .addWorkspace('/tmp/pine-scratch-1000/1-aaaaaaaaaaaa', 'end', 'scratch')
+        .addWorkspace('/tmp/ostia-scratch-1000/1-aaaaaaaaaaaa', 'end', 'scratch')
       const scratch = activeSid()
       useLayoutStore.getState().ensure(scratch)
 

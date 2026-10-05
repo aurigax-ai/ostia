@@ -85,7 +85,7 @@ describe('managerAgentKind', () => {
 
 describe('manager plugin', () => {
   it('MGR-C28 holds the manager skill, the picked skills and the hooks; MGR-C36 skips a folder without SKILL.md', () => {
-    dir = mkdtempSync(join(tmpdir(), 'pine-mgr-plugin-'))
+    dir = mkdtempSync(join(tmpdir(), 'ostia-mgr-plugin-'))
     const review = skill(join(dir, 'user-skills'), 'review')
     const noSkill = join(dir, 'user-skills', 'empty')
     mkdirSync(noSkill, { recursive: true })
@@ -105,7 +105,7 @@ describe('manager plugin', () => {
   })
 
   it('MGR-C28 rewrites the plugin so a skill the human removed is gone', () => {
-    dir = mkdtempSync(join(tmpdir(), 'pine-mgr-plugin-'))
+    dir = mkdtempSync(join(tmpdir(), 'ostia-mgr-plugin-'))
     const review = skill(dir, 'review')
     const plugin = join(dir, 'plugin')
     writeManagerClaudePlugin(plugin, [review])
@@ -114,7 +114,7 @@ describe('manager plugin', () => {
   })
 
   it('never carries extension skills or hooks, even while the worker plugin has them', () => {
-    dir = mkdtempSync(join(tmpdir(), 'pine-mgr-plugin-'))
+    dir = mkdtempSync(join(tmpdir(), 'ostia-mgr-plugin-'))
     setAgentPlugins({
       skills: [
         {
@@ -137,7 +137,7 @@ describe('manager plugin', () => {
   })
 
   it('MGR-C28 the worker plugin never carries the manager skill', () => {
-    dir = mkdtempSync(join(tmpdir(), 'pine-worker-plugin-'))
+    dir = mkdtempSync(join(tmpdir(), 'ostia-worker-plugin-'))
     writeClaudePlugin(dir)
     expect(existsSync(join(dir, 'skills', MANAGER_SKILL_NAME))).toBe(false)
     expect(readFileSync(join(dir, 'skills', 'ostia', 'SKILL.md'), 'utf8')).not.toContain(
@@ -146,7 +146,7 @@ describe('manager plugin', () => {
   })
 
   it('MGR-C28 the codex context names the manager guide and the picked skills', () => {
-    dir = mkdtempSync(join(tmpdir(), 'pine-mgr-codex-'))
+    dir = mkdtempSync(join(tmpdir(), 'ostia-mgr-codex-'))
     const review = skill(dir, 'review')
     const context = readFileSync(writeManagerCodexContext(join(dir, 'codex'), [review]), 'utf8')
     expect(context).toContain(join(dir, 'codex', 'SKILL.md'))
@@ -154,7 +154,7 @@ describe('manager plugin', () => {
   })
 
   it('MGR-C36 skips a picked skill whose name clashes with one already taken', () => {
-    dir = mkdtempSync(join(tmpdir(), 'pine-mgr-clash-'))
+    dir = mkdtempSync(join(tmpdir(), 'ostia-mgr-clash-'))
     const a = skill(join(dir, 'a'), 'review')
     const b = skill(join(dir, 'b'), 'review')
     const clash = skill(dir, MANAGER_SKILL_NAME)

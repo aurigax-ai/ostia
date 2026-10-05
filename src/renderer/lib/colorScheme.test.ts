@@ -32,19 +32,19 @@ describe('schemeForTheme', () => {
 })
 
 describe('resolveScheme', () => {
-  it('follows the Pine theme while linked', () => {
+  it('follows the Ostia theme while linked', () => {
     expect(resolveScheme(schemes, 'match', theme('dracula'))).toBe(scheme('dracula'))
     expect(resolveScheme(schemes, 'match', theme('ostia-light'))).toBe(scheme('ostia-light'))
     expect(resolveScheme(schemes, 'pine-light', theme('adeberry'))).toBe(scheme('ostia-light'))
   })
 
-  it('keeps an unlinked pick whatever the Pine theme is', () => {
+  it('keeps an unlinked pick whatever the Ostia theme is', () => {
     for (const t of themes) {
       expect(resolveScheme(schemes, 'catppuccin-mocha', t)).toBe(scheme('catppuccin-mocha'))
     }
   })
 
-  it('falls back to the Pine theme scheme for an unknown id', () => {
+  it('falls back to the Ostia theme scheme for an unknown id', () => {
     expect(resolveScheme(schemes, 'no-such-scheme', theme('oxocarbon'))).toBe(scheme('oxocarbon'))
   })
 

@@ -9,7 +9,7 @@ test('a browser tab shows why a page failed, then loads a page as plain Chrome a
   const server = createServer((req, res) => {
     agents.push(req.headers['user-agent'] ?? '')
     res.setHeader('content-type', 'text/html')
-    res.end('<title>Pine test page</title><h1>hello pine</h1>')
+    res.end('<title>Ostia test page</title><h1>hello ostia</h1>')
   })
   await new Promise<void>((ready) => server.listen(0, '127.0.0.1', ready))
   const { port } = server.address() as AddressInfo
@@ -34,7 +34,7 @@ test('a browser tab shows why a page failed, then loads a page as plain Chrome a
     await address.fill(`http://127.0.0.1:${port}/`)
     await address.press('Enter')
     await expect(error).toHaveCount(0, { timeout: 15_000 })
-    await expect(win.getByRole('tab', { name: /Pine test page/ })).toBeVisible({ timeout: 15_000 })
+    await expect(win.getByRole('tab', { name: /Ostia test page/ })).toBeVisible({ timeout: 15_000 })
     expect(agents[0]).toMatch(/Chrome\/\d+/)
     expect(agents[0]).not.toMatch(/Electron|pine/i)
   } finally {

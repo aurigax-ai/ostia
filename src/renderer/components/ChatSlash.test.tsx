@@ -53,11 +53,11 @@ interface Pending {
 function captureRequests(): { pending: Pending[]; chunk: (chunk: object) => void } {
   const pending: Pending[] = []
   const listeners = new Set<(c: AssistChunk) => void>()
-  vi.mocked(window.pine.assist.onChunk).mockImplementation((cb) => {
+  vi.mocked(window.ostia.assist.onChunk).mockImplementation((cb) => {
     listeners.add(cb)
     return () => listeners.delete(cb)
   })
-  vi.mocked(window.pine.assist.request).mockImplementation(
+  vi.mocked(window.ostia.assist.request).mockImplementation(
     (_point, requestId, input) =>
       new Promise((resolve) => {
         pending.push({ requestId, input, resolve: resolve as (value: unknown) => void })
@@ -111,8 +111,8 @@ describe('chat slash commands', () => {
   beforeEach(() => {
     seedWorkspace()
     useAssistStore.setState({ availability: { chat: CHAT } })
-    vi.mocked(window.pine.chatSessions.list).mockResolvedValue([])
-    vi.mocked(window.pine.chatSessions.save).mockImplementation(async (session) => ({
+    vi.mocked(window.ostia.chatSessions.list).mockResolvedValue([])
+    vi.mocked(window.ostia.chatSessions.save).mockImplementation(async (session) => ({
       ok: true,
       summary: { ...session, messageCount: session.messages.length },
       trimmedMessages: 0,
@@ -147,12 +147,12 @@ describe('chat slash commands', () => {
     })
     useWorkspacesStore.setState({ workspaces: [], activeWorkspaceId: null })
     useLayoutStore.setState({ byWorkspace: {} })
-    vi.mocked(window.pine.assist.request).mockReset()
-    vi.mocked(window.pine.chatSessions.save).mockReset()
-    vi.mocked(window.pine.chatSessions.list).mockReset()
-    vi.mocked(window.pine.chatSessions.rename).mockClear()
-    vi.mocked(window.pine.chatSessions.remove).mockClear()
-    vi.mocked(window.pine.chatTools.skills).mockResolvedValue([])
+    vi.mocked(window.ostia.assist.request).mockReset()
+    vi.mocked(window.ostia.chatSessions.save).mockReset()
+    vi.mocked(window.ostia.chatSessions.list).mockReset()
+    vi.mocked(window.ostia.chatSessions.rename).mockClear()
+    vi.mocked(window.ostia.chatSessions.remove).mockClear()
+    vi.mocked(window.ostia.chatTools.skills).mockResolvedValue([])
   })
 
   it('opens a command list on "/" that filters as you type and points the box at the active option', async () => {
@@ -262,7 +262,7 @@ describe('chat slash commands', () => {
 
     await waitFor(() => expect(screen.queryByText('Hello there.')).not.toBeInTheDocument())
     const sessionId = useChatStore.getState().current.w1
-    expect(window.pine.chatSessions.remove).toHaveBeenCalledWith(sessionId)
+    expect(window.ostia.chatSessions.remove).toHaveBeenCalledWith(sessionId)
     expect(pending).toHaveLength(1)
   })
 
@@ -276,18 +276,18 @@ describe('chat slash commands', () => {
     const dialog = await screen.findByRole('dialog', { name: 'Clear this chat?' })
     await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
     expect(screen.getByText('Still here.')).toBeInTheDocument()
-    expect(window.pine.chatSessions.remove).not.toHaveBeenCalled()
+    expect(window.ostia.chatSessions.remove).not.toHaveBeenCalled()
   })
 
   it('/rename asks for the title, then renames the chat', async () => {
-    vi.mocked(window.pine.chatSessions.rename).mockResolvedValue(null)
+    vi.mocked(window.ostia.chatSessions.rename).mockResolvedValue(null)
     const box = await openPane()
     await userEvent.type(box, '/ren{Enter}')
     expect(box).toHaveValue('/rename ')
     await userEvent.type(box, 'Release plan{Enter}')
 
     const sessionId = useChatStore.getState().current.w1
-    expect(window.pine.chatSessions.rename).toHaveBeenCalledWith(sessionId, 'Release plan')
+    expect(window.ostia.chatSessions.rename).toHaveBeenCalledWith(sessionId, 'Release plan')
     expect(useChatStore.getState().meta[sessionId].title).toBe('Release plan')
     expect(screen.getByText('Renamed to “Release plan”.')).toBeInTheDocument()
     expect(box).toHaveValue('')
@@ -305,7 +305,7 @@ describe('chat slash commands', () => {
         chatModel: null,
       },
     })
-    vi.mocked(window.pine.chatTools.skills).mockResolvedValue([
+    vi.mocked(window.ostia.chatTools.skills).mockResolvedValue([
       { name: 'pdf', description: 'Read and fill PDFs', path: '/home/u/skills/pdf/SKILL.md' },
       {
         name: 'release-notes',
@@ -390,7 +390,7 @@ describe('chat slash commands', () => {
   })
 
   it('/sessions completes saved chats and opens the chosen one', async () => {
-    vi.mocked(window.pine.chatSessions.list).mockResolvedValue([
+    vi.mocked(window.ostia.chatSessions.list).mockResolvedValue([
       {
         id: 's-ports',
         workspaceId: 'w2',
@@ -400,7 +400,7 @@ describe('chat slash commands', () => {
         messageCount: 2,
       },
     ])
-    vi.mocked(window.pine.chatSessions.get).mockResolvedValue({
+    vi.mocked(window.ostia.chatSessions.get).mockResolvedValue({
       id: 's-ports',
       workspaceId: 'w2',
       title: 'Ports on linux',

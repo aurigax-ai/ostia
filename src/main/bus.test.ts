@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ControlMethod, ControlMethodContext } from './controlServer'
 
-const dataHome = mkdtempSync(join(tmpdir(), 'pine-bus-'))
+const dataHome = mkdtempSync(join(tmpdir(), 'ostia-bus-'))
 process.env.XDG_DATA_HOME = dataHome
 
 const methods = new Map<string, ControlMethod>()
@@ -234,7 +234,7 @@ describe('bus seen marks', () => {
   })
 })
 
-describe('messages Pine sends on the human’s action', () => {
+describe('messages Ostia sends on the human’s action', () => {
   it('reach the inbox without an unread mark, hook context or a sent record', () => {
     postBusMessage(sender.externalId, receiver.externalId, '{"kind":"capture"}')
     expect(announce).not.toHaveBeenCalled()

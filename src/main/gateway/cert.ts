@@ -41,7 +41,7 @@ export async function getCert(baseDirOverride?: string): Promise<GatewayCert> {
     chmodSync(keyPath, 0o600)
     result = { cert, key, fingerprint: fingerprintOf(cert) }
   } else {
-    const pems = await generate([{ name: 'commonName', value: 'pine-gateway' }], {
+    const pems = await generate([{ name: 'commonName', value: 'ostia-gateway' }], {
       keySize: 2048,
       algorithm: 'sha256',
       notAfterDate: new Date(Date.now() + CERT_LIFETIME_MS),

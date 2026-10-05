@@ -179,8 +179,8 @@ describe('DashboardPanel', () => {
     open()
     const card = screen.getByRole('region', { name: 'Agent permission request' })
     await userEvent.setup().click(within(card).getByRole('button', { name: 'Allow once' }))
-    expect(window.pine.approvals.answer).toHaveBeenCalledWith('approval-1', 'once')
-    expect(window.pine.questions.answer).not.toHaveBeenCalled()
+    expect(window.ostia.approvals.answer).toHaveBeenCalledWith('approval-1', 'once')
+    expect(window.ostia.questions.answer).not.toHaveBeenCalled()
   })
 
   it('focuses the first pending question when it opens', () => {
@@ -347,7 +347,7 @@ describe('DashboardPanel', () => {
     await user.type(within(composer).getByLabelText('Message'), 'continue')
     await user.click(within(composer).getByRole('button', { name: 'Send' }))
     expect(term.paste).toHaveBeenCalledWith('continue')
-    await waitFor(() => expect(window.pine.pty.write).toHaveBeenCalledWith('p-api', '\r'))
+    await waitFor(() => expect(window.ostia.pty.write).toHaveBeenCalledWith('p-api', '\r'))
 
     await user.click(within(agents).getByRole('button'))
     expect(useWorkspacesStore.getState().activeWorkspaceId).toBe('w-api')
@@ -382,7 +382,7 @@ describe('DashboardPanel', () => {
     expect(row).toHaveTextContent('In another window')
     expect(row).toHaveTextContent('Working')
     await userEvent.setup().click(screen.getByRole('button', { name: 'Open workspace infra' }))
-    expect(window.pine.windows.focusWorkspace).toHaveBeenCalledWith('w-far', false)
+    expect(window.ostia.windows.focusWorkspace).toHaveBeenCalledWith('w-far', false)
   })
 
   it('closes on Escape and from its close button', async () => {

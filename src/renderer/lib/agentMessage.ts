@@ -18,7 +18,7 @@ export function sendToAgent(paneId: string, text: string): boolean {
   if (!term || !text || !canMessageAgent(paneId)) return false
   term.paste(text)
   setTimeout(() => {
-    if (canMessageAgent(paneId)) window.pine.pty.write(paneId, '\r')
+    if (canMessageAgent(paneId)) window.ostia.pty.write(paneId, '\r')
   }, ENTER_AFTER_PASTE_MS)
   return true
 }

@@ -11,7 +11,7 @@ import { SandboxHost } from './hostClient'
 import { buildSrtConfig } from './srtConfig'
 
 const repoRoot = process.cwd()
-const hostScript = join(repoRoot, 'node_modules/.cache/pine-test/sandbox-host-dns.mjs')
+const hostScript = join(repoRoot, 'node_modules/.cache/ostia-test/sandbox-host-dns.mjs')
 
 let root: string
 let workDir: string
@@ -31,7 +31,7 @@ beforeAll(async () => {
   server = createServer((_req, res) => res.end('HOST-LOOPBACK-SERVICE'))
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
   port = (server.address() as AddressInfo).port
-  root = realpathSync(mkdtempSync(join(tmpdir(), 'pine-dns-')))
+  root = realpathSync(mkdtempSync(join(tmpdir(), 'ostia-dns-')))
   workDir = join(root, 'home', 'proj')
   mkdirSync(workDir, { recursive: true })
   host = new SandboxHost({ nodePath: process.execPath, hostScript, onAsk: async () => false })
@@ -43,7 +43,7 @@ beforeAll(async () => {
         workDir,
         tmpDir: join(root, 'tmp'),
         dataDirs: [],
-        socketPath: join(root, 'pine.sock'),
+        socketPath: join(root, 'ostia.sock'),
         runtimeReads: [],
       },
     ),

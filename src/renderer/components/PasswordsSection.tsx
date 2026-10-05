@@ -40,13 +40,13 @@ export function PasswordsSection(): JSX.Element {
   const [removing, setRemoving] = useState<CredentialSummary | null>(null)
 
   const reload = useCallback(() => {
-    void window.pine.credentials.list().then(setList)
+    void window.ostia.credentials.list().then(setList)
   }, [])
   useEffect(() => reload(), [reload])
 
   const add = async (e: FormEvent): Promise<void> => {
     e.preventDefault()
-    const res = await window.pine.credentials.save({ origin, username, password })
+    const res = await window.ostia.credentials.save({ origin, username, password })
     if (res.ok) {
       setOrigin('')
       setUsername('')
@@ -84,7 +84,7 @@ export function PasswordsSection(): JSX.Element {
                   icon={CopyIcon}
                   label={fmt(d.passwords.copy, { origin: c.origin })}
                   onClick={() =>
-                    void window.pine.credentials
+                    void window.ostia.credentials
                       .copyPassword(c.id)
                       .then((ok) =>
                         setStatus(ok ? d.passwords.copied : d.passwords.encryptionUnavailable),
@@ -106,7 +106,7 @@ export function PasswordsSection(): JSX.Element {
             variant="outline"
             size="sm"
             onClick={() =>
-              void window.pine.credentials.import().then((res) => {
+              void window.ostia.credentials.import().then((res) => {
                 const message = importMessage(d, res)
                 if (message) setStatus(message)
                 if (res.ok) reload()
@@ -187,7 +187,7 @@ export function PasswordsSection(): JSX.Element {
               onClick={() => {
                 const target = removing
                 setRemoving(null)
-                if (target) void window.pine.credentials.remove(target.id).then(reload)
+                if (target) void window.ostia.credentials.remove(target.id).then(reload)
               }}
             >
               {d.passwords.removeConfirm}

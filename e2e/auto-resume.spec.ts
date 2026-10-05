@@ -188,7 +188,7 @@ async function waitForExit(app: ElectronApplication): Promise<void> {
 }
 
 async function quitAndWait(app: ElectronApplication, win: Page): Promise<void> {
-  await Promise.all([waitForExit(app), win.evaluate(() => window.pine.window.quit())])
+  await Promise.all([waitForExit(app), win.evaluate(() => window.ostia.window.quit())])
 }
 
 async function expectAutoResumed(dataHome: string): Promise<void> {
@@ -203,7 +203,7 @@ async function expectAutoResumed(dataHome: string): Promise<void> {
   }
 }
 
-test('an agent running when the human quits Pine resumes after the restart', async () => {
+test('an agent running when the human quits Ostia resumes after the restart', async () => {
   const dataHome = freshDataHome()
   seedSettings(dataHome, AUTO_RESUME_SETTINGS)
   const { app, win } = await launchAgentApp(dataHome)
@@ -221,7 +221,7 @@ test('an agent running when the window closes with close-to-tray off resumes aft
   })
   const { app, win } = await launchAgentApp(dataHome)
   await startResumableAgent(dataHome, win)
-  await Promise.all([waitForExit(app), win.evaluate(() => window.pine.window.close())])
+  await Promise.all([waitForExit(app), win.evaluate(() => window.ostia.window.close())])
   expect(agentRunningSaved(dataHome)).toBe(true)
   await expectAutoResumed(dataHome)
 })
@@ -243,18 +243,18 @@ test('an agent running when the main process gets SIGTERM resumes after the rest
   await expectAutoResumed(dataHome)
 })
 
-test('an agent whose shell Pine reaped resumes after the restart, whatever the renderer saves', async () => {
+test('an agent whose shell Ostia reaped resumes after the restart, whatever the renderer saves', async () => {
   const dataHome = freshDataHome()
   seedSettings(dataHome, AUTO_RESUME_SETTINGS)
   const { app, win } = await launchAgentApp(dataHome)
   const paneId = await startResumableAgent(dataHome, win)
   const snapshot = JSON.parse(readFileSync(join(dataHome, 'ostia', 'workspaces.json'), 'utf8'))
-  await win.evaluate((id) => window.pine.pty.detach(id), paneId)
+  await win.evaluate((id) => window.ostia.pty.detach(id), paneId)
   await win.waitForTimeout(4_000)
   const withoutAgent = JSON.parse(
     JSON.stringify(snapshot, (key, value) => (key === 'agentRunning' ? undefined : value)),
   )
-  await win.evaluate((s) => window.pine.workspace.save(s), withoutAgent)
+  await win.evaluate((s) => window.ostia.workspace.save(s), withoutAgent)
   await win.waitForTimeout(500)
   expect(agentRunningSaved(dataHome)).toBe(true)
   app.process().kill('SIGKILL')

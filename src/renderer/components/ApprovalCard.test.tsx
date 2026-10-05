@@ -16,7 +16,7 @@ const REQUEST: ApprovalRequest = {
 
 describe('ApprovalCard', () => {
   afterEach(() => {
-    vi.mocked(window.pine.approvals.answer).mockClear()
+    vi.mocked(window.ostia.approvals.answer).mockClear()
     useApprovalsStore.setState({ pending: [], history: [] })
   })
 
@@ -26,9 +26,9 @@ describe('ApprovalCard', () => {
     expect(screen.getByText(/claude wants to type commands into terminals/)).toBeTruthy()
     expect(screen.getByText('Resume Agent')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Allow for this pane' }))
-    expect(window.pine.approvals.answer).toHaveBeenCalledWith('approval-1', 'session')
+    expect(window.ostia.approvals.answer).toHaveBeenCalledWith('approval-1', 'session')
     fireEvent.click(screen.getByRole('button', { name: 'Deny' }))
-    expect(window.pine.approvals.answer).toHaveBeenCalledWith('approval-1', 'deny')
+    expect(window.ostia.approvals.answer).toHaveBeenCalledWith('approval-1', 'deny')
   })
 
   it('offers no session grant for destructive requests', () => {

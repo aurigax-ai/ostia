@@ -48,7 +48,7 @@ async function openDashboard(win: Page, waiting: number): Promise<void> {
   await expect(dashboard(win)).toBeVisible()
 }
 
-test('pine ask with choices waits, shows on the dashboard and prints the choice and comment', async () => {
+test('ostia ask with choices waits, shows on the dashboard and prints the choice and comment', async () => {
   test.setTimeout(120_000)
   const { app, win } = await launch()
   try {
@@ -58,7 +58,7 @@ test('pine ask with choices waits, shows on the dashboard and prints the choice 
 
     await run(
       win,
-      'pine ask "Which database should the migration target?" --context "Adding the refunds table. Staging has last week\'s data." --choice staging --choice production; echo "ASK-EXIT:$?"',
+      'ostia ask "Which database should the migration target?" --context "Adding the refunds table. Staging has last week\'s data." --choice staging --choice production; echo "ASK-EXIT:$?"',
     )
 
     const notice = win.getByRole('region', { name: 'Agent asks' })
@@ -98,7 +98,7 @@ test('pine ask with choices waits, shows on the dashboard and prints the choice 
       win.locator('.rail-row').getByRole('img', { name: 'Waiting for input' }),
     ).toHaveCount(0)
 
-    await run(win, 'pine ask "Continue with the deploy?"; echo "ASK-EXIT:$?"')
+    await run(win, 'ostia ask "Continue with the deploy?"; echo "ASK-EXIT:$?"')
     await expect(notice).toBeVisible({ timeout: 20_000 })
     await notice.getByRole('button', { name: 'Answer' }).click()
     await expect(questionCard(win)).toContainText('Continue with the deploy?')
@@ -113,13 +113,13 @@ test('pine ask with choices waits, shows on the dashboard and prints the choice 
   }
 })
 
-test('pine ask takes a free-text reply and several choices with a comment', async () => {
+test('ostia ask takes a free-text reply and several choices with a comment', async () => {
   test.setTimeout(120_000)
   const { app, win } = await launch()
   try {
     const rows = win.locator('.xterm-rows').first()
 
-    await run(win, 'pine ask "What should the release note say?"; echo "ASK-EXIT:$?"')
+    await run(win, 'ostia ask "What should the release note say?"; echo "ASK-EXIT:$?"')
     await openDashboard(win, 1)
     const card = questionCard(win)
     await expect(card.getByRole('radio')).toHaveCount(0)
@@ -133,7 +133,7 @@ test('pine ask takes a free-text reply and several choices with a comment', asyn
 
     await run(
       win,
-      'clear; pine ask "Which checks?" --choice lint --choice unit --choice e2e --multi --json; echo "ASK-EXIT:$?"',
+      'clear; ostia ask "Which checks?" --choice lint --choice unit --choice e2e --multi --json; echo "ASK-EXIT:$?"',
     )
     await expect(
       win.locator('.topbar').getByRole('button', { name: 'Dashboard, 1 waiting for you' }),

@@ -99,9 +99,9 @@ describe('TopBar', () => {
     expect(scratch).toMatchObject({
       kind: 'scratch',
       customName: expect.stringMatching(/^[a-z]+-[a-z]+$/),
-      workDir: '/tmp/pine-scratch-1000/1-aaaaaaaaaaaa',
+      workDir: '/tmp/ostia-scratch-1000/1-aaaaaaaaaaaa',
     })
-    expect(window.pine.sandbox.setEnabled).not.toHaveBeenCalled()
+    expect(window.ostia.sandbox.setEnabled).not.toHaveBeenCalled()
 
     await user.click(screen.getByRole('button', { name: 'More ways to start a workspace' }))
     await user.click(
@@ -111,7 +111,7 @@ describe('TopBar', () => {
     const second = useWorkspacesStore.getState().workspaces.find((w) => w.id !== scratch.id)
     expect(second?.customName).toMatch(/^[a-z]+-[a-z]+$/)
     expect(second?.customName).not.toBe(scratch.customName)
-    expect(window.pine.sandbox.setEnabled).toHaveBeenCalledWith(second?.id, true)
+    expect(window.ostia.sandbox.setEnabled).toHaveBeenCalledWith(second?.id, true)
   })
 
   it('puts New workspace first and Settings in the right zone before the bell', () => {

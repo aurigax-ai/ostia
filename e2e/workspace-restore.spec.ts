@@ -288,7 +288,7 @@ test('restores tabs and offers to resume the agent a tab was running', async () 
     const term = first.win.locator('.pane-slot:not([data-hidden]) .xterm')
     await term.click()
     await waitForTerminalFocus(first.win)
-    await first.win.keyboard.type('pine resume-token claude ffe55127-cb1f-4efd')
+    await first.win.keyboard.type('ostia resume-token claude ffe55127-cb1f-4efd')
     await first.win.keyboard.press('Enter')
     await expect(first.win.getByRole('button', { name: /Resume claude/ })).toBeVisible({
       timeout: 15_000,
