@@ -74,7 +74,7 @@ function seed(kind: PaneNode['kind'] = 'terminal'): void {
   })
 }
 
-function setChips(chips: string[], style: 'shell' | 'pine' = 'pine'): void {
+function setChips(chips: string[], style: 'shell' | 'ostia' = 'ostia'): void {
   useSettingsStore.setState((s) => ({
     terminal: { ...s.terminal, prompt: { ...s.terminal.prompt, chips, style } },
   }))
@@ -210,12 +210,12 @@ describe('PromptSection', () => {
     await userEvent.click(
       await screen.findByRole('option', { name: `${PRODUCT_DISPLAY_NAME} prompt` }),
     )
-    expect(saved().style).toBe('pine')
+    expect(saved().style).toBe('ostia')
     await userEvent.click(screen.getByRole('switch', { name: 'Same line prompt' }))
     expect(saved().sameLine).toBe(true)
     await userEvent.click(screen.getByRole('combobox', { name: 'Separator' }))
     await userEvent.click(await screen.findByRole('option', { name: '>' }))
-    expect(saved()).toEqual({ style: 'pine', chips: ['cwd'], sameLine: true, separator: '>' })
+    expect(saved()).toEqual({ style: 'ostia', chips: ['cwd'], sameLine: true, separator: '>' })
   })
 
   it('keeps the chip editor under the shell prompt and says when it applies', async () => {
@@ -232,13 +232,13 @@ describe('PromptSection', () => {
     useSettingsStore.setState((s) => ({
       terminal: {
         ...s.terminal,
-        prompt: { style: 'pine', chips: ['host'], sameLine: true, separator: '$' },
+        prompt: { style: 'ostia', chips: ['host'], sameLine: true, separator: '$' },
       },
     }))
     render(<PromptSection />)
     await userEvent.click(screen.getByRole('button', { name: 'Restore' }))
     expect(saved()).toEqual({
-      style: 'pine',
+      style: 'ostia',
       chips: [...DEFAULT_PROMPT_CHIPS],
       sameLine: false,
       separator: 'none',

@@ -83,7 +83,7 @@ test('an unlinked terminal theme changes the terminal colors while the pine them
 
 for (const [theme, expected] of [
   ['adeberry', { fill: 'rgb(242, 179, 71)', ink: 'rgb(29, 32, 34)' }],
-  ['pine-light', { fill: null, ink: 'rgb(246, 247, 249)' }],
+  ['ostia-light', { fill: null, ink: 'rgb(246, 247, 249)' }],
 ] as const) {
   test(`a custom accent drives buttons, tab underline and working dot on ${theme}`, async () => {
     const { app, win } = await launch({ appearance: { theme, accent: '#f2b347' } })

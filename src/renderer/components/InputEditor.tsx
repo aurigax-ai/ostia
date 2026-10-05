@@ -274,14 +274,14 @@ export function InputEditor({
   const vimEnabled = useSettingsStore((s) => s.behavior.inputEditorVim)
   const historySuggestionsOn = useSettingsStore((s) => s.behavior.historySuggestions)
   const prompt = useSettingsStore((s) => s.terminal.prompt)
-  const pinePrompt = prompt.style === 'pine'
+  const pinePrompt = prompt.style === 'ostia'
   const catalog = useChipCatalog()
   const { chips } = usePromptChips(paneId, cwd, prompt.chips, visible && pinePrompt)
   const geo = usePromptGeometry(
     termRef,
     hostRef,
     visible,
-    pinePrompt ? 'pine' : 'shell',
+    pinePrompt ? 'ostia' : 'shell',
     prompt.sameLine,
   )
   const promptLine = useBlocksStore((s) => s.drafts[paneId]?.promptLine)

@@ -12,9 +12,9 @@ import {
   isAgentHookEvent,
 } from '../shared/agentPlugins'
 import { dualEnv, shellEnv } from '../shared/appEnv'
-import { LEGACY_PRODUCT_NAME, PRODUCT_NAME } from '../shared/product'
+import { PRODUCT_NAME } from '../shared/product'
 import { type PromptSeparator, isPromptSeparator } from '../shared/promptSettings'
-import pineSkill from './agent/pine-skill.md?raw'
+import agentSkill from './agent/ostia-skill.md?raw'
 import {
   type AgentPluginContent,
   type ExtensionAgentHook,
@@ -33,8 +33,8 @@ const SHELL_STATE_FILE = shellEnv('SHELL_STATE')
 
 const BASH_B_MARK = String.raw`\[\e]133;B\e\\\]`
 
-const ZSH_INIT = `# Pine shell integration for zsh (generated — safe to delete; regenerated on launch).
-# Emits OSC 133 prompt/command marks + OSC 7 cwd reports so Pine can render command blocks
+const ZSH_INIT = `# Ostia shell integration for zsh (generated — safe to delete; regenerated on launch).
+# Emits OSC 133 prompt/command marks + OSC 7 cwd reports so Ostia can render command blocks
 # and follow "cd" without polling /proc.
 if [ -n "$OSTIA_SHELL_INTEGRATION" ]; then return; fi
 OSTIA_SHELL_INTEGRATION=1
@@ -74,7 +74,7 @@ typeset -gi __pine_prompt_on=0
 typeset -gi __pine_prompt_torn=0
 typeset -g __pine_prompt_tail=' '
 typeset -g __pine_prompt_text=''
-if [[ "$OSTIA_PROMPT" == pine ]]; then
+if [[ "$OSTIA_PROMPT" == ostia ]]; then
   __pine_prompt_on=1
   case "$OSTIA_PROMPT_SEPARATOR" in
     '%') __pine_prompt_tail=' %% ' ;;
@@ -94,7 +94,7 @@ if [[ -n "$OSTIA_HISTFILE" ]]; then
 fi
 unset OSTIA_HISTFILE
 
-# Pine prompt: the input editor draws the context, so the shell line is only "cwd sep". This
+# Ostia prompt: the input editor draws the context, so the shell line is only "cwd sep". This
 # file loads after the user's rc; powerlevel10k rebuilds PROMPT in its own last precmd, so it is
 # torn down once, here at load, before its first precmd runs its full (slow) initialization.
 __pine_apply_prompt() {
@@ -146,8 +146,8 @@ if [ -n "${CLI_PATH}" ]; then
 fi
 `
 
-const BASH_INIT = `# Pine shell integration for bash (generated — safe to delete; regenerated on launch).
-# Emits OSC 133 prompt/command marks + OSC 7 cwd reports so Pine can render command blocks
+const BASH_INIT = `# Ostia shell integration for bash (generated — safe to delete; regenerated on launch).
+# Emits OSC 133 prompt/command marks + OSC 7 cwd reports so Ostia can render command blocks
 # and follow cd without polling /proc.
 if [ -n "$OSTIA_SHELL_INTEGRATION" ]; then return; fi
 OSTIA_SHELL_INTEGRATION=1
@@ -245,7 +245,7 @@ __pine_report_shell() {
 __pine_prompt_on=0
 __pine_prompt_tail=' '
 __pine_prompt_text=''
-if [ "$OSTIA_PROMPT" = pine ]; then
+if [ "$OSTIA_PROMPT" = ostia ]; then
   __pine_prompt_on=1
   case "$OSTIA_PROMPT_SEPARATOR" in
     '%'|'$'|'>') __pine_prompt_tail=" $OSTIA_PROMPT_SEPARATOR " ;;
@@ -278,7 +278,7 @@ __pine_prompt_command() {
     [ -n "$__pine_cmd" ] && eval "$__pine_cmd"
   done
   __pine_report_shell
-  # Pine prompt: after the user's PROMPT_COMMAND, so a framework's PS1 becomes only "cwd sep".
+  # Ostia prompt: after the user's PROMPT_COMMAND, so a framework's PS1 becomes only "cwd sep".
   [ "$__pine_prompt_on" = 1 ] && PS1="$__pine_prompt_text"
   # Append the (zero-width) prompt-end mark AFTER the user's PROMPT_COMMAND has run — prompt
   # frameworks (starship, powerline, git-prompt) rebuild PS1 there, which would otherwise wipe
@@ -342,7 +342,7 @@ export function claudeHookSettings(extensionHooks: readonly ExtensionAgentHook[]
   return { hooks }
 }
 
-export const AGENT_SKILL_NAME = LEGACY_PRODUCT_NAME
+export const AGENT_SKILL_NAME = PRODUCT_NAME
 
 export const CLAUDE_PLUGIN_MANIFEST = {
   name: AGENT_SKILL_NAME,
@@ -372,14 +372,14 @@ export function writeClaudePlugin(
     `${JSON.stringify(claudeHookSettings(content.hooks), null, 2)}\n`,
     'utf8',
   )
-  writeFileSync(join(dir, 'skills', AGENT_SKILL_NAME, 'SKILL.md'), pineSkill, 'utf8')
+  writeFileSync(join(dir, 'skills', AGENT_SKILL_NAME, 'SKILL.md'), agentSkill, 'utf8')
   for (const skill of content.skills) writeSkillFiles(join(dir, 'skills', skill.id), skill)
 }
 
 export function claudeWrapper(): string {
   return [
     '',
-    '# Run claude with the Pine plugin (CLI skill, extension skills and hooks, resume token,',
+    '# Run claude with the Ostia plugin (CLI skill, extension skills and hooks, resume token,',
     '# attention hooks). `command claude` skips it.',
     `if [ -n "${CLI_PATH}" ] && [ -z "${shellEnv(AGENT_HOOKS_OFF_ENV.claude)}" ]; then`,
     '  claude() {',
@@ -572,7 +572,7 @@ export function writeCodexIntegration(
   mkdirSync(dir, { recursive: true })
   const skillFile = join(finalDir, 'SKILL.md')
   const contextFile = join(finalDir, 'session-context.md')
-  writeFileSync(join(dir, 'SKILL.md'), pineSkill, 'utf8')
+  writeFileSync(join(dir, 'SKILL.md'), agentSkill, 'utf8')
   const skills = content.skills.map((skill) => {
     writeSkillFiles(join(dir, 'skills', skill.id), skill)
     return {
@@ -593,7 +593,7 @@ export function writeCodexIntegration(
 export function codexWrapper(): string {
   return [
     '',
-    '# Run interactive codex sessions with the Pine hooks (resume token, attention state, CLI',
+    '# Run interactive codex sessions with the Ostia hooks (resume token, attention state, CLI',
     '# context, extension hooks). Other subcommands run untouched; `command codex` skips it.',
     '__pine_codex_starts_session() {',
     '  local __pine_skip= __pine_arg',
@@ -632,7 +632,7 @@ export function codexWrapper(): string {
 export function agentPluginDigest(content: AgentPluginContent): string {
   const hash = createHash('sha256')
   hash.update(JSON.stringify({ version, hooks: content.hooks }))
-  hash.update(pineSkill)
+  hash.update(agentSkill)
   for (const skill of content.skills) {
     hash.update(JSON.stringify({ id: skill.id, description: skill.description }))
     for (const file of skill.files) {
@@ -696,7 +696,7 @@ function ensureFiles(): IntegrationPaths {
   writeFileSync(
     zshenv,
     [
-      '# Pine shell integration (generated). Load the real .zshenv; ZDOTDIR is restored to',
+      '# Ostia shell integration (generated). Load the real .zshenv; ZDOTDIR is restored to',
       '# OSTIA_ZDOTDIR_ORIG at the end of .zshrc below, once our hooks are installed.',
       '[ -n "$OSTIA_ZDOTDIR_ORIG" ] && [ -f "$OSTIA_ZDOTDIR_ORIG/.zshenv" ] && source "$OSTIA_ZDOTDIR_ORIG/.zshenv"',
       '# If the real .zshenv redirected ZDOTDIR, remember its target as the effective dotdir',
@@ -710,11 +710,11 @@ function ensureFiles(): IntegrationPaths {
   writeFileSync(
     zshRc,
     [
-      '# Pine shell integration (generated). Load the real .zshrc, add our hooks, then',
+      '# Ostia shell integration (generated). Load the real .zshrc, add our hooks, then',
       '# restore ZDOTDIR so nested/child zsh invocations see a normal environment.',
-      '# With the Pine prompt, powerlevel10k must not start its instant prompt: its prompt never',
+      '# With the Ostia prompt, powerlevel10k must not start its instant prompt: its prompt never',
       '# draws, so it would hold the shell output and delete its own caches at exit.',
-      '[ "$OSTIA_PROMPT" = pine ] && typeset -g POWERLEVEL9K_INSTANT_PROMPT=off',
+      '[ "$OSTIA_PROMPT" = ostia ] && typeset -g POWERLEVEL9K_INSTANT_PROMPT=off',
       '[ -n "$OSTIA_ZDOTDIR_ORIG" ] && [ -f "$OSTIA_ZDOTDIR_ORIG/.zshrc" ] && source "$OSTIA_ZDOTDIR_ORIG/.zshrc"',
       `source "${zshInit}"`,
       'ZDOTDIR="$OSTIA_ZDOTDIR_ORIG"',
@@ -728,7 +728,7 @@ function ensureFiles(): IntegrationPaths {
   writeFileSync(
     bashRc,
     [
-      '# Pine shell integration (generated). Load the real ~/.bashrc, then add our hooks.',
+      '# Ostia shell integration (generated). Load the real ~/.bashrc, then add our hooks.',
       '[ -f "$HOME/.bashrc" ] && source "$HOME/.bashrc"',
       `source "${bashInit}"`,
       '',
@@ -748,7 +748,7 @@ export interface PinePromptOption {
 function promptEnv(option: PinePromptOption | null): Record<string, string> {
   if (!option || !isPromptSeparator(option.separator)) return {}
   return {
-    OSTIA_PROMPT: 'pine',
+    OSTIA_PROMPT: 'ostia',
     OSTIA_PROMPT_SEPARATOR: option.separator,
     OSTIA_PROMPT_LINES: option.sameLine === true ? '1' : '2',
   }

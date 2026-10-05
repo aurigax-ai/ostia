@@ -524,7 +524,7 @@ describe('FilesView', () => {
     )
 
     act(() => {
-      useSettingsStore.getState().setFiles({ iconTheme: 'pine' })
+      useSettingsStore.getState().setFiles({ iconTheme: 'ostia' })
     })
     expect(row.querySelector('img')).toBeNull()
     expect(row.querySelector('svg.file-icon')).not.toBeNull()
