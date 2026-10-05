@@ -17,11 +17,11 @@ import { ExtensionHost, registerExtensionMethods } from '../main/extensionHost'
 import { ExtensionStore } from '../main/extensionStore'
 import { type PaneIdentity, registerPane } from '../main/idRegistry'
 import {
-  INTEGRATION_DIR,
   codexHookKey,
   codexHookTrustHash,
   extensionHookCommand,
   setAgentPlugins,
+  shellIntegrationDir,
   shellIntegrationSpawnOptions,
 } from '../main/shellIntegration'
 import type { CommandResult } from '../shared/types'
@@ -121,7 +121,7 @@ describe('extension agent skills and hooks reach a fake agent (real CLI, real so
   }
 
   function inPane(script: string): Promise<RunResult> {
-    const bashInit = join(INTEGRATION_DIR, 'init.bash')
+    const bashInit = join(shellIntegrationDir(), 'init.bash')
     return run('bash', ['--norc', '-c', `source '${bashInit}'; ${script}`], paneEnv())
   }
 
