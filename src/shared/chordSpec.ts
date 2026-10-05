@@ -235,7 +235,7 @@ export function specFromEvent(e: KeyLike): ChordSpec | null {
 
 export function stealsTerminalKey(spec: ChordSpec, mac: boolean): ChordProblem | null {
   if (spec.key === 'escape') return 'escape'
-  if (spec.key === 'tab') return 'tab'
+  if (spec.key === 'tab') return spec.ctrl && !spec.alt && !spec.meta ? null : 'tab'
   if (!spec.ctrl && !spec.shift && !spec.alt && !spec.meta) return 'bare'
   if (mac) return spec.meta ? null : 'needs-modifier'
   if (!spec.ctrl && !spec.meta) return 'needs-modifier'

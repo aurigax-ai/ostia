@@ -1,5 +1,5 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import { createPane } from '../layout/tree'
+import { createPane, splitOf, tabsOf } from '../layout/tree'
 import * as blockActions from '../lib/blockActions'
 import * as closeConfirm from '../lib/closeConfirm'
 import { useAttentionStore } from '../stores/attentionStore'
@@ -9,6 +9,7 @@ import { useEditorStatus } from '../stores/editorStatusStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useSandboxStore } from '../stores/sandboxStore'
 import { useSettingsStore } from '../stores/settingsStore'
+import * as surfaceSlots from '../stores/surfaceSlotsStore'
 import { useUIStore } from '../stores/uiStore'
 import { useUpdateStore } from '../stores/updateStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
@@ -623,6 +624,60 @@ describe('builtins route to store actions', () => {
     useLayoutStore.getState().zoomPane('s1', right.id, true)
     await commands.execWith(ctx('s1', right.id), 'pane.focusLeft')
     expect(useLayoutStore.getState().byWorkspace.s1.activePaneId).toBe(right.id)
+  })
+
+  it('cycles the tabs of the caller’s pane with tab.next and tab.previous', async () => {
+    const a = createPane()
+    const b = createPane()
+    const c = createPane()
+    useLayoutStore.setState({
+      byWorkspace: { s1: { root: tabsOf(a.id, a, b, c), activePaneId: a.id, zoomedPaneId: null } },
+    })
+    const shown = () => {
+      const { root, activePaneId } = useLayoutStore.getState().byWorkspace.s1
+      return [activePaneId, root.type === 'tabs' ? root.activeId : null]
+    }
+    await commands.execWith(ctx('s1', a.id), 'tab.next')
+    expect(shown()).toEqual([b.id, b.id])
+    await commands.execWith(ctx('s1', b.id), 'tab.previous')
+    expect(shown()).toEqual([a.id, a.id])
+    await commands.execWith(ctx('s1', a.id), 'tab.previous')
+    expect(shown()).toEqual([c.id, c.id])
+  })
+
+  it('moves keyboard focus into the tab it shows, and not while a pane is zoomed', async () => {
+    const a = createPane()
+    const b = createPane()
+    useLayoutStore.setState({
+      byWorkspace: { s1: { root: tabsOf(a.id, a, b), activePaneId: a.id, zoomedPaneId: null } },
+    })
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+      cb(0)
+      return 0
+    })
+    const focusSurface = vi.spyOn(surfaceSlots, 'focusSurface').mockImplementation(() => {})
+    await commands.execWith(ctx('s1', a.id), 'tab.next')
+    expect(focusSurface).toHaveBeenCalledWith(b.id)
+
+    focusSurface.mockClear()
+    useLayoutStore.getState().zoomPane('s1', b.id, true)
+    await commands.execWith(ctx('s1', b.id), 'tab.next')
+    expect(useLayoutStore.getState().byWorkspace.s1.activePaneId).toBe(b.id)
+    expect(focusSurface).not.toHaveBeenCalled()
+  })
+
+  it('leaves focus alone when the caller’s pane has no other tabs', async () => {
+    const left = createPane()
+    const right = createPane()
+    useLayoutStore.setState({
+      byWorkspace: {
+        s1: { root: splitOf('horizontal', left, right), activePaneId: left.id, zoomedPaneId: null },
+      },
+    })
+    const focusPane = vi.spyOn(useLayoutStore.getState(), 'focusPane')
+    await commands.execWith(ctx('s1', left.id), 'tab.next')
+    await commands.execWith(ctx(null, left.id), 'tab.previous')
+    expect(focusPane).not.toHaveBeenCalled()
   })
 
   it('routes pane.move to layout.movePane with source, target, and zone', async () => {
