@@ -714,6 +714,93 @@ describe('parseManifest — icon themes', () => {
   })
 })
 
+describe('parseManifest — keymaps', () => {
+  const noMain = { id: 'keys', name: 'Keys', version: '1', api: '1.0' }
+  const keymap = { id: 'cmux', label: 'macOS (cmux)', path: 'keymaps/cmux.json' }
+  const keymaps = (list: unknown) =>
+    parseManifest({ ...noMain, contributes: { keymaps: list } }, DIR)
+
+  it('accepts keymaps without a main process or capabilities, keeping a platform', () => {
+    const res = keymaps([keymap, { ...keymap, id: 'cmux-mac', platform: 'darwin' }])
+    if (!res.ok) throw new Error(res.error)
+    expect(res.manifest.main).toBeUndefined()
+    expect(res.manifest.capabilities).toEqual([])
+    expect(res.manifest.contributes.keymaps).toEqual([
+      keymap,
+      { ...keymap, id: 'cmux-mac', platform: 'darwin' },
+    ])
+  })
+
+  it('omits keymaps when none are declared', () => {
+    const res = parseManifest(noMain, DIR)
+    if (!res.ok) throw new Error(res.error)
+    expect(res.manifest.contributes.keymaps).toBeUndefined()
+  })
+
+  it('rejects a path outside the extension or not a .json file', () => {
+    for (const path of [
+      '../cmux.json',
+      '/abs/cmux.json',
+      'keymaps/../../cmux.json',
+      'cmux.js',
+      5,
+    ]) {
+      expect(keymaps([{ ...keymap, path }]), String(path)).toEqual({
+        ok: false,
+        error: 'contributes.keymaps[0]: path must be a .json file inside the extension',
+      })
+    }
+  })
+
+  it('rejects more than 8 keymaps or a list that is not an array', () => {
+    const many = Array.from({ length: 9 }, (_, i) => ({ ...keymap, id: `k${i}` }))
+    expect(keymaps(many.slice(0, 8)).ok).toBe(true)
+    for (const list of [many, {}]) {
+      expect(keymaps(list)).toEqual({
+        ok: false,
+        error: 'contributes.keymaps must be an array of at most 8',
+      })
+    }
+  })
+
+  it('rejects a duplicate id', () => {
+    expect(keymaps([keymap, { ...keymap, label: 'Other' }])).toEqual({
+      ok: false,
+      error: "contributes.keymaps[1]: duplicate id 'cmux'",
+    })
+  })
+
+  it('rejects a platform other than darwin or linux', () => {
+    for (const platform of ['win32', 'macos', 'Darwin', '', null, 1]) {
+      expect(keymaps([{ ...keymap, platform }]), String(platform)).toEqual({
+        ok: false,
+        error: 'contributes.keymaps[0]: platform must be one of darwin, linux',
+      })
+    }
+    expect(keymaps([{ ...keymap, platform: 'linux' }]).ok).toBe(true)
+  })
+
+  it('rejects bad ids and labels that are empty or longer than 40 characters', () => {
+    for (const id of ['Cmux', 'cmux.mac', '-cmux', '../x', '']) {
+      expect(keymaps([{ ...keymap, id }]), id).toEqual({
+        ok: false,
+        error: 'contributes.keymaps[0]: id must be lowercase letters, digits and dashes',
+      })
+    }
+    for (const label of ['', '   ', 'x'.repeat(41), 3]) {
+      expect(keymaps([{ ...keymap, label }]), String(label)).toEqual({
+        ok: false,
+        error: 'contributes.keymaps[0]: label must be 1-40 characters',
+      })
+    }
+    expect(keymaps([{ ...keymap, label: 'x'.repeat(40) }]).ok).toBe(true)
+    expect(keymaps(['cmux'])).toEqual({
+      ok: false,
+      error: 'contributes.keymaps[0]: must be an object',
+    })
+  })
+})
+
 describe('parseManifest — agent skills and hooks', () => {
   const hookCommand = { id: 'on-hook', title: 'Hook', palette: false, stdin: true }
   const agentManifest = (contributes: Record<string, unknown>, capabilities = ['agent-plugin']) =>

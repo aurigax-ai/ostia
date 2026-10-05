@@ -177,6 +177,7 @@ describe('Pine prompt in the input editor', () => {
           agentSkills: [],
           agentHooks: [],
           iconThemes: [],
+          keymaps: [],
         },
       ],
     })

@@ -38,6 +38,7 @@ import {
 import { loadMergeTargets, requestMergeWorkspace } from '../lib/workspaceMerge'
 import { anchorToFocusedPane, canMoveWorkspace, moveWorkspaceTo } from '../lib/workspaceProjects'
 import { isMac } from '../platform'
+import { keymapSettingValue } from '../settings/keymapSetting'
 import { settingsSchemaAt } from '../settings/settingsSchema'
 import { useBlocksStore } from '../stores/blocksStore'
 import { useHistorySearchStore } from '../stores/historySearchStore'
@@ -115,6 +116,8 @@ export function launchesProgram(key: string, value: unknown): string | null {
   return null
 }
 
+const KEYMAP_KEY = 'keymap'
+
 const isKeybindingPath = (key: string): boolean =>
   key === 'keybindings' || key.startsWith('keybindings.')
 
@@ -133,6 +136,7 @@ function readableSettings() {
     editor: s.editor,
     agents: s.agents,
     workspaceGroups: s.workspaceGroups,
+    keymap: s.keymap,
     keybindings: { ...s.keybindings },
     capabilities: s.capabilities,
     approvals: s.approvals,
@@ -920,6 +924,12 @@ export function registerBuiltinCommands(): void {
         if (!dryRun) setKeybindingSetting(key, value, isMac)
         return { previous, value, applied: !dryRun }
       }
+      if (key === KEYMAP_KEY) {
+        const previous = useSettingsStore.getState().keymap
+        const next = keymapSettingValue(value)
+        if (!dryRun) useSettingsStore.getState().setKeymap(next)
+        return { previous, value: next, applied: !dryRun }
+      }
       const settings = useSettingsStore.getState()
       const change = dryRun ? settings.previewSetting(key, value) : settings.setByPath(key, value)
       return { ...settingResult(change), applied: !dryRun }
@@ -934,6 +944,11 @@ export function registerBuiltinCommands(): void {
     run: ({ key }) => {
       const program = launchesProgram(key, undefined)
       if (program) throw new Error(`${program} can only be changed by you in Settings`)
+      if (key === KEYMAP_KEY) {
+        const previous = useSettingsStore.getState().keymap
+        useSettingsStore.getState().setKeymap(null)
+        return { previous, value: null }
+      }
       return settingResult(useSettingsStore.getState().unsetByPath(key))
     },
   })

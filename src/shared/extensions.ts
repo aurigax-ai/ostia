@@ -7,6 +7,7 @@ import type { AssistPoint } from './assist'
 import type { Capability } from './capabilities'
 import type { EditorLanguageContribution } from './editorLanguages'
 import type { IconThemeContribution, IconThemeInfo } from './iconTheme'
+import type { KeymapContribution, KeymapInfo } from './keymap'
 import type { LanguageContribution, LanguageInfo } from './languagePack'
 import type { LanguageServerContribution, LanguageServerSummary } from './languageServers'
 import type { RemoteCwd } from './remoteFolders'
@@ -172,6 +173,7 @@ export interface ExtensionManifest {
     secrets: ExtensionSecretContribution[]
     iconThemes?: IconThemeContribution[]
     languages?: LanguageContribution[]
+    keymaps?: KeymapContribution[]
     languageServers?: LanguageServerContribution[]
     editorLanguages?: EditorLanguageContribution[]
     agentSkills?: AgentSkillContribution[]
@@ -211,6 +213,7 @@ export interface ExtensionInfo {
   secretsSet: string[]
   iconThemes: IconThemeInfo[]
   languages: LanguageInfo[]
+  keymaps: KeymapInfo[]
   languageServers: LanguageServerSummary[]
   agentSkills: string[]
   agentHooks: AgentHookSummary[]

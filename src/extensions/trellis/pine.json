@@ -2,7 +2,7 @@
   "id": "trellis",
   "name": "Trellis",
   "version": "1.5.0",
-  "api": "1.11",
+  "api": "1.12",
   "description": "Your Trellis boards and vault as a panel: cards, claims, comments and entries, updated live as they change elsewhere; hand a card to an agent from the board, by sending it to one already running or starting a new one, and see which agent works on it; a skill that teaches those agents the card commands; open and claimed cards per workspace, and a notice that opens the card when an agent moves it to review or blocked.",
   "category": "tools",
   "capabilities": ["read-board", "notify", "shell", "agent-plugin"],
