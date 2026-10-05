@@ -102,7 +102,7 @@ beforeAll(async () => {
   root = realpathSync(mkdtempSync(join(tmpdir(), 'pine-limits-')))
   home = join(root, 'home')
   workDir = join(home, 'proj')
-  dataDir = join(home, '.local/share/pine')
+  dataDir = join(home, '.local/share/ostia')
   for (const dir of [
     workDir,
     dataDir,

@@ -21,7 +21,7 @@ describe('privateTmpDir', () => {
 })
 
 describe('socketPath', () => {
-  const longDir = `/private/var/folders/36/tjdph2t965j8snz9_vkdnw0r0000gn/T/pine-sandbox-tmp-501/12345/ws-abcdef-12/${'x'.repeat(20)}`
+  const longDir = `/private/var/folders/36/tjdph2t965j8snz9_vkdnw0r0000gn/T/ostia-sbx-501/12345/ws-abcdef-12/${'x'.repeat(20)}`
 
   it('keeps a path that fits where it was asked for', () => {
     expect(socketPath('/tmp/a', 'pine-1.sock', 'darwin')).toBe('/tmp/a/pine-1.sock')

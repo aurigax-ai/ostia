@@ -107,7 +107,7 @@ describe('sandbox IPC', () => {
 
 function setup(name: string, workDirs: Record<string, string> = {}) {
   const home = join(root, name, 'home')
-  const dataDir = join(home, '.local/share/pine')
+  const dataDir = join(home, '.local/share/ostia')
   const runtimeDir = join(root, name, 'run')
   const workDir = join(home, 'proj')
   for (const dir of [workDir, dataDir, runtimeDir, join(home, 'builds'), join(home, 'notes')]) {

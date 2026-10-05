@@ -6,7 +6,7 @@ import { checkSandboxPath, checkSandboxPaths } from './pathChecks'
 
 const root = realpathSync(mkdtempSync(join(tmpdir(), 'pine-pathchecks-')))
 const home = join(root, 'home')
-const dataDir = join(home, '.local/share/pine')
+const dataDir = join(home, '.local/share/ostia')
 const runtimeDir = join(root, 'run')
 const agentDir = join(runtimeDir, 'keyring')
 const workDir = join(home, 'proj')

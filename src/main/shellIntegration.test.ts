@@ -31,7 +31,7 @@ import {
   writeCodexIntegration,
 } from './shellIntegration'
 
-const INTEGRATION_DIR = privateTmpDir('pine-shell-integration')
+const INTEGRATION_DIR = privateTmpDir('ostia-shell-integration')
 const ZSH_INIT = join(INTEGRATION_DIR, 'init.zsh')
 const ZSH_ENV = join(INTEGRATION_DIR, '.zshenv')
 const ZSH_RC = join(INTEGRATION_DIR, '.zshrc')

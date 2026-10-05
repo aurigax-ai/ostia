@@ -51,7 +51,7 @@ export function viewJsonSchema(): Schema {
     $schema: 'https://json-schema.org/draft/2020-12/schema',
     title: `${PRODUCT_NAME} view`,
     description: [
-      `A data-only view in ~/.config/pine/views/<name>.json. Budget: ${VIEW_MAX_NODES} nodes,`,
+      `A data-only view in ~/.config/${PRODUCT_NAME}/views/<name>.json. Budget: ${VIEW_MAX_NODES} nodes,`,
       `${VIEW_MAX_DEPTH} levels, ${VIEW_MAX_LIST_ITEMS} items per list, ${VIEW_MAX_RENDERED_NODES}`,
       `rendered nodes. Data sources: ${VIEW_SOURCES.join(', ')}. Filters: ${VIEW_FILTERS.join(', ')}.`,
     ].join(' '),
