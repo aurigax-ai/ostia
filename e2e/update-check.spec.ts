@@ -55,6 +55,7 @@ async function launch(
     ...launchOptions,
     env: { ...launchOptions.env, OSTIA_RELEASE_API_URL: github.url },
   })
+  const win = await app.firstWindow()
   await app.evaluate(({ shell }) => {
     const opened: string[] = []
     Object.assign(globalThis, { __openedExternally: opened })
@@ -62,7 +63,6 @@ async function launch(
       opened.push(url)
     }
   })
-  const win = await app.firstWindow()
   await win.waitForLoadState('domcontentloaded')
   await expect(emptyState(win)).toBeVisible({ timeout: 15_000 })
   return { app, win }
