@@ -48,6 +48,7 @@ import {
   wakeWorkspace,
 } from '../lib/hibernationScheduler'
 import { beginDrag, endWorkspaceDrag } from '../lib/paneDrag'
+import { RAIL_WIDTH } from '../lib/panelWidth'
 import { type RowDropZone, rowDropZone } from '../lib/railDropZone'
 import { sidebarLines, visibleSidebarItems } from '../lib/sidebarItems'
 import { moveWorkspaceToNewWindow } from '../lib/windowHandoff'
@@ -88,8 +89,8 @@ import {
   MenuSubTrigger,
 } from './Menu'
 import { MergeMenuItems } from './MergeMenuItems'
+import { PanelResizer } from './PanelResizer'
 import { LiveLine, LocationLine, SidebarItem } from './RailMeta'
-import { RAIL_ID, RailResizer } from './RailResizer'
 import { ViewsRail } from './ViewsRail'
 import { Badge } from './ui/badge'
 import {
@@ -151,14 +152,25 @@ interface DragHandlers {
   end: () => void
 }
 
+const RAIL_ID = 'deck-rail'
+
 export function DeckRail(): JSX.Element {
+  const d = useDict()
   const collapsed = useUIStore((s) => s.railCollapsed)
+  const setRailCollapsed = useUIStore((s) => s.setRailCollapsed)
   return (
     <>
       <aside id={RAIL_ID} className={`deck-rail${collapsed ? ' collapsed' : ''}`}>
         <WorkspacesView />
       </aside>
-      <RailResizer />
+      <PanelResizer
+        spec={RAIL_WIDTH}
+        label={d.rail.resize}
+        controls={RAIL_ID}
+        className="rail-resizer"
+        collapsed={collapsed}
+        onCollapsedChange={setRailCollapsed}
+      />
     </>
   )
 }
