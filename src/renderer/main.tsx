@@ -25,6 +25,7 @@ import { wireTerminalStateBridge } from './commands/terminalStateBridge'
 import { registerWindowCommands } from './commands/windowCommands'
 import { AppErrorBoundary, CrashTestHook, RecoveryScreen } from './components/AppErrorBoundary'
 import { startAgentRunningReport } from './lib/agentRunningReport'
+import { startAppMenu } from './lib/appMenu'
 import { startShortcutReporting } from './lib/assistShortcuts'
 import { startAssistUi } from './lib/assistUi'
 import { startAutoResume } from './lib/autoResume'
@@ -44,6 +45,7 @@ import { revealPane, startAttentionSync } from './lib/workspaceActivity'
 import { startWorkspaceProjects } from './lib/workspaceProjects'
 import { loadEditorLanguages } from './monaco/contributedLanguages'
 import { setSettingsFile } from './monaco/language'
+import { isMac } from './platform'
 import { startApprovals } from './stores/approvalsStore'
 import { startAssistAvailability } from './stores/assistStore'
 import { startChatTools } from './stores/chatToolsStore'
@@ -71,6 +73,7 @@ wireExtensionBridge()
 wirePaneRunBridge()
 wireManagerBridge()
 wireRemoteFolders()
+if (isMac) startAppMenu()
 
 const container = document.getElementById('root')
 if (!container) throw new Error('#root not found')

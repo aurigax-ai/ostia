@@ -570,6 +570,8 @@ export const en = {
     closeTab: 'Close tab',
     lock: 'Lock tab',
     unlock: 'Unlock tab',
+    zoom: 'Zoom pane',
+    unzoom: 'Restore pane',
     resume: 'Resume {agent}',
     sandboxRestart: 'Restart to apply',
     host: 'Host',
@@ -1463,6 +1465,13 @@ export const en = {
     scratchAction: 'Delete',
     reveal: 'Reveal',
   },
+  appMenu: {
+    file: 'File',
+    view: 'View',
+    go: 'Go',
+    help: 'Help',
+    sshConnect: 'Connect to SSH Host…',
+  },
   scratch: {
     badge: 'Scratch',
     badgeHint:
@@ -1470,6 +1479,11 @@ export const en = {
     newScratch: 'New scratch workspace',
     newSandboxedScratch: 'New sandboxed scratch workspace',
     newMenu: 'More ways to start a workspace',
+    ssh: 'Connect to SSH host',
+    sshLoading: 'Reading your ssh config…',
+    sshEmpty: 'No hosts in ~/.ssh/config',
+    sshTruncated: 'More hosts: SSH: Connect to Host… in the command palette',
+    sshFailed: 'Could not connect to {host}',
   },
   merge: {
     menu: 'Merge into',
@@ -3068,6 +3082,8 @@ export const zhHant: Dict = {
     closeTab: '關閉分頁',
     lock: '鎖定分頁',
     unlock: '解除鎖定分頁',
+    zoom: '放大窗格',
+    unzoom: '還原窗格',
     resume: '繼續 {agent}',
     sandboxRestart: '重新啟動以套用',
     host: '主機',
@@ -3942,6 +3958,13 @@ export const zhHant: Dict = {
     scratchAction: '刪除',
     reveal: '顯示資料夾',
   },
+  appMenu: {
+    file: '檔案',
+    view: '顯示方式',
+    go: '前往',
+    help: '輔助說明',
+    sshConnect: '連線到 SSH 主機…',
+  },
   scratch: {
     badge: '暫存',
     badgeHint:
@@ -3949,6 +3972,11 @@ export const zhHant: Dict = {
     newScratch: '新增暫存工作區',
     newSandboxedScratch: '新增沙箱暫存工作區',
     newMenu: '更多新增工作區的方式',
+    ssh: '連線到 SSH 主機',
+    sshLoading: '正在讀取 ssh 設定…',
+    sshEmpty: '~/.ssh/config 裡沒有主機',
+    sshTruncated: '其他主機：在指令面板用 SSH: Connect to Host…',
+    sshFailed: '無法連線到 {host}',
   },
   merge: {
     menu: '合併到',
