@@ -31,7 +31,9 @@ Every issue and PR gets **one `type:`**, **one or two `area:`**, a **`platform:`
 
 ## Milestones
 
-Theme milestones, not version numbers (versions are git tags and GitHub Releases): `macOS daily driver`, `Rename to Ostiaterm, phase 2`, `Self-hosted CI`.
+One milestone per minor version, named `v<major>.<minor>: <theme>` in English, e.g. `v0.5: Stable daily driver`. Patch releases (0.5.7, 0.5.8) stay under their minor's milestone; releases themselves are git tags and GitHub Releases. A milestone whose theme is not decided yet is called `Next milestone`.
+
+Every issue and PR gets the milestone of the release line it lands in. Open milestones: `v0.5: Stable daily driver` (current release line), `v0.6: Bug fixes`, `v0.7: Next milestone`.
 
 ## CI
 
