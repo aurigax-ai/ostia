@@ -30,8 +30,8 @@ test('a login typed into a page is saved, then filled back from the key menu', a
   const launch = isolatedLaunch(freshDataHome())
   const app = await electron.launch({ ...launch, args: ['--password-store=basic', ...launch.args] })
   try {
-    await app.evaluate(({ safeStorage }) => safeStorage.setUsePlainTextEncryption(true))
     const win = await app.firstWindow()
+    await app.evaluate(({ safeStorage }) => safeStorage.setUsePlainTextEncryption(true))
     await win.waitForLoadState('domcontentloaded')
     await openWorkspace(win)
     await win.keyboard.press('Control+Shift+P')

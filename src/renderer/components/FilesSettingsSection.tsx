@@ -3,6 +3,8 @@ import { BUILTIN_ICON_THEME } from '@shared/iconTheme'
 import { type FormEvent, useState } from 'react'
 import { fmt, useDict } from '../i18n/useDict'
 import {
+  BREADCRUMB_STYLES,
+  type BreadcrumbStyle,
   DEFAULT_NESTING_PATTERNS,
   DOTFILES_PATTERN,
   FILE_SORT_BYS,
@@ -168,6 +170,11 @@ export function FileTreeSettingsGroups(): JSX.Element {
     name: d.filesView.byName,
     type: d.filesView.byType,
   }
+  const breadcrumbLabel: Record<BreadcrumbStyle, string> = {
+    auto: d.filesView.breadcrumbAuto,
+    full: d.filesView.breadcrumbFull,
+    short: d.filesView.breadcrumbShort,
+  }
   return (
     <>
       <SettingsGroup title={d.filesView.groupTree}>
@@ -180,6 +187,14 @@ export function FileTreeSettingsGroups(): JSX.Element {
               { value: BUILTIN_ICON_THEME, label: d.filesView.builtinIcons },
               ...themes.map((t) => ({ value: t.id, label: t.label })),
             ]}
+          />
+        </ControlRow>
+        <ControlRow label={d.filesView.breadcrumb} desc={d.filesView.breadcrumbDesc}>
+          <SelectField
+            label={d.filesView.breadcrumb}
+            value={files.breadcrumb}
+            onChange={(v) => setFiles({ breadcrumb: v })}
+            options={BREADCRUMB_STYLES.map((v) => ({ value: v, label: breadcrumbLabel[v] }))}
           />
         </ControlRow>
         <ToggleRow

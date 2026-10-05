@@ -8,9 +8,10 @@ import {
 import { BUILTIN_ICON_THEME, type LoadedIconTheme } from '@shared/iconTheme'
 import { type RemoteFileError, type RemoteFolder, remotePath } from '@shared/remoteFolders'
 import type { FsEntry } from '@shared/types'
-import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react'
+import { type KeyboardEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { fmt, useDict } from '../i18n/useDict'
 import { findPane } from '../layout/tree'
+import { FOLDED_CRUMB, crumbsOf, fitCrumbs, maxFitLevel } from '../lib/breadcrumb'
 import { OSTIA_PATH_MIME } from '../lib/dropPaths'
 import {
   type CompactChain,
@@ -23,6 +24,7 @@ import {
   nestingRules,
   sortEntries,
 } from '../lib/fileTree'
+import { homeDir } from '../lib/homeDir'
 import { type IconVariant, themeIconSrc } from '../lib/iconTheme'
 import { openFileInWorkspace } from '../lib/openFile'
 import { useEffectiveTheme } from '../lib/theme'
@@ -84,10 +86,11 @@ function useTreeFocus(): TreeFocus {
   )
   const layout = useLayoutStore((s) => (workspaceId ? s.byWorkspace[workspaceId] : undefined))
   const pane = layout ? findPane(layout.root, layout.activePaneId) : null
+  const editor = pane?.kind === 'editor'
   return {
     workspaceId,
-    cwd: pane?.cwd ?? anchor,
-    activeFile: pane?.kind === 'editor' ? (pane.filePath ?? null) : null,
+    cwd: editor ? anchor : (pane?.cwd ?? anchor),
+    activeFile: editor ? (pane.filePath ?? null) : null,
   }
 }
 
@@ -158,7 +161,6 @@ export function FilesView(): JSX.Element {
     [workspaceId, cwd, activeFile],
   )
   const tree = useTreeContext(stableFocus)
-  const segments = cwd.split('/').filter(Boolean)
   const allFolders = useRemoteFoldersStore((s) => s.folders)
   const folders = useMemo(
     () => allFolders.filter((folder) => folder.workspaceId === workspaceId),
@@ -169,15 +171,7 @@ export function FilesView(): JSX.Element {
     <>
       <Hint label={cwd} side="bottom">
         <div className="files-crumb">
-          {segments.map((seg, i) => (
-            <span
-              key={segments.slice(0, i + 1).join('/')}
-              className={`crumb${i === segments.length - 1 ? ' current' : ''}`}
-            >
-              {i > 0 ? <CaretRightIcon size={12} className="crumb-sep" /> : null}
-              {seg}
-            </span>
-          ))}
+          <FilesCrumb path={cwd} />
         </div>
       </Hint>
       <div className="file-tree">
@@ -219,6 +213,49 @@ export function FilesView(): JSX.Element {
         </div>
       )}
     </>
+  )
+}
+
+function FilesCrumb({ path }: { path: string }): JSX.Element {
+  const style = useSettingsStore((s) => s.files.breadcrumb)
+  const lineRef = useRef<HTMLDivElement>(null)
+  const [width, setWidth] = useState(0)
+  const crumbs = useMemo(() => crumbsOf(path, homeDir()), [path])
+  const start = style === 'short' ? 1 : 0
+  const max = style === 'full' ? 0 : maxFitLevel(crumbs)
+  const fitKey = `${style}|${path}|${width}`
+  const [fit, setFit] = useState({ key: fitKey, level: start })
+  const level = fit.key === fitKey ? fit.level : start
+  const shown = fitCrumbs(crumbs, level)
+
+  useEffect(() => {
+    const line = lineRef.current
+    if (!line) return
+    const observer = new ResizeObserver(() => setWidth(line.clientWidth))
+    observer.observe(line)
+    return () => observer.disconnect()
+  }, [])
+
+  useLayoutEffect(() => {
+    const line = lineRef.current
+    if (!line) return
+    if (line.scrollWidth <= line.clientWidth) return
+    if (level < max) setFit({ key: fitKey, level: level + 1 })
+    else line.scrollLeft = line.scrollWidth
+  })
+
+  return (
+    <div ref={lineRef} className="files-crumb-line" data-style={style}>
+      {shown.map((crumb, i) => (
+        <span
+          key={crumb.key}
+          className={`crumb${i === shown.length - 1 ? ' current' : ''}${crumb.key === FOLDED_CRUMB ? ' folded' : ''}`}
+        >
+          {i > 0 ? <CaretRightIcon size={12} className="crumb-sep" /> : null}
+          {crumb.label}
+        </span>
+      ))}
+    </div>
   )
 }
 
@@ -535,7 +572,12 @@ function DirRow({
 }): JSX.Element {
   const [open, setOpen] = useState(false)
   const fullPath = childPath(path, entry.name)
+  const holdsActive = tree.focus.activeFile?.startsWith(`${fullPath}/`) ?? false
   const resolved = useCompactChain(fullPath, open, tree)
+
+  useEffect(() => {
+    if (holdsActive) setOpen(true)
+  }, [holdsActive])
   const failed = resolved && 'error' in resolved ? resolved.error : null
   const chain = resolved && !('error' in resolved) ? resolved : null
   const names = chain ? [entry.name, ...chain.names] : [entry.name]

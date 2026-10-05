@@ -1029,10 +1029,6 @@
 }
 
 .files-crumb {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 1px;
   padding: 0 12px 8px;
   font-family: var(--font-code);
   font-size: var(--text-ui-xs);
@@ -1040,7 +1036,21 @@
   border-bottom: 1px solid var(--line);
 }
 
+.files-crumb-line {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.files-crumb-line[data-style="full"] {
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
 .crumb {
+  flex: none;
   display: inline-flex;
   align-items: center;
   gap: 1px;
