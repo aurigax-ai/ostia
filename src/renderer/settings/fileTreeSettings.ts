@@ -16,6 +16,7 @@ export interface FileNestingSettings {
 export interface FileTreeSettings {
   exclude: string[]
   showExcluded: boolean
+  searchIgnored: boolean
   compactFolders: boolean
   nesting: FileNestingSettings
   sortOrder: FileSortOrder
@@ -47,6 +48,7 @@ export const DEFAULT_NESTING_PATTERNS: Record<string, string> = {
 export const DEFAULT_FILE_TREE_SETTINGS: FileTreeSettings = {
   exclude: ['**/.git', '**/.hg', '**/.svn', '**/.DS_Store', '**/Thumbs.db'],
   showExcluded: false,
+  searchIgnored: false,
   compactFolders: true,
   nesting: { enabled: true, patterns: DEFAULT_NESTING_PATTERNS },
   sortOrder: 'foldersFirst',
@@ -91,6 +93,7 @@ export function parseFileTreeSettings(raw: unknown): FileTreeSettings {
   return {
     exclude: parseExclude(raw.exclude),
     showExcluded: typeof raw.showExcluded === 'boolean' ? raw.showExcluded : base.showExcluded,
+    searchIgnored: typeof raw.searchIgnored === 'boolean' ? raw.searchIgnored : base.searchIgnored,
     compactFolders:
       typeof raw.compactFolders === 'boolean' ? raw.compactFolders : base.compactFolders,
     nesting: {
