@@ -304,6 +304,10 @@ export class WorkspaceSandboxes {
     return this.keptHosts.has(workspaceId)
   }
 
+  async connect(workspaceId: string): Promise<void> {
+    await this.host(workspaceId)
+  }
+
   sshAgentSocket(workspaceId: string): string {
     return join(this.tmpDir(workspaceId), SSH_AGENT_SOCKET_NAME)
   }

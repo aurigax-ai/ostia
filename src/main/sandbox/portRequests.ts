@@ -95,6 +95,7 @@ export class PortRequests {
   }
 
   private async onNewListener(workspaceId: string, listener: SandboxListener): Promise<void> {
+    if (this.deps.forwarder.exposed(workspaceId).includes(listener.port)) return
     const policy = this.deps.policy(workspaceId)
     if (policy === 'deny' || this.deps.forwarder.refusal(workspaceId)) return
     if (policy === 'ask') {

@@ -246,7 +246,14 @@ import {
 import { registerSystemRequirementsIpc } from './systemRequirementsIpc'
 import { PTY_COLOR_ENV, PTY_TERM_NAME, paneShellEnv } from './terminalType'
 import { TMUX_MISSING, keepShellsBanner } from './tmux/keepShellsBanner'
-import { type KeptMeta, type KeptProcessMeta, type KeptShell, KeptShells } from './tmux/keptShells'
+import {
+  type KeptHostMeta,
+  type KeptMeta,
+  type KeptProcessMeta,
+  type KeptShell,
+  KeptShells,
+  SANDBOX_HOST_KIND,
+} from './tmux/keptShells'
 import type { TmuxPane, TmuxServerOptions } from './tmux/tmuxServer'
 import { AppTray, closeAction, isHiddenLaunch, readCloseToTray, unreadWorkspaces } from './tray'
 import { OLD_PRODUCT_NAME, appConfigDir, configHome, dataHome } from './userDirs'
@@ -355,6 +362,7 @@ function removeStateFile(entry: PtyEntry): void {
   rmSync(entry.stateFile, { force: true })
 }
 
+const SANDBOX_LOST_WHILE_AWAY = `its sandbox ended while ${PRODUCT_DISPLAY_NAME} was closed`
 const RESTORE_SEAM = '\x1b]133;D\x07\r\n\x1b[2m── workspace restored ──\x1b[0m\r\n'
 const HIBERNATE_SEAM = '\x1b]133;D\x07\r\n\x1b[2m── woke from hibernation ──\x1b[0m\r\n'
 
@@ -726,7 +734,66 @@ const workspaceSandboxes: WorkspaceSandboxes = new WorkspaceSandboxes({
       workspaceSandboxes.owner(workspaceId),
       lines,
     ),
+  kept: {
+    enabled: () =>
+      parseKeepShells(readSettingsFile().terminal?.keepShells) && keptShellsOptions() !== null,
+    tmpRoot: join(privateTmpDir(`${PRODUCT_NAME}-sbx`), `kept-${keptShellsName()}`),
+    channel: (workspaceId) =>
+      join(
+        keptTmuxDir(),
+        `${keptShellsName()}-host-${createHash('sha256').update(workspaceId).digest('hex').slice(0, 10)}.sock`,
+      ),
+    claim: (workspaceId) => {
+      const claimed = keptShells.claimHost(workspaceId)
+      if (!claimed) return undefined
+      keptHostPanes.set(workspaceId, claimed)
+      return { channel: claimed.meta.channel, tmpDir: claimed.meta.tmpDir }
+    },
+    spawn: async (workspaceId, spec) => {
+      const meta: KeptHostMeta = {
+        kind: SANDBOX_HOST_KIND,
+        workspaceId,
+        channel: spec.channel,
+        tmpDir: spec.tmpDir,
+        exposed: [],
+      }
+      const pane = await keptShells.spawnHost({
+        file: spec.file,
+        args: spec.args,
+        cwd: spec.tmpDir,
+        env: spec.env,
+        meta,
+      })
+      keptHostPanes.set(workspaceId, { pane, meta })
+    },
+    stop: (workspaceId) => {
+      keptHostPanes.get(workspaceId)?.pane.kill()
+      keptHostPanes.delete(workspaceId)
+    },
+  },
 })
+
+const keptHostPanes = new Map<string, { pane: TmuxPane; meta: KeptHostMeta }>()
+
+function syncKeptExposed(workspaceId: string): void {
+  const host = keptHostPanes.get(workspaceId)
+  if (!host) return
+  host.meta = { ...host.meta, exposed: portForwarder.exposed(workspaceId) }
+  host.pane.setMeta(host.meta)
+}
+
+const EXPOSE_RESTORE_WAIT_MS = 10_000
+const EXPOSE_RESTORE_POLL_MS = 200
+
+async function restoreKeptExposed(workspaceId: string, ports: readonly number[]): Promise<void> {
+  if (ports.length === 0) return
+  const end = Date.now() + EXPOSE_RESTORE_WAIT_MS
+  while (portForwarder.refusal(workspaceId) !== null) {
+    if (Date.now() > end) return
+    await new Promise((resolve) => setTimeout(resolve, EXPOSE_RESTORE_POLL_MS))
+  }
+  for (const port of ports) await portForwarder.expose(workspaceId, port)
+}
 
 const sandboxViolations = new ViolationLog()
 
@@ -857,6 +924,7 @@ function sandboxedPanes(workspaceId: string): SandboxPane[] {
 }
 
 const portForwarder = new PortForwarder({
+  onChange: (workspaceId) => syncKeptExposed(workspaceId),
   panesOf: sandboxedPanes,
   unixSocketsOff: (workspaceId) => !workspaceSandboxes.resolved(workspaceId).switches.unixSockets,
 })
@@ -1764,6 +1832,15 @@ function registerPtyIpc(): void {
     await keptShells.ready
     const keptShell = keptShells.claim(paneId)
     if (keptShell) return reattachKept(e, paneId, opts, keptShell, mkSub())
+    if (keptShells.takeSandboxLost(paneId)) {
+      return {
+        created: false,
+        buffer: sandboxFailureBanner(SANDBOX_LOST_WHILE_AWAY, []),
+        cursor: 0,
+        dropped: false,
+        sandboxed: true,
+      }
+    }
     if (opts.attachOnly) return { created: false, buffer: '', cursor: 0, dropped: false }
 
     const mod = loadPty()
@@ -1878,7 +1955,10 @@ function registerPtyIpc(): void {
       portBridge?.close()
       return attachPty(e, paneId, opts)
     }
-    const keep = parseKeepShells(settings.terminal?.keepShells) && !sandboxed && !host
+    const keep =
+      parseKeepShells(settings.terminal?.keepShells) &&
+      !host &&
+      (!sandboxed || workspaceSandboxes.isKept(workspaceId))
     let kept: TmuxPane | null = null
     let keptMeta: KeptMeta | null = null
     if (keep) {
@@ -1898,6 +1978,9 @@ function registerPtyIpc(): void {
         shell,
         stateFile,
         spawnPath: env.PATH ?? '',
+        ...(sandboxed
+          ? { sandbox: { stamp: sandboxStamp, bridgeId: portBridge?.id ?? null, resizePipe } }
+          : {}),
       })
       try {
         kept = await keptShells.spawn({
@@ -2002,6 +2085,13 @@ function registerPtyIpc(): void {
     hibernatedPanes.delete(paneId)
     const cols = opts.cols || pane.cols
     const rows = opts.rows || pane.rows
+    const sandbox = meta.sandbox
+    const workspaceId = meta.workspaceId
+    const keptHost = sandbox ? keptShells.keptHost(workspaceId) : undefined
+    if (keptHost) workspaceSandboxes.adoptKeptTmp(workspaceId, keptHost.tmpDir)
+    const portBridge = sandbox?.bridgeId
+      ? await PortBridge.open(workspaceSandboxes.tmpDir(workspaceId), undefined, sandbox.bridgeId)
+      : null
     const entry = trackPty(paneId, pane, {
       kept: pane,
       keptMeta: meta,
@@ -2011,9 +2101,25 @@ function registerPtyIpc(): void {
       spawnPath: meta.spawnPath,
       stateFile: meta.stateFile,
       keepAlive: false,
-      workspaceId: meta.workspaceId,
+      workspaceId,
       shell: meta.shell,
+      sandboxed: sandbox !== undefined,
+      sandboxStamp: sandbox?.stamp ?? null,
+      portBridge,
     })
+    if (sandbox) {
+      entry.exitListeners.add(() => {
+        if (sandbox.resizePipe) rmSync(sandbox.resizePipe, { force: true })
+        portBridge?.close()
+        void workspaceSandboxes.cleanup(workspaceId)
+        releaseMergedSandbox(workspaceId, entry)
+      })
+      const exposed = keptHost?.exposed ?? []
+      void workspaceSandboxes
+        .connect(workspaceId)
+        .then(() => restoreKeptExposed(workspaceId, exposed))
+        .catch(() => undefined)
+    }
     pane.onData((d) => feedPty(entry, d))
     pane.onExit(({ exitCode }) => entry.session.exit(exitCode))
     let screen = ''
@@ -2791,7 +2897,16 @@ app.whenReady().then(() => {
   })
   handleQuitSignals()
   loadRestoredScrollback()
-  void keptShells.start(parseKeepShells(readSettingsFile().terminal?.keepShells), savedPaneIds())
+  void keptShells
+    .start(parseKeepShells(readSettingsFile().terminal?.keepShells), savedPaneIds())
+    .then(() => {
+      const kept = keptShells.keptHostWorkspaces()
+      for (const workspaceId of kept) {
+        const host = keptShells.keptHost(workspaceId)
+        if (host) workspaceSandboxes.adoptKeptTmp(workspaceId, host.tmpDir)
+      }
+      workspaceSandboxes.sweepKeptTmp(kept)
+    })
   try {
     writeKeptLaunchers()
   } catch {}
@@ -3307,6 +3422,7 @@ app.on('before-quit', (event) => {
     entry.mirror.dispose()
     if (keepingShells && entry.kept) {
       entry.kept.detach()
+      entry.portBridge?.close()
       continue
     }
     try {
@@ -3319,10 +3435,11 @@ app.on('before-quit', (event) => {
   else keptShells.quitNow()
   languageServers?.stopAll()
   languageServerWatches.closeAll()
-  workspaceSandboxes.stopAll()
+  if (keepingShells) workspaceSandboxes.releaseAll()
+  else workspaceSandboxes.stopAll()
   workspaceAgents.stopAll()
   for (const workspaceId of scratchFolders.workspaceIds()) workspaceSandboxes.forget(workspaceId)
-  workspaceSandboxes.clearTmp()
+  workspaceSandboxes.clearTmp(!keepingShells)
   scratchFolders.removeAll()
   portForwarder.stopAll()
   extensionHost?.stopAll()
