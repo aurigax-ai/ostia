@@ -212,7 +212,7 @@ import {
 import { hiddenHomeNotice, sandboxFailureBanner } from './sandbox/spawnBanner'
 import { sandboxSpawnEnv } from './sandbox/spawnEnv'
 import { reportSandboxSpawnFailure } from './sandbox/spawnFailureNotice'
-import { reachableContainerSockets, srtVendorDir } from './sandbox/srtConfig'
+import { reachableContainerSockets, srtVendorDir, withKeptShells } from './sandbox/srtConfig'
 import { SandboxStore } from './sandbox/store'
 import { ViolationLog, recordViolations } from './sandbox/violations'
 import {
@@ -466,14 +466,22 @@ const keptShells = new KeptShells({
 let tmuxTerminal: string | null = null
 let restartRequested = false
 
+function keptTmuxDir(): string {
+  return join(tmpdir(), `${PRODUCT_NAME}-tmux-${process.getuid?.() ?? 0}`)
+}
+
+function keptShellsName(): string {
+  return createHash('sha256').update(app.getPath('userData')).digest('hex').slice(0, 16)
+}
+
 function keptShellsOptions(): TmuxServerOptions | null {
   if (missingRequirements(KEEP_SHELLS_FEATURE).length > 0) return null
   const tmux = programPath('tmux')
   if (!tmux) return null
   return {
     tmux,
-    dir: join(tmpdir(), `${PRODUCT_NAME}-tmux-${process.getuid?.() ?? 0}`),
-    name: createHash('sha256').update(app.getPath('userData')).digest('hex').slice(0, 16),
+    dir: keptTmuxDir(),
+    name: keptShellsName(),
     defaultTerminal: tmuxDefaultTerminal(),
     env: process.env,
   }
@@ -672,29 +680,37 @@ function isScratchPane(paneId: string): boolean {
 const workspaceSandboxes: WorkspaceSandboxes = new WorkspaceSandboxes({
   store: new SandboxStore(join(app.getPath('userData'), 'sandbox.json')),
   globals: () => parseSandboxGlobals((readSettingsFile() as { sandbox?: unknown }).sandbox),
-  basePaths: () => ({
-    home: homedir(),
-    dataDirs: [
-      app.getPath('userData'),
-      dirname(storePath('workspaces', 'global')),
-      ...[
-        join(app.getPath('appData'), OLD_PRODUCT_NAME),
-        join(configHome(), OLD_PRODUCT_NAME),
-        join(dataHome(), OLD_PRODUCT_NAME),
-      ].filter((dir) => existsSync(dir)),
-    ],
-    runtimeDir: process.env.XDG_RUNTIME_DIR,
-    agentSockets: process.env.SSH_AUTH_SOCK ? [process.env.SSH_AUTH_SOCK] : [],
-    containerSockets: reachableContainerSockets(),
-    socketPath: controlSocketPath(),
-    srtVendorDir: srtVendorDir(app.getAppPath()),
-    runtimeReads: [
-      INTEGRATION_DIR,
-      privateTmpDir(`${PRODUCT_NAME}-shell-state`),
-      app.getAppPath(),
-      dirname(process.execPath),
-    ],
-  }),
+  basePaths: () =>
+    withKeptShells(
+      {
+        home: homedir(),
+        dataDirs: [
+          app.getPath('userData'),
+          dirname(storePath('workspaces', 'global')),
+          ...[
+            join(app.getPath('appData'), OLD_PRODUCT_NAME),
+            join(configHome(), OLD_PRODUCT_NAME),
+            join(dataHome(), OLD_PRODUCT_NAME),
+          ].filter((dir) => existsSync(dir)),
+        ],
+        runtimeDir: process.env.XDG_RUNTIME_DIR,
+        agentSockets: process.env.SSH_AUTH_SOCK ? [process.env.SSH_AUTH_SOCK] : [],
+        containerSockets: reachableContainerSockets(),
+        socketPath: controlSocketPath(),
+        srtVendorDir: srtVendorDir(app.getAppPath()),
+        runtimeReads: [
+          INTEGRATION_DIR,
+          privateTmpDir(`${PRODUCT_NAME}-shell-state`),
+          app.getAppPath(),
+          dirname(process.execPath),
+        ],
+      },
+      {
+        tmuxDir: keptTmuxDir(),
+        socketPath: keptControlSocketPath(app.getPath('userData')),
+        launcherDir: keptLauncherDir(),
+      },
+    ),
   workDir: (workspaceId) => workDirForWorkspace(workspaceId),
   tmpRoot: privateTmpDir(`${PRODUCT_NAME}-sbx`),
   nodePath: process.execPath,
