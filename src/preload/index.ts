@@ -395,6 +395,14 @@ const bridge: PineBridge = {
       return () => ipcRenderer.removeListener('command:invoke', listener)
     },
   },
+  appMenu: {
+    set: (spec) => ipcRenderer.send('app-menu:set', spec),
+    onRun: (cb) => {
+      const listener = (_e: unknown, command: string): void => cb(command)
+      ipcRenderer.on('app-menu:run', listener)
+      return () => ipcRenderer.removeListener('app-menu:run', listener)
+    },
+  },
   terminalState: {
     push: (snapshot) => ipcRenderer.send('terminal:state', snapshot),
   },
