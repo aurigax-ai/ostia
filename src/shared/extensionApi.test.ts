@@ -33,8 +33,8 @@ describe('apiProblem', () => {
   })
 
   it('names both versions when they do not fit', () => {
-    expect(apiProblem('2.4', '2.3')).toBe('needs extension API 2.4; this pine provides 2.3')
-    expect(apiProblem('1.0', '2.3')).toBe('needs extension API 1.0; this pine provides 2.3')
+    expect(apiProblem('2.4', '2.3')).toBe('needs extension API 2.4; this ostia provides 2.3')
+    expect(apiProblem('1.0', '2.3')).toBe('needs extension API 1.0; this ostia provides 2.3')
     expect(apiProblem('soon', '2.3')).toBe('api must be an extension API version such as 1.0')
   })
 })

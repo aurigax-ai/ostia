@@ -1,8 +1,8 @@
 import { lstatSync, readFileSync, realpathSync, statSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
-import { PRODUCT_NAME } from '@aurigax-ai/pine-extension-sdk'
+export const TRELLIS_IDENTITY = 'pine'
 
-export const HUMAN_ACTOR = `human:${PRODUCT_NAME}`
+export const HUMAN_ACTOR = `human:${TRELLIS_IDENTITY}`
 
 export interface TrellisDaemonStatus {
   running: boolean

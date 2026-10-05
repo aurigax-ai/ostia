@@ -13,6 +13,15 @@ on:
         description: runs-on value for unit-macos (JSON)
         value: ${{ jobs.changes.outputs.macos }}
   workflow_dispatch:
+    inputs:
+      full:
+        description: Run the e2e suites too
+        type: boolean
+        default: true
+  # Nightly full run on main, so an e2e regression shows up within a day even
+  # when no release candidate is cut. 18:00 UTC = 02:00 Asia/Taipei.
+  schedule:
+    - cron: '0 18 * * *'
 
 permissions:
   contents: read
@@ -35,7 +44,12 @@ jobs:
       contents: read
       pull-requests: read
     outputs:
-      code: ${{ github.ref_type == 'tag' || steps.filter.outputs.code }}
+      code: ${{ github.ref_type == 'tag' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || steps.filter.outputs.code }}
+      # The e2e suites (Linux, macOS) are the slow part. They run for tags
+      # (v1.2.3 and pre-releases such as v1.2.3-rc.1, via release.yml), the
+      # nightly schedule and manual dispatch; pull requests and pushes to main
+      # get static, unit, unit-macos and build only.
+      full: ${{ github.ref_type == 'tag' || github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.full) }}
       linux: ${{ steps.runner.outputs.linux }}
       macos: ${{ steps.runner.outputs.macos }}
     steps:
@@ -66,7 +80,8 @@ jobs:
           echo "linux=$linux" >> "$GITHUB_OUTPUT"
           echo "macos=$macos" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v7
-      - uses: dorny/paths-filter@v4
+      - if: github.event_name == 'pull_request' || github.event_name == 'push'
+        uses: dorny/paths-filter@v4
         id: filter
         with:
           predicate-quantifier: every
@@ -121,6 +136,7 @@ jobs:
 
   e2e:
     needs: [changes, build]
+    if: needs.changes.outputs.full == 'true'
     runs-on: ${{ fromJSON(needs.changes.outputs.linux) }}
     strategy:
       fail-fast: false
@@ -165,7 +181,7 @@ jobs:
 
   e2e-ptrace:
     needs: [changes, build]
-    if: needs.changes.outputs.linux != '"ubuntu-24.04"'
+    if: needs.changes.outputs.full == 'true' && needs.changes.outputs.linux != '"ubuntu-24.04"'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
@@ -220,7 +236,7 @@ jobs:
 
   build-macos:
     needs: changes
-    if: needs.changes.outputs.code == 'true'
+    if: needs.changes.outputs.full == 'true'
     runs-on: macos-26
     continue-on-error: true
     steps:
@@ -299,9 +315,11 @@ jobs:
       - env:
           NEEDS: ${{ toJSON(needs) }}
           CODE: ${{ needs.changes.outputs.code }}
+          FULL: ${{ needs.changes.outputs.full }}
         run: |
-          echo "$NEEDS" | jq -e --arg code "$CODE" '
+          echo "$NEEDS" | jq -e --arg code "$CODE" --arg full "$FULL" '
             .changes.result == "success" and
             (."e2e-ptrace".result | IN("success", "skipped")) and
-            (del(.changes, ."e2e-ptrace") | to_entries
+            .e2e.result == (if $full == "true" then "success" else "skipped" end) and
+            (del(.changes, ."e2e-ptrace", .e2e) | to_entries
               | all(.value.result == (if $code == "true" then "success" else "skipped" end)))'

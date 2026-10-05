@@ -11,7 +11,7 @@ The full contract is in [docs/EXTENSIONS.md](docs/EXTENSIONS.md).
 ## Start a new extension
 
 ```sh
-pnpm dlx @aurigax-ai/pine-extension-sdk create weather
+pnpm dlx @aurigax-ai/ostia-extension-sdk create weather
 cd weather
 pnpm install
 pnpm validate     # builds dist/weather and checks it the way Pine will
@@ -22,7 +22,7 @@ pnpm validate     # builds dist/weather and checks it the way Pine will
 The id is 2 to 40 lowercase letters, digits or dashes; it becomes the `pine <id> ...` command.
 
 `dist/weather` is the extension. To try it, copy that folder to
-`~/.config/pine/extensions/weather`; Pine notices it within a moment and asks you to approve it.
+`~/.config/ostia/extensions/weather`; Pine notices it within a moment and asks you to approve it.
 Then run `pine weather greet you` in a pane, or "Weather: Greet" from the palette.
 
 The project translates itself: `locales/zh-Hant.json` holds its manifest strings and messages in
@@ -36,7 +36,7 @@ Pine never runs a build, a package manager or a script from an extension, so shi
 ## Add it to an existing project
 
 ```sh
-pnpm add -D @aurigax-ai/pine-extension-sdk
+pnpm add -D @aurigax-ai/ostia-extension-sdk
 ```
 
 The package is built: there is no install script to approve. It needs Node 20 or newer.
@@ -45,29 +45,45 @@ The package is built: there is no install script to approve. It needs Node 20 or
 
 | Import | What it is |
 |---|---|
-| `@aurigax-ai/pine-extension-sdk` | `connect()` and the `PineExtension` API: commands, events, sidebar items, pane chips, settings, secrets, notifications, panels, diffs, terminals, the human's language, `createTranslator`, `runTool`, `startPanelServer`, `onShutdown` |
-| `@aurigax-ai/pine-extension-sdk/panel` | For the page inside a panel: `call`, `onChange`, `context`, `h`, `icon`, panel sizes |
-| `@aurigax-ai/pine-extension-sdk/splitter` | A resizable split for panel pages |
-| `@aurigax-ai/pine-extension-sdk/panel.css` | Base panel styles on Pine's theme variables |
-| `@aurigax-ai/pine-extension-sdk/assist` | The engine behind Pine's assistant. Give `runAssistExtension` a `ProviderCatalog` to serve chat, completions and prompt help from your own model provider. Needs `ai`, `zod`, `@ai-sdk-tool/parser` and `undici` installed |
-| `schemas/pine.schema.json` | JSON Schema for `pine.json` |
-| `schemas/pine-marketplace.schema.json` | JSON Schema for a marketplace's `pine-marketplace.json` |
+| `@aurigax-ai/ostia-extension-sdk` | `connect()` and the `PineExtension` API: commands, events, sidebar items, pane chips, settings, secrets, notifications, panels, diffs, terminals, the human's language, `createTranslator`, `runTool`, `startPanelServer`, `onShutdown` |
+| `@aurigax-ai/ostia-extension-sdk/panel` | For the page inside a panel: `call`, `onChange`, `context`, `h`, `icon`, panel sizes |
+| `@aurigax-ai/ostia-extension-sdk/splitter` | A resizable split for panel pages |
+| `@aurigax-ai/ostia-extension-sdk/panel.css` | Base panel styles on Pine's theme variables |
+| `@aurigax-ai/ostia-extension-sdk/assist` | The engine behind Pine's assistant. Give `runAssistExtension` a `ProviderCatalog` to serve chat, completions and prompt help from your own model provider. Needs `ai`, `zod`, `@ai-sdk-tool/parser` and `undici` installed |
+| `schemas/ostia.schema.json` | JSON Schema for the extension manifest (`ostia.json` or `pine.json`) |
+| `schemas/ostia-marketplace.schema.json` | JSON Schema for a marketplace manifest (`ostia-marketplace.json` or `pine-marketplace.json`) |
+
+`schemas/pine.schema.json` and `schemas/pine-marketplace.schema.json` are the same files under
+their old names, so manifests that point at them keep working.
 
 Point your editor at the schema from the manifest:
 
 ```json
-{ "$schema": "./node_modules/@aurigax-ai/pine-extension-sdk/schemas/pine.schema.json" }
+{ "$schema": "./node_modules/@aurigax-ai/ostia-extension-sdk/schemas/ostia.schema.json" }
 ```
 
-The schema catches shape mistakes while you type. `pine-extension validate` is the authority: it
+The schema catches shape mistakes while you type. `ostia-extension validate` is the authority: it
 runs the same checks Pine runs when it loads the extension.
+
+## The old names
+
+This package was published as `@aurigax-ai/pine-extension-sdk` before the app was renamed to
+Ostia. That package is deprecated; install this one instead. Everything else keeps working under
+its old name too:
+
+- The `pine-extension` command is the same program as `ostia-extension`.
+- The app reads an extension manifest named `ostia.json` or `pine.json` (`ostia.json` wins when a
+  folder has both) and a marketplace manifest named `ostia-marketplace.json` or
+  `pine-marketplace.json`. Versions before the rename read only the `pine` names, so keep those
+  while you want them to load your extension. The template uses `pine.json` for that reason.
+- `package.json` has `pineExtensionApi` next to `ostiaExtensionApi`, with the same value.
 
 ## Check an extension or a marketplace
 
 ```sh
-pnpm exec pine-extension validate dist/weather     # one extension folder
-pnpm exec pine-extension validate .                # a marketplace: a folder with pine-marketplace.json
-pnpm exec pine-extension unlist extensions/weather # hide it in Pine: installable only by the printed code
+pnpm exec ostia-extension validate dist/weather     # one extension folder
+pnpm exec ostia-extension validate .                # a marketplace: a folder with pine-marketplace.json
+pnpm exec ostia-extension unlist extensions/weather # hide it in Pine: installable only by the printed code
 ```
 
 It exits 0 when Pine would accept it and prints one line per problem otherwise. For an extension it
@@ -85,7 +101,7 @@ Extensions → Marketplaces. See "Marketplaces" in [docs/EXTENSIONS.md](docs/EXT
 `dist/` is what you import: the SDK bundled into a few plain, unminified JavaScript files.
 `src/` holds the TypeScript it was built from, at the same paths as in the Pine repository
 (`src/extensions/sdk` is the library, `src/shared` the contract types, `src/cli` and `src/main` the
-`pine-extension` command and the manifest loader it runs). It is there to read. The SDK is developed
+`ostia-extension` command and the manifest loader it runs). It is there to read. The SDK is developed
 in [the Pine repository](https://github.com/aurigax-ai/ostia) and published from it on every release,
 so the SDK and the app cannot drift apart. Report problems in that repository's issues.
 
@@ -93,7 +109,7 @@ so the SDK and the app cannot drift apart. Report problems in that repository's 
 
 Two numbers matter:
 
-- **The extension API version** (`EXTENSION_API_VERSION`, `pineExtensionApi` in `package.json`,
+- **The extension API version** (`EXTENSION_API_VERSION`, `ostiaExtensionApi` in `package.json`,
   `api.json`): the version of the contract, `major.minor`. Put it in your manifest as `"api"`.
   A minor adds things and keeps every existing extension working; Pine provides exactly one
   major. Pine refuses an extension whose `api` it doesn't provide, and `connect()` refuses to

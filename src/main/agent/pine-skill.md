@@ -1,6 +1,6 @@
 ---
 name: pine
-description: Use when a coding agent is running inside Ostia (a terminal-workspace app) — detectable via the env vars OSTIA_SOCKET/OSTIA_TOKEN/OSTIA_PANE_ID/OSTIA_START_DIR — and wants to control its own pane or coordinate with other agents/panes in the workspace. Covers the `ostia` CLI: identity (whoami), introspection (commands, docs), opening files, desktop notifications, pane attention state (ostia state waiting/done), asking the human a question and waiting for the answer (ostia ask: free text, one choice or several), running commands in terminal tabs the human can watch (ostia process), typing into and reading other terminal panes (ostia pane send/key/read), an encrypted secret vault, sandboxed workspaces (asking for a domain, an exposed port or a secret: ostia sandbox request-domain/expose, ostia secret ls/get), a cross-agent message bus, driving the in-app browser with agent-browser's command contract (open/snapshot refs/click/fill/type/press/find/wait/get/eval/screenshot/cookies/storage/network/tabs/--json/batch, pick element), reading the selection reports (text, image regions, PDF text or regions, terminal output) a human sends from files and terminals Ostia shows (@/tmp/pine-reports-*/selection-N.md), reading the human's saved command workflows (ostia workflow list/show), building sidebar sections and panels for the human as data-only JSON views (ostia view schema/validate/list/open), reading/writing app settings, learning the OS and asking the human to install system packages (ostia system info/install — never run sudo yourself), and pairing/managing the LAN control gateway (a phone companion app, off by default, elevated, LAN/Tailscale only — no hosted relay). Boards, cards and knowledge entries are not Ostia's: use the `trellis` CLI. Also covers the capability/elevation model and a recipe for two agents (e.g. Claude + Codex) in different panes coordinating work. Triggers on "ostia", "ostia CLI", "am I in Ostia", "control the terminal workspace", "talk to the other pane/agent", "hand off a task to another agent", "ostia bus/vault/settings/browse/gateway", "automate the browser", "agent browser automation in Ostia", "pair a phone with Ostia", "ostia gateway", "selection-N.md", "the human sent me a selection", "build a sidebar/panel/dashboard in Ostia", "ostia view", and the old names "pine", "pine CLI", "am I in Pine".
+description: Use when a coding agent is running inside Ostia (a terminal-workspace app) — detectable via the env vars OSTIA_SOCKET/OSTIA_TOKEN/OSTIA_PANE_ID/OSTIA_START_DIR — and wants to control its own pane or coordinate with other agents/panes in the workspace. Covers the `ostia` CLI: identity (whoami), introspection (commands, docs), opening files, desktop notifications, pane attention state (ostia state waiting/done), asking the human a question and waiting for the answer (ostia ask: free text, one choice or several), running commands in terminal tabs the human can watch (ostia process), typing into and reading other terminal panes (ostia pane send/key/read), an encrypted secret vault, sandboxed workspaces (asking for a domain, an exposed port or a secret: ostia sandbox request-domain/expose, ostia secret ls/get), a cross-agent message bus, driving the in-app browser with agent-browser's command contract (open/snapshot refs/click/fill/type/press/find/wait/get/eval/screenshot/cookies/storage/network/tabs/--json/batch, pick element), reading the selection reports (text, image regions, PDF text or regions, terminal output) a human sends from files and terminals Ostia shows (@/tmp/ostia-reports-*/selection-N.md), reading the human's saved command workflows (ostia workflow list/show), building sidebar sections and panels for the human as data-only JSON views (ostia view schema/validate/list/open), reading/writing app settings, learning the OS and asking the human to install system packages (ostia system info/install — never run sudo yourself), and pairing/managing the LAN control gateway (a phone companion app, off by default, elevated, LAN/Tailscale only — no hosted relay). Boards, cards and knowledge entries are not Ostia's: use the `trellis` CLI. Also covers the capability/elevation model and a recipe for two agents (e.g. Claude + Codex) in different panes coordinating work. Triggers on "ostia", "ostia CLI", "am I in Ostia", "control the terminal workspace", "talk to the other pane/agent", "hand off a task to another agent", "ostia bus/vault/settings/browse/gateway", "automate the browser", "agent browser automation in Ostia", "pair a phone with Ostia", "ostia gateway", "selection-N.md", "the human sent me a selection", "build a sidebar/panel/dashboard in Ostia", "ostia view", and the old names "pine", "pine CLI", "am I in Pine".
 ---
 
 # Ostia — the agent toolbelt
@@ -207,8 +207,8 @@ ostia workflow show <name> [--json]  # command, {{arguments}}, descriptions, def
 
 Workflows are parameterized commands in Warp's YAML format (`name`, `command` with
 `{{arg}}` placeholders, `description`, `tags`, `arguments[{name, description,
-default_value}]`). You see your workspace's `<workDir>/.pine/workflows/*.yaml`, the
-human's `~/.config/pine/workflows/*.yaml`, and workflows contributed by enabled
+default_value}]`). You see your workspace's `<workDir>/.ostia/workflows/*.yaml` (and the older
+`<workDir>/.pine/workflows/*.yaml`), the human's `~/.config/ostia/workflows/*.yaml`, and workflows contributed by enabled
 extensions. Use them to learn how this project is built, tested and deployed: fill
 the placeholders yourself and run the command in your own shell. There is no
 `run` or `save` verb, and ostia never types a workflow for you; files that fail to
@@ -224,8 +224,8 @@ ostia workflow show <name> [--json]  # command, {{arguments}}, descriptions, def
 
 Workflows are parameterized commands in Warp's YAML format (`name`, `command` with
 `{{arg}}` placeholders, `description`, `tags`, `arguments[{name, description,
-default_value}]`). You see your workspace's `<workDir>/.pine/workflows/*.yaml`, the
-human's `~/.config/pine/workflows/*.yaml`, and workflows contributed by enabled
+default_value}]`). You see your workspace's `<workDir>/.ostia/workflows/*.yaml` (and the older
+`<workDir>/.pine/workflows/*.yaml`), the human's `~/.config/ostia/workflows/*.yaml`, and workflows contributed by enabled
 extensions. Use them to learn how this project is built, tested and deployed: fill
 the placeholders yourself and run the command in your own shell. There is no
 `run` or `save` verb, and ostia never types a workflow for you; files that fail to
@@ -234,7 +234,7 @@ parse are listed under `problems` (stderr in text mode). Needs `read-board`
 
 ## Views — build UI for the human (sidebar sections and panels)
 
-A view is one JSON file, `~/.config/pine/views/<name>.json` (`$XDG_CONFIG_HOME/pine/views`;
+A view is one JSON file, `~/.config/ostia/views/<name>.json` (`$XDG_CONFIG_HOME/ostia/views`;
 `<name>` is lowercase `a-z0-9-`). It is data only: no script, HTML or styling. Ostia draws it
 with its own components, bound to live data, and reloads it whenever the file changes.
 A new file stays hidden until the human turns it on in Settings → Views; you cannot enable
@@ -548,7 +548,7 @@ patch Ostia's code for that.
   can't mark one trusted.
 - **Shortcuts**: `ostia settings set keybindings.action.<id> '"Ctrl+Shift+K"'`.
 - **A custom panel or sidebar item** (dashboards, lists, status): write a user extension
-  in `~/.config/pine/extensions/<name>/` (`ostia docs extensions`); Ostia hot-reloads it and
+  in `~/.config/ostia/extensions/<name>/` (`ostia docs extensions`); Ostia hot-reloads it and
   the human approves it once.
 
 ## Browser — agent-driven web automation
@@ -701,7 +701,7 @@ The human and the agent can both point at an element in a browser pane:
 
 - **Human → agent.** The human clicks **Point at element** in a browser pane's toolbar, clicks the
   broken thing, writes what's wrong, and sends it to a terminal pane. Ostia writes a markdown
-  report to a private tmp dir (`/tmp/pine-reports-<uid>/capture-N-<page>.md`, where `<page>` is the page's host and path) and:
+  report to a private tmp dir (`/tmp/ostia-reports-<uid>/capture-N-<page>.md`, where `<page>` is the page's host and path) and:
   - pastes `@<report path> ` at that pane's prompt (never presses Enter) if the pane is at an idle
     shell prompt or its agent reported `ostia state waiting`/`done`, followed by `@<screenshot>.png `
     when the capture has a screenshot and the human left Settings → Browser → Attach the
@@ -741,7 +741,7 @@ editor or the Markdown preview (**Send Selection to Agent**, Ctrl+Shift+E / ⌘�
 context menu), a dragged region of an image, or selected text or a region of a PDF page. From a
 terminal pane they can send selected text or a command block's output (the block's
 **Send output to agent…**). Ostia
-writes `/tmp/pine-reports-<uid>/selection-N.md` (plus `selection-N.png` for image and PDF
+writes `/tmp/ostia-reports-<uid>/selection-N.md` (plus `selection-N.png` for image and PDF
 regions), pastes `@<report path> ` under the same rules as a pick report (idle prompt, or your
 agent reported `waiting`/`done`; otherwise the human's clipboard), sets your pane to `working`,
 and sends a bus message whose `text` is JSON:

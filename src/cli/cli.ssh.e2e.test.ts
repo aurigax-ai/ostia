@@ -190,7 +190,7 @@ describe('ostia ssh (real extension process, real socket, fake ssh)', () => {
     const remove = await runPine(['ssh', 'helper-remove', 'db'])
     expect(`${remove.stdout}${remove.stderr}`).toContain('human-only')
     expect(confirm).not.toHaveBeenCalled()
-    expect(existsSync(join(remoteHome, '.pine'))).toBe(false)
+    expect(existsSync(join(remoteHome, '.ostia'))).toBe(false)
     const listed = await runPine(['ssh', 'helpers'])
     expect(JSON.parse(listed.stdout).hosts).toEqual([])
   }, 30_000)
@@ -203,13 +203,13 @@ describe('ostia ssh (real extension process, real socket, fake ssh)', () => {
     const asked = confirm.mock.calls[0][0]
     expect(asked.message).toContain('db')
     expect(asked.detail).toContain('dev@10.0.0.5:2200')
-    const versions = readdirSync(join(remoteHome, '.pine', 'helper'))
+    const versions = readdirSync(join(remoteHome, '.ostia', 'helper'))
     expect(versions).toHaveLength(1)
-    expect(asked.detail).toContain(`~/.pine/helper/${versions[0]}/helper.sh`)
+    expect(asked.detail).toContain(`~/.ostia/helper/${versions[0]}/helper.sh`)
     const shipped = readFileSync(join(repoRoot, 'out', 'extensions', 'ssh', 'assets', 'helper.sh'))
-    const installed = readFileSync(join(remoteHome, '.pine', 'helper', versions[0], 'helper.sh'))
+    const installed = readFileSync(join(remoteHome, '.ostia', 'helper', versions[0], 'helper.sh'))
     expect(installed.equals(shipped)).toBe(true)
-    expect(readdirSync(join(remoteHome, '.pine', 'helper', versions[0])).sort()).toContain(
+    expect(readdirSync(join(remoteHome, '.ostia', 'helper', versions[0])).sort()).toContain(
       'session.sh',
     )
     expect(

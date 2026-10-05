@@ -89,7 +89,7 @@ test('a newer release shows a notice that opens its page and stays skipped after
     await expect(releaseButton(win)).toBeVisible({ timeout: 20_000 })
     expect(github.requests).toHaveLength(1)
     expect(github.requests[0].path).toBe('/repos/aurigax-ai/ostia/releases/latest')
-    expect(github.requests[0].userAgent).toMatch(/^pine\/\d+\.\d+\.\d+/)
+    expect(github.requests[0].userAgent).toMatch(/^ostia\/\d+\.\d+\.\d+/)
 
     await releaseButton(win).click()
     await expect.poll(() => openedExternally(app)).toEqual([RELEASE_URL])

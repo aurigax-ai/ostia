@@ -11,7 +11,7 @@ afterAll(() => rmSync(root, { recursive: true, force: true }))
 
 function machine(name: string, folders: string[], files: string[] = []) {
   const home = join(root, name, 'home')
-  const dataDir = join(home, '.local/share/pine')
+  const dataDir = join(home, '.local/share/ostia')
   const runtimeDir = join(root, name, 'run')
   for (const dir of [dataDir, runtimeDir, ...folders.map((f) => join(home, f))]) {
     mkdirSync(dir, { recursive: true })

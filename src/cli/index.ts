@@ -1199,7 +1199,7 @@ commands:
   workspace group <name> | ungroup   move this workspace into a sidebar group, or out of it
   resume-token <claude|codex> <id|->  remember how to resume this pane's agent after a restart
   workflow list [--json] | show <name> [--json]   saved command workflows (read-only)
-  view list [--json] | open <name>   declarative views (~/.config/pine/views/<name>.json)
+  view list [--json] | open <name>   declarative views (~/.config/ostia/views/<name>.json)
   view validate <file> | schema      check a view file / print its JSON schema (no app needed)
   <file>... | open <file>...   show files in Ostia's viewer, any path (file:line[:col] jumps)
   process run "<cmd>" [--name N] [--cwd DIR] | ls | logs | kill | restart <id|name>

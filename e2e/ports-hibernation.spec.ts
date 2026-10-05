@@ -162,7 +162,7 @@ test('a hibernated agent is still hibernated after a restart and wakes when the 
     const saved = (): boolean => {
       try {
         return /"hibernated":\s*true/.test(
-          readFileSync(join(dataHome, 'pine', 'workspaces.json'), 'utf8'),
+          readFileSync(join(dataHome, 'ostia', 'workspaces.json'), 'utf8'),
         )
       } catch {
         return false

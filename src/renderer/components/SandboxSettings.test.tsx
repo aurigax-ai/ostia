@@ -92,7 +92,7 @@ describe('sandbox settings', () => {
 const FIXED: SandboxFixedPolicy = {
   readable: ['/home/u/proj', '/tmp/pine-sandbox/ws'],
   writable: ['/home/u/proj', '/home/u/.claude'],
-  hidden: ['/home/u', '/home/u/.config/pine'],
+  hidden: ['/home/u', '/home/u/.config/ostia'],
   readOnly: ['/home/u/.claude/settings.json', '/home/u/proj/.git/hooks'],
   hiddenSockets: ['/run/docker.sock', '/tmp/ssh-abc'],
   socketBlocking: true,
@@ -143,7 +143,7 @@ describe('sandbox filesystem settings', () => {
     expect(within(writable).getByText('~/shared-out').closest('li')).toHaveTextContent('Global')
     expect(within(writable).getByRole('button', { name: 'Remove ~/builds' })).toBeInTheDocument()
     expect(screen.getByRole('group', { name: 'Hidden paths' })).toHaveTextContent(
-      '/home/u/.config/pine',
+      '/home/u/.config/ostia',
     )
     expect(screen.getByRole('group', { name: 'Read-only paths' })).toHaveTextContent(
       '/home/u/proj/.git/hooks',

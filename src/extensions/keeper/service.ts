@@ -3,7 +3,7 @@ import {
   type SidebarTone,
   type ToolRun,
   runTool,
-} from '@aurigax-ai/pine-extension-sdk'
+} from '@aurigax-ai/ostia-extension-sdk'
 import {
   APPROVALS_PATH,
   DEFAULT_INTERVALS,

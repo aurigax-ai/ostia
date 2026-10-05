@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { type ToolRun, runTool } from '@aurigax-ai/pine-extension-sdk'
+import { type ToolRun, runTool } from '@aurigax-ai/ostia-extension-sdk'
 import {
   type BoardInfo,
   type CardDetail,
@@ -44,7 +44,7 @@ export interface CliOptions {
 }
 
 const NOT_INSTALLED = 'not-installed'
-export const TEXT_DIR_PREFIX = 'pine-trellis-text-'
+export const TEXT_DIR_PREFIX = 'ostia-trellis-text-'
 const TEXT_FILE_MODE = 0o600
 
 function scopeArgs(scope: Scope): string[] {

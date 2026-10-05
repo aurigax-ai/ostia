@@ -41,7 +41,7 @@ const BOARD_VIEW = {
 
 test('a view file shows in the sidebar only after the human enables it, with live data and working buttons', async () => {
   const dataHome = freshDataHome()
-  const viewsDir = join(dataHome, 'config', 'pine', 'views')
+  const viewsDir = join(dataHome, 'config', 'ostia', 'views')
   mkdirSync(viewsDir, { recursive: true })
   writeFileSync(join(viewsDir, 'agents.json'), JSON.stringify(AGENTS_VIEW, null, 2))
   const app = await electron.launch(isolatedLaunch(dataHome))
@@ -118,7 +118,7 @@ async function expectWidthNear(pane: Locator, width: number): Promise<void> {
 test('a panel reopens at the width the human dragged it to, also after a restart', async () => {
   test.setTimeout(90_000)
   const dataHome = freshDataHome()
-  const viewsDir = join(dataHome, 'config', 'pine', 'views')
+  const viewsDir = join(dataHome, 'config', 'ostia', 'views')
   mkdirSync(viewsDir, { recursive: true })
   writeFileSync(join(viewsDir, 'board.json'), JSON.stringify(BOARD_VIEW, null, 2))
   let app = await electron.launch(isolatedLaunch(dataHome))
