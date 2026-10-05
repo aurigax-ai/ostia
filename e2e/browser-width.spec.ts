@@ -174,27 +174,26 @@ for (const [width, height] of [
       await expect.poll(() => win.evaluate(() => innerWidth)).toBe(width)
 
       expect((await ostia('open', `${origin}/first`)).code).toBe(0)
-      const split = await expectPageFitsPane(app, win, '/first')
-      expect(split.width).toBeLessThan(width / 2)
+      const pane = await expectPageFitsPane(app, win, '/first')
       await expect
         .poll(async () => Number((await ostia('eval', 'window.innerWidth')).out))
-        .toBe(split.width)
+        .toBe(pane.width)
 
       expect((await ostia('open', `${origin}/again`)).code).toBe(0)
       await expectPageFitsPane(app, win, '/again')
 
       await setWindowSize(app, width - 200, height)
-      await expect.poll(async () => (await visibleHost(app, win))?.width).toBeLessThan(split.width)
+      await expect.poll(async () => (await visibleHost(app, win))?.width).toBeLessThan(pane.width)
       await expect
         .poll(async () => Number((await ostia('eval', 'window.innerWidth')).out))
         .toBe((await visibleHost(app, win))?.width)
       await setWindowSize(app, width, height)
-      await expect.poll(async () => (await visibleHost(app, win))?.width).toBe(split.width)
+      await expect.poll(async () => (await visibleHost(app, win))?.width).toBe(pane.width)
 
       expect((await ostia('close')).code).toBe(0)
       await expect.poll(() => visibleHost(app, win)).toBeNull()
       expect((await ostia('open', `${origin}/reopened`)).code).toBe(0)
-      expect((await expectPageFitsPane(app, win, '/reopened')).width).toBe(split.width)
+      expect((await expectPageFitsPane(app, win, '/reopened')).width).toBe(pane.width)
       expect((await ostia('close')).code).toBe(0)
       await expect.poll(() => visibleHost(app, win)).toBeNull()
 
@@ -203,7 +202,7 @@ for (const [width, height] of [
       await address.fill(`${origin}/human`)
       await address.press('Enter')
       const tab = await expectPageFitsPane(app, win, '/human')
-      expect(tab.width).toBeGreaterThan(split.width)
+      expect(tab.width).toBe(pane.width)
     } finally {
       await app.close()
       server.close()

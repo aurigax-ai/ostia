@@ -34,7 +34,7 @@ import {
 } from '@phosphor-icons/react'
 import type { ExtensionSidebarItem } from '@shared/extensions'
 import { WORKSPACE_GROUP_COLORS, type WorkspaceGroupColor } from '@shared/workspaceGroups'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Markdown, { type Components } from 'react-markdown'
 import type { Dict } from '../i18n/dict'
 import { fmt, useDict } from '../i18n/useDict'
@@ -91,7 +91,6 @@ import { MergeMenuItems } from './MergeMenuItems'
 import { LiveLine, LocationLine, SidebarItem } from './RailMeta'
 import { RAIL_ID, RailResizer } from './RailResizer'
 import { ViewsRail } from './ViewsRail'
-import { ATTENTION_BADGE } from './attentionStyles'
 import { Badge } from './ui/badge'
 import {
   ContextMenu,
@@ -358,7 +357,7 @@ function GroupBlock({
             >
               <Caret size={12} className="rail-group-caret" aria-hidden />
               <span className="rail-group-swatch" aria-hidden />
-              <UnreadBadge workspaceIds={members.map((w) => w.id)} />
+              <GroupUnreadDot workspaceIds={members.map((w) => w.id)} />
               <span className="rail-group-name">{group.name}</span>
               <span
                 className="rail-group-count"
@@ -488,6 +487,7 @@ function WorkspaceIcon({ workspace }: { workspace: Workspace }): JSX.Element {
   const hibernated = root ? allPanes(root).some((p) => p.hibernated) : false
   const KindIcon = hibernated ? MoonIcon : KIND_ICON[workspace.kind]
   const waitingAt = useAttentionStore((s) => (root ? latestWaitingAt(s.byPane, paneIds(root)) : 0))
+  const unread = useUnread([workspace.id])
   return (
     <span className="tab-lead-wrap">
       <span
@@ -496,12 +496,18 @@ function WorkspaceIcon({ workspace }: { workspace: Workspace }): JSX.Element {
         role="img"
         aria-label={stateLabel(d, workspace.state)}
       />
-      <UnreadBadge workspaceIds={[workspace.id]} />
       <KindIcon
+        key={unread.n > 0 ? `unread-${unread.generation}` : 'read'}
         size={16}
-        className="tab-lead"
-        role={hibernated ? 'img' : undefined}
-        aria-label={hibernated ? d.pane.hibernated : undefined}
+        className={cn('tab-lead', unread.n > 0 && 'tab-lead-unread')}
+        role={hibernated || unread.n > 0 ? 'img' : undefined}
+        aria-label={
+          unread.n > 0
+            ? fmt(d.rail.unread, { n: unread.n })
+            : hibernated
+              ? d.pane.hibernated
+              : undefined
+        }
       />
     </span>
   )
@@ -517,8 +523,7 @@ function ScratchBadge(): JSX.Element {
   )
 }
 
-function UnreadBadge({ workspaceIds }: { workspaceIds: string[] }): JSX.Element | null {
-  const d = useDict()
+function useUnread(workspaceIds: string[]): { n: number; generation: number } {
   const byWorkspace = useLayoutStore((s) => s.byWorkspace)
   const n = useAttentionStore((s) => {
     let total = 0
@@ -528,34 +533,16 @@ function UnreadBadge({ workspaceIds }: { workspaceIds: string[] }): JSX.Element 
     }
     return total
   })
-  const pop = usePopOnIncrease(n)
-  if (n === 0) return null
-  return (
-    <Badge
-      key={pop.generation}
-      variant="outline"
-      className={cn(ATTENTION_BADGE, 'unread-badge', pop.active && 'pop')}
-      role="img"
-      aria-label={fmt(d.rail.unread, { n })}
-      onAnimationEnd={pop.end}
-    >
-      {n > 99 ? '99+' : n}
-    </Badge>
-  )
+  const [seen, setSeen] = useState({ n: 0, generation: 0 })
+  if (seen.n !== n) setSeen({ n, generation: n > seen.n ? seen.generation + 1 : seen.generation })
+  return { n, generation: seen.generation }
 }
 
-function usePopOnIncrease(n: number): { active: boolean; generation: number; end: () => void } {
-  const [seen, setSeen] = useState({ n: 0, generation: 0, active: false })
-  if (seen.n !== n) {
-    const grew = n > seen.n
-    setSeen({
-      n,
-      generation: grew ? seen.generation + 1 : seen.generation,
-      active: grew,
-    })
-  }
-  const end = useCallback(() => setSeen((s) => (s.active ? { ...s, active: false } : s)), [])
-  return { active: seen.active, generation: seen.generation, end }
+function GroupUnreadDot({ workspaceIds }: { workspaceIds: string[] }): JSX.Element | null {
+  const d = useDict()
+  const { n } = useUnread(workspaceIds)
+  if (n === 0) return null
+  return <span className="unread-dot" role="img" aria-label={fmt(d.rail.unread, { n })} />
 }
 
 function WorkspaceSubtitle({ workspaceId }: { workspaceId: string }): JSX.Element | null {

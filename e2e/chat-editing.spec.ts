@@ -184,6 +184,7 @@ test.describe('chat code editing', () => {
       await expect(diff.locator('.monaco-diff-editor')).toBeVisible()
       expect(readFileSync(notes, 'utf8')).toBe(ORIGINAL)
 
+      await chatTab(win).click()
       await card.getByRole('button', { name: 'Accept' }).click()
       await expect(card).toHaveAttribute('data-state', 'applied', { timeout: 15_000 })
       await expect(card.getByRole('status')).toHaveText('Applied')

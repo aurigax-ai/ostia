@@ -165,7 +165,7 @@ describe('TopBar', () => {
   it('counts open questions and permission requests on the dashboard button, only when any wait', () => {
     const { container } = render(<TopBar />)
     const left = () => container.querySelector('.topbar-left') as HTMLElement
-    expect(left().querySelector('.count-badge')).toBeNull()
+    expect(left().querySelector('.count-dot')).toBeNull()
 
     act(() => {
       useQuestionsStore.setState({
@@ -195,7 +195,7 @@ describe('TopBar', () => {
         ],
       })
     })
-    expect(left().querySelector('.count-badge')).toHaveTextContent('2')
+    expect(left().querySelector('.count-dot')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Dashboard, 2 waiting for you' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Notifications' })).toBeInTheDocument()
 
@@ -203,7 +203,7 @@ describe('TopBar', () => {
       useQuestionsStore.setState({ pending: [] })
       useApprovalsStore.setState({ pending: [] })
     })
-    expect(left().querySelector('.count-badge')).toBeNull()
+    expect(left().querySelector('.count-dot')).toBeNull()
     expect(screen.getByRole('button', { name: 'Dashboard' })).toBeInTheDocument()
   })
 

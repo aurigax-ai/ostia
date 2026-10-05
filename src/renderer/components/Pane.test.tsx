@@ -153,6 +153,17 @@ describe('Pane', () => {
       expect(exec).toHaveBeenCalledWith('tab.newBrowser', { paneId: 'pa' })
     })
 
+    it('shows no new-tab or split buttons on an extension panel or a chat', () => {
+      for (const kind of ['extension', 'chat'] as const) {
+        const service: PaneNode = { type: 'pane', id: `s-${kind}`, kind, title: kind }
+        const view = render(<Pane tabs={[service]} shownId={service.id} active />)
+        for (const name of ['New terminal tab', 'New browser tab', 'Split right', 'Split down']) {
+          expect(screen.queryByRole('button', { name })).toBeNull()
+        }
+        view.unmount()
+      }
+    })
+
     it('opens a new terminal tab on a double-click in the empty part of the tab strip, not on a tab', async () => {
       const exec = vi.spyOn(commands, 'exec').mockResolvedValue({ ok: true, result: undefined })
       render(<Pane tabs={[a, b]} shownId="pb" active />)
