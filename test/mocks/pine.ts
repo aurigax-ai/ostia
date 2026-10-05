@@ -148,6 +148,10 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       publish: vi.fn(),
       onInvoke: vi.fn(noopUnsub),
     },
+    appMenu: {
+      set: vi.fn(),
+      onRun: vi.fn(noopUnsub),
+    },
     terminalState: {
       push: vi.fn(),
     },

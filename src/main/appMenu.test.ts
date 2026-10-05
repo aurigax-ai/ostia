@@ -81,6 +81,77 @@ describe('macOS application menu', () => {
     expect(roles).toContain('windowMenu')
   })
 
+  describe('with the renderer menu spec', () => {
+    const runCommand = vi.fn()
+    const spec = {
+      file: {
+        label: 'File',
+        items: [
+          { command: 'workspace.new', label: 'New Workspace', accelerator: 'Cmd+T' },
+          { separator: true as const },
+          { command: 'workspace.save', label: 'Save Workspace' },
+        ],
+      },
+      view: { label: 'View', items: [{ command: 'pane.zoom', label: 'Zoom Pane' }] },
+      go: { label: 'Go', items: [{ command: 'tab.next', label: 'Next Tab' }] },
+      help: {
+        label: 'Help',
+        items: [{ command: 'developer.openLogFolder', label: 'Open Log Folder' }],
+      },
+    }
+    const withSpec = () =>
+      macAppMenuTemplate({ productName: 'Ostia', openSettings, runCommand }, spec)
+
+    beforeEach(() => runCommand.mockClear())
+
+    it('shows the shortcut but leaves it to the renderer, and runs the command on click', () => {
+      const item = flatten(withSpec()).find((i) => i.id === 'command:workspace.new')
+      expect(item?.label).toBe('New Workspace')
+      expect(item?.accelerator).toBe('Cmd+T')
+      expect(item?.registerAccelerator).toBe(false)
+      ;(item?.click as () => void)()
+      expect(runCommand).toHaveBeenCalledWith('workspace.new')
+    })
+
+    it('adds Go and Help menus and keeps Close Window, Full Screen and the system menus', () => {
+      const template = withSpec()
+      expect(template.map((m) => m.label ?? m.role)).toEqual([
+        'Ostia',
+        'File',
+        'editMenu',
+        'View',
+        'Go',
+        'windowMenu',
+        'Help',
+      ])
+      const file = template[1].submenu as MenuItemConstructorOptions[]
+      expect(file.at(-1)?.role).toBe('close')
+      expect(file.at(-2)?.type).toBe('separator')
+      const roles = flatten(template).map((i) => i.role)
+      expect(roles).toContain('togglefullscreen')
+      expect(template.find((m) => m.label === 'Help')?.role).toBe('help')
+    })
+
+    it('still leaves Cmd+W to the renderer', () => {
+      const accelerators = flatten(withSpec()).map((i) => i.accelerator)
+      expect(accelerators).not.toContain('Cmd+W')
+    })
+
+    it('rebuilds the installed menu only for a valid spec', () => {
+      const menu = installAppMenu('darwin', { productName: 'Ostia', openSettings, runCommand })
+      expect(installed).toHaveLength(1)
+      expect(menu.setSpec({ file: 'nope' })).toBe(false)
+      expect(installed).toHaveLength(1)
+      expect(menu.setSpec(spec)).toBe(true)
+      expect(installed).toHaveLength(2)
+      expect(menu.setSpec(spec)).toBe(true)
+      expect(installed).toHaveLength(2)
+      expect(installAppMenu('linux', { productName: 'Ostia', openSettings }).setSpec(spec)).toBe(
+        false,
+      )
+    })
+  })
+
   it('installs the menu and the About panel name on macOS only', () => {
     installAppMenu('linux', { productName: 'Ostia', openSettings })
     installAppMenu('win32', { productName: 'Ostia', openSettings })

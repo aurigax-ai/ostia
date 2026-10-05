@@ -2139,6 +2139,12 @@ function openSettingsInFocusedWindow(): void {
   void execCommand({ windowId: entry?.[0], workspaceId: '', paneId: null }, 'app.openSettings')
 }
 
+function runMenuCommandInFocusedWindow(command: string): void {
+  const focused = BrowserWindow.getFocusedWindow()
+  const win = focused && [...windows.values()].includes(focused) ? focused : mainWindow()
+  if (win && !win.isDestroyed()) win.webContents.send('app-menu:run', command)
+}
+
 function mainWindow(): BrowserWindow | undefined {
   return broker?.mainWindow() ?? [...windows.values()][0]
 }
@@ -2479,9 +2485,14 @@ app.on('second-instance', (_event, argv) => {
 })
 
 app.whenReady().then(() => {
-  installAppMenu(process.platform, {
+  const appMenu = installAppMenu(process.platform, {
     productName: PRODUCT_DISPLAY_NAME,
     openSettings: openSettingsInFocusedWindow,
+    runCommand: runMenuCommandInFocusedWindow,
+  })
+  ipcMain.on('app-menu:set', (e, spec: unknown) => {
+    const win = BrowserWindow.fromWebContents(e.sender)
+    if (win && [...windows.values()].includes(win)) appMenu.setSpec(spec)
   })
   const logDir = join(app.getPath('userData'), 'logs')
   appLog = createAppLog(join(logDir, LOG_FILE_NAME))

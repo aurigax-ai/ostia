@@ -1465,6 +1465,13 @@ export const en = {
     scratchAction: 'Delete',
     reveal: 'Reveal',
   },
+  appMenu: {
+    file: 'File',
+    view: 'View',
+    go: 'Go',
+    help: 'Help',
+    sshConnect: 'Connect to SSH Host…',
+  },
   scratch: {
     badge: 'Scratch',
     badgeHint:
@@ -3945,6 +3952,13 @@ export const zhHant: Dict = {
     scratchFilesOne: '暫存資料夾中有 1 個檔案',
     scratchAction: '刪除',
     reveal: '顯示資料夾',
+  },
+  appMenu: {
+    file: '檔案',
+    view: '顯示方式',
+    go: '前往',
+    help: '輔助說明',
+    sshConnect: '連線到 SSH 主機…',
   },
   scratch: {
     badge: '暫存',
