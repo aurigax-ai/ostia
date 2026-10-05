@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import {
   type ChordSpec,
   formatChord,
@@ -5,6 +7,7 @@ import {
   stealsTerminalKey,
   usedByMonaco,
 } from '@shared/chordSpec'
+import { parseKeymapBindings } from '@shared/keymapFile'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { commands } from '../commands/registry'
 import { useKeymapStore } from '../stores/keymapStore'
@@ -15,8 +18,10 @@ import {
   type KeybindingMap,
   baseChord,
   bindableIds,
+  checkBinding,
   chordLabel,
   conflictsWith,
+  currentBindings,
   effectiveBindings,
   isAppChord,
   matchChord,
@@ -353,6 +358,58 @@ describe('a keymap between the defaults and the user', () => {
     expect(chordLabel('pane.splitRight', false)).toBe('Ctrl+Alt+D')
     useKeymapStore.setState({ key: null, ref: null, loaded: null })
     expect(chordLabel('pane.splitRight', false)).toBe('Ctrl+Alt+\\')
+  })
+})
+
+describe('the macOS keymap that follows cmux', () => {
+  const dir = join(__dirname, '../../extensions/keymap-macos')
+  const manifest = JSON.parse(readFileSync(join(dir, 'pine.json'), 'utf8'))
+  const raw = JSON.parse(readFileSync(join(dir, manifest.contributes.keymaps[0].path), 'utf8'))
+  const parsed = parseKeymapBindings(raw, true)
+  const bindings = parsed.ok ? parsed.bindings : {}
+
+  it('names only app commands, each with a chord that loads on macOS', () => {
+    expect(parsed.ok && parsed.skipped).toEqual([])
+    for (const [id, text] of Object.entries(raw.bindings as Record<string, string>)) {
+      expect(Object.keys(DEFAULT_CHORDS), id).toContain(id)
+      expect(isAppChord(id), id).toBe(true)
+      expect(checkBinding(id, text, true), id).toBeNull()
+    }
+  })
+
+  it('leaves no two commands on one chord on macOS', () => {
+    useKeymap(bindings)
+    const { byId, bySignature } = currentBindings(true)
+    for (const [id, text] of Object.entries(bindings)) {
+      expect(byId.get(id), id).toEqual(text === null ? undefined : chord(text, true))
+    }
+    for (const [id, spec] of byId) expect(conflictsWith(id, spec, true), id).toEqual([])
+    expect(bySignature.size).toBe(byId.size)
+  })
+
+  it('binds cmux’s shortcuts and moves the dashboard off ⇧⌘D', () => {
+    useKeymap(bindings)
+    const cmd = { metaKey: true }
+    const cmdShift = { metaKey: true, shiftKey: true }
+    const cmdAlt = { metaKey: true, altKey: true }
+    expect(matchChord(key('P', cmdShift), true)).toBe('palette.toggle')
+    expect(matchChord(key('b', cmd), true)).toBe('view.toggleRail')
+    expect(matchChord(key('n', cmd), true)).toBe('workspace.new')
+    expect(matchChord(key('d', cmd), true)).toBe('pane.splitRight')
+    expect(matchChord(key('D', cmdShift), true)).toBe('pane.splitDown')
+    expect(matchChord(key('ArrowLeft', cmdAlt), true)).toBe('pane.focusLeft')
+    expect(matchChord(key('ArrowRight', cmdAlt), true)).toBe('pane.focusRight')
+    expect(matchChord(key('ArrowUp', cmdAlt), true)).toBe('pane.focusUp')
+    expect(matchChord(key('ArrowDown', cmdAlt), true)).toBe('pane.focusDown')
+    expect(matchChord({ ...key('Enter', cmdShift), code: 'Enter' }, true)).toBe('pane.zoom')
+    expect(matchChord({ ...key('∂', cmdAlt), code: 'KeyD' }, true)).toBe('dashboard.toggle')
+    expect(matchChord(key('k', cmd), true)).toBeNull()
+    expect(matchChord(key('t', cmd), true)).toBeNull()
+  })
+
+  it('changes nothing until it is the chosen keymap', () => {
+    expect(chordLabel('pane.splitRight', true)).toBe('⌥⌘\\')
+    expect(matchChord(key('d', { metaKey: true }), true)).toBeNull()
   })
 })
 
