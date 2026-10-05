@@ -1,6 +1,6 @@
 # Pine extensions
 
-A marketplace for [Pine](https://github.com/aurigax-ai/pine): extensions that are not built into the app.
+A marketplace for [Pine](https://github.com/aurigax-ai/ostia): extensions that are not built into the app.
 
 ## Use it
 
@@ -54,7 +54,7 @@ a moment and asks you to approve it.
 
 ## Where changes are made
 
-The source is developed in the [Pine repository](https://github.com/aurigax-ai/pine) under the
+The source is developed in the [Pine repository](https://github.com/aurigax-ai/ostia) under the
 same paths, where it is also tested against the app. The `Sync with Pine` workflow here checks
 hourly for a new Pine release, rebuilds this repository from that tag, runs the checks above and
 commits the result. Send changes to the Pine repository.

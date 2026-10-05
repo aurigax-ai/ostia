@@ -1,6 +1,6 @@
 # Pine extension SDK
 
-Write extensions for [Pine](https://github.com/aurigax-ai/pine): the client library and its types,
+Write extensions for [Pine](https://github.com/aurigax-ai/ostia): the client library and its types,
 JSON Schemas for the manifest files, a generator for a new extension project, and a command that
 checks an extension the way Pine does.
 
@@ -86,7 +86,7 @@ Extensions → Marketplaces. See "Marketplaces" in [docs/EXTENSIONS.md](docs/EXT
 `src/` holds the TypeScript it was built from, at the same paths as in the Pine repository
 (`src/extensions/sdk` is the library, `src/shared` the contract types, `src/cli` and `src/main` the
 `pine-extension` command and the manifest loader it runs). It is there to read. The SDK is developed
-in [the Pine repository](https://github.com/aurigax-ai/pine) and published from it on every release,
+in [the Pine repository](https://github.com/aurigax-ai/ostia) and published from it on every release,
 so the SDK and the app cannot drift apart. Report problems in that repository's issues.
 
 ## Versions
