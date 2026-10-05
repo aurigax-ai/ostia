@@ -11,6 +11,7 @@ import {
   StreamMessageWriter,
   createMessageConnection,
 } from 'vscode-jsonrpc/node'
+import { readEnv } from '../../shared/appEnv'
 import type {
   AssistError,
   AssistModelList,
@@ -328,10 +329,10 @@ function errorMessage(err: unknown): string {
 }
 
 export async function connect(): Promise<PineExtension> {
-  const socketPath = process.env.PINE_SOCKET
-  const token = process.env.PINE_TOKEN
-  if (!socketPath || !token) throw new Error('PINE_SOCKET / PINE_TOKEN missing')
-  const provided = process.env[EXTENSION_API_ENV]
+  const socketPath = readEnv('SOCKET')
+  const token = readEnv('TOKEN')
+  if (!socketPath || !token) throw new Error('OSTIA_SOCKET / OSTIA_TOKEN missing')
+  const provided = readEnv(EXTENSION_API_ENV)
   const incompatible = provided ? apiProblem(EXTENSION_API_VERSION, provided) : null
   if (incompatible) throw new Error(`this extension ${incompatible}`)
   const socket = createConnection(socketPath)
@@ -726,11 +727,8 @@ export async function startPanelServer(opts: {
   handle: (command: string, args: unknown, caller: ExtensionCaller) => Promise<ExtensionResult>
 }): Promise<PanelServer> {
   const secret = randomBytes(24).toString('hex')
-  const sizes = new PanelSizeStore(
-    process.env.PINE_EXTENSION_DATA
-      ? join(process.env.PINE_EXTENSION_DATA, PANEL_SIZES_FILE)
-      : null,
-  )
+  const dataDir = readEnv('EXTENSION_DATA')
+  const sizes = new PanelSizeStore(dataDir ? join(dataDir, PANEL_SIZES_FILE) : null)
   const streams = new Set<ServerResponse>()
   let port = 0
 

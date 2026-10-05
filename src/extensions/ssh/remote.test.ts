@@ -109,7 +109,7 @@ describe('remote shell integration', () => {
     const { out, leftInTmp } = session(
       zsh,
       home,
-      'echo hi\ncd /\nfalse\nprintf "<%s>" "$PINE_SSH_DIR$PINE_ZDOTDIR_ORIG"\n',
+      'echo hi\ncd /\nfalse\nprintf "<%s>" "$OSTIA_DIR$OSTIA_ZDOT"\n',
     )
     const steps = out.match(/STEP_\w+/g) ?? []
     expect(steps.slice(-4)).toEqual(['STEP_ZSHENV', 'STEP_ZPROFILE', 'STEP_ZSHRC', 'STEP_ZLOGIN'])
@@ -129,7 +129,7 @@ describe('remote shell integration', () => {
       join(home, '.bash_profile'),
       'echo STEP_PROFILE\nPS1="b> "\nPROMPT_COMMAND=(true)\nPROMPT_COMMAND+=("printf TICK")\n',
     )
-    const { out, leftInTmp } = session(bash, home, 'echo hi\ncd /\nfalse\necho "<$PINE_SSH_DIR>"\n')
+    const { out, leftInTmp } = session(bash, home, 'echo hi\ncd /\nfalse\necho "<$OSTIA_DIR>"\n')
     expect(count(out, 'STEP_PROFILE')).toBe(1)
     expect(out).toContain(`${mark('633;E;echo hi')}${mark('133;C')}hi`)
     expect(out).toContain(mark(`7;file://${hostname()}/`))

@@ -1,12 +1,13 @@
 import { readFileSync } from 'node:fs'
+import { readEnv } from '../../shared/appEnv'
 import { quoteArg } from '../../shared/shellQuote'
 
 const LEGACY_TIOCSTI = '/proc/sys/dev/tty/legacy_tiocsti'
 const NEW_SESSION = ' --new-session --die-with-parent '
-const OUTER_TERMIOS = 'PINE_RELAY_TTY'
+const OUTER_TERMIOS = 'OSTIA_RELAY_TTY'
 const RELAY_SHELL = '/bin/sh'
 
-export const PTY_RELAY_ENV = 'PINE_SANDBOX_PTY_RELAY'
+export const PTY_RELAY_ENV = 'SANDBOX_PTY_RELAY'
 
 export function terminalInjectionOff(read: (path: string) => string = readProc): boolean {
   try {
@@ -21,7 +22,7 @@ function readProc(path: string): string {
 }
 
 export function relayForced(isPackaged: boolean, env: Record<string, string | undefined>): boolean {
-  return !isPackaged && env[PTY_RELAY_ENV] === '1'
+  return !isPackaged && readEnv(PTY_RELAY_ENV, env) === '1'
 }
 
 export function needsPtyRelay(

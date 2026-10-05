@@ -17,6 +17,7 @@ import { pipeline } from 'node:stream/promises'
 import { createGunzip } from 'node:zlib'
 import { type ReadEntry, extract as extractTar, list as listTar } from 'tar'
 import { type Entry, type ZipFile, open as openZip } from 'yauzl'
+import { readEnv } from '../shared/appEnv'
 import {
   LANGUAGE_SERVER_DOWNLOAD_HOSTS,
   type LanguageServerAsset,
@@ -31,7 +32,7 @@ import {
 } from '../shared/languageServers'
 import { redactSecrets } from './appLog'
 
-export const DOWNLOAD_BASE_URL_ENV = 'PINE_LSP_DOWNLOAD_BASE_URL'
+export const DOWNLOAD_BASE_URL_ENV = 'LSP_DOWNLOAD_BASE_URL'
 export const DOWNLOAD_MAX_BYTES = 256 * 1024 * 1024
 export const EXTRACT_MAX_BYTES = 1024 * 1024 * 1024
 export const EXTRACT_MAX_FILES = 20_000
@@ -48,7 +49,7 @@ export function downloadBaseUrl(
   isPackaged: boolean,
   env: Record<string, string | undefined>,
 ): string | null {
-  return isPackaged ? null : env[DOWNLOAD_BASE_URL_ENV] || null
+  return isPackaged ? null : (readEnv(DOWNLOAD_BASE_URL_ENV, env) ?? null)
 }
 
 export class FetchError extends Error {

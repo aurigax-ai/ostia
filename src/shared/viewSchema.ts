@@ -75,7 +75,7 @@ export function viewJsonSchema(): Schema {
             additionalProperties: false,
             required: ['command'],
             properties: {
-              command: { type: 'string', description: 'A palette command id (pine commands)' },
+              command: { type: 'string', description: 'A palette command id (ostia commands)' },
               args: {
                 type: 'object',
                 description: `Command arguments; strings may hold bindings. At most ${VIEW_ARGS_MAX} characters of JSON`,

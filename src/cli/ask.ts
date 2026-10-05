@@ -11,7 +11,7 @@ export const ASK_EXIT = {
 } as const
 
 const USAGE = [
-  'usage: pine ask "<question>" [--context <text|->] [--choice <label>]… [--multi]',
+  'usage: ostia ask "<question>" [--context <text|->] [--choice <label>]… [--multi]',
   '                [--timeout <seconds>] [--json]',
   'asks the human and waits; prints the chosen labels (one per line), then their reply',
   'exit: 0 answered, 2 dismissed, 3 timed out, 4 pane closed',
@@ -75,12 +75,12 @@ export function parseAskArgs(argv: string[]): AskCall {
 }
 
 const END_LINES: Record<QuestionEnd, string> = {
-  dismissed: 'pine ask: dismissed by the human without an answer',
-  timeout: 'pine ask: timed out before the human answered',
-  closed: 'pine ask: the pane closed before the human answered',
+  dismissed: 'ostia ask: dismissed by the human without an answer',
+  timeout: 'ostia ask: timed out before the human answered',
+  closed: 'ostia ask: the pane closed before the human answered',
 }
 
-const WAITING_LINE = 'pine ask: waiting for the human to answer in Pine…'
+const WAITING_LINE = 'ostia ask: waiting for the human to answer in Ostia…'
 
 export interface AskOutput {
   code: number
@@ -93,7 +93,7 @@ export function askOutput(result: QuestionAskResult, json: boolean): AskOutput {
     return {
       code: ASK_EXIT.failed,
       stdout: '',
-      stderr: `pine ask: ${result.error} (${result.message})`,
+      stderr: `ostia ask: ${result.error} (${result.message})`,
     }
   }
   if (result.outcome !== 'answered') {
@@ -118,7 +118,7 @@ export async function runAskVerb(
   try {
     call = parseAskArgs(argv)
   } catch (err) {
-    console.error(`pine ask: ${err instanceof Error ? err.message : String(err)}`)
+    console.error(`ostia ask: ${err instanceof Error ? err.message : String(err)}`)
     return ASK_EXIT.failed
   }
   const params = call.contextFromStdin
