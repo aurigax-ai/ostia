@@ -1,4 +1,4 @@
-export const RELEASE_REPOSITORY = { owner: 'aurigax-ai', name: 'pine' } as const
+export const RELEASE_REPOSITORY = { owner: 'aurigax-ai', name: 'ostia' } as const
 
 export const RELEASE_API_BASE_URL = 'https://api.github.com'
 

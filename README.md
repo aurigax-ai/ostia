@@ -9,7 +9,7 @@
 <p align="center">
   <a href="https://aurigax-ai.github.io/">Website</a>
   &nbsp;&nbsp;
-  <a href="https://github.com/aurigax-ai/pine/releases/latest">Download</a>
+  <a href="https://github.com/aurigax-ai/ostia/releases/latest">Download</a>
   &nbsp;&nbsp;
   <a href="https://www.npmjs.com/package/@aurigax-ai/pine-extension-sdk">Write an extension</a>
 </p>
@@ -44,7 +44,7 @@ The agent sessions in these captures are scripted stand-ins running in the real 
 ## Install
 
 Ostia has Linux builds for x64. Get the AppImage or the tarball from the
-[latest release](https://github.com/aurigax-ai/pine/releases/latest).
+[latest release](https://github.com/aurigax-ai/ostia/releases/latest).
 
 ```bash
 chmod +x ostia-*.AppImage
@@ -56,7 +56,7 @@ chmod +x ostia-*.AppImage
 You need Node.js and pnpm.
 
 ```bash
-git clone https://github.com/aurigax-ai/pine.git
+git clone https://github.com/aurigax-ai/ostia.git
 cd pine
 pnpm install
 pnpm install:local

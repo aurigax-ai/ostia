@@ -10,7 +10,7 @@ const out = 'out/sdk'
 const sdk = 'src/extensions/sdk'
 const assets = 'sdk-package'
 const packageName = '@aurigax-ai/pine-extension-sdk'
-const repository = 'https://github.com/aurigax-ai/pine'
+const repository = 'https://github.com/aurigax-ai/ostia'
 const app = JSON.parse(readFileSync('package.json', 'utf8'))
 const versionOf = (name) => app.dependencies[name] ?? app.devDependencies[name]
 const assistPeers = ['ai', 'zod', '@ai-sdk-tool/parser', 'undici']

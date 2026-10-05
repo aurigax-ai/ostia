@@ -39,7 +39,7 @@ type LatestRelease = import('./releaseCheck').LatestRelease
 
 const release = (version: string): ReleaseInfo => ({
   version,
-  url: `https://github.com/aurigax-ai/pine/releases/tag/v${version}`,
+  url: `https://github.com/aurigax-ai/ostia/releases/tag/v${version}`,
 })
 
 const found = (version: string): LatestRelease => ({ kind: 'release', release: release(version) })
@@ -296,7 +296,7 @@ describe('fetchLatestRelease', () => {
 
     expect(github.requests).toHaveLength(1)
     const { url, headers } = github.requests[0]
-    expect(url).toBe('/repos/aurigax-ai/pine/releases/latest')
+    expect(url).toBe('/repos/aurigax-ai/ostia/releases/latest')
     expect(headers['user-agent']).toBe('pine/0.2.0')
     expect(headers.authorization).toBeUndefined()
     expect(headers.cookie).toBeUndefined()
@@ -325,7 +325,9 @@ describe('fetchLatestRelease', () => {
     expect(await fetchFrom()).toEqual(unavailable)
     github.reply = {
       status: 200,
-      body: body('0.3.0', { html_url: 'https://evil.example/aurigax-ai/pine/releases/tag/v0.3.0' }),
+      body: body('0.3.0', {
+        html_url: 'https://evil.example/aurigax-ai/ostia/releases/tag/v0.3.0',
+      }),
     }
     expect(await fetchFrom()).toEqual(unavailable)
     github.reply = { status: 200, body: body('0.3.0', { body: 'x'.repeat(1024 * 1024) }) }
