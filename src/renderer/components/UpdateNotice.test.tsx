@@ -6,7 +6,7 @@ import { UpdateNotice } from './UpdateNotice'
 const BUILD = { version: '1.0.0', commit: 'def', builtAt: '2026-09-30T11:00:00Z' }
 const RELEASE = {
   version: '1.1.0',
-  url: 'https://github.com/aurigax-ai/pine/releases/tag/v1.1.0',
+  url: 'https://github.com/aurigax-ai/ostia/releases/tag/v1.1.0',
 }
 
 describe('UpdateNotice', () => {
