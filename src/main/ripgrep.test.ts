@@ -50,6 +50,11 @@ describe('textArgv', () => {
     expect(argv).toContain('--word-regexp')
   })
 
+  it('leaves PDFs to the PDF search, whatever their case', () => {
+    expect(textArgv(query).join(' ')).toContain('--iglob !*.pdf')
+    expect(filesArgv(false).join(' ')).not.toContain('*.pdf')
+  })
+
   it('respects .gitignore unless ignored files are included', () => {
     expect(textArgv(query)).not.toContain('--no-ignore')
     expect(filesArgv(false)).not.toContain('--no-ignore')

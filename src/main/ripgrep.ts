@@ -58,6 +58,8 @@ export function textArgv(q: TextQuery): string[] {
     ...scopeArgs(q.includeIgnored),
     '--max-filesize',
     '2M',
+    '--iglob',
+    '!*.pdf',
     q.caseSensitive ? '--case-sensitive' : '--ignore-case',
     ...(q.regex ? [] : ['--fixed-strings']),
     ...(q.wholeWord ? ['--word-regexp'] : []),

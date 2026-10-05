@@ -11,6 +11,9 @@ import { type KeyboardEvent, type ReactNode, useEffect, useState } from 'react'
 import { fmt, useDict } from '../i18n/useDict'
 import { childPath } from '../lib/fileTree'
 import { openFileAt, openFileInWorkspace } from '../lib/openFile'
+import { type PdfSearchResults, searchPdfs } from '../lib/pdfSearch'
+import { textMatcher } from '../lib/textMatch'
+import { usePdfFindStore } from '../stores/pdfFindStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { IconButton } from './IconButton'
 import { fileIcon } from './fileIcon'
@@ -26,10 +29,12 @@ export interface SearchToggles {
 
 const NO_TOGGLES: SearchToggles = { caseSensitive: false, wholeWord: false, regex: false }
 
+type PdfState = PdfSearchResults | 'searching' | null
+
 type SearchState =
   | { status: 'idle' }
   | { status: 'searching' }
-  | { status: 'done'; outcome: SearchOutcome }
+  | { status: 'done'; outcome: SearchOutcome; pdf: PdfState }
 
 function useSearch(root: string, text: string, toggles: SearchToggles): SearchState {
   const includeIgnored = useSettingsStore((s) => s.files.searchIgnored)
@@ -45,9 +50,14 @@ function useSearch(root: string, text: string, toggles: SearchToggles): SearchSt
     const timer = setTimeout(() => {
       void window.ostia.search
         .run({ root, text, caseSensitive, wholeWord, regex, includeIgnored })
-        .then((outcome) => {
+        .then(async (outcome) => {
           if (!alive || (!outcome.ok && outcome.error === 'cancelled')) return
-          setState({ status: 'done', outcome })
+          const matcher = textMatcher(text, { caseSensitive, wholeWord, regex })
+          const pdfs = outcome.ok && matcher ? outcome.results.pdfs : []
+          setState({ status: 'done', outcome, pdf: pdfs.length > 0 ? 'searching' : null })
+          if (!outcome.ok || !matcher || pdfs.length === 0) return
+          const pdf = await searchPdfs(outcome.results.root, pdfs, matcher)
+          if (alive) setState({ status: 'done', outcome, pdf })
         })
     }, SEARCH_DELAY_MS)
     return () => {
@@ -136,10 +146,62 @@ function SearchResults({
   }
   const { root } = outcome.results
   const names = outcome.results.names.filter((h) => !isHidden(childPath(root, h.path)))
-  const files = outcome.results.files.filter((f) => !isHidden(childPath(root, f.path)))
-  const matches = files.reduce((n, f) => n + f.matches.length, 0)
-  if (names.length === 0 && files.length === 0) {
-    return <div className="search-status">{d.filesView.searchNoResults}</div>
+  const pdf = state.pdf
+  const groups: MatchGroup[] = [
+    ...outcome.results.files.map((file) => {
+      const full = childPath(root, file.path)
+      return {
+        path: file.path,
+        full,
+        lines: file.matches.map((m) => ({
+          key: `${m.line}:${m.column}`,
+          label: String(m.line),
+          text: m.text,
+          ranges: m.ranges,
+          open: () => openFileAt(full, m.line, m.column),
+        })),
+      }
+    }),
+    ...(pdf && pdf !== 'searching' ? pdf.files : []).map((file) => {
+      const full = childPath(root, file.path)
+      return {
+        path: file.path,
+        full,
+        lines: file.matches.map((m, i) => ({
+          key: `${m.page}:${i}`,
+          label: fmt(d.filesView.searchPage, { page: String(m.page) }),
+          text: m.text,
+          ranges: m.ranges,
+          open: () => {
+            usePdfFindStore.getState().request(full, { page: m.page, query: m.query })
+            openFileInWorkspace(full)
+          },
+        })),
+      }
+    }),
+  ].filter((group) => !isHidden(group.full))
+  const matches = groups.reduce((n, g) => n + g.lines.length, 0)
+  const notes = (
+    <>
+      {pdf === 'searching' ? (
+        <div className="search-status">{d.filesView.searchingPdfs}</div>
+      ) : null}
+      {pdf && pdf !== 'searching' && pdf.skipped > 0 ? (
+        <div className="search-status">
+          {fmt(d.filesView.searchPdfsSkipped, { count: String(pdf.skipped) })}
+        </div>
+      ) : null}
+    </>
+  )
+  if (names.length === 0 && groups.length === 0) {
+    return (
+      <>
+        {pdf === 'searching' ? null : (
+          <div className="search-status">{d.filesView.searchNoResults}</div>
+        )}
+        {notes}
+      </>
+    )
   }
   return (
     <div className="file-tree search-results">
@@ -153,52 +215,63 @@ function SearchResults({
           ))}
         </section>
       ) : null}
-      {files.length > 0 ? (
+      {groups.length > 0 ? (
         <section aria-label={d.filesView.searchText}>
           <div className="search-group">
             <span className="search-group-title">{d.filesView.searchText}</span>
             <span>
               {fmt(matches === 1 ? d.filesView.searchSummaryOne : d.filesView.searchSummaryMany, {
                 count: String(matches),
-                files: String(files.length),
+                files: String(groups.length),
               })}
             </span>
           </div>
-          {files.map((file) => {
-            const full = childPath(root, file.path)
-            const entry: FsEntry = { name: file.path.split('/').pop() ?? file.path, dir: false }
-            const { Icon, color } = fileIcon(entry, false)
-            return (
-              <div key={file.path} className="search-file">
-                <button
-                  type="button"
-                  className="file-row search-row"
-                  onClick={() => openFileInWorkspace(full)}
-                >
-                  <Icon size={16} className="file-icon" style={{ color }} />
-                  <span className="file-name">{file.path}</span>
-                </button>
-                {file.matches.map((m) => (
-                  <button
-                    key={`${m.line}:${m.column}`}
-                    type="button"
-                    className="file-row search-line"
-                    onClick={() => openFileAt(full, m.line, m.column)}
-                  >
-                    <span className="search-line-number">{m.line}</span>
-                    <span className="file-name">
-                      <Highlighted text={m.text} ranges={m.ranges} />
-                    </span>
-                  </button>
-                ))}
-              </div>
-            )
-          })}
+          {groups.map((group) => (
+            <MatchGroupRows key={group.path} group={group} />
+          ))}
           {outcome.results.truncated ? (
             <div className="search-status">{d.filesView.searchTruncated}</div>
           ) : null}
         </section>
       ) : null}
+      {notes}
+    </div>
+  )
+}
+
+interface MatchGroup {
+  path: string
+  full: string
+  lines: {
+    key: string
+    label: string
+    text: string
+    ranges: [number, number][]
+    open: () => void
+  }[]
+}
+
+function MatchGroupRows({ group }: { group: MatchGroup }): JSX.Element {
+  const entry: FsEntry = { name: group.path.split('/').pop() ?? group.path, dir: false }
+  const { Icon, color } = fileIcon(entry, false)
+  return (
+    <div className="search-file">
+      <button
+        type="button"
+        className="file-row search-row"
+        onClick={() => openFileInWorkspace(group.full)}
+      >
+        <Icon size={16} className="file-icon" style={{ color }} />
+        <span className="file-name">{group.path}</span>
+      </button>
+      {group.lines.map((line) => (
+        <button key={line.key} type="button" className="file-row search-line" onClick={line.open}>
+          <span className="search-line-number">{line.label}</span>
+          <span className="file-name">
+            <Highlighted text={line.text} ranges={line.ranges} />
+          </span>
+        </button>
+      ))}
     </div>
   )
 }

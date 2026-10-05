@@ -74,6 +74,7 @@ describe('WorkspaceSearch', () => {
     writeFileSync(join(root, 'src', 'notes', 'todo.md'), 'first line\nfind the needle here\n')
     writeFileSync(join(root, 'build', 'out.txt'), 'needle in a built file\n')
     writeFileSync(join(root, '.gitignore'), 'build/\n')
+    writeFileSync(join(root, 'src', 'paper.PDF'), '%PDF-1.4\n')
     mkdirSync(join(root, '.git'))
   })
 
@@ -92,6 +93,15 @@ describe('WorkspaceSearch', () => {
         path: 'src/notes/todo.md',
         matches: [{ line: 2, column: 10, text: 'find the needle here', ranges: [[9, 15]] }],
       },
+    ])
+  })
+
+  it('lists the PDFs under the folder with their size and time', async () => {
+    const search = new WorkspaceSearch(RG, [home])
+    const res = await search.run(1, request(root, 'paper'))
+    if (!res.ok) throw new Error(res.message)
+    expect(res.results.pdfs).toEqual([
+      { path: 'src/paper.PDF', size: 9, mtimeMs: expect.any(Number) },
     ])
   })
 
