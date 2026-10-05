@@ -4,11 +4,13 @@ import { FlagError, parseArgs } from './args'
 export type PaneCall =
   | { method: 'pane.input'; params: { pane: string; text?: string; keys?: string[] } }
   | { method: 'pane.read'; params: { pane: string; lines?: number }; json: boolean }
+  | { method: 'pane.rename'; params: { pane: string; title: string } }
 
 const USAGE = [
   'usage: ostia pane send <pane> [--enter] [--] <text…>',
   '       ostia pane key <pane> <key>…',
   '       ostia pane read <pane> [--lines N] [--json]',
+  '       ostia pane rename <pane> <title…> | --clear',
   '<pane> is a pane id from ostia pane.list, or a process id or name from ostia process ls',
 ].join('\n')
 
@@ -56,7 +58,29 @@ export function parsePaneArgs(argv: string[]): PaneCall {
     }
     return { method: 'pane.read', params: { pane, lines }, json: booleans.json }
   }
+  if (sub === 'rename') {
+    const { positional, booleans } = parseArgs(rest, {
+      booleans: { clear: '--clear' },
+      unknown: 'keep',
+    })
+    const title = positional.join(' ').trim()
+    if (booleans.clear === Boolean(title)) throw new Error(USAGE)
+    return { method: 'pane.rename', params: { pane, title } }
+  }
   throw new Error(USAGE)
+}
+
+export function parseWorkspaceRenameArgs(argv: string[]): { workspace?: string; name: string } {
+  const { positional, values, booleans } = parseArgs(argv, {
+    values: { workspace: '--workspace' },
+    booleans: { clear: '--clear' },
+    unknown: 'keep',
+  })
+  const name = positional.join(' ').trim()
+  if (booleans.clear === Boolean(name)) {
+    throw new Error('usage: ostia workspace rename [--workspace <id>] <name…> | --clear')
+  }
+  return { ...(values.workspace ? { workspace: values.workspace } : {}), name }
 }
 
 export async function runPaneVerb(conn: MessageConnection, argv: string[]): Promise<number> {

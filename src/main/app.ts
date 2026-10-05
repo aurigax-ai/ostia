@@ -149,6 +149,7 @@ import { registerOpenPathIpc } from './openPath'
 import type { OriginReach } from './originAgents'
 import { type PaneIo, registerPaneIoMethods } from './paneIo'
 import { listPanes, listWorkspaces, registerPaneListMethods } from './paneList'
+import { registerPaneRenameMethods } from './paneRename'
 import { registerPaneResumeMethods } from './paneResume'
 import { resolveSafe } from './pathGuard'
 import {
@@ -2575,6 +2576,7 @@ app.whenReady().then(() => {
     )
   registerNotifyIpc(notifyDeps)
   registerAttentionMethods({ execCommand })
+  registerPaneRenameMethods({ execCommand })
   registerPaneResumeMethods({
     execCommand,
     onResume: (identity, resume) => {

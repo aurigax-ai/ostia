@@ -1070,6 +1070,37 @@ describe('workspace row commands', () => {
     expect(useWorkspacesStore.getState().workspaces[0].description).toBeUndefined()
   })
 
+  it('renames the caller’s own workspace and clears the name with an empty one', async () => {
+    seed()
+    await commands.execWith(ctx('w2', 'p'), 'workspace.rename', { name: ' W9 控制面補齊 ' })
+    expect(useWorkspacesStore.getState().workspaces[1].customName).toBe('W9 控制面補齊')
+    expect(useWorkspacesStore.getState().workspaces[0].customName).toBeUndefined()
+    const listed = await commands.execWith(ctx(null, null), 'workspace.list')
+    expect(listed).toMatchObject({
+      ok: true,
+      result: [{ workspaceId: 'w1' }, { workspaceId: 'w2', customName: 'W9 控制面補齊' }],
+    })
+    await commands.execWith(ctx('w2', 'p'), 'workspace.rename', { name: '' })
+    expect(useWorkspacesStore.getState().workspaces[1].customName).toBeUndefined()
+  })
+
+  it('renames the caller’s pane and pins the title against program titles', async () => {
+    seed()
+    const pane = createPane('terminal', 'zsh', '/b')
+    useLayoutStore.setState({
+      byWorkspace: { w2: { root: pane, activePaneId: pane.id, zoomedPaneId: null } },
+    })
+    await commands.execWith(ctx('w2', pane.id), 'pane.rename', { title: 'worker' })
+    useLayoutStore.getState().setTitle('w2', pane.id, 'vim')
+    const root = useLayoutStore.getState().byWorkspace.w2?.root
+    expect(root).toMatchObject({ title: 'worker', titlePinned: true })
+    const byId = Object.fromEntries(commands.describe().map((c) => [c.id, c]))
+    for (const id of ['pane.rename', 'workspace.rename']) {
+      expect(byId[id].capabilities).toEqual(['drive-self'])
+      expect(byId[id].hidden).toBe(true)
+    }
+  })
+
   it('jumps to a workspace by position and reports a missing one', async () => {
     seed()
     const r = await commands.execWith(ctx(null, null), 'workspace.goto', { index: 1 })
