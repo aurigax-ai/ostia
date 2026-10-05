@@ -24,6 +24,7 @@ import {
   currentBindings,
   effectiveBindings,
   isAppChord,
+  isBrowserChord,
   matchChord,
   runAppChord,
   setKeybindingSetting,
@@ -593,5 +594,53 @@ describe('runAppChord', () => {
     const preventDefault = vi.fn()
     expect(runAppChord({ ...key('k', { ctrlKey: true }), preventDefault }, false)).toBe(false)
     expect(preventDefault).not.toHaveBeenCalled()
+  })
+})
+
+describe('browser chords', () => {
+  it('are neither app nor terminal chords, so only a browser pane acts on them', () => {
+    for (const id of [
+      'browser.focusAddress',
+      'browser.reload',
+      'browser.back',
+      'browser.forward',
+    ]) {
+      expect(isBrowserChord(id), id).toBe(true)
+      expect(isAppChord(id), id).toBe(false)
+    }
+    expect(isBrowserChord('palette.toggle')).toBe(false)
+    expect(isBrowserChord(null)).toBe(false)
+  })
+
+  it('have default chords that load on both platforms', () => {
+    for (const mac of [true, false]) {
+      for (const id of [
+        'browser.focusAddress',
+        'browser.reload',
+        'browser.back',
+        'browser.forward',
+      ]) {
+        const [macText, otherText] = DEFAULT_CHORDS[id as keyof typeof DEFAULT_CHORDS]
+        expect(checkBinding(id, mac ? macText : otherText, mac), `${id} ${mac}`).toBeNull()
+      }
+    }
+    expect(DEFAULT_CHORDS['browser.reload']).toEqual(['Cmd+R', 'Ctrl+F5'])
+  })
+
+  it('does not run anything for a browser chord pressed outside a browser pane', () => {
+    const exec = vi.spyOn(commands, 'exec')
+    const e = {
+      key: 'r',
+      code: 'KeyR',
+      ctrlKey: false,
+      shiftKey: false,
+      altKey: false,
+      metaKey: true,
+      preventDefault: vi.fn(),
+    }
+    expect(matchChord(e, true)).toBe('browser.reload')
+    expect(runAppChord(e, true)).toBe(false)
+    expect(e.preventDefault).not.toHaveBeenCalled()
+    expect(exec).not.toHaveBeenCalled()
   })
 })

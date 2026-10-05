@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { runAgentIn } from '../../../test/mocks/agentPanes'
 import { resetIds } from '../layout/tree'
+import { browserPaneOfGuest } from '../lib/browserHandles'
 import { startRegionCapture } from '../lib/regionCaptures'
 import { useAttentionStore } from '../stores/attentionStore'
 import { useLayoutStore } from '../stores/layoutStore'
@@ -431,5 +432,87 @@ describe('BrowserView profile', () => {
     await waitFor(() => expect(container.querySelector('webview')).not.toBeNull())
     await userEvent.click(screen.getByRole('button', { name: 'Show storage' }))
     expect(screen.queryByText(/every browser tab that uses it/)).not.toBeInTheDocument()
+  })
+})
+
+describe('BrowserView keys', () => {
+  async function readyGuest(container: HTMLElement) {
+    const webview = container.querySelector('webview') as HTMLElement
+    const guest = {
+      getWebContentsId: () => 31,
+      setZoomFactor: vi.fn(),
+      findInPage: vi.fn(() => 1),
+      stopFindInPage: vi.fn(),
+      focus: vi.fn(),
+      reload: vi.fn(),
+      canGoBack: () => true,
+      goBack: vi.fn(),
+      canGoForward: () => false,
+      goForward: vi.fn(),
+    }
+    Object.assign(webview, guest)
+    await waitFor(() => {
+      act(() => {
+        webview.dispatchEvent(new Event('dom-ready'))
+      })
+      expect(browserPaneOfGuest(31)).toBe(BROWSER)
+    })
+    return { webview, guest }
+  }
+
+  it('runs the browser keys pressed in its toolbar and leaves forward alone without history', async () => {
+    const { workspaceId } = twoTerminals()
+    const { container } = renderView(workspaceId)
+    await waitFor(() => expect(container.querySelector('webview')).not.toBeNull())
+    const { guest } = await readyGuest(container)
+    const back = screen.getByRole('button', { name: 'Back' })
+    fireEvent.keyDown(back, { key: 'L', code: 'KeyL', ctrlKey: true, shiftKey: true })
+    expect(screen.getByRole('textbox', { name: /address/i })).toHaveFocus()
+    fireEvent.keyDown(back, { key: 'F5', code: 'F5', ctrlKey: true })
+    fireEvent.keyDown(back, { key: 'ArrowLeft', code: 'ArrowLeft', ctrlKey: true, altKey: true })
+    fireEvent.keyDown(back, { key: 'ArrowRight', code: 'ArrowRight', ctrlKey: true, altKey: true })
+    expect(guest.reload).toHaveBeenCalledTimes(1)
+    expect(guest.goBack).toHaveBeenCalledTimes(1)
+    expect(guest.goForward).not.toHaveBeenCalled()
+  })
+
+  it('opens find in page, searches as you type, steps with Enter, and closes on Escape', async () => {
+    const { workspaceId } = twoTerminals()
+    const { container } = renderView(workspaceId)
+    await waitFor(() => expect(container.querySelector('webview')).not.toBeNull())
+    const { webview, guest } = await readyGuest(container)
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Back' }), {
+      key: 'F',
+      code: 'KeyF',
+      ctrlKey: true,
+      shiftKey: true,
+    })
+    const find = await screen.findByRole('textbox', { name: 'Find in page' })
+    await waitFor(() => expect(find).toHaveFocus())
+    await userEvent.type(find, 'ab')
+    expect(guest.findInPage).toHaveBeenLastCalledWith('ab', { forward: true, findNext: true })
+    act(() => {
+      webview.dispatchEvent(
+        Object.assign(new Event('found-in-page'), {
+          result: { activeMatchOrdinal: 1, matches: 3, finalUpdate: true },
+        }),
+      )
+    })
+    expect(screen.getByText('1/3')).toBeInTheDocument()
+    await userEvent.type(find, '{Shift>}{Enter}{/Shift}')
+    expect(guest.findInPage).toHaveBeenLastCalledWith('ab', { forward: false, findNext: false })
+    await userEvent.type(find, '{Escape}')
+    expect(screen.queryByRole('textbox', { name: 'Find in page' })).toBeNull()
+    expect(guest.stopFindInPage).toHaveBeenCalledWith('clearSelection')
+    expect(guest.focus).toHaveBeenCalled()
+  })
+
+  it('lets main find the pane of its guest', async () => {
+    const { workspaceId } = twoTerminals()
+    const { container } = renderView(workspaceId)
+    await waitFor(() => expect(container.querySelector('webview')).not.toBeNull())
+    await readyGuest(container)
+    expect(browserPaneOfGuest(31)).toBe(BROWSER)
+    expect(browserPaneOfGuest(32)).toBeNull()
   })
 })

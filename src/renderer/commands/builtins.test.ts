@@ -1,6 +1,7 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { createPane } from '../layout/tree'
 import * as blockActions from '../lib/blockActions'
+import { registerBrowserHandle } from '../lib/browserHandles'
 import * as closeConfirm from '../lib/closeConfirm'
 import { useAttentionStore } from '../stores/attentionStore'
 import { useBlocksStore } from '../stores/blocksStore'
@@ -1223,5 +1224,43 @@ describe('agent notifications', () => {
       message: 'hi',
     })
     expect(focused).toMatchObject({ ok: true, result: { desktop: true } })
+  })
+})
+
+describe('browser commands', () => {
+  it('act on the active browser pane and report when there is none', async () => {
+    const handle = {
+      guestId: () => 3,
+      focusAddress: vi.fn(),
+      reload: vi.fn(),
+      back: vi.fn(),
+      forward: vi.fn(),
+      find: vi.fn(),
+    }
+    const off = registerBrowserHandle('web1', handle)
+    try {
+      expect(commands.describe().find((c) => c.id === 'browser.reload')?.capabilities).toEqual([
+        'browse',
+      ])
+      expect(await commands.execWith(ctx('s1', 'web1'), 'browser.reload')).toEqual({
+        ok: true,
+        result: { handled: true },
+      })
+      await commands.execWith(ctx('s1', 'web1'), 'browser.back')
+      await commands.execWith(ctx('s1', 'web1'), 'browser.forward')
+      await commands.execWith(ctx('s1', 'web1'), 'browser.focusAddress')
+      await commands.execWith(ctx('s1', 'web1'), 'browser.find')
+      expect(handle.reload).toHaveBeenCalledTimes(1)
+      expect(handle.back).toHaveBeenCalledTimes(1)
+      expect(handle.forward).toHaveBeenCalledTimes(1)
+      expect(handle.focusAddress).toHaveBeenCalledTimes(1)
+      expect(handle.find).toHaveBeenCalledTimes(1)
+      expect(await commands.execWith(ctx('s1', 'term1'), 'browser.reload')).toEqual({
+        ok: true,
+        result: { handled: false },
+      })
+    } finally {
+      off()
+    }
   })
 })
