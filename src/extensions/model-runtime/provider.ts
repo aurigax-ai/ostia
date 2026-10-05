@@ -8,7 +8,7 @@ import {
   baseUrl,
   endpointFetch,
   requestJson,
-} from '@aurigax-ai/pine-extension-sdk/assist'
+} from '@aurigax-ai/ostia-extension-sdk/assist'
 import { simulateStreamingMiddleware, wrapLanguageModel } from 'ai'
 
 export const MODEL_RUNTIME = 'model-runtime'

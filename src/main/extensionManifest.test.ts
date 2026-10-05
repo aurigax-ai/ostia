@@ -4,7 +4,13 @@ import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { MAX_AGENT_HOOKS, MAX_AGENT_SKILLS, MAX_AGENT_SKILL_FILES } from '../shared/agentPlugins'
 import { EXTENSION_API_VERSION } from '../shared/extensionApi'
-import { discoverExtensions, isInsideDir, parseManifest } from './extensionManifest'
+import {
+  discoverExtensions,
+  isInsideDir,
+  manifestFileIn,
+  parseManifest,
+  readManifest,
+} from './extensionManifest'
 
 const DIR = '/ext/demo'
 
@@ -1000,5 +1006,32 @@ describe('discoverExtensions', () => {
 
   it('treats a missing root as empty', () => {
     expect(discoverExtensions([{ dir: '/nonexistent/pine-ext', builtin: false }])).toEqual([])
+  })
+
+  it('finds an extension whose manifest is ostia.json, and prefers it over pine.json', () => {
+    const dir = root({ both: manifest({ id: 'both', name: 'Old' }) })
+    writeFileSync(
+      join(dir, 'both', 'ostia.json'),
+      JSON.stringify(manifest({ id: 'both', name: 'New' })),
+    )
+    mkdirSync(join(dir, 'renamed'))
+    writeFileSync(join(dir, 'renamed', 'ostia.json'), JSON.stringify(manifest({ id: 'renamed' })))
+    const found = discoverExtensions([{ dir, builtin: false }])
+    expect(found.map((f) => [f.manifest.id, f.manifest.name])).toEqual([
+      ['both', 'New'],
+      ['renamed', manifest({ id: 'renamed' }).name],
+    ])
+    expect(manifestFileIn(join(dir, 'both'))).toBe('ostia.json')
+    expect(manifestFileIn(join(dir, 'renamed'))).toBe('ostia.json')
+  })
+
+  it('reports a broken ostia.json by its own name', () => {
+    const dir = root({})
+    mkdirSync(join(dir, 'broken'))
+    writeFileSync(join(dir, 'broken', 'ostia.json'), '{ nope')
+    writeFileSync(join(dir, 'broken', 'pine.json'), JSON.stringify(manifest({ id: 'broken' })))
+    const res = readManifest(join(dir, 'broken'))
+    expect(res.ok).toBe(false)
+    expect(res.ok ? '' : res.error).toMatch(/^unreadable ostia\.json: /)
   })
 })

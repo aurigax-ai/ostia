@@ -16,8 +16,8 @@
     "baseUrl": ".",
     "paths": {
       "@shared/*": ["src/shared/*"],
-      "@aurigax-ai/pine-extension-sdk": ["src/extensions/sdk/index.ts"],
-      "@aurigax-ai/pine-extension-sdk/assist": ["src/extensions/sdk/assist/index.ts"]
+      "@aurigax-ai/ostia-extension-sdk": ["src/extensions/sdk/index.ts"],
+      "@aurigax-ai/ostia-extension-sdk/assist": ["src/extensions/sdk/assist/index.ts"]
     }
   },
   "include": [
