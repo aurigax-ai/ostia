@@ -25,7 +25,7 @@ function fakePlaywright(): string {
 }
 
 function displayOfRun(bin: string): Promise<string> {
-  const { PINE_E2E_VISIBLE: _visible, ...inherited } = process.env
+  const { OSTIA_E2E_VISIBLE: _visible, PINE_E2E_VISIBLE: _legacyVisible, ...inherited } = process.env
   return new Promise((done, fail) => {
     execFile(
       'bash',

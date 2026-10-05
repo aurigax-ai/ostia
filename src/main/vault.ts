@@ -81,7 +81,7 @@ export function registerVaultMethods(deps: VaultDeps = {}): void {
         return {
           ok: false,
           error: 'sandboxed',
-          message: 'this workspace is sandboxed: ask for the value with `pine secret get <name>`',
+          message: 'this workspace is sandboxed: ask for the value with `ostia secret get <name>`',
         }
       }
       if (!safeStorage.isEncryptionAvailable()) return encryptionUnavailable()

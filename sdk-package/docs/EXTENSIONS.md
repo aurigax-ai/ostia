@@ -264,7 +264,7 @@ await ext.registerCommands({
 ```
 
 `createTranslator(dir?)` reads the `messages` of every `locales/*.json` once (from
-`PINE_EXTENSION_DIR`, your extension folder, unless you pass one) and returns a function from a
+`OSTIA_EXTENSION_DIR`, your extension folder, unless you pass one) and returns a function from a
 locale to `t(key, vars?)`. `t` looks the key up in the language's catalog, then in `en`, then
 returns the key itself; `{name}` placeholders are filled from `vars`. `locales/en.json` holds your
 English messages and needs no entry in `locales` (that list is only for the manifest).
@@ -568,14 +568,14 @@ What pine guarantees for `download` and `goInstall`:
   can remove a copy in Settings → Languages; pine then does not fetch it again until asked.
 - **Little is sent.** The request carries a `User-Agent` with the product name and version and
   nothing else: no cookies, no token.
-- **`go install` runs with a scrubbed environment**: no `PINE_*` variable, `GOFLAGS` cleared, a
+- **`go install` runs with a scrubbed environment**: no `OSTIA_*` or `PINE_*` variable, `GOFLAGS` cleared, a
   time limit, and its output only in the server's in-memory log.
 
 How pine runs a server:
 
 - **Start.** A server starts when a file of one of its languages opens in the editor, once per
   server, root folder and window. cwd is the root.
-- **Environment.** The process gets pine's environment without any `PINE_*` variable: no socket,
+- **Environment.** The process gets pine's environment without any `OSTIA_*` or `PINE_*` variable: no socket,
   no token. A language server cannot call pine.
 - **Sandboxed workspaces.** In a sandboxed workspace the server runs inside that workspace's
   sandbox, or not at all. Your extension's folder and the folder of the copy pine fetched are
@@ -791,11 +791,16 @@ Your process gets:
 
 | Env | Value |
 |---|---|
-| `PINE_SOCKET` | Control socket path |
-| `PINE_TOKEN` | This run's token (a new one on every start) |
-| `PINE_EXTENSION_ID` | Your `id` |
-| `PINE_EXTENSION_DIR` | Your directory |
-| `PINE_EXTENSION_DATA` | A folder for your own state (`<userData>/extension-data/<id>`); create it when you first write. It isn't synced. |
+| `OSTIA_SOCKET` | Control socket path |
+| `OSTIA_TOKEN` | This run's token (a new one on every start) |
+| `OSTIA_EXTENSION_ID` | Your `id` |
+| `OSTIA_EXTENSION_DIR` | Your directory |
+| `OSTIA_EXTENSION_DATA` | A folder for your own state (`<userData>/extension-data/<id>`); create it when you first write. It isn't synced. |
+
+The `OSTIA_` names are new in API 1.13. Each one is also set under its old `PINE_` name
+(`PINE_SOCKET`, `PINE_TOKEN`, ...) with the same value. Read the `OSTIA_` name first and fall back to
+the `PINE_` one if your extension must also run on releases from before the rename; the SDK does this
+for you.
 
 Connect to the unix socket and speak JSON-RPC 2.0 with LSP-style framing
 (`Content-Length: N\r\n\r\n<json>`); `vscode-jsonrpc` does this for Node. Then:
@@ -1153,7 +1158,7 @@ const body = splitter({
   content when it isn't a scroll container, so content that grows (a textarea with
   `field-sizing: content`) pushes the divider down.
 - Sizes are remembered per `key` as a fraction of the height, across reopen and restart:
-  `startPanelServer` keeps them in `$PINE_EXTENSION_DATA/panel-sizes.json` (64 keys of
+  `startPanelServer` keeps them in `$OSTIA_EXTENSION_DATA/panel-sizes.json` (64 keys of
   `[A-Za-z0-9._-]`, values 0–1) and serves them at `/sizes` behind the panel secret;
   `loadPanelSizes()` reads them once, before the first split is drawn. `localStorage` doesn't
   work for this: the panel partition isn't persistent and its origin's port changes every run.
@@ -1187,7 +1192,7 @@ Three places check it:
 | Where | What happens |
 |---|---|
 | `pine.json` `api` | Checked when the manifest is read (startup, hot reload, a marketplace catalog, `pine-extension validate`). A newer minor or another major refuses the extension before anything runs |
-| `PINE_EXTENSION_API` | pine puts the version it provides in the environment of every extension process, next to `PINE_SOCKET` and `PINE_TOKEN`, for extensions that speak the protocol without the SDK |
+| `OSTIA_EXTENSION_API` | pine puts the version it provides in the environment of every extension process (also as `PINE_EXTENSION_API`), next to `OSTIA_SOCKET` and `OSTIA_TOKEN`, for extensions that speak the protocol without the SDK |
 | SDK `connect()` | The SDK is built for one API version (`EXTENSION_API_VERSION`, also `pineExtensionApi` in its `package.json` and `api.json`). `connect()` throws when the app provides an older one, so an extension built with a newer SDK fails with a clear message instead of calling methods that aren't there |
 
 Set `api` to the version of the SDK you build with. Raise it only when you start using something
@@ -1248,7 +1253,7 @@ and `validate` runs that loader.
 const { createConnection } = require('node:net')
 const rpc = require('vscode-jsonrpc/node')
 
-const socket = createConnection(process.env.PINE_SOCKET)
+const socket = createConnection(process.env.OSTIA_SOCKET ?? process.env.PINE_SOCKET)
 const conn = rpc.createMessageConnection(
   new rpc.StreamMessageReader(socket),
   new rpc.StreamMessageWriter(socket),
@@ -1274,7 +1279,7 @@ conn.onNotification('ext.event', ({ type, payload }) => {
 socket.on('close', () => process.exit(0))
 conn.listen()
 socket.on('connect', async () => {
-  await conn.sendRequest('hello', { token: process.env.PINE_TOKEN })
+  await conn.sendRequest('hello', { token: process.env.OSTIA_TOKEN ?? process.env.PINE_TOKEN })
   await conn.sendRequest('ext.subscribe', { events: ['command.finished'] })
   await conn.sendRequest('ext.registerCommands', { commands: ['greet'] })
 })

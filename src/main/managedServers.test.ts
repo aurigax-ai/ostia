@@ -15,6 +15,7 @@ import { join, resolve } from 'node:path'
 import { gzipSync } from 'node:zlib'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { makeTar, makeZip } from '../../test/fixtures/lsp/archives'
+import { envName, legacyEnvName } from '../shared/appEnv'
 import type {
   LanguageServerArchive,
   LanguageServerFetchFailure,
@@ -136,10 +137,13 @@ afterEach(() => {
 
 describe('downloadBaseUrl', () => {
   it('honours the test override only in an unpackaged app', () => {
-    const env = { [DOWNLOAD_BASE_URL_ENV]: 'http://127.0.0.1:9' }
+    const env = { [envName(DOWNLOAD_BASE_URL_ENV)]: 'http://127.0.0.1:9' }
     expect(downloadBaseUrl(false, env)).toBe('http://127.0.0.1:9')
     expect(downloadBaseUrl(true, env)).toBeNull()
     expect(downloadBaseUrl(false, {})).toBeNull()
+    const legacy = { [legacyEnvName(DOWNLOAD_BASE_URL_ENV)]: 'http://127.0.0.1:8' }
+    expect(downloadBaseUrl(false, legacy)).toBe('http://127.0.0.1:8')
+    expect(downloadBaseUrl(false, { ...legacy, ...env })).toBe('http://127.0.0.1:9')
   })
 })
 

@@ -4,6 +4,7 @@ import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { envName, legacyEnvName } from '../shared/appEnv'
 import type { ReleaseInfo } from '../shared/releases'
 
 const handlers = new Map<string, (...args: unknown[]) => unknown>()
@@ -111,12 +112,17 @@ function harness(opts: { current?: string; dismissed?: string | null; enabled?: 
 
 describe('releaseEndpoint', () => {
   it('ignores the override in a packaged build and checks automatically', () => {
-    expect(releaseEndpoint(true, { [RELEASE_API_URL_ENV]: 'http://127.0.0.1:9' })).toEqual({
-      baseUrl: 'https://api.github.com',
-      automatic: true,
-    })
+    expect(releaseEndpoint(true, { [envName(RELEASE_API_URL_ENV)]: 'http://127.0.0.1:9' })).toEqual(
+      {
+        baseUrl: 'https://api.github.com',
+        automatic: true,
+      },
+    )
     expect(
-      releaseEndpoint(true, { [RELEASE_API_URL_ENV]: 'http://127.0.0.1:9', NODE_ENV: 'test' }),
+      releaseEndpoint(true, {
+        [envName(RELEASE_API_URL_ENV)]: 'http://127.0.0.1:9',
+        NODE_ENV: 'test',
+      }),
     ).toEqual({ baseUrl: 'https://api.github.com', automatic: true })
   })
 
@@ -125,10 +131,15 @@ describe('releaseEndpoint', () => {
       baseUrl: 'https://api.github.com',
       automatic: false,
     })
-    expect(releaseEndpoint(false, { [RELEASE_API_URL_ENV]: 'http://127.0.0.1:9' })).toEqual({
+    expect(
+      releaseEndpoint(false, { [envName(RELEASE_API_URL_ENV)]: 'http://127.0.0.1:9' }),
+    ).toEqual({
       baseUrl: 'http://127.0.0.1:9',
       automatic: true,
     })
+    expect(
+      releaseEndpoint(false, { [legacyEnvName(RELEASE_API_URL_ENV)]: 'http://127.0.0.1:8' }),
+    ).toEqual({ baseUrl: 'http://127.0.0.1:8', automatic: true })
   })
 })
 
@@ -362,7 +373,7 @@ describe('registerReleaseCheck', () => {
     openExternal.mockClear()
     info.mockClear()
     vi.useFakeTimers({ toFake: ['setTimeout', 'setInterval'] })
-    vi.stubEnv(RELEASE_API_URL_ENV, github.url)
+    vi.stubEnv(envName(RELEASE_API_URL_ENV), github.url)
     dataHome = mkdtempSync(join(tmpdir(), 'pine-release-check-'))
     vi.stubEnv('XDG_DATA_HOME', dataHome)
   })

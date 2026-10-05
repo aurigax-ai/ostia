@@ -692,7 +692,7 @@ test('with Unix sockets off the shell still starts, pine cannot reach Pine, a po
 
     const page = await openWorkspacePage(win, 'Network')
     const sockets = page.getByRole('group', { name: 'Allow Unix sockets' })
-    await expect(sockets).toContainText('the pine command')
+    await expect(sockets).toContainText('the ostia command')
     await sockets.getByRole('switch').click()
     await expect(sockets).toContainText('Overridden')
     await win.keyboard.press('Escape')

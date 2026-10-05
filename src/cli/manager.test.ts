@@ -40,15 +40,15 @@ describe('parseManagerArgs', () => {
   })
 
   it('prints usage for an unknown verb or a missing value', () => {
-    expect(() => parseManagerArgs(['launch', 'x'], '/w')).toThrow('usage: pine manager')
+    expect(() => parseManagerArgs(['launch', 'x'], '/w')).toThrow('usage: ostia manager')
     expect(() => parseManagerArgs(['spawn', 'claude', '--cwd'], '/w')).toThrow(
       '--cwd needs a value',
     )
     expect(() => parseManagerArgs(['spawn', 'claude', '--model', 'x'], '/w')).toThrow(
-      'usage: pine manager',
+      'usage: ostia manager',
     )
-    expect(() => parseManagerArgs(['read', 'p1', 'extra'], '/w')).toThrow('usage: pine manager')
-    expect(() => parseManagerArgs(['input', 'p2', '--enter'], '/w')).toThrow('usage: pine manager')
-    expect(() => parseManagerArgs(['input', 'p2', 'y'], '/w')).toThrow('usage: pine manager')
+    expect(() => parseManagerArgs(['read', 'p1', 'extra'], '/w')).toThrow('usage: ostia manager')
+    expect(() => parseManagerArgs(['input', 'p2', '--enter'], '/w')).toThrow('usage: ostia manager')
+    expect(() => parseManagerArgs(['input', 'p2', 'y'], '/w')).toThrow('usage: ostia manager')
   })
 })

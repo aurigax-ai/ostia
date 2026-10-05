@@ -32,7 +32,7 @@ function listen(path: string): Promise<void> {
 }
 
 describe('connectPortal', () => {
-  it('connects straight away when Pine is already running, without launching it', async () => {
+  it('connects straight away when Ostia is already running, without launching it', async () => {
     const path = socketPath()
     await listen(path)
     const launches: string[] = []
@@ -44,7 +44,7 @@ describe('connectPortal', () => {
     expect(launches).toEqual([])
   })
 
-  it('MGR-C7 starts Pine hidden when it is not running and waits for the portal', async () => {
+  it('MGR-C7 starts Ostia hidden when it is not running and waits for the portal', async () => {
     const path = socketPath()
     const launches: { bin: string; node?: string }[] = []
     const socket = await connectPortal(
@@ -60,7 +60,19 @@ describe('connectPortal', () => {
     expect(launches).toEqual([{ bin: '/opt/pine/pine', node: '1' }])
   })
 
-  it('MGR-C8 gives up with a message when Pine does not come up in time, launching once', async () => {
+  it('launches the binary named by OSTIA_APP_BIN before the old PINE_APP_BIN', async () => {
+    const launched = async (env: Record<string, string>): Promise<string[]> => {
+      const launches: string[] = []
+      await connectPortal(socketPath(), env, (bin) => void launches.push(bin), 300)
+      return launches
+    }
+    expect(await launched({ OSTIA_APP_BIN: '/opt/ostia/ostia', PINE_APP_BIN: '/opt/old' })).toEqual(
+      ['/opt/ostia/ostia'],
+    )
+    expect(await launched({ PINE_APP_BIN: '/opt/pine/pine' })).toEqual(['/opt/pine/pine'])
+  })
+
+  it('MGR-C8 gives up with a message when Ostia does not come up in time, launching once', async () => {
     const path = socketPath()
     let launches = 0
     const result = await connectPortal(
@@ -71,15 +83,15 @@ describe('connectPortal', () => {
       },
       600,
     )
-    expect(result).toBe('Pine did not start within 1 s')
+    expect(result).toBe('Ostia did not start within 1 s')
     expect(launches).toBe(1)
   })
 
-  it('MGR-C8 says Pine is not running when it does not know where Pine is installed', async () => {
+  it('MGR-C8 says Ostia is not running when it does not know where Ostia is installed', async () => {
     const result = await connectPortal(socketPath(), {}, () => {
       throw new Error('must not launch')
     })
-    expect(result).toMatch(/Pine is not running/)
+    expect(result).toMatch(/Ostia is not running/)
   })
 })
 

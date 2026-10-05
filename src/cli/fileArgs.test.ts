@@ -59,7 +59,7 @@ describe('parseFileArg', () => {
 
 describe('refusalLine', () => {
   it('names the path and the reason', () => {
-    expect(refusalLine('/tmp/dir', 'directory')).toBe('pine: /tmp/dir: is a directory')
+    expect(refusalLine('/tmp/dir', 'directory')).toBe('ostia: /tmp/dir: is a directory')
     expect(refusalLine('/etc/x', 'outside-sandbox')).toContain('sandboxed workspace')
   })
 })

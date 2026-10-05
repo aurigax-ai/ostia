@@ -3,6 +3,7 @@ import { existsSync, realpathSync, statSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { isEqual } from 'es-toolkit'
 import { StreamMessageReader, StreamMessageWriter } from 'vscode-jsonrpc/node'
+import { isAppEnvName } from '../shared/appEnv'
 import { languageForPath } from '../shared/editorLanguages'
 import type { ExtensionSettingValues } from '../shared/extensions'
 import {
@@ -193,7 +194,7 @@ function isInside(path: string, base: string): boolean {
 export function scrubbedEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
   const out: NodeJS.ProcessEnv = {}
   for (const [name, value] of Object.entries(env)) {
-    if (name.startsWith('PINE_') || name === 'ELECTRON_RUN_AS_NODE') continue
+    if (isAppEnvName(name) || name === 'ELECTRON_RUN_AS_NODE') continue
     out[name] = value
   }
   return out

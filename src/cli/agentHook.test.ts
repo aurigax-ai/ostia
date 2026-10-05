@@ -91,7 +91,7 @@ describe('runAgentHook', () => {
     const hook = io({ ok: false, error: 'extension-disabled' })
     expect(await runAgentHook(['kit', 'on-hook', 'claude', 'SessionStart'], hook)).toBe(1)
     expect(hook.lines).toEqual([])
-    expect(hook.errors).toEqual(['pine agent-hook: kit on-hook failed (extension-disabled)'])
+    expect(hook.errors).toEqual(['ostia agent-hook: kit on-hook failed (extension-disabled)'])
   })
 
   it('refuses hook input past the cap without calling the extension', async () => {

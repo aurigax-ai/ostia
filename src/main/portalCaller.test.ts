@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import {
   type CallerContext,
   callerVerdict,
-  hasPineToken,
+  hasPaneToken,
   judgeCaller,
   judgeCallers,
   listUnixSockets,
@@ -62,10 +62,11 @@ describe('parseProcStat', () => {
   })
 })
 
-describe('hasPineToken', () => {
-  it('finds PINE_TOKEN among NUL-separated entries only as a variable name', () => {
-    expect(hasPineToken('A=1\0PINE_TOKEN=abc\0')).toBe(true)
-    expect(hasPineToken('A=PINE_TOKEN=abc\0NOT_PINE_TOKEN=1')).toBe(false)
+describe('hasPaneToken', () => {
+  it('finds OSTIA_TOKEN or PINE_TOKEN among NUL-separated entries only as a variable name', () => {
+    expect(hasPaneToken('A=1\0PINE_TOKEN=abc\0')).toBe(true)
+    expect(hasPaneToken('A=1\0OSTIA_TOKEN=abc\0')).toBe(true)
+    expect(hasPaneToken('A=PINE_TOKEN=abc\0NOT_PINE_TOKEN=1')).toBe(false)
   })
 })
 

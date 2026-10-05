@@ -11,9 +11,9 @@ export type ManagerCall =
   | { method: 'manager.input'; params: { paneId: string; text?: string; keys?: string[] } }
 
 const USAGE = [
-  'usage: pine manager read <paneId> [--lines N]',
-  '       pine manager spawn <preset> [--cwd DIR] [--workspace ID] [--name NAME] [-- args…]',
-  '       pine manager input <paneId> [--text TEXT] [--key KEY]…',
+  'usage: ostia manager read <paneId> [--lines N]',
+  '       ostia manager spawn <preset> [--cwd DIR] [--workspace ID] [--name NAME] [-- args…]',
+  '       ostia manager input <paneId> [--text TEXT] [--key KEY]…',
 ].join('\n')
 
 function managerCall(argv: string[], cwd: string): ManagerCall {
@@ -75,7 +75,7 @@ export async function runManagerVerb(
   try {
     call = parseManagerArgs(argv, cwd)
   } catch (err) {
-    console.error(`pine manager: ${err instanceof Error ? err.message : String(err)}`)
+    console.error(`ostia manager: ${err instanceof Error ? err.message : String(err)}`)
     return 1
   }
   const result = await conn.sendRequest<unknown>(call.method, call.params)

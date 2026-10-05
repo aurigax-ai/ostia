@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { envName, legacyEnvName } from '../shared/appEnv'
 import {
   MCP_OAUTH_BROWSER_ENV,
   SignInFailure,
@@ -21,10 +22,14 @@ function callback(redirectUrl: string, params: Record<string, string>): URL {
 
 describe('mcpOAuthBrowser', () => {
   it('lets the fetch browser stand in only for an unpackaged app that asks for it', () => {
-    expect(mcpOAuthBrowser(false, { [MCP_OAUTH_BROWSER_ENV]: 'fetch' })).toBe('fetch')
-    expect(mcpOAuthBrowser(true, { [MCP_OAUTH_BROWSER_ENV]: 'fetch' })).toBe('system')
+    const name = envName(MCP_OAUTH_BROWSER_ENV)
+    expect(mcpOAuthBrowser(false, { [name]: 'fetch' })).toBe('fetch')
+    expect(mcpOAuthBrowser(true, { [name]: 'fetch' })).toBe('system')
     expect(mcpOAuthBrowser(false, {})).toBe('system')
-    expect(mcpOAuthBrowser(false, { [MCP_OAUTH_BROWSER_ENV]: '1' })).toBe('system')
+    expect(mcpOAuthBrowser(false, { [name]: '1' })).toBe('system')
+    expect(mcpOAuthBrowser(false, { [legacyEnvName(MCP_OAUTH_BROWSER_ENV)]: 'fetch' })).toBe(
+      'fetch',
+    )
   })
 })
 

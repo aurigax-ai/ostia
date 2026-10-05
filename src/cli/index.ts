@@ -9,6 +9,7 @@ import {
   createMessageConnection,
 } from 'vscode-jsonrpc/node'
 import { RESUMABLE_AGENTS, isResumableAgent, resumeIdFromHookPayload } from '../shared/agentResume'
+import { readEnv } from '../shared/appEnv'
 import type { OpenFilesResult } from '../shared/openFiles'
 import type { CommandResult } from '../shared/types'
 import type { WorkflowEntry, WorkflowListing } from '../shared/workflows'
@@ -157,7 +158,7 @@ async function runSecretVerb(conn: MessageConnection): Promise<void> {
     const target = positional[0]
     const reason = values.reason ?? ''
     if (!target) {
-      console.error('pine secret get: missing <name>')
+      console.error('ostia secret get: missing <name>')
       process.exitCode = 1
       return
     }
@@ -168,11 +169,11 @@ async function runSecretVerb(conn: MessageConnection): Promise<void> {
     if (res.ok && res.value !== undefined) {
       process.stdout.write(res.value)
     } else {
-      console.error(`pine: ${res.error ?? 'failed'}`)
+      console.error(`ostia: ${res.error ?? 'failed'}`)
       process.exitCode = 1
     }
   } else {
-    console.error(`pine secret: unknown subcommand '${sub ?? ''}' (try: ls, get)`)
+    console.error(`ostia secret: unknown subcommand '${sub ?? ''}' (try: ls, get)`)
     process.exitCode = 1
   }
 }
@@ -182,7 +183,7 @@ async function runSandboxVerb(conn: MessageConnection): Promise<void> {
   const value = process.argv[4]
   if (sub === 'request-domain') {
     if (!value) {
-      console.error('pine sandbox request-domain: missing <host>')
+      console.error('ostia sandbox request-domain: missing <host>')
       process.exitCode = 1
       return
     }
@@ -195,12 +196,12 @@ async function runSandboxVerb(conn: MessageConnection): Promise<void> {
     if (res.ok) {
       console.log(`allowed: ${res.domain}`)
     } else {
-      console.error(`pine: ${res.error}${res.reason ? ` (${res.reason})` : ''}`)
+      console.error(`ostia: ${res.error}${res.reason ? ` (${res.reason})` : ''}`)
       process.exitCode = 1
     }
   } else if (sub === 'expose') {
     if (!value) {
-      console.error('pine sandbox expose: missing <port>')
+      console.error('ostia sandbox expose: missing <port>')
       process.exitCode = 1
       return
     }
@@ -217,11 +218,11 @@ async function runSandboxVerb(conn: MessageConnection): Promise<void> {
     } else if (res.ok) {
       console.log(`exposed: 127.0.0.1:${res.port}`)
     } else {
-      console.error(`pine: ${res.error}`)
+      console.error(`ostia: ${res.error}`)
       process.exitCode = 1
     }
   } else {
-    console.error(`pine sandbox: unknown subcommand '${sub ?? ''}' (try: request-domain, expose)`)
+    console.error(`ostia sandbox: unknown subcommand '${sub ?? ''}' (try: request-domain, expose)`)
     process.exitCode = 1
   }
 }
@@ -236,7 +237,7 @@ async function runVaultVerb(conn: MessageConnection): Promise<void> {
   if (sub === 'set') {
     const key = rest[0]
     if (!key) {
-      console.error('pine vault set: missing <KEY>')
+      console.error('ostia vault set: missing <KEY>')
       process.exitCode = 1
       return
     }
@@ -245,13 +246,13 @@ async function runVaultVerb(conn: MessageConnection): Promise<void> {
     if (res.ok) {
       console.log('ok')
     } else {
-      console.error(`pine: vault set failed (${describeVaultError(res)})`)
+      console.error(`ostia: vault set failed (${describeVaultError(res)})`)
       process.exitCode = 1
     }
   } else if (sub === 'get') {
     const key = rest[0]
     if (!key) {
-      console.error('pine vault get: missing <KEY>')
+      console.error('ostia vault get: missing <KEY>')
       process.exitCode = 1
       return
     }
@@ -259,7 +260,7 @@ async function runVaultVerb(conn: MessageConnection): Promise<void> {
     if ('value' in res) {
       console.log(res.value)
     } else {
-      console.error(`pine: vault get failed (${describeVaultError(res)})`)
+      console.error(`ostia: vault get failed (${describeVaultError(res)})`)
       process.exitCode = 1
     }
   } else if (sub === 'ls') {
@@ -267,13 +268,13 @@ async function runVaultVerb(conn: MessageConnection): Promise<void> {
     if ('keys' in res) {
       for (const k of res.keys) console.log(k)
     } else {
-      console.error(`pine: vault ls failed (${describeVaultError(res)})`)
+      console.error(`ostia: vault ls failed (${describeVaultError(res)})`)
       process.exitCode = 1
     }
   } else if (sub === 'rm') {
     const key = rest[0]
     if (!key) {
-      console.error('pine vault rm: missing <KEY>')
+      console.error('ostia vault rm: missing <KEY>')
       process.exitCode = 1
       return
     }
@@ -281,11 +282,11 @@ async function runVaultVerb(conn: MessageConnection): Promise<void> {
     if (res.ok) {
       console.log('ok')
     } else {
-      console.error(`pine: vault rm failed (${describeVaultError(res)})`)
+      console.error(`ostia: vault rm failed (${describeVaultError(res)})`)
       process.exitCode = 1
     }
   } else {
-    console.error(`pine vault: unknown subcommand '${sub ?? ''}' (try: set, get, ls, rm)`)
+    console.error(`ostia vault: unknown subcommand '${sub ?? ''}' (try: set, get, ls, rm)`)
     process.exitCode = 1
   }
 }
@@ -313,7 +314,7 @@ async function runExtList(conn: MessageConnection): Promise<void> {
   for (const ext of list) {
     console.log(`${ext.id}\t${ext.status}\t${ext.name}`)
     for (const cmd of ext.commands)
-      console.log(`  pine ${ext.id} ${cmd.usage ?? cmd.id}\t${cmd.title}`)
+      console.log(`  ostia ${ext.id} ${cmd.usage ?? cmd.id}\t${cmd.title}`)
   }
 }
 
@@ -324,21 +325,21 @@ async function runExtCommand(
   argv: string[],
 ): Promise<void> {
   if (!extId || !command) {
-    console.error('usage: pine ext <extId> <command> [args...]   (see: pine ext ls)')
+    console.error('usage: ostia ext <extId> <command> [args...]   (see: ostia ext ls)')
     process.exitCode = 1
     return
   }
   const list = await conn.sendRequest<ExtInfo[]>('ext.list')
   const ext = list.find((e) => e.id === extId)
   if (!ext) {
-    console.error(`pine: unknown command or extension '${extId}' (see: pine ext ls)`)
+    console.error(`ostia: unknown command or extension '${extId}' (see: ostia ext ls)`)
     process.exitCode = 1
     return
   }
   const cmd = ext.commands.find((c) => c.id === command)
   if (!cmd) {
     const known = ext.commands.map((c) => c.id).join(', ')
-    console.error(`pine ${extId}: unknown subcommand '${command}' (try: ${known})`)
+    console.error(`ostia ${extId}: unknown subcommand '${command}' (try: ${known})`)
     process.exitCode = 1
     return
   }
@@ -348,7 +349,7 @@ async function runExtCommand(
   if (!res.ok) {
     const detail = res.message ? `${res.error}: ${res.message}` : res.error
     if (res.data !== undefined) console.log(JSON.stringify(res.data, null, 2))
-    console.error(`pine: ${extId} ${command} failed (${detail})`)
+    console.error(`ostia: ${extId} ${command} failed (${detail})`)
     process.exitCode = 1
   } else if (res.text !== undefined) {
     if (res.text) console.log(res.text)
@@ -415,14 +416,14 @@ async function opensAsFile(conn: MessageConnection, word: string): Promise<boole
 
 async function runOpenFiles(conn: MessageConnection, args: string[]): Promise<void> {
   if (args.length === 0) {
-    console.error('pine open: missing <path>')
+    console.error('ostia open: missing <path>')
     process.exitCode = 1
     return
   }
   const files = args.map((arg) => parseFileArg(arg, FILE_PROBE))
   const res = await conn.sendRequest<OpenFilesResult>('file.open', { files })
   if (!res.ok) {
-    console.error(`pine open: ${res.message}`)
+    console.error(`ostia open: ${res.message}`)
     process.exitCode = 1
     return
   }
@@ -485,7 +486,7 @@ async function runBusVerb(conn: MessageConnection): Promise<void> {
   if (sub === 'send') {
     const [to, text] = rawArgs
     if (!to || text === undefined) {
-      console.error('pine bus send: missing <toExternalId> "<msg>"')
+      console.error('ostia bus send: missing <toExternalId> "<msg>"')
       process.exitCode = 1
       return
     }
@@ -494,7 +495,7 @@ async function runBusVerb(conn: MessageConnection): Promise<void> {
       console.log(JSON.stringify(res))
       if (res.delivered === 'queued') console.error(BUS_QUEUED_HINT)
     } else {
-      console.error(`pine: bus send failed (${describeBusError(res)})`)
+      console.error(`ostia: bus send failed (${describeBusError(res)})`)
       process.exitCode = 1
     }
   } else if (sub === 'inbox') {
@@ -503,7 +504,7 @@ async function runBusVerb(conn: MessageConnection): Promise<void> {
     if ('messages' in res) {
       console.log(JSON.stringify(res.messages))
     } else {
-      console.error(`pine: bus inbox failed (${describeBusError(res)})`)
+      console.error(`ostia: bus inbox failed (${describeBusError(res)})`)
       process.exitCode = 1
     }
   } else if (sub === 'sent') {
@@ -512,7 +513,7 @@ async function runBusVerb(conn: MessageConnection): Promise<void> {
       if (rawArgs.includes('--json')) console.log(JSON.stringify(res.messages))
       else for (const line of sentLines(res.messages)) console.log(line)
     } else {
-      console.error(`pine: bus sent failed (${describeBusError(res)})`)
+      console.error(`ostia: bus sent failed (${describeBusError(res)})`)
       process.exitCode = 1
     }
   } else if (sub === 'hook') {
@@ -528,7 +529,7 @@ async function runBusVerb(conn: MessageConnection): Promise<void> {
     if ('messages' in res) {
       console.log(JSON.stringify(res))
     } else {
-      console.error(`pine: bus wait failed (${describeBusError(res)})`)
+      console.error(`ostia: bus wait failed (${describeBusError(res)})`)
       process.exitCode = 1
     }
   } else if (sub === 'handoff') {
@@ -537,7 +538,7 @@ async function runBusVerb(conn: MessageConnection): Promise<void> {
     })
     const to = positional[0]
     if (!to || !flags.task || !flags.summary) {
-      console.error('pine bus handoff: missing <to> --task "..." --summary "..."')
+      console.error('ostia bus handoff: missing <to> --task "..." --summary "..."')
       process.exitCode = 1
       return
     }
@@ -550,13 +551,13 @@ async function runBusVerb(conn: MessageConnection): Promise<void> {
       console.log(JSON.stringify(res))
       if (res.delivered === 'queued') console.error(BUS_QUEUED_HINT)
     } else {
-      console.error(`pine: bus handoff failed (${describeBusError(res)})`)
+      console.error(`ostia: bus handoff failed (${describeBusError(res)})`)
       process.exitCode = 1
     }
   } else if (sub === 'claim') {
     const id = rawArgs[0]
     if (!id) {
-      console.error('pine bus claim: missing <id>')
+      console.error('ostia bus claim: missing <id>')
       process.exitCode = 1
       return
     }
@@ -564,7 +565,7 @@ async function runBusVerb(conn: MessageConnection): Promise<void> {
     if (res.ok) {
       console.log('ok')
     } else {
-      console.error(`pine: bus claim failed (${describeBusError(res)})`)
+      console.error(`ostia: bus claim failed (${describeBusError(res)})`)
       process.exitCode = 1
     }
   } else if (sub === 'handoffs') {
@@ -573,13 +574,13 @@ async function runBusVerb(conn: MessageConnection): Promise<void> {
     if ('handoffs' in res) {
       console.log(JSON.stringify(res.handoffs))
     } else {
-      console.error(`pine: bus handoffs failed (${describeBusError(res)})`)
+      console.error(`ostia: bus handoffs failed (${describeBusError(res)})`)
       process.exitCode = 1
     }
   } else if (sub === 'done') {
     const id = rawArgs[0]
     if (!id) {
-      console.error('pine bus done: missing <id>')
+      console.error('ostia bus done: missing <id>')
       process.exitCode = 1
       return
     }
@@ -587,12 +588,12 @@ async function runBusVerb(conn: MessageConnection): Promise<void> {
     if (res.ok) {
       console.log('ok')
     } else {
-      console.error(`pine: bus done failed (${describeBusError(res)})`)
+      console.error(`ostia: bus done failed (${describeBusError(res)})`)
       process.exitCode = 1
     }
   } else {
     console.error(
-      `pine bus: unknown subcommand '${sub ?? ''}' (try: send, inbox, sent, wait, handoff, claim, handoffs, done)`,
+      `ostia bus: unknown subcommand '${sub ?? ''}' (try: send, inbox, sent, wait, handoff, claim, handoffs, done)`,
     )
     process.exitCode = 1
   }
@@ -653,7 +654,7 @@ async function runGatewayVerb(conn: MessageConnection): Promise<void> {
       port: numberFlag(values.port, 'port'),
     })
     if (isErrResult(res)) {
-      console.error(`pine: gateway enable failed (${describeGatewayError(res)})`)
+      console.error(`ostia: gateway enable failed (${describeGatewayError(res)})`)
       process.exitCode = 1
       return
     }
@@ -661,7 +662,7 @@ async function runGatewayVerb(conn: MessageConnection): Promise<void> {
   } else if (sub === 'disable') {
     const res = await conn.sendRequest<GatewayOk | GatewayErr>('gateway.disable', {})
     if (isErrResult(res)) {
-      console.error(`pine: gateway disable failed (${describeGatewayError(res)})`)
+      console.error(`ostia: gateway disable failed (${describeGatewayError(res)})`)
       process.exitCode = 1
       return
     }
@@ -669,7 +670,7 @@ async function runGatewayVerb(conn: MessageConnection): Promise<void> {
   } else if (sub === 'pair') {
     const res = await conn.sendRequest<GatewayPairResult | GatewayErr>('gateway.pair', {})
     if (isErrResult(res)) {
-      console.error(`pine: gateway pair failed (${describeGatewayError(res)})`)
+      console.error(`ostia: gateway pair failed (${describeGatewayError(res)})`)
       process.exitCode = 1
       return
     }
@@ -679,7 +680,7 @@ async function runGatewayVerb(conn: MessageConnection): Promise<void> {
   } else if (sub === 'status') {
     const res = await conn.sendRequest<GatewayStatusResult | GatewayErr>('gateway.status', {})
     if (isErrResult(res)) {
-      console.error(`pine: gateway status failed (${describeGatewayError(res)})`)
+      console.error(`ostia: gateway status failed (${describeGatewayError(res)})`)
       process.exitCode = 1
       return
     }
@@ -696,7 +697,7 @@ async function runGatewayVerb(conn: MessageConnection): Promise<void> {
   } else if (sub === 'revoke') {
     const deviceId = process.argv[4]
     if (!deviceId) {
-      console.error('pine gateway revoke: missing <deviceId>')
+      console.error('ostia gateway revoke: missing <deviceId>')
       process.exitCode = 1
       return
     }
@@ -704,12 +705,12 @@ async function runGatewayVerb(conn: MessageConnection): Promise<void> {
     if (res.ok) {
       console.log('ok')
     } else {
-      console.error(`pine: gateway revoke failed (${describeGatewayError(res)})`)
+      console.error(`ostia: gateway revoke failed (${describeGatewayError(res)})`)
       process.exitCode = 1
     }
   } else {
     console.error(
-      `pine gateway: unknown subcommand '${sub ?? ''}' (try: enable, pair, status, devices, revoke, disable)`,
+      `ostia gateway: unknown subcommand '${sub ?? ''}' (try: enable, pair, status, devices, revoke, disable)`,
     )
     process.exitCode = 1
   }
@@ -745,7 +746,7 @@ async function runAgentVerb(conn: MessageConnection): Promise<void> {
   })
   const [agent, given] = positional
   if (process.argv[3] !== 'run' || !agent || given === undefined) {
-    console.error('usage: pine agent run <agent> [--name N] [--cwd DIR] <prompt|->')
+    console.error('usage: ostia agent run <agent> [--name N] [--cwd DIR] <prompt|->')
     process.exitCode = 1
     return
   }
@@ -755,7 +756,7 @@ async function runAgentVerb(conn: MessageConnection): Promise<void> {
     { agent, prompt, name: flags.name, ...(flags.cwd ? { cwd: resolvePath(flags.cwd) } : {}) },
   )
   if (isErrResult(res)) {
-    console.error(`pine: agent run failed (${describeErrResult(res)})`)
+    console.error(`ostia: agent run failed (${describeErrResult(res)})`)
     process.exitCode = 1
     return
   }
@@ -773,7 +774,7 @@ async function runProcessVerb(conn: MessageConnection): Promise<void> {
     })
     const cmd = positional[0]
     if (!cmd) {
-      console.error('pine process run: missing "<cmd>"')
+      console.error('ostia process run: missing "<cmd>"')
       process.exitCode = 1
       return
     }
@@ -782,7 +783,7 @@ async function runProcessVerb(conn: MessageConnection): Promise<void> {
       { cmd, name: flags.name, cwd: resolvePath(flags.cwd ?? '.') },
     )
     if (isErrResult(res)) {
-      console.error(`pine: process run failed (${describeErrResult(res)})`)
+      console.error(`ostia: process run failed (${describeErrResult(res)})`)
       process.exitCode = 1
       return
     }
@@ -791,7 +792,7 @@ async function runProcessVerb(conn: MessageConnection): Promise<void> {
     const list = await conn.sendRequest<ProcInfo[] | ErrResult>('process.list')
     if (!Array.isArray(list)) {
       const reason = isErrResult(list) ? describeErrResult(list) : 'unexpected response'
-      console.error(`pine: process ls failed (${reason})`)
+      console.error(`ostia: process ls failed (${reason})`)
       process.exitCode = 1
       return
     }
@@ -806,7 +807,7 @@ async function runProcessVerb(conn: MessageConnection): Promise<void> {
     const { values, positional } = parseArgs(rawArgs, { values: { since: '--since' } })
     const id = positional[0]
     if (!id) {
-      console.error('pine process logs: missing <id|name>')
+      console.error('ostia process logs: missing <id|name>')
       process.exitCode = 1
       return
     }
@@ -815,7 +816,7 @@ async function runProcessVerb(conn: MessageConnection): Promise<void> {
       { data: string; cursor: number; dropped: boolean } | ErrResult
     >('process.output', { id, sinceCursor })
     if (isErrResult(res)) {
-      console.error(`pine: process logs failed (${describeErrResult(res)})`)
+      console.error(`ostia: process logs failed (${describeErrResult(res)})`)
       process.exitCode = 1
       return
     }
@@ -824,13 +825,13 @@ async function runProcessVerb(conn: MessageConnection): Promise<void> {
   } else if (sub === 'kill') {
     const id = rawArgs[0]
     if (!id) {
-      console.error('pine process kill: missing <id|name>')
+      console.error('ostia process kill: missing <id|name>')
       process.exitCode = 1
       return
     }
     const res = await conn.sendRequest<{ ok: true } | ErrResult>('process.kill', { id })
     if (isErrResult(res)) {
-      console.error(`pine: process kill failed (${describeErrResult(res)})`)
+      console.error(`ostia: process kill failed (${describeErrResult(res)})`)
       process.exitCode = 1
       return
     }
@@ -838,20 +839,20 @@ async function runProcessVerb(conn: MessageConnection): Promise<void> {
   } else if (sub === 'restart') {
     const id = rawArgs[0]
     if (!id) {
-      console.error('pine process restart: missing <id|name>')
+      console.error('ostia process restart: missing <id|name>')
       process.exitCode = 1
       return
     }
     const res = await conn.sendRequest<{ id: string } | ErrResult>('process.restart', { id })
     if (isErrResult(res)) {
-      console.error(`pine: process restart failed (${describeErrResult(res)})`)
+      console.error(`ostia: process restart failed (${describeErrResult(res)})`)
       process.exitCode = 1
       return
     }
     console.log(JSON.stringify(res))
   } else {
     console.error(
-      `pine process: unknown subcommand '${sub ?? ''}' (try: run, ls, logs, kill, restart)`,
+      `ostia process: unknown subcommand '${sub ?? ''}' (try: run, ls, logs, kill, restart)`,
     )
     process.exitCode = 1
   }
@@ -869,7 +870,7 @@ async function runSettingsVerb(conn: MessageConnection): Promise<void> {
     if (res.ok) {
       console.log(JSON.stringify(res.result ?? null, null, 2))
     } else {
-      console.error('pine:', res.error?.message)
+      console.error('ostia:', res.error?.message)
       process.exitCode = 1
     }
   } else if (sub === 'set') {
@@ -880,7 +881,7 @@ async function runSettingsVerb(conn: MessageConnection): Promise<void> {
     const { dryRun } = booleans
     const [key, rawValue] = positional
     if (!key || rawValue === undefined) {
-      console.error('pine settings set: missing <key> <value>')
+      console.error('ostia settings set: missing <key> <value>')
       process.exitCode = 1
       return
     }
@@ -894,7 +895,7 @@ async function runSettingsVerb(conn: MessageConnection): Promise<void> {
   } else if (sub === 'unset') {
     const key = process.argv[4]
     if (!key) {
-      console.error('pine settings unset: missing <key>')
+      console.error('ostia settings unset: missing <key>')
       process.exitCode = 1
       return
     }
@@ -903,7 +904,9 @@ async function runSettingsVerb(conn: MessageConnection): Promise<void> {
     const key = process.argv[4]
     await printSettingsCommand(conn, 'settings.schema', key ? { key } : undefined)
   } else {
-    console.error(`pine settings: unknown subcommand '${sub ?? ''}' (try: get, set, unset, schema)`)
+    console.error(
+      `ostia settings: unknown subcommand '${sub ?? ''}' (try: get, set, unset, schema)`,
+    )
     process.exitCode = 1
   }
 }
@@ -917,7 +920,7 @@ async function printSettingsCommand(
   if (res.ok) {
     console.log(JSON.stringify(res.result ?? null, null, 2))
   } else {
-    console.error('pine:', res.error?.message)
+    console.error('ostia:', res.error?.message)
     process.exitCode = 1
   }
 }
@@ -946,7 +949,7 @@ async function runStateVerb(conn: MessageConnection): Promise<void> {
   const paneId = values.pane
   const [state, rawMessage] = positional
   if (!state || !STATE_VERBS.includes(state)) {
-    console.error(`pine state: expected one of ${STATE_VERBS.join('|')}`)
+    console.error(`ostia state: expected one of ${STATE_VERBS.join('|')}`)
     process.exitCode = 1
     return
   }
@@ -958,13 +961,13 @@ async function runStateVerb(conn: MessageConnection): Promise<void> {
   if (res.ok) {
     console.log('ok')
   } else {
-    console.error(`pine state: ${res.error ?? 'failed'}${res.message ? ` (${res.message})` : ''}`)
+    console.error(`ostia state: ${res.error ?? 'failed'}${res.message ? ` (${res.message})` : ''}`)
     process.exitCode = 1
   }
 }
 
 const WORKSPACE_USAGE =
-  'pine workspace: usage: workspace list [--json] | describe <text|-> | describe --clear | ' +
+  'ostia workspace: usage: workspace list [--json] | describe <text|-> | describe --clear | ' +
   'group <name> | ungroup | dir [path]'
 
 interface WorkspaceListing {
@@ -1006,7 +1009,7 @@ async function runWorkspaceCommand(
   if (res.ok) {
     console.log('ok')
   } else {
-    console.error(`pine workspace ${verb}: ${res.error?.message ?? 'failed'}`)
+    console.error(`ostia workspace ${verb}: ${res.error?.message ?? 'failed'}`)
     process.exitCode = 1
   }
 }
@@ -1020,7 +1023,7 @@ async function runWorkspaceVerb(conn: MessageConnection): Promise<void> {
   if (sub === 'group') {
     const name = rest.join(' ').trim()
     if (!name) {
-      console.error('pine workspace group: missing <name>')
+      console.error('ostia workspace group: missing <name>')
       process.exitCode = 1
       return
     }
@@ -1040,7 +1043,7 @@ async function runWorkspaceVerb(conn: MessageConnection): Promise<void> {
     if (res.ok) {
       console.log(dir)
     } else {
-      console.error(`pine workspace dir: ${res.error?.message ?? 'failed'}`)
+      console.error(`ostia workspace dir: ${res.error?.message ?? 'failed'}`)
       process.exitCode = 1
     }
     return
@@ -1058,7 +1061,7 @@ async function runWorkspaceVerb(conn: MessageConnection): Promise<void> {
   const raw = positional.join(' ')
   const text = clear ? '' : raw === '-' ? await readAllStdin() : raw
   if (!clear && !text.trim()) {
-    console.error('pine workspace describe: missing <text|-> (or --clear)')
+    console.error('ostia workspace describe: missing <text|-> (or --clear)')
     process.exitCode = 1
     return
   }
@@ -1069,12 +1072,12 @@ async function runWorkspaceVerb(conn: MessageConnection): Promise<void> {
   if (res.ok) {
     console.log('ok')
   } else {
-    console.error(`pine workspace describe: ${res.error?.message ?? 'failed'}`)
+    console.error(`ostia workspace describe: ${res.error?.message ?? 'failed'}`)
     process.exitCode = 1
   }
 }
 
-const WORKFLOW_USAGE = 'pine workflow: usage: workflow list [--json] | show <name> [--json]'
+const WORKFLOW_USAGE = 'ostia workflow: usage: workflow list [--json] | show <name> [--json]'
 
 function describeWorkflow(w: WorkflowEntry): string {
   const lines = [`name: ${w.name}`, `source: ${w.source} (${w.origin})`]
@@ -1118,13 +1121,13 @@ async function runWorkflowVerb(conn: MessageConnection): Promise<void> {
       console.log([w.name, `${w.source}:${w.origin}`, w.command.replace(/\n/g, ' ')].join('\t'))
     }
     for (const p of listing.problems) {
-      console.error(`pine workflow: couldn't read ${p.source}:${p.origin}: ${p.error}`)
+      console.error(`ostia workflow: couldn't read ${p.source}:${p.origin}: ${p.error}`)
     }
     return
   }
   const matches = listing.workflows.filter((w) => w.name === name)
   if (matches.length === 0) {
-    console.error(`pine workflow show: no workflow named '${name}'`)
+    console.error(`ostia workflow show: no workflow named '${name}'`)
     process.exitCode = 1
     return
   }
@@ -1134,13 +1137,13 @@ async function runWorkflowVerb(conn: MessageConnection): Promise<void> {
 async function runResumeTokenVerb(conn: MessageConnection): Promise<void> {
   const [agent, raw] = process.argv.slice(3)
   if (!isResumableAgent(agent) || !raw) {
-    console.error(`pine resume-token: usage: resume-token <${RESUMABLE_AGENTS.join('|')}> <id|->`)
+    console.error(`ostia resume-token: usage: resume-token <${RESUMABLE_AGENTS.join('|')}> <id|->`)
     process.exitCode = 1
     return
   }
   const id = resumeIdFromHookPayload(raw === '-' ? await readAllStdin() : raw)
   if (!id) {
-    console.error('pine resume-token: no agent session id found')
+    console.error('ostia resume-token: no agent session id found')
     process.exitCode = 1
     return
   }
@@ -1151,12 +1154,12 @@ async function runResumeTokenVerb(conn: MessageConnection): Promise<void> {
   if (res.ok) {
     console.log('ok')
   } else {
-    console.error(`pine resume-token: ${res.error ?? 'failed'}`)
+    console.error(`ostia resume-token: ${res.error ?? 'failed'}`)
     process.exitCode = 1
   }
 }
 
-const USAGE = `usage: pine <command> [args]
+const USAGE = `usage: ostia <command> [args]
 
 commands:
   whoami | commands | info | cwd | pane.list | workspace.list | docs
@@ -1173,21 +1176,21 @@ commands:
   workflow list [--json] | show <name> [--json]   saved command workflows (read-only)
   view list [--json] | open <name>   declarative views (~/.config/pine/views/<name>.json)
   view validate <file> | schema      check a view file / print its JSON schema (no app needed)
-  <file>... | open <file>...   show files in Pine's viewer, any path (file:line[:col] jumps)
+  <file>... | open <file>...   show files in Ostia's viewer, any path (file:line[:col] jumps)
   process run "<cmd>" [--name N] [--cwd DIR] | ls | logs | kill | restart <id|name>
                             run a command in a new terminal tab the human can watch
   agent run <agent> [--name N] [--cwd DIR] <prompt|->
                             start claude, codex or an agent the human configured in a new
-                            terminal tab with that prompt; talk to it with pine pane
+                            terminal tab with that prompt; talk to it with ostia pane
   pane send <pane> <text> [--enter] | key <pane> <key>… | read <pane> [--lines N]
                             type into or read another terminal pane (asks the human unless
-                            you opened it with pine process run)
+                            you opened it with ostia process run)
   vault | bus | settings | browse | gateway <subcommand> ...
   ext ls | ext <extId> <command> [args...]
-  <extId> <command> [args...]  an extension command, e.g. pine git status
-  <command.id> [json-args]     run any registered command (see: pine commands)
+  <extId> <command> [args...]  an extension command, e.g. ostia git status
+  <command.id> [json-args]     run any registered command (see: ostia commands)
 
-run 'pine docs' inside a Pine pane for the full reference.`
+run 'ostia docs' inside an Ostia pane for the full reference.`
 
 function connectSocket(socketPath: string): Promise<Socket> {
   return new Promise((resolveSocket, reject) => {
@@ -1201,8 +1204,8 @@ function connectSocket(socketPath: string): Promise<Socket> {
 }
 
 async function main(): Promise<void> {
-  const socketPath = process.env.PINE_SOCKET
-  const token = process.env.PINE_TOKEN
+  const socketPath = readEnv('SOCKET')
+  const token = readEnv('TOKEN')
   const [cmd] = process.argv.slice(2)
   if (cmd === '--help' || cmd === '-h' || cmd === 'help') {
     console.log(USAGE)
@@ -1218,7 +1221,7 @@ async function main(): Promise<void> {
       fileWord(cmd, FILE_PROBE) === 'path' &&
       FILE_PROBE.isFile(parseFileArg(cmd, FILE_PROBE).path)
     ) {
-      console.error('pine: files open from a terminal inside Pine (PINE_SOCKET unset)')
+      console.error('ostia: files open from a terminal inside Ostia (OSTIA_SOCKET unset)')
       process.exitCode = 1
       return
     }
@@ -1235,7 +1238,7 @@ async function main(): Promise<void> {
   try {
     socket = await connectSocket(socketPath)
   } catch {
-    console.error(`pine: app not reachable at ${socketPath}`)
+    console.error(`ostia: app not reachable at ${socketPath}`)
     process.exit(1)
   }
   const conn = createMessageConnection(
@@ -1281,7 +1284,7 @@ async function main(): Promise<void> {
       if (res.ok) {
         console.log('ok')
       } else {
-        console.error(`pine notify: ${res.error ?? 'failed'}`)
+        console.error(`ostia notify: ${res.error ?? 'failed'}`)
         process.exitCode = 1
       }
     } else if (cmd === 'ask') {
@@ -1345,20 +1348,20 @@ async function main(): Promise<void> {
         console.log('ok')
         if (res.result !== undefined) console.log(JSON.stringify(res.result))
       } else {
-        console.error('pine:', res.error?.message)
+        console.error('ostia:', res.error?.message)
         process.exitCode = 1
       }
     } else {
       console.error(
-        `pine: unknown command '${cmd ?? ''}' (try: whoami, commands, info, cwd, pane.list, workspace.list, notify, ask, state, open, docs, process, pane, vault, bus, settings, browse, gateway, ext)`,
+        `ostia: unknown command '${cmd ?? ''}' (try: whoami, commands, info, cwd, pane.list, workspace.list, notify, ask, state, open, docs, process, pane, vault, bus, settings, browse, gateway, ext)`,
       )
       process.exitCode = 1
     }
   } catch (e) {
     if (connectionLost) {
-      console.error('pine: connection to the app closed (did Pine quit?)')
+      console.error('ostia: connection to the app closed (did Ostia quit?)')
     } else {
-      console.error('pine:', describeFailure(e))
+      console.error('ostia:', describeFailure(e))
     }
     process.exitCode = 1
   } finally {
