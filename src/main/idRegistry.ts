@@ -1,4 +1,4 @@
-import { randomBytes, randomUUID } from 'node:crypto'
+import { createHmac, randomBytes, randomUUID } from 'node:crypto'
 
 export type IdentityKind = 'pane' | 'extension' | 'script'
 
@@ -19,8 +19,29 @@ const byScript = new Map<string, PaneIdentity>()
 const byExternal = new Map<string, PaneIdentity>()
 const byToken = new Map<string, PaneIdentity>()
 
-function mint(): { externalId: string; token: string } {
-  return { externalId: randomUUID(), token: randomBytes(32).toString('hex') }
+let paneIdSalt: Buffer = randomBytes(32)
+
+export function setPaneIdSalt(salt: Buffer): void {
+  paneIdSalt = salt
+}
+
+export function stablePaneExternalId(paneId: string): string {
+  const h = createHmac('sha256', paneIdSalt).update(paneId).digest('hex')
+  const variant = ((Number.parseInt(h.charAt(16), 16) & 0x3) | 0x8).toString(16)
+  return [
+    h.slice(0, 8),
+    h.slice(8, 12),
+    `4${h.slice(13, 16)}`,
+    `${variant}${h.slice(17, 20)}`,
+    h.slice(20, 32),
+  ].join('-')
+}
+
+function mint(paneId?: string): { externalId: string; token: string } {
+  return {
+    externalId: paneId ? stablePaneExternalId(paneId) : randomUUID(),
+    token: randomBytes(32).toString('hex'),
+  }
 }
 
 function index(identity: PaneIdentity): void {
@@ -44,7 +65,7 @@ export function registerPane(input: {
     if (input.workspaceId) existing.workspaceId = input.workspaceId
     return existing
   }
-  const identity: PaneIdentity = { kind: 'pane', ...mint(), ...input }
+  const identity: PaneIdentity = { kind: 'pane', ...mint(input.paneId), ...input }
   byPane.set(identity.paneId, identity)
   index(identity)
   return identity

@@ -3,7 +3,14 @@ import type { CommandResult, CommandTarget, TerminalStateSnapshot } from '../sha
 import { registerControlMethod } from './controlServer'
 import { getByPaneId } from './idRegistry'
 
-interface RendererPaneEntry {
+interface PaneAgentFields {
+  agent?: string
+  agentSessionId?: string
+  agentState?: string
+  agentMessage?: string
+}
+
+interface RendererPaneEntry extends PaneAgentFields {
   paneId: string
   workspaceId: string
   kind: string
@@ -30,7 +37,7 @@ export interface WorkspaceGroupEntry {
   workspaceIds: string[]
 }
 
-export interface PaneEntry {
+export interface PaneEntry extends PaneAgentFields {
   paneId: string
   workspaceId: string
   kind: string
@@ -63,6 +70,15 @@ async function listFromEveryWindow<T>(
   return results.flatMap((res) => (res.ok && Array.isArray(res.result) ? (res.result as T[]) : []))
 }
 
+function agentFields(p: RendererPaneEntry): PaneAgentFields {
+  const fields: PaneAgentFields = {}
+  if (typeof p.agent === 'string') fields.agent = p.agent
+  if (typeof p.agentSessionId === 'string') fields.agentSessionId = p.agentSessionId
+  if (typeof p.agentState === 'string') fields.agentState = p.agentState
+  if (typeof p.agentMessage === 'string') fields.agentMessage = p.agentMessage
+  return fields
+}
+
 export async function listPanes(deps: PaneListDeps): Promise<PaneEntry[]> {
   const panes = await listFromEveryWindow<RendererPaneEntry>(deps, 'pane.list', {
     allWorkspaces: true,
@@ -84,6 +100,7 @@ export async function listPanes(deps: PaneListDeps): Promise<PaneEntry[]> {
       blockCount: state?.blockCount ?? 0,
       lastExitCode: state?.lastExitCode,
       ...(pid ? { pid } : {}),
+      ...agentFields(p),
     })
   }
   return mapped

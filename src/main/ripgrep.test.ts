@@ -1,13 +1,20 @@
 import { describe, expect, it } from 'vitest'
-import { PREVIEW_CHARS, filesArgv, parseMatch, preview, relativePath, textArgv } from './rg'
+import {
+  PREVIEW_CHARS,
+  filesArgv,
+  parseMatch,
+  preview,
+  relativePath,
+  ripgrepPath,
+  textArgv,
+} from './ripgrep'
 
 const query = {
   text: 'hello',
   regex: false,
   caseSensitive: false,
   wholeWord: false,
-  include: [],
-  exclude: [],
+  includeIgnored: false,
 }
 
 function matchEvent(path: string, text: string, line: number, spans: [number, number][]): string {
@@ -36,24 +43,23 @@ describe('textArgv', () => {
     expect(textArgv({ ...query, text: '--pre=sh' }).slice(-3)).toEqual(['--', '--pre=sh', '.'])
   })
 
-  it('maps regex, case, whole word and globs to rg flags', () => {
-    const argv = textArgv({
-      ...query,
-      regex: true,
-      caseSensitive: true,
-      wholeWord: true,
-      include: ['src/**'],
-      exclude: ['dist/**'],
-    })
+  it('maps regex, case and whole word to rg flags', () => {
+    const argv = textArgv({ ...query, regex: true, caseSensitive: true, wholeWord: true })
     expect(argv).not.toContain('--fixed-strings')
     expect(argv).toContain('--case-sensitive')
     expect(argv).toContain('--word-regexp')
-    expect(argv.join(' ')).toContain('--glob src/** --glob !dist/**')
+  })
+
+  it('respects .gitignore unless ignored files are included', () => {
+    expect(textArgv(query)).not.toContain('--no-ignore')
+    expect(filesArgv(false)).not.toContain('--no-ignore')
+    expect(textArgv({ ...query, includeIgnored: true })).toContain('--no-ignore')
+    expect(filesArgv(true)).toContain('--no-ignore')
   })
 
   it('always skips the .git folder, for text and for file lists', () => {
     expect(textArgv(query).join(' ')).toContain('--glob !.git')
-    expect(filesArgv().join(' ')).toContain('--glob !.git')
+    expect(filesArgv(false).join(' ')).toContain('--glob !.git')
   })
 })
 
@@ -118,5 +124,19 @@ describe('relativePath', () => {
   it('strips the ./ rg prints for the searched folder', () => {
     expect(relativePath('./src/a.ts')).toBe('src/a.ts')
     expect(relativePath('.env')).toBe('.env')
+  })
+})
+
+describe('ripgrepPath', () => {
+  it('points at the platform package next to the app', () => {
+    expect(ripgrepPath('/repo', 'linux', 'x64')).toBe(
+      '/repo/node_modules/@vscode/ripgrep-linux-x64/bin/rg',
+    )
+  })
+
+  it('points into app.asar.unpacked for a packaged app', () => {
+    expect(ripgrepPath('/opt/ostia/resources/app.asar', 'darwin', 'arm64')).toBe(
+      '/opt/ostia/resources/app.asar.unpacked/node_modules/@vscode/ripgrep-darwin-arm64/bin/rg',
+    )
   })
 })

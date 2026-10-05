@@ -134,5 +134,11 @@
     "vscode-languageserver-protocol": "^3.18.2",
     "yaml-language-server": "1.24.0",
     "zustand": "^4.5.7"
+  },
+  "optionalDependencies": {
+    "@vscode/ripgrep-darwin-arm64": "1.18.0",
+    "@vscode/ripgrep-darwin-x64": "1.18.0",
+    "@vscode/ripgrep-linux-arm64": "1.18.0",
+    "@vscode/ripgrep-linux-x64": "1.18.0"
   }
 }

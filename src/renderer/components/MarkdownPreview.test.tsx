@@ -1,5 +1,6 @@
 import '@testing-library/jest-dom/vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { MarkdownPreview, isMarkdownPath } from './MarkdownPreview'
 
@@ -83,6 +84,42 @@ describe('MarkdownPreview', () => {
   it('shows raw HTML as text instead of running it', () => {
     const { container } = render(<MarkdownPreview source={'<img src=x onerror="alert(1)">'} />)
     expect(container.querySelector('img')).toBeNull()
+  })
+})
+
+describe('MarkdownPreview find', () => {
+  const SOURCE = '# Needle\n\nOne needle, then another needle.\n'
+
+  it('opens with the find key, counts matches and steps through them', async () => {
+    render(<MarkdownPreview source={SOURCE} />)
+    const preview = document.querySelector('.markdown-preview') as HTMLElement
+    const user = userEvent.setup()
+
+    fireEvent.keyDown(preview, { key: 'F', code: 'KeyF', ctrlKey: true, shiftKey: true })
+    const box = screen.getByRole('textbox', { name: 'Find in preview' })
+    expect(box).toHaveFocus()
+
+    await user.type(box, 'needle')
+    expect(screen.getByText('1/3')).toBeInTheDocument()
+    await user.keyboard('{Enter}')
+    expect(screen.getByText('2/3')).toBeInTheDocument()
+    await user.keyboard('{Shift>}{Enter}{/Shift}{Shift>}{Enter}{/Shift}')
+    expect(screen.getByText('3/3')).toBeInTheDocument()
+
+    await user.clear(box)
+    await user.type(box, 'absent')
+    expect(screen.getByText('No results')).toBeInTheDocument()
+
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('textbox', { name: 'Find in preview' })).not.toBeInTheDocument()
+    expect(preview).toHaveFocus()
+  })
+
+  it('also opens with Ctrl+F', () => {
+    render(<MarkdownPreview source={SOURCE} />)
+    const preview = document.querySelector('.markdown-preview') as HTMLElement
+    fireEvent.keyDown(preview, { key: 'f', code: 'KeyF', ctrlKey: true })
+    expect(screen.getByRole('textbox', { name: 'Find in preview' })).toBeInTheDocument()
   })
 })
 

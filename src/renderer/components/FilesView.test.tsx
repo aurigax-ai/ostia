@@ -5,6 +5,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { createPane } from '../layout/tree'
+import { loadHomeDir } from '../lib/homeDir'
 import { useExtensionsStore } from '../stores/extensionsStore'
 import { useIconThemeStore } from '../stores/iconThemeStore'
 import { useLayoutStore } from '../stores/layoutStore'
@@ -274,6 +275,44 @@ describe('FilesView', () => {
     expect(window.ostia.fs.list).toHaveBeenCalledWith('/anchor/dir')
   })
 
+  it('keeps the tree at the workspace folder when a file in a subfolder is the focused pane', async () => {
+    seedWorkspace(CWD)
+    vi.mocked(window.ostia.fs.list).mockImplementation(async (p) =>
+      p === CWD ? [{ name: 'notes', dir: true }] : [{ name: 'deep.json', dir: false }],
+    )
+
+    act(() => {
+      useLayoutStore.getState().openFile('s1', `${CWD}/notes/deep.json`)
+    })
+    render(<FilesView />)
+
+    expect(await screen.findByRole('button', { name: 'notes' })).toBeInTheDocument()
+    expect(window.ostia.fs.list).toHaveBeenCalledWith(CWD)
+    expect(screen.getByText('project')).toHaveClass('current')
+  })
+
+  it('opens the folders down to the focused file and marks its row current', async () => {
+    seedWorkspace(CWD)
+    vi.mocked(window.ostia.fs.list).mockImplementation(async (p) =>
+      p === CWD
+        ? [
+            { name: 'notes', dir: true },
+            { name: 'other', dir: true },
+          ]
+        : [{ name: 'deep.json', dir: false }],
+    )
+
+    act(() => {
+      useLayoutStore.getState().openFile('s1', `${CWD}/notes/deep.json`)
+    })
+    render(<FilesView />)
+
+    const row = await screen.findByRole('button', { name: 'deep.json' })
+    expect(row).toHaveAttribute('aria-current', 'true')
+    expect(screen.getByRole('button', { name: 'notes' })).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByRole('button', { name: 'other' })).toHaveAttribute('aria-expanded', 'false')
+  })
+
   it('opens a file via layoutStore.openFile with its full path when a file row is clicked', async () => {
     seedWorkspace(CWD)
     listReturns([{ name: 'index.ts', dir: false }])
@@ -539,6 +578,79 @@ describe('FilesView', () => {
     expect(await screen.findByText('No folder open')).toBeInTheDocument()
     expect(document.querySelector('.file-row')).toBeNull()
     expect(screen.getByRole('button', { name: 'Close Files' })).toBeInTheDocument()
+  })
+
+  describe('breadcrumb', () => {
+    const LONG = '/home/me/Personal/terminal/.sdd/verify'
+    const CHAR_WIDTH = 10
+
+    function lineWidth(width: number): void {
+      vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(function (
+        this: HTMLElement,
+      ) {
+        return this.classList.contains('files-crumb-line') ? width : 0
+      })
+      vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockImplementation(function (
+        this: HTMLElement,
+      ) {
+        return (this.textContent ?? '').length * CHAR_WIDTH
+      })
+    }
+
+    const crumbText = (): string[] =>
+      Array.from(document.querySelectorAll('.files-crumb-line .crumb')).map(
+        (el) => el.textContent ?? '',
+      )
+
+    it('shows home as ~ and full names when the path fits', async () => {
+      lineWidth(1000)
+      seedWorkspace(LONG)
+      listReturns([])
+      await loadHomeDir()
+
+      render(<FilesView />)
+
+      expect(crumbText()).toEqual(['~', 'Personal', 'terminal', '.sdd', 'verify'])
+    })
+
+    it('shortens, then folds, only as far as the width needs', async () => {
+      await loadHomeDir()
+      seedWorkspace(LONG)
+      listReturns([])
+
+      lineWidth(150)
+      const { unmount } = render(<FilesView />)
+      expect(crumbText()).toEqual(['~', 'P', 't', '.s', 'verify'])
+      unmount()
+
+      lineWidth(90)
+      render(<FilesView />)
+      expect(crumbText()).toEqual(['…', '.s', 'verify'])
+    })
+
+    it('never shortens with the full style', async () => {
+      await loadHomeDir()
+      lineWidth(50)
+      seedWorkspace(LONG)
+      listReturns([])
+      useSettingsStore.getState().setFiles({ breadcrumb: 'full' })
+
+      render(<FilesView />)
+
+      expect(crumbText()).toEqual(['~', 'Personal', 'terminal', '.sdd', 'verify'])
+    })
+
+    it('always shortens with the short style, even when the path fits', async () => {
+      await loadHomeDir()
+      lineWidth(1000)
+      seedWorkspace(LONG)
+      listReturns([])
+      useSettingsStore.getState().setFiles({ breadcrumb: 'short' })
+
+      render(<FilesView />)
+
+      expect(crumbText()).toEqual(['~', 'P', 't', '.s', 'verify'])
+    })
   })
 
   it('renders the cwd breadcrumb and exposes entries as named buttons (a11y)', async () => {

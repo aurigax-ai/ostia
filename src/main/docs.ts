@@ -12,7 +12,9 @@ const CLI_HELP = `ostia — control-socket CLI
   ostia <file>...                same, when the first word is a path (has a /, or starts with
                                  . or ~) or names a file here that is no command or extension
   ostia pane.list                 every pane, every workspace — {paneId(external),workspaceId,
-                                  kind,title,cwd,running,blockCount,lastExitCode}
+                                  kind,title,cwd,running,blockCount,lastExitCode,agent,
+                                  agentSessionId,agentState,agentMessage}; a restored pane keeps
+                                  its paneId across restarts
   ostia workspace.list              every workspace — {workspaceId,name,kind,workDir,state,groupId}
   ostia notify <title> [body]    desktop notification + marks this pane unread in Ostia
   ostia ask "<question>" [--context <text|->] [--choice <label>]… [--multi] [--timeout <seconds>] [--json]
@@ -44,6 +46,9 @@ const CLI_HELP = `ostia — control-socket CLI
   ostia workspace group <name>   move this pane's workspace into the sidebar group <name>
                                  (created if missing)
   ostia workspace ungroup        take this pane's workspace out of its group
+  ostia workspace rename [--workspace <id>] <name…> | --clear  rename your workspace in the
+                                 sidebar (--clear goes back to its default name); another
+                                 workspace asks the human (send-other-pane, all-workspaces)
   ostia resume-token <claude|codex> <id|->
                                  remember this pane's agent session so a restored pane
                                  offers Resume (Ctrl+Shift+R); '-' reads a hook's JSON
@@ -91,6 +96,11 @@ const CLI_HELP = `ostia — control-socket CLI
                                  A tab you opened with ostia process run needs nothing more;
                                  any other pane asks the human (type-other-pane,
                                  read-other-pane, plus all-workspaces outside your workspace)
+  ostia pane rename <pane> <title…>  name that pane's tab; programs (OSC titles) no longer
+                                 change it, and it survives a restart. --clear instead of a
+                                 title hands the tab back to the program. Your own pane
+                                 ($OSTIA_PANE_ID) needs nothing; another pane asks the human
+                                 (send-other-pane, plus all-workspaces outside your workspace)
   ostia token create <name> --cap <capability>…  make a token for scripts outside Ostia
                                  (launchd jobs, cron, a dispatcher). It can hold only
                                  read-board, read-other-pane, type-other-pane and

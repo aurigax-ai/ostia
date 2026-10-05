@@ -194,6 +194,14 @@ describe('SettingsPanel', () => {
     await user.click(screen.getByRole('switch', { name: 'Show hidden files' }))
     expect(files().showExcluded).toBe(true)
 
+    const hideDotfiles = screen.getByRole('switch', { name: 'Hide dotfiles' })
+    expect(hideDotfiles).not.toBeChecked()
+    await user.click(hideDotfiles)
+    expect(files().exclude).toContain('**/.*')
+    expect(screen.getByRole('list', { name: 'Hidden file patterns' })).toHaveTextContent('**/.*')
+    await user.click(hideDotfiles)
+    expect(files().exclude).not.toContain('**/.*')
+
     const excluded = screen.getByRole('list', { name: 'Hidden file patterns' })
     expect(excluded).toHaveTextContent('**/.git')
     await user.type(
