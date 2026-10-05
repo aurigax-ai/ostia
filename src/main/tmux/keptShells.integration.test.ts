@@ -1,4 +1,6 @@
-import { mkdtempSync, rmSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
+import { randomUUID } from 'node:crypto'
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, afterEach, describe, expect, it } from 'vitest'
@@ -207,5 +209,40 @@ describe('KeptShells', () => {
     await expect.poll(() => alive(pane.pid)).toBe(false)
     expect(second.kept.takeSandboxLost('p1')).toBe(true)
     expect(second.kept.takeSandboxLost('p1')).toBe(false)
+  })
+
+  it('KSH-C60 never writes an injected secret into a tmux option, environment or the config', async () => {
+    const name = `k${names++}`
+    const { kept } = instance(name)
+    const secret = `kept-value-${randomUUID()}`
+    await kept.spawn({
+      file: '/bin/sh',
+      args: ['-c', 'sleep 60'],
+      cwd: root,
+      env: { PATH: process.env.PATH ?? '/usr/bin:/bin', OSTIA_TEST_SECRET: secret },
+      cols: 80,
+      rows: 24,
+      meta: { ...meta('p1'), sandbox: { stamp: 's1', bridgeId: 'b1', resizePipe: null } },
+    })
+    const socket = join(root, 'sock', name)
+    const dump = (args: string[]) =>
+      execFileSync(tmux, ['-S', socket, ...args], { encoding: 'utf8' })
+    const seen = [
+      dump(['show-options', '-g']),
+      dump(['show-options', '-s']),
+      dump(['show-options', '-w', '-g']),
+      dump(['list-windows', '-a', '-F', '#{window_id}'])
+        .trim()
+        .split('\n')
+        .map((id) => {
+          const meta = dump(['show-options', '-wqv', '-t', id, '@ostia-meta']).trim()
+          return `${dump(['show-options', '-w', '-t', id])}\n${Buffer.from(meta, 'base64').toString('utf8')}`
+        })
+        .join('\n'),
+      dump(['show-environment', '-g']),
+      dump(['show-environment', '-t', 'ostia']),
+      readFileSync(join(root, 'sock', `${name}.conf`), 'utf8'),
+    ].join('\n')
+    expect(seen).not.toContain(secret)
   })
 })
