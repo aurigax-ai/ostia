@@ -286,12 +286,12 @@ describe('stored regions', () => {
   it('keeps only the five newest captures and evicts the oldest', async () => {
     const ids: string[] = []
     for (let i = 0; i < 6; i++) ids.push(await captured())
-    expect(copyRegionImage('browser-1', ids[0], 'w1')).toEqual({
+    expect(await copyRegionImage('browser-1', ids[0], 'w1')).toEqual({
       ok: false,
       error: 'capture-expired',
     })
-    expect(copyRegionImage('browser-1', ids[1], 'w1')).toEqual({ ok: true })
-    expect(copyRegionImage('browser-1', ids[5], 'w1')).toEqual({ ok: true })
+    expect(await copyRegionImage('browser-1', ids[1], 'w1')).toEqual({ ok: true })
+    expect(await copyRegionImage('browser-1', ids[5], 'w1')).toEqual({ ok: true })
     const stale = await writeRegionReport(
       { captureId: ids[0], sourcePaneId: 'browser-1', targetPaneId: 'term-1', note: '' },
       'w1',
