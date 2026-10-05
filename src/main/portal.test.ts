@@ -165,7 +165,7 @@ describe('Portal', () => {
   it('MGR-C11 refuses a caller from inside Pine before opening anything', async () => {
     const { path, ptys } = await startPortal('inside')
     const c = await client(path)
-    await expect(open(c.conn)).rejects.toThrow(/inside-pine/)
+    await expect(open(c.conn)).rejects.toThrow(/inside-ostia/)
     expect(ptys.size).toBe(0)
   })
 

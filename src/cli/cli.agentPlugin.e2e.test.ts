@@ -175,7 +175,7 @@ describe('extension agent skills and hooks reach a fake agent (real CLI, real so
     expect(res.stderr).toBe('')
     const lines = res.stdout.split('\n').map((line) => line.trimEnd())
     expect(lines).toContain('skill agent-kit-review SKILL.md,checklist.md')
-    expect(lines).toContain('skill pine SKILL.md')
+    expect(lines).toContain('skill ostia SKILL.md')
     expect(res.stdout).not.toContain('agent-kit-undeclared')
     expect(res.stdout).not.toContain('undeclared.md')
     expect(lines).toContain(

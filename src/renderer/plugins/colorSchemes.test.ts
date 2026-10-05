@@ -50,7 +50,7 @@ describe('BUILTIN_COLOR_SCHEMES', () => {
   })
 
   it('ships the catalog through the pine.themes plugin', () => {
-    const plugin = BUILTIN_PLUGINS.find((p) => p.id === 'pine.themes')
+    const plugin = BUILTIN_PLUGINS.find((p) => p.id === 'ostia.themes')
     expect(plugin?.contributes.colorSchemes).toBe(BUILTIN_COLOR_SCHEMES)
     expect(BUILTIN_COLOR_SCHEMES.map((s) => s.id)).toEqual(
       expect.arrayContaining([

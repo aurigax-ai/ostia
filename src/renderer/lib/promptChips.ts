@@ -182,6 +182,6 @@ export function spawnPromptOption(settings: {
   terminal: { prompt: PromptSettings }
 }): Pick<PtySpawnOptions, 'pinePrompt'> {
   const { prompt } = settings.terminal
-  if (prompt.style !== 'pine' || settings.behavior.inputMode !== 'editor') return {}
+  if (prompt.style !== 'ostia' || settings.behavior.inputMode !== 'editor') return {}
   return { pinePrompt: { separator: prompt.separator, sameLine: prompt.sameLine } }
 }

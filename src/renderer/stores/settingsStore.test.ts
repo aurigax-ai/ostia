@@ -102,19 +102,38 @@ describe('settingsStore', () => {
 
     it('saves the follow-system choice with its light and dark themes', async () => {
       store().setFollowSystem(true)
-      store().setLightTheme('pine-light')
+      store().setLightTheme('ostia-light')
       store().setDarkTheme('dracula')
       await vi.runAllTimersAsync()
       const written = JSON.parse(String(vi.mocked(window.pine.fs.write).mock.calls.at(-1)?.[1]))
       expect(written.appearance).toMatchObject({
         followSystem: true,
-        lightTheme: 'pine-light',
+        lightTheme: 'ostia-light',
         darkTheme: 'dracula',
       })
     })
   })
 
   describe('init', () => {
+    it('reads the values a pine release saved under their new ostia names', async () => {
+      vi.mocked(window.pine.fs.read).mockResolvedValue(
+        JSON.stringify({
+          appearance: { theme: 'pine-light', lightTheme: 'pine-light', darkTheme: 'pine-light' },
+          files: { iconTheme: 'pine' },
+          terminal: { theme: 'pine-light', prompt: { style: 'pine' } },
+        }),
+      )
+      await store().init()
+      expect(store().appearance).toMatchObject({
+        theme: 'ostia-light',
+        lightTheme: 'ostia-light',
+        darkTheme: 'ostia-light',
+      })
+      expect(store().files.iconTheme).toBe('ostia')
+      expect(store().terminal.theme).toBe('ostia-light')
+      expect(store().terminal.prompt.style).toBe('ostia')
+    })
+
     it('keeps parseable keybindings and unbinds, and drops malformed entries', async () => {
       vi.mocked(window.pine.fs.read).mockResolvedValue(
         JSON.stringify({

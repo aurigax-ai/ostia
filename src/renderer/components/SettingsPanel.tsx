@@ -1573,7 +1573,7 @@ function TerminalSection(): JSX.Element {
         />
         <ControlRow
           label={d.prompt.title}
-          desc={promptStyle === 'pine' ? d.settings.promptStylePine : d.settings.promptStyleShell}
+          desc={promptStyle === 'ostia' ? d.settings.promptStylePine : d.settings.promptStyleShell}
         >
           <Button
             variant="outline"
@@ -1584,7 +1584,7 @@ function TerminalSection(): JSX.Element {
             <CaretRightIcon data-icon="inline-end" />
           </Button>
         </ControlRow>
-        {promptStyle === 'pine' && mode !== 'editor' ? (
+        {promptStyle === 'ostia' && mode !== 'editor' ? (
           <WarningNote>{d.settings.promptNeedsEditor}</WarningNote>
         ) : null}
       </SettingsGroup>

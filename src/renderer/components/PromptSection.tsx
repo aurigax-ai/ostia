@@ -280,7 +280,7 @@ export function PromptSection(): JSX.Element {
   const setOrder = (chips: string[]): void => update({ chips })
   const styleLabel: Record<PromptStyle, string> = {
     shell: d.settings.promptStyleShell,
-    pine: d.settings.promptStylePine,
+    ostia: d.settings.promptStylePine,
   }
   const separatorLabel = (s: PromptSeparator): string => (s === 'none' ? d.prompt.separatorNone : s)
 
@@ -297,7 +297,7 @@ export function PromptSection(): JSX.Element {
           />
         </ControlRow>
         <p className="text-fg-muted text-ui-xs">{d.prompt.openShellsNote}</p>
-        {prompt.style === 'pine' && inputMode !== 'editor' ? (
+        {prompt.style === 'ostia' && inputMode !== 'editor' ? (
           <WarningNote>{d.settings.promptNeedsEditor}</WarningNote>
         ) : null}
       </SettingsGroup>

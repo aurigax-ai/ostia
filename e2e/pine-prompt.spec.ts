@@ -29,7 +29,7 @@ for (const { shell, rc, body } of SHELLS) {
       behavior: { ...DOM_RENDERER_SETTINGS.behavior, inputMode: 'editor' },
       terminal: {
         prompt: {
-          style: 'pine',
+          style: 'ostia',
           chips: ['virtualenv', 'cwd', 'exitCode'],
           sameLine: false,
           separator: '$',

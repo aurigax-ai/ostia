@@ -33,7 +33,7 @@ function usePine(chips: string[], patch: { sameLine?: boolean; separator?: '$' |
     behavior: { ...s.behavior, inputMode: 'editor' },
     terminal: {
       ...s.terminal,
-      prompt: { style: 'pine', chips, sameLine: false, separator: 'none', ...patch },
+      prompt: { style: 'ostia', chips, sameLine: false, separator: 'none', ...patch },
     },
   }))
 }

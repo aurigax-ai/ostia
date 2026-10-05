@@ -93,11 +93,11 @@ describe('manager plugin', () => {
     writeManagerClaudePlugin(plugin, [review, noSkill, join(dir, 'missing')])
 
     expect(readFileSync(join(plugin, 'skills', MANAGER_SKILL_NAME, 'SKILL.md'), 'utf8')).toContain(
-      'name: pine-manager',
+      'name: ostia-manager',
     )
     expect(readlinkSync(join(plugin, 'skills', 'review'))).toBe(review)
     expect(existsSync(join(plugin, 'skills', 'empty'))).toBe(false)
-    expect(existsSync(join(plugin, 'skills', 'pine'))).toBe(false)
+    expect(existsSync(join(plugin, 'skills', 'ostia'))).toBe(false)
     const hooks = JSON.parse(readFileSync(join(plugin, 'hooks', 'hooks.json'), 'utf8'))
     expect(JSON.stringify(hooks)).toContain('resume-token claude -')
     const manifest = JSON.parse(readFileSync(join(plugin, '.claude-plugin', 'plugin.json'), 'utf8'))
@@ -140,7 +140,7 @@ describe('manager plugin', () => {
     dir = mkdtempSync(join(tmpdir(), 'pine-worker-plugin-'))
     writeClaudePlugin(dir)
     expect(existsSync(join(dir, 'skills', MANAGER_SKILL_NAME))).toBe(false)
-    expect(readFileSync(join(dir, 'skills', 'pine', 'SKILL.md'), 'utf8')).not.toContain(
+    expect(readFileSync(join(dir, 'skills', 'ostia', 'SKILL.md'), 'utf8')).not.toContain(
       'manager spawn',
     )
   })
@@ -158,6 +158,8 @@ describe('manager plugin', () => {
     const a = skill(join(dir, 'a'), 'review')
     const b = skill(join(dir, 'b'), 'review')
     const clash = skill(dir, MANAGER_SKILL_NAME)
-    expect(usableSkillFolders([a, b, clash])).toEqual([a])
+    const legacy = skill(join(dir, 'old'), 'pine-manager')
+    expect(MANAGER_SKILL_NAME).toBe('ostia-manager')
+    expect(usableSkillFolders([a, b, clash, legacy])).toEqual([a])
   })
 })

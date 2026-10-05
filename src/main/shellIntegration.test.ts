@@ -98,14 +98,14 @@ describe('shellIntegrationSpawnOptions', () => {
       const split = { separator: '$' as const, sameLine: false }
       const inline = { separator: 'none' as const, sameLine: true }
       expect(shellIntegrationSpawnOptions('zsh', { HOME: '/home/u' }, split).env).toMatchObject({
-        OSTIA_PROMPT: 'pine',
+        OSTIA_PROMPT: 'ostia',
         OSTIA_PROMPT_SEPARATOR: '$',
         OSTIA_PROMPT_LINES: '2',
       })
       expect(shellIntegrationSpawnOptions('/bin/bash', {}, inline).env).toEqual({
         OSTIA_AGENT_DIR: AGENT_DIR,
         PINE_AGENT_DIR: AGENT_DIR,
-        OSTIA_PROMPT: 'pine',
+        OSTIA_PROMPT: 'ostia',
         OSTIA_PROMPT_SEPARATOR: 'none',
         OSTIA_PROMPT_LINES: '1',
       })
@@ -149,21 +149,25 @@ describe('shellIntegrationSpawnOptions', () => {
 
       it('puts the input on its own line under the cwd when the chips have their own row', () => {
         expect(
-          prompt({ OSTIA_PROMPT: 'pine', OSTIA_PROMPT_SEPARATOR: '$', OSTIA_PROMPT_LINES: '2' }),
+          prompt({ OSTIA_PROMPT: 'ostia', OSTIA_PROMPT_SEPARATOR: '$', OSTIA_PROMPT_LINES: '2' }),
         ).toBe(`1|%~\n$ %{${B_MARK}%}||`)
         expect(
-          prompt({ OSTIA_PROMPT: 'pine', OSTIA_PROMPT_SEPARATOR: 'none', OSTIA_PROMPT_LINES: '2' }),
+          prompt({
+            OSTIA_PROMPT: 'ostia',
+            OSTIA_PROMPT_SEPARATOR: 'none',
+            OSTIA_PROMPT_LINES: '2',
+          }),
         ).toBe(`1|%~\n%{${B_MARK}%}||`)
       })
 
       it('replaces the prompt with the cwd and separator, clears RPROMPT and keeps the B mark', () => {
-        expect(prompt({ OSTIA_PROMPT: 'pine', OSTIA_PROMPT_SEPARATOR: '%' })).toBe(
+        expect(prompt({ OSTIA_PROMPT: 'ostia', OSTIA_PROMPT_SEPARATOR: '%' })).toBe(
           `1|%~ %% %{${B_MARK}%}||`,
         )
-        expect(prompt({ OSTIA_PROMPT: 'pine', OSTIA_PROMPT_SEPARATOR: '$' })).toBe(
+        expect(prompt({ OSTIA_PROMPT: 'ostia', OSTIA_PROMPT_SEPARATOR: '$' })).toBe(
           `1|%~ $ %{${B_MARK}%}||`,
         )
-        expect(prompt({ OSTIA_PROMPT: 'pine', OSTIA_PROMPT_SEPARATOR: 'none' })).toBe(
+        expect(prompt({ OSTIA_PROMPT: 'ostia', OSTIA_PROMPT_SEPARATOR: 'none' })).toBe(
           `1|%~ %{${B_MARK}%}||`,
         )
       })
@@ -184,7 +188,7 @@ describe('shellIntegrationSpawnOptions', () => {
             ].join('; '),
           ],
           {
-            env: { PATH: '/usr/bin:/bin', HOME: '/home/u', OSTIA_PROMPT: 'pine' },
+            env: { PATH: '/usr/bin:/bin', HOME: '/home/u', OSTIA_PROMPT: 'ostia' },
             encoding: 'utf8',
           },
         ).stdout
@@ -205,7 +209,7 @@ describe('shellIntegrationSpawnOptions', () => {
               encoding: 'utf8',
             }).stdout
           }
-          expect(seen({ OSTIA_PROMPT: 'pine' })).toContain('instant=off')
+          expect(seen({ OSTIA_PROMPT: 'ostia' })).toContain('instant=off')
           expect(seen({})).toContain('instant=unset')
         } finally {
           rmSync(home, { recursive: true, force: true })
@@ -221,7 +225,7 @@ describe('shellIntegrationSpawnOptions', () => {
           'zsh',
           ZSH_INIT,
           'HOME=$PWD; __pine_precmd >/dev/null; print -rn -- "${(%)PROMPT}"',
-          { OSTIA_PROMPT: 'pine', OSTIA_PROMPT_SEPARATOR: '>' },
+          { OSTIA_PROMPT: 'ostia', OSTIA_PROMPT_SEPARATOR: '>' },
         ).stdout
         expect(out.startsWith('~ > ')).toBe(true)
       })
@@ -244,17 +248,17 @@ describe('shellIntegrationSpawnOptions', () => {
       }
 
       it('sets PS1 to the cwd and separator after the user’s PROMPT_COMMAND and keeps the B mark', () => {
-        expect(ps1({ OSTIA_PROMPT: 'pine', OSTIA_PROMPT_SEPARATOR: '>' })).toBe(
+        expect(ps1({ OSTIA_PROMPT: 'ostia', OSTIA_PROMPT_SEPARATOR: '>' })).toBe(
           `|\\w > ${BASH_B_MARK}|`,
         )
-        expect(ps1({ OSTIA_PROMPT: 'pine', OSTIA_PROMPT_SEPARATOR: 'none' })).toBe(
+        expect(ps1({ OSTIA_PROMPT: 'ostia', OSTIA_PROMPT_SEPARATOR: 'none' })).toBe(
           `|\\w ${BASH_B_MARK}|`,
         )
       })
 
       it('puts the input on its own line under the cwd when the chips have their own row', () => {
         expect(
-          ps1({ OSTIA_PROMPT: 'pine', OSTIA_PROMPT_SEPARATOR: '>', OSTIA_PROMPT_LINES: '2' }),
+          ps1({ OSTIA_PROMPT: 'ostia', OSTIA_PROMPT_SEPARATOR: '>', OSTIA_PROMPT_LINES: '2' }),
         ).toBe(`|\\w\\n> ${BASH_B_MARK}|`)
       })
 
@@ -618,14 +622,15 @@ describe('shellIntegrationSpawnOptions', () => {
   })
 
   describe('claude hooks', () => {
-    it('writes a Claude Code plugin with the pine skill and its manifest', () => {
+    it('writes a Claude Code plugin with the ostia skill and its manifest', () => {
       shellIntegrationSpawnOptions('/bin/bash', {})
       const manifest = JSON.parse(
         readFileSync(join(CLAUDE_PLUGIN, '.claude-plugin', 'plugin.json'), 'utf8'),
       )
       expect(manifest).toEqual(CLAUDE_PLUGIN_MANIFEST)
-      const skill = readFileSync(join(CLAUDE_PLUGIN, 'skills', 'pine', 'SKILL.md'), 'utf8')
-      expect(skill).toMatch(/^---\nname: pine\ndescription: /)
+      const skill = readFileSync(join(CLAUDE_PLUGIN, 'skills', 'ostia', 'SKILL.md'), 'utf8')
+      expect(skill).toMatch(/^---\nname: ostia\ndescription: /)
+      expect(manifest.name).toBe('ostia')
       expect(skill).toContain('ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" "$OSTIA_CLI"')
     })
 
@@ -763,12 +768,12 @@ describe('shellIntegrationSpawnOptions', () => {
   describe('codex hooks', () => {
     const CONTEXT = '/x/codex/session-context.md'
 
-    it('writes the pine skill and a session context that points Codex at it', () => {
+    it('writes the ostia skill and a session context that points Codex at it', () => {
       const dir = mkdtempSync(join(tmpdir(), 'pine-codex-integration-'))
       try {
         const { contextFile } = writeCodexIntegration(dir)
         const skill = readFileSync(join(dir, 'SKILL.md'), 'utf8')
-        expect(skill).toMatch(/^---\nname: pine\ndescription: /)
+        expect(skill).toMatch(/^---\nname: ostia\ndescription: /)
         const context = readFileSync(contextFile, 'utf8')
         expect(context).toContain(`read its guide: ${join(dir, 'SKILL.md')}`)
         expect(context).toContain('ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" "$OSTIA_CLI"')
@@ -1005,8 +1010,8 @@ describe('shellIntegrationSpawnOptions', () => {
       expect(readFileSync(join(plugin, 'skills', 'kit-review', 'checklist.md'), 'utf8')).toBe(
         '- tests\n',
       )
-      expect(readFileSync(join(plugin, 'skills', 'pine', 'SKILL.md'), 'utf8')).toMatch(
-        /^---\nname: pine/,
+      expect(readFileSync(join(plugin, 'skills', 'ostia', 'SKILL.md'), 'utf8')).toMatch(
+        /^---\nname: ostia/,
       )
       expect(JSON.parse(readFileSync(join(plugin, 'hooks', 'hooks.json'), 'utf8'))).toEqual(
         claudeHookSettings(content.hooks),
