@@ -933,7 +933,7 @@ const reachesPane: OriginReach = (senderWindowId, sourcePaneId, targetPaneId) =>
   broker?.reaches(senderWindowId, sourcePaneId, targetPaneId) ?? false
 let settingsSync: SettingsSyncHandle | null = null
 
-const EXTENSION_PARTITION_PREFIX = 'pine-ext-'
+const EXTENSION_PARTITION_PREFIX = 'ostia-ext-'
 
 function configDir(): string {
   return appConfigDir()

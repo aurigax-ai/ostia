@@ -1098,7 +1098,7 @@ you there.
 
 A panel is a pane surface rendering your page in a sandboxed `<webview>`:
 
-- its own partition (`pine-ext-<id>`), no preload, no Node, no `window.pine`, permissions denied;
+- its own partition (`ostia-ext-<id>`), no preload, no Node, no `window.pine`, permissions denied;
 - it may only show your `file://` html (file entry) or the loopback origin you returned (url
   entry); other navigations are blocked and `window.open` goes to the OS browser for http(s);
 - it talks to **your process**, never to Ostia directly — serve an API next to the page.

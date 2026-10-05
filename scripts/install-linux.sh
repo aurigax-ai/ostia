@@ -21,8 +21,9 @@ mkdir -p "$(dirname "$dest")" "$apps"
 cp -a "$unpacked" "$dest.new"
 rm -rf "$dest"
 mv "$dest.new" "$dest"
-if [ "$legacy_dest" != "$dest" ] && [ -x "$legacy_dest/$name" ]; then
+if [ "$legacy_dest" != "$dest" ] && [ -x "$legacy_dest/$legacy_data_name" ]; then
   rm -rf "$legacy_dest"
+  rm -f "$apps/$legacy_data_name.desktop"
 fi
 
 icons="${XDG_DATA_HOME:-$HOME/.local/share}/icons/hicolor"

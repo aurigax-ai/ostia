@@ -101,17 +101,17 @@ test('a browser key pressed in a terminal goes to the shell as an unbound key an
   try {
     const win = await app.firstWindow()
     await openWorkspace(win)
-    await app.evaluate(({ clipboard }) => clipboard.writeText('echo pine_should_not_paste'))
+    await app.evaluate(({ clipboard }) => clipboard.writeText('echo ostia_should_not_paste'))
     await win.locator('.xterm').first().click()
     await win.keyboard.press(terminalReload)
     const rows = win.locator('.xterm-rows').first()
     await win.waitForTimeout(500)
-    await expect(rows).not.toContainText('pine_should_not_paste')
+    await expect(rows).not.toContainText('ostia_should_not_paste')
     await win.keyboard.press('Control+u')
-    await win.keyboard.type('echo pine_after_$((40+2))')
+    await win.keyboard.type('echo ostia_after_$((40+2))')
     await win.keyboard.press('Enter')
-    await expect(rows).toContainText('pine_after_42', { timeout: 15_000 })
-    await expect(rows).not.toContainText('pine_should_not_paste')
+    await expect(rows).toContainText('ostia_after_42', { timeout: 15_000 })
+    await expect(rows).not.toContainText('ostia_should_not_paste')
   } finally {
     await app.close()
   }

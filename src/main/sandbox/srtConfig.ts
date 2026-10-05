@@ -162,7 +162,7 @@ export function folderProblem(
   const folder = realPath(workDir)
   const home = realPath(paths.home)
   if (within(home, folder)) return within(folder, home) ? 'home' : 'above-home'
-  return paths.dataDirs.some((dir) => overlaps(folder, realPath(dir))) ? 'pine-data' : null
+  return paths.dataDirs.some((dir) => overlaps(folder, realPath(dir))) ? 'ostia-data' : null
 }
 
 const SECCOMP_ARCHS = ['x64', 'arm64']
