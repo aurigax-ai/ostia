@@ -1470,6 +1470,11 @@ export const en = {
     newScratch: 'New scratch workspace',
     newSandboxedScratch: 'New sandboxed scratch workspace',
     newMenu: 'More ways to start a workspace',
+    ssh: 'Connect to SSH host',
+    sshLoading: 'Reading your ssh config…',
+    sshEmpty: 'No hosts in ~/.ssh/config',
+    sshTruncated: 'More hosts: SSH: Connect to Host… in the command palette',
+    sshFailed: 'Could not connect to {host}',
   },
   merge: {
     menu: 'Merge into',
@@ -3943,6 +3948,11 @@ export const zhHant: Dict = {
     newScratch: '新增暫存工作區',
     newSandboxedScratch: '新增沙箱暫存工作區',
     newMenu: '更多新增工作區的方式',
+    ssh: '連線到 SSH 主機',
+    sshLoading: '正在讀取 ssh 設定…',
+    sshEmpty: '~/.ssh/config 裡沒有主機',
+    sshTruncated: '其他主機：在指令面板用 SSH: Connect to Host…',
+    sshFailed: '無法連線到 {host}',
   },
   merge: {
     menu: '合併到',
