@@ -190,6 +190,12 @@ export const SETTINGS_JSON_SCHEMA = {
           type: 'boolean',
           description: 'Copy selected terminal text to the clipboard as soon as it is selected.',
         },
+        wheelZoom: {
+          type: 'boolean',
+          description:
+            'Hold Cmd (macOS) or Ctrl and scroll over a terminal or the editor to change its ' +
+            'font size. Default: true.',
+        },
         gpuAcceleration: {
           type: 'boolean',
           description:

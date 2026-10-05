@@ -55,6 +55,7 @@ import { AgentRunningPanes } from './agentRunning'
 import { agentPluginContent } from './agentSkills'
 import { registerAgentTranscriptIpc } from './agentTranscript'
 import { type AppLog, LOG_FILE_NAME, createAppLog } from './appLog'
+import { installAppMenu } from './appMenu'
 import { registerAppUpdate } from './appUpdate'
 import { approvals, registerApprovals } from './approvals'
 import { registerAssistIpc } from './assistIpc'
@@ -2452,6 +2453,7 @@ app.on('second-instance', (_event, argv) => {
 })
 
 app.whenReady().then(() => {
+  installAppMenu(process.platform)
   const logDir = join(app.getPath('userData'), 'logs')
   appLog = createAppLog(join(logDir, LOG_FILE_NAME))
   diagnostics = registerDiagnostics({
