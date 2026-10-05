@@ -5,14 +5,20 @@ import {
   PaperPlaneTiltIcon,
   XIcon,
 } from '@phosphor-icons/react'
-import { type CSSProperties, type KeyboardEvent, useEffect, useRef, useState } from 'react'
+import { type CSSProperties, type KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { fmt, useDict } from '../i18n/useDict'
+import { matchChord } from '../lib/chords'
 import { cropToPng } from '../lib/cropImage'
+import { clearFind, findRanges, paintFind } from '../lib/domFind'
 import { trackSelection } from '../lib/domSelection'
 import { type PdfDocument, type PdfPage, loadPdfjs, openPdf } from '../lib/pdf'
+import { itemTexts, pageItems, pdfMatches } from '../lib/pdfText'
 import { type Size, fitWidthScale, pixelRect } from '../lib/regionSelect'
 import { registerSelectionSender } from '../lib/selectionSenders'
 import { useElementSize, useFileBytes, useRegionDrag } from '../lib/viewerHooks'
+import { isMac } from '../platform'
+import { usePdfFindStore } from '../stores/pdfFindStore'
+import { FindBar, findStatus } from './FindBar'
 import { IconButton } from './IconButton'
 import { useSelectionSend } from './SelectionSend'
 import { ViewerMessage, type Zoom, ZoomControls, useBytesProblem } from './ViewerChrome'
@@ -74,7 +80,8 @@ function usePageRender(
   scale: number,
   canvasRef: React.RefObject<HTMLCanvasElement>,
   textRef: React.RefObject<HTMLDivElement>,
-): void {
+): number {
+  const [textVersion, setTextVersion] = useState(0)
   useEffect(() => {
     const canvas = canvasRef.current
     const textEl = textRef.current
@@ -101,7 +108,9 @@ function usePageRender(
           viewport,
         })
         cancelText = () => layer.cancel()
-        return layer.render()
+        return layer.render().then(() => {
+          if (!cancelled) setTextVersion((v) => v + 1)
+        })
       })
       .catch(() => undefined)
     return () => {
@@ -110,6 +119,31 @@ function usePageRender(
       cancelText?.()
     }
   }, [page, scale, canvasRef, textRef])
+  return textVersion
+}
+
+function usePageTexts(doc: PdfDocument | null, wanted: boolean): string[][] | null {
+  const [texts, setTexts] = useState<string[][] | null>(null)
+  useEffect(() => {
+    setTexts(null)
+    if (!doc || !wanted) return
+    let alive = true
+    pageItems(doc, doc.numPages).then(
+      (pages) => {
+        if (alive) setTexts(pages.map(itemTexts))
+      },
+      () => undefined,
+    )
+    return () => {
+      alive = false
+    }
+  }, [doc, wanted])
+  return texts
+}
+
+function isFindKey(e: KeyboardEvent<HTMLElement>): boolean {
+  if (matchChord(e, isMac) === 'find') return true
+  return (isMac ? e.metaKey : e.ctrlKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'f'
 }
 
 export function PdfViewer({
@@ -142,7 +176,48 @@ export function PdfViewer({
   const drag = useRegionDrag({ scale, bounds: pageSize, enabled: regionMode && base !== null })
   const pageCount = doc?.numPages ?? 0
 
-  usePageRender(page, scale, canvasRef, textRef)
+  const textVersion = usePageRender(page, scale, canvasRef, textRef)
+  const [finding, setFinding] = useState(false)
+  const [query, setQuery] = useState('')
+  const [active, setActive] = useState(0)
+  const [wantPage, setWantPage] = useState<number | null>(null)
+  const pageTexts = usePageTexts(doc, finding)
+  const matches = useMemo(() => (pageTexts ? pdfMatches(pageTexts, query) : []), [pageTexts, query])
+  const current = matches[active] ?? null
+
+  useEffect(() => {
+    const request = usePdfFindStore.getState().take(filePath)
+    if (!request) return
+    setFinding(true)
+    setQuery(request.query)
+    setWantPage(request.page)
+    setPageNumber(request.page)
+  }, [filePath])
+
+  useEffect(() => {
+    if (wantPage === null || !pageTexts) return
+    const first = matches.findIndex((m) => m.page === wantPage)
+    setActive(first >= 0 ? first : 0)
+    setWantPage(null)
+  }, [wantPage, pageTexts, matches])
+
+  useEffect(() => {
+    if (current && current.page !== pageNumber) setPageNumber(current.page)
+  }, [current, pageNumber])
+
+  useEffect(() => {
+    const textEl = textRef.current
+    if (!finding || !textEl || textVersion === 0) {
+      clearFind()
+      return
+    }
+    const ranges = findRanges(textEl, query)
+    const nth = current && current.page === pageNumber ? current.nth : -1
+    paintFind(ranges, nth)
+    ranges[nth]?.startContainer.parentElement?.scrollIntoView({ block: 'center' })
+  }, [finding, query, current, pageNumber, textVersion])
+
+  useEffect(() => clearFind, [])
 
   useEffect(() => {
     const textEl = textRef.current
@@ -221,8 +296,34 @@ export function PdfViewer({
     '--scale-round-y': '1px',
   } as CSSProperties
 
+  const onFindKey = (e: KeyboardEvent<HTMLDivElement>): void => {
+    if (!isFindKey(e)) return
+    e.preventDefault()
+    setFinding(true)
+  }
+
   return (
-    <div className="viewer-surface">
+    // biome-ignore lint/a11y/noNoninteractiveTabindex: the viewer takes focus so its find key reaches it
+    <div className="viewer-surface" tabIndex={0} onKeyDown={onFindKey}>
+      {finding ? (
+        <FindBar
+          className="pdf-find"
+          label={d.find.pdfLabel}
+          query={query}
+          status={findStatus(query, matches.length, active, d.find.noResults)}
+          onQuery={(q) => {
+            setQuery(q)
+            setActive(0)
+          }}
+          onStep={(by) => {
+            if (matches.length > 0) setActive((i) => (i + by + matches.length) % matches.length)
+          }}
+          onClose={() => {
+            setFinding(false)
+            setQuery('')
+          }}
+        />
+      ) : null}
       <div className="viewer-toolbar">
         <span className="viewer-title">{filePath.split('/').pop()}</span>
         <span className="flex-1" />

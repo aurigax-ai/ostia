@@ -733,6 +733,7 @@ export const en = {
   find: {
     label: 'Find in terminal',
     documentLabel: 'Find in preview',
+    pdfLabel: 'Find in PDF',
     placeholder: 'Find',
     noResults: 'No results',
     previous: 'Previous match',
@@ -1137,6 +1138,10 @@ export const en = {
     searchSummaryOne: '1 match in {files} file',
     searchSummaryMany: '{count} matches in {files} files',
     searchNoResults: 'No results',
+    searchPage: 'p. {page}',
+    searchingPdfs: 'Searching PDFs…',
+    searchPdfsSkipped:
+      '{count} PDF files were too large or could not be read, so their text was not searched.',
     searchInvalid: 'Not a valid regular expression',
     searchFailed: 'Search failed',
     searchTruncated: 'Showing the first matches only. Type more to narrow the search.',
@@ -3277,6 +3282,7 @@ export const zhHant: Dict = {
   find: {
     label: '在終端機中尋找',
     documentLabel: '在預覽中尋找',
+    pdfLabel: '在 PDF 中尋找',
     placeholder: '尋找',
     noResults: '沒有結果',
     previous: '上一個符合項目',
@@ -3674,6 +3680,9 @@ export const zhHant: Dict = {
     searchSummaryOne: '{files} 個檔案中有 1 個相符結果',
     searchSummaryMany: '{files} 個檔案中有 {count} 個相符結果',
     searchNoResults: '沒有結果',
+    searchPage: '第 {page} 頁',
+    searchingPdfs: '正在搜尋 PDF…',
+    searchPdfsSkipped: '有 {count} 個 PDF 檔案太大或無法讀取，未搜尋其中的文字。',
     searchInvalid: '不是有效的規則運算式',
     searchFailed: '搜尋失敗',
     searchTruncated: '只顯示前面的相符結果。多輸入一些字以縮小範圍。',

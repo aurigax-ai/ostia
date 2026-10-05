@@ -3,8 +3,10 @@ import type { SearchOutcome } from '@shared/search'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import * as pdfSearch from '../lib/pdfSearch'
 import { useEditorRevealStore } from '../stores/editorRevealStore'
 import { useLayoutStore } from '../stores/layoutStore'
+import { usePdfFindStore } from '../stores/pdfFindStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { type Workspace, useWorkspacesStore } from '../stores/workspacesStore'
 import { FilesPanel } from './FilesPanel'
@@ -26,6 +28,7 @@ const RESULTS: SearchOutcome = {
         matches: [{ line: 2, column: 10, text: 'find the notes here', ranges: [[9, 14]] }],
       },
     ],
+    pdfs: [],
     matches: 1,
     truncated: false,
   },
@@ -169,6 +172,50 @@ describe('Files panel search', () => {
     await waitFor(() => expect(folder).toHaveAttribute('aria-expanded', 'true'))
     expect(screen.getByRole('button', { name: 'lib' })).toHaveAttribute('aria-expanded', 'false')
     expect(await screen.findByRole('button', { name: 'todo.md' })).toBeInTheDocument()
+  })
+
+  it('searches the text of PDFs and opens a hit at its page with find on the match', async () => {
+    seed()
+    vi.mocked(window.ostia.search.run).mockResolvedValue({
+      ok: true,
+      results: {
+        root: ROOT,
+        names: [],
+        files: [],
+        pdfs: [{ path: 'docs/paper.pdf', size: 10, mtimeMs: 1 }],
+        matches: 0,
+        truncated: false,
+      },
+    })
+    vi.spyOn(pdfSearch, 'searchPdfs').mockResolvedValue({
+      files: [
+        {
+          path: 'docs/paper.pdf',
+          matches: [{ page: 4, text: 'about Notes', ranges: [[6, 11]], query: 'Notes' }],
+        },
+      ],
+      skipped: 2,
+    })
+    const openFile = vi.spyOn(useLayoutStore.getState(), 'openFile').mockImplementation(() => {})
+    render(<FilesPanel />)
+    const user = userEvent.setup()
+
+    await user.type(screen.getByRole('textbox', { name: 'Search files' }), 'notes')
+
+    const text = await screen.findByRole('region', { name: 'Text' })
+    expect(text).toHaveTextContent('docs/paper.pdf')
+    expect(text).toHaveTextContent('p. 4')
+    expect(
+      screen.getByText(
+        '2 PDF files were too large or could not be read, so their text was not searched.',
+      ),
+    ).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /about Notes/ }))
+    expect(openFile).toHaveBeenCalledWith('s1', `${ROOT}/docs/paper.pdf`)
+    expect(usePdfFindStore.getState().pending[`${ROOT}/docs/paper.pdf`]).toEqual({
+      page: 4,
+      query: 'Notes',
+    })
   })
 
   it('says when a regular expression is not valid', async () => {
