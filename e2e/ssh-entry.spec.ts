@@ -41,15 +41,16 @@ test('SSH-C79 the human picks a host from the New workspace menu and gets a work
 
     await win.getByRole('button', { name: 'More ways to start a workspace' }).click()
     await win.getByRole('menuitem', { name: 'Connect to SSH host' }).click()
-    await expect(win.getByRole('menuitem', { name: 'px' })).toBeVisible({ timeout: 15_000 })
+    await expect(win.getByRole('menuitem', { name: 'px', exact: true })).toBeVisible({
+      timeout: 15_000,
+    })
     await expect(win.getByRole('menuitem', { name: '*' })).toHaveCount(0)
-    await win.getByRole('menuitem', { name: 'db' }).click()
+    await win.getByRole('menuitem', { name: 'db', exact: true }).click()
 
     const session = win.locator('.xterm-rows').filter({ hasText: 'fake ssh session' })
     await expect(session).toContainText('fake ssh session: -t -- db', { timeout: 30_000 })
     await expect(win.locator('.xterm:visible')).toHaveCount(1)
-    await expect(win.locator('.topbar')).toBeVisible()
-    await expect(win.getByRole('button', { name: /^db/ }).first()).toBeVisible()
+    await expect(win.getByRole('tab', { name: /db/ })).toHaveCount(1)
     const calls = readFileSync(log, 'utf8').trim().split('\n')
     expect(calls[0]).toBe('ssh -G -- db')
   } finally {
