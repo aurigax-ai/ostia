@@ -66,7 +66,6 @@ import {
   OSTIA_ERROR_PREFIX,
   PAGE_ERROR_CATCHER_JS,
   clearGuestBrowseState,
-  consoleLevelName,
   ownedGuest,
   pushConsoleEntry,
   registerBrowseMethods,
@@ -968,14 +967,14 @@ function instrumentBrowserGuest(gc: Electron.WebContents): void {
   const wcId = gc.id
   if (!instrumentedGuests.has(gc)) {
     instrumentedGuests.add(gc)
-    gc.on('console-message', (_event, level, message) => {
+    gc.on('console-message', (event) => {
       const entry: ConsoleEntry = {
-        level: consoleLevelName(level),
-        text: message,
+        level: event.level,
+        text: event.message,
         ts: Date.now(),
       }
       pushConsoleEntry(consoleBuffers, wcId, entry)
-      if (entry.level === 'error' || message.startsWith(OSTIA_ERROR_PREFIX)) {
+      if (entry.level === 'error' || event.message.startsWith(OSTIA_ERROR_PREFIX)) {
         pushConsoleEntry(errorBuffers, wcId, entry)
       }
     })
