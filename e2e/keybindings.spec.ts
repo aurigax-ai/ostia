@@ -144,6 +144,35 @@ test('on macOS Cmd+Backspace deletes the typed line in the shell, as in Terminal
   }
 })
 
+test('on macOS Cmd+Left/Right jump to the line ends and Option+Left/Right move by words in the shell', async () => {
+  test.skip(!isMac, 'Cmd and Option arrows are macOS line-editing keys')
+  const app = await electron.launch(isolatedLaunch())
+  try {
+    const win = await app.firstWindow()
+    await win.waitForLoadState('domcontentloaded')
+    await openWorkspace(win)
+    await focusTerminal(win)
+    const rows = win.locator('.xterm-rows').first()
+
+    await win.keyboard.type('cho alpha beta')
+    await expect(rows).toContainText('cho alpha beta')
+    await win.keyboard.press('Meta+ArrowLeft')
+    await win.keyboard.type('e')
+    await win.keyboard.press('Meta+ArrowRight')
+    await win.keyboard.type(' gamma')
+    await win.keyboard.press('Alt+ArrowLeft')
+    await win.keyboard.type('X')
+    await win.keyboard.press('Alt+ArrowRight')
+    await win.keyboard.type('Z')
+    await win.keyboard.press('Enter')
+    await expect(rows).toContainText('alpha beta XgammaZ')
+    await expect(rows).not.toContainText(';3D')
+    await expect(rows).not.toContainText('command not found')
+  } finally {
+    await app.close()
+  }
+})
+
 test('on macOS Cmd+W closes the focused pane and leaves the app running, and the menu closes the window with Cmd+Shift+W', async () => {
   test.skip(!isMac, 'the macOS application menu and Cmd chords only exist on macOS')
   const app = await electron.launch(isolatedLaunch())
