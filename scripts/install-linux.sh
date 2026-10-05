@@ -3,6 +3,7 @@ set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 name="$(node -p "require('$root/package.json').name")"
+exe=ostia
 unpacked="$root/dist/linux-unpacked"
 data_name=ostia
 legacy_data_name=pine
@@ -10,7 +11,7 @@ dest="${XDG_DATA_HOME:-$HOME/.local/share}/$data_name/app"
 legacy_dest="${XDG_DATA_HOME:-$HOME/.local/share}/$legacy_data_name/app"
 apps="${XDG_DATA_HOME:-$HOME/.local/share}/applications"
 
-if [ ! -x "$unpacked/$name" ]; then
+if [ ! -x "$unpacked/$exe" ]; then
   echo "no packaged build at $unpacked; run: pnpm package" >&2
   exit 1
 fi
@@ -39,7 +40,7 @@ cat > "$apps/$name.desktop" <<DESKTOP
 Type=Application
 Name=$name
 Comment=Terminal-first workspace for agents
-Exec=$dest/$name %U
+Exec=$dest/$exe %U
 Icon=$name
 Terminal=false
 Categories=Development;TerminalEmulator;
@@ -54,7 +55,7 @@ legacy_cli=pine
 mkdir -p "$bin"
 cat > "$bin/$cli" <<LAUNCHER
 #!/bin/sh
-export OSTIA_APP_BIN='$dest/$name'
+export OSTIA_APP_BIN='$dest/$exe'
 export PINE_APP_BIN="\$OSTIA_APP_BIN"
 ELECTRON_RUN_AS_NODE=1 exec "\$OSTIA_APP_BIN" '$dest/resources/app.asar/out/cli/index.js' "\$@"
 LAUNCHER
