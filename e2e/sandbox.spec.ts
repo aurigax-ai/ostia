@@ -213,7 +213,7 @@ async function freePort(): Promise<number> {
 
 function serveInside(port: number, body: string): string {
   const script = `require("http").createServer((q,r)=>r.end("${body}")).listen(${port},"127.0.0.1")`
-  return `ELECTRON_RUN_AS_NODE=1 "$PINE_NODE" -e '${script}' &`
+  return `ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" -e '${script}' &`
 }
 
 for (const relay of [false, true]) {
@@ -222,7 +222,7 @@ for (const relay of [false, true]) {
     test.skip(process.platform !== 'linux', 'macOS reaches sandboxed servers without forwarding')
     test.setTimeout(120_000)
     const port = await freePort()
-    const { app, win } = await launch(relay ? { PINE_SANDBOX_PTY_RELAY: '1' } : {})
+    const { app, win } = await launch(relay ? { OSTIA_SANDBOX_PTY_RELAY: '1' } : {})
     try {
       await sandboxedShell(win)
       const rows = win.locator('.xterm-rows').first()
@@ -338,7 +338,7 @@ test('SBX-C3 sandboxes a terminal an extension opens in a sandboxed workspace', 
   const fixture = join(__dirname, '..', 'test', 'fixtures', 'extensions-e2e', 'terminal-opener')
   const dir = join(launchOptions.env.XDG_CONFIG_HOME, PRODUCT_NAME, 'extensions', 'opener')
   mkdirSync(dir, { recursive: true })
-  copyFileSync(join(fixture, 'pine.json'), join(dir, 'pine.json'))
+  copyFileSync(join(fixture, 'ostia.json'), join(dir, 'ostia.json'))
   buildSync({
     entryPoints: [join(fixture, 'main.js')],
     outfile: join(dir, 'main.js'),
@@ -582,7 +582,7 @@ async function sttySize(win: Page, marker: string): Promise<string> {
 test('behind the pty relay a sandboxed shell has its own terminal: Ctrl+C interrupts, Ctrl+Z suspends, a resize arrives and blocks show', async () => {
   test.skip(process.platform !== 'linux', 'the pty relay exists only on Linux (TIOCSTI)')
   test.setTimeout(120_000)
-  const { app, win } = await launch({ PINE_SANDBOX_PTY_RELAY: '1' })
+  const { app, win } = await launch({ OSTIA_SANDBOX_PTY_RELAY: '1' })
   try {
     await sandboxedShell(win)
     const rows = win.locator('.xterm-rows').first()

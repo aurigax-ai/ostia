@@ -7,7 +7,7 @@ import { createTranslator, readMessages } from './i18n'
 
 describe('createTranslator', () => {
   let dir: string
-  const savedDir = process.env.PINE_EXTENSION_DIR
+  const savedDir = process.env.OSTIA_EXTENSION_DIR
 
   const write = (name: string, content: unknown): void => {
     writeFileSync(
@@ -28,8 +28,8 @@ describe('createTranslator', () => {
 
   afterEach(() => {
     rmSync(dir, { recursive: true, force: true })
-    if (savedDir === undefined) Reflect.deleteProperty(process.env, 'PINE_EXTENSION_DIR')
-    else process.env.PINE_EXTENSION_DIR = savedDir
+    if (savedDir === undefined) Reflect.deleteProperty(process.env, 'OSTIA_EXTENSION_DIR')
+    else process.env.OSTIA_EXTENSION_DIR = savedDir
   })
 
   it("answers in the caller's language", () => {
@@ -51,7 +51,7 @@ describe('createTranslator', () => {
   })
 
   it('reads the folder Ostia started the extension in when none is given', () => {
-    process.env.PINE_EXTENSION_DIR = dir
+    process.env.OSTIA_EXTENSION_DIR = dir
     expect(createTranslator()('zh-Hant')('greeting', { name: 'Ada' })).toBe('你好，Ada')
   })
 

@@ -115,25 +115,6 @@ describe('settingsStore', () => {
   })
 
   describe('init', () => {
-    it('reads the values a pine release saved under their new ostia names', async () => {
-      vi.mocked(window.ostia.fs.read).mockResolvedValue(
-        JSON.stringify({
-          appearance: { theme: 'pine-light', lightTheme: 'pine-light', darkTheme: 'pine-light' },
-          files: { iconTheme: 'ostia' },
-          terminal: { theme: 'pine-light', prompt: { style: 'pine' } },
-        }),
-      )
-      await store().init()
-      expect(store().appearance).toMatchObject({
-        theme: 'ostia-light',
-        lightTheme: 'ostia-light',
-        darkTheme: 'ostia-light',
-      })
-      expect(store().files.iconTheme).toBe('ostia')
-      expect(store().terminal.theme).toBe('ostia-light')
-      expect(store().terminal.prompt.style).toBe('ostia')
-    })
-
     it('keeps parseable keybindings and unbinds, and drops malformed entries', async () => {
       vi.mocked(window.ostia.fs.read).mockResolvedValue(
         JSON.stringify({

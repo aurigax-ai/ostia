@@ -3,9 +3,9 @@ import { join } from 'node:path'
 import { _electron as electron, expect, test } from '@playwright/test'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 
-function seedLegacy(dataHome: string): string {
-  const legacyData = join(dataHome, 'pine')
-  mkdirSync(legacyData, { recursive: true })
+function seedOldFolders(dataHome: string): string {
+  const oldData = join(dataHome, 'pine')
+  mkdirSync(oldData, { recursive: true })
   const snapshot = JSON.stringify({
     v: 1,
     savedAt: new Date().toISOString(),
@@ -14,7 +14,7 @@ function seedLegacy(dataHome: string): string {
     workspaces: [
       {
         id: 's1',
-        name: 'from-pine',
+        name: 'moved-over',
         kind: 'terminal',
         workDir: dataHome,
         root: { type: 'pane', id: 'pane-1', title: 'shell', kind: 'terminal', cwd: dataHome },
@@ -22,26 +22,48 @@ function seedLegacy(dataHome: string): string {
       },
     ],
   })
-  writeFileSync(join(legacyData, 'workspaces.json'), snapshot)
-  const legacyViews = join(dataHome, 'config', 'pine', 'views')
-  mkdirSync(legacyViews, { recursive: true })
-  writeFileSync(join(legacyViews, 'kept.json'), '{}')
+  writeFileSync(join(oldData, 'workspaces.json'), snapshot)
+  const oldViews = join(dataHome, 'config', 'pine', 'views')
+  mkdirSync(oldViews, { recursive: true })
+  writeFileSync(join(oldViews, 'kept.json'), '{}')
+  mkdirSync(join(dataHome, '.pine', 'workflows'), { recursive: true })
+  writeFileSync(join(dataHome, '.pine', 'workflows', 'build.yaml'), 'name: Build\ncommand: make\n')
   return snapshot
 }
 
-test('a first launch copies the old pine folders to ostia and opens the old workspaces', async () => {
+function launchAnswering(dataHome: string, answer: 'move' | 'later') {
+  const options = isolatedLaunch(dataHome)
+  return electron.launch({ ...options, env: { ...options.env, OSTIA_E2E_OLD_DIRS: answer } })
+}
+
+test('on the human’s confirm the old folders move to ostia, the old ones are deleted and the workspaces open', async () => {
   const dataHome = freshDataHome()
-  const snapshot = seedLegacy(dataHome)
-  const app = await electron.launch(isolatedLaunch(dataHome))
+  seedOldFolders(dataHome)
+  const app = await launchAnswering(dataHome, 'move')
   try {
     const win = await app.firstWindow()
     await win.waitForLoadState('domcontentloaded')
-    await expect(win.getByText('from-pine').first()).toBeVisible({ timeout: 15_000 })
-    expect(existsSync(join(dataHome, 'ostia', 'workspaces.json'))).toBe(true)
+    await expect(win.getByText('moved-over').first()).toBeVisible({ timeout: 15_000 })
     expect(existsSync(join(dataHome, 'config', 'ostia', 'views', 'kept.json'))).toBe(true)
-    expect(existsSync(join(dataHome, 'pine', 'MOVED-TO-OSTIA.txt'))).toBe(true)
-    expect(existsSync(join(dataHome, 'config', 'pine', 'MOVED-TO-OSTIA.txt'))).toBe(true)
+    expect(existsSync(join(dataHome, '.ostia', 'workflows', 'build.yaml'))).toBe(true)
+    expect(existsSync(join(dataHome, 'pine'))).toBe(false)
+    expect(existsSync(join(dataHome, 'config', 'pine'))).toBe(false)
+    expect(existsSync(join(dataHome, '.pine'))).toBe(false)
+  } finally {
+    await app.close()
+  }
+})
+
+test('Not now leaves the old folders untouched and starts without them', async () => {
+  const dataHome = freshDataHome()
+  const snapshot = seedOldFolders(dataHome)
+  const app = await launchAnswering(dataHome, 'later')
+  try {
+    const win = await app.firstWindow()
+    await win.waitForLoadState('domcontentloaded')
+    await expect(win.getByText('moved-over')).toHaveCount(0)
     expect(readFileSync(join(dataHome, 'pine', 'workspaces.json'), 'utf8')).toBe(snapshot)
+    expect(existsSync(join(dataHome, 'config', 'pine', 'views', 'kept.json'))).toBe(true)
   } finally {
     await app.close()
   }

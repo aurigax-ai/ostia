@@ -2,7 +2,7 @@ export type BrowserProfile = 'shared' | 'isolated'
 
 export type BrowserOpener = 'human' | 'agent'
 
-export const SHARED_BROWSER_PARTITION = 'persist:pine-browser'
+export const SHARED_BROWSER_PARTITION = 'persist:ostia-browser'
 
 const ISOLATED_PREFIX = 'ostia-browser-'
 

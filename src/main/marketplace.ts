@@ -12,12 +12,11 @@ import {
   rmSync,
 } from 'node:fs'
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
-import { EXTENSION_MANIFEST_FILES, type ExtensionManifest } from '../shared/extensions'
+import { EXTENSION_MANIFEST_FILE, type ExtensionManifest } from '../shared/extensions'
 import {
   MARKETPLACE_CODE_PATTERN,
   MARKETPLACE_FEATURE,
   MARKETPLACE_MANIFEST_FILE,
-  MARKETPLACE_MANIFEST_FILES,
   MARKETPLACE_URL_MAX,
   type MarketplaceError,
   type MarketplaceExtension,
@@ -26,7 +25,6 @@ import {
   type MarketplaceResult,
   type MarketplaceState,
 } from '../shared/marketplace'
-import { LEGACY_OFFICIAL_MARKETPLACE, OFFICIAL_MARKETPLACE } from '../shared/product'
 import { loadLocaleCatalogs, manifestIn } from './extensionLocales'
 import { EXTENSION_ID_PATTERN, isInsideDir, readManifest } from './extensionManifest'
 import { loadJson, saveJson } from './jsonStore'
@@ -44,27 +42,7 @@ export const MARKETPLACE_DESCRIPTION_MAX = 500
 const GITHUB_SHORTHAND = /^[A-Za-z0-9][A-Za-z0-9_.-]*\/[A-Za-z0-9_.-]+$/
 const SCP_LIKE = /^[A-Za-z0-9_.-]+@[A-Za-z0-9.-]+:[A-Za-z0-9_./~-]+$/
 
-const RENAMED_MARKETPLACES: Record<string, string> = {
-  [LEGACY_OFFICIAL_MARKETPLACE.toLowerCase()]: OFFICIAL_MARKETPLACE,
-}
-
-const GITHUB_REPO_URL =
-  /^(https:\/\/github\.com\/|ssh:\/\/git@github\.com\/|git@github\.com:)([^/]+\/[^/]+?)(\.git)?(\/?)$/i
-
-export function renamedMarketplaceUrl(url: string): string | null {
-  const match = GITHUB_REPO_URL.exec(url)
-  if (!match) return null
-  const [, prefix, repo, git = '', slash = ''] = match
-  const renamed = RENAMED_MARKETPLACES[(repo as string).toLowerCase()]
-  return renamed ? `${prefix}${renamed}${git}${slash}` : null
-}
-
 export function normalizeMarketplaceUrl(input: unknown): string | null {
-  const url = normalizeTypedUrl(input)
-  return url === null ? null : (renamedMarketplaceUrl(url) ?? url)
-}
-
-function normalizeTypedUrl(input: unknown): string | null {
   if (typeof input !== 'string') return null
   const text = input.trim()
   if (!text || text.length > MARKETPLACE_URL_MAX || text.startsWith('-')) return null
@@ -195,22 +173,14 @@ interface Records {
   installs: Record<string, string>
 }
 
-export interface RenamedSource {
-  from: string
-  to: string
-}
-
-function sanitizeRecords(raw: unknown): { records: Records; renamed: RenamedSource[] } {
+function sanitizeRecords(raw: unknown): Records {
   const records: Records = { sources: [], installs: {} }
-  const renamed: RenamedSource[] = []
-  if (typeof raw !== 'object' || raw === null) return { records, renamed }
+  if (typeof raw !== 'object' || raw === null) return records
   const { sources, installs } = raw as { sources?: unknown; installs?: unknown }
   if (Array.isArray(sources)) {
     for (const source of sources) {
-      const typed = normalizeTypedUrl((source as { url?: unknown } | null)?.url)
-      if (!typed) continue
-      const url = renamedMarketplaceUrl(typed) ?? typed
-      if (url !== typed) renamed.push({ from: marketplaceId(typed), to: marketplaceId(url) })
+      const url = normalizeMarketplaceUrl((source as { url?: unknown } | null)?.url)
+      if (!url) continue
       if (!records.sources.some((s) => s.url === url)) {
         records.sources.push({ id: marketplaceId(url), url })
       }
@@ -219,24 +189,11 @@ function sanitizeRecords(raw: unknown): { records: Records; renamed: RenamedSour
   if (typeof installs === 'object' && installs !== null && !Array.isArray(installs)) {
     for (const [extId, source] of Object.entries(installs)) {
       if (EXTENSION_ID_PATTERN.test(extId) && typeof source === 'string') {
-        records.installs[extId] = renamed.find((r) => r.from === source)?.to ?? source
+        records.installs[extId] = source
       }
     }
   }
-  return { records, renamed }
-}
-
-export function marketplaceManifestFile(clone: string): string {
-  return (
-    MARKETPLACE_MANIFEST_FILES.find((name) => {
-      try {
-        lstatSync(join(clone, name))
-        return true
-      } catch {
-        return false
-      }
-    }) ?? MARKETPLACE_MANIFEST_FILE
-  )
+  return records
 }
 
 export type GitRunner = (args: string[]) => Promise<void>
@@ -314,7 +271,7 @@ function isRealDirectory(path: string): boolean {
 }
 
 function readCatalog(clone: string): Catalog | string {
-  const name = marketplaceManifestFile(clone)
+  const name = MARKETPLACE_MANIFEST_FILE
   const file = join(clone, name)
   let raw: unknown
   try {
@@ -379,21 +336,7 @@ export class Marketplace {
   private listed: LanguageListing[] | null = null
 
   constructor(private readonly deps: MarketplaceDeps) {
-    const { records, renamed } = sanitizeRecords(loadJson<unknown>(deps.recordsPath, {}))
-    this.records = records
-    if (renamed.length > 0) {
-      for (const { from, to } of renamed) this.moveClone(from, to)
-      this.save()
-    }
-  }
-
-  private moveClone(from: string, to: string): void {
-    const old = this.cloneDir(from)
-    if (!existsSync(old)) return
-    try {
-      if (existsSync(this.cloneDir(to))) rmSync(old, { recursive: true, force: true })
-      else renameSync(old, this.cloneDir(to))
-    } catch {}
+    this.records = sanitizeRecords(loadJson<unknown>(deps.recordsPath, {}))
   }
 
   private save(): void {
@@ -651,8 +594,10 @@ export class Marketplace {
     try {
       if (state === 'available') this.deps.forget(entry.manifest.id)
       rmSync(target, { recursive: true, force: true })
-      const manifests = EXTENSION_MANIFEST_FILES.filter((f) => plan.files.includes(f))
-      const manifestLast = [...plan.files.filter((f) => !manifests.includes(f)), ...manifests]
+      const manifestLast = [
+        ...plan.files.filter((f) => f !== EXTENSION_MANIFEST_FILE),
+        EXTENSION_MANIFEST_FILE,
+      ]
       for (const file of manifestLast) {
         mkdirSync(dirname(join(target, file)), { recursive: true })
         copyFileSync(join(entry.dir, file), join(target, file))

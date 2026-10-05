@@ -37,7 +37,7 @@ describe('ExtensionHost agent tasks: ext.agents, ext.runAgent, ext.offerToAgent,
   }
 
   beforeAll(() => {
-    dir = mkdtempSync(join(tmpdir(), 'pine-ext-agents-'))
+    dir = mkdtempSync(join(tmpdir(), 'ostia-ext-agents-'))
     const socketPath = join(dir, 'control.sock')
     opened = registerPane({ windowId: '7', workspaceId: 'w1', paneId: 'pane-opened' })
     picked = registerPane({ windowId: '7', workspaceId: 'w1', paneId: 'pane-picked' })

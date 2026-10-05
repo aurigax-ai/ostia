@@ -399,7 +399,7 @@ describe('BrowserView profile', () => {
     await waitFor(() => expect(container.querySelector('webview')).not.toBeNull())
     expect(window.ostia.browser.claimProfile).toHaveBeenCalledWith(BROWSER, 'shared')
     expect(container.querySelector('webview')?.getAttribute('partition')).toBe(
-      'persist:pine-browser',
+      'persist:ostia-browser',
     )
   })
 

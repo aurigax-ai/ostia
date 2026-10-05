@@ -1,7 +1,7 @@
 import { execFile } from 'node:child_process'
 import { fstatSync, readFileSync } from 'node:fs'
 import type { Socket } from 'node:net'
-import { envName, legacyEnvName } from '../shared/appEnv'
+import { envName } from '../shared/appEnv'
 
 export type CallerVerdict = 'outside' | 'inside' | 'unknown'
 
@@ -35,12 +35,10 @@ export function parseProcStat(text: string): ProcStat | null {
   return { ppid, ttyNr }
 }
 
-const TOKEN_ENTRIES = [`${envName('TOKEN')}=`, `${legacyEnvName('TOKEN')}=`]
+const TOKEN_ENTRY = `${envName('TOKEN')}=`
 
 export function hasPaneToken(environ: string): boolean {
-  return environ
-    .split('\0')
-    .some((entry) => TOKEN_ENTRIES.some((prefix) => entry.startsWith(prefix)))
+  return environ.split('\0').some((entry) => entry.startsWith(TOKEN_ENTRY))
 }
 
 function statOf(pid: number, proc: ProcReader): ProcStat | null {

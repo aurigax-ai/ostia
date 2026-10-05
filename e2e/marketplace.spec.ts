@@ -22,7 +22,7 @@ function marketplaceRepo(dataHome: string, manifest: object = LISTED): string {
   const repo = join(dataHome, 'marketplace-repo')
   const dir = join(repo, 'extensions', 'hello')
   mkdirSync(dir, { recursive: true })
-  for (const file of ['panel.html', 'card.html', 'pine.json']) {
+  for (const file of ['panel.html', 'card.html', 'ostia.json']) {
     copyFileSync(join(fixture, file), join(dir, file))
   }
   buildSync({
@@ -55,7 +55,7 @@ test('Settings adds a git marketplace, installs an extension after approval, and
     PRODUCT_NAME,
     'extensions',
     'hello',
-    'pine.json',
+    'ostia.json',
   )
   const app = await electron.launch(launch)
   try {
@@ -106,7 +106,7 @@ test('an unlisted extension stays out of Settings until its install code is type
     PRODUCT_NAME,
     'extensions',
     'hello',
-    'pine.json',
+    'ostia.json',
   )
   const app = await electron.launch(launch)
   try {

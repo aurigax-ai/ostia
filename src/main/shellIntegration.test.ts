@@ -58,7 +58,7 @@ describe('writeShellIntegration', () => {
 
   function otherBuild(dir: string): Record<string, string> {
     const files = shellIntegrationFiles(dir)
-    return { ...files, '.zshrc': files['.zshrc'].replaceAll('OSTIA_', 'PINE_') }
+    return { ...files, '.zshrc': `${files['.zshrc']}# another build\n` }
   }
 
   it("keeps each build's files when another build writes into the same root", () => {
@@ -66,7 +66,7 @@ describe('writeShellIntegration', () => {
     const theirs = writeShellIntegration(root, otherBuild)
     expect(theirs).not.toBe(ours)
     expect(readFileSync(join(ours, '.zshrc'), 'utf8')).toBe(shellIntegrationFiles(ours)['.zshrc'])
-    expect(readFileSync(join(theirs, '.zshrc'), 'utf8')).toContain('PINE_ZDOTDIR_ORIG')
+    expect(readFileSync(join(theirs, '.zshrc'), 'utf8')).toContain('OSTIA_ZDOTDIR_ORIG')
   })
 
   it('reuses the folder of identical files and points them at it', () => {
@@ -121,7 +121,7 @@ describe('shellIntegrationSpawnOptions', () => {
     it('spawns with --rcfile pointing at the generated bashrc and only the agent plugin env', () => {
       const { args, env } = shellIntegrationSpawnOptions('/bin/bash', {})
       expect(args).toEqual(['--rcfile', BASH_RC])
-      expect(env).toEqual({ OSTIA_AGENT_DIR: AGENT_DIR, PINE_AGENT_DIR: AGENT_DIR })
+      expect(env).toEqual({ OSTIA_AGENT_DIR: AGENT_DIR })
     })
   })
 
@@ -136,7 +136,6 @@ describe('shellIntegrationSpawnOptions', () => {
       })
       expect(shellIntegrationSpawnOptions('/bin/bash', {}, inline).env).toEqual({
         OSTIA_AGENT_DIR: AGENT_DIR,
-        PINE_AGENT_DIR: AGENT_DIR,
         OSTIA_PROMPT: 'ostia',
         OSTIA_PROMPT_SEPARATOR: 'none',
         OSTIA_PROMPT_LINES: '1',
@@ -146,7 +145,6 @@ describe('shellIntegrationSpawnOptions', () => {
       )
       expect(shellIntegrationSpawnOptions('/bin/bash', {}, null).env).toEqual({
         OSTIA_AGENT_DIR: AGENT_DIR,
-        PINE_AGENT_DIR: AGENT_DIR,
       })
       expect(shellIntegrationSpawnOptions('fish', {}, split)).toEqual({ args: [], env: {} })
     })
@@ -325,7 +323,6 @@ describe('shellIntegrationSpawnOptions', () => {
       )
       expect(shellIntegrationSpawnOptions('bash', { HOME: home }, null, '/tmp/s/h').env).toEqual({
         OSTIA_AGENT_DIR: AGENT_DIR,
-        PINE_AGENT_DIR: AGENT_DIR,
         OSTIA_HISTFILE: '/tmp/s/h',
       })
       expect(shellIntegrationSpawnOptions('zsh', { HOME: home }).env).not.toHaveProperty(
@@ -336,7 +333,7 @@ describe('shellIntegrationSpawnOptions', () => {
     it.each(['zsh', 'bash'] as const)(
       'points %s HISTFILE at the scratch folder after the user rc set its own',
       (shell) => {
-        const scratch = join(home, 'scratch', '.pine_history')
+        const scratch = join(home, 'scratch', '.ostia_history')
         expect(histfileOf(shell, scratch)).toBe(scratch)
       },
     )
@@ -347,7 +344,7 @@ describe('shellIntegrationSpawnOptions', () => {
 
     it('keeps an interactive zsh from reading or writing the user history', () => {
       const scratch = mkdtempSync(join(tmpdir(), 'ostia-histfile-scratch-'))
-      const histFile = join(scratch, '.pine_history')
+      const histFile = join(scratch, '.ostia_history')
       writeFileSync(join(home, '.zshrc'), 'HISTFILE="$HOME/.zsh_history"\nSAVEHIST=100\n')
       const { args, env } = shellIntegrationSpawnOptions('zsh', { HOME: home }, null, histFile)
       const out = spawnSync('zsh', [...args, '-i'], {
@@ -564,7 +561,7 @@ describe('shellIntegrationSpawnOptions', () => {
             env: {
               PATH: '/ostia/bin:/usr/bin:/bin',
               HOME: '/home/u',
-              ...(state ? { PINE_SHELL_STATE: state } : {}),
+              ...(state ? { OSTIA_SHELL_STATE: state } : {}),
               ...extraEnv,
             },
             encoding: 'utf8',
@@ -595,9 +592,9 @@ describe('shellIntegrationSpawnOptions', () => {
         const out = report(
           [
             '__ostia_report_shell',
-            'rm -f "$PINE_SHELL_STATE"',
+            'rm -f "$OSTIA_SHELL_STATE"',
             '__ostia_report_shell',
-            '[ -e "$PINE_SHELL_STATE" ] && echo rewritten',
+            '[ -e "$OSTIA_SHELL_STATE" ] && echo rewritten',
             'PATH=/x:$PATH',
             '__ostia_report_shell',
           ].join('; '),
@@ -671,17 +668,13 @@ describe('shellIntegrationSpawnOptions', () => {
       const settings = JSON.parse(readFileSync(join(CLAUDE_PLUGIN, 'hooks', 'hooks.json'), 'utf8'))
       expect(settings).toEqual(claudeHookSettings())
       const command = (event: string) => settings.hooks[event][0].hooks[0].command as string
-      expect(command('SessionStart')).toContain('"${OSTIA_CLI:-$PINE_CLI}" resume-token claude -')
-      expect(command('Notification')).toContain(
-        '"${OSTIA_CLI:-$PINE_CLI}" claude-hook Notification',
-      )
-      expect(command('Stop')).toContain('"${OSTIA_CLI:-$PINE_CLI}" claude-hook Stop')
-      expect(command('StopFailure')).toContain('"${OSTIA_CLI:-$PINE_CLI}" claude-hook StopFailure')
+      expect(command('SessionStart')).toContain('"${OSTIA_CLI}" resume-token claude -')
+      expect(command('Notification')).toContain('"${OSTIA_CLI}" claude-hook Notification')
+      expect(command('Stop')).toContain('"${OSTIA_CLI}" claude-hook Stop')
+      expect(command('StopFailure')).toContain('"${OSTIA_CLI}" claude-hook StopFailure')
       expect(settings.hooks.PreToolUse[0].matcher).toBe('AskUserQuestion|ExitPlanMode')
-      expect(command('PreToolUse')).toContain('"${OSTIA_CLI:-$PINE_CLI}" claude-hook PreToolUse')
-      expect(command('SessionStart')).toMatch(
-        /^\[ -n "\$\{OSTIA_SOCKET:-\$PINE_SOCKET\}" \] && .*\|\| true$/,
-      )
+      expect(command('PreToolUse')).toContain('"${OSTIA_CLI}" claude-hook PreToolUse')
+      expect(command('SessionStart')).toMatch(/^\[ -n "\$\{OSTIA_SOCKET\}" \] && .*\|\| true$/)
     })
 
     it('adds the unread bus messages as context when a session starts and a prompt is sent', () => {
@@ -696,7 +689,7 @@ describe('shellIntegrationSpawnOptions', () => {
         busHookCommand('UserPromptSubmit'),
       ])
       expect(busHookCommand('UserPromptSubmit')).toBe(
-        '[ -n "${OSTIA_SOCKET:-$PINE_SOCKET}" ] && ELECTRON_RUN_AS_NODE=1 "${OSTIA_NODE:-$PINE_NODE}" "${OSTIA_CLI:-$PINE_CLI}" bus hook UserPromptSubmit 2>/dev/null || true',
+        '[ -n "${OSTIA_SOCKET}" ] && ELECTRON_RUN_AS_NODE=1 "${OSTIA_NODE}" "${OSTIA_CLI}" bus hook UserPromptSubmit 2>/dev/null || true',
       )
       expect(commands('Stop').join(' ')).not.toContain('bus hook')
       expect(commands('Notification').join(' ')).not.toContain('bus hook')
@@ -711,7 +704,11 @@ describe('shellIntegrationSpawnOptions', () => {
         chmodSync(fake, 0o755)
         const run = (script: string) =>
           spawnSync('bash', ['--norc', '-c', `source '${BASH_INIT}'; ${script}`], {
-            env: { PATH: `${bin}:/usr/bin:/bin`, PINE_CLI: '/x/cli.js', PINE_AGENT_DIR: AGENT_DIR },
+            env: {
+              PATH: `${bin}:/usr/bin:/bin`,
+              OSTIA_CLI: '/x/cli.js',
+              OSTIA_AGENT_DIR: AGENT_DIR,
+            },
             encoding: 'utf8',
           }).stdout.trim()
 
@@ -745,9 +742,9 @@ describe('shellIntegrationSpawnOptions', () => {
           spawnSync(shell, [noRc, '-c', `source '${wrapper}'; claude --resume abc`], {
             env: {
               PATH: `${bin}:/usr/bin:/bin`,
-              PINE_CLI: '/x/cli.js',
-              PINE_AGENT_DIR: agentDir,
-              PINE_NO_CLAUDE_HOOKS: off,
+              OSTIA_CLI: '/x/cli.js',
+              OSTIA_AGENT_DIR: agentDir,
+              OSTIA_NO_CLAUDE_HOOKS: off,
             },
             encoding: 'utf8',
           })
@@ -765,7 +762,7 @@ describe('shellIntegrationSpawnOptions', () => {
     it.each([
       ['bash', '--norc', BASH_INIT],
       ['zsh', '-f', ZSH_INIT],
-    ])('defines ostia and the old pine name in %s, both running the CLI', (shell, noRc, init) => {
+    ])('defines ostia in %s, running the CLI', (shell, noRc, init) => {
       shellIntegrationSpawnOptions(shell, { HOME: '/home/u' })
       const dir = mkdtempSync(join(tmpdir(), 'ostia-fake-node-'))
       try {
@@ -778,24 +775,13 @@ describe('shellIntegrationSpawnOptions', () => {
             encoding: 'utf8',
           }).stdout.trim()
 
-        const both = {
-          OSTIA_NODE: node,
-          OSTIA_CLI: '/new/cli.js',
-          PINE_NODE: '/no',
-          PINE_CLI: '/old',
-        }
-        expect(run(both, 'ostia whoami; pine whoami').split('\n')).toEqual([
+        expect(run({ OSTIA_NODE: node, OSTIA_CLI: '/new/cli.js' }, 'ostia whoami')).toBe(
           '1 /new/cli.js whoami',
-          '1 /new/cli.js whoami',
-        ])
-        const legacy = { PINE_NODE: node, PINE_CLI: '/old/cli.js' }
-        expect(run(legacy, 'ostia whoami; pine whoami').split('\n')).toEqual([
-          '1 /old/cli.js whoami',
-          '1 /old/cli.js whoami',
-        ])
+        )
         expect(
-          run({}, 'type ostia >/dev/null 2>&1 || type pine >/dev/null 2>&1 || echo none'),
-        ).toBe('none')
+          run({ OSTIA_NODE: node, OSTIA_CLI: '/new/cli.js' }, 'type pine || echo none'),
+        ).toContain('none')
+        expect(run({}, 'type ostia >/dev/null 2>&1 || echo none')).toBe('none')
       } finally {
         rmSync(dir, { recursive: true, force: true })
       }
@@ -827,9 +813,9 @@ describe('shellIntegrationSpawnOptions', () => {
         'PermissionRequest',
         'Stop',
       ])
-      expect(commands.SessionStart?.[0]).toContain('"${OSTIA_CLI:-$PINE_CLI}" resume-token codex -')
+      expect(commands.SessionStart?.[0]).toContain('"${OSTIA_CLI}" resume-token codex -')
       expect(commands.SessionStart?.[1]).toBe(
-        `[ -n "\${OSTIA_SOCKET:-$PINE_SOCKET}" ] && cat '${CONTEXT}' 2>/dev/null || true`,
+        `[ -n "\${OSTIA_SOCKET}" ] && cat '${CONTEXT}' 2>/dev/null || true`,
       )
       expect(commands.SessionStart?.[2]).toBe(busHookCommand('SessionStart'))
       expect(commands.SessionStart).toHaveLength(3)
@@ -841,35 +827,35 @@ describe('shellIntegrationSpawnOptions', () => {
       expect(commands.PermissionRequest?.[0]).toContain('state waiting -')
       expect(commands.Stop?.[0]).toContain('state done')
       for (const command of Object.values(commands).flat()) {
-        expect(command).toMatch(/^\[ -n "\$\{OSTIA_SOCKET:-\$PINE_SOCKET\}" \] && .*\|\| true$/)
+        expect(command).toMatch(/^\[ -n "\$\{OSTIA_SOCKET\}" \] && .*\|\| true$/)
       }
     })
 
     it('hashes a hook the way codex-cli 0.157 computes its trust hash', () => {
-      const ostiaStop =
+      const codexReference =
         '[ -n "$PINE_SOCKET" ] && ELECTRON_RUN_AS_NODE=1 "$PINE_NODE" "$PINE_CLI" state done >/dev/null 2>&1 || true'
-      expect(codexHookTrustHash('Stop', ostiaStop)).toBe(
+      expect(codexHookTrustHash('Stop', codexReference)).toBe(
         'sha256:04649370ec668e17edd8c909dda94fbdf1e5a71584fe8a58896fc903e330c6b1',
       )
       const stop = codexHookCommands(CONTEXT).Stop?.[0] ?? ''
       expect(codexHookTrustHash('Stop', stop)).toBe(
-        'sha256:824a30f3051f3fc1f6962c5218eeaf4ed0ee3b5af705e9bc06aa84e5497200ca',
+        'sha256:dd0738f4d05919c023080c695b24bed2afaecc6504369bde591c15314b798eff',
       )
     })
 
     it('pins the trust hashes of the bus hooks, which print context', () => {
       expect(codexHookTrustHash('UserPromptSubmit', busHookCommand('UserPromptSubmit'))).toBe(
-        'sha256:932a981332d55e05b039ba3bf10c1471764286ab9e02afa404fcb644e536f764',
+        'sha256:6d1627ffada98cdfdfb78abf5655cb545afa5bd013ae973d24dc47c10d814d96',
       )
       expect(codexHookTrustHash('SessionStart', busHookCommand('SessionStart'))).toBe(
-        'sha256:15c9f622a17b8db0f92f6b03e033e016757dae13c71a51e37b6349bde8f7d83e',
+        'sha256:c7ca4569c67b9e45236d1f3e3cc7abd741599aba67417a6efd1ef08b2b9f7447',
       )
       const state = codexHookArgs(CONTEXT).at(-1) ?? ''
       expect(state).toContain(
-        '"/<session-flags>/config.toml:user_prompt_submit:0:1"={trusted_hash="sha256:932a981332d55e05b039ba3bf10c1471764286ab9e02afa404fcb644e536f764"}',
+        '"/<session-flags>/config.toml:user_prompt_submit:0:1"={trusted_hash="sha256:6d1627ffada98cdfdfb78abf5655cb545afa5bd013ae973d24dc47c10d814d96"}',
       )
       expect(state).toContain(
-        '"/<session-flags>/config.toml:session_start:0:2"={trusted_hash="sha256:15c9f622a17b8db0f92f6b03e033e016757dae13c71a51e37b6349bde8f7d83e"}',
+        '"/<session-flags>/config.toml:session_start:0:2"={trusted_hash="sha256:c7ca4569c67b9e45236d1f3e3cc7abd741599aba67417a6efd1ef08b2b9f7447"}',
       )
     })
 
@@ -914,8 +900,8 @@ describe('shellIntegrationSpawnOptions', () => {
         spawnSync(shell, [noRc, '-c', `source '${wrapper}'; ${script}`], {
           env: {
             PATH: `${bin}:/usr/bin:/bin`,
-            PINE_AGENT_DIR: AGENT_DIR,
-            ...(ostiaCli ? { PINE_CLI: ostiaCli } : {}),
+            OSTIA_AGENT_DIR: AGENT_DIR,
+            ...(ostiaCli ? { OSTIA_CLI: ostiaCli } : {}),
           },
           encoding: 'utf8',
         })
@@ -955,7 +941,7 @@ describe('shellIntegrationSpawnOptions', () => {
 
       it('runs codex untouched when its hooks are turned off', () => {
         const out = spawnSync(shell, [noRc, '-c', `source '${wrapper}'; codex 'fix it'`], {
-          env: { PATH: `${bin}:/usr/bin:/bin`, PINE_CLI: '/x/cli.js', PINE_NO_CODEX_HOOKS: '1' },
+          env: { PATH: `${bin}:/usr/bin:/bin`, OSTIA_CLI: '/x/cli.js', OSTIA_NO_CODEX_HOOKS: '1' },
           encoding: 'utf8',
         }).stdout.trim()
         expect(out).toBe('fix it')
@@ -1004,7 +990,7 @@ describe('shellIntegrationSpawnOptions', () => {
       expect(
         extensionHookCommand({ extId: 'kit', event: 'PreToolUse', command: 'on-tool' }, 'codex'),
       ).toBe(
-        '[ -n "${OSTIA_SOCKET:-$PINE_SOCKET}" ] && ELECTRON_RUN_AS_NODE=1 "${OSTIA_NODE:-$PINE_NODE}" "${OSTIA_CLI:-$PINE_CLI}" agent-hook kit on-tool codex PreToolUse 2>/dev/null || true',
+        '[ -n "${OSTIA_SOCKET}" ] && ELECTRON_RUN_AS_NODE=1 "${OSTIA_NODE}" "${OSTIA_CLI}" agent-hook kit on-tool codex PreToolUse 2>/dev/null || true',
       )
     })
 

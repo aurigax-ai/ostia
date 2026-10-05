@@ -4,7 +4,7 @@ Write extensions for [Ostia](https://github.com/aurigax-ai/ostia): the client li
 JSON Schemas for the manifest files, a generator for a new extension project, and a command that
 checks an extension the way Ostia does.
 
-An extension is a folder with a `pine.json` manifest and, usually, a `main.js` that Ostia starts as
+An extension is a folder with a `ostia.json` manifest and, usually, a `main.js` that Ostia starts as
 its own process. The process talks to Ostia over a local socket; this SDK wraps that protocol.
 The full contract is in [docs/EXTENSIONS.md](docs/EXTENSIONS.md).
 
@@ -17,7 +17,7 @@ pnpm install
 pnpm validate     # builds dist/weather and checks it the way Ostia will
 ```
 
-`create <id> [folder]` writes a small TypeScript project: a `pine.json` with your id, one command in
+`create <id> [folder]` writes a small TypeScript project: a `ostia.json` with your id, one command in
 `src/main.ts`, a build that bundles it into a single `main.js`, and this SDK as a dev dependency.
 The id is 2 to 40 lowercase letters, digits or dashes; it becomes the `ostia <id> ...` command.
 
@@ -45,16 +45,13 @@ The package is built: there is no install script to approve. It needs Node 20 or
 
 | Import | What it is |
 |---|---|
-| `@aurigax-ai/ostia-extension-sdk` | `connect()` and the `OstiaExtension` API (`PineExtension` is the same type under its old name): commands, events, sidebar items, pane chips, settings, secrets, notifications, panels, diffs, terminals, the human's language, `createTranslator`, `runTool`, `startPanelServer`, `onShutdown` |
+| `@aurigax-ai/ostia-extension-sdk` | `connect()` and the `OstiaExtension` API: commands, events, sidebar items, pane chips, settings, secrets, notifications, panels, diffs, terminals, the human's language, `createTranslator`, `runTool`, `startPanelServer`, `onShutdown` |
 | `@aurigax-ai/ostia-extension-sdk/panel` | For the page inside a panel: `call`, `onChange`, `context`, `h`, `icon`, panel sizes |
 | `@aurigax-ai/ostia-extension-sdk/splitter` | A resizable split for panel pages |
 | `@aurigax-ai/ostia-extension-sdk/panel.css` | Base panel styles on Ostia's theme variables |
 | `@aurigax-ai/ostia-extension-sdk/assist` | The engine behind Ostia's assistant. Give `runAssistExtension` a `ProviderCatalog` to serve chat, completions and prompt help from your own model provider. Needs `ai`, `zod`, `@ai-sdk-tool/parser` and `undici` installed |
-| `schemas/ostia.schema.json` | JSON Schema for the extension manifest (`ostia.json` or `pine.json`) |
-| `schemas/ostia-marketplace.schema.json` | JSON Schema for a marketplace manifest (`ostia-marketplace.json` or `pine-marketplace.json`) |
-
-`schemas/pine.schema.json` and `schemas/pine-marketplace.schema.json` are the same files under
-their old names, so manifests that point at them keep working.
+| `schemas/ostia.schema.json` | JSON Schema for the extension manifest (`ostia.json`) |
+| `schemas/ostia-marketplace.schema.json` | JSON Schema for a marketplace manifest (`ostia-marketplace.json`) |
 
 Point your editor at the schema from the manifest:
 
@@ -65,24 +62,11 @@ Point your editor at the schema from the manifest:
 The schema catches shape mistakes while you type. `ostia-extension validate` is the authority: it
 runs the same checks Ostia runs when it loads the extension.
 
-## The old names
-
-This package was published as `@aurigax-ai/pine-extension-sdk` before the app was renamed to
-Ostia. That package is deprecated; install this one instead. Everything else keeps working under
-its old name too:
-
-- The `pine-extension` command is the same program as `ostia-extension`.
-- The app reads an extension manifest named `ostia.json` or `pine.json` (`ostia.json` wins when a
-  folder has both) and a marketplace manifest named `ostia-marketplace.json` or
-  `pine-marketplace.json`. Versions before the rename read only the `pine` names, so keep those
-  while you want them to load your extension. The template uses `pine.json` for that reason.
-- `package.json` has `pineExtensionApi` next to `ostiaExtensionApi`, with the same value.
-
 ## Check an extension or a marketplace
 
 ```sh
 pnpm exec ostia-extension validate dist/weather     # one extension folder
-pnpm exec ostia-extension validate .                # a marketplace: a folder with pine-marketplace.json
+pnpm exec ostia-extension validate .                # a marketplace: a folder with ostia-marketplace.json
 pnpm exec ostia-extension unlist extensions/weather # hide it in Ostia: installable only by the printed code
 ```
 
@@ -92,7 +76,7 @@ also checks what a marketplace install requires: regular files only, at most 800
 
 ## Publish
 
-A marketplace is a git repository with a `pine-marketplace.json` that lists extension folders.
+A marketplace is a git repository with an `ostia-marketplace.json` that lists extension folders.
 Commit your built folder to one, and people add the repository in Ostia under Settings →
 Extensions → Marketplaces. See "Marketplaces" in [docs/EXTENSIONS.md](docs/EXTENSIONS.md).
 

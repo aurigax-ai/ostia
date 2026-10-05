@@ -31,7 +31,7 @@ export function SandboxSecretsTab({ workspaceId }: { workspaceId: string }): JSX
 
   const sourceLabel: Record<SecretEntry['source'], string> = {
     host: d.sandbox.secretHost,
-    pine: d.sandbox.secretPine,
+    ostia: d.sandbox.secretOstia,
   }
   const modeLabel: Record<ModeChoice, string> = {
     none: d.sandbox.secretNone,
@@ -74,7 +74,7 @@ export function SandboxSecretsTab({ workspaceId }: { workspaceId: string }): JSX
             <li key={secret.id} className="flex items-center gap-2 text-ui-sm">
               <Badge variant="outline">{sourceLabel[secret.source]}</Badge>
               <span className="min-w-0 flex-1 truncate font-mono text-fg">{secret.name}</span>
-              {secret.source === 'pine' ? (
+              {secret.source === 'ostia' ? (
                 <IconButton
                   icon={TrashIcon}
                   label={fmt(d.sandbox.remove, { item: secret.name })}

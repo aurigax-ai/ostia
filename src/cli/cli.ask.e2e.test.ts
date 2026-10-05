@@ -41,7 +41,7 @@ const live = new Set<ChildProcess>()
 
 function ostia(args: string[], stdin?: string, token = agent.token): Running {
   const child = spawn(process.execPath, [cliPath, ...args], {
-    env: { ...process.env, PINE_SOCKET: socketPath, PINE_TOKEN: token },
+    env: { ...process.env, OSTIA_SOCKET: socketPath, OSTIA_TOKEN: token },
     stdio: [stdin === undefined ? 'ignore' : 'pipe', 'pipe', 'pipe'],
   })
   live.add(child)
@@ -158,7 +158,7 @@ describe('ostia ask (the real CLI against a live control server)', () => {
 
   it('does not wait on an open stdin without --context -', async () => {
     const child = spawn(process.execPath, [cliPath, 'ask', 'Still there?'], {
-      env: { ...process.env, PINE_SOCKET: socketPath, PINE_TOKEN: agent.token },
+      env: { ...process.env, OSTIA_SOCKET: socketPath, OSTIA_TOKEN: agent.token },
       stdio: ['pipe', 'pipe', 'pipe'],
     })
     live.add(child)

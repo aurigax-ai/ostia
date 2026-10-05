@@ -27,7 +27,7 @@ describe('ExtensionHost ext.openTerminal and interactive commands (real socket)'
   const openTerminalIn = vi.fn<(req: TerminalOpenRequest) => Promise<string | null>>()
 
   beforeAll(() => {
-    dir = mkdtempSync(join(tmpdir(), 'pine-ext-terminal-'))
+    dir = mkdtempSync(join(tmpdir(), 'ostia-ext-terminal-'))
     const socketPath = join(dir, 'control.sock')
     agentPane = registerPane({ windowId: '7', workspaceId: 'w1', paneId: 'pane-agent' })
     registerPane({ windowId: '7', workspaceId: 'w2', paneId: 'pane-other' })

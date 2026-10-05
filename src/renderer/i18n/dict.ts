@@ -510,7 +510,7 @@ export const en = {
     secretsDesc:
       'Hand secrets to sandboxed shells: as an env var, as a file, or only when an agent asks and you allow it. Host secrets stay on the host; {product} never edits them.',
     secretHost: 'Host',
-    secretPine: '{product}',
+    secretOstia: '{product}',
     secretNone: 'Not granted',
     secretEnv: 'Env var',
     secretFile: 'File',
@@ -3010,7 +3010,7 @@ export const zhHant: Dict = {
     secretsDesc:
       '將機密交給沙箱中的 shell：作為環境變數、檔案，或只在代理程式請求且你允許時提供。主機機密留在主機上，{product} 不會修改它們。',
     secretHost: '主機',
-    secretPine: '{product}',
+    secretOstia: '{product}',
     secretNone: '未授予',
     secretEnv: '環境變數',
     secretFile: '檔案',

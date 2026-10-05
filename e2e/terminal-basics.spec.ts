@@ -20,7 +20,7 @@ test('Ctrl+K reaches the shell as readline kill-line', async () => {
     await win.keyboard.type('echo ostia_kk')
     await win.keyboard.press('Control+a')
     await win.keyboard.press('Control+k')
-    await win.keyboard.type('echo pine_$((20+22))_ok')
+    await win.keyboard.type('echo ostia_$((20+22))_ok')
     await win.keyboard.press('Enter')
     await expect(rows).toContainText('ostia_42_ok', { timeout: 15_000 })
     await expect(rows).not.toContainText('ostia_kk')

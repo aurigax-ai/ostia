@@ -681,8 +681,8 @@ async function runGatewayVerb(conn: MessageConnection): Promise<void> {
       return
     }
     console.log(JSON.stringify(res, null, 2))
-    console.log(`\npine-pair://${Buffer.from(JSON.stringify(res)).toString('base64url')}`)
-    console.log('\n(scan the JSON above as a QR from the phone, or paste the pine-pair:// URI)')
+    console.log(`\nostia-pair://${Buffer.from(JSON.stringify(res)).toString('base64url')}`)
+    console.log('\n(scan the JSON above as a QR from the phone, or paste the ostia-pair:// URI)')
   } else if (sub === 'status') {
     const res = await conn.sendRequest<GatewayStatusResult | GatewayErr>('gateway.status', {})
     if (isErrResult(res)) {

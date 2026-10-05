@@ -6,7 +6,6 @@ import {
   mkdtempSync,
   readFileSync,
   readdirSync,
-  renameSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -34,14 +33,14 @@ function manifestFiles(): string[] {
   return [
     ...readdirSync(extensions)
       .filter((id) => id !== 'sdk')
-      .map((id) => join(extensions, id, 'pine.json')),
-    join(repoRoot, 'sdk-package/template/pine.json'),
-    join(repoRoot, 'test/fixtures/extensions/echo/pine.json'),
-    join(repoRoot, 'test/fixtures/extensions-e2e/hello/pine.json'),
-    join(repoRoot, 'test/fixtures/extensions-agent/agent-kit/pine.json'),
-    join(repoRoot, 'test/fixtures/extensions-lsp/fake-lang/pine.json'),
-    join(repoRoot, 'test/fixtures/extensions-lsp/fake-json/pine.json'),
-    join(repoRoot, 'test/fixtures/extensions-lsp/fake-grammar/pine.json'),
+      .map((id) => join(extensions, id, 'ostia.json')),
+    join(repoRoot, 'sdk-package/template/ostia.json'),
+    join(repoRoot, 'test/fixtures/extensions/echo/ostia.json'),
+    join(repoRoot, 'test/fixtures/extensions-e2e/hello/ostia.json'),
+    join(repoRoot, 'test/fixtures/extensions-agent/agent-kit/ostia.json'),
+    join(repoRoot, 'test/fixtures/extensions-lsp/fake-lang/ostia.json'),
+    join(repoRoot, 'test/fixtures/extensions-lsp/fake-json/ostia.json'),
+    join(repoRoot, 'test/fixtures/extensions-lsp/fake-grammar/ostia.json'),
   ]
 }
 
@@ -54,7 +53,7 @@ describe('manifest schemas', () => {
   })
 
   it('refuse what the loader refuses', () => {
-    const base = { id: 'demo', name: 'Demo', version: '1.0.0', api: '1.0' }
+    const base = { id: 'demo', name: 'Demo', version: '1.0.0', api: '2.0' }
     const pageSettings = { mode: { type: 'string', default: '', description: 'd' } }
     const agentHookCommand = { id: 'on-hook', title: 'Hook', palette: false, stdin: true }
     const bad: Record<string, unknown>[] = [
@@ -251,17 +250,6 @@ describe('manifest schemas', () => {
     expect(schema.required).toEqual(['id', 'name', 'version', 'api'])
     expect(schema.properties.category?.enum).toContain('scm')
   })
-
-  it('also ship under their old pine names, unchanged, for manifests that point there', () => {
-    const pkg = JSON.parse(readFileSync(join(sdkPackage, 'package.json'), 'utf8'))
-    for (const kind of ['', '-marketplace']) {
-      const current = readFileSync(join(sdkPackage, `schemas/ostia${kind}.schema.json`), 'utf8')
-      const legacy = readFileSync(join(sdkPackage, `schemas/pine${kind}.schema.json`), 'utf8')
-      expect(legacy).toBe(current)
-      expect(pkg.exports[`./schemas/ostia${kind}.schema.json`]).toBeDefined()
-      expect(pkg.exports[`./schemas/pine${kind}.schema.json`]).toBeDefined()
-    }
-  })
 })
 
 describe('extension API version', () => {
@@ -298,7 +286,6 @@ describe('extension API version', () => {
   it('is published in the package for authors and tools', () => {
     const pkg = JSON.parse(readFileSync(join(sdkPackage, 'package.json'), 'utf8'))
     expect(pkg.ostiaExtensionApi).toBe(EXTENSION_API_VERSION)
-    expect(pkg.pineExtensionApi).toBe(EXTENSION_API_VERSION)
   })
 
   it('is published as @aurigax-ai/ostia-extension-sdk', () => {
@@ -307,9 +294,9 @@ describe('extension API version', () => {
     expect(pkg.repository.url).toBe('git+https://github.com/aurigax-ai/ostia.git')
   })
 
-  it('declares the ostia-extension command, and pine-extension as the same program, in the form npm keeps', () => {
+  it('declares the ostia-extension command in the form npm keeps', () => {
     const pkg = JSON.parse(readFileSync(join(sdkPackage, 'package.json'), 'utf8'))
-    expect(pkg.bin).toEqual({ 'ostia-extension': 'dist/cli.cjs', 'pine-extension': 'dist/cli.cjs' })
+    expect(pkg.bin).toEqual({ 'ostia-extension': 'dist/cli.cjs' })
     expect(existsSync(join(sdkPackage, pkg.bin['ostia-extension']))).toBe(true)
   })
 })
@@ -325,7 +312,7 @@ describe('the marketplace project, built the way its own repository builds it', 
     for (const file of [
       'src/extensions/trellis/main.ts',
       'src/extensions/keeper/service.test.ts',
-      'src/extensions/model-runtime/pine.json',
+      'src/extensions/model-runtime/ostia.json',
       'test/fixtures/tools/bin/trellis',
     ]) {
       expect(readFileSync(join(marketplace, file), 'utf8'), file).toBe(
@@ -374,7 +361,7 @@ describe('the marketplace project, built the way its own repository builds it', 
   it('ships each extension’s catalogs, and its panel files when it has a panel', () => {
     const built = join(marketplace, 'extensions')
     for (const id of readdirSync(built)) {
-      const manifest = JSON.parse(readFileSync(join(built, id, 'pine.json'), 'utf8'))
+      const manifest = JSON.parse(readFileSync(join(built, id, 'ostia.json'), 'utf8'))
       for (const tag of manifest.locales ?? []) {
         expect(existsSync(join(built, id, 'locales', `${tag}.json`)), `${id} ${tag}`).toBe(true)
       }
@@ -390,7 +377,7 @@ describe('the marketplace project, built the way its own repository builds it', 
   it('ships every file of the agent skills an extension declares, as the source has them', () => {
     const built = join(marketplace, 'extensions')
     const shipped = readdirSync(built).flatMap((id) => {
-      const manifest = JSON.parse(readFileSync(join(built, id, 'pine.json'), 'utf8'))
+      const manifest = JSON.parse(readFileSync(join(built, id, 'ostia.json'), 'utf8'))
       return (manifest.contributes?.agentSkills ?? []).flatMap(
         (skill: { path: string; files?: string[] }) =>
           ['SKILL.md', ...(skill.files ?? [])].map((file) => join(id, skill.path, file)),
@@ -407,7 +394,7 @@ describe('the marketplace project, built the way its own repository builds it', 
   it('ships the server every language extension runs from its own folder, as its package has it', () => {
     const built = join(marketplace, 'extensions')
     const servers = readdirSync(built).flatMap((id) => {
-      const manifest = JSON.parse(readFileSync(join(built, id, 'pine.json'), 'utf8'))
+      const manifest = JSON.parse(readFileSync(join(built, id, 'ostia.json'), 'utf8'))
       return (manifest.contributes?.languageServers ?? [])
         .filter((server: { run: { node?: string } }) => server.run.node)
         .map((server: { run: { node: string } }) => join(id, server.run.node))
@@ -480,7 +467,7 @@ describe('the SDK package, used the way an extension author uses it', () => {
       expect(res.status).toBe(0)
       expect(res.stdout).toContain('created the Weather Report extension in weather-report')
       const made = join(parent, 'weather-report')
-      const manifest = JSON.parse(readFileSync(join(made, 'pine.json'), 'utf8'))
+      const manifest = JSON.parse(readFileSync(join(made, 'ostia.json'), 'utf8'))
       expect(parseManifest(manifest, made).ok).toBe(true)
       expect(manifest).toMatchObject({ id: 'weather-report', name: 'Weather Report' })
       expect(manifest.contributes.commands[0]).toMatchObject({
@@ -511,7 +498,7 @@ describe('the SDK package, used the way an extension author uses it', () => {
     })
     const taken = runSdkCli(['create', 'again', project], template)
     expect(taken).toEqual({ code: 1, lines: [`${project}: already exists and is not empty`] })
-    expect(JSON.parse(readFileSync(join(project, 'pine.json'), 'utf8')).id).toBe('hello')
+    expect(JSON.parse(readFileSync(join(project, 'ostia.json'), 'utf8')).id).toBe('hello')
     expect(runSdkCli(['create'], template)).toEqual({ code: 2, lines: [SDK_CLI_USAGE] })
   })
 
@@ -531,18 +518,8 @@ describe('the SDK package, used the way an extension author uses it', () => {
   it('reports a broken manifest, a linked file, a bad catalog and a bad marketplace entry', () => {
     const broken = join(project, 'broken')
     mkdirSync(broken)
-    writeFileSync(join(broken, 'pine.json'), JSON.stringify({ id: 'broken' }))
-    expect(runSdkCli(['validate', broken])).toEqual({ code: 1, lines: ['pine.json: missing name'] })
-
-    const renamed = join(project, 'renamed')
-    cpSync(built, renamed, { recursive: true })
-    renameSync(join(renamed, 'pine.json'), join(renamed, 'ostia.json'))
-    expect(runSdkCli(['validate', renamed])).toEqual({
-      code: 0,
-      lines: ['ok: extension hello 0.1.0'],
-    })
-    writeFileSync(join(renamed, 'ostia.json'), JSON.stringify({ id: 'renamed' }))
-    expect(runSdkCli(['validate', renamed])).toEqual({
+    writeFileSync(join(broken, 'ostia.json'), JSON.stringify({ id: 'broken' }))
+    expect(runSdkCli(['validate', broken])).toEqual({
       code: 1,
       lines: ['ostia.json: missing name'],
     })
@@ -552,7 +529,7 @@ describe('the SDK package, used the way an extension author uses it', () => {
     symlinkSync('/etc/hostname', join(linked, 'host'))
     expect(runSdkCli(['validate', linked])).toEqual({
       code: 1,
-      lines: ['pine.json: holds a link or special file, which a marketplace install refuses'],
+      lines: ['ostia.json: holds a link or special file, which a marketplace install refuses'],
     })
 
     const mistranslated = join(project, 'mistranslated')
@@ -564,13 +541,13 @@ describe('the SDK package, used the way an extension author uses it', () => {
     expect(runSdkCli(['validate', mistranslated])).toEqual({
       code: 1,
       lines: [
-        "pine.json: locales/zh-Hant.json: manifest.commands.wipe.title: not a string this extension's manifest declares",
+        "ostia.json: locales/zh-Hant.json: manifest.commands.wipe.title: not a string this extension's manifest declares",
       ],
     })
     rmSync(join(mistranslated, 'locales/zh-Hant.json'))
     expect(runSdkCli(['validate', mistranslated])).toEqual({
       code: 1,
-      lines: ['pine.json: locales/zh-Hant.json: missing'],
+      lines: ['ostia.json: locales/zh-Hant.json: missing'],
     })
 
     const marketplace = join(project, 'marketplace')

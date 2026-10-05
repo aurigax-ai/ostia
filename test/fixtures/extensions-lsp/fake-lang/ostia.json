@@ -1,0 +1,58 @@
+{
+  "id": "fake-lang",
+  "name": "Fake language",
+  "version": "1.0.0",
+  "api": "2.0",
+  "description": "Test fixture: a fake language server for plain text files",
+  "category": "languages",
+  "capabilities": ["language-server"],
+  "contributes": {
+    "settings": {
+      "mode": {
+        "type": "enum",
+        "values": ["calm", "loud"],
+        "default": "calm",
+        "description": "How the fake server behaves"
+      }
+    },
+    "languageServers": [
+      {
+        "id": "fake",
+        "name": "Fake server",
+        "languages": ["plaintext"],
+        "documentLanguageIds": {
+          "plaintext": "fake",
+          ".fake.txt": "fake-special"
+        },
+        "run": {
+          "node": "server/fake-server.cjs",
+          "args": ["--record={root}/.fake-lsp-record.jsonl", "--sync=incremental"]
+        },
+        "rootMarkers": ["fake.toml"],
+        "initializationOptions": {
+          "extension": "{extensionDir}",
+          "root": "{root}"
+        },
+        "settings": {
+          "fake": {
+            "mode": "calm",
+            "root": "{root}"
+          }
+        },
+        "settingPaths": {
+          "mode": "fake.mode"
+        }
+      },
+      {
+        "id": "absent",
+        "name": "Absent server",
+        "languages": ["plaintext"],
+        "run": {
+          "program": "ostia-absent-lsp",
+          "package": "ostia-absent-lsp",
+          "args": []
+        }
+      }
+    ]
+  }
+}

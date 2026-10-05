@@ -74,7 +74,7 @@ describe('assist routing across providers, models and extensions', () => {
     catalog.models.map((m) => `${m.group}/${m.label}`)
 
   beforeAll(() => {
-    dir = mkdtempSync(join(tmpdir(), 'pine-ext-models-'))
+    dir = mkdtempSync(join(tmpdir(), 'ostia-ext-models-'))
     const socketPath = join(dir, 'control.sock')
     settings = {
       providers: [

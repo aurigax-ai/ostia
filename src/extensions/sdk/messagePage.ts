@@ -19,10 +19,10 @@ export function messagePageHtml(title: string, body: string): string {
   return `<!doctype html>
 <html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title>
 <style>
-html,body{margin:0;height:100%;background:var(--ostia-surface-1,var(--pine-surface-1,#272a2d));color:var(--ostia-fg,var(--pine-fg,#e3edf5));font-family:var(--ostia-font-ui,system-ui,sans-serif);font-size:var(--ostia-font-size,13px);line-height:calc(var(--ostia-font-size,13px) + 7px);font-weight:var(--ostia-font-weight,400);color-scheme:var(--ostia-color-scheme,var(--pine-color-scheme,dark))}
+html,body{margin:0;height:100%;background:var(--ostia-surface-1, #272a2d);color:var(--ostia-fg, #e3edf5);font-family:var(--ostia-font-ui,system-ui,sans-serif);font-size:var(--ostia-font-size,13px);line-height:calc(var(--ostia-font-size,13px) + 7px);font-weight:var(--ostia-font-weight,400);color-scheme:var(--ostia-color-scheme, dark)}
 main{display:flex;flex-direction:column;justify-content:center;gap:8px;height:100%;max-width:560px;margin:0 auto;padding:0 24px}
 h1{font-size:calc(var(--ostia-font-size,13px) + 3px);line-height:calc(var(--ostia-font-size,13px) + 9px);font-weight:calc(var(--ostia-font-weight,400) + 200);margin:0}
-p{margin:0;color:var(--ostia-fg-muted,var(--pine-fg-muted,#9aa1a5));white-space:pre-wrap}
+p{margin:0;color:var(--ostia-fg-muted, #9aa1a5);white-space:pre-wrap}
 </style></head>
 <body><main role="alert"><h1>${escapeHtml(title)}</h1><p>${escapeHtml(body)}</p></main></body></html>`
 }

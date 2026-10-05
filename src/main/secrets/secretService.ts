@@ -78,9 +78,9 @@ export class SecretService {
     }
     for (const { key, scope } of this.deps.vault.list(workspaceId)) {
       out.push({
-        id: `pine:${scope}:${key}`,
+        id: `ostia:${scope}:${key}`,
         name: key,
-        source: 'pine',
+        source: 'ostia',
         kind: 'vault',
         editable: true,
       })
@@ -100,7 +100,7 @@ export class SecretService {
     }
     if (source === 'host' && kind === 'env') return this.deps.env()[tail] ?? null
     if (source === 'host' && kind === 'gh') return this.deps.ghToken()
-    if (source === 'pine' && (kind === 'global' || kind === 'project')) {
+    if (source === 'ostia' && (kind === 'global' || kind === 'project')) {
       return this.deps.vault.get(tail, kind, workspaceId)
     }
     return null

@@ -11,7 +11,7 @@ import {
   type MessageConnection,
 } from 'vscode-jsonrpc/node'
 import { AGENT_PLUGIN_CAPABILITY, agentSkillId, hookAgentsFor } from '../shared/agentPlugins'
-import { dualEnv, withoutEnv } from '../shared/appEnv'
+import { appEnv, withoutEnv } from '../shared/appEnv'
 import {
   ASSIST_ERRORS,
   ASSIST_POINTS,
@@ -951,7 +951,7 @@ export class ExtensionHost {
     const script = /\.(c|m)?js$/.test(main)
     const env: NodeJS.ProcessEnv = {
       ...withoutEnv(process.env, ['PANE_ID', 'START_DIR']),
-      ...dualEnv({
+      ...appEnv({
         SOCKET: this.deps.socketPath(),
         TOKEN: identity.token,
         [EXTENSION_API_ENV]: EXTENSION_API_VERSION,

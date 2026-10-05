@@ -5,16 +5,16 @@ import { freshDataHome, isolatedLaunch } from './dataHome'
 import { fakeAgentBin, startFakeAgent } from './fakeAgent'
 import { openWorkspace } from './helpers'
 
-const PINE = 'ELECTRON_RUN_AS_NODE=1 "$PINE_NODE" "$PINE_CLI"'
+const OSTIA_RUN = 'ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" "$OSTIA_CLI"'
 
 function waitingAgent(lateMark: string): string {
   return [
     '#!/bin/sh',
     'echo fake-agent-ready',
-    `${PINE} state waiting 'Approve the plan?'`,
+    `${OSTIA_RUN} state waiting 'Approve the plan?'`,
     'echo fake-agent-waiting',
     'sleep 4',
-    `( sleep 2; ${PINE} state waiting 'late report'; touch '${lateMark}' ) >/dev/null 2>&1 &`,
+    `( sleep 2; ${OSTIA_RUN} state waiting 'late report'; touch '${lateMark}' ) >/dev/null 2>&1 &`,
     'echo fake-agent-gone',
     'exit 0',
     '',

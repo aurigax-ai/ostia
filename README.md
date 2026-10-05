@@ -84,8 +84,7 @@ pnpm install:local
 ```
 
 `install:local` packages the app, copies it to `~/.local/share/ostia/app`, and adds a desktop
-launcher and the `ostia` command in `~/.local/bin` (`pine`, its old name, still works). Run it
-again to update.
+launcher and the `ostia` command in `~/.local/bin`. Run it again to update.
 
 ## Develop
 
