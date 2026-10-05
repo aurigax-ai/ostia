@@ -9,11 +9,11 @@ import {
 } from 'node:fs'
 import { basename, join } from 'node:path'
 import type { AgentResume, ResumableAgent } from '../shared/agentResume'
-import { PRODUCT_NAME } from '../shared/product'
+import { LEGACY_PRODUCT_NAME, PRODUCT_NAME } from '../shared/product'
 import managerSkill from './agent/pine-manager-skill.md?raw'
 import { CLAUDE_PLUGIN_MANIFEST, claudeHookSettings, codexHookArgs } from './shellIntegration'
 
-export const MANAGER_SKILL_NAME = `${PRODUCT_NAME}-manager`
+export const MANAGER_SKILL_NAME = `${LEGACY_PRODUCT_NAME}-manager`
 
 export function managerAgentKind(program: string): ResumableAgent | null {
   const name = basename(program)

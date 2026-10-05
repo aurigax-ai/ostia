@@ -72,7 +72,7 @@ beforeAll(async () => {
   home = join(root, 'home')
   workDir = join(home, 'proj')
   tmpDir = join(root, 'wstmp')
-  dataDir = join(home, '.local/share/pine')
+  dataDir = join(home, '.local/share/ostia')
   runtimeDir = join(root, 'run')
   for (const d of [
     workDir,
@@ -90,6 +90,8 @@ beforeAll(async () => {
   writeFileSync(join(dataDir, 'vault.json'), '{}')
   mkdirSync(join(workDir, '.pine'), { recursive: true })
   writeFileSync(join(workDir, '.pine/vault.json'), '{"K":"cipher"}')
+  mkdirSync(join(workDir, '.ostia'), { recursive: true })
+  writeFileSync(join(workDir, '.ostia/vault.json'), '{"K":"newcipher"}')
   writeFileSync(join(workDir, 'readme.txt'), 'hello')
   socketPath = join(runtimeDir, 'pine.sock')
   await new Promise<void>((resolve) => createServer().listen(socketPath, resolve))
@@ -174,11 +176,12 @@ describe('sandbox runtime', () => {
     expect(res.code).toBe(0)
   })
 
-  it('SBX-C62 hides the project vault from the sandbox', async () => {
+  it('SBX-C62 hides the project vault from the sandbox, in .ostia and the older .pine', async () => {
     const res = await run(
-      `cat ${workDir}/.pine/vault.json; rm -f ${workDir}/.pine/vault.json; true`,
+      `cat ${workDir}/.ostia/vault.json ${workDir}/.pine/vault.json; rm -f ${workDir}/.ostia/vault.json ${workDir}/.pine/vault.json; true`,
     )
     expect(res.out).not.toContain('cipher')
+    expect(existsSync(join(workDir, '.ostia/vault.json'))).toBe(true)
     expect(existsSync(join(workDir, '.pine/vault.json'))).toBe(true)
   })
 

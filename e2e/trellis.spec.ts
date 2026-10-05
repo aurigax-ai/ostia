@@ -95,9 +95,9 @@ test('the trellis panel draws the board, a card and the vault from the CLI and f
       new: 'review',
     })}\n`,
   )
-  mkdirSync(join(dataHome, 'pine'), { recursive: true })
+  mkdirSync(join(dataHome, 'ostia'), { recursive: true })
   writeFileSync(
-    join(dataHome, 'pine', 'workspaces.json'),
+    join(dataHome, 'ostia', 'workspaces.json'),
     JSON.stringify({
       v: 1,
       savedAt: new Date().toISOString(),

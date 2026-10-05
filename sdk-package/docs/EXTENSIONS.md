@@ -17,7 +17,10 @@ If you only need to show something (a sidebar section, a panel with buttons), a
 | Location | Kind |
 |---|---|
 | `resources/extensions/<id>/` in the app (`out/extensions` in dev) | Built-in: pre-approved, enabled by default |
-| `~/.config/pine/extensions/<id>/` (`$XDG_CONFIG_HOME` is honored) | Yours: asks for approval on first launch |
+| `~/.config/ostia/extensions/<id>/` (`$XDG_CONFIG_HOME` is honored) | Yours: asks for approval on first launch |
+
+Versions before the rename used `~/.config/pine/extensions/`. The first launch of Ostia copies
+that folder to `~/.config/ostia/` and leaves the old one as it was.
 
 Extensions are discovered at startup, and pine watches your extensions directory while it
 runs: adding, changing or removing a `pine.json` takes effect within a moment, no restart needed.
@@ -64,7 +67,7 @@ version. A wrong code answers the same whether or not anything is unlisted under
 unlisted entry is not named under "Entries that could not be offered".
 
 ```sh
-pnpm exec pine-extension unlist extensions/timer     # run in the marketplace folder
+pnpm exec ostia-extension unlist extensions/timer     # run in the marketplace folder
 ```
 
 moves the path from `extensions` to `unlisted`, generates its code and prints it. Give the code to
@@ -83,7 +86,7 @@ Rules for a listed extension:
 - An entry with a broken `pine.json`, a missing folder or an id another entry already uses is
   listed under "Entries that could not be offered" and the rest still work.
 
-Install copies the folder to `~/.config/pine/extensions/<id>/`, where it is an ordinary user
+Install copies the folder to `~/.config/ostia/extensions/<id>/`, where it is an ordinary user
 extension: it waits for the approval dialog before anything runs, and any approval an earlier
 extension with that id had is dropped first. Refresh re-downloads the marketplace; when the listed
 version differs from the installed one the row offers Update, which replaces the files and keeps
@@ -95,7 +98,13 @@ overwritten. Removing a marketplace leaves its installed extensions in place.
 There is no `pine` CLI verb or socket method for any of this: only the human adds marketplaces and
 installs, updates or uninstalls, from Settings.
 
-## Manifest (`pine.json`)
+## Manifest (`ostia.json` or `pine.json`)
+
+The manifest is `ostia.json`, or `pine.json`, its name before the rename. Both are read, and
+`ostia.json` wins when a folder has both. Versions before the rename (extension API 1.14 and
+older) read only `pine.json`, so keep that name while you want them to load your extension; this
+document and the template use it. A marketplace manifest works the same way:
+`ostia-marketplace.json` or `pine-marketplace.json`.
 
 ```json
 {
@@ -145,13 +154,13 @@ installs, updates or uninstalls, from Settings.
 | `contributes.panel` | `title`, optional `icon`, and `entry`: a `.html` path inside the extension, or `"url"` to hand pine a loopback URL at runtime. |
 | `contributes.paneChips` | Up to 8 `{id, title}`. Each is a slot for a short value you put on a pane's header with `ext.setPaneChip` (for example a venv or a test count). `title` names it in tooltips and in Settings → Prompt: the human can also place your chip in the Pine prompt's chip row (`terminal.prompt.chips` id `<extId>.<chip>`), where it shows the same value. Needs `main`. |
 | `contributes.workspaceChips` | Up to 8 `{id, title}`, like `paneChips` but for a value that describes a whole workspace (for example its repository's branch and changes). You set it with `ext.setWorkspaceChip`; the top bar shows the chips of the active workspace. The Pine prompt can show it too (same `<extId>.<chip>` id): a pane's prompt shows its own pane chip if there is one, otherwise its workspace's. Needs `main`. |
-| `api` | Required. The extension API version you wrote against, `major.minor` (`"1.0"`). pine loads the extension only when it provides that major and at least that minor; otherwise the manifest is refused with `needs extension API X; this pine provides Y`, in the log, in `pine-extension validate` and under a marketplace's "Entries that could not be offered". See "API version" |
+| `api` | Required. The extension API version you wrote against, `major.minor` (`"1.0"`). pine loads the extension only when it provides that major and at least that minor; otherwise the manifest is refused with `needs extension API X; this pine provides Y`, in the log, in `ostia-extension validate` and under a marketplace's "Entries that could not be offered". See "API version" |
 | `category` | Optional, one of `ai`, `scm`, `tools`, `themes`, `langpack`, `completions`, `languages`, `other` (the default). Settings → Extensions and the marketplace show it as a badge. Anything else refuses the manifest |
 | `contributes.languages` | Up to 8 language packs, each `{id, label, path}`: `id` is a language tag (`fr`, `zh-Hant`), `label` the name shown in Settings → Language, `path` a `.json` file inside the extension. The file is a nested object of strings shaped like pine's English catalog (`src/renderer/i18n/dict.ts`, `en`): translate the keys you want, anything missing stays English, and keys English doesn't have are ignored. Keep `{placeholders}` as they are. No `main` needed. Main reads the file (no symlinks, ≤ 1 MiB, strings ≤ 4000 characters) only while the extension is enabled; disabling it puts the interface back in English. The first enabled extension to provide a language wins, and none can replace English |
 | `contributes.settings` | Up to 32 keys (`[A-Za-z][A-Za-z0-9_-]*`), each `{type, default, description}` with `type` one of `string` (≤ 1000 chars), `number`, `boolean`, `enum` (plus `values: string[]`). The default must match the type. Optional: `title`, the label Settings shows (sentence case, ≤ 80 chars, no control characters; without it Settings humanizes the key, `intervalSeconds` → "Interval seconds"); for `enum`, `valueTitles: {<value>: <label>}` for the options (keys must be in `values`); for `number`, `minimum` and `maximum` (main refuses values outside them, and the default must be inside) and `unit` (`seconds` or `per-minute`), which Settings shows after the description as "(1 to 60 seconds)", so leave the range out of the description. Settings shows the raw key in small mono type next to the title for people who edit `settings.json`. Titles, descriptions and value titles may say `{product}`, which Settings replaces with the product name; never write the product name itself. Main checks all of it when it loads the manifest. Manifest strings are not localized. Settings → Extensions shows a form for them (or your own page, with `contributes.settingsPage`); the human's values are stored in `settings.json` under `extensionSettings.<id>` and synced with it, so never put a secret there. |
 | `contributes.settingsPage` | Optional `{title, icon?}` (API 1.8): gives your settings and secrets their own entry in Settings, under Extensions, instead of a form under your row in Settings → Extensions. `title` (≤ 80 chars, no control characters, may say `{product}`) names the entry and heads the page; `icon` is one of the sidebar item icon names (`kanban`, `plugs`, …; anything else refuses the manifest). The page draws the same form, so main still validates every value against `contributes.settings`. It shows only while the extension is enabled; while it is disabled the form stays under its row. Needs `contributes.settings` or `contributes.secrets`, and is refused with `contributes.assist`, whose settings live in Settings → Assistant. Your row in Settings → Extensions links to the page. Use it when your settings are many or form a whole area of their own; a few switches read better under your row. |
 | `contributes.workflows[]` | Saved workflows in Warp's format (at most 64): `name`, `command` with `{{arg}}` placeholders (`{{{x}}}` is a literal `{{x}}`), optional `description`, `tags`, `arguments[{name, description, default_value}]`, `shells`, `author`, `source_url`. Data only: no `main` needed. They appear in "Workflows: Search" and `pine workflow list` while the extension is enabled and approved; pine inserts one at an idle prompt only when the human picks it. |
-| `contributes.completions` | A folder inside the extension holding command completion specs, one `<command>.json` per command: `{names, description, subcommands[], options[{names, description, args, isPersistent, isRepeatable}], args[{name, description, suggestions[{name, description}], template: ["filepaths" \| "folders"], isOptional, isVariadic}]}`. Data only: no `main` needed, and nothing in a spec runs. Main reads a spec when the input editor completes that command (size-capped, symlinks refused, validated); `~/.config/pine/completions/<command>.json` wins over any extension's. The built-in `completions` extension ships about 700 specs converted from Fig's `@withfig/autocomplete` at build time (`scripts/completionSpecs.mjs`). |
+| `contributes.completions` | A folder inside the extension holding command completion specs, one `<command>.json` per command: `{names, description, subcommands[], options[{names, description, args, isPersistent, isRepeatable}], args[{name, description, suggestions[{name, description}], template: ["filepaths" \| "folders"], isOptional, isVariadic}]}`. Data only: no `main` needed, and nothing in a spec runs. Main reads a spec when the input editor completes that command (size-capped, symlinks refused, validated); `~/.config/ostia/completions/<command>.json` wins over any extension's. The built-in `completions` extension ships about 700 specs converted from Fig's `@withfig/autocomplete` at build time (`scripts/completionSpecs.mjs`). |
 
 | `contributes.secrets` | Up to 8 keys (same pattern as settings), each `{description}` and an optional `title` (same rules as a setting's). Settings → Extensions shows a password field per key; the value is stored encrypted in pine's data dir (never in `settings.json`, never synced) and never sent back to the renderer. Read it with `ext.getSecret`. |
 | `contributes.assist` | Which assist points you serve: any of `input`, `command`, `completion`, `terminal`, `chat` (see [Assist](#assist)). Needs the `assist` capability and `main`; such an extension starts with the window. |
@@ -229,7 +238,7 @@ and its value fits the limits of the string it replaces (non-empty, the same max
 control characters). So a catalog can reword what the manifest says and nothing more: it cannot
 add a command, a setting, an option or a title the manifest lacks, and it never carries ids,
 `usage`, values, capabilities, markup or code. Anything else in the section is dropped and logged
-(`pine-extension validate` reports it as an error), and the rest of the catalog still applies.
+(`ostia-extension validate` reports it as an error), and the rest of the catalog still applies.
 
 Not translatable: `id`s, `version`, `usage` (it is command syntax, shown to agents), enum `values`,
 `contributes.workflows`, and the `label`s of icon themes, keymaps and languages (write a language's label
@@ -250,7 +259,7 @@ results, panel pages) is yours to translate. pine passes it through as written a
 the `messages` section. The SDK reads it for you:
 
 ```ts
-import { connect, createTranslator, ok } from '@aurigax-ai/pine-extension-sdk'
+import { connect, createTranslator, ok } from '@aurigax-ai/ostia-extension-sdk'
 
 const ext = await connect()
 const translate = createTranslator()
@@ -307,7 +316,7 @@ extension you do not own, send its author the `locales/<tag>.json` file (one fil
 such as Material Icon Theme works without changes:
 
 1. Unzip the `.vsix` (it is a zip) and copy its `extension/` folder to
-   `~/.config/pine/extensions/<name>/`.
+   `~/.config/ostia/extensions/<name>/`.
 2. Add a `pine.json` next to its `package.json`, pointing at the theme JSON the `package.json`
    lists under `contributes.iconThemes[].path`:
 
@@ -713,7 +722,7 @@ The frontmatter is read by a small line parser, not a YAML library: only `key: v
 column 0, with a plain one-line value optionally in one pair of matching quotes (no escapes), and
 exactly one `name` and one `description`. Block scalars (`>`, `|`), indented or nested lines, flow
 collections, anchors, aliases, tags, quoted keys, a space before the colon, duplicate keys,
-comments (`#`) and a second frontmatter block are refused, and `pine-extension validate` reports
+comments (`#`) and a second frontmatter block are refused, and `ostia-extension validate` reports
 the line.
 
 pine writes the copy's `name` as `<extension id>-<name>`, so two extensions' skills never
@@ -722,7 +731,7 @@ collide and none can take the name of pine's own `pine` skill.
 Main reads the files only while the extension is enabled and its `agent-plugin` capability is
 approved, and checks each one: a regular file inside the extension folder with no symlink
 anywhere on its path, plain UTF-8 text, at most 256 KiB, at most 1 MiB for the whole skill. A
-skill that fails is left out and logged, and `pine-extension validate` reports it. Claude gets
+skill that fails is left out and logged, and `ostia-extension validate` reports it. Claude gets
 the files as a skill of pine's plugin; Codex has no way to add a skill folder, so its session
 context lists each skill's description and the path of its `SKILL.md` for it to read.
 
@@ -1191,9 +1200,9 @@ Three places check it:
 
 | Where | What happens |
 |---|---|
-| `pine.json` `api` | Checked when the manifest is read (startup, hot reload, a marketplace catalog, `pine-extension validate`). A newer minor or another major refuses the extension before anything runs |
+| `pine.json` `api` | Checked when the manifest is read (startup, hot reload, a marketplace catalog, `ostia-extension validate`). A newer minor or another major refuses the extension before anything runs |
 | `OSTIA_EXTENSION_API` | pine puts the version it provides in the environment of every extension process (also as `PINE_EXTENSION_API`), next to `OSTIA_SOCKET` and `OSTIA_TOKEN`, for extensions that speak the protocol without the SDK |
-| SDK `connect()` | The SDK is built for one API version (`EXTENSION_API_VERSION`, also `pineExtensionApi` in its `package.json` and `api.json`). `connect()` throws when the app provides an older one, so an extension built with a newer SDK fails with a clear message instead of calling methods that aren't there |
+| SDK `connect()` | The SDK is built for one API version (`EXTENSION_API_VERSION`, also `ostiaExtensionApi` (and the older `pineExtensionApi`) in its `package.json` and `api.json`). `connect()` throws when the app provides an older one, so an extension built with a newer SDK fails with a clear message instead of calling methods that aren't there |
 
 Set `api` to the version of the SDK you build with. Raise it only when you start using something
 newer; an extension that declares `1.0` keeps loading in every `1.x`.
@@ -1206,22 +1215,22 @@ to refresh the digest without bumping.
 
 ## The SDK package
 
-`@aurigax-ai/pine-extension-sdk` on npm is the same SDK the built-in extensions use, packaged for
+`@aurigax-ai/ostia-extension-sdk` on npm is the same SDK the built-in extensions use, packaged for
 extensions written outside the app:
 
 ```sh
-pnpm add -D @aurigax-ai/pine-extension-sdk
+pnpm add -D @aurigax-ai/ostia-extension-sdk
 ```
 
 | Part | What it is |
 |---|---|
-| `@aurigax-ai/pine-extension-sdk` | `connect()` and everything in "Talking to pine" below the raw protocol |
+| `@aurigax-ai/ostia-extension-sdk` | `connect()` and everything in "Talking to pine" below the raw protocol |
 | `…/panel`, `…/splitter`, `…/panel.css` | The panel page helpers and base styles |
 | `…/assist` | The assistant engine: `runAssistExtension({catalog})` with your own `ProviderCatalog` (needs `ai`, `zod`, `@ai-sdk-tool/parser`, `undici`) |
-| `schemas/pine.schema.json`, `schemas/pine-marketplace.schema.json` | JSON Schemas for the two manifest files; name one in `"$schema"` and your editor checks the file as you type |
-| `pine-extension validate [folder]` | Runs the loader's own checks on an extension folder (its manifest, every catalog under `locales/`, plus the marketplace install limits), or on a marketplace folder and every extension it lists or holds unlisted. Exits 0 when pine would accept it |
-| `pine-extension unlist <extension folder> [marketplace folder]` | Moves a listed extension to `unlisted` in `pine-marketplace.json` and generates its install code |
-| `pine-extension create <id> [folder]` | Writes a new extension project from `template/`: a `pine.json` with that id, TypeScript source, a build that bundles it into one `main.js`, English and Traditional Chinese catalogs under `locales/`, `pnpm validate` |
+| `schemas/ostia.schema.json`, `schemas/ostia-marketplace.schema.json` | JSON Schemas for the two manifest files (also published under their old names, `pine.schema.json` and `pine-marketplace.schema.json`); name one in `"$schema"` and your editor checks the file as you type |
+| `ostia-extension validate [folder]` | Runs the loader's own checks on an extension folder (its manifest, every catalog under `locales/`, plus the marketplace install limits), or on a marketplace folder and every extension it lists or holds unlisted. Exits 0 when pine would accept it |
+| `ostia-extension unlist <extension folder> [marketplace folder]` | Moves a listed extension to `unlisted` in `pine-marketplace.json` and generates its install code |
+| `ostia-extension create <id> [folder]` | Writes a new extension project from `template/`: a `pine.json` with that id, TypeScript source, a build that bundles it into one `main.js`, English and Traditional Chinese catalogs under `locales/`, `pnpm validate` |
 
 It is generated from this repository by `pnpm build:sdk` (`scripts/build-sdk.mjs`) and published
 to npm by `release.yml` on every `v*` tag; its version is the app's version. The JSON
@@ -1230,7 +1239,7 @@ and `validate` runs that loader.
 
 ## Example: a minimal extension
 
-`~/.config/pine/extensions/hello/pine.json`:
+`~/.config/ostia/extensions/hello/pine.json`:
 
 ```json
 {
@@ -1322,7 +1331,7 @@ The `trellis` and `keeper` extensions (in the marketplace) are the reference for
 
 When all you need is something for the human to look at (a sidebar section of agents and their
 state, a panel with a checklist, a few buttons that run palette commands), write a view instead
-of an extension. A view is one JSON file, `~/.config/pine/views/<name>.json` (`$XDG_CONFIG_HOME`
+of an extension. A view is one JSON file, `~/.config/ostia/views/<name>.json` (`$XDG_CONFIG_HOME`
 is honored; `<name>` is lowercase `a-z0-9-`, up to 40 characters). It has no process, no HTML and
 no script: pine validates the file and draws it with its own components, bound to live data.
 
@@ -1396,7 +1405,7 @@ only `src/extensions/sdk/` and `src/shared/` — never `src/main` or `src/render
 
 These live in the same source tree, but they wrap tools only some people have, so they are not
 shipped in the app. They import the SDK only by its package name
-(`@aurigax-ai/pine-extension-sdk`), never by a path into this tree, because they are published as
+(`@aurigax-ai/ostia-extension-sdk`), never by a path into this tree, because they are published as
 a project of their own: `pnpm build:marketplace` (`scripts/build-marketplace.mjs`) assembles
 `out/marketplace/` from `marketplace-package/` (build script, `tsconfig.json`, CI,
 `pine-marketplace.json`), the extensions listed there (shown or unlisted), their tests and
@@ -1409,7 +1418,7 @@ builds an extension folder for both the app and that project (`buildExtension` i
 copies a package and everything it depends on into a `node_modules` folder). The project's
 `package.json` lists every vendored package at the exact version the app pins, so its own
 `pnpm install` and `pnpm build` produce the same `extensions/`. `pnpm publish:marketplace <checkout>`
-copies that into a checkout of the marketplace repository (`aurigax-ai/pine-extensions`), installs
+copies that into a checkout of the marketplace repository (`aurigax-ai/ostia-extensions`), installs
 its dependencies there (the SDK from npm) and rebuilds `extensions/`. That repository's own
 `sync.yml` workflow does this every hour: when Pine's latest release is newer than its `package.json` version it checks that tag out, runs the command,
 its checks, and commits. It needs no credentials from this repository. Add that repository in

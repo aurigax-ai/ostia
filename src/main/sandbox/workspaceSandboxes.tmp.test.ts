@@ -9,8 +9,7 @@ import { WorkspaceSandboxes } from './workspaceSandboxes'
 
 let root: string
 
-const MACOS_TMP_ROOT =
-  '/private/var/folders/36/tjdph2t965j8snz9_vkdnw0r0000gn/T/pine-sandbox-tmp-501'
+const MACOS_TMP_ROOT = '/private/var/folders/36/tjdph2t965j8snz9_vkdnw0r0000gn/T/ostia-sbx-501'
 
 function instance(
   pid: number,

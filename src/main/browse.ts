@@ -22,6 +22,7 @@ import type {
 } from '../shared/browseRuntime'
 import { type SnapshotNode, formatSnapshot } from '../shared/browseSnapshot'
 import type { StorageCookie } from '../shared/browserStorage'
+import { PRODUCT_NAME } from '../shared/product'
 import { PRODUCT_DISPLAY_NAME } from '../shared/productDisplay'
 import type { CommandResult, CommandTarget } from '../shared/types'
 import { jsArgs, runInBrowseWorld } from './browseWorld'
@@ -464,7 +465,10 @@ let scratchCounter = 0
 
 function scratchPath(prefix: string, ext: string): string {
   scratchCounter += 1
-  return join(privateTmpDir('pine-screens'), `${prefix}-${Date.now()}-${scratchCounter}.${ext}`)
+  return join(
+    privateTmpDir(`${PRODUCT_NAME}-screens`),
+    `${prefix}-${Date.now()}-${scratchCounter}.${ext}`,
+  )
 }
 
 function writeOut(path: string, data: Buffer | string): void {

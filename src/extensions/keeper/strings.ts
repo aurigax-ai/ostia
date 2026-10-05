@@ -1,4 +1,4 @@
-import { localized } from '@aurigax-ai/pine-extension-sdk'
+import { localized } from '@aurigax-ai/ostia-extension-sdk'
 import type { KeeperApproval } from './keeper'
 
 export interface Strings {

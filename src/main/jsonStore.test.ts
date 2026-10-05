@@ -2,6 +2,7 @@ import {
   existsSync,
   lstatSync,
   mkdirSync,
+  mkdtempSync,
   readFileSync,
   rmSync,
   statSync,
@@ -19,25 +20,36 @@ function unsetEnv(key: string): void {
 
 describe('jsonStore', () => {
   describe('storePath', () => {
-    it('project scope resolves under <workDir>/.pine/<name>.json', () => {
+    it('project scope resolves under <workDir>/.ostia/<name>.json', () => {
       expect(storePath('notes', 'project', '/work/dir')).toBe(
-        join('/work/dir', '.pine', 'notes.json'),
+        join('/work/dir', '.ostia', 'notes.json'),
       )
     })
 
+    it('project scope keeps using a file an older version left in <workDir>/.pine', () => {
+      const work = mkdtempSync(join(tmpdir(), 'ostia-project-'))
+      mkdirSync(join(work, '.pine'))
+      writeFileSync(join(work, '.pine', 'vault.json'), '{}')
+      expect(storePath('vault', 'project', work)).toBe(join(work, '.pine', 'vault.json'))
+      expect(storePath('notes', 'project', work)).toBe(join(work, '.ostia', 'notes.json'))
+      mkdirSync(join(work, '.ostia'))
+      writeFileSync(join(work, '.ostia', 'vault.json'), '{}')
+      expect(storePath('vault', 'project', work)).toBe(join(work, '.ostia', 'vault.json'))
+    })
+
     it('project scope with no workDir falls back to process.cwd()', () => {
-      expect(storePath('notes', 'project')).toBe(join(process.cwd(), '.pine', 'notes.json'))
+      expect(storePath('notes', 'project')).toBe(join(process.cwd(), '.ostia', 'notes.json'))
     })
 
     it('project scope with a blank workDir falls back to process.cwd()', () => {
-      expect(storePath('notes', 'project', '   ')).toBe(join(process.cwd(), '.pine', 'notes.json'))
+      expect(storePath('notes', 'project', '   ')).toBe(join(process.cwd(), '.ostia', 'notes.json'))
     })
 
     it('global scope resolves under XDG_DATA_HOME when set', () => {
       const prev = process.env.XDG_DATA_HOME
       process.env.XDG_DATA_HOME = '/xdg/data'
       try {
-        expect(storePath('notes', 'global')).toBe(join('/xdg/data', 'pine', 'notes.json'))
+        expect(storePath('notes', 'global')).toBe(join('/xdg/data', 'ostia', 'notes.json'))
       } finally {
         if (prev === undefined) unsetEnv('XDG_DATA_HOME')
         else process.env.XDG_DATA_HOME = prev
@@ -49,7 +61,7 @@ describe('jsonStore', () => {
       unsetEnv('XDG_DATA_HOME')
       try {
         expect(storePath('notes', 'global')).toBe(
-          join(homedir(), '.local', 'share', 'pine', 'notes.json'),
+          join(homedir(), '.local', 'share', 'ostia', 'notes.json'),
         )
       } finally {
         if (prev !== undefined) process.env.XDG_DATA_HOME = prev
@@ -61,7 +73,7 @@ describe('jsonStore', () => {
     let dir: string
 
     beforeEach(() => {
-      dir = join(tmpdir(), `pine-jsonstore-test-${process.pid}-${Date.now()}-${Math.random()}`)
+      dir = join(tmpdir(), `ostia-jsonstore-test-${process.pid}-${Date.now()}-${Math.random()}`)
     })
 
     afterEach(() => {

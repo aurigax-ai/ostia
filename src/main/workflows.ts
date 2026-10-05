@@ -14,6 +14,7 @@ import {
   workflowFileStem,
 } from '../shared/workflows'
 import { registerControlMethod } from './controlServer'
+import { LEGACY_PROJECT_DIR, PROJECT_DIR } from './jsonStore'
 import { resolveSafe } from './pathGuard'
 
 export const WORKFLOW_FILE_MAX_BYTES = 64 * 1024
@@ -34,7 +35,24 @@ export interface WorkflowSources {
 }
 
 export function workspaceWorkflowsDir(workDir: string): string {
-  return join(workDir, '.pine', 'workflows')
+  return join(workDir, PROJECT_DIR, 'workflows')
+}
+
+export function legacyWorkspaceWorkflowsDir(workDir: string): string {
+  return join(workDir, LEGACY_PROJECT_DIR, 'workflows')
+}
+
+function workspaceWorkflows(workDir: string): WorkflowListing {
+  const current = readWorkflowDir(workspaceWorkflowsDir(workDir), 'workspace')
+  const legacy = readWorkflowDir(legacyWorkspaceWorkflowsDir(workDir), 'workspace')
+  const taken = new Set([
+    ...current.workflows.map((w) => w.origin),
+    ...current.problems.map((p) => p.origin),
+  ])
+  return {
+    workflows: [...current.workflows, ...legacy.workflows.filter((w) => !taken.has(w.origin))],
+    problems: [...current.problems, ...legacy.problems.filter((p) => !taken.has(p.origin))],
+  }
 }
 
 function isRealDir(path: string): boolean {
@@ -126,8 +144,7 @@ export function readWorkflowDir(dir: string, source: WorkflowSource): WorkflowLi
 
 export function loadWorkflows(sources: WorkflowSources): WorkflowListing {
   const parts: WorkflowListing[] = []
-  if (sources.workDir)
-    parts.push(readWorkflowDir(workspaceWorkflowsDir(sources.workDir), 'workspace'))
+  if (sources.workDir) parts.push(workspaceWorkflows(sources.workDir))
   parts.push(readWorkflowDir(sources.userDir, 'user'))
   const workflows: WorkflowEntry[] = parts.flatMap((p) => p.workflows)
   const problems: WorkflowProblem[] = parts.flatMap((p) => p.problems)

@@ -11,6 +11,7 @@ import {
 } from 'vscode-jsonrpc/node'
 import type { Capability } from '../shared/capabilities'
 import { TARGET_PANE_PARAM } from '../shared/extensions'
+import { PRODUCT_NAME } from '../shared/product'
 import type {
   CommandDescriptor,
   CommandResult,
@@ -23,7 +24,7 @@ import { type PaneIdentity, resolveExternal } from './idRegistry'
 import { socketPath } from './privateTmp'
 
 export function controlSocketPath(): string {
-  return socketPath(process.env.XDG_RUNTIME_DIR || tmpdir(), `pine-${process.pid}.sock`)
+  return socketPath(process.env.XDG_RUNTIME_DIR || tmpdir(), `${PRODUCT_NAME}-${process.pid}.sock`)
 }
 
 function unauthenticatedError(message: string): ResponseError<void> {
