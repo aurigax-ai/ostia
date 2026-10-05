@@ -5,7 +5,7 @@ import type { AttentionState } from '@shared/types'
 import { type WorkspaceGroupColor, normalizeGroupName } from '@shared/workspaceGroups'
 import { ZOOM_DEFAULT, stepZoom } from '@shared/zoom'
 import { currentDict } from '../i18n/useDict'
-import { type DropZone, type FocusDirection, allPanes, findPane } from '../layout/tree'
+import { type DropZone, type FocusDirection, adjacentTab, allPanes, findPane } from '../layout/tree'
 import type { Direction, SurfaceKind } from '../layout/types'
 import { postAgentNotification } from '../lib/agentNotification'
 import {
@@ -271,6 +271,22 @@ export function registerBuiltinCommands(): void {
         if (ctx.activeWorkspaceId && ctx.activePaneId) {
           focusPaneInDirection(ctx.activeWorkspaceId, ctx.activePaneId, direction)
         }
+      },
+    })
+  }
+
+  for (const [id, step] of [
+    ['tab.next', 1],
+    ['tab.previous', -1],
+  ] as const) {
+    registerCore({
+      id,
+      category: 'pane',
+      run: (_args, ctx) => {
+        if (!ctx.activeWorkspaceId || !ctx.activePaneId) return
+        const layout = useLayoutStore.getState().byWorkspace[ctx.activeWorkspaceId]
+        const next = layout ? adjacentTab(layout.root, ctx.activePaneId, step) : null
+        if (next) useLayoutStore.getState().focusPane(ctx.activeWorkspaceId, next)
       },
     })
   }
