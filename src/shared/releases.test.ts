@@ -15,7 +15,7 @@ const version = (text: string): Version => {
 
 const RELEASE = {
   tag_name: 'v1.4.0',
-  html_url: 'https://github.com/aurigax-ai/pine/releases/tag/v1.4.0',
+  html_url: 'https://github.com/aurigax-ai/ostia/releases/tag/v1.4.0',
   draft: false,
   prerelease: false,
 }
@@ -88,7 +88,7 @@ describe('parseLatestRelease', () => {
   it('returns the version and the release page of a stable release', () => {
     expect(parseLatestRelease(RELEASE)).toEqual({
       ok: true,
-      release: { version: '1.4.0', url: 'https://github.com/aurigax-ai/pine/releases/tag/v1.4.0' },
+      release: { version: '1.4.0', url: 'https://github.com/aurigax-ai/ostia/releases/tag/v1.4.0' },
     })
   })
 
@@ -100,7 +100,7 @@ describe('parseLatestRelease', () => {
       parseLatestRelease({
         ...RELEASE,
         tag_name: 'v1.4.0-beta.1',
-        html_url: 'https://github.com/aurigax-ai/pine/releases/tag/v1.4.0-beta.1',
+        html_url: 'https://github.com/aurigax-ai/ostia/releases/tag/v1.4.0-beta.1',
       }),
     ).toEqual(notStable)
   })
@@ -108,17 +108,17 @@ describe('parseLatestRelease', () => {
   it('refuses a release page that is not https on github.com under the repository', () => {
     const malformed = { ok: false, reason: 'malformed' }
     for (const html_url of [
-      'http://github.com/aurigax-ai/pine/releases/tag/v1.4.0',
-      'https://github.com.evil.example/aurigax-ai/pine/releases/tag/v1.4.0',
-      'https://evil.example/aurigax-ai/pine/releases/tag/v1.4.0',
-      'https://github.com:8443/aurigax-ai/pine/releases/tag/v1.4.0',
-      'https://user@github.com/aurigax-ai/pine/releases/tag/v1.4.0',
+      'http://github.com/aurigax-ai/ostia/releases/tag/v1.4.0',
+      'https://github.com.evil.example/aurigax-ai/ostia/releases/tag/v1.4.0',
+      'https://evil.example/aurigax-ai/ostia/releases/tag/v1.4.0',
+      'https://github.com:8443/aurigax-ai/ostia/releases/tag/v1.4.0',
+      'https://user@github.com/aurigax-ai/ostia/releases/tag/v1.4.0',
       'https://github.com/someone-else/pine/releases/tag/v1.4.0',
       'https://github.com/aurigax-ai/other/releases/tag/v1.4.0',
-      'https://github.com/aurigax-ai/pine/releases/tag/v1.4.0/../../../../evil/repo',
-      'https://github.com/aurigax-ai/pine/releases/tag/v9.9.9',
-      'https://github.com/aurigax-ai/pine/releases/tag/v1.4.0?next=https://evil.example',
-      'https://github.com/aurigax-ai/pine/releases/tag/v1.4.0#x',
+      'https://github.com/aurigax-ai/ostia/releases/tag/v1.4.0/../../../../evil/repo',
+      'https://github.com/aurigax-ai/ostia/releases/tag/v9.9.9',
+      'https://github.com/aurigax-ai/ostia/releases/tag/v1.4.0?next=https://evil.example',
+      'https://github.com/aurigax-ai/ostia/releases/tag/v1.4.0#x',
       'javascript:alert(1)',
       'file:///etc/passwd',
       '',

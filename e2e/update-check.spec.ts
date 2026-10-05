@@ -11,7 +11,7 @@ import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } fr
 import { emptyState } from './helpers'
 
 const VERSION = '999.0.0'
-const RELEASE_URL = `https://github.com/aurigax-ai/pine/releases/tag/v${VERSION}`
+const RELEASE_URL = `https://github.com/aurigax-ai/ostia/releases/tag/v${VERSION}`
 const STARTUP_CHECK_MS = 5_000
 
 interface FakeGitHub {
@@ -88,7 +88,7 @@ test('a newer release shows a notice that opens its page and stays skipped after
   try {
     await expect(releaseButton(win)).toBeVisible({ timeout: 20_000 })
     expect(github.requests).toHaveLength(1)
-    expect(github.requests[0].path).toBe('/repos/aurigax-ai/pine/releases/latest')
+    expect(github.requests[0].path).toBe('/repos/aurigax-ai/ostia/releases/latest')
     expect(github.requests[0].userAgent).toMatch(/^pine\/\d+\.\d+\.\d+/)
 
     await releaseButton(win).click()
