@@ -130,7 +130,7 @@ export function registerControlServer(deps: ControlServerDeps, socketPathOverrid
 
     conn.onRequest('hello', (params: { token?: string } | undefined) => {
       authed = authenticate(params ?? {})
-      if (!authed) throw unauthenticatedError('invalid or missing paneToken')
+      if (!authed) throw unauthenticatedError('invalid or missing token')
       return { externalId: authed.externalId }
     })
 

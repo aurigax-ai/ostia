@@ -167,7 +167,9 @@ describe('script callers on the control socket', () => {
     )
     bad.listen()
     clients.push(bad)
-    await expect(bad.sendRequest('hello', { token: 'ostia_nope' })).rejects.toThrow('invalid')
+    await expect(bad.sendRequest('hello', { token: 'ostia_nope' })).rejects.toThrow(
+      'invalid or missing token',
+    )
 
     const created = createScriptToken(storeFile, 'cron', ['read-board'])
     const conn = await client(created.token)
