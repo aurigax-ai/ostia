@@ -30,7 +30,7 @@ jobs:
         run: test "v$(node -p 'require("./package.json").version')" = "$GITHUB_REF_NAME"
       - uses: ./.github/actions/setup
       - run: pnpm build
-      - run: pnpm exec electron-builder --linux AppImage dir --publish never
+      - run: pnpm exec electron-builder --linux AppImage dir deb --publish never
       - name: Archive the unpacked app
         run: |
           name="ostia-${GITHUB_REF_NAME#v}-linux-x64"
@@ -42,6 +42,7 @@ jobs:
           path: |
             dist/*.AppImage
             dist/*.tar.gz
+            dist/*.deb
           if-no-files-found: error
 
   package-macos:
@@ -146,5 +147,16 @@ jobs:
           files: |
             dist/*.AppImage
             dist/*.tar.gz
+            dist/*.deb
             dist/*.dmg
           prerelease: ${{ contains(github.ref_name, '-') }}
+
+  apt:
+    needs: publish
+    if: ${{ !contains(github.ref_name, '-') }}
+    permissions:
+      contents: read
+    uses: ./.github/workflows/publish-apt.yml
+    with:
+      tag: ${{ github.ref_name }}
+    secrets: inherit
