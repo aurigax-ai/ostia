@@ -94,7 +94,7 @@ describe('runPick', () => {
     for (const s of guest.scripts) expect(s.world).toBe(PICK_WORLD_ID)
     expect(PICK_WORLD_ID).not.toBe(0)
     expect(guest.scripts[0].code).toContain('window.__ostiaPick')
-    expect(guest.scripts[0].code).not.toMatch(/PINE_TOKEN|ipcRenderer/)
+    expect(guest.scripts[0].code).not.toMatch(/OSTIA_TOKEN|ipcRenderer/)
   })
 
   it('returns a capture with console errors and an element screenshot', async () => {

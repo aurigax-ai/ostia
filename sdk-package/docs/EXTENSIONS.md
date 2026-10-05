@@ -1,6 +1,6 @@
 # Writing a Ostia extension
 
-An extension is a directory with a `pine.json` manifest and, usually, a program Ostia starts for
+An extension is a directory with a `ostia.json` manifest and, usually, a program Ostia starts for
 you. The program talks JSON-RPC to Ostia over the same control socket the `ostia` CLI uses. That
 gives it palette and CLI commands, events, sidebar status items, pane and workspace chips, typed
 settings, encrypted secrets, the assist hook points (typo fix and prompt review, command
@@ -19,11 +19,8 @@ If you only need to show something (a sidebar section, a panel with buttons), a
 | `resources/extensions/<id>/` in the app (`out/extensions` in dev) | Built-in: pre-approved, enabled by default |
 | `~/.config/ostia/extensions/<id>/` (`$XDG_CONFIG_HOME` is honored) | Yours: asks for approval on first launch |
 
-Versions before the rename used `~/.config/pine/extensions/`. The first launch of Ostia copies
-that folder to `~/.config/ostia/` and leaves the old one as it was.
-
 Extensions are discovered at startup, and Ostia watches your extensions directory while it
-runs: adding, changing or removing a `pine.json` takes effect within a moment, no restart needed.
+runs: adding, changing or removing a `ostia.json` takes effect within a moment, no restart needed.
 A new extension still asks for approval first, and a changed manifest that asks for more
 capabilities runs with what you approved before until you review it. A changed extension that
 was running is restarted. Settings → Extensions lists every extension with its status, permissions,
@@ -40,7 +37,7 @@ Extensions → Marketplaces by typing `owner/repo` (GitHub), an `https://` or `s
 absolute folder path for one you are still writing. Ostia clones it with the system `git` (shallow,
 no submodules, symlinks off) into its data folder and shows what it offers.
 
-The repository has a `pine-marketplace.json` at its root:
+The repository has a `ostia-marketplace.json` at its root:
 
 ```json
 {
@@ -54,7 +51,7 @@ The repository has a `pine-marketplace.json` at its root:
 |---|---|
 | `name` | 1 to 80 characters |
 | `description` | Optional |
-| `extensions` | Folder paths inside the repository. Each folder is one extension with its own `pine.json` |
+| `extensions` | Folder paths inside the repository. Each folder is one extension with its own `ostia.json` |
 | `unlisted` | Optional. `{ "path", "code" }` entries: extensions the marketplace holds but Settings does not show. `code` is 26 characters of `a-z` and `2-7`, unique in the file. `extensions` and `unlisted` together hold at most 200 |
 
 ### Unlisted extensions
@@ -83,7 +80,7 @@ Rules for a listed extension:
   (`main.js` bundled, panel HTML). Ostia never runs `npm install`, a build or any script from it.
 - Regular files and folders only: a symlink or special file refuses the install. At most 8000 files
   and 50 MiB.
-- An entry with a broken `pine.json`, a missing folder or an id another entry already uses is
+- An entry with a broken `ostia.json`, a missing folder or an id another entry already uses is
   listed under "Entries that could not be offered" and the rest still work.
 
 Install copies the folder to `~/.config/ostia/extensions/<id>/`, where it is an ordinary user
@@ -98,13 +95,9 @@ overwritten. Removing a marketplace leaves its installed extensions in place.
 There is no `ostia` CLI verb or socket method for any of this: only the human adds marketplaces and
 installs, updates or uninstalls, from Settings.
 
-## Manifest (`ostia.json` or `pine.json`)
+## Manifest (`ostia.json`)
 
-The manifest is `ostia.json`, or `pine.json`, its name before the rename. Both are read, and
-`ostia.json` wins when a folder has both. Versions before the rename (extension API 1.14 and
-older) read only `pine.json`, so keep that name while you want them to load your extension; this
-document and the template use it. A marketplace manifest works the same way:
-`ostia-marketplace.json` or `pine-marketplace.json`.
+The manifest is `ostia.json`; a marketplace's is `ostia-marketplace.json`.
 
 ```json
 {
@@ -158,18 +151,18 @@ document and the template use it. A marketplace manifest works the same way:
 | `category` | Optional, one of `ai`, `scm`, `tools`, `themes`, `langpack`, `completions`, `languages`, `other` (the default). Settings → Extensions and the marketplace show it as a badge. Anything else refuses the manifest |
 | `contributes.languages` | Up to 8 language packs, each `{id, label, path}`: `id` is a language tag (`fr`, `zh-Hant`), `label` the name shown in Settings → Language, `path` a `.json` file inside the extension. The file is a nested object of strings shaped like Ostia's English catalog (`src/renderer/i18n/dict.ts`, `en`): translate the keys you want, anything missing stays English, and keys English doesn't have are ignored. Keep `{placeholders}` as they are. No `main` needed. Main reads the file (no symlinks, ≤ 1 MiB, strings ≤ 4000 characters) only while the extension is enabled; disabling it puts the interface back in English. The first enabled extension to provide a language wins, and none can replace English |
 | `contributes.settings` | Up to 32 keys (`[A-Za-z][A-Za-z0-9_-]*`), each `{type, default, description}` with `type` one of `string` (≤ 1000 chars), `number`, `boolean`, `enum` (plus `values: string[]`). The default must match the type. Optional: `title`, the label Settings shows (sentence case, ≤ 80 chars, no control characters; without it Settings humanizes the key, `intervalSeconds` → "Interval seconds"); for `enum`, `valueTitles: {<value>: <label>}` for the options (keys must be in `values`); for `number`, `minimum` and `maximum` (main refuses values outside them, and the default must be inside) and `unit` (`seconds` or `per-minute`), which Settings shows after the description as "(1 to 60 seconds)", so leave the range out of the description. Settings shows the raw key in small mono type next to the title for people who edit `settings.json`. Titles, descriptions and value titles may say `{product}`, which Settings replaces with the product name; never write the product name itself. Main checks all of it when it loads the manifest. Manifest strings are not localized. Settings → Extensions shows a form for them (or your own page, with `contributes.settingsPage`); the human's values are stored in `settings.json` under `extensionSettings.<id>` and synced with it, so never put a secret there. |
-| `contributes.settingsPage` | Optional `{title, icon?}` (API 1.8): gives your settings and secrets their own entry in Settings, under Extensions, instead of a form under your row in Settings → Extensions. `title` (≤ 80 chars, no control characters, may say `{product}`) names the entry and heads the page; `icon` is one of the sidebar item icon names (`kanban`, `plugs`, …; anything else refuses the manifest). The page draws the same form, so main still validates every value against `contributes.settings`. It shows only while the extension is enabled; while it is disabled the form stays under its row. Needs `contributes.settings` or `contributes.secrets`, and is refused with `contributes.assist`, whose settings live in Settings → Assistant. Your row in Settings → Extensions links to the page. Use it when your settings are many or form a whole area of their own; a few switches read better under your row. |
+| `contributes.settingsPage` | Optional `{title, icon?}`: gives your settings and secrets their own entry in Settings, under Extensions, instead of a form under your row in Settings → Extensions. `title` (≤ 80 chars, no control characters, may say `{product}`) names the entry and heads the page; `icon` is one of the sidebar item icon names (`kanban`, `plugs`, …; anything else refuses the manifest). The page draws the same form, so main still validates every value against `contributes.settings`. It shows only while the extension is enabled; while it is disabled the form stays under its row. Needs `contributes.settings` or `contributes.secrets`, and is refused with `contributes.assist`, whose settings live in Settings → Assistant. Your row in Settings → Extensions links to the page. Use it when your settings are many or form a whole area of their own; a few switches read better under your row. |
 | `contributes.workflows[]` | Saved workflows in Warp's format (at most 64): `name`, `command` with `{{arg}}` placeholders (`{{{x}}}` is a literal `{{x}}`), optional `description`, `tags`, `arguments[{name, description, default_value}]`, `shells`, `author`, `source_url`. Data only: no `main` needed. They appear in "Workflows: Search" and `ostia workflow list` while the extension is enabled and approved; Ostia inserts one at an idle prompt only when the human picks it. |
 | `contributes.completions` | A folder inside the extension holding command completion specs, one `<command>.json` per command: `{names, description, subcommands[], options[{names, description, args, isPersistent, isRepeatable}], args[{name, description, suggestions[{name, description}], template: ["filepaths" \| "folders"], isOptional, isVariadic}]}`. Data only: no `main` needed, and nothing in a spec runs. Main reads a spec when the input editor completes that command (size-capped, symlinks refused, validated); `~/.config/ostia/completions/<command>.json` wins over any extension's. The built-in `completions` extension ships about 700 specs converted from Fig's `@withfig/autocomplete` at build time (`scripts/completionSpecs.mjs`). |
 
 | `contributes.secrets` | Up to 8 keys (same pattern as settings), each `{description}` and an optional `title` (same rules as a setting's). Settings → Extensions shows a password field per key; the value is stored encrypted in Ostia's data dir (never in `settings.json`, never synced) and never sent back to the renderer. Read it with `ext.getSecret`. |
 | `contributes.assist` | Which assist points you serve: any of `input`, `command`, `completion`, `terminal`, `chat` (see [Assist](#assist)). Needs the `assist` capability and `main`; such an extension starts with the window. |
 | `contributes.iconThemes[]` | Up to 16 `{id, label, path}` file icon themes in VS Code's format (`path` is the theme JSON inside the extension). Data only: no `main` needed. See [Icon themes](#icon-themes). |
-| `contributes.keymaps[]` | Up to 8 keymaps (API 1.12), each `{id, label, path, platform?}`: `id` lowercase letters, digits and dashes (unique in the extension), `label` (1–40 chars) the name shown in Settings → Keyboard, `path` a `.json` file inside the extension, `platform` optional `darwin` or `linux` to offer it on that platform only. Data only: no `main` and no capability needed. See [Keymaps](#keymaps). |
+| `contributes.keymaps[]` | Up to 8 keymaps, each `{id, label, path, platform?}`: `id` lowercase letters, digits and dashes (unique in the extension), `label` (1–40 chars) the name shown in Settings → Keyboard, `path` a `.json` file inside the extension, `platform` optional `darwin` or `linux` to offer it on that platform only. Data only: no `main` and no capability needed. See [Keymaps](#keymaps). |
 | `contributes.languageServers[]` | Up to 8 language servers the editor talks to, as data: Ostia starts each one itself and speaks LSP to it. Needs the `language-server` capability; no `main` needed. See [Language servers](#language-servers). |
 | `contributes.editorLanguages[]` | Up to 16 languages the editor does not know yet, each with a Monarch grammar as JSON. Data only: no `main` and no capability needed. See [Editor languages](#editor-languages). |
-| `contributes.agentSkills[]` | Up to 8 skills (API 1.10) that Ostia gives claude and codex in your terminals: `{name, path, files?}`. Needs the `agent-plugin` capability. See [Agent skills and hooks](#agent-skills-and-hooks). |
-| `contributes.agentHooks[]` | Up to 16 `{event, command}` (API 1.10): when the agent reaches `event`, Ostia runs your own command `command` with the hook's JSON on stdin. Needs the `agent-plugin` capability and `main`. See [Agent skills and hooks](#agent-skills-and-hooks). |
+| `contributes.agentSkills[]` | Up to 8 skills that Ostia gives claude and codex in your terminals: `{name, path, files?}`. Needs the `agent-plugin` capability. See [Agent skills and hooks](#agent-skills-and-hooks). |
+| `contributes.agentHooks[]` | Up to 16 `{event, command}`: when the agent reaches `event`, Ostia runs your own command `command` with the hook's JSON on stdin. Needs the `agent-plugin` capability and `main`. See [Agent skills and hooks](#agent-skills-and-hooks). |
 
 Icons are a fixed set: `puzzle`, `kanban`, `book-open`, `git-branch`, `globe`, `bell`, `server`,
 `terminal`, `circle`, `check`, `alert`, `shield`, `chat`.
@@ -178,7 +171,6 @@ Icons are a fixed set: `puzzle`, `kanban`, `book-open`, `git-branch`, `globe`, `
 
 Each extension owns its wording in every language. Ostia translates nothing for you and no other
 extension can: a language pack (`contributes.languages`) covers Ostia's own interface only.
-Catalogs, `ext.locale` and `locale.changed` are API 1.6: set `"api": "1.6"` when you use them.
 
 Write the manifest in English, list the languages you translate into, and ship one catalog per
 language:
@@ -189,7 +181,7 @@ language:
 
 ```
 ports/
-  pine.json
+  ostia.json
   main.js
   locales/
     en.json         messages only: the English your process shows
@@ -317,7 +309,7 @@ such as Material Icon Theme works without changes:
 
 1. Unzip the `.vsix` (it is a zip) and copy its `extension/` folder to
    `~/.config/ostia/extensions/<name>/`.
-2. Add a `pine.json` next to its `package.json`, pointing at the theme JSON the `package.json`
+2. Add a `ostia.json` next to its `package.json`, pointing at the theme JSON the `package.json`
    lists under `contributes.iconThemes[].path`:
 
    ```json
@@ -362,7 +354,7 @@ other editors' keybindings. It is data only: a manifest entry and one JSON file,
   "id": "keymap-macos",
   "name": "macOS keymap (cmux)",
   "version": "1.0.0",
-  "api": "1.12",
+  "api": "2.0",
   "contributes": {
     "keymaps": [
       { "id": "cmux", "label": "macOS (cmux)", "path": "assets/cmux.json", "platform": "darwin" }
@@ -456,7 +448,7 @@ registration of text synchronization.
   "id": "lsp-pyright",
   "name": "Python (Pyright)",
   "version": "1.0.0",
-  "api": "1.2",
+  "api": "2.0",
   "category": "languages",
   "capabilities": ["language-server"],
   "contributes": {
@@ -577,14 +569,14 @@ What Ostia guarantees for `download` and `goInstall`:
   can remove a copy in Settings → Languages; Ostia then does not fetch it again until asked.
 - **Little is sent.** The request carries a `User-Agent` with the product name and version and
   nothing else: no cookies, no token.
-- **`go install` runs with a scrubbed environment**: no `OSTIA_*` or `PINE_*` variable, `GOFLAGS` cleared, a
+- **`go install` runs with a scrubbed environment**: no `OSTIA_*` or `OSTIA_*` variable, `GOFLAGS` cleared, a
   time limit, and its output only in the server's in-memory log.
 
 How Ostia runs a server:
 
 - **Start.** A server starts when a file of one of its languages opens in the editor, once per
   server, root folder and window. cwd is the root.
-- **Environment.** The process gets Ostia's environment without any `OSTIA_*` or `PINE_*` variable: no socket,
+- **Environment.** The process gets Ostia's environment without any `OSTIA_*` or `OSTIA_*` variable: no socket,
   no token. A language server cannot call Ostia.
 - **Sandboxed workspaces.** In a sandboxed workspace the server runs inside that workspace's
   sandbox, or not at all. Your extension's folder and the folder of the copy Ostia fetched are
@@ -680,7 +672,7 @@ folder or file your manifest doesn't name is not copied, and an extension withou
 ```json
 {
   "id": "review-kit",
-  "api": "1.10",
+  "api": "2.0",
   "capabilities": ["agent-plugin"],
   "main": "main.js",
   "contributes": {
@@ -806,11 +798,6 @@ Your process gets:
 | `OSTIA_EXTENSION_DIR` | Your directory |
 | `OSTIA_EXTENSION_DATA` | A folder for your own state (`<userData>/extension-data/<id>`); create it when you first write. It isn't synced. |
 
-The `OSTIA_` names are new in API 1.13. Each one is also set under its old `PINE_` name
-(`PINE_SOCKET`, `PINE_TOKEN`, ...) with the same value. Read the `OSTIA_` name first and fall back to
-the `PINE_` one if your extension must also run on releases from before the rename; the SDK does this
-for you.
-
 Connect to the unix socket and speak JSON-RPC 2.0 with LSP-style framing
 (`Content-Length: N\r\n\r\n<json>`); `vscode-jsonrpc` does this for Node. Then:
 
@@ -851,7 +838,7 @@ Connect to the unix socket and speak JSON-RPC 2.0 with LSP-style framing
 | `ext.runAgent` | `{workspaceId, agent, prompt}` | Needs `shell`. Opens a **new** terminal in that workspace, in its folder, and runs the named agent there with `prompt` as one argument once the shell shows its first prompt, exactly like `ostia agent run`. Returns `{ok, paneId}`, or `unknown-agent`, `not-opened`, `rate-limited`. `prompt` is 1–16000 characters; newlines and tabs are allowed, other control characters are refused. Start an agent only because the human asked: from your panel, where their click is the request (never from a command an agent can run), or after `ext.confirm`. Offers and runs together are limited to 6 a minute. |
 | `ext.offerToAgent` | `{workspaceId, text, label}` | Asks the human, in Ostia's own dialog in the window that holds the workspace, whether to send `text` to one of the agents running there (the same list as Ostia's other Send to agent pickers). Nothing is sent until the human picks an agent and clicks Send; Ostia then pastes the text at that agent's prompt and **never presses Enter**. `text` is one line of 1–2000 characters and `label` (shown in the title) one line of 1–120, both without any control character. Returns `{ok, sent: false}` when the human declined or did not answer within 2 minutes, `{ok, sent: true, paneId}` with the pane they picked, or `unknown-workspace`, `busy` (your previous offer still waits), `rate-limited`. Needs no capability. |
 | `ext.focusPane` | `{paneId}` | Shows that pane: switches to its workspace and window and focuses it. Only for a pane you opened (`ext.openTerminal`, `ext.runAgent`) or one the human picked for your offer; any other pane is `not-reached`, a closed one `unknown-pane`. |
-| `ext.openFolder` | `{workspaceId, host, path}` | API 1.11. Shows a folder that lives somewhere else (another machine, a container) in that workspace's Files, served by you. Ostia first asks the human in its own dialog, naming you, `host` and `path`; Cancel is the default. Returns `{ok, folderId}`, or `denied`, `unknown-workspace`, `sandboxed`, `scratch`, `invalid-params`, `too-many` (8 per workspace). `host` is a label for the human (`[A-Za-z0-9._@:-]`, at most 330 chars); `path` is absolute, without `..` or control characters. Mark the command that calls it `interactive`. See [Remote folders](#remote-folders). |
+| `ext.openFolder` | `{workspaceId, host, path}` | Shows a folder that lives somewhere else (another machine, a container) in that workspace's Files, served by you. Ostia first asks the human in its own dialog, naming you, `host` and `path`; Cancel is the default. Returns `{ok, folderId}`, or `denied`, `unknown-workspace`, `sandboxed`, `scratch`, `invalid-params`, `too-many` (8 per workspace). `host` is a label for the human (`[A-Za-z0-9._@:-]`, at most 330 chars); `path` is absolute, without `..` or control characters. Mark the command that calls it `interactive`. See [Remote folders](#remote-folders). |
 | `ext.closeFolder` | `{folderId}` | Closes one of your own folders. `unknown-folder` for anything else. |
 
 `whoami` works too. Pane-scoped methods (`command.exec`, `pane.info`, `bus.*`, …) are refused
@@ -895,7 +882,7 @@ a fallback), `openPanel(workspaceId?, path?)`, `notifyPanel(title, body?, path?)
 | `ext.assist` | `{point, requestId, input, model?}` | The result for that point (below), or `{error, message?}` with `error` one of `unavailable`, `rate-limited`, `failed`, `cancelled`, `invalid`, `busy`. Carries a jsonrpc cancellation token: stop work when it fires. 30 s timeout, 5 min for `chat`. `model: {provider, model}` names the model the human chose when you reported `providers`; serve the request with exactly that one. |
 | `ext.assistModels` | `{action: 'list', provider?}` or `{action: 'load' \| 'unload', id, provider?}` | Sent only to an extension whose last `ext.setAssistStatus` said `models: true`, when the human opens or acts in Settings → Assistant. `provider` is the id of one of the providers you reported: `list` then answers what that provider has, which is what the human picks from when adding its models. `list` replies `{lifecycle, models: [{id, name?, description?, installed?, loaded?, busy?, idleSecs?}], error?}` (64 models, normalized by `normalizeAssistModels`); `lifecycle: true` shows Load/Unload. `load`/`unload` reply `{ok: true}` or `{ok: false, error}`. 15 s timeout for `list`, 5 min for a load. The SDK wraps it: `onAssistModels({list(provider?), setLoaded(id, loaded, provider?)})`. |
 | `ext.panel` | `{caller, path?}` | `{url}` for a `"url"` panel: must be `http://127.0.0.1:<port>/…` or `http://localhost:<port>/…`. `path` is present when the panel is opened or navigated to a path (`ext.openPanel {path}`, a notification with `openPanel: "/path"`); return the URL for it on the same origin. |
-| `ext.files` | `{op, folderId, root, path, content?, baseVersion?}` | API 1.11. One file operation in a folder you opened with `ext.openFolder` (`ext.onFiles` in the SDK). `root` is the folder and `path` an absolute path inside it; Ostia has already refused anything outside. See [Remote folders](#remote-folders). 30 s timeout. |
+| `ext.files` | `{op, folderId, root, path, content?, baseVersion?}` | One file operation in a folder you opened with `ext.openFolder` (`ext.onFiles` in the SDK). `root` is the folder and `path` an absolute path inside it; Ostia has already refused anything outside. See [Remote folders](#remote-folders). 30 s timeout. |
 
 And the notification `ext.event {type, payload}`:
 
@@ -935,18 +922,18 @@ Panel requests carry no `cwd`; derive one from `workspace.list` + `pane.list` if
 Enforce conditional rules yourself from `capabilities`, for example refuse a write outside the
 workspace's project unless the caller holds `all-workspaces`.
 
-`sandboxed` is `true` when the caller's workspace is sandboxed (API 1.1). Your process runs
+`sandboxed` is `true` when the caller's workspace is sandboxed. Your process runs
 outside every sandbox, so refuse such a caller anything the sandbox would have kept from it: the
 SSH extension gives it no host list and opens no session.
 
 `remote` is `{host, cwd}` when the shell in the calling pane last reported a folder on another
-machine (API 1.11): an ssh session whose shell sends OSC 7 with its host name. It is absent for a
+machine: an ssh session whose shell sends OSC 7 with its host name. It is absent for a
 local pane, and it is what that shell said, nothing more: use `cwd` as a path to offer the human,
 and never take `host` as proof of where a connection goes.
 
 ### Remote folders
 
-An extension that can reach files somewhere else (API 1.11) can show them in Files and the
+An extension that can reach files somewhere else can show them in Files and the
 editor without Ostia knowing how it gets there. The built-in SSH extension does it over ssh.
 
 1. Call `ext.openFolder({workspaceId, host, path})` from a command the human ran. Ostia asks the
@@ -1098,7 +1085,7 @@ you there.
 
 A panel is a pane surface rendering your page in a sandboxed `<webview>`:
 
-- its own partition (`ostia-ext-<id>`), no preload, no Node, no `window.pine`, permissions denied;
+- its own partition (`ostia-ext-<id>`), no preload, no Node, no `window.ostia`, permissions denied;
 - it may only show your `file://` html (file entry) or the loopback origin you returned (url
   entry); other navigations are blocked and `window.open` goes to the OS browser for http(s);
 - it talks to **your process**, never to Ostia directly — serve an API next to the page.
@@ -1122,10 +1109,8 @@ theme changes: `--ostia-<token>` for every theme token (`--ostia-bg`, `--ostia-s
 font), `--ostia-font-size` and `--ostia-font-weight` (UI size and body weight), `--ostia-color-scheme` (`dark` or `light`; set
 `color-scheme: var(--ostia-color-scheme, dark)` so scrollbars and native controls follow a light
 theme) and `--ostia-motion-scale` (`1`, or `0` while the human has reduced motion on). Use them
-with fallbacks (`var(--ostia-surface-1, #272a2d)`). Every variable is also set under its old
-`--pine-` name, which is all a release before the rename sets, so a panel that must also run
-there reads `var(--ostia-surface-1, var(--pine-surface-1, #272a2d))`, as the SDK's own styles do; `src/extensions/sdk/panel.css` is a ready
-base. It also defines Ostia's typography tokens, derived from those: `--font-ui`, `--font-code`,
+with fallbacks (`var(--ostia-surface-1, #272a2d)`), as the SDK's own styles do;
+`src/extensions/sdk/panel.css` is a ready base. It also defines Ostia's typography tokens, derived from those: `--font-ui`, `--font-code`,
 the type scale (`--text-ui-xs|sm|base|lg` with `--text-ui-*--line-height`), the weights
 (`--font-weight-normal|medium|semibold`, which step up from the human's body weight) and
 `--tracking-caps` for all-caps labels; set type only through them. Ostia
@@ -1202,9 +1187,9 @@ Three places check it:
 
 | Where | What happens |
 |---|---|
-| `pine.json` `api` | Checked when the manifest is read (startup, hot reload, a marketplace catalog, `ostia-extension validate`). A newer minor or another major refuses the extension before anything runs |
-| `OSTIA_EXTENSION_API` | Ostia puts the version it provides in the environment of every extension process (also as `PINE_EXTENSION_API`), next to `OSTIA_SOCKET` and `OSTIA_TOKEN`, for extensions that speak the protocol without the SDK |
-| SDK `connect()` | The SDK is built for one API version (`EXTENSION_API_VERSION`, also `ostiaExtensionApi` (and the older `pineExtensionApi`) in its `package.json` and `api.json`). `connect()` throws when the app provides an older one, so an extension built with a newer SDK fails with a clear message instead of calling methods that aren't there |
+| `ostia.json` `api` | Checked when the manifest is read (startup, hot reload, a marketplace catalog, `ostia-extension validate`). A newer minor or another major refuses the extension before anything runs |
+| `OSTIA_EXTENSION_API` | Ostia puts the version it provides in the environment of every extension process, next to `OSTIA_SOCKET` and `OSTIA_TOKEN`, for extensions that speak the protocol without the SDK |
+| SDK `connect()` | The SDK is built for one API version (`EXTENSION_API_VERSION`, also `ostiaExtensionApi` in its `package.json` and `api.json`). `connect()` throws when the app provides an older one, so an extension built with a newer SDK fails with a clear message instead of calling methods that aren't there |
 
 Set `api` to the version of the SDK you build with. Raise it only when you start using something
 newer; an extension that declares `1.0` keeps loading in every `1.x`.
@@ -1229,10 +1214,10 @@ pnpm add -D @aurigax-ai/ostia-extension-sdk
 | `@aurigax-ai/ostia-extension-sdk` | `connect()` and everything in "Talking to Ostia" below the raw protocol |
 | `…/panel`, `…/splitter`, `…/panel.css` | The panel page helpers and base styles |
 | `…/assist` | The assistant engine: `runAssistExtension({catalog})` with your own `ProviderCatalog` (needs `ai`, `zod`, `@ai-sdk-tool/parser`, `undici`) |
-| `schemas/ostia.schema.json`, `schemas/ostia-marketplace.schema.json` | JSON Schemas for the two manifest files (also published under their old names, `pine.schema.json` and `pine-marketplace.schema.json`); name one in `"$schema"` and your editor checks the file as you type |
+| `schemas/ostia.schema.json`, `schemas/ostia-marketplace.schema.json` | JSON Schemas for the two manifest files (also published under their old names, `ostia.schema.json` and `ostia-marketplace.schema.json`); name one in `"$schema"` and your editor checks the file as you type |
 | `ostia-extension validate [folder]` | Runs the loader's own checks on an extension folder (its manifest, every catalog under `locales/`, plus the marketplace install limits), or on a marketplace folder and every extension it lists or holds unlisted. Exits 0 when Ostia would accept it |
-| `ostia-extension unlist <extension folder> [marketplace folder]` | Moves a listed extension to `unlisted` in `pine-marketplace.json` and generates its install code |
-| `ostia-extension create <id> [folder]` | Writes a new extension project from `template/`: a `pine.json` with that id, TypeScript source, a build that bundles it into one `main.js`, English and Traditional Chinese catalogs under `locales/`, `pnpm validate` |
+| `ostia-extension unlist <extension folder> [marketplace folder]` | Moves a listed extension to `unlisted` in `ostia-marketplace.json` and generates its install code |
+| `ostia-extension create <id> [folder]` | Writes a new extension project from `template/`: a `ostia.json` with that id, TypeScript source, a build that bundles it into one `main.js`, English and Traditional Chinese catalogs under `locales/`, `pnpm validate` |
 
 It is generated from this repository by `pnpm build:sdk` (`scripts/build-sdk.mjs`) and published
 to npm by `release.yml` on every `v*` tag; its version is the app's version. The JSON
@@ -1241,7 +1226,7 @@ and `validate` runs that loader.
 
 ## Example: a minimal extension
 
-`~/.config/ostia/extensions/hello/pine.json`:
+`~/.config/ostia/extensions/hello/ostia.json`:
 
 ```json
 {
@@ -1264,7 +1249,7 @@ and `validate` runs that loader.
 const { createConnection } = require('node:net')
 const rpc = require('vscode-jsonrpc/node')
 
-const socket = createConnection(process.env.OSTIA_SOCKET ?? process.env.PINE_SOCKET)
+const socket = createConnection(process.env.OSTIA_SOCKET)
 const conn = rpc.createMessageConnection(
   new rpc.StreamMessageReader(socket),
   new rpc.StreamMessageWriter(socket),
@@ -1290,7 +1275,7 @@ conn.onNotification('ext.event', ({ type, payload }) => {
 socket.on('close', () => process.exit(0))
 conn.listen()
 socket.on('connect', async () => {
-  await conn.sendRequest('hello', { token: process.env.OSTIA_TOKEN ?? process.env.PINE_TOKEN })
+  await conn.sendRequest('hello', { token: process.env.OSTIA_TOKEN })
   await conn.sendRequest('ext.subscribe', { events: ['command.finished'] })
   await conn.sendRequest('ext.registerCommands', { commands: ['greet'] })
 })
@@ -1388,7 +1373,7 @@ no script: Ostia validates the file and draws it with its own components, bound 
 
 ## Built-in extensions
 
-`src/extensions/<id>/` holds `pine.json`, `main.ts` and optionally `panel.html`, `panel.ts`,
+`src/extensions/<id>/` holds `ostia.json`, `main.ts` and optionally `panel.html`, `panel.ts`,
 `panel.css` and `locales/` (every extension here ships `locales/zh-Hant.json`).
 `scripts/build-extensions.mjs` (part of `pnpm build`) bundles them into `out/extensions/<id>/`; electron-builder ships that dir as `resources/extensions`. They import
 only `src/extensions/sdk/` and `src/shared/` — never `src/main` or `src/renderer`.
@@ -1400,7 +1385,7 @@ only `src/extensions/sdk/` and `src/shared/` — never `src/main` or `src/render
 | `langpack-zh-hant` | Traditional Chinese (`zh-Hant`) for the interface, as a `contributes.languages` pack with no process. Its `zh-Hant.json` is generated at build time from `zhHant` in `src/renderer/i18n/dict.ts`, which stays typed against the English catalog so a missing string fails the typecheck |
 | `ports` | Per workspace, a `ports` workspace chip in the top bar: a plug with the number of TCP ports its terminals' processes listen on; click it for the list, click a port to open it in the browser pane. A foreground `ssh` shows as its host in the sidebar and as an `ssh` chip with `user@host` on its pane. Polls only while Ostia is focused. `ostia ports ls [--all]`. Settings: `intervalSeconds` (default 3), `portHost` (`localhost` or `127.0.0.1`) |
 | `system` | `ostia system info` (OS, kernel, arch, shell, package managers on PATH and the default one) and `ostia system install <pkg...> [--manager <name>] [--reason <text>]`: validates the names, shows the human the exact install command and the reason, and on Approve runs it in a new terminal next to the agent (`ext.openTerminal`). Returns `{approved, command, paneId?}`; a denial exits 1 |
-| `ssh` | The hosts of your ssh config and a session in a new terminal, with the system OpenSSH client. "SSH: Connect to Host…" and `ostia ssh connect [-J <hop>[,<hop>...]] [-p <port>] <[user@]host>` take ssh's own spelling and nothing else (any other option is refused), resolve the target with `ssh -G`, and open `ssh … -- <host>` beside the caller with `ext.openTerminal`; a pane caller is asked first, with the exact command, the resolved `user@host:port` and the bastion hops. `ostia ssh ls` lists the aliases (it reads `~/.ssh/config` and its `Include`s and runs nothing); `ostia ssh show <host>` resolves one. A caller in a sandboxed workspace is refused. Bastions come from `ProxyJump` in your config or from `-J`; the `user@host` chip is the Ports extension's. With the human's consent per host (a dialog naming the host and the exact path), it installs two readable shell files in `~/.pine/helper/<version>/` there: `helper.sh`, which it talks to over `ssh -T`, and `session.sh`, the shell integration, so later sessions to that host type a short command that sources it (after a checksum check) instead of the whole integration: "SSH: Open Remote Folder", run from a session it opened, shows that session's current folder in Files through [Remote folders](#remote-folders). "SSH: Install Remote Helper on Host…" and "SSH: Remove Remote Helper…" are for the human only; `ostia ssh helpers` lists the answers. The helper connects without a terminal, so the host must accept a key or an ssh agent. Setting `remoteHelper` (on by default) turns all of it off |
+| `ssh` | The hosts of your ssh config and a session in a new terminal, with the system OpenSSH client. "SSH: Connect to Host…" and `ostia ssh connect [-J <hop>[,<hop>...]] [-p <port>] <[user@]host>` take ssh's own spelling and nothing else (any other option is refused), resolve the target with `ssh -G`, and open `ssh … -- <host>` beside the caller with `ext.openTerminal`; a pane caller is asked first, with the exact command, the resolved `user@host:port` and the bastion hops. `ostia ssh ls` lists the aliases (it reads `~/.ssh/config` and its `Include`s and runs nothing); `ostia ssh show <host>` resolves one. A caller in a sandboxed workspace is refused. Bastions come from `ProxyJump` in your config or from `-J`; the `user@host` chip is the Ports extension's. With the human's consent per host (a dialog naming the host and the exact path), it installs two readable shell files in `~/.ostia/helper/<version>/` there: `helper.sh`, which it talks to over `ssh -T`, and `session.sh`, the shell integration, so later sessions to that host type a short command that sources it (after a checksum check) instead of the whole integration: "SSH: Open Remote Folder", run from a session it opened, shows that session's current folder in Files through [Remote folders](#remote-folders). "SSH: Install Remote Helper on Host…" and "SSH: Remove Remote Helper…" are for the human only; `ostia ssh helpers` lists the answers. The helper connects without a terminal, so the host must accept a key or an ssh agent. Setting `remoteHelper` (on by default) turns all of it off |
 | `assistant` | The assist points on the providers the human adds in Settings → Assistant: `ollama`, any `openai-compatible` endpoint (LM Studio, llama.cpp server, …), `openrouter`, `openai` or `anthropic`, several at once, each with its own base URL, API key and models. Built on the AI SDK (`ai`, `@ai-sdk/openai-compatible`, `@ai-sdk/openai`, `@ai-sdk/anthropic`, `@openrouter/ai-sdk-provider`, zod for structured answers). Every request names its provider and model; the engine checks per model whether tools are native or described in the prompt. A switch per feature (`typos`, `promptReview`, `commandSuggest`, `terminalCompletions`, `editorCompletions`, `chat`, `explainError`) and a requests-per-minute limit are its own settings. Inert until a provider with a model exists. It has no panel: Settings → Assistant shows the models in use, each feature with its switch, model, readiness, shortcut and "Try it", and the providers; "Assistant: Chat" opens the chat pane |
 
 ### Marketplace extensions
@@ -1410,11 +1395,11 @@ shipped in the app. They import the SDK only by its package name
 (`@aurigax-ai/ostia-extension-sdk`), never by a path into this tree, because they are published as
 a project of their own: `pnpm build:marketplace` (`scripts/build-marketplace.mjs`) assembles
 `out/marketplace/` from `marketplace-package/` (build script, `tsconfig.json`, CI,
-`pine-marketplace.json`), the extensions listed there (shown or unlisted), their tests and
+`ostia-marketplace.json`), the extensions listed there (shown or unlisted), their tests and
 `test/fixtures/tools`, writes its `package.json`, and builds it against `out/sdk`. One function
 builds an extension folder for both the app and that project (`buildExtension` in
 `marketplace-package/build-extension.mjs`, which `scripts/build-extensions.mjs` imports):
-`pine.json`, `locales/`, a bundled `main.js`, a panel's `panel.html`, `panel.css`, bundled
+`ostia.json`, `locales/`, a bundled `main.js`, a panel's `panel.html`, `panel.css`, bundled
 `panel.js` and the SDK's `panel.css` as `base.css`, and the npm packages an extension's
 `vendor.json` names, copied unchanged (`packages` copies one package to a folder, `closures`
 copies a package and everything it depends on into a `node_modules` folder). The project's
@@ -1439,7 +1424,6 @@ Settings → Extensions → Marketplaces to install them.
 | `model-runtime` | The user's local model-runtime (`$XDG_RUNTIME_DIR/model-runtime.sock` unless `baseUrl` says otherwise) as one more provider: every model it lists as installed joins the model lists in Settings → Assistant and the chat's model selector, with load and unload in Settings → Assistant. It runs the same engine as `assistant` (`src/extensions/sdk/assist/`, `runAssistExtension`) with its own one-provider catalog; tools are described in the prompt. The human chooses in Settings → Assistant which features use one of its models |
 
 Earlier versions also shipped `kanban` and `wiki` extensions. They were removed: boards, cards and
-knowledge entries live in Trellis (the `trellis` extension and the `trellis` CLI). Ostia leaves
-their data where it was (`<workDir>/.pine/board.json`, `<workDir>/.pine/wiki.json`,
-`$XDG_DATA_HOME/pine/wiki.json`) and no longer reads it; entries for them in `extensions.json`
-are ignored.
+knowledge entries live in Trellis (the `trellis` extension and the `trellis` CLI). Ostia does not
+read their old `board.json` and `wiki.json` files; entries for them in `extensions.json` are
+ignored.

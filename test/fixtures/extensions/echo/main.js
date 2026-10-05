@@ -5,7 +5,7 @@ const {
   createMessageConnection,
 } = require('vscode-jsonrpc/node')
 
-const socket = createConnection(process.env.PINE_SOCKET)
+const socket = createConnection(process.env.OSTIA_SOCKET)
 const conn = createMessageConnection(
   new StreamMessageReader(socket),
   new StreamMessageWriter(socket),
@@ -15,7 +15,7 @@ conn.onRequest('ext.command', async ({ command, args, caller }) => {
   if (command === 'echo')
     return { ok: true, text: 'echoed', data: { args, caller, pid: process.pid } }
   if (command === 'guarded') return { ok: true, text: 'guarded ran' }
-  if (command === 'api') return { ok: true, text: process.env.PINE_EXTENSION_API }
+  if (command === 'api') return { ok: true, text: process.env.OSTIA_EXTENSION_API }
   if (command === 'probe') {
     try {
       await conn.sendRequest('command.list')
@@ -69,7 +69,7 @@ socket.on('close', () => process.exit(0))
 conn.listen()
 
 socket.on('connect', async () => {
-  await conn.sendRequest('hello', { token: process.env.PINE_TOKEN })
+  await conn.sendRequest('hello', { token: process.env.OSTIA_TOKEN })
   await conn.sendRequest('ext.subscribe', { events: ['pane.created'] })
   await conn.sendRequest('ext.registerCommands', {
     commands: [

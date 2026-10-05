@@ -1,4 +1,4 @@
-export type SecretSource = 'host' | 'pine'
+export type SecretSource = 'host' | 'ostia'
 export type SecretKind = 'ssh-key' | 'env' | 'gh-token' | 'vault'
 
 export interface SecretEntry {

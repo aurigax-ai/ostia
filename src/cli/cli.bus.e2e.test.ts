@@ -45,10 +45,10 @@ function paneEnv(pane: Pane): NodeJS.ProcessEnv {
   return {
     PATH: `${dirname(process.execPath)}:/usr/bin:/bin`,
     HOME: dir,
-    PINE_CLI: cliPath,
-    PINE_NODE: process.execPath,
-    PINE_SOCKET: socketPath,
-    PINE_TOKEN: pane.token,
+    OSTIA_CLI: cliPath,
+    OSTIA_NODE: process.execPath,
+    OSTIA_SOCKET: socketPath,
+    OSTIA_TOKEN: pane.token,
   }
 }
 
@@ -188,7 +188,7 @@ describe('bus delivery through the real CLI and the agents’ own hooks', () => 
     const res = await run(
       'sh',
       ['-c', busHookCommand('UserPromptSubmit')],
-      { ...paneEnv(agent), PINE_SOCKET: join(dir, 'missing.sock') },
+      { ...paneEnv(agent), OSTIA_SOCKET: join(dir, 'missing.sock') },
       '{}',
     )
     expect(res).toEqual({ code: 0, stdout: '', stderr: '' })

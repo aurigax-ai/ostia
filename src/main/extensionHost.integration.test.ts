@@ -44,7 +44,7 @@ describe('ExtensionHost over a real control socket with a fixture extension proc
   const status = (): string | undefined => host.list().find((e) => e.id === 'echo')?.status
 
   beforeAll(() => {
-    dir = mkdtempSync(join(tmpdir(), 'pine-ext-int-'))
+    dir = mkdtempSync(join(tmpdir(), 'ostia-ext-int-'))
     const socketPath = join(dir, 'control.sock')
     host = new ExtensionHost({
       roots: [{ dir: fixtures, builtin: true }],

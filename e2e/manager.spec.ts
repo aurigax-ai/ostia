@@ -30,7 +30,7 @@ async function launchOstia(manager: object = {}) {
     env: {
       ...launchOptions.env,
       HOME: home,
-      PINE_PORTAL_SOCKET: portal,
+      OSTIA_PORTAL_SOCKET: portal,
       PATH: `${FAKE_AGENT_BIN}:${process.env.PATH ?? ''}`,
     },
   })
@@ -45,7 +45,7 @@ function outsideEnv(portal: string): Record<string, string> {
     if (
       value === undefined ||
       key.startsWith('OSTIA_') ||
-      key.startsWith('PINE_') ||
+      key.startsWith('OSTIA_') ||
       key === 'ELECTRON_RUN_AS_NODE'
     )
       continue
@@ -53,7 +53,7 @@ function outsideEnv(portal: string): Record<string, string> {
   }
   return {
     ...env,
-    PINE_PORTAL_SOCKET: portal,
+    OSTIA_PORTAL_SOCKET: portal,
     PATH: `${FAKE_AGENT_BIN}:${process.env.PATH ?? ''}`,
   }
 }
@@ -151,7 +151,7 @@ test('MGR-C11 an ostia <agent> run from an Ostia pane is refused even with the s
     await openWorkspace(win)
     await win.locator('.xterm').first().click()
     await win.keyboard.type(
-      'env -u OSTIA_SOCKET -u OSTIA_TOKEN -u PINE_SOCKET -u PINE_TOKEN ELECTRON_RUN_AS_NODE=1 "$PINE_NODE" "$PINE_CLI" fake',
+      'env -u OSTIA_SOCKET -u OSTIA_TOKEN -u OSTIA_SOCKET -u OSTIA_TOKEN ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" "$OSTIA_CLI" fake',
     )
     await win.keyboard.press('Enter')
     await expect(win.locator('.xterm-rows').first()).toContainText('inside-ostia', {
@@ -163,10 +163,10 @@ test('MGR-C11 an ostia <agent> run from an Ostia pane is refused even with the s
   }
 })
 
-const PINE_FN = 'P() { ELECTRON_RUN_AS_NODE=1 "$PINE_NODE" "$PINE_CLI" "$@"; }\r'
+const OSTIA_FN = 'P() { ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" "$OSTIA_CLI" "$@"; }\r'
 
 async function spawnWorker(mirror: Mirror): Promise<string> {
-  mirror.type(PINE_FN)
+  mirror.type(OSTIA_FN)
   mirror.type('P manager spawn fake --name worker-one -- hello\r')
   await expect.poll(mirror.output, { timeout: 20_000 }).toMatch(/"paneId":"[0-9a-f-]{36}"/)
   const id = /"paneId":"([0-9a-f-]{36})"/.exec(mirror.output())?.[1]

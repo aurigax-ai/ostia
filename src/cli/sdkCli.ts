@@ -11,10 +11,10 @@ import {
 import { join, normalize, relative, resolve } from 'node:path'
 import { agentSkillProblems } from '../main/agentSkills'
 import { localeProblems } from '../main/extensionLocales'
-import { EXTENSION_ID_PATTERN, manifestFileIn, readManifest } from '../main/extensionManifest'
-import { marketplaceManifestFile, parseMarketplaceManifest, planCopy } from '../main/marketplace'
+import { EXTENSION_ID_PATTERN, readManifest } from '../main/extensionManifest'
+import { parseMarketplaceManifest, planCopy } from '../main/marketplace'
 import { EXTENSION_MANIFEST_FILE, type ExtensionManifest } from '../shared/extensions'
-import { MARKETPLACE_MANIFEST_FILES } from '../shared/marketplace'
+import { MARKETPLACE_MANIFEST_FILE } from '../shared/marketplace'
 import { PRODUCT_NAME } from '../shared/product'
 
 export interface SdkCliResult {
@@ -62,7 +62,6 @@ function isDirectory(path: string): boolean {
 }
 
 function validateMarketplace(dir: string): SdkCliResult {
-  const MARKETPLACE_MANIFEST_FILE = marketplaceManifestFile(dir)
   let raw: unknown
   try {
     raw = JSON.parse(readFileSync(join(dir, MARKETPLACE_MANIFEST_FILE), 'utf8'))
@@ -102,7 +101,6 @@ function validateMarketplace(dir: string): SdkCliResult {
 }
 
 function unlist(dir: string, folder: string): SdkCliResult {
-  const MARKETPLACE_MANIFEST_FILE = marketplaceManifestFile(dir)
   const file = join(dir, MARKETPLACE_MANIFEST_FILE)
   let raw: Record<string, unknown>
   try {
@@ -178,7 +176,7 @@ function create(id: string, target: string, templateDir: string): SdkCliResult {
     scripts.validate = scripts.validate.replace(`dist/${TEMPLATE_ID}`, `dist/${id}`)
   })
   const renamed: string[] = []
-  rewriteJson(join(target, manifestFileIn(target) ?? EXTENSION_MANIFEST_FILE), (manifest) => {
+  rewriteJson(join(target, EXTENSION_MANIFEST_FILE), (manifest) => {
     manifest.id = id
     if (manifest.name !== name) renamed.push('name')
     manifest.name = name
@@ -225,11 +223,11 @@ export function runSdkCli(
   if (verb !== 'validate' || args.length > 1) return { code: 2, lines: [SDK_CLI_USAGE] }
   const dir = resolve(args[0] ?? '.')
   if (!isDirectory(dir)) return { code: 1, lines: [`${dir}: not a folder`] }
-  if (MARKETPLACE_MANIFEST_FILES.some((name) => existsSync(join(dir, name)))) {
+  if (existsSync(join(dir, MARKETPLACE_MANIFEST_FILE))) {
     return validateMarketplace(dir)
   }
   const check = checkExtension(dir)
   return check.ok
     ? { code: 0, lines: [`ok: extension ${check.manifest.id} ${check.manifest.version}`] }
-    : { code: 1, lines: [`${manifestFileIn(dir) ?? EXTENSION_MANIFEST_FILE}: ${check.problem}`] }
+    : { code: 1, lines: [`${EXTENSION_MANIFEST_FILE}: ${check.problem}`] }
 }

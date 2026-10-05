@@ -1,5 +1,4 @@
 import { BUILTIN_ICON_THEME, ICON_THEME_ID_PATTERN } from '../../shared/iconTheme'
-import { currentProductValue } from '../../shared/legacyIds'
 
 export type FileSortOrder = 'foldersFirst' | 'mixed'
 export type FileSortBy = 'name' | 'type'
@@ -100,7 +99,7 @@ export function parseFileTreeSettings(raw: unknown): FileTreeSettings {
       : base.sortBy,
     iconTheme:
       typeof raw.iconTheme === 'string' && ICON_THEME_ID_PATTERN.test(raw.iconTheme)
-        ? (currentProductValue(raw.iconTheme) as string)
+        ? raw.iconTheme
         : base.iconTheme,
   }
 }

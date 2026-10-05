@@ -2,7 +2,7 @@ import { copyFileSync, cpSync, existsSync, mkdirSync, readFileSync, realpathSync
 import { dirname, join, resolve, sep } from 'node:path'
 import { build } from 'esbuild'
 
-const manifestFiles = ['ostia.json', 'pine.json']
+const manifestFiles = ['ostia.json']
 const assets = [...manifestFiles, 'panel.html', 'panel.css']
 const copiedDirs = ['locales', 'assets']
 const vendorList = 'vendor.json'

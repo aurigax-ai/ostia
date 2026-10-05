@@ -52,22 +52,22 @@ type Property = 'font-family' | 'font-size' | 'font-weight' | 'line-height' | 'l
 
 const TOKENS: Record<Property, { names: RegExp; keywords: string[]; use: string }> = {
   'font-family': {
-    names: /^--(?:(?:(?:ostia|pine)-)?font-(?:ui|code)|typeset-font-(?:body|heading|mono))$/,
+    names: /^--(?:(?:ostia-)?font-(?:ui|code)|typeset-font-(?:body|heading|mono))$/,
     keywords: ['inherit'],
     use: 'var(--font-ui) for UI text or var(--font-code) for code, paths and other machine text',
   },
   'font-size': {
-    names: /^--(?:text-ui-(?:xs|sm|base|emphasis|lg)|(?:ostia|pine)-font-size)$/,
+    names: /^--(?:text-ui-(?:xs|sm|base|emphasis|lg)|ostia-font-size)$/,
     keywords: ['inherit'],
     use: 'var(--text-ui-xs|sm|base|emphasis|lg) (DESIGN.md §4)',
   },
   'font-weight': {
-    names: /^--(?:font-weight-(?:normal|medium|semibold)|(?:ostia|pine)-font-weight)$/,
+    names: /^--(?:font-weight-(?:normal|medium|semibold)|ostia-font-weight)$/,
     keywords: ['inherit'],
     use: 'var(--font-weight-normal|medium|semibold), which follow the UI weight setting',
   },
   'line-height': {
-    names: /^--(?:text-ui-(?:xs|sm|base|emphasis|lg)--line-height|(?:ostia|pine)-font-size)$/,
+    names: /^--(?:text-ui-(?:xs|sm|base|emphasis|lg)--line-height|ostia-font-size)$/,
     keywords: ['inherit'],
     use: 'the line height of the same step, var(--text-ui-<step>--line-height)',
   },

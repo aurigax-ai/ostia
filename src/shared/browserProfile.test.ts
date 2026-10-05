@@ -40,8 +40,8 @@ describe('browser partitions', () => {
   it('recognises only isolated pane partitions as isolated', () => {
     expect(isIsolatedBrowserPartition('ostia-browser-p1')).toBe(true)
     expect(isIsolatedBrowserPartition(SHARED_BROWSER_PARTITION)).toBe(false)
-    expect(isIsolatedBrowserPartition('persist:pine-browser-p1')).toBe(false)
-    expect(isIsolatedBrowserPartition('pine-ext-git')).toBe(false)
+    expect(isIsolatedBrowserPartition('persist:ostia-browser-p1')).toBe(false)
+    expect(isIsolatedBrowserPartition('ostia-ext-git')).toBe(false)
     expect(isIsolatedBrowserPartition(undefined)).toBe(false)
   })
 

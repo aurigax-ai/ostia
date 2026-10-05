@@ -5,7 +5,7 @@ if [ -n "$FAKE_GO_LOG" ]; then
     printf 'GOBIN=%s\n' "$GOBIN"
     printf 'GOFLAGS=[%s]\n' "$GOFLAGS"
     printf 'cwd=%s\n' "$(pwd)"
-    env | grep -c '^PINE_' | sed 's/^/pine_vars=/'
+    env | grep -c '^OSTIA_' | sed 's/^/ostia_vars=/'
   } >> "$FAKE_GO_LOG"
 fi
 case "$FAKE_GO_MODE" in

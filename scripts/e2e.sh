@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [ "${OSTIA_E2E_VISIBLE:-${PINE_E2E_VISIBLE:-}}" = "1" ] || [ "$(uname -s)" = "Darwin" ]; then
+if [ "${OSTIA_E2E_VISIBLE:-}" = "1" ] || [ "$(uname -s)" = "Darwin" ]; then
   exec playwright test "$@"
 fi
 

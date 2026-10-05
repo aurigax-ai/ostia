@@ -39,7 +39,7 @@ describe('ostia CLI → extensions (real processes, real socket)', () => {
   function runOstia(args: string[], input?: string): Promise<RunResult> {
     return new Promise((resolve, reject) => {
       const child = spawn(process.execPath, [cliPath, ...args], {
-        env: { ...process.env, PINE_SOCKET: socketPath, PINE_TOKEN: identity.token },
+        env: { ...process.env, OSTIA_SOCKET: socketPath, OSTIA_TOKEN: identity.token },
       })
       let stdout = ''
       let stderr = ''

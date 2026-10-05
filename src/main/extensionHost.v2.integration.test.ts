@@ -55,7 +55,7 @@ describe('Extension API v2 over a real control socket with the echo fixture', ()
   }
 
   beforeAll(() => {
-    dir = mkdtempSync(join(tmpdir(), 'pine-ext-v2-'))
+    dir = mkdtempSync(join(tmpdir(), 'ostia-ext-v2-'))
     const socketPath = join(dir, 'control.sock')
     store = new ExtensionStore(join(dir, 'extensions.json'))
     host = new ExtensionHost({

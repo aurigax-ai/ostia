@@ -171,7 +171,7 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
   it('whoami: prints the minted identity as JSON and exits 0', async () => {
     const res = await runOstia(
       ['whoami'],
-      withEnv({ PINE_SOCKET: socketPath, PINE_TOKEN: identity.token }),
+      withEnv({ OSTIA_SOCKET: socketPath, OSTIA_TOKEN: identity.token }),
     )
 
     expect(res.stderr).toBe('')
@@ -192,27 +192,10 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
     expect(JSON.parse(res.stdout).externalId).toBe(identity.externalId)
   })
 
-  it('whoami: prefers OSTIA_SOCKET and OSTIA_TOKEN over the old PINE_ names', async () => {
-    const stale = join(tmpdir(), `pine-cli-e2e-${process.pid}-legacy.sock`)
-    const res = await runOstia(
-      ['whoami'],
-      withEnv({
-        OSTIA_SOCKET: socketPath,
-        OSTIA_TOKEN: identity.token,
-        PINE_SOCKET: stale,
-        PINE_TOKEN: 'stale',
-      }),
-    )
-
-    expect(res.stderr).toBe('')
-    expect(res.code).toBe(0)
-    expect(JSON.parse(res.stdout).externalId).toBe(identity.externalId)
-  })
-
   it('commands: lists the descriptors served by the control server and exits 0', async () => {
     const res = await runOstia(
       ['commands'],
-      withEnv({ PINE_SOCKET: socketPath, PINE_TOKEN: identity.token }),
+      withEnv({ OSTIA_SOCKET: socketPath, OSTIA_TOKEN: identity.token }),
     )
 
     expect(res.code).toBe(0)
@@ -224,7 +207,7 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
   it('pane.splitRight: dispatches command.exec through the real socket and exits 0', async () => {
     const res = await runOstia(
       ['pane.splitRight'],
-      withEnv({ PINE_SOCKET: socketPath, PINE_TOKEN: identity.token }),
+      withEnv({ OSTIA_SOCKET: socketPath, OSTIA_TOKEN: identity.token }),
     )
 
     expect(res.code).toBe(0)
@@ -235,17 +218,17 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
   it('pane.bogus: unknown command id surfaces as a non-zero exit + stderr message', async () => {
     const res = await runOstia(
       ['pane.bogus'],
-      withEnv({ PINE_SOCKET: socketPath, PINE_TOKEN: identity.token }),
+      withEnv({ OSTIA_SOCKET: socketPath, OSTIA_TOKEN: identity.token }),
     )
 
     expect(res.code).not.toBe(0)
     expect(res.stderr).toContain("unknown command 'pane.bogus'")
   })
 
-  it('with PINE_SOCKET unset: fails fast with a "not inside an Ostia pane" message', async () => {
+  it('with OSTIA_SOCKET unset: fails fast with a "not inside an Ostia pane" message', async () => {
     const res = await runOstia(
       ['whoami'],
-      withEnv({ PINE_SOCKET: undefined, PINE_TOKEN: undefined }),
+      withEnv({ OSTIA_SOCKET: undefined, OSTIA_TOKEN: undefined }),
     )
 
     expect(res.code).not.toBe(0)
@@ -254,15 +237,18 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
 
   it('--help / -h print usage without contacting the app', async () => {
     for (const flag of ['--help', '-h']) {
-      const res = await runOstia([flag], withEnv({ PINE_SOCKET: undefined, PINE_TOKEN: undefined }))
+      const res = await runOstia(
+        [flag],
+        withEnv({ OSTIA_SOCKET: undefined, OSTIA_TOKEN: undefined }),
+      )
       expect(res.code).toBe(0)
       expect(res.stdout).toContain('usage: ostia')
     }
   })
 
-  it('stale PINE_SOCKET: prints "app not reachable" and exits 1 without a stack trace', async () => {
+  it('stale OSTIA_SOCKET: prints "app not reachable" and exits 1 without a stack trace', async () => {
     const stale = join(tmpdir(), `ostia-cli-e2e-${process.pid}-stale.sock`)
-    const res = await runOstia(['whoami'], withEnv({ PINE_SOCKET: stale, PINE_TOKEN: 'x' }))
+    const res = await runOstia(['whoami'], withEnv({ OSTIA_SOCKET: stale, OSTIA_TOKEN: 'x' }))
 
     expect(res.code).toBe(1)
     expect(res.stderr.trim()).toBe(`ostia: app not reachable at ${stale}`)
@@ -275,7 +261,7 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
     try {
       const res = await runOstia(
         ['bus', 'wait'],
-        withEnv({ PINE_SOCKET: dropPath, PINE_TOKEN: 'x' }),
+        withEnv({ OSTIA_SOCKET: dropPath, OSTIA_TOKEN: 'x' }),
       )
       expect(res.code).toBe(1)
       expect(res.stderr).toContain('connection to the app closed')
@@ -287,7 +273,7 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
   it('open with no path: exits 1 with a usage error', async () => {
     const res = await runOstia(
       ['open'],
-      withEnv({ PINE_SOCKET: socketPath, PINE_TOKEN: identity.token }),
+      withEnv({ OSTIA_SOCKET: socketPath, OSTIA_TOKEN: identity.token }),
     )
 
     expect(res.code).toBe(1)
@@ -295,7 +281,7 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
   })
 
   it('rejects an unknown flag and a flag without its value before calling the app', async () => {
-    const env = withEnv({ PINE_SOCKET: socketPath, PINE_TOKEN: identity.token })
+    const env = withEnv({ OSTIA_SOCKET: socketPath, OSTIA_TOKEN: identity.token })
 
     const unknown = await runOstia(['vault', 'ls', '--globl'], env)
     expect(unknown.code).toBe(1)
@@ -309,7 +295,7 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
   it('rejects a non-numeric numeric flag instead of silently defaulting', async () => {
     const res = await runOstia(
       ['bus', 'wait', '--timeout', 'soon'],
-      withEnv({ PINE_SOCKET: socketPath, PINE_TOKEN: identity.token }),
+      withEnv({ OSTIA_SOCKET: socketPath, OSTIA_TOKEN: identity.token }),
     )
 
     expect(res.code).toBe(1)
@@ -317,7 +303,7 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
   })
 
   describe('ostia state', () => {
-    const env = () => withEnv({ PINE_SOCKET: socketPath, PINE_TOKEN: identity.token })
+    const env = () => withEnv({ OSTIA_SOCKET: socketPath, OSTIA_TOKEN: identity.token })
 
     it('sets the attention of the caller own pane with a message', async () => {
       const res = await runOstia(['state', 'waiting', 'approve the migration?'], env())
@@ -459,7 +445,7 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
       grant(identity.externalId, 'browse')
       const res = await runOstia(
         ['browse', 'storage', 'session', 'get', 'token'],
-        withEnv({ PINE_SOCKET: socketPath, PINE_TOKEN: identity.token }),
+        withEnv({ OSTIA_SOCKET: socketPath, OSTIA_TOKEN: identity.token }),
       )
       expect(res.stderr).toBe('')
       expect(res.code).toBe(0)
@@ -470,7 +456,7 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
       grant(identity.externalId, 'browse')
       const res = await runOstia(
         ['browse', 'storage', 'local', 'token', '--json'],
-        withEnv({ PINE_SOCKET: socketPath, PINE_TOKEN: identity.token }),
+        withEnv({ OSTIA_SOCKET: socketPath, OSTIA_TOKEN: identity.token }),
       )
       expect(res.code).toBe(0)
       expect(JSON.parse(res.stdout)).toEqual({ success: true, data: { value: 'v' }, error: null })
@@ -479,7 +465,7 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
     it('reports a usage error as a failed JSON response and exits 1', async () => {
       const res = await runOstia(
         ['browse', '--json', 'storage', 'indexeddb'],
-        withEnv({ PINE_SOCKET: socketPath, PINE_TOKEN: identity.token }),
+        withEnv({ OSTIA_SOCKET: socketPath, OSTIA_TOKEN: identity.token }),
       )
       expect(res.code).toBe(1)
       const parsed = JSON.parse(res.stdout) as { success: boolean; error: string }
@@ -491,7 +477,7 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
       grant(identity.externalId, 'browse')
       const res = await runOstia(
         ['browse', 'storage', 'local', 'set', 'offset', '-5'],
-        withEnv({ PINE_SOCKET: socketPath, PINE_TOKEN: identity.token }),
+        withEnv({ OSTIA_SOCKET: socketPath, OSTIA_TOKEN: identity.token }),
       )
       expect(res.stderr).toBe('')
       expect(res.code).toBe(0)
@@ -503,7 +489,7 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
       const before = received.length
       const res = await runOstia(
         ['browse', 'batch', '--json', 'storage local a', 'storage session "b c"'],
-        withEnv({ PINE_SOCKET: socketPath, PINE_TOKEN: identity.token }),
+        withEnv({ OSTIA_SOCKET: socketPath, OSTIA_TOKEN: identity.token }),
       )
       expect(res.code).toBe(0)
       const results = JSON.parse(res.stdout) as { command: string[]; success: boolean }[]
@@ -517,7 +503,7 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
   })
 
   describe('ostia workspace describe', () => {
-    const env = () => withEnv({ PINE_SOCKET: socketPath, PINE_TOKEN: identity.token })
+    const env = () => withEnv({ OSTIA_SOCKET: socketPath, OSTIA_TOKEN: identity.token })
 
     it('sends the text to the caller’s workspace', async () => {
       const res = await runOstia(['workspace', 'describe', 'PR', '#7:', 'fix', 'refunds'], env())
@@ -546,7 +532,7 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
   })
 
   describe('ostia workspace groups', () => {
-    const env = () => withEnv({ PINE_SOCKET: socketPath, PINE_TOKEN: identity.token })
+    const env = () => withEnv({ OSTIA_SOCKET: socketPath, OSTIA_TOKEN: identity.token })
 
     it('moves the caller’s own workspace into a named group', async () => {
       const res = await runOstia(['workspace', 'group', 'code', 'review'], env())
@@ -609,7 +595,7 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
   })
 
   describe('ostia workflow', () => {
-    const env = () => withEnv({ PINE_SOCKET: socketPath, PINE_TOKEN: identity.token })
+    const env = () => withEnv({ OSTIA_SOCKET: socketPath, OSTIA_TOKEN: identity.token })
     let dir: string
 
     beforeAll(() => {
@@ -711,8 +697,8 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
   })
 
   describe('ostia view', () => {
-    const env = () => withEnv({ PINE_SOCKET: socketPath, PINE_TOKEN: identity.token })
-    const offline = () => withEnv({ PINE_SOCKET: undefined, PINE_TOKEN: undefined })
+    const env = () => withEnv({ OSTIA_SOCKET: socketPath, OSTIA_TOKEN: identity.token })
+    const offline = () => withEnv({ OSTIA_SOCKET: undefined, OSTIA_TOKEN: undefined })
     let dir: string
     let store: ViewStore
     const good = {
@@ -798,7 +784,7 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
     let home: string
     let outside: string
     const sandboxed = new Set<string>()
-    const env = () => withEnv({ PINE_SOCKET: socketPath, PINE_TOKEN: identity.token })
+    const env = () => withEnv({ OSTIA_SOCKET: socketPath, OSTIA_TOKEN: identity.token })
     const opened = () => execCalls.filter((c) => c.id === OPEN_FILES_COMMAND).map((c) => c.args)
 
     beforeAll(() => {
@@ -901,7 +887,7 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
     it('outside Ostia: a file path does not start the manager', async () => {
       const res = await runOstia(
         [join(outside, 'app.log')],
-        withEnv({ PINE_SOCKET: undefined, PINE_TOKEN: undefined }),
+        withEnv({ OSTIA_SOCKET: undefined, OSTIA_TOKEN: undefined }),
       )
 
       expect(res.code).toBe(1)

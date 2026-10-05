@@ -50,12 +50,12 @@ function marketplaceRepo(dataHome: string): string {
   const dir = join(repo, 'extensions', 'fake-native')
   mkdirSync(dir, { recursive: true })
   writeFileSync(
-    join(dir, 'pine.json'),
+    join(dir, 'ostia.json'),
     JSON.stringify({
       id: 'fake-native',
       name: 'Fake native',
       version: '1.0.0',
-      api: '1.2',
+      api: '2.0',
       description: 'Test fixture: a language server the app downloads',
       category: 'languages',
       capabilities: ['language-server'],
@@ -126,7 +126,7 @@ async function launch(): Promise<Launched> {
   const options = isolatedLaunch(dataHome)
   const app = await electron.launch({
     ...options,
-    env: { ...options.env, HOME: home, PINE_LSP_DOWNLOAD_BASE_URL: fixture.baseUrl },
+    env: { ...options.env, HOME: home, OSTIA_LSP_DOWNLOAD_BASE_URL: fixture.baseUrl },
   })
   const win = await app.firstWindow()
   await win.waitForLoadState('domcontentloaded')
@@ -179,7 +179,7 @@ test('opening a file offers the extension, installs it on the human’s click, a
     await expect(approval).toContainText(
       'Downloads ostia-fake-native-lsp 1.0.0 from github.com when it is not on your PATH',
     )
-    expect(existsSync(join(installed, 'pine.json'))).toBe(true)
+    expect(existsSync(join(installed, 'ostia.json'))).toBe(true)
     expect(fixture.requests).toHaveLength(0)
     await expect(editor.locator('.squiggly-error')).toHaveCount(0)
 

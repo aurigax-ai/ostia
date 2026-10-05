@@ -12,7 +12,7 @@ import {
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import { LEGACY_MARKETPLACE_MANIFEST_FILE, MARKETPLACE_MANIFEST_FILE } from '../shared/marketplace'
+import { MARKETPLACE_MANIFEST_FILE } from '../shared/marketplace'
 import {
   EXTENSION_MAX_FILES,
   GitError,
@@ -22,7 +22,6 @@ import {
   normalizeMarketplaceUrl,
   parseMarketplaceManifest,
   planCopy,
-  renamedMarketplaceUrl,
   runGit,
 } from './marketplace'
 
@@ -32,7 +31,7 @@ afterEach(() => {
 })
 
 function tmp(): string {
-  const d = mkdtempSync(join(tmpdir(), 'pine-marketplace-'))
+  const d = mkdtempSync(join(tmpdir(), 'ostia-marketplace-'))
   dirs.push(d)
   return d
 }
@@ -47,7 +46,7 @@ function git(cwd: string, ...args: string[]): void {
 function writeExtension(repo: string, path: string, manifest: Record<string, unknown>): void {
   const dir = join(repo, path)
   mkdirSync(join(dir, 'lib'), { recursive: true })
-  writeFileSync(join(dir, 'pine.json'), JSON.stringify(manifest))
+  writeFileSync(join(dir, 'ostia.json'), JSON.stringify(manifest))
   writeFileSync(join(dir, 'main.js'), `module.exports = '${manifest.version}'\n`)
   writeFileSync(join(dir, 'lib', 'helper.js'), '')
 }
@@ -62,7 +61,7 @@ function weather(version: string): Record<string, unknown> {
     id: 'weather',
     name: 'Weather',
     version,
-    api: '1.0',
+    api: '2.0',
     description: 'Shows the weather',
     capabilities: ['notify'],
     main: 'main.js',
@@ -72,7 +71,7 @@ function weather(version: string): Record<string, unknown> {
 const CODE = 'abcdefghijklmnopqrstuvwx23'
 
 function tides(version: string): Record<string, unknown> {
-  return { id: 'tides', name: 'Tides', version, api: '1.0', main: 'main.js' }
+  return { id: 'tides', name: 'Tides', version, api: '2.0', main: 'main.js' }
 }
 
 function repoWithUnlisted(): string {
@@ -237,10 +236,10 @@ describe('planCopy', () => {
     mkdirSync(join(dir, '.git'))
     writeFileSync(join(dir, '.git', 'HEAD'), '')
     mkdirSync(join(dir, 'lib'))
-    writeFileSync(join(dir, 'pine.json'), '{}')
+    writeFileSync(join(dir, 'ostia.json'), '{}')
     writeFileSync(join(dir, 'lib', 'a.js'), '')
     const plan = planCopy(dir)
-    expect(plan.ok && plan.files.sort()).toEqual(['lib/a.js', 'pine.json'])
+    expect(plan.ok && plan.files.sort()).toEqual(['lib/a.js', 'ostia.json'])
   })
 
   it('refuses a folder that holds a symlink', () => {
@@ -395,9 +394,9 @@ describe('Marketplace', () => {
     const id = state.marketplaces[0]?.id
     const res = await h.marketplace.install(id, 'weather')
     expect(res.ok).toBe(true)
-    expect(JSON.parse(readFileSync(join(h.extensionsDir, 'weather', 'pine.json'), 'utf8'))).toEqual(
-      weather('1.0.0'),
-    )
+    expect(
+      JSON.parse(readFileSync(join(h.extensionsDir, 'weather', 'ostia.json'), 'utf8')),
+    ).toEqual(weather('1.0.0'))
     expect(existsSync(join(h.extensionsDir, 'weather', 'lib', 'helper.js'))).toBe(true)
     expect(existsSync(join(h.extensionsDir, 'weather', '.git'))).toBe(false)
     expect(res.state.marketplaces[0]?.extensions[0]?.state).toBe('installed')
@@ -493,7 +492,7 @@ describe('Marketplace', () => {
     const res = await h.marketplace.remove(id)
     expect(res.state.marketplaces).toEqual([])
     expect(res.state.installed).toEqual(['weather'])
-    expect(existsSync(join(h.extensionsDir, 'weather', 'pine.json'))).toBe(true)
+    expect(existsSync(join(h.extensionsDir, 'weather', 'ostia.json'))).toBe(true)
     expect((await h.marketplace.uninstall('weather')).ok).toBe(true)
   })
 
@@ -503,7 +502,7 @@ describe('Marketplace', () => {
       id: 'gleam',
       name: 'Gleam',
       version: '1.0.0',
-      api: '1.0',
+      api: '2.0',
       capabilities: ['language-server'],
       contributes: {
         languageServers: [
@@ -545,7 +544,7 @@ describe('Marketplace', () => {
       false,
     )
     expect(res.ok).toBe(true)
-    expect(existsSync(join(h.extensionsDir, 'weather', 'pine.json'))).toBe(true)
+    expect(existsSync(join(h.extensionsDir, 'weather', 'ostia.json'))).toBe(true)
     expect(clones).toEqual([repo])
     expect(h.forgotten).toEqual(['weather'])
   })
@@ -569,7 +568,7 @@ describe('Marketplace', () => {
     expect(res.state.marketplaces.map((m) => m.url)).toEqual([
       'https://github.com/aurigax-ai/ostia-extensions.git',
     ])
-    expect(existsSync(join(h.extensionsDir, 'weather', 'pine.json'))).toBe(true)
+    expect(existsSync(join(h.extensionsDir, 'weather', 'ostia.json'))).toBe(true)
   })
 
   it('takes an extension the app itself suggests only from the official marketplace', async () => {
@@ -600,7 +599,7 @@ describe('Marketplace', () => {
     expect(res.ok).toBe(true)
     expect(res.state.marketplaces).toHaveLength(2)
     expect(
-      JSON.parse(readFileSync(join(h.extensionsDir, 'weather', 'pine.json'), 'utf8')).name,
+      JSON.parse(readFileSync(join(h.extensionsDir, 'weather', 'ostia.json'), 'utf8')).name,
     ).toBe('Official weather')
   })
 
@@ -648,7 +647,7 @@ describe('Marketplace', () => {
 
   it('does not report a broken unlisted entry among the problems it shows', async () => {
     const repo = repoWithUnlisted()
-    writeFileSync(join(repo, 'extensions/tides/pine.json'), '{}')
+    writeFileSync(join(repo, 'extensions/tides/ostia.json'), '{}')
     commit(repo)
     const h = harness()
     const { state } = await h.marketplace.add(repo)
@@ -674,7 +673,7 @@ describe('Marketplace', () => {
     expect(existsSync(join(h.extensionsDir, 'tides'))).toBe(false)
     const res = await h.marketplace.installCode(id, ` ${CODE} `)
     expect(res.ok).toBe(true)
-    expect(JSON.parse(readFileSync(join(h.extensionsDir, 'tides', 'pine.json'), 'utf8'))).toEqual(
+    expect(JSON.parse(readFileSync(join(h.extensionsDir, 'tides', 'ostia.json'), 'utf8'))).toEqual(
       tides('1.0.0'),
     )
     expect(h.forgotten).toEqual(['tides'])
@@ -711,144 +710,5 @@ describe('Marketplace', () => {
       error: 'unknown-extension',
     })
     expect(existsSync(join(h.extensionsDir, 'tides'))).toBe(false)
-  })
-})
-
-describe('the renamed official marketplace', () => {
-  it('maps every spelling of aurigax-ai/pine-extensions to aurigax-ai/ostia-extensions', () => {
-    expect(normalizeMarketplaceUrl('aurigax-ai/pine-extensions')).toBe(
-      'https://github.com/aurigax-ai/ostia-extensions.git',
-    )
-    expect(normalizeMarketplaceUrl('https://github.com/aurigax-ai/pine-extensions')).toBe(
-      'https://github.com/aurigax-ai/ostia-extensions',
-    )
-    expect(normalizeMarketplaceUrl('https://github.com/Aurigax-AI/Pine-Extensions.git/')).toBe(
-      'https://github.com/aurigax-ai/ostia-extensions.git/',
-    )
-    expect(normalizeMarketplaceUrl('git@github.com:aurigax-ai/pine-extensions.git')).toBe(
-      'git@github.com:aurigax-ai/ostia-extensions.git',
-    )
-    expect(normalizeMarketplaceUrl('ssh://git@github.com/aurigax-ai/pine-extensions.git')).toBe(
-      'ssh://git@github.com/aurigax-ai/ostia-extensions.git',
-    )
-  })
-
-  it('leaves other repositories alone', () => {
-    expect(renamedMarketplaceUrl('https://github.com/acme/pine-extensions.git')).toBeNull()
-    expect(renamedMarketplaceUrl('https://example.com/aurigax-ai/pine-extensions.git')).toBeNull()
-    expect(renamedMarketplaceUrl('https://github.com/aurigax-ai/pine-extensions-fork.git')).toBe(
-      null,
-    )
-  })
-
-  it('moves a saved marketplace, its clone and what was installed from it to the new name', async () => {
-    const repo = marketplaceRepo()
-    const h = harness({
-      git: (args) => runGit([...args.slice(0, -2), repo, args[args.length - 1]]),
-    })
-    const oldUrl = 'https://github.com/aurigax-ai/pine-extensions.git'
-    const newUrl = 'https://github.com/aurigax-ai/ostia-extensions.git'
-    const oldId = marketplaceId(oldUrl)
-    const newId = marketplaceId(newUrl)
-    const clones = join(h.recordsPath, '..', 'marketplaces')
-    mkdirSync(clones, { recursive: true })
-    execFileSync('git', ['clone', '-q', repo, join(clones, oldId)])
-    mkdirSync(join(h.extensionsDir, 'weather'))
-    writeFileSync(join(h.extensionsDir, 'weather', 'pine.json'), JSON.stringify(weather('1.0.0')))
-    writeFileSync(
-      h.recordsPath,
-      JSON.stringify({ sources: [{ id: oldId, url: oldUrl }], installs: { weather: oldId } }),
-    )
-
-    const reopened = h.reopen()
-    const state = reopened.state()
-
-    expect(state.marketplaces.map((m) => [m.id, m.url])).toEqual([[newId, newUrl]])
-    expect(state.marketplaces[0]?.extensions[0]).toMatchObject({
-      id: 'weather',
-      state: 'installed',
-    })
-    expect(existsSync(join(clones, newId, MARKETPLACE_MANIFEST_FILE))).toBe(true)
-    expect(existsSync(join(clones, oldId))).toBe(false)
-    expect(JSON.parse(readFileSync(h.recordsPath, 'utf8'))).toEqual({
-      sources: [{ id: newId, url: newUrl }],
-      installs: { weather: newId },
-    })
-    expect((await reopened.refresh(newId)).ok).toBe(true)
-  })
-
-  it('keeps one entry when both the old and the new name were saved', () => {
-    const h = harness()
-    const oldUrl = 'https://github.com/aurigax-ai/pine-extensions.git'
-    const newUrl = 'https://github.com/aurigax-ai/ostia-extensions.git'
-    const clones = join(h.recordsPath, '..', 'marketplaces')
-    mkdirSync(join(clones, marketplaceId(oldUrl)), { recursive: true })
-    mkdirSync(join(clones, marketplaceId(newUrl)), { recursive: true })
-    writeFileSync(
-      h.recordsPath,
-      JSON.stringify({
-        sources: [
-          { id: marketplaceId(oldUrl), url: oldUrl },
-          { id: marketplaceId(newUrl), url: newUrl },
-        ],
-        installs: {},
-      }),
-    )
-    expect(
-      h
-        .reopen()
-        .state()
-        .marketplaces.map((m) => m.url),
-    ).toEqual([newUrl])
-    expect(readdirSync(clones)).toEqual([marketplaceId(newUrl)])
-  })
-})
-
-describe('manifest names', () => {
-  it('reads a marketplace that still uses pine-marketplace.json', async () => {
-    const repo = marketplaceRepo()
-    execFileSync('git', ['mv', MARKETPLACE_MANIFEST_FILE, LEGACY_MARKETPLACE_MANIFEST_FILE], {
-      cwd: repo,
-    })
-    commit(repo)
-    const h = harness()
-    const res = await h.marketplace.add(repo)
-    expect(res.ok).toBe(true)
-    expect(res.state.marketplaces[0]?.extensions.map((e) => e.id)).toEqual(['weather'])
-  })
-
-  it('prefers ostia-marketplace.json when a marketplace has both', async () => {
-    const repo = marketplaceRepo()
-    writeFileSync(
-      join(repo, LEGACY_MARKETPLACE_MANIFEST_FILE),
-      JSON.stringify({ name: 'Old name', extensions: [] }),
-    )
-    commit(repo)
-    const res = await harness().marketplace.add(repo)
-    expect(res.state.marketplaces[0]?.name).toBe('Test marketplace')
-  })
-
-  it('installs an extension whose manifest is ostia.json, and copies both names when both exist', async () => {
-    const repo = marketplaceRepo()
-    const dir = join(repo, 'extensions/weather')
-    writeFileSync(join(dir, 'ostia.json'), JSON.stringify(weather('2.0.0')))
-    commit(repo)
-    const h = harness()
-    await h.marketplace.add(repo)
-    expect(h.marketplace.state().marketplaces[0]?.extensions[0]?.version).toBe('2.0.0')
-    const res = await h.marketplace.install(marketplaceId(repo), 'weather')
-    expect(res.ok).toBe(true)
-    expect(readdirSync(join(h.extensionsDir, 'weather')).sort()).toEqual([
-      'lib',
-      'main.js',
-      'ostia.json',
-      'pine.json',
-    ])
-    execFileSync('git', ['rm', '-q', 'extensions/weather/pine.json'], { cwd: repo })
-    commit(repo)
-    const only = harness()
-    await only.marketplace.add(repo)
-    expect((await only.marketplace.install(marketplaceId(repo), 'weather')).ok).toBe(true)
-    expect(existsSync(join(only.extensionsDir, 'weather', 'ostia.json'))).toBe(true)
   })
 })

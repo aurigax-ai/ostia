@@ -159,7 +159,7 @@ function harness(overrides: Partial<LanguageServersDeps> = {}): Harness {
   const servers = new LanguageServers({
     sources: () => h.sources,
     nodePath: '/opt/ostia/electron',
-    env: () => ({ PATH: '/usr/bin', PINE_TOKEN: 'secret', PINE_SOCKET: '/s', HOME: '/home/u' }),
+    env: () => ({ PATH: '/usr/bin', OSTIA_TOKEN: 'secret', OSTIA_SOCKET: '/s', HOME: '/home/u' }),
     pane: (paneId) =>
       paneId === 'p1'
         ? { windowId: 'w1', workspaceId: 'ws1' }
@@ -232,9 +232,14 @@ afterEach(() => {
 })
 
 describe('scrubbedEnv', () => {
-  it('drops every PINE_ variable and a stray ELECTRON_RUN_AS_NODE', () => {
+  it('drops every OSTIA_ variable and a stray ELECTRON_RUN_AS_NODE', () => {
     expect(
-      scrubbedEnv({ PATH: '/bin', PINE_TOKEN: 't', PINE_PANE_ID: 'p', ELECTRON_RUN_AS_NODE: '1' }),
+      scrubbedEnv({
+        PATH: '/bin',
+        OSTIA_TOKEN: 't',
+        OSTIA_PANE_ID: 'p',
+        ELECTRON_RUN_AS_NODE: '1',
+      }),
     ).toEqual({ PATH: '/bin' })
   })
 })
@@ -951,7 +956,7 @@ describe('LanguageServers in a sandboxed workspace', () => {
     expect(call.args).toEqual(['-c', expect.stringMatching(/^wrapped \/opt\/ostia\/electron /)])
     expect(call.options.shell).toBe(false)
     expect(call.options.env.TMPDIR).toBe('/sandbox-tmp')
-    expect(call.options.env.PINE_TOKEN).toBeUndefined()
+    expect(call.options.env.OSTIA_TOKEN).toBeUndefined()
     expect(h.servers.log('ext/fake').entries[0]).toMatchObject({ kind: 'start', sandboxed: true })
   })
 

@@ -17,7 +17,7 @@ test('blocks: select, copy output, navigate by chord, and reinsert from history'
     await win.keyboard.type('echo ostia_first_$((1+1))')
     await win.keyboard.press('Enter')
     await expect(rows).toContainText('ostia_first_2', { timeout: 15_000 })
-    await win.keyboard.type("printf 'ostia_out_a\\npine_out_b   \\n'")
+    await win.keyboard.type("printf 'ostia_out_a\\nostia_out_b   \\n'")
     await win.keyboard.press('Enter')
     await expect(rows).toContainText('ostia_out_b', { timeout: 15_000 })
 
@@ -30,7 +30,7 @@ test('blocks: select, copy output, navigate by chord, and reinsert from history'
 
     await gutters.nth(1).click({ button: 'right' })
     await win.getByRole('menuitem', { name: 'Copy output' }).click()
-    await expect.poll(clipboard).toBe('ostia_out_a\npine_out_b')
+    await expect.poll(clipboard).toBe('ostia_out_a\nostia_out_b')
 
     await expect
       .poll(() =>

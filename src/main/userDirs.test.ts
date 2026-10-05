@@ -1,44 +1,37 @@
 import {
-  cpSync,
   existsSync,
-  lstatSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
   readdirSync,
-  readlinkSync,
   realpathSync,
+  rmSync,
   statSync,
-  symlinkSync,
   writeFileSync,
 } from 'node:fs'
-import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
-  LEGACY_NOTICE,
-  MIGRATED_MARKER,
-  STAGING_DIR,
+  type DirMove,
   appConfigDir,
   appDataDir,
-  migrateDir,
-  migrateUserDirs,
-  resetUserDirs,
-  userDirsPlan,
+  moveOldDir,
+  oldAppRunning,
+  oldDirMoves,
+  previewOldDir,
+  projectDirMoves,
+  savedWorkspaceFolders,
 } from './userDirs'
 
 let home: string
-let env: Record<string, string | undefined>
 
 beforeEach(() => {
   home = realpathSync(mkdtempSync(join(tmpdir(), 'ostia-user-dirs-')))
-  env = {}
-  resetUserDirs()
 })
 
 afterEach(() => {
-  resetUserDirs()
+  rmSync(home, { recursive: true, force: true })
 })
 
 function write(path: string, text: string, mode?: number): void {
@@ -50,250 +43,152 @@ function read(path: string): string {
   return readFileSync(path, 'utf8')
 }
 
-function legacyTree(root: string): void {
-  write(join(root, 'workspaces.json'), '{"w":1}')
-  write(join(root, 'vault.json'), '{"K":"cipher"}', 0o600)
-  write(join(root, 'scrollback', 'pane-1.txt'), 'history')
-  write(join(root, 'notes', 'a.md'), 'note')
+function move(from: string, to: string, extra: Partial<DirMove> = {}): DirMove {
+  return { from, to, leave: [], drop: [], ...extra }
 }
 
-describe('migrateDir', () => {
-  it('copies everything when only the old folder exists and leaves the old one untouched', () => {
-    const from = join(home, '.local/share/pine')
-    const to = join(home, '.local/share/ostia')
-    legacyTree(from)
-    const before = readdirSync(from).sort()
-
-    const result = migrateDir({ from, to })
-
-    expect(result.status).toBe('copied')
-    expect(result.copied).toEqual(['notes', 'scrollback', 'vault.json', 'workspaces.json'])
-    expect(read(join(to, 'workspaces.json'))).toBe('{"w":1}')
-    expect(read(join(to, 'scrollback', 'pane-1.txt'))).toBe('history')
-    expect(read(join(to, 'notes', 'a.md'))).toBe('note')
-    expect(statSync(join(to, 'vault.json')).mode & 0o777).toBe(0o600)
-    expect(read(join(from, 'workspaces.json'))).toBe('{"w":1}')
-    expect(readdirSync(from).sort()).toEqual([...before, LEGACY_NOTICE].sort())
-    expect(read(join(from, LEGACY_NOTICE))).toContain(to)
-    expect(JSON.parse(read(join(to, MIGRATED_MARKER)))).toMatchObject({ from, kept: [] })
-    expect(existsSync(join(to, STAGING_DIR))).toBe(false)
-  })
-
-  it('does nothing when only the new folder exists', () => {
-    const from = join(home, '.config/pine')
-    const to = join(home, '.config/ostia')
-    write(join(to, 'settings.json'), '{"new":true}')
-
-    expect(migrateDir({ from, to }).status).toBe('nothing')
-    expect(existsSync(from)).toBe(false)
-    expect(readdirSync(to)).toEqual(['settings.json'])
-  })
-
-  it('never overwrites what the new folder already has when both exist', () => {
-    const from = join(home, '.config/pine')
-    const to = join(home, '.config/ostia')
-    write(join(from, 'settings.json'), '{"old":true}')
-    write(join(from, 'views', 'a.json'), '{}')
-    write(join(to, 'settings.json'), '{"new":true}')
-
-    const result = migrateDir({ from, to })
-
-    expect(result.status).toBe('copied')
-    expect(result.copied).toEqual(['views'])
-    expect(result.kept).toEqual(['settings.json'])
-    expect(read(join(to, 'settings.json'))).toBe('{"new":true}')
-    expect(read(join(from, 'settings.json'))).toBe('{"old":true}')
-    expect(read(join(to, 'views', 'a.json'))).toBe('{}')
-  })
-
-  it('runs once: a second launch copies nothing even if the old folder changed', () => {
-    const from = join(home, '.config/pine')
-    const to = join(home, '.config/ostia')
-    write(join(from, 'settings.json'), '{"v":1}')
-    expect(migrateDir({ from, to }).status).toBe('copied')
-    write(join(from, 'later.json'), '{}')
-    write(join(to, 'settings.json'), '{"v":2}')
-
-    expect(migrateDir({ from, to }).status).toBe('already')
-    expect(existsSync(join(to, 'later.json'))).toBe(false)
-    expect(read(join(to, 'settings.json'))).toBe('{"v":2}')
-  })
-
-  it('rolls back a copy that fails halfway and keeps the old folder intact', () => {
-    const from = join(home, '.local/share/pine')
-    const to = join(home, '.local/share/ostia')
-    legacyTree(from)
-    let calls = 0
-    const result = migrateDir(
-      { from, to },
-      {
-        copy: (src, dest) => {
-          calls += 1
-          if (calls === 3) {
-            mkdirSync(dest, { recursive: true })
-            writeFileSync(join(dest, 'partial'), 'x')
-            throw new Error('ENOSPC: no space left on device')
-          }
-          cpSync(src, dest, { recursive: true })
-        },
-      },
-    )
-
-    expect(result.status).toBe('failed')
-    expect(result.error).toContain('ENOSPC')
-    expect(existsSync(to)).toBe(false)
-    expect(existsSync(join(from, LEGACY_NOTICE))).toBe(false)
-    expect(read(join(from, 'workspaces.json'))).toBe('{"w":1}')
-    expect(read(join(from, 'scrollback', 'pane-1.txt'))).toBe('history')
-
-    const retry = migrateDir({ from, to })
-    expect(retry.status).toBe('copied')
-    expect(retry.copied).toEqual(['notes', 'scrollback', 'vault.json', 'workspaces.json'])
-  })
-
-  it('keeps a new folder that existed before a failed copy, and only removes what it copied', () => {
-    const from = join(home, '.local/share/pine')
-    const to = join(home, '.local/share/ostia')
-    legacyTree(from)
-    write(join(to, 'app', 'ostia'), 'binary')
-    const result = migrateDir(
-      { from, to, skip: ['app'] },
-      {
-        copy: (src, dest) => {
-          if (src.endsWith('vault.json')) throw new Error('EACCES: permission denied')
-          cpSync(src, dest, { recursive: true })
-        },
-      },
-    )
-
-    expect(result.status).toBe('failed')
-    expect(readdirSync(to)).toEqual(['app'])
-  })
-
-  it('finishes a copy an earlier launch left behind when it was killed', () => {
-    const from = join(home, '.local/share/pine')
-    const to = join(home, '.local/share/ostia')
-    legacyTree(from)
-    cpSync(join(from, 'notes'), join(to, 'notes'), { recursive: true })
-    write(join(to, STAGING_DIR, 'scrollback', 'pane-1.txt'), 'half')
-
-    const result = migrateDir({ from, to })
-
-    expect(result.status).toBe('copied')
-    expect(result.kept).toEqual(['notes'])
-    expect(read(join(to, 'scrollback', 'pane-1.txt'))).toBe('history')
-    expect(existsSync(join(to, STAGING_DIR))).toBe(false)
-  })
-
-  it('skips the given entries, sockets and Chromium locks, and keeps symlinks as links', async () => {
-    const from = join(home, 'appData/pine')
-    const to = join(home, 'appData/ostia')
-    write(join(from, 'settings.json'), '{}')
-    write(join(from, 'Cache', 'data_0'), 'cache')
-    symlinkSync('host-123', join(from, 'SingletonLock'))
-    symlinkSync('settings.json', join(from, 'link.json'))
-    const socket = join(from, 's.sock')
-    const server = createServer()
-    await new Promise<void>((resolve) => server.listen(socket, resolve))
-    try {
-      const result = migrateDir({ from, to, skip: ['Cache', 'SingletonLock'] })
-      expect(result.copied).toEqual(['link.json', 'settings.json'])
-    } finally {
-      await new Promise<void>((resolve) => server.close(() => resolve()))
-    }
-    expect(lstatSync(join(to, 'link.json')).isSymbolicLink()).toBe(true)
-    expect(readlinkSync(join(to, 'link.json'))).toBe('settings.json')
-    expect(existsSync(join(to, 'Cache'))).toBe(false)
-  })
-
-  it('does nothing when the old path is not a folder', () => {
-    const from = join(home, '.config/pine')
-    write(from, 'not a folder')
-    expect(migrateDir({ from, to: join(home, '.config/ostia') }).status).toBe('nothing')
+describe('app folders', () => {
+  it('names only the ostia folders, honouring XDG_CONFIG_HOME and XDG_DATA_HOME', () => {
+    expect(appConfigDir({}, home)).toBe(join(home, '.config', 'ostia'))
+    expect(appDataDir({}, home)).toBe(join(home, '.local', 'share', 'ostia'))
+    const env = { XDG_CONFIG_HOME: join(home, 'cfg'), XDG_DATA_HOME: join(home, 'data') }
+    expect(appConfigDir(env, home)).toBe(join(home, 'cfg', 'ostia'))
+    expect(appDataDir(env, home)).toBe(join(home, 'data', 'ostia'))
   })
 })
 
-describe('migrateUserDirs', () => {
-  it('moves the config, data and userData folders on macOS-style paths', () => {
-    const appData = join(home, 'Library/Application Support')
-    write(join(home, '.config/pine/extensions/hello/pine.json'), '{}')
-    write(join(home, '.local/share/pine/workspaces.json'), '{"w":1}')
-    write(join(home, '.local/share/pine/app/pine'), 'binary')
-    write(join(appData, 'pine/settings.json'), '{"theme":"dark"}')
-    write(join(appData, 'pine/logs/main.log'), 'log')
-    write(join(appData, 'pine/GPUCache/index'), 'gpu')
-
-    const plan = userDirsPlan(appData, false, env, home)
-    const outcome = migrateUserDirs(plan)
-
-    expect(outcome.config.status).toBe('copied')
-    expect(outcome.data.status).toBe('copied')
-    expect(outcome.userData?.status).toBe('copied')
-    expect(existsSync(join(home, '.config/ostia/extensions/hello/pine.json'))).toBe(true)
-    expect(read(join(home, '.local/share/ostia/workspaces.json'))).toBe('{"w":1}')
-    expect(existsSync(join(home, '.local/share/ostia/app'))).toBe(false)
-    expect(read(join(appData, 'ostia/settings.json'))).toBe('{"theme":"dark"}')
-    expect(read(join(appData, 'ostia/logs/main.log'))).toBe('log')
-    expect(existsSync(join(appData, 'ostia/GPUCache'))).toBe(false)
-    expect(appConfigDir(env, home)).toBe(join(home, '.config/ostia'))
-    expect(appDataDir(env, home)).toBe(join(home, '.local/share/ostia'))
+describe('oldDirMoves', () => {
+  it('finds nothing when no pine folder exists', () => {
+    expect(oldDirMoves(join(home, '.config'), false, {}, home)).toEqual([])
   })
 
-  it('treats a Linux userData that is the config folder as one move', () => {
-    env = { XDG_CONFIG_HOME: join(home, 'xdg-config'), XDG_DATA_HOME: join(home, 'xdg-data') }
-    const appData = join(home, 'xdg-config')
-    write(join(appData, 'pine/settings.json'), '{}')
-    write(join(appData, 'pine/extensions/hello/pine.json'), '{}')
-    write(join(appData, 'pine/Code Cache/js'), 'cache')
-
-    const plan = userDirsPlan(appData, false, env, home)
-    const outcome = migrateUserDirs(plan)
-
-    expect(outcome.userData).toBe(outcome.config)
-    expect(outcome.config.copied).toEqual(['extensions', 'settings.json'])
-    expect(existsSync(join(appData, 'ostia/Code Cache'))).toBe(false)
-    expect(appConfigDir(env, home)).toBe(join(home, 'xdg-config/ostia'))
-  })
-
-  it('leaves userData alone when --user-data-dir chose it', () => {
-    const appData = join(home, 'Library/Application Support')
-    write(join(appData, 'pine/settings.json'), '{}')
-    const plan = userDirsPlan(appData, true, env, home)
-    expect(plan.userData).toBeUndefined()
-    const outcome = migrateUserDirs(plan)
-    expect(outcome.userData).toBeUndefined()
-    expect(existsSync(join(appData, 'ostia'))).toBe(false)
-  })
-
-  it('keeps using the old folders when a copy fails, and tries again next launch', () => {
-    write(join(home, '.config/pine/views/a.json'), '{}')
+  it('finds the pine config and data folders and folds Chromium userData into config on Linux', () => {
+    write(join(home, '.config/pine/settings.json'), '{}')
     write(join(home, '.local/share/pine/workspaces.json'), '{}')
-    const plan = userDirsPlan(join(home, 'appData'), true, env, home)
-
-    const outcome = migrateUserDirs(plan, {
-      copy: () => {
-        throw new Error('EIO: i/o error')
-      },
-    })
-
-    expect(outcome.config.status).toBe('failed')
-    expect(outcome.data.status).toBe('failed')
-    expect(appConfigDir(env, home)).toBe(join(home, '.config/pine'))
-    expect(appDataDir(env, home)).toBe(join(home, '.local/share/pine'))
-
-    resetUserDirs()
-    const next = migrateUserDirs(plan)
-    expect(next.config.status).toBe('copied')
-    expect(appConfigDir(env, home)).toBe(join(home, '.config/ostia'))
+    const moves = oldDirMoves(join(home, '.config'), false, {}, home)
+    expect(moves.map((m) => [m.from, m.to])).toEqual([
+      [join(home, '.config/pine'), join(home, '.config/ostia')],
+      [join(home, '.local/share/pine'), join(home, '.local/share/ostia')],
+    ])
+    expect(moves[0]?.drop).toContain('GPUCache')
+    expect(moves[1]?.leave).toEqual(['app'])
   })
 
-  it('creates nothing for a new user', () => {
+  it('adds a separate userData folder where it is not the config folder, as on macOS', () => {
     const appData = join(home, 'Library/Application Support')
-    const outcome = migrateUserDirs(userDirsPlan(appData, false, env, home))
-    expect(outcome.config.status).toBe('nothing')
-    expect(outcome.data.status).toBe('nothing')
-    expect(outcome.userData?.status).toBe('nothing')
-    expect(existsSync(join(home, '.config'))).toBe(false)
-    expect(existsSync(join(home, '.local'))).toBe(false)
+    write(join(appData, 'pine/Local Storage/x'), 'x')
+    const moves = oldDirMoves(appData, false, {}, home)
+    expect(moves.map((m) => [m.from, m.to])).toEqual([
+      [join(appData, 'pine'), join(appData, 'ostia')],
+    ])
+  })
+
+  it('skips a data folder that holds only the installed app, and userData under --user-data-dir', () => {
+    mkdirSync(join(home, '.local/share/pine/app'), { recursive: true })
+    write(join(home, '.config/pine/GPUCache/x'), 'x')
+    expect(oldDirMoves(join(home, '.config'), false, {}, home)).toEqual([])
+    rmSync(join(home, '.config/pine'), { recursive: true })
+    write(join(home, 'Library/pine/Cookies'), 'c')
+    expect(oldDirMoves(join(home, 'Library'), true, {}, home)).toEqual([])
+  })
+})
+
+describe('oldAppRunning', () => {
+  it('says the old app is running while its single-instance lock is there', () => {
+    const from = join(home, '.config/pine')
+    write(join(from, 'settings.json'), '{}')
+    expect(oldAppRunning([move(from, join(home, '.config/ostia'))])).toBe(false)
+    write(join(from, 'SingletonLock'), '')
+    expect(oldAppRunning([move(from, join(home, '.config/ostia'))])).toBe(true)
+  })
+})
+
+describe('moveOldDir', () => {
+  it('moves every entry, keeps file modes and deletes the old folder', () => {
+    const from = join(home, '.local/share/pine')
+    const to = join(home, '.local/share/ostia')
+    write(join(from, 'workspaces.json'), '{"w":1}')
+    write(join(from, 'vault.json'), '{"K":"cipher"}', 0o600)
+    write(join(from, 'scrollback/pane-1.txt'), 'history')
+
+    const result = moveOldDir(move(from, to))
+
+    expect(result).toEqual({ moved: ['scrollback', 'vault.json', 'workspaces.json'], replaced: [] })
+    expect(read(join(to, 'workspaces.json'))).toBe('{"w":1}')
+    expect(read(join(to, 'scrollback/pane-1.txt'))).toBe('history')
+    expect(statSync(join(to, 'vault.json')).mode & 0o777).toBe(0o600)
+    expect(existsSync(from)).toBe(false)
+  })
+
+  it('keeps what ostia already has and deletes the old copy of it', () => {
+    const from = join(home, '.config/pine')
+    const to = join(home, '.config/ostia')
+    write(join(from, 'settings.json'), 'old')
+    write(join(from, 'views/a.json'), '{}')
+    write(join(to, 'settings.json'), 'new')
+
+    expect(previewOldDir(move(from, to))).toEqual({ moved: ['views'], replaced: ['settings.json'] })
+    expect(read(join(from, 'settings.json'))).toBe('old')
+
+    expect(moveOldDir(move(from, to))).toEqual({ moved: ['views'], replaced: ['settings.json'] })
+    expect(read(join(to, 'settings.json'))).toBe('new')
+    expect(existsSync(join(to, 'views/a.json'))).toBe(true)
+    expect(existsSync(from)).toBe(false)
+  })
+
+  it('drops Chromium caches, leaves the installed app and renames the shared browser profile', () => {
+    const from = join(home, '.config/pine')
+    const to = join(home, '.config/ostia')
+    write(join(from, 'GPUCache/data'), 'cache')
+    write(join(from, 'Partitions/pine-browser/Cookies'), 'logins')
+    write(join(from, 'Partitions/other/Cookies'), 'other')
+    write(join(to, 'Partitions/other/Cookies'), 'kept')
+    mkdirSync(join(from, 'app'))
+
+    const result = moveOldDir(move(from, to, { leave: ['app'], drop: ['GPUCache'] }))
+
+    expect(result).toEqual({ moved: ['Partitions/pine-browser'], replaced: ['Partitions/other'] })
+    expect(read(join(to, 'Partitions/ostia-browser/Cookies'))).toBe('logins')
+    expect(read(join(to, 'Partitions/other/Cookies'))).toBe('kept')
+    expect(existsSync(join(to, 'GPUCache'))).toBe(false)
+    expect(readdirSync(from)).toEqual(['app'])
+  })
+
+  it('copies then deletes when the folders are on different filesystems', () => {
+    const from = join(home, '.local/share/pine')
+    const to = join(home, '.local/share/ostia')
+    write(join(from, 'notes/a.md'), 'note')
+    const crossDevice = (): void => {
+      throw Object.assign(new Error('cross-device link'), { code: 'EXDEV' })
+    }
+
+    expect(moveOldDir(move(from, to), { rename: crossDevice }).moved).toEqual(['notes'])
+    expect(read(join(to, 'notes/a.md'))).toBe('note')
+    expect(existsSync(from)).toBe(false)
+  })
+})
+
+describe('project folders', () => {
+  it('reads the workspace folders saved by either version, expanding ~', () => {
+    write(
+      join(home, 'old.json'),
+      JSON.stringify({ workspaces: [{ workDir: '~/code/a' }, { workDir: '~' }, { workDir: 3 }] }),
+    )
+    write(join(home, 'new.json'), JSON.stringify({ workspaces: [{ workDir: '~/code/a' }] }))
+    expect(
+      savedWorkspaceFolders(
+        [join(home, 'old.json'), join(home, 'new.json'), join(home, 'none')],
+        home,
+      ),
+    ).toEqual([join(home, 'code/a'), home])
+  })
+
+  it('offers to move a project .pine folder to .ostia only where one holds something', () => {
+    write(join(home, 'a/.pine/vault.json'), '{}')
+    mkdirSync(join(home, 'b/.pine'), { recursive: true })
+    mkdirSync(join(home, 'c'), { recursive: true })
+    expect(projectDirMoves([join(home, 'a'), join(home, 'b'), join(home, 'c')])).toEqual([
+      { from: join(home, 'a/.pine'), to: join(home, 'a/.ostia'), leave: [], drop: [] },
+    ])
   })
 })

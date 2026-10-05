@@ -1,0 +1,13 @@
+{
+  "id": "keymap-macos",
+  "name": "macOS keymap (cmux)",
+  "version": "1.0.0",
+  "api": "2.0",
+  "description": "Shortcuts that follow cmux's defaults on macOS: ⌘D splits right, ⇧⌘D splits down, ⌥⌘ with an arrow moves between panes, ⌘N opens a workspace, ⇧⌘P opens the palette and ⌘B the sidebar. Off until you pick it in Settings → Keyboard.",
+  "locales": ["zh-Hant"],
+  "contributes": {
+    "keymaps": [
+      { "id": "cmux", "label": "macOS (cmux)", "path": "assets/cmux.json", "platform": "darwin" }
+    ]
+  }
+}

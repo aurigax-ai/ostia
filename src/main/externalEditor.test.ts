@@ -81,7 +81,7 @@ describe('openInExternalEditor', () => {
   })
 
   it('spawns the program with argv and reports what it ran', async () => {
-    dir = mkdtempSync(join(tmpdir(), 'pine-ext-editor-'))
+    dir = mkdtempSync(join(tmpdir(), 'ostia-ext-editor-'))
     const out = join(dir, 'args.txt')
     const script = join(dir, 'fake-editor')
     writeFileSync(script, `#!/bin/sh\nprintf '%s\\n' "$@" > '${out}'\n`)

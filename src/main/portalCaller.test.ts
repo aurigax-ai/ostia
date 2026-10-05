@@ -63,10 +63,10 @@ describe('parseProcStat', () => {
 })
 
 describe('hasPaneToken', () => {
-  it('finds OSTIA_TOKEN or PINE_TOKEN among NUL-separated entries only as a variable name', () => {
-    expect(hasPaneToken('A=1\0PINE_TOKEN=abc\0')).toBe(true)
+  it('finds OSTIA_TOKEN among NUL-separated entries only as a variable name', () => {
     expect(hasPaneToken('A=1\0OSTIA_TOKEN=abc\0')).toBe(true)
-    expect(hasPaneToken('A=PINE_TOKEN=abc\0NOT_PINE_TOKEN=1')).toBe(false)
+    expect(hasPaneToken('A=1\0PINE_TOKEN=abc\0')).toBe(false)
+    expect(hasPaneToken('A=OSTIA_TOKEN=abc\0NOT_OSTIA_TOKEN=1')).toBe(false)
   })
 })
 
@@ -76,8 +76,8 @@ describe('judgeCaller', () => {
     expect(judgeCaller(300, ctx(procs))).toBe('inside')
   })
 
-  it('MGR-C12 refuses a reparented caller that still carries PINE_TOKEN', () => {
-    const procs = { 300: { ppid: 1, env: ['PINE_TOKEN=deadbeef'] } }
+  it('MGR-C12 refuses a reparented caller that still carries OSTIA_TOKEN', () => {
+    const procs = { 300: { ppid: 1, env: ['OSTIA_TOKEN=deadbeef'] } }
     expect(judgeCaller(300, ctx(procs))).toBe('inside')
   })
 

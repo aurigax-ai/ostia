@@ -1,4 +1,3 @@
-import { currentProductValue } from './legacyIds'
 export type PromptStyle = 'shell' | 'ostia'
 
 export const PROMPT_STYLES: readonly PromptStyle[] = ['shell', 'ostia']
@@ -77,7 +76,7 @@ export function parsePromptSettings(raw: unknown): PromptSettings {
     return { ...DEFAULT_PROMPT_SETTINGS, chips: [...DEFAULT_PROMPT_CHIPS] }
   }
   const source = raw as Record<string, unknown>
-  const style = currentProductValue(source.style)
+  const style = source.style
   return {
     style: PROMPT_STYLES.includes(style as PromptStyle)
       ? (style as PromptStyle)
