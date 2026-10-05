@@ -7,7 +7,7 @@ import { UpdateCheck } from './UpdateCheck'
 
 const RELEASE = {
   version: '1.1.0',
-  url: 'https://github.com/aurigax-ai/pine/releases/tag/v1.1.0',
+  url: 'https://github.com/aurigax-ai/ostia/releases/tag/v1.1.0',
 }
 
 function answer(result: ReleaseCheckResult): void {

@@ -1,3 +1,5 @@
+appId: ai.aurigax.ostia
+productName: Ostia
 directories:
   output: dist
 files:
@@ -19,10 +21,17 @@ asarUnpack:
 npmRebuild: true
 linux:
   target: dir
+  artifactName: ostia-${version}.${ext}
   icon: resources/icons
   category: Development
 mac:
   target: dmg
+  artifactName: ostia-${version}-${arch}.${ext}
   category: public.app-category.developer-tools
+  icon: resources/icon.png
+  hardenedRuntime: true
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+  notarize: true
 win:
   target: nsis

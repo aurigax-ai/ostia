@@ -10,7 +10,7 @@ import {
   createMessageConnection,
 } from 'vscode-jsonrpc/node'
 import { managerAgents, parseManagerSettings } from '../shared/managerSettings'
-import { PRODUCT_NAME } from '../shared/product'
+import { PRODUCT_DISPLAY_NAME } from '../shared/productDisplay'
 import type { MissingRequirement } from '../shared/systemRequirements'
 import { ManagerService } from './manager'
 import { type MirrorSink, Portal, portalSupported } from './portal'
@@ -156,7 +156,7 @@ describe('Portal', () => {
     ])
     const c = await client(path)
     await expect(open(c.conn)).rejects.toThrow(
-      `missing-requirements: ${PRODUCT_NAME} needs ss (package iproute2) to check who is asking. Install it: sudo pacman -S --needed iproute2`,
+      `missing-requirements: ${PRODUCT_DISPLAY_NAME} needs ss (package iproute2) to check who is asking. Install it: sudo pacman -S --needed iproute2`,
     )
     expect(judged).toEqual([])
     expect(ptys.size).toBe(0)

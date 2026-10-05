@@ -45,6 +45,7 @@ const git: ExtensionInfo = {
   agentSkills: [],
   agentHooks: [],
   iconThemes: [],
+  keymaps: [],
 }
 
 function question(id: string, paneId: string, text: string, at: number): QuestionRequest {
@@ -137,7 +138,7 @@ describe('DashboardPanel', () => {
     render(<DashboardPanel />)
     open()
     expect(screen.getByRole('region', { name: 'Needs you' })).toHaveTextContent(
-      'Nothing is waiting for you. Questions agents ask with pine ask and permission requests appear here.',
+      'Nothing is waiting for you. Questions agents ask with ostia ask and permission requests appear here.',
     )
     expect(screen.getByRole('region', { name: 'Workspaces' })).toHaveTextContent(
       'No workspaces are open.',

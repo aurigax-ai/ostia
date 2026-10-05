@@ -15,6 +15,7 @@ type Persisted = Pick<
   | 'workspaces'
   | 'browser'
   | 'editor'
+  | 'keymap'
   | 'keybindings'
   | 'terminal'
   | 'panes'
@@ -56,6 +57,7 @@ describe('settingsStore', () => {
       workspaces: s.workspaces,
       browser: s.browser,
       editor: s.editor,
+      keymap: s.keymap,
       keybindings: s.keybindings,
       agents: s.agents,
       assistant: s.assistant,
@@ -131,6 +133,30 @@ describe('settingsStore', () => {
         'view.toggleRail': null,
         'app.openSettings': 'Ctrl+R',
       })
+    })
+
+    it('starts without a keymap, keeps a well-formed keymap id and drops anything else', async () => {
+      expect(store().keymap).toBeNull()
+      expect(parsePersisted({}).keymap).toBeNull()
+      vi.mocked(window.pine.fs.read).mockResolvedValue(
+        JSON.stringify({ keymap: 'keymap-macos/cmux' }),
+      )
+      await store().init()
+      expect(store().keymap).toBe('keymap-macos/cmux')
+      for (const keymap of ['cmux', 'Keymap/cmux', 'a/b/c', '__proto__/x', 7, {}, '']) {
+        expect(parsePersisted({ keymap } as never).keymap, String(keymap)).toBeNull()
+      }
+    })
+
+    it('saves the chosen keymap and null for the default shortcuts', async () => {
+      store().setKeymap('keymap-macos/cmux')
+      await vi.runAllTimersAsync()
+      const written = () =>
+        JSON.parse(String(vi.mocked(window.pine.fs.write).mock.calls.at(-1)?.[1]))
+      expect(written().keymap).toBe('keymap-macos/cmux')
+      store().setKeymap(null)
+      await vi.runAllTimersAsync()
+      expect(written().keymap).toBeNull()
     })
 
     it('keeps a known input mode and falls back to terminal for anything else', async () => {
@@ -391,6 +417,7 @@ describe('settingsStore', () => {
         workspaces: s.workspaces,
         browser: s.browser,
         editor: s.editor,
+        keymap: s.keymap,
         keybindings: s.keybindings,
         agents: s.agents,
         assistant: s.assistant,
@@ -558,6 +585,7 @@ describe('settingsStore', () => {
         workspaces: s.workspaces,
         browser: s.browser,
         editor: s.editor,
+        keymap: s.keymap,
         keybindings: s.keybindings,
         agents: s.agents,
         assistant: s.assistant,

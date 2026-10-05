@@ -1,7 +1,7 @@
 import { isAbsolute } from 'node:path'
 import { ErrorCodes, ResponseError } from 'vscode-jsonrpc/node'
 import { MANAGER_AGENT_NAME } from '../shared/managerSettings'
-import { PRODUCT_NAME } from '../shared/product'
+import { PRODUCT_DISPLAY_NAME } from '../shared/productDisplay'
 import { quoteArgv } from '../shared/shellQuote'
 import { connHasCap } from './controlAuth'
 import {
@@ -295,17 +295,17 @@ const NOT_FOUND = { ok: false as const, error: 'not-found' as const }
 const NOT_OPENED = {
   ok: false as const,
   error: 'not-opened' as const,
-  message: `${PRODUCT_NAME} could not open a terminal tab`,
+  message: `${PRODUCT_DISPLAY_NAME} could not open a terminal tab`,
 }
 const UNKNOWN_AGENT = {
   ok: false as const,
   error: 'unknown-agent' as const,
-  message: `${PRODUCT_NAME} knows no agent by that name; start it with pine process run instead`,
+  message: `${PRODUCT_DISPLAY_NAME} knows no agent by that name; start it with ostia process run instead`,
 }
 const CLOSED = {
   ok: false as const,
   error: 'closed' as const,
-  message: 'its tab was closed; start it again with pine process run',
+  message: 'its tab was closed; start it again with ostia process run',
 }
 
 function hasControlCharacters(text: string, allowed: string): boolean {
@@ -499,7 +499,7 @@ export function registerProcessMethods(deps: ProcessDeps): ProcessRegistry {
         return {
           ok: false,
           error: 'no-shell',
-          message: "its tab's shell has ended; start it again with pine process run",
+          message: "its tab's shell has ended; start it again with ostia process run",
         }
       }
       if (entry.status === 'starting') return { id: entry.id, name: entry.name }
@@ -507,7 +507,7 @@ export function registerProcessMethods(deps: ProcessDeps): ProcessRegistry {
         return {
           ok: false,
           error: 'still-running',
-          message: 'the command did not stop on interrupt; stop it with pine process kill',
+          message: 'the command did not stop on interrupt; stop it with ostia process kill',
         }
       }
       registry.rerun(entry)

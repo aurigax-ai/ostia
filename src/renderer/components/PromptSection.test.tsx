@@ -1,5 +1,5 @@
 import type { ExtensionInfo } from '@shared/extensions'
-import { PRODUCT_NAME } from '@shared/product'
+import { PRODUCT_DISPLAY_NAME } from '@shared/productDisplay'
 import { DEFAULT_PROMPT_CHIPS } from '@shared/promptSettings'
 import type { PromptContext } from '@shared/types'
 import { render, screen, within } from '@testing-library/react'
@@ -42,6 +42,7 @@ const extension = (patch: Partial<ExtensionInfo>): ExtensionInfo => ({
   agentSkills: [],
   agentHooks: [],
   iconThemes: [],
+  keymaps: [],
   ...patch,
 })
 
@@ -206,7 +207,9 @@ describe('PromptSection', () => {
     setChips(['cwd'], 'shell')
     render(<PromptSection />)
     await userEvent.click(screen.getByRole('combobox', { name: 'Prompt style' }))
-    await userEvent.click(await screen.findByRole('option', { name: `${PRODUCT_NAME} prompt` }))
+    await userEvent.click(
+      await screen.findByRole('option', { name: `${PRODUCT_DISPLAY_NAME} prompt` }),
+    )
     expect(saved().style).toBe('pine')
     await userEvent.click(screen.getByRole('switch', { name: 'Same line prompt' }))
     expect(saved().sameLine).toBe(true)
@@ -219,7 +222,7 @@ describe('PromptSection', () => {
     setChips(['cwd'], 'shell')
     render(<PromptSection />)
     expect(
-      screen.getByText(`These chips show when Prompt style is ${PRODUCT_NAME} prompt.`),
+      screen.getByText(`These chips show when Prompt style is ${PRODUCT_DISPLAY_NAME} prompt.`),
     ).toBeVisible()
     await userEvent.click(screen.getByRole('button', { name: 'Add Host' }))
     expect(saved()).toMatchObject({ style: 'shell', chips: ['cwd', 'host'] })

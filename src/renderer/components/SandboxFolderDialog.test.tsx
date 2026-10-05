@@ -1,4 +1,4 @@
-import { PRODUCT_NAME } from '@shared/product'
+import { PRODUCT_DISPLAY_NAME } from '@shared/productDisplay'
 import '@testing-library/jest-dom/vitest'
 import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -47,7 +47,7 @@ describe('SandboxFolderDialog', () => {
       }),
     )
     expect(screen.getByRole('dialog')).toHaveTextContent(
-      `/home/u/.config holds ${PRODUCT_NAME}’s own data`,
+      `/home/u/.config holds ${PRODUCT_DISPLAY_NAME}’s own data`,
     )
   })
 })

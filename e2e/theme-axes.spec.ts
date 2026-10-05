@@ -53,7 +53,7 @@ test('an unlinked terminal theme changes the terminal colors while the pine them
     await win.locator('.topbar').getByRole('button', { name: 'Settings' }).click()
     const settings = win.getByRole('region', { name: 'Settings' })
     await settings.getByRole('button', { name: 'Appearance' }).click()
-    await settings.getByRole('switch', { name: 'Terminal colors: Match pine theme' }).click()
+    await settings.getByRole('switch', { name: 'Terminal colors: Match Ostia theme' }).click()
     const picker = settings.getByRole('combobox', { name: 'Terminal colors' })
     await picker.fill('mocha')
     await win.getByRole('option', { name: /Catppuccin Mocha/ }).click()
@@ -61,7 +61,7 @@ test('an unlinked terminal theme changes the terminal colors while the pine them
 
     const preview = settings.getByTestId('theme-preview')
     await expect(preview).toHaveAccessibleName(
-      'Preview: Adeberry pine theme, Catppuccin Mocha terminal, Adeberry editor',
+      'Preview: Adeberry Ostia theme, Catppuccin Mocha terminal, Adeberry editor',
     )
     await preview.screenshot({ path: test.info().outputPath('theme-preview.png') })
     await picker.click()

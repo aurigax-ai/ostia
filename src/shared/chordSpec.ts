@@ -235,7 +235,7 @@ export function specFromEvent(e: KeyLike): ChordSpec | null {
 
 export function stealsTerminalKey(spec: ChordSpec, mac: boolean): ChordProblem | null {
   if (spec.key === 'escape') return 'escape'
-  if (spec.key === 'tab') return 'tab'
+  if (spec.key === 'tab') return spec.ctrl && !spec.alt && !spec.meta ? null : 'tab'
   if (!spec.ctrl && !spec.shift && !spec.alt && !spec.meta) return 'bare'
   if (mac) return spec.meta ? null : 'needs-modifier'
   if (!spec.ctrl && !spec.meta) return 'needs-modifier'
@@ -246,6 +246,20 @@ export function stealsTerminalKey(spec: ChordSpec, mac: boolean): ChordProblem |
     return null
   }
   return 'ctrl-key'
+}
+
+export const WORKSPACE_GOTO = 'workspace.goto'
+
+export function bindingProblem(id: string, spec: ChordSpec, mac: boolean): ChordProblem | null {
+  const steal = stealsTerminalKey(spec, mac)
+  if (steal) return steal
+  const isRange = spec.key === DIGIT_RANGE
+  return isRange === (id === WORKSPACE_GOTO) ? null : 'digit-range'
+}
+
+export function checkBinding(id: string, text: string, mac: boolean): ChordProblem | null {
+  const spec = parseChord(text, mac)
+  return spec ? bindingProblem(id, spec, mac) : 'invalid'
 }
 
 const MONACO_OTHER = [

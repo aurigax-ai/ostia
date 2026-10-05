@@ -1,15 +1,31 @@
-import { formatChord, parseChord, stealsTerminalKey, usedByMonaco } from '@shared/chordSpec'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import {
+  type ChordSpec,
+  formatChord,
+  parseChord,
+  stealsTerminalKey,
+  usedByMonaco,
+} from '@shared/chordSpec'
+import { parseKeymapBindings } from '@shared/keymapFile'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { commands } from '../commands/registry'
+import { en } from '../i18n/dict'
+import { useKeymapStore } from '../stores/keymapStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import {
   DEFAULT_CHORDS,
   type KeyLike,
+  type KeybindingMap,
+  baseChord,
   bindableIds,
+  checkBinding,
   chordLabel,
   conflictsWith,
+  currentBindings,
   effectiveBindings,
   isAppChord,
+  isBrowserChord,
   matchChord,
   runAppChord,
   setKeybindingSetting,
@@ -18,13 +34,29 @@ import {
 } from './chords'
 
 const initialSettings = useSettingsStore.getState()
+const initialKeymap = useKeymapStore.getState()
 
 afterEach(() => {
   useSettingsStore.setState(initialSettings, true)
+  useKeymapStore.setState(initialKeymap, true)
 })
 
 const bind = (keybindings: Record<string, string | null>): void =>
   useSettingsStore.setState({ keybindings })
+
+const useKeymap = (bindings: KeybindingMap): void =>
+  useKeymapStore.setState({
+    key: 'keys/test\n1.0.0',
+    ref: 'keys/test',
+    error: null,
+    loaded: { extId: 'keys', id: 'test', label: 'Test', bindings, skipped: [] },
+  })
+
+const chord = (text: string, mac: boolean): ChordSpec => {
+  const spec = parseChord(text, mac)
+  if (!spec) throw new Error(`not a chord: ${text}`)
+  return spec
+}
 
 const key = (k: string, mods: Partial<Omit<KeyLike, 'key'>> = {}): KeyLike => ({
   key: k,
@@ -260,6 +292,130 @@ describe('effectiveBindings', () => {
   })
 })
 
+describe('a keymap between the defaults and the user', () => {
+  it('replaces defaults, unbinds with null, and leaves the rest of the defaults alone', () => {
+    const table = effectiveBindings({}, false, {
+      'palette.toggle': 'Ctrl+Alt+P',
+      'view.toggleRail': null,
+      'agent.resume': 'Ctrl+Alt+R',
+    })
+    expect(table.bySignature.get('Ctrl+Alt+P')).toBe('palette.toggle')
+    expect(table.bySignature.has('Ctrl+Shift+P')).toBe(false)
+    expect(table.byId.has('view.toggleRail')).toBe(false)
+    expect(table.bySignature.get('Ctrl+Alt+R')).toBe('agent.resume')
+    expect(table.bySignature.get('Ctrl+Shift+F')).toBe('find')
+  })
+
+  it('lets the user override a keymap chord and bring back what the keymap unbinds', () => {
+    const keymap = { 'palette.toggle': 'Ctrl+Alt+P', 'view.toggleRail': null }
+    const table = effectiveBindings(
+      { 'palette.toggle': 'Ctrl+Shift+Y', 'view.toggleRail': 'Ctrl+Alt+B' },
+      false,
+      keymap,
+    )
+    expect(table.bySignature.get('Ctrl+Shift+Y')).toBe('palette.toggle')
+    expect(table.bySignature.has('Ctrl+Alt+P')).toBe(false)
+    expect(table.bySignature.get('Ctrl+Alt+B')).toBe('view.toggleRail')
+    expect(
+      effectiveBindings({ 'palette.toggle': null }, false, keymap).byId.has('palette.toggle'),
+    ).toBe(false)
+  })
+
+  it('keeps the default where a keymap entry is unusable on this platform', () => {
+    const table = effectiveBindings({}, false, {
+      'palette.toggle': 'Ctrl+R',
+      find: 'Escape',
+      'view.zoomIn': 'Ctrl+Alt+1-9',
+    })
+    expect(table.bySignature.get('Ctrl+Shift+P')).toBe('palette.toggle')
+    expect(table.bySignature.get('Ctrl+Shift+F')).toBe('find')
+    expect(table.bySignature.get('Ctrl+=')).toBe('view.zoomIn')
+  })
+
+  it('gives a contested chord to the user over the keymap, and to the keymap over a default', () => {
+    const keymap = { 'pane.splitDown': 'Ctrl+Shift+P', 'pane.splitRight': 'Ctrl+Shift+F' }
+    const table = effectiveBindings({ 'pane.zoom': 'Ctrl+Shift+F' }, false, keymap)
+    expect(table.bySignature.get('Ctrl+Shift+P')).toBe('pane.splitDown')
+    expect(table.bySignature.get('Ctrl+Shift+F')).toBe('pane.zoom')
+  })
+
+  it('is what matching, labels, conflicts and the reset target see once loaded', () => {
+    useKeymap({ 'pane.splitRight': 'Ctrl+Alt+D' })
+    const ca = { ctrlKey: true, altKey: true }
+    expect(matchChord(key('d', ca), false)).toBe('pane.splitRight')
+    expect(matchChord(key('\\', ca), false)).toBeNull()
+    expect(chordLabel('pane.splitRight', false)).toBe('Ctrl+Alt+D')
+    expect(conflictsWith('palette.toggle', chord('Ctrl+Alt+D', false), false)).toEqual([
+      'pane.splitRight',
+    ])
+    expect(baseChord('pane.splitRight', false)).toEqual(chord('Ctrl+Alt+D', false))
+    expect(baseChord('palette.toggle', false)).toEqual(chord('Ctrl+Shift+P', false))
+  })
+
+  it('falls back to the keymap chord when the user’s override is reset, and to the default without it', () => {
+    useKeymap({ 'pane.splitRight': 'Ctrl+Alt+D' })
+    bind({ 'pane.splitRight': 'Ctrl+Alt+R' })
+    expect(chordLabel('pane.splitRight', false)).toBe('Ctrl+Alt+R')
+    useSettingsStore.getState().resetKeybinding('pane.splitRight')
+    expect(chordLabel('pane.splitRight', false)).toBe('Ctrl+Alt+D')
+    useKeymapStore.setState({ key: null, ref: null, loaded: null })
+    expect(chordLabel('pane.splitRight', false)).toBe('Ctrl+Alt+\\')
+  })
+})
+
+describe('the macOS keymap that follows cmux', () => {
+  const dir = join(__dirname, '../../extensions/keymap-macos')
+  const manifest = JSON.parse(readFileSync(join(dir, 'pine.json'), 'utf8'))
+  const raw = JSON.parse(readFileSync(join(dir, manifest.contributes.keymaps[0].path), 'utf8'))
+  const parsed = parseKeymapBindings(raw, true)
+  const bindings = parsed.ok ? parsed.bindings : {}
+
+  it('names only app commands Ostia ships, each with a chord that loads on macOS', () => {
+    expect(parsed.ok && parsed.skipped).toEqual([])
+    const shipped = [...Object.keys(DEFAULT_CHORDS), ...Object.keys(en.commands.titles)]
+    for (const [id, text] of Object.entries(raw.bindings as Record<string, string>)) {
+      expect(shipped, id).toContain(id)
+      expect(isAppChord(id), id).toBe(true)
+      expect(checkBinding(id, text, true), id).toBeNull()
+    }
+  })
+
+  it('leaves no two commands on one chord on macOS', () => {
+    useKeymap(bindings)
+    const { byId, bySignature } = currentBindings(true)
+    for (const [id, text] of Object.entries(bindings)) {
+      expect(byId.get(id), id).toEqual(text === null ? undefined : chord(text, true))
+    }
+    for (const [id, spec] of byId) expect(conflictsWith(id, spec, true), id).toEqual([])
+    expect(bySignature.size).toBe(byId.size)
+  })
+
+  it('binds cmux’s shortcuts and moves the dashboard off ⇧⌘D', () => {
+    useKeymap(bindings)
+    const cmd = { metaKey: true }
+    const cmdShift = { metaKey: true, shiftKey: true }
+    const cmdAlt = { metaKey: true, altKey: true }
+    expect(matchChord(key('P', cmdShift), true)).toBe('palette.toggle')
+    expect(matchChord(key('b', cmd), true)).toBe('view.toggleRail')
+    expect(matchChord(key('n', cmd), true)).toBe('workspace.new')
+    expect(matchChord(key('d', cmd), true)).toBe('pane.splitRight')
+    expect(matchChord(key('D', cmdShift), true)).toBe('pane.splitDown')
+    expect(matchChord(key('ArrowLeft', cmdAlt), true)).toBe('pane.focusLeft')
+    expect(matchChord(key('ArrowRight', cmdAlt), true)).toBe('pane.focusRight')
+    expect(matchChord(key('ArrowUp', cmdAlt), true)).toBe('pane.focusUp')
+    expect(matchChord(key('ArrowDown', cmdAlt), true)).toBe('pane.focusDown')
+    expect(matchChord({ ...key('Enter', cmdShift), code: 'Enter' }, true)).toBe('pane.zoom')
+    expect(matchChord({ ...key('∂', cmdAlt), code: 'KeyD' }, true)).toBe('dashboard.toggle')
+    expect(matchChord(key('k', cmd), true)).toBeNull()
+    expect(matchChord(key('t', cmd), true)).toBeNull()
+  })
+
+  it('changes nothing until it is the chosen keymap', () => {
+    expect(chordLabel('pane.splitRight', true)).toBe('⌥⌘\\')
+    expect(matchChord(key('d', { metaKey: true }), true)).toBeNull()
+  })
+})
+
 describe('user keybindings', () => {
   it('match live: the new chord fires and the old one stops', () => {
     bind({ 'palette.toggle': 'Ctrl+Shift+Y' })
@@ -440,5 +596,53 @@ describe('runAppChord', () => {
     const preventDefault = vi.fn()
     expect(runAppChord({ ...key('k', { ctrlKey: true }), preventDefault }, false)).toBe(false)
     expect(preventDefault).not.toHaveBeenCalled()
+  })
+})
+
+describe('browser chords', () => {
+  it('are neither app nor terminal chords, so only a browser pane acts on them', () => {
+    for (const id of [
+      'browser.focusAddress',
+      'browser.reload',
+      'browser.back',
+      'browser.forward',
+    ]) {
+      expect(isBrowserChord(id), id).toBe(true)
+      expect(isAppChord(id), id).toBe(false)
+    }
+    expect(isBrowserChord('palette.toggle')).toBe(false)
+    expect(isBrowserChord(null)).toBe(false)
+  })
+
+  it('have default chords that load on both platforms', () => {
+    for (const mac of [true, false]) {
+      for (const id of [
+        'browser.focusAddress',
+        'browser.reload',
+        'browser.back',
+        'browser.forward',
+      ]) {
+        const [macText, otherText] = DEFAULT_CHORDS[id as keyof typeof DEFAULT_CHORDS]
+        expect(checkBinding(id, mac ? macText : otherText, mac), `${id} ${mac}`).toBeNull()
+      }
+    }
+    expect(DEFAULT_CHORDS['browser.reload']).toEqual(['Cmd+R', 'Ctrl+F5'])
+  })
+
+  it('does not run anything for a browser chord pressed outside a browser pane', () => {
+    const exec = vi.spyOn(commands, 'exec')
+    const e = {
+      key: 'r',
+      code: 'KeyR',
+      ctrlKey: false,
+      shiftKey: false,
+      altKey: false,
+      metaKey: true,
+      preventDefault: vi.fn(),
+    }
+    expect(matchChord(e, true)).toBe('browser.reload')
+    expect(runAppChord(e, true)).toBe(false)
+    expect(e.preventDefault).not.toHaveBeenCalled()
+    expect(exec).not.toHaveBeenCalled()
   })
 })

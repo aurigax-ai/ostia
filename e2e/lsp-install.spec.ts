@@ -199,7 +199,7 @@ test('opening a file offers the extension, installs it on the human’s click, a
     await settings.getByRole('button', { name: 'Languages', exact: true }).click()
     const row = settings.getByRole('listitem', { name: 'Fake native server' })
     await expect(row.getByTestId('language-server-status')).toHaveText('Running (1 folder)')
-    await expect(row).toContainText('Using the copy pine keeps, version 1.0.0.')
+    await expect(row).toContainText('Using the copy Ostia keeps, version 1.0.0.')
     await row.getByRole('button', { name: 'Show the log of Fake native server' }).click()
     const log = win.getByRole('dialog').filter({ hasText: 'Log of Fake native server' })
     await expect(log).toContainText('Downloading version 1.0.0')
@@ -207,7 +207,7 @@ test('opening a file offers the extension, installs it on the human’s click, a
     await win.keyboard.press('Escape')
 
     await row
-      .getByRole('button', { name: 'Remove the copy of Fake native server that pine keeps' })
+      .getByRole('button', { name: 'Remove the copy of Fake native server that Ostia keeps' })
       .click()
     await expect.poll(() => existsSync(copy), { timeout: 15_000 }).toBe(false)
   } finally {

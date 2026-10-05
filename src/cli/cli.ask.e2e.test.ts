@@ -97,7 +97,7 @@ afterAll(() => {
   removePane(agent.paneId)
 })
 
-describe('pine ask (the real CLI against a live control server)', () => {
+describe('ostia ask (the real CLI against a live control server)', () => {
   it('blocks until the human answers, then prints the chosen label and the comment', async () => {
     const run = pine([
       'ask',
@@ -176,7 +176,7 @@ describe('pine ask (the real CLI against a live control server)', () => {
     const res = await run.done
     expect(res.code).toBe(2)
     expect(res.stdout).toBe('')
-    expect(res.stderr).toBe('pine ask: dismissed by the human without an answer\n')
+    expect(res.stderr).toBe('ostia ask: dismissed by the human without an answer\n')
   })
 
   it('exits 3 when its timeout passes unanswered', async () => {
@@ -216,7 +216,7 @@ describe('pine ask (the real CLI against a live control server)', () => {
     await nextQuestion(3)
     const res = await pine(['ask', 'four?']).done
     expect(res.code).toBe(1)
-    expect(res.stderr).toMatch(/^pine ask: too-many-questions/)
+    expect(res.stderr).toMatch(/^ostia ask: too-many-questions/)
     expect(pending()).toHaveLength(3)
   })
 

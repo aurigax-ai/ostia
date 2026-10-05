@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest'
-import { PRODUCT_NAME } from '@shared/product'
+import { PRODUCT_DISPLAY_NAME } from '@shared/productDisplay'
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -61,7 +61,7 @@ describe('PrivacySection', () => {
       'title',
       'AWSSecretAccessKey, AWSAccessKeyID',
     )
-    const own = screen.getByRole('list', { name: `Added by ${PRODUCT_NAME}` })
+    const own = screen.getByRole('list', { name: `Added by ${PRODUCT_DISPLAY_NAME}` })
     expect(
       within(own)
         .getAllByRole('listitem')

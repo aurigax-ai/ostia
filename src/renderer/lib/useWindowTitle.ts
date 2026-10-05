@@ -1,4 +1,4 @@
-import { PRODUCT_NAME } from '@shared/product'
+import { PRODUCT_DISPLAY_NAME } from '@shared/productDisplay'
 import { useEffect } from 'react'
 import { findPane } from '../layout/tree'
 import { formatWindowTitle } from '../settings/windowTitle'
@@ -16,7 +16,7 @@ export function useWindowTitle(): void {
     return layout ? findPane(layout.root, layout.activePaneId) : null
   })
   const title = formatWindowTitle(template, {
-    product: PRODUCT_NAME,
+    product: PRODUCT_DISPLAY_NAME,
     workspace: workspace ? (workspace.customName ?? workspace.name) : undefined,
     pane: pane?.title,
     cwd: pane?.cwd ?? workspace?.workDir,

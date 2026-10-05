@@ -29,6 +29,7 @@ const base = {
   workspaceChips: [],
   settingValues: {},
   iconThemes: [],
+  keymaps: [],
   secrets: [],
   secretsSet: [],
   settingsPage: null,

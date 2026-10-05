@@ -12,7 +12,7 @@ import { fmt, useDict } from '../i18n/useDict'
 import { allPanes, firstPaneOfKind } from '../layout/tree'
 import type { PaneNode } from '../layout/types'
 import { useChatAvailable } from '../lib/assistFeatures'
-import { chordLabel } from '../lib/chords'
+import { chordLabel, useBindings } from '../lib/chords'
 import { openFileAt } from '../lib/openFile'
 import { paletteFilter } from '../lib/paletteFilter'
 import { PALETTE_MODES, type PaletteMode, paletteMode, paletteQuery } from '../lib/paletteModes'
@@ -28,7 +28,6 @@ import { isMac } from '../platform'
 import { useAssistProvider } from '../stores/assistStore'
 import { chatFor, currentSessionId } from '../stores/chatStore'
 import { useLayoutStore } from '../stores/layoutStore'
-import { useSettingsStore } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
 import { useWindowsStore } from '../stores/windowsStore'
 import { type Workspace, useWorkspacesStore } from '../stores/workspacesStore'
@@ -562,7 +561,7 @@ function CommandItems({
   onAskAssistant: () => void
 }): JSX.Element {
   const d = useDict()
-  useSettingsStore((s) => s.keybindings)
+  useBindings()
   const groups = new Map<string, { heading: string; items: PaletteCommand[] }>()
   for (const command of commands.list()) {
     if (command.hidden) continue

@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { languagesFrom } from '../lib/languagePacks'
@@ -57,10 +57,32 @@ describe('SettingsPanel', () => {
     expect(screen.getByRole('button', { name: 'Open settings file' })).toBeInTheDocument()
 
     expect(screen.getByRole('heading', { level: 2, name: 'Appearance' })).toBeInTheDocument()
-    expect(screen.getByText('pine theme')).toBeInTheDocument()
+    expect(screen.getByText('Ostia theme')).toBeInTheDocument()
     expect(screen.getByText('UI font')).toBeInTheDocument()
     expect(screen.getByText('Terminal font')).toBeInTheDocument()
     expect(screen.getByText('Editor font')).toBeInTheDocument()
+  })
+
+  it('groups the section nav under headings, in order, so related pages sit together', () => {
+    renderSettings()
+
+    const headings = screen.getByRole('region', { name: 'Settings' }).querySelectorAll('nav h3')
+    expect([...headings].map((h) => h.textContent)).toEqual([
+      'General',
+      'Terminal',
+      'Workspace',
+      'Agents',
+      'Editor and browser',
+      'Privacy and security',
+      'Extensions and more',
+    ])
+    const inGroup = (group: string) =>
+      within(screen.getByRole('list', { name: group }))
+        .getAllByRole('button')
+        .map((b) => b.textContent)
+    expect(inGroup('General')).toEqual(['Appearance', 'Language', 'Notifications', 'Sync'])
+    expect(inGroup('Terminal')).toEqual(['Terminal', 'Prompt', 'Keyboard', 'Panes'])
+    expect(inGroup('Editor and browser')).toEqual(['Editor', 'Languages', 'Browser'])
   })
 
   it('returns null while Settings is not the active view', () => {
@@ -88,7 +110,7 @@ describe('SettingsPanel', () => {
     renderSettings()
     const user = userEvent.setup()
 
-    await user.click(screen.getByRole('combobox', { name: 'pine theme' }))
+    await user.click(screen.getByRole('combobox', { name: 'Ostia theme' }))
 
     for (const name of ['One Dark Vivid', 'Dracula', 'Test Theme']) {
       expect(await screen.findByRole('option', { name })).toBeInTheDocument()
@@ -103,7 +125,7 @@ describe('SettingsPanel', () => {
     useSettingsStore.setState((s) => ({ appearance: { ...s.appearance, theme: 'oxocarbon' } }))
     renderSettings()
 
-    expect(screen.getByRole('combobox', { name: 'pine theme' })).toHaveTextContent('Oxocarbon')
+    expect(screen.getByRole('combobox', { name: 'Ostia theme' })).toHaveTextContent('Oxocarbon')
   })
 
   it('changes the display language via the Language section, calling setLocale', async () => {
@@ -157,6 +179,7 @@ describe('SettingsPanel', () => {
           agentSkills: [],
           agentHooks: [],
           iconThemes: [{ id: 'fixture-icons', label: 'Fixture Icons' }],
+          keymaps: [],
         },
       ],
     })
@@ -335,7 +358,7 @@ describe('SettingsPanel', () => {
     }))
     renderSettings()
 
-    expect(screen.getByRole('combobox', { name: 'pine theme' })).toHaveTextContent('Dracula')
+    expect(screen.getByRole('combobox', { name: 'Ostia theme' })).toHaveTextContent('Dracula')
     expect(screen.getByRole('combobox', { name: 'UI font, Family' })).toHaveValue('Comic Code')
     expect(screen.getByRole('combobox', { name: 'UI font, Weight' })).toHaveTextContent('500')
     expect(screen.getByRole('spinbutton', { name: 'UI font, Size' })).toHaveValue(20)
@@ -346,7 +369,7 @@ describe('SettingsPanel', () => {
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: 'About' }))
     expect(await screen.findByText('v0.0.0')).toBeInTheDocument()
-    expect(screen.getByText(`Copyright ${new Date().getFullYear()} pine`)).toBeInTheDocument()
+    expect(screen.getByText(`Copyright ${new Date().getFullYear()} Ostia`)).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Copy version' }))
     expect(await navigator.clipboard.readText()).toBe('v0.0.0')
     expect(await screen.findByRole('button', { name: 'Copied' })).toBeInTheDocument()
@@ -381,7 +404,7 @@ describe('SettingsPanel', () => {
     await user.click(screen.getByRole('switch', { name: 'Match system appearance' }))
 
     expect(useSettingsStore.getState().appearance.followSystem).toBe(true)
-    expect(screen.queryByRole('combobox', { name: 'pine theme' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('combobox', { name: 'Ostia theme' })).not.toBeInTheDocument()
     await user.click(screen.getByRole('combobox', { name: 'Light theme' }))
     expect(await screen.findByRole('option', { name: 'Pine Light' })).toBeInTheDocument()
     expect(screen.queryByRole('option', { name: 'Dracula' })).not.toBeInTheDocument()
@@ -456,10 +479,10 @@ describe('SettingsPanel', () => {
     useSettingsStore.setState((s) => ({ appearance: { ...s.appearance, theme: 'dracula' } }))
     renderSettings()
     const user = userEvent.setup()
-    const match = screen.getByRole('switch', { name: 'Terminal colors: Match pine theme' })
+    const match = screen.getByRole('switch', { name: 'Terminal colors: Match Ostia theme' })
 
     expect(match).toBeChecked()
-    expect(screen.getAllByText(/Follows the pine theme/)).toHaveLength(2)
+    expect(screen.getAllByText(/Follows the Ostia theme/)).toHaveLength(2)
     expect(screen.getByTestId('terminal-scheme')).toHaveTextContent('Dracula')
     expect(screen.queryByRole('combobox', { name: 'Terminal colors' })).not.toBeInTheDocument()
 
@@ -473,7 +496,7 @@ describe('SettingsPanel', () => {
     expect(useSettingsStore.getState().terminal.theme).toBe('catppuccin-mocha')
     expect(useSettingsStore.getState().editor.theme).toBe('match')
 
-    await user.click(screen.getByRole('switch', { name: 'Terminal colors: Match pine theme' }))
+    await user.click(screen.getByRole('switch', { name: 'Terminal colors: Match Ostia theme' }))
     expect(useSettingsStore.getState().terminal.theme).toBe('match')
   })
 
@@ -486,7 +509,7 @@ describe('SettingsPanel', () => {
 
     const preview = screen.getByTestId('theme-preview')
     expect(preview).toHaveAccessibleName(
-      'Preview: Adeberry pine theme, Gruvbox Light terminal, Nord editor',
+      'Preview: Adeberry Ostia theme, Gruvbox Light terminal, Nord editor',
     )
     expect(preview.querySelector('[data-preview="terminal"] > div:last-child')).toHaveStyle({
       background: '#fbf1c7',
@@ -525,7 +548,7 @@ describe('SettingsPanel', () => {
     renderSettings()
     const user = userEvent.setup()
 
-    expect(screen.getByRole('combobox', { name: 'pine theme' })).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Ostia theme' })).toBeInTheDocument()
     expect(screen.getByRole('combobox', { name: 'UI font, Family' })).toBeInTheDocument()
     expect(screen.getByRole('spinbutton', { name: 'UI font, Size' })).toBeInTheDocument()
 
@@ -562,6 +585,7 @@ describe('SettingsPanel', () => {
           agentSkills: [],
           agentHooks: [],
           iconThemes: [],
+          keymaps: [],
         },
       ],
     })

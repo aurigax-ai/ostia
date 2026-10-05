@@ -18,6 +18,7 @@ import {
 import type { IPty } from 'node-pty'
 import appIcon from '../../resources/icon.png?asset'
 import type { AgentResume } from '../shared/agentResume'
+import { dualEnv } from '../shared/appEnv'
 import { SHARED_BROWSER_PARTITION, browserPartition } from '../shared/browserProfile'
 import { MANAGER_CAPABILITIES } from '../shared/capabilities'
 import { parseChatToolSettings } from '../shared/chatTools'
@@ -28,6 +29,7 @@ import { languageServerKey } from '../shared/languageServers'
 import { MANAGER_FEATURE, managerAgents, parseManagerSettings } from '../shared/managerSettings'
 import { OPEN_FILES_MAX } from '../shared/openFiles'
 import { OFFICIAL_MARKETPLACE, PRODUCT_NAME } from '../shared/product'
+import { PRODUCT_DISPLAY_NAME } from '../shared/productDisplay'
 import { type RemoteCwd, normalizeRemoteCwd } from '../shared/remoteFolders'
 import { parseSandboxGlobals } from '../shared/sandbox'
 import { quoteArgv } from '../shared/shellQuote'
@@ -54,6 +56,7 @@ import { AgentRunningPanes } from './agentRunning'
 import { agentPluginContent } from './agentSkills'
 import { registerAgentTranscriptIpc } from './agentTranscript'
 import { type AppLog, LOG_FILE_NAME, createAppLog } from './appLog'
+import { installAppMenu } from './appMenu'
 import { registerAppUpdate } from './appUpdate'
 import { approvals, registerApprovals } from './approvals'
 import { registerAssistIpc } from './assistIpc'
@@ -101,6 +104,7 @@ import { readBinaryConfined } from './fsBinary'
 import { registerGatewayIpc, registerGatewayMethods } from './gateway'
 import { configureGatewayControl, stopGateway } from './gateway/server'
 import { GlobalHotkey, toggleWindows } from './globalHotkey'
+import { type GuestChords, registerGuestChords } from './guestChords'
 import { clearGuestNetwork, watchGuestNetwork } from './guestNetwork'
 import { registerIconThemeIpc } from './iconThemes'
 import {
@@ -117,6 +121,7 @@ import {
   workspaceHasManager,
 } from './idRegistry'
 import { loadJson, saveJson, storePath } from './jsonStore'
+import { describeSkipped, registerKeymapIpc } from './keymaps'
 import { registerLanguagePackIpc } from './languagePacks'
 import { LanguageServers, scrubbedEnv } from './languageServers'
 import { registerLanguageServersIpc } from './languageServersIpc'
@@ -660,7 +665,7 @@ const domainRequests: DomainRequests = new DomainRequests({
       caps: [],
       kind: 'sandbox-domain',
       subject: host,
-      action: origin === 'agent' ? `pine sandbox request-domain ${host}` : `connect to ${host}`,
+      action: origin === 'agent' ? `ostia sandbox request-domain ${host}` : `connect to ${host}`,
       detail: '',
     })
   },
@@ -737,7 +742,7 @@ const portRequests: PortRequests = new PortRequests({
       kind: 'sandbox-port',
       subject: String(port),
       action:
-        origin === 'agent' ? `pine sandbox expose ${port}` : `a server started on port ${port}`,
+        origin === 'agent' ? `ostia sandbox expose ${port}` : `a server started on port ${port}`,
       detail: owner ?? '',
     })
   },
@@ -798,7 +803,7 @@ const secretService: SecretService = new SecretService({
       caps: [],
       kind: 'secret',
       subject: name,
-      action: `pine secret get ${name}`,
+      action: `ostia secret get ${name}`,
       detail: reason,
     })
   },
@@ -947,6 +952,7 @@ function extensionOfPartition(partition: string | undefined): string | null {
 
 const instrumentedGuests = new WeakSet<Electron.WebContents>()
 let clipboardEdits: ClipboardEdits | null = null
+let guestChords: GuestChords | null = null
 
 function instrumentBrowserGuest(gc: Electron.WebContents): void {
   const wcId = gc.id
@@ -1081,6 +1087,7 @@ function wireWindow(win: BrowserWindow): void {
   })
   win.webContents.on('did-attach-webview', (_e, guest) => {
     clipboardEdits?.guardGuest(guest)
+    guestChords?.guardGuest(guest)
     if (hardenExtensionGuest(guest)) return
     const agent = browserUserAgent(guest.session.getUserAgent(), app.getName())
     guest.session.setUserAgent(agent)
@@ -1129,7 +1136,7 @@ function createWindow(slot: string, bounds?: WindowBounds): BrowserWindow {
     backgroundColor: '#1d2022',
     show: false,
     autoHideMenuBar: true,
-    title: PRODUCT_NAME,
+    title: PRODUCT_DISPLAY_NAME,
     icon: appIcon,
     ...frameOptions(),
     webPreferences: baseWebPreferences(),
@@ -1157,7 +1164,7 @@ function registerIpc(): void {
   ipcMain.handle(
     'app:info',
     (): AppInfo => ({
-      name: PRODUCT_NAME,
+      name: PRODUCT_DISPLAY_NAME,
       version: app.getVersion(),
       platform: process.platform,
       hostName: hostname(),
@@ -1610,15 +1617,15 @@ function registerPtyIpc(): void {
     let env = paneShellEnv({
       parent: process.env,
       integration: integration.env,
-      pane: {
-        PINE_PANE_ID: identity.externalId,
-        PINE_TOKEN: identity.token,
-        PINE_START_DIR: opts.cwd ?? '',
-        PINE_SOCKET: controlSocketPath(),
-        PINE_CLI: join(app.getAppPath(), 'out/cli/index.js'),
-        PINE_NODE: process.execPath,
-        PINE_SHELL_STATE: stateFile,
-      },
+      pane: dualEnv({
+        PANE_ID: identity.externalId,
+        TOKEN: identity.token,
+        START_DIR: opts.cwd ?? '',
+        SOCKET: controlSocketPath(),
+        CLI: join(app.getAppPath(), 'out/cli/index.js'),
+        NODE: process.execPath,
+        SHELL_STATE: stateFile,
+      }),
       agentHooks: settings.agents?.hooks,
     })
     let secretNotice = ''
@@ -1900,14 +1907,14 @@ function trackPty(
 
 function paneEnv(paneId: string, windowId: string, cwd: string): Record<string, string> {
   const identity = registerPane({ windowId, workspaceId: '', paneId })
-  return {
-    PINE_PANE_ID: identity.externalId,
-    PINE_TOKEN: identity.token,
-    PINE_START_DIR: cwd,
-    PINE_SOCKET: controlSocketPath(),
-    PINE_CLI: join(app.getAppPath(), 'out/cli/index.js'),
-    PINE_NODE: process.execPath,
-  }
+  return dualEnv({
+    PANE_ID: identity.externalId,
+    TOKEN: identity.token,
+    START_DIR: cwd,
+    SOCKET: controlSocketPath(),
+    CLI: join(app.getAppPath(), 'out/cli/index.js'),
+    NODE: process.execPath,
+  })
 }
 
 function managerLaunchArgv(argv: string[], resume: AgentResume | null): string[] {
@@ -2107,6 +2114,12 @@ const workspaceWindowId = firstKnownOwner(
   windowOfWorkspace,
   windowForWorkspace,
 )
+
+function openSettingsInFocusedWindow(): void {
+  const focused = BrowserWindow.getFocusedWindow()
+  const entry = [...windows].find(([, win]) => win === focused)
+  void execCommand({ windowId: entry?.[0], workspaceId: '', paneId: null }, 'app.openSettings')
+}
 
 function mainWindow(): BrowserWindow | undefined {
   return broker?.mainWindow() ?? [...windows.values()][0]
@@ -2410,7 +2423,7 @@ function startPortal(): void {
   portal
     .start()
     .then((started) => {
-      if (!started) console.warn(`[portal] another ${PRODUCT_NAME} owns the portal socket`)
+      if (!started) console.warn(`[portal] another ${PRODUCT_DISPLAY_NAME} owns the portal socket`)
     })
     .catch((err) => console.error('[portal] failed to start', err))
 }
@@ -2448,6 +2461,10 @@ app.on('second-instance', (_event, argv) => {
 })
 
 app.whenReady().then(() => {
+  installAppMenu(process.platform, {
+    productName: PRODUCT_DISPLAY_NAME,
+    openSettings: openSettingsInFocusedWindow,
+  })
   const logDir = join(app.getPath('userData'), 'logs')
   appLog = createAppLog(join(logDir, LOG_FILE_NAME))
   diagnostics = registerDiagnostics({
@@ -2466,6 +2483,11 @@ app.whenReady().then(() => {
     ipc: ipcMain,
     isAppWindow: (sender) => windows.get(String(sender.id))?.webContents === sender,
     availableFormats: () => clipboard.availableFormats(),
+    mac: process.platform === 'darwin',
+  })
+  guestChords = registerGuestChords({
+    ipc: ipcMain,
+    isAppWindow: (sender) => windows.get(String(sender.id))?.webContents === sender,
     mac: process.platform === 'darwin',
   })
   registerIpc()
@@ -2748,6 +2770,13 @@ app.whenReady().then(() => {
     themes: () => extensionHost?.iconThemes() ?? [],
     onError: (id, error) => console.warn(`[icon theme ${id}] ${error}`),
   })
+  registerKeymapIpc({
+    keymaps: () => extensionHost?.keymaps() ?? [],
+    platform: process.platform,
+    onError: (ref, error) => console.warn(`[keymap ${ref}] ${error}`),
+    onSkipped: (ref, skipped) =>
+      console.warn(`[keymap ${ref}] skipped entries: ${describeSkipped(skipped)}`),
+  })
   registerLanguagePackIpc({
     languages: () => extensionHost?.languages() ?? [],
     onError: (extId, error) => console.warn(`[language pack ${extId}] ${error}`),
@@ -2823,7 +2852,7 @@ app.whenReady().then(() => {
   startPortal()
   appTray = new AppTray({
     iconPath: appIcon,
-    tooltip: PRODUCT_NAME,
+    tooltip: PRODUCT_DISPLAY_NAME,
     locale: readLocale,
     windows: () => BrowserWindow.getAllWindows(),
     quit: requestQuit,

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import {
   addTab,
+  adjacentTab,
   adoptIds,
   allPanes,
   closePane,
@@ -1059,5 +1060,33 @@ describe('terminal default title', () => {
     const result = splitPane(root, root.id, 'horizontal', fresh)
     expect(result.newPaneId).toBe(fresh.id)
     expect(findPane(result.root, fresh.id)).toBe(fresh)
+  })
+})
+
+describe('adjacentTab', () => {
+  it('steps through the tabs of the pane and wraps at both ends', () => {
+    const a = createPane()
+    const b = createPane()
+    const c = createPane()
+    const root = tabsOf(a.id, a, b, c)
+    expect(adjacentTab(root, a.id, 1)).toBe(b.id)
+    expect(adjacentTab(root, c.id, 1)).toBe(a.id)
+    expect(adjacentTab(root, a.id, -1)).toBe(c.id)
+    expect(adjacentTab(root, b.id, -1)).toBe(a.id)
+  })
+
+  it('finds the tab group inside a split', () => {
+    const a = createPane()
+    const b = createPane()
+    const c = createPane()
+    const root = splitOf('horizontal', a, tabsOf(b.id, b, c))
+    expect(adjacentTab(root, b.id, 1)).toBe(c.id)
+  })
+
+  it('returns null for a pane that is not in a tab group', () => {
+    const a = createPane()
+    const b = createPane()
+    expect(adjacentTab(a, a.id, 1)).toBeNull()
+    expect(adjacentTab(splitOf('vertical', a, b), a.id, -1)).toBeNull()
   })
 })

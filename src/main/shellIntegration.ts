@@ -11,6 +11,7 @@ import {
   hookAgentsFor,
   isAgentHookEvent,
 } from '../shared/agentPlugins'
+import { dualEnv, shellEnv } from '../shared/appEnv'
 import { CLAUDE_QUESTION_TOOLS } from '../shared/claudeAttention'
 import { PRODUCT_NAME } from '../shared/product'
 import { type PromptSeparator, isPromptSeparator } from '../shared/promptSettings'
@@ -25,16 +26,19 @@ import { privateTmpDir } from './privateTmp'
 
 export const INTEGRATION_DIR = privateTmpDir('pine-shell-integration')
 
+const CLI_PATH = shellEnv('CLI')
+const CLI_RUN = `ELECTRON_RUN_AS_NODE=1 "${shellEnv('NODE')}" "${CLI_PATH}"`
+const IN_PANE = `[ -n "${shellEnv('SOCKET')}" ]`
+const AGENT_DIR = shellEnv('AGENT_DIR')
+const SHELL_STATE_FILE = shellEnv('SHELL_STATE')
+
 const BASH_B_MARK = String.raw`\[\e]133;B\e\\\]`
 
-const ZSH_INIT =
-  `# Pine shell integration for zsh (generated — safe to delete; regenerated on launch).
+const ZSH_INIT = `# Pine shell integration for zsh (generated — safe to delete; regenerated on launch).
 # Emits OSC 133 prompt/command marks + OSC 7 cwd reports so Pine can render command blocks
-# and follow ` +
-  '"cd"' +
-  ` without polling /proc.
-if [ -n "$PINE_SHELL_INTEGRATION" ]; then return; fi
-PINE_SHELL_INTEGRATION=1
+# and follow "cd" without polling /proc.
+if [ -n "$OSTIA_SHELL_INTEGRATION" ]; then return; fi
+OSTIA_SHELL_INTEGRATION=1
 
 __pine_osc7() {
   print -Pn "\\e]7;file://%m%d\\e\\\\"
@@ -58,38 +62,38 @@ typeset -g __pine_last_state=''
 zmodload -i zsh/parameter 2>/dev/null
 
 __pine_report_shell() {
-  [[ -n "$PINE_SHELL_STATE" ]] || return 0
+  [[ -n "${SHELL_STATE_FILE}" ]] || return 0
   local names="\${(j: :)\${(@ok)builtins}} \${(j: :)\${(@ok)reswords}} \${(j: :)\${(@ok)aliases}} \${(j: :)\${(@)\${(@ok)functions}:#_*}}"
   local nl=$'\\n'
   local state="$PATH$nl\${VIRTUAL_ENV//$nl/}$nl\${CONDA_DEFAULT_ENV//$nl/}$nl\${KUBECONFIG//$nl/}$nl$names"
   [[ "$state" == "$__pine_last_state" ]] && return 0
   __pine_last_state=$state
-  print -r -- "$state" >| "$PINE_SHELL_STATE" 2>/dev/null
+  print -r -- "$state" >| "${SHELL_STATE_FILE}" 2>/dev/null
 }
 
 typeset -gi __pine_prompt_on=0
 typeset -gi __pine_prompt_torn=0
 typeset -g __pine_prompt_tail=' '
 typeset -g __pine_prompt_text=''
-if [[ "$PINE_PROMPT" == pine ]]; then
+if [[ "$OSTIA_PROMPT" == pine ]]; then
   __pine_prompt_on=1
-  case "$PINE_PROMPT_SEPARATOR" in
+  case "$OSTIA_PROMPT_SEPARATOR" in
     '%') __pine_prompt_tail=' %% ' ;;
-    '$'|'>') __pine_prompt_tail=" $PINE_PROMPT_SEPARATOR " ;;
+    '$'|'>') __pine_prompt_tail=" $OSTIA_PROMPT_SEPARATOR " ;;
   esac
-  if [[ "$PINE_PROMPT_LINES" == 2 ]]; then
+  if [[ "$OSTIA_PROMPT_LINES" == 2 ]]; then
     __pine_prompt_text="%~"$'\n'"\${__pine_prompt_tail# }"
   else
     __pine_prompt_text="%~$__pine_prompt_tail"
   fi
 fi
-unset PINE_PROMPT PINE_PROMPT_SEPARATOR PINE_PROMPT_LINES
+unset OSTIA_PROMPT OSTIA_PROMPT_SEPARATOR OSTIA_PROMPT_LINES
 
 # Scratch workspace: keep this shell's history in its scratch folder, never the user's file.
-if [[ -n "$PINE_HISTFILE" ]]; then
-  HISTFILE="$PINE_HISTFILE"
+if [[ -n "$OSTIA_HISTFILE" ]]; then
+  HISTFILE="$OSTIA_HISTFILE"
 fi
-unset PINE_HISTFILE
+unset OSTIA_HISTFILE
 
 # Pine prompt: the input editor draws the context, so the shell line is only "cwd sep". This
 # file loads after the user's rc; powerlevel10k rebuilds PROMPT in its own last precmd, so it is
@@ -135,18 +139,19 @@ add-zsh-hook precmd __pine_precmd
 add-zsh-hook preexec __pine_preexec
 add-zsh-hook chpwd __pine_osc7
 
-# \`pine\` CLI (Slice 5): resolves the control-socket client via the absolute path
-# injected as $PINE_CLI (a packaged app would install the bin on PATH instead).
-if [ -n "$PINE_CLI" ]; then
-  pine() { ELECTRON_RUN_AS_NODE=1 "$PINE_NODE" "$PINE_CLI" "$@"; }
+# \`ostia\` CLI: runs the control-socket client injected as $OSTIA_CLI. \`pine\` is the
+# old name of the same command and keeps working.
+if [ -n "${CLI_PATH}" ]; then
+  ostia() { ${CLI_RUN} "$@"; }
+  pine() { ostia "$@"; }
 fi
 `
 
 const BASH_INIT = `# Pine shell integration for bash (generated — safe to delete; regenerated on launch).
 # Emits OSC 133 prompt/command marks + OSC 7 cwd reports so Pine can render command blocks
 # and follow cd without polling /proc.
-if [ -n "$PINE_SHELL_INTEGRATION" ]; then return; fi
-PINE_SHELL_INTEGRATION=1
+if [ -n "$OSTIA_SHELL_INTEGRATION" ]; then return; fi
+OSTIA_SHELL_INTEGRATION=1
 
 __pine_osc7() {
   printf '\\e]7;file://%s%s\\e\\\\' "\${HOSTNAME:-$(hostname 2>/dev/null)}" "$PWD"
@@ -228,37 +233,37 @@ __pine_orig_prompt_command=("\${PROMPT_COMMAND[@]}")
 
 __pine_last_state=''
 __pine_report_shell() {
-  [ -n "$PINE_SHELL_STATE" ] || return 0
+  [ -n "${SHELL_STATE_FILE}" ] || return 0
   local names
   names=$(compgen -abk -A function -X '_*' 2>/dev/null)
   local nl=$'\\n'
   local state="$PATH$nl\${VIRTUAL_ENV//$nl/}$nl\${CONDA_DEFAULT_ENV//$nl/}$nl\${KUBECONFIG//$nl/}$nl\${names//$nl/ }"
   [ "$state" = "$__pine_last_state" ] && return 0
   __pine_last_state=$state
-  printf '%s\\n' "$state" >| "$PINE_SHELL_STATE" 2>/dev/null
+  printf '%s\\n' "$state" >| "${SHELL_STATE_FILE}" 2>/dev/null
 }
 
 __pine_prompt_on=0
 __pine_prompt_tail=' '
 __pine_prompt_text=''
-if [ "$PINE_PROMPT" = pine ]; then
+if [ "$OSTIA_PROMPT" = pine ]; then
   __pine_prompt_on=1
-  case "$PINE_PROMPT_SEPARATOR" in
-    '%'|'$'|'>') __pine_prompt_tail=" $PINE_PROMPT_SEPARATOR " ;;
+  case "$OSTIA_PROMPT_SEPARATOR" in
+    '%'|'$'|'>') __pine_prompt_tail=" $OSTIA_PROMPT_SEPARATOR " ;;
   esac
-  if [ "$PINE_PROMPT_LINES" = 2 ]; then
+  if [ "$OSTIA_PROMPT_LINES" = 2 ]; then
     __pine_prompt_text='\\w\\n'"\${__pine_prompt_tail# }"
   else
     __pine_prompt_text='\\w'"$__pine_prompt_tail"
   fi
 fi
-unset PINE_PROMPT PINE_PROMPT_SEPARATOR PINE_PROMPT_LINES
+unset OSTIA_PROMPT OSTIA_PROMPT_SEPARATOR OSTIA_PROMPT_LINES
 
 # Scratch workspace: keep this shell's history in its scratch folder, never the user's file.
-if [ -n "$PINE_HISTFILE" ]; then
-  HISTFILE="$PINE_HISTFILE"
+if [ -n "$OSTIA_HISTFILE" ]; then
+  HISTFILE="$OSTIA_HISTFILE"
 fi
-unset PINE_HISTFILE
+unset OSTIA_HISTFILE
 
 __pine_prompt_command() {
   local ec=$?
@@ -290,23 +295,24 @@ unset PROMPT_COMMAND
 PROMPT_COMMAND="__pine_prompt_command"
 trap '__pine_preexec' DEBUG
 
-# \`pine\` CLI (Slice 5): resolves the control-socket client via the absolute path
-# injected as $PINE_CLI (a packaged app would install the bin on PATH instead).
-if [ -n "$PINE_CLI" ]; then
-  pine() { ELECTRON_RUN_AS_NODE=1 "$PINE_NODE" "$PINE_CLI" "$@"; }
+# \`ostia\` CLI: runs the control-socket client injected as $OSTIA_CLI. \`pine\` is the
+# old name of the same command and keeps working.
+if [ -n "${CLI_PATH}" ]; then
+  ostia() { ${CLI_RUN} "$@"; }
+  pine() { ostia "$@"; }
 fi
 `
 
-function hookCommand(pineArgs: string): string {
-  return `[ -n "$PINE_SOCKET" ] && ELECTRON_RUN_AS_NODE=1 "$PINE_NODE" "$PINE_CLI" ${pineArgs} >/dev/null 2>&1 || true`
+function hookCommand(cliArgs: string): string {
+  return `${IN_PANE} && ${CLI_RUN} ${cliArgs} >/dev/null 2>&1 || true`
 }
 
 export function busHookCommand(event: AgentHookEvent): string {
-  return `[ -n "$PINE_SOCKET" ] && ELECTRON_RUN_AS_NODE=1 "$PINE_NODE" "$PINE_CLI" bus hook ${event} 2>/dev/null || true`
+  return `${IN_PANE} && ${CLI_RUN} bus hook ${event} 2>/dev/null || true`
 }
 
 export function extensionHookCommand(hook: ExtensionAgentHook, agent: HookAgent): string {
-  return `[ -n "$PINE_SOCKET" ] && ELECTRON_RUN_AS_NODE=1 "$PINE_NODE" "$PINE_CLI" agent-hook ${hook.extId} ${hook.command} ${agent} ${hook.event} 2>/dev/null || true`
+  return `${IN_PANE} && ${CLI_RUN} agent-hook ${hook.extId} ${hook.command} ${agent} ${hook.event} 2>/dev/null || true`
 }
 
 function hooksFor(
@@ -384,10 +390,10 @@ export function claudeWrapper(): string {
     '',
     '# Run claude with the Pine plugin (CLI skill, extension skills and hooks, resume token,',
     '# attention hooks). `command claude` skips it.',
-    `if [ -n "$PINE_CLI" ] && [ -z "$${AGENT_HOOKS_OFF_ENV.claude}" ]; then`,
+    `if [ -n "${CLI_PATH}" ] && [ -z "${shellEnv(AGENT_HOOKS_OFF_ENV.claude)}" ]; then`,
     '  claude() {',
-    '    if [ -n "$PINE_AGENT_DIR" ] && [ -d "$PINE_AGENT_DIR/claude-plugin" ]; then',
-    '      command claude --plugin-dir "$PINE_AGENT_DIR/claude-plugin" "$@"',
+    `    if [ -n "${AGENT_DIR}" ] && [ -d "${AGENT_DIR}/claude-plugin" ]; then`,
+    `      command claude --plugin-dir "${AGENT_DIR}/claude-plugin" "$@"`,
     '    else',
     '      command claude "$@"',
     '    fi',
@@ -489,7 +495,7 @@ export function codexHookCommands(
   const own: Partial<Record<CodexHookEvent, string[]>> = {
     SessionStart: [
       hookCommand('resume-token codex -'),
-      `[ -n "$PINE_SOCKET" ] && cat ${shellQuote(contextFile)} 2>/dev/null || true`,
+      `${IN_PANE} && cat ${shellQuote(contextFile)} 2>/dev/null || true`,
       busHookCommand('SessionStart'),
     ],
     UserPromptSubmit: [hookCommand('state working'), busHookCommand('UserPromptSubmit')],
@@ -545,8 +551,8 @@ function codexSessionContext(
   skills: { id: string; file: string; description: string }[],
 ): string {
   return [
-    `This Codex session runs in a ${PRODUCT_NAME} terminal pane. The \`pine\` CLI controls the pane and its workspace: notifications, attention state, the in-app browser, background processes, the secret vault, and a message bus to agents in other panes.`,
-    'Your shell tool does not have the `pine` shell function, so run the CLI as `ELECTRON_RUN_AS_NODE=1 "$PINE_NODE" "$PINE_CLI" <command>`.',
+    `This Codex session runs in a ${PRODUCT_NAME} terminal pane. The \`ostia\` CLI (\`pine\` is its old name and still works) controls the pane and its workspace: notifications, attention state, the in-app browser, background processes, the secret vault, and a message bus to agents in other panes.`,
+    'Your shell tool does not have the `ostia` shell function, so run the CLI as `ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" "$OSTIA_CLI" <command>`.',
     `Before you use it, read its guide: ${skillFile}`,
     ...(skills.length > 0
       ? [
@@ -617,11 +623,11 @@ export function codexWrapper(): string {
     '  done',
     '  return 0',
     '}',
-    `if [ -n "$PINE_CLI" ] && [ -z "$${AGENT_HOOKS_OFF_ENV.codex}" ]; then`,
+    `if [ -n "${CLI_PATH}" ] && [ -z "${shellEnv(AGENT_HOOKS_OFF_ENV.codex)}" ]; then`,
     '  codex() {',
-    `    if [ -n "$PINE_AGENT_DIR" ] && [ -f "$PINE_AGENT_DIR/codex/${CODEX_HOOK_ARGS_FILE}" ] && __pine_codex_starts_session "$@"; then`,
+    `    if [ -n "${AGENT_DIR}" ] && [ -f "${AGENT_DIR}/codex/${CODEX_HOOK_ARGS_FILE}" ] && __pine_codex_starts_session "$@"; then`,
     '      local -a __pine_codex_hook_args',
-    `      . "$PINE_AGENT_DIR/codex/${CODEX_HOOK_ARGS_FILE}"`,
+    `      . "${AGENT_DIR}/codex/${CODEX_HOOK_ARGS_FILE}"`,
     '      command codex "${__pine_codex_hook_args[@]}" "$@"',
     '    else',
     '      command codex "$@"',
@@ -700,11 +706,11 @@ function ensureFiles(): IntegrationPaths {
     zshenv,
     [
       '# Pine shell integration (generated). Load the real .zshenv; ZDOTDIR is restored to',
-      '# PINE_ZDOTDIR_ORIG at the end of .zshrc below, once our hooks are installed.',
-      '[ -n "$PINE_ZDOTDIR_ORIG" ] && [ -f "$PINE_ZDOTDIR_ORIG/.zshenv" ] && source "$PINE_ZDOTDIR_ORIG/.zshenv"',
+      '# OSTIA_ZDOTDIR_ORIG at the end of .zshrc below, once our hooks are installed.',
+      '[ -n "$OSTIA_ZDOTDIR_ORIG" ] && [ -f "$OSTIA_ZDOTDIR_ORIG/.zshenv" ] && source "$OSTIA_ZDOTDIR_ORIG/.zshenv"',
       '# If the real .zshenv redirected ZDOTDIR, remember its target as the effective dotdir',
       '# and reclaim ZDOTDIR so zsh still reads OUR .zshrc next (else integration is bypassed).',
-      `if [ "$ZDOTDIR" != "${INTEGRATION_DIR}" ]; then PINE_ZDOTDIR_ORIG="$ZDOTDIR"; ZDOTDIR="${INTEGRATION_DIR}"; fi`,
+      `if [ "$ZDOTDIR" != "${INTEGRATION_DIR}" ]; then OSTIA_ZDOTDIR_ORIG="$ZDOTDIR"; ZDOTDIR="${INTEGRATION_DIR}"; fi`,
       '',
     ].join('\n'),
     'utf8',
@@ -717,11 +723,11 @@ function ensureFiles(): IntegrationPaths {
       '# restore ZDOTDIR so nested/child zsh invocations see a normal environment.',
       '# With the Pine prompt, powerlevel10k must not start its instant prompt: its prompt never',
       '# draws, so it would hold the shell output and delete its own caches at exit.',
-      '[ "$PINE_PROMPT" = pine ] && typeset -g POWERLEVEL9K_INSTANT_PROMPT=off',
-      '[ -n "$PINE_ZDOTDIR_ORIG" ] && [ -f "$PINE_ZDOTDIR_ORIG/.zshrc" ] && source "$PINE_ZDOTDIR_ORIG/.zshrc"',
+      '[ "$OSTIA_PROMPT" = pine ] && typeset -g POWERLEVEL9K_INSTANT_PROMPT=off',
+      '[ -n "$OSTIA_ZDOTDIR_ORIG" ] && [ -f "$OSTIA_ZDOTDIR_ORIG/.zshrc" ] && source "$OSTIA_ZDOTDIR_ORIG/.zshrc"',
       `source "${zshInit}"`,
-      'ZDOTDIR="$PINE_ZDOTDIR_ORIG"',
-      'unset PINE_ZDOTDIR_ORIG',
+      'ZDOTDIR="$OSTIA_ZDOTDIR_ORIG"',
+      'unset OSTIA_ZDOTDIR_ORIG',
       '',
     ].join('\n'),
     'utf8',
@@ -751,14 +757,14 @@ export interface PinePromptOption {
 function promptEnv(option: PinePromptOption | null): Record<string, string> {
   if (!option || !isPromptSeparator(option.separator)) return {}
   return {
-    PINE_PROMPT: 'pine',
-    PINE_PROMPT_SEPARATOR: option.separator,
-    PINE_PROMPT_LINES: option.sameLine === true ? '1' : '2',
+    OSTIA_PROMPT: 'pine',
+    OSTIA_PROMPT_SEPARATOR: option.separator,
+    OSTIA_PROMPT_LINES: option.sameLine === true ? '1' : '2',
   }
 }
 
 function historyEnv(histFile: string | null): Record<string, string> {
-  return histFile ? { PINE_HISTFILE: histFile } : {}
+  return histFile ? { OSTIA_HISTFILE: histFile } : {}
 }
 
 export function shellIntegrationSpawnOptions(
@@ -775,8 +781,8 @@ export function shellIntegrationSpawnOptions(
       args: [],
       env: {
         ZDOTDIR: INTEGRATION_DIR,
-        PINE_ZDOTDIR_ORIG: baseEnv.ZDOTDIR || baseEnv.HOME || '',
-        PINE_AGENT_DIR: currentAgentDir(),
+        OSTIA_ZDOTDIR_ORIG: baseEnv.ZDOTDIR || baseEnv.HOME || '',
+        ...dualEnv({ AGENT_DIR: currentAgentDir() }),
         ...promptEnv(pinePrompt),
         ...historyEnv(histFile),
       },
@@ -788,7 +794,7 @@ export function shellIntegrationSpawnOptions(
     return {
       args: ['--rcfile', bashRc],
       env: {
-        PINE_AGENT_DIR: currentAgentDir(),
+        ...dualEnv({ AGENT_DIR: currentAgentDir() }),
         ...promptEnv(pinePrompt),
         ...historyEnv(histFile),
       },

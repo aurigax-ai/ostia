@@ -17,7 +17,7 @@ export function sandboxFailureBanner(message: string, missing: readonly string[]
   const packages = missingPackages(missing)
   if (packages.length > 0) {
     lines.push(` Missing: ${packages.join(', ')}\r\n`)
-    lines.push(` Install them with: pine system install ${packages.join(' ')}\r\n`)
+    lines.push(` Install them with: ostia system install ${packages.join(' ')}\r\n`)
   }
   lines.push(' No shell was started. This workspace only runs sandboxed.\r\n')
   return lines.join('')

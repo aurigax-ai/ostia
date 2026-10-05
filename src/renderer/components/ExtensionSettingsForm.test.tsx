@@ -1,5 +1,5 @@
 import type { ExtensionInfo } from '@shared/extensions'
-import { PRODUCT_NAME } from '@shared/product'
+import { PRODUCT_DISPLAY_NAME } from '@shared/productDisplay'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -26,6 +26,7 @@ function assistant(overrides: Partial<ExtensionInfo> = {}): ExtensionInfo {
     settings: [],
     settingValues: {},
     iconThemes: [],
+    keymaps: [],
     assist: ['command', 'chat'],
     secrets: [{ key: 'apiKey', description: 'Key for the provider' }],
     secretsSet: [],
@@ -163,7 +164,7 @@ describe('ExtensionSettingsForm labels', () => {
     render(<ExtensionSettingsForm ext={ports()} />)
     expect(
       screen.getByText(
-        `Time between port scans while ${PRODUCT_NAME} is focused (1 to 60 seconds)`,
+        `Time between port scans while ${PRODUCT_DISPLAY_NAME} is focused (1 to 60 seconds)`,
       ),
     ).toBeInTheDocument()
     expect(screen.queryByText(/\{product\}/)).toBeNull()
