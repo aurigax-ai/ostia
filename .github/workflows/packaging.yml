@@ -51,6 +51,8 @@ jobs:
 
   homebrew:
     runs-on: macos-26
+    env:
+      HOMEBREW_GITHUB_API_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v7
         with:
