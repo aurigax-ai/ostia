@@ -673,43 +673,34 @@ function currentAgentDir(): string {
 }
 
 interface IntegrationPaths {
+  dir: string
   zshInit: string
   bashInit: string
   zshRc: string
   bashRc: string
 }
 
-let cached: IntegrationPaths | null = null
+export type ShellIntegrationFiles = Record<string, string>
 
-function ensureFiles(): IntegrationPaths {
-  if (cached) return cached
-  mkdirSync(INTEGRATION_DIR, { recursive: true })
+const DIGEST_PLACEHOLDER = '\u0000dir\u0000'
 
+export function shellIntegrationFiles(dir: string): ShellIntegrationFiles {
   const agentWrappers = claudeWrapper() + codexWrapper()
-
-  const zshInit = join(INTEGRATION_DIR, 'init.zsh')
-  const bashInit = join(INTEGRATION_DIR, 'init.bash')
-  writeFileSync(zshInit, ZSH_INIT + agentWrappers, 'utf8')
-  writeFileSync(bashInit, BASH_INIT + agentWrappers, 'utf8')
-
-  const zshenv = join(INTEGRATION_DIR, '.zshenv')
-  writeFileSync(
-    zshenv,
-    [
+  const zshInit = join(dir, 'init.zsh')
+  const bashInit = join(dir, 'init.bash')
+  return {
+    'init.zsh': ZSH_INIT + agentWrappers,
+    'init.bash': BASH_INIT + agentWrappers,
+    '.zshenv': [
       '# Ostia shell integration (generated). Load the real .zshenv; ZDOTDIR is restored to',
       '# OSTIA_ZDOTDIR_ORIG at the end of .zshrc below, once our hooks are installed.',
       '[ -n "$OSTIA_ZDOTDIR_ORIG" ] && [ -f "$OSTIA_ZDOTDIR_ORIG/.zshenv" ] && source "$OSTIA_ZDOTDIR_ORIG/.zshenv"',
       '# If the real .zshenv redirected ZDOTDIR, remember its target as the effective dotdir',
       '# and reclaim ZDOTDIR so zsh still reads OUR .zshrc next (else integration is bypassed).',
-      `if [ "$ZDOTDIR" != "${INTEGRATION_DIR}" ]; then OSTIA_ZDOTDIR_ORIG="$ZDOTDIR"; ZDOTDIR="${INTEGRATION_DIR}"; fi`,
+      `if [ "$ZDOTDIR" != "${dir}" ]; then OSTIA_ZDOTDIR_ORIG="$ZDOTDIR"; ZDOTDIR="${dir}"; fi`,
       '',
     ].join('\n'),
-    'utf8',
-  )
-  const zshRc = join(INTEGRATION_DIR, '.zshrc')
-  writeFileSync(
-    zshRc,
-    [
+    '.zshrc': [
       '# Ostia shell integration (generated). Load the real .zshrc, add our hooks, then',
       '# restore ZDOTDIR so nested/child zsh invocations see a normal environment.',
       '# With the Ostia prompt, powerlevel10k must not start its instant prompt: its prompt never',
@@ -721,23 +712,63 @@ function ensureFiles(): IntegrationPaths {
       'unset OSTIA_ZDOTDIR_ORIG',
       '',
     ].join('\n'),
-    'utf8',
-  )
-
-  const bashRc = join(INTEGRATION_DIR, 'bashrc')
-  writeFileSync(
-    bashRc,
-    [
+    bashrc: [
       '# Ostia shell integration (generated). Load the real ~/.bashrc, then add our hooks.',
       '[ -f "$HOME/.bashrc" ] && source "$HOME/.bashrc"',
       `source "${bashInit}"`,
       '',
     ].join('\n'),
-    'utf8',
-  )
+  }
+}
 
-  cached = { zshInit, bashInit, zshRc, bashRc }
+function shellIntegrationDigest(files: (dir: string) => ShellIntegrationFiles): string {
+  const hash = createHash('sha256')
+  for (const [name, text] of Object.entries(files(DIGEST_PLACEHOLDER)).sort()) {
+    hash.update(JSON.stringify({ name, size: text.length }))
+    hash.update(text)
+  }
+  return hash.digest('hex').slice(0, 32)
+}
+
+export function writeShellIntegration(
+  root: string,
+  files: (dir: string) => ShellIntegrationFiles = shellIntegrationFiles,
+): string {
+  mkdirSync(root, { recursive: true, mode: 0o700 })
+  const dir = join(root, shellIntegrationDigest(files))
+  if (existsSync(dir)) return dir
+  const staging = mkdtempSync(join(root, '.staging-'))
+  try {
+    for (const [name, text] of Object.entries(files(dir))) {
+      writeFileSync(join(staging, name), text, 'utf8')
+    }
+    renameSync(staging, dir)
+  } catch (err) {
+    rmSync(staging, { recursive: true, force: true })
+    if (!existsSync(dir)) throw err
+  }
+  return dir
+}
+
+export const SHELLS_DIR = join(INTEGRATION_DIR, 'shells')
+
+let cached: IntegrationPaths | null = null
+
+function ensureFiles(): IntegrationPaths {
+  if (cached) return cached
+  const dir = writeShellIntegration(SHELLS_DIR)
+  cached = {
+    dir,
+    zshInit: join(dir, 'init.zsh'),
+    bashInit: join(dir, 'init.bash'),
+    zshRc: join(dir, '.zshrc'),
+    bashRc: join(dir, 'bashrc'),
+  }
   return cached
+}
+
+export function shellIntegrationDir(): string {
+  return ensureFiles().dir
 }
 
 export interface OstiaPromptOption {
@@ -767,11 +798,11 @@ export function shellIntegrationSpawnOptions(
   const name = basename(shellPath).toLowerCase()
 
   if (name === 'zsh') {
-    const { zshRc: _unused } = ensureFiles()
+    const { dir } = ensureFiles()
     return {
       args: [],
       env: {
-        ZDOTDIR: INTEGRATION_DIR,
+        ZDOTDIR: dir,
         OSTIA_ZDOTDIR_ORIG: baseEnv.ZDOTDIR || baseEnv.HOME || '',
         ...dualEnv({ AGENT_DIR: currentAgentDir() }),
         ...promptEnv(ostiaPrompt),
