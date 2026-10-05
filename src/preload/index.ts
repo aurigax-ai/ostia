@@ -76,6 +76,7 @@ import type {
   WorkspaceSandbox,
 } from '../shared/sandbox'
 import type { SandboxReadPreset } from '../shared/sandboxPresets'
+import type { SearchOutcome } from '../shared/search'
 import type { SecretEntry, SecretGrant } from '../shared/secrets'
 import type { SelectionSendResult } from '../shared/selection'
 import type { RequirementsReport } from '../shared/systemRequirements'
@@ -216,6 +217,9 @@ const bridge: OstiaBridge = {
       ipcRenderer.send('manager:ready')
       return () => ipcRenderer.removeListener('manager:open', handler)
     },
+  },
+  search: {
+    run: (req) => ipcRenderer.invoke('search:run', req) as Promise<SearchOutcome>,
   },
   fs: {
     list: (path) => ipcRenderer.invoke('fs:list', path) as Promise<FsEntry[]>,

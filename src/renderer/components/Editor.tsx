@@ -5,7 +5,7 @@ import { type RemoteFileError, isRemotePath, parseRemotePath } from '@shared/rem
 import { useEffect, useRef, useState } from 'react'
 import { externalEditorError, openPaneInExternalEditor } from '../commands/externalEditor'
 import { fmt, useDict } from '../i18n/useDict'
-import { runAppChord } from '../lib/chords'
+import { matchChord, runAppChord } from '../lib/chords'
 import { changedLines, minimalLineEdit } from '../lib/diskReload'
 import { registerEditorPosition } from '../lib/editorPositions'
 import { createAutoSave, saveFormatted } from '../lib/editorSave'
@@ -257,6 +257,12 @@ export function EditorView({
     editorRef.current = editor
     setLiveEditor(editor)
     const appChordKeys = editor.onKeyDown((e) => {
+      if (matchChord(e.browserEvent, isMac) === 'find') {
+        e.preventDefault()
+        e.stopPropagation()
+        void editor.getAction('actions.find')?.run()
+        return
+      }
       if (runAppChord(e.browserEvent, isMac)) e.stopPropagation()
     })
 

@@ -198,6 +198,12 @@ export function FileTreeSettingsGroups(): JSX.Element {
           />
         </ControlRow>
         <ToggleRow
+          label={d.filesView.searchIgnoredSetting}
+          desc={d.filesView.searchIgnoredDesc}
+          checked={files.searchIgnored}
+          onChange={(v) => setFiles({ searchIgnored: v })}
+        />
+        <ToggleRow
           label={d.filesView.compactFolders}
           desc={d.filesView.compactFoldersDesc}
           checked={files.compactFolders}
