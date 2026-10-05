@@ -85,6 +85,7 @@ import { registerChatToolsIpc } from './chatToolsIpc'
 import { type ClipboardEdits, registerClipboardEdits } from './clipboardEdits'
 import { confirmQuit, freezeAll, registerCloseGuard } from './closeGuard'
 import { registerCompletionIpc } from './completionSpecs'
+import { attachContextMenu } from './contextMenu'
 import { connHasCap, setCapFilter } from './controlAuth'
 import { controlSocketPath, registerControlServer, stopControlServer } from './controlServer'
 import { registerCredentials } from './credentials'
@@ -1071,6 +1072,8 @@ function wireWindow(win: BrowserWindow): void {
     return { action: 'deny' }
   })
 
+  attachContextMenu(win.webContents, false)
+
   win.webContents.on('will-attach-webview', (event, webPreferences, params) => {
     const extId = extensionOfPartition(params.partition)
     const allowed = extId
@@ -1088,7 +1091,11 @@ function wireWindow(win: BrowserWindow): void {
   win.webContents.on('did-attach-webview', (_e, guest) => {
     clipboardEdits?.guardGuest(guest)
     guestChords?.guardGuest(guest)
-    if (hardenExtensionGuest(guest)) return
+    if (hardenExtensionGuest(guest)) {
+      attachContextMenu(guest, false)
+      return
+    }
+    attachContextMenu(guest, true)
     const agent = browserUserAgent(guest.session.getUserAgent(), app.getName())
     guest.session.setUserAgent(agent)
     guest.setUserAgent(agent)
