@@ -70,6 +70,7 @@ test('right-click in a text field and on a web page shows the native menu', asyn
       await win.keyboard.press('Escape')
       await expect(settings).toHaveCount(0, { timeout: 1_000 })
     }).toPass()
+    await win.locator('.xterm').first().click()
 
     await win.getByRole('button', { name: 'New browser tab' }).click()
     const address = win.locator('.pane-slot:not([data-hidden]) .browser-address')
