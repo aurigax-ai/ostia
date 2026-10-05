@@ -1,6 +1,6 @@
 import { randomBytes, randomUUID } from 'node:crypto'
 
-export type IdentityKind = 'pane' | 'extension'
+export type IdentityKind = 'pane' | 'extension' | 'script'
 
 export interface PaneIdentity {
   kind: IdentityKind
@@ -15,6 +15,7 @@ export interface PaneIdentity {
 
 const byPane = new Map<string, PaneIdentity>()
 const byExtension = new Map<string, PaneIdentity>()
+const byScript = new Map<string, PaneIdentity>()
 const byExternal = new Map<string, PaneIdentity>()
 const byToken = new Map<string, PaneIdentity>()
 
@@ -114,6 +115,29 @@ export function removeExtension(extId: string, externalId?: string): void {
   const id = byExtension.get(extId)
   if (!id || (externalId !== undefined && id.externalId !== externalId)) return
   byExtension.delete(extId)
+  unindex(id)
+}
+
+export function registerScript(scriptId: string): PaneIdentity {
+  const existing = byScript.get(scriptId)
+  if (existing) return existing
+  const identity: PaneIdentity = {
+    kind: 'script',
+    ...mint(),
+    externalId: scriptId,
+    windowId: '',
+    workspaceId: '',
+    paneId: '',
+  }
+  byScript.set(scriptId, identity)
+  index(identity)
+  return identity
+}
+
+export function removeScript(scriptId: string): void {
+  const id = byScript.get(scriptId)
+  if (!id) return
+  byScript.delete(scriptId)
   unindex(id)
 }
 

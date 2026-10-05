@@ -42,6 +42,7 @@ export interface ControlMethodContext {
 export interface ControlMethod {
   cap?: Capability
   callers?: ControlCallers
+  scripts?: boolean
   targetable?: boolean
   handler: (params: unknown, ctx: ControlMethodContext) => unknown | Promise<unknown>
 }
@@ -58,7 +59,8 @@ function describeParams(method: string, params: unknown): string {
   }
 }
 
-function callerAllowed(identity: PaneIdentity, callers: ControlCallers): boolean {
+function callerAllowed(identity: PaneIdentity, callers: ControlCallers, scripts = false): boolean {
+  if (identity.kind === 'script') return scripts
   if (callers === 'all') return true
   if (callers === 'manager') return identity.kind === 'pane' && identity.manager === true
   return callers === 'extensions' ? identity.kind === 'extension' : identity.kind === 'pane'
@@ -116,11 +118,11 @@ export function registerControlServer(deps: ControlServerDeps, socketPathOverrid
     )
     let authed: AuthedConn | null = null
 
-    const requireIdentity = (callers: ControlCallers): PaneIdentity => {
+    const requireIdentity = (callers: ControlCallers, scripts = false): PaneIdentity => {
       if (!authed) throw unauthenticatedError('call hello first')
       const me = resolveExternal(authed.externalId)
       if (!me) throw unauthenticatedError('unknown identity')
-      if (!callerAllowed(me, callers)) {
+      if (!callerAllowed(me, callers, scripts)) {
         throw new ResponseError(ErrorCodes.InvalidRequest, `not-available-to-${me.kind}`)
       }
       return me
@@ -133,8 +135,9 @@ export function registerControlServer(deps: ControlServerDeps, socketPathOverrid
     })
 
     conn.onRequest('whoami', (): Record<string, string | undefined> => {
-      const me = requireIdentity('all')
+      const me = requireIdentity('all', true)
       if (me.kind === 'extension') return { externalId: me.externalId, extensionId: me.extId }
+      if (me.kind === 'script') return { externalId: me.externalId, kind: 'script' }
       return { externalId: me.externalId, paneId: me.paneId, workspaceId: me.workspaceId }
     })
 
@@ -208,7 +211,7 @@ export function registerControlServer(deps: ControlServerDeps, socketPathOverrid
 
     for (const [name, m] of methods) {
       conn.onRequest(name, async (params: unknown) => {
-        const caller = requireIdentity(m.targetable ? 'all' : (m.callers ?? 'panes'))
+        const caller = requireIdentity(m.targetable ? 'all' : (m.callers ?? 'panes'), m.scripts)
         if (!authed) throw unauthenticatedError('call hello first')
         if (m.cap) await ensureCaps(authed, caller, [m.cap], name, describeParams(name, params))
         if (caller.kind === 'extension' && m.targetable) {

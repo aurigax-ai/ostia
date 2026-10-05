@@ -174,6 +174,7 @@ export function registerPaneIoMethods(deps: PaneIoDeps): void {
   }
 
   registerControlMethod('pane.input', {
+    scripts: true,
     handler: async (raw, ctx) => {
       const p = record(raw)
       const to = target(p.pane, ctx)
@@ -196,6 +197,7 @@ export function registerPaneIoMethods(deps: PaneIoDeps): void {
   })
 
   registerControlMethod('pane.read', {
+    scripts: true,
     handler: async (raw, ctx) => {
       const p = record(raw)
       const to = target(p.pane, ctx)

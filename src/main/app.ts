@@ -86,7 +86,8 @@ import { type ClipboardEdits, registerClipboardEdits } from './clipboardEdits'
 import { confirmQuit, freezeAll, registerCloseGuard } from './closeGuard'
 import { registerCompletionIpc } from './completionSpecs'
 import { attachContextMenu } from './contextMenu'
-import { connHasCap, setCapFilter } from './controlAuth'
+import { connHasCap, setCapFilter, setScriptTokenCheck } from './controlAuth'
+import { clearControlInfo, controlInfoPath, writeControlInfo } from './controlDiscovery'
 import { controlSocketPath, registerControlServer, stopControlServer } from './controlServer'
 import { registerCredentials } from './credentials'
 import { type Diagnostics, registerDiagnostics } from './diagnostics'
@@ -206,6 +207,7 @@ import {
 import { SandboxUnavailableError, WorkspaceSandboxes } from './sandbox/workspaceSandboxes'
 import { ScratchFolders, registerScratchIpc } from './scratchFolders'
 import { ScreenMirror } from './screenMirror'
+import { registerScriptTokenMethods, verifyScriptToken } from './scriptTokens'
 import { registerSecretMethods } from './secrets/register'
 import { prepareSecrets } from './secrets/secretInjection'
 import { SecretService } from './secrets/secretService'
@@ -1943,6 +1945,7 @@ function managerLaunchArgv(argv: string[], resume: AgentResume | null): string[]
 }
 
 const managerResumePath = (): string => storePath('manager-resume', 'global')
+const scriptTokensPath = (): string => storePath('script-tokens', 'global')
 
 function spawnManagerPty(req: {
   paneId: string
@@ -2859,7 +2862,10 @@ app.whenReady().then(() => {
     isSharedPane,
     ownedGuest: (paneId, senderWindowId) => ownedGuest(browserPanes, paneId, senderWindowId),
   })
+  registerScriptTokenMethods(scriptTokensPath)
+  setScriptTokenCheck((token) => verifyScriptToken(scriptTokensPath(), token))
   registerControlServer({ execCommand, listCommandsFor, getTerminalState })
+  writeControlInfo(controlInfoPath(), controlSocketPath(), process.pid)
   registerManagerIpc()
   managerLimiter = registerManagerMethods({
     settings: managerSettings,
@@ -3015,6 +3021,7 @@ app.on('before-quit', (event) => {
   viewHost?.stop()
   settingsSync?.stop()
   stopControlServer()
+  clearControlInfo(controlInfoPath(), controlSocketPath())
   portal?.stop()
   void stopGateway()
   appTray?.remove()
