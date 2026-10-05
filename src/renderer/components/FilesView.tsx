@@ -86,10 +86,11 @@ function useTreeFocus(): TreeFocus {
   )
   const layout = useLayoutStore((s) => (workspaceId ? s.byWorkspace[workspaceId] : undefined))
   const pane = layout ? findPane(layout.root, layout.activePaneId) : null
+  const editor = pane?.kind === 'editor'
   return {
     workspaceId,
-    cwd: pane?.cwd ?? anchor,
-    activeFile: pane?.kind === 'editor' ? (pane.filePath ?? null) : null,
+    cwd: editor ? anchor : (pane?.cwd ?? anchor),
+    activeFile: editor ? (pane.filePath ?? null) : null,
   }
 }
 
@@ -571,7 +572,12 @@ function DirRow({
 }): JSX.Element {
   const [open, setOpen] = useState(false)
   const fullPath = childPath(path, entry.name)
+  const holdsActive = tree.focus.activeFile?.startsWith(`${fullPath}/`) ?? false
   const resolved = useCompactChain(fullPath, open, tree)
+
+  useEffect(() => {
+    if (holdsActive) setOpen(true)
+  }, [holdsActive])
   const failed = resolved && 'error' in resolved ? resolved.error : null
   const chain = resolved && !('error' in resolved) ? resolved : null
   const names = chain ? [entry.name, ...chain.names] : [entry.name]

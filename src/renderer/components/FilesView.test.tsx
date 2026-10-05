@@ -275,6 +275,44 @@ describe('FilesView', () => {
     expect(window.ostia.fs.list).toHaveBeenCalledWith('/anchor/dir')
   })
 
+  it('keeps the tree at the workspace folder when a file in a subfolder is the focused pane', async () => {
+    seedWorkspace(CWD)
+    vi.mocked(window.ostia.fs.list).mockImplementation(async (p) =>
+      p === CWD ? [{ name: 'notes', dir: true }] : [{ name: 'deep.json', dir: false }],
+    )
+
+    act(() => {
+      useLayoutStore.getState().openFile('s1', `${CWD}/notes/deep.json`)
+    })
+    render(<FilesView />)
+
+    expect(await screen.findByRole('button', { name: 'notes' })).toBeInTheDocument()
+    expect(window.ostia.fs.list).toHaveBeenCalledWith(CWD)
+    expect(screen.getByText('project')).toHaveClass('current')
+  })
+
+  it('opens the folders down to the focused file and marks its row current', async () => {
+    seedWorkspace(CWD)
+    vi.mocked(window.ostia.fs.list).mockImplementation(async (p) =>
+      p === CWD
+        ? [
+            { name: 'notes', dir: true },
+            { name: 'other', dir: true },
+          ]
+        : [{ name: 'deep.json', dir: false }],
+    )
+
+    act(() => {
+      useLayoutStore.getState().openFile('s1', `${CWD}/notes/deep.json`)
+    })
+    render(<FilesView />)
+
+    const row = await screen.findByRole('button', { name: 'deep.json' })
+    expect(row).toHaveAttribute('aria-current', 'true')
+    expect(screen.getByRole('button', { name: 'notes' })).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByRole('button', { name: 'other' })).toHaveAttribute('aria-expanded', 'false')
+  })
+
   it('opens a file via layoutStore.openFile with its full path when a file row is clicked', async () => {
     seedWorkspace(CWD)
     listReturns([{ name: 'index.ts', dir: false }])
