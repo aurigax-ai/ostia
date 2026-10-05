@@ -120,3 +120,26 @@ test('on macOS the palette is Cmd+K, a rebound chord works from a terminal, a Ct
     await app.close()
   }
 })
+
+test('on macOS Cmd+Backspace deletes the typed line in the shell, as in Terminal and iTerm', async () => {
+  test.skip(!isMac, 'Cmd+Backspace is a macOS line-editing key')
+  const app = await electron.launch(isolatedLaunch())
+  try {
+    const win = await app.firstWindow()
+    await win.waitForLoadState('domcontentloaded')
+    await openWorkspace(win)
+    await focusTerminal(win)
+    const rows = win.locator('.xterm-rows').first()
+
+    await win.keyboard.type('echo pine_wrong_line')
+    await expect(rows).toContainText('echo pine_wrong_line')
+    await win.keyboard.press('Meta+Backspace')
+    await win.keyboard.type('echo pine_$((40+2))_ok')
+    await win.keyboard.press('Enter')
+    await expect(rows).toContainText('pine_42_ok')
+    await expect(rows).not.toContainText('pine_wrong_line')
+    expect(app.windows()).toHaveLength(1)
+  } finally {
+    await app.close()
+  }
+})
