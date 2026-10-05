@@ -83,7 +83,7 @@ export const DEFAULT_CHORDS: Readonly<
   'pane.focusUp': ['Cmd+Ctrl+Up', 'Ctrl+Shift+Alt+K'],
   'pane.focusDown': ['Cmd+Ctrl+Down', 'Ctrl+Shift+Alt+J'],
   'pane.zoom': ['Cmd+Shift+X', 'Ctrl+Shift+X'],
-  'pane.close': ['Cmd+Shift+W', 'Ctrl+Shift+W'],
+  'pane.close': ['Cmd+W', 'Ctrl+Shift+W'],
   'workspace.next': ['Cmd+Ctrl+]', 'Ctrl+Shift+PageDown'],
   'workspace.previous': ['Cmd+Ctrl+[', 'Ctrl+Shift+PageUp'],
   copy: ['Cmd+C', 'Ctrl+Shift+C'],
