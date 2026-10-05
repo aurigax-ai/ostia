@@ -406,7 +406,7 @@ describe('SettingsPanel', () => {
     expect(useSettingsStore.getState().appearance.followSystem).toBe(true)
     expect(screen.queryByRole('combobox', { name: 'Ostia theme' })).not.toBeInTheDocument()
     await user.click(screen.getByRole('combobox', { name: 'Light theme' }))
-    expect(await screen.findByRole('option', { name: 'Pine Light' })).toBeInTheDocument()
+    expect(await screen.findByRole('option', { name: 'Ostia Light' })).toBeInTheDocument()
     expect(screen.queryByRole('option', { name: 'Dracula' })).not.toBeInTheDocument()
     await user.keyboard('{Escape}')
 

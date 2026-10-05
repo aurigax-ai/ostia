@@ -154,7 +154,7 @@ test('MGR-C11 a pine <agent> run from a Pine pane is refused even with PINE_SOCK
       'env -u OSTIA_SOCKET -u OSTIA_TOKEN -u PINE_SOCKET -u PINE_TOKEN ELECTRON_RUN_AS_NODE=1 "$PINE_NODE" "$PINE_CLI" fake',
     )
     await win.keyboard.press('Enter')
-    await expect(win.locator('.xterm-rows').first()).toContainText('inside-pine', {
+    await expect(win.locator('.xterm-rows').first()).toContainText('inside-ostia', {
       timeout: 20_000,
     })
     await expect(win.locator('.rail-tab', { hasText: 'Manager' })).toHaveCount(0)

@@ -203,16 +203,16 @@ describe('moveChip, addChip and removeChip', () => {
 })
 
 describe('spawnPromptOption', () => {
-  const settings = (style: 'shell' | 'pine', inputMode: string) => ({
+  const settings = (style: 'shell' | 'ostia', inputMode: string) => ({
     behavior: { inputMode },
     terminal: { prompt: { ...DEFAULT_PROMPT_SETTINGS, style, separator: '>' as const } },
   })
 
   it('asks for the plain shell prompt only for the Pine prompt in the input editor', () => {
-    expect(spawnPromptOption(settings('pine', 'editor'))).toEqual({
+    expect(spawnPromptOption(settings('ostia', 'editor'))).toEqual({
       pinePrompt: { separator: '>', sameLine: DEFAULT_PROMPT_SETTINGS.sameLine },
     })
-    expect(spawnPromptOption(settings('pine', 'terminal'))).toEqual({})
+    expect(spawnPromptOption(settings('ostia', 'terminal'))).toEqual({})
     expect(spawnPromptOption(settings('shell', 'editor'))).toEqual({})
   })
 })

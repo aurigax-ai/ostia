@@ -1,4 +1,4 @@
-export const BUILTIN_ICON_THEME = 'pine'
+export const BUILTIN_ICON_THEME = 'ostia'
 
 export const ICON_THEME_ID_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$/
 

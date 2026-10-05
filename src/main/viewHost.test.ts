@@ -159,7 +159,7 @@ describe('ViewHost', () => {
 
 describe('pine skill', () => {
   it('teaches a view example that validates', () => {
-    const skill = readFileSync(join(__dirname, 'agent', 'pine-skill.md'), 'utf8')
+    const skill = readFileSync(join(__dirname, 'agent', 'ostia-skill.md'), 'utf8')
     const section = skill.slice(skill.indexOf('## Views'))
     const example = /```json\n([\s\S]*?)```/.exec(section)?.[1]
     expect(example).toBeDefined()

@@ -55,8 +55,9 @@ describe('parsePromptSettings', () => {
 
   it('validates each field on its own', () => {
     expect(
-      parsePromptSettings({ style: 'pine', chips: ['host'], sameLine: 'yes', separator: '>' }),
-    ).toEqual({ style: 'pine', chips: ['host'], sameLine: false, separator: '>' })
+      parsePromptSettings({ style: 'ostia', chips: ['host'], sameLine: 'yes', separator: '>' }),
+    ).toEqual({ style: 'ostia', chips: ['host'], sameLine: false, separator: '>' })
+    expect(parsePromptSettings({ style: 'pine' }).style).toBe('ostia')
     expect(parsePromptSettings({ style: 'zsh', sameLine: true, separator: '#' })).toEqual({
       style: 'shell',
       chips: [...DEFAULT_PROMPT_CHIPS],

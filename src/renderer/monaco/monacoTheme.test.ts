@@ -35,7 +35,7 @@ describe('monacoThemeData', () => {
 
   it('bases light schemes on the vs theme', () => {
     expect(monacoThemeData(scheme('solarized-light')).base).toBe('vs')
-    expect(monacoThemeData(scheme('pine-light')).base).toBe('vs')
+    expect(monacoThemeData(scheme('ostia-light')).base).toBe('vs')
   })
 
   it('maps syntax tokens onto the scheme ANSI colors', () => {
@@ -81,7 +81,7 @@ const alphaOf = (hex: string): number => Number.parseInt(hex.slice(7, 9), 16) / 
 describe('diffColors', () => {
   it('tints added and removed lines with the scheme green and red, not fixed hues', () => {
     const mocha = scheme('catppuccin-mocha')
-    const light = scheme('pine-light')
+    const light = scheme('ostia-light')
     const dark = diffColors(mocha)
     expect(dark.inserted).toBe(mocha.colors.green)
     expect(dark.removed).toBe(mocha.colors.red)

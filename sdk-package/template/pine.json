@@ -3,7 +3,7 @@
   "id": "hello",
   "name": "Hello",
   "version": "0.1.0",
-  "api": "1.15",
+  "api": "1.16",
   "description": "Starter extension: a command that greets you, and a skill and hook that teach coding agents to use it",
   "category": "other",
   "capabilities": ["notify", "agent-plugin"],
