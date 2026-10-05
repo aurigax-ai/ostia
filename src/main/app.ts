@@ -118,6 +118,7 @@ import {
   removePane,
   removeWindow,
   resolveExternal,
+  setPaneIdSalt,
   windowOfWorkspace,
   workspaceHasManager,
 } from './idRegistry'
@@ -147,8 +148,10 @@ import { OpenFileGrants } from './openFileGrants'
 import { openFileForExtension, registerOpenFileMethods } from './openFileMethods'
 import { registerOpenPathIpc } from './openPath'
 import type { OriginReach } from './originAgents'
+import { loadPaneIdSalt } from './paneIdSalt'
 import { type PaneIo, registerPaneIoMethods } from './paneIo'
 import { listPanes, listWorkspaces, registerPaneListMethods } from './paneList'
+import { registerPaneRenameMethods } from './paneRename'
 import { registerPaneResumeMethods } from './paneResume'
 import { resolveSafe } from './pathGuard'
 import {
@@ -174,6 +177,7 @@ import { createWorkerScan, redactionWorkerScript } from './redactionScan'
 import { registerReleaseCheck, releaseUserAgent } from './releaseCheck'
 import { confirmRemoteFolder, registerRemoteFolderConfirm } from './remoteFolderConfirm'
 import type { RemoteFolders } from './remoteFolders'
+import { ripgrepPath } from './ripgrep'
 import { attachWorkspace } from './sandbox/attachWorkspace'
 import { BrowserFence } from './sandbox/browserFence'
 import { registerSandboxMethods } from './sandbox/controlMethods'
@@ -249,6 +253,7 @@ import {
   windowForWorkspace,
   workDirForWorkspace,
 } from './workspaceRegistry'
+import { registerSearchIpc } from './workspaceSearch'
 import {
   dropRestoredScrollback,
   loadRestoredScrollback,
@@ -1197,6 +1202,7 @@ function registerIpc(): void {
       version: app.getVersion(),
       platform: process.platform,
       hostName: hostname(),
+      home: app.getPath('home'),
     }),
   )
 
@@ -2045,6 +2051,7 @@ function registerFsIpc(): void {
   const settingsFile = join(app.getPath('userData'), 'settings.json')
   registerOpenPathIpc(allowedRoots)
   registerProjectRootIpc(allowedRoots)
+  registerSearchIpc(ripgrepPath(app.getAppPath(), process.platform, process.arch), allowedRoots)
 
   ipcMain.handle('fs:list', (_e, dir: string): FsEntry[] => {
     const safe = resolveSafe(dir, allowedRoots)
@@ -2494,6 +2501,7 @@ app.on('second-instance', (_event, argv) => {
 })
 
 app.whenReady().then(() => {
+  setPaneIdSalt(loadPaneIdSalt(storePath('pane-id-salt', 'global')))
   const appMenu = installAppMenu(process.platform, {
     productName: PRODUCT_DISPLAY_NAME,
     openSettings: openSettingsInFocusedWindow,
@@ -2589,6 +2597,7 @@ app.whenReady().then(() => {
     )
   registerNotifyIpc(notifyDeps)
   registerAttentionMethods({ execCommand })
+  registerPaneRenameMethods({ execCommand })
   registerPaneResumeMethods({
     execCommand,
     onResume: (identity, resume) => {

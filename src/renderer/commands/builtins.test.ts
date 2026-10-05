@@ -939,6 +939,102 @@ describe('pane.list / workspace.list', () => {
     })
   })
 
+  it('pane.list reports the agent, its session id and its state for a terminal pane', async () => {
+    const blocksBefore = useBlocksStore.getState()
+    const attentionBefore = useAttentionStore.getState()
+    const agentPane = {
+      ...createPane('terminal', 'claude', '/work/api'),
+      resume: { agent: 'claude' as const, id: 'sess-123' },
+    }
+    const shellPane = createPane('terminal', 'zsh', '/work/api')
+    useWorkspacesStore.setState({
+      workspaces: [
+        { id: 's1', name: 'api', kind: 'terminal', workDir: '/work/api', state: 'idle' },
+      ],
+    })
+    useLayoutStore.setState({
+      byWorkspace: {
+        s1: {
+          root: splitOf('horizontal', agentPane, shellPane),
+          activePaneId: agentPane.id,
+          zoomedPaneId: null,
+        },
+      },
+    })
+    useBlocksStore.setState({
+      running: { [agentPane.id]: 'b1' },
+      agentBlocks: { [agentPane.id]: { blockId: 'b1', agent: 'claude' } },
+    })
+    useAttentionStore.setState({
+      byPane: {
+        [agentPane.id]: { state: 'waiting', unread: true, message: 'Allow Bash?', at: 1 },
+        [shellPane.id]: { state: 'none', unread: false, at: 1 },
+      },
+    })
+
+    try {
+      const res = await commands.execWith(ctx('s1', null), 'pane.list')
+
+      expect(res).toEqual({
+        ok: true,
+        result: [
+          {
+            paneId: agentPane.id,
+            workspaceId: 's1',
+            kind: 'terminal',
+            title: 'claude',
+            cwd: '/work/api',
+            agent: 'claude',
+            agentSessionId: 'sess-123',
+            agentState: 'waiting',
+            agentMessage: 'Allow Bash?',
+          },
+          {
+            paneId: shellPane.id,
+            workspaceId: 's1',
+            kind: 'terminal',
+            title: 'zsh',
+            cwd: '/work/api',
+          },
+        ],
+      })
+    } finally {
+      useBlocksStore.setState(blocksBefore, true)
+      useAttentionStore.setState(attentionBefore, true)
+    }
+  })
+
+  it('pane.list keeps the last session id after the agent exits', async () => {
+    const pane = {
+      ...createPane('terminal', 'zsh', '/work/api'),
+      resume: { agent: 'codex' as const, id: 'codex-9' },
+    }
+    useWorkspacesStore.setState({
+      workspaces: [
+        { id: 's1', name: 'api', kind: 'terminal', workDir: '/work/api', state: 'idle' },
+      ],
+    })
+    useLayoutStore.setState({
+      byWorkspace: { s1: { root: pane, activePaneId: pane.id, zoomedPaneId: null } },
+    })
+
+    const res = await commands.execWith(ctx('s1', null), 'pane.list')
+
+    expect(res).toEqual({
+      ok: true,
+      result: [
+        {
+          paneId: pane.id,
+          workspaceId: 's1',
+          kind: 'terminal',
+          title: 'zsh',
+          cwd: '/work/api',
+          agentSessionId: 'codex-9',
+        },
+      ],
+    })
+  })
+
   it('pane.list and workspace.list are hidden, target:none, and gated on read-board', () => {
     const byId = Object.fromEntries(commands.describe().map((c) => [c.id, c]))
     for (const id of ['pane.list', 'workspace.list']) {
@@ -1104,6 +1200,37 @@ describe('workspace row commands', () => {
     await commands.execWith(ctx('w2', 'p'), 'workspace.describe', { text: 'PR #7' })
     expect(useWorkspacesStore.getState().workspaces[1].description).toBe('PR #7')
     expect(useWorkspacesStore.getState().workspaces[0].description).toBeUndefined()
+  })
+
+  it('renames the caller’s own workspace and clears the name with an empty one', async () => {
+    seed()
+    await commands.execWith(ctx('w2', 'p'), 'workspace.rename', { name: ' W9 控制面補齊 ' })
+    expect(useWorkspacesStore.getState().workspaces[1].customName).toBe('W9 控制面補齊')
+    expect(useWorkspacesStore.getState().workspaces[0].customName).toBeUndefined()
+    const listed = await commands.execWith(ctx(null, null), 'workspace.list')
+    expect(listed).toMatchObject({
+      ok: true,
+      result: [{ workspaceId: 'w1' }, { workspaceId: 'w2', customName: 'W9 控制面補齊' }],
+    })
+    await commands.execWith(ctx('w2', 'p'), 'workspace.rename', { name: '' })
+    expect(useWorkspacesStore.getState().workspaces[1].customName).toBeUndefined()
+  })
+
+  it('renames the caller’s pane and pins the title against program titles', async () => {
+    seed()
+    const pane = createPane('terminal', 'zsh', '/b')
+    useLayoutStore.setState({
+      byWorkspace: { w2: { root: pane, activePaneId: pane.id, zoomedPaneId: null } },
+    })
+    await commands.execWith(ctx('w2', pane.id), 'pane.rename', { title: 'worker' })
+    useLayoutStore.getState().setTitle('w2', pane.id, 'vim')
+    const root = useLayoutStore.getState().byWorkspace.w2?.root
+    expect(root).toMatchObject({ title: 'worker', titlePinned: true })
+    const byId = Object.fromEntries(commands.describe().map((c) => [c.id, c]))
+    for (const id of ['pane.rename', 'workspace.rename']) {
+      expect(byId[id].capabilities).toEqual(['drive-self'])
+      expect(byId[id].hidden).toBe(true)
+    }
   })
 
   it('jumps to a workspace by position and reports a missing one', async () => {

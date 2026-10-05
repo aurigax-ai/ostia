@@ -32,6 +32,7 @@ import { startAutoResume } from './lib/autoResume'
 import { errorDetails, reportError, startErrorReporting } from './lib/errorReporting'
 import { startFileDropTracking } from './lib/fileDrop'
 import { startHibernation } from './lib/hibernationScheduler'
+import { loadHomeDir } from './lib/homeDir'
 import { livePaneIds } from './lib/livePanes'
 import { loadLocalHostName } from './lib/osc7'
 import { startAgentDetection } from './lib/paneAgent'
@@ -82,7 +83,7 @@ const root = createRoot(container)
 async function boot(): Promise<void> {
   await initWindow()
   registerWindowCommands(useWindowsStore.getState().detached)
-  await loadLocalHostName()
+  await Promise.all([loadLocalHostName(), loadHomeDir()])
   try {
     await useSettingsStore.getState().init()
   } catch (err) {

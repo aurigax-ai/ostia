@@ -2,9 +2,11 @@ import { BUILTIN_ICON_THEME, ICON_THEME_ID_PATTERN } from '../../shared/iconThem
 
 export type FileSortOrder = 'foldersFirst' | 'mixed'
 export type FileSortBy = 'name' | 'type'
+export type BreadcrumbStyle = 'auto' | 'full' | 'short'
 
 export const FILE_SORT_ORDERS: readonly FileSortOrder[] = ['foldersFirst', 'mixed']
 export const FILE_SORT_BYS: readonly FileSortBy[] = ['name', 'type']
+export const BREADCRUMB_STYLES: readonly BreadcrumbStyle[] = ['auto', 'full', 'short']
 
 export interface FileNestingSettings {
   enabled: boolean
@@ -14,12 +16,16 @@ export interface FileNestingSettings {
 export interface FileTreeSettings {
   exclude: string[]
   showExcluded: boolean
+  searchIgnored: boolean
   compactFolders: boolean
   nesting: FileNestingSettings
   sortOrder: FileSortOrder
   sortBy: FileSortBy
+  breadcrumb: BreadcrumbStyle
   iconTheme: string
 }
+
+export const DOTFILES_PATTERN = '**/.*'
 
 export const EXCLUDE_MAX = 200
 export const PATTERN_MAX_LENGTH = 500
@@ -42,10 +48,12 @@ export const DEFAULT_NESTING_PATTERNS: Record<string, string> = {
 export const DEFAULT_FILE_TREE_SETTINGS: FileTreeSettings = {
   exclude: ['**/.git', '**/.hg', '**/.svn', '**/.DS_Store', '**/Thumbs.db'],
   showExcluded: false,
+  searchIgnored: false,
   compactFolders: true,
   nesting: { enabled: true, patterns: DEFAULT_NESTING_PATTERNS },
   sortOrder: 'foldersFirst',
   sortBy: 'name',
+  breadcrumb: 'auto',
   iconTheme: BUILTIN_ICON_THEME,
 }
 
@@ -85,6 +93,7 @@ export function parseFileTreeSettings(raw: unknown): FileTreeSettings {
   return {
     exclude: parseExclude(raw.exclude),
     showExcluded: typeof raw.showExcluded === 'boolean' ? raw.showExcluded : base.showExcluded,
+    searchIgnored: typeof raw.searchIgnored === 'boolean' ? raw.searchIgnored : base.searchIgnored,
     compactFolders:
       typeof raw.compactFolders === 'boolean' ? raw.compactFolders : base.compactFolders,
     nesting: {
@@ -97,6 +106,9 @@ export function parseFileTreeSettings(raw: unknown): FileTreeSettings {
     sortBy: FILE_SORT_BYS.includes(raw.sortBy as FileSortBy)
       ? (raw.sortBy as FileSortBy)
       : base.sortBy,
+    breadcrumb: BREADCRUMB_STYLES.includes(raw.breadcrumb as BreadcrumbStyle)
+      ? (raw.breadcrumb as BreadcrumbStyle)
+      : base.breadcrumb,
     iconTheme:
       typeof raw.iconTheme === 'string' && ICON_THEME_ID_PATTERN.test(raw.iconTheme)
         ? raw.iconTheme
