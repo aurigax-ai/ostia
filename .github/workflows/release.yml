@@ -160,3 +160,13 @@ jobs:
     with:
       tag: ${{ github.ref_name }}
     secrets: inherit
+
+  homebrew:
+    needs: publish
+    if: ${{ !contains(github.ref_name, '-') }}
+    permissions:
+      contents: read
+    uses: ./.github/workflows/publish-homebrew.yml
+    with:
+      tag: ${{ github.ref_name }}
+    secrets: inherit
