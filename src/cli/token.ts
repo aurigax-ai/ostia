@@ -53,8 +53,7 @@ export async function runTokenVerb(conn: MessageConnection, argv: string[]): Pro
     const created = result as { id: string; token: string }
     console.log(created.token)
     console.error(
-      `ostia token: created ${created.id}. This is the only time the token is shown; ` +
-        'scripts outside Ostia set OSTIA_TOKEN to it.',
+      `ostia token: created ${created.id}. This is the only time the token is shown; scripts outside Ostia set OSTIA_TOKEN to it.`,
     )
   } else if (call.method === 'token.list' && call.json) {
     console.log(JSON.stringify(result, null, 2))

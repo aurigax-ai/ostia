@@ -140,9 +140,7 @@ describe('script token store', () => {
     expect(() => parseTokenRequest({ name: '', caps: ['read-board'] })).toThrow('name')
     expect(() => parseTokenRequest({ name: 'a\nb', caps: ['read-board'] })).toThrow('name')
     expect(() => parseTokenRequest({ name: 'x', caps: [] })).toThrow('caps')
-    expect(() => parseTokenRequest({ name: 'x', caps: ['destructive'] })).toThrow(
-      'can hold only',
-    )
+    expect(() => parseTokenRequest({ name: 'x', caps: ['destructive'] })).toThrow('can hold only')
   })
 })
 
