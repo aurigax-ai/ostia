@@ -137,13 +137,13 @@ export interface PtySpawnOptions {
   rows: number
   role?: 'owner' | 'observer'
   sinceCursor?: number
-  pinePrompt?: PinePromptSpawn
+  ostiaPrompt?: OstiaPromptSpawn
   workspaceId?: string
   hostToken?: string
   attachOnly?: boolean
 }
 
-export interface PinePromptSpawn {
+export interface OstiaPromptSpawn {
   separator: PromptSeparator
   sameLine: boolean
 }
@@ -849,7 +849,7 @@ export interface WorkflowsApi {
   save: (doc: WorkflowDocument) => Promise<WorkflowSaveResult>
 }
 
-export interface PineBridge {
+export interface OstiaBridge {
   ping: () => Promise<'pong'>
   info: () => Promise<AppInfo>
   platform: Platform
@@ -904,6 +904,6 @@ export interface PineBridge {
 
 declare global {
   interface Window {
-    pine: PineBridge
+    ostia: OstiaBridge
   }
 }

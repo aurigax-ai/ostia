@@ -37,8 +37,8 @@ describe('BUILTIN_PLUGINS', () => {
       'dracula',
       'instrument-night',
       'one-dark-vivid',
+      'ostia-light',
       'oxocarbon',
-      'pine-light',
     ])
   })
 
@@ -76,14 +76,14 @@ describe('BUILTIN_PLUGINS', () => {
     }
   })
 
-  it('marks every theme as dark except pine-light', () => {
+  it('marks every theme as dark except ostia-light', () => {
     for (const theme of themes()) {
-      expect(theme.appearance, theme.id).toBe(theme.id === 'pine-light' ? 'light' : 'dark')
+      expect(theme.appearance, theme.id).toBe(theme.id === 'ostia-light' ? 'light' : 'dark')
     }
   })
 
   it('keeps every text token of the light theme at 4.5:1 or better on all its surfaces', () => {
-    const { tokens } = themes().find((t) => t.id === 'pine-light') as Theme
+    const { tokens } = themes().find((t) => t.id === 'ostia-light') as Theme
     const surfaces = ['bg', 'bg-sunken', 'surface-1', 'surface-2', 'surface-3']
     for (const text of ['fg', 'fg-muted', 'brand', 'brand-bright', 'attn-fg', 'ok']) {
       for (const surface of surfaces) {

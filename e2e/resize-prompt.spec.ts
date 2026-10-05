@@ -29,9 +29,9 @@ test('splitting a pane does not duplicate the existing prompt', async () => {
     }
 
     await win.locator('.xterm').first().click()
-    await win.keyboard.type('echo pine_resize_$((40+2))')
+    await win.keyboard.type('echo ostia_resize_$((40+2))')
     await win.keyboard.press('Enter')
-    await expect(leftRows).toContainText('pine_resize_42', { timeout: 15_000 })
+    await expect(leftRows).toContainText('ostia_resize_42', { timeout: 15_000 })
   } finally {
     await app.close()
   }
@@ -75,9 +75,9 @@ test('drag-resizing the window keeps command output and a single prompt', async 
     const rows = win.locator('.xterm-rows').first()
     await win.waitForTimeout(2_000)
     await win.locator('.xterm').first().click()
-    await win.keyboard.type("printf 'pine_out_%s\\n' 1 2 3")
+    await win.keyboard.type("printf 'ostia_out_%s\\n' 1 2 3")
     await win.keyboard.press('Enter')
-    await expect(rows).toContainText('pine_out_3', { timeout: 15_000 })
+    await expect(rows).toContainText('ostia_out_3', { timeout: 15_000 })
     await win.waitForTimeout(1_000)
 
     const promptLines = async (): Promise<number> =>
@@ -100,7 +100,7 @@ test('drag-resizing the window keeps command output and a single prompt', async 
     await win.waitForTimeout(2_000)
 
     const text = await rows.innerText()
-    for (const n of [1, 2, 3]) expect(text).toContain(`pine_out_${n}`)
+    for (const n of [1, 2, 3]) expect(text).toContain(`ostia_out_${n}`)
     expect(await promptLines()).toBe(before)
   } finally {
     await app.close()
@@ -117,9 +117,9 @@ test('dragging the sidebar edge keeps command output and a single prompt', async
     const rows = win.locator('.xterm-rows').first()
     await win.waitForTimeout(2_000)
     await win.locator('.xterm').first().click()
-    await win.keyboard.type("printf 'pine_rail_%s\\n' 1 2 3")
+    await win.keyboard.type("printf 'ostia_rail_%s\\n' 1 2 3")
     await win.keyboard.press('Enter')
-    await expect(rows).toContainText('pine_rail_3', { timeout: 15_000 })
+    await expect(rows).toContainText('ostia_rail_3', { timeout: 15_000 })
     await win.waitForTimeout(1_000)
 
     const promptLines = async (): Promise<number> =>
@@ -140,7 +140,7 @@ test('dragging the sidebar edge keeps command output and a single prompt', async
     await win.waitForTimeout(2_000)
 
     const text = await rows.innerText()
-    for (const n of [1, 2, 3]) expect(text).toContain(`pine_rail_${n}`)
+    for (const n of [1, 2, 3]) expect(text).toContain(`ostia_rail_${n}`)
     expect(await promptLines()).toBe(before)
   } finally {
     await app.close()

@@ -36,7 +36,7 @@ const recordFile = option('record')
 const crashAfter = option('crash-after') === undefined ? null : Number(option('crash-after'))
 const slowInit = Number(option('slow-init') ?? 0)
 const incremental = option('sync') === 'incremental'
-const serverName = option('name') ?? 'pine-fake-lsp'
+const serverName = option('name') ?? 'ostia-fake-lsp'
 
 function record(entry) {
   if (recordFile) appendFileSync(recordFile, `${JSON.stringify(entry)}\n`)
@@ -46,7 +46,7 @@ record({
   method: '$start',
   cwd: process.cwd(),
   argv: process.argv.slice(2),
-  pineEnv: Object.keys(process.env).filter((name) => name.startsWith('PINE_')),
+  ostiaEnv: Object.keys(process.env).filter((name) => /^(OSTIA|PINE)_/.test(name)),
   runAsNode: process.env.ELECTRON_RUN_AS_NODE ?? null,
 })
 

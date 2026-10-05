@@ -56,7 +56,7 @@ function recorded(): string[] {
 }
 
 beforeAll(async () => {
-  root = realpathSync(mkdtempSync(join(tmpdir(), 'pine-lsp-dom-')))
+  root = realpathSync(mkdtempSync(join(tmpdir(), 'ostia-lsp-dom-')))
   recordFile = join(root, 'record.jsonl')
   writeFileSync(join(root, 'other.txt'), 'alpha lives here too\nand alpha again\n')
   proc = spawn(process.execPath, [FAKE_SERVER, '--sync=incremental', `--record=${recordFile}`])
@@ -93,14 +93,14 @@ afterAll(() => {
 })
 
 beforeEach(() => {
-  vi.mocked(window.pine.fs.read).mockImplementation(async (path) => {
+  vi.mocked(window.ostia.fs.read).mockImplementation(async (path) => {
     try {
       return readFileSync(path, 'utf8')
     } catch {
       return null
     }
   })
-  vi.mocked(window.pine.fs.write).mockImplementation(async (path, text) => {
+  vi.mocked(window.ostia.fs.write).mockImplementation(async (path, text) => {
     writeFileSync(path, text)
     return true
   })

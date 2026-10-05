@@ -2,11 +2,11 @@ import type { CommandInvokeRequest } from '../../shared/types'
 import { commands } from './registry'
 
 export function wireCommandBridge(): void {
-  const publish = (): void => window.pine?.commands?.publish?.(commands.describe())
+  const publish = (): void => window.ostia?.commands?.publish?.(commands.describe())
   publish()
   commands.subscribe(publish)
 
-  window.pine?.commands?.onInvoke?.(async (req: CommandInvokeRequest) => {
+  window.ostia?.commands?.onInvoke?.(async (req: CommandInvokeRequest) => {
     if (commands.isLocal(req.id)) {
       return {
         ok: false,

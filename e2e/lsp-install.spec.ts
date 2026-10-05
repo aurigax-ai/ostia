@@ -19,7 +19,7 @@ import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } fr
 import { openWorkspace } from './helpers'
 
 const FAKE_SERVER = resolve(__dirname, '../test/fixtures/lsp/fake-server.mjs')
-const ASSET_PATH = '/pine-test/fake-native/releases/download/1.0.0/fake-native.gz'
+const ASSET_PATH = '/ostia-test/fake-native/releases/download/1.0.0/fake-native.gz'
 const asset = gzipSync(Buffer.from(`#!/bin/sh\nexec node ${FAKE_SERVER} "$@"\n`))
 
 interface Fixture {
@@ -67,7 +67,7 @@ function marketplaceRepo(dataHome: string): string {
             languages: ['plaintext'],
             run: {
               download: {
-                program: 'pine-fake-native-lsp',
+                program: 'ostia-fake-native-lsp',
                 version: '1.0.0',
                 assets: {
                   [`${process.platform}-${process.arch}`]: {
@@ -177,7 +177,7 @@ test('opening a file offers the extension, installs it on the human’s click, a
     const approval = win.getByRole('dialog').filter({ hasText: 'Fake native' })
     await expect(approval).toBeVisible({ timeout: 15_000 })
     await expect(approval).toContainText(
-      'Downloads pine-fake-native-lsp 1.0.0 from github.com when it is not on your PATH',
+      'Downloads ostia-fake-native-lsp 1.0.0 from github.com when it is not on your PATH',
     )
     expect(existsSync(join(installed, 'pine.json'))).toBe(true)
     expect(fixture.requests).toHaveLength(0)

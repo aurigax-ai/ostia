@@ -35,7 +35,7 @@ function nameOf(w: Pick<Workspace, 'name' | 'customName'>): string {
 }
 
 async function sandboxOf(workspaceId: string): Promise<WorkspaceSandbox | null> {
-  return (await window.pine.sandbox?.get(workspaceId).catch(() => null)) ?? null
+  return (await window.ostia.sandbox?.get(workspaceId).catch(() => null)) ?? null
 }
 
 function sideOf(
@@ -148,7 +148,7 @@ export async function requestMergeWorkspace(sourceId: string, targetId: string):
     evaluation.sourceSandbox?.enabled ?? false,
   )
   if (!(await useMergeConfirmStore.getState().ask(summary))) return false
-  const result = await window.pine.workspace.merge(sourceId, targetId)
+  const result = await window.ostia.workspace.merge(sourceId, targetId)
   if (!result.ok) return false
   finishMerge(sourceId, targetId)
   return true

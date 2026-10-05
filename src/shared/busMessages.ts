@@ -37,7 +37,7 @@ export function busLabel(raw: unknown): string {
   return typeof raw === 'string' ? clip(oneLine(raw), BUS_LABEL_MAX) : ''
 }
 
-const WRAPPER_TAG = /<(\/?)(pine-bus-messages|message)\b/gi
+const WRAPPER_TAG = /<(\/?)(ostia-bus-messages|message)\b/gi
 
 function attribute(value: string): string {
   return oneLine(value).replace(/[^A-Za-z0-9.:_-]/g, '')
@@ -65,9 +65,9 @@ function contextTail(hidden: number): string {
 function assemble(count: number, blocks: readonly string[]): string {
   return [
     contextHead(count),
-    '<pine-bus-messages>',
+    '<ostia-bus-messages>',
     ...blocks,
-    '</pine-bus-messages>',
+    '</ostia-bus-messages>',
     contextTail(count - blocks.length),
   ]
     .filter(Boolean)

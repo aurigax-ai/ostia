@@ -85,7 +85,7 @@ async function centerOf(win: Page, selector: string): Promise<{ x: number; y: nu
   return { x: Math.round(box.x + box.width / 2), y: Math.round(box.y + box.height / 2) }
 }
 
-test('pine <file> shows a text file and an image from outside the home folder, and a restart keeps them', async () => {
+test('ostia <file> shows a text file and an image from outside the home folder, and a restart keeps them', async () => {
   const dataHome = freshDataHome()
   const { log, image } = outsideFiles(dataHome)
   const launch = isolatedLaunch(dataHome)
@@ -99,14 +99,14 @@ test('pine <file> shows a text file and an image from outside the home folder, a
     await win.locator('.xterm').first().click()
     const neighbour = join(dataHome, 'outside', 'neighbour.txt')
     writeFileSync(neighbour, 'never opened\n')
-    expect(await win.evaluate((path) => window.pine.fs.read(path), log)).toBeNull()
+    expect(await win.evaluate((path) => window.ostia.fs.read(path), log)).toBeNull()
 
-    await win.keyboard.type(`pine ${log}:2 ${image}`)
+    await win.keyboard.type(`ostia ${log}:2 ${image}`)
     await win.keyboard.press('Enter')
 
     await expect(tab(win, 'app.log')).toBeVisible({ timeout: 15_000 })
     await expect(tab(win, 'shot.png')).toBeVisible()
-    expect(await win.evaluate((path) => window.pine.fs.read(path), neighbour)).toBeNull()
+    expect(await win.evaluate((path) => window.ostia.fs.read(path), neighbour)).toBeNull()
     await expect(win.locator('.viewer-meta:visible')).toHaveText('1 × 1', { timeout: 15_000 })
 
     await tab(win, 'app.log').getByRole('tab').click()
@@ -114,7 +114,7 @@ test('pine <file> shows a text file and an image from outside the home folder, a
       'second line outside home',
       { timeout: 15_000 },
     )
-    await expect(win.locator('.xterm-rows').first()).not.toContainText('pine:')
+    await expect(win.locator('.xterm-rows').first()).not.toContainText('ostia:')
   } finally {
     await app.close()
   }
@@ -134,7 +134,7 @@ test('pine <file> shows a text file and an image from outside the home folder, a
   }
 })
 
-test('pine <file> names what it cannot open and opens nothing for it', async () => {
+test('ostia <file> names what it cannot open and opens nothing for it', async () => {
   const dataHome = freshDataHome()
   const { dir } = outsideFiles(dataHome)
   const app = await electron.launch(isolatedLaunch(dataHome))
@@ -144,7 +144,7 @@ test('pine <file> names what it cannot open and opens nothing for it', async () 
     await openWorkspace(win)
     await win.locator('.xterm').first().click()
 
-    await win.keyboard.type(`pine ${dir} ${join(dir, 'nope.txt')}`)
+    await win.keyboard.type(`ostia ${dir} ${join(dir, 'nope.txt')}`)
     await win.keyboard.press('Enter')
 
     await expect(win.locator('.xterm-rows')).toContainText(`${dir}: is a directory`, {

@@ -68,38 +68,37 @@ const signal = (paneId: string, message: string, at: number) =>
     useAttentionStore.getState().dispatch(paneId, { type: 'notify', message, waiting: true, at })
   })
 
-describe('sidebar unread badge', () => {
-  it('shows the number of unread panes on the workspace row and hides it at zero', () => {
+describe('sidebar unread mark', () => {
+  it('marks the workspace icon unread without a number and clears it at zero', () => {
     const { workspaceId, a, b } = twoPanes()
     render(<DeckRail />)
     expect(screen.queryByRole('img', { name: /unread/ })).toBeNull()
 
     signal(a, 'one', 1)
     signal(b, 'two', 2)
-    expect(screen.getByRole('img', { name: '2 unread' })).toHaveTextContent('2')
+    const icon = screen.getByRole('img', { name: '2 unread' })
+    expect(icon).toHaveClass('tab-lead-unread')
+    expect(icon).toHaveTextContent('')
 
     act(() => useAttentionStore.getState().markAllRead())
     expect(screen.queryByRole('img', { name: /unread/ })).toBeNull()
     expect(workspaceId).toBeTruthy()
   })
 
-  it('pops the badge only when the count grows, never on decrease', () => {
+  it('restarts the fast blink only when the unread count grows, never on decrease', () => {
     const { a, b } = twoPanes()
     render(<DeckRail />)
-    const badge = () => screen.getByRole('img', { name: /unread/ })
+    const icon = () => screen.getByRole('img', { name: /unread/ })
 
     signal(a, 'one', 1)
-    expect(badge()).toHaveClass('pop')
-    fireEvent.animationEnd(badge())
-    expect(badge()).not.toHaveClass('pop')
-
+    const first = icon()
     signal(b, 'two', 2)
-    expect(badge()).toHaveClass('pop')
-    fireEvent.animationEnd(badge())
+    const second = icon()
+    expect(second).not.toBe(first)
 
     act(() => useAttentionStore.getState().dispatch(b, { type: 'view', at: 3 }))
-    expect(badge()).toHaveTextContent('1')
-    expect(badge()).not.toHaveClass('pop')
+    expect(icon()).toBe(second)
+    expect(icon()).toHaveAccessibleName('1 unread')
   })
 
   it('restarts the waiting dot pulse only when a new waiting signal arrives', () => {
@@ -266,7 +265,7 @@ describe('NotificationCenter', () => {
   it('lists the real notify log newest first and jumps to the pane of an entry', async () => {
     const { workspaceId, a, b } = twoPanes()
     signal(a, 'build finished', 1)
-    vi.mocked(window.pine.notifications.list).mockResolvedValue(entries(a))
+    vi.mocked(window.ostia.notifications.list).mockResolvedValue(entries(a))
     renderBell()
     const user = userEvent.setup()
 
@@ -287,7 +286,7 @@ describe('NotificationCenter', () => {
 
   it('filters by tab and groups entries by workspace', async () => {
     const { a } = twoPanes()
-    vi.mocked(window.pine.notifications.list).mockResolvedValue([
+    vi.mocked(window.ostia.notifications.list).mockResolvedValue([
       {
         id: 'w',
         ts: '2026-09-28T10:06:00Z',
@@ -322,7 +321,7 @@ describe('NotificationCenter', () => {
   it('clear all empties the log in main and marks every pane read', async () => {
     const { a } = twoPanes()
     signal(a, 'build finished', 1)
-    vi.mocked(window.pine.notifications.list).mockResolvedValue(entries(a))
+    vi.mocked(window.ostia.notifications.list).mockResolvedValue(entries(a))
     renderBell()
     const user = userEvent.setup()
 
@@ -330,7 +329,7 @@ describe('NotificationCenter', () => {
     await screen.findByRole('list', { name: 'Notifications' })
     await user.click(screen.getByRole('button', { name: 'Clear all' }))
 
-    expect(window.pine.notifications.clear).toHaveBeenCalledOnce()
+    expect(window.ostia.notifications.clear).toHaveBeenCalledOnce()
     expect(useAttentionStore.getState().byPane[a].unread).toBe(false)
     await waitFor(() => expect(screen.getByText('No notifications')).toBeInTheDocument())
   })
@@ -338,16 +337,16 @@ describe('NotificationCenter', () => {
   it('reloads the list when main reports a change while open', async () => {
     twoPanes()
     let changed: () => void = () => {}
-    vi.mocked(window.pine.notifications.onChanged).mockImplementation((cb) => {
+    vi.mocked(window.ostia.notifications.onChanged).mockImplementation((cb) => {
       changed = cb
       return () => {}
     })
-    vi.mocked(window.pine.notifications.list).mockResolvedValue([])
+    vi.mocked(window.ostia.notifications.list).mockResolvedValue([])
     renderBell()
     await userEvent.setup().click(screen.getByRole('button', { name: /Notifications/ }))
     await screen.findByText('No notifications')
 
-    vi.mocked(window.pine.notifications.list).mockResolvedValue([
+    vi.mocked(window.ostia.notifications.list).mockResolvedValue([
       { id: 'n9', ts: '2026-09-28T10:00:00Z', kind: 'message', title: 'fresh', from: 'x' },
     ])
     act(() => changed())
@@ -390,7 +389,7 @@ describe('NotificationCenter', () => {
         },
       ],
     })
-    vi.mocked(window.pine.notifications.list).mockResolvedValue([
+    vi.mocked(window.ostia.notifications.list).mockResolvedValue([
       {
         id: 'k1',
         ts: '2026-09-28T10:00:00Z',

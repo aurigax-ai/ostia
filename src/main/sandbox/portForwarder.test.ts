@@ -10,7 +10,7 @@ let dir: string
 const opened: { destroy?: () => void; close?: () => void; stopAll?: () => void }[] = []
 
 beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), 'pine-forward-'))
+  dir = mkdtempSync(join(tmpdir(), 'ostia-forward-'))
 })
 
 afterEach(() => {

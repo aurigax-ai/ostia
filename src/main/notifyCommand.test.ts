@@ -37,7 +37,7 @@ describe('runNotifyCommand', () => {
   }
 
   it('runs the program directly with the expanded argv, so shell metacharacters stay data', async () => {
-    const dir = mkdtempSync(join(tmpdir(), 'pine-notify-cmd-'))
+    const dir = mkdtempSync(join(tmpdir(), 'ostia-notify-cmd-'))
     dirs.push(dir)
     const script = join(dir, 'hook.sh')
     const out = join(dir, 'out.txt')
@@ -52,6 +52,6 @@ describe('runNotifyCommand', () => {
 
   it('does nothing for an empty command and survives a missing program', () => {
     expect(runNotifyCommand('', values)).toBe(false)
-    expect(runNotifyCommand('/no/such/pine-program {title}', values)).toBe(true)
+    expect(runNotifyCommand('/no/such/ostia-program {title}', values)).toBe(true)
   })
 })

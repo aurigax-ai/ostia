@@ -27,7 +27,7 @@ function edit(patch: Partial<ChatEditRecord> & Pick<ChatEditRecord, 'toolCallId'
 afterEach(() => {
   cleanup()
   resetChatTools()
-  vi.mocked(window.pine.chatTools.restore).mockReset()
+  vi.mocked(window.ostia.chatTools.restore).mockReset()
 })
 
 const bar = (): HTMLElement => screen.getByRole('region', { name: 'Edits to review' })
@@ -78,7 +78,7 @@ describe('ChatReviewBar', () => {
     const store = useChatToolsStore.getState()
     store.recordEdit(edit({ toolCallId: 'e1', seq: 1 }))
     store.recordEdit(edit({ toolCallId: 'e2', seq: 2, path: '/proj/b.ts' }))
-    vi.mocked(window.pine.chatTools.restore).mockResolvedValue({
+    vi.mocked(window.ostia.chatTools.restore).mockResolvedValue({
       ok: true,
       path: '/proj/a.ts',
       removed: false,
@@ -89,7 +89,7 @@ describe('ChatReviewBar', () => {
     await waitFor(() =>
       expect(screen.queryByRole('region', { name: 'Edits to review' })).toBeNull(),
     )
-    expect(window.pine.chatTools.restore).toHaveBeenCalledTimes(2)
+    expect(window.ostia.chatTools.restore).toHaveBeenCalledTimes(2)
     expect(useChatToolsStore.getState().edits.e1.state).toBe('undone')
   })
 })

@@ -9,7 +9,7 @@ import {
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { createTranslator } from '@aurigax-ai/pine-extension-sdk'
+import { createTranslator } from '@aurigax-ai/ostia-extension-sdk'
 import { HUMAN_ACTOR } from './trellis'
 
 const FIXTURES = join(__dirname, '../../../test/fixtures/tools')
@@ -29,7 +29,7 @@ export interface FakeTrellis {
 }
 
 export function fakeTrellis(): FakeTrellis {
-  const root = mkdtempSync(join(tmpdir(), 'pine-trellis-fake-'))
+  const root = mkdtempSync(join(tmpdir(), 'ostia-trellis-fake-'))
   const dir = join(root, 'fake')
   const home = join(root, 'home')
   mkdirSync(dir)

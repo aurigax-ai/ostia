@@ -1,9 +1,9 @@
 {
-  "$schema": "./node_modules/@aurigax-ai/pine-extension-sdk/schemas/pine.schema.json",
+  "$schema": "./node_modules/@aurigax-ai/ostia-extension-sdk/schemas/ostia.schema.json",
   "id": "hello",
   "name": "Hello",
   "version": "0.1.0",
-  "api": "1.14",
+  "api": "1.17",
   "description": "Starter extension: a command that greets you, and a skill and hook that teach coding agents to use it",
   "category": "other",
   "capabilities": ["notify", "agent-plugin"],

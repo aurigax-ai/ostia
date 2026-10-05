@@ -9,7 +9,7 @@ import { copyBundledSources } from './bundled-sources.mjs'
 const out = 'out/sdk'
 const sdk = 'src/extensions/sdk'
 const assets = 'sdk-package'
-const packageName = '@aurigax-ai/pine-extension-sdk'
+const packageName = '@aurigax-ai/ostia-extension-sdk'
 const repository = 'https://github.com/aurigax-ai/ostia'
 const app = JSON.parse(readFileSync('package.json', 'utf8'))
 const versionOf = (name) => app.dependencies[name] ?? app.devDependencies[name]
@@ -65,8 +65,10 @@ const schemas = jsonSchemas()
 rmSync(schemaModule)
 const writeJson = (file, value) =>
   writeFileSync(join(out, file), `${JSON.stringify(value, null, 2)}\n`)
-writeJson('schemas/pine.schema.json', schemas.extension)
-writeJson('schemas/pine-marketplace.schema.json', schemas.marketplace)
+for (const name of ['ostia', 'pine']) {
+  writeJson(`schemas/${name}.schema.json`, schemas.extension)
+  writeJson(`schemas/${name}-marketplace.schema.json`, schemas.marketplace)
+}
 
 writeJson('api.json', { version: apiVersion(), digest: contractDigest(out) })
 
@@ -87,8 +89,10 @@ const types = (entry) => `./types/extensions/sdk/${entry}.d.ts`
 writeJson('package.json', {
   name: packageName,
   version: app.version,
-  description: 'Write extensions for Pine: the client library, its types, manifest schemas and a project generator',
-  keywords: ['pine', 'terminal', 'extension', 'sdk', 'coding-agents'],
+  description:
+    'Write extensions for Ostia: the client library, its types, manifest schemas and a project generator',
+  keywords: ['ostia', 'terminal', 'extension', 'sdk', 'coding-agents'],
+  ostiaExtensionApi: apiVersion(),
   pineExtensionApi: apiVersion(),
   license: app.license,
   homepage: `${repository}/tree/main/sdk-package#readme`,
@@ -97,7 +101,7 @@ writeJson('package.json', {
   publishConfig: { access: 'public' },
   type: 'module',
   engines: { node: '>=20' },
-  bin: { 'pine-extension': 'dist/cli.cjs' },
+  bin: { 'ostia-extension': 'dist/cli.cjs', 'pine-extension': 'dist/cli.cjs' },
   types: types('index'),
   exports: {
     '.': { types: types('index'), default: './dist/index.js' },
@@ -105,6 +109,8 @@ writeJson('package.json', {
     './panel': { types: types('panel'), default: './dist/panel.js' },
     './splitter': { types: types('splitter'), default: './dist/splitter.js' },
     './panel.css': './panel.css',
+    './schemas/ostia.schema.json': './schemas/ostia.schema.json',
+    './schemas/ostia-marketplace.schema.json': './schemas/ostia-marketplace.schema.json',
     './schemas/pine.schema.json': './schemas/pine.schema.json',
     './schemas/pine-marketplace.schema.json': './schemas/pine-marketplace.schema.json',
     './api.json': './api.json',

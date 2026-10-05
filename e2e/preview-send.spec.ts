@@ -178,11 +178,11 @@ test('open an image and send a dragged region to a terminal pane', async () => {
 
 test('open a PDF and send selected text with its page number', async () => {
   test.setTimeout(120_000)
-  const { app, win } = await launchWithHome({ 'invoice.pdf': textPdf('Hello Pine PDF') })
+  const { app, win } = await launchWithHome({ 'invoice.pdf': textPdf('Hello Ostia PDF') })
   try {
     await openFromFiles(win, 'invoice.pdf')
     await expect(win.getByText('Page 1 of 1')).toBeVisible({ timeout: 15_000 })
-    const span = win.locator('.pdf-text span').filter({ hasText: 'Hello Pine PDF' })
+    const span = win.locator('.pdf-text span').filter({ hasText: 'Hello Ostia PDF' })
     await expect(span).toHaveCount(1, { timeout: 15_000 })
     await span.selectText()
 
@@ -191,7 +191,7 @@ test('open a PDF and send selected text with its page number', async () => {
 
     expect(report).toContain('# PDF text selection: invoice.pdf, page 1')
     expect(report).toContain('- Pages: 1 (1-based)')
-    expect(report).toContain('Hello Pine PDF')
+    expect(report).toContain('Hello Ostia PDF')
   } finally {
     await app.close()
   }

@@ -11,7 +11,7 @@ describe('lineChanges', () => {
   const git = (...args: string[]) => execFileSync('git', args, { cwd: root, stdio: 'ignore' })
 
   beforeEach(() => {
-    root = mkdtempSync(join(tmpdir(), 'pine-line-changes-'))
+    root = mkdtempSync(join(tmpdir(), 'ostia-line-changes-'))
     git('init', '-q')
     git('config', 'user.email', 'test@example.com')
     git('config', 'user.name', 'Test')

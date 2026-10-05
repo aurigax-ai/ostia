@@ -59,12 +59,12 @@ describe('InputEditor natural-language commands', () => {
     useBlocksStore.setState(blocksInit, true)
     useSettingsStore.setState(settingsInit, true)
     useAssistStore.setState({ availability: {} })
-    vi.mocked(window.pine.assist.request).mockReset()
+    vi.mocked(window.ostia.assist.request).mockReset()
   })
 
   it('suggests a command for a "# " draft and replaces the draft only on Tab', async () => {
     useAssistStore.setState({ availability: { command: PROVIDER } })
-    vi.mocked(window.pine.assist.request).mockResolvedValue({
+    vi.mocked(window.ostia.assist.request).mockResolvedValue({
       ok: true,
       result: { suggestions: [{ command: 'git log --oneline -5', description: 'Last five' }] },
     } as never)
@@ -73,7 +73,7 @@ describe('InputEditor natural-language commands', () => {
     await userEvent.type(area, '# show last five commits')
     expect(await screen.findByText('git log --oneline -5', {}, WAIT)).toBeInTheDocument()
     expect(area).toHaveValue('# show last five commits')
-    expect(window.pine.assist.request).toHaveBeenCalledWith(
+    expect(window.ostia.assist.request).toHaveBeenCalledWith(
       'command',
       expect.any(String),
       expect.objectContaining({ query: 'show last five commits', cwd: '/home/u/proj' }),
@@ -87,12 +87,12 @@ describe('InputEditor natural-language commands', () => {
     renderEditor()
     await userEvent.type(screen.getByRole('textbox', { name: 'Command input' }), '# list files')
     await new Promise((r) => setTimeout(r, 800))
-    expect(window.pine.assist.request).not.toHaveBeenCalled()
+    expect(window.ostia.assist.request).not.toHaveBeenCalled()
   })
 
   it('dismisses the suggestion on Escape and keeps the draft', async () => {
     useAssistStore.setState({ availability: { command: PROVIDER } })
-    vi.mocked(window.pine.assist.request).mockResolvedValue({
+    vi.mocked(window.ostia.assist.request).mockResolvedValue({
       ok: true,
       result: { suggestions: [{ command: 'ls -la' }] },
     } as never)

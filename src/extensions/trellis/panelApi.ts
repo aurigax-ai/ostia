@@ -10,7 +10,7 @@ import {
   failure,
   namedArgs,
   ok,
-} from '@aurigax-ai/pine-extension-sdk'
+} from '@aurigax-ai/ostia-extension-sdk'
 import type { CliResult } from './cli'
 import { type DaemonApi, daemonApi, readThread } from './daemon'
 import { reviewColumn, taskLabel, taskLine, taskPrompt } from './prompt'

@@ -86,7 +86,7 @@ describe('readStorage', () => {
       { key: 'a', value: '1' },
       { key: 'b', value: '2' },
     ])
-    expect(g.scripts).toEqual(['window.__pineBrowse.storage()'])
+    expect(g.scripts).toEqual(['window.__ostiaBrowse.storage()'])
   })
 })
 
@@ -123,7 +123,7 @@ describe('writeStorage', () => {
   it('writes web storage through the isolated browse world', async () => {
     const g = guest()
     await writeStorage(g, { kind: 'session', key: 'k', value: 'v' })
-    expect(g.scripts).toEqual(['window.__pineBrowse.setStorage("session", "k", "v")'])
+    expect(g.scripts).toEqual(['window.__ostiaBrowse.setStorage("session", "k", "v")'])
   })
 
   it('reports a failure instead of throwing', async () => {
@@ -153,8 +153,8 @@ describe('removeStorage and clearStorage', () => {
     await removeStorage(g, { kind: 'local', key: 'a' })
     await clearStorage(g, 'session')
     expect(g.scripts).toEqual([
-      'window.__pineBrowse.removeStorage("local", "a")',
-      'window.__pineBrowse.clearStorage("session")',
+      'window.__ostiaBrowse.removeStorage("local", "a")',
+      'window.__ostiaBrowse.clearStorage("session")',
     ])
   })
 

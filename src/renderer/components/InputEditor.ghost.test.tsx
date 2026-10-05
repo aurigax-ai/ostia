@@ -85,13 +85,13 @@ describe('InputEditor AI ghost completion', () => {
     useSettingsStore.setState(settingsInit, true)
     useExtensionsStore.setState(extensionsInit, true)
     useAssistStore.setState({ availability: {}, overview: [] })
-    vi.mocked(window.pine.assist.request).mockReset()
-    vi.mocked(window.pine.pty.write).mockClear()
+    vi.mocked(window.ostia.assist.request).mockReset()
+    vi.mocked(window.ostia.pty.write).mockClear()
   })
 
   it('shows the continuation as ghost text and Tab puts it in the draft without running it', async () => {
     assistOn()
-    vi.mocked(window.pine.assist.request).mockResolvedValue({
+    vi.mocked(window.ostia.assist.request).mockResolvedValue({
       ok: true,
       result: { text: ' log --oneline' },
     } as never)
@@ -100,7 +100,7 @@ describe('InputEditor AI ghost completion', () => {
     await userEvent.type(area, 'git')
     await waitFor(() => expect(ghost()).toHaveTextContent('log --oneline'), WAIT)
     expect(ghost()).toHaveAttribute('data-ghost', 'ai')
-    expect(window.pine.assist.request).toHaveBeenCalledWith(
+    expect(window.ostia.assist.request).toHaveBeenCalledWith(
       'terminal',
       expect.any(String),
       expect.objectContaining({ line: 'git', cwd: '/home/u/proj' }),
@@ -108,7 +108,7 @@ describe('InputEditor AI ghost completion', () => {
     await userEvent.keyboard('{Tab}')
     expect(area).toHaveValue('git log --oneline')
     expect(props.onSubmit).not.toHaveBeenCalled()
-    expect(window.pine.pty.write).not.toHaveBeenCalledWith(PANE, '\r')
+    expect(window.ostia.pty.write).not.toHaveBeenCalledWith(PANE, '\r')
   })
 
   it('lets a history prefix match win over the AI', async () => {
@@ -123,7 +123,7 @@ describe('InputEditor AI ghost completion', () => {
       endLine: { line: 1 },
     } as unknown as CommandBlock
     useBlocksStore.setState({ byPane: { [PANE]: [block] } })
-    vi.mocked(window.pine.assist.request).mockResolvedValue({
+    vi.mocked(window.ostia.assist.request).mockResolvedValue({
       ok: true,
       result: { text: ' stash' },
     } as never)
@@ -132,7 +132,7 @@ describe('InputEditor AI ghost completion', () => {
     await waitFor(() => expect(ghost()).toHaveTextContent('atus --short'), WAIT)
     expect(ghost()).toHaveAttribute('data-ghost', 'history')
     await new Promise((r) => setTimeout(r, 450))
-    expect(window.pine.assist.request).not.toHaveBeenCalled()
+    expect(window.ostia.assist.request).not.toHaveBeenCalled()
   })
 
   it('asks nothing while terminal completions are switched off', async () => {
@@ -140,7 +140,7 @@ describe('InputEditor AI ghost completion', () => {
     renderEditor()
     await userEvent.type(screen.getByRole('textbox', { name: 'Command input' }), 'docker')
     await new Promise((r) => setTimeout(r, 450))
-    expect(window.pine.assist.request).not.toHaveBeenCalled()
+    expect(window.ostia.assist.request).not.toHaveBeenCalled()
     expect(ghost()).toBeNull()
   })
 

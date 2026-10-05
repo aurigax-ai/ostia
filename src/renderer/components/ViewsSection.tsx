@@ -83,7 +83,7 @@ function ViewRow({ view }: { view: ViewInfo }): JSX.Element {
           <IconButton
             icon={FolderOpenIcon}
             label={d.views.reveal}
-            onClick={() => void window.pine.views.reveal(view.name)}
+            onClick={() => void window.ostia.views.reveal(view.name)}
           />
           <Switch
             checked={view.status === 'enabled'}

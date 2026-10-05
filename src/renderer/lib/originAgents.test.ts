@@ -32,8 +32,8 @@ beforeAll(() => {
 afterEach(() => {
   useWorkspacesStore.setState(workspacesInit, true)
   useOriginAgentsStore.setState(originInit, true)
-  vi.mocked(window.pine.windows.originAgents).mockReset().mockResolvedValue(null)
-  vi.mocked(window.pine.windows.onOriginAgentsChanged).mockReset()
+  vi.mocked(window.ostia.windows.originAgents).mockReset().mockResolvedValue(null)
+  vi.mocked(window.ostia.windows.onOriginAgentsChanged).mockReset()
 })
 
 describe('originWorkspaceId', () => {
@@ -54,13 +54,13 @@ describe('refreshOriginAgents', () => {
         workspace('w-plain'),
       ],
     })
-    vi.mocked(window.pine.windows.originAgents).mockImplementation(async (id) =>
+    vi.mocked(window.ostia.windows.originAgents).mockImplementation(async (id) =>
       id === 'w-moved' ? HOME : null,
     )
 
     await refreshOriginAgents()
 
-    expect(vi.mocked(window.pine.windows.originAgents).mock.calls).toEqual([
+    expect(vi.mocked(window.ostia.windows.originAgents).mock.calls).toEqual([
       ['w-moved'],
       ['w-lost'],
     ])
@@ -70,7 +70,7 @@ describe('refreshOriginAgents', () => {
   it('keeps the newer answer when an older request finishes last', async () => {
     useWorkspacesStore.setState({ workspaces: [workspace('w-moved', 'w-home')] })
     let finishOld: (value: OriginAgents | null) => void = () => {}
-    vi.mocked(window.pine.windows.originAgents)
+    vi.mocked(window.ostia.windows.originAgents)
       .mockImplementationOnce(
         () =>
           new Promise((resolve) => {
@@ -91,20 +91,20 @@ describe('refreshOriginAgents', () => {
 describe('startOriginAgentsSync', () => {
   it('asks again when main says the agents changed and when a workspace with an origin arrives', async () => {
     let changed: () => void = () => {}
-    vi.mocked(window.pine.windows.onOriginAgentsChanged).mockImplementation((cb) => {
+    vi.mocked(window.ostia.windows.onOriginAgentsChanged).mockImplementation((cb) => {
       changed = cb
       return () => {}
     })
     const stop = startOriginAgentsSync()
     await vi.waitFor(() => expect(useOriginAgentsStore.getState().byWorkspace).toEqual({}))
-    expect(window.pine.windows.originAgents).not.toHaveBeenCalled()
+    expect(window.ostia.windows.originAgents).not.toHaveBeenCalled()
 
     useWorkspacesStore.setState({ workspaces: [workspace('w-moved', 'w-home')] })
     await vi.waitFor(() =>
       expect(useOriginAgentsStore.getState().byWorkspace).toEqual({ 'w-moved': null }),
     )
 
-    vi.mocked(window.pine.windows.originAgents).mockResolvedValue(HOME)
+    vi.mocked(window.ostia.windows.originAgents).mockResolvedValue(HOME)
     changed()
     await vi.waitFor(() =>
       expect(useOriginAgentsStore.getState().byWorkspace).toEqual({ 'w-moved': HOME }),

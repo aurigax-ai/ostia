@@ -4,14 +4,14 @@ import { monaco } from '../monaco/setup'
 import { fullSettingsSchema } from './settingsSchema'
 
 export async function registerSettingsSchema(): Promise<void> {
-  const path = await window.pine.settings.path()
+  const path = await window.ostia.settings.path()
   setSettingsFile(path)
   settingsJsonDefaults.setDiagnosticsOptions({
     validate: true,
     allowComments: false,
     schemas: [
       {
-        uri: 'pine://settings-schema',
+        uri: 'ostia://settings-schema',
         fileMatch: [monaco.Uri.file(path).toString()],
         schema: fullSettingsSchema(),
       },

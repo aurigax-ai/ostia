@@ -19,7 +19,7 @@ import { SandboxHost } from './hostClient'
 import { buildSrtConfig } from './srtConfig'
 
 const repoRoot = process.cwd()
-const hostScript = join(repoRoot, 'node_modules/.cache/pine-test/sandbox-host.mjs')
+const hostScript = join(repoRoot, 'node_modules/.cache/ostia-test/sandbox-host.mjs')
 
 let root: string
 let home: string
@@ -68,7 +68,7 @@ beforeAll(async () => {
     format: 'esm',
     packages: 'external',
   })
-  root = realpathSync(mkdtempSync(join(tmpdir(), 'pine-sbx-')))
+  root = realpathSync(mkdtempSync(join(tmpdir(), 'ostia-sbx-')))
   home = join(root, 'home')
   workDir = join(home, 'proj')
   tmpDir = join(root, 'wstmp')
@@ -93,7 +93,7 @@ beforeAll(async () => {
   mkdirSync(join(workDir, '.ostia'), { recursive: true })
   writeFileSync(join(workDir, '.ostia/vault.json'), '{"K":"newcipher"}')
   writeFileSync(join(workDir, 'readme.txt'), 'hello')
-  socketPath = join(runtimeDir, 'pine.sock')
+  socketPath = join(runtimeDir, 'ostia.sock')
   await new Promise<void>((resolve) => createServer().listen(socketPath, resolve))
   writeFileSync(join(runtimeDir, 'bus'), '')
   origin = createHttpServer((req, res) => {
@@ -148,13 +148,13 @@ describe('sandbox runtime', () => {
   })
 
   it('SBX-C28 writes only the workDir and the private tmp', async () => {
-    rmSync('/tmp/pine-sbx-escape.txt', { force: true })
+    rmSync('/tmp/ostia-sbx-escape.txt', { force: true })
     const res = await run(
-      `echo a > ${workDir}/w.txt && echo ok1; echo b > ${tmpDir}/t.txt && echo ok2; echo c > /tmp/pine-sbx-escape.txt && echo bad1; echo d > ${home}/x.txt && echo bad2; true`,
+      `echo a > ${workDir}/w.txt && echo ok1; echo b > ${tmpDir}/t.txt && echo ok2; echo c > /tmp/ostia-sbx-escape.txt && echo bad1; echo d > ${home}/x.txt && echo bad2; true`,
     )
     expect(res.out).toContain('ok1')
     expect(res.out).toContain('ok2')
-    expect(existsSync('/tmp/pine-sbx-escape.txt')).toBe(false)
+    expect(existsSync('/tmp/ostia-sbx-escape.txt')).toBe(false)
     expect(existsSync(join(home, 'x.txt'))).toBe(false)
   })
 
@@ -196,11 +196,11 @@ describe('sandbox runtime', () => {
     expect(originHosts).not.toContain('blocked.localhost')
   }, 60_000)
 
-  it('SBX-C55 keeps other unix sockets out of reach while the pine socket works', async () => {
+  it('SBX-C55 keeps other unix sockets out of reach while the ostia socket works', async () => {
     const res = await run(
-      `node -e "require('net').connect('${socketPath}').on('connect',()=>{console.log('pine-ok');process.exit(0)}).on('error',e=>{console.log('pine-err',e.code);process.exit(0)})"; ls ${runtimeDir}`,
+      `node -e "require('net').connect('${socketPath}').on('connect',()=>{console.log('ostia-ok');process.exit(0)}).on('error',e=>{console.log('ostia-err',e.code);process.exit(0)})"; ls ${runtimeDir}`,
     )
-    expect(res.out).toContain('pine-ok')
+    expect(res.out).toContain('ostia-ok')
     expect(res.out).not.toContain('bus')
   })
 })

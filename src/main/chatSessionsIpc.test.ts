@@ -34,7 +34,7 @@ describe('saveRedacted', () => {
   let dir: string
 
   beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), 'pine-chat-redact-'))
+    dir = mkdtempSync(join(tmpdir(), 'ostia-chat-redact-'))
   })
 
   afterEach(() => {

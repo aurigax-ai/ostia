@@ -58,7 +58,7 @@ export async function sendReference(
     if (note !== undefined) markWorking(target.paneId, note)
     return inserted
   }
-  return window.pine.windows
+  return window.ostia.windows
     .insertReference({
       workspaceId: target.via,
       paneId: target.paneId,
@@ -116,7 +116,7 @@ async function deliverCapture(
 export async function sendPickToPane(
   opts: CaptureSendOptions & { capture: PickCapture },
 ): Promise<SendPickOutcome> {
-  const res = await window.pine.browser.pickSend({
+  const res = await window.ostia.browser.pickSend({
     captureId: opts.capture.id,
     sourcePaneId: opts.sourcePaneId,
     targetPaneId: opts.targetPaneId,
@@ -128,7 +128,7 @@ export async function sendPickToPane(
 export async function sendRegionToPane(
   opts: CaptureSendOptions & { capture: RegionCapture },
 ): Promise<SendPickOutcome> {
-  const res = await window.pine.browser.regionSend({
+  const res = await window.ostia.browser.regionSend({
     captureId: opts.capture.id,
     sourcePaneId: opts.sourcePaneId,
     targetPaneId: opts.targetPaneId,
@@ -149,7 +149,7 @@ export async function sendSelectionToPane(opts: {
   via?: string
   note: string
 }): Promise<SendSelectionOutcome> {
-  const res = await window.pine.selection.send({
+  const res = await window.ostia.selection.send({
     capture: opts.capture,
     ...(opts.image ? { image: opts.image } : {}),
     sourcePaneId: opts.sourcePaneId,

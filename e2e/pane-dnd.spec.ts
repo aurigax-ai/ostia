@@ -178,7 +178,7 @@ test('a drag over a browser pane lands on the drop layer above the page and spli
     const hit = await win.evaluate(
       ({ terminal, point }) => {
         const dataTransfer = new DataTransfer()
-        dataTransfer.setData('application/x-pine-pane', terminal)
+        dataTransfer.setData('application/x-ostia-pane', terminal)
         const tab = document.querySelector(`.pane-tab[data-tab-id="${terminal}"]`)
         tab?.dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer }))
         return new Promise<string>((resolve) =>

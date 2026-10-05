@@ -81,7 +81,7 @@ export function createAppLog(
   opts: { maxBytes?: number; keep?: number } = {},
 ): AppLog {
   instances += 1
-  const logger = log.create({ logId: `pine-app-log-${instances}` })
+  const logger = log.create({ logId: `ostia-app-log-${instances}` })
   logger.transports.console.level = false
   const transport = logger.transports.file
   transport.level = 'info'

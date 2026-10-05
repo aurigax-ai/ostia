@@ -58,8 +58,8 @@ export const useSandboxStore = create<SandboxState>((set, get) => ({
   dismissRefusedFolder: () => set({ refusedFolder: null }),
   load: async (workspaceId) => {
     const [settings, stamp] = await Promise.all([
-      window.pine.sandbox.get(workspaceId),
-      window.pine.sandbox.stamp(workspaceId),
+      window.ostia.sandbox.get(workspaceId),
+      window.ostia.sandbox.stamp(workspaceId),
     ])
     if (!settings) return
     set((s) => ({
@@ -71,7 +71,7 @@ export const useSandboxStore = create<SandboxState>((set, get) => ({
     await Promise.all(Object.keys(get().enabled).map((workspaceId) => get().load(workspaceId)))
   },
   setEnabled: async (workspaceId, enabled) => {
-    const result = await window.pine.sandbox.setEnabled(workspaceId, enabled)
+    const result = await window.ostia.sandbox.setEnabled(workspaceId, enabled)
     if (result.ok) {
       await get().load(workspaceId)
       return
@@ -81,7 +81,7 @@ export const useSandboxStore = create<SandboxState>((set, get) => ({
       return
     }
     if (result.reason !== 'missing-programs') return
-    const report = await window.pine.system.requirements(SANDBOX_FEATURE)
+    const report = await window.ostia.system.requirements(SANDBOX_FEATURE)
     if (report && report.missing.length > 0) set({ blocked: { workspaceId, report } })
   },
   notePane: (paneId, sandboxed, stamp) =>
@@ -94,7 +94,7 @@ export const useSandboxStore = create<SandboxState>((set, get) => ({
       }
     }),
   restart: async (paneId) => {
-    if (!(await window.pine.pty.restart(paneId))) return
+    if (!(await window.ostia.pty.restart(paneId))) return
     set((s) => {
       const { [paneId]: _gone, ...paneSandboxed } = s.paneSandboxed
       const { [paneId]: _stale, ...paneStamp } = s.paneStamp

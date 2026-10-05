@@ -3,8 +3,8 @@ import { isolatedLaunch } from './dataHome'
 import { type FakeRequest, startFakeProvider } from './fakeProvider'
 import { PROMPT, openWorkspace } from './helpers'
 
-const SUGGESTED = 'echo pine-assist-suggested'
-const SECOND = 'echo pine-assist-second'
+const SUGGESTED = 'echo ostia-assist-suggested'
+const SECOND = 'echo ostia-assist-second'
 const ANSWER = 'Use this to list files:\n\n```bash\nls -la\n```\n\nOr run `ls -la` here.\n'
 
 function answer(req: FakeRequest): string {
@@ -99,7 +99,7 @@ test('an OpenAI-compatible provider added in Settings with two models answers in
     await expect(rows).toContainText(SUGGESTED, { timeout: 10_000 })
     await win.waitForTimeout(500)
     const screen = (await rows.innerText()).split('\n')
-    expect(screen.filter((l) => l.trim() === 'pine-assist-suggested')).toHaveLength(0)
+    expect(screen.filter((l) => l.trim() === 'ostia-assist-suggested')).toHaveLength(0)
     const lines = screen.filter((l) => l.includes(SUGGESTED))
     expect(lines).toHaveLength(1)
     expect(lines[0]).toMatch(PROMPT)

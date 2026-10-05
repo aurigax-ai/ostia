@@ -107,7 +107,7 @@ function parseNode(raw: unknown, paneIds: string[], depth: number): SnapshotNode
     }
     const resume = parseAgentResume(raw.resume)
     if (resume) pane.resume = resume
-    if (resume && raw.agentRunning === true) pane.agentRunning = true
+    if (resume && raw.agentRunning === true && raw.hibernated !== true) pane.agentRunning = true
     if (resume && raw.hibernated === true) pane.hibernated = true
     if (raw.locked === true) pane.locked = true
     if (pane.kind === 'terminal' && raw.defaultTitle === true) pane.defaultTitle = true

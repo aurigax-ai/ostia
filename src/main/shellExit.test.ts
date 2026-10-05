@@ -13,7 +13,7 @@ describe('closesPaneOnExit', () => {
     )
   })
 
-  it('keeps the pane when Pine itself stopped the shell', () => {
+  it('keeps the pane when Ostia itself stopped the shell', () => {
     expect(closesPaneOnExit({ ownExit: false, code: 0, livedMs: 60_000 })).toBe(false)
   })
 })

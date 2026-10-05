@@ -53,7 +53,7 @@ const loaded = (
   keymap: { extId, id, label: id, bindings, skipped: [] },
 })
 
-const load = () => vi.mocked(window.pine.keymaps.load)
+const load = () => vi.mocked(window.ostia.keymaps.load)
 let stop: (() => void) | null = null
 
 afterEach(() => {

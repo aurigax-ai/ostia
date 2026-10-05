@@ -58,7 +58,7 @@ describe('ostia ssh (real extension process, real socket, fake ssh)', () => {
     else process.env[name] = value
   }
 
-  function runPine(args: string[]): Promise<RunResult> {
+  function runOstia(args: string[]): Promise<RunResult> {
     return new Promise((resolve, reject) => {
       const child = spawn(process.execPath, [cliPath, ...args], {
         env: { ...process.env, PINE_SOCKET: socketPath, PINE_TOKEN: identity.token },
@@ -85,7 +85,7 @@ describe('ostia ssh (real extension process, real socket, fake ssh)', () => {
   }
 
   beforeAll(() => {
-    dir = mkdtempSync(join(tmpdir(), 'pine-cli-ssh-'))
+    dir = mkdtempSync(join(tmpdir(), 'ostia-cli-ssh-'))
     const home = join(dir, 'home')
     mkdirSync(join(home, '.ssh'), { recursive: true })
     writeFileSync(join(home, '.ssh', 'config'), 'Host db\n  HostName 10.0.0.5\n\nHost px\n')
@@ -140,7 +140,7 @@ describe('ostia ssh (real extension process, real socket, fake ssh)', () => {
   })
 
   it('SSH-C1 ships ssh as a built-in with connect, ls and show, running without an approval', async () => {
-    const listed = await runPine(['ext', 'ls'])
+    const listed = await runOstia(['ext', 'ls'])
     expect(listed.stdout).toContain('ssh\t')
     expect(listed.stdout).toContain(
       'ostia ssh connect [-J <hop>[,<hop>...]] [-p <port>] <[user@]host>',
@@ -158,7 +158,7 @@ describe('ostia ssh (real extension process, real socket, fake ssh)', () => {
   }, 30_000)
 
   it('SSH-C19 lists the aliases of the ssh config without running ssh', async () => {
-    const res = await runPine(['ssh', 'ls'])
+    const res = await runOstia(['ssh', 'ls'])
     expect(res.stderr).toBe('')
     expect(JSON.parse(res.stdout)).toEqual({
       hosts: [{ alias: 'db' }, { alias: 'px' }],
@@ -168,7 +168,7 @@ describe('ostia ssh (real extension process, real socket, fake ssh)', () => {
   }, 30_000)
 
   it('SSH-C20 shows one host as ssh resolves it', async () => {
-    const res = await runPine(['ssh', 'show', 'db'])
+    const res = await runOstia(['ssh', 'show', 'db'])
     expect(res.stderr).toBe('')
     expect(JSON.parse(res.stdout)).toEqual({
       alias: 'db',
@@ -184,14 +184,14 @@ describe('ostia ssh (real extension process, real socket, fake ssh)', () => {
   }, 30_000)
 
   it('SSH-C56 refuses to install or remove the remote helper for an agent in a pane', async () => {
-    const install = await runPine(['ssh', 'helper-install', 'db'])
+    const install = await runOstia(['ssh', 'helper-install', 'db'])
     expect(install.code).not.toBe(0)
     expect(`${install.stdout}${install.stderr}`).toContain('human-only')
-    const remove = await runPine(['ssh', 'helper-remove', 'db'])
+    const remove = await runOstia(['ssh', 'helper-remove', 'db'])
     expect(`${remove.stdout}${remove.stderr}`).toContain('human-only')
     expect(confirm).not.toHaveBeenCalled()
     expect(existsSync(join(remoteHome, '.ostia'))).toBe(false)
-    const listed = await runPine(['ssh', 'helpers'])
+    const listed = await runOstia(['ssh', 'helpers'])
     expect(JSON.parse(listed.stdout).hosts).toEqual([])
   }, 30_000)
 
@@ -218,7 +218,7 @@ describe('ostia ssh (real extension process, real socket, fake ssh)', () => {
     const answers = join(dir, 'ext-data', 'ssh', 'helper-hosts.json')
     expect(statSync(answers).mode & 0o777).toBe(0o600)
     expect(JSON.parse(readFileSync(answers, 'utf8')).hosts.db.answer).toBe('allowed')
-    const listed = await runPine(['ssh', 'helpers'])
+    const listed = await runOstia(['ssh', 'helpers'])
     expect(JSON.parse(listed.stdout).hosts).toEqual([
       {
         host: 'db',

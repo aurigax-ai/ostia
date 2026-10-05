@@ -1,4 +1,4 @@
-import { MATCH_PINE_THEME, isLinkedTheme } from '@shared/themeChoice'
+import { MATCH_OSTIA_THEME, isLinkedTheme } from '@shared/themeChoice'
 import { fmt, useDict } from '../i18n/useDict'
 import { type SchemeSurface, useScheme } from '../lib/colorScheme'
 import { useEffectiveTheme } from '../lib/theme'
@@ -118,7 +118,7 @@ function SchemeRow({ surface }: { surface: SchemeSurface }): JSX.Element {
       )}
       <Switch
         checked={linked}
-        onCheckedChange={(on) => setChoice(on ? MATCH_PINE_THEME : scheme.id)}
+        onCheckedChange={(on) => setChoice(on ? MATCH_OSTIA_THEME : scheme.id)}
         aria-label={fmt(d.settings.matchThemeFor, { label })}
       />
     </ControlRow>
@@ -127,7 +127,7 @@ function SchemeRow({ surface }: { surface: SchemeSurface }): JSX.Element {
 
 const TERMINAL_LINES: [keyof ColorScheme['colors'], string][][] = [
   [
-    ['blue', '~/pine '],
+    ['blue', '~/ostia '],
     ['magenta', 'main '],
     ['green', '> '],
     ['foreground', 'pnpm test'],

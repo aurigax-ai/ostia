@@ -10,7 +10,7 @@ import {
 } from './ptyWrap'
 
 const WRAPPED = "bwrap --new-session --die-with-parent --dev /dev -- bash -c 'zsh -i'"
-const PIPE = '/tmp/pine-sandbox-tmp/1/ws/resize-abc'
+const PIPE = '/tmp/ostia-sandbox-tmp/1/ws/resize-abc'
 const BRIDGE = '( socat -u UNIX-CONNECT:ports-ab12.sock - ) &'
 const refuses = (): string => '0\n'
 const allows = (): string => '1\n'

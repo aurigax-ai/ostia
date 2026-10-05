@@ -37,7 +37,7 @@ function tempDir(prefix: string): string {
 }
 
 function setup(debounceMs = 30, watchDir?: WatchDir) {
-  const root = tempDir('pine-fwatch-')
+  const root = tempDir('ostia-fwatch-')
   const changes: FileChange[] = []
   const watches = new FileWatches({
     confine: (path) => resolveSafe(path, [root]),
@@ -105,7 +105,7 @@ describe('FileWatches', () => {
     expect(Date.now() - started).toBeLessThan(1000)
   })
 
-  it('ERL-C2 refuses to watch a file outside the folders Pine may read', () => {
+  it('ERL-C2 refuses to watch a file outside the folders Ostia may read', () => {
     const { watches } = setup()
     expect(watches.watch('win-1', '/etc/hostname')).toBe(false)
     expect(watches.watchedDirs()).toEqual([])
@@ -248,7 +248,7 @@ describe('FileWatches', () => {
     'holds one kernel watch per folder, never polls, and releases it (Linux only: inotify watch counts)',
     async () => {
       const { root, changes, watches } = setup()
-      const base = tempDir('pine-fwatch-base-')
+      const base = tempDir('ostia-fwatch-base-')
       const file = join(root, 'a.txt')
       writeFileSync(file, 'one')
       writeFileSync(join(root, 'b.txt'), 'one')
@@ -293,7 +293,7 @@ describe('FileWatches', () => {
 
 function tree(options: { maxDirs?: number; silent?: boolean } = {}) {
   const { maxDirs, silent } = options
-  const base = tempDir('pine-twatch-')
+  const base = tempDir('ostia-twatch-')
   const root = join(base, 'root')
   mkdirSync(join(root, 'src', 'deep'), { recursive: true })
   mkdirSync(join(root, 'node_modules', 'pkg'), { recursive: true })
@@ -426,7 +426,7 @@ describe('TreeWatches', () => {
 
   it('never descends into dependency or version-control folders, or through a linked folder', async () => {
     const { root, changes, watches, listen } = tree()
-    const outside = tempDir('pine-twatch-out-')
+    const outside = tempDir('ostia-twatch-out-')
     symlinkSync(outside, join(root, 'linked'))
     await settle()
     watches.watch(root, listen)
@@ -441,7 +441,7 @@ describe('TreeWatches', () => {
 
   it('reports a link to a folder made later as one created path and never looks inside it', async () => {
     const { root, changes, watches, listen, seen } = tree()
-    const outside = tempDir('pine-twatch-out-')
+    const outside = tempDir('ostia-twatch-out-')
     writeFileSync(join(outside, 'before.txt'), 'x')
     await settle()
     watches.watch(root, listen)
@@ -463,7 +463,7 @@ describe('TreeWatches', () => {
     'holds one kernel watch per watched folder and none on skipped, linked or outside folders (Linux only: inotify watch counts)',
     async () => {
       const { base, root, watches, listen } = tree()
-      const outside = tempDir('pine-twatch-out-')
+      const outside = tempDir('ostia-twatch-out-')
       symlinkSync(outside, join(root, 'linked'))
       watches.watch(root, listen)
       const watched = [root, join(root, 'src'), join(root, 'src', 'deep')]
@@ -583,7 +583,7 @@ const silentWatch: WatchDir = (path) => watch(path, () => undefined)
 
 describe('watchers on a kernel that stays silent about vanished folders and new ones', () => {
   it('reports a watched file as gone when its folder vanishes', async () => {
-    const root = tempDir('pine-fwatch-silent-')
+    const root = tempDir('ostia-fwatch-silent-')
     const changes: FileChange[] = []
     const watches = new FileWatches({
       confine: (path) => resolveSafe(path, [root]),

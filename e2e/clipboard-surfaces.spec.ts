@@ -69,12 +69,12 @@ test('the copy and paste chords work in a terminal and paste an image as Ctrl+V 
   try {
     const rows = win.locator('.xterm-rows').first()
     await win.locator('.xterm').first().click()
-    await win.keyboard.type('echo pinecopyword')
+    await win.keyboard.type('echo ostiacopyword')
     await win.keyboard.press('Enter')
-    await expect(rows.locator('> div', { hasText: /^pinecopyword/ })).toHaveCount(1)
-    await selectTerminalWord(win, 'pinecopyword')
+    await expect(rows.locator('> div', { hasText: /^ostiacopyword/ })).toHaveCount(1)
+    await selectTerminalWord(win, 'ostiacopyword')
     await win.keyboard.press(chords.copy)
-    await expect.poll(() => readClipboard(app)).toBe('pinecopyword')
+    await expect.poll(() => readClipboard(app)).toBe('ostiacopyword')
 
     await writeClipboard(app, 'echo pasted_$((6*7))')
     await win.keyboard.press(chords.paste)

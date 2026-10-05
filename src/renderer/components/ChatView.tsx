@@ -73,7 +73,7 @@ import {
 } from '../lib/chatSlash'
 import { SKILLS_GROUP } from '../lib/chatTools'
 import {
-  type PineChatMessage,
+  type OstiaChatMessage,
   type ToolPartLike,
   decodeChatError,
   isToolPart,
@@ -385,7 +385,7 @@ function ChatSession({
     void saveSession(sessionId)
   }
 
-  const startEdit = (message: PineChatMessage): void => {
+  const startEdit = (message: OstiaChatMessage): void => {
     setEditing(message.id)
     setDraft(messageText(message))
     requestAnimationFrame(() => focusAtEnd(areaRef.current))
@@ -476,7 +476,7 @@ function ChatSession({
       setSlashNotice(fmt(d.chatSlash.renamed, { title }))
     },
     exportMarkdown: () =>
-      void window.pine.chatSessions.exportMarkdown(sessionId).then((res) => {
+      void window.ostia.chatSessions.exportMarkdown(sessionId).then((res) => {
         if (res.ok) setSlashNotice(fmt(d.chat.exported, { path: res.path }))
         else if (res.error !== 'cancelled') setSlashNotice(d.chat.exportFailed)
       }),
@@ -894,7 +894,7 @@ type Segment =
   | { kind: 'text'; key: string; text: string }
   | { kind: 'tool'; key: string; part: ToolPartLike }
 
-export function messageSegments(message: Pick<PineChatMessage, 'parts'>): Segment[] {
+export function messageSegments(message: Pick<OstiaChatMessage, 'parts'>): Segment[] {
   const out: Segment[] = []
   message.parts.forEach((part, index) => {
     if (part.type === 'text') {
@@ -1001,7 +1001,7 @@ function ChatMessageRow({
   onRestore,
   onRegenerate,
 }: {
-  message: PineChatMessage
+  message: OstiaChatMessage
   workspaceId: string | null
   components: Components
   streaming: boolean
@@ -1010,7 +1010,7 @@ function ChatMessageRow({
   busy: boolean
   onCopied: () => void
   onQuote: (text: string) => void
-  onEdit: (message: PineChatMessage) => void
+  onEdit: (message: OstiaChatMessage) => void
   onDelete: (id: string) => void
   onRestore?: () => void
   onRegenerate?: () => void

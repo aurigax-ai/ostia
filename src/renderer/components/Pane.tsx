@@ -65,6 +65,8 @@ interface PaneProps {
   split?: boolean
 }
 
+const SERVICE_SURFACES: ReadonlySet<SurfaceKind> = new Set(['extension', 'chat', 'view'])
+
 const SURFACE_ICON: Record<SurfaceKind, IconComponent> = {
   terminal: TerminalWindowIcon,
   editor: FileCodeIcon,
@@ -278,28 +280,34 @@ export function Pane({ tabs, shownId, active, split = false }: PaneProps): JSX.E
         <div className="pane-actions">
           <AgentSessionButton pane={shown} />
           <PaneHeaderActions pane={shown} />
-          <IconButton
-            icon={TerminalWindowIcon}
-            label={d.pane.newTab}
-            onClick={() => commands.exec('tab.new', { paneId: shown.id })}
-          />
-          <IconButton
-            icon={GlobeIcon}
-            label={d.pane.newBrowserTab}
-            onClick={() => commands.exec('tab.newBrowser', { paneId: shown.id })}
-          />
-          <IconButton
-            icon={SquareSplitHorizontalIcon}
-            label={d.pane.splitRight}
-            onClick={() =>
-              commands.exec('pane.split', { paneId: shown.id, direction: 'horizontal' })
-            }
-          />
-          <IconButton
-            icon={SquareSplitVerticalIcon}
-            label={d.pane.splitDown}
-            onClick={() => commands.exec('pane.split', { paneId: shown.id, direction: 'vertical' })}
-          />
+          {SERVICE_SURFACES.has(shown.kind) ? null : (
+            <>
+              <IconButton
+                icon={TerminalWindowIcon}
+                label={d.pane.newTab}
+                onClick={() => commands.exec('tab.new', { paneId: shown.id })}
+              />
+              <IconButton
+                icon={GlobeIcon}
+                label={d.pane.newBrowserTab}
+                onClick={() => commands.exec('tab.newBrowser', { paneId: shown.id })}
+              />
+              <IconButton
+                icon={SquareSplitHorizontalIcon}
+                label={d.pane.splitRight}
+                onClick={() =>
+                  commands.exec('pane.split', { paneId: shown.id, direction: 'horizontal' })
+                }
+              />
+              <IconButton
+                icon={SquareSplitVerticalIcon}
+                label={d.pane.splitDown}
+                onClick={() =>
+                  commands.exec('pane.split', { paneId: shown.id, direction: 'vertical' })
+                }
+              />
+            </>
+          )}
         </div>
       </div>
 

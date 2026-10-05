@@ -12,7 +12,7 @@ import {
   requirementLabel,
 } from './systemRequirements'
 
-const root = mkdtempSync(join(tmpdir(), 'pine-reqs-'))
+const root = mkdtempSync(join(tmpdir(), 'ostia-reqs-'))
 
 afterAll(() => rmSync(root, { recursive: true, force: true }))
 

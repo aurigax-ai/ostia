@@ -828,7 +828,7 @@ button.scope-trigger[aria-expanded="true"] {
   background: var(--surface-1);
 }
 
-.pine-split[data-collapsed] > .detail > :not(.detail-head) {
+.ostia-split[data-collapsed] > .detail > :not(.detail-head) {
   display: none;
 }
 

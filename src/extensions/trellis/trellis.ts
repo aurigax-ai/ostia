@@ -1,6 +1,6 @@
 import { lstatSync, readFileSync, realpathSync, statSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
-export const TRELLIS_IDENTITY = 'pine'
+export const TRELLIS_IDENTITY = 'ostia'
 
 export const HUMAN_ACTOR = `human:${TRELLIS_IDENTITY}`
 

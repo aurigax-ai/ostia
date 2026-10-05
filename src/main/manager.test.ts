@@ -101,7 +101,7 @@ describe('ManagerService', () => {
     expect(a.info).toEqual(b.info)
   })
 
-  it('MGR-C33 resumes the saved session after Pine quit with the manager running', async () => {
+  it('MGR-C33 resumes the saved session after Ostia quit with the manager running', async () => {
     const first = service()
     await first.svc.open(req('claude'))
     first.svc.rememberResume({ agent: 'claude', id: 'sess-1' })

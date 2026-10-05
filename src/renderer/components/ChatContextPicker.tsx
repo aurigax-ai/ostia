@@ -114,7 +114,7 @@ export function ChatContextPicker({
   useEffect(() => {
     if (!open || !root) return
     let live = true
-    window.pine.fs
+    window.ostia.fs
       .list(query.dir)
       .then((list) => {
         if (live) setEntries(list)

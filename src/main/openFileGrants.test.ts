@@ -30,7 +30,7 @@ function remembered(): string[] {
 }
 
 beforeEach(() => {
-  base = realpathSync(mkdtempSync(join(tmpdir(), 'pine-open-grants-')))
+  base = realpathSync(mkdtempSync(join(tmpdir(), 'ostia-open-grants-')))
   home = join(base, 'home')
   outside = join(base, 'outside')
   store = join(base, 'data', 'opened-files.json')

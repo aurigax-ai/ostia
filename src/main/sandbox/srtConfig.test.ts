@@ -13,16 +13,16 @@ import {
   srtVendorDir,
 } from './srtConfig'
 
-const PACKAGED = '/opt/pine/resources/app.asar'
+const PACKAGED = '/opt/ostia/resources/app.asar'
 const VENDOR =
-  '/opt/pine/resources/app.asar.unpacked/node_modules/@anthropic-ai/sandbox-runtime/vendor'
+  '/opt/ostia/resources/app.asar.unpacked/node_modules/@anthropic-ai/sandbox-runtime/vendor'
 
 const paths = {
   home: '/home/u',
   workDir: '/home/u/app',
   tmpDir: '/tmp/sbx/w1',
   dataDirs: [],
-  socketPath: '/run/pine.sock',
+  socketPath: '/run/ostia.sock',
   runtimeReads: [],
 }
 
@@ -32,8 +32,8 @@ describe('srtVendorDir', () => {
   })
 
   it('leaves an unpackaged app folder as it is', () => {
-    expect(srtVendorDir('/home/u/pine')).toBe(
-      '/home/u/pine/node_modules/@anthropic-ai/sandbox-runtime/vendor',
+    expect(srtVendorDir('/home/u/ostia')).toBe(
+      '/home/u/ostia/node_modules/@anthropic-ai/sandbox-runtime/vendor',
     )
   })
 })
@@ -92,10 +92,10 @@ const guardedPaths = {
   ...paths,
   dataDirs: ['/home/u/.local/share/ostia', '/home/u/.config/ostia'],
   runtimeDir: '/run/user/1000',
-  socketPath: '/run/user/1000/pine-1.sock',
+  socketPath: '/run/user/1000/ostia-1.sock',
   agentSockets: ['/tmp/ssh-abc/agent.1'],
   containerSockets: ['/run/docker.sock'],
-  tmpRoot: '/tmp/pine-sandbox',
+  tmpRoot: '/tmp/ostia-sandbox',
 }
 
 describe('buildSrtConfig filesystem limits', () => {
@@ -151,7 +151,7 @@ describe('buildSrtConfig filesystem limits', () => {
     )
   })
 
-  it('never opens Pine data, the socket folder, an agent socket folder, a container socket or another sandbox tmp', () => {
+  it('never opens Ostia data, the socket folder, an agent socket folder, a container socket or another sandbox tmp', () => {
     const closed = [
       '/home/u/.local/share/ostia',
       '/home/u/.local/share/ostia/vault.json',
@@ -163,8 +163,8 @@ describe('buildSrtConfig filesystem limits', () => {
       '/tmp/ssh-abc',
       '/tmp/ssh-abc/agent.1',
       '/run/docker.sock',
-      '/tmp/pine-sandbox',
-      '/tmp/pine-sandbox/other-workspace',
+      '/tmp/ostia-sandbox',
+      '/tmp/ostia-sandbox/other-workspace',
       '/tmp',
     ]
     const policy = { allowRead: closed, allowWrite: closed, allowSockets: closed, domains: [] }
@@ -181,7 +181,7 @@ describe('buildSrtConfig filesystem limits', () => {
           '/run/user/1000',
           '/tmp/ssh-abc',
           '/run/docker.sock',
-          '/tmp/pine-sandbox',
+          '/tmp/ostia-sandbox',
         ]),
       )
     }
@@ -201,14 +201,14 @@ describe('buildSrtConfig filesystem limits', () => {
 })
 
 describe('buildSrtConfig through a symlink', () => {
-  const root = realpathSync(mkdtempSync(join(tmpdir(), 'pine-srtconfig-')))
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'ostia-srtconfig-')))
   const home = join(root, 'home')
   const dataDir = join(home, '.local/share/ostia')
   mkdirSync(dataDir, { recursive: true })
   symlinkSync(dataDir, join(home, 'innocent'))
   afterAll(() => rmSync(root, { recursive: true, force: true }))
 
-  it('drops a readable or writable entry whose real path is inside Pine data', () => {
+  it('drops a readable or writable entry whose real path is inside Ostia data', () => {
     const { filesystem } = buildSrtConfig(
       { allowRead: ['~/innocent'], allowWrite: ['~/innocent'], domains: [] },
       { ...paths, home, workDir: join(home, 'app'), dataDirs: [dataDir] },
@@ -246,7 +246,7 @@ describe('buildSrtConfig Unix sockets', () => {
     expect(network.allowUnixSockets).toBeUndefined()
   })
 
-  it("allows only Pine's socket and the listed sockets on macOS", () => {
+  it("allows only Ostia's socket and the listed sockets on macOS", () => {
     const { network } = buildSrtConfig(
       { ...base, switches: on, allowSockets: ['/var/run/tool.sock', '~/run/app.sock'] },
       guardedPaths,
@@ -255,14 +255,14 @@ describe('buildSrtConfig Unix sockets', () => {
     )
     expect(network.allowAllUnixSockets).toBeUndefined()
     expect(network.allowUnixSockets).toEqual([
-      '/run/user/1000/pine-1.sock',
+      '/run/user/1000/ostia-1.sock',
       '/tmp/sbx/w1/a.sock',
       '/var/run/tool.sock',
       '/home/u/run/app.sock',
     ])
   })
 
-  it("blocks every Unix socket on macOS, Pine's included, when the human turns them off", () => {
+  it("blocks every Unix socket on macOS, Ostia's included, when the human turns them off", () => {
     const { network } = buildSrtConfig(
       { ...base, switches: off, allowSockets: ['/var/run/tool.sock'] },
       guardedPaths,
@@ -318,7 +318,7 @@ describe('buildSrtConfig network and git options', () => {
 describe('fixedPolicy', () => {
   const git = { gitConfig: false }
 
-  it('lists what Pine always hides, opens and protects for a workspace', () => {
+  it('lists what Ostia always hides, opens and protects for a workspace', () => {
     const fixed = fixedPolicy(
       guardedPaths,
       { workDir: '/home/u/app', tmpDir: '/tmp/sbx/w1' },
@@ -337,12 +337,12 @@ describe('fixedPolicy', () => {
       '/tmp/ssh-abc',
       '/run/docker.sock',
       '/run/user/1000',
-      '/tmp/pine-sandbox',
+      '/tmp/ostia-sandbox',
     ])
     expect(fixed.readable).toEqual([
       '/home/u/app',
       '/tmp/sbx/w1',
-      '/run/user/1000/pine-1.sock',
+      '/run/user/1000/ostia-1.sock',
       '/home/u/.claude',
       '/home/u/.codex',
     ])
@@ -394,7 +394,7 @@ describe('fixedPolicy', () => {
   it('leaves out the workspace paths when no workspace is named', () => {
     const fixed = fixedPolicy(guardedPaths, null, git, 'linux', 'x64')
     expect(fixed.readable).toEqual([
-      '/run/user/1000/pine-1.sock',
+      '/run/user/1000/ostia-1.sock',
       '/home/u/.claude',
       '/home/u/.codex',
     ])
@@ -404,7 +404,7 @@ describe('fixedPolicy', () => {
 })
 
 describe('folderProblem', () => {
-  const base = realpathSync(mkdtempSync(join(tmpdir(), 'pine-folder-problem-')))
+  const base = realpathSync(mkdtempSync(join(tmpdir(), 'ostia-folder-problem-')))
   const home = join(base, 'u')
   const homePaths = {
     ...guardedPaths,
@@ -415,13 +415,13 @@ describe('folderProblem', () => {
   mkdirSync(join(home, '.config/ostia/extensions'), { recursive: true })
   afterAll(() => rmSync(base, { recursive: true, force: true }))
 
-  it('refuses the home folder, a folder above it and one that holds Pine data', () => {
+  it('refuses the home folder, a folder above it and one that holds Ostia data', () => {
     expect(folderProblem(home, homePaths)).toBe('home')
     expect(folderProblem(`${home}/`, homePaths)).toBe('home')
     expect(folderProblem(base, homePaths)).toBe('above-home')
     expect(folderProblem('/', homePaths)).toBe('above-home')
-    expect(folderProblem(join(home, '.local'), homePaths)).toBe('pine-data')
-    expect(folderProblem(join(home, '.config/ostia/extensions'), homePaths)).toBe('pine-data')
+    expect(folderProblem(join(home, '.local'), homePaths)).toBe('ostia-data')
+    expect(folderProblem(join(home, '.config/ostia/extensions'), homePaths)).toBe('ostia-data')
   })
 
   it('accepts a project folder inside or outside home', () => {
