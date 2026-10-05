@@ -1,20 +1,26 @@
 import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
-import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { PRODUCT_NAME } from '../shared/product'
+import { LEGACY_PRODUCT_NAME, PRODUCT_NAME } from '../shared/product'
+import { appDataDir } from './userDirs'
 
 export type StoreScope = 'project' | 'global'
 
 export function storePath(name: string, scope: StoreScope, workDir?: string): string {
   if (scope === 'project') {
     const base = workDir?.trim() ? workDir : process.cwd()
-    return join(base, '.pine', `${name}.json`)
+    return projectFile(base, `${name}.json`)
   }
-  return join(
-    process.env.XDG_DATA_HOME || join(homedir(), '.local', 'share'),
-    PRODUCT_NAME,
-    `${name}.json`,
-  )
+  return join(appDataDir(), `${name}.json`)
+}
+
+export const PROJECT_DIR = `.${PRODUCT_NAME}`
+export const LEGACY_PROJECT_DIR = `.${LEGACY_PRODUCT_NAME}`
+
+export function projectFile(workDir: string, ...parts: string[]): string {
+  const current = join(workDir, PROJECT_DIR, ...parts)
+  if (existsSync(current)) return current
+  const legacy = join(workDir, LEGACY_PROJECT_DIR, ...parts)
+  return existsSync(legacy) ? legacy : current
 }
 
 export function loadJson<T>(path: string, fallback: T): T {

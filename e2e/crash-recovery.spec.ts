@@ -112,7 +112,7 @@ test.describe('renderer crash', () => {
     try {
       await openWorkspace(win)
       const before = await shellPid(win, 0, 'crashpid')
-      const snapshotFile = join(dataHome, 'pine', 'workspaces.json')
+      const snapshotFile = join(dataHome, 'ostia', 'workspaces.json')
       await expect
         .poll(() => (existsSync(snapshotFile) ? readFileSync(snapshotFile, 'utf8') : ''), {
           timeout: 10_000,

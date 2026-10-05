@@ -325,7 +325,7 @@ describe('parseManifest', () => {
     for (const api of [`${major}.${minor + 1}`, `${major + 1}.0`]) {
       expect(parseManifest(manifest({ api }), DIR)).toEqual({
         ok: false,
-        error: `needs extension API ${api}; this pine provides ${EXTENSION_API_VERSION}`,
+        error: `needs extension API ${api}; this ostia provides ${EXTENSION_API_VERSION}`,
       })
     }
     const ok = parseManifest(manifest({ api: EXTENSION_API_VERSION }), DIR)

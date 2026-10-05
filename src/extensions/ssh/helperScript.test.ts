@@ -82,7 +82,7 @@ describe('helper install', () => {
   it('SSH-C42 installs the shipped script byte for byte into a private folder', async () => {
     const remote = host()
     expect(await install(remote)).toEqual(['installed'])
-    const dir = join(remote.home, '.pine', 'helper', helper.version)
+    const dir = join(remote.home, '.ostia', 'helper', helper.version)
     expect(readFileSync(join(dir, 'helper.sh')).equals(helper.source)).toBe(true)
     expect(readFileSync(join(dir, 'session.sh'), 'utf8')).toBe(REMOTE_BOOTSTRAP)
     expect(statSync(dir).mode & 0o777).toBe(0o700)
@@ -95,13 +95,13 @@ describe('helper install', () => {
     const remote = host()
     expect(await failure(open(remote))).toBe('missing')
     await install(remote)
-    const file = join(remote.home, '.pine', 'helper', helper.version, 'helper.sh')
+    const file = join(remote.home, '.ostia', 'helper', helper.version, 'helper.sh')
     writeFileSync(file, `${readFileSync(file, 'utf8')}echo changed\n`)
     expect(await failure(open(remote))).toBe('corrupt')
 
     const bare = host(toolPath(['sh', 'env', ...HELPER_TOOLS.filter((t) => t !== 'cksum')]))
     expect(await install(bare)).toEqual(['needs', 'cksum'])
-    expect(existsSync(join(bare.home, '.pine'))).toBe(false)
+    expect(existsSync(join(bare.home, '.ostia'))).toBe(false)
   })
 
   it('SSH-C44 replaces an older version and removes everything it made', async () => {
@@ -109,19 +109,41 @@ describe('helper install', () => {
     const older = helperBundle(Buffer.concat([helper.source, Buffer.from('\n')]), helper.session)
     expect(await install(remote, older)).toEqual(['installed'])
     expect(await install(remote)).toEqual(['installed'])
-    expect(readdirSync(join(remote.home, '.pine', 'helper'))).toEqual([helper.version])
+    expect(readdirSync(join(remote.home, '.ostia', 'helper'))).toEqual([helper.version])
     const removed = await runStatus(planHelper(plan, 'remove', helper), null, {
       spawn: remote.spawn,
     })
     expect(removed).toEqual(['removed'])
-    expect(existsSync(join(remote.home, '.pine'))).toBe(false)
+    expect(existsSync(join(remote.home, '.ostia'))).toBe(false)
   })
 
-  it('keeps ~/.pine when something else lives there', async () => {
+  it('keeps ~/.ostia when something else lives there', async () => {
     const remote = host()
     await install(remote)
-    writeFileSync(join(remote.home, '.pine', 'keep'), 'mine')
+    writeFileSync(join(remote.home, '.ostia', 'keep'), 'mine')
     await runStatus(planHelper(plan, 'remove', helper), null, { spawn: remote.spawn })
+    expect(readdirSync(join(remote.home, '.ostia'))).toEqual(['keep'])
+  })
+
+  it('removes a helper an older version left in ~/.pine when it installs the new one', async () => {
+    const remote = host()
+    const legacy = join(remote.home, '.pine', 'helper', 'old-version')
+    mkdirSync(legacy, { recursive: true })
+    writeFileSync(join(legacy, 'helper.sh'), 'echo old\n')
+    expect(await install(remote)).toEqual(['installed'])
+    expect(existsSync(join(remote.home, '.pine'))).toBe(false)
+    expect(readdirSync(join(remote.home, '.ostia', 'helper'))).toEqual([helper.version])
+  })
+
+  it('keeps other files in ~/.pine and removes the old helper with the new one', async () => {
+    const remote = host()
+    mkdirSync(join(remote.home, '.pine', 'helper', 'old-version'), { recursive: true })
+    writeFileSync(join(remote.home, '.pine', 'keep'), 'mine')
+    await install(remote)
+    expect(readdirSync(join(remote.home, '.pine'))).toEqual(['keep'])
+    mkdirSync(join(remote.home, '.pine', 'helper', 'old-version'), { recursive: true })
+    await runStatus(planHelper(plan, 'remove', helper), null, { spawn: remote.spawn })
+    expect(existsSync(join(remote.home, '.ostia'))).toBe(false)
     expect(readdirSync(join(remote.home, '.pine'))).toEqual(['keep'])
   })
 })
@@ -165,7 +187,7 @@ describe('session command on a host with the helper', () => {
 
     const changed = host()
     await install(changed)
-    const file = join(changed.home, '.pine', 'helper', helper.version, 'session.sh')
+    const file = join(changed.home, '.ostia', 'helper', helper.version, 'session.sh')
     writeFileSync(file, `echo TAMPERED\n${readFileSync(file, 'utf8')}`)
     const out = sshSession(changed, 'echo PLAIN_$((40+2))\n')
     expect(out).toContain('PLAIN_42')
@@ -179,7 +201,7 @@ describe('helper protocol', () => {
     const { remote, channel } = await ready()
     expect(channel.isClosed).toBe(false)
     expect(remote.runs().at(-1)).toContain('-T -- dev@db')
-    const stage = readdirSync(join(remote.home, '.pine', 'helper', helper.version))
+    const stage = readdirSync(join(remote.home, '.ostia', 'helper', helper.version))
     expect(stage.some((name) => name.startsWith('run.'))).toBe(true)
   })
 
@@ -390,7 +412,7 @@ describe('helper protocol', () => {
 
   it('removes its staging folder when the channel closes', async () => {
     const { remote, channel } = await ready()
-    const dir = join(remote.home, '.pine', 'helper', helper.version)
+    const dir = join(remote.home, '.ostia', 'helper', helper.version)
     const closed = new Promise<void>((resolve) => channel.onClose(resolve))
     channel.close()
     await closed

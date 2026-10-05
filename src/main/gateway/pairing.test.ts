@@ -111,7 +111,7 @@ describe('gateway/pairing — rate limit + audit log', () => {
   it('auditPairAttempt appends a newline-delimited JSON line per call', () => {
     auditPairAttempt('1.2.3.4', 'ok')
     auditPairAttempt('1.2.3.4', 'invalid-code')
-    const path = join(dir, 'pine', 'gateway-pair-audit.log')
+    const path = join(dir, 'ostia', 'gateway-pair-audit.log')
     const lines = readFileSync(path, 'utf8').trim().split('\n')
     expect(lines).toHaveLength(2)
     expect(JSON.parse(lines[0])).toMatchObject({ ip: '1.2.3.4', outcome: 'ok' })

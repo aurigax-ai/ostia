@@ -51,7 +51,7 @@ async function typeInTerminal(win: Page, line: string): Promise<void> {
 test('the live terminal keeps a secret, the saved scrollback and the restored history do not', async () => {
   const dataHome = freshDataHome()
   seedSettings(dataHome, { ...DOM_RENDERER_SETTINGS })
-  const scrollbackFile = join(dataHome, 'pine', 'scrollback.json')
+  const scrollbackFile = join(dataHome, 'ostia', 'scrollback.json')
 
   const first = await launch(dataHome)
   try {
@@ -138,7 +138,7 @@ test.describe('chat with a provider', () => {
       await expect(asked).toContainText(`why is ${MARK} refused?`)
       await expect(asked).toContainText('1 secret redacted')
 
-      const sessions = join(dataHome, 'pine', 'chat-sessions')
+      const sessions = join(dataHome, 'ostia', 'chat-sessions')
       await expect
         .poll(() => (existsSync(sessions) ? readdirSync(sessions).length : 0), { timeout: 15_000 })
         .toBeGreaterThan(0)

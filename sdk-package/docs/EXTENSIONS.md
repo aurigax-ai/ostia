@@ -17,7 +17,10 @@ If you only need to show something (a sidebar section, a panel with buttons), a
 | Location | Kind |
 |---|---|
 | `resources/extensions/<id>/` in the app (`out/extensions` in dev) | Built-in: pre-approved, enabled by default |
-| `~/.config/pine/extensions/<id>/` (`$XDG_CONFIG_HOME` is honored) | Yours: asks for approval on first launch |
+| `~/.config/ostia/extensions/<id>/` (`$XDG_CONFIG_HOME` is honored) | Yours: asks for approval on first launch |
+
+Versions before the rename used `~/.config/pine/extensions/`. The first launch of Ostia copies
+that folder to `~/.config/ostia/` and leaves the old one as it was.
 
 Extensions are discovered at startup, and pine watches your extensions directory while it
 runs: adding, changing or removing a `pine.json` takes effect within a moment, no restart needed.
@@ -83,7 +86,7 @@ Rules for a listed extension:
 - An entry with a broken `pine.json`, a missing folder or an id another entry already uses is
   listed under "Entries that could not be offered" and the rest still work.
 
-Install copies the folder to `~/.config/pine/extensions/<id>/`, where it is an ordinary user
+Install copies the folder to `~/.config/ostia/extensions/<id>/`, where it is an ordinary user
 extension: it waits for the approval dialog before anything runs, and any approval an earlier
 extension with that id had is dropped first. Refresh re-downloads the marketplace; when the listed
 version differs from the installed one the row offers Update, which replaces the files and keeps
@@ -151,7 +154,7 @@ installs, updates or uninstalls, from Settings.
 | `contributes.settings` | Up to 32 keys (`[A-Za-z][A-Za-z0-9_-]*`), each `{type, default, description}` with `type` one of `string` (≤ 1000 chars), `number`, `boolean`, `enum` (plus `values: string[]`). The default must match the type. Optional: `title`, the label Settings shows (sentence case, ≤ 80 chars, no control characters; without it Settings humanizes the key, `intervalSeconds` → "Interval seconds"); for `enum`, `valueTitles: {<value>: <label>}` for the options (keys must be in `values`); for `number`, `minimum` and `maximum` (main refuses values outside them, and the default must be inside) and `unit` (`seconds` or `per-minute`), which Settings shows after the description as "(1 to 60 seconds)", so leave the range out of the description. Settings shows the raw key in small mono type next to the title for people who edit `settings.json`. Titles, descriptions and value titles may say `{product}`, which Settings replaces with the product name; never write the product name itself. Main checks all of it when it loads the manifest. Manifest strings are not localized. Settings → Extensions shows a form for them (or your own page, with `contributes.settingsPage`); the human's values are stored in `settings.json` under `extensionSettings.<id>` and synced with it, so never put a secret there. |
 | `contributes.settingsPage` | Optional `{title, icon?}` (API 1.8): gives your settings and secrets their own entry in Settings, under Extensions, instead of a form under your row in Settings → Extensions. `title` (≤ 80 chars, no control characters, may say `{product}`) names the entry and heads the page; `icon` is one of the sidebar item icon names (`kanban`, `plugs`, …; anything else refuses the manifest). The page draws the same form, so main still validates every value against `contributes.settings`. It shows only while the extension is enabled; while it is disabled the form stays under its row. Needs `contributes.settings` or `contributes.secrets`, and is refused with `contributes.assist`, whose settings live in Settings → Assistant. Your row in Settings → Extensions links to the page. Use it when your settings are many or form a whole area of their own; a few switches read better under your row. |
 | `contributes.workflows[]` | Saved workflows in Warp's format (at most 64): `name`, `command` with `{{arg}}` placeholders (`{{{x}}}` is a literal `{{x}}`), optional `description`, `tags`, `arguments[{name, description, default_value}]`, `shells`, `author`, `source_url`. Data only: no `main` needed. They appear in "Workflows: Search" and `pine workflow list` while the extension is enabled and approved; pine inserts one at an idle prompt only when the human picks it. |
-| `contributes.completions` | A folder inside the extension holding command completion specs, one `<command>.json` per command: `{names, description, subcommands[], options[{names, description, args, isPersistent, isRepeatable}], args[{name, description, suggestions[{name, description}], template: ["filepaths" \| "folders"], isOptional, isVariadic}]}`. Data only: no `main` needed, and nothing in a spec runs. Main reads a spec when the input editor completes that command (size-capped, symlinks refused, validated); `~/.config/pine/completions/<command>.json` wins over any extension's. The built-in `completions` extension ships about 700 specs converted from Fig's `@withfig/autocomplete` at build time (`scripts/completionSpecs.mjs`). |
+| `contributes.completions` | A folder inside the extension holding command completion specs, one `<command>.json` per command: `{names, description, subcommands[], options[{names, description, args, isPersistent, isRepeatable}], args[{name, description, suggestions[{name, description}], template: ["filepaths" \| "folders"], isOptional, isVariadic}]}`. Data only: no `main` needed, and nothing in a spec runs. Main reads a spec when the input editor completes that command (size-capped, symlinks refused, validated); `~/.config/ostia/completions/<command>.json` wins over any extension's. The built-in `completions` extension ships about 700 specs converted from Fig's `@withfig/autocomplete` at build time (`scripts/completionSpecs.mjs`). |
 
 | `contributes.secrets` | Up to 8 keys (same pattern as settings), each `{description}` and an optional `title` (same rules as a setting's). Settings → Extensions shows a password field per key; the value is stored encrypted in pine's data dir (never in `settings.json`, never synced) and never sent back to the renderer. Read it with `ext.getSecret`. |
 | `contributes.assist` | Which assist points you serve: any of `input`, `command`, `completion`, `terminal`, `chat` (see [Assist](#assist)). Needs the `assist` capability and `main`; such an extension starts with the window. |
@@ -307,7 +310,7 @@ extension you do not own, send its author the `locales/<tag>.json` file (one fil
 such as Material Icon Theme works without changes:
 
 1. Unzip the `.vsix` (it is a zip) and copy its `extension/` folder to
-   `~/.config/pine/extensions/<name>/`.
+   `~/.config/ostia/extensions/<name>/`.
 2. Add a `pine.json` next to its `package.json`, pointing at the theme JSON the `package.json`
    lists under `contributes.iconThemes[].path`:
 
@@ -1230,7 +1233,7 @@ and `validate` runs that loader.
 
 ## Example: a minimal extension
 
-`~/.config/pine/extensions/hello/pine.json`:
+`~/.config/ostia/extensions/hello/pine.json`:
 
 ```json
 {
@@ -1322,7 +1325,7 @@ The `trellis` and `keeper` extensions (in the marketplace) are the reference for
 
 When all you need is something for the human to look at (a sidebar section of agents and their
 state, a panel with a checklist, a few buttons that run palette commands), write a view instead
-of an extension. A view is one JSON file, `~/.config/pine/views/<name>.json` (`$XDG_CONFIG_HOME`
+of an extension. A view is one JSON file, `~/.config/ostia/views/<name>.json` (`$XDG_CONFIG_HOME`
 is honored; `<name>` is lowercase `a-z0-9-`, up to 40 characters). It has no process, no HTML and
 no script: pine validates the file and draws it with its own components, bound to live data.
 
