@@ -44,7 +44,7 @@ export interface CliOptions {
 }
 
 const NOT_INSTALLED = 'not-installed'
-export const TEXT_DIR_PREFIX = 'pine-trellis-text-'
+export const TEXT_DIR_PREFIX = 'ostia-trellis-text-'
 const TEXT_FILE_MODE = 0o600
 
 function scopeArgs(scope: Scope): string[] {

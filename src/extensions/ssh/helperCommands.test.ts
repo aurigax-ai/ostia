@@ -112,7 +112,7 @@ afterEach(() => {
 })
 
 function installedFile(remote: RemoteHost): string {
-  return join(remote.home, '.pine', 'helper', helper.version, 'helper.sh')
+  return join(remote.home, '.ostia', 'helper', helper.version, 'helper.sh')
 }
 
 describe('helper-install', () => {
@@ -125,14 +125,14 @@ describe('helper-install', () => {
         host: 'dev@db',
         version: helper.version,
         protocol: 1,
-        path: `~/.pine/helper/${helper.version}/helper.sh`,
+        path: `~/.ostia/helper/${helper.version}/helper.sh`,
         installed: true,
       },
     })
     expect(r.confirms).toHaveLength(1)
     expect(r.confirms[0].message).toContain('dev@db')
     expect(r.confirms[0].detail).toContain('dev@10.0.0.5:22')
-    expect(r.confirms[0].detail).toContain(`~/.pine/helper/${helper.version}/helper.sh`)
+    expect(r.confirms[0].detail).toContain(`~/.ostia/helper/${helper.version}/helper.sh`)
     expect(r.confirms[0].detail).toContain('never with sudo')
     expect(readFileSync(installedFile(r.remote)).equals(helper.source)).toBe(true)
     expect(r.consent.get('dev@db')).toEqual({
@@ -173,7 +173,7 @@ describe('helper-install', () => {
     expect(res.ok).toBe(false)
     expect(errorOf(res)).toBe('helper-refused')
     expect(messageOf(res)).toContain('SSH: Remove Remote Helper')
-    expect(existsSync(join(r.remote.home, '.pine'))).toBe(false)
+    expect(existsSync(join(r.remote.home, '.ostia'))).toBe(false)
     expect(r.remote.runs()).toEqual([])
     expect(r.consent.get('dev@db')?.answer).toBe('refused')
     const again = await r.run('helper-install', ['dev@db'])
@@ -270,7 +270,7 @@ describe('helper-remove and helpers', () => {
     expect(res).toEqual({ ok: true, data: { host: 'dev@db', removed: true, forgotten: true } })
     expect(r.confirms).toHaveLength(2)
     expect(r.confirms[1].message).toContain('dev@db')
-    expect(existsSync(join(r.remote.home, '.pine'))).toBe(false)
+    expect(existsSync(join(r.remote.home, '.ostia'))).toBe(false)
     expect(r.hosts.isConnected('dev@db')).toBe(false)
     expect((await r.run('helpers', [])).data).toEqual({ version: helper.version, hosts: [] })
     expect(r.closed).toEqual([])

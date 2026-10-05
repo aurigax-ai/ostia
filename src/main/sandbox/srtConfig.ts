@@ -1,6 +1,7 @@
 import { constants, accessSync, realpathSync } from 'node:fs'
 import { dirname, isAbsolute, join, relative } from 'node:path'
 import type { SandboxRuntimeConfig } from '@anthropic-ai/sandbox-runtime'
+import { LEGACY_PRODUCT_NAME, PRODUCT_NAME } from '../../shared/product'
 import {
   DEFAULT_SWITCHES,
   type ResolvedSandbox,
@@ -42,7 +43,10 @@ export const AGENT_PROTECTED_FILES = [
 
 const GIT_CONFIG_FILE = '.git/config'
 export const WORKDIR_PROTECTED_FILES = ['.envrc', '.git/hooks', GIT_CONFIG_FILE]
-export const WORKDIR_HIDDEN_FILES = ['.pine/vault.json']
+export const WORKDIR_HIDDEN_FILES = [
+  `.${PRODUCT_NAME}/vault.json`,
+  `.${LEGACY_PRODUCT_NAME}/vault.json`,
+]
 export const HOME_HIDDEN_FILES = ['.cargo/credentials.toml', '.cargo/credentials']
 
 export const CONTAINER_SOCKETS = [

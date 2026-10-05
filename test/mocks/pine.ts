@@ -410,8 +410,8 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       load: vi.fn().mockResolvedValue([]),
     },
     views: {
-      list: vi.fn().mockResolvedValue({ dir: '/home/u/.config/pine/views', views: [] }),
-      setEnabled: vi.fn().mockResolvedValue({ dir: '/home/u/.config/pine/views', views: [] }),
+      list: vi.fn().mockResolvedValue({ dir: '/home/u/.config/ostia/views', views: [] }),
+      setEnabled: vi.fn().mockResolvedValue({ dir: '/home/u/.config/ostia/views', views: [] }),
       reveal: vi.fn().mockResolvedValue(true),
       onChanged: vi.fn(noopUnsub),
     },

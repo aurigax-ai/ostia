@@ -80,8 +80,8 @@ test('restores the pane layout and terminal history after a restart', async () =
     await quitApp(first.app)
   }
 
-  const snapshotFile = join(dataHome, 'pine', 'workspaces.json')
-  const scrollbackFile = join(dataHome, 'pine', 'scrollback.json')
+  const snapshotFile = join(dataHome, 'ostia', 'workspaces.json')
+  const scrollbackFile = join(dataHome, 'ostia', 'scrollback.json')
   expect(existsSync(snapshotFile), 'workspace snapshot was not written at quit').toBe(true)
   expect(existsSync(scrollbackFile), 'scrollback was not written at quit').toBe(true)
   expect(readFileSync(scrollbackFile, 'utf8')).toContain(marker)
@@ -110,7 +110,7 @@ test('restores terminal history after a crash (no before-quit)', async () => {
     await expect(first.win.locator('.xterm-rows').first()).toContainText(marker, {
       timeout: 15_000,
     })
-    const scrollbackFile = join(dataHome, 'pine', 'scrollback.json')
+    const scrollbackFile = join(dataHome, 'ostia', 'scrollback.json')
     await expect
       .poll(
         () => existsSync(scrollbackFile) && readFileSync(scrollbackFile, 'utf8').includes(marker),
@@ -224,7 +224,7 @@ test('restores zero workspaces after the last workspace was closed', async () =>
     await expect
       .poll(
         () => {
-          const file = join(dataHome, 'pine', 'workspaces.json')
+          const file = join(dataHome, 'ostia', 'workspaces.json')
           return existsSync(file) && JSON.parse(readFileSync(file, 'utf8')).workspaces.length
         },
         { timeout: 10_000 },
@@ -252,7 +252,7 @@ test('erases stored history when workspace restore is switched off', async () =>
   } finally {
     await quitApp(first.app)
   }
-  expect(existsSync(join(dataHome, 'pine', 'workspaces.json'))).toBe(true)
+  expect(existsSync(join(dataHome, 'ostia', 'workspaces.json'))).toBe(true)
 
   const second = await launchApp(dataHome)
   try {
@@ -267,7 +267,7 @@ test('erases stored history when workspace restore is switched off', async () =>
     await toggle.click()
 
     await expect
-      .poll(() => existsSync(join(dataHome, 'pine', 'workspaces.json')), { timeout: 10_000 })
+      .poll(() => existsSync(join(dataHome, 'ostia', 'workspaces.json')), { timeout: 10_000 })
       .toBe(false)
   } finally {
     await quitApp(second.app)
@@ -297,7 +297,7 @@ test('restores tabs and offers to resume the agent a tab was running', async () 
     await quitApp(first.app)
   }
 
-  const saved = JSON.parse(readFileSync(join(dataHome, 'pine', 'workspaces.json'), 'utf8'))
+  const saved = JSON.parse(readFileSync(join(dataHome, 'ostia', 'workspaces.json'), 'utf8'))
   expect(saved.workspaces[0].root).toMatchObject({ type: 'tabs' })
 
   const second = await launchApp(dataHome)

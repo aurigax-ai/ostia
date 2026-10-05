@@ -408,7 +408,7 @@ describe('registerReleaseCheck', () => {
 
     expect(await invoke('app:release-open')).toBe(true)
     expect(openExternal).toHaveBeenCalledWith(release('0.3.0').url)
-    expect(github.requests[0].headers['user-agent']).toBe('pine/0.2.0')
+    expect(github.requests[0].headers['user-agent']).toBe('ostia/0.2.0')
     expect(info).toHaveBeenCalledWith('release-check', {
       trigger: 'manual',
       outcome: 'available',

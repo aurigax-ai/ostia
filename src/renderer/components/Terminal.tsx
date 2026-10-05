@@ -71,6 +71,7 @@ import { InputEditor } from './InputEditor'
 import { RiskyPasteDialog } from './RiskyPasteDialog'
 import { useSelectionSend } from './SelectionSend'
 import { TerminalFind, findOptions } from './TerminalFind'
+import { TerminalMenu } from './TerminalMenu'
 import { isPromptRepaint, nextSizeAction, settleFit } from './terminalSizing'
 
 const FOCUS_REPORTS = new Set(['\x1b[I', '\x1b[O'])
@@ -101,6 +102,7 @@ export function TerminalView({
   const minimumContrast = useSettingsStore((s) => s.terminal.minimumContrast)
   const macOptionIsMeta = useSettingsStore((s) => s.terminal.macOptionIsMeta)
   const pasteRef = useRef<(text: string) => void>(() => {})
+  const pasteClipboardRef = useRef<() => void>(() => {})
   const [pendingPaste, setPendingPaste] = useState<string | null>(null)
   const [search, setSearch] = useState<SearchAddon | null>(null)
   const [findOpen, setFindOpen] = useState(false)
@@ -202,6 +204,7 @@ export function TerminalView({
       if (plan === 'text') requestPaste(text)
       else if (plan === 'program') term.input(PROGRAM_PASTE_KEY, true)
     }
+    pasteClipboardRef.current = () => void pasteFromClipboard()
     const interceptPaste = (e: ClipboardEvent): void => {
       const text = e.clipboardData?.getData('text/plain') ?? ''
       if (pasteEventReadsClipboard(text, Boolean(inputEditorFor(paneId)), isMac)) {
@@ -667,6 +670,7 @@ export function TerminalView({
       host.removeEventListener('paste', interceptPaste, true)
       host.removeEventListener('mouseup', focusEditorOnClick)
       pasteRef.current = () => {}
+      pasteClipboardRef.current = () => {}
       offData()
       offExit()
       oscCwd.dispose()
@@ -789,7 +793,12 @@ export function TerminalView({
       }}
     >
       <div className="terminal-stack">
-        <div ref={hostRef} className="xterm-host" style={{ background }} />
+        <TerminalMenu
+          paneId={paneId}
+          termRef={termRef}
+          onPaste={() => pasteClipboardRef.current()}
+          trigger={<div ref={hostRef} className="xterm-host" style={{ background }} />}
+        />
         <Blocks paneId={paneId} termRef={termRef} hostRef={hostRef} />
         <InputEditor
           paneId={paneId}

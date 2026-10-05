@@ -57,12 +57,12 @@ You need Node.js and pnpm.
 
 ```bash
 git clone https://github.com/aurigax-ai/ostia.git
-cd pine
+cd ostia
 pnpm install
 pnpm install:local
 ```
 
-`install:local` packages the app, copies it to `~/.local/share/pine/app`, and adds a desktop
+`install:local` packages the app, copies it to `~/.local/share/ostia/app`, and adds a desktop
 launcher and the `ostia` command in `~/.local/bin` (`pine`, its old name, still works). Run it
 again to update.
 

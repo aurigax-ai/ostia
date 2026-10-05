@@ -41,7 +41,7 @@ async function start(name: string, switches: Partial<SandboxSwitches> = {}): Pro
     globals: () => ({ ...DEFAULT_SANDBOX_GLOBALS, allowRead: [] }),
     basePaths: () => ({
       home,
-      dataDirs: [join(home, '.local/share/pine')],
+      dataDirs: [join(home, '.local/share/ostia')],
       socketPath: join(root, 'pine.sock'),
       runtimeReads: [],
     }),
@@ -112,7 +112,7 @@ beforeAll(async () => {
   home = join(root, 'home')
   workDir = join(home, 'proj')
   mkdirSync(workDir, { recursive: true })
-  mkdirSync(join(home, '.local/share/pine'), { recursive: true })
+  mkdirSync(join(home, '.local/share/ostia'), { recursive: true })
 })
 
 afterEach(() => {

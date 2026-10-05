@@ -12,7 +12,7 @@ import {
   isAgentHookEvent,
 } from '../shared/agentPlugins'
 import { dualEnv, shellEnv } from '../shared/appEnv'
-import { PRODUCT_NAME } from '../shared/product'
+import { LEGACY_PRODUCT_NAME, PRODUCT_NAME } from '../shared/product'
 import { type PromptSeparator, isPromptSeparator } from '../shared/promptSettings'
 import pineSkill from './agent/pine-skill.md?raw'
 import {
@@ -23,7 +23,7 @@ import {
 } from './agentSkills'
 import { privateTmpDir } from './privateTmp'
 
-export const INTEGRATION_DIR = privateTmpDir('pine-shell-integration')
+export const INTEGRATION_DIR = privateTmpDir(`${PRODUCT_NAME}-shell-integration`)
 
 const CLI_PATH = shellEnv('CLI')
 const CLI_RUN = `ELECTRON_RUN_AS_NODE=1 "${shellEnv('NODE')}" "${CLI_PATH}"`
@@ -342,8 +342,10 @@ export function claudeHookSettings(extensionHooks: readonly ExtensionAgentHook[]
   return { hooks }
 }
 
+export const AGENT_SKILL_NAME = LEGACY_PRODUCT_NAME
+
 export const CLAUDE_PLUGIN_MANIFEST = {
-  name: PRODUCT_NAME,
+  name: AGENT_SKILL_NAME,
   version,
   description: `${PRODUCT_NAME} integration: the ${PRODUCT_NAME} CLI skill plus hooks for the agent's resume token and attention state.`,
 }
@@ -359,7 +361,7 @@ export function writeClaudePlugin(
 ): void {
   mkdirSync(join(dir, '.claude-plugin'), { recursive: true })
   mkdirSync(join(dir, 'hooks'), { recursive: true })
-  mkdirSync(join(dir, 'skills', PRODUCT_NAME), { recursive: true })
+  mkdirSync(join(dir, 'skills', AGENT_SKILL_NAME), { recursive: true })
   writeFileSync(
     join(dir, '.claude-plugin', 'plugin.json'),
     `${JSON.stringify(CLAUDE_PLUGIN_MANIFEST, null, 2)}\n`,
@@ -370,7 +372,7 @@ export function writeClaudePlugin(
     `${JSON.stringify(claudeHookSettings(content.hooks), null, 2)}\n`,
     'utf8',
   )
-  writeFileSync(join(dir, 'skills', PRODUCT_NAME, 'SKILL.md'), pineSkill, 'utf8')
+  writeFileSync(join(dir, 'skills', AGENT_SKILL_NAME, 'SKILL.md'), pineSkill, 'utf8')
   for (const skill of content.skills) writeSkillFiles(join(dir, 'skills', skill.id), skill)
 }
 
