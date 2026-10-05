@@ -1120,6 +1120,12 @@ export const en = {
     showExcluded: 'Show hidden files',
     hideInTree: 'Hide in tree',
     showInTree: 'Show in tree',
+    breadcrumb: 'Path',
+    breadcrumbDesc:
+      'How the folder path above the tree fits on one line. Fit to width shortens folder names to their first letter, then folds the leading ones into …, only when needed.',
+    breadcrumbAuto: 'Fit to width',
+    breadcrumbFull: 'Full names',
+    breadcrumbShort: 'Always short',
     compactFolders: 'Compact folders',
     compactFoldersDesc:
       'Show a chain of folders that each hold only one folder as one row, like src/main/java.',
@@ -3625,6 +3631,12 @@ export const zhHant: Dict = {
     showExcluded: '顯示隱藏的檔案',
     hideInTree: '在檔案樹中隱藏',
     showInTree: '在檔案樹中顯示',
+    breadcrumb: '路徑',
+    breadcrumbDesc:
+      '檔案樹上方的資料夾路徑如何放進一行。符合寬度：只在放不下時，先把資料夾名稱縮成第一個字，再把前面的資料夾收成 …。',
+    breadcrumbAuto: '符合寬度',
+    breadcrumbFull: '完整名稱',
+    breadcrumbShort: '一律縮短',
     compactFolders: '精簡資料夾',
     compactFoldersDesc: '將只包含單一資料夾的資料夾串顯示為一列，例如 src/main/java。',
     nesting: '巢狀顯示相關檔案',

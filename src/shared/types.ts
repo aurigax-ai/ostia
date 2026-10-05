@@ -84,6 +84,7 @@ export interface AppInfo {
   version: string
   platform: Platform
   hostName: string
+  home: string
 }
 
 export const RENDERER_ERROR_KINDS = ['error', 'rejection', 'render', 'surface'] as const

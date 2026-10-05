@@ -18,6 +18,7 @@ import { DEFAULT_CHORDS, bindableIds } from '../lib/chords'
 import { BUILTIN_COLOR_SCHEMES } from '../plugins/colorSchemes'
 import { ACTIONS_MAX, ACTION_ICONS, ACTION_ID, ACTION_PLACES, ACTION_TITLE_MAX } from './actions'
 import {
+  BREADCRUMB_STYLES,
   EXCLUDE_MAX,
   FILE_SORT_BYS,
   FILE_SORT_ORDERS,
@@ -285,6 +286,14 @@ export const SETTINGS_JSON_SCHEMA = {
           type: 'string',
           enum: [...FILE_SORT_BYS],
           description: 'Sort by name, or by file type (extension) then name. Default: name.',
+        },
+        breadcrumb: {
+          type: 'string',
+          enum: [...BREADCRUMB_STYLES],
+          description:
+            'The Files header path, on one line. auto shortens folder names to their first ' +
+            'letter and then folds the leading ones into … only when the path does not fit; ' +
+            'full never shortens and scrolls; short always shortens. Default: auto.',
         },
         iconTheme: {
           type: 'string',

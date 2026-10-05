@@ -5,6 +5,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { createPane } from '../layout/tree'
+import { loadHomeDir } from '../lib/homeDir'
 import { useExtensionsStore } from '../stores/extensionsStore'
 import { useIconThemeStore } from '../stores/iconThemeStore'
 import { useLayoutStore } from '../stores/layoutStore'
@@ -539,6 +540,79 @@ describe('FilesView', () => {
     expect(await screen.findByText('No folder open')).toBeInTheDocument()
     expect(document.querySelector('.file-row')).toBeNull()
     expect(screen.getByRole('button', { name: 'Close Files' })).toBeInTheDocument()
+  })
+
+  describe('breadcrumb', () => {
+    const LONG = '/home/me/Personal/terminal/.sdd/verify'
+    const CHAR_WIDTH = 10
+
+    function lineWidth(width: number): void {
+      vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(function (
+        this: HTMLElement,
+      ) {
+        return this.classList.contains('files-crumb-line') ? width : 0
+      })
+      vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockImplementation(function (
+        this: HTMLElement,
+      ) {
+        return (this.textContent ?? '').length * CHAR_WIDTH
+      })
+    }
+
+    const crumbText = (): string[] =>
+      Array.from(document.querySelectorAll('.files-crumb-line .crumb')).map(
+        (el) => el.textContent ?? '',
+      )
+
+    it('shows home as ~ and full names when the path fits', async () => {
+      lineWidth(1000)
+      seedWorkspace(LONG)
+      listReturns([])
+      await loadHomeDir()
+
+      render(<FilesView />)
+
+      expect(crumbText()).toEqual(['~', 'Personal', 'terminal', '.sdd', 'verify'])
+    })
+
+    it('shortens, then folds, only as far as the width needs', async () => {
+      await loadHomeDir()
+      seedWorkspace(LONG)
+      listReturns([])
+
+      lineWidth(150)
+      const { unmount } = render(<FilesView />)
+      expect(crumbText()).toEqual(['~', 'P', 't', '.s', 'verify'])
+      unmount()
+
+      lineWidth(90)
+      render(<FilesView />)
+      expect(crumbText()).toEqual(['…', '.s', 'verify'])
+    })
+
+    it('never shortens with the full style', async () => {
+      await loadHomeDir()
+      lineWidth(50)
+      seedWorkspace(LONG)
+      listReturns([])
+      useSettingsStore.getState().setFiles({ breadcrumb: 'full' })
+
+      render(<FilesView />)
+
+      expect(crumbText()).toEqual(['~', 'Personal', 'terminal', '.sdd', 'verify'])
+    })
+
+    it('always shortens with the short style, even when the path fits', async () => {
+      await loadHomeDir()
+      lineWidth(1000)
+      seedWorkspace(LONG)
+      listReturns([])
+      useSettingsStore.getState().setFiles({ breadcrumb: 'short' })
+
+      render(<FilesView />)
+
+      expect(crumbText()).toEqual(['~', 'P', 't', '.s', 'verify'])
+    })
   })
 
   it('renders the cwd breadcrumb and exposes entries as named buttons (a11y)', async () => {

@@ -1195,6 +1195,7 @@ function registerIpc(): void {
       version: app.getVersion(),
       platform: process.platform,
       hostName: hostname(),
+      home: app.getPath('home'),
     }),
   )
 
