@@ -15,13 +15,13 @@ describe('wirePaneRunBridge', () => {
 
   afterEach(() => {
     useBlocksStore.setState(blocksInit, true)
-    vi.mocked(window.pine.pty.onRun).mockClear()
-    vi.mocked(window.pine.pty.write).mockClear()
+    vi.mocked(window.ostia.pty.onRun).mockClear()
+    vi.mocked(window.ostia.pty.write).mockClear()
   })
 
   function wire(): (paneId: string, command: string) => void {
     wirePaneRunBridge()
-    return vi.mocked(window.pine.pty.onRun).mock.calls[0][0]
+    return vi.mocked(window.ostia.pty.onRun).mock.calls[0][0]
   }
 
   it('runs the command main asks for only once the pane is back at an idle prompt', () => {
@@ -43,7 +43,7 @@ describe('wirePaneRunBridge', () => {
 
     expect(paste).toHaveBeenCalledTimes(1)
     expect(paste).toHaveBeenCalledWith(`pnpm dev --title 'my app'`)
-    expect(window.pine.pty.write).toHaveBeenCalledWith(PANE, '\r')
+    expect(window.ostia.pty.write).toHaveBeenCalledWith(PANE, '\r')
     unregister()
   })
 })

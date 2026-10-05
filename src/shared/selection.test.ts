@@ -150,13 +150,13 @@ describe('renderSelectionReport', () => {
         region: { x: 72, y: 100, width: 200, height: 50 },
       },
       'fix this chart',
-      '/tmp/pine-reports-1/selection-1.png',
+      '/tmp/ostia-reports-1/selection-1.png',
       AT,
     )
     expect(md).toContain('# PDF page region: d.pdf, page 2 (x 72, y 100, 200 × 50)')
     expect(md).toContain('- Page: 2 (1-based), 612 × 792 pt')
     expect(md).toContain('- Region: x 72, y 100, 200 × 50 (PDF points, origin top-left)')
-    expect(md).toContain('- Snapshot: /tmp/pine-reports-1/selection-1.png')
+    expect(md).toContain('- Snapshot: /tmp/ostia-reports-1/selection-1.png')
     expect(md).not.toContain('## Selected text')
   })
 

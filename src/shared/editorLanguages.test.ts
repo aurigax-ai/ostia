@@ -109,7 +109,7 @@ describe('parseEditorLanguages', () => {
   it('refuses an id the editor already has, a duplicate and a bad one', () => {
     expect(problem({ id: 'typescript' })).toMatch(/already has/)
     expect(problem({ id: 'plaintext' })).toMatch(/already has/)
-    expect(problem({ id: 'pine-settings' })).toMatch(/already has/)
+    expect(problem({ id: 'ostia-settings' })).toMatch(/already has/)
     expect(problem({ id: 'Bad Id' })).toMatch(/invalid id/)
     expect(parseEditorLanguages([language(), language()], inside)).toMatch(/duplicate id 'gleam'/)
     expect(parseEditorLanguages(Array(17).fill(language()), inside)).toMatch(/at most 16/)

@@ -36,14 +36,14 @@ async function showUpdateNotice(app: ElectronApplication): Promise<void> {
 
 async function requestApproval(win: Page) {
   await win.locator('.xterm').first().click()
-  await win.keyboard.type('pine settings set sidebar.showSSH false')
+  await win.keyboard.type('ostia settings set sidebar.showSSH false')
   await win.keyboard.press('Enter')
   const card = win.getByRole('region', { name: 'Agent permission request' })
   await expect(card).toBeVisible({ timeout: 20_000 })
   return card
 }
 
-test('an unlinked terminal theme changes the terminal colors while the pine theme stays', async () => {
+test('an unlinked terminal theme changes the terminal colors while the ostia theme stays', async () => {
   const { app, win } = await launch({})
   try {
     await openWorkspace(win)

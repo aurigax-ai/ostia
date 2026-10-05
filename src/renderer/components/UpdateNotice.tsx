@@ -59,7 +59,7 @@ export function UpdateNotice(): JSX.Element | null {
         icon={ArrowClockwiseIcon}
         label={d.update.restart}
         hint={fmt(d.update.body, { build: buildLabel(available) })}
-        onAct={() => void window.pine.update.restart()}
+        onAct={() => void window.ostia.update.restart()}
         dismissLabel={d.update.later}
         onDismiss={dismiss}
       />
@@ -71,7 +71,7 @@ export function UpdateNotice(): JSX.Element | null {
       icon={ArrowSquareOutIcon}
       label={fmt(d.update.releaseAvailable, { version: release.version })}
       hint={d.update.releaseHint}
-      onAct={() => void window.pine.update.openRelease()}
+      onAct={() => void window.ostia.update.openRelease()}
       dismissLabel={d.update.dismissRelease}
       onDismiss={dismissRelease}
     />

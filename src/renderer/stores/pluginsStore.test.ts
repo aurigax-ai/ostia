@@ -26,7 +26,7 @@ describe('pluginsStore', () => {
   })
 
   describe('derived themes', () => {
-    it('aggregates contributes.themes across plugins (only pine.themes contributes any)', () => {
+    it('aggregates contributes.themes across plugins (only ostia.themes contributes any)', () => {
       const themePlugin = BUILTIN_PLUGINS.find((p) => p.id === 'ostia.themes')
       expect(store().themes).toEqual(themePlugin?.contributes.themes)
       expect(store().themes.map((t) => t.id)).toEqual([
@@ -61,7 +61,7 @@ describe('pluginsStore', () => {
     })
 
     it('adds the language packs main returns, translated over English', async () => {
-      vi.mocked(window.pine.languagePacks.load).mockResolvedValue([
+      vi.mocked(window.ostia.languagePacks.load).mockResolvedValue([
         {
           extId: 'langpack-zh-hant',
           id: 'zh-Hant',
@@ -80,11 +80,11 @@ describe('pluginsStore', () => {
     })
 
     it('drops a pack again when main no longer returns it', async () => {
-      vi.mocked(window.pine.languagePacks.load).mockResolvedValue([
+      vi.mocked(window.ostia.languagePacks.load).mockResolvedValue([
         { extId: 'x', id: 'fr', label: 'Français', catalog: {} },
       ])
       await store().loadLanguages()
-      vi.mocked(window.pine.languagePacks.load).mockResolvedValue([])
+      vi.mocked(window.ostia.languagePacks.load).mockResolvedValue([])
       await store().loadLanguages()
       expect(store().languages.map((l) => l.id)).toEqual(['en'])
     })

@@ -56,9 +56,9 @@ describe('sendToAgent', () => {
     agentRunning()
     expect(sendToAgent(PANE, 'rebase onto main')).toBe(true)
     expect(term.paste).toHaveBeenCalledWith('rebase onto main')
-    expect(window.pine.pty.write).not.toHaveBeenCalled()
+    expect(window.ostia.pty.write).not.toHaveBeenCalled()
     vi.advanceTimersByTime(ENTER_AFTER_PASTE_MS)
-    expect(window.pine.pty.write).toHaveBeenCalledWith(PANE, '\r')
+    expect(window.ostia.pty.write).toHaveBeenCalledWith(PANE, '\r')
   })
 
   it('types nothing into a shell at an idle prompt', () => {
@@ -67,7 +67,7 @@ describe('sendToAgent', () => {
     expect(sendToAgent(PANE, 'rm -rf build')).toBe(false)
     vi.advanceTimersByTime(ENTER_AFTER_PASTE_MS)
     expect(term.paste).not.toHaveBeenCalled()
-    expect(window.pine.pty.write).not.toHaveBeenCalled()
+    expect(window.ostia.pty.write).not.toHaveBeenCalled()
   })
 
   it('types nothing into a pane running a plain command', () => {
@@ -87,7 +87,7 @@ describe('sendToAgent', () => {
     sendToAgent(PANE, 'hello')
     idlePrompt()
     vi.advanceTimersByTime(ENTER_AFTER_PASTE_MS)
-    expect(window.pine.pty.write).not.toHaveBeenCalled()
+    expect(window.ostia.pty.write).not.toHaveBeenCalled()
   })
 
   it('sends nothing for an empty message or a pane without a terminal', () => {

@@ -84,7 +84,7 @@ export function ChatSessions({
   const now = Date.now()
 
   const exportSession = (id: string): void => {
-    void window.pine.chatSessions.exportMarkdown(id).then((res) => {
+    void window.ostia.chatSessions.exportMarkdown(id).then((res) => {
       if (res.ok) setMessage(fmt(d.chat.exported, { path: res.path }))
       else if (res.error !== 'cancelled') setMessage(d.chat.exportFailed)
     })

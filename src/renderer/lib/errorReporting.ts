@@ -23,7 +23,7 @@ export function reportDetails(
   source?: string,
 ): void {
   try {
-    window.pine?.diagnostics?.report({ kind, ...details, ...(source ? { source } : {}) })
+    window.ostia?.diagnostics?.report({ kind, ...details, ...(source ? { source } : {}) })
   } catch {}
 }
 

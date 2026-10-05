@@ -4,7 +4,7 @@ import { join, sep } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
 import { expandHome, isPathAllowed, resolveSafe } from './pathGuard'
 
-const root = mkdtempSync(join(tmpdir(), 'pine-guard-'))
+const root = mkdtempSync(join(tmpdir(), 'ostia-guard-'))
 
 afterAll(() => {
   rmSync(root, { recursive: true, force: true })

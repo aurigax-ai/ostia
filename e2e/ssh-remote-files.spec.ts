@@ -31,10 +31,10 @@ interface AskedDialog {
 
 async function approveNativeDialogs(app: ElectronApplication): Promise<void> {
   await app.evaluate(({ dialog }) => {
-    const g = globalThis as { pineE2eAsked?: unknown[] }
-    g.pineE2eAsked = []
+    const g = globalThis as { ostiaE2eAsked?: unknown[] }
+    g.ostiaE2eAsked = []
     dialog.showMessageBox = (async (...args: unknown[]) => {
-      g.pineE2eAsked?.push(args.length > 1 ? args[1] : args[0])
+      g.ostiaE2eAsked?.push(args.length > 1 ? args[1] : args[0])
       return { response: 0, checkboxChecked: false }
     }) as typeof dialog.showMessageBox
   })
@@ -42,7 +42,7 @@ async function approveNativeDialogs(app: ElectronApplication): Promise<void> {
 
 function askedDialogs(app: ElectronApplication): Promise<AskedDialog[]> {
   return app.evaluate(
-    () => ((globalThis as { pineE2eAsked?: unknown[] }).pineE2eAsked ?? []) as AskedDialog[],
+    () => ((globalThis as { ostiaE2eAsked?: unknown[] }).ostiaE2eAsked ?? []) as AskedDialog[],
   )
 }
 
@@ -93,7 +93,7 @@ async function sessionInProject(): Promise<Session> {
   await openWorkspace(win)
   await approveNativeDialogs(app)
   await win.locator('.xterm').first().click()
-  await win.keyboard.type('pine ssh connect db')
+  await win.keyboard.type('ostia ssh connect db')
   await win.keyboard.press('Enter')
   await expect(win.locator('.xterm')).toHaveCount(2, { timeout: 40_000 })
   const sshPane = win.locator('[data-pane-id]').filter({ hasText: 'fake ssh session' })
@@ -155,7 +155,7 @@ test('SSH-C65 SSH-C72 the human opens the folder of an ssh session in Files, rea
     expect(asked[1].buttons).toEqual(['Install', 'Don’t install'])
 
     await win.locator('.xterm').first().click()
-    await win.keyboard.type('pine ssh connect db')
+    await win.keyboard.type('ostia ssh connect db')
     await win.keyboard.press('Enter')
     await expect(win.locator('.xterm')).toHaveCount(3, { timeout: 40_000 })
     const secondPane = win.locator('.pane.active')

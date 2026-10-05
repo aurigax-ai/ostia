@@ -380,7 +380,7 @@ export const en = {
     inherited: 'Inherited',
     overridden: 'Overridden',
     reset: 'Reset',
-    pineAccess: '{product} access',
+    ostiaAccess: '{product} access',
     allWorkspaces: 'Act on other workspaces',
     allWorkspacesDesc:
       'Let agents in the sandbox ask for permission to act on other panes and workspaces.',
@@ -2885,7 +2885,7 @@ export const zhHant: Dict = {
     inherited: '沿用',
     overridden: '已覆寫',
     reset: '重設',
-    pineAccess: '{product} 存取',
+    ostiaAccess: '{product} 存取',
     allWorkspaces: '操作其他工作區',
     allWorkspacesDesc: '允許沙箱中的代理程式請求操作其他窗格與工作區。',
     browser: '{product} 瀏覽器',

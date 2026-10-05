@@ -27,7 +27,7 @@ function flush(paneId: string): void {
   const blocks = useBlocksStore.getState()
   const list = blocks.byPane[paneId] ?? []
   const remote = useRemoteCwdStore.getState().byPane[paneId]
-  window.pine.terminalState.push({
+  window.ostia.terminalState.push({
     paneId,
     generation: blocks.gen[paneId] ?? 0,
     cwd: findCwd(paneId),
@@ -59,7 +59,7 @@ function paneIdsInBlocks(state: ReturnType<typeof useBlocksStore.getState>): Set
 }
 
 export function wireTerminalStateBridge(): void {
-  if (!window.pine?.terminalState) return
+  if (!window.ostia?.terminalState) return
 
   useBlocksStore.subscribe((state, prev) => {
     const live = paneIdsInBlocks(state)

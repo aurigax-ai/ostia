@@ -22,7 +22,7 @@ import {
 const dirs: string[] = []
 
 function tempDir(): string {
-  const dir = mkdtempSync(join(tmpdir(), 'pine-applog-'))
+  const dir = mkdtempSync(join(tmpdir(), 'ostia-applog-'))
   dirs.push(dir)
   return dir
 }

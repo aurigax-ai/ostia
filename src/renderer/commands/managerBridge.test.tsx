@@ -21,7 +21,7 @@ const managerWorkspaces = () =>
   useWorkspacesStore.getState().workspaces.filter((w) => w.kind === 'manager')
 
 const lastSnapshot = (): AppSnapshot => {
-  const calls = vi.mocked(window.pine.workspace.save).mock.calls.filter((c) => c[0] !== null)
+  const calls = vi.mocked(window.ostia.workspace.save).mock.calls.filter((c) => c[0] !== null)
   const snapshot = calls.at(-1)?.[0]
   if (!snapshot) throw new Error('no snapshot was saved')
   return snapshot
@@ -46,7 +46,7 @@ describe('manager workspace', () => {
     useLayoutStore.setState(layoutInit, true)
     useSettingsStore.setState(settingsInit, true)
     useCloseConfirmStore.setState({ pending: null })
-    vi.mocked(window.pine.workspace.save).mockClear()
+    vi.mocked(window.ostia.workspace.save).mockClear()
   })
 
   it('MGR-C9 opens a manager workspace holding one manager pane at the caller cwd', () => {

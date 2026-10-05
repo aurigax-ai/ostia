@@ -179,7 +179,7 @@ export const useWorkspacesStore = create<WorkspacesState>((set, get) => ({
   activeWorkspaceId: null,
   setActive: (id) => {
     set({ activeWorkspaceId: id })
-    window.pine?.lifecycle?.emit?.({ type: 'workspace-activated', workspaceId: id })
+    window.ostia?.lifecycle?.emit?.({ type: 'workspace-activated', workspaceId: id })
   },
 
   addWorkspace: (workDir = '~', placement = 'end', kind = 'terminal') => {
@@ -188,13 +188,13 @@ export const useWorkspacesStore = create<WorkspacesState>((set, get) => ({
       const next = placeNewWorkspace(s, workspace, placement)
       return { workspaces: next.workspaces, groups: next.groups, activeWorkspaceId: workspace.id }
     })
-    window.pine?.lifecycle?.emit?.({ type: 'workspace-added', workspaceId: workspace.id, workDir })
+    window.ostia?.lifecycle?.emit?.({ type: 'workspace-added', workspaceId: workspace.id, workDir })
   },
 
   closeWorkspace: (id) => {
     if (useLayoutStore.getState().isLocked(id)) return
     useLayoutStore.getState().removeWorkspace(id)
-    window.pine?.lifecycle?.emit?.({ type: 'workspace-closed', workspaceId: id })
+    window.ostia?.lifecycle?.emit?.({ type: 'workspace-closed', workspaceId: id })
 
     set((s) => {
       const remaining = s.workspaces.filter((c) => c.id !== id)
@@ -214,7 +214,7 @@ export const useWorkspacesStore = create<WorkspacesState>((set, get) => ({
         c.id === id ? { ...c, workDir, name: nameFromWorkDir(workDir) } : c,
       ),
     }))
-    window.pine?.lifecycle?.emit?.({ type: 'workspace-added', workspaceId: id, workDir })
+    window.ostia?.lifecycle?.emit?.({ type: 'workspace-added', workspaceId: id, workDir })
   },
 
   setProject: (id, project, anchor = false) => {
@@ -243,7 +243,7 @@ export const useWorkspacesStore = create<WorkspacesState>((set, get) => ({
       ),
     }))
     if (current.workDir !== project.dir) {
-      window.pine?.lifecycle?.emit?.({
+      window.ostia?.lifecycle?.emit?.({
         type: 'workspace-added',
         workspaceId: id,
         workDir: project.dir,
@@ -335,7 +335,7 @@ export const useWorkspacesStore = create<WorkspacesState>((set, get) => ({
     }
 
     for (const s of get().workspaces) {
-      window.pine?.lifecycle?.emit?.({
+      window.ostia?.lifecycle?.emit?.({
         type: 'workspace-added',
         workspaceId: s.id,
         workDir: s.workDir,
@@ -343,7 +343,7 @@ export const useWorkspacesStore = create<WorkspacesState>((set, get) => ({
     }
     const activeWorkspaceId = get().activeWorkspaceId
     if (activeWorkspaceId) {
-      window.pine?.lifecycle?.emit?.({
+      window.ostia?.lifecycle?.emit?.({
         type: 'workspace-activated',
         workspaceId: activeWorkspaceId,
       })
@@ -356,7 +356,7 @@ export const useWorkspacesStore = create<WorkspacesState>((set, get) => ({
     set((s) => ({
       workspaces: s.workspaces.map((c) => (c.id === id ? { ...c, state } : c)),
     }))
-    window.pine?.lifecycle?.emit?.({ type: 'workspace-state', workspaceId: id, state })
+    window.ostia?.lifecycle?.emit?.({ type: 'workspace-state', workspaceId: id, state })
   },
 
   release: (id) => {
@@ -383,7 +383,7 @@ export const useWorkspacesStore = create<WorkspacesState>((set, get) => ({
       const next = normalizeGroups({ workspaces: remaining, groups: s.groups })
       return { workspaces: next.workspaces, groups: next.groups, activeWorkspaceId: targetId }
     })
-    window.pine?.lifecycle?.emit?.({ type: 'workspace-activated', workspaceId: targetId })
+    window.ostia?.lifecycle?.emit?.({ type: 'workspace-activated', workspaceId: targetId })
   },
 
   adopt: (incoming) => {
@@ -420,13 +420,13 @@ export const useWorkspacesStore = create<WorkspacesState>((set, get) => ({
     })
     useLayoutStore.getState().adopt(layouts)
     for (const { workspace } of adopted) {
-      window.pine?.lifecycle?.emit?.({
+      window.ostia?.lifecycle?.emit?.({
         type: 'workspace-added',
         workspaceId: workspace.id,
         workDir: workspace.workDir,
       })
     }
-    window.pine?.lifecycle?.emit?.({
+    window.ostia?.lifecycle?.emit?.({
       type: 'workspace-activated',
       workspaceId: adopted[adopted.length - 1].workspace.id,
     })

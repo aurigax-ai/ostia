@@ -72,7 +72,7 @@ describe('monacoThemeData', () => {
   it('names each scheme theme distinctly', () => {
     const ids = BUILTIN_COLOR_SCHEMES.map(monacoThemeId)
     expect(new Set(ids).size).toBe(ids.length)
-    expect(monacoThemeId(scheme('nord'))).toBe('pine-scheme-nord')
+    expect(monacoThemeId(scheme('nord'))).toBe('ostia-scheme-nord')
   })
 })
 

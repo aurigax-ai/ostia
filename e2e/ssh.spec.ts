@@ -16,10 +16,10 @@ interface AskedDialog {
 
 async function answerDialogsWith(app: ElectronApplication, response: number): Promise<void> {
   await app.evaluate(({ dialog }, answer) => {
-    const g = globalThis as { pineE2eAsked?: unknown[] }
-    g.pineE2eAsked = []
+    const g = globalThis as { ostiaE2eAsked?: unknown[] }
+    g.ostiaE2eAsked = []
     dialog.showMessageBox = (async (...args: unknown[]) => {
-      g.pineE2eAsked?.push(args.length > 1 ? args[1] : args[0])
+      g.ostiaE2eAsked?.push(args.length > 1 ? args[1] : args[0])
       return { response: answer, checkboxChecked: false }
     }) as typeof dialog.showMessageBox
   }, response)
@@ -27,11 +27,11 @@ async function answerDialogsWith(app: ElectronApplication, response: number): Pr
 
 function askedDialogs(app: ElectronApplication): Promise<AskedDialog[]> {
   return app.evaluate(
-    () => ((globalThis as { pineE2eAsked?: unknown[] }).pineE2eAsked ?? []) as AskedDialog[],
+    () => ((globalThis as { ostiaE2eAsked?: unknown[] }).ostiaE2eAsked ?? []) as AskedDialog[],
   )
 }
 
-test('SSH-C18 pine ssh connect asks the human, then runs ssh in a new terminal beside the caller', async () => {
+test('SSH-C18 ostia ssh connect asks the human, then runs ssh in a new terminal beside the caller', async () => {
   const dataHome = freshDataHome()
   const launch = isolatedLaunch(dataHome)
   const home = launch.env.HOME
@@ -54,18 +54,18 @@ test('SSH-C18 pine ssh connect asks the human, then runs ssh in a new terminal b
     await answerDialogsWith(app, 0)
 
     await win.locator('.xterm').first().click()
-    await win.keyboard.type('pine ssh connect db')
+    await win.keyboard.type('ostia ssh connect db')
     await win.keyboard.press('Enter')
 
     await expect(win.locator('.xterm')).toHaveCount(2, { timeout: 20_000 })
     const session = win.locator('.xterm-rows').filter({ hasText: 'fake ssh session' })
     await expect(session).toContainText('fake ssh session: -t -- db', { timeout: 20_000 })
-    const callerRows = win.locator('.xterm-rows').filter({ hasText: 'pine ssh connect db' })
+    const callerRows = win.locator('.xterm-rows').filter({ hasText: 'ostia ssh connect db' })
     await expect(callerRows).toContainText('"approved": true', { timeout: 15_000 })
     await expect(callerRows).toContainText('"command": "ssh -t -- db"')
     const callerBox = await win
       .locator('.xterm')
-      .filter({ hasText: 'pine ssh connect db' })
+      .filter({ hasText: 'ostia ssh connect db' })
       .boundingBox()
     const sessionBox = await win
       .locator('.xterm')
@@ -123,7 +123,7 @@ test('SSH-C39 a session with shell integration shows remote commands as blocks a
     const commandInput = win.getByRole('textbox', { name: 'Command input' })
     await expect(commandInput).toBeVisible({ timeout: 20_000 })
     await commandInput.click()
-    await win.keyboard.type('pine ssh connect db')
+    await win.keyboard.type('ostia ssh connect db')
     await win.keyboard.press('Enter')
 
     const sshPane = win.locator('[data-pane-id]').filter({ hasText: 'fake ssh session' })

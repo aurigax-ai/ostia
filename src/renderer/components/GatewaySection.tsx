@@ -96,8 +96,8 @@ export function GatewaySection(): JSX.Element {
 
   const refresh = useCallback(async () => {
     const [nextStatus, { devices: list }] = await Promise.all([
-      window.pine.gateway.status(),
-      window.pine.gateway.devices(),
+      window.ostia.gateway.status(),
+      window.ostia.gateway.devices(),
     ])
     setStatus(nextStatus)
     setDevices(list)
@@ -105,7 +105,7 @@ export function GatewaySection(): JSX.Element {
 
   useEffect(() => {
     void refresh()
-    void window.pine.gateway.bindOptions().then((opts) => {
+    void window.ostia.gateway.bindOptions().then((opts) => {
       setAddresses(opts.addresses)
       setHost(opts.selected)
     })
@@ -124,10 +124,10 @@ export function GatewaySection(): JSX.Element {
     setToggling(true)
     try {
       if (checked) {
-        const result = await window.pine.gateway.enable({ host })
+        const result = await window.ostia.gateway.enable({ host })
         setWarning(result.warning ?? null)
       } else {
-        await window.pine.gateway.disable()
+        await window.ostia.gateway.disable()
         setWarning(null)
         setPairResult(null)
         setQrDataUrl(null)
@@ -142,7 +142,7 @@ export function GatewaySection(): JSX.Element {
     setPairing(true)
     setCopied(false)
     try {
-      const result = await window.pine.gateway.pair()
+      const result = await window.ostia.gateway.pair()
       setPairResult(result)
       setWarning(result.warning ?? null)
       setSecondsLeft(PAIR_CODE_TTL_S)
@@ -155,12 +155,12 @@ export function GatewaySection(): JSX.Element {
   }
 
   const onRevoke = async (deviceId: string): Promise<void> => {
-    await window.pine.gateway.revoke(deviceId)
+    await window.ostia.gateway.revoke(deviceId)
     await refresh()
   }
 
   const setCap = async (deviceId: string, cap: PhoneGrantableCap, granted: boolean) => {
-    await window.pine.gateway.setCap(deviceId, cap, granted)
+    await window.ostia.gateway.setCap(deviceId, cap, granted)
     await refresh()
   }
 

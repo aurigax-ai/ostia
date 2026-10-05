@@ -32,8 +32,8 @@ function placeholders(text: string): string[] {
 
 describe('withProductName', () => {
   it('replaces every {product} placeholder', () => {
-    expect(withProductName('While {product} is focused, {product} polls', 'Pine')).toBe(
-      'While Pine is focused, Pine polls',
+    expect(withProductName('While {product} is focused, {product} polls', 'Ostia')).toBe(
+      'While Ostia is focused, Ostia polls',
     )
   })
 

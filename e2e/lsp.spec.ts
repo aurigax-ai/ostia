@@ -14,7 +14,7 @@ import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } fr
 import { PROMPT, emptyWorkspace, openWorkspace } from './helpers'
 
 const FAKE_SYSTEM_BIN = resolve(__dirname, '../test/fixtures/system/bin')
-const FAKE_LSP_PROGRAM = resolve(__dirname, '../test/fixtures/lsp/bin/pine-fake-lsp')
+const FAKE_LSP_PROGRAM = resolve(__dirname, '../test/fixtures/lsp/bin/ostia-fake-lsp')
 
 interface Launched {
   app: ElectronApplication
@@ -142,17 +142,17 @@ test('a missing program is offered for install, with the exact command shown bef
     await approveFakeLanguage(win)
     await openWorkspace(win)
     await app.evaluate(({ dialog }) => {
-      const g = globalThis as { pineE2eAsked?: unknown[] }
-      g.pineE2eAsked = []
+      const g = globalThis as { ostiaE2eAsked?: unknown[] }
+      g.ostiaE2eAsked = []
       dialog.showMessageBox = (async (...args: unknown[]) => {
-        g.pineE2eAsked?.push(args.length > 1 ? args[1] : args[0])
+        g.ostiaE2eAsked?.push(args.length > 1 ? args[1] : args[0])
         return { response: 1, checkboxChecked: false }
       }) as typeof dialog.showMessageBox
     })
     const settings = await openLanguages(win)
     const row = settings.getByRole('listitem', { name: 'Absent server' })
     await expect(row.getByTestId('language-server-status')).toHaveText(
-      'Program missing: pine-absent-lsp',
+      'Program missing: ostia-absent-lsp',
     )
     await row.getByRole('button', { name: 'Install Absent server' }).click()
     await expect
@@ -160,11 +160,11 @@ test('a missing program is offered for install, with the exact command shown bef
         () =>
           app.evaluate(
             () =>
-              JSON.stringify((globalThis as { pineE2eAsked?: unknown[] }).pineE2eAsked ?? []) ?? '',
+              JSON.stringify((globalThis as { ostiaE2eAsked?: unknown[] }).ostiaE2eAsked ?? []) ?? '',
           ),
         { timeout: 15_000 },
       )
-      .toContain('pine-absent-lsp')
+      .toContain('ostia-absent-lsp')
     await expect(win.locator('.xterm')).toHaveCount(1)
   } finally {
     await app.close()
@@ -219,7 +219,7 @@ test('switching a server off stops its process, and Restart starts a fresh one',
     await row.getByRole('button', { name: 'Show the log of Fake server' }).click()
     const log = win.getByRole('dialog').filter({ hasText: 'Log of Fake server' })
     await expect(log).toContainText('Stopping: turned off')
-    await expect(log).toContainText('Initialized pine-fake-lsp 1.0.0')
+    await expect(log).toContainText('Initialized ostia-fake-lsp 1.0.0')
     await win.keyboard.press('Escape')
     await win.keyboard.press('Escape')
     await expect(win.locator('.monaco-editor:visible .squiggly-error')).toHaveCount(0)
@@ -305,7 +305,7 @@ test('two windows showing the same folder each get their own server and their ow
       timeout: 15_000,
     })
     await detached.locator('.xterm').first().click()
-    await detached.keyboard.type('pine open two.txt')
+    await detached.keyboard.type('ostia open two.txt')
     await detached.keyboard.press('Enter')
     const second = detached.locator('.monaco-editor:visible').first()
     await expect(second).toBeVisible({ timeout: 15_000 })

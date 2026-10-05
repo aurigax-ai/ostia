@@ -11,7 +11,7 @@ const RELEASE = {
 }
 
 function answer(result: ReleaseCheckResult): void {
-  vi.mocked(window.pine.update.checkRelease).mockResolvedValue(result)
+  vi.mocked(window.ostia.update.checkRelease).mockResolvedValue(result)
 }
 
 const check = (): Promise<void> =>
@@ -42,7 +42,7 @@ describe('UpdateCheck', () => {
 
   it('disables the button while main checks, then says the app is on the latest version', async () => {
     let finish: (result: ReleaseCheckResult) => void = () => {}
-    vi.mocked(window.pine.update.checkRelease).mockReturnValue(
+    vi.mocked(window.ostia.update.checkRelease).mockReturnValue(
       new Promise((resolve) => {
         finish = resolve
       }),
@@ -66,7 +66,7 @@ describe('UpdateCheck', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'View release' }))
 
     expect(screen.getByRole('status')).toHaveTextContent('Version 1.1.0 is available')
-    expect(window.pine.update.openRelease).toHaveBeenCalledWith()
+    expect(window.ostia.update.openRelease).toHaveBeenCalledWith()
   })
 
   it.each([
@@ -84,7 +84,7 @@ describe('UpdateCheck', () => {
   })
 
   it('shows an error when the bridge call itself fails', async () => {
-    vi.mocked(window.pine.update.checkRelease).mockRejectedValue(new Error('no handler'))
+    vi.mocked(window.ostia.update.checkRelease).mockRejectedValue(new Error('no handler'))
     render(<UpdateCheck />)
 
     await check()
@@ -97,7 +97,7 @@ describe('UpdateCheck', () => {
   })
 
   it('shows a release the automatic check already found, before any manual check', async () => {
-    vi.mocked(window.pine.update.release).mockResolvedValue(RELEASE)
+    vi.mocked(window.ostia.update.release).mockResolvedValue(RELEASE)
     render(<UpdateCheck />)
     let stop = (): void => {}
     await act(async () => {
@@ -112,7 +112,7 @@ describe('UpdateCheck', () => {
   it('follows releases main announces and stops when the watch ends', () => {
     let announce: (release: typeof RELEASE | null) => void = () => {}
     const unsubscribe = vi.fn()
-    vi.mocked(window.pine.update.onRelease).mockImplementation((cb) => {
+    vi.mocked(window.ostia.update.onRelease).mockImplementation((cb) => {
       announce = cb
       return unsubscribe
     })

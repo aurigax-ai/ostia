@@ -83,7 +83,7 @@ describe('renderRegionReport', () => {
     imageHeight: 160,
     capturedAt: new Date('2026-10-01T10:00:00Z'),
   })
-  const shot = '/tmp/pine-reports-1000/capture-2-localhost-5173-cart.png'
+  const shot = '/tmp/ostia-reports-1000/capture-2-localhost-5173-cart.png'
 
   it('names the page, region, image and note, and embeds the image', () => {
     const md = renderRegionReport(capture, '  header overlaps  ', shot)

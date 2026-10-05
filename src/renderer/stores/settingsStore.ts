@@ -594,8 +594,8 @@ async function writeSettings(s: SettingsState): Promise<void> {
     sandbox: s.sandbox,
     privacy: s.privacy,
   }
-  const path = await window.pine.settings.path()
-  await window.pine.fs.write(path, `${JSON.stringify(snapshot, null, 2)}\n`)
+  const path = await window.ostia.settings.path()
+  await window.ostia.fs.write(path, `${JSON.stringify(snapshot, null, 2)}\n`)
 }
 
 const scheduleSave = debounce((get: () => SettingsState): void => {
@@ -631,8 +631,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   ...DEFAULTS,
 
   init: async () => {
-    const path = await window.pine.settings.path()
-    const raw = await window.pine.fs.read(path)
+    const path = await window.ostia.settings.path()
+    const raw = await window.ostia.fs.read(path)
     if (!raw) return
     try {
       set(parsePersisted(JSON.parse(raw) as Partial<Persisted>))
@@ -729,7 +729,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   setSandbox: async (next) => {
     set({ sandbox: next })
     await writeSettings(get())
-    await window.pine.sandbox.globalsChanged()
+    await window.ostia.sandbox.globalsChanged()
   },
   setManager: (patch) => {
     set((s) => ({ manager: parseManagerSettings({ ...s.manager, ...patch }) }))

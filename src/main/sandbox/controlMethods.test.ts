@@ -20,7 +20,7 @@ let conn: MessageConnection
 let destroy: () => void
 
 beforeAll(async () => {
-  dir = mkdtempSync(join(tmpdir(), 'pine-sbx-ctl-'))
+  dir = mkdtempSync(join(tmpdir(), 'ostia-sbx-ctl-'))
   registerSandboxMethods({
     domains: new DomainRequests({
       isSandboxed: () => true,
@@ -69,7 +69,7 @@ describe('sandbox control methods', () => {
     }
   })
 
-  it('SBX-C54 offers an agent no socket method that changes the Pine access switches', async () => {
+  it('SBX-C54 offers an agent no socket method that changes the Ostia access switches', async () => {
     for (const method of ['sandbox.set-controls', 'sandbox.controls', 'sandbox.set-domains']) {
       await refuses(method, { workspaceId: 'ws', allWorkspaces: true, browser: 'unrestricted' })
     }

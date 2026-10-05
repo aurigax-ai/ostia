@@ -274,14 +274,14 @@ export function InputEditor({
   const vimEnabled = useSettingsStore((s) => s.behavior.inputEditorVim)
   const historySuggestionsOn = useSettingsStore((s) => s.behavior.historySuggestions)
   const prompt = useSettingsStore((s) => s.terminal.prompt)
-  const pinePrompt = prompt.style === 'ostia'
+  const ostiaPrompt = prompt.style === 'ostia'
   const catalog = useChipCatalog()
-  const { chips } = usePromptChips(paneId, cwd, prompt.chips, visible && pinePrompt)
+  const { chips } = usePromptChips(paneId, cwd, prompt.chips, visible && ostiaPrompt)
   const geo = usePromptGeometry(
     termRef,
     hostRef,
     visible,
-    pinePrompt ? 'ostia' : 'shell',
+    ostiaPrompt ? 'ostia' : 'shell',
     prompt.sameLine,
   )
   const promptLine = useBlocksStore((s) => s.drafts[paneId]?.promptLine)
@@ -388,13 +388,13 @@ export function InputEditor({
   useEffect(() => {
     if (!visible || !promptLine) return
     let live = true
-    window.pine.pty
+    window.ostia.pty
       .commands(paneId)
       .then((names) => {
         if (live) setCommands(names.length > 0 ? names : null)
       })
       .catch(() => {})
-    window.pine.pty
+    window.ostia.pty
       .localPrompt(paneId)
       .then((local) => {
         if (live) setLocalPrompt(local)
@@ -534,7 +534,7 @@ export function InputEditor({
   const loadSpec = (command: string): Promise<SpecCommand | null> => {
     const known = specs.current.get(command)
     if (known) return known
-    const loading = window.pine.completions.spec(command).catch(() => null)
+    const loading = window.ostia.completions.spec(command).catch(() => null)
     specs.current.set(command, loading)
     return loading
   }
@@ -553,7 +553,7 @@ export function InputEditor({
       ? Promise.resolve(commandCandidates(commands ?? [], recentCommands(history)))
       : argumentCandidates(draft, caret, cwd ?? '~', {
           spec: loadSpec,
-          list: (p) => window.pine.pty.listDir(paneId, p),
+          list: (p) => window.ostia.pty.listDir(paneId, p),
         })
 
   const relist = async (draft: string, caret: number): Promise<void> => {
@@ -998,7 +998,7 @@ export function InputEditor({
         } as CSSProperties
       }
     >
-      {pinePrompt && !prompt.sameLine ? (
+      {ostiaPrompt && !prompt.sameLine ? (
         <div
           className="input-editor-chips"
           data-placed={chipsBox ? 'true' : undefined}
@@ -1100,7 +1100,7 @@ export function InputEditor({
             )}
           </div>
         ) : null}
-        {pinePrompt && prompt.sameLine ? chipRow(true) : null}
+        {ostiaPrompt && prompt.sameLine ? chipRow(true) : null}
         {withGhostMenu(
           <div
             className="input-editor-field"

@@ -57,17 +57,17 @@ describe('needsSandboxRestart', () => {
 
 describe('sandboxStore', () => {
   it('reads the workspace stamp with its settings and compares it with the stamp a pane spawned under', async () => {
-    vi.mocked(window.pine.sandbox.get).mockResolvedValue({
+    vi.mocked(window.ostia.sandbox.get).mockResolvedValue({
       enabled: true,
       allowRead: [],
       domains: [],
       controls: {},
     })
-    vi.mocked(window.pine.sandbox.stamp).mockResolvedValue('s1')
+    vi.mocked(window.ostia.sandbox.stamp).mockResolvedValue('s1')
     await useSandboxStore.getState().load('ws')
     useSandboxStore.getState().notePane('p', true, 's1')
     expect(needsSandboxRestart(useSandboxStore.getState(), 'ws', 'p')).toBe(false)
-    vi.mocked(window.pine.sandbox.stamp).mockResolvedValue('s2')
+    vi.mocked(window.ostia.sandbox.stamp).mockResolvedValue('s2')
     await useSandboxStore.getState().reloadAll()
     expect(needsSandboxRestart(useSandboxStore.getState(), 'ws', 'p')).toBe(true)
   })
@@ -79,16 +79,16 @@ describe('sandboxStore', () => {
       paneSandboxed: { p: true },
       paneStamp: { p: 's1' },
     })
-    vi.mocked(window.pine.pty.restart).mockResolvedValue(true)
+    vi.mocked(window.ostia.pty.restart).mockResolvedValue(true)
     await useSandboxStore.getState().restart('p')
     expect(useSandboxStore.getState().paneStamp.p).toBeUndefined()
     expect(needsSandboxRestart(useSandboxStore.getState(), 'ws', 'p')).toBe(false)
   })
 
   it('shows the missing-software dialog only when main says programs are missing', async () => {
-    vi.mocked(window.pine.sandbox.setEnabled).mockResolvedValue({ ok: false, reason: 'not-owned' })
+    vi.mocked(window.ostia.sandbox.setEnabled).mockResolvedValue({ ok: false, reason: 'not-owned' })
     await useSandboxStore.getState().setEnabled('ws', true)
-    expect(window.pine.system.requirements).not.toHaveBeenCalled()
+    expect(window.ostia.system.requirements).not.toHaveBeenCalled()
     expect(useSandboxStore.getState().blocked).toBeNull()
     expect(useSandboxStore.getState().refusedFolder).toBeNull()
   })

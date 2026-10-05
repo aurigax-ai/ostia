@@ -92,7 +92,7 @@ describe('QuestionCard', () => {
     await user.type(screen.getByLabelText('Reply'), 'staging, prod has no window yet')
     expect(send).toBeEnabled()
     await user.click(send)
-    expect(window.pine.questions.answer).toHaveBeenCalledWith('question-1', {
+    expect(window.ostia.questions.answer).toHaveBeenCalledWith('question-1', {
       choices: [],
       text: 'staging, prod has no window yet',
     })
@@ -109,7 +109,7 @@ describe('QuestionCard', () => {
     await user.click(screen.getByRole('radio', { name: 'production' }))
     await user.type(comment, 'after the backup')
     await user.click(screen.getByRole('button', { name: 'Send' }))
-    expect(window.pine.questions.answer).toHaveBeenCalledWith('question-1', {
+    expect(window.ostia.questions.answer).toHaveBeenCalledWith('question-1', {
       choices: [1],
       text: 'after the backup',
     })
@@ -125,7 +125,7 @@ describe('QuestionCard', () => {
 
     await user.type(screen.getByLabelText('Comment or reply'), 'neither, use the replica')
     await user.click(screen.getByRole('button', { name: 'Send' }))
-    expect(window.pine.questions.answer).toHaveBeenCalledWith('question-1', {
+    expect(window.ostia.questions.answer).toHaveBeenCalledWith('question-1', {
       choices: [],
       text: 'neither, use the replica',
     })
@@ -142,7 +142,7 @@ describe('QuestionCard', () => {
     await user.click(screen.getByRole('checkbox', { name: 'unit' }))
     await user.click(screen.getByRole('checkbox', { name: 'unit' }))
     await user.click(screen.getByRole('button', { name: 'Send' }))
-    expect(window.pine.questions.answer).toHaveBeenCalledWith('question-1', {
+    expect(window.ostia.questions.answer).toHaveBeenCalledWith('question-1', {
       choices: [0, 2],
       text: '',
     })
@@ -153,7 +153,7 @@ describe('QuestionCard', () => {
     show(question())
     await user.type(screen.getByLabelText('Reply'), 'go ahead')
     await user.keyboard('{Control>}{Enter}{/Control}')
-    expect(window.pine.questions.answer).toHaveBeenCalledWith('question-1', {
+    expect(window.ostia.questions.answer).toHaveBeenCalledWith('question-1', {
       choices: [],
       text: 'go ahead',
     })
@@ -162,8 +162,8 @@ describe('QuestionCard', () => {
   it('dismisses through main without sending an answer', async () => {
     show(SINGLE)
     await userEvent.setup().click(screen.getByRole('button', { name: 'Dismiss' }))
-    expect(window.pine.questions.dismiss).toHaveBeenCalledWith('question-1')
-    expect(window.pine.questions.answer).not.toHaveBeenCalled()
+    expect(window.ostia.questions.dismiss).toHaveBeenCalledWith('question-1')
+    expect(window.ostia.questions.answer).not.toHaveBeenCalled()
   })
 
   it('keeps the draft when the dashboard is closed and opened again', async () => {

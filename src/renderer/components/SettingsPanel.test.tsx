@@ -475,7 +475,7 @@ describe('SettingsPanel', () => {
     expect(screen.getByTestId('accent-custom')).toHaveAttribute('data-selected', 'true')
   })
 
-  it('links the terminal colors to the pine theme until the match switch is turned off', async () => {
+  it('links the terminal colors to the ostia theme until the match switch is turned off', async () => {
     useSettingsStore.setState((s) => ({ appearance: { ...s.appearance, theme: 'dracula' } }))
     renderSettings()
     const user = userEvent.setup()

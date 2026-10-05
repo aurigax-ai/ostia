@@ -39,7 +39,7 @@ function connectOnce(path: string): Promise<Socket | null> {
   })
 }
 
-function launchPine(appBin: string, env: NodeJS.ProcessEnv): void {
+function launchOstia(appBin: string, env: NodeJS.ProcessEnv): void {
   const { ELECTRON_RUN_AS_NODE: _node, ...rest } = env
   spawn(appBin, ['--hidden'], { detached: true, stdio: 'ignore', env: rest }).unref()
 }
@@ -47,7 +47,7 @@ function launchPine(appBin: string, env: NodeJS.ProcessEnv): void {
 export async function connectPortal(
   path: string,
   env: NodeJS.ProcessEnv,
-  launch: (appBin: string, env: NodeJS.ProcessEnv) => void = launchPine,
+  launch: (appBin: string, env: NodeJS.ProcessEnv) => void = launchOstia,
   timeoutMs = START_TIMEOUT_MS,
 ): Promise<Socket | string> {
   const first = await connectOnce(path)

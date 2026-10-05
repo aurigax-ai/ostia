@@ -88,7 +88,7 @@ export function insertCommand(paneId: string, command: string, execute = false):
     return true
   }
   term.paste(command)
-  if (execute) window.pine.pty.write(paneId, '\r')
+  if (execute) window.ostia.pty.write(paneId, '\r')
   term.focus()
   return true
 }

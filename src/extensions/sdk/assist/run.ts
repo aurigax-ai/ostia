@@ -1,4 +1,4 @@
-import { type PineExtension, connect } from '..'
+import { type OstiaExtension, connect } from '..'
 import type { AssistProviderEntry } from '../../../shared/assist'
 import type { ExtensionSettingValues } from '../../../shared/extensions'
 import type { ProviderCatalog } from './provider'
@@ -9,7 +9,7 @@ export interface AssistExtensionOptions {
   provider?: string
 }
 
-async function publish(ext: PineExtension, service: AssistantService): Promise<void> {
+async function publish(ext: OstiaExtension, service: AssistantService): Promise<void> {
   await ext.setAssistStatus(service.report()).catch(() => undefined)
 }
 

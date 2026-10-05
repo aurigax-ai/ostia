@@ -44,7 +44,7 @@ async function registryPublishedAt(pkg: PackageRef): Promise<number | null> {
     }
     if (pkg.ecosystem === 'crates.io') {
       const body = (await getJson(`https://crates.io/api/v1/crates/${pkg.name}/${pkg.version}`, {
-        headers: { 'user-agent': 'pine-sandbox (package cooldown check)' },
+        headers: { 'user-agent': 'ostia-sandbox (package cooldown check)' },
       })) as { version?: { created_at?: string } }
       const at = body.version?.created_at
       return at ? Date.parse(at) : null

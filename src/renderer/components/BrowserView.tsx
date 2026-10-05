@@ -51,7 +51,7 @@ function useGrantedProfile(
   const [granted, setGranted] = useState<BrowserProfile | null>(null)
   useEffect(() => {
     let live = true
-    const claim = window.pine?.browser?.claimProfile
+    const claim = window.ostia?.browser?.claimProfile
     const answer = claim ? claim(paneId, requested) : Promise.resolve<BrowserProfile>('isolated')
     void answer
       .catch((): BrowserProfile => 'isolated')
@@ -201,14 +201,14 @@ export function BrowserView({
     const onDomReady = (): void => {
       readyRef.current = true
       withGuest((wv) => wv.setZoomFactor(useSettingsStore.getState().browser.defaultZoom / 100))
-      withGuest((wv) => window.pine?.browser?.register?.(paneId, wv.getWebContentsId()))
+      withGuest((wv) => window.ostia?.browser?.register?.(paneId, wv.getWebContentsId()))
       const pending = pendingUrlRef.current
       if (pending) load(pending)
     }
     el.addEventListener('dom-ready', onDomReady)
     return () => {
       el.removeEventListener('dom-ready', onDomReady)
-      window.pine?.browser?.unregister?.(paneId)
+      window.ostia?.browser?.unregister?.(paneId)
     }
   }, [paneId, withGuest, load, partition])
 
@@ -300,7 +300,7 @@ export function BrowserView({
 
   useEffect(
     () =>
-      window.pine?.browser?.onPickState?.((state) => {
+      window.ostia?.browser?.onPickState?.((state) => {
         if (state.paneId !== paneId) return
         setPicking(state.active ? { byAgent: state.byAgent } : null)
       }),
@@ -314,7 +314,7 @@ export function BrowserView({
   }, [status])
 
   const startCrop = useCallback((): void => {
-    window.pine.browser.pickCancel(paneId)
+    window.ostia.browser.pickCancel(paneId)
     setCapture(null)
     setRegion(null)
     setStatus(null)
@@ -325,14 +325,14 @@ export function BrowserView({
 
   const finishCrop = async (rect: PickBox, view: RegionView): Promise<void> => {
     setCropping(false)
-    const outcome = await window.pine.browser.regionCapture(paneId, { rect, view })
+    const outcome = await window.ostia.browser.regionCapture(paneId, { rect, view })
     if (outcome.ok) setRegion(outcome.capture)
     else setStatus(fmt(d.browser.regionFailed, { reason: outcome.error }))
   }
 
   const copyRegion = async (): Promise<void> => {
     if (!region) return
-    const res = await window.pine.browser.regionCopy(paneId, region.id)
+    const res = await window.ostia.browser.regionCopy(paneId, region.id)
     if (res.ok) {
       setRegion(null)
       setStatus(d.browser.imageCopied)
@@ -343,7 +343,7 @@ export function BrowserView({
 
   const togglePick = async (): Promise<void> => {
     if (picking) {
-      window.pine.browser.pickCancel(paneId)
+      window.ostia.browser.pickCancel(paneId)
       return
     }
     setCapture(null)
@@ -352,7 +352,7 @@ export function BrowserView({
     setStatus(null)
     setPicking({ byAgent: false })
     withGuest((wv) => wv.focus())
-    const outcome = await window.pine.browser.pickStart(paneId, pickTheme())
+    const outcome = await window.ostia.browser.pickStart(paneId, pickTheme())
     setPicking(null)
     if (outcome.ok) setCapture(outcome.capture)
     else if (outcome.error !== 'cancelled' && outcome.error !== 'busy') {

@@ -8,17 +8,17 @@ const SHELLS = [
   {
     shell: '/usr/bin/zsh',
     rc: '.zshrc',
-    body: "export VIRTUAL_ENV=\"$HOME/.venv-pine\"\nPROMPT='fancy_left❯ '\nRPROMPT='fancy_right'\n",
+    body: "export VIRTUAL_ENV=\"$HOME/.venv-ostia\"\nPROMPT='fancy_left❯ '\nRPROMPT='fancy_right'\n",
   },
   {
     shell: '/usr/bin/bash',
     rc: '.bashrc',
-    body: 'export VIRTUAL_ENV="$HOME/.venv-pine"\nPS1=\'fancy_left❯ \'\n',
+    body: 'export VIRTUAL_ENV="$HOME/.venv-ostia"\nPS1=\'fancy_left❯ \'\n',
   },
 ]
 
 for (const { shell, rc, body } of SHELLS) {
-  test(`the Pine prompt shows chips in the input editor and a plain ${rc} prompt in the pty`, async () => {
+  test(`the Ostia prompt shows chips in the input editor and a plain ${rc} prompt in the pty`, async () => {
     test.setTimeout(90_000)
     const dataHome = freshDataHome()
     const home = join(dataHome, 'home')
@@ -50,7 +50,7 @@ for (const { shell, rc, body } of SHELLS) {
       const input = win.getByRole('textbox', { name: 'Command input' })
 
       await expect(input).toBeVisible({ timeout: 15_000 })
-      await expect(chips.getByLabel('Python virtualenv: .venv-pine')).toBeVisible({
+      await expect(chips.getByLabel('Python virtualenv: .venv-ostia')).toBeVisible({
         timeout: 15_000,
       })
       await expect(chips.getByLabel('Working directory: ~')).toBeVisible()

@@ -45,7 +45,7 @@ function fakeTerm(): Xterm & { paste: ReturnType<typeof vi.fn> } {
 type Handler = (point: AssistPoint, input: AssistRequests[AssistPoint]) => Promise<unknown>
 
 function answer(handler: Handler): void {
-  vi.mocked(window.pine.assist.request).mockImplementation(((
+  vi.mocked(window.ostia.assist.request).mockImplementation(((
     point: AssistPoint,
     _id: string,
     input: AssistRequests[AssistPoint],
@@ -82,9 +82,9 @@ describe('AssistComposer', () => {
     useBlocksStore.setState(blocksInit, true)
     useAssistComposerStore.setState({ paneId: null })
     useAssistStore.setState({ availability: {} })
-    vi.mocked(window.pine.assist.request).mockReset()
-    vi.mocked(window.pine.assist.cancel).mockClear()
-    vi.mocked(window.pine.pty.write).mockClear()
+    vi.mocked(window.ostia.assist.request).mockReset()
+    vi.mocked(window.ostia.assist.cancel).mockClear()
+    vi.mocked(window.ostia.pty.write).mockClear()
   })
 
   it('switches typo fix and prompt review from its header', async () => {
@@ -113,7 +113,7 @@ describe('AssistComposer', () => {
     mount(term)
     await userEvent.type(screen.getByRole('textbox', { name: 'Prompt for claude' }), 'fix teh bug')
     await new Promise((r) => setTimeout(r, 900))
-    expect(window.pine.assist.request).not.toHaveBeenCalled()
+    expect(window.ostia.assist.request).not.toHaveBeenCalled()
     await userEvent.click(screen.getByRole('switch', { name: 'Typo fix' }))
     expect(setSetting).toHaveBeenCalledWith('assistant', 'typos', true)
     await userEvent.click(screen.getByRole('switch', { name: 'Prompt review' }))
@@ -136,7 +136,7 @@ describe('AssistComposer', () => {
     await userEvent.keyboard('{Tab}')
     expect(area).toHaveValue('fix the bug')
     expect(screen.queryByTestId('assist-typo-fix')).toBeNull()
-    expect(window.pine.assist.request).toHaveBeenCalledWith(
+    expect(window.ostia.assist.request).toHaveBeenCalledWith(
       'input',
       expect.any(String),
       expect.objectContaining({ text: 'fix teh bug', tasks: ['typos'], agent: 'claude' }),
@@ -144,7 +144,7 @@ describe('AssistComposer', () => {
   })
 
   it('says how many secrets will be taken out of the prompt before it is sent for a typo check', async () => {
-    vi.mocked(window.pine.privacy.redact).mockImplementation(async (texts) =>
+    vi.mocked(window.ostia.privacy.redact).mockImplementation(async (texts) =>
       texts.map((text) => {
         const count = text.split('SECRET').length - 1
         return { text: text.replaceAll('SECRET', '[redacted:test]'), count, kinds: {} }
@@ -159,13 +159,13 @@ describe('AssistComposer', () => {
     expect(await screen.findByTestId('assist-redaction-count', {}, WAIT)).toHaveTextContent(
       '2 secrets are not sent to the assistant',
     )
-    vi.mocked(window.pine.privacy.redact).mockImplementation(async (texts) =>
+    vi.mocked(window.ostia.privacy.redact).mockImplementation(async (texts) =>
       texts.map((text) => ({ text, count: 0, kinds: {} })),
     )
   })
 
   it('says how many secrets will be taken out of a command description', async () => {
-    vi.mocked(window.pine.privacy.redact).mockImplementation(async (texts) =>
+    vi.mocked(window.ostia.privacy.redact).mockImplementation(async (texts) =>
       texts.map((text) => ({ text, count: text.includes('SECRET') ? 1 : 0, kinds: {} })),
     )
     agentState.agent = null
@@ -178,7 +178,7 @@ describe('AssistComposer', () => {
     expect(await screen.findByTestId('assist-redaction-count', {}, WAIT)).toHaveTextContent(
       '1 secret is not sent to the assistant',
     )
-    vi.mocked(window.pine.privacy.redact).mockImplementation(async (texts) =>
+    vi.mocked(window.ostia.privacy.redact).mockImplementation(async (texts) =>
       texts.map((text) => ({ text, count: 0, kinds: {} })),
     )
   })
@@ -207,7 +207,7 @@ describe('AssistComposer', () => {
     await userEvent.type(screen.getByRole('textbox'), 'refactor the parser')
     await userEvent.keyboard('{Enter}')
     expect(term.paste).toHaveBeenCalledWith('refactor the parser')
-    expect(window.pine.pty.write).not.toHaveBeenCalled()
+    expect(window.ostia.pty.write).not.toHaveBeenCalled()
     expect(useAssistComposerStore.getState().paneId).toBeNull()
     expect(term.focus).toHaveBeenCalled()
   })
@@ -234,10 +234,10 @@ describe('AssistComposer', () => {
     mount(term)
     const area = screen.getByRole('textbox')
     await userEvent.type(area, 'first draft')
-    await waitFor(() => expect(window.pine.assist.request).toHaveBeenCalledTimes(1), WAIT)
-    const firstId = vi.mocked(window.pine.assist.request).mock.calls[0][1]
+    await waitFor(() => expect(window.ostia.assist.request).toHaveBeenCalledTimes(1), WAIT)
+    const firstId = vi.mocked(window.ostia.assist.request).mock.calls[0][1]
     await userEvent.type(area, ' more')
-    expect(window.pine.assist.cancel).toHaveBeenCalledWith(firstId)
+    expect(window.ostia.assist.cancel).toHaveBeenCalledWith(firstId)
   })
 
   it('inserts a chosen command suggestion at an idle prompt without running it', async () => {
@@ -257,14 +257,14 @@ describe('AssistComposer', () => {
     const area = screen.getByRole('textbox', { name: 'Describe a command' })
     await userEvent.type(area, 'biggest folders here')
     expect(await screen.findByText('du -sh * | sort -h', {}, WAIT)).toBeInTheDocument()
-    expect(window.pine.assist.request).toHaveBeenCalledWith(
+    expect(window.ostia.assist.request).toHaveBeenCalledWith(
       'command',
       expect.any(String),
       expect.objectContaining({ query: 'biggest folders here', cwd: '/home/u/proj' }),
     )
     await userEvent.keyboard('{Enter}')
     expect(term.paste).toHaveBeenCalledWith('du -sh * | sort -h')
-    expect(window.pine.pty.write).not.toHaveBeenCalled()
+    expect(window.ostia.pty.write).not.toHaveBeenCalled()
     expect(useAssistComposerStore.getState().paneId).toBeNull()
   })
 

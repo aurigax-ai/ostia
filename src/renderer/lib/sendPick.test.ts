@@ -17,8 +17,8 @@ import {
 import { registerTerminal } from './terminalHandles'
 
 const TARGET = 'pane-agent'
-const REPORT = '/tmp/pine-reports-1000/capture-3.md'
-const SHOT = '/tmp/pine-reports-1000/pick-1.png'
+const REPORT = '/tmp/ostia-reports-1000/capture-3.md'
+const SHOT = '/tmp/ostia-reports-1000/pick-1.png'
 
 const capture: PickCapture = {
   id: 'pick-1',
@@ -55,7 +55,7 @@ beforeEach(() => {
   unregister = registerTerminal(TARGET, term as unknown as Terminal)
   vi.spyOn(document, 'hasFocus').mockReturnValue(false)
   Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
-  vi.mocked(window.pine.browser.pickSend).mockResolvedValue({
+  vi.mocked(window.ostia.browser.pickSend).mockResolvedValue({
     ok: true,
     path: REPORT,
     imagePath: null,
@@ -90,7 +90,7 @@ describe('sendPickToPane', () => {
   it('asks main for the report with the capture id, source, target and note', async () => {
     idlePrompt()
     await send()
-    expect(window.pine.browser.pickSend).toHaveBeenCalledWith({
+    expect(window.ostia.browser.pickSend).toHaveBeenCalledWith({
       captureId: 'pick-1',
       sourcePaneId: 'pane-browser',
       targetPaneId: TARGET,
@@ -103,7 +103,7 @@ describe('sendPickToPane', () => {
     const res = await send()
     expect(res).toEqual({ ok: true, path: REPORT, inserted: true })
     expect(term.paste).toHaveBeenCalledWith(`@${REPORT} `)
-    expect(window.pine.pty.write).not.toHaveBeenCalled()
+    expect(window.ostia.pty.write).not.toHaveBeenCalled()
     expect(writeText).not.toHaveBeenCalled()
   })
 
@@ -146,7 +146,7 @@ describe('sendPickToPane', () => {
 
   it('inserts the screenshot as a second reference after the report when the setting is on', async () => {
     idlePrompt()
-    vi.mocked(window.pine.browser.pickSend).mockResolvedValue({
+    vi.mocked(window.ostia.browser.pickSend).mockResolvedValue({
       ok: true,
       path: REPORT,
       imagePath: SHOT,
@@ -158,7 +158,7 @@ describe('sendPickToPane', () => {
   it('inserts only the report when the setting is off or there is no screenshot', async () => {
     idlePrompt()
     await send()
-    vi.mocked(window.pine.browser.pickSend).mockResolvedValue({
+    vi.mocked(window.ostia.browser.pickSend).mockResolvedValue({
       ok: true,
       path: REPORT,
       imagePath: SHOT,
@@ -169,7 +169,7 @@ describe('sendPickToPane', () => {
 
   it('copies both references when the pane is busy', async () => {
     running()
-    vi.mocked(window.pine.browser.pickSend).mockResolvedValue({
+    vi.mocked(window.ostia.browser.pickSend).mockResolvedValue({
       ok: true,
       path: REPORT,
       imagePath: SHOT,
@@ -180,7 +180,7 @@ describe('sendPickToPane', () => {
 
   it('touches nothing when main refuses the report', async () => {
     idlePrompt()
-    vi.mocked(window.pine.browser.pickSend).mockResolvedValue({
+    vi.mocked(window.ostia.browser.pickSend).mockResolvedValue({
       ok: false,
       error: 'capture-expired',
     })
@@ -201,8 +201,8 @@ describe('sendRegionToPane', () => {
     imageHeight: 80,
     capturedAt: '2026-10-01T00:00:00.000Z',
   }
-  const REGION_REPORT = '/tmp/pine-reports-1000/capture-4-localhost.md'
-  const REGION_SHOT = '/tmp/pine-reports-1000/capture-4-localhost.png'
+  const REGION_REPORT = '/tmp/ostia-reports-1000/capture-4-localhost.md'
+  const REGION_SHOT = '/tmp/ostia-reports-1000/capture-4-localhost.png'
   const sendRegion = (attachImage: boolean) =>
     sendRegionToPane({
       capture: region,
@@ -213,7 +213,7 @@ describe('sendRegionToPane', () => {
     })
 
   beforeEach(() => {
-    vi.mocked(window.pine.browser.regionSend).mockResolvedValue({
+    vi.mocked(window.ostia.browser.regionSend).mockResolvedValue({
       ok: true,
       path: REGION_REPORT,
       imagePath: REGION_SHOT,
@@ -223,7 +223,7 @@ describe('sendRegionToPane', () => {
   it('asks main for the report of the region capture and pastes report and image', async () => {
     idlePrompt()
     const res = await sendRegion(true)
-    expect(window.pine.browser.regionSend).toHaveBeenCalledWith({
+    expect(window.ostia.browser.regionSend).toHaveBeenCalledWith({
       captureId: 'region-1',
       sourcePaneId: 'pane-browser',
       targetPaneId: TARGET,
@@ -231,7 +231,7 @@ describe('sendRegionToPane', () => {
     })
     expect(res).toEqual({ ok: true, path: REGION_REPORT, inserted: true })
     expect(term.paste).toHaveBeenCalledWith(`@${REGION_REPORT} @${REGION_SHOT} `)
-    expect(window.pine.pty.write).not.toHaveBeenCalled()
+    expect(window.ostia.pty.write).not.toHaveBeenCalled()
   })
 
   it('pastes only the report with the setting off', async () => {
@@ -242,7 +242,7 @@ describe('sendRegionToPane', () => {
 })
 
 describe('sendSelectionToPane', () => {
-  const SELECTION_REPORT = '/tmp/pine-reports-1000/selection-2.md'
+  const SELECTION_REPORT = '/tmp/ostia-reports-1000/selection-2.md'
   const selection: SelectionCapture = {
     kind: 'text',
     file: '/w/src/app.ts',
@@ -261,7 +261,7 @@ describe('sendSelectionToPane', () => {
     })
 
   beforeEach(() => {
-    vi.mocked(window.pine.selection.send).mockResolvedValue({
+    vi.mocked(window.ostia.selection.send).mockResolvedValue({
       ok: true,
       path: SELECTION_REPORT,
       imagePath: null,
@@ -272,7 +272,7 @@ describe('sendSelectionToPane', () => {
     idlePrompt()
     const png = new Uint8Array([1, 2, 3])
     await sendSelection('explain', png)
-    expect(window.pine.selection.send).toHaveBeenCalledWith({
+    expect(window.ostia.selection.send).toHaveBeenCalledWith({
       capture: selection,
       image: png,
       sourcePaneId: 'pane-editor',
@@ -286,7 +286,7 @@ describe('sendSelectionToPane', () => {
     const res = await sendSelection()
     expect(res).toEqual({ ok: true, path: SELECTION_REPORT, imagePath: null, inserted: true })
     expect(term.paste).toHaveBeenCalledWith(`@${SELECTION_REPORT} `)
-    expect(window.pine.pty.write).not.toHaveBeenCalled()
+    expect(window.ostia.pty.write).not.toHaveBeenCalled()
   })
 
   it('copies the reference when the target is busy', async () => {
@@ -305,7 +305,7 @@ describe('sendSelectionToPane', () => {
 
   it('touches nothing when main refuses the report', async () => {
     idlePrompt()
-    vi.mocked(window.pine.selection.send).mockResolvedValue({ ok: false, error: 'invalid' })
+    vi.mocked(window.ostia.selection.send).mockResolvedValue({ ok: false, error: 'invalid' })
     expect(await sendSelection()).toEqual({ ok: false, error: 'invalid' })
     expect(term.paste).not.toHaveBeenCalled()
     expect(useAttentionStore.getState().byPane[TARGET]).toBeUndefined()
@@ -316,7 +316,7 @@ describe('a target in the origin workspace of another window', () => {
   const REMOTE = 'pane-far-agent'
 
   it('asks main to insert the reference and never pastes or signals in this window', async () => {
-    vi.mocked(window.pine.windows.insertReference).mockResolvedValue(true)
+    vi.mocked(window.ostia.windows.insertReference).mockResolvedValue(true)
 
     const res = await sendPickToPane({
       capture,
@@ -328,7 +328,7 @@ describe('a target in the origin workspace of another window', () => {
     })
 
     expect(res).toEqual({ ok: true, path: REPORT, inserted: true })
-    expect(window.pine.windows.insertReference).toHaveBeenCalledWith({
+    expect(window.ostia.windows.insertReference).toHaveBeenCalledWith({
       workspaceId: 'w-moved',
       paneId: REMOTE,
       text: `@${REPORT} `,
@@ -340,7 +340,7 @@ describe('a target in the origin workspace of another window', () => {
   })
 
   it('copies the reference when the owning window could not insert it', async () => {
-    vi.mocked(window.pine.windows.insertReference).mockResolvedValue(false)
+    vi.mocked(window.ostia.windows.insertReference).mockResolvedValue(false)
 
     const res = await sendPickToPane({
       capture,
@@ -356,14 +356,14 @@ describe('a target in the origin workspace of another window', () => {
   })
 
   it('sends a file path and chat text through main without a note', async () => {
-    vi.mocked(window.pine.windows.insertReference).mockResolvedValue(true)
+    vi.mocked(window.ostia.windows.insertReference).mockResolvedValue(true)
 
     expect(await insertPathReference({ paneId: REMOTE, via: 'w-moved' }, '/w/src/app.ts')).toBe(
       true,
     )
     expect(await sendReference({ paneId: REMOTE, via: 'w-moved' }, 'pnpm test')).toBe(true)
 
-    expect(vi.mocked(window.pine.windows.insertReference).mock.calls).toEqual([
+    expect(vi.mocked(window.ostia.windows.insertReference).mock.calls).toEqual([
       [{ workspaceId: 'w-moved', paneId: REMOTE, text: '@/w/src/app.ts ' }],
       [{ workspaceId: 'w-moved', paneId: REMOTE, text: 'pnpm test' }],
     ])
@@ -375,7 +375,7 @@ describe('a target in the origin workspace of another window', () => {
     expect(await insertPathReference({ paneId: TARGET }, '/w/src/app.ts')).toBe(true)
 
     expect(term.paste).toHaveBeenCalledWith('@/w/src/app.ts ')
-    expect(window.pine.windows.insertReference).not.toHaveBeenCalled()
+    expect(window.ostia.windows.insertReference).not.toHaveBeenCalled()
   })
 })
 
@@ -389,7 +389,7 @@ describe('receiveReference', () => {
     expect(receiveReference(insert)).toBe(true)
 
     expect(term.paste).toHaveBeenCalledWith('@/tmp/r.md ')
-    expect(window.pine.pty.write).not.toHaveBeenCalled()
+    expect(window.ostia.pty.write).not.toHaveBeenCalled()
     expect(useAttentionStore.getState().byPane[TARGET]).toMatchObject({
       state: 'working',
       message: 'look',

@@ -130,7 +130,7 @@ describe('McpHost against the fake stdio MCP server', () => {
   it('shows an error when the server exits or cannot start', async () => {
     const { host } = start([
       server(),
-      server({ name: 'missing', command: ['/nonexistent/pine-mcp-server'] }),
+      server({ name: 'missing', command: ['/nonexistent/ostia-mcp-server'] }),
     ])
     host.refresh()
     await waitFor(host, 'fake', 'ready')

@@ -187,7 +187,7 @@ describe('assist toggle commands', () => {
 
 describe('shortcut reporting', () => {
   it('reports the default composer chord to main', () => {
-    const report = vi.mocked(window.pine.assist.reportShortcuts)
+    const report = vi.mocked(window.ostia.assist.reportShortcuts)
     report.mockClear()
     const stop = startShortcutReporting()
     expect(report).toHaveBeenCalledTimes(1)

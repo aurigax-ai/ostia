@@ -12,7 +12,7 @@ async function listen(
   const server = createServer((req, res) => {
     onRequest(req.url ?? '')
     res.setHeader('content-type', 'text/html')
-    res.end('<title>Pine settings page</title><h1>hello</h1>')
+    res.end('<title>Ostia settings page</title><h1>hello</h1>')
   })
   await new Promise<void>((ready) => server.listen(0, '127.0.0.1', ready))
   return { port: (server.address() as AddressInfo).port, close: () => server.close() }
@@ -49,13 +49,13 @@ test('the address bar searches with the chosen engine template', async () => {
     await openWorkspace(win)
     await win.getByRole('button', { name: 'New browser tab' }).click()
     const address = win.locator('.pane-slot:not([data-hidden]) .browser-address')
-    await address.fill('hello pine world')
+    await address.fill('hello ostia world')
     await address.press('Enter')
     await expect
       .poll(() => requests, { timeout: 15_000 })
-      .toContain('/find?term=hello%20pine%20world')
+      .toContain('/find?term=hello%20ostia%20world')
     await expect(address).toHaveValue(
-      `http://127.0.0.1:${server.port}/find?term=hello%20pine%20world`,
+      `http://127.0.0.1:${server.port}/find?term=hello%20ostia%20world`,
     )
   } finally {
     await app.close()

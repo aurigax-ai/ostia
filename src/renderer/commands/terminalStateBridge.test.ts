@@ -25,7 +25,7 @@ describe('wireTerminalStateBridge', () => {
 
   beforeEach(() => {
     vi.useFakeTimers()
-    vi.mocked(window.pine.terminalState.push).mockClear()
+    vi.mocked(window.ostia.terminalState.push).mockClear()
   })
 
   afterEach(() => {
@@ -35,11 +35,11 @@ describe('wireTerminalStateBridge', () => {
     vi.useRealTimers()
   })
 
-  it('GUARD: does not subscribe when window.pine.terminalState is undefined', () => {
+  it('GUARD: does not subscribe when window.ostia.terminalState is undefined', () => {
     const blocksSubscribe = vi.spyOn(useBlocksStore, 'subscribe')
     const layoutSubscribe = vi.spyOn(useLayoutStore, 'subscribe')
     try {
-      Reflect.set(window.pine, 'terminalState', undefined)
+      Reflect.set(window.ostia, 'terminalState', undefined)
 
       expect(() => wireTerminalStateBridge()).not.toThrow()
 
@@ -52,7 +52,7 @@ describe('wireTerminalStateBridge', () => {
   })
 
   it('SSH-C61 sends the remote folder a pane reported, and drops it after a local report', () => {
-    const push = vi.mocked(window.pine.terminalState.push)
+    const push = vi.mocked(window.ostia.terminalState.push)
     wireTerminalStateBridge()
     seedPaneCwd('s1', 'pane-r', '/home/me')
     vi.advanceTimersByTime(100)
@@ -75,7 +75,7 @@ describe('wireTerminalStateBridge', () => {
   })
 
   it('pushes a debounced snapshot 100ms after a blocksStore mutation, matching store state', () => {
-    const push = vi.mocked(window.pine.terminalState.push)
+    const push = vi.mocked(window.ostia.terminalState.push)
     wireTerminalStateBridge()
 
     blocks().resetPane('pane-b')
@@ -97,7 +97,7 @@ describe('wireTerminalStateBridge', () => {
   })
 
   it('DEBOUNCE: collapses rapid mutations into a single push of the final state', () => {
-    const push = vi.mocked(window.pine.terminalState.push)
+    const push = vi.mocked(window.ostia.terminalState.push)
     wireTerminalStateBridge()
 
     blocks().commandStart('pane-c', { line: 1 })
@@ -123,7 +123,7 @@ describe('wireTerminalStateBridge', () => {
   })
 
   it("reflects the pane's layoutStore cwd, and a cwd-only change schedules a push", () => {
-    const push = vi.mocked(window.pine.terminalState.push)
+    const push = vi.mocked(window.ostia.terminalState.push)
     wireTerminalStateBridge()
 
     seedPaneCwd('sess-d', 'pane-d', '/work/d')
@@ -156,7 +156,7 @@ describe('wireTerminalStateBridge', () => {
   })
 
   it('lastExitCode is the last COMPLETED block, skipping an in-flight block; running tracks running[]', () => {
-    const push = vi.mocked(window.pine.terminalState.push)
+    const push = vi.mocked(window.ostia.terminalState.push)
     wireTerminalStateBridge()
 
     blocks().commandStart('pane-e', { line: 1 })
@@ -176,7 +176,7 @@ describe('wireTerminalStateBridge', () => {
   })
 
   it('reports running:false once the only block has completed (running[] cleared)', () => {
-    const push = vi.mocked(window.pine.terminalState.push)
+    const push = vi.mocked(window.ostia.terminalState.push)
     wireTerminalStateBridge()
 
     blocks().commandStart('pane-f', { line: 1 })

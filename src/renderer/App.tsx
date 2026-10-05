@@ -58,7 +58,7 @@ export function App(): JSX.Element {
   }, [theme, accent])
 
   useEffect(() => {
-    void window.pine.window.setZoom(clampZoom(zoom))
+    void window.ostia.window.setZoom(clampZoom(zoom))
   }, [zoom])
 
   useEffect(() => {
@@ -92,9 +92,9 @@ export function App(): JSX.Element {
 
   useEffect(() => {
     const offs = [
-      window.pine.window.onRunningQuery(quitGroups),
-      window.pine.window.onConfirmClose(confirmQuit),
-      window.pine.window.onFreeze(freezeSnapshots),
+      window.ostia.window.onRunningQuery(quitGroups),
+      window.ostia.window.onConfirmClose(confirmQuit),
+      window.ostia.window.onFreeze(freezeSnapshots),
     ]
     return () => {
       for (const off of offs) off()

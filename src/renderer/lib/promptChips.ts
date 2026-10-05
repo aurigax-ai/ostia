@@ -180,8 +180,8 @@ export const addChip = (order: readonly string[], id: string): string[] =>
 export function spawnPromptOption(settings: {
   behavior: { inputMode: string }
   terminal: { prompt: PromptSettings }
-}): Pick<PtySpawnOptions, 'pinePrompt'> {
+}): Pick<PtySpawnOptions, 'ostiaPrompt'> {
   const { prompt } = settings.terminal
   if (prompt.style !== 'ostia' || settings.behavior.inputMode !== 'editor') return {}
-  return { pinePrompt: { separator: prompt.separator, sameLine: prompt.sameLine } }
+  return { ostiaPrompt: { separator: prompt.separator, sameLine: prompt.sameLine } }
 }

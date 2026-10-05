@@ -73,7 +73,7 @@ export function WorkspaceSandboxPage({
   const fixed = useFixedPolicy(workspaceId, settings)
 
   useEffect(() => {
-    void window.pine.sandbox.get(workspaceId).then(setSettings)
+    void window.ostia.sandbox.get(workspaceId).then(setSettings)
   }, [workspaceId])
 
   const applied = (next: WorkspaceSandbox | null): void => {
@@ -83,10 +83,10 @@ export function WorkspaceSandboxPage({
   }
 
   const setControls = async (next: Partial<SandboxControls>): Promise<void> =>
-    applied(await window.pine.sandbox.setControls(workspaceId, next))
+    applied(await window.ostia.sandbox.setControls(workspaceId, next))
 
   const setPortsPolicy = async (policy: PortsPolicy | undefined): Promise<void> =>
-    applied(await window.pine.sandbox.setPortsPolicy(workspaceId, policy))
+    applied(await window.ostia.sandbox.setPortsPolicy(workspaceId, policy))
 
   const without = (key: keyof SandboxControls): Partial<SandboxControls> => {
     const { [key]: _gone, ...rest } = settings?.controls ?? {}
@@ -103,10 +103,10 @@ export function WorkspaceSandboxPage({
     setList: async (key, next) => {
       const res =
         key === 'domains'
-          ? await window.pine.sandbox.setDomains(workspaceId, next)
+          ? await window.ostia.sandbox.setDomains(workspaceId, next)
           : key === 'deniedDomains'
-            ? await window.pine.sandbox.setDeniedDomains(workspaceId, next)
-            : await window.pine.sandbox.setPaths(workspaceId, key, next)
+            ? await window.ostia.sandbox.setDeniedDomains(workspaceId, next)
+            : await window.ostia.sandbox.setPaths(workspaceId, key, next)
       if (!res.ok) return { ok: false, errors: res.errors }
       applied(res.settings)
       return { ok: true }
@@ -116,7 +116,7 @@ export function WorkspaceSandboxPage({
     setSwitch: (key, value) => {
       const { [key]: _gone, ...rest } = current.switches ?? {}
       const next = value === undefined ? rest : { ...rest, [key]: value }
-      void window.pine.sandbox.setSwitches(workspaceId, next).then(applied)
+      void window.ostia.sandbox.setSwitches(workspaceId, next).then(applied)
     },
     fixed,
   }
@@ -135,7 +135,7 @@ export function WorkspaceSandboxPage({
           <SectionTab value="ports">{d.sandbox.ports}</SectionTab>
           <SectionTab value="secrets">{d.sandbox.secrets}</SectionTab>
           <SectionTab value="packages">{d.sandbox.packages}</SectionTab>
-          <SectionTab value="access">{d.sandbox.pineAccess}</SectionTab>
+          <SectionTab value="access">{d.sandbox.ostiaAccess}</SectionTab>
           <SectionTab value="violations">{d.sandbox.violations}</SectionTab>
         </SectionTabsList>
         <TabsContent value="general">
@@ -147,7 +147,7 @@ export function WorkspaceSandboxPage({
                 disabled={!settings}
                 onCheckedChange={async (checked) => {
                   await useSandboxStore.getState().setEnabled(workspaceId, checked)
-                  const next = await window.pine.sandbox.get(workspaceId)
+                  const next = await window.ostia.sandbox.get(workspaceId)
                   if (next) setSettings(next)
                 }}
               />
@@ -190,13 +190,13 @@ export function WorkspaceSandboxPage({
               own={current.packages ?? {}}
               inheritedDeny={(globals.packages ?? DEFAULT_PACKAGE_SETTINGS).denyList}
               onChange={async (next) =>
-                applied(await window.pine.sandbox.setPackages(workspaceId, next))
+                applied(await window.ostia.sandbox.setPackages(workspaceId, next))
               }
             />
           </SettingsGroup>
         </TabsContent>
         <TabsContent value="access">
-          <SettingsGroup title={d.sandbox.pineAccess}>
+          <SettingsGroup title={d.sandbox.ostiaAccess}>
             <fieldset aria-label={d.sandbox.allWorkspaces}>
               <ControlRow label={d.sandbox.allWorkspaces} desc={d.sandbox.allWorkspacesDesc}>
                 <OverrideBadge

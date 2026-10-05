@@ -382,7 +382,7 @@ function WorkspaceItems({
           key={w.id}
           value={`${symbol} ${w.name} ${w.workDir} ${w.id}`}
           onSelect={() => {
-            window.pine.windows.focusWorkspace(w.id, false)
+            window.ostia.windows.focusWorkspace(w.id, false)
             onDone()
           }}
         >

@@ -25,7 +25,7 @@ export function RecoveryScreen({ error }: { error: ErrorDetails }): JSX.Element 
 
   useEffect(() => {
     let alive = true
-    window.pine
+    window.ostia
       ?.info?.()
       .then((info) => {
         if (alive) setVersion(info.version)
@@ -57,7 +57,7 @@ export function RecoveryScreen({ error }: { error: ErrorDetails }): JSX.Element 
       <EmptyContent>
         <pre className="app-recovery-error">{error.message}</pre>
         <div className="app-recovery-actions">
-          <Button onClick={() => window.pine.diagnostics.reloadWindow()}>
+          <Button onClick={() => window.ostia.diagnostics.reloadWindow()}>
             <ArrowClockwiseIcon data-icon="inline-start" aria-hidden />
             {d.crash.reload}
           </Button>
@@ -65,7 +65,7 @@ export function RecoveryScreen({ error }: { error: ErrorDetails }): JSX.Element 
             <CopyIcon data-icon="inline-start" aria-hidden />
             {copied ? d.crash.copied : d.crash.copy}
           </Button>
-          <Button variant="outline" onClick={() => void window.pine.diagnostics.openLogFolder()}>
+          <Button variant="outline" onClick={() => void window.ostia.diagnostics.openLogFolder()}>
             <FolderOpenIcon data-icon="inline-start" aria-hidden />
             {d.crash.openLogs}
           </Button>
@@ -100,10 +100,10 @@ export function CrashTestHook(): null {
   useEffect(() => {
     let off: (() => void) | null = null
     let alive = true
-    void window.pine?.diagnostics
+    void window.ostia?.diagnostics
       ?.testHooks()
       .then((enabled) => {
-        if (enabled && alive) off = window.pine.diagnostics.onTestCrash(() => setCrash(true))
+        if (enabled && alive) off = window.ostia.diagnostics.onTestCrash(() => setCrash(true))
       })
       .catch(() => undefined)
     return () => {

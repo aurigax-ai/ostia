@@ -208,9 +208,9 @@ describe('spawnPromptOption', () => {
     terminal: { prompt: { ...DEFAULT_PROMPT_SETTINGS, style, separator: '>' as const } },
   })
 
-  it('asks for the plain shell prompt only for the Pine prompt in the input editor', () => {
+  it('asks for the plain shell prompt only for the Ostia prompt in the input editor', () => {
     expect(spawnPromptOption(settings('ostia', 'editor'))).toEqual({
-      pinePrompt: { separator: '>', sameLine: DEFAULT_PROMPT_SETTINGS.sameLine },
+      ostiaPrompt: { separator: '>', sameLine: DEFAULT_PROMPT_SETTINGS.sameLine },
     })
     expect(spawnPromptOption(settings('ostia', 'terminal'))).toEqual({})
     expect(spawnPromptOption(settings('shell', 'editor'))).toEqual({})

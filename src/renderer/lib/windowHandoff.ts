@@ -51,7 +51,7 @@ function closeDropped(workspaceId: string, before: readonly string[], kept: Snap
   const moved = new Set(snapshotPaneIds(kept.root))
   for (const paneId of before) {
     if (!moved.has(paneId)) {
-      window.pine?.lifecycle?.emit?.({ type: 'pane-closed', workspaceId, paneId })
+      window.ostia?.lifecycle?.emit?.({ type: 'pane-closed', workspaceId, paneId })
     }
   }
 }
@@ -77,7 +77,7 @@ export async function moveWorkspaceToNewWindow(
   if (!current || !isMovable(current)) return false
   const before = layout ? paneIds(layout.root) : []
   const handoff = { ...handoffOf(current), origin: current.origin ?? originOf(current) }
-  if (!(await window.pine.windows.detach(handoff, at))) return false
+  if (!(await window.ostia.windows.detach(handoff, at))) return false
   useWorkspacesStore.getState().release(workspaceId)
   closeDropped(workspaceId, before, handoff)
   return true
@@ -130,7 +130,7 @@ export async function movePaneToNewWindow(
   const moving = current ? findPane(current.root, paneId) : null
   const owner = findWorkspace(workspaceId)
   if (!current || !moving || !owner) return false
-  if (!(await window.pine.windows.detach(paneHandoff(owner, current.root, moving), at))) {
+  if (!(await window.ostia.windows.detach(paneHandoff(owner, current.root, moving), at))) {
     return false
   }
   useLayoutStore.getState().releasePane(workspaceId, paneId)
@@ -149,7 +149,7 @@ export async function movePaneToDropWindow(workspaceId: string, paneId: string):
   if (!owner || !isMovable(owner) || !current || !moving) return false
   const whole = isOnlyPane(workspaceId, paneId)
   const handoff = whole ? handoffOf(owner) : paneHandoff(owner, current.root, moving)
-  if (!(await window.pine.windows.give(handoff))) return false
+  if (!(await window.ostia.windows.give(handoff))) return false
   if (whole) useWorkspacesStore.getState().release(workspaceId)
   else useLayoutStore.getState().releasePane(workspaceId, paneId)
   return true
@@ -162,7 +162,7 @@ export async function returnToMainWindow(): Promise<boolean> {
     const layout = byWorkspace[workspace.id]
     if (!(await confirmMove(workspace, layout ? allPanes(layout.root) : []))) return false
   }
-  return window.pine.windows.returnToMain(
+  return window.ostia.windows.returnToMain(
     useWorkspacesStore.getState().workspaces.filter(isMovable).map(handoffOf),
   )
 }
@@ -187,7 +187,7 @@ function rejoin(workspace: SnapshotWorkspace, home: string): string | null {
   if (!layout) return null
   useLayoutStore.getState().graft(home, layout, workspace.origin?.beside)
   useWorkspacesStore.getState().setActive(home)
-  window.pine?.lifecycle?.emit?.({ type: 'workspace-closed', workspaceId: workspace.id })
+  window.ostia?.lifecycle?.emit?.({ type: 'workspace-closed', workspaceId: workspace.id })
   return layout.activePaneId
 }
 
@@ -265,7 +265,7 @@ function randomNamespace(): string {
 export async function initWindow(): Promise<void> {
   setIdNamespace(randomNamespace())
   try {
-    const info = await window.pine?.windows?.info?.()
+    const info = await window.ostia?.windows?.info?.()
     if (info) useWindowsStore.getState().setInfo(info.windowId, info.detached)
   } catch (err) {
     console.error('[windows] window info unavailable', err)
@@ -273,7 +273,7 @@ export async function initWindow(): Promise<void> {
 }
 
 export function startWindowSync(): () => void {
-  const api = window.pine?.windows
+  const api = window.ostia?.windows
   if (!api) return () => {}
   let timer: ReturnType<typeof setTimeout> | null = null
   let reported = ''
@@ -291,7 +291,7 @@ export function startWindowSync(): () => void {
   report()
   if (useWindowsStore.getState().detached) {
     const { workspaces, activeWorkspaceId } = useWorkspacesStore.getState()
-    if (workspaces.length === 0) window.pine.window.close()
+    if (workspaces.length === 0) window.ostia.window.close()
     const paneId = activeWorkspaceId
       ? useLayoutStore.getState().byWorkspace[activeWorkspaceId]?.activePaneId
       : undefined
@@ -306,7 +306,7 @@ export function startWindowSync(): () => void {
     }),
     useWorkspacesStore.subscribe((s, prev) => {
       const empty = s.workspaces.length === 0 && prev.workspaces.length > 0
-      if (empty && useWindowsStore.getState().detached) window.pine.window.close()
+      if (empty && useWindowsStore.getState().detached) window.ostia.window.close()
     }),
     api.onList((list) => useWindowsStore.getState().setList(list)),
     api.onAdopt(adoptWorkspaces),
