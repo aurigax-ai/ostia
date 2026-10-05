@@ -449,6 +449,33 @@ describe('builtins route to store actions', () => {
     if (!r.ok) expect(r.error.message).toMatch(/keybindings.palette.toggle: "Ctrl\+R"/)
     expect(useSettingsStore.getState().keybindings).toEqual({})
   })
+
+  it('settings.set picks a keymap by "<extension>/<keymap>", refuses anything else, and unset goes back to null', async () => {
+    const exec = (id: string, args: unknown) => commands.execWith(ctx(null, null), id, args)
+    expect(
+      await exec('settings.set', { key: 'keymap', value: 'keymap-macos/cmux', dryRun: true }),
+    ).toEqual({ ok: true, result: { previous: null, value: 'keymap-macos/cmux', applied: false } })
+    expect(useSettingsStore.getState().keymap).toBeNull()
+    expect(await exec('settings.set', { key: 'keymap', value: 'keymap-macos/cmux' })).toEqual({
+      ok: true,
+      result: { previous: null, value: 'keymap-macos/cmux', applied: true },
+    })
+    expect(await exec('settings.get', { key: 'keymap' })).toEqual({
+      ok: true,
+      result: 'keymap-macos/cmux',
+    })
+    for (const value of ['cmux', 'Keymap/cmux', 3, {}]) {
+      const bad = await exec('settings.set', { key: 'keymap', value })
+      expect(bad.ok, String(value)).toBe(false)
+      if (!bad.ok) expect(bad.error.message).toMatch(/keymap must be null or/)
+    }
+    expect(useSettingsStore.getState().keymap).toBe('keymap-macos/cmux')
+    expect(await exec('settings.unset', { key: 'keymap' })).toEqual({
+      ok: true,
+      result: { previous: 'keymap-macos/cmux', value: null },
+    })
+    expect(useSettingsStore.getState().keymap).toBeNull()
+  })
   it('settings.set refuses to change the notification command, directly or via notifications', async () => {
     const direct = await commands.execWith(ctx(null, null), 'settings.set', {
       key: 'notifications.command',

@@ -183,3 +183,30 @@ test('on macOS Cmd+W closes the focused pane and leaves the app running, and the
     await app.close()
   }
 })
+
+test('on macOS the cmux keymap is opt-in: picking it makes ⌘D split the focused terminal', async () => {
+  test.skip(!isMac, 'the cmux keymap is offered only on macOS')
+  const app = await electron.launch(isolatedLaunch())
+  try {
+    const win = await app.firstWindow()
+    await win.waitForLoadState('domcontentloaded')
+    await openWorkspace(win)
+    await expect(win.locator('.xterm')).toHaveCount(1)
+
+    const settings = await openKeyboardSettings(win)
+    const picker = settings.getByRole('combobox', { name: 'Keymap' })
+    await expect(picker).toContainText('Default')
+    await expect(paletteRow(win)).toContainText('⌘K')
+    await picker.click()
+    await win.getByRole('option', { name: 'macOS (cmux)' }).click()
+    await expect(picker).toContainText('macOS (cmux)')
+    await expect(paletteRow(win)).toContainText('⌘⇧P')
+    await closeSettings(win)
+
+    await focusTerminal(win)
+    await win.keyboard.press('Meta+d')
+    await expect(win.locator('.xterm')).toHaveCount(2)
+  } finally {
+    await app.close()
+  }
+})

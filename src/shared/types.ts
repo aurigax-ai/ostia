@@ -26,6 +26,7 @@ import type { EditorLanguagesApi } from './editorLanguages'
 import type { SuggestionsApi } from './extensionSuggestions'
 import type { ExtensionResult, ExtensionsApi } from './extensions'
 import type { IconThemesApi } from './iconTheme'
+import type { KeymapsApi } from './keymapFile'
 import type { LanguagePacksApi } from './languagePack'
 import type { LspApi } from './languageServers'
 import type { MarketplaceApi } from './marketplace'
@@ -882,6 +883,7 @@ export interface PineBridge {
   chatTools: ChatToolsApi
   iconThemes: IconThemesApi
   languagePacks: LanguagePacksApi
+  keymaps: KeymapsApi
   editorLanguages: EditorLanguagesApi
   views: ViewsApi
 }

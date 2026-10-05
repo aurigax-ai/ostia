@@ -119,6 +119,7 @@ import {
   workspaceHasManager,
 } from './idRegistry'
 import { loadJson, saveJson, storePath } from './jsonStore'
+import { describeSkipped, registerKeymapIpc } from './keymaps'
 import { registerLanguagePackIpc } from './languagePacks'
 import { LanguageServers, scrubbedEnv } from './languageServers'
 import { registerLanguageServersIpc } from './languageServersIpc'
@@ -2752,6 +2753,13 @@ app.whenReady().then(() => {
   registerIconThemeIpc({
     themes: () => extensionHost?.iconThemes() ?? [],
     onError: (id, error) => console.warn(`[icon theme ${id}] ${error}`),
+  })
+  registerKeymapIpc({
+    keymaps: () => extensionHost?.keymaps() ?? [],
+    platform: process.platform,
+    onError: (ref, error) => console.warn(`[keymap ${ref}] ${error}`),
+    onSkipped: (ref, skipped) =>
+      console.warn(`[keymap ${ref}] skipped entries: ${describeSkipped(skipped)}`),
   })
   registerLanguagePackIpc({
     languages: () => extensionHost?.languages() ?? [],

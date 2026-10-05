@@ -1,0 +1,15 @@
+{
+  "bindings": {
+    "palette.toggle": "Cmd+Shift+P",
+    "view.toggleRail": "Cmd+B",
+    "workspace.new": "Cmd+N",
+    "pane.splitRight": "Cmd+D",
+    "pane.splitDown": "Cmd+Shift+D",
+    "pane.focusLeft": "Cmd+Alt+Left",
+    "pane.focusRight": "Cmd+Alt+Right",
+    "pane.focusUp": "Cmd+Alt+Up",
+    "pane.focusDown": "Cmd+Alt+Down",
+    "pane.zoom": "Cmd+Shift+Enter",
+    "dashboard.toggle": "Cmd+Alt+D"
+  }
+}

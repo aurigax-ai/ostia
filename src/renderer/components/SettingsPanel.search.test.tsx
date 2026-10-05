@@ -58,6 +58,7 @@ const BOARD: ExtensionInfo = {
   agentSkills: [],
   agentHooks: [],
   iconThemes: [],
+  keymaps: [],
 }
 
 function renderSettings(): void {
