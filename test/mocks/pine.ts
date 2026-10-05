@@ -8,7 +8,12 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
     ping: vi.fn().mockResolvedValue('pong'),
     info: vi
       .fn()
-      .mockResolvedValue({ name: 'Ostia', version: '0.0.0', platform: 'linux', hostName: 'devbox' }),
+      .mockResolvedValue({
+        name: 'Ostia',
+        version: '0.0.0',
+        platform: 'linux',
+        hostName: 'devbox',
+      }),
     platform: 'linux',
     diagnostics: {
       report: vi.fn(),
@@ -173,6 +178,10 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       edit: vi.fn().mockResolvedValue(undefined),
       hasImage: vi.fn().mockResolvedValue(false),
       setChords: vi.fn(),
+    },
+    guestChords: {
+      set: vi.fn(),
+      onFire: vi.fn(() => () => {}),
     },
     openPath: {
       openDefault: vi.fn().mockResolvedValue({ ok: true }),

@@ -24,6 +24,7 @@ import { TooltipProvider } from './components/ui/tooltip'
 import { runAppChord } from './lib/chords'
 import { confirmQuit, quitGroups } from './lib/closeConfirm'
 import { handleDocumentClipboardChord, syncClipboardChords } from './lib/documentClipboard'
+import { wireGuestChords } from './lib/guestChordBridge'
 import { useMotionAttribute } from './lib/motion'
 import { applyTheme, useEffectiveTheme } from './lib/theme'
 import { applyUiFonts } from './lib/uiFonts'
@@ -73,6 +74,7 @@ export function App(): JSX.Element {
   }, [])
 
   useEffect(() => syncClipboardChords(isMac), [])
+  useEffect(() => wireGuestChords(isMac), [])
 
   const extensionList = useExtensionsStore((s) => s.list)
   useEffect(() => {
