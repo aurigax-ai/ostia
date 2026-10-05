@@ -54,9 +54,7 @@ describe('parsePaneArgs', () => {
       params: { pane: 'w', keys: ['enter'] },
       stdin: true,
     })
-    expect(() => parsePaneArgs(['send', 'w', '--paste', '--raw', 'a'])).toThrow(
-      'usage: ostia pane',
-    )
+    expect(() => parsePaneArgs(['send', 'w', '--paste', '--raw', 'a'])).toThrow('usage: ostia pane')
   })
 
   it('passes the keys of key through in order', () => {

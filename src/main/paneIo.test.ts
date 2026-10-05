@@ -398,7 +398,7 @@ describe('pane.input for unattended agents', () => {
       { paneId: 'sibling-pane', data: `\x1b[200~${task.replaceAll('\n', '\r')}\x1b[201~` },
       { paneId: 'sibling-pane', data: '\r' },
     ])
-    expect(written[0].data.match(/\x1b\[201~/g)).toHaveLength(1)
+    expect(written[0].data.split('\x1b[201~')).toHaveLength(2)
     expect(delays).toEqual([100])
     expect(res).toMatchObject({ ok: true, pasted: true })
     expect(typedInto).toEqual(['sibling-pane'])
