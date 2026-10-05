@@ -255,7 +255,7 @@ describe('pane.input', () => {
     const conn = await client(agent)
     await expect(
       conn.sendRequest('pane.input', { pane: 'echo', text: 'hello world', keys: ['enter'] }),
-    ).resolves.toEqual({ ok: true, paneId: child.externalId })
+    ).resolves.toEqual({ ok: true, paneId: child.externalId, bytes: 12, pasted: false })
     expect(written).toEqual([{ paneId: 'child-pane', data: 'hello world\r' }])
     expect(request).not.toHaveBeenCalled()
   })

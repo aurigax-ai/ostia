@@ -45,7 +45,7 @@ describe('parsePaneArgs', () => {
         confirm: true,
       },
     })
-    expect(parsePaneArgs(['send', 'w', '--no-paste', 'a'])).toEqual({
+    expect(parsePaneArgs(['send', 'w', '--raw', 'a'])).toEqual({
       method: 'pane.input',
       params: { pane: 'w', text: 'a', paste: false },
     })
@@ -54,7 +54,7 @@ describe('parsePaneArgs', () => {
       params: { pane: 'w', keys: ['enter'] },
       stdin: true,
     })
-    expect(() => parsePaneArgs(['send', 'w', '--paste', '--no-paste', 'a'])).toThrow(
+    expect(() => parsePaneArgs(['send', 'w', '--paste', '--raw', 'a'])).toThrow(
       'usage: ostia pane',
     )
   })

@@ -81,13 +81,13 @@ const CLI_HELP = `ostia — control-socket CLI
   ostia process kill <id|name>   interrupt it (Ctrl+C); if it keeps running, end the tab's
                                  shell. The tab stays open with its output
   ostia process restart <id|name> interrupt it and run the same line again in the same tab
-  ostia pane send <pane> [--enter] [--paste|--no-paste] [--force] [--confirm] [--] <text…|->
+  ostia pane send <pane> [--enter] [--paste|--raw] [--force] [--confirm] [--] <text…|->
                                  type text into another terminal pane; no Enter unless
                                  --enter. <pane> is a paneId from ostia pane.list, or a
                                  process id or name. '-' reads the text from stdin.
                                  Multi-line text goes in as one bracketed paste when the
                                  program turned that mode on (Claude Code, Codex, shells),
-                                 then Enter; --paste/--no-paste force it on or off.
+                                 then Enter; --paste forces a paste, --raw types it as is.
                                  Text to an agent that is waiting for the human (permission
                                  prompt, question) is refused with the reason; answer with
                                  ostia pane key, or add --force. --confirm waits up to 2s

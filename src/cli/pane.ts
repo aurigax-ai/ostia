@@ -15,7 +15,7 @@ export type PaneCall =
   | { method: 'pane.read'; params: { pane: string; lines?: number }; json: boolean }
 
 const USAGE = [
-  'usage: ostia pane send <pane> [--enter] [--paste|--no-paste] [--force] [--confirm]',
+  'usage: ostia pane send <pane> [--enter] [--paste|--raw] [--force] [--confirm]',
   '                        [--] <text…|->',
   '       ostia pane key <pane> <key>…',
   '       ostia pane read <pane> [--lines N] [--json]',
@@ -39,14 +39,14 @@ export function parsePaneArgs(argv: string[]): PaneCall {
       booleans: {
         enter: '--enter',
         paste: '--paste',
-        noPaste: '--no-paste',
+        raw: '--raw',
         force: '--force',
         confirm: '--confirm',
       },
       unknown: 'keep',
     })
-    const { enter, paste, noPaste, force, confirm } = booleans
-    if ((words.length === 0 && !enter) || (paste && noPaste)) throw new Error(USAGE)
+    const { enter, paste, raw, force, confirm } = booleans
+    if ((words.length === 0 && !enter) || (paste && raw)) throw new Error(USAGE)
     const stdin = words.length === 1 && words[0] === '-'
     return {
       method: 'pane.input',
@@ -54,7 +54,7 @@ export function parsePaneArgs(argv: string[]): PaneCall {
         pane,
         ...(words.length > 0 && !stdin ? { text: words.join(' ') } : {}),
         ...(enter ? { keys: ['enter'] } : {}),
-        ...(paste || noPaste ? { paste } : {}),
+        ...(paste || raw ? { paste } : {}),
         ...(force ? { force: true } : {}),
         ...(confirm ? { confirm: true } : {}),
       },

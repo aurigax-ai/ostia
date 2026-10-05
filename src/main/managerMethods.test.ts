@@ -36,6 +36,8 @@ const deps: ManagerMethodDeps = {
       written.push({ paneId, data })
       return true
     },
+    bracketedPaste: () => false,
+    outputCursor: () => undefined,
   },
   openWorker: async (req) => {
     opened.push(req)
