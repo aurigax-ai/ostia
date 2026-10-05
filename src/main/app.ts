@@ -186,7 +186,7 @@ import { KubeContextReader, NodeVersionResolver, promptContext } from './promptC
 import { type ReapReason, RecoveryBook, orphanVerdict, planRecovery } from './ptyReaper'
 import { PtySession, type Subscriber, type SubscriberRole } from './ptySession'
 import { questions, registerQuestions } from './questions'
-import { QUIT_SIGNALS, exitAfterDeadline, planQuit } from './quitPlan'
+import { QUIT_SIGNALS, exitAfterDeadline, keptOnQuit, planQuit } from './quitPlan'
 import { createRedactor, createScrollbackRedactor } from './redaction'
 import { createWorkerScan, redactionWorkerScript } from './redactionScan'
 import { registerReleaseCheck, releaseUserAgent } from './releaseCheck'
@@ -3205,11 +3205,20 @@ app.on('before-quit', (event) => {
     if (quitAsking) return
     quitAsking = true
     const all = BrowserWindow.getAllWindows()
-    void confirmQuit(all, BrowserWindow.getFocusedWindow() ?? mainWindow(), (workspaceId) =>
-      scratchFolders.countFiles(workspaceId),
+    void confirmQuit(
+      all,
+      BrowserWindow.getFocusedWindow() ?? mainWindow(),
+      (workspaceId) => scratchFolders.countFiles(workspaceId),
+      keptOnQuit(
+        restartRequested,
+        [...ptys.values()].map((entry) => ({ paneId: entry.paneId, kept: entry.kept !== null })),
+      ),
     ).then((approved) => {
       quitAsking = false
-      if (!approved) return
+      if (!approved) {
+        restartRequested = false
+        return
+      }
       quitApproved = true
       freezeAll(all)
       app.quit()

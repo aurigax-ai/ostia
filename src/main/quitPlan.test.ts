@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { type QuitState, exitAfterDeadline, planQuit } from './quitPlan'
+import { type QuitState, exitAfterDeadline, keptOnQuit, planQuit } from './quitPlan'
 
 const IDLE: QuitState = {
   approved: false,
@@ -54,5 +54,20 @@ describe('exitAfterDeadline', () => {
     expect(exit).not.toHaveBeenCalled()
     vi.advanceTimersByTime(1)
     expect(exit).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('keptOnQuit', () => {
+  const panes = [
+    { paneId: 'p1', kept: true },
+    { paneId: 'p2', kept: false },
+  ]
+
+  it('KSH-C39 names the kept shells when Ostia restarts', () => {
+    expect(keptOnQuit(true, panes)).toEqual(['p1'])
+  })
+
+  it('KSH-C40 names none when Ostia quits, so every running command is asked about', () => {
+    expect(keptOnQuit(false, panes)).toEqual([])
   })
 })
