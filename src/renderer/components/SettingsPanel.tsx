@@ -11,6 +11,7 @@ import {
   DeviceMobileIcon,
   EyeSlashIcon,
   FileCodeIcon,
+  FolderOpenIcon,
   GlobeIcon,
   type Icon as IconComponent,
   InfoIcon,
@@ -2086,6 +2087,15 @@ function AboutSection(): JSX.Element {
       </p>
       <p className="text-fg-muted text-ui-xs">{PLATFORM_NAMES[platform]}</p>
       <UpdateCheck />
+      <Button
+        variant="ghost"
+        size="sm"
+        className="text-fg-muted"
+        onClick={() => void window.pine.diagnostics.openLogFolder()}
+      >
+        <FolderOpenIcon data-icon="inline-start" aria-hidden />
+        {d.crash.openLogs}
+      </Button>
     </section>
   )
 }

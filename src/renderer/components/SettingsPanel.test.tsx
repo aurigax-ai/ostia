@@ -375,6 +375,14 @@ describe('SettingsPanel', () => {
     expect(await screen.findByRole('button', { name: 'Copied' })).toBeInTheDocument()
   })
 
+  it('opens the log folder from About', async () => {
+    renderSettings()
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'About' }))
+    await user.click(await screen.findByRole('button', { name: 'Open log folder' }))
+    expect(window.pine.diagnostics.openLogFolder).toHaveBeenCalled()
+  })
+
   it('toggles notification kinds and sidebar details from their pages', async () => {
     const setNotifications = vi
       .spyOn(useSettingsStore.getState(), 'setNotifications')
