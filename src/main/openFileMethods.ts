@@ -1,3 +1,5 @@
+import { statSync } from 'node:fs'
+import type { ExtensionOpenFileRequest, ExtensionResult } from '../shared/extensions'
 import {
   type FileTarget,
   OPEN_FILES_COMMAND,
@@ -46,4 +48,40 @@ export function registerOpenFileMethods(deps: OpenFileDeps): void {
       return { ok: true, results }
     },
   })
+}
+
+export interface ExtensionOpenFileDeps {
+  grants: OpenFileGrants
+  windowOf: (workspaceId: string) => string | undefined
+  execCommand: OpenFileDeps['execCommand']
+}
+
+function isRegularFile(path: string): boolean {
+  try {
+    return statSync(path).isFile()
+  } catch {
+    return false
+  }
+}
+
+export async function openFileForExtension(
+  deps: ExtensionOpenFileDeps,
+  req: ExtensionOpenFileRequest,
+): Promise<ExtensionResult> {
+  const windowId = deps.windowOf(req.workspaceId)
+  if (!windowId) return { ok: false, error: 'unknown-workspace' }
+  const path = deps.grants.confine(req.path)
+  if (!path) return { ok: false, error: 'outside-roots', message: req.path }
+  if (!isRegularFile(path)) return { ok: false, error: 'not-a-file', message: path }
+  const file: FileTarget = { path }
+  if (req.line) {
+    file.line = req.line
+    if (req.column) file.column = req.column
+  }
+  const res = await deps.execCommand(
+    { windowId, workspaceId: req.workspaceId, paneId: null },
+    OPEN_FILES_COMMAND,
+    { files: [file] },
+  )
+  return res.ok ? { ok: true } : { ok: false, error: res.error.code, message: res.error.message }
 }

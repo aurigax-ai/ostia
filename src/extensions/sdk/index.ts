@@ -126,6 +126,13 @@ export type OpenFolderResult =
   | { ok: true; folderId: string }
   | { ok: false; error: string; message?: string }
 
+export interface OpenFileOptions {
+  workspaceId: string
+  path: string
+  line?: number
+  column?: number
+}
+
 export type AttentionVerb = 'waiting' | 'done' | 'working' | 'error' | 'clear'
 
 export interface ChipValue {
@@ -264,6 +271,7 @@ export interface OstiaExtension {
   callAs: <T = unknown>(paneId: string, method: string, params?: object) => Promise<T>
   setAttention: (paneId: string, state: AttentionVerb, message?: string) => Promise<unknown>
   openDiff: (diff: DiffContent & { workspaceId?: string }) => Promise<ExtensionResult>
+  openFile: (file: OpenFileOptions) => Promise<ExtensionResult>
   openTerminal: (opts: OpenTerminalOptions) => Promise<OpenTerminalResult>
   listAgents: () => Promise<string[]>
   runAgent: (opts: RunAgentOptions) => Promise<OpenTerminalResult>
@@ -514,6 +522,7 @@ export async function connect(): Promise<OstiaExtension> {
     setAttention: (paneId, state, message) =>
       conn.sendRequest('pane.setAttention', { [TARGET_PANE_PARAM]: paneId, state, message }),
     openDiff: (diff) => conn.sendRequest('ext.openDiff', diff),
+    openFile: (file) => conn.sendRequest('ext.openFile', file),
     openTerminal: async (opts) => {
       try {
         return await conn.sendRequest<OpenTerminalResult>('ext.openTerminal', opts)

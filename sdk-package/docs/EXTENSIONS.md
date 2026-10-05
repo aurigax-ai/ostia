@@ -165,7 +165,7 @@ The manifest is `ostia.json`; a marketplace's is `ostia-marketplace.json`.
 | `contributes.agentHooks[]` | Up to 16 `{event, command}`: when the agent reaches `event`, Ostia runs your own command `command` with the hook's JSON on stdin. Needs the `agent-plugin` capability and `main`. See [Agent skills and hooks](#agent-skills-and-hooks). |
 
 Icons are a fixed set: `puzzle`, `kanban`, `book-open`, `git-branch`, `globe`, `bell`, `server`,
-`terminal`, `circle`, `check`, `alert`, `shield`, `chat`.
+`terminal`, `circle`, `check`, `alert`, `shield`, `chat`, `plugs`, `magnifying-glass` (API 2.1).
 
 ## Translations
 
@@ -823,6 +823,7 @@ Connect to the unix socket and speak JSON-RPC 2.0 with LSP-style framing
 | `ext.getSettings` | — | `{ok, values}`: every key of your `contributes.settings`, with the human's value when it is valid, else the default. You also get `settings.changed` (below) whenever the values change. |
 | `ext.setSetting` | `{key, value}` | Changes one of **your own** settings, for a control in your panel that mirrors it (Git's graph scope and changed-files view). Validated against your manifest exactly like Settings → Extensions (`unknown-setting`, `invalid-value`); `null` resets the key. Ostia saves it in `settings.json`, shows it in Settings, and sends you `settings.changed`. Returns `{ok, values}`. You can't touch another extension's settings or any core setting. |
 | `ext.openDiff` | `{title, original, modified, language?, path?, workspaceId?}` | Opens a read-only diff pane (Monaco's diff editor, side-by-side with an inline toggle) in that workspace, else the active one. Reuses the workspace's diff pane if it has one. Each side is capped at 5 MiB; `path` must be absolute and enables "Open in External Editor" at the cursor; `language` is a Monaco id, otherwise inferred from `path`. The content lives only in memory: a restored workspace drops diff panes. |
+| `ext.openFile` | `{workspaceId, path, line?, column?}` | Opens a file in that workspace's editor, at `line` and `column` (1-based) when given, the way `ostia <file>:<line>` does for the human. `path` must be absolute and name a regular file Ostia's file views may already read (inside the home folder, or a file the human opened before); this never grants access to anything else. Returns `{ok}`, or `unknown-workspace`, `outside-roots`, `not-a-file`. Use it for a result the human picked, such as a search hit in your panel. |
 | `workspace.list` | — | Needs `read-board`. `[{workspaceId, name, kind, workDir, state, activePaneId?}]`. |
 | `pane.list` | — | Needs `read-board`. `[{paneId, workspaceId, kind, title, cwd?, filePath?, running, blockCount, lastExitCode?, pid?}]`; `cwd` is the live shell cwd for terminals; `filePath` is the absolute path a file view (`kind: 'editor'`) shows, so a palette command can act on the file in the caller's pane; `paneId` stays the same when Ostia restarts and restores the pane; a pane opened later gets a new one. `pid` is the shell process of a terminal whose pty is running (absent for other kinds and for a hibernated pane). Its descendants are what the pane runs. They inherit Ostia's own open descriptors, so ignore sockets your parent process (Ostia) also holds. |
 | `ext.locale` | — | `{ok, locale}`: the human's language (`ext.getLocale()` in the SDK). See "Translations". |
