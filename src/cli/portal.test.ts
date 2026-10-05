@@ -22,7 +22,7 @@ afterEach(() => {
 })
 
 function socketPath(): string {
-  dir = mkdtempSync(join(tmpdir(), 'pine-cli-portal-'))
+  dir = mkdtempSync(join(tmpdir(), 'ostia-cli-portal-'))
   return join(dir, 'portal.sock')
 }
 

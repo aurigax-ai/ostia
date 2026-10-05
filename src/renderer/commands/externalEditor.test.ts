@@ -33,14 +33,14 @@ describe('editor.openExternal command', () => {
       behavior: { ...useSettingsStore.getState().behavior, externalEditor: 'zed {file}:{line}' },
     })
     cleanups.push(registerEditorPosition('p1', () => ({ file: '/w/x.ts', line: 3, column: 9 })))
-    vi.mocked(window.pine.externalEditor.open).mockResolvedValue({
+    vi.mocked(window.ostia.externalEditor.open).mockResolvedValue({
       ok: true,
       argv: ['zed', '/w/x.ts:3'],
     })
 
     const res = await commands.execWith(ctx('p1'), OPEN_EXTERNAL_COMMAND)
 
-    expect(window.pine.externalEditor.open).toHaveBeenCalledWith({
+    expect(window.ostia.externalEditor.open).toHaveBeenCalledWith({
       template: 'zed {file}:{line}',
       file: '/w/x.ts',
       line: 3,
@@ -52,12 +52,12 @@ describe('editor.openExternal command', () => {
   it('fails without calling main when the active pane has no file', async () => {
     const res = await commands.execWith(ctx('terminal-pane'), OPEN_EXTERNAL_COMMAND)
     expect(res.ok).toBe(false)
-    expect(window.pine.externalEditor.open).not.toHaveBeenCalled()
+    expect(window.ostia.externalEditor.open).not.toHaveBeenCalled()
   })
 
   it('surfaces the main-process error as a failed command', async () => {
     cleanups.push(registerEditorPosition('p1', () => ({ file: '/w/x.ts', line: 1, column: 1 })))
-    vi.mocked(window.pine.externalEditor.open).mockResolvedValue({
+    vi.mocked(window.ostia.externalEditor.open).mockResolvedValue({
       ok: false,
       error: 'spawn-failed',
       message: 'ENOENT',

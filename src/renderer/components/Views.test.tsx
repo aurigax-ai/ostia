@@ -213,7 +213,7 @@ describe('declarative views', () => {
       dir: '/home/u/.config/ostia/views',
       views: [info('agents', SIDEBAR, 'pending'), info('broken', broken, 'disabled')],
     })
-    vi.mocked(window.pine.views.setEnabled).mockResolvedValue({
+    vi.mocked(window.ostia.views.setEnabled).mockResolvedValue({
       dir: '/home/u/.config/ostia/views',
       views: [info('agents', SIDEBAR, 'enabled')],
     })
@@ -227,10 +227,10 @@ describe('declarative views', () => {
     expect(within(row).getByRole('switch')).toHaveAttribute('data-disabled')
 
     await userEvent.click(within(agents).getByRole('switch', { name: 'Show My workspaces' }))
-    expect(window.pine.views.setEnabled).toHaveBeenCalledWith('agents', true)
+    expect(window.ostia.views.setEnabled).toHaveBeenCalledWith('agents', true)
     await vi.waitFor(() => expect(useViewsStore.getState().views[0].status).toBe('enabled'))
 
     await userEvent.click(within(agents).getByRole('button', { name: 'Reveal file' }))
-    expect(window.pine.views.reveal).toHaveBeenCalledWith('agents')
+    expect(window.ostia.views.reveal).toHaveBeenCalledWith('agents')
   })
 })

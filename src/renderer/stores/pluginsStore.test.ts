@@ -20,14 +20,14 @@ describe('pluginsStore', () => {
   describe('registry seed', () => {
     it('seeds the built-in plugins in manifest order, all marked builtin', () => {
       expect(store().plugins).toBe(BUILTIN_PLUGINS)
-      expect(store().plugins.map((p) => p.id)).toEqual(['pine.themes'])
+      expect(store().plugins.map((p) => p.id)).toEqual(['ostia.themes'])
       expect(store().plugins.every((p) => p.builtin)).toBe(true)
     })
   })
 
   describe('derived themes', () => {
-    it('aggregates contributes.themes across plugins (only pine.themes contributes any)', () => {
-      const themePlugin = BUILTIN_PLUGINS.find((p) => p.id === 'pine.themes')
+    it('aggregates contributes.themes across plugins (only ostia.themes contributes any)', () => {
+      const themePlugin = BUILTIN_PLUGINS.find((p) => p.id === 'ostia.themes')
       expect(store().themes).toEqual(themePlugin?.contributes.themes)
       expect(store().themes.map((t) => t.id)).toEqual([
         'adeberry',
@@ -35,7 +35,7 @@ describe('pluginsStore', () => {
         'instrument-night',
         'dracula',
         'oxocarbon',
-        'pine-light',
+        'ostia-light',
       ])
     })
 
@@ -61,7 +61,7 @@ describe('pluginsStore', () => {
     })
 
     it('adds the language packs main returns, translated over English', async () => {
-      vi.mocked(window.pine.languagePacks.load).mockResolvedValue([
+      vi.mocked(window.ostia.languagePacks.load).mockResolvedValue([
         {
           extId: 'langpack-zh-hant',
           id: 'zh-Hant',
@@ -80,11 +80,11 @@ describe('pluginsStore', () => {
     })
 
     it('drops a pack again when main no longer returns it', async () => {
-      vi.mocked(window.pine.languagePacks.load).mockResolvedValue([
+      vi.mocked(window.ostia.languagePacks.load).mockResolvedValue([
         { extId: 'x', id: 'fr', label: 'Français', catalog: {} },
       ])
       await store().loadLanguages()
-      vi.mocked(window.pine.languagePacks.load).mockResolvedValue([])
+      vi.mocked(window.ostia.languagePacks.load).mockResolvedValue([])
       await store().loadLanguages()
       expect(store().languages.map((l) => l.id)).toEqual(['en'])
     })

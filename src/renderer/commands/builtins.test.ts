@@ -415,7 +415,7 @@ describe('builtins route to store actions', () => {
 
     expect(r.ok).toBe(true)
     expect(openSettings).toHaveBeenCalledWith('about')
-    expect(window.pine.update.checkRelease).toHaveBeenCalledTimes(1)
+    expect(window.ostia.update.checkRelease).toHaveBeenCalledTimes(1)
     await vi.waitFor(() =>
       expect(useUpdateStore.getState().releaseCheck).toEqual({
         status: 'latest',
@@ -823,7 +823,7 @@ describe('builtins route to store actions', () => {
 
     await commands.execWith(ctx(null, null), 'app.quit')
 
-    expect(window.pine.window.quit).toHaveBeenCalled()
+    expect(window.ostia.window.quit).toHaveBeenCalled()
   })
 })
 
@@ -1174,7 +1174,7 @@ describe('agent notifications', () => {
   }
 
   afterEach(() => {
-    vi.mocked(window.pine.notifications.post).mockClear()
+    vi.mocked(window.ostia.notifications.post).mockClear()
     useBlocksStore.setState(blocksInit, true)
     useAttentionStore.setState(attentionInit, true)
   })
@@ -1185,7 +1185,7 @@ describe('agent notifications', () => {
       state: 'waiting',
       message: 'Allow Bash?',
     })
-    expect(window.pine.notifications.post).toHaveBeenCalledWith({
+    expect(window.ostia.notifications.post).toHaveBeenCalledWith({
       paneId: pane.id,
       kind: 'waiting',
       title: 'Agent needs your input',
@@ -1198,7 +1198,7 @@ describe('agent notifications', () => {
     const pane = seedPane()
     useSettingsStore.getState().setNotifications({ agentDone: false })
     await commands.execWith(ctx('s1', pane.id), 'attention.set', { state: 'done' })
-    expect(window.pine.notifications.post).toHaveBeenCalledWith({
+    expect(window.ostia.notifications.post).toHaveBeenCalledWith({
       paneId: pane.id,
       kind: 'done',
       title: 'Agent finished',
@@ -1210,7 +1210,7 @@ describe('agent notifications', () => {
   it('posts nothing for a working state', async () => {
     const pane = seedPane()
     await commands.execWith(ctx('s1', pane.id), 'attention.set', { state: 'working' })
-    expect(window.pine.notifications.post).not.toHaveBeenCalled()
+    expect(window.ostia.notifications.post).not.toHaveBeenCalled()
   })
 
   it('ignores a waiting or working report that arrives after the agent exited to the prompt', async () => {
@@ -1224,7 +1224,7 @@ describe('agent notifications', () => {
       await commands.execWith(ctx('s1', pane.id), 'attention.set', { state })
     }
     expect(useAttentionStore.getState().byPane[pane.id]).toBeUndefined()
-    expect(window.pine.notifications.post).not.toHaveBeenCalled()
+    expect(window.ostia.notifications.post).not.toHaveBeenCalled()
   })
 
   it('accepts a waiting report while the agent command is still running', async () => {
@@ -1247,7 +1247,7 @@ describe('agent notifications', () => {
       unread: true,
       message: 'Message from api tests: tests are green',
     })
-    expect(window.pine.notifications.post).toHaveBeenCalledWith({
+    expect(window.ostia.notifications.post).toHaveBeenCalledWith({
       paneId: pane.id,
       kind: 'message',
       title: 'Message from api tests',
@@ -1293,12 +1293,12 @@ describe('agent notifications', () => {
     viewWorkspace()
     await commands.execWith(ctx('s1', pane.id), 'attention.message', { from: 'web', text: 'hi' })
     expect(useAttentionStore.getState().byPane[pane.id]?.unread).toBe(false)
-    expect(window.pine.notifications.post).toHaveBeenCalledWith(
+    expect(window.ostia.notifications.post).toHaveBeenCalledWith(
       expect.objectContaining({ title: 'Message from web', desktop: false }),
     )
   })
 
-  it('tells pine notify to skip the banner for the pane being viewed unless whenFocused is on', async () => {
+  it('tells ostia notify to skip the banner for the pane being viewed unless whenFocused is on', async () => {
     const pane = seedPane()
     viewWorkspace()
     const viewed = await commands.execWith(ctx('s1', pane.id), 'attention.notify', {

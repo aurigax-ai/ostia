@@ -22,7 +22,7 @@ describe('gateway/devices', () => {
   let prevXdg: string | undefined
 
   beforeEach(() => {
-    dir = join(tmpdir(), `pine-gateway-devices-test-${process.pid}-${Date.now()}-${Math.random()}`)
+    dir = join(tmpdir(), `ostia-gateway-devices-test-${process.pid}-${Date.now()}-${Math.random()}`)
     prevXdg = process.env.XDG_DATA_HOME
     process.env.XDG_DATA_HOME = dir
   })
@@ -128,7 +128,7 @@ describe('gateway/devices', () => {
       expect(get(deviceId)?.caps).toEqual(['read', 'notify'])
     })
 
-    it('drops caps a stored device holds that pine no longer knows', () => {
+    it('drops caps a stored device holds that ostia no longer knows', () => {
       const { deviceId, token } = registerDevice({ name: 'Phone', pubkey: 'pk' })
       const file = storePath('gateway-devices', 'global')
       const stored = JSON.parse(readFileSync(file, 'utf8'))

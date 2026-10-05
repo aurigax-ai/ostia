@@ -20,7 +20,7 @@ export async function call(command: string, args?: unknown): Promise<ExtensionRe
   try {
     const res = await fetch('/api', {
       method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-pine-panel': secret },
+      headers: { 'content-type': 'application/json', 'x-ostia-panel': secret },
       body: JSON.stringify({ command, args: args ?? {}, context }),
     })
     return (await res.json()) as ExtensionResult
@@ -37,7 +37,7 @@ let sizes: Record<string, number> = {}
 
 export async function loadPanelSizes(): Promise<void> {
   try {
-    const res = await fetch(PANEL_SIZES_PATH, { headers: { 'x-pine-panel': secret } })
+    const res = await fetch(PANEL_SIZES_PATH, { headers: { 'x-ostia-panel': secret } })
     if (res.ok) sizes = { ...parsePanelSizes(await res.json()), ...sizes }
   } catch {}
 }
@@ -54,7 +54,7 @@ export function savePanelSize(key: string, fraction: number | null): void {
   setPanelSize(key, fraction)
   void fetch(PANEL_SIZES_PATH, {
     method: 'POST',
-    headers: { 'content-type': 'application/json', 'x-pine-panel': secret },
+    headers: { 'content-type': 'application/json', 'x-ostia-panel': secret },
     body: JSON.stringify({ key, fraction }),
   }).catch(() => {})
 }

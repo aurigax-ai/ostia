@@ -37,7 +37,7 @@ interface Started {
 const cleanups: (() => void)[] = []
 
 async function start(args: string[], text = TEXT): Promise<Started> {
-  const root = realpathSync(mkdtempSync(join(tmpdir(), 'pine-lsp-features-')))
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'ostia-lsp-features-')))
   const recordFile = join(root, 'record.jsonl')
   const proc: ChildProcessWithoutNullStreams = spawn(process.execPath, [
     FAKE_SERVER,

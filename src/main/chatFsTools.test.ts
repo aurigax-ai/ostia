@@ -30,7 +30,7 @@ let other: string
 let outsideRoots: string
 
 beforeEach(() => {
-  base = mkdtempSync(join(tmpdir(), 'pine-chat-fs-'))
+  base = mkdtempSync(join(tmpdir(), 'ostia-chat-fs-'))
   home = join(base, 'home')
   project = join(home, 'project')
   other = join(home, 'other')
@@ -454,7 +454,7 @@ describe('restoreTool', () => {
 
   it('leaves the file alone when it changed, appeared or vanished after the write', async () => {
     const path = join(project, 'a.txt')
-    expect(await restore(path, versionOf('what pine wrote'), 'x')).toMatchObject({
+    expect(await restore(path, versionOf('what ostia wrote'), 'x')).toMatchObject({
       ok: false,
       error: 'changed',
     })

@@ -1,4 +1,4 @@
-import { MATCH_PINE_THEME, parseThemeChoice } from './themeChoice'
+import { MATCH_OSTIA_THEME, parseThemeChoice } from './themeChoice'
 
 export const SEARCH_ENGINES = ['google', 'duckduckgo', 'bing', 'kagi', 'custom'] as const
 
@@ -119,7 +119,7 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   autoSave: 'off',
   formatOnSave: false,
   openFilesIn: 'tab',
-  theme: MATCH_PINE_THEME,
+  theme: MATCH_OSTIA_THEME,
   markdownPreview: false,
   diffLayout: 'sideBySide',
 }

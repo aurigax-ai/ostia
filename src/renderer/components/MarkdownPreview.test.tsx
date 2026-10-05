@@ -18,7 +18,7 @@ describe('MarkdownPreview', () => {
     expect(container.querySelector('.typeset .typeset-scroll table')).not.toBeNull()
   })
 
-  it('opens links outside Pine', () => {
+  it('opens links outside Ostia', () => {
     render(<MarkdownPreview source="[docs](https://example.com)" />)
     const link = screen.getByRole('link', { name: 'docs' })
     expect(link).toHaveAttribute('target', '_blank')

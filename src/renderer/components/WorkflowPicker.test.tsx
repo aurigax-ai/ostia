@@ -68,7 +68,7 @@ describe('WorkflowPicker', () => {
     const root = useLayoutStore.getState().byWorkspace[workspaceId]?.root
     if (!root) throw new Error('no layout')
     paneId = allPanes(root)[0].id
-    vi.mocked(window.pine.workflows.list).mockResolvedValue(LISTING)
+    vi.mocked(window.ostia.workflows.list).mockResolvedValue(LISTING)
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
   })
 
@@ -92,7 +92,7 @@ describe('WorkflowPicker', () => {
   it('lists the workflows main found for the active workspace, with unreadable files', async () => {
     await openPicker()
 
-    expect(window.pine.workflows.list).toHaveBeenCalledWith(workspaceId)
+    expect(window.ostia.workflows.list).toHaveBeenCalledWith(workspaceId)
     expect(await screen.findByText('Clone a repository')).toBeInTheDocument()
     expect(screen.getByText('Disk usage')).toBeInTheDocument()
     expect(screen.getByText('Yours · clone.yaml')).toBeInTheDocument()
@@ -189,7 +189,7 @@ describe('WorkflowPicker', () => {
   })
 
   it('explains how to add workflows when there are none', async () => {
-    vi.mocked(window.pine.workflows.list).mockResolvedValue({ workflows: [], problems: [] })
+    vi.mocked(window.ostia.workflows.list).mockResolvedValue({ workflows: [], problems: [] })
     await openPicker()
 
     expect(

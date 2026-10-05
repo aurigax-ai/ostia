@@ -81,7 +81,7 @@ describe('built-in git extension against a real repository', () => {
   })
 
   beforeAll(() => {
-    dir = realpathSync(mkdtempSync(join(tmpdir(), 'pine-git-ext-')))
+    dir = realpathSync(mkdtempSync(join(tmpdir(), 'ostia-git-ext-')))
     repo = join(dir, 'repo')
     mkdirSync(join(repo, 'sub'), { recursive: true })
     git('init', '-q', '-b', 'main')
@@ -343,7 +343,7 @@ describe('built-in git extension against a real repository', () => {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
-        'x-pine-panel': url.searchParams.get('t') ?? '',
+        'x-ostia-panel': url.searchParams.get('t') ?? '',
       },
       body: JSON.stringify({ command, args, context: { workspaceId: 's1', locale: 'en' } }),
     })
@@ -357,7 +357,7 @@ describe('built-in git extension against a real repository', () => {
     const sizes = new URL('/sizes', url)
     const headers = {
       'content-type': 'application/json',
-      'x-pine-panel': url.searchParams.get('t') ?? '',
+      'x-ostia-panel': url.searchParams.get('t') ?? '',
     }
     const save = (body: unknown): Promise<Response> =>
       fetch(sizes, { method: 'POST', headers, body: JSON.stringify(body) })

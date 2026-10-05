@@ -74,7 +74,7 @@ test('an agent drives the in-app browser with the agent-browser command contract
       .toContain('PINE_TOKEN=')
     const paneEnv = readPaneEnv(envFile)
 
-    const pine = (...args: string[]): Promise<{ code: number; out: string; err: string }> =>
+    const ostia = (...args: string[]): Promise<{ code: number; out: string; err: string }> =>
       new Promise((done, fail) => {
         const child = spawn(process.execPath, [CLI, 'browse', ...args], {
           env: {
@@ -96,7 +96,7 @@ test('an agent drives the in-app browser with the agent-browser command contract
         child.on('close', (code) => done({ code: code ?? 1, out: out.trim(), err: err.trim() }))
       })
     const json = async (...args: string[]): Promise<Response> => {
-      const res = await pine(...args, '--json')
+      const res = await ostia(...args, '--json')
       return JSON.parse(res.out) as Response
     }
 
@@ -104,7 +104,7 @@ test('an agent drives the in-app browser with the agent-browser command contract
     expect(opened.success).toBe(true)
     expect(opened.data?.tabId).toEqual(expect.any(String))
     expect((await json('wait', '--load', 'load')).success).toBe(true)
-    await expect.poll(async () => (await pine('get', 'title')).out).toBe('Agent fixture')
+    await expect.poll(async () => (await ostia('get', 'title')).out).toBe('Agent fixture')
 
     const snap = await json('snapshot', '-i')
     expect(snap.success).toBe(true)
@@ -117,38 +117,38 @@ test('an agent drives the in-app browser with the agent-browser command contract
     const nameRef = refOf(/textbox "Name" \[ref=(e\d+)\]/)
     const greetRef = refOf(/button "Greet" \[ref=(e\d+)\]/)
 
-    const full = await pine('snapshot')
+    const full = await ostia('snapshot')
     expect(full.out).toMatch(/- heading "Shop" \[ref=e\d+\] \[level=1\]/)
     expect(full.out).toContain(`[ref=${nameRef.slice(1)}]`)
 
-    expect((await pine('fill', nameRef, 'Ada')).code).toBe(0)
-    expect((await pine('click', greetRef)).code).toBe(0)
-    await expect.poll(async () => (await pine('get', 'text', '#greeting')).out).toBe('Hello, Ada')
+    expect((await ostia('fill', nameRef, 'Ada')).code).toBe(0)
+    expect((await ostia('click', greetRef)).code).toBe(0)
+    await expect.poll(async () => (await ostia('get', 'text', '#greeting')).out).toBe('Hello, Ada')
 
-    expect((await pine('type', '#note', 'bc')).code).toBe(0)
-    await expect.poll(async () => (await pine('get', 'value', '#note')).out).toBe('abc')
+    expect((await ostia('type', '#note', 'bc')).code).toBe(0)
+    await expect.poll(async () => (await ostia('get', 'value', '#note')).out).toBe('abc')
 
-    expect((await pine('check', '#agree')).code).toBe(0)
-    expect((await pine('is', 'checked', '#agree')).out).toBe('true')
-    expect((await pine('select', '#size', 'Large')).code).toBe(0)
-    expect((await pine('get', 'value', '#size')).out).toBe('l')
+    expect((await ostia('check', '#agree')).code).toBe(0)
+    expect((await ostia('is', 'checked', '#agree')).out).toBe('true')
+    expect((await ostia('select', '#size', 'Large')).code).toBe(0)
+    expect((await ostia('get', 'value', '#size')).out).toBe('l')
 
-    expect((await pine('find', 'label', 'Name', 'fill', 'Grace')).code).toBe(0)
-    expect((await pine('find', 'role', 'button', 'click', '--name', 'Greet')).code).toBe(0)
-    await expect.poll(async () => (await pine('get', 'text', '#greeting')).out).toBe('Hello, Grace')
+    expect((await ostia('find', 'label', 'Name', 'fill', 'Grace')).code).toBe(0)
+    expect((await ostia('find', 'role', 'button', 'click', '--name', 'Greet')).code).toBe(0)
+    await expect.poll(async () => (await ostia('get', 'text', '#greeting')).out).toBe('Hello, Grace')
 
     const title = await json('eval', 'document.title')
     expect(title).toEqual({ success: true, data: { result: 'Agent fixture' }, error: null })
 
     const local = await json('storage', 'local')
     expect(local.data?.values).toEqual({ theme: 'dark' })
-    expect((await pine('cookies', 'set', 'flavor', 'oat')).code).toBe(0)
+    expect((await ostia('cookies', 'set', 'flavor', 'oat')).code).toBe(0)
     const cookies = await json('cookies')
     expect(cookies.data?.cookies).toEqual(
       expect.arrayContaining([expect.objectContaining({ name: 'flavor', value: 'oat' })]),
     )
 
-    const requests = await pine('network', 'requests', '--filter', '/api/ping')
+    const requests = await ostia('network', 'requests', '--filter', '/api/ping')
     expect(requests.out).toMatch(/GET\t200\t\w+\thttp:\/\/127\.0\.0\.1:\d+\/api\/ping/)
 
     const tabs = await json('tab')
@@ -156,7 +156,7 @@ test('an agent drives the in-app browser with the agent-browser command contract
       expect.objectContaining({ tabId: opened.data?.tabId, title: 'Agent fixture', active: true }),
     ])
 
-    const shot = await pine('screenshot')
+    const shot = await ostia('screenshot')
     expect(shot.code).toBe(0)
     expect(existsSync(shot.out)).toBe(true)
 
@@ -164,10 +164,10 @@ test('an agent drives the in-app browser with the agent-browser command contract
     expect(missing.success).toBe(false)
     expect(missing.error).toMatch(/^not-found/)
 
-    expect((await pine('click', 'text=Next page')).code).toBe(0)
+    expect((await ostia('click', 'text=Next page')).code).toBe(0)
     expect((await json('wait', '--url', '**/next')).success).toBe(true)
-    expect((await pine('back')).code).toBe(0)
-    await expect.poll(async () => (await pine('get', 'url')).out).toBe(`${origin}/`)
+    expect((await ostia('back')).code).toBe(0)
+    await expect.poll(async () => (await ostia('get', 'url')).out).toBe(`${origin}/`)
   } finally {
     await app.close()
     server.close()

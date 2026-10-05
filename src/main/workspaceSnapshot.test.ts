@@ -54,7 +54,7 @@ function split(aId: string, bId: string): SnapshotNode {
 let dataDir: string
 
 beforeEach(() => {
-  dataDir = mkdtempSync(join(tmpdir(), 'pine-snapshot-test-'))
+  dataDir = mkdtempSync(join(tmpdir(), 'ostia-snapshot-test-'))
   vi.stubEnv('XDG_DATA_HOME', dataDir)
   loadRestoredScrollback()
 })
@@ -284,7 +284,7 @@ describe('parseSnapshot', () => {
       id: 's2',
       name: 'Scratch',
       kind: 'scratch' as const,
-      workDir: '/tmp/pine-scratch-1000/1-aaaaaaaaaaaa',
+      workDir: '/tmp/ostia-scratch-1000/1-aaaaaaaaaaaa',
       activePaneId: 'pane-2',
       root: { type: 'pane' as const, id: 'pane-2', title: 'zsh', kind: 'terminal' as const },
     }

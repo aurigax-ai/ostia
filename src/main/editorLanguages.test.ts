@@ -23,7 +23,7 @@ function contribution(extra: Partial<EditorLanguageContribution> = {}): EditorLa
 }
 
 beforeEach(() => {
-  root = mkdtempSync(join(tmpdir(), 'pine-editor-lang-'))
+  root = mkdtempSync(join(tmpdir(), 'ostia-editor-lang-'))
   dir = join(root, 'ext')
   mkdirSync(dir)
   writeFileSync(join(dir, 'gleam.monarch.json'), JSON.stringify(GRAMMAR))

@@ -3,21 +3,21 @@ import { exitAfterDeadline, planQuit } from './quitPlan'
 
 describe('planQuit', () => {
   it('proceeds once the quit was approved', () => {
-    expect(planQuit({ approved: true, requestedByPine: false, platform: 'linux' })).toBe('proceed')
+    expect(planQuit({ approved: true, requestedByOstia: false, platform: 'linux' })).toBe('proceed')
   })
 
-  it('asks about running commands when Pine itself started the quit', () => {
-    expect(planQuit({ approved: false, requestedByPine: true, platform: 'linux' })).toBe('ask')
+  it('asks about running commands when Ostia itself started the quit', () => {
+    expect(planQuit({ approved: false, requestedByOstia: true, platform: 'linux' })).toBe('ask')
   })
 
   it('quits unattended when a signal (SIGTERM, SIGINT, SIGHUP) started the quit', () => {
-    expect(planQuit({ approved: false, requestedByPine: false, platform: 'linux' })).toBe(
+    expect(planQuit({ approved: false, requestedByOstia: false, platform: 'linux' })).toBe(
       'unattended',
     )
   })
 
-  it('still asks on macOS, where the app menu quits without going through Pine', () => {
-    expect(planQuit({ approved: false, requestedByPine: false, platform: 'darwin' })).toBe('ask')
+  it('still asks on macOS, where the app menu quits without going through Ostia', () => {
+    expect(planQuit({ approved: false, requestedByOstia: false, platform: 'darwin' })).toBe('ask')
   })
 })
 

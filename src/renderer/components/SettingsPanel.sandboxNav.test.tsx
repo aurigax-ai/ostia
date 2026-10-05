@@ -50,7 +50,7 @@ describe('SettingsPanel sandbox nav', () => {
 
   beforeEach(() => {
     installLocalStorage()
-    vi.mocked(window.pine.sandbox.get).mockResolvedValue(SETTINGS)
+    vi.mocked(window.ostia.sandbox.get).mockResolvedValue(SETTINGS)
     useWorkspacesStore.setState({
       workspaces: [
         workspace('w1', 'terminal'),

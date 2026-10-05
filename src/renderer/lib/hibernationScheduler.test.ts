@@ -29,7 +29,7 @@ afterEach(() => {
   useSettingsStore.setState(settingsInit, true)
   useWorkspacesStore.setState(workspacesInit, true)
   for (const id of IDS) forgetPaneActivity(id)
-  vi.mocked(window.pine.pty.hibernate).mockClear()
+  vi.mocked(window.ostia.pty.hibernate).mockClear()
 })
 
 const terminal = (id: string, resume = true): PaneNode => ({
@@ -105,8 +105,8 @@ describe('hibernateIdleAgents', () => {
     seed(1)
     const done = await hibernateIdleAgents(NOW)
     expect(done).toEqual(['idle-claude'])
-    expect(window.pine.pty.hibernate).toHaveBeenCalledTimes(1)
-    expect(window.pine.pty.hibernate).toHaveBeenCalledWith('idle-claude')
+    expect(window.ostia.pty.hibernate).toHaveBeenCalledTimes(1)
+    expect(window.ostia.pty.hibernate).toHaveBeenCalledWith('idle-claude')
     expect(hibernated('idle-claude')).toBe(true)
     for (const id of ['shown', 'fresh-claude', 'npm', 'at-prompt'])
       expect(hibernated(id)).toBe(false)
@@ -115,7 +115,7 @@ describe('hibernateIdleAgents', () => {
   it('does nothing while live agents fit under the limit', async () => {
     seed(3)
     expect(await hibernateIdleAgents(NOW)).toEqual([])
-    expect(window.pine.pty.hibernate).not.toHaveBeenCalled()
+    expect(window.ostia.pty.hibernate).not.toHaveBeenCalled()
   })
 
   it('does nothing when hibernation is off', async () => {
@@ -132,7 +132,7 @@ describe('hibernateIdleAgents', () => {
 
   it('leaves the pane live when main had no pty to stop', async () => {
     seed(1)
-    vi.mocked(window.pine.pty.hibernate).mockResolvedValueOnce(false)
+    vi.mocked(window.ostia.pty.hibernate).mockResolvedValueOnce(false)
     expect(await hibernateIdleAgents(NOW)).toEqual([])
     expect(hibernated('idle-claude')).toBe(false)
   })

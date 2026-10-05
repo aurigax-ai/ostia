@@ -1,5 +1,5 @@
 ---
-name: pine-manager
+name: ostia-manager
 description: Use when you are the Ostia manager — the agent the human started with `ostia <agent>` from a terminal outside Ostia, running in Ostia's manager workspace. Covers seeing every workspace and pane, reading a pane's screen, starting worker agents in their own workspaces, messaging them over the bus, typing into a pane when the human allowed it, and the limits that stop runaway loops. Triggers on "manage the other agents", "start a worker", "what is pane X doing", "answer the worker's prompt", "ostia manager", "pine manager".
 ---
 

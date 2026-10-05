@@ -15,7 +15,7 @@ import { SCRATCH_HISTORY_FILE, ScratchFolders, countScratchFiles } from './scrat
 let root: string
 
 beforeEach(() => {
-  root = mkdtempSync(join(tmpdir(), 'pine-scratch-test-'))
+  root = mkdtempSync(join(tmpdir(), 'ostia-scratch-test-'))
 })
 
 afterEach(() => {
@@ -72,7 +72,7 @@ describe('ScratchFolders', () => {
   })
 
   it('never follows a symlink inside the folder when deleting it', () => {
-    const outside = mkdtempSync(join(tmpdir(), 'pine-scratch-outside-'))
+    const outside = mkdtempSync(join(tmpdir(), 'ostia-scratch-outside-'))
     writeFileSync(join(outside, 'keep.txt'), 'keep')
     const folders = new ScratchFolders(root, 4242)
     const dir = folders.create('1')

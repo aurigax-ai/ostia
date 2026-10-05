@@ -122,7 +122,7 @@ describe('parseEditorSettings', () => {
     expect(parseEditorSettings({ diffLayout: 'stacked' }).diffLayout).toBe('sideBySide')
   })
 
-  it('links the editor colors to the Pine theme by default', () => {
+  it('links the editor colors to the Ostia theme by default', () => {
     expect(DEFAULT_EDITOR_SETTINGS.theme).toBe('match')
     expect(parseEditorSettings({ theme: null }).theme).toBe('match')
   })

@@ -298,7 +298,7 @@ describe('fetchLatestRelease', () => {
   afterEach(() => github.close())
 
   const fetchFrom = (timeoutMs?: number): Promise<LatestRelease> =>
-    fetchLatestRelease({ baseUrl: github.url, userAgent: 'pine/0.2.0', timeoutMs })
+    fetchLatestRelease({ baseUrl: github.url, userAgent: 'ostia/0.2.0', timeoutMs })
 
   it('asks for the latest release of the repository and sends only a product user agent', async () => {
     github.reply = { status: 200, body: body('0.3.0') }
@@ -308,7 +308,7 @@ describe('fetchLatestRelease', () => {
     expect(github.requests).toHaveLength(1)
     const { url, headers } = github.requests[0]
     expect(url).toBe('/repos/aurigax-ai/ostia/releases/latest')
-    expect(headers['user-agent']).toBe('pine/0.2.0')
+    expect(headers['user-agent']).toBe('ostia/0.2.0')
     expect(headers.authorization).toBeUndefined()
     expect(headers.cookie).toBeUndefined()
   })
@@ -374,7 +374,7 @@ describe('registerReleaseCheck', () => {
     info.mockClear()
     vi.useFakeTimers({ toFake: ['setTimeout', 'setInterval'] })
     vi.stubEnv(envName(RELEASE_API_URL_ENV), github.url)
-    dataHome = mkdtempSync(join(tmpdir(), 'pine-release-check-'))
+    dataHome = mkdtempSync(join(tmpdir(), 'ostia-release-check-'))
     vi.stubEnv('XDG_DATA_HOME', dataHome)
   })
 

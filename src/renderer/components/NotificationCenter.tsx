@@ -94,12 +94,12 @@ export function NotificationCenter(): JSX.Element {
     if (!open) return
     let live = true
     const load = (): void => {
-      void window.pine.notifications.list().then((list) => {
+      void window.ostia.notifications.list().then((list) => {
         if (live) setEntries(list.slice(0, LIST_LIMIT))
       })
     }
     load()
-    const off = window.pine.notifications.onChanged(load)
+    const off = window.ostia.notifications.onChanged(load)
     return () => {
       live = false
       off()
@@ -131,7 +131,7 @@ export function NotificationCenter(): JSX.Element {
                   )
                   setOpen(false)
                 } else if (entry.paneId) {
-                  if (!revealPane(entry.paneId)) window.pine.notifications.reveal(entry.paneId)
+                  if (!revealPane(entry.paneId)) window.ostia.notifications.reveal(entry.paneId)
                   setOpen(false)
                 }
               }}
@@ -194,7 +194,7 @@ export function NotificationCenter(): JSX.Element {
             size="sm"
             disabled={entries.length === 0 && unread === 0}
             onClick={() => {
-              window.pine.notifications.clear()
+              window.ostia.notifications.clear()
               useAttentionStore.getState().markAllRead()
               setEntries([])
             }}

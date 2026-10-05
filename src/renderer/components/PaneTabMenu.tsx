@@ -39,7 +39,7 @@ export function PaneTabMenu({
       <ContextMenuTrigger render={trigger} />
       <MenuContent>
         {file && workspaceId ? (
-          <FileMenuItems workspaceId={workspaceId} path={file} inPine />
+          <FileMenuItems workspaceId={workspaceId} path={file} inOstia />
         ) : null}
         {file && tabActions.length > 0 ? <ContextMenuSeparator /> : null}
         {tabActions.map((action) => (

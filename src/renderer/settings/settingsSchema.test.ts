@@ -35,10 +35,10 @@ describe('SETTINGS_JSON_SCHEMA', () => {
 
     it('describes every top-level key the settings store writes', async () => {
       vi.useFakeTimers()
-      vi.mocked(window.pine.fs.write).mockClear()
+      vi.mocked(window.ostia.fs.write).mockClear()
       useSettingsStore.getState().setExtensionSettings('git', { pollSeconds: 30 })
       await vi.runAllTimersAsync()
-      const written = JSON.parse(String(vi.mocked(window.pine.fs.write).mock.calls.at(-1)?.[1]))
+      const written = JSON.parse(String(vi.mocked(window.ostia.fs.write).mock.calls.at(-1)?.[1]))
       const described = Object.keys(SETTINGS_JSON_SCHEMA.properties)
       expect(Object.keys(written).filter((key) => !described.includes(key))).toEqual([])
       expect(written.extensionSettings).toEqual({ git: { pollSeconds: 30 } })
@@ -87,16 +87,16 @@ describe('SETTINGS_JSON_SCHEMA', () => {
 })
 
 describe('registerSettingsSchema', () => {
-  it('resolves the settings path via the pine bridge before registering', async () => {
+  it('resolves the settings path via the ostia bridge before registering', async () => {
     await registerSettingsSchema()
-    expect(window.pine.settings.path).toHaveBeenCalledTimes(1)
-    expect(vi.mocked(window.pine.settings.path).mock.invocationCallOrder[0]).toBeLessThan(
+    expect(window.ostia.settings.path).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(window.ostia.settings.path).mock.invocationCallOrder[0]).toBeLessThan(
       setDiagnosticsOptions.mock.invocationCallOrder[0],
     )
   })
 
   it('registers the exported schema with Monaco keyed to the settings file URI', async () => {
-    vi.mocked(window.pine.settings.path).mockResolvedValue('/custom/settings.json')
+    vi.mocked(window.ostia.settings.path).mockResolvedValue('/custom/settings.json')
     await registerSettingsSchema()
 
     expect(setDiagnosticsOptions).toHaveBeenCalledTimes(1)
@@ -108,7 +108,7 @@ describe('registerSettingsSchema', () => {
     expect(options.validate).toBe(true)
     expect(options.allowComments).toBe(false)
     expect(options.schemas).toHaveLength(1)
-    expect(options.schemas[0].uri).toBe('pine://settings-schema')
+    expect(options.schemas[0].uri).toBe('ostia://settings-schema')
     expect(options.schemas[0].fileMatch).toEqual(['file:///custom/settings.json'])
     expect(options.schemas[0].schema).toMatchObject({
       additionalProperties: false,
@@ -117,9 +117,9 @@ describe('registerSettingsSchema', () => {
   })
 
   it('gives the settings file, and only it, the language Monaco’s own JSON features always serve', async () => {
-    vi.mocked(window.pine.settings.path).mockResolvedValue('/custom/settings.json')
+    vi.mocked(window.ostia.settings.path).mockResolvedValue('/custom/settings.json')
     await registerSettingsSchema()
-    expect(langFor('/custom/settings.json')).toBe('pine-settings')
+    expect(langFor('/custom/settings.json')).toBe('ostia-settings')
     expect(langFor('/custom/other.json')).toBe('json')
     expect(langFor('/elsewhere/settings.json')).toBe('json')
     setSettingsFile(null)

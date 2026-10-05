@@ -40,13 +40,13 @@ export function handleDocumentClipboardChord(e: KeyboardEvent, mac: boolean): bo
     editable: isEditableElement(document.activeElement),
     hasSelection: Boolean(document.getSelection()?.toString()),
   })
-  if (plan) void window.pine.clipboard.edit(plan)
+  if (plan) void window.ostia.clipboard.edit(plan)
   return true
 }
 
 export function syncClipboardChords(mac: boolean): () => void {
   const send = (): void =>
-    window.pine.clipboard.setChords({ copy: chordOf('copy', mac), paste: chordOf('paste', mac) })
+    window.ostia.clipboard.setChords({ copy: chordOf('copy', mac), paste: chordOf('paste', mac) })
   send()
   return onBindingsChange(send)
 }

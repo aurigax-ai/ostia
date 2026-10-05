@@ -60,5 +60,5 @@ export function applyEditorLanguages(languages: readonly EditorLanguage[]): Edit
 }
 
 export async function loadEditorLanguages(): Promise<void> {
-  applyEditorLanguages(await window.pine.editorLanguages.load())
+  applyEditorLanguages(await window.ostia.editorLanguages.load())
 }

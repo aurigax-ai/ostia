@@ -179,10 +179,10 @@ describe('AssistantSection', () => {
     useSettingsStore.setState(settingsInit, true)
     useUIStore.setState(uiInit, true)
     resetChatTools()
-    vi.mocked(window.pine.assist.models)
+    vi.mocked(window.ostia.assist.models)
       .mockReset()
       .mockResolvedValue({ ok: false, error: 'unavailable' })
-    vi.mocked(window.pine.assist.setModelLoaded).mockReset().mockResolvedValue({ ok: true })
+    vi.mocked(window.ostia.assist.setModelLoaded).mockReset().mockResolvedValue({ ok: true })
     vi.restoreAllMocks()
   })
 
@@ -266,8 +266,8 @@ describe('AssistantSection', () => {
     await userEvent.click(screen.getByRole('combobox', { name: 'Chat model' }))
     await userEvent.click(await screen.findByRole('option', { name: 'gemma' }))
     await waitFor(() => expect(useSettingsStore.getState().assistant.chatModel).toEqual(GEMMA))
-    await waitFor(() => expect(window.pine.fs.write).toHaveBeenCalled())
-    const written = vi.mocked(window.pine.fs.write).mock.calls.at(-1)?.[1] ?? ''
+    await waitFor(() => expect(window.ostia.fs.write).toHaveBeenCalled())
+    const written = vi.mocked(window.ostia.fs.write).mock.calls.at(-1)?.[1] ?? ''
     expect(JSON.parse(written).assistant.chatModel).toEqual(GEMMA)
   })
 
@@ -309,7 +309,7 @@ describe('AssistantSection', () => {
     const row = provider('OpenAI')
     await userEvent.type(within(row).getByLabelText('API key: OpenAI'), 'sk-secret-9')
     await userEvent.click(within(row).getByRole('button', { name: 'Save' }))
-    expect(window.pine.assist.setProviderKey).toHaveBeenCalledWith('openai', 'sk-secret-9')
+    expect(window.ostia.assist.setProviderKey).toHaveBeenCalledWith('openai', 'sk-secret-9')
     await waitFor(() => expect(within(row).getByLabelText('API key: OpenAI')).toHaveValue(''))
     expect(JSON.stringify(useSettingsStore.getState().assistant)).not.toContain('sk-secret-9')
     cleanup()
@@ -319,11 +319,11 @@ describe('AssistantSection', () => {
     render(<AssistantSection />)
     expect(within(provider('OpenAI')).getByText('Set')).toBeInTheDocument()
     await userEvent.click(within(provider('OpenAI')).getByRole('button', { name: 'Clear' }))
-    expect(window.pine.assist.setProviderKey).toHaveBeenLastCalledWith('openai', null)
+    expect(window.ostia.assist.setProviderKey).toHaveBeenLastCalledWith('openai', null)
   })
 
   it('adds a model the provider lists or one typed by hand, and removes one', async () => {
-    vi.mocked(window.pine.assist.models).mockResolvedValue({
+    vi.mocked(window.ostia.assist.models).mockResolvedValue({
       ok: true,
       lifecycle: false,
       models: [{ id: 'qwen' }, { id: 'llama-small' }],
@@ -332,7 +332,7 @@ describe('AssistantSection', () => {
     render(<AssistantSection />)
     const input = within(provider('Ollama')).getByRole('combobox', { name: 'Model id for Ollama' })
     await userEvent.click(input)
-    expect(window.pine.assist.models).toHaveBeenCalledWith('assistant', 'ollama')
+    expect(window.ostia.assist.models).toHaveBeenCalledWith('assistant', 'ollama')
     await userEvent.click(await screen.findByRole('option', { name: 'llama-small' }))
     await waitFor(() =>
       expect(useSettingsStore.getState().assistant.providers[0].models).toEqual([
@@ -390,7 +390,7 @@ describe('AssistantSection', () => {
   })
 
   it('lists the models of a provider that can load them and loads one through main', async () => {
-    vi.mocked(window.pine.assist.models).mockResolvedValue({
+    vi.mocked(window.ostia.assist.models).mockResolvedValue({
       ok: true,
       lifecycle: true,
       models: [
@@ -406,17 +406,17 @@ describe('AssistantSection', () => {
     expect(rows[0]).toHaveTextContent('Gemma · Loaded · idle 2 min')
     expect(rows[1]).toHaveTextContent('Not loaded')
     await userEvent.click(within(rows[1]).getByRole('button', { name: 'Load' }))
-    expect(window.pine.assist.setModelLoaded).toHaveBeenCalledWith(
+    expect(window.ostia.assist.setModelLoaded).toHaveBeenCalledWith(
       'model-runtime',
       'qwen',
       true,
       'model-runtime',
     )
-    await waitFor(() => expect(window.pine.assist.models).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(window.ostia.assist.models).toHaveBeenCalledTimes(2))
   })
 
   it('shows the error a provider gave for its model list', async () => {
-    vi.mocked(window.pine.assist.models).mockResolvedValue({
+    vi.mocked(window.ostia.assist.models).mockResolvedValue({
       ok: true,
       lifecycle: false,
       models: [],

@@ -1,3 +1,4 @@
+import { PRODUCT_DISPLAY_NAME } from './productDisplay'
 export type Capability =
   | 'drive-self'
   | 'read-board'
@@ -103,7 +104,7 @@ export function capabilityRefusalHint(
   const needed = caps.map((cap) => `${cap} (lets you ${CAPABILITY_ALLOWS[cap]})`).join(', ')
   const outcome =
     refusal === 'denied' ? 'The human denied it.' : 'Nobody answered the approval card in time.'
-  const grant = 'Only the human can grant it, by answering the approval card in Pine or in Settings'
+  const grant = `Only the human can grant it, by answering the approval card in ${PRODUCT_DISPLAY_NAME} or in Settings`
   const advice = 'ask the human or do this another way, and do not retry in a loop.'
   return `${outcome} Needed: ${needed}. ${grant}; ${advice}`
 }

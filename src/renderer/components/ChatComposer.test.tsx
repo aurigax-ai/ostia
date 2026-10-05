@@ -83,11 +83,11 @@ interface Sent {
 function captureRequests(): Sent[] {
   const sent: Sent[] = []
   const listeners = new Set<(c: AssistChunk) => void>()
-  vi.mocked(window.pine.assist.onChunk).mockImplementation((cb) => {
+  vi.mocked(window.ostia.assist.onChunk).mockImplementation((cb) => {
     listeners.add(cb)
     return () => listeners.delete(cb)
   })
-  vi.mocked(window.pine.assist.request).mockImplementation(
+  vi.mocked(window.ostia.assist.request).mockImplementation(
     async (_point, requestId, input, model) => {
       sent.push({ input, model })
       for (const text of [
@@ -127,8 +127,8 @@ describe('chat composer row', () => {
 
   beforeEach(() => {
     seed()
-    vi.mocked(window.pine.chatSessions.list).mockResolvedValue([])
-    vi.mocked(window.pine.chatSessions.save).mockImplementation(async (session) => ({
+    vi.mocked(window.ostia.chatSessions.list).mockResolvedValue([])
+    vi.mocked(window.ostia.chatSessions.save).mockImplementation(async (session) => ({
       ok: true,
       summary: { ...session, messageCount: session.messages.length },
       trimmedMessages: 0,
@@ -153,10 +153,10 @@ describe('chat composer row', () => {
     useAssistStore.setState(assistInit, true)
     useWorkspacesStore.setState({ workspaces: [], activeWorkspaceId: null })
     useLayoutStore.setState({ byWorkspace: {} })
-    vi.mocked(window.pine.assist.request).mockReset()
-    vi.mocked(window.pine.chatSessions.save).mockReset()
-    vi.mocked(window.pine.chatSessions.list).mockReset()
-    vi.mocked(window.pine.fs.write).mockClear()
+    vi.mocked(window.ostia.assist.request).mockReset()
+    vi.mocked(window.ostia.chatSessions.save).mockReset()
+    vi.mocked(window.ostia.chatSessions.list).mockReset()
+    vi.mocked(window.ostia.fs.write).mockClear()
   })
 
   it('puts tools on the left and mode, model and send on the right of one row that never wraps', async () => {
@@ -219,12 +219,12 @@ describe('chat composer row', () => {
     await userEvent.click(await modeButton())
     await userEvent.click(await screen.findByRole('menuitemradio', { name: /^Write/ }))
     await ask('hi')
-    await waitFor(() => expect(window.pine.chatSessions.save).toHaveBeenCalled())
+    await waitFor(() => expect(window.ostia.chatSessions.save).toHaveBeenCalled())
     expect(sent).toHaveLength(1)
-    const saved = JSON.stringify(vi.mocked(window.pine.chatSessions.save).mock.calls)
+    const saved = JSON.stringify(vi.mocked(window.ostia.chatSessions.save).mock.calls)
     expect(saved).not.toMatch(/"mode"|write/)
     expect(JSON.stringify(sent[0].input)).not.toMatch(/"mode"/)
-    expect(window.pine.fs.write).not.toHaveBeenCalled()
+    expect(window.ostia.fs.write).not.toHaveBeenCalled()
   })
 
   it('lists the chat models by provider and sends the next question to the picked one', async () => {
@@ -249,7 +249,9 @@ describe('chat composer row', () => {
     const session = currentSessionId('w1') as string
     expect(useChatStore.getState().meta[session].modelRef).toEqual(BIG)
     await waitFor(() =>
-      expect(vi.mocked(window.pine.chatSessions.save).mock.calls.at(-1)?.[0].modelRef).toEqual(BIG),
+      expect(vi.mocked(window.ostia.chatSessions.save).mock.calls.at(-1)?.[0].modelRef).toEqual(
+        BIG,
+      ),
     )
   })
 
@@ -327,7 +329,7 @@ describe('open file context', () => {
         },
       },
     })
-    vi.mocked(window.pine.chatSessions.list).mockResolvedValue([])
+    vi.mocked(window.ostia.chatSessions.list).mockResolvedValue([])
   })
 
   afterEach(() => {
@@ -345,8 +347,8 @@ describe('open file context', () => {
     useAssistStore.setState({ availability: {}, catalog: { models: [], chat: null, fast: null } })
     useWorkspacesStore.setState({ workspaces: [], activeWorkspaceId: null })
     useLayoutStore.setState({ byWorkspace: {} })
-    vi.mocked(window.pine.assist.request).mockReset()
-    vi.mocked(window.pine.chatSessions.list).mockReset()
+    vi.mocked(window.ostia.assist.request).mockReset()
+    vi.mocked(window.ostia.chatSessions.list).mockReset()
   })
 
   it('sends the path of the file open in the editor, and nothing once its chip is off', async () => {

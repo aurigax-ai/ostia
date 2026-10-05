@@ -357,7 +357,7 @@ describe('McpHost.test', () => {
       {
         name: 'missing',
         enabled: true,
-        command: ['/nonexistent/pine-mcp-server'],
+        command: ['/nonexistent/ostia-mcp-server'],
         env: {},
         secrets: [],
         disabledTools: [],

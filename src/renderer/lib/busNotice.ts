@@ -17,7 +17,7 @@ export function announceBusMessage(paneId: string, from: unknown, text: unknown)
     waiting: false,
     at,
   })
-  window.pine.notifications.post({
+  window.ostia.notifications.post({
     paneId,
     kind: 'message',
     title,

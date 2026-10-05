@@ -36,7 +36,7 @@ describe('ostia CLI → extensions (real processes, real socket)', () => {
   const confirm = vi.fn<(req: ExtensionConfirmRequest) => Promise<boolean>>()
   const openTerminalIn = vi.fn<(req: TerminalOpenRequest) => Promise<string | null>>()
 
-  function runPine(args: string[], input?: string): Promise<RunResult> {
+  function runOstia(args: string[], input?: string): Promise<RunResult> {
     return new Promise((resolve, reject) => {
       const child = spawn(process.execPath, [cliPath, ...args], {
         env: { ...process.env, PINE_SOCKET: socketPath, PINE_TOKEN: identity.token },
@@ -63,7 +63,7 @@ describe('ostia CLI → extensions (real processes, real socket)', () => {
   }
 
   beforeAll(() => {
-    dir = mkdtempSync(join(tmpdir(), 'pine-cli-ext-'))
+    dir = mkdtempSync(join(tmpdir(), 'ostia-cli-ext-'))
     workDir = join(dir, 'project')
     process.env.XDG_DATA_HOME = join(dir, 'data')
     process.env.PATH = `${fakeSystemBin}:${savedPath}`
@@ -112,26 +112,26 @@ describe('ostia CLI → extensions (real processes, real socket)', () => {
   })
 
   it('passes stdin only to a command whose manifest asks for it', async () => {
-    const piped = await runPine(['echo', 'stdin'], 'hello **pine**')
+    const piped = await runOstia(['echo', 'stdin'], 'hello **ostia**')
     expect(piped.stderr).toBe('')
-    expect(piped.stdout.trim()).toBe('stdin:hello **pine**')
-    expect((await runPine(['ext', 'echo', 'echo', 'a'], 'ignored')).stdout.trim()).toBe('echoed')
+    expect(piped.stdout.trim()).toBe('stdin:hello **ostia**')
+    expect((await runOstia(['ext', 'echo', 'echo', 'a'], 'ignored')).stdout.trim()).toBe('echoed')
   }, 30_000)
 
   it('hands an extension command its arguments untouched, flags and -- included', async () => {
     const argv = ['--json', '-x', '--name=web', '--', '--pane', '-', '-5', 'two words']
     for (const prefix of [['echo'], ['ext', 'echo']]) {
-      const res = await runPine([...prefix, 'argv', ...argv])
+      const res = await runOstia([...prefix, 'argv', ...argv])
       expect(res.stderr).toBe('')
       expect(JSON.parse(res.stdout)).toEqual(argv)
     }
   }, 30_000)
 
   it('reports argument errors and unknown extensions with a non-zero exit', async () => {
-    const missing = await runPine(['git', 'diff'])
+    const missing = await runOstia(['git', 'diff'])
     expect(missing.code).toBe(1)
     expect(missing.stderr).toContain('invalid-args: diff <path> [--staged]')
-    const unknown = await runPine(['nosuchext', 'go'])
+    const unknown = await runOstia(['nosuchext', 'go'])
     expect(unknown.code).toBe(1)
     expect(unknown.stderr).toContain("unknown command or extension 'nosuchext'")
   }, 30_000)
@@ -148,7 +148,7 @@ describe('ostia CLI → extensions (real processes, real socket)', () => {
     vcs('commit', '-q', '-m', 'init')
     writeFileSync(join(workDir, 'readme.md'), 'v2\n')
 
-    const status = await runPine(['git', 'status'])
+    const status = await runOstia(['git', 'status'])
     expect(status.stderr).toBe('')
     expect(JSON.parse(status.stdout)).toMatchObject({
       root: realpathSync(workDir),
@@ -156,54 +156,54 @@ describe('ostia CLI → extensions (real processes, real socket)', () => {
       counts: { changed: 1 },
     })
 
-    const changes = JSON.parse((await runPine(['git', 'changes'])).stdout)
+    const changes = JSON.parse((await runOstia(['git', 'changes'])).stdout)
     expect(changes.changes).toContainEqual({ path: 'readme.md', area: 'unstaged', code: 'M' })
 
-    const diff = JSON.parse((await runPine(['git', 'diff', 'readme.md'])).stdout)
+    const diff = JSON.parse((await runOstia(['git', 'diff', 'readme.md'])).stdout)
     expect(diff).toMatchObject({ path: 'readme.md', area: 'unstaged' })
     expect(diff.patch).toContain('-v1\n+v2')
   }, 30_000)
 
   it('ostia git stage/commit/log/blame work on the workspace repo; discard is not a verb', async () => {
-    const staged = await runPine(['git', 'stage', 'readme.md'])
+    const staged = await runOstia(['git', 'stage', 'readme.md'])
     expect(staged.stderr).toBe('')
     expect(JSON.parse(staged.stdout)).toMatchObject({
       staged: ['readme.md'],
       counts: { staged: 1 },
     })
 
-    const committed = await runPine(['git', 'commit', '-m', 'second version'])
+    const committed = await runOstia(['git', 'commit', '-m', 'second version'])
     expect(committed.stderr).toBe('')
     expect(committed.stdout.trim()).toMatch(/^[0-9a-f]{40}$/)
 
-    const log = await runPine(['git', 'log'])
+    const log = await runOstia(['git', 'log'])
     expect(log.stdout.split('\n').map((l) => l.replace(/^\w+ \S+ /, ''))).toEqual([
       'T  second version',
       'T  init',
       '',
     ])
-    const logJson = JSON.parse((await runPine(['git', 'log', '--limit', '1', '--json'])).stdout)
+    const logJson = JSON.parse((await runOstia(['git', 'log', '--limit', '1', '--json'])).stdout)
     expect(logJson.commits).toHaveLength(1)
     expect(logJson.commits[0]).toMatchObject({
       sha: committed.stdout.trim(),
       subject: 'second version',
     })
 
-    const blame = JSON.parse((await runPine(['git', 'blame', 'readme.md', '--json'])).stdout)
+    const blame = JSON.parse((await runOstia(['git', 'blame', 'readme.md', '--json'])).stdout)
     expect(blame.lines).toEqual([
       expect.objectContaining({ line: 1, sha: committed.stdout.trim(), text: 'v2' }),
     ])
 
-    const nothing = await runPine(['git', 'unstage'])
+    const nothing = await runOstia(['git', 'unstage'])
     expect(nothing.code).toBe(1)
     expect(nothing.stderr).toContain('invalid-args')
-    const discard = await runPine(['git', 'discard', 'readme.md'])
+    const discard = await runOstia(['git', 'discard', 'readme.md'])
     expect(discard.code).toBe(1)
     expect(discard.stderr).toContain("unknown subcommand 'discard'")
   }, 30_000)
 
   it('ostia ext ls lists the built-in extensions with their CLI usage', async () => {
-    const res = await runPine(['ext', 'ls'])
+    const res = await runOstia(['ext', 'ls'])
     expect(res.stdout).toContain('git\t')
     expect(res.stdout).toContain('ostia git diff <path> [--staged]')
     expect(res.stdout).toContain('ostia git commit -m <message>')
@@ -217,7 +217,7 @@ describe('ostia CLI → extensions (real processes, real socket)', () => {
     const sudo = process.getuid?.() === 0 ? '' : 'sudo '
 
     it('prints the OS, kernel, shell and the package managers on PATH as JSON', async () => {
-      const res = await runPine(['system', 'info'])
+      const res = await runOstia(['system', 'info'])
       expect(res.stderr).toBe('')
       const info = JSON.parse(res.stdout)
       expect(info.os).toMatchObject({ platform: process.platform })
@@ -233,7 +233,7 @@ describe('ostia CLI → extensions (real processes, real socket)', () => {
         () => new Promise((r) => setTimeout(() => r(true), REQUEST_TIMEOUT_MS + 1000)),
       )
       openTerminalIn.mockResolvedValue('installer-pane')
-      const res = await runPine([
+      const res = await runOstia([
         'system',
         'install',
         'ripgrep',
@@ -270,7 +270,7 @@ describe('ostia CLI → extensions (real processes, real socket)', () => {
 
     it('exits non-zero with approved false and opens nothing when the human denies', async () => {
       confirm.mockResolvedValue(false)
-      const res = await runPine(['system', 'install', 'ripgrep', '--manager', 'apt'])
+      const res = await runOstia(['system', 'install', 'ripgrep', '--manager', 'apt'])
       expect(res.code).toBe(1)
       expect(JSON.parse(res.stdout)).toEqual({
         approved: false,
@@ -282,7 +282,7 @@ describe('ostia CLI → extensions (real processes, real socket)', () => {
 
     it('rejects a package name that could smuggle a flag or shell syntax before asking', async () => {
       for (const bad of ['--noconfirm', 'rg;reboot']) {
-        const res = await runPine(['system', 'install', 'ripgrep', bad, '--manager', 'pacman'])
+        const res = await runOstia(['system', 'install', 'ripgrep', bad, '--manager', 'pacman'])
         expect(res.code).toBe(1)
         expect(res.stderr).toContain('invalid-package')
       }

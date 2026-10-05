@@ -224,7 +224,7 @@ describe('Extension API v2 UI', () => {
         ok: true as const,
         src: `http://127.0.0.1:4100${context.path ?? '/'}`,
       }))
-      window.pine.extensions.panel = panel
+      window.ostia.extensions.panel = panel
       useExtensionsStore.setState({ list: [ext({})] })
       const { container } = render(<ExtensionPanelView extId="demo" workspaceId="s1" paneId="p1" />)
       await waitFor(() => expect(container.querySelector('webview')).not.toBeNull())
@@ -245,7 +245,7 @@ describe('Extension API v2 UI', () => {
 
     it('ignores a navigation meant for another pane', async () => {
       const panel = vi.fn().mockResolvedValue({ ok: true, src: 'http://127.0.0.1:4100/' })
-      window.pine.extensions.panel = panel
+      window.ostia.extensions.panel = panel
       useExtensionsStore.setState({ list: [ext({})] })
       const { container } = render(<ExtensionPanelView extId="demo" workspaceId="s1" paneId="p1" />)
       await waitFor(() => expect(container.querySelector('webview')).not.toBeNull())
@@ -281,7 +281,7 @@ describe('Extension API v2 UI', () => {
       })
       const result: ExtensionSettingResult = { ok: true, stored: { loud: true }, list: [updated] }
       const setSetting = vi.fn().mockResolvedValue(result)
-      window.pine.extensions.setSetting = setSetting
+      window.ostia.extensions.setSetting = setSetting
       useExtensionsStore.setState({ list: [withSettings] })
       render(<ExtensionsSection />)
 
@@ -294,7 +294,7 @@ describe('Extension API v2 UI', () => {
 
     it('commits a number on Enter and shows a refusal from main', async () => {
       const setSetting = vi.fn().mockResolvedValue({ ok: false, error: 'invalid-value' })
-      window.pine.extensions.setSetting = setSetting
+      window.ostia.extensions.setSetting = setSetting
       useExtensionsStore.setState({ list: [withSettings] })
       render(<ExtensionsSection />)
       const user = userEvent.setup()

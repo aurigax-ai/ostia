@@ -18,7 +18,7 @@ afterEach(() => {
 })
 
 function extension(files: Record<string, string>): string {
-  const dir = mkdtempSync(join(tmpdir(), 'pine-langpack-'))
+  const dir = mkdtempSync(join(tmpdir(), 'ostia-langpack-'))
   dirs.push(dir)
   for (const [name, content] of Object.entries(files)) {
     mkdirSync(join(dir, name, '..'), { recursive: true })

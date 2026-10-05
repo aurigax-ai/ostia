@@ -39,7 +39,7 @@ const gopls = server({
 })
 
 function show(list: LanguageServerInfo[]): void {
-  vi.mocked(window.pine.lsp.servers).mockResolvedValue(list)
+  vi.mocked(window.ostia.lsp.servers).mockResolvedValue(list)
   render(
     <TooltipProvider>
       <LanguagesSection />
@@ -104,13 +104,13 @@ describe('LanguagesSection', () => {
   it('switches a server off through main and shows what main answered', async () => {
     show([server()])
     const user = userEvent.setup()
-    vi.mocked(window.pine.lsp.setEnabled).mockResolvedValue([
+    vi.mocked(window.ostia.lsp.setEnabled).mockResolvedValue([
       server({ enabled: false, status: 'off' }),
     ])
     const toggle = await screen.findByRole('switch', { name: 'Enable typescript-language-server' })
     expect(toggle).toBeChecked()
     await user.click(toggle)
-    expect(window.pine.lsp.setEnabled).toHaveBeenCalledWith('lsp-typescript/typescript', false)
+    expect(window.ostia.lsp.setEnabled).toHaveBeenCalledWith('lsp-typescript/typescript', false)
     expect(await screen.findByText('Off')).toBeInTheDocument()
     expect(
       screen.getByRole('button', { name: 'Restart typescript-language-server' }),
@@ -123,12 +123,12 @@ describe('LanguagesSection', () => {
     await user.click(
       await screen.findByRole('button', { name: 'Restart typescript-language-server' }),
     )
-    expect(window.pine.lsp.restart).toHaveBeenCalledWith('lsp-typescript/typescript')
+    expect(window.ostia.lsp.restart).toHaveBeenCalledWith('lsp-typescript/typescript')
   })
 
   it('offers to install a missing program through the system extension', async () => {
     useWorkspacesStore.setState({ activeWorkspaceId: 'ws-1' })
-    vi.mocked(window.pine.system.requirements).mockResolvedValue({
+    vi.mocked(window.ostia.system.requirements).mockResolvedValue({
       missing: [{ program: 'gopls', package: 'gopls' }],
       hint: { command: 'sudo pacman -S --needed gopls', packages: ['gopls'] },
       canInstall: true,
@@ -138,15 +138,15 @@ describe('LanguagesSection', () => {
     expect(await screen.findByText('Program missing: gopls')).toBeInTheDocument()
     expect(screen.getByText('Program')).toBeInTheDocument()
     await user.click(await screen.findByRole('button', { name: 'Install gopls' }))
-    expect(window.pine.system.requirements).toHaveBeenCalledWith('lsp:lsp-gopls/gopls')
-    expect(window.pine.system.installRequirements).toHaveBeenCalledWith(
+    expect(window.ostia.system.requirements).toHaveBeenCalledWith('lsp:lsp-gopls/gopls')
+    expect(window.ostia.system.installRequirements).toHaveBeenCalledWith(
       'lsp:lsp-gopls/gopls',
       'ws-1',
     )
   })
 
   it('shows the install command to copy when the system extension cannot run it', async () => {
-    vi.mocked(window.pine.system.requirements).mockResolvedValue({
+    vi.mocked(window.ostia.system.requirements).mockResolvedValue({
       missing: [{ program: 'gopls', package: 'gopls' }],
       hint: { command: 'sudo pacman -S --needed gopls', packages: ['gopls'] },
       canInstall: false,
@@ -183,16 +183,16 @@ describe('LanguagesSection', () => {
       ],
       errors: { 'textDocument/hover': 3 },
     }
-    vi.mocked(window.pine.lsp.log).mockResolvedValue(log)
+    vi.mocked(window.ostia.lsp.log).mockResolvedValue(log)
     show([server()])
     const user = userEvent.setup()
     const open = await screen.findByRole('button', {
       name: 'Show the log of typescript-language-server',
     })
-    expect(window.pine.lsp.log).not.toHaveBeenCalled()
+    expect(window.ostia.lsp.log).not.toHaveBeenCalled()
     await user.click(open)
     const dialog = await screen.findByRole('dialog')
-    expect(window.pine.lsp.log).toHaveBeenCalledWith('lsp-typescript/typescript')
+    expect(window.ostia.lsp.log).toHaveBeenCalledWith('lsp-typescript/typescript')
     for (const line of [
       'Started (pid 4242)',
       'Initialized tsserver 5.3.0',
@@ -245,7 +245,7 @@ describe('LanguagesSection', () => {
         name: 'Remove the copy of rust-analyzer that Ostia keeps',
       }),
     )
-    expect(window.pine.lsp.removeDownload).toHaveBeenCalledWith('lsp-rust-analyzer/rust-analyzer')
+    expect(window.ostia.lsp.removeDownload).toHaveBeenCalledWith('lsp-rust-analyzer/rust-analyzer')
     const onPath = screen.getByRole('listitem', { name: 'clangd' })
     expect(within(onPath).getByText('Using clangd from your PATH.')).toBeInTheDocument()
     expect(within(onPath).queryByRole('button', { name: /Remove the copy/ })).toBeNull()
@@ -270,7 +270,7 @@ describe('LanguagesSection', () => {
       ),
     ).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Fetch lua-language-server now' }))
-    expect(window.pine.lsp.fetch).toHaveBeenCalledWith('lsp-lua/lua')
+    expect(window.ostia.lsp.fetch).toHaveBeenCalledWith('lsp-lua/lua')
   })
 
   it('shows download progress, and a failed fetch with its reason and Retry', async () => {
@@ -306,7 +306,7 @@ describe('LanguagesSection', () => {
     const failed = screen.getByRole('listitem', { name: 'failed-server' })
     expect(within(failed).getByText('Download failed: the server answered 404')).toBeInTheDocument()
     await user.click(within(failed).getByRole('button', { name: 'Retry' }))
-    expect(window.pine.lsp.fetch).toHaveBeenCalledWith('a/failed')
+    expect(window.ostia.lsp.fetch).toHaveBeenCalledWith('a/failed')
     const gopls = screen.getByRole('listitem', { name: 'gopls' })
     expect(within(gopls).getByText('Install failed: it took too long')).toBeInTheDocument()
     expect(
@@ -318,7 +318,7 @@ describe('LanguagesSection', () => {
 
   it('offers to install Go when go install has no toolchain to run', async () => {
     useWorkspacesStore.setState({ activeWorkspaceId: 'ws-1' })
-    vi.mocked(window.pine.system.requirements).mockResolvedValue({
+    vi.mocked(window.ostia.system.requirements).mockResolvedValue({
       missing: [{ program: 'go', package: 'go' }],
       hint: { command: 'sudo pacman -S --needed go', packages: ['go'] },
       canInstall: true,
@@ -334,7 +334,7 @@ describe('LanguagesSection', () => {
     ])
     expect(await screen.findByText('Go is not installed')).toBeInTheDocument()
     await userEvent.setup().click(await screen.findByRole('button', { name: 'Install gopls' }))
-    expect(window.pine.system.installRequirements).toHaveBeenCalledWith(
+    expect(window.ostia.system.installRequirements).toHaveBeenCalledWith(
       'lsp:lsp-gopls/gopls',
       'ws-1',
     )
@@ -343,7 +343,7 @@ describe('LanguagesSection', () => {
     show([server()])
     const user = userEvent.setup()
     const chosen = { path: '/opt/mine/tsls', args: ['--log', '--trace=off'] }
-    vi.mocked(window.pine.lsp.setOverride).mockResolvedValue({
+    vi.mocked(window.ostia.lsp.setOverride).mockResolvedValue({
       servers: [server({ override: chosen, binary: { source: 'override' } })],
     })
     await user.click(
@@ -358,7 +358,7 @@ describe('LanguagesSection', () => {
       '--log{Enter}{Enter}  --trace=off  ',
     )
     await user.click(within(dialog).getByRole('button', { name: 'Use this program' }))
-    expect(window.pine.lsp.setOverride).toHaveBeenCalledWith('lsp-typescript/typescript', chosen)
+    expect(window.ostia.lsp.setOverride).toHaveBeenCalledWith('lsp-typescript/typescript', chosen)
     expect(
       await screen.findByText('Using /opt/mine/tsls, the program you chose.'),
     ).toBeInTheDocument()
@@ -368,7 +368,7 @@ describe('LanguagesSection', () => {
   it('keeps the dialog open and says why when main refuses the program', async () => {
     show([server()])
     const user = userEvent.setup()
-    vi.mocked(window.pine.lsp.setOverride).mockResolvedValue({
+    vi.mocked(window.ostia.lsp.setOverride).mockResolvedValue({
       servers: [server()],
       problem: 'not-executable',
     })
@@ -394,7 +394,7 @@ describe('LanguagesSection', () => {
     })
     show([broken])
     const user = userEvent.setup()
-    vi.mocked(window.pine.lsp.setOverride).mockResolvedValue({ servers: [server()] })
+    vi.mocked(window.ostia.lsp.setOverride).mockResolvedValue({ servers: [server()] })
     const row = await screen.findByRole('listitem', { name: 'typescript-language-server' })
     expect(within(row).getByTestId('language-server-status')).toHaveTextContent(
       'The program you chose cannot be used: nothing is at that path',
@@ -408,7 +408,7 @@ describe('LanguagesSection', () => {
     expect(within(dialog).getByLabelText('Program path')).toHaveValue('/opt/gone/tsls')
     expect(within(dialog).getByLabelText('Extra arguments, one per line')).toHaveValue('--log')
     await user.click(within(dialog).getByRole('button', { name: 'Stop using it' }))
-    expect(window.pine.lsp.setOverride).toHaveBeenCalledWith('lsp-typescript/typescript', null)
+    expect(window.ostia.lsp.setOverride).toHaveBeenCalledWith('lsp-typescript/typescript', null)
     expect(await within(row).findByText('Idle')).toBeInTheDocument()
   })
 })

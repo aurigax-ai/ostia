@@ -15,10 +15,10 @@ interface AskedDialog {
 
 async function answerDialogsWith(app: ElectronApplication, response: number): Promise<void> {
   await app.evaluate(({ dialog }, answer) => {
-    const g = globalThis as { pineE2eAsked?: unknown[] }
-    g.pineE2eAsked = []
+    const g = globalThis as { ostiaE2eAsked?: unknown[] }
+    g.ostiaE2eAsked = []
     dialog.showMessageBox = (async (...args: unknown[]) => {
-      g.pineE2eAsked?.push(args.length > 1 ? args[1] : args[0])
+      g.ostiaE2eAsked?.push(args.length > 1 ? args[1] : args[0])
       return { response: answer, checkboxChecked: false }
     }) as typeof dialog.showMessageBox
   }, response)
@@ -26,11 +26,11 @@ async function answerDialogsWith(app: ElectronApplication, response: number): Pr
 
 function askedDialogs(app: ElectronApplication): Promise<AskedDialog[]> {
   return app.evaluate(
-    () => ((globalThis as { pineE2eAsked?: unknown[] }).pineE2eAsked ?? []) as AskedDialog[],
+    () => ((globalThis as { ostiaE2eAsked?: unknown[] }).ostiaE2eAsked ?? []) as AskedDialog[],
   )
 }
 
-test('pine system install asks the human, then runs the command in a new terminal beside the agent', async () => {
+test('ostia system install asks the human, then runs the command in a new terminal beside the agent', async () => {
   const dataHome = freshDataHome()
   const home = join(dataHome, 'home')
   mkdirSync(home, { recursive: true })
@@ -53,7 +53,7 @@ test('pine system install asks the human, then runs the command in a new termina
 
     const agent = win.locator('.xterm').first()
     await agent.click()
-    await win.keyboard.type('pine system install ripgrep --manager pacman --reason e2e-check')
+    await win.keyboard.type('ostia system install ripgrep --manager pacman --reason e2e-check')
     await win.keyboard.press('Enter')
 
     await expect(win.locator('.xterm')).toHaveCount(2, { timeout: 20_000 })
@@ -81,7 +81,7 @@ test('pine system install asks the human, then runs the command in a new termina
 
     await answerDialogsWith(app, 1)
     await win.locator('.xterm').filter({ hasText: 'e2e-check' }).click()
-    await win.keyboard.type('pine system install fd --manager pacman --reason e2e-deny')
+    await win.keyboard.type('ostia system install fd --manager pacman --reason e2e-deny')
     await win.keyboard.press('Enter')
     const denyRows = win.locator('.xterm-rows').filter({ hasText: 'e2e-deny' })
     await expect(denyRows).toContainText('"approved": false', { timeout: 15_000 })

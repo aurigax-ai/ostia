@@ -38,15 +38,15 @@ describe('sandbox settings', () => {
       'api.github.com',
       'example.org',
     ])
-    await waitFor(() => expect(window.pine.sandbox.globalsChanged).toHaveBeenCalled())
-    expect(window.pine.fs.write).toHaveBeenCalled()
+    await waitFor(() => expect(window.ostia.sandbox.globalsChanged).toHaveBeenCalled())
+    expect(window.ostia.fs.write).toHaveBeenCalled()
   })
 
   it('SBX-C60 shows global domains as inherited next to the workspace own domains', async () => {
     useSettingsStore.setState({
       sandbox: { allowRead: [], allowedDomains: ['api.github.com'], controls: DEFAULT_CONTROLS },
     })
-    vi.mocked(window.pine.sandbox.get).mockResolvedValue(WORKSPACE)
+    vi.mocked(window.ostia.sandbox.get).mockResolvedValue(WORKSPACE)
     render(<WorkspaceSandboxPage workspaceId="ws" workspaceName="proj" />)
     await userEvent.click(await screen.findByRole('tab', { name: 'Network' }))
     const domains = screen.getByRole('group', { name: 'Allowed domains' })
@@ -63,8 +63,8 @@ describe('sandbox settings', () => {
     useSettingsStore.setState({
       sandbox: { allowRead: [], allowedDomains: [], controls: DEFAULT_CONTROLS },
     })
-    vi.mocked(window.pine.sandbox.get).mockResolvedValue(WORKSPACE)
-    vi.mocked(window.pine.sandbox.setControls).mockResolvedValue({ ...WORKSPACE, controls: {} })
+    vi.mocked(window.ostia.sandbox.get).mockResolvedValue(WORKSPACE)
+    vi.mocked(window.ostia.sandbox.setControls).mockResolvedValue({ ...WORKSPACE, controls: {} })
     render(<WorkspaceSandboxPage workspaceId="ws" workspaceName="proj" />)
     await userEvent.click(
       await screen.findByRole('tab', { name: `${PRODUCT_DISPLAY_NAME} access` }),
@@ -83,14 +83,14 @@ describe('sandbox settings', () => {
     })
     expect(within(row).getByRole('switch')).toBeChecked()
     await userEvent.click(within(row).getByRole('button', { name: 'Reset' }))
-    expect(window.pine.sandbox.setControls).toHaveBeenCalledWith('ws', {})
+    expect(window.ostia.sandbox.setControls).toHaveBeenCalledWith('ws', {})
     await waitFor(() => expect(within(row).getByRole('switch')).not.toBeChecked())
     expect(row).toHaveTextContent('Inherited')
   })
 })
 
 const FIXED: SandboxFixedPolicy = {
-  readable: ['/home/u/proj', '/tmp/pine-sandbox/ws'],
+  readable: ['/home/u/proj', '/tmp/ostia-sandbox/ws'],
   writable: ['/home/u/proj', '/home/u/.claude'],
   hidden: ['/home/u', '/home/u/.config/ostia'],
   readOnly: ['/home/u/.claude/settings.json', '/home/u/proj/.git/hooks'],
@@ -107,16 +107,16 @@ describe('sandbox filesystem settings', () => {
     const writable = screen.getByRole('group', { name: 'Writable folders' })
     await userEvent.type(within(writable).getByRole('textbox'), '~/builds')
     await userEvent.click(within(writable).getByRole('button', { name: 'Add' }))
-    expect(window.pine.sandbox.checkPaths).toHaveBeenCalledWith('allowWrite', ['~/builds'])
+    expect(window.ostia.sandbox.checkPaths).toHaveBeenCalledWith('allowWrite', ['~/builds'])
     await waitFor(() =>
       expect(useSettingsStore.getState().sandbox?.allowWrite).toEqual(['~/builds']),
     )
-    await waitFor(() => expect(window.pine.sandbox.globalsChanged).toHaveBeenCalled())
+    await waitFor(() => expect(window.ostia.sandbox.globalsChanged).toHaveBeenCalled())
   })
 
   it('shows why main refused a global path and stores nothing', async () => {
     useSettingsStore.setState({ sandbox: GLOBALS })
-    vi.mocked(window.pine.sandbox.checkPaths).mockResolvedValue([
+    vi.mocked(window.ostia.sandbox.checkPaths).mockResolvedValue([
       { value: '/run/user/1000', reason: 'protected' },
     ])
     render(<SandboxSection />)
@@ -129,14 +129,17 @@ describe('sandbox filesystem settings', () => {
     expect(useSettingsStore.getState().sandbox?.allowRead).toEqual([])
   })
 
-  it('shows what Pine always allows and hides next to the global and workspace entries', async () => {
+  it('shows what Ostia always allows and hides next to the global and workspace entries', async () => {
     useSettingsStore.setState({ sandbox: { ...GLOBALS, allowWrite: ['~/shared-out'] } })
-    vi.mocked(window.pine.sandbox.get).mockResolvedValue({ ...WORKSPACE, allowWrite: ['~/builds'] })
-    vi.mocked(window.pine.sandbox.fixedPolicy).mockResolvedValue(FIXED)
+    vi.mocked(window.ostia.sandbox.get).mockResolvedValue({
+      ...WORKSPACE,
+      allowWrite: ['~/builds'],
+    })
+    vi.mocked(window.ostia.sandbox.fixedPolicy).mockResolvedValue(FIXED)
     render(<WorkspaceSandboxPage workspaceId="ws" workspaceName="proj" />)
     await userEvent.click(await screen.findByRole('tab', { name: 'Files' }))
     const writable = screen.getByRole('group', { name: 'Writable folders' })
-    expect(window.pine.sandbox.fixedPolicy).toHaveBeenCalledWith('ws')
+    expect(window.ostia.sandbox.fixedPolicy).toHaveBeenCalledWith('ws')
     const always = (await within(writable).findByText('/home/u/proj')).closest('li')
     expect(always).toHaveTextContent('Always')
     expect(within(always as HTMLElement).queryByRole('button')).toBeNull()
@@ -149,14 +152,14 @@ describe('sandbox filesystem settings', () => {
       '/home/u/proj/.git/hooks',
     )
     expect(screen.getByRole('group', { name: 'Readable folders' })).toHaveTextContent(
-      '/tmp/pine-sandbox/ws',
+      '/tmp/ostia-sandbox/ws',
     )
   })
 
   it('sends a workspace hidden path to main and shows the stored list it answers with', async () => {
     useSettingsStore.setState({ sandbox: GLOBALS })
-    vi.mocked(window.pine.sandbox.get).mockResolvedValue(WORKSPACE)
-    vi.mocked(window.pine.sandbox.setPaths).mockResolvedValue({
+    vi.mocked(window.ostia.sandbox.get).mockResolvedValue(WORKSPACE)
+    vi.mocked(window.ostia.sandbox.setPaths).mockResolvedValue({
       ok: true,
       settings: { ...WORKSPACE, denyRead: ['~/notes/private'] },
     })
@@ -165,19 +168,19 @@ describe('sandbox filesystem settings', () => {
     const hidden = screen.getByRole('group', { name: 'Hidden paths' })
     await userEvent.type(within(hidden).getByRole('textbox'), '~/notes/private/')
     await userEvent.click(within(hidden).getByRole('button', { name: 'Add' }))
-    expect(window.pine.sandbox.setPaths).toHaveBeenCalledWith('ws', 'denyRead', [
+    expect(window.ostia.sandbox.setPaths).toHaveBeenCalledWith('ws', 'denyRead', [
       '~/notes/private/',
     ])
     expect(
       await within(hidden).findByRole('button', { name: 'Remove ~/notes/private' }),
     ).toBeInTheDocument()
-    await waitFor(() => expect(window.pine.sandbox.stamp).toHaveBeenCalledWith('ws'))
+    await waitFor(() => expect(window.ostia.sandbox.stamp).toHaveBeenCalledWith('ws'))
   })
 
   it('lets git change its config for one workspace and resets back to the global default', async () => {
     useSettingsStore.setState({ sandbox: GLOBALS })
-    vi.mocked(window.pine.sandbox.get).mockResolvedValue(WORKSPACE)
-    vi.mocked(window.pine.sandbox.setSwitches)
+    vi.mocked(window.ostia.sandbox.get).mockResolvedValue(WORKSPACE)
+    vi.mocked(window.ostia.sandbox.setSwitches)
       .mockResolvedValueOnce({ ...WORKSPACE, switches: { gitConfig: true } })
       .mockResolvedValueOnce(WORKSPACE)
     render(<WorkspaceSandboxPage workspaceId="ws" workspaceName="proj" />)
@@ -186,11 +189,11 @@ describe('sandbox filesystem settings', () => {
     expect(within(row).getByRole('switch')).not.toBeChecked()
     expect(row).toHaveTextContent('Inherited')
     await userEvent.click(within(row).getByRole('switch'))
-    expect(window.pine.sandbox.setSwitches).toHaveBeenCalledWith('ws', { gitConfig: true })
+    expect(window.ostia.sandbox.setSwitches).toHaveBeenCalledWith('ws', { gitConfig: true })
     await waitFor(() => expect(within(row).getByRole('switch')).toBeChecked())
     expect(row).toHaveTextContent('Overridden')
     await userEvent.click(within(row).getByRole('button', { name: 'Reset' }))
-    expect(window.pine.sandbox.setSwitches).toHaveBeenLastCalledWith('ws', {})
+    expect(window.ostia.sandbox.setSwitches).toHaveBeenLastCalledWith('ws', {})
     await waitFor(() => expect(within(row).getByRole('switch')).not.toBeChecked())
   })
 })
@@ -198,7 +201,7 @@ describe('sandbox filesystem settings', () => {
 describe('sandbox Unix socket settings', () => {
   it('turns Unix sockets off globally and says what stops working on Linux', async () => {
     useSettingsStore.setState({ sandbox: GLOBALS })
-    vi.mocked(window.pine.sandbox.fixedPolicy).mockResolvedValue(FIXED)
+    vi.mocked(window.ostia.sandbox.fixedPolicy).mockResolvedValue(FIXED)
     render(<SandboxSection />)
     const row = screen.getByRole('group', { name: 'Allow Unix sockets' })
     expect(row).toHaveTextContent('the ostia command')
@@ -215,9 +218,9 @@ describe('sandbox Unix socket settings', () => {
     expect(screen.queryByRole('group', { name: 'Allowed sockets' })).toBeNull()
   })
 
-  it('lists the sockets Pine hides, read-only', async () => {
+  it('lists the sockets Ostia hides, read-only', async () => {
     useSettingsStore.setState({ sandbox: GLOBALS })
-    vi.mocked(window.pine.sandbox.fixedPolicy).mockResolvedValue(FIXED)
+    vi.mocked(window.ostia.sandbox.fixedPolicy).mockResolvedValue(FIXED)
     render(<SandboxSection />)
     const sockets = screen.getByRole('group', { name: 'Hidden sockets' })
     expect(await within(sockets).findByText('/run/docker.sock')).toBeInTheDocument()
@@ -228,7 +231,7 @@ describe('sandbox Unix socket settings', () => {
 
   it('says so when no container or agent socket is reachable', async () => {
     useSettingsStore.setState({ sandbox: GLOBALS })
-    vi.mocked(window.pine.sandbox.fixedPolicy).mockResolvedValue({ ...FIXED, hiddenSockets: [] })
+    vi.mocked(window.ostia.sandbox.fixedPolicy).mockResolvedValue({ ...FIXED, hiddenSockets: [] })
     render(<SandboxSection />)
     expect(
       await screen.findByText('No container or agent socket is reachable on this computer.'),
@@ -237,7 +240,7 @@ describe('sandbox Unix socket settings', () => {
 
   it('disables the switch where the runtime cannot block sockets, instead of pretending', async () => {
     useSettingsStore.setState({ sandbox: GLOBALS })
-    vi.mocked(window.pine.sandbox.fixedPolicy).mockResolvedValue({
+    vi.mocked(window.ostia.sandbox.fixedPolicy).mockResolvedValue({
       ...FIXED,
       socketBlocking: false,
     })
@@ -251,8 +254,8 @@ describe('sandbox Unix socket settings', () => {
 
   it('overrides Unix sockets for one workspace', async () => {
     useSettingsStore.setState({ sandbox: GLOBALS })
-    vi.mocked(window.pine.sandbox.get).mockResolvedValue(WORKSPACE)
-    vi.mocked(window.pine.sandbox.setSwitches).mockResolvedValue({
+    vi.mocked(window.ostia.sandbox.get).mockResolvedValue(WORKSPACE)
+    vi.mocked(window.ostia.sandbox.setSwitches).mockResolvedValue({
       ...WORKSPACE,
       switches: { unixSockets: false },
     })
@@ -260,7 +263,7 @@ describe('sandbox Unix socket settings', () => {
     await userEvent.click(await screen.findByRole('tab', { name: 'Network' }))
     const row = screen.getByRole('group', { name: 'Allow Unix sockets' })
     await userEvent.click(within(row).getByRole('switch'))
-    expect(window.pine.sandbox.setSwitches).toHaveBeenCalledWith('ws', { unixSockets: false })
+    expect(window.ostia.sandbox.setSwitches).toHaveBeenCalledWith('ws', { unixSockets: false })
     await waitFor(() => expect(within(row).getByRole('switch')).not.toBeChecked())
     expect(row).toHaveTextContent('Overridden')
   })
@@ -271,8 +274,8 @@ describe('sandbox domain settings', () => {
     useSettingsStore.setState({
       sandbox: { ...GLOBALS, deniedDomains: ['telemetry.example.com'] },
     })
-    vi.mocked(window.pine.sandbox.get).mockResolvedValue(WORKSPACE)
-    vi.mocked(window.pine.sandbox.setDeniedDomains).mockResolvedValue({
+    vi.mocked(window.ostia.sandbox.get).mockResolvedValue(WORKSPACE)
+    vi.mocked(window.ostia.sandbox.setDeniedDomains).mockResolvedValue({
       ok: true,
       settings: { ...WORKSPACE, deniedDomains: ['ads.example.com'] },
     })
@@ -284,7 +287,7 @@ describe('sandbox domain settings', () => {
     )
     await userEvent.type(within(blocked).getByRole('textbox'), 'ads.example.com')
     await userEvent.click(within(blocked).getByRole('button', { name: 'Add' }))
-    expect(window.pine.sandbox.setDeniedDomains).toHaveBeenCalledWith('ws', ['ads.example.com'])
+    expect(window.ostia.sandbox.setDeniedDomains).toHaveBeenCalledWith('ws', ['ads.example.com'])
     expect(
       await within(blocked).findByRole('button', { name: 'Remove ads.example.com' }),
     ).toBeInTheDocument()
@@ -319,7 +322,7 @@ describe('sandbox domain settings', () => {
 describe('workspace sandbox page layout', () => {
   it('puts every tab under the same group heading and row blocks as the rest of Settings', async () => {
     useSettingsStore.setState({ sandbox: GLOBALS })
-    vi.mocked(window.pine.sandbox.get).mockResolvedValue(WORKSPACE)
+    vi.mocked(window.ostia.sandbox.get).mockResolvedValue(WORKSPACE)
     render(<WorkspaceSandboxPage workspaceId="ws" workspaceName="proj" />)
     expect(await screen.findByRole('heading', { level: 2, name: 'Workspace: proj' })).toBeVisible()
     expect(screen.getByText(/It also inherits the defaults/)).toBeInTheDocument()
@@ -352,13 +355,13 @@ describe('sandbox tool-folder presets', () => {
   it('shows no preset block on a machine where main found no tool folder', async () => {
     useSettingsStore.setState({ sandbox: GLOBALS })
     render(<SandboxSection />)
-    await waitFor(() => expect(window.pine.sandbox.presets).toHaveBeenCalled())
+    await waitFor(() => expect(window.ostia.sandbox.presets).toHaveBeenCalled())
     expect(screen.queryByRole('group', { name: 'Tool folders' })).toBeNull()
   })
 
   it('adds a found preset’s folders to the global readable list in one click, named in the list', async () => {
     useSettingsStore.setState({ sandbox: { ...GLOBALS, allowRead: ['~/notes'] } })
-    vi.mocked(window.pine.sandbox.presets).mockResolvedValue(FOUND)
+    vi.mocked(window.ostia.sandbox.presets).mockResolvedValue(FOUND)
     render(<SandboxSection />)
     const presets = await screen.findByRole('group', { name: 'Tool folders' })
     expect(within(presets).queryByRole('group', { name: 'Deno' })).toBeNull()
@@ -366,7 +369,7 @@ describe('sandbox tool-folder presets', () => {
     expect(uv).toHaveTextContent('~/.local/share/uv/tools, ~/.local/share/uv/python')
     expect(within(uv).getByRole('switch')).not.toBeChecked()
     await userEvent.click(within(uv).getByRole('switch'))
-    expect(window.pine.sandbox.checkPaths).toHaveBeenCalledWith('allowRead', FOUND[1].paths)
+    expect(window.ostia.sandbox.checkPaths).toHaveBeenCalledWith('allowRead', FOUND[1].paths)
     await waitFor(() =>
       expect(useSettingsStore.getState().sandbox?.allowRead).toEqual([
         '~/notes',
@@ -384,7 +387,7 @@ describe('sandbox tool-folder presets', () => {
     useSettingsStore.setState({
       sandbox: { ...GLOBALS, allowRead: ['~/notes', '~/.bun', ...FOUND[1].paths] },
     })
-    vi.mocked(window.pine.sandbox.presets).mockResolvedValue(FOUND)
+    vi.mocked(window.ostia.sandbox.presets).mockResolvedValue(FOUND)
     render(<SandboxSection />)
     const presets = await screen.findByRole('group', { name: 'Tool folders' })
     const bun = within(presets).getByRole('group', { name: 'Bun' })
@@ -406,8 +409,8 @@ describe('sandbox tool-folder presets', () => {
 
   it('shows why main refused a preset and stores nothing', async () => {
     useSettingsStore.setState({ sandbox: GLOBALS })
-    vi.mocked(window.pine.sandbox.presets).mockResolvedValue(FOUND)
-    vi.mocked(window.pine.sandbox.checkPaths).mockResolvedValue([
+    vi.mocked(window.ostia.sandbox.presets).mockResolvedValue(FOUND)
+    vi.mocked(window.ostia.sandbox.checkPaths).mockResolvedValue([
       { value: '~/.bun', reason: 'missing' },
     ])
     render(<SandboxSection />)
@@ -421,9 +424,9 @@ describe('sandbox tool-folder presets', () => {
 
   it('shows a preset the defaults already open as on and locked in a workspace, and adds another for it alone', async () => {
     useSettingsStore.setState({ sandbox: { ...GLOBALS, allowRead: ['~/.bun'] } })
-    vi.mocked(window.pine.sandbox.presets).mockResolvedValue(FOUND)
-    vi.mocked(window.pine.sandbox.get).mockResolvedValue(WORKSPACE)
-    vi.mocked(window.pine.sandbox.setPaths).mockResolvedValue({
+    vi.mocked(window.ostia.sandbox.presets).mockResolvedValue(FOUND)
+    vi.mocked(window.ostia.sandbox.get).mockResolvedValue(WORKSPACE)
+    vi.mocked(window.ostia.sandbox.setPaths).mockResolvedValue({
       ok: true,
       settings: { ...WORKSPACE, allowRead: FOUND[1].paths },
     })
@@ -436,7 +439,7 @@ describe('sandbox tool-folder presets', () => {
     expect(bun).toHaveTextContent('Global')
     const uv = within(presets).getByRole('group', { name: 'uv and pipx' })
     await userEvent.click(within(uv).getByRole('switch'))
-    expect(window.pine.sandbox.setPaths).toHaveBeenCalledWith('ws', 'allowRead', FOUND[1].paths)
+    expect(window.ostia.sandbox.setPaths).toHaveBeenCalledWith('ws', 'allowRead', FOUND[1].paths)
     await waitFor(() => expect(within(uv).getByRole('switch')).toBeChecked())
     expect(uv).not.toHaveTextContent('Global')
   })

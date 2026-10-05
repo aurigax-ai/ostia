@@ -23,7 +23,7 @@ let file: string
 let program: string
 
 beforeEach(() => {
-  tmp = realpathSync(mkdtempSync(join(tmpdir(), 'pine-lsp-override-')))
+  tmp = realpathSync(mkdtempSync(join(tmpdir(), 'ostia-lsp-override-')))
   file = join(tmp, 'language-server-programs.json')
   program = join(tmp, 'my-ls')
   writeFileSync(program, '#!/bin/sh\n')

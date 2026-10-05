@@ -28,14 +28,14 @@ afterEach(() => {
 describe('languageServersStore', () => {
   it('loads the list and follows changes from main, subscribing once', async () => {
     let push: (list: LanguageServerInfo[]) => void = () => {}
-    vi.mocked(window.pine.lsp.onServersChanged).mockImplementation((cb) => {
+    vi.mocked(window.ostia.lsp.onServersChanged).mockImplementation((cb) => {
       push = cb
       return () => {}
     })
-    vi.mocked(window.pine.lsp.servers).mockResolvedValue([server()])
+    vi.mocked(window.ostia.lsp.servers).mockResolvedValue([server()])
     await useLanguageServersStore.getState().load()
     await useLanguageServersStore.getState().load()
-    expect(window.pine.lsp.onServersChanged).toHaveBeenCalledTimes(1)
+    expect(window.ostia.lsp.onServersChanged).toHaveBeenCalledTimes(1)
     expect(useLanguageServersStore.getState().list).toEqual([server()])
     push([server({ status: 'running', folders: 1 })])
     expect(useLanguageServersStore.getState().list[0]).toMatchObject({
@@ -45,16 +45,16 @@ describe('languageServersStore', () => {
   })
 
   it('shows what main answers after a switch and after a restart', async () => {
-    vi.mocked(window.pine.lsp.setEnabled).mockResolvedValue([
+    vi.mocked(window.ostia.lsp.setEnabled).mockResolvedValue([
       server({ enabled: false, status: 'off' }),
     ])
     await useLanguageServersStore.getState().setEnabled('lsp-gopls/gopls', false)
-    expect(window.pine.lsp.setEnabled).toHaveBeenCalledWith('lsp-gopls/gopls', false)
+    expect(window.ostia.lsp.setEnabled).toHaveBeenCalledWith('lsp-gopls/gopls', false)
     expect(useLanguageServersStore.getState().list[0].status).toBe('off')
 
-    vi.mocked(window.pine.lsp.servers).mockResolvedValue([server()])
+    vi.mocked(window.ostia.lsp.servers).mockResolvedValue([server()])
     await useLanguageServersStore.getState().restart('lsp-gopls/gopls')
-    expect(window.pine.lsp.restart).toHaveBeenCalledWith('lsp-gopls/gopls')
+    expect(window.ostia.lsp.restart).toHaveBeenCalledWith('lsp-gopls/gopls')
     expect(useLanguageServersStore.getState().list[0].status).toBe('idle')
   })
 })

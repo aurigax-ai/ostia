@@ -33,11 +33,11 @@ describe('expandView', () => {
   it('repeats a list item for each entry with its own scope', () => {
     const doc = view(listOf({ type: 'text', text: '{{ws.name}} ({{ws.unread}})' }))
     const root = expanded(doc, {
-      workspaces: [{ id: 'w1', name: 'pine', unread: 2 }, { name: 'x' }],
+      workspaces: [{ id: 'w1', name: 'ostia', unread: 2 }, { name: 'x' }],
     })
     expect(root.kind).toBe('list')
     if (root.kind !== 'list') return
-    expect(root.items.map((i) => (i.kind === 'text' ? i.text : ''))).toEqual(['pine (2)', 'x ()'])
+    expect(root.items.map((i) => (i.kind === 'text' ? i.text : ''))).toEqual(['ostia (2)', 'x ()'])
     expect(root.items.map((i) => i.key)).toEqual(['root#w1', 'root@1'])
   })
 

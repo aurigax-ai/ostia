@@ -109,7 +109,7 @@ export function goToWorkspace(index: number): boolean {
   const target = globalWorkspaceOrder(list, windowId, local)[index]
   if (!target) return false
   if (target.windowId !== windowId && target.windowId !== null) {
-    window.pine.windows.focusWorkspace(target.id, false)
+    window.ostia.windows.focusWorkspace(target.id, false)
     return true
   }
   useUIStore.getState().showWorkspaces()
@@ -186,7 +186,7 @@ export function jumpToLatestUnread(): string | null {
   const { windowId, list } = useWindowsStore.getState()
   const remote = latestRemoteUnread(list, windowId, target ? byPane[target].at : 0)
   if (remote) {
-    window.pine.windows.focusWorkspace(remote.id, true)
+    window.ostia.windows.focusWorkspace(remote.id, true)
     return null
   }
   if (!target) return null

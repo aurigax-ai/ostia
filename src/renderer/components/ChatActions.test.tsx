@@ -103,11 +103,11 @@ interface Pending {
 function captureRequests(): { pending: Pending[]; answer: (text: string) => Promise<void> } {
   const pending: Pending[] = []
   const listeners = new Set<(c: AssistChunk) => void>()
-  vi.mocked(window.pine.assist.onChunk).mockImplementation((cb) => {
+  vi.mocked(window.ostia.assist.onChunk).mockImplementation((cb) => {
     listeners.add(cb)
     return () => listeners.delete(cb)
   })
-  vi.mocked(window.pine.assist.request).mockImplementation(
+  vi.mocked(window.ostia.assist.request).mockImplementation(
     (_point, requestId, input) =>
       new Promise((resolve) => {
         pending.push({ requestId, input, resolve: resolve as (value: unknown) => void })
@@ -160,7 +160,7 @@ describe('chat actions', () => {
   beforeEach(() => {
     seedWorkspace()
     useAssistStore.setState({ availability: { chat: CHAT } })
-    vi.mocked(window.pine.chatSessions.list).mockResolvedValue([])
+    vi.mocked(window.ostia.chatSessions.list).mockResolvedValue([])
   })
 
   afterEach(() => {
@@ -182,11 +182,11 @@ describe('chat actions', () => {
     useWorkflowsStore.setState({ saveCommand: null })
     useWorkspacesStore.setState({ workspaces: [], activeWorkspaceId: null })
     useLayoutStore.setState({ byWorkspace: {} })
-    vi.mocked(window.pine.assist.request).mockReset()
-    vi.mocked(window.pine.chatSessions.list).mockReset()
-    vi.mocked(window.pine.chatSessions.saveFile).mockReset()
-    vi.mocked(window.pine.fs.list).mockReset()
-    vi.mocked(window.pine.fs.read).mockReset()
+    vi.mocked(window.ostia.assist.request).mockReset()
+    vi.mocked(window.ostia.chatSessions.list).mockReset()
+    vi.mocked(window.ostia.chatSessions.saveFile).mockReset()
+    vi.mocked(window.ostia.fs.list).mockReset()
+    vi.mocked(window.ostia.fs.read).mockReset()
     blockActions.insertCommand.mockClear()
     blockActions.runWhenIdle.mockClear()
     agentPaste.mockClear()
@@ -261,18 +261,18 @@ describe('chat actions', () => {
     await userEvent.click(await screen.findByRole('menuitem', { name: 'claude' }))
 
     expect(agentPaste).toHaveBeenCalledWith('please rerun the tests')
-    expect(window.pine.pty.write).not.toHaveBeenCalledWith('agent-pane', '\r')
+    expect(window.ostia.pty.write).not.toHaveBeenCalledWith('agent-pane', '\r')
   })
 
   it('saves a code block as a file and opens it in the editor', async () => {
-    vi.mocked(window.pine.chatSessions.saveFile).mockResolvedValue({
+    vi.mocked(window.ostia.chatSessions.saveFile).mockResolvedValue({
       ok: true,
       path: '/home/u/proj/snippet.py',
     })
     const answer = await askInPane('py', '```python\nprint(1)\n```')
     await userEvent.click(within(answer).getByRole('button', { name: 'Save as file…' }))
 
-    expect(window.pine.chatSessions.saveFile).toHaveBeenCalledWith('snippet.py', 'print(1)\n')
+    expect(window.ostia.chatSessions.saveFile).toHaveBeenCalledWith('snippet.py', 'print(1)\n')
     await waitFor(() => expect(opened.file).toHaveBeenCalledWith('/home/u/proj/snippet.py'))
   })
 
@@ -316,8 +316,8 @@ describe('chat actions', () => {
   })
 
   it('attaches a file from the @ picker as a chip with its size and sends it as context', async () => {
-    vi.mocked(window.pine.fs.list).mockResolvedValue([{ name: 'README.md', dir: false }])
-    vi.mocked(window.pine.fs.read).mockResolvedValue('hello')
+    vi.mocked(window.ostia.fs.list).mockResolvedValue([{ name: 'README.md', dir: false }])
+    vi.mocked(window.ostia.fs.read).mockResolvedValue('hello')
     const { pending } = captureRequests()
     render(<ChatPane workspaceId="w1" paneId="p-chat" />)
 

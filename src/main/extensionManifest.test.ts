@@ -1005,7 +1005,7 @@ describe('discoverExtensions', () => {
   })
 
   it('treats a missing root as empty', () => {
-    expect(discoverExtensions([{ dir: '/nonexistent/pine-ext', builtin: false }])).toEqual([])
+    expect(discoverExtensions([{ dir: '/nonexistent/ostia-ext', builtin: false }])).toEqual([])
   })
 
   it('finds an extension whose manifest is ostia.json, and prefers it over pine.json', () => {

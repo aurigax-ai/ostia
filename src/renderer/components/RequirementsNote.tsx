@@ -17,7 +17,7 @@ export function RequirementsNote({
   const [report, setReport] = useState<RequirementsReport | null>(null)
   useEffect(() => {
     let live = true
-    void window.pine.system.requirements(feature).then((next) => {
+    void window.ostia.system.requirements(feature).then((next) => {
       if (live) setReport(next)
     })
     return () => {
@@ -33,7 +33,7 @@ export function RequirementsNote({
         <Button
           size="sm"
           className="mt-2"
-          onClick={() => void window.pine.system.installRequirements(feature, workspaceId)}
+          onClick={() => void window.ostia.system.installRequirements(feature, workspaceId)}
         >
           {d.manager.install}
         </Button>

@@ -87,9 +87,9 @@ const instrumentNight: ColorScheme = {
   },
 }
 
-const pineLight: ColorScheme = {
-  id: 'pine-light',
-  name: 'Pine Light',
+const ostiaLight: ColorScheme = {
+  id: 'ostia-light',
+  name: 'Ostia Light',
   appearance: 'light',
   colors: {
     background: '#fbfcfd',
@@ -446,7 +446,7 @@ const solarizedLight: ColorScheme = {
   },
 }
 
-const rosePine: ColorScheme = {
+const roseOstia: ColorScheme = {
   id: 'rose-pine',
   name: 'Rosé Pine',
   appearance: 'dark',
@@ -476,7 +476,7 @@ const rosePine: ColorScheme = {
   },
 }
 
-const rosePineDawn: ColorScheme = {
+const roseOstiaDawn: ColorScheme = {
   id: 'rose-pine-dawn',
   name: 'Rosé Pine Dawn',
   appearance: 'light',
@@ -782,7 +782,7 @@ export const BUILTIN_COLOR_SCHEMES: ColorScheme[] = [
   instrumentNight,
   dracula,
   oxocarbon,
-  pineLight,
+  ostiaLight,
   catppuccinMocha,
   catppuccinMacchiato,
   catppuccinFrappe,
@@ -794,8 +794,8 @@ export const BUILTIN_COLOR_SCHEMES: ColorScheme[] = [
   nord,
   solarizedDark,
   solarizedLight,
-  rosePine,
-  rosePineDawn,
+  roseOstia,
+  roseOstiaDawn,
   kanagawaWave,
   everforestDark,
   everforestLight,
