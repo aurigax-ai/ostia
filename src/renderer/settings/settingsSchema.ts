@@ -24,6 +24,7 @@ import {
   NESTING_MAX,
   PATTERN_MAX_LENGTH,
 } from './fileTreeSettings'
+import { KEYMAP_REF_PATTERN } from './keymapSetting'
 
 const font = (title: string) => ({
   type: 'object',
@@ -735,6 +736,16 @@ export const SETTINGS_JSON_SCHEMA = {
             'right when there is none. Default: tab.',
         },
       },
+    },
+    keymap: {
+      type: ['string', 'null'],
+      pattern: KEYMAP_REF_PATTERN.source,
+      examples: ['keymap-macos/cmux'],
+      description:
+        'A keymap an enabled extension contributes (contributes.keymaps), as ' +
+        '"<extension id>/<keymap id>", or null for the default shortcuts. Its chords replace ' +
+        'the defaults, and your keybindings apply on top of it. An id no enabled extension ' +
+        'offers on this computer counts as null. Pick it in Settings → Keyboard. Default: null.',
     },
     keybindings: keybindingsSchema(Object.keys(DEFAULT_CHORDS)),
     workspaceGroups: {

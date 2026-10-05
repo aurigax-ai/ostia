@@ -1,7 +1,6 @@
 import { type KeyLike, isNativeClipboardKey } from '@shared/chordSpec'
 import type { ClipboardEdit } from '@shared/clipboardChords'
-import { useSettingsStore } from '../stores/settingsStore'
-import { chordOf, matchChord } from './chords'
+import { chordOf, matchChord, onBindingsChange } from './chords'
 
 export interface FocusContext {
   editable: boolean
@@ -49,7 +48,5 @@ export function syncClipboardChords(mac: boolean): () => void {
   const send = (): void =>
     window.pine.clipboard.setChords({ copy: chordOf('copy', mac), paste: chordOf('paste', mac) })
   send()
-  return useSettingsStore.subscribe((state, prev) => {
-    if (state.keybindings !== prev.keybindings) send()
-  })
+  return onBindingsChange(send)
 }

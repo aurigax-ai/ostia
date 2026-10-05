@@ -3,7 +3,7 @@
   "name": "Rust (rust-analyzer)",
   "version": "1.0.0",
   "locales": ["zh-Hant"],
-  "api": "1.11",
+  "api": "1.12",
   "description": "Rust diagnostics, completion, hover and navigation in the editor. Uses the rust-analyzer on your PATH; without one, {product} downloads the pinned release from GitHub, checks it and keeps it in its own data folder.",
   "category": "languages",
   "capabilities": ["language-server"],

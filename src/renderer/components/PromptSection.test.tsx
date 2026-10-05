@@ -42,6 +42,7 @@ const extension = (patch: Partial<ExtensionInfo>): ExtensionInfo => ({
   agentSkills: [],
   agentHooks: [],
   iconThemes: [],
+  keymaps: [],
   ...patch,
 })
 

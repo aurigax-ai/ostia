@@ -179,6 +179,7 @@ describe('SettingsPanel', () => {
           agentSkills: [],
           agentHooks: [],
           iconThemes: [{ id: 'fixture-icons', label: 'Fixture Icons' }],
+          keymaps: [],
         },
       ],
     })
@@ -584,6 +585,7 @@ describe('SettingsPanel', () => {
           agentSkills: [],
           agentHooks: [],
           iconThemes: [],
+          keymaps: [],
         },
       ],
     })

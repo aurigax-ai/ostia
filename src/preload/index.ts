@@ -42,6 +42,7 @@ import type {
   WorkspaceChip,
 } from '../shared/extensions'
 import type { LoadedIconTheme } from '../shared/iconTheme'
+import type { KeymapLoad } from '../shared/keymapFile'
 import type { LanguagePack } from '../shared/languagePack'
 import type {
   LanguageServerInfo,
@@ -854,6 +855,9 @@ const bridge: PineBridge = {
   },
   languagePacks: {
     load: () => ipcRenderer.invoke('languagePacks:load') as Promise<LanguagePack[]>,
+  },
+  keymaps: {
+    load: (ref) => ipcRenderer.invoke('keymaps:load', ref) as Promise<KeymapLoad>,
   },
   editorLanguages: {
     load: () => ipcRenderer.invoke('editorLanguages:load') as Promise<EditorLanguage[]>,
