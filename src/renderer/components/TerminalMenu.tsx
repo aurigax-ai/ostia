@@ -20,6 +20,9 @@ export function TerminalMenu({
 }): JSX.Element {
   const d = useDict()
   const [hasSelection, setHasSelection] = useState(false)
+  const refocus = (): void => {
+    requestAnimationFrame(() => termRef.current?.focus())
+  }
   return (
     <ContextMenu
       onOpenChange={(open) => {
@@ -29,7 +32,7 @@ export function TerminalMenu({
       <ContextMenuTrigger render={trigger} />
       <MenuContent
         finalFocus={() => {
-          termRef.current?.focus()
+          refocus()
           return false
         }}
       >
