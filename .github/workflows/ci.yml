@@ -79,7 +79,7 @@ jobs:
   static:
     needs: changes
     if: needs.changes.outputs.code == 'true'
-    runs-on: ${{ fromJSON(needs.changes.outputs.linux) }}
+    runs-on: ostia-linux
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
