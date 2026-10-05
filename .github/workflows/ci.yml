@@ -56,8 +56,10 @@ jobs:
       - run: |
           sudo apt-get update
           sudo apt-get install -y zsh bubblewrap socat ripgrep
-          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
-          sudo sysctl -w kernel.apparmor_restrict_unprivileged_unconfined=0
+          # Ubuntu (GitHub-hosted) only; the ARC node runs SELinux and has no such sysctl.
+          for k in apparmor_restrict_unprivileged_userns apparmor_restrict_unprivileged_unconfined; do
+            [ ! -e /proc/sys/kernel/$k ] || sudo sysctl -w kernel.$k=0
+          done
           zsh -fc 'autoload -U compaudit; compaudit' | xargs -r sudo chmod go-w
           git config --global user.name 'Pine CI'
           git config --global user.email 'ci@pine.invalid'
@@ -90,8 +92,10 @@ jobs:
       - run: |
           sudo apt-get update
           sudo apt-get install -y xvfb zsh bubblewrap socat ripgrep
-          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
-          sudo sysctl -w kernel.apparmor_restrict_unprivileged_unconfined=0
+          # Ubuntu (GitHub-hosted) only; the ARC node runs SELinux and has no such sysctl.
+          for k in apparmor_restrict_unprivileged_userns apparmor_restrict_unprivileged_unconfined; do
+            [ ! -e /proc/sys/kernel/$k ] || sudo sysctl -w kernel.$k=0
+          done
           zsh -fc 'autoload -U compaudit; compaudit' | xargs -r sudo chmod go-w
           git config --global user.name 'Pine CI'
           git config --global user.email 'ci@pine.invalid'
@@ -123,7 +127,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - run: |
-          brew install ripgrep
+          command -v rg >/dev/null || brew install ripgrep
           zsh -fc 'autoload -U compaudit; compaudit' | xargs chmod go-w
           git config --global user.name 'Pine CI'
           git config --global user.email 'ci@pine.invalid'
@@ -167,7 +171,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - run: |
-          brew install ripgrep
+          command -v rg >/dev/null || brew install ripgrep
           zsh -fc 'autoload -U compaudit; compaudit' | xargs chmod go-w
           git config --global user.name 'Pine CI'
           git config --global user.email 'ci@pine.invalid'
