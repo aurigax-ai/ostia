@@ -56,7 +56,7 @@ const RECORDS = [
 
 afterEach(() => {
   resetChatTools()
-  vi.mocked(window.pine.chatTools.restore).mockReset()
+  vi.mocked(window.ostia.chatTools.restore).mockReset()
   useEditorStatus.setState({ dirty: {} })
 })
 
@@ -116,7 +116,7 @@ describe('checkpointFiles', () => {
 describe('checkCheckpoint and restoreCheckpoint', () => {
   it('checks each file in main without writing, and names the ones that changed or are unsaved', async () => {
     useEditorStatus.getState().setDirty('/proj/link/b.ts', true)
-    vi.mocked(window.pine.chatTools.restore).mockImplementation(async (req: ChatRestoreRequest) =>
+    vi.mocked(window.ostia.chatTools.restore).mockImplementation(async (req: ChatRestoreRequest) =>
       req.path === A
         ? { ok: false, error: 'changed', path: A }
         : { ok: true, path: B, removed: true, version: null },
@@ -131,7 +131,7 @@ describe('checkCheckpoint and restoreCheckpoint', () => {
       [B, 'ready'],
       ['/proj/c.ts', 'not-kept'],
     ])
-    expect(vi.mocked(window.pine.chatTools.restore).mock.calls.map((c) => c[0])).toEqual([
+    expect(vi.mocked(window.ostia.chatTools.restore).mock.calls.map((c) => c[0])).toEqual([
       expect.objectContaining({ path: A, expected: 'va3', content: 'a1', check: true }),
       expect.objectContaining({
         path: B,
@@ -145,7 +145,7 @@ describe('checkCheckpoint and restoreCheckpoint', () => {
 
   it('restores the files and marks their later edits undone, so the next checkpoint expects the restored version', async () => {
     for (const r of RECORDS) useChatToolsStore.getState().recordEdit(r)
-    vi.mocked(window.pine.chatTools.restore).mockImplementation(
+    vi.mocked(window.ostia.chatTools.restore).mockImplementation(
       async (req: ChatRestoreRequest) => ({
         ok: true,
         path: req.path,

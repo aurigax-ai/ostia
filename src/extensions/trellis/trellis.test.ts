@@ -299,7 +299,7 @@ describe('trellis project markers', () => {
   let home: string
 
   beforeEach(() => {
-    root = mkdtempSync(join(tmpdir(), 'pine-trellis-'))
+    root = mkdtempSync(join(tmpdir(), 'ostia-trellis-'))
     home = join(root, 'home')
     mkdirSync(home)
   })

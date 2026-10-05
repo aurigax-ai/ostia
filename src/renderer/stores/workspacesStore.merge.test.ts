@@ -15,7 +15,7 @@ function layout(root: LayoutNode, activePaneId: string) {
   return { root, activePaneId, zoomedPaneId: null }
 }
 
-const emitted = () => vi.mocked(window.pine.lifecycle.emit).mock.calls.map(([e]) => e)
+const emitted = () => vi.mocked(window.ostia.lifecycle.emit).mock.calls.map(([e]) => e)
 
 describe('workspacesStore.merge', () => {
   let workspacesInit: ReturnType<typeof useWorkspacesStore.getState>

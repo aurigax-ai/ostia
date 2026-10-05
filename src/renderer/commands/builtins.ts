@@ -779,7 +779,7 @@ export function registerBuiltinCommands(): void {
     category: 'app',
     target: 'none',
     capabilities: ['destructive'],
-    run: () => window.pine.window.quit(),
+    run: () => window.ostia.window.quit(),
   })
 
   registerCore({
@@ -787,7 +787,7 @@ export function registerBuiltinCommands(): void {
     category: 'developer',
     target: 'none',
     capabilities: ['destructive'],
-    run: () => window.pine.diagnostics.toggleDevTools(),
+    run: () => window.ostia.diagnostics.toggleDevTools(),
   })
 
   registerCore<undefined, { opened: boolean }>({
@@ -795,7 +795,7 @@ export function registerBuiltinCommands(): void {
     category: 'developer',
     target: 'none',
     capabilities: ['drive-self'],
-    run: async () => ({ opened: await window.pine.diagnostics.openLogFolder() }),
+    run: async () => ({ opened: await window.ostia.diagnostics.openLogFolder() }),
   })
 
   registerCore<{ path: string }>({

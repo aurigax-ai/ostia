@@ -21,7 +21,7 @@ export function canMoveWorkspace(workspaceId: string): boolean {
 
 export async function moveWorkspaceTo(workspaceId: string, dir: string): Promise<boolean> {
   if (!canMoveWorkspace(workspaceId)) return false
-  const project = await window.pine.openPath.project(dir, true)
+  const project = await window.ostia.openPath.project(dir, true)
   if (!project) return false
   useWorkspacesStore.getState().setProject(workspaceId, project, true)
   return true
@@ -51,7 +51,7 @@ export function startWorkspaceProjects(): () => void {
     for (const [workspaceId, dir] of focusedDirs()) {
       if (asked.get(workspaceId) === dir) continue
       asked.set(workspaceId, dir)
-      void window.pine.openPath.project(dir).then((project) => {
+      void window.ostia.openPath.project(dir).then((project) => {
         if (!project || asked.get(workspaceId) !== dir) return
         useWorkspacesStore.getState().setProject(workspaceId, project)
       })

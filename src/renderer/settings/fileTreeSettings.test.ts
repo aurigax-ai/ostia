@@ -46,7 +46,8 @@ describe('parseFileTreeSettings', () => {
     const parsed = parseFileTreeSettings({ sortOrder: 'weird', sortBy: 'size', iconTheme: '../x' })
     expect(parsed.sortOrder).toBe('foldersFirst')
     expect(parsed.sortBy).toBe('name')
-    expect(parsed.iconTheme).toBe('pine')
+    expect(parsed.iconTheme).toBe('ostia')
+    expect(parseFileTreeSettings({ iconTheme: 'ostia' }).iconTheme).toBe('ostia')
     expect(parseFileTreeSettings({ iconTheme: 'material-icon-theme' }).iconTheme).toBe(
       'material-icon-theme',
     )
@@ -62,7 +63,7 @@ describe('files settings through the store', () => {
     useSettingsStore.setState(init, true)
   })
 
-  it('lets pine settings set change files.* keys and refuses invalid values', () => {
+  it('lets ostia settings set change files.* keys and refuses invalid values', () => {
     useSettingsStore.getState().setByPath('files.compactFolders', false)
     expect(useSettingsStore.getState().files.compactFolders).toBe(false)
     useSettingsStore.getState().setByPath('files.exclude', ['**/node_modules'])

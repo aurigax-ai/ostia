@@ -56,7 +56,7 @@ afterEach(() => {
 })
 
 function emitted(): LifecycleEvent[] {
-  return vi.mocked(window.pine.lifecycle.emit).mock.calls.map(([event]) => event)
+  return vi.mocked(window.ostia.lifecycle.emit).mock.calls.map(([event]) => event)
 }
 
 function seedTwoPanes(): { workspaceId: string; left: string; right: string } {
@@ -66,7 +66,7 @@ function seedTwoPanes(): { workspaceId: string; left: string; right: string } {
   const left = useLayoutStore.getState().byWorkspace[workspaceId].activePaneId
   useLayoutStore.getState().split(workspaceId, left, 'horizontal')
   const right = useLayoutStore.getState().byWorkspace[workspaceId].activePaneId
-  vi.mocked(window.pine.lifecycle.emit).mockClear()
+  vi.mocked(window.ostia.lifecycle.emit).mockClear()
   return { workspaceId, left, right }
 }
 
@@ -76,7 +76,7 @@ describe('moveWorkspaceToNewWindow', () => {
 
     expect(await moveWorkspaceToNewWindow(workspaceId)).toBe(true)
 
-    const handoff = vi.mocked(window.pine.windows.detach).mock.calls[0][0]
+    const handoff = vi.mocked(window.ostia.windows.detach).mock.calls[0][0]
     expect(handoff.id).toBe(workspaceId)
     expect(handoff.workDir).toBe('/home/u/api')
     expect(JSON.stringify(handoff.root)).toContain(left)
@@ -90,7 +90,7 @@ describe('moveWorkspaceToNewWindow', () => {
 
   it('keeps the workspace when main refuses the move', async () => {
     const { workspaceId } = seedTwoPanes()
-    vi.mocked(window.pine.windows.detach).mockResolvedValueOnce(false)
+    vi.mocked(window.ostia.windows.detach).mockResolvedValueOnce(false)
 
     expect(await moveWorkspaceToNewWindow(workspaceId)).toBe(false)
 
@@ -105,7 +105,7 @@ describe('moveWorkspaceToNewWindow', () => {
 
     await moveWorkspaceToNewWindow(workspaceId)
 
-    const handoff = vi.mocked(window.pine.windows.detach).mock.calls[0][0]
+    const handoff = vi.mocked(window.ostia.windows.detach).mock.calls[0][0]
     expect(JSON.stringify(handoff.root)).toContain('"hibernated":true')
   })
 
@@ -120,7 +120,7 @@ describe('moveWorkspaceToNewWindow', () => {
     useCloseConfirmStore.getState().answer(false)
 
     expect(await moving).toBe(false)
-    expect(window.pine.windows.detach).not.toHaveBeenCalled()
+    expect(window.ostia.windows.detach).not.toHaveBeenCalled()
   })
 })
 
@@ -130,7 +130,7 @@ describe('movePaneToNewWindow', () => {
 
     expect(await movePaneToNewWindow(workspaceId, right)).toBe(true)
 
-    const handoff = vi.mocked(window.pine.windows.detach).mock.calls[0][0]
+    const handoff = vi.mocked(window.ostia.windows.detach).mock.calls[0][0]
     expect(handoff.id).not.toBe(workspaceId)
     expect(handoff.workDir).toBe('/home/u/api')
     expect(handoff.root).toMatchObject({ type: 'pane', id: right })
@@ -147,7 +147,7 @@ describe('moving a pane remembers where it came from', () => {
 
     await movePaneToNewWindow(workspaceId, right)
 
-    const handoff = vi.mocked(window.pine.windows.detach).mock.calls[0][0]
+    const handoff = vi.mocked(window.ostia.windows.detach).mock.calls[0][0]
     expect(handoff.origin).toEqual({
       workspaceId,
       index: 1,
@@ -163,7 +163,7 @@ describe('moving a pane remembers where it came from', () => {
 
     expect(await movePaneToNewWindow(workspaceId, only)).toBe(true)
 
-    const handoff = vi.mocked(window.pine.windows.detach).mock.calls[0][0]
+    const handoff = vi.mocked(window.ostia.windows.detach).mock.calls[0][0]
     expect(handoff.id).toBe(workspaceId)
     expect(useWorkspacesStore.getState().workspaces).toEqual([])
   })
@@ -186,7 +186,7 @@ describe('moving a pane remembers where it came from', () => {
 
     await moveWorkspaceToNewWindow(workspaceId)
 
-    const handoff = vi.mocked(window.pine.windows.detach).mock.calls[0][0]
+    const handoff = vi.mocked(window.ostia.windows.detach).mock.calls[0][0]
     expect(handoff.origin).toEqual({ workspaceId, index: 1, groupId })
   })
 })
@@ -333,7 +333,7 @@ describe('returnToMainWindow', () => {
 
     expect(await returnToMainWindow()).toBe(true)
 
-    const sent = vi.mocked(window.pine.windows.returnToMain).mock.calls[0][0]
+    const sent = vi.mocked(window.ostia.windows.returnToMain).mock.calls[0][0]
     expect(sent.map((w) => w.id)).toEqual([workspaceId])
   })
 })
@@ -357,7 +357,7 @@ describe('cross-window navigation', () => {
 
     expect(goToWorkspace(1)).toBe(true)
 
-    expect(window.pine.windows.focusWorkspace).toHaveBeenCalledWith('w-remote', false)
+    expect(window.ostia.windows.focusWorkspace).toHaveBeenCalledWith('w-remote', false)
   })
 
   it('jump to latest unread goes to another window when its unread is newer', () => {
@@ -366,7 +366,7 @@ describe('cross-window navigation', () => {
 
     expect(jumpToLatestUnread()).toBeNull()
 
-    expect(window.pine.windows.focusWorkspace).toHaveBeenCalledWith('w-remote', true)
+    expect(window.ostia.windows.focusWorkspace).toHaveBeenCalledWith('w-remote', true)
   })
 
   it('activating a workspace from main selects it here', () => {

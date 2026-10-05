@@ -18,7 +18,7 @@ export function startShortcutReporting(): () => void {
     const key = JSON.stringify(map)
     if (key === last) return
     last = key
-    window.pine?.assist?.reportShortcuts?.(map)
+    window.ostia?.assist?.reportShortcuts?.(map)
   }
   report()
   const offCommands = commands.subscribe(report)

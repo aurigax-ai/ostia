@@ -1,16 +1,16 @@
 import { quoteArg } from '@shared/shellQuote'
 
-export const PINE_PATH_MIME = 'application/x-pine-path'
+export const OSTIA_PATH_MIME = 'application/x-ostia-path'
 
 export function acceptsPathDrop(types: readonly string[]): boolean {
-  return types.includes(PINE_PATH_MIME) || types.includes('Files')
+  return types.includes(OSTIA_PATH_MIME) || types.includes('Files')
 }
 
 export function droppedPaths(transfer: DataTransfer): string[] {
-  const own = transfer.getData(PINE_PATH_MIME)
+  const own = transfer.getData(OSTIA_PATH_MIME)
   if (own) return [own]
   return [...transfer.files]
-    .map((file) => window.pine.files.pathForFile(file))
+    .map((file) => window.ostia.files.pathForFile(file))
     .filter((path) => path.length > 0)
 }
 

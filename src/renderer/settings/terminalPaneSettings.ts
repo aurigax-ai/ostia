@@ -4,7 +4,7 @@ import {
   parsePromptSettings,
 } from '../../shared/promptSettings'
 import { parseShellSetting } from '../../shared/terminalShell'
-import { MATCH_PINE_THEME, parseThemeChoice } from '../../shared/themeChoice'
+import { MATCH_OSTIA_THEME, parseThemeChoice } from '../../shared/themeChoice'
 
 export interface TerminalSettings {
   scrollSpeed: number
@@ -44,7 +44,7 @@ export const DEFAULT_TERMINAL_SETTINGS: TerminalSettings = {
   minimumContrast: 1,
   prompt: DEFAULT_PROMPT_SETTINGS,
   clipboardKeys: 'shift',
-  theme: MATCH_PINE_THEME,
+  theme: MATCH_OSTIA_THEME,
   shell: '',
   osc52Write: false,
   primarySelection: true,

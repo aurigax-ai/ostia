@@ -99,9 +99,9 @@ interface Loaded {
 
 async function loadText(filePath: string): Promise<Loaded> {
   if (!isRemotePath(filePath)) {
-    return { content: await window.pine.fs.read(filePath), version: null, problem: null }
+    return { content: await window.ostia.fs.read(filePath), version: null, problem: null }
   }
-  const res = await window.pine.remoteFiles.read(filePath)
+  const res = await window.ostia.remoteFiles.read(filePath)
   if (res.ok) return { content: res.content, version: res.version, problem: null }
   if (res.error === 'not-found') return { content: null, version: null, problem: null }
   return { content: null, version: null, problem: res.error }
@@ -276,7 +276,7 @@ export function EditorView({
         write: async () => {
           attempt.version = model.getAlternativeVersionId()
           attempt.outcome = await saveRemoteText(
-            window.pine.remoteFiles,
+            window.ostia.remoteFiles,
             fp,
             model.getValue(),
             remoteVersions.get(key) ?? null,
@@ -313,7 +313,7 @@ export function EditorView({
       }
       const key = model.uri.toString()
       if (!force) {
-        const onDisk = await window.pine.fs.read(fp)
+        const onDisk = await window.ostia.fs.read(fp)
         if (onDisk !== null && diskBase.has(key) && onDisk !== diskBase.get(key)) {
           setDiskBar({ kind: 'conflict', disk: onDisk })
           return
@@ -327,7 +327,7 @@ export function EditorView({
           version = model.getAlternativeVersionId()
           const text = model.getValue()
           diskBase.set(key, text)
-          return window.pine.fs.write(fp, text)
+          return window.ostia.fs.write(fp, text)
         },
       }).catch(() => false)
       if (!ok) {
@@ -391,7 +391,7 @@ export function EditorView({
       const key = model.uri.toString()
       if (!remoteVersions.has(key)) return
       const outcome = await checkRemoteText(
-        window.pine.remoteFiles,
+        window.ostia.remoteFiles,
         fp,
         remoteVersions.get(key) ?? null,
       )
@@ -419,7 +419,7 @@ export function EditorView({
         return
       }
       const key = model.uri.toString()
-      const onDisk = await window.pine.fs.read(pathOf(model))
+      const onDisk = await window.ostia.fs.read(pathOf(model))
       if (editor.getModel() !== model) return
       if (onDisk === diskBase.get(key)) return
       if (onDisk === null) {
@@ -493,20 +493,20 @@ export function EditorView({
       return file ? { file, line: pos?.lineNumber ?? 1, column: pos?.column ?? 1 } : null
     })
     const action = editor.addAction({
-      id: 'pine.openExternal',
+      id: 'ostia.openExternal',
       label: openExternalLabel,
       contextMenuGroupId: 'navigation',
       run: () => openExternalRef.current(),
     })
     const sendAction = editor.addAction({
-      id: 'pine.sendSelection',
+      id: 'ostia.sendSelection',
       label: sendSelectionLabel,
       contextMenuGroupId: 'navigation',
       precondition: 'editorHasSelection',
       run: () => sendSelectionRef.current(),
     })
     const copyLinesAction = editor.addAction({
-      id: 'pine.copyPathAndLines',
+      id: 'ostia.copyPathAndLines',
       label: copyLinesLabel,
       contextMenuGroupId: '9_cutcopypaste',
       run: () => {
@@ -566,17 +566,17 @@ export function EditorView({
       applyReveal(editor, filePath)
       if (!isRemote) releaseDocument = openDocument(model, paneId)
     })
-    if (!isRemote) void window.pine.fs.watch(filePath)
+    if (!isRemote) void window.ostia.fs.watch(filePath)
     setDiskBar(null)
     return () => {
       alive = false
       releaseDocument()
-      if (!isRemote) window.pine.fs.unwatch(filePath)
+      if (!isRemote) window.ostia.fs.unwatch(filePath)
     }
   }, [filePath, paneId])
 
   useEffect(() => {
-    const offChanged = window.pine.fs.onChanged((change) => {
+    const offChanged = window.ostia.fs.onChanged((change) => {
       if (change.path === pathRef.current) void checkDiskRef.current()
     })
     const onFocus = (): void => {

@@ -24,7 +24,7 @@ describe('reportForeignDrop', () => {
   it('tells main a pane from another window landed in this workspace', () => {
     seed('terminal')
     reportForeignDrop('pane-x', { paneId: 'pane-1', zone: 'right' })
-    expect(window.pine.windows.dropPane).toHaveBeenCalledWith({
+    expect(window.ostia.windows.dropPane).toHaveBeenCalledWith({
       paneId: 'pane-x',
       workspaceId: 'w1',
       placement: { paneId: 'pane-1', zone: 'right' },
@@ -33,9 +33,9 @@ describe('reportForeignDrop', () => {
 
   it('never takes a pane from another window into a scratch workspace', () => {
     seed('scratch')
-    vi.mocked(window.pine.windows.dropPane).mockClear()
+    vi.mocked(window.ostia.windows.dropPane).mockClear()
     reportForeignDrop('pane-x', { paneId: 'pane-1', zone: 'center' })
-    expect(window.pine.windows.dropPane).not.toHaveBeenCalled()
+    expect(window.ostia.windows.dropPane).not.toHaveBeenCalled()
   })
 })
 

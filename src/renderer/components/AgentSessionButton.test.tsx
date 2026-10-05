@@ -56,7 +56,7 @@ describe('AgentSessionButton', () => {
   })
 
   it('adds the model, context, branch and folder the transcript reports, and skips what it lacks', async () => {
-    vi.mocked(window.pine.agentSession.info).mockResolvedValue({
+    vi.mocked(window.ostia.agentSession.info).mockResolvedValue({
       title: 'Editor highlight',
       model: 'claude-opus-5-5',
       contextTokens: 58010,
@@ -73,12 +73,12 @@ describe('AgentSessionButton', () => {
     fireEvent.click(screen.getByRole('button', { name: /Claude Code session/ }))
 
     expect(await screen.findByText('Editor highlight')).toBeTruthy()
-    expect(window.pine.agentSession.info).toHaveBeenCalledWith({ agent: 'claude', id: 'abc-123' })
+    expect(window.ostia.agentSession.info).toHaveBeenCalledWith({ agent: 'claude', id: 'abc-123' })
     expect(screen.getByText('claude-opus-5-5')).toBeTruthy()
     expect(screen.getByText('58.0k')).toBeTruthy()
     expect(screen.getByText('main')).toBeTruthy()
     expect(screen.queryByText('Version')).toBeNull()
-    vi.mocked(window.pine.agentSession.info).mockResolvedValue(null)
+    vi.mocked(window.ostia.agentSession.info).mockResolvedValue(null)
   })
 
   it('says when the session cannot be resumed', () => {

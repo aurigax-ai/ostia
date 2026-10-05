@@ -17,13 +17,13 @@ describe('runBusHook', () => {
   it.each(['SessionStart', 'UserPromptSubmit'])(
     'prints the inbox context as %s hook output both agents accept',
     async (event) => {
-      const hook = io(async () => ({ text: 'pine bus: 1 unread message' }))
+      const hook = io(async () => ({ text: 'ostia bus: 1 unread message' }))
       expect(await runBusHook([event], hook)).toBe(0)
       expect(hook.lines.map((line) => JSON.parse(line))).toEqual([
         {
           hookSpecificOutput: {
             hookEventName: event,
-            additionalContext: 'pine bus: 1 unread message',
+            additionalContext: 'ostia bus: 1 unread message',
           },
         },
       ])

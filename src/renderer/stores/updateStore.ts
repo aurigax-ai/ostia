@@ -31,12 +31,12 @@ export const useUpdateStore = create<UpdateState>((set, get) => ({
   receiveRelease: (release) => set({ release }),
   dismissRelease: () => {
     set({ release: null })
-    void window.pine.update.dismissRelease()
+    void window.ostia.update.dismissRelease()
   },
   checkForUpdates: async () => {
     if (get().releaseCheck.status === 'checking') return
     set({ releaseCheck: { status: 'checking' } })
-    const releaseCheck = await window.pine.update
+    const releaseCheck = await window.ostia.update
       .checkRelease()
       .catch((): ReleaseCheckResult => ({ status: 'error', error: 'unavailable' }))
     set({ releaseCheck })
@@ -58,10 +58,10 @@ function notify(info: BuildInfo): void {
 
 export function startUpdateWatch(): () => void {
   const { receive, receiveRelease } = useUpdateStore.getState()
-  void window.pine.update.state().then(receive)
-  void window.pine.update.release().then(receiveRelease)
-  const stopBuilds = window.pine.update.onAvailable(receive)
-  const stopReleases = window.pine.update.onRelease(receiveRelease)
+  void window.ostia.update.state().then(receive)
+  void window.ostia.update.release().then(receiveRelease)
+  const stopBuilds = window.ostia.update.onAvailable(receive)
+  const stopReleases = window.ostia.update.onRelease(receiveRelease)
   return () => {
     stopBuilds()
     stopReleases()

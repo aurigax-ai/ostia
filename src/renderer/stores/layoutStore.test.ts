@@ -8,7 +8,7 @@ import { usePluginsStore } from './pluginsStore'
 import { useSettingsStore } from './settingsStore'
 import { useWorkspacesStore } from './workspacesStore'
 
-const emit = () => vi.mocked(window.pine.lifecycle.emit)
+const emit = () => vi.mocked(window.ostia.lifecycle.emit)
 const layoutOf = (sid: string) => useLayoutStore.getState().byWorkspace[sid]
 
 function ensure(sid: string): string {

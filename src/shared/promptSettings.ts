@@ -1,6 +1,7 @@
-export type PromptStyle = 'shell' | 'pine'
+import { currentProductValue } from './legacyIds'
+export type PromptStyle = 'shell' | 'ostia'
 
-export const PROMPT_STYLES: readonly PromptStyle[] = ['shell', 'pine']
+export const PROMPT_STYLES: readonly PromptStyle[] = ['shell', 'ostia']
 
 export type PromptSeparator = 'none' | '%' | '$' | '>'
 
@@ -76,9 +77,10 @@ export function parsePromptSettings(raw: unknown): PromptSettings {
     return { ...DEFAULT_PROMPT_SETTINGS, chips: [...DEFAULT_PROMPT_CHIPS] }
   }
   const source = raw as Record<string, unknown>
+  const style = currentProductValue(source.style)
   return {
-    style: PROMPT_STYLES.includes(source.style as PromptStyle)
-      ? (source.style as PromptStyle)
+    style: PROMPT_STYLES.includes(style as PromptStyle)
+      ? (style as PromptStyle)
       : DEFAULT_PROMPT_SETTINGS.style,
     chips: parsePromptChips(source.chips),
     sameLine: typeof source.sameLine === 'boolean' ? source.sameLine : false,

@@ -126,7 +126,7 @@ test('the input editor runs commands, walks history and steps aside for interact
 })
 
 function fakeTools(): string {
-  const bin = mkdtempSync(join(tmpdir(), 'pine-e2e-bin-'))
+  const bin = mkdtempSync(join(tmpdir(), 'ostia-e2e-bin-'))
   for (const name of ['pinefake-tool', 'pinefake-alpha', 'pinefake-alps']) {
     const path = join(bin, name)
     writeFileSync(path, `#!/bin/sh\necho ran_${name.replace('-', '_')}\n`)

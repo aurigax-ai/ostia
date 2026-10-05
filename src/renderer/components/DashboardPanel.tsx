@@ -342,7 +342,7 @@ function RemoteEntry({ workspace: w }: { workspace: RemoteWorkspace }): JSX.Elem
         size="sm"
         aria-label={fmt(d.dashboard.openWorkspace, { name: w.name })}
         className="h-auto min-w-0 justify-start p-0 font-medium text-fg text-ui-base"
-        onClick={() => window.pine.windows.focusWorkspace(w.id, false)}
+        onClick={() => window.ostia.windows.focusWorkspace(w.id, false)}
       >
         <span className="truncate">{w.name}</span>
       </Button>

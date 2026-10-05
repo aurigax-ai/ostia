@@ -9,7 +9,7 @@ async function run(win: Page, line: string): Promise<void> {
 }
 
 async function closeFromAgent(win: Page, paneId: string, marker: string): Promise<void> {
-  await run(win, `pine pane.close '{"paneId":"${paneId}"}'; echo ${marker}-$?`)
+  await run(win, `ostia pane.close '{"paneId":"${paneId}"}'; echo ${marker}-$?`)
   const card = win.getByRole('region', { name: 'Agent permission request' })
   await expect(card).toBeVisible({ timeout: 20_000 })
   await card.getByRole('button', { name: 'Allow once' }).click()
@@ -98,9 +98,9 @@ test('suggestions come from the pane’s own shell only while it holds the termi
     await openWorkspace(win)
     const paneId = (await win.locator('.pane-tab').first().getAttribute('data-tab-id')) ?? ''
     const local = (): Promise<boolean> =>
-      win.evaluate((id) => window.pine.pty.localPrompt(id), paneId)
+      win.evaluate((id) => window.ostia.pty.localPrompt(id), paneId)
     const names = (): Promise<number> =>
-      win.evaluate(async (id) => (await window.pine.pty.commands(id)).length, paneId)
+      win.evaluate(async (id) => (await window.ostia.pty.commands(id)).length, paneId)
 
     await expect.poll(local).toBe(true)
     await expect.poll(names).toBeGreaterThan(0)
@@ -108,7 +108,7 @@ test('suggestions come from the pane’s own shell only while it holds the termi
     await run(win, 'sleep 30')
     await expect.poll(local, { timeout: 10_000 }).toBe(false)
     expect(await names()).toBe(0)
-    expect(await win.evaluate((id) => window.pine.pty.listDir(id, '/'), paneId)).toEqual([])
+    expect(await win.evaluate((id) => window.ostia.pty.listDir(id, '/'), paneId)).toEqual([])
   } finally {
     await app.close()
   }

@@ -9,7 +9,7 @@ export const OPEN_EXTERNAL_COMMAND = 'editor.openExternal'
 export function openPaneInExternalEditor(paneId: string): Promise<ExternalEditorResult> | null {
   const position = editorPositionOf(paneId)
   if (!position || isRemotePath(position.file)) return null
-  return window.pine.externalEditor.open({
+  return window.ostia.externalEditor.open({
     template: useSettingsStore.getState().behavior.externalEditor,
     file: position.file,
     line: position.line,

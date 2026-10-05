@@ -36,14 +36,14 @@ async function showUpdateNotice(app: ElectronApplication): Promise<void> {
 
 async function requestApproval(win: Page) {
   await win.locator('.xterm').first().click()
-  await win.keyboard.type('pine settings set sidebar.showSSH false')
+  await win.keyboard.type('ostia settings set sidebar.showSSH false')
   await win.keyboard.press('Enter')
   const card = win.getByRole('region', { name: 'Agent permission request' })
   await expect(card).toBeVisible({ timeout: 20_000 })
   return card
 }
 
-test('an unlinked terminal theme changes the terminal colors while the pine theme stays', async () => {
+test('an unlinked terminal theme changes the terminal colors while the ostia theme stays', async () => {
   const { app, win } = await launch({})
   try {
     await openWorkspace(win)
@@ -83,7 +83,7 @@ test('an unlinked terminal theme changes the terminal colors while the pine them
 
 for (const [theme, expected] of [
   ['adeberry', { fill: 'rgb(242, 179, 71)', ink: 'rgb(29, 32, 34)' }],
-  ['pine-light', { fill: null, ink: 'rgb(246, 247, 249)' }],
+  ['ostia-light', { fill: null, ink: 'rgb(246, 247, 249)' }],
 ] as const) {
   test(`a custom accent drives buttons, tab underline and working dot on ${theme}`, async () => {
     const { app, win } = await launch({ appearance: { theme, accent: '#f2b347' } })

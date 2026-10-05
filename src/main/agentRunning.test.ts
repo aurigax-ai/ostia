@@ -72,7 +72,7 @@ describe('AgentRunningPanes', () => {
     expect(runningIds(book.mark(snapshot([pane('a'), pane('b')])))).toEqual(['a'])
   })
 
-  it('keeps the mark after Pine took the shell away, whatever the renderer saves later', () => {
+  it('keeps the mark after Ostia took the shell away, whatever the renderer saves later', () => {
     const book = new AgentRunningPanes(() => {})
     book.report('a', true, true)
     book.report('a', false, false)

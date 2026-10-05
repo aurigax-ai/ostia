@@ -1,3 +1,4 @@
+import { currentThemeId } from '@shared/legacyIds'
 import type { Theme } from '../plugins/types'
 import { usePluginsStore } from '../stores/pluginsStore'
 import { useSettingsStore } from '../stores/settingsStore'
@@ -18,10 +19,11 @@ export function effectiveThemeId(choice: ThemeChoice): string {
 }
 
 export function resolveTheme(themes: Theme[], id: string): Theme | undefined {
-  return themes.find((t) => t.id === id) ?? themes[0]
+  const wanted = currentThemeId(id)
+  return themes.find((t) => t.id === wanted) ?? themes[0]
 }
 
-export const DEFAULT_LIGHT_THEME = 'pine-light'
+export const DEFAULT_LIGHT_THEME = 'ostia-light'
 export const DEFAULT_DARK_THEME = 'adeberry'
 
 export function themedTokens(theme: Theme, accent: string): Record<string, string> {

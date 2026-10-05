@@ -20,20 +20,20 @@ describe('PrivacySection', () => {
   })
 
   beforeEach(() => {
-    vi.mocked(window.pine.privacy.kinds).mockResolvedValue([
+    vi.mocked(window.ostia.privacy.kinds).mockResolvedValue([
       { kind: 'github', source: 'library', detects: ['GITHUB_TOKEN'] },
       { kind: 'aws', source: 'library', detects: ['AWSSecretAccessKey', 'AWSAccessKeyID'] },
-      { kind: 'jwt', source: 'pine', detects: [] },
-      { kind: 'assignment', source: 'pine', detects: [] },
+      { kind: 'jwt', source: 'ostia', detects: [] },
+      { kind: 'assignment', source: 'ostia', detects: [] },
     ])
   })
 
   afterEach(() => {
     cleanup()
     useSettingsStore.setState(settingsInit, true)
-    vi.mocked(window.pine.fs.write).mockClear()
-    vi.mocked(window.pine.privacy.preview).mockReset()
-    vi.mocked(window.pine.privacy.preview).mockImplementation(async (text) => ({
+    vi.mocked(window.ostia.fs.write).mockClear()
+    vi.mocked(window.ostia.privacy.preview).mockReset()
+    vi.mocked(window.ostia.privacy.preview).mockImplementation(async (text) => ({
       text,
       count: 0,
       kinds: {},
@@ -48,7 +48,7 @@ describe('PrivacySection', () => {
     await userEvent.click(toggle)
 
     expect(redaction().enabled).toBe(false)
-    const written = JSON.parse(vi.mocked(window.pine.fs.write).mock.calls[0][1])
+    const written = JSON.parse(vi.mocked(window.ostia.fs.write).mock.calls[0][1])
     expect(written.privacy.redaction.enabled).toBe(false)
   })
 
@@ -100,7 +100,7 @@ describe('PrivacySection', () => {
       'A repeated group cannot itself contain a repeat or an alternative.',
     )
     expect(screen.getByLabelText('Pattern')).toHaveAttribute('aria-invalid', 'true')
-    expect(window.pine.fs.write).not.toHaveBeenCalled()
+    expect(window.ostia.fs.write).not.toHaveBeenCalled()
   })
 
   it('marks a hand-edited invalid pattern as ignored', () => {
@@ -114,7 +114,7 @@ describe('PrivacySection', () => {
   })
 
   it('shows what would be redacted in pasted text, by asking main', async () => {
-    vi.mocked(window.pine.privacy.preview).mockResolvedValue({
+    vi.mocked(window.ostia.privacy.preview).mockResolvedValue({
       text: 'export T=[redacted:github] [redacted:github]',
       count: 2,
       kinds: { github: 2 },
@@ -127,7 +127,7 @@ describe('PrivacySection', () => {
     )
     expect(screen.getByText('2 secrets redacted')).toBeInTheDocument()
     expect(screen.getByText('[redacted:github] × 2')).toBeInTheDocument()
-    expect(vi.mocked(window.pine.privacy.preview).mock.calls.at(-1)?.[0]).toBe(
+    expect(vi.mocked(window.ostia.privacy.preview).mock.calls.at(-1)?.[0]).toBe(
       'export T=ghp_x ghp_y',
     )
   })

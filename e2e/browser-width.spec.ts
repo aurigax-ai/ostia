@@ -77,12 +77,12 @@ async function visibleHost(app: ElectronApplication, win: Page): Promise<Host | 
   return { width, devicePixels: Math.round(width * zoom) }
 }
 
-type Pine = (...args: string[]) => Promise<{ code: number; out: string }>
+type Ostia = (...args: string[]) => Promise<{ code: number; out: string }>
 
 async function launch(
   settings: object,
   args: string[] = [],
-): Promise<{ app: ElectronApplication; win: Page; pine: Pine }> {
+): Promise<{ app: ElectronApplication; win: Page; ostia: Ostia }> {
   const dataHome = freshDataHome()
   seedSettings(dataHome, {
     ...DOM_RENDERER_SETTINGS,
@@ -106,7 +106,7 @@ async function launch(
     const eq = line.indexOf('=')
     if (eq > 0) env[line.slice(0, eq)] = line.slice(eq + 1)
   }
-  const pine: Pine = (...cliArgs) =>
+  const ostia: Ostia = (...cliArgs) =>
     new Promise((done, fail) => {
       const child = spawn(process.execPath, [CLI, 'browse', ...cliArgs], {
         env: { ...process.env, PINE_SOCKET: env.PINE_SOCKET, PINE_TOKEN: env.PINE_TOKEN },
@@ -119,7 +119,7 @@ async function launch(
       child.on('error', fail)
       child.on('close', (code) => done({ code: code ?? 1, out: out.trim() }))
     })
-  return { app, win, pine }
+  return { app, win, ostia }
 }
 
 async function setWindowSize(app: ElectronApplication, width: number, height: number) {
@@ -164,37 +164,37 @@ for (const [width, height] of [
   [1440, 900],
   [1000, 700],
 ]) {
-  test(`a page opened by pine browse open is laid out at its pane's width in a ${width}x${height} window`, async () => {
+  test(`a page opened by ostia browse open is laid out at its pane's width in a ${width}x${height} window`, async () => {
     test.setTimeout(120_000)
     const server = await serve()
     const origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`
-    const { app, win, pine } = await launch({})
+    const { app, win, ostia } = await launch({})
     try {
       await setWindowSize(app, width, height)
       await expect.poll(() => win.evaluate(() => innerWidth)).toBe(width)
 
-      expect((await pine('open', `${origin}/first`)).code).toBe(0)
+      expect((await ostia('open', `${origin}/first`)).code).toBe(0)
       const pane = await expectPageFitsPane(app, win, '/first')
       await expect
-        .poll(async () => Number((await pine('eval', 'window.innerWidth')).out))
+        .poll(async () => Number((await ostia('eval', 'window.innerWidth')).out))
         .toBe(pane.width)
 
-      expect((await pine('open', `${origin}/again`)).code).toBe(0)
+      expect((await ostia('open', `${origin}/again`)).code).toBe(0)
       await expectPageFitsPane(app, win, '/again')
 
       await setWindowSize(app, width - 200, height)
       await expect.poll(async () => (await visibleHost(app, win))?.width).toBeLessThan(pane.width)
       await expect
-        .poll(async () => Number((await pine('eval', 'window.innerWidth')).out))
+        .poll(async () => Number((await ostia('eval', 'window.innerWidth')).out))
         .toBe((await visibleHost(app, win))?.width)
       await setWindowSize(app, width, height)
       await expect.poll(async () => (await visibleHost(app, win))?.width).toBe(pane.width)
 
-      expect((await pine('close')).code).toBe(0)
+      expect((await ostia('close')).code).toBe(0)
       await expect.poll(() => visibleHost(app, win)).toBeNull()
-      expect((await pine('open', `${origin}/reopened`)).code).toBe(0)
+      expect((await ostia('open', `${origin}/reopened`)).code).toBe(0)
       expect((await expectPageFitsPane(app, win, '/reopened')).width).toBe(pane.width)
-      expect((await pine('close')).code).toBe(0)
+      expect((await ostia('close')).code).toBe(0)
       await expect.poll(() => visibleHost(app, win)).toBeNull()
 
       await win.getByRole('button', { name: 'New browser tab' }).click()
@@ -210,11 +210,11 @@ for (const [width, height] of [
   })
 }
 
-test('a page opened by pine browse open behind the settings cover fits its pane at 125% app zoom on a 2x display', async () => {
+test('a page opened by ostia browse open behind the settings cover fits its pane at 125% app zoom on a 2x display', async () => {
   test.setTimeout(120_000)
   const server = await serve()
   const origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`
-  const { app, win, pine } = await launch({ appearance: { zoom: 125 } }, [
+  const { app, win, ostia } = await launch({ appearance: { zoom: 125 } }, [
     '--force-device-scale-factor=2',
   ])
   try {
@@ -224,7 +224,7 @@ test('a page opened by pine browse open behind the settings cover fits its pane 
     await win.locator('.topbar').getByRole('button', { name: 'Settings' }).click()
     const settings = win.getByRole('region', { name: 'Settings' })
     await expect(settings).toBeVisible()
-    expect((await pine('open', `${origin}/covered`)).code).toBe(0)
+    expect((await ostia('open', `${origin}/covered`)).code).toBe(0)
     await expect.poll(async () => (await guests(app)).length, { timeout: 15_000 }).toBe(1)
     await win.keyboard.press('Escape')
     await expect(settings).toHaveCount(0)

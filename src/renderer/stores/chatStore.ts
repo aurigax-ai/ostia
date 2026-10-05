@@ -11,7 +11,7 @@ import {
 } from '@shared/chatSessions'
 import { create } from 'zustand'
 import { workspaceFolder } from '../lib/chatTools'
-import { type PineChatMessage, createAssistTransport, messageText } from '../lib/chatTransport'
+import { type OstiaChatMessage, createAssistTransport, messageText } from '../lib/chatTransport'
 import { type ChatEditRecord, sessionEdits, useChatToolsStore } from './chatToolsStore'
 import { useSettingsStore } from './settingsStore'
 import { useWorkspacesStore } from './workspacesStore'
@@ -98,7 +98,7 @@ export const useChatStore = create<ChatStoreState>((set, get) => ({
     }),
 }))
 
-const chats = new Map<string, Chat<PineChatMessage>>()
+const chats = new Map<string, Chat<OstiaChatMessage>>()
 const loading = new Map<string, Promise<string>>()
 let sessionSeq = 0
 
@@ -114,7 +114,7 @@ export function newSessionId(): string {
   return `c${Date.now().toString(36)}${sessionSeq.toString(36)}${random}`
 }
 
-export function titleFromMessages(messages: readonly PineChatMessage[]): string {
+export function titleFromMessages(messages: readonly OstiaChatMessage[]): string {
   const first = messages.find((m) => m.role === 'user')
   const text = first ? chatTitle(messageText(first)) : ''
   if (text.length <= TITLE_FROM_QUESTION) return text
@@ -125,7 +125,7 @@ function historyOn(): boolean {
   return useSettingsStore.getState().assistant.chatHistory
 }
 
-export function toSessionMessages(messages: readonly PineChatMessage[]): ChatSessionMessage[] {
+export function toSessionMessages(messages: readonly OstiaChatMessage[]): ChatSessionMessage[] {
   return messages.map((m) => {
     const out: ChatSessionMessage = { id: m.id, role: m.role, parts: m.parts as never }
     if (m.metadata) out.metadata = m.metadata
@@ -135,7 +135,7 @@ export function toSessionMessages(messages: readonly PineChatMessage[]): ChatSes
 
 export function sessionOf(
   meta: ChatSessionMeta,
-  messages: readonly PineChatMessage[],
+  messages: readonly OstiaChatMessage[],
 ): ChatSession {
   const now = Date.now()
   const model =
@@ -172,7 +172,7 @@ export async function saveSession(sessionId: string): Promise<void> {
   if (!chat || !meta || meta.scratch || !historyOn() || chat.messages.length === 0) return
   const session = sessionOf(meta, chat.messages)
   if (!meta.title) useChatStore.getState().setMeta({ ...meta, title: session.title })
-  const res = await window.pine.chatSessions.save(session).catch(() => null)
+  const res = await window.ostia.chatSessions.save(session).catch(() => null)
   const store = useChatStore.getState()
   if (!res?.ok) {
     store.setNotice(sessionId, 'saveFailed')
@@ -200,8 +200,8 @@ function sessionWorkspace(sessionId: string): string | null {
   )
 }
 
-function createChat(sessionId: string, messages: PineChatMessage[]): Chat<PineChatMessage> {
-  const chat = new Chat<PineChatMessage>({
+function createChat(sessionId: string, messages: OstiaChatMessage[]): Chat<OstiaChatMessage> {
+  const chat = new Chat<OstiaChatMessage>({
     id: sessionId,
     messages,
     transport: createAssistTransport({
@@ -216,7 +216,7 @@ function createChat(sessionId: string, messages: PineChatMessage[]): Chat<PineCh
   return chat
 }
 
-export function chatFor(sessionId: string): Chat<PineChatMessage> {
+export function chatFor(sessionId: string): Chat<OstiaChatMessage> {
   return chats.get(sessionId) ?? createChat(sessionId, [])
 }
 
@@ -264,11 +264,11 @@ export function startNewSession(workspaceId: string | null | undefined): string 
   return id
 }
 
-function fromStored(session: ChatSession): PineChatMessage[] {
+function fromStored(session: ChatSession): OstiaChatMessage[] {
   return session.messages.map((m) => ({
     id: m.id,
     role: m.role,
-    parts: m.parts as PineChatMessage['parts'],
+    parts: m.parts as OstiaChatMessage['parts'],
     ...(m.metadata ? { metadata: m.metadata } : {}),
   }))
 }
@@ -279,7 +279,7 @@ export async function openSession(
 ): Promise<boolean> {
   const store = useChatStore.getState()
   if (!chats.has(sessionId)) {
-    const session = await window.pine.chatSessions.get(sessionId).catch(() => null)
+    const session = await window.ostia.chatSessions.get(sessionId).catch(() => null)
     if (!session) return false
     const meta: ChatSessionMeta = {
       id: session.id,
@@ -299,7 +299,7 @@ export async function openSession(
 }
 
 export async function refreshSessions(): Promise<ChatSessionSummary[]> {
-  const list = await window.pine.chatSessions.list().catch(() => [] as ChatSessionSummary[])
+  const list = await window.ostia.chatSessions.list().catch(() => [] as ChatSessionSummary[])
   useChatStore.getState().setSummaries(list)
   return list
 }
@@ -351,7 +351,7 @@ export async function renameSession(sessionId: string, title: string): Promise<b
   const store = useChatStore.getState()
   const meta = store.meta[sessionId]
   if (meta) store.setMeta({ ...meta, title: next })
-  const saved = await window.pine.chatSessions.rename(sessionId, next).catch(() => null)
+  const saved = await window.ostia.chatSessions.rename(sessionId, next).catch(() => null)
   if (saved) await refreshSessions()
   return true
 }
@@ -366,14 +366,14 @@ export async function clearSession(sessionId: string): Promise<void> {
     store.setMeta({ ...kept, title: '' })
   }
   store.setNotice(sessionId, null)
-  await window.pine.chatSessions.remove(sessionId).catch(() => false)
+  await window.ostia.chatSessions.remove(sessionId).catch(() => false)
   await refreshSessions()
 }
 
 export async function deleteSession(sessionId: string): Promise<void> {
   chats.get(sessionId)?.stop()
   chats.delete(sessionId)
-  await window.pine.chatSessions.remove(sessionId).catch(() => false)
+  await window.ostia.chatSessions.remove(sessionId).catch(() => false)
   const store = useChatStore.getState()
   for (const [key, id] of Object.entries(store.current)) {
     if (id === sessionId) startNewSession(key || null)

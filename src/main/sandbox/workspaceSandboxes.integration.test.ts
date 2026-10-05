@@ -21,7 +21,7 @@ import { SandboxStore } from './store'
 import { SandboxUnavailableError, WorkspaceSandboxes } from './workspaceSandboxes'
 
 const repoRoot = process.cwd()
-const hostScript = join(repoRoot, 'node_modules/.cache/pine-test/sandbox-host-ws.mjs')
+const hostScript = join(repoRoot, 'node_modules/.cache/ostia-test/sandbox-host-ws.mjs')
 
 let root: string
 let workDir: string
@@ -35,7 +35,7 @@ function sandboxes(store: SandboxStore, env?: NodeJS.ProcessEnv): WorkspaceSandb
     basePaths: () => ({
       home: join(root, 'home'),
       dataDirs: [],
-      socketPath: join(root, 'pine.sock'),
+      socketPath: join(root, 'ostia.sock'),
       runtimeReads: [],
     }),
     workDir: () => workDir,
@@ -56,7 +56,7 @@ beforeAll(async () => {
     format: 'esm',
     packages: 'external',
   })
-  root = realpathSync(mkdtempSync(join(tmpdir(), 'pine-wsbx-')))
+  root = realpathSync(mkdtempSync(join(tmpdir(), 'ostia-wsbx-')))
   workDir = join(root, 'home', 'proj')
   mkdirSync(workDir, { recursive: true })
   storePath = join(root, 'sandbox.json')
@@ -164,7 +164,7 @@ describe('WorkspaceSandboxes', () => {
   }, 30_000)
 
   it('SBX-C56 keeps an inherited ssh-agent socket out of reach and out of the environment', async () => {
-    const agentDir = mkdtempSync(join(tmpdir(), 'pine-c56-agent-'))
+    const agentDir = mkdtempSync(join(tmpdir(), 'ostia-c56-agent-'))
     const agentSock = join(agentDir, 'agent.sock')
     const server = createServer((socket) => socket.end('AGENT-REACHED'))
     await new Promise<void>((resolve) => server.listen(agentSock, resolve))
@@ -179,7 +179,7 @@ describe('WorkspaceSandboxes', () => {
         basePaths: () => ({
           home: join(root, 'home'),
           dataDirs: [],
-          socketPath: join(root, 'pine.sock'),
+          socketPath: join(root, 'ostia.sock'),
           runtimeReads: [],
           agentSockets: [agentSock],
         }),

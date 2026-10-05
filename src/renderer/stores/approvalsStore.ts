@@ -24,10 +24,10 @@ export const useApprovalsStore = create<ApprovalsState>((set) => ({
   history: [],
   apply: (state) => set({ pending: state.pending, history: state.history }),
   answer: async (id, answer) => {
-    await window.pine.approvals.answer(id, answer)
+    await window.ostia.approvals.answer(id, answer)
   },
   revoke: async (id) => {
-    await window.pine.approvals.revoke(id)
+    await window.ostia.approvals.revoke(id)
   },
 }))
 
@@ -54,7 +54,7 @@ function announce(req: ApprovalRequest): void {
   const d = currentDict()
   const message = approvalMessage(req)
   signalPane(req.paneId, { type: 'set', state: 'waiting', message, at: Date.now() })
-  window.pine.notifications.post({
+  window.ostia.notifications.post({
     paneId: req.paneId,
     kind: 'approval',
     title: d.approvals.title,
@@ -76,7 +76,7 @@ export function startApprovals(): () => void {
     for (const req of gone) settle(req)
     for (const req of added) announce(req)
   }
-  const off = window.pine.approvals.onChange(receive)
-  void window.pine.approvals.state().then(receive)
+  const off = window.ostia.approvals.onChange(receive)
+  void window.ostia.approvals.state().then(receive)
   return off
 }

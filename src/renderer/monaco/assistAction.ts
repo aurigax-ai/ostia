@@ -5,8 +5,8 @@ import { attachAndOpenChat } from '../lib/askContext'
 import { setAssistFeature, useAssistFeature, useChatAvailable } from '../lib/assistFeatures'
 import type { monaco } from './setup'
 
-export const ASSIST_COMPLETIONS_ACTION_ID = 'pine.assist.toggleEditorCompletions'
-export const ASK_SELECTION_ACTION_ID = 'pine.assist.askAboutSelection'
+export const ASSIST_COMPLETIONS_ACTION_ID = 'ostia.assist.toggleEditorCompletions'
+export const ASK_SELECTION_ACTION_ID = 'ostia.assist.askAboutSelection'
 
 export function useAssistCompletionsAction(
   editorRef: RefObject<monaco.editor.IStandaloneCodeEditor | null>,

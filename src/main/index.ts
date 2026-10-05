@@ -65,8 +65,8 @@ import { registerAssistIpc } from './assistIpc'
 import { registerAttentionMethods } from './attention'
 import {
   type ConsoleEntry,
+  OSTIA_ERROR_PREFIX,
   PAGE_ERROR_CATCHER_JS,
-  PINE_ERROR_PREFIX,
   clearGuestBrowseState,
   consoleLevelName,
   ownedGuest,
@@ -975,7 +975,7 @@ function instrumentBrowserGuest(gc: Electron.WebContents): void {
         ts: Date.now(),
       }
       pushConsoleEntry(consoleBuffers, wcId, entry)
-      if (entry.level === 'error' || message.startsWith(PINE_ERROR_PREFIX)) {
+      if (entry.level === 'error' || message.startsWith(OSTIA_ERROR_PREFIX)) {
         pushConsoleEntry(errorBuffers, wcId, entry)
       }
     })
@@ -1624,7 +1624,7 @@ function registerPtyIpc(): void {
     const integration = shellIntegrationSpawnOptions(
       shell,
       process.env,
-      opts.pinePrompt ?? null,
+      opts.ostiaPrompt ?? null,
       scratchFolders.historyFile(workspaceId),
     )
     const cols = opts.cols || 80
@@ -2941,7 +2941,7 @@ function autosaveScrollback(): void {
 app.on('before-quit', (event) => {
   const plan = planQuit({
     approved: quitApproved,
-    requestedByPine: quitRequested,
+    requestedByOstia: quitRequested,
     platform: process.platform,
   })
   quitRequested = false

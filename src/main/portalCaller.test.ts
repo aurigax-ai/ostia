@@ -71,7 +71,7 @@ describe('hasPaneToken', () => {
 })
 
 describe('judgeCaller', () => {
-  it('MGR-C11 refuses a caller whose ancestor is the Pine main process', () => {
+  it('MGR-C11 refuses a caller whose ancestor is the Ostia main process', () => {
     const procs = { 300: { ppid: 200 }, 200: { ppid: 100 }, 100: { ppid: 1 } }
     expect(judgeCaller(300, ctx(procs))).toBe('inside')
   })
@@ -81,12 +81,12 @@ describe('judgeCaller', () => {
     expect(judgeCaller(300, ctx(procs))).toBe('inside')
   })
 
-  it('MGR-C13 refuses a reparented caller whose controlling tty is a Pine pty', () => {
+  it('MGR-C13 refuses a reparented caller whose controlling tty is a Ostia pty', () => {
     const procs = { 300: { ppid: 1, tty: 34817 } }
     expect(judgeCaller(300, ctx(procs, [34817]))).toBe('inside')
   })
 
-  it('MGR-C11 accepts a caller from a terminal outside Pine', () => {
+  it('MGR-C11 accepts a caller from a terminal outside Ostia', () => {
     const procs = { 400: { ppid: 350, tty: 34900 }, 350: { ppid: 1 } }
     expect(judgeCaller(400, ctx(procs, [34817]))).toBe('outside')
   })
@@ -102,7 +102,7 @@ describe('judgeCaller', () => {
 })
 
 describe('judgeCallers', () => {
-  it('MGR-C11 refuses when any process sharing the socket is inside Pine', () => {
+  it('MGR-C11 refuses when any process sharing the socket is inside Ostia', () => {
     const procs = { 400: { ppid: 1 }, 300: { ppid: 100 } }
     expect(judgeCallers([400, 300], ctx(procs))).toBe('inside')
   })
@@ -114,7 +114,7 @@ describe('judgeCallers', () => {
 
 describe('peerPidsFromSs', () => {
   const output = [
-    'u_str ESTAB 0 0 /run/user/1000/pine portal.sock 5001 * 5002 users:(("electron",pid=100,fd=40))',
+    'u_str ESTAB 0 0 /run/user/1000/ostia portal.sock 5001 * 5002 users:(("electron",pid=100,fd=40))',
     'u_str ESTAB 0 0 * 5002 * 5001 users:(("node",pid=400,fd=20),("node",pid=401,fd=20))',
     'u_str ESTAB 0 0 * 6002 * 6001 users:(("zsh",pid=500,fd=3))',
   ].join('\n')
@@ -140,7 +140,7 @@ describe('callerVerdict (real socket, real ss)', () => {
   })
 
   function listen(): Promise<string> {
-    dir = mkdtempSync(join(tmpdir(), 'pine-portal-test-'))
+    dir = mkdtempSync(join(tmpdir(), 'ostia-portal-test-'))
     const path = join(dir, 'p.sock')
     server = createServer()
     return new Promise((resolve) => server?.listen(path, () => resolve(path)))

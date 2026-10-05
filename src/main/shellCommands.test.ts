@@ -32,7 +32,7 @@ function touchDir(dir: string, seconds: number): void {
 }
 
 beforeEach(() => {
-  root = mkdtempSync(join(tmpdir(), 'pine-path-'))
+  root = mkdtempSync(join(tmpdir(), 'ostia-path-'))
 })
 
 afterEach(() => {

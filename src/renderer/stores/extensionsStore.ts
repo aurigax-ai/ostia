@@ -55,20 +55,20 @@ export const useExtensionsStore = create<ExtensionsState>((set) => ({
 
   load: async () => {
     const [list, sidebar, chips, workspaceChips] = await Promise.all([
-      window.pine.extensions.list(),
-      window.pine.extensions.sidebarItems(),
-      window.pine.extensions.paneChips(),
-      window.pine.extensions.workspaceChips(),
+      window.ostia.extensions.list(),
+      window.ostia.extensions.sidebarItems(),
+      window.ostia.extensions.paneChips(),
+      window.ostia.extensions.workspaceChips(),
     ])
     set({ list, sidebar, chips, workspaceChips })
   },
 
   setEnabled: async (extId, enabled) => {
-    set({ list: await window.pine.extensions.setEnabled(extId, enabled) })
+    set({ list: await window.ostia.extensions.setEnabled(extId, enabled) })
   },
 
   setSetting: async (extId, key, value) => {
-    const res = await window.pine.extensions.setSetting(extId, key, value)
+    const res = await window.ostia.extensions.setSetting(extId, key, value)
     if (!res.ok) return res.error
     set({ list: res.list })
     useSettingsStore.getState().setExtensionSettings(extId, res.stored)
@@ -76,14 +76,14 @@ export const useExtensionsStore = create<ExtensionsState>((set) => ({
   },
 
   setSecret: async (extId, key, value) => {
-    const res = await window.pine.extensions.setSecret(extId, key, value)
+    const res = await window.ostia.extensions.setSecret(extId, key, value)
     if (!res.ok) return res.error
     set({ list: res.list })
     return null
   },
 
   approve: async (extId) => {
-    const list = await window.pine.extensions.approve(extId)
+    const list = await window.ostia.extensions.approve(extId)
     set((s) => ({ list, reviewing: s.reviewing === extId ? null : s.reviewing }))
   },
 

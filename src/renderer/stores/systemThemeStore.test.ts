@@ -8,9 +8,9 @@ describe('systemThemeStore', () => {
   })
 
   it('reads the OS appearance at init and follows later changes pushed from main', async () => {
-    vi.mocked(window.pine.window.isSystemDark).mockResolvedValue(false)
+    vi.mocked(window.ostia.window.isSystemDark).mockResolvedValue(false)
     let push: (dark: boolean) => void = () => {}
-    vi.mocked(window.pine.window.onSystemDarkChange).mockImplementation((cb) => {
+    vi.mocked(window.ostia.window.onSystemDarkChange).mockImplementation((cb) => {
       push = cb
       return () => {}
     })

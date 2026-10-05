@@ -22,7 +22,7 @@ export function startAgentRunningReport(): () => void {
         if (running === null) reported.delete(pane.id)
         if (running === null || reported.get(pane.id) === running) continue
         reported.set(pane.id, running)
-        window.pine.pty.reportAgentRunning(pane.id, running)
+        window.ostia.pty.reportAgentRunning(pane.id, running)
       }
     }
   }

@@ -92,7 +92,7 @@ test('an idle hidden agent hibernates and resumes when the human asks', async ()
     await win.waitForLoadState('domcontentloaded')
     await openWorkspace(win)
 
-    await typeLine(win, 'pine resume-token claude e2e-tok-1')
+    await typeLine(win, 'ostia resume-token claude e2e-tok-1')
     await expect(win.getByRole('button', { name: 'Resume claude' })).toBeVisible({
       timeout: 15_000,
     })
@@ -146,7 +146,7 @@ test('a hibernated agent is still hibernated after a restart and wakes when the 
     const win = await first.firstWindow()
     await win.waitForLoadState('domcontentloaded')
     await openWorkspace(win)
-    await typeLine(win, 'pine resume-token claude e2e-tok-2')
+    await typeLine(win, 'ostia resume-token claude e2e-tok-2')
     await expect(win.getByRole('button', { name: 'Resume claude' })).toBeVisible({
       timeout: 15_000,
     })
