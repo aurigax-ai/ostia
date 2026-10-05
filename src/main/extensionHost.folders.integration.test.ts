@@ -23,7 +23,7 @@ describe('ExtensionHost remote folders (real extension process, real socket)', (
   const published: RemoteFolder[][] = []
 
   beforeAll(() => {
-    dir = mkdtempSync(join(tmpdir(), 'pine-ext-folders-'))
+    dir = mkdtempSync(join(tmpdir(), 'ostia-ext-folders-'))
     const socketPath = join(dir, 'control.sock')
     registerPane({ windowId: 'win1', workspaceId: 'w1', paneId: 'pane-remote' })
     host = new ExtensionHost({

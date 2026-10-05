@@ -103,7 +103,7 @@ beforeEach(() => {
   servers = new LanguageServers({
     sources: () => sources,
     nodePath: process.execPath,
-    env: () => ({ ...process.env, PINE_TOKEN: 'must-not-leak', PINE_SOCKET: '/nope' }),
+    env: () => ({ ...process.env, OSTIA_TOKEN: 'must-not-leak', OSTIA_SOCKET: '/nope' }),
     pane: (paneId) => (paneId === 'p1' ? { windowId: 'w1', workspaceId: 'ws1' } : undefined),
     confine: (path) => (path.startsWith(tmp) ? path : null),
     workDir: () => workDir,

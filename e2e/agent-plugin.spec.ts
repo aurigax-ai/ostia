@@ -33,7 +33,7 @@ for (const group of hooks.SessionStart || []) {
 function installAgentKit(configHome: string): void {
   const dir = join(configHome, PRODUCT_NAME, 'extensions', 'agent-kit')
   mkdirSync(dir, { recursive: true })
-  for (const file of ['pine.json', 'skills']) {
+  for (const file of ['ostia.json', 'skills']) {
     cpSync(join(fixture, file), join(dir, file), { recursive: true })
   }
   buildSync({
@@ -53,7 +53,7 @@ function fakeClaude(dataHome: string): string {
   const claude = join(bin, 'claude')
   writeFileSync(
     claude,
-    '#!/bin/sh\nELECTRON_RUN_AS_NODE=1 exec "$PINE_NODE" "$(dirname "$0")/fake-claude.js" "$@"\n',
+    '#!/bin/sh\nELECTRON_RUN_AS_NODE=1 exec "$OSTIA_NODE" "$(dirname "$0")/fake-claude.js" "$@"\n',
   )
   chmodSync(claude, 0o755)
   return bin

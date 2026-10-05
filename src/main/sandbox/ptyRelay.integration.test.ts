@@ -133,7 +133,7 @@ describe.skipIf(!runnable)(
       const session = await start('ctty')
       const out = await run(
         session,
-        'echo "tty=$(tty) leader=$(ps -o sid= -p $$ | tr -d " ")/$$ outer=${PINE_RELAY_TTY-unset} shell=$SHELL"',
+        'echo "tty=$(tty) leader=$(ps -o sid= -p $$ | tr -d " ")/$$ outer=${OSTIA_RELAY_TTY-unset} shell=$SHELL"',
         /tty=\S+ leader/,
       )
       expect(out).toMatch(/tty=\/dev\/pts\/\d+ leader=(\d+)\/\1 outer=unset shell=\/bin\/bash/)

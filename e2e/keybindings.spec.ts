@@ -134,7 +134,7 @@ test('on macOS Cmd+Backspace deletes the typed line in the shell, as in Terminal
     await win.keyboard.type('echo ostia_wrong_line')
     await expect(rows).toContainText('echo ostia_wrong_line')
     await win.keyboard.press('Meta+Backspace')
-    await win.keyboard.type('echo pine_$((40+2))_ok')
+    await win.keyboard.type('echo ostia_$((40+2))_ok')
     await win.keyboard.press('Enter')
     await expect(rows).toContainText('ostia_42_ok')
     await expect(rows).not.toContainText('ostia_wrong_line')

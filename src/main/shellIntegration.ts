@@ -11,7 +11,7 @@ import {
   hookAgentsFor,
   isAgentHookEvent,
 } from '../shared/agentPlugins'
-import { dualEnv, shellEnv } from '../shared/appEnv'
+import { appEnv, shellEnv } from '../shared/appEnv'
 import { CLAUDE_QUESTION_TOOLS } from '../shared/claudeAttention'
 import { PRODUCT_NAME } from '../shared/product'
 import { type PromptSeparator, isPromptSeparator } from '../shared/promptSettings'
@@ -139,11 +139,9 @@ add-zsh-hook precmd __ostia_precmd
 add-zsh-hook preexec __ostia_preexec
 add-zsh-hook chpwd __ostia_osc7
 
-# \`ostia\` CLI: runs the control-socket client injected as $OSTIA_CLI. \`pine\` is the
-# old name of the same command and keeps working.
+# \`ostia\` CLI: runs the control-socket client injected as $OSTIA_CLI.
 if [ -n "${CLI_PATH}" ]; then
   ostia() { ${CLI_RUN} "$@"; }
-  pine() { ostia "$@"; }
 fi
 `
 
@@ -295,11 +293,9 @@ unset PROMPT_COMMAND
 PROMPT_COMMAND="__ostia_prompt_command"
 trap '__ostia_preexec' DEBUG
 
-# \`ostia\` CLI: runs the control-socket client injected as $OSTIA_CLI. \`pine\` is the
-# old name of the same command and keeps working.
+# \`ostia\` CLI: runs the control-socket client injected as $OSTIA_CLI.
 if [ -n "${CLI_PATH}" ]; then
   ostia() { ${CLI_RUN} "$@"; }
-  pine() { ostia "$@"; }
 fi
 `
 
@@ -553,7 +549,7 @@ function codexSessionContext(
   skills: { id: string; file: string; description: string }[],
 ): string {
   return [
-    `This Codex session runs in a ${PRODUCT_NAME} terminal pane. The \`ostia\` CLI (\`pine\` is its old name and still works) controls the pane and its workspace: notifications, attention state, the in-app browser, background processes, the secret vault, and a message bus to agents in other panes.`,
+    `This Codex session runs in a ${PRODUCT_NAME} terminal pane. The \`ostia\` CLI controls the pane and its workspace: notifications, attention state, the in-app browser, background processes, the secret vault, and a message bus to agents in other panes.`,
     'Your shell tool does not have the `ostia` shell function, so run the CLI as `ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" "$OSTIA_CLI" <command>`.',
     `Before you use it, read its guide: ${skillFile}`,
     ...(skills.length > 0
@@ -815,7 +811,7 @@ export function shellIntegrationSpawnOptions(
       env: {
         ZDOTDIR: dir,
         OSTIA_ZDOTDIR_ORIG: baseEnv.ZDOTDIR || baseEnv.HOME || '',
-        ...dualEnv({ AGENT_DIR: currentAgentDir() }),
+        ...appEnv({ AGENT_DIR: currentAgentDir() }),
         ...promptEnv(ostiaPrompt),
         ...historyEnv(histFile),
       },
@@ -827,7 +823,7 @@ export function shellIntegrationSpawnOptions(
     return {
       args: ['--rcfile', bashRc],
       env: {
-        ...dualEnv({ AGENT_DIR: currentAgentDir() }),
+        ...appEnv({ AGENT_DIR: currentAgentDir() }),
         ...promptEnv(ostiaPrompt),
         ...historyEnv(histFile),
       },

@@ -32,7 +32,6 @@ describe('resolveTheme', () => {
   it('falls back to the first theme for an unknown id', () => {
     expect(resolveTheme(themes, 'nope')).toBe(themes[0])
     expect(resolveTheme(themes, 'ostia-light')).toBe(light)
-    expect(resolveTheme(themes, 'pine-light')).toBe(light)
   })
 })
 

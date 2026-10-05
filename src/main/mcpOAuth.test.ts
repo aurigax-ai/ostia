@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { envName, legacyEnvName } from '../shared/appEnv'
+import { envName } from '../shared/appEnv'
 import {
   MCP_OAUTH_BROWSER_ENV,
   SignInFailure,
@@ -27,9 +27,7 @@ describe('mcpOAuthBrowser', () => {
     expect(mcpOAuthBrowser(true, { [name]: 'fetch' })).toBe('system')
     expect(mcpOAuthBrowser(false, {})).toBe('system')
     expect(mcpOAuthBrowser(false, { [name]: '1' })).toBe('system')
-    expect(mcpOAuthBrowser(false, { [legacyEnvName(MCP_OAUTH_BROWSER_ENV)]: 'fetch' })).toBe(
-      'fetch',
-    )
+    expect(mcpOAuthBrowser(false, { PINE_MCP_OAUTH_BROWSER: 'fetch' })).toBe('system')
   })
 })
 

@@ -14,8 +14,8 @@ function writeExt(root: string, id: string, manifest: Record<string, unknown>): 
   const dir = join(root, id)
   mkdirSync(dir, { recursive: true })
   writeFileSync(
-    join(dir, 'pine.json'),
-    JSON.stringify({ id, name: id, version: '1.0.0', api: '1.0', ...manifest }),
+    join(dir, 'ostia.json'),
+    JSON.stringify({ id, name: id, version: '1.0.0', api: '2.0', ...manifest }),
   )
   return dir
 }
@@ -43,7 +43,7 @@ function makeHost(overrides: Partial<ExtensionHostDeps> = {}): {
 }
 
 beforeEach(() => {
-  base = mkdtempSync(join(tmpdir(), 'pine-ext-host-'))
+  base = mkdtempSync(join(tmpdir(), 'ostia-ext-host-'))
   writeExt(join(base, 'builtin'), 'board', {
     capabilities: ['notify'],
     contributes: { panel: { title: 'Board', entry: 'panel.html' } },

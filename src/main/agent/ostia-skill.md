@@ -1,12 +1,9 @@
 ---
 name: ostia
-description: Use when a coding agent is running inside Ostia (a terminal-workspace app) — detectable via the env vars OSTIA_SOCKET/OSTIA_TOKEN/OSTIA_PANE_ID/OSTIA_START_DIR — and wants to control its own pane or coordinate with other agents/panes in the workspace. Covers the `ostia` CLI: identity (whoami), introspection (commands, docs), opening files, desktop notifications, pane attention state (ostia state waiting/done), asking the human a question and waiting for the answer (ostia ask: free text, one choice or several), running commands in terminal tabs the human can watch (ostia process), typing into and reading other terminal panes (ostia pane send/key/read), an encrypted secret vault, sandboxed workspaces (asking for a domain, an exposed port or a secret: ostia sandbox request-domain/expose, ostia secret ls/get), a cross-agent message bus, driving the in-app browser with agent-browser's command contract (open/snapshot refs/click/fill/type/press/find/wait/get/eval/screenshot/cookies/storage/network/tabs/--json/batch, pick element), reading the selection reports (text, image regions, PDF text or regions, terminal output) a human sends from files and terminals Ostia shows (@/tmp/ostia-reports-*/selection-N.md), reading the human's saved command workflows (ostia workflow list/show), building sidebar sections and panels for the human as data-only JSON views (ostia view schema/validate/list/open), reading/writing app settings, learning the OS and asking the human to install system packages (ostia system info/install — never run sudo yourself), and pairing/managing the LAN control gateway (a phone companion app, off by default, elevated, LAN/Tailscale only — no hosted relay). Boards, cards and knowledge entries are not Ostia's: use the `trellis` CLI. Also covers the capability/elevation model and a recipe for two agents (e.g. Claude + Codex) in different panes coordinating work. Triggers on "ostia", "ostia CLI", "am I in Ostia", "control the terminal workspace", "talk to the other pane/agent", "hand off a task to another agent", "ostia bus/vault/settings/browse/gateway", "automate the browser", "agent browser automation in Ostia", "pair a phone with Ostia", "ostia gateway", "selection-N.md", "the human sent me a selection", "build a sidebar/panel/dashboard in Ostia", "ostia view", and the old names "pine", "pine CLI", "am I in Pine".
+description: Use when a coding agent is running inside Ostia (a terminal-workspace app) — detectable via the env vars OSTIA_SOCKET/OSTIA_TOKEN/OSTIA_PANE_ID/OSTIA_START_DIR — and wants to control its own pane or coordinate with other agents/panes in the workspace. Covers the `ostia` CLI: identity (whoami), introspection (commands, docs), opening files, desktop notifications, pane attention state (ostia state waiting/done), asking the human a question and waiting for the answer (ostia ask: free text, one choice or several), running commands in terminal tabs the human can watch (ostia process), typing into and reading other terminal panes (ostia pane send/key/read), an encrypted secret vault, sandboxed workspaces (asking for a domain, an exposed port or a secret: ostia sandbox request-domain/expose, ostia secret ls/get), a cross-agent message bus, driving the in-app browser with agent-browser's command contract (open/snapshot refs/click/fill/type/press/find/wait/get/eval/screenshot/cookies/storage/network/tabs/--json/batch, pick element), reading the selection reports (text, image regions, PDF text or regions, terminal output) a human sends from files and terminals Ostia shows (@/tmp/ostia-reports-*/selection-N.md), reading the human's saved command workflows (ostia workflow list/show), building sidebar sections and panels for the human as data-only JSON views (ostia view schema/validate/list/open), reading/writing app settings, learning the OS and asking the human to install system packages (ostia system info/install — never run sudo yourself), and pairing/managing the LAN control gateway (a phone companion app, off by default, elevated, LAN/Tailscale only — no hosted relay). Boards, cards and knowledge entries are not Ostia's: use the `trellis` CLI. Also covers the capability/elevation model and a recipe for two agents (e.g. Claude + Codex) in different panes coordinating work. Triggers on "ostia", "ostia CLI", "am I in Ostia", "control the terminal workspace", "talk to the other pane/agent", "hand off a task to another agent", "ostia bus/vault/settings/browse/gateway", "automate the browser", "agent browser automation in Ostia", "pair a phone with Ostia", "ostia gateway", "selection-N.md", "the human sent me a selection", "build a sidebar/panel/dashboard in Ostia", "ostia view".
 ---
 
 # Ostia — the agent toolbelt
-
-`pine` is the old name of the `ostia` command and still works, and every `OSTIA_*` variable
-below is also set as `PINE_*` with the same value, so older scripts keep running.
 
 Ostia is a terminal-workspace app (terminal + editor + agent panes). When a coding
 agent's shell is a pane inside Ostia, that pane's environment carries:
@@ -207,8 +204,7 @@ ostia workflow show <name> [--json]  # command, {{arguments}}, descriptions, def
 
 Workflows are parameterized commands in Warp's YAML format (`name`, `command` with
 `{{arg}}` placeholders, `description`, `tags`, `arguments[{name, description,
-default_value}]`). You see your workspace's `<workDir>/.ostia/workflows/*.yaml` (and the older
-`<workDir>/.pine/workflows/*.yaml`), the human's `~/.config/ostia/workflows/*.yaml`, and workflows contributed by enabled
+default_value}]`). You see your workspace's `<workDir>/.ostia/workflows/*.yaml`, the human's `~/.config/ostia/workflows/*.yaml`, and workflows contributed by enabled
 extensions. Use them to learn how this project is built, tested and deployed: fill
 the placeholders yourself and run the command in your own shell. There is no
 `run` or `save` verb, and ostia never types a workflow for you; files that fail to
@@ -224,8 +220,7 @@ ostia workflow show <name> [--json]  # command, {{arguments}}, descriptions, def
 
 Workflows are parameterized commands in Warp's YAML format (`name`, `command` with
 `{{arg}}` placeholders, `description`, `tags`, `arguments[{name, description,
-default_value}]`). You see your workspace's `<workDir>/.ostia/workflows/*.yaml` (and the older
-`<workDir>/.pine/workflows/*.yaml`), the human's `~/.config/ostia/workflows/*.yaml`, and workflows contributed by enabled
+default_value}]`). You see your workspace's `<workDir>/.ostia/workflows/*.yaml`, the human's `~/.config/ostia/workflows/*.yaml`, and workflows contributed by enabled
 extensions. Use them to learn how this project is built, tested and deployed: fill
 the placeholders yourself and run the command in your own shell. There is no
 `run` or `save` verb, and ostia never types a workflow for you; files that fail to
@@ -369,8 +364,8 @@ Trellis: run the `trellis` CLI directly from your pane, following its own Claude
 `trellis:writing-knowledge` for recording findings). Ostia's `trellis` extension is the human's
 view of Trellis (a board, card and vault panel they act in, per-workspace card counts, review
 notifications); it has no verbs that change cards for you; see
-Extensions below. Files an older Pine left behind (`.pine/board.json`, `.pine/wiki.json`) are
-the user's data: don't read them as current state, and don't delete them.
+Extensions below. Old `board.json` and `wiki.json` files in a project are the user's data: don't
+read them as current state, and don't delete them.
 
 ## Git — repo state of your cwd, log, blame, stage and commit
 
@@ -783,7 +778,7 @@ ostia gateway disable                       # stop the gateway
 Lets the Ostia Companion phone app pair over LAN (or your own Tailscale/VPN — **no hosted relay,
 no cloud rendezvous, no accounts**) and mirror/drive this desktop. **Off by default**; every verb
 here needs the elevated `gateway` capability (see below) on top of whatever the human has granted.
-`pair` prints the pairing JSON (and a `pine-pair://` URI wrapping the same payload) for the phone
+`pair` prints the pairing JSON (and an `ostia-pair://` URI wrapping the same payload) for the phone
 to scan/paste — there's no ASCII-QR rendering in the CLI itself, pipe the JSON through your own QR
 tool if you want one. A paired device only gets a strict phone-facing capability subset
 (`read`/`notify` by default). `command`/`input`/`destructive` are

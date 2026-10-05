@@ -96,11 +96,11 @@ async function launch(
   await openWorkspace(win)
   const envFile = join(dataHome, 'pane.env')
   await win.locator('.xterm').first().click()
-  await win.keyboard.type(`env | grep '^PINE_' > ${envFile}`)
+  await win.keyboard.type(`env | grep '^OSTIA_' > ${envFile}`)
   await win.keyboard.press('Enter')
   await expect
     .poll(() => existsSync(envFile) && readFileSync(envFile, 'utf8'))
-    .toContain('PINE_TOKEN=')
+    .toContain('OSTIA_TOKEN=')
   const env: Record<string, string> = {}
   for (const line of readFileSync(envFile, 'utf8').split('\n')) {
     const eq = line.indexOf('=')
@@ -109,7 +109,7 @@ async function launch(
   const ostia: Ostia = (...cliArgs) =>
     new Promise((done, fail) => {
       const child = spawn(process.execPath, [CLI, 'browse', ...cliArgs], {
-        env: { ...process.env, PINE_SOCKET: env.PINE_SOCKET, PINE_TOKEN: env.PINE_TOKEN },
+        env: { ...process.env, OSTIA_SOCKET: env.OSTIA_SOCKET, OSTIA_TOKEN: env.OSTIA_TOKEN },
         stdio: ['ignore', 'pipe', 'ignore'],
       })
       let out = ''

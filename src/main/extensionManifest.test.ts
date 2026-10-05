@@ -4,18 +4,12 @@ import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { MAX_AGENT_HOOKS, MAX_AGENT_SKILLS, MAX_AGENT_SKILL_FILES } from '../shared/agentPlugins'
 import { EXTENSION_API_VERSION } from '../shared/extensionApi'
-import {
-  discoverExtensions,
-  isInsideDir,
-  manifestFileIn,
-  parseManifest,
-  readManifest,
-} from './extensionManifest'
+import { discoverExtensions, isInsideDir, parseManifest, readManifest } from './extensionManifest'
 
 const DIR = '/ext/demo'
 
 function manifest(extra: Record<string, unknown> = {}): Record<string, unknown> {
-  return { id: 'demo', name: 'Demo', version: '1.0.0', api: '1.0', main: 'main.js', ...extra }
+  return { id: 'demo', name: 'Demo', version: '1.0.0', api: '2.0', main: 'main.js', ...extra }
 }
 
 describe('parseManifest', () => {
@@ -41,7 +35,7 @@ describe('parseManifest', () => {
         id: 'demo',
         name: 'Demo',
         version: '1.0.0',
-        api: '1.0',
+        api: '2.0',
         description: 'd',
         category: 'other',
         capabilities: ['notify', 'read-board'],
@@ -106,7 +100,7 @@ describe('parseManifest', () => {
           id: 'demo',
           name: 'Demo',
           version: '1',
-          api: '1.0',
+          api: '2.0',
           capabilities: ['assist'],
           contributes: { assist: ['chat'] },
         },
@@ -269,7 +263,7 @@ describe('parseManifest', () => {
     const settings = {
       mode: { type: 'enum', values: ['basic', 'strict'], default: 'basic', description: 'Mode' },
     }
-    const base = { id: 'lsp-demo', name: 'Demo', version: '1.0.0', api: '1.0' }
+    const base = { id: 'lsp-demo', name: 'Demo', version: '1.0.0', api: '2.0' }
     const res = parseManifest(
       {
         ...base,
@@ -384,7 +378,7 @@ describe('parseManifest', () => {
       'trellis',
     ]) {
       const dir = join(__dirname, '..', 'extensions', id)
-      const raw: unknown = JSON.parse(readFileSync(join(dir, 'pine.json'), 'utf8'))
+      const raw: unknown = JSON.parse(readFileSync(join(dir, 'ostia.json'), 'utf8'))
       const res = parseManifest(raw, dir)
       expect(res.ok ? null : res.error, id).toBeNull()
     }
@@ -421,7 +415,7 @@ describe('parseManifest', () => {
       id: 'demo',
       name: 'Demo',
       version: '1',
-      api: '1.0',
+      api: '2.0',
       contributes: { paneChips: [{ id: 'a', title: 'A' }] },
     }
     expect(parseManifest(noMain, DIR).ok).toBe(false)
@@ -509,7 +503,7 @@ describe('parseManifest', () => {
       id: 'demo',
       name: 'Demo',
       version: '1',
-      api: '1.0',
+      api: '2.0',
       contributes: { sidebarItems: true },
     }
     expect(parseManifest(noMain, DIR).ok).toBe(false)
@@ -521,7 +515,7 @@ describe('parseManifest', () => {
         id: 'static',
         name: 'S',
         version: '1',
-        api: '1.0',
+        api: '2.0',
         contributes: { panel: { title: 'S', entry: 'p.html' } },
       },
       DIR,
@@ -626,7 +620,7 @@ describe('parseManifest — locales', () => {
 
 describe('parseManifest — workflows', () => {
   it('accepts workflows without a main process and validates each one', () => {
-    const noMain = { id: 'demo', name: 'Demo', version: '1', api: '1.0' }
+    const noMain = { id: 'demo', name: 'Demo', version: '1', api: '2.0' }
     const res = parseManifest(
       {
         ...noMain,
@@ -659,7 +653,7 @@ describe('parseManifest — workflows', () => {
 
 describe('parseManifest — completions', () => {
   it('accepts a completion spec folder inside the extension without a main process', () => {
-    const noMain = { id: 'specs', name: 'Specs', version: '1', api: '1.0' }
+    const noMain = { id: 'specs', name: 'Specs', version: '1', api: '2.0' }
     const res = parseManifest({ ...noMain, contributes: { completions: 'specs' } }, DIR)
     if (!res.ok) throw new Error(res.error)
     expect(res.manifest.contributes.completions).toBe('specs')
@@ -673,7 +667,7 @@ describe('parseManifest — completions', () => {
 })
 
 describe('parseManifest — icon themes', () => {
-  const noMain = { id: 'icons', name: 'Icons', version: '1', api: '1.0' }
+  const noMain = { id: 'icons', name: 'Icons', version: '1', api: '2.0' }
   const theme = { id: 'material-icon-theme', label: 'Material', path: 'dist/theme.json' }
 
   it('accepts icon themes without a main process', () => {
@@ -722,7 +716,7 @@ describe('parseManifest — icon themes', () => {
 })
 
 describe('parseManifest — keymaps', () => {
-  const noMain = { id: 'keys', name: 'Keys', version: '1', api: '1.0' }
+  const noMain = { id: 'keys', name: 'Keys', version: '1', api: '2.0' }
   const keymap = { id: 'cmux', label: 'macOS (cmux)', path: 'keymaps/cmux.json' }
   const keymaps = (list: unknown) =>
     parseManifest({ ...noMain, contributes: { keymaps: list } }, DIR)
@@ -961,12 +955,12 @@ describe('discoverExtensions', () => {
   })
 
   function root(exts: Record<string, unknown>): string {
-    const dir = mkdtempSync(join(tmpdir(), 'pine-ext-root-'))
+    const dir = mkdtempSync(join(tmpdir(), 'ostia-ext-root-'))
     roots.push(dir)
     for (const [name, content] of Object.entries(exts)) {
       mkdirSync(join(dir, name))
       writeFileSync(
-        join(dir, name, 'pine.json'),
+        join(dir, name, 'ostia.json'),
         typeof content === 'string' ? content : JSON.stringify(content),
       )
     }
@@ -977,7 +971,7 @@ describe('discoverExtensions', () => {
     const dir = root({
       good: manifest({ id: 'good' }),
       broken: '{ not json',
-      invalid: { id: 'Bad Id', name: 'x', version: '1', api: '1.0' },
+      invalid: { id: 'Bad Id', name: 'x', version: '1', api: '2.0' },
     })
     mkdirSync(join(dir, 'no-manifest'))
     const errors: string[] = []
@@ -1008,28 +1002,10 @@ describe('discoverExtensions', () => {
     expect(discoverExtensions([{ dir: '/nonexistent/ostia-ext', builtin: false }])).toEqual([])
   })
 
-  it('finds an extension whose manifest is ostia.json, and prefers it over pine.json', () => {
-    const dir = root({ both: manifest({ id: 'both', name: 'Old' }) })
-    writeFileSync(
-      join(dir, 'both', 'ostia.json'),
-      JSON.stringify(manifest({ id: 'both', name: 'New' })),
-    )
-    mkdirSync(join(dir, 'renamed'))
-    writeFileSync(join(dir, 'renamed', 'ostia.json'), JSON.stringify(manifest({ id: 'renamed' })))
-    const found = discoverExtensions([{ dir, builtin: false }])
-    expect(found.map((f) => [f.manifest.id, f.manifest.name])).toEqual([
-      ['both', 'New'],
-      ['renamed', manifest({ id: 'renamed' }).name],
-    ])
-    expect(manifestFileIn(join(dir, 'both'))).toBe('ostia.json')
-    expect(manifestFileIn(join(dir, 'renamed'))).toBe('ostia.json')
-  })
-
   it('reports a broken ostia.json by its own name', () => {
     const dir = root({})
     mkdirSync(join(dir, 'broken'))
     writeFileSync(join(dir, 'broken', 'ostia.json'), '{ nope')
-    writeFileSync(join(dir, 'broken', 'pine.json'), JSON.stringify(manifest({ id: 'broken' })))
     const res = readManifest(join(dir, 'broken'))
     expect(res.ok).toBe(false)
     expect(res.ok ? '' : res.error).toMatch(/^unreadable ostia\.json: /)

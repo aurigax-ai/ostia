@@ -14,7 +14,7 @@ function installApproved(dataHome: string, configHome: string, ids: string[]): v
   for (const id of ids) {
     const target = join(configHome, PRODUCT_NAME, 'extensions', id)
     cpSync(join(MARKETPLACE, id), target, { recursive: true })
-    const manifest = JSON.parse(readFileSync(join(target, 'pine.json'), 'utf8'))
+    const manifest = JSON.parse(readFileSync(join(target, 'ostia.json'), 'utf8'))
     records[id] = { enabled: true, approved: manifest.capabilities ?? [] }
   }
   mkdirSync(join(dataHome, 'userData'), { recursive: true })

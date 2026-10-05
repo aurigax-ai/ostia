@@ -1,0 +1,28 @@
+{
+  "id": "system",
+  "name": "System",
+  "version": "1.0.0",
+  "api": "2.0",
+  "description": "Tells agents about this computer (OS, kernel, shell, package managers) and lets them ask you to install system packages. Nothing is installed unless you approve the exact command, and it runs in a new terminal where you see it.",
+  "category": "tools",
+  "capabilities": ["shell"],
+  "main": "main.js",
+  "locales": ["zh-Hant"],
+  "contributes": {
+    "commands": [
+      {
+        "id": "info",
+        "title": "OS, kernel, shell and package managers as JSON",
+        "usage": "info",
+        "palette": false
+      },
+      {
+        "id": "install",
+        "title": "Ask the human to install system packages",
+        "usage": "install <pkg...> [--manager <name>] [--reason <text>]",
+        "palette": false,
+        "interactive": true
+      }
+    ]
+  }
+}

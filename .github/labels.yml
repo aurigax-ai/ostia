@@ -27,7 +27,7 @@
   description: "Browser pane and the browse commands"
 - name: "area: cli"
   color: "d4c5f9"
-  description: "The pine command and the control socket"
+  description: "The ostia command and the control socket"
 - name: "area: editor"
   color: "d4c5f9"
   description: "Editor, files tree and the Git panel"

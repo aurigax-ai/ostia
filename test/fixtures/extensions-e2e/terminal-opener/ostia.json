@@ -1,0 +1,14 @@
+{
+  "id": "opener",
+  "name": "Opener",
+  "version": "0.1.0",
+  "api": "2.0",
+  "description": "E2E fixture: opens a terminal next to the caller and runs the argv it was given",
+  "capabilities": ["shell"],
+  "main": "main.js",
+  "contributes": {
+    "commands": [
+      { "id": "run", "title": "Run in a new terminal", "usage": "run <argv...>", "palette": false }
+    ]
+  }
+}

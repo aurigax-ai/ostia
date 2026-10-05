@@ -46,7 +46,7 @@ function fakeClaude(dataHome: string): string {
   const claude = join(bin, 'claude')
   writeFileSync(
     claude,
-    '#!/bin/sh\nELECTRON_RUN_AS_NODE=1 exec "$PINE_NODE" "$(dirname "$0")/fake-claude.js" "$@"\n',
+    '#!/bin/sh\nELECTRON_RUN_AS_NODE=1 exec "$OSTIA_NODE" "$(dirname "$0")/fake-claude.js" "$@"\n',
   )
   chmodSync(claude, 0o755)
   return bin
@@ -84,7 +84,7 @@ test('a bus message marks the receiving pane unread, reaches its agent at the ne
     await sender.locator('.xterm').click()
     await expect(sender).toHaveClass(/\bactive\b/)
     await win.keyboard.type(
-      `OTHER=$(ostia pane.list | grep '"paneId"' | grep -v "$PINE_PANE_ID" | head -1 | cut -d'"' -f4)`,
+      `OTHER=$(ostia pane.list | grep '"paneId"' | grep -v "$OSTIA_PANE_ID" | head -1 | cut -d'"' -f4)`,
     )
     await win.keyboard.press('Enter')
     await win.keyboard.type('ostia bus send "$OTHER" "review-$((40+2))-done"')

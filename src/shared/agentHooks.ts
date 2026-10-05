@@ -1,4 +1,4 @@
-import { dualEnv } from './appEnv'
+import { appEnv } from './appEnv'
 
 export interface AgentHooks {
   claude: boolean
@@ -23,5 +23,5 @@ export function agentHooksEnv(raw: unknown): Record<string, string> {
   for (const agent of Object.keys(AGENT_HOOKS_OFF_ENV) as (keyof AgentHooks)[]) {
     env[AGENT_HOOKS_OFF_ENV[agent]] = hooks[agent] ? '' : '1'
   }
-  return dualEnv(env)
+  return appEnv(env)
 }

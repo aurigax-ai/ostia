@@ -35,7 +35,6 @@ describe('resolveScheme', () => {
   it('follows the Ostia theme while linked', () => {
     expect(resolveScheme(schemes, 'match', theme('dracula'))).toBe(scheme('dracula'))
     expect(resolveScheme(schemes, 'match', theme('ostia-light'))).toBe(scheme('ostia-light'))
-    expect(resolveScheme(schemes, 'pine-light', theme('adeberry'))).toBe(scheme('ostia-light'))
   })
 
   it('keeps an unlinked pick whatever the Ostia theme is', () => {

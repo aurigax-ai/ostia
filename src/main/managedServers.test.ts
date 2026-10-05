@@ -15,7 +15,7 @@ import { join, resolve } from 'node:path'
 import { gzipSync } from 'node:zlib'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { makeTar, makeZip } from '../../test/fixtures/lsp/archives'
-import { envName, legacyEnvName } from '../shared/appEnv'
+import { envName } from '../shared/appEnv'
 import type {
   LanguageServerArchive,
   LanguageServerFetchFailure,
@@ -141,9 +141,7 @@ describe('downloadBaseUrl', () => {
     expect(downloadBaseUrl(false, env)).toBe('http://127.0.0.1:9')
     expect(downloadBaseUrl(true, env)).toBeNull()
     expect(downloadBaseUrl(false, {})).toBeNull()
-    const legacy = { [legacyEnvName(DOWNLOAD_BASE_URL_ENV)]: 'http://127.0.0.1:8' }
-    expect(downloadBaseUrl(false, legacy)).toBe('http://127.0.0.1:8')
-    expect(downloadBaseUrl(false, { ...legacy, ...env })).toBe('http://127.0.0.1:9')
+    expect(downloadBaseUrl(false, { PINE_LSP_DOWNLOAD_BASE_URL: 'http://127.0.0.1:8' })).toBeNull()
   })
 })
 
@@ -531,7 +529,7 @@ describe('ManagedServers go install', () => {
     )
     expect(recorded.argv).toBe('install example.org/x/tools/gopher@v1.2.3')
     expect(recorded.GOFLAGS).toBe('[]')
-    expect(recorded.pine_vars).toBe('0')
+    expect(recorded.ostia_vars).toBe('0')
     expect(recorded.GOBIN).toMatch(/language-servers\/ext\/gopher\/\.stage-/)
     expect(recorded.GOBIN.startsWith(dir)).toBe(true)
     expect(output).toEqual(['go: downloading example.org/x/tools/gopher@v1.2.3'])

@@ -5,7 +5,7 @@ const {
   createMessageConnection,
 } = require('vscode-jsonrpc/node')
 
-const socket = createConnection(process.env.PINE_SOCKET)
+const socket = createConnection(process.env.OSTIA_SOCKET)
 const conn = createMessageConnection(
   new StreamMessageReader(socket),
   new StreamMessageWriter(socket),
@@ -23,6 +23,6 @@ conn.onRequest('ext.command', async ({ command, args, caller }) => {
 socket.on('close', () => process.exit(0))
 conn.listen()
 socket.on('connect', async () => {
-  await conn.sendRequest('hello', { token: process.env.PINE_TOKEN })
+  await conn.sendRequest('hello', { token: process.env.OSTIA_TOKEN })
   await conn.sendRequest('ext.registerCommands', { commands: ['run'] })
 })

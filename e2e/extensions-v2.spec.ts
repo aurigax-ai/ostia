@@ -21,7 +21,7 @@ function installWhileRunning(configHome: string): void {
     format: 'cjs',
     logLevel: 'warning',
   })
-  copyFileSync(join(fixture, 'pine.json'), join(dir, 'pine.json'))
+  copyFileSync(join(fixture, 'ostia.json'), join(dir, 'ostia.json'))
 }
 
 function panelUrl(app: ElectronApplication): Promise<string> {
@@ -125,7 +125,7 @@ test('an extension whose manifest turns invalid while ostia runs is dropped with
       PRODUCT_NAME,
       'extensions',
       'hello',
-      'pine.json',
+      'ostia.json',
     )
     writeFileSync(manifest, '{ "broken": ')
     await expect(chip).toBeHidden({ timeout: 15_000 })

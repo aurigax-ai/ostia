@@ -1,12 +1,9 @@
 ---
 name: ostia-manager
-description: Use when you are the Ostia manager — the agent the human started with `ostia <agent>` from a terminal outside Ostia, running in Ostia's manager workspace. Covers seeing every workspace and pane, reading a pane's screen, starting worker agents in their own workspaces, messaging them over the bus, typing into a pane when the human allowed it, and the limits that stop runaway loops. Triggers on "manage the other agents", "start a worker", "what is pane X doing", "answer the worker's prompt", "ostia manager", "pine manager".
+description: Use when you are the Ostia manager — the agent the human started with `ostia <agent>` from a terminal outside Ostia, running in Ostia's manager workspace. Covers seeing every workspace and pane, reading a pane's screen, starting worker agents in their own workspaces, messaging them over the bus, typing into a pane when the human allowed it, and the limits that stop runaway loops. Triggers on "manage the other agents", "start a worker", "what is pane X doing", "answer the worker's prompt", "ostia manager".
 ---
 
 # Ostia manager
-
-`pine` is the old name of the `ostia` command and still works, and `PINE_NODE` / `PINE_CLI`
-hold the same values as `OSTIA_NODE` / `OSTIA_CLI`.
 
 The human started you from a terminal outside Ostia. You run in Ostia's **manager workspace**,
 and the human watches and types to you from that outside terminal. Inside Ostia your pane is

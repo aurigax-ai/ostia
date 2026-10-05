@@ -14,8 +14,6 @@ import type { RemoteCwd } from './remoteFolders'
 import type { Workflow } from './workflows'
 
 export const EXTENSION_MANIFEST_FILE = 'ostia.json'
-export const LEGACY_EXTENSION_MANIFEST_FILE = 'pine.json'
-export const EXTENSION_MANIFEST_FILES = [EXTENSION_MANIFEST_FILE, LEGACY_EXTENSION_MANIFEST_FILE]
 
 export const EXTENSION_ICONS = [
   'puzzle',

@@ -20,7 +20,7 @@ const MARKETPLACE = resolve(__dirname, '../out/marketplace/extensions')
 function installApproved(dataHome: string, configHome: string, id: string): void {
   const target = join(configHome, PRODUCT_NAME, 'extensions', id)
   cpSync(join(MARKETPLACE, id), target, { recursive: true })
-  const manifest = JSON.parse(readFileSync(join(target, 'pine.json'), 'utf8'))
+  const manifest = JSON.parse(readFileSync(join(target, 'ostia.json'), 'utf8'))
   mkdirSync(join(dataHome, 'userData'), { recursive: true })
   writeFileSync(
     join(dataHome, 'userData', 'extensions.json'),
@@ -72,7 +72,7 @@ test('a Trellis card goes to a new agent or to a running one, only on the humanâ
   for (const f of readdirSync(join(FIXTURES, 'trellis'))) {
     copyFileSync(join(FIXTURES, 'trellis', f), join(trellisDir, f))
   }
-  writeFileSync(join(trellisDir, 'consumers.json'), '[{"name":"pine","cursor":0,"lag":0}]')
+  writeFileSync(join(trellisDir, 'consumers.json'), '[{"name":"ostia","cursor":0,"lag":0}]')
   mkdirSync(join(dataHome, 'ostia'), { recursive: true })
   writeFileSync(
     join(dataHome, 'ostia', 'workspaces.json'),

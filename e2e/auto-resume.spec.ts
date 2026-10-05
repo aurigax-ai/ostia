@@ -129,7 +129,7 @@ function fakeResumableClaude(dataHome: string): string {
       '#!/bin/sh',
       'case "$*" in',
       '  *--resume*) echo "fake-agent-resumed $*" ;;',
-      `  *) ELECTRON_RUN_AS_NODE=1 "$PINE_NODE" "$PINE_CLI" resume-token claude ${RESUME_ID} >/dev/null 2>&1`,
+      `  *) ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" "$OSTIA_CLI" resume-token claude ${RESUME_ID} >/dev/null 2>&1`,
       '     echo fake-agent-ready ;;',
       'esac',
       'exec cat',
