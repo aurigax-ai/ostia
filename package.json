@@ -1,6 +1,6 @@
 {
   "name": "pine",
-  "version": "0.5.6",
+  "version": "0.5.7",
   "description": "Terminal Workspace — the ultimate CLI workspace (terminal + IDE + agents)",
   "private": true,
   "type": "commonjs",
