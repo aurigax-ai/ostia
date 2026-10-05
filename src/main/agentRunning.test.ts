@@ -99,6 +99,13 @@ describe('AgentRunningPanes', () => {
     expect(runningIds(book.mark(snapshot([pane('a')])))).toEqual([])
   })
 
+  it('never marks a hibernated pane, so auto-resume leaves it asleep', () => {
+    const book = new AgentRunningPanes(() => {})
+    book.report('a', true, true)
+    book.report('a', false, false)
+    expect(runningIds(book.mark(snapshot([pane('a', { hibernated: true })])))).toEqual([])
+  })
+
   it('never marks a pane without a resume token', () => {
     const book = new AgentRunningPanes(() => {})
     book.report('a', true, true)

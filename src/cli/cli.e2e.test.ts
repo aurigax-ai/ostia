@@ -356,6 +356,32 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
       })
     })
 
+    it('turns a Claude permission prompt into waiting, and leaves the idle reminder alone', async () => {
+      const hook = async (event: string, payload: object): Promise<number | null> => {
+        const child = spawn(process.execPath, [cliPath, 'claude-hook', event], { env: env() })
+        child.stdin.on('error', () => {})
+        child.stdin.end(JSON.stringify(payload))
+        return new Promise((resolve) => child.on('close', resolve))
+      }
+      expect(
+        await hook('Notification', {
+          notification_type: 'idle_prompt',
+          message: 'Claude is waiting for your input',
+        }),
+      ).toBe(0)
+      expect(execCalls).toEqual([])
+
+      expect(
+        await hook('Notification', {
+          notification_type: 'permission_prompt',
+          message: 'Claude needs your permission to use Bash',
+        }),
+      ).toBe(0)
+      expect(execCalls.map((c) => c.args)).toEqual([
+        { state: 'waiting', message: 'Claude needs your permission to use Bash' },
+      ])
+    })
+
     it('names the tool from a Codex PermissionRequest hook payload on stdin with -', async () => {
       const child = spawn(process.execPath, [cliPath, 'state', 'waiting', '-'], { env: env() })
       child.stdin.on('error', () => {})

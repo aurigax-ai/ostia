@@ -110,6 +110,7 @@
   --motion-fast-exit: 63ms;
   --motion-base-exit: 105ms;
   --motion-pulse: 1500ms;
+  --motion-pulse-fast: 400ms;
   --motion-breathe: 2400ms;
   --ease-out: cubic-bezier(0.2, 0, 0, 1);
   --ease-in: cubic-bezier(0.4, 0, 1, 1);
@@ -366,6 +367,10 @@
   outline: none;
 }
 
+[class*="sash-module_sash"] {
+  --focus-border: var(--line-strong);
+}
+
 .rail-resizer.collapsed {
   left: calc(var(--rail-w-collapsed) - 4px);
 }
@@ -377,7 +382,7 @@
   bottom: 0;
   left: 2px;
   width: 2px;
-  background: var(--focus-border);
+  background: var(--line-strong);
   opacity: 0;
   transition: opacity var(--motion-fast) var(--ease-out);
 }
@@ -481,16 +486,17 @@
   padding: 0;
 }
 
-.tab-lead-wrap .unread-badge + .tab-lead {
-  display: none;
+.tab-lead-unread {
+  color: var(--attn-fg);
+  animation: attn-blink var(--motion-pulse-fast) var(--ease-out) 6;
 }
 
-.collapsed .tab-lead-wrap .unread-badge {
-  display: none;
-}
-
-.collapsed .tab-lead-wrap .unread-badge + .tab-lead {
-  display: inline;
+.unread-dot {
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: 999px;
+  background: var(--attn);
 }
 
 .rail-tab-main:focus-visible {
@@ -811,7 +817,7 @@
 .collapsed .rail-group-name,
 .collapsed .rail-group-count,
 .collapsed .rail-group-caret,
-.collapsed .rail-group-main .unread-badge {
+.collapsed .rail-group-main .unread-dot {
   display: none;
 }
 
@@ -1855,11 +1861,11 @@ button.prompt-chip:focus-visible {
 .xterm-host {
   width: 100%;
   height: 100%;
-  padding: 4px 6px;
 }
 
 .xterm-host .xterm {
   height: 100%;
+  padding: 4px 6px;
 }
 
 .xterm-host:not(.link-modifier) .xterm .xterm-cursor-pointer {
@@ -1870,13 +1876,13 @@ button.prompt-chip:focus-visible {
   background-color: transparent;
 }
 
-.xterm-host .xterm-viewport::-webkit-scrollbar {
-  width: 8px;
+.xterm-host .xterm .xterm-scrollable-element > .scrollbar > .slider {
+  background: var(--scrollbar-thumb);
 }
 
-.xterm-host .xterm-viewport::-webkit-scrollbar-thumb {
-  background: var(--line-strong);
-  border-radius: var(--radius-sm);
+.xterm-host .xterm .xterm-scrollable-element > .scrollbar > .slider:hover,
+.xterm-host .xterm .xterm-scrollable-element > .scrollbar > .slider.active {
+  background: var(--scrollbar-thumb-hover);
 }
 
 .blocks-overlay {
@@ -2639,10 +2645,14 @@ button.prompt-chip:focus-visible {
   display: inline-flex;
 }
 
-.count-badge {
+.count-dot {
   position: absolute;
-  top: -2px;
-  right: -4px;
+  top: 3px;
+  right: 3px;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--attn);
   pointer-events: none;
 }
 
@@ -2977,10 +2987,6 @@ button.prompt-chip:focus-visible {
   transition-duration: 0ms;
 }
 
-.unread-badge.pop {
-  animation: badge-pop var(--motion-base) var(--ease-out);
-}
-
 .block-frame {
   animation: motion-fade-in var(--motion-fast) var(--ease-out);
 }
@@ -3020,13 +3026,6 @@ button.prompt-chip:focus-visible {
 @keyframes motion-fade-in {
   from {
     opacity: 0;
-  }
-}
-
-@keyframes badge-pop {
-  from {
-    opacity: 0;
-    transform: scale(0.85);
   }
 }
 
