@@ -1,4 +1,4 @@
-import type { ExtensionResult } from '@aurigax-ai/pine-extension-sdk'
+import type { ExtensionResult } from '@aurigax-ai/ostia-extension-sdk'
 import {
   call,
   context,
@@ -7,7 +7,7 @@ import {
   icon,
   onChange,
   panelTranslator,
-} from '@aurigax-ai/pine-extension-sdk/panel'
+} from '@aurigax-ai/ostia-extension-sdk/panel'
 import arrowClockwise from '@phosphor-icons/core/regular/arrow-clockwise.svg'
 import caretDown from '@phosphor-icons/core/regular/caret-down.svg'
 import lockSimple from '@phosphor-icons/core/regular/lock-simple.svg'
