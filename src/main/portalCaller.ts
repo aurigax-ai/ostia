@@ -1,6 +1,7 @@
 import { execFile } from 'node:child_process'
 import { fstatSync, readFileSync } from 'node:fs'
 import type { Socket } from 'node:net'
+import { envName, legacyEnvName } from '../shared/appEnv'
 
 export type CallerVerdict = 'outside' | 'inside' | 'unknown'
 
@@ -34,8 +35,12 @@ export function parseProcStat(text: string): ProcStat | null {
   return { ppid, ttyNr }
 }
 
-export function hasPineToken(environ: string): boolean {
-  return environ.split('\0').some((entry) => entry.startsWith('PINE_TOKEN='))
+const TOKEN_ENTRIES = [`${envName('TOKEN')}=`, `${legacyEnvName('TOKEN')}=`]
+
+export function hasPaneToken(environ: string): boolean {
+  return environ
+    .split('\0')
+    .some((entry) => TOKEN_ENTRIES.some((prefix) => entry.startsWith(prefix)))
 }
 
 function statOf(pid: number, proc: ProcReader): ProcStat | null {
@@ -58,7 +63,7 @@ export function judgeCaller(pid: number, ctx: CallerContext): CallerVerdict {
   const stat = statOf(pid, ctx.proc)
   const environ = ctx.proc.read(`/proc/${pid}/environ`)
   if (!stat || environ === null) return 'unknown'
-  if (hasPineToken(environ)) return 'inside'
+  if (hasPaneToken(environ)) return 'inside'
   if (stat.ttyNr !== 0 && ctx.paneTtys.has(stat.ttyNr)) return 'inside'
   const descends = descendsFromMain(pid, ctx)
   if (descends === null) return 'unknown'

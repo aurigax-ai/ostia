@@ -79,7 +79,7 @@ describe('vault in a sandboxed workspace', () => {
     }
     expect(res.value).toBeUndefined()
     expect(res.error).toBe('sandboxed')
-    expect(res.message).toContain('pine secret get')
+    expect(res.message).toContain('ostia secret get')
     await expect(conn.sendRequest('vault.list', { scope: 'global' })).resolves.toMatchObject({
       keys: ['K'],
     })

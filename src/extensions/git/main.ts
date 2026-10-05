@@ -1,4 +1,5 @@
 import { basename, dirname, isAbsolute, join, resolve } from 'node:path'
+import { readEnv } from '../../shared/appEnv'
 import {
   type CommandHandler,
   type ExtensionCaller,
@@ -63,6 +64,11 @@ const GRAPH_PANEL_PATH = '/graph'
 const GRAPH_PAGE = 300
 const MAX_GRAPH_COMMITS = 10_000
 const VIEW_STATE_FILE = 'view.json'
+
+function viewStatePath(): string | null {
+  const dataDir = readEnv('EXTENSION_DATA')
+  return dataDir ? join(dataDir, VIEW_STATE_FILE) : null
+}
 
 interface Repo {
   root: string
@@ -154,9 +160,7 @@ class GitExtension {
   private running = false
   private again = false
   private settings: GitSettings = readGitSettings({})
-  private views = new ViewStateStore(
-    process.env.PINE_EXTENSION_DATA ? join(process.env.PINE_EXTENSION_DATA, VIEW_STATE_FILE) : null,
-  )
+  private views = new ViewStateStore(viewStatePath())
   onChanged: () => void = () => {}
 
   constructor(private readonly ext: PineExtension) {}
