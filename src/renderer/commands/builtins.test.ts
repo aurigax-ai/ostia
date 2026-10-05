@@ -357,6 +357,20 @@ describe('builtins route to store actions', () => {
     expect(useSettingsStore.getState().workspaces.globalHotkey).toBe('')
   })
 
+  it('KSH-C2 settings.set refuses keeping shells, directly or via terminal', async () => {
+    const direct = await commands.execWith(ctx(null, null), 'settings.set', {
+      key: 'terminal.keepShells',
+      value: true,
+    })
+    const group = await commands.execWith(ctx(null, null), 'settings.set', {
+      key: 'terminal',
+      value: { ...useSettingsStore.getState().terminal, keepShells: true },
+    })
+    expect(direct.ok).toBe(false)
+    expect(group.ok).toBe(false)
+    expect(useSettingsStore.getState().terminal.keepShells).toBe(false)
+  })
+
   it('settings.set refuses the agent hook switches, directly or via agents', async () => {
     const direct = await commands.execWith(ctx(null, null), 'settings.set', {
       key: 'agents.hooks.claude',

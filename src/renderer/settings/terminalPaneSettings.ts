@@ -16,6 +16,7 @@ export interface TerminalSettings {
   theme: string
   shell: string
   osc52Write: boolean
+  keepShells: boolean
   primarySelection: boolean
   macOptionIsMeta: boolean
 }
@@ -47,6 +48,7 @@ export const DEFAULT_TERMINAL_SETTINGS: TerminalSettings = {
   theme: MATCH_OSTIA_THEME,
   shell: '',
   osc52Write: false,
+  keepShells: false,
   primarySelection: true,
   macOptionIsMeta: false,
 }
