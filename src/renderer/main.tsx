@@ -36,7 +36,7 @@ import { livePaneIds } from './lib/livePanes'
 import { loadLocalHostName } from './lib/osc7'
 import { startAgentDetection } from './lib/paneAgent'
 import { startPaneDragTracking } from './lib/paneDrag'
-import { applyStoredRailWidth } from './lib/railWidth'
+import { applyStoredPanelWidths } from './lib/panelWidth'
 import { applyUiFonts, preloadFonts } from './lib/uiFonts'
 import { startUserActions } from './lib/userActions'
 import { registerViewCommands, startViews } from './lib/views'
@@ -143,7 +143,7 @@ async function boot(): Promise<void> {
   startAssistCompose()
   startAssistToggleCommands()
   startShortcutReporting()
-  applyStoredRailWidth()
+  applyStoredPanelWidths()
   window.ostia?.notifications?.onActivate?.((paneId) => revealPane(paneId))
   window.ostia?.settings?.onChanged?.(() => void useSettingsStore.getState().init())
   root.render(
