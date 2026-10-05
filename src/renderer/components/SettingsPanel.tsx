@@ -1464,6 +1464,7 @@ function TerminalSection(): JSX.Element {
   const restoreWorkspace = useSettingsStore((s) => s.behavior.restoreWorkspace)
   const gpuAcceleration = useSettingsStore((s) => s.behavior.gpuAcceleration)
   const copyOnSelect = useSettingsStore((s) => s.behavior.copyOnSelect)
+  const wheelZoom = useSettingsStore((s) => s.behavior.wheelZoom)
   const mode = useSettingsStore((s) => s.behavior.inputMode)
   const vim = useSettingsStore((s) => s.behavior.inputEditorVim)
   const historySuggestions = useSettingsStore((s) => s.behavior.historySuggestions)
@@ -1564,6 +1565,12 @@ function TerminalSection(): JSX.Element {
         />
       </SettingsGroup>
       <SettingsGroup title={d.settings.groupScrolling}>
+        <ToggleRow
+          label={isMac ? d.settings.wheelZoomMac : d.settings.wheelZoom}
+          desc={d.settings.wheelZoomDesc}
+          checked={wheelZoom}
+          onChange={(v) => setBehavior({ wheelZoom: v })}
+        />
         <StepNumberRow
           label={d.settings.scrollSpeed}
           desc={d.settings.scrollSpeedDesc}
