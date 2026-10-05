@@ -1207,7 +1207,9 @@ function registerIpc(): void {
   })
   ipcMain.on('window:beep', () => shell.beep())
   ipcMain.on('window:write-primary', (_e, text: unknown) => {
-    if (acceptsPrimarySelection(process.platform, text)) clipboard.writeText(text, 'selection')
+    if (acceptsPrimarySelection(process.platform, text)) {
+      clipboard.selection?.writeText(text).catch(() => undefined)
+    }
   })
   ipcMain.handle('window:set-zoom', (e, percent: unknown) => {
     const clamped = clampZoom(percent)
@@ -2507,7 +2509,7 @@ app.whenReady().then(() => {
   clipboardEdits = registerClipboardEdits({
     ipc: ipcMain,
     isAppWindow: (sender) => windows.get(String(sender.id))?.webContents === sender,
-    availableFormats: () => clipboard.availableFormats(),
+    availableFormats: async () => (await clipboard.read()).flatMap((item) => item.types),
     mac: process.platform === 'darwin',
   })
   guestChords = registerGuestChords({
