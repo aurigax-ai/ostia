@@ -1,5 +1,5 @@
-import { type ChildProcessWithoutNullStreams, execFile, spawn } from 'node:child_process'
-import { lstatSync, mkdirSync, writeFileSync } from 'node:fs'
+import { type ChildProcessWithoutNullStreams, type StdioOptions, spawn } from 'node:child_process'
+import { closeSync, lstatSync, mkdirSync, openSync, readdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { type ControlEvent, ControlModeParser } from './controlMode'
 import { SCREEN_INFO_FORMAT, screenReplay } from './screenReplay'
@@ -56,10 +56,35 @@ interface Waiter {
   onReply?: () => void
 }
 
+const RUN_TIMEOUT_MS = 5000
+
+export function inheritedFds(platform: NodeJS.Platform = process.platform): number[] {
+  try {
+    return readdirSync(platform === 'linux' ? '/proc/self/fd' : '/dev/fd')
+      .map(Number)
+      .filter((fd) => Number.isInteger(fd) && fd > 2)
+  } catch {
+    return []
+  }
+}
+
+function withoutInheritedFds(first: ('pipe' | 'ignore')[], devNull: number): StdioOptions {
+  const highest = Math.max(2, ...inheritedFds())
+  return [...first, ...Array.from({ length: highest - 2 }, () => devNull)]
+}
+
 function run(tmux: string, args: string[], env: NodeJS.ProcessEnv): Promise<boolean> {
-  return new Promise((resolve) => {
-    execFile(tmux, args, { env, timeout: 5000 }, (err) => resolve(!err))
-  })
+  const devNull = openSync('/dev/null', 'r+')
+  const stdio = withoutInheritedFds(['ignore', 'ignore', 'ignore'], devNull)
+  return new Promise<boolean>((resolve) => {
+    const child = spawn(tmux, args, { env, stdio })
+    const timer = setTimeout(() => child.kill(), RUN_TIMEOUT_MS)
+    child.on('error', () => resolve(false))
+    child.on('exit', (code) => {
+      clearTimeout(timer)
+      resolve(code === 0)
+    })
+  }).finally(() => closeSync(devNull))
 }
 
 function encodeMeta(meta: unknown): string {
@@ -130,10 +155,12 @@ export class TmuxServer {
       )
       if (!started) throw new Error('tmux could not start its server')
     }
+    const devNull = openSync('/dev/null', 'r+')
     const client = spawn(options.tmux, [...base, '-C', 'attach-session', '-t', TMUX_SESSION], {
       env,
-      stdio: ['pipe', 'pipe', 'pipe'],
-    })
+      stdio: withoutInheritedFds(['pipe', 'pipe', 'pipe'], devNull),
+    }) as ChildProcessWithoutNullStreams
+    closeSync(devNull)
     const server = new TmuxServer(options, socket, client, onGone)
     await server.command(
       `refresh-client -B ${tmuxQuote(`${DEAD_SUBSCRIPTION}:%*:#{pane_dead}:#{pane_dead_status}:#{pane_dead_signal}`)}`,
