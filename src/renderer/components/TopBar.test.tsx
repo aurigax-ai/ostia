@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest'
 import type { ExtensionInfo, ExtensionResult, WorkspaceChip } from '@shared/extensions'
-import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { extensionCommandId } from '../commands/extensionBridge'
@@ -151,12 +151,12 @@ describe('TopBar', () => {
     it('lists the ssh config hosts and opens a workspace named after the picked one', async () => {
       useExtensionsStore.setState({ list: [ssh] })
       const invoke = stubSsh(['db', 'web'])
-      const user = userEvent.setup({ pointerEventsCheck: 0 })
+      const user = userEvent.setup()
       render(<TopBar />)
 
       await openHosts(user)
       expect(await screen.findByRole('menuitem', { name: 'db' })).toBeInTheDocument()
-      await user.click(screen.getByRole('menuitem', { name: 'web' }))
+      fireEvent.click(screen.getByRole('menuitem', { name: 'web' }))
 
       await waitFor(() => expect(useWorkspacesStore.getState().workspaces).toHaveLength(1))
       const [added] = useWorkspacesStore.getState().workspaces
