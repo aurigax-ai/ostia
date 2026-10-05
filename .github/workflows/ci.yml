@@ -10,7 +10,7 @@ on:
         description: runs-on value for Linux jobs (JSON)
         value: ${{ jobs.changes.outputs.linux }}
       macos:
-        description: runs-on value for macOS jobs (JSON)
+        description: runs-on value for unit-macos (JSON)
         value: ${{ jobs.changes.outputs.macos }}
   workflow_dispatch:
 
@@ -174,7 +174,7 @@ jobs:
   build-macos:
     needs: changes
     if: needs.changes.outputs.code == 'true'
-    runs-on: ${{ fromJSON(needs.changes.outputs.macos) }}
+    runs-on: macos-26
     continue-on-error: true
     steps:
       - uses: actions/checkout@v7
@@ -188,8 +188,8 @@ jobs:
           retention-days: 3
 
   e2e-macos:
-    needs: [changes, build-macos]
-    runs-on: ${{ fromJSON(needs.changes.outputs.macos) }}
+    needs: build-macos
+    runs-on: macos-26
     continue-on-error: true
     strategy:
       fail-fast: false
