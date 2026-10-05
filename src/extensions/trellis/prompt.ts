@@ -1,4 +1,4 @@
-import type { Translate } from '@aurigax-ai/pine-extension-sdk'
+import type { Translate } from '@aurigax-ai/ostia-extension-sdk'
 import type { CardDetail, TrellisProject } from './trellis'
 
 export const PROMPT_BODY_MAX = 6000

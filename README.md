@@ -11,7 +11,7 @@
   &nbsp;&nbsp;
   <a href="https://github.com/aurigax-ai/ostia/releases/latest">Download</a>
   &nbsp;&nbsp;
-  <a href="https://www.npmjs.com/package/@aurigax-ai/pine-extension-sdk">Write an extension</a>
+  <a href="https://www.npmjs.com/package/@aurigax-ai/ostia-extension-sdk">Write an extension</a>
 </p>
 
 ![Ostia with six projects in the sidebar, an agent session and the diff of its change](.github/readme/hero.webp)
