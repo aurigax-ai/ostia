@@ -1,5 +1,6 @@
 import type { AgentResume, ResumableAgent } from './agentResume'
 import type { AgentSessionInfo } from './agentSessionInfo'
+import type { AppMenuSpec } from './appMenu'
 import type { ApprovalAnswer, ApprovalState } from './approvals'
 import type { AssistApi } from './assist'
 import type { BrowserProfile } from './browserProfile'
@@ -136,13 +137,13 @@ export interface PtySpawnOptions {
   rows: number
   role?: 'owner' | 'observer'
   sinceCursor?: number
-  pinePrompt?: PinePromptSpawn
+  ostiaPrompt?: OstiaPromptSpawn
   workspaceId?: string
   hostToken?: string
   attachOnly?: boolean
 }
 
-export interface PinePromptSpawn {
+export interface OstiaPromptSpawn {
   separator: PromptSeparator
   sameLine: boolean
 }
@@ -640,6 +641,11 @@ export interface CommandsApi {
   onInvoke: (handler: (req: CommandInvokeRequest) => Promise<CommandResult>) => () => void
 }
 
+export interface AppMenuApi {
+  set: (spec: AppMenuSpec) => void
+  onRun: (cb: (command: string) => void) => () => void
+}
+
 export interface TerminalStateSnapshot {
   paneId: string
   generation: number
@@ -843,7 +849,7 @@ export interface WorkflowsApi {
   save: (doc: WorkflowDocument) => Promise<WorkflowSaveResult>
 }
 
-export interface PineBridge {
+export interface OstiaBridge {
   ping: () => Promise<'pong'>
   info: () => Promise<AppInfo>
   platform: Platform
@@ -861,6 +867,7 @@ export interface PineBridge {
   windows: WindowsApi
   lifecycle: LifecycleApi
   commands: CommandsApi
+  appMenu: AppMenuApi
   terminalState: TerminalStateApi
   browser: BrowserApi
   selection: SelectionApi
@@ -897,6 +904,6 @@ export interface PineBridge {
 
 declare global {
   interface Window {
-    pine: PineBridge
+    ostia: OstiaBridge
   }
 }

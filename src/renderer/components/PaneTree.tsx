@@ -5,6 +5,7 @@ import { panelFractions } from '../layout/panelSize'
 import { findPane } from '../layout/tree'
 import type { LayoutNode } from '../layout/types'
 import { openBrowserAs } from '../lib/browserProfile'
+import { focusActivePaneWhenReady } from '../lib/focusNewTerminal'
 import { rememberPanelFractions } from '../lib/panelSizes'
 import { useLayoutStore } from '../stores/layoutStore'
 import { Pane } from './Pane'
@@ -97,7 +98,12 @@ function EmptyWorkspace({ workspaceId }: { workspaceId: string }): JSX.Element {
         <EmptyDescription className="text-ui-base">{d.pane.emptyBody}</EmptyDescription>
       </EmptyHeader>
       <EmptyContent className="flex-row justify-center">
-        <Button onClick={() => ensure(workspaceId)}>
+        <Button
+          onClick={() => {
+            ensure(workspaceId)
+            focusActivePaneWhenReady(workspaceId)
+          }}
+        >
           <TerminalWindowIcon data-icon="inline-start" />
           {d.pane.newTerminal}
         </Button>

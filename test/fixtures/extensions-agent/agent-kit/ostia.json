@@ -1,0 +1,20 @@
+{
+  "id": "agent-kit",
+  "name": "Agent kit",
+  "version": "0.1.0",
+  "api": "2.0",
+  "description": "Test fixture: an agent skill and agent hooks",
+  "capabilities": ["agent-plugin", "notify"],
+  "main": "main.js",
+  "contributes": {
+    "commands": [
+      { "id": "on-hook", "title": "Agent kit hook", "palette": false, "stdin": true }
+    ],
+    "agentSkills": [{ "name": "review", "path": "skills/review", "files": ["checklist.md"] }],
+    "agentHooks": [
+      { "event": "SessionStart", "command": "on-hook" },
+      { "event": "PreToolUse", "command": "on-hook" },
+      { "event": "Notification", "command": "on-hook" }
+    ]
+  }
+}

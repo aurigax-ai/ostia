@@ -34,7 +34,7 @@ export function createRedactor(readPrivacy: () => unknown, scan: SecretScan): Re
     settingsKey: () => JSON.stringify(settings()),
     kinds: () => [
       ...libraryKinds(),
-      ...EXTRA_KINDS.map((kind): RedactionKindInfo => ({ kind, source: 'pine', detects: [] })),
+      ...EXTRA_KINDS.map((kind): RedactionKindInfo => ({ kind, source: 'ostia', detects: [] })),
     ],
     redact,
     preview: (text) => detect(text, settings().patterns),

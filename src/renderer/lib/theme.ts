@@ -21,7 +21,7 @@ export function resolveTheme(themes: Theme[], id: string): Theme | undefined {
   return themes.find((t) => t.id === id) ?? themes[0]
 }
 
-export const DEFAULT_LIGHT_THEME = 'pine-light'
+export const DEFAULT_LIGHT_THEME = 'ostia-light'
 export const DEFAULT_DARK_THEME = 'adeberry'
 
 export function themedTokens(theme: Theme, accent: string): Record<string, string> {

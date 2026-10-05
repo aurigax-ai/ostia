@@ -39,7 +39,7 @@ export function UpdateCheck(): JSX.Element {
       </Button>
       <output className="text-fg-muted text-ui-sm">{message}</output>
       {release ? (
-        <Button size="sm" onClick={() => void window.pine.update.openRelease()}>
+        <Button size="sm" onClick={() => void window.ostia.update.openRelease()}>
           <ArrowSquareOutIcon data-icon="inline-start" aria-hidden />
           {d.update.viewRelease}
         </Button>

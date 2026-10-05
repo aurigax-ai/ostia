@@ -11,6 +11,7 @@ import {
   DeviceMobileIcon,
   EyeSlashIcon,
   FileCodeIcon,
+  FolderOpenIcon,
   GlobeIcon,
   type Icon as IconComponent,
   InfoIcon,
@@ -395,7 +396,7 @@ export function SettingsPanel(): JSX.Element | null {
   }, [requested, requestedExtension, sections, extensions])
 
   const openSettingsFile = async (): Promise<void> => {
-    const path = await window.pine.settings.path()
+    const path = await window.ostia.settings.path()
     close()
     openFileInWorkspace(path)
   }
@@ -1573,7 +1574,7 @@ function TerminalSection(): JSX.Element {
         />
         <ControlRow
           label={d.prompt.title}
-          desc={promptStyle === 'pine' ? d.settings.promptStylePine : d.settings.promptStyleShell}
+          desc={promptStyle === 'ostia' ? d.settings.promptStylePine : d.settings.promptStyleShell}
         >
           <Button
             variant="outline"
@@ -1584,7 +1585,7 @@ function TerminalSection(): JSX.Element {
             <CaretRightIcon data-icon="inline-end" />
           </Button>
         </ControlRow>
-        {promptStyle === 'pine' && mode !== 'editor' ? (
+        {promptStyle === 'ostia' && mode !== 'editor' ? (
           <WarningNote>{d.settings.promptNeedsEditor}</WarningNote>
         ) : null}
       </SettingsGroup>
@@ -2051,7 +2052,7 @@ function AboutSection(): JSX.Element {
   const [info, setInfo] = useState<AppInfo | null>(null)
   const [copied, setCopied] = useState(false)
   useEffect(() => {
-    window.pine
+    window.ostia
       .info()
       .then(setInfo)
       .catch(() => setInfo(null))
@@ -2086,6 +2087,15 @@ function AboutSection(): JSX.Element {
       </p>
       <p className="text-fg-muted text-ui-xs">{PLATFORM_NAMES[platform]}</p>
       <UpdateCheck />
+      <Button
+        variant="ghost"
+        size="sm"
+        className="text-fg-muted"
+        onClick={() => void window.ostia.diagnostics.openLogFolder()}
+      >
+        <FolderOpenIcon data-icon="inline-start" aria-hidden />
+        {d.crash.openLogs}
+      </Button>
     </section>
   )
 }

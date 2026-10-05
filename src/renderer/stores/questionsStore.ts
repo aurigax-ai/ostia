@@ -49,7 +49,7 @@ export const useQuestionsStore = create<QuestionsState>((set, get) => ({
     const request = get().pending.find((q) => q.id === id)
     if (request) set((s) => ({ sent: [...s.sent, request] }))
     const forgetSent = (): void => set((s) => ({ sent: s.sent.filter((q) => q.id !== id) }))
-    const accepted = await window.pine.questions.answer(id, reply)
+    const accepted = await window.ostia.questions.answer(id, reply)
     if (!accepted) {
       forgetSent()
       return false
@@ -58,7 +58,7 @@ export const useQuestionsStore = create<QuestionsState>((set, get) => ({
     setTimeout(forgetSent, SENT_LINGER_MS)
     return true
   },
-  dismiss: (id) => window.pine.questions.dismiss(id),
+  dismiss: (id) => window.ostia.questions.dismiss(id),
   requestFocus: (focusId) => set({ focusId }),
 }))
 
@@ -94,7 +94,7 @@ function announce(question: QuestionRequest): void {
     message: question.question,
     at: Date.now(),
   })
-  window.pine.notifications.post({
+  window.ostia.notifications.post({
     paneId: question.paneId,
     kind: 'waiting',
     title: currentDict().dashboard.questionNotice,
@@ -116,7 +116,7 @@ export function startQuestions(): () => void {
     for (const question of gone) settle(question, state.pending)
     for (const question of added) announce(question)
   }
-  const off = window.pine.questions.onChange(receive)
-  void window.pine.questions.state().then(receive)
+  const off = window.ostia.questions.onChange(receive)
+  void window.ostia.questions.state().then(receive)
   return off
 }

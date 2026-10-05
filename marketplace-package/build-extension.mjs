@@ -2,7 +2,8 @@ import { copyFileSync, cpSync, existsSync, mkdirSync, readFileSync, realpathSync
 import { dirname, join, resolve, sep } from 'node:path'
 import { build } from 'esbuild'
 
-const assets = ['pine.json', 'panel.html', 'panel.css']
+const manifestFiles = ['ostia.json']
+const assets = [...manifestFiles, 'panel.html', 'panel.css']
 const copiedDirs = ['locales', 'assets']
 const vendorList = 'vendor.json'
 const skillEntry = 'SKILL.md'
@@ -63,7 +64,8 @@ function copyVendoredPackages(src, out) {
 }
 
 function copyAgentSkills(src, out) {
-  const manifest = JSON.parse(readFileSync(join(src, 'pine.json'), 'utf8'))
+  const file = manifestFiles.find((name) => existsSync(join(src, name))) ?? manifestFiles[0]
+  const manifest = JSON.parse(readFileSync(join(src, file), 'utf8'))
   for (const skill of manifest.contributes?.agentSkills ?? []) {
     mkdirSync(join(out, skill.path), { recursive: true })
     for (const file of [skillEntry, ...(skill.files ?? [])]) {

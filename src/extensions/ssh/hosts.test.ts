@@ -13,7 +13,7 @@ function write(path: string, text: string): void {
 }
 
 beforeEach(() => {
-  home = mkdtempSync(join(tmpdir(), 'pine-ssh-hosts-'))
+  home = mkdtempSync(join(tmpdir(), 'ostia-ssh-hosts-'))
 })
 
 afterEach(() => {

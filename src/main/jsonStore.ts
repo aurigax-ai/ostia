@@ -1,6 +1,6 @@
 import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
-import { LEGACY_PRODUCT_NAME, PRODUCT_NAME } from '../shared/product'
+import { PRODUCT_NAME } from '../shared/product'
 import { appDataDir } from './userDirs'
 
 export type StoreScope = 'project' | 'global'
@@ -14,13 +14,9 @@ export function storePath(name: string, scope: StoreScope, workDir?: string): st
 }
 
 export const PROJECT_DIR = `.${PRODUCT_NAME}`
-export const LEGACY_PROJECT_DIR = `.${LEGACY_PRODUCT_NAME}`
 
 export function projectFile(workDir: string, ...parts: string[]): string {
-  const current = join(workDir, PROJECT_DIR, ...parts)
-  if (existsSync(current)) return current
-  const legacy = join(workDir, LEGACY_PROJECT_DIR, ...parts)
-  return existsSync(legacy) ? legacy : current
+  return join(workDir, PROJECT_DIR, ...parts)
 }
 
 export function loadJson<T>(path: string, fallback: T): T {

@@ -77,7 +77,7 @@ export function languageForPath(
   return best?.id ?? PLAIN_TEXT_LANGUAGE
 }
 
-export const SETTINGS_LANGUAGE_ID = 'pine-settings'
+export const SETTINGS_LANGUAGE_ID = 'ostia-settings'
 export const MAX_EDITOR_LANGUAGES = 16
 export const MAX_LANGUAGE_FILE_PATTERNS = 16
 export const EDITOR_LANGUAGE_NAME_MAX = 80

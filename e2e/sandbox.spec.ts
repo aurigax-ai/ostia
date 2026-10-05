@@ -127,7 +127,7 @@ test('SBX-C1 a new pane in a sandboxed workspace runs under srt and cannot read 
 test('a blocked connection waits on the card and completes once the human allows the host', async () => {
   test.setTimeout(120_000)
   const upstream = await fakeUpstream()
-  const target = 'http://allowed.pine-e2e.test/hello'
+  const target = 'http://allowed.ostia-e2e.test/hello'
   const { app, win } = await launch({
     HTTP_PROXY: upstream.url,
     http_proxy: upstream.url,
@@ -139,7 +139,7 @@ test('a blocked connection waits on the card and completes once the human allows
     await run(win, `curl -s -m 60 -w "\\ncode=%{http_code}\\n" ${target}`)
     const card = win.getByRole('region', { name: 'Agent permission request' })
     await expect(card).toBeVisible({ timeout: 20_000 })
-    await expect(card).toContainText('allowed.pine-e2e.test')
+    await expect(card).toContainText('allowed.ostia-e2e.test')
     expect(upstream.requested).toEqual([])
     await card.getByRole('button', { name: 'Allow for this workspace' }).click()
     const rows = win.locator('.xterm-rows').first()
@@ -173,24 +173,24 @@ test('SBX-C21 reads the workspace folder and the shell rc, and blocks and cwd st
   }
 })
 
-test('SBX-C24 reaches Pine from a sandboxed shell through the control socket', async () => {
+test('SBX-C24 reaches Ostia from a sandboxed shell through the control socket', async () => {
   const { app, win } = await launch()
   try {
     await sandboxedShell(win)
-    await run(win, 'pine whoami && echo C24-OK')
+    await run(win, 'ostia whoami && echo C24-OK')
     await expect(win.locator('.xterm-rows').first()).toContainText('C24-OK', { timeout: 15_000 })
   } finally {
     await app.close()
   }
 })
 
-test('SBX-C2 pine process run in a sandboxed workspace runs its command in a sandboxed tab', async () => {
+test('SBX-C2 ostia process run in a sandboxed workspace runs its command in a sandboxed tab', async () => {
   const { app, win, home } = await launch()
   try {
     await sandboxedShell(win)
     await run(
       win,
-      `pine process run "cat ${home}/.ssh/id_ed25519 || echo C2-\\$((1+1))-DENIED; echo proxy=\\\${HTTPS_PROXY:+on}" --name probe`,
+      `ostia process run "cat ${home}/.ssh/id_ed25519 || echo C2-\\$((1+1))-DENIED; echo proxy=\\\${HTTPS_PROXY:+on}" --name probe`,
     )
     const tab = win.locator('.xterm-rows').filter({ hasText: 'C2-2-DENIED' })
     await expect(tab).toHaveCount(1, { timeout: 30_000 })
@@ -213,20 +213,20 @@ async function freePort(): Promise<number> {
 
 function serveInside(port: number, body: string): string {
   const script = `require("http").createServer((q,r)=>r.end("${body}")).listen(${port},"127.0.0.1")`
-  return `ELECTRON_RUN_AS_NODE=1 "$PINE_NODE" -e '${script}' &`
+  return `ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" -e '${script}' &`
 }
 
 for (const relay of [false, true]) {
   const terminal = relay ? 'behind the pty relay' : 'on the pane’s own terminal'
-  test(`SBX-C45 pine sandbox expose forwards the port on this computer to a server in the sandbox once the human allows it, ${terminal}`, async () => {
+  test(`SBX-C45 ostia sandbox expose forwards the port on this computer to a server in the sandbox once the human allows it, ${terminal}`, async () => {
     test.skip(process.platform !== 'linux', 'macOS reaches sandboxed servers without forwarding')
     test.setTimeout(120_000)
     const port = await freePort()
-    const { app, win } = await launch(relay ? { PINE_SANDBOX_PTY_RELAY: '1' } : {})
+    const { app, win } = await launch(relay ? { OSTIA_SANDBOX_PTY_RELAY: '1' } : {})
     try {
       await sandboxedShell(win)
       const rows = win.locator('.xterm-rows').first()
-      await run(win, `pine sandbox expose ${port}`)
+      await run(win, `ostia sandbox expose ${port}`)
       const card = win.getByRole('region', { name: 'Agent permission request' })
       await expect(card).toContainText(`wants to expose port ${port}`, { timeout: 20_000 })
       await expect(fetch(`http://127.0.0.1:${port}/`)).rejects.toThrow()
@@ -272,10 +272,10 @@ async function launchWithFakeSystem() {
 
 async function answerDialogs(app: Awaited<ReturnType<typeof electron.launch>>, response: number) {
   await app.evaluate(({ dialog }, answer) => {
-    const g = globalThis as { pineE2eAsked?: unknown[] }
-    g.pineE2eAsked = []
+    const g = globalThis as { ostiaE2eAsked?: unknown[] }
+    g.ostiaE2eAsked = []
     dialog.showMessageBox = (async (...args: unknown[]) => {
-      g.pineE2eAsked?.push(args.length > 1 ? args[1] : args[0])
+      g.ostiaE2eAsked?.push(args.length > 1 ? args[1] : args[0])
       return { response: answer, checkboxChecked: false }
     }) as typeof dialog.showMessageBox
   }, response)
@@ -287,7 +287,7 @@ test('SBX-C87 installs a system package from a sandbox in a Host pane that close
   try {
     await sandboxedShell(win)
     await answerDialogs(app, 0)
-    await run(win, 'pine system install jq --manager pacman --reason c87')
+    await run(win, 'ostia system install jq --manager pacman --reason c87')
     await expect
       .poll(() => (existsSync(log) ? readFileSync(log, 'utf8') : ''), { timeout: 30_000 })
       .toContain('pacman -S --needed jq')
@@ -296,7 +296,7 @@ test('SBX-C87 installs a system package from a sandbox in a Host pane that close
       timeout: 15_000,
     })
     const asked = (await app.evaluate(
-      () => (globalThis as { pineE2eAsked?: unknown[] }).pineE2eAsked ?? [],
+      () => (globalThis as { ostiaE2eAsked?: unknown[] }).ostiaE2eAsked ?? [],
     )) as { detail?: string }[]
     expect(asked[0]?.detail).toContain('Runs outside the sandbox')
   } finally {
@@ -310,7 +310,7 @@ test('SBX-C88 opens no pane when the human denies a system install from a sandbo
   try {
     await sandboxedShell(win)
     await answerDialogs(app, 1)
-    await run(win, 'pine system install jq --manager pacman --reason c88')
+    await run(win, 'ostia system install jq --manager pacman --reason c88')
     await expect(win.locator('.xterm-rows').first()).toContainText('denied', { timeout: 20_000 })
     await expect(win.locator('.xterm')).toHaveCount(1)
   } finally {
@@ -338,7 +338,7 @@ test('SBX-C3 sandboxes a terminal an extension opens in a sandboxed workspace', 
   const fixture = join(__dirname, '..', 'test', 'fixtures', 'extensions-e2e', 'terminal-opener')
   const dir = join(launchOptions.env.XDG_CONFIG_HOME, PRODUCT_NAME, 'extensions', 'opener')
   mkdirSync(dir, { recursive: true })
-  copyFileSync(join(fixture, 'pine.json'), join(dir, 'pine.json'))
+  copyFileSync(join(fixture, 'ostia.json'), join(dir, 'ostia.json'))
   buildSync({
     entryPoints: [join(fixture, 'main.js')],
     outfile: join(dir, 'main.js'),
@@ -356,7 +356,7 @@ test('SBX-C3 sandboxes a terminal an extension opens in a sandboxed workspace', 
     await approval.getByRole('button', { name: 'Approve and enable' }).click()
     await openWorkspace(win)
     await sandboxedShell(win)
-    await run(win, `pine opener run sh -c 'cat ${home}/.ssh/id_ed25519 || echo C3-$(echo DENIED)'`)
+    await run(win, `ostia opener run sh -c 'cat ${home}/.ssh/id_ed25519 || echo C3-$(echo DENIED)'`)
     const opened = win.locator('.xterm-rows').filter({ hasText: 'C3-DENIED' })
     try {
       await expect(win.locator('.xterm')).toHaveCount(2, { timeout: 45_000 })
@@ -456,7 +456,7 @@ test('a sandboxed shell survives Ctrl+C, which still interrupts its command, and
   }
 })
 
-test('a sandboxed shell keeps its temp folder when another Pine quits', async () => {
+test('a sandboxed shell keeps its temp folder when another Ostia quits', async () => {
   const { app, win } = await launch()
   try {
     await sandboxedShell(win)
@@ -582,7 +582,7 @@ async function sttySize(win: Page, marker: string): Promise<string> {
 test('behind the pty relay a sandboxed shell has its own terminal: Ctrl+C interrupts, Ctrl+Z suspends, a resize arrives and blocks show', async () => {
   test.skip(process.platform !== 'linux', 'the pty relay exists only on Linux (TIOCSTI)')
   test.setTimeout(120_000)
-  const { app, win } = await launch({ PINE_SANDBOX_PTY_RELAY: '1' })
+  const { app, win } = await launch({ OSTIA_SANDBOX_PTY_RELAY: '1' })
   try {
     await sandboxedShell(win)
     const rows = win.locator('.xterm-rows').first()
@@ -680,14 +680,14 @@ test('a refused connection shows up under Blocked with its host, and Clear empti
   }
 })
 
-test('with Unix sockets off the shell still starts, pine cannot reach Pine, a port is not exposed and the Ports tab says why, and a write outside is listed', async () => {
+test('with Unix sockets off the shell still starts, ostia cannot reach Ostia, a port is not exposed and the Ports tab says why, and a write outside is listed', async () => {
   test.skip(process.platform !== 'linux', 'Linux blocks Unix sockets through seccomp')
   test.setTimeout(120_000)
   const { app, win } = await launch()
   try {
     await sandboxedShell(win)
     const rows = win.locator('.xterm-rows').first()
-    await run(win, 'pine whoami >/dev/null && echo REACHED-$((7+7))')
+    await run(win, 'ostia whoami >/dev/null && echo REACHED-$((7+7))')
     await expect(rows).toContainText('REACHED-14', { timeout: 15_000 })
 
     const page = await openWorkspacePage(win, 'Network')
@@ -698,9 +698,9 @@ test('with Unix sockets off the shell still starts, pine cannot reach Pine, a po
     await win.keyboard.press('Escape')
 
     await restartShell(win, 'nosock')
-    await run(win, 'pine whoami >/dev/null 2>&1 || echo UNREACHABLE-$((8+8))')
+    await run(win, 'ostia whoami >/dev/null 2>&1 || echo UNREACHABLE-$((8+8))')
     await expect(rows).toContainText('UNREACHABLE-16', { timeout: 15_000 })
-    await run(win, 'echo x > /etc/pine-e2e-probe; echo PROBED-$((9+9))')
+    await run(win, 'echo x > /etc/ostia-e2e-probe; echo PROBED-$((9+9))')
     await expect(rows).toContainText('PROBED-18', { timeout: 15_000 })
     await expect(win.locator('.block-gutter').first()).toBeAttached({ timeout: 10_000 })
 
@@ -721,7 +721,7 @@ test('with Unix sockets off the shell still starts, pine cannot reach Pine, a po
     const row = blocked
       .getByRole('list', { name: 'Blocked' })
       .getByRole('listitem')
-      .filter({ hasText: '/etc/pine-e2e-probe' })
+      .filter({ hasText: '/etc/ostia-e2e-probe' })
     await expect(row).toBeVisible({ timeout: 15_000 })
     await expect(row).toContainText('Write')
   } finally {

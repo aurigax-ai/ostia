@@ -12,7 +12,7 @@ function shellQuote(value: string): string {
   return `'${value.replaceAll("'", `'\\''`)}'`
 }
 
-async function launchPine(manager: object = {}) {
+async function launchOstia(manager: object = {}) {
   const dataHome = freshDataHome()
   const home = join(dataHome, 'home')
   mkdirSync(home, { recursive: true })
@@ -30,7 +30,7 @@ async function launchPine(manager: object = {}) {
     env: {
       ...launchOptions.env,
       HOME: home,
-      PINE_PORTAL_SOCKET: portal,
+      OSTIA_PORTAL_SOCKET: portal,
       PATH: `${FAKE_AGENT_BIN}:${process.env.PATH ?? ''}`,
     },
   })
@@ -45,7 +45,7 @@ function outsideEnv(portal: string): Record<string, string> {
     if (
       value === undefined ||
       key.startsWith('OSTIA_') ||
-      key.startsWith('PINE_') ||
+      key.startsWith('OSTIA_') ||
       key === 'ELECTRON_RUN_AS_NODE'
     )
       continue
@@ -53,7 +53,7 @@ function outsideEnv(portal: string): Record<string, string> {
   }
   return {
     ...env,
-    PINE_PORTAL_SOCKET: portal,
+    OSTIA_PORTAL_SOCKET: portal,
     PATH: `${FAKE_AGENT_BIN}:${process.env.PATH ?? ''}`,
   }
 }
@@ -91,9 +91,9 @@ function managerView(win: Page) {
   return win.locator('.manager-host .xterm-rows')
 }
 
-test('MGR-C21 pine <agent> from outside mirrors a read-only manager and passes its exit code', async () => {
+test('MGR-C21 ostia <agent> from outside mirrors a read-only manager and passes its exit code', async () => {
   test.setTimeout(90_000)
-  const { app, win, home, portal } = await launchPine()
+  const { app, win, home, portal } = await launchOstia()
   const mirror = runMirror(portal, home, ['fake', 'hello-arg'])
   try {
     await expect.poll(mirror.output, { timeout: 20_000 }).toContain('agent ready hello-arg')
@@ -117,9 +117,9 @@ test('MGR-C21 pine <agent> from outside mirrors a read-only manager and passes i
   }
 })
 
-test('MGR-C22 Ctrl+\\ detaches, the manager keeps running, and the next pine <agent> reattaches', async () => {
+test('MGR-C22 Ctrl+\\ detaches, the manager keeps running, and the next ostia <agent> reattaches', async () => {
   test.setTimeout(90_000)
-  const { app, win, home, portal } = await launchPine()
+  const { app, win, home, portal } = await launchOstia()
   const first = runMirror(portal, home, ['fake'])
   let second: Mirror | null = null
   try {
@@ -144,17 +144,17 @@ test('MGR-C22 Ctrl+\\ detaches, the manager keeps running, and the next pine <ag
   }
 })
 
-test('MGR-C11 a pine <agent> run from a Pine pane is refused even with PINE_SOCKET unset', async () => {
+test('MGR-C11 an ostia <agent> run from an Ostia pane is refused even with the socket variables unset', async () => {
   test.setTimeout(90_000)
-  const { app, win } = await launchPine()
+  const { app, win } = await launchOstia()
   try {
     await openWorkspace(win)
     await win.locator('.xterm').first().click()
     await win.keyboard.type(
-      'env -u OSTIA_SOCKET -u OSTIA_TOKEN -u PINE_SOCKET -u PINE_TOKEN ELECTRON_RUN_AS_NODE=1 "$PINE_NODE" "$PINE_CLI" fake',
+      'env -u OSTIA_SOCKET -u OSTIA_TOKEN -u OSTIA_SOCKET -u OSTIA_TOKEN ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" "$OSTIA_CLI" fake',
     )
     await win.keyboard.press('Enter')
-    await expect(win.locator('.xterm-rows').first()).toContainText('inside-pine', {
+    await expect(win.locator('.xterm-rows').first()).toContainText('inside-ostia', {
       timeout: 20_000,
     })
     await expect(win.locator('.rail-tab', { hasText: 'Manager' })).toHaveCount(0)
@@ -163,10 +163,10 @@ test('MGR-C11 a pine <agent> run from a Pine pane is refused even with PINE_SOCK
   }
 })
 
-const PINE_FN = 'P() { ELECTRON_RUN_AS_NODE=1 "$PINE_NODE" "$PINE_CLI" "$@"; }\r'
+const OSTIA_FN = 'P() { ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" "$OSTIA_CLI" "$@"; }\r'
 
 async function spawnWorker(mirror: Mirror): Promise<string> {
-  mirror.type(PINE_FN)
+  mirror.type(OSTIA_FN)
   mirror.type('P manager spawn fake --name worker-one -- hello\r')
   await expect.poll(mirror.output, { timeout: 20_000 }).toMatch(/"paneId":"[0-9a-f-]{36}"/)
   const id = /"paneId":"([0-9a-f-]{36})"/.exec(mirror.output())?.[1]
@@ -176,7 +176,7 @@ async function spawnWorker(mirror: Mirror): Promise<string> {
 
 test('MGR-C29 the manager starts a worker in its own workspace and reads its screen', async () => {
   test.setTimeout(90_000)
-  const { app, win, home, portal } = await launchPine()
+  const { app, win, home, portal } = await launchOstia()
   const mirror = runMirror(portal, home, ['sh'])
   try {
     await expect(win.locator('.rail-tab', { hasText: 'Manager · sh' })).toBeVisible({
@@ -206,7 +206,7 @@ test('MGR-C29 the manager starts a worker in its own workspace and reads its scr
 
 test('MGR-C35 with typing allowed, the manager answers a worker', async () => {
   test.setTimeout(90_000)
-  const { app, win, home, portal } = await launchPine({ allowInput: true })
+  const { app, win, home, portal } = await launchOstia({ allowInput: true })
   const mirror = runMirror(portal, home, ['sh'])
   try {
     const worker = await spawnWorker(mirror)
@@ -226,11 +226,11 @@ test('MGR-C35 with typing allowed, the manager answers a worker', async () => {
 
 test('MGR-C31 a worker pane cannot call the manager verbs', async () => {
   test.setTimeout(90_000)
-  const { app, win } = await launchPine()
+  const { app, win } = await launchOstia()
   try {
     await openWorkspace(win)
     await win.locator('.xterm').first().click()
-    await win.keyboard.type('pine manager read x; pine docs | grep -c "manager spawn"')
+    await win.keyboard.type('ostia manager read x; ostia docs | grep -c "manager spawn"')
     await win.keyboard.press('Enter')
     const screen = win.locator('.xterm-rows').first()
     await expect(screen).toContainText(/not-available-to-pane\s*0/, { timeout: 20_000 })

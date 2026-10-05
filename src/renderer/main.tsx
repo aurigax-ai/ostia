@@ -25,6 +25,7 @@ import { wireTerminalStateBridge } from './commands/terminalStateBridge'
 import { registerWindowCommands } from './commands/windowCommands'
 import { AppErrorBoundary, CrashTestHook, RecoveryScreen } from './components/AppErrorBoundary'
 import { startAgentRunningReport } from './lib/agentRunningReport'
+import { startAppMenu } from './lib/appMenu'
 import { startShortcutReporting } from './lib/assistShortcuts'
 import { startAssistUi } from './lib/assistUi'
 import { startAutoResume } from './lib/autoResume'
@@ -44,6 +45,7 @@ import { revealPane, startAttentionSync } from './lib/workspaceActivity'
 import { startWorkspaceProjects } from './lib/workspaceProjects'
 import { loadEditorLanguages } from './monaco/contributedLanguages'
 import { setSettingsFile } from './monaco/language'
+import { isMac } from './platform'
 import { startApprovals } from './stores/approvalsStore'
 import { startAssistAvailability } from './stores/assistStore'
 import { startChatTools } from './stores/chatToolsStore'
@@ -71,6 +73,7 @@ wireExtensionBridge()
 wirePaneRunBridge()
 wireManagerBridge()
 wireRemoteFolders()
+if (isMac) startAppMenu()
 
 const container = document.getElementById('root')
 if (!container) throw new Error('#root not found')
@@ -86,7 +89,7 @@ async function boot(): Promise<void> {
     console.error('[settings] load failed', err)
   }
   try {
-    setSettingsFile(await window.pine.settings.path())
+    setSettingsFile(await window.ostia.settings.path())
   } catch (err) {
     console.error('[settings] path unavailable', err)
   }
@@ -111,7 +114,7 @@ async function boot(): Promise<void> {
   }
   let snapshot = null
   try {
-    snapshot = (await window.pine?.workspace?.load?.()) ?? null
+    snapshot = (await window.ostia?.workspace?.load?.()) ?? null
   } catch (err) {
     console.error('[workspace] restore failed', err)
   }
@@ -141,8 +144,8 @@ async function boot(): Promise<void> {
   startAssistToggleCommands()
   startShortcutReporting()
   applyStoredRailWidth()
-  window.pine?.notifications?.onActivate?.((paneId) => revealPane(paneId))
-  window.pine?.settings?.onChanged?.(() => void useSettingsStore.getState().init())
+  window.ostia?.notifications?.onActivate?.((paneId) => revealPane(paneId))
+  window.ostia?.settings?.onChanged?.(() => void useSettingsStore.getState().init())
   root.render(
     <StrictMode>
       <AppErrorBoundary>
@@ -151,7 +154,7 @@ async function boot(): Promise<void> {
       </AppErrorBoundary>
     </StrictMode>,
   )
-  window.pine?.diagnostics?.ready(livePaneIds())
+  window.ostia?.diagnostics?.ready(livePaneIds())
 }
 
 boot().catch((err: unknown) => {

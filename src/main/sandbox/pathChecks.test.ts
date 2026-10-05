@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
 import { checkSandboxPath, checkSandboxPaths } from './pathChecks'
 
-const root = realpathSync(mkdtempSync(join(tmpdir(), 'pine-pathchecks-')))
+const root = realpathSync(mkdtempSync(join(tmpdir(), 'ostia-pathchecks-')))
 const home = join(root, 'home')
 const dataDir = join(home, '.local/share/ostia')
 const runtimeDir = join(root, 'run')
@@ -47,10 +47,10 @@ describe('checkSandboxPath', () => {
       ok: false,
       reason: 'too-broad',
     })
-    expect(checkSandboxPath('allowRead', dataDir, env)).toEqual({ ok: false, reason: 'pine-data' })
+    expect(checkSandboxPath('allowRead', dataDir, env)).toEqual({ ok: false, reason: 'ostia-data' })
     expect(checkSandboxPath('allowRead', join(dataDir, 'vault.json'), env)).toEqual({
       ok: false,
-      reason: 'pine-data',
+      reason: 'ostia-data',
     })
     expect(checkSandboxPath('allowRead', 'notes', env)).toEqual({
       ok: false,
@@ -72,7 +72,7 @@ describe('checkSandboxPath', () => {
     expect(checkSandboxPath('allowWrite', root, env)).toEqual({ ok: false, reason: 'too-broad' })
     expect(checkSandboxPath('allowWrite', '~/.local/share', env)).toEqual({
       ok: false,
-      reason: 'pine-data',
+      reason: 'ostia-data',
     })
   })
 
@@ -86,7 +86,7 @@ describe('checkSandboxPath', () => {
   it('follows a symlink before deciding, so a link into a closed folder is refused too', () => {
     expect(checkSandboxPath('allowRead', '~/data-link', env)).toEqual({
       ok: false,
-      reason: 'pine-data',
+      reason: 'ostia-data',
     })
     expect(checkSandboxPath('allowWrite', '~/agent-link', env)).toEqual({
       ok: false,

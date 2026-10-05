@@ -95,7 +95,7 @@ describe('McpHost against the fake stdio MCP server', () => {
   })
 
   it('gives the server only its env and secrets, not the parent environment', async () => {
-    process.env.PINE_MCP_LEAK_CHECK = 'leaked'
+    process.env.OSTIA_MCP_LEAK_CHECK = 'leaked'
     const secrets = memorySecrets()
     secrets.set('fake', 'API_TOKEN', 's3cret')
     const { host } = start([server({ env: { PLAIN: 'visible' }, secrets: ['API_TOKEN'] })], secrets)
@@ -109,12 +109,12 @@ describe('McpHost against the fake stdio MCP server', () => {
       ok: true,
       output: 's3cret',
     })
-    expect(await host.call('e3', 'fake', 'env', { name: 'PINE_MCP_LEAK_CHECK' })).toEqual({
+    expect(await host.call('e3', 'fake', 'env', { name: 'OSTIA_MCP_LEAK_CHECK' })).toEqual({
       ok: true,
       output: '(unset)',
     })
     expect(host.status()[0].secretsSet).toEqual(['API_TOKEN'])
-    Reflect.deleteProperty(process.env, 'PINE_MCP_LEAK_CHECK')
+    Reflect.deleteProperty(process.env, 'OSTIA_MCP_LEAK_CHECK')
   })
 
   it('cancels an in-flight call', async () => {
@@ -130,7 +130,7 @@ describe('McpHost against the fake stdio MCP server', () => {
   it('shows an error when the server exits or cannot start', async () => {
     const { host } = start([
       server(),
-      server({ name: 'missing', command: ['/nonexistent/pine-mcp-server'] }),
+      server({ name: 'missing', command: ['/nonexistent/ostia-mcp-server'] }),
     ])
     host.refresh()
     await waitFor(host, 'fake', 'ready')

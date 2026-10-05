@@ -180,7 +180,8 @@ function sanitizeRecords(raw: unknown): Records {
   if (Array.isArray(sources)) {
     for (const source of sources) {
       const url = normalizeMarketplaceUrl((source as { url?: unknown } | null)?.url)
-      if (url && !records.sources.some((s) => s.url === url)) {
+      if (!url) continue
+      if (!records.sources.some((s) => s.url === url)) {
         records.sources.push({ id: marketplaceId(url), url })
       }
     }
@@ -270,17 +271,18 @@ function isRealDirectory(path: string): boolean {
 }
 
 function readCatalog(clone: string): Catalog | string {
-  const file = join(clone, MARKETPLACE_MANIFEST_FILE)
+  const name = MARKETPLACE_MANIFEST_FILE
+  const file = join(clone, name)
   let raw: unknown
   try {
     const stat = lstatSync(file)
-    if (!stat.isFile()) return `${MARKETPLACE_MANIFEST_FILE} is not a regular file`
+    if (!stat.isFile()) return `${name} is not a regular file`
     if (stat.size > MARKETPLACE_MANIFEST_MAX_BYTES) {
-      return `${MARKETPLACE_MANIFEST_FILE} is larger than ${MARKETPLACE_MANIFEST_MAX_BYTES} bytes`
+      return `${name} is larger than ${MARKETPLACE_MANIFEST_MAX_BYTES} bytes`
     }
     raw = JSON.parse(readFileSync(file, 'utf8'))
   } catch (err) {
-    return `unreadable ${MARKETPLACE_MANIFEST_FILE}: ${(err as Error).message}`
+    return `unreadable ${name}: ${(err as Error).message}`
   }
   const manifest = parseMarketplaceManifest(raw)
   if (typeof manifest === 'string') return manifest

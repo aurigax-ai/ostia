@@ -10,7 +10,7 @@ import { SandboxStore } from './store'
 import { WorkspaceSandboxes } from './workspaceSandboxes'
 
 const repoRoot = process.cwd()
-const hostScript = join(repoRoot, 'node_modules/.cache/pine-test/sandbox-host-relay.mjs')
+const hostScript = join(repoRoot, 'node_modules/.cache/ostia-test/sandbox-host-relay.mjs')
 const nodePty = await import('node-pty').catch(() => null)
 const runnable = process.platform === 'linux' && nodePty !== null
 
@@ -42,7 +42,7 @@ async function start(name: string, switches: Partial<SandboxSwitches> = {}): Pro
     basePaths: () => ({
       home,
       dataDirs: [join(home, '.local/share/ostia')],
-      socketPath: join(root, 'pine.sock'),
+      socketPath: join(root, 'ostia.sock'),
       runtimeReads: [],
     }),
     workDir: () => workDir,
@@ -108,7 +108,7 @@ beforeAll(async () => {
     format: 'esm',
     packages: 'external',
   })
-  root = realpathSync(mkdtempSync(join(tmpdir(), 'pine-relay-')))
+  root = realpathSync(mkdtempSync(join(tmpdir(), 'ostia-relay-')))
   home = join(root, 'home')
   workDir = join(home, 'proj')
   mkdirSync(workDir, { recursive: true })
@@ -133,7 +133,7 @@ describe.skipIf(!runnable)(
       const session = await start('ctty')
       const out = await run(
         session,
-        'echo "tty=$(tty) leader=$(ps -o sid= -p $$ | tr -d " ")/$$ outer=${PINE_RELAY_TTY-unset} shell=$SHELL"',
+        'echo "tty=$(tty) leader=$(ps -o sid= -p $$ | tr -d " ")/$$ outer=${OSTIA_RELAY_TTY-unset} shell=$SHELL"',
         /tty=\S+ leader/,
       )
       expect(out).toMatch(/tty=\/dev\/pts\/\d+ leader=(\d+)\/\1 outer=unset shell=\/bin\/bash/)

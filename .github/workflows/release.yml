@@ -30,7 +30,7 @@ jobs:
         run: test "v$(node -p 'require("./package.json").version')" = "$GITHUB_REF_NAME"
       - uses: ./.github/actions/setup
       - run: pnpm build
-      - run: pnpm exec electron-builder --linux AppImage dir --publish never
+      - run: pnpm exec electron-builder --linux AppImage dir deb --publish never
       - name: Archive the unpacked app
         run: |
           name="ostia-${GITHUB_REF_NAME#v}-linux-x64"
@@ -42,6 +42,7 @@ jobs:
           path: |
             dist/*.AppImage
             dist/*.tar.gz
+            dist/*.deb
           if-no-files-found: error
 
   package-macos:
@@ -59,7 +60,7 @@ jobs:
           P12_B64: ${{ secrets.CSC_LINK }}
           P12_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
         run: |
-          kc="$RUNNER_TEMP/pine-signing.keychain-db"
+          kc="$RUNNER_TEMP/ostia-signing.keychain-db"
           kcpw=$(openssl rand -base64 24)
           printf '%s' "$P12_B64" | base64 -D > "$RUNNER_TEMP/cert.p12"
           security create-keychain -p "$kcpw" "$kc"
@@ -101,7 +102,7 @@ jobs:
           if-no-files-found: error
 
   sdk:
-    needs: package
+    needs: publish
     # Stays GitHub-hosted: npm trusted publishing (OIDC) does not support
     # self-hosted runners (docs.npmjs.com/trusted-publishers).
     runs-on: ubuntu-24.04
@@ -146,5 +147,26 @@ jobs:
           files: |
             dist/*.AppImage
             dist/*.tar.gz
+            dist/*.deb
             dist/*.dmg
           prerelease: ${{ contains(github.ref_name, '-') }}
+
+  apt:
+    needs: publish
+    if: ${{ !contains(github.ref_name, '-') }}
+    permissions:
+      contents: read
+    uses: ./.github/workflows/publish-apt.yml
+    with:
+      tag: ${{ github.ref_name }}
+    secrets: inherit
+
+  homebrew:
+    needs: publish
+    if: ${{ !contains(github.ref_name, '-') }}
+    permissions:
+      contents: read
+    uses: ./.github/workflows/publish-homebrew.yml
+    with:
+      tag: ${{ github.ref_name }}
+    secrets: inherit

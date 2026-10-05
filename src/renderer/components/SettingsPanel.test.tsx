@@ -375,6 +375,14 @@ describe('SettingsPanel', () => {
     expect(await screen.findByRole('button', { name: 'Copied' })).toBeInTheDocument()
   })
 
+  it('opens the log folder from About', async () => {
+    renderSettings()
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'About' }))
+    await user.click(await screen.findByRole('button', { name: 'Open log folder' }))
+    expect(window.ostia.diagnostics.openLogFolder).toHaveBeenCalled()
+  })
+
   it('toggles notification kinds and sidebar details from their pages', async () => {
     const setNotifications = vi
       .spyOn(useSettingsStore.getState(), 'setNotifications')
@@ -406,7 +414,7 @@ describe('SettingsPanel', () => {
     expect(useSettingsStore.getState().appearance.followSystem).toBe(true)
     expect(screen.queryByRole('combobox', { name: 'Ostia theme' })).not.toBeInTheDocument()
     await user.click(screen.getByRole('combobox', { name: 'Light theme' }))
-    expect(await screen.findByRole('option', { name: 'Pine Light' })).toBeInTheDocument()
+    expect(await screen.findByRole('option', { name: 'Ostia Light' })).toBeInTheDocument()
     expect(screen.queryByRole('option', { name: 'Dracula' })).not.toBeInTheDocument()
     await user.keyboard('{Escape}')
 
@@ -475,7 +483,7 @@ describe('SettingsPanel', () => {
     expect(screen.getByTestId('accent-custom')).toHaveAttribute('data-selected', 'true')
   })
 
-  it('links the terminal colors to the pine theme until the match switch is turned off', async () => {
+  it('links the terminal colors to the ostia theme until the match switch is turned off', async () => {
     useSettingsStore.setState((s) => ({ appearance: { ...s.appearance, theme: 'dracula' } }))
     renderSettings()
     const user = userEvent.setup()

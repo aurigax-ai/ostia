@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { envName, legacyEnvName } from '../../shared/appEnv'
+import { envName } from '../../shared/appEnv'
 import {
   PTY_RELAY_ENV,
   needsPtyRelay,
@@ -10,7 +10,7 @@ import {
 } from './ptyWrap'
 
 const WRAPPED = "bwrap --new-session --die-with-parent --dev /dev -- bash -c 'zsh -i'"
-const PIPE = '/tmp/pine-sandbox-tmp/1/ws/resize-abc'
+const PIPE = '/tmp/ostia-sandbox-tmp/1/ws/resize-abc'
 const BRIDGE = '( socat -u UNIX-CONNECT:ports-ab12.sock - ) &'
 const refuses = (): string => '0\n'
 const allows = (): string => '1\n'
@@ -33,7 +33,7 @@ describe('relayForced', () => {
     expect(relayForced(true, { [name]: '1' })).toBe(false)
     expect(relayForced(false, {})).toBe(false)
     expect(relayForced(false, { [name]: '0' })).toBe(false)
-    expect(relayForced(false, { [legacyEnvName(PTY_RELAY_ENV)]: '1' })).toBe(true)
+    expect(relayForced(false, { PINE_SANDBOX_PTY_RELAY: '1' })).toBe(false)
   })
 })
 

@@ -1,7 +1,7 @@
 import type { ExtensionInfo } from '../shared/extensions'
 import { registerControlMethod } from './controlServer'
 
-const CLI_HELP = `ostia — control-socket CLI (pine is its old name and still works)
+const CLI_HELP = `ostia — control-socket CLI
 
   ostia whoami                   show this pane's identity
   ostia commands                 list commands available in this window
@@ -48,8 +48,12 @@ const CLI_HELP = `ostia — control-socket CLI (pine is its old name and still w
                                  remember this pane's agent session so a restored pane
                                  offers Resume (Ctrl+Shift+R); '-' reads a hook's JSON
                                  (session_id) from stdin
+  ostia claude-hook <Notification|PreToolUse|Stop|StopFailure>
+                                 set this pane's attention from a Claude Code hook's JSON on
+                                 stdin: a permission prompt, a question or a plan to review
+                                 is waiting; the idle reminder and a finished subagent are not
   ostia workflow list [--json]   saved command workflows this pane can use: this workspace's
-                                 .ostia/workflows (or .pine/workflows), the user's workflows
+                                 .ostia/workflows, the user's workflows
                                  folder and extensions;
                                  --json prints {workflows,problems}
   ostia workflow show <name> [--json]

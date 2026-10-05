@@ -53,7 +53,7 @@ async function launch(
   const launchOptions = isolatedLaunch(dataHome)
   const app = await electron.launch({
     ...launchOptions,
-    env: { ...launchOptions.env, PINE_RELEASE_API_URL: github.url },
+    env: { ...launchOptions.env, OSTIA_RELEASE_API_URL: github.url },
   })
   await app.evaluate(({ shell }) => {
     const opened: string[] = []

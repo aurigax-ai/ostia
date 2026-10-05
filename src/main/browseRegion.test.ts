@@ -55,7 +55,7 @@ let prevTmp: string | undefined
 
 beforeAll(() => {
   prevTmp = process.env.TMPDIR
-  process.env.TMPDIR = mkdtempSync(join(tmpdir(), 'pine-region-test-'))
+  process.env.TMPDIR = mkdtempSync(join(tmpdir(), 'ostia-region-test-'))
   registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'browser-1' })
   registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'term-1' })
 })

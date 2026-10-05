@@ -246,7 +246,7 @@ interface RuntimeBody {
 
 function fakeModelRuntime(replies: string[]): Promise<{ socket: string; bodies: RuntimeBody[] }> {
   const bodies: RuntimeBody[] = []
-  const dir = mkdtempSync(join(tmpdir(), 'pine-runtime-'))
+  const dir = mkdtempSync(join(tmpdir(), 'ostia-runtime-'))
   dirs.push(dir)
   const socket = join(dir, 'model-runtime.sock')
   const server = createServer((req, res) => {

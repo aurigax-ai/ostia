@@ -44,8 +44,8 @@ export function contractDigest(sdkDir) {
 export function inTreeManifests() {
   const extensions = readdirSync('src/extensions', { withFileTypes: true })
     .filter((entry) => entry.isDirectory() && entry.name !== 'sdk')
-    .map((entry) => join('src/extensions', entry.name, 'pine.json'))
-  return [...extensions, 'sdk-package/template/pine.json']
+    .map((entry) => join('src/extensions', entry.name, 'ostia.json'))
+  return [...extensions, 'sdk-package/template/ostia.json']
 }
 
 export function writeManifestApi(file, version) {

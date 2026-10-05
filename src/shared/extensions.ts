@@ -13,7 +13,7 @@ import type { LanguageServerContribution, LanguageServerSummary } from './langua
 import type { RemoteCwd } from './remoteFolders'
 import type { Workflow } from './workflows'
 
-export const EXTENSION_MANIFEST_FILE = 'pine.json'
+export const EXTENSION_MANIFEST_FILE = 'ostia.json'
 
 export const EXTENSION_ICONS = [
   'puzzle',

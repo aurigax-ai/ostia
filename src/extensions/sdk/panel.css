@@ -1,35 +1,35 @@
 :root {
-  color-scheme: var(--pine-color-scheme, dark);
-  --bg: var(--pine-bg, #1d2022);
-  --surface-1: var(--pine-surface-1, #272a2d);
-  --surface-2: var(--pine-surface-2, #2d3134);
-  --surface-3: var(--pine-surface-3, #313537);
-  --line: var(--pine-line, rgba(255, 255, 255, 0.07));
-  --line-strong: var(--pine-line-strong, rgba(255, 255, 255, 0.13));
-  --fg: var(--pine-fg, #e3edf5);
-  --fg-muted: var(--pine-fg-muted, #9aa1a5);
-  --bg-sunken: var(--pine-bg-sunken, #17191b);
-  --fg-dim: var(--pine-fg-dim, #767d82);
-  --brand: var(--pine-brand, #00d8ff);
-  --brand-glow: var(--pine-brand-glow, rgba(0, 216, 255, 0.18));
-  --on-brand: var(--pine-on-brand, #1d2022);
-  --attn: var(--pine-attn, #bf5f54);
-  --attn-fg: var(--pine-attn-fg, #db8176);
-  --ok: var(--pine-ok, #58c98c);
-  --add: var(--pine-add, #58c98c);
-  --del: var(--pine-del, #bf5f54);
-  --group-red: var(--pine-group-red, #e06c75);
-  --group-orange: var(--pine-group-orange, #d19a66);
-  --group-yellow: var(--pine-group-yellow, #e5c07b);
-  --group-green: var(--pine-group-green, #98c379);
-  --group-teal: var(--pine-group-teal, #56b6c2);
-  --group-blue: var(--pine-group-blue, #61afef);
-  --group-purple: var(--pine-group-purple, #c678dd);
-  --group-pink: var(--pine-group-pink, #e38fc0);
-  --font-ui: var(--pine-font-ui, system-ui, sans-serif);
-  --font-code: var(--pine-font-code, ui-monospace, monospace);
-  --font-ui-size: var(--pine-font-size, 13px);
-  --font-ui-weight: var(--pine-font-weight, 400);
+  color-scheme: var(--ostia-color-scheme, dark);
+  --bg: var(--ostia-bg, #1d2022);
+  --surface-1: var(--ostia-surface-1, #272a2d);
+  --surface-2: var(--ostia-surface-2, #2d3134);
+  --surface-3: var(--ostia-surface-3, #313537);
+  --line: var(--ostia-line, rgba(255, 255, 255, 0.07));
+  --line-strong: var(--ostia-line-strong, rgba(255, 255, 255, 0.13));
+  --fg: var(--ostia-fg, #e3edf5);
+  --fg-muted: var(--ostia-fg-muted, #9aa1a5);
+  --bg-sunken: var(--ostia-bg-sunken, #17191b);
+  --fg-dim: var(--ostia-fg-dim, #767d82);
+  --brand: var(--ostia-brand, #00d8ff);
+  --brand-glow: var(--ostia-brand-glow, rgba(0, 216, 255, 0.18));
+  --on-brand: var(--ostia-on-brand, #1d2022);
+  --attn: var(--ostia-attn, #bf5f54);
+  --attn-fg: var(--ostia-attn-fg, #db8176);
+  --ok: var(--ostia-ok, #58c98c);
+  --add: var(--ostia-add, #58c98c);
+  --del: var(--ostia-del, #bf5f54);
+  --group-red: var(--ostia-group-red, #e06c75);
+  --group-orange: var(--ostia-group-orange, #d19a66);
+  --group-yellow: var(--ostia-group-yellow, #e5c07b);
+  --group-green: var(--ostia-group-green, #98c379);
+  --group-teal: var(--ostia-group-teal, #56b6c2);
+  --group-blue: var(--ostia-group-blue, #61afef);
+  --group-purple: var(--ostia-group-purple, #c678dd);
+  --group-pink: var(--ostia-group-pink, #e38fc0);
+  --font-ui: var(--ostia-font-ui, system-ui, sans-serif);
+  --font-code: var(--ostia-font-code, ui-monospace, monospace);
+  --font-ui-size: var(--ostia-font-size, 13px);
+  --font-ui-weight: var(--ostia-font-weight, 400);
   --font-weight-normal: var(--font-ui-weight);
   --font-weight-medium: calc(var(--font-ui-weight) + 100);
   --font-weight-semibold: calc(var(--font-ui-weight) + 200);
@@ -48,10 +48,10 @@
   --switch-width: 32px;
   --switch-height: 18px;
   --switch-thumb: 14px;
-  --motion-fast: calc(90ms * var(--pine-motion-scale, 1));
-  --motion-base: calc(150ms * var(--pine-motion-scale, 1));
-  --motion-fast-exit: calc(63ms * var(--pine-motion-scale, 1));
-  --motion-base-exit: calc(105ms * var(--pine-motion-scale, 1));
+  --motion-fast: calc(90ms * var(--ostia-motion-scale, 1));
+  --motion-base: calc(150ms * var(--ostia-motion-scale, 1));
+  --motion-fast-exit: calc(63ms * var(--ostia-motion-scale, 1));
+  --motion-base-exit: calc(105ms * var(--ostia-motion-scale, 1));
   --ease-out: cubic-bezier(0.2, 0, 0, 1);
   --ease-in: cubic-bezier(0.4, 0, 1, 1);
 }
@@ -208,36 +208,36 @@ input[type="radio"]:focus-visible {
   opacity: 0.5;
 }
 
-.pine-split {
+.ostia-split {
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
   min-height: 0;
 }
 
-.pine-split > .pine-split-first {
+.ostia-split > .ostia-split-first {
   flex-grow: 0;
   flex-shrink: 0;
 }
 
-.pine-split > .pine-split-second {
+.ostia-split > .ostia-split-second {
   flex: 1 1 0;
   min-height: 0;
 }
 
-.pine-split[data-collapsed] > .pine-split-first {
+.ostia-split[data-collapsed] > .ostia-split-first {
   flex-grow: 1;
   flex-shrink: 1;
   min-height: 0;
 }
 
-.pine-split[data-collapsed] > .pine-split-second {
+.ostia-split[data-collapsed] > .ostia-split-second {
   flex: 0 0 auto;
   overflow: hidden;
   border-top: 1px solid var(--line-strong);
 }
 
-.pine-split-handle {
+.ostia-split-handle {
   position: relative;
   z-index: 3;
   flex: 0 0 1px;
@@ -247,13 +247,13 @@ input[type="radio"]:focus-visible {
   user-select: none;
 }
 
-.pine-split-handle::before {
+.ostia-split-handle::before {
   content: "";
   position: absolute;
   inset: -4px 0;
 }
 
-.pine-split-handle::after {
+.ostia-split-handle::after {
   content: "";
   position: absolute;
   inset: -1px 0;
@@ -262,18 +262,18 @@ input[type="radio"]:focus-visible {
   transition: opacity var(--motion-fast) var(--ease-out);
 }
 
-.pine-split-handle:hover::after,
-.pine-split-handle:focus-visible::after,
-.pine-split-dragging .pine-split-handle::after {
+.ostia-split-handle:hover::after,
+.ostia-split-handle:focus-visible::after,
+.ostia-split-dragging .ostia-split-handle::after {
   opacity: 1;
 }
 
-.pine-split-handle:focus-visible {
+.ostia-split-handle:focus-visible {
   outline: none;
 }
 
-.pine-split-dragging,
-.pine-split-dragging * {
+.ostia-split-dragging,
+.ostia-split-dragging * {
   cursor: row-resize !important;
   user-select: none !important;
 }

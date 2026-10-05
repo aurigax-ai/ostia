@@ -57,7 +57,7 @@ const INSTANCE_TMP_NAME = /^\d+$/
 const FOLDER_PROBLEM_TEXT: Record<SandboxFolderProblem['reason'], string> = {
   home: 'is your home folder',
   'above-home': 'contains your home folder',
-  'pine-data': `holds ${PRODUCT_DISPLAY_NAME}'s own data`,
+  'ostia-data': `holds ${PRODUCT_DISPLAY_NAME}'s own data`,
 }
 
 export function folderProblemMessage(problem: SandboxFolderProblem): string {

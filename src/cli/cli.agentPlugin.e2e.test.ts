@@ -17,11 +17,11 @@ import { ExtensionHost, registerExtensionMethods } from '../main/extensionHost'
 import { ExtensionStore } from '../main/extensionStore'
 import { type PaneIdentity, registerPane } from '../main/idRegistry'
 import {
-  INTEGRATION_DIR,
   codexHookKey,
   codexHookTrustHash,
   extensionHookCommand,
   setAgentPlugins,
+  shellIntegrationDir,
   shellIntegrationSpawnOptions,
 } from '../main/shellIntegration'
 import type { CommandResult } from '../shared/types'
@@ -112,21 +112,21 @@ describe('extension agent skills and hooks reach a fake agent (real CLI, real so
     return {
       PATH: `${bin}:${dirname(process.execPath)}:/usr/bin:/bin`,
       HOME: dir,
-      PINE_CLI: cliPath,
-      PINE_NODE: process.execPath,
-      PINE_SOCKET: socketPath,
-      PINE_TOKEN: identity.token,
-      PINE_AGENT_DIR: agentDir,
+      OSTIA_CLI: cliPath,
+      OSTIA_NODE: process.execPath,
+      OSTIA_SOCKET: socketPath,
+      OSTIA_TOKEN: identity.token,
+      OSTIA_AGENT_DIR: agentDir,
     }
   }
 
   function inPane(script: string): Promise<RunResult> {
-    const bashInit = join(INTEGRATION_DIR, 'init.bash')
+    const bashInit = join(shellIntegrationDir(), 'init.bash')
     return run('bash', ['--norc', '-c', `source '${bashInit}'; ${script}`], paneEnv())
   }
 
   beforeAll(() => {
-    dir = mkdtempSync(join(tmpdir(), 'pine-agent-plugin-'))
+    dir = mkdtempSync(join(tmpdir(), 'ostia-agent-plugin-'))
     bin = join(dir, 'bin')
     socketPath = join(dir, 'control.sock')
     identity = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'pAgentPlugin' })
@@ -175,7 +175,7 @@ describe('extension agent skills and hooks reach a fake agent (real CLI, real so
     expect(res.stderr).toBe('')
     const lines = res.stdout.split('\n').map((line) => line.trimEnd())
     expect(lines).toContain('skill agent-kit-review SKILL.md,checklist.md')
-    expect(lines).toContain('skill pine SKILL.md')
+    expect(lines).toContain('skill ostia SKILL.md')
     expect(res.stdout).not.toContain('agent-kit-undeclared')
     expect(res.stdout).not.toContain('undeclared.md')
     expect(lines).toContain(
@@ -235,7 +235,7 @@ describe('extension agent skills and hooks reach a fake agent (real CLI, real so
     expect(context).not.toContain('agent-kit-undeclared')
   }, 60_000)
 
-  it('fails quietly and adds nothing when Pine cannot be reached', async () => {
+  it('fails quietly and adds nothing when Ostia cannot be reached', async () => {
     const res = await run(
       'sh',
       [
@@ -245,7 +245,7 @@ describe('extension agent skills and hooks reach a fake agent (real CLI, real so
           'claude',
         ),
       ],
-      { ...paneEnv(), PINE_SOCKET: join(dir, 'missing.sock') },
+      { ...paneEnv(), OSTIA_SOCKET: join(dir, 'missing.sock') },
       '{}',
     )
     expect(res.code).toBe(0)

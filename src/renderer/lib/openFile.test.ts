@@ -157,7 +157,7 @@ describe('reportFileProblem', () => {
 
     reportFileProblem('w1', 'Could not open /x.')
 
-    expect(window.pine.notifications.post).toHaveBeenCalledWith({
+    expect(window.ostia.notifications.post).toHaveBeenCalledWith({
       paneId,
       kind: 'error',
       title: 'Could not open /x.',

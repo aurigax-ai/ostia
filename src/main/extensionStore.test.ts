@@ -44,7 +44,7 @@ describe('ExtensionStore', () => {
     for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true })
   })
   const tmp = (): string => {
-    const d = mkdtempSync(join(tmpdir(), 'pine-ext-store-'))
+    const d = mkdtempSync(join(tmpdir(), 'ostia-ext-store-'))
     dirs.push(d)
     return d
   }

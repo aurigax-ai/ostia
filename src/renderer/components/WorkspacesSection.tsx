@@ -17,7 +17,7 @@ function useFolderExists(folder: string): boolean {
   useEffect(() => {
     let live = true
     const timer = setTimeout(() => {
-      void window.pine.fs.stat(folder).then((kind) => {
+      void window.ostia.fs.stat(folder).then((kind) => {
         if (live) setExists(kind === 'dir')
       })
     }, FOLDER_CHECK_DELAY_MS)

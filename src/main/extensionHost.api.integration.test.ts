@@ -30,7 +30,7 @@ describe('ExtensionHost confirm and panel notifications', () => {
   const openPanelIn = vi.fn()
 
   beforeAll(() => {
-    dir = mkdtempSync(join(tmpdir(), 'pine-ext-api-'))
+    dir = mkdtempSync(join(tmpdir(), 'ostia-ext-api-'))
     const socketPath = join(dir, 'control.sock')
     store = new ExtensionStore(join(dir, 'extensions.json'))
     host = new ExtensionHost({

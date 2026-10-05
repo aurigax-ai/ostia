@@ -46,7 +46,7 @@ function fakeClaude(dataHome: string): string {
   const claude = join(bin, 'claude')
   writeFileSync(
     claude,
-    '#!/bin/sh\nELECTRON_RUN_AS_NODE=1 exec "$PINE_NODE" "$(dirname "$0")/fake-claude.js" "$@"\n',
+    '#!/bin/sh\nELECTRON_RUN_AS_NODE=1 exec "$OSTIA_NODE" "$(dirname "$0")/fake-claude.js" "$@"\n',
   )
   chmodSync(claude, 0o755)
   return bin
@@ -84,10 +84,10 @@ test('a bus message marks the receiving pane unread, reaches its agent at the ne
     await sender.locator('.xterm').click()
     await expect(sender).toHaveClass(/\bactive\b/)
     await win.keyboard.type(
-      `OTHER=$(pine pane.list | grep '"paneId"' | grep -v "$PINE_PANE_ID" | head -1 | cut -d'"' -f4)`,
+      `OTHER=$(ostia pane.list | grep '"paneId"' | grep -v "$OSTIA_PANE_ID" | head -1 | cut -d'"' -f4)`,
     )
     await win.keyboard.press('Enter')
-    await win.keyboard.type('pine bus send "$OTHER" "review-$((40+2))-done"')
+    await win.keyboard.type('ostia bus send "$OTHER" "review-$((40+2))-done"')
     await win.keyboard.press('Enter')
     const card = win.getByRole('region', { name: 'Agent permission request' })
     await expect(card).toBeVisible({ timeout: 20_000 })
@@ -103,7 +103,7 @@ test('a bus message marks the receiving pane unread, reaches its agent at the ne
     await expect(receiverRows).not.toContainText('review-42-done')
 
     await sender.locator('.xterm').click()
-    await win.keyboard.type('pine bus sent')
+    await win.keyboard.type('ostia bus sent')
     await win.keyboard.press('Enter')
     await expect(senderRows).toContainText(/unseen\s+review-42-done/, { timeout: 15_000 })
 
@@ -127,7 +127,7 @@ test('a bus message marks the receiving pane unread, reaches its agent at the ne
     await expect(receiverRows).toContainText('turn-again no-hook-context', { timeout: 20_000 })
 
     await sender.locator('.xterm').click()
-    await win.keyboard.type('pine bus sent')
+    await win.keyboard.type('ostia bus sent')
     await win.keyboard.press('Enter')
     await expect(senderRows).toContainText(/\sseen 20\d\d-\S+\s+review-42-done/, {
       timeout: 15_000,

@@ -39,9 +39,9 @@ let socketPath = ''
 let seq = 0
 const live = new Set<ChildProcess>()
 
-function pine(args: string[], stdin?: string, token = agent.token): Running {
+function ostia(args: string[], stdin?: string, token = agent.token): Running {
   const child = spawn(process.execPath, [cliPath, ...args], {
-    env: { ...process.env, PINE_SOCKET: socketPath, PINE_TOKEN: token },
+    env: { ...process.env, OSTIA_SOCKET: socketPath, OSTIA_TOKEN: token },
     stdio: [stdin === undefined ? 'ignore' : 'pipe', 'pipe', 'pipe'],
   })
   live.add(child)
@@ -75,7 +75,7 @@ async function nextQuestion(count = 1): Promise<QuestionRequest> {
 
 beforeEach(() => {
   seq += 1
-  socketPath = join(tmpdir(), `pine-cli-ask-${process.pid}-${seq}.sock`)
+  socketPath = join(tmpdir(), `ostia-cli-ask-${process.pid}-${seq}.sock`)
   registerControlServer(
     {
       execCommand: async () => ({ ok: true }) as CommandResult,
@@ -99,7 +99,7 @@ afterAll(() => {
 
 describe('ostia ask (the real CLI against a live control server)', () => {
   it('blocks until the human answers, then prints the chosen label and the comment', async () => {
-    const run = pine([
+    const run = ostia([
       'ask',
       'Which database?',
       '--context',
@@ -129,7 +129,7 @@ describe('ostia ask (the real CLI against a live control server)', () => {
   })
 
   it('prints several choices as JSON for --multi --json', async () => {
-    const run = pine([
+    const run = ostia([
       'ask',
       'Which checks?',
       '--choice',
@@ -148,7 +148,7 @@ describe('ostia ask (the real CLI against a live control server)', () => {
   })
 
   it('reads the context from stdin only for --context -', async () => {
-    const run = pine(['ask', 'Ship this?', '--context', '-'], ' 3 files changed\n 40 insertions\n')
+    const run = ostia(['ask', 'Ship this?', '--context', '-'], ' 3 files changed\n 40 insertions\n')
     const question = await nextQuestion()
     expect(question.context).toBe('3 files changed\n 40 insertions')
     expect(question.mode).toBe('text')
@@ -158,7 +158,7 @@ describe('ostia ask (the real CLI against a live control server)', () => {
 
   it('does not wait on an open stdin without --context -', async () => {
     const child = spawn(process.execPath, [cliPath, 'ask', 'Still there?'], {
-      env: { ...process.env, PINE_SOCKET: socketPath, PINE_TOKEN: agent.token },
+      env: { ...process.env, OSTIA_SOCKET: socketPath, OSTIA_TOKEN: agent.token },
       stdio: ['pipe', 'pipe', 'pipe'],
     })
     live.add(child)
@@ -170,7 +170,7 @@ describe('ostia ask (the real CLI against a live control server)', () => {
   })
 
   it('exits 2 with a line on stderr when the human dismisses it', async () => {
-    const run = pine(['ask', 'Continue?'])
+    const run = ostia(['ask', 'Continue?'])
     const question = await nextQuestion()
     questions()?.dismiss(WINDOW_ID, question.id)
     const res = await run.done
@@ -180,7 +180,7 @@ describe('ostia ask (the real CLI against a live control server)', () => {
   })
 
   it('exits 3 when its timeout passes unanswered', async () => {
-    const res = await pine(['ask', 'Continue?', '--timeout', '1', '--json']).done
+    const res = await ostia(['ask', 'Continue?', '--timeout', '1', '--json']).done
     expect(res.code).toBe(3)
     expect(JSON.parse(res.stdout)).toEqual({ answered: false, reason: 'timeout' })
     expect(res.stderr).toMatch(/timed out/)
@@ -189,7 +189,7 @@ describe('ostia ask (the real CLI against a live control server)', () => {
 
   it('exits 4 when the pane closes while it waits', async () => {
     const doomed = registerPane({ windowId: WINDOW_ID, workspaceId: 'ws1', paneId: 'doomed-pane' })
-    const run = pine(['ask', 'Continue?'], undefined, doomed.token)
+    const run = ostia(['ask', 'Continue?'], undefined, doomed.token)
     await nextQuestion()
     questions()?.forget(doomed.externalId)
     removePane(doomed.paneId)
@@ -199,7 +199,7 @@ describe('ostia ask (the real CLI against a live control server)', () => {
   })
 
   it('withdraws the question when the asking command is stopped', async () => {
-    const run = pine(['ask', 'Continue?'])
+    const run = ostia(['ask', 'Continue?'])
     await nextQuestion()
     run.child.kill('SIGTERM')
     await run.done
@@ -208,30 +208,30 @@ describe('ostia ask (the real CLI against a live control server)', () => {
   })
 
   it('refuses a fourth open question from one pane with exit 1', async () => {
-    pine(['ask', 'one?'])
+    ostia(['ask', 'one?'])
     await nextQuestion(1)
-    pine(['ask', 'two?'])
+    ostia(['ask', 'two?'])
     await nextQuestion(2)
-    pine(['ask', 'three?'])
+    ostia(['ask', 'three?'])
     await nextQuestion(3)
-    const res = await pine(['ask', 'four?']).done
+    const res = await ostia(['ask', 'four?']).done
     expect(res.code).toBe(1)
     expect(res.stderr).toMatch(/^ostia ask: too-many-questions/)
     expect(pending()).toHaveLength(3)
   })
 
   it('refuses bad arguments without asking anything', async () => {
-    const res = await pine(['ask', 'Pick', '--multi']).done
+    const res = await ostia(['ask', 'Pick', '--multi']).done
     expect(res.code).toBe(1)
     expect(res.stderr).toMatch(/--multi needs at least one --choice/)
     expect(pending()).toEqual([])
   })
 
   it('has no verb or socket method that answers or dismisses a question', async () => {
-    const run = pine(['ask', 'Continue?'])
+    const run = ostia(['ask', 'Continue?'])
     const question = await nextQuestion()
     for (const method of ['question.answer', 'question.dismiss', 'questions.answer']) {
-      const res = await pine([method, JSON.stringify({ id: question.id, text: 'yes' })]).done
+      const res = await ostia([method, JSON.stringify({ id: question.id, text: 'yes' })]).done
       expect(res.code).toBe(1)
     }
     expect(pending()).toHaveLength(1)

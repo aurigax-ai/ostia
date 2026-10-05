@@ -98,7 +98,7 @@ import type {
   NotificationEntry,
   OpenPathResult,
   OriginAgents,
-  PineBridge,
+  OstiaBridge,
   Platform,
   PromptContext,
   PtyAttachResult,
@@ -114,7 +114,7 @@ import type {
 import type { ViewListing } from '../shared/views'
 import type { WorkflowListing, WorkflowSaveResult } from '../shared/workflows'
 
-const bridge: PineBridge = {
+const bridge: OstiaBridge = {
   ping: () => ipcRenderer.invoke('app:ping') as Promise<'pong'>,
   info: () => ipcRenderer.invoke('app:info') as Promise<AppInfo>,
   platform: process.platform as Platform,
@@ -393,6 +393,14 @@ const bridge: PineBridge = {
       }
       ipcRenderer.on('command:invoke', listener)
       return () => ipcRenderer.removeListener('command:invoke', listener)
+    },
+  },
+  appMenu: {
+    set: (spec) => ipcRenderer.send('app-menu:set', spec),
+    onRun: (cb) => {
+      const listener = (_e: unknown, command: string): void => cb(command)
+      ipcRenderer.on('app-menu:run', listener)
+      return () => ipcRenderer.removeListener('app-menu:run', listener)
     },
   },
   terminalState: {
@@ -884,4 +892,4 @@ const bridge: PineBridge = {
   },
 }
 
-contextBridge.exposeInMainWorld('pine', bridge)
+contextBridge.exposeInMainWorld('ostia', bridge)

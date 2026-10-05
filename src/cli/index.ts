@@ -10,6 +10,11 @@ import {
 } from 'vscode-jsonrpc/node'
 import { RESUMABLE_AGENTS, isResumableAgent, resumeIdFromHookPayload } from '../shared/agentResume'
 import { readEnv } from '../shared/appEnv'
+import {
+  CLAUDE_ATTENTION_EVENTS,
+  claudeAttention,
+  isClaudeAttentionEvent,
+} from '../shared/claudeAttention'
 import type { OpenFilesResult } from '../shared/openFiles'
 import type { CommandResult } from '../shared/types'
 import type { WorkflowEntry, WorkflowListing } from '../shared/workflows'
@@ -373,6 +378,7 @@ const CORE_VERBS = new Set([
   'ask',
   'state',
   'resume-token',
+  'claude-hook',
   'agent-hook',
   'open',
   'docs',
@@ -675,8 +681,8 @@ async function runGatewayVerb(conn: MessageConnection): Promise<void> {
       return
     }
     console.log(JSON.stringify(res, null, 2))
-    console.log(`\npine-pair://${Buffer.from(JSON.stringify(res)).toString('base64url')}`)
-    console.log('\n(scan the JSON above as a QR from the phone, or paste the pine-pair:// URI)')
+    console.log(`\nostia-pair://${Buffer.from(JSON.stringify(res)).toString('base64url')}`)
+    console.log('\n(scan the JSON above as a QR from the phone, or paste the ostia-pair:// URI)')
   } else if (sub === 'status') {
     const res = await conn.sendRequest<GatewayStatusResult | GatewayErr>('gateway.status', {})
     if (isErrResult(res)) {
@@ -1134,6 +1140,25 @@ async function runWorkflowVerb(conn: MessageConnection): Promise<void> {
   console.log(json ? JSON.stringify(matches, null, 2) : matches.map(describeWorkflow).join('\n\n'))
 }
 
+async function runClaudeHookVerb(conn: MessageConnection): Promise<void> {
+  const event = process.argv[3]
+  if (!isClaudeAttentionEvent(event)) {
+    console.error(`ostia claude-hook: usage: claude-hook <${CLAUDE_ATTENTION_EVENTS.join('|')}>`)
+    process.exitCode = 1
+    return
+  }
+  const attention = claudeAttention(event, await readAllStdin())
+  if (!attention) return
+  const res = await conn.sendRequest<{ ok: boolean; error?: string }>('pane.setAttention', {
+    state: attention.state,
+    message: attention.message || undefined,
+  })
+  if (!res.ok) {
+    console.error(`ostia claude-hook: ${res.error ?? 'failed'}`)
+    process.exitCode = 1
+  }
+}
+
 async function runResumeTokenVerb(conn: MessageConnection): Promise<void> {
   const [agent, raw] = process.argv.slice(3)
   if (!isResumableAgent(agent) || !raw) {
@@ -1295,6 +1320,8 @@ async function main(): Promise<void> {
       await runWorkspaceVerb(conn)
     } else if (cmd === 'resume-token') {
       await runResumeTokenVerb(conn)
+    } else if (cmd === 'claude-hook') {
+      await runClaudeHookVerb(conn)
     } else if (cmd === 'agent-hook') {
       process.exitCode = await runAgentHook(process.argv.slice(3), {
         readInput: readAllStdin,

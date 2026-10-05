@@ -10,7 +10,7 @@ import {
   ok,
   onShutdown,
   startMessageServer,
-} from '@aurigax-ai/pine-extension-sdk'
+} from '@aurigax-ai/ostia-extension-sdk'
 import { APPROVALS_PATH, FAST_POLL_MS, IDLE_POLL_MS, formatQueue } from './keeper'
 import { KeeperService } from './service'
 

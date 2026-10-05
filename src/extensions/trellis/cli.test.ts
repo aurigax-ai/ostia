@@ -120,10 +120,10 @@ describe('TrellisCli against the fake trellis', () => {
   it('comments, claims, renews and releases as the human actor', async () => {
     expect((await cli.comment('DEMO-3', 'Looks good.')).ok).toBe(true)
     expect(fake.state().comments['DEMO-3']).toMatchObject([
-      { actor: 'human:pine', body: 'Looks good.' },
+      { actor: 'human:ostia', body: 'Looks good.' },
     ])
     const claimed = await cli.claim('DEMO-3')
-    expect(claimed.ok && claimed.value.claimedBy).toBe('human:pine')
+    expect(claimed.ok && claimed.value.claimedBy).toBe('human:ostia')
     expect((await cli.renew('DEMO-3')).ok).toBe(true)
     expect((await cli.release('DEMO-3')).ok).toBe(true)
     const again = await cli.release('DEMO-3')

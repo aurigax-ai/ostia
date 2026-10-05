@@ -158,8 +158,8 @@ function harness(overrides: Partial<LanguageServersDeps> = {}): Harness {
   }
   const servers = new LanguageServers({
     sources: () => h.sources,
-    nodePath: '/opt/pine/electron',
-    env: () => ({ PATH: '/usr/bin', PINE_TOKEN: 'secret', PINE_SOCKET: '/s', HOME: '/home/u' }),
+    nodePath: '/opt/ostia/electron',
+    env: () => ({ PATH: '/usr/bin', OSTIA_TOKEN: 'secret', OSTIA_SOCKET: '/s', HOME: '/home/u' }),
     pane: (paneId) =>
       paneId === 'p1'
         ? { windowId: 'w1', workspaceId: 'ws1' }
@@ -214,7 +214,7 @@ async function initialize(h: Harness, sessionId: string): Promise<void> {
 }
 
 beforeEach(() => {
-  tmp = realpathSync(mkdtempSync(join(tmpdir(), 'pine-lsp-')))
+  tmp = realpathSync(mkdtempSync(join(tmpdir(), 'ostia-lsp-')))
   extensionDir = join(tmp, 'ext')
   workDir = join(tmp, 'work')
   mkdirSync(extensionDir)
@@ -232,9 +232,14 @@ afterEach(() => {
 })
 
 describe('scrubbedEnv', () => {
-  it('drops every PINE_ variable and a stray ELECTRON_RUN_AS_NODE', () => {
+  it('drops every OSTIA_ variable and a stray ELECTRON_RUN_AS_NODE', () => {
     expect(
-      scrubbedEnv({ PATH: '/bin', PINE_TOKEN: 't', PINE_PANE_ID: 'p', ELECTRON_RUN_AS_NODE: '1' }),
+      scrubbedEnv({
+        PATH: '/bin',
+        OSTIA_TOKEN: 't',
+        OSTIA_PANE_ID: 'p',
+        ELECTRON_RUN_AS_NODE: '1',
+      }),
     ).toEqual({ PATH: '/bin' })
   })
 })
@@ -342,7 +347,7 @@ describe('LanguageServers.open', () => {
     })
     expect(h.spawned).toHaveLength(1)
     const [call] = h.spawned
-    expect(call.command).toBe('/opt/pine/electron')
+    expect(call.command).toBe('/opt/ostia/electron')
     expect(call.args).toEqual([
       join(extensionDir, 'server.js'),
       '--stdio',
@@ -845,7 +850,7 @@ describe('LanguageServers with a program the human chose', () => {
     })
   })
 
-  it('replaces a bundled server’s runtime and script, and wins over a copy Pine keeps', async () => {
+  it('replaces a bundled server’s runtime and script, and wins over a copy Ostia keeps', async () => {
     const h = harness({ overrideProblem: () => null })
     h.sources = [source(nodeServer, { override: { path: '/opt/mine/custom-ls', args: [] } })]
     h.copies.set('ext/fake', '/data/ls/ext/fake/1/bin/tool')
@@ -943,15 +948,15 @@ describe('LanguageServers in a sandboxed workspace', () => {
     const script = join(extensionDir, 'server.js')
     expect(h.wrap).toHaveBeenCalledWith(
       'ws1',
-      `/opt/pine/electron ${script} --stdio '--ext=${extensionDir}' '--root=${workDir}'`,
+      `/opt/ostia/electron ${script} --stdio '--ext=${extensionDir}' '--root=${workDir}'`,
       [],
     )
     const [call] = h.spawned
     expect(call.command).toBe('/bin/sh')
-    expect(call.args).toEqual(['-c', expect.stringMatching(/^wrapped \/opt\/pine\/electron /)])
+    expect(call.args).toEqual(['-c', expect.stringMatching(/^wrapped \/opt\/ostia\/electron /)])
     expect(call.options.shell).toBe(false)
     expect(call.options.env.TMPDIR).toBe('/sandbox-tmp')
-    expect(call.options.env.PINE_TOKEN).toBeUndefined()
+    expect(call.options.env.OSTIA_TOKEN).toBeUndefined()
     expect(h.servers.log('ext/fake').entries[0]).toMatchObject({ kind: 'start', sandboxed: true })
   })
 
@@ -1067,7 +1072,7 @@ const goServer: LanguageServerContribution = {
   rootMarkers: [],
 }
 
-describe('LanguageServers with a server Pine fetches', () => {
+describe('LanguageServers with a server Ostia fetches', () => {
   const rustFile = (): string => {
     writeFileSync(join(workDir, 'main.rs'), '')
     return join(workDir, 'main.rs')

@@ -22,5 +22,5 @@ export function openAssistUi(req: AssistOpenUiRequest): void {
 }
 
 export function startAssistUi(): () => void {
-  return window.pine?.assist?.onOpenUi?.(openAssistUi) ?? (() => {})
+  return window.ostia?.assist?.onOpenUi?.(openAssistUi) ?? (() => {})
 }

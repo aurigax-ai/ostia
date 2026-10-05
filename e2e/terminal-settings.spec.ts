@@ -47,9 +47,9 @@ test('copy on select puts selected terminal text on the clipboard', async () => 
 
     const rows = win.locator('.xterm-rows').first()
     await win.locator('.xterm').first().click()
-    await win.keyboard.type('clear; echo pinecopy42')
+    await win.keyboard.type('clear; echo ostiacopy42')
     await win.keyboard.press('Enter')
-    const output = rows.locator('div', { hasText: /^pinecopy42\s*$/ }).first()
+    const output = rows.locator('div', { hasText: /^ostiacopy42\s*$/ }).first()
     await expect(output).toHaveCount(1, { timeout: 15_000 })
     await expect(
       output
@@ -63,7 +63,7 @@ test('copy on select puts selected terminal text on the clipboard', async () => 
 
     await expect
       .poll(() => app.evaluate(({ clipboard }) => clipboard.readText()))
-      .toBe('pinecopy42')
+      .toBe('ostiacopy42')
   } finally {
     await app.close()
   }

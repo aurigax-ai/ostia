@@ -11,7 +11,7 @@ test('an agent call that lacks a capability waits for the human and continues on
 
     const terminal = win.locator('.xterm').first()
     await terminal.click()
-    await win.keyboard.type('pine settings set sidebar.showSSH false && echo APPROVED-RUN')
+    await win.keyboard.type('ostia settings set sidebar.showSSH false && echo APPROVED-RUN')
     await win.keyboard.press('Enter')
 
     const card = win.getByRole('region', { name: 'Agent permission request' })
@@ -22,7 +22,7 @@ test('an agent call that lacks a capability waits for the human and continues on
     await expect(win.locator('.xterm-rows')).toContainText('APPROVED-RUN', { timeout: 15_000 })
 
     await terminal.click()
-    await win.keyboard.type('pine settings set sidebar.showSSH true || echo REFUSED-RUN')
+    await win.keyboard.type('ostia settings set sidebar.showSSH true || echo REFUSED-RUN')
     await win.keyboard.press('Enter')
     await expect(card).toBeVisible({ timeout: 20_000 })
     await card.getByRole('button', { name: 'Deny' }).click()

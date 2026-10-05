@@ -6,7 +6,7 @@ import {
   checkpointFiles,
   restoreCheckpoint,
 } from '../lib/chatCheckpoint'
-import type { PineChatMessage } from '../lib/chatTransport'
+import type { OstiaChatMessage } from '../lib/chatTransport'
 import { sessionEdits } from '../stores/chatToolsStore'
 import { shownPath } from './ChatEditCard'
 import { Button } from './ui/button'
@@ -29,7 +29,7 @@ export function ChatCheckpointDialog({
 }: {
   sessionId: string
   workspaceId: string | null
-  messages: readonly PineChatMessage[]
+  messages: readonly OstiaChatMessage[]
   messageId: string | null
   onClose: () => void
   onDone: (text: string) => void

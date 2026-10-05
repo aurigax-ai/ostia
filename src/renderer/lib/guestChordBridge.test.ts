@@ -80,11 +80,11 @@ describe('guestChordSignatures', () => {
 
   it('sends the list to main now and after a rebind', () => {
     const stop = syncGuestChords(false)
-    expect(window.pine.guestChords.set).toHaveBeenLastCalledWith(
+    expect(window.ostia.guestChords.set).toHaveBeenLastCalledWith(
       expect.arrayContaining(['Ctrl+Shift+P']),
     )
     useSettingsStore.setState({ keybindings: { 'palette.toggle': 'Ctrl+Alt+P' } })
-    const last = vi.mocked(window.pine.guestChords.set).mock.lastCall?.[0] ?? []
+    const last = vi.mocked(window.ostia.guestChords.set).mock.lastCall?.[0] ?? []
     expect(last).toContain('Ctrl+Alt+P')
     expect(last).not.toContain('Ctrl+Shift+P')
     stop()

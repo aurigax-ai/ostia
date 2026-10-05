@@ -234,7 +234,7 @@ export interface ConfirmRequest {
   hostTerminal?: string[]
 }
 
-export interface PineExtension {
+export interface OstiaExtension {
   call: <T = unknown>(method: string, params?: unknown) => Promise<T>
   confirm: (req: ConfirmRequest) => Promise<boolean>
   notifyPanel: (title: string, body?: string, path?: string) => Promise<unknown>
@@ -328,7 +328,7 @@ function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err)
 }
 
-export async function connect(): Promise<PineExtension> {
+export async function connect(): Promise<OstiaExtension> {
   const socketPath = readEnv('SOCKET')
   const token = readEnv('TOKEN')
   if (!socketPath || !token) throw new Error('OSTIA_SOCKET / OSTIA_TOKEN missing')
@@ -738,7 +738,7 @@ export async function startPanelServer(opts: {
     const origin = req.headers.origin
     if (origin && origin !== `http://127.0.0.1:${port}`)
       return send(res, 403, 'text/plain', 'origin')
-    const authed = req.headers['x-pine-panel'] === secret || url.searchParams.get('t') === secret
+    const authed = req.headers['x-ostia-panel'] === secret || url.searchParams.get('t') === secret
 
     if (req.method === 'GET' && url.pathname === '/events') {
       if (!authed) return send(res, 403, 'text/plain', 'forbidden')
@@ -749,7 +749,7 @@ export async function startPanelServer(opts: {
       return
     }
     if (url.pathname === PANEL_SIZES_PATH) {
-      if (req.headers['x-pine-panel'] !== secret) return send(res, 403, 'text/plain', 'forbidden')
+      if (req.headers['x-ostia-panel'] !== secret) return send(res, 403, 'text/plain', 'forbidden')
       if (req.method === 'GET')
         return send(res, 200, 'application/json', JSON.stringify(sizes.all()))
       if (req.method !== 'POST') return send(res, 405, 'text/plain', 'method not allowed')
@@ -767,7 +767,7 @@ export async function startPanelServer(opts: {
       }
     }
     if (req.method === 'POST' && url.pathname === '/api') {
-      if (req.headers['x-pine-panel'] !== secret) return send(res, 403, 'text/plain', 'forbidden')
+      if (req.headers['x-ostia-panel'] !== secret) return send(res, 403, 'text/plain', 'forbidden')
       try {
         const body = JSON.parse(await readBody(req)) as {
           command?: unknown

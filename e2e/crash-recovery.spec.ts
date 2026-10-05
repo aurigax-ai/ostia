@@ -105,7 +105,7 @@ test.describe('renderer crash', () => {
     test.info().annotations.push({
       type: 'PINE-63',
       description:
-        'on the Ubuntu runner Pine sometimes never sees the killed renderer; retried on Linux CI',
+        'on the Ubuntu runner Ostia sometimes never sees the killed renderer; retried on Linux CI',
     })
     test.setTimeout(120_000)
     const { app, win, dataHome } = await launch()
@@ -187,7 +187,7 @@ test('closing a diff tab keeps the window and the other terminals working', asyn
     await openWorkspace(win)
     await win.locator('.pane.active').getByRole('button', { name: 'Split right' }).click()
     await expect(win.locator('.xterm')).toHaveCount(2, { timeout: 15_000 })
-    await run(win, 0, 'pine git open a.txt')
+    await run(win, 0, 'ostia git open a.txt')
     const diffTab = win.locator('.pane-tab', { hasText: 'a.txt' })
     await expect(win.locator('.diff-surface')).toBeVisible({ timeout: 15_000 })
 

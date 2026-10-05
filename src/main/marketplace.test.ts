@@ -31,7 +31,7 @@ afterEach(() => {
 })
 
 function tmp(): string {
-  const d = mkdtempSync(join(tmpdir(), 'pine-marketplace-'))
+  const d = mkdtempSync(join(tmpdir(), 'ostia-marketplace-'))
   dirs.push(d)
   return d
 }
@@ -46,7 +46,7 @@ function git(cwd: string, ...args: string[]): void {
 function writeExtension(repo: string, path: string, manifest: Record<string, unknown>): void {
   const dir = join(repo, path)
   mkdirSync(join(dir, 'lib'), { recursive: true })
-  writeFileSync(join(dir, 'pine.json'), JSON.stringify(manifest))
+  writeFileSync(join(dir, 'ostia.json'), JSON.stringify(manifest))
   writeFileSync(join(dir, 'main.js'), `module.exports = '${manifest.version}'\n`)
   writeFileSync(join(dir, 'lib', 'helper.js'), '')
 }
@@ -61,7 +61,7 @@ function weather(version: string): Record<string, unknown> {
     id: 'weather',
     name: 'Weather',
     version,
-    api: '1.0',
+    api: '2.0',
     description: 'Shows the weather',
     capabilities: ['notify'],
     main: 'main.js',
@@ -71,7 +71,7 @@ function weather(version: string): Record<string, unknown> {
 const CODE = 'abcdefghijklmnopqrstuvwx23'
 
 function tides(version: string): Record<string, unknown> {
-  return { id: 'tides', name: 'Tides', version, api: '1.0', main: 'main.js' }
+  return { id: 'tides', name: 'Tides', version, api: '2.0', main: 'main.js' }
 }
 
 function repoWithUnlisted(): string {
@@ -149,8 +149,8 @@ function harness(
 
 describe('normalizeMarketplaceUrl', () => {
   it('expands owner/repo to a GitHub https URL', () => {
-    expect(normalizeMarketplaceUrl(' acme/pine-extensions ')).toBe(
-      'https://github.com/acme/pine-extensions.git',
+    expect(normalizeMarketplaceUrl(' acme/extensions ')).toBe(
+      'https://github.com/acme/extensions.git',
     )
   })
 
@@ -236,10 +236,10 @@ describe('planCopy', () => {
     mkdirSync(join(dir, '.git'))
     writeFileSync(join(dir, '.git', 'HEAD'), '')
     mkdirSync(join(dir, 'lib'))
-    writeFileSync(join(dir, 'pine.json'), '{}')
+    writeFileSync(join(dir, 'ostia.json'), '{}')
     writeFileSync(join(dir, 'lib', 'a.js'), '')
     const plan = planCopy(dir)
-    expect(plan.ok && plan.files.sort()).toEqual(['lib/a.js', 'pine.json'])
+    expect(plan.ok && plan.files.sort()).toEqual(['lib/a.js', 'ostia.json'])
   })
 
   it('refuses a folder that holds a symlink', () => {
@@ -394,9 +394,9 @@ describe('Marketplace', () => {
     const id = state.marketplaces[0]?.id
     const res = await h.marketplace.install(id, 'weather')
     expect(res.ok).toBe(true)
-    expect(JSON.parse(readFileSync(join(h.extensionsDir, 'weather', 'pine.json'), 'utf8'))).toEqual(
-      weather('1.0.0'),
-    )
+    expect(
+      JSON.parse(readFileSync(join(h.extensionsDir, 'weather', 'ostia.json'), 'utf8')),
+    ).toEqual(weather('1.0.0'))
     expect(existsSync(join(h.extensionsDir, 'weather', 'lib', 'helper.js'))).toBe(true)
     expect(existsSync(join(h.extensionsDir, 'weather', '.git'))).toBe(false)
     expect(res.state.marketplaces[0]?.extensions[0]?.state).toBe('installed')
@@ -492,7 +492,7 @@ describe('Marketplace', () => {
     const res = await h.marketplace.remove(id)
     expect(res.state.marketplaces).toEqual([])
     expect(res.state.installed).toEqual(['weather'])
-    expect(existsSync(join(h.extensionsDir, 'weather', 'pine.json'))).toBe(true)
+    expect(existsSync(join(h.extensionsDir, 'weather', 'ostia.json'))).toBe(true)
     expect((await h.marketplace.uninstall('weather')).ok).toBe(true)
   })
 
@@ -502,7 +502,7 @@ describe('Marketplace', () => {
       id: 'gleam',
       name: 'Gleam',
       version: '1.0.0',
-      api: '1.0',
+      api: '2.0',
       capabilities: ['language-server'],
       contributes: {
         languageServers: [
@@ -538,9 +538,13 @@ describe('Marketplace', () => {
       },
     })
     await h.marketplace.add(repo)
-    const res = await h.marketplace.installSuggested('weather', 'aurigax-ai/pine-extensions', false)
+    const res = await h.marketplace.installSuggested(
+      'weather',
+      'aurigax-ai/ostia-extensions',
+      false,
+    )
     expect(res.ok).toBe(true)
-    expect(existsSync(join(h.extensionsDir, 'weather', 'pine.json'))).toBe(true)
+    expect(existsSync(join(h.extensionsDir, 'weather', 'ostia.json'))).toBe(true)
     expect(clones).toEqual([repo])
     expect(h.forgotten).toEqual(['weather'])
   })
@@ -554,13 +558,17 @@ describe('Marketplace', () => {
         await runGit([...args.slice(0, -2), official, args[args.length - 1]])
       },
     })
-    const res = await h.marketplace.installSuggested('weather', 'aurigax-ai/pine-extensions', false)
+    const res = await h.marketplace.installSuggested(
+      'weather',
+      'aurigax-ai/ostia-extensions',
+      false,
+    )
     expect(res.ok).toBe(true)
-    expect(cloned).toEqual(['https://github.com/aurigax-ai/pine-extensions.git'])
+    expect(cloned).toEqual(['https://github.com/aurigax-ai/ostia-extensions.git'])
     expect(res.state.marketplaces.map((m) => m.url)).toEqual([
-      'https://github.com/aurigax-ai/pine-extensions.git',
+      'https://github.com/aurigax-ai/ostia-extensions.git',
     ])
-    expect(existsSync(join(h.extensionsDir, 'weather', 'pine.json'))).toBe(true)
+    expect(existsSync(join(h.extensionsDir, 'weather', 'ostia.json'))).toBe(true)
   })
 
   it('takes an extension the app itself suggests only from the official marketplace', async () => {
@@ -587,11 +595,11 @@ describe('Marketplace', () => {
       },
     })
     await h.marketplace.add(squatter)
-    const res = await h.marketplace.installSuggested('weather', 'aurigax-ai/pine-extensions', true)
+    const res = await h.marketplace.installSuggested('weather', 'aurigax-ai/ostia-extensions', true)
     expect(res.ok).toBe(true)
     expect(res.state.marketplaces).toHaveLength(2)
     expect(
-      JSON.parse(readFileSync(join(h.extensionsDir, 'weather', 'pine.json'), 'utf8')).name,
+      JSON.parse(readFileSync(join(h.extensionsDir, 'weather', 'ostia.json'), 'utf8')).name,
     ).toBe('Official weather')
   })
 
@@ -601,19 +609,19 @@ describe('Marketplace', () => {
       git: async (args) => runGit([...args.slice(0, -2), official, args[args.length - 1]]),
     })
     expect(
-      await h.marketplace.installSuggested('nope', 'aurigax-ai/pine-extensions', false),
+      await h.marketplace.installSuggested('nope', 'aurigax-ai/ostia-extensions', false),
     ).toMatchObject({
       ok: false,
       error: 'unknown-extension',
     })
     expect(
-      await h.marketplace.installSuggested('nope', 'aurigax-ai/pine-extensions', false),
+      await h.marketplace.installSuggested('nope', 'aurigax-ai/ostia-extensions', false),
     ).toMatchObject({
       ok: false,
       error: 'unknown-extension',
     })
     expect(
-      await h.marketplace.installSuggested('../x', 'aurigax-ai/pine-extensions', false),
+      await h.marketplace.installSuggested('../x', 'aurigax-ai/ostia-extensions', false),
     ).toMatchObject({
       ok: false,
       error: 'unknown-extension',
@@ -624,7 +632,7 @@ describe('Marketplace', () => {
       },
     })
     expect(
-      await offline.marketplace.installSuggested('weather', 'aurigax-ai/pine-extensions', false),
+      await offline.marketplace.installSuggested('weather', 'aurigax-ai/ostia-extensions', false),
     ).toMatchObject({ ok: false, error: 'clone-failed' })
     expect(readdirSync(offline.extensionsDir)).toEqual([])
   })
@@ -639,7 +647,7 @@ describe('Marketplace', () => {
 
   it('does not report a broken unlisted entry among the problems it shows', async () => {
     const repo = repoWithUnlisted()
-    writeFileSync(join(repo, 'extensions/tides/pine.json'), '{}')
+    writeFileSync(join(repo, 'extensions/tides/ostia.json'), '{}')
     commit(repo)
     const h = harness()
     const { state } = await h.marketplace.add(repo)
@@ -665,7 +673,7 @@ describe('Marketplace', () => {
     expect(existsSync(join(h.extensionsDir, 'tides'))).toBe(false)
     const res = await h.marketplace.installCode(id, ` ${CODE} `)
     expect(res.ok).toBe(true)
-    expect(JSON.parse(readFileSync(join(h.extensionsDir, 'tides', 'pine.json'), 'utf8'))).toEqual(
+    expect(JSON.parse(readFileSync(join(h.extensionsDir, 'tides', 'ostia.json'), 'utf8'))).toEqual(
       tides('1.0.0'),
     )
     expect(h.forgotten).toEqual(['tides'])

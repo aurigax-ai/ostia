@@ -26,7 +26,7 @@ describe('TrellisService with a fake trellis on PATH', () => {
   const make = (opts: Partial<ConstructorParameters<typeof TrellisService>[0]> = {}) => {
     service = new TrellisService({
       home,
-      consumer: 'pine',
+      consumer: 'ostia',
       translate,
       changeDelayMs: 10,
       host: {
@@ -121,7 +121,7 @@ describe('TrellisService with a fake trellis on PATH', () => {
     expect(recorded.cleared).toEqual([{ workspaceId: 's1', id: 'cards' }])
   })
 
-  it('shows nothing when pine cannot list workspaces', async () => {
+  it('shows nothing when Ostia cannot list workspaces', async () => {
     project('shop', '/DEMO')
     workspaces = new Error('refused')
     await make().refreshSidebar()
@@ -182,8 +182,8 @@ describe('TrellisService with a fake trellis on PATH', () => {
     } finally {
       vi.useRealTimers()
     }
-    await vi.waitFor(() => expect(calls()).toContain('events ack pine 9'))
-    expect(calls().filter((c) => c.startsWith('events ack'))).toEqual(['events ack pine 9'])
+    await vi.waitFor(() => expect(calls()).toContain('events ack ostia 9'))
+    expect(calls().filter((c) => c.startsWith('events ack'))).toEqual(['events ack ostia 9'])
   })
 
   it('primes a new consumer without notifying, then notifies for agent moves to review', async () => {
@@ -194,7 +194,7 @@ describe('TrellisService with a fake trellis on PATH', () => {
     const svc = make()
     await svc.refreshSidebar()
     await svc.startEvents()
-    expect(calls()).toContain('events ack pine 57')
+    expect(calls()).toContain('events ack ostia 57')
     await vi.waitFor(() => expect(recorded.notes).toHaveLength(3), { timeout: 3000 })
     expect(recorded.notes[0]).toEqual({
       title: 'Trellis: ready for your review',
@@ -267,7 +267,10 @@ describe('TrellisService with a fake trellis on PATH', () => {
   })
 
   it('notifies about nothing when the human turned review notices off', async () => {
-    writeFileSync(join(fake, 'consumers.json'), '[{"name":"pine","cursor":45,"lag":0,"gap":false}]')
+    writeFileSync(
+      join(fake, 'consumers.json'),
+      '[{"name":"ostia","cursor":45,"lag":0,"gap":false}]',
+    )
     copyFileSync(join(fake, 'events.jsonl'), join(fake, 'follow.jsonl'))
     workspaces = [{ workspaceId: 's1', workDir: project('trellis', '/TRELLIS') }]
     const svc = make()
@@ -280,7 +283,10 @@ describe('TrellisService with a fake trellis on PATH', () => {
   })
 
   it('ignores events for projects no workspace has open', async () => {
-    writeFileSync(join(fake, 'consumers.json'), '[{"name":"pine","cursor":45,"lag":0,"gap":false}]')
+    writeFileSync(
+      join(fake, 'consumers.json'),
+      '[{"name":"ostia","cursor":45,"lag":0,"gap":false}]',
+    )
     copyFileSync(join(fake, 'events.jsonl'), join(fake, 'follow.jsonl'))
     workspaces = [{ workspaceId: 's1', workDir: project('shop', '/DEMO') }]
     const svc = make()
@@ -290,12 +296,12 @@ describe('TrellisService with a fake trellis on PATH', () => {
     await new Promise((r) => setTimeout(r, 300))
     expect(recorded.notes).toEqual([])
     expect(
-      calls().filter((c) => c.startsWith('events --consumer pine --json --all-projects --limit')),
+      calls().filter((c) => c.startsWith('events --consumer ostia --json --all-projects --limit')),
     ).toEqual([])
   })
 
   it('backs off when the event feed keeps exiting instead of respawning in a loop', async () => {
-    writeFileSync(join(fake, 'consumers.json'), '[{"name":"pine","cursor":0,"lag":0,"gap":false}]')
+    writeFileSync(join(fake, 'consumers.json'), '[{"name":"ostia","cursor":0,"lag":0,"gap":false}]')
     writeFileSync(join(fake, 'follow-exits'), '')
     const svc = make({ followRestartBaseMs: 50 })
     await svc.startEvents()

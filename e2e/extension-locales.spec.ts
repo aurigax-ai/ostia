@@ -11,7 +11,7 @@ const fixture = join(__dirname, '..', 'test', 'fixtures', 'extensions-e2e', 'hel
 function installTranslatedExtension(configHome: string): void {
   const dir = join(configHome, PRODUCT_NAME, 'extensions', 'hello')
   mkdirSync(dir, { recursive: true })
-  for (const file of ['pine.json', 'panel.html', 'locales']) {
+  for (const file of ['ostia.json', 'panel.html', 'locales']) {
     cpSync(join(fixture, file), join(dir, file), { recursive: true })
   }
   buildSync({

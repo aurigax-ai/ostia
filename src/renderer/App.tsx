@@ -25,6 +25,7 @@ import { runAppChord } from './lib/chords'
 import { confirmQuit, quitGroups } from './lib/closeConfirm'
 import { handleDocumentClipboardChord, syncClipboardChords } from './lib/documentClipboard'
 import { wireGuestChords } from './lib/guestChordBridge'
+import { installMiddlePasteGuard } from './lib/middlePaste'
 import { useMotionAttribute } from './lib/motion'
 import { applyTheme, useEffectiveTheme } from './lib/theme'
 import { applyUiFonts } from './lib/uiFonts'
@@ -58,7 +59,7 @@ export function App(): JSX.Element {
   }, [theme, accent])
 
   useEffect(() => {
-    void window.pine.window.setZoom(clampZoom(zoom))
+    void window.ostia.window.setZoom(clampZoom(zoom))
   }, [zoom])
 
   useEffect(() => {
@@ -76,6 +77,8 @@ export function App(): JSX.Element {
   useEffect(() => syncClipboardChords(isMac), [])
   useEffect(() => wireGuestChords(isMac), [])
 
+  useEffect(() => installMiddlePasteGuard(window), [])
+
   const extensionList = useExtensionsStore((s) => s.list)
   useEffect(() => {
     void extensionList
@@ -92,9 +95,9 @@ export function App(): JSX.Element {
 
   useEffect(() => {
     const offs = [
-      window.pine.window.onRunningQuery(quitGroups),
-      window.pine.window.onConfirmClose(confirmQuit),
-      window.pine.window.onFreeze(freezeSnapshots),
+      window.ostia.window.onRunningQuery(quitGroups),
+      window.ostia.window.onConfirmClose(confirmQuit),
+      window.ostia.window.onFreeze(freezeSnapshots),
     ]
     return () => {
       for (const off of offs) off()

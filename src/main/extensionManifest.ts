@@ -663,12 +663,12 @@ export function parseManifest(raw: unknown, dir: string): ManifestResult {
 }
 
 export function readManifest(dir: string): ManifestResult {
-  const path = join(dir, EXTENSION_MANIFEST_FILE)
+  const file = EXTENSION_MANIFEST_FILE
   let raw: unknown
   try {
-    raw = JSON.parse(readFileSync(path, 'utf8'))
+    raw = JSON.parse(readFileSync(join(dir, file), 'utf8'))
   } catch (err) {
-    return { ok: false, error: `unreadable ${EXTENSION_MANIFEST_FILE}: ${(err as Error).message}` }
+    return { ok: false, error: `unreadable ${file}: ${(err as Error).message}` }
   }
   return parseManifest(raw, dir)
 }

@@ -12,7 +12,7 @@ export function SandboxViolations({ workspaceId }: { workspaceId: string }): JSX
   const d = useDict()
   const [list, setList] = useState<SandboxViolation[]>([])
   const load = useCallback(
-    () => void window.pine.sandbox.violations(workspaceId).then(setList),
+    () => void window.ostia.sandbox.violations(workspaceId).then(setList),
     [workspaceId],
   )
   useEffect(() => {
@@ -30,7 +30,7 @@ export function SandboxViolations({ workspaceId }: { workspaceId: string }): JSX
           variant="outline"
           size="sm"
           disabled={list.length === 0}
-          onClick={() => void window.pine.sandbox.clearViolations(workspaceId).then(load)}
+          onClick={() => void window.ostia.sandbox.clearViolations(workspaceId).then(load)}
         >
           {d.sandbox.violationsClear}
         </Button>
@@ -57,7 +57,7 @@ export function SandboxViolations({ workspaceId }: { workspaceId: string }): JSX
                     variant="outline"
                     size="xs"
                     onClick={() =>
-                      void window.pine.sandbox
+                      void window.ostia.sandbox
                         .allowRefused(workspaceId, v.allowHost as string)
                         .then(load)
                     }

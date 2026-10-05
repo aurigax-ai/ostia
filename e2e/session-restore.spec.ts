@@ -30,7 +30,7 @@ function fakeAgentBin(dataHome: string): string {
       'case "$*" in',
       '  *--resume*) echo "fake-agent-resumed $*" ;;',
       '  *) for arg; do last=$arg; done',
-      '     ELECTRON_RUN_AS_NODE=1 "$PINE_NODE" "$PINE_CLI" resume-token claude "$last" >/dev/null 2>&1',
+      '     ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" "$OSTIA_CLI" resume-token claude "$last" >/dev/null 2>&1',
       '     echo fake-agent-ready ;;',
       'esac',
       'exec cat',

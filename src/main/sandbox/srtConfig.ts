@@ -1,7 +1,7 @@
 import { constants, accessSync, realpathSync } from 'node:fs'
 import { dirname, isAbsolute, join, relative } from 'node:path'
 import type { SandboxRuntimeConfig } from '@anthropic-ai/sandbox-runtime'
-import { LEGACY_PRODUCT_NAME, PRODUCT_NAME } from '../../shared/product'
+import { PRODUCT_NAME } from '../../shared/product'
 import {
   DEFAULT_SWITCHES,
   type ResolvedSandbox,
@@ -9,6 +9,7 @@ import {
   type SandboxFolderReason,
   type SandboxSwitches,
 } from '../../shared/sandbox'
+import { OLD_PRODUCT_NAME } from '../userDirs'
 
 export interface SandboxPaths {
   home: string
@@ -45,7 +46,7 @@ const GIT_CONFIG_FILE = '.git/config'
 export const WORKDIR_PROTECTED_FILES = ['.envrc', '.git/hooks', GIT_CONFIG_FILE]
 export const WORKDIR_HIDDEN_FILES = [
   `.${PRODUCT_NAME}/vault.json`,
-  `.${LEGACY_PRODUCT_NAME}/vault.json`,
+  `.${OLD_PRODUCT_NAME}/vault.json`,
 ]
 export const HOME_HIDDEN_FILES = ['.cargo/credentials.toml', '.cargo/credentials']
 
@@ -162,7 +163,7 @@ export function folderProblem(
   const folder = realPath(workDir)
   const home = realPath(paths.home)
   if (within(home, folder)) return within(folder, home) ? 'home' : 'above-home'
-  return paths.dataDirs.some((dir) => overlaps(folder, realPath(dir))) ? 'pine-data' : null
+  return paths.dataDirs.some((dir) => overlaps(folder, realPath(dir))) ? 'ostia-data' : null
 }
 
 const SECCOMP_ARCHS = ['x64', 'arm64']

@@ -19,7 +19,7 @@ export function SandboxSecretsTab({ workspaceId }: { workspaceId: string }): JSX
   const [value, setValue] = useState('')
 
   const load = useCallback(() => {
-    void window.pine.secrets.view(workspaceId).then((view) => {
+    void window.ostia.secrets.view(workspaceId).then((view) => {
       if (!view) return
       setSecrets(view.secrets)
       setGrants(view.grants)
@@ -31,7 +31,7 @@ export function SandboxSecretsTab({ workspaceId }: { workspaceId: string }): JSX
 
   const sourceLabel: Record<SecretEntry['source'], string> = {
     host: d.sandbox.secretHost,
-    pine: d.sandbox.secretPine,
+    ostia: d.sandbox.secretOstia,
   }
   const modeLabel: Record<ModeChoice, string> = {
     none: d.sandbox.secretNone,
@@ -43,7 +43,7 @@ export function SandboxSecretsTab({ workspaceId }: { workspaceId: string }): JSX
   const setMode = async (secret: SecretEntry, mode: ModeChoice): Promise<void> => {
     const rest = grants.filter((g) => g.id !== secret.id)
     const next = mode === 'none' ? rest : [...rest, { id: secret.id, mode }]
-    const res = await window.pine.secrets.setGrants(workspaceId, next)
+    const res = await window.ostia.secrets.setGrants(workspaceId, next)
     if (res.ok) {
       setGrants(res.settings.secrets ?? [])
       setError(null)
@@ -52,9 +52,9 @@ export function SandboxSecretsTab({ workspaceId }: { workspaceId: string }): JSX
     }
   }
 
-  const addPine = async (): Promise<void> => {
+  const addOstia = async (): Promise<void> => {
     if (!key.trim() || !value) return
-    if (await window.pine.secrets.vaultSet(workspaceId, key.trim(), value)) {
+    if (await window.ostia.secrets.vaultSet(workspaceId, key.trim(), value)) {
       setKey('')
       setValue('')
       load()
@@ -74,12 +74,12 @@ export function SandboxSecretsTab({ workspaceId }: { workspaceId: string }): JSX
             <li key={secret.id} className="flex items-center gap-2 text-ui-sm">
               <Badge variant="outline">{sourceLabel[secret.source]}</Badge>
               <span className="min-w-0 flex-1 truncate font-mono text-fg">{secret.name}</span>
-              {secret.source === 'pine' ? (
+              {secret.source === 'ostia' ? (
                 <IconButton
                   icon={TrashIcon}
                   label={fmt(d.sandbox.remove, { item: secret.name })}
                   onClick={() =>
-                    void window.pine.secrets.vaultDelete(workspaceId, secret.name).then(load)
+                    void window.ostia.secrets.vaultDelete(workspaceId, secret.name).then(load)
                   }
                 />
               ) : null}
@@ -110,7 +110,7 @@ export function SandboxSecretsTab({ workspaceId }: { workspaceId: string }): JSX
         className="mt-3 flex gap-2"
         onSubmit={(e) => {
           e.preventDefault()
-          void addPine()
+          void addOstia()
         }}
       >
         <Input

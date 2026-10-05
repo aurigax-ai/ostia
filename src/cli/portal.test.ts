@@ -22,7 +22,7 @@ afterEach(() => {
 })
 
 function socketPath(): string {
-  dir = mkdtempSync(join(tmpdir(), 'pine-cli-portal-'))
+  dir = mkdtempSync(join(tmpdir(), 'ostia-cli-portal-'))
   return join(dir, 'portal.sock')
 }
 
@@ -36,7 +36,7 @@ describe('connectPortal', () => {
     const path = socketPath()
     await listen(path)
     const launches: string[] = []
-    const socket = await connectPortal(path, { PINE_APP_BIN: '/opt/pine' }, (bin) => {
+    const socket = await connectPortal(path, { OSTIA_APP_BIN: '/opt/ostia' }, (bin) => {
       launches.push(bin)
     })
     expect(typeof socket).not.toBe('string')
@@ -49,7 +49,7 @@ describe('connectPortal', () => {
     const launches: { bin: string; node?: string }[] = []
     const socket = await connectPortal(
       path,
-      { PINE_APP_BIN: '/opt/pine/pine', ELECTRON_RUN_AS_NODE: '1' },
+      { OSTIA_APP_BIN: '/opt/ostia/ostia', ELECTRON_RUN_AS_NODE: '1' },
       (bin, env) => {
         launches.push({ bin, node: env.ELECTRON_RUN_AS_NODE })
         setTimeout(() => void listen(path), 300)
@@ -57,10 +57,10 @@ describe('connectPortal', () => {
     )
     expect(typeof socket).not.toBe('string')
     if (typeof socket !== 'string') socket.destroy()
-    expect(launches).toEqual([{ bin: '/opt/pine/pine', node: '1' }])
+    expect(launches).toEqual([{ bin: '/opt/ostia/ostia', node: '1' }])
   })
 
-  it('launches the binary named by OSTIA_APP_BIN before the old PINE_APP_BIN', async () => {
+  it('launches the binary named by OSTIA_APP_BIN and ignores PINE_APP_BIN', async () => {
     const launched = async (env: Record<string, string>): Promise<string[]> => {
       const launches: string[] = []
       await connectPortal(socketPath(), env, (bin) => void launches.push(bin), 300)
@@ -69,7 +69,6 @@ describe('connectPortal', () => {
     expect(await launched({ OSTIA_APP_BIN: '/opt/ostia/ostia', PINE_APP_BIN: '/opt/old' })).toEqual(
       ['/opt/ostia/ostia'],
     )
-    expect(await launched({ PINE_APP_BIN: '/opt/pine/pine' })).toEqual(['/opt/pine/pine'])
   })
 
   it('MGR-C8 gives up with a message when Ostia does not come up in time, launching once', async () => {
@@ -77,7 +76,7 @@ describe('connectPortal', () => {
     let launches = 0
     const result = await connectPortal(
       path,
-      { PINE_APP_BIN: '/opt/pine/pine' },
+      { OSTIA_APP_BIN: '/opt/ostia/ostia' },
       () => {
         launches++
       },
@@ -144,7 +143,7 @@ describe('runPortalCommand', () => {
       stdin,
       stdout,
       stderr: new PassThrough(),
-      env: { PINE_PORTAL_SOCKET: path },
+      env: { OSTIA_PORTAL_SOCKET: path },
       cwd: '/home/u',
     })
     await new Promise((r) => setTimeout(r, 50))

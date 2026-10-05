@@ -17,9 +17,9 @@ import { assistRequest, chatModel } from '../stores/assistStore'
 import { redactToolOutput } from './chatRedaction'
 import { type ChatToolDef, type ToolOutcome, type ToolRun, chatToolDefs } from './chatTools'
 
-export type PineChatMessage = UIMessage<ChatMessageMetadata>
+export type OstiaChatMessage = UIMessage<ChatMessageMetadata>
 
-type Part = PineChatMessage['parts'][number]
+type Part = OstiaChatMessage['parts'][number]
 
 export interface ToolPartLike {
   type: string
@@ -37,7 +37,7 @@ export const MAX_TOOL_ROUNDS = 8
 export const OLD_TOOL_OUTPUT_MAX = 2000
 export const STOPPED_TOOL_ERROR = 'Not run: the chat was stopped.'
 
-export function messageText(message: Pick<PineChatMessage, 'parts'>): string {
+export function messageText(message: Pick<OstiaChatMessage, 'parts'>): string {
   return message.parts.map((part) => (part.type === 'text' ? part.text : '')).join('')
 }
 
@@ -81,7 +81,7 @@ export function toolCallOf(part: ToolPartLike, outputMax = CHAT_TOOL_OUTPUT_MAX)
   return { ...base, state: 'error', error: STOPPED_TOOL_ERROR }
 }
 
-function assistantTurns(message: PineChatMessage, outputMax: number): ChatMessage[] {
+function assistantTurns(message: OstiaChatMessage, outputMax: number): ChatMessage[] {
   const turns: ChatMessage[] = []
   let text = ''
   let tools: ChatToolCall[] = []
@@ -102,7 +102,7 @@ function assistantTurns(message: PineChatMessage, outputMax: number): ChatMessag
   return turns
 }
 
-export function toChatRequest(messages: readonly PineChatMessage[]): ChatAssistRequest {
+export function toChatRequest(messages: readonly OstiaChatMessage[]): ChatAssistRequest {
   const turns: ChatMessage[] = []
   const lastUser = messages.map((m) => m.role).lastIndexOf('user')
   messages.forEach((message, index) => {
@@ -172,7 +172,7 @@ function isAbort(err: unknown): boolean {
   return err instanceof DOMException && err.name === 'AbortError'
 }
 
-export function createAssistTransport(session?: TransportSession): ChatTransport<PineChatMessage> {
+export function createAssistTransport(session?: TransportSession): ChatTransport<OstiaChatMessage> {
   return {
     sendMessages: async ({ messages, abortSignal }) => {
       const base = toChatRequest(messages)

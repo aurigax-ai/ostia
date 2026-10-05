@@ -135,7 +135,7 @@ describe('trellis CLI output parsing', () => {
       ref: 'DEMO-5',
       column: 'in-progress',
     })
-    expect(parseCard(fixture('card-claim.json'))?.claimedBy).toBe('human:pine')
+    expect(parseCard(fixture('card-claim.json'))?.claimedBy).toBe('human:ostia')
     expect(parseCard(fixture('card-renew.json'))).toBeNull()
   })
 
@@ -299,7 +299,7 @@ describe('trellis project markers', () => {
   let home: string
 
   beforeEach(() => {
-    root = mkdtempSync(join(tmpdir(), 'pine-trellis-'))
+    root = mkdtempSync(join(tmpdir(), 'ostia-trellis-'))
     home = join(root, 'home')
     mkdirSync(home)
   })

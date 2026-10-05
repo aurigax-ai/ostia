@@ -47,11 +47,11 @@ let unseed: () => void
 
 beforeEach(() => {
   unseed = seedSendTarget('w1')
-  vi.mocked(window.pine.fs.readBinary).mockResolvedValue({ ok: true, data: new Uint8Array([37]) })
+  vi.mocked(window.ostia.fs.readBinary).mockResolvedValue({ ok: true, data: new Uint8Array([37]) })
   vi.mocked(cropToPng).mockResolvedValue(PNG)
-  vi.mocked(window.pine.selection.send).mockResolvedValue({
+  vi.mocked(window.ostia.selection.send).mockResolvedValue({
     ok: true,
-    path: '/tmp/pine-reports-1/selection-1.md',
+    path: '/tmp/ostia-reports-1/selection-1.md',
     imagePath: null,
   })
 })
@@ -81,7 +81,7 @@ function selectText(node: Node, start: number, end: number): void {
 describe('PdfViewer', () => {
   it('opens the PDF from the confined binary read and pages through it', async () => {
     await renderPdf()
-    expect(window.pine.fs.readBinary).toHaveBeenCalledWith('/w/docs/invoice.pdf')
+    expect(window.ostia.fs.readBinary).toHaveBeenCalledWith('/w/docs/invoice.pdf')
     expect(screen.getByRole('button', { name: 'Previous page' })).toBeDisabled()
     await userEvent.click(screen.getByRole('button', { name: 'Next page' }))
     expect(await screen.findByText('Page 2 of 2')).toBeInTheDocument()
@@ -106,7 +106,7 @@ describe('PdfViewer', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Send' }))
 
     await waitFor(() =>
-      expect(window.pine.selection.send).toHaveBeenCalledWith({
+      expect(window.ostia.selection.send).toHaveBeenCalledWith({
         capture: {
           kind: 'pdf-text',
           file: '/w/docs/invoice.pdf',
@@ -140,7 +140,7 @@ describe('PdfViewer', () => {
     expect(cropToPng).toHaveBeenCalledWith(canvas, { x: 60, y: 100, width: 200, height: 50 })
     await userEvent.click(screen.getByRole('button', { name: 'Send' }))
     await waitFor(() =>
-      expect(window.pine.selection.send).toHaveBeenCalledWith(
+      expect(window.ostia.selection.send).toHaveBeenCalledWith(
         expect.objectContaining({
           capture: {
             kind: 'pdf-region',

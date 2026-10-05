@@ -14,7 +14,7 @@ import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } fr
 import { openWorkspace } from './helpers'
 
 const CLI = resolve(__dirname, '../out/cli/index.js')
-const COOKIE = 'pine_profile=kept'
+const COOKIE = 'ostia_profile=kept'
 
 interface Seen {
   path: string
@@ -52,7 +52,7 @@ function runCli(
   args: string[],
 ): { child: ChildProcess; done: Promise<Run> } {
   const child = spawn(process.execPath, [CLI, 'browse', ...args], {
-    env: { ...process.env, PINE_SOCKET: env.PINE_SOCKET, PINE_TOKEN: env.PINE_TOKEN },
+    env: { ...process.env, OSTIA_SOCKET: env.OSTIA_SOCKET, OSTIA_TOKEN: env.OSTIA_TOKEN },
     stdio: ['ignore', 'pipe', 'pipe'],
   })
   let out = ''
@@ -110,11 +110,11 @@ test('the human’s browser panes share one profile that survives a restart; an 
     await openWorkspace(win)
     const envFile = join(dataHome, 'pane.env')
     await win.locator('.xterm').first().click()
-    await win.keyboard.type(`env | grep '^PINE_' > ${envFile}`)
+    await win.keyboard.type(`env | grep '^OSTIA_' > ${envFile}`)
     await win.keyboard.press('Enter')
     await expect
       .poll(() => existsSync(envFile) && readFileSync(envFile, 'utf8'))
-      .toContain('PINE_TOKEN=')
+      .toContain('OSTIA_TOKEN=')
     const paneEnv = readPaneEnv(envFile)
 
     await openHumanTab(win, `${origin}/set`)

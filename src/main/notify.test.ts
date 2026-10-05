@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-const userData = mkdtempSync(join(tmpdir(), 'pine-notify-'))
+const userData = mkdtempSync(join(tmpdir(), 'ostia-notify-'))
 const ipcHandlers = new Map<string, (...args: unknown[]) => void>()
 const shown: { title: string; silent?: boolean }[] = []
 
@@ -48,7 +48,7 @@ let windows: {
   webContents: { send: () => void }
 }[] = []
 
-function pineWindow(state: { visible: boolean; focused: boolean }) {
+function ostiaWindow(state: { visible: boolean; focused: boolean }) {
   return {
     isDestroyed: () => false,
     isVisible: () => state.visible,
@@ -86,25 +86,25 @@ afterEach(async () => {
 })
 
 describe('desktop notifications', () => {
-  it('sends nothing to the system while a Pine window is focused', () => {
+  it('sends nothing to the system while a Ostia window is focused', () => {
     settings({})
-    windows = [pineWindow({ visible: true, focused: true })]
+    windows = [ostiaWindow({ visible: true, focused: true })]
     post(true)
     expect(shown).toEqual([])
   })
 
-  it('still notifies the system when Pine is in the background or hidden in the tray', () => {
+  it('still notifies the system when Ostia is in the background or hidden in the tray', () => {
     settings({})
-    windows = [pineWindow({ visible: true, focused: false })]
+    windows = [ostiaWindow({ visible: true, focused: false })]
     post(true)
-    windows = [pineWindow({ visible: false, focused: true })]
+    windows = [ostiaWindow({ visible: false, focused: true })]
     post(true)
     expect(shown).toHaveLength(2)
   })
 
   it('notifies the system while focused when the human asked for it', () => {
     settings({ whenFocused: true })
-    windows = [pineWindow({ visible: true, focused: true })]
+    windows = [ostiaWindow({ visible: true, focused: true })]
     post(true)
     expect(shown).toHaveLength(1)
   })

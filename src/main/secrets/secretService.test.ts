@@ -5,7 +5,7 @@ import { afterAll, describe, expect, it } from 'vitest'
 import type { ApprovalOutcome } from '../../shared/approvals'
 import { SecretService } from './secretService'
 
-const home = mkdtempSync(join(tmpdir(), 'pine-secrets-home-'))
+const home = mkdtempSync(join(tmpdir(), 'ostia-secrets-home-'))
 mkdirSync(join(home, '.ssh'))
 writeFileSync(join(home, '.ssh', 'id_ed25519'), '-----BEGIN OPENSSH PRIVATE KEY-----\nKEYDATA\n')
 writeFileSync(join(home, '.ssh', 'id_ed25519.pub'), 'ssh-ed25519 AAAA')
@@ -33,7 +33,7 @@ function setup(opts: { outcome?: ApprovalOutcome; granted?: string[] } = {}) {
 }
 
 describe('SecretService', () => {
-  it('SBX-C67 lists host SSH keys and token-like env vars as Host, and the vault as Pine', () => {
+  it('SBX-C67 lists host SSH keys and token-like env vars as Host, and the vault as Ostia', () => {
     const { service } = setup()
     const list = service.list('ws')
     expect(list).toContainEqual(
@@ -41,7 +41,7 @@ describe('SecretService', () => {
     )
     expect(list).toContainEqual(expect.objectContaining({ name: 'GITHUB_TOKEN', source: 'host' }))
     expect(list).toContainEqual(expect.objectContaining({ name: 'DB_PASSWORD', source: 'host' }))
-    expect(list).toContainEqual(expect.objectContaining({ name: 'API_KEY', source: 'pine' }))
+    expect(list).toContainEqual(expect.objectContaining({ name: 'API_KEY', source: 'ostia' }))
     expect(list.map((s) => s.name)).not.toContain('PATH')
     expect(list.map((s) => s.name)).not.toContain('id_ed25519.pub')
     expect(list.map((s) => s.name)).not.toContain('known_hosts')
@@ -50,7 +50,7 @@ describe('SecretService', () => {
   it('SBX-C68 marks host secrets read-only so nothing offers to edit or delete them', () => {
     const { service } = setup()
     for (const secret of service.list('ws')) {
-      expect(secret.editable).toBe(secret.source === 'pine')
+      expect(secret.editable).toBe(secret.source === 'ostia')
     }
   })
 

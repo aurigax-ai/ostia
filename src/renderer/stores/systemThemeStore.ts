@@ -8,7 +8,7 @@ interface SystemThemeState {
 export const useSystemThemeStore = create<SystemThemeState>((set) => ({
   dark: true,
   init: async () => {
-    window.pine.window.onSystemDarkChange((dark) => set({ dark }))
-    set({ dark: await window.pine.window.isSystemDark() })
+    window.ostia.window.onSystemDarkChange((dark) => set({ dark }))
+    set({ dark: await window.ostia.window.isSystemDark() })
   },
 }))

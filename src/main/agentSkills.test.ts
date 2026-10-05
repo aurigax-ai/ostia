@@ -145,7 +145,7 @@ describe('loadAgentSkill', () => {
   let skillDir: string
 
   beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), 'pine-agent-skill-'))
+    dir = mkdtempSync(join(tmpdir(), 'ostia-agent-skill-'))
     ext = join(dir, 'kit')
     skillDir = join(ext, 'skills', 'review')
     mkdirSync(skillDir, { recursive: true })
@@ -207,7 +207,7 @@ describe('loadAgentSkill', () => {
   })
 
   it('refuses a SKILL.md whose name is not the declared skill name', () => {
-    writeFileSync(join(skillDir, 'SKILL.md'), '---\nname: pine\ndescription: x\n---\n')
+    writeFileSync(join(skillDir, 'SKILL.md'), '---\nname: ostia\ndescription: x\n---\n')
     expect(loadAgentSkill(ext, 'kit', skill())).toEqual({
       ok: false,
       error: "SKILL.md: name must be 'review'",
@@ -286,14 +286,14 @@ describe('loadAgentSkill', () => {
     ])
   })
 
-  it('lists skill problems for pine-extension validate', () => {
+  it('lists skill problems for ostia-extension validate', () => {
     writeFileSync(join(skillDir, 'SKILL.md'), '---\nname: other\ndescription: x\n---\n')
     const res = parseManifest(
       {
         id: 'kit',
         name: 'Kit',
         version: '1.0.0',
-        api: '1.0',
+        api: '2.0',
         capabilities: ['agent-plugin'],
         contributes: { agentSkills: [skill()] },
       },
@@ -308,7 +308,7 @@ describe('loadAgentSkill', () => {
 
 describe('the trellis extension', () => {
   const dir = join(__dirname, '..', 'extensions', 'trellis')
-  const parsed = parseManifest(JSON.parse(readFileSync(join(dir, 'pine.json'), 'utf8')), dir)
+  const parsed = parseManifest(JSON.parse(readFileSync(join(dir, 'ostia.json'), 'utf8')), dir)
   if (!parsed.ok) throw new Error(parsed.error)
   const manifest = parsed.manifest
 
@@ -346,6 +346,6 @@ describe('the trellis extension', () => {
     ]) {
       expect(text, taught).toContain(taught)
     }
-    expect(text).not.toMatch(/pine/i)
+    expect(text).not.toMatch(/ostia|pine/i)
   })
 })

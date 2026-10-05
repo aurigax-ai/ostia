@@ -29,7 +29,7 @@ let conn: MessageConnection
 let destroy: () => void
 
 beforeAll(() => {
-  dir = mkdtempSync(join(tmpdir(), 'pine-vault-sbx-'))
+  dir = mkdtempSync(join(tmpdir(), 'ostia-vault-sbx-'))
   process.env.XDG_DATA_HOME = dir
   registerVaultMethods({ isSandboxed: (workspaceId) => workspaceId === 'ws-sbx' })
   const socketPath = join(dir, 'vault.sock')

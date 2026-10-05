@@ -72,8 +72,8 @@ describe('textEditsByUri', () => {
 describe('applyWorkspaceEdit', () => {
   it('edits an open document through its model and a closed file on disk', async () => {
     const model = fake.addModel(new FakeModel('/p/open.txt', 'open one'))
-    vi.mocked(window.pine.fs.read).mockResolvedValue('closed one\n')
-    vi.mocked(window.pine.fs.write).mockResolvedValue(true)
+    vi.mocked(window.ostia.fs.read).mockResolvedValue('closed one\n')
+    vi.mocked(window.ostia.fs.write).mockResolvedValue(true)
     const applied = await applyWorkspaceEdit(
       {
         changes: {
@@ -85,17 +85,17 @@ describe('applyWorkspaceEdit', () => {
     )
     expect(applied).toBe(true)
     expect(model.getValue()).toBe('open two')
-    expect(window.pine.fs.read).toHaveBeenCalledTimes(1)
-    expect(window.pine.fs.read).toHaveBeenCalledWith('/p/closed.txt')
-    expect(window.pine.fs.write).toHaveBeenCalledWith('/p/closed.txt', 'closed two\n')
+    expect(window.ostia.fs.read).toHaveBeenCalledTimes(1)
+    expect(window.ostia.fs.read).toHaveBeenCalledWith('/p/closed.txt')
+    expect(window.ostia.fs.write).toHaveBeenCalledWith('/p/closed.txt', 'closed two\n')
   })
 
   it('reports failure when a closed file cannot be read or written, and for file operations', async () => {
-    vi.mocked(window.pine.fs.read).mockResolvedValue(null)
+    vi.mocked(window.ostia.fs.read).mockResolvedValue(null)
     expect(
       await applyWorkspaceEdit({ changes: { 'file:///p/x.txt': [edit(0, 0, 0, 'x')] } }, '/p'),
     ).toBe(false)
-    expect(window.pine.fs.write).not.toHaveBeenCalled()
+    expect(window.ostia.fs.write).not.toHaveBeenCalled()
     expect(
       await applyWorkspaceEdit(
         { documentChanges: [{ kind: 'delete', uri: 'file:///p/a.txt' }] },
@@ -106,7 +106,7 @@ describe('applyWorkspaceEdit', () => {
 
   it('refuses the whole edit when any file is outside the folder the server may edit', async () => {
     const model = fake.addModel(new FakeModel('/p/open.txt', 'open one'))
-    vi.mocked(window.pine.fs.read).mockResolvedValue('secret\n')
+    vi.mocked(window.ostia.fs.read).mockResolvedValue('secret\n')
     for (const uri of [
       'file:///home/u/.zshrc',
       'file:///p/../home/u/.zshrc',
@@ -130,7 +130,7 @@ describe('applyWorkspaceEdit', () => {
       ),
     ).toBe(false)
     expect(model.getValue()).toBe('open one')
-    expect(window.pine.fs.write).not.toHaveBeenCalled()
+    expect(window.ostia.fs.write).not.toHaveBeenCalled()
     expect(editsStayInside(new Map(), null)).toBe(true)
   })
 })

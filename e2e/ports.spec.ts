@@ -50,12 +50,12 @@ test('the ports extension puts ports and ssh chips on the pane, and a port chip 
     const win = await app.firstWindow()
     await win.waitForLoadState('domcontentloaded')
     await openWorkspace(win)
-    await win.evaluate(() => window.pine.extensions.setSetting('ports', 'portHost', '127.0.0.1'))
+    await win.evaluate(() => window.ostia.extensions.setSetting('ports', 'portHost', '127.0.0.1'))
 
     const term = win.locator('.xterm').first()
     await term.click()
     await win.keyboard.type(
-      `ELECTRON_RUN_AS_NODE=1 "$PINE_NODE" ${join(dataHome, 'server.js')} ${port}`,
+      `ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" ${join(dataHome, 'server.js')} ${port}`,
     )
     await win.keyboard.press('Enter')
 
@@ -76,6 +76,7 @@ test('the ports extension puts ports and ssh chips on the pane, and a port chip 
       .poll(() => browserUrls(app), { timeout: 15_000 })
       .toContain(`http://127.0.0.1:${port}/`)
 
+    await win.getByRole('tablist').getByRole('tab').first().click()
     await term.click()
     await win.keyboard.press('Control+C')
     await expect(portsChip).toHaveCount(0, { timeout: 20_000 })

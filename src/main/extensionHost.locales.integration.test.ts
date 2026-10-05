@@ -18,7 +18,7 @@ const jsonrpc = require.resolve('vscode-jsonrpc/node')
 const MAIN_JS = `
 const { createConnection } = require('node:net')
 const rpc = require(${JSON.stringify(jsonrpc)})
-const socket = createConnection(process.env.PINE_SOCKET)
+const socket = createConnection(process.env.OSTIA_SOCKET)
 const conn = rpc.createMessageConnection(
   new rpc.StreamMessageReader(socket),
   new rpc.StreamMessageWriter(socket),
@@ -38,7 +38,7 @@ conn.onRequest('ext.command', async ({ command }) => {
 socket.on('close', () => process.exit(0))
 conn.listen()
 socket.on('connect', async () => {
-  await conn.sendRequest('hello', { token: process.env.PINE_TOKEN })
+  await conn.sendRequest('hello', { token: process.env.OSTIA_TOKEN })
   await conn.sendRequest('ext.registerCommands', { commands: ['locale', 'announced', 'confirm'] })
 })
 `
@@ -47,7 +47,7 @@ const MANIFEST = {
   id: 'greeter',
   name: 'Greeter',
   version: '1.0.0',
-  api: '1.0',
+  api: '2.0',
   description: 'Says hello',
   main: 'main.js',
   locales: ['zh-Hant'],
@@ -102,7 +102,7 @@ describe('ExtensionHost resolves manifest strings for the language', () => {
     broadcast.mock.calls.filter(([channel]) => channel === 'extensions:changed').map(([, l]) => l)
 
   beforeAll(() => {
-    dir = mkdtempSync(join(tmpdir(), 'pine-ext-locales-host-'))
+    dir = mkdtempSync(join(tmpdir(), 'ostia-ext-locales-host-'))
     socketPath = join(dir, 'control.sock')
     registerExtensionMethods(() => host)
     registerControlServer(
@@ -132,7 +132,7 @@ describe('ExtensionHost resolves manifest strings for the language', () => {
     root = mkdtempSync(join(dir, 'root-'))
     mkdirSync(extDir())
     writeFileSync(join(extDir(), 'main.js'), MAIN_JS)
-    writeFileSync(join(extDir(), 'pine.json'), JSON.stringify(MANIFEST))
+    writeFileSync(join(extDir(), 'ostia.json'), JSON.stringify(MANIFEST))
     if (opts.catalog !== undefined) writeCatalog(opts.catalog)
     host = new ExtensionHost({
       roots: [{ dir: root, builtin: opts.builtin }],

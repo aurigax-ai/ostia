@@ -1,4 +1,4 @@
-import { cliArgs, connect, createTranslator, failure, ok } from '@aurigax-ai/pine-extension-sdk'
+import { cliArgs, connect, createTranslator, failure, ok } from '@aurigax-ai/ostia-extension-sdk'
 
 async function main(): Promise<void> {
   const ext = await connect()

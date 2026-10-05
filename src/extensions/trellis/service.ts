@@ -5,7 +5,7 @@ import {
   type Translate,
   nextBackoff,
   runTool,
-} from '@aurigax-ai/pine-extension-sdk'
+} from '@aurigax-ai/ostia-extension-sdk'
 import { TrellisCli } from './cli'
 import {
   ALL_NOTIFY_KINDS,

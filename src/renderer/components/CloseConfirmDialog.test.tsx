@@ -237,17 +237,17 @@ describe('close confirmation', () => {
             name: '1-aaaaaaaaaaaa',
             customName: 'Scratch',
             kind: 'scratch',
-            workDir: '/tmp/pine-scratch-1000/1-aaaaaaaaaaaa',
+            workDir: '/tmp/ostia-scratch-1000/1-aaaaaaaaaaaa',
             state: 'idle',
           },
         ],
       }))
-      vi.mocked(window.pine.scratch.files).mockResolvedValue(files)
+      vi.mocked(window.ostia.scratch.files).mockResolvedValue(files)
     }
 
     afterEach(() => {
-      vi.mocked(window.pine.scratch.files).mockResolvedValue(0)
-      vi.mocked(window.pine.scratch.reveal).mockClear()
+      vi.mocked(window.ostia.scratch.files).mockResolvedValue(0)
+      vi.mocked(window.ostia.scratch.reveal).mockClear()
     })
 
     it('closes an empty scratch workspace without asking', async () => {
@@ -257,7 +257,7 @@ describe('close confirmation', () => {
       await requestCloseWorkspace('w3')
 
       expect(workspaceIds()).toEqual(['w1', 'w2'])
-      expect(window.pine.scratch.files).toHaveBeenCalledWith('w3')
+      expect(window.ostia.scratch.files).toHaveBeenCalledWith('w3')
     })
 
     it('asks before deleting the files in its folder, offers Reveal, and deletes on confirm', async () => {
@@ -271,7 +271,7 @@ describe('close confirmation', () => {
       expect(dialog).toHaveTextContent('Delete 2 files in the scratch folder?')
       expect(dialog).toHaveTextContent('Scratch')
       await user.click(screen.getByRole('button', { name: 'Reveal' }))
-      expect(window.pine.scratch.reveal).toHaveBeenCalledWith('w3')
+      expect(window.ostia.scratch.reveal).toHaveBeenCalledWith('w3')
       await user.click(screen.getByRole('button', { name: 'Cancel' }))
       await cancelled
       expect(workspaceIds()).toEqual(['w1', 'w2', 'w3'])

@@ -13,7 +13,7 @@ import { sandboxedShellCommand } from './ptyWrap'
 import { buildSrtConfig } from './srtConfig'
 
 const repoRoot = process.cwd()
-const hostScript = join(repoRoot, 'node_modules/.cache/pine-test/sandbox-host-ports.mjs')
+const hostScript = join(repoRoot, 'node_modules/.cache/ostia-test/sandbox-host-ports.mjs')
 let INNER_PORT = 0
 let OTHER_PORT = 0
 const BIG_BODY_BYTES = 2 * 1024 * 1024
@@ -84,7 +84,7 @@ beforeAll(async () => {
     format: 'esm',
     packages: 'external',
   })
-  root = realpathSync(mkdtempSync(join(tmpdir(), 'pine-ports-')))
+  root = realpathSync(mkdtempSync(join(tmpdir(), 'ostia-ports-')))
   const workDir = join(root, 'home', 'proj')
   mkdirSync(workDir, { recursive: true })
   host = new SandboxHost({ nodePath: process.execPath, hostScript, onAsk: async () => false })
@@ -96,7 +96,7 @@ beforeAll(async () => {
         workDir,
         tmpDir: join(root, 'tmp'),
         dataDirs: [],
-        socketPath: join(root, 'pine.sock'),
+        socketPath: join(root, 'ostia.sock'),
         runtimeReads: [],
       },
     ),

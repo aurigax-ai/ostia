@@ -47,7 +47,7 @@ describe('SaveWorkflowDialog', () => {
     await userEvent.type(screen.getByLabelText('Description of ns'), 'Namespace')
     await userEvent.click(screen.getByRole('button', { name: 'Save' }))
 
-    expect(window.pine.workflows.save).toHaveBeenCalledWith({
+    expect(window.ostia.workflows.save).toHaveBeenCalledWith({
       name: 'Follow logs',
       command: 'kubectl logs -f deploy/{{app}} -n {{ns}}',
       tags: ['k8s', 'logs'],
@@ -60,7 +60,7 @@ describe('SaveWorkflowDialog', () => {
   })
 
   it('keeps the dialog open and shows why saving failed', async () => {
-    vi.mocked(window.pine.workflows.save).mockResolvedValue({ ok: false, error: 'disk full' })
+    vi.mocked(window.ostia.workflows.save).mockResolvedValue({ ok: false, error: 'disk full' })
     open('make')
     await userEvent.click(await screen.findByRole('button', { name: 'Save' }))
 

@@ -365,7 +365,7 @@ describe('a keymap between the defaults and the user', () => {
 
 describe('the macOS keymap that follows cmux', () => {
   const dir = join(__dirname, '../../extensions/keymap-macos')
-  const manifest = JSON.parse(readFileSync(join(dir, 'pine.json'), 'utf8'))
+  const manifest = JSON.parse(readFileSync(join(dir, 'ostia.json'), 'utf8'))
   const raw = JSON.parse(readFileSync(join(dir, manifest.contributes.keymaps[0].path), 'utf8'))
   const parsed = parseKeymapBindings(raw, true)
   const bindings = parsed.ok ? parsed.bindings : {}

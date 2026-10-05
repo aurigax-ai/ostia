@@ -31,7 +31,7 @@ export function hibernationCandidates(now: number): HibernationCandidate[] {
 
 export async function hibernatePane(workspaceId: string, paneId: string): Promise<boolean> {
   if (isPaneVisible(paneId)) return false
-  const stopped = await window.pine.pty.hibernate(paneId)
+  const stopped = await window.ostia.pty.hibernate(paneId)
   if (stopped) useLayoutStore.getState().setHibernated(workspaceId, paneId, true)
   return stopped
 }
@@ -72,7 +72,7 @@ export function hibernatedPanes(workspaceId: string): string[] {
 export async function hibernateWorkspace(workspaceId: string): Promise<string[]> {
   const done: string[] = []
   for (const paneId of hibernatableAgentPanes(workspaceId)) {
-    if (!(await window.pine.pty.hibernate(paneId))) continue
+    if (!(await window.ostia.pty.hibernate(paneId))) continue
     useLayoutStore.getState().setHibernated(workspaceId, paneId, true)
     done.push(paneId)
   }

@@ -41,7 +41,7 @@ describe('AppErrorBoundary', () => {
         <Boom message="layout exploded" />
       </AppErrorBoundary>,
     )
-    expect(window.pine.diagnostics.report).toHaveBeenCalledWith(
+    expect(window.ostia.diagnostics.report).toHaveBeenCalledWith(
       expect.objectContaining({
         kind: 'render',
         message: 'layout exploded',
@@ -53,21 +53,21 @@ describe('AppErrorBoundary', () => {
   it('reloads the window, opens the log folder and copies the details', async () => {
     const user = userEvent.setup()
     const writeText = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue()
-    vi.mocked(window.pine.info).mockResolvedValue({
-      name: 'pine',
+    vi.mocked(window.ostia.info).mockResolvedValue({
+      name: 'ostia',
       version: '1.2.3',
       platform: 'linux',
-    } as Awaited<ReturnType<typeof window.pine.info>>)
+    } as Awaited<ReturnType<typeof window.ostia.info>>)
     render(
       <AppErrorBoundary>
         <Boom message="layout exploded" />
       </AppErrorBoundary>,
     )
     await user.click(screen.getByRole('button', { name: 'Reload window' }))
-    expect(window.pine.diagnostics.reloadWindow).toHaveBeenCalledTimes(1)
+    expect(window.ostia.diagnostics.reloadWindow).toHaveBeenCalledTimes(1)
     await user.click(screen.getByRole('button', { name: 'Open log folder' }))
-    expect(window.pine.diagnostics.openLogFolder).toHaveBeenCalledTimes(1)
-    await waitFor(() => expect(window.pine.info).toHaveBeenCalled())
+    expect(window.ostia.diagnostics.openLogFolder).toHaveBeenCalledTimes(1)
+    await waitFor(() => expect(window.ostia.info).toHaveBeenCalled())
     await user.click(screen.getByRole('button', { name: 'Copy details' }))
     await waitFor(() => expect(screen.getByRole('button', { name: 'Copied' })).toBeInTheDocument())
     const copied = writeText.mock.calls[0]?.[0] ?? ''
@@ -77,8 +77,8 @@ describe('AppErrorBoundary', () => {
 
   it('crashes on the test hook only when main enables test hooks', async () => {
     let crash: () => void = () => {}
-    vi.mocked(window.pine.diagnostics.testHooks).mockResolvedValue(true)
-    vi.mocked(window.pine.diagnostics.onTestCrash).mockImplementation((handler) => {
+    vi.mocked(window.ostia.diagnostics.testHooks).mockResolvedValue(true)
+    vi.mocked(window.ostia.diagnostics.onTestCrash).mockImplementation((handler) => {
       crash = handler
       return () => {}
     })
@@ -88,7 +88,7 @@ describe('AppErrorBoundary', () => {
         <CrashTestHook />
       </AppErrorBoundary>,
     )
-    await waitFor(() => expect(window.pine.diagnostics.onTestCrash).toHaveBeenCalled())
+    await waitFor(() => expect(window.ostia.diagnostics.onTestCrash).toHaveBeenCalled())
     expect(screen.getByText('app body')).toBeInTheDocument()
     act(() => crash())
     expect(screen.getByText('Something went wrong')).toBeInTheDocument()
@@ -96,8 +96,8 @@ describe('AppErrorBoundary', () => {
 
   it('does not listen for the test crash when test hooks are off', async () => {
     render(<CrashTestHook />)
-    await waitFor(() => expect(window.pine.diagnostics.testHooks).toHaveBeenCalled())
-    expect(window.pine.diagnostics.onTestCrash).not.toHaveBeenCalled()
+    await waitFor(() => expect(window.ostia.diagnostics.testHooks).toHaveBeenCalled())
+    expect(window.ostia.diagnostics.onTestCrash).not.toHaveBeenCalled()
   })
 })
 
@@ -118,7 +118,7 @@ describe('SurfaceErrorBoundary', () => {
     expect(screen.getByText('healthy pane')).toBeInTheDocument()
     expect(screen.getByText('This pane hit an error')).toBeInTheDocument()
     expect(screen.getByText('viewer broke')).toBeInTheDocument()
-    expect(window.pine.diagnostics.report).toHaveBeenCalledWith(
+    expect(window.ostia.diagnostics.report).toHaveBeenCalledWith(
       expect.objectContaining({ kind: 'surface', message: 'viewer broke', source: 'pane p-2' }),
     )
     await user.click(screen.getByRole('button', { name: 'Close pane' }))
@@ -143,10 +143,10 @@ describe('startErrorReporting', () => {
     Object.defineProperty(rejection, 'reason', { value: new Error('lost promise') })
     window.dispatchEvent(rejection)
     stop()
-    expect(window.pine.diagnostics.report).toHaveBeenCalledWith(
+    expect(window.ostia.diagnostics.report).toHaveBeenCalledWith(
       expect.objectContaining({ kind: 'error', message: 'late failure', source: 'app.js:3:9' }),
     )
-    expect(window.pine.diagnostics.report).toHaveBeenCalledWith(
+    expect(window.ostia.diagnostics.report).toHaveBeenCalledWith(
       expect.objectContaining({ kind: 'rejection', message: 'lost promise' }),
     )
   })

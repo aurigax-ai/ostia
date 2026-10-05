@@ -86,7 +86,7 @@ export function CloseConfirmDialog(): JSX.Element {
                       variant="link"
                       size="xs"
                       className="h-5 px-1 text-ui-sm"
-                      onClick={() => window.pine.scratch.reveal(group.workspaceId)}
+                      onClick={() => window.ostia.scratch.reveal(group.workspaceId)}
                     >
                       {d.closeConfirm.reveal}
                     </Button>

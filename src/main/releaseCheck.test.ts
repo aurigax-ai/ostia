@@ -4,7 +4,7 @@ import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { envName, legacyEnvName } from '../shared/appEnv'
+import { envName } from '../shared/appEnv'
 import type { ReleaseInfo } from '../shared/releases'
 
 const handlers = new Map<string, (...args: unknown[]) => unknown>()
@@ -137,9 +137,10 @@ describe('releaseEndpoint', () => {
       baseUrl: 'http://127.0.0.1:9',
       automatic: true,
     })
-    expect(
-      releaseEndpoint(false, { [legacyEnvName(RELEASE_API_URL_ENV)]: 'http://127.0.0.1:8' }),
-    ).toEqual({ baseUrl: 'http://127.0.0.1:8', automatic: true })
+    expect(releaseEndpoint(false, { PINE_RELEASE_API_URL: 'http://127.0.0.1:8' })).toEqual({
+      baseUrl: 'https://api.github.com',
+      automatic: false,
+    })
   })
 })
 
@@ -298,7 +299,7 @@ describe('fetchLatestRelease', () => {
   afterEach(() => github.close())
 
   const fetchFrom = (timeoutMs?: number): Promise<LatestRelease> =>
-    fetchLatestRelease({ baseUrl: github.url, userAgent: 'pine/0.2.0', timeoutMs })
+    fetchLatestRelease({ baseUrl: github.url, userAgent: 'ostia/0.2.0', timeoutMs })
 
   it('asks for the latest release of the repository and sends only a product user agent', async () => {
     github.reply = { status: 200, body: body('0.3.0') }
@@ -308,7 +309,7 @@ describe('fetchLatestRelease', () => {
     expect(github.requests).toHaveLength(1)
     const { url, headers } = github.requests[0]
     expect(url).toBe('/repos/aurigax-ai/ostia/releases/latest')
-    expect(headers['user-agent']).toBe('pine/0.2.0')
+    expect(headers['user-agent']).toBe('ostia/0.2.0')
     expect(headers.authorization).toBeUndefined()
     expect(headers.cookie).toBeUndefined()
   })
@@ -374,7 +375,7 @@ describe('registerReleaseCheck', () => {
     info.mockClear()
     vi.useFakeTimers({ toFake: ['setTimeout', 'setInterval'] })
     vi.stubEnv(envName(RELEASE_API_URL_ENV), github.url)
-    dataHome = mkdtempSync(join(tmpdir(), 'pine-release-check-'))
+    dataHome = mkdtempSync(join(tmpdir(), 'ostia-release-check-'))
     vi.stubEnv('XDG_DATA_HOME', dataHome)
   })
 

@@ -131,13 +131,13 @@ test('on macOS Cmd+Backspace deletes the typed line in the shell, as in Terminal
     await focusTerminal(win)
     const rows = win.locator('.xterm-rows').first()
 
-    await win.keyboard.type('echo pine_wrong_line')
-    await expect(rows).toContainText('echo pine_wrong_line')
+    await win.keyboard.type('echo ostia_wrong_line')
+    await expect(rows).toContainText('echo ostia_wrong_line')
     await win.keyboard.press('Meta+Backspace')
-    await win.keyboard.type('echo pine_$((40+2))_ok')
+    await win.keyboard.type('echo ostia_$((40+2))_ok')
     await win.keyboard.press('Enter')
-    await expect(rows).toContainText('pine_42_ok')
-    await expect(rows).not.toContainText('pine_wrong_line')
+    await expect(rows).toContainText('ostia_42_ok')
+    await expect(rows).not.toContainText('ostia_wrong_line')
     expect(app.windows()).toHaveLength(1)
   } finally {
     await app.close()

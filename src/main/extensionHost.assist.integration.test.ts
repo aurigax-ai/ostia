@@ -40,7 +40,7 @@ describe('assist contribution points over a real control socket', () => {
       {}) as AssistAvailability
 
   beforeAll(() => {
-    dir = mkdtempSync(join(tmpdir(), 'pine-ext-assist-'))
+    dir = mkdtempSync(join(tmpdir(), 'ostia-ext-assist-'))
     const socketPath = join(dir, 'control.sock')
     store = new ExtensionStore(join(dir, 'extensions.json'))
     host = new ExtensionHost({

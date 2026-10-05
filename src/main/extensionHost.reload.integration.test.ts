@@ -15,7 +15,7 @@ const jsonrpc = require.resolve('vscode-jsonrpc/node')
 const MAIN_JS = `
 const { createConnection } = require('node:net')
 const rpc = require(${JSON.stringify(jsonrpc)})
-const socket = createConnection(process.env.PINE_SOCKET)
+const socket = createConnection(process.env.OSTIA_SOCKET)
 const conn = rpc.createMessageConnection(
   new rpc.StreamMessageReader(socket),
   new rpc.StreamMessageWriter(socket),
@@ -24,7 +24,7 @@ conn.onRequest('ext.command', () => ({ ok: true, data: { pid: process.pid } }))
 socket.on('close', () => process.exit(0))
 conn.listen()
 socket.on('connect', async () => {
-  await conn.sendRequest('hello', { token: process.env.PINE_TOKEN })
+  await conn.sendRequest('hello', { token: process.env.OSTIA_TOKEN })
   await conn.sendRequest('ext.registerCommands', { commands: ['ping'] })
 })
 `
@@ -55,22 +55,22 @@ describe('ExtensionHost hot reload of the user extensions directory', () => {
     mkdirSync(extDir, { recursive: true })
     writeFileSync(join(extDir, 'main.js'), MAIN_JS)
     writeFileSync(
-      join(extDir, 'pine.json'),
-      JSON.stringify({ id, name: id, version: '1.0.0', api: '1.0', main: 'main.js', ...manifest }),
+      join(extDir, 'ostia.json'),
+      JSON.stringify({ id, name: id, version: '1.0.0', api: '2.0', main: 'main.js', ...manifest }),
     )
     return extDir
   }
   const pinger = (capabilities: string[], version = '1.0.0') =>
     writeExtension('pinger', {
       version,
-      api: '1.0',
+      api: '2.0',
       capabilities,
       contributes: { commands: [{ id: 'ping', title: 'Ping' }] },
     })
   const info = (id: string) => host.list().find((e) => e.id === id)
 
   beforeAll(() => {
-    dir = mkdtempSync(join(tmpdir(), 'pine-ext-reload-'))
+    dir = mkdtempSync(join(tmpdir(), 'ostia-ext-reload-'))
     socketPath = join(dir, 'control.sock')
     registerExtensionMethods(() => host)
     registerControlServer(
@@ -191,12 +191,12 @@ describe('ExtensionHost hot reload of the user extensions directory', () => {
     writeFileSync(join(extDir, 'panel.html'), '<p>home</p>')
     writeFileSync(join(extDir, 'card.html'), '<p>card</p>')
     writeFileSync(
-      join(extDir, 'pine.json'),
+      join(extDir, 'ostia.json'),
       JSON.stringify({
         id: 'static',
         name: 'Static',
         version: '1',
-        api: '1.0',
+        api: '2.0',
         contributes: { panel: { title: 'S', entry: 'panel.html' } },
       }),
     )

@@ -21,7 +21,7 @@ import { prepareSecrets } from './secretInjection'
 import { startSshAgent } from './sshAgent'
 
 const repoRoot = process.cwd()
-const hostScript = join(repoRoot, 'node_modules/.cache/pine-test/sandbox-host-secrets.mjs')
+const hostScript = join(repoRoot, 'node_modules/.cache/ostia-test/sandbox-host-secrets.mjs')
 
 let root: string
 let home: string
@@ -80,7 +80,7 @@ beforeAll(async () => {
     format: 'esm',
     packages: 'external',
   })
-  root = realpathSync(mkdtempSync(join(tmpdir(), 'pine-secret-inject-')))
+  root = realpathSync(mkdtempSync(join(tmpdir(), 'ostia-secret-inject-')))
   home = join(root, 'home')
   workDir = join(home, 'proj')
   fakeBin = join(root, 'bin')
@@ -103,7 +103,7 @@ beforeAll(async () => {
     basePaths: () => ({
       home,
       dataDirs: [],
-      socketPath: join(root, 'pine.sock'),
+      socketPath: join(root, 'ostia.sock'),
       runtimeReads: [fakeBin],
     }),
     workDir: () => workDir,
@@ -144,7 +144,7 @@ describe('secret injection', () => {
     try {
       const out = await runIn(
         'a',
-        `head -1 "$PINE_SECRETS_DIR/id_real"; cat ${home}/.ssh/id_ed25519 2>&1 | head -1; ssh-add -l`,
+        `head -1 "$OSTIA_SECRETS_DIR/id_real"; cat ${home}/.ssh/id_ed25519 2>&1 | head -1; ssh-add -l`,
         { ...prepared.env, SSH_AUTH_SOCK: agent.socket },
       )
       expect(out).toContain('BEGIN OPENSSH PRIVATE KEY')
