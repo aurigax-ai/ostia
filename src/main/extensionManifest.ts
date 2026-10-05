@@ -39,12 +39,19 @@ import {
   validSettingValue,
 } from '../shared/extensions'
 import { ICON_THEME_ID_PATTERN, type IconThemeContribution } from '../shared/iconTheme'
+import {
+  KEYMAP_LABEL_MAX,
+  KEYMAP_PLATFORMS,
+  type KeymapContribution,
+  isKeymapPlatform,
+} from '../shared/keymap'
 import { LANGUAGE_ID_PATTERN, type LanguageContribution } from '../shared/languagePack'
 import { parseLanguageServers } from '../shared/languageServers'
 import { type Workflow, parseWorkflow } from '../shared/workflows'
 
 export const EXTENSION_ID_PATTERN = /^[a-z][a-z0-9-]{1,39}$/
 export const COMMAND_ID_PATTERN = /^[a-z][a-z0-9-]{0,39}$/
+export const KEYMAP_ID_PATTERN = COMMAND_ID_PATTERN
 export const MAX_COMMANDS = 64
 export const MAX_WORKFLOWS = 64
 export const MAX_TEXT = 200
@@ -52,6 +59,7 @@ export const MAX_DESCRIPTION = 500
 export const MAX_CHIPS = 8
 export const MAX_ICON_THEMES = 16
 export const MAX_LANGUAGES = 8
+export const MAX_KEYMAPS = 8
 export const MAX_SETTINGS = 32
 export const MAX_ENUM_VALUES = 32
 export const MAX_SECRETS = 8
@@ -389,6 +397,34 @@ function parseLanguages(raw: unknown, dir: string): LanguageContribution[] | str
   return languages
 }
 
+function parseKeymaps(raw: unknown, dir: string): KeymapContribution[] | string {
+  if (raw === undefined) return []
+  if (!Array.isArray(raw) || raw.length > MAX_KEYMAPS) {
+    return `contributes.keymaps must be an array of at most ${MAX_KEYMAPS}`
+  }
+  const keymaps: KeymapContribution[] = []
+  for (const [i, item] of raw.entries()) {
+    const where = `contributes.keymaps[${i}]`
+    if (!isRecord(item)) return `${where}: must be an object`
+    if (typeof item.id !== 'string' || !KEYMAP_ID_PATTERN.test(item.id)) {
+      return `${where}: id must be lowercase letters, digits and dashes`
+    }
+    const label = text(item.label, KEYMAP_LABEL_MAX)
+    if (!label) return `${where}: label must be 1-${KEYMAP_LABEL_MAX} characters`
+    const path = item.path
+    if (typeof path !== 'string' || !path.endsWith('.json') || !isInsideDir(dir, path)) {
+      return `${where}: path must be a .json file inside the extension`
+    }
+    const platform = item.platform
+    if (platform !== undefined && !isKeymapPlatform(platform)) {
+      return `${where}: platform must be one of ${KEYMAP_PLATFORMS.join(', ')}`
+    }
+    if (keymaps.some((k) => k.id === item.id)) return `${where}: duplicate id '${item.id}'`
+    keymaps.push({ id: item.id, label, path, ...(isKeymapPlatform(platform) ? { platform } : {}) })
+  }
+  return keymaps
+}
+
 function parseLocales(raw: unknown): string[] | string {
   if (raw === undefined) return []
   if (!Array.isArray(raw) || raw.length > EXTENSION_LOCALES_MAX) {
@@ -559,6 +595,8 @@ export function parseManifest(raw: unknown, dir: string): ManifestResult {
   if (typeof iconThemes === 'string') return { ok: false, error: iconThemes }
   const languages = parseLanguages(contributes.languages, dir)
   if (typeof languages === 'string') return { ok: false, error: languages }
+  const keymaps = parseKeymaps(contributes.keymaps, dir)
+  if (typeof keymaps === 'string') return { ok: false, error: keymaps }
   const locales = parseLocales(raw.locales)
   if (typeof locales === 'string') return { ok: false, error: locales }
   const languageServers = parseLanguageServers(contributes.languageServers, {
@@ -616,6 +654,7 @@ export function parseManifest(raw: unknown, dir: string): ManifestResult {
   if (completions !== undefined) manifest.contributes.completions = completions
   if (iconThemes.length > 0) manifest.contributes.iconThemes = iconThemes
   if (languages.length > 0) manifest.contributes.languages = languages
+  if (keymaps.length > 0) manifest.contributes.keymaps = keymaps
   if (languageServers.length > 0) manifest.contributes.languageServers = languageServers
   if (editorLanguages.length > 0) manifest.contributes.editorLanguages = editorLanguages
   if (agentSkills.length > 0) manifest.contributes.agentSkills = agentSkills

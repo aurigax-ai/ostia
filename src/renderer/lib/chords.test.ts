@@ -1,10 +1,19 @@
-import { formatChord, parseChord, stealsTerminalKey, usedByMonaco } from '@shared/chordSpec'
+import {
+  type ChordSpec,
+  formatChord,
+  parseChord,
+  stealsTerminalKey,
+  usedByMonaco,
+} from '@shared/chordSpec'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { commands } from '../commands/registry'
+import { useKeymapStore } from '../stores/keymapStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import {
   DEFAULT_CHORDS,
   type KeyLike,
+  type KeybindingMap,
+  baseChord,
   bindableIds,
   chordLabel,
   conflictsWith,
@@ -18,13 +27,29 @@ import {
 } from './chords'
 
 const initialSettings = useSettingsStore.getState()
+const initialKeymap = useKeymapStore.getState()
 
 afterEach(() => {
   useSettingsStore.setState(initialSettings, true)
+  useKeymapStore.setState(initialKeymap, true)
 })
 
 const bind = (keybindings: Record<string, string | null>): void =>
   useSettingsStore.setState({ keybindings })
+
+const useKeymap = (bindings: KeybindingMap): void =>
+  useKeymapStore.setState({
+    key: 'keys/test\n1.0.0',
+    ref: 'keys/test',
+    error: null,
+    loaded: { extId: 'keys', id: 'test', label: 'Test', bindings, skipped: [] },
+  })
+
+const chord = (text: string, mac: boolean): ChordSpec => {
+  const spec = parseChord(text, mac)
+  if (!spec) throw new Error(`not a chord: ${text}`)
+  return spec
+}
 
 const key = (k: string, mods: Partial<Omit<KeyLike, 'key'>> = {}): KeyLike => ({
   key: k,
@@ -257,6 +282,77 @@ describe('effectiveBindings', () => {
     )
     expect(table.bySignature.get('Ctrl+1-9')).toBe('workspace.goto')
     expect(table.bySignature.get('Ctrl+Shift+P')).toBe('palette.toggle')
+  })
+})
+
+describe('a keymap between the defaults and the user', () => {
+  it('replaces defaults, unbinds with null, and leaves the rest of the defaults alone', () => {
+    const table = effectiveBindings({}, false, {
+      'palette.toggle': 'Ctrl+Alt+P',
+      'view.toggleRail': null,
+      'agent.resume': 'Ctrl+Alt+R',
+    })
+    expect(table.bySignature.get('Ctrl+Alt+P')).toBe('palette.toggle')
+    expect(table.bySignature.has('Ctrl+Shift+P')).toBe(false)
+    expect(table.byId.has('view.toggleRail')).toBe(false)
+    expect(table.bySignature.get('Ctrl+Alt+R')).toBe('agent.resume')
+    expect(table.bySignature.get('Ctrl+Shift+F')).toBe('find')
+  })
+
+  it('lets the user override a keymap chord and bring back what the keymap unbinds', () => {
+    const keymap = { 'palette.toggle': 'Ctrl+Alt+P', 'view.toggleRail': null }
+    const table = effectiveBindings(
+      { 'palette.toggle': 'Ctrl+Shift+Y', 'view.toggleRail': 'Ctrl+Alt+B' },
+      false,
+      keymap,
+    )
+    expect(table.bySignature.get('Ctrl+Shift+Y')).toBe('palette.toggle')
+    expect(table.bySignature.has('Ctrl+Alt+P')).toBe(false)
+    expect(table.bySignature.get('Ctrl+Alt+B')).toBe('view.toggleRail')
+    expect(
+      effectiveBindings({ 'palette.toggle': null }, false, keymap).byId.has('palette.toggle'),
+    ).toBe(false)
+  })
+
+  it('keeps the default where a keymap entry is unusable on this platform', () => {
+    const table = effectiveBindings({}, false, {
+      'palette.toggle': 'Ctrl+R',
+      find: 'Escape',
+      'view.zoomIn': 'Ctrl+Alt+1-9',
+    })
+    expect(table.bySignature.get('Ctrl+Shift+P')).toBe('palette.toggle')
+    expect(table.bySignature.get('Ctrl+Shift+F')).toBe('find')
+    expect(table.bySignature.get('Ctrl+=')).toBe('view.zoomIn')
+  })
+
+  it('gives a contested chord to the user over the keymap, and to the keymap over a default', () => {
+    const keymap = { 'pane.splitDown': 'Ctrl+Shift+P', 'pane.splitRight': 'Ctrl+Shift+F' }
+    const table = effectiveBindings({ 'pane.zoom': 'Ctrl+Shift+F' }, false, keymap)
+    expect(table.bySignature.get('Ctrl+Shift+P')).toBe('pane.splitDown')
+    expect(table.bySignature.get('Ctrl+Shift+F')).toBe('pane.zoom')
+  })
+
+  it('is what matching, labels, conflicts and the reset target see once loaded', () => {
+    useKeymap({ 'pane.splitRight': 'Ctrl+Alt+D' })
+    const ca = { ctrlKey: true, altKey: true }
+    expect(matchChord(key('d', ca), false)).toBe('pane.splitRight')
+    expect(matchChord(key('\\', ca), false)).toBeNull()
+    expect(chordLabel('pane.splitRight', false)).toBe('Ctrl+Alt+D')
+    expect(conflictsWith('palette.toggle', chord('Ctrl+Alt+D', false), false)).toEqual([
+      'pane.splitRight',
+    ])
+    expect(baseChord('pane.splitRight', false)).toEqual(chord('Ctrl+Alt+D', false))
+    expect(baseChord('palette.toggle', false)).toEqual(chord('Ctrl+Shift+P', false))
+  })
+
+  it('falls back to the keymap chord when the user’s override is reset, and to the default without it', () => {
+    useKeymap({ 'pane.splitRight': 'Ctrl+Alt+D' })
+    bind({ 'pane.splitRight': 'Ctrl+Alt+R' })
+    expect(chordLabel('pane.splitRight', false)).toBe('Ctrl+Alt+R')
+    useSettingsStore.getState().resetKeybinding('pane.splitRight')
+    expect(chordLabel('pane.splitRight', false)).toBe('Ctrl+Alt+D')
+    useKeymapStore.setState({ key: null, ref: null, loaded: null })
+    expect(chordLabel('pane.splitRight', false)).toBe('Ctrl+Alt+\\')
   })
 })
 

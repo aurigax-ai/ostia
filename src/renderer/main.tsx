@@ -47,6 +47,7 @@ import { setSettingsFile } from './monaco/language'
 import { startApprovals } from './stores/approvalsStore'
 import { startAssistAvailability } from './stores/assistStore'
 import { startChatTools } from './stores/chatToolsStore'
+import { startKeymapSync } from './stores/keymapStore'
 import { startPaneRecencySync } from './stores/paneRecencyStore'
 import { startSnapshotAutosave } from './stores/persistence'
 import { usePluginsStore } from './stores/pluginsStore'
@@ -99,6 +100,7 @@ async function boot(): Promise<void> {
   } catch (err) {
     console.error('[languages] load failed', err)
   }
+  startKeymapSync()
   const { ui, editor, terminal } = useSettingsStore.getState().appearance
   applyUiFonts(document.documentElement, { ui, editor })
   await preloadFonts({ ui, editor, terminal })

@@ -1593,6 +1593,14 @@ export const en = {
     copy: 'Copy (terminal)',
     paste: 'Paste (terminal)',
     find: 'Find (terminal)',
+    keymap: 'Keymap',
+    keymapDesc:
+      'A set of shortcuts from an extension that replaces the defaults. The changes you make below apply on top of it.',
+    keymapDefault: 'Default',
+    keymapFailed:
+      'The keymap “{name}” couldn’t be loaded ({error}), so the default shortcuts apply.',
+    keymapSkipped: 'The keymap “{name}” has shortcuts this computer can’t use. They are skipped:',
+    keymapSkippedEntry: '{command} “{value}”: {reason}',
     problems: {
       invalid: 'it isn’t a shortcut like Ctrl+Shift+K.',
       escape: 'Escape belongs to the shell.',
@@ -4032,6 +4040,12 @@ export const zhHant: Dict = {
     copy: '複製（終端機）',
     paste: '貼上（終端機）',
     find: '在終端機中尋找',
+    keymap: '快捷鍵配置',
+    keymapDesc: '由擴充功能提供、取代預設值的一組快捷鍵。你在下方所做的變更會套用在它之上。',
+    keymapDefault: '預設',
+    keymapFailed: '無法載入快捷鍵配置「{name}」（{error}），因此使用預設快捷鍵。',
+    keymapSkipped: '快捷鍵配置「{name}」中有這台電腦無法使用的快捷鍵，已略過：',
+    keymapSkippedEntry: '{command}「{value}」：{reason}',
     problems: {
       invalid: '這不是像 Ctrl+Shift+K 的快捷鍵。',
       escape: 'Esc 屬於 Shell。',

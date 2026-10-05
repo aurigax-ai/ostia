@@ -43,6 +43,7 @@ function ext(id: string, name: string, overrides: Partial<ExtensionInfo> = {}): 
     agentSkills: [],
     agentHooks: [],
     iconThemes: [],
+    keymaps: [],
     ...overrides,
   }
 }

@@ -46,6 +46,7 @@ function ext(overrides: Partial<ExtensionInfo> = {}): ExtensionInfo {
     agentSkills: [],
     agentHooks: [],
     iconThemes: [],
+    keymaps: [],
     ...overrides,
   }
 }
