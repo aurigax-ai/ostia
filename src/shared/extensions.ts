@@ -30,6 +30,7 @@ export const EXTENSION_ICONS = [
   'shield',
   'chat',
   'plugs',
+  'magnifying-glass',
 ] as const
 
 export type ExtensionIcon = (typeof EXTENSION_ICONS)[number]
@@ -412,6 +413,14 @@ export interface DiffContent {
 export interface ExtensionOpenDiffRequest extends DiffContent {
   extId: string
   workspaceId?: string
+}
+
+export interface ExtensionOpenFileRequest {
+  extId: string
+  workspaceId: string
+  path: string
+  line?: number
+  column?: number
 }
 
 export const TERMINAL_COMMAND_MAX_ARGS = 64

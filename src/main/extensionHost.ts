@@ -85,6 +85,7 @@ import {
   type ExtensionInfo,
   type ExtensionManifest,
   type ExtensionOpenDiffRequest,
+  type ExtensionOpenFileRequest,
   type ExtensionOpenPanelRequest,
   type ExtensionPanelContext,
   type ExtensionPanelSource,
@@ -330,6 +331,7 @@ export interface ExtensionHostDeps {
   publishWorkspaceChips?: (chips: WorkspaceChip[]) => void
   openPanelIn: (req: ExtensionOpenPanelRequest) => void
   openDiffIn?: (req: ExtensionOpenDiffRequest) => void
+  openFileIn?: (req: ExtensionOpenFileRequest) => Promise<ExtensionResult>
   openTerminalIn?: (req: TerminalOpenRequest) => Promise<string | null>
   notify: (n: { title: string; body?: string; from: string }) => void
   restartDelayMs?: number
@@ -429,6 +431,10 @@ export function terminalArgv(raw: unknown): string[] | string {
 
 function fail(error: string, message?: string): ExtensionResult {
   return message ? { ok: false, error, message } : { ok: false, error }
+}
+
+function filePosition(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isInteger(value) && value > 0 ? value : undefined
 }
 
 function withTimeout<T>(p: Promise<T>, ms: number, what: string): Promise<T> {
@@ -1534,6 +1540,28 @@ export class ExtensionHost {
     return { ok: true }
   }
 
+  async openFile(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
+    const rt = this.runtimeOf(identity, conn)
+    const p = (params ?? {}) as Record<string, unknown>
+    if (typeof p.workspaceId !== 'string' || !p.workspaceId) return fail('missing-workspace')
+    if (typeof p.path !== 'string' || !isAbsolute(p.path)) {
+      return fail('invalid-params', 'path must be absolute')
+    }
+    const req: ExtensionOpenFileRequest = {
+      extId: rt.ext.manifest.id,
+      workspaceId: p.workspaceId,
+      path: p.path,
+    }
+    const line = filePosition(p.line)
+    if (line) {
+      req.line = line
+      const column = filePosition(p.column)
+      if (column) req.column = column
+    }
+    if (!this.deps.openFileIn) return fail('no-window')
+    return this.deps.openFileIn(req)
+  }
+
   async openTerminal(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
     const p = (params ?? {}) as Record<string, unknown>
     const argv = terminalArgv(p.command)
@@ -2274,6 +2302,11 @@ export function registerExtensionMethods(host: () => ExtensionHost | null): void
   registerControlMethod(
     'ext.openDiff',
     forExtension((h, id, conn, p) => h.openDiff(id, conn, p)),
+  )
+
+  registerControlMethod(
+    'ext.openFile',
+    forExtension((h, id, conn, p) => h.openFile(id, conn, p)),
   )
 
   registerControlMethod('ext.openTerminal', {
