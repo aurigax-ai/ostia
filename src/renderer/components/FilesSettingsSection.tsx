@@ -6,6 +6,7 @@ import {
   BREADCRUMB_STYLES,
   type BreadcrumbStyle,
   DEFAULT_NESTING_PATTERNS,
+  DOTFILES_PATTERN,
   FILE_SORT_BYS,
   FILE_SORT_ORDERS,
   type FileSortBy,
@@ -221,6 +222,18 @@ export function FileTreeSettingsGroups(): JSX.Element {
         </ControlRow>
       </SettingsGroup>
       <SettingsGroup title={d.filesView.groupHidden}>
+        <ToggleRow
+          label={d.filesView.hideDotfiles}
+          desc={d.filesView.hideDotfilesDesc}
+          checked={files.exclude.includes(DOTFILES_PATTERN)}
+          onChange={(hide) =>
+            setFiles({
+              exclude: hide
+                ? [...files.exclude, DOTFILES_PATTERN]
+                : files.exclude.filter((p) => p !== DOTFILES_PATTERN),
+            })
+          }
+        />
         <ToggleRow
           label={d.filesView.showExcluded}
           desc={d.filesView.showExcludedDesc}
