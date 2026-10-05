@@ -3307,6 +3307,14 @@ button.prompt-chip:focus-visible {
   outline: none;
 }
 
+.viewer-surface:focus {
+  outline: none;
+}
+
+.viewer-surface .pdf-find {
+  top: 44px;
+}
+
 .markdown-preview .document-find {
   position: sticky;
   top: 0;

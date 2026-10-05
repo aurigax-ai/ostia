@@ -1,12 +1,20 @@
 import { statSync } from 'node:fs'
+import { join } from 'node:path'
 import { ipcMain } from 'electron'
-import type { SearchNameHit, SearchOutcome, SearchRequest, SearchResults } from '../shared/search'
+import type {
+  SearchNameHit,
+  SearchOutcome,
+  SearchPdf,
+  SearchRequest,
+  SearchResults,
+} from '../shared/search'
 import { fuzzyMatch } from './fuzzyPaths'
 import { resolveSafe } from './pathGuard'
 import { type FileList, type RgOutcome, listFiles, searchText } from './ripgrep'
 
 export const QUERY_MAX = 1000
 export const NAME_LIMIT = 50
+export const PDF_LIMIT = 50
 const FILE_LIST_TTL_MS = 10_000
 
 export function parseSearchRequest(raw: unknown): SearchRequest | null {
@@ -51,6 +59,19 @@ export function nameHits(text: string, files: readonly string[], limit: number):
   }
   hits.sort((a, b) => b.score - a.score || a.path.length - b.path.length)
   return hits.slice(0, limit).map(({ score: _score, ...hit }) => hit)
+}
+
+export function pdfFiles(root: string, files: readonly string[], limit: number): SearchPdf[] {
+  const pdfs: SearchPdf[] = []
+  for (const path of files) {
+    if (pdfs.length >= limit) break
+    if (!path.toLowerCase().endsWith('.pdf')) continue
+    try {
+      const stat = statSync(join(root, path))
+      if (stat.isFile()) pdfs.push({ path, size: stat.size, mtimeMs: stat.mtimeMs })
+    } catch {}
+  }
+  return pdfs
 }
 
 function isDirectory(path: string): boolean {
@@ -103,6 +124,7 @@ export class WorkspaceSearch {
         root,
         names: nameHits(req.text, list.value.paths, NAME_LIMIT),
         files: text.value.files,
+        pdfs: pdfFiles(root, list.value.paths, PDF_LIMIT),
         matches: text.value.matches,
         truncated: text.value.truncated,
       }
