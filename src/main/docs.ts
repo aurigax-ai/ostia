@@ -12,8 +12,9 @@ const CLI_HELP = `ostia — control-socket CLI
   ostia <file>...                same, when the first word is a path (has a /, or starts with
                                  . or ~) or names a file here that is no command or extension
   ostia pane.list                 every pane, every workspace — {paneId(external),workspaceId,
-                                  kind,title,cwd,running,blockCount,lastExitCode}; a restored
-                                  pane keeps its paneId across restarts
+                                  kind,title,cwd,running,blockCount,lastExitCode,agent,
+                                  agentSessionId,agentState,agentMessage}; a restored pane keeps
+                                  its paneId across restarts
   ostia workspace.list              every workspace — {workspaceId,name,kind,workDir,state,groupId}
   ostia notify <title> [body]    desktop notification + marks this pane unread in Ostia
   ostia ask "<question>" [--context <text|->] [--choice <label>]… [--multi] [--timeout <seconds>] [--json]
