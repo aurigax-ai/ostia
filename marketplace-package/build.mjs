@@ -4,7 +4,7 @@ import { buildExtension, installedPackage } from './build-extension.mjs'
 
 const sources = 'src/extensions'
 const installed = 'extensions'
-const panelBaseCss = join(installedPackage('@aurigax-ai/pine-extension-sdk'), 'panel.css')
+const panelBaseCss = join(installedPackage('@aurigax-ai/ostia-extension-sdk'), 'panel.css')
 
 rmSync(installed, { recursive: true, force: true })
 

@@ -1,4 +1,5 @@
 import { spawnSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { describe, expect, it } from 'vitest'
 import { helperSource } from '../../../test/fixtures/ssh/remoteHost'
 import { helperBundle, posixCksum, shippedHelper, versionToken } from './helper'
@@ -40,9 +41,23 @@ describe('helper bundle', () => {
     }
   })
 
-  it('names the version after the script and puts it under ~/.pine/helper', () => {
+  it('hashes the folder into the version, so moving it from ~/.pine asks for consent again', () => {
+    const digest = (dir: string): string =>
+      createHash('sha256')
+        .update(dir)
+        .update('\0')
+        .update(helper.source)
+        .update('\0')
+        .update(helper.session)
+        .digest('hex')
+        .slice(0, 12)
+    expect(helper.version).toBe(digest('.ostia/helper'))
+    expect(helper.version).not.toBe(digest('.pine/helper'))
+  })
+
+  it('names the version after the script and puts it under ~/.ostia/helper', () => {
     expect(helper.version).toMatch(/^[0-9a-f]{12}$/)
-    expect(helper.path).toBe(`~/.pine/helper/${helper.version}/helper.sh`)
+    expect(helper.path).toBe(`~/.ostia/helper/${helper.version}/helper.sh`)
     const other = helperBundle(Buffer.concat([helperSource(), Buffer.from('\n')]), helper.session)
     expect(other.version).not.toBe(helper.version)
     expect(other.commands.run).not.toBe(helper.commands.run)
@@ -100,7 +115,7 @@ describe('helper bundle', () => {
     expect(viaHelper.shellIntegration).toBe(true)
     expect(viaHelper.helperIntegration).toBe(true)
     expect(helper.commands.session.length).toBeLessThan(300)
-    expect(helper.commands.session).toContain(`$HOME/.pine/helper/${helper.version}/session.sh`)
+    expect(helper.commands.session).toContain(`$HOME/.ostia/helper/${helper.version}/session.sh`)
     expect(helper.commands.session).toContain(
       `${posixCksum(helper.session)} ${helper.session.length}`,
     )

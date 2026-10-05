@@ -2,9 +2,10 @@ import { randomBytes } from 'node:crypto'
 import { type Dirent, lstatSync, mkdirSync, readdirSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { ipcMain, shell } from 'electron'
+import { PRODUCT_NAME } from '../shared/product'
 import { processAlive } from './processAlive'
 
-export const SCRATCH_HISTORY_FILE = '.pine_history'
+export const SCRATCH_HISTORY_FILE = `.${PRODUCT_NAME}_history`
 
 const FOLDER_NAME = /^(\d+)-[0-9a-f]{12}$/
 const COUNT_CAP = 10_000

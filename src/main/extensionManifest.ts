@@ -22,6 +22,7 @@ import {
   EXTENSION_CATEGORIES,
   EXTENSION_ICONS,
   EXTENSION_MANIFEST_FILE,
+  EXTENSION_MANIFEST_FILES,
   EXTENSION_SETTING_TITLE_MAX,
   EXTENSION_SETTING_TYPES,
   EXTENSION_SETTING_UNITS,
@@ -662,13 +663,17 @@ export function parseManifest(raw: unknown, dir: string): ManifestResult {
   return { ok: true, manifest }
 }
 
+export function manifestFileIn(dir: string): string | null {
+  return EXTENSION_MANIFEST_FILES.find((name) => existsSync(join(dir, name))) ?? null
+}
+
 export function readManifest(dir: string): ManifestResult {
-  const path = join(dir, EXTENSION_MANIFEST_FILE)
+  const file = manifestFileIn(dir) ?? EXTENSION_MANIFEST_FILE
   let raw: unknown
   try {
-    raw = JSON.parse(readFileSync(path, 'utf8'))
+    raw = JSON.parse(readFileSync(join(dir, file), 'utf8'))
   } catch (err) {
-    return { ok: false, error: `unreadable ${EXTENSION_MANIFEST_FILE}: ${(err as Error).message}` }
+    return { ok: false, error: `unreadable ${file}: ${(err as Error).message}` }
   }
   return parseManifest(raw, dir)
 }
@@ -681,7 +686,7 @@ function subdirs(root: string): string[] {
       .map((name) => join(root, name))
       .filter((dir) => {
         try {
-          return statSync(dir).isDirectory() && existsSync(join(dir, EXTENSION_MANIFEST_FILE))
+          return statSync(dir).isDirectory() && manifestFileIn(dir) !== null
         } catch {
           return false
         }

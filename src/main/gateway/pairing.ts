@@ -1,8 +1,7 @@
 import { randomBytes } from 'node:crypto'
 import { appendFileSync, mkdirSync } from 'node:fs'
-import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { PRODUCT_NAME } from '../../shared/product'
+import { appDataDir } from '../userDirs'
 
 const CODE_TTL_MS = 120_000
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
@@ -55,11 +54,7 @@ export function resetPairRateLimit(): void {
 }
 
 function pairAuditLogPath(): string {
-  return join(
-    process.env.XDG_DATA_HOME || join(homedir(), '.local', 'share'),
-    PRODUCT_NAME,
-    'gateway-pair-audit.log',
-  )
+  return join(appDataDir(), 'gateway-pair-audit.log')
 }
 
 export function auditPairAttempt(

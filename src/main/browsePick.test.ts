@@ -106,7 +106,7 @@ describe('runPick', () => {
     expect(outcome.capture.consoleErrors).toEqual([{ level: 'error', text: 'boom', ts: 1 }])
     expect(guest.capturePage).toHaveBeenCalledWith({ x: 0, y: 0, width: 106, height: 50 })
     const shot = outcome.capture.screenshotPath
-    expect(shot).toMatch(/pine-reports-\d+\/pick-.*\.png$/)
+    expect(shot).toMatch(/ostia-reports-\d+\/pick-.*\.png$/)
     expect(readFileSync(shot as string, 'utf8')).toBe('png')
     expect(d.broadcast.mock.calls.map((c) => c[1].active)).toEqual([true, false])
   })
@@ -174,7 +174,7 @@ describe('writePickReport', () => {
       sameWindow,
     )
     if (!res.ok) throw new Error(res.error)
-    expect(res.path).toMatch(/pine-reports-\d+\/capture-\d+(-[a-z0-9-]+)?\.md$/)
+    expect(res.path).toMatch(/ostia-reports-\d+\/capture-\d+(-[a-z0-9-]+)?\.md$/)
     const md = readFileSync(res.path, 'utf8')
     expect(md).toContain('`#save`')
     expect(md).toContain('misaligned')
@@ -182,7 +182,7 @@ describe('writePickReport', () => {
     const [from, to, text] = vi.mocked(postBusMessage).mock.calls[0]
     expect(from).not.toBe(to)
     expect(JSON.parse(text)).toMatchObject({ kind: 'capture', report: res.path })
-    expect(res.imagePath).toMatch(/pine-reports-\d+\/pick-.*\.png$/)
+    expect(res.imagePath).toMatch(/ostia-reports-\d+\/pick-.*\.png$/)
     expect(md).toContain(`![Captured element](${res.imagePath})`)
   })
 

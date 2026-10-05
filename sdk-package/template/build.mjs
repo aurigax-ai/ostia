@@ -1,8 +1,9 @@
-import { copyFileSync, cpSync, mkdirSync, readFileSync } from 'node:fs'
+import { copyFileSync, cpSync, existsSync, mkdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { build } from 'esbuild'
 
-const { id } = JSON.parse(readFileSync('pine.json', 'utf8'))
+const manifest = existsSync('ostia.json') ? 'ostia.json' : 'pine.json'
+const { id } = JSON.parse(readFileSync(manifest, 'utf8'))
 const out = join('dist', id)
 
 mkdirSync(out, { recursive: true })
@@ -15,7 +16,7 @@ await build({
   target: 'node20',
   logLevel: 'warning',
 })
-copyFileSync('pine.json', join(out, 'pine.json'))
+copyFileSync(manifest, join(out, manifest))
 cpSync('locales', join(out, 'locales'), { recursive: true })
 cpSync('skills', join(out, 'skills'), { recursive: true })
 console.log(`built ${out}`)

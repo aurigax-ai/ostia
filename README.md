@@ -11,7 +11,7 @@
   &nbsp;&nbsp;
   <a href="https://github.com/aurigax-ai/ostia/releases/latest">Download</a>
   &nbsp;&nbsp;
-  <a href="https://www.npmjs.com/package/@aurigax-ai/pine-extension-sdk">Write an extension</a>
+  <a href="https://www.npmjs.com/package/@aurigax-ai/ostia-extension-sdk">Write an extension</a>
 </p>
 
 ![Ostia with six projects in the sidebar, an agent session and the diff of its change](.github/readme/hero.webp)
@@ -57,12 +57,12 @@ You need Node.js and pnpm.
 
 ```bash
 git clone https://github.com/aurigax-ai/ostia.git
-cd pine
+cd ostia
 pnpm install
 pnpm install:local
 ```
 
-`install:local` packages the app, copies it to `~/.local/share/pine/app`, and adds a desktop
+`install:local` packages the app, copies it to `~/.local/share/ostia/app`, and adds a desktop
 launcher and the `ostia` command in `~/.local/bin` (`pine`, its old name, still works). Run it
 again to update.
 

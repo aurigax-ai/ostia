@@ -142,16 +142,16 @@ test('SSH-C65 SSH-C72 the human opens the folder of an ssh session in Files, rea
     const editorPane = win.locator('.surface-host').filter({ has: bar })
     await expect(editorPane.locator('.view-lines')).toContainText('port=8080', { timeout: 15_000 })
 
-    const versions = readdirSync(join(remoteHome, '.pine', 'helper'))
+    const versions = readdirSync(join(remoteHome, '.ostia', 'helper'))
     expect(versions).toHaveLength(1)
-    const installed = readFileSync(join(remoteHome, '.pine', 'helper', versions[0], 'helper.sh'))
+    const installed = readFileSync(join(remoteHome, '.ostia', 'helper', versions[0], 'helper.sh'))
     const shipped = readFileSync(resolve(__dirname, '../src/extensions/ssh/assets/helper.sh'))
     expect(installed.equals(shipped)).toBe(true)
 
     const asked = await askedDialogs(app)
     expect(asked).toHaveLength(2)
     expect(asked[1].message).toContain('db')
-    expect(asked[1].detail).toContain(`~/.pine/helper/${versions[0]}/helper.sh`)
+    expect(asked[1].detail).toContain(`~/.ostia/helper/${versions[0]}/helper.sh`)
     expect(asked[1].buttons).toEqual(['Install', 'Don’t install'])
 
     await win.locator('.xterm').first().click()
@@ -163,7 +163,7 @@ test('SSH-C65 SSH-C72 the human opens the folder of an ssh session in Files, rea
     await expect(second).toContainText('remote$', { timeout: 40_000 })
     const typed = readFileSync(session.sshLog, 'utf8').trim().split('\n').at(-1) ?? ''
     expect(typed).toContain(
-      `ssh -t -- db exec sh -c 'f="$HOME/.pine/helper/${versions[0]}/session.sh"`,
+      `ssh -t -- db exec sh -c 'f="$HOME/.ostia/helper/${versions[0]}/session.sh"`,
     )
     expect(typed).not.toContain('base64')
     expect(typed.length).toBeLessThan(320)
