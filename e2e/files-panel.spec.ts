@@ -1,4 +1,3 @@
-import { basename } from 'node:path'
 import { _electron as electron, expect, test } from '@playwright/test'
 import { isolatedLaunch } from './dataHome'
 import { PROMPT, emptyWorkspace, openWorkspace } from './helpers'
@@ -26,8 +25,7 @@ test('the Files panel opens beside the workspace list and follows the active wor
       PROMPT,
       { timeout: 15_000 },
     )
-    const home = await app.evaluate(({ app: electronApp }) => electronApp.getPath('home'))
-    await expect(current).toHaveText(basename(home))
+    await expect(current).toHaveText('~')
 
     await win.locator('.deck-rail .rail-tab-main').first().click()
     await expect(current).toHaveText('tmp')
