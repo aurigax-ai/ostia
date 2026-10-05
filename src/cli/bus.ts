@@ -5,14 +5,14 @@ import {
 } from '../shared/agentPlugins'
 import type { BusDelivery } from '../shared/busMessages'
 
-export const BUS_HOOK_USAGE = `usage: pine bus hook <${AGENT_HOOK_CONTEXT_EVENTS.join('|')}>`
+export const BUS_HOOK_USAGE = `usage: ostia bus hook <${AGENT_HOOK_CONTEXT_EVENTS.join('|')}>`
 
 function isContextEvent(value: unknown): value is AgentHookEvent {
   return AGENT_HOOK_CONTEXT_EVENTS.includes(value as AgentHookEvent)
 }
 
 export const BUS_QUEUED_HINT =
-  'queued: the receiver reads it at its next prompt, or the human presses Enter in that pane (pine bus sent shows when it was seen)'
+  'queued: the receiver reads it at its next prompt, or the human presses Enter in that pane (ostia bus sent shows when it was seen)'
 
 export interface BusSendOk {
   ok: true

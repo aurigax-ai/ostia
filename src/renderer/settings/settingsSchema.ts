@@ -448,11 +448,11 @@ export const SETTINGS_JSON_SCHEMA = {
         agentWaiting: {
           type: 'boolean',
           description:
-            'Banner when an agent waits for your input or permission (pine state waiting).',
+            'Banner when an agent waits for your input or permission (ostia state waiting).',
         },
         agentDone: {
           type: 'boolean',
-          description: 'Banner when an agent finishes its turn (pine state done).',
+          description: 'Banner when an agent finishes its turn (ostia state done).',
         },
         command: {
           type: 'string',
@@ -513,7 +513,7 @@ export const SETTINGS_JSON_SCHEMA = {
       properties: {
         chatHistory: {
           type: 'boolean',
-          description: `Save assistant chat sessions on this computer (never synced), so a chat pane reopens its last session and you can search, rename, export or delete past ones. Terminal output you add as context is stored only as the text that was sent. Off keeps chats in memory until ${PRODUCT_DISPLAY_NAME} quits. Only you can change this; pine settings set refuses it. Default: true.`,
+          description: `Save assistant chat sessions on this computer (never synced), so a chat pane reopens its last session and you can search, rename, export or delete past ones. Terminal output you add as context is stored only as the text that was sent. Off keeps chats in memory until ${PRODUCT_DISPLAY_NAME} quits. Only you can change this; ostia settings set refuses it. Default: true.`,
         },
         mcpServers: {
           type: 'array',
@@ -521,7 +521,7 @@ export const SETTINGS_JSON_SCHEMA = {
             'MCP servers the assistant chat can call tools from. Each one runs a program from ' +
             'an argv (never a shell) or connects to an http(s) URL. Every tool call asks you ' +
             'in the chat first. Tokens go in Settings → Assistant (stored encrypted, ' +
-            'never here). Only you can change this; pine settings set refuses it.',
+            'never here). Only you can change this; ostia settings set refuses it.',
           items: {
             type: 'object',
             additionalProperties: false,
@@ -559,7 +559,7 @@ export const SETTINGS_JSON_SCHEMA = {
       properties: {
         autoResume: {
           type: 'boolean',
-          description: `Resume an agent session that was running when ${PRODUCT_DISPLAY_NAME} quit, at its pane's first idle prompt once the pane is visible. Only you can change this; pine settings set refuses it. Default: false.`,
+          description: `Resume an agent session that was running when ${PRODUCT_DISPLAY_NAME} quit, at its pane's first idle prompt once the pane is visible. Only you can change this; ostia settings set refuses it. Default: false.`,
         },
         hooks: {
           type: 'object',
@@ -812,7 +812,7 @@ export const SETTINGS_JSON_SCHEMA = {
           title: { type: 'string', maxLength: ACTION_TITLE_MAX, description: 'Label and tooltip.' },
           command: {
             type: 'string',
-            description: 'A palette command id (see pine commands), e.g. "pane.split".',
+            description: 'A palette command id (see ostia commands), e.g. "pane.split".',
           },
           args: {
             type: 'object',
@@ -871,12 +871,12 @@ export const SETTINGS_JSON_SCHEMA = {
     manager: {
       type: 'object',
       additionalProperties: false,
-      description: `The manager: one agent you start with \`pine <agent>\` from a terminal outside ${PRODUCT_DISPLAY_NAME}. Only you can change this (Settings → Manager); agents cannot set it.`,
+      description: `The manager: one agent you start with \`ostia <agent>\` from a terminal outside ${PRODUCT_DISPLAY_NAME}. Only you can change this (Settings → Manager); agents cannot set it.`,
       properties: {
         agents: {
           type: 'object',
           description:
-            'Presets for `pine <name>` and for the workers the manager starts: a name mapped to ' +
+            'Presets for `ostia <name>` and for the workers the manager starts: a name mapped to ' +
             'the program and its arguments. claude and codex are built in; a preset with the ' +
             'same name replaces them.',
           additionalProperties: { type: 'array', items: { type: 'string' }, minItems: 1 },

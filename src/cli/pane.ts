@@ -6,10 +6,10 @@ export type PaneCall =
   | { method: 'pane.read'; params: { pane: string; lines?: number }; json: boolean }
 
 const USAGE = [
-  'usage: pine pane send <pane> [--enter] [--] <text…>',
-  '       pine pane key <pane> <key>…',
-  '       pine pane read <pane> [--lines N] [--json]',
-  '<pane> is a pane id from pine pane.list, or a process id or name from pine process ls',
+  'usage: ostia pane send <pane> [--enter] [--] <text…>',
+  '       ostia pane key <pane> <key>…',
+  '       ostia pane read <pane> [--lines N] [--json]',
+  '<pane> is a pane id from ostia pane.list, or a process id or name from ostia process ls',
 ].join('\n')
 
 function readFlags(argv: string[]) {
@@ -64,7 +64,7 @@ export async function runPaneVerb(conn: MessageConnection, argv: string[]): Prom
   try {
     call = parsePaneArgs(argv)
   } catch (err) {
-    console.error(`pine pane: ${err instanceof Error ? err.message : String(err)}`)
+    console.error(`ostia pane: ${err instanceof Error ? err.message : String(err)}`)
     return 1
   }
   const result = await conn.sendRequest<unknown>(call.method, call.params)

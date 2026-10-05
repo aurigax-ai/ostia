@@ -11,6 +11,7 @@ import {
   type MessageConnection,
 } from 'vscode-jsonrpc/node'
 import { AGENT_PLUGIN_CAPABILITY, agentSkillId, hookAgentsFor } from '../shared/agentPlugins'
+import { dualEnv, withoutEnv } from '../shared/appEnv'
 import {
   ASSIST_ERRORS,
   ASSIST_POINTS,
@@ -948,16 +949,17 @@ export class ExtensionHost {
     setCaps(identity.externalId, this.granted(rt))
     const mainPath = join(rt.ext.dir, main)
     const script = /\.(c|m)?js$/.test(main)
-    const { PINE_PANE_ID: _pane, PINE_START_DIR: _workspace, ...inherited } = process.env
     const env: NodeJS.ProcessEnv = {
-      ...inherited,
-      PINE_SOCKET: this.deps.socketPath(),
-      PINE_TOKEN: identity.token,
-      [EXTENSION_API_ENV]: EXTENSION_API_VERSION,
-      PINE_EXTENSION_ID: id,
-      PINE_EXTENSION_DIR: rt.ext.dir,
+      ...withoutEnv(process.env, ['PANE_ID', 'START_DIR']),
+      ...dualEnv({
+        SOCKET: this.deps.socketPath(),
+        TOKEN: identity.token,
+        [EXTENSION_API_ENV]: EXTENSION_API_VERSION,
+        EXTENSION_ID: id,
+        EXTENSION_DIR: rt.ext.dir,
+        ...(this.deps.dataDir ? { EXTENSION_DATA: join(this.deps.dataDir, id) } : {}),
+      }),
     }
-    if (this.deps.dataDir) env.PINE_EXTENSION_DATA = join(this.deps.dataDir, id)
     if (script) env.ELECTRON_RUN_AS_NODE = '1'
     rt.identity = identity
     rt.stopping = false

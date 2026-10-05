@@ -80,7 +80,7 @@ const NOT_FOUND = { ok: false, error: 'not-found' as const }
 const UNKNOWN_PANE = {
   ok: false,
   error: 'unknown-pane' as const,
-  message: 'no open pane has that id (see: pine pane.list)',
+  message: 'no open pane has that id (see: ostia pane.list)',
 }
 
 type WaitResult = { messages: Message[]; timedOut: boolean }

@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
+import { readEnv } from '../../shared/appEnv'
 import { booleanSetting, connect, onShutdown, runTool } from '../sdk'
 import { sshCommands } from './commands'
 import { CONSENT_FILE, HelperConsent } from './consent'
@@ -17,7 +18,7 @@ async function main(): Promise<void> {
   const ext = await connect()
   const helper = shippedHelper(readFileSync(HELPER_SOURCE))
   const hosts = new HelperHosts({ helper })
-  const dataDir = process.env.PINE_EXTENSION_DATA
+  const dataDir = readEnv('EXTENSION_DATA')
   const consent = new HelperConsent(dataDir ? join(dataDir, CONSENT_FILE) : null)
   const run = (args: string[]) => runTool('ssh', args, { timeoutMs: RESOLVE_TIMEOUT_MS })
   const sessions = new Sessions()

@@ -155,7 +155,7 @@ function report(verb: string, res: BrowseResponse, json: boolean): void {
     return
   }
   if (res.success) console.log(formatText(verb, res.data))
-  else console.error(`pine browse ${verb}: ${res.error}${res.hint ? `. ${res.hint}` : ''}`)
+  else console.error(`ostia browse ${verb}: ${res.error}${res.hint ? `. ${res.hint}` : ''}`)
 }
 
 async function batchCommands(args: string[]): Promise<string[][] | string> {
@@ -220,7 +220,7 @@ async function runBatch(
 export async function runBrowse(conn: MessageConnection, argv: string[]): Promise<void> {
   const globals = extractGlobals(argv)
   if (typeof globals === 'string') {
-    console.error(`pine browse: ${globals}`)
+    console.error(`ostia browse: ${globals}`)
     process.exitCode = 1
     return
   }

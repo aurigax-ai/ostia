@@ -201,7 +201,7 @@ describe('sandbox Unix socket settings', () => {
     vi.mocked(window.pine.sandbox.fixedPolicy).mockResolvedValue(FIXED)
     render(<SandboxSection />)
     const row = screen.getByRole('group', { name: 'Allow Unix sockets' })
-    expect(row).toHaveTextContent('the pine command')
+    expect(row).toHaveTextContent('the ostia command')
     expect(row).toHaveTextContent('Linux can only allow or block all of them')
     expect(within(row).getByRole('switch')).toBeChecked()
     await userEvent.click(within(row).getByRole('switch'))

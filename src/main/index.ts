@@ -18,6 +18,7 @@ import {
 import type { IPty } from 'node-pty'
 import appIcon from '../../resources/icon.png?asset'
 import type { AgentResume } from '../shared/agentResume'
+import { dualEnv } from '../shared/appEnv'
 import { SHARED_BROWSER_PARTITION, browserPartition } from '../shared/browserProfile'
 import { MANAGER_CAPABILITIES } from '../shared/capabilities'
 import { parseChatToolSettings } from '../shared/chatTools'
@@ -663,7 +664,7 @@ const domainRequests: DomainRequests = new DomainRequests({
       caps: [],
       kind: 'sandbox-domain',
       subject: host,
-      action: origin === 'agent' ? `pine sandbox request-domain ${host}` : `connect to ${host}`,
+      action: origin === 'agent' ? `ostia sandbox request-domain ${host}` : `connect to ${host}`,
       detail: '',
     })
   },
@@ -740,7 +741,7 @@ const portRequests: PortRequests = new PortRequests({
       kind: 'sandbox-port',
       subject: String(port),
       action:
-        origin === 'agent' ? `pine sandbox expose ${port}` : `a server started on port ${port}`,
+        origin === 'agent' ? `ostia sandbox expose ${port}` : `a server started on port ${port}`,
       detail: owner ?? '',
     })
   },
@@ -801,7 +802,7 @@ const secretService: SecretService = new SecretService({
       caps: [],
       kind: 'secret',
       subject: name,
-      action: `pine secret get ${name}`,
+      action: `ostia secret get ${name}`,
       detail: reason,
     })
   },
@@ -1613,15 +1614,15 @@ function registerPtyIpc(): void {
     let env = paneShellEnv({
       parent: process.env,
       integration: integration.env,
-      pane: {
-        PINE_PANE_ID: identity.externalId,
-        PINE_TOKEN: identity.token,
-        PINE_START_DIR: opts.cwd ?? '',
-        PINE_SOCKET: controlSocketPath(),
-        PINE_CLI: join(app.getAppPath(), 'out/cli/index.js'),
-        PINE_NODE: process.execPath,
-        PINE_SHELL_STATE: stateFile,
-      },
+      pane: dualEnv({
+        PANE_ID: identity.externalId,
+        TOKEN: identity.token,
+        START_DIR: opts.cwd ?? '',
+        SOCKET: controlSocketPath(),
+        CLI: join(app.getAppPath(), 'out/cli/index.js'),
+        NODE: process.execPath,
+        SHELL_STATE: stateFile,
+      }),
       agentHooks: settings.agents?.hooks,
     })
     let secretNotice = ''
@@ -1903,14 +1904,14 @@ function trackPty(
 
 function paneEnv(paneId: string, windowId: string, cwd: string): Record<string, string> {
   const identity = registerPane({ windowId, workspaceId: '', paneId })
-  return {
-    PINE_PANE_ID: identity.externalId,
-    PINE_TOKEN: identity.token,
-    PINE_START_DIR: cwd,
-    PINE_SOCKET: controlSocketPath(),
-    PINE_CLI: join(app.getAppPath(), 'out/cli/index.js'),
-    PINE_NODE: process.execPath,
-  }
+  return dualEnv({
+    PANE_ID: identity.externalId,
+    TOKEN: identity.token,
+    START_DIR: cwd,
+    SOCKET: controlSocketPath(),
+    CLI: join(app.getAppPath(), 'out/cli/index.js'),
+    NODE: process.execPath,
+  })
 }
 
 function managerLaunchArgv(argv: string[], resume: AgentResume | null): string[] {

@@ -30,7 +30,7 @@
     "initDoneNoKey": "已在 {dir} 設定 Trellis",
     "reviewTitle": "Trellis：等待你審閱",
     "blockedTitle": "Trellis：有卡片被阻擋",
-    "cardUsage": "請提供卡片編號，例如：pine trellis card SHOP-12",
+    "cardUsage": "請提供卡片編號，例如：ostia trellis card SHOP-12",
     "invalidRef": "「{raw}」不是像 SHOP-12 這樣的卡片編號",
     "cardOpened": "已開啟 {ref}",
     "noProject": "沒有 trellis 專案",
