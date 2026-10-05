@@ -380,7 +380,7 @@ describe('SettingsPanel', () => {
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: 'About' }))
     await user.click(await screen.findByRole('button', { name: 'Open log folder' }))
-    expect(window.pine.diagnostics.openLogFolder).toHaveBeenCalled()
+    expect(window.ostia.diagnostics.openLogFolder).toHaveBeenCalled()
   })
 
   it('toggles notification kinds and sidebar details from their pages', async () => {
