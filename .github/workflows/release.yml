@@ -23,7 +23,7 @@ jobs:
 
   package:
     needs: ci
-    runs-on: ubuntu-24.04
+    runs-on: ${{ fromJSON(needs.ci.outputs.linux) }}
     steps:
       - uses: actions/checkout@v7
       - name: Tag matches package.json version
@@ -102,6 +102,8 @@ jobs:
 
   sdk:
     needs: package
+    # Stays GitHub-hosted: npm trusted publishing (OIDC) does not support
+    # self-hosted runners (docs.npmjs.com/trusted-publishers).
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -119,8 +121,8 @@ jobs:
         run: npm publish --tag ${{ contains(github.ref_name, '-') && 'next' || 'latest' }}
 
   publish:
-    needs: [package, package-macos]
-    runs-on: ubuntu-24.04
+    needs: [ci, package, package-macos]
+    runs-on: ${{ fromJSON(needs.ci.outputs.linux) }}
     steps:
       - uses: actions/checkout@v7
         with:
