@@ -1623,6 +1623,12 @@ export const en = {
       digitRange: 'only Go to Workspace takes a digit, and it binds 1–9 at once.',
     },
   },
+  terminalMenu: {
+    copy: 'Copy',
+    paste: 'Paste',
+    selectAll: 'Select All',
+    clear: 'Clear Terminal',
+  },
   terminalGhost: {
     copy: 'Copy',
     paste: 'Paste',
@@ -4090,6 +4096,12 @@ export const zhHant: Dict = {
       arrow: '單純與 Ctrl 方向鍵屬於 Shell。請加上 Shift。',
       digitRange: '只有「前往工作區」可使用數字，且會一次綁定 1–9。',
     },
+  },
+  terminalMenu: {
+    copy: '複製',
+    paste: '貼上',
+    selectAll: '全選',
+    clear: '清除終端機畫面',
   },
   terminalGhost: {
     copy: '複製',
