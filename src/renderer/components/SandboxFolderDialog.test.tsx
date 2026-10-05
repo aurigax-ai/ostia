@@ -43,7 +43,7 @@ describe('SandboxFolderDialog', () => {
     expect(await screen.findByRole('dialog')).toHaveTextContent('/home contains your home folder')
     act(() =>
       useSandboxStore.setState({
-        refusedFolder: { folder: '/home/u/.config', reason: 'pine-data' },
+        refusedFolder: { folder: '/home/u/.config', reason: 'ostia-data' },
       }),
     )
     expect(screen.getByRole('dialog')).toHaveTextContent(

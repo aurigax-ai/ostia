@@ -62,7 +62,7 @@ async function printValue(win: Page, label: string, variable: string): Promise<s
 test('a scratch workspace keeps history in its private folder, deletes it on close, and never comes back', async () => {
   test.setTimeout(90_000)
   const dataHome = freshDataHome()
-  const marker = `pine_scratch_${Date.now()}`
+  const marker = `ostia_scratch_${Date.now()}`
   let folder = ''
   let leftOpen = ''
 

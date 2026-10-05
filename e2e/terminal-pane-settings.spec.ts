@@ -26,20 +26,20 @@ async function typeInTerminal(win: Page, command: string): Promise<void> {
 test('a multi-line paste asks first; Cancel pastes nothing, Enter pastes, and Don’t ask again turns it off', async () => {
   const { app, win } = await launch()
   try {
-    await app.evaluate(({ clipboard }) => clipboard.writeText('echo pinecancelled\necho two\n'))
+    await app.evaluate(({ clipboard }) => clipboard.writeText('echo ostiacancelled\necho two\n'))
     await win.locator('.xterm').first().click()
     await win.keyboard.press('Control+Shift+V')
 
     const dialog = win.getByRole('dialog')
     await expect(dialog).toBeVisible()
     await expect(dialog).toContainText('It has 2 lines')
-    await expect(dialog.getByLabel('Text to paste')).toContainText('echo pinecancelled')
+    await expect(dialog.getByLabel('Text to paste')).toContainText('echo ostiacancelled')
     await dialog.getByRole('button', { name: 'Cancel' }).click()
     await expect(dialog).toHaveCount(0)
     await win.waitForTimeout(500)
-    await expect(win.locator('.xterm-rows').first()).not.toContainText('pinecancelled')
+    await expect(win.locator('.xterm-rows').first()).not.toContainText('ostiacancelled')
 
-    await app.evaluate(({ clipboard }) => clipboard.writeText('echo pinefirst\necho pinepasted42'))
+    await app.evaluate(({ clipboard }) => clipboard.writeText('echo ostiafirst\necho ostiapasted42'))
     await win.keyboard.press('Control+Shift+V')
     await expect(dialog).toBeVisible()
     await expect(dialog.getByRole('button', { name: 'Paste' })).toBeFocused()
@@ -47,7 +47,7 @@ test('a multi-line paste asks first; Cancel pastes nothing, Enter pastes, and Do
     await expect(dialog).toHaveCount(0)
     await win.keyboard.press('Enter')
     await expect(
-      win.locator('.xterm-rows div', { hasText: /^pinepasted42\s*$/ }).first(),
+      win.locator('.xterm-rows div', { hasText: /^ostiapasted42\s*$/ }).first(),
     ).toBeAttached({ timeout: 15_000 })
 
     await app.evaluate(({ clipboard }) => clipboard.writeText('echo a\necho b'))
@@ -68,28 +68,28 @@ test('a multi-line paste asks first; Cancel pastes nothing, Enter pastes, and Do
 test('a single-line paste goes straight in without its newline, and confirmation can be turned off', async () => {
   const { app, win } = await launch()
   try {
-    await app.evaluate(({ clipboard }) => clipboard.writeText('echo pineplain\n'))
+    await app.evaluate(({ clipboard }) => clipboard.writeText('echo ostiaplain\n'))
     await win.locator('.xterm').first().click()
     await win.keyboard.press('Control+Shift+V')
-    await expect(win.locator('.xterm-rows').first()).toContainText('echo pineplain')
+    await expect(win.locator('.xterm-rows').first()).toContainText('echo ostiaplain')
     await expect(win.getByRole('dialog')).toHaveCount(0)
     await win.waitForTimeout(500)
-    await expect(win.locator('.xterm-rows div', { hasText: /^pineplain\s*$/ })).toHaveCount(0)
+    await expect(win.locator('.xterm-rows div', { hasText: /^ostiaplain\s*$/ })).toHaveCount(0)
     await win.keyboard.press('Enter')
     await expect(
-      win.locator('.xterm-rows div', { hasText: /^pineplain\s*$/ }).first(),
+      win.locator('.xterm-rows div', { hasText: /^ostiaplain\s*$/ }).first(),
     ).toBeAttached({ timeout: 15_000 })
 
     const settings = await openSettings(win, 'Terminal')
     await settings.getByRole('switch', { name: 'Confirm multi-line paste' }).click()
     await win.keyboard.press('Escape')
-    await app.evaluate(({ clipboard }) => clipboard.writeText('\necho pinequiet77\n'))
+    await app.evaluate(({ clipboard }) => clipboard.writeText('\necho ostiaquiet77\n'))
     await win.locator('.xterm').first().click()
     await win.keyboard.press('Control+Shift+V')
     await expect(win.getByRole('dialog')).toHaveCount(0)
     await win.keyboard.press('Enter')
     await expect(
-      win.locator('.xterm-rows div', { hasText: /^pinequiet77\s*$/ }).first(),
+      win.locator('.xterm-rows div', { hasText: /^ostiaquiet77\s*$/ }).first(),
     ).toBeAttached({ timeout: 15_000 })
   } finally {
     await app.close()

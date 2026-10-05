@@ -483,7 +483,7 @@ export const en = {
       home: '{folder} is your home folder. A sandbox hides the home folder, so it cannot confine a workspace that is the home folder itself.',
       'above-home':
         '{folder} contains your home folder. A sandbox hides the home folder, so it cannot confine a workspace that holds it.',
-      'pine-data': '{folder} holds {product}’s own data, which a sandbox must keep hidden.',
+      'ostia-data': '{folder} holds {product}’s own data, which a sandbox must keep hidden.',
     },
     folderAdvice: 'Open a project folder as the workspace and sandbox that instead.',
     folderRefused: '{reason} {advice}',
@@ -497,7 +497,7 @@ export const en = {
       'ip-literal': 'Use a host name, not an IP address.',
       'not-absolute': 'Use an absolute path or one starting with ~/.',
       'too-broad': 'That would open the whole disk or home folder.',
-      'pine-data': '{product}’s own data folder always stays hidden.',
+      'ostia-data': '{product}’s own data folder always stays hidden.',
       missing: 'That path does not exist.',
       pattern: 'Use a plain path without * ? [ ] { }.',
       protected:
@@ -2983,7 +2983,7 @@ export const zhHant: Dict = {
     folderReasons: {
       home: '{folder} 是你的家目錄。沙箱會隱藏家目錄，因此無法限制本身就是家目錄的工作區。',
       'above-home': '{folder} 包含你的家目錄。沙箱會隱藏家目錄，因此無法限制包含它的工作區。',
-      'pine-data': '{folder} 內有 {product} 自己的資料，沙箱必須將其隱藏。',
+      'ostia-data': '{folder} 內有 {product} 自己的資料，沙箱必須將其隱藏。',
     },
     folderAdvice: '請改以專案資料夾開啟工作區，再將它放入沙箱。',
     folderRefused: '{reason}{advice}',
@@ -2997,7 +2997,7 @@ export const zhHant: Dict = {
       'ip-literal': '請使用主機名稱，而非 IP 位址。',
       'not-absolute': '請使用絕對路徑或以 ~/ 開頭的路徑。',
       'too-broad': '這會開放整個磁碟或家目錄。',
-      'pine-data': '{product} 自己的資料夾永遠保持隱藏。',
+      'ostia-data': '{product} 自己的資料夾永遠保持隱藏。',
       missing: '該路徑不存在。',
       pattern: '請使用不含 * ? [ ] { } 的一般路徑。',
       protected:

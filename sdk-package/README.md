@@ -14,7 +14,7 @@ The full contract is in [docs/EXTENSIONS.md](docs/EXTENSIONS.md).
 pnpm dlx @aurigax-ai/ostia-extension-sdk create weather
 cd weather
 pnpm install
-pnpm validate     # builds dist/weather and checks it the way Pine will
+pnpm validate     # builds dist/weather and checks it the way Ostia will
 ```
 
 `create <id> [folder]` writes a small TypeScript project: a `pine.json` with your id, one command in
@@ -83,7 +83,7 @@ its old name too:
 ```sh
 pnpm exec ostia-extension validate dist/weather     # one extension folder
 pnpm exec ostia-extension validate .                # a marketplace: a folder with pine-marketplace.json
-pnpm exec ostia-extension unlist extensions/weather # hide it in Pine: installable only by the printed code
+pnpm exec ostia-extension unlist extensions/weather # hide it in Ostia: installable only by the printed code
 ```
 
 It exits 0 when Ostia would accept it and prints one line per problem otherwise. For an extension it

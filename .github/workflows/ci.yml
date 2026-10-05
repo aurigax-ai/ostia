@@ -115,8 +115,8 @@ jobs:
             [ ! -e /proc/sys/kernel/$k ] || sudo sysctl -w kernel.$k=0
           done
           zsh -fc 'autoload -U compaudit; compaudit' | xargs -r sudo chmod go-w
-          git config --global user.name 'Pine CI'
-          git config --global user.email 'ci@pine.invalid'
+          git config --global user.name 'Ostia CI'
+          git config --global user.email 'ci@ostia.invalid'
       - uses: ./.github/actions/setup
       - run: pnpm test
 
@@ -152,8 +152,8 @@ jobs:
             [ ! -e /proc/sys/kernel/$k ] || sudo sysctl -w kernel.$k=0
           done
           zsh -fc 'autoload -U compaudit; compaudit' | xargs -r sudo chmod go-w
-          git config --global user.name 'Pine CI'
-          git config --global user.email 'ci@pine.invalid'
+          git config --global user.name 'Ostia CI'
+          git config --global user.email 'ci@ostia.invalid'
       - uses: ./.github/actions/setup
       - uses: actions/cache@v6
         id: pty
@@ -192,8 +192,8 @@ jobs:
             [ ! -e /proc/sys/kernel/$k ] || sudo sysctl -w kernel.$k=0
           done
           zsh -fc 'autoload -U compaudit; compaudit' | xargs -r sudo chmod go-w
-          git config --global user.name 'Pine CI'
-          git config --global user.email 'ci@pine.invalid'
+          git config --global user.name 'Ostia CI'
+          git config --global user.email 'ci@ostia.invalid'
       - uses: ./.github/actions/setup
       - uses: actions/cache@v6
         id: pty
@@ -227,8 +227,8 @@ jobs:
       - run: |
           command -v rg >/dev/null || brew install ripgrep
           zsh -fc 'autoload -U compaudit; compaudit' | xargs chmod go-w
-          git config --global user.name 'Pine CI'
-          git config --global user.email 'ci@pine.invalid'
+          git config --global user.name 'Ostia CI'
+          git config --global user.email 'ci@ostia.invalid'
       - uses: ./.github/actions/setup
       - run: pnpm rebuild
       - run: pnpm typecheck
@@ -271,8 +271,8 @@ jobs:
       - run: |
           command -v rg >/dev/null || brew install ripgrep
           zsh -fc 'autoload -U compaudit; compaudit' | xargs chmod go-w
-          git config --global user.name 'Pine CI'
-          git config --global user.email 'ci@pine.invalid'
+          git config --global user.name 'Ostia CI'
+          git config --global user.email 'ci@ostia.invalid'
       - uses: ./.github/actions/setup
       - run: pnpm rebuild
       - uses: actions/download-artifact@v8

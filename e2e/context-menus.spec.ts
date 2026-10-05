@@ -25,20 +25,20 @@ test('right-click in a terminal offers copy, paste, select all and clear', async
     await openWorkspace(win)
     const rows = win.locator('.xterm-rows').first()
     await win.locator('.xterm').first().click()
-    await win.keyboard.type('echo pine_menu_marker')
+    await win.keyboard.type('echo ostia_menu_marker')
     await win.keyboard.press('Enter')
-    await expect(rows).toContainText('pine_menu_marker', { timeout: 15_000 })
+    await expect(rows).toContainText('ostia_menu_marker', { timeout: 15_000 })
 
     await win.locator('.xterm').first().click({ button: 'right' })
     await expect(win.getByRole('menuitem', { name: 'Paste' })).toBeVisible()
     await expect(win.getByRole('menuitem', { name: 'Select All' })).toBeVisible()
     await win.getByRole('menuitem', { name: 'Clear Terminal' }).click()
-    await expect(rows).not.toContainText('pine_menu_marker', { timeout: 15_000 })
+    await expect(rows).not.toContainText('ostia_menu_marker', { timeout: 15_000 })
     await expect(win.locator('.xterm-helper-textarea').first()).toBeFocused()
 
-    await win.keyboard.type('echo pine_after_$((40+2))')
+    await win.keyboard.type('echo ostia_after_$((40+2))')
     await win.keyboard.press('Enter')
-    await expect(rows).toContainText('pine_after_42', { timeout: 15_000 })
+    await expect(rows).toContainText('ostia_after_42', { timeout: 15_000 })
   } finally {
     await app.close()
   }

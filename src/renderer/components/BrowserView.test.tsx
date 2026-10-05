@@ -408,7 +408,7 @@ describe('BrowserView profile', () => {
     const { container } = renderWith('ws', 'shared')
     await waitFor(() => expect(container.querySelector('webview')).not.toBeNull())
     expect(container.querySelector('webview')?.getAttribute('partition')).toBe(
-      `pine-browser-${BROWSER}`,
+      `ostia-browser-${BROWSER}`,
     )
   })
 
