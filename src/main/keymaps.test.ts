@@ -1,8 +1,9 @@
-import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { KeymapContribution } from '../shared/keymap'
+import { readManifest } from './extensionManifest'
 import {
   type KeymapDeps,
   type KeymapSource,
@@ -155,5 +156,23 @@ describe('keymapFor', () => {
         { command: 'find', value: 'Escape', problem: 'escape' },
       ]),
     ).toBe('pane.zoom "Ctrl+X" (ctrl-key), find "Escape" (escape)')
+  })
+})
+
+describe('the macOS keymap shipped with the app', () => {
+  const dir = join(__dirname, '..', 'extensions', 'keymap-macos')
+
+  it('is offered on macOS only and every one of its entries loads there', () => {
+    const res = readManifest(dir)
+    if (!res.ok) throw new Error(res.error)
+    const [keymap] = res.manifest.contributes.keymaps ?? []
+    expect(keymap).toMatchObject({ id: 'cmux', platform: 'darwin' })
+    const source = { extId: res.manifest.id, dir, keymap }
+    const mac = keymapFor('keymap-macos/cmux', deps([source], 'darwin'))
+    if (!mac.ok) throw new Error(mac.error)
+    expect(mac.keymap.skipped).toEqual([])
+    const raw = JSON.parse(readFileSync(join(dir, keymap.path), 'utf8'))
+    expect(Object.keys(mac.keymap.bindings)).toEqual(Object.keys(raw.bindings))
+    expect(keymapFor('keymap-macos/cmux', deps([source], 'linux')).ok).toBe(false)
   })
 })
