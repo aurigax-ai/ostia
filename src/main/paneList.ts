@@ -111,16 +111,19 @@ export function registerPaneListMethods(deps: PaneListDeps): void {
   registerControlMethod('pane.list', {
     cap: READ_BOARD,
     callers: 'all',
+    scripts: true,
     handler: () => listPanes(deps),
   })
   registerControlMethod('workspace.list', {
     cap: READ_BOARD,
     callers: 'all',
+    scripts: true,
     handler: () => listWorkspaces(deps),
   })
   registerControlMethod('workspace.groups', {
     cap: READ_BOARD,
     callers: 'all',
+    scripts: true,
     handler: () => listWorkspaceGroups(deps),
   })
 }
