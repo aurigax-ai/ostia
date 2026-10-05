@@ -45,7 +45,7 @@ describe('sshWorkspace', () => {
   })
 
   it('reads host aliases and drops malformed entries', async () => {
-    window.pine.extensions.invoke = vi.fn().mockResolvedValue({
+    window.ostia.extensions.invoke = vi.fn().mockResolvedValue({
       ok: true,
       data: { hosts: [{ alias: 'db' }, { alias: '' }, null, { name: 'x' }, { alias: 'web' }] },
     })
@@ -53,13 +53,13 @@ describe('sshWorkspace', () => {
   })
 
   it('returns null when the extension refuses to list hosts', async () => {
-    window.pine.extensions.invoke = vi.fn().mockResolvedValue({ ok: false, error: 'sandboxed' })
+    window.ostia.extensions.invoke = vi.fn().mockResolvedValue({ ok: false, error: 'sandboxed' })
     expect(await listSshHosts()).toBeNull()
   })
 
   it('closes the empty workspace and reports on the previous one when connect fails', async () => {
     const paneId = seedWorkspace()
-    window.pine.extensions.invoke = vi
+    window.ostia.extensions.invoke = vi
       .fn()
       .mockResolvedValue({ ok: false, error: 'resolve-failed', message: 'no such host' })
 
@@ -68,7 +68,7 @@ describe('sshWorkspace', () => {
     const state = useWorkspacesStore.getState()
     expect(state.workspaces.map((w) => w.id)).toEqual(['seed'])
     expect(state.activeWorkspaceId).toBe('seed')
-    expect(window.pine.notifications.post).toHaveBeenCalledWith({
+    expect(window.ostia.notifications.post).toHaveBeenCalledWith({
       paneId,
       kind: 'error',
       title: 'Could not connect to ghost',
@@ -79,7 +79,7 @@ describe('sshWorkspace', () => {
 
   it('keeps the new workspace when the session opened', async () => {
     seedWorkspace()
-    window.pine.extensions.invoke = vi.fn().mockResolvedValue({ ok: true, data: { paneId: 'p' } })
+    window.ostia.extensions.invoke = vi.fn().mockResolvedValue({ ok: true, data: { paneId: 'p' } })
 
     expect(await openSshWorkspace('db')).toBe(true)
 

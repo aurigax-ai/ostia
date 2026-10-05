@@ -139,7 +139,7 @@ describe('TopBar', () => {
             ? { ok: true, data: { hosts: hosts.map((alias) => ({ alias })), truncated } }
             : { ok: true, data: { paneId: 'p-ssh' } },
       )
-      window.pine.extensions.invoke = invoke
+      window.ostia.extensions.invoke = invoke
       return invoke
     }
 
