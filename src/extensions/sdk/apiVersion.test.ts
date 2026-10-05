@@ -15,7 +15,7 @@ describe('connect', () => {
     process.env.OSTIA_TOKEN = 'token'
     process.env[envName(EXTENSION_API_ENV)] = `${major - 1}.${minor}`
     await expect(connect()).rejects.toThrow(
-      `this extension needs extension API ${EXTENSION_API_VERSION}; this pine provides ${major - 1}.${minor}`,
+      `this extension needs extension API ${EXTENSION_API_VERSION}; this ostia provides ${major - 1}.${minor}`,
     )
   })
 
@@ -24,6 +24,6 @@ describe('connect', () => {
     process.env.PINE_SOCKET = '/nonexistent/control.sock'
     process.env.PINE_TOKEN = 'token'
     process.env[legacyEnvName(EXTENSION_API_ENV)] = `${major - 1}.${minor}`
-    await expect(connect()).rejects.toThrow(`this pine provides ${major - 1}.${minor}`)
+    await expect(connect()).rejects.toThrow(`this ostia provides ${major - 1}.${minor}`)
   })
 })

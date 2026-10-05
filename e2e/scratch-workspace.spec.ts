@@ -79,9 +79,9 @@ test('a scratch workspace keeps history in its private folder, deletes it on clo
     await expect(win.locator('.xterm-rows').first()).toContainText(PROMPT, { timeout: 15_000 })
 
     folder = await printValue(win, 'DIR', 'PWD')
-    expect(dirname(folder)).toMatch(/pine-scratch-\d+$/)
+    expect(dirname(folder)).toMatch(/ostia-scratch-\d+$/)
 
-    expect(await printValue(win, 'HF', 'HISTFILE')).toBe(join(folder, '.pine_history'))
+    expect(await printValue(win, 'HF', 'HISTFILE')).toBe(join(folder, '.ostia_history'))
 
     await run(win, 'echo hi > a.txt')
     await run(win, `echo ${marker}`)
@@ -91,10 +91,10 @@ test('a scratch workspace keeps history in its private folder, deletes it on clo
     await expect.poll(() => existsSync(join(folder, 'a.txt'))).toBe(true)
 
     await expect
-      .poll(() => existsSync(join(dataHome, 'pine', 'scrollback.json')), { timeout: 15_000 })
+      .poll(() => existsSync(join(dataHome, 'ostia', 'scrollback.json')), { timeout: 15_000 })
       .toBe(true)
     await win.waitForTimeout(6_000)
-    expect(readFileSync(join(dataHome, 'pine', 'scrollback.json'), 'utf8')).not.toContain(marker)
+    expect(readFileSync(join(dataHome, 'ostia', 'scrollback.json'), 'utf8')).not.toContain(marker)
 
     await row.hover()
     await row.getByRole('button', { name: 'Close', exact: true }).click()
@@ -112,7 +112,7 @@ test('a scratch workspace keeps history in its private folder, deletes it on clo
     leftOpen = await printValue(win, 'DIR2', 'PWD')
     expect(existsSync(leftOpen)).toBe(true)
     await win.waitForTimeout(1_000)
-    const saved = readFileSync(join(dataHome, 'pine', 'workspaces.json'), 'utf8')
+    const saved = readFileSync(join(dataHome, 'ostia', 'workspaces.json'), 'utf8')
     expect(saved).not.toContain(leftOpen)
   } finally {
     await quitApp(first.app)

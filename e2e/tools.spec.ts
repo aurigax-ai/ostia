@@ -53,9 +53,9 @@ test('the keeper extension drives its panel and sidebar from the CLI', async () 
   copyFileSync(join(FIXTURES, 'keeper', 'approve-pending.json'), join(keeperDir, 'approve.json'))
   writeFileSync(join(keeperDir, 'ui.txt'), `${keeperUi.origin}\n`)
 
-  mkdirSync(join(dataHome, 'pine'), { recursive: true })
+  mkdirSync(join(dataHome, 'ostia'), { recursive: true })
   writeFileSync(
-    join(dataHome, 'pine', 'workspaces.json'),
+    join(dataHome, 'ostia', 'workspaces.json'),
     JSON.stringify({
       v: 1,
       savedAt: new Date().toISOString(),

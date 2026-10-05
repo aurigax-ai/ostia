@@ -49,12 +49,13 @@ const CLI_HELP = `ostia — control-socket CLI (pine is its old name and still w
                                  offers Resume (Ctrl+Shift+R); '-' reads a hook's JSON
                                  (session_id) from stdin
   ostia workflow list [--json]   saved command workflows this pane can use: this workspace's
-                                 .pine/workflows, the user's workflows folder and extensions;
+                                 .ostia/workflows (or .pine/workflows), the user's workflows
+                                 folder and extensions;
                                  --json prints {workflows,problems}
   ostia workflow show <name> [--json]
                                  one workflow's command, arguments and defaults (read-only;
                                  fill the {{placeholders}} and run the command yourself)
-  ostia view schema              JSON Schema of a view file (~/.config/pine/views/<name>.json)
+  ostia view schema              JSON Schema of a view file (~/.config/ostia/views/<name>.json)
   ostia view validate <file>     check a view file: file:line: path: message, exit 1 on problems
   ostia view list [--json]       view files and their status (pending until the human enables)
   ostia view open <name>         open an enabled panel view as a pane in this workspace

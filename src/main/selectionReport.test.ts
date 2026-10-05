@@ -107,7 +107,7 @@ describe('writeSelectionReport', () => {
   it('writes a private text report with the file, range, selection and note', async () => {
     const res = await writeSelectionReport(request(), 'w1', sameWindow, AT)
     if (!res.ok) throw new Error(res.error)
-    expect(res.path).toMatch(/pine-reports-\d+\/selection-\d+\.md$/)
+    expect(res.path).toMatch(/ostia-reports-\d+\/selection-\d+\.md$/)
     expect(res.imagePath).toBeNull()
     const md = readFileSync(res.path, 'utf8')
     expect(md).toContain('- File: /home/u/proj/src/app.ts')

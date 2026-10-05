@@ -305,7 +305,7 @@ describe('ssh connect with shell integration', () => {
     })
     expect(installedHelper.mock.calls[0][0].destination).toBe('dev@db')
     const detail = deps.confirm.mock.calls[0][0].detail ?? ''
-    expect(detail).toContain('~/.pine/helper')
+    expect(detail).toContain('~/.ostia/helper')
     expect(detail).not.toContain('temporary folder')
     expect(JSON.stringify(deps.openTerminal.mock.calls)).not.toContain(REMOTE_COMMAND)
   })

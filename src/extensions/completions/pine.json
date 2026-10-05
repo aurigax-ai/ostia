@@ -2,8 +2,8 @@
   "id": "completions",
   "name": "Command completions",
   "version": "1.0.0",
-  "api": "1.13",
-  "description": "Subcommands, options and argument values with descriptions for about 700 command-line tools, shown by the input editor on Tab. Converted from Fig's open-source completion specs (@withfig/autocomplete, MIT). Your own specs in ~/.config/pine/completions take precedence.",
+  "api": "1.14",
+  "description": "Subcommands, options and argument values with descriptions for about 700 command-line tools, shown by the input editor on Tab. Converted from Fig's open-source completion specs (@withfig/autocomplete, MIT). Your own specs in ~/.config/ostia/completions take precedence.",
   "category": "completions",
   "locales": ["zh-Hant"],
   "contributes": {

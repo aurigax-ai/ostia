@@ -240,7 +240,7 @@ op_write() {
   fi
   dir=${target%/*}
   [ -n "$dir" ] || dir=/
-  tmp="$dir/.${target##*/}.pine-$$.tmp"
+  tmp="$dir/.${target##*/}.ostia-$$.tmp"
   if [ "$current" != new ]; then
     cp -p -- "$target" "$tmp" 2>/dev/null || {
       rm -f -- "$tmp"
