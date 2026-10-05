@@ -2,9 +2,11 @@ import { BUILTIN_ICON_THEME, ICON_THEME_ID_PATTERN } from '../../shared/iconThem
 
 export type FileSortOrder = 'foldersFirst' | 'mixed'
 export type FileSortBy = 'name' | 'type'
+export type BreadcrumbStyle = 'auto' | 'full' | 'short'
 
 export const FILE_SORT_ORDERS: readonly FileSortOrder[] = ['foldersFirst', 'mixed']
 export const FILE_SORT_BYS: readonly FileSortBy[] = ['name', 'type']
+export const BREADCRUMB_STYLES: readonly BreadcrumbStyle[] = ['auto', 'full', 'short']
 
 export interface FileNestingSettings {
   enabled: boolean
@@ -18,6 +20,7 @@ export interface FileTreeSettings {
   nesting: FileNestingSettings
   sortOrder: FileSortOrder
   sortBy: FileSortBy
+  breadcrumb: BreadcrumbStyle
   iconTheme: string
 }
 
@@ -46,6 +49,7 @@ export const DEFAULT_FILE_TREE_SETTINGS: FileTreeSettings = {
   nesting: { enabled: true, patterns: DEFAULT_NESTING_PATTERNS },
   sortOrder: 'foldersFirst',
   sortBy: 'name',
+  breadcrumb: 'auto',
   iconTheme: BUILTIN_ICON_THEME,
 }
 
@@ -97,6 +101,9 @@ export function parseFileTreeSettings(raw: unknown): FileTreeSettings {
     sortBy: FILE_SORT_BYS.includes(raw.sortBy as FileSortBy)
       ? (raw.sortBy as FileSortBy)
       : base.sortBy,
+    breadcrumb: BREADCRUMB_STYLES.includes(raw.breadcrumb as BreadcrumbStyle)
+      ? (raw.breadcrumb as BreadcrumbStyle)
+      : base.breadcrumb,
     iconTheme:
       typeof raw.iconTheme === 'string' && ICON_THEME_ID_PATTERN.test(raw.iconTheme)
         ? raw.iconTheme

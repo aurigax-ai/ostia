@@ -13,6 +13,7 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
         version: '0.0.0',
         platform: 'linux',
         hostName: 'devbox',
+        home: '/home/me',
       }),
     platform: 'linux',
     diagnostics: {
