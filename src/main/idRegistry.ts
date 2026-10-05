@@ -49,6 +49,22 @@ export function registerPane(input: {
   return identity
 }
 
+export function adoptPane(input: {
+  windowId: string
+  workspaceId: string
+  paneId: string
+  externalId: string
+  token: string
+}): PaneIdentity {
+  removePane(input.paneId)
+  const taken = byExternal.get(input.externalId) ?? byToken.get(input.token)
+  if (taken) removePane(taken.paneId)
+  const identity: PaneIdentity = { kind: 'pane', ...input }
+  byPane.set(identity.paneId, identity)
+  index(identity)
+  return identity
+}
+
 export function removePane(paneId: string): void {
   const id = byPane.get(paneId)
   if (!id) return

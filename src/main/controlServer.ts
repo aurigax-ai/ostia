@@ -1,5 +1,6 @@
+import { createHash } from 'node:crypto'
 import { chmodSync, rmSync } from 'node:fs'
-import { type Server, createServer } from 'node:net'
+import { type Server, type Socket, createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import {
   ErrorCodes,
@@ -25,6 +26,11 @@ import { socketPath } from './privateTmp'
 
 export function controlSocketPath(): string {
   return socketPath(process.env.XDG_RUNTIME_DIR || tmpdir(), `${PRODUCT_NAME}-${process.pid}.sock`)
+}
+
+export function keptControlSocketPath(userData: string): string {
+  const digest = createHash('sha256').update(userData).digest('hex').slice(0, 16)
+  return socketPath(process.env.XDG_RUNTIME_DIR || tmpdir(), `${PRODUCT_NAME}-kept-${digest}.sock`)
 }
 
 function unauthenticatedError(message: string): ResponseError<void> {
@@ -102,6 +108,9 @@ export interface ControlServerDeps {
 }
 
 let server: Server | null = null
+let keptServer: Server | null = null
+let keptPath: string | null = null
+let handleConnection: ((socket: Socket) => void) | null = null
 
 export function registerControlServer(deps: ControlServerDeps, socketPathOverride?: string): void {
   const path = socketPathOverride ?? controlSocketPath()
@@ -109,7 +118,7 @@ export function registerControlServer(deps: ControlServerDeps, socketPathOverrid
     rmSync(path, { force: true })
   } catch {}
 
-  server = createServer((socket) => {
+  handleConnection = (socket) => {
     const conn = createMessageConnection(
       new StreamMessageReader(socket),
       new StreamMessageWriter(socket),
@@ -222,7 +231,8 @@ export function registerControlServer(deps: ControlServerDeps, socketPathOverrid
     socket.on('error', () => conn.dispose())
     conn.onClose(() => socket.destroy())
     conn.listen()
-  })
+  }
+  server = createServer(handleConnection)
 
   server.on('error', (err) => console.error('[control] socket server error:', err))
   server.listen(path, () => {
@@ -232,10 +242,28 @@ export function registerControlServer(deps: ControlServerDeps, socketPathOverrid
   })
 }
 
+export function listenKeptControlSocket(path: string): void {
+  if (!handleConnection || keptServer) return
+  try {
+    rmSync(path, { force: true })
+  } catch {}
+  keptPath = path
+  keptServer = createServer(handleConnection)
+  keptServer.on('error', (err) => console.error('[control] kept socket error:', err))
+  keptServer.listen(path, () => {
+    try {
+      chmodSync(path, 0o600)
+    } catch {}
+  })
+}
+
 export function stopControlServer(): void {
   server?.close()
   server = null
+  keptServer?.close()
+  keptServer = null
   try {
     rmSync(controlSocketPath(), { force: true })
+    if (keptPath) rmSync(keptPath, { force: true })
   } catch {}
 }

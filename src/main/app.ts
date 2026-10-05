@@ -1,7 +1,16 @@
 import { execFileSync } from 'node:child_process'
-import { randomUUID } from 'node:crypto'
-import { existsSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
-import { homedir, hostname } from 'node:os'
+import { createHash, randomUUID } from 'node:crypto'
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  renameSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs'
+import { homedir, hostname, tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import {
   BrowserWindow,
@@ -25,6 +34,7 @@ import { parseChatToolSettings } from '../shared/chatTools'
 import { languageForPath } from '../shared/editorLanguages'
 import { EXTENSION_SUGGESTIONS } from '../shared/extensionSuggestions'
 import type { ExtensionPanelContext, ExtensionResult, WorkspaceChip } from '../shared/extensions'
+import { KEEP_SHELLS_FEATURE, parseKeepShells } from '../shared/keepShells'
 import { languageServerKey } from '../shared/languageServers'
 import { MANAGER_FEATURE, managerAgents, parseManagerSettings } from '../shared/managerSettings'
 import { OPEN_FILES_MAX } from '../shared/openFiles'
@@ -32,7 +42,7 @@ import { OFFICIAL_MARKETPLACE, PRODUCT_NAME } from '../shared/product'
 import { PRODUCT_DISPLAY_NAME } from '../shared/productDisplay'
 import { type RemoteCwd, normalizeRemoteCwd } from '../shared/remoteFolders'
 import { parseSandboxGlobals } from '../shared/sandbox'
-import { quoteArgv } from '../shared/shellQuote'
+import { quoteArg, quoteArgv } from '../shared/shellQuote'
 import { shellArgv, shellName } from '../shared/terminalShell'
 import type {
   AppInfo,
@@ -87,7 +97,13 @@ import { confirmQuit, freezeAll, registerCloseGuard } from './closeGuard'
 import { registerCompletionIpc } from './completionSpecs'
 import { attachContextMenu } from './contextMenu'
 import { connHasCap, setCapFilter } from './controlAuth'
-import { controlSocketPath, registerControlServer, stopControlServer } from './controlServer'
+import {
+  controlSocketPath,
+  keptControlSocketPath,
+  listenKeptControlSocket,
+  registerControlServer,
+  stopControlServer,
+} from './controlServer'
 import { registerCredentials } from './credentials'
 import { type Diagnostics, registerDiagnostics } from './diagnostics'
 import { registerDocsMethods } from './docs'
@@ -110,6 +126,7 @@ import { clearGuestNetwork, watchGuestNetwork } from './guestNetwork'
 import { registerIconThemeIpc } from './iconThemes'
 import {
   type PaneIdentity,
+  adoptPane,
   getByPaneId,
   markManager,
   panesOwnedBy,
@@ -149,6 +166,7 @@ import { registerOpenPathIpc } from './openPath'
 import type { OriginReach } from './originAgents'
 import { type PaneIo, registerPaneIoMethods } from './paneIo'
 import { listPanes, listWorkspaces, registerPaneListMethods } from './paneList'
+import type { PaneProcess } from './paneProcess'
 import { registerPaneResumeMethods } from './paneResume'
 import { resolveSafe } from './pathGuard'
 import {
@@ -166,7 +184,7 @@ import { INTERRUPT_GRACE_MS, type ProcessRegistry, registerProcessMethods } from
 import { registerProjectRootIpc } from './projectRoot'
 import { KubeContextReader, NodeVersionResolver, promptContext } from './promptContext'
 import { type ReapReason, RecoveryBook, orphanVerdict, planRecovery } from './ptyReaper'
-import { PtySession, type SubscriberRole } from './ptySession'
+import { PtySession, type Subscriber, type SubscriberRole } from './ptySession'
 import { questions, registerQuestions } from './questions'
 import { QUIT_SIGNALS, exitAfterDeadline, planQuit } from './quitPlan'
 import { createRedactor, createScrollbackRedactor } from './redaction'
@@ -227,6 +245,9 @@ import {
 } from './systemRequirements'
 import { registerSystemRequirementsIpc } from './systemRequirementsIpc'
 import { PTY_COLOR_ENV, PTY_TERM_NAME, paneShellEnv } from './terminalType'
+import { TMUX_MISSING, keepShellsBanner } from './tmux/keepShellsBanner'
+import { type KeptShell, KeptShells } from './tmux/keptShells'
+import type { TmuxPane, TmuxServerOptions } from './tmux/tmuxServer'
 import { AppTray, closeAction, isHiddenLaunch, readCloseToTray, unreadWorkspaces } from './tray'
 import { OLD_PRODUCT_NAME, appConfigDir, configHome, dataHome } from './userDirs'
 import {
@@ -251,7 +272,9 @@ import {
 } from './workspaceRegistry'
 import {
   dropRestoredScrollback,
+  handoffPaneIds,
   loadRestoredScrollback,
+  loadSnapshot,
   pendingRestoredScrollback,
   saveScrollback,
   scrollbackToSave,
@@ -276,7 +299,8 @@ function loadPty(): typeof import('node-pty') | null {
 
 interface PtyEntry {
   paneId: string
-  pty: IPty
+  pty: PaneProcess
+  kept: TmuxPane | null
   session: PtySession
   mirror: ScreenMirror
   subs: Map<string, Electron.WebContents>
@@ -432,6 +456,92 @@ function openExternalSafe(url: string): boolean {
   if (!EXTERNAL_SCHEMES.has(scheme)) return false
   void shell.openExternal(url)
   return true
+}
+
+const keptShells = new KeptShells({
+  options: keptShellsOptions,
+  log: (event, fields) => appLog?.info(event, fields),
+})
+let tmuxTerminal: string | null = null
+let restartRequested = false
+
+function keptShellsOptions(): TmuxServerOptions | null {
+  if (missingRequirements(KEEP_SHELLS_FEATURE).length > 0) return null
+  const tmux = programPath('tmux')
+  if (!tmux) return null
+  return {
+    tmux,
+    dir: join(tmpdir(), `${PRODUCT_NAME}-tmux-${process.getuid?.() ?? 0}`),
+    name: createHash('sha256').update(app.getPath('userData')).digest('hex').slice(0, 16),
+    defaultTerminal: tmuxDefaultTerminal(),
+    env: process.env,
+  }
+}
+
+function tmuxDefaultTerminal(): string {
+  if (tmuxTerminal === null) {
+    try {
+      execFileSync('infocmp', ['tmux-256color'], { stdio: 'ignore', timeout: 2000 })
+      tmuxTerminal = 'tmux-256color'
+    } catch {
+      tmuxTerminal = 'screen-256color'
+    }
+  }
+  return tmuxTerminal
+}
+
+function savedPaneIds(): Set<string> | null {
+  const snapshot = loadSnapshot()
+  if (!snapshot) return null
+  const ids = new Set<string>()
+  const workspaces = [
+    ...snapshot.workspaces,
+    ...(snapshot.windows ?? []).flatMap((w) => w.workspaces),
+  ]
+  for (const workspace of workspaces) for (const id of handoffPaneIds(workspace)) ids.add(id)
+  return ids
+}
+
+function keptLauncherDir(): string {
+  return join(app.getPath('userData'), 'bin')
+}
+
+function replaceFile(path: string, content: string, mode: number): void {
+  const next = `${path}.${process.pid}.new`
+  writeFileSync(next, content, { mode })
+  renameSync(next, path)
+}
+
+function writeKeptLaunchers(): void {
+  const dir = keptLauncherDir()
+  mkdirSync(dir, { recursive: true, mode: 0o700 })
+  replaceFile(
+    join(dir, 'ostia-node'),
+    `#!/bin/sh\nexec ${quoteArg(process.execPath)} "$@"\n`,
+    0o700,
+  )
+  replaceFile(
+    join(dir, 'ostia-cli.js'),
+    `require(${JSON.stringify(join(app.getAppPath(), 'out/cli/index.js'))})\n`,
+    0o600,
+  )
+}
+
+function keptPaneEnv(env: NodeJS.ProcessEnv): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const [key, value] of Object.entries(env)) {
+    if (value === undefined || key === 'TERM') continue
+    out[key] = value
+  }
+  const launchers = keptLauncherDir()
+  return Object.assign(
+    out,
+    appEnv({
+      SOCKET: keptControlSocketPath(app.getPath('userData')),
+      CLI: join(launchers, 'ostia-cli.js'),
+      NODE: join(launchers, 'ostia-node'),
+    }),
+  )
 }
 
 function killPty(paneId: string, reason: ReapReason): void {
@@ -1602,10 +1712,14 @@ function registerPtyIpc(): void {
         shell: shellName(existing.shell) || undefined,
         sandboxed: existing.sandboxed,
         ...(existing.sandboxStamp ? { sandboxStamp: existing.sandboxStamp } : {}),
+        ...(existing.kept ? { kept: true } : {}),
         cols: existing.pty.cols,
         rows: existing.pty.rows,
       }
     }
+    await keptShells.ready
+    const keptShell = keptShells.claim(paneId)
+    if (keptShell) return reattachKept(e, paneId, opts, keptShell, mkSub())
     if (opts.attachOnly) return { created: false, buffer: '', cursor: 0, dropped: false }
 
     const mod = loadPty()
@@ -1720,14 +1834,59 @@ function registerPtyIpc(): void {
       portBridge?.close()
       return attachPty(e, paneId, opts)
     }
-    const pty = mod.spawn(file, args, {
-      name: PTY_TERM_NAME,
-      cols,
-      rows,
-      cwd,
-      env,
-    })
+    const keep = parseKeepShells(settings.terminal?.keepShells) && !sandboxed && !host
+    let kept: TmuxPane | null = null
+    if (keep) {
+      if (!keptShellsOptions()) {
+        return {
+          created: false,
+          buffer: keepShellsBanner(TMUX_MISSING),
+          cursor: 0,
+          dropped: false,
+        }
+      }
+      try {
+        kept = await keptShells.spawn({
+          file,
+          args,
+          cwd,
+          env: keptPaneEnv(env),
+          cols,
+          rows,
+          meta: {
+            paneId,
+            externalId: identity.externalId,
+            token: identity.token,
+            workspaceId,
+            shell,
+            stateFile,
+            spawnPath: env.PATH ?? '',
+          },
+        })
+      } catch (err) {
+        return {
+          created: false,
+          buffer: keepShellsBanner(err instanceof Error ? err.message : String(err)),
+          cursor: 0,
+          dropped: false,
+        }
+      }
+      if (ptys.has(paneId)) {
+        kept.kill()
+        return attachPty(e, paneId, opts)
+      }
+    }
+    const pty: PaneProcess =
+      kept ??
+      mod.spawn(file, args, {
+        name: PTY_TERM_NAME,
+        cols,
+        rows,
+        cwd,
+        env,
+      })
     const entry = trackPty(paneId, pty, {
+      kept,
       cols,
       rows,
       subs: new Map([[subId, e.sender]]),
@@ -1772,6 +1931,59 @@ function registerPtyIpc(): void {
       sandboxed,
       host,
       ...(sandboxStamp ? { sandboxStamp } : {}),
+      ...(kept ? { kept: true } : {}),
+    }
+  }
+
+  async function reattachKept(
+    e: Electron.IpcMainInvokeEvent,
+    paneId: string,
+    opts: PtySpawnOptions,
+    kept: KeptShell,
+    sub: Subscriber,
+  ): Promise<PtyAttachResult> {
+    const subId = String(e.sender.id)
+    const { pane, meta } = kept
+    adoptPane({
+      windowId: subId,
+      workspaceId: meta.workspaceId,
+      paneId,
+      externalId: meta.externalId,
+      token: meta.token,
+    })
+    takeRestoredScrollback(paneId)
+    hibernatedPanes.delete(paneId)
+    const cols = opts.cols || pane.cols
+    const rows = opts.rows || pane.rows
+    const entry = trackPty(paneId, pane, {
+      kept: pane,
+      cols,
+      rows,
+      subs: new Map([[subId, e.sender]]),
+      spawnPath: meta.spawnPath,
+      stateFile: meta.stateFile,
+      keepAlive: false,
+      workspaceId: meta.workspaceId,
+      shell: meta.shell,
+    })
+    pane.onData((d) => feedPty(entry, d))
+    pane.onExit(({ exitCode }) => entry.session.exit(exitCode))
+    let screen = ''
+    try {
+      screen = await pane.snapshot(cols, rows)
+    } catch {}
+    feedPty(entry, `${RESTORE_SEAM}${screen}`)
+    pane.live()
+    const { data, cursor, dropped } = entry.session.since(0)
+    entry.session.addLiveSubscriber(sub)
+    return {
+      created: false,
+      buffer: data,
+      cursor,
+      dropped,
+      shell: shellName(meta.shell) || undefined,
+      sandboxed: false,
+      kept: true,
     }
   }
 
@@ -1857,7 +2069,7 @@ function registerPtyIpc(): void {
 
 function trackPty(
   paneId: string,
-  pty: IPty,
+  pty: PaneProcess,
   opts: {
     cols: number
     rows: number
@@ -1870,6 +2082,7 @@ function trackPty(
     shell?: string
     sandboxStamp?: string | null
     portBridge?: PortBridge | null
+    kept?: TmuxPane | null
   },
 ): PtyEntry {
   const spawnedAt = Date.now()
@@ -1928,6 +2141,7 @@ function trackPty(
     sandboxStamp: opts.sandboxStamp ?? null,
     portBridge: opts.portBridge ?? null,
     confinedBy: opts.sandboxed ? (opts.workspaceId ?? '') : null,
+    kept: opts.kept ?? null,
   }
   ptys.set(paneId, entry)
   return entry
@@ -2284,7 +2498,7 @@ function readSettingsFile(): {
   workspaces?: { globalHotkey?: unknown }
   manager?: unknown
   assistant?: unknown
-  terminal?: { shell?: unknown }
+  terminal?: { shell?: unknown; keepShells?: unknown }
   agents?: { hooks?: unknown }
 } {
   try {
@@ -2514,6 +2728,10 @@ app.whenReady().then(() => {
   })
   handleQuitSignals()
   loadRestoredScrollback()
+  void keptShells.start(parseKeepShells(readSettingsFile().terminal?.keepShells), savedPaneIds())
+  try {
+    writeKeptLaunchers()
+  } catch {}
   scratchFolders.sweep()
   workspaceSandboxes.sweepTmp()
   registerScratchIpc(scratchFolders)
@@ -2536,7 +2754,10 @@ app.whenReady().then(() => {
   registerApprovals(revealWindow)
   registerQuestions()
   registerCredentials()
-  registerAppUpdate(requestQuit)
+  registerAppUpdate(() => {
+    restartRequested = true
+    requestQuit()
+  })
   registerReleaseCheck({
     openExternal: openExternalSafe,
     readSettings: readSettingsFile,
@@ -2873,6 +3094,7 @@ app.whenReady().then(() => {
     ownedGuest: (paneId, senderWindowId) => ownedGuest(browserPanes, paneId, senderWindowId),
   })
   registerControlServer({ execCommand, listCommandsFor, getTerminalState })
+  listenKeptControlSocket(keptControlSocketPath(app.getPath('userData')))
   registerManagerIpc()
   managerLimiter = registerManagerMethods({
     settings: managerSettings,
@@ -3007,14 +3229,21 @@ app.on('before-quit', (event) => {
   broker?.persist()
   managerService?.shutdown()
   appLog?.info('app-quit', { ptys: ptys.size })
+  const keepingShells = restartRequested
   for (const entry of ptys.values()) {
+    entry.mirror.dispose()
+    if (keepingShells && entry.kept) {
+      entry.kept.detach()
+      continue
+    }
     try {
       entry.pty.kill()
     } catch {}
-    entry.mirror.dispose()
     removeStateFile(entry)
   }
   ptys.clear()
+  if (keepingShells) keptShells.release()
+  else keptShells.quitNow()
   languageServers?.stopAll()
   languageServerWatches.closeAll()
   workspaceSandboxes.stopAll()

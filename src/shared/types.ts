@@ -175,6 +175,7 @@ export interface PtyAttachResult {
   host?: boolean
   cols?: number
   rows?: number
+  kept?: boolean
 }
 
 export interface SystemApi {

@@ -40,7 +40,6 @@ function meta(paneId: string): KeptMeta {
     shell: '/bin/sh',
     stateFile: '',
     spawnPath: process.env.PATH ?? '',
-    agentRunning: false,
   }
 }
 

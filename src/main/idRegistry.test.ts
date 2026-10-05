@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  adoptPane,
   getByPaneId,
   markManager,
   panesOwnedBy,
@@ -146,5 +147,21 @@ describe('idRegistry', () => {
 
     expect(workspaceHasManager('s-mgr')).toBe(true)
     expect(workspaceHasManager('s-plain')).toBe(false)
+  })
+
+  it('gives a reattached pane back its old token and id, dropping the ones minted at restore', () => {
+    const minted = registerPane({ windowId: 'w9', workspaceId: 'ws9', paneId: 'kept-1' })
+    const adopted = adoptPane({
+      windowId: 'w9',
+      workspaceId: 'ws9',
+      paneId: 'kept-1',
+      externalId: 'ext-kept-1',
+      token: 'tok-kept-1',
+    })
+    expect(resolveToken('tok-kept-1')).toBe(adopted)
+    expect(resolveExternal('ext-kept-1')?.paneId).toBe('kept-1')
+    expect(resolveToken(minted.token)).toBeUndefined()
+    expect(getByPaneId('kept-1')?.token).toBe('tok-kept-1')
+    removePane('kept-1')
   })
 })

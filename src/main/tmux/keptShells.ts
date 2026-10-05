@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import type { NewWindowSpec } from './tmuxCommand'
@@ -11,7 +12,6 @@ export interface KeptMeta {
   shell: string
   stateFile: string
   spawnPath: string
-  agentRunning: boolean
 }
 
 const TEXT_MAX = 4096
@@ -33,10 +33,7 @@ export function parseKeptMeta(raw: unknown): KeptMeta | null {
     spawnPath: text(r.spawnPath),
   }
   if (Object.values(fields).some((v) => v === null) || !fields.paneId || !fields.token) return null
-  return {
-    ...(fields as Omit<KeptMeta, 'agentRunning'>),
-    agentRunning: r.agentRunning === true,
-  }
+  return fields as KeptMeta
 }
 
 export interface KeptShell {
@@ -44,7 +41,7 @@ export interface KeptShell {
   meta: KeptMeta
 }
 
-export type KeptShellsLog = (event: string, fields: Record<string, unknown>) => void
+export type KeptShellsLog = (event: string, fields: Record<string, string>) => void
 
 export interface KeptShellsDeps {
   options: () => TmuxServerOptions | null
@@ -94,6 +91,20 @@ export class KeptShells {
     const server = this.server ?? (this.socketExists() ? await this.connect() : null)
     await server?.killServer()
     this.server = null
+  }
+
+  quitNow(): void {
+    this.waiting.clear()
+    this.server?.close()
+    this.server = null
+    const options = this.deps.options()
+    if (!options || !existsSync(join(options.dir, options.name))) return
+    try {
+      execFileSync(options.tmux, ['-S', join(options.dir, options.name), 'kill-server'], {
+        stdio: 'ignore',
+        timeout: 3000,
+      })
+    } catch {}
   }
 
   release(): void {
