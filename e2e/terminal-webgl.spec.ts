@@ -1,5 +1,5 @@
 import { _electron as electron, expect, test } from '@playwright/test'
-import { freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
+import { SOFTWARE_WEBGL, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { emptyState, emptyWorkspace } from './helpers'
 
 async function redRowGaps(png: Buffer, page: import('@playwright/test').Page): Promise<number> {
@@ -39,7 +39,8 @@ async function redRowGaps(png: Buffer, page: import('@playwright/test').Page): P
 test('the GPU renderer draws stacked block characters without gaps between rows', async () => {
   const dataHome = freshDataHome()
   seedSettings(dataHome, { behavior: { gpuAcceleration: true } })
-  const app = await electron.launch(isolatedLaunch(dataHome))
+  const launch = isolatedLaunch(dataHome)
+  const app = await electron.launch({ ...launch, args: [SOFTWARE_WEBGL, ...launch.args] })
   try {
     const win = await app.firstWindow()
     await emptyState(win)

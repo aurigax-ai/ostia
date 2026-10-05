@@ -1,7 +1,13 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { type Page, _electron as electron, expect, test } from '@playwright/test'
-import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
+import {
+  DOM_RENDERER_SETTINGS,
+  SOFTWARE_WEBGL,
+  freshDataHome,
+  isolatedLaunch,
+  seedSettings,
+} from './dataHome'
 import { fakeAgentBin } from './fakeAgent'
 import { emptyState, emptyWorkspace } from './helpers'
 
@@ -68,6 +74,7 @@ for (const renderer of ['webgl', 'dom'] as const) {
     const launch = isolatedLaunch(dataHome)
     const app = await electron.launch({
       ...launch,
+      args: [SOFTWARE_WEBGL, ...launch.args],
       env: { ...launch.env, PATH: `${bin}:${launch.env.PATH}` },
     })
     try {
