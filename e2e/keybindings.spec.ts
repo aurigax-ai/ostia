@@ -121,6 +121,69 @@ test('on macOS the palette is Cmd+K, a rebound chord works from a terminal, a Ct
   }
 })
 
+test('on macOS Cmd+Backspace deletes the typed line in the shell, as in Terminal and iTerm', async () => {
+  test.skip(!isMac, 'Cmd+Backspace is a macOS line-editing key')
+  const app = await electron.launch(isolatedLaunch())
+  try {
+    const win = await app.firstWindow()
+    await win.waitForLoadState('domcontentloaded')
+    await openWorkspace(win)
+    await focusTerminal(win)
+    const rows = win.locator('.xterm-rows').first()
+
+    await win.keyboard.type('echo pine_wrong_line')
+    await expect(rows).toContainText('echo pine_wrong_line')
+    await win.keyboard.press('Meta+Backspace')
+    await win.keyboard.type('echo pine_$((40+2))_ok')
+    await win.keyboard.press('Enter')
+    await expect(rows).toContainText('pine_42_ok')
+    await expect(rows).not.toContainText('pine_wrong_line')
+    expect(app.windows()).toHaveLength(1)
+  } finally {
+    await app.close()
+  }
+})
+
+test('on macOS Cmd+W closes the focused pane and leaves the app running, and the menu closes the window with Cmd+Shift+W', async () => {
+  test.skip(!isMac, 'the macOS application menu and Cmd chords only exist on macOS')
+  const app = await electron.launch(isolatedLaunch())
+  try {
+    const win = await app.firstWindow()
+    await win.waitForLoadState('domcontentloaded')
+    await openWorkspace(win)
+
+    const accelerators = await app.evaluate(({ Menu }) => {
+      const found: { label: string; role: string; accelerator: string }[] = []
+      const walk = (menu: Electron.Menu | null): void => {
+        for (const item of menu?.items ?? []) {
+          found.push({
+            label: item.label,
+            role: item.role ?? '',
+            accelerator: String(item.accelerator ?? ''),
+          })
+          walk(item.submenu ?? null)
+        }
+      }
+      walk(Menu.getApplicationMenu())
+      return found
+    })
+    expect(accelerators.map((item) => item.accelerator)).not.toContain('CmdOrCtrl+W')
+    expect(accelerators.map((item) => item.accelerator)).not.toContain('Cmd+W')
+    expect(accelerators.find((item) => item.role === 'close')?.accelerator).toBe('Cmd+Shift+W')
+
+    await focusTerminal(win)
+    await win.keyboard.press('Meta+Alt+Backslash')
+    await expect(win.locator('.xterm')).toHaveCount(2)
+    await win.locator('.xterm').nth(1).click()
+    await win.keyboard.press('Meta+w')
+    await expect(win.locator('.xterm')).toHaveCount(1)
+    expect(win.isClosed()).toBe(false)
+    expect(app.windows()).toHaveLength(1)
+  } finally {
+    await app.close()
+  }
+})
+
 test('on macOS the cmux keymap is opt-in: picking it makes ⌘D split the focused terminal', async () => {
   test.skip(!isMac, 'the cmux keymap is offered only on macOS')
   const app = await electron.launch(isolatedLaunch())

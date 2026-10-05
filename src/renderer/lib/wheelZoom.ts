@@ -20,6 +20,7 @@ export function zoomFont(surface: FontSurface, step: number): void {
 
 export function attachWheelZoom(host: HTMLElement, surface: FontSurface, mac: boolean): () => void {
   const onWheel = (e: WheelEvent): void => {
+    if (!useSettingsStore.getState().behavior.wheelZoom) return
     const step = zoomStep(e, mac)
     if (step === 0) return
     e.preventDefault()

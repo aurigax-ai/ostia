@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { languagesFrom } from '../lib/languagePacks'
@@ -61,6 +61,28 @@ describe('SettingsPanel', () => {
     expect(screen.getByText('UI font')).toBeInTheDocument()
     expect(screen.getByText('Terminal font')).toBeInTheDocument()
     expect(screen.getByText('Editor font')).toBeInTheDocument()
+  })
+
+  it('groups the section nav under headings, in order, so related pages sit together', () => {
+    renderSettings()
+
+    const headings = screen.getByRole('region', { name: 'Settings' }).querySelectorAll('nav h3')
+    expect([...headings].map((h) => h.textContent)).toEqual([
+      'General',
+      'Terminal',
+      'Workspace',
+      'Agents',
+      'Editor and browser',
+      'Privacy and security',
+      'Extensions and more',
+    ])
+    const inGroup = (group: string) =>
+      within(screen.getByRole('list', { name: group }))
+        .getAllByRole('button')
+        .map((b) => b.textContent)
+    expect(inGroup('General')).toEqual(['Appearance', 'Language', 'Notifications', 'Sync'])
+    expect(inGroup('Terminal')).toEqual(['Terminal', 'Prompt', 'Keyboard', 'Panes'])
+    expect(inGroup('Editor and browser')).toEqual(['Editor', 'Languages', 'Browser'])
   })
 
   it('returns null while Settings is not the active view', () => {

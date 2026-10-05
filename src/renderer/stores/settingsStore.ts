@@ -214,6 +214,7 @@ export interface Behavior {
   inputEditorVim: boolean
   historySuggestions: boolean
   checkForUpdates: boolean
+  wheelZoom: boolean
 }
 
 export type NewWorkspacePlacement = 'end' | 'top' | 'afterCurrent'
@@ -341,6 +342,7 @@ const DEFAULTS: Persisted = {
     inputEditorVim: false,
     historySuggestions: true,
     checkForUpdates: true,
+    wheelZoom: true,
   },
   files: DEFAULT_FILE_TREE_SETTINGS,
   terminal: DEFAULT_TERMINAL_SETTINGS,

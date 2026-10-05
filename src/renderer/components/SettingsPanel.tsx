@@ -140,6 +140,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger } from './ui/select'
 import { Separator } from './ui/separator'
 import { Switch } from './ui/switch'
 
+const SETTINGS_GROUPS = [
+  'general',
+  'terminal',
+  'workspace',
+  'agents',
+  'editor',
+  'security',
+  'more',
+] as const
+
+type SettingsGroup = (typeof SETTINGS_GROUPS)[number]
+
 type SectionId =
   | 'manager'
   | 'appearance'
@@ -253,33 +265,65 @@ export function SettingsPanel(): JSX.Element | null {
   const sections = useMemo(
     () =>
       [
-        { id: 'appearance', icon: PaletteIcon, label: d.settings.appearance },
-        { id: 'terminal', icon: TerminalWindowIcon, label: d.settings.terminal },
-        { id: 'prompt', icon: TerminalIcon, label: d.prompt.title },
-        { id: 'keyboard', icon: KeyboardIcon, label: d.keyboard.title },
-        { id: 'panes', icon: SquareSplitHorizontalIcon, label: d.settings.panes },
-        { id: 'notifications', icon: BellIcon, label: d.settings.notifications },
-        { id: 'sidebar', icon: SidebarSimpleIcon, label: d.settings.sidebar },
-        { id: 'workspaces', icon: SquaresFourIcon, label: d.workspaceSettings.title },
-        { id: 'sandbox', icon: ShieldCheckIcon, label: d.sandbox.title },
-        { id: 'agents', icon: RobotIcon, label: d.settings.agents },
-        { id: 'assistant', icon: ChatCircleDotsIcon, label: d.assistantSettings.title },
+        { id: 'appearance', group: 'general', icon: PaletteIcon, label: d.settings.appearance },
+        { id: 'language', group: 'general', icon: TranslateIcon, label: d.settings.language },
+        { id: 'notifications', group: 'general', icon: BellIcon, label: d.settings.notifications },
+        { id: 'sync', group: 'general', icon: ArrowsClockwiseIcon, label: d.sync.title },
+        { id: 'terminal', group: 'terminal', icon: TerminalWindowIcon, label: d.settings.terminal },
+        { id: 'prompt', group: 'terminal', icon: TerminalIcon, label: d.prompt.title },
+        { id: 'keyboard', group: 'terminal', icon: KeyboardIcon, label: d.keyboard.title },
+        {
+          id: 'panes',
+          group: 'terminal',
+          icon: SquareSplitHorizontalIcon,
+          label: d.settings.panes,
+        },
+        {
+          id: 'workspaces',
+          group: 'workspace',
+          icon: SquaresFourIcon,
+          label: d.workspaceSettings.title,
+        },
+        { id: 'sidebar', group: 'workspace', icon: SidebarSimpleIcon, label: d.settings.sidebar },
+        { id: 'files', group: 'workspace', icon: TreeStructureIcon, label: d.settings.files },
+        { id: 'views', group: 'workspace', icon: LayoutIcon, label: d.views.title },
+        { id: 'agents', group: 'agents', icon: RobotIcon, label: d.settings.agents },
+        {
+          id: 'assistant',
+          group: 'agents',
+          icon: ChatCircleDotsIcon,
+          label: d.assistantSettings.title,
+        },
         ...(platform === 'linux'
-          ? [{ id: 'manager' as const, icon: BroadcastIcon, label: d.manager.settingsTitle }]
+          ? [
+              {
+                id: 'manager' as const,
+                group: 'agents' as const,
+                icon: BroadcastIcon,
+                label: d.manager.settingsTitle,
+              },
+            ]
           : []),
-        { id: 'files', icon: TreeStructureIcon, label: d.settings.files },
-        { id: 'browser', icon: GlobeIcon, label: d.browserSettings.title },
-        { id: 'passwords', icon: KeyIcon, label: d.passwords.title },
-        { id: 'privacy', icon: EyeSlashIcon, label: d.privacy.title },
-        { id: 'editor', icon: FileCodeIcon, label: d.editorSettings.title },
-        { id: 'extensions', icon: PuzzlePieceIcon, label: d.settings.extensions },
-        { id: 'views', icon: LayoutIcon, label: d.views.title },
-        { id: 'languageServers', icon: BracketsCurlyIcon, label: d.languageServers.title },
-        { id: 'remote', icon: DeviceMobileIcon, label: d.settings.remote },
-        { id: 'sync', icon: ArrowsClockwiseIcon, label: d.sync.title },
-        { id: 'language', icon: TranslateIcon, label: d.settings.language },
-        { id: 'about', icon: InfoIcon, label: d.settings.about },
-      ] satisfies { id: SectionId; icon: IconComponent; label: string }[],
+        { id: 'editor', group: 'editor', icon: FileCodeIcon, label: d.editorSettings.title },
+        {
+          id: 'languageServers',
+          group: 'editor',
+          icon: BracketsCurlyIcon,
+          label: d.languageServers.title,
+        },
+        { id: 'browser', group: 'editor', icon: GlobeIcon, label: d.browserSettings.title },
+        { id: 'sandbox', group: 'security', icon: ShieldCheckIcon, label: d.sandbox.title },
+        { id: 'privacy', group: 'security', icon: EyeSlashIcon, label: d.privacy.title },
+        { id: 'passwords', group: 'security', icon: KeyIcon, label: d.passwords.title },
+        { id: 'extensions', group: 'more', icon: PuzzlePieceIcon, label: d.settings.extensions },
+        { id: 'remote', group: 'more', icon: DeviceMobileIcon, label: d.settings.remote },
+        { id: 'about', group: 'more', icon: InfoIcon, label: d.settings.about },
+      ] satisfies {
+        id: SectionId
+        group: SettingsGroup
+        icon: IconComponent
+        label: string
+      }[],
     [d],
   )
 
@@ -447,68 +491,82 @@ export function SettingsPanel(): JSX.Element | null {
             />
           </InputGroup>
           <ScrollArea className="min-h-0 flex-1">
-            <ul className="flex flex-col gap-0.5 px-2 pb-2">
-              {visible.map((s) =>
-                s.id === 'extensions' ? (
-                  <Fragment key={s.id}>
-                    <NavDisclosure
-                      label={s.label}
-                      icon={s.icon}
-                      current={active === 'extensions' && !anchor}
-                      count={hitsIn(s.id)}
-                      emphasized={active === 'extensions'}
-                      items={extensionItems}
-                      itemCurrent="location"
-                      listId={EXTENSIONS_NAV_LIST_ID}
-                      listLabel={d.settings.extensionsNavList}
-                      expanded={extensionsChildrenShown}
-                      canToggle={q === '' && extensions.length > 0}
-                      buttonRef={extensionsButtonRef}
-                      onOpen={() => openSection('extensions')}
-                      onToggle={expandExtensions}
-                      onOpenItem={openExtension}
-                    />
-                    {pageExtensions.map((ext) => (
-                      <NavItem
-                        key={`page-${ext.id}`}
-                        label={pageTitle(ext)}
-                        icon={extensionIcon(ext.settingsPage?.icon)}
-                        current={shownPage?.id === ext.id}
-                        count={hitsIn(extensionPageResultId(ext.id))}
-                        onOpen={() => openExtensionPage(ext.id)}
-                      />
-                    ))}
-                  </Fragment>
-                ) : s.id === 'sandbox' ? (
-                  <NavDisclosure
-                    key={s.id}
-                    label={s.label}
-                    icon={s.icon}
-                    current={inSandbox && !sandboxChildrenShown}
-                    count={hitsIn(s.id)}
-                    emphasized={inSandbox}
-                    items={sandboxItems}
-                    itemCurrent="page"
-                    listId={SANDBOX_NAV_LIST_ID}
-                    listLabel={d.sandbox.navList}
-                    expanded={sandboxChildrenShown}
-                    canToggle={q === ''}
-                    buttonRef={sandboxButtonRef}
-                    onOpen={() => openSection('sandbox')}
-                    onToggle={expandSandbox}
-                    onOpenItem={openSandboxItem}
-                  />
-                ) : (
-                  <NavItem
-                    key={s.id}
-                    label={s.label}
-                    icon={s.icon}
-                    current={active === s.id}
-                    count={hitsIn(s.id)}
-                    onOpen={() => openSection(s.id)}
-                  />
-                ),
-              )}
+            <ul className="flex flex-col gap-3 px-2 pb-2">
+              {SETTINGS_GROUPS.map((group) => {
+                const items = visible.filter((s) => s.group === group)
+                if (items.length === 0) return null
+                const headingId = `settings-nav-group-${group}`
+                return (
+                  <li key={group}>
+                    <h3 id={headingId} className="px-2 pb-1 font-medium text-fg-muted text-ui-xs">
+                      {d.settings.groups[group]}
+                    </h3>
+                    <ul aria-labelledby={headingId} className="flex flex-col gap-0.5">
+                      {items.map((s) =>
+                        s.id === 'extensions' ? (
+                          <Fragment key={s.id}>
+                            <NavDisclosure
+                              label={s.label}
+                              icon={s.icon}
+                              current={active === 'extensions' && !anchor}
+                              count={hitsIn(s.id)}
+                              emphasized={active === 'extensions'}
+                              items={extensionItems}
+                              itemCurrent="location"
+                              listId={EXTENSIONS_NAV_LIST_ID}
+                              listLabel={d.settings.extensionsNavList}
+                              expanded={extensionsChildrenShown}
+                              canToggle={q === '' && extensions.length > 0}
+                              buttonRef={extensionsButtonRef}
+                              onOpen={() => openSection('extensions')}
+                              onToggle={expandExtensions}
+                              onOpenItem={openExtension}
+                            />
+                            {pageExtensions.map((ext) => (
+                              <NavItem
+                                key={`page-${ext.id}`}
+                                label={pageTitle(ext)}
+                                icon={extensionIcon(ext.settingsPage?.icon)}
+                                current={shownPage?.id === ext.id}
+                                count={hitsIn(extensionPageResultId(ext.id))}
+                                onOpen={() => openExtensionPage(ext.id)}
+                              />
+                            ))}
+                          </Fragment>
+                        ) : s.id === 'sandbox' ? (
+                          <NavDisclosure
+                            key={s.id}
+                            label={s.label}
+                            icon={s.icon}
+                            current={inSandbox && !sandboxChildrenShown}
+                            count={hitsIn(s.id)}
+                            emphasized={inSandbox}
+                            items={sandboxItems}
+                            itemCurrent="page"
+                            listId={SANDBOX_NAV_LIST_ID}
+                            listLabel={d.sandbox.navList}
+                            expanded={sandboxChildrenShown}
+                            canToggle={q === ''}
+                            buttonRef={sandboxButtonRef}
+                            onOpen={() => openSection('sandbox')}
+                            onToggle={expandSandbox}
+                            onOpenItem={openSandboxItem}
+                          />
+                        ) : (
+                          <NavItem
+                            key={s.id}
+                            label={s.label}
+                            icon={s.icon}
+                            current={active === s.id}
+                            count={hitsIn(s.id)}
+                            onOpen={() => openSection(s.id)}
+                          />
+                        ),
+                      )}
+                    </ul>
+                  </li>
+                )
+              })}
             </ul>
           </ScrollArea>
           <Button variant="outline" size="sm" onClick={openSettingsFile} className="m-2">
@@ -1464,6 +1522,7 @@ function TerminalSection(): JSX.Element {
   const restoreWorkspace = useSettingsStore((s) => s.behavior.restoreWorkspace)
   const gpuAcceleration = useSettingsStore((s) => s.behavior.gpuAcceleration)
   const copyOnSelect = useSettingsStore((s) => s.behavior.copyOnSelect)
+  const wheelZoom = useSettingsStore((s) => s.behavior.wheelZoom)
   const mode = useSettingsStore((s) => s.behavior.inputMode)
   const vim = useSettingsStore((s) => s.behavior.inputEditorVim)
   const historySuggestions = useSettingsStore((s) => s.behavior.historySuggestions)
@@ -1564,6 +1623,12 @@ function TerminalSection(): JSX.Element {
         />
       </SettingsGroup>
       <SettingsGroup title={d.settings.groupScrolling}>
+        <ToggleRow
+          label={isMac ? d.settings.wheelZoomMac : d.settings.wheelZoom}
+          desc={d.settings.wheelZoomDesc}
+          checked={wheelZoom}
+          onChange={(v) => setBehavior({ wheelZoom: v })}
+        />
         <StepNumberRow
           label={d.settings.scrollSpeed}
           desc={d.settings.scrollSpeedDesc}
