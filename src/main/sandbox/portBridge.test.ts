@@ -116,9 +116,11 @@ describe('portBridgeCommand', () => {
     expect(portBridgeCommand('/tmp/ws', 'ab12')).toBe(
       [
         "( trap '' INT QUIT TSTP; cd /tmp/ws || exit; exec </dev/null >/dev/null 2>&1;",
+        'shell=$$; while kill -0 "$shell" 2>/dev/null; do',
         'socat -u UNIX-CONNECT:ports-ab12.sock - | while read -r port; do',
         `case "$port" in ''|*[!0-9]*) continue;; esac;`,
-        'socat UNIX-CONNECT:ports-ab12-"$port".sock TCP:127.0.0.1:"$port" & done ) &',
+        'socat UNIX-CONNECT:ports-ab12-"$port".sock TCP:127.0.0.1:"$port" & done;',
+        'sleep 1; done ) &',
       ].join(' '),
     )
   })
@@ -154,11 +156,11 @@ describe('portBridgeCommand run in a shell', () => {
       `#!/bin/sh\nif [ "$1" = -u ]; then printf '%s\\n' ${lines.map((l) => `'${l}'`).join(' ')}; else printf '%s\\n' "$2" >>'${log}'; fi\n`,
     )
     chmodSync(fake, 0o755)
-    const child = spawn('sh', ['-c', `${portBridgeCommand(work, 'ab12')} wait`], {
+    const child = spawn('sh', ['-c', `${portBridgeCommand(work, 'ab12')} sleep 0.5`], {
       env: { PATH: `${bin}:/usr/bin:/bin` },
     })
     await new Promise((r) => child.once('close', r))
-    await new Promise((r) => setTimeout(r, 300))
+    await new Promise((r) => setTimeout(r, 1300))
     return readFileSync(log, 'utf8').split('\n').filter(Boolean)
   }
 
@@ -173,6 +175,26 @@ describe('portBridgeCommand run in a shell', () => {
       'TCP:127.0.0.1:3000',
       'TCP:127.0.0.1:8080',
     ])
+  })
+})
+
+describe('portBridgeCommand while Ostia is away', () => {
+  it('KSH-C59 keeps retrying once a second while its shell lives, and joins a bridge that comes back', async () => {
+    const work = join(dir, 'away')
+    mkdirSync(work, { mode: 0o700 })
+    const shell = spawn('sh', ['-c', `${portBridgeCommand(work, 'cafe0001')} sleep 30`], {
+      env: { PATH: '/usr/bin:/bin' },
+    })
+    try {
+      await new Promise((r) => setTimeout(r, 2500))
+      expect(shell.exitCode).toBeNull()
+      const bridge = await PortBridge.open(work, undefined, 'cafe0001')
+      if (!bridge) throw new Error('bridge did not open')
+      await until(() => (bridge.connected ? true : undefined))
+      bridge.close()
+    } finally {
+      shell.kill()
+    }
   })
 })
 

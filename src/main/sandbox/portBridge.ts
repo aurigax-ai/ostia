@@ -24,9 +24,13 @@ export function portBridgeCommand(dir: string, id: string): string {
     `trap '' INT QUIT TSTP;`,
     `cd ${quoteArg(dir)} || exit;`,
     'exec </dev/null >/dev/null 2>&1;',
+    'shell=$$;',
+    'while kill -0 "$shell" 2>/dev/null; do',
     `socat -u UNIX-CONNECT:${controlSocketName(id)} - | while read -r port; do`,
     `case "$port" in ''|*[!0-9]*) continue;; esac;`,
     `socat UNIX-CONNECT:${dataSocketName(id, '"$port"')} TCP:127.0.0.1:"$port" &`,
+    'done;',
+    'sleep 1;',
     'done',
     ') &',
   ].join(' ')
@@ -58,7 +62,7 @@ interface Channel {
 
 export class PortBridge {
   readonly command: string
-  private readonly id = randomBytes(4).toString('hex')
+  readonly id: string
   private readonly server: Server
   private readonly channels = new Map<number, Promise<Channel | null>>()
   private readonly peers = new Set<Socket>()
@@ -68,14 +72,20 @@ export class PortBridge {
   private constructor(
     private readonly dir: string,
     private readonly dialTimeoutMs: number,
+    id: string,
   ) {
+    this.id = id
     this.command = portBridgeCommand(dir, this.id)
     this.server = createServer((socket) => this.onControl(socket))
   }
 
-  static async open(dir: string, dialTimeoutMs = DIAL_TIMEOUT_MS): Promise<PortBridge | null> {
+  static async open(
+    dir: string,
+    dialTimeoutMs = DIAL_TIMEOUT_MS,
+    id: string = randomBytes(4).toString('hex'),
+  ): Promise<PortBridge | null> {
     mkdirSync(dir, { recursive: true, mode: 0o700 })
-    const bridge = new PortBridge(dir, dialTimeoutMs)
+    const bridge = new PortBridge(dir, dialTimeoutMs, id)
     if (await listenOn(bridge.server, join(dir, controlSocketName(bridge.id)))) return bridge
     return null
   }
