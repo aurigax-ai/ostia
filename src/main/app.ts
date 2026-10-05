@@ -145,7 +145,7 @@ import {
   registerNotifyMethods,
 } from './notify'
 import { OpenFileGrants } from './openFileGrants'
-import { registerOpenFileMethods } from './openFileMethods'
+import { openFileForExtension, registerOpenFileMethods } from './openFileMethods'
 import { registerOpenPathIpc } from './openPath'
 import type { OriginReach } from './originAgents'
 import { type PaneIo, registerPaneIoMethods } from './paneIo'
@@ -2700,6 +2700,11 @@ app.whenReady().then(() => {
     publishWorkspaceChips,
     openPanelIn: (req) => sendToWorkspaceWindow(req.workspaceId, 'extensions:open-panel', req),
     openDiffIn: (req) => sendToWorkspaceWindow(req.workspaceId, 'extensions:open-diff', req),
+    openFileIn: (req) =>
+      openFileForExtension(
+        { grants: openFileGrants, windowOf: workspaceWindowId, execCommand },
+        req,
+      ),
     openTerminalIn: openTerminalInWindow,
     notify: (n) => postNotification(notifyDeps, n),
     confirm: (req) => confirmForExtension(req, windows.values()),
