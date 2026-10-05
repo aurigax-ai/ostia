@@ -1,4 +1,4 @@
-import { type ResumableAgent, isResumableAgent } from '@shared/agentResume'
+import { type AgentResume, type ResumableAgent, isResumableAgent } from '@shared/agentResume'
 import type { AttentionState } from '@shared/types'
 import { useAttentionStore } from '../stores/attentionStore'
 import { useBlocksStore } from '../stores/blocksStore'
@@ -27,6 +27,25 @@ export function runningAgent(paneId: string): ResumableAgent | 'other' | null {
   if (agent) return agent
   const state = useAttentionStore.getState().byPane[paneId]?.state
   return state !== undefined && AGENT_STATES.has(state) ? 'other' : null
+}
+
+export interface PaneAgentReport {
+  agent?: ResumableAgent | 'other'
+  agentSessionId?: string
+  agentState?: Exclude<AttentionState, 'none'>
+  agentMessage?: string
+}
+
+export function paneAgentReport(paneId: string, resume: AgentResume | undefined): PaneAgentReport {
+  const agent = runningAgent(paneId)
+  const attention = useAttentionStore.getState().byPane[paneId]
+  const state = attention && attention.state !== 'none' ? attention.state : undefined
+  return {
+    ...(agent ? { agent } : {}),
+    ...(resume ? { agentSessionId: resume.id } : {}),
+    ...(state ? { agentState: state } : {}),
+    ...(state && attention?.message ? { agentMessage: attention.message } : {}),
+  }
 }
 
 const LIVE_AGENT_STATES: ReadonlySet<AttentionState> = new Set(['working', 'waiting'])
