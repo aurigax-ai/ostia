@@ -22,7 +22,7 @@ import { bellActions, createBellThrottle } from '../lib/bell'
 import { canTypeInto, insertCommand, selectedBlockOutput, stepBlock } from '../lib/blockActions'
 import { decodeCommandLine, readCommandText } from '../lib/blockText'
 import { openBrowserAs } from '../lib/browserProfile'
-import { isAppChord, matchChord } from '../lib/chords'
+import { isAppChord, isBrowserChord, matchChord } from '../lib/chords'
 import {
   PROGRAM_PASTE_KEY,
   keyPastePlan,
@@ -273,6 +273,7 @@ export function TerminalView({
       }
       const clipboard = chord === 'copy' || chord === 'paste'
       if (isMac && clipboard && isNativeClipboardKey(e)) return true
+      if (isBrowserChord(chord)) return true
       if (e.type !== 'keydown' || isAppChord(chord)) return false
       e.preventDefault()
       if (chord === 'find') setFindOpen(true)

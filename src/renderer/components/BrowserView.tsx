@@ -13,13 +13,17 @@ import type { WebviewTag } from 'electron'
 import { type KeyboardEvent, useCallback, useEffect, useRef, useState } from 'react'
 import { fmt, useDict } from '../i18n/useDict'
 import { resolveAddress } from '../lib/browserAddress'
+import { type BrowserAction, browserActionOf, registerBrowserHandle } from '../lib/browserHandles'
+import { matchChord } from '../lib/chords'
 import type { PickTarget } from '../lib/pickTargets'
 import { registerRegionCapture } from '../lib/regionCaptures'
 import { sendPickToPane, sendRegionToPane } from '../lib/sendPick'
 import { terminalTitle } from '../lib/terminalTitle'
+import { isMac } from '../platform'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useSandboxStore } from '../stores/sandboxStore'
 import { useSettingsStore } from '../stores/settingsStore'
+import { BrowserFind, type FindRequest, type FindResult } from './BrowserFind'
 import { BrowserStoragePanel } from './BrowserStoragePanel'
 import { IconButton } from './IconButton'
 import { LoginButton } from './LoginButton'
@@ -92,6 +96,9 @@ export function BrowserView({
   const [loadError, setLoadError] = useState<{ url: string; reason: string } | null>(null)
   const [storageOpen, setStorageOpen] = useState(false)
   const [navCount, setNavCount] = useState(0)
+  const addressRef = useRef<HTMLInputElement | null>(null)
+  const [findFocus, setFindFocus] = useState(-1)
+  const [findResult, setFindResult] = useState<FindResult | null>(null)
 
   const withGuest = useCallback((fn: (wv: WebviewTag) => void): boolean => {
     const wv = webviewRef.current as unknown as WebviewTag | null
@@ -204,6 +211,83 @@ export function BrowserView({
       window.pine?.browser?.unregister?.(paneId)
     }
   }, [paneId, withGuest, load, partition])
+
+  useEffect(() => {
+    const el = webviewRef.current
+    if (!el || !partition) return
+    const onFound = (e: Event): void => {
+      const { result } = e as unknown as {
+        result: { activeMatchOrdinal: number; matches: number; finalUpdate: boolean }
+      }
+      if (result.finalUpdate)
+        setFindResult({ active: result.activeMatchOrdinal, total: result.matches })
+    }
+    el.addEventListener('found-in-page', onFound)
+    return () => el.removeEventListener('found-in-page', onFound)
+  }, [partition])
+
+  const searchPage = useCallback(
+    ({ text, forward, next }: FindRequest): void => {
+      withGuest((wv) => {
+        wv.findInPage(text, { forward, findNext: !next })
+      })
+    },
+    [withGuest],
+  )
+
+  const clearFind = useCallback((): void => {
+    withGuest((wv) => wv.stopFindInPage('clearSelection'))
+    setFindResult(null)
+  }, [withGuest])
+
+  const closeFind = useCallback((): void => {
+    clearFind()
+    setFindFocus(-1)
+    withGuest((wv) => wv.focus())
+  }, [clearFind, withGuest])
+
+  const runAction = useCallback(
+    (action: BrowserAction): void => {
+      if (action === 'focusAddress') {
+        addressRef.current?.focus()
+        addressRef.current?.select()
+      } else if (action === 'reload') withGuest((wv) => wv.reload())
+      else if (action === 'back') withGuest((wv) => wv.canGoBack() && wv.goBack())
+      else if (action === 'forward') withGuest((wv) => wv.canGoForward() && wv.goForward())
+      else setFindFocus((n) => Math.max(n, 0) + 1)
+    },
+    [withGuest],
+  )
+
+  useEffect(
+    () =>
+      registerBrowserHandle(paneId, {
+        guestId: () => {
+          const wv = webviewRef.current as unknown as WebviewTag | null
+          if (!wv || !readyRef.current) return null
+          try {
+            return wv.getWebContentsId()
+          } catch {
+            return null
+          }
+        },
+        focusAddress: () => runAction('focusAddress'),
+        reload: () => runAction('reload'),
+        back: () => runAction('back'),
+        forward: () => runAction('forward'),
+        find: () => runAction('find'),
+      }),
+    [paneId, runAction],
+  )
+
+  const onSurfaceKeyDown = (e: KeyboardEvent<HTMLDivElement>): void => {
+    const chord = matchChord(e, isMac)
+    const action = chord ? browserActionOf(chord) : null
+    if (!action) return
+    e.preventDefault()
+    e.stopPropagation()
+    runAction(action)
+  }
 
   const [picking, setPicking] = useState<{ byAgent: boolean } | null>(null)
   const [capture, setCapture] = useState<PickCapture | null>(null)
@@ -325,7 +409,7 @@ export function BrowserView({
   }
 
   return (
-    <div className="browser-surface relative">
+    <div className="browser-surface relative" onKeyDown={onSurfaceKeyDown}>
       <div className="browser-toolbar">
         <IconButton
           icon={ArrowLeftIcon}
@@ -345,6 +429,7 @@ export function BrowserView({
           onClick={() => withGuest((wv) => wv.reload())}
         />
         <Input
+          ref={addressRef}
           className="browser-address h-6 flex-1 font-mono text-ui-sm md:text-ui-sm"
           aria-label={d.browser.address}
           value={address}
@@ -432,6 +517,15 @@ export function BrowserView({
             className="browser-webview"
             src={src}
             partition={partition}
+          />
+        ) : null}
+        {findFocus >= 0 ? (
+          <BrowserFind
+            focusKey={findFocus}
+            result={findResult}
+            onSearch={searchPage}
+            onClear={clearFind}
+            onClose={closeFind}
           />
         ) : null}
         {cropping ? (
