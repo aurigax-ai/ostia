@@ -96,7 +96,7 @@ test('inside a web page, Ostia shortcuts still work and browser keys drive the p
   }
 })
 
-test('a browser key pressed in a terminal does nothing there and pastes nothing', async () => {
+test('a browser key pressed in a terminal goes to the shell as an unbound key and pastes nothing', async () => {
   const app = await electron.launch(isolatedLaunch())
   try {
     const win = await app.firstWindow()
@@ -104,9 +104,12 @@ test('a browser key pressed in a terminal does nothing there and pastes nothing'
     await app.evaluate(({ clipboard }) => clipboard.writeText('echo pine_should_not_paste'))
     await win.locator('.xterm').first().click()
     await win.keyboard.press(terminalReload)
+    const rows = win.locator('.xterm-rows').first()
+    await win.waitForTimeout(500)
+    await expect(rows).not.toContainText('pine_should_not_paste')
+    await win.keyboard.press('Control+u')
     await win.keyboard.type('echo pine_after_$((40+2))')
     await win.keyboard.press('Enter')
-    const rows = win.locator('.xterm-rows').first()
     await expect(rows).toContainText('pine_after_42', { timeout: 15_000 })
     await expect(rows).not.toContainText('pine_should_not_paste')
   } finally {
