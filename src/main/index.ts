@@ -103,6 +103,7 @@ import { readBinaryConfined } from './fsBinary'
 import { registerGatewayIpc, registerGatewayMethods } from './gateway'
 import { configureGatewayControl, stopGateway } from './gateway/server'
 import { GlobalHotkey, toggleWindows } from './globalHotkey'
+import { type GuestChords, registerGuestChords } from './guestChords'
 import { clearGuestNetwork, watchGuestNetwork } from './guestNetwork'
 import { registerIconThemeIpc } from './iconThemes'
 import {
@@ -950,6 +951,7 @@ function extensionOfPartition(partition: string | undefined): string | null {
 
 const instrumentedGuests = new WeakSet<Electron.WebContents>()
 let clipboardEdits: ClipboardEdits | null = null
+let guestChords: GuestChords | null = null
 
 function instrumentBrowserGuest(gc: Electron.WebContents): void {
   const wcId = gc.id
@@ -1084,6 +1086,7 @@ function wireWindow(win: BrowserWindow): void {
   })
   win.webContents.on('did-attach-webview', (_e, guest) => {
     clipboardEdits?.guardGuest(guest)
+    guestChords?.guardGuest(guest)
     if (hardenExtensionGuest(guest)) return
     const agent = browserUserAgent(guest.session.getUserAgent(), app.getName())
     guest.session.setUserAgent(agent)
@@ -2472,6 +2475,11 @@ app.whenReady().then(() => {
     ipc: ipcMain,
     isAppWindow: (sender) => windows.get(String(sender.id))?.webContents === sender,
     availableFormats: () => clipboard.availableFormats(),
+    mac: process.platform === 'darwin',
+  })
+  guestChords = registerGuestChords({
+    ipc: ipcMain,
+    isAppWindow: (sender) => windows.get(String(sender.id))?.webContents === sender,
     mac: process.platform === 'darwin',
   })
   registerIpc()
