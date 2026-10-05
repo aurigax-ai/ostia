@@ -5,6 +5,13 @@ on:
   push:
     branches: [main]
   workflow_call:
+    outputs:
+      linux:
+        description: runs-on value for Linux jobs (JSON)
+        value: ${{ jobs.changes.outputs.linux }}
+      macos:
+        description: runs-on value for macOS jobs (JSON)
+        value: ${{ jobs.changes.outputs.macos }}
   workflow_dispatch:
 
 permissions:
@@ -25,7 +32,35 @@ jobs:
       pull-requests: read
     outputs:
       code: ${{ github.ref_type == 'tag' || steps.filter.outputs.code }}
+      linux: ${{ steps.runner.outputs.linux }}
+      macos: ${{ steps.runner.outputs.macos }}
     steps:
+      # Routing only, not security: a PR can edit this step. The self-hosted
+      # runners enforce the same rule in their job-started hook, which a PR
+      # cannot touch (homelab-infra#137). Keep the two lists in sync.
+      # 1400096531 is this repository's ID; it survives the rename to Ostiaterm.
+      - id: runner
+        env:
+          TRUSTED: ${{ github.repository_id == '1400096531'
+            && contains(fromJSON('["JustinHung0407","mtch3n"]'), github.actor)
+            && contains(fromJSON('["JustinHung0407","mtch3n"]'), github.triggering_actor)
+            && (github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+              || (github.event_name == 'pull_request'
+                && github.event.pull_request.head.repo.id == github.event.repository.id
+                && contains(fromJSON('["JustinHung0407","mtch3n"]'), github.event.pull_request.user.login))) }}
+          # Repo variables to fall back to GitHub-hosted without a code change,
+          # e.g. while the Mac mini is offline: set to "off".
+          LINUX_SWITCH: ${{ vars.OSTIA_SELF_HOSTED_LINUX }}
+          MACOS_SWITCH: ${{ vars.OSTIA_SELF_HOSTED_MACOS }}
+        run: |
+          linux='"ubuntu-24.04"'
+          macos='"macos-26"'
+          if [ "$TRUSTED" = true ]; then
+            [ "$LINUX_SWITCH" = off ] || linux='"ostia-linux"'
+            [ "$MACOS_SWITCH" = off ] || macos='["self-hosted","ostia-macos"]'
+          fi
+          echo "linux=$linux" >> "$GITHUB_OUTPUT"
+          echo "macos=$macos" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v7
       - uses: dorny/paths-filter@v4
         id: filter
@@ -40,7 +75,7 @@ jobs:
   static:
     needs: changes
     if: needs.changes.outputs.code == 'true'
-    runs-on: ubuntu-24.04
+    runs-on: ${{ fromJSON(needs.changes.outputs.linux) }}
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
@@ -50,7 +85,7 @@ jobs:
   unit:
     needs: changes
     if: needs.changes.outputs.code == 'true'
-    runs-on: ubuntu-24.04
+    runs-on: ${{ fromJSON(needs.changes.outputs.linux) }}
     steps:
       - uses: actions/checkout@v7
       - run: |
@@ -69,7 +104,7 @@ jobs:
   build:
     needs: changes
     if: needs.changes.outputs.code == 'true'
-    runs-on: ubuntu-24.04
+    runs-on: ${{ fromJSON(needs.changes.outputs.linux) }}
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
@@ -81,8 +116,8 @@ jobs:
           retention-days: 3
 
   e2e:
-    needs: build
-    runs-on: ubuntu-24.04
+    needs: [changes, build]
+    runs-on: ${{ fromJSON(needs.changes.outputs.linux) }}
     strategy:
       fail-fast: false
       matrix:
@@ -122,7 +157,7 @@ jobs:
   unit-macos:
     needs: changes
     if: needs.changes.outputs.code == 'true'
-    runs-on: macos-26
+    runs-on: ${{ fromJSON(needs.changes.outputs.macos) }}
     continue-on-error: true
     steps:
       - uses: actions/checkout@v7
@@ -139,7 +174,7 @@ jobs:
   build-macos:
     needs: changes
     if: needs.changes.outputs.code == 'true'
-    runs-on: macos-26
+    runs-on: ${{ fromJSON(needs.changes.outputs.macos) }}
     continue-on-error: true
     steps:
       - uses: actions/checkout@v7
@@ -153,8 +188,8 @@ jobs:
           retention-days: 3
 
   e2e-macos:
-    needs: build-macos
-    runs-on: macos-26
+    needs: [changes, build-macos]
+    runs-on: ${{ fromJSON(needs.changes.outputs.macos) }}
     continue-on-error: true
     strategy:
       fail-fast: false
@@ -190,9 +225,9 @@ jobs:
           retention-days: 3
 
   e2e-report:
-    needs: e2e
+    needs: [changes, e2e]
     if: ${{ !cancelled() && needs.e2e.result != 'skipped' }}
-    runs-on: ubuntu-24.04
+    runs-on: ${{ fromJSON(needs.changes.outputs.linux) }}
     continue-on-error: true
     steps:
       - uses: actions/checkout@v7
@@ -212,7 +247,7 @@ jobs:
   ci-result:
     needs: [changes, static, unit, build, e2e]
     if: ${{ !cancelled() }}
-    runs-on: ubuntu-24.04
+    runs-on: ${{ fromJSON(needs.changes.outputs.linux) }}
     steps:
       - env:
           NEEDS: ${{ toJSON(needs) }}
