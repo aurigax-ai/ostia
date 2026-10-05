@@ -5,7 +5,7 @@ import { join } from 'node:path'
 const created: string[] = []
 
 export function freshDataHome(): string {
-  const dir = mkdtempSync(join(tmpdir(), 'pine-e2e-data-'))
+  const dir = mkdtempSync(join(tmpdir(), 'ostia-e2e-data-'))
   created.push(dir)
   return dir
 }
@@ -23,7 +23,7 @@ export function seedSettings(dataHome: string, settings: object): void {
 
 const TEST_ZSHRC = "PROMPT='%~ ❯ '\n"
 const TEST_BASHRC = "PS1='\\w ❯ '\n"
-const TEST_GITCONFIG = '[user]\n\tname = Pine E2E\n\temail = e2e@example.com\n'
+const TEST_GITCONFIG = '[user]\n\tname = Ostia E2E\n\temail = e2e@example.com\n'
 
 export function testHome(dataHome: string): string {
   const home = join(dataHome, 'home')

@@ -7,7 +7,7 @@ import { CONSENT_HOSTS_MAX, HelperConsent, parseConsent } from './consent'
 const made: string[] = []
 
 function file(): string {
-  const dir = mkdtempSync(join(tmpdir(), 'pine-ssh-consent-'))
+  const dir = mkdtempSync(join(tmpdir(), 'ostia-ssh-consent-'))
   made.push(dir)
   return join(dir, 'data', 'helper-hosts.json')
 }

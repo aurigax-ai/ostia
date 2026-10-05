@@ -17,7 +17,7 @@ const { registerSandboxIpc } = await import('./ipc')
 const { SandboxStore } = await import('./store')
 const { WorkspaceSandboxes } = await import('./workspaceSandboxes')
 
-const root = realpathSync(mkdtempSync(join(tmpdir(), 'pine-sbx-ipc-')))
+const root = realpathSync(mkdtempSync(join(tmpdir(), 'ostia-sbx-ipc-')))
 
 afterAll(() => rmSync(root, { recursive: true, force: true }))
 
@@ -121,7 +121,7 @@ function setup(name: string, workDirs: Record<string, string> = {}) {
       home,
       dataDirs: [dataDir],
       runtimeDir,
-      socketPath: join(runtimeDir, 'pine.sock'),
+      socketPath: join(runtimeDir, 'ostia.sock'),
       runtimeReads: [],
     }),
     workDir: (id) => workDirs[id] ?? workDir,
@@ -173,7 +173,7 @@ describe('sandbox filesystem IPC', () => {
     expect(store.has('ws')).toBe(false)
   })
 
-  it('refuses to make Pine data, the socket folder or a protected agent file writable', async () => {
+  it('refuses to make Ostia data, the socket folder or a protected agent file writable', async () => {
     const { store, dataDir, runtimeDir, call } = setup('guard')
     const refused = await call('sandbox:set-paths', sender(1), 'ws', 'allowWrite', [
       dataDir,
@@ -220,7 +220,7 @@ describe('sandbox filesystem IPC', () => {
     expect(store.has('ws')).toBe(false)
   })
 
-  it('lists what Pine always allows and hides only to the window that shows the workspace', async () => {
+  it('lists what Ostia always allows and hides only to the window that shows the workspace', async () => {
     const { home, workDir, call } = setup('fixed')
     expect(await call('sandbox:fixed-policy', sender(2), 'ws')).toBeNull()
     const fixed = (await call('sandbox:fixed-policy', sender(1), 'ws')) as {
@@ -300,7 +300,7 @@ describe('sandbox violations IPC', () => {
 })
 
 describe('sandbox folder check', () => {
-  it('refuses to sandbox a workspace whose folder is the home folder, above it or holds Pine data', async () => {
+  it('refuses to sandbox a workspace whose folder is the home folder, above it or holds Ostia data', async () => {
     const base = join(root, 'folders', 'home')
     const { store, call } = setup('folders', {
       atHome: base,

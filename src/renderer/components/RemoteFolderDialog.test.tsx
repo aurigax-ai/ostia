@@ -58,12 +58,12 @@ describe('wireRemoteFolders', () => {
       host: 'dev@db',
       root: '/srv/app',
     }
-    vi.mocked(window.pine.remoteFiles.folders).mockResolvedValue([folder])
+    vi.mocked(window.ostia.remoteFiles.folders).mockResolvedValue([folder])
     wireRemoteFolders()
     await vi.waitFor(() => expect(useRemoteFoldersStore.getState().folders).toEqual([folder]))
-    const onFolders = vi.mocked(window.pine.remoteFiles.onFolders).mock.calls.at(-1)?.[0]
+    const onFolders = vi.mocked(window.ostia.remoteFiles.onFolders).mock.calls.at(-1)?.[0]
     onFolders?.([])
     expect(useRemoteFoldersStore.getState().folders).toEqual([])
-    expect(window.pine.remoteFiles.onConfirm).toHaveBeenCalled()
+    expect(window.ostia.remoteFiles.onConfirm).toHaveBeenCalled()
   })
 })

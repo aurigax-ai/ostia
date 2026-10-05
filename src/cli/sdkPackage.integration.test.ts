@@ -456,7 +456,7 @@ describe('the SDK package, used the way an extension author uses it', () => {
   }
 
   beforeAll(() => {
-    project = mkdtempSync(join(tmpdir(), 'pine-sdk-consumer-'))
+    project = mkdtempSync(join(tmpdir(), 'ostia-sdk-consumer-'))
     execFileSync(process.execPath, [sdkCli, 'create', 'hello', project], { stdio: 'ignore' })
     linkDependency('@aurigax-ai/ostia-extension-sdk', sdkPackage)
     for (const name of ['esbuild', '@types/node']) {
@@ -471,7 +471,7 @@ describe('the SDK package, used the way an extension author uses it', () => {
   })
 
   it('creates a project named after the id, ready for git and for the build', () => {
-    const parent = mkdtempSync(join(tmpdir(), 'pine-sdk-create-'))
+    const parent = mkdtempSync(join(tmpdir(), 'ostia-sdk-create-'))
     try {
       const res = spawnSync(process.execPath, [sdkCli, 'create', 'weather-report'], {
         cwd: parent,
@@ -630,7 +630,7 @@ describe('the SDK package, used the way an extension author uses it', () => {
   })
 
   it('runs the built extension in the extension host and answers its command', async () => {
-    const dir = mkdtempSync(join(tmpdir(), 'pine-sdk-host-'))
+    const dir = mkdtempSync(join(tmpdir(), 'ostia-sdk-host-'))
     const socketPath = join(dir, 'control.sock')
     const notify = vi.fn()
     let language = 'en'

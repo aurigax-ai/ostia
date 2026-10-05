@@ -86,7 +86,7 @@ async function boot(): Promise<void> {
     console.error('[settings] load failed', err)
   }
   try {
-    setSettingsFile(await window.pine.settings.path())
+    setSettingsFile(await window.ostia.settings.path())
   } catch (err) {
     console.error('[settings] path unavailable', err)
   }
@@ -111,7 +111,7 @@ async function boot(): Promise<void> {
   }
   let snapshot = null
   try {
-    snapshot = (await window.pine?.workspace?.load?.()) ?? null
+    snapshot = (await window.ostia?.workspace?.load?.()) ?? null
   } catch (err) {
     console.error('[workspace] restore failed', err)
   }
@@ -141,8 +141,8 @@ async function boot(): Promise<void> {
   startAssistToggleCommands()
   startShortcutReporting()
   applyStoredRailWidth()
-  window.pine?.notifications?.onActivate?.((paneId) => revealPane(paneId))
-  window.pine?.settings?.onChanged?.(() => void useSettingsStore.getState().init())
+  window.ostia?.notifications?.onActivate?.((paneId) => revealPane(paneId))
+  window.ostia?.settings?.onChanged?.(() => void useSettingsStore.getState().init())
   root.render(
     <StrictMode>
       <AppErrorBoundary>
@@ -151,7 +151,7 @@ async function boot(): Promise<void> {
       </AppErrorBoundary>
     </StrictMode>,
   )
-  window.pine?.diagnostics?.ready(livePaneIds())
+  window.ostia?.diagnostics?.ready(livePaneIds())
 }
 
 boot().catch((err: unknown) => {

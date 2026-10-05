@@ -9,10 +9,10 @@ export function WindowControls(): JSX.Element | null {
 
   useEffect(() => {
     let alive = true
-    window.pine.window.isMaximized().then((v) => {
+    window.ostia.window.isMaximized().then((v) => {
       if (alive) setMaximized(v)
     })
-    const off = window.pine.window.onMaximizeChange(setMaximized)
+    const off = window.ostia.window.onMaximizeChange(setMaximized)
     return () => {
       alive = false
       off()
@@ -26,18 +26,18 @@ export function WindowControls(): JSX.Element | null {
       <button
         type="button"
         aria-label={d.window.minimize}
-        onClick={() => window.pine.window.minimize()}
+        onClick={() => window.ostia.window.minimize()}
       >
         <MinusIcon size={12} />
       </button>
       <button
         type="button"
         aria-label={maximized ? d.window.restore : d.window.maximize}
-        onClick={() => window.pine.window.toggleMaximize()}
+        onClick={() => window.ostia.window.toggleMaximize()}
       >
         {maximized ? <CopyIcon size={11} /> : <SquareIcon size={10} />}
       </button>
-      <button type="button" aria-label={d.window.close} onClick={() => window.pine.window.close()}>
+      <button type="button" aria-label={d.window.close} onClick={() => window.ostia.window.close()}>
         <XIcon size={12} />
       </button>
     </div>

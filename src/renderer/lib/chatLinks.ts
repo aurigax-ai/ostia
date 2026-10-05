@@ -10,14 +10,14 @@ interface HastNode {
 
 const SKIP_TAGS = new Set(['a', 'code', 'pre'])
 
-export const FILE_LINK_PATH = 'data-pine-path'
-export const FILE_LINK_LINE = 'data-pine-line'
-export const FILE_LINK_COLUMN = 'data-pine-column'
+export const FILE_LINK_PATH = 'data-ostia-path'
+export const FILE_LINK_LINE = 'data-ostia-line'
+export const FILE_LINK_COLUMN = 'data-ostia-column'
 
 function linkElement(text: string, path: string, line?: number, column?: number): HastNode {
-  const properties: Record<string, unknown> = { dataPinePath: path }
-  if (line) properties.dataPineLine = String(line)
-  if (column) properties.dataPineColumn = String(column)
+  const properties: Record<string, unknown> = { dataOstiaPath: path }
+  if (line) properties.dataOstiaLine = String(line)
+  if (column) properties.dataOstiaColumn = String(column)
   return { type: 'element', tagName: 'a', properties, children: [{ type: 'text', value: text }] }
 }
 

@@ -18,7 +18,7 @@ let user: string
 let ext: string
 
 beforeEach(() => {
-  base = mkdtempSync(join(tmpdir(), 'pine-specs-'))
+  base = mkdtempSync(join(tmpdir(), 'ostia-specs-'))
   user = join(base, 'user')
   ext = join(base, 'ext')
   mkdirSync(user)

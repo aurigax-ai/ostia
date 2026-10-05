@@ -80,7 +80,7 @@ describe.skipIf(process.platform !== 'linux')(
       ).filter((c) => c.paneId === paneId)
 
     beforeAll(async () => {
-      dir = realpathSync(mkdtempSync(join(tmpdir(), 'pine-ports-ext-')))
+      dir = realpathSync(mkdtempSync(join(tmpdir(), 'ostia-ports-ext-')))
       const extDir = join(dir, 'extensions', 'ports')
       mkdirSync(extDir, { recursive: true })
       copyFileSync(join(repoRoot, 'src/extensions/ports/pine.json'), join(extDir, 'pine.json'))
@@ -218,7 +218,7 @@ describe.skipIf(process.platform !== 'linux')(
       })
     })
 
-    it('ignores a listening socket the terminal only inherited from Pine itself', async () => {
+    it('ignores a listening socket the terminal only inherited from Ostia itself', async () => {
       await until(() => workspaceChip('s1'))
       await until(() => itemsOf('s2')[0])
       expect(workspaceChip('s4')).toBeUndefined()

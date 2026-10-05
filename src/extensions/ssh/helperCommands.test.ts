@@ -185,7 +185,7 @@ describe('helper-install', () => {
     const r = rig()
     r.deps.hosts = new HelperHosts({
       helper,
-      spawn: () => spawn('sh', ['-c', 'echo "PINE-HELPER needs cksum"'], { stdio: 'pipe' }),
+      spawn: () => spawn('sh', ['-c', 'echo "OSTIA-HELPER needs cksum"'], { stdio: 'pipe' }),
     })
     const res = await helperCommands(r.deps)['helper-install']({ argv: ['dev@db'] }, USER)
     expect(errorOf(res)).toBe('needs-tool')

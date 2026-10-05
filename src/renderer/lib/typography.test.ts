@@ -52,22 +52,22 @@ type Property = 'font-family' | 'font-size' | 'font-weight' | 'line-height' | 'l
 
 const TOKENS: Record<Property, { names: RegExp; keywords: string[]; use: string }> = {
   'font-family': {
-    names: /^--(?:(?:pine-)?font-(?:ui|code)|typeset-font-(?:body|heading|mono))$/,
+    names: /^--(?:(?:(?:ostia|pine)-)?font-(?:ui|code)|typeset-font-(?:body|heading|mono))$/,
     keywords: ['inherit'],
     use: 'var(--font-ui) for UI text or var(--font-code) for code, paths and other machine text',
   },
   'font-size': {
-    names: /^--(?:text-ui-(?:xs|sm|base|emphasis|lg)|pine-font-size)$/,
+    names: /^--(?:text-ui-(?:xs|sm|base|emphasis|lg)|(?:ostia|pine)-font-size)$/,
     keywords: ['inherit'],
     use: 'var(--text-ui-xs|sm|base|emphasis|lg) (DESIGN.md §4)',
   },
   'font-weight': {
-    names: /^--(?:font-weight-(?:normal|medium|semibold)|pine-font-weight)$/,
+    names: /^--(?:font-weight-(?:normal|medium|semibold)|(?:ostia|pine)-font-weight)$/,
     keywords: ['inherit'],
     use: 'var(--font-weight-normal|medium|semibold), which follow the UI weight setting',
   },
   'line-height': {
-    names: /^--(?:text-ui-(?:xs|sm|base|emphasis|lg)--line-height|pine-font-size)$/,
+    names: /^--(?:text-ui-(?:xs|sm|base|emphasis|lg)--line-height|(?:ostia|pine)-font-size)$/,
     keywords: ['inherit'],
     use: 'the line height of the same step, var(--text-ui-<step>--line-height)',
   },
@@ -225,7 +225,7 @@ describe('typography checks', () => {
 
   it('accepts token values, token arithmetic and inherit', () => {
     const css = `.a { font-size: var(--text-ui-xs); line-height: var(--text-ui-xs--line-height); font-family: var(--font-code); font-weight: var(--font-weight-medium); letter-spacing: var(--tracking-caps); font: inherit; }
-      .b { font-size: calc(var(--pine-font-size,13px) + 3px); font-family: var(--pine-font-ui,system-ui,sans-serif); letter-spacing: normal; }
+      .b { font-size: calc(var(--ostia-font-size,13px) + 3px); font-family: var(--ostia-font-ui,system-ui,sans-serif); letter-spacing: normal; }
       @font-face { font-family: "Hack"; font-weight: 400; }`
     expect(typographyProblems(css)).toEqual([])
   })

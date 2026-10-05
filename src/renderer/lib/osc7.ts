@@ -21,7 +21,7 @@ export function isLocalHost(host: string, local: string | null = localHostName):
 
 export async function loadLocalHostName(): Promise<void> {
   try {
-    localHostName = (await window.pine.info()).hostName || null
+    localHostName = (await window.ostia.info()).hostName || null
   } catch {
     localHostName = null
   }

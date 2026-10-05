@@ -26,7 +26,7 @@ function useSessionInfo(resume: AgentResume | null, enabled: boolean): AgentSess
     if (!enabled || !agent || !id) return
     let alive = true
     const load = (): void => {
-      void window.pine.agentSession.info({ agent, id }).then((next) => {
+      void window.ostia.agentSession.info({ agent, id }).then((next) => {
         if (alive) setInfo(next)
       })
     }

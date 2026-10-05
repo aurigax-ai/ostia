@@ -266,7 +266,7 @@ describe('NotificationCenter', () => {
   it('lists the real notify log newest first and jumps to the pane of an entry', async () => {
     const { workspaceId, a, b } = twoPanes()
     signal(a, 'build finished', 1)
-    vi.mocked(window.pine.notifications.list).mockResolvedValue(entries(a))
+    vi.mocked(window.ostia.notifications.list).mockResolvedValue(entries(a))
     renderBell()
     const user = userEvent.setup()
 
@@ -287,7 +287,7 @@ describe('NotificationCenter', () => {
 
   it('filters by tab and groups entries by workspace', async () => {
     const { a } = twoPanes()
-    vi.mocked(window.pine.notifications.list).mockResolvedValue([
+    vi.mocked(window.ostia.notifications.list).mockResolvedValue([
       {
         id: 'w',
         ts: '2026-09-28T10:06:00Z',
@@ -322,7 +322,7 @@ describe('NotificationCenter', () => {
   it('clear all empties the log in main and marks every pane read', async () => {
     const { a } = twoPanes()
     signal(a, 'build finished', 1)
-    vi.mocked(window.pine.notifications.list).mockResolvedValue(entries(a))
+    vi.mocked(window.ostia.notifications.list).mockResolvedValue(entries(a))
     renderBell()
     const user = userEvent.setup()
 
@@ -330,7 +330,7 @@ describe('NotificationCenter', () => {
     await screen.findByRole('list', { name: 'Notifications' })
     await user.click(screen.getByRole('button', { name: 'Clear all' }))
 
-    expect(window.pine.notifications.clear).toHaveBeenCalledOnce()
+    expect(window.ostia.notifications.clear).toHaveBeenCalledOnce()
     expect(useAttentionStore.getState().byPane[a].unread).toBe(false)
     await waitFor(() => expect(screen.getByText('No notifications')).toBeInTheDocument())
   })
@@ -338,16 +338,16 @@ describe('NotificationCenter', () => {
   it('reloads the list when main reports a change while open', async () => {
     twoPanes()
     let changed: () => void = () => {}
-    vi.mocked(window.pine.notifications.onChanged).mockImplementation((cb) => {
+    vi.mocked(window.ostia.notifications.onChanged).mockImplementation((cb) => {
       changed = cb
       return () => {}
     })
-    vi.mocked(window.pine.notifications.list).mockResolvedValue([])
+    vi.mocked(window.ostia.notifications.list).mockResolvedValue([])
     renderBell()
     await userEvent.setup().click(screen.getByRole('button', { name: /Notifications/ }))
     await screen.findByText('No notifications')
 
-    vi.mocked(window.pine.notifications.list).mockResolvedValue([
+    vi.mocked(window.ostia.notifications.list).mockResolvedValue([
       { id: 'n9', ts: '2026-09-28T10:00:00Z', kind: 'message', title: 'fresh', from: 'x' },
     ])
     act(() => changed())
@@ -390,7 +390,7 @@ describe('NotificationCenter', () => {
         },
       ],
     })
-    vi.mocked(window.pine.notifications.list).mockResolvedValue([
+    vi.mocked(window.ostia.notifications.list).mockResolvedValue([
       {
         id: 'k1',
         ts: '2026-09-28T10:00:00Z',

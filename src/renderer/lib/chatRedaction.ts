@@ -31,7 +31,7 @@ function batches(texts: readonly string[]): string[][] {
 export async function redactTexts(texts: readonly string[]): Promise<RedactionResult[]> {
   const out: RedactionResult[] = []
   for (const batch of batches(texts)) {
-    const results = await window.pine.privacy.redact(batch).catch(() => [])
+    const results = await window.ostia.privacy.redact(batch).catch(() => [])
     out.push(...(results.length === batch.length ? results : batch.map(unchanged)))
   }
   return out

@@ -29,9 +29,9 @@ export const useKeymapStore = create<KeymapState>((set, get) => ({
     if (get().key === key) return
     set({ key, ref, loaded: null, error: null })
     if (!ref || !key) return
-    let res: Awaited<ReturnType<typeof window.pine.keymaps.load>>
+    let res: Awaited<ReturnType<typeof window.ostia.keymaps.load>>
     try {
-      res = await window.pine.keymaps.load(ref)
+      res = await window.ostia.keymaps.load(ref)
     } catch (err) {
       res = { ok: false, error: err instanceof Error ? err.message : String(err) }
     }

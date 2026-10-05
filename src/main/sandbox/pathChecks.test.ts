@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
 import { checkSandboxPath, checkSandboxPaths } from './pathChecks'
 
-const root = realpathSync(mkdtempSync(join(tmpdir(), 'pine-pathchecks-')))
+const root = realpathSync(mkdtempSync(join(tmpdir(), 'ostia-pathchecks-')))
 const home = join(root, 'home')
 const dataDir = join(home, '.local/share/ostia')
 const runtimeDir = join(root, 'run')

@@ -28,7 +28,7 @@ describe('UpdateNotice', () => {
     act(() => useUpdateStore.getState().receive(BUILD))
 
     fireEvent.click(screen.getByRole('button', { name: 'Restart to update' }))
-    expect(window.pine.update.restart).toHaveBeenCalled()
+    expect(window.ostia.update.restart).toHaveBeenCalled()
 
     fireEvent.click(screen.getByRole('button', { name: 'Later' }))
     expect(screen.queryByRole('button', { name: 'Restart to update' })).toBeNull()
@@ -43,8 +43,8 @@ describe('UpdateNotice', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Version 1.1.0 is available' }))
 
-    expect(window.pine.update.openRelease).toHaveBeenCalledWith()
-    expect(window.pine.update.restart).not.toHaveBeenCalled()
+    expect(window.ostia.update.openRelease).toHaveBeenCalledWith()
+    expect(window.ostia.update.restart).not.toHaveBeenCalled()
   })
 
   it('hides the release on Skip this version and tells main to remember it', () => {
@@ -54,7 +54,7 @@ describe('UpdateNotice', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Skip this version' }))
 
     expect(screen.queryByRole('button', { name: 'Version 1.1.0 is available' })).toBeNull()
-    expect(window.pine.update.dismissRelease).toHaveBeenCalledTimes(1)
+    expect(window.ostia.update.dismissRelease).toHaveBeenCalledTimes(1)
   })
 
   it('hides the release when main reports that none is pending', () => {

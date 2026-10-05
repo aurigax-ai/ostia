@@ -56,7 +56,7 @@ const workspaceChips: WorkspaceChip[] = [
 
 function inputs(extra: Partial<ViewDataInputs> = {}): ViewDataInputs {
   return {
-    workspaces: [ws('w1', 'pine', { projectDir: '~/pine', state: 'waiting' }), ws('w2', 'site')],
+    workspaces: [ws('w1', 'ostia', { projectDir: '~/ostia', state: 'waiting' }), ws('w2', 'site')],
     activeWorkspaceId: 'w1',
     byWorkspace: { w1: { root, activePaneId: 'p2', zoomedPaneId: null } },
     attention: {
@@ -79,9 +79,9 @@ describe('buildViewScope', () => {
       {
         id: 'w1',
         index: 0,
-        name: 'pine',
-        project: { name: 'pine', path: '~/pine' },
-        dir: '/home/u/pine',
+        name: 'ostia',
+        project: { name: 'ostia', path: '~/ostia' },
+        dir: '/home/u/ostia',
         description: null,
         state: 'waiting',
         unread: 1,
@@ -137,7 +137,7 @@ describe('buildViewScope', () => {
   it('gathers listening ports from the ports extension only, sorted', () => {
     expect(buildViewScope(inputs(), ['ports']).ports).toEqual([
       { port: 3000, url: 'http://localhost:3000/', workspace: 'site', workspaceId: 'w2' },
-      { port: 5173, url: 'http://localhost:5173/', workspace: 'pine', workspaceId: 'w1' },
+      { port: 5173, url: 'http://localhost:5173/', workspace: 'ostia', workspaceId: 'w1' },
     ])
   })
 

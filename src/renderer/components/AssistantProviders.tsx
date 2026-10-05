@@ -130,7 +130,7 @@ function KeyRow({
   const [error, setError] = useState<string | null>(null)
   const label = fmt(t.apiKeyFor, { name: config.name })
   const store = (value: string | null): void => {
-    void window.pine.assist.setProviderKey(config.id, value).then((res) => {
+    void window.ostia.assist.setProviderKey(config.id, value).then((res) => {
       setError(res.ok ? null : res.error)
       if (res.ok) setDraft('')
     })
@@ -188,7 +188,7 @@ function AddModel({
   const [text, setText] = useState('')
   const [listed, setListed] = useState<string[]>([])
   const load = (): void => {
-    void window.pine.assist.models(config.extId, config.id).then(
+    void window.ostia.assist.models(config.extId, config.id).then(
       (res) => setListed(res.ok ? res.models.map((m) => m.id) : []),
       () => setListed([]),
     )

@@ -3,17 +3,17 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { assistRequest } from './assistStore'
 
 afterEach(() => {
-  vi.mocked(window.pine.assist.request).mockReset()
+  vi.mocked(window.ostia.assist.request).mockReset()
 })
 
 describe('assistRequest', () => {
   it('waits for streamed chunks that arrive after the reply', async () => {
     const listeners = new Set<(c: AssistChunk) => void>()
-    vi.mocked(window.pine.assist.onChunk).mockImplementation((cb) => {
+    vi.mocked(window.ostia.assist.onChunk).mockImplementation((cb) => {
       listeners.add(cb)
       return () => listeners.delete(cb)
     })
-    vi.mocked(window.pine.assist.request).mockImplementation(async (_point, requestId) => {
+    vi.mocked(window.ostia.assist.request).mockImplementation(async (_point, requestId) => {
       setTimeout(() => {
         for (const text of ['a', 'b']) for (const cb of listeners) cb({ requestId, text })
       }, 20)

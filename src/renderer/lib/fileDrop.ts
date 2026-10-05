@@ -23,7 +23,7 @@ function refusalText(verdict: OpenFileVerdict & { ok: false }): string {
 
 export async function openDroppedFiles(dropped: readonly File[], paneId?: string): Promise<void> {
   if (dropped.length === 0) return
-  const verdicts = await window.pine.files.admitDropped(
+  const verdicts = await window.ostia.files.admitDropped(
     [...dropped],
     useWorkspacesStore.getState().activeWorkspaceId,
   )

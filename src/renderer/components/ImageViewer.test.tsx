@@ -18,10 +18,10 @@ beforeEach(() => {
   URL.createObjectURL = vi.fn(() => 'blob:img-1')
   URL.revokeObjectURL = vi.fn()
   vi.mocked(cropToPng).mockResolvedValue(PNG)
-  vi.mocked(window.pine.selection.send).mockResolvedValue({
+  vi.mocked(window.ostia.selection.send).mockResolvedValue({
     ok: true,
-    path: '/tmp/pine-reports-1/selection-1.md',
-    imagePath: '/tmp/pine-reports-1/selection-1.png',
+    path: '/tmp/ostia-reports-1/selection-1.md',
+    imagePath: '/tmp/ostia-reports-1/selection-1.png',
   })
 })
 
@@ -31,7 +31,7 @@ afterEach(() => {
 })
 
 async function renderLoaded(width = 400, height = 200): Promise<HTMLImageElement> {
-  vi.mocked(window.pine.fs.readBinary).mockResolvedValue({ ok: true, data: PNG })
+  vi.mocked(window.ostia.fs.readBinary).mockResolvedValue({ ok: true, data: PNG })
   render(<ImageViewer workspaceId="w1" paneId="img-pane" filePath="/w/shots/login.png" />)
   const img = await waitFor(() => {
     const found = document.querySelector<HTMLImageElement>('img[alt="login.png"]')
@@ -55,13 +55,13 @@ function canvasAt(left: number, top: number): HTMLElement {
 describe('ImageViewer', () => {
   it('reads the image through the confined binary IPC and shows it from a blob URL', async () => {
     const img = await renderLoaded()
-    expect(window.pine.fs.readBinary).toHaveBeenCalledWith('/w/shots/login.png')
+    expect(window.ostia.fs.readBinary).toHaveBeenCalledWith('/w/shots/login.png')
     expect(img).toHaveAttribute('src', 'blob:img-1')
     expect(screen.getByText('Zoom 100%')).toBeInTheDocument()
   })
 
   it('explains a file over the size cap instead of showing it', async () => {
-    vi.mocked(window.pine.fs.readBinary).mockResolvedValue({
+    vi.mocked(window.ostia.fs.readBinary).mockResolvedValue({
       ok: false,
       error: 'too-large',
       size: 60 * 1024 * 1024,
@@ -106,7 +106,7 @@ describe('ImageViewer', () => {
     expect(panel).toHaveTextContent('login.png (x 20, y 20, 100 × 50)')
     await userEvent.click(screen.getByRole('button', { name: 'Send' }))
     await waitFor(() =>
-      expect(window.pine.selection.send).toHaveBeenCalledWith({
+      expect(window.ostia.selection.send).toHaveBeenCalledWith({
         capture: {
           kind: 'image',
           file: '/w/shots/login.png',

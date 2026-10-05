@@ -50,7 +50,7 @@ test('the ports extension puts ports and ssh chips on the pane, and a port chip 
     const win = await app.firstWindow()
     await win.waitForLoadState('domcontentloaded')
     await openWorkspace(win)
-    await win.evaluate(() => window.pine.extensions.setSetting('ports', 'portHost', '127.0.0.1'))
+    await win.evaluate(() => window.ostia.extensions.setSetting('ports', 'portHost', '127.0.0.1'))
 
     const term = win.locator('.xterm').first()
     await term.click()

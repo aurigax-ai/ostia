@@ -41,7 +41,7 @@ describe('isLocalHost', () => {
   it('forgets a known name and treats every host as local when the name fails to load', async () => {
     await loadLocalHostName()
     expect(isLocalHost('db')).toBe(false)
-    vi.mocked(window.pine.info).mockRejectedValueOnce(new Error('offline'))
+    vi.mocked(window.ostia.info).mockRejectedValueOnce(new Error('offline'))
     await loadLocalHostName()
     expect(isLocalHost('db')).toBe(true)
   })
@@ -49,8 +49,8 @@ describe('isLocalHost', () => {
   it('treats every host as local when main reports an empty name', async () => {
     await loadLocalHostName()
     expect(isLocalHost('db')).toBe(false)
-    vi.mocked(window.pine.info).mockResolvedValueOnce({
-      name: 'pine',
+    vi.mocked(window.ostia.info).mockResolvedValueOnce({
+      name: 'ostia',
       version: '0.0.0',
       platform: 'linux',
       hostName: '',

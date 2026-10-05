@@ -78,7 +78,7 @@ describe('DeckRail', () => {
           name: '1-aaaaaaaaaaaa',
           customName: 'Scratch 2',
           kind: 'scratch',
-          workDir: '/tmp/pine-scratch-1000/1-aaaaaaaaaaaa',
+          workDir: '/tmp/ostia-scratch-1000/1-aaaaaaaaaaaa',
           state: 'idle',
         },
       ],
@@ -167,7 +167,7 @@ describe('DeckRail', () => {
 
   it('marks a sandboxed workspace row, and no other row', async () => {
     seedWorkspaces()
-    vi.mocked(window.pine.sandbox.get).mockImplementation(async (id) => ({
+    vi.mocked(window.ostia.sandbox.get).mockImplementation(async (id) => ({
       enabled: id === 's1',
       allowRead: [],
       domains: [],
@@ -277,7 +277,7 @@ describe('DeckRail', () => {
 
     fireEvent.contextMenu(screen.getByRole('button', { name: /alpha/ }))
     await user.click(await screen.findByRole('menuitem', { name: 'Hibernate agents' }))
-    await waitFor(() => expect(window.pine.pty.hibernate).toHaveBeenCalledWith(agent.id))
+    await waitFor(() => expect(window.ostia.pty.hibernate).toHaveBeenCalledWith(agent.id))
     expect(within(rowFor(/alpha/)).getByRole('img', { name: 'Hibernated' })).toBeInTheDocument()
 
     fireEvent.contextMenu(screen.getByRole('button', { name: /alpha/ }))
@@ -300,7 +300,7 @@ describe('DeckRail', () => {
     const row = (name: RegExp) => rowFor(name).closest('.rail-row') as HTMLElement
     const target = row(/beta/)
     vi.spyOn(target, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 100, 200, 40))
-    const dataTransfer = { types: ['application/x-pine-workspace'], setData: vi.fn() }
+    const dataTransfer = { types: ['application/x-ostia-workspace'], setData: vi.fn() }
 
     fireEvent.dragStart(row(/alpha/), { dataTransfer })
     await waitFor(() => expect(target).toHaveAttribute('data-mergeable'))
@@ -331,7 +331,7 @@ describe('DeckRail', () => {
     render(<DeckRail />)
     const target = rowFor(/beta/).closest('.rail-row') as HTMLElement
     vi.spyOn(target, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 100, 200, 40))
-    const dataTransfer = { types: ['application/x-pine-workspace'], setData: vi.fn() }
+    const dataTransfer = { types: ['application/x-ostia-workspace'], setData: vi.fn() }
     fireEvent.dragStart(rowFor(/alpha/).closest('.rail-row') as HTMLElement, { dataTransfer })
     await waitFor(() => expect(target).toHaveAttribute('data-mergeable'))
     const over = createEvent.dragOver(target, { dataTransfer })
@@ -413,8 +413,8 @@ describe('DeckRail', () => {
   })
 
   describe('workspace groups', () => {
-    const WORKSPACE_DND = 'application/x-pine-workspace'
-    const GROUP_DND = 'application/x-pine-workspace-group'
+    const WORKSPACE_DND = 'application/x-ostia-workspace'
+    const GROUP_DND = 'application/x-ostia-workspace-group'
 
     const seedGroups = () =>
       useWorkspacesStore.setState({

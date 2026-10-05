@@ -4,13 +4,13 @@ export type QuitPlan = 'proceed' | 'ask' | 'unattended'
 
 export interface QuitState {
   approved: boolean
-  requestedByPine: boolean
+  requestedByOstia: boolean
   platform: NodeJS.Platform
 }
 
 export function planQuit(state: QuitState): QuitPlan {
   if (state.approved) return 'proceed'
-  if (state.requestedByPine || state.platform === 'darwin') return 'ask'
+  if (state.requestedByOstia || state.platform === 'darwin') return 'ask'
   return 'unattended'
 }
 

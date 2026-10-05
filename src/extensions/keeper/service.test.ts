@@ -44,7 +44,7 @@ describe('KeeperService with a fake keeper on PATH', () => {
   }
 
   beforeEach(() => {
-    root = mkdtempSync(join(tmpdir(), 'pine-keeper-svc-'))
+    root = mkdtempSync(join(tmpdir(), 'ostia-keeper-svc-'))
     fake = join(root, 'fake')
     mkdirSync(fake)
     use('status-running.txt', 'status.txt')

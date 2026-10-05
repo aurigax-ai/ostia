@@ -210,7 +210,7 @@ describe('workspacesStore', () => {
   describe('setState', () => {
     it("updates the target workspace's state and mirrors a workspace-state lifecycle event", () => {
       const id = open().id
-      const emitSpy = vi.mocked(window.pine.lifecycle.emit)
+      const emitSpy = vi.mocked(window.ostia.lifecycle.emit)
 
       useWorkspacesStore.getState().setState(id, 'waiting')
 
@@ -238,9 +238,9 @@ describe('workspacesStore', () => {
 
     it('is a no-op (no state change, no emit) when the workspace is already in that state', () => {
       const id = open().id
-      vi.mocked(window.pine.lifecycle.emit).mockClear()
+      vi.mocked(window.ostia.lifecycle.emit).mockClear()
       expect(workspaces().find((s) => s.id === id)?.state).toBe('idle')
-      const emitSpy = vi.mocked(window.pine.lifecycle.emit)
+      const emitSpy = vi.mocked(window.ostia.lifecycle.emit)
 
       useWorkspacesStore.getState().setState(id, 'idle')
 
@@ -248,7 +248,7 @@ describe('workspacesStore', () => {
     })
 
     it('is a no-op for an unknown workspace id', () => {
-      const emitSpy = vi.mocked(window.pine.lifecycle.emit)
+      const emitSpy = vi.mocked(window.ostia.lifecycle.emit)
 
       useWorkspacesStore.getState().setState('does-not-exist', 'done')
 
@@ -342,7 +342,7 @@ describe('workspacesStore', () => {
     it('announces each restored workspace to main so it can resolve their workDirs', () => {
       useWorkspacesStore.getState().hydrate(snapshotOf(['w40', 'w41']))
 
-      const emitted = vi.mocked(window.pine.lifecycle.emit).mock.calls.map((c) => c[0])
+      const emitted = vi.mocked(window.ostia.lifecycle.emit).mock.calls.map((c) => c[0])
       expect(emitted).toContainEqual({
         type: 'workspace-added',
         workspaceId: 'w40',
@@ -371,7 +371,7 @@ describe('workspacesStore', () => {
       expect(workspaces()).toEqual([])
       expect(activeId()).toBeNull()
       expect(ensureMock()).not.toHaveBeenCalled()
-      expect(window.pine.lifecycle.emit).not.toHaveBeenCalled()
+      expect(window.ostia.lifecycle.emit).not.toHaveBeenCalled()
     })
 
     it('restores an empty saved workspace as zero workspaces', () => {

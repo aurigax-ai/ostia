@@ -62,7 +62,7 @@ describe('hibernated terminal pane', () => {
     expect(within(host).getByText('Hibernated')).toBeInTheDocument()
     expect(within(host).getByText(/claude --resume tok-1/)).toBeInTheDocument()
     expect(within(host).queryByTestId('terminal-h1')).toBeNull()
-    expect(window.pine.pty.attach).not.toHaveBeenCalled()
+    expect(window.ostia.pty.attach).not.toHaveBeenCalled()
     host.remove()
   })
 

@@ -35,7 +35,7 @@ export function remoteFolderOf(folders: readonly RemoteFolder[], id: string): Re
 }
 
 export function wireRemoteFolders(): void {
-  const api = window.pine?.remoteFiles
+  const api = window.ostia?.remoteFiles
   if (!api) return
   const { setFolders, ask } = useRemoteFoldersStore.getState()
   api.onFolders(setFolders)

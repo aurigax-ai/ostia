@@ -48,7 +48,7 @@ export function usePromptChips(
   useEffect(() => {
     if (!active || !paneId) return
     let live = true
-    window.pine.pty
+    window.ostia.pty
       .promptContext(paneId, { node: want.node, kube: want.kube })
       .then((next) => {
         if (live) setContext(next)

@@ -24,7 +24,7 @@ const CONTRIBUTION: IconThemeContribution = {
 let tmp: string
 
 beforeEach(() => {
-  tmp = mkdtempSync(join(tmpdir(), 'pine-icon-theme-'))
+  tmp = mkdtempSync(join(tmpdir(), 'ostia-icon-theme-'))
 })
 
 afterEach(() => {

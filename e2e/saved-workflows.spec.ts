@@ -76,13 +76,13 @@ test('workflows: fill arguments, insert at the prompt without running, save a bl
     await expect(name).toHaveValue('echo pine_wf_tester_$((20+1))')
     await name.fill('Greet again')
     await win.getByLabel('Command', { exact: true }).fill('echo again_{{name}}')
-    await win.getByLabel('Default value of name').fill('pine')
+    await win.getByLabel('Default value of name').fill('ostia')
     await win.getByRole('button', { name: 'Save' }).click()
     await expect(name).toHaveCount(0)
 
     expect(readdirSync(workflowsDir).sort()).toEqual(['greet-again.yaml', 'greet.yaml'])
     expect(readFileSync(join(workflowsDir, 'greet-again.yaml'), 'utf8')).toBe(
-      'name: Greet again\ncommand: echo again_{{name}}\narguments:\n  - name: name\n    default_value: pine\n',
+      'name: Greet again\ncommand: echo again_{{name}}\narguments:\n  - name: name\n    default_value: ostia\n',
     )
 
     await focusTerminal(win)

@@ -33,7 +33,7 @@ function panelUrl(app: ElectronApplication): Promise<string> {
   })
 }
 
-test('an extension installed while pine runs asks for approval, then drives chips, settings and panel paths', async () => {
+test('an extension installed while ostia runs asks for approval, then drives chips, settings and panel paths', async () => {
   const dataHome = freshDataHome()
   const home = join(dataHome, 'home')
   mkdirSync(home, { recursive: true })
@@ -52,7 +52,7 @@ test('an extension installed while pine runs asks for approval, then drives chip
 
     const term = win.locator('.xterm').first()
     await term.click()
-    await win.keyboard.type('pine hello chip')
+    await win.keyboard.type('ostia hello chip')
     await win.keyboard.press('Enter')
     const chip = win.locator('.pane-header .pane-chip').filter({ hasText: 'hello chip' })
     await expect(chip).toBeVisible({ timeout: 15_000 })
@@ -63,7 +63,7 @@ test('an extension installed while pine runs asks for approval, then drives chip
     await expect.poll(() => panelUrl(app), { timeout: 15_000 }).toMatch(/\/panel\.html$/)
 
     await term.click()
-    await win.keyboard.type('pine hello card')
+    await win.keyboard.type('ostia hello card')
     await win.keyboard.press('Enter')
     await expect.poll(() => panelUrl(app), { timeout: 15_000 }).toMatch(/\/card\.html$/)
     await expect(win.locator('webview.extension-webview')).toHaveCount(1)
@@ -90,7 +90,7 @@ test('an extension installed while pine runs asks for approval, then drives chip
     await expect(settings).toBeHidden()
 
     await term.click()
-    await win.keyboard.type('pine hello greet e2e')
+    await win.keyboard.type('ostia hello greet e2e')
     await win.keyboard.press('Enter')
     await expect(win.locator('.ext-item').filter({ hasText: 'hey e2e' })).toBeVisible({
       timeout: 15_000,
@@ -100,7 +100,7 @@ test('an extension installed while pine runs asks for approval, then drives chip
   }
 })
 
-test('an extension whose manifest turns invalid while pine runs is dropped with its pane chips', async () => {
+test('an extension whose manifest turns invalid while ostia runs is dropped with its pane chips', async () => {
   const dataHome = freshDataHome()
   const home = join(dataHome, 'home')
   mkdirSync(home, { recursive: true })
@@ -115,7 +115,7 @@ test('an extension whose manifest turns invalid while pine runs is dropped with 
     await approval.getByRole('button', { name: 'Approve and enable' }).click({ timeout: 15_000 })
 
     await win.locator('.xterm').first().click()
-    await win.keyboard.type('pine hello chip')
+    await win.keyboard.type('ostia hello chip')
     await win.keyboard.press('Enter')
     const chip = win.locator('.pane-chip').filter({ hasText: 'hello chip' })
     await expect(chip).toBeVisible({ timeout: 15_000 })

@@ -20,7 +20,7 @@ export function guestChordSignatures(mac: boolean): string[] {
 }
 
 export function syncGuestChords(mac: boolean): () => void {
-  const send = (): void => window.pine.guestChords.set(guestChordSignatures(mac))
+  const send = (): void => window.ostia.guestChords.set(guestChordSignatures(mac))
   send()
   return onBindingsChange(send)
 }
@@ -38,7 +38,7 @@ export function handleGuestChord(fire: unknown, mac: boolean): boolean {
 
 export function wireGuestChords(mac: boolean): () => void {
   const offSync = syncGuestChords(mac)
-  const offFire = window.pine.guestChords.onFire((fire) => handleGuestChord(fire, mac))
+  const offFire = window.ostia.guestChords.onFire((fire) => handleGuestChord(fire, mac))
   return () => {
     offSync()
     offFire()

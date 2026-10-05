@@ -92,13 +92,13 @@ function SuggestionBar({
   const [failure, setFailure] = useState<MarketplaceError | null>(null)
   const { extId, name, files, others } = suggestion
   const decline = (): void => {
-    void window.pine.suggestions.dismiss(extId)
+    void window.ostia.suggestions.dismiss(extId)
     onGone()
   }
   const install = async (): Promise<void> => {
     setBusy(true)
     setFailure(null)
-    const result = await window.pine.suggestions.install(extId)
+    const result = await window.ostia.suggestions.install(extId)
     setBusy(false)
     if (result.ok) onGone()
     else setFailure(result.error)
@@ -164,7 +164,7 @@ export function LanguageNotice({
     void extensions
     void servers
     let live = true
-    void window.pine.suggestions.forFile(paneId, filePath).then((next) => {
+    void window.ostia.suggestions.forFile(paneId, filePath).then((next) => {
       if (!live) return
       const shown = next !== null && useLanguageNoticeStore.getState().claim(next.extId, paneId)
       setSuggestion(shown ? next : null)

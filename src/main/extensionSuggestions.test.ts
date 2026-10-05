@@ -145,7 +145,7 @@ describe('DismissedSuggestions', () => {
   })
 
   it('remembers each declined extension once, across restarts, and ignores anything else', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'pine-suggest-'))
+    const dir = mkdtempSync(join(tmpdir(), 'ostia-suggest-'))
     dirs.push(dir)
     const file = join(dir, 'extension-suggestions.json')
     const store = new DismissedSuggestions(file)
