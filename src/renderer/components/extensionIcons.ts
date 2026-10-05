@@ -9,6 +9,7 @@ import {
   HardDrivesIcon,
   type Icon as IconComponent,
   KanbanIcon,
+  MagnifyingGlassIcon,
   PlugsIcon,
   PuzzlePieceIcon,
   ShieldCheckIcon,
@@ -32,6 +33,7 @@ const ICONS: Record<ExtensionIcon, IconComponent> = {
   shield: ShieldCheckIcon,
   chat: ChatCircleDotsIcon,
   plugs: PlugsIcon,
+  'magnifying-glass': MagnifyingGlassIcon,
 }
 
 export function extensionIcon(icon: ExtensionIcon | undefined): IconComponent {
