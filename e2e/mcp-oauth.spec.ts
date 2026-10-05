@@ -46,8 +46,8 @@ test.describe('OAuth sign-in for a URL MCP server', () => {
       env: { ...options.env, OSTIA_MCP_OAUTH_BROWSER: 'fetch' },
     })
     try {
-      await app.evaluate(({ safeStorage }) => safeStorage.setUsePlainTextEncryption(true))
       const win = await app.firstWindow()
+      await app.evaluate(({ safeStorage }) => safeStorage.setUsePlainTextEncryption(true))
       await win.waitForLoadState('domcontentloaded')
       await openWorkspace(win)
 
