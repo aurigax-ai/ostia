@@ -394,6 +394,9 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
     languagePacks: {
       load: vi.fn().mockResolvedValue([]),
     },
+    keymaps: {
+      load: vi.fn().mockResolvedValue({ ok: false, error: 'no keymap named' }),
+    },
     editorLanguages: {
       load: vi.fn().mockResolvedValue([]),
     },

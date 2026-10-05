@@ -201,6 +201,7 @@ describe('Uninstall in the installed list', () => {
       agentSkills: [],
       agentHooks: [],
       iconThemes: [],
+      keymaps: [],
     }
   }
 

@@ -248,6 +248,20 @@ export function stealsTerminalKey(spec: ChordSpec, mac: boolean): ChordProblem |
   return 'ctrl-key'
 }
 
+export const WORKSPACE_GOTO = 'workspace.goto'
+
+export function bindingProblem(id: string, spec: ChordSpec, mac: boolean): ChordProblem | null {
+  const steal = stealsTerminalKey(spec, mac)
+  if (steal) return steal
+  const isRange = spec.key === DIGIT_RANGE
+  return isRange === (id === WORKSPACE_GOTO) ? null : 'digit-range'
+}
+
+export function checkBinding(id: string, text: string, mac: boolean): ChordProblem | null {
+  const spec = parseChord(text, mac)
+  return spec ? bindingProblem(id, spec, mac) : 'invalid'
+}
+
 const MONACO_OTHER = [
   ...'ACGIKLMORZ'.split('').map((k) => `Ctrl+Shift+${k}`),
   'Ctrl+Shift+[',

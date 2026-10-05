@@ -2,11 +2,13 @@ import { z } from 'zod'
 import {
   COMMAND_ID_PATTERN,
   EXTENSION_ID_PATTERN,
+  KEYMAP_ID_PATTERN,
   MAX_CHIPS,
   MAX_COMMANDS,
   MAX_DESCRIPTION,
   MAX_ENUM_VALUES,
   MAX_ICON_THEMES,
+  MAX_KEYMAPS,
   MAX_LANGUAGES,
   MAX_TEXT,
   MAX_WORKFLOWS,
@@ -49,6 +51,7 @@ import {
   EXTENSION_SETTING_UNITS,
 } from '../shared/extensions'
 import { ICON_THEME_ID_PATTERN } from '../shared/iconTheme'
+import { KEYMAP_LABEL_MAX, KEYMAP_PLATFORMS } from '../shared/keymap'
 import { LANGUAGE_ID_PATTERN } from '../shared/languagePack'
 import {
   DOWNLOAD_URL_MAX,
@@ -246,6 +249,17 @@ const contributes = z.looseObject({
       }),
     )
     .max(MAX_LANGUAGES)
+    .optional(),
+  keymaps: z
+    .array(
+      z.looseObject({
+        id: z.string().regex(KEYMAP_ID_PATTERN),
+        label: z.string().min(1).max(KEYMAP_LABEL_MAX),
+        path: z.string().regex(/\.json$/),
+        platform: z.enum(KEYMAP_PLATFORMS).optional(),
+      }),
+    )
+    .max(MAX_KEYMAPS)
     .optional(),
   languageServers: z.array(languageServer).max(MAX_LANGUAGE_SERVERS).optional(),
   editorLanguages: z.array(editorLanguage).max(MAX_EDITOR_LANGUAGES).optional(),

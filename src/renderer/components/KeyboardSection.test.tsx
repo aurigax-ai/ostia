@@ -1,4 +1,5 @@
 import '@testing-library/jest-dom/vitest'
+import type { ExtensionInfo } from '@shared/extensions'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
@@ -6,6 +7,8 @@ import { registerBuiltinCommands } from '../commands/builtins'
 import { commands } from '../commands/registry'
 import { zhHant } from '../i18n/dict'
 import { languagesFrom } from '../lib/languagePacks'
+import { useExtensionsStore } from '../stores/extensionsStore'
+import { startKeymapSync, useKeymapStore } from '../stores/keymapStore'
 import { usePluginsStore } from '../stores/pluginsStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
@@ -14,6 +17,41 @@ import { ChordRecorder, KeyboardSection } from './KeyboardSection'
 
 const initialSettings = useSettingsStore.getState()
 const initialPlugins = usePluginsStore.getState()
+const initialExtensions = useExtensionsStore.getState()
+const initialKeymap = useKeymapStore.getState()
+
+const keymapExtension: ExtensionInfo = {
+  id: 'keys',
+  name: 'Keys',
+  version: '1.0.0',
+  description: '',
+  category: 'other',
+  builtin: false,
+  enabled: true,
+  status: 'idle',
+  requested: [],
+  granted: [],
+  unapproved: [],
+  commands: [],
+  panel: null,
+  paneChips: [],
+  workspaceChips: [],
+  settings: [],
+  settingValues: {},
+  settingsPage: null,
+  assist: [],
+  secrets: [],
+  secretsSet: [],
+  iconThemes: [],
+  languages: [],
+  keymaps: [
+    { id: 'alt', label: 'Alt keys' },
+    { id: 'mac', label: 'Mac only', platform: 'darwin' },
+  ],
+  languageServers: [],
+  agentSkills: [],
+  agentHooks: [],
+}
 
 const press = (key: string, init: KeyboardEventInit = {}): void => {
   act(() => {
@@ -78,7 +116,109 @@ describe('KeyboardSection', () => {
     cleanup()
     useSettingsStore.setState(initialSettings, true)
     usePluginsStore.setState(initialPlugins, true)
+    useExtensionsStore.setState(initialExtensions, true)
+    useKeymapStore.setState(initialKeymap, true)
     useUIStore.setState({ paletteOpen: false })
+  })
+
+  it('picks a keymap, lists the entries it skipped, and puts the user’s chords on top of it', async () => {
+    useExtensionsStore.setState({ list: [keymapExtension] })
+    vi.mocked(window.pine.keymaps.load).mockResolvedValue({
+      ok: true,
+      keymap: {
+        extId: 'keys',
+        id: 'alt',
+        label: 'Alt keys',
+        bindings: { 'palette.toggle': 'Ctrl+Alt+P', 'view.toggleRail': null },
+        skipped: [{ command: 'pane.zoom', value: 'Ctrl+X', problem: 'ctrl-key' }],
+      },
+    })
+    const stop = startKeymapSync()
+    try {
+      render(<KeyboardSection />)
+      const picker = screen.getByRole('combobox', { name: 'Keymap' })
+      expect(picker).toHaveTextContent('Default')
+      expect(within(row(/Command Palette/)).getByText('Ctrl+Shift+P')).toBeInTheDocument()
+
+      await userEvent.click(picker)
+      expect(screen.queryByRole('option', { name: 'Mac only' })).toBeNull()
+      await userEvent.click(await screen.findByRole('option', { name: 'Alt keys' }))
+      expect(useSettingsStore.getState().keymap).toBe('keys/alt')
+      expect(await within(row(/Command Palette/)).findByText('Ctrl+Alt+P')).toBeInTheDocument()
+      expect(within(row(/Toggle Sidebar/)).getByText('Unassigned')).toBeInTheDocument()
+      expect(window.pine.keymaps.load).toHaveBeenCalledWith('keys/alt')
+      expect(
+        screen.getByText(
+          'pane.zoom “Ctrl+X”: plain Ctrl keys belong to the shell. Add Shift or Alt.',
+        ),
+      ).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Reset Command Palette' })).toBeDisabled()
+
+      await record('Command Palette')
+      press('Y', { ctrlKey: true, shiftKey: true, code: 'KeyY' })
+      expect(within(row(/Command Palette/)).getByText('Ctrl+Shift+Y')).toBeInTheDocument()
+      await userEvent.click(screen.getByRole('button', { name: 'Reset Command Palette' }))
+      expect(useSettingsStore.getState().keybindings).toEqual({})
+      expect(within(row(/Command Palette/)).getByText('Ctrl+Alt+P')).toBeInTheDocument()
+
+      await record('Command Palette')
+      press('P', { ctrlKey: true, altKey: true, code: 'KeyP' })
+      expect(useSettingsStore.getState().keybindings).toEqual({})
+
+      await userEvent.click(screen.getByRole('combobox', { name: 'Keymap' }))
+      await userEvent.click(await screen.findByRole('option', { name: 'Default' }))
+      expect(useSettingsStore.getState().keymap).toBeNull()
+      expect(within(row(/Command Palette/)).getByText('Ctrl+Shift+P')).toBeInTheDocument()
+      expect(screen.queryByText(/pane\.zoom “Ctrl\+X”/)).toBeNull()
+    } finally {
+      stop()
+    }
+  })
+
+  it('shows Default and the default table for a keymap no enabled extension offers here', () => {
+    useExtensionsStore.setState({ list: [{ ...keymapExtension, enabled: false }] })
+    useSettingsStore.setState({ keymap: 'keys/alt' })
+    const stop = startKeymapSync()
+    try {
+      render(<KeyboardSection />)
+      expect(screen.getByRole('combobox', { name: 'Keymap' })).toHaveTextContent('Default')
+      expect(within(row(/Command Palette/)).getByText('Ctrl+Shift+P')).toBeInTheDocument()
+      expect(window.pine.keymaps.load).not.toHaveBeenCalled()
+    } finally {
+      stop()
+    }
+  })
+
+  it('says when the chosen keymap cannot be loaded', async () => {
+    useExtensionsStore.setState({ list: [keymapExtension] })
+    useSettingsStore.setState({ keymap: 'keys/alt' })
+    vi.mocked(window.pine.keymaps.load).mockResolvedValue({
+      ok: false,
+      error: 'keys.json: missing',
+    })
+    const stop = startKeymapSync()
+    try {
+      render(<KeyboardSection />)
+      expect(
+        await screen.findByText(
+          'The keymap “Alt keys” couldn’t be loaded (keys.json: missing), so the default shortcuts apply.',
+        ),
+      ).toBeInTheDocument()
+      expect(within(row(/Command Palette/)).getByText('Ctrl+Shift+P')).toBeInTheDocument()
+    } finally {
+      stop()
+    }
+  })
+
+  it('names the keymap picker in Traditional Chinese', () => {
+    usePluginsStore.setState({
+      languages: languagesFrom([
+        { extId: 'langpack-zh-hant', id: 'zh-Hant', label: '繁體中文', catalog: zhHant },
+      ]),
+    })
+    useSettingsStore.setState({ locale: 'zh-Hant' })
+    render(<KeyboardSection />)
+    expect(screen.getByRole('combobox', { name: '快捷鍵配置' })).toHaveTextContent('預設')
   })
 
   it('lists commands with their current shortcut, including palette commands without one', () => {

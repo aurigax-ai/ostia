@@ -2,7 +2,7 @@
   "id": "model-runtime",
   "name": "Model runtime",
   "version": "1.2.0",
-  "api": "1.11",
+  "api": "1.12",
   "description": "Your local model-runtime as an assistant provider: its installed models join the model list in Settings → Assistant and the chat's model selector, with load and unload there. Requests go only to the runtime's socket on this computer.",
   "category": "ai",
   "capabilities": ["assist", "notify"],
