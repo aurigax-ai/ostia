@@ -32,6 +32,7 @@ import {
 import { currentScheme, terminalTheme, useScheme } from '../lib/colorScheme'
 import { acceptsPathDrop, droppedPaths, pathsAsInput } from '../lib/dropPaths'
 import { attachLinkModifier, linkModifierHeld, linkTarget } from '../lib/linkModifier'
+import { macLineEditKey } from '../lib/macLineKeys'
 import { openFileAt } from '../lib/openFile'
 import { isLocalHost, parseOsc7 } from '../lib/osc7'
 import { registerOsc52 } from '../lib/osc52'
@@ -253,6 +254,14 @@ export function TerminalView({
       }
       const chord = matchChord(e, isMac)
       if (!chord) {
+        const lineKey = macLineEditKey(e, isMac)
+        if (lineKey && !inputEditorFor(paneId)) {
+          if (e.type === 'keydown') {
+            e.preventDefault()
+            term.input(lineKey, true)
+          }
+          return false
+        }
         const editor = inputEditorFor(paneId)
         if (!editor) return true
         if (e.type !== 'keydown') return false
