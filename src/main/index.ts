@@ -28,6 +28,7 @@ import { languageServerKey } from '../shared/languageServers'
 import { MANAGER_FEATURE, managerAgents, parseManagerSettings } from '../shared/managerSettings'
 import { OPEN_FILES_MAX } from '../shared/openFiles'
 import { OFFICIAL_MARKETPLACE, PRODUCT_NAME } from '../shared/product'
+import { PRODUCT_DISPLAY_NAME } from '../shared/productDisplay'
 import { type RemoteCwd, normalizeRemoteCwd } from '../shared/remoteFolders'
 import { parseSandboxGlobals } from '../shared/sandbox'
 import { quoteArgv } from '../shared/shellQuote'
@@ -1129,7 +1130,7 @@ function createWindow(slot: string, bounds?: WindowBounds): BrowserWindow {
     backgroundColor: '#1d2022',
     show: false,
     autoHideMenuBar: true,
-    title: PRODUCT_NAME,
+    title: PRODUCT_DISPLAY_NAME,
     icon: appIcon,
     ...frameOptions(),
     webPreferences: baseWebPreferences(),
@@ -1157,7 +1158,7 @@ function registerIpc(): void {
   ipcMain.handle(
     'app:info',
     (): AppInfo => ({
-      name: PRODUCT_NAME,
+      name: PRODUCT_DISPLAY_NAME,
       version: app.getVersion(),
       platform: process.platform,
       hostName: hostname(),
@@ -2412,7 +2413,7 @@ function startPortal(): void {
   portal
     .start()
     .then((started) => {
-      if (!started) console.warn(`[portal] another ${PRODUCT_NAME} owns the portal socket`)
+      if (!started) console.warn(`[portal] another ${PRODUCT_DISPLAY_NAME} owns the portal socket`)
     })
     .catch((err) => console.error('[portal] failed to start', err))
 }
@@ -2825,7 +2826,7 @@ app.whenReady().then(() => {
   startPortal()
   appTray = new AppTray({
     iconPath: appIcon,
-    tooltip: PRODUCT_NAME,
+    tooltip: PRODUCT_DISPLAY_NAME,
     locale: readLocale,
     windows: () => BrowserWindow.getAllWindows(),
     quit: requestQuit,

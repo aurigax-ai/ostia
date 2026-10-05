@@ -17,7 +17,7 @@ import {
   type McpToolInfo,
   mcpTransportOf,
 } from '../shared/chatTools'
-import { PRODUCT_NAME } from '../shared/product'
+import { PRODUCT_DISPLAY_NAME } from '../shared/productDisplay'
 
 export const MCP_CONNECT_TIMEOUT_MS = 15_000
 export const MCP_CALL_TIMEOUT_MS = 120_000
@@ -228,7 +228,7 @@ export class McpHost {
     const client = await createMCPClient({
       transport,
       protocolVersionDiscovery: false,
-      clientName: PRODUCT_NAME,
+      clientName: PRODUCT_DISPLAY_NAME,
       initializationOptions: { timeout },
       onUncaughtError: hooks.onError,
     })
