@@ -148,6 +148,10 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       publish: vi.fn(),
       onInvoke: vi.fn(noopUnsub),
     },
+    appMenu: {
+      set: vi.fn(),
+      onRun: vi.fn(noopUnsub),
+    },
     terminalState: {
       push: vi.fn(),
     },
