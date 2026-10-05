@@ -56,7 +56,7 @@ function info(
   const doc = parsed.ok ? parsed.doc : null
   return {
     name,
-    file: `/home/u/.config/pine/views/${name}.json`,
+    file: `/home/u/.config/ostia/views/${name}.json`,
     status,
     title: doc?.title ?? name,
     placement: doc?.placement ?? null,
@@ -210,15 +210,15 @@ describe('declarative views', () => {
   it('lists view files in Settings with their state, problems and an enable switch', async () => {
     const broken = { ...SIDEBAR, root: { type: 'text', text: '{{nope}}' } }
     useViewsStore.setState({
-      dir: '/home/u/.config/pine/views',
+      dir: '/home/u/.config/ostia/views',
       views: [info('agents', SIDEBAR, 'pending'), info('broken', broken, 'disabled')],
     })
     vi.mocked(window.pine.views.setEnabled).mockResolvedValue({
-      dir: '/home/u/.config/pine/views',
+      dir: '/home/u/.config/ostia/views',
       views: [info('agents', SIDEBAR, 'enabled')],
     })
     render(<ViewsSection />)
-    expect(screen.getByText(/\/home\/u\/\.config\/pine\/views/)).toBeInTheDocument()
+    expect(screen.getByText(/\/home\/u\/\.config\/ostia\/views/)).toBeInTheDocument()
     const agents = screen.getByText('agents.json').closest('li') as HTMLElement
     expect(within(agents).getByText('New')).toBeInTheDocument()
     const row = screen.getByText('broken.json').closest('li') as HTMLElement

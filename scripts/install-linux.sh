@@ -4,7 +4,10 @@ set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 name="$(node -p "require('$root/package.json').name")"
 unpacked="$root/dist/linux-unpacked"
-dest="${XDG_DATA_HOME:-$HOME/.local/share}/$name/app"
+data_name=ostia
+legacy_data_name=pine
+dest="${XDG_DATA_HOME:-$HOME/.local/share}/$data_name/app"
+legacy_dest="${XDG_DATA_HOME:-$HOME/.local/share}/$legacy_data_name/app"
 apps="${XDG_DATA_HOME:-$HOME/.local/share}/applications"
 
 if [ ! -x "$unpacked/$name" ]; then
@@ -17,6 +20,9 @@ mkdir -p "$(dirname "$dest")" "$apps"
 cp -a "$unpacked" "$dest.new"
 rm -rf "$dest"
 mv "$dest.new" "$dest"
+if [ "$legacy_dest" != "$dest" ] && [ -x "$legacy_dest/$name" ]; then
+  rm -rf "$legacy_dest"
+fi
 
 icons="${XDG_DATA_HOME:-$HOME/.local/share}/icons/hicolor"
 for png in "$root"/resources/icons/*x*.png; do

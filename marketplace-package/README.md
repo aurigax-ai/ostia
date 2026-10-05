@@ -49,7 +49,7 @@ pnpm validate     # checks the marketplace and every extension the way Pine will
 
 CI runs the same steps and fails when `extensions/` is not what the source builds.
 
-To try a build, copy `extensions/<id>` to `~/.config/pine/extensions/<id>`; Pine notices it within
+To try a build, copy `extensions/<id>` to `~/.config/ostia/extensions/<id>`; Pine notices it within
 a moment and asks you to approve it.
 
 ## Where changes are made

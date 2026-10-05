@@ -90,7 +90,7 @@ describe('buildSrtConfig vendored binaries', () => {
 
 const guardedPaths = {
   ...paths,
-  dataDirs: ['/home/u/.local/share/pine', '/home/u/.config/pine'],
+  dataDirs: ['/home/u/.local/share/ostia', '/home/u/.config/ostia'],
   runtimeDir: '/run/user/1000',
   socketPath: '/run/user/1000/pine-1.sock',
   agentSockets: ['/tmp/ssh-abc/agent.1'],
@@ -153,10 +153,10 @@ describe('buildSrtConfig filesystem limits', () => {
 
   it('never opens Pine data, the socket folder, an agent socket folder, a container socket or another sandbox tmp', () => {
     const closed = [
-      '/home/u/.local/share/pine',
-      '/home/u/.local/share/pine/vault.json',
+      '/home/u/.local/share/ostia',
+      '/home/u/.local/share/ostia/vault.json',
       '/home/u/.local/share',
-      '/home/u/.config/pine/settings.json',
+      '/home/u/.config/ostia/settings.json',
       '/run/user/1000',
       '/run/user/1000/bus',
       '/run',
@@ -177,7 +177,7 @@ describe('buildSrtConfig filesystem limits', () => {
       }
       expect(filesystem.denyRead).toEqual(
         expect.arrayContaining([
-          '/home/u/.local/share/pine',
+          '/home/u/.local/share/ostia',
           '/run/user/1000',
           '/tmp/ssh-abc',
           '/run/docker.sock',
@@ -203,7 +203,7 @@ describe('buildSrtConfig filesystem limits', () => {
 describe('buildSrtConfig through a symlink', () => {
   const root = realpathSync(mkdtempSync(join(tmpdir(), 'pine-srtconfig-')))
   const home = join(root, 'home')
-  const dataDir = join(home, '.local/share/pine')
+  const dataDir = join(home, '.local/share/ostia')
   mkdirSync(dataDir, { recursive: true })
   symlinkSync(dataDir, join(home, 'innocent'))
   afterAll(() => rmSync(root, { recursive: true, force: true }))
@@ -328,10 +328,11 @@ describe('fixedPolicy', () => {
     )
     expect(fixed.hidden).toEqual([
       '/home/u',
-      '/home/u/.local/share/pine',
-      '/home/u/.config/pine',
+      '/home/u/.local/share/ostia',
+      '/home/u/.config/ostia',
       '/home/u/.cargo/credentials.toml',
       '/home/u/.cargo/credentials',
+      '/home/u/app/.ostia/vault.json',
       '/home/u/app/.pine/vault.json',
       '/tmp/ssh-abc',
       '/run/docker.sock',
@@ -408,10 +409,10 @@ describe('folderProblem', () => {
   const homePaths = {
     ...guardedPaths,
     home,
-    dataDirs: [join(home, '.local/share/pine'), join(home, '.config/pine')],
+    dataDirs: [join(home, '.local/share/ostia'), join(home, '.config/ostia')],
   }
-  mkdirSync(join(home, '.local/share/pine'), { recursive: true })
-  mkdirSync(join(home, '.config/pine/extensions'), { recursive: true })
+  mkdirSync(join(home, '.local/share/ostia'), { recursive: true })
+  mkdirSync(join(home, '.config/ostia/extensions'), { recursive: true })
   afterAll(() => rmSync(base, { recursive: true, force: true }))
 
   it('refuses the home folder, a folder above it and one that holds Pine data', () => {
@@ -420,7 +421,7 @@ describe('folderProblem', () => {
     expect(folderProblem(base, homePaths)).toBe('above-home')
     expect(folderProblem('/', homePaths)).toBe('above-home')
     expect(folderProblem(join(home, '.local'), homePaths)).toBe('pine-data')
-    expect(folderProblem(join(home, '.config/pine/extensions'), homePaths)).toBe('pine-data')
+    expect(folderProblem(join(home, '.config/ostia/extensions'), homePaths)).toBe('pine-data')
   })
 
   it('accepts a project folder inside or outside home', () => {

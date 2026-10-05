@@ -134,7 +134,7 @@ const BOARD_VIEW = {
 
 test('a view panel opened into a nested split is painted only at its split position', async () => {
   const dataHome = freshDataHome()
-  const viewsDir = join(dataHome, 'config', 'pine', 'views')
+  const viewsDir = join(dataHome, 'config', 'ostia', 'views')
   mkdirSync(viewsDir, { recursive: true })
   writeFileSync(join(viewsDir, 'board.json'), JSON.stringify(BOARD_VIEW))
   const app = await electron.launch(isolatedLaunch(dataHome))

@@ -1,6 +1,8 @@
+import './userDirsBoot'
+
 import { execFileSync } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
-import { readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { homedir, hostname } from 'node:os'
 import { dirname, join } from 'node:path'
 import {
@@ -28,7 +30,7 @@ import type { ExtensionPanelContext, ExtensionResult, WorkspaceChip } from '../s
 import { languageServerKey } from '../shared/languageServers'
 import { MANAGER_FEATURE, managerAgents, parseManagerSettings } from '../shared/managerSettings'
 import { OPEN_FILES_MAX } from '../shared/openFiles'
-import { OFFICIAL_MARKETPLACE, PRODUCT_NAME } from '../shared/product'
+import { LEGACY_PRODUCT_NAME, OFFICIAL_MARKETPLACE, PRODUCT_NAME } from '../shared/product'
 import { PRODUCT_DISPLAY_NAME } from '../shared/productDisplay'
 import { type RemoteCwd, normalizeRemoteCwd } from '../shared/remoteFolders'
 import { parseSandboxGlobals } from '../shared/sandbox'
@@ -227,6 +229,7 @@ import {
 import { registerSystemRequirementsIpc } from './systemRequirementsIpc'
 import { PTY_COLOR_ENV, PTY_TERM_NAME, paneShellEnv } from './terminalType'
 import { AppTray, closeAction, isHiddenLaunch, readCloseToTray, unreadWorkspaces } from './tray'
+import { appConfigDir, legacyDataDir } from './userDirs'
 import {
   deleteGlobalVaultValue,
   registerVaultMethods,
@@ -514,7 +517,7 @@ function sandboxCwd(cwd: string, workDir: string | undefined): string {
   return cwd === workDir || cwd.startsWith(`${workDir}/`) ? cwd : workDir
 }
 
-const scratchFolders = new ScratchFolders(privateTmpDir('pine-scratch'))
+const scratchFolders = new ScratchFolders(privateTmpDir(`${PRODUCT_NAME}-scratch`))
 
 function fileRoots(): string[] {
   return [homedir(), app.getPath('userData'), scratchFolders.root]
@@ -534,7 +537,13 @@ const workspaceSandboxes: WorkspaceSandboxes = new WorkspaceSandboxes({
   globals: () => parseSandboxGlobals((readSettingsFile() as { sandbox?: unknown }).sandbox),
   basePaths: () => ({
     home: homedir(),
-    dataDirs: [app.getPath('userData'), dirname(storePath('workspaces', 'global'))],
+    dataDirs: [
+      app.getPath('userData'),
+      dirname(storePath('workspaces', 'global')),
+      ...[join(app.getPath('appData'), LEGACY_PRODUCT_NAME), legacyDataDir()].filter((dir) =>
+        existsSync(dir),
+      ),
+    ],
     runtimeDir: process.env.XDG_RUNTIME_DIR,
     agentSockets: process.env.SSH_AUTH_SOCK ? [process.env.SSH_AUTH_SOCK] : [],
     containerSockets: reachableContainerSockets(),
@@ -542,13 +551,13 @@ const workspaceSandboxes: WorkspaceSandboxes = new WorkspaceSandboxes({
     srtVendorDir: srtVendorDir(app.getAppPath()),
     runtimeReads: [
       INTEGRATION_DIR,
-      privateTmpDir('pine-shell-state'),
+      privateTmpDir(`${PRODUCT_NAME}-shell-state`),
       app.getAppPath(),
       dirname(process.execPath),
     ],
   }),
   workDir: (workspaceId) => workDirForWorkspace(workspaceId),
-  tmpRoot: privateTmpDir('pine-sandbox-tmp'),
+  tmpRoot: privateTmpDir(`${PRODUCT_NAME}-sbx`),
   nodePath: process.execPath,
   hostScript: join(app.getAppPath(), 'out/sandbox/host.mjs'),
   onAsk: (workspaceId, host, port) =>
@@ -926,7 +935,7 @@ let settingsSync: SettingsSyncHandle | null = null
 const EXTENSION_PARTITION_PREFIX = 'pine-ext-'
 
 function configDir(): string {
-  return join(process.env.XDG_CONFIG_HOME || join(homedir(), '.config'), PRODUCT_NAME)
+  return appConfigDir()
 }
 
 function extensionRoots(): ExtensionRoot[] {
@@ -1613,7 +1622,7 @@ function registerPtyIpc(): void {
     )
     const cols = opts.cols || 80
     const rows = opts.rows || 24
-    const stateFile = join(privateTmpDir('pine-shell-state'), randomUUID())
+    const stateFile = join(privateTmpDir(`${PRODUCT_NAME}-shell-state`), randomUUID())
     let env = paneShellEnv({
       parent: process.env,
       integration: integration.env,
@@ -1919,7 +1928,7 @@ function paneEnv(paneId: string, windowId: string, cwd: string): Record<string, 
 
 function managerLaunchArgv(argv: string[], resume: AgentResume | null): string[] {
   const { skills } = managerSettings()
-  const base = privateTmpDir('pine-manager')
+  const base = privateTmpDir(`${PRODUCT_NAME}-manager`)
   const claudePluginDir = join(base, 'claude-plugin')
   writeManagerClaudePlugin(claudePluginDir, skills)
   const codexContextFile = writeManagerCodexContext(join(base, 'codex'), skills)
@@ -1969,7 +1978,7 @@ function spawnManagerPty(req: {
     rows: req.rows,
     subs: new Map(),
     spawnPath: env.PATH ?? '',
-    stateFile: join(privateTmpDir('pine-shell-state'), randomUUID()),
+    stateFile: join(privateTmpDir(`${PRODUCT_NAME}-shell-state`), randomUUID()),
     keepAlive: true,
   })
   entry.exitListeners.add(() => req.onExit())

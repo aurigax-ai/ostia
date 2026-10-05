@@ -73,9 +73,9 @@ test('a Trellis card goes to a new agent or to a running one, only on the humanâ
     copyFileSync(join(FIXTURES, 'trellis', f), join(trellisDir, f))
   }
   writeFileSync(join(trellisDir, 'consumers.json'), '[{"name":"pine","cursor":0,"lag":0}]')
-  mkdirSync(join(dataHome, 'pine'), { recursive: true })
+  mkdirSync(join(dataHome, 'ostia'), { recursive: true })
   writeFileSync(
-    join(dataHome, 'pine', 'workspaces.json'),
+    join(dataHome, 'ostia', 'workspaces.json'),
     JSON.stringify({
       v: 1,
       savedAt: new Date().toISOString(),

@@ -15,7 +15,7 @@ arguments:
 `
 
 function seedWorkflow(dataHome: string): string {
-  const dir = join(dataHome, 'config', 'pine', 'workflows')
+  const dir = join(dataHome, 'config', 'ostia', 'workflows')
   mkdirSync(dir, { recursive: true })
   writeFileSync(join(dir, 'greet.yaml'), GREET)
   return dir

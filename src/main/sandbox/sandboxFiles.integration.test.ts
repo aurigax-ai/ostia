@@ -55,7 +55,7 @@ beforeAll(async () => {
   root = realpathSync(mkdtempSync(join(tmpdir(), 'pine-sbx-files-')))
   home = join(root, 'home')
   workDir = join(home, 'proj')
-  dataDir = join(home, '.local/share/pine')
+  dataDir = join(home, '.local/share/ostia')
   for (const d of [workDir, dataDir, join(home, '.claude/projects')])
     mkdirSync(d, { recursive: true })
   writeFileSync(join(dataDir, 'vault.json'), '{"K":"VAULT-CIPHER"}')
@@ -65,7 +65,7 @@ beforeAll(async () => {
   host = new SandboxHost({ nodePath: process.execPath, hostScript, onAsk: async () => false })
   await host.start(
     buildSrtConfig(
-      { allowRead: [dataDir, '~/.local/share/pine'], domains: [], controls: DEFAULT_CONTROLS },
+      { allowRead: [dataDir, '~/.local/share/ostia'], domains: [], controls: DEFAULT_CONTROLS },
       {
         home,
         workDir,

@@ -188,7 +188,7 @@ test('opening a file offers the extension, installs it on the human’s click, a
     await expect(notice).toHaveCount(0)
 
     expect(fixture.requests.map((r) => r.url)).toEqual([ASSET_PATH])
-    expect(fixture.requests[0].headers['user-agent']).toMatch(/^pine\/\d+\.\d+\.\d+/)
+    expect(fixture.requests[0].headers['user-agent']).toMatch(/^ostia\/\d+\.\d+\.\d+/)
     expect(fixture.requests[0].headers.cookie).toBeUndefined()
     const copy = join(dataHome, 'userData', 'language-servers', 'fake-native', 'native')
     expect(readdirSync(copy)).toEqual(['1.0.0'])

@@ -3,7 +3,10 @@ import { REMOTE_BOOTSTRAP } from './remote'
 
 export const HELPER_PROTOCOL = 1
 export const STATUS_PREFIX = 'PINE-HELPER '
-export const HELPER_DIR = '.pine/helper'
+export const HELPER_HOME = '.ostia'
+export const HELPER_DIR = `${HELPER_HOME}/helper`
+export const LEGACY_HELPER_HOME = '.pine'
+export const LEGACY_HELPER_DIR = `${LEGACY_HELPER_HOME}/helper`
 export const HELPER_FILE = 'helper.sh'
 export const SESSION_FILE = 'session.sh'
 export const HELPER_TOOLS = [
@@ -76,6 +79,8 @@ function lineCount(text: Buffer): number {
 
 export function helperBundle(source: Buffer, session: Buffer): HelperBundle {
   const version = createHash('sha256')
+    .update(HELPER_DIR)
+    .update('\0')
     .update(source)
     .update('\0')
     .update(session)
@@ -104,12 +109,15 @@ export function helperBundle(source: Buffer, session: Buffer): HelperBundle {
     `[ "$(cksum <"$h.new")" = "${checksum(source)}" ] && [ "$(cksum <"$s.new")" = "${checksum(session)}" ] || { rm -f "$h.new" "$s.new"; echo "${STATUS_PREFIX}failed checksum"; exit 0; }`,
     `mv -f "$s.new" "$s" && mv -f "$h.new" "$h" || ${say('failed rename')}`,
     'for o in "$b"/*; do [ "$o" = "$d" ] || rm -rf "$o"; done',
+    `rm -rf "$HOME/${LEGACY_HELPER_DIR}"`,
+    `rmdir "$HOME/${LEGACY_HELPER_HOME}" 2>/dev/null`,
     `echo "${STATUS_PREFIX}installed"`,
   ].join('; ')
+  const legacyBase = `$HOME/${LEGACY_HELPER_DIR}`
   const remove = [
-    `rm -rf "${base}"`,
+    `rm -rf "${base}" "${legacyBase}"`,
     `[ -e "${base}" ] && ${say('failed remove')}`,
-    'rmdir "$HOME/.pine" 2>/dev/null',
+    `rmdir "$HOME/${HELPER_HOME}" "$HOME/${LEGACY_HELPER_HOME}" 2>/dev/null`,
     `echo "${STATUS_PREFIX}removed"`,
   ].join('; ')
   const sessionCommand = [
