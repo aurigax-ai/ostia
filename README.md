@@ -59,7 +59,7 @@ Applications.
 
 ### Debian and Ubuntu (x64)
 
-The apt repository starts with Ostia 0.5.7. Until 0.5.7 is released, use the tarball or AppImage
+The apt repository starts with Ostia 0.5.8. Until 0.5.8 is released, use the tarball or AppImage
 below.
 
 ```bash
