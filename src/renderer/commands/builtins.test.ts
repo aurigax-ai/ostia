@@ -9,6 +9,7 @@ import { useEditorStatus } from '../stores/editorStatusStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useSandboxStore } from '../stores/sandboxStore'
 import { useSettingsStore } from '../stores/settingsStore'
+import * as surfaceSlots from '../stores/surfaceSlotsStore'
 import { useUIStore } from '../stores/uiStore'
 import { useUpdateStore } from '../stores/updateStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
@@ -642,6 +643,27 @@ describe('builtins route to store actions', () => {
     expect(shown()).toEqual([a.id, a.id])
     await commands.execWith(ctx('s1', a.id), 'tab.previous')
     expect(shown()).toEqual([c.id, c.id])
+  })
+
+  it('moves keyboard focus into the tab it shows, and not while a pane is zoomed', async () => {
+    const a = createPane()
+    const b = createPane()
+    useLayoutStore.setState({
+      byWorkspace: { s1: { root: tabsOf(a.id, a, b), activePaneId: a.id, zoomedPaneId: null } },
+    })
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+      cb(0)
+      return 0
+    })
+    const focusSurface = vi.spyOn(surfaceSlots, 'focusSurface').mockImplementation(() => {})
+    await commands.execWith(ctx('s1', a.id), 'tab.next')
+    expect(focusSurface).toHaveBeenCalledWith(b.id)
+
+    focusSurface.mockClear()
+    useLayoutStore.getState().zoomPane('s1', b.id, true)
+    await commands.execWith(ctx('s1', b.id), 'tab.next')
+    expect(useLayoutStore.getState().byWorkspace.s1.activePaneId).toBe(b.id)
+    expect(focusSurface).not.toHaveBeenCalled()
   })
 
   it('leaves focus alone when the caller’s pane has no other tabs', async () => {
