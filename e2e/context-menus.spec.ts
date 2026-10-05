@@ -34,6 +34,7 @@ test('right-click in a terminal offers copy, paste, select all and clear', async
     await expect(win.getByRole('menuitem', { name: 'Select All' })).toBeVisible()
     await win.getByRole('menuitem', { name: 'Clear Terminal' }).click()
     await expect(rows).not.toContainText('pine_menu_marker', { timeout: 15_000 })
+    await expect(win.locator('.xterm-helper-textarea').first()).toBeFocused()
 
     await win.keyboard.type('echo pine_after_$((40+2))')
     await win.keyboard.press('Enter')
