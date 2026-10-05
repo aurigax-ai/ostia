@@ -28,15 +28,15 @@ fi
 echo "installed: $(version), wanted: $want"
 test "$(version)" = "$want"
 test -x /opt/Ostia/ostia
-test "$(readlink -f /usr/bin/ostia)" = /opt/Ostia/resources/bin/ostia
-ostia --help | grep -q '^usage: ostia'
-test -f /usr/share/applications/ostia.desktop
 missing=$(ldd /opt/Ostia/ostia | grep 'not found' || true)
 if [ -n "$missing" ]; then
   echo "missing libraries:" >&2
   echo "$missing" >&2
   exit 1
 fi
+test "$(readlink -f /usr/bin/ostia)" = /opt/Ostia/resources/bin/ostia
+ostia --help | grep -q '^usage: ostia'
+test -f /usr/share/applications/ostia.desktop
 apt-get remove -y ostia >/dev/null
 test ! -e /usr/bin/ostia
 echo "ok: ostia $want on $PRETTY_NAME"
