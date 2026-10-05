@@ -25,7 +25,7 @@ interface RunResult {
   stderr: string
 }
 
-describe('pine CLI → extensions (real processes, real socket)', () => {
+describe('ostia CLI → extensions (real processes, real socket)', () => {
   let dir: string
   let workDir: string
   let socketPath: string
@@ -45,7 +45,7 @@ describe('pine CLI → extensions (real processes, real socket)', () => {
       let stderr = ''
       const timer = setTimeout(() => {
         child.kill('SIGKILL')
-        reject(new Error(`pine ${args.join(' ')} timed out (${stdout} ${stderr})`))
+        reject(new Error(`ostia ${args.join(' ')} timed out (${stdout} ${stderr})`))
       }, 15_000)
       child.stdout.on('data', (c: Buffer) => {
         stdout += c.toString()
@@ -136,7 +136,7 @@ describe('pine CLI → extensions (real processes, real socket)', () => {
     expect(unknown.stderr).toContain("unknown command or extension 'nosuchext'")
   }, 30_000)
 
-  it('pine git status/changes/diff print JSON for the workspace repo', async () => {
+  it('ostia git status/changes/diff print JSON for the workspace repo', async () => {
     const vcs = (...args: string[]) =>
       execFileSync('git', ['-c', 'commit.gpgsign=false', ...args], { cwd: workDir })
     mkdirSync(workDir, { recursive: true })
@@ -164,7 +164,7 @@ describe('pine CLI → extensions (real processes, real socket)', () => {
     expect(diff.patch).toContain('-v1\n+v2')
   }, 30_000)
 
-  it('pine git stage/commit/log/blame work on the workspace repo; discard is not a verb', async () => {
+  it('ostia git stage/commit/log/blame work on the workspace repo; discard is not a verb', async () => {
     const staged = await runPine(['git', 'stage', 'readme.md'])
     expect(staged.stderr).toBe('')
     expect(JSON.parse(staged.stdout)).toMatchObject({
@@ -202,18 +202,18 @@ describe('pine CLI → extensions (real processes, real socket)', () => {
     expect(discard.stderr).toContain("unknown subcommand 'discard'")
   }, 30_000)
 
-  it('pine ext ls lists the built-in extensions with their CLI usage', async () => {
+  it('ostia ext ls lists the built-in extensions with their CLI usage', async () => {
     const res = await runPine(['ext', 'ls'])
     expect(res.stdout).toContain('git\t')
-    expect(res.stdout).toContain('pine git diff <path> [--staged]')
-    expect(res.stdout).toContain('pine git commit -m <message>')
+    expect(res.stdout).toContain('ostia git diff <path> [--staged]')
+    expect(res.stdout).toContain('ostia git commit -m <message>')
     expect(res.stdout).not.toContain('discard')
     expect(res.stdout).toContain('system\t')
     expect(res.stdout).not.toContain('trellis\t')
     expect(res.stdout).not.toContain('kanban\t')
   }, 30_000)
 
-  describe('pine system', () => {
+  describe('ostia system', () => {
     const sudo = process.getuid?.() === 0 ? '' : 'sudo '
 
     it('prints the OS, kernel, shell and the package managers on PATH as JSON', async () => {

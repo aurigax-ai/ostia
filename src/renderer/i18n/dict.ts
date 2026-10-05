@@ -434,9 +434,9 @@ export const en = {
     unixSockets: 'Unix sockets',
     allowUnixSockets: 'Allow Unix sockets',
     allowUnixSocketsLinux:
-      'Linux can only allow or block all of them. Off, nothing in the sandbox can open a Unix socket, so the pine command, a granted SSH key, exposed ports and tools such as Docker stop working there. On, any socket whose path is not hidden can be reached.',
+      'Linux can only allow or block all of them. Off, nothing in the sandbox can open a Unix socket, so the ostia command, a granted SSH key, exposed ports and tools such as Docker stop working there. On, any socket whose path is not hidden can be reached.',
     allowUnixSocketsMac:
-      'Off, nothing in the sandbox can open a Unix socket, so the pine command stops working there. On, only {product}’s socket and the sockets listed below can be reached.',
+      'Off, nothing in the sandbox can open a Unix socket, so the ostia command stops working there. On, only {product}’s socket and the sockets listed below can be reached.',
     unixSocketsUnsupported:
       'This computer cannot block Unix sockets: the sandbox runtime has no filter for its processor.',
     allowSockets: 'Allowed sockets',
@@ -930,7 +930,7 @@ export const en = {
     runAndTrust: 'Run and trust',
     settingsTitle: 'Actions',
     settingsDesc:
-      'Buttons and menu entries defined in settings.json under "actions". Agents can add them with pine settings set; an action that needs extra permission asks you before its first run.',
+      'Buttons and menu entries defined in settings.json under "actions". Agents can add them with ostia settings set; an action that needs extra permission asks you before its first run.',
     none: 'No actions yet.',
     remove: 'Remove {title}',
     trusted: 'Trusted',
@@ -939,7 +939,7 @@ export const en = {
   views: {
     open: 'Views: Open {title}',
     title: 'Views',
-    desc: 'Sidebars and panels drawn from JSON files in {dir}. Agents can write them (pine view schema); a new file stays hidden until you turn it on here.',
+    desc: 'Sidebars and panels drawn from JSON files in {dir}. Agents can write them (ostia view schema); a new file stays hidden until you turn it on here.',
     none: 'No view files yet.',
     show: 'Show {name}',
     reveal: 'Reveal file',
@@ -989,7 +989,7 @@ export const en = {
     close: 'Close dashboard',
     needsYou: 'Needs you',
     needsYouEmpty:
-      'Nothing is waiting for you. Questions agents ask with pine ask and permission requests appear here.',
+      'Nothing is waiting for you. Questions agents ask with ostia ask and permission requests appear here.',
     workspaces: 'Workspaces',
     workspacesEmpty:
       'No workspaces are open. Each one appears here with its state, latest message, agents and extension status.',
@@ -1389,10 +1389,10 @@ export const en = {
     ended: 'The manager has ended.',
     settingsTitle: 'Manager',
     settingsDesc:
-      'Run pine <agent> in a terminal outside {product} to start one manager agent that sees and drives every workspace. Only you can change these settings.',
+      'Run ostia <agent> in a terminal outside {product} to start one manager agent that sees and drives every workspace. Only you can change these settings.',
     groupAgents: 'Agents',
     agentsDesc:
-      'Programs that pine <name> and the manager’s workers can start. claude and codex are built in; a preset with the same name replaces them.',
+      'Programs that ostia <name> and the manager’s workers can start. claude and codex are built in; a preset with the same name replaces them.',
     builtin: 'Built-in',
     presetName: 'Name',
     presetCommand: 'Command and arguments',
@@ -1421,7 +1421,7 @@ export const en = {
     busPerMinute: 'Messages per minute',
     busPerMinuteDesc: 'Most bus messages the manager can send in a minute.',
     requirementsBody:
-      'The manager needs {packages} to check that pine <agent> comes from outside {product}. Until it is installed, every pine <agent> is refused.',
+      'The manager needs {packages} to check that ostia <agent> comes from outside {product}. Until it is installed, every ostia <agent> is refused.',
     install: 'Install',
     copyCommand: 'Copy command',
   },
@@ -2919,9 +2919,9 @@ export const zhHant: Dict = {
     unixSockets: 'Unix socket',
     allowUnixSockets: '允許 Unix socket',
     allowUnixSocketsLinux:
-      'Linux 只能全部允許或全部封鎖。關閉時，沙箱中的任何程式都無法開啟 Unix socket，因此 pine 指令、已授予的 SSH 金鑰、開放的連接埠與 Docker 等工具在其中無法運作。開啟時，可以連線到任何未被隱藏的 socket。',
+      'Linux 只能全部允許或全部封鎖。關閉時，沙箱中的任何程式都無法開啟 Unix socket，因此 ostia 指令、已授予的 SSH 金鑰、開放的連接埠與 Docker 等工具在其中無法運作。開啟時，可以連線到任何未被隱藏的 socket。',
     allowUnixSocketsMac:
-      '關閉時，沙箱中的任何程式都無法開啟 Unix socket，因此 pine 指令在其中無法運作。開啟時，只能連線到 {product} 的 socket 與下方列出的 socket。',
+      '關閉時，沙箱中的任何程式都無法開啟 Unix socket，因此 ostia 指令在其中無法運作。開啟時，只能連線到 {product} 的 socket 與下方列出的 socket。',
     unixSocketsUnsupported:
       '這台電腦無法封鎖 Unix socket：沙箱執行環境沒有適用於其處理器的過濾器。',
     allowSockets: '允許的 socket',
@@ -3407,7 +3407,7 @@ export const zhHant: Dict = {
     runAndTrust: '執行並信任',
     settingsTitle: '動作',
     settingsDesc:
-      '在 settings.json 的 "actions" 中定義的按鈕與選單項目。代理程式可用 pine settings set 新增；需要額外權限的動作在第一次執行前會先詢問你。',
+      '在 settings.json 的 "actions" 中定義的按鈕與選單項目。代理程式可用 ostia settings set 新增；需要額外權限的動作在第一次執行前會先詢問你。',
     none: '尚無動作。',
     remove: '移除 {title}',
     trusted: '已信任',
@@ -3416,7 +3416,7 @@ export const zhHant: Dict = {
   views: {
     open: '檢視：開啟{title}',
     title: '檢視',
-    desc: '由 {dir} 中的 JSON 檔繪製的側邊欄與面板。代理程式可以撰寫它們（pine view schema）；新檔案在你於此處開啟之前都不會顯示。',
+    desc: '由 {dir} 中的 JSON 檔繪製的側邊欄與面板。代理程式可以撰寫它們（ostia view schema）；新檔案在你於此處開啟之前都不會顯示。',
     none: '尚無檢視檔。',
     show: '顯示 {name}',
     reveal: '顯示檔案',
@@ -3464,7 +3464,7 @@ export const zhHant: Dict = {
     openPending: '儀表板，{n} 項等你處理',
     close: '關閉儀表板',
     needsYou: '需要你',
-    needsYouEmpty: '目前沒有事項等你處理。代理程式用 pine ask 提出的問題和權限請求會顯示在這裡。',
+    needsYouEmpty: '目前沒有事項等你處理。代理程式用 ostia ask 提出的問題和權限請求會顯示在這裡。',
     workspaces: '工作區',
     workspacesEmpty:
       '沒有開啟的工作區。每個工作區會在這裡顯示狀態、最新訊息、代理程式和擴充功能狀態。',
@@ -3856,10 +3856,10 @@ export const zhHant: Dict = {
     ended: '管理員已結束。',
     settingsTitle: '管理員',
     settingsDesc:
-      '在 {product} 以外的終端機執行 pine <agent>，即可啟動一個能查看並操作所有工作區的管理員代理。只有你能變更這些設定。',
+      '在 {product} 以外的終端機執行 ostia <agent>，即可啟動一個能查看並操作所有工作區的管理員代理。只有你能變更這些設定。',
     groupAgents: '代理',
     agentsDesc:
-      'pine <名稱> 與管理員的工作者可以啟動的程式。claude 與 codex 為內建；同名的預設會取代它們。',
+      'ostia <名稱> 與管理員的工作者可以啟動的程式。claude 與 codex 為內建；同名的預設會取代它們。',
     builtin: '內建',
     presetName: '名稱',
     presetCommand: '指令與參數',
@@ -3888,7 +3888,7 @@ export const zhHant: Dict = {
     busPerMinute: '每分鐘訊息數',
     busPerMinuteDesc: '管理員每分鐘可傳送的匯流排訊息上限。',
     requirementsBody:
-      '管理員需要 {packages} 來確認 pine <agent> 來自 {product} 之外。在安裝之前，所有 pine <agent> 都會被拒絕。',
+      '管理員需要 {packages} 來確認 ostia <agent> 來自 {product} 之外。在安裝之前，所有 ostia <agent> 都會被拒絕。',
     install: '安裝',
     copyCommand: '複製指令',
   },

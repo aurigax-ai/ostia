@@ -16,7 +16,7 @@ export interface AgentHookCall {
 }
 
 export const AGENT_HOOK_USAGE =
-  'usage: pine agent-hook <extId> <command> <claude|codex> <event>   (stdin: the hook JSON)'
+  'usage: ostia agent-hook <extId> <command> <claude|codex> <event>   (stdin: the hook JSON)'
 
 export function parseAgentHookArgs(args: readonly string[]): AgentHookCall | null {
   const [extId, command, agent, event, ...rest] = args
@@ -49,7 +49,7 @@ export async function runAgentHook(args: readonly string[], io: AgentHookIo): Pr
   }
   const input = await io.readInput()
   if (Buffer.byteLength(input) > AGENT_HOOK_INPUT_MAX) {
-    io.err(`pine agent-hook: hook input is larger than ${AGENT_HOOK_INPUT_MAX} bytes`)
+    io.err(`ostia agent-hook: hook input is larger than ${AGENT_HOOK_INPUT_MAX} bytes`)
     return 1
   }
   const res = await io.invoke({
@@ -58,7 +58,7 @@ export async function runAgentHook(args: readonly string[], io: AgentHookIo): Pr
     args: { argv: [call.agent, call.event], stdin: input },
   })
   if (!res.ok) {
-    io.err(`pine agent-hook: ${call.extId} ${call.command} failed (${res.error})`)
+    io.err(`ostia agent-hook: ${call.extId} ${call.command} failed (${res.error})`)
     return 1
   }
   const output = agentHookOutput(call.event, res.text)

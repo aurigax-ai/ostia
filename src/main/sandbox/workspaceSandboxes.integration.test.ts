@@ -83,7 +83,7 @@ describe('WorkspaceSandboxes', () => {
       const { message, missing } = failure as SandboxUnavailableError
       const banner = sandboxFailureBanner(message, missing)
       expect(banner).toContain('bubblewrap')
-      expect(banner).toContain('pine system install bubblewrap')
+      expect(banner).toContain('ostia system install bubblewrap')
       expect(banner).not.toContain('socat')
       manager.stopAll()
     },

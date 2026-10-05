@@ -14,7 +14,7 @@ import {
 import { parseArgs } from './args'
 
 export const VIEW_USAGE =
-  'pine view: usage: view list [--json] | validate <file> | open <name> | schema'
+  'ostia view: usage: view list [--json] | validate <file> | open <name> | schema'
 
 interface ViewSummary {
   name: string
@@ -99,7 +99,7 @@ export async function runViewVerb(conn: MessageConnection, argv: readonly string
       console.log('ok')
       return
     }
-    console.error(`pine view open: ${res.message ?? res.error ?? 'failed'}`)
+    console.error(`ostia view open: ${res.message ?? res.error ?? 'failed'}`)
     process.exitCode = 1
     return
   }

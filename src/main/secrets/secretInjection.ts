@@ -1,5 +1,6 @@
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { dualEnv } from '../../shared/appEnv'
 import type { SecretEntry, SecretGrant } from '../../shared/secrets'
 
 export interface PreparedSecrets {
@@ -32,7 +33,7 @@ export function prepareSecrets(input: PrepareSecretsInput): PreparedSecrets {
   if (fileGrants.length > 0) {
     rmSync(input.dir, { recursive: true, force: true })
     mkdirSync(input.dir, { recursive: true, mode: 0o700 })
-    env.PINE_SECRETS_DIR = input.dir
+    Object.assign(env, dualEnv({ SECRETS_DIR: input.dir }))
   }
   for (const grant of input.grants) {
     if (grant.mode === 'request') continue

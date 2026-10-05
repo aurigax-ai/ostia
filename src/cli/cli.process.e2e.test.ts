@@ -162,7 +162,7 @@ afterEach(() => {
   registry.workspaceClosed('ws1')
 })
 
-describe('pine process (the real CLI against a live control server)', () => {
+describe('ostia process (the real CLI against a live control server)', () => {
   it('run: opens a tab with a long quoted command line exactly as the caller wrote it', async () => {
     const cmd = `claude 'review "src/main" && say it\\'s done' --model opus -p "two words"`
     const res = await pine(['process', 'run', cmd, '--name', 'reviewer', '--cwd', 'api'])
@@ -201,7 +201,7 @@ describe('pine process (the real CLI against a live control server)', () => {
     const unknown = await pine(['agent', 'run', 'aider', 'hello'])
     expect(unknown.code).toBe(1)
     expect(unknown.stderr).toContain('unknown-agent')
-    expect((await pine(['agent', 'run', 'claude'])).stderr).toContain('usage: pine agent run')
+    expect((await pine(['agent', 'run', 'claude'])).stderr).toContain('usage: ostia agent run')
     expect(opened).toHaveLength(count)
   })
 
@@ -268,7 +268,7 @@ describe('pine process (the real CLI against a live control server)', () => {
   })
 })
 
-describe('pine pane (the real CLI against a live control server)', () => {
+describe('ostia pane (the real CLI against a live control server)', () => {
   it('send and key: type into a tab the caller opened, addressed by process name', async () => {
     const { tab } = await run('cat', '--name', 'echo')
 
@@ -316,7 +316,7 @@ describe('pine pane (the real CLI against a live control server)', () => {
   it('prints usage for a missing pane or an unknown key', async () => {
     const usage = await pine(['pane', 'send'])
     expect(usage.code).toBe(1)
-    expect(usage.stderr).toContain('usage: pine pane send')
+    expect(usage.stderr).toContain('usage: ostia pane send')
 
     await run('cat', '--name', 'echo')
     const key = await pine(['pane', 'key', 'echo', 'f13'])

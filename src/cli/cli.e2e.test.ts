@@ -114,7 +114,9 @@ function runPine(args: string[], env: NodeJS.ProcessEnv, cwd?: string): Promise<
       settled = true
       child.kill('SIGKILL')
       reject(
-        new Error(`pine ${args.join(' ')} timed out after 10s (stdout=${stdout} stderr=${stderr})`),
+        new Error(
+          `ostia ${args.join(' ')} timed out after 10s (stdout=${stdout} stderr=${stderr})`,
+        ),
       )
     }, 10_000)
 
@@ -141,7 +143,7 @@ function runPine(args: string[], env: NodeJS.ProcessEnv, cwd?: string): Promise<
   })
 }
 
-describe('pine CLI end-to-end (spawns the real out/cli/index.js against a live control server)', () => {
+describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live control server)', () => {
   beforeAll(() => {
     execSync('pnpm run build:cli', { cwd: repoRoot, stdio: 'ignore' })
     registerAttentionMethods({ execCommand: fakeDeps.execCommand })
@@ -179,6 +181,34 @@ describe('pine CLI end-to-end (spawns the real out/cli/index.js against a live c
     expect(parsed.paneId).toBe('pE2E')
   })
 
+  it('whoami: reads OSTIA_SOCKET and OSTIA_TOKEN', async () => {
+    const res = await runPine(
+      ['whoami'],
+      withEnv({ OSTIA_SOCKET: socketPath, OSTIA_TOKEN: identity.token }),
+    )
+
+    expect(res.stderr).toBe('')
+    expect(res.code).toBe(0)
+    expect(JSON.parse(res.stdout).externalId).toBe(identity.externalId)
+  })
+
+  it('whoami: prefers OSTIA_SOCKET and OSTIA_TOKEN over the old PINE_ names', async () => {
+    const stale = join(tmpdir(), `pine-cli-e2e-${process.pid}-legacy.sock`)
+    const res = await runPine(
+      ['whoami'],
+      withEnv({
+        OSTIA_SOCKET: socketPath,
+        OSTIA_TOKEN: identity.token,
+        PINE_SOCKET: stale,
+        PINE_TOKEN: 'stale',
+      }),
+    )
+
+    expect(res.stderr).toBe('')
+    expect(res.code).toBe(0)
+    expect(JSON.parse(res.stdout).externalId).toBe(identity.externalId)
+  })
+
   it('commands: lists the descriptors served by the control server and exits 0', async () => {
     const res = await runPine(
       ['commands'],
@@ -212,21 +242,21 @@ describe('pine CLI end-to-end (spawns the real out/cli/index.js against a live c
     expect(res.stderr).toContain("unknown command 'pane.bogus'")
   })
 
-  it('with PINE_SOCKET unset: fails fast with a "not inside a Pine pane" message', async () => {
+  it('with PINE_SOCKET unset: fails fast with a "not inside an Ostia pane" message', async () => {
     const res = await runPine(
       ['whoami'],
       withEnv({ PINE_SOCKET: undefined, PINE_TOKEN: undefined }),
     )
 
     expect(res.code).not.toBe(0)
-    expect(res.stderr).toContain('not inside a Pine pane')
+    expect(res.stderr).toContain('not inside an Ostia pane')
   })
 
   it('--help / -h print usage without contacting the app', async () => {
     for (const flag of ['--help', '-h']) {
       const res = await runPine([flag], withEnv({ PINE_SOCKET: undefined, PINE_TOKEN: undefined }))
       expect(res.code).toBe(0)
-      expect(res.stdout).toContain('usage: pine')
+      expect(res.stdout).toContain('usage: ostia')
     }
   })
 
@@ -235,7 +265,7 @@ describe('pine CLI end-to-end (spawns the real out/cli/index.js against a live c
     const res = await runPine(['whoami'], withEnv({ PINE_SOCKET: stale, PINE_TOKEN: 'x' }))
 
     expect(res.code).toBe(1)
-    expect(res.stderr.trim()).toBe(`pine: app not reachable at ${stale}`)
+    expect(res.stderr.trim()).toBe(`ostia: app not reachable at ${stale}`)
   })
 
   it('exits 1 with a clear message when the app closes the socket mid-request', async () => {
@@ -261,7 +291,7 @@ describe('pine CLI end-to-end (spawns the real out/cli/index.js against a live c
     )
 
     expect(res.code).toBe(1)
-    expect(res.stderr).toContain('pine open: missing <path>')
+    expect(res.stderr).toContain('ostia open: missing <path>')
   })
 
   it('rejects an unknown flag and a flag without its value before calling the app', async () => {
@@ -269,11 +299,11 @@ describe('pine CLI end-to-end (spawns the real out/cli/index.js against a live c
 
     const unknown = await runPine(['vault', 'ls', '--globl'], env)
     expect(unknown.code).toBe(1)
-    expect(unknown.stderr.trim()).toBe('pine: unknown flag --globl')
+    expect(unknown.stderr.trim()).toBe('ostia: unknown flag --globl')
 
     const missing = await runPine(['bus', 'wait', '--timeout'], env)
     expect(missing.code).toBe(1)
-    expect(missing.stderr.trim()).toBe('pine: --timeout needs a value')
+    expect(missing.stderr.trim()).toBe('ostia: --timeout needs a value')
   })
 
   it('rejects a non-numeric numeric flag instead of silently defaulting', async () => {
@@ -286,7 +316,7 @@ describe('pine CLI end-to-end (spawns the real out/cli/index.js against a live c
     expect(res.stderr).toContain("--timeout expects a number, got 'soon'")
   })
 
-  describe('pine state', () => {
+  describe('ostia state', () => {
     const env = () => withEnv({ PINE_SOCKET: socketPath, PINE_TOKEN: identity.token })
 
     it('sets the attention of the caller own pane with a message', async () => {
@@ -348,14 +378,14 @@ describe('pine CLI end-to-end (spawns the real out/cli/index.js against a live c
     it('refuses --pane with nothing after it instead of setting the caller pane', async () => {
       const res = await runPine(['state', 'done', '--pane'], env())
       expect(res.code).toBe(1)
-      expect(res.stderr).toContain('pine: --pane needs a value')
+      expect(res.stderr).toContain('ostia: --pane needs a value')
       expect(execCalls).toHaveLength(0)
     })
 
     it('rejects an unknown state before touching the app', async () => {
       const res = await runPine(['state', 'sleeping'], env())
       expect(res.code).toBe(1)
-      expect(res.stderr).toContain('pine state: expected one of waiting|done|working|error|clear')
+      expect(res.stderr).toContain('ostia state: expected one of waiting|done|working|error|clear')
       expect(execCalls).toHaveLength(0)
     })
 
@@ -387,7 +417,7 @@ describe('pine CLI end-to-end (spawns the real out/cli/index.js against a live c
     })
   })
 
-  describe('pine browse storage', () => {
+  describe('ostia browse storage', () => {
     const received: unknown[] = []
     beforeAll(() => {
       registerControlMethod('browse.storage', {
@@ -428,7 +458,7 @@ describe('pine CLI end-to-end (spawns the real out/cli/index.js against a live c
       expect(res.code).toBe(1)
       const parsed = JSON.parse(res.stdout) as { success: boolean; error: string }
       expect(parsed.success).toBe(false)
-      expect(parsed.error).toMatch(/usage: pine browse storage/)
+      expect(parsed.error).toMatch(/usage: ostia browse storage/)
     })
 
     it('stores a negative number as the value, not as a flag', async () => {
@@ -460,7 +490,7 @@ describe('pine CLI end-to-end (spawns the real out/cli/index.js against a live c
     })
   })
 
-  describe('pine workspace describe', () => {
+  describe('ostia workspace describe', () => {
     const env = () => withEnv({ PINE_SOCKET: socketPath, PINE_TOKEN: identity.token })
 
     it('sends the text to the caller’s workspace', async () => {
@@ -489,7 +519,7 @@ describe('pine CLI end-to-end (spawns the real out/cli/index.js against a live c
     })
   })
 
-  describe('pine workspace groups', () => {
+  describe('ostia workspace groups', () => {
     const env = () => withEnv({ PINE_SOCKET: socketPath, PINE_TOKEN: identity.token })
 
     it('moves the caller’s own workspace into a named group', async () => {
@@ -552,7 +582,7 @@ describe('pine CLI end-to-end (spawns the real out/cli/index.js against a live c
     })
   })
 
-  describe('pine workflow', () => {
+  describe('ostia workflow', () => {
     const env = () => withEnv({ PINE_SOCKET: socketPath, PINE_TOKEN: identity.token })
     let dir: string
 
@@ -654,7 +684,7 @@ describe('pine CLI end-to-end (spawns the real out/cli/index.js against a live c
     })
   })
 
-  describe('pine view', () => {
+  describe('ostia view', () => {
     const env = () => withEnv({ PINE_SOCKET: socketPath, PINE_TOKEN: identity.token })
     const offline = () => withEnv({ PINE_SOCKET: undefined, PINE_TOKEN: undefined })
     let dir: string
@@ -737,7 +767,7 @@ describe('pine CLI end-to-end (spawns the real out/cli/index.js against a live c
     })
   })
 
-  describe('pine <file>', () => {
+  describe('ostia <file>', () => {
     let base: string
     let home: string
     let outside: string
@@ -811,7 +841,7 @@ describe('pine CLI end-to-end (spawns the real out/cli/index.js against a live c
       execCalls.length = 0
 
       const extension = await runPine(['echo', 'hi'], env(), home)
-      expect(extension.stderr).toContain("pine echo: unknown subcommand 'hi'")
+      expect(extension.stderr).toContain("ostia echo: unknown subcommand 'hi'")
 
       const command = await runPine(['pane.splitRight'], env(), home)
       expect(command.stdout).toContain('{"ran":"pane.splitRight"}')
@@ -821,15 +851,15 @@ describe('pine CLI end-to-end (spawns the real out/cli/index.js against a live c
       expect(opened()).toEqual([])
     })
 
-    it('pine open takes several files and still opens the ones it can', async () => {
+    it('ostia open takes several files and still opens the ones it can', async () => {
       const res = await runPine(
         ['open', join(outside, 'app.log'), outside, join(outside, 'nope.txt')],
         env(),
       )
 
       expect(res.code).toBe(1)
-      expect(res.stderr).toContain(`pine: ${outside}: is a directory`)
-      expect(res.stderr).toContain(`pine: ${join(outside, 'nope.txt')}: no such file`)
+      expect(res.stderr).toContain(`ostia: ${outside}: is a directory`)
+      expect(res.stderr).toContain(`ostia: ${join(outside, 'nope.txt')}: no such file`)
       expect(opened()).toEqual([{ files: [{ path: join(outside, 'app.log') }] }])
     })
 
@@ -842,14 +872,14 @@ describe('pine CLI end-to-end (spawns the real out/cli/index.js against a live c
       expect(opened()).toEqual([{ files: [{ path: join(home, 'README') }] }])
     })
 
-    it('outside Pine: a file path does not start the manager', async () => {
+    it('outside Ostia: a file path does not start the manager', async () => {
       const res = await runPine(
         [join(outside, 'app.log')],
         withEnv({ PINE_SOCKET: undefined, PINE_TOKEN: undefined }),
       )
 
       expect(res.code).toBe(1)
-      expect(res.stderr).toContain('files open from a terminal inside Pine')
+      expect(res.stderr).toContain('files open from a terminal inside Ostia')
     })
   })
 })

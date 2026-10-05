@@ -12,14 +12,14 @@ function entries(strings: Strings, path = ''): [string, string][] {
 }
 
 const IDENTIFIERS = [
-  'the pine command',
-  'pine settings set',
-  'pine view schema',
-  'pine ask',
-  'pine <agent>',
-  'pine <name>',
-  'pine <名稱>',
-  'pine 指令',
+  'the ostia command',
+  'ostia settings set',
+  'ostia view schema',
+  'ostia ask',
+  'ostia <agent>',
+  'ostia <name>',
+  'ostia <名稱>',
+  'ostia 指令',
 ]
 
 function withoutIdentifiers(text: string): string {
@@ -51,7 +51,7 @@ describe('product name in the dictionary', () => {
 
   it.each(catalogs)('%s never spells the product name: it writes {product}', (_name, catalog) => {
     const hardcoded = entries(catalog)
-      .filter(([, text]) => /pine/i.test(withoutIdentifiers(text)))
+      .filter(([, text]) => /pine|ostia/i.test(withoutIdentifiers(text)))
       .map(([path, text]) => `${path}: ${text}`)
 
     expect(hardcoded).toEqual([])
