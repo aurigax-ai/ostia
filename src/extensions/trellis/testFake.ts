@@ -29,7 +29,7 @@ export interface FakeTrellis {
 }
 
 export function fakeTrellis(): FakeTrellis {
-  const root = mkdtempSync(join(tmpdir(), 'pine-trellis-fake-'))
+  const root = mkdtempSync(join(tmpdir(), 'ostia-trellis-fake-'))
   const dir = join(root, 'fake')
   const home = join(root, 'home')
   mkdirSync(dir)

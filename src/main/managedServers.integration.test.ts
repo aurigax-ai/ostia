@@ -42,7 +42,7 @@ function run(
 function managed(dir: string): ManagedServers {
   return new ManagedServers({
     dir,
-    userAgent: 'pine/1.2.3',
+    userAgent: 'ostia/1.2.3',
     platform: 'linux-x64',
     baseUrl,
     findProgram: () => null,
@@ -51,7 +51,7 @@ function managed(dir: string): ManagedServers {
 }
 
 beforeAll(async () => {
-  root = realpathSync(mkdtempSync(join(tmpdir(), 'pine-managed-http-')))
+  root = realpathSync(mkdtempSync(join(tmpdir(), 'ostia-managed-http-')))
   server = createServer((req, res) => {
     requests.push({ url: req.url ?? '', headers: req.headers })
     if (req.url === ASSET_PATH) {
@@ -86,7 +86,7 @@ describe('ManagedServers against a local HTTP server', () => {
     expect(statSync(path).mode & 0o111).not.toBe(0)
     expect(requests).toHaveLength(1)
     expect(requests[0].url).toBe(ASSET_PATH)
-    expect(requests[0].headers['user-agent']).toBe('pine/1.2.3')
+    expect(requests[0].headers['user-agent']).toBe('ostia/1.2.3')
     for (const header of ['cookie', 'authorization', 'referer', 'origin']) {
       expect(requests[0].headers[header]).toBeUndefined()
     }

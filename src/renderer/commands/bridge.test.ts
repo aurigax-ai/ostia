@@ -12,7 +12,7 @@ describe('wireCommandBridge', () => {
 
     const expected = commands.describe()
     expect(expected.some((d) => d.id === 'test.publish.echo')).toBe(true)
-    const publish = vi.mocked(window.pine.commands.publish)
+    const publish = vi.mocked(window.ostia.commands.publish)
     expect(publish).toHaveBeenCalledTimes(1)
     expect(publish).toHaveBeenCalledWith(expected)
   })
@@ -24,7 +24,7 @@ describe('wireCommandBridge', () => {
 
     wireCommandBridge()
 
-    const onInvoke = vi.mocked(window.pine.commands.onInvoke)
+    const onInvoke = vi.mocked(window.ostia.commands.onInvoke)
     expect(onInvoke).toHaveBeenCalledTimes(1)
     const handler = onInvoke.mock.calls[0][0]
 
@@ -59,7 +59,7 @@ describe('wireCommandBridge', () => {
 
     wireCommandBridge()
 
-    const handler = vi.mocked(window.pine.commands.onInvoke).mock.calls[0][0]
+    const handler = vi.mocked(window.ostia.commands.onInvoke).mock.calls[0][0]
     await handler({ id: 'test.invoke.nullpane', target: { workspaceId: 's2', paneId: null } })
 
     expect(run).toHaveBeenCalledTimes(1)
@@ -71,7 +71,7 @@ describe('wireCommandBridge', () => {
   it('resolves to an unknown-command error when the handler gets an unregistered id', async () => {
     wireCommandBridge()
 
-    const handler = vi.mocked(window.pine.commands.onInvoke).mock.calls[0][0]
+    const handler = vi.mocked(window.ostia.commands.onInvoke).mock.calls[0][0]
     const result = await handler({
       id: 'does.not.exist',
       target: { workspaceId: 's1', paneId: 'p1' },
@@ -91,7 +91,7 @@ describe('wireCommandBridge', () => {
     wireCommandBridge()
 
     expect(commands.describe().some((d) => d.id === 'test.local.only')).toBe(false)
-    const handler = vi.mocked(window.pine.commands.onInvoke).mock.calls[0][0]
+    const handler = vi.mocked(window.ostia.commands.onInvoke).mock.calls[0][0]
     const result = await handler({
       id: 'test.local.only',
       target: { workspaceId: 's1', paneId: 'p1' },
@@ -101,8 +101,8 @@ describe('wireCommandBridge', () => {
     expect(run).not.toHaveBeenCalled()
   })
 
-  it('does not throw when window.pine.commands is undefined', () => {
-    window.pine.commands = undefined as unknown as CommandsApi
+  it('does not throw when window.ostia.commands is undefined', () => {
+    window.ostia.commands = undefined as unknown as CommandsApi
     expect(() => wireCommandBridge()).not.toThrow()
   })
 })

@@ -123,7 +123,7 @@ describe('extensionBridge', () => {
 
   it('running a command invokes the extension with the active workspace and pane', async () => {
     const invoke = vi.fn().mockResolvedValue({ ok: true, data: { opened: true } })
-    window.pine.extensions.invoke = invoke
+    window.ostia.extensions.invoke = invoke
     syncExtensionCommands([ext()])
     const res = await commands.execWith(
       { activeWorkspaceId: 's1', activePaneId: 'pane-1' },
@@ -140,7 +140,7 @@ describe('extensionBridge', () => {
 
   it('passes the typed argument only to a command that declares one', async () => {
     const invoke = vi.fn().mockResolvedValue({ ok: true })
-    window.pine.extensions.invoke = invoke
+    window.ostia.extensions.invoke = invoke
     const base = ext().commands[0]
     syncExtensionCommands([
       ext({
@@ -158,7 +158,7 @@ describe('extensionBridge', () => {
   })
 
   it('surfaces an extension failure as a failed command', async () => {
-    window.pine.extensions.invoke = vi
+    window.ostia.extensions.invoke = vi
       .fn()
       .mockResolvedValue({ ok: false, error: 'extension-unavailable', message: 'crashed' })
     syncExtensionCommands([ext()])
@@ -216,7 +216,7 @@ describe('extensionBridge', () => {
 
   it('forwards pane chip updates from main into the store', () => {
     const sink: { push?: (chips: PaneChip[]) => void } = {}
-    window.pine.extensions.onPaneChips = vi.fn((cb) => {
+    window.ostia.extensions.onPaneChips = vi.fn((cb) => {
       sink.push = cb
       return () => {}
     })
@@ -229,7 +229,7 @@ describe('extensionBridge', () => {
   it('persists settings an extension changed for itself into the settings store', () => {
     const settingsInit = useSettingsStore.getState()
     const sink: { push?: (update: ExtensionSettingsStored) => void } = {}
-    window.pine.extensions.onSettingsStored = vi.fn((cb) => {
+    window.ostia.extensions.onSettingsStored = vi.fn((cb) => {
       sink.push = cb
       return () => {}
     })
@@ -370,7 +370,7 @@ describe('extensionBridge', () => {
       expect(paste).not.toHaveBeenCalled()
       blocks.promptEnd(paneId as string, { line: 0 })
       expect(paste).toHaveBeenCalledWith('sudo pacman -S --needed ripgrep')
-      expect(window.pine.pty.write).toHaveBeenCalledWith(paneId, '\r')
+      expect(window.ostia.pty.write).toHaveBeenCalledWith(paneId, '\r')
       unregister()
     })
 
@@ -408,7 +408,7 @@ describe('extensionBridge', () => {
       blocks.promptStart(paneId, { line: 0 }, '/a')
       blocks.promptEnd(paneId, { line: 0 })
       expect(paste).toHaveBeenCalledWith(`claude 'fix the "login" bug'`)
-      expect(window.pine.pty.write).toHaveBeenCalledWith(paneId, '\r')
+      expect(window.ostia.pty.write).toHaveBeenCalledWith(paneId, '\r')
       unregister()
     })
 

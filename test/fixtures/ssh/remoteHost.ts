@@ -21,7 +21,7 @@ export interface RemoteHost {
 }
 
 export function toolPath(tools: string[]): string {
-  const dir = mkdtempSync(join(tmpdir(), 'pine-ssh-tools-'))
+  const dir = mkdtempSync(join(tmpdir(), 'ostia-ssh-tools-'))
   for (const tool of tools) {
     for (const from of ['/usr/bin', '/bin']) {
       try {
@@ -35,7 +35,7 @@ export function toolPath(tools: string[]): string {
 }
 
 export function remoteHost(opts: { path?: string } = {}): RemoteHost {
-  const root = mkdtempSync(join(tmpdir(), 'pine-ssh-remote-'))
+  const root = mkdtempSync(join(tmpdir(), 'ostia-ssh-remote-'))
   const home = join(root, 'home')
   const tmp = join(root, 'tmp')
   mkdirSync(home)

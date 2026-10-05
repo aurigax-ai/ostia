@@ -160,7 +160,7 @@ function ensureSession(info: LspSessionInfo): ClientSession {
       () => false,
     ),
     documents: new Set(),
-    offExit: window.pine.lsp.onExit(info.sessionId, () => sessionEnded(info.sessionId)),
+    offExit: window.ostia.lsp.onExit(info.sessionId, () => sessionEnded(info.sessionId)),
   }
   sessions.set(info.sessionId, entry)
   return entry
@@ -176,7 +176,7 @@ function detach(document: OpenDocument, serverKey: string): void {
   if (!entry) return
   entry.documents.delete(uri)
   entry.session.closeDocument(uri)
-  window.pine.lsp.release(sessionId)
+  window.ostia.lsp.release(sessionId)
 }
 
 function isCurrent(document: OpenDocument): boolean {
@@ -190,18 +190,18 @@ function isCurrent(document: OpenDocument): boolean {
 async function attach(document: OpenDocument): Promise<void> {
   if (!isCurrent(document)) return
   const uri = document.model.uri.toString()
-  const offered = await window.pine.lsp.open(document.paneId, document.model.uri.path)
+  const offered = await window.ostia.lsp.open(document.paneId, document.model.uri.path)
   if (isCurrent(document)) for (const info of offered) ensureSession(info)
   for (const info of offered) {
     if (!isCurrent(document) || document.attached.get(info.serverKey) === info.sessionId) {
-      window.pine.lsp.release(info.sessionId)
+      window.ostia.lsp.release(info.sessionId)
       continue
     }
     detach(document, info.serverKey)
     const entry = ensureSession(info)
     const ready = await entry.ready
     if (!ready || !isCurrent(document) || sessions.get(info.sessionId) !== entry) {
-      window.pine.lsp.release(info.sessionId)
+      window.ostia.lsp.release(info.sessionId)
       continue
     }
     document.attached.set(info.serverKey, info.sessionId)
@@ -217,7 +217,7 @@ function schedule(document: OpenDocument): void {
 
 function watchServers(): void {
   if (stopWatching) return
-  stopWatching = window.pine.lsp.onServersChanged((servers) => {
+  stopWatching = window.ostia.lsp.onServersChanged((servers) => {
     builtinFeatures.apply(claimedLanguages(servers))
     for (const document of documents.values()) schedule(document)
   })
@@ -225,7 +225,7 @@ function watchServers(): void {
 
 export async function startLanguageServices(): Promise<void> {
   watchServers()
-  builtinFeatures.apply(claimedLanguages(await window.pine.lsp.servers()))
+  builtinFeatures.apply(claimedLanguages(await window.ostia.lsp.servers()))
 }
 
 function close(document: OpenDocument): void {

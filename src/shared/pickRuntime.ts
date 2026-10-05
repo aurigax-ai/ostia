@@ -211,7 +211,7 @@ export function pickRuntime(win: Window & typeof globalThis): PickRuntime {
     if (session) session.finish(null)
     return new Promise((resolve) => {
       const host = doc.createElement('div')
-      host.setAttribute('data-pine-pick', '')
+      host.setAttribute('data-ostia-pick', '')
       host.style.cssText =
         'all: initial; position: fixed; inset: 0; pointer-events: none; z-index: 2147483647;'
       const root = host.attachShadow({ mode: 'closed' })
@@ -295,7 +295,7 @@ export function pickRuntime(win: Window & typeof globalThis): PickRuntime {
   }
 }
 
-export const PICK_RUNTIME_GLOBAL = '__pinePick'
+export const PICK_RUNTIME_GLOBAL = '__ostiaPick'
 
 export function pickRuntimeScript(): string {
   return `window.${PICK_RUNTIME_GLOBAL} = window.${PICK_RUNTIME_GLOBAL} || (${pickRuntime.toString()})(window);`

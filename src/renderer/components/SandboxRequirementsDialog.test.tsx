@@ -23,32 +23,32 @@ const report = (canInstall: boolean) => ({
 
 describe('SandboxRequirementsDialog', () => {
   it('SBX-C95 keeps the sandbox off and names the missing package with an Install button', async () => {
-    vi.mocked(window.pine.sandbox.setEnabled).mockResolvedValue({
+    vi.mocked(window.ostia.sandbox.setEnabled).mockResolvedValue({
       ok: false,
       reason: 'missing-programs',
     })
-    vi.mocked(window.pine.system.requirements).mockResolvedValue(report(true))
+    vi.mocked(window.ostia.system.requirements).mockResolvedValue(report(true))
     render(<SandboxRequirementsDialog />)
     await act(() => useSandboxStore.getState().setEnabled('ws', true))
     expect(useSandboxStore.getState().enabled.ws).not.toBe(true)
     const dialog = await screen.findByRole('dialog')
     expect(dialog).toHaveTextContent('bubblewrap')
     await userEvent.click(screen.getByRole('button', { name: 'Install' }))
-    expect(window.pine.system.installRequirements).toHaveBeenCalledWith('sandbox', 'ws')
+    expect(window.ostia.system.installRequirements).toHaveBeenCalledWith('sandbox', 'ws')
   })
 
   it('SBX-C98 offers the command to copy when the system extension is not enabled', async () => {
-    vi.mocked(window.pine.sandbox.setEnabled).mockResolvedValue({
+    vi.mocked(window.ostia.sandbox.setEnabled).mockResolvedValue({
       ok: false,
       reason: 'missing-programs',
     })
-    vi.mocked(window.pine.system.requirements).mockResolvedValue(report(false))
+    vi.mocked(window.ostia.system.requirements).mockResolvedValue(report(false))
     render(<SandboxRequirementsDialog />)
     await act(() => useSandboxStore.getState().setEnabled('ws', true))
     const dialog = await screen.findByRole('dialog')
     expect(dialog).toHaveTextContent('sudo pacman -S --needed bubblewrap')
     expect(screen.queryByRole('button', { name: 'Install' })).toBeNull()
     expect(screen.getByRole('button', { name: 'Copy command' })).toBeInTheDocument()
-    expect(window.pine.system.installRequirements).not.toHaveBeenCalled()
+    expect(window.ostia.system.installRequirements).not.toHaveBeenCalled()
   })
 })

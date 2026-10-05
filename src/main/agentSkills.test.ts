@@ -145,7 +145,7 @@ describe('loadAgentSkill', () => {
   let skillDir: string
 
   beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), 'pine-agent-skill-'))
+    dir = mkdtempSync(join(tmpdir(), 'ostia-agent-skill-'))
     ext = join(dir, 'kit')
     skillDir = join(ext, 'skills', 'review')
     mkdirSync(skillDir, { recursive: true })
@@ -207,7 +207,7 @@ describe('loadAgentSkill', () => {
   })
 
   it('refuses a SKILL.md whose name is not the declared skill name', () => {
-    writeFileSync(join(skillDir, 'SKILL.md'), '---\nname: pine\ndescription: x\n---\n')
+    writeFileSync(join(skillDir, 'SKILL.md'), '---\nname: ostia\ndescription: x\n---\n')
     expect(loadAgentSkill(ext, 'kit', skill())).toEqual({
       ok: false,
       error: "SKILL.md: name must be 'review'",

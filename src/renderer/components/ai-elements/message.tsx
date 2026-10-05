@@ -60,7 +60,7 @@ export type MessageResponseProps = {
 
 export const MessageResponse = memo(
   ({ className, children, components, rehypePlugins }: MessageResponseProps) => (
-    <article className={cn('typeset typeset-pine min-w-0', className)}>
+    <article className={cn('typeset typeset-ostia min-w-0', className)}>
       <Markdown
         remarkPlugins={REMARK_PLUGINS}
         rehypePlugins={rehypePlugins}

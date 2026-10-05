@@ -48,7 +48,7 @@ export function codeColors(scheme: ColorScheme): CodeColors {
   }
 }
 
-export const monacoThemeId = (scheme: ColorScheme): string => `pine-scheme-${scheme.id}`
+export const monacoThemeId = (scheme: ColorScheme): string => `ostia-scheme-${scheme.id}`
 
 export const DIFF_LINE_ALPHA = 0.1
 export const DIFF_TEXT_ALPHA = 0.18

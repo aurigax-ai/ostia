@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest'
 import { cleanup } from '@testing-library/react'
 import { afterEach, beforeEach, vi } from 'vitest'
-import { makePineMock } from './mocks/pine'
+import { makeOstiaMock } from './mocks/ostia'
 
 if (!('ResizeObserver' in globalThis)) {
   globalThis.ResizeObserver = class {
@@ -43,7 +43,7 @@ if (!Element.prototype.getAnimations) {
 }
 
 beforeEach(() => {
-  vi.stubGlobal('pine', makePineMock())
+  vi.stubGlobal('ostia', makeOstiaMock())
 })
 
 afterEach(() => {

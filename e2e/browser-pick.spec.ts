@@ -67,7 +67,7 @@ test('pick an element in a browser pane and send it to a terminal pane', async (
       'true',
     )
     await expect
-      .poll(() => guestEval<boolean>('!!document.querySelector("[data-pine-pick]")'))
+      .poll(() => guestEval<boolean>('!!document.querySelector("[data-ostia-pick]")'))
       .toBe(true)
 
     const box = await guestEval<{ x: number; y: number }>(
@@ -90,7 +90,7 @@ test('pick an element in a browser pane and send it to a terminal pane', async (
     await expect(panel).toBeVisible({ timeout: 15_000 })
     await expect(panel).toContainText('button')
     await expect
-      .poll(() => guestEval<boolean>('!!document.querySelector("[data-pine-pick]")'))
+      .poll(() => guestEval<boolean>('!!document.querySelector("[data-ostia-pick]")'))
       .toBe(false)
 
     await panel.getByLabel('What’s wrong?').fill('Checkout button is misaligned')

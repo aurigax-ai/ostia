@@ -198,7 +198,7 @@ export function TerminalView({
       if (disposed) return
       const editorShown = Boolean(inputEditorFor(paneId))
       const hasImage =
-        !text && !editorShown && (await window.pine.clipboard.hasImage().catch(() => false))
+        !text && !editorShown && (await window.ostia.clipboard.hasImage().catch(() => false))
       if (disposed) return
       const plan = keyPastePlan(text, editorShown, hasImage)
       if (plan === 'text') requestPaste(text)
@@ -348,7 +348,7 @@ export function TerminalView({
         at: Date.now(),
       })
       if (long) {
-        window.pine.notifications.post({
+        window.ostia.notifications.post({
           paneId,
           kind: exitCode === 0 ? 'done' : 'error',
           title,
@@ -364,7 +364,7 @@ export function TerminalView({
     const notifyFromTerminal = (n: OscNotification | null): boolean => {
       if (!n || replaying) return true
       signalPane(paneId, terminalNotification(paneId, notificationMessage(n), Date.now()))
-      window.pine.notifications.post({
+      window.ostia.notifications.post({
         paneId,
         kind: 'message',
         title: n.title,
@@ -390,7 +390,7 @@ export function TerminalView({
     })
     const removePrimarySelection = installPrimarySelection(host, term, {
       enabled: () => isLinux && useSettingsStore.getState().terminal.primarySelection,
-      writePrimary: (text) => window.pine.window.writePrimarySelection(text),
+      writePrimary: (text) => window.ostia.window.writePrimarySelection(text),
     })
     const oscClipboard = registerOsc52(term, {
       enabled: () => useSettingsStore.getState().terminal.osc52Write,
@@ -401,7 +401,7 @@ export function TerminalView({
       createFileLinkProvider(term, {
         cwd: () => cwdRef.current,
         remote: () => remote,
-        stat: (path) => window.pine.fs.stat(path),
+        stat: (path) => window.ostia.fs.stat(path),
         open: openFileAt,
         modifierHeld: (e) => linkModifierHeld(e, isMac),
       }),
@@ -430,7 +430,7 @@ export function TerminalView({
       if (replaying) return
       const now = Date.now()
       const act = bellActions(useSettingsStore.getState().notifications.bell, isPaneViewed(paneId))
-      if (act.sound && allowBellSound(now)) window.pine.window.beep()
+      if (act.sound && allowBellSound(now)) window.ostia.window.beep()
       if (act.attention) useAttentionStore.getState().dispatch(paneId, { type: 'bell', at: now })
     })
     const oscCwd = term.parser.registerOscHandler(7, (data) => {
@@ -500,7 +500,7 @@ export function TerminalView({
     let holdCursor = { row: 1, col: 1 }
     let holdDims = { cols: 0, rows: 0 }
     markPaneActivity(paneId)
-    const offData = window.pine.pty.onData(paneId, (d) => {
+    const offData = window.ostia.pty.onData(paneId, (d) => {
       markPaneActivity(paneId)
       if (!replayed) {
         pending.push(d)
@@ -512,7 +512,7 @@ export function TerminalView({
         term.write(d)
       }
     })
-    const offExit = window.pine.pty.onExit(paneId, (_code, closes) => {
+    const offExit = window.ostia.pty.onExit(paneId, (_code, closes) => {
       term.writeln('\r\n\x1b[2m[process exited]\x1b[0m')
       if (closes || useSandboxStore.getState().hostPanes[paneId]) {
         useLayoutStore.getState().closePane(workspaceIdRef.current, paneId)
@@ -527,7 +527,7 @@ export function TerminalView({
         for (const d of pending) term.write(d)
         pending.length = 0
       }
-      window.pine.pty
+      window.ostia.pty
         .attach(paneId, {
           cwd: spawnCwd.current,
           cols,
@@ -568,7 +568,7 @@ export function TerminalView({
         attachAtCurrentSize(action.cols, action.rows)
       } else if (action.type === 'resize') {
         lastSizeRef.current = { cols: action.cols, rows: action.rows }
-        window.pine.pty.resize(paneId, action.cols, action.rows)
+        window.ostia.pty.resize(paneId, action.cols, action.rows)
       }
     }
 
@@ -620,7 +620,7 @@ export function TerminalView({
             holdDims = { cols: dims.cols, rows: dims.rows }
             holdForRedraw = true
             lastSizeRef.current = { cols: dims.cols, rows: dims.rows }
-            window.pine.pty.resize(paneId, dims.cols, dims.rows)
+            window.ostia.pty.resize(paneId, dims.cols, dims.rows)
             holdCapTimer = setTimeout(flushHold, 150)
             return
           }
@@ -630,7 +630,7 @@ export function TerminalView({
     }
 
     const input = term.onData((d) => {
-      window.pine.pty.write(paneId, d)
+      window.ostia.pty.write(paneId, d)
       if (!FOCUS_REPORTS.has(d)) markPaneActivity(paneId)
       if (!FOCUS_REPORTS.has(d) && useBlocksStore.getState().selected[paneId]) {
         useBlocksStore.getState().select(paneId, null)
@@ -695,7 +695,7 @@ export function TerminalView({
       unregisterTerminal()
       forgetPaneActivity(paneId)
       useBlocksStore.getState().dropPane(paneId)
-      window.pine.pty.detach(paneId)
+      window.ostia.pty.detach(paneId)
       term.dispose()
       termRef.current = null
       setSearch(null)
@@ -748,7 +748,7 @@ export function TerminalView({
     setSuppressedPrompt(useBlocksStore.getState().drafts[paneId]?.promptLine ?? null)
     if (text) return insertCommand(paneId, text, true)
     termRef.current?.focus()
-    window.pine.pty.write(paneId, '\r')
+    window.ostia.pty.write(paneId, '\r')
     return true
   }
 
@@ -758,11 +758,11 @@ export function TerminalView({
     setSuppressedPrompt(useBlocksStore.getState().drafts[paneId]?.promptLine ?? null)
     term.focus()
     if (draft) term.paste(draft)
-    if (keys) window.pine.pty.write(paneId, keys)
+    if (keys) window.ostia.pty.write(paneId, keys)
   }
 
   const sendShellKeys = (keys: string): void => {
-    if (canTypeInto(paneId)) window.pine.pty.write(paneId, keys)
+    if (canTypeInto(paneId)) window.ostia.pty.write(paneId, keys)
   }
 
   const makeRows = (rows: number): void => {

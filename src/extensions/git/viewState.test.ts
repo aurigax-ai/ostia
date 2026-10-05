@@ -25,7 +25,7 @@ describe('parseViewState', () => {
 describe('ViewStateStore', () => {
   let dir: string
   beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), 'pine-git-view-'))
+    dir = mkdtempSync(join(tmpdir(), 'ostia-git-view-'))
   })
   afterEach(() => rmSync(dir, { recursive: true, force: true }))
 

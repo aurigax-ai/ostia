@@ -56,7 +56,7 @@ export function SandboxPortsTab({ workspaceId }: { workspaceId: string }): JSX.E
   const [rows, setRows] = useState<SandboxPortRow[]>([])
   const [error, setError] = useState<string | null>(null)
   const load = useCallback(
-    () => void window.pine.sandbox.ports(workspaceId).then(setRows),
+    () => void window.ostia.sandbox.ports(workspaceId).then(setRows),
     [workspaceId],
   )
   useEffect(() => {
@@ -68,7 +68,7 @@ export function SandboxPortsTab({ workspaceId }: { workspaceId: string }): JSX.E
   if (isMac) return <p className="text-fg-muted text-ui-sm">{d.sandbox.portsMac}</p>
 
   const expose = async (port: number): Promise<void> => {
-    const res = await window.pine.sandbox.expose(workspaceId, port)
+    const res = await window.ostia.sandbox.expose(workspaceId, port)
     setError(res.ok ? null : fmt(exposeFailure(d, res.error), { port, error: res.error }))
     load()
   }
@@ -99,7 +99,7 @@ export function SandboxPortsTab({ workspaceId }: { workspaceId: string }): JSX.E
                     variant="ghost"
                     size="xs"
                     onClick={() =>
-                      void window.pine.sandbox.unexpose(workspaceId, row.port).then(load)
+                      void window.ostia.sandbox.unexpose(workspaceId, row.port).then(load)
                     }
                   >
                     {d.sandbox.unexpose}

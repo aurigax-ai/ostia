@@ -29,7 +29,7 @@ test('follow-system switches the theme live with the OS color scheme', async () 
     await app.evaluate(({ nativeTheme }) => {
       nativeTheme.themeSource = 'light'
     })
-    await expect(win.locator('html')).toHaveAttribute('data-theme', 'pine-light')
+    await expect(win.locator('html')).toHaveAttribute('data-theme', 'ostia-light')
     const lightBg = await win.evaluate(() => getComputedStyle(document.body).backgroundColor)
 
     await app.evaluate(({ nativeTheme }) => {
@@ -42,7 +42,7 @@ test('follow-system switches the theme live with the OS color scheme', async () 
     await app.evaluate(({ nativeTheme }) => {
       nativeTheme.themeSource = 'light'
     })
-    await expect(win.locator('html')).toHaveAttribute('data-theme', 'pine-light')
+    await expect(win.locator('html')).toHaveAttribute('data-theme', 'ostia-light')
   } finally {
     await app.close()
   }
@@ -137,7 +137,7 @@ test('a recorded notification runs the configured command with its placeholders 
     await openWorkspace(win)
 
     await win.evaluate(() =>
-      window.pine.notifications.post({
+      window.ostia.notifications.post({
         paneId: 'pane-x',
         title: 'Build',
         body: 'all; green',

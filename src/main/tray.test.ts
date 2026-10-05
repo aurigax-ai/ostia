@@ -68,7 +68,7 @@ function makeTray(
 ) {
   return new AppTray({
     iconPath: '/icon.png',
-    tooltip: 'Pine',
+    tooltip: 'Ostia',
     locale: () => 'en',
     windows: () => [win],
     quit: () => events.push('quit'),
@@ -141,18 +141,18 @@ describe('unread count', () => {
   })
 
   it('puts the count in the tray tooltip and the badge, and drops it at zero', () => {
-    expect(trayTooltip('Pine', 0, 'en')).toBe('Pine')
-    expect(trayTooltip('Pine', 2, 'en')).toBe('Pine · 2 unread')
-    expect(trayTooltip('Pine', 2, 'zh-Hant')).toBe('Pine · 2 則未讀')
+    expect(trayTooltip('Ostia', 0, 'en')).toBe('Ostia')
+    expect(trayTooltip('Ostia', 2, 'en')).toBe('Ostia · 2 unread')
+    expect(trayTooltip('Ostia', 2, 'zh-Hant')).toBe('Ostia · 2 則未讀')
     const events: string[] = []
     const win = fakeWindow(events)
     const badge = vi.fn()
     const tray = makeTray(events, win, badge)
     tray.setUnread(3)
     tray.hide(win)
-    expect(trays.at(-1)?.tooltip).toBe('Pine · 3 unread')
+    expect(trays.at(-1)?.tooltip).toBe('Ostia · 3 unread')
     tray.setUnread(0)
-    expect(trays.at(-1)?.tooltip).toBe('Pine')
+    expect(trays.at(-1)?.tooltip).toBe('Ostia')
     expect(badge.mock.calls).toEqual([[3], [0]])
   })
 })
@@ -180,7 +180,7 @@ describe('closeAction', () => {
     ).toBe('close')
   })
 
-  it('MGR-C1 hides the window when Pine was started hidden, even with the setting off', () => {
+  it('MGR-C1 hides the window when Ostia was started hidden, even with the setting off', () => {
     expect(
       closeAction({
         quitApproved: false,
@@ -233,9 +233,9 @@ describe('readCloseToTray', () => {
 })
 
 describe('isHiddenLaunch', () => {
-  it('MGR-C41 MGR-C42 reveals the running Pine on a plain second launch but not on a hidden one', () => {
-    expect(isHiddenLaunch(['/opt/pine/pine'])).toBe(false)
-    expect(isHiddenLaunch(['/opt/pine/pine', '--hidden'])).toBe(true)
+  it('MGR-C41 MGR-C42 reveals the running Ostia on a plain second launch but not on a hidden one', () => {
+    expect(isHiddenLaunch(['/opt/ostia/ostia'])).toBe(false)
+    expect(isHiddenLaunch(['/opt/ostia/ostia', '--hidden'])).toBe(true)
   })
 })
 

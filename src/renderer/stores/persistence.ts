@@ -39,7 +39,7 @@ export function freezeSnapshots(): void {
 
 export function saveSnapshotNow(): void {
   scheduleSave.cancel()
-  const api = window.pine?.workspace
+  const api = window.ostia?.workspace
   if (!api || frozen) return
 
   if (!useSettingsStore.getState().behavior.restoreWorkspace) {

@@ -38,7 +38,7 @@ const install: ExtensionSuggestion = {
 }
 
 function suggest(suggestion: ExtensionSuggestion | null): void {
-  vi.mocked(window.pine.suggestions.forFile).mockResolvedValue(suggestion)
+  vi.mocked(window.ostia.suggestions.forFile).mockResolvedValue(suggestion)
 }
 
 describe('LanguageNotice', () => {
@@ -66,26 +66,26 @@ describe('LanguageNotice', () => {
     suggest(null)
     render(<LanguageNotice paneId="p1" filePath="/work/notes.txt" />)
     await waitFor(() =>
-      expect(window.pine.suggestions.forFile).toHaveBeenCalledWith('p1', '/work/notes.txt'),
+      expect(window.ostia.suggestions.forFile).toHaveBeenCalledWith('p1', '/work/notes.txt'),
     )
     expect(screen.queryByRole('status')).toBeNull()
   })
 
   it('offers to install the suggested extension and installs it on the human’s click', async () => {
     suggest(install)
-    vi.mocked(window.pine.suggestions.install).mockResolvedValue({ ok: true, state })
+    vi.mocked(window.ostia.suggestions.install).mockResolvedValue({ ok: true, state })
     render(<LanguageNotice paneId="p1" filePath="/work/main.rs" />)
     const notice = await screen.findByRole('status', { name: 'Language features' })
     expect(notice).toHaveTextContent('Rust (rust-analyzer) adds language features for .rs files.')
     await userEvent.setup().click(screen.getByRole('button', { name: 'Install' }))
-    expect(window.pine.suggestions.install).toHaveBeenCalledWith('lsp-rust-analyzer')
+    expect(window.ostia.suggestions.install).toHaveBeenCalledWith('lsp-rust-analyzer')
     await waitFor(() => expect(screen.queryByRole('status')).toBeNull())
-    expect(window.pine.suggestions.dismiss).not.toHaveBeenCalled()
+    expect(window.ostia.suggestions.dismiss).not.toHaveBeenCalled()
   })
 
   it('says why an install failed and keeps the offer', async () => {
     suggest(install)
-    vi.mocked(window.pine.suggestions.install).mockResolvedValue({
+    vi.mocked(window.ostia.suggestions.install).mockResolvedValue({
       ok: false,
       error: 'git-missing',
       state,
@@ -105,9 +105,9 @@ describe('LanguageNotice', () => {
       'Settings → Extensions lists 2 more.',
     )
     await userEvent.setup().click(screen.getByRole('button', { name: 'No' }))
-    expect(window.pine.suggestions.dismiss).toHaveBeenCalledWith('lsp-rust-analyzer')
+    expect(window.ostia.suggestions.dismiss).toHaveBeenCalledWith('lsp-rust-analyzer')
     expect(screen.queryByRole('status')).toBeNull()
-    expect(window.pine.suggestions.install).not.toHaveBeenCalled()
+    expect(window.ostia.suggestions.install).not.toHaveBeenCalled()
   })
 
   it('opens Settings at an installed extension that is turned off, and the review of one waiting for approval', async () => {
@@ -135,14 +135,14 @@ describe('LanguageNotice', () => {
     await screen.findByRole('status')
     render(<LanguageNotice paneId="p2" filePath="/work/lib.rs" />)
     await waitFor(() =>
-      expect(window.pine.suggestions.forFile).toHaveBeenCalledWith('p2', '/work/lib.rs'),
+      expect(window.ostia.suggestions.forFile).toHaveBeenCalledWith('p2', '/work/lib.rs'),
     )
     expect(screen.getAllByRole('status')).toHaveLength(1)
   })
 
   it('shows a quiet line while a server for the file is being fetched', async () => {
     suggest(null)
-    vi.mocked(window.pine.lsp.servers).mockResolvedValue([
+    vi.mocked(window.ostia.lsp.servers).mockResolvedValue([
       server({ status: 'downloading', progress: 40 }),
     ])
     render(<LanguageNotice paneId="p1" filePath="/work/main.rs" />)
@@ -153,7 +153,7 @@ describe('LanguageNotice', () => {
 
   it('points at Settings → Languages when the server cannot start', async () => {
     suggest(null)
-    vi.mocked(window.pine.lsp.servers).mockResolvedValue([
+    vi.mocked(window.ostia.lsp.servers).mockResolvedValue([
       server({ status: 'toolchain-missing', name: 'gopls', languages: ['go'], program: 'gopls' }),
     ])
     render(<LanguageNotice paneId="p1" filePath="/work/main.go" />)

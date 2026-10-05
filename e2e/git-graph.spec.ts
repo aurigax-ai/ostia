@@ -135,7 +135,7 @@ test('the graph shows the uncommitted row, switches to all branches, and changes
           `Math.round(document.querySelector('.detail').getBoundingClientRect().height)`,
         ),
       )
-    const handle = `document.querySelector('.pine-split-handle')`
+    const handle = `document.querySelector('.ostia-split-handle')`
     expect(await inPanel(`${handle}.getAttribute('role')`)).toBe('separator')
     expect(await inPanel(`${handle}.getAttribute('aria-orientation')`)).toBe('horizontal')
     const before = await detailHeight()

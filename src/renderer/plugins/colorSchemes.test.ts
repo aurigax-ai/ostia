@@ -40,7 +40,7 @@ describe('BUILTIN_COLOR_SCHEMES', () => {
     }
   })
 
-  it('bundles a scheme of the same appearance with every built-in Pine theme', () => {
+  it('bundles a scheme of the same appearance with every built-in Ostia theme', () => {
     const themes = BUILTIN_PLUGINS.flatMap((p) => p.contributes.themes ?? [])
     for (const theme of themes) {
       const scheme = BUILTIN_COLOR_SCHEMES.find((s) => s.id === theme.colorScheme)
@@ -49,8 +49,8 @@ describe('BUILTIN_COLOR_SCHEMES', () => {
     }
   })
 
-  it('ships the catalog through the pine.themes plugin', () => {
-    const plugin = BUILTIN_PLUGINS.find((p) => p.id === 'pine.themes')
+  it('ships the catalog through the ostia.themes plugin', () => {
+    const plugin = BUILTIN_PLUGINS.find((p) => p.id === 'ostia.themes')
     expect(plugin?.contributes.colorSchemes).toBe(BUILTIN_COLOR_SCHEMES)
     expect(BUILTIN_COLOR_SCHEMES.map((s) => s.id)).toEqual(
       expect.arrayContaining([

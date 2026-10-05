@@ -60,5 +60,5 @@ export function reportFileProblem(workspaceId: string | null, message: string): 
     console.error(`[files] ${message}`)
     return
   }
-  window.pine.notifications.post({ paneId, kind: 'error', title: message, desktop: false })
+  window.ostia.notifications.post({ paneId, kind: 'error', title: message, desktop: false })
 }

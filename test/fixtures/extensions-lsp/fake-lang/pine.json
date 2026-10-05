@@ -48,8 +48,8 @@
         "name": "Absent server",
         "languages": ["plaintext"],
         "run": {
-          "program": "pine-absent-lsp",
-          "package": "pine-absent-lsp",
+          "program": "ostia-absent-lsp",
+          "package": "ostia-absent-lsp",
           "args": []
         }
       }

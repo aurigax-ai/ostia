@@ -23,6 +23,6 @@ export const usePluginsStore = create<PluginsState>((set) => ({
   languages: [BASE_LANGUAGE],
 
   loadLanguages: async () => {
-    set({ languages: languagesFrom(await window.pine.languagePacks.load()) })
+    set({ languages: languagesFrom(await window.ostia.languagePacks.load()) })
   },
 }))

@@ -73,7 +73,7 @@ describe('gateway/pairing — rate limit + audit log', () => {
   let prevXdg: string | undefined
 
   beforeEach(() => {
-    dir = join(tmpdir(), `pine-gateway-pairing-test-${process.pid}-${Date.now()}-${Math.random()}`)
+    dir = join(tmpdir(), `ostia-gateway-pairing-test-${process.pid}-${Date.now()}-${Math.random()}`)
     prevXdg = process.env.XDG_DATA_HOME
     process.env.XDG_DATA_HOME = dir
   })

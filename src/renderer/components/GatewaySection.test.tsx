@@ -19,10 +19,10 @@ describe('GatewaySection', () => {
 
   beforeEach(() => {
     caps = ['read', 'notify']
-    vi.mocked(window.pine.gateway.devices).mockImplementation(async () => ({
+    vi.mocked(window.ostia.gateway.devices).mockImplementation(async () => ({
       devices: [device(caps)],
     }))
-    vi.mocked(window.pine.gateway.setCap).mockImplementation(async (_id, cap, granted) => {
+    vi.mocked(window.ostia.gateway.setCap).mockImplementation(async (_id, cap, granted) => {
       caps = granted ? [...caps, cap] : caps.filter((c) => c !== cap)
       return { ok: true, caps }
     })
@@ -36,13 +36,13 @@ describe('GatewaySection', () => {
     expect(input).not.toBeChecked()
 
     await user.click(input)
-    expect(window.pine.gateway.setCap).toHaveBeenCalledWith('dev_1', 'input', true)
+    expect(window.ostia.gateway.setCap).toHaveBeenCalledWith('dev_1', 'input', true)
     await waitFor(() =>
       expect(screen.getByRole('switch', { name: 'Type into panes, Pixel' })).toBeChecked(),
     )
 
     await user.click(screen.getByRole('switch', { name: 'Type into panes, Pixel' }))
-    expect(window.pine.gateway.setCap).toHaveBeenLastCalledWith('dev_1', 'input', false)
+    expect(window.ostia.gateway.setCap).toHaveBeenLastCalledWith('dev_1', 'input', false)
   })
 
   it('keeps destructive disabled until commands are allowed', async () => {
@@ -60,13 +60,13 @@ describe('GatewaySection', () => {
 
     await user.click(await screen.findByRole('switch', { name: 'Destructive commands, Pixel' }))
     expect(await screen.findByText('Allow destructive commands?')).toBeInTheDocument()
-    expect(window.pine.gateway.setCap).not.toHaveBeenCalled()
+    expect(window.ostia.gateway.setCap).not.toHaveBeenCalled()
 
     await user.click(screen.getByRole('button', { name: 'Cancel' }))
     await waitFor(() =>
       expect(screen.queryByText('Allow destructive commands?')).not.toBeInTheDocument(),
     )
-    expect(window.pine.gateway.setCap).not.toHaveBeenCalled()
+    expect(window.ostia.gateway.setCap).not.toHaveBeenCalled()
   })
 
   it('grants destructive only after the confirm button', async () => {
@@ -77,14 +77,14 @@ describe('GatewaySection', () => {
     await user.click(await screen.findByRole('switch', { name: 'Destructive commands, Pixel' }))
     await user.click(await screen.findByRole('button', { name: 'Allow destructive' }))
 
-    expect(window.pine.gateway.setCap).toHaveBeenCalledWith('dev_1', 'destructive', true)
+    expect(window.ostia.gateway.setCap).toHaveBeenCalledWith('dev_1', 'destructive', true)
     await waitFor(() =>
       expect(screen.getByRole('switch', { name: 'Destructive commands, Pixel' })).toBeChecked(),
     )
   })
 
   it('warns when a non-loopback bind address is selected and enables on it', async () => {
-    vi.mocked(window.pine.gateway.bindOptions).mockResolvedValue({
+    vi.mocked(window.ostia.gateway.bindOptions).mockResolvedValue({
       addresses: [
         { address: '127.0.0.1', kind: 'loopback' },
         { address: '100.101.1.2', kind: 'tailscale', iface: 'tailscale0' },
@@ -100,6 +100,6 @@ describe('GatewaySection', () => {
     )
 
     await user.click(screen.getByRole('switch', { name: 'Enable remote access' }))
-    expect(window.pine.gateway.enable).toHaveBeenCalledWith({ host: '100.101.1.2' })
+    expect(window.ostia.gateway.enable).toHaveBeenCalledWith({ host: '100.101.1.2' })
   })
 })

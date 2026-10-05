@@ -391,7 +391,7 @@ async function applyWrite(
   const decisions = answer ? settle(hunks.length, chosen) : hunks.map(() => null)
   const content = answer ? contentWith(plan.before, plan.after, decisions) : plan.after
   if (hunks.length > 0 && decisions.every((d) => d === 'rejected')) return DENIED
-  const res = await window.pine.chatTools.write({
+  const res = await window.ostia.chatTools.write({
     path: plan.path,
     root: run.root,
     outside: plan.outside,
@@ -436,7 +436,7 @@ async function editFile(input: Record<string, unknown>, run: ToolRun): Promise<T
   }
   const path = pathOf(input, run)
   const call = (outside: boolean) =>
-    window.pine.chatTools.plan({ path, root: run.root, edits, outside, dirty: dirtyPaths() })
+    window.ostia.chatTools.plan({ path, root: run.root, edits, outside, dirty: dirtyPaths() })
   let plan = await call(grantsFor(run.sessionId).has(READ_OUTSIDE_GRANT))
   if (!plan.ok && plan.error === 'outside-folder') {
     const answer = await gate(run, { name: 'edit_file', access: 'read', outside: true }, input, {
@@ -464,7 +464,7 @@ async function editFile(input: Record<string, unknown>, run: ToolRun): Promise<T
 async function writeFile(input: Record<string, unknown>, run: ToolRun): Promise<ToolOutcome> {
   if (typeof input.content !== 'string') return { state: 'error', error: 'content is required' }
   const path = pathOf(input, run)
-  const preview = await window.pine.chatTools.preview({
+  const preview = await window.ostia.chatTools.preview({
     path,
     root: run.root,
     dirty: dirtyPaths(),
@@ -491,7 +491,7 @@ async function writeFile(input: Record<string, unknown>, run: ToolRun): Promise<
 function readFile(input: Record<string, unknown>, run: ToolRun): Promise<ToolOutcome> {
   const path = pathOf(input, run)
   return readGated('read_file', input, run, path, async (outside) => {
-    const res = await window.pine.chatTools.read({
+    const res = await window.ostia.chatTools.read({
       path,
       root: run.root,
       outside,
@@ -514,13 +514,13 @@ function builtinRunners(): Record<
     list_directory: (input, run) => {
       const path = pathOf(input, run)
       return readGated('list_directory', input, run, path, (outside) =>
-        window.pine.chatTools.list({ path, root: run.root, outside }),
+        window.ostia.chatTools.list({ path, root: run.root, outside }),
       )
     },
     search_files: (input, run) => {
       const path = pathOf(input, run)
       return readGated('search_files', input, run, path, (outside) =>
-        window.pine.chatTools.search({ path, root: run.root, outside, query: str(input.query) }),
+        window.ostia.chatTools.search({ path, root: run.root, outside, query: str(input.query) }),
       )
     },
     terminal_context: async (_input, run) => {
@@ -534,7 +534,7 @@ function builtinRunners(): Record<
     },
     git_status: async (_input, run) => {
       const pane = workspaceTerminal(run.workspaceId)
-      const res = await window.pine.extensions.invoke(GIT_EXTENSION, 'changes', {
+      const res = await window.ostia.extensions.invoke(GIT_EXTENSION, 'changes', {
         workspaceId: run.workspaceId,
         paneId: pane?.paneId ?? null,
       })
@@ -542,7 +542,7 @@ function builtinRunners(): Record<
       return { state: 'done', output: res.data ?? res.text ?? null }
     },
     load_skill: async (input) => {
-      const res = await window.pine.chatTools.loadSkill(str(input.name))
+      const res = await window.ostia.chatTools.loadSkill(str(input.name))
       if (!res.ok) return { state: 'error', error: `No skill named ${str(input.name)}.` }
       return { state: 'done', output: res.body }
     },
@@ -614,10 +614,10 @@ function mcpTools(server: McpServerStatus): ChatToolDef[] {
           })
           if (answer && !answer.approved) return DENIED
           const callId = run.toolCallId.replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 128) || 'call'
-          const cancel = (): void => window.pine.chatTools.mcpCancel(callId)
+          const cancel = (): void => window.ostia.chatTools.mcpCancel(callId)
           run.signal.addEventListener('abort', cancel, { once: true })
           try {
-            const res = await window.pine.chatTools.mcpCall(callId, server.name, tool.name, input)
+            const res = await window.ostia.chatTools.mcpCall(callId, server.name, tool.name, input)
             return res.ok
               ? { state: 'done', output: res.output }
               : { state: 'error', error: res.error }

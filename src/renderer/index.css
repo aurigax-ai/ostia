@@ -3086,7 +3086,7 @@ button.prompt-chip:focus-visible {
   opacity: 1;
 }
 
-.typeset-pine {
+.typeset-ostia {
   --typeset-font-heading: inherit;
   --typeset-size: var(--text-ui-base);
   --typeset-leading: 1.7;

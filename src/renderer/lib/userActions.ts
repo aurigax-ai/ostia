@@ -65,7 +65,7 @@ function notifyFailure(action: CommandAction, paneId: string | null, message: st
     console.error(`[actions] ${action.id}: ${message}`)
     return
   }
-  window.pine.notifications.post({
+  window.ostia.notifications.post({
     paneId,
     kind: 'error',
     title: fmt(currentDict().actions.failed, { title: action.title }),

@@ -111,7 +111,7 @@ export function suggestedFileName(language: string): string {
 export type SaveOutcome = 'saved' | 'cancelled' | 'failed'
 
 export async function saveCodeAsFile(code: string, language: string): Promise<SaveOutcome> {
-  const res = await window.pine.chatSessions
+  const res = await window.ostia.chatSessions
     .saveFile(suggestedFileName(language), code.endsWith('\n') ? code : `${code}\n`)
     .catch(() => null)
   if (!res) return 'failed'

@@ -110,8 +110,8 @@ const KIND_ICON: Record<WorkspaceKind, IconComponent> = {
   manager: BroadcastIcon,
 }
 
-const WORKSPACE_DND = 'application/x-pine-workspace'
-const GROUP_DND = 'application/x-pine-workspace-group'
+const WORKSPACE_DND = 'application/x-ostia-workspace'
+const GROUP_DND = 'application/x-ostia-workspace-group'
 const NO_COLOR = 'none'
 const NO_ITEMS: ExtensionSidebarItem[] = []
 
@@ -869,7 +869,7 @@ function RemoteWorkspaceRow({
 }): JSX.Element {
   const d = useDict()
   const digitHints = useUIStore((s) => s.digitHints)
-  const show = (): void => window.pine.windows.focusWorkspace(w.id, false)
+  const show = (): void => window.ostia.windows.focusWorkspace(w.id, false)
   return (
     <ContextMenu>
       <ContextMenuTrigger className="rail-row remote">
@@ -903,7 +903,7 @@ function RemoteWorkspaceRow({
         </MenuItem>
         <MenuItem
           icon={ArrowSquareInIcon}
-          onClick={() => window.pine.windows.returnWorkspace(w.id)}
+          onClick={() => window.ostia.windows.returnWorkspace(w.id)}
         >
           {d.window.moveToMain}
         </MenuItem>

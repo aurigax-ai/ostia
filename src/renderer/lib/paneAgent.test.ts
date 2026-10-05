@@ -29,7 +29,7 @@ describe('pane agent detection', () => {
     stop = null
     vi.useRealTimers()
     useBlocksStore.setState(init, true)
-    vi.mocked(window.pine.pty.foreground).mockReset().mockResolvedValue(null)
+    vi.mocked(window.ostia.pty.foreground).mockReset().mockResolvedValue(null)
   })
 
   it('knows claude or codex by the command that was typed', () => {
@@ -47,7 +47,7 @@ describe('pane agent detection', () => {
   })
 
   it('recognizes an alias from the foreground process even without a session id', async () => {
-    vi.mocked(window.pine.pty.foreground).mockResolvedValue('claude')
+    vi.mocked(window.ostia.pty.foreground).mockResolvedValue('claude')
     stop = startAgentDetection()
     run('b1', 'cc')
     await vi.advanceTimersByTimeAsync(1000)
@@ -55,7 +55,7 @@ describe('pane agent detection', () => {
   })
 
   it('leaves an ordinary command alone', async () => {
-    vi.mocked(window.pine.pty.foreground).mockResolvedValue('cargo')
+    vi.mocked(window.ostia.pty.foreground).mockResolvedValue('cargo')
     stop = startAgentDetection()
     run('b1', 'cargo build')
     await vi.advanceTimersByTimeAsync(11_000)

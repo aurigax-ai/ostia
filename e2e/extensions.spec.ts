@@ -23,7 +23,7 @@ function installUserExtension(configHome: string): void {
   })
 }
 
-test('a user extension is approved, opens its panel from the palette, and runs a pine command', async () => {
+test('a user extension is approved, opens its panel from the palette, and runs a ostia command', async () => {
   const dataHome = freshDataHome()
   const home = join(dataHome, 'home')
   mkdirSync(home, { recursive: true })
@@ -63,7 +63,7 @@ test('a user extension is approved, opens its panel from the palette, and runs a
     await expect.poll(panelText, { timeout: 15_000 }).toContain('Hello from a file panel')
 
     await win.locator('.xterm').first().click()
-    await win.keyboard.type('pine hello greet e2e')
+    await win.keyboard.type('ostia hello greet e2e')
     await win.keyboard.press('Enter')
     await expect(win.locator('.xterm-rows').first()).toContainText('greeted e2e', {
       timeout: 15_000,

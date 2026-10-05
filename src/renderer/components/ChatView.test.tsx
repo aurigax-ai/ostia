@@ -63,11 +63,11 @@ interface Pending {
 function captureRequests(): { pending: Pending[]; chunk: (chunk: object | string) => void } {
   const pending: Pending[] = []
   const listeners = new Set<(c: AssistChunk) => void>()
-  vi.mocked(window.pine.assist.onChunk).mockImplementation((cb) => {
+  vi.mocked(window.ostia.assist.onChunk).mockImplementation((cb) => {
     listeners.add(cb)
     return () => listeners.delete(cb)
   })
-  vi.mocked(window.pine.assist.request).mockImplementation(
+  vi.mocked(window.ostia.assist.request).mockImplementation(
     (_point, requestId, input) =>
       new Promise((resolve) => {
         pending.push({ requestId, input, resolve: resolve as (value: unknown) => void })
@@ -150,8 +150,8 @@ describe('chat', () => {
   beforeEach(() => {
     seedWorkspace()
     useAssistStore.setState({ availability: { chat: CHAT } })
-    vi.mocked(window.pine.chatSessions.list).mockResolvedValue([])
-    vi.mocked(window.pine.chatSessions.save).mockImplementation(async (session) => ({
+    vi.mocked(window.ostia.chatSessions.list).mockResolvedValue([])
+    vi.mocked(window.ostia.chatSessions.save).mockImplementation(async (session) => ({
       ok: true,
       summary: { ...session, messageCount: session.messages.length },
       trimmedMessages: 0,
@@ -163,8 +163,8 @@ describe('chat', () => {
     cleanup()
     resetChats()
     resetChatTools()
-    vi.mocked(window.pine.chatSessions.get).mockReset()
-    vi.mocked(window.pine.chatTools.restore).mockReset()
+    vi.mocked(window.ostia.chatSessions.get).mockReset()
+    vi.mocked(window.ostia.chatTools.restore).mockReset()
     useLiveSelectionStore.setState({ byWorkspace: {} })
     useChatStore.setState({
       current: {},
@@ -189,16 +189,16 @@ describe('chat', () => {
     })
     useWorkspacesStore.setState({ workspaces: [], activeWorkspaceId: null })
     useLayoutStore.setState({ byWorkspace: {} })
-    vi.mocked(window.pine.privacy.redact).mockImplementation(async (texts) =>
+    vi.mocked(window.ostia.privacy.redact).mockImplementation(async (texts) =>
       texts.map((text) => ({ text, count: 0, kinds: {} })),
     )
-    vi.mocked(window.pine.assist.request).mockReset()
-    vi.mocked(window.pine.assist.cancel).mockClear()
-    vi.mocked(window.pine.chatSessions.save).mockReset()
-    vi.mocked(window.pine.chatSessions.list).mockReset()
-    vi.mocked(window.pine.chatSessions.rename).mockClear()
-    vi.mocked(window.pine.chatSessions.remove).mockClear()
-    vi.mocked(window.pine.chatSessions.exportMarkdown).mockClear()
+    vi.mocked(window.ostia.assist.request).mockReset()
+    vi.mocked(window.ostia.assist.cancel).mockClear()
+    vi.mocked(window.ostia.chatSessions.save).mockReset()
+    vi.mocked(window.ostia.chatSessions.list).mockReset()
+    vi.mocked(window.ostia.chatSessions.rename).mockClear()
+    vi.mocked(window.ostia.chatSessions.remove).mockClear()
+    vi.mocked(window.ostia.chatSessions.exportMarkdown).mockClear()
   })
 
   it('switches the palette to Ask on Tab, carrying the typed text and naming the model', async () => {
@@ -245,7 +245,7 @@ describe('chat', () => {
     const send = await screen.findByRole('button', { name: 'Send' })
     expect(send).toBeEnabled()
     await userEvent.click(send)
-    expect(window.pine.assist.request).not.toHaveBeenCalled()
+    expect(window.ostia.assist.request).not.toHaveBeenCalled()
   })
 
   it('streams UI message chunks into a markdown answer with a code block', async () => {
@@ -310,7 +310,7 @@ describe('chat', () => {
   })
 
   it('shows how many secrets will be redacted, sends the redacted text and says so on the sent message', async () => {
-    vi.mocked(window.pine.privacy.redact).mockImplementation(async (texts) =>
+    vi.mocked(window.ostia.privacy.redact).mockImplementation(async (texts) =>
       texts.map((text) => {
         const count = text.split('SECRET').length - 1
         return { text: text.replaceAll('SECRET', '[redacted:test]'), count, kinds: {} }
@@ -408,13 +408,13 @@ describe('chat', () => {
     await ask('hi')
     await waitFor(() => expect(pending).toHaveLength(1))
     await userEvent.click(await screen.findByRole('button', { name: 'Stop' }))
-    expect(window.pine.assist.cancel).toHaveBeenCalledWith(pending[0].requestId)
+    expect(window.ostia.assist.cancel).toHaveBeenCalledWith(pending[0].requestId)
     await act(async () => pending[0].resolve({ ok: false, error: 'cancelled' }))
 
     await ask('again')
     await waitFor(() => expect(pending).toHaveLength(2))
     act(() => useUIStore.getState().closePalette())
-    expect(window.pine.assist.cancel).toHaveBeenCalledWith(pending[1].requestId)
+    expect(window.ostia.assist.cancel).toHaveBeenCalledWith(pending[1].requestId)
   })
 
   it('saves a finished turn with the model and context, and titles it from the question', async () => {
@@ -426,8 +426,8 @@ describe('chat', () => {
     await waitFor(() => expect(pending).toHaveLength(1))
     await streamAnswer(pending, chunk)
 
-    await waitFor(() => expect(window.pine.chatSessions.save).toHaveBeenCalled())
-    const session = vi.mocked(window.pine.chatSessions.save).mock.calls[0][0]
+    await waitFor(() => expect(window.ostia.chatSessions.save).toHaveBeenCalled())
+    const session = vi.mocked(window.ostia.chatSessions.save).mock.calls[0][0]
     expect(session).toMatchObject({
       workspaceId: 'w1',
       title: 'how do I list listening ports on linux quickly',
@@ -460,7 +460,7 @@ describe('chat', () => {
     await streamAnswer(pending, chunk)
 
     expect(await screen.findByText('Not saved')).toBeInTheDocument()
-    expect(window.pine.chatSessions.save).not.toHaveBeenCalled()
+    expect(window.ostia.chatSessions.save).not.toHaveBeenCalled()
   })
 
   it('keeps a chat started in a scratch workspace in memory only, even with history on', async () => {
@@ -471,7 +471,7 @@ describe('chat', () => {
           name: 'scratch',
           customName: 'Scratch',
           kind: 'scratch',
-          workDir: '/tmp/pine-scratch-1000/1-aaaaaaaaaaaa',
+          workDir: '/tmp/ostia-scratch-1000/1-aaaaaaaaaaaa',
           state: 'idle',
         },
       ],
@@ -485,8 +485,8 @@ describe('chat', () => {
     await streamAnswer(pending, chunk)
 
     expect(await screen.findByText('Not saved')).toBeInTheDocument()
-    expect(window.pine.chatSessions.save).not.toHaveBeenCalled()
-    expect(window.pine.chatSessions.list).not.toHaveBeenCalled()
+    expect(window.ostia.chatSessions.save).not.toHaveBeenCalled()
+    expect(window.ostia.chatSessions.list).not.toHaveBeenCalled()
   })
 
   it('opens the palette conversation in a chat pane that shows the same session', async () => {
@@ -514,7 +514,7 @@ describe('chat', () => {
   })
 
   it('reopens a saved chat with Undo on its edits and a checkpoint on the question before them', async () => {
-    vi.mocked(window.pine.chatSessions.list).mockResolvedValue([
+    vi.mocked(window.ostia.chatSessions.list).mockResolvedValue([
       {
         id: 's-edit',
         workspaceId: 'w1',
@@ -524,7 +524,7 @@ describe('chat', () => {
         messageCount: 2,
       },
     ])
-    vi.mocked(window.pine.chatSessions.get).mockResolvedValue({
+    vi.mocked(window.ostia.chatSessions.get).mockResolvedValue({
       id: 's-edit',
       workspaceId: 'w1',
       title: 'Edit',
@@ -566,7 +566,7 @@ describe('chat', () => {
         },
       ],
     })
-    vi.mocked(window.pine.chatTools.restore).mockResolvedValue({
+    vi.mocked(window.ostia.chatTools.restore).mockResolvedValue({
       ok: true,
       path: '/home/u/proj/a.ts',
       removed: false,
@@ -588,8 +588,8 @@ describe('chat', () => {
       screen.queryByRole('button', { name: 'Restore files to before this message' }),
     ).toBeNull()
     expect(await screen.findByText('Files restored: 1.')).toBeInTheDocument()
-    await waitFor(() => expect(window.pine.chatSessions.save).toHaveBeenCalled())
-    const saved = vi.mocked(window.pine.chatSessions.save).mock.calls.at(-1)?.[0]
+    await waitFor(() => expect(window.ostia.chatSessions.save).toHaveBeenCalled())
+    const saved = vi.mocked(window.ostia.chatSessions.save).mock.calls.at(-1)?.[0]
     expect(saved?.edits?.[0]).toMatchObject({ toolCallId: 'e1', state: 'undone', version: 'v-old' })
   })
 
@@ -651,14 +651,14 @@ describe('chat', () => {
     ]
 
     const openList = async (): Promise<HTMLElement> => {
-      vi.mocked(window.pine.chatSessions.list).mockResolvedValue(summaries)
+      vi.mocked(window.ostia.chatSessions.list).mockResolvedValue(summaries)
       render(<ChatPane workspaceId="w1" paneId="p-chat" />)
       await userEvent.click(await screen.findByRole('button', { name: /Switch chat/ }))
       return screen.findByRole('list', { name: 'Chat sessions' })
     }
 
     it('searches, opens and starts sessions', async () => {
-      vi.mocked(window.pine.chatSessions.get).mockResolvedValue({
+      vi.mocked(window.ostia.chatSessions.get).mockResolvedValue({
         ...summaries[1],
         messages: [{ id: 'm1', role: 'user', parts: [{ type: 'text', text: 'which ports?' }] }],
       })
@@ -674,8 +674,8 @@ describe('chat', () => {
     })
 
     it('renames, exports and deletes after a confirm', async () => {
-      vi.mocked(window.pine.chatSessions.rename).mockResolvedValue(summaries[0])
-      vi.mocked(window.pine.chatSessions.remove).mockResolvedValue(true)
+      vi.mocked(window.ostia.chatSessions.rename).mockResolvedValue(summaries[0])
+      vi.mocked(window.ostia.chatSessions.remove).mockResolvedValue(true)
       const list = await openList()
       const row = within(list).getByText('Deploy notes').closest('li') as HTMLElement
 
@@ -683,17 +683,17 @@ describe('chat', () => {
       const field = within(row).getByRole('textbox', { name: 'Chat title' })
       await userEvent.clear(field)
       await userEvent.type(field, 'Release checklist{Enter}')
-      expect(window.pine.chatSessions.rename).toHaveBeenCalledWith('s-deploy', 'Release checklist')
+      expect(window.ostia.chatSessions.rename).toHaveBeenCalledWith('s-deploy', 'Release checklist')
 
       const fresh = within(list).getAllByRole('listitem')[0]
       await userEvent.click(within(fresh).getByRole('button', { name: 'Export as Markdown' }))
-      expect(window.pine.chatSessions.exportMarkdown).toHaveBeenCalledWith('s-deploy')
+      expect(window.ostia.chatSessions.exportMarkdown).toHaveBeenCalledWith('s-deploy')
 
       await userEvent.click(within(fresh).getByRole('button', { name: 'Delete' }))
       const dialog = await screen.findByRole('dialog', { name: 'Delete this chat?' })
-      expect(window.pine.chatSessions.remove).not.toHaveBeenCalled()
+      expect(window.ostia.chatSessions.remove).not.toHaveBeenCalled()
       await userEvent.click(within(dialog).getByRole('button', { name: 'Delete' }))
-      expect(window.pine.chatSessions.remove).toHaveBeenCalledWith('s-deploy')
+      expect(window.ostia.chatSessions.remove).toHaveBeenCalledWith('s-deploy')
     })
   })
 })

@@ -14,7 +14,7 @@ describe('sandboxed servers on macOS', () => {
   it.skipIf(process.platform !== 'darwin')(
     'SBX-C58 (macOS only: Seatbelt) lets a sandboxed server bind loopback, and cannot hold it to loopback',
     async () => {
-      const hostScript = join(repoRoot, 'node_modules/.cache/pine-test/sandbox-host-mac.mjs')
+      const hostScript = join(repoRoot, 'node_modules/.cache/ostia-test/sandbox-host-mac.mjs')
       await build({
         entryPoints: [join(repoRoot, 'src/main/sandbox/host.ts')],
         outfile: hostScript,
@@ -23,7 +23,7 @@ describe('sandboxed servers on macOS', () => {
         format: 'esm',
         packages: 'external',
       })
-      const root = realpathSync(mkdtempSync(join(tmpdir(), 'pine-mac-ports-')))
+      const root = realpathSync(mkdtempSync(join(tmpdir(), 'ostia-mac-ports-')))
       const workDir = join(root, 'home', 'proj')
       mkdirSync(workDir, { recursive: true })
       const host = new SandboxHost({
@@ -40,7 +40,7 @@ describe('sandboxed servers on macOS', () => {
               workDir,
               tmpDir: join(root, 'tmp'),
               dataDirs: [],
-              socketPath: join(root, 'pine.sock'),
+              socketPath: join(root, 'ostia.sock'),
               runtimeReads: [],
             },
             'darwin',

@@ -129,7 +129,7 @@ describe('SettingsSync', () => {
   const make = () => new SettingsSync({ userData: local, host: 'box', now: () => clock })
 
   beforeEach(() => {
-    root = mkdtempSync(join(tmpdir(), 'pine-sync-'))
+    root = mkdtempSync(join(tmpdir(), 'ostia-sync-'))
     local = join(root, 'local')
     remote = join(root, 'remote')
     mkdirSync(local)

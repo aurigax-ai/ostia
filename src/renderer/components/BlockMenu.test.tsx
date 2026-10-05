@@ -149,7 +149,7 @@ describe('BlockMenu', () => {
     expect(useChatStore.getState().attachments.ws1).toEqual([
       { kind: 'output', label: 'Output of make build', text: 'make build' },
     ])
-    expect(window.pine.assist.request).not.toHaveBeenCalled()
+    expect(window.ostia.assist.request).not.toHaveBeenCalled()
   })
 
   it('does not offer asking about output while the chat feature is off', async () => {
@@ -244,7 +244,7 @@ describe('BlockMenu', () => {
     })
 
     it('opens the chat pane and asks about the failed command with it as context', async () => {
-      vi.mocked(window.pine.assist.request).mockReturnValue(new Promise(() => {}))
+      vi.mocked(window.ostia.assist.request).mockReturnValue(new Promise(() => {}))
       useAssistStore.setState({ availability: { chat } })
       const pane = createPane('terminal', 'zsh', '/w')
       useWorkspacesStore.setState({
@@ -260,8 +260,8 @@ describe('BlockMenu', () => {
 
       const root = useLayoutStore.getState().byWorkspace.ws1?.root
       expect(root && firstPaneOfKind(root, 'chat')).not.toBeNull()
-      await waitFor(() => expect(window.pine.assist.request).toHaveBeenCalled())
-      const [point, , input] = vi.mocked(window.pine.assist.request).mock.calls[0]
+      await waitFor(() => expect(window.ostia.assist.request).toHaveBeenCalled())
+      const [point, , input] = vi.mocked(window.ostia.assist.request).mock.calls[0]
       expect(point).toBe('chat')
       expect(input).toMatchObject({
         messages: [{ role: 'user', content: 'Explain why this command failed and how to fix it.' }],

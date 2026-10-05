@@ -28,7 +28,7 @@ describe('mergeCatalog', () => {
   it('names the product in English and in a pack, wherever a string writes {product}', () => {
     const dict = mergeCatalog({ update: { title: '{product} 已更新' } })
     expect(dict.update.title).toBe(`${PRODUCT_DISPLAY_NAME} 已更新`)
-    expect(dict.sandbox.pineAccess).toBe(`${PRODUCT_DISPLAY_NAME} access`)
+    expect(dict.sandbox.ostiaAccess).toBe(`${PRODUCT_DISPLAY_NAME} access`)
     expect(JSON.stringify(mergeCatalog(JSON.parse(JSON.stringify(zhHant))))).not.toContain(
       '{product}',
     )

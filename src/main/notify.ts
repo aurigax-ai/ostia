@@ -77,7 +77,7 @@ function readNotificationSettings(): NotificationSettings {
   }
 }
 
-export function pineInFront(windows: Iterable<BrowserWindow>): boolean {
+export function ostiaInFront(windows: Iterable<BrowserWindow>): boolean {
   for (const win of windows) {
     if (!win.isDestroyed() && win.isVisible() && win.isFocused()) return true
   }
@@ -88,7 +88,7 @@ function desktopNotification(deps: NotifyDeps, title: string, body?: string): No
   if (!Notification.isSupported()) return null
   const settings = readNotificationSettings()
   if (!settings.desktop) return null
-  if (!settings.whenFocused && pineInFront(deps.windows())) return null
+  if (!settings.whenFocused && ostiaInFront(deps.windows())) return null
   return new Notification({ title, body, silent: !settings.sound })
 }
 
