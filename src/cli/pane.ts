@@ -1,13 +1,23 @@
 import type { MessageConnection } from 'vscode-jsonrpc/node'
 import { FlagError, parseArgs } from './args'
 
+export interface PaneInputParams {
+  pane: string
+  text?: string
+  keys?: string[]
+  paste?: boolean
+  force?: boolean
+  confirm?: boolean
+}
+
 export type PaneCall =
-  | { method: 'pane.input'; params: { pane: string; text?: string; keys?: string[] } }
+  | { method: 'pane.input'; params: PaneInputParams; stdin?: true }
   | { method: 'pane.read'; params: { pane: string; lines?: number }; json: boolean }
   | { method: 'pane.rename'; params: { pane: string; title: string } }
 
 const USAGE = [
-  'usage: ostia pane send <pane> [--enter] [--] <text…>',
+  'usage: ostia pane send <pane> [--enter] [--paste|--raw] [--force] [--confirm]',
+  '                        [--] <text…|->',
   '       ostia pane key <pane> <key>…',
   '       ostia pane read <pane> [--lines N] [--json]',
   '       ostia pane rename <pane> <title…> | --clear',
@@ -28,18 +38,29 @@ export function parsePaneArgs(argv: string[]): PaneCall {
   if (!sub || !pane) throw new Error(USAGE)
   if (sub === 'send') {
     const { positional: words, booleans } = parseArgs(rest, {
-      booleans: { enter: '--enter' },
+      booleans: {
+        enter: '--enter',
+        paste: '--paste',
+        raw: '--raw',
+        force: '--force',
+        confirm: '--confirm',
+      },
       unknown: 'keep',
     })
-    const { enter } = booleans
-    if (words.length === 0 && !enter) throw new Error(USAGE)
+    const { enter, paste, raw, force, confirm } = booleans
+    if ((words.length === 0 && !enter) || (paste && raw)) throw new Error(USAGE)
+    const stdin = words.length === 1 && words[0] === '-'
     return {
       method: 'pane.input',
       params: {
         pane,
-        ...(words.length > 0 ? { text: words.join(' ') } : {}),
+        ...(words.length > 0 && !stdin ? { text: words.join(' ') } : {}),
         ...(enter ? { keys: ['enter'] } : {}),
+        ...(paste || raw ? { paste } : {}),
+        ...(force ? { force: true } : {}),
+        ...(confirm ? { confirm: true } : {}),
       },
+      ...(stdin ? { stdin: true as const } : {}),
     }
   }
   if (sub === 'key') {
@@ -83,7 +104,11 @@ export function parseWorkspaceRenameArgs(argv: string[]): { workspace?: string; 
   return { ...(values.workspace ? { workspace: values.workspace } : {}), name }
 }
 
-export async function runPaneVerb(conn: MessageConnection, argv: string[]): Promise<number> {
+export async function runPaneVerb(
+  conn: MessageConnection,
+  argv: string[],
+  readStdin: () => Promise<string>,
+): Promise<number> {
   let call: PaneCall
   try {
     call = parsePaneArgs(argv)
@@ -91,11 +116,23 @@ export async function runPaneVerb(conn: MessageConnection, argv: string[]): Prom
     console.error(`ostia pane: ${err instanceof Error ? err.message : String(err)}`)
     return 1
   }
+  if (call.method === 'pane.input' && call.stdin) {
+    const text = await readStdin()
+    if (!text) {
+      console.error('ostia pane send: nothing on stdin')
+      return 1
+    }
+    call = { method: 'pane.input', params: { ...call.params, text } }
+  }
   const result = await conn.sendRequest<unknown>(call.method, call.params)
   if (call.method === 'pane.read' && !call.json) {
     console.log((result as { text: string }).text)
   } else if (call.method === 'pane.read') {
     console.log(JSON.stringify(result, null, 2))
+  } else if (call.method === 'pane.input' && call.params.confirm) {
+    const responded = (result as { responded?: boolean }).responded === true
+    console.log(responded ? 'ok' : 'sent, but the pane printed nothing back')
+    return responded ? 0 : 2
   } else {
     console.log('ok')
   }

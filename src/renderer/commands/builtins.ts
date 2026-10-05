@@ -44,6 +44,7 @@ import { anchorToFocusedPane, canMoveWorkspace, moveWorkspaceTo } from '../lib/w
 import { isMac } from '../platform'
 import { keymapSettingValue } from '../settings/keymapSetting'
 import { settingsSchemaAt } from '../settings/settingsSchema'
+import { useAttentionStore } from '../stores/attentionStore'
 import { useBlocksStore } from '../stores/blocksStore'
 import { useHistorySearchStore } from '../stores/historySearchStore'
 import { useLayoutStore } from '../stores/layoutStore'
@@ -345,6 +346,32 @@ export function registerBuiltinCommands(): void {
       if (state === 'waiting' || state === 'done') {
         postAgentNotification(ctx.activePaneId, state, message, seen)
       }
+    },
+  })
+
+  registerCore<undefined, { state?: AttentionState; message?: string }>({
+    id: 'attention.peek',
+    category: 'pane',
+    hidden: true,
+    capabilities: ['read-board'],
+    run: (_args, ctx) => {
+      if (!ctx.activePaneId) throw new Error('no target pane')
+      const attention = useAttentionStore.getState().byPane[ctx.activePaneId]
+      if (!attention || attention.state === 'none') return {}
+      return attention.message
+        ? { state: attention.state, message: attention.message }
+        : { state: attention.state }
+    },
+  })
+
+  registerCore({
+    id: 'attention.typed',
+    category: 'pane',
+    hidden: true,
+    capabilities: ['drive-self'],
+    run: (_args, ctx) => {
+      if (!ctx.activePaneId) throw new Error('no target pane')
+      useAttentionStore.getState().dispatch(ctx.activePaneId, { type: 'input', at: Date.now() })
     },
   })
 

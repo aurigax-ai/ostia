@@ -1045,6 +1045,42 @@ describe('pane.list / workspace.list', () => {
   })
 })
 
+describe('attention.peek / attention.typed', () => {
+  const attentionBefore = useAttentionStore.getState()
+
+  afterEach(() => {
+    useAttentionStore.setState(attentionBefore, true)
+  })
+
+  it('reports a waiting agent with its message and nothing for a quiet pane', async () => {
+    useAttentionStore.setState({
+      byPane: {
+        pW: { state: 'waiting', unread: true, message: 'Allow Bash?', at: 1 },
+        pQ: { state: 'none', unread: false, at: 1 },
+      },
+    })
+    expect(await commands.execWith(ctx('s1', 'pW'), 'attention.peek')).toEqual({
+      ok: true,
+      result: { state: 'waiting', message: 'Allow Bash?' },
+    })
+    expect(await commands.execWith(ctx('s1', 'pQ'), 'attention.peek')).toEqual({
+      ok: true,
+      result: {},
+    })
+  })
+
+  it('ends the wait when input was sent from outside, as typing would', async () => {
+    useAttentionStore.setState({
+      byPane: { pW: { state: 'waiting', unread: true, message: 'Allow Bash?', at: 1 } },
+    })
+    await commands.execWith(ctx('s1', 'pW'), 'attention.typed')
+    expect(useAttentionStore.getState().byPane.pW?.state).toBe('none')
+    const byId = Object.fromEntries(commands.describe().map((c) => [c.id, c]))
+    expect(byId['attention.peek'].capabilities).toEqual(['read-board'])
+    expect(byId['attention.typed'].capabilities).toEqual(['drive-self'])
+  })
+})
+
 describe('builtins with zero workspaces', () => {
   it('gives commands a context with no workspace and no pane', async () => {
     expect(await commands.exec('pane.list', { allWorkspaces: true })).toEqual({
