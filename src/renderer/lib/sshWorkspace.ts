@@ -30,7 +30,7 @@ function hostsOf(data: unknown): SshHosts {
 }
 
 export async function listSshHosts(): Promise<SshHosts | null> {
-  const res = await window.pine.extensions.invoke(SSH_EXTENSION, 'ls', {
+  const res = await window.ostia.extensions.invoke(SSH_EXTENSION, 'ls', {
     workspaceId: null,
     paneId: null,
   })
@@ -46,14 +46,14 @@ function reportFailure(workspaceId: string | null, host: string, message: string
     console.error(`[ssh] ${title}: ${message}`)
     return
   }
-  window.pine.notifications.post({ paneId, kind: 'error', title, body: message, desktop: false })
+  window.ostia.notifications.post({ paneId, kind: 'error', title, body: message, desktop: false })
 }
 
 export async function openSshWorkspace(host: string): Promise<boolean> {
   const previous = useWorkspacesStore.getState().activeWorkspaceId
   const created = startNewWorkspace({ name: host })
   const workspaceId = created ?? previous
-  const res = await window.pine.extensions.invoke(
+  const res = await window.ostia.extensions.invoke(
     SSH_EXTENSION,
     'connect',
     { workspaceId, paneId: null },
