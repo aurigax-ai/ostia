@@ -214,7 +214,7 @@ export class TmuxServer {
     const [windowId, paneId, pid] = (line ?? '').split(' ')
     if (!windowId || !paneId) throw new Error('tmux did not open a window')
     this.send(`set -w -t ${windowId} ${META_OPTION} ${tmuxQuote(encodeMeta(spec.meta))}`)
-    return this.track(windowId, paneId, Number(pid), spec.cols, spec.rows)
+    return this.track(windowId, paneId, Number(pid), spec.cols, spec.rows, true)
   }
 
   async windows(): Promise<KeptWindow[]> {
@@ -250,7 +250,7 @@ export class TmuxServer {
   }
 
   adopt(window: KeptWindow): TmuxPane {
-    return this.track(window.windowId, window.paneId, window.pid, window.cols, window.rows)
+    return this.track(window.windowId, window.paneId, window.pid, window.cols, window.rows, false)
   }
 
   killWindow(windowId: string): Promise<void> {
@@ -282,12 +282,13 @@ export class TmuxServer {
     pid: number,
     cols: number,
     rows: number,
+    keepEarlyOutput: boolean,
   ): TmuxPane {
     const pane = new TmuxPane(this, windowId, paneId, pid, cols, rows)
     this.panes.set(paneId, pane)
     const held = this.pendingOutput.get(paneId)
     this.pendingOutput.delete(paneId)
-    if (held) queueMicrotask(() => pane.deliver(held.join('')))
+    if (held && keepEarlyOutput) pane.unheard = held.join('')
     return pane
   }
 
@@ -349,6 +350,7 @@ export class TmuxPane {
   private exited = false
   private detached = false
   private held: string[] | null = null
+  unheard = ''
 
   constructor(
     private readonly server: TmuxServer,
@@ -365,6 +367,9 @@ export class TmuxPane {
 
   onData(listener: Listener<string>): Disposable {
     this.dataListeners.add(listener)
+    const unheard = this.unheard
+    this.unheard = ''
+    if (unheard) listener(unheard)
     return { dispose: () => this.dataListeners.delete(listener) }
   }
 

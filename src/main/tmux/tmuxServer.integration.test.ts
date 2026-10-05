@@ -162,6 +162,16 @@ describe('TmuxServer', () => {
     expect(numbers).toEqual(Array.from({ length: 4000 - first }, (_, i) => first + i))
   })
 
+  it('hands a new pane the output it printed before tmux reported the window', async () => {
+    const server = await connect()
+    const panes = await Promise.all(
+      Array.from({ length: 10 }, (_, n) =>
+        spawnSh(server, `echo early-${n}; sleep 5`).then((pane) => ({ n, out: collect(pane) })),
+      ),
+    )
+    for (const { n, out } of panes) await until(() => out.text().includes(`early-${n}`))
+  })
+
   it('reports a shell that exits with its code', async () => {
     const server = await connect()
     const pane = await spawnSh(server, 'exit 7')
