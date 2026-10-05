@@ -125,7 +125,7 @@ export interface SandboxFixedPolicy {
   socketBlocking: boolean
 }
 
-export const SANDBOX_FOLDER_PROBLEMS = ['home', 'above-home', 'pine-data'] as const
+export const SANDBOX_FOLDER_PROBLEMS = ['home', 'above-home', 'ostia-data'] as const
 export type SandboxFolderReason = (typeof SANDBOX_FOLDER_PROBLEMS)[number]
 
 export interface SandboxFolderProblem {

@@ -493,11 +493,11 @@ describe('shellIntegrationSpawnOptions', () => {
       }
 
       it('reports every line of a pasted multi-line input as the whole command before D', () => {
-        const typed = `${PASTE_START}echo pine_ml_1\recho pine_ml_2${PASTE_END}`
+        const typed = `${PASTE_START}echo ostia_ml_1\recho ostia_ml_2${PASTE_END}`
         expect(commandMarks(typed).slice(0, 4)).toEqual([
-          '633;E;echo pine_ml_1',
+          '633;E;echo ostia_ml_1',
           '133;C',
-          String.raw`633;E;echo pine_ml_1\x0aecho pine_ml_2`,
+          String.raw`633;E;echo ostia_ml_1\x0aecho ostia_ml_2`,
           '133;D;0',
         ])
       })
@@ -558,7 +558,7 @@ describe('shellIntegrationSpawnOptions', () => {
           [
             ...noRc,
             '-c',
-            `source '${init}'; alias pine_ll='ls'; pine_fn() { :; }; _pine_private() { :; }; ${script}`,
+            `source '${init}'; alias ostia_ll='ls'; ostia_fn() { :; }; _ostia_private() { :; }; ${script}`,
           ],
           {
             env: {
@@ -586,8 +586,8 @@ describe('shellIntegrationSpawnOptions', () => {
         expect(report('__ostia_report_shell')).toBe('')
         const { path, names } = readState()
         expect(path).toBe('/ostia/bin:/usr/bin:/bin')
-        expect(names).toEqual(expect.arrayContaining(['cd', 'if', 'pine_ll', 'pine_fn']))
-        expect(names).not.toContain('_pine_private')
+        expect(names).toEqual(expect.arrayContaining(['cd', 'if', 'ostia_ll', 'ostia_fn']))
+        expect(names).not.toContain('_ostia_private')
         expect(names).not.toContain('__ostia_report_shell')
       })
 
@@ -626,7 +626,7 @@ describe('shellIntegrationSpawnOptions', () => {
           condaEnv: 'base',
           kubeconfig: '/k/a:/k/b',
         })
-        expect(readState().names).toEqual(expect.arrayContaining(['cd', 'pine_fn']))
+        expect(readState().names).toEqual(expect.arrayContaining(['cd', 'ostia_fn']))
       })
 
       it('drops newlines from a reported variable so it cannot shift the lines after it', () => {

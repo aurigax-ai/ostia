@@ -58,7 +58,7 @@ test.beforeEach(() => {
 })
 
 test('restores the pane layout and terminal history after a restart', async () => {
-  const marker = `pine_restore_${Date.now()}`
+  const marker = `ostia_restore_${Date.now()}`
 
   const first = await launchApp(dataHome)
   try {
@@ -99,7 +99,7 @@ test('restores the pane layout and terminal history after a restart', async () =
 })
 
 test('restores terminal history after a crash (no before-quit)', async () => {
-  const marker = `pine_crash_${Date.now()}`
+  const marker = `ostia_crash_${Date.now()}`
   const first = await launchApp(dataHome)
   try {
     await openWorkspace(first.win)
@@ -154,7 +154,7 @@ async function paneLines(win: Page): Promise<string[]> {
 
 test('restores a clean final screen at a different window size', async () => {
   test.setTimeout(90_000)
-  const marker = `pine_resized_${Date.now()}`
+  const marker = `ostia_resized_${Date.now()}`
   seedSettings(dataHome, { ...DOM_RENDERER_SETTINGS, appearance: { terminal: { size: 8 } } })
 
   const first = await launchApp(dataHome)

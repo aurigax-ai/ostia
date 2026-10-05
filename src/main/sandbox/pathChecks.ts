@@ -8,7 +8,7 @@ export type PathCheckReason =
   | 'too-long'
   | 'pattern'
   | 'too-broad'
-  | 'pine-data'
+  | 'ostia-data'
   | 'protected'
   | 'missing'
 
@@ -42,7 +42,7 @@ export function checkSandboxPath(
   if (path === '/') return { ok: false, reason: 'too-broad' }
   const opens = OPENING_KINDS.includes(kind)
   if (opens && within(realPath(env.home), realPath(path))) return { ok: false, reason: 'too-broad' }
-  if (opens && touches(path, env.dataDirs)) return { ok: false, reason: 'pine-data' }
+  if (opens && touches(path, env.dataDirs)) return { ok: false, reason: 'ostia-data' }
   if (opens && touches(path, env.protectedDirs)) return { ok: false, reason: 'protected' }
   if (kind === 'allowWrite' && env.protectedFiles.some((file) => within(realPath(path), file))) {
     return { ok: false, reason: 'protected' }

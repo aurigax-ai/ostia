@@ -155,7 +155,7 @@ describe('trellis panel handlers', () => {
     mkdirSync(shop)
     writeFileSync(join(shop, '.trellis'), '/DEMO/boards/demo\n')
     expect((await run('context', {}, shop)).data).toEqual({
-      actor: 'human:pine',
+      actor: 'human:ostia',
       workspace: { project: 'DEMO', board: 'demo' },
       canInit: false,
       projects: [{ key: 'DEMO', name: 'DEMO' }],
@@ -250,7 +250,7 @@ describe('trellis panel handlers', () => {
     const state = fake.state()
     expect(state.board.columns[2].cards.map((c) => c.ref)).toContain('DEMO-3')
     expect(state.comments['DEMO-3']).toMatchObject([
-      { actor: 'human:pine', body: '@/etc/hostname' },
+      { actor: 'human:ostia', body: '@/etc/hostname' },
     ])
     expect(writes().map((c) => c.split(' ').slice(0, 3).join(' '))).toEqual([
       'card move DEMO-3',

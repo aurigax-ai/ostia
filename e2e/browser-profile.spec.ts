@@ -14,7 +14,7 @@ import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } fr
 import { openWorkspace } from './helpers'
 
 const CLI = resolve(__dirname, '../out/cli/index.js')
-const COOKIE = 'pine_profile=kept'
+const COOKIE = 'ostia_profile=kept'
 
 interface Seen {
   path: string

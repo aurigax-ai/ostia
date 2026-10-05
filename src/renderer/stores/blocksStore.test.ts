@@ -122,12 +122,12 @@ describe('blocksStore', () => {
   it('replaces the block command when the shell reports the whole command at its end', () => {
     const p = 'pane-whole'
     store().promptStart(p, at(1), '/home')
-    store().commandStart(p, at(2), 'echo pine_ml_1')
+    store().commandStart(p, at(2), 'echo ostia_ml_1')
 
-    store().commandEnd(p, at(5), 0, 0, 'echo pine_ml_1\necho pine_ml_2')
+    store().commandEnd(p, at(5), 0, 0, 'echo ostia_ml_1\necho ostia_ml_2')
 
     expect(store().byPane[p]?.[0]).toMatchObject({
-      command: 'echo pine_ml_1\necho pine_ml_2',
+      command: 'echo ostia_ml_1\necho ostia_ml_2',
       endLine: at(5),
       exitCode: 0,
     })
