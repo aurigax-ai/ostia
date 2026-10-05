@@ -5,17 +5,17 @@ describe('formatWindowTitle', () => {
   it('fills the placeholders', () => {
     expect(
       formatWindowTitle('{workspace} — {pane} ({cwd}) · {product}', {
-        product: 'pine',
+        product: 'ostia',
         workspace: 'sonar',
         pane: 'claude',
         cwd: '~/sonar',
       }),
-    ).toBe('sonar — claude (~/sonar) · pine')
+    ).toBe('sonar — claude (~/sonar) · ostia')
   })
 
   it('drops separators left dangling by an empty value, and falls back to the product', () => {
-    expect(formatWindowTitle(DEFAULT_WINDOW_TITLE, { product: 'pine' })).toBe('pine')
-    expect(formatWindowTitle('{workspace}', { product: 'pine' })).toBe('pine')
+    expect(formatWindowTitle(DEFAULT_WINDOW_TITLE, { product: 'ostia' })).toBe('ostia')
+    expect(formatWindowTitle('{workspace}', { product: 'ostia' })).toBe('ostia')
   })
 })
 

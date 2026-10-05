@@ -15,7 +15,7 @@ done
 stage_dir="$home/run.$$"
 rm -rf -- "$stage_dir"
 mkdir -- "$stage_dir" || {
-  echo "PINE-HELPER failed stage"
+  echo "OSTIA-HELPER failed stage"
   exit 1
 }
 stage="$stage_dir/payload"
@@ -261,7 +261,7 @@ op_write() {
   reply "$id" ok 0 "$(version_of "$target")"
 }
 
-printf 'PINE-HELPER ready %s\n' "$PROTOCOL"
+printf 'OSTIA-HELPER ready %s\n' "$PROTOCOL"
 
 while IFS= read -r line; do
   id=${line%% *}

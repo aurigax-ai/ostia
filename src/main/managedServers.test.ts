@@ -96,7 +96,7 @@ function serving(body: Buffer, url = `${URL_PREFIX}tool.bin`) {
 function managed(overrides: Partial<ManagedServersDeps> = {}): ManagedServers {
   return new ManagedServers({
     dir,
-    userAgent: 'pine/9.9.9',
+    userAgent: 'ostia/9.9.9',
     platform: 'linux-x64',
     findProgram: () => null,
     env: () => ({ PATH: process.env.PATH }),
@@ -127,7 +127,7 @@ function leftovers(): string[] {
 }
 
 beforeEach(() => {
-  root = realpathSync(mkdtempSync(join(tmpdir(), 'pine-managed-')))
+  root = realpathSync(mkdtempSync(join(tmpdir(), 'ostia-managed-')))
   dir = join(root, 'language-servers')
 })
 
@@ -161,7 +161,11 @@ describe('ManagedServers downloads', () => {
     expect(statSync(path).mode & 0o777).toBe(0o755)
     expect(statSync(join(dir, 'ext', 'srv', '1.0.0')).mode & 0o777).toBe(0o700)
     expect(calls).toEqual([
-      { url: `${URL_PREFIX}tool.bin`, headers: { 'User-Agent': 'pine/9.9.9' }, redirect: 'manual' },
+      {
+        url: `${URL_PREFIX}tool.bin`,
+        headers: { 'User-Agent': 'ostia/9.9.9' },
+        redirect: 'manual',
+      },
     ])
     expect(progress.at(-1)).toBe(100)
     expect(servers.executable('ext', 'srv', run)).toBe(path)

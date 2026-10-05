@@ -81,7 +81,7 @@ export function BrowserStoragePanel({
   const [confirmClear, setConfirmClear] = useState(false)
 
   const load = useCallback(async (): Promise<void> => {
-    const res = await window.pine.browser.storageRead(paneId)
+    const res = await window.ostia.browser.storageRead(paneId)
     if (res.ok) {
       setSnapshot(res.snapshot)
       setReadError(null)
@@ -109,7 +109,7 @@ export function BrowserStoragePanel({
   }
 
   const remove = (removal: StorageRemoval): void => {
-    void apply(window.pine.browser.storageRemove(paneId, removal))
+    void apply(window.ostia.browser.storageRemove(paneId, removal))
   }
 
   const copy = (name: string, value: string): void => {
@@ -122,12 +122,12 @@ export function BrowserStoragePanel({
       editing.kind === 'cookies'
         ? { kind: 'cookies', cookie: { ...editing.cookie, value: editing.value } }
         : { kind: editing.kind, key: editing.name, value: editing.value }
-    if (await apply(window.pine.browser.storageSet(paneId, edit))) setEditing(null)
+    if (await apply(window.ostia.browser.storageSet(paneId, edit))) setEditing(null)
   }
 
   const clearAll = async (): Promise<void> => {
     setConfirmClear(false)
-    await apply(window.pine.browser.storageClear(paneId, kind))
+    await apply(window.ostia.browser.storageClear(paneId, kind))
   }
 
   const origin = snapshot?.origin ?? ''

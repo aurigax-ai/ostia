@@ -23,7 +23,7 @@ let conn: MessageConnection
 let destroy: () => void
 
 beforeAll(async () => {
-  dir = mkdtempSync(join(tmpdir(), 'pine-secret-ctl-'))
+  dir = mkdtempSync(join(tmpdir(), 'ostia-secret-ctl-'))
   const service = new SecretService({
     home: () => dir,
     env: () => ({ GITHUB_TOKEN: 'ghp_x' }),

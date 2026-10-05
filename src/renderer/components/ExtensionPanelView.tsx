@@ -59,7 +59,7 @@ export function ExtensionPanelView({
       const context: ExtensionPanelContext = nav
         ? { workspaceId, locale, path: nav.path }
         : { workspaceId, locale }
-      window.pine.extensions
+      window.ostia.extensions
         .panel(extId, context)
         .then((res) => {
           if (isAlive()) setSource(res)

@@ -1,4 +1,4 @@
-export type PromptStyle = 'shell' | 'pine'
+export type PromptStyle = 'shell' | 'ostia'
 
 export interface PromptPlacementInput {
   inputLine: number
@@ -41,9 +41,9 @@ export function placePrompt(input: PromptPlacementInput): PromptPlacement | null
   const row = inputLine - viewportY
   if (row < 0 || row >= rows) return null
   const rowsBelow = rows - 1 - row
-  if (style === 'pine' && sameLine) return { row, col: 0, endCol: cols, chipsRow: null, rowsBelow }
+  if (style === 'ostia' && sameLine) return { row, col: 0, endCol: cols, chipsRow: null, rowsBelow }
   const col = Math.min(Math.max(0, inputCol), cols - 1)
-  if (style === 'pine') {
+  if (style === 'ostia') {
     return { row, col, endCol: cols, chipsRow: row === 0 ? null : row - 1, rowsBelow }
   }
   const roomy = rightPromptCol !== null && rightPromptCol - col >= MIN_INPUT_COLS

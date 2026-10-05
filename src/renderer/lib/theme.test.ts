@@ -6,13 +6,13 @@ import { applyTheme, effectiveThemeId, resolveTheme, themedTokens } from './them
 
 const themes = BUILTIN_PLUGINS.flatMap((p) => p.contributes.themes ?? [])
 const dark = themes.find((t) => t.id === 'adeberry') as Theme
-const light = themes.find((t) => t.id === 'pine-light') as Theme
+const light = themes.find((t) => t.id === 'ostia-light') as Theme
 
 const choice = {
   followSystem: true,
   systemDark: true,
   theme: 'dracula',
-  lightTheme: 'pine-light',
+  lightTheme: 'ostia-light',
   darkTheme: 'adeberry',
 }
 
@@ -24,13 +24,14 @@ describe('effectiveThemeId', () => {
 
   it('picks the dark theme when the OS is dark and the light theme when it is light', () => {
     expect(effectiveThemeId(choice)).toBe('adeberry')
-    expect(effectiveThemeId({ ...choice, systemDark: false })).toBe('pine-light')
+    expect(effectiveThemeId({ ...choice, systemDark: false })).toBe('ostia-light')
   })
 })
 
 describe('resolveTheme', () => {
   it('falls back to the first theme for an unknown id', () => {
     expect(resolveTheme(themes, 'nope')).toBe(themes[0])
+    expect(resolveTheme(themes, 'ostia-light')).toBe(light)
     expect(resolveTheme(themes, 'pine-light')).toBe(light)
   })
 })
@@ -79,7 +80,7 @@ describe('applyTheme', () => {
     applyTheme(document.documentElement, light, '')
     const root = document.documentElement
     expect(root.style.getPropertyValue('--color-bg')).toBe(light.tokens.bg)
-    expect(root.dataset.theme).toBe('pine-light')
+    expect(root.dataset.theme).toBe('ostia-light')
     expect(root.style.colorScheme).toBe('light')
   })
 

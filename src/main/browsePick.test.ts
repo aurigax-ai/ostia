@@ -70,7 +70,7 @@ let prevTmp: string | undefined
 
 beforeAll(() => {
   prevTmp = process.env.TMPDIR
-  process.env.TMPDIR = mkdtempSync(join(tmpdir(), 'pine-pick-test-'))
+  process.env.TMPDIR = mkdtempSync(join(tmpdir(), 'ostia-pick-test-'))
   registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'browser-1' })
   registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'term-1' })
 })
@@ -93,7 +93,7 @@ describe('runPick', () => {
     expect(guest.scripts.length).toBeGreaterThan(0)
     for (const s of guest.scripts) expect(s.world).toBe(PICK_WORLD_ID)
     expect(PICK_WORLD_ID).not.toBe(0)
-    expect(guest.scripts[0].code).toContain('window.__pinePick')
+    expect(guest.scripts[0].code).toContain('window.__ostiaPick')
     expect(guest.scripts[0].code).not.toMatch(/PINE_TOKEN|ipcRenderer/)
   })
 
@@ -129,7 +129,7 @@ describe('runPick', () => {
     const pick = runPick(deps(), asGuest(guest), 'browser-1', opts)
     expect(cancelPick('browser-1')).toBe(true)
     await pick
-    expect(guest.scripts.at(-1)?.code).toContain('window.__pinePick.cancel()')
+    expect(guest.scripts.at(-1)?.code).toContain('window.__ostiaPick.cancel()')
   })
 
   it('reports cancelled when the user presses Escape in the page', async () => {

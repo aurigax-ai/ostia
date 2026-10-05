@@ -113,7 +113,7 @@ describe('parseLatestRelease', () => {
       'https://evil.example/aurigax-ai/ostia/releases/tag/v1.4.0',
       'https://github.com:8443/aurigax-ai/ostia/releases/tag/v1.4.0',
       'https://user@github.com/aurigax-ai/ostia/releases/tag/v1.4.0',
-      'https://github.com/someone-else/pine/releases/tag/v1.4.0',
+      'https://github.com/someone-else/ostia/releases/tag/v1.4.0',
       'https://github.com/aurigax-ai/other/releases/tag/v1.4.0',
       'https://github.com/aurigax-ai/ostia/releases/tag/v1.4.0/../../../../evil/repo',
       'https://github.com/aurigax-ai/ostia/releases/tag/v9.9.9',

@@ -121,7 +121,7 @@ describe('TrellisService with a fake trellis on PATH', () => {
     expect(recorded.cleared).toEqual([{ workspaceId: 's1', id: 'cards' }])
   })
 
-  it('shows nothing when pine cannot list workspaces', async () => {
+  it('shows nothing when Ostia cannot list workspaces', async () => {
     project('shop', '/DEMO')
     workspaces = new Error('refused')
     await make().refreshSidebar()

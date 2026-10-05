@@ -17,7 +17,7 @@ describe('createTranslator', () => {
   }
 
   beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), 'pine-sdk-i18n-'))
+    dir = mkdtempSync(join(tmpdir(), 'ostia-sdk-i18n-'))
     mkdirSync(join(dir, 'locales'))
     write('en.json', { messages: { greeting: 'Hello, {name}', bye: 'Goodbye' } })
     write('zh-Hant.json', {
@@ -50,7 +50,7 @@ describe('createTranslator', () => {
     expect(translate(undefined)('bye')).toBe('Goodbye')
   })
 
-  it('reads the folder Pine started the extension in when none is given', () => {
+  it('reads the folder Ostia started the extension in when none is given', () => {
     process.env.PINE_EXTENSION_DIR = dir
     expect(createTranslator()('zh-Hant')('greeting', { name: 'Ada' })).toBe('你好，Ada')
   })

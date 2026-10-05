@@ -26,7 +26,7 @@ vi.mock('@xterm/xterm', () => ({ Terminal: FakeXterm }))
 
 const { ManagerView } = await import('./ManagerView')
 
-const pty = () => vi.mocked(window.pine.pty)
+const pty = () => vi.mocked(window.ostia.pty)
 
 function handler<T extends (...args: never[]) => unknown>(mock: unknown): T {
   const call = vi.mocked(mock as (...a: unknown[]) => unknown).mock.calls.at(-1)

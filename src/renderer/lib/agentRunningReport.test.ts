@@ -25,7 +25,7 @@ function end(): void {
   useBlocksStore.getState().commandEnd('p1', { line: 2 }, 0)
 }
 
-const reports = () => vi.mocked(window.pine.pty.reportAgentRunning).mock.calls
+const reports = () => vi.mocked(window.ostia.pty.reportAgentRunning).mock.calls
 
 describe('startAgentRunningReport', () => {
   let stop: (() => void) | null = null
@@ -40,7 +40,7 @@ describe('startAgentRunningReport', () => {
     stop = null
     useLayoutStore.setState(layoutInit, true)
     useBlocksStore.setState(blocksInit, true)
-    vi.mocked(window.pine.pty.reportAgentRunning).mockClear()
+    vi.mocked(window.ostia.pty.reportAgentRunning).mockClear()
   })
 
   function start(): void {

@@ -66,7 +66,7 @@ function SaveWorkflowForm({ initialCommand }: { initialCommand: string }): JSX.E
         }
       }),
     })
-    const res = await window.pine.workflows.save(doc)
+    const res = await window.ostia.workflows.save(doc)
     setSaving(false)
     if (res.ok) close()
     else setError(res.error)

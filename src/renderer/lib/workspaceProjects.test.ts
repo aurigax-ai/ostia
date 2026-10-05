@@ -14,11 +14,11 @@ describe('startWorkspaceProjects', () => {
     stop = null
     useLayoutStore.setState(init.layout, true)
     useWorkspacesStore.setState(init.workspaces, true)
-    vi.mocked(window.pine.openPath.project).mockReset().mockResolvedValue(null)
+    vi.mocked(window.ostia.openPath.project).mockReset().mockResolvedValue(null)
   })
 
   it('names the workspace after the project its focused pane is in, and keeps a name you set', async () => {
-    vi.mocked(window.pine.openPath.project).mockImplementation(async (dir) =>
+    vi.mocked(window.ostia.openPath.project).mockImplementation(async (dir) =>
       dir.startsWith('/home/u/Personal/model-runtime')
         ? {
             name: 'model-runtime',
@@ -68,7 +68,7 @@ describe('startWorkspaceProjects', () => {
   })
 
   it('follows a pane through plain folders and sticks at the first git repository', async () => {
-    vi.mocked(window.pine.openPath.project).mockImplementation(async (dir) => ({
+    vi.mocked(window.ostia.openPath.project).mockImplementation(async (dir) => ({
       name: dir.split('/').pop() ?? dir,
       display: dir.replace('/home/u', '~'),
       dir,
@@ -96,7 +96,7 @@ describe('startWorkspaceProjects', () => {
   })
 
   it('stays on its project once it is set, until the human moves it', async () => {
-    vi.mocked(window.pine.openPath.project).mockImplementation(async (dir) => ({
+    vi.mocked(window.ostia.openPath.project).mockImplementation(async (dir) => ({
       name: dir.split('/').pop() ?? dir,
       display: dir.replace('/home/u', '~'),
       dir,
@@ -122,7 +122,7 @@ describe('startWorkspaceProjects', () => {
 
     stop = startWorkspaceProjects()
     await new Promise((r) => setTimeout(r, 0))
-    expect(window.pine.openPath.project).not.toHaveBeenCalled()
+    expect(window.ostia.openPath.project).not.toHaveBeenCalled()
 
     useSandboxStore.setState({ enabled: { w1: true } })
     expect(await anchorToFocusedPane('w1')).toBe(false)
@@ -130,14 +130,14 @@ describe('startWorkspaceProjects', () => {
 
     useSandboxStore.setState({ enabled: {} })
     expect(await anchorToFocusedPane('w1')).toBe(true)
-    expect(window.pine.openPath.project).toHaveBeenLastCalledWith('/home/u/other', true)
+    expect(window.ostia.openPath.project).toHaveBeenLastCalledWith('/home/u/other', true)
     expect(useWorkspacesStore.getState().workspaces[0]).toMatchObject({
       name: 'other',
       projectDir: '~/other',
       workDir: '/home/u/other',
       anchored: true,
     })
-    expect(window.pine.lifecycle.emit).toHaveBeenCalledWith({
+    expect(window.ostia.lifecycle.emit).toHaveBeenCalledWith({
       type: 'workspace-added',
       workspaceId: 'w1',
       workDir: '/home/u/other',

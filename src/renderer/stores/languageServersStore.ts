@@ -24,22 +24,22 @@ export const useLanguageServersStore = create<LanguageServersState>((set, get) =
   load: async () => {
     if (!get().watching) {
       set({ watching: true })
-      window.pine.lsp.onServersChanged((list) => set({ list }))
+      window.ostia.lsp.onServersChanged((list) => set({ list }))
     }
-    set({ list: await window.pine.lsp.servers() })
+    set({ list: await window.ostia.lsp.servers() })
   },
 
   setEnabled: async (serverKey, enabled) => {
-    set({ list: await window.pine.lsp.setEnabled(serverKey, enabled) })
+    set({ list: await window.ostia.lsp.setEnabled(serverKey, enabled) })
   },
 
   restart: async (serverKey) => {
-    await window.pine.lsp.restart(serverKey)
-    set({ list: await window.pine.lsp.servers() })
+    await window.ostia.lsp.restart(serverKey)
+    set({ list: await window.ostia.lsp.servers() })
   },
 
   setOverride: async (serverKey, override) => {
-    const result = await window.pine.lsp.setOverride(serverKey, override)
+    const result = await window.ostia.lsp.setOverride(serverKey, override)
     set({ list: result.servers })
     return result.problem ?? null
   },

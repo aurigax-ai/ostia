@@ -47,8 +47,8 @@ describe('handleDocumentClipboardChord', () => {
     input.focus()
     expect(press(input, copyChord).defaultPrevented).toBe(true)
     expect(press(input, pasteChord).defaultPrevented).toBe(true)
-    expect(window.pine.clipboard.edit).toHaveBeenNthCalledWith(1, 'copy')
-    expect(window.pine.clipboard.edit).toHaveBeenNthCalledWith(2, 'paste')
+    expect(window.ostia.clipboard.edit).toHaveBeenNthCalledWith(1, 'copy')
+    expect(window.ostia.clipboard.edit).toHaveBeenNthCalledWith(2, 'paste')
   })
 
   it('copies the document selection outside a text field and never pastes there', () => {
@@ -61,8 +61,8 @@ describe('handleDocumentClipboardChord', () => {
     document.getSelection()?.addRange(range)
     press(text, copyChord)
     press(text, pasteChord)
-    expect(window.pine.clipboard.edit).toHaveBeenCalledTimes(1)
-    expect(window.pine.clipboard.edit).toHaveBeenCalledWith('copy')
+    expect(window.ostia.clipboard.edit).toHaveBeenCalledTimes(1)
+    expect(window.ostia.clipboard.edit).toHaveBeenCalledWith('copy')
   })
 
   it('leaves a chord the focused surface already handled', () => {
@@ -72,7 +72,7 @@ describe('handleDocumentClipboardChord', () => {
     input.focus()
     input.addEventListener('keydown', (e) => e.preventDefault())
     press(input, copyChord)
-    expect(window.pine.clipboard.edit).not.toHaveBeenCalled()
+    expect(window.ostia.clipboard.edit).not.toHaveBeenCalled()
   })
 
   it('follows a rebound copy chord and drops the old one', () => {
@@ -83,8 +83,8 @@ describe('handleDocumentClipboardChord', () => {
     input.focus()
     expect(press(input, copyChord).defaultPrevented).toBe(false)
     press(input, { key: 'c', code: 'KeyC', ctrlKey: true, altKey: true })
-    expect(window.pine.clipboard.edit).toHaveBeenCalledWith('copy')
-    expect(window.pine.clipboard.edit).toHaveBeenCalledTimes(1)
+    expect(window.ostia.clipboard.edit).toHaveBeenCalledWith('copy')
+    expect(window.ostia.clipboard.edit).toHaveBeenCalledTimes(1)
   })
 
   it('leaves plain Ctrl+C and Ctrl+V and the native macOS keys alone', () => {
@@ -98,7 +98,7 @@ describe('handleDocumentClipboardChord', () => {
     listen(false)
     expect(press(input, { key: 'c', code: 'KeyC', ctrlKey: true }).defaultPrevented).toBe(false)
     expect(press(input, { key: 'v', code: 'KeyV', ctrlKey: true }).defaultPrevented).toBe(false)
-    expect(window.pine.clipboard.edit).not.toHaveBeenCalled()
+    expect(window.ostia.clipboard.edit).not.toHaveBeenCalled()
   })
 })
 
@@ -131,12 +131,12 @@ describe('isEditableElement', () => {
 describe('syncClipboardChords', () => {
   it('sends the copy and paste chords to main now and after a rebind', () => {
     const stop = syncClipboardChords(false)
-    expect(window.pine.clipboard.setChords).toHaveBeenLastCalledWith({
+    expect(window.ostia.clipboard.setChords).toHaveBeenLastCalledWith({
       copy: parseChord('Ctrl+Shift+C', false),
       paste: parseChord('Ctrl+Shift+V', false),
     })
     useSettingsStore.setState({ keybindings: { paste: 'Ctrl+Alt+V', copy: null } })
-    expect(window.pine.clipboard.setChords).toHaveBeenLastCalledWith({
+    expect(window.ostia.clipboard.setChords).toHaveBeenLastCalledWith({
       copy: null,
       paste: parseChord('Ctrl+Alt+V', false),
     })

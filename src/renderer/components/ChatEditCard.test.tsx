@@ -46,7 +46,7 @@ afterEach(() => {
   useWorkspacesStore.setState(workspacesInit, true)
   useLayoutStore.setState(layoutInit, true)
   useDiffStore.setState({ byPane: {} })
-  vi.mocked(window.pine.chatTools.restore).mockReset()
+  vi.mocked(window.ostia.chatTools.restore).mockReset()
 })
 
 function part(state: string, extra: Record<string, unknown> = {}) {
@@ -199,7 +199,7 @@ describe('ChatEditCard', () => {
   it('undoes an applied edit through main with what was written and what was there before', async () => {
     seedWorkspace()
     applied({ auto: true, decisions: [null] })
-    vi.mocked(window.pine.chatTools.restore).mockResolvedValue({
+    vi.mocked(window.ostia.chatTools.restore).mockResolvedValue({
       ok: true,
       path: PATH,
       removed: false,
@@ -215,7 +215,7 @@ describe('ChatEditCard', () => {
     )
     await userEvent.click(screen.getByRole('button', { name: 'Undo' }))
     await waitFor(() => expect(card()).toHaveAttribute('data-state', 'undone'))
-    expect(window.pine.chatTools.restore).toHaveBeenCalledWith({
+    expect(window.ostia.chatTools.restore).toHaveBeenCalledWith({
       path: PATH,
       root: '/home/u/proj',
       outside: false,
@@ -231,7 +231,7 @@ describe('ChatEditCard', () => {
   it('says plainly when the file changed after the edit and leaves it applied', async () => {
     seedWorkspace()
     applied()
-    vi.mocked(window.pine.chatTools.restore).mockResolvedValue({ ok: false, error: 'changed' })
+    vi.mocked(window.ostia.chatTools.restore).mockResolvedValue({ ok: false, error: 'changed' })
     render(
       <ChatEditCard
         part={part('output-available')}
@@ -437,7 +437,7 @@ describe('ChatEditCard', () => {
     it('reverts one change of an edit Write mode applied, then keeps the rest', async () => {
       seedWorkspace()
       applied({ before: MANY_BEFORE, after: MANY_AFTER, auto: true, decisions: [null, null] })
-      vi.mocked(window.pine.chatTools.restore).mockResolvedValue({
+      vi.mocked(window.ostia.chatTools.restore).mockResolvedValue({
         ok: true,
         path: PATH,
         removed: false,
@@ -456,7 +456,7 @@ describe('ChatEditCard', () => {
       await waitFor(() =>
         expect(useChatToolsStore.getState().edits.e1.decisions).toEqual(['rejected', null]),
       )
-      expect(window.pine.chatTools.restore).toHaveBeenCalledWith(
+      expect(window.ostia.chatTools.restore).toHaveBeenCalledWith(
         expect.objectContaining({
           expected: 'v-new',
           content: 'a\nb\nc\nd\ne\nf\ng\nH\n',

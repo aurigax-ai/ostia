@@ -4,14 +4,14 @@ import { lookup, resolveArgs, resolveText, resolveValue } from './viewBindings'
 const fmt = { now: Date.UTC(2026, 0, 1, 12, 0, 0), locale: 'en' }
 
 const scope = {
-  workspace: { name: 'pine', unread: 3, tags: ['a', 'b'], empty: [] as string[] },
+  workspace: { name: 'ostia', unread: 3, tags: ['a', 'b'], empty: [] as string[] },
   workspaces: [{ name: 'one' }, { name: 'two' }],
   clock: { now: fmt.now },
 }
 
 describe('lookup', () => {
   it('follows own properties and array indices', () => {
-    expect(lookup(scope, ['workspace', 'name'])).toBe('pine')
+    expect(lookup(scope, ['workspace', 'name'])).toBe('ostia')
     expect(lookup(scope, ['workspaces', '1', 'name'])).toBe('two')
   })
 
@@ -34,13 +34,13 @@ describe('lookup', () => {
 
 describe('resolveText', () => {
   it('fills bindings inside text and blanks missing ones', () => {
-    expect(resolveText('Hi {{workspace.name}}!', scope, fmt)).toBe('Hi pine!')
+    expect(resolveText('Hi {{workspace.name}}!', scope, fmt)).toBe('Hi ostia!')
     expect(resolveText('[{{workspace.nope}}]', scope, fmt)).toBe('[]')
     expect(resolveText('{{workspace}}', scope, fmt)).toBe('')
   })
 
   it('applies filters left to right', () => {
-    expect(resolveText('{{workspace.name | upper}}', scope, fmt)).toBe('PINE')
+    expect(resolveText('{{workspace.name | upper}}', scope, fmt)).toBe('OSTIA')
     expect(resolveText('{{workspaces | count}}', scope, fmt)).toBe('2')
     expect(resolveText('{{workspace.empty | count}}', scope, fmt)).toBe('0')
     expect(resolveText('{{workspace.nope | count}}', scope, fmt)).toBe('0')
@@ -82,6 +82,6 @@ describe('resolveArgs', () => {
         scope,
         fmt,
       ),
-    ).toEqual({ index: 3, name: 'ws pine', n: 1 })
+    ).toEqual({ index: 3, name: 'ws ostia', n: 1 })
   })
 })

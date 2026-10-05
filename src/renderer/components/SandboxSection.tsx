@@ -50,7 +50,7 @@ export function useFixedPolicy(
   // biome-ignore lint/correctness/useExhaustiveDependencies: revision refetches after an edit
   useEffect(() => {
     let live = true
-    void window.pine.sandbox.fixedPolicy(workspaceId).then((next) => {
+    void window.ostia.sandbox.fixedPolicy(workspaceId).then((next) => {
       if (live) setFixed(next)
     })
     return () => {
@@ -84,7 +84,7 @@ export function SandboxSection(): JSX.Element {
             const check = checkDomainPattern(value)
             return check.ok ? [] : [{ value, reason: check.reason }]
           })
-        : await window.pine.sandbox.checkPaths(key, added)
+        : await window.ostia.sandbox.checkPaths(key, added)
       if (errors.length > 0) return { ok: false, errors }
       await save({ ...globals, [GLOBAL_LISTS[key]]: next })
       return { ok: true }
@@ -115,7 +115,7 @@ export function SandboxSection(): JSX.Element {
           }}
         />
       </SettingsGroup>
-      <SettingsGroup title={d.sandbox.pineAccess}>
+      <SettingsGroup title={d.sandbox.ostiaAccess}>
         <ControlRow label={d.sandbox.allWorkspaces} desc={d.sandbox.allWorkspacesDesc}>
           <Switch
             aria-label={d.sandbox.allWorkspaces}

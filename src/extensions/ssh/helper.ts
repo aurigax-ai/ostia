@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto'
 import { REMOTE_BOOTSTRAP } from './remote'
 
 export const HELPER_PROTOCOL = 1
-export const STATUS_PREFIX = 'PINE-HELPER '
+export const STATUS_PREFIX = 'OSTIA-HELPER '
 export const HELPER_HOME = '.ostia'
 export const HELPER_DIR = `${HELPER_HOME}/helper`
 export const LEGACY_HELPER_HOME = '.pine'

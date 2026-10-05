@@ -11,7 +11,7 @@ import {
 } from './fakeProvider'
 import { openWorkspace } from './helpers'
 
-const RUN_MARKER = 'pine-ran-from-chat'
+const RUN_MARKER = 'ostia-ran-from-chat'
 
 function seedAssistant(
   dataHome: string,
@@ -43,7 +43,7 @@ test.describe('assistant chat pane and terminal completion', () => {
     provider = await startFakeProvider((req: FakeRequest) => {
       if (req.system.includes('autocomplete the command')) {
         const line = req.last.match(/Current line: (.*)$/m)?.[1] ?? ''
-        return line.startsWith('echo pine-gh') ? 'echo pine-ghost-ok' : line
+        return line.startsWith('echo ostia-gh') ? 'echo ostia-ghost-ok' : line
       }
       if (req.last.includes('marker')) {
         return `Run this:\n\n\`\`\`bash\necho ${RUN_MARKER}\n\`\`\`\n`
@@ -187,14 +187,14 @@ test.describe('assistant chat pane and terminal completion', () => {
       const editor = win.getByRole('textbox', { name: 'Command input' })
       await expect(editor).toBeVisible({ timeout: 15_000 })
       await editor.click()
-      await win.keyboard.type('echo pine-gh')
+      await win.keyboard.type('echo ostia-gh')
       const ghost = win.locator('[data-ghost="ai"]')
       await expect(ghost).toHaveText('ost-ok', { timeout: 15_000 })
       await win.keyboard.press('Tab')
-      await expect(editor).toHaveValue('echo pine-ghost-ok')
+      await expect(editor).toHaveValue('echo ostia-ghost-ok')
       await win.waitForTimeout(500)
       const rows = await win.locator('.xterm-rows').first().innerText()
-      expect(rows.split('\n').some((l) => l.trim() === 'pine-ghost-ok')).toBe(false)
+      expect(rows.split('\n').some((l) => l.trim() === 'ostia-ghost-ok')).toBe(false)
 
       await win.keyboard.press('Control+c')
       await expect(editor).toHaveValue('')
@@ -207,7 +207,7 @@ test.describe('assistant chat pane and terminal completion', () => {
 
       const before = provider.requests.length
       await editor.click()
-      await win.keyboard.type('echo pine-gh')
+      await win.keyboard.type('echo ostia-gh')
       await win.waitForTimeout(1500)
       await expect(ghost).toHaveCount(0)
       expect(
@@ -237,7 +237,7 @@ function toolAnswer(req: FakeRequest): FakeReply {
     }
   }
   if (req.last.includes('echo')) {
-    return { toolCalls: [{ name: 'mcp__fake__echo', args: { text: 'pine' } }] }
+    return { toolCalls: [{ name: 'mcp__fake__echo', args: { text: 'ostia' } }] }
   }
   return 'Hello from the fake model.'
 }
@@ -331,7 +331,7 @@ test.describe('assistant chat tools', () => {
       const mcpCard = win.locator('.chat-tool-approval').last()
       await expect(mcpCard).toContainText('Call echo on the fake MCP server?', { timeout: 15_000 })
       await mcpCard.getByRole('button', { name: 'Allow once' }).click()
-      await expect(win.locator('.ask-answer').last()).toContainText('MCP answered: echo: pine', {
+      await expect(win.locator('.ask-answer').last()).toContainText('MCP answered: echo: ostia', {
         timeout: 15_000,
       })
     } finally {

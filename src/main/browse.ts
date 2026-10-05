@@ -77,17 +77,17 @@ export function consoleLevelName(level: number): string {
   return (['verbose', 'info', 'warning', 'error'] as const)[level] ?? 'info'
 }
 
-export const PINE_ERROR_PREFIX = '[pine-error]'
+export const OSTIA_ERROR_PREFIX = '[ostia-error]'
 
 export const PAGE_ERROR_CATCHER_JS = `(() => {
-  if (window.__pineErrCatcher) return;
-  window.__pineErrCatcher = true;
+  if (window.__ostiaErrCatcher) return;
+  window.__ostiaErrCatcher = true;
   window.onerror = function (message, source, lineno, colno, error) {
-    console.error('${PINE_ERROR_PREFIX}', error && error.stack ? error.stack : message);
+    console.error('${OSTIA_ERROR_PREFIX}', error && error.stack ? error.stack : message);
   };
   window.onunhandledrejection = function (event) {
     var reason = event && event.reason;
-    console.error('${PINE_ERROR_PREFIX}', reason && reason.stack ? reason.stack : String(reason));
+    console.error('${OSTIA_ERROR_PREFIX}', reason && reason.stack ? reason.stack : String(reason));
   };
 })();`
 
@@ -116,14 +116,14 @@ export function clearGuestBrowseState(wcId: number): void {
 const MAX_DIALOG_ENTRIES = 200
 
 const DIALOG_OVERRIDE_JS = `(() => {
-  if (window.__pineDialogPatched) return;
-  window.__pineDialogPatched = true;
-  window.__pineDialogs = window.__pineDialogs || [];
-  window.__pineDialogPolicy = window.__pineDialogPolicy || { policy: 'dismiss', text: null };
+  if (window.__ostiaDialogPatched) return;
+  window.__ostiaDialogPatched = true;
+  window.__ostiaDialogs = window.__ostiaDialogs || [];
+  window.__ostiaDialogPolicy = window.__ostiaDialogPolicy || { policy: 'dismiss', text: null };
   function log(type, message) {
-    window.__pineDialogs.push({ type: type, message: String(message), ts: Date.now() });
-    if (window.__pineDialogs.length > ${MAX_DIALOG_ENTRIES}) {
-      window.__pineDialogs.splice(0, window.__pineDialogs.length - ${MAX_DIALOG_ENTRIES});
+    window.__ostiaDialogs.push({ type: type, message: String(message), ts: Date.now() });
+    if (window.__ostiaDialogs.length > ${MAX_DIALOG_ENTRIES}) {
+      window.__ostiaDialogs.splice(0, window.__ostiaDialogs.length - ${MAX_DIALOG_ENTRIES});
     }
   }
   window.alert = function (message) {
@@ -131,18 +131,18 @@ const DIALOG_OVERRIDE_JS = `(() => {
   };
   window.confirm = function (message) {
     log('confirm', message);
-    return window.__pineDialogPolicy.policy === 'accept';
+    return window.__ostiaDialogPolicy.policy === 'accept';
   };
   window.prompt = function (message) {
     log('prompt', message);
-    return window.__pineDialogPolicy.policy === 'accept' ? (window.__pineDialogPolicy.text || '') : null;
+    return window.__ostiaDialogPolicy.policy === 'accept' ? (window.__ostiaDialogPolicy.text || '') : null;
   };
 })();`
 
 const REACT_GRAB_ON_JS = `(() => {
-  if (window.__pineReactGrabOn) return true;
-  window.__pineReactGrabOn = true;
-  window.__pineReactGrab = window.__pineReactGrab || null;
+  if (window.__ostiaReactGrabOn) return true;
+  window.__ostiaReactGrabOn = true;
+  window.__ostiaReactGrab = window.__ostiaReactGrab || null;
   function findFiber(el) {
     for (const key in el) {
       if (key.indexOf('__reactFiber$') === 0 || key.indexOf('__reactInternalInstance$') === 0) {
@@ -151,7 +151,7 @@ const REACT_GRAB_ON_JS = `(() => {
     }
     return null;
   }
-  window.__pineReactGrabHandler = function (e) {
+  window.__ostiaReactGrabHandler = function (e) {
     let el = e.target;
     let fiber = null;
     while (el && !fiber) {
@@ -159,7 +159,7 @@ const REACT_GRAB_ON_JS = `(() => {
       if (!fiber) el = el.parentElement;
     }
     if (!fiber) {
-      window.__pineReactGrab = { component: null, file: null, line: null };
+      window.__ostiaReactGrab = { component: null, file: null, line: null };
       return;
     }
     let f = fiber;
@@ -173,21 +173,21 @@ const REACT_GRAB_ON_JS = `(() => {
       }
       f = f.return;
     }
-    window.__pineReactGrab = {
+    window.__ostiaReactGrab = {
       component: component,
       file: source ? source.fileName : null,
       line: source ? source.lineNumber : null,
     };
   };
-  document.addEventListener('click', window.__pineReactGrabHandler, true);
+  document.addEventListener('click', window.__ostiaReactGrabHandler, true);
   return true;
 })();`
 
 const REACT_GRAB_OFF_JS = `(() => {
-  if (!window.__pineReactGrabOn) return true;
-  window.__pineReactGrabOn = false;
-  if (window.__pineReactGrabHandler) {
-    document.removeEventListener('click', window.__pineReactGrabHandler, true);
+  if (!window.__ostiaReactGrabOn) return true;
+  window.__ostiaReactGrabOn = false;
+  if (window.__ostiaReactGrabHandler) {
+    document.removeEventListener('click', window.__ostiaReactGrabHandler, true);
   }
   return true;
 })();`
@@ -762,7 +762,7 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
       const search = await debuggerCommand<{ searchId: string; resultCount: number }>(
         guest,
         'DOM.performSearch',
-        { query: `[data-pine-mark="${nonce}"]` },
+        { query: `[data-ostia-mark="${nonce}"]` },
       )
       const found = await debuggerCommand<{ nodeIds: number[] }>(guest, 'DOM.getSearchResults', {
         searchId: search.searchId,
@@ -1194,7 +1194,7 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
   method('dialog', async (guest, p) => {
     const sub = p.sub
     if (sub === 'status') {
-      const dialogs = await guest.executeJavaScript('window.__pineDialogs || []', true)
+      const dialogs = await guest.executeJavaScript('window.__ostiaDialogs || []', true)
       return { ok: true, policy: dialogPolicies.get(guest.id)?.policy ?? null, dialogs }
     }
     if (sub !== 'accept' && sub !== 'dismiss') return fail('bad-sub', String(sub))
@@ -1208,7 +1208,7 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
       dialogInitAttached.add(guest.id)
     }
     await guest.executeJavaScript(DIALOG_OVERRIDE_JS, true)
-    await guest.executeJavaScript(`window.__pineDialogPolicy = ${JSON.stringify(policy)};`, true)
+    await guest.executeJavaScript(`window.__ostiaDialogPolicy = ${JSON.stringify(policy)};`, true)
     return { ok: true }
   })
 
@@ -1387,7 +1387,7 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
     if (p.action === 'get') {
       return {
         ok: true,
-        entry: await guest.executeJavaScript('window.__pineReactGrab || null', true),
+        entry: await guest.executeJavaScript('window.__ostiaReactGrab || null', true),
       }
     }
     if (p.action !== 'toggle') return fail('bad-action', String(p.action))

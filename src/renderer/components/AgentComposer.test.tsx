@@ -57,7 +57,7 @@ describe('AgentComposer', () => {
   })
 
   const pressedEnter = (paneId: string) =>
-    waitFor(() => expect(window.pine.pty.write).toHaveBeenCalledWith(paneId, '\r'), {
+    waitFor(() => expect(window.ostia.pty.write).toHaveBeenCalledWith(paneId, '\r'), {
       timeout: ENTER_AFTER_PASTE_MS + 1000,
     })
 
@@ -110,7 +110,7 @@ describe('AgentComposer', () => {
     await screen.findByRole('dialog')
     await user.click(screen.getByRole('button', { name: 'Cancel', hidden: false }))
     expect(terms['p-claude'].paste).not.toHaveBeenCalled()
-    expect(window.pine.pty.write).not.toHaveBeenCalled()
+    expect(window.ostia.pty.write).not.toHaveBeenCalled()
   })
 
   it('copies the message instead of typing when the agent stopped running', async () => {
@@ -120,7 +120,7 @@ describe('AgentComposer', () => {
     useBlocksStore.setState({ drafts: { 'p-claude': {} as never }, running: {}, agentBlocks: {} })
     await user.click(screen.getByRole('button', { name: 'Send' }))
     expect(terms['p-claude'].paste).not.toHaveBeenCalled()
-    expect(window.pine.pty.write).not.toHaveBeenCalled()
+    expect(window.ostia.pty.write).not.toHaveBeenCalled()
     expect(await navigator.clipboard.readText()).toBe('are you there')
     expect(screen.getByRole('status')).toHaveTextContent(/not taking input right now/)
     expect(screen.getByLabelText('Message')).toHaveValue('are you there')

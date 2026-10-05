@@ -85,7 +85,7 @@ export function registerViewCommands(): void {
 }
 
 export function startViews(): () => void {
-  const api = window.pine?.views
+  const api = window.ostia?.views
   if (!api) return () => {}
   const store = useViewsStore.getState()
   const off = api.onChanged((listing) => store.apply(listing))

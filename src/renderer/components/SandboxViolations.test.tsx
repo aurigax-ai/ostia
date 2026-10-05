@@ -51,11 +51,11 @@ describe('SandboxViolations', () => {
     expect(await screen.findByText('Nothing was blocked.')).toBeInTheDocument()
     expect(screen.getByText(/Linux does not report blocked reads/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Clear' })).toBeDisabled()
-    expect(window.pine.sandbox.violations).toHaveBeenCalledWith('ws')
+    expect(window.ostia.sandbox.violations).toHaveBeenCalledWith('ws')
   })
 
   it('lists each violation with its kind, target, reason, count and time', async () => {
-    vi.mocked(window.pine.sandbox.violations).mockResolvedValue([NETWORK, BLOCKED, WRITE, OTHER])
+    vi.mocked(window.ostia.sandbox.violations).mockResolvedValue([NETWORK, BLOCKED, WRITE, OTHER])
     render(<SandboxViolations workspaceId="ws" />)
     const list = await screen.findByRole('list', { name: 'Blocked' })
     const rows = within(list).getAllByRole('listitem')
@@ -73,20 +73,20 @@ describe('SandboxViolations', () => {
   })
 
   it('offers Allow only where main says the host can be allowed, through the existing allow path', async () => {
-    vi.mocked(window.pine.sandbox.violations).mockResolvedValue([NETWORK, BLOCKED, WRITE])
+    vi.mocked(window.ostia.sandbox.violations).mockResolvedValue([NETWORK, BLOCKED, WRITE])
     render(<SandboxViolations workspaceId="ws" />)
     const list = await screen.findByRole('list', { name: 'Blocked' })
     expect(within(list).getAllByRole('button', { name: 'Allow' })).toHaveLength(1)
     await userEvent.click(within(list).getByRole('button', { name: 'Allow' }))
-    expect(window.pine.sandbox.allowRefused).toHaveBeenCalledWith('ws', 'example.com')
+    expect(window.ostia.sandbox.allowRefused).toHaveBeenCalledWith('ws', 'example.com')
   })
 
   it('clears the list for this workspace and shows the empty state again', async () => {
-    vi.mocked(window.pine.sandbox.violations).mockResolvedValueOnce([WRITE]).mockResolvedValue([])
+    vi.mocked(window.ostia.sandbox.violations).mockResolvedValueOnce([WRITE]).mockResolvedValue([])
     render(<SandboxViolations workspaceId="ws" />)
     await screen.findByRole('list', { name: 'Blocked' })
     await userEvent.click(screen.getByRole('button', { name: 'Clear' }))
-    expect(window.pine.sandbox.clearViolations).toHaveBeenCalledWith('ws')
+    expect(window.ostia.sandbox.clearViolations).toHaveBeenCalledWith('ws')
     await waitFor(() => expect(screen.getByText('Nothing was blocked.')).toBeInTheDocument())
   })
 })

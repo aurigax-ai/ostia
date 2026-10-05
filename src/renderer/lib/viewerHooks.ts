@@ -18,7 +18,7 @@ export function useFileBytes(path: string | undefined): FileBytes {
     setBytes({ status: 'loading' })
     if (!path) return
     let alive = true
-    window.pine.fs.readBinary(path).then(
+    window.ostia.fs.readBinary(path).then(
       (res) => {
         if (alive) setBytes(res)
       },

@@ -141,11 +141,11 @@ const oxocarbon: Theme = {
   },
 }
 
-const pineLight: Theme = {
-  id: 'pine-light',
-  name: 'Pine Light',
+const ostiaLight: Theme = {
+  id: 'ostia-light',
+  name: 'Ostia Light',
   appearance: 'light',
-  colorScheme: 'pine-light',
+  colorScheme: 'ostia-light',
   tokens: {
     bg: '#f6f7f9',
     'bg-sunken': '#eceef2',
@@ -171,13 +171,13 @@ const pineLight: Theme = {
 
 export const BUILTIN_PLUGINS: PluginManifest[] = [
   {
-    id: 'pine.themes',
+    id: 'ostia.themes',
     name: 'Core themes',
     description: 'Built-in themes and their terminal and editor color schemes.',
     version: '1.0.0',
     builtin: true,
     contributes: {
-      themes: [adeberry, oneDarkVivid, instrumentNight, dracula, oxocarbon, pineLight],
+      themes: [adeberry, oneDarkVivid, instrumentNight, dracula, oxocarbon, ostiaLight],
       colorSchemes: BUILTIN_COLOR_SCHEMES,
     },
   },

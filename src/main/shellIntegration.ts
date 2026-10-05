@@ -13,9 +13,9 @@ import {
 } from '../shared/agentPlugins'
 import { dualEnv, shellEnv } from '../shared/appEnv'
 import { CLAUDE_QUESTION_TOOLS } from '../shared/claudeAttention'
-import { LEGACY_PRODUCT_NAME, PRODUCT_NAME } from '../shared/product'
+import { PRODUCT_NAME } from '../shared/product'
 import { type PromptSeparator, isPromptSeparator } from '../shared/promptSettings'
-import pineSkill from './agent/pine-skill.md?raw'
+import agentSkill from './agent/ostia-skill.md?raw'
 import {
   type AgentPluginContent,
   type ExtensionAgentHook,
@@ -34,20 +34,20 @@ const SHELL_STATE_FILE = shellEnv('SHELL_STATE')
 
 const BASH_B_MARK = String.raw`\[\e]133;B\e\\\]`
 
-const ZSH_INIT = `# Pine shell integration for zsh (generated — safe to delete; regenerated on launch).
-# Emits OSC 133 prompt/command marks + OSC 7 cwd reports so Pine can render command blocks
+const ZSH_INIT = `# Ostia shell integration for zsh (generated — safe to delete; regenerated on launch).
+# Emits OSC 133 prompt/command marks + OSC 7 cwd reports so Ostia can render command blocks
 # and follow "cd" without polling /proc.
 if [ -n "$OSTIA_SHELL_INTEGRATION" ]; then return; fi
 OSTIA_SHELL_INTEGRATION=1
 
-__pine_osc7() {
+__ostia_osc7() {
   print -Pn "\\e]7;file://%m%d\\e\\\\"
 }
 
-__pine_mark_a() { print -Pn "\\e]133;A\\e\\\\" }
-__pine_mark_c() { print -Pn "\\e]133;C\\e\\\\" }
-__pine_mark_d() { print -Pn "\\e]133;D;$1\\e\\\\" }
-__pine_mark_e() {
+__ostia_mark_a() { print -Pn "\\e]133;A\\e\\\\" }
+__ostia_mark_c() { print -Pn "\\e]133;C\\e\\\\" }
+__ostia_mark_d() { print -Pn "\\e]133;D;$1\\e\\\\" }
+__ostia_mark_e() {
   local s=$1
   s=\${s//\\\\/\\\\\\\\}
   s=\${s//;/\\\\x3b}
@@ -56,35 +56,35 @@ __pine_mark_e() {
   print -rn -- $'\\e]633;E;'"$s"$'\\e\\\\'
 }
 
-typeset -g __pine_b_mark=$'%{\\e]133;B\\e\\\\%}'
-typeset -g __pine_cmd_running=0
-typeset -g __pine_last_state=''
+typeset -g __ostia_b_mark=$'%{\\e]133;B\\e\\\\%}'
+typeset -g __ostia_cmd_running=0
+typeset -g __ostia_last_state=''
 zmodload -i zsh/parameter 2>/dev/null
 
-__pine_report_shell() {
+__ostia_report_shell() {
   [[ -n "${SHELL_STATE_FILE}" ]] || return 0
   local names="\${(j: :)\${(@ok)builtins}} \${(j: :)\${(@ok)reswords}} \${(j: :)\${(@ok)aliases}} \${(j: :)\${(@)\${(@ok)functions}:#_*}}"
   local nl=$'\\n'
   local state="$PATH$nl\${VIRTUAL_ENV//$nl/}$nl\${CONDA_DEFAULT_ENV//$nl/}$nl\${KUBECONFIG//$nl/}$nl$names"
-  [[ "$state" == "$__pine_last_state" ]] && return 0
-  __pine_last_state=$state
+  [[ "$state" == "$__ostia_last_state" ]] && return 0
+  __ostia_last_state=$state
   print -r -- "$state" >| "${SHELL_STATE_FILE}" 2>/dev/null
 }
 
-typeset -gi __pine_prompt_on=0
-typeset -gi __pine_prompt_torn=0
-typeset -g __pine_prompt_tail=' '
-typeset -g __pine_prompt_text=''
-if [[ "$OSTIA_PROMPT" == pine ]]; then
-  __pine_prompt_on=1
+typeset -gi __ostia_prompt_on=0
+typeset -gi __ostia_prompt_torn=0
+typeset -g __ostia_prompt_tail=' '
+typeset -g __ostia_prompt_text=''
+if [[ "$OSTIA_PROMPT" == ostia ]]; then
+  __ostia_prompt_on=1
   case "$OSTIA_PROMPT_SEPARATOR" in
-    '%') __pine_prompt_tail=' %% ' ;;
-    '$'|'>') __pine_prompt_tail=" $OSTIA_PROMPT_SEPARATOR " ;;
+    '%') __ostia_prompt_tail=' %% ' ;;
+    '$'|'>') __ostia_prompt_tail=" $OSTIA_PROMPT_SEPARATOR " ;;
   esac
   if [[ "$OSTIA_PROMPT_LINES" == 2 ]]; then
-    __pine_prompt_text="%~"$'\n'"\${__pine_prompt_tail# }"
+    __ostia_prompt_text="%~"$'\n'"\${__ostia_prompt_tail# }"
   else
-    __pine_prompt_text="%~$__pine_prompt_tail"
+    __ostia_prompt_text="%~$__ostia_prompt_tail"
   fi
 fi
 unset OSTIA_PROMPT OSTIA_PROMPT_SEPARATOR OSTIA_PROMPT_LINES
@@ -95,49 +95,49 @@ if [[ -n "$OSTIA_HISTFILE" ]]; then
 fi
 unset OSTIA_HISTFILE
 
-# Pine prompt: the input editor draws the context, so the shell line is only "cwd sep". This
+# Ostia prompt: the input editor draws the context, so the shell line is only "cwd sep". This
 # file loads after the user's rc; powerlevel10k rebuilds PROMPT in its own last precmd, so it is
 # torn down once, here at load, before its first precmd runs its full (slow) initialization.
-__pine_apply_prompt() {
-  (( __pine_prompt_on )) || return 0
-  if (( ! __pine_prompt_torn )) && (( $+functions[prompt_powerlevel9k_teardown] )); then
-    __pine_prompt_torn=1
+__ostia_apply_prompt() {
+  (( __ostia_prompt_on )) || return 0
+  if (( ! __ostia_prompt_torn )) && (( $+functions[prompt_powerlevel9k_teardown] )); then
+    __ostia_prompt_torn=1
     prompt_powerlevel9k_teardown
   fi
-  PROMPT="$__pine_prompt_text"
+  PROMPT="$__ostia_prompt_text"
   RPROMPT=''
   RPS1=''
 }
-__pine_apply_prompt
+__ostia_apply_prompt
 
-__pine_precmd() {
+__ostia_precmd() {
   local ec=$?
-  if (( __pine_cmd_running )); then
-    __pine_mark_d "$ec"
-    __pine_cmd_running=0
+  if (( __ostia_cmd_running )); then
+    __ostia_mark_d "$ec"
+    __ostia_cmd_running=0
   fi
-  __pine_osc7
-  __pine_report_shell
-  __pine_apply_prompt
-  __pine_mark_a
+  __ostia_osc7
+  __ostia_report_shell
+  __ostia_apply_prompt
+  __ostia_mark_a
   # Append the (zero-width) prompt-end mark once, so it always lands right after the
   # visible prompt text — works even when a prompt framework redraws PROMPT each cycle.
   case "$PROMPT" in
-    *"$__pine_b_mark") ;;
-    *) PROMPT="\${PROMPT}\${__pine_b_mark}" ;;
+    *"$__ostia_b_mark") ;;
+    *) PROMPT="\${PROMPT}\${__ostia_b_mark}" ;;
   esac
 }
 
-__pine_preexec() {
-  __pine_cmd_running=1
-  __pine_mark_e "$1"
-  __pine_mark_c
+__ostia_preexec() {
+  __ostia_cmd_running=1
+  __ostia_mark_e "$1"
+  __ostia_mark_c
 }
 
 autoload -Uz add-zsh-hook
-add-zsh-hook precmd __pine_precmd
-add-zsh-hook preexec __pine_preexec
-add-zsh-hook chpwd __pine_osc7
+add-zsh-hook precmd __ostia_precmd
+add-zsh-hook preexec __ostia_preexec
+add-zsh-hook chpwd __ostia_osc7
 
 # \`ostia\` CLI: runs the control-socket client injected as $OSTIA_CLI. \`pine\` is the
 # old name of the same command and keeps working.
@@ -147,23 +147,23 @@ if [ -n "${CLI_PATH}" ]; then
 fi
 `
 
-const BASH_INIT = `# Pine shell integration for bash (generated — safe to delete; regenerated on launch).
-# Emits OSC 133 prompt/command marks + OSC 7 cwd reports so Pine can render command blocks
+const BASH_INIT = `# Ostia shell integration for bash (generated — safe to delete; regenerated on launch).
+# Emits OSC 133 prompt/command marks + OSC 7 cwd reports so Ostia can render command blocks
 # and follow cd without polling /proc.
 if [ -n "$OSTIA_SHELL_INTEGRATION" ]; then return; fi
 OSTIA_SHELL_INTEGRATION=1
 
-__pine_osc7() {
+__ostia_osc7() {
   printf '\\e]7;file://%s%s\\e\\\\' "\${HOSTNAME:-$(hostname 2>/dev/null)}" "$PWD"
 }
 
-__pine_executing=0
+__ostia_executing=0
 # Only "on" for the one real preexec firing right after a precmd — the DEBUG trap also fires
 # for PROMPT_COMMAND's own (possibly multi-statement) body, which must NOT count as a command.
 # Same interactive-mode gate the bash-preexec project uses to solve this.
-__pine_interactive_mode=""
+__ostia_interactive_mode=""
 
-__pine_mark_e() {
+__ostia_mark_e() {
   local s=$1
   s=\${s//\\\\/\\\\\\\\}
   s=\${s//;/\\\\x3b}
@@ -172,22 +172,22 @@ __pine_mark_e() {
   printf '\\e]633;E;%s\\e\\\\' "$s"
 }
 
-__pine_preexec() {
+__ostia_preexec() {
   [ -n "$COMP_LINE" ] && return
-  if [ "$__pine_interactive_mode" != "on" ]; then
+  if [ "$__ostia_interactive_mode" != "on" ]; then
     return
   fi
-  __pine_interactive_mode=""
+  __ostia_interactive_mode=""
   [ "$BASH_COMMAND" = "$PROMPT_COMMAND" ] && return
-  __pine_executing=1
-  local __pine_line
-  __pine_line=$(LC_ALL=C HISTTIMEFORMAT= builtin history 1)
-  __pine_first_entry=\${__pine_line#"\${__pine_line%%[! ]*}"}
-  __pine_first_entry=\${__pine_first_entry%%[!0-9]*}
-  __pine_first_line=\${__pine_line#*[[:digit:]][* ] }
-  case "$__pine_first_line" in
-    *"$BASH_COMMAND"*) __pine_mark_e "$__pine_first_line" ;;
-    *) __pine_first_entry='' ;;
+  __ostia_executing=1
+  local __ostia_line
+  __ostia_line=$(LC_ALL=C HISTTIMEFORMAT= builtin history 1)
+  __ostia_first_entry=\${__ostia_line#"\${__ostia_line%%[! ]*}"}
+  __ostia_first_entry=\${__ostia_first_entry%%[!0-9]*}
+  __ostia_first_line=\${__ostia_line#*[[:digit:]][* ] }
+  case "$__ostia_first_line" in
+    *"$BASH_COMMAND"*) __ostia_mark_e "$__ostia_first_line" ;;
+    *) __ostia_first_entry='' ;;
   esac
   printf '\\e]133;C\\e\\\\'
 }
@@ -197,12 +197,12 @@ __pine_preexec() {
 # run, report the history entries added since (first..last) as the block's whole command, before
 # the D mark. Anything unexpected in the listing (erasedups, history -c, a trimmed list) keeps
 # the first line.
-__pine_first_entry=''
-__pine_first_line=''
-__pine_mark_whole_command() {
-  [ -n "$__pine_first_entry" ] || return 0
-  local first=$__pine_first_entry last lines pad n nl=$'\\n'
-  __pine_first_entry=''
+__ostia_first_entry=''
+__ostia_first_line=''
+__ostia_mark_whole_command() {
+  [ -n "$__ostia_first_entry" ] || return 0
+  local first=$__ostia_first_entry last lines pad n nl=$'\\n'
+  __ostia_first_entry=''
   last=$(LC_ALL=C HISTTIMEFORMAT= builtin history 1)
   last=\${last#"\${last%%[! ]*}"}
   last=\${last%%[!0-9]*}
@@ -210,7 +210,7 @@ __pine_mark_whole_command() {
   lines=$(LC_ALL=C HISTTIMEFORMAT= builtin history $((last - first + 1)))
   printf -v pad '%5d' "$first"
   case "$lines" in
-    "$pad"[*\\ ]" $__pine_first_line$nl"*) lines=\${lines#"$pad"[* ] } ;;
+    "$pad"[*\\ ]" $__ostia_first_line$nl"*) lines=\${lines#"$pad"[* ] } ;;
     *) return 0 ;;
   esac
   for ((n = first + 1; n <= last; n++)); do
@@ -220,7 +220,7 @@ __pine_mark_whole_command() {
       *) return 0 ;;
     esac
   done
-  __pine_mark_e "$lines"
+  __ostia_mark_e "$lines"
 }
 
 # Bash 5.1+ lets PROMPT_COMMAND be an array, and distros (e.g. /etc/bash.bashrc) often
@@ -229,32 +229,32 @@ __pine_mark_whole_command() {
 # fire the DEBUG trap for commands inside a function body, but it DOES fire it for each
 # top-level ';'-joined statement — so a naive join makes the user's own prompt commands
 # look like a real preexec (a false "command executed" mark right after every prompt).
-__pine_orig_prompt_command=("\${PROMPT_COMMAND[@]}")
+__ostia_orig_prompt_command=("\${PROMPT_COMMAND[@]}")
 
-__pine_last_state=''
-__pine_report_shell() {
+__ostia_last_state=''
+__ostia_report_shell() {
   [ -n "${SHELL_STATE_FILE}" ] || return 0
   local names
   names=$(compgen -abk -A function -X '_*' 2>/dev/null)
   local nl=$'\\n'
   local state="$PATH$nl\${VIRTUAL_ENV//$nl/}$nl\${CONDA_DEFAULT_ENV//$nl/}$nl\${KUBECONFIG//$nl/}$nl\${names//$nl/ }"
-  [ "$state" = "$__pine_last_state" ] && return 0
-  __pine_last_state=$state
+  [ "$state" = "$__ostia_last_state" ] && return 0
+  __ostia_last_state=$state
   printf '%s\\n' "$state" >| "${SHELL_STATE_FILE}" 2>/dev/null
 }
 
-__pine_prompt_on=0
-__pine_prompt_tail=' '
-__pine_prompt_text=''
-if [ "$OSTIA_PROMPT" = pine ]; then
-  __pine_prompt_on=1
+__ostia_prompt_on=0
+__ostia_prompt_tail=' '
+__ostia_prompt_text=''
+if [ "$OSTIA_PROMPT" = ostia ]; then
+  __ostia_prompt_on=1
   case "$OSTIA_PROMPT_SEPARATOR" in
-    '%'|'$'|'>') __pine_prompt_tail=" $OSTIA_PROMPT_SEPARATOR " ;;
+    '%'|'$'|'>') __ostia_prompt_tail=" $OSTIA_PROMPT_SEPARATOR " ;;
   esac
   if [ "$OSTIA_PROMPT_LINES" = 2 ]; then
-    __pine_prompt_text='\\w\\n'"\${__pine_prompt_tail# }"
+    __ostia_prompt_text='\\w\\n'"\${__ostia_prompt_tail# }"
   else
-    __pine_prompt_text='\\w'"$__pine_prompt_tail"
+    __ostia_prompt_text='\\w'"$__ostia_prompt_tail"
   fi
 fi
 unset OSTIA_PROMPT OSTIA_PROMPT_SEPARATOR OSTIA_PROMPT_LINES
@@ -265,22 +265,22 @@ if [ -n "$OSTIA_HISTFILE" ]; then
 fi
 unset OSTIA_HISTFILE
 
-__pine_prompt_command() {
+__ostia_prompt_command() {
   local ec=$?
-  if [ "$__pine_executing" = "1" ]; then
-    __pine_mark_whole_command
+  if [ "$__ostia_executing" = "1" ]; then
+    __ostia_mark_whole_command
     printf '\\e]133;D;%s\\e\\\\' "$ec"
-    __pine_executing=0
+    __ostia_executing=0
   fi
-  __pine_osc7
+  __ostia_osc7
   printf '\\e]133;A\\e\\\\'
-  local __pine_cmd
-  for __pine_cmd in "\${__pine_orig_prompt_command[@]}"; do
-    [ -n "$__pine_cmd" ] && eval "$__pine_cmd"
+  local __ostia_cmd
+  for __ostia_cmd in "\${__ostia_orig_prompt_command[@]}"; do
+    [ -n "$__ostia_cmd" ] && eval "$__ostia_cmd"
   done
-  __pine_report_shell
-  # Pine prompt: after the user's PROMPT_COMMAND, so a framework's PS1 becomes only "cwd sep".
-  [ "$__pine_prompt_on" = 1 ] && PS1="$__pine_prompt_text"
+  __ostia_report_shell
+  # Ostia prompt: after the user's PROMPT_COMMAND, so a framework's PS1 becomes only "cwd sep".
+  [ "$__ostia_prompt_on" = 1 ] && PS1="$__ostia_prompt_text"
   # Append the (zero-width) prompt-end mark AFTER the user's PROMPT_COMMAND has run — prompt
   # frameworks (starship, powerline, git-prompt) rebuild PS1 there, which would otherwise wipe
   # an earlier mark. Single-quoted so bash stores it byte-exact (see BASH_B_MARK doc above).
@@ -288,12 +288,12 @@ __pine_prompt_command() {
     *'${BASH_B_MARK}') ;;
     *) PS1="\${PS1}"'${BASH_B_MARK}' ;;
   esac
-  __pine_interactive_mode="on"
+  __ostia_interactive_mode="on"
 }
 
 unset PROMPT_COMMAND
-PROMPT_COMMAND="__pine_prompt_command"
-trap '__pine_preexec' DEBUG
+PROMPT_COMMAND="__ostia_prompt_command"
+trap '__ostia_preexec' DEBUG
 
 # \`ostia\` CLI: runs the control-socket client injected as $OSTIA_CLI. \`pine\` is the
 # old name of the same command and keeps working.
@@ -353,7 +353,7 @@ export function claudeHookSettings(extensionHooks: readonly ExtensionAgentHook[]
   return { hooks }
 }
 
-export const AGENT_SKILL_NAME = LEGACY_PRODUCT_NAME
+export const AGENT_SKILL_NAME = PRODUCT_NAME
 
 export const CLAUDE_PLUGIN_MANIFEST = {
   name: AGENT_SKILL_NAME,
@@ -383,14 +383,14 @@ export function writeClaudePlugin(
     `${JSON.stringify(claudeHookSettings(content.hooks), null, 2)}\n`,
     'utf8',
   )
-  writeFileSync(join(dir, 'skills', AGENT_SKILL_NAME, 'SKILL.md'), pineSkill, 'utf8')
+  writeFileSync(join(dir, 'skills', AGENT_SKILL_NAME, 'SKILL.md'), agentSkill, 'utf8')
   for (const skill of content.skills) writeSkillFiles(join(dir, 'skills', skill.id), skill)
 }
 
 export function claudeWrapper(): string {
   return [
     '',
-    '# Run claude with the Pine plugin (CLI skill, extension skills and hooks, resume token,',
+    '# Run claude with the Ostia plugin (CLI skill, extension skills and hooks, resume token,',
     '# attention hooks). `command claude` skips it.',
     `if [ -n "${CLI_PATH}" ] && [ -z "${shellEnv(AGENT_HOOKS_OFF_ENV.claude)}" ]; then`,
     '  claude() {',
@@ -570,7 +570,7 @@ function codexSessionContext(
 export const CODEX_HOOK_ARGS_FILE = 'hook-args.sh'
 
 export function codexHookArgsScript(args: readonly string[]): string {
-  return ['__pine_codex_hook_args=(', ...args.map((arg) => `  ${shellQuote(arg)}`), ')', ''].join(
+  return ['__ostia_codex_hook_args=(', ...args.map((arg) => `  ${shellQuote(arg)}`), ')', ''].join(
     '\n',
   )
 }
@@ -583,7 +583,7 @@ export function writeCodexIntegration(
   mkdirSync(dir, { recursive: true })
   const skillFile = join(finalDir, 'SKILL.md')
   const contextFile = join(finalDir, 'session-context.md')
-  writeFileSync(join(dir, 'SKILL.md'), pineSkill, 'utf8')
+  writeFileSync(join(dir, 'SKILL.md'), agentSkill, 'utf8')
   const skills = content.skills.map((skill) => {
     writeSkillFiles(join(dir, 'skills', skill.id), skill)
     return {
@@ -604,19 +604,19 @@ export function writeCodexIntegration(
 export function codexWrapper(): string {
   return [
     '',
-    '# Run interactive codex sessions with the Pine hooks (resume token, attention state, CLI',
+    '# Run interactive codex sessions with the Ostia hooks (resume token, attention state, CLI',
     '# context, extension hooks). Other subcommands run untouched; `command codex` skips it.',
-    '__pine_codex_starts_session() {',
-    '  local __pine_skip= __pine_arg',
-    '  for __pine_arg in "$@"; do',
-    '    if [ -n "$__pine_skip" ]; then',
-    '      __pine_skip=',
+    '__ostia_codex_starts_session() {',
+    '  local __ostia_skip= __ostia_arg',
+    '  for __ostia_arg in "$@"; do',
+    '    if [ -n "$__ostia_skip" ]; then',
+    '      __ostia_skip=',
     '      continue',
     '    fi',
-    '    case "$__pine_arg" in',
+    '    case "$__ostia_arg" in',
     '      -h|--help|-V|--version) return 1 ;;',
     '      --) return 0 ;;',
-    `      ${CODEX_VALUE_OPTIONS.join('|')}) __pine_skip=1 ;;`,
+    `      ${CODEX_VALUE_OPTIONS.join('|')}) __ostia_skip=1 ;;`,
     '      -*) ;;',
     `      ${CODEX_SESSION_SUBCOMMANDS.join('|')}) return 0 ;;`,
     `      ${CODEX_OTHER_SUBCOMMANDS.join('|')}) return 1 ;;`,
@@ -627,10 +627,10 @@ export function codexWrapper(): string {
     '}',
     `if [ -n "${CLI_PATH}" ] && [ -z "${shellEnv(AGENT_HOOKS_OFF_ENV.codex)}" ]; then`,
     '  codex() {',
-    `    if [ -n "${AGENT_DIR}" ] && [ -f "${AGENT_DIR}/codex/${CODEX_HOOK_ARGS_FILE}" ] && __pine_codex_starts_session "$@"; then`,
-    '      local -a __pine_codex_hook_args',
+    `    if [ -n "${AGENT_DIR}" ] && [ -f "${AGENT_DIR}/codex/${CODEX_HOOK_ARGS_FILE}" ] && __ostia_codex_starts_session "$@"; then`,
+    '      local -a __ostia_codex_hook_args',
     `      . "${AGENT_DIR}/codex/${CODEX_HOOK_ARGS_FILE}"`,
-    '      command codex "${__pine_codex_hook_args[@]}" "$@"',
+    '      command codex "${__ostia_codex_hook_args[@]}" "$@"',
     '    else',
     '      command codex "$@"',
     '    fi',
@@ -643,7 +643,7 @@ export function codexWrapper(): string {
 export function agentPluginDigest(content: AgentPluginContent): string {
   const hash = createHash('sha256')
   hash.update(JSON.stringify({ version, hooks: content.hooks }))
-  hash.update(pineSkill)
+  hash.update(agentSkill)
   for (const skill of content.skills) {
     hash.update(JSON.stringify({ id: skill.id, description: skill.description }))
     for (const file of skill.files) {
@@ -707,7 +707,7 @@ function ensureFiles(): IntegrationPaths {
   writeFileSync(
     zshenv,
     [
-      '# Pine shell integration (generated). Load the real .zshenv; ZDOTDIR is restored to',
+      '# Ostia shell integration (generated). Load the real .zshenv; ZDOTDIR is restored to',
       '# OSTIA_ZDOTDIR_ORIG at the end of .zshrc below, once our hooks are installed.',
       '[ -n "$OSTIA_ZDOTDIR_ORIG" ] && [ -f "$OSTIA_ZDOTDIR_ORIG/.zshenv" ] && source "$OSTIA_ZDOTDIR_ORIG/.zshenv"',
       '# If the real .zshenv redirected ZDOTDIR, remember its target as the effective dotdir',
@@ -721,11 +721,11 @@ function ensureFiles(): IntegrationPaths {
   writeFileSync(
     zshRc,
     [
-      '# Pine shell integration (generated). Load the real .zshrc, add our hooks, then',
+      '# Ostia shell integration (generated). Load the real .zshrc, add our hooks, then',
       '# restore ZDOTDIR so nested/child zsh invocations see a normal environment.',
-      '# With the Pine prompt, powerlevel10k must not start its instant prompt: its prompt never',
+      '# With the Ostia prompt, powerlevel10k must not start its instant prompt: its prompt never',
       '# draws, so it would hold the shell output and delete its own caches at exit.',
-      '[ "$OSTIA_PROMPT" = pine ] && typeset -g POWERLEVEL9K_INSTANT_PROMPT=off',
+      '[ "$OSTIA_PROMPT" = ostia ] && typeset -g POWERLEVEL9K_INSTANT_PROMPT=off',
       '[ -n "$OSTIA_ZDOTDIR_ORIG" ] && [ -f "$OSTIA_ZDOTDIR_ORIG/.zshrc" ] && source "$OSTIA_ZDOTDIR_ORIG/.zshrc"',
       `source "${zshInit}"`,
       'ZDOTDIR="$OSTIA_ZDOTDIR_ORIG"',
@@ -739,7 +739,7 @@ function ensureFiles(): IntegrationPaths {
   writeFileSync(
     bashRc,
     [
-      '# Pine shell integration (generated). Load the real ~/.bashrc, then add our hooks.',
+      '# Ostia shell integration (generated). Load the real ~/.bashrc, then add our hooks.',
       '[ -f "$HOME/.bashrc" ] && source "$HOME/.bashrc"',
       `source "${bashInit}"`,
       '',
@@ -751,15 +751,15 @@ function ensureFiles(): IntegrationPaths {
   return cached
 }
 
-export interface PinePromptOption {
+export interface OstiaPromptOption {
   separator: PromptSeparator
   sameLine: boolean
 }
 
-function promptEnv(option: PinePromptOption | null): Record<string, string> {
+function promptEnv(option: OstiaPromptOption | null): Record<string, string> {
   if (!option || !isPromptSeparator(option.separator)) return {}
   return {
-    OSTIA_PROMPT: 'pine',
+    OSTIA_PROMPT: 'ostia',
     OSTIA_PROMPT_SEPARATOR: option.separator,
     OSTIA_PROMPT_LINES: option.sameLine === true ? '1' : '2',
   }
@@ -772,7 +772,7 @@ function historyEnv(histFile: string | null): Record<string, string> {
 export function shellIntegrationSpawnOptions(
   shellPath: string,
   baseEnv: NodeJS.ProcessEnv,
-  pinePrompt: PinePromptOption | null = null,
+  ostiaPrompt: OstiaPromptOption | null = null,
   histFile: string | null = null,
 ): { args: string[]; env: Record<string, string> } {
   const name = basename(shellPath).toLowerCase()
@@ -785,7 +785,7 @@ export function shellIntegrationSpawnOptions(
         ZDOTDIR: INTEGRATION_DIR,
         OSTIA_ZDOTDIR_ORIG: baseEnv.ZDOTDIR || baseEnv.HOME || '',
         ...dualEnv({ AGENT_DIR: currentAgentDir() }),
-        ...promptEnv(pinePrompt),
+        ...promptEnv(ostiaPrompt),
         ...historyEnv(histFile),
       },
     }
@@ -797,7 +797,7 @@ export function shellIntegrationSpawnOptions(
       args: ['--rcfile', bashRc],
       env: {
         ...dualEnv({ AGENT_DIR: currentAgentDir() }),
-        ...promptEnv(pinePrompt),
+        ...promptEnv(ostiaPrompt),
         ...historyEnv(histFile),
       },
     }

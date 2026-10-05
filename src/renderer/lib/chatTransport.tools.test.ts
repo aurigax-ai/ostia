@@ -13,13 +13,13 @@ import { useEditorStatus } from '../stores/editorStatusStore'
 import { decideHunk, undoEdit } from './chatReview'
 import {
   OLD_TOOL_OUTPUT_MAX,
-  type PineChatMessage,
+  type OstiaChatMessage,
   STOPPED_TOOL_ERROR,
   createAssistTransport,
   toChatRequest,
 } from './chatTransport'
 
-function user(id: string, text: string): PineChatMessage {
+function user(id: string, text: string): OstiaChatMessage {
   return { id, role: 'user', parts: [{ type: 'text', text }] }
 }
 
@@ -35,12 +35,12 @@ async function drain(stream: ReadableStream<UIMessageChunk>): Promise<UIMessageC
 
 function replySequence(rounds: string[][]): void {
   const listeners = new Set<(c: AssistChunk) => void>()
-  vi.mocked(window.pine.assist.onChunk).mockImplementation((cb) => {
+  vi.mocked(window.ostia.assist.onChunk).mockImplementation((cb) => {
     listeners.add(cb)
     return () => listeners.delete(cb)
   })
   let round = 0
-  vi.mocked(window.pine.assist.request).mockImplementation(async (_point, requestId) => {
+  vi.mocked(window.ostia.assist.request).mockImplementation(async (_point, requestId) => {
     const chunks = rounds[Math.min(round, rounds.length - 1)]
     round += 1
     for (const text of chunks) for (const cb of listeners) cb({ requestId, text })
@@ -114,7 +114,7 @@ function written(patch: Partial<ChatWriteOutput> = {}) {
   }
 }
 
-function sendWithTools(messages: PineChatMessage[], abortSignal?: AbortSignal) {
+function sendWithTools(messages: OstiaChatMessage[], abortSignal?: AbortSignal) {
   return createAssistTransport({
     sessionId: 's1',
     workspaceId: () => null,
@@ -147,7 +147,7 @@ async function waitForPending(match: (p: { kind: string }) => boolean): Promise<
 }
 
 function requestAt(n: number): ChatAssistRequest {
-  return vi.mocked(window.pine.assist.request).mock.calls[n][2] as ChatAssistRequest
+  return vi.mocked(window.ostia.assist.request).mock.calls[n][2] as ChatAssistRequest
 }
 
 const DENY_ALL_BUILTINS = [
@@ -172,14 +172,14 @@ describe('createAssistTransport with tools', () => {
   })
 
   afterEach(() => {
-    vi.mocked(window.pine.assist.request).mockReset()
-    vi.mocked(window.pine.chatTools.read).mockReset()
-    vi.mocked(window.pine.chatTools.preview).mockReset()
-    vi.mocked(window.pine.chatTools.write).mockReset()
-    vi.mocked(window.pine.chatTools.plan).mockReset()
-    vi.mocked(window.pine.chatTools.restore).mockReset()
-    vi.mocked(window.pine.chatTools.mcpCall).mockReset()
-    vi.mocked(window.pine.privacy.redact).mockImplementation(async (texts) =>
+    vi.mocked(window.ostia.assist.request).mockReset()
+    vi.mocked(window.ostia.chatTools.read).mockReset()
+    vi.mocked(window.ostia.chatTools.preview).mockReset()
+    vi.mocked(window.ostia.chatTools.write).mockReset()
+    vi.mocked(window.ostia.chatTools.plan).mockReset()
+    vi.mocked(window.ostia.chatTools.restore).mockReset()
+    vi.mocked(window.ostia.chatTools.mcpCall).mockReset()
+    vi.mocked(window.ostia.privacy.redact).mockImplementation(async (texts) =>
       texts.map((text) => ({ text, count: 0, kinds: {} })),
     )
     sessionModel = null
@@ -188,7 +188,7 @@ describe('createAssistTransport with tools', () => {
   })
 
   it('offers the tools, runs a read-only tool without asking and sends its result back', async () => {
-    vi.mocked(window.pine.chatTools.read).mockResolvedValue({
+    vi.mocked(window.ostia.chatTools.read).mockResolvedValue({
       ok: true,
       path: '/proj/a.txt',
       text: 'hi',
@@ -201,7 +201,7 @@ describe('createAssistTransport with tools', () => {
     replySequence([toolRound('t1', 'read_file', { path: 'a.txt' }), textRound('It says hi')])
     const chunks = await drain(await sendWithTools([user('1', 'what is in a.txt')]))
     expect(requestAt(0).tools?.map((t) => t.name)).toContain('read_file')
-    expect(vi.mocked(window.pine.chatTools.read).mock.calls[0][0]).toMatchObject({
+    expect(vi.mocked(window.ostia.chatTools.read).mock.calls[0][0]).toMatchObject({
       path: '/proj/a.txt',
       root: '/proj',
       outside: false,
@@ -223,13 +223,13 @@ describe('createAssistTransport with tools', () => {
   })
 
   it('redacts a tool result before it is shown, stored or sent back to the model', async () => {
-    vi.mocked(window.pine.privacy.redact).mockImplementation(async (texts) =>
+    vi.mocked(window.ostia.privacy.redact).mockImplementation(async (texts) =>
       texts.map((text) => {
         const count = text.split('SECRET').length - 1
         return { text: text.replaceAll('SECRET', '[redacted:test]'), count, kinds: {} }
       }),
     )
-    vi.mocked(window.pine.chatTools.read).mockResolvedValue({
+    vi.mocked(window.ostia.chatTools.read).mockResolvedValue({
       ok: true,
       path: '/proj/.env',
       text: 'API_KEY=SECRET',
@@ -251,7 +251,7 @@ describe('createAssistTransport with tools', () => {
   })
 
   it('asks before reading outside the workspace folder', async () => {
-    vi.mocked(window.pine.chatTools.read)
+    vi.mocked(window.ostia.chatTools.read)
       .mockResolvedValueOnce({ ok: false, error: 'outside-folder', path: '/etc/hosts' })
       .mockResolvedValueOnce({
         ok: true,
@@ -272,13 +272,13 @@ describe('createAssistTransport with tools', () => {
     })
     answerApproval(id, { approved: true, scope: 'once' })
     await draining
-    expect(vi.mocked(window.pine.chatTools.read).mock.calls[1][0]).toMatchObject({
+    expect(vi.mocked(window.ostia.chatTools.read).mock.calls[1][0]).toMatchObject({
       outside: true,
     })
   })
 
   it('in Ask mode a whole-file write waits; Reject records a denied call and writes nothing', async () => {
-    vi.mocked(window.pine.chatTools.preview).mockResolvedValue(preview())
+    vi.mocked(window.ostia.chatTools.preview).mockResolvedValue(preview())
     replySequence([
       toolRound('w1', 'write_file', { path: 'b.txt', content: 'new' }),
       textRound('ok'),
@@ -292,7 +292,7 @@ describe('createAssistTransport with tools', () => {
     })
     answerApproval(id, { approved: false })
     const chunks = await draining
-    expect(window.pine.chatTools.write).not.toHaveBeenCalled()
+    expect(window.ostia.chatTools.write).not.toHaveBeenCalled()
     expect(chunks.map((c) => c.type)).toEqual(
       expect.arrayContaining([
         'tool-approval-request',
@@ -305,10 +305,10 @@ describe('createAssistTransport with tools', () => {
   })
 
   it('in Ask mode it writes after Accept, and asks again for the next write', async () => {
-    vi.mocked(window.pine.chatTools.preview).mockResolvedValue(
+    vi.mocked(window.ostia.chatTools.preview).mockResolvedValue(
       preview({ exists: false, text: '', version: null }),
     )
-    vi.mocked(window.pine.chatTools.write).mockResolvedValue(written({ created: true, bytes: 3 }))
+    vi.mocked(window.ostia.chatTools.write).mockResolvedValue(written({ created: true, bytes: 3 }))
     replySequence([
       toolRound('w1', 'write_file', { path: 'b.txt', content: 'new' }),
       toolRound('w2', 'write_file', { path: 'b.txt', content: 'again' }),
@@ -318,8 +318,8 @@ describe('createAssistTransport with tools', () => {
     answerApproval(await pendingApproval(), { approved: true, scope: 'once' })
     answerApproval(await pendingApproval(), { approved: false })
     const chunks = await draining
-    expect(window.pine.chatTools.write).toHaveBeenCalledTimes(1)
-    expect(vi.mocked(window.pine.chatTools.write).mock.calls[0][0]).toEqual({
+    expect(window.ostia.chatTools.write).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(window.ostia.chatTools.write).mock.calls[0][0]).toEqual({
       path: '/proj/b.txt',
       root: '/proj',
       outside: false,
@@ -343,7 +343,7 @@ describe('createAssistTransport with tools', () => {
   })
 
   it('plans a targeted edit in main with the version the chat read, and shows it as a diff', async () => {
-    vi.mocked(window.pine.chatTools.read).mockResolvedValue({
+    vi.mocked(window.ostia.chatTools.read).mockResolvedValue({
       ok: true,
       path: '/proj/b.txt',
       text: 'one two',
@@ -353,8 +353,8 @@ describe('createAssistTransport with tools', () => {
       truncated: false,
       version: 'v-old',
     })
-    vi.mocked(window.pine.chatTools.plan).mockResolvedValue(plan())
-    vi.mocked(window.pine.chatTools.write).mockResolvedValue(written())
+    vi.mocked(window.ostia.chatTools.plan).mockResolvedValue(plan())
+    vi.mocked(window.ostia.chatTools.write).mockResolvedValue(written())
     const edits = [{ old_text: 'two', new_text: '2' }]
     replySequence([
       toolRound('r1', 'read_file', { path: 'b.txt' }),
@@ -363,7 +363,7 @@ describe('createAssistTransport with tools', () => {
     ])
     const draining = sendWithTools([user('1', 'make two a digit')]).then(drain)
     const id = await pendingApproval()
-    expect(vi.mocked(window.pine.chatTools.plan).mock.calls[0][0]).toEqual({
+    expect(vi.mocked(window.ostia.chatTools.plan).mock.calls[0][0]).toEqual({
       path: '/proj/b.txt',
       root: '/proj',
       edits: [{ oldText: 'two', newText: '2' }],
@@ -378,7 +378,7 @@ describe('createAssistTransport with tools', () => {
     })
     answerApproval(id, { approved: true, scope: 'once' })
     await draining
-    expect(vi.mocked(window.pine.chatTools.write).mock.calls[0][0]).toMatchObject({
+    expect(vi.mocked(window.ostia.chatTools.write).mock.calls[0][0]).toMatchObject({
       content: 'one 2',
       base: 'v-old',
     })
@@ -387,9 +387,9 @@ describe('createAssistTransport with tools', () => {
 
   it('in Write mode an edit inside the workspace folder applies without asking and can be undone', async () => {
     useChatToolsStore.getState().setMode('s1', 'write')
-    vi.mocked(window.pine.chatTools.plan).mockResolvedValue(plan())
-    vi.mocked(window.pine.chatTools.write).mockResolvedValue(written())
-    vi.mocked(window.pine.chatTools.restore).mockResolvedValue({
+    vi.mocked(window.ostia.chatTools.plan).mockResolvedValue(plan())
+    vi.mocked(window.ostia.chatTools.write).mockResolvedValue(written())
+    vi.mocked(window.ostia.chatTools.restore).mockResolvedValue({
       ok: true,
       path: '/proj/b.txt',
       removed: false,
@@ -401,10 +401,10 @@ describe('createAssistTransport with tools', () => {
     ])
     const chunks = await drain(await sendWithTools([user('1', 'edit')]))
     expect(chunks.some((c) => c.type === 'tool-approval-request')).toBe(false)
-    expect(window.pine.chatTools.write).toHaveBeenCalledTimes(1)
+    expect(window.ostia.chatTools.write).toHaveBeenCalledTimes(1)
     expect(useChatToolsStore.getState().edits.e1).toMatchObject({ auto: true, state: 'applied' })
     await undoEdit('e1')
-    expect(vi.mocked(window.pine.chatTools.restore).mock.calls[0][0]).toEqual({
+    expect(vi.mocked(window.ostia.chatTools.restore).mock.calls[0][0]).toEqual({
       path: '/proj/b.txt',
       root: '/proj',
       outside: false,
@@ -422,8 +422,8 @@ describe('createAssistTransport with tools', () => {
     ['through a symlink', { outside: false, symlink: true }, 'symlink'],
   ] as const)('in Write mode a write %s still asks', async (_label, flags, reason) => {
     useChatToolsStore.getState().setMode('s1', 'write')
-    vi.mocked(window.pine.chatTools.plan).mockResolvedValue(plan(flags))
-    vi.mocked(window.pine.chatTools.write).mockResolvedValue(written())
+    vi.mocked(window.ostia.chatTools.plan).mockResolvedValue(plan(flags))
+    vi.mocked(window.ostia.chatTools.write).mockResolvedValue(written())
     replySequence([
       toolRound('e1', 'edit_file', { path: 'b.txt', edits: [{ old_text: 'two', new_text: '2' }] }),
       textRound('done'),
@@ -437,7 +437,7 @@ describe('createAssistTransport with tools', () => {
     })
     answerApproval(id, { approved: true, scope: 'once' })
     await draining
-    expect(vi.mocked(window.pine.chatTools.write).mock.calls[0][0]).toMatchObject({
+    expect(vi.mocked(window.ostia.chatTools.write).mock.calls[0][0]).toMatchObject({
       outside: flags.outside,
       symlinks: flags.symlink,
     })
@@ -446,10 +446,10 @@ describe('createAssistTransport with tools', () => {
 
   it('asks to read outside the folder before planning an edit there, then shows the edit for approval', async () => {
     useChatToolsStore.getState().setMode('s1', 'write')
-    vi.mocked(window.pine.chatTools.plan)
+    vi.mocked(window.ostia.chatTools.plan)
       .mockResolvedValueOnce({ ok: false, error: 'outside-folder', path: '/etc/x.conf' })
       .mockResolvedValueOnce(plan({ path: '/etc/x.conf', outside: true }))
-    vi.mocked(window.pine.chatTools.write).mockResolvedValue(written({ path: '/etc/x.conf' }))
+    vi.mocked(window.ostia.chatTools.write).mockResolvedValue(written({ path: '/etc/x.conf' }))
     replySequence([
       toolRound('e1', 'edit_file', {
         path: '/etc/x.conf',
@@ -460,19 +460,19 @@ describe('createAssistTransport with tools', () => {
     const draining = sendWithTools([user('1', 'edit')]).then(drain)
     const first = await pendingApproval()
     expect(useChatToolsStore.getState().pending[first]).toMatchObject({ kind: 'read-outside' })
-    expect(vi.mocked(window.pine.chatTools.plan).mock.calls[0][0].outside).toBe(false)
+    expect(vi.mocked(window.ostia.chatTools.plan).mock.calls[0][0].outside).toBe(false)
     answerApproval(first, { approved: true, scope: 'once' })
     await waitForPending((p) => p.kind === 'write')
     const second = Object.keys(useChatToolsStore.getState().pending)[0]
-    expect(vi.mocked(window.pine.chatTools.plan).mock.calls[1][0].outside).toBe(true)
+    expect(vi.mocked(window.ostia.chatTools.plan).mock.calls[1][0].outside).toBe(true)
     expect(useChatToolsStore.getState().pending[second].detail.reason).toBe('outside')
     answerApproval(second, { approved: true, scope: 'once' })
     await draining
-    expect(window.pine.chatTools.write).toHaveBeenCalledTimes(1)
+    expect(window.ostia.chatTools.write).toHaveBeenCalledTimes(1)
   })
 
   it('says nothing about the file and writes nothing when the human refuses the outside read', async () => {
-    vi.mocked(window.pine.chatTools.plan).mockResolvedValueOnce({
+    vi.mocked(window.ostia.chatTools.plan).mockResolvedValueOnce({
       ok: false,
       error: 'outside-folder',
       path: '/etc/x.conf',
@@ -487,13 +487,13 @@ describe('createAssistTransport with tools', () => {
     const draining = sendWithTools([user('1', 'edit')]).then(drain)
     answerApproval(await pendingApproval(), { approved: false })
     const chunks = await draining
-    expect(window.pine.chatTools.plan).toHaveBeenCalledTimes(1)
+    expect(window.ostia.chatTools.plan).toHaveBeenCalledTimes(1)
     expect(chunks.some((c) => c.type === 'tool-output-denied')).toBe(true)
   })
 
   it('in Write mode an edit inside a .git folder still asks', async () => {
     useChatToolsStore.getState().setMode('s1', 'write')
-    vi.mocked(window.pine.chatTools.plan).mockResolvedValue(plan({ path: '/proj/.git/config' }))
+    vi.mocked(window.ostia.chatTools.plan).mockResolvedValue(plan({ path: '/proj/.git/config' }))
     replySequence([
       toolRound('e1', 'edit_file', {
         path: '.git/config',
@@ -506,7 +506,7 @@ describe('createAssistTransport with tools', () => {
     expect(useChatToolsStore.getState().pending[id].detail.reason).toBe('repository')
     answerApproval(id, { approved: false })
     await draining
-    expect(window.pine.chatTools.write).not.toHaveBeenCalled()
+    expect(window.ostia.chatTools.write).not.toHaveBeenCalled()
   })
 
   it('undoes once even when Undo is clicked twice', async () => {
@@ -526,39 +526,39 @@ describe('createAssistTransport with tools', () => {
       seq: 1,
       decisions: [null],
     })
-    vi.mocked(window.pine.chatTools.restore)
+    vi.mocked(window.ostia.chatTools.restore)
       .mockResolvedValueOnce({ ok: true, path: '/proj/b.txt', removed: false, version: 'v-old' })
       .mockResolvedValueOnce({ ok: false, error: 'changed' })
     await Promise.all([undoEdit('e1'), undoEdit('e1')])
-    expect(window.pine.chatTools.restore).toHaveBeenCalledTimes(1)
+    expect(window.ostia.chatTools.restore).toHaveBeenCalledTimes(1)
     expect(useChatToolsStore.getState().edits.e1.state).toBe('undone')
   })
 
   it('in Write mode a file with unsaved edits in the editor still asks, as main finds it by real path', async () => {
     useChatToolsStore.getState().setMode('s1', 'write')
     useEditorStatus.getState().setDirty('/home/u/link/b.txt', true)
-    vi.mocked(window.pine.chatTools.plan).mockResolvedValue(plan({ unsaved: true }))
+    vi.mocked(window.ostia.chatTools.plan).mockResolvedValue(plan({ unsaved: true }))
     replySequence([
       toolRound('e1', 'edit_file', { path: 'b.txt', edits: [{ old_text: 'two', new_text: '2' }] }),
       textRound('ok'),
     ])
     const draining = sendWithTools([user('1', 'edit')]).then(drain)
     const id = await pendingApproval()
-    expect(vi.mocked(window.pine.chatTools.plan).mock.calls[0][0].dirty).toEqual([
+    expect(vi.mocked(window.ostia.chatTools.plan).mock.calls[0][0].dirty).toEqual([
       '/home/u/link/b.txt',
     ])
     expect(useChatToolsStore.getState().pending[id].detail.reason).toBe('unsaved')
     answerApproval(id, { approved: false })
     await draining
-    expect(window.pine.chatTools.write).not.toHaveBeenCalled()
+    expect(window.ostia.chatTools.write).not.toHaveBeenCalled()
     useEditorStatus.getState().setDirty('/home/u/link/b.txt', false)
   })
 
   it('writes only the changes the human accepted and tells the model the rest were rejected', async () => {
-    vi.mocked(window.pine.chatTools.plan).mockResolvedValue(
+    vi.mocked(window.ostia.chatTools.plan).mockResolvedValue(
       plan({ before: 'a\nb\nc\nd\ne\n', after: 'A\nb\nc\nd\nE\n' }),
     )
-    vi.mocked(window.pine.chatTools.write).mockResolvedValue(written())
+    vi.mocked(window.ostia.chatTools.write).mockResolvedValue(written())
     replySequence([
       toolRound('e1', 'edit_file', {
         path: 'b.txt',
@@ -575,7 +575,7 @@ describe('createAssistTransport with tools', () => {
     expect(useChatToolsStore.getState().pending[id]).toBeDefined()
     await decideHunk(id, 0, 'accepted')
     const chunks = await draining
-    expect(vi.mocked(window.pine.chatTools.write).mock.calls[0][0]).toMatchObject({
+    expect(vi.mocked(window.ostia.chatTools.write).mock.calls[0][0]).toMatchObject({
       content: 'A\nb\nc\nd\ne\n',
       base: 'v-old',
     })
@@ -593,7 +593,7 @@ describe('createAssistTransport with tools', () => {
   })
 
   it('rejects the whole edit when the human rejects every change', async () => {
-    vi.mocked(window.pine.chatTools.plan).mockResolvedValue(
+    vi.mocked(window.ostia.chatTools.plan).mockResolvedValue(
       plan({ before: 'a\nb\nc\nd\ne\n', after: 'A\nb\nc\nd\nE\n' }),
     )
     replySequence([
@@ -606,7 +606,7 @@ describe('createAssistTransport with tools', () => {
     await decideHunk(id, 1, 'rejected')
     const chunks = await draining
     expect(chunks.some((c) => c.type === 'tool-output-denied')).toBe(true)
-    expect(window.pine.chatTools.write).not.toHaveBeenCalled()
+    expect(window.ostia.chatTools.write).not.toHaveBeenCalled()
   })
 
   it('in Write mode a command proposal still asks every time', async () => {
@@ -625,7 +625,7 @@ describe('createAssistTransport with tools', () => {
   it('tells the model plainly why an edit failed, also when the file changed since it was read, and writes nothing', async () => {
     useChatToolsStore.getState().setMode('s1', 'write')
     const edit = { path: 'b.txt', edits: [{ old_text: 'two', new_text: '2' }] }
-    vi.mocked(window.pine.chatTools.plan)
+    vi.mocked(window.ostia.chatTools.plan)
       .mockResolvedValueOnce({ ok: false, error: 'no-match', path: '/proj/b.txt', edit: 0 })
       .mockResolvedValueOnce({
         ok: false,
@@ -651,7 +651,7 @@ describe('createAssistTransport with tools', () => {
     expect(errors[1]).toMatch(/^Edit 2: old_text matches more than one place.*\(3 matches\)/)
     expect(errors[2]).toMatch(/changed on disk since it was last read; nothing was written/)
     expect(errors[3]).toMatch(/edits must be a list/)
-    expect(window.pine.chatTools.write).not.toHaveBeenCalled()
+    expect(window.ostia.chatTools.write).not.toHaveBeenCalled()
     expect(useChatToolsStore.getState().failures).toEqual({
       e1: 'no-match',
       e2: 'ambiguous',
@@ -662,7 +662,7 @@ describe('createAssistTransport with tools', () => {
   it('refuses to replace a whole file that changed since the chat read it', async () => {
     useChatToolsStore.getState().setMode('s1', 'write')
     useChatToolsStore.getState().setVersion('s1', '/proj/b.txt', 'v-read')
-    vi.mocked(window.pine.chatTools.preview).mockResolvedValue(preview({ version: 'v-now' }))
+    vi.mocked(window.ostia.chatTools.preview).mockResolvedValue(preview({ version: 'v-now' }))
     replySequence([
       toolRound('w1', 'write_file', { path: 'b.txt', content: 'new' }),
       textRound('ok'),
@@ -671,12 +671,12 @@ describe('createAssistTransport with tools', () => {
     expect(chunks.find((c) => c.type === 'tool-output-error')).toMatchObject({
       errorText: expect.stringMatching(/changed on disk/),
     })
-    expect(window.pine.chatTools.write).not.toHaveBeenCalled()
+    expect(window.ostia.chatTools.write).not.toHaveBeenCalled()
   })
 
   it('reports a write that lost the race with another change as a failure the card can explain', async () => {
-    vi.mocked(window.pine.chatTools.plan).mockResolvedValue(plan())
-    vi.mocked(window.pine.chatTools.write).mockResolvedValue({
+    vi.mocked(window.ostia.chatTools.plan).mockResolvedValue(plan())
+    vi.mocked(window.ostia.chatTools.write).mockResolvedValue({
       ok: false,
       error: 'changed',
       path: '/proj/b.txt',
@@ -710,7 +710,7 @@ describe('createAssistTransport with tools', () => {
       seq: 1,
       decisions: [null],
     })
-    vi.mocked(window.pine.chatTools.restore).mockResolvedValue({
+    vi.mocked(window.ostia.chatTools.restore).mockResolvedValue({
       ok: false,
       error: 'changed',
       path: '/proj/b.txt',
@@ -741,7 +741,7 @@ describe('createAssistTransport with tools', () => {
     })
     replySequence([textRound('hi')])
     const chunks = await drain(await sendWithTools([user('1', 'x')]))
-    expect(vi.mocked(window.pine.assist.request).mock.calls[0][3]).toEqual(sessionModel)
+    expect(vi.mocked(window.ostia.assist.request).mock.calls[0][3]).toEqual(sessionModel)
     expect(chunks.find((c) => c.type === 'start')).toMatchObject({
       messageMetadata: { model: 'Two · big' },
     })
@@ -758,7 +758,7 @@ describe('createAssistTransport with tools', () => {
         tools: [{ name: 'echo', description: 'Echo', inputSchema: { type: 'object' } }],
       },
     ])
-    vi.mocked(window.pine.chatTools.mcpCall).mockResolvedValue({ ok: true, output: 'echo: hi' })
+    vi.mocked(window.ostia.chatTools.mcpCall).mockResolvedValue({ ok: true, output: 'echo: hi' })
     replySequence([
       toolRound('m1', 'mcp__fake__echo', { text: 'hi' }),
       toolRound('m2', 'mcp__fake__echo', { text: 'again' }),
@@ -773,14 +773,14 @@ describe('createAssistTransport with tools', () => {
     answerApproval(id, { approved: true, scope: 'chat' })
     const chunks = await draining
     expect(chunks.filter((c) => c.type === 'tool-approval-request')).toHaveLength(1)
-    expect(vi.mocked(window.pine.chatTools.mcpCall).mock.calls.map((c) => [c[1], c[2]])).toEqual([
+    expect(vi.mocked(window.ostia.chatTools.mcpCall).mock.calls.map((c) => [c[1], c[2]])).toEqual([
       ['fake', 'echo'],
       ['fake', 'echo'],
     ])
   })
 
   it('Stop while a card waits closes the stream without running or asking again', async () => {
-    vi.mocked(window.pine.chatTools.preview).mockResolvedValue(
+    vi.mocked(window.ostia.chatTools.preview).mockResolvedValue(
       preview({ exists: false, text: '', version: null }),
     )
     replySequence([toolRound('w1', 'write_file', { path: 'b.txt', content: 'x' }), textRound('no')])
@@ -790,8 +790,8 @@ describe('createAssistTransport with tools', () => {
     abort.abort()
     const chunks = await draining
     expect(useChatToolsStore.getState().pending).toEqual({})
-    expect(window.pine.chatTools.write).not.toHaveBeenCalled()
-    expect(window.pine.assist.request).toHaveBeenCalledTimes(1)
+    expect(window.ostia.chatTools.write).not.toHaveBeenCalled()
+    expect(window.ostia.assist.request).toHaveBeenCalledTimes(1)
     expect(chunks.some((c) => c.type === 'finish')).toBe(false)
   })
 
@@ -801,7 +801,7 @@ describe('createAssistTransport with tools', () => {
     expect(chunks.find((c) => c.type === 'tool-output-error')).toMatchObject({ toolCallId: 'u1' })
     expect(requestAt(1).messages.at(-1)?.tools?.[0]).toMatchObject({ state: 'error' })
 
-    vi.mocked(window.pine.assist.request).mockClear()
+    vi.mocked(window.ostia.assist.request).mockClear()
     for (const key of DENY_ALL_BUILTINS) useChatToolsStore.getState().toggle('s1', key, false)
     replySequence([textRound('plain')])
     await drain(await sendWithTools([user('1', 'x')]))

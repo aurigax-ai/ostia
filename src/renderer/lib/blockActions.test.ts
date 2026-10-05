@@ -112,7 +112,7 @@ describe('blockActions', () => {
   it('reruns a block by pasting its command and pressing Enter at an idle prompt', () => {
     expect(rerunBlock(PANE, ids()[0])).toBe(true)
     expect(term.paste).toHaveBeenCalledWith('echo one')
-    expect(window.pine.pty.write).toHaveBeenCalledWith(PANE, '\r')
+    expect(window.ostia.pty.write).toHaveBeenCalledWith(PANE, '\r')
   })
 
   it('refuses to type into a pane while a command is running', () => {
@@ -126,7 +126,7 @@ describe('blockActions', () => {
   it('inserts a command without executing it', () => {
     expect(insertCommand(PANE, 'git log')).toBe(true)
     expect(term.paste).toHaveBeenCalledWith('git log')
-    expect(window.pine.pty.write).not.toHaveBeenCalled()
+    expect(window.ostia.pty.write).not.toHaveBeenCalled()
   })
 })
 
@@ -161,7 +161,7 @@ describe('runWhenIdle', () => {
 
     useBlocksStore.getState().promptEnd(NEW, { line: 0 })
     expect(term.paste).toHaveBeenCalledWith('sudo pacman -S --needed ripgrep')
-    expect(window.pine.pty.write).toHaveBeenCalledWith(NEW, '\r')
+    expect(window.ostia.pty.write).toHaveBeenCalledWith(NEW, '\r')
 
     const s = useBlocksStore.getState()
     s.commandStart(NEW, { line: 1 }, 'sudo pacman -S --needed ripgrep')

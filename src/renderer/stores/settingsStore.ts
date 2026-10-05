@@ -6,6 +6,7 @@ import {
   parseApprovalSettings,
 } from '@shared/approvals'
 import { type KeybindingMap, parseKeybindings } from '@shared/chordSpec'
+import { currentProductValue, currentThemeId } from '@shared/legacyIds'
 import { debounce } from 'es-toolkit'
 import { create } from 'zustand'
 import {
@@ -321,7 +322,7 @@ const DEFAULTS: Persisted = {
   appearance: {
     theme: 'adeberry',
     followSystem: false,
-    lightTheme: 'pine-light',
+    lightTheme: 'ostia-light',
     darkTheme: 'adeberry',
     accent: '',
     zoom: ZOOM_DEFAULT,
@@ -440,10 +441,10 @@ export function parsePersisted(p: Partial<Persisted>): Persisted {
   return {
     locale: p.locale ?? DEFAULTS.locale,
     appearance: {
-      theme: p.appearance?.theme ?? DEFAULTS.appearance.theme,
+      theme: currentThemeId(p.appearance?.theme ?? DEFAULTS.appearance.theme),
       followSystem: p.appearance?.followSystem === true,
-      lightTheme: p.appearance?.lightTheme ?? DEFAULTS.appearance.lightTheme,
-      darkTheme: p.appearance?.darkTheme ?? DEFAULTS.appearance.darkTheme,
+      lightTheme: currentThemeId(p.appearance?.lightTheme ?? DEFAULTS.appearance.lightTheme),
+      darkTheme: currentThemeId(p.appearance?.darkTheme ?? DEFAULTS.appearance.darkTheme),
       accent: normalizeHex(p.appearance?.accent) ?? '',
       zoom: clampZoom(p.appearance?.zoom),
       motion: motionMode(p.appearance?.motion),
@@ -555,7 +556,10 @@ function applySetting(s: SettingsState, path: string, value: unknown): SettingCh
   }
   cursor[leaf] = value
   const parsed = parsePersisted({ ...s, ...(root as Partial<Persisted>) })
-  if (!survives(value, getByPath(parsed, path))) {
+  const stored = getByPath(parsed, path)
+  const renamed =
+    typeof value === 'string' ? currentThemeId(currentProductValue(value) as string) : value
+  if (!survives(value, stored) && !survives(renamed, stored)) {
     throw new Error(`invalid value for ${path}: ${JSON.stringify(value)}`)
   }
   const next = dataRoot(parsed) as Partial<SettingsState>
@@ -592,10 +596,10 @@ async function writeSettings(s: SettingsState): Promise<void> {
     sandbox: s.sandbox,
     privacy: s.privacy,
   }
-  const path = await window.pine.settings.path()
+  const path = await window.ostia.settings.path()
   const text = `${JSON.stringify(snapshot, null, 2)}\n`
   lastWritten = text
-  await window.pine.fs.write(path, text)
+  await window.ostia.fs.write(path, text)
 }
 
 const scheduleSave = debounce((get: () => SettingsState): void => {
@@ -631,8 +635,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   ...DEFAULTS,
 
   init: async () => {
-    const path = await window.pine.settings.path()
-    const raw = await window.pine.fs.read(path)
+    const path = await window.ostia.settings.path()
+    const raw = await window.ostia.fs.read(path)
     if (!raw || raw === lastWritten) return
     try {
       set(parsePersisted(JSON.parse(raw) as Partial<Persisted>))
@@ -729,7 +733,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   setSandbox: async (next) => {
     set({ sandbox: next })
     await writeSettings(get())
-    await window.pine.sandbox.globalsChanged()
+    await window.ostia.sandbox.globalsChanged()
   },
   setManager: (patch) => {
     set((s) => ({ manager: parseManagerSettings({ ...s.manager, ...patch }) }))

@@ -9,7 +9,7 @@ import {
   moveWorkspaceToNewWindow,
 } from './windowHandoff'
 
-export const PANE_DND = 'application/x-pine-pane'
+export const PANE_DND = 'application/x-ostia-pane'
 
 const FOREIGN_DRAG_IDLE_MS = 400
 
@@ -26,7 +26,7 @@ export function reportForeignDrop(paneId: string, placement: PanePlacement): voi
   const { workspaces, activeWorkspaceId } = useWorkspacesStore.getState()
   const workspace = workspaces.find((w) => w.id === activeWorkspaceId)
   if (!workspace || workspace.kind === 'scratch' || workspace.kind === 'manager') return
-  window.pine.windows.dropPane({ paneId, workspaceId: workspace.id, placement })
+  window.ostia.windows.dropPane({ paneId, workspaceId: workspace.id, placement })
 }
 
 export function isPaneDrag(types: readonly string[]): boolean {
@@ -70,7 +70,7 @@ async function settlePaneDrag(
   point: ScreenPoint,
 ): Promise<void> {
   if (!canMovePane(workspaceId, paneId)) return
-  if (await window.pine.windows.landing(paneId)) {
+  if (await window.ostia.windows.landing(paneId)) {
     await movePaneToDropWindow(workspaceId, paneId)
     return
   }

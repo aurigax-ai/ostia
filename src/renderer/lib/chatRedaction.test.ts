@@ -10,7 +10,7 @@ import {
 } from './chatRedaction'
 
 function fakeRedaction(): void {
-  vi.mocked(window.pine.privacy.redact).mockImplementation(async (texts) =>
+  vi.mocked(window.ostia.privacy.redact).mockImplementation(async (texts) =>
     texts.map((text) => {
       const count = text.split('SECRET').length - 1
       return { text: text.replaceAll('SECRET', '[redacted:test]'), count, kinds: {} }
@@ -19,8 +19,8 @@ function fakeRedaction(): void {
 }
 
 afterEach(() => {
-  vi.mocked(window.pine.privacy.redact).mockReset()
-  vi.mocked(window.pine.privacy.redact).mockImplementation(async (texts) =>
+  vi.mocked(window.ostia.privacy.redact).mockReset()
+  vi.mocked(window.ostia.privacy.redact).mockImplementation(async (texts) =>
     texts.map((text) => ({ text, count: 0, kinds: {} })),
   )
 })
@@ -42,7 +42,7 @@ describe('redactOutgoing', () => {
   })
 
   it('sends the text as typed when main cannot be asked; main redacts it again on the way out', async () => {
-    vi.mocked(window.pine.privacy.redact).mockRejectedValue(new Error('gone'))
+    vi.mocked(window.ostia.privacy.redact).mockRejectedValue(new Error('gone'))
     expect(await redactOutgoing('why SECRET', [])).toEqual({ question: 'why SECRET', context: [] })
   })
 })
@@ -51,7 +51,7 @@ describe('redactedCount', () => {
   it('adds up what would be redacted and skips empty texts', async () => {
     fakeRedaction()
     expect(await redactedCount(['', 'SECRET and SECRET', 'none', 'SECRET'])).toBe(3)
-    expect(vi.mocked(window.pine.privacy.redact).mock.calls[0][0]).toEqual([
+    expect(vi.mocked(window.ostia.privacy.redact).mock.calls[0][0]).toEqual([
       'SECRET and SECRET',
       'none',
       'SECRET',
@@ -60,14 +60,14 @@ describe('redactedCount', () => {
 
   it('asks nothing for an empty draft', async () => {
     expect(await redactedCount(['', ''])).toBe(0)
-    expect(window.pine.privacy.redact).not.toHaveBeenCalled()
+    expect(window.ostia.privacy.redact).not.toHaveBeenCalled()
   })
 
   it('splits a long list into requests main accepts', async () => {
     fakeRedaction()
     const texts = Array.from({ length: REDACT_TEXTS_MAX + 3 }, () => 'SECRET')
     expect(await redactedCount(texts)).toBe(REDACT_TEXTS_MAX + 3)
-    const sizes = vi.mocked(window.pine.privacy.redact).mock.calls.map((call) => call[0].length)
+    const sizes = vi.mocked(window.ostia.privacy.redact).mock.calls.map((call) => call[0].length)
     expect(sizes).toEqual([REDACT_TEXTS_MAX, 3])
   })
 })

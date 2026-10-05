@@ -83,8 +83,8 @@ test('the primary selection takes only non-empty text up to the cap from the pag
     const send = (text: string) =>
       win.evaluate((t) => {
         ;(
-          window as unknown as { pine: { window: { writePrimarySelection: (s: string) => void } } }
-        ).pine.window.writePrimarySelection(t)
+          window as unknown as { ostia: { window: { writePrimarySelection: (s: string) => void } } }
+        ).ostia.window.writePrimarySelection(t)
       }, text)
     const read = (which: 'selection' | 'clipboard') =>
       app.evaluate(({ clipboard }, w) => clipboard.readText(w), which)
@@ -108,13 +108,13 @@ test('OSC 52 sets the clipboard only while terminal.osc52Write is on', async () 
   const { app, win } = await launch({ terminal: { osc52Write: true } })
   try {
     await app.evaluate(({ clipboard }) => clipboard.writeText('before'))
-    await run(win, 'printf \'\\033]52;c;%s\\a\' "$(printf pine-osc52 | base64)"')
+    await run(win, 'printf \'\\033]52;c;%s\\a\' "$(printf ostia-osc52 | base64)"')
     await expect
       .poll(() => app.evaluate(({ clipboard }) => clipboard.readText()), { timeout: 10_000 })
-      .toBe('pine-osc52')
+      .toBe('ostia-osc52')
     await run(win, "printf '\\033]52;c;?\\a'")
     await win.waitForTimeout(300)
-    expect(await app.evaluate(({ clipboard }) => clipboard.readText())).toBe('pine-osc52')
+    expect(await app.evaluate(({ clipboard }) => clipboard.readText())).toBe('ostia-osc52')
   } finally {
     await app.close()
   }
@@ -123,10 +123,10 @@ test('OSC 52 sets the clipboard only while terminal.osc52Write is on', async () 
 test('OSC 52 leaves the clipboard alone by default', async () => {
   const { app, win } = await launch({})
   try {
-    await run(win, 'printf \'\\033]52;c;%s\\a\' "$(printf pine-osc52-off | base64)"; echo osc-sent')
+    await run(win, 'printf \'\\033]52;c;%s\\a\' "$(printf ostia-osc52-off | base64)"; echo osc-sent')
     await expect(win.locator('.xterm-rows').first()).toContainText('osc-sent')
     await win.waitForTimeout(300)
-    expect(await app.evaluate(({ clipboard }) => clipboard.readText())).not.toBe('pine-osc52-off')
+    expect(await app.evaluate(({ clipboard }) => clipboard.readText())).not.toBe('ostia-osc52-off')
   } finally {
     await app.close()
   }
@@ -154,9 +154,9 @@ test('selecting terminal text fills the primary selection, and middle click past
   test.skip(isMac, 'the primary selection is X11 only')
   const { app, win } = await launch({})
   try {
-    await run(win, 'echo pine-primary-word')
+    await run(win, 'echo ostia-primary-word')
     const rows = win.locator('.xterm-rows').first()
-    const line = rows.locator('div', { hasText: /^pine-primary-word\s*$/ }).first()
+    const line = rows.locator('div', { hasText: /^ostia-primary-word\s*$/ }).first()
     await expect(line).toBeAttached({ timeout: 15_000 })
     const box = await line.boundingBox()
     if (!box) throw new Error('no line box')
@@ -166,7 +166,7 @@ test('selecting terminal text fills the primary selection, and middle click past
     await win.mouse.up()
     await expect
       .poll(() => app.evaluate(({ clipboard }) => clipboard.readText('selection')))
-      .toContain('pine')
+      .toContain('ostia')
     await expect(async () => {
       await app.evaluate(({ clipboard }) => clipboard.writeText('echo from-primary', 'selection'))
       await win.locator('.xterm').first().click({ button: 'middle' })

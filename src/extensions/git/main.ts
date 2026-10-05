@@ -5,7 +5,7 @@ import {
   type ExtensionCaller,
   type ExtensionResult,
   type ExtensionSettingValues,
-  type PineExtension,
+  type OstiaExtension,
   cliArgs,
   connect,
   expandHome,
@@ -163,7 +163,7 @@ class GitExtension {
   private views = new ViewStateStore(viewStatePath())
   onChanged: () => void = () => {}
 
-  constructor(private readonly ext: PineExtension) {}
+  constructor(private readonly ext: OstiaExtension) {}
 
   applySettings(values: ExtensionSettingValues): void {
     this.settings = readGitSettings(values)

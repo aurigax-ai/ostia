@@ -16,7 +16,7 @@ function skill(dir: string, name: string, description: string, body = 'Do the th
 }
 
 beforeEach(() => {
-  base = mkdtempSync(join(tmpdir(), 'pine-skills-'))
+  base = mkdtempSync(join(tmpdir(), 'ostia-skills-'))
 })
 
 afterEach(() => rmSync(base, { recursive: true, force: true }))

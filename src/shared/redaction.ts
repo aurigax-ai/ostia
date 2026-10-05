@@ -347,7 +347,7 @@ export function applyRedactions(text: string, found: readonly SecretSpan[]): Red
   return { text: out + text.slice(at), count: merged.length, kinds }
 }
 
-export type RedactionKindSource = 'library' | 'pine'
+export type RedactionKindSource = 'library' | 'ostia'
 
 export interface RedactionKindInfo {
   kind: string

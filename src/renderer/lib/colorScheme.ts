@@ -1,3 +1,4 @@
+import { currentThemeId } from '@shared/legacyIds'
 import { isLinkedTheme } from '@shared/themeChoice'
 import { useMemo } from 'react'
 import type { ColorScheme, TerminalColors, Theme } from '../plugins/types'
@@ -22,7 +23,8 @@ export function resolveScheme(
   choice: string,
   theme: Theme | undefined,
 ): ColorScheme {
-  const picked = isLinkedTheme(choice) ? undefined : schemes.find((s) => s.id === choice)
+  const wanted = currentThemeId(choice)
+  const picked = isLinkedTheme(wanted) ? undefined : schemes.find((s) => s.id === wanted)
   return picked ?? schemeForTheme(schemes, theme)
 }
 
