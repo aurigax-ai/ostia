@@ -21,9 +21,26 @@ asarUnpack:
 npmRebuild: true
 linux:
   target: dir
+  executableName: ostia
   artifactName: ostia-${version}.${ext}
   icon: resources/icons
   category: Development
+  maintainer: AurigaX <aurigax.ai@gmail.com>
+  synopsis: Terminal workspace for coding agents
+  extraResources:
+    - from: packaging/bin/ostia
+      to: bin/ostia
+deb:
+  packageName: ostia
+  artifactName: ostia_${version}_${arch}.${ext}
+  afterInstall: packaging/apt/after-install.tpl
+  afterRemove: packaging/apt/after-remove.tpl
+  recommends:
+    - bubblewrap
+    - socat
+    - ripgrep
+    - git
+    - iproute2
 mac:
   target: dmg
   artifactName: ostia-${version}-${arch}.${ext}

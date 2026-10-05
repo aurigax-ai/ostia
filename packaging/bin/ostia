@@ -1,0 +1,8 @@
+#!/bin/sh
+set -e
+self=$(readlink -f "$0")
+resources=$(cd "$(dirname "$self")/.." && pwd)
+OSTIA_APP_BIN=$(cd "$resources/.." && pwd)/ostia
+PINE_APP_BIN=$OSTIA_APP_BIN
+export OSTIA_APP_BIN PINE_APP_BIN
+ELECTRON_RUN_AS_NODE=1 exec "$OSTIA_APP_BIN" "$resources/app.asar/out/cli/index.js" "$@"
