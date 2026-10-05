@@ -18,6 +18,7 @@ import {
 import { browserProfileIn, openerOf } from '../lib/browserProfile'
 import { announceBusMessage } from '../lib/busNotice'
 import { setKeybindingSetting } from '../lib/chords'
+import { clearKeepingScrollback } from '../lib/clearTerminal'
 import { closePaneForAgent, requestCloseOthers, requestClosePane } from '../lib/closeConfirm'
 import { wakePane } from '../lib/hibernationScheduler'
 import { mergeRefusalText } from '../lib/mergeRefusalText'
@@ -25,6 +26,7 @@ import { startNewWorkspace, startScratchWorkspace } from '../lib/newWorkspace'
 import { openRequestedFiles } from '../lib/openFile'
 import { GO_TO_WORKSPACE_SYMBOL_COMMAND, SYMBOLS_PREFIX } from '../lib/paletteModes'
 import { isStaleAgentReport } from '../lib/paneAgent'
+import { terminalFor } from '../lib/terminalHandles'
 import { openWorkflowPicker } from '../lib/workflows'
 import {
   focusPaneInDirection,
@@ -441,6 +443,19 @@ export function registerBuiltinCommands(): void {
       const inputMode = settings.behavior.inputMode === 'editor' ? 'terminal' : 'editor'
       settings.setBehavior({ inputMode })
       return { inputMode }
+    },
+  })
+
+  registerCore<void, { cleared: boolean }>({
+    id: 'terminal.clear',
+    category: 'terminal',
+    capabilities: ['shell'],
+    run: async (_args, ctx) => {
+      const paneId = ctx.activePaneId
+      const term = paneId ? terminalFor(paneId) : undefined
+      if (!paneId || !term) return { cleared: false }
+      const atPrompt = !useBlocksStore.getState().running[paneId]
+      return { cleared: await clearKeepingScrollback(term, atPrompt) }
     },
   })
 

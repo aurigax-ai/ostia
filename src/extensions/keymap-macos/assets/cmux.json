@@ -10,6 +10,7 @@
     "pane.focusUp": "Cmd+Alt+Up",
     "pane.focusDown": "Cmd+Alt+Down",
     "pane.zoom": "Cmd+Shift+Enter",
-    "dashboard.toggle": "Cmd+Alt+D"
+    "dashboard.toggle": "Cmd+Alt+D",
+    "terminal.clear": "Cmd+Shift+K"
   }
 }

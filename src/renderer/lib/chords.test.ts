@@ -10,6 +10,7 @@ import {
 import { parseKeymapBindings } from '@shared/keymapFile'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { commands } from '../commands/registry'
+import { en } from '../i18n/dict'
 import { useKeymapStore } from '../stores/keymapStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import {
@@ -368,10 +369,11 @@ describe('the macOS keymap that follows cmux', () => {
   const parsed = parseKeymapBindings(raw, true)
   const bindings = parsed.ok ? parsed.bindings : {}
 
-  it('names only app commands, each with a chord that loads on macOS', () => {
+  it('names only app commands Ostia ships, each with a chord that loads on macOS', () => {
     expect(parsed.ok && parsed.skipped).toEqual([])
+    const shipped = [...Object.keys(DEFAULT_CHORDS), ...Object.keys(en.commands.titles)]
     for (const [id, text] of Object.entries(raw.bindings as Record<string, string>)) {
-      expect(Object.keys(DEFAULT_CHORDS), id).toContain(id)
+      expect(shipped, id).toContain(id)
       expect(isAppChord(id), id).toBe(true)
       expect(checkBinding(id, text, true), id).toBeNull()
     }
