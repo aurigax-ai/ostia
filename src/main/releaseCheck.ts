@@ -1,4 +1,5 @@
 import { BrowserWindow, app, ipcMain } from 'electron'
+import { readEnv } from '../shared/appEnv'
 import { PRODUCT_NAME } from '../shared/product'
 import {
   RELEASE_API_BASE_URL,
@@ -18,7 +19,7 @@ export const RELEASE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000
 export const RELEASE_CHECK_RETRY_MS = 60 * 60 * 1000
 export const RELEASE_REQUEST_TIMEOUT_MS = 10_000
 export const RELEASE_RESPONSE_MAX_BYTES = 1024 * 1024
-export const RELEASE_API_URL_ENV = 'PINE_RELEASE_API_URL'
+export const RELEASE_API_URL_ENV = 'RELEASE_API_URL'
 
 export type LatestRelease =
   | { kind: 'release'; release: ReleaseInfo }
@@ -36,7 +37,7 @@ export function releaseEndpoint(
   isPackaged: boolean,
   env: Record<string, string | undefined>,
 ): ReleaseEndpoint {
-  const override = isPackaged ? undefined : env[RELEASE_API_URL_ENV]
+  const override = isPackaged ? undefined : readEnv(RELEASE_API_URL_ENV, env)
   return {
     baseUrl: override || RELEASE_API_BASE_URL,
     automatic: isPackaged || Boolean(override),

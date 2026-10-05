@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { PRODUCT_NAME } from '../../shared/product'
+import { PRODUCT_DISPLAY_NAME } from '../../shared/productDisplay'
 import { en, withProductName, zhHant } from './dict'
 
 type Strings = { [key: string]: string | Strings }
@@ -12,14 +12,14 @@ function entries(strings: Strings, path = ''): [string, string][] {
 }
 
 const IDENTIFIERS = [
-  'the pine command',
-  'pine settings set',
-  'pine view schema',
-  'pine ask',
-  'pine <agent>',
-  'pine <name>',
-  'pine <名稱>',
-  'pine 指令',
+  'the ostia command',
+  'ostia settings set',
+  'ostia view schema',
+  'ostia ask',
+  'ostia <agent>',
+  'ostia <name>',
+  'ostia <名稱>',
+  'ostia 指令',
 ]
 
 function withoutIdentifiers(text: string): string {
@@ -38,7 +38,7 @@ describe('withProductName', () => {
   })
 
   it('uses the product name by default and leaves other text alone', () => {
-    expect(withProductName('{product}')).toBe(PRODUCT_NAME)
+    expect(withProductName('{product}')).toBe(PRODUCT_DISPLAY_NAME)
     expect(withProductName('No braces {here}')).toBe('No braces {here}')
   })
 })
@@ -51,7 +51,7 @@ describe('product name in the dictionary', () => {
 
   it.each(catalogs)('%s never spells the product name: it writes {product}', (_name, catalog) => {
     const hardcoded = entries(catalog)
-      .filter(([, text]) => /pine/i.test(withoutIdentifiers(text)))
+      .filter(([, text]) => /pine|ostia/i.test(withoutIdentifiers(text)))
       .map(([path, text]) => `${path}: ${text}`)
 
     expect(hardcoded).toEqual([])

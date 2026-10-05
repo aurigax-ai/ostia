@@ -117,10 +117,25 @@ describe('stealsTerminalKey', () => {
     expect(stealsTerminalKey(chord('Ctrl+Shift+Up'), false)).toBeNull()
   })
 
-  it('refuses Escape and Tab with any modifier', () => {
+  it('refuses Escape with any modifier', () => {
     expect(stealsTerminalKey(chord('Ctrl+Shift+Escape'), false)).toBe('escape')
-    expect(stealsTerminalKey(chord('Ctrl+Tab'), false)).toBe('tab')
     expect(stealsTerminalKey(chord('Cmd+Escape', true), true)).toBe('escape')
+  })
+
+  it('allows Ctrl+Tab and Ctrl+Shift+Tab on every platform', () => {
+    for (const mac of [true, false]) {
+      expect(stealsTerminalKey(chord('Ctrl+Tab', mac), mac)).toBeNull()
+      expect(stealsTerminalKey(chord('Ctrl+Shift+Tab', mac), mac)).toBeNull()
+    }
+  })
+
+  it('refuses Tab without Ctrl or with Alt or Cmd', () => {
+    expect(stealsTerminalKey(chord('Tab'), false)).toBe('tab')
+    expect(stealsTerminalKey(chord('Shift+Tab'), false)).toBe('tab')
+    expect(stealsTerminalKey(chord('Alt+Tab'), false)).toBe('tab')
+    expect(stealsTerminalKey(chord('Ctrl+Alt+Tab'), false)).toBe('tab')
+    expect(stealsTerminalKey(chord('Cmd+Tab', true), true)).toBe('tab')
+    expect(stealsTerminalKey(chord('Ctrl+Cmd+Tab', true), true)).toBe('tab')
   })
 
   it('refuses keys without Ctrl or Super on Linux', () => {

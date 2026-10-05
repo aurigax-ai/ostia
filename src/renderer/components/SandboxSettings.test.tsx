@@ -1,4 +1,4 @@
-import { PRODUCT_NAME } from '@shared/product'
+import { PRODUCT_DISPLAY_NAME } from '@shared/productDisplay'
 import '@testing-library/jest-dom/vitest'
 import { DEFAULT_CONTROLS, type SandboxFixedPolicy, type WorkspaceSandbox } from '@shared/sandbox'
 import { act, render, screen, waitFor, within } from '@testing-library/react'
@@ -66,7 +66,9 @@ describe('sandbox settings', () => {
     vi.mocked(window.pine.sandbox.get).mockResolvedValue(WORKSPACE)
     vi.mocked(window.pine.sandbox.setControls).mockResolvedValue({ ...WORKSPACE, controls: {} })
     render(<WorkspaceSandboxPage workspaceId="ws" workspaceName="proj" />)
-    await userEvent.click(await screen.findByRole('tab', { name: `${PRODUCT_NAME} access` }))
+    await userEvent.click(
+      await screen.findByRole('tab', { name: `${PRODUCT_DISPLAY_NAME} access` }),
+    )
     const row = screen.getByRole('group', { name: 'Act on other workspaces' })
     expect(within(row).getByRole('switch')).toBeChecked()
     expect(row).toHaveTextContent('Overridden')
@@ -122,7 +124,7 @@ describe('sandbox filesystem settings', () => {
     await userEvent.type(within(hidden).getByRole('textbox'), '/run/user/1000')
     await userEvent.click(within(hidden).getByRole('button', { name: 'Add' }))
     expect(await within(hidden).findByRole('alert')).toHaveTextContent(
-      `${PRODUCT_NAME} keeps that path closed`,
+      `${PRODUCT_DISPLAY_NAME} keeps that path closed`,
     )
     expect(useSettingsStore.getState().sandbox?.allowRead).toEqual([])
   })
@@ -199,7 +201,7 @@ describe('sandbox Unix socket settings', () => {
     vi.mocked(window.pine.sandbox.fixedPolicy).mockResolvedValue(FIXED)
     render(<SandboxSection />)
     const row = screen.getByRole('group', { name: 'Allow Unix sockets' })
-    expect(row).toHaveTextContent('the pine command')
+    expect(row).toHaveTextContent('the ostia command')
     expect(row).toHaveTextContent('Linux can only allow or block all of them')
     expect(within(row).getByRole('switch')).toBeChecked()
     await userEvent.click(within(row).getByRole('switch'))
@@ -330,7 +332,7 @@ describe('workspace sandbox page layout', () => {
       ['Ports', 'Ports'],
       ['Secrets', 'Secrets'],
       ['Packages', 'Packages'],
-      [`${PRODUCT_NAME} access`, `${PRODUCT_NAME} access`],
+      [`${PRODUCT_DISPLAY_NAME} access`, `${PRODUCT_DISPLAY_NAME} access`],
       ['Blocked', 'Blocked'],
     ]
     for (const [tab, heading] of groups) {

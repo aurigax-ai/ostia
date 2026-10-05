@@ -4,7 +4,7 @@ import {
   MANAGER_MAX_ARGS,
   MANAGER_MAX_ARG_LENGTH,
 } from '../shared/managerSettings'
-import { PRODUCT_NAME } from '../shared/product'
+import { PRODUCT_DISPLAY_NAME } from '../shared/productDisplay'
 
 const MAX_PATH_LENGTH = 32 * 1024
 
@@ -144,7 +144,9 @@ export class ManagerService {
   private async start(req: ManagerOpenRequest, argv: string[]): Promise<ManagerInfo> {
     const paneId = await this.deps.createPane({ agent: req.agent, cwd: req.cwd })
     if (!paneId)
-      throw new ManagerError(`no-window: ${PRODUCT_NAME} could not open the manager workspace`)
+      throw new ManagerError(
+        `no-window: ${PRODUCT_DISPLAY_NAME} could not open the manager workspace`,
+      )
     const info: ManagerInfo = { paneId, agent: req.agent }
     const saved = parseSavedResume(this.deps.loadResume())
     const resume = saved?.agent === req.agent && req.args.length === 0 ? saved.resume : null

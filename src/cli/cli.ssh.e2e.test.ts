@@ -34,7 +34,7 @@ interface RunResult {
   stderr: string
 }
 
-describe('pine ssh (real extension process, real socket, fake ssh)', () => {
+describe('ostia ssh (real extension process, real socket, fake ssh)', () => {
   let dir: string
   let sshLog: string
   let socketPath: string
@@ -67,7 +67,7 @@ describe('pine ssh (real extension process, real socket, fake ssh)', () => {
       let stderr = ''
       const timer = setTimeout(() => {
         child.kill('SIGKILL')
-        reject(new Error(`pine ${args.join(' ')} timed out (${stdout} ${stderr})`))
+        reject(new Error(`ostia ${args.join(' ')} timed out (${stdout} ${stderr})`))
       }, 15_000)
       child.stdout.on('data', (c: Buffer) => {
         stdout += c.toString()
@@ -143,10 +143,10 @@ describe('pine ssh (real extension process, real socket, fake ssh)', () => {
     const listed = await runPine(['ext', 'ls'])
     expect(listed.stdout).toContain('ssh\t')
     expect(listed.stdout).toContain(
-      'pine ssh connect [-J <hop>[,<hop>...]] [-p <port>] <[user@]host>',
+      'ostia ssh connect [-J <hop>[,<hop>...]] [-p <port>] <[user@]host>',
     )
-    expect(listed.stdout).toContain('pine ssh ls')
-    expect(listed.stdout).toContain('pine ssh show <host>')
+    expect(listed.stdout).toContain('ostia ssh ls')
+    expect(listed.stdout).toContain('ostia ssh show <host>')
     const info = host.list().find((e) => e.id === 'ssh')
     expect(info).toMatchObject({
       builtin: true,

@@ -25,7 +25,9 @@ import type {
 import type { EditorLanguagesApi } from './editorLanguages'
 import type { SuggestionsApi } from './extensionSuggestions'
 import type { ExtensionResult, ExtensionsApi } from './extensions'
+import type { GuestChordFire } from './guestChords'
 import type { IconThemesApi } from './iconTheme'
+import type { KeymapsApi } from './keymapFile'
 import type { LanguagePacksApi } from './languagePack'
 import type { LspApi } from './languageServers'
 import type { MarketplaceApi } from './marketplace'
@@ -693,6 +695,11 @@ export interface ClipboardApi {
   setChords: (chords: ClipboardChords) => void
 }
 
+export interface GuestChordsApi {
+  set: (signatures: string[]) => void
+  onFire: (cb: (fire: GuestChordFire) => void) => () => void
+}
+
 export interface OpenPathApi {
   openDefault: (path: string) => Promise<OpenPathResult>
   reveal: (path: string) => Promise<OpenPathResult>
@@ -867,6 +874,7 @@ export interface PineBridge {
   agentSession: AgentSessionApi
   openPath: OpenPathApi
   clipboard: ClipboardApi
+  guestChords: GuestChordsApi
   files: FilesApi
   extensions: ExtensionsApi
   marketplace: MarketplaceApi
@@ -882,6 +890,7 @@ export interface PineBridge {
   chatTools: ChatToolsApi
   iconThemes: IconThemesApi
   languagePacks: LanguagePacksApi
+  keymaps: KeymapsApi
   editorLanguages: EditorLanguagesApi
   views: ViewsApi
 }

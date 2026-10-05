@@ -22,7 +22,7 @@ import { bellActions, createBellThrottle } from '../lib/bell'
 import { canTypeInto, insertCommand, selectedBlockOutput, stepBlock } from '../lib/blockActions'
 import { decodeCommandLine, readCommandText } from '../lib/blockText'
 import { openBrowserAs } from '../lib/browserProfile'
-import { isAppChord, matchChord } from '../lib/chords'
+import { isAppChord, isBrowserChord, matchChord } from '../lib/chords'
 import {
   PROGRAM_PASTE_KEY,
   keyPastePlan,
@@ -32,6 +32,7 @@ import {
 import { currentScheme, terminalTheme, useScheme } from '../lib/colorScheme'
 import { acceptsPathDrop, droppedPaths, pathsAsInput } from '../lib/dropPaths'
 import { attachLinkModifier, linkModifierHeld, linkTarget } from '../lib/linkModifier'
+import { macLineEditKey } from '../lib/macLineKeys'
 import { openFileAt } from '../lib/openFile'
 import { isLocalHost, parseOsc7 } from '../lib/osc7'
 import { registerOsc52 } from '../lib/osc52'
@@ -253,6 +254,18 @@ export function TerminalView({
       }
       const chord = matchChord(e, isMac)
       if (!chord) {
+        const lineKey = macLineEditKey(
+          e,
+          isMac,
+          useSettingsStore.getState().terminal.macOptionIsMeta,
+        )
+        if (lineKey && !inputEditorFor(paneId)) {
+          if (e.type === 'keydown') {
+            e.preventDefault()
+            term.input(lineKey, true)
+          }
+          return false
+        }
         const editor = inputEditorFor(paneId)
         if (!editor) return true
         if (e.type !== 'keydown') return false
@@ -264,6 +277,7 @@ export function TerminalView({
       }
       const clipboard = chord === 'copy' || chord === 'paste'
       if (isMac && clipboard && isNativeClipboardKey(e)) return true
+      if (isBrowserChord(chord)) return true
       if (e.type !== 'keydown' || isAppChord(chord)) return false
       e.preventDefault()
       if (chord === 'find') setFindOpen(true)

@@ -55,5 +55,5 @@ const REFUSALS: Record<OpenFileError, string> = {
 }
 
 export function refusalLine(path: string, error: OpenFileError): string {
-  return `pine: ${path}: ${REFUSALS[error]}`
+  return `ostia: ${path}: ${REFUSALS[error]}`
 }

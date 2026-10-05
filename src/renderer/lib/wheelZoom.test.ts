@@ -18,6 +18,7 @@ describe('wheel zoom', () => {
   })
 
   it('changes the surface font size within 8–32 and swallows the scroll', () => {
+    useSettingsStore.getState().setBehavior({ wheelZoom: true })
     const host = document.createElement('div')
     const detach = attachWheelZoom(host, 'terminal', false)
     useSettingsStore.getState().setSurfaceFont('terminal', { size: 31 })
@@ -36,5 +37,22 @@ describe('wheel zoom', () => {
     detach()
     host.dispatchEvent(new WheelEvent('wheel', { deltaY: 40, ctrlKey: true }))
     expect(useSettingsStore.getState().appearance.terminal.size).toBe(32)
+  })
+
+  it('leaves Ctrl+scroll and Cmd+scroll to normal scrolling when wheel zoom is off', () => {
+    useSettingsStore.getState().setBehavior({ wheelZoom: false })
+    useSettingsStore.getState().setSurfaceFont('editor', { size: 13 })
+    const host = document.createElement('div')
+    const detach = attachWheelZoom(host, 'editor', true)
+    const scroll = new WheelEvent('wheel', {
+      deltaY: -40,
+      metaKey: true,
+      cancelable: true,
+      bubbles: true,
+    })
+    host.dispatchEvent(scroll)
+    expect(scroll.defaultPrevented).toBe(false)
+    expect(useSettingsStore.getState().appearance.editor.size).toBe(13)
+    detach()
   })
 })

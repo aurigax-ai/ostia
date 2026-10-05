@@ -42,7 +42,13 @@ async function launchPine(manager: object = {}) {
 function outsideEnv(portal: string): Record<string, string> {
   const env: Record<string, string> = {}
   for (const [key, value] of Object.entries(process.env)) {
-    if (value === undefined || key.startsWith('PINE_') || key === 'ELECTRON_RUN_AS_NODE') continue
+    if (
+      value === undefined ||
+      key.startsWith('OSTIA_') ||
+      key.startsWith('PINE_') ||
+      key === 'ELECTRON_RUN_AS_NODE'
+    )
+      continue
     env[key] = value
   }
   return {
@@ -145,7 +151,7 @@ test('MGR-C11 a pine <agent> run from a Pine pane is refused even with PINE_SOCK
     await openWorkspace(win)
     await win.locator('.xterm').first().click()
     await win.keyboard.type(
-      'env -u PINE_SOCKET -u PINE_TOKEN ELECTRON_RUN_AS_NODE=1 "$PINE_NODE" "$PINE_CLI" fake',
+      'env -u OSTIA_SOCKET -u OSTIA_TOKEN -u PINE_SOCKET -u PINE_TOKEN ELECTRON_RUN_AS_NODE=1 "$PINE_NODE" "$PINE_CLI" fake',
     )
     await win.keyboard.press('Enter')
     await expect(win.locator('.xterm-rows').first()).toContainText('inside-pine', {

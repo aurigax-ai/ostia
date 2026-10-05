@@ -60,6 +60,7 @@ import {
   type FileTreeSettings,
   parseFileTreeSettings,
 } from '../settings/fileTreeSettings'
+import { parseKeymapSetting } from '../settings/keymapSetting'
 import {
   DEFAULT_PANE_SETTINGS,
   DEFAULT_TERMINAL_SETTINGS,
@@ -213,6 +214,7 @@ export interface Behavior {
   inputEditorVim: boolean
   historySuggestions: boolean
   checkForUpdates: boolean
+  wheelZoom: boolean
 }
 
 export type NewWorkspacePlacement = 'end' | 'top' | 'afterCurrent'
@@ -281,6 +283,7 @@ interface Persisted {
   workspaces: WorkspaceSettings
   browser: BrowserSettings
   editor: EditorSettings
+  keymap: string | null
   keybindings: KeybindingMap
   agents: AgentSettings
   assistant: AssistantSettings
@@ -339,6 +342,7 @@ const DEFAULTS: Persisted = {
     inputEditorVim: false,
     historySuggestions: true,
     checkForUpdates: true,
+    wheelZoom: true,
   },
   files: DEFAULT_FILE_TREE_SETTINGS,
   terminal: DEFAULT_TERMINAL_SETTINGS,
@@ -347,6 +351,7 @@ const DEFAULTS: Persisted = {
   workspaces: DEFAULT_WORKSPACE_SETTINGS,
   browser: DEFAULT_BROWSER_SETTINGS,
   editor: DEFAULT_EDITOR_SETTINGS,
+  keymap: null,
   keybindings: {},
   sidebar: {
     showPath: true,
@@ -408,6 +413,7 @@ interface SettingsState extends Persisted {
   setWindowTitle: (template: string) => void
   trustAction: (fingerprint: string) => void
   removeAction: (id: string) => void
+  setKeymap: (ref: string | null) => void
   setKeybinding: (id: string, chord: string | null) => void
   resetKeybinding: (id: string) => void
   setKeybindings: (map: KeybindingMap) => void
@@ -460,6 +466,7 @@ export function parsePersisted(p: Partial<Persisted>): Persisted {
     workspaces: parseWorkspaceSettings(p.workspaces),
     browser: parseBrowserSettings(p.browser),
     editor: parseEditorSettings(p.editor),
+    keymap: parseKeymapSetting(p.keymap),
     keybindings: parseKeybindings(p.keybindings),
     agents: {
       hibernation: parseHibernation(p.agents?.hibernation),
@@ -570,6 +577,7 @@ async function writeSettings(s: SettingsState): Promise<void> {
     workspaces: s.workspaces,
     browser: s.browser,
     editor: s.editor,
+    keymap: s.keymap,
     keybindings: s.keybindings,
     agents: s.agents,
     assistant: s.assistant,
@@ -740,6 +748,10 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   },
   setEditor: (patch) => {
     set((s) => ({ editor: parseEditorSettings({ ...s.editor, ...patch }) }))
+    scheduleSave(get)
+  },
+  setKeymap: (ref) => {
+    set({ keymap: parseKeymapSetting(ref) })
     scheduleSave(get)
   },
   setKeybinding: (id, chord) => {

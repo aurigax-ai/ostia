@@ -1,7 +1,10 @@
+import { Terminal } from '@xterm/xterm'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import { createPane } from '../layout/tree'
+import { createPane, splitOf, tabsOf } from '../layout/tree'
 import * as blockActions from '../lib/blockActions'
+import { registerBrowserHandle } from '../lib/browserHandles'
 import * as closeConfirm from '../lib/closeConfirm'
+import { registerTerminal } from '../lib/terminalHandles'
 import { useAttentionStore } from '../stores/attentionStore'
 import { useBlocksStore } from '../stores/blocksStore'
 import { useCloseConfirmStore } from '../stores/closeConfirmStore'
@@ -9,6 +12,7 @@ import { useEditorStatus } from '../stores/editorStatusStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useSandboxStore } from '../stores/sandboxStore'
 import { useSettingsStore } from '../stores/settingsStore'
+import * as surfaceSlots from '../stores/surfaceSlotsStore'
 import { useUIStore } from '../stores/uiStore'
 import { useUpdateStore } from '../stores/updateStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
@@ -215,6 +219,36 @@ describe('builtins route to store actions', () => {
     expect(useSettingsStore.getState().behavior.inputMode).toBe('editor')
     await commands.exec('terminal.toggleInputEditor')
     expect(useSettingsStore.getState().behavior.inputMode).toBe('terminal')
+  })
+
+  it('terminal.clear clears the caller’s terminal, redraws the prompt only when idle, and needs shell', async () => {
+    const described = commands.describe().find((c) => c.id === 'terminal.clear')
+    expect(described?.capabilities).toEqual(['shell'])
+    const term = new Terminal({ cols: 20, rows: 4 })
+    const unregister = registerTerminal('pT', term)
+    const sent: string[] = []
+    term.onData((d) => sent.push(d))
+    try {
+      await new Promise<void>((r) => term.write('one\r\n$ ', r))
+      expect(await commands.execWith(ctx('s1', 'pT'), 'terminal.clear')).toEqual({
+        ok: true,
+        result: { cleared: true },
+      })
+      expect(term.buffer.active.baseY).toBe(2)
+      expect(sent).toEqual(['\x0c'])
+
+      useBlocksStore.setState({ running: { pT: 'b1' } })
+      await commands.execWith(ctx('s1', 'pT'), 'terminal.clear')
+      expect(sent).toEqual(['\x0c'])
+    } finally {
+      unregister()
+      term.dispose()
+      useBlocksStore.setState({ running: {} })
+    }
+    expect(await commands.execWith(ctx('s1', 'pT'), 'terminal.clear')).toEqual({
+      ok: true,
+      result: { cleared: false },
+    })
   })
 
   it('settings.set reports a rejected path as a failed command', async () => {
@@ -449,6 +483,33 @@ describe('builtins route to store actions', () => {
     if (!r.ok) expect(r.error.message).toMatch(/keybindings.palette.toggle: "Ctrl\+R"/)
     expect(useSettingsStore.getState().keybindings).toEqual({})
   })
+
+  it('settings.set picks a keymap by "<extension>/<keymap>", refuses anything else, and unset goes back to null', async () => {
+    const exec = (id: string, args: unknown) => commands.execWith(ctx(null, null), id, args)
+    expect(
+      await exec('settings.set', { key: 'keymap', value: 'keymap-macos/cmux', dryRun: true }),
+    ).toEqual({ ok: true, result: { previous: null, value: 'keymap-macos/cmux', applied: false } })
+    expect(useSettingsStore.getState().keymap).toBeNull()
+    expect(await exec('settings.set', { key: 'keymap', value: 'keymap-macos/cmux' })).toEqual({
+      ok: true,
+      result: { previous: null, value: 'keymap-macos/cmux', applied: true },
+    })
+    expect(await exec('settings.get', { key: 'keymap' })).toEqual({
+      ok: true,
+      result: 'keymap-macos/cmux',
+    })
+    for (const value of ['cmux', 'Keymap/cmux', 3, {}]) {
+      const bad = await exec('settings.set', { key: 'keymap', value })
+      expect(bad.ok, String(value)).toBe(false)
+      if (!bad.ok) expect(bad.error.message).toMatch(/keymap must be null or/)
+    }
+    expect(useSettingsStore.getState().keymap).toBe('keymap-macos/cmux')
+    expect(await exec('settings.unset', { key: 'keymap' })).toEqual({
+      ok: true,
+      result: { previous: 'keymap-macos/cmux', value: null },
+    })
+    expect(useSettingsStore.getState().keymap).toBeNull()
+  })
   it('settings.set refuses to change the notification command, directly or via notifications', async () => {
     const direct = await commands.execWith(ctx(null, null), 'settings.set', {
       key: 'notifications.command',
@@ -596,6 +657,60 @@ describe('builtins route to store actions', () => {
     useLayoutStore.getState().zoomPane('s1', right.id, true)
     await commands.execWith(ctx('s1', right.id), 'pane.focusLeft')
     expect(useLayoutStore.getState().byWorkspace.s1.activePaneId).toBe(right.id)
+  })
+
+  it('cycles the tabs of the caller’s pane with tab.next and tab.previous', async () => {
+    const a = createPane()
+    const b = createPane()
+    const c = createPane()
+    useLayoutStore.setState({
+      byWorkspace: { s1: { root: tabsOf(a.id, a, b, c), activePaneId: a.id, zoomedPaneId: null } },
+    })
+    const shown = () => {
+      const { root, activePaneId } = useLayoutStore.getState().byWorkspace.s1
+      return [activePaneId, root.type === 'tabs' ? root.activeId : null]
+    }
+    await commands.execWith(ctx('s1', a.id), 'tab.next')
+    expect(shown()).toEqual([b.id, b.id])
+    await commands.execWith(ctx('s1', b.id), 'tab.previous')
+    expect(shown()).toEqual([a.id, a.id])
+    await commands.execWith(ctx('s1', a.id), 'tab.previous')
+    expect(shown()).toEqual([c.id, c.id])
+  })
+
+  it('moves keyboard focus into the tab it shows, and not while a pane is zoomed', async () => {
+    const a = createPane()
+    const b = createPane()
+    useLayoutStore.setState({
+      byWorkspace: { s1: { root: tabsOf(a.id, a, b), activePaneId: a.id, zoomedPaneId: null } },
+    })
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+      cb(0)
+      return 0
+    })
+    const focusSurface = vi.spyOn(surfaceSlots, 'focusSurface').mockImplementation(() => {})
+    await commands.execWith(ctx('s1', a.id), 'tab.next')
+    expect(focusSurface).toHaveBeenCalledWith(b.id)
+
+    focusSurface.mockClear()
+    useLayoutStore.getState().zoomPane('s1', b.id, true)
+    await commands.execWith(ctx('s1', b.id), 'tab.next')
+    expect(useLayoutStore.getState().byWorkspace.s1.activePaneId).toBe(b.id)
+    expect(focusSurface).not.toHaveBeenCalled()
+  })
+
+  it('leaves focus alone when the caller’s pane has no other tabs', async () => {
+    const left = createPane()
+    const right = createPane()
+    useLayoutStore.setState({
+      byWorkspace: {
+        s1: { root: splitOf('horizontal', left, right), activePaneId: left.id, zoomedPaneId: null },
+      },
+    })
+    const focusPane = vi.spyOn(useLayoutStore.getState(), 'focusPane')
+    await commands.execWith(ctx('s1', left.id), 'tab.next')
+    await commands.execWith(ctx(null, left.id), 'tab.previous')
+    expect(focusPane).not.toHaveBeenCalled()
   })
 
   it('routes pane.move to layout.movePane with source, target, and zone', async () => {
@@ -1196,5 +1311,43 @@ describe('agent notifications', () => {
       message: 'hi',
     })
     expect(focused).toMatchObject({ ok: true, result: { desktop: true } })
+  })
+})
+
+describe('browser commands', () => {
+  it('act on the active browser pane and report when there is none', async () => {
+    const handle = {
+      guestId: () => 3,
+      focusAddress: vi.fn(),
+      reload: vi.fn(),
+      back: vi.fn(),
+      forward: vi.fn(),
+      find: vi.fn(),
+    }
+    const off = registerBrowserHandle('web1', handle)
+    try {
+      expect(commands.describe().find((c) => c.id === 'browser.reload')?.capabilities).toEqual([
+        'browse',
+      ])
+      expect(await commands.execWith(ctx('s1', 'web1'), 'browser.reload')).toEqual({
+        ok: true,
+        result: { handled: true },
+      })
+      await commands.execWith(ctx('s1', 'web1'), 'browser.back')
+      await commands.execWith(ctx('s1', 'web1'), 'browser.forward')
+      await commands.execWith(ctx('s1', 'web1'), 'browser.focusAddress')
+      await commands.execWith(ctx('s1', 'web1'), 'browser.find')
+      expect(handle.reload).toHaveBeenCalledTimes(1)
+      expect(handle.back).toHaveBeenCalledTimes(1)
+      expect(handle.forward).toHaveBeenCalledTimes(1)
+      expect(handle.focusAddress).toHaveBeenCalledTimes(1)
+      expect(handle.find).toHaveBeenCalledTimes(1)
+      expect(await commands.execWith(ctx('s1', 'term1'), 'browser.reload')).toEqual({
+        ok: true,
+        result: { handled: false },
+      })
+    } finally {
+      off()
+    }
   })
 })

@@ -1,7 +1,6 @@
 import { commands } from '../commands/registry'
 import { isMac } from '../platform'
-import { useSettingsStore } from '../stores/settingsStore'
-import { bindableIds, chordLabel } from './chords'
+import { bindableIds, chordLabel, onBindingsChange } from './chords'
 
 export function shortcutMap(mac: boolean): Record<string, string> {
   const out: Record<string, string> = {}
@@ -23,11 +22,9 @@ export function startShortcutReporting(): () => void {
   }
   report()
   const offCommands = commands.subscribe(report)
-  const offSettings = useSettingsStore.subscribe((s, prev) => {
-    if (s.keybindings !== prev.keybindings) report()
-  })
+  const offBindings = onBindingsChange(report)
   return () => {
     offCommands()
-    offSettings()
+    offBindings()
   }
 }

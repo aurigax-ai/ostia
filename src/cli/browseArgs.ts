@@ -115,7 +115,7 @@ function ok(verb: string, method: string, params: Record<string, unknown> = {}):
 }
 
 function usage(text: string): BrowseParse {
-  return { ok: false, error: `usage: pine browse ${text}` }
+  return { ok: false, error: `usage: ostia browse ${text}` }
 }
 
 type Parser = (args: string[], cwd: string) => BrowseParse

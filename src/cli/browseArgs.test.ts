@@ -39,7 +39,7 @@ describe('parseBrowseCommand', () => {
       method: 'browse.login',
       params: { username: 'me@x.dev' },
     })
-    expect(error(['login', 'extra'])).toMatch(/usage: pine browse login/)
+    expect(error(['login', 'extra'])).toMatch(/usage: ostia browse login/)
   })
 
   it('reads snapshot flags in both short and long form', () => {
@@ -61,7 +61,7 @@ describe('parseBrowseCommand', () => {
     expect(call(['click', '#go', '--new-tab']).params.newTab).toBe(true)
     expect(call(['hover', '@e4'])).toEqual({ method: 'browse.hover', params: { target: '@e4' } })
     expect(call(['scrollintoview', '@e1']).method).toBe('browse.scrollintoview')
-    expect(error(['click'])).toMatch(/usage: pine browse click/)
+    expect(error(['click'])).toMatch(/usage: ostia browse click/)
   })
 
   it('joins the rest of the words as the text for fill and type', () => {

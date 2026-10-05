@@ -38,6 +38,7 @@ function ext(overrides: Partial<ExtensionInfo>): ExtensionInfo {
     agentSkills: [],
     agentHooks: [],
     iconThemes: [],
+    keymaps: [],
     ...overrides,
   }
 }
@@ -147,7 +148,7 @@ describe('Extensions UI', () => {
       render(<ExtensionApprovalDialog />)
       expect(
         within(screen.getByRole('dialog')).getByText(
-          'Without one, pine downloads the pinned release.',
+          'Without one, Ostia downloads the pinned release.',
         ),
       ).toBeInTheDocument()
       const servers = within(screen.getByRole('dialog')).getByRole('list', {

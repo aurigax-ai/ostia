@@ -11,6 +11,7 @@ import {
   type MessageConnection,
 } from 'vscode-jsonrpc/node'
 import { AGENT_PLUGIN_CAPABILITY, agentSkillId, hookAgentsFor } from '../shared/agentPlugins'
+import { dualEnv, withoutEnv } from '../shared/appEnv'
 import {
   ASSIST_ERRORS,
   ASSIST_POINTS,
@@ -155,6 +156,7 @@ import {
   removeExtension,
   resolveExternal,
 } from './idRegistry'
+import type { KeymapSource } from './keymaps'
 import type { LanguageSource } from './languagePacks'
 import type { LanguageServerSource } from './languageServers'
 import { REMOTE_REQUEST_TIMEOUT_MS, RemoteFolders, type RemoteFoldersDeps } from './remoteFolders'
@@ -602,6 +604,11 @@ export class ExtensionHost {
       secretsSet: this.deps.secrets?.keys(m.id) ?? [],
       iconThemes: (m.contributes.iconThemes ?? []).map(({ id, label }) => ({ id, label })),
       languages: (m.contributes.languages ?? []).map(({ id, label }) => ({ id, label })),
+      keymaps: (m.contributes.keymaps ?? []).map(({ id, label, platform }) => ({
+        id,
+        label,
+        ...(platform ? { platform } : {}),
+      })),
       languageServers: (m.contributes.languageServers ?? []).map(languageServerSummary),
       agentSkills: (m.contributes.agentSkills ?? []).map((skill) => agentSkillId(m.id, skill.name)),
       agentHooks: (m.contributes.agentHooks ?? []).map((hook) => ({
@@ -671,6 +678,18 @@ export class ExtensionHost {
           extId: rt.ext.manifest.id,
           dir: rt.ext.dir,
           language,
+        })),
+      )
+  }
+
+  keymaps(): KeymapSource[] {
+    return [...this.runtimes.values()]
+      .filter((rt) => this.active(rt))
+      .flatMap((rt) =>
+        (rt.ext.manifest.contributes.keymaps ?? []).map((keymap) => ({
+          extId: rt.ext.manifest.id,
+          dir: rt.ext.dir,
+          keymap,
         })),
       )
   }
@@ -930,16 +949,17 @@ export class ExtensionHost {
     setCaps(identity.externalId, this.granted(rt))
     const mainPath = join(rt.ext.dir, main)
     const script = /\.(c|m)?js$/.test(main)
-    const { PINE_PANE_ID: _pane, PINE_START_DIR: _workspace, ...inherited } = process.env
     const env: NodeJS.ProcessEnv = {
-      ...inherited,
-      PINE_SOCKET: this.deps.socketPath(),
-      PINE_TOKEN: identity.token,
-      [EXTENSION_API_ENV]: EXTENSION_API_VERSION,
-      PINE_EXTENSION_ID: id,
-      PINE_EXTENSION_DIR: rt.ext.dir,
+      ...withoutEnv(process.env, ['PANE_ID', 'START_DIR']),
+      ...dualEnv({
+        SOCKET: this.deps.socketPath(),
+        TOKEN: identity.token,
+        [EXTENSION_API_ENV]: EXTENSION_API_VERSION,
+        EXTENSION_ID: id,
+        EXTENSION_DIR: rt.ext.dir,
+        ...(this.deps.dataDir ? { EXTENSION_DATA: join(this.deps.dataDir, id) } : {}),
+      }),
     }
-    if (this.deps.dataDir) env.PINE_EXTENSION_DATA = join(this.deps.dataDir, id)
     if (script) env.ELECTRON_RUN_AS_NODE = '1'
     rt.identity = identity
     rt.stopping = false

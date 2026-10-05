@@ -18,6 +18,7 @@ import {
 import { browserProfileIn, openerOf } from '../lib/browserProfile'
 import { announceBusMessage } from '../lib/busNotice'
 import { setKeybindingSetting } from '../lib/chords'
+import { clearKeepingScrollback } from '../lib/clearTerminal'
 import { closePaneForAgent, requestCloseOthers, requestClosePane } from '../lib/closeConfirm'
 import { focusActivePaneWhenReady } from '../lib/focusNewTerminal'
 import { wakePane } from '../lib/hibernationScheduler'
@@ -26,8 +27,10 @@ import { startNewWorkspace, startScratchWorkspace } from '../lib/newWorkspace'
 import { openRequestedFiles } from '../lib/openFile'
 import { GO_TO_WORKSPACE_SYMBOL_COMMAND, SYMBOLS_PREFIX } from '../lib/paletteModes'
 import { isStaleAgentReport } from '../lib/paneAgent'
+import { terminalFor } from '../lib/terminalHandles'
 import { openWorkflowPicker } from '../lib/workflows'
 import {
+  focusAdjacentTab,
   focusPaneInDirection,
   goToWorkspace,
   isPaneViewed,
@@ -39,6 +42,7 @@ import {
 import { loadMergeTargets, requestMergeWorkspace } from '../lib/workspaceMerge'
 import { anchorToFocusedPane, canMoveWorkspace, moveWorkspaceTo } from '../lib/workspaceProjects'
 import { isMac } from '../platform'
+import { keymapSettingValue } from '../settings/keymapSetting'
 import { settingsSchemaAt } from '../settings/settingsSchema'
 import { useBlocksStore } from '../stores/blocksStore'
 import { useHistorySearchStore } from '../stores/historySearchStore'
@@ -54,6 +58,7 @@ import { useUIStore } from '../stores/uiStore'
 import { useUpdateStore } from '../stores/updateStore'
 import type { WorkspaceKind, WorkspaceState } from '../stores/workspacesStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
+import { registerBrowserCommands } from './browserCommands'
 import { type CoreCommandId, registerCore } from './core'
 import { type CommandContext, commands } from './registry'
 
@@ -116,6 +121,8 @@ export function launchesProgram(key: string, value: unknown): string | null {
   return null
 }
 
+const KEYMAP_KEY = 'keymap'
+
 const isKeybindingPath = (key: string): boolean =>
   key === 'keybindings' || key.startsWith('keybindings.')
 
@@ -134,6 +141,7 @@ function readableSettings() {
     editor: s.editor,
     agents: s.agents,
     workspaceGroups: s.workspaceGroups,
+    keymap: s.keymap,
     keybindings: { ...s.keybindings },
     capabilities: s.capabilities,
     approvals: s.approvals,
@@ -162,6 +170,7 @@ const WORKSPACE_DIR = /^(\/|~(\/|$))/
 const PANE_LOCKED = 'pane-locked: the human locked this pane; only they can unlock it'
 
 export function registerBuiltinCommands(): void {
+  registerBrowserCommands()
   commands.setContextProvider((): CommandContext => {
     const workspaceId = useWorkspacesStore.getState().activeWorkspaceId
     const layout = workspaceId ? useLayoutStore.getState().byWorkspace[workspaceId] : undefined
@@ -269,6 +278,21 @@ export function registerBuiltinCommands(): void {
       run: (_args, ctx) => {
         if (ctx.activeWorkspaceId && ctx.activePaneId) {
           focusPaneInDirection(ctx.activeWorkspaceId, ctx.activePaneId, direction)
+        }
+      },
+    })
+  }
+
+  for (const [id, step] of [
+    ['tab.next', 1],
+    ['tab.previous', -1],
+  ] as const) {
+    registerCore({
+      id,
+      category: 'pane',
+      run: (_args, ctx) => {
+        if (ctx.activeWorkspaceId && ctx.activePaneId) {
+          focusAdjacentTab(ctx.activeWorkspaceId, ctx.activePaneId, step)
         }
       },
     })
@@ -440,6 +464,19 @@ export function registerBuiltinCommands(): void {
       const inputMode = settings.behavior.inputMode === 'editor' ? 'terminal' : 'editor'
       settings.setBehavior({ inputMode })
       return { inputMode }
+    },
+  })
+
+  registerCore<void, { cleared: boolean }>({
+    id: 'terminal.clear',
+    category: 'terminal',
+    capabilities: ['shell'],
+    run: async (_args, ctx) => {
+      const paneId = ctx.activePaneId
+      const term = paneId ? terminalFor(paneId) : undefined
+      if (!paneId || !term) return { cleared: false }
+      const atPrompt = !useBlocksStore.getState().running[paneId]
+      return { cleared: await clearKeepingScrollback(term, atPrompt) }
     },
   })
 
@@ -923,6 +960,12 @@ export function registerBuiltinCommands(): void {
         if (!dryRun) setKeybindingSetting(key, value, isMac)
         return { previous, value, applied: !dryRun }
       }
+      if (key === KEYMAP_KEY) {
+        const previous = useSettingsStore.getState().keymap
+        const next = keymapSettingValue(value)
+        if (!dryRun) useSettingsStore.getState().setKeymap(next)
+        return { previous, value: next, applied: !dryRun }
+      }
       const settings = useSettingsStore.getState()
       const change = dryRun ? settings.previewSetting(key, value) : settings.setByPath(key, value)
       return { ...settingResult(change), applied: !dryRun }
@@ -937,6 +980,11 @@ export function registerBuiltinCommands(): void {
     run: ({ key }) => {
       const program = launchesProgram(key, undefined)
       if (program) throw new Error(`${program} can only be changed by you in Settings`)
+      if (key === KEYMAP_KEY) {
+        const previous = useSettingsStore.getState().keymap
+        useSettingsStore.getState().setKeymap(null)
+        return { previous, value: null }
+      }
       return settingResult(useSettingsStore.getState().unsetByPath(key))
     },
   })

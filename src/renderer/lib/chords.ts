@@ -4,18 +4,22 @@ import {
   DIGIT_RANGE,
   type KeyLike,
   type KeybindingMap,
+  WORKSPACE_GOTO,
+  bindingProblem,
+  checkBinding,
   chordText,
   formatChord,
   overlaps,
   parseChord,
   specFromEvent,
-  stealsTerminalKey,
 } from '@shared/chordSpec'
 import { isDangerousSegment } from '@shared/protoGuard'
 import { commands } from '../commands/registry'
+import { useKeymapStore } from '../stores/keymapStore'
 import { useSettingsStore } from '../stores/settingsStore'
 
 export type { KeyLike, KeybindingMap } from '@shared/chordSpec'
+export { WORKSPACE_GOTO, bindingProblem, checkBinding } from '@shared/chordSpec'
 
 export type AppChord =
   | 'palette.toggle'
@@ -41,12 +45,18 @@ export type AppChord =
   | 'pane.focusDown'
   | 'pane.zoom'
   | 'pane.close'
+  | 'tab.next'
+  | 'tab.previous'
   | 'workspace.next'
   | 'workspace.previous'
 
 export type TerminalChord = 'copy' | 'paste' | 'find' | 'block.selectPrev' | 'block.selectNext'
 
-export const WORKSPACE_GOTO = 'workspace.goto'
+export type BrowserChord =
+  | 'browser.focusAddress'
+  | 'browser.reload'
+  | 'browser.back'
+  | 'browser.forward'
 
 export const TERMINAL_CHORDS: readonly TerminalChord[] = [
   'copy',
@@ -58,8 +68,17 @@ export const TERMINAL_CHORDS: readonly TerminalChord[] = [
 
 const TERMINAL_SET: ReadonlySet<string> = new Set(TERMINAL_CHORDS)
 
+export const BROWSER_CHORDS: readonly BrowserChord[] = [
+  'browser.focusAddress',
+  'browser.reload',
+  'browser.back',
+  'browser.forward',
+]
+
+const BROWSER_SET: ReadonlySet<string> = new Set(BROWSER_CHORDS)
+
 export const DEFAULT_CHORDS: Readonly<
-  Record<AppChord | TerminalChord, [mac: string, other: string]>
+  Record<AppChord | TerminalChord | BrowserChord, [mac: string, other: string]>
 > = {
   'palette.toggle': ['Cmd+K', 'Ctrl+Shift+P'],
   'view.toggleRail': ['Cmd+\\', 'Ctrl+Shift+B'],
@@ -83,7 +102,9 @@ export const DEFAULT_CHORDS: Readonly<
   'pane.focusUp': ['Cmd+Ctrl+Up', 'Ctrl+Shift+Alt+K'],
   'pane.focusDown': ['Cmd+Ctrl+Down', 'Ctrl+Shift+Alt+J'],
   'pane.zoom': ['Cmd+Shift+X', 'Ctrl+Shift+X'],
-  'pane.close': ['Cmd+Shift+W', 'Ctrl+Shift+W'],
+  'pane.close': ['Cmd+W', 'Ctrl+Shift+W'],
+  'tab.next': ['Ctrl+Tab', 'Ctrl+Tab'],
+  'tab.previous': ['Ctrl+Shift+Tab', 'Ctrl+Shift+Tab'],
   'workspace.next': ['Cmd+Ctrl+]', 'Ctrl+Shift+PageDown'],
   'workspace.previous': ['Cmd+Ctrl+[', 'Ctrl+Shift+PageUp'],
   copy: ['Cmd+C', 'Ctrl+Shift+C'],
@@ -91,6 +112,10 @@ export const DEFAULT_CHORDS: Readonly<
   find: ['Cmd+F', 'Ctrl+Shift+F'],
   'block.selectPrev': ['Cmd+Up', 'Ctrl+Shift+Up'],
   'block.selectNext': ['Cmd+Down', 'Ctrl+Shift+Down'],
+  'browser.focusAddress': ['Cmd+L', 'Ctrl+Shift+L'],
+  'browser.reload': ['Cmd+R', 'Ctrl+F5'],
+  'browser.back': ['Cmd+[', 'Ctrl+Alt+Left'],
+  'browser.forward': ['Cmd+]', 'Ctrl+Alt+Right'],
 }
 
 export function defaultChord(id: string, mac: boolean): ChordSpec | null {
@@ -98,31 +123,16 @@ export function defaultChord(id: string, mac: boolean): ChordSpec | null {
   return pair ? parseChord(pair[mac ? 0 : 1], mac) : null
 }
 
-export function bindingProblem(id: string, spec: ChordSpec, mac: boolean): ChordProblem | null {
-  const steal = stealsTerminalKey(spec, mac)
-  if (steal) return steal
-  const isRange = spec.key === DIGIT_RANGE
-  return isRange === (id === WORKSPACE_GOTO) ? null : 'digit-range'
-}
-
-export function checkBinding(id: string, text: string, mac: boolean): ChordProblem | null {
-  const spec = parseChord(text, mac)
-  return spec ? bindingProblem(id, spec, mac) : 'invalid'
-}
-
 export interface BindingTable {
   byId: ReadonlyMap<string, ChordSpec>
   bySignature: ReadonlyMap<string, string>
 }
 
-export function effectiveBindings(user: KeybindingMap, mac: boolean): BindingTable {
-  const byId = new Map<string, ChordSpec>()
-  for (const id of Object.keys(DEFAULT_CHORDS)) {
-    const spec = defaultChord(id, mac)
-    if (spec) byId.set(id, spec)
-  }
-  const overridden: string[] = []
-  for (const [id, value] of Object.entries(user)) {
+const NO_KEYMAP: KeybindingMap = Object.freeze(Object.create(null))
+
+function applyLayer(byId: Map<string, ChordSpec>, layer: KeybindingMap, mac: boolean): string[] {
+  const bound: string[] = []
+  for (const [id, value] of Object.entries(layer)) {
     if (value === null) {
       byId.delete(id)
       continue
@@ -130,26 +140,75 @@ export function effectiveBindings(user: KeybindingMap, mac: boolean): BindingTab
     const spec = parseChord(value, mac)
     if (!spec || bindingProblem(id, spec, mac)) continue
     byId.set(id, spec)
-    overridden.push(id)
+    bound.push(id)
   }
+  return bound
+}
+
+export function effectiveBindings(
+  user: KeybindingMap,
+  mac: boolean,
+  keymap: KeybindingMap = NO_KEYMAP,
+): BindingTable {
+  const byId = new Map<string, ChordSpec>()
+  for (const id of Object.keys(DEFAULT_CHORDS)) {
+    const spec = defaultChord(id, mac)
+    if (spec) byId.set(id, spec)
+  }
+  const fromKeymap = applyLayer(byId, keymap, mac)
+  const fromUser = applyLayer(byId, user, mac)
+  const layered = new Set([...fromKeymap, ...fromUser])
   const bySignature = new Map<string, string>()
   const index = (id: string): void => {
     const spec = byId.get(id)
     if (spec) bySignature.set(formatChord(spec, mac), id)
   }
-  for (const id of byId.keys()) if (!overridden.includes(id)) index(id)
-  for (const id of overridden) index(id)
+  for (const id of byId.keys()) if (!layered.has(id)) index(id)
+  for (const id of fromKeymap) if (!fromUser.includes(id)) index(id)
+  for (const id of fromUser) index(id)
   return { byId, bySignature }
 }
 
-let cache: { user: KeybindingMap; mac: boolean; table: BindingTable } | null = null
+export function keymapBindings(): KeybindingMap {
+  return useKeymapStore.getState().loaded?.bindings ?? NO_KEYMAP
+}
+
+let cache: {
+  user: KeybindingMap
+  keymap: KeybindingMap
+  mac: boolean
+  table: BindingTable
+} | null = null
 
 export function currentBindings(mac: boolean): BindingTable {
   const user = useSettingsStore.getState().keybindings
-  if (cache?.user !== user || cache.mac !== mac) {
-    cache = { user, mac, table: effectiveBindings(user, mac) }
+  const keymap = keymapBindings()
+  if (cache?.user !== user || cache.keymap !== keymap || cache.mac !== mac) {
+    cache = { user, keymap, mac, table: effectiveBindings(user, mac, keymap) }
   }
   return cache.table
+}
+
+export function baseChord(id: string, mac: boolean): ChordSpec | null {
+  return effectiveBindings(NO_KEYMAP, mac, keymapBindings()).byId.get(id) ?? null
+}
+
+export function useBindings(): void {
+  useSettingsStore((s) => s.keybindings)
+  useKeymapStore((s) => s.loaded)
+}
+
+export function onBindingsChange(cb: () => void): () => void {
+  const offSettings = useSettingsStore.subscribe((s, prev) => {
+    if (s.keybindings !== prev.keybindings) cb()
+  })
+  const offKeymap = useKeymapStore.subscribe((s, prev) => {
+    if (s.loaded !== prev.loaded) cb()
+  })
+  return () => {
+    offSettings()
+    offKeymap()
+  }
 }
 
 export function workspaceDigit(key: string): number | null {
@@ -172,7 +231,11 @@ export function matchChord(e: KeyLike, mac: boolean): string | null {
 }
 
 export function isAppChord(chord: string | null): chord is string {
-  return chord !== null && !TERMINAL_SET.has(chord)
+  return chord !== null && !TERMINAL_SET.has(chord) && !BROWSER_SET.has(chord)
+}
+
+export function isBrowserChord(chord: string | null): chord is BrowserChord {
+  return chord !== null && BROWSER_SET.has(chord)
 }
 
 export function runAppChord(e: KeyLike & { preventDefault: () => void }, mac: boolean): boolean {
@@ -194,7 +257,7 @@ export function chordLabel(id: string, mac: boolean): string | null {
 }
 
 export function useChordLabel(id: string, mac: boolean): string | null {
-  useSettingsStore((s) => s.keybindings)
+  useBindings()
   return chordLabel(id, mac)
 }
 

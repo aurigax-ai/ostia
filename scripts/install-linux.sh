@@ -43,13 +43,19 @@ DESKTOP
 command -v update-desktop-database >/dev/null && update-desktop-database "$apps" || true
 
 bin="$HOME/.local/bin"
+cli=ostia
+legacy_cli=pine
 mkdir -p "$bin"
-cat > "$bin/$name" <<LAUNCHER
+cat > "$bin/$cli" <<LAUNCHER
 #!/bin/sh
-export PINE_APP_BIN='$dest/$name'
-ELECTRON_RUN_AS_NODE=1 exec "\$PINE_APP_BIN" '$dest/resources/app.asar/out/cli/index.js' "\$@"
+export OSTIA_APP_BIN='$dest/$name'
+export PINE_APP_BIN="\$OSTIA_APP_BIN"
+ELECTRON_RUN_AS_NODE=1 exec "\$OSTIA_APP_BIN" '$dest/resources/app.asar/out/cli/index.js' "\$@"
 LAUNCHER
-chmod 755 "$bin/$name"
+chmod 755 "$bin/$cli"
+if [ "$legacy_cli" != "$cli" ]; then
+  ln -sf "$cli" "$bin/$legacy_cli"
+fi
 echo "installed $name to $dest"
 echo "launcher: $apps/$name.desktop"
-echo "cli: $bin/$name (run '$name <agent>' from a terminal outside $name)"
+echo "cli: $bin/$cli (run '$cli <agent>' from a terminal outside the app; '$legacy_cli' is the old name and still works)"

@@ -1,5 +1,5 @@
 import { PRODUCT_PLACEHOLDER } from '../../shared/extensions'
-import { PRODUCT_NAME } from '../../shared/product'
+import { PRODUCT_DISPLAY_NAME } from '../../shared/productDisplay'
 
 export type Locale = string
 
@@ -17,6 +17,7 @@ export const en = {
       editor: 'Editor',
       window: 'Window',
       views: 'Views',
+      browser: 'Browser',
     },
     titles: {
       'agent.resume': 'Resume Agent',
@@ -40,6 +41,11 @@ export const en = {
       'browser.new': 'New Browser',
       'browser.captureRegion': 'Capture Browser Region',
       'browser.open': 'Open Browser',
+      'browser.focusAddress': 'Focus Address Bar',
+      'browser.reload': 'Reload Page',
+      'browser.back': 'Go Back',
+      'browser.forward': 'Go Forward',
+      'browser.find': 'Find in Page',
       'dashboard.toggle': 'Toggle Dashboard',
       'developer.openLogFolder': 'Open Log Folder',
       'developer.toggleDevTools': 'Toggle Developer Tools',
@@ -50,6 +56,8 @@ export const en = {
       'history.search': 'Search Command History',
       'palette.toggle': 'Command Palette',
       'pane.close': 'Close Pane',
+      'tab.next': 'Next Tab',
+      'tab.previous': 'Previous Tab',
       'pane.focus': 'Focus Pane',
       'pane.focusDown': 'Focus Pane Below',
       'pane.focusLeft': 'Focus Pane on the Left',
@@ -73,6 +81,7 @@ export const en = {
       'tab.new': 'New Terminal Tab',
       'tab.newBrowser': 'New Browser Tab',
       'terminal.toggleInputEditor': 'Toggle Input Editor',
+      'terminal.clear': 'Clear Terminal',
       'view.toggleRail': 'Toggle Sidebar',
       'view.goToWorkspaceSymbol': 'Go to Symbol in Workspace',
       'view.zoomIn': 'Zoom In',
@@ -434,9 +443,9 @@ export const en = {
     unixSockets: 'Unix sockets',
     allowUnixSockets: 'Allow Unix sockets',
     allowUnixSocketsLinux:
-      'Linux can only allow or block all of them. Off, nothing in the sandbox can open a Unix socket, so the pine command, a granted SSH key, exposed ports and tools such as Docker stop working there. On, any socket whose path is not hidden can be reached.',
+      'Linux can only allow or block all of them. Off, nothing in the sandbox can open a Unix socket, so the ostia command, a granted SSH key, exposed ports and tools such as Docker stop working there. On, any socket whose path is not hidden can be reached.',
     allowUnixSocketsMac:
-      'Off, nothing in the sandbox can open a Unix socket, so the pine command stops working there. On, only {product}’s socket and the sockets listed below can be reached.',
+      'Off, nothing in the sandbox can open a Unix socket, so the ostia command stops working there. On, only {product}’s socket and the sockets listed below can be reached.',
     unixSocketsUnsupported:
       'This computer cannot block Unix sockets: the sandbox runtime has no filter for its processor.',
     allowSockets: 'Allowed sockets',
@@ -768,6 +777,7 @@ export const en = {
     forward: 'Forward',
     reload: 'Reload',
     address: 'Address',
+    findLabel: 'Find in page',
     pick: 'Point at element',
     pickStop: 'Stop pointing',
     pickHint: 'Click an element to capture it. Esc cancels.',
@@ -930,7 +940,7 @@ export const en = {
     runAndTrust: 'Run and trust',
     settingsTitle: 'Actions',
     settingsDesc:
-      'Buttons and menu entries defined in settings.json under "actions". Agents can add them with pine settings set; an action that needs extra permission asks you before its first run.',
+      'Buttons and menu entries defined in settings.json under "actions". Agents can add them with ostia settings set; an action that needs extra permission asks you before its first run.',
     none: 'No actions yet.',
     remove: 'Remove {title}',
     trusted: 'Trusted',
@@ -939,7 +949,7 @@ export const en = {
   views: {
     open: 'Views: Open {title}',
     title: 'Views',
-    desc: 'Sidebars and panels drawn from JSON files in {dir}. Agents can write them (pine view schema); a new file stays hidden until you turn it on here.',
+    desc: 'Sidebars and panels drawn from JSON files in {dir}. Agents can write them (ostia view schema); a new file stays hidden until you turn it on here.',
     none: 'No view files yet.',
     show: 'Show {name}',
     reveal: 'Reveal file',
@@ -989,7 +999,7 @@ export const en = {
     close: 'Close dashboard',
     needsYou: 'Needs you',
     needsYouEmpty:
-      'Nothing is waiting for you. Questions agents ask with pine ask and permission requests appear here.',
+      'Nothing is waiting for you. Questions agents ask with ostia ask and permission requests appear here.',
     workspaces: 'Workspaces',
     workspacesEmpty:
       'No workspaces are open. Each one appears here with its state, latest message, agents and extension status.',
@@ -1389,10 +1399,10 @@ export const en = {
     ended: 'The manager has ended.',
     settingsTitle: 'Manager',
     settingsDesc:
-      'Run pine <agent> in a terminal outside {product} to start one manager agent that sees and drives every workspace. Only you can change these settings.',
+      'Run ostia <agent> in a terminal outside {product} to start one manager agent that sees and drives every workspace. Only you can change these settings.',
     groupAgents: 'Agents',
     agentsDesc:
-      'Programs that pine <name> and the manager’s workers can start. claude and codex are built in; a preset with the same name replaces them.',
+      'Programs that ostia <name> and the manager’s workers can start. claude and codex are built in; a preset with the same name replaces them.',
     builtin: 'Built-in',
     presetName: 'Name',
     presetCommand: 'Command and arguments',
@@ -1421,7 +1431,7 @@ export const en = {
     busPerMinute: 'Messages per minute',
     busPerMinuteDesc: 'Most bus messages the manager can send in a minute.',
     requirementsBody:
-      'The manager needs {packages} to check that pine <agent> comes from outside {product}. Until it is installed, every pine <agent> is refused.',
+      'The manager needs {packages} to check that ostia <agent> comes from outside {product}. Until it is installed, every ostia <agent> is refused.',
     install: 'Install',
     copyCommand: 'Copy command',
   },
@@ -1593,10 +1603,18 @@ export const en = {
     copy: 'Copy (terminal)',
     paste: 'Paste (terminal)',
     find: 'Find (terminal)',
+    keymap: 'Keymap',
+    keymapDesc:
+      'A set of shortcuts from an extension that replaces the defaults. The changes you make below apply on top of it.',
+    keymapDefault: 'Default',
+    keymapFailed:
+      'The keymap “{name}” couldn’t be loaded ({error}), so the default shortcuts apply.',
+    keymapSkipped: 'The keymap “{name}” has shortcuts this computer can’t use. They are skipped:',
+    keymapSkippedEntry: '{command} “{value}”: {reason}',
     problems: {
       invalid: 'it isn’t a shortcut like Ctrl+Shift+K.',
       escape: 'Escape belongs to the shell.',
-      tab: 'Tab belongs to the shell.',
+      tab: 'Tab belongs to the shell. Only Ctrl+Tab and Ctrl+Shift+Tab can be bound.',
       bare: 'single keys belong to the shell. Add Ctrl or Cmd.',
       needsModifier: 'it needs Ctrl or Super; Alt and Shift chords belong to the shell.',
       needsModifierMac: 'it needs ⌘; Control, Option and Shift chords belong to the shell.',
@@ -2210,6 +2228,15 @@ export const en = {
     title: 'Settings',
     search: 'Search settings',
     noMatches: 'No settings match',
+    groups: {
+      general: 'General',
+      terminal: 'Terminal',
+      workspace: 'Workspace',
+      agents: 'Agents',
+      editor: 'Editor and browser',
+      security: 'Privacy and security',
+      more: 'Extensions and more',
+    },
     language: 'Language',
     displayLanguage: 'Display language',
     appearance: 'Appearance',
@@ -2277,6 +2304,10 @@ export const en = {
     lineHeightDesc: 'Row height as a multiple of the font size.',
     copyOnSelect: 'Copy on select',
     copyOnSelectDesc: 'Copy selected terminal text to the clipboard right away.',
+    wheelZoom: 'Ctrl+scroll zooms the font',
+    wheelZoomMac: 'Cmd+scroll zooms the font',
+    wheelZoomDesc:
+      'Scrolling over a terminal or the editor with the key held changes its font size. Keyboard zoom keeps working either way.',
     sidebarPath: 'Folder',
     sidebarPathDesc: 'Show the workspace folder under its name.',
     sidebarMessage: 'Latest activity',
@@ -2487,6 +2518,7 @@ export const zhHant: Dict = {
       editor: '編輯器',
       window: '視窗',
       views: '檢視',
+      browser: '瀏覽器',
     },
     titles: {
       'agent.resume': '恢復代理程式',
@@ -2510,6 +2542,11 @@ export const zhHant: Dict = {
       'browser.new': '新增瀏覽器',
       'browser.captureRegion': '擷取瀏覽器區域',
       'browser.open': '開啟瀏覽器',
+      'browser.focusAddress': '聚焦網址列',
+      'browser.reload': '重新載入網頁',
+      'browser.back': '上一頁',
+      'browser.forward': '下一頁',
+      'browser.find': '在網頁中尋找',
       'dashboard.toggle': '切換儀表板',
       'developer.openLogFolder': '開啟記錄檔資料夾',
       'developer.toggleDevTools': '切換開發人員工具',
@@ -2520,6 +2557,8 @@ export const zhHant: Dict = {
       'history.search': '搜尋指令歷史',
       'palette.toggle': '指令面板',
       'pane.close': '關閉窗格',
+      'tab.next': '下一個分頁',
+      'tab.previous': '上一個分頁',
       'pane.focus': '聚焦窗格',
       'pane.focusDown': '聚焦下方窗格',
       'pane.focusLeft': '聚焦左側窗格',
@@ -2543,6 +2582,7 @@ export const zhHant: Dict = {
       'tab.new': '新增終端機分頁',
       'tab.newBrowser': '新增瀏覽器分頁',
       'terminal.toggleInputEditor': '切換輸入編輯器',
+      'terminal.clear': '清除終端機畫面',
       'view.toggleRail': '切換側邊欄',
       'view.goToWorkspaceSymbol': '前往工作區中的符號',
       'view.zoomIn': '放大',
@@ -2898,9 +2938,9 @@ export const zhHant: Dict = {
     unixSockets: 'Unix socket',
     allowUnixSockets: '允許 Unix socket',
     allowUnixSocketsLinux:
-      'Linux 只能全部允許或全部封鎖。關閉時，沙箱中的任何程式都無法開啟 Unix socket，因此 pine 指令、已授予的 SSH 金鑰、開放的連接埠與 Docker 等工具在其中無法運作。開啟時，可以連線到任何未被隱藏的 socket。',
+      'Linux 只能全部允許或全部封鎖。關閉時，沙箱中的任何程式都無法開啟 Unix socket，因此 ostia 指令、已授予的 SSH 金鑰、開放的連接埠與 Docker 等工具在其中無法運作。開啟時，可以連線到任何未被隱藏的 socket。',
     allowUnixSocketsMac:
-      '關閉時，沙箱中的任何程式都無法開啟 Unix socket，因此 pine 指令在其中無法運作。開啟時，只能連線到 {product} 的 socket 與下方列出的 socket。',
+      '關閉時，沙箱中的任何程式都無法開啟 Unix socket，因此 ostia 指令在其中無法運作。開啟時，只能連線到 {product} 的 socket 與下方列出的 socket。',
     unixSocketsUnsupported:
       '這台電腦無法封鎖 Unix socket：沙箱執行環境沒有適用於其處理器的過濾器。',
     allowSockets: '允許的 socket',
@@ -3227,6 +3267,7 @@ export const zhHant: Dict = {
     forward: '下一頁',
     reload: '重新載入',
     address: '網址',
+    findLabel: '在網頁中尋找',
     pick: '指向元素',
     pickStop: '停止指向',
     pickHint: '點選元素以擷取，按 Esc 取消。',
@@ -3386,7 +3427,7 @@ export const zhHant: Dict = {
     runAndTrust: '執行並信任',
     settingsTitle: '動作',
     settingsDesc:
-      '在 settings.json 的 "actions" 中定義的按鈕與選單項目。代理程式可用 pine settings set 新增；需要額外權限的動作在第一次執行前會先詢問你。',
+      '在 settings.json 的 "actions" 中定義的按鈕與選單項目。代理程式可用 ostia settings set 新增；需要額外權限的動作在第一次執行前會先詢問你。',
     none: '尚無動作。',
     remove: '移除 {title}',
     trusted: '已信任',
@@ -3395,7 +3436,7 @@ export const zhHant: Dict = {
   views: {
     open: '檢視：開啟{title}',
     title: '檢視',
-    desc: '由 {dir} 中的 JSON 檔繪製的側邊欄與面板。代理程式可以撰寫它們（pine view schema）；新檔案在你於此處開啟之前都不會顯示。',
+    desc: '由 {dir} 中的 JSON 檔繪製的側邊欄與面板。代理程式可以撰寫它們（ostia view schema）；新檔案在你於此處開啟之前都不會顯示。',
     none: '尚無檢視檔。',
     show: '顯示 {name}',
     reveal: '顯示檔案',
@@ -3443,7 +3484,7 @@ export const zhHant: Dict = {
     openPending: '儀表板，{n} 項等你處理',
     close: '關閉儀表板',
     needsYou: '需要你',
-    needsYouEmpty: '目前沒有事項等你處理。代理程式用 pine ask 提出的問題和權限請求會顯示在這裡。',
+    needsYouEmpty: '目前沒有事項等你處理。代理程式用 ostia ask 提出的問題和權限請求會顯示在這裡。',
     workspaces: '工作區',
     workspacesEmpty:
       '沒有開啟的工作區。每個工作區會在這裡顯示狀態、最新訊息、代理程式和擴充功能狀態。',
@@ -3835,10 +3876,10 @@ export const zhHant: Dict = {
     ended: '管理員已結束。',
     settingsTitle: '管理員',
     settingsDesc:
-      '在 {product} 以外的終端機執行 pine <agent>，即可啟動一個能查看並操作所有工作區的管理員代理。只有你能變更這些設定。',
+      '在 {product} 以外的終端機執行 ostia <agent>，即可啟動一個能查看並操作所有工作區的管理員代理。只有你能變更這些設定。',
     groupAgents: '代理',
     agentsDesc:
-      'pine <名稱> 與管理員的工作者可以啟動的程式。claude 與 codex 為內建；同名的預設會取代它們。',
+      'ostia <名稱> 與管理員的工作者可以啟動的程式。claude 與 codex 為內建；同名的預設會取代它們。',
     builtin: '內建',
     presetName: '名稱',
     presetCommand: '指令與參數',
@@ -3867,7 +3908,7 @@ export const zhHant: Dict = {
     busPerMinute: '每分鐘訊息數',
     busPerMinuteDesc: '管理員每分鐘可傳送的匯流排訊息上限。',
     requirementsBody:
-      '管理員需要 {packages} 來確認 pine <agent> 來自 {product} 之外。在安裝之前，所有 pine <agent> 都會被拒絕。',
+      '管理員需要 {packages} 來確認 ostia <agent> 來自 {product} 之外。在安裝之前，所有 ostia <agent> 都會被拒絕。',
     install: '安裝',
     copyCommand: '複製指令',
   },
@@ -4032,10 +4073,16 @@ export const zhHant: Dict = {
     copy: '複製（終端機）',
     paste: '貼上（終端機）',
     find: '在終端機中尋找',
+    keymap: '快捷鍵配置',
+    keymapDesc: '由擴充功能提供、取代預設值的一組快捷鍵。你在下方所做的變更會套用在它之上。',
+    keymapDefault: '預設',
+    keymapFailed: '無法載入快捷鍵配置「{name}」（{error}），因此使用預設快捷鍵。',
+    keymapSkipped: '快捷鍵配置「{name}」中有這台電腦無法使用的快捷鍵，已略過：',
+    keymapSkippedEntry: '{command}「{value}」：{reason}',
     problems: {
       invalid: '這不是像 Ctrl+Shift+K 的快捷鍵。',
       escape: 'Esc 屬於 Shell。',
-      tab: 'Tab 屬於 Shell。',
+      tab: 'Tab 屬於 Shell，只能綁 Ctrl+Tab 與 Ctrl+Shift+Tab。',
       bare: '單一按鍵屬於 Shell。請加上 Ctrl 或 Cmd。',
       needsModifier: '需要 Ctrl 或 Super；Alt 與 Shift 組合屬於 Shell。',
       needsModifierMac: '需要 ⌘；Control、Option 與 Shift 組合屬於 Shell。',
@@ -4639,6 +4686,15 @@ export const zhHant: Dict = {
     title: '設定',
     search: '搜尋設定',
     noMatches: '沒有符合的設定',
+    groups: {
+      general: '一般',
+      terminal: '終端機',
+      workspace: '工作區',
+      agents: '代理程式',
+      editor: '編輯器與瀏覽器',
+      security: '隱私與安全',
+      more: '擴充功能與其他',
+    },
     language: '語言',
     displayLanguage: '顯示語言',
     appearance: '外觀',
@@ -4704,6 +4760,9 @@ export const zhHant: Dict = {
     lineHeightDesc: '以字型大小的倍數表示的行高。',
     copyOnSelect: '選取即複製',
     copyOnSelectDesc: '選取終端機文字時立即複製到剪貼簿。',
+    wheelZoom: 'Ctrl＋滾輪縮放字級',
+    wheelZoomMac: 'Cmd＋滾輪縮放字級',
+    wheelZoomDesc: '按住這個鍵在終端機或編輯器上捲動時，會改變那裡的字級。用鍵盤縮放不受影響。',
     sidebarPath: '資料夾',
     sidebarPathDesc: '在名稱下方顯示工作區資料夾。',
     sidebarMessage: '最新動態',
@@ -4897,7 +4956,7 @@ export function resolveLocale(tag: string | undefined): Locale {
   return 'en'
 }
 
-export function withProductName(text: string, product: string = PRODUCT_NAME): string {
+export function withProductName(text: string, product: string = PRODUCT_DISPLAY_NAME): string {
   return text.split(PRODUCT_PLACEHOLDER).join(product)
 }
 

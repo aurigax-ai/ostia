@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { envName, legacyEnvName } from '../../shared/appEnv'
 import {
   PTY_RELAY_ENV,
   needsPtyRelay,
@@ -27,10 +28,12 @@ describe('terminalInjectionOff', () => {
 
 describe('relayForced', () => {
   it('honours the switch only in an unpackaged build', () => {
-    expect(relayForced(false, { [PTY_RELAY_ENV]: '1' })).toBe(true)
-    expect(relayForced(true, { [PTY_RELAY_ENV]: '1' })).toBe(false)
+    const name = envName(PTY_RELAY_ENV)
+    expect(relayForced(false, { [name]: '1' })).toBe(true)
+    expect(relayForced(true, { [name]: '1' })).toBe(false)
     expect(relayForced(false, {})).toBe(false)
-    expect(relayForced(false, { [PTY_RELAY_ENV]: '0' })).toBe(false)
+    expect(relayForced(false, { [name]: '0' })).toBe(false)
+    expect(relayForced(false, { [legacyEnvName(PTY_RELAY_ENV)]: '1' })).toBe(true)
   })
 })
 
@@ -59,7 +62,7 @@ describe('sandboxedShellCommand', () => {
     const command = sandboxedShellCommand("/usr/bin/zsh -i 'a b'", '/usr/bin/zsh', PIPE)
     expect(command.split('\n')).toEqual([
       `{ while read -r -n1 _; do kill -WINCH 0 2>/dev/null; done <>${PIPE}; } &`,
-      `SHELL=/bin/sh script -qec 'stty "$PINE_RELAY_TTY" 2>/dev/null; unset PINE_RELAY_TTY; export SHELL=/usr/bin/zsh; exec /usr/bin/zsh -i '\\''a b'\\''' /dev/null`,
+      `SHELL=/bin/sh script -qec 'stty "$OSTIA_RELAY_TTY" 2>/dev/null; unset OSTIA_RELAY_TTY; export SHELL=/usr/bin/zsh; exec /usr/bin/zsh -i '\\''a b'\\''' /dev/null`,
       'exit $?',
     ])
   })
@@ -112,8 +115,8 @@ describe('wrapForTerminal', () => {
       `f=${PIPE}`,
       'rm -f "$f"',
       'mkfifo -m 600 "$f" || exit 1',
-      'PINE_RELAY_TTY=$(stty -g) || exit 1',
-      'export PINE_RELAY_TTY',
+      'OSTIA_RELAY_TTY=$(stty -g) || exit 1',
+      'export OSTIA_RELAY_TTY',
       'stty -isig -icanon -echo',
       `( trap 'printf . 1<>"$f"' WINCH; sleep infinity & s=$!; trap 'kill "$s" 2>/dev/null' TERM; while kill -0 "$s" 2>/dev/null; do wait "$s"; done ) &`,
       'w=$!',

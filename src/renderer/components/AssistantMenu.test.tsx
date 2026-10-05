@@ -42,6 +42,7 @@ const assistant: ExtensionInfo = {
   agentSkills: [],
   agentHooks: [],
   iconThemes: [],
+  keymaps: [],
 }
 
 const ready: AssistExtensionState = {

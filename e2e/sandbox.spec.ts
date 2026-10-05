@@ -399,7 +399,7 @@ test('SBX-C57 shows every sandbox setting on the workspace page and in Settings 
       ['Ports', 'When a new server starts'],
       ['Secrets', 'Env and file grants'],
       ['Packages', 'Cooldown (days)'],
-      ['pine access', 'Act on other workspaces'],
+      ['Ostia access', 'Act on other workspaces'],
       ['Blocked', 'Nothing was blocked.'],
     ]
     for (const [tab, control] of tabs) {
@@ -692,7 +692,7 @@ test('with Unix sockets off the shell still starts, pine cannot reach Pine, a po
 
     const page = await openWorkspacePage(win, 'Network')
     const sockets = page.getByRole('group', { name: 'Allow Unix sockets' })
-    await expect(sockets).toContainText('the pine command')
+    await expect(sockets).toContainText('the ostia command')
     await sockets.getByRole('switch').click()
     await expect(sockets).toContainText('Overridden')
     await win.keyboard.press('Escape')

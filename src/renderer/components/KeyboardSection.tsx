@@ -15,18 +15,21 @@ import type { Dict } from '../i18n/dict'
 import { fmt, useDict } from '../i18n/useDict'
 import {
   WORKSPACE_GOTO,
+  baseChord,
   bindableIds,
   bindingProblem,
   checkBinding,
   chordOf,
   conflictsWith,
-  defaultChord,
+  useBindings,
   workspaceDigit,
 } from '../lib/chords'
 import { BASE_LANGUAGE } from '../lib/languagePacks'
-import { isMac } from '../platform'
+import { isMac, platform } from '../platform'
+import { useExtensionsStore } from '../stores/extensionsStore'
+import { keymapChoices, useKeymapStore } from '../stores/keymapStore'
 import { useSettingsStore } from '../stores/settingsStore'
-import { SectionHead, WarningNote } from './SettingsPanel'
+import { ControlRow, SectionHead, SelectField, WarningNote } from './SettingsPanel'
 import { Button } from './ui/button'
 import { InputGroup, InputGroupAddon, InputGroupInput } from './ui/input-group'
 import { Kbd } from './ui/kbd'
@@ -136,7 +139,7 @@ export function KeybindingRow({ id, title }: { id: string; title: string }): JSX
 
   const save = (spec: ChordSpec, replace: string[]): void => {
     for (const other of replace) setKeybinding(other, null)
-    const fallback = defaultChord(id, isMac)
+    const fallback = baseChord(id, isMac)
     if (fallback && sameChord(fallback, spec)) resetKeybinding(id)
     else setKeybinding(id, formatChord(spec, isMac))
     setMode({ kind: 'idle' })
@@ -268,11 +271,59 @@ function PendingChoice({
   )
 }
 
+const DEFAULT_KEYMAP = 'default'
+
+function KeymapPicker(): JSX.Element {
+  const d = useDict()
+  const ref = useSettingsStore((s) => s.keymap)
+  const setKeymap = useSettingsStore((s) => s.setKeymap)
+  const list = useExtensionsStore((s) => s.list)
+  const choices = keymapChoices(list, platform)
+  const chosen = choices.find((c) => c.ref === ref)
+  const loaded = useKeymapStore((s) => (chosen && s.ref === chosen.ref ? s.loaded : null))
+  const error = useKeymapStore((s) => (chosen && s.ref === chosen.ref ? s.error : null))
+  return (
+    <div className="mb-3">
+      <ControlRow label={d.keyboard.keymap} desc={d.keyboard.keymapDesc}>
+        <SelectField
+          label={d.keyboard.keymap}
+          value={chosen?.ref ?? DEFAULT_KEYMAP}
+          onChange={(v) => setKeymap(v === DEFAULT_KEYMAP ? null : v)}
+          options={[
+            { value: DEFAULT_KEYMAP, label: d.keyboard.keymapDefault },
+            ...choices.map((c) => ({ value: c.ref, label: c.label })),
+          ]}
+        />
+      </ControlRow>
+      {chosen && error ? (
+        <WarningNote>{fmt(d.keyboard.keymapFailed, { name: chosen.label, error })}</WarningNote>
+      ) : null}
+      {loaded && loaded.skipped.length > 0 ? (
+        <WarningNote>
+          <p>{fmt(d.keyboard.keymapSkipped, { name: loaded.label })}</p>
+          <ul className="mt-1 list-disc pl-4">
+            {loaded.skipped.map((skip, i) => (
+              <li key={`${i}:${skip.command}`}>
+                {fmt(d.keyboard.keymapSkippedEntry, {
+                  command: skip.command,
+                  value: skip.value,
+                  reason: problemText(skip.problem, d, isMac),
+                })}
+              </li>
+            ))}
+          </ul>
+        </WarningNote>
+      ) : null}
+    </div>
+  )
+}
+
 export function KeyboardSection(): JSX.Element {
   const d = useDict()
   const [query, setQuery] = useState('')
   const keybindings = useSettingsStore((s) => s.keybindings)
   const setKeybindings = useSettingsStore((s) => s.setKeybindings)
+  useBindings()
   useSyncExternalStore(subscribeCommands, commandsVersion)
 
   const rows = bindableIds()
@@ -289,6 +340,7 @@ export function KeyboardSection(): JSX.Element {
   return (
     <section aria-label={d.keyboard.title}>
       <SectionHead title={d.keyboard.title} desc={d.keyboard.desc} />
+      <KeymapPicker />
       <div className="mb-2 flex items-center gap-2">
         <InputGroup className="h-7 flex-1">
           <InputGroupAddon>

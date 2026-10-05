@@ -3,7 +3,7 @@ import { mkdirSync, readdirSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import type { SandboxRuntimeConfig } from '@anthropic-ai/sandbox-runtime'
 import type { PackageRef } from '../../shared/packages'
-import { PRODUCT_NAME } from '../../shared/product'
+import { PRODUCT_DISPLAY_NAME } from '../../shared/productDisplay'
 import {
   type ResolvedSandbox,
   type SandboxFixedPolicy,
@@ -57,7 +57,7 @@ const INSTANCE_TMP_NAME = /^\d+$/
 const FOLDER_PROBLEM_TEXT: Record<SandboxFolderProblem['reason'], string> = {
   home: 'is your home folder',
   'above-home': 'contains your home folder',
-  'pine-data': `holds ${PRODUCT_NAME}'s own data`,
+  'pine-data': `holds ${PRODUCT_DISPLAY_NAME}'s own data`,
 }
 
 export function folderProblemMessage(problem: SandboxFolderProblem): string {

@@ -385,6 +385,7 @@ describe('NotificationCenter', () => {
           agentSkills: [],
           agentHooks: [],
           iconThemes: [],
+          keymaps: [],
         },
       ],
     })

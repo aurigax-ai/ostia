@@ -1,5 +1,6 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
+import { readEnv } from '../../shared/appEnv'
 import {
   EXTENSION_LOCALES_DIR,
   EXTENSION_LOCALE_FILE_MAX_BYTES,
@@ -13,7 +14,7 @@ import { LANGUAGE_ID_PATTERN } from '../../shared/languagePack'
 const CATALOG_SUFFIX = '.json'
 
 function extensionDir(): string {
-  return process.env.PINE_EXTENSION_DIR ?? process.cwd()
+  return readEnv('EXTENSION_DIR') ?? process.cwd()
 }
 
 function readMessageFile(file: string): unknown {
