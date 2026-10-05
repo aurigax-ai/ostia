@@ -19,6 +19,7 @@ import {
   screenshotRect,
 } from '../shared/pick'
 import { PICK_RUNTIME_GLOBAL, pickRuntimeScript } from '../shared/pickRuntime'
+import { PRODUCT_NAME } from '../shared/product'
 import type { RedactText } from '../shared/redactionTargets'
 import { type ConsoleEntry, ownedGuest, resolveGuest } from './browse'
 import { postBusMessage } from './bus'
@@ -36,7 +37,7 @@ export interface PickDeps {
 }
 
 export const PICK_WORLD_ID = 1024
-export const REPORT_DIR_NAME = 'pine-reports'
+export const REPORT_DIR_NAME = `${PRODUCT_NAME}-reports`
 export const DEFAULT_AGENT_PICK_TIMEOUT_MS = 120_000
 export const MIN_PICK_TIMEOUT_MS = 1_000
 export const MAX_PICK_TIMEOUT_MS = 600_000

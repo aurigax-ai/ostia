@@ -6,6 +6,7 @@ import {
   mkdtempSync,
   readFileSync,
   readdirSync,
+  renameSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -245,10 +246,21 @@ describe('manifest schemas', () => {
 
   it('ship in the package as JSON Schema with the same enumerations', () => {
     const schema = JSON.parse(
-      readFileSync(join(sdkPackage, 'schemas/pine.schema.json'), 'utf8'),
+      readFileSync(join(sdkPackage, 'schemas/ostia.schema.json'), 'utf8'),
     ) as { required: string[]; properties: Record<string, { enum?: string[] }> }
     expect(schema.required).toEqual(['id', 'name', 'version', 'api'])
     expect(schema.properties.category?.enum).toContain('scm')
+  })
+
+  it('also ship under their old pine names, unchanged, for manifests that point there', () => {
+    const pkg = JSON.parse(readFileSync(join(sdkPackage, 'package.json'), 'utf8'))
+    for (const kind of ['', '-marketplace']) {
+      const current = readFileSync(join(sdkPackage, `schemas/ostia${kind}.schema.json`), 'utf8')
+      const legacy = readFileSync(join(sdkPackage, `schemas/pine${kind}.schema.json`), 'utf8')
+      expect(legacy).toBe(current)
+      expect(pkg.exports[`./schemas/ostia${kind}.schema.json`]).toBeDefined()
+      expect(pkg.exports[`./schemas/pine${kind}.schema.json`]).toBeDefined()
+    }
   })
 })
 
@@ -285,13 +297,20 @@ describe('extension API version', () => {
 
   it('is published in the package for authors and tools', () => {
     const pkg = JSON.parse(readFileSync(join(sdkPackage, 'package.json'), 'utf8'))
+    expect(pkg.ostiaExtensionApi).toBe(EXTENSION_API_VERSION)
     expect(pkg.pineExtensionApi).toBe(EXTENSION_API_VERSION)
   })
 
-  it('declares the pine-extension command in the form npm keeps when it publishes', () => {
+  it('is published as @aurigax-ai/ostia-extension-sdk', () => {
     const pkg = JSON.parse(readFileSync(join(sdkPackage, 'package.json'), 'utf8'))
-    expect(pkg.bin).toEqual({ 'pine-extension': 'dist/cli.cjs' })
-    expect(existsSync(join(sdkPackage, pkg.bin['pine-extension']))).toBe(true)
+    expect(pkg.name).toBe('@aurigax-ai/ostia-extension-sdk')
+    expect(pkg.repository.url).toBe('git+https://github.com/aurigax-ai/ostia.git')
+  })
+
+  it('declares the ostia-extension command, and pine-extension as the same program, in the form npm keeps', () => {
+    const pkg = JSON.parse(readFileSync(join(sdkPackage, 'package.json'), 'utf8'))
+    expect(pkg.bin).toEqual({ 'ostia-extension': 'dist/cli.cjs', 'pine-extension': 'dist/cli.cjs' })
+    expect(existsSync(join(sdkPackage, pkg.bin['ostia-extension']))).toBe(true)
   })
 })
 
@@ -327,7 +346,7 @@ describe('the marketplace project, built the way its own repository builds it', 
   it('depends on the SDK of this version and on nothing unversioned', () => {
     const pkg = JSON.parse(readFileSync(join(marketplace, 'package.json'), 'utf8'))
     const app = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8'))
-    expect(pkg.devDependencies['@aurigax-ai/pine-extension-sdk']).toBe(app.version)
+    expect(pkg.devDependencies['@aurigax-ai/ostia-extension-sdk']).toBe(app.version)
     expect(Object.values(pkg.devDependencies).every((range) => typeof range === 'string')).toBe(
       true,
     )
@@ -347,7 +366,7 @@ describe('the marketplace project, built the way its own repository builds it', 
       encoding: 'utf8',
     })
     expect(res.stdout.trim()).toBe(
-      'ok: marketplace "Pine extensions" with 10 extension(s), 2 unlisted',
+      'ok: marketplace "Ostia extensions" with 10 extension(s), 2 unlisted',
     )
     expect(res.status).toBe(0)
   })
@@ -439,7 +458,7 @@ describe('the SDK package, used the way an extension author uses it', () => {
   beforeAll(() => {
     project = mkdtempSync(join(tmpdir(), 'pine-sdk-consumer-'))
     execFileSync(process.execPath, [sdkCli, 'create', 'hello', project], { stdio: 'ignore' })
-    linkDependency('@aurigax-ai/pine-extension-sdk', sdkPackage)
+    linkDependency('@aurigax-ai/ostia-extension-sdk', sdkPackage)
     for (const name of ['esbuild', '@types/node']) {
       linkDependency(name, join(repoRoot, 'node_modules', name))
     }
@@ -469,9 +488,9 @@ describe('the SDK package, used the way an extension author uses it', () => {
         category: 'Weather Report',
       })
       const pkg = JSON.parse(readFileSync(join(made, 'package.json'), 'utf8'))
-      expect(pkg.name).toBe('pine-extension-weather-report')
-      expect(pkg.scripts.validate).toContain('pine-extension validate dist/weather-report')
-      expect(pkg.devDependencies['@aurigax-ai/pine-extension-sdk']).toMatch(/^\^\d+\.\d+\.\d+$/)
+      expect(pkg.name).toBe('ostia-extension-weather-report')
+      expect(pkg.scripts.validate).toContain('ostia-extension validate dist/weather-report')
+      expect(pkg.devDependencies['@aurigax-ai/ostia-extension-sdk']).toMatch(/^\^\d+\.\d+\.\d+$/)
       expect(readFileSync(join(made, '.gitignore'), 'utf8')).toBe('node_modules\ndist\n')
       expect(readdirSync(join(made, 'src'))).toEqual(['main.ts'])
       const catalog = JSON.parse(readFileSync(join(made, 'locales/zh-Hant.json'), 'utf8'))
@@ -514,6 +533,19 @@ describe('the SDK package, used the way an extension author uses it', () => {
     mkdirSync(broken)
     writeFileSync(join(broken, 'pine.json'), JSON.stringify({ id: 'broken' }))
     expect(runSdkCli(['validate', broken])).toEqual({ code: 1, lines: ['pine.json: missing name'] })
+
+    const renamed = join(project, 'renamed')
+    cpSync(built, renamed, { recursive: true })
+    renameSync(join(renamed, 'pine.json'), join(renamed, 'ostia.json'))
+    expect(runSdkCli(['validate', renamed])).toEqual({
+      code: 0,
+      lines: ['ok: extension hello 0.1.0'],
+    })
+    writeFileSync(join(renamed, 'ostia.json'), JSON.stringify({ id: 'renamed' }))
+    expect(runSdkCli(['validate', renamed])).toEqual({
+      code: 1,
+      lines: ['ostia.json: missing name'],
+    })
 
     const linked = join(project, 'linked')
     cpSync(built, linked, { recursive: true })

@@ -14,6 +14,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { parse } from 'yaml'
 import {
   WORKFLOW_FILE_MAX_BYTES,
+  legacyWorkspaceWorkflowsDir,
   loadWorkflows,
   parseWorkflowFile,
   readWorkflowDir,
@@ -26,8 +27,8 @@ let userDir: string
 let workDir: string
 
 beforeEach(() => {
-  base = mkdtempSync(join(tmpdir(), 'pine-workflows-'))
-  userDir = join(base, 'config', 'pine', 'workflows')
+  base = mkdtempSync(join(tmpdir(), 'ostia-workflows-'))
+  userDir = join(base, 'config', 'ostia', 'workflows')
   workDir = join(base, 'project')
   mkdirSync(userDir, { recursive: true })
   mkdirSync(workspaceWorkflowsDir(workDir), { recursive: true })
@@ -146,6 +147,23 @@ describe('loadWorkflows', () => {
       ['user', 'clone.yaml', 'Clone a repository'],
       ['extension', 'ops', 'Deploy'],
     ])
+  })
+
+  it('also lists workflows an older version kept in <workDir>/.pine/workflows, new folder first', () => {
+    const legacy = legacyWorkspaceWorkflowsDir(workDir)
+    mkdirSync(legacy, { recursive: true })
+    writeFileSync(join(workspaceWorkflowsDir(workDir), 'test.yaml'), 'name: Test\ncommand: new\n')
+    writeFileSync(join(legacy, 'test.yaml'), 'name: Test\ncommand: old\n')
+    writeFileSync(join(legacy, 'build.yaml'), 'name: Build\ncommand: make\n')
+    writeFileSync(join(legacy, 'broken.yaml'), 'name: [\n')
+    const listing = loadWorkflows({ userDir, workDir, extensions: [] })
+    expect(listing.workflows.map((w) => [w.origin, w.command])).toEqual([
+      ['test.yaml', 'new'],
+      ['build.yaml', 'make'],
+    ])
+    expect(listing.problems.map((p) => p.origin)).toEqual(['broken.yaml'])
+    expect(legacy).toBe(join(workDir, '.pine', 'workflows'))
+    expect(workspaceWorkflowsDir(workDir)).toBe(join(workDir, '.ostia', 'workflows'))
   })
 
   it('reads only user and extension workflows without a workspace', () => {

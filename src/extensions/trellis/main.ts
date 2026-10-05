@@ -4,7 +4,6 @@ import {
   type EventHandler,
   type ExtensionEventType,
   type ExtensionSettingValues,
-  PRODUCT_NAME,
   booleanSetting,
   cliArgs,
   connect,
@@ -14,12 +13,20 @@ import {
   ok,
   onShutdown,
   startPanelServer,
-} from '@aurigax-ai/pine-extension-sdk'
+} from '@aurigax-ai/ostia-extension-sdk'
 import { type AgentLauncher, initHere, panelHandlers } from './panelApi'
 import { sessionContext } from './prompt'
 import { TrellisService, type WorkspaceRef } from './service'
 import { AgentTasks } from './tasks'
-import { BOARD_PATH, HUMAN_ACTOR, VAULT_PATH, cardPath, cardRef, panelTarget } from './trellis'
+import {
+  BOARD_PATH,
+  HUMAN_ACTOR,
+  TRELLIS_IDENTITY,
+  VAULT_PATH,
+  cardPath,
+  cardRef,
+  panelTarget,
+} from './trellis'
 
 const REFRESH_SECONDS = { min: 10, max: 3600 }
 const EVENTS: ExtensionEventType[] = ['pane.created', 'pane.closed', 'cwd.changed']
@@ -44,7 +51,7 @@ async function main(): Promise<void> {
   let panelChanged = (): void => {}
   const service = new TrellisService({
     home: homedir(),
-    consumer: PRODUCT_NAME,
+    consumer: TRELLIS_IDENTITY,
     translate,
     host: {
       listWorkspaces: async () => workspacesFrom(await ext.call('workspace.list')),

@@ -11,7 +11,7 @@ import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } fr
 import { openWorkspace } from './helpers'
 
 function seedAgentTabs(dataHome: string): void {
-  mkdirSync(join(dataHome, 'pine'), { recursive: true })
+  mkdirSync(join(dataHome, 'ostia'), { recursive: true })
   const tab = (id: string, resumeId: string) => ({
     type: 'pane',
     id,
@@ -22,7 +22,7 @@ function seedAgentTabs(dataHome: string): void {
     agentRunning: true,
   })
   writeFileSync(
-    join(dataHome, 'pine', 'workspaces.json'),
+    join(dataHome, 'ostia', 'workspaces.json'),
     JSON.stringify({
       v: 1,
       savedAt: new Date().toISOString(),
@@ -153,7 +153,7 @@ async function launchAgentApp(dataHome: string): Promise<{ app: ElectronApplicat
 }
 
 function savedPanes(dataHome: string): Record<string, unknown>[] {
-  const file = join(dataHome, 'pine', 'workspaces.json')
+  const file = join(dataHome, 'ostia', 'workspaces.json')
   if (!existsSync(file)) return []
   const out: Record<string, unknown>[] = []
   const walk = (node: Record<string, unknown> | undefined): void => {
@@ -234,7 +234,7 @@ test('an agent running when the main process gets SIGTERM resumes after the rest
   })
   const { app, win } = await launchAgentApp(dataHome)
   await startResumableAgent(dataHome, win)
-  const scrollback = join(dataHome, 'pine', 'scrollback.json')
+  const scrollback = join(dataHome, 'ostia', 'scrollback.json')
   rmSync(scrollback, { force: true })
   app.process().kill('SIGTERM')
   await waitForExit(app)
@@ -248,7 +248,7 @@ test('an agent whose shell Pine reaped resumes after the restart, whatever the r
   seedSettings(dataHome, AUTO_RESUME_SETTINGS)
   const { app, win } = await launchAgentApp(dataHome)
   const paneId = await startResumableAgent(dataHome, win)
-  const snapshot = JSON.parse(readFileSync(join(dataHome, 'pine', 'workspaces.json'), 'utf8'))
+  const snapshot = JSON.parse(readFileSync(join(dataHome, 'ostia', 'workspaces.json'), 'utf8'))
   await win.evaluate((id) => window.pine.pty.detach(id), paneId)
   await win.waitForTimeout(4_000)
   const withoutAgent = JSON.parse(

@@ -1,11 +1,11 @@
 {
-  "name": "pine-extension-hello",
+  "name": "ostia-extension-hello",
   "version": "0.1.0",
   "private": true,
   "scripts": {
     "build": "node build.mjs",
     "typecheck": "tsc --noEmit",
-    "validate": "node build.mjs && pine-extension validate dist/hello"
+    "validate": "node build.mjs && ostia-extension validate dist/hello"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

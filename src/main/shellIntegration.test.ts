@@ -52,7 +52,7 @@ describe('test isolation', () => {
 describe('writeShellIntegration', () => {
   let root: string
   beforeAll(() => {
-    root = mkdtempSync(join(tmpdir(), 'pine-shells-'))
+    root = mkdtempSync(join(tmpdir(), 'ostia-shells-'))
   })
   afterAll(() => rmSync(root, { recursive: true, force: true }))
 
