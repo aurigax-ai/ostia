@@ -5,7 +5,7 @@ import type { AttentionState } from '@shared/types'
 import { type WorkspaceGroupColor, normalizeGroupName } from '@shared/workspaceGroups'
 import { ZOOM_DEFAULT, stepZoom } from '@shared/zoom'
 import { currentDict } from '../i18n/useDict'
-import { type DropZone, type FocusDirection, adjacentTab, allPanes, findPane } from '../layout/tree'
+import { type DropZone, type FocusDirection, allPanes, findPane } from '../layout/tree'
 import type { Direction, SurfaceKind } from '../layout/types'
 import { postAgentNotification } from '../lib/agentNotification'
 import {
@@ -27,6 +27,7 @@ import { GO_TO_WORKSPACE_SYMBOL_COMMAND, SYMBOLS_PREFIX } from '../lib/paletteMo
 import { isStaleAgentReport } from '../lib/paneAgent'
 import { openWorkflowPicker } from '../lib/workflows'
 import {
+  focusAdjacentTab,
   focusPaneInDirection,
   goToWorkspace,
   isPaneViewed,
@@ -283,10 +284,9 @@ export function registerBuiltinCommands(): void {
       id,
       category: 'pane',
       run: (_args, ctx) => {
-        if (!ctx.activeWorkspaceId || !ctx.activePaneId) return
-        const layout = useLayoutStore.getState().byWorkspace[ctx.activeWorkspaceId]
-        const next = layout ? adjacentTab(layout.root, ctx.activePaneId, step) : null
-        if (next) useLayoutStore.getState().focusPane(ctx.activeWorkspaceId, next)
+        if (ctx.activeWorkspaceId && ctx.activePaneId) {
+          focusAdjacentTab(ctx.activeWorkspaceId, ctx.activePaneId, step)
+        }
       },
     })
   }

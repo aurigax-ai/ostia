@@ -1,5 +1,6 @@
 import {
   type FocusDirection,
+  adjacentTab,
   findPane,
   isPaneShown,
   paneIds,
@@ -138,6 +139,16 @@ export function focusPaneInDirection(
   const layout = useLayoutStore.getState().byWorkspace[workspaceId]
   if (!layout || layout.zoomedPaneId) return false
   const target = paneInDirection(layout.root, paneId, direction)
+  if (!target) return false
+  useLayoutStore.getState().focusPane(workspaceId, target)
+  requestAnimationFrame(() => focusSurface(target))
+  return true
+}
+
+export function focusAdjacentTab(workspaceId: string, paneId: string, step: 1 | -1): boolean {
+  const layout = useLayoutStore.getState().byWorkspace[workspaceId]
+  if (!layout || layout.zoomedPaneId) return false
+  const target = adjacentTab(layout.root, paneId, step)
   if (!target) return false
   useLayoutStore.getState().focusPane(workspaceId, target)
   requestAnimationFrame(() => focusSurface(target))
