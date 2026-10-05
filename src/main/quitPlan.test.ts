@@ -1,23 +1,40 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { exitAfterDeadline, planQuit } from './quitPlan'
+import { type QuitState, exitAfterDeadline, planQuit } from './quitPlan'
+
+const IDLE: QuitState = {
+  approved: false,
+  requestedByOstia: false,
+  signaled: false,
+  platform: 'linux',
+}
 
 describe('planQuit', () => {
   it('proceeds once the quit was approved', () => {
-    expect(planQuit({ approved: true, requestedByOstia: false, platform: 'linux' })).toBe('proceed')
+    expect(planQuit({ ...IDLE, approved: true, signaled: true })).toBe('proceed')
   })
 
   it('asks about running commands when Ostia itself started the quit', () => {
-    expect(planQuit({ approved: false, requestedByOstia: true, platform: 'linux' })).toBe('ask')
+    expect(planQuit({ ...IDLE, requestedByOstia: true })).toBe('ask')
   })
 
   it('quits unattended when a signal (SIGTERM, SIGINT, SIGHUP) started the quit', () => {
-    expect(planQuit({ approved: false, requestedByOstia: false, platform: 'linux' })).toBe(
-      'unattended',
-    )
+    expect(planQuit({ ...IDLE, signaled: true })).toBe('unattended')
+  })
+
+  it('quits unattended on Linux when neither Ostia nor a known signal started the quit', () => {
+    expect(planQuit(IDLE)).toBe('unattended')
+  })
+
+  it('quits unattended on macOS too when a signal started the quit', () => {
+    for (const requestedByOstia of [false, true]) {
+      expect(planQuit({ ...IDLE, platform: 'darwin', requestedByOstia, signaled: true })).toBe(
+        'unattended',
+      )
+    }
   })
 
   it('still asks on macOS, where the app menu quits without going through Ostia', () => {
-    expect(planQuit({ approved: false, requestedByOstia: false, platform: 'darwin' })).toBe('ask')
+    expect(planQuit({ ...IDLE, platform: 'darwin' })).toBe('ask')
   })
 })
 

@@ -199,7 +199,10 @@ async function expectAutoResumed(dataHome: string): Promise<void> {
       { timeout: 20_000 },
     )
   } finally {
-    await app.close().catch(() => {})
+    const closed = app.close().catch(() => {})
+    const quit = win.getByRole('dialog').getByRole('button', { name: 'Quit' })
+    await Promise.race([closed, quit.click({ timeout: 15_000 }).catch(() => {})])
+    await closed
   }
 }
 

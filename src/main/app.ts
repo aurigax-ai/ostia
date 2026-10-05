@@ -170,7 +170,7 @@ import { KubeContextReader, NodeVersionResolver, promptContext } from './promptC
 import { type ReapReason, RecoveryBook, orphanVerdict, planRecovery } from './ptyReaper'
 import { PtySession, type SubscriberRole } from './ptySession'
 import { questions, registerQuestions } from './questions'
-import { exitAfterDeadline, planQuit } from './quitPlan'
+import { QUIT_SIGNALS, exitAfterDeadline, planQuit } from './quitPlan'
 import { createRedactor, createScrollbackRedactor } from './redaction'
 import { createWorkerScan, redactionWorkerScript } from './redactionScan'
 import { registerReleaseCheck, releaseUserAgent } from './releaseCheck'
@@ -1042,6 +1042,17 @@ let quitRequested = false
 function requestQuit(): void {
   quitRequested = true
   app.quit()
+}
+let quitSignaled = false
+
+function handleQuitSignals(): void {
+  for (const signal of QUIT_SIGNALS) {
+    process.on(signal, () => {
+      appLog?.info('quit-signal', { signal })
+      quitSignaled = true
+      app.quit()
+    })
+  }
 }
 const startedHidden = app.commandLine.hasSwitch('hidden')
 let appTray: AppTray | null = null
@@ -2503,6 +2514,7 @@ app.whenReady().then(() => {
     finishRecovery,
     openPath: (path) => shell.openPath(path),
   })
+  handleQuitSignals()
   loadRestoredScrollback()
   scratchFolders.sweep()
   workspaceSandboxes.sweepTmp()
@@ -2959,6 +2971,7 @@ app.on('before-quit', (event) => {
   const plan = planQuit({
     approved: quitApproved,
     requestedByOstia: quitRequested,
+    signaled: quitSignaled,
     platform: process.platform,
   })
   quitRequested = false

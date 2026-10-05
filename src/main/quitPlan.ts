@@ -2,14 +2,18 @@ export const UNATTENDED_QUIT_DEADLINE_MS = 5000
 
 export type QuitPlan = 'proceed' | 'ask' | 'unattended'
 
+export const QUIT_SIGNALS = ['SIGTERM', 'SIGINT', 'SIGHUP'] as const
+
 export interface QuitState {
   approved: boolean
   requestedByOstia: boolean
+  signaled: boolean
   platform: NodeJS.Platform
 }
 
 export function planQuit(state: QuitState): QuitPlan {
   if (state.approved) return 'proceed'
+  if (state.signaled) return 'unattended'
   if (state.requestedByOstia || state.platform === 'darwin') return 'ask'
   return 'unattended'
 }
