@@ -43,7 +43,28 @@ The agent sessions in these captures are scripted stand-ins running in the real 
 
 ## Install
 
-Ostia has Linux builds for x64. Get the AppImage or the tarball from the
+### macOS (Apple silicon)
+
+```bash
+brew install --cask aurigax-ai/tap/ostia
+```
+
+`brew upgrade --cask ostia` picks up new releases.
+
+### Debian and Ubuntu (x64)
+
+```bash
+sudo install -d -m 0755 /etc/apt/keyrings
+curl -fsSL https://github.com/aurigax-ai/apt/releases/download/stable/ostia.gpg | sudo tee /etc/apt/keyrings/ostia.gpg >/dev/null
+echo 'deb [signed-by=/etc/apt/keyrings/ostia.gpg] https://github.com/aurigax-ai/apt/releases/download/stable ./' | sudo tee /etc/apt/sources.list.d/ostia.list
+sudo apt update && sudo apt install ostia
+```
+
+`sudo apt upgrade` picks up new releases. The package adds Ostia to the app menu and the `ostia` command.
+
+### Other Linux (x64)
+
+Get the AppImage or the tarball from the
 [latest release](https://github.com/aurigax-ai/ostia/releases/latest).
 
 ```bash
