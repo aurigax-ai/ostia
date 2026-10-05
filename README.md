@@ -16,8 +16,9 @@
 
 ![Ostia with six projects in the sidebar, an agent session and the diff of its change](.github/readme/hero.webp)
 
-Ostia is a terminal for Linux where Claude Code, Codex and your own shell share panes, a browser,
-diffs and approvals. It ships no agent of its own: any CLI that can run a shell command works.
+Ostia is a terminal for macOS and Linux where Claude Code, Codex and your own shell share panes, a
+browser, diffs and approvals. It ships no agent of its own: any CLI that can run a shell command
+works.
 
 ## What it does
 
@@ -43,15 +44,23 @@ The agent sessions in these captures are scripted stand-ins running in the real 
 
 ## Install
 
+Ostia runs on macOS (Apple silicon) and Linux (x64). Windows is not supported.
+
 ### macOS (Apple silicon)
 
 ```bash
 brew install --cask aurigax-ai/tap/ostia
 ```
 
-`brew upgrade --cask ostia` picks up new releases.
+`brew upgrade --cask ostia` picks up new releases. Without Homebrew, download the signed and
+notarized `ostia-<version>-arm64.dmg` from the
+[latest release](https://github.com/aurigax-ai/ostia/releases/latest) and drag Ostia to
+Applications.
 
 ### Debian and Ubuntu (x64)
+
+The apt repository starts with Ostia 0.5.7. Until 0.5.7 is released, use the tarball or AppImage
+below.
 
 ```bash
 sudo install -d -m 0755 /etc/apt/keyrings
