@@ -194,7 +194,10 @@ jobs:
       - if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
         with:
-          name: blob-ptrace
+          # Not blob-*: e2e-report merges those, and a GitHub-hosted blob has a
+          # different checkout path from the self-hosted shards, which
+          # merge-reports refuses.
+          name: ptrace-blob-report
           path: blob-report
           retention-days: 3
 
@@ -269,7 +272,7 @@ jobs:
           retention-days: 3
 
   e2e-report:
-    needs: [changes, e2e, e2e-ptrace]
+    needs: [changes, e2e]
     if: ${{ !cancelled() && needs.e2e.result != 'skipped' }}
     runs-on: ${{ fromJSON(needs.changes.outputs.linux) }}
     continue-on-error: true
