@@ -9,7 +9,7 @@ import type {
   ExtensionResult,
   OpenTerminalResult,
   RunAgentOptions,
-} from '@aurigax-ai/pine-extension-sdk'
+} from '@aurigax-ai/ostia-extension-sdk'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { type AgentLauncher, panelHandlers } from './panelApi'
 import { TrellisService } from './service'

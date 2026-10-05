@@ -13,7 +13,7 @@ import {
   ok,
   onShutdown,
   startPanelServer,
-} from '@aurigax-ai/pine-extension-sdk'
+} from '@aurigax-ai/ostia-extension-sdk'
 import { type AgentLauncher, initHere, panelHandlers } from './panelApi'
 import { sessionContext } from './prompt'
 import { TrellisService, type WorkspaceRef } from './service'
