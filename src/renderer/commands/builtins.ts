@@ -27,6 +27,7 @@ import { GO_TO_WORKSPACE_SYMBOL_COMMAND, SYMBOLS_PREFIX } from '../lib/paletteMo
 import { isStaleAgentReport } from '../lib/paneAgent'
 import { openWorkflowPicker } from '../lib/workflows'
 import {
+  focusAdjacentTab,
   focusPaneInDirection,
   goToWorkspace,
   isPaneViewed,
@@ -270,6 +271,21 @@ export function registerBuiltinCommands(): void {
       run: (_args, ctx) => {
         if (ctx.activeWorkspaceId && ctx.activePaneId) {
           focusPaneInDirection(ctx.activeWorkspaceId, ctx.activePaneId, direction)
+        }
+      },
+    })
+  }
+
+  for (const [id, step] of [
+    ['tab.next', 1],
+    ['tab.previous', -1],
+  ] as const) {
+    registerCore({
+      id,
+      category: 'pane',
+      run: (_args, ctx) => {
+        if (ctx.activeWorkspaceId && ctx.activePaneId) {
+          focusAdjacentTab(ctx.activeWorkspaceId, ctx.activePaneId, step)
         }
       },
     })

@@ -346,6 +346,14 @@ export function findPane(node: LayoutNode, id: string): PaneNode | null {
   return allPanes(node).find((p) => p.id === id) ?? null
 }
 
+export function adjacentTab(root: LayoutNode, paneId: string, step: 1 | -1): string | null {
+  const tabs = tabsOfPane(root, paneId)
+  if (!tabs || tabs.children.length < 2) return null
+  const at = tabs.children.findIndex((c) => c.id === paneId)
+  const next = (at + step + tabs.children.length) % tabs.children.length
+  return tabs.children[next].id
+}
+
 export function tabsOfPane(node: LayoutNode, paneId: string): TabsNode | null {
   if (node.type === 'pane') return null
   if (node.type === 'tabs') return node.children.some((c) => c.id === paneId) ? node : null

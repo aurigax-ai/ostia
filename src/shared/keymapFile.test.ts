@@ -28,7 +28,7 @@ describe('parseKeymapBindings', () => {
           'view.zoomIn': 'Ctrl+Alt+1-9',
           'workspace.goto': 'Ctrl+Shift+K',
           'pane.focusLeft': 'Ctrl+Left',
-          'pane.splitDown': 'Ctrl+Tab',
+          'pane.splitDown': 'Shift+Tab',
         },
       },
       false,
@@ -44,7 +44,7 @@ describe('parseKeymapBindings', () => {
       { command: 'view.zoomIn', value: 'Ctrl+Alt+1-9', problem: 'digit-range' },
       { command: 'workspace.goto', value: 'Ctrl+Shift+K', problem: 'digit-range' },
       { command: 'pane.focusLeft', value: 'Ctrl+Left', problem: 'arrow' },
-      { command: 'pane.splitDown', value: 'Ctrl+Tab', problem: 'tab' },
+      { command: 'pane.splitDown', value: 'Shift+Tab', problem: 'tab' },
     ])
   })
 

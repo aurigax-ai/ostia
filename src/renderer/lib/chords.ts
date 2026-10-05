@@ -45,6 +45,8 @@ export type AppChord =
   | 'pane.focusDown'
   | 'pane.zoom'
   | 'pane.close'
+  | 'tab.next'
+  | 'tab.previous'
   | 'workspace.next'
   | 'workspace.previous'
 
@@ -86,6 +88,8 @@ export const DEFAULT_CHORDS: Readonly<
   'pane.focusDown': ['Cmd+Ctrl+Down', 'Ctrl+Shift+Alt+J'],
   'pane.zoom': ['Cmd+Shift+X', 'Ctrl+Shift+X'],
   'pane.close': ['Cmd+W', 'Ctrl+Shift+W'],
+  'tab.next': ['Ctrl+Tab', 'Ctrl+Tab'],
+  'tab.previous': ['Ctrl+Shift+Tab', 'Ctrl+Shift+Tab'],
   'workspace.next': ['Cmd+Ctrl+]', 'Ctrl+Shift+PageDown'],
   'workspace.previous': ['Cmd+Ctrl+[', 'Ctrl+Shift+PageUp'],
   copy: ['Cmd+C', 'Ctrl+Shift+C'],
