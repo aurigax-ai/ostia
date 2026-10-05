@@ -50,6 +50,12 @@ export type AppChord =
 
 export type TerminalChord = 'copy' | 'paste' | 'find' | 'block.selectPrev' | 'block.selectNext'
 
+export type BrowserChord =
+  | 'browser.focusAddress'
+  | 'browser.reload'
+  | 'browser.back'
+  | 'browser.forward'
+
 export const TERMINAL_CHORDS: readonly TerminalChord[] = [
   'copy',
   'paste',
@@ -60,8 +66,17 @@ export const TERMINAL_CHORDS: readonly TerminalChord[] = [
 
 const TERMINAL_SET: ReadonlySet<string> = new Set(TERMINAL_CHORDS)
 
+export const BROWSER_CHORDS: readonly BrowserChord[] = [
+  'browser.focusAddress',
+  'browser.reload',
+  'browser.back',
+  'browser.forward',
+]
+
+const BROWSER_SET: ReadonlySet<string> = new Set(BROWSER_CHORDS)
+
 export const DEFAULT_CHORDS: Readonly<
-  Record<AppChord | TerminalChord, [mac: string, other: string]>
+  Record<AppChord | TerminalChord | BrowserChord, [mac: string, other: string]>
 > = {
   'palette.toggle': ['Cmd+K', 'Ctrl+Shift+P'],
   'view.toggleRail': ['Cmd+\\', 'Ctrl+Shift+B'],
@@ -93,6 +108,10 @@ export const DEFAULT_CHORDS: Readonly<
   find: ['Cmd+F', 'Ctrl+Shift+F'],
   'block.selectPrev': ['Cmd+Up', 'Ctrl+Shift+Up'],
   'block.selectNext': ['Cmd+Down', 'Ctrl+Shift+Down'],
+  'browser.focusAddress': ['Cmd+L', 'Ctrl+Shift+L'],
+  'browser.reload': ['Cmd+R', 'Ctrl+F5'],
+  'browser.back': ['Cmd+[', 'Ctrl+Alt+Left'],
+  'browser.forward': ['Cmd+]', 'Ctrl+Alt+Right'],
 }
 
 export function defaultChord(id: string, mac: boolean): ChordSpec | null {
@@ -208,7 +227,11 @@ export function matchChord(e: KeyLike, mac: boolean): string | null {
 }
 
 export function isAppChord(chord: string | null): chord is string {
-  return chord !== null && !TERMINAL_SET.has(chord)
+  return chord !== null && !TERMINAL_SET.has(chord) && !BROWSER_SET.has(chord)
+}
+
+export function isBrowserChord(chord: string | null): chord is BrowserChord {
+  return chord !== null && BROWSER_SET.has(chord)
 }
 
 export function runAppChord(e: KeyLike & { preventDefault: () => void }, mac: boolean): boolean {

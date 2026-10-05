@@ -54,6 +54,7 @@ import { useUIStore } from '../stores/uiStore'
 import { useUpdateStore } from '../stores/updateStore'
 import type { WorkspaceKind, WorkspaceState } from '../stores/workspacesStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
+import { registerBrowserCommands } from './browserCommands'
 import { type CoreCommandId, registerCore } from './core'
 import { type CommandContext, commands } from './registry'
 
@@ -165,6 +166,7 @@ const WORKSPACE_DIR = /^(\/|~(\/|$))/
 const PANE_LOCKED = 'pane-locked: the human locked this pane; only they can unlock it'
 
 export function registerBuiltinCommands(): void {
+  registerBrowserCommands()
   commands.setContextProvider((): CommandContext => {
     const workspaceId = useWorkspacesStore.getState().activeWorkspaceId
     const layout = workspaceId ? useLayoutStore.getState().byWorkspace[workspaceId] : undefined
