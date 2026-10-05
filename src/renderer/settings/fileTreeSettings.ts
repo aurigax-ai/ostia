@@ -21,6 +21,8 @@ export interface FileTreeSettings {
   iconTheme: string
 }
 
+export const DOTFILES_PATTERN = '**/.*'
+
 export const EXCLUDE_MAX = 200
 export const PATTERN_MAX_LENGTH = 500
 export const NESTING_MAX = 100

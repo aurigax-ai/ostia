@@ -1140,6 +1140,9 @@ export const en = {
     exclude: 'Hidden file patterns',
     excludeDesc:
       'Glob patterns of what the tree hides: **/node_modules hides every node_modules, **/.* hides dotfiles. Hide in tree (right-click a row) adds its path here.',
+    hideDotfiles: 'Hide dotfiles',
+    hideDotfilesDesc:
+      'Hide files and folders whose name starts with a dot. Adds **/.* to the hidden file patterns.',
     showExcludedDesc: 'Show hidden files anyway, dimmed. Also the eye button in the Files header.',
     addPattern: 'Add',
     newExclude: 'Pattern, e.g. **/dist',
@@ -3644,6 +3647,8 @@ export const zhHant: Dict = {
     exclude: '隱藏檔案的模式',
     excludeDesc:
       '檔案樹要隱藏的 Glob 模式：**/node_modules 隱藏所有 node_modules，**/.* 隱藏點檔案。在列上按右鍵選「在檔案樹中隱藏」會把路徑加到這裡。',
+    hideDotfiles: '隱藏點檔案',
+    hideDotfilesDesc: '隱藏名稱以點開頭的檔案與資料夾。會把 **/.* 加到隱藏檔案的模式。',
     showExcludedDesc: '仍以淡色顯示隱藏的檔案。也可使用檔案標頭的眼睛按鈕。',
     addPattern: '新增',
     newExclude: '模式，例如 **/dist',
