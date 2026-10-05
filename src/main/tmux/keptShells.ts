@@ -14,6 +14,12 @@ export interface KeptProcessMeta {
   exitCode?: number
 }
 
+export interface KeptSandboxMeta {
+  stamp: string | null
+  bridgeId: string | null
+  resizePipe: string | null
+}
+
 export interface KeptMeta {
   paneId: string
   externalId: string
@@ -23,6 +29,44 @@ export interface KeptMeta {
   stateFile: string
   spawnPath: string
   process?: KeptProcessMeta
+  sandbox?: KeptSandboxMeta
+}
+
+export const SANDBOX_HOST_KIND = 'sandbox-host'
+
+export interface KeptHostMeta {
+  kind: typeof SANDBOX_HOST_KIND
+  workspaceId: string
+  channel: string
+  tmpDir: string
+  exposed: number[]
+}
+
+export function parseKeptHost(raw: unknown): KeptHostMeta | null {
+  if (typeof raw !== 'object' || raw === null) return null
+  const r = raw as Record<string, unknown>
+  const workspaceId = text(r.workspaceId)
+  const channel = text(r.channel)
+  const tmpDir = text(r.tmpDir)
+  if (r.kind !== SANDBOX_HOST_KIND || !workspaceId || !channel || !tmpDir) return null
+  const exposed = Array.isArray(r.exposed)
+    ? r.exposed.filter((p): p is number => Number.isInteger(p) && p > 0 && p < 65536)
+    : []
+  return { kind: SANDBOX_HOST_KIND, workspaceId, channel, tmpDir, exposed }
+}
+
+function nullableText(raw: unknown): string | null {
+  return raw === null ? null : text(raw)
+}
+
+function parseSandbox(raw: unknown): KeptSandboxMeta | undefined {
+  if (typeof raw !== 'object' || raw === null) return undefined
+  const r = raw as Record<string, unknown>
+  return {
+    stamp: nullableText(r.stamp),
+    bridgeId: nullableText(r.bridgeId),
+    resizePipe: nullableText(r.resizePipe),
+  }
 }
 
 const PROCESS_STATUSES = new Set(['starting', 'running', 'exited'])
@@ -69,7 +113,12 @@ export function parseKeptMeta(raw: unknown): KeptMeta | null {
   }
   if (Object.values(fields).some((v) => v === null) || !fields.paneId || !fields.token) return null
   const keptProcess = parseProcess(r.process)
-  return { ...(fields as KeptMeta), ...(keptProcess ? { process: keptProcess } : {}) }
+  const sandbox = parseSandbox(r.sandbox)
+  return {
+    ...(fields as KeptMeta),
+    ...(keptProcess ? { process: keptProcess } : {}),
+    ...(sandbox ? { sandbox } : {}),
+  }
 }
 
 export interface KeptShell {
@@ -90,10 +139,22 @@ export type KeptSpawnSpec = Omit<NewWindowSpec, 'session'> & {
   meta: KeptMeta
 }
 
+export type KeptHostSpawnSpec = Omit<NewWindowSpec, 'session'> & { meta: KeptHostMeta }
+
+interface Waiting<M> {
+  window: KeptWindow
+  meta: M
+}
+
+const HOST_WINDOW_COLS = 80
+const HOST_WINDOW_ROWS = 24
+
 export class KeptShells {
   private server: TmuxServer | null = null
   private connecting: Promise<TmuxServer> | null = null
-  private readonly waiting = new Map<string, { window: KeptWindow; meta: KeptMeta }>()
+  private readonly waiting = new Map<string, Waiting<KeptMeta>>()
+  private readonly hosts = new Map<string, Waiting<KeptHostMeta>>()
+  private readonly lostSandbox = new Set<string>()
   ready: Promise<void> = Promise.resolve()
 
   constructor(private readonly deps: KeptShellsDeps) {}
@@ -122,8 +183,36 @@ export class KeptShells {
     return (await this.connect()).spawn(spec)
   }
 
+  async spawnHost(spec: KeptHostSpawnSpec): Promise<TmuxPane> {
+    return (await this.connect()).spawn({
+      ...spec,
+      cols: HOST_WINDOW_COLS,
+      rows: HOST_WINDOW_ROWS,
+    })
+  }
+
+  keptHost(workspaceId: string): KeptHostMeta | undefined {
+    return this.hosts.get(workspaceId)?.meta
+  }
+
+  claimHost(workspaceId: string): { pane: TmuxPane; meta: KeptHostMeta } | null {
+    const kept = this.hosts.get(workspaceId)
+    if (!kept || !this.server?.alive) return null
+    this.hosts.delete(workspaceId)
+    return { pane: this.server.adopt(kept.window), meta: kept.meta }
+  }
+
+  keptHostWorkspaces(): string[] {
+    return [...this.hosts.keys()]
+  }
+
+  takeSandboxLost(paneId: string): boolean {
+    return this.lostSandbox.delete(paneId)
+  }
+
   async quit(): Promise<void> {
     this.waiting.clear()
+    this.hosts.clear()
     const server = this.server ?? (this.socketExists() ? await this.connect() : null)
     await server?.killServer()
     this.server = null
@@ -131,6 +220,7 @@ export class KeptShells {
 
   quitNow(): void {
     this.waiting.clear()
+    this.hosts.clear()
     this.server?.close()
     this.server = null
     const options = this.deps.options()
@@ -145,6 +235,7 @@ export class KeptShells {
 
   release(): void {
     this.waiting.clear()
+    this.hosts.clear()
     this.server?.close()
     this.server = null
   }
@@ -162,14 +253,40 @@ export class KeptShells {
       await this.quit()
       return
     }
-    for (const window of await server.windows()) {
+    const windows = await server.windows()
+    const liveHosts = new Map<string, Waiting<KeptHostMeta>>()
+    for (const window of windows) {
+      const host = parseKeptHost(window.meta)
+      if (host && !window.dead) liveHosts.set(host.workspaceId, { window, meta: host })
+    }
+    for (const window of windows) {
+      if (parseKeptHost(window.meta)) {
+        if (window.dead) await server.killWindow(window.windowId)
+        continue
+      }
       const meta = parseKeptMeta(window.meta)
-      if (meta && !window.dead && saved?.has(meta.paneId)) {
+      const claimed = meta !== null && !window.dead && saved?.has(meta.paneId) === true
+      if (meta && claimed && meta.sandbox && !liveHosts.has(meta.workspaceId)) {
+        this.lostSandbox.add(meta.paneId)
+        this.deps.log('pty-reap', { pane: meta.paneId, reason: 'sandbox-gone' })
+        await server.killWindow(window.windowId)
+        continue
+      }
+      if (meta && claimed) {
         this.waiting.set(meta.paneId, { window, meta })
         continue
       }
       this.deps.log('pty-reap', { pane: meta?.paneId ?? '', reason: 'unclaimed' })
       await server.killWindow(window.windowId)
+    }
+    const kept = [...this.waiting.values()]
+    for (const [workspaceId, host] of liveHosts) {
+      if (kept.some(({ meta }) => meta.sandbox && meta.workspaceId === workspaceId)) {
+        this.hosts.set(workspaceId, host)
+        continue
+      }
+      this.deps.log('sandbox-host-reap', { workspace: workspaceId, reason: 'unclaimed' })
+      await server.killWindow(host.window.windowId)
     }
   }
 
@@ -187,6 +304,7 @@ export class KeptShells {
     const connecting = TmuxServer.connect(options, () => {
       if (this.server === server) this.server = null
       this.waiting.clear()
+      this.hosts.clear()
     })
     this.connecting = connecting
     return connecting

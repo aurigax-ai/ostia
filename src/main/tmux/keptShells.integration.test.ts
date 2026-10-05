@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, afterEach, describe, expect, it } from 'vitest'
 import { programPath } from '../systemRequirements'
-import { type KeptMeta, KeptShells } from './keptShells'
+import { type KeptHostMeta, type KeptMeta, KeptShells, SANDBOX_HOST_KIND } from './keptShells'
 import type { TmuxPane, TmuxServerOptions } from './tmuxServer'
 
 const tmux = programPath('tmux') ?? 'tmux'
@@ -139,5 +139,73 @@ describe('KeptShells', () => {
     expect(claimed?.pane.pid).toBe(pane.pid)
     expect(claimed?.meta.token).toBe('token-p1')
     expect(second.kept.claim('p1')).toBeNull()
+  })
+
+  function sandboxed(kept: KeptShells, paneId: string): Promise<TmuxPane> {
+    return kept.spawn({
+      file: '/bin/sh',
+      args: ['-c', 'sleep 60'],
+      cwd: root,
+      env: { PATH: process.env.PATH ?? '/usr/bin:/bin' },
+      cols: 80,
+      rows: 24,
+      meta: { ...meta(paneId), sandbox: { stamp: 's1', bridgeId: 'b1', resizePipe: null } },
+    })
+  }
+
+  function host(kept: KeptShells, workspaceId = 'w1'): Promise<TmuxPane> {
+    const hostMeta: KeptHostMeta = {
+      kind: SANDBOX_HOST_KIND,
+      workspaceId,
+      channel: join(root, `${workspaceId}.sock`),
+      tmpDir: join(root, workspaceId),
+      exposed: [3000],
+    }
+    return kept.spawnHost({
+      file: '/bin/sh',
+      args: ['-c', 'sleep 60'],
+      cwd: root,
+      env: { PATH: process.env.PATH ?? '/usr/bin:/bin' },
+      meta: hostMeta,
+    })
+  }
+
+  it('keeps a sandbox host while a kept pane of its workspace waits, with what it exposed', async () => {
+    const name = `k${names++}`
+    const first = instance(name)
+    const hostPane = await host(first.kept)
+    await sandboxed(first.kept, 'p1')
+    first.kept.release()
+    const second = await restart(name, new Set(['p1']))
+    expect(second.kept.isWaiting('p1')).toBe(true)
+    expect(second.kept.keptHost('w1')?.exposed).toEqual([3000])
+    expect(second.kept.claimHost('w1')?.pane.pid).toBe(hostPane.pid)
+  })
+
+  it('ends a sandbox host whose workspace keeps no pane', async () => {
+    const name = `k${names++}`
+    const first = instance(name)
+    const hostPane = await host(first.kept)
+    await sandboxed(first.kept, 'p1')
+    first.kept.release()
+    const second = await restart(name, new Set())
+    expect(second.kept.keptHost('w1')).toBeUndefined()
+    await expect.poll(() => alive(hostPane.pid)).toBe(false)
+  })
+
+  it('KSH-C52 ends a sandboxed shell whose sandbox host died while Ostia was away and marks it lost', async () => {
+    const name = `k${names++}`
+    const first = instance(name)
+    const hostPane = await host(first.kept)
+    const pane = await sandboxed(first.kept, 'p1')
+    first.kept.release()
+    process.kill(hostPane.pid, 'SIGKILL')
+    await expect.poll(() => alive(hostPane.pid)).toBe(false)
+    const second = await restart(name, new Set(['p1']))
+    expect(second.kept.isWaiting('p1')).toBe(false)
+    expect(second.log).toContainEqual(['pty-reap', { pane: 'p1', reason: 'sandbox-gone' }])
+    await expect.poll(() => alive(pane.pid)).toBe(false)
+    expect(second.kept.takeSandboxLost('p1')).toBe(true)
+    expect(second.kept.takeSandboxLost('p1')).toBe(false)
   })
 })
