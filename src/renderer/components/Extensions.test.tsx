@@ -261,7 +261,7 @@ describe('Extensions UI', () => {
       await waitFor(() => expect(container.querySelector('webview')).not.toBeNull())
       const webview = container.querySelector('webview') as HTMLElement
       expect(webview.getAttribute('src')).toBe('http://127.0.0.1:4100/?t=abc')
-      expect(webview.getAttribute('partition')).toBe('pine-ext-demo')
+      expect(webview.getAttribute('partition')).toBe('ostia-ext-demo')
       expect(panel).toHaveBeenCalledWith('demo', { workspaceId: 's1', locale: 'en' })
     })
 

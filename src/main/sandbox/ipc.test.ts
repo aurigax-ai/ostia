@@ -184,7 +184,7 @@ describe('sandbox filesystem IPC', () => {
     expect(refused).toEqual({
       ok: false,
       errors: [
-        { value: dataDir, reason: 'pine-data' },
+        { value: dataDir, reason: 'ostia-data' },
         { value: runtimeDir, reason: 'protected' },
         { value: '~/.claude/settings.json', reason: 'protected' },
         { value: '~', reason: 'too-broad' },
@@ -325,7 +325,7 @@ describe('sandbox folder check', () => {
     })
     expect(await call('sandbox:set-enabled', sender(1), 'data', true)).toMatchObject({
       reason: 'folder',
-      problem: { reason: 'pine-data' },
+      problem: { reason: 'ostia-data' },
     })
     expect(store.has('atHome')).toBe(false)
     expect(await call('sandbox:set-enabled', sender(1), 'ws', true)).toMatchObject({ ok: true })

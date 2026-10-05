@@ -180,7 +180,7 @@ test('a detached workspace keeps its running command and comes back when its win
 
 test('a detached window reopens where it was after a restart, idle', async () => {
   test.setTimeout(90_000)
-  const marker = `pine_detached_${Date.now()}`
+  const marker = `ostia_detached_${Date.now()}`
   const bounds = { x: 220, y: 140, width: 900, height: 640 }
   const first = await launchApp(dataHome)
   let project = ''

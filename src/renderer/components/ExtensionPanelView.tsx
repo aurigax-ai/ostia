@@ -12,7 +12,7 @@ import { useSettingsStore } from '../stores/settingsStore'
 import { Button } from './ui/button'
 import { Empty, EmptyDescription } from './ui/empty'
 
-export const EXTENSION_PARTITION_PREFIX = 'pine-ext-'
+export const EXTENSION_PARTITION_PREFIX = 'ostia-ext-'
 
 function useThemeCss(): string {
   const activeTheme = useEffectiveTheme()

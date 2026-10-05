@@ -420,8 +420,8 @@ describe('folderProblem', () => {
     expect(folderProblem(`${home}/`, homePaths)).toBe('home')
     expect(folderProblem(base, homePaths)).toBe('above-home')
     expect(folderProblem('/', homePaths)).toBe('above-home')
-    expect(folderProblem(join(home, '.local'), homePaths)).toBe('pine-data')
-    expect(folderProblem(join(home, '.config/ostia/extensions'), homePaths)).toBe('pine-data')
+    expect(folderProblem(join(home, '.local'), homePaths)).toBe('ostia-data')
+    expect(folderProblem(join(home, '.config/ostia/extensions'), homePaths)).toBe('ostia-data')
   })
 
   it('accepts a project folder inside or outside home', () => {

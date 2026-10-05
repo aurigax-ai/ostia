@@ -44,11 +44,11 @@ describe('claimState', () => {
   })
 
   it('tells the human own claims from others and from expired ones', () => {
-    expect(claimState(card(), 'human:pine', 10)).toBe('none')
-    expect(claimState(card('human:pine', 20), 'human:pine', 10)).toBe('mine')
-    expect(claimState(card('agent:x', 20), 'human:pine', 10)).toBe('other')
-    expect(claimState(card('agent:x', 10), 'human:pine', 10)).toBe('none')
-    expect(claimState(card('agent:x'), 'human:pine', 10)).toBe('other')
+    expect(claimState(card(), 'human:ostia', 10)).toBe('none')
+    expect(claimState(card('human:ostia', 20), 'human:ostia', 10)).toBe('mine')
+    expect(claimState(card('agent:x', 20), 'human:ostia', 10)).toBe('other')
+    expect(claimState(card('agent:x', 10), 'human:ostia', 10)).toBe('none')
+    expect(claimState(card('agent:x'), 'human:ostia', 10)).toBe('other')
   })
 })
 
@@ -117,7 +117,7 @@ describe('threadItems', () => {
       'moved',
       'comment',
     ])
-    expect(claimState(board().columns[1].cards[0], 'human:pine', LIVE_AT)).toBe('other')
+    expect(claimState(board().columns[1].cards[0], 'human:ostia', LIVE_AT)).toBe('other')
   })
 })
 

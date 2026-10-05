@@ -189,11 +189,11 @@ describe('remote command marks', () => {
         join(home, '.bash_profile'),
         `PS1="b> "\nHISTFILE='${join(home, 'history')}'\nbind 'set enable-bracketed-paste on'\n`,
       )
-      const typed = `${ESC}[200~echo pine_ml_1\recho pine_ml_2${ESC}[201~\rexit\r`
+      const typed = `${ESC}[200~echo ostia_ml_1\recho ostia_ml_2${ESC}[201~\rexit\r`
       expect(commandMarks(ptySession(which('bash'), home, typed)).slice(0, 4)).toEqual([
-        '633;E;echo pine_ml_1',
+        '633;E;echo ostia_ml_1',
         '133;C',
-        String.raw`633;E;echo pine_ml_1\x0aecho pine_ml_2`,
+        String.raw`633;E;echo ostia_ml_1\x0aecho ostia_ml_2`,
         '133;D;0',
       ])
     },

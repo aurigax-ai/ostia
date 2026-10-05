@@ -16,12 +16,12 @@ jobs:
   check:
     runs-on: ubuntu-24.04
     outputs:
-      tag: ${{ steps.pine.outputs.tag }}
-      stale: ${{ steps.pine.outputs.stale }}
+      tag: ${{ steps.ostia.outputs.tag }}
+      stale: ${{ steps.ostia.outputs.stale }}
     steps:
       - uses: actions/checkout@v7
       - name: Compare with the latest Ostia release
-        id: pine
+        id: ostia
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -44,17 +44,17 @@ jobs:
         with:
           repository: aurigax-ai/ostia
           ref: ${{ needs.check.outputs.tag }}
-          path: pine
+          path: ostia
       - uses: pnpm/action-setup@v6
         with:
-          package_json_file: pine/package.json
+          package_json_file: ostia/package.json
       - uses: actions/setup-node@v7
         with:
           node-version: 24
       - run: pnpm install --frozen-lockfile
-        working-directory: pine
+        working-directory: ostia
       - run: pnpm publish:marketplace ../marketplace
-        working-directory: pine
+        working-directory: ostia
       - run: pnpm typecheck && pnpm test && pnpm validate
         working-directory: marketplace
       - name: Commit and push
