@@ -70,7 +70,7 @@ test('a browser pane moved to its own window sends a picked element to the agent
 
     await detached.getByRole('button', { name: 'Point at element' }).click()
     await expect
-      .poll(() => guestEval<boolean>('!!document.querySelector("[data-pine-pick]")'), {
+      .poll(() => guestEval<boolean>('!!document.querySelector("[data-ostia-pick]")'), {
         timeout: 15_000,
       })
       .toBe(true)

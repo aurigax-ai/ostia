@@ -25,7 +25,7 @@ export async function refreshOriginAgents(): Promise<void> {
   const seq = refreshSeq
   const ids = detachedWorkspaceIds()
   const found = await Promise.all(
-    ids.map((id) => window.pine.windows.originAgents(id).catch(() => null)),
+    ids.map((id) => window.ostia.windows.originAgents(id).catch(() => null)),
   )
   if (seq !== refreshSeq) return
   const byWorkspace: Record<string, OriginAgents | null> = {}
@@ -42,7 +42,7 @@ export function startOriginAgentsSync(): () => void {
   let known = detachedWorkspaceIds().join('\n')
   void refreshOriginAgents()
   const offs = [
-    window.pine.windows.onOriginAgentsChanged(() => void refreshOriginAgents()),
+    window.ostia.windows.onOriginAgentsChanged(() => void refreshOriginAgents()),
     useWorkspacesStore.subscribe(() => {
       const next = detachedWorkspaceIds().join('\n')
       if (next === known) return

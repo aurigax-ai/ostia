@@ -123,7 +123,7 @@ describe('KeyboardSection', () => {
 
   it('picks a keymap, lists the entries it skipped, and puts the user’s chords on top of it', async () => {
     useExtensionsStore.setState({ list: [keymapExtension] })
-    vi.mocked(window.pine.keymaps.load).mockResolvedValue({
+    vi.mocked(window.ostia.keymaps.load).mockResolvedValue({
       ok: true,
       keymap: {
         extId: 'keys',
@@ -146,7 +146,7 @@ describe('KeyboardSection', () => {
       expect(useSettingsStore.getState().keymap).toBe('keys/alt')
       expect(await within(row(/Command Palette/)).findByText('Ctrl+Alt+P')).toBeInTheDocument()
       expect(within(row(/Toggle Sidebar/)).getByText('Unassigned')).toBeInTheDocument()
-      expect(window.pine.keymaps.load).toHaveBeenCalledWith('keys/alt')
+      expect(window.ostia.keymaps.load).toHaveBeenCalledWith('keys/alt')
       expect(
         screen.getByText(
           'pane.zoom “Ctrl+X”: plain Ctrl keys belong to the shell. Add Shift or Alt.',
@@ -183,7 +183,7 @@ describe('KeyboardSection', () => {
       render(<KeyboardSection />)
       expect(screen.getByRole('combobox', { name: 'Keymap' })).toHaveTextContent('Default')
       expect(within(row(/Command Palette/)).getByText('Ctrl+Shift+P')).toBeInTheDocument()
-      expect(window.pine.keymaps.load).not.toHaveBeenCalled()
+      expect(window.ostia.keymaps.load).not.toHaveBeenCalled()
     } finally {
       stop()
     }
@@ -192,7 +192,7 @@ describe('KeyboardSection', () => {
   it('says when the chosen keymap cannot be loaded', async () => {
     useExtensionsStore.setState({ list: [keymapExtension] })
     useSettingsStore.setState({ keymap: 'keys/alt' })
-    vi.mocked(window.pine.keymaps.load).mockResolvedValue({
+    vi.mocked(window.ostia.keymaps.load).mockResolvedValue({
       ok: false,
       error: 'keys.json: missing',
     })

@@ -11,7 +11,7 @@ import type { FsEntry } from '@shared/types'
 import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { fmt, useDict } from '../i18n/useDict'
 import { findPane } from '../layout/tree'
-import { PINE_PATH_MIME } from '../lib/dropPaths'
+import { OSTIA_PATH_MIME } from '../lib/dropPaths'
 import {
   type CompactChain,
   type ExcludeMatcher,
@@ -105,10 +105,10 @@ class RemoteListError extends Error {
   }
 }
 
-const listLocal: ListFiles = (path) => window.pine.fs.list(path)
+const listLocal: ListFiles = (path) => window.ostia.fs.list(path)
 
 const listRemote: ListFiles = async (path) => {
-  const listing = await window.pine.remoteFiles.list(path)
+  const listing = await window.ostia.remoteFiles.list(path)
   if (!listing.ok) throw new RemoteListError(listing.error)
   return listing.entries
 }
@@ -362,7 +362,7 @@ function RemoteFolderSection({
         <IconButton
           icon={XIcon}
           label={d.remoteFolders.close}
-          onClick={() => void window.pine.remoteFiles.close(folder.id)}
+          onClick={() => void window.ostia.remoteFiles.close(folder.id)}
         />
       </div>
       <Hint label={`${folder.host}:${folder.root}`} side="bottom">
@@ -615,7 +615,7 @@ function FileRow({
           e.preventDefault()
           return
         }
-        e.dataTransfer.setData(PINE_PATH_MIME, fullPath)
+        e.dataTransfer.setData(OSTIA_PATH_MIME, fullPath)
         e.dataTransfer.setData('text/plain', fullPath)
         e.dataTransfer.effectAllowed = 'copy'
       }}

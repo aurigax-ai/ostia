@@ -126,7 +126,7 @@ describe('extension agent skills and hooks reach a fake agent (real CLI, real so
   }
 
   beforeAll(() => {
-    dir = mkdtempSync(join(tmpdir(), 'pine-agent-plugin-'))
+    dir = mkdtempSync(join(tmpdir(), 'ostia-agent-plugin-'))
     bin = join(dir, 'bin')
     socketPath = join(dir, 'control.sock')
     identity = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'pAgentPlugin' })
@@ -235,7 +235,7 @@ describe('extension agent skills and hooks reach a fake agent (real CLI, real so
     expect(context).not.toContain('agent-kit-undeclared')
   }, 60_000)
 
-  it('fails quietly and adds nothing when Pine cannot be reached', async () => {
+  it('fails quietly and adds nothing when Ostia cannot be reached', async () => {
     const res = await run(
       'sh',
       [

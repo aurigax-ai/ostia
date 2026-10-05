@@ -138,7 +138,7 @@ describe('createRedactor', () => {
     expect(library).toEqual(expect.arrayContaining(['aws', 'github', 'privatekey', 'basicauth']))
     expect(library).not.toContain('filter-comments')
     expect(kinds.find((k) => k.kind === 'aws')?.detects).toContain('AWSSecretAccessKey')
-    expect(kinds.filter((k) => k.source === 'pine').map((k) => k.kind)).toEqual([
+    expect(kinds.filter((k) => k.source === 'ostia').map((k) => k.kind)).toEqual([
       'jwt',
       'google-api-key',
       'authorization',
@@ -159,13 +159,13 @@ describe('createRedactor', () => {
 
 describe('redactionWorkerScript', () => {
   it('points into app.asar.unpacked for a packaged app', () => {
-    expect(redactionWorkerScript('/opt/pine/resources/app.asar')).toBe(
-      '/opt/pine/resources/app.asar.unpacked/out/redaction/worker.js',
+    expect(redactionWorkerScript('/opt/ostia/resources/app.asar')).toBe(
+      '/opt/ostia/resources/app.asar.unpacked/out/redaction/worker.js',
     )
   })
 
   it('stays in the project folder when unpackaged', () => {
-    expect(redactionWorkerScript('/home/u/pine')).toBe('/home/u/pine/out/redaction/worker.js')
+    expect(redactionWorkerScript('/home/u/ostia')).toBe('/home/u/ostia/out/redaction/worker.js')
   })
 })
 

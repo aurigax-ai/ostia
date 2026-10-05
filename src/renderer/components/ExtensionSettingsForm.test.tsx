@@ -44,12 +44,12 @@ describe('ExtensionSettingsForm secrets', () => {
   afterEach(() => {
     useExtensionsStore.setState({ list: [] })
     useAssistStore.setState({ availability: {} })
-    vi.mocked(window.pine.extensions.setSecret).mockReset()
+    vi.mocked(window.ostia.extensions.setSecret).mockReset()
   })
 
   it('saves a typed secret through main and never shows a stored value', async () => {
     const saved = assistant({ secretsSet: ['apiKey'] })
-    vi.mocked(window.pine.extensions.setSecret).mockResolvedValue({ ok: true, list: [saved] })
+    vi.mocked(window.ostia.extensions.setSecret).mockResolvedValue({ ok: true, list: [saved] })
     const { rerender } = render(<ExtensionSettingsForm ext={assistant()} />)
     expect(screen.getByText('Not set')).toBeInTheDocument()
     const field = screen.getByLabelText('Api key')
@@ -57,7 +57,7 @@ describe('ExtensionSettingsForm secrets', () => {
     expect(field).toHaveValue('')
     await userEvent.type(field, 'sk-secret')
     await userEvent.click(screen.getByRole('button', { name: 'Save' }))
-    expect(window.pine.extensions.setSecret).toHaveBeenCalledWith(
+    expect(window.ostia.extensions.setSecret).toHaveBeenCalledWith(
       'assistant',
       'apiKey',
       'sk-secret',
@@ -70,17 +70,17 @@ describe('ExtensionSettingsForm secrets', () => {
   })
 
   it('clears a stored secret', async () => {
-    vi.mocked(window.pine.extensions.setSecret).mockResolvedValue({
+    vi.mocked(window.ostia.extensions.setSecret).mockResolvedValue({
       ok: true,
       list: [assistant()],
     })
     render(<ExtensionSettingsForm ext={assistant({ secretsSet: ['apiKey'] })} />)
     await userEvent.click(screen.getByRole('button', { name: 'Clear' }))
-    expect(window.pine.extensions.setSecret).toHaveBeenCalledWith('assistant', 'apiKey', null)
+    expect(window.ostia.extensions.setSecret).toHaveBeenCalledWith('assistant', 'apiKey', null)
   })
 
   it('shows the error main returns', async () => {
-    vi.mocked(window.pine.extensions.setSecret).mockResolvedValue({
+    vi.mocked(window.ostia.extensions.setSecret).mockResolvedValue({
       ok: false,
       error: 'encryption-unavailable',
     })
@@ -106,7 +106,7 @@ describe('ExtensionSettingsForm secrets', () => {
 describe('ExtensionSettingsForm labels', () => {
   afterEach(() => {
     useExtensionsStore.setState({ list: [] })
-    vi.mocked(window.pine.extensions.setSetting).mockReset()
+    vi.mocked(window.ostia.extensions.setSetting).mockReset()
   })
 
   function ports(): ExtensionInfo {
@@ -178,14 +178,14 @@ describe('ExtensionSettingsForm labels', () => {
   })
 
   it('clamps a number to the manifest range before saving it', async () => {
-    vi.mocked(window.pine.extensions.setSetting).mockResolvedValue({ ok: false, error: 'x' })
+    vi.mocked(window.ostia.extensions.setSetting).mockResolvedValue({ ok: false, error: 'x' })
     render(<ExtensionSettingsForm ext={ports()} />)
     const input = screen.getByRole('spinbutton', { name: 'Scan interval' })
     expect(input).toHaveAttribute('min', '1')
     expect(input).toHaveAttribute('max', '60')
     await userEvent.clear(input)
     await userEvent.type(input, '600{Enter}')
-    expect(window.pine.extensions.setSetting).toHaveBeenCalledWith('ports', 'intervalSeconds', 60)
+    expect(window.ostia.extensions.setSetting).toHaveBeenCalledWith('ports', 'intervalSeconds', 60)
   })
 
   it('labels a secret with its title', () => {

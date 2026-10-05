@@ -14,7 +14,7 @@ import {
 } from '../../shared/promptSettings'
 import { REDACTION_PATTERNS_MAX, REDACTION_PATTERN_MAX } from '../../shared/redaction'
 import { SHELL_SETTING_MAX_LENGTH } from '../../shared/terminalShell'
-import { MATCH_PINE_THEME } from '../../shared/themeChoice'
+import { MATCH_OSTIA_THEME } from '../../shared/themeChoice'
 import { DEFAULT_CHORDS, bindableIds } from '../lib/chords'
 import { BUILTIN_COLOR_SCHEMES } from '../plugins/colorSchemes'
 import { ACTIONS_MAX, ACTION_ICONS, ACTION_ID, ACTION_PLACES, ACTION_TITLE_MAX } from './actions'
@@ -45,12 +45,12 @@ const font = (title: string) => ({
 
 const schemeChoice = (surface: string) => ({
   type: 'string',
-  examples: [MATCH_PINE_THEME, ...BUILTIN_COLOR_SCHEMES.map((s) => s.id)],
+  examples: [MATCH_OSTIA_THEME, ...BUILTIN_COLOR_SCHEMES.map((s) => s.id)],
   description: [
     `Color scheme for the ${surface}.`,
-    `"${MATCH_PINE_THEME}" uses the scheme of appearance.theme (following its light/dark switch);`,
+    `"${MATCH_OSTIA_THEME}" uses the scheme of appearance.theme (following its light/dark switch);`,
     'a scheme id such as catppuccin-mocha keeps that scheme whatever the app theme is.',
-    `An unknown id falls back to the app theme's scheme. Default: ${MATCH_PINE_THEME}.`,
+    `An unknown id falls back to the app theme's scheme. Default: ${MATCH_OSTIA_THEME}.`,
   ].join(' '),
 })
 

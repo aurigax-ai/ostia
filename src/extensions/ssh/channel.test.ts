@@ -144,21 +144,21 @@ describe('parseHeader', () => {
 describe('HelperChannel', () => {
   it('SSH-C49 fails the request and closes when a reply breaks the protocol', async () => {
     const channel = await channelOf(
-      'echo "PINE-HELPER ready 1"; read line; printf "1 ok 999999 d\\n"; sleep 5',
+      'echo "OSTIA-HELPER ready 1"; read line; printf "1 ok 999999 d\\n"; sleep 5',
     )
     expect((await failure(channel.request(STAT))).code).toBe('protocol')
     expect(channel.isClosed).toBe(true)
     expect((await failure(channel.request(STAT))).code).toBe('closed')
 
     const long = await channelOf(
-      `echo "PINE-HELPER ready 1"; read line; printf '1 ok 0 %0600d\\n' 0; sleep 5`,
+      `echo "OSTIA-HELPER ready 1"; read line; printf '1 ok 0 %0600d\\n' 0; sleep 5`,
     )
     expect((await failure(long.request(STAT))).code).toBe('protocol')
   })
 
   it('keeps the channel after an error the helper reports, mapping unknown codes to failed', async () => {
     const channel = await channelOf(
-      'echo "PINE-HELPER ready 1"; read a; echo "1 err 0 outside"; read b; echo "2 err 0 surprise"; read c; echo "3 ok 2 d"; printf hi; sleep 5',
+      'echo "OSTIA-HELPER ready 1"; read a; echo "1 err 0 outside"; read b; echo "2 err 0 surprise"; read c; echo "3 ok 2 d"; printf hi; sleep 5',
     )
     expect((await failure(channel.request(STAT))).code).toBe('outside')
     expect((await failure(channel.request(STAT))).code).toBe('failed')
@@ -166,7 +166,7 @@ describe('HelperChannel', () => {
   })
 
   it('never sends a request with a control character in its path, and stays open', async () => {
-    const channel = await channelOf('echo "PINE-HELPER ready 1"; read a; echo "1 ok 0 d"; sleep 5')
+    const channel = await channelOf('echo "OSTIA-HELPER ready 1"; read a; echo "1 ok 0 d"; sleep 5')
     const bad = await failure(channel.request({ ...STAT, path: '/r\n2 write 0 any /r\t/r/x' }))
     expect(bad.code).toBe('bad-request')
     expect(channel.isClosed).toBe(false)
@@ -175,14 +175,14 @@ describe('HelperChannel', () => {
 
   it('kills ssh when a host floods the channel', async () => {
     const channel = await channelOf(
-      'echo "PINE-HELPER ready 1"; head -c 20000000 /dev/zero; sleep 5',
+      'echo "OSTIA-HELPER ready 1"; head -c 20000000 /dev/zero; sleep 5',
     )
     await expect.poll(() => channel.isClosed, { timeout: 10_000 }).toBe(true)
     expect((await failure(channel.request(STAT))).code).toBe('closed')
   })
 
   it('times a silent helper out and closes', async () => {
-    const channel = await channelOf('echo "PINE-HELPER ready 1"; sleep 5', 200)
+    const channel = await channelOf('echo "OSTIA-HELPER ready 1"; sleep 5', 200)
     expect((await failure(channel.request(STAT))).code).toBe('timeout')
     expect(channel.isClosed).toBe(true)
   })
@@ -218,7 +218,7 @@ describe('HelperChannel', () => {
   it('reports a missing ssh program', async () => {
     const err = await failure(
       HelperChannel.open(['ssh'], {
-        spawn: () => spawn('/nonexistent/pine-no-ssh', [], { stdio: ['pipe', 'pipe', 'pipe'] }),
+        spawn: () => spawn('/nonexistent/ostia-no-ssh', [], { stdio: ['pipe', 'pipe', 'pipe'] }),
       }),
     )
     expect(err.code).toBe('ssh-missing')
@@ -226,11 +226,11 @@ describe('HelperChannel', () => {
 
   it('refuses another protocol version and a status it does not know', async () => {
     const newer = await failure(
-      HelperChannel.open(['ssh'], { spawn: scripted('echo "PINE-HELPER ready 2"; sleep 5') }),
+      HelperChannel.open(['ssh'], { spawn: scripted('echo "OSTIA-HELPER ready 2"; sleep 5') }),
     )
     expect(newer.code).toBe('incompatible')
     const odd = await failure(
-      HelperChannel.open(['ssh'], { spawn: scripted('echo "PINE-HELPER hello"; sleep 5') }),
+      HelperChannel.open(['ssh'], { spawn: scripted('echo "OSTIA-HELPER hello"; sleep 5') }),
     )
     expect(odd.code).toBe('protocol')
   })
@@ -250,7 +250,7 @@ describe('HelperChannel', () => {
 describe('runStatus', () => {
   it('returns the words of the status line and ignores an early exit while writing', async () => {
     const words = await runStatus(['ssh'], Buffer.alloc(300_000, 0x61), {
-      spawn: scripted('echo "PINE-HELPER needs cksum"'),
+      spawn: scripted('echo "OSTIA-HELPER needs cksum"'),
     })
     expect(words).toEqual(['needs', 'cksum'])
   })

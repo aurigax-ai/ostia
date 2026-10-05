@@ -97,7 +97,7 @@ async function client(identity: { token: string }): Promise<MessageConnection> {
 
 beforeEach(() => {
   seq += 1
-  socketPath = join(tmpdir(), `pine-pane-io-${process.pid}-${seq}.sock`)
+  socketPath = join(tmpdir(), `ostia-pane-io-${process.pid}-${seq}.sock`)
   registerControlServer(
     {
       execCommand: async () => ({ ok: true }) as CommandResult,

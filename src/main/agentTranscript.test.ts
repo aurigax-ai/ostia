@@ -8,7 +8,7 @@ vi.mock('electron', () => ({ ipcMain: { handle: vi.fn() } }))
 const { readSessionInfo, TRANSCRIPT_TAIL_BYTES } = await import('./agentTranscript')
 
 function home(): string {
-  return mkdtempSync(join(tmpdir(), 'pine-transcript-'))
+  return mkdtempSync(join(tmpdir(), 'ostia-transcript-'))
 }
 
 describe('readSessionInfo', () => {

@@ -73,7 +73,7 @@ async function client(token: string): Promise<MessageConnection> {
 
 beforeEach(() => {
   seq += 1
-  socketPath = join(tmpdir(), `pine-mgr-methods-${process.pid}-${seq}.sock`)
+  socketPath = join(tmpdir(), `ostia-mgr-methods-${process.pid}-${seq}.sock`)
   registerControlServer(
     {
       execCommand: async () => ({ ok: true }) as CommandResult,

@@ -1014,7 +1014,7 @@ export class LanguageServers {
         if (session.initialized) {
           this.write(session, {
             jsonrpc: '2.0',
-            id: `pine-shutdown-${session.id}`,
+            id: `ostia-shutdown-${session.id}`,
             method: 'shutdown',
           })
           this.write(session, { jsonrpc: '2.0', method: 'exit' })
@@ -1043,7 +1043,7 @@ export class LanguageServers {
       session.killTimer = setTimeout(() => this.kill(session, 'SIGKILL'), grace)
       return session.exited
     }
-    session.shutdownId = `pine-shutdown-${session.id}`
+    session.shutdownId = `ostia-shutdown-${session.id}`
     this.write(session, { jsonrpc: '2.0', id: session.shutdownId, method: 'shutdown' })
     session.killTimer = setTimeout(() => {
       this.kill(session, 'SIGTERM')

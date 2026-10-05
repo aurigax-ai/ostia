@@ -20,7 +20,7 @@ afterEach(() => {
 })
 
 function extension(files: Record<string, string>): string {
-  const dir = mkdtempSync(join(tmpdir(), 'pine-keymap-'))
+  const dir = mkdtempSync(join(tmpdir(), 'ostia-keymap-'))
   dirs.push(dir)
   for (const [name, content] of Object.entries(files)) {
     mkdirSync(join(dir, name, '..'), { recursive: true })

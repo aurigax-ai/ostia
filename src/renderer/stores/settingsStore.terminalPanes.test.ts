@@ -12,7 +12,7 @@ describe('settingsStore terminal and pane settings', () => {
 
   beforeEach(() => {
     vi.useFakeTimers()
-    vi.mocked(window.pine.fs.write).mockClear()
+    vi.mocked(window.ostia.fs.write).mockClear()
   })
 
   afterEach(() => {
@@ -48,14 +48,14 @@ describe('settingsStore terminal and pane settings', () => {
   })
 
   it('validates both sections when settings.json loads', async () => {
-    vi.mocked(window.pine.fs.read).mockResolvedValue(
+    vi.mocked(window.ostia.fs.read).mockResolvedValue(
       JSON.stringify({
         terminal: {
           scrollSpeed: 50,
           scrollbackLines: 12,
           minimumContrast: 'x',
           warnOnRiskyPaste: 0,
-          prompt: { style: 'pine', chips: ['cwd', 'nope', 'git.branch', 'cwd'], separator: '#' },
+          prompt: { style: 'ostia', chips: ['cwd', 'nope', 'git.branch', 'cwd'], separator: '#' },
         },
         panes: { dimInactive: false, focusOnHover: 'yes' },
       }),
@@ -83,7 +83,7 @@ describe('settingsStore terminal and pane settings', () => {
     store().setPanes({ hideTabClose: true })
     expect(store().terminal.scrollbackLines).toBe(100000)
     await vi.runAllTimersAsync()
-    const written = JSON.parse(String(vi.mocked(window.pine.fs.write).mock.calls.at(-1)?.[1]))
+    const written = JSON.parse(String(vi.mocked(window.ostia.fs.write).mock.calls.at(-1)?.[1]))
     expect(written.terminal.scrollbackLines).toBe(100000)
     expect(written.terminal.minimumContrast).toBe(4.5)
     expect(written.panes.hideTabClose).toBe(true)
@@ -97,7 +97,7 @@ describe('settingsStore terminal and pane settings', () => {
     store().setByPath('terminal.prompt.style', 'ostia')
     expect(store().terminal.prompt).toMatchObject({ style: 'ostia', chips: ['time24', 'cwd'] })
     store().setByPath('terminal.prompt.style', 'shell')
-    expect(store().setByPath('terminal.prompt.style', 'pine').value).toBe('ostia')
+    expect(store().setByPath('terminal.prompt.style', 'ostia').value).toBe('ostia')
     expect(store().terminal.prompt.style).toBe('ostia')
     expect(() => store().setByPath('terminal.prompt.style', 'fancy')).toThrow(
       'invalid value for terminal.prompt.style',

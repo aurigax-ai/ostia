@@ -103,7 +103,7 @@ describe('PromptSection', () => {
   })
 
   beforeEach(() => {
-    vi.mocked(window.pine.pty.promptContext).mockResolvedValue(CONTEXT)
+    vi.mocked(window.ostia.pty.promptContext).mockResolvedValue(CONTEXT)
   })
 
   afterEach(() => {
@@ -112,7 +112,7 @@ describe('PromptSection', () => {
     useLayoutStore.setState(layoutInit, true)
     useWorkspacesStore.setState(workspacesInit, true)
     useExtensionsStore.setState(chipsInit, true)
-    vi.mocked(window.pine.pty.promptContext).mockReset()
+    vi.mocked(window.ostia.pty.promptContext).mockReset()
   })
 
   it('previews the active terminal’s real values and marks chips without one', async () => {
@@ -149,7 +149,7 @@ describe('PromptSection', () => {
     seed('browser')
     render(<PromptSection />)
     expect(screen.getByText('Open a terminal to preview its values.')).toBeVisible()
-    expect(window.pine.pty.promptContext).not.toHaveBeenCalled()
+    expect(window.ostia.pty.promptContext).not.toHaveBeenCalled()
   })
 
   it('adds, removes and reorders chips with buttons and Alt+arrow keys, saving each change', async () => {

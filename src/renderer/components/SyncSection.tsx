@@ -30,10 +30,10 @@ export function SyncSection(): JSX.Element {
 
   useEffect(() => {
     let live = true
-    void window.pine.sync.status().then((s) => {
+    void window.ostia.sync.status().then((s) => {
       if (live) setStatus(s)
     })
-    const off = window.pine.sync.onStatus((s) => setStatus(s))
+    const off = window.ostia.sync.onStatus((s) => setStatus(s))
     return () => {
       live = false
       off()
@@ -54,14 +54,14 @@ export function SyncSection(): JSX.Element {
   const syncNow = async (): Promise<void> => {
     setBusy(true)
     try {
-      setStatus(await window.pine.sync.run())
+      setStatus(await window.ostia.sync.run())
     } finally {
       setBusy(false)
     }
   }
 
   const choose = async (): Promise<void> => {
-    const picked = await window.pine.sync.pickFolder()
+    const picked = await window.ostia.sync.pickFolder()
     if (!picked) return
     await setSyncDir(picked)
     await syncNow()

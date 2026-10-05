@@ -109,7 +109,7 @@ function useReadPresets(): SandboxReadPreset[] {
   const [presets, setPresets] = useState<SandboxReadPreset[]>([])
   useEffect(() => {
     let live = true
-    void window.pine.sandbox.presets().then((found) => {
+    void window.ostia.sandbox.presets().then((found) => {
       if (live) setPresets(found)
     })
     return () => {

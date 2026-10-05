@@ -22,7 +22,7 @@ describe('questionsStore', () => {
   })
 
   beforeEach(() => {
-    vi.mocked(window.pine.questions.onChange).mockImplementation((cb) => {
+    vi.mocked(window.ostia.questions.onChange).mockImplementation((cb) => {
       receive = cb
       return () => {}
     })
@@ -53,8 +53,8 @@ describe('questionsStore', () => {
 
   it('posts a notification for a new question, with a desktop banner while the window is away', () => {
     receive({ pending: [question('q1', 'p1', 'Which database?')] })
-    expect(window.pine.notifications.post).toHaveBeenCalledTimes(1)
-    expect(window.pine.notifications.post).toHaveBeenCalledWith({
+    expect(window.ostia.notifications.post).toHaveBeenCalledTimes(1)
+    expect(window.ostia.notifications.post).toHaveBeenCalledWith({
       paneId: 'p1',
       kind: 'waiting',
       title: 'Agent asks',
@@ -62,7 +62,7 @@ describe('questionsStore', () => {
       desktop: true,
     })
     receive({ pending: [question('q1', 'p1', 'Which database?')] })
-    expect(window.pine.notifications.post).toHaveBeenCalledTimes(1)
+    expect(window.ostia.notifications.post).toHaveBeenCalledTimes(1)
   })
 
   it('raises no desktop banner when the human turned agent-waiting banners off', () => {
@@ -71,7 +71,7 @@ describe('questionsStore', () => {
       notifications: { ...settings.notifications, agentWaiting: false },
     })
     receive({ pending: [question('q1', 'p1', 'Which database?')] })
-    expect(window.pine.notifications.post).toHaveBeenCalledWith(
+    expect(window.ostia.notifications.post).toHaveBeenCalledWith(
       expect.objectContaining({ desktop: false }),
     )
   })
@@ -110,7 +110,7 @@ describe('questionsStore', () => {
       .getState()
       .answer('q1', { choices: [], text: 'staging' })
     expect(accepted).toBe(true)
-    expect(window.pine.questions.answer).toHaveBeenCalledWith('q1', {
+    expect(window.ostia.questions.answer).toHaveBeenCalledWith('q1', {
       choices: [],
       text: 'staging',
     })
@@ -121,7 +121,7 @@ describe('questionsStore', () => {
   })
 
   it('keeps the question and its draft when main refuses the reply', async () => {
-    vi.mocked(window.pine.questions.answer).mockResolvedValue(false)
+    vi.mocked(window.ostia.questions.answer).mockResolvedValue(false)
     receive({ pending: [question('q1', 'p1', 'Which database?')] })
     useQuestionsStore.getState().setDraft('q1', { choices: [], text: 'x' })
     expect(await useQuestionsStore.getState().answer('q1', { choices: [], text: 'x' })).toBe(false)
@@ -141,7 +141,7 @@ describe('questionsStore', () => {
 
   it('dismisses through main', async () => {
     await useQuestionsStore.getState().dismiss('q1')
-    expect(window.pine.questions.dismiss).toHaveBeenCalledWith('q1')
+    expect(window.ostia.questions.dismiss).toHaveBeenCalledWith('q1')
   })
 })
 

@@ -415,7 +415,7 @@ describe('InputEditor', () => {
   it('completes paths from the pane cwd on Tab and lists ambiguous matches', async () => {
     setMode('editor')
     idlePrompt()
-    vi.mocked(window.pine.pty.listDir).mockImplementation(async (_pane, path) =>
+    vi.mocked(window.ostia.pty.listDir).mockImplementation(async (_pane, path) =>
       path === '/home/u/proj'
         ? [
             { name: 'src', dir: true },
@@ -445,7 +445,7 @@ describe('InputEditor', () => {
   it('completes subcommands and options from the command’s spec with descriptions', async () => {
     setMode('editor')
     idlePrompt()
-    vi.mocked(window.pine.completions.spec).mockImplementation(async (command) =>
+    vi.mocked(window.ostia.completions.spec).mockImplementation(async (command) =>
       command === 'git'
         ? {
             names: ['git'],
@@ -461,7 +461,7 @@ describe('InputEditor', () => {
           }
         : null,
     )
-    vi.mocked(window.pine.pty.listDir).mockResolvedValue([{ name: 'package.json', dir: false }])
+    vi.mocked(window.ostia.pty.listDir).mockResolvedValue([{ name: 'package.json', dir: false }])
     renderEditor()
     const user = userEvent.setup()
     await user.type(editor() as HTMLElement, 'git ch')
@@ -478,8 +478,8 @@ describe('InputEditor', () => {
     await user.type(editor() as HTMLElement, 'git add pa')
     await user.keyboard('{Tab}')
     await waitFor(() => expect(editor()).toHaveValue('git add package.json '))
-    vi.mocked(window.pine.completions.spec).mockReset()
-    vi.mocked(window.pine.pty.listDir).mockReset()
+    vi.mocked(window.ostia.completions.spec).mockReset()
+    vi.mocked(window.ostia.pty.listDir).mockReset()
   })
 
   it('receives history inserts instead of the shell line while it is shown', async () => {
@@ -597,10 +597,10 @@ describe('InputEditor', () => {
     it('completes a unique command name on Tab and paths after it', async () => {
       setMode('editor')
       idlePrompt()
-      vi.mocked(window.pine.pty.commands).mockResolvedValue(['docker', 'git', 'grep'])
-      vi.mocked(window.pine.pty.listDir).mockResolvedValue([{ name: 'Dockerfile', dir: false }])
+      vi.mocked(window.ostia.pty.commands).mockResolvedValue(['docker', 'git', 'grep'])
+      vi.mocked(window.ostia.pty.listDir).mockResolvedValue([{ name: 'Dockerfile', dir: false }])
       renderEditor()
-      await waitFor(() => expect(window.pine.pty.commands).toHaveBeenCalledWith(PANE))
+      await waitFor(() => expect(window.ostia.pty.commands).toHaveBeenCalledWith(PANE))
       const user = userEvent.setup()
       await user.type(editor() as HTMLElement, 'doc')
       await user.keyboard('{Tab}')
@@ -612,9 +612,9 @@ describe('InputEditor', () => {
     it('opens a menu for several matches, picks with arrows and Enter, and closes on Escape', async () => {
       setMode('editor')
       idlePrompt()
-      vi.mocked(window.pine.pty.commands).mockResolvedValue(['gitk', 'git', 'gist', 'ls'])
+      vi.mocked(window.ostia.pty.commands).mockResolvedValue(['gitk', 'git', 'gist', 'ls'])
       const { props } = renderEditor()
-      await waitFor(() => expect(window.pine.pty.commands).toHaveBeenCalled())
+      await waitFor(() => expect(window.ostia.pty.commands).toHaveBeenCalled())
       const user = userEvent.setup()
       await user.type(editor() as HTMLElement, 'gi')
       await user.keyboard('{Tab}')
@@ -649,9 +649,9 @@ describe('InputEditor', () => {
     it('reports when no command matches', async () => {
       setMode('editor')
       idlePrompt()
-      vi.mocked(window.pine.pty.commands).mockResolvedValue(['ls'])
+      vi.mocked(window.ostia.pty.commands).mockResolvedValue(['ls'])
       renderEditor()
-      await waitFor(() => expect(window.pine.pty.commands).toHaveBeenCalled())
+      await waitFor(() => expect(window.ostia.pty.commands).toHaveBeenCalled())
       const user = userEvent.setup()
       await user.type(editor() as HTMLElement, 'zzz')
       await user.keyboard('{Tab}')
@@ -663,8 +663,8 @@ describe('InputEditor', () => {
     const options = () => screen.queryAllByRole('option').map((o) => o.textContent)
 
     function folders(): void {
-      vi.mocked(window.pine.pty.listDir).mockReset()
-      vi.mocked(window.pine.pty.listDir).mockImplementation(async (_pane, path) => {
+      vi.mocked(window.ostia.pty.listDir).mockReset()
+      vi.mocked(window.ostia.pty.listDir).mockImplementation(async (_pane, path) => {
         if (path === '/home/u/proj') {
           return [
             { name: 'avail', dir: true },
@@ -707,7 +707,7 @@ describe('InputEditor', () => {
       expect(
         Array.from(row.querySelectorAll('.input-editor-menu-match'), (m) => m.textContent),
       ).toEqual(['avail-m', 'q'])
-      expect(window.pine.pty.listDir).toHaveBeenCalledTimes(1)
+      expect(window.ostia.pty.listDir).toHaveBeenCalledTimes(1)
     })
 
     it('widens on Backspace, hides when nothing matches and comes back when something does', async () => {
@@ -772,7 +772,7 @@ describe('InputEditor', () => {
       const { user } = await openAvail()
       await user.keyboard('/')
       await waitFor(() => expect(options()).toEqual(['src/', 'docs/']))
-      expect(window.pine.pty.listDir).toHaveBeenLastCalledWith(PANE, '/home/u/proj/avail')
+      expect(window.ostia.pty.listDir).toHaveBeenLastCalledWith(PANE, '/home/u/proj/avail')
       expect(editor()).toHaveValue('cd avail/')
       await user.keyboard('d')
       expect(options()).toEqual(['docs/'])
@@ -783,9 +783,9 @@ describe('InputEditor', () => {
     it('filters command names live too', async () => {
       setMode('editor')
       idlePrompt()
-      vi.mocked(window.pine.pty.commands).mockResolvedValue(['gitk', 'git', 'gist', 'ls'])
+      vi.mocked(window.ostia.pty.commands).mockResolvedValue(['gitk', 'git', 'gist', 'ls'])
       renderEditor()
-      await waitFor(() => expect(window.pine.pty.commands).toHaveBeenCalled())
+      await waitFor(() => expect(window.ostia.pty.commands).toHaveBeenCalled())
       const user = userEvent.setup()
       await user.type(editor() as HTMLElement, 'gi')
       await user.keyboard('{Tab}')
@@ -809,9 +809,9 @@ describe('InputEditor', () => {
     it('colors the draft by token and marks commands missing from PATH as unknown', async () => {
       setMode('editor')
       idlePrompt()
-      vi.mocked(window.pine.pty.commands).mockResolvedValue(['git', 'grep'])
+      vi.mocked(window.ostia.pty.commands).mockResolvedValue(['git', 'grep'])
       renderEditor()
-      await waitFor(() => expect(window.pine.pty.commands).toHaveBeenCalled())
+      await waitFor(() => expect(window.ostia.pty.commands).toHaveBeenCalled())
       const user = userEvent.setup()
       await user.type(editor() as HTMLElement, 'git log --oneline | nope "a" $HOME # c')
       await waitFor(() =>

@@ -65,7 +65,7 @@ export function syncExtensionCommands(list: ExtensionInfo[]): void {
           }
         : {}),
       run: async (args, ctx) => {
-        const res = await window.pine.extensions.invoke(
+        const res = await window.ostia.extensions.invoke(
           ext.id,
           command.id,
           { workspaceId: ctx.activeWorkspaceId, paneId: ctx.activePaneId },
@@ -138,7 +138,7 @@ export function openExtensionTerminal(req: ExtensionOpenTerminalRequest): string
 }
 
 export function wireExtensionBridge(): void {
-  const api = window.pine?.extensions
+  const api = window.ostia?.extensions
   if (!api) return
   const store = useExtensionsStore.getState()
   api.onChanged((list) => {

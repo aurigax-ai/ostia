@@ -19,7 +19,7 @@ describe('WorkspacesSection', () => {
   afterEach(() => {
     cleanup()
     useSettingsStore.setState(settingsInit, true)
-    vi.mocked(window.pine.fs.stat).mockReset()
+    vi.mocked(window.ostia.fs.stat).mockReset()
     vi.useRealTimers()
   })
 
@@ -51,7 +51,7 @@ describe('WorkspacesSection', () => {
   })
 
   it('warns when the default folder is not a directory and falls back to ~ when cleared', async () => {
-    vi.mocked(window.pine.fs.stat).mockResolvedValue(null)
+    vi.mocked(window.ostia.fs.stat).mockResolvedValue(null)
     render(<WorkspacesSection />)
 
     fireEvent.change(screen.getByRole('textbox', { name: 'Default folder' }), {
@@ -67,13 +67,13 @@ describe('WorkspacesSection', () => {
   })
 
   it('shows no warning for an existing directory', async () => {
-    vi.mocked(window.pine.fs.stat).mockResolvedValue('dir')
+    vi.mocked(window.ostia.fs.stat).mockResolvedValue('dir')
     render(<WorkspacesSection />)
 
     fireEvent.change(screen.getByRole('textbox', { name: 'Default folder' }), {
       target: { value: '~/code' },
     })
-    await vi.waitFor(() => expect(window.pine.fs.stat).toHaveBeenCalledWith('~/code'))
+    await vi.waitFor(() => expect(window.ostia.fs.stat).toHaveBeenCalledWith('~/code'))
 
     expect(screen.queryByText('Not a folder, or outside your home folder.')).toBeNull()
   })

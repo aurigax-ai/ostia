@@ -281,7 +281,7 @@ test('a server that claims JSON replaces Monaco’s JSON features, except in the
     await expect(win.locator('.xterm-rows').first()).toContainText(PROMPT, { timeout: 15_000 })
     await win.locator('.pane-tab').filter({ hasNotText: 'data.json' }).first().click()
     await win.locator('.xterm:visible').first().click()
-    await win.keyboard.type(`pine open ${settingsFile}`)
+    await win.keyboard.type(`ostia open ${settingsFile}`)
     await win.keyboard.press('Enter')
     const settings = win.locator('.monaco-editor:visible').first()
     await expect(settings.locator('.view-lines')).toContainText('noteERROR', { timeout: 15_000 })

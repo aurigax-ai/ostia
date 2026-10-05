@@ -74,7 +74,7 @@ describe('HistorySearch', () => {
     runCommand(pane, 'make test', 0)
     useWorkspacesStore
       .getState()
-      .addWorkspace('/tmp/pine-scratch-1000/1-aaaaaaaaaaaa', 'end', 'scratch')
+      .addWorkspace('/tmp/ostia-scratch-1000/1-aaaaaaaaaaaa', 'end', 'scratch')
     const scratchId = useWorkspacesStore.getState().activeWorkspaceId as string
     useLayoutStore.getState().ensure(scratchId)
     const scratchRoot = useLayoutStore.getState().byWorkspace[scratchId]?.root

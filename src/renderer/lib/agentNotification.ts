@@ -20,7 +20,7 @@ export function postAgentNotification(
 ): void {
   const d = currentDict()
   const kind = state === 'waiting' ? 'agentWaiting' : 'agentDone'
-  window.pine.notifications.post({
+  window.ostia.notifications.post({
     paneId,
     kind: state,
     title: state === 'waiting' ? d.attention.agentWaiting : d.attention.agentDone,

@@ -1116,13 +1116,15 @@ full URL (keep your secret in it). Either way the result must pass the same chec
 URL. Navigating keeps the existing panel pane and webview.
 
 Ostia injects its theme into the page as CSS custom properties once it loads and whenever the
-theme changes: `--pine-<token>` for every theme token (`--pine-bg`, `--pine-surface-1`,
-`--pine-fg`, `--pine-fg-muted`, `--pine-brand`, `--pine-line`, `--pine-attn-fg`, …) plus
-`--pine-font-ui` (the human's UI font), `--pine-font-code` (their code font, the editor
-font), `--pine-font-size` and `--pine-font-weight` (UI size and body weight), `--pine-color-scheme` (`dark` or `light`; set
-`color-scheme: var(--pine-color-scheme, dark)` so scrollbars and native controls follow a light
-theme) and `--pine-motion-scale` (`1`, or `0` while the human has reduced motion on). Use them
-with fallbacks (`var(--pine-surface-1, #272a2d)`); `src/extensions/sdk/panel.css` is a ready
+theme changes: `--ostia-<token>` for every theme token (`--ostia-bg`, `--ostia-surface-1`,
+`--ostia-fg`, `--ostia-fg-muted`, `--ostia-brand`, `--ostia-line`, `--ostia-attn-fg`, …) plus
+`--ostia-font-ui` (the human's UI font), `--ostia-font-code` (their code font, the editor
+font), `--ostia-font-size` and `--ostia-font-weight` (UI size and body weight), `--ostia-color-scheme` (`dark` or `light`; set
+`color-scheme: var(--ostia-color-scheme, dark)` so scrollbars and native controls follow a light
+theme) and `--ostia-motion-scale` (`1`, or `0` while the human has reduced motion on). Use them
+with fallbacks (`var(--ostia-surface-1, #272a2d)`). Every variable is also set under its old
+`--pine-` name, which is all a release before the rename sets, so a panel that must also run
+there reads `var(--ostia-surface-1, var(--pine-surface-1, #272a2d))`, as the SDK's own styles do; `src/extensions/sdk/panel.css` is a ready
 base. It also defines Ostia's typography tokens, derived from those: `--font-ui`, `--font-code`,
 the type scale (`--text-ui-xs|sm|base|lg` with `--text-ui-*--line-height`), the weights
 (`--font-weight-normal|medium|semibold`, which step up from the human's body weight) and
@@ -1131,7 +1133,7 @@ embeds its bundled Inter Variable and Geist Mono Variable (latin) in the injecte
 panel gets them even though they are not system fonts. It also defines control radii
 (`--radius-sm`, `--radius-md`), a `.switch` class that draws an `<input type="checkbox">` like
 Ostia's switch, and motion tokens (`--motion-fast`, `--motion-base`, their `-exit`
-pair, `--ease-out`, `--ease-in`), already multiplied by `--pine-motion-scale`: time every
+pair, `--ease-out`, `--ease-in`), already multiplied by `--ostia-motion-scale`: time every
 transition with them and animate only opacity and transform (hover may change colors), so a
 panel follows Ostia's motion rules and its reduced-motion setting.
 
@@ -1162,7 +1164,7 @@ const body = splitter({
   pointer (captured, never selects text), move it 16px with ↑/↓, 64px with PageUp/PageDown, to
   the minimum or maximum with Home/End; double-click resets it to `defaultFraction`.
 - Both minimums hold while the panel resizes. With `collapseSecond`, a panel too short for both
-  shrinks `second` to its own height (`.pine-split[data-collapsed]`; hide what shouldn't show,
+  shrinks `second` to its own height (`.ostia-split[data-collapsed]`; hide what shouldn't show,
   e.g. everything but a header) and hides the divider. `first` never shrinks below its own
   content when it isn't a scroll container, so content that grows (a textarea with
   `field-sizing: content`) pushes the divider down.

@@ -42,7 +42,7 @@ function installBridge(): Bridge {
   const onExit = new Map<string, () => void>()
   const offered: LspSessionInfo[] = []
   let changed: (list: LanguageServerInfo[]) => void = () => {}
-  const lsp = window.pine.lsp
+  const lsp = window.ostia.lsp
   vi.mocked(lsp.open).mockImplementation(async () => [...offered])
   vi.mocked(lsp.onMessage).mockImplementation((sessionId, cb) => {
     onMessage.set(sessionId, cb)
@@ -132,7 +132,7 @@ describe('openDocument', () => {
     const model = new FakeModel('/work/a.txt', 'one')
     openDocument(model as never, 'pane-1')
     await flush()
-    expect(window.pine.lsp.open).toHaveBeenCalledWith('pane-1', '/work/a.txt')
+    expect(window.ostia.lsp.open).toHaveBeenCalledWith('pane-1', '/work/a.txt')
     expect(methods(server)).toEqual(['initialized', 'textDocument/didOpen'])
     expect(server.notifications[1].params).toMatchObject({
       textDocument: { uri: URI, languageId: 'fake', text: 'one' },
@@ -198,8 +198,8 @@ describe('openDocument', () => {
     await flush()
     expect(methods(server).at(-1)).toBe('textDocument/didClose')
     expect(markers('lsp:ext/fake', URI)).toEqual([])
-    const released = vi.mocked(window.pine.lsp.release).mock.calls.map(([id]) => id)
-    const opened = vi.mocked(window.pine.lsp.open).mock.calls.length
+    const released = vi.mocked(window.ostia.lsp.release).mock.calls.map(([id]) => id)
+    const opened = vi.mocked(window.ostia.lsp.open).mock.calls.length
     expect(released).toHaveLength(opened)
     expect(new Set(released)).toEqual(new Set(['s1']))
   })
@@ -225,15 +225,18 @@ describe('openDocument', () => {
     model.dispose()
     await flush()
     expect(methods(server).at(-1)).toBe('textDocument/didClose')
-    expect(window.pine.lsp.release).toHaveBeenCalledWith('s1')
+    expect(window.ostia.lsp.release).toHaveBeenCalledWith('s1')
   })
 
   it('asks for no server for a model whose language is not the one its file name implies', async () => {
     bridge.addServer('s1', 'ext/fake')
-    const release = openDocument(new FakeModel('/work/a.txt', 'one', 'pine-settings') as never, 'p')
+    const release = openDocument(
+      new FakeModel('/work/a.txt', 'one', 'ostia-settings') as never,
+      'p',
+    )
     await flush()
     release()
-    expect(window.pine.lsp.open).not.toHaveBeenCalled()
+    expect(window.ostia.lsp.open).not.toHaveBeenCalled()
   })
 
   it('releases a session whose server fails to initialize and attaches nothing', async () => {
@@ -244,7 +247,7 @@ describe('openDocument', () => {
     openDocument(new FakeModel('/work/a.txt', 'one') as never, 'pane-1')
     await flush()
     expect(methods(server)).toEqual([])
-    expect(window.pine.lsp.release).toHaveBeenCalledWith('s1')
+    expect(window.ostia.lsp.release).toHaveBeenCalledWith('s1')
     expect(fake.registrations).toHaveLength(0)
   })
 })
@@ -313,7 +316,7 @@ describe('server lifecycle', () => {
     bridge.exit('s1')
     await flush()
     expect(fake.active('HoverProvider')).toHaveLength(0)
-    expect(vi.mocked(window.pine.lsp.open).mock.calls).toHaveLength(2)
+    expect(vi.mocked(window.ostia.lsp.open).mock.calls).toHaveLength(2)
   })
 
   it('attaches open documents to a server that became available, without holding the others twice', async () => {
@@ -325,7 +328,7 @@ describe('server lifecycle', () => {
     await flush()
     expect(methods(second)).toEqual(['initialized', 'textDocument/didOpen'])
     expect(methods(first).filter((m) => m === 'textDocument/didOpen')).toHaveLength(1)
-    expect(vi.mocked(window.pine.lsp.release).mock.calls).toEqual([['s1']])
+    expect(vi.mocked(window.ostia.lsp.release).mock.calls).toEqual([['s1']])
   })
 
   it('moves a document to the new session when main replaced a restarted server', async () => {
@@ -366,7 +369,7 @@ describe('a session that ended before its offer arrived', () => {
       languageId: 'fake',
       initializationOptions: {},
     })
-    const send = vi.mocked(window.pine.lsp.send)
+    const send = vi.mocked(window.ostia.lsp.send)
     const deliver = send.getMockImplementation()
     send.mockImplementation((sessionId, message) => {
       if (sessionId === 'gone') queueMicrotask(() => bridge.exit('gone'))
@@ -374,7 +377,7 @@ describe('a session that ended before its offer arrived', () => {
     })
     openDocument(new FakeModel('/work/a.txt', 'one') as never, 'pane-1')
     await flush()
-    expect(vi.mocked(window.pine.lsp.release).mock.calls).toEqual([['gone']])
+    expect(vi.mocked(window.ostia.lsp.release).mock.calls).toEqual([['gone']])
 
     const server = bridge.addServer('s2', 'ext/fake')
     bridge.serversChanged()
@@ -512,7 +515,7 @@ describe('built-in editor features', () => {
   } satisfies LanguageServerInfo
 
   it('are switched for the languages enabled servers claim, at start and on every change', async () => {
-    vi.mocked(window.pine.lsp.servers).mockResolvedValue([claimer])
+    vi.mocked(window.ostia.lsp.servers).mockResolvedValue([claimer])
     await startLanguageServices()
     expect(applyBuiltin).toHaveBeenLastCalledWith(new Set(['css', 'scss']))
     bridge.serversChanged([{ ...claimer, enabled: false, status: 'off' }])

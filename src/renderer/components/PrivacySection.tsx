@@ -33,7 +33,7 @@ function KindList({ kinds }: { kinds: RedactionKindInfo[] }): JSX.Element {
   const d = useDict()
   const ownLabels = d.privacy.kinds as Record<string, string>
   const library = kinds.filter((k) => k.source === 'library')
-  const own = [...kinds.filter((k) => k.source === 'pine').map((k) => k.kind), CUSTOM_KIND]
+  const own = [...kinds.filter((k) => k.source === 'ostia').map((k) => k.kind), CUSTOM_KIND]
   return (
     <SettingsGroup title={d.privacy.groupKinds} desc={d.privacy.kindsDesc}>
       {library.length > 0 ? (
@@ -164,7 +164,7 @@ function TestBox({ revision }: { revision: number }): JSX.Element {
     }
     let stale = false
     const timer = setTimeout(() => {
-      window.pine.privacy
+      window.ostia.privacy
         .preview(text)
         .then((next) => {
           if (!stale) setResult(next)
@@ -225,7 +225,7 @@ export function PrivacySection(): JSX.Element {
   const [revision, setRevision] = useState(0)
   useEffect(() => {
     let stale = false
-    window.pine.privacy
+    window.ostia.privacy
       .kinds()
       .then((next) => {
         if (!stale) setKinds(next)

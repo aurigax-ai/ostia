@@ -355,7 +355,7 @@ function LifecycleModels({
   const [pending, setPending] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const refresh = useCallback(async () => {
-    setResult(await window.pine.assist.models(extId, providerId))
+    setResult(await window.ostia.assist.models(extId, providerId))
   }, [extId, providerId])
   useEffect(() => {
     void refresh()
@@ -368,7 +368,7 @@ function LifecycleModels({
   const listError = !result ? null : result.ok ? (result.error ?? null) : result.error
   const change = async (model: AssistModel): Promise<void> => {
     setPending(model.id)
-    const res = await window.pine.assist.setModelLoaded(extId, model.id, !model.loaded, providerId)
+    const res = await window.ostia.assist.setModelLoaded(extId, model.id, !model.loaded, providerId)
     setPending(null)
     setError(res.ok ? null : res.error)
     await refresh()

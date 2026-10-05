@@ -9,7 +9,7 @@ export async function openWorkflowPicker(
   workspaceId: string | null,
   targetPaneId: string | null,
 ): Promise<void> {
-  const listing = await window.pine.workflows.list(workspaceId)
+  const listing = await window.ostia.workflows.list(workspaceId)
   useWorkflowsStore.getState().showPicker(listing, targetPaneId)
 }
 

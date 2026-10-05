@@ -87,7 +87,7 @@ describe('SANDBOX_READ_PRESETS', () => {
 })
 
 describe('DEFAULT_ALLOW_READ', () => {
-  it('opens the folders the links in ~/.local/bin point into, and no credential path beyond ~/.cargo, whose credentials Pine always hides', () => {
+  it('opens the folders the links in ~/.local/bin point into, and no credential path beyond ~/.cargo, whose credentials Ostia always hides', () => {
     expect(DEFAULT_ALLOW_READ).toEqual(
       expect.arrayContaining([
         '~/.local/bin',

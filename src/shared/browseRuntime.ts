@@ -826,15 +826,15 @@ export function browseRuntime(win: Window & typeof globalThis): BrowseRuntime {
 
   const mark = (target: string, nonce: string): BrowseOutcome =>
     withElement(target, (el) => {
-      el.setAttribute('data-pine-mark', nonce)
+      el.setAttribute('data-ostia-mark', nonce)
       return { ok: true }
     })
 
   const unmark = (nonce: string): void => {
     const docs = [topDoc, frameDoc()]
     for (const doc of docs) {
-      for (const el of Array.from(doc.querySelectorAll(`[data-pine-mark="${nonce}"]`))) {
-        el.removeAttribute('data-pine-mark')
+      for (const el of Array.from(doc.querySelectorAll(`[data-ostia-mark="${nonce}"]`))) {
+        el.removeAttribute('data-ostia-mark')
       }
     }
   }
@@ -920,7 +920,7 @@ export function browseRuntime(win: Window & typeof globalThis): BrowseRuntime {
   }
 }
 
-export const BROWSE_RUNTIME_GLOBAL = '__pineBrowse'
+export const BROWSE_RUNTIME_GLOBAL = '__ostiaBrowse'
 
 export function browseRuntimeScript(): string {
   return `window.${BROWSE_RUNTIME_GLOBAL} = window.${BROWSE_RUNTIME_GLOBAL} || (${browseRuntime.toString()})(window);`

@@ -69,7 +69,7 @@ export function MarkdownPreview({
 
   return (
     <div ref={rootRef} className="markdown-preview">
-      <article className="typeset typeset-pine">
+      <article className="typeset typeset-ostia">
         <Markdown
           remarkPlugins={REMARK_PLUGINS}
           rehypePlugins={REHYPE_PLUGINS}

@@ -19,7 +19,7 @@ export function SandboxRequirementsDialog(): JSX.Element {
   const packages = report?.hint.packages.join(', ') ?? ''
   const command = report?.hint.command ?? null
   useEffect(
-    () => window.pine.sandbox.onBlocked((next) => useSandboxStore.setState({ blocked: next })),
+    () => window.ostia.sandbox.onBlocked((next) => useSandboxStore.setState({ blocked: next })),
     [],
   )
 
@@ -48,7 +48,7 @@ export function SandboxRequirementsDialog(): JSX.Element {
             <Button
               size="sm"
               onClick={() => {
-                void window.pine.system.installRequirements(SANDBOX_FEATURE, blocked.workspaceId)
+                void window.ostia.system.installRequirements(SANDBOX_FEATURE, blocked.workspaceId)
                 dismiss()
               }}
             >

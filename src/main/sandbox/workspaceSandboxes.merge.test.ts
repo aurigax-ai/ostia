@@ -27,7 +27,7 @@ function setup(): { store: SandboxStore; sandboxes: WorkspaceSandboxes } {
 const on = (domains: string[] = []) => ({ ...emptyWorkspaceSandbox(), enabled: true, domains })
 
 beforeEach(() => {
-  root = mkdtempSync(join(tmpdir(), 'pine-sbx-merge-'))
+  root = mkdtempSync(join(tmpdir(), 'ostia-sbx-merge-'))
 })
 
 afterEach(() => {

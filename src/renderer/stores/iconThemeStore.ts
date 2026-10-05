@@ -16,7 +16,7 @@ export const useIconThemeStore = create<IconThemeState>((set, get) => ({
   load: async (id, key) => {
     if (get().key === key) return
     set({ key, theme: null })
-    const theme = await window.pine.iconThemes.load(id)
+    const theme = await window.ostia.iconThemes.load(id)
     if (get().key === key) set({ theme })
   },
 }))

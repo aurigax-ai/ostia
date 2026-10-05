@@ -1,10 +1,10 @@
 import type { BrowserProfile } from '@shared/browserProfile'
-import type { PineBridge } from '@shared/types'
+import type { OstiaBridge } from '@shared/types'
 import { vi } from 'vitest'
 
-export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
+export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
   const noopUnsub = () => () => {}
-  const base: PineBridge = {
+  const base: OstiaBridge = {
     ping: vi.fn().mockResolvedValue('pong'),
     info: vi
       .fn()
@@ -97,7 +97,7 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       setOverride: vi.fn().mockResolvedValue({ servers: [] }),
     },
     settings: {
-      path: vi.fn().mockResolvedValue('/tmp/pine-test/settings.json'),
+      path: vi.fn().mockResolvedValue('/tmp/ostia-test/settings.json'),
       onChanged: vi.fn(noopUnsub),
     },
     sync: {
@@ -116,7 +116,7 @@ export function makePineMock(overrides?: Partial<PineBridge>): PineBridge {
       merge: vi.fn().mockResolvedValue({ ok: true }),
     },
     scratch: {
-      create: vi.fn().mockResolvedValue('/tmp/pine-scratch-1000/1-aaaaaaaaaaaa'),
+      create: vi.fn().mockResolvedValue('/tmp/ostia-scratch-1000/1-aaaaaaaaaaaa'),
       files: vi.fn().mockResolvedValue(0),
       reveal: vi.fn(),
     },

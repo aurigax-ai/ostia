@@ -33,13 +33,13 @@ export function ManagerView({ paneId }: { paneId: string }): JSX.Element {
     let disposed = false
     const pending: string[] = []
     let replayed = false
-    const offData = window.pine.pty.onData(paneId, (data) => {
+    const offData = window.ostia.pty.onData(paneId, (data) => {
       if (replayed) term.write(data)
       else pending.push(data)
     })
-    const offSize = window.pine.pty.onSize(paneId, (cols, rows) => term.resize(cols, rows))
-    const offExit = window.pine.pty.onExit(paneId, () => setEnded(true))
-    window.pine.pty
+    const offSize = window.ostia.pty.onSize(paneId, (cols, rows) => term.resize(cols, rows))
+    const offExit = window.ostia.pty.onExit(paneId, () => setEnded(true))
+    window.ostia.pty
       .attach(paneId, { cols: 0, rows: 0, role: 'observer', attachOnly: true })
       .then((res) => {
         if (disposed) return
@@ -58,7 +58,7 @@ export function ManagerView({ paneId }: { paneId: string }): JSX.Element {
       offData()
       offSize()
       offExit()
-      window.pine.pty.detach(paneId)
+      window.ostia.pty.detach(paneId)
       term.dispose()
       termRef.current = null
     }
