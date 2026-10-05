@@ -37,7 +37,8 @@
     "test:coverage": "vitest run --project node --project dom --coverage",
     "test:unit": "vitest run --project node",
     "test:security": "vitest run --project security",
-    "test:e2e": "bash scripts/e2e.sh"
+    "test:e2e": "bash scripts/e2e.sh",
+    "postinstall": "install-electron"
   },
   "dependencies": {
     "@anthropic-ai/sandbox-runtime": "0.0.78",
