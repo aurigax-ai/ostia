@@ -43,6 +43,14 @@ The agent sessions in these captures are scripted stand-ins running in the real 
 
 ## Install
 
+### macOS (Apple silicon)
+
+```bash
+brew install --cask aurigax-ai/tap/ostia
+```
+
+`brew upgrade --cask ostia` picks up new releases.
+
 ### Debian and Ubuntu (x64)
 
 ```bash
