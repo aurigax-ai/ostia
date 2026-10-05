@@ -18,6 +18,8 @@ Conventions for people and coding agents (Claude Code, Codex) working in this re
 
 ## Labels
 
+The labels (name, colour, description) are defined in `.github/labels.yml`; change that file and the repository labels together.
+
 Every issue and PR gets **one `type:`**, **one or two `area:`**, a **`platform:`** only when it is platform-specific, and (issues only) **one priority**.
 
 - `type:` `bug`, `feature`, `enhancement`, `docs`, `refactor`, `test`, `ci`
