@@ -5,15 +5,7 @@ import { useWorkspacesStore } from '../stores/workspacesStore'
 import { WarningNote } from './SettingsPanel'
 import { Button } from './ui/button'
 
-export function RequirementsNote({
-  feature,
-  body,
-}: {
-  feature: string
-  body: string
-}): JSX.Element | null {
-  const d = useDict()
-  const workspaceId = useWorkspacesStore((s) => s.activeWorkspaceId)
+export function useRequirementsReport(feature: string): RequirementsReport | null {
   const [report, setReport] = useState<RequirementsReport | null>(null)
   useEffect(() => {
     let live = true
@@ -24,6 +16,32 @@ export function RequirementsNote({
       live = false
     }
   }, [feature])
+  return report
+}
+
+export function RequirementsNote({
+  feature,
+  body,
+}: {
+  feature: string
+  body: string
+}): JSX.Element | null {
+  return (
+    <RequirementsNoteView feature={feature} body={body} report={useRequirementsReport(feature)} />
+  )
+}
+
+export function RequirementsNoteView({
+  feature,
+  body,
+  report,
+}: {
+  feature: string
+  body: string
+  report: RequirementsReport | null
+}): JSX.Element | null {
+  const d = useDict()
+  const workspaceId = useWorkspacesStore((s) => s.activeWorkspaceId)
   if (!report || report.missing.length === 0) return null
   const command = report.hint.command
   return (

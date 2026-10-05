@@ -1,4 +1,6 @@
+import { execFileSync } from 'node:child_process'
 import { constants, accessSync, statSync } from 'node:fs'
+import { KEEP_SHELLS_FEATURE, TMUX_MIN_VERSION } from '../shared/keepShells'
 import { MANAGER_FEATURE } from '../shared/managerSettings'
 import { MARKETPLACE_FEATURE } from '../shared/marketplace'
 import type { InstallHint, MissingRequirement } from '../shared/systemRequirements'
@@ -10,6 +12,7 @@ export interface Requirement {
   package: string
   platforms: NodeJS.Platform[]
   onlyWithPtyRelay?: boolean
+  minVersion?: { args: string[]; version: string }
 }
 
 export interface RequirementEnv {
@@ -31,6 +34,17 @@ const registry = new Map<string, Requirement[]>([
     ],
   ],
   [MANAGER_FEATURE, [{ program: 'ss', package: 'iproute2', platforms: ['linux'] }]],
+  [
+    KEEP_SHELLS_FEATURE,
+    [
+      {
+        program: 'tmux',
+        package: 'tmux',
+        platforms: ['linux', 'darwin'],
+        minVersion: { args: ['-V'], version: TMUX_MIN_VERSION },
+      },
+    ],
+  ],
   [
     MARKETPLACE_FEATURE,
     [{ program: 'git', package: 'git', platforms: ['linux', 'darwin', 'win32'] }],
@@ -82,10 +96,39 @@ export function missingRequirements(
 ): MissingRequirement[] {
   const platform = env.platform ?? process.platform
   const ptyRelay = env.ptyRelay ?? needsPtyRelay(false, undefined, platform)
-  return (registry.get(feature) ?? [])
-    .filter((r) => r.platforms.includes(platform) && !onPath(r.program, env.path))
-    .filter((r) => !r.onlyWithPtyRelay || ptyRelay)
-    .map((r) => ({ program: r.program, package: r.package }))
+  const missing: MissingRequirement[] = []
+  for (const r of registry.get(feature) ?? []) {
+    if (!r.platforms.includes(platform) || (r.onlyWithPtyRelay && !ptyRelay)) continue
+    const path = programPath(r.program, env.path)
+    if (!path) missing.push({ program: r.program, package: r.package })
+    else if (r.minVersion && !meetsVersion(path, r.minVersion.args, r.minVersion.version)) {
+      missing.push({ program: r.program, package: r.package, needs: r.minVersion.version })
+    }
+  }
+  return missing
+}
+
+export function versionAtLeast(output: string, wanted: string): boolean {
+  const found = /(\d+)\.(\d+)/.exec(output)
+  const [major, minor] = wanted.split('.').map(Number)
+  if (!found) return false
+  const [have, haveMinor] = [Number(found[1]), Number(found[2])]
+  return have > major || (have === major && haveMinor >= minor)
+}
+
+function meetsVersion(path: string, args: string[], wanted: string): boolean {
+  try {
+    return versionAtLeast(
+      execFileSync(path, args, {
+        encoding: 'utf8',
+        timeout: 2000,
+        stdio: ['ignore', 'pipe', 'ignore'],
+      }),
+      wanted,
+    )
+  } catch {
+    return false
+  }
 }
 
 const INSTALLERS: { manager: string; command: (packages: string) => string }[] = [

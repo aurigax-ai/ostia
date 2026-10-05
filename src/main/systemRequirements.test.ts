@@ -2,6 +2,7 @@ import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:f
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
+import { KEEP_SHELLS_FEATURE } from '../shared/keepShells'
 import { MANAGER_FEATURE } from '../shared/managerSettings'
 import {
   SANDBOX_FEATURE,
@@ -113,4 +114,41 @@ describe('systemRequirements', () => {
       packages: ['bubblewrap', 'socat'],
     })
   })
+
+  it('KSH-C17 needs nothing for keeping shells when tmux 3.2 or newer is on PATH', () => {
+    for (const version of ['tmux 3.2', 'tmux 3.4a', 'tmux next-3.6', 'tmux 4.0']) {
+      const dir = versionedTmux(version)
+      expect(missingRequirements(KEEP_SHELLS_FEATURE, { platform: 'linux', path: dir })).toEqual([])
+      expect(missingRequirements(KEEP_SHELLS_FEATURE, { platform: 'darwin', path: dir })).toEqual(
+        [],
+      )
+    }
+  })
+
+  it('KSH-C18 names tmux as missing for keeping shells when it is not on PATH', () => {
+    expect(
+      missingRequirements(KEEP_SHELLS_FEATURE, { platform: 'linux', path: binDir('none', []) }),
+    ).toEqual([{ program: 'tmux', package: 'tmux' }])
+  })
+
+  it('KSH-C19 names the version needed when tmux is older than 3.2 or will not say', () => {
+    for (const version of ['tmux 3.1c', 'tmux 2.9', 'not a version']) {
+      expect(
+        missingRequirements(KEEP_SHELLS_FEATURE, {
+          platform: 'linux',
+          path: versionedTmux(version),
+        }),
+      ).toEqual([{ program: 'tmux', package: 'tmux', needs: '3.2' }])
+    }
+  })
 })
+
+let tmuxDirs = 0
+
+function versionedTmux(version: string): string {
+  const dir = join(root, `tmux-${tmuxDirs++}`)
+  mkdirSync(dir, { recursive: true })
+  writeFileSync(join(dir, 'tmux'), `#!/bin/sh\necho '${version}'\n`)
+  chmodSync(join(dir, 'tmux'), 0o755)
+  return dir
+}
