@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parsePaneArgs } from './pane'
+import { parsePaneArgs, parseWorkspaceRenameArgs } from './pane'
 
 describe('parsePaneArgs', () => {
   it('joins the words of send into one text and adds Enter only when asked', () => {
@@ -61,5 +61,41 @@ describe('parsePaneArgs', () => {
     expect(() => parsePaneArgs(['send', 'p1'])).toThrow('usage: ostia pane')
     expect(() => parsePaneArgs(['key', 'p1'])).toThrow('usage: ostia pane')
     expect(() => parsePaneArgs(['close', 'p1'])).toThrow('usage: ostia pane')
+  })
+})
+
+describe('pane rename', () => {
+  it('joins the title words and accepts --clear instead of a title', () => {
+    expect(parsePaneArgs(['rename', 'p1', 'W9', '控制面補齊'])).toEqual({
+      method: 'pane.rename',
+      params: { pane: 'p1', title: 'W9 控制面補齊' },
+    })
+    expect(parsePaneArgs(['rename', 'p1', '--clear'])).toEqual({
+      method: 'pane.rename',
+      params: { pane: 'p1', title: '' },
+    })
+  })
+
+  it('refuses a missing title, and a title together with --clear', () => {
+    expect(() => parsePaneArgs(['rename', 'p1'])).toThrow('usage: ostia pane')
+    expect(() => parsePaneArgs(['rename', 'p1', '--clear', 'x'])).toThrow('usage: ostia pane')
+  })
+})
+
+describe('parseWorkspaceRenameArgs', () => {
+  it('renames your own workspace, or the one named with --workspace', () => {
+    expect(parseWorkspaceRenameArgs(['research', 'line'])).toEqual({ name: 'research line' })
+    expect(parseWorkspaceRenameArgs(['--workspace', 'ws2', 'api'])).toEqual({
+      workspace: 'ws2',
+      name: 'api',
+    })
+    expect(parseWorkspaceRenameArgs(['--clear'])).toEqual({ name: '' })
+  })
+
+  it('refuses no name and a name with --clear', () => {
+    expect(() => parseWorkspaceRenameArgs([])).toThrow('usage: ostia workspace rename')
+    expect(() => parseWorkspaceRenameArgs(['--clear', 'x'])).toThrow(
+      'usage: ostia workspace rename',
+    )
   })
 })
