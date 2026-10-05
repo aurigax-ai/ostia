@@ -1,6 +1,6 @@
 {
   "manifest": {
     "name": "指令補全",
-    "description": "約 700 個命令列工具的子指令、選項與參數值及其說明，在輸入編輯器按 Tab 時顯示。轉換自 Fig 的開放原始碼補全規格（@withfig/autocomplete，MIT）。你放在 ~/.config/pine/completions 的規格優先。"
+    "description": "約 700 個命令列工具的子指令、選項與參數值及其說明，在輸入編輯器按 Tab 時顯示。轉換自 Fig 的開放原始碼補全規格（@withfig/autocomplete，MIT）。你放在 ~/.config/ostia/completions 的規格優先。"
   }
 }

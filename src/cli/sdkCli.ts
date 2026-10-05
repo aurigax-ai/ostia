@@ -15,7 +15,7 @@ import { EXTENSION_ID_PATTERN, readManifest } from '../main/extensionManifest'
 import { parseMarketplaceManifest, planCopy } from '../main/marketplace'
 import { EXTENSION_MANIFEST_FILE, type ExtensionManifest } from '../shared/extensions'
 import { MARKETPLACE_MANIFEST_FILE } from '../shared/marketplace'
-import { PRODUCT_NAME } from '../shared/product'
+import { LEGACY_PRODUCT_NAME, PRODUCT_NAME } from '../shared/product'
 
 export interface SdkCliResult {
   code: number
@@ -23,9 +23,9 @@ export interface SdkCliResult {
 }
 
 export const SDK_CLI_USAGE = [
-  `usage: ${PRODUCT_NAME}-extension create <id> [folder]`,
-  `       ${PRODUCT_NAME}-extension validate [folder]`,
-  `       ${PRODUCT_NAME}-extension unlist <extension folder> [marketplace folder]`,
+  `usage: ${LEGACY_PRODUCT_NAME}-extension create <id> [folder]`,
+  `       ${LEGACY_PRODUCT_NAME}-extension validate [folder]`,
+  `       ${LEGACY_PRODUCT_NAME}-extension unlist <extension folder> [marketplace folder]`,
 ].join('\n')
 
 const CODE_ALPHABET = 'abcdefghijklmnopqrstuvwxyz234567'
@@ -171,7 +171,7 @@ function create(id: string, target: string, templateDir: string): SdkCliResult {
   cpSync(templateDir, target, { recursive: true })
   writeFileSync(join(target, '.gitignore'), TEMPLATE_IGNORES)
   rewriteJson(join(target, 'package.json'), (pkg) => {
-    pkg.name = `${PRODUCT_NAME}-extension-${id}`
+    pkg.name = `${LEGACY_PRODUCT_NAME}-extension-${id}`
     const scripts = pkg.scripts as Record<string, string>
     scripts.validate = scripts.validate.replace(`dist/${TEMPLATE_ID}`, `dist/${id}`)
   })

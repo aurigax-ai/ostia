@@ -70,7 +70,7 @@ const send = (text: string, to = receiver.externalId, from = sender) =>
 const context = (identity = receiver) => call<{ text: string | null }>('bus.context', identity).text
 
 beforeEach(() => {
-  rmSync(join(dataHome, 'pine'), { recursive: true, force: true })
+  rmSync(join(dataHome, 'ostia'), { recursive: true, force: true })
   announce.mockClear()
   ensureCaps.mockClear()
   ensureCaps.mockImplementation(async () => {})
@@ -250,8 +250,8 @@ describe('messages Pine sends on the human’s action', () => {
   })
 
   it('reads a store that has no sent list yet', async () => {
-    const path = join(dataHome, 'pine', 'bus.json')
-    mkdirSync(join(dataHome, 'pine'), { recursive: true })
+    const path = join(dataHome, 'ostia', 'bus.json')
+    mkdirSync(join(dataHome, 'ostia'), { recursive: true })
     writeFileSync(
       path,
       JSON.stringify({

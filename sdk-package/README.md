@@ -22,7 +22,7 @@ pnpm validate     # builds dist/weather and checks it the way Pine will
 The id is 2 to 40 lowercase letters, digits or dashes; it becomes the `pine <id> ...` command.
 
 `dist/weather` is the extension. To try it, copy that folder to
-`~/.config/pine/extensions/weather`; Pine notices it within a moment and asks you to approve it.
+`~/.config/ostia/extensions/weather`; Pine notices it within a moment and asks you to approve it.
 Then run `pine weather greet you` in a pane, or "Weather: Greet" from the palette.
 
 The project translates itself: `locales/zh-Hant.json` holds its manifest strings and messages in
