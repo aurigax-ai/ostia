@@ -8,6 +8,12 @@ import { type PaneIdentity, getByPaneId, resolveExternal } from './idRegistry'
 export const READ_LINES_DEFAULT = 200
 export const READ_LINES_MAX = 2000
 export const INPUT_MAX_LENGTH = 16 * 1024
+export const PASTE_SETTLE_MS = 100
+export const CONFIRM_DEFAULT_MS = 2000
+export const CONFIRM_MAX_MS = 10_000
+const CONFIRM_POLL_MS = 50
+const PASTE_START = '\x1b[200~'
+const PASTE_END = '\x1b[201~'
 
 const NAMED_KEYS: Readonly<Record<string, string>> = {
   enter: '\r',
@@ -40,6 +46,13 @@ export const INPUT_KEY_NAMES = [...Object.keys(NAMED_KEYS), 'ctrl-a..ctrl-z'].jo
 export interface PaneIo {
   read: (paneId: string, lines: number) => Promise<string | null>
   write: (paneId: string, data: string) => boolean
+  bracketedPaste: (paneId: string) => boolean
+  outputCursor: (paneId: string) => number | undefined
+}
+
+export interface PaneAttentionPeek {
+  state?: string
+  message?: string
 }
 
 function fail(message: string): ResponseError<void> {
@@ -61,11 +74,11 @@ export function keyBytes(key: unknown): string | undefined {
   return Object.hasOwn(NAMED_KEYS, name) ? NAMED_KEYS[name] : undefined
 }
 
-export function inputBytes(text: unknown, keys: unknown): string {
-  let data = ''
+export function inputParts(text: unknown, keys: unknown): { text: string; keys: string } {
+  const parts = { text: '', keys: '' }
   if (text !== undefined) {
     if (typeof text !== 'string') throw fail('bad-request: text')
-    data += text
+    parts.text = text
   }
   if (keys !== undefined) {
     if (!Array.isArray(keys)) throw fail('bad-request: keys')
@@ -74,12 +87,35 @@ export function inputBytes(text: unknown, keys: unknown): string {
       if (bytes === undefined) {
         throw fail(`unknown-key: ${String(key)} (known: ${INPUT_KEY_NAMES})`)
       }
-      data += bytes
+      parts.keys += bytes
     }
   }
-  if (!data) throw fail('bad-request: text or keys')
-  if (data.length > INPUT_MAX_LENGTH) throw fail('too-long: input')
-  return data
+  if (!parts.text && !parts.keys) throw fail('bad-request: text or keys')
+  if (parts.text.length + parts.keys.length > INPUT_MAX_LENGTH) throw fail('too-long: input')
+  return parts
+}
+
+export function inputBytes(text: unknown, keys: unknown): string {
+  const parts = inputParts(text, keys)
+  return parts.text + parts.keys
+}
+
+export function pasteBytes(text: string): string {
+  const body = text.replaceAll(PASTE_START, '').replaceAll(PASTE_END, '')
+  return `${PASTE_START}${body.replace(/\r?\n/g, '\r')}${PASTE_END}`
+}
+
+function optionalFlag(raw: unknown, name: string): boolean | undefined {
+  if (raw === undefined) return undefined
+  if (typeof raw !== 'boolean') throw fail(`bad-request: ${name}`)
+  return raw
+}
+
+export function confirmWindow(raw: unknown): number {
+  if (raw === undefined) return CONFIRM_DEFAULT_MS
+  const ms = Number(raw)
+  if (!Number.isInteger(ms) || ms < 0) throw fail('bad-request: confirmMs')
+  return Math.min(ms, CONFIRM_MAX_MS)
 }
 
 export function readLineCount(raw: unknown): number {
@@ -126,6 +162,9 @@ export interface PaneIoDeps {
   isSandboxed: (workspaceId: string) => boolean
   isConfined: (paneId: string) => boolean
   managerAllowsInput: () => boolean
+  attention: (pane: PaneIdentity) => Promise<PaneAttentionPeek>
+  inputSent: (pane: PaneIdentity) => void
+  delay: (ms: number) => Promise<void>
 }
 
 const REFUSALS: Readonly<Record<string, string>> = {
@@ -173,11 +212,25 @@ export function registerPaneIoMethods(deps: PaneIoDeps): void {
     await ensureCaps(ctx.authed, me, verdict.caps, `pane.${kind}`, detail)
   }
 
+  const respondedSince = async (paneId: string, before: number | undefined, ms: number) => {
+    if (before === undefined) return false
+    for (let waited = 0; ; waited += CONFIRM_POLL_MS) {
+      const now = deps.io.outputCursor(paneId)
+      if (now !== undefined && now > before) return true
+      if (waited >= ms) return false
+      await deps.delay(CONFIRM_POLL_MS)
+    }
+  }
+
   registerControlMethod('pane.input', {
     handler: async (raw, ctx) => {
       const p = record(raw)
       const to = target(p.pane, ctx)
-      const data = inputBytes(p.text, p.keys)
+      const parts = inputParts(p.text, p.keys)
+      const paste = optionalFlag(p.paste, 'paste') ?? parts.text.includes('\n')
+      const force = optionalFlag(p.force, 'force') === true
+      const confirm = optionalFlag(p.confirm, 'confirm') === true
+      const confirmMs = confirmWindow(p.confirmMs)
       if (ctx.identity.manager && !deps.managerAllowsInput()) {
         throw fail(
           'input-off: typing into panes is off; the human can turn on manager.allowInput in Settings → Manager',
@@ -188,10 +241,32 @@ export function registerPaneIoMethods(deps: PaneIoDeps): void {
         ...(Array.isArray(p.keys) ? p.keys.map(String) : []),
       ].join(' ')
       await reach('input', to, String(p.pane), ctx, `type into ${to.externalId}: ${shown}`)
-      if (!deps.io.write(to.paneId, data)) {
+      if (parts.text && !force) {
+        const attention = await deps.attention(to)
+        if (attention.state === 'waiting') {
+          const why = attention.message ? `: ${attention.message}` : ''
+          throw fail(
+            `agent-waiting: ${to.externalId} is waiting for the human${why}. Answer it with keys, or pass force to type anyway`,
+          )
+        }
+      }
+      const pasted = paste && parts.text !== '' && deps.io.bracketedPaste(to.paneId)
+      const before = deps.io.outputCursor(to.paneId)
+      const first = pasted ? pasteBytes(parts.text) : parts.text + parts.keys
+      const rest = pasted ? parts.keys : ''
+      if (!deps.io.write(to.paneId, first)) {
         throw fail(`no-terminal: ${to.externalId} has no running terminal`)
       }
-      return { ok: true, paneId: to.externalId }
+      if (rest) {
+        await deps.delay(PASTE_SETTLE_MS)
+        if (!deps.io.write(to.paneId, rest)) {
+          throw fail(`no-terminal: ${to.externalId} closed before the keys after the paste`)
+        }
+      }
+      deps.inputSent(to)
+      const result = { ok: true, paneId: to.externalId, bytes: first.length + rest.length, pasted }
+      if (!confirm) return result
+      return { ...result, responded: await respondedSince(to.paneId, before, confirmMs) }
     },
   })
 

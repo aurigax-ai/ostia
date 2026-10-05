@@ -113,6 +113,10 @@ export class ScreenMirror {
     return this.term.rows
   }
 
+  get bracketedPaste(): boolean {
+    return !this.disposed && this.term.modes.bracketedPasteMode
+  }
+
   write(data: string): void {
     if (!this.disposed && data) this.term.write(data)
   }

@@ -214,6 +214,19 @@ describe('parseSnapshot', () => {
     ).not.toHaveProperty('agentRunning')
   })
 
+  it('keeps a renamed pane pinned only when the mark is true', () => {
+    const pane = snap().workspaces[0].root
+    const rootOf = (extra: object) =>
+      parseSnapshot(
+        snap({ workspaces: [{ ...snap().workspaces[0], root: { ...pane, ...extra } as never }] }),
+      )?.workspaces[0].root
+    expect(rootOf({ title: 'worker', titlePinned: true })).toMatchObject({
+      title: 'worker',
+      titlePinned: true,
+    })
+    expect(rootOf({ titlePinned: 'yes' })).not.toHaveProperty('titlePinned')
+  })
+
   it('keeps the default-title mark only on a terminal pane and only when it is true', () => {
     const pane = snap().workspaces[0].root
     const rootOf = (extra: object) =>

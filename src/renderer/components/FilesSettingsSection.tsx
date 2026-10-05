@@ -3,7 +3,10 @@ import { BUILTIN_ICON_THEME } from '@shared/iconTheme'
 import { type FormEvent, useState } from 'react'
 import { fmt, useDict } from '../i18n/useDict'
 import {
+  BREADCRUMB_STYLES,
+  type BreadcrumbStyle,
   DEFAULT_NESTING_PATTERNS,
+  DOTFILES_PATTERN,
   FILE_SORT_BYS,
   FILE_SORT_ORDERS,
   type FileSortBy,
@@ -167,6 +170,11 @@ export function FileTreeSettingsGroups(): JSX.Element {
     name: d.filesView.byName,
     type: d.filesView.byType,
   }
+  const breadcrumbLabel: Record<BreadcrumbStyle, string> = {
+    auto: d.filesView.breadcrumbAuto,
+    full: d.filesView.breadcrumbFull,
+    short: d.filesView.breadcrumbShort,
+  }
   return (
     <>
       <SettingsGroup title={d.filesView.groupTree}>
@@ -181,6 +189,20 @@ export function FileTreeSettingsGroups(): JSX.Element {
             ]}
           />
         </ControlRow>
+        <ControlRow label={d.filesView.breadcrumb} desc={d.filesView.breadcrumbDesc}>
+          <SelectField
+            label={d.filesView.breadcrumb}
+            value={files.breadcrumb}
+            onChange={(v) => setFiles({ breadcrumb: v })}
+            options={BREADCRUMB_STYLES.map((v) => ({ value: v, label: breadcrumbLabel[v] }))}
+          />
+        </ControlRow>
+        <ToggleRow
+          label={d.filesView.searchIgnoredSetting}
+          desc={d.filesView.searchIgnoredDesc}
+          checked={files.searchIgnored}
+          onChange={(v) => setFiles({ searchIgnored: v })}
+        />
         <ToggleRow
           label={d.filesView.compactFolders}
           desc={d.filesView.compactFoldersDesc}
@@ -206,6 +228,18 @@ export function FileTreeSettingsGroups(): JSX.Element {
         </ControlRow>
       </SettingsGroup>
       <SettingsGroup title={d.filesView.groupHidden}>
+        <ToggleRow
+          label={d.filesView.hideDotfiles}
+          desc={d.filesView.hideDotfilesDesc}
+          checked={files.exclude.includes(DOTFILES_PATTERN)}
+          onChange={(hide) =>
+            setFiles({
+              exclude: hide
+                ? [...files.exclude, DOTFILES_PATTERN]
+                : files.exclude.filter((p) => p !== DOTFILES_PATTERN),
+            })
+          }
+        />
         <ToggleRow
           label={d.filesView.showExcluded}
           desc={d.filesView.showExcludedDesc}

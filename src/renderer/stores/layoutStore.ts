@@ -25,6 +25,7 @@ import {
   movePane,
   moveTab,
   paneIds,
+  renamePane,
   selectTab,
   setDefaultPaneTitle,
   setDefaultPaneTitles,
@@ -85,6 +86,7 @@ interface LayoutState {
   setLocked: (workspaceId: string, paneId: string, locked: boolean) => void
   isLocked: (workspaceId: string, paneId?: string) => boolean
   setTitle: (workspaceId: string, paneId: string, title: string) => void
+  rename: (workspaceId: string, paneId: string, title: string) => void
   setDefaultTitle: (workspaceId: string, paneId: string, title: string) => void
   openFile: (workspaceId: string, path: string) => void
   openFileTab: (workspaceId: string, path: string, paneId?: string) => void
@@ -400,6 +402,16 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       const layout = s.byWorkspace[workspaceId]
       if (!layout) return s
       const root = setPaneTitle(layout.root, paneId, title)
+      return root === layout.root
+        ? s
+        : { byWorkspace: { ...s.byWorkspace, [workspaceId]: { ...layout, root } } }
+    }),
+
+  rename: (workspaceId, paneId, title) =>
+    set((s) => {
+      const layout = s.byWorkspace[workspaceId]
+      if (!layout) return s
+      const root = renamePane(layout.root, paneId, title)
       return root === layout.root
         ? s
         : { byWorkspace: { ...s.byWorkspace, [workspaceId]: { ...layout, root } } }

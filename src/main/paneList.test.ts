@@ -105,6 +105,50 @@ describe('paneList.listPanes', () => {
     expect(panes[0]).toMatchObject({ paneId: editor.externalId, filePath: '/work/a.ts' })
   })
 
+  it("passes an agent pane's kind, session id and state through and drops malformed ones", async () => {
+    const agent = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'p-agent' })
+    const shell = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'p-agent-bad' })
+    const execCommand = vi.fn().mockResolvedValue(
+      ok([
+        {
+          paneId: 'p-agent',
+          workspaceId: 's1',
+          kind: 'terminal',
+          title: 'claude',
+          agent: 'claude',
+          agentSessionId: 'sess-123',
+          agentState: 'waiting',
+          agentMessage: 'Allow Bash?',
+        },
+        {
+          paneId: 'p-agent-bad',
+          workspaceId: 's1',
+          kind: 'terminal',
+          title: 'zsh',
+          agent: 7,
+          agentSessionId: null,
+        },
+      ]),
+    )
+
+    const panes = await listPanes({
+      execCommand,
+      getTerminalState: vi.fn(),
+      ptyPid: vi.fn(),
+      windowIds: ONE_WINDOW,
+    })
+
+    expect(panes.find((p) => p.paneId === agent.externalId)).toMatchObject({
+      agent: 'claude',
+      agentSessionId: 'sess-123',
+      agentState: 'waiting',
+      agentMessage: 'Allow Bash?',
+    })
+    const plain = panes.find((p) => p.paneId === shell.externalId)
+    expect(plain).not.toHaveProperty('agent')
+    expect(plain).not.toHaveProperty('agentSessionId')
+  })
+
   it('drops a pane with no registered external id', async () => {
     const execCommand = vi
       .fn()

@@ -18,6 +18,7 @@ asarUnpack:
   - out/sandbox/**
   - out/redaction/**
   - node_modules/@anthropic-ai/sandbox-runtime/**
+  - node_modules/@vscode/ripgrep-*/**
 npmRebuild: true
 linux:
   target: dir
