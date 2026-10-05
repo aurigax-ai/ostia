@@ -143,3 +143,43 @@ test('on macOS Cmd+Backspace deletes the typed line in the shell, as in Terminal
     await app.close()
   }
 })
+
+test('on macOS Cmd+W closes the focused pane and leaves the app running, and the menu closes the window with Cmd+Shift+W', async () => {
+  test.skip(!isMac, 'the macOS application menu and Cmd chords only exist on macOS')
+  const app = await electron.launch(isolatedLaunch())
+  try {
+    const win = await app.firstWindow()
+    await win.waitForLoadState('domcontentloaded')
+    await openWorkspace(win)
+
+    const accelerators = await app.evaluate(({ Menu }) => {
+      const found: { label: string; role: string; accelerator: string }[] = []
+      const walk = (menu: Electron.Menu | null): void => {
+        for (const item of menu?.items ?? []) {
+          found.push({
+            label: item.label,
+            role: item.role ?? '',
+            accelerator: String(item.accelerator ?? ''),
+          })
+          walk(item.submenu ?? null)
+        }
+      }
+      walk(Menu.getApplicationMenu())
+      return found
+    })
+    expect(accelerators.map((item) => item.accelerator)).not.toContain('CmdOrCtrl+W')
+    expect(accelerators.map((item) => item.accelerator)).not.toContain('Cmd+W')
+    expect(accelerators.find((item) => item.role === 'close')?.accelerator).toBe('Cmd+Shift+W')
+
+    await focusTerminal(win)
+    await win.keyboard.press('Meta+Alt+Backslash')
+    await expect(win.locator('.xterm')).toHaveCount(2)
+    await win.locator('.xterm').nth(1).click()
+    await win.keyboard.press('Meta+w')
+    await expect(win.locator('.xterm')).toHaveCount(1)
+    expect(win.isClosed()).toBe(false)
+    expect(app.windows()).toHaveLength(1)
+  } finally {
+    await app.close()
+  }
+})
