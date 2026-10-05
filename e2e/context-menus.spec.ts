@@ -64,7 +64,11 @@ test('right-click in a text field and on a web page shows the native menu', asyn
     await expect
       .poll(async () => (await menus()).at(-1) ?? [])
       .toEqual(expect.arrayContaining(['cut', 'copy', 'paste', 'selectall']))
-    await win.keyboard.press('Escape')
+    const settings = win.getByRole('region', { name: 'Settings' })
+    await expect(async () => {
+      await win.keyboard.press('Escape')
+      await expect(settings).toHaveCount(0, { timeout: 1_000 })
+    }).toPass()
 
     await win.getByRole('button', { name: 'New browser tab' }).click()
     const address = win.locator('.pane-slot:not([data-hidden]) .browser-address')
@@ -72,9 +76,13 @@ test('right-click in a text field and on a web page shows the native menu', asyn
     await address.press('Enter')
     await expect(win.getByRole('tab', { name: /Menu page/ })).toBeVisible({ timeout: 15_000 })
     const before = (await menus()).length
-    const box = await win.locator('.pane-slot:not([data-hidden]) webview').first().boundingBox()
-    if (!box) throw new Error('the browser pane has no page area')
-    await win.mouse.click(box.x + 60, box.y + 200, { button: 'right' })
+    await app.evaluate(({ webContents }) => {
+      const guest = webContents.getAllWebContents().find((w) => w.getType() === 'webview')
+      if (!guest) throw new Error('no browser page')
+      for (const type of ['mouseDown', 'mouseUp'] as const) {
+        guest.sendInputEvent({ type, x: 60, y: 200, button: 'right', clickCount: 1 })
+      }
+    })
     await expect.poll(async () => (await menus()).length).toBeGreaterThan(before)
     expect((await menus()).at(-1)).toEqual(['back', 'forward', 'reload'])
   } finally {
