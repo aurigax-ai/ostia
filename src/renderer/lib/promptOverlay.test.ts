@@ -36,7 +36,7 @@ describe('placePrompt', () => {
   })
 
   it('puts the Pine prompt chips on the row above and keeps the shell separator before the input', () => {
-    expect(placePrompt({ ...base, style: 'pine', inputCol: 2 })).toMatchObject({
+    expect(placePrompt({ ...base, style: 'ostia', inputCol: 2 })).toMatchObject({
       col: 2,
       endCol: 80,
       chipsRow: 9,
@@ -44,12 +44,12 @@ describe('placePrompt', () => {
   })
 
   it('covers the whole row for a same-line Pine prompt, which draws its own separator', () => {
-    expect(placePrompt({ ...base, style: 'pine', sameLine: true })).toMatchObject({
+    expect(placePrompt({ ...base, style: 'ostia', sameLine: true })).toMatchObject({
       col: 0,
       endCol: 80,
       chipsRow: null,
     })
-    expect(placePrompt({ ...base, style: 'pine', inputLine: 100 })?.chipsRow).toBeNull()
+    expect(placePrompt({ ...base, style: 'ostia', inputLine: 100 })?.chipsRow).toBeNull()
   })
 
   it('returns null when the input line is scrolled out of view', () => {

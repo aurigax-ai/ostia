@@ -66,7 +66,7 @@ describe('settingsStore terminal and pane settings', () => {
       scrollbackLines: 1000,
       minimumContrast: 1,
       warnOnRiskyPaste: true,
-      prompt: { style: 'pine', chips: ['cwd', 'git.branch'], sameLine: false, separator: 'none' },
+      prompt: { style: 'ostia', chips: ['cwd', 'git.branch'], sameLine: false, separator: 'none' },
       clipboardKeys: 'shift',
       theme: 'match',
       shell: '',
@@ -94,12 +94,15 @@ describe('settingsStore terminal and pane settings', () => {
       'invalid value for terminal.prompt.chips',
     )
     store().setByPath('terminal.prompt.chips', ['time24', 'cwd'])
-    store().setByPath('terminal.prompt.style', 'pine')
-    expect(store().terminal.prompt).toMatchObject({ style: 'pine', chips: ['time24', 'cwd'] })
+    store().setByPath('terminal.prompt.style', 'ostia')
+    expect(store().terminal.prompt).toMatchObject({ style: 'ostia', chips: ['time24', 'cwd'] })
+    store().setByPath('terminal.prompt.style', 'shell')
+    expect(store().setByPath('terminal.prompt.style', 'pine').value).toBe('ostia')
+    expect(store().terminal.prompt.style).toBe('ostia')
     expect(() => store().setByPath('terminal.prompt.style', 'fancy')).toThrow(
       'invalid value for terminal.prompt.style',
     )
-    expect(store().terminal.prompt.style).toBe('pine')
+    expect(store().terminal.prompt.style).toBe('ostia')
   })
 
   it('refuses out-of-range values set through the settings path used by the CLI', () => {

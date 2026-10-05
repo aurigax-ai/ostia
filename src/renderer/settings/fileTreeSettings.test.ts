@@ -46,7 +46,8 @@ describe('parseFileTreeSettings', () => {
     const parsed = parseFileTreeSettings({ sortOrder: 'weird', sortBy: 'size', iconTheme: '../x' })
     expect(parsed.sortOrder).toBe('foldersFirst')
     expect(parsed.sortBy).toBe('name')
-    expect(parsed.iconTheme).toBe('pine')
+    expect(parsed.iconTheme).toBe('ostia')
+    expect(parseFileTreeSettings({ iconTheme: 'pine' }).iconTheme).toBe('ostia')
     expect(parseFileTreeSettings({ iconTheme: 'material-icon-theme' }).iconTheme).toBe(
       'material-icon-theme',
     )

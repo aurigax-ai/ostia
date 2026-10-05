@@ -87,9 +87,9 @@ const instrumentNight: ColorScheme = {
   },
 }
 
-const pineLight: ColorScheme = {
-  id: 'pine-light',
-  name: 'Pine Light',
+const ostiaLight: ColorScheme = {
+  id: 'ostia-light',
+  name: 'Ostia Light',
   appearance: 'light',
   colors: {
     background: '#fbfcfd',
@@ -782,7 +782,7 @@ export const BUILTIN_COLOR_SCHEMES: ColorScheme[] = [
   instrumentNight,
   dracula,
   oxocarbon,
-  pineLight,
+  ostiaLight,
   catppuccinMocha,
   catppuccinMacchiato,
   catppuccinFrappe,

@@ -20,14 +20,14 @@ describe('pluginsStore', () => {
   describe('registry seed', () => {
     it('seeds the built-in plugins in manifest order, all marked builtin', () => {
       expect(store().plugins).toBe(BUILTIN_PLUGINS)
-      expect(store().plugins.map((p) => p.id)).toEqual(['pine.themes'])
+      expect(store().plugins.map((p) => p.id)).toEqual(['ostia.themes'])
       expect(store().plugins.every((p) => p.builtin)).toBe(true)
     })
   })
 
   describe('derived themes', () => {
     it('aggregates contributes.themes across plugins (only pine.themes contributes any)', () => {
-      const themePlugin = BUILTIN_PLUGINS.find((p) => p.id === 'pine.themes')
+      const themePlugin = BUILTIN_PLUGINS.find((p) => p.id === 'ostia.themes')
       expect(store().themes).toEqual(themePlugin?.contributes.themes)
       expect(store().themes.map((t) => t.id)).toEqual([
         'adeberry',
@@ -35,7 +35,7 @@ describe('pluginsStore', () => {
         'instrument-night',
         'dracula',
         'oxocarbon',
-        'pine-light',
+        'ostia-light',
       ])
     })
 

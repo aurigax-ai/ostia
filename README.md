@@ -34,7 +34,7 @@ diffs and approvals. It ships no agent of its own: any CLI that can run a shell 
 
 | | |
 |---|---|
-| ![An agent driving the browser pane with the pine command](.github/readme/browser.webp) | ![The Git panel and a diff beside the shell](.github/readme/review.webp) |
+| ![An agent driving the browser pane with the ostia command](.github/readme/browser.webp) | ![The Git panel and a diff beside the shell](.github/readme/review.webp) |
 | An agent starts a dev server, opens the page and clicks through it. | Changed files and the diff, beside the shell. |
 | ![An approval card under an agent session](.github/readme/approval.webp) | ![A sandboxed shell asking to reach a host](.github/readme/sandbox.webp) |
 | A call that needs a new permission waits for you. | A sandboxed workspace asks before it reaches a new host. |
