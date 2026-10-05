@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest'
-import type { ExtensionInfo, WorkspaceChip } from '@shared/extensions'
+import type { ExtensionInfo, ExtensionResult, WorkspaceChip } from '@shared/extensions'
 import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
@@ -112,6 +112,93 @@ describe('TopBar', () => {
     expect(second?.customName).toMatch(/^[a-z]+-[a-z]+$/)
     expect(second?.customName).not.toBe(scratch.customName)
     expect(window.pine.sandbox.setEnabled).toHaveBeenCalledWith(second?.id, true)
+  })
+
+  describe('SSH hosts in the New workspace menu', () => {
+    const ssh: ExtensionInfo = {
+      ...git,
+      id: 'ssh',
+      name: 'SSH',
+      panel: null,
+      commands: [
+        {
+          id: 'connect',
+          title: 'SSH: Connect to Host…',
+          argument: 'Host',
+          palette: true,
+          stdin: false,
+          capabilities: [],
+        },
+      ],
+    }
+
+    function stubSsh(hosts: string[], truncated = false): ReturnType<typeof vi.fn> {
+      const invoke = vi.fn(
+        async (_ext: string, command: string): Promise<ExtensionResult> =>
+          command === 'ls'
+            ? { ok: true, data: { hosts: hosts.map((alias) => ({ alias })), truncated } }
+            : { ok: true, data: { paneId: 'p-ssh' } },
+      )
+      window.pine.extensions.invoke = invoke
+      return invoke
+    }
+
+    async function openHosts(user: ReturnType<typeof userEvent.setup>): Promise<void> {
+      await user.click(screen.getByRole('button', { name: 'More ways to start a workspace' }))
+      await user.click(await screen.findByRole('menuitem', { name: 'Connect to SSH host' }))
+    }
+
+    it('lists the ssh config hosts and opens a workspace named after the picked one', async () => {
+      useExtensionsStore.setState({ list: [ssh] })
+      const invoke = stubSsh(['db', 'web'])
+      const user = userEvent.setup({ pointerEventsCheck: 0 })
+      render(<TopBar />)
+
+      await openHosts(user)
+      expect(await screen.findByRole('menuitem', { name: 'db' })).toBeInTheDocument()
+      await user.click(screen.getByRole('menuitem', { name: 'web' }))
+
+      await waitFor(() => expect(useWorkspacesStore.getState().workspaces).toHaveLength(1))
+      const [added] = useWorkspacesStore.getState().workspaces
+      expect(added.customName).toBe('web')
+      expect(invoke).toHaveBeenCalledWith('ssh', 'ls', { workspaceId: null, paneId: null })
+      expect(invoke).toHaveBeenCalledWith(
+        'ssh',
+        'connect',
+        { workspaceId: added.id, paneId: null },
+        'web',
+      )
+    })
+
+    it('says so when the ssh config has no hosts, and points to the palette when cut short', async () => {
+      useExtensionsStore.setState({ list: [ssh] })
+      stubSsh([])
+      const user = userEvent.setup()
+      const { unmount } = render(<TopBar />)
+      await openHosts(user)
+      expect(
+        await screen.findByRole('menuitem', { name: 'No hosts in ~/.ssh/config' }),
+      ).toHaveAttribute('aria-disabled', 'true')
+      unmount()
+
+      stubSsh(['a'], true)
+      render(<TopBar />)
+      await openHosts(user)
+      expect(
+        await screen.findByRole('menuitem', {
+          name: 'More hosts: SSH: Connect to Host… in the command palette',
+        }),
+      ).toBeInTheDocument()
+    })
+
+    it('leaves SSH out of the menu when the SSH extension is off', async () => {
+      useExtensionsStore.setState({ list: [{ ...ssh, enabled: false }] })
+      const user = userEvent.setup()
+      render(<TopBar />)
+      await user.click(screen.getByRole('button', { name: 'More ways to start a workspace' }))
+      await screen.findByRole('menuitem', { name: 'New scratch workspace' })
+      expect(screen.queryByRole('menuitem', { name: 'Connect to SSH host' })).toBeNull()
+    })
   })
 
   it('puts New workspace first and Settings in the right zone before the bell', () => {
