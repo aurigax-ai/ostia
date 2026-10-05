@@ -41,6 +41,7 @@ import type {
   PaneChip,
   WorkspaceChip,
 } from '../shared/extensions'
+import type { GuestChordFire } from '../shared/guestChords'
 import type { LoadedIconTheme } from '../shared/iconTheme'
 import type { KeymapLoad } from '../shared/keymapFile'
 import type { LanguagePack } from '../shared/languagePack'
@@ -439,6 +440,14 @@ const bridge: PineBridge = {
     edit: (edit) => ipcRenderer.invoke('clipboard:edit', edit) as Promise<void>,
     hasImage: () => ipcRenderer.invoke('clipboard:has-image') as Promise<boolean>,
     setChords: (chords) => ipcRenderer.send('clipboard:set-chords', chords),
+  },
+  guestChords: {
+    set: (signatures) => ipcRenderer.send('guest-chords:set', signatures),
+    onFire: (cb) => {
+      const handler = (_e: unknown, fire: GuestChordFire): void => cb(fire)
+      ipcRenderer.on('guest-chords:fire', handler)
+      return () => ipcRenderer.removeListener('guest-chords:fire', handler)
+    },
   },
   openPath: {
     openDefault: (path) =>
