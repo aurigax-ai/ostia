@@ -38,7 +38,9 @@ describe('paneShellEnv', () => {
       ZDOTDIR: '/tmp/z',
       PINE_PANE_ID: 'p1',
       PINE_TOKEN: 't',
+      OSTIA_NO_CLAUDE_HOOKS: '1',
       PINE_NO_CLAUDE_HOOKS: '1',
+      OSTIA_NO_CODEX_HOOKS: '',
       PINE_NO_CODEX_HOOKS: '',
       COLORTERM: 'truecolor',
     })

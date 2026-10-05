@@ -1,3 +1,4 @@
+import { readEnv } from './appEnv'
 import { PRODUCT_NAME } from './product'
 
 export function portalSocketPath(
@@ -5,7 +6,8 @@ export function portalSocketPath(
   env: Record<string, string | undefined>,
   fallbackDir: string,
 ): string {
-  if (env.PINE_PORTAL_SOCKET) return env.PINE_PORTAL_SOCKET
+  const override = readEnv('PORTAL_SOCKET', env)
+  if (override) return override
   const name = packaged ? PRODUCT_NAME : `${PRODUCT_NAME}-dev`
   return `${env.XDG_RUNTIME_DIR || fallbackDir}/${name}-portal.sock`
 }

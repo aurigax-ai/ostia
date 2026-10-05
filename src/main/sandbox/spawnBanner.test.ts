@@ -31,7 +31,7 @@ describe('sandboxFailureBanner', () => {
     ])
     const banner = sandboxFailureBanner('cannot start', ['bwrap not found'])
     expect(banner).toContain('Sandbox unavailable: cannot start')
-    expect(banner).toContain('pine system install bubblewrap')
+    expect(banner).toContain('ostia system install bubblewrap')
     expect(banner).toContain('No shell was started')
   })
 })

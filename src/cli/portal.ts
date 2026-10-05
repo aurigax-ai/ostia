@@ -9,12 +9,13 @@ import {
   StreamMessageWriter,
   createMessageConnection,
 } from 'vscode-jsonrpc/node'
+import { readEnv } from '../shared/appEnv'
 import { MIRROR_DETACH_KEY, portalSocketPath } from '../shared/portal'
 
-export const PORTAL_USAGE = `usage: pine <agent> [args…]
+export const PORTAL_USAGE = `usage: ostia <agent> [args…]
 
-Run from a terminal outside Pine. Opens Pine's manager workspace running <agent>
-(a preset such as claude or codex) and shows it here. Starts Pine in the tray if it
+Run from a terminal outside Ostia. Opens Ostia's manager workspace running <agent>
+(a preset such as claude or codex) and shows it here. Starts Ostia in the tray if it
 isn't running. Ctrl+\\ detaches and leaves the manager running.`
 
 const START_TIMEOUT_MS = 20_000
@@ -51,9 +52,9 @@ export async function connectPortal(
 ): Promise<Socket | string> {
   const first = await connectOnce(path)
   if (first) return first
-  const appBin = env.PINE_APP_BIN
+  const appBin = readEnv('APP_BIN', env)
   if (!appBin)
-    return 'Pine is not running, and this pine command does not know where Pine is installed'
+    return 'Ostia is not running, and this ostia command does not know where Ostia is installed'
   launch(appBin, env)
   const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
@@ -61,7 +62,7 @@ export async function connectPortal(
     const socket = await connectOnce(path)
     if (socket) return socket
   }
-  return `Pine did not start within ${Math.round(timeoutMs / 1000)} s`
+  return `Ostia did not start within ${Math.round(timeoutMs / 1000)} s`
 }
 
 export function stripDetach(chunk: string): { input: string; detach: boolean } {
@@ -72,7 +73,7 @@ export function stripDetach(chunk: string): { input: string; detach: boolean } {
 
 export async function runPortalCommand(argv: string[], io: PortalIo): Promise<number> {
   if (!io.stdin.isTTY || !io.stdout.isTTY) {
-    io.stderr.write('pine: not inside a Pine pane (PINE_SOCKET unset)\n')
+    io.stderr.write('ostia: not inside an Ostia pane (OSTIA_SOCKET unset)\n')
     return 1
   }
   const [agent, ...args] = argv
@@ -83,7 +84,7 @@ export async function runPortalCommand(argv: string[], io: PortalIo): Promise<nu
   const path = portalSocketPath(true, io.env, tmpdir())
   const connected = await connectPortal(path, io.env)
   if (typeof connected === 'string') {
-    io.stderr.write(`pine: ${connected}\n`)
+    io.stderr.write(`ostia: ${connected}\n`)
     return 1
   }
   return mirror(connected, agent, args, io)
@@ -119,7 +120,7 @@ function mirror(socket: Socket, agent: string, args: string[], io: PortalIo): Pr
       const { input, detach } = stripDetach(decoder.write(chunk))
       if (input && attached) void conn.sendNotification('mirror.input', { data: input })
       else if (input) early.push(input)
-      if (detach) finish(0, 'pine: detached; the manager keeps running')
+      if (detach) finish(0, 'ostia: detached; the manager keeps running')
     }
     const onResize = (): void => {
       void conn.sendNotification('mirror.resize', {
@@ -133,10 +134,10 @@ function mirror(socket: Socket, agent: string, args: string[], io: PortalIo): Pr
     })
     conn.onNotification('mirror.exit', (params: { code?: unknown }) => {
       const code = Number(params?.code)
-      finish(Number.isInteger(code) ? code : 0, `pine: ${agent} exited`)
+      finish(Number.isInteger(code) ? code : 0, `ostia: ${agent} exited`)
     })
-    socket.on('close', () => finish(1, 'pine: the connection to Pine closed'))
-    socket.on('error', () => finish(1, 'pine: the connection to Pine failed'))
+    socket.on('close', () => finish(1, 'ostia: the connection to Ostia closed'))
+    socket.on('error', () => finish(1, 'ostia: the connection to Ostia failed'))
     conn.listen()
 
     io.stdin.setRawMode(true)
@@ -161,7 +162,7 @@ function mirror(socket: Socket, agent: string, args: string[], io: PortalIo): Pr
         early.length = 0
       })
       .catch((err: unknown) => {
-        finish(1, `pine: ${err instanceof Error ? err.message : String(err)}`)
+        finish(1, `ostia: ${err instanceof Error ? err.message : String(err)}`)
       })
   })
 }

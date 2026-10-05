@@ -14,7 +14,7 @@
     "initDoneNoKey": "Trellis is set up in {dir}",
     "reviewTitle": "Trellis: ready for your review",
     "blockedTitle": "Trellis: a card is blocked",
-    "cardUsage": "Give a card id, for example: pine trellis card SHOP-12",
+    "cardUsage": "Give a card id, for example: ostia trellis card SHOP-12",
     "invalidRef": "\"{raw}\" is not a card id like SHOP-12",
     "cardOpened": "Opened {ref}",
     "noProject": "no trellis project",

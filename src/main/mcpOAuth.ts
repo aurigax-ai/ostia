@@ -10,6 +10,7 @@ import {
   createMCPClient,
 } from '@ai-sdk/mcp'
 import { escape as escapeHtml } from 'es-toolkit'
+import { readEnv } from '../shared/appEnv'
 import type {
   McpAuthState,
   McpServerSettings,
@@ -21,7 +22,7 @@ import type { McpOAuthStore } from './mcpOAuthStore'
 
 export const MCP_OAUTH_TIMEOUT_MS = 5 * 60_000
 export const MCP_OAUTH_CONNECT_TIMEOUT_MS = 15_000
-export const MCP_OAUTH_BROWSER_ENV = 'PINE_MCP_OAUTH_BROWSER'
+export const MCP_OAUTH_BROWSER_ENV = 'MCP_OAUTH_BROWSER'
 export const MCP_OAUTH_CALLBACK_PATH = '/callback'
 const DETAIL_MAX = 240
 
@@ -31,7 +32,7 @@ export function mcpOAuthBrowser(
   isPackaged: boolean,
   env: Record<string, string | undefined>,
 ): McpOAuthBrowser {
-  return !isPackaged && env[MCP_OAUTH_BROWSER_ENV] === 'fetch' ? 'fetch' : 'system'
+  return !isPackaged && readEnv(MCP_OAUTH_BROWSER_ENV, env) === 'fetch' ? 'fetch' : 'system'
 }
 
 export class SignInFailure extends Error {

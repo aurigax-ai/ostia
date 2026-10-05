@@ -59,14 +59,14 @@ describe('parseAskArgs', () => {
   })
 
   it('refuses a missing question, multi without choices, a bad timeout and an unknown flag', () => {
-    expect(() => parseAskArgs([])).toThrow(/usage: pine ask/)
+    expect(() => parseAskArgs([])).toThrow(/usage: ostia ask/)
     expect(() => parseAskArgs(['q', '--multi'])).toThrow(/--multi needs at least one --choice/)
     expect(() => parseAskArgs(['q', '--timeout', 'soon'])).toThrow(/--timeout expects seconds/)
     expect(() => parseAskArgs(['q', '--timeout', '0'])).toThrow(/--timeout expects seconds/)
     expect(() => parseAskArgs(['q', '--choice'])).toThrow(/--choice needs a value/)
-    expect(() => parseAskArgs(['q', '--force'])).toThrow(/unknown flag --force\nusage: pine ask/)
+    expect(() => parseAskArgs(['q', '--force'])).toThrow(/unknown flag --force\nusage: ostia ask/)
     expect(() => parseAskArgs(['q', '--context'])).toThrow(
-      /--context needs a value\nusage: pine ask/,
+      /--context needs a value\nusage: ostia ask/,
     )
   })
 })
@@ -121,7 +121,7 @@ describe('askOutput', () => {
     ).toEqual({
       code: 1,
       stdout: '',
-      stderr: 'pine ask: rate-limited (at most 6 questions a minute)',
+      stderr: 'ostia ask: rate-limited (at most 6 questions a minute)',
     })
   })
 })

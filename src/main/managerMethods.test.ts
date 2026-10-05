@@ -221,7 +221,7 @@ describe('manager docs', () => {
     const forWorker = await worker.sendRequest<{ cli: string }>('docs', {})
     const forManager = await mgr.sendRequest<{ cli: string }>('docs', {})
     expect(forWorker.cli).not.toContain('manager')
-    expect(forManager.cli).toContain('pine manager spawn')
+    expect(forManager.cli).toContain('ostia manager spawn')
   })
 })
 

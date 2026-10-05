@@ -6,6 +6,7 @@
   "type": "commonjs",
   "main": "./out/main/index.js",
   "bin": {
+    "ostia": "./out/cli/index.js",
     "pine": "./out/cli/index.js"
   },
   "author": "",

@@ -116,19 +116,19 @@ trap '__pine_preexec' DEBUG
 `
 
 const ZSH_RECLAIM =
-  'if [ "$ZDOTDIR" != "$PINE_SSH_DIR" ]; then PINE_ZDOTDIR_ORIG="$ZDOTDIR"; ZDOTDIR="$PINE_SSH_DIR"; fi'
+  'if [ "$ZDOTDIR" != "$OSTIA_DIR" ]; then OSTIA_ZDOT="$ZDOTDIR"; ZDOTDIR="$OSTIA_DIR"; fi'
 
 const ZSH_FILES: Record<string, string> = {
-  '.zshenv': `[ -f "$PINE_ZDOTDIR_ORIG/.zshenv" ] && source "$PINE_ZDOTDIR_ORIG/.zshenv"
+  '.zshenv': `[ -f "$OSTIA_ZDOT/.zshenv" ] && source "$OSTIA_ZDOT/.zshenv"
 ${ZSH_RECLAIM}
 `,
-  '.zprofile': `[ -f "$PINE_ZDOTDIR_ORIG/.zprofile" ] && source "$PINE_ZDOTDIR_ORIG/.zprofile"
+  '.zprofile': `[ -f "$OSTIA_ZDOT/.zprofile" ] && source "$OSTIA_ZDOT/.zprofile"
 ${ZSH_RECLAIM}
 `,
-  '.zshrc': `__pine_init=$(<"$PINE_SSH_DIR/init.zsh")
-rm -rf -- "$PINE_SSH_DIR"
-ZDOTDIR=$PINE_ZDOTDIR_ORIG
-unset PINE_SSH_DIR PINE_ZDOTDIR_ORIG
+  '.zshrc': `__pine_init=$(<"$OSTIA_DIR/init.zsh")
+rm -rf -- "$OSTIA_DIR"
+ZDOTDIR=$OSTIA_ZDOT
+unset OSTIA_DIR OSTIA_ZDOT
 [ -f "$ZDOTDIR/.zshrc" ] && source "$ZDOTDIR/.zshrc"
 eval "$__pine_init"
 unset __pine_init
@@ -137,9 +137,9 @@ unset __pine_init
 }
 
 const BASH_FILES: Record<string, string> = {
-  bashrc: `__pine_init=$(<"$PINE_SSH_DIR/init.bash")
-rm -rf -- "$PINE_SSH_DIR"
-unset PINE_SSH_DIR
+  bashrc: `__pine_init=$(<"$OSTIA_DIR/init.bash")
+rm -rf -- "$OSTIA_DIR"
+unset OSTIA_DIR
 [ -r /etc/profile ] && . /etc/profile
 if [ -r "$HOME/.bash_profile" ]; then . "$HOME/.bash_profile"
 elif [ -r "$HOME/.bash_login" ]; then . "$HOME/.bash_login"
@@ -151,7 +151,7 @@ unset __pine_init
   'init.bash': BASH_INIT,
 }
 
-const HEREDOC_END = 'PINE_EOF'
+const HEREDOC_END = 'OSTIA_EOF'
 
 function writeFiles(files: Record<string, string>): string {
   return Object.entries(files)
@@ -161,12 +161,12 @@ function writeFiles(files: Record<string, string>): string {
 
 export const REMOTE_BOOTSTRAP = `__pine_ssh() {
 d=$(mktemp -d "\${TMPDIR:-/tmp}/pine-ssh.XXXXXX" 2>/dev/null) || return 0
-PINE_SSH_DIR=$d
+OSTIA_DIR=$d
 case "\${SHELL##*/}" in
 zsh)
-${writeFiles(ZSH_FILES)}{ PINE_ZDOTDIR_ORIG=\${ZDOTDIR:-$HOME}; ZDOTDIR=$d; export PINE_SSH_DIR PINE_ZDOTDIR_ORIG ZDOTDIR; exec "$SHELL" -l -i; } ;;
+${writeFiles(ZSH_FILES)}{ OSTIA_ZDOT=\${ZDOTDIR:-$HOME}; ZDOTDIR=$d; export OSTIA_DIR OSTIA_ZDOT ZDOTDIR; exec "$SHELL" -l -i; } ;;
 bash)
-${writeFiles(BASH_FILES)}{ export PINE_SSH_DIR; exec "$SHELL" --rcfile "$d/bashrc" -i; } ;;
+${writeFiles(BASH_FILES)}{ export OSTIA_DIR; exec "$SHELL" --rcfile "$d/bashrc" -i; } ;;
 esac
 rm -rf -- "$d"
 }

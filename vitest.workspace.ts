@@ -7,7 +7,7 @@ export default defineWorkspace([
       name: 'node',
       environment: 'node',
       globalSetup: ['./test/buildOnce.ts'],
-      setupFiles: ['./test/privateTmp.ts'],
+      setupFiles: ['./test/privateTmp.ts', './test/appEnv.ts'],
       include: [
         'src/main/**/*.test.ts',
         'src/shared/**/*.test.ts',
