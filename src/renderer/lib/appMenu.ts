@@ -122,7 +122,7 @@ export function runAppMenuItem(command: string): void {
 }
 
 export function startAppMenu(): () => void {
-  const api = window.pine?.appMenu
+  const api = window.ostia?.appMenu
   if (!api) return () => {}
   let scheduled = false
   const publish = (): void => {

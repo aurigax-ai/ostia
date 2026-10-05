@@ -2091,7 +2091,7 @@ function AboutSection(): JSX.Element {
         variant="ghost"
         size="sm"
         className="text-fg-muted"
-        onClick={() => void window.pine.diagnostics.openLogFolder()}
+        onClick={() => void window.ostia.diagnostics.openLogFolder()}
       >
         <FolderOpenIcon data-icon="inline-start" aria-hidden />
         {d.crash.openLogs}
