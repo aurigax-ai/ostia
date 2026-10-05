@@ -1,0 +1,50 @@
+name: Packaging
+
+on:
+  pull_request:
+    paths:
+      - electron-builder.yml
+      - packaging/**
+      - .github/workflows/packaging.yml
+      - .github/workflows/publish-*.yml
+      - .github/workflows/release.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  NODE_OPTIONS: --max-old-space-size=5120
+
+concurrency:
+  group: packaging-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  apt:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+      - run: pnpm build
+      - run: pnpm exec electron-builder --linux deb --publish never
+      - name: Fake a newer version of the same package to test the upgrade
+        run: |
+          mkdir -p repo
+          deb=$(ls dist/ostia_*_amd64.deb)
+          version=$(dpkg-deb -f "$deb" Version)
+          dpkg-deb -f "$deb" Package | grep -qx ostia
+          cp "$deb" repo/
+          dpkg-deb -R "$deb" next
+          sed -i "s/^Version: .*/Version: ${version}+next/" next/DEBIAN/control
+          dpkg-deb --root-owner-group -b next "repo/ostia_${version}+next_amd64.deb"
+          ls -l repo
+      - name: Sign the repository with a throwaway key
+        run: |
+          command -v apt-ftparchive || sudo apt-get install -y apt-utils
+          gpg --batch --passphrase '' --quick-gen-key 'Ostia CI throwaway <ci@invalid>' ed25519 sign 1d
+          fpr=$(gpg --batch --with-colons --list-secret-keys | awk -F: '/^fpr:/ {print $10; exit}')
+          gpg --batch --export "$fpr" > repo/ostia.gpg
+          APT_GPG_FINGERPRINT=$fpr packaging/apt/build-repo.sh repo
+      - name: Install and upgrade on Debian and Ubuntu
+        run: packaging/apt/test-repo.sh repo
