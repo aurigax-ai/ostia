@@ -25,10 +25,17 @@ export interface SearchNameHit {
   positions: number[]
 }
 
+export interface SearchPdf {
+  path: string
+  size: number
+  mtimeMs: number
+}
+
 export interface SearchResults {
   root: string
   names: SearchNameHit[]
   files: FileMatches[]
+  pdfs: SearchPdf[]
   matches: number
   truncated: boolean
 }
