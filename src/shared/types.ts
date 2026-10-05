@@ -176,6 +176,7 @@ export interface PtyAttachResult {
   cols?: number
   rows?: number
   kept?: boolean
+  reattached?: boolean
 }
 
 export interface SystemApi {

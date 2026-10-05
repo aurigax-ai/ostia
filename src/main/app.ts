@@ -1984,6 +1984,7 @@ function registerPtyIpc(): void {
       shell: shellName(meta.shell) || undefined,
       sandboxed: false,
       kept: true,
+      reattached: true,
     }
   }
 

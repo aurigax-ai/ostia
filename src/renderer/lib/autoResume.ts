@@ -43,7 +43,14 @@ export function startAutoResume(): () => void {
   const sweep = (): void => {
     const enabled = useSettingsStore.getState().agents.autoResume
     const running = useBlocksStore.getState().running
-    for (const { workspaceId, pane } of pendingPanes()) {
+    const panes = pendingPanes()
+    const waiting = new Set(panes.map(({ pane }) => pane.id))
+    for (const [paneId, cancel] of [...scheduled]) {
+      if (waiting.has(paneId)) continue
+      cancel()
+      scheduled.delete(paneId)
+    }
+    for (const { workspaceId, pane } of panes) {
       const resume = pane.resume
       if (!resume) continue
       if (!enabled || running[pane.id] !== undefined || pane.kind !== 'terminal') {
@@ -70,4 +77,8 @@ export function startAutoResume(): () => void {
     for (const cancel of scheduled.values()) cancel()
     scheduled.clear()
   }
+}
+
+export function keptShellReattached(workspaceId: string, paneId: string): void {
+  clear(workspaceId, paneId)
 }
