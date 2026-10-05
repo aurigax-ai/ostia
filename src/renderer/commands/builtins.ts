@@ -74,6 +74,7 @@ interface PaneListEntry {
 interface WorkspaceListEntry {
   workspaceId: string
   name: string
+  customName?: string
   kind: WorkspaceKind
   workDir: string
   state: WorkspaceState
@@ -500,6 +501,28 @@ export function registerBuiltinCommands(): void {
     },
   })
 
+  registerCore<{ name?: string } | undefined>({
+    id: 'workspace.rename',
+    category: 'workspace',
+    hidden: true,
+    capabilities: ['drive-self'],
+    run: (args, ctx) => {
+      if (!ctx.activeWorkspaceId) throw new Error('no target workspace')
+      useWorkspacesStore.getState().rename(ctx.activeWorkspaceId, args?.name ?? '')
+    },
+  })
+
+  registerCore<{ title?: string } | undefined>({
+    id: 'pane.rename',
+    category: 'pane',
+    hidden: true,
+    capabilities: ['drive-self'],
+    run: (args, ctx) => {
+      if (!ctx.activeWorkspaceId || !ctx.activePaneId) throw new Error('no target pane')
+      useLayoutStore.getState().rename(ctx.activeWorkspaceId, ctx.activePaneId, args?.title ?? '')
+    },
+  })
+
   registerCore<{ name: string }, { groupId: string | null }>({
     id: 'workspace.group',
     category: 'workspace',
@@ -890,6 +913,7 @@ export function registerBuiltinCommands(): void {
         return {
           workspaceId: s.id,
           name: s.name,
+          ...(s.customName ? { customName: s.customName } : {}),
           kind: s.kind,
           workDir: s.workDir,
           state: s.state,

@@ -20,6 +20,7 @@ import {
   paneIds,
   paneInDirection,
   placementOf,
+  renamePane,
   resetIds,
   selectTab,
   setDefaultPaneTitle,
@@ -247,6 +248,38 @@ describe('setPaneCwd', () => {
     const next = setPaneCwd(root, a.id, '/x')
     expect(next).not.toBe(root)
     expect(next.type === 'split' && next.children[1]).toBe(inner)
+  })
+})
+
+describe('renamePane', () => {
+  it('pins the new title so program titles no longer replace it', () => {
+    const pane = { ...createPane('terminal'), defaultTitle: true as const }
+    const root = splitOf('horizontal', createPane(), pane)
+    const renamed = renamePane(root, pane.id, '  W9 控制面補齊 ')
+    expect(findPane(renamed, pane.id)).toMatchObject({
+      title: 'W9 控制面補齊',
+      titlePinned: true,
+    })
+    expect(findPane(renamed, pane.id)).not.toHaveProperty('defaultTitle')
+    const after = setPaneTitle(renamed, pane.id, 'vim README.md')
+    expect(after).toBe(renamed)
+  })
+
+  it('unpins on an empty title and keeps the current one until a program sets another', () => {
+    const pane = createPane('terminal')
+    const root = renamePane(splitOf('horizontal', createPane(), pane), pane.id, 'worker')
+    const cleared = renamePane(root, pane.id, '')
+    expect(findPane(cleared, pane.id)).not.toHaveProperty('titlePinned')
+    expect(findPane(cleared, pane.id)?.title).toBe('worker')
+    expect(findPane(setPaneTitle(cleared, pane.id, 'htop'), pane.id)?.title).toBe('htop')
+  })
+
+  it('returns the identical tree when nothing changes', () => {
+    const pane = createPane('terminal')
+    const root = renamePane(splitOf('horizontal', createPane(), pane), pane.id, 'worker')
+    expect(renamePane(root, pane.id, 'worker')).toBe(root)
+    const plain = splitOf('horizontal', createPane(), createPane())
+    expect(renamePane(plain, 'missing', '')).toBe(plain)
   })
 })
 

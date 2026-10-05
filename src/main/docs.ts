@@ -44,6 +44,9 @@ const CLI_HELP = `ostia — control-socket CLI
   ostia workspace group <name>   move this pane's workspace into the sidebar group <name>
                                  (created if missing)
   ostia workspace ungroup        take this pane's workspace out of its group
+  ostia workspace rename [--workspace <id>] <name…> | --clear  rename your workspace in the
+                                 sidebar (--clear goes back to its default name); another
+                                 workspace asks the human (send-other-pane, all-workspaces)
   ostia resume-token <claude|codex> <id|->
                                  remember this pane's agent session so a restored pane
                                  offers Resume (Ctrl+Shift+R); '-' reads a hook's JSON
@@ -91,6 +94,11 @@ const CLI_HELP = `ostia — control-socket CLI
                                  A tab you opened with ostia process run needs nothing more;
                                  any other pane asks the human (type-other-pane,
                                  read-other-pane, plus all-workspaces outside your workspace)
+  ostia pane rename <pane> <title…>  name that pane's tab; programs (OSC titles) no longer
+                                 change it, and it survives a restart. --clear instead of a
+                                 title hands the tab back to the program. Your own pane
+                                 ($OSTIA_PANE_ID) needs nothing; another pane asks the human
+                                 (send-other-pane, plus all-workspaces outside your workspace)
   ostia vault set <KEY> [--global]  store a secret (value read from stdin, no echo)
   ostia vault get <KEY> [--global]  print a stored secret
   ostia vault ls [--global]        list stored secret keys (never values)

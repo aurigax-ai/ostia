@@ -31,6 +31,7 @@ export interface PaneNode {
   resumePending?: true
   locked?: true
   defaultTitle?: true
+  titlePinned?: true
 }
 
 export interface SplitNode {

@@ -385,6 +385,7 @@ export interface SnapshotPaneNode {
   hibernated?: true
   locked?: true
   defaultTitle?: true
+  titlePinned?: true
 }
 
 export interface SnapshotSplitNode {
