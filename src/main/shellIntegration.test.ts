@@ -12,7 +12,6 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import type { AgentPluginContent } from './agentSkills'
-import { privateTmpDir } from './privateTmp'
 import { type ShellState, parseShellState } from './shellCommands'
 import {
   CLAUDE_PLUGIN_MANIFEST,
@@ -26,12 +25,15 @@ import {
   codexHookTrustHash,
   codexWrapper,
   extensionHookCommand,
+  shellIntegrationDir,
+  shellIntegrationFiles,
   shellIntegrationSpawnOptions,
   writeAgentPlugin,
   writeCodexIntegration,
+  writeShellIntegration,
 } from './shellIntegration'
 
-const INTEGRATION_DIR = privateTmpDir('pine-shell-integration')
+const INTEGRATION_DIR = shellIntegrationDir()
 const ZSH_INIT = join(INTEGRATION_DIR, 'init.zsh')
 const ZSH_ENV = join(INTEGRATION_DIR, '.zshenv')
 const ZSH_RC = join(INTEGRATION_DIR, '.zshrc')
@@ -44,6 +46,36 @@ describe('test isolation', () => {
   it("writes the integration files under this run's private temp folder", () => {
     expect(process.env.TMPDIR).toMatch(process.platform === 'darwin' ? /\/pv-/ : /pine-vitest-/)
     expect(INTEGRATION_DIR.startsWith(`${process.env.TMPDIR}/`)).toBe(true)
+  })
+})
+
+describe('writeShellIntegration', () => {
+  let root: string
+  beforeAll(() => {
+    root = mkdtempSync(join(tmpdir(), 'pine-shells-'))
+  })
+  afterAll(() => rmSync(root, { recursive: true, force: true }))
+
+  function otherBuild(dir: string): Record<string, string> {
+    const files = shellIntegrationFiles(dir)
+    return { ...files, '.zshrc': files['.zshrc'].replaceAll('OSTIA_', 'PINE_') }
+  }
+
+  it("keeps each build's files when another build writes into the same root", () => {
+    const ours = writeShellIntegration(root)
+    const theirs = writeShellIntegration(root, otherBuild)
+    expect(theirs).not.toBe(ours)
+    expect(readFileSync(join(ours, '.zshrc'), 'utf8')).toBe(shellIntegrationFiles(ours)['.zshrc'])
+    expect(readFileSync(join(theirs, '.zshrc'), 'utf8')).toContain('PINE_ZDOTDIR_ORIG')
+  })
+
+  it('reuses the folder of identical files and points them at it', () => {
+    const dir = writeShellIntegration(root)
+    expect(writeShellIntegration(root)).toBe(dir)
+    expect(readFileSync(join(dir, '.zshenv'), 'utf8')).toContain(`ZDOTDIR="${dir}"`)
+    expect(readFileSync(join(dir, 'bashrc'), 'utf8')).toContain(
+      `source "${join(dir, 'init.bash')}"`,
+    )
   })
 })
 
