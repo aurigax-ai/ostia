@@ -46,7 +46,7 @@ record({
   method: '$start',
   cwd: process.cwd(),
   argv: process.argv.slice(2),
-  ostiaEnv: Object.keys(process.env).filter((name) => /^(OSTIA|PINE)_/.test(name)),
+  ostiaEnv: Object.keys(process.env).filter((name) => /^OSTIA_/.test(name)),
   runAsNode: process.env.ELECTRON_RUN_AS_NODE ?? null,
 })
 

@@ -127,7 +127,7 @@ test('a pane types into and reads a tab it opened, and asks the human for any ot
 
     await run(
       win,
-      `OTHER=$(ostia pane.list | grep '"paneId"' | grep -v "$PINE_PANE_ID" | head -1 | cut -d'"' -f4)`,
+      `OTHER=$(ostia pane.list | grep '"paneId"' | grep -v "$OSTIA_PANE_ID" | head -1 | cut -d'"' -f4)`,
     )
     await run(win, 'ostia pane send "$OTHER" intruder --enter || echo SEND-$((1+1))-REFUSED')
     const card = win.getByRole('region', { name: 'Agent permission request' })

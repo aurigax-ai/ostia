@@ -144,7 +144,7 @@ describe('secret injection', () => {
     try {
       const out = await runIn(
         'a',
-        `head -1 "$PINE_SECRETS_DIR/id_real"; cat ${home}/.ssh/id_ed25519 2>&1 | head -1; ssh-add -l`,
+        `head -1 "$OSTIA_SECRETS_DIR/id_real"; cat ${home}/.ssh/id_ed25519 2>&1 | head -1; ssh-add -l`,
         { ...prepared.env, SSH_AUTH_SOCK: agent.socket },
       )
       expect(out).toContain('BEGIN OPENSSH PRIVATE KEY')

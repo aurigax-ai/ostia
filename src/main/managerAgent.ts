@@ -9,12 +9,11 @@ import {
 } from 'node:fs'
 import { basename, join } from 'node:path'
 import type { AgentResume, ResumableAgent } from '../shared/agentResume'
-import { LEGACY_PRODUCT_NAME, PRODUCT_NAME } from '../shared/product'
+import { PRODUCT_NAME } from '../shared/product'
 import managerSkill from './agent/ostia-manager-skill.md?raw'
 import { CLAUDE_PLUGIN_MANIFEST, claudeHookSettings, codexHookArgs } from './shellIntegration'
 
 export const MANAGER_SKILL_NAME = `${PRODUCT_NAME}-manager`
-export const LEGACY_MANAGER_SKILL_NAME = `${LEGACY_PRODUCT_NAME}-manager`
 
 export function managerAgentKind(program: string): ResumableAgent | null {
   const name = basename(program)
@@ -23,7 +22,7 @@ export function managerAgentKind(program: string): ResumableAgent | null {
 
 export function usableSkillFolders(folders: readonly string[]): string[] {
   const usable: string[] = []
-  const names = new Set<string>([MANAGER_SKILL_NAME, LEGACY_MANAGER_SKILL_NAME])
+  const names = new Set<string>([MANAGER_SKILL_NAME])
   for (const folder of folders) {
     const name = basename(folder)
     if (names.has(name)) continue

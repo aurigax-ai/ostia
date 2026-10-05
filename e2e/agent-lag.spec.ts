@@ -35,7 +35,7 @@ test('an agent that redraws its spinner and title every frame does not re-render
   const dataHome = freshDataHome()
   const bin = fakeAgentBin(
     dataHome,
-    `#!/bin/sh\nBUSY_AGENT_FPS=${AGENT_FPS} ELECTRON_RUN_AS_NODE=1 exec "$PINE_NODE" "${BUSY_AGENT}"\n`,
+    `#!/bin/sh\nBUSY_AGENT_FPS=${AGENT_FPS} ELECTRON_RUN_AS_NODE=1 exec "$OSTIA_NODE" "${BUSY_AGENT}"\n`,
   )
   const launch = isolatedLaunch(dataHome)
   const app = await electron.launch({

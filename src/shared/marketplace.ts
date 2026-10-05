@@ -3,11 +3,6 @@ import type { ExtensionCategory } from './extensions'
 
 export const MARKETPLACE_FEATURE = 'marketplace'
 export const MARKETPLACE_MANIFEST_FILE = 'ostia-marketplace.json'
-export const LEGACY_MARKETPLACE_MANIFEST_FILE = 'pine-marketplace.json'
-export const MARKETPLACE_MANIFEST_FILES = [
-  MARKETPLACE_MANIFEST_FILE,
-  LEGACY_MARKETPLACE_MANIFEST_FILE,
-]
 export const MARKETPLACE_URL_MAX = 2000
 export const MARKETPLACE_CODE_PATTERN = /^[a-z2-7]{26}$/
 

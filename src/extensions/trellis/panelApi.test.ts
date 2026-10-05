@@ -117,7 +117,7 @@ describe('trellis panel handlers', () => {
     daemon = null
     service = new TrellisService({
       home: fake.home,
-      consumer: 'pine',
+      consumer: 'ostia',
       translate,
       changeDelayMs: 1,
       host: {
@@ -169,7 +169,7 @@ describe('trellis panel handlers', () => {
   it('answers not-installed instead of throwing when trellis is missing', async () => {
     const missing = new TrellisService({
       home: fake.home,
-      consumer: 'pine',
+      consumer: 'ostia',
       translate,
       bin: join(fake.root, 'no-such-trellis'),
       host: {

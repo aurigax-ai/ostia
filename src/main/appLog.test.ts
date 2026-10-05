@@ -34,7 +34,7 @@ afterEach(() => {
 describe('redactSecrets', () => {
   it('hides key=value secrets, bearer tokens and long opaque strings', () => {
     const text = [
-      'PINE_TOKEN=abc123def456',
+      'OSTIA_TOKEN=abc123def456',
       'Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.payload.sig',
       'url https://x.test/cb?access_token=s3cr3t&page=2',
       'key sk-proj-ABCDEFGHIJKLMNOP',
@@ -102,10 +102,12 @@ describe('createAppLog', () => {
     const file = join(tempDir(), 'logs', 'main.log')
     const log = createAppLog(file)
     log.info('app-start', { version: '0.0.9' })
-    log.error('renderer-error', { message: 'failed with PINE_TOKEN=abcdef123456' })
+    log.error('renderer-error', { message: 'failed with OSTIA_TOKEN=abcdef123456' })
     const text = readFileSync(file, 'utf8')
     expect(text).toMatch(/\[info\]\s+app-start version=0\.0\.9/)
-    expect(text).toMatch(/\[error\]\s+renderer-error message="failed with PINE_TOKEN=\[redacted\]"/)
+    expect(text).toMatch(
+      /\[error\]\s+renderer-error message="failed with OSTIA_TOKEN=\[redacted\]"/,
+    )
     expect(statSync(file).mode & 0o077).toBe(0)
   })
 

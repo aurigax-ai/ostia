@@ -1,0 +1,12 @@
+{
+  "id": "fixture-icons",
+  "name": "Fixture Icons",
+  "version": "1.0.0",
+  "api": "2.0",
+  "description": "A tiny VS Code-format file icon theme for tests.",
+  "contributes": {
+    "iconThemes": [
+      { "id": "fixture-icons", "label": "Fixture Icons", "path": "dist/fixture-icon-theme.json" }
+    ]
+  }
+}

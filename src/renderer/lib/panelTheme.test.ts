@@ -1,4 +1,3 @@
-import { LEGACY_PRODUCT_NAME } from '@shared/product'
 import { describe, expect, it } from 'vitest'
 import { panelFontFaces } from './panelFontFaces'
 import { panelThemeCss } from './panelTheme'
@@ -7,7 +6,7 @@ import { CODE_FONT_FALLBACK, UI_FONT_FALLBACK } from './uiFonts'
 const fonts = { ui: 'Inter', code: 'Mono', size: 13, weight: 400 }
 
 describe('panelThemeCss', () => {
-  it('exposes theme tokens and the human font settings to panels as --ostia-* properties, and again under the old prefix for extensions built before the rename', () => {
+  it('exposes theme tokens and the human font settings to panels as --ostia-* properties', () => {
     const css = panelThemeCss(
       { bg: '#1d2022', 'fg-muted': 'rgba(255, 255, 255, 0.5)' },
       { ui: 'Inter', code: 'Geist Mono', size: 14, weight: 450 },
@@ -15,9 +14,7 @@ describe('panelThemeCss', () => {
       false,
     )
     const vars = `--ostia-color-scheme: dark; --ostia-bg: #1d2022; --ostia-fg-muted: rgba(255, 255, 255, 0.5); --ostia-font-ui: "Inter", ${UI_FONT_FALLBACK}; --ostia-font-code: "Geist Mono", ${CODE_FONT_FALLBACK}; --ostia-font-size: 14px; --ostia-font-weight: 450; --ostia-motion-scale: 1;`
-    expect(css).toBe(
-      `:root { ${vars} ${vars.replaceAll('--ostia-', `--${LEGACY_PRODUCT_NAME}-`)} }`,
-    )
+    expect(css).toBe(`:root { ${vars} }`)
   })
 
   it('tells panels whether the theme is light or dark', () => {

@@ -104,7 +104,7 @@ function ostia(args: string[], cwd = home): Promise<RunResult> {
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, [cliPath, ...args], {
       cwd,
-      env: { ...process.env, PINE_SOCKET: socketPath, PINE_TOKEN: agent.token },
+      env: { ...process.env, OSTIA_SOCKET: socketPath, OSTIA_TOKEN: agent.token },
     })
     liveChildren.add(child)
     let stdout = ''

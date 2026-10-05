@@ -217,8 +217,8 @@ describe('markdownImage', () => {
 
 describe('pick report names', () => {
   it('adds the page’s host and path as a slug, without its query or fragment', () => {
-    expect(urlSlug('https://www.GitHub.com/aurigax-ai/pine/pull/12?token=abc#files')).toBe(
-      'github-com-aurigax-ai-pine-pull-12',
+    expect(urlSlug('https://www.GitHub.com/aurigax-ai/ostia/pull/12?token=abc#files')).toBe(
+      'github-com-aurigax-ai-ostia-pull-12',
     )
     expect(urlSlug('http://localhost:5173/')).toBe('localhost-5173')
     expect(pickReportName(80, 'http://localhost:5173/cart')).toBe(

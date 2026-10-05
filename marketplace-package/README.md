@@ -26,10 +26,10 @@ Pick an extension and press Install. Ostia asks you to approve it before it runs
 
 | Path | What it is |
 |---|---|
-| `src/extensions/<id>/` | An extension's source: `pine.json`, its translations under `locales/`, and when it runs a process `main.ts`, its modules and their tests. One with a panel adds `panel.html`, `panel.css` and `panel.ts`; a language extension that ships its server names the npm packages in `vendor.json` |
-| `extensions/<id>/` | What Ostia installs: `pine.json`, `locales/`, one bundled, unminified `main.js`, the panel's files, and under `server/` the vendored packages copied unchanged from `node_modules`. Built from the source and committed, because Ostia copies files and never runs a build |
+| `src/extensions/<id>/` | An extension's source: `ostia.json`, its translations under `locales/`, and when it runs a process `main.ts`, its modules and their tests. One with a panel adds `panel.html`, `panel.css` and `panel.ts`; a language extension that ships its server names the npm packages in `vendor.json` |
+| `extensions/<id>/` | What Ostia installs: `ostia.json`, `locales/`, one bundled, unminified `main.js`, the panel's files, and under `server/` the vendored packages copied unchanged from `node_modules`. Built from the source and committed, because Ostia copies files and never runs a build |
 | `build.mjs`, `build-extension.mjs` | The build: `build-extension.mjs` builds one extension folder and is the same file Ostia builds its own extensions with |
-| `pine-marketplace.json` | The folders Ostia offers. `extensions` are shown in Settings; `unlisted` ones are installed only by typing their install code. The manifests keep their old names, `pine-marketplace.json` and `pine.json`, because versions before the rename read only those; Ostia reads them and the newer `ostia-marketplace.json` and `ostia.json` |
+| `ostia-marketplace.json` | The folders Ostia offers. `extensions` are shown in Settings; `unlisted` ones are installed only by typing their install code. The manifests keep their old names, `ostia-marketplace.json` and `ostia.json`, because versions before the rename read only those; Ostia reads them and the newer `ostia-marketplace.json` and `ostia.json` |
 | `test/fixtures/tools/` | Stand-ins for the command-line tools some extensions wrap, with captured output, used by the tests |
 
 ## Build

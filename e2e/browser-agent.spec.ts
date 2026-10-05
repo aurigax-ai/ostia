@@ -67,11 +67,11 @@ test('an agent drives the in-app browser with the agent-browser command contract
 
     const envFile = join(dataHome, 'pane.env')
     await win.locator('.xterm').first().click()
-    await win.keyboard.type(`env | grep '^PINE_' > ${envFile}`)
+    await win.keyboard.type(`env | grep '^OSTIA_' > ${envFile}`)
     await win.keyboard.press('Enter')
     await expect
       .poll(() => existsSync(envFile) && readFileSync(envFile, 'utf8'))
-      .toContain('PINE_TOKEN=')
+      .toContain('OSTIA_TOKEN=')
     const paneEnv = readPaneEnv(envFile)
 
     const ostia = (...args: string[]): Promise<{ code: number; out: string; err: string }> =>
@@ -79,8 +79,8 @@ test('an agent drives the in-app browser with the agent-browser command contract
         const child = spawn(process.execPath, [CLI, 'browse', ...args], {
           env: {
             ...process.env,
-            PINE_SOCKET: paneEnv.PINE_SOCKET,
-            PINE_TOKEN: paneEnv.PINE_TOKEN,
+            OSTIA_SOCKET: paneEnv.OSTIA_SOCKET,
+            OSTIA_TOKEN: paneEnv.OSTIA_TOKEN,
           },
           stdio: ['ignore', 'pipe', 'pipe'],
         })

@@ -36,7 +36,7 @@ test('a browser tab shows why a page failed, then loads a page as plain Chrome a
     await expect(error).toHaveCount(0, { timeout: 15_000 })
     await expect(win.getByRole('tab', { name: /Ostia test page/ })).toBeVisible({ timeout: 15_000 })
     expect(agents[0]).toMatch(/Chrome\/\d+/)
-    expect(agents[0]).not.toMatch(/Electron|pine/i)
+    expect(agents[0]).not.toMatch(/Electron|ostia/i)
   } finally {
     await app.close()
     server.close()

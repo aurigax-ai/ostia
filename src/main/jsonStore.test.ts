@@ -2,7 +2,6 @@ import {
   existsSync,
   lstatSync,
   mkdirSync,
-  mkdtempSync,
   readFileSync,
   rmSync,
   statSync,
@@ -24,17 +23,6 @@ describe('jsonStore', () => {
       expect(storePath('notes', 'project', '/work/dir')).toBe(
         join('/work/dir', '.ostia', 'notes.json'),
       )
-    })
-
-    it('project scope keeps using a file an older version left in <workDir>/.pine', () => {
-      const work = mkdtempSync(join(tmpdir(), 'ostia-project-'))
-      mkdirSync(join(work, '.pine'))
-      writeFileSync(join(work, '.pine', 'vault.json'), '{}')
-      expect(storePath('vault', 'project', work)).toBe(join(work, '.pine', 'vault.json'))
-      expect(storePath('notes', 'project', work)).toBe(join(work, '.ostia', 'notes.json'))
-      mkdirSync(join(work, '.ostia'))
-      writeFileSync(join(work, '.ostia', 'vault.json'), '{}')
-      expect(storePath('vault', 'project', work)).toBe(join(work, '.ostia', 'vault.json'))
     })
 
     it('project scope with no workDir falls back to process.cwd()', () => {

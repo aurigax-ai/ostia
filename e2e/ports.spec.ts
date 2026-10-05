@@ -55,7 +55,7 @@ test('the ports extension puts ports and ssh chips on the pane, and a port chip 
     const term = win.locator('.xterm').first()
     await term.click()
     await win.keyboard.type(
-      `ELECTRON_RUN_AS_NODE=1 "$PINE_NODE" ${join(dataHome, 'server.js')} ${port}`,
+      `ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" ${join(dataHome, 'server.js')} ${port}`,
     )
     await win.keyboard.press('Enter')
 

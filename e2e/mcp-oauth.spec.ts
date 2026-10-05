@@ -43,7 +43,7 @@ test.describe('OAuth sign-in for a URL MCP server', () => {
     const app = await electron.launch({
       ...options,
       args: ['--password-store=basic', ...options.args],
-      env: { ...options.env, PINE_MCP_OAUTH_BROWSER: 'fetch' },
+      env: { ...options.env, OSTIA_MCP_OAUTH_BROWSER: 'fetch' },
     })
     try {
       await app.evaluate(({ safeStorage }) => safeStorage.setUsePlainTextEncryption(true))

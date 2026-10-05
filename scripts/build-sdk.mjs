@@ -65,10 +65,8 @@ const schemas = jsonSchemas()
 rmSync(schemaModule)
 const writeJson = (file, value) =>
   writeFileSync(join(out, file), `${JSON.stringify(value, null, 2)}\n`)
-for (const name of ['ostia', 'pine']) {
-  writeJson(`schemas/${name}.schema.json`, schemas.extension)
-  writeJson(`schemas/${name}-marketplace.schema.json`, schemas.marketplace)
-}
+writeJson('schemas/ostia.schema.json', schemas.extension)
+writeJson('schemas/ostia-marketplace.schema.json', schemas.marketplace)
 
 writeJson('api.json', { version: apiVersion(), digest: contractDigest(out) })
 
@@ -93,7 +91,6 @@ writeJson('package.json', {
     'Write extensions for Ostia: the client library, its types, manifest schemas and a project generator',
   keywords: ['ostia', 'terminal', 'extension', 'sdk', 'coding-agents'],
   ostiaExtensionApi: apiVersion(),
-  pineExtensionApi: apiVersion(),
   license: app.license,
   homepage: `${repository}/tree/main/sdk-package#readme`,
   bugs: `${repository}/issues`,
@@ -101,7 +98,7 @@ writeJson('package.json', {
   publishConfig: { access: 'public' },
   type: 'module',
   engines: { node: '>=20' },
-  bin: { 'ostia-extension': 'dist/cli.cjs', 'pine-extension': 'dist/cli.cjs' },
+  bin: { 'ostia-extension': 'dist/cli.cjs' },
   types: types('index'),
   exports: {
     '.': { types: types('index'), default: './dist/index.js' },
@@ -111,8 +108,6 @@ writeJson('package.json', {
     './panel.css': './panel.css',
     './schemas/ostia.schema.json': './schemas/ostia.schema.json',
     './schemas/ostia-marketplace.schema.json': './schemas/ostia-marketplace.schema.json',
-    './schemas/pine.schema.json': './schemas/pine.schema.json',
-    './schemas/pine-marketplace.schema.json': './schemas/pine-marketplace.schema.json',
     './api.json': './api.json',
     './package.json': './package.json',
   },

@@ -4,7 +4,6 @@ import {
   LONG_COMMAND_MAX_SECONDS,
   LONG_COMMAND_MIN_SECONDS,
 } from '../../shared/notificationSettings'
-import { LEGACY_PRODUCT_NAME } from '../../shared/product'
 import { PRODUCT_DISPLAY_NAME } from '../../shared/productDisplay'
 import {
   CORE_CHIP_IDS,
@@ -92,7 +91,7 @@ export const SETTINGS_JSON_SCHEMA = {
           type: 'string',
           description:
             'Theme id (built-in: adeberry, one-dark-vivid, instrument-night, dracula, oxocarbon, ostia-light; ' +
-            'or an extension theme; "pine-light" is the old name of "ostia-light"). Default: adeberry.',
+            'or an extension theme). Default: adeberry.',
         },
         followSystem: {
           type: 'boolean',
@@ -291,8 +290,7 @@ export const SETTINGS_JSON_SCHEMA = {
           type: 'string',
           description:
             'File icon theme: "ostia" (built-in) or the id of a VS Code icon theme an enabled ' +
-            'extension contributes (contributes.iconThemes). "pine", the old name of "ostia", ' +
-            'still works. Default: ostia.',
+            'extension contributes (contributes.iconThemes). Default: ostia.',
         },
       },
     },
@@ -375,12 +373,12 @@ export const SETTINGS_JSON_SCHEMA = {
           properties: {
             style: {
               type: 'string',
-              enum: [...PROMPT_STYLES, LEGACY_PRODUCT_NAME],
+              enum: [...PROMPT_STYLES],
               description:
                 '"shell" keeps your shell’s own prompt (PS1, prompt frameworks). "ostia" shows ' +
                 'context chips above the input editor, and new shells get a plain "cwd" prompt ' +
                 'so scrollback stays readable. Terminals already open keep their prompt until ' +
-                'a new shell starts. "pine" is the old name of "ostia" and still works. Default: shell.',
+                'a new shell starts. Default: shell.',
             },
             chips: {
               type: 'array',

@@ -112,11 +112,11 @@ describe('extension agent skills and hooks reach a fake agent (real CLI, real so
     return {
       PATH: `${bin}:${dirname(process.execPath)}:/usr/bin:/bin`,
       HOME: dir,
-      PINE_CLI: cliPath,
-      PINE_NODE: process.execPath,
-      PINE_SOCKET: socketPath,
-      PINE_TOKEN: identity.token,
-      PINE_AGENT_DIR: agentDir,
+      OSTIA_CLI: cliPath,
+      OSTIA_NODE: process.execPath,
+      OSTIA_SOCKET: socketPath,
+      OSTIA_TOKEN: identity.token,
+      OSTIA_AGENT_DIR: agentDir,
     }
   }
 
@@ -245,7 +245,7 @@ describe('extension agent skills and hooks reach a fake agent (real CLI, real so
           'claude',
         ),
       ],
-      { ...paneEnv(), PINE_SOCKET: join(dir, 'missing.sock') },
+      { ...paneEnv(), OSTIA_SOCKET: join(dir, 'missing.sock') },
       '{}',
     )
     expect(res.code).toBe(0)

@@ -4,7 +4,7 @@ import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { envName, legacyEnvName } from '../shared/appEnv'
+import { envName } from '../shared/appEnv'
 import type { ReleaseInfo } from '../shared/releases'
 
 const handlers = new Map<string, (...args: unknown[]) => unknown>()
@@ -137,9 +137,10 @@ describe('releaseEndpoint', () => {
       baseUrl: 'http://127.0.0.1:9',
       automatic: true,
     })
-    expect(
-      releaseEndpoint(false, { [legacyEnvName(RELEASE_API_URL_ENV)]: 'http://127.0.0.1:8' }),
-    ).toEqual({ baseUrl: 'http://127.0.0.1:8', automatic: true })
+    expect(releaseEndpoint(false, { PINE_RELEASE_API_URL: 'http://127.0.0.1:8' })).toEqual({
+      baseUrl: 'https://api.github.com',
+      automatic: false,
+    })
   })
 })
 

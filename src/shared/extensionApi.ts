@@ -1,6 +1,6 @@
 import { PRODUCT_NAME } from './product'
 
-export const EXTENSION_API_VERSION = '1.17'
+export const EXTENSION_API_VERSION = '2.0'
 export const EXTENSION_API_PATTERN = /^(0|[1-9]\d{0,3})\.(0|[1-9]\d{0,3})$/
 export const EXTENSION_API_ENV = 'EXTENSION_API'
 

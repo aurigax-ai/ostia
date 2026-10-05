@@ -23,7 +23,7 @@ async function openAppearance(win: Page) {
 
 test('follow-system switches the theme live with the OS color scheme', async () => {
   const { app, win } = await launch({
-    appearance: { followSystem: true, lightTheme: 'pine-light', darkTheme: 'dracula' },
+    appearance: { followSystem: true, lightTheme: 'ostia-light', darkTheme: 'dracula' },
   })
   try {
     await app.evaluate(({ nativeTheme }) => {

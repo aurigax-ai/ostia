@@ -83,7 +83,7 @@ describe.skipIf(process.platform !== 'linux')(
       dir = realpathSync(mkdtempSync(join(tmpdir(), 'ostia-ports-ext-')))
       const extDir = join(dir, 'extensions', 'ports')
       mkdirSync(extDir, { recursive: true })
-      copyFileSync(join(repoRoot, 'src/extensions/ports/pine.json'), join(extDir, 'pine.json'))
+      copyFileSync(join(repoRoot, 'src/extensions/ports/ostia.json'), join(extDir, 'ostia.json'))
       await build({
         entryPoints: [join(repoRoot, 'src/extensions/ports/main.ts')],
         outfile: join(extDir, 'main.js'),

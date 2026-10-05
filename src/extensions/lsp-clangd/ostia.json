@@ -1,0 +1,53 @@
+{
+  "id": "lsp-clangd",
+  "name": "C and C++ (clangd)",
+  "version": "1.0.0",
+  "locales": ["zh-Hant"],
+  "api": "2.0",
+  "description": "C and C++ diagnostics, completion, hover and navigation in the editor. Uses the clangd on your PATH; without one, {product} downloads the pinned release from GitHub, checks it and keeps it in its own data folder.",
+  "category": "languages",
+  "capabilities": ["language-server"],
+  "contributes": {
+    "languageServers": [
+      {
+        "id": "clangd",
+        "name": "clangd",
+        "languages": ["c", "cpp"],
+        "run": {
+          "download": {
+            "program": "clangd",
+            "version": "23.1.0",
+            "assets": {
+              "linux-x64": {
+                "url": "https://github.com/clangd/clangd/releases/download/23.1.0/clangd-linux-23.1.0.zip",
+                "sha256": "e53b1a96196095faedb7642cf64964f7fb9ad4a0c1f00dd2c172a3d9dcbafdfd",
+                "archive": "zip",
+                "executable": "clangd_23.1.0/bin/clangd"
+              },
+              "darwin-x64": {
+                "url": "https://github.com/clangd/clangd/releases/download/23.1.0/clangd-mac-23.1.0.zip",
+                "sha256": "1082e6638223b785ca2daf0939f13afcd0bb95c84ee9a4bbaff4745365159253",
+                "archive": "zip",
+                "executable": "clangd_23.1.0/bin/clangd"
+              },
+              "darwin-arm64": {
+                "url": "https://github.com/clangd/clangd/releases/download/23.1.0/clangd-mac-23.1.0.zip",
+                "sha256": "1082e6638223b785ca2daf0939f13afcd0bb95c84ee9a4bbaff4745365159253",
+                "archive": "zip",
+                "executable": "clangd_23.1.0/bin/clangd"
+              },
+              "win32-x64": {
+                "url": "https://github.com/clangd/clangd/releases/download/23.1.0/clangd-windows-23.1.0.zip",
+                "sha256": "23412a240756a162e7b98a282f36aa2a23a88db5ce16a0cbc4fef7253768c810",
+                "archive": "zip",
+                "executable": "clangd_23.1.0/bin/clangd.exe"
+              }
+            }
+          },
+          "args": []
+        },
+        "rootMarkers": ["compile_commands.json", "compile_flags.txt", ".clangd"]
+      }
+    ]
+  }
+}

@@ -11,7 +11,7 @@ const fixture = join(__dirname, '..', 'test', 'fixtures', 'extensions-e2e', 'hel
 function installUserExtension(configHome: string): void {
   const dir = join(configHome, PRODUCT_NAME, 'extensions', 'hello')
   mkdirSync(dir, { recursive: true })
-  copyFileSync(join(fixture, 'pine.json'), join(dir, 'pine.json'))
+  copyFileSync(join(fixture, 'ostia.json'), join(dir, 'ostia.json'))
   copyFileSync(join(fixture, 'panel.html'), join(dir, 'panel.html'))
   buildSync({
     entryPoints: [join(fixture, 'main.js')],

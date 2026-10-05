@@ -27,7 +27,7 @@ const repoRoot = resolve(__dirname, '../..')
 
 function manifestOf(raw: Record<string, unknown>): ExtensionManifest {
   const res = parseManifest(
-    { id: 'demo', name: 'Demo', version: '1.0.0', api: '1.0', ...raw },
+    { id: 'demo', name: 'Demo', version: '1.0.0', api: '2.0', ...raw },
     '/x',
   )
   if (!res.ok) throw new Error(res.error)
@@ -176,8 +176,8 @@ describe('reading catalogs from an extension folder', () => {
   }
 
   beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), 'pine-ext-locales-'))
-    outside = mkdtempSync(join(tmpdir(), 'pine-ext-outside-'))
+    dir = mkdtempSync(join(tmpdir(), 'ostia-ext-locales-'))
+    outside = mkdtempSync(join(tmpdir(), 'ostia-ext-outside-'))
   })
 
   afterEach(() => {
@@ -372,7 +372,7 @@ describe('the catalogs shipped in this repository', () => {
     for (const id of readdirSync(extensions).filter(
       (d) => d !== 'sdk' && !d.startsWith('langpack'),
     )) {
-      const manifest = JSON.parse(readFileSync(join(extensions, id, 'pine.json'), 'utf8'))
+      const manifest = JSON.parse(readFileSync(join(extensions, id, 'ostia.json'), 'utf8'))
       expect(manifest.locales, id).toEqual(['zh-Hant'])
     }
   })
