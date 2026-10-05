@@ -254,7 +254,11 @@ export function TerminalView({
       }
       const chord = matchChord(e, isMac)
       if (!chord) {
-        const lineKey = macLineEditKey(e, isMac)
+        const lineKey = macLineEditKey(
+          e,
+          isMac,
+          useSettingsStore.getState().terminal.macOptionIsMeta,
+        )
         if (lineKey && !inputEditorFor(paneId)) {
           if (e.type === 'keydown') {
             e.preventDefault()

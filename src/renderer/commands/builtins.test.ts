@@ -1,7 +1,9 @@
+import { Terminal } from '@xterm/xterm'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { createPane, splitOf, tabsOf } from '../layout/tree'
 import * as blockActions from '../lib/blockActions'
 import * as closeConfirm from '../lib/closeConfirm'
+import { registerTerminal } from '../lib/terminalHandles'
 import { useAttentionStore } from '../stores/attentionStore'
 import { useBlocksStore } from '../stores/blocksStore'
 import { useCloseConfirmStore } from '../stores/closeConfirmStore'
@@ -216,6 +218,36 @@ describe('builtins route to store actions', () => {
     expect(useSettingsStore.getState().behavior.inputMode).toBe('editor')
     await commands.exec('terminal.toggleInputEditor')
     expect(useSettingsStore.getState().behavior.inputMode).toBe('terminal')
+  })
+
+  it('terminal.clear clears the caller’s terminal, redraws the prompt only when idle, and needs shell', async () => {
+    const described = commands.describe().find((c) => c.id === 'terminal.clear')
+    expect(described?.capabilities).toEqual(['shell'])
+    const term = new Terminal({ cols: 20, rows: 4 })
+    const unregister = registerTerminal('pT', term)
+    const sent: string[] = []
+    term.onData((d) => sent.push(d))
+    try {
+      await new Promise<void>((r) => term.write('one\r\n$ ', r))
+      expect(await commands.execWith(ctx('s1', 'pT'), 'terminal.clear')).toEqual({
+        ok: true,
+        result: { cleared: true },
+      })
+      expect(term.buffer.active.baseY).toBe(2)
+      expect(sent).toEqual(['\x0c'])
+
+      useBlocksStore.setState({ running: { pT: 'b1' } })
+      await commands.execWith(ctx('s1', 'pT'), 'terminal.clear')
+      expect(sent).toEqual(['\x0c'])
+    } finally {
+      unregister()
+      term.dispose()
+      useBlocksStore.setState({ running: {} })
+    }
+    expect(await commands.execWith(ctx('s1', 'pT'), 'terminal.clear')).toEqual({
+      ok: true,
+      result: { cleared: false },
+    })
   })
 
   it('settings.set reports a rejected path as a failed command', async () => {
