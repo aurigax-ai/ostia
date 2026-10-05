@@ -24,18 +24,24 @@ function unresponsive(win: BrowserWindow): boolean {
   return win.isDestroyed() || win.webContents.isLoading() || win.webContents.isCrashed()
 }
 
-function ask(
+export const RUNNING_ANSWER_MS = 2_000
+
+export function ask(
   win: BrowserWindow,
   channel: string,
   payload: unknown,
   gone: unknown,
+  timeoutMs?: number,
 ): Promise<unknown> {
   if (unresponsive(win)) return Promise.resolve(gone)
   const contents = win.webContents
   return new Promise((resolve) => {
     const requestId = ++lastRequestId
+    let timer: ReturnType<typeof setTimeout> | undefined
     const settle = (value: unknown): void => {
+      if (!pending.has(requestId)) return
       pending.delete(requestId)
+      if (timer) clearTimeout(timer)
       contents.removeListener('render-process-gone', onGone)
       contents.removeListener('destroyed', onGone)
       resolve(value)
@@ -44,6 +50,7 @@ function ask(
     contents.once('render-process-gone', onGone)
     contents.once('destroyed', onGone)
     pending.set(requestId, { senderId: contents.id, settle })
+    if (timeoutMs !== undefined) timer = setTimeout(onGone, timeoutMs)
     contents.send(channel, requestId, payload)
   })
 }
@@ -92,7 +99,9 @@ export async function confirmQuit(
   scratchFiles: (workspaceId: string) => number,
 ): Promise<boolean> {
   const live = windows.filter((w) => !w.isDestroyed())
-  const answers = await Promise.all(live.map((w) => ask(w, 'window:running', undefined, [])))
+  const answers = await Promise.all(
+    live.map((w) => ask(w, 'window:running', undefined, [], RUNNING_ANSWER_MS)),
+  )
   const groups = withScratchFiles(answers.flatMap(parseRunningGroups), scratchFiles)
   if (groups.length === 0) return true
   const target = asker && !unresponsive(asker) ? asker : live.find((w) => !unresponsive(w))
