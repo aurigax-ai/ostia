@@ -35,7 +35,7 @@ function setup(formats: string[] = [], mac = false) {
   const edits = registerClipboardEdits({
     ipc,
     isAppWindow: (sender) => sender === app,
-    availableFormats: () => formats,
+    availableFormats: async () => formats,
     mac,
   })
   return { app, call, edits }
@@ -69,11 +69,12 @@ describe('registerClipboardEdits', () => {
     expect(stranger.pasteAndMatchStyle).not.toHaveBeenCalled()
   })
 
-  it('reports an image on the clipboard only to an app window', () => {
+  it('reports an image on the clipboard only to an app window', async () => {
     const { app, call } = setup(['image/png'])
-    expect(call('clipboard:has-image', app)).toBe(true)
-    expect(call('clipboard:has-image', fakeContents())).toBe(false)
-    expect(setup(['text/plain']).call('clipboard:has-image', setup().app)).toBe(false)
+    expect(await call('clipboard:has-image', app)).toBe(true)
+    expect(await call('clipboard:has-image', fakeContents())).toBe(false)
+    const text = setup(['text/plain'])
+    expect(await text.call('clipboard:has-image', text.app)).toBe(false)
   })
 
   it('runs the chords the renderer sent inside a guest page', () => {

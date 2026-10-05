@@ -11,7 +11,7 @@ import {
 export interface ClipboardEditsDeps {
   ipc: Pick<IpcMain, 'handle' | 'on'>
   isAppWindow: (sender: WebContents) => boolean
-  availableFormats: () => string[]
+  availableFormats: () => Promise<string[]>
   mac: boolean
 }
 
@@ -38,9 +38,9 @@ export function registerClipboardEdits(deps: ClipboardEditsDeps): ClipboardEdits
     applyClipboardEdit(e.sender, edit)
   })
 
-  deps.ipc.handle('clipboard:has-image', (e) => {
+  deps.ipc.handle('clipboard:has-image', async (e) => {
     if (!deps.isAppWindow(e.sender)) return false
-    return deps.availableFormats().some((format) => format.startsWith('image/'))
+    return (await deps.availableFormats()).some((format) => format.startsWith('image/'))
   })
 
   return {

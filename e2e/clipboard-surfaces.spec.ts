@@ -49,9 +49,10 @@ const readClipboard = (app: ElectronApplication) =>
   app.evaluate(({ clipboard }) => clipboard.readText())
 
 const writeClipboardImage = (app: ElectronApplication) =>
-  app.evaluate(({ clipboard, nativeImage }, url) => {
+  app.evaluate(async ({ clipboard, ClipboardItem }, url) => {
     clipboard.clear()
-    clipboard.writeImage(nativeImage.createFromDataURL(url))
+    const png = new Blob([Buffer.from(url.split(',')[1], 'base64')], { type: 'image/png' })
+    await clipboard.write([new ClipboardItem({ 'image/png': png })])
   }, RED_DOT_PNG)
 
 async function selectTerminalWord(win: Page, word: string): Promise<void> {

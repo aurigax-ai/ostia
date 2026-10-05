@@ -8,7 +8,9 @@ export function attachContextMenu(contents: WebContents, navigation: boolean): v
       params,
       { navigation, canGoBack: history.canGoBack(), canGoForward: history.canGoForward() },
       {
-        copyLink: (url) => clipboard.writeText(url),
+        copyLink: (url) => {
+          clipboard.writeText(url).catch(() => undefined)
+        },
         copyImage: (x, y) => contents.copyImageAt(x, y),
         back: () => history.goBack(),
         forward: () => history.goForward(),
