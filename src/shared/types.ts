@@ -812,6 +812,13 @@ export interface QuestionsApi {
   onChange: (cb: (state: QuestionState) => void) => () => void
 }
 
+export type GatewayTailnetState =
+  | { state: 'off' }
+  | { state: 'starting' }
+  | { state: 'needs-login'; authUrl: string }
+  | { state: 'running'; ip: string | null; dnsName: string | null }
+  | { state: 'error'; code: string }
+
 export interface GatewayStatus {
   running: boolean
   host: string | null
@@ -820,11 +827,8 @@ export interface GatewayStatus {
   deviceCount: number
 }
 
-export interface GatewayEnableResult {
-  host: string
-  port: number
-  fingerprint: string
-  warning?: string
+export interface GatewayRemoteStatus extends GatewayStatus {
+  tailnet: GatewayTailnetState
 }
 
 export interface GatewayPairResult {
@@ -834,8 +838,13 @@ export interface GatewayPairResult {
   fingerprint: string
   pairCode: string
   name: string
-  warning?: string
 }
+
+export type GatewayPairResponse = GatewayPairResult | { error: 'not-running' }
+
+export type GatewayTailnetActionResult =
+  | { ok: true }
+  | { ok: false; error: 'not-a-window' | 'no-login-link' | 'login-link-refused' }
 
 export interface GatewayDevice {
   deviceId: string
@@ -845,28 +854,15 @@ export interface GatewayDevice {
   createdAt: string
 }
 
-export type GatewayBindKind = 'loopback' | 'lan' | 'tailscale' | 'custom'
-
-export interface GatewayBindAddress {
-  address: string
-  kind: GatewayBindKind
-  iface?: string
-}
-
-export interface GatewayBindOptions {
-  addresses: GatewayBindAddress[]
-  selected: string
-}
-
 export type GatewaySetCapResult =
   | { ok: true; caps: string[] }
   | { ok: false; error: 'not-found' | 'invalid-cap' | 'requires-command' }
 
 export interface GatewayApi {
-  enable: (opts?: { host?: string; port?: number }) => Promise<GatewayEnableResult>
-  disable: () => Promise<{ ok: true }>
-  pair: () => Promise<GatewayPairResult>
-  status: () => Promise<GatewayStatus>
+  enable: () => Promise<GatewayRemoteStatus>
+  disable: () => Promise<GatewayRemoteStatus>
+  pair: () => Promise<GatewayPairResponse>
+  status: () => Promise<GatewayRemoteStatus>
   devices: () => Promise<{ devices: GatewayDevice[] }>
   revoke: (deviceId: string) => Promise<{ ok: boolean; error?: string }>
   setCap: (
@@ -874,7 +870,9 @@ export interface GatewayApi {
     cap: PhoneGrantableCap,
     granted: boolean,
   ) => Promise<GatewaySetCapResult>
-  bindOptions: () => Promise<GatewayBindOptions>
+  tailnetSignIn: () => Promise<GatewayTailnetActionResult>
+  tailnetSignOut: () => Promise<GatewayTailnetActionResult>
+  onTailnetChanged: (cb: (state: GatewayTailnetState) => void) => () => void
 }
 
 export interface ExternalEditorRequest {

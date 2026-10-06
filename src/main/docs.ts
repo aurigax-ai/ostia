@@ -185,12 +185,10 @@ const CLI_HELP = `ostia — control-socket CLI
   ostia browse identify | zoom in|out|reset | history clear | focus-mode enter|exit|toggle
                   | react-grab toggle|get | focus-webview | is-webview-focused
   ostia browse pick [--timeout MS]  ask the user to click an element; prints its capture JSON
-  ostia gateway enable [--host H] [--port P]  turn on the LAN control gateway (elevated 'gateway')
-  ostia gateway pair                         mint a pairing code + QR payload (enables gateway too)
-  ostia gateway status                       { running, host, port, fingerprint, deviceCount }
+  ostia gateway pair                         mint a pairing code + QR payload (not-running unless the human turned remote access on)
+  ostia gateway status                       { running, host, port, fingerprint, deviceCount, tailnet }
   ostia gateway devices                      list paired phones (never prints tokens; caps are granted only in Settings → Remote)
   ostia gateway revoke <deviceId>             revoke a paired phone immediately
-  ostia gateway disable                      turn off the LAN control gateway
   ostia ext ls                   list enabled extensions and their commands
   ostia ext <extId> <command> [args...]  run an extension command
   ostia <extId> <command> [args...]      same, when <extId> isn't a built-in verb

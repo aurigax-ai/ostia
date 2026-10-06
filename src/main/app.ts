@@ -121,8 +121,14 @@ import { openInExternalEditor } from './externalEditor'
 import { FileOps } from './fileOps'
 import { FileWatches, TreeWatches } from './fileWatch'
 import { readBinaryConfined } from './fsBinary'
-import { registerGatewayIpc, registerGatewayMethods } from './gateway'
+import {
+  configureTailnet,
+  onTailnetChange,
+  registerGatewayIpc,
+  registerGatewayMethods,
+} from './gateway'
 import { configureGatewayControl, stopGateway } from './gateway/server'
+import { createTailnet, tailnetNodeName, tsnetHelperPath } from './gateway/tailnet'
 import { GIT_EXTENSION, GitBoard } from './gitBoard'
 import { GlobalHotkey, toggleWindows } from './globalHotkey'
 import { type GuestChords, registerGuestChords } from './guestChords'
@@ -1195,6 +1201,8 @@ function extensionRoots(): ExtensionRoot[] {
     { dir: join(configDir(), 'extensions'), builtin: false },
   ]
 }
+
+let stopTailnet: (() => Promise<void>) | null = null
 
 function broadcast(channel: string, payload: unknown): void {
   for (const win of windows.values()) {
@@ -3311,6 +3319,18 @@ app.whenReady().then(() => {
   )
   registerPaneListMethods({ execCommand, getTerminalState, ptyPid, windowIds })
   registerGatewayMethods()
+  const tailnet = createTailnet({
+    command: tsnetHelperPath(app.getAppPath(), process.platform),
+    stateDir: join(app.getPath('userData'), 'tsnet'),
+    hostname: tailnetNodeName(hostname()),
+    onChange: (state) => {
+      onTailnetChange(state)
+      broadcast('gateway:tailnet-changed', state)
+    },
+    log: (event, fields) => appLog?.info(event, fields),
+  })
+  configureTailnet(tailnet, { openExternal: (url) => void openExternalSafe(url) })
+  stopTailnet = () => tailnet.stop()
   registerGatewayIpc()
   configureGatewayControl({
     execCommand,
@@ -3546,6 +3566,7 @@ app.on('before-quit', (event) => {
   stopControlServer()
   clearControlInfo(controlInfoPath(), controlSocketPath())
   portal?.stop()
+  void stopTailnet?.()
   void stopGateway()
   appTray?.remove()
   globalHotkey?.clear()
