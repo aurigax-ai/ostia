@@ -180,7 +180,8 @@ describe.skipIf(process.platform !== 'linux')(
 
     it('shows the host of a foreground ssh in the sidebar and no line for ports', async () => {
       const item = await until(() => itemsOf('s2').find((i) => i.key === 'ssh'))
-      expect(item).toMatchObject({ text: 'build-box', icon: 'server' })
+      expect(item).toMatchObject({ text: 'build-box', badge: 'SSH' })
+      expect(item?.icon).toBeUndefined()
       await until(() => workspaceChip('s1'))
       expect(itemsOf('s1')).toEqual([])
     })

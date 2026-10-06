@@ -100,6 +100,7 @@ import {
   PANE_CHIP_TOOLTIP_MAX,
   type PaneChip,
   SETTINGS_CHANGED_EVENT,
+  SIDEBAR_BADGE_PATTERN,
   SIDEBAR_KINDS,
   SIDEBAR_TONES,
   type SidebarKind,
@@ -1316,6 +1317,7 @@ export class ExtensionHost {
     const item: ExtensionSidebarItem = { extId, key, text, tone, kind }
     if (workspaceId) item.workspaceId = workspaceId
     if (EXTENSION_ICONS.includes(p.icon as ExtensionIcon)) item.icon = p.icon as ExtensionIcon
+    if (typeof p.badge === 'string' && SIDEBAR_BADGE_PATTERN.test(p.badge)) item.badge = p.badge
     const url = sidebarItemUrl(p.url)
     if (url) item.url = url
     this.sidebar.set(slot, item)
