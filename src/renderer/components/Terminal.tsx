@@ -52,7 +52,9 @@ import { inputEditorFor, registerTerminal } from '../lib/terminalHandles'
 import { terminalTitle } from '../lib/terminalTitle'
 import { createTitleCommitter } from '../lib/titleCommit'
 import { terminalFontStack } from '../lib/uiFonts'
+import { measureCells } from '../lib/usePromptGeometry'
 import { loadWebglRenderer } from '../lib/webglRenderer'
+import { attachWheelReports } from '../lib/wheelReports'
 import { attachWheelZoom } from '../lib/wheelZoom'
 import {
   isPaneViewed,
@@ -171,6 +173,7 @@ export function TerminalView({
     term.loadAddon(searchAddon)
     term.open(host)
     if (behavior.gpuAcceleration) loadWebglRenderer(term)
+    if (isMac) attachWheelReports(term, () => measureCells(host, term)?.height ?? 0)
     const detachWheelZoom = attachWheelZoom(host, 'terminal', isMac)
     const detachLinkModifier = attachLinkModifier(host, isMac)
     termRef.current = term
