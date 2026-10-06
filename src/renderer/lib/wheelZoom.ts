@@ -1,7 +1,13 @@
-import { type FontSurface, useSettingsStore } from '../stores/settingsStore'
+import { ZOOM_DEFAULT } from '@shared/zoom'
+import {
+  FONT_SIZE_MAX,
+  FONT_SIZE_MIN,
+  type FontSurface,
+  type SurfaceFont,
+  useSettingsStore,
+} from '../stores/settingsStore'
 
-export const FONT_SIZE_MIN = 8
-export const FONT_SIZE_MAX = 32
+const ZOOMABLE_SURFACES: readonly FontSurface[] = ['terminal', 'editor']
 
 export function zoomStep(
   e: Pick<WheelEvent, 'ctrlKey' | 'metaKey' | 'deltaY'>,
@@ -14,8 +20,36 @@ export function zoomStep(
 export function zoomFont(surface: FontSurface, step: number): void {
   if (step === 0) return
   const { appearance, setSurfaceFont } = useSettingsStore.getState()
-  const size = Math.min(FONT_SIZE_MAX, Math.max(FONT_SIZE_MIN, appearance[surface].size + step))
-  if (size !== appearance[surface].size) setSurfaceFont(surface, { size })
+  const font = appearance[surface]
+  const size = Math.min(FONT_SIZE_MAX, Math.max(FONT_SIZE_MIN, font.size + step))
+  if (size === font.size) return
+  setSurfaceFont(surface, { size, baseSize: font.baseSize ?? font.size })
+}
+
+export function fontZoomPercent(font: SurfaceFont): number | null {
+  if (font.baseSize === undefined || font.baseSize === font.size) return null
+  return Math.round((font.size / font.baseSize) * 100)
+}
+
+export function activeFontZoom(appearance: Record<FontSurface, SurfaceFont>): number | null {
+  for (const surface of ZOOMABLE_SURFACES) {
+    const percent = fontZoomPercent(appearance[surface])
+    if (percent !== null) return percent
+  }
+  return null
+}
+
+export function resetFontZoom(): void {
+  const { appearance, setSurfaceFont } = useSettingsStore.getState()
+  for (const surface of ZOOMABLE_SURFACES) {
+    const { baseSize } = appearance[surface]
+    if (baseSize !== undefined) setSurfaceFont(surface, { size: baseSize })
+  }
+}
+
+export function resetZoom(): void {
+  useSettingsStore.getState().setZoom(ZOOM_DEFAULT)
+  resetFontZoom()
 }
 
 export function attachWheelZoom(host: HTMLElement, surface: FontSurface, mac: boolean): () => void {
