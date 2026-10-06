@@ -158,7 +158,7 @@ jobs:
     runs-on: ubuntu-24.04
     container:
       image: archlinux:latest
-      options: --privileged
+      options: --privileged --init
     steps:
       - run: pacman -Syu --noconfirm --needed git base-devel python zsh bubblewrap socat ripgrep tmux openssh sudo nss gtk3 alsa-lib libxss libxtst libxkbcommon mesa
       - uses: actions/checkout@v7
