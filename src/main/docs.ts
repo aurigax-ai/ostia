@@ -109,6 +109,18 @@ const CLI_HELP = `ostia — control-socket CLI
                                  title hands the tab back to the program. Your own pane
                                  ($OSTIA_PANE_ID) needs nothing; another pane asks the human
                                  (send-other-pane, plus all-workspaces outside your workspace)
+  ostia token create <name> --cap <capability>…  make a token for scripts outside Ostia
+                                 (launchd jobs, cron, a dispatcher). It can hold only
+                                 read-board, read-other-pane, type-other-pane and
+                                 all-workspaces, asks the human first (settings-write plus
+                                 those capabilities) and is printed once. A script sets
+                                 OSTIA_TOKEN to it; with OSTIA_SOCKET unset, ostia finds the
+                                 socket in control.json in the app data folder. Scripts reach
+                                 only pane.list, workspace.list, workspace.groups, pane.read
+                                 and pane.input, never ask the human, and get
+                                 needs-elevation for a capability the token lacks
+  ostia token list [--json]      the tokens (never their values)
+  ostia token revoke <id>        delete a token; scripts using it are cut off at once
   ostia vault set <KEY> [--global]  store a secret (value read from stdin, no echo)
   ostia vault get <KEY> [--global]  print a stored secret
   ostia vault ls [--global]        list stored secret keys (never values)

@@ -23,7 +23,7 @@ const request = vi.fn(async (ask: ApprovalAsk) => {
 vi.mock('./approvals', () => ({ approvals: () => ({ request }) }))
 
 const { grant, setCaps } = await import('./capabilityStore')
-const { setCapFilter } = await import('./controlAuth')
+const { setCapFilter, setScriptTokenCheck } = await import('./controlAuth')
 const { registerControlServer, stopControlServer } = await import('./controlServer')
 const { markManager, registerExtension, registerPane } = await import('./idRegistry')
 const { inputBytes, keyBytes, paneReach, pasteBytes, registerPaneIoMethods } = await import(
@@ -89,6 +89,13 @@ const noPty = registerPane({ windowId: 'w1', workspaceId: 'ws1', paneId: 'no-pty
 const manager = registerPane({ windowId: 'w1', workspaceId: 'ws-mgr', paneId: 'mgr-pane' })
 markManager('mgr-pane')
 const extension = registerExtension('probe')
+
+const SCRIPT_TOKEN = 'ostia_pane-io-script'
+setScriptTokenCheck((token) =>
+  token === SCRIPT_TOKEN
+    ? { id: 'script_pane_io', caps: ['type-other-pane', 'all-workspaces'] }
+    : undefined,
+)
 
 let socketPath = ''
 let seq = 0
@@ -430,6 +437,20 @@ describe('pane.input for unattended agents', () => {
     ).rejects.toThrow(/agent-waiting: .*Allow Bash: rm -rf build\?/)
     expect(written).toEqual([])
     expect(typedInto).toEqual([])
+  })
+
+  it('refuses a script token text to a waiting agent just as it refuses a pane', async () => {
+    const conn = await client({ token: SCRIPT_TOKEN })
+    attentionOf.set('sibling-pane', { state: 'working' })
+    await conn.sendRequest('pane.input', { pane: sibling.externalId, text: 'first task' })
+
+    attentionOf.set('sibling-pane', { state: 'waiting', message: 'Allow Bash: git push?' })
+    await expect(
+      conn.sendRequest('pane.input', { pane: sibling.externalId, text: 'next task' }),
+    ).rejects.toThrow(/agent-waiting: .*Allow Bash: git push\?/)
+    expect(written.map((w) => w.data)).toEqual(['first task'])
+    expect(typedInto).toEqual(['sibling-pane'])
+    expect(request).not.toHaveBeenCalled()
   })
 
   it('still lets keys answer a waiting agent, and force types text anyway', async () => {
