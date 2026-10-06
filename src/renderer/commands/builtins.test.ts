@@ -1,5 +1,7 @@
 import { Terminal } from '@xterm/xterm'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { SCRIPT_COMMANDS } from '../../main/commandArgs'
+import { SCRIPT_CAPABILITIES } from '../../shared/scriptTokens'
 import { createPane, splitOf, tabsOf } from '../layout/tree'
 import * as blockActions from '../lib/blockActions'
 import { registerBrowserHandle } from '../lib/browserHandles'
@@ -1976,5 +1978,21 @@ describe('browser commands', () => {
     } finally {
       off()
     }
+  })
+})
+
+describe('commands open to script tokens', () => {
+  it.each([...SCRIPT_COMMANDS])('%s needs only capabilities a script token can hold', (id) => {
+    const described = commands.describe().find((c) => c.id === id)
+    expect(described).toBeDefined()
+    const unreachable = (described?.capabilities ?? []).filter(
+      (cap) => !SCRIPT_CAPABILITIES.includes(cap),
+    )
+    expect(unreachable).toEqual([])
+  })
+
+  it('workspace.new asks for all-workspaces and not drive-self', () => {
+    const described = commands.describe().find((c) => c.id === 'workspace.new')
+    expect(described?.capabilities).toEqual(['all-workspaces'])
   })
 })

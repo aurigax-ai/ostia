@@ -247,7 +247,7 @@ describe('script tokens on command.exec', () => {
         listCommandsFor: (windowId) =>
           windowId === 'w1'
             ? ([
-                descriptor('workspace.new', []),
+                descriptor('workspace.new', ['all-workspaces']),
                 descriptor('pane.close', ['kill-pane']),
                 descriptor('tab.new', []),
               ] as never)
