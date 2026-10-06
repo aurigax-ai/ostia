@@ -7,7 +7,9 @@ import {
   chordText,
   chordTexts,
   formatChord,
+  formatScopedChord,
   sameChord,
+  sameScope,
   specFromEvent,
   usedByMonaco,
 } from '@shared/chordSpec'
@@ -37,6 +39,7 @@ import {
   checkBinding,
   chordsOf,
   chordsWithout,
+  chordsWithoutKey,
   conflictsWith,
   terminalKeyConflicts,
   useBindings,
@@ -200,7 +203,8 @@ export function KeybindingRow({ id, title }: { id: string; title: string }): JSX
     for (const other of replace) setKeybinding(other, keepChords(chordsWithout(other, spec, isMac)))
     if (terminal) removeTerminalKey(terminal, isMac)
     const base = baseChords(id, isMac)
-    if (base.length === 1 && sameChord(base[0], spec)) resetKeybinding(id)
+    const isBase = base.length === 1 && sameChord(base[0], spec) && sameScope(base[0], spec)
+    if (isBase) resetKeybinding(id)
     else setKeybinding(id, formatChord(spec, isMac))
     setMode({ kind: 'idle' })
   }
@@ -250,9 +254,14 @@ export function KeybindingRow({ id, title }: { id: string; title: string }): JSX
             onCancel={cancel}
           />
         ) : current.length > 0 ? (
-          <span className="flex flex-wrap gap-1">
+          <span className="flex flex-wrap items-center gap-1">
             {current.map((spec) => (
-              <Kbd key={formatChord(spec, isMac)}>{chordText(spec, isMac)}</Kbd>
+              <span key={formatScopedChord(spec, isMac)} className="inline-flex items-center gap-1">
+                <Kbd>{chordText(spec, isMac)}</Kbd>
+                {spec.terminal ? (
+                  <span className="text-fg-muted text-ui-xs">{d.keyboard.inTerminal}</span>
+                ) : null}
+              </span>
             ))}
           </span>
         ) : (
@@ -475,7 +484,7 @@ function TerminalKeyEditor({
       return
     }
     for (const other of commandsUsing) {
-      setKeybinding(other, keepChords(chordsWithout(other, spec, isMac)))
+      setKeybinding(other, keepChords(chordsWithoutKey(other, spec, isMac)))
     }
     saveTerminalKey(spec, send, previous, isMac)
     onDone()

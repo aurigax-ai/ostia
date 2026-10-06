@@ -13,9 +13,11 @@ import {
   chordText,
   chordTexts,
   formatChord,
+  formatScopedChord,
   overlaps,
-  parseChord,
+  parseScopedChord,
   sameChord,
+  sameScope,
   specFromEvent,
 } from '@shared/chordSpec'
 import { isDangerousSegment } from '@shared/protoGuard'
@@ -36,6 +38,7 @@ export type AppChord =
   | 'workflows.search'
   | 'workspace.new'
   | 'tab.new'
+  | 'terminal.clear'
   | 'agent.resume'
   | 'workspace.goto'
   | 'selection.sendToAgent'
@@ -104,8 +107,8 @@ const BROWSER_SET: ReadonlySet<string> = new Set(BROWSER_CHORDS)
 export const DEFAULT_CHORDS: Readonly<
   Record<AppChord | TerminalChord | BrowserChord, [mac: ChordValue, other: ChordValue]>
 > = {
-  'palette.toggle': ['Cmd+K', 'Ctrl+Shift+P'],
-  'view.toggleRail': ['Cmd+\\', 'Ctrl+Shift+B'],
+  'palette.toggle': [['Shift+Cmd+P', 'Cmd+K'], 'Ctrl+Shift+P'],
+  'view.toggleRail': [['Cmd+B', 'Cmd+\\'], 'Ctrl+Shift+B'],
   'app.openSettings': ['Cmd+,', 'Ctrl+,'],
   'view.searchFiles': ['Shift+Cmd+F', ''],
   'attention.jumpToLatest': ['Cmd+Shift+U', 'Ctrl+Shift+U'],
@@ -113,24 +116,28 @@ export const DEFAULT_CHORDS: Readonly<
   'workflows.search': ['Cmd+Shift+S', 'Ctrl+Shift+S'],
   'workspace.new': ['Cmd+N', 'Ctrl+Shift+N'],
   'tab.new': ['Cmd+T', 'Ctrl+Shift+T'],
+  'terminal.clear': ['terminal:Cmd+K', 'terminal:Ctrl+Shift+K'],
   'agent.resume': ['Cmd+Shift+R', 'Ctrl+Shift+R'],
   'workspace.goto': [`Cmd+${DIGIT_RANGE}`, `Ctrl+${DIGIT_RANGE}`],
   'selection.sendToAgent': ['Cmd+Shift+E', 'Ctrl+Shift+E'],
-  'view.zoomIn': ['Cmd+=', 'Ctrl+='],
+  'view.zoomIn': [['Cmd+=', 'Shift+Cmd+='], 'Ctrl+='],
   'view.zoomOut': ['Cmd+-', 'Ctrl+Shift+-'],
   'view.zoomReset': ['Cmd+0', 'Ctrl+0'],
   'assist.compose': ['Cmd+J', 'Ctrl+Shift+J'],
-  'dashboard.toggle': ['Cmd+Shift+D', 'Ctrl+Shift+D'],
-  'pane.splitRight': ['Cmd+Alt+\\', 'Ctrl+Alt+\\'],
-  'pane.splitDown': ['Cmd+Alt+-', 'Ctrl+Alt+-'],
-  'pane.focusLeft': ['Cmd+Ctrl+Left', 'Ctrl+Shift+Alt+H'],
-  'pane.focusRight': ['Cmd+Ctrl+Right', 'Ctrl+Shift+Alt+L'],
-  'pane.focusUp': ['Cmd+Ctrl+Up', 'Ctrl+Shift+Alt+K'],
-  'pane.focusDown': ['Cmd+Ctrl+Down', 'Ctrl+Shift+Alt+J'],
-  'pane.zoom': ['Cmd+Shift+X', 'Ctrl+Shift+X'],
+  'dashboard.toggle': [['Cmd+Alt+D', 'Cmd+Shift+D'], 'Ctrl+Shift+D'],
+  'pane.splitRight': [['terminal:Cmd+D', 'Cmd+Alt+\\'], 'Ctrl+Alt+\\'],
+  'pane.splitDown': [['terminal:Shift+Cmd+D', 'Cmd+Alt+-'], 'Ctrl+Alt+-'],
+  'pane.focusLeft': [['terminal:Cmd+Alt+Left', 'Cmd+Ctrl+Left'], 'Ctrl+Shift+Alt+H'],
+  'pane.focusRight': [['terminal:Cmd+Alt+Right', 'Cmd+Ctrl+Right'], 'Ctrl+Shift+Alt+L'],
+  'pane.focusUp': [['terminal:Cmd+Alt+Up', 'Cmd+Ctrl+Up'], 'Ctrl+Shift+Alt+K'],
+  'pane.focusDown': [['terminal:Cmd+Alt+Down', 'Cmd+Ctrl+Down'], 'Ctrl+Shift+Alt+J'],
+  'pane.zoom': [
+    ['terminal:Shift+Cmd+Enter', 'Cmd+Shift+X'],
+    ['terminal:Ctrl+Shift+Enter', 'Ctrl+Shift+X'],
+  ],
   'pane.close': ['Cmd+W', 'Ctrl+Shift+W'],
-  'tab.next': ['Ctrl+Tab', 'Ctrl+Tab'],
-  'tab.previous': ['Ctrl+Shift+Tab', 'Ctrl+Shift+Tab'],
+  'tab.next': [['Ctrl+Tab', 'Shift+Cmd+]'], 'Ctrl+Tab'],
+  'tab.previous': [['Ctrl+Shift+Tab', 'Shift+Cmd+['], 'Ctrl+Shift+Tab'],
   'workspace.next': ['Cmd+Ctrl+]', 'Ctrl+Shift+PageDown'],
   'workspace.previous': ['Cmd+Ctrl+[', 'Ctrl+Shift+PageUp'],
   copy: ['Cmd+C', 'Ctrl+Shift+C'],
@@ -157,9 +164,9 @@ export const DEFAULT_CHORDS: Readonly<
 function specsOf(value: ChordValue, mac: boolean, id?: string): ChordSpec[] {
   const out: ChordSpec[] = []
   for (const text of chordTexts(value)) {
-    const spec = parseChord(text, mac)
+    const spec = parseScopedChord(text, mac)
     if (!spec || (id !== undefined && bindingProblem(id, spec, mac))) continue
-    if (!out.some((s) => sameChord(s, spec))) out.push(spec)
+    if (!out.some((s) => sameChord(s, spec) && sameScope(s, spec))) out.push(spec)
   }
   return out
 }
@@ -176,6 +183,7 @@ export function defaultChord(id: string, mac: boolean): ChordSpec | null {
 export interface BindingTable {
   byId: ReadonlyMap<string, readonly ChordSpec[]>
   bySignature: ReadonlyMap<string, string>
+  terminalBySignature: ReadonlyMap<string, string>
 }
 
 const NO_KEYMAP: KeybindingMap = Object.freeze(Object.create(null))
@@ -209,13 +217,17 @@ export function effectiveBindings(
   const fromUser = applyLayer(byId, user, mac)
   const layered = new Set([...fromKeymap, ...fromUser])
   const bySignature = new Map<string, string>()
+  const terminalBySignature = new Map<string, string>()
   const index = (id: string): void => {
-    for (const spec of byId.get(id) ?? []) bySignature.set(formatChord(spec, mac), id)
+    for (const spec of byId.get(id) ?? []) {
+      const target = spec.terminal ? terminalBySignature : bySignature
+      target.set(formatChord(spec, mac), id)
+    }
   }
   for (const id of byId.keys()) if (!layered.has(id)) index(id)
   for (const id of fromKeymap) if (!fromUser.includes(id)) index(id)
   for (const id of fromUser) index(id)
-  return { byId, bySignature }
+  return { byId, bySignature, terminalBySignature }
 }
 
 export function keymapBindings(): KeybindingMap {
@@ -273,14 +285,25 @@ export function workspaceIndex(e: KeyLike): number | null {
   return spec ? workspaceDigit(spec.key) : null
 }
 
-export function matchChord(e: KeyLike, mac: boolean): string | null {
-  const spec = specFromEvent(e)
-  if (!spec) return null
-  const { bySignature } = currentBindings(mac)
-  const exact = bySignature.get(formatChord(spec, mac))
+function lookup(signatures: ReadonlyMap<string, string>, spec: ChordSpec, mac: boolean) {
+  const exact = signatures.get(formatChord(spec, mac))
   if (exact) return exact
   if (workspaceDigit(spec.key) === null) return null
-  return bySignature.get(formatChord({ ...spec, key: DIGIT_RANGE }, mac)) ?? null
+  return signatures.get(formatChord({ ...spec, key: DIGIT_RANGE }, mac)) ?? null
+}
+
+export function matchChord(e: KeyLike, mac: boolean): string | null {
+  const spec = specFromEvent(e)
+  return spec ? lookup(currentBindings(mac).bySignature, spec, mac) : null
+}
+
+export function matchTerminalChord(e: KeyLike, mac: boolean): string | null {
+  const spec = specFromEvent(e)
+  return spec ? lookup(currentBindings(mac).terminalBySignature, spec, mac) : null
+}
+
+export function matchChordInTerminal(e: KeyLike, mac: boolean): string | null {
+  return matchTerminalChord(e, mac) ?? matchChord(e, mac)
 }
 
 export function findStep(chord: string | null): 1 | -1 | null {
@@ -300,12 +323,16 @@ export function isBrowserChord(chord: string | null): chord is BrowserChord {
   return chord !== null && BROWSER_SET.has(chord)
 }
 
+export function execChord(chord: string, e: KeyLike): void {
+  if (chord === WORKSPACE_GOTO) void commands.exec(chord, { index: workspaceIndex(e) })
+  else void commands.exec(chord)
+}
+
 export function runAppChord(e: KeyLike & { preventDefault: () => void }, mac: boolean): boolean {
   const chord = matchChord(e, mac)
   if (!isAppChord(chord)) return false
   e.preventDefault()
-  if (chord === WORKSPACE_GOTO) void commands.exec(chord, { index: workspaceIndex(e) })
-  else void commands.exec(chord)
+  execChord(chord, e)
   return true
 }
 
@@ -314,7 +341,8 @@ export function chordsOf(id: string, mac: boolean): readonly ChordSpec[] {
 }
 
 export function chordOf(id: string, mac: boolean): ChordSpec | null {
-  return chordsOf(id, mac)[0] ?? null
+  const specs = chordsOf(id, mac)
+  return specs.find((spec) => !spec.terminal) ?? specs[0] ?? null
 }
 
 export function chordLabel(id: string, mac: boolean): string | null {
@@ -330,19 +358,27 @@ export function useChordLabel(id: string, mac: boolean): string | null {
 export function conflictsWith(id: string, spec: ChordSpec, mac: boolean): string[] {
   const out: string[] = []
   for (const [other, bound] of currentBindings(mac).byId) {
-    if (other !== id && bound.some((b) => overlaps(b, spec))) out.push(other)
+    if (other !== id && bound.some((b) => overlaps(b, spec) && sameScope(b, spec))) out.push(other)
   }
   return out
 }
 
 export function chordsWithout(id: string, spec: ChordSpec, mac: boolean): string[] {
   return chordsOf(id, mac)
+    .filter((bound) => !(overlaps(bound, spec) && sameScope(bound, spec)))
+    .map((bound) => formatScopedChord(bound, mac))
+}
+
+export function chordsWithoutKey(id: string, spec: ChordSpec, mac: boolean): string[] {
+  return chordsOf(id, mac)
     .filter((bound) => !overlaps(bound, spec))
-    .map((bound) => formatChord(bound, mac))
+    .map((bound) => formatScopedChord(bound, mac))
 }
 
 export function terminalKeyConflicts(spec: ChordSpec, mac: boolean): string[] {
-  return conflictsWith('', spec, mac).filter((id) => !isBrowserChord(id))
+  const inTerminal = conflictsWith('', { ...spec, terminal: true }, mac)
+  const everywhere = conflictsWith('', { ...spec, terminal: false }, mac)
+  return [...new Set([...inTerminal, ...everywhere])].filter((id) => !isBrowserChord(id))
 }
 
 export function bindableIds(): string[] {

@@ -506,6 +506,7 @@ export class ExtensionHost {
   private workspaceChipSlots = new Map<string, WorkspaceChip>()
   private coreSidebarSlots = new Set<string>()
   private coreChipSlots = new Set<string>()
+  private corePaneChipSlots = new Set<string>()
   private eventListeners = new Set<ExtensionEventListener>()
   private settings: Map<string, ExtensionSettingValues>
   private assistSettings: AssistModelSettings
@@ -793,11 +794,13 @@ export class ExtensionHost {
     this.deps.broadcast('extensions:chips', this.paneChips())
   }
 
-  private clearChipsWhere(match: (chip: PaneChip) => boolean): void {
+  private clearChipsWhere(match: (chip: PaneChip) => boolean, keepCore = false): void {
     let removed = false
     for (const [slot, chip] of this.chips) {
+      if (keepCore && this.corePaneChipSlots.has(slot)) continue
       if (match(chip)) {
         this.chips.delete(slot)
+        this.corePaneChipSlots.delete(slot)
         removed = true
       }
     }
@@ -1052,7 +1055,7 @@ export class ExtensionHost {
     rt.assistReport = null
     this.dropAssistStreams(rt)
     this.clearSidebarOf(id, true)
-    this.clearChipsWhere((chip) => chip.extId === id)
+    this.clearChipsWhere((chip) => chip.extId === id, true)
     this.clearWorkspaceChipsWhere((chip) => chip.extId === id, true)
     this.remoteFolders?.extensionGone(id)
     if (rt.stopping || !this.active(rt)) {
@@ -1432,7 +1435,17 @@ export class ExtensionHost {
   }
 
   setPaneChip(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
-    const rt = this.runtimeOf(identity, conn)
+    return this.putPaneChip(this.runtimeOf(identity, conn), params, false)
+  }
+
+  publishPaneChip(extId: string, params: unknown): ExtensionResult {
+    const rt = this.runtimes.get(extId)
+    if (!rt || !this.active(rt))
+      return fail('extension-disabled', `extension '${extId}' is not enabled`)
+    return this.putPaneChip(rt, params, true)
+  }
+
+  private putPaneChip(rt: Runtime, params: unknown, core: boolean): ExtensionResult {
     const p = (params ?? {}) as Record<string, unknown>
     const declared = rt.ext.manifest.contributes.paneChips.find((c) => c.id === p.id)
     if (!declared) return fail('not-contributed', `no pane chip '${String(p.id)}' in manifest`)
@@ -1441,11 +1454,14 @@ export class ExtensionHost {
     const slot = `${rt.ext.manifest.id}\u0000${pane.paneId}\u0000${declared.id}`
     const value = this.chipValue(rt, declared, p)
     if (value === null) {
+      this.corePaneChipSlots.delete(slot)
       if (this.chips.delete(slot)) this.chipsChanged()
       return { ok: true }
     }
     if ('ok' in value) return value
     this.chips.set(slot, { ...value, paneId: pane.paneId })
+    if (core) this.corePaneChipSlots.add(slot)
+    else this.corePaneChipSlots.delete(slot)
     this.chipsChanged()
     return { ok: true }
   }

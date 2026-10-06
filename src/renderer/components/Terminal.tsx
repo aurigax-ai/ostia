@@ -26,11 +26,13 @@ import { canTypeInto, insertCommand, selectedBlockOutput, stepBlock } from '../l
 import { decodeCommandLine, readCommandText } from '../lib/blockText'
 import { openBrowserAs } from '../lib/browserProfile'
 import {
+  execChord,
   findStep,
   isAppChord,
   isBrowserChord,
   isTerminalCommandChord,
   matchChord,
+  matchTerminalChord,
 } from '../lib/chords'
 import {
   PROGRAM_PASTE_KEY,
@@ -268,7 +270,16 @@ export function TerminalView({
         }
         return false
       }
-      const chord = matchChord(e, isMac)
+      const scoped = matchTerminalChord(e, isMac)
+      if (scoped && e.type === 'keydown') e.stopPropagation()
+      if (isAppChord(scoped)) {
+        if (e.type === 'keydown') {
+          e.preventDefault()
+          execChord(scoped, e)
+        }
+        return false
+      }
+      const chord = scoped ?? matchChord(e, isMac)
       if (!chord || isBrowserChord(chord)) {
         const sent = terminalKeyData(e, isMac)
         if (sent && !inputEditorFor(paneId)) {

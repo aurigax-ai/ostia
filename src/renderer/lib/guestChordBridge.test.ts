@@ -64,7 +64,7 @@ function browserPane() {
 }
 
 describe('guestChordSignatures', () => {
-  it('lists app, browser and find chords, but not the clipboard or block keys', () => {
+  it('lists app, browser and find chords, but not the clipboard, block or terminal-only keys', () => {
     const sigs = guestChordSignatures(false)
     expect(sigs).toEqual(
       expect.arrayContaining([
@@ -78,6 +78,8 @@ describe('guestChordSignatures', () => {
     expect(sigs).not.toContain('Ctrl+Shift+C')
     expect(sigs).not.toContain('Ctrl+Shift+V')
     expect(sigs).not.toContain('Ctrl+Shift+Up')
+    expect(sigs).not.toContain('Ctrl+Shift+K')
+    expect(sigs).not.toContain('Ctrl+Shift+Enter')
   })
 
   it('forwards ⌘G and ⇧⌘G so a page’s find bar steps on macOS', () => {
