@@ -114,8 +114,10 @@ export function runWhenIdle(
   const attempt = (): void => {
     if (done || !atReadyPrompt(paneId)) return
     stop()
-    insertCommand(paneId, command, true)
+    const ok = insertCommand(paneId, command, true)
+    console.log('[race] runWhenIdle insert', paneId.slice(0, 8), Date.now(), ok)
   }
+  console.log('[race] runWhenIdle start', paneId.slice(0, 8), Date.now())
   const unsubscribe = useBlocksStore.subscribe(attempt)
   const timer = setTimeout(stop, timeoutMs)
   attempt()

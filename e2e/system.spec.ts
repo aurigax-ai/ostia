@@ -47,9 +47,17 @@ for (const run of [...Array(15).keys()]) test(`ostia system install asks the hum
   })
   try {
     const win = await app.firstWindow()
+    const raceLog: string[] = []
+    win.on('console', (m) => {
+      if (m.text().startsWith('[race]')) raceLog.push(m.text())
+    })
     await win.waitForLoadState('domcontentloaded')
     await openWorkspace(win)
     await answerDialogsWith(app, 0)
+    test.info().attachments.push({ name: 'race', contentType: 'text/plain', body: Buffer.from('') })
+    const dumpRace = (): void => {
+      process.stdout.write(`\n===RACE ${test.info().title}\n${raceLog.join('\n')}\n===END\n`)
+    }
 
     const agent = win.locator('.xterm').first()
     await agent.click()
@@ -58,9 +66,15 @@ for (const run of [...Array(15).keys()]) test(`ostia system install asks the hum
 
     await expect(win.locator('.xterm')).toHaveCount(2, { timeout: 20_000 })
     const installer = win.locator('.xterm-rows').filter({ hasText: 'fake pacman installed' })
-    await expect(installer).toContainText('fake pacman installed: -S --needed ripgrep', {
-      timeout: 20_000,
-    })
+    try {
+      await expect(installer).toContainText('fake pacman installed: -S --needed ripgrep', {
+        timeout: 20_000,
+      })
+    } catch (err) {
+      dumpRace()
+      throw err
+    }
+    if (test.info().title.endsWith('#0')) dumpRace()
     const agentRows = win.locator('.xterm-rows').filter({ hasText: 'e2e-check' })
     await expect(agentRows).toContainText('"approved": true', { timeout: 15_000 })
     await expect(agentRows).toContainText('pacman -S --needed ripgrep')
