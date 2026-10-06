@@ -1,4 +1,10 @@
-import type { IBufferCellPosition, ILink, ILinkProvider, Terminal } from '@xterm/xterm'
+import type {
+  IBufferCellPosition,
+  IBufferRange,
+  ILink,
+  ILinkProvider,
+  Terminal,
+} from '@xterm/xterm'
 import { LRUCache } from 'lru-cache'
 import { findFileLinks, resolveLinkPath } from './fileLinks'
 
@@ -36,6 +42,8 @@ export interface FileLinkDeps {
   stat: (path: string) => Promise<'file' | 'dir' | null>
   open: (path: string, line?: number, column?: number) => void
   modifierHeld: (event: MouseEvent) => boolean
+  hover: (range: IBufferRange) => void
+  leave: () => void
 }
 
 export function createFileLinkProvider(term: Terminal, deps: FileLinkDeps): ILinkProvider {
@@ -79,6 +87,8 @@ export function createFileLinkProvider(term: Terminal, deps: FileLinkDeps): ILin
             activate: (event) => {
               if (deps.modifierHeld(event)) deps.open(path, m.line, m.column)
             },
+            hover: () => deps.hover({ start: cells[m.start], end: cells[m.end - 1] }),
+            leave: () => deps.leave(),
           }
         }),
       ).then((links) => {

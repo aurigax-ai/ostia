@@ -31,16 +31,23 @@ function linksFor(
   remote = false,
 ) {
   const open = vi.fn()
+  const hover = vi.fn()
+  const leave = vi.fn()
   const provider = createFileLinkProvider(term, {
     cwd: () => '/home/u/proj',
     remote: () => remote,
     stat,
     open,
     modifierHeld: (e) => e.ctrlKey,
+    hover,
+    leave,
   })
-  return new Promise<{ links: ILink[] | undefined; open: typeof open }>((resolve) =>
-    provider.provideLinks(row, (links) => resolve({ links, open })),
-  )
+  return new Promise<{
+    links: ILink[] | undefined
+    open: typeof open
+    hover: typeof hover
+    leave: typeof leave
+  }>((resolve) => provider.provideLinks(row, (links) => resolve({ links, open, hover, leave })))
 }
 
 describe('readLogicalLine', () => {
@@ -74,6 +81,16 @@ describe('createFileLinkProvider', () => {
     expect(open).not.toHaveBeenCalled()
     link.activate(new MouseEvent('click', { ctrlKey: true }), link.text)
     expect(open).toHaveBeenCalledWith('/home/u/proj/src/app.ts', 12, 4)
+  })
+
+  it('reports the hovered link range and when the pointer leaves it', async () => {
+    const term = fakeTerminal([{ text: 'see src/app.ts now' }])
+    const { links, hover, leave } = await linksFor(term, 1)
+    const [link] = links ?? []
+    link.hover?.(new MouseEvent('mousemove'), link.text)
+    expect(hover).toHaveBeenCalledWith({ start: { x: 5, y: 1 }, end: { x: 14, y: 1 } })
+    link.leave?.(new MouseEvent('mousemove'), link.text)
+    expect(leave).toHaveBeenCalledTimes(1)
   })
 
   it('SSH-C37 offers no local file link while the pane is in a remote shell', async () => {
@@ -110,6 +127,8 @@ describe('createFileLinkProvider', () => {
         stat,
         open: vi.fn(),
         modifierHeld: () => false,
+        hover: vi.fn(),
+        leave: vi.fn(),
       })
       const links = () =>
         new Promise<ILink[] | undefined>((resolve) => provider.provideLinks(1, resolve))
@@ -137,6 +156,8 @@ describe('createFileLinkProvider', () => {
       stat,
       open: vi.fn(),
       modifierHeld: () => false,
+      hover: vi.fn(),
+      leave: vi.fn(),
     })
     const visit = (row: number) =>
       new Promise<void>((resolve) => provider.provideLinks(row, () => resolve()))
