@@ -124,7 +124,7 @@ describe('handleGuestChord', () => {
     ).toBe(false)
     expect(handleGuestChord({ guestId: 5 }, false)).toBe(false)
     expect(
-      handleGuestChord({ guestId: 5, key: key('q', { ctrlKey: true, shiftKey: true }) }, false),
+      handleGuestChord({ guestId: 5, key: key('y', { ctrlKey: true, shiftKey: true }) }, false),
     ).toBe(false)
     expect(exec).not.toHaveBeenCalled()
   })

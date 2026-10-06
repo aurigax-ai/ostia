@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   CHORDS_PER_COMMAND_MAX,
   type ChordSpec,
+  bindingProblem,
   chordText,
   formatChord,
   overlaps,
@@ -160,11 +161,48 @@ describe('stealsTerminalKey', () => {
     }
   })
 
+  it('allows Ctrl+PageUp and Ctrl+PageDown on Linux, which no shell or Monaco needs', () => {
+    expect(stealsTerminalKey(chord('Ctrl+PageUp'), false)).toBeNull()
+    expect(stealsTerminalKey(chord('Ctrl+PageDown'), false)).toBeNull()
+    expect(stealsTerminalKey(chord('Ctrl+Home'), false)).toBe('ctrl-key')
+    expect(stealsTerminalKey(chord('PageUp'), false)).toBe('bare')
+    expect(stealsTerminalKey(chord('Alt+PageUp'), false)).toBe('needs-modifier')
+    expect(stealsTerminalKey(chord('Ctrl+PageUp', true), true)).toBe('needs-modifier')
+  })
+
   it('needs Cmd on macOS, where Ctrl and Option chords belong to the shell', () => {
     expect(stealsTerminalKey(chord('Cmd+K', true), true)).toBeNull()
     expect(stealsTerminalKey(chord('Cmd+Up', true), true)).toBeNull()
     expect(stealsTerminalKey(chord('Ctrl+Shift+P', true), true)).toBe('needs-modifier')
     expect(stealsTerminalKey(chord('Alt+K', true), true)).toBe('needs-modifier')
+  })
+})
+
+describe('bindingProblem for browser commands', () => {
+  it('lets a browser command take a plain Ctrl key, because a terminal passes it on to the shell', () => {
+    for (const id of [
+      'browser.focusAddress',
+      'browser.reload',
+      'browser.back',
+      'browser.forward',
+    ]) {
+      expect(bindingProblem(id, chord('Ctrl+L'), false), id).toBeNull()
+      expect(bindingProblem(id, chord('Ctrl+R'), false), id).toBeNull()
+      expect(bindingProblem(id, chord('Ctrl+Left'), false), id).toBeNull()
+    }
+  })
+
+  it('still refuses what no browser command may take', () => {
+    expect(bindingProblem('browser.reload', chord('Ctrl+Alt+Tab'), false)).toBe('tab')
+    expect(bindingProblem('browser.reload', chord('Ctrl+Escape'), false)).toBe('escape')
+    expect(bindingProblem('browser.reload', chord('F5'), false)).toBe('bare')
+    expect(bindingProblem('browser.reload', chord('Alt+Tab'), false)).toBe('tab')
+  })
+
+  it('keeps plain Ctrl keys closed to every other command', () => {
+    expect(bindingProblem('palette.toggle', chord('Ctrl+L'), false)).toBe('ctrl-key')
+    expect(bindingProblem('palette.toggle', chord('Ctrl+R'), false)).toBe('ctrl-key')
+    expect(bindingProblem('tab.next', chord('Ctrl+PageDown'), false)).toBeNull()
   })
 })
 
