@@ -637,7 +637,12 @@ const bridge: OstiaBridge = {
   marketplace: {
     list: () => ipcRenderer.invoke('marketplace:list') as Promise<MarketplaceState>,
     add: (url) => ipcRenderer.invoke('marketplace:add', url) as Promise<MarketplaceResult>,
-    remove: (id) => ipcRenderer.invoke('marketplace:remove', id) as Promise<MarketplaceResult>,
+    remove: (id, uninstallExtensions) =>
+      ipcRenderer.invoke(
+        'marketplace:remove',
+        id,
+        uninstallExtensions,
+      ) as Promise<MarketplaceResult>,
     refresh: (id) => ipcRenderer.invoke('marketplace:refresh', id) as Promise<MarketplaceResult>,
     install: (id, extId) =>
       ipcRenderer.invoke('marketplace:install', id, extId) as Promise<MarketplaceResult>,

@@ -191,6 +191,7 @@ describe('extension wording follows the list main resolved for the language', ()
           name: 'Acme',
           description: '',
           problems: [],
+          installs: [],
           unlisted: false,
           extensions: [
             {
