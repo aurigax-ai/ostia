@@ -5,8 +5,8 @@ import {
   Terminal as GhosttyTerm,
   type IDisposable,
   type SemanticPromptEvent,
-} from '@aurigax-ai/ostia-ghostty'
-import wasmDataUrl from '@aurigax-ai/ostia-ghostty/ghostty-vt.wasm?dataurl'
+} from '@aurigax-ai/ghostty-web'
+import wasmDataUrl from '@aurigax-ai/ghostty-web/ghostty-vt.wasm?dataurl'
 import type { ILinkProvider } from '@xterm/xterm'
 import type {
   OstiaTerminal,

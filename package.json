@@ -64,7 +64,7 @@
     "@ai-sdk/openai": "^4.0.81",
     "@ai-sdk/openai-compatible": "^3.0.59",
     "@ai-sdk/react": "^4.0.125",
-    "@aurigax-ai/ostia-ghostty": "github:aurigax-ai/ostia-ghostty#672cd67",
+    "@aurigax-ai/ghostty-web": "github:aurigax-ai/ghostty-web#1ae9e05",
     "@base-ui/react": "^1.7.0",
     "@biomejs/biome": "^1.9.4",
     "@electron/rebuild": "^4.2.0",
