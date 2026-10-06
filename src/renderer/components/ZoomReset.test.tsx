@@ -24,7 +24,6 @@ describe('ZoomReset', () => {
 
   it('shows the scale once the font is zoomed and goes back to 100% on click', () => {
     useSettingsStore.getState().setSurfaceFont('terminal', { size: 10 })
-    useSettingsStore.getState().setZoom(120)
     render(<ZoomReset />)
     act(() => zoomFont('terminal', 1))
 
@@ -33,7 +32,6 @@ describe('ZoomReset', () => {
 
     fireEvent.click(button)
     expect(useSettingsStore.getState().appearance.terminal.size).toBe(10)
-    expect(useSettingsStore.getState().appearance.zoom).toBe(100)
     expect(screen.queryByRole('button', { name: 'Reset zoom to 100%' })).toBeNull()
   })
 
@@ -42,5 +40,34 @@ describe('ZoomReset', () => {
     render(<ZoomReset />)
     act(() => zoomFont('editor', -2))
     expect(screen.getByRole('button', { name: 'Reset zoom to 100%' }).textContent).toBe('90%')
+  })
+
+  it('shows the interface zoom from the zoom commands and hides at 100%', () => {
+    render(<ZoomReset />)
+    act(() => useSettingsStore.getState().setZoom(110))
+    const button = screen.getByRole('button', { name: 'Reset zoom to 100%' })
+    expect(button.textContent).toBe('110%')
+
+    act(() => useSettingsStore.getState().setZoom(90))
+    expect(screen.getByRole('button', { name: 'Reset zoom to 100%' }).textContent).toBe('90%')
+
+    act(() => useSettingsStore.getState().setZoom(100))
+    expect(screen.queryByRole('button', { name: 'Reset zoom to 100%' })).toBeNull()
+  })
+
+  it('shows the interface zoom when the font is zoomed too, and one click clears both', () => {
+    useSettingsStore.getState().setSurfaceFont('terminal', { size: 10 })
+    render(<ZoomReset />)
+    act(() => {
+      zoomFont('terminal', 1)
+      useSettingsStore.getState().setZoom(120)
+    })
+    const button = screen.getByRole('button', { name: 'Reset zoom to 100%' })
+    expect(button.textContent).toBe('120%')
+
+    fireEvent.click(button)
+    expect(useSettingsStore.getState().appearance.zoom).toBe(100)
+    expect(useSettingsStore.getState().appearance.terminal.size).toBe(10)
+    expect(screen.queryByRole('button', { name: 'Reset zoom to 100%' })).toBeNull()
   })
 })

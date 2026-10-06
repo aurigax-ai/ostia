@@ -1,6 +1,6 @@
 import { useDict } from '../i18n/useDict'
 import { useChordLabel } from '../lib/chords'
-import { activeFontZoom, resetZoom } from '../lib/wheelZoom'
+import { activeZoom, resetZoom } from '../lib/wheelZoom'
 import { isMac } from '../platform'
 import { useSettingsStore } from '../stores/settingsStore'
 import { Hint } from './Hint'
@@ -8,7 +8,7 @@ import { Button } from './ui/button'
 
 export function ZoomReset(): JSX.Element | null {
   const d = useDict()
-  const percent = useSettingsStore((s) => activeFontZoom(s.appearance))
+  const percent = useSettingsStore((s) => activeZoom(s.appearance))
   const keys = useChordLabel('view.zoomReset', isMac)
   if (percent === null) return null
   return (
