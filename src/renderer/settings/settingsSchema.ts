@@ -99,9 +99,10 @@ const TERMINAL_KEYMAP_VALUE = {
   type: 'string',
   enum: TERMINAL_KEYMAPS.map((k) => k.id),
   description:
-    '"ostia": Cmd and Option line and word editing (macOS). "natural-text-editing": the keys ' +
-    'of iTerm2’s Natural Text Editing preset (macOS). "none": keys go to the terminal as ' +
-    'typed, for shells in vi mode. A preset this platform doesn’t have counts as its default.',
+    '"ostia": line and word editing with Cmd and Option on macOS, and with Ctrl and Alt plus ' +
+    'Ctrl+Backspace on Linux. "natural-text-editing": the keys of iTerm2’s Natural Text ' +
+    'Editing preset (macOS). "none": keys go to the terminal as typed, for shells in vi mode. ' +
+    'A preset this platform doesn’t have counts as its default ("ostia").',
 }
 
 const TERMINAL_KEYS_VALUE = {

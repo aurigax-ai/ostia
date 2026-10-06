@@ -370,6 +370,26 @@ describe('KeyboardSection', () => {
     expect(screen.getAllByRole('row')).toHaveLength(2)
   })
 
+  it('offers Ostia standard and No translation for text editing on Linux, Ostia standard first', async () => {
+    render(<KeyboardSection />)
+    const picker = screen.getByRole('combobox', { name: 'Text editing' })
+    expect(picker).toHaveTextContent('Ostia standard')
+    const buttons = screen.getAllByRole('button', { name: /^Edit / })
+    expect(buttons.map((b) => b.getAttribute('aria-label'))).toEqual([
+      'Edit Ctrl+←',
+      'Edit Ctrl+→',
+      'Edit Alt+←',
+      'Edit Alt+→',
+      'Edit Ctrl+Backspace',
+    ])
+    await userEvent.click(picker)
+    expect(await screen.findByRole('option', { name: 'Ostia standard' })).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: /Natural Text Editing/ })).toBeNull()
+    await userEvent.click(screen.getByRole('option', { name: 'No translation' }))
+    expect(useSettingsStore.getState().terminalKeymap).toBe('none')
+    expect(screen.queryAllByRole('button', { name: /^Edit / })).toEqual([])
+  })
+
   it('adds a key that sends text to the terminal, refusing keys that type, and removes it', async () => {
     render(<KeyboardSection />)
     await userEvent.click(screen.getByRole('button', { name: 'Add a terminal key' }))
@@ -381,8 +401,8 @@ describe('KeyboardSection', () => {
     expect(useSettingsStore.getState().terminalKeys).toEqual({
       'Ctrl+Alt+K': { type: 'text', value: 'clear\\r' },
     })
-    expect(within(row(/Send to terminal/)).getByText('Ctrl+Alt+K')).toBeInTheDocument()
-    expect(within(row(/Send to terminal/)).getByText('Custom')).toBeInTheDocument()
+    expect(within(row(/clear/)).getByText('Ctrl+Alt+K')).toBeInTheDocument()
+    expect(within(row(/clear/)).getByText('Custom')).toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: 'Remove Ctrl+Alt+K' }))
     expect(useSettingsStore.getState().terminalKeys).toEqual({})

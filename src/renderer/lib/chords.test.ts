@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   type ChordSpec,
+  bindingProblem,
   formatChord,
   parseChord,
   stealsTerminalKey,
@@ -594,7 +595,7 @@ describe('DEFAULT_CHORDS', () => {
         const text = DEFAULT_CHORDS[id as keyof typeof DEFAULT_CHORDS][mac ? 0 : 1]
         if (!spec && text === '') continue
         if (!spec) throw new Error(`${id} has no default on ${mac ? 'macOS' : 'Linux'}`)
-        expect(stealsTerminalKey(spec, mac), id).toBeNull()
+        expect(bindingProblem(id, spec, mac), id).toBeNull()
         if (PANE_WORK.includes(id)) expect(usedByMonaco(spec, mac), id).toBe(false)
         const signature = formatChord(spec, mac)
         expect(seen.get(signature), `${id} vs ${seen.get(signature)}`).toBeUndefined()
@@ -707,6 +708,17 @@ describe('browser chords', () => {
       }
     }
     expect(DEFAULT_CHORDS['browser.reload']).toEqual(['Cmd+R', 'Ctrl+F5'])
+  })
+
+  it('go back and forward with Alt+Left and Alt+Right on Linux, like Chrome and Firefox', () => {
+    const alt = { altKey: true }
+    expect(matchChord(key('ArrowLeft', alt), false)).toBe('browser.back')
+    expect(matchChord(key('ArrowRight', alt), false)).toBe('browser.forward')
+    expect(matchChord(key('ArrowLeft', { ctrlKey: true, altKey: true }), false)).toBeNull()
+    expect(matchChord(key('[', { metaKey: true }), true)).toBe('browser.back')
+    expect(checkBinding('browser.back', 'Alt+Left', false)).toBeNull()
+    expect(checkBinding('browser.back', 'Alt+Tab', false)).toBe('tab')
+    expect(checkBinding('palette.toggle', 'Alt+Left', false)).toBe('needs-modifier')
   })
 
   it('does not run anything for a browser chord pressed outside a browser pane', () => {
