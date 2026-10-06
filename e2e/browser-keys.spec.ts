@@ -114,3 +114,61 @@ test('a browser key pressed in a terminal goes to the shell as an unbound key an
     await app.close()
   }
 })
+
+test('on Linux, Ctrl+L and Ctrl+R drive a browser pane', async () => {
+  test.skip(isMac, 'Ctrl+L and Ctrl+R are only bound on Linux')
+  test.setTimeout(90_000)
+  let hits = 0
+  const server = createServer((_req, res) => {
+    hits++
+    res.setHeader('content-type', 'text/html')
+    res.end('<title>Plain page</title><p>plain</p>')
+  })
+  await new Promise<void>((ready) => server.listen(0, '127.0.0.1', ready))
+  const { port } = server.address() as AddressInfo
+  const app = await electron.launch(isolatedLaunch())
+  try {
+    const win = await app.firstWindow()
+    await openWorkspace(win)
+    await win.getByRole('button', { name: 'New browser tab' }).click()
+    const address = win.locator('.pane-slot:not([data-hidden]) .browser-address')
+    await address.fill(`http://127.0.0.1:${port}/`)
+    await address.press('Enter')
+    await expect(win.getByRole('tab', { name: /Plain page/ })).toBeVisible({ timeout: 15_000 })
+
+    const before = hits
+    await pressInPage(app, { keyCode: 'R', modifiers: ['control'] })
+    await expect.poll(() => hits).toBeGreaterThan(before)
+
+    await win.locator('.pane-slot:not([data-hidden]) .browser-address').blur()
+    await pressInPage(app, { keyCode: 'L', modifiers: ['control'] })
+    await expect(address).toBeFocused()
+  } finally {
+    await app.close()
+    server.close()
+  }
+})
+
+test('on Linux, Ctrl+L and Ctrl+R in a terminal still reach the shell', async () => {
+  test.skip(isMac, 'the Linux shell keys are covered here; macOS has no Ctrl+L or Ctrl+R chord')
+  const app = await electron.launch(isolatedLaunch())
+  try {
+    const win = await app.firstWindow()
+    await openWorkspace(win)
+    const rows = win.locator('.xterm-rows').first()
+    await win.locator('.xterm').first().click()
+    await win.keyboard.type('echo ostia_marker_$((40+2))')
+    await win.keyboard.press('Enter')
+    await expect(rows).toContainText('ostia_marker_42', { timeout: 15_000 })
+
+    await win.keyboard.press('Control+l')
+    await expect(rows).not.toContainText('ostia_marker_42', { timeout: 15_000 })
+
+    await win.keyboard.press('Control+r')
+    await expect(rows).toContainText(/i-search/, { timeout: 15_000 })
+    await win.keyboard.type('ostia_marker')
+    await expect(rows).toContainText('ostia_marker_', { timeout: 15_000 })
+  } finally {
+    await app.close()
+  }
+})

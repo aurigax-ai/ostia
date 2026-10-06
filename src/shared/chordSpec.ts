@@ -136,7 +136,7 @@ const ARROW_GLYPHS: Record<string, string> = { up: '↑', down: '↓', left: '�
 
 const ARROWS = new Set(['up', 'down', 'left', 'right'])
 
-const CTRL_SAFE_KEYS = new Set([',', '.', ';', "'", '=', DIGIT_RANGE])
+const CTRL_SAFE_KEYS = new Set([',', '.', ';', "'", '=', 'pageup', 'pagedown', DIGIT_RANGE])
 
 function normalizeKey(raw: string): string | null {
   const lower = raw.toLowerCase()
@@ -268,12 +268,17 @@ export const BROWSER_CHORD_IDS = [
 
 const BROWSER_IDS: ReadonlySet<string> = new Set(BROWSER_CHORD_IDS)
 
+const notShellOwned = (spec: ChordSpec): boolean => spec.key !== 'escape' && spec.key !== 'tab'
+
 const altChord = (spec: ChordSpec): boolean =>
-  spec.alt && !spec.ctrl && !spec.meta && spec.key !== 'escape' && spec.key !== 'tab'
+  spec.alt && !spec.ctrl && !spec.meta && notShellOwned(spec)
+
+const ctrlChord = (spec: ChordSpec): boolean =>
+  spec.ctrl && !spec.alt && !spec.shift && !spec.meta && notShellOwned(spec)
 
 export function bindingProblem(id: string, spec: ChordSpec, mac: boolean): ChordProblem | null {
-  const browserAlt = BROWSER_IDS.has(id) && altChord(spec)
-  const steal = browserAlt ? null : stealsTerminalKey(spec, mac)
+  const browserOnly = BROWSER_IDS.has(id) && (altChord(spec) || ctrlChord(spec))
+  const steal = browserOnly ? null : stealsTerminalKey(spec, mac)
   if (steal) return steal
   const isRange = spec.key === DIGIT_RANGE
   return isRange === (id === WORKSPACE_GOTO) ? null : 'digit-range'

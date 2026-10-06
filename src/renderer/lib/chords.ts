@@ -29,6 +29,7 @@ export type { KeyLike, KeybindingMap } from '@shared/chordSpec'
 export { WORKSPACE_GOTO, bindingProblem, checkBinding } from '@shared/chordSpec'
 
 export type AppChord =
+  | 'app.quit'
   | 'palette.toggle'
   | 'view.toggleRail'
   | 'app.openSettings'
@@ -37,6 +38,7 @@ export type AppChord =
   | 'history.search'
   | 'workflows.search'
   | 'workspace.new'
+  | 'window.new'
   | 'tab.new'
   | 'terminal.clear'
   | 'agent.resume'
@@ -107,6 +109,7 @@ const BROWSER_SET: ReadonlySet<string> = new Set(BROWSER_CHORDS)
 export const DEFAULT_CHORDS: Readonly<
   Record<AppChord | TerminalChord | BrowserChord, [mac: ChordValue, other: ChordValue]>
 > = {
+  'app.quit': ['', 'Ctrl+Shift+Q'],
   'palette.toggle': [['Shift+Cmd+P', 'Cmd+K'], 'Ctrl+Shift+P'],
   'view.toggleRail': [['Cmd+B', 'Cmd+\\'], 'Ctrl+Shift+B'],
   'app.openSettings': ['Cmd+,', 'Ctrl+,'],
@@ -115,6 +118,7 @@ export const DEFAULT_CHORDS: Readonly<
   'history.search': ['Cmd+Shift+H', 'Ctrl+Shift+H'],
   'workflows.search': ['Cmd+Shift+S', 'Ctrl+Shift+S'],
   'workspace.new': ['Cmd+N', 'Ctrl+Shift+N'],
+  'window.new': ['Cmd+Shift+N', 'Ctrl+Shift+Alt+N'],
   'tab.new': ['Cmd+T', 'Ctrl+Shift+T'],
   'terminal.clear': ['terminal:Cmd+K', 'terminal:Ctrl+Shift+K'],
   'agent.resume': ['Cmd+Shift+R', 'Ctrl+Shift+R'],
@@ -136,8 +140,14 @@ export const DEFAULT_CHORDS: Readonly<
     ['terminal:Ctrl+Shift+Enter', 'Ctrl+Shift+X'],
   ],
   'pane.close': ['Cmd+W', 'Ctrl+Shift+W'],
-  'tab.next': [['Ctrl+Tab', 'Shift+Cmd+]'], 'Ctrl+Tab'],
-  'tab.previous': [['Ctrl+Shift+Tab', 'Shift+Cmd+['], 'Ctrl+Shift+Tab'],
+  'tab.next': [
+    ['Ctrl+Tab', 'Shift+Cmd+]'],
+    ['Ctrl+Tab', 'Ctrl+PageDown'],
+  ],
+  'tab.previous': [
+    ['Ctrl+Shift+Tab', 'Shift+Cmd+['],
+    ['Ctrl+Shift+Tab', 'Ctrl+PageUp'],
+  ],
   'workspace.next': ['Cmd+Ctrl+]', 'Ctrl+Shift+PageDown'],
   'workspace.previous': ['Cmd+Ctrl+[', 'Ctrl+Shift+PageUp'],
   copy: ['Cmd+C', 'Ctrl+Shift+C'],
@@ -155,8 +165,8 @@ export const DEFAULT_CHORDS: Readonly<
   'terminal.scrollLineDown': ['', ''],
   'tab.moveLeft': ['Shift+Cmd+Left', ''],
   'tab.moveRight': ['Shift+Cmd+Right', ''],
-  'browser.focusAddress': ['Cmd+L', 'Ctrl+Shift+L'],
-  'browser.reload': ['Cmd+R', 'Ctrl+F5'],
+  'browser.focusAddress': ['Cmd+L', ['Ctrl+L', 'Ctrl+Shift+L']],
+  'browser.reload': ['Cmd+R', ['Ctrl+R', 'Ctrl+F5']],
   'browser.back': ['Cmd+[', 'Alt+Left'],
   'browser.forward': ['Cmd+]', 'Alt+Right'],
 }

@@ -291,3 +291,19 @@ test('on macOS the cmux keymap is opt-in: picking it drops ⌘K for the palette,
     await app.close()
   }
 })
+
+test('Ctrl+Shift+Q quits Ostia from a focused terminal on Linux', async () => {
+  test.skip(isMac, 'macOS quits with Cmd+Q from the app menu')
+  const app = await electron.launch(isolatedLaunch())
+  try {
+    const win = await app.firstWindow()
+    await win.waitForLoadState('domcontentloaded')
+    await openWorkspace(win)
+    await focusTerminal(win)
+    const closed = new Promise<void>((done) => app.once('close', () => done()))
+    await win.keyboard.press('Control+Shift+q')
+    await closed
+  } finally {
+    await app.close().catch(() => undefined)
+  }
+})

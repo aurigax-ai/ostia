@@ -118,6 +118,17 @@ describe('matchChord', () => {
     expect(chordLabel('workspace.new', true)).toBe('⌘N')
   })
 
+  it('opens a new window with Cmd+Shift+N and Ctrl+Shift+Alt+N, leaving Ctrl+Shift+N to workspaces', () => {
+    const csa = { ctrlKey: true, shiftKey: true, altKey: true }
+    expect(matchChord(key('n', { metaKey: true, shiftKey: true }), true)).toBe('window.new')
+    expect(matchChord(key('N', csa), false)).toBe('window.new')
+    expect(matchChord(key('N', { ctrlKey: true, shiftKey: true }), false)).toBe('workspace.new')
+    expect(matchChord(key('n', { metaKey: true }), true)).toBe('workspace.new')
+    expect(isAppChord('window.new')).toBe(true)
+    expect(chordLabel('window.new', true)).toBe('⌘⇧N')
+    expect(chordLabel('window.new', false)).toBe('Ctrl+Shift+Alt+N')
+  })
+
   it('maps jump-to-latest-unread to Ctrl+Shift+U and Cmd+Shift+U as an app chord', () => {
     const ctrlShiftU = matchChord(key('U', { ctrlKey: true, shiftKey: true }), false)
     const cmdShiftU = matchChord(key('u', { metaKey: true, shiftKey: true }), true)
@@ -187,10 +198,10 @@ describe('block chords', () => {
     expect(matchChord(key('ArrowUp'), false)).toBeNull()
   })
 
-  it('opens history search with Ctrl+Shift+H or Cmd+Shift+H, never Ctrl+R', () => {
+  it('opens history search with Ctrl+Shift+H or Cmd+Shift+H, never Ctrl+R, which only reloads a browser pane', () => {
     expect(matchChord(key('H', { ctrlKey: true, shiftKey: true }), false)).toBe('history.search')
     expect(matchChord(key('h', { metaKey: true, shiftKey: true }), true)).toBe('history.search')
-    expect(matchChord(key('r', { ctrlKey: true }), false)).toBeNull()
+    expect(matchChord(key('r', { ctrlKey: true }), false)).toBe('browser.reload')
     expect(isAppChord('history.search')).toBe(true)
     expect(chordLabel('block.selectPrev', false)).toBe('Ctrl+Shift+↑')
     expect(chordLabel('history.search', true)).toBe('⌘⇧H')
@@ -288,7 +299,8 @@ describe('effectiveBindings', () => {
   it('ignores an override that would steal a terminal key and keeps the default', () => {
     const table = effectiveBindings({ 'palette.toggle': 'Ctrl+R', find: 'Escape' }, false)
     expect(table.bySignature.get('Ctrl+Shift+P')).toBe('palette.toggle')
-    expect(table.bySignature.has('Ctrl+R')).toBe(false)
+    expect(table.byId.get('palette.toggle')).toHaveLength(1)
+    expect(table.bySignature.get('Ctrl+R')).toBe('browser.reload')
     expect(table.bySignature.get('Ctrl+Shift+F')).toBe('find')
   })
 
@@ -558,7 +570,13 @@ describe('commands with several chords', () => {
       'tab.next',
       'tab.previous',
     ])
-    expect(several(false)).toEqual(['pane.zoom'])
+    expect(several(false)).toEqual([
+      'pane.zoom',
+      'tab.next',
+      'tab.previous',
+      'browser.focusAddress',
+      'browser.reload',
+    ])
     for (const mac of [true, false]) {
       for (const id of Object.keys(DEFAULT_CHORDS)) {
         expect(defaultChords(id, mac).length, `${id} ${mac}`).toBeLessThanOrEqual(2)
@@ -788,7 +806,7 @@ describe('DEFAULT_CHORDS', () => {
     expect(matchChord(key('PageUp', { ctrlKey: true, shiftKey: true }), false)).toBe(
       'workspace.previous',
     )
-    expect(matchChord(key('PageDown', { ctrlKey: true }), false)).toBeNull()
+    expect(matchChord(key('PageDown', { ctrlKey: true }), false)).toBe('tab.next')
   })
 })
 
@@ -817,7 +835,6 @@ describe('scroll and tab move chords', () => {
     for (const event of [
       key('Home', { ctrlKey: true }),
       key('End', { ctrlKey: true }),
-      key('PageUp', { ctrlKey: true }),
       key('ArrowLeft', { ctrlKey: true, shiftKey: true }),
     ]) {
       expect(matchChord(event, false), JSON.stringify(event)).toBeNull()
@@ -966,7 +983,7 @@ describe('browser chords', () => {
         }
       }
     }
-    expect(DEFAULT_CHORDS['browser.reload']).toEqual(['Cmd+R', 'Ctrl+F5'])
+    expect(DEFAULT_CHORDS['browser.reload']).toEqual(['Cmd+R', ['Ctrl+R', 'Ctrl+F5']])
   })
 
   it('go back and forward with Alt+Left and Alt+Right on Linux, like Chrome and Firefox', () => {
@@ -1036,5 +1053,84 @@ describe('search files', () => {
     expect(chordLabel('view.searchFiles', true)).toBe('⌘⇧F')
     expect(chordLabel('view.searchFiles', false)).toBeNull()
     expect(matchChord(key('F', { ctrlKey: true, shiftKey: true }), false)).toBe('find')
+  })
+})
+
+describe('Linux tab, browser and quit chords', () => {
+  const ctrl = { ctrlKey: true }
+  const ctrlShift = { ctrlKey: true, shiftKey: true }
+
+  it('switch tabs with Ctrl+PageDown and Ctrl+PageUp next to Ctrl+Tab, leaving workspaces on Ctrl+Shift+PageUp and PageDown', () => {
+    expect(matchChord(key('PageDown', ctrl), false)).toBe('tab.next')
+    expect(matchChord(key('PageUp', ctrl), false)).toBe('tab.previous')
+    expect(matchChord(key('Tab', ctrl), false)).toBe('tab.next')
+    expect(matchChord(key('Tab', ctrlShift), false)).toBe('tab.previous')
+    expect(matchChord(key('PageDown', ctrlShift), false)).toBe('workspace.next')
+    expect(matchChord(key('PageUp', ctrlShift), false)).toBe('workspace.previous')
+    expect(isAppChord('tab.next')).toBe(true)
+    expect(isAppChord('tab.previous')).toBe(true)
+    expect(chordLabel('tab.next', false)).toBe('Ctrl+Tab')
+    expect(chordsOf('tab.next', false).map((spec) => formatChord(spec, false))).toEqual([
+      'Ctrl+Tab',
+      'Ctrl+PageDown',
+    ])
+  })
+
+  it('leave macOS alone, where Ctrl+PageUp and Ctrl+PageDown stay unbound', () => {
+    expect(matchChord(key('PageDown', ctrl), true)).toBeNull()
+    expect(matchChord(key('PageUp', ctrl), true)).toBeNull()
+    expect(matchChord(key('q', ctrlShift), true)).toBeNull()
+    expect(chordLabel('app.quit', true)).toBeNull()
+  })
+
+  it('keep none of the new tab keys for Monaco', () => {
+    for (const text of ['Ctrl+PageUp', 'Ctrl+PageDown', 'Ctrl+Shift+Q']) {
+      expect(usedByMonaco(chord(text, false), false), text).toBe(false)
+    }
+  })
+
+  it('quit with Ctrl+Shift+Q as an app chord, so a terminal never receives it', () => {
+    expect(matchChord(key('Q', ctrlShift), false)).toBe('app.quit')
+    expect(isAppChord('app.quit')).toBe(true)
+    expect(matchChord(key('q', ctrl), false)).toBeNull()
+    expect(chordLabel('app.quit', false)).toBe('Ctrl+Shift+Q')
+    const exec = vi.spyOn(commands, 'exec').mockResolvedValue({ ok: true, result: undefined })
+    const preventDefault = vi.fn()
+    expect(runAppChord({ ...key('Q', ctrlShift), preventDefault }, false)).toBe(true)
+    expect(preventDefault).toHaveBeenCalledTimes(1)
+    expect(exec).toHaveBeenCalledWith('app.quit')
+    exec.mockRestore()
+  })
+
+  it('go to the address bar with Ctrl+L and reload with Ctrl+R, keeping the older keys', () => {
+    expect(matchChord(key('l', ctrl), false)).toBe('browser.focusAddress')
+    expect(matchChord(key('r', ctrl), false)).toBe('browser.reload')
+    expect(matchChord(key('L', ctrlShift), false)).toBe('browser.focusAddress')
+    expect(matchChord(key('F5', ctrl), false)).toBe('browser.reload')
+    expect(chordLabel('browser.focusAddress', false)).toBe('Ctrl+L')
+    expect(chordLabel('browser.reload', false)).toBe('Ctrl+R')
+    expect(matchChord(key('l', ctrl), true)).toBeNull()
+    expect(matchChord(key('r', ctrl), true)).toBeNull()
+  })
+
+  it('never run an app command for Ctrl+L or Ctrl+R, so a terminal or editor keeps them', () => {
+    const exec = vi.spyOn(commands, 'exec')
+    for (const k of ['l', 'r']) {
+      const e = { ...key(k, ctrl), code: `Key${k.toUpperCase()}`, preventDefault: vi.fn() }
+      const id = matchChord(e, false)
+      expect(isBrowserChord(id), k).toBe(true)
+      expect(isAppChord(id), k).toBe(false)
+      expect(isTerminalCommandChord(id), k).toBe(false)
+      expect(runAppChord(e, false), k).toBe(false)
+      expect(e.preventDefault, k).not.toHaveBeenCalled()
+    }
+    expect(exec).not.toHaveBeenCalled()
+    exec.mockRestore()
+  })
+
+  it('stay out of the shell keys the terminal still owns', () => {
+    for (const k of ['k', 'u', 'w', 'c', 'a', 'e', 'd']) {
+      expect(matchChord(key(k, ctrl), false), k).toBeNull()
+    }
   })
 })
