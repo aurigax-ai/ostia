@@ -89,16 +89,21 @@ describe('matchChord', () => {
     expect(matchChord(key(',', { ctrlKey: true }), false)).toBe('app.openSettings')
   })
 
-  it('maps new workspace to Ctrl+Shift+T and Cmd+T as an app chord, leaving Ctrl+T to the shell', () => {
-    const ctrlShiftT = matchChord(key('T', { ctrlKey: true, shiftKey: true }), false)
-    const cmdT = matchChord(key('t', { metaKey: true }), true)
-    expect(ctrlShiftT).toBe('workspace.new')
-    expect(cmdT).toBe('workspace.new')
-    expect(isAppChord(ctrlShiftT)).toBe(true)
+  it('opens a tab in the pane with Cmd+T and Ctrl+Shift+T, and a workspace with Cmd+N and Ctrl+Shift+N', () => {
+    const cs = { ctrlKey: true, shiftKey: true }
+    const cmd = { metaKey: true }
+    expect(matchChord(key('T', cs), false)).toBe('tab.new')
+    expect(matchChord(key('t', cmd), true)).toBe('tab.new')
+    expect(matchChord(key('N', cs), false)).toBe('workspace.new')
+    expect(matchChord(key('n', cmd), true)).toBe('workspace.new')
+    expect(isAppChord('tab.new')).toBe(true)
+    expect(isAppChord('workspace.new')).toBe(true)
     expect(matchChord(key('t', { ctrlKey: true }), false)).toBeNull()
-    expect(matchChord(key('t', { ctrlKey: true }), true)).toBeNull()
-    expect(chordLabel('workspace.new', false)).toBe('Ctrl+Shift+T')
-    expect(chordLabel('workspace.new', true)).toBe('⌘T')
+    expect(matchChord(key('n', { ctrlKey: true }), false)).toBeNull()
+    expect(chordLabel('tab.new', false)).toBe('Ctrl+Shift+T')
+    expect(chordLabel('tab.new', true)).toBe('⌘T')
+    expect(chordLabel('workspace.new', false)).toBe('Ctrl+Shift+N')
+    expect(chordLabel('workspace.new', true)).toBe('⌘N')
   })
 
   it('maps jump-to-latest-unread to Ctrl+Shift+U and Cmd+Shift+U as an app chord', () => {
@@ -410,7 +415,7 @@ describe('the macOS keymap that follows cmux', () => {
     expect(matchChord({ ...key('Enter', cmdShift), code: 'Enter' }, true)).toBe('pane.zoom')
     expect(matchChord({ ...key('∂', cmdAlt), code: 'KeyD' }, true)).toBe('dashboard.toggle')
     expect(matchChord(key('k', cmd), true)).toBeNull()
-    expect(matchChord(key('t', cmd), true)).toBeNull()
+    expect(matchChord(key('t', cmd), true)).toBe('tab.new')
   })
 
   it('changes nothing until it is the chosen keymap', () => {
