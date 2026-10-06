@@ -46,7 +46,7 @@ import { Kbd } from './ui/kbd'
 const LIST_CLASS = 'max-h-[min(27rem,calc(88vh-5rem))]'
 
 const GROUP_CLASS =
-  '**:[[cmdk-group-heading]]:pt-3 **:[[cmdk-group-heading]]:pb-1.5 **:[[cmdk-group-heading]]:text-sm **:[[cmdk-group-heading]]:font-semibold'
+  '**:[[cmdk-group-heading]]:pt-3 **:[[cmdk-group-heading]]:pb-1.5 **:[[cmdk-group-heading]]:text-ui-base **:[[cmdk-group-heading]]:font-semibold'
 
 const subscribeCommands = (cb: () => void): (() => void) => commands.subscribe(cb)
 const commandsVersion = (): number => commands.version()
@@ -624,7 +624,13 @@ function CommandItems({
       </CommandItem>
     )
   }
-  if (!grouped) return <>{[...groups.values()].flatMap((group) => group.items).map(renderItem)}</>
+  if (!grouped) {
+    return (
+      <div className="p-1">
+        {[...groups.values()].flatMap((group) => group.items).map(renderItem)}
+      </div>
+    )
+  }
   return (
     <>
       {[...groups.entries()].map(([key, group]) => (
