@@ -109,6 +109,7 @@
   --motion-fast: 90ms;
   --motion-base: 150ms;
   --motion-slow: 220ms;
+  --motion-panel: 180ms;
   --motion-highlight: 2000ms;
   --motion-fast-exit: 63ms;
   --motion-base-exit: 105ms;
@@ -356,6 +357,51 @@
 
 .deck-rail.collapsed {
   width: var(--rail-w-collapsed);
+}
+
+.deck-rail[data-rail-motion] {
+  z-index: 1;
+  will-change: transform;
+}
+
+.deck-rail[data-rail-motion="opening"] {
+  animation: rail-slide-in var(--motion-panel) var(--ease-out) both;
+}
+
+.deck-rail[data-rail-motion="closing"] {
+  animation: rail-slide-out var(--motion-panel) var(--ease-in-out) both;
+}
+
+.deck-rail[data-rail-motion="opening"] > * {
+  animation: rail-content-in var(--motion-panel) var(--ease-out) both;
+}
+
+.deck-rail[data-rail-motion="closing"] > * {
+  animation: rail-content-out var(--motion-panel) var(--ease-in-out) both;
+}
+
+@keyframes rail-slide-in {
+  from {
+    transform: translateX(calc(var(--rail-w-collapsed) - 100%));
+  }
+}
+
+@keyframes rail-slide-out {
+  to {
+    transform: translateX(calc(var(--rail-w-collapsed) - 100%));
+  }
+}
+
+@keyframes rail-content-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes rail-content-out {
+  to {
+    opacity: 0;
+  }
 }
 
 .panel-resizer {

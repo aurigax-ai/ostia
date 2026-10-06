@@ -182,6 +182,32 @@ describe('motion CSS contract', () => {
     expect([...cssOffenders, ...codeOffenders]).toEqual([])
   })
 
+  it('slides the sidebar with transform and opacity only, so a toggle reflows once', () => {
+    const railRules = [...css.matchAll(/\n(\.deck-rail[^{\n]*)\{([^}]*)\}/g)]
+    const animated = railRules.flatMap(([, , body]) =>
+      [...body.matchAll(/animation:\s*([a-z-]+)/g)].map((m) => m[1]),
+    )
+    expect(new Set(animated)).toEqual(
+      new Set(['rail-slide-in', 'rail-slide-out', 'rail-content-in', 'rail-content-out']),
+    )
+    for (const name of animated) {
+      const start = css.indexOf(`@keyframes ${name} {`)
+      expect(start, name).toBeGreaterThan(-1)
+      const body = css.slice(start, css.indexOf('\n}', start))
+      const props = [...body.matchAll(/^\s+([a-z-]+):/gm)].map((m) => m[1])
+      expect(props.length, name).toBeGreaterThan(0)
+      expect(
+        props.filter((p) => p !== 'transform' && p !== 'opacity'),
+        name,
+      ).toEqual([])
+    }
+    const durations = railRules.flatMap(([, , body]) =>
+      [...body.matchAll(/animation:\s*[a-z-]+\s+var\((--motion-[a-z-]+)\)/g)].map((m) => m[1]),
+    )
+    expect(new Set(durations)).toEqual(new Set(['--motion-panel']))
+    expect(css).toMatch(/--motion-panel: (1[5-9]\d|200)ms;/)
+  })
+
   it('uses no raw durations, easings, press scaling or tw-animate classes in code', () => {
     const offenders = codeFiles.flatMap((file) =>
       readFileSync(file, 'utf8')
