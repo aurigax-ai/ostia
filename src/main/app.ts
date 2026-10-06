@@ -1152,7 +1152,7 @@ const terminalState = new Map<string, TerminalStateSnapshot>()
 
 let extensionHost: ExtensionHost | null = null
 let gitBoard: GitBoard | null = null
-const ON_DEMAND_EXTENSIONS = [GIT_EXTENSION]
+const ON_DEMAND_EXTENSIONS = [GIT_EXTENSION, 'assistant']
 
 function refreshAgentPlugins(): void {
   try {

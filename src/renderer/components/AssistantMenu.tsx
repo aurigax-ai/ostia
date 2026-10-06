@@ -17,7 +17,7 @@ import { featuresInUse, toggleAssistFeature, useChatAvailable } from '../lib/ass
 import { openChatPane } from '../lib/chatPane'
 import { useChordLabel } from '../lib/chords'
 import { isMac } from '../platform'
-import { useAssistStore } from '../stores/assistStore'
+import { useAssistStore, wakeAssist } from '../stores/assistStore'
 import { useExtensionsStore } from '../stores/extensionsStore'
 import { useUIStore } from '../stores/uiStore'
 import { Hint } from './Hint'
@@ -49,6 +49,10 @@ export function AssistantMenu(): JSX.Element | null {
     ? fmt(d.assistMenu.openChatKeys, { keys: chatKeys })
     : d.assistMenu.openChat
   const close = (): void => setOpen(false)
+  const toggle = (next: boolean): void => {
+    if (next) wakeAssist()
+    setOpen(next)
+  }
   return (
     <ButtonGroup aria-label={d.assistMenu.title} className="topbar-split rounded-sm">
       <IconButton
@@ -58,10 +62,10 @@ export function AssistantMenu(): JSX.Element | null {
         className="rounded-r-none"
         onClick={() => {
           if (chatReady) openChatPane()
-          else setOpen(true)
+          else toggle(true)
         }}
       />
-      <Popover open={open} onOpenChange={setOpen}>
+      <Popover open={open} onOpenChange={toggle}>
         <PopoverTrigger
           render={
             <IconButton
