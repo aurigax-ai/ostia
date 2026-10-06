@@ -1362,7 +1362,7 @@ async function main(): Promise<void> {
     } else if (cmd === 'agent') {
       await runAgentVerb(conn)
     } else if (cmd === 'pane') {
-      process.exitCode = await runPaneVerb(conn, process.argv.slice(3))
+      process.exitCode = await runPaneVerb(conn, process.argv.slice(3), readAllStdin)
     } else if (cmd === 'token') {
       process.exitCode = await runTokenVerb(conn, process.argv.slice(3))
     } else if (cmd === 'vault') {

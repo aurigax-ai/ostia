@@ -2089,6 +2089,11 @@ button.prompt-chip:focus-visible {
   margin-top: var(--language-notice-height);
 }
 
+.language-notice ~ .editor-mode,
+.language-notice ~ .editor-send {
+  top: calc(6px + var(--language-notice-height));
+}
+
 .editor-save-error {
   position: absolute;
   top: 6px;

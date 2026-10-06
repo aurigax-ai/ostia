@@ -31,6 +31,32 @@ describe('parsePaneArgs', () => {
     })
   })
 
+  it('reads the flags for unattended sends and a task from stdin', () => {
+    expect(
+      parsePaneArgs(['send', 'w', '--paste', '--force', '--confirm', '--enter', 'do', 'it']),
+    ).toEqual({
+      method: 'pane.input',
+      params: {
+        pane: 'w',
+        text: 'do it',
+        keys: ['enter'],
+        paste: true,
+        force: true,
+        confirm: true,
+      },
+    })
+    expect(parsePaneArgs(['send', 'w', '--raw', 'a'])).toEqual({
+      method: 'pane.input',
+      params: { pane: 'w', text: 'a', paste: false },
+    })
+    expect(parsePaneArgs(['send', 'w', '--enter', '-'])).toEqual({
+      method: 'pane.input',
+      params: { pane: 'w', keys: ['enter'] },
+      stdin: true,
+    })
+    expect(() => parsePaneArgs(['send', 'w', '--paste', '--raw', 'a'])).toThrow('usage: ostia pane')
+  })
+
   it('passes the keys of key through in order', () => {
     expect(parsePaneArgs(['key', 'p1', 'ctrl-c', 'up', 'enter'])).toEqual({
       method: 'pane.input',

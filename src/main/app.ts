@@ -60,7 +60,7 @@ import { installAppMenu } from './appMenu'
 import { registerAppUpdate } from './appUpdate'
 import { approvals, registerApprovals } from './approvals'
 import { registerAssistIpc } from './assistIpc'
-import { registerAttentionMethods } from './attention'
+import { registerAttentionMethods, targetOf } from './attention'
 import {
   type ConsoleEntry,
   OSTIA_ERROR_PREFIX,
@@ -488,6 +488,8 @@ const paneIo: PaneIo = {
     entry.pty.write(data)
     return true
   },
+  bracketedPaste: (paneId) => ptys.get(paneId)?.mirror.bracketedPaste === true,
+  outputCursor: (paneId) => ptys.get(paneId)?.session.cursor,
 }
 
 function resizePty(entry: PtyEntry | undefined, cols: number, rows: number): void {
@@ -2641,6 +2643,12 @@ app.whenReady().then(() => {
     isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
     isConfined: (paneId) => ptys.get(paneId)?.sandboxed === true,
     managerAllowsInput: () => managerSettings().allowInput,
+    attention: async (to) => {
+      const res = await execCommand(targetOf(to), 'attention.peek')
+      return res.ok && res.result && typeof res.result === 'object' ? res.result : {}
+    },
+    inputSent: (to) => void execCommand(targetOf(to), 'attention.typed'),
+    delay: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
   })
   registerDocsMethods({ extensions: () => extensionHost?.listForAgents() ?? [] })
   registerVaultMethods({ isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId) })
