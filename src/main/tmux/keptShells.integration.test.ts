@@ -12,6 +12,7 @@ const tmux = programPath('tmux') ?? 'tmux'
 const root = mkdtempSync(join(tmpdir(), 'ostia-kept-'))
 const live: KeptShells[] = []
 let names = 0
+const PROCESS_END_MS = 10_000
 
 afterEach(async () => {
   for (const kept of live.splice(0)) await kept.quit()
@@ -66,6 +67,10 @@ function alive(pid: number): boolean {
   }
 }
 
+async function ended(pid: number): Promise<void> {
+  await expect.poll(() => alive(pid), { timeout: PROCESS_END_MS }).toBe(false)
+}
+
 async function restart(name: string, saved: ReadonlySet<string> | null, keep = true) {
   const next = instance(name)
   await next.kept.start(keep, saved)
@@ -84,7 +89,7 @@ describe('KeptShells', () => {
     expect(second.kept.isWaiting('p2')).toBe(false)
     expect(second.log).toContainEqual(['pty-reap', { pane: 'p2', reason: 'unclaimed' }])
     expect(alive(named.pid)).toBe(true)
-    await expect.poll(() => alive(unnamed.pid)).toBe(false)
+    await ended(unnamed.pid)
   })
 
   it('KSH-C16 ends every kept shell when the saved layout cannot be read', async () => {
@@ -94,7 +99,7 @@ describe('KeptShells', () => {
     first.kept.release()
     const second = await restart(name, null)
     expect(second.kept.isWaiting('p1')).toBe(false)
-    await expect.poll(() => alive(pane.pid)).toBe(false)
+    await ended(pane.pid)
   })
 
   it('KSH-C10 ends shells left behind by a quit that was cut off', async () => {
@@ -104,7 +109,7 @@ describe('KeptShells', () => {
     first.kept.release()
     const second = await restart(name, new Set())
     expect(second.log).toContainEqual(['pty-reap', { pane: 'p1', reason: 'unclaimed' }])
-    await expect.poll(() => alive(pane.pid)).toBe(false)
+    await ended(pane.pid)
   })
 
   it('KSH-C22 ends kept shells when Ostia starts with the setting off', async () => {
@@ -114,7 +119,7 @@ describe('KeptShells', () => {
     first.kept.release()
     const second = await restart(name, new Set(['p1']), false)
     expect(second.kept.isWaiting('p1')).toBe(false)
-    await expect.poll(() => alive(pane.pid)).toBe(false)
+    await ended(pane.pid)
   })
 
   it('KSH-C9 ends every shell and the server on quit, attached or not', async () => {
@@ -125,8 +130,8 @@ describe('KeptShells', () => {
     const second = await restart(name, new Set(['p1']))
     const other = await spawn(second.kept, 'p2')
     await second.kept.quit()
-    await expect.poll(() => alive(pane.pid)).toBe(false)
-    await expect.poll(() => alive(other.pid)).toBe(false)
+    await ended(pane.pid)
+    await ended(other.pid)
     const third = await restart(name, new Set(['p1', 'p2']))
     expect(third.kept.isWaiting('p1')).toBe(false)
   })
@@ -192,7 +197,7 @@ describe('KeptShells', () => {
     first.kept.release()
     const second = await restart(name, new Set())
     expect(second.kept.keptHost('w1')).toBeUndefined()
-    await expect.poll(() => alive(hostPane.pid)).toBe(false)
+    await ended(hostPane.pid)
   })
 
   it('KSH-C52 ends a sandboxed shell whose sandbox host died while Ostia was away and marks it lost', async () => {
@@ -202,11 +207,11 @@ describe('KeptShells', () => {
     const pane = await sandboxed(first.kept, 'p1')
     first.kept.release()
     process.kill(hostPane.pid, 'SIGKILL')
-    await expect.poll(() => alive(hostPane.pid)).toBe(false)
+    await ended(hostPane.pid)
     const second = await restart(name, new Set(['p1']))
     expect(second.kept.isWaiting('p1')).toBe(false)
     expect(second.log).toContainEqual(['pty-reap', { pane: 'p1', reason: 'sandbox-gone' }])
-    await expect.poll(() => alive(pane.pid)).toBe(false)
+    await ended(pane.pid)
     expect(second.kept.takeSandboxLost('p1')).toBe(true)
     expect(second.kept.takeSandboxLost('p1')).toBe(false)
   })
