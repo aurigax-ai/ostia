@@ -5,6 +5,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { registerBuiltinCommands } from '../commands/builtins'
 import { resetIds } from '../layout/tree'
 import { useLayoutStore } from '../stores/layoutStore'
+import { useSettingsStore } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
 import { WorkZone } from './WorkZone'
@@ -80,9 +81,25 @@ describe('WorkZone', () => {
     expect(screen.queryByRole('heading', { name: 'No workspaces' })).toBeNull()
     expect(useLayoutStore.getState().byWorkspace[only.id]).toBeUndefined()
 
-    await user.click(screen.getByRole('button', { name: 'New terminal' }))
+    const terminal = screen.getByRole('button', { name: /New terminal/ })
+    expect(terminal).toHaveTextContent('Ctrl+Shift+T')
+    expect(screen.getByRole('button', { name: /New browser/ })).not.toHaveTextContent('Ctrl')
+    await user.click(terminal)
     const paneId = useLayoutStore.getState().byWorkspace[only.id]?.activePaneId
     expect(screen.getByTestId(`terminal-${paneId}`)).toBeInTheDocument()
+  })
+
+  it('labels the empty workspace browser button with a user binding', async () => {
+    const before = useSettingsStore.getState().keybindings
+    useSettingsStore.setState({ keybindings: { 'tab.newBrowser': 'Ctrl+Shift+B' } })
+    try {
+      renderZone()
+      await userEvent.setup().click(screen.getByRole('button', { name: /New workspace/ }))
+
+      expect(screen.getByRole('button', { name: /New browser/ })).toHaveTextContent('Ctrl+Shift+B')
+    } finally {
+      useSettingsStore.setState({ keybindings: before })
+    }
   })
 
   it('leaves Settings when the empty state opens a workspace', async () => {
