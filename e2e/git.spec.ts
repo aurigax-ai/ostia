@@ -47,11 +47,20 @@ test('a dirty repo shows in the sidebar and the top bar, opens a diff, commits, 
           .find((wc) => wc.getType() === 'webview' && wc.getURL().startsWith('http://127.0.0.1'))
         return guest ? String(await guest.executeJavaScript(code)) : ''
       }, script)
+    const guestClick = (selector: string): Promise<void> => {
+      const script = `(() => {
+        const target = document.querySelector(${JSON.stringify(selector)})
+        if (!target) return 'missing'
+        target.click()
+        return 'clicked'
+      })()`
+      return expect.poll(() => guestEval(script), { timeout: 15_000 }).toBe('clicked')
+    }
     await expect
       .poll(() => guestEval('document.body.innerText'), { timeout: 15_000 })
       .toContain('notes.txt')
 
-    await guestEval(`document.querySelector('button.change[data-path="notes.txt"]').click(); 'ok'`)
+    await guestClick('button.change[data-path="notes.txt"]')
 
     await expect(
       win.locator('.pane-header .title').filter({ hasText: 'notes.txt (unstaged)' }),
@@ -61,7 +70,7 @@ test('a dirty repo shows in the sidebar and the top bar, opens a diff, commits, 
     await expect(diff).toContainText('second line from e2e', { timeout: 15_000 })
     await expect(win.locator('.diff-title')).toHaveText(join(home, 'notes.txt'))
 
-    await guestEval(`document.querySelector('[aria-label="Stage: notes.txt"]').click(); 'ok'`)
+    await guestClick('[aria-label="Stage: notes.txt"]')
     await expect
       .poll(() => guestEval('document.body.innerText'), { timeout: 15_000 })
       .toContain('STAGED')
