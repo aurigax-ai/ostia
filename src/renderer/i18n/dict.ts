@@ -1634,10 +1634,10 @@ export const en = {
   },
   sync: {
     title: 'Sync',
-    desc: 'Keep settings and extension choices in a folder you own, such as a Syncthing or Dropbox folder or a repository you commit. Secrets, device tokens, certificates and capability grants never sync.',
+    desc: 'Keep your profile (settings, keybindings, workflows, completion specs, views and the list of marketplace extensions) in a folder you own, such as a Syncthing, iCloud Drive or Dropbox folder. Secrets, approvals, capability grants and settings that run programs stay on this machine.',
     folder: 'Sync folder',
     folderDesc:
-      '{product} writes settings.json and extensions.json here and picks up changes on startup and when its window gets focus.',
+      '{product} keeps your profile here and picks up changes on startup, when its window gets focus and when you change something.',
     notSet: 'Not set',
     choose: 'Choose folder…',
     stop: 'Stop syncing',
@@ -1646,12 +1646,28 @@ export const en = {
     off: 'Off',
     never: 'Not synced yet',
     lastSync: 'Last synced {time}',
-    conflict:
-      'Both copies changed ({time}). The newer one was kept; the other is saved in the sync folder as {files}.',
+    conflictsTitle: 'Changed on both machines',
+    conflictsDesc:
+      'The most recent change was kept. Use the other value to keep it everywhere instead.',
+    conflictValues: 'Kept: {kept} · Other: {other}',
+    conflictDeleted: 'deleted',
+    conflictEdited: 'edited',
+    useOther: 'Use the other value',
+    offersTitle: 'From your other machines',
+    offersDesc:
+      'Extensions installed on another machine. An installed extension waits for your approval before it runs.',
+    install: 'Install',
+    skipped:
+      'Not synced: {files}. Links, files over the size limit and files past the count limit are left out.',
+    heldBack: 'Not synced because the value looks like a secret: {keys}.',
     errMissing: 'The sync folder does not exist.',
     errNotDir: 'The sync path is not a folder.',
     errSame: 'Choose a folder outside {product}’s own settings folder.',
     errInvalid: 'A synced file is not valid JSON ({files}). Fix or delete it, then sync again.',
+    errUnreachable:
+      'The sync folder could not be read or written. Nothing on this machine changed.',
+    errScan: 'The secret check failed, so nothing was sent. Sync again to retry.',
+    errBusy: 'The sync folder kept changing while syncing. Sync again.',
     errUnknown: 'Sync failed ({error}).',
   },
   browserSettings: {
@@ -4282,10 +4298,10 @@ export const zhHant: Dict = {
   },
   sync: {
     title: '同步',
-    desc: '把設定與擴充功能選擇存放在你自己的資料夾，例如 Syncthing、Dropbox 資料夾或你提交的儲存庫。機密、裝置權杖、憑證與權限授予永遠不會同步。',
+    desc: '把你的設定檔（設定、按鍵綁定、工作流程、補全規格、檢視與市集擴充功能清單）存放在你自己的資料夾，例如 Syncthing、iCloud Drive 或 Dropbox 資料夾。機密、核准、權限授予與會執行程式的設定只留在這台電腦。',
     folder: '同步資料夾',
     folderDesc:
-      '{product} 會把 settings.json 與 extensions.json 寫入這裡，並在啟動時及視窗取得焦點時讀取變更。',
+      '{product} 會把設定檔存放在這裡，並在啟動時、視窗取得焦點時及你變更內容時讀取變更。',
     notSet: '未設定',
     choose: '選擇資料夾…',
     stop: '停止同步',
@@ -4294,12 +4310,24 @@ export const zhHant: Dict = {
     off: '關閉',
     never: '尚未同步',
     lastSync: '上次同步 {time}',
-    conflict:
-      '兩邊都有變更（{time}）。已保留較新的版本；另一份已存在同步資料夾中，名稱為 {files}。',
+    conflictsTitle: '兩台電腦都有變更',
+    conflictsDesc: '已保留最近的變更。若要改用另一個值，請選擇「改用另一個值」。',
+    conflictValues: '保留：{kept} · 另一個：{other}',
+    conflictDeleted: '已刪除',
+    conflictEdited: '已編輯',
+    useOther: '改用另一個值',
+    offersTitle: '來自你其他電腦',
+    offersDesc: '在其他電腦上安裝的擴充功能。安裝後的擴充功能會等待你核准才會執行。',
+    install: '安裝',
+    skipped: '未同步：{files}。連結、超過大小上限或數量上限的檔案不會同步。',
+    heldBack: '未同步，因為這些值看起來像機密：{keys}。',
     errMissing: '同步資料夾不存在。',
     errNotDir: '同步路徑不是資料夾。',
     errSame: '請選擇 {product} 設定資料夾以外的資料夾。',
     errInvalid: '同步的檔案不是有效的 JSON（{files}）。請修正或刪除後再同步。',
+    errUnreachable: '無法讀取或寫入同步資料夾。這台電腦上沒有任何變更。',
+    errScan: '機密檢查失敗，因此沒有送出任何內容。請再同步一次。',
+    errBusy: '同步時同步資料夾一直在變動。請再同步一次。',
     errUnknown: '同步失敗（{error}）。',
   },
   browserSettings: {

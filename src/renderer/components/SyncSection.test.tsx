@@ -9,7 +9,10 @@ const status = (s: Partial<SyncStatus>): SyncStatus => ({
   dir: null,
   state: 'off',
   lastSync: null,
-  lastConflict: null,
+  conflicts: [],
+  skipped: [],
+  heldBack: [],
+  offers: [],
   ...s,
 })
 
@@ -56,7 +59,7 @@ describe('SyncSection', () => {
     expect(window.ostia.fs.write).not.toHaveBeenCalled()
   })
 
-  it('explains a missing folder and a conflict from live status updates', async () => {
+  it('explains a missing folder from live status updates', async () => {
     useSettingsStore.setState({ sync: { dir: '/mnt/gone' } })
     let push: (s: SyncStatus) => void = () => {}
     vi.mocked(window.ostia.sync.onStatus).mockImplementation((cb) => {
@@ -66,22 +69,62 @@ describe('SyncSection', () => {
     render(<SyncSection />)
     act(() => push(status({ dir: '/mnt/gone', state: 'error', error: 'missing' })))
     expect(screen.getByRole('status')).toHaveTextContent('The sync folder does not exist.')
-    act(() =>
-      push(
-        status({
-          dir: '/mnt/gone',
-          state: 'ok',
-          lastSync: '2026-09-28T10:00:00.000Z',
-          lastConflict: {
-            at: '2026-09-28T10:00:00.000Z',
-            files: ['settings.conflict-2026-09-28T10-00-00-000Z-box.json'],
-          },
-        }),
-      ),
+  })
+
+  it('lists a clashed setting with both values and uses the other one on click', async () => {
+    useSettingsStore.setState({ sync: { dir: '/home/me/Sync/ostia' } })
+    const conflict = {
+      id: 'setting:["terminal","fontSize"]',
+      kind: 'setting' as const,
+      key: 'terminal.fontSize',
+      local: '16',
+      remote: '14',
+      winner: 'local' as const,
+    }
+    vi.mocked(window.ostia.sync.status).mockResolvedValue(
+      status({ dir: '/home/me/Sync/ostia', state: 'ok', conflicts: [conflict] }),
     )
-    expect(screen.getByRole('alert')).toHaveTextContent(
-      'settings.conflict-2026-09-28T10-00-00-000Z-box.json',
+    vi.mocked(window.ostia.sync.resolve).mockResolvedValue(
+      status({ dir: '/home/me/Sync/ostia', state: 'ok' }),
     )
+    render(<SyncSection />)
+    const list = await screen.findByRole('region', { name: 'Changed on both machines' })
+    expect(list).toHaveTextContent('terminal.fontSize')
+    expect(list).toHaveTextContent('Kept: 16 · Other: 14')
+    await userEvent.click(screen.getByRole('button', { name: 'Use the other value' }))
+    expect(window.ostia.sync.resolve).toHaveBeenCalledWith(conflict.id)
+    await waitFor(() =>
+      expect(screen.queryByRole('region', { name: 'Changed on both machines' })).toBeNull(),
+    )
+  })
+
+  it('offers an extension from another machine and installs it only on click', async () => {
+    useSettingsStore.setState({ sync: { dir: '/home/me/Sync/ostia' } })
+    const offer = { id: 'trellis', marketplace: 'https://github.com/aurigax-ai/ostia-extensions' }
+    vi.mocked(window.ostia.sync.status).mockResolvedValue(
+      status({ dir: '/home/me/Sync/ostia', state: 'ok', offers: [offer] }),
+    )
+    render(<SyncSection />)
+    const list = await screen.findByRole('region', { name: 'From your other machines' })
+    expect(list).toHaveTextContent('trellis')
+    expect(window.ostia.sync.install).not.toHaveBeenCalled()
+    await userEvent.click(screen.getByRole('button', { name: 'Install' }))
+    expect(window.ostia.sync.install).toHaveBeenCalledWith('trellis')
+  })
+
+  it('names settings held back as secrets and files left out', async () => {
+    useSettingsStore.setState({ sync: { dir: '/home/me/Sync/ostia' } })
+    vi.mocked(window.ostia.sync.status).mockResolvedValue(
+      status({
+        dir: '/home/me/Sync/ostia',
+        state: 'ok',
+        heldBack: ['browser.homepage'],
+        skipped: ['views/linked.json'],
+      }),
+    )
+    render(<SyncSection />)
+    expect(await screen.findByText(/looks like a secret: browser\.homepage/)).toBeInTheDocument()
+    expect(screen.getByText(/Not synced: views\/linked\.json/)).toBeInTheDocument()
   })
 
   it('stops syncing by clearing the folder', async () => {

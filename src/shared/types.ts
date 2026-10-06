@@ -304,8 +304,17 @@ export interface SettingsApi {
 }
 
 export interface SyncConflict {
-  at: string
-  files: string[]
+  id: string
+  kind: 'setting' | 'file'
+  key: string
+  local: string | null
+  remote: string | null
+  winner: 'local' | 'remote'
+}
+
+export interface SyncOffer {
+  id: string
+  marketplace: string
 }
 
 export interface SyncStatus {
@@ -313,12 +322,17 @@ export interface SyncStatus {
   state: 'off' | 'ok' | 'error'
   error?: string
   lastSync: string | null
-  lastConflict: SyncConflict | null
+  conflicts: SyncConflict[]
+  skipped: string[]
+  heldBack: string[]
+  offers: SyncOffer[]
 }
 
 export interface SyncApi {
   status: () => Promise<SyncStatus>
   run: () => Promise<SyncStatus>
+  resolve: (conflictId: string) => Promise<SyncStatus>
+  install: (extId: string) => Promise<SyncStatus>
   pickFolder: () => Promise<string | null>
   onStatus: (cb: (status: SyncStatus) => void) => () => void
 }

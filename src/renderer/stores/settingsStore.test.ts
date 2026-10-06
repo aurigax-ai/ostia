@@ -607,6 +607,14 @@ describe('settingsStore', () => {
       })
     })
 
+    it('PSY-C20 refuses an agent changing the sync target', () => {
+      useSettingsStore.setState({ sync: { dir: '/home/me/Sync' } })
+      expect(() => store().setByPath('sync.dir', '/tmp/evil')).toThrow(/unknown settings key/)
+      expect(() => store().setByPath('sync', { dir: '/tmp/evil' })).toThrow(/unknown settings key/)
+      expect(() => store().unsetByPath('sync')).toThrow(/unknown settings key/)
+      expect(useSettingsStore.getState().sync).toEqual({ dir: '/home/me/Sync' })
+    })
+
     it('MGR-C16 refuses manager settings from ostia settings set', () => {
       expect(() => store().setByPath('manager.agents', { x: ['rm'] })).toThrow(
         /unknown settings key/,

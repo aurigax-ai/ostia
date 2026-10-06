@@ -455,6 +455,13 @@ export class Marketplace {
     }
   }
 
+  syncedInstalls(): { id: string; marketplace: string }[] {
+    return Object.entries(this.records.installs).flatMap(([id, owner]) => {
+      const source = this.records.sources.find((s) => s.id === owner)
+      return source && existsSync(this.installDir(id)) ? [{ id, marketplace: source.url }] : []
+    })
+  }
+
   private ok(): MarketplaceResult {
     return { ok: true, state: this.state() }
   }

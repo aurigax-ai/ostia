@@ -317,6 +317,8 @@ const bridge: OstiaBridge = {
   sync: {
     status: () => ipcRenderer.invoke('sync:status') as Promise<SyncStatus>,
     run: () => ipcRenderer.invoke('sync:run') as Promise<SyncStatus>,
+    resolve: (conflictId) => ipcRenderer.invoke('sync:resolve', conflictId) as Promise<SyncStatus>,
+    install: (extId) => ipcRenderer.invoke('sync:install', extId) as Promise<SyncStatus>,
     pickFolder: () => ipcRenderer.invoke('dialog:pick-folder') as Promise<string | null>,
     onStatus: (cb) => {
       const handler = (_e: unknown, status: SyncStatus): void => cb(status)
