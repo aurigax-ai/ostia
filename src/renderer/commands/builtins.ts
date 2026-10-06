@@ -2,6 +2,7 @@ import { type AgentResume, resumeCommand } from '@shared/agentResume'
 import type { CmuxImportReport } from '@shared/cmuxSession'
 import { wantsDesktopBanner } from '@shared/notificationSettings'
 import { OPEN_FILES_COMMAND, parseFileTargets } from '@shared/openFiles'
+import { PROGRAM_SETTINGS } from '@shared/programSettings'
 import type { AttentionState } from '@shared/types'
 import { type WorkspaceGroupColor, normalizeGroupName } from '@shared/workspaceGroups'
 import { stepZoom } from '@shared/zoom'
@@ -98,22 +99,6 @@ interface WorkspaceGroupEntry {
   collapsed: boolean
   workspaceIds: string[]
 }
-
-const PROGRAM_SETTINGS: readonly {
-  group: 'behavior' | 'notifications' | 'agents' | 'terminal' | 'workspaces'
-  field: string
-}[] = [
-  { group: 'behavior', field: 'externalEditor' },
-  { group: 'behavior', field: 'checkForUpdates' },
-  { group: 'notifications', field: 'command' },
-  { group: 'agents', field: 'autoResume' },
-  { group: 'agents', field: 'hooks' },
-  { group: 'terminal', field: 'warnOnRiskyPaste' },
-  { group: 'terminal', field: 'shell' },
-  { group: 'terminal', field: 'osc52Write' },
-  { group: 'terminal', field: 'keepShells' },
-  { group: 'workspaces', field: 'globalHotkey' },
-]
 
 const HUMAN_ONLY_ROOTS: readonly string[] = ['privacy', 'terminalKeys']
 
