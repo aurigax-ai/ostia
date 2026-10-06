@@ -437,6 +437,16 @@ export interface OpenTerminalOptions {
   cwd?: string
   title?: string
   host?: boolean
+  waitMs?: number
+}
+
+export const OPEN_TERMINAL_WAIT_MAX_MS = 10 * 60_000
+
+export type TerminalWaitOutcome = 'finished' | 'closed' | 'timeout'
+
+export interface TerminalWait {
+  outcome: TerminalWaitOutcome
+  exitCode?: number
 }
 
 export const AGENT_OFFER_TEXT_MAX = 2000

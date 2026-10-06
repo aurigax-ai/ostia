@@ -1,6 +1,6 @@
 ---
 name: ostia
-description: Use when a coding agent is running inside Ostia (a terminal-workspace app) — detectable via the env vars OSTIA_SOCKET/OSTIA_TOKEN/OSTIA_PANE_ID/OSTIA_START_DIR — and wants to control its own pane or coordinate with other agents/panes in the workspace. Covers the `ostia` CLI: identity (whoami), introspection (commands, docs), opening files, desktop notifications, pane attention state (ostia state waiting/done), asking the human a question and waiting for the answer (ostia ask: free text, one choice or several), running commands in terminal tabs the human can watch (ostia process), typing into and reading other terminal panes (ostia pane send/key/read), an encrypted secret vault, sandboxed workspaces (asking for a domain, an exposed port or a secret: ostia sandbox request-domain/expose, ostia secret ls/get), a cross-agent message bus, driving the in-app browser with agent-browser's command contract (open/snapshot refs/click/fill/type/press/find/wait/get/eval/screenshot/cookies/storage/network/tabs/--json/batch, pick element), reading the selection reports (text, image regions, PDF text or regions, terminal output) a human sends from files and terminals Ostia shows (@/tmp/ostia-reports-*/selection-N.md), reading the human's saved command workflows (ostia workflow list/show), building sidebar sections and panels for the human as data-only JSON views (ostia view schema/validate/list/open), reading/writing app settings, learning the OS and asking the human to install system packages (ostia system info/install — never run sudo yourself), and pairing/managing the LAN control gateway (a phone companion app, off by default, elevated, LAN/Tailscale only — no hosted relay). Boards, cards and knowledge entries are not Ostia's: use the `trellis` CLI. Also covers the capability/elevation model and a recipe for two agents (e.g. Claude + Codex) in different panes coordinating work. Triggers on "ostia", "ostia CLI", "am I in Ostia", "control the terminal workspace", "talk to the other pane/agent", "hand off a task to another agent", "ostia bus/vault/settings/browse/gateway", "automate the browser", "agent browser automation in Ostia", "pair a phone with Ostia", "ostia gateway", "selection-N.md", "the human sent me a selection", "build a sidebar/panel/dashboard in Ostia", "ostia view".
+description: Use whenever you run inside Ostia (OSTIA_SOCKET and OSTIA_TOKEN are set). Read it before you tell the human to run a command or install something (ask with `ostia system install`, never sudo), ask the human a question (`ostia ask`), start a long or background command they should watch (`ostia process run`), read or type into another terminal pane, drive the in-app browser, open a file or URL for the human, notify them or mark your pane waiting/done, or hand work to another agent (`ostia bus`). Also covers sandboxed workspaces (asking for a domain, a port or a secret), the secret vault, settings, sidebar views, selection reports the human sends (@/tmp/ostia-reports-*), saved workflows, the LAN gateway and capabilities. Boards, cards and notes are Trellis, not Ostia.
 ---
 
 # Ostia — the agent toolbelt
@@ -398,8 +398,9 @@ commits in the Git panel and on the terminal's branch chips.
 ```sh
 ostia system info      # {os:{platform,id,idLike,name,version}, kernel, arch, shell, isRoot,
                        #  packageManagers:{available:[...], default}}
-ostia system install <pkg...> [--manager <name>] [--reason <text>]
+ostia system install <pkg...> [--manager <name>] [--reason <text>] [--wait]
                        # → {approved:true, command, paneId} | {approved:false, command} + exit 1
+                       # --wait adds {finished, exitCode}; exit 1 if the install failed
 ```
 
 Check `ostia system info` before guessing the distro or package manager. **Never run `sudo`,
@@ -407,8 +408,12 @@ Check `ostia system info` before guessing the distro or package manager. **Never
 `ostia system install` and always pass `--reason` (the human reads it). It shows the human the exact
 command in a dialog and waits for Approve/Deny (it can take minutes; don't time it out). On
 Approve the command runs in a new terminal pane beside yours, where the human answers any sudo
-prompt; the call returns as soon as that pane opens, not when the install finishes, so verify
-afterwards (`command -v rg`, or re-run your check) before relying on it. On Deny nothing runs:
+prompt. **Pass `--wait`** so the call returns only when the install command ends, with its exit
+code: nobody has to tell you it finished. Run it in the background, or with a timeout of at least
+10 minutes, since it waits for the human twice (Approve, then the sudo password). It gives up
+after about 10 minutes in all (`finished: false`, the install still running) and fails if the
+install failed or the human closed its terminal. Without `--wait` it returns as soon as the pane
+opens. Either way, check the result (`command -v rg`, or re-run your check) before relying on it. On Deny nothing runs:
 don't retry the same request, ask the human what they'd prefer. Package names must be plain
 names (`ripgrep`, `libssl-dev`, `python3.12`); no flags, paths or versions with spaces.
 `--manager` picks one of `pacman paru yay apt dnf zypper apk brew flatpak snap nix-env winget`
@@ -794,7 +799,7 @@ tool if you want one. A paired device only gets a strict phone-facing capability
 (`read`/`notify` by default). `command`/`input`/`destructive` are
 granted per device only by the human in Settings → Remote — there is deliberately no CLI verb or
 socket method for it, so don't try to raise a phone's caps; ask the user. This is a separate,
-smaller vocabulary from the `Capability` list below; see `pine-companion/NETWORK-CONTRACT.md` for
+smaller vocabulary from the `Capability` list below; see `ostia-companion/NETWORK-CONTRACT.md` for
 the full protocol.
 
 ## Capabilities & elevation
