@@ -111,6 +111,17 @@ describe('matchChord', () => {
     expect(chordLabel('workspace.new', true)).toBe('⌘N')
   })
 
+  it('opens a new window with Cmd+Shift+N and Ctrl+Shift+Alt+N, leaving Ctrl+Shift+N to workspaces', () => {
+    const csa = { ctrlKey: true, shiftKey: true, altKey: true }
+    expect(matchChord(key('n', { metaKey: true, shiftKey: true }), true)).toBe('window.new')
+    expect(matchChord(key('N', csa), false)).toBe('window.new')
+    expect(matchChord(key('N', { ctrlKey: true, shiftKey: true }), false)).toBe('workspace.new')
+    expect(matchChord(key('n', { metaKey: true }), true)).toBe('workspace.new')
+    expect(isAppChord('window.new')).toBe(true)
+    expect(chordLabel('window.new', true)).toBe('⌘⇧N')
+    expect(chordLabel('window.new', false)).toBe('Ctrl+Shift+Alt+N')
+  })
+
   it('maps jump-to-latest-unread to Ctrl+Shift+U and Cmd+Shift+U as an app chord', () => {
     const ctrlShiftU = matchChord(key('U', { ctrlKey: true, shiftKey: true }), false)
     const cmdShiftU = matchChord(key('u', { metaKey: true, shiftKey: true }), true)

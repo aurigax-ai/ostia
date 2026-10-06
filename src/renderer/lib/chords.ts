@@ -34,6 +34,7 @@ export type AppChord =
   | 'history.search'
   | 'workflows.search'
   | 'workspace.new'
+  | 'window.new'
   | 'tab.new'
   | 'agent.resume'
   | 'workspace.goto'
@@ -106,6 +107,7 @@ export const DEFAULT_CHORDS: Readonly<
   'history.search': ['Cmd+Shift+H', 'Ctrl+Shift+H'],
   'workflows.search': ['Cmd+Shift+S', 'Ctrl+Shift+S'],
   'workspace.new': ['Cmd+N', 'Ctrl+Shift+N'],
+  'window.new': ['Cmd+Shift+N', 'Ctrl+Shift+Alt+N'],
   'tab.new': ['Cmd+T', 'Ctrl+Shift+T'],
   'agent.resume': ['Cmd+Shift+R', 'Ctrl+Shift+R'],
   'workspace.goto': [`Cmd+${DIGIT_RANGE}`, `Ctrl+${DIGIT_RANGE}`],
