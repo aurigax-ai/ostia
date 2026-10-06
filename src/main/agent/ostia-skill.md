@@ -496,7 +496,8 @@ ostia settings get keybindings                                  # the user's ove
 ```
 
 `keybindings` maps a command id (after `keybindings.`, dots included) to a chord like
-`Ctrl+Shift+K`, `Cmd+Alt+P` or `Mod+Shift+K` (Cmd on macOS, Ctrl elsewhere), or `null`.
+`Ctrl+Shift+K`, `Cmd+Alt+P` or `Mod+Shift+K` (Cmd on macOS, Ctrl elsewhere), a list of
+chords that all run it (`'["Cmd+K", "Shift+Cmd+P"]'`; menus show the first), or `null`.
 Chords the shell needs are refused with an error: plain Ctrl+letter (Ctrl+R included),
 plain or Ctrl arrows, Escape, Tab, and keys without Ctrl/Cmd. Unlisted commands keep
 their default.

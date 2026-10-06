@@ -1,3 +1,4 @@
+import { CHORDS_PER_COMMAND_MAX } from '../../shared/chordSpec'
 import { GLOBAL_HOTKEY_MAX_LENGTH } from '../../shared/globalHotkey'
 import {
   KEYBOARD_PLATFORMS,
@@ -66,10 +67,13 @@ const schemeChoice = (surface: string) => ({
 })
 
 const CHORD_VALUE = {
-  type: ['string', 'null'],
+  type: ['string', 'array', 'null'],
+  items: { type: 'string' },
+  maxItems: CHORDS_PER_COMMAND_MAX,
   description:
     'A chord like "Ctrl+Shift+K", "Cmd+Alt+P" or "Mod+Shift+K" (Mod is Cmd on macOS, Ctrl ' +
-    'elsewhere), or null to unbind. Chords the shell needs are ignored: plain Ctrl+letter, ' +
+    'elsewhere), a list of chords that all run the command (the first is the one menus ' +
+    'show), or null to unbind. Chords the shell needs are ignored: plain Ctrl+letter, ' +
     'plain or Ctrl arrows, Escape, Tab and keys without Ctrl/Cmd.',
 }
 
@@ -77,8 +81,8 @@ export function keybindingsSchema(ids: readonly string[]) {
   return {
     type: 'object',
     description:
-      'Keyboard shortcuts: command id → chord, or null to unbind. Unlisted commands keep ' +
-      'their default. Edit them in Settings → Keyboard.',
+      'Keyboard shortcuts: command id → chord, list of chords, or null to unbind. Unlisted ' +
+      'commands keep their default. Edit them in Settings → Keyboard.',
     properties: Object.fromEntries(ids.map((id) => [id, CHORD_VALUE])),
     additionalProperties: CHORD_VALUE,
   }

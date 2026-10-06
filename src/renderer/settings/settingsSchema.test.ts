@@ -73,13 +73,14 @@ describe('SETTINGS_JSON_SCHEMA', () => {
     ])
   })
 
-  it('lets keybindings map a command id to a chord string or null, per platform', () => {
+  it('lets keybindings map a command id to a chord, a list of chords or null, per platform', () => {
     const { keybindings } = SETTINGS_JSON_SCHEMA.properties
     expect(Object.keys(keybindings.properties)).toEqual(['mac', 'linux'])
     expect(keybindings.additionalProperties).toBe(false)
     const mac = keybindings.properties.mac
     expect(Object.keys(mac.properties)).toContain('workspace.goto')
-    expect(mac.additionalProperties.type).toEqual(['string', 'null'])
+    expect(mac.additionalProperties.type).toEqual(['string', 'array', 'null'])
+    expect(mac.additionalProperties.items).toEqual({ type: 'string' })
   })
 
   it('keeps every keyboard setting per platform, and describes this platform’s to agents', () => {
@@ -97,7 +98,7 @@ describe('SETTINGS_JSON_SCHEMA', () => {
     expect(settingsSchemaAt('keymap.mac')).toMatchObject({ type: 'string' })
     expect(settingsSchemaAt('keybindings')).toMatchObject({
       type: 'object',
-      additionalProperties: { type: ['string', 'null'] },
+      additionalProperties: { type: ['string', 'array', 'null'] },
     })
   })
 
