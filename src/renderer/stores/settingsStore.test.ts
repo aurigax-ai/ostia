@@ -4,6 +4,8 @@ import { parsePersisted, useSettingsStore } from './settingsStore'
 
 const store = () => useSettingsStore.getState()
 
+const FILE_KEYBOARD = { keymap: {}, terminalKeymap: {}, keybindings: {}, terminalKeys: {} }
+
 type Persisted = Pick<
   ReturnType<typeof useSettingsStore.getState>,
   | 'locale'
@@ -17,6 +19,7 @@ type Persisted = Pick<
   | 'editor'
   | 'keymap'
   | 'keybindings'
+  | 'terminalKeys'
   | 'terminal'
   | 'panes'
   | 'agents'
@@ -59,6 +62,7 @@ describe('settingsStore', () => {
       editor: s.editor,
       keymap: s.keymap,
       keybindings: s.keybindings,
+      terminalKeys: s.terminalKeys,
       agents: s.agents,
       assistant: s.assistant,
       workspaceGroups: s.workspaceGroups,
@@ -148,15 +152,85 @@ describe('settingsStore', () => {
       }
     })
 
+    it('keeps the built-in keymap and text editing presets and drops unknown ones', () => {
+      expect(parsePersisted({ keymap: 'ostia' } as never).keymap).toBe('ostia')
+      expect(parsePersisted({ keymap: 'ostia-2' } as never).keymap).toBeNull()
+      const terminalKeymap = { linux: 'none', mac: 'natural-text-editing' }
+      expect(parsePersisted({ terminalKeymap } as never).terminalKeymap).toBe('none')
+      const unknown = { terminalKeymap: { linux: 'vim' } } as never
+      expect(parsePersisted(unknown).terminalKeymap).toBeNull()
+    })
+
+    it('keeps another platform’s keyboard settings through a save, untouched', async () => {
+      const mac = {
+        keymap: 'keymap-macos/cmux',
+        terminalKeymap: 'natural-text-editing',
+        keybindings: { 'palette.toggle': 'Cmd+Shift+Y' },
+        terminalKeys: { Delete: null },
+      }
+      vi.mocked(window.ostia.fs.read).mockResolvedValue(
+        JSON.stringify({
+          keymap: { mac: mac.keymap },
+          terminalKeymap: { mac: mac.terminalKeymap },
+          keybindings: { mac: mac.keybindings },
+          terminalKeys: { mac: mac.terminalKeys },
+        }),
+      )
+      await store().init()
+      expect(store().keymap).toBeNull()
+      expect(store().terminalKeymap).toBeNull()
+      expect(store().keybindings).toEqual({})
+      expect(store().terminalKeys).toEqual({})
+      store().setKeybinding('palette.toggle', 'Ctrl+Shift+Y')
+      await vi.runAllTimersAsync()
+      const written = JSON.parse(String(vi.mocked(window.ostia.fs.write).mock.calls.at(-1)?.[1]))
+      expect(written.keymap).toEqual({ mac: mac.keymap })
+      expect(written.terminalKeymap).toEqual({ mac: mac.terminalKeymap })
+      expect(written.keybindings).toEqual({
+        mac: mac.keybindings,
+        linux: { 'palette.toggle': 'Ctrl+Shift+Y' },
+      })
+      expect(written.terminalKeys).toEqual({ mac: mac.terminalKeys })
+      expect(written).not.toHaveProperty('keyboardElsewhere')
+    })
+
+    it('keeps terminal keys that parse, null drops, and saves them', async () => {
+      vi.mocked(window.ostia.fs.read).mockResolvedValue(
+        JSON.stringify({
+          terminalKeys: {
+            'Cmd+Delete': { type: 'hex', value: '0x0b' },
+            Delete: null,
+            'Alt+Left': { type: 'escape' },
+            'Cmd+Nope': { type: 'text', value: 'x' },
+          },
+        }),
+      )
+      await store().init()
+      expect({ ...store().terminalKeys }).toEqual({
+        'Cmd+Delete': { type: 'hex', value: '0x0b' },
+        Delete: null,
+      })
+      store().setTerminalKey('Cmd+K', { type: 'text', value: 'clear\\r' })
+      store().resetTerminalKey('Delete')
+      await vi.runAllTimersAsync()
+      const written = JSON.parse(String(vi.mocked(window.ostia.fs.write).mock.calls.at(-1)?.[1]))
+      expect(written.terminalKeys).toEqual({
+        linux: {
+          'Cmd+Delete': { type: 'hex', value: '0x0b' },
+          'Cmd+K': { type: 'text', value: 'clear\\r' },
+        },
+      })
+    })
+
     it('saves the chosen keymap and null for the default shortcuts', async () => {
       store().setKeymap('keymap-macos/cmux')
       await vi.runAllTimersAsync()
       const written = () =>
         JSON.parse(String(vi.mocked(window.ostia.fs.write).mock.calls.at(-1)?.[1]))
-      expect(written().keymap).toBe('keymap-macos/cmux')
+      expect(written().keymap).toEqual({ linux: 'keymap-macos/cmux' })
       store().setKeymap(null)
       await vi.runAllTimersAsync()
-      expect(written().keymap).toBeNull()
+      expect(written().keymap).toEqual({})
     })
 
     it('keeps a known input mode and falls back to terminal for anything else', async () => {
@@ -419,6 +493,7 @@ describe('settingsStore', () => {
         editor: s.editor,
         keymap: s.keymap,
         keybindings: s.keybindings,
+        terminalKeys: s.terminalKeys,
         agents: s.agents,
         assistant: s.assistant,
         workspaceGroups: s.workspaceGroups,
@@ -587,6 +662,7 @@ describe('settingsStore', () => {
         editor: s.editor,
         keymap: s.keymap,
         keybindings: s.keybindings,
+        terminalKeys: s.terminalKeys,
         agents: s.agents,
         assistant: s.assistant,
         workspaceGroups: s.workspaceGroups,
@@ -630,7 +706,7 @@ describe('settingsStore', () => {
       expect(pathArg).toBe('/tmp/ostia-test/settings.json')
       expect(typeof contentArg).toBe('string')
       expect(contentArg.endsWith('\n')).toBe(true)
-      const expected = structuredClone(DEFAULTS)
+      const expected = { ...structuredClone(DEFAULTS), ...FILE_KEYBOARD }
       expected.appearance.theme = 'dracula'
       expect(JSON.parse(contentArg)).toEqual(expected)
     })
@@ -643,7 +719,7 @@ describe('settingsStore', () => {
 
       const write = vi.mocked(window.ostia.fs.write)
       expect(write).toHaveBeenCalledTimes(1)
-      const expected = structuredClone(DEFAULTS)
+      const expected = { ...structuredClone(DEFAULTS), ...FILE_KEYBOARD }
       expected.locale = 'zh-Hant'
       expected.appearance.theme = 'dracula'
       expect(JSON.parse(write.mock.calls[0][1])).toEqual(expected)

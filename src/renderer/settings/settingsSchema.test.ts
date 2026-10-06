@@ -5,7 +5,7 @@ import { langFor, setSettingsFile } from '../monaco/language'
 import { settingsJsonDefaults } from '../monaco/settingsLanguage'
 import { useSettingsStore } from '../stores/settingsStore'
 import { registerSettingsSchema } from './registerSettingsSchema'
-import { SETTINGS_JSON_SCHEMA } from './settingsSchema'
+import { SETTINGS_JSON_SCHEMA, settingsSchemaAt } from './settingsSchema'
 
 vi.mock('../monaco/setup', () => ({
   monaco: { Uri: { file: (p: string) => ({ toString: () => `file://${p}` }) } },
@@ -73,10 +73,32 @@ describe('SETTINGS_JSON_SCHEMA', () => {
     ])
   })
 
-  it('lets keybindings map a command id to a chord string or null', () => {
+  it('lets keybindings map a command id to a chord string or null, per platform', () => {
     const { keybindings } = SETTINGS_JSON_SCHEMA.properties
-    expect(Object.keys(keybindings.properties)).toContain('workspace.goto')
-    expect(keybindings.additionalProperties.type).toEqual(['string', 'null'])
+    expect(Object.keys(keybindings.properties)).toEqual(['mac', 'linux'])
+    expect(keybindings.additionalProperties).toBe(false)
+    const mac = keybindings.properties.mac
+    expect(Object.keys(mac.properties)).toContain('workspace.goto')
+    expect(mac.additionalProperties.type).toEqual(['string', 'null'])
+  })
+
+  it('keeps every keyboard setting per platform, and describes this platform’s to agents', () => {
+    const { properties } = SETTINGS_JSON_SCHEMA
+    for (const key of ['keymap', 'terminalKeymap', 'keybindings', 'terminalKeys'] as const) {
+      expect(Object.keys(properties[key].properties), key).toEqual(['mac', 'linux'])
+    }
+    expect(properties.terminalKeymap.properties.mac.enum).toEqual([
+      'ostia',
+      'natural-text-editing',
+      'none',
+    ])
+    expect(settingsSchemaAt('terminalKeymap')).toMatchObject({ type: 'string' })
+    expect(settingsSchemaAt('keymap')).toMatchObject({ type: 'string' })
+    expect(settingsSchemaAt('keymap.mac')).toMatchObject({ type: 'string' })
+    expect(settingsSchemaAt('keybindings')).toMatchObject({
+      type: 'object',
+      additionalProperties: { type: ['string', 'null'] },
+    })
   })
 
   it('offers gateway among capabilities.grants, and only recognized capabilities', () => {
@@ -132,9 +154,12 @@ describe('registerSettingsSchema', () => {
     try {
       await registerSettingsSchema()
       const options = setDiagnosticsOptions.mock.calls[0][0] as {
-        schemas: { schema: { properties: { keybindings: { properties: object } } } }[]
+        schemas: {
+          schema: { properties: { keybindings: { properties: { mac: { properties: object } } } } }
+        }[]
       }
-      const ids = Object.keys(options.schemas[0].schema.properties.keybindings.properties)
+      const { keybindings } = options.schemas[0].schema.properties
+      const ids = Object.keys(keybindings.properties.mac.properties)
       expect(ids).toEqual(expect.arrayContaining(['palette.toggle', 'copy', 'test.bindable']))
       expect(ids).not.toContain('test.hidden')
     } finally {

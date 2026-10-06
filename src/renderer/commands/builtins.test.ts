@@ -348,6 +348,52 @@ describe('builtins route to store actions', () => {
     expect(useSettingsStore.getState().privacy.redaction).toEqual({ enabled: true, patterns: [] })
   })
 
+  it('settings.set picks a text editing preset, refuses unknown ones, and unset goes back to null', async () => {
+    const exec = (id: string, args: unknown) => commands.execWith(ctx(null, null), id, args)
+    expect(await exec('settings.set', { key: 'terminalKeymap', value: 'none' })).toEqual({
+      ok: true,
+      result: { previous: null, value: 'none', applied: true },
+    })
+    expect(await exec('settings.get', { key: 'terminalKeymap' })).toEqual({
+      ok: true,
+      result: 'none',
+    })
+    const bad = await exec('settings.set', { key: 'terminalKeymap', value: 'vim' })
+    expect(bad.ok).toBe(false)
+    if (!bad.ok) expect(bad.error.message).toMatch(/terminalKeymap must be null or one of/)
+    expect(await exec('settings.unset', { key: 'terminalKeymap' })).toEqual({
+      ok: true,
+      result: { previous: 'none', value: null },
+    })
+  })
+
+  it('settings.set and settings.unset refuse terminal keys, so an agent cannot bind a key that types for the human', async () => {
+    useSettingsStore.setState({ terminalKeys: { 'Cmd+Left': null } })
+    const exec = (id: string, args: unknown) => commands.execWith(ctx(null, null), id, args)
+    const attempts = [
+      await exec('settings.set', {
+        key: 'terminalKeys.Cmd+Left',
+        value: { type: 'text', value: 'y\\r' },
+      }),
+      await exec('settings.set', {
+        key: 'terminalKeys',
+        value: { 'Cmd+K': { type: 'text', value: 'rm -rf ~\\r' } },
+      }),
+      await exec('settings.unset', { key: 'terminalKeys' }),
+    ]
+    for (const res of attempts) {
+      expect(res.ok).toBe(false)
+      if (!res.ok) {
+        expect(res.error.message).toBe('terminalKeys can only be changed by you in Settings')
+      }
+    }
+    expect(useSettingsStore.getState().terminalKeys).toEqual({ 'Cmd+Left': null })
+    expect(await exec('settings.get', { key: 'terminalKeys' })).toEqual({
+      ok: true,
+      result: { 'Cmd+Left': null },
+    })
+  })
+
   it('settings.set and settings.unset refuse the multi-line paste confirmation, directly or via terminal', async () => {
     const direct = await commands.execWith(ctx(null, null), 'settings.set', {
       key: 'terminal.warnOnRiskyPaste',
@@ -516,6 +562,10 @@ describe('builtins route to store actions', () => {
 
   it('settings.set picks a keymap by "<extension>/<keymap>", refuses anything else, and unset goes back to null', async () => {
     const exec = (id: string, args: unknown) => commands.execWith(ctx(null, null), id, args)
+    expect(await exec('settings.set', { key: 'keymap', value: 'ostia', dryRun: true })).toEqual({
+      ok: true,
+      result: { previous: null, value: 'ostia', applied: false },
+    })
     expect(
       await exec('settings.set', { key: 'keymap', value: 'keymap-macos/cmux', dryRun: true }),
     ).toEqual({ ok: true, result: { previous: null, value: 'keymap-macos/cmux', applied: false } })
@@ -531,7 +581,7 @@ describe('builtins route to store actions', () => {
     for (const value of ['cmux', 'Keymap/cmux', 3, {}]) {
       const bad = await exec('settings.set', { key: 'keymap', value })
       expect(bad.ok, String(value)).toBe(false)
-      if (!bad.ok) expect(bad.error.message).toMatch(/keymap must be null or/)
+      if (!bad.ok) expect(bad.error.message).toMatch(/keymap must be null, /)
     }
     expect(useSettingsStore.getState().keymap).toBe('keymap-macos/cmux')
     expect(await exec('settings.unset', { key: 'keymap' })).toEqual({
