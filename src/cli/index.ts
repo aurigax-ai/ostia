@@ -26,7 +26,7 @@ import { BUS_QUEUED_HINT, type BusSendOk, type SentMessage, runBusHook, sentLine
 import { describeFailure } from './failure'
 import { type FileProbe, fileWord, isClaimedWord, parseFileArg, refusalLine } from './fileArgs'
 import { runManagerVerb } from './manager'
-import { runPaneVerb } from './pane'
+import { parseWorkspaceRenameArgs, runPaneVerb } from './pane'
 import { runPortalCommand } from './portal'
 import { isOfflineViewVerb, runOfflineViewVerb, runViewVerb } from './view'
 
@@ -974,7 +974,7 @@ async function runStateVerb(conn: MessageConnection): Promise<void> {
 
 const WORKSPACE_USAGE =
   'ostia workspace: usage: workspace list [--json] | describe <text|-> | describe --clear | ' +
-  'group <name> | ungroup | dir [path]'
+  'group <name> | ungroup | dir [path] | rename [--workspace <id>] <name…> | rename --clear'
 
 interface WorkspaceListing {
   workspaceId: string
@@ -1052,6 +1052,19 @@ async function runWorkspaceVerb(conn: MessageConnection): Promise<void> {
       console.error(`ostia workspace dir: ${res.error?.message ?? 'failed'}`)
       process.exitCode = 1
     }
+    return
+  }
+  if (sub === 'rename') {
+    let params: { workspace?: string; name: string }
+    try {
+      params = parseWorkspaceRenameArgs(rest)
+    } catch (err) {
+      console.error(`ostia workspace rename: ${err instanceof Error ? err.message : String(err)}`)
+      process.exitCode = 1
+      return
+    }
+    await conn.sendRequest('workspace.rename', params)
+    console.log('ok')
     return
   }
   if (sub !== 'describe') {
@@ -1343,7 +1356,7 @@ async function main(): Promise<void> {
     } else if (cmd === 'agent') {
       await runAgentVerb(conn)
     } else if (cmd === 'pane') {
-      process.exitCode = await runPaneVerb(conn, process.argv.slice(3))
+      process.exitCode = await runPaneVerb(conn, process.argv.slice(3), readAllStdin)
     } else if (cmd === 'vault') {
       await runVaultVerb(conn)
     } else if (cmd === 'sandbox') {

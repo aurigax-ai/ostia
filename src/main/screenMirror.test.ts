@@ -175,3 +175,18 @@ describe('ScreenMirror.screenText', () => {
     mirror.dispose()
   })
 })
+
+describe('ScreenMirror.bracketedPaste', () => {
+  it('follows the program turning bracketed paste on and off', async () => {
+    const mirror = new ScreenMirror(80, 24)
+    expect(mirror.bracketedPaste).toBe(false)
+    mirror.write(`${ESC}[?2004h`)
+    await mirror.flush()
+    expect(mirror.bracketedPaste).toBe(true)
+    mirror.write(`${ESC}[?2004l`)
+    await mirror.flush()
+    expect(mirror.bracketedPaste).toBe(false)
+    mirror.dispose()
+    expect(mirror.bracketedPaste).toBe(false)
+  })
+})

@@ -5,6 +5,7 @@ import {
   childPath,
   compactChain,
   excludeMatcher,
+  isUnderExcluded,
   nestEntries,
   nestingRules,
   relativeToRoot,
@@ -261,5 +262,16 @@ describe('compactChain', () => {
     const deep = async (path: string) => [dir(`d${path.length}`)]
     const chain = await compactChain('/r', deep, all, 5)
     expect(chain.names).toHaveLength(5)
+  })
+})
+
+describe('isUnderExcluded', () => {
+  const isExcluded = excludeMatcher(['**/dist', '/r/secret.txt'])
+
+  it('hides a path when it or a folder above it inside the root is excluded', () => {
+    expect(isUnderExcluded(isExcluded, '/r/dist/a/b.js', '/r')).toBe(true)
+    expect(isUnderExcluded(isExcluded, '/r/dist', '/r')).toBe(true)
+    expect(isUnderExcluded(isExcluded, '/r/secret.txt', '/r')).toBe(true)
+    expect(isUnderExcluded(isExcluded, '/r/src/dist.ts', '/r')).toBe(false)
   })
 })

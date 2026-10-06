@@ -67,6 +67,8 @@ registerPaneIoMethods({
       written.push({ paneId, data })
       return true
     },
+    bracketedPaste: () => false,
+    outputCursor: () => undefined,
   },
   state: (paneId) => ({ paneId, generation: 1, cwd: '/w', running: true, blockCount: 1 }),
   processPane: (ref, ctx) => {
@@ -77,6 +79,9 @@ registerPaneIoMethods({
   isSandboxed: () => false,
   isConfined: () => false,
   managerAllowsInput: () => false,
+  attention: async () => ({}),
+  inputSent: () => {},
+  delay: async () => {},
 })
 
 function emit(paneId: string, data: string): void {

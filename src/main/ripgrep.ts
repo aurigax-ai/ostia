@@ -1,25 +1,14 @@
 import { spawn } from 'node:child_process'
+import { join } from 'node:path'
 import { createInterface } from 'node:readline'
+import type { FileMatches, LineMatch } from '../shared/search'
 
 export interface TextQuery {
   text: string
   regex: boolean
   caseSensitive: boolean
   wholeWord: boolean
-  include: string[]
-  exclude: string[]
-}
-
-export interface LineMatch {
-  line: number
-  column: number
-  text: string
-  ranges: [number, number][]
-}
-
-export interface FileMatches {
-  path: string
-  matches: LineMatch[]
+  includeIgnored: boolean
 }
 
 export interface TextResults {
@@ -35,6 +24,17 @@ export interface FileList {
 
 export type RgFailureCode = 'rg-missing' | 'invalid-pattern' | 'failed' | 'cancelled'
 
+export function ripgrepPath(appPath: string, platform: string, arch: string): string {
+  return join(
+    appPath.replace(/\.asar$/, '.asar.unpacked'),
+    'node_modules',
+    '@vscode',
+    `ripgrep-${platform}-${arch}`,
+    'bin',
+    platform === 'win32' ? 'rg.exe' : 'rg',
+  )
+}
+
 export type RgOutcome<T> =
   | { ok: true; value: T }
   | { ok: false; error: RgFailureCode; message: string }
@@ -48,25 +48,29 @@ const STDERR_MAX = 4000
 
 const COMMON_ARGS = ['--no-config', '--hidden', '--glob', '!.git', '--no-messages']
 
+function scopeArgs(includeIgnored: boolean): string[] {
+  return includeIgnored ? [...COMMON_ARGS, '--no-ignore'] : COMMON_ARGS
+}
+
 export function textArgv(q: TextQuery): string[] {
   return [
     '--json',
-    ...COMMON_ARGS,
+    ...scopeArgs(q.includeIgnored),
     '--max-filesize',
     '2M',
+    '--iglob',
+    '!*.pdf',
     q.caseSensitive ? '--case-sensitive' : '--ignore-case',
     ...(q.regex ? [] : ['--fixed-strings']),
     ...(q.wholeWord ? ['--word-regexp'] : []),
-    ...q.include.flatMap((glob) => ['--glob', glob]),
-    ...q.exclude.flatMap((glob) => ['--glob', `!${glob}`]),
     '--',
     q.text,
     '.',
   ]
 }
 
-export function filesArgv(): string[] {
-  return ['--files', ...COMMON_ARGS, '.']
+export function filesArgv(includeIgnored: boolean): string[] {
+  return ['--files', ...scopeArgs(includeIgnored), '.']
 }
 
 export function relativePath(path: string): string {
@@ -137,6 +141,7 @@ function failureOf(stderr: string): RgOutcome<never> {
 }
 
 export function runRg(
+  bin: string,
   root: string,
   argv: string[],
   onLine: (line: string) => boolean,
@@ -147,7 +152,7 @@ export function runRg(
       resolve({ ok: false, error: 'cancelled', message: '' })
       return
     }
-    const child = spawn('rg', argv, { cwd: root, stdio: ['ignore', 'pipe', 'pipe'] })
+    const child = spawn(bin, argv, { cwd: root, stdio: ['ignore', 'pipe', 'pipe'] })
     let stopped = false
     let settled = false
     let stderr = ''
@@ -173,7 +178,7 @@ export function runRg(
     child.on('error', (err: NodeJS.ErrnoException) =>
       settle(
         err.code === 'ENOENT'
-          ? { ok: false, error: 'rg-missing', message: 'ripgrep (rg) is not installed' }
+          ? { ok: false, error: 'rg-missing', message: 'ripgrep is missing from this build' }
           : { ok: false, error: 'failed', message: err.message },
       ),
     )
@@ -186,6 +191,7 @@ export function runRg(
 }
 
 export async function searchText(
+  bin: string,
   root: string,
   q: TextQuery,
   signal?: AbortSignal,
@@ -194,6 +200,7 @@ export async function searchText(
   let matches = 0
   let truncated = false
   const run = await runRg(
+    bin,
     root,
     textArgv(q),
     (line) => {
@@ -216,11 +223,17 @@ export async function searchText(
   return { ok: true, value: { files, matches, truncated: truncated || run.value.stopped } }
 }
 
-export async function listFiles(root: string, signal?: AbortSignal): Promise<RgOutcome<FileList>> {
+export async function listFiles(
+  bin: string,
+  root: string,
+  includeIgnored: boolean,
+  signal?: AbortSignal,
+): Promise<RgOutcome<FileList>> {
   const paths: string[] = []
   const run = await runRg(
+    bin,
     root,
-    filesArgv(),
+    filesArgv(includeIgnored),
     (line) => {
       paths.push(relativePath(line))
       return paths.length < FILE_LIST_LIMIT

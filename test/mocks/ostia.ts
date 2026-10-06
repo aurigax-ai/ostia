@@ -6,14 +6,13 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
   const noopUnsub = () => () => {}
   const base: OstiaBridge = {
     ping: vi.fn().mockResolvedValue('pong'),
-    info: vi
-      .fn()
-      .mockResolvedValue({
-        name: 'Ostia',
-        version: '0.0.0',
-        platform: 'linux',
-        hostName: 'devbox',
-      }),
+    info: vi.fn().mockResolvedValue({
+      name: 'Ostia',
+      version: '0.0.0',
+      platform: 'linux',
+      hostName: 'devbox',
+      home: '/home/me',
+    }),
     platform: 'linux',
     diagnostics: {
       report: vi.fn(),
@@ -60,6 +59,9 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
     },
     manager: {
       onOpen: vi.fn(noopUnsub),
+    },
+    search: {
+      run: vi.fn().mockResolvedValue({ ok: false, error: 'failed', message: '' }),
     },
     fs: {
       list: vi.fn().mockResolvedValue([]),

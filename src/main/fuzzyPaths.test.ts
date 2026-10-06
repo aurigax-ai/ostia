@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { fuzzyMatch, rankFiles } from './fuzzy'
+import { fuzzyMatch, rankFiles } from './fuzzyPaths'
 
 describe('fuzzyMatch', () => {
   it('matches the query letters in order, ignoring case and spaces', () => {

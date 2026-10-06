@@ -26,7 +26,9 @@ const { grant, setCaps } = await import('./capabilityStore')
 const { setCapFilter } = await import('./controlAuth')
 const { registerControlServer, stopControlServer } = await import('./controlServer')
 const { markManager, registerExtension, registerPane } = await import('./idRegistry')
-const { inputBytes, keyBytes, paneReach, registerPaneIoMethods } = await import('./paneIo')
+const { inputBytes, keyBytes, paneReach, pasteBytes, registerPaneIoMethods } = await import(
+  './paneIo'
+)
 
 type Identity = ReturnType<typeof registerPane>
 
@@ -35,6 +37,12 @@ const children = new Map<string, string>()
 const processes = new Map<string, string>()
 const sandboxedWorkspaces = new Set<string>()
 const confinedPanes = new Set<string>()
+const pasteMode = new Set<string>()
+const attentionOf = new Map<string, { state?: string; message?: string }>()
+const typedInto: string[] = []
+const delays: number[] = []
+let cursor = 0
+let echoes = true
 let managerInput = false
 
 registerPaneIoMethods({
@@ -42,8 +50,11 @@ registerPaneIoMethods({
     read: async (paneId, lines) => (paneId === 'no-pty' ? null : `screen of ${paneId} (${lines})`),
     write: (paneId, data) => {
       written.push({ paneId, data })
+      if (echoes) cursor += data.length
       return paneId !== 'no-pty'
     },
+    bracketedPaste: (paneId) => pasteMode.has(paneId),
+    outputCursor: (paneId) => (paneId === 'no-pty' ? undefined : cursor),
   },
   state: (paneId) =>
     paneId === 'child-pane'
@@ -61,6 +72,13 @@ registerPaneIoMethods({
   isSandboxed: (workspaceId) => sandboxedWorkspaces.has(workspaceId),
   isConfined: (paneId) => confinedPanes.has(paneId),
   managerAllowsInput: () => managerInput,
+  attention: async (pane) => attentionOf.get(pane.paneId) ?? {},
+  inputSent: (pane) => {
+    typedInto.push(pane.paneId)
+  },
+  delay: async (ms) => {
+    delays.push(ms)
+  },
 })
 
 const agent = registerPane({ windowId: 'w1', workspaceId: 'ws1', paneId: 'agent-pane' })
@@ -116,6 +134,12 @@ beforeEach(() => {
   processes.set('echo', 'child-pane')
   sandboxedWorkspaces.clear()
   confinedPanes.clear()
+  pasteMode.clear()
+  attentionOf.clear()
+  typedInto.length = 0
+  delays.length = 0
+  cursor = 0
+  echoes = true
   managerInput = false
   setCapFilter(() => true)
 })
@@ -231,7 +255,7 @@ describe('pane.input', () => {
     const conn = await client(agent)
     await expect(
       conn.sendRequest('pane.input', { pane: 'echo', text: 'hello world', keys: ['enter'] }),
-    ).resolves.toEqual({ ok: true, paneId: child.externalId })
+    ).resolves.toEqual({ ok: true, paneId: child.externalId, bytes: 12, pasted: false })
     expect(written).toEqual([{ paneId: 'child-pane', data: 'hello world\r' }])
     expect(request).not.toHaveBeenCalled()
   })
@@ -339,6 +363,117 @@ describe('pane.input', () => {
           targetPaneId: agent.externalId,
         }),
       ).rejects.toThrow('not-available-to-extension')
+    }
+    expect(written).toEqual([])
+  })
+})
+
+describe('pasteBytes', () => {
+  it('wraps text in paste markers, sends newlines as Enter, drops embedded markers', () => {
+    expect(pasteBytes('a\nb\r\nc')).toBe('\x1b[200~a\rb\rc\x1b[201~')
+    expect(pasteBytes('x\x1b[201~rm -rf /\x1b[200~')).toBe('\x1b[200~xrm -rf /\x1b[201~')
+  })
+})
+
+describe('pane.input for unattended agents', () => {
+  const task = 'Fix the login bug.\n\nSteps:\n1. read auth.ts\n2. add a test'
+
+  async function granted() {
+    const caller = freshPane('ws1')
+    grant(caller.externalId, 'type-other-pane')
+    return client(caller)
+  }
+
+  it('delivers a multi-line task as one paste and presses Enter only after it', async () => {
+    pasteMode.add('sibling-pane')
+    const conn = await granted()
+
+    const res = await conn.sendRequest('pane.input', {
+      pane: sibling.externalId,
+      text: task,
+      keys: ['enter'],
+    })
+
+    expect(written).toEqual([
+      { paneId: 'sibling-pane', data: `\x1b[200~${task.replaceAll('\n', '\r')}\x1b[201~` },
+      { paneId: 'sibling-pane', data: '\r' },
+    ])
+    expect(written[0].data.split('\x1b[201~')).toHaveLength(2)
+    expect(delays).toEqual([100])
+    expect(res).toMatchObject({ ok: true, pasted: true })
+    expect(typedInto).toEqual(['sibling-pane'])
+  })
+
+  it('types raw text when the program has no bracketed paste, or paste is false', async () => {
+    const conn = await granted()
+    const res = await conn.sendRequest('pane.input', { pane: sibling.externalId, text: 'a\nb' })
+    expect(res).toMatchObject({ pasted: false })
+    pasteMode.add('sibling-pane')
+    await conn.sendRequest('pane.input', { pane: sibling.externalId, text: 'c\nd', paste: false })
+    expect(written.map((w) => w.data)).toEqual(['a\nb', 'c\nd'])
+  })
+
+  it('pastes single-line text only when asked', async () => {
+    pasteMode.add('sibling-pane')
+    const conn = await granted()
+    await conn.sendRequest('pane.input', { pane: sibling.externalId, text: 'ls', keys: ['enter'] })
+    await conn.sendRequest('pane.input', { pane: sibling.externalId, text: 'ls', paste: true })
+    expect(written.map((w) => w.data)).toEqual(['ls\r', '\x1b[200~ls\x1b[201~'])
+  })
+
+  it('refuses text to an agent waiting for the human and says why', async () => {
+    attentionOf.set('sibling-pane', { state: 'waiting', message: 'Allow Bash: rm -rf build?' })
+    const conn = await granted()
+
+    await expect(
+      conn.sendRequest('pane.input', { pane: sibling.externalId, text: 'next task' }),
+    ).rejects.toThrow(/agent-waiting: .*Allow Bash: rm -rf build\?/)
+    expect(written).toEqual([])
+    expect(typedInto).toEqual([])
+  })
+
+  it('still lets keys answer a waiting agent, and force types text anyway', async () => {
+    attentionOf.set('sibling-pane', { state: 'waiting' })
+    const conn = await granted()
+    await conn.sendRequest('pane.input', { pane: sibling.externalId, keys: ['enter'] })
+    await conn.sendRequest('pane.input', { pane: sibling.externalId, text: 'y', force: true })
+    expect(written.map((w) => w.data)).toEqual(['\r', 'y'])
+    expect(typedInto).toEqual(['sibling-pane', 'sibling-pane'])
+  })
+
+  it('does not ask a working or finished agent anything before typing', async () => {
+    attentionOf.set('sibling-pane', { state: 'working' })
+    const conn = await granted()
+    await conn.sendRequest('pane.input', { pane: sibling.externalId, text: 'more' })
+    expect(written.map((w) => w.data)).toEqual(['more'])
+  })
+
+  it('reports whether the program answered when confirm is set', async () => {
+    const conn = await granted()
+    const seen = await conn.sendRequest('pane.input', {
+      pane: sibling.externalId,
+      text: 'x',
+      confirm: true,
+    })
+    expect(seen).toMatchObject({ responded: true, bytes: 1 })
+
+    echoes = false
+    const silent = await conn.sendRequest('pane.input', {
+      pane: sibling.externalId,
+      text: 'y',
+      confirm: true,
+      confirmMs: 120,
+    })
+    expect(silent).toMatchObject({ responded: false })
+    expect(delays.filter((ms) => ms === 50)).toHaveLength(3)
+  })
+
+  it('refuses malformed flags', async () => {
+    const conn = await granted()
+    for (const params of [{ paste: 'yes' }, { force: 1 }, { confirm: 'true' }, { confirmMs: -1 }]) {
+      await expect(
+        conn.sendRequest('pane.input', { pane: sibling.externalId, text: 'x', ...params }),
+      ).rejects.toThrow('bad-request')
     }
     expect(written).toEqual([])
   })

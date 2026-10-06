@@ -60,7 +60,7 @@ import { installAppMenu } from './appMenu'
 import { registerAppUpdate } from './appUpdate'
 import { approvals, registerApprovals } from './approvals'
 import { registerAssistIpc } from './assistIpc'
-import { registerAttentionMethods } from './attention'
+import { registerAttentionMethods, targetOf } from './attention'
 import {
   type ConsoleEntry,
   OSTIA_ERROR_PREFIX,
@@ -117,6 +117,7 @@ import {
   removePane,
   removeWindow,
   resolveExternal,
+  setPaneIdSalt,
   windowOfWorkspace,
   workspaceHasManager,
 } from './idRegistry'
@@ -146,8 +147,10 @@ import { OpenFileGrants } from './openFileGrants'
 import { openFileForExtension, registerOpenFileMethods } from './openFileMethods'
 import { registerOpenPathIpc } from './openPath'
 import type { OriginReach } from './originAgents'
+import { loadPaneIdSalt } from './paneIdSalt'
 import { type PaneIo, registerPaneIoMethods } from './paneIo'
 import { listPanes, listWorkspaces, registerPaneListMethods } from './paneList'
+import { registerPaneRenameMethods } from './paneRename'
 import { registerPaneResumeMethods } from './paneResume'
 import { resolveSafe } from './pathGuard'
 import {
@@ -167,12 +170,13 @@ import { KubeContextReader, NodeVersionResolver, promptContext } from './promptC
 import { type ReapReason, RecoveryBook, orphanVerdict, planRecovery } from './ptyReaper'
 import { PtySession, type SubscriberRole } from './ptySession'
 import { questions, registerQuestions } from './questions'
-import { exitAfterDeadline, planQuit } from './quitPlan'
+import { QUIT_SIGNALS, exitAfterDeadline, planQuit } from './quitPlan'
 import { createRedactor, createScrollbackRedactor } from './redaction'
 import { createWorkerScan, redactionWorkerScript } from './redactionScan'
 import { registerReleaseCheck, releaseUserAgent } from './releaseCheck'
 import { confirmRemoteFolder, registerRemoteFolderConfirm } from './remoteFolderConfirm'
 import type { RemoteFolders } from './remoteFolders'
+import { ripgrepPath } from './ripgrep'
 import { attachWorkspace } from './sandbox/attachWorkspace'
 import { BrowserFence } from './sandbox/browserFence'
 import { registerSandboxMethods } from './sandbox/controlMethods'
@@ -248,6 +252,7 @@ import {
   windowForWorkspace,
   workDirForWorkspace,
 } from './workspaceRegistry'
+import { registerSearchIpc } from './workspaceSearch'
 import {
   dropRestoredScrollback,
   loadRestoredScrollback,
@@ -480,6 +485,8 @@ const paneIo: PaneIo = {
     entry.pty.write(data)
     return true
   },
+  bracketedPaste: (paneId) => ptys.get(paneId)?.mirror.bracketedPaste === true,
+  outputCursor: (paneId) => ptys.get(paneId)?.session.cursor,
 }
 
 function resizePty(entry: PtyEntry | undefined, cols: number, rows: number): void {
@@ -1040,6 +1047,17 @@ function requestQuit(): void {
   quitRequested = true
   app.quit()
 }
+let quitSignaled = false
+
+function handleQuitSignals(): void {
+  for (const signal of QUIT_SIGNALS) {
+    process.on(signal, () => {
+      appLog?.info('quit-signal', { signal })
+      quitSignaled = true
+      app.quit()
+    })
+  }
+}
 const startedHidden = app.commandLine.hasSwitch('hidden')
 let appTray: AppTray | null = null
 let globalHotkey: GlobalHotkey | null = null
@@ -1183,6 +1201,7 @@ function registerIpc(): void {
       version: app.getVersion(),
       platform: process.platform,
       hostName: hostname(),
+      home: app.getPath('home'),
     }),
   )
 
@@ -2033,6 +2052,7 @@ function registerFsIpc(): void {
   const settingsFile = join(app.getPath('userData'), 'settings.json')
   registerOpenPathIpc(allowedRoots)
   registerProjectRootIpc(allowedRoots)
+  registerSearchIpc(ripgrepPath(app.getAppPath(), process.platform, process.arch), allowedRoots)
 
   ipcMain.handle('fs:list', (_e, dir: string): FsEntry[] => {
     const safe = resolveSafe(dir, allowedRoots)
@@ -2482,6 +2502,7 @@ app.on('second-instance', (_event, argv) => {
 })
 
 app.whenReady().then(() => {
+  setPaneIdSalt(loadPaneIdSalt(storePath('pane-id-salt', 'global')))
   const appMenu = installAppMenu(process.platform, {
     productName: PRODUCT_DISPLAY_NAME,
     openSettings: openSettingsInFocusedWindow,
@@ -2501,6 +2522,7 @@ app.whenReady().then(() => {
     finishRecovery,
     openPath: (path) => shell.openPath(path),
   })
+  handleQuitSignals()
   loadRestoredScrollback()
   scratchFolders.sweep()
   workspaceSandboxes.sweepTmp()
@@ -2576,6 +2598,7 @@ app.whenReady().then(() => {
     )
   registerNotifyIpc(notifyDeps)
   registerAttentionMethods({ execCommand })
+  registerPaneRenameMethods({ execCommand })
   registerPaneResumeMethods({
     execCommand,
     onResume: (identity, resume) => {
@@ -2618,6 +2641,12 @@ app.whenReady().then(() => {
     isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
     isConfined: (paneId) => ptys.get(paneId)?.sandboxed === true,
     managerAllowsInput: () => managerSettings().allowInput,
+    attention: async (to) => {
+      const res = await execCommand(targetOf(to), 'attention.peek')
+      return res.ok && res.result && typeof res.result === 'object' ? res.result : {}
+    },
+    inputSent: (to) => void execCommand(targetOf(to), 'attention.typed'),
+    delay: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
   })
   registerDocsMethods({ extensions: () => extensionHost?.listForAgents() ?? [] })
   registerVaultMethods({ isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId) })
@@ -2957,6 +2986,7 @@ app.on('before-quit', (event) => {
   const plan = planQuit({
     approved: quitApproved,
     requestedByOstia: quitRequested,
+    signaled: quitSignaled,
     platform: process.platform,
   })
   quitRequested = false
