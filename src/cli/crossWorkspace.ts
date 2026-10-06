@@ -3,16 +3,31 @@ import type { MessageConnection } from 'vscode-jsonrpc/node'
 export interface WorkspaceRow {
   workspaceId: string
   name: string
+  customName?: string
+}
+
+function shownName(row: WorkspaceRow): string {
+  return row.customName || row.name
+}
+
+function describeRow(row: WorkspaceRow): string {
+  const shown = shownName(row)
+  return shown === row.name
+    ? `${row.workspaceId} (${shown})`
+    : `${row.workspaceId} (${shown}, folder ${row.name})`
 }
 
 export function pickWorkspace(rows: readonly WorkspaceRow[], ref: string): string {
   const byId = rows.find((row) => row.workspaceId === ref)
   if (byId) return byId.workspaceId
-  const named = rows.filter((row) => row.name === ref)
+  const shown = rows.filter((row) => shownName(row) === ref)
+  const named = shown.length > 0 ? shown : rows.filter((row) => row.name === ref)
   if (named.length === 1) return named[0].workspaceId
   if (named.length > 1) {
-    const ids = named.map((row) => row.workspaceId).join(', ')
-    throw new Error(`workspace name '${ref}' is ambiguous (${ids}); pass the id`)
+    const candidates = named.map(describeRow).join(', ')
+    throw new Error(
+      `workspace name '${ref}' matches ${named.length} workspaces: ${candidates}; pass the id`,
+    )
   }
   throw new Error(`no workspace '${ref}' (see: ostia workspace list)`)
 }

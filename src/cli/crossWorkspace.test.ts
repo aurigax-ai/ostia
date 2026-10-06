@@ -19,8 +19,37 @@ describe('pickWorkspace', () => {
   })
 
   it('refuses an ambiguous name, naming the ids, and an unknown one', () => {
-    expect(() => pickWorkspace(rows, 'dup')).toThrow('ambiguous (w3, w4)')
+    expect(() => pickWorkspace(rows, 'dup')).toThrow('matches 2 workspaces: w3 (dup), w4 (dup)')
     expect(() => pickWorkspace(rows, 'nope')).toThrow("no workspace 'nope'")
+  })
+})
+
+describe('pickWorkspace with names the human gave', () => {
+  const named = [
+    { workspaceId: 'wf-1', name: 'home' },
+    { workspaceId: 'wf-2', name: 'home', customName: 'W-one' },
+    { workspaceId: 'wf-3', name: 'home', customName: 'W-two' },
+    { workspaceId: 'wf-4', name: 'repo', customName: 'twin' },
+    { workspaceId: 'wf-5', name: 'other', customName: 'twin' },
+  ]
+
+  it('finds a workspace by the name shown in the rail', () => {
+    expect(pickWorkspace(named, 'W-two')).toBe('wf-3')
+    expect(pickWorkspace(named, 'W-one')).toBe('wf-2')
+  })
+
+  it('matches the shown name before the folder name', () => {
+    expect(pickWorkspace(named, 'home')).toBe('wf-1')
+  })
+
+  it('falls back to the folder name when no shown name matches', () => {
+    expect(pickWorkspace(named, 'repo')).toBe('wf-4')
+  })
+
+  it('lists every candidate with its folder when the shown name is taken twice', () => {
+    expect(() => pickWorkspace(named, 'twin')).toThrow(
+      "workspace name 'twin' matches 2 workspaces: wf-4 (twin, folder repo), wf-5 (twin, folder other); pass the id",
+    )
   })
 })
 
