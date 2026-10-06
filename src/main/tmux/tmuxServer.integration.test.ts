@@ -172,6 +172,27 @@ describe('TmuxServer', () => {
     for (const { n, out } of panes) await until(() => out.text().includes(`early-${n}`))
   })
 
+  it('KSH-C66 replays bracketed paste for a program that turned it on', async () => {
+    const server = await connect()
+    const pane = await spawnSh(server, "printf '\\033[?2004hpaste-on'; sleep 5")
+    const out = collect(pane)
+    await until(() => out.text().includes('paste-on'))
+    const screen = await pane.snapshot(80, 24)
+    pane.live()
+    expect(screen).toContain('\x1b[?2004h')
+  })
+
+  it('KSH-C65 says what tmux printed when it could not start its server', async () => {
+    const fake = join(root, 'failing-tmux')
+    writeFileSync(fake, '#!/bin/sh\necho "server refused-42" >&2\nexit 1\n', { mode: 0o755 })
+    await expect(
+      TmuxServer.connect(
+        { tmux: fake, dir: join(root, 'sock'), name: 'failing', defaultTerminal: 'xterm', env },
+        () => undefined,
+      ),
+    ).rejects.toThrow('tmux could not start its server: server refused-42')
+  })
+
   it('reports a shell that exits with its code', async () => {
     const server = await connect()
     const pane = await spawnSh(server, 'exit 7')
