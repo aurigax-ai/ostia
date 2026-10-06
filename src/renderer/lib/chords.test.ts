@@ -35,6 +35,7 @@ import {
   currentBindings,
   defaultChords,
   effectiveBindings,
+  findStep,
   isAppChord,
   isBrowserChord,
   isTerminalCommandChord,
@@ -1011,6 +1012,47 @@ describe('browser chords', () => {
     expect(runAppChord(e, true)).toBe(false)
     expect(e.preventDefault).not.toHaveBeenCalled()
     expect(exec).not.toHaveBeenCalled()
+  })
+})
+
+describe('find next and previous', () => {
+  const cmd = { metaKey: true }
+  const cmdShift = { metaKey: true, shiftKey: true }
+
+  it('step with ⌘G and ⇧⌘G on macOS, in the surface that has the focus', () => {
+    expect(matchChord(key('g', cmd), true)).toBe('find.next')
+    expect(matchChord(key('G', cmdShift), true)).toBe('find.previous')
+    expect(findStep('find.next')).toBe(1)
+    expect(findStep('find.previous')).toBe(-1)
+    expect(findStep('find')).toBeNull()
+    expect(findStep(null)).toBeNull()
+    expect(isAppChord('find.next')).toBe(false)
+    expect(isAppChord('find.previous')).toBe(false)
+    expect(chordLabel('find.next', true)).toBe('⌘G')
+    expect(chordLabel('find.previous', true)).toBe('⌘⇧G')
+  })
+
+  it('have no chord on Linux, where Ctrl+G belongs to the shell', () => {
+    expect(chordLabel('find.next', false)).toBeNull()
+    expect(chordLabel('find.previous', false)).toBeNull()
+    expect(matchChord(key('g', { ctrlKey: true }), false)).toBeNull()
+    expect(matchChord(key('G', { ctrlKey: true, shiftKey: true }), false)).toBeNull()
+  })
+
+  it('take a chord a Linux user binds', () => {
+    bind({ 'find.next': 'Ctrl+Shift+G' })
+    expect(matchChord(key('G', { ctrlKey: true, shiftKey: true }), false)).toBe('find.next')
+  })
+})
+
+describe('search files', () => {
+  it('opens the Files search with ⇧⌘F on macOS and has no default on Linux, where Ctrl+Shift+F is find', () => {
+    const chord = matchChord(key('F', { metaKey: true, shiftKey: true }), true)
+    expect(chord).toBe('view.searchFiles')
+    expect(isAppChord(chord)).toBe(true)
+    expect(chordLabel('view.searchFiles', true)).toBe('⌘⇧F')
+    expect(chordLabel('view.searchFiles', false)).toBeNull()
+    expect(matchChord(key('F', { ctrlKey: true, shiftKey: true }), false)).toBe('find')
   })
 })
 

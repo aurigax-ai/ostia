@@ -858,6 +858,13 @@ export function registerBuiltinCommands(): void {
     run: () => useUIStore.getState().toggleRail(),
   })
 
+  registerCore({
+    id: 'view.searchFiles',
+    category: 'view',
+    target: 'none',
+    run: () => useUIStore.getState().searchFiles(),
+  })
+
   const zoomBy = (direction: 1 | -1): void => {
     const settings = useSettingsStore.getState()
     settings.setZoom(stepZoom(settings.appearance.zoom, direction))

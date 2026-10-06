@@ -1154,6 +1154,14 @@ describe('builtins route to store actions', () => {
     expect(toggleRail).toHaveBeenCalled()
   })
 
+  it('routes view.searchFiles to ui.searchFiles', async () => {
+    const searchFiles = vi.spyOn(useUIStore.getState(), 'searchFiles').mockImplementation(() => {})
+
+    await commands.execWith(ctx(null, null), 'view.searchFiles')
+
+    expect(searchFiles).toHaveBeenCalled()
+  })
+
   it('routes app.openSettings to ui.openSettings', async () => {
     const openSettings = vi
       .spyOn(useUIStore.getState(), 'openSettings')
@@ -1842,6 +1850,8 @@ describe('browser commands', () => {
       back: vi.fn(),
       forward: vi.fn(),
       find: vi.fn(),
+      findNext: vi.fn(),
+      findPrevious: vi.fn(),
     }
     const off = registerBrowserHandle('web1', handle)
     try {
