@@ -48,7 +48,7 @@ async function until(check: () => boolean, ms = 5000): Promise<void> {
 }
 
 async function rendered(...chunks: string[]): Promise<string> {
-  const term = new Terminal({ cols: 80, rows: 24, scrollback: 10_000 })
+  const term = new Terminal({ cols: 80, rows: 24, scrollback: 10_000, allowProposedApi: true })
   for (const chunk of chunks) await new Promise<void>((resolve) => term.write(chunk, resolve))
   const buffer = term.buffer.active
   const lines: string[] = []
