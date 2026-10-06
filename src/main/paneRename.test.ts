@@ -8,6 +8,7 @@ import {
   StreamMessageWriter,
   createMessageConnection,
 } from 'vscode-jsonrpc/node'
+import { SCRIPT_CAPABILITIES } from '../shared/scriptTokens'
 import type { CommandResult, CommandTarget } from '../shared/types'
 
 const request = vi.fn(async () => 'deny' as const)
@@ -15,7 +16,7 @@ const request = vi.fn(async () => 'deny' as const)
 vi.mock('./approvals', () => ({ approvals: () => ({ request }) }))
 
 const { grant } = await import('./capabilityStore')
-const { setCapFilter } = await import('./controlAuth')
+const { setCapFilter, setScriptTokenCheck } = await import('./controlAuth')
 const { registerControlServer, stopControlServer } = await import('./controlServer')
 const { markManager, registerPane } = await import('./idRegistry')
 const { cleanName, registerPaneRenameMethods, renameCaps } = await import('./paneRename')
@@ -34,6 +35,11 @@ const sibling = registerPane({ windowId: 'w1', workspaceId: 'ws1', paneId: 'rena
 const foreign = registerPane({ windowId: 'w2', workspaceId: 'ws2', paneId: 'rename-foreign' })
 const manager = registerPane({ windowId: 'w1', workspaceId: 'ws-mgr', paneId: 'rename-mgr' })
 markManager('rename-mgr')
+
+const SCRIPT_TOKEN = 'ostia_rename-script'
+setScriptTokenCheck((token) =>
+  token === SCRIPT_TOKEN ? { id: 'script_rename', caps: [...SCRIPT_CAPABILITIES] } : undefined,
+)
 
 let socketPath = ''
 let seq = 0
@@ -202,5 +208,20 @@ describe('workspace.rename', () => {
     await expect(
       conn.sendRequest('workspace.rename', { workspace: 'ws-none', name: 'x' }),
     ).rejects.toThrow('unknown-workspace: ws-none')
+  })
+})
+
+describe('rename from a script token', () => {
+  it('is not available to scripts, whatever capabilities the token holds', async () => {
+    const conn = await client({ token: SCRIPT_TOKEN })
+
+    await expect(
+      conn.sendRequest('pane.rename', { pane: sibling.externalId, title: 'x' }),
+    ).rejects.toThrow('not-available-to-script')
+    await expect(
+      conn.sendRequest('workspace.rename', { workspace: 'ws1', name: 'x' }),
+    ).rejects.toThrow('not-available-to-script')
+    expect(calls).toEqual([])
+    expect(request).not.toHaveBeenCalled()
   })
 })

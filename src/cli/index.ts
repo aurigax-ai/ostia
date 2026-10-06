@@ -8,6 +8,7 @@ import {
   StreamMessageWriter,
   createMessageConnection,
 } from 'vscode-jsonrpc/node'
+import { controlInfoPath, readControlSocket } from '../main/controlDiscovery'
 import { RESUMABLE_AGENTS, isResumableAgent, resumeIdFromHookPayload } from '../shared/agentResume'
 import { readEnv } from '../shared/appEnv'
 import {
@@ -16,6 +17,7 @@ import {
   isClaudeAttentionEvent,
 } from '../shared/claudeAttention'
 import type { OpenFilesResult } from '../shared/openFiles'
+import { SCRIPT_TOKEN_PREFIX } from '../shared/scriptTokens'
 import type { CommandResult } from '../shared/types'
 import type { WorkflowEntry, WorkflowListing } from '../shared/workflows'
 import { runAgentHook } from './agentHook'
@@ -28,6 +30,7 @@ import { type FileProbe, fileWord, isClaimedWord, parseFileArg, refusalLine } fr
 import { runManagerVerb } from './manager'
 import { parseWorkspaceRenameArgs, runPaneVerb } from './pane'
 import { runPortalCommand } from './portal'
+import { runTokenVerb } from './token'
 import { isOfflineViewVerb, runOfflineViewVerb, runViewVerb } from './view'
 
 interface ProcInfo {
@@ -384,6 +387,7 @@ const CORE_VERBS = new Set([
   'docs',
   'process',
   'pane',
+  'token',
   'vault',
   'sandbox',
   'secret',
@@ -1242,8 +1246,10 @@ function connectSocket(socketPath: string): Promise<Socket> {
 }
 
 async function main(): Promise<void> {
-  const socketPath = readEnv('SOCKET')
   const token = readEnv('TOKEN')
+  const socketPath =
+    readEnv('SOCKET') ??
+    (token?.startsWith(SCRIPT_TOKEN_PREFIX) ? readControlSocket(controlInfoPath()) : undefined)
   const [cmd] = process.argv.slice(2)
   if (cmd === '--help' || cmd === '-h' || cmd === 'help') {
     console.log(USAGE)
@@ -1357,6 +1363,8 @@ async function main(): Promise<void> {
       await runAgentVerb(conn)
     } else if (cmd === 'pane') {
       process.exitCode = await runPaneVerb(conn, process.argv.slice(3), readAllStdin)
+    } else if (cmd === 'token') {
+      process.exitCode = await runTokenVerb(conn, process.argv.slice(3))
     } else if (cmd === 'vault') {
       await runVaultVerb(conn)
     } else if (cmd === 'sandbox') {
