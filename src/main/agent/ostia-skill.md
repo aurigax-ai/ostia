@@ -510,8 +510,8 @@ doesn't exist (`unknown settings key`), the type differs, or the setting doesn't
 permissions or guard the human (`behavior.externalEditor`, `behavior.checkForUpdates`,
 `notifications.command`, `agents.autoResume`, `agents.hooks`, `terminal.warnOnRiskyPaste`,
 `terminal.shell`, `terminal.osc52Write`, `workspaces.globalHotkey`, `capabilities`,
-`approvals`, `sync`) are the human's; you can't set them. `get` with no key returns every
-readable setting; with a key it prints `null` if absent.
+`approvals`, `sync`, `terminalKeys`) are the human's; you can't set them. `get` with no
+key returns every readable setting; with a key it prints `null` if absent.
 
 ### Signing in with the human's saved logins
 

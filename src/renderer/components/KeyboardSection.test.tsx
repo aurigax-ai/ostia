@@ -136,8 +136,8 @@ describe('KeyboardSection', () => {
     const stop = startKeymapSync()
     try {
       render(<KeyboardSection />)
-      const picker = screen.getByRole('combobox', { name: 'Keymap' })
-      expect(picker).toHaveTextContent('Default')
+      const picker = screen.getByRole('combobox', { name: 'Presets' })
+      expect(picker).toHaveTextContent('Ostia default')
       expect(within(row(/Command Palette/)).getByText('Ctrl+Shift+P')).toBeInTheDocument()
 
       await userEvent.click(picker)
@@ -165,8 +165,8 @@ describe('KeyboardSection', () => {
       press('P', { ctrlKey: true, altKey: true, code: 'KeyP' })
       expect(useSettingsStore.getState().keybindings).toEqual({})
 
-      await userEvent.click(screen.getByRole('combobox', { name: 'Keymap' }))
-      await userEvent.click(await screen.findByRole('option', { name: 'Default' }))
+      await userEvent.click(screen.getByRole('combobox', { name: 'Presets' }))
+      await userEvent.click(await screen.findByRole('option', { name: 'Ostia default' }))
       expect(useSettingsStore.getState().keymap).toBeNull()
       expect(within(row(/Command Palette/)).getByText('Ctrl+Shift+P')).toBeInTheDocument()
       expect(screen.queryByText(/pane\.zoom “Ctrl\+X”/)).toBeNull()
@@ -175,13 +175,13 @@ describe('KeyboardSection', () => {
     }
   })
 
-  it('shows Default and the default table for a keymap no enabled extension offers here', () => {
+  it('shows the default preset and table for a keymap no enabled extension offers here', () => {
     useExtensionsStore.setState({ list: [{ ...keymapExtension, enabled: false }] })
     useSettingsStore.setState({ keymap: 'keys/alt' })
     const stop = startKeymapSync()
     try {
       render(<KeyboardSection />)
-      expect(screen.getByRole('combobox', { name: 'Keymap' })).toHaveTextContent('Default')
+      expect(screen.getByRole('combobox', { name: 'Presets' })).toHaveTextContent('Ostia default')
       expect(within(row(/Command Palette/)).getByText('Ctrl+Shift+P')).toBeInTheDocument()
       expect(window.ostia.keymaps.load).not.toHaveBeenCalled()
     } finally {
@@ -368,5 +368,93 @@ describe('KeyboardSection', () => {
 
     expect(row(/切換側邊欄/)).toBeInTheDocument()
     expect(screen.getAllByRole('row')).toHaveLength(2)
+  })
+
+  it('adds a key that sends text to the terminal, refusing keys that type, and removes it', async () => {
+    render(<KeyboardSection />)
+    await userEvent.click(screen.getByRole('button', { name: 'Add a terminal key' }))
+    press('k', { code: 'KeyK' })
+    expect(screen.getByRole('alert')).toHaveTextContent(/K can’t be used: single keys/)
+    press('K', { ctrlKey: true, altKey: true, code: 'KeyK' })
+    await userEvent.type(screen.getByRole('textbox', { name: 'What to send' }), 'clear\\r')
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+    expect(useSettingsStore.getState().terminalKeys).toEqual({
+      'Ctrl+Alt+K': { type: 'text', value: 'clear\\r' },
+    })
+    expect(within(row(/Send to terminal/)).getByText('Ctrl+Alt+K')).toBeInTheDocument()
+    expect(within(row(/Send to terminal/)).getByText('Custom')).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Remove Ctrl+Alt+K' }))
+    expect(useSettingsStore.getState().terminalKeys).toEqual({})
+    expect(screen.queryByText('clear\\r')).toBeNull()
+  })
+
+  it('says what is wrong with a value it cannot send and keeps the editor open', async () => {
+    render(<KeyboardSection />)
+    await userEvent.click(screen.getByRole('button', { name: 'Add a terminal key' }))
+    press('K', { ctrlKey: true, altKey: true, code: 'KeyK' })
+    await userEvent.click(screen.getByRole('combobox', { name: 'Send' }))
+    await userEvent.click(await screen.findByRole('option', { name: 'Hex codes' }))
+    await userEvent.type(screen.getByRole('textbox', { name: 'What to send' }), '0x80')
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+    expect(screen.getByRole('alert')).toHaveTextContent(/bytes from 0x00 to 0x7F/)
+    expect(useSettingsStore.getState().terminalKeys).toEqual({})
+    await userEvent.clear(screen.getByRole('textbox', { name: 'What to send' }))
+    await userEvent.type(screen.getByRole('textbox', { name: 'What to send' }), '0x1b 0x7f')
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+    expect(useSettingsStore.getState().terminalKeys).toEqual({
+      'Ctrl+Alt+K': { type: 'hex', value: '0x1b 0x7f' },
+    })
+  })
+
+  it('asks before giving a terminal key a command’s chord, and unbinds the command on Replace', async () => {
+    render(<KeyboardSection />)
+    await userEvent.click(screen.getByRole('button', { name: 'Add a terminal key' }))
+    press('P', { ctrlKey: true, shiftKey: true, code: 'KeyP' })
+    await userEvent.type(screen.getByRole('textbox', { name: 'What to send' }), 'x')
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+    expect(
+      screen.getByText(/Ctrl\+Shift\+P is already the shortcut for Command Palette/),
+    ).toBeInTheDocument()
+    expect(useSettingsStore.getState().terminalKeys).toEqual({})
+    await userEvent.click(screen.getByRole('button', { name: 'Replace' }))
+    expect(useSettingsStore.getState().keybindings).toEqual({ 'palette.toggle': null })
+    expect(useSettingsStore.getState().terminalKeys).toEqual({
+      'Ctrl+Shift+P': { type: 'text', value: 'x' },
+    })
+    expect(within(row(/Command Palette/)).getByText('Unassigned')).toBeInTheDocument()
+  })
+
+  it('asks before giving a command a terminal key’s chord, and removes the key on Replace', async () => {
+    useSettingsStore.setState({ terminalKeys: { 'Ctrl+Alt+K': { type: 'escape', value: 'k' } } })
+    render(<KeyboardSection />)
+    await record('Command Palette')
+    press('K', { ctrlKey: true, altKey: true, code: 'KeyK' })
+    expect(
+      screen.getByText('Ctrl+Alt+K sends ESC k to the terminal. Replacing removes it there.'),
+    ).toBeInTheDocument()
+    expect(useSettingsStore.getState().keybindings).toEqual({})
+    await userEvent.click(screen.getByRole('button', { name: 'Replace' }))
+    expect(useSettingsStore.getState().keybindings['palette.toggle']).toBe('Ctrl+Alt+K')
+    expect(useSettingsStore.getState().terminalKeys).toEqual({})
+  })
+
+  it('edits a terminal key, finds it by what it sends, and Reset all clears terminal keys too', async () => {
+    useSettingsStore.setState({ terminalKeys: { 'Ctrl+Alt+K': { type: 'escape', value: 'k' } } })
+    render(<KeyboardSection />)
+    await userEvent.type(screen.getByRole('textbox', { name: 'Search shortcuts' }), 'esc k')
+    expect(screen.getAllByRole('row')).toHaveLength(2)
+    await userEvent.click(screen.getByRole('button', { name: 'Edit Ctrl+Alt+K' }))
+    const value = screen.getByRole('textbox', { name: 'What to send' })
+    expect(value).toHaveValue('k')
+    await userEvent.clear(value)
+    await userEvent.type(value, 'j')
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+    expect(useSettingsStore.getState().terminalKeys).toEqual({
+      'Ctrl+Alt+K': { type: 'escape', value: 'j' },
+    })
+    await userEvent.click(screen.getByRole('button', { name: 'Reset all' }))
+    expect(useSettingsStore.getState().terminalKeys).toEqual({})
+    expect(screen.getByRole('button', { name: 'Reset all' })).toBeDisabled()
   })
 })

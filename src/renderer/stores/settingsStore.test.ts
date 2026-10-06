@@ -148,6 +148,39 @@ describe('settingsStore', () => {
       }
     })
 
+    it('keeps the built-in Natural Text Editing preset as a keymap', () => {
+      expect(parsePersisted({ keymap: 'natural-text-editing' } as never).keymap).toBe(
+        'natural-text-editing',
+      )
+      expect(parsePersisted({ keymap: 'natural-text-editing-2' } as never).keymap).toBeNull()
+    })
+
+    it('keeps terminal keys that parse, null drops, and saves them', async () => {
+      vi.mocked(window.ostia.fs.read).mockResolvedValue(
+        JSON.stringify({
+          terminalKeys: {
+            'Cmd+Delete': { type: 'hex', value: '0x0b' },
+            Delete: null,
+            'Alt+Left': { type: 'escape' },
+            'Cmd+Nope': { type: 'text', value: 'x' },
+          },
+        }),
+      )
+      await store().init()
+      expect({ ...store().terminalKeys }).toEqual({
+        'Cmd+Delete': { type: 'hex', value: '0x0b' },
+        Delete: null,
+      })
+      store().setTerminalKey('Cmd+K', { type: 'text', value: 'clear\\r' })
+      store().resetTerminalKey('Delete')
+      await vi.runAllTimersAsync()
+      const written = JSON.parse(String(vi.mocked(window.ostia.fs.write).mock.calls.at(-1)?.[1]))
+      expect(written.terminalKeys).toEqual({
+        'Cmd+Delete': { type: 'hex', value: '0x0b' },
+        'Cmd+K': { type: 'text', value: 'clear\\r' },
+      })
+    })
+
     it('saves the chosen keymap and null for the default shortcuts', async () => {
       store().setKeymap('keymap-macos/cmux')
       await vi.runAllTimersAsync()

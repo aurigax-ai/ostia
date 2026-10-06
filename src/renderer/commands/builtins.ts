@@ -106,7 +106,7 @@ const PROGRAM_SETTINGS: readonly {
   { group: 'workspaces', field: 'globalHotkey' },
 ]
 
-const HUMAN_ONLY_ROOTS: readonly string[] = ['privacy']
+const HUMAN_ONLY_ROOTS: readonly string[] = ['privacy', 'terminalKeys']
 
 export function launchesProgram(key: string, value: unknown): string | null {
   const path = key.split('.').filter(Boolean).join('.')
@@ -145,6 +145,7 @@ function readableSettings() {
     workspaceGroups: s.workspaceGroups,
     keymap: s.keymap,
     keybindings: { ...s.keybindings },
+    terminalKeys: { ...s.terminalKeys },
     capabilities: s.capabilities,
     approvals: s.approvals,
     actions: s.actions,

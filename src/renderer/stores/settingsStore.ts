@@ -6,6 +6,7 @@ import {
   parseApprovalSettings,
 } from '@shared/approvals'
 import { type KeybindingMap, parseKeybindings } from '@shared/chordSpec'
+import { type TerminalKeyMap, type TerminalSend, parseTerminalKeys } from '@shared/terminalKeys'
 import { debounce } from 'es-toolkit'
 import { create } from 'zustand'
 import {
@@ -285,6 +286,7 @@ interface Persisted {
   editor: EditorSettings
   keymap: string | null
   keybindings: KeybindingMap
+  terminalKeys: TerminalKeyMap
   agents: AgentSettings
   assistant: AssistantSettings
   workspaceGroups: WorkspaceGroupSettings
@@ -353,6 +355,7 @@ const DEFAULTS: Persisted = {
   editor: DEFAULT_EDITOR_SETTINGS,
   keymap: null,
   keybindings: {},
+  terminalKeys: {},
   sidebar: {
     showPath: true,
     showMessage: true,
@@ -417,6 +420,9 @@ interface SettingsState extends Persisted {
   setKeybinding: (id: string, chord: string | null) => void
   resetKeybinding: (id: string) => void
   setKeybindings: (map: KeybindingMap) => void
+  setTerminalKey: (keys: string, send: TerminalSend | null) => void
+  resetTerminalKey: (keys: string) => void
+  setTerminalKeys: (map: TerminalKeyMap) => void
   setExtensionSettings: (extId: string, values: ExtensionSettingValues) => void
 }
 
@@ -468,6 +474,7 @@ export function parsePersisted(p: Partial<Persisted>): Persisted {
     editor: parseEditorSettings(p.editor),
     keymap: parseKeymapSetting(p.keymap),
     keybindings: parseKeybindings(p.keybindings),
+    terminalKeys: parseTerminalKeys(p.terminalKeys),
     agents: {
       hibernation: parseHibernation(p.agents?.hibernation),
       autoResume: p.agents?.autoResume === true,
@@ -580,6 +587,7 @@ async function writeSettings(s: SettingsState): Promise<void> {
     editor: s.editor,
     keymap: s.keymap,
     keybindings: s.keybindings,
+    terminalKeys: s.terminalKeys,
     agents: s.agents,
     assistant: s.assistant,
     workspaceGroups: s.workspaceGroups,
@@ -768,6 +776,21 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   },
   setKeybindings: (keybindings) => {
     set({ keybindings })
+    scheduleSave(get)
+  },
+  setTerminalKey: (keys, send) => {
+    set((s) => ({ terminalKeys: { ...s.terminalKeys, [keys]: send } }))
+    scheduleSave(get)
+  },
+  resetTerminalKey: (keys) => {
+    set((s) => {
+      const { [keys]: _removed, ...rest } = s.terminalKeys
+      return { terminalKeys: rest }
+    })
+    scheduleSave(get)
+  },
+  setTerminalKeys: (terminalKeys) => {
+    set({ terminalKeys })
     scheduleSave(get)
   },
   setExtensionSettings: (extId, values) => {

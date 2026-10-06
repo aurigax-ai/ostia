@@ -262,8 +262,8 @@ test('on macOS the cmux keymap is opt-in: picking it makes ⌘D split the focuse
     await expect(win.locator('.xterm')).toHaveCount(1)
 
     const settings = await openKeyboardSettings(win)
-    const picker = settings.getByRole('combobox', { name: 'Keymap' })
-    await expect(picker).toContainText('Default')
+    const picker = settings.getByRole('combobox', { name: 'Presets' })
+    await expect(picker).toContainText('Ostia default')
     await expect(paletteRow(win)).toContainText('⌘K')
     await picker.click()
     await win.getByRole('option', { name: 'macOS (cmux)' }).click()

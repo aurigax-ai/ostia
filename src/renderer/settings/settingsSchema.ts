@@ -12,6 +12,7 @@ import {
   PROMPT_STYLES,
 } from '../../shared/promptSettings'
 import { REDACTION_PATTERNS_MAX, REDACTION_PATTERN_MAX } from '../../shared/redaction'
+import { TERMINAL_SEND_MAX, TERMINAL_SEND_TYPES } from '../../shared/terminalKeys'
 import { SHELL_SETTING_MAX_LENGTH } from '../../shared/terminalShell'
 import { MATCH_OSTIA_THEME } from '../../shared/themeChoice'
 import { DEFAULT_CHORDS, bindableIds } from '../lib/chords'
@@ -25,7 +26,7 @@ import {
   NESTING_MAX,
   PATTERN_MAX_LENGTH,
 } from './fileTreeSettings'
-import { KEYMAP_REF_PATTERN } from './keymapSetting'
+import { KEYMAP_SETTING_PATTERN, NATURAL_TEXT_EDITING } from './keymapSetting'
 
 const font = (title: string) => ({
   type: 'object',
@@ -753,15 +754,44 @@ export const SETTINGS_JSON_SCHEMA = {
     },
     keymap: {
       type: ['string', 'null'],
-      pattern: KEYMAP_REF_PATTERN.source,
-      examples: ['keymap-macos/cmux'],
+      pattern: KEYMAP_SETTING_PATTERN.source,
+      examples: [NATURAL_TEXT_EDITING, 'keymap-macos/cmux'],
       description:
-        'A keymap an enabled extension contributes (contributes.keymaps), as ' +
-        '"<extension id>/<keymap id>", or null for the default shortcuts. Its chords replace ' +
-        'the defaults, and your keybindings apply on top of it. An id no enabled extension ' +
-        'offers on this computer counts as null. Pick it in Settings → Keyboard. Default: null.',
+        'The keyboard preset. null: the default. "natural-text-editing": the terminal keys of ' +
+        'iTerm2’s Natural Text Editing preset (macOS). Or a keymap an enabled extension ' +
+        'contributes (contributes.keymaps), as "<extension id>/<keymap id>": its chords ' +
+        'replace the default command shortcuts. Your keybindings and terminalKeys apply on ' +
+        'top. An id no enabled extension offers on this computer counts as null. Pick it in ' +
+        'Settings → Keyboard. Default: null.',
     },
     keybindings: keybindingsSchema(Object.keys(DEFAULT_CHORDS)),
+    terminalKeys: {
+      type: 'object',
+      description:
+        'Keys that send text to the terminal: chord → what to send, or null to drop a key ' +
+        'the preset sends. They apply on top of the preset; a command bound to the same ' +
+        'chord wins. Only you can change this, in Settings → Keyboard; agents cannot.',
+      additionalProperties: {
+        oneOf: [
+          { type: 'null' },
+          {
+            type: 'object',
+            additionalProperties: false,
+            required: ['type', 'value'],
+            properties: {
+              type: {
+                type: 'string',
+                enum: [...TERMINAL_SEND_TYPES],
+                description:
+                  '"text": the value, with \\n \\r \\t \\e \\\\ and \\xHH escapes. ' +
+                  '"escape": ESC, then the value. "hex": bytes like "0x1b 0x7f" (0x00-0x7f).',
+              },
+              value: { type: 'string', minLength: 1, maxLength: TERMINAL_SEND_MAX },
+            },
+          },
+        ],
+      },
+    },
     workspaceGroups: {
       type: 'object',
       additionalProperties: false,
