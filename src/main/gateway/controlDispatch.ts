@@ -5,6 +5,7 @@ import type {
   CommandTarget,
   TerminalStateSnapshot,
 } from '../../shared/types'
+import { internalPaneArgs } from '../commandArgs'
 import { resolveExternal } from '../idRegistry'
 import type { PaneEntry, WorkspaceEntry } from '../paneList'
 
@@ -121,7 +122,9 @@ export async function dispatchGatewayMethod(
       if (missing) return needsElevation(missing)
       const target = resolveTarget(p.target, windowId)
       if (!target) return invalidParams('unknown pane target')
-      return { ok: true, result: await deps.execCommand(target, id, p.args) }
+      const translated = internalPaneArgs(p.args)
+      if (!translated.ok) return invalidParams(translated.error)
+      return { ok: true, result: await deps.execCommand(target, id, translated.args) }
     }
 
     case 'pane.info': {

@@ -2755,7 +2755,7 @@ function openTerminalInWindow(req: TerminalOpenRequest): Promise<string | null> 
       if (rid !== requestId || String(e.sender.id) !== wid) return
       finish(
         typeof paneId === 'string' && paneId
-          ? registerPane({ windowId: wid, workspaceId: '', paneId }).externalId
+          ? registerPane({ windowId: wid, workspaceId: req.workspaceId ?? '', paneId }).externalId
           : null,
       )
     }
@@ -3324,6 +3324,7 @@ app.whenReady().then(() => {
     listCommandsFor,
     getTerminalState,
     windowOfWorkspace: workspaceWindowId,
+    primaryWindow: primaryWindowId,
   })
   writeControlInfo(controlInfoPath(), controlSocketPath(), process.pid)
   listenKeptControlSocket(keptControlSocketPath(app.getPath('userData')))

@@ -149,6 +149,103 @@ describe('controlServer (socket auth, end-to-end)', () => {
     expect(executed).toHaveLength(1)
   })
 
+  it('hands the app the inner id of a pane named by its pane.list id, so pane.close finds it', async () => {
+    socketPath = nextSocketPath()
+    const me = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'pCloser' })
+    const other = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'pToClose' })
+    const executed: { target: CommandTarget; args: unknown }[] = []
+    registerControlServer(
+      {
+        ...fakeDeps,
+        execCommand: async (target, _id, args) => {
+          executed.push({ target, args })
+          return { ok: true } as CommandResult
+        },
+      },
+      socketPath,
+    )
+    client = connectClient(socketPath)
+    await client.conn.sendRequest('hello', { token: me.token })
+
+    expect(other.externalId).not.toBe('pToClose')
+    await client.conn.sendRequest('command.exec', {
+      id: 'pane.splitRight',
+      args: { paneId: other.externalId },
+    })
+    expect(executed).toEqual([
+      {
+        target: { windowId: 'w1', workspaceId: 's1', paneId: 'pCloser' },
+        args: { paneId: 'pToClose' },
+      },
+    ])
+  })
+
+  it('refuses a paneId no pane has instead of running the command on nothing', async () => {
+    socketPath = nextSocketPath()
+    const me = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'pAsker' })
+    const executed: unknown[] = []
+    registerControlServer(
+      {
+        ...fakeDeps,
+        execCommand: async (_target, _id, args) => {
+          executed.push(args)
+          return { ok: true } as CommandResult
+        },
+      },
+      socketPath,
+    )
+    client = connectClient(socketPath)
+    await client.conn.sendRequest('hello', { token: me.token })
+
+    await expect(
+      client.conn.sendRequest('command.exec', {
+        id: 'pane.splitRight',
+        args: { paneId: 'not-a-pane' },
+      }),
+    ).rejects.toThrow('unknown-pane: not-a-pane')
+    expect(executed).toEqual([])
+  })
+
+  it('runs a command on a pane in another workspace there, and only with all-workspaces', async () => {
+    socketPath = nextSocketPath()
+    const me = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'pHere' })
+    const far = registerPane({ windowId: 'w2', workspaceId: 's-far', paneId: 'pFar' })
+    const executed: { target: CommandTarget; args: unknown }[] = []
+    registerControlServer(
+      {
+        ...fakeDeps,
+        execCommand: async (target, _id, args) => {
+          executed.push({ target, args })
+          return {
+            ok: false,
+            error: { code: 'command-failed', message: 'unknown-pane: pFar' },
+          } as CommandResult
+        },
+      },
+      socketPath,
+    )
+    client = connectClient(socketPath)
+    await client.conn.sendRequest('hello', { token: me.token })
+    const call = { id: 'pane.splitRight', args: { paneId: far.externalId } }
+
+    await expect(client.conn.sendRequest('command.exec', call)).rejects.toThrow(/all-workspaces/)
+    expect(executed).toEqual([])
+
+    grant(me.externalId, 'all-workspaces')
+    const res = await client.conn.sendRequest<CommandResult>('command.exec', call)
+    expect(executed).toEqual([
+      { target: { windowId: 'w2', workspaceId: 's-far', paneId: null }, args: { paneId: 'pFar' } },
+    ])
+    expect(res.ok ? '' : res.error.message).toBe(`unknown-pane: ${far.externalId}`)
+
+    await expect(
+      client.conn.sendRequest('command.exec', {
+        ...call,
+        target: { workspaceId: 's1', paneId: null },
+      }),
+    ).rejects.toThrow(`pane ${far.externalId} is in workspace s-far, not s1`)
+  })
+
   it('rejects hello with a bogus token', async () => {
     socketPath = nextSocketPath()
     registerControlServer(fakeDeps, socketPath)

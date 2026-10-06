@@ -9,4 +9,5 @@ export const SCRIPT_CAPABILITIES: readonly Capability[] = [
   'all-workspaces',
   'process',
   'send-other-pane',
+  'kill-pane',
 ]

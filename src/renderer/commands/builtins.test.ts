@@ -652,7 +652,17 @@ describe('builtins route to store actions', () => {
     expect(activeFontZoom(useSettingsStore.getState().appearance)).toBeNull()
   })
 
+  const withPanes = (...ids: string[]): void => {
+    const panes = ids.map((id) => ({ ...createPane('terminal'), id }))
+    useLayoutStore.setState({
+      byWorkspace: {
+        s1: { root: tabsOf(ids[0], ...panes), activePaneId: ids[0], zoomedPaneId: null },
+      },
+    })
+  }
+
   it('routes pane.close to layout.closePane with an explicit paneId', async () => {
+    withPanes('pA', 'pX')
     const closePane = vi.spyOn(useLayoutStore.getState(), 'closePane').mockImplementation(() => {})
 
     await commands.execWith(ctx('s1', 'pA'), 'pane.close', { paneId: 'pX' })
@@ -675,6 +685,17 @@ describe('builtins route to store actions', () => {
     expect(closePane).not.toHaveBeenCalled()
   })
 
+  it('fails instead of reporting success when the paneId names no pane in the workspace', async () => {
+    withPanes('pA')
+    const closePane = vi.spyOn(useLayoutStore.getState(), 'closePane').mockImplementation(() => {})
+    const fromSocket = { ...ctx('s1', null), target: { workspaceId: 's1', paneId: null } }
+
+    const result = await commands.execWith(fromSocket, 'pane.close', { paneId: 'p-elsewhere' })
+
+    expect(result.ok ? '' : result.error.message).toContain('unknown-pane: p-elsewhere')
+    expect(closePane).not.toHaveBeenCalled()
+  })
+
   it('falls back to the active pane when pane.close gets no paneId', async () => {
     const closePane = vi.spyOn(useLayoutStore.getState(), 'closePane').mockImplementation(() => {})
 
@@ -684,6 +705,7 @@ describe('builtins route to store actions', () => {
   })
 
   it('asks the human before closing a pane but closes at once for an agent on the socket', async () => {
+    withPanes('pA', 'pX')
     const ask = vi.spyOn(closeConfirm, 'requestClosePane').mockResolvedValue()
     const closePane = vi.spyOn(useLayoutStore.getState(), 'closePane').mockImplementation(() => {})
 
