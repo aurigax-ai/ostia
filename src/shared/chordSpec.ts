@@ -250,8 +250,21 @@ export function stealsTerminalKey(spec: ChordSpec, mac: boolean): ChordProblem |
 
 export const WORKSPACE_GOTO = 'workspace.goto'
 
+export const BROWSER_CHORD_IDS = [
+  'browser.focusAddress',
+  'browser.reload',
+  'browser.back',
+  'browser.forward',
+] as const
+
+const BROWSER_IDS: ReadonlySet<string> = new Set(BROWSER_CHORD_IDS)
+
+const altChord = (spec: ChordSpec): boolean =>
+  spec.alt && !spec.ctrl && !spec.meta && spec.key !== 'escape' && spec.key !== 'tab'
+
 export function bindingProblem(id: string, spec: ChordSpec, mac: boolean): ChordProblem | null {
-  const steal = stealsTerminalKey(spec, mac)
+  const browserAlt = BROWSER_IDS.has(id) && altChord(spec)
+  const steal = browserAlt ? null : stealsTerminalKey(spec, mac)
   if (steal) return steal
   const isRange = spec.key === DIGIT_RANGE
   return isRange === (id === WORKSPACE_GOTO) ? null : 'digit-range'

@@ -1,4 +1,5 @@
 import {
+  BROWSER_CHORD_IDS,
   type ChordProblem,
   type ChordSpec,
   DIGIT_RANGE,
@@ -71,11 +72,7 @@ export type TerminalChord =
   | 'block.selectNext'
   | TerminalCommandChord
 
-export type BrowserChord =
-  | 'browser.focusAddress'
-  | 'browser.reload'
-  | 'browser.back'
-  | 'browser.forward'
+export type BrowserChord = (typeof BROWSER_CHORD_IDS)[number]
 
 export const TERMINAL_CHORDS: readonly TerminalChord[] = [
   'copy',
@@ -90,12 +87,7 @@ const TERMINAL_SET: ReadonlySet<string> = new Set(TERMINAL_CHORDS)
 
 const TERMINAL_COMMAND_SET: ReadonlySet<string> = new Set(TERMINAL_COMMAND_CHORDS)
 
-export const BROWSER_CHORDS: readonly BrowserChord[] = [
-  'browser.focusAddress',
-  'browser.reload',
-  'browser.back',
-  'browser.forward',
-]
+export const BROWSER_CHORDS: readonly BrowserChord[] = BROWSER_CHORD_IDS
 
 const BROWSER_SET: ReadonlySet<string> = new Set(BROWSER_CHORDS)
 
@@ -144,8 +136,8 @@ export const DEFAULT_CHORDS: Readonly<
   'tab.moveRight': ['Shift+Cmd+Right', ''],
   'browser.focusAddress': ['Cmd+L', 'Ctrl+Shift+L'],
   'browser.reload': ['Cmd+R', 'Ctrl+F5'],
-  'browser.back': ['Cmd+[', 'Ctrl+Alt+Left'],
-  'browser.forward': ['Cmd+]', 'Ctrl+Alt+Right'],
+  'browser.back': ['Cmd+[', 'Alt+Left'],
+  'browser.forward': ['Cmd+]', 'Alt+Right'],
 }
 
 export function defaultChord(id: string, mac: boolean): ChordSpec | null {

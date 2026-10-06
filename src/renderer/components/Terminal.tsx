@@ -259,7 +259,7 @@ export function TerminalView({
         return false
       }
       const chord = matchChord(e, isMac)
-      if (!chord) {
+      if (!chord || isBrowserChord(chord)) {
         const sent = terminalKeyData(e, isMac)
         if (sent && !inputEditorFor(paneId)) {
           if (e.type === 'keydown') {
@@ -268,6 +268,7 @@ export function TerminalView({
           }
           return false
         }
+        if (chord) return true
         const editor = inputEditorFor(paneId)
         if (!editor) return true
         if (e.type !== 'keydown') return false
@@ -279,7 +280,6 @@ export function TerminalView({
       }
       const clipboard = chord === 'copy' || chord === 'paste'
       if (isMac && clipboard && isNativeClipboardKey(e)) return true
-      if (isBrowserChord(chord)) return true
       if (e.type !== 'keydown' || isAppChord(chord)) return false
       e.preventDefault()
       if (chord === 'find') setFindOpen(true)

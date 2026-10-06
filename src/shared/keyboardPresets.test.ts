@@ -16,34 +16,16 @@ import {
 import { sendData } from './terminalKeys'
 
 describe('defaultPresetFor', () => {
-  it('picks the Ostia presets on macOS and leaves Linux keys untranslated', () => {
+  it('picks Ostia and Ostia standard on both platforms, by the OS alone', () => {
     expect(defaultPresetFor({ platform: 'darwin' })).toEqual({ app: 'ostia', terminal: 'ostia' })
-    expect(defaultPresetFor({ platform: 'linux' })).toEqual({ app: 'ostia', terminal: 'none' })
-    expect(defaultPresetFor({ platform: 'linux', desktop: 'GNOME' })).toEqual({
-      app: 'ostia',
-      terminal: 'none',
-    })
+    expect(defaultPresetFor({ platform: 'linux' })).toEqual({ app: 'ostia', terminal: 'ostia' })
   })
 
   it('treats anything that is not macOS as Linux', () => {
     expect(keyboardPlatform('darwin')).toBe('mac')
     expect(keyboardPlatform('linux')).toBe('linux')
     expect(keyboardPlatform('freebsd')).toBe('linux')
-  })
-
-  it('uses a desktop row when the table has one, matching any part of XDG_CURRENT_DESKTOP', () => {
-    const table = {
-      ...PLATFORM_DEFAULTS,
-      linux: { app: 'ostia', terminal: 'none', desktops: { kde: { app: 'kde', terminal: 'kde' } } },
-    }
-    expect(defaultPresetFor({ platform: 'linux', desktop: 'KDE' }, table)).toEqual({
-      app: 'kde',
-      terminal: 'kde',
-    })
-    expect(defaultPresetFor({ platform: 'linux', desktop: 'ubuntu:KDE' }, table).app).toBe('kde')
-    expect(defaultPresetFor({ platform: 'linux', desktop: 'GNOME' }, table).app).toBe('ostia')
-    expect(defaultPresetFor({ platform: 'linux', desktop: null }, table).app).toBe('ostia')
-    expect(defaultPresetFor({ platform: 'darwin', desktop: 'KDE' }, table).app).toBe('ostia')
+    expect(defaultPresetFor({ platform: 'freebsd' })).toBe(PLATFORM_DEFAULTS.linux)
   })
 })
 
@@ -58,13 +40,13 @@ describe('preset tables', () => {
     }
   })
 
-  it('list only what a platform has: Linux gets No translation and no macOS text keys', () => {
+  it('list only what a platform has: Natural Text Editing is macOS only', () => {
     expect(terminalKeymapsFor('mac').map((k) => k.id)).toEqual([
       'ostia',
       'natural-text-editing',
       'none',
     ])
-    expect(terminalKeymapsFor('linux').map((k) => k.id)).toEqual(['none'])
+    expect(terminalKeymapsFor('linux').map((k) => k.id)).toEqual(['ostia', 'none'])
     expect(appKeymapsFor('linux').map((k) => k.id)).toEqual(['ostia'])
   })
 
@@ -86,12 +68,20 @@ describe('preset tables', () => {
     expect(terminalKeymapIn('natural-text-editing', { platform: 'darwin' })).toBe(
       'natural-text-editing',
     )
-    expect(terminalKeymapIn('natural-text-editing', { platform: 'linux' })).toBe('none')
+    expect(terminalKeymapIn('natural-text-editing', { platform: 'linux' })).toBe('ostia')
+    expect(terminalKeymapIn('none', { platform: 'linux' })).toBe('none')
     expect(terminalKeymapIn(null, { platform: 'darwin' })).toBe('ostia')
     expect(terminalKeymapIn('gone', { platform: 'darwin' })).toBe('ostia')
     expect(appKeymapIn(null, { platform: 'linux' })).toBe('ostia')
     expect(appKeymapIn('keymap-macos/cmux', { platform: 'darwin' })).toBe('keymap-macos/cmux')
-    expect(terminalKeymapKeys('ostia', 'linux')).toEqual({})
+    expect(Object.keys(terminalKeymapKeys('ostia', 'linux'))).toEqual([
+      'Ctrl+Left',
+      'Ctrl+Right',
+      'Alt+Left',
+      'Alt+Right',
+      'Ctrl+Backspace',
+    ])
+    expect(terminalKeymapKeys('none', 'linux')).toEqual({})
     expect(Object.keys(terminalKeymapKeys('ostia', 'mac'))).toHaveLength(8)
   })
 })

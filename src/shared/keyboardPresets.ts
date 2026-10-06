@@ -42,6 +42,14 @@ export const OSTIA_TERMINAL_KEYS: PresetKeys = {
   'Cmd+Delete': hex('0x0b'),
 }
 
+export const OSTIA_LINUX_TERMINAL_KEYS: PresetKeys = {
+  'Ctrl+Left': esc('b'),
+  'Ctrl+Right': esc('f'),
+  'Alt+Left': esc('b'),
+  'Alt+Right': esc('f'),
+  'Ctrl+Backspace': hex('0x17'),
+}
+
 export const NATURAL_TEXT_EDITING_KEYS: PresetKeys = {
   'Alt+Backspace': hex('0x1b 0x7f'),
   'Alt+Left': esc('b'),
@@ -54,7 +62,7 @@ export const NATURAL_TEXT_EDITING_KEYS: PresetKeys = {
 }
 
 export const TERMINAL_KEYMAPS: readonly TerminalKeymap[] = [
-  { id: OSTIA_KEYMAP, keys: { mac: OSTIA_TERMINAL_KEYS } },
+  { id: OSTIA_KEYMAP, keys: { mac: OSTIA_TERMINAL_KEYS, linux: OSTIA_LINUX_TERMINAL_KEYS } },
   { id: NATURAL_TEXT_EDITING, keys: { mac: NATURAL_TEXT_EDITING_KEYS } },
   { id: NO_TERMINAL_KEYMAP, keys: { mac: {}, linux: {} } },
 ]
@@ -78,28 +86,17 @@ export interface KeyboardDefaults {
   terminal: string
 }
 
-export interface PlatformDefaults extends KeyboardDefaults {
-  desktops?: Readonly<Record<string, KeyboardDefaults>>
-}
-
-export const PLATFORM_DEFAULTS: Readonly<Record<KeyboardPlatform, PlatformDefaults>> = {
+export const PLATFORM_DEFAULTS: Readonly<Record<KeyboardPlatform, KeyboardDefaults>> = {
   mac: { app: OSTIA_KEYMAP, terminal: OSTIA_KEYMAP },
-  linux: { app: OSTIA_KEYMAP, terminal: NO_TERMINAL_KEYMAP },
+  linux: { app: OSTIA_KEYMAP, terminal: OSTIA_KEYMAP },
 }
 
 export interface KeyboardEnv {
   platform: string
-  desktop?: string | null
 }
 
-export function defaultPresetFor(
-  { platform, desktop }: KeyboardEnv,
-  table: Readonly<Record<KeyboardPlatform, PlatformDefaults>> = PLATFORM_DEFAULTS,
-): KeyboardDefaults {
-  const row = table[keyboardPlatform(platform)]
-  const names = (desktop ?? '').toLowerCase().split(':').filter(Boolean)
-  const match = names.map((name) => row.desktops?.[name]).find((d) => d !== undefined)
-  return match ?? { app: row.app, terminal: row.terminal }
+export function defaultPresetFor({ platform }: KeyboardEnv): KeyboardDefaults {
+  return PLATFORM_DEFAULTS[keyboardPlatform(platform)]
 }
 
 export function terminalKeymapIn(chosen: string | null, env: KeyboardEnv): string {

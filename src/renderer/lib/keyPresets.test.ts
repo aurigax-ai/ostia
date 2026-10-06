@@ -61,6 +61,14 @@ const OSTIA_SENDS: [string, KeyLike, string][] = [
   ['⌘⌦', key('Delete', cmd), '\x0b'],
 ]
 
+const LINUX_SENDS: [string, KeyLike, string][] = [
+  ['Ctrl+Left', key('ArrowLeft', { ctrlKey: true }), '\x1bb'],
+  ['Ctrl+Right', key('ArrowRight', { ctrlKey: true }), '\x1bf'],
+  ['Alt+Left', key('ArrowLeft', opt), '\x1bb'],
+  ['Alt+Right', key('ArrowRight', opt), '\x1bf'],
+  ['Ctrl+Backspace', key('Backspace', { ctrlKey: true }), '\x17'],
+]
+
 const NATURAL_SENDS: [string, KeyLike, string][] = [
   ['⌥⌫', key('Backspace', opt), '\x1b\x7f'],
   ['⌥←', key('ArrowLeft', opt), '\x1bb'],
@@ -113,21 +121,44 @@ describe('Ostia default preset', () => {
     }
   })
 
-  it('leaves Linux as it was: without settings no key is turned into a sequence', () => {
-    expect(presetKeys(null, false)).toEqual({})
-    expect(presetKeys(NATURAL_TEXT_EDITING, false)).toEqual({})
-    expect(currentTerminalKeys(false).rows).toEqual([])
+  it('gives Linux the Ostia standard keys by default: word moves and Ctrl+Backspace', () => {
+    expect(useSettingsStore.getState().terminalKeymap).toBeNull()
+    for (const [name, event, sent] of LINUX_SENDS) {
+      expect(terminalKeyData(event, false), name).toBe(sent)
+    }
+    expect(currentTerminalKeys(false).rows).toHaveLength(LINUX_SENDS.length)
+    expect(presetKeys(NATURAL_TEXT_EDITING, false)).toEqual(presetKeys(null, false))
+  })
+
+  it('leaves every other key on Linux to the terminal, macOS keys included', () => {
     for (const [name, event] of [...OSTIA_SENDS, ...NATURAL_SENDS]) {
+      if (event.altKey && !event.metaKey && event.key.startsWith('Arrow')) continue
       expect(terminalKeyData(event, false), name).toBeNull()
     }
     for (const event of [
-      key('ArrowLeft', { ctrlKey: true }),
-      key('Backspace', { ctrlKey: true }),
+      key('ArrowUp', { ctrlKey: true }),
+      key('ArrowLeft', { ctrlKey: true, shiftKey: true }),
+      key('ArrowLeft', { ctrlKey: true, altKey: true }),
+      key('Backspace', { altKey: true }),
+      key('Delete', { ctrlKey: true }),
       key('Home'),
       key('End'),
     ]) {
       expect(terminalKeyData(event, false), JSON.stringify(event)).toBeNull()
     }
+  })
+
+  it('sends nothing on Linux with No translation, as before', () => {
+    useSettingsStore.setState({ terminalKeymap: NO_TERMINAL_KEYMAP })
+    for (const [name, event] of LINUX_SENDS) expect(terminalKeyData(event, false), name).toBeNull()
+    expect(currentTerminalKeys(false).rows).toEqual([])
+  })
+
+  it('sends Alt+arrows to the shell in a terminal although they go back and forward in a browser', () => {
+    expect(matchChord(key('ArrowLeft', opt), false)).toBe('browser.back')
+    expect(matchChord(key('ArrowRight', opt), false)).toBe('browser.forward')
+    expect(terminalKeyData(key('ArrowLeft', opt), false)).toBe('\x1bb')
+    expect(terminalKeyData(key('ArrowRight', opt), false)).toBe('\x1bf')
   })
 
   it('sends nothing with No translation, for shells in vi mode', () => {
@@ -226,15 +257,19 @@ describe('user terminal keys on top of the preset', () => {
         'Cmd+J': { type: 'hex', value: '0x80' },
         'Ctrl+Shift+K': { type: 'escape', value: 'k' },
       },
-      null,
+      NO_TERMINAL_KEYMAP,
       false,
     )
     expect(table.rows.map((r) => r.signature)).toEqual(['Ctrl+Shift+K'])
   })
 
-  it('work outside macOS, without a preset under them', () => {
-    useSettingsStore.setState({ terminalKeys: { 'Alt+Left': { type: 'escape', value: 'b' } } })
-    expect(terminalKeyData(key('ArrowLeft', opt), false)).toBe('\x1bb')
+  it('work on Linux too, on top of its own preset', () => {
+    useSettingsStore.setState({
+      terminalKeys: { 'Ctrl+Shift+K': { type: 'escape', value: 'k' }, 'Ctrl+Backspace': null },
+    })
+    expect(terminalKeyData(key('K', { ctrlKey: true, shiftKey: true }), false)).toBe('\x1bk')
+    expect(terminalKeyData(key('Backspace', { ctrlKey: true }), false)).toBeNull()
+    expect(terminalKeyData(key('ArrowLeft', { ctrlKey: true }), false)).toBe('\x1bb')
     expect(terminalKeyData(key('ArrowLeft', cmd), false)).toBeNull()
   })
 })
