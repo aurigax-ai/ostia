@@ -32,7 +32,7 @@ function guestText(app: ElectronApplication): Promise<string> {
   })
 }
 
-test('at idle only the ports host runs while the branch still shows; the Git panel starts the git host, also when restored', async () => {
+test('at idle no extension host runs while the branch still shows; the Git panel starts the git host, also when restored', async () => {
   const dataHome = freshDataHome()
   const home = dirtyRepoHome(dataHome)
   const launch = isolatedLaunch(dataHome)
@@ -48,17 +48,15 @@ test('at idle only the ports host runs while the branch still shows; the Git pan
     ).toHaveText('main', { timeout: 15_000 })
     const chips = win.locator('.topbar-right .workspace-chips .pane-chip')
     await expect(chips.filter({ hasText: '1 • +1' })).toBeVisible({ timeout: 15_000 })
-    await expect.poll(() => extensionHosts(app), { timeout: 15_000 }).toEqual(['ports'])
     await win.waitForTimeout(1000)
-    expect(extensionHosts(app)).toEqual(['ports'])
+    expect(extensionHosts(app)).toEqual([])
 
     await chips.filter({ hasText: /^main$/ }).click()
     await expect(win.locator('.pane-header .title').filter({ hasText: /^Git$/ })).toBeVisible({
       timeout: 15_000,
     })
     await expect.poll(() => guestText(app), { timeout: 15_000 }).toContain('notes.txt')
-    expect(extensionHosts(app)).toContain('git')
-    expect(extensionHosts(app)).not.toContain('assistant')
+    expect(extensionHosts(app)).toEqual(['git'])
   } finally {
     await app.close()
   }
