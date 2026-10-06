@@ -4,14 +4,14 @@
     "view.toggleRail": "Cmd+B",
     "workspace.new": "Cmd+N",
     "tab.new": "Cmd+T",
-    "pane.splitRight": "Cmd+D",
-    "pane.splitDown": "Cmd+Shift+D",
-    "pane.focusLeft": "Cmd+Alt+Left",
-    "pane.focusRight": "Cmd+Alt+Right",
-    "pane.focusUp": "Cmd+Alt+Up",
-    "pane.focusDown": "Cmd+Alt+Down",
-    "pane.zoom": "Cmd+Shift+Enter",
+    "pane.splitRight": "terminal:Cmd+D",
+    "pane.splitDown": "terminal:Cmd+Shift+D",
+    "pane.focusLeft": "terminal:Cmd+Alt+Left",
+    "pane.focusRight": "terminal:Cmd+Alt+Right",
+    "pane.focusUp": "terminal:Cmd+Alt+Up",
+    "pane.focusDown": "terminal:Cmd+Alt+Down",
+    "pane.zoom": "terminal:Cmd+Shift+Enter",
     "dashboard.toggle": "Cmd+Alt+D",
-    "terminal.clear": "Cmd+Shift+K"
+    "terminal.clear": ["terminal:Cmd+K", "terminal:Cmd+Shift+K"]
   }
 }
