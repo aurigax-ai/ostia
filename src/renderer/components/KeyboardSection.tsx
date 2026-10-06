@@ -1,4 +1,4 @@
-import { MagnifyingGlassIcon, MinusIcon, PlusIcon, WarningIcon } from '@phosphor-icons/react'
+import { MagnifyingGlassIcon, MinusIcon, PlusIcon } from '@phosphor-icons/react'
 import {
   type ChordProblem,
   type ChordSpec,
@@ -262,12 +262,12 @@ export function KeybindingRow({ id, title }: { id: string; title: string }): JSX
           </p>
         ) : null}
         {ignored && mode.kind === 'idle' ? (
-          <p className="mt-1 text-attn-fg text-ui-sm">
+          <WarningNote>
             {fmt(d.keyboard.ignored, {
               value: ignored.value,
               reason: problemText(ignored.problem, d, isMac),
             })}
-          </p>
+          </WarningNote>
         ) : null}
       </TableCell>
       <TableCell className="py-1.5 text-right align-top">
@@ -582,10 +582,9 @@ function TerminalKeyLine({ row }: { row: TerminalKeyRow }): JSX.Element {
       <TableCell className="py-1.5 align-top whitespace-normal">
         <Kbd>{keys}</Kbd>
         {shadowedBy ? (
-          <p className="mt-1 flex items-center gap-1 text-ui-xs text-warn-fg">
-            <WarningIcon aria-hidden className="shrink-0" />
+          <WarningNote>
             {fmt(d.keyboard.shadowed, { command: commandTitle(shadowedBy, d) })}
-          </p>
+          </WarningNote>
         ) : null}
       </TableCell>
       <TableCell className="py-1.5 text-right align-top">
