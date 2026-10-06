@@ -25,7 +25,7 @@ function stubContext(canvas: HTMLCanvasElement): unknown {
 let created: GhosttyTerminal | null = null
 
 function open(): GhosttyTerminal {
-  created = createGhosttyTerminal({ fontSize: 13, scrollback: 1000 })
+  created = createGhosttyTerminal({ fontSize: 13, scrollback: 1000 }, false)
   created.term.open(document.createElement('div'))
   return created
 }

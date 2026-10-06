@@ -256,7 +256,7 @@ function TerminalSurface({
     let silenceReplies: () => { dispose(): void }
     const ghostty = engine === 'ghostty' ? ghosttyModule() : null
     if (ghostty) {
-      const created = ghostty.createGhosttyTerminal(options)
+      const created = ghostty.createGhosttyTerminal(options, behavior.gpuAcceleration)
       term = created.term
       fit = created.fit
       silenceReplies = created.silenceQueryReplies

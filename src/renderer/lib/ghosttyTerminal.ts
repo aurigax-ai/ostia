@@ -111,10 +111,11 @@ export interface GhosttyTerminal {
   silenceQueryReplies(): TerminalDisposable
 }
 
-export function createGhosttyTerminal(options: TerminalOptions): GhosttyTerminal {
+export function createGhosttyTerminal(options: TerminalOptions, gpu: boolean): GhosttyTerminal {
   if (!engine) throw new Error('Ghostty engine is not loaded')
   const t = new GhosttyTerm({
     ghostty: engine,
+    renderer: gpu ? 'webgl' : 'canvas',
     fontFamily: options.fontFamily,
     fontSize: options.fontSize,
     cursorStyle: options.cursorStyle,
