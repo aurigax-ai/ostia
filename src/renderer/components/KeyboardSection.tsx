@@ -1,4 +1,4 @@
-import { MagnifyingGlassIcon, MinusIcon, PlusIcon } from '@phosphor-icons/react'
+import { MagnifyingGlassIcon, MinusIcon, PlusIcon, WarningIcon } from '@phosphor-icons/react'
 import {
   type ChordProblem,
   type ChordSpec,
@@ -582,7 +582,8 @@ function TerminalKeyLine({ row }: { row: TerminalKeyRow }): JSX.Element {
       <TableCell className="py-1.5 align-top whitespace-normal">
         <Kbd>{keys}</Kbd>
         {shadowedBy ? (
-          <p className="mt-1 text-attn-fg text-ui-sm">
+          <p className="mt-1 flex items-center gap-1 text-ui-xs text-warn-fg">
+            <WarningIcon aria-hidden className="shrink-0" />
             {fmt(d.keyboard.shadowed, { command: commandTitle(shadowedBy, d) })}
           </p>
         ) : null}
