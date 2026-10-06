@@ -1686,7 +1686,9 @@ function registerRemoteFilesIpc(host: ExtensionHost): void {
 function registerMarketplaceIpc(marketplace: Marketplace): void {
   ipcMain.handle('marketplace:list', () => marketplace.state())
   ipcMain.handle('marketplace:add', (_e, url: unknown) => marketplace.add(url))
-  ipcMain.handle('marketplace:remove', (_e, id: unknown) => marketplace.remove(id))
+  ipcMain.handle('marketplace:remove', (_e, id: unknown, uninstallExtensions: unknown) =>
+    marketplace.remove(id, uninstallExtensions),
+  )
   ipcMain.handle('marketplace:refresh', (_e, id: unknown) => marketplace.refresh(id))
   ipcMain.handle('marketplace:install', (_e, id: unknown, extId: unknown) =>
     marketplace.install(id, extId),

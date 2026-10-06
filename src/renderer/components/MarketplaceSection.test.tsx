@@ -31,6 +31,7 @@ function marketplace(overrides: Partial<MarketplaceInfo> = {}): MarketplaceInfo 
     description: 'Tools from Acme',
     problems: [],
     extensions: [WEATHER],
+    installs: [],
     unlisted: false,
     ...overrides,
   }
@@ -154,7 +155,34 @@ describe('MarketplaceSection', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Refresh Acme extensions' }))
     expect(window.ostia.marketplace.refresh).toHaveBeenCalledWith('abc123')
     await userEvent.click(await screen.findByRole('button', { name: 'Remove Acme extensions' }))
-    expect(window.ostia.marketplace.remove).toHaveBeenCalledWith('abc123')
+    expect(window.ostia.marketplace.remove).toHaveBeenCalledWith('abc123', false)
+  })
+
+  it('asks whether to keep or uninstall what a removed marketplace installed', async () => {
+    vi.mocked(window.ostia.marketplace.list).mockResolvedValue(
+      stateWith(marketplace({ installs: ['weather'] }), ['weather']),
+    )
+    render(<MarketplaceSection />)
+    await userEvent.click(await screen.findByRole('button', { name: 'Remove Acme extensions' }))
+    const dialog = await screen.findByRole('alertdialog')
+    expect(
+      within(dialog).getByText('It installed weather. Keep them, or uninstall them with it?'),
+    ).toBeVisible()
+    expect(window.ostia.marketplace.remove).not.toHaveBeenCalled()
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Uninstall them' }))
+    expect(window.ostia.marketplace.remove).toHaveBeenCalledWith('abc123', true)
+  })
+
+  it('offers to replace an extension whose marketplace is gone', async () => {
+    vi.mocked(window.ostia.marketplace.list).mockResolvedValue(
+      stateWith(marketplace({ extensions: [{ ...WEATHER, state: 'replace' }] }), ['weather']),
+    )
+    render(<MarketplaceSection />)
+    expect(
+      await screen.findByText('Installed from a marketplace that is no longer added.'),
+    ).toBeVisible()
+    await userEvent.click(screen.getByRole('button', { name: 'Replace with this version' }))
+    expect(window.ostia.marketplace.install).toHaveBeenCalledWith('abc123', 'weather')
   })
 })
 

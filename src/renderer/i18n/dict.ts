@@ -1278,6 +1278,12 @@ export const en = {
     uninstallBody:
       'Its files, approved permissions and saved secrets are removed. Its settings stay in settings.json.',
     cancel: 'Cancel',
+    replace: 'Replace with this version',
+    orphaned: 'Installed from a marketplace that is no longer added.',
+    removeTitle: 'Remove “{name}”?',
+    removeBody: 'It installed {list}. Keep them, or uninstall them with it?',
+    keepExtensions: 'Keep extensions',
+    uninstallExtensions: 'Uninstall them',
     errors: {
       'invalid-url': 'Enter owner/repo, an https or ssh git URL, or a folder path.',
       'already-added': 'This marketplace is already added.',
@@ -3905,6 +3911,12 @@ export const zhHant: Dict = {
     uninstallTitle: '解除安裝「{name}」？',
     uninstallBody: '會移除它的檔案、已核准的權限與已儲存的密鑰。它的設定仍保留在 settings.json。',
     cancel: '取消',
+    replace: '以此版本取代',
+    orphaned: '安裝來源的市集已不在清單中。',
+    removeTitle: '移除「{name}」？',
+    removeBody: '它安裝了 {list}。要保留，還是一併解除安裝？',
+    keepExtensions: '保留擴充功能',
+    uninstallExtensions: '一併解除安裝',
     errors: {
       'invalid-url': '請輸入 owner/repo、https 或 ssh 的 git 網址，或資料夾路徑。',
       'already-added': '這個市集已經新增過了。',

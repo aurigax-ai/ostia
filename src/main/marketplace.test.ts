@@ -276,6 +276,7 @@ describe('Marketplace', () => {
         name: 'Test marketplace',
         description: 'For tests',
         problems: [],
+        installs: [],
         unlisted: false,
         extensions: [
           {
@@ -489,11 +490,66 @@ describe('Marketplace', () => {
     const { state } = await h.marketplace.add(repo)
     const id = state.marketplaces[0]?.id
     await h.marketplace.install(id, 'weather')
-    const res = await h.marketplace.remove(id)
+    const res = await h.marketplace.remove(id, false)
     expect(res.state.marketplaces).toEqual([])
     expect(res.state.installed).toEqual(['weather'])
     expect(existsSync(join(h.extensionsDir, 'weather', 'ostia.json'))).toBe(true)
     expect((await h.marketplace.uninstall('weather')).ok).toBe(true)
+  })
+
+  it('lists what a marketplace installed and uninstalls it with the marketplace when asked', async () => {
+    const repo = marketplaceRepo()
+    const h = harness()
+    const id = marketplaceId(repo)
+    await h.marketplace.add(repo)
+    const installed = await h.marketplace.install(id, 'weather')
+    expect(installed.state.marketplaces[0]?.installs).toEqual(['weather'])
+    h.forgotten.length = 0
+
+    const res = await h.marketplace.remove(id, true)
+
+    expect(res.ok).toBe(true)
+    expect(res.state.marketplaces).toEqual([])
+    expect(res.state.installed).toEqual([])
+    expect(existsSync(join(h.extensionsDir, 'weather'))).toBe(false)
+    expect(h.forgotten).toEqual(['weather'])
+  })
+
+  it('offers to replace an extension whose marketplace was removed, and replaces it pending approval', async () => {
+    const before = marketplaceRepo()
+    const after = marketplaceRepo()
+    writeExtension(after, 'extensions/weather', weather('1.1.0'))
+    commit(after)
+    const h = harness()
+    await h.marketplace.add(before)
+    await h.marketplace.install(marketplaceId(before), 'weather')
+    await h.marketplace.remove(marketplaceId(before), false)
+    const added = await h.marketplace.add(after)
+    expect(added.state.marketplaces[0]?.extensions[0]?.state).toBe('replace')
+    h.forgotten.length = 0
+
+    const res = await h.marketplace.install(marketplaceId(after), 'weather')
+
+    expect(res.ok).toBe(true)
+    expect(h.forgotten).toEqual(['weather'])
+    expect(res.state.marketplaces[0]?.extensions[0]?.state).toBe('installed')
+    expect(res.state.marketplaces[0]?.installs).toEqual(['weather'])
+    expect(readFileSync(join(h.extensionsDir, 'weather', 'main.js'), 'utf8')).toContain('1.1.0')
+  })
+
+  it('keeps an extension another added marketplace installed out of reach', async () => {
+    const first = marketplaceRepo()
+    const second = marketplaceRepo()
+    const h = harness()
+    await h.marketplace.add(first)
+    await h.marketplace.add(second)
+    await h.marketplace.install(marketplaceId(first), 'weather')
+
+    const res = await h.marketplace.install(marketplaceId(second), 'weather')
+
+    expect(res).toMatchObject({ ok: false, error: 'conflict' })
+    const offered = res.state.marketplaces.find((m) => m.id === marketplaceId(second))
+    expect(offered?.extensions[0]?.state).toBe('conflict')
   })
 
   it('lists the editor languages each offered extension’s language servers cover', async () => {
@@ -524,7 +580,7 @@ describe('Marketplace', () => {
       { marketplaceId: id, extId: 'weather', name: 'Weather', languages: [] },
       { marketplaceId: id, extId: 'gleam', name: 'Gleam', languages: ['gleam', 'toml'] },
     ])
-    await h.marketplace.remove(id)
+    await h.marketplace.remove(id, false)
     expect(h.marketplace.languageListings()).toEqual([])
   })
 
@@ -546,6 +602,36 @@ describe('Marketplace', () => {
     expect(res.ok).toBe(true)
     expect(existsSync(join(h.extensionsDir, 'weather', 'ostia.json'))).toBe(true)
     expect(clones).toEqual([repo])
+    expect(h.forgotten).toEqual(['weather'])
+  })
+
+  it('says a suggested extension is held elsewhere instead of calling it unlisted', async () => {
+    const first = marketplaceRepo()
+    const second = marketplaceRepo()
+    const h = harness()
+    await h.marketplace.add(first)
+    await h.marketplace.add(second)
+    await h.marketplace.install(marketplaceId(first), 'weather')
+    await h.marketplace.refresh(marketplaceId(first))
+
+    const res = await h.marketplace.installSuggested('weather', second, true)
+
+    expect(res).toMatchObject({ ok: false, error: 'conflict' })
+  })
+
+  it('replaces a suggested extension whose marketplace was removed', async () => {
+    const gone = marketplaceRepo()
+    const official = marketplaceRepo()
+    const h = harness()
+    await h.marketplace.add(gone)
+    await h.marketplace.install(marketplaceId(gone), 'weather')
+    await h.marketplace.remove(marketplaceId(gone), false)
+    await h.marketplace.add(official)
+    h.forgotten.length = 0
+
+    const res = await h.marketplace.installSuggested('weather', official, true)
+
+    expect(res.ok).toBe(true)
     expect(h.forgotten).toEqual(['weather'])
   })
 
