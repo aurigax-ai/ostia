@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { mkdtempSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -74,5 +74,12 @@ describe('withLauncherOnPath', () => {
       HOME: '/h',
       PATH: '/ud/bin',
     })
+  })
+})
+
+describe('dev workflow', () => {
+  it('rebuilds out/cli before electron-vite dev, because the pane launcher runs that bundle', () => {
+    const scripts = JSON.parse(readFileSync(join(process.cwd(), 'package.json'), 'utf8')).scripts
+    expect(scripts.dev).toMatch(/build:cli.*electron-vite dev/)
   })
 })
