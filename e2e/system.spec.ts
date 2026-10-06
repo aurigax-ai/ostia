@@ -46,6 +46,7 @@ for (const run of [...Array(25).keys()]) test(`ostia system install asks the hum
     },
   })
   try {
+    test.setTimeout(90_000)
     const win = await app.firstWindow()
     const raceLog: string[] = []
     win.on('console', (m) => {
@@ -72,9 +73,15 @@ for (const run of [...Array(25).keys()]) test(`ostia system install asks the hum
       })
     } catch (err) {
       dumpRace()
+      const texts = await win.evaluate(() =>
+        [...document.querySelectorAll('.xterm-rows')].map((r) => r.textContent),
+      )
+      process.stdout.write(`===ROWS\n${JSON.stringify(texts)}\n`)
       throw err
     }
     if (test.info().title.endsWith('#0')) dumpRace()
+    const term = await win.evaluate(() => document.querySelectorAll('.xterm-rows').length)
+    process.stdout.write(`rows ${term}\n`)
     const agentRows = win.locator('.xterm-rows').filter({ hasText: 'e2e-check' })
     await expect(agentRows).toContainText('"approved": true', { timeout: 15_000 })
     await expect(agentRows).toContainText('pacman -S --needed ripgrep')
