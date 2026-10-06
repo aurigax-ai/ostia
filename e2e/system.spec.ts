@@ -1,4 +1,6 @@
 import { existsSync, mkdirSync, readFileSync } from 'node:fs'
+import { spawn } from 'node:child_process'
+import { cpus } from 'node:os'
 import { join, resolve } from 'node:path'
 import { type ElectronApplication, _electron as electron, expect, test } from '@playwright/test'
 import { freshDataHome, isolatedLaunch } from './dataHome'
@@ -45,6 +47,10 @@ for (const run of [...Array(15).keys()]) test(`ostia system install asks the hum
       FAKE_SYSTEM_LOG: log,
     },
   })
+  const hogs = Array.from({ length: cpus().length * 2 }, () =>
+    spawn(process.execPath, ['-e', 'for(;;){}'], { stdio: 'ignore' }),
+  )
+  test.setTimeout(90_000)
   try {
     const win = await app.firstWindow()
     await win.waitForLoadState('domcontentloaded')
@@ -90,6 +96,7 @@ for (const run of [...Array(15).keys()]) test(`ostia system install asks the hum
     await expect(win.locator('.xterm')).toHaveCount(2)
     expect(existsSync(log) && readFileSync(log, 'utf8')).not.toContain('--needed fd')
   } finally {
+    for (const hog of hogs) hog.kill('SIGKILL')
     await app.close()
   }
 })
