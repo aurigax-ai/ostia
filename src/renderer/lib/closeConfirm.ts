@@ -1,5 +1,8 @@
 import { allPanes, findPane } from '../layout/tree'
 import type { PaneNode } from '../layout/types'
+import { agentTurnOf } from '../stores/agentTurnStore'
+import { useApprovalsStore } from '../stores/approvalsStore'
+import { useAttentionStore } from '../stores/attentionStore'
 import { type CommandBlock, useBlocksStore } from '../stores/blocksStore'
 import {
   type CloseConfirmKind,
@@ -8,8 +11,11 @@ import {
 } from '../stores/closeConfirmStore'
 import { type DiskProblem, useEditorStatus } from '../stores/editorStatusStore'
 import { useLayoutStore } from '../stores/layoutStore'
+import { isRestorable } from '../stores/persistence'
+import { useQuestionsStore } from '../stores/questionsStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { type Workspace, useWorkspacesStore } from '../stores/workspacesStore'
+import { runningAgent, runningAgentOf } from './paneAgent'
 
 export function runningCommandsOf(
   panes: readonly string[],
@@ -38,23 +44,49 @@ export function unsavedFilesOf(
   return [...files]
 }
 
-function groupOf(workspace: Workspace, panes: readonly PaneNode[]): RunningGroup | null {
+function hasPendingRequest(paneId: string): boolean {
+  return (
+    useApprovalsStore.getState().pending.some((r) => r.paneId === paneId) ||
+    useQuestionsStore.getState().pending.some((r) => r.paneId === paneId)
+  )
+}
+
+function resumesAfterQuit(workspace: Workspace, pane: PaneNode): boolean {
+  const { agents, behavior } = useSettingsStore.getState()
+  if (!agents.autoResume || !behavior.restoreWorkspace || !isRestorable(workspace)) return false
+  if (pane.kind !== 'terminal' || !pane.resume || pane.hibernated) return false
+  if (runningAgentOf(pane.id) !== pane.resume.agent || agentTurnOf(pane.id) !== 'idle') return false
+  const state = useAttentionStore.getState().byPane[pane.id]?.state
+  return state !== 'working' && state !== 'waiting' && !hasPendingRequest(pane.id)
+}
+
+type PaneFilter = (pane: PaneNode) => boolean
+
+function groupOf(
+  workspace: Workspace,
+  panes: readonly PaneNode[],
+  resumes: PaneFilter = () => false,
+): RunningGroup | null {
   const { running, byPane } = useBlocksStore.getState()
+  const live = panes.filter((p) => running[p.id] !== undefined && !resumes(p))
+  const isAgent = (p: PaneNode): boolean => runningAgent(p.id) !== null
   const commands = runningCommandsOf(
-    panes.map((p) => p.id),
+    live.filter((p) => !isAgent(p)).map((p) => p.id),
     running,
     byPane,
   )
+  const agents = runningCommandsOf(live.filter(isAgent).map((p) => p.id), running, byPane)
   const files = unsavedFilesOf(
     panes,
     useEditorStatus.getState().dirty,
     useEditorStatus.getState().disk,
   )
-  if (commands.length === 0 && files.length === 0) return null
+  if (commands.length === 0 && agents.length === 0 && files.length === 0) return null
   return {
     workspaceId: workspace.id,
     workspace: workspace.customName ?? workspace.name,
     commands,
+    ...(agents.length > 0 ? { agents } : {}),
     files,
   }
 }
@@ -62,16 +94,18 @@ function groupOf(workspace: Workspace, panes: readonly PaneNode[]): RunningGroup
 function runningGroup(
   workspace: Workspace,
   kept: ReadonlySet<string> = new Set(),
+  resumes?: PaneFilter,
 ): RunningGroup | null {
   if (workspace.kind === 'manager') {
     const name = workspace.customName ?? workspace.name
-    return { workspaceId: workspace.id, workspace: name, commands: [name], files: [] }
+    return { workspaceId: workspace.id, workspace: name, commands: [], agents: [name], files: [] }
   }
   const layout = useLayoutStore.getState().byWorkspace[workspace.id]
   return layout
     ? groupOf(
         workspace,
         allPanes(layout.root).filter((p) => !kept.has(p.id)),
+        resumes,
       )
     : null
 }
@@ -79,10 +113,12 @@ function runningGroup(
 function runningGroups(
   workspaces: readonly Workspace[],
   kept: ReadonlySet<string> = new Set(),
+  quitting = false,
 ): RunningGroup[] {
   const groups: RunningGroup[] = []
   for (const workspace of workspaces) {
-    const group = runningGroup(workspace, kept)
+    const resumes = quitting ? (p: PaneNode) => resumesAfterQuit(workspace, p) : undefined
+    const group = runningGroup(workspace, kept, resumes)
     if (group) groups.push(group)
   }
   return groups
@@ -97,8 +133,9 @@ function groupsToConfirm(
   workspaces: readonly Workspace[],
   enabled: boolean,
   kept: ReadonlySet<string> = new Set(),
+  quitting = false,
 ): RunningGroup[] {
-  return enabled ? runningGroups(workspaces, kept) : []
+  return enabled ? runningGroups(workspaces, kept, quitting) : []
 }
 
 function emptyGroup(workspace: Workspace): RunningGroup {
@@ -186,7 +223,7 @@ export async function closePaneForAgent(workspaceId: string, paneId: string): Pr
 export function quitGroups(kept: ReadonlySet<string> = new Set()): RunningGroup[] {
   const { confirmQuit: enabled } = useSettingsStore.getState().workspaces
   const { workspaces } = useWorkspacesStore.getState()
-  const groups = groupsToConfirm(workspaces, enabled, kept)
+  const groups = groupsToConfirm(workspaces, enabled, kept, true)
   const scratch = workspaces.filter(
     (w) => w.kind === 'scratch' && !groups.some((g) => g.workspaceId === w.id),
   )
@@ -212,4 +249,22 @@ export function confirmMove(workspace: Workspace, panes: readonly PaneNode[]): P
       files,
     },
   ])
+}
+
+export interface QuitLosses {
+  processes: number
+  agents: number
+  files: number
+  scratchFiles: number
+}
+
+export function quitLosses(groups: readonly RunningGroup[]): QuitLosses {
+  const losses: QuitLosses = { processes: 0, agents: 0, files: 0, scratchFiles: 0 }
+  for (const group of groups) {
+    losses.processes += group.commands.length
+    losses.agents += group.agents?.length ?? 0
+    losses.files += group.files.length
+    losses.scratchFiles += group.scratchFiles ?? 0
+  }
+  return losses
 }

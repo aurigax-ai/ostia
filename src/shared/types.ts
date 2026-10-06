@@ -130,6 +130,7 @@ export interface RunningGroup {
   workspaceId: string
   workspace: string
   commands: string[]
+  agents?: string[]
   files: string[]
   scratchFiles?: number
 }
