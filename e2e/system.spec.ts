@@ -30,7 +30,7 @@ function askedDialogs(app: ElectronApplication): Promise<AskedDialog[]> {
   )
 }
 
-for (const run of [...Array(15).keys()]) test(`ostia system install asks the human, then runs the command in a new terminal beside the agent #${run}`, async () => {
+for (const run of [...Array(25).keys()]) test(`ostia system install asks the human, then runs the command in a new terminal beside the agent #${run}`, async () => {
   const dataHome = freshDataHome()
   const home = join(dataHome, 'home')
   mkdirSync(home, { recursive: true })
@@ -45,6 +45,7 @@ for (const run of [...Array(15).keys()]) test(`ostia system install asks the hum
       FAKE_SYSTEM_LOG: log,
     },
   })
+  test.setTimeout(90_000)
   try {
     const win = await app.firstWindow()
     await win.waitForLoadState('domcontentloaded')

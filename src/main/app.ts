@@ -471,7 +471,12 @@ function ptyPid(paneId: string): number | undefined {
   return ptys.get(paneId)?.pty.pid
 }
 
+function raceTrace(...args: unknown[]): void {
+  process.stderr.write(`[race] ${Date.now()} ${args.map((a) => JSON.stringify(a)).join(' ')}\n`)
+}
+
 function feedPty(entry: PtyEntry, data: string): void {
+  if (data.length > 1) raceTrace('out', entry.paneId.slice(-6), data.slice(0, 300))
   entry.session.push(data)
   entry.mirror.write(data)
   processes?.feed(entry.paneId, data, entry.session.cursor)
@@ -1566,6 +1571,7 @@ function registerPtyIpc(): void {
   })
   const attaching = new Map<string, Promise<PtyAttachResult>>()
   ipcMain.handle('pty:attach', async (e, paneId: string, opts: PtySpawnOptions) => {
+    raceTrace('attach', paneId.slice(-6), opts.cols, opts.rows)
     const previous = attaching.get(paneId)
     if (previous) await previous.catch(() => undefined)
     const pending = attachPty(e, paneId, opts)
@@ -1811,7 +1817,9 @@ function registerPtyIpc(): void {
 
   ipcMain.on('pty:write', (e, paneId: string, data: string) => {
     const entry = ptys.get(paneId)
-    if (entry?.session.canWrite(String(e.sender.id))) entry.pty.write(data)
+    const ok = entry?.session.canWrite(String(e.sender.id))
+    if (data.length > 1 || data === '\r') raceTrace('in', paneId.slice(-6), data.slice(0, 120), ok)
+    if (ok) entry?.pty.write(data)
   })
   ipcMain.handle('pty:foreground', (e, paneId: string): string | null => {
     const entry = ptys.get(paneId)
@@ -1861,6 +1869,7 @@ function registerPtyIpc(): void {
     },
   )
   ipcMain.on('pty:resize', (_e, paneId: string, cols: number, rows: number) => {
+    raceTrace('resize', paneId.slice(-6), cols, rows)
     const entry = ptys.get(paneId)
     if (!entry?.keepAlive) resizePty(entry, cols, rows)
   })
