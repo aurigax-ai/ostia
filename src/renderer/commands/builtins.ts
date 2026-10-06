@@ -20,7 +20,12 @@ import { browserProfileIn, openerOf } from '../lib/browserProfile'
 import { announceBusMessage } from '../lib/busNotice'
 import { setKeybindingSetting } from '../lib/chords'
 import { clearKeepingScrollback } from '../lib/clearTerminal'
-import { closePaneForAgent, requestCloseOthers, requestClosePane } from '../lib/closeConfirm'
+import {
+  closePaneForAgent,
+  requestCloseOthers,
+  requestClosePane,
+  requestCloseWorkspace,
+} from '../lib/closeConfirm'
 import { runCmuxImport } from '../lib/cmuxImport'
 import { focusActivePaneWhenReady } from '../lib/focusNewTerminal'
 import { wakePane } from '../lib/hibernationScheduler'
@@ -242,9 +247,14 @@ export function registerBuiltinCommands(): void {
     category: 'pane',
     capabilities: ['kill-pane'],
     run: async (args, ctx) => {
+      if (!ctx.activeWorkspaceId) return
       const target = args?.paneId ?? ctx.activePaneId
-      if (!ctx.activeWorkspaceId || !target) return
       const layout = useLayoutStore.getState()
+      if (!target) {
+        const empty = !args?.paneId && !layout.byWorkspace[ctx.activeWorkspaceId]
+        if (empty && !ctx.target) await requestCloseWorkspace(ctx.activeWorkspaceId)
+        return
+      }
       if (!ctx.target) {
         await requestClosePane(ctx.activeWorkspaceId, target)
         return

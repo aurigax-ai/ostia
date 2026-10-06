@@ -3,6 +3,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { createPane, splitOf, tabsOf } from '../layout/tree'
 import * as blockActions from '../lib/blockActions'
 import { registerBrowserHandle } from '../lib/browserHandles'
+import { type KeyLike, runAppChord } from '../lib/chords'
 import * as closeConfirm from '../lib/closeConfirm'
 import { registerTerminal } from '../lib/terminalHandles'
 import { useAttentionStore } from '../stores/attentionStore'
@@ -686,6 +687,105 @@ describe('builtins route to store actions', () => {
     ])
     expect(useLayoutStore.getState().byWorkspace.s1.root).toBe(editor)
     useEditorStatus.setState({ dirty: {} })
+  })
+
+  describe('closing an empty workspace with the close-pane key', () => {
+    const closeKeys: [string, boolean, Partial<KeyLike>][] = [
+      ['macOS', true, { key: 'w', metaKey: true }],
+      ['Linux', false, { key: 'W', ctrlKey: true, shiftKey: true }],
+    ]
+    const ids = () => useWorkspacesStore.getState().workspaces.map((w) => w.id)
+    const activeContext = (): CommandContext => {
+      const activeWorkspaceId = useWorkspacesStore.getState().activeWorkspaceId
+      const layout = activeWorkspaceId
+        ? useLayoutStore.getState().byWorkspace[activeWorkspaceId]
+        : null
+      return { activeWorkspaceId, activePaneId: layout?.activePaneId ?? null }
+    }
+    const seed = (withPane: boolean): void => {
+      const pane = createPane('terminal')
+      useWorkspacesStore.setState({
+        workspaces: ['s1', 's2'].map((id) => ({
+          id,
+          name: id,
+          kind: 'terminal' as const,
+          workDir: '/w',
+          state: 'idle' as const,
+        })),
+        activeWorkspaceId: 's1',
+      })
+      useLayoutStore.setState({
+        byWorkspace: withPane
+          ? { s1: { root: pane, activePaneId: pane.id, zoomedPaneId: null } }
+          : {},
+      })
+      commands.setContextProvider(activeContext)
+    }
+    const press = (mac: boolean, keys: Partial<KeyLike>): void => {
+      const event = {
+        key: '',
+        ctrlKey: false,
+        metaKey: false,
+        shiftKey: false,
+        altKey: false,
+        preventDefault: () => {},
+        ...keys,
+      }
+      expect(runAppChord(event, mac)).toBe(true)
+    }
+
+    afterEach(() => {
+      commands.setContextProvider(() => ({ activeWorkspaceId: null, activePaneId: null }))
+    })
+
+    it.each(closeKeys)('closes the empty active workspace on %s', async (_name, mac, keys) => {
+      seed(false)
+
+      press(mac, keys)
+
+      await vi.waitFor(() => expect(ids()).toEqual(['s2']))
+      expect(useWorkspacesStore.getState().activeWorkspaceId).toBe('s2')
+    })
+
+    it.each(closeKeys)('closes the pane, then the workspace on %s', async (_name, mac, keys) => {
+      seed(true)
+
+      press(mac, keys)
+
+      await vi.waitFor(() => expect(useLayoutStore.getState().byWorkspace.s1).toBeUndefined())
+      expect(ids()).toEqual(['s1', 's2'])
+
+      press(mac, keys)
+
+      await vi.waitFor(() => expect(ids()).toEqual(['s2']))
+    })
+
+    it('leaves an empty workspace open when an agent on the socket closes a pane', async () => {
+      seed(false)
+      const fromSocket = { ...activeContext(), target: { workspaceId: 's1', paneId: null } }
+
+      const result = await commands.execWith(fromSocket, 'pane.close')
+
+      expect(result.ok).toBe(true)
+      expect(ids()).toEqual(['s1', 's2'])
+    })
+
+    it('leaves an empty workspace open when the named pane is not there', async () => {
+      seed(false)
+
+      await commands.execWith(activeContext(), 'pane.close', { paneId: 'gone' })
+
+      expect(ids()).toEqual(['s1', 's2'])
+    })
+
+    it('leaves a locked workspace open', async () => {
+      seed(false)
+      vi.spyOn(useLayoutStore.getState(), 'isLocked').mockReturnValue(true)
+
+      await commands.execWith(activeContext(), 'pane.close')
+
+      expect(ids()).toEqual(['s1', 's2'])
+    })
   })
 
   it('refuses an agent closing a locked pane, and never lets the socket lock or unlock one', async () => {
