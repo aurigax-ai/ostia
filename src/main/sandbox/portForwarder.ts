@@ -20,6 +20,7 @@ export interface SandboxPane {
 }
 
 export interface PortForwarderDeps {
+  onChange?: (workspaceId: string) => void
   panesOf: (workspaceId: string) => SandboxPane[]
   unixSocketsOff: (workspaceId: string) => boolean
   listenersOf?: (pids: number[]) => SandboxListener[][]
@@ -181,6 +182,7 @@ export class PortForwarder {
     const byPort = this.exposures.get(workspaceId) ?? new Map<number, Exposure>()
     byPort.set(port, { server, sockets })
     this.exposures.set(workspaceId, byPort)
+    this.deps.onChange?.(workspaceId)
     return { ok: true, port }
   }
 
@@ -188,6 +190,7 @@ export class PortForwarder {
     const exposure = this.exposures.get(workspaceId)?.get(port)
     if (!exposure) return
     this.exposures.get(workspaceId)?.delete(port)
+    this.deps.onChange?.(workspaceId)
     for (const socket of exposure.sockets) socket.destroy()
     await new Promise<void>((resolve) => exposure.server.close(() => resolve()))
   }

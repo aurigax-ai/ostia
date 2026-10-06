@@ -95,7 +95,7 @@ export function App(): JSX.Element {
 
   useEffect(() => {
     const offs = [
-      window.ostia.window.onRunningQuery(quitGroups),
+      window.ostia.window.onRunningQuery((kept) => quitGroups(new Set(kept))),
       window.ostia.window.onConfirmClose(confirmQuit),
       window.ostia.window.onFreeze(freezeSnapshots),
     ]

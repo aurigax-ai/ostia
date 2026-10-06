@@ -9,7 +9,9 @@ import { useWorkspacesStore } from '../stores/workspacesStore'
 vi.mock('./blockActions', () => ({ runWhenIdle: vi.fn(() => vi.fn()) }))
 
 const { runWhenIdle } = await import('./blockActions')
-const { startAutoResume, workspacesAwaitingResume } = await import('./autoResume')
+const { keptShellReattached, startAutoResume, workspacesAwaitingResume } = await import(
+  './autoResume'
+)
 
 const resume = { agent: 'claude' as const, id: 'abc-1' }
 
@@ -55,6 +57,19 @@ describe('startAutoResume', () => {
     expect(pending(pane.id)?.resumePending).toBe(true)
 
     useBlocksStore.setState({ running: { [pane.id]: 'b1' } })
+    expect(pending(pane.id)?.resumePending).toBeUndefined()
+  })
+
+  it('drops a scheduled resume when Ostia reattaches the pane with its agent still running', () => {
+    const pane = { ...createPane('terminal'), resume, resumePending: true as const }
+    seed(pane, pane.id, true)
+    const cancel = vi.fn()
+    vi.mocked(runWhenIdle).mockReturnValueOnce(cancel)
+    stop = startAutoResume()
+    expect(runWhenIdle).toHaveBeenCalledTimes(1)
+
+    keptShellReattached('w1', pane.id)
+    expect(cancel).toHaveBeenCalledTimes(1)
     expect(pending(pane.id)?.resumePending).toBeUndefined()
   })
 

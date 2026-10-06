@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { mkdirSync, readdirSync, rmSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import type { SandboxRuntimeConfig } from '@anthropic-ai/sandbox-runtime'
 import type { PackageRef } from '../../shared/packages'
@@ -35,6 +35,23 @@ import {
 import type { SandboxStore } from './store'
 import type { WriteRefusal } from './violations'
 
+export interface KeptHostSpawn {
+  file: string
+  args: string[]
+  env: Record<string, string>
+  channel: string
+  tmpDir: string
+}
+
+export interface KeptSandboxHosts {
+  enabled(): boolean
+  tmpRoot: string
+  channel(workspaceId: string): string
+  claim(workspaceId: string): { channel: string; tmpDir: string } | undefined
+  spawn(workspaceId: string, spec: KeptHostSpawn): Promise<void>
+  stop(workspaceId: string): void
+}
+
 export interface WorkspaceSandboxesDeps {
   store: SandboxStore
   globals: () => SandboxGlobals
@@ -49,6 +66,25 @@ export interface WorkspaceSandboxesDeps {
   onAsk: (workspaceId: string, host: string, port: number | undefined) => Promise<boolean>
   onPackageBlocked?: (workspaceId: string, pkg: PackageRef, reason: PackageBlockReason) => void
   onViolations?: (workspaceId: string, lines: string[]) => void
+  kept?: KeptSandboxHosts
+}
+
+const HOST_LISTEN_FLAG = '--listen'
+const CHANNEL_WAIT_MS = 10_000
+const CHANNEL_POLL_MS = 50
+
+async function waitForChannel(path: string): Promise<void> {
+  const end = Date.now() + CHANNEL_WAIT_MS
+  while (!existsSync(path)) {
+    if (Date.now() > end) throw new SandboxHostError('the sandbox host did not start listening')
+    await new Promise((resolve) => setTimeout(resolve, CHANNEL_POLL_MS))
+  }
+}
+
+function definedEnv(env: NodeJS.ProcessEnv): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const [key, value] of Object.entries(env)) if (value !== undefined) out[key] = value
+  return out
 }
 
 const KERNEL_MOUNTS = ['/dev', '/proc']
@@ -88,6 +124,8 @@ export class WorkspaceSandboxes {
   private readonly mergedInto = new Map<string, string>()
   private readonly paneWrites = new Map<string, Set<string>>()
   private readonly toldAboutHome = new Set<string>()
+  private readonly tmpDirs = new Map<string, string>()
+  private readonly keptHosts = new Set<string>()
 
   private readonly pid: number
   private readonly instanceTmp: string
@@ -249,8 +287,25 @@ export class WorkspaceSandboxes {
   }
 
   tmpDir(workspaceId: string): string {
+    const chosen = this.tmpDirs.get(workspaceId)
+    if (chosen) return chosen
     const short = createHash('sha256').update(workspaceId).digest('hex').slice(0, 10)
-    return join(this.instanceTmp, short)
+    const kept = this.deps.kept
+    const dir = join(kept?.enabled() ? kept.tmpRoot : this.instanceTmp, short)
+    this.tmpDirs.set(workspaceId, dir)
+    return dir
+  }
+
+  adoptKeptTmp(workspaceId: string, dir: string): void {
+    this.tmpDirs.set(workspaceId, dir)
+  }
+
+  isKept(workspaceId: string): boolean {
+    return this.keptHosts.has(workspaceId)
+  }
+
+  async connect(workspaceId: string): Promise<void> {
+    await this.host(workspaceId)
   }
 
   sshAgentSocket(workspaceId: string): string {
@@ -348,14 +403,46 @@ export class WorkspaceSandboxes {
     this.toldAboutHome.delete(workspaceId)
     this.deps.store.remove(workspaceId)
     rmSync(this.tmpDir(workspaceId), { recursive: true, force: true })
+    this.tmpDirs.delete(workspaceId)
   }
 
   refreshAll(): void {
     for (const id of [...this.hosts.keys()]) void this.refresh(id)
   }
 
-  clearTmp(): void {
+  clearTmp(includingKept = true): void {
     rmSync(this.instanceTmp, { recursive: true, force: true })
+    if (includingKept && this.deps.kept) {
+      rmSync(this.deps.kept.tmpRoot, { recursive: true, force: true })
+    }
+  }
+
+  sweepKeptTmp(liveWorkspaceIds: readonly string[]): string[] {
+    const kept = this.deps.kept
+    if (!kept) return []
+    const live = new Set(liveWorkspaceIds.map((id) => this.tmpDir(id)))
+    const removed: string[] = []
+    let names: string[] = []
+    try {
+      names = readdirSync(kept.tmpRoot)
+    } catch {
+      return []
+    }
+    for (const name of names) {
+      const dir = join(kept.tmpRoot, name)
+      if (live.has(dir)) continue
+      rmSync(dir, { recursive: true, force: true })
+      removed.push(dir)
+    }
+    return removed
+  }
+
+  releaseAll(): void {
+    for (const [id, pending] of [...this.hosts]) {
+      this.hosts.delete(id)
+      const kept = this.keptHosts.has(id)
+      void pending.then((host) => (kept ? host.release() : host.stop())).catch(() => undefined)
+    }
   }
 
   sweepTmp(): string[] {
@@ -375,6 +462,31 @@ export class WorkspaceSandboxes {
     for (const id of [...this.hosts.keys()]) this.stop(id)
   }
 
+  private async spawnKeptHost(workspaceId: string, kept: KeptSandboxHosts): Promise<string | null> {
+    const channel = kept.channel(workspaceId)
+    const tmpDir = this.tmpDir(workspaceId)
+    mkdirSync(tmpDir, { recursive: true, mode: 0o700 })
+    rmSync(channel, { force: true })
+    try {
+      await kept.spawn(workspaceId, {
+        file: this.deps.nodePath,
+        args: [this.deps.hostScript, HOST_LISTEN_FLAG, channel],
+        env: {
+          ...definedEnv(this.deps.hostEnv ?? process.env),
+          CLAUDE_CODE_TMPDIR: tmpDir,
+          ELECTRON_RUN_AS_NODE: '1',
+        },
+        channel,
+        tmpDir,
+      })
+    } catch {
+      return null
+    }
+    this.keptHosts.add(workspaceId)
+    await waitForChannel(channel)
+    return channel
+  }
+
   private host(workspaceId: string): Promise<SandboxHost> {
     const existing = this.hosts.get(workspaceId)
     if (existing) return existing
@@ -387,14 +499,39 @@ export class WorkspaceSandboxes {
       onViolations: (lines) => this.deps.onViolations?.(workspaceId, lines),
       onExit: () => {
         if (this.hosts.get(workspaceId) === started) this.hosts.delete(workspaceId)
+        this.keptHosts.delete(workspaceId)
       },
     })
     const started = (async () => {
-      await host.start(this.config(workspaceId), this.packagePolicy(workspaceId))
+      const kept = this.deps.kept
+      const existing = kept?.claim(workspaceId)
+      if (existing) {
+        this.tmpDirs.set(workspaceId, existing.tmpDir)
+        this.keptHosts.add(workspaceId)
+        await host.attach(
+          existing.channel,
+          this.config(workspaceId),
+          this.packagePolicy(workspaceId),
+          false,
+        )
+      } else {
+        const channel = kept?.enabled() ? await this.spawnKeptHost(workspaceId, kept) : null
+        if (channel) {
+          await host.attach(
+            channel,
+            this.config(workspaceId),
+            this.packagePolicy(workspaceId),
+            true,
+          )
+        } else {
+          await host.start(this.config(workspaceId), this.packagePolicy(workspaceId))
+        }
+      }
       return host
     })().catch((err: unknown) => {
       if (this.hosts.get(workspaceId) === started) this.hosts.delete(workspaceId)
       host.stop()
+      if (this.keptHosts.delete(workspaceId)) this.deps.kept?.stop(workspaceId)
       if (err instanceof SandboxHostError)
         throw new SandboxUnavailableError(err.message, err.missing)
       throw err

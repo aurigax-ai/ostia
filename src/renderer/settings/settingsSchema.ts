@@ -425,6 +425,13 @@ export const SETTINGS_JSON_SCHEMA = {
             'macOS: send Option+key as Meta (Esc+key) so readline and fzf Alt shortcuts work; ' +
             'Option then no longer types special characters. Default: false.',
         },
+        keepShells: {
+          type: 'boolean',
+          description:
+            'Run new terminals in a private tmux server (tmux 3.2 or newer) so restarting for an ' +
+            'update or a crash leaves them running; Quit still ends them. Only you can change ' +
+            'this, in Settings; agents cannot. Default: false.',
+        },
         osc52Write: {
           type: 'boolean',
           description:

@@ -555,4 +555,34 @@ describe('ProcessRegistry', () => {
       vi.useRealTimers()
     }
   })
+
+  it('KSH-C37 takes back a process tab whose shell was kept, still running, and sees it end', () => {
+    const changes: string[] = []
+    const local = new ProcessRegistry({
+      ring: () => undefined,
+      workspaceOfPane: () => 'ws1',
+      now: () => new Date(0),
+      onChange: (entry) => changes.push(`${entry.name}:${entry.status}`),
+    })
+    const entry = local.adopt(
+      {
+        name: 'web',
+        cmd: 'pnpm dev',
+        cwd: '/w',
+        workspaceId: 'ws1',
+        ownerPaneId: 'agent-pane',
+        paneId: 'tab-1',
+        externalPaneId: 'ext-tab-1',
+        startedAt: '2026-10-05T00:00:00.000Z',
+        status: 'running',
+      },
+      120,
+    )
+    expect(local.info(entry)).toMatchObject({ name: 'web', status: 'running', paneId: 'ext-tab-1' })
+    expect(local.isChild('agent-pane', 'tab-1')).toBe(true)
+    expect(local.forPane('tab-1')).toBe(entry)
+    local.feed('tab-1', `${exit(0)}`, 140)
+    expect(local.info(entry).status).toBe('exited')
+    expect(changes).toEqual(['web:exited'])
+  })
 })

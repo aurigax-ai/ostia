@@ -2551,6 +2551,11 @@ export const en = {
     shell: 'Shell',
     shellDesc:
       'Program new terminals run, with its arguments, like /usr/bin/fish. Empty uses your login shell. Blocks and the input editor need zsh or bash.',
+    keepShells: 'Keep shells running across a restart',
+    keepShellsDesc:
+      'Terminals opened from now on run in a private tmux server, so restarting for an update or a crash leaves them running. Quit still ends them.',
+    keepShellsRequirementsBody:
+      'Keeping shells needs tmux {version} or newer. Install {packages} first.',
     externalEditor: 'External editor',
     externalEditorDesc:
       '“auto” uses code, cursor or zed from your PATH. Empty turns it off. Placeholders: {file}, {line}, {column}.',
@@ -5092,6 +5097,10 @@ export const zhHant: Dict = {
     shell: 'Shell',
     shellDesc:
       '新終端機執行的程式及其引數，例如 /usr/bin/fish。留空則使用登入 shell。指令區塊與輸入編輯器需要 zsh 或 bash。',
+    keepShells: '重新啟動時保留 shell',
+    keepShellsDesc:
+      '此後開啟的終端機在私有的 tmux 伺服器中執行，因此為更新而重新啟動或當機後仍會繼續執行。結束程式時仍會關閉它們。',
+    keepShellsRequirementsBody: '保留 shell 需要 tmux {version} 或更新版本。請先安裝 {packages}。',
     externalEditor: '外部編輯器',
     externalEditorDesc:
       '「auto」會使用 PATH 中的 code、cursor 或 zed。留空則停用。預留位置：{file}、{line}、{column}。',

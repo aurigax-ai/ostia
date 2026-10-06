@@ -1,7 +1,16 @@
 import { execFileSync } from 'node:child_process'
-import { randomUUID } from 'node:crypto'
-import { existsSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
-import { homedir, hostname } from 'node:os'
+import { createHash, randomUUID } from 'node:crypto'
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  renameSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs'
+import { homedir, hostname, tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import {
   BrowserWindow,
@@ -25,6 +34,7 @@ import { parseChatToolSettings } from '../shared/chatTools'
 import { languageForPath } from '../shared/editorLanguages'
 import { EXTENSION_SUGGESTIONS } from '../shared/extensionSuggestions'
 import type { ExtensionPanelContext, ExtensionResult, WorkspaceChip } from '../shared/extensions'
+import { KEEP_SHELLS_FEATURE, parseKeepShells } from '../shared/keepShells'
 import { languageServerKey } from '../shared/languageServers'
 import { MANAGER_FEATURE, managerAgents, parseManagerSettings } from '../shared/managerSettings'
 import { OPEN_FILES_MAX } from '../shared/openFiles'
@@ -32,7 +42,7 @@ import { OFFICIAL_MARKETPLACE, PRODUCT_NAME } from '../shared/product'
 import { PRODUCT_DISPLAY_NAME } from '../shared/productDisplay'
 import { type RemoteCwd, normalizeRemoteCwd } from '../shared/remoteFolders'
 import { parseSandboxGlobals } from '../shared/sandbox'
-import { quoteArgv } from '../shared/shellQuote'
+import { quoteArg, quoteArgv } from '../shared/shellQuote'
 import { shellArgv, shellName } from '../shared/terminalShell'
 import type {
   AppInfo,
@@ -87,7 +97,13 @@ import { registerCompletionIpc } from './completionSpecs'
 import { attachContextMenu } from './contextMenu'
 import { connHasCap, setCapFilter, setScriptTokenCheck } from './controlAuth'
 import { clearControlInfo, controlInfoPath, writeControlInfo } from './controlDiscovery'
-import { controlSocketPath, registerControlServer, stopControlServer } from './controlServer'
+import {
+  controlSocketPath,
+  keptControlSocketPath,
+  listenKeptControlSocket,
+  registerControlServer,
+  stopControlServer,
+} from './controlServer'
 import { registerCredentials } from './credentials'
 import { type Diagnostics, registerDiagnostics } from './diagnostics'
 import { registerDocsMethods } from './docs'
@@ -110,6 +126,7 @@ import { clearGuestNetwork, watchGuestNetwork } from './guestNetwork'
 import { registerIconThemeIpc } from './iconThemes'
 import {
   type PaneIdentity,
+  adoptPane,
   getByPaneId,
   markManager,
   panesOwnedBy,
@@ -149,8 +166,9 @@ import { openFileForExtension, registerOpenFileMethods } from './openFileMethods
 import { registerOpenPathIpc } from './openPath'
 import type { OriginReach } from './originAgents'
 import { loadPaneIdSalt } from './paneIdSalt'
-import { type PaneIo, registerPaneIoMethods } from './paneIo'
+import { type PaneIo, pastedText, registerPaneIoMethods } from './paneIo'
 import { listPanes, listWorkspaces, registerPaneListMethods } from './paneList'
+import type { PaneProcess } from './paneProcess'
 import { registerPaneRenameMethods } from './paneRename'
 import { registerPaneResumeMethods } from './paneResume'
 import { resolveSafe } from './pathGuard'
@@ -169,9 +187,9 @@ import { INTERRUPT_GRACE_MS, type ProcessRegistry, registerProcessMethods } from
 import { registerProjectRootIpc } from './projectRoot'
 import { KubeContextReader, NodeVersionResolver, promptContext } from './promptContext'
 import { type ReapReason, RecoveryBook, orphanVerdict, planRecovery } from './ptyReaper'
-import { PtySession, type SubscriberRole } from './ptySession'
+import { PtySession, type Subscriber, type SubscriberRole } from './ptySession'
 import { questions, registerQuestions } from './questions'
-import { QUIT_SIGNALS, exitAfterDeadline, planQuit } from './quitPlan'
+import { QUIT_SIGNALS, exitAfterDeadline, keptOnQuit, planQuit } from './quitPlan'
 import { createRedactor, createScrollbackRedactor } from './redaction'
 import { createWorkerScan, redactionWorkerScript } from './redactionScan'
 import { registerReleaseCheck, releaseUserAgent } from './releaseCheck'
@@ -198,7 +216,7 @@ import {
 import { hiddenHomeNotice, sandboxFailureBanner } from './sandbox/spawnBanner'
 import { sandboxSpawnEnv } from './sandbox/spawnEnv'
 import { reportSandboxSpawnFailure } from './sandbox/spawnFailureNotice'
-import { reachableContainerSockets, srtVendorDir } from './sandbox/srtConfig'
+import { reachableContainerSockets, srtVendorDir, withKeptShells } from './sandbox/srtConfig'
 import { SandboxStore } from './sandbox/store'
 import { ViolationLog, recordViolations } from './sandbox/violations'
 import {
@@ -232,6 +250,17 @@ import {
 } from './systemRequirements'
 import { registerSystemRequirementsIpc } from './systemRequirementsIpc'
 import { PTY_COLOR_ENV, PTY_TERM_NAME, paneShellEnv } from './terminalType'
+import { SANDBOX_NOT_KEPT, TMUX_MISSING, keepShellsNotice } from './tmux/keepShellsBanner'
+import { KeptAttention } from './tmux/keptAttention'
+import {
+  type KeptHostMeta,
+  type KeptMeta,
+  type KeptProcessMeta,
+  type KeptShell,
+  KeptShells,
+  SANDBOX_HOST_KIND,
+} from './tmux/keptShells'
+import type { TmuxPane, TmuxServerOptions } from './tmux/tmuxServer'
 import { AppTray, closeAction, isHiddenLaunch, readCloseToTray, unreadWorkspaces } from './tray'
 import { OLD_PRODUCT_NAME, appConfigDir, configHome, dataHome } from './userDirs'
 import {
@@ -257,7 +286,9 @@ import {
 import { registerSearchIpc } from './workspaceSearch'
 import {
   dropRestoredScrollback,
+  handoffPaneIds,
   loadRestoredScrollback,
+  loadSnapshot,
   pendingRestoredScrollback,
   saveScrollback,
   scrollbackToSave,
@@ -282,7 +313,9 @@ function loadPty(): typeof import('node-pty') | null {
 
 interface PtyEntry {
   paneId: string
-  pty: IPty
+  pty: PaneProcess
+  kept: TmuxPane | null
+  keptMeta: KeptMeta | null
   session: PtySession
   mirror: ScreenMirror
   subs: Map<string, Electron.WebContents>
@@ -336,6 +369,7 @@ function removeStateFile(entry: PtyEntry): void {
   rmSync(entry.stateFile, { force: true })
 }
 
+const SANDBOX_LOST_WHILE_AWAY = `its sandbox ended while ${PRODUCT_DISPLAY_NAME} was closed`
 const RESTORE_SEAM = '\x1b]133;D\x07\r\n\x1b[2m── workspace restored ──\x1b[0m\r\n'
 const HIBERNATE_SEAM = '\x1b]133;D\x07\r\n\x1b[2m── woke from hibernation ──\x1b[0m\r\n'
 
@@ -440,6 +474,127 @@ function openExternalSafe(url: string): boolean {
   return true
 }
 
+const keptShells = new KeptShells({
+  options: keptShellsOptions,
+  log: (event, fields) => appLog?.info(event, fields),
+})
+let tmuxTerminal: string | null = null
+let restartRequested = false
+
+function keptTmuxDir(): string {
+  return join(tmpdir(), `${PRODUCT_NAME}-tmux-${process.getuid?.() ?? 0}`)
+}
+
+function keptShellsName(): string {
+  return createHash('sha256').update(app.getPath('userData')).digest('hex').slice(0, 16)
+}
+
+function keptShellsOptions(): TmuxServerOptions | null {
+  if (missingRequirements(KEEP_SHELLS_FEATURE).length > 0) return null
+  const tmux = programPath('tmux')
+  if (!tmux) return null
+  return {
+    tmux,
+    dir: keptTmuxDir(),
+    name: keptShellsName(),
+    defaultTerminal: tmuxDefaultTerminal(),
+    env: process.env,
+  }
+}
+
+function tmuxDefaultTerminal(): string {
+  if (tmuxTerminal === null) {
+    try {
+      execFileSync('infocmp', ['tmux-256color'], { stdio: 'ignore', timeout: 2000 })
+      tmuxTerminal = 'tmux-256color'
+    } catch {
+      tmuxTerminal = 'screen-256color'
+    }
+  }
+  return tmuxTerminal
+}
+
+function savedPaneIds(): Set<string> | null {
+  const snapshot = loadSnapshot()
+  if (!snapshot) return null
+  const ids = new Set<string>()
+  const workspaces = [
+    ...snapshot.workspaces,
+    ...(snapshot.windows ?? []).flatMap((w) => w.workspaces),
+  ]
+  for (const workspace of workspaces) for (const id of handoffPaneIds(workspace)) ids.add(id)
+  return ids
+}
+
+function keptProcessOf(paneId: string): KeptProcessMeta | undefined {
+  const entry = processes?.forPane(paneId)
+  if (!entry || entry.status === 'closed') return undefined
+  return {
+    name: entry.name,
+    cmd: entry.cmd,
+    ownerPaneId: entry.ownerPaneId,
+    startedAt: entry.startedAt,
+    status: entry.status,
+    ...(entry.cwd ? { cwd: entry.cwd } : {}),
+    ...(entry.exitCode !== undefined ? { exitCode: entry.exitCode } : {}),
+  }
+}
+
+function withKeptProcess(meta: KeptMeta): KeptMeta {
+  const { process: _old, ...base } = meta
+  const current = keptProcessOf(meta.paneId)
+  return current ? { ...base, process: current } : base
+}
+
+function syncKeptMeta(paneId: string): void {
+  const entry = ptys.get(paneId)
+  if (!entry?.kept || !entry.keptMeta) return
+  entry.keptMeta = withKeptProcess(entry.keptMeta)
+  entry.kept.setMeta(entry.keptMeta)
+}
+
+function keptLauncherDir(): string {
+  return join(app.getPath('userData'), 'bin')
+}
+
+function replaceFile(path: string, content: string, mode: number): void {
+  const next = `${path}.${process.pid}.new`
+  writeFileSync(next, content, { mode })
+  renameSync(next, path)
+}
+
+function writeKeptLaunchers(): void {
+  const dir = keptLauncherDir()
+  mkdirSync(dir, { recursive: true, mode: 0o700 })
+  replaceFile(
+    join(dir, 'ostia-node'),
+    `#!/bin/sh\nexec ${quoteArg(process.execPath)} "$@"\n`,
+    0o700,
+  )
+  replaceFile(
+    join(dir, 'ostia-cli.js'),
+    `require(${JSON.stringify(join(app.getAppPath(), 'out/cli/index.js'))})\n`,
+    0o600,
+  )
+}
+
+function keptPaneEnv(env: NodeJS.ProcessEnv): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const [key, value] of Object.entries(env)) {
+    if (value === undefined || key === 'TERM') continue
+    out[key] = value
+  }
+  const launchers = keptLauncherDir()
+  return Object.assign(
+    out,
+    appEnv({
+      SOCKET: keptControlSocketPath(app.getPath('userData')),
+      CLI: join(launchers, 'ostia-cli.js'),
+      NODE: join(launchers, 'ostia-node'),
+    }),
+  )
+}
+
 function killPty(paneId: string, reason: ReapReason): void {
   const entry = ptys.get(paneId)
   if (!entry) return
@@ -484,10 +639,16 @@ const paneIo: PaneIo = {
   write: (paneId, data) => {
     const entry = ptys.get(paneId)
     if (!entry) return false
-    entry.pty.write(data)
+    const pasted = entry.kept ? pastedText(data) : null
+    if (entry.kept && pasted !== null) entry.kept.paste(pasted)
+    else entry.pty.write(data)
     return true
   },
-  bracketedPaste: (paneId) => ptys.get(paneId)?.mirror.bracketedPaste === true,
+  bracketedPaste: (paneId) => {
+    const entry = ptys.get(paneId)
+    if (!entry) return false
+    return entry.kept !== null || entry.mirror.bracketedPaste
+  },
   outputCursor: (paneId) => ptys.get(paneId)?.session.cursor,
 }
 
@@ -542,29 +703,37 @@ function isScratchPane(paneId: string): boolean {
 const workspaceSandboxes: WorkspaceSandboxes = new WorkspaceSandboxes({
   store: new SandboxStore(join(app.getPath('userData'), 'sandbox.json')),
   globals: () => parseSandboxGlobals((readSettingsFile() as { sandbox?: unknown }).sandbox),
-  basePaths: () => ({
-    home: homedir(),
-    dataDirs: [
-      app.getPath('userData'),
-      dirname(storePath('workspaces', 'global')),
-      ...[
-        join(app.getPath('appData'), OLD_PRODUCT_NAME),
-        join(configHome(), OLD_PRODUCT_NAME),
-        join(dataHome(), OLD_PRODUCT_NAME),
-      ].filter((dir) => existsSync(dir)),
-    ],
-    runtimeDir: process.env.XDG_RUNTIME_DIR,
-    agentSockets: process.env.SSH_AUTH_SOCK ? [process.env.SSH_AUTH_SOCK] : [],
-    containerSockets: reachableContainerSockets(),
-    socketPath: controlSocketPath(),
-    srtVendorDir: srtVendorDir(app.getAppPath()),
-    runtimeReads: [
-      INTEGRATION_DIR,
-      privateTmpDir(`${PRODUCT_NAME}-shell-state`),
-      app.getAppPath(),
-      dirname(process.execPath),
-    ],
-  }),
+  basePaths: () =>
+    withKeptShells(
+      {
+        home: homedir(),
+        dataDirs: [
+          app.getPath('userData'),
+          dirname(storePath('workspaces', 'global')),
+          ...[
+            join(app.getPath('appData'), OLD_PRODUCT_NAME),
+            join(configHome(), OLD_PRODUCT_NAME),
+            join(dataHome(), OLD_PRODUCT_NAME),
+          ].filter((dir) => existsSync(dir)),
+        ],
+        runtimeDir: process.env.XDG_RUNTIME_DIR,
+        agentSockets: process.env.SSH_AUTH_SOCK ? [process.env.SSH_AUTH_SOCK] : [],
+        containerSockets: reachableContainerSockets(),
+        socketPath: controlSocketPath(),
+        srtVendorDir: srtVendorDir(app.getAppPath()),
+        runtimeReads: [
+          INTEGRATION_DIR,
+          privateTmpDir(`${PRODUCT_NAME}-shell-state`),
+          app.getAppPath(),
+          dirname(process.execPath),
+        ],
+      },
+      {
+        tmuxDir: keptTmuxDir(),
+        socketPath: keptControlSocketPath(app.getPath('userData')),
+        launcherDir: keptLauncherDir(),
+      },
+    ),
   workDir: (workspaceId) => workDirForWorkspace(workspaceId),
   tmpRoot: privateTmpDir(`${PRODUCT_NAME}-sbx`),
   nodePath: process.execPath,
@@ -580,7 +749,66 @@ const workspaceSandboxes: WorkspaceSandboxes = new WorkspaceSandboxes({
       workspaceSandboxes.owner(workspaceId),
       lines,
     ),
+  kept: {
+    enabled: () =>
+      parseKeepShells(readSettingsFile().terminal?.keepShells) && keptShellsOptions() !== null,
+    tmpRoot: join(privateTmpDir(`${PRODUCT_NAME}-sbx`), `kept-${keptShellsName()}`),
+    channel: (workspaceId) =>
+      join(
+        keptTmuxDir(),
+        `${keptShellsName()}-host-${createHash('sha256').update(workspaceId).digest('hex').slice(0, 10)}.sock`,
+      ),
+    claim: (workspaceId) => {
+      const claimed = keptShells.claimHost(workspaceId)
+      if (!claimed) return undefined
+      keptHostPanes.set(workspaceId, claimed)
+      return { channel: claimed.meta.channel, tmpDir: claimed.meta.tmpDir }
+    },
+    spawn: async (workspaceId, spec) => {
+      const meta: KeptHostMeta = {
+        kind: SANDBOX_HOST_KIND,
+        workspaceId,
+        channel: spec.channel,
+        tmpDir: spec.tmpDir,
+        exposed: [],
+      }
+      const pane = await keptShells.spawnHost({
+        file: spec.file,
+        args: spec.args,
+        cwd: spec.tmpDir,
+        env: spec.env,
+        meta,
+      })
+      keptHostPanes.set(workspaceId, { pane, meta })
+    },
+    stop: (workspaceId) => {
+      keptHostPanes.get(workspaceId)?.pane.kill()
+      keptHostPanes.delete(workspaceId)
+    },
+  },
 })
+
+const keptHostPanes = new Map<string, { pane: TmuxPane; meta: KeptHostMeta }>()
+
+function syncKeptExposed(workspaceId: string): void {
+  const host = keptHostPanes.get(workspaceId)
+  if (!host) return
+  host.meta = { ...host.meta, exposed: portForwarder.exposed(workspaceId) }
+  host.pane.setMeta(host.meta)
+}
+
+const EXPOSE_RESTORE_WAIT_MS = 10_000
+const EXPOSE_RESTORE_POLL_MS = 200
+
+async function restoreKeptExposed(workspaceId: string, ports: readonly number[]): Promise<void> {
+  if (ports.length === 0) return
+  const end = Date.now() + EXPOSE_RESTORE_WAIT_MS
+  while (portForwarder.refusal(workspaceId) !== null) {
+    if (Date.now() > end) return
+    await new Promise((resolve) => setTimeout(resolve, EXPOSE_RESTORE_POLL_MS))
+  }
+  for (const port of ports) await portForwarder.expose(workspaceId, port)
+}
 
 const sandboxViolations = new ViolationLog()
 
@@ -711,6 +939,7 @@ function sandboxedPanes(workspaceId: string): SandboxPane[] {
 }
 
 const portForwarder = new PortForwarder({
+  onChange: (workspaceId) => syncKeptExposed(workspaceId),
   panesOf: sandboxedPanes,
   unixSocketsOff: (workspaceId) => !workspaceSandboxes.resolved(workspaceId).switches.unixSockets,
 })
@@ -937,6 +1166,7 @@ let mcpHost: McpHost | null = null
 let mcpOAuth: McpOAuth | null = null
 let broker: WindowBroker | null = null
 const agentRunning = new AgentRunningPanes(() => broker?.persist())
+const keptAttention = new KeptAttention()
 const reachesPane: OriginReach = (senderWindowId, sourcePaneId, targetPaneId) =>
   broker?.reaches(senderWindowId, sourcePaneId, targetPaneId) ?? false
 let settingsSync: SettingsSyncHandle | null = null
@@ -1612,8 +1842,21 @@ function registerPtyIpc(): void {
         shell: shellName(existing.shell) || undefined,
         sandboxed: existing.sandboxed,
         ...(existing.sandboxStamp ? { sandboxStamp: existing.sandboxStamp } : {}),
+        ...(existing.kept ? { kept: true } : {}),
         cols: existing.pty.cols,
         rows: existing.pty.rows,
+      }
+    }
+    await keptShells.ready
+    const keptShell = keptShells.claim(paneId)
+    if (keptShell) return reattachKept(e, paneId, opts, keptShell, mkSub())
+    if (keptShells.takeSandboxLost(paneId)) {
+      return {
+        created: false,
+        buffer: sandboxFailureBanner(SANDBOX_LOST_WHILE_AWAY, []),
+        cursor: 0,
+        dropped: false,
+        sandboxed: true,
       }
     }
     if (opts.attachOnly) return { created: false, buffer: '', cursor: 0, dropped: false }
@@ -1730,14 +1973,60 @@ function registerPtyIpc(): void {
       portBridge?.close()
       return attachPty(e, paneId, opts)
     }
-    const pty = mod.spawn(file, args, {
-      name: PTY_TERM_NAME,
-      cols,
-      rows,
-      cwd,
-      env,
-    })
+    const wantsKeep = parseKeepShells(settings.terminal?.keepShells) && !host
+    let notKept = ''
+    if (wantsKeep && !keptShellsOptions()) {
+      notKept = TMUX_MISSING
+    } else if (wantsKeep && sandboxed && !workspaceSandboxes.isKept(workspaceId)) {
+      notKept = SANDBOX_NOT_KEPT
+    }
+    let kept: TmuxPane | null = null
+    let keptMeta: KeptMeta | null = null
+    if (wantsKeep && !notKept) {
+      keptMeta = withKeptProcess({
+        paneId,
+        externalId: identity.externalId,
+        token: identity.token,
+        workspaceId,
+        shell,
+        stateFile,
+        spawnPath: env.PATH ?? '',
+        ...(sandboxed
+          ? { sandbox: { stamp: sandboxStamp, bridgeId: portBridge?.id ?? null, resizePipe } }
+          : {}),
+      })
+      try {
+        kept = await keptShells.spawn({
+          file,
+          args,
+          cwd,
+          env: keptPaneEnv(env),
+          cols,
+          rows,
+          meta: keptMeta,
+        })
+      } catch (err) {
+        notKept = err instanceof Error ? err.message : String(err)
+        keptMeta = null
+        appLog?.info('kept-spawn-failed', { pane: paneId, reason: notKept })
+      }
+      if (ptys.has(paneId)) {
+        kept?.kill()
+        return attachPty(e, paneId, opts)
+      }
+    }
+    const pty: PaneProcess =
+      kept ??
+      mod.spawn(file, args, {
+        name: PTY_TERM_NAME,
+        cols,
+        rows,
+        cwd,
+        env,
+      })
     const entry = trackPty(paneId, pty, {
+      kept,
+      keptMeta,
       cols,
       rows,
       subs: new Map([[subId, e.sender]]),
@@ -1764,6 +2053,7 @@ function registerPtyIpc(): void {
     const seam = hibernatedPanes.delete(paneId) ? HIBERNATE_SEAM : RESTORE_SEAM
     if (history) feedPty(entry, `${history}${seam}`)
     if (secretNotice) feedPty(entry, secretNotice)
+    if (notKept) feedPty(entry, keepShellsNotice(notKept))
     if (sandboxed && workspaceSandboxes.claimHomeNotice(workspaceId)) {
       const notice = hiddenHomeNotice()
       if (notice) feedPty(entry, notice)
@@ -1782,6 +2072,99 @@ function registerPtyIpc(): void {
       sandboxed,
       host,
       ...(sandboxStamp ? { sandboxStamp } : {}),
+      ...(kept ? { kept: true } : {}),
+    }
+  }
+
+  async function reattachKept(
+    e: Electron.IpcMainInvokeEvent,
+    paneId: string,
+    opts: PtySpawnOptions,
+    kept: KeptShell,
+    sub: Subscriber,
+  ): Promise<PtyAttachResult> {
+    const subId = String(e.sender.id)
+    const { pane, meta } = kept
+    const identity = adoptPane({
+      windowId: subId,
+      workspaceId: meta.workspaceId,
+      paneId,
+      token: meta.token,
+    })
+    if (identity.externalId !== meta.externalId) {
+      appLog?.info('kept-pane-id-changed', { pane: paneId })
+    }
+    keptAttention.reattached(paneId, agentRunning.has(paneId))
+    takeRestoredScrollback(paneId)
+    hibernatedPanes.delete(paneId)
+    const cols = opts.cols || pane.cols
+    const rows = opts.rows || pane.rows
+    const sandbox = meta.sandbox
+    const workspaceId = meta.workspaceId
+    const keptHost = sandbox ? keptShells.keptHost(workspaceId) : undefined
+    if (keptHost) workspaceSandboxes.adoptKeptTmp(workspaceId, keptHost.tmpDir)
+    const portBridge = sandbox?.bridgeId
+      ? await PortBridge.open(workspaceSandboxes.tmpDir(workspaceId), undefined, sandbox.bridgeId)
+      : null
+    const entry = trackPty(paneId, pane, {
+      kept: pane,
+      keptMeta: meta,
+      cols,
+      rows,
+      subs: new Map([[subId, e.sender]]),
+      spawnPath: meta.spawnPath,
+      stateFile: meta.stateFile,
+      keepAlive: false,
+      workspaceId,
+      shell: meta.shell,
+      sandboxed: sandbox !== undefined,
+      sandboxStamp: sandbox?.stamp ?? null,
+      portBridge,
+    })
+    if (sandbox) {
+      entry.exitListeners.add(() => {
+        if (sandbox.resizePipe) rmSync(sandbox.resizePipe, { force: true })
+        portBridge?.close()
+        void workspaceSandboxes.cleanup(workspaceId)
+        releaseMergedSandbox(workspaceId, entry)
+      })
+      const exposed = keptHost?.exposed ?? []
+      void workspaceSandboxes
+        .connect(workspaceId)
+        .then(() => restoreKeptExposed(workspaceId, exposed))
+        .catch(() => undefined)
+    }
+    pane.onData((d) => feedPty(entry, d))
+    pane.onExit(({ exitCode }) => entry.session.exit(exitCode))
+    let screen = ''
+    try {
+      screen = await pane.snapshot(cols, rows)
+    } catch {}
+    feedPty(entry, `${RESTORE_SEAM}${screen}`)
+    if (meta.process) {
+      processes?.adopt(
+        {
+          ...meta.process,
+          cwd: meta.process.cwd,
+          workspaceId: meta.workspaceId,
+          paneId,
+          externalPaneId: identity.externalId,
+        },
+        entry.session.cursor,
+      )
+    }
+    pane.live()
+    const { data, cursor, dropped } = entry.session.since(0)
+    entry.session.addLiveSubscriber(sub)
+    return {
+      created: false,
+      buffer: data,
+      cursor,
+      dropped,
+      shell: shellName(meta.shell) || undefined,
+      sandboxed: sandbox !== undefined,
+      kept: true,
+      reattached: true,
     }
   }
 
@@ -1867,7 +2250,7 @@ function registerPtyIpc(): void {
 
 function trackPty(
   paneId: string,
-  pty: IPty,
+  pty: PaneProcess,
   opts: {
     cols: number
     rows: number
@@ -1880,6 +2263,8 @@ function trackPty(
     shell?: string
     sandboxStamp?: string | null
     portBridge?: PortBridge | null
+    kept?: TmuxPane | null
+    keptMeta?: KeptMeta | null
   },
 ): PtyEntry {
   const spawnedAt = Date.now()
@@ -1916,6 +2301,7 @@ function trackPty(
         ptys.delete(paneId)
         movingPanes.delete(paneId)
         agentRunning.shellEnded(paneId)
+        keptAttention.reported(paneId)
         recoveryHeld.delete(paneId)
         closedPanes.delete(paneId)
       }
@@ -1938,6 +2324,8 @@ function trackPty(
     sandboxStamp: opts.sandboxStamp ?? null,
     portBridge: opts.portBridge ?? null,
     confinedBy: opts.sandboxed ? (opts.workspaceId ?? '') : null,
+    kept: opts.kept ?? null,
+    keptMeta: opts.keptMeta ?? null,
   }
   ptys.set(paneId, entry)
   return entry
@@ -2296,7 +2684,7 @@ function readSettingsFile(): {
   workspaces?: { globalHotkey?: unknown }
   manager?: unknown
   assistant?: unknown
-  terminal?: { shell?: unknown }
+  terminal?: { shell?: unknown; keepShells?: unknown }
   agents?: { hooks?: unknown }
 } {
   try {
@@ -2527,6 +2915,19 @@ app.whenReady().then(() => {
   })
   handleQuitSignals()
   loadRestoredScrollback()
+  void keptShells
+    .start(parseKeepShells(readSettingsFile().terminal?.keepShells), savedPaneIds())
+    .then(() => {
+      const kept = keptShells.keptHostWorkspaces()
+      for (const workspaceId of kept) {
+        const host = keptShells.keptHost(workspaceId)
+        if (host) workspaceSandboxes.adoptKeptTmp(workspaceId, host.tmpDir)
+      }
+      workspaceSandboxes.sweepKeptTmp(kept)
+    })
+  try {
+    writeKeptLaunchers()
+  } catch {}
   scratchFolders.sweep()
   workspaceSandboxes.sweepTmp()
   registerScratchIpc(scratchFolders)
@@ -2549,7 +2950,10 @@ app.whenReady().then(() => {
   registerApprovals(revealWindow)
   registerQuestions()
   registerCredentials()
-  registerAppUpdate(requestQuit)
+  registerAppUpdate(() => {
+    restartRequested = true
+    requestQuit()
+  })
   registerReleaseCheck({
     openExternal: openExternalSafe,
     readSettings: readSettingsFile,
@@ -2600,7 +3004,7 @@ app.whenReady().then(() => {
       errors,
     )
   registerNotifyIpc(notifyDeps)
-  registerAttentionMethods({ execCommand })
+  registerAttentionMethods({ execCommand, reported: (paneId) => keptAttention.reported(paneId) })
   registerPaneRenameMethods({ execCommand })
   registerPaneResumeMethods({
     execCommand,
@@ -2610,6 +3014,7 @@ app.whenReady().then(() => {
   })
   const registry = registerProcessMethods({
     openTab: openTerminalInWindow,
+    onChange: (entry) => syncKeptMeta(entry.paneId),
     ring: (paneId) => {
       const session = ptys.get(paneId)?.session
       return session ? (from) => session.since(from) : undefined
@@ -2645,6 +3050,8 @@ app.whenReady().then(() => {
     isConfined: (paneId) => ptys.get(paneId)?.sandboxed === true,
     managerAllowsInput: () => managerSettings().allowInput,
     attention: async (to) => {
+      const unreported = keptAttention.peek(to.paneId)
+      if (unreported) return unreported
       const res = await execCommand(targetOf(to), 'attention.peek')
       return res.ok && res.result && typeof res.result === 'object' ? res.result : {}
     },
@@ -2896,6 +3303,7 @@ app.whenReady().then(() => {
   setScriptTokenCheck((token) => verifyScriptToken(scriptTokensPath(), token))
   registerControlServer({ execCommand, listCommandsFor, getTerminalState })
   writeControlInfo(controlInfoPath(), controlSocketPath(), process.pid)
+  listenKeptControlSocket(keptControlSocketPath(app.getPath('userData')))
   registerManagerIpc()
   managerLimiter = registerManagerMethods({
     settings: managerSettings,
@@ -3006,11 +3414,20 @@ app.on('before-quit', (event) => {
     if (quitAsking) return
     quitAsking = true
     const all = BrowserWindow.getAllWindows()
-    void confirmQuit(all, BrowserWindow.getFocusedWindow() ?? mainWindow(), (workspaceId) =>
-      scratchFolders.countFiles(workspaceId),
+    void confirmQuit(
+      all,
+      BrowserWindow.getFocusedWindow() ?? mainWindow(),
+      (workspaceId) => scratchFolders.countFiles(workspaceId),
+      keptOnQuit(
+        restartRequested,
+        [...ptys.values()].map((entry) => ({ paneId: entry.paneId, kept: entry.kept !== null })),
+      ),
     ).then((approved) => {
       quitAsking = false
-      if (!approved) return
+      if (!approved) {
+        restartRequested = false
+        return
+      }
       quitApproved = true
       freezeAll(all)
       app.quit()
@@ -3030,20 +3447,29 @@ app.on('before-quit', (event) => {
   broker?.persist()
   managerService?.shutdown()
   appLog?.info('app-quit', { ptys: ptys.size })
+  const keepingShells = restartRequested
   for (const entry of ptys.values()) {
+    entry.mirror.dispose()
+    if (keepingShells && entry.kept) {
+      entry.kept.detach()
+      entry.portBridge?.close()
+      continue
+    }
     try {
       entry.pty.kill()
     } catch {}
-    entry.mirror.dispose()
     removeStateFile(entry)
   }
   ptys.clear()
+  if (keepingShells) keptShells.release()
+  else keptShells.quitNow()
   languageServers?.stopAll()
   languageServerWatches.closeAll()
-  workspaceSandboxes.stopAll()
+  if (keepingShells) workspaceSandboxes.releaseAll()
+  else workspaceSandboxes.stopAll()
   workspaceAgents.stopAll()
   for (const workspaceId of scratchFolders.workspaceIds()) workspaceSandboxes.forget(workspaceId)
-  workspaceSandboxes.clearTmp()
+  workspaceSandboxes.clearTmp(!keepingShells)
   scratchFolders.removeAll()
   portForwarder.stopAll()
   extensionHost?.stopAll()

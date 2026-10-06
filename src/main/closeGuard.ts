@@ -97,10 +97,11 @@ export async function confirmQuit(
   windows: readonly BrowserWindow[],
   asker: BrowserWindow | undefined,
   scratchFiles: (workspaceId: string) => number,
+  kept: readonly string[] = [],
 ): Promise<boolean> {
   const live = windows.filter((w) => !w.isDestroyed())
   const answers = await Promise.all(
-    live.map((w) => ask(w, 'window:running', undefined, [], RUNNING_ANSWER_MS)),
+    live.map((w) => ask(w, 'window:running', [...kept], [], RUNNING_ANSWER_MS)),
   )
   const groups = withScratchFiles(answers.flatMap(parseRunningGroups), scratchFiles)
   if (groups.length === 0) return true

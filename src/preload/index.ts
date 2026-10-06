@@ -153,8 +153,12 @@ const bridge: OstiaBridge = {
       return () => ipcRenderer.removeListener('window:maximized', handler)
     },
     onRunningQuery: (cb) => {
-      const handler = (_event: unknown, requestId: number): void =>
-        ipcRenderer.send('window:close-answer', requestId, cb())
+      const handler = (_event: unknown, requestId: number, kept: unknown): void =>
+        ipcRenderer.send(
+          'window:close-answer',
+          requestId,
+          cb(Array.isArray(kept) ? kept.filter((id): id is string => typeof id === 'string') : []),
+        )
       ipcRenderer.on('window:running', handler)
       return () => ipcRenderer.removeListener('window:running', handler)
     },

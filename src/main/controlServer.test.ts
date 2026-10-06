@@ -1,7 +1,7 @@
-import { existsSync } from 'node:fs'
+import { existsSync, lstatSync } from 'node:fs'
 import { createConnection } from 'node:net'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import {
   type MessageConnection,
@@ -10,7 +10,12 @@ import {
   createMessageConnection,
 } from 'vscode-jsonrpc/node'
 import type { CommandDescriptor, CommandResult, TerminalStateSnapshot } from '../shared/types'
-import { type ControlServerDeps, registerControlServer, stopControlServer } from './controlServer'
+import {
+  type ControlServerDeps,
+  keptControlSocketPath,
+  registerControlServer,
+  stopControlServer,
+} from './controlServer'
 import { registerPane } from './idRegistry'
 
 let socketCounter = 0
@@ -130,5 +135,17 @@ describe('controlServer (socket auth, end-to-end)', () => {
     client = null
     stopControlServer()
     expect(existsSync(socketPath)).toBe(false)
+  })
+})
+
+describe('keptControlSocketPath', () => {
+  it('puts the kept socket in a folder only its owner can open, under a stable name', () => {
+    const path = keptControlSocketPath('/data/ostia-a')
+    const folder = lstatSync(dirname(path))
+    expect(folder.isDirectory()).toBe(true)
+    expect(folder.mode & 0o777).toBe(0o700)
+    expect(folder.uid).toBe(process.getuid?.())
+    expect(keptControlSocketPath('/data/ostia-a')).toBe(path)
+    expect(keptControlSocketPath('/data/ostia-b')).not.toBe(path)
   })
 })
