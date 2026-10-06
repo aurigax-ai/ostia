@@ -18,6 +18,7 @@ import type {
 } from '../shared/types'
 import { VIEW_NAME } from '../shared/views'
 import { isWorkspaceGroupColor, normalizeGroupName } from '../shared/workspaceGroups'
+import { MAX_LAYOUT_DEPTH, MAX_PANES, MAX_WORKSPACES } from '../shared/workspaceLimits'
 import { normalizeDescription } from '../shared/workspaceText'
 import { loadJson, saveJson, storePath } from './jsonStore'
 import { PtyRingBuffer } from './ptyRingBuffer'
@@ -26,12 +27,9 @@ const SNAPSHOT_VERSION = 1
 
 export const SCROLLBACK_CAP_BYTES = 131_072
 
-const MAX_WORKSPACES = 32
 const MAX_WINDOWS = 16
 const MAX_GROUPS = 32
 const CUSTOM_NAME_MAX = 120
-const MAX_PANES = 64
-const MAX_DEPTH = 12
 
 const SURFACE_KINDS: ReadonlySet<string> = new Set<SnapshotSurfaceKind>([
   'terminal',
@@ -81,7 +79,7 @@ interface ParseOptions {
 const SAVED: ParseOptions = { scratch: false }
 
 function parseNode(raw: unknown, paneIds: string[], depth: number): SnapshotNode | null {
-  if (depth > MAX_DEPTH || !isRecord(raw)) return null
+  if (depth > MAX_LAYOUT_DEPTH || !isRecord(raw)) return null
   const id = raw.id
   if (typeof id !== 'string' || id.length === 0) return null
 
