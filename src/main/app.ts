@@ -121,6 +121,7 @@ import { FileWatches, TreeWatches } from './fileWatch'
 import { readBinaryConfined } from './fsBinary'
 import { registerGatewayIpc, registerGatewayMethods } from './gateway'
 import { configureGatewayControl, stopGateway } from './gateway/server'
+import { GIT_EXTENSION, GitBoard } from './gitBoard'
 import { GlobalHotkey, toggleWindows } from './globalHotkey'
 import { type GuestChords, registerGuestChords } from './guestChords'
 import { clearGuestNetwork, watchGuestNetwork } from './guestNetwork'
@@ -1150,6 +1151,8 @@ const errorBuffers = new Map<number, ConsoleEntry[]>()
 const terminalState = new Map<string, TerminalStateSnapshot>()
 
 let extensionHost: ExtensionHost | null = null
+let gitBoard: GitBoard | null = null
+const ON_DEMAND_EXTENSIONS = [GIT_EXTENSION]
 
 function refreshAgentPlugins(): void {
   try {
@@ -3152,6 +3155,7 @@ app.whenReady().then(() => {
     agentNames: () => Object.keys(managerAgents(managerSettings())),
     offerToAgentIn: (offer) => agentOffers.offer(offer),
     focusPaneIn: focusPaneInWindow,
+    startOnDemand: ON_DEMAND_EXTENSIONS,
   })
   refreshAgentPlugins()
   registerExtensionMethods(() => extensionHost)
@@ -3349,6 +3353,13 @@ app.whenReady().then(() => {
   broker.register()
   broker.openAll()
   extensionHost.startEager()
+  gitBoard = new GitBoard({
+    host: extensionHost,
+    listWorkspaces: () => listWorkspaces({ execCommand, windowIds }),
+    listPanes: () => listPanes({ execCommand, getTerminalState, ptyPid, windowIds }),
+    log: (line) => console.error(`[git] ${line}`),
+  })
+  gitBoard.start()
   extensionHost.watchUserExtensions()
   viewHost.watch()
   app.on('browser-window-focus', emitFocusChanged)
@@ -3474,6 +3485,7 @@ app.on('before-quit', (event) => {
   workspaceSandboxes.clearTmp(!keepingShells)
   scratchFolders.removeAll()
   portForwarder.stopAll()
+  gitBoard?.stop()
   extensionHost?.stopAll()
   mcpOAuth?.closeAll()
   mcpHost?.closeAll()
