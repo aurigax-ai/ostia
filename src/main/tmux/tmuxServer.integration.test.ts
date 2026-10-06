@@ -230,6 +230,15 @@ describe('TmuxServer', () => {
     ).rejects.toThrow('tmux could not start its server: server refused-42')
   })
 
+  it('KSH-C70 returns from kill-server only once the tmux server has exited', async () => {
+    const server = await connect()
+    await spawnSh(server, 'sleep 30')
+    const [pid] = await server.command('display-message -p "#{pid}"')
+    servers.splice(servers.indexOf(server), 1)
+    await server.killServer()
+    expect(() => process.kill(Number(pid), 0)).toThrow()
+  })
+
   it('reports a shell that exits with its code', { retry: 2 }, async () => {
     const server = await connect()
     const pane = await spawnSh(server, 'exit 7')
