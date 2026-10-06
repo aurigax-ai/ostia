@@ -14,7 +14,6 @@ export function tmuxConf(defaultTerminal: string): string {
     'set -g set-clipboard off',
     `set -g default-terminal "${defaultTerminal}"`,
     `set -g history-limit ${TMUX_HISTORY_LIMIT}`,
-    'set -g window-size manual',
     'set -g remain-on-exit on',
     'set -g automatic-rename off',
     'set -g allow-rename off',
