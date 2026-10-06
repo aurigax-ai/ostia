@@ -363,18 +363,23 @@ other editors' keybindings. It is data only: a manifest entry and one JSON file,
 }
 ```
 
-The file maps command ids to chords, or to `null` to unbind a command:
+The file maps command ids to a chord, a list of chords that all run the command (menus and
+hints show the first), or `null` to unbind a command:
 
 ```json
 {
   "bindings": {
     "pane.splitRight": "Cmd+D",
     "pane.splitDown": "Cmd+Shift+D",
+    "tab.next": ["Ctrl+Tab", "Shift+Cmd+]"],
     "dashboard.toggle": "Cmd+Alt+D",
     "view.toggleRail": null
   }
 }
 ```
+
+A list replaces all of the command's default chords. A chord in a list that the computer can't
+use is skipped and reported; the rest of the list still applies.
 
 Chords are written as in the `keybindings` setting: modifiers `Ctrl`, `Shift`, `Alt` (`Option`),
 `Cmd` (`Meta`, `Super`) and `Mod` (Cmd on macOS, Ctrl elsewhere), then one key (`A`–`Z`, `0`–`9`,

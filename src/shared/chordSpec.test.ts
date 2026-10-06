@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  CHORDS_PER_COMMAND_MAX,
   type ChordSpec,
   chordText,
   formatChord,
@@ -194,6 +195,19 @@ describe('parseKeybindings', () => {
       ),
     )
     expect({ ...parsed }).toEqual({ 'palette.toggle': 'Cmd+J', 'view.toggleRail': null })
+  })
+
+  it('keeps a list of chords, trimmed and without repeats, and drops the entries that do not parse', () => {
+    const parsed = parseKeybindings({
+      'tab.next': [' Ctrl+Tab ', 'Shift+Cmd+]', 'Ctrl+Tab', 'Ctrl+Nope', 7],
+      'view.zoomIn': ['Ctrl+Nope'],
+      'view.zoomOut': [],
+      find: Array.from({ length: 12 }, (_, i) => `Ctrl+F${i + 1}`),
+    })
+    expect({ ...parsed }).toEqual({
+      'tab.next': ['Ctrl+Tab', 'Shift+Cmd+]'],
+      find: Array.from({ length: CHORDS_PER_COMMAND_MAX }, (_, i) => `Ctrl+F${i + 1}`),
+    })
   })
 
   it('returns an empty map for a non-object', () => {

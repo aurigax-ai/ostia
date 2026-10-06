@@ -1,7 +1,9 @@
 import {
   BROWSER_CHORD_IDS,
+  CHORDS_PER_COMMAND_MAX,
   type ChordProblem,
   type ChordSpec,
+  type ChordValue,
   DIGIT_RANGE,
   type KeyLike,
   type KeybindingMap,
@@ -9,9 +11,11 @@ import {
   bindingProblem,
   checkBinding,
   chordText,
+  chordTexts,
   formatChord,
   overlaps,
   parseChord,
+  sameChord,
   specFromEvent,
 } from '@shared/chordSpec'
 import { isDangerousSegment } from '@shared/protoGuard'
@@ -93,7 +97,7 @@ export const BROWSER_CHORDS: readonly BrowserChord[] = BROWSER_CHORD_IDS
 const BROWSER_SET: ReadonlySet<string> = new Set(BROWSER_CHORDS)
 
 export const DEFAULT_CHORDS: Readonly<
-  Record<AppChord | TerminalChord | BrowserChord, [mac: string, other: string]>
+  Record<AppChord | TerminalChord | BrowserChord, [mac: ChordValue, other: ChordValue]>
 > = {
   'palette.toggle': ['Cmd+K', 'Ctrl+Shift+P'],
   'view.toggleRail': ['Cmd+\\', 'Ctrl+Shift+B'],
@@ -142,28 +146,42 @@ export const DEFAULT_CHORDS: Readonly<
   'browser.forward': ['Cmd+]', 'Alt+Right'],
 }
 
+function specsOf(value: ChordValue, mac: boolean, id?: string): ChordSpec[] {
+  const out: ChordSpec[] = []
+  for (const text of chordTexts(value)) {
+    const spec = parseChord(text, mac)
+    if (!spec || (id !== undefined && bindingProblem(id, spec, mac))) continue
+    if (!out.some((s) => sameChord(s, spec))) out.push(spec)
+  }
+  return out
+}
+
+export function defaultChords(id: string, mac: boolean): ChordSpec[] {
+  const pair = (DEFAULT_CHORDS as Record<string, [ChordValue, ChordValue]>)[id]
+  return pair ? specsOf(pair[mac ? 0 : 1], mac) : []
+}
+
 export function defaultChord(id: string, mac: boolean): ChordSpec | null {
-  const pair = (DEFAULT_CHORDS as Record<string, [string, string]>)[id]
-  return pair ? parseChord(pair[mac ? 0 : 1], mac) : null
+  return defaultChords(id, mac)[0] ?? null
 }
 
 export interface BindingTable {
-  byId: ReadonlyMap<string, ChordSpec>
+  byId: ReadonlyMap<string, readonly ChordSpec[]>
   bySignature: ReadonlyMap<string, string>
 }
 
 const NO_KEYMAP: KeybindingMap = Object.freeze(Object.create(null))
 
-function applyLayer(byId: Map<string, ChordSpec>, layer: KeybindingMap, mac: boolean): string[] {
+function applyLayer(byId: Map<string, ChordSpec[]>, layer: KeybindingMap, mac: boolean): string[] {
   const bound: string[] = []
   for (const [id, value] of Object.entries(layer)) {
     if (value === null) {
       byId.delete(id)
       continue
     }
-    const spec = parseChord(value, mac)
-    if (!spec || bindingProblem(id, spec, mac)) continue
-    byId.set(id, spec)
+    const specs = specsOf(value, mac, id)
+    if (specs.length === 0) continue
+    byId.set(id, specs)
     bound.push(id)
   }
   return bound
@@ -174,18 +192,17 @@ export function effectiveBindings(
   mac: boolean,
   keymap: KeybindingMap = NO_KEYMAP,
 ): BindingTable {
-  const byId = new Map<string, ChordSpec>()
+  const byId = new Map<string, ChordSpec[]>()
   for (const id of Object.keys(DEFAULT_CHORDS)) {
-    const spec = defaultChord(id, mac)
-    if (spec) byId.set(id, spec)
+    const specs = defaultChords(id, mac)
+    if (specs.length > 0) byId.set(id, specs)
   }
   const fromKeymap = applyLayer(byId, keymap, mac)
   const fromUser = applyLayer(byId, user, mac)
   const layered = new Set([...fromKeymap, ...fromUser])
   const bySignature = new Map<string, string>()
   const index = (id: string): void => {
-    const spec = byId.get(id)
-    if (spec) bySignature.set(formatChord(spec, mac), id)
+    for (const spec of byId.get(id) ?? []) bySignature.set(formatChord(spec, mac), id)
   }
   for (const id of byId.keys()) if (!layered.has(id)) index(id)
   for (const id of fromKeymap) if (!fromUser.includes(id)) index(id)
@@ -213,8 +230,12 @@ export function currentBindings(mac: boolean): BindingTable {
   return cache.table
 }
 
+export function baseChords(id: string, mac: boolean): readonly ChordSpec[] {
+  return effectiveBindings(NO_KEYMAP, mac, keymapBindings()).byId.get(id) ?? []
+}
+
 export function baseChord(id: string, mac: boolean): ChordSpec | null {
-  return effectiveBindings(NO_KEYMAP, mac, keymapBindings()).byId.get(id) ?? null
+  return baseChords(id, mac)[0] ?? null
 }
 
 export function useBindings(): void {
@@ -275,8 +296,12 @@ export function runAppChord(e: KeyLike & { preventDefault: () => void }, mac: bo
   return true
 }
 
+export function chordsOf(id: string, mac: boolean): readonly ChordSpec[] {
+  return currentBindings(mac).byId.get(id) ?? []
+}
+
 export function chordOf(id: string, mac: boolean): ChordSpec | null {
-  return currentBindings(mac).byId.get(id) ?? null
+  return chordsOf(id, mac)[0] ?? null
 }
 
 export function chordLabel(id: string, mac: boolean): string | null {
@@ -292,9 +317,15 @@ export function useChordLabel(id: string, mac: boolean): string | null {
 export function conflictsWith(id: string, spec: ChordSpec, mac: boolean): string[] {
   const out: string[] = []
   for (const [other, bound] of currentBindings(mac).byId) {
-    if (other !== id && overlaps(bound, spec)) out.push(other)
+    if (other !== id && bound.some((b) => overlaps(b, spec))) out.push(other)
   }
   return out
+}
+
+export function chordsWithout(id: string, spec: ChordSpec, mac: boolean): string[] {
+  return chordsOf(id, mac)
+    .filter((bound) => !overlaps(bound, spec))
+    .map((bound) => formatChord(bound, mac))
 }
 
 export function bindableIds(): string[] {
@@ -308,7 +339,7 @@ export function setKeybindingSetting(path: string, value: unknown, mac: boolean)
   const id = path.split('.').slice(1).join('.')
   if (!id) {
     if (value === null || typeof value !== 'object' || Array.isArray(value)) {
-      throw new Error('keybindings must be an object of command id → chord string or null')
+      throw new Error('keybindings must be an object of command id → chords or null')
     }
     const entries = Object.entries(value as Record<string, unknown>)
     for (const [key, chord] of entries) assertAgentBinding(key, chord, mac)
@@ -316,7 +347,7 @@ export function setKeybindingSetting(path: string, value: unknown, mac: boolean)
     return
   }
   assertAgentBinding(id, value, mac)
-  settings.setKeybinding(id, value as string | null)
+  settings.setKeybinding(id, value as ChordValue | null)
 }
 
 const PROBLEM_TEXT: Record<ChordProblem, string> = {
@@ -333,9 +364,16 @@ const PROBLEM_TEXT: Record<ChordProblem, string> = {
 function assertAgentBinding(id: string, value: unknown, mac: boolean): void {
   if (!id || isDangerousSegment(id)) throw new Error(`invalid keybinding id: ${id}`)
   if (value === null) return
-  if (typeof value !== 'string') {
-    throw new Error(`keybindings.${id} must be a chord string or null`)
+  const list = Array.isArray(value)
+  const texts: unknown[] = list ? value : [value]
+  if (texts.length === 0 || texts.length > CHORDS_PER_COMMAND_MAX) {
+    throw new Error(`keybindings.${id} must list 1 to ${CHORDS_PER_COMMAND_MAX} chords`)
   }
-  const problem = checkBinding(id, value, mac)
-  if (problem) throw new Error(`keybindings.${id}: "${value}" ${PROBLEM_TEXT[problem]}`)
+  for (const text of texts) {
+    if (typeof text !== 'string') {
+      throw new Error(`keybindings.${id} must be a chord string, a list of them or null`)
+    }
+    const problem = checkBinding(id, text, mac)
+    if (problem) throw new Error(`keybindings.${id}: "${text}" ${PROBLEM_TEXT[problem]}`)
+  }
 }
