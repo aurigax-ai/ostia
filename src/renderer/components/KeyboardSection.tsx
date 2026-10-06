@@ -4,6 +4,7 @@ import {
   type ChordSpec,
   type ChordValue,
   DIGIT_RANGE,
+  type KeybindingMap,
   chordText,
   chordTexts,
   formatChord,
@@ -18,6 +19,7 @@ import {
   OSTIA_KEYMAP,
   appKeymapsFor,
   keyboardPlatform,
+  terminalKeymapKeys,
   terminalKeymapsFor,
 } from '@shared/keyboardPresets'
 import {
@@ -41,6 +43,7 @@ import {
   chordsWithout,
   chordsWithoutKey,
   conflictsWith,
+  keymapBindings,
   terminalKeyConflicts,
   useBindings,
   workspaceDigit,
@@ -55,6 +58,7 @@ import {
   terminalKeymapOf,
 } from '../lib/keyPresets'
 import { BASE_LANGUAGE } from '../lib/languagePacks'
+import { appKeyChanges, sendActionKey, terminalKeyChanges } from '../lib/presetDiff'
 import { isMac, platform } from '../platform'
 import { useExtensionsStore } from '../stores/extensionsStore'
 import { appKeymap, keymapChoices, useKeymapStore } from '../stores/keymapStore'
@@ -360,8 +364,32 @@ function terminalKeymapLabel(id: string, d: Dict): string {
   return (d.keyboard.terminalKeymaps as Record<string, string | undefined>)[id] ?? id
 }
 
+function sendActionText(send: TerminalSend | null, d: Dict): string {
+  if (!send) return d.keyboard.noTranslation
+  const key = sendActionKey(send)
+  if (key) return d.keyboard.sendActions[key]
+  return `${d.keyboard.sendTypes[send.type]} ${send.value}`
+}
+
+function ChangeList({ lines }: { lines: string[] }): JSX.Element | null {
+  const d = useDict()
+  if (lines.length === 0) return null
+  return (
+    <div className="mt-1 text-fg-muted text-ui-sm">
+      <p>{d.keyboard.keysChanged}</p>
+      <ul className="mt-0.5 list-disc pl-4">
+        {lines.map((line) => (
+          <li key={line}>{line}</li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
 function KeymapPickers(): JSX.Element {
   const d = useDict()
+  const [terminalFrom, setTerminalFrom] = useState<string | null>(null)
+  const [appFrom, setAppFrom] = useState<KeybindingMap | null>(null)
   const setKeymap = useSettingsStore((s) => s.setKeymap)
   const setTerminalKeymap = useSettingsStore((s) => s.setTerminalKeymap)
   const chosenTerminal = useSettingsStore((s) => s.terminalKeymap)
@@ -379,16 +407,46 @@ function KeymapPickers(): JSX.Element {
     ...choices.map((c) => ({ value: c.ref, label: c.label })),
   ]
   const appValue = appOptions.some((o) => o.value === ref) ? ref : OSTIA_KEYMAP
+  const appTo = appValue === OSTIA_KEYMAP ? {} : (loaded?.bindings ?? null)
+  const appLines =
+    appFrom && appTo
+      ? appKeyChanges(appFrom, appTo, isMac).map((c) =>
+          fmt(d.keyboard.keyChange, {
+            keys: commandTitle(c.id, d),
+            before: c.before ?? d.keyboard.unbound,
+            after: c.after ?? d.keyboard.unbound,
+          }),
+        )
+      : []
+  const terminalLines =
+    terminalFrom && terminalFrom !== terminal
+      ? terminalKeyChanges(
+          terminalKeymapKeys(terminalFrom, here),
+          terminalKeymapKeys(terminal, here),
+          isMac,
+        ).map((c) =>
+          fmt(d.keyboard.keyChange, {
+            keys: c.keys,
+            before: sendActionText(c.before, d),
+            after: sendActionText(c.after, d),
+          }),
+        )
+      : []
   return (
     <div className="mb-3">
       <ControlRow label={d.keyboard.keymap} desc={d.keyboard.keymapDesc}>
         <SelectField
           label={d.keyboard.keymap}
           value={appValue}
-          onChange={setKeymap}
+          onChange={(next) => {
+            if (next === appValue) return
+            setAppFrom(keymapBindings())
+            setKeymap(next)
+          }}
           options={appOptions}
         />
       </ControlRow>
+      <ChangeList lines={appLines} />
       {chosen && error ? (
         <WarningNote>{fmt(d.keyboard.keymapFailed, { name: chosen.label, error })}</WarningNote>
       ) : null}
@@ -412,13 +470,18 @@ function KeymapPickers(): JSX.Element {
         <SelectField
           label={d.keyboard.terminalKeymap}
           value={terminal}
-          onChange={setTerminalKeymap}
+          onChange={(next) => {
+            if (next === terminal) return
+            setTerminalFrom(terminal)
+            setTerminalKeymap(next)
+          }}
           options={terminalKeymapsFor(here).map((k) => ({
             value: k.id,
             label: terminalKeymapLabel(k.id, d),
           }))}
         />
       </ControlRow>
+      <ChangeList lines={terminalLines} />
       {terminal === NATURAL_TEXT_EDITING ? (
         <WarningNote>{d.keyboard.naturalTextEditingNote}</WarningNote>
       ) : null}
