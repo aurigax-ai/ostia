@@ -36,6 +36,7 @@ import { currentScheme, terminalTheme, useScheme } from '../lib/colorScheme'
 import { acceptsPathDrop, droppedPaths, pathsAsInput } from '../lib/dropPaths'
 import { terminalKeyData } from '../lib/keyPresets'
 import { attachLinkModifier, linkModifierHeld, linkTarget } from '../lib/linkModifier'
+import { noteFittedGrid, offscreenGrid, registerOffscreenStarter } from '../lib/offscreenStart'
 import { openFileAt } from '../lib/openFile'
 import { isLocalHost, parseOsc7 } from '../lib/osc7'
 import { registerOsc52 } from '../lib/osc52'
@@ -570,6 +571,7 @@ export function TerminalView({
       const fitted = safeFit(host, fit, term)
       const { cols, rows } = term
       const action = nextSizeAction({ fitted, attached, cols, rows, last: lastSizeRef.current })
+      if (action.type !== 'none') noteFittedGrid(action.cols, action.rows)
       if (action.type === 'attach') {
         attachAtCurrentSize(action.cols, action.rows)
       } else if (action.type === 'resize') {
@@ -648,6 +650,12 @@ export function TerminalView({
 
     syncSizeRef.current = syncSize
     syncSize()
+    const unregisterOffscreen = registerOffscreenStarter(paneId, () => {
+      if (attached || disposed) return
+      const grid = offscreenGrid()
+      term.resize(grid.cols, grid.rows)
+      attachAtCurrentSize(grid.cols, grid.rows)
+    })
 
     let resizeTimer: ReturnType<typeof setTimeout> | null = null
     let rafId = 0
@@ -665,6 +673,7 @@ export function TerminalView({
 
     return () => {
       disposed = true
+      unregisterOffscreen()
       querySilencer?.dispose()
       syncSizeRef.current = () => {}
       if (resizeTimer) clearTimeout(resizeTimer)
