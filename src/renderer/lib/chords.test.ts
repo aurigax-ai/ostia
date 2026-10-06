@@ -17,6 +17,7 @@ import {
   DEFAULT_CHORDS,
   type KeyLike,
   type KeybindingMap,
+  TERMINAL_COMMAND_CHORDS,
   baseChord,
   bindableIds,
   checkBinding,
@@ -26,6 +27,7 @@ import {
   effectiveBindings,
   isAppChord,
   isBrowserChord,
+  isTerminalCommandChord,
   matchChord,
   runAppChord,
   setKeybindingSetting,
@@ -416,6 +418,49 @@ describe('the macOS keymap that follows cmux', () => {
   })
 })
 
+describe('the macOS keymap that follows iTerm2', () => {
+  const dir = join(__dirname, '../../extensions/keymap-macos')
+  const manifest = JSON.parse(readFileSync(join(dir, 'ostia.json'), 'utf8'))
+  const entry = manifest.contributes.keymaps.find((k: { id: string }) => k.id === 'iterm2')
+  const raw = JSON.parse(readFileSync(join(dir, entry.path), 'utf8'))
+  const parsed = parseKeymapBindings(raw, true)
+  const bindings = parsed.ok ? parsed.bindings : {}
+
+  it('is offered on macOS only and names only commands Ostia ships', () => {
+    expect(entry).toMatchObject({ label: 'macOS (iTerm2)', platform: 'darwin' })
+    expect(parsed.ok && parsed.skipped).toEqual([])
+    const shipped = [...Object.keys(DEFAULT_CHORDS), ...Object.keys(en.commands.titles)]
+    for (const [id, text] of Object.entries(raw.bindings as Record<string, string>)) {
+      expect(shipped, id).toContain(id)
+      expect(checkBinding(id, text, true), id).toBeNull()
+    }
+  })
+
+  it('leaves no two commands on one chord on macOS', () => {
+    useKeymap(bindings)
+    const { byId, bySignature } = currentBindings(true)
+    for (const [id, spec] of byId) expect(conflictsWith(id, spec, true), id).toEqual([])
+    expect(bySignature.size).toBe(byId.size)
+  })
+
+  it('scrolls a line with ⌘↑ ⌘↓, keeps blocks on ⇧⌘↑ ⇧⌘↓ and leaves ⌘← ⌘→ to the line ends', () => {
+    useKeymap(bindings)
+    const cmd = { metaKey: true }
+    const cmdShift = { metaKey: true, shiftKey: true }
+    expect(matchChord(key('ArrowUp', cmd), true)).toBe('terminal.scrollLineUp')
+    expect(matchChord(key('ArrowDown', cmd), true)).toBe('terminal.scrollLineDown')
+    expect(matchChord(key('ArrowUp', cmdShift), true)).toBe('block.selectPrev')
+    expect(matchChord(key('ArrowDown', cmdShift), true)).toBe('block.selectNext')
+    expect(matchChord(key('n', cmd), true)).toBe('workspace.new')
+    expect(matchChord(key('t', cmd), true)).toBe('tab.new')
+    expect(matchChord(key('Tab', { ctrlKey: true }), true)).toBe('tab.next')
+    expect(matchChord(key('ArrowLeft', cmdShift), true)).toBe('tab.moveLeft')
+    expect(matchChord(key('Home', cmd), true)).toBe('terminal.scrollToTop')
+    expect(matchChord(key('ArrowLeft', cmd), true)).toBeNull()
+    expect(matchChord(key('ArrowRight', cmd), true)).toBeNull()
+  })
+})
+
 describe('user keybindings', () => {
   it('match live: the new chord fires and the old one stops', () => {
     bind({ 'palette.toggle': 'Ctrl+Shift+Y' })
@@ -546,6 +591,8 @@ describe('DEFAULT_CHORDS', () => {
       const seen = new Map<string, string>()
       for (const id of Object.keys(DEFAULT_CHORDS)) {
         const spec = byId.get(id)
+        const text = DEFAULT_CHORDS[id as keyof typeof DEFAULT_CHORDS][mac ? 0 : 1]
+        if (!spec && text === '') continue
         if (!spec) throw new Error(`${id} has no default on ${mac ? 'macOS' : 'Linux'}`)
         expect(stealsTerminalKey(spec, mac), id).toBeNull()
         if (PANE_WORK.includes(id)) expect(usedByMonaco(spec, mac), id).toBe(false)
@@ -575,6 +622,39 @@ describe('DEFAULT_CHORDS', () => {
       'workspace.previous',
     )
     expect(matchChord(key('PageDown', { ctrlKey: true }), false)).toBeNull()
+  })
+})
+
+describe('scroll and tab move chords', () => {
+  it('scroll the terminal and move tabs with iTerm2’s keys on macOS, from the terminal only', () => {
+    const cmd = { metaKey: true }
+    const cmdShift = { metaKey: true, shiftKey: true }
+    expect(matchChord(key('Home', cmd), true)).toBe('terminal.scrollToTop')
+    expect(matchChord(key('End', cmd), true)).toBe('terminal.scrollToBottom')
+    expect(matchChord(key('PageUp', cmd), true)).toBe('terminal.scrollPageUp')
+    expect(matchChord(key('PageDown', cmd), true)).toBe('terminal.scrollPageDown')
+    expect(matchChord(key('ArrowLeft', cmdShift), true)).toBe('tab.moveLeft')
+    expect(matchChord(key('ArrowRight', cmdShift), true)).toBe('tab.moveRight')
+    expect(matchChord(key('ArrowUp', cmd), true)).toBe('block.selectPrev')
+    expect(matchChord(key('ArrowLeft', cmd), true)).toBeNull()
+    expect(matchChord(key('PageUp', { shiftKey: true }), true)).toBeNull()
+    for (const id of TERMINAL_COMMAND_CHORDS) {
+      expect(isTerminalCommandChord(id), id).toBe(true)
+      expect(isAppChord(id), id).toBe(false)
+    }
+    expect(chordLabel('terminal.scrollLineUp', true)).toBeNull()
+  })
+
+  it('have no default on Linux yet, so no Linux key changes', () => {
+    for (const id of TERMINAL_COMMAND_CHORDS) expect(chordLabel(id, false), id).toBeNull()
+    for (const event of [
+      key('Home', { ctrlKey: true }),
+      key('End', { ctrlKey: true }),
+      key('PageUp', { ctrlKey: true }),
+      key('ArrowLeft', { ctrlKey: true, shiftKey: true }),
+    ]) {
+      expect(matchChord(event, false), JSON.stringify(event)).toBeNull()
+    }
   })
 })
 

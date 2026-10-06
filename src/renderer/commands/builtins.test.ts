@@ -221,6 +221,36 @@ describe('builtins route to store actions', () => {
     expect(useSettingsStore.getState().behavior.inputMode).toBe('terminal')
   })
 
+  it('scrolls the caller’s terminal to the top, bottom, by a page and by a line', async () => {
+    const term = new Terminal({ cols: 20, rows: 4, scrollback: 100 })
+    const unregister = registerTerminal('pT', term)
+    const top = () => term.buffer.active.viewportY
+    try {
+      await new Promise<void>((r) => term.write(`${'line\r\n'.repeat(30)}$ `, r))
+      const end = term.buffer.active.baseY
+      expect(top()).toBe(end)
+      const run = (id: string) => commands.execWith(ctx('s1', 'pT'), id)
+      expect(await run('terminal.scrollToTop')).toEqual({ ok: true, result: { scrolled: true } })
+      expect(top()).toBe(0)
+      await run('terminal.scrollPageDown')
+      expect(top()).toBe(3)
+      await run('terminal.scrollLineDown')
+      expect(top()).toBe(4)
+      await run('terminal.scrollLineUp')
+      await run('terminal.scrollPageUp')
+      expect(top()).toBe(0)
+      await run('terminal.scrollToBottom')
+      expect(top()).toBe(end)
+    } finally {
+      unregister()
+      term.dispose()
+    }
+    expect(await commands.execWith(ctx('s1', 'pT'), 'terminal.scrollToTop')).toEqual({
+      ok: true,
+      result: { scrolled: false },
+    })
+  })
+
   it('terminal.clear clears the caller’s terminal, redraws the prompt only when idle, and needs shell', async () => {
     const described = commands.describe().find((c) => c.id === 'terminal.clear')
     expect(described?.capabilities).toEqual(['shell'])
@@ -676,6 +706,39 @@ describe('builtins route to store actions', () => {
     expect(shown()).toEqual([a.id, a.id])
     await commands.execWith(ctx('s1', a.id), 'tab.previous')
     expect(shown()).toEqual([c.id, c.id])
+  })
+
+  it('moves the caller’s tab left and right within its pane, stopping at the ends', async () => {
+    const a = createPane()
+    const b = createPane()
+    const c = createPane()
+    useLayoutStore.setState({
+      byWorkspace: { s1: { root: tabsOf(b.id, a, b, c), activePaneId: b.id, zoomedPaneId: null } },
+    })
+    const order = () => {
+      const { root, activePaneId } = useLayoutStore.getState().byWorkspace.s1
+      return [root.type === 'tabs' ? root.children.map((p) => p.id) : [], activePaneId]
+    }
+    await commands.execWith(ctx('s1', b.id), 'tab.moveLeft')
+    expect(order()).toEqual([[b.id, a.id, c.id], b.id])
+    await commands.execWith(ctx('s1', b.id), 'tab.moveLeft')
+    expect(order()).toEqual([[b.id, a.id, c.id], b.id])
+    await commands.execWith(ctx('s1', b.id), 'tab.moveRight')
+    await commands.execWith(ctx('s1', b.id), 'tab.moveRight')
+    expect(order()).toEqual([[a.id, c.id, b.id], b.id])
+    await commands.execWith(ctx('s1', b.id), 'tab.moveRight')
+    expect(order()).toEqual([[a.id, c.id, b.id], b.id])
+  })
+
+  it('leaves a pane without tabs where it is when asked to move its tab', async () => {
+    const left = createPane()
+    const right = createPane()
+    const root = splitOf('horizontal', left, right)
+    useLayoutStore.setState({
+      byWorkspace: { s1: { root, activePaneId: left.id, zoomedPaneId: null } },
+    })
+    await commands.execWith(ctx('s1', left.id), 'tab.moveRight')
+    expect(useLayoutStore.getState().byWorkspace.s1.root).toBe(root)
   })
 
   it('moves keyboard focus into the tab it shows, and not while a pane is zoomed', async () => {

@@ -1,0 +1,10 @@
+{
+  "bindings": {
+    "terminal.scrollLineUp": "Cmd+Up",
+    "terminal.scrollLineDown": "Cmd+Down",
+    "block.selectPrev": "Shift+Cmd+Up",
+    "block.selectNext": "Shift+Cmd+Down",
+    "workspace.new": "Cmd+N",
+    "tab.new": "Cmd+T"
+  }
+}

@@ -50,7 +50,26 @@ export type AppChord =
   | 'workspace.next'
   | 'workspace.previous'
 
-export type TerminalChord = 'copy' | 'paste' | 'find' | 'block.selectPrev' | 'block.selectNext'
+export const TERMINAL_COMMAND_CHORDS = [
+  'terminal.scrollToTop',
+  'terminal.scrollToBottom',
+  'terminal.scrollPageUp',
+  'terminal.scrollPageDown',
+  'terminal.scrollLineUp',
+  'terminal.scrollLineDown',
+  'tab.moveLeft',
+  'tab.moveRight',
+] as const
+
+export type TerminalCommandChord = (typeof TERMINAL_COMMAND_CHORDS)[number]
+
+export type TerminalChord =
+  | 'copy'
+  | 'paste'
+  | 'find'
+  | 'block.selectPrev'
+  | 'block.selectNext'
+  | TerminalCommandChord
 
 export type BrowserChord =
   | 'browser.focusAddress'
@@ -64,9 +83,12 @@ export const TERMINAL_CHORDS: readonly TerminalChord[] = [
   'find',
   'block.selectPrev',
   'block.selectNext',
+  ...TERMINAL_COMMAND_CHORDS,
 ]
 
 const TERMINAL_SET: ReadonlySet<string> = new Set(TERMINAL_CHORDS)
+
+const TERMINAL_COMMAND_SET: ReadonlySet<string> = new Set(TERMINAL_COMMAND_CHORDS)
 
 export const BROWSER_CHORDS: readonly BrowserChord[] = [
   'browser.focusAddress',
@@ -112,6 +134,14 @@ export const DEFAULT_CHORDS: Readonly<
   find: ['Cmd+F', 'Ctrl+Shift+F'],
   'block.selectPrev': ['Cmd+Up', 'Ctrl+Shift+Up'],
   'block.selectNext': ['Cmd+Down', 'Ctrl+Shift+Down'],
+  'terminal.scrollToTop': ['Cmd+Home', ''],
+  'terminal.scrollToBottom': ['Cmd+End', ''],
+  'terminal.scrollPageUp': ['Cmd+PageUp', ''],
+  'terminal.scrollPageDown': ['Cmd+PageDown', ''],
+  'terminal.scrollLineUp': ['', ''],
+  'terminal.scrollLineDown': ['', ''],
+  'tab.moveLeft': ['Shift+Cmd+Left', ''],
+  'tab.moveRight': ['Shift+Cmd+Right', ''],
   'browser.focusAddress': ['Cmd+L', 'Ctrl+Shift+L'],
   'browser.reload': ['Cmd+R', 'Ctrl+F5'],
   'browser.back': ['Cmd+[', 'Ctrl+Alt+Left'],
@@ -232,6 +262,10 @@ export function matchChord(e: KeyLike, mac: boolean): string | null {
 
 export function isAppChord(chord: string | null): chord is string {
   return chord !== null && !TERMINAL_SET.has(chord) && !BROWSER_SET.has(chord)
+}
+
+export function isTerminalCommandChord(chord: string | null): chord is TerminalCommandChord {
+  return chord !== null && TERMINAL_COMMAND_SET.has(chord)
 }
 
 export function isBrowserChord(chord: string | null): chord is BrowserChord {

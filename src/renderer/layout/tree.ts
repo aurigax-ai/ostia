@@ -367,6 +367,13 @@ export function adjacentTab(root: LayoutNode, paneId: string, step: 1 | -1): str
   return tabs.children[next].id
 }
 
+export function tabNeighbor(root: LayoutNode, paneId: string, step: 1 | -1): string | null {
+  const tabs = tabsOfPane(root, paneId)
+  if (!tabs) return null
+  const at = tabs.children.findIndex((c) => c.id === paneId)
+  return tabs.children[at + step]?.id ?? null
+}
+
 export function tabsOfPane(node: LayoutNode, paneId: string): TabsNode | null {
   if (node.type === 'pane') return null
   if (node.type === 'tabs') return node.children.some((c) => c.id === paneId) ? node : null

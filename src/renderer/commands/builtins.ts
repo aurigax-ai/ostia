@@ -5,7 +5,7 @@ import type { AttentionState } from '@shared/types'
 import { type WorkspaceGroupColor, normalizeGroupName } from '@shared/workspaceGroups'
 import { ZOOM_DEFAULT, stepZoom } from '@shared/zoom'
 import { currentDict } from '../i18n/useDict'
-import { type DropZone, type FocusDirection, allPanes, findPane } from '../layout/tree'
+import { type DropZone, type FocusDirection, allPanes, findPane, tabNeighbor } from '../layout/tree'
 import type { Direction, SurfaceKind } from '../layout/types'
 import { postAgentNotification } from '../lib/agentNotification'
 import {
@@ -124,6 +124,8 @@ export function launchesProgram(key: string, value: unknown): string | null {
 }
 
 const KEYMAP_KEY = 'keymap'
+
+type TerminalHandle = NonNullable<ReturnType<typeof terminalFor>>
 
 const isKeybindingPath = (key: string): boolean =>
   key === 'keybindings' || key.startsWith('keybindings.')
@@ -300,6 +302,24 @@ export function registerBuiltinCommands(): void {
     })
   }
 
+  for (const [id, step] of [
+    ['tab.moveLeft', -1],
+    ['tab.moveRight', 1],
+  ] as const) {
+    registerCore({
+      id,
+      category: 'pane',
+      run: (_args, ctx) => {
+        const workspaceId = ctx.activeWorkspaceId
+        const layout = workspaceId ? useLayoutStore.getState().byWorkspace[workspaceId] : undefined
+        if (!workspaceId || !layout || !ctx.activePaneId) return
+        const neighbor = tabNeighbor(layout.root, ctx.activePaneId, step)
+        if (!neighbor) return
+        useLayoutStore.getState().moveTab(workspaceId, ctx.activePaneId, neighbor, step === 1)
+      },
+    })
+  }
+
   registerCore<{ paneId?: string; zoom?: boolean } | undefined>({
     id: 'pane.zoom',
     category: 'pane',
@@ -445,6 +465,24 @@ export function registerBuiltinCommands(): void {
     })
   blockStep('block.selectPrev', 'prev')
   blockStep('block.selectNext', 'next')
+
+  const scroll = (id: CoreCommandId, move: (term: TerminalHandle) => void): void =>
+    registerCore<undefined, { scrolled: boolean }>({
+      id,
+      category: 'terminal',
+      capabilities: ['drive-self'],
+      run: (_args, ctx) => {
+        const term = ctx.activePaneId ? terminalFor(ctx.activePaneId) : undefined
+        if (term) move(term)
+        return { scrolled: term !== undefined }
+      },
+    })
+  scroll('terminal.scrollToTop', (term) => term.scrollToTop())
+  scroll('terminal.scrollToBottom', (term) => term.scrollToBottom())
+  scroll('terminal.scrollPageUp', (term) => term.scrollPages(-1))
+  scroll('terminal.scrollPageDown', (term) => term.scrollPages(1))
+  scroll('terminal.scrollLineUp', (term) => term.scrollLines(-1))
+  scroll('terminal.scrollLineDown', (term) => term.scrollLines(1))
 
   const blockCopy = (id: CoreCommandId, part: BlockPart): void =>
     registerCore<{ blockId?: string } | undefined, { copied: boolean }>({
