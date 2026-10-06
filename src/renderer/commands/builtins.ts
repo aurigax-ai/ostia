@@ -247,7 +247,11 @@ export function registerBuiltinCommands(): void {
     id: 'pane.close',
     category: 'pane',
     capabilities: ['kill-pane'],
+    argsSchema: { type: 'object', properties: { paneId: { type: 'string' } } },
     run: async (args, ctx) => {
+      if (args?.paneId !== undefined && typeof args.paneId !== 'string') {
+        throw new Error('paneId must be a string')
+      }
       if (!ctx.activeWorkspaceId) return
       const target = args?.paneId ?? ctx.activePaneId
       const layout = useLayoutStore.getState()
