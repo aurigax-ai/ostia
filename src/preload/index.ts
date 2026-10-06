@@ -154,12 +154,14 @@ const bridge: OstiaBridge = {
       return () => ipcRenderer.removeListener('window:maximized', handler)
     },
     onRunningQuery: (cb) => {
-      const handler = (_event: unknown, requestId: number, kept: unknown): void =>
-        ipcRenderer.send(
-          'window:close-answer',
-          requestId,
-          cb(Array.isArray(kept) ? kept.filter((id): id is string => typeof id === 'string') : []),
-        )
+      const handler = (_event: unknown, requestId: number, kept: unknown): void => {
+        const ids = Array.isArray(kept)
+          ? kept.filter((id): id is string => typeof id === 'string')
+          : []
+        void Promise.resolve(cb(ids))
+          .catch(() => [])
+          .then((groups) => ipcRenderer.send('window:close-answer', requestId, groups))
+      }
       ipcRenderer.on('window:running', handler)
       return () => ipcRenderer.removeListener('window:running', handler)
     },
@@ -191,6 +193,7 @@ const bridge: OstiaBridge = {
     listDir: (paneId, dir) => ipcRenderer.invoke('pty:list-dir', paneId, dir),
     localPrompt: (paneId) => ipcRenderer.invoke('pty:local-prompt', paneId),
     foreground: (paneId) => ipcRenderer.invoke('pty:foreground', paneId) as Promise<string | null>,
+    busy: (paneId) => ipcRenderer.invoke('pty:busy', paneId) as Promise<string | null>,
     promptContext: (paneId, want) =>
       ipcRenderer.invoke('pty:prompt-context', paneId, want) as Promise<PromptContext | null>,
     onData: (paneId, cb) => {
