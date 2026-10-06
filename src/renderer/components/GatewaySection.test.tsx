@@ -102,4 +102,31 @@ describe('GatewaySection', () => {
     await user.click(screen.getByRole('switch', { name: 'Enable remote access' }))
     expect(window.ostia.gateway.enable).toHaveBeenCalledWith({ host: '100.101.1.2' })
   })
+
+  it('offers no pairing code while the bind address is loopback', async () => {
+    render(<GatewaySection />)
+
+    const pair = await screen.findByRole('button', { name: 'Show pairing code' })
+    expect(pair).toBeDisabled()
+    expect(screen.getByText(/A phone can’t reach 127\.0\.0\.1/)).toBeInTheDocument()
+  })
+
+  it('starts the gateway on the selected address before pairing when it is off', async () => {
+    vi.mocked(window.ostia.gateway.bindOptions).mockResolvedValue({
+      addresses: [
+        { address: '127.0.0.1', kind: 'loopback' },
+        { address: '192.168.2.108', kind: 'lan', iface: 'wlan0' },
+      ],
+      selected: '192.168.2.108',
+    })
+    const user = userEvent.setup()
+    render(<GatewaySection />)
+
+    await user.click(await screen.findByRole('button', { name: 'Show pairing code' }))
+
+    expect(window.ostia.gateway.enable).toHaveBeenCalledWith({ host: '192.168.2.108' })
+    expect(vi.mocked(window.ostia.gateway.enable).mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(window.ostia.gateway.pair).mock.invocationCallOrder[0],
+    )
+  })
 })

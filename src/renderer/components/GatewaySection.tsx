@@ -29,6 +29,10 @@ import { Textarea } from './ui/textarea'
 const PAIR_CODE_TTL_S = 120
 const LOOPBACK = '127.0.0.1'
 
+function isLoopback(host: string): boolean {
+  return host === 'localhost' || host === '::1' || host.startsWith('127.')
+}
+
 function bindKindLabel(d: Dict, kind: GatewayBindKind): string {
   if (kind === 'loopback') return d.settings.remoteBindLoopback
   if (kind === 'lan') return d.settings.remoteBindLan
@@ -142,6 +146,7 @@ export function GatewaySection(): JSX.Element {
     setPairing(true)
     setCopied(false)
     try {
+      if (!running) await window.ostia.gateway.enable({ host })
       const result = await window.ostia.gateway.pair()
       setPairResult(result)
       setWarning(result.warning ?? null)
@@ -178,7 +183,9 @@ export function GatewaySection(): JSX.Element {
     if (device) await setCap(device.deviceId, 'destructive', true)
   }
 
-  const exposed = host !== LOOPBACK && host !== '::1' && host !== 'localhost'
+  const exposed = !isLoopback(host)
+  const boundHost = running ? (status?.host ?? host) : host
+  const phoneReachable = !isLoopback(boundHost)
   const selectedAddress = addresses.find((a) => a.address === host)
 
   const onCopy = async (): Promise<void> => {
@@ -242,10 +249,19 @@ export function GatewaySection(): JSX.Element {
           <div className="text-fg text-ui-base">{d.settings.remotePair}</div>
           <p className="mt-0.5 text-fg-muted text-ui-sm">{d.settings.remotePairDesc}</p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => void onPair()} disabled={pairing}>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => void onPair()}
+          disabled={pairing || !phoneReachable}
+        >
           {pairing ? d.settings.remotePairing : d.settings.remotePairButton}
         </Button>
       </div>
+
+      {phoneReachable ? null : (
+        <WarningNote>{fmt(d.settings.remotePairLoopback, { host: boundHost })}</WarningNote>
+      )}
 
       {pairResult && qrDataUrl ? (
         <div className="mt-3 flex flex-col items-center gap-3 rounded-md border border-line bg-surface-1 p-4">

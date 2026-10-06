@@ -2660,6 +2660,8 @@ export const en = {
     remotePair: 'Pair a device',
     remotePairDesc: 'Scan the code from {product}’s companion app to connect a phone.',
     remotePairButton: 'Show pairing code',
+    remotePairLoopback:
+      'A phone can’t reach {host}, this computer’s own address. Choose a Wi-Fi or Tailscale address above (turn remote access off first to change it).',
     remotePairing: 'Starting…',
     remotePairExpires: 'Expires in {n}s',
     remotePairExpired: 'Pairing code expired. Pair again to get a new one.',
@@ -5282,6 +5284,8 @@ export const zhHant: Dict = {
     remotePair: '配對裝置',
     remotePairDesc: '在 {product} 的隨附應用程式中掃描此代碼以連接手機。',
     remotePairButton: '顯示配對碼',
+    remotePairLoopback:
+      '手機無法連到 {host}，這是這台電腦自己的位址。請在上方選擇 Wi-Fi 或 Tailscale 位址（若遠端存取已開啟，請先關閉再變更）。',
     remotePairing: '啟動中…',
     remotePairExpires: '將於 {n} 秒後失效',
     remotePairExpired: '配對代碼已失效，請重新配對以取得新代碼。',
