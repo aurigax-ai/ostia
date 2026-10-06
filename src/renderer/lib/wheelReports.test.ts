@@ -114,7 +114,8 @@ describe('attachWheelReports', () => {
       expect(tick.shiftKey).toBe(false)
     }
     t.wheel(-34)
-    expect(t.ticks().slice(3).map((e) => e.deltaY)).toEqual([-1, -1])
+    const back = t.ticks().slice(3)
+    expect(back.map((e) => e.deltaY)).toEqual([-1, -1])
   })
 
   it('keeps a slow trackpad stream moving instead of damping it away', () => {
