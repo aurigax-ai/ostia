@@ -33,8 +33,8 @@ import {
 } from '../lib/clipboardKeys'
 import { currentScheme, terminalTheme, useScheme } from '../lib/colorScheme'
 import { acceptsPathDrop, droppedPaths, pathsAsInput } from '../lib/dropPaths'
+import { terminalKeyData } from '../lib/keyPresets'
 import { attachLinkModifier, linkModifierHeld, linkTarget } from '../lib/linkModifier'
-import { macLineEditKey } from '../lib/macLineKeys'
 import { openFileAt } from '../lib/openFile'
 import { isLocalHost, parseOsc7 } from '../lib/osc7'
 import { registerOsc52 } from '../lib/osc52'
@@ -259,15 +259,11 @@ export function TerminalView({
       }
       const chord = matchChord(e, isMac)
       if (!chord) {
-        const lineKey = macLineEditKey(
-          e,
-          isMac,
-          useSettingsStore.getState().terminal.macOptionIsMeta,
-        )
-        if (lineKey && !inputEditorFor(paneId)) {
+        const sent = terminalKeyData(e, isMac)
+        if (sent && !inputEditorFor(paneId)) {
           if (e.type === 'keydown') {
             e.preventDefault()
-            term.input(lineKey, true)
+            term.input(sent, true)
           }
           return false
         }

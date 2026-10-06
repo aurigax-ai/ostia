@@ -42,7 +42,7 @@ import {
 import { loadMergeTargets, requestMergeWorkspace } from '../lib/workspaceMerge'
 import { anchorToFocusedPane, canMoveWorkspace, moveWorkspaceTo } from '../lib/workspaceProjects'
 import { isMac } from '../platform'
-import { keymapSettingValue } from '../settings/keymapSetting'
+import { keymapSettingValue, terminalKeymapSettingValue } from '../settings/keymapSetting'
 import { settingsSchemaAt } from '../settings/settingsSchema'
 import { useAttentionStore } from '../stores/attentionStore'
 import { useBlocksStore } from '../stores/blocksStore'
@@ -107,7 +107,7 @@ const PROGRAM_SETTINGS: readonly {
   { group: 'workspaces', field: 'globalHotkey' },
 ]
 
-const HUMAN_ONLY_ROOTS: readonly string[] = ['privacy']
+const HUMAN_ONLY_ROOTS: readonly string[] = ['privacy', 'terminalKeys']
 
 export function launchesProgram(key: string, value: unknown): string | null {
   const path = key.split('.').filter(Boolean).join('.')
@@ -125,6 +125,7 @@ export function launchesProgram(key: string, value: unknown): string | null {
 }
 
 const KEYMAP_KEY = 'keymap'
+const TERMINAL_KEYMAP_KEY = 'terminalKeymap'
 
 const isKeybindingPath = (key: string): boolean =>
   key === 'keybindings' || key.startsWith('keybindings.')
@@ -145,7 +146,9 @@ function readableSettings() {
     agents: s.agents,
     workspaceGroups: s.workspaceGroups,
     keymap: s.keymap,
+    terminalKeymap: s.terminalKeymap,
     keybindings: { ...s.keybindings },
+    terminalKeys: { ...s.terminalKeys },
     capabilities: s.capabilities,
     approvals: s.approvals,
     actions: s.actions,
@@ -1019,6 +1022,12 @@ export function registerBuiltinCommands(): void {
         if (!dryRun) useSettingsStore.getState().setKeymap(next)
         return { previous, value: next, applied: !dryRun }
       }
+      if (key === TERMINAL_KEYMAP_KEY) {
+        const previous = useSettingsStore.getState().terminalKeymap
+        const next = terminalKeymapSettingValue(value)
+        if (!dryRun) useSettingsStore.getState().setTerminalKeymap(next)
+        return { previous, value: next, applied: !dryRun }
+      }
       const settings = useSettingsStore.getState()
       const change = dryRun ? settings.previewSetting(key, value) : settings.setByPath(key, value)
       return { ...settingResult(change), applied: !dryRun }
@@ -1036,6 +1045,11 @@ export function registerBuiltinCommands(): void {
       if (key === KEYMAP_KEY) {
         const previous = useSettingsStore.getState().keymap
         useSettingsStore.getState().setKeymap(null)
+        return { previous, value: null }
+      }
+      if (key === TERMINAL_KEYMAP_KEY) {
+        const previous = useSettingsStore.getState().terminalKeymap
+        useSettingsStore.getState().setTerminalKeymap(null)
         return { previous, value: null }
       }
       return settingResult(useSettingsStore.getState().unsetByPath(key))

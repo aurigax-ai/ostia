@@ -1,4 +1,5 @@
 import type { ExtensionInfo } from '@shared/extensions'
+import { appKeymapIn } from '@shared/keyboardPresets'
 import { type KeymapInfo, keymapOffered, keymapRef } from '@shared/keymap'
 import type { LoadedKeymap } from '@shared/keymapFile'
 import { create } from 'zustand'
@@ -70,8 +71,12 @@ export function keymapProvider(
   return null
 }
 
+export function appKeymap(): string {
+  return appKeymapIn(useSettingsStore.getState().keymap, { platform })
+}
+
 function syncKeymap(): void {
-  const ref = useSettingsStore.getState().keymap
+  const ref = appKeymap()
   const provider = keymapProvider(ref, useExtensionsStore.getState().list, platform)
   const key = provider ? `${ref}\n${provider.ext.version}` : null
   void useKeymapStore.getState().load(provider ? ref : null, key)
