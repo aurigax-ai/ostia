@@ -10,6 +10,9 @@ export const TMUX_SESSION = 'ostia'
 const HOLDER_META = 'holder'
 const META_OPTION = '@ostia-meta'
 const DEAD_SUBSCRIPTION = 'ostia-dead'
+const DEAD_FORMAT = '#{pane_dead}:#{pane_dead_status}:#{pane_dead_signal}'
+const EXIT_POLL_MS = 50
+const EXIT_POLL_TRIES = 40
 const COMMAND_SUBSCRIPTION = 'ostia-cmd'
 const SERVER_ENV_KEYS = ['PATH', 'HOME', 'USER', 'LOGNAME', 'LANG', 'LC_ALL', 'LC_CTYPE', 'TMPDIR']
 const FIELD_SEPARATOR = '\t'
@@ -338,10 +341,28 @@ export class TmuxServer {
       else if (event.name === DEAD_SUBSCRIPTION) {
         const code = parseExit(event.value)
         if (code !== null) pane.died(code)
+        else if (event.value.startsWith('1:')) void this.reapedExit(pane)
       }
     } else if (event.type === 'exit') {
       this.gone()
     }
+  }
+
+  private async reapedExit(pane: TmuxPane): Promise<void> {
+    for (let tries = 0; tries < EXIT_POLL_TRIES; tries++) {
+      await new Promise((resolve) => setTimeout(resolve, EXIT_POLL_MS))
+      if (this.closed || pane.hasExited) return
+      let lines: string[] = []
+      try {
+        lines = await this.command(`display-message -p -t ${pane.paneId} ${tmuxQuote(DEAD_FORMAT)}`)
+      } catch {}
+      const code = parseExit(lines[0] ?? '')
+      if (code !== null) {
+        pane.died(code)
+        return
+      }
+    }
+    pane.died(0)
   }
 
   private holdOutput(pane: string, data: string): void {
@@ -388,6 +409,10 @@ export class TmuxPane {
     public cols: number,
     public rows: number,
   ) {}
+
+  get hasExited(): boolean {
+    return this.exited
+  }
 
   get process(): string {
     return this.foreground
