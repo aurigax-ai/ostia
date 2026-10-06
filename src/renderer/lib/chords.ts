@@ -31,6 +31,7 @@ export { WORKSPACE_GOTO, bindingProblem, checkBinding } from '@shared/chordSpec'
 export type AppChord =
   | 'app.quit'
   | 'palette.toggle'
+  | 'view.goToFile'
   | 'view.toggleRail'
   | 'app.openSettings'
   | 'view.searchFiles'
@@ -111,6 +112,7 @@ export const DEFAULT_CHORDS: Readonly<
 > = {
   'app.quit': ['', 'Ctrl+Shift+Q'],
   'palette.toggle': [['Shift+Cmd+P', 'Cmd+K'], 'Ctrl+Shift+P'],
+  'view.goToFile': ['Cmd+P', 'Ctrl+Alt+G'],
   'view.toggleRail': [['Cmd+B', 'Cmd+\\'], 'Ctrl+Shift+B'],
   'app.openSettings': ['Cmd+,', 'Ctrl+,'],
   'view.searchFiles': ['Shift+Cmd+F', ''],

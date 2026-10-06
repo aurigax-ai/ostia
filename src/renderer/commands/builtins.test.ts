@@ -1146,6 +1146,16 @@ describe('builtins route to store actions', () => {
     expect(togglePalette).toHaveBeenCalled()
   })
 
+  it('opens the palette on the file prefix for view.goToFile and on the workspace prefix for view.goToWorkspace', async () => {
+    const openPalette = vi.spyOn(useUIStore.getState(), 'openPalette').mockImplementation(() => {})
+
+    await commands.execWith(ctx(null, null), 'view.goToFile')
+    await commands.execWith(ctx(null, null), 'view.goToWorkspace')
+
+    expect(openPalette).toHaveBeenNthCalledWith(1, 'search', '/')
+    expect(openPalette).toHaveBeenNthCalledWith(2, 'search', '@')
+  })
+
   it('routes view.toggleRail to ui.toggleRail', async () => {
     const toggleRail = vi.spyOn(useUIStore.getState(), 'toggleRail').mockImplementation(() => {})
 

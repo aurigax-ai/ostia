@@ -455,10 +455,18 @@ describe('the macOS keymap that follows cmux', () => {
     expect(matchChord(key('t', cmd), true)).toBe('tab.new')
   })
 
+  it('jumps to a workspace on ⌘P and leaves Go to File without a key', () => {
+    useKeymap(bindings)
+    expect(matchChord(key('p', { metaKey: true }), true)).toBe('view.goToWorkspace')
+    expect(chordLabel('view.goToWorkspace', true)).toBe('⌘P')
+    expect(chordLabel('view.goToFile', true)).toBeNull()
+  })
+
   it('changes nothing until it is the chosen keymap', () => {
     expect(chordLabel('pane.splitRight', true)).toBe('⌥⌘\\')
     expect(matchChord(key('k', { metaKey: true }), true)).toBe('palette.toggle')
     expect(matchTerminalChord(key('K', { metaKey: true, shiftKey: true }), true)).toBeNull()
+    expect(matchChord(key('p', { metaKey: true }), true)).toBe('view.goToFile')
   })
 })
 
@@ -807,6 +815,16 @@ describe('DEFAULT_CHORDS', () => {
       'workspace.previous',
     )
     expect(matchChord(key('PageDown', { ctrlKey: true }), false)).toBe('tab.next')
+  })
+})
+
+describe('go to file', () => {
+  it('is ⌘P on macOS and Ctrl+Alt+G on Linux, never the readline key Ctrl+P', () => {
+    expect(matchChord(key('p', { metaKey: true }), true)).toBe('view.goToFile')
+    expect(matchChord(key('g', { ctrlKey: true, altKey: true }), false)).toBe('view.goToFile')
+    expect(matchChord(key('p', { ctrlKey: true }), false)).toBeNull()
+    expect(checkBinding('view.goToFile', 'Ctrl+P', false)).toBe('ctrl-key')
+    expect(chordLabel('view.goToFile', true)).toBe('⌘P')
   })
 })
 
