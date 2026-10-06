@@ -29,7 +29,7 @@ describe('useShortcutHint', () => {
         keybindings: { 'view.toggleRail': 'Cmd+Shift+K' },
       })
     })
-    expect(result.current).toBe('⇧⌘K')
+    expect(result.current).toBe('⌘⇧K')
     act(() => {
       useSettingsStore.setState({ keybindings: { 'view.toggleRail': null } })
     })
