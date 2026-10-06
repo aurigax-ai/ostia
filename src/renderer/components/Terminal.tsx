@@ -25,7 +25,14 @@ import { bellActions, createBellThrottle } from '../lib/bell'
 import { canTypeInto, insertCommand, selectedBlockOutput, stepBlock } from '../lib/blockActions'
 import { decodeCommandLine, readCommandText } from '../lib/blockText'
 import { openBrowserAs } from '../lib/browserProfile'
-import { isAppChord, isBrowserChord, isTerminalCommandChord, matchChord } from '../lib/chords'
+import {
+  execChord,
+  isAppChord,
+  isBrowserChord,
+  isTerminalCommandChord,
+  matchChord,
+  matchTerminalChord,
+} from '../lib/chords'
 import {
   PROGRAM_PASTE_KEY,
   keyPastePlan,
@@ -261,7 +268,16 @@ export function TerminalView({
         }
         return false
       }
-      const chord = matchChord(e, isMac)
+      const scoped = matchTerminalChord(e, isMac)
+      if (scoped && e.type === 'keydown') e.stopPropagation()
+      if (isAppChord(scoped)) {
+        if (e.type === 'keydown') {
+          e.preventDefault()
+          execChord(scoped, e)
+        }
+        return false
+      }
+      const chord = scoped ?? matchChord(e, isMac)
       if (!chord || isBrowserChord(chord)) {
         const sent = terminalKeyData(e, isMac)
         if (sent && !inputEditorFor(paneId)) {

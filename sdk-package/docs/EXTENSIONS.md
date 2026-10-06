@@ -364,13 +364,13 @@ other editors' keybindings. It is data only: a manifest entry and one JSON file,
 ```
 
 The file maps command ids to a chord, a list of chords that all run the command (menus and
-hints show the first), or `null` to unbind a command:
+hints show the first one that works everywhere), or `null` to unbind a command:
 
 ```json
 {
   "bindings": {
-    "pane.splitRight": "Cmd+D",
-    "pane.splitDown": "Cmd+Shift+D",
+    "pane.splitRight": "terminal:Cmd+D",
+    "pane.splitDown": "terminal:Cmd+Shift+D",
     "tab.next": ["Ctrl+Tab", "Shift+Cmd+]"],
     "dashboard.toggle": "Cmd+Alt+D",
     "view.toggleRail": null
@@ -387,6 +387,12 @@ Chords are written as in the `keybindings` setting: modifiers `Ctrl`, `Shift`, `
 `Home`, `End`, `PageUp`, `PageDown`, `Insert`); `workspace.goto` takes the range `1-9` and no
 other command does. A command id is any palette command, including another extension's
 (`<extId>.<command>`). Commands the file does not name keep their default.
+
+A chord written with the `terminal:` prefix (`"terminal:Cmd+D"`) runs the command only while a
+terminal has the focus. Everywhere else the key keeps its other use: the editor, the browser
+and the other panels never see it as this command, and a chord bound without the prefix to
+another command still runs there. Ostia's own defaults use this for ⌘K, which clears the
+terminal in a terminal and opens the palette everywhere else.
 
 Nothing changes until the human picks the keymap in Settings → Keyboard → Keymap; the choice is
 the `keymap` setting, `"<extension id>/<keymap id>"` (`"keymap-macos/cmux"`), and `null`, the
@@ -1387,7 +1393,7 @@ only `src/extensions/sdk/` and `src/shared/` — never `src/main` or `src/render
 | Id | What it does |
 |---|---|
 | `git` | The branch per workspace in the sidebar; `git.branch` (`main • ↑2 ↓1`, click opens the panel) and `git.diff-stats` (`3 • +12 -4`) workspace chips in the top bar for the active workspace; a Git panel with Changes (stage, unstage, discard after `ext.confirm`, commit; flat list or folder tree), Graph (lanes, ref badges, an uncommitted-changes row, the current, all or chosen branches; a commit's files open as diffs) and Blame pages ("Show Changes", "Show Graph", "Blame File"); settings `pollSeconds`, `showDiffStats`, `graphScope`, `changesView` (the panel's controls write the last two with `ext.setSetting`); `ostia git status|changes|diff|open|log|blame|stage|unstage|commit` (discard is panel only) |
-| `keymap-macos` | Two macOS keymaps as `contributes.keymaps` entries with no process (`platform: "darwin"`). `cmux` (`assets/cmux.json`) follows cmux's default shortcuts: ⇧⌘P palette, ⌘B sidebar, ⌘N new workspace, ⌘T new tab, ⌘D split right, ⇧⌘D split down, ⌥⌘ and an arrow to move between panes, ⇧⌘↩ zoom, and ⌥⌘D for the dashboard, whose default ⇧⌘D becomes split down. `iterm2` (`assets/iterm2.json`) follows iTerm2's default global keys: ⌘↑ ⌘↓ scroll one line, ⇧⌘↑ ⇧⌘↓ select the previous and next block, ⌘N new workspace, ⌘T new tab. Enabled like every built-in but not chosen: the `keymap` setting stays `null` until the human picks one in Settings → Keyboard |
+| `keymap-macos` | Two macOS keymaps as `contributes.keymaps` entries with no process (`platform: "darwin"`). `cmux` (`assets/cmux.json`) follows cmux's default shortcuts and drops Ostia's older second keys: ⇧⌘P palette (⌘K no longer opens it), ⌘B sidebar, ⌘N new workspace, ⌘T new tab, ⌥⌘D the dashboard, and in a terminal ⌘D split right, ⇧⌘D split down, ⌥⌘ and an arrow to move between panes, ⇧⌘↩ zoom, and ⌘K or ⇧⌘K to clear. `iterm2` (`assets/iterm2.json`) follows iTerm2's default global keys: ⌘↑ ⌘↓ scroll one line, ⇧⌘↑ ⇧⌘↓ select the previous and next block, ⌘N new workspace, ⌘T new tab. Enabled like every built-in but not chosen: the `keymap` setting stays `null` until the human picks one in Settings → Keyboard |
 | `langpack-zh-hant` | Traditional Chinese (`zh-Hant`) for the interface, as a `contributes.languages` pack with no process. Its `zh-Hant.json` is generated at build time from `zhHant` in `src/renderer/i18n/dict.ts`, which stays typed against the English catalog so a missing string fails the typecheck |
 | `ports` | Per workspace, a `ports` workspace chip in the top bar: a plug with the number of TCP ports its terminals' processes listen on; click it for the list, click a port to open it in the browser pane. A foreground `ssh` shows as its host in the sidebar and as an `ssh` chip with `user@host` on its pane. Polls only while Ostia is focused. `ostia ports ls [--all]`. Settings: `intervalSeconds` (default 3), `portHost` (`localhost` or `127.0.0.1`) |
 | `system` | `ostia system info` (OS, kernel, arch, shell, package managers on PATH and the default one) and `ostia system install <pkg...> [--manager <name>] [--reason <text>]`: validates the names, shows the human the exact install command and the reason, and on Approve runs it in a new terminal next to the agent (`ext.openTerminal`). Returns `{approved, command, paneId?}`; a denial exits 1 |

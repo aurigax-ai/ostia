@@ -77,7 +77,7 @@ test('a rebound palette chord works from a focused terminal, refuses Ctrl+R, and
   }
 })
 
-test('on macOS the palette is Cmd+K, a rebound chord works from a terminal, a Ctrl chord is refused, and it resets', async () => {
+test('on macOS the palette is ⇧⌘P everywhere and ⌘K outside a terminal, a rebound chord works from a terminal, a Ctrl chord is refused, and it resets', async () => {
   test.skip(!isMac, 'the Cmd chords exist only on macOS')
   const app = await electron.launch(isolatedLaunch())
   try {
@@ -110,10 +110,22 @@ test('on macOS the palette is Cmd+K, a rebound chord works from a terminal, a Ct
 
     await openKeyboardSettings(win)
     await win.getByRole('button', { name: 'Reset Command Palette' }).click()
+    await expect(paletteRow(win)).toContainText('⌘⇧P')
     await expect(paletteRow(win)).toContainText('⌘K')
     await closeSettings(win)
 
     await focusTerminal(win)
+    await win.keyboard.press('Meta+Shift+p')
+    await expect(palette(win)).toBeVisible()
+    await win.keyboard.press('Escape')
+    await expect(palette(win)).toHaveCount(0)
+
+    await focusTerminal(win)
+    await win.keyboard.press('Meta+k')
+    await win.waitForTimeout(400)
+    await expect(palette(win)).toHaveCount(0)
+
+    await win.getByRole('button', { name: 'Toggle sidebar' }).focus()
     await win.keyboard.press('Meta+k')
     await expect(palette(win)).toBeVisible()
   } finally {
@@ -252,7 +264,7 @@ test('on macOS the app menu is named Ostia, its Settings item opens Settings, an
   }
 })
 
-test('on macOS the cmux keymap is opt-in: picking it makes ⌘D split the focused terminal', async () => {
+test('on macOS the cmux keymap is opt-in: picking it drops ⌘K for the palette, and ⌘D still splits the focused terminal', async () => {
   test.skip(!isMac, 'the cmux keymap is offered only on macOS')
   const app = await electron.launch(isolatedLaunch())
   try {
@@ -269,6 +281,7 @@ test('on macOS the cmux keymap is opt-in: picking it makes ⌘D split the focuse
     await win.getByRole('option', { name: 'macOS (cmux)' }).click()
     await expect(picker).toContainText('macOS (cmux)')
     await expect(paletteRow(win)).toContainText('⌘⇧P')
+    await expect(paletteRow(win)).not.toContainText('⌘K')
     await closeSettings(win)
 
     await focusTerminal(win)
