@@ -2331,7 +2331,7 @@ button.prompt-chip:focus-visible {
   place-items: center;
   border: none;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--fg) 10%, transparent);
+  background: transparent;
   color: var(--fg);
   transition-property: background-color;
   transition-duration: var(--motion-fast);
