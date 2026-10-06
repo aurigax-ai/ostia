@@ -328,6 +328,10 @@ export function chordsWithout(id: string, spec: ChordSpec, mac: boolean): string
     .map((bound) => formatChord(bound, mac))
 }
 
+export function terminalKeyConflicts(spec: ChordSpec, mac: boolean): string[] {
+  return conflictsWith('', spec, mac).filter((id) => !isBrowserChord(id))
+}
+
 export function bindableIds(): string[] {
   const ids = new Set<string>(Object.keys(DEFAULT_CHORDS))
   for (const c of commands.describe()) if (!c.hidden) ids.add(c.id)

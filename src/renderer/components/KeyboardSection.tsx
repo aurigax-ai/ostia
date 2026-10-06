@@ -1,4 +1,4 @@
-import { MagnifyingGlassIcon, MinusIcon, PlusIcon } from '@phosphor-icons/react'
+import { MagnifyingGlassIcon, MinusIcon, PlusIcon, WarningIcon } from '@phosphor-icons/react'
 import {
   type ChordProblem,
   type ChordSpec,
@@ -38,6 +38,7 @@ import {
   chordsOf,
   chordsWithout,
   conflictsWith,
+  terminalKeyConflicts,
   useBindings,
   workspaceDigit,
 } from '../lib/chords'
@@ -464,7 +465,7 @@ function TerminalKeyEditor({
       return
     }
     setProblem(null)
-    const commandsUsing = conflictsWith('', spec, isMac)
+    const commandsUsing = terminalKeyConflicts(spec, isMac)
     const found = terminalKeyFor(spec, isMac)
     const existing = found && found.signature !== previous?.signature ? found : null
     if (!replacing && (commandsUsing.length > 0 || existing)) {
@@ -558,7 +559,7 @@ function TerminalKeyLine({ row }: { row: TerminalKeyRow }): JSX.Element {
   const d = useDict()
   const [editing, setEditing] = useState(false)
   const keys = chordText(row.spec, isMac)
-  const shadowedBy = conflictsWith('', row.spec, isMac)[0]
+  const shadowedBy = terminalKeyConflicts(row.spec, isMac)[0]
   if (editing) {
     return (
       <TableRow className="hover:bg-transparent">
@@ -581,7 +582,8 @@ function TerminalKeyLine({ row }: { row: TerminalKeyRow }): JSX.Element {
       <TableCell className="py-1.5 align-top whitespace-normal">
         <Kbd>{keys}</Kbd>
         {shadowedBy ? (
-          <p className="mt-1 text-attn-fg text-ui-sm">
+          <p className="mt-1 flex items-center gap-1 text-ui-xs text-warn-fg">
+            <WarningIcon aria-hidden className="shrink-0" />
             {fmt(d.keyboard.shadowed, { command: commandTitle(shadowedBy, d) })}
           </p>
         ) : null}

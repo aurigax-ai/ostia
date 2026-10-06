@@ -37,6 +37,7 @@ import {
   matchChord,
   runAppChord,
   setKeybindingSetting,
+  terminalKeyConflicts,
   workspaceDigit,
   workspaceIndex,
 } from './chords'
@@ -595,6 +596,22 @@ describe('conflictsWith', () => {
     expect(conflictsWith('palette.toggle', spec('Ctrl+Shift+P'), false)).toEqual([])
     expect(conflictsWith('palette.toggle', spec('Ctrl+4'), false)).toEqual(['workspace.goto'])
     expect(conflictsWith('palette.toggle', spec('Ctrl+Shift+Y'), false)).toEqual([])
+  })
+})
+
+describe('terminalKeyConflicts', () => {
+  const spec = (text: string) =>
+    parseChord(text, false) as NonNullable<ReturnType<typeof parseChord>>
+
+  it('ignores browser chords, which never take a key from a terminal', () => {
+    expect(conflictsWith('', spec('Alt+Left'), false)).toEqual(['browser.back'])
+    expect(terminalKeyConflicts(spec('Alt+Left'), false)).toEqual([])
+    expect(terminalKeyConflicts(spec('Alt+Right'), false)).toEqual([])
+  })
+
+  it('names app and terminal chords that take the same key', () => {
+    expect(terminalKeyConflicts(spec('Ctrl+Shift+P'), false)).toEqual(['palette.toggle'])
+    expect(terminalKeyConflicts(spec('Ctrl+Shift+C'), false)).toEqual(['copy'])
   })
 })
 

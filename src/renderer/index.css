@@ -21,6 +21,7 @@
   --color-attn: #bf5f54;
   --color-attn-glow: rgba(191, 95, 84, 0.2);
   --color-attn-fg: #db8176;
+  --color-warn-fg: #e0a458;
   --color-on-attn: #e3edf5;
   --color-ok: #58c98c;
   --color-add: #58c98c;
@@ -76,6 +77,7 @@
   --attn: var(--color-attn);
   --attn-glow: var(--color-attn-glow);
   --attn-fg: var(--color-attn-fg);
+  --warn-fg: var(--color-warn-fg);
   --lock: var(--color-group-yellow);
   --on-attn: var(--color-on-attn);
   --ok: var(--color-ok);

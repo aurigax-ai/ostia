@@ -418,6 +418,18 @@ describe('KeyboardSection', () => {
     expect(screen.queryAllByRole('button', { name: /^Edit / })).toEqual([])
   })
 
+  it('flags no default Linux terminal key, though browser back and forward share Alt+arrows', () => {
+    render(<KeyboardSection />)
+    expect(screen.getByRole('button', { name: 'Edit Alt+←' })).toBeInTheDocument()
+    expect(screen.queryByText(/Key conflict with/)).toBeNull()
+  })
+
+  it('flags a terminal key an app chord takes first', () => {
+    useSettingsStore.setState({ terminalKeys: { 'Ctrl+Shift+P': { type: 'escape', value: 'p' } } })
+    render(<KeyboardSection />)
+    expect(within(row(/ESC p/)).getByText('Key conflict with Command Palette')).toBeInTheDocument()
+  })
+
   it('adds a key that sends text to the terminal, refusing keys that type, and removes it', async () => {
     render(<KeyboardSection />)
     await userEvent.click(screen.getByRole('button', { name: 'Add a terminal key' }))
