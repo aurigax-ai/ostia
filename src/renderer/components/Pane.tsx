@@ -285,6 +285,7 @@ export function Pane({ tabs, shownId, active, split = false }: PaneProps): JSX.E
               <IconButton
                 icon={TerminalWindowIcon}
                 label={d.pane.newTab}
+                command="tab.new"
                 onClick={() => commands.exec('tab.new', { paneId: shown.id })}
               />
               <IconButton
@@ -295,6 +296,7 @@ export function Pane({ tabs, shownId, active, split = false }: PaneProps): JSX.E
               <IconButton
                 icon={SquareSplitHorizontalIcon}
                 label={d.pane.splitRight}
+                command="pane.splitRight"
                 onClick={() =>
                   commands.exec('pane.split', { paneId: shown.id, direction: 'horizontal' })
                 }
@@ -302,6 +304,7 @@ export function Pane({ tabs, shownId, active, split = false }: PaneProps): JSX.E
               <IconButton
                 icon={SquareSplitVerticalIcon}
                 label={d.pane.splitDown}
+                command="pane.splitDown"
                 onClick={() =>
                   commands.exec('pane.split', { paneId: shown.id, direction: 'vertical' })
                 }
@@ -467,6 +470,7 @@ function PaneTab({
         <IconButton
           icon={XIcon}
           label={d.pane.closeTab}
+          command="pane.close"
           className="pane-tab-close hover:text-attn-fg"
           onClick={() => commands.exec('pane.close', { paneId: pane.id })}
         />
