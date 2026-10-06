@@ -31,7 +31,7 @@ function askedDialogs(app: ElectronApplication): Promise<AskedDialog[]> {
   )
 }
 
-test('SSH-C18 ostia ssh connect asks the human, then runs ssh in a new terminal beside the caller', async () => {
+for (const run of [...Array(15).keys()]) test(`SSH-C18 ostia ssh connect asks the human, then runs ssh in a new terminal beside the caller #${run}`, async () => {
   const dataHome = freshDataHome()
   const launch = isolatedLaunch(dataHome)
   const home = launch.env.HOME
