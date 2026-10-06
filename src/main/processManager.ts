@@ -439,7 +439,11 @@ export function registerProcessMethods(deps: ProcessDeps): ProcessRegistry {
   ): Promise<{ id: string; name: string; paneId: string } | typeof NOT_OPENED> => {
     const home = ctx.identity.workspaceId
     const workspaceId = givenWorkspace ?? home
-    if (!workspaceId) throw badRequest('workspace')
+    if (!workspaceId) {
+      throw badRequest(
+        'workspace: a script token has no workspace of its own; pass --workspace <id|name> (ostia workspace list), which needs all-workspaces on the token',
+      )
+    }
     const here = workspaceId === home
     if (!here) {
       await ensureCaps(

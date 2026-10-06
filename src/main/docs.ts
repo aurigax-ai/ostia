@@ -78,7 +78,9 @@ const CLI_HELP = `ostia — control-socket CLI
                                  your shell line is pasted as written and run by the tab's own
                                  shell (zsh or bash). Prints {id,name,paneId}; your pane keeps
                                  the focus. --workspace opens the tab in that workspace instead
-                                 (an id or a unique name from ostia workspace list); another
+                                 (an id, or a name from ostia workspace list: the name shown in
+                                 the rail first, then the folder name; a name two workspaces
+                                 share is refused with the candidates listed); another
                                  workspace needs all-workspaces
   ostia agent run <agent> [--name X] [--cwd P] [--workspace <id|name>] <prompt|->  start another agent (claude, codex or
                                  one the human configured) in a new terminal tab with that prompt
@@ -121,14 +123,19 @@ const CLI_HELP = `ostia — control-socket CLI
   ostia token create <name> --cap <capability>…  make a token for scripts outside Ostia
                                  (launchd jobs, cron, a dispatcher). It can hold only
                                  read-board, read-other-pane, type-other-pane, send-other-pane,
-                                 process and all-workspaces, asks the human first
+                                 process, kill-pane and all-workspaces, asks the human first
                                  (settings-write plus those capabilities) and is printed once.
                                  A script sets OSTIA_TOKEN to it; with OSTIA_SOCKET unset, ostia
                                  finds the socket in control.json in the app data folder.
                                  Scripts reach only pane.list, workspace.list, workspace.groups,
-                                 pane.read, pane.input, pane.rename, process.run and agent.run
-                                 (which must name a --workspace), never ask the human, and get
-                                 needs-elevation for a capability the token lacks
+                                 pane.read, pane.input, pane.rename, process.run, agent.run and
+                                 two commands: ostia workspace.new (all-workspaces) and
+                                 ostia pane.close '{"paneId":"<id from pane list>"}'
+                                 (all-workspaces plus kill-pane). They never ask the human and
+                                 get needs-elevation for a capability the token lacks.
+                                 A script has no workspace of its own: process run and agent run
+                                 must name one with --workspace, so opening a terminal needs
+                                 process and all-workspaces on the token
   ostia token list [--json]      the tokens (never their values)
   ostia token revoke <id>        delete a token; scripts using it are cut off at once
   ostia vault set <KEY> [--global]  store a secret (value read from stdin, no echo)

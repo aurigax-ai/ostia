@@ -333,7 +333,10 @@ describe('process.run from a script token', () => {
   it('has no workspace of its own, so it must name one', async () => {
     const conn = await client({ token: 'ostia_full' } as PaneIdentity)
     await expect(conn.sendRequest('process.run', { cmd: 'ls' })).rejects.toThrow(
-      'bad-request: workspace',
+      'bad-request: workspace: a script token has no workspace of its own; pass --workspace <id|name>',
+    )
+    await expect(conn.sendRequest('agent.run', { agent: 'claude', prompt: 'hi' })).rejects.toThrow(
+      'needs all-workspaces on the token',
     )
   })
 
