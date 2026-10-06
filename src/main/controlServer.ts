@@ -22,7 +22,7 @@ import type {
 import { type AuthedConn, authenticate, connHasCap } from './controlAuth'
 import { ensureCaps, needsElevation } from './controlElevation'
 import { type PaneIdentity, resolveExternal } from './idRegistry'
-import { socketPath } from './privateTmp'
+import { privateTmpDir, socketPath } from './privateTmp'
 
 export function controlSocketPath(): string {
   return socketPath(process.env.XDG_RUNTIME_DIR || tmpdir(), `${PRODUCT_NAME}-${process.pid}.sock`)
@@ -30,7 +30,7 @@ export function controlSocketPath(): string {
 
 export function keptControlSocketPath(userData: string): string {
   const digest = createHash('sha256').update(userData).digest('hex').slice(0, 16)
-  return socketPath(process.env.XDG_RUNTIME_DIR || tmpdir(), `${PRODUCT_NAME}-kept-${digest}.sock`)
+  return socketPath(privateTmpDir(`${PRODUCT_NAME}-kept`), `${digest}.sock`)
 }
 
 function unauthenticatedError(message: string): ResponseError<void> {
