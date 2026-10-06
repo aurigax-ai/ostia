@@ -3,11 +3,15 @@ import {
   CHORDS_PER_COMMAND_MAX,
   type ChordSpec,
   bindingProblem,
+  checkBinding,
   chordText,
   formatChord,
+  formatScopedChord,
   overlaps,
   parseChord,
   parseKeybindings,
+  parseScopedChord,
+  sameScope,
   specFromEvent,
   stealsTerminalKey,
   usedByMonaco,
@@ -224,6 +228,35 @@ describe('usedByMonaco', () => {
   })
 })
 
+describe('parseScopedChord', () => {
+  it('reads a terminal: prefix in any case and writes it back in one form', () => {
+    const spec = parseScopedChord(' Terminal:Cmd+K ', true)
+    expect(spec).toEqual({ ...chord('Cmd+K', true), terminal: true })
+    expect(formatScopedChord(spec as ChordSpec, true)).toBe('terminal:Cmd+K')
+    expect(parseScopedChord('Cmd+K', true)).toEqual(chord('Cmd+K', true))
+    expect(formatScopedChord(chord('Cmd+K', true), true)).toBe('Cmd+K')
+  })
+
+  it('refuses a prefix with no chord and any other prefix', () => {
+    expect(parseScopedChord('terminal:', true)).toBeNull()
+    expect(parseScopedChord('terminal:Ctrl+Nope', false)).toBeNull()
+    expect(parseScopedChord('editor:Cmd+K', true)).toBeNull()
+  })
+
+  it('tells chords of a terminal from chords of the whole window', () => {
+    const inTerminal = parseScopedChord('terminal:Cmd+D', true) as ChordSpec
+    expect(sameScope(inTerminal, chord('Cmd+D', true))).toBe(false)
+    expect(sameScope(inTerminal, parseScopedChord('terminal:Cmd+K', true) as ChordSpec)).toBe(true)
+    expect(sameScope(chord('Cmd+D', true), chord('Cmd+K', true))).toBe(true)
+  })
+
+  it('checks a prefixed binding by the chord after the prefix', () => {
+    expect(checkBinding('terminal.clear', 'terminal:Ctrl+Shift+K', false)).toBeNull()
+    expect(checkBinding('terminal.clear', 'terminal:Ctrl+K', false)).toBe('ctrl-key')
+    expect(checkBinding('terminal.clear', 'terminal:', false)).toBe('invalid')
+  })
+})
+
 describe('parseKeybindings', () => {
   it('keeps chord strings and nulls, and drops everything else', () => {
     const parsed = parseKeybindings(
@@ -238,12 +271,14 @@ describe('parseKeybindings', () => {
   it('keeps a list of chords, trimmed and without repeats, and drops the entries that do not parse', () => {
     const parsed = parseKeybindings({
       'tab.next': [' Ctrl+Tab ', 'Shift+Cmd+]', 'Ctrl+Tab', 'Ctrl+Nope', 7],
+      'pane.splitRight': ['terminal:Cmd+D', 'terminal:', 'Cmd+Alt+\\'],
       'view.zoomIn': ['Ctrl+Nope'],
       'view.zoomOut': [],
       find: Array.from({ length: 12 }, (_, i) => `Ctrl+F${i + 1}`),
     })
     expect({ ...parsed }).toEqual({
       'tab.next': ['Ctrl+Tab', 'Shift+Cmd+]'],
+      'pane.splitRight': ['terminal:Cmd+D', 'Cmd+Alt+\\'],
       find: Array.from({ length: CHORDS_PER_COMMAND_MAX }, (_, i) => `Ctrl+F${i + 1}`),
     })
   })

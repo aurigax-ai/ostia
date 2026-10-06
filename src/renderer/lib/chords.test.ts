@@ -2,10 +2,13 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   type ChordSpec,
+  TERMINAL_SCOPE,
   bindingProblem,
   chordTexts,
   formatChord,
+  formatScopedChord,
   parseChord,
+  parseScopedChord,
   stealsTerminalKey,
   usedByMonaco,
 } from '@shared/chordSpec'
@@ -27,6 +30,7 @@ import {
   chordLabel,
   chordsOf,
   chordsWithout,
+  chordsWithoutKey,
   conflictsWith,
   currentBindings,
   defaultChords,
@@ -35,6 +39,8 @@ import {
   isBrowserChord,
   isTerminalCommandChord,
   matchChord,
+  matchChordInTerminal,
+  matchTerminalChord,
   runAppChord,
   setKeybindingSetting,
   terminalKeyConflicts,
@@ -111,6 +117,17 @@ describe('matchChord', () => {
     expect(chordLabel('workspace.new', true)).toBe('⌘N')
   })
 
+  it('opens a new window with Cmd+Shift+N and Ctrl+Shift+Alt+N, leaving Ctrl+Shift+N to workspaces', () => {
+    const csa = { ctrlKey: true, shiftKey: true, altKey: true }
+    expect(matchChord(key('n', { metaKey: true, shiftKey: true }), true)).toBe('window.new')
+    expect(matchChord(key('N', csa), false)).toBe('window.new')
+    expect(matchChord(key('N', { ctrlKey: true, shiftKey: true }), false)).toBe('workspace.new')
+    expect(matchChord(key('n', { metaKey: true }), true)).toBe('workspace.new')
+    expect(isAppChord('window.new')).toBe(true)
+    expect(chordLabel('window.new', true)).toBe('⌘⇧N')
+    expect(chordLabel('window.new', false)).toBe('Ctrl+Shift+Alt+N')
+  })
+
   it('maps jump-to-latest-unread to Ctrl+Shift+U and Cmd+Shift+U as an app chord', () => {
     const ctrlShiftU = matchChord(key('U', { ctrlKey: true, shiftKey: true }), false)
     const cmdShiftU = matchChord(key('u', { metaKey: true, shiftKey: true }), true)
@@ -122,15 +139,16 @@ describe('matchChord', () => {
     expect(chordLabel('attention.jumpToLatest', true)).toBe('⌘⇧U')
   })
 
-  it('maps the dashboard to Ctrl+Shift+D and Cmd+Shift+D, leaving Ctrl+D to the shell', () => {
+  it('maps the dashboard to Ctrl+Shift+D, and to ⌥⌘D with ⇧⌘D kept on macOS, leaving Ctrl+D to the shell', () => {
     const ctrlShiftD = matchChord(key('D', { ctrlKey: true, shiftKey: true }), false)
-    const cmdShiftD = matchChord(key('d', { metaKey: true, shiftKey: true }), true)
+    const cmdAltD = matchChord({ ...key('∂', { metaKey: true, altKey: true }), code: 'KeyD' }, true)
     expect(ctrlShiftD).toBe('dashboard.toggle')
-    expect(cmdShiftD).toBe('dashboard.toggle')
+    expect(cmdAltD).toBe('dashboard.toggle')
+    expect(matchChord(key('d', { metaKey: true, shiftKey: true }), true)).toBe('dashboard.toggle')
     expect(isAppChord(ctrlShiftD)).toBe(true)
     expect(matchChord(key('d', { ctrlKey: true }), false)).toBeNull()
     expect(chordLabel('dashboard.toggle', false)).toBe('Ctrl+Shift+D')
-    expect(chordLabel('dashboard.toggle', true)).toBe('⌘⇧D')
+    expect(chordLabel('dashboard.toggle', true)).toBe('⌥⌘D')
   })
 
   it('maps send selection to Ctrl+Shift+E and Cmd+Shift+E, leaving Ctrl+E to the shell', () => {
@@ -148,6 +166,7 @@ describe('matchChord', () => {
   it('maps bare Cmd chords on macOS and ignores Ctrl there', () => {
     const cmd = { metaKey: true }
     expect(matchChord(key('k', cmd), true)).toBe('palette.toggle')
+    expect(matchChord(key('b', cmd), true)).toBe('view.toggleRail')
     expect(matchChord(key('\\', cmd), true)).toBe('view.toggleRail')
     expect(matchChord(key(',', cmd), true)).toBe('app.openSettings')
     expect(matchChord(key('f', cmd), true)).toBe('find')
@@ -212,7 +231,7 @@ describe('isAppChord', () => {
 
 describe('chordLabel', () => {
   it('labels chords per platform', () => {
-    expect(chordLabel('palette.toggle', true)).toBe('⌘K')
+    expect(chordLabel('palette.toggle', true)).toBe('⌘⇧P')
     expect(chordLabel('palette.toggle', false)).toBe('Ctrl+Shift+P')
     expect(chordLabel('find', false)).toBe('Ctrl+Shift+F')
   })
@@ -387,27 +406,31 @@ describe('the macOS keymap that follows cmux', () => {
   it('names only app commands Ostia ships, each with a chord that loads on macOS', () => {
     expect(parsed.ok && parsed.skipped).toEqual([])
     const shipped = [...Object.keys(DEFAULT_CHORDS), ...Object.keys(en.commands.titles)]
-    for (const [id, text] of Object.entries(raw.bindings as Record<string, string>)) {
+    for (const [id, value] of Object.entries(raw.bindings as KeybindingMap)) {
       expect(shipped, id).toContain(id)
       expect(isAppChord(id), id).toBe(true)
-      expect(checkBinding(id, text, true), id).toBeNull()
+      for (const text of value === null ? [] : chordTexts(value)) {
+        expect(checkBinding(id, text, true), id).toBeNull()
+      }
     }
   })
 
   it('leaves no two commands on one chord on macOS', () => {
     useKeymap(bindings)
-    const { byId, bySignature } = currentBindings(true)
+    const { byId, bySignature, terminalBySignature } = currentBindings(true)
     for (const [id, text] of Object.entries(bindings)) {
-      const expected = text === null ? undefined : chordTexts(text).map((t) => chord(t, true))
+      const expected =
+        text === null ? undefined : chordTexts(text).map((t) => parseScopedChord(t, true))
       expect(byId.get(id), id).toEqual(expected)
     }
     for (const [id, specs] of byId) {
       for (const spec of specs) expect(conflictsWith(id, spec, true), id).toEqual([])
     }
-    expect(bySignature.size).toBe([...byId.values()].flat().length)
+    const indexed = bySignature.size + terminalBySignature.size
+    expect(indexed).toBe([...byId.values()].flat().length)
   })
 
-  it('binds cmux’s shortcuts and moves the dashboard off ⇧⌘D', () => {
+  it('binds cmux’s shortcuts, the pane keys in a terminal only, and leaves ⇧⌘D to split down', () => {
     useKeymap(bindings)
     const cmd = { metaKey: true }
     const cmdShift = { metaKey: true, shiftKey: true }
@@ -415,21 +438,26 @@ describe('the macOS keymap that follows cmux', () => {
     expect(matchChord(key('P', cmdShift), true)).toBe('palette.toggle')
     expect(matchChord(key('b', cmd), true)).toBe('view.toggleRail')
     expect(matchChord(key('n', cmd), true)).toBe('workspace.new')
-    expect(matchChord(key('d', cmd), true)).toBe('pane.splitRight')
-    expect(matchChord(key('D', cmdShift), true)).toBe('pane.splitDown')
-    expect(matchChord(key('ArrowLeft', cmdAlt), true)).toBe('pane.focusLeft')
-    expect(matchChord(key('ArrowRight', cmdAlt), true)).toBe('pane.focusRight')
-    expect(matchChord(key('ArrowUp', cmdAlt), true)).toBe('pane.focusUp')
-    expect(matchChord(key('ArrowDown', cmdAlt), true)).toBe('pane.focusDown')
-    expect(matchChord({ ...key('Enter', cmdShift), code: 'Enter' }, true)).toBe('pane.zoom')
+    expect(matchChordInTerminal(key('d', cmd), true)).toBe('pane.splitRight')
+    expect(matchChordInTerminal(key('D', cmdShift), true)).toBe('pane.splitDown')
+    expect(matchChordInTerminal(key('ArrowLeft', cmdAlt), true)).toBe('pane.focusLeft')
+    expect(matchChordInTerminal(key('ArrowRight', cmdAlt), true)).toBe('pane.focusRight')
+    expect(matchChordInTerminal(key('ArrowUp', cmdAlt), true)).toBe('pane.focusUp')
+    expect(matchChordInTerminal(key('ArrowDown', cmdAlt), true)).toBe('pane.focusDown')
+    const cmdShiftEnter = { ...key('Enter', cmdShift), code: 'Enter' }
+    expect(matchChordInTerminal(cmdShiftEnter, true)).toBe('pane.zoom')
     expect(matchChord({ ...key('∂', cmdAlt), code: 'KeyD' }, true)).toBe('dashboard.toggle')
+    expect(matchChord(key('D', cmdShift), true)).toBeNull()
     expect(matchChord(key('k', cmd), true)).toBeNull()
+    expect(matchTerminalChord(key('k', cmd), true)).toBe('terminal.clear')
+    expect(matchTerminalChord(key('K', cmdShift), true)).toBe('terminal.clear')
     expect(matchChord(key('t', cmd), true)).toBe('tab.new')
   })
 
   it('changes nothing until it is the chosen keymap', () => {
     expect(chordLabel('pane.splitRight', true)).toBe('⌥⌘\\')
-    expect(matchChord(key('d', { metaKey: true }), true)).toBeNull()
+    expect(matchChord(key('k', { metaKey: true }), true)).toBe('palette.toggle')
+    expect(matchTerminalChord(key('K', { metaKey: true, shiftKey: true }), true)).toBeNull()
   })
 })
 
@@ -453,11 +481,12 @@ describe('the macOS keymap that follows iTerm2', () => {
 
   it('leaves no two commands on one chord on macOS', () => {
     useKeymap(bindings)
-    const { byId, bySignature } = currentBindings(true)
+    const { byId, bySignature, terminalBySignature } = currentBindings(true)
     for (const [id, specs] of byId) {
       for (const spec of specs) expect(conflictsWith(id, spec, true), id).toEqual([])
     }
-    expect(bySignature.size).toBe([...byId.values()].flat().length)
+    const indexed = bySignature.size + terminalBySignature.size
+    expect(indexed).toBe([...byId.values()].flat().length)
   })
 
   it('scrolls a line with ⌘↑ ⌘↓, keeps blocks on ⇧⌘↑ ⇧⌘↓ and leaves ⌘← ⌘→ to the line ends', () => {
@@ -522,13 +551,35 @@ describe('commands with several chords', () => {
     ])
   })
 
-  it('leave the defaults as single chords, except two for the Linux tab and browser keys', () => {
-    const twoOnLinux = ['tab.next', 'tab.previous', 'browser.focusAddress', 'browser.reload']
-    for (const id of Object.keys(DEFAULT_CHORDS)) {
-      expect(defaultChords(id, true).length, `${id} true`).toBeLessThanOrEqual(1)
-      const linux = defaultChords(id, false).length
-      if (twoOnLinux.includes(id)) expect(linux, id).toBe(2)
-      else expect(linux, id).toBeLessThanOrEqual(1)
+  it('give a default several chords only where an old key stays next to a new one', () => {
+    const several = (mac: boolean) =>
+      Object.keys(DEFAULT_CHORDS).filter((id) => defaultChords(id, mac).length > 1)
+    expect(several(true)).toEqual([
+      'palette.toggle',
+      'view.toggleRail',
+      'view.zoomIn',
+      'dashboard.toggle',
+      'pane.splitRight',
+      'pane.splitDown',
+      'pane.focusLeft',
+      'pane.focusRight',
+      'pane.focusUp',
+      'pane.focusDown',
+      'pane.zoom',
+      'tab.next',
+      'tab.previous',
+    ])
+    expect(several(false)).toEqual([
+      'pane.zoom',
+      'tab.next',
+      'tab.previous',
+      'browser.focusAddress',
+      'browser.reload',
+    ])
+    for (const mac of [true, false]) {
+      for (const id of Object.keys(DEFAULT_CHORDS)) {
+        expect(defaultChords(id, mac).length, `${id} ${mac}`).toBeLessThanOrEqual(2)
+      }
     }
   })
 })
@@ -616,6 +667,18 @@ describe('terminalKeyConflicts', () => {
     expect(terminalKeyConflicts(spec('Ctrl+Shift+P'), false)).toEqual(['palette.toggle'])
     expect(terminalKeyConflicts(spec('Ctrl+Shift+C'), false)).toEqual(['copy'])
   })
+
+  it('names a command that takes the key only in a terminal first, since it wins there', () => {
+    expect(terminalKeyConflicts(spec('Ctrl+Shift+K'), false)).toEqual(['terminal.clear'])
+    const cmdK = parseChord('Cmd+K', true) as ChordSpec
+    expect(terminalKeyConflicts(cmdK, true)).toEqual(['terminal.clear', 'palette.toggle'])
+  })
+
+  it('lets a terminal key take a chord from a command in either scope', () => {
+    const cmdD = parseChord('Cmd+D', true) as ChordSpec
+    expect(chordsWithout('pane.splitRight', cmdD, true)).toEqual(['terminal:Cmd+D', 'Alt+Cmd+\\'])
+    expect(chordsWithoutKey('pane.splitRight', cmdD, true)).toEqual(['Alt+Cmd+\\'])
+  })
 })
 
 describe('bindableIds', () => {
@@ -676,6 +739,10 @@ describe('setKeybindingSetting', () => {
 })
 
 describe('DEFAULT_CHORDS', () => {
+  const MAC_SHADOWED = [
+    'terminal:Cmd+K terminal.clear over palette.toggle',
+    'terminal:Shift+Cmd+D pane.splitDown over dashboard.toggle',
+  ]
   const PANE_WORK = [
     'pane.splitRight',
     'pane.splitDown',
@@ -693,6 +760,7 @@ describe('DEFAULT_CHORDS', () => {
     for (const mac of [false, true]) {
       const { byId } = effectiveBindings({}, mac)
       const seen = new Map<string, string>()
+      const shadowed: string[] = []
       for (const id of Object.keys(DEFAULT_CHORDS)) {
         const specs = byId.get(id) ?? []
         const text = DEFAULT_CHORDS[id as keyof typeof DEFAULT_CHORDS][mac ? 0 : 1]
@@ -702,12 +770,20 @@ describe('DEFAULT_CHORDS', () => {
         }
         for (const spec of specs) {
           expect(bindingProblem(id, spec, mac), id).toBeNull()
-          if (PANE_WORK.includes(id)) expect(usedByMonaco(spec, mac), id).toBe(false)
-          const signature = formatChord(spec, mac)
+          if (PANE_WORK.includes(id) && !spec.terminal) {
+            expect(usedByMonaco(spec, mac), id).toBe(false)
+          }
+          const signature = formatScopedChord(spec, mac)
           expect(seen.get(signature), `${id} vs ${seen.get(signature)}`).toBeUndefined()
           seen.set(signature, id)
         }
       }
+      for (const [signature, id] of seen) {
+        const scope = signature.startsWith(TERMINAL_SCOPE)
+        const outside = scope ? seen.get(signature.slice(TERMINAL_SCOPE.length)) : undefined
+        if (outside) shadowed.push(`${signature} ${id} over ${outside}`)
+      }
+      expect(shadowed).toEqual(mac ? MAC_SHADOWED : [])
     }
   })
 
@@ -762,6 +838,97 @@ describe('scroll and tab move chords', () => {
     ]) {
       expect(matchChord(event, false), JSON.stringify(event)).toBeNull()
     }
+  })
+})
+
+describe('chords that act only in a terminal', () => {
+  const cmd = { metaKey: true }
+  const cmdShift = { metaKey: true, shiftKey: true }
+  const cs = { ctrlKey: true, shiftKey: true }
+  const scoped = (text: string, mac: boolean): ChordSpec => {
+    const spec = parseScopedChord(text, mac)
+    if (!spec) throw new Error(`not a chord: ${text}`)
+    return spec
+  }
+
+  it('clear the screen with ⌘K in a terminal, open the palette with ⌘K elsewhere and ⇧⌘P anywhere', () => {
+    expect(matchChordInTerminal(key('k', cmd), true)).toBe('terminal.clear')
+    expect(matchChord(key('k', cmd), true)).toBe('palette.toggle')
+    expect(matchChordInTerminal(key('P', cmdShift), true)).toBe('palette.toggle')
+    expect(matchChord(key('P', cmdShift), true)).toBe('palette.toggle')
+    expect(isAppChord('terminal.clear')).toBe(true)
+    expect(chordLabel('terminal.clear', true)).toBe('⌘K')
+  })
+
+  it('split, move focus and zoom with cmux’s keys in a terminal and keep the old keys everywhere', () => {
+    const cmdAlt = { metaKey: true, altKey: true }
+    const cmdCtrl = { metaKey: true, ctrlKey: true }
+    expect(matchTerminalChord(key('d', cmd), true)).toBe('pane.splitRight')
+    expect(matchChord(key('d', cmd), true)).toBeNull()
+    expect(matchTerminalChord(key('D', cmdShift), true)).toBe('pane.splitDown')
+    expect(matchTerminalChord(key('ArrowLeft', cmdAlt), true)).toBe('pane.focusLeft')
+    expect(matchChord(key('ArrowLeft', cmdAlt), true)).toBeNull()
+    const cmdShiftEnter = { ...key('Enter', cmdShift), code: 'Enter' }
+    expect(matchTerminalChord(cmdShiftEnter, true)).toBe('pane.zoom')
+    expect(matchChord(cmdShiftEnter, true)).toBeNull()
+    expect(matchChord(key('\\', cmdAlt), true)).toBe('pane.splitRight')
+    expect(matchChord({ ...key('–', cmdAlt), code: 'Minus' }, true)).toBe('pane.splitDown')
+    expect(matchChord(key('ArrowLeft', cmdCtrl), true)).toBe('pane.focusLeft')
+    expect(matchChord(key('X', cmdShift), true)).toBe('pane.zoom')
+    expect(chordLabel('pane.splitRight', true)).toBe('⌥⌘\\')
+  })
+
+  it('switch tabs with ⇧⌘[ ⇧⌘] next to ⌃Tab and zoom in with ⌘+ next to ⌘= on macOS', () => {
+    const next = { ...key('}', cmdShift), code: 'BracketRight' }
+    const previous = { ...key('{', cmdShift), code: 'BracketLeft' }
+    expect(matchChord(next, true)).toBe('tab.next')
+    expect(matchChord(previous, true)).toBe('tab.previous')
+    expect(matchChord(key('Tab', { ctrlKey: true }), true)).toBe('tab.next')
+    expect(matchChord(key('Tab', { ctrlKey: true, shiftKey: true }), true)).toBe('tab.previous')
+    expect(matchChord({ ...key('+', cmdShift), code: 'Equal' }, true)).toBe('view.zoomIn')
+    expect(matchChord({ ...key('=', cmd), code: 'Equal' }, true)).toBe('view.zoomIn')
+    expect(chordLabel('view.toggleRail', true)).toBe('⌘B')
+  })
+
+  it('clear with Ctrl+Shift+K and zoom with Ctrl+Shift+Enter in a Linux terminal', () => {
+    expect(matchTerminalChord(key('K', cs), false)).toBe('terminal.clear')
+    expect(matchChord(key('K', cs), false)).toBeNull()
+    const ctrlShiftEnter = { ...key('Enter', cs), code: 'Enter' }
+    expect(matchTerminalChord(ctrlShiftEnter, false)).toBe('pane.zoom')
+    expect(matchChord(ctrlShiftEnter, false)).toBeNull()
+    expect(matchChord(key('X', cs), false)).toBe('pane.zoom')
+    expect(chordLabel('pane.zoom', false)).toBe('Ctrl+Shift+X')
+    expect(chordLabel('terminal.clear', false)).toBe('Ctrl+Shift+K')
+  })
+
+  it('stay out of the window handler, so the editor and other panels keep the key', () => {
+    const preventDefault = vi.fn()
+    expect(runAppChord({ ...key('d', cmd), preventDefault }, true)).toBe(false)
+    expect(runAppChord({ ...key('K', cs), preventDefault }, false)).toBe(false)
+    expect(preventDefault).not.toHaveBeenCalled()
+  })
+
+  it('take the prefix from a user binding, and an unprefixed chord works everywhere', () => {
+    bind({ 'terminal.clear': 'terminal:Ctrl+Alt+K', 'pane.zoom': 'Ctrl+Alt+Z' })
+    const ca = { ctrlKey: true, altKey: true }
+    expect(matchTerminalChord(key('k', ca), false)).toBe('terminal.clear')
+    expect(matchChord(key('k', ca), false)).toBeNull()
+    expect(matchChord(key('z', ca), false)).toBe('pane.zoom')
+    expect(matchTerminalChord(key('K', cs), false)).toBeNull()
+    expect(matchChordInTerminal({ ...key('Enter', cs), code: 'Enter' }, false)).toBeNull()
+    expect(checkBinding('terminal.clear', 'terminal:Ctrl+R', false)).toBe('ctrl-key')
+  })
+
+  it('conflict only with chords of the same scope', () => {
+    expect(conflictsWith('find', scoped('terminal:Cmd+K', true), true)).toEqual(['terminal.clear'])
+    expect(conflictsWith('find', scoped('Cmd+K', true), true)).toEqual(['palette.toggle'])
+    expect(conflictsWith('find', scoped('terminal:Cmd+Alt+\\', true), true)).toEqual([])
+    expect(chordsWithout('pane.splitRight', scoped('Cmd+Alt+\\', true), true)).toEqual([
+      'terminal:Cmd+D',
+    ])
+    expect(chordsWithout('pane.splitRight', scoped('terminal:Cmd+D', true), true)).toEqual([
+      'Alt+Cmd+\\',
+    ])
   })
 })
 
@@ -871,7 +1038,6 @@ describe('Linux tab, browser and quit chords', () => {
     expect(matchChord(key('PageDown', ctrl), true)).toBeNull()
     expect(matchChord(key('PageUp', ctrl), true)).toBeNull()
     expect(matchChord(key('q', ctrlShift), true)).toBeNull()
-    expect(chordsOf('tab.next', true)).toHaveLength(1)
     expect(chordLabel('app.quit', true)).toBeNull()
   })
 

@@ -6,6 +6,7 @@ export interface ChordSpec {
   alt: boolean
   meta: boolean
   key: string
+  terminal?: boolean
 }
 
 export interface KeyLike {
@@ -283,8 +284,25 @@ export function bindingProblem(id: string, spec: ChordSpec, mac: boolean): Chord
   return isRange === (id === WORKSPACE_GOTO) ? null : 'digit-range'
 }
 
+export const TERMINAL_SCOPE = 'terminal:'
+
+export function parseScopedChord(text: string, mac: boolean): ChordSpec | null {
+  const trimmed = text.trim()
+  const terminal = trimmed.toLowerCase().startsWith(TERMINAL_SCOPE)
+  const spec = parseChord(terminal ? trimmed.slice(TERMINAL_SCOPE.length) : trimmed, mac)
+  return spec && terminal ? { ...spec, terminal: true } : spec
+}
+
+export function formatScopedChord(spec: ChordSpec, mac: boolean): string {
+  return `${spec.terminal ? TERMINAL_SCOPE : ''}${formatChord(spec, mac)}`
+}
+
+export function sameScope(a: ChordSpec, b: ChordSpec): boolean {
+  return Boolean(a.terminal) === Boolean(b.terminal)
+}
+
 export function checkBinding(id: string, text: string, mac: boolean): ChordProblem | null {
-  const spec = parseChord(text, mac)
+  const spec = parseScopedChord(text, mac)
   return spec ? bindingProblem(id, spec, mac) : 'invalid'
 }
 
@@ -332,7 +350,7 @@ export function usedByMonaco(spec: ChordSpec, mac: boolean): boolean {
 }
 
 const parsesSomewhere = (text: string): boolean =>
-  parseChord(text, true) !== null || parseChord(text, false) !== null
+  parseScopedChord(text, true) !== null || parseScopedChord(text, false) !== null
 
 export function parseChordValue(value: unknown): ChordValue | null {
   if (typeof value === 'string') return parsesSomewhere(value) ? value.trim() : null
