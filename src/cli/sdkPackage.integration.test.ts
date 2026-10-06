@@ -477,7 +477,9 @@ describe('the SDK package, used the way an extension author uses it', () => {
       const pkg = JSON.parse(readFileSync(join(made, 'package.json'), 'utf8'))
       expect(pkg.name).toBe('ostia-extension-weather-report')
       expect(pkg.scripts.validate).toContain('ostia-extension validate dist/weather-report')
-      expect(pkg.devDependencies['@aurigax-ai/ostia-extension-sdk']).toMatch(/^\^\d+\.\d+\.\d+$/)
+      expect(pkg.devDependencies['@aurigax-ai/ostia-extension-sdk']).toMatch(
+        /^\^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/,
+      )
       expect(readFileSync(join(made, '.gitignore'), 'utf8')).toBe('node_modules\ndist\n')
       expect(readdirSync(join(made, 'src'))).toEqual(['main.ts'])
       const catalog = JSON.parse(readFileSync(join(made, 'locales/zh-Hant.json'), 'utf8'))
