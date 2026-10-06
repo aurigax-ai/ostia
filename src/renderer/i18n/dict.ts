@@ -2713,7 +2713,7 @@ export const en = {
     experimental: 'Experimental',
     terminalRenderer: 'Terminal engine',
     terminalRendererDesc:
-      'Terminals opened from now on use this engine. Ghostty is a plain terminal for now: no blocks, input editor, find, command attention or Files following the folder.',
+      'Terminals opened from now on use this engine. Ghostty has no find yet, ignores the GPU acceleration, font weight, line height and contrast settings, and opens web links in your browser.',
     rendererXterm: 'xterm.js',
     rendererGhostty: 'Ghostty',
     ghosttyFailed: 'Ghostty could not start: {reason}',
@@ -5411,7 +5411,7 @@ export const zhHant: Dict = {
     experimental: '實驗性',
     terminalRenderer: '終端機引擎',
     terminalRendererDesc:
-      '此後開啟的終端機使用此引擎。Ghostty 目前是純終端機：沒有區塊、輸入編輯器、尋找、指令提醒，Files 也不會跟隨資料夾。',
+      '此後開啟的終端機使用此引擎。Ghostty 目前還不能尋找，會忽略 GPU 加速、字重、行高與對比設定，並在你的瀏覽器中開啟網頁連結。',
     rendererXterm: 'xterm.js',
     rendererGhostty: 'Ghostty',
     ghosttyFailed: 'Ghostty 無法啟動：{reason}',

@@ -444,9 +444,9 @@ export const SETTINGS_JSON_SCHEMA = {
           type: 'string',
           enum: ['xterm', 'ghostty'],
           description:
-            'Experimental. Engine that draws terminals opened from now on. "ghostty" uses ' +
-            "Ghostty's emulator (ghostty-web) and is a plain terminal: no blocks, input editor, " +
-            'find, command attention or Files following the folder. Default: "xterm".',
+            'Experimental. Engine that draws terminals opened from now on. "ghostty" runs ' +
+            "Ghostty's own emulator (libghostty-vt); it has no find yet and ignores the GPU, " +
+            'font weight, line height and contrast settings. Default: "xterm".',
         },
         keepShells: {
           type: 'boolean',

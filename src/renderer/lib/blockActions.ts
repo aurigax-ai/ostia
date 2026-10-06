@@ -1,4 +1,3 @@
-import type { Terminal } from '@xterm/xterm'
 import { type CommandBlock, useBlocksStore } from '../stores/blocksStore'
 import { readBufferText } from './blockText'
 import {
@@ -8,6 +7,7 @@ import {
   scrollTargetFor,
   stepSelection,
 } from './blocks'
+import type { OstiaTerminal as Terminal } from './ostiaTerminal'
 import { inputEditorFor, terminalFor } from './terminalHandles'
 
 export type BlockPart = 'command' | 'output' | 'both'

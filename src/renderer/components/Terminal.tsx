@@ -3,9 +3,10 @@ import { FitAddon } from '@xterm/addon-fit'
 import { SearchAddon } from '@xterm/addon-search'
 import { Unicode11Addon } from '@xterm/addon-unicode11'
 import { WebLinksAddon } from '@xterm/addon-web-links'
-import { type FontWeight, type IBufferRange, type IMarker, Terminal as Xterm } from '@xterm/xterm'
+import { type FontWeight, type IBufferRange, Terminal as Xterm } from '@xterm/xterm'
 import { keptShellReattached } from '../lib/autoResume'
 import { silenceQueryReplies } from '../lib/tmuxQueries'
+import type { TerminalRenderer } from '../settings/terminalPaneSettings'
 import '@xterm/xterm/css/xterm.css'
 import { isNativeClipboardKey } from '@shared/chordSpec'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -41,6 +42,7 @@ import {
 } from '../lib/clipboardKeys'
 import { currentScheme, terminalTheme, useScheme } from '../lib/colorScheme'
 import { acceptsPathDrop, droppedPaths, pathsAsInput } from '../lib/dropPaths'
+import { ghosttyModule, loadGhostty } from '../lib/ghosttyEngine'
 import { terminalKeyData } from '../lib/keyPresets'
 import {
   type LinkKind,
@@ -53,6 +55,12 @@ import {
 import { openFileAt } from '../lib/openFile'
 import { isLocalHost, parseOsc7 } from '../lib/osc7'
 import { registerOsc52 } from '../lib/osc52'
+import {
+  type OstiaTerminal,
+  type TerminalMarker,
+  type TerminalOptions,
+  terminalScreen,
+} from '../lib/ostiaTerminal'
 import { forgetPaneActivity, markPaneActivity } from '../lib/paneActivity'
 import { terminalNotification } from '../lib/paneAgent'
 import { commitProgramTitle, commitShellTitle } from '../lib/paneTitle'
@@ -86,7 +94,6 @@ import { useSandboxStore } from '../stores/sandboxStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { AssistComposer } from './AssistComposer'
 import { Blocks } from './Blocks'
-import { GhosttyTerminalView } from './GhosttyTerminal'
 import { InputEditor } from './InputEditor'
 import { RiskyPasteDialog } from './RiskyPasteDialog'
 import { useSelectionSend } from './SelectionSend'
@@ -104,19 +111,51 @@ interface TerminalViewProps {
   cwd?: string
 }
 
-export function TerminalView(props: TerminalViewProps): JSX.Element {
-  const [renderer] = useState(() => useSettingsStore.getState().terminal.renderer)
-  return renderer === 'ghostty' ? (
-    <GhosttyTerminalView {...props} />
-  ) : (
-    <XtermTerminalView {...props} />
-  )
+interface TerminalFit {
+  fit(): void
+  proposeDimensions(): { cols: number; rows: number } | undefined
 }
 
-function XtermTerminalView({ workspaceId, paneId, cwd }: TerminalViewProps): JSX.Element {
+export function TerminalView(props: TerminalViewProps): JSX.Element {
+  const [engine] = useState<TerminalRenderer>(() => useSettingsStore.getState().terminal.renderer)
+  const [ready, setReady] = useState(() => engine !== 'ghostty' || ghosttyModule() !== null)
+  const [failure, setFailure] = useState<string | null>(null)
+  useEffect(() => {
+    if (ready) return
+    let live = true
+    loadGhostty()
+      .then(() => {
+        if (live) setReady(true)
+      })
+      .catch((err: unknown) => {
+        if (live) setFailure(err instanceof Error ? err.message : String(err))
+      })
+    return () => {
+      live = false
+    }
+  }, [ready])
+  if (failure) {
+    return (
+      <div className="terminal-surface">
+        <p role="alert" className="ghostty-failure text-fg-muted text-ui-sm">
+          {fmt(currentDict().settings.ghosttyFailed, { reason: failure })}
+        </p>
+      </div>
+    )
+  }
+  if (!ready) return <div className="terminal-surface" />
+  return <TerminalSurface engine={engine} {...props} />
+}
+
+function TerminalSurface({
+  engine,
+  workspaceId,
+  paneId,
+  cwd,
+}: TerminalViewProps & { engine: TerminalRenderer }): JSX.Element {
   const hostRef = useRef<HTMLDivElement>(null)
   const surfaceRef = useRef<HTMLDivElement>(null)
-  const termRef = useRef<Xterm | null>(null)
+  const termRef = useRef<OstiaTerminal | null>(null)
   const lastSizeRef = useRef({ cols: 0, rows: 0 })
   const syncSizeRef = useRef<() => void>(() => {})
   const spawnCwd = useRef(cwd)
@@ -166,7 +205,7 @@ function XtermTerminalView({ workspaceId, paneId, cwd }: TerminalViewProps): JSX
     const initial = useSettingsStore.getState().appearance.terminal
     const behavior = useSettingsStore.getState().behavior
     const terminalSettings = useSettingsStore.getState().terminal
-    const term = new Xterm({
+    const options: TerminalOptions = {
       theme: terminalTheme(currentScheme('terminal').colors),
       fontFamily: terminalFontStack(initial.family),
       fontSize: initial.size,
@@ -178,12 +217,9 @@ function XtermTerminalView({ workspaceId, paneId, cwd }: TerminalViewProps): JSX
       scrollSensitivity: terminalSettings.scrollSpeed,
       minimumContrastRatio: terminalSettings.minimumContrast,
       macOptionIsMeta: terminalSettings.macOptionIsMeta,
-      allowProposedApi: true,
-    })
-    const fit = new FitAddon()
-    term.loadAddon(fit)
-    term.loadAddon(new Unicode11Addon())
-    term.unicode.activeVersion = '11'
+    }
+    let term: OstiaTerminal
+    let fit: TerminalFit
     let hoveredLink = false
     let linkHintTimer: ReturnType<typeof setTimeout> | null = null
     const showLinkHint = (kind: LinkKind, range: IBufferRange): void => {
@@ -216,29 +252,47 @@ function XtermTerminalView({ workspaceId, paneId, cwd }: TerminalViewProps): JSX
         window.open(uri, '_blank')
       }
     }
-    term.options.linkHandler = {
-      activate: openWebLink,
-      hover: (_e, _text, range) => showLinkHint('web', range),
-      leave: hideLinkHint,
-    }
-    term.loadAddon(
-      new WebLinksAddon(openWebLink, {
+    let searchAddon: SearchAddon | null = null
+    let silenceReplies: () => { dispose(): void }
+    const ghostty = engine === 'ghostty' ? ghosttyModule() : null
+    if (ghostty) {
+      const created = ghostty.createGhosttyTerminal(options)
+      term = created.term
+      fit = created.fit
+      silenceReplies = created.silenceQueryReplies
+    } else {
+      const xterm = new Xterm({ ...options, allowProposedApi: true })
+      const xtermFit = new FitAddon()
+      xterm.loadAddon(xtermFit)
+      xterm.loadAddon(new Unicode11Addon())
+      xterm.unicode.activeVersion = '11'
+      xterm.options.linkHandler = {
+        activate: openWebLink,
         hover: (_e, _text, range) => showLinkHint('web', range),
         leave: hideLinkHint,
-      }),
-    )
-    const searchAddon = new SearchAddon()
-    term.loadAddon(searchAddon)
-    term.open(host)
-    if (behavior.gpuAcceleration) loadWebglRenderer(term)
+      }
+      xterm.loadAddon(
+        new WebLinksAddon(openWebLink, {
+          hover: (_e, _text, range) => showLinkHint('web', range),
+          leave: hideLinkHint,
+        }),
+      )
+      searchAddon = new SearchAddon()
+      xterm.loadAddon(searchAddon)
+      xterm.open(host)
+      if (behavior.gpuAcceleration) loadWebglRenderer(xterm)
+      term = xterm
+      fit = xtermFit
+      silenceReplies = () => silenceQueryReplies(xterm)
+    }
+    if (ghostty) term.open(host)
     attachWheelReports(term, () => measureCells(host, term)?.height ?? 0, isLinux)
     const detachWheelZoom = attachWheelZoom(host, 'terminal', isMac)
     const detachLinkModifier = attachLinkModifier(host, isMac)
-    const linkScreen = host.querySelector('.xterm-screen')
-    const detachLinkClaim =
-      linkScreen instanceof HTMLElement
-        ? attachLinkClaim(linkScreen, (e) => hoveredLink && linkModifierHeld(e, isMac))
-        : () => {}
+    const linkScreen = terminalScreen(host)
+    const detachLinkClaim = linkScreen
+      ? attachLinkClaim(linkScreen, (e) => hoveredLink && linkModifierHeld(e, isMac))
+      : () => {}
     termRef.current = term
     setSearch(searchAddon)
     const unregisterTerminal = registerTerminal(paneId, term)
@@ -372,8 +426,8 @@ function XtermTerminalView({ workspaceId, paneId, cwd }: TerminalViewProps): JSX
 
     const cwdRef = { current: spawnCwd.current ?? null }
     let remote = false
-    let promptMarker: IMarker | undefined
-    const markers = new Set<IMarker>()
+    let promptMarker: TerminalMarker | undefined
+    const markers = new Set<TerminalMarker>()
     const anchor = (): LineAnchor => {
       const marker = term.registerMarker(0)
       if (!marker) return { line: term.buffer.active.baseY + term.buffer.active.cursorY }
@@ -617,7 +671,7 @@ function XtermTerminalView({ workspaceId, paneId, cwd }: TerminalViewProps): JSX
         })
         .then(({ buffer, sandboxed, sandboxStamp, host, shell, kept, reattached }) => {
           if (disposed) return
-          if (kept && !querySilencer) querySilencer = silenceQueryReplies(term)
+          if (kept && !querySilencer) querySilencer = silenceReplies()
           if (reattached) keptShellReattached(workspaceIdRef.current, paneId)
           commitShellTitle(workspaceIdRef.current, paneId, shell)
           useSandboxStore.getState().notePane(paneId, sandboxed ?? false, sandboxStamp)
@@ -788,7 +842,7 @@ function XtermTerminalView({ workspaceId, paneId, cwd }: TerminalViewProps): JSX
       setSuppressedPrompt(null)
       setPendingPaste(null)
     }
-  }, [paneId])
+  }, [paneId, engine])
 
   useEffect(() => {
     const term = termRef.current
@@ -881,7 +935,13 @@ function XtermTerminalView({ workspaceId, paneId, cwd }: TerminalViewProps): JSX
           paneId={paneId}
           termRef={termRef}
           onPaste={() => pasteClipboardRef.current()}
-          trigger={<div ref={hostRef} className="xterm-host" style={{ background }} />}
+          trigger={
+            <div
+              ref={hostRef}
+              className={engine === 'ghostty' ? 'ghostty-host' : 'xterm-host'}
+              style={{ background }}
+            />
+          }
         />
         <Blocks paneId={paneId} termRef={termRef} hostRef={hostRef} />
         <InputEditor
@@ -935,7 +995,7 @@ function decodeBase64Utf8(b64: string): string {
   return new TextDecoder().decode(Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)))
 }
 
-function safeFit(host: HTMLElement, fit: FitAddon, term: Xterm): boolean {
+function safeFit(host: HTMLElement, fit: TerminalFit, term: OstiaTerminal): boolean {
   if (host.offsetWidth === 0 || host.offsetHeight === 0) return false
   try {
     settleFit(() => {

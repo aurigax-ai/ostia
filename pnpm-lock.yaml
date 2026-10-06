@@ -72,6 +72,9 @@ importers:
       '@ai-sdk/react':
         specifier: ^4.0.125
         version: 4.0.125(react@18.3.1)(zod@4.6.5)
+      '@aurigax-ai/ostia-ghostty':
+        specifier: github:aurigax-ai/ostia-ghostty#672cd67
+        version: https://codeload.github.com/aurigax-ai/ostia-ghostty/tar.gz/672cd671114a9c573147cd16f7ed4bba85cabb4e
       '@base-ui/react':
         specifier: ^1.7.0
         version: 1.7.0(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -210,9 +213,6 @@ importers:
       esbuild:
         specifier: ^0.21.5
         version: 0.21.5
-      ghostty-web:
-        specifier: ^0.4.0
-        version: 0.4.0
       jsdom:
         specifier: ^29.1.1
         version: 29.1.1(@noble/hashes@2.4.0)
@@ -383,6 +383,10 @@ packages:
 
   '@asamuzakjp/nwsapi@2.3.9':
     resolution: {integrity: sha512-n8GuYSrI9bF7FFZ/SjhwevlHc8xaVlb/7HmHelnc/PZXBD2ZR49NnN9sMMuDdEGPeeRQ5d0hqlSlEpgCX3Wl0Q==}
+
+  '@aurigax-ai/ostia-ghostty@https://codeload.github.com/aurigax-ai/ostia-ghostty/tar.gz/672cd671114a9c573147cd16f7ed4bba85cabb4e':
+    resolution: {gitHosted: true, integrity: sha512-ADtrfYWiUC8q2XuwvxRc4L5eUHGhq7S1ccXeGFfAiC/ITJoqiebjrShSiq7EeABpgrirl68M1xMm0zvW5kdLQg==, tarball: https://codeload.github.com/aurigax-ai/ostia-ghostty/tar.gz/672cd671114a9c573147cd16f7ed4bba85cabb4e}
+    version: 0.0.0
 
   '@babel/code-frame@7.29.7':
     resolution: {integrity: sha512-Aup7aUOfpbAUg2ROOJN6Iw5f9DMBlzu0mIkm/malLQFN/YQgO48wCj0Kxa3sEHJvPVFg7siR+qRInwXd2qhQKw==}
@@ -2873,9 +2877,6 @@ packages:
     resolution: {integrity: sha512-kVCxPF3vQM/N0B1PmoqVUqgHP+EeVjmZSQn+1oCRPxd2P21P2F19lIgbR3HBosbB1PUhOAoctJnfEn2GbN2eZA==}
     engines: {node: '>=18'}
 
-  ghostty-web@0.4.0:
-    resolution: {integrity: sha512-0puDBik2qapbD/QQBW9o5ZHfXnZBqZWx/ctBiVtKZ6ZLds4NYb+wZuw1cRLXZk9zYovIQ908z3rvFhexAvc5Hg==}
-
   glob-parent@5.1.2:
     resolution: {integrity: sha512-AOIgSQCepiJYwP3ARnGx+5VnTu2HBYdzbGP45eLw1vr3zB3vZLeyed1sC9hnbcOc9/SrMyM5RPQrkGz4aS9Zow==}
     engines: {node: '>= 6'}
@@ -4987,6 +4988,8 @@ snapshots:
   '@asamuzakjp/generational-cache@1.0.1': {}
 
   '@asamuzakjp/nwsapi@2.3.9': {}
+
+  '@aurigax-ai/ostia-ghostty@https://codeload.github.com/aurigax-ai/ostia-ghostty/tar.gz/672cd671114a9c573147cd16f7ed4bba85cabb4e': {}
 
   '@babel/code-frame@7.29.7':
     dependencies:
@@ -7455,8 +7458,6 @@ snapshots:
     dependencies:
       '@sec-ant/readable-stream': 0.4.1
       is-stream: 4.0.1
-
-  ghostty-web@0.4.0: {}
 
   glob-parent@5.1.2:
     dependencies:
