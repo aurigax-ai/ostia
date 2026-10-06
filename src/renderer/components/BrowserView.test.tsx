@@ -361,6 +361,49 @@ describe('BrowserView address bar', () => {
     await userEvent.type(address, 'x{Escape}')
     await waitFor(() => expect(address).toHaveValue('http://localhost/docs'))
   })
+
+  const guestReadyOn = (container: HTMLElement, url: string) => {
+    const webview = container.querySelector('webview') as HTMLElement
+    const guest = {
+      getURL: () => url,
+      loadURL: vi.fn(async () => undefined),
+      getWebContentsId: () => 41,
+      setZoomFactor: vi.fn(),
+    }
+    Object.assign(webview, guest)
+    act(() => {
+      webview.dispatchEvent(new Event('dom-ready'))
+    })
+    return guest
+  }
+
+  it('loads an address entered before the page was ready when the guest kept its first page', async () => {
+    const { workspaceId } = twoTerminals()
+    const { container } = renderView(workspaceId)
+    const address = screen.getByRole('textbox', { name: /address/i })
+    await waitFor(() => expect(container.querySelector('webview')).not.toBeNull())
+    await userEvent.clear(address)
+    await userEvent.type(address, 'http://localhost/next{Enter}')
+
+    const guest = guestReadyOn(container, 'http://localhost/')
+
+    expect(guest.setZoomFactor).toHaveBeenCalled()
+    expect(guest.loadURL).toHaveBeenCalledWith('http://localhost/next')
+  })
+
+  it('does not load the address again when the guest already opened it', async () => {
+    const { workspaceId } = twoTerminals()
+    const { container } = renderView(workspaceId)
+    const address = screen.getByRole('textbox', { name: /address/i })
+    await waitFor(() => expect(container.querySelector('webview')).not.toBeNull())
+    await userEvent.clear(address)
+    await userEvent.type(address, 'http://localhost/next{Enter}')
+
+    const guest = guestReadyOn(container, 'http://localhost/next')
+
+    expect(guest.setZoomFactor).toHaveBeenCalled()
+    expect(guest.loadURL).not.toHaveBeenCalled()
+  })
 })
 
 describe('BrowserView storage panel', () => {
