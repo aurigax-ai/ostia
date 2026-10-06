@@ -87,10 +87,14 @@ test('the primary selection takes only non-empty text up to the cap from the pag
         ).ostia.window.writePrimarySelection(t)
       }, text)
     const read = (which: 'selection' | 'clipboard') =>
-      app.evaluate(({ clipboard }, w) => clipboard.readText(w), which)
-    await app.evaluate(({ clipboard }) => {
-      clipboard.writeText('sentinel-clipboard')
-      clipboard.writeText('sentinel-primary', 'selection')
+      app.evaluate(
+        ({ clipboard }, w) =>
+          w === 'selection' ? clipboard.selection.readText() : clipboard.readText(),
+        which,
+      )
+    await app.evaluate(async ({ clipboard }) => {
+      await clipboard.writeText('sentinel-clipboard')
+      await clipboard.selection.writeText('sentinel-primary')
     })
     await send('')
     await send('x'.repeat(2 * 1024 * 1024))
@@ -165,10 +169,10 @@ test('selecting terminal text fills the primary selection, and middle click past
     await win.mouse.move(box.x + 120, box.y + box.height / 2, { steps: 5 })
     await win.mouse.up()
     await expect
-      .poll(() => app.evaluate(({ clipboard }) => clipboard.readText('selection')))
+      .poll(() => app.evaluate(({ clipboard }) => clipboard.selection.readText()))
       .toContain('ostia')
     await expect(async () => {
-      await app.evaluate(({ clipboard }) => clipboard.writeText('echo from-primary', 'selection'))
+      await app.evaluate(({ clipboard }) => clipboard.selection.writeText('echo from-primary'))
       await win.locator('.xterm').first().click({ button: 'middle' })
       await expect(rows).toContainText('echo from-primary', { timeout: 1000 })
     }).toPass({ timeout: 15_000 })
@@ -178,7 +182,7 @@ test('selecting terminal text fills the primary selection, and middle click past
 
   const off = await launch({ terminal: { primarySelection: false } })
   try {
-    await off.app.evaluate(({ clipboard }) => clipboard.writeText('echo from-primary', 'selection'))
+    await off.app.evaluate(({ clipboard }) => clipboard.selection.writeText('echo from-primary'))
     await off.win.locator('.xterm').first().click()
     await off.win.locator('.xterm').first().click({ button: 'middle' })
     await off.win.waitForTimeout(500)

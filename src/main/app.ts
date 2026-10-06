@@ -70,13 +70,12 @@ import { installAppMenu } from './appMenu'
 import { registerAppUpdate } from './appUpdate'
 import { approvals, registerApprovals } from './approvals'
 import { registerAssistIpc } from './assistIpc'
-import { registerAttentionMethods } from './attention'
+import { registerAttentionMethods, targetOf } from './attention'
 import {
   type ConsoleEntry,
   OSTIA_ERROR_PREFIX,
   PAGE_ERROR_CATCHER_JS,
   clearGuestBrowseState,
-  consoleLevelName,
   ownedGuest,
   pushConsoleEntry,
   registerBrowseMethods,
@@ -96,7 +95,8 @@ import { type ClipboardEdits, registerClipboardEdits } from './clipboardEdits'
 import { confirmQuit, freezeAll, registerCloseGuard } from './closeGuard'
 import { registerCompletionIpc } from './completionSpecs'
 import { attachContextMenu } from './contextMenu'
-import { connHasCap, setCapFilter } from './controlAuth'
+import { connHasCap, setCapFilter, setScriptTokenCheck } from './controlAuth'
+import { clearControlInfo, controlInfoPath, writeControlInfo } from './controlDiscovery'
 import {
   controlSocketPath,
   keptControlSocketPath,
@@ -135,6 +135,7 @@ import {
   removePane,
   removeWindow,
   resolveExternal,
+  setPaneIdSalt,
   windowOfWorkspace,
   workspaceHasManager,
 } from './idRegistry'
@@ -164,9 +165,11 @@ import { OpenFileGrants } from './openFileGrants'
 import { openFileForExtension, registerOpenFileMethods } from './openFileMethods'
 import { registerOpenPathIpc } from './openPath'
 import type { OriginReach } from './originAgents'
+import { loadPaneIdSalt } from './paneIdSalt'
 import { type PaneIo, registerPaneIoMethods } from './paneIo'
 import { listPanes, listWorkspaces, registerPaneListMethods } from './paneList'
 import type { PaneProcess } from './paneProcess'
+import { registerPaneRenameMethods } from './paneRename'
 import { registerPaneResumeMethods } from './paneResume'
 import { resolveSafe } from './pathGuard'
 import {
@@ -192,6 +195,7 @@ import { createWorkerScan, redactionWorkerScript } from './redactionScan'
 import { registerReleaseCheck, releaseUserAgent } from './releaseCheck'
 import { confirmRemoteFolder, registerRemoteFolderConfirm } from './remoteFolderConfirm'
 import type { RemoteFolders } from './remoteFolders'
+import { ripgrepPath } from './ripgrep'
 import { attachWorkspace } from './sandbox/attachWorkspace'
 import { BrowserFence } from './sandbox/browserFence'
 import { registerSandboxMethods } from './sandbox/controlMethods'
@@ -224,6 +228,7 @@ import {
 import { SandboxUnavailableError, WorkspaceSandboxes } from './sandbox/workspaceSandboxes'
 import { ScratchFolders, registerScratchIpc } from './scratchFolders'
 import { ScreenMirror } from './screenMirror'
+import { registerScriptTokenMethods, verifyScriptToken } from './scriptTokens'
 import { registerSecretMethods } from './secrets/register'
 import { prepareSecrets } from './secrets/secretInjection'
 import { SecretService } from './secrets/secretService'
@@ -277,6 +282,7 @@ import {
   windowForWorkspace,
   workDirForWorkspace,
 } from './workspaceRegistry'
+import { registerSearchIpc } from './workspaceSearch'
 import {
   dropRestoredScrollback,
   handoffPaneIds,
@@ -635,6 +641,8 @@ const paneIo: PaneIo = {
     entry.pty.write(data)
     return true
   },
+  bracketedPaste: (paneId) => ptys.get(paneId)?.mirror.bracketedPaste === true,
+  outputCursor: (paneId) => ptys.get(paneId)?.session.cursor,
 }
 
 function resizePty(entry: PtyEntry | undefined, cols: number, rows: number): void {
@@ -1190,14 +1198,14 @@ function instrumentBrowserGuest(gc: Electron.WebContents): void {
   const wcId = gc.id
   if (!instrumentedGuests.has(gc)) {
     instrumentedGuests.add(gc)
-    gc.on('console-message', (_event, level, message) => {
+    gc.on('console-message', (event) => {
       const entry: ConsoleEntry = {
-        level: consoleLevelName(level),
-        text: message,
+        level: event.level,
+        text: event.message,
         ts: Date.now(),
       }
       pushConsoleEntry(consoleBuffers, wcId, entry)
-      if (entry.level === 'error' || message.startsWith(OSTIA_ERROR_PREFIX)) {
+      if (entry.level === 'error' || event.message.startsWith(OSTIA_ERROR_PREFIX)) {
         pushConsoleEntry(errorBuffers, wcId, entry)
       }
     })
@@ -1441,7 +1449,9 @@ function registerIpc(): void {
   })
   ipcMain.on('window:beep', () => shell.beep())
   ipcMain.on('window:write-primary', (_e, text: unknown) => {
-    if (acceptsPrimarySelection(process.platform, text)) clipboard.writeText(text, 'selection')
+    if (acceptsPrimarySelection(process.platform, text)) {
+      clipboard.selection?.writeText(text).catch(() => undefined)
+    }
   })
   ipcMain.handle('window:set-zoom', (e, percent: unknown) => {
     const clamped = clampZoom(percent)
@@ -2338,6 +2348,7 @@ function managerLaunchArgv(argv: string[], resume: AgentResume | null): string[]
 }
 
 const managerResumePath = (): string => storePath('manager-resume', 'global')
+const scriptTokensPath = (): string => storePath('script-tokens', 'global')
 
 function spawnManagerPty(req: {
   paneId: string
@@ -2427,6 +2438,7 @@ function registerFsIpc(): void {
   const settingsFile = join(app.getPath('userData'), 'settings.json')
   registerOpenPathIpc(allowedRoots)
   registerProjectRootIpc(allowedRoots)
+  registerSearchIpc(ripgrepPath(app.getAppPath(), process.platform, process.arch), allowedRoots)
 
   ipcMain.handle('fs:list', (_e, dir: string): FsEntry[] => {
     const safe = resolveSafe(dir, allowedRoots)
@@ -2876,6 +2888,7 @@ app.on('second-instance', (_event, argv) => {
 })
 
 app.whenReady().then(() => {
+  setPaneIdSalt(loadPaneIdSalt(storePath('pane-id-salt', 'global')))
   const appMenu = installAppMenu(process.platform, {
     productName: PRODUCT_DISPLAY_NAME,
     openSettings: openSettingsInFocusedWindow,
@@ -2916,7 +2929,7 @@ app.whenReady().then(() => {
   clipboardEdits = registerClipboardEdits({
     ipc: ipcMain,
     isAppWindow: (sender) => windows.get(String(sender.id))?.webContents === sender,
-    availableFormats: () => clipboard.availableFormats(),
+    availableFormats: async () => (await clipboard.read()).flatMap((item) => item.types),
     mac: process.platform === 'darwin',
   })
   guestChords = registerGuestChords({
@@ -2987,6 +3000,7 @@ app.whenReady().then(() => {
     )
   registerNotifyIpc(notifyDeps)
   registerAttentionMethods({ execCommand })
+  registerPaneRenameMethods({ execCommand })
   registerPaneResumeMethods({
     execCommand,
     onResume: (identity, resume) => {
@@ -3030,6 +3044,12 @@ app.whenReady().then(() => {
     isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
     isConfined: (paneId) => ptys.get(paneId)?.sandboxed === true,
     managerAllowsInput: () => managerSettings().allowInput,
+    attention: async (to) => {
+      const res = await execCommand(targetOf(to), 'attention.peek')
+      return res.ok && res.result && typeof res.result === 'object' ? res.result : {}
+    },
+    inputSent: (to) => void execCommand(targetOf(to), 'attention.typed'),
+    delay: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
   })
   registerDocsMethods({ extensions: () => extensionHost?.listForAgents() ?? [] })
   registerVaultMethods({ isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId) })
@@ -3272,7 +3292,10 @@ app.whenReady().then(() => {
     isSharedPane,
     ownedGuest: (paneId, senderWindowId) => ownedGuest(browserPanes, paneId, senderWindowId),
   })
+  registerScriptTokenMethods(scriptTokensPath)
+  setScriptTokenCheck((token) => verifyScriptToken(scriptTokensPath(), token))
   registerControlServer({ execCommand, listCommandsFor, getTerminalState })
+  writeControlInfo(controlInfoPath(), controlSocketPath(), process.pid)
   listenKeptControlSocket(keptControlSocketPath(app.getPath('userData')))
   registerManagerIpc()
   managerLimiter = registerManagerMethods({
@@ -3448,6 +3471,7 @@ app.on('before-quit', (event) => {
   viewHost?.stop()
   settingsSync?.stop()
   stopControlServer()
+  clearControlInfo(controlInfoPath(), controlSocketPath())
   portal?.stop()
   void stopGateway()
   appTray?.remove()

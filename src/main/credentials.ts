@@ -144,10 +144,10 @@ export function registerCredentials(): void {
   ipcMain.handle('credentials:remove', (_e, id: unknown) =>
     typeof id === 'string' ? store.remove(id) : false,
   )
-  ipcMain.handle('credentials:copy-password', (_e, id: unknown) => {
+  ipcMain.handle('credentials:copy-password', async (_e, id: unknown) => {
     const password = typeof id === 'string' ? store.password(id) : null
     if (password === null) return false
-    clipboard.writeText(password)
+    await clipboard.writeText(password)
     return true
   })
   ipcMain.handle('credentials:import', async (e): Promise<CredentialImportResult> => {

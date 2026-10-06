@@ -14,6 +14,14 @@ export function relativeToRoot(path: string, root: string): string | null {
   return path.startsWith(base) ? path.slice(base.length) : null
 }
 
+export function isUnderExcluded(isExcluded: ExcludeMatcher, path: string, root: string): boolean {
+  const rel = relativeToRoot(path, root)
+  if (rel === null) return isExcluded(path, root)
+  const base = root.endsWith('/') ? root : `${root}/`
+  const parts = rel.split('/')
+  return parts.some((_, i) => isExcluded(base + parts.slice(0, i + 1).join('/'), root))
+}
+
 function compileGlob(pattern: string): ((path: string) => boolean) | null {
   const trimmed = pattern.trim().replace(/\/+$/, '')
   if (!trimmed) return null

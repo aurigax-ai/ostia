@@ -142,7 +142,20 @@ function named(pane: PaneNode, title: string): PaneNode {
 }
 
 export function setPaneTitle(root: LayoutNode, paneId: string, title: string): LayoutNode {
-  return mapPane(root, paneId, (p) => (p.title === title && !p.defaultTitle ? p : named(p, title)))
+  return mapPane(root, paneId, (p) =>
+    p.titlePinned || (p.title === title && !p.defaultTitle) ? p : named(p, title),
+  )
+}
+
+export function renamePane(root: LayoutNode, paneId: string, title: string): LayoutNode {
+  const name = title.trim()
+  return mapPane(root, paneId, (p) => {
+    if (name && p.title === name && p.titlePinned) return p
+    if (name) return { ...named(p, name), titlePinned: true }
+    if (!p.titlePinned) return p
+    const { titlePinned: _pinned, ...rest } = p
+    return rest
+  })
 }
 
 function withDefaultTitle(pane: PaneNode, title: string): PaneNode {

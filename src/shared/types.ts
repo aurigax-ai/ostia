@@ -70,6 +70,7 @@ import type {
   WorkspaceSandbox,
 } from './sandbox'
 import type { SandboxReadPreset } from './sandboxPresets'
+import type { SearchApi } from './search'
 import type { SecretEntry, SecretGrant } from './secrets'
 import type { SelectionSendRequest, SelectionSendResult } from './selection'
 import type { RequirementsReport } from './systemRequirements'
@@ -388,6 +389,7 @@ export interface SnapshotPaneNode {
   hibernated?: true
   locked?: true
   defaultTitle?: true
+  titlePinned?: true
 }
 
 export interface SnapshotSplitNode {
@@ -861,6 +863,7 @@ export interface OstiaBridge {
   pty: PtyApi
   manager: ManagerApi
   fs: FsApi
+  search: SearchApi
   remoteFiles: RemoteFilesApi
   lsp: LspApi
   settings: SettingsApi

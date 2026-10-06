@@ -12,7 +12,9 @@ const CLI_HELP = `ostia — control-socket CLI
   ostia <file>...                same, when the first word is a path (has a /, or starts with
                                  . or ~) or names a file here that is no command or extension
   ostia pane.list                 every pane, every workspace — {paneId(external),workspaceId,
-                                  kind,title,cwd,running,blockCount,lastExitCode}
+                                  kind,title,cwd,running,blockCount,lastExitCode,agent,
+                                  agentSessionId,agentState,agentMessage}; a restored pane keeps
+                                  its paneId across restarts
   ostia workspace.list              every workspace — {workspaceId,name,kind,workDir,state,groupId}
   ostia notify <title> [body]    desktop notification + marks this pane unread in Ostia
   ostia ask "<question>" [--context <text|->] [--choice <label>]… [--multi] [--timeout <seconds>] [--json]
@@ -44,6 +46,9 @@ const CLI_HELP = `ostia — control-socket CLI
   ostia workspace group <name>   move this pane's workspace into the sidebar group <name>
                                  (created if missing)
   ostia workspace ungroup        take this pane's workspace out of its group
+  ostia workspace rename [--workspace <id>] <name…> | --clear  rename your workspace in the
+                                 sidebar (--clear goes back to its default name); another
+                                 workspace asks the human (send-other-pane, all-workspaces)
   ostia resume-token <claude|codex> <id|->
                                  remember this pane's agent session so a restored pane
                                  offers Resume (Ctrl+Shift+R); '-' reads a hook's JSON
@@ -81,9 +86,17 @@ const CLI_HELP = `ostia — control-socket CLI
   ostia process kill <id|name>   interrupt it (Ctrl+C); if it keeps running, end the tab's
                                  shell. The tab stays open with its output
   ostia process restart <id|name> interrupt it and run the same line again in the same tab
-  ostia pane send <pane> [--enter] [--] <text…>  type text into another terminal pane; no Enter
-                                 unless --enter. <pane> is a paneId from ostia pane.list, or a
-                                 process id or name
+  ostia pane send <pane> [--enter] [--paste|--raw] [--force] [--confirm] [--] <text…|->
+                                 type text into another terminal pane; no Enter unless
+                                 --enter. <pane> is a paneId from ostia pane.list, or a
+                                 process id or name. '-' reads the text from stdin.
+                                 Multi-line text goes in as one bracketed paste when the
+                                 program turned that mode on (Claude Code, Codex, shells),
+                                 then Enter; --paste forces a paste, --raw types it as is.
+                                 Text to an agent that is waiting for the human (permission
+                                 prompt, question) is refused with the reason; answer with
+                                 ostia pane key, or add --force. --confirm waits up to 2s
+                                 for the pane to print something and exits 2 if it did not
   ostia pane key <pane> <key>…   press keys there: enter tab shift-tab escape backspace delete
                                  space up down left right home end pageup pagedown ctrl-a..ctrl-z
   ostia pane read <pane> [--lines N] [--json]  that pane's screen as plain text (default 200
@@ -91,6 +104,23 @@ const CLI_HELP = `ostia — control-socket CLI
                                  A tab you opened with ostia process run needs nothing more;
                                  any other pane asks the human (type-other-pane,
                                  read-other-pane, plus all-workspaces outside your workspace)
+  ostia pane rename <pane> <title…>  name that pane's tab; programs (OSC titles) no longer
+                                 change it, and it survives a restart. --clear instead of a
+                                 title hands the tab back to the program. Your own pane
+                                 ($OSTIA_PANE_ID) needs nothing; another pane asks the human
+                                 (send-other-pane, plus all-workspaces outside your workspace)
+  ostia token create <name> --cap <capability>…  make a token for scripts outside Ostia
+                                 (launchd jobs, cron, a dispatcher). It can hold only
+                                 read-board, read-other-pane, type-other-pane and
+                                 all-workspaces, asks the human first (settings-write plus
+                                 those capabilities) and is printed once. A script sets
+                                 OSTIA_TOKEN to it; with OSTIA_SOCKET unset, ostia finds the
+                                 socket in control.json in the app data folder. Scripts reach
+                                 only pane.list, workspace.list, workspace.groups, pane.read
+                                 and pane.input, never ask the human, and get
+                                 needs-elevation for a capability the token lacks
+  ostia token list [--json]      the tokens (never their values)
+  ostia token revoke <id>        delete a token; scripts using it are cut off at once
   ostia vault set <KEY> [--global]  store a secret (value read from stdin, no echo)
   ostia vault get <KEY> [--global]  print a stored secret
   ostia vault ls [--global]        list stored secret keys (never values)

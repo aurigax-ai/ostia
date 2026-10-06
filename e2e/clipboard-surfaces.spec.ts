@@ -49,9 +49,10 @@ const readClipboard = (app: ElectronApplication) =>
   app.evaluate(({ clipboard }) => clipboard.readText())
 
 const writeClipboardImage = (app: ElectronApplication) =>
-  app.evaluate(({ clipboard, nativeImage }, url) => {
+  app.evaluate(async ({ clipboard, ClipboardItem }, url) => {
     clipboard.clear()
-    clipboard.writeImage(nativeImage.createFromDataURL(url))
+    const png = new Blob([Buffer.from(url.split(',')[1], 'base64')], { type: 'image/png' })
+    await clipboard.write([new ClipboardItem({ 'image/png': png })])
   }, RED_DOT_PNG)
 
 async function selectTerminalWord(win: Page, word: string): Promise<void> {
@@ -78,6 +79,7 @@ test('the copy and paste chords work in a terminal and paste an image as Ctrl+V 
 
     await writeClipboard(app, 'echo pasted_$((6*7))')
     await win.keyboard.press(chords.paste)
+    await expect(rows).toContainText('echo pasted_')
     await win.keyboard.press('Enter')
     await expect(rows).toContainText('pasted_42')
 

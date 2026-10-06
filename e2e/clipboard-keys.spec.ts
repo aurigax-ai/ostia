@@ -21,6 +21,7 @@ test('smart copy/paste keys paste with Ctrl+V', async () => {
   const { app, win } = await launch('smart')
   try {
     await win.keyboard.press('Control+v')
+    await expect(win.locator('.xterm-rows')).toContainText('echo pasted_')
     await win.keyboard.press('Enter')
     await expect(win.locator('.xterm-rows')).toContainText('pasted_42', { timeout: 10_000 })
   } finally {
@@ -36,6 +37,7 @@ test('the paste chord pastes in the default mode, and Ctrl+V goes to the shell',
     await expect(win.locator('.xterm-rows')).not.toContainText('pasted_')
     await win.keyboard.press('Control+c')
     await win.keyboard.press(chords.paste)
+    await expect(win.locator('.xterm-rows')).toContainText('echo pasted_')
     await win.keyboard.press('Enter')
     await expect(win.locator('.xterm-rows')).toContainText('pasted_42', { timeout: 10_000 })
   } finally {

@@ -248,6 +248,11 @@ export const SETTINGS_JSON_SCHEMA = {
             'Show excluded files anyway, dimmed (the eye button in the Files header). ' +
             'Default: false.',
         },
+        searchIgnored: {
+          type: 'boolean',
+          description:
+            'Search in the Files panel also looks in files .gitignore leaves out. Default: false.',
+        },
         compactFolders: {
           type: 'boolean',
           description:

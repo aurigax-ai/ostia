@@ -1,7 +1,10 @@
-import { useEffect, useRef } from 'react'
+import { type KeyboardEvent, useEffect, useRef, useState } from 'react'
 import Markdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import { matchChord } from '../lib/chords'
 import { sourceLinesOf, trackSelection } from '../lib/domSelection'
+import { isMac } from '../platform'
+import { DocumentFind } from './DocumentFind'
 
 interface HastNode {
   type: string
@@ -37,6 +40,10 @@ const COMPONENTS: Components = {
   ),
 }
 
+function isPlainFindKey(e: KeyboardEvent<HTMLElement>): boolean {
+  return (isMac ? e.metaKey : e.ctrlKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'f'
+}
+
 export interface PreviewSelection {
   text: string
   startLine: number
@@ -51,6 +58,8 @@ export function MarkdownPreview({
   onSelectionChange?: (selection: PreviewSelection | null) => void
 }): JSX.Element {
   const rootRef = useRef<HTMLDivElement>(null)
+  const articleRef = useRef<HTMLElement>(null)
+  const [finding, setFinding] = useState(false)
   const onChangeRef = useRef(onSelectionChange)
   onChangeRef.current = onSelectionChange
 
@@ -67,9 +76,26 @@ export function MarkdownPreview({
     }
   }, [])
 
+  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>): void => {
+    if (matchChord(e, isMac) !== 'find' && !isPlainFindKey(e)) return
+    e.preventDefault()
+    setFinding(true)
+  }
+
   return (
-    <div ref={rootRef} className="markdown-preview">
-      <article className="typeset typeset-ostia">
+    // biome-ignore lint/a11y/noNoninteractiveTabindex: the preview takes focus so its find key reaches it
+    <div ref={rootRef} className="markdown-preview" tabIndex={0} onKeyDown={onKeyDown}>
+      {finding ? (
+        <DocumentFind
+          rootRef={articleRef}
+          content={source}
+          onClose={() => {
+            setFinding(false)
+            rootRef.current?.focus()
+          }}
+        />
+      ) : null}
+      <article ref={articleRef} className="typeset typeset-ostia">
         <Markdown
           remarkPlugins={REMARK_PLUGINS}
           rehypePlugins={REHYPE_PLUGINS}

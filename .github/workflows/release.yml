@@ -26,9 +26,9 @@ jobs:
     runs-on: ${{ fromJSON(needs.ci.outputs.linux) }}
     steps:
       - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
       - name: Tag matches package.json version
         run: test "v$(node -p 'require("./package.json").version')" = "$GITHUB_REF_NAME"
-      - uses: ./.github/actions/setup
       - run: pnpm build
       - run: pnpm exec electron-builder --linux dir deb --publish never
       - name: Archive the unpacked app
@@ -50,9 +50,9 @@ jobs:
     environment: release-macos
     steps:
       - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
       - name: Tag matches package.json version
         run: test "v$(node -p 'require("./package.json").version')" = "$GITHUB_REF_NAME"
-      - uses: ./.github/actions/setup
       - run: pnpm build
       - name: Import the Developer ID certificate into a temporary keychain
         env:

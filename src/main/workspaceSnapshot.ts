@@ -111,6 +111,7 @@ function parseNode(raw: unknown, paneIds: string[], depth: number): SnapshotNode
     if (resume && raw.hibernated === true) pane.hibernated = true
     if (raw.locked === true) pane.locked = true
     if (pane.kind === 'terminal' && raw.defaultTitle === true) pane.defaultTitle = true
+    if (raw.titlePinned === true) pane.titlePinned = true
     if (pane.kind === 'extension' && !pane.extensionId) return null
     if (pane.kind === 'view' && !pane.viewName) return null
     paneIds.push(id)

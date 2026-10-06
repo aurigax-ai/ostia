@@ -26,7 +26,7 @@ import { mergeRefusalText } from '../lib/mergeRefusalText'
 import { startNewWorkspace, startScratchWorkspace } from '../lib/newWorkspace'
 import { openRequestedFiles } from '../lib/openFile'
 import { GO_TO_WORKSPACE_SYMBOL_COMMAND, SYMBOLS_PREFIX } from '../lib/paletteModes'
-import { isStaleAgentReport } from '../lib/paneAgent'
+import { type PaneAgentReport, isStaleAgentReport, paneAgentReport } from '../lib/paneAgent'
 import { terminalFor } from '../lib/terminalHandles'
 import { openWorkflowPicker } from '../lib/workflows'
 import {
@@ -44,6 +44,7 @@ import { anchorToFocusedPane, canMoveWorkspace, moveWorkspaceTo } from '../lib/w
 import { isMac } from '../platform'
 import { keymapSettingValue } from '../settings/keymapSetting'
 import { settingsSchemaAt } from '../settings/settingsSchema'
+import { useAttentionStore } from '../stores/attentionStore'
 import { useBlocksStore } from '../stores/blocksStore'
 import { useHistorySearchStore } from '../stores/historySearchStore'
 import { useLayoutStore } from '../stores/layoutStore'
@@ -62,7 +63,7 @@ import { registerBrowserCommands } from './browserCommands'
 import { type CoreCommandId, registerCore } from './core'
 import { type CommandContext, commands } from './registry'
 
-interface PaneListEntry {
+interface PaneListEntry extends PaneAgentReport {
   paneId: string
   workspaceId: string
   kind: SurfaceKind
@@ -74,6 +75,7 @@ interface PaneListEntry {
 interface WorkspaceListEntry {
   workspaceId: string
   name: string
+  customName?: string
   kind: WorkspaceKind
   workDir: string
   state: WorkspaceState
@@ -348,6 +350,32 @@ export function registerBuiltinCommands(): void {
     },
   })
 
+  registerCore<undefined, { state?: AttentionState; message?: string }>({
+    id: 'attention.peek',
+    category: 'pane',
+    hidden: true,
+    capabilities: ['read-board'],
+    run: (_args, ctx) => {
+      if (!ctx.activePaneId) throw new Error('no target pane')
+      const attention = useAttentionStore.getState().byPane[ctx.activePaneId]
+      if (!attention || attention.state === 'none') return {}
+      return attention.message
+        ? { state: attention.state, message: attention.message }
+        : { state: attention.state }
+    },
+  })
+
+  registerCore({
+    id: 'attention.typed',
+    category: 'pane',
+    hidden: true,
+    capabilities: ['drive-self'],
+    run: (_args, ctx) => {
+      if (!ctx.activePaneId) throw new Error('no target pane')
+      useAttentionStore.getState().dispatch(ctx.activePaneId, { type: 'input', at: Date.now() })
+    },
+  })
+
   registerCore<AgentResume>({
     id: 'resume.set',
     category: 'pane',
@@ -498,6 +526,28 @@ export function registerBuiltinCommands(): void {
     run: (args, ctx) => {
       if (!ctx.activeWorkspaceId) throw new Error('no target workspace')
       useWorkspacesStore.getState().describe(ctx.activeWorkspaceId, args?.text ?? '')
+    },
+  })
+
+  registerCore<{ name?: string } | undefined>({
+    id: 'workspace.rename',
+    category: 'workspace',
+    hidden: true,
+    capabilities: ['drive-self'],
+    run: (args, ctx) => {
+      if (!ctx.activeWorkspaceId) throw new Error('no target workspace')
+      useWorkspacesStore.getState().rename(ctx.activeWorkspaceId, args?.name ?? '')
+    },
+  })
+
+  registerCore<{ title?: string } | undefined>({
+    id: 'pane.rename',
+    category: 'pane',
+    hidden: true,
+    capabilities: ['drive-self'],
+    run: (args, ctx) => {
+      if (!ctx.activeWorkspaceId || !ctx.activePaneId) throw new Error('no target pane')
+      useLayoutStore.getState().rename(ctx.activeWorkspaceId, ctx.activePaneId, args?.title ?? '')
     },
   })
 
@@ -873,6 +923,7 @@ export function registerBuiltinCommands(): void {
             title: pane.title,
             cwd: pane.cwd,
             ...(pane.kind === 'editor' && pane.filePath ? { filePath: pane.filePath } : {}),
+            ...(pane.kind === 'terminal' ? paneAgentReport(pane.id, pane.resume) : {}),
           })
         }
       }
@@ -891,6 +942,7 @@ export function registerBuiltinCommands(): void {
         return {
           workspaceId: s.id,
           name: s.name,
+          ...(s.customName ? { customName: s.customName } : {}),
           kind: s.kind,
           workDir: s.workDir,
           state: s.state,

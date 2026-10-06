@@ -1073,6 +1073,55 @@
   flex-direction: column;
 }
 
+.files-search {
+  padding: 6px 8px 2px;
+}
+
+.search-mark {
+  background: var(--brand-glow);
+  color: var(--fg);
+  border-radius: 2px;
+}
+
+.search-group {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 4px 2px;
+  font-size: var(--text-ui-xs);
+  color: var(--fg-muted);
+}
+
+.search-group-title {
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-caps);
+}
+
+.search-status {
+  padding: 8px 12px;
+  font-size: var(--text-ui-sm);
+  color: var(--fg-muted);
+}
+
+.search-row {
+  padding-left: 8px;
+}
+
+.search-line {
+  padding-left: 29px;
+  font-family: var(--font-code);
+  font-size: var(--text-ui-xs);
+}
+
+.search-line-number {
+  flex: none;
+  min-width: 3ch;
+  color: var(--fg-muted);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
 .files-scroll {
   flex: 1 1 auto;
   min-height: 0;
@@ -2038,6 +2087,11 @@ button.prompt-chip:focus-visible {
 .language-notice ~ .editor-host {
   height: calc(100% - var(--language-notice-height));
   margin-top: var(--language-notice-height);
+}
+
+.language-notice ~ .editor-mode,
+.language-notice ~ .editor-send {
+  top: calc(6px + var(--language-notice-height));
 }
 
 .editor-save-error {
@@ -3252,6 +3306,33 @@ button.prompt-chip:focus-visible {
   overflow: auto;
   padding: 20px 28px 40px;
   background: var(--surface-1);
+}
+
+.markdown-preview:focus {
+  outline: none;
+}
+
+.viewer-surface:focus {
+  outline: none;
+}
+
+.viewer-surface .pdf-find {
+  top: 44px;
+}
+
+.markdown-preview .document-find {
+  position: sticky;
+  top: 0;
+  float: right;
+}
+
+::highlight(ostia-find) {
+  background-color: var(--brand-glow);
+}
+
+::highlight(ostia-find-active) {
+  background-color: var(--brand-glow);
+  text-decoration: underline 2px var(--brand);
 }
 
 .markdown-preview > .typeset {

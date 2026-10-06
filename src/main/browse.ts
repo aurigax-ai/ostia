@@ -73,10 +73,6 @@ export function pushConsoleEntry(
   buffer.set(wcId, list)
 }
 
-export function consoleLevelName(level: number): string {
-  return (['verbose', 'info', 'warning', 'error'] as const)[level] ?? 'info'
-}
-
 export const OSTIA_ERROR_PREFIX = '[ostia-error]'
 
 export const PAGE_ERROR_CATCHER_JS = `(() => {

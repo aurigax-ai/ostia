@@ -20,6 +20,7 @@ import {
   childPath,
   compactChain,
   excludeMatcher,
+  isUnderExcluded,
   nestEntries,
   nestingRules,
   sortEntries,
@@ -36,6 +37,7 @@ import { useSettingsStore } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
 import { FileMenu, type TreeVisibility } from './FileMenu'
+import { FilesSearch } from './FilesSearch'
 import { Hint } from './Hint'
 import { IconButton } from './IconButton'
 import {
@@ -60,6 +62,7 @@ interface TreeFocus {
   workspaceId: string | null
   cwd: string
   activeFile: string | null
+  reveal: string | null
 }
 
 type ListFiles = (path: string) => Promise<FsEntry[]>
@@ -91,6 +94,7 @@ function useTreeFocus(): TreeFocus {
     workspaceId,
     cwd: editor ? anchor : (pane?.cwd ?? anchor),
     activeFile: editor ? (pane.filePath ?? null) : null,
+    reveal: null,
   }
 }
 
@@ -156,9 +160,11 @@ export function FilesView(): JSX.Element {
   const d = useDict()
   const focus = useTreeFocus()
   const { workspaceId, cwd, activeFile } = focus
+  const [revealed, setRevealed] = useState<{ root: string; path: string } | null>(null)
+  const reveal = revealed?.root === cwd ? revealed.path : null
   const stableFocus = useMemo(
-    () => ({ workspaceId, cwd, activeFile }),
-    [workspaceId, cwd, activeFile],
+    () => ({ workspaceId, cwd, activeFile, reveal }),
+    [workspaceId, cwd, activeFile, reveal],
   )
   const tree = useTreeContext(stableFocus)
   const allFolders = useRemoteFoldersStore((s) => s.folders)
@@ -174,9 +180,17 @@ export function FilesView(): JSX.Element {
           <FilesCrumb path={cwd} />
         </div>
       </Hint>
-      <div className="file-tree">
-        <Dir key={cwd} path={cwd} depth={0} tree={tree} />
-      </div>
+      <FilesSearch
+        root={cwd}
+        isHidden={(path) =>
+          !tree.settings.showExcluded && isUnderExcluded(tree.isExcluded, path, cwd)
+        }
+        onReveal={(path) => setRevealed({ root: cwd, path })}
+      >
+        <div className="file-tree">
+          <Dir key={cwd} path={cwd} depth={0} tree={tree} />
+        </div>
+      </FilesSearch>
     </>
   )
 
@@ -572,12 +586,23 @@ function DirRow({
 }): JSX.Element {
   const [open, setOpen] = useState(false)
   const fullPath = childPath(path, entry.name)
-  const holdsActive = tree.focus.activeFile?.startsWith(`${fullPath}/`) ?? false
+  const rowRef = useRef<HTMLButtonElement>(null)
+  const { activeFile, reveal } = tree.focus
+  const holdsActive =
+    (activeFile?.startsWith(`${fullPath}/`) ?? false) ||
+    (reveal !== null && (reveal === fullPath || reveal.startsWith(`${fullPath}/`)))
   const resolved = useCompactChain(fullPath, open, tree)
+  const shownPath = resolved && !('error' in resolved) ? resolved.path : fullPath
 
   useEffect(() => {
     if (holdsActive) setOpen(true)
   }, [holdsActive])
+
+  useEffect(() => {
+    if (reveal === null || reveal !== shownPath) return
+    rowRef.current?.scrollIntoView({ block: 'nearest' })
+    rowRef.current?.focus()
+  }, [reveal, shownPath])
   const failed = resolved && 'error' in resolved ? resolved.error : null
   const chain = resolved && !('error' in resolved) ? resolved : null
   const names = chain ? [entry.name, ...chain.names] : [entry.name]
@@ -586,6 +611,7 @@ function DirRow({
 
   const row = (
     <button
+      ref={rowRef}
       type="button"
       className={rowClass(false, excluded)}
       aria-expanded={open}
