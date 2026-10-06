@@ -5,7 +5,9 @@ import {
   DEFAULT_APPROVAL_SETTINGS,
   parseApprovalSettings,
 } from '@shared/approvals'
-import { type KeybindingMap, parseKeybindings } from '@shared/chordSpec'
+import type { KeybindingMap } from '@shared/chordSpec'
+import { keyboardPlatform } from '@shared/keyboardPresets'
+import type { TerminalKeyMap, TerminalSend } from '@shared/terminalKeys'
 import { debounce } from 'es-toolkit'
 import { create } from 'zustand'
 import {
@@ -54,13 +56,21 @@ import { ZOOM_DEFAULT, clampZoom } from '../../shared/zoom'
 import type { Locale } from '../i18n/dict'
 import { normalizeHex } from '../lib/color'
 import type { GroupRule } from '../lib/workspaceGroups'
+import { platform } from '../platform'
 import { type UserAction, parseActions } from '../settings/actions'
 import {
   DEFAULT_FILE_TREE_SETTINGS,
   type FileTreeSettings,
   parseFileTreeSettings,
 } from '../settings/fileTreeSettings'
-import { parseKeymapSetting } from '../settings/keymapSetting'
+import {
+  type KeyboardElsewhere,
+  type KeyboardField,
+  type KeyboardFile,
+  readKeyboard,
+  writeKeyboard,
+} from '../settings/keyboardSettings'
+import { parseKeymapSetting, parseTerminalKeymapSetting } from '../settings/keymapSetting'
 import {
   DEFAULT_PANE_SETTINGS,
   DEFAULT_TERMINAL_SETTINGS,
@@ -284,7 +294,10 @@ interface Persisted {
   browser: BrowserSettings
   editor: EditorSettings
   keymap: string | null
+  terminalKeymap: string | null
   keybindings: KeybindingMap
+  terminalKeys: TerminalKeyMap
+  keyboardElsewhere: KeyboardElsewhere
   agents: AgentSettings
   assistant: AssistantSettings
   workspaceGroups: WorkspaceGroupSettings
@@ -352,7 +365,10 @@ const DEFAULTS: Persisted = {
   browser: DEFAULT_BROWSER_SETTINGS,
   editor: DEFAULT_EDITOR_SETTINGS,
   keymap: null,
+  terminalKeymap: null,
   keybindings: {},
+  terminalKeys: {},
+  keyboardElsewhere: {},
   sidebar: {
     showPath: true,
     showMessage: true,
@@ -417,6 +433,10 @@ interface SettingsState extends Persisted {
   setKeybinding: (id: string, chord: string | null) => void
   resetKeybinding: (id: string) => void
   setKeybindings: (map: KeybindingMap) => void
+  setTerminalKeymap: (id: string | null) => void
+  setTerminalKey: (keys: string, send: TerminalSend | null) => void
+  resetTerminalKey: (keys: string) => void
+  setTerminalKeys: (map: TerminalKeyMap) => void
   setExtensionSettings: (extId: string, values: ExtensionSettingValues) => void
 }
 
@@ -435,6 +455,15 @@ function parseBehavior(raw: unknown): Behavior {
     inputMode: inputMode(src.inputMode),
   }
 }
+
+const HERE = keyboardPlatform(platform)
+
+function keyboardFrom(p: Partial<Persisted>): Pick<Persisted, KeyboardField | 'keyboardElsewhere'> {
+  const { current, elsewhere } = readKeyboard(p, HERE)
+  return { ...current, keyboardElsewhere: elsewhere }
+}
+
+type PersistedFile = Omit<Persisted, KeyboardField | 'keyboardElsewhere'> & KeyboardFile
 
 export function parsePersisted(p: Partial<Persisted>): Persisted {
   return {
@@ -466,8 +495,7 @@ export function parsePersisted(p: Partial<Persisted>): Persisted {
     workspaces: parseWorkspaceSettings(p.workspaces),
     browser: parseBrowserSettings(p.browser),
     editor: parseEditorSettings(p.editor),
-    keymap: parseKeymapSetting(p.keymap),
-    keybindings: parseKeybindings(p.keybindings),
+    ...keyboardFrom(p),
     agents: {
       hibernation: parseHibernation(p.agents?.hibernation),
       autoResume: p.agents?.autoResume === true,
@@ -566,7 +594,17 @@ function applySetting(s: SettingsState, path: string, value: unknown): SettingCh
 let lastWritten: string | null = null
 
 async function writeSettings(s: SettingsState): Promise<void> {
-  const snapshot: Persisted = {
+  const keyboard = writeKeyboard(
+    {
+      keymap: s.keymap,
+      terminalKeymap: s.terminalKeymap,
+      keybindings: s.keybindings,
+      terminalKeys: s.terminalKeys,
+    },
+    s.keyboardElsewhere,
+    HERE,
+  )
+  const snapshot: PersistedFile = {
     locale: s.locale,
     appearance: s.appearance,
     behavior: s.behavior,
@@ -578,8 +616,7 @@ async function writeSettings(s: SettingsState): Promise<void> {
     workspaces: s.workspaces,
     browser: s.browser,
     editor: s.editor,
-    keymap: s.keymap,
-    keybindings: s.keybindings,
+    ...keyboard,
     agents: s.agents,
     assistant: s.assistant,
     workspaceGroups: s.workspaceGroups,
@@ -755,6 +792,10 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     set({ keymap: parseKeymapSetting(ref) })
     scheduleSave(get)
   },
+  setTerminalKeymap: (id) => {
+    set({ terminalKeymap: parseTerminalKeymapSetting(id) })
+    scheduleSave(get)
+  },
   setKeybinding: (id, chord) => {
     set((s) => ({ keybindings: { ...s.keybindings, [id]: chord } }))
     scheduleSave(get)
@@ -768,6 +809,21 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   },
   setKeybindings: (keybindings) => {
     set({ keybindings })
+    scheduleSave(get)
+  },
+  setTerminalKey: (keys, send) => {
+    set((s) => ({ terminalKeys: { ...s.terminalKeys, [keys]: send } }))
+    scheduleSave(get)
+  },
+  resetTerminalKey: (keys) => {
+    set((s) => {
+      const { [keys]: _removed, ...rest } = s.terminalKeys
+      return { terminalKeys: rest }
+    })
+    scheduleSave(get)
+  },
+  setTerminalKeys: (terminalKeys) => {
+    set({ terminalKeys })
     scheduleSave(get)
   },
   setExtensionSettings: (extId, values) => {
