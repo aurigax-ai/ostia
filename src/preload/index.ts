@@ -155,12 +155,14 @@ const bridge: OstiaBridge = {
       return () => ipcRenderer.removeListener('window:maximized', handler)
     },
     onRunningQuery: (cb) => {
-      const handler = (_event: unknown, requestId: number, kept: unknown): void =>
-        ipcRenderer.send(
-          'window:close-answer',
-          requestId,
-          cb(Array.isArray(kept) ? kept.filter((id): id is string => typeof id === 'string') : []),
-        )
+      const handler = (_event: unknown, requestId: number, kept: unknown): void => {
+        const ids = Array.isArray(kept)
+          ? kept.filter((id): id is string => typeof id === 'string')
+          : []
+        void Promise.resolve(cb(ids))
+          .catch(() => [])
+          .then((groups) => ipcRenderer.send('window:close-answer', requestId, groups))
+      }
       ipcRenderer.on('window:running', handler)
       return () => ipcRenderer.removeListener('window:running', handler)
     },
@@ -192,6 +194,7 @@ const bridge: OstiaBridge = {
     listDir: (paneId, dir) => ipcRenderer.invoke('pty:list-dir', paneId, dir),
     localPrompt: (paneId) => ipcRenderer.invoke('pty:local-prompt', paneId),
     foreground: (paneId) => ipcRenderer.invoke('pty:foreground', paneId) as Promise<string | null>,
+    busy: (paneId) => ipcRenderer.invoke('pty:busy', paneId) as Promise<string | null>,
     promptContext: (paneId, want) =>
       ipcRenderer.invoke('pty:prompt-context', paneId, want) as Promise<PromptContext | null>,
     onData: (paneId, cb) => {
@@ -317,6 +320,22 @@ const bridge: OstiaBridge = {
   sync: {
     status: () => ipcRenderer.invoke('sync:status') as Promise<SyncStatus>,
     run: () => ipcRenderer.invoke('sync:run') as Promise<SyncStatus>,
+    resolve: (conflictId) => ipcRenderer.invoke('sync:resolve', conflictId) as Promise<SyncStatus>,
+    install: (extId) => ipcRenderer.invoke('sync:install', extId) as Promise<SyncStatus>,
+    secrets: {
+      reveal: (conflictId) => ipcRenderer.invoke('sync:secrets-reveal', conflictId),
+      enable: () => ipcRenderer.invoke('sync:secrets-enable'),
+      disable: () => ipcRenderer.invoke('sync:secrets-disable'),
+      remove: () => ipcRenderer.invoke('sync:secrets-remove'),
+      setLogins: (on) => ipcRenderer.invoke('sync:secrets-logins', on ? 'on' : 'off'),
+      setup: (password, confirm) => ipcRenderer.invoke('sync:secrets-setup', password, confirm),
+      reset: (password, confirm) => ipcRenderer.invoke('sync:secrets-reset', password, confirm),
+      unlock: (password) => ipcRenderer.invoke('sync:secrets-unlock', password),
+      changePassword: (password, confirm) =>
+        ipcRenderer.invoke('sync:secrets-change-password', password, confirm),
+      recover: (recoveryKey, password, confirm) =>
+        ipcRenderer.invoke('sync:secrets-recover', recoveryKey, password, confirm),
+    },
     pickFolder: () => ipcRenderer.invoke('dialog:pick-folder') as Promise<string | null>,
     onStatus: (cb) => {
       const handler = (_e: unknown, status: SyncStatus): void => cb(status)

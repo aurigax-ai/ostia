@@ -122,7 +122,7 @@ export interface WindowControls {
   isSystemDark: () => Promise<boolean>
   onSystemDarkChange: (cb: (dark: boolean) => void) => () => void
   onMaximizeChange: (cb: (maximized: boolean) => void) => () => void
-  onRunningQuery: (cb: (kept: string[]) => RunningGroup[]) => () => void
+  onRunningQuery: (cb: (kept: string[]) => RunningGroup[] | Promise<RunningGroup[]>) => () => void
   onConfirmClose: (cb: (groups: RunningGroup[]) => Promise<boolean>) => () => void
   onFreeze: (cb: () => void) => () => void
 }
@@ -131,6 +131,7 @@ export interface RunningGroup {
   workspaceId: string
   workspace: string
   commands: string[]
+  agents?: string[]
   files: string[]
   scratchFiles?: number
 }
@@ -246,6 +247,7 @@ export interface PtyApi {
   resize: (paneId: string, cols: number, rows: number) => void
   commands: (paneId: string) => Promise<string[]>
   foreground: (paneId: string) => Promise<string | null>
+  busy: (paneId: string) => Promise<string | null>
   promptContext: (paneId: string, want: PromptContextRequest) => Promise<PromptContext | null>
   onData: (paneId: string, cb: (data: string) => void) => () => void
   onExit: (paneId: string, cb: (exitCode: number, closes: boolean) => void) => () => void
@@ -304,8 +306,19 @@ export interface SettingsApi {
 }
 
 export interface SyncConflict {
-  at: string
-  files: string[]
+  id: string
+  kind: 'setting' | 'file' | 'secret'
+  key: string
+  local: string | null
+  remote: string | null
+  winner: 'local' | 'remote'
+  localAt?: number
+  remoteAt?: number
+}
+
+export interface SyncOffer {
+  id: string
+  marketplace: string
 }
 
 export interface SyncStatus {
@@ -313,12 +326,48 @@ export interface SyncStatus {
   state: 'off' | 'ok' | 'error'
   error?: string
   lastSync: string | null
-  lastConflict: SyncConflict | null
+  conflicts: SyncConflict[]
+  skipped: string[]
+  heldBack: string[]
+  offers: SyncOffer[]
+  secrets: SecretSyncStatus
+}
+
+export interface SecretSyncStatus {
+  state: 'off' | 'needs-setup' | 'locked' | 'unlocked' | 'damaged'
+  logins: boolean
+}
+
+export interface SecretActionResult {
+  ok: boolean
+  error?: string
+  recoveryKey?: string
+  status: SyncStatus
+}
+
+export type SecretReveal =
+  | { ok: true; local: string | null; remote: string | null; winner: 'local' | 'remote' }
+  | { ok: false }
+
+export interface SecretSyncApi {
+  reveal: (conflictId: string) => Promise<SecretReveal>
+  enable: () => Promise<SecretActionResult>
+  disable: () => Promise<SecretActionResult>
+  remove: () => Promise<SecretActionResult>
+  setLogins: (on: boolean) => Promise<SecretActionResult>
+  setup: (password: string, confirm: string) => Promise<SecretActionResult>
+  reset: (password: string, confirm: string) => Promise<SecretActionResult>
+  unlock: (password: string) => Promise<SecretActionResult>
+  changePassword: (password: string, confirm: string) => Promise<SecretActionResult>
+  recover: (recoveryKey: string, password: string, confirm: string) => Promise<SecretActionResult>
 }
 
 export interface SyncApi {
   status: () => Promise<SyncStatus>
   run: () => Promise<SyncStatus>
+  resolve: (conflictId: string) => Promise<SyncStatus>
+  install: (extId: string) => Promise<SyncStatus>
+  secrets: SecretSyncApi
   pickFolder: () => Promise<string | null>
   onStatus: (cb: (status: SyncStatus) => void) => () => void
 }

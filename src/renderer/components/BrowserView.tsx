@@ -100,6 +100,7 @@ export function BrowserView({
   const addressRef = useRef<HTMLInputElement | null>(null)
   const [findFocus, setFindFocus] = useState(-1)
   const [findResult, setFindResult] = useState<FindResult | null>(null)
+  const findStepRef = useRef<((by: number) => void) | null>(null)
 
   const withGuest = useCallback((fn: (wv: WebviewTag) => void): boolean => {
     const wv = webviewRef.current as unknown as WebviewTag | null
@@ -261,7 +262,9 @@ export function BrowserView({
       } else if (action === 'reload') withGuest((wv) => wv.reload())
       else if (action === 'back') withGuest((wv) => wv.canGoBack() && wv.goBack())
       else if (action === 'forward') withGuest((wv) => wv.canGoForward() && wv.goForward())
-      else setFindFocus((n) => Math.max(n, 0) + 1)
+      else if (action !== 'find' && findStepRef.current) {
+        findStepRef.current(action === 'findNext' ? 1 : -1)
+      } else setFindFocus((n) => Math.max(n, 0) + 1)
     },
     [withGuest],
   )
@@ -283,6 +286,8 @@ export function BrowserView({
         back: () => runAction('back'),
         forward: () => runAction('forward'),
         find: () => runAction('find'),
+        findNext: () => runAction('findNext'),
+        findPrevious: () => runAction('findPrevious'),
       }),
     [paneId, runAction],
   )
@@ -533,6 +538,7 @@ export function BrowserView({
             onSearch={searchPage}
             onClear={clearFind}
             onClose={closeFind}
+            stepRef={findStepRef}
           />
         ) : null}
         {cropping ? (

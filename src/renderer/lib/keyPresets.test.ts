@@ -225,12 +225,12 @@ describe('user terminal keys on top of the preset', () => {
       terminalKeys: {
         'Cmd+Left': { type: 'text', value: '\\x1bOH' },
         'Alt+Delete': null,
-        'Cmd+G': { type: 'text', value: 'clear\\r' },
+        'Cmd+Y': { type: 'text', value: 'clear\\r' },
       },
     })
     expect(terminalKeyData(key('ArrowLeft', cmd), true)).toBe('\x1bOH')
     expect(terminalKeyData(key('Delete', opt), true)).toBeNull()
-    expect(terminalKeyData(key('g', cmd), true)).toBe('clear\r')
+    expect(terminalKeyData(key('y', cmd), true)).toBe('clear\r')
     expect(terminalKeyData(key('ArrowRight', cmd), true)).toBe('\x05')
   })
 
@@ -306,9 +306,9 @@ describe('editing terminal keys', () => {
   }
 
   it('saves a new key, and saving a preset key back to its value removes the override', () => {
-    saveTerminalKey(chord('Cmd+G'), { type: 'text', value: 'clear\\r' }, null, true)
+    saveTerminalKey(chord('Cmd+Y'), { type: 'text', value: 'clear\\r' }, null, true)
     expect(useSettingsStore.getState().terminalKeys).toEqual({
-      'Cmd+G': { type: 'text', value: 'clear\\r' },
+      'Cmd+Y': { type: 'text', value: 'clear\\r' },
     })
     const left = rowFor('Cmd+Left')
     saveTerminalKey(chord('Cmd+Left'), { type: 'hex', value: '0x02' }, left, true)
@@ -335,15 +335,15 @@ describe('editing terminal keys', () => {
     useSettingsStore.setState({
       terminalKeys: {
         'Option+Left': { type: 'hex', value: '0x02' },
-        'Cmd+G': { type: 'text', value: 'ls\\r' },
+        'Cmd+Y': { type: 'text', value: 'ls\\r' },
       },
     })
     resetTerminalKey(rowFor('Alt+Left'), true)
     expect(useSettingsStore.getState().terminalKeys).toEqual({
-      'Cmd+G': { type: 'text', value: 'ls\\r' },
+      'Cmd+Y': { type: 'text', value: 'ls\\r' },
     })
     expect(terminalKeyData(key('ArrowLeft', opt), true)).toBe('\x1bb')
-    removeTerminalKey(rowFor('Cmd+G'), true)
+    removeTerminalKey(rowFor('Cmd+Y'), true)
     removeTerminalKey(rowFor('Alt+Right'), true)
     expect(useSettingsStore.getState().terminalKeys).toEqual({ 'Alt+Right': null })
     expect(terminalKeyData(key('ArrowRight', opt), true)).toBeNull()

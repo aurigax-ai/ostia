@@ -73,6 +73,8 @@ const TERMINAL_TITLES: Record<string, (d: Dict) => string> = {
   copy: (d) => d.keyboard.copy,
   paste: (d) => d.keyboard.paste,
   find: (d) => d.keyboard.find,
+  'find.next': (d) => d.keyboard.findNext,
+  'find.previous': (d) => d.keyboard.findPrevious,
 }
 
 function commandTitle(id: string, d: Dict): string {

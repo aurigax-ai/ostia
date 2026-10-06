@@ -40,6 +40,7 @@ import { MANAGER_FEATURE, managerAgents, parseManagerSettings } from '../shared/
 import { OPEN_FILES_MAX } from '../shared/openFiles'
 import { OFFICIAL_MARKETPLACE, PRODUCT_NAME } from '../shared/product'
 import { PRODUCT_DISPLAY_NAME } from '../shared/productDisplay'
+import { parsePrivacySettings } from '../shared/redaction'
 import { type RemoteCwd, normalizeRemoteCwd } from '../shared/remoteFolders'
 import { parseSandboxGlobals } from '../shared/sandbox'
 import { quoteArg, quoteArgv } from '../shared/shellQuote'
@@ -105,7 +106,7 @@ import {
   registerControlServer,
   stopControlServer,
 } from './controlServer'
-import { registerCredentials } from './credentials'
+import { credentials, registerCredentials } from './credentials'
 import { type Diagnostics, registerDiagnostics } from './diagnostics'
 import { registerDocsMethods } from './docs'
 import { registerEditorLanguageIpc } from './editorLanguages'
@@ -147,7 +148,7 @@ import { describeSkipped, registerKeymapIpc } from './keymaps'
 import { registerLanguagePackIpc } from './languagePacks'
 import { LanguageServers, scrubbedEnv } from './languageServers'
 import { registerLanguageServersIpc } from './languageServersIpc'
-import { atLocalPrompt } from './localPrompt'
+import { atLocalPrompt, busyProgram } from './localPrompt'
 import { registerLoginFill } from './loginFill'
 import { ManagedServers, downloadBaseUrl } from './managedServers'
 import { ManagerService, managerWindowId } from './manager'
@@ -188,6 +189,8 @@ import { acceptsPrimarySelection } from './primarySelection'
 import { registerPrivacyIpc } from './privacyIpc'
 import { privateTmpDir } from './privateTmp'
 import { INTERRUPT_GRACE_MS, type ProcessRegistry, registerProcessMethods } from './processManager'
+import { type ProfileSyncHandle, startProfileSync } from './profileSync/ipc'
+import { flatSource, groupedSource, loginsSource } from './profileSync/secrets'
 import { registerProjectRootIpc } from './projectRoot'
 import { KubeContextReader, NodeVersionResolver, promptContext } from './promptContext'
 import { type ReapReason, RecoveryBook, orphanVerdict, planRecovery } from './ptyReaper'
@@ -239,7 +242,6 @@ import { SecretService } from './secrets/secretService'
 import { WorkspaceAgents } from './secrets/workspaceAgents'
 import { registerSelectionIpc } from './selectionReport'
 import { ServerOverrides } from './serverOverrides'
-import { type SettingsSyncHandle, startSettingsSync } from './settingsSyncIpc'
 import { ExecutableIndex, commandNames, readShellState } from './shellCommands'
 import { closesPaneOnExit } from './shellExit'
 import { INTEGRATION_DIR, setAgentPlugins, shellIntegrationSpawnOptions } from './shellIntegration'
@@ -1176,7 +1178,7 @@ const agentRunning = new AgentRunningPanes(() => broker?.persist())
 const keptAttention = new KeptAttention()
 const reachesPane: OriginReach = (senderWindowId, sourcePaneId, targetPaneId) =>
   broker?.reaches(senderWindowId, sourcePaneId, targetPaneId) ?? false
-let settingsSync: SettingsSyncHandle | null = null
+let profileSync: ProfileSyncHandle | null = null
 
 const EXTENSION_PARTITION_PREFIX = 'ostia-ext-'
 
@@ -2214,6 +2216,19 @@ function registerPtyIpc(): void {
       return null
     }
   })
+  ipcMain.handle('pty:busy', (e, paneId: string): string | null => {
+    const entry = ptys.get(String(paneId))
+    if (!entry?.subs.has(String(e.sender.id))) return null
+    try {
+      return busyProgram({
+        foreground: entry.pty.process,
+        shell: entry.shell,
+        sandboxed: entry.sandboxed,
+      })
+    } catch {
+      return null
+    }
+  })
   ipcMain.handle('pty:commands', async (e, paneId: string): Promise<string[]> => {
     const entry = ptys.get(paneId)
     if (!entry?.subs.has(String(e.sender.id))) return []
@@ -2702,6 +2717,7 @@ function readSettingsFile(): {
   workspaces?: { globalHotkey?: unknown }
   manager?: unknown
   assistant?: unknown
+  privacy?: unknown
   terminal?: { shell?: unknown; keepShells?: unknown }
   agents?: { hooks?: unknown }
 } {
@@ -3101,19 +3117,6 @@ app.whenReady().then(() => {
     },
   })
   const extensionStore = new ExtensionStore(join(app.getPath('userData'), 'extensions.json'))
-  settingsSync = startSettingsSync({
-    userData: app.getPath('userData'),
-    broadcast: (channel, payload) => broadcast(channel, payload),
-    onExtensionsPulled: () => {
-      extensionStore.reload()
-      extensionHost?.reloadRecords()
-    },
-    onSettingsPulled: () => {
-      extensionHost?.reloadSettings()
-      extensionHost?.refreshLocale()
-    },
-  })
-  settingsSync.run()
   extensionHost = new ExtensionHost({
     onChanged: () => {
       languageServers?.refresh()
@@ -3186,28 +3189,69 @@ app.whenReady().then(() => {
       extensionHost?.setLanguageServerEnabled(extId, serverId, enabled),
     setOverride: (key, override) => serverOverrides.choose(key, override),
   })
-  registerMarketplaceIpc(
-    new Marketplace({
-      recordsPath: join(app.getPath('userData'), 'marketplaces.json'),
-      clonesDir: join(app.getPath('userData'), 'marketplaces'),
-      extensionsDir: join(configDir(), 'extensions'),
-      builtinIds: () =>
-        extensionHost
-          ?.list()
-          .filter((ext) => ext.builtin)
-          .map((ext) => ext.id) ?? [],
-      forget: (extId) => {
-        managedServers.forgetExtension(extId)
-        serverOverrides.forgetExtension(extId)
-        extensionStore.delete(extId)
-        for (const secrets of [extensionSecretStore(), assistKeyStore()]) {
-          for (const key of secrets.keys(extId)) secrets.set(extId, key, null)
-        }
-      },
-      rescan: () => extensionHost?.rescan(),
-      locale: readLocale,
-    }),
-  )
+  const marketplace = new Marketplace({
+    recordsPath: join(app.getPath('userData'), 'marketplaces.json'),
+    clonesDir: join(app.getPath('userData'), 'marketplaces'),
+    extensionsDir: join(configDir(), 'extensions'),
+    builtinIds: () =>
+      extensionHost
+        ?.list()
+        .filter((ext) => ext.builtin)
+        .map((ext) => ext.id) ?? [],
+    forget: (extId) => {
+      managedServers.forgetExtension(extId)
+      serverOverrides.forgetExtension(extId)
+      extensionStore.delete(extId)
+      for (const secrets of [extensionSecretStore(), assistKeyStore()]) {
+        for (const key of secrets.keys(extId)) secrets.set(extId, key, null)
+      }
+    },
+    rescan: () => extensionHost?.rescan(),
+    locale: readLocale,
+  })
+  registerMarketplaceIpc(marketplace)
+  profileSync = startProfileSync({
+    userData: app.getPath('userData'),
+    configDir: configDir(),
+    readSettings: readSettingsFile,
+    broadcast: (channel, payload) => broadcast(channel, payload),
+    onSettingsPulled: () => {
+      extensionHost?.reloadSettings()
+      extensionHost?.refreshLocale()
+    },
+    installedExtensions: () => marketplace.syncedInstalls(),
+    builtinIds: () =>
+      extensionHost
+        ?.list()
+        .filter((ext) => ext.builtin)
+        .map((ext) => ext.id) ?? [],
+    installExtension: async (id, url) => (await marketplace.installSuggested(id, url, true)).ok,
+    secretSources: () => {
+      const store = (name: string) => {
+        const path = storePath(name, 'global')
+        return { deps: encryptedFile(path), mtime: () => statSync(path).mtimeMs }
+      }
+      const vault = store('vault')
+      const ext = store('extension-secrets')
+      const assist = store('assist-keys')
+      const mcp = store('mcp-secrets')
+      const logins = credentials()
+      return [
+        flatSource(vault.deps, vault.mtime),
+        groupedSource('extensions', ext.deps, ext.mtime),
+        groupedSource('assistant', assist.deps, assist.mtime),
+        groupedSource('mcp', mcp.deps, mcp.mtime),
+        ...(logins ? [loginsSource(logins)] : []),
+      ]
+    },
+    protect: {
+      encrypt: (plain) => safeStorage.encryptString(plain).toString('base64'),
+      decrypt: (kept) => safeStorage.decryptString(Buffer.from(kept, 'base64')),
+    },
+    detectSecrets: (text) =>
+      redactionScan.scan(text, parsePrivacySettings(readSettingsFile().privacy).redaction.patterns),
+  })
+  void profileSync.run()
   registerAssistIpc(() => extensionHost)
   registerChatSessionIpc(
     createChatSessionStore({ dir: join(dirname(storePath('chat', 'global')), 'chat-sessions') }),
@@ -3511,7 +3555,7 @@ app.on('before-quit', (event) => {
   mcpOAuth?.closeAll()
   mcpHost?.closeAll()
   viewHost?.stop()
-  settingsSync?.stop()
+  profileSync?.stop()
   stopControlServer()
   clearControlInfo(controlInfoPath(), controlSocketPath())
   portal?.stop()

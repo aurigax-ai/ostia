@@ -34,6 +34,7 @@ export type AppChord =
   | 'view.goToFile'
   | 'view.toggleRail'
   | 'app.openSettings'
+  | 'view.searchFiles'
   | 'attention.jumpToLatest'
   | 'history.search'
   | 'workflows.search'
@@ -79,6 +80,8 @@ export type TerminalChord =
   | 'copy'
   | 'paste'
   | 'find'
+  | 'find.next'
+  | 'find.previous'
   | 'block.selectPrev'
   | 'block.selectNext'
   | TerminalCommandChord
@@ -89,6 +92,8 @@ export const TERMINAL_CHORDS: readonly TerminalChord[] = [
   'copy',
   'paste',
   'find',
+  'find.next',
+  'find.previous',
   'block.selectPrev',
   'block.selectNext',
   ...TERMINAL_COMMAND_CHORDS,
@@ -110,6 +115,7 @@ export const DEFAULT_CHORDS: Readonly<
   'view.goToFile': ['Cmd+P', 'Ctrl+Alt+G'],
   'view.toggleRail': [['Cmd+B', 'Cmd+\\'], 'Ctrl+Shift+B'],
   'app.openSettings': ['Cmd+,', 'Ctrl+,'],
+  'view.searchFiles': ['Shift+Cmd+F', ''],
   'attention.jumpToLatest': ['Cmd+Shift+U', 'Ctrl+Shift+U'],
   'history.search': ['Cmd+Shift+H', 'Ctrl+Shift+H'],
   'workflows.search': ['Cmd+Shift+S', 'Ctrl+Shift+S'],
@@ -149,6 +155,8 @@ export const DEFAULT_CHORDS: Readonly<
   copy: ['Cmd+C', 'Ctrl+Shift+C'],
   paste: ['Cmd+V', 'Ctrl+Shift+V'],
   find: ['Cmd+F', 'Ctrl+Shift+F'],
+  'find.next': ['Cmd+G', ''],
+  'find.previous': ['Shift+Cmd+G', ''],
   'block.selectPrev': ['Cmd+Up', 'Ctrl+Shift+Up'],
   'block.selectNext': ['Cmd+Down', 'Ctrl+Shift+Down'],
   'terminal.scrollToTop': ['Cmd+Home', ''],
@@ -308,6 +316,11 @@ export function matchTerminalChord(e: KeyLike, mac: boolean): string | null {
 
 export function matchChordInTerminal(e: KeyLike, mac: boolean): string | null {
   return matchTerminalChord(e, mac) ?? matchChord(e, mac)
+}
+
+export function findStep(chord: string | null): 1 | -1 | null {
+  if (chord === 'find.next') return 1
+  return chord === 'find.previous' ? -1 : null
 }
 
 export function isAppChord(chord: string | null): chord is string {

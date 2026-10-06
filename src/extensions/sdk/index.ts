@@ -45,6 +45,7 @@ import type {
   RunAgentOptions,
   SidebarKind,
   SidebarTone,
+  TerminalWait,
 } from '../../shared/extensions'
 import {
   ASSIST_PROVIDERS_CHANGED_EVENT,
@@ -75,7 +76,11 @@ export type {
   PaneChipItem,
   RunAgentOptions,
   SidebarTone,
+  TerminalWait,
+  TerminalWaitOutcome,
 } from '../../shared/extensions'
+
+export { OPEN_TERMINAL_WAIT_MAX_MS } from '../../shared/extensions'
 
 export {
   type MessageVars,
@@ -155,7 +160,7 @@ export interface WorkspaceChipValue extends ChipValue {
 }
 
 export type OpenTerminalResult =
-  | { ok: true; paneId: string }
+  | { ok: true; paneId: string; wait?: TerminalWait }
   | { ok: false; error: string; message?: string }
 
 export interface WorkspaceInfo {

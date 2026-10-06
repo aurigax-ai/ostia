@@ -1,3 +1,4 @@
+import { OPEN_TERMINAL_WAIT_MAX_MS, type TerminalWait } from '../../shared/extensions'
 import { quoteArgv } from '../../shared/shellQuote'
 import {
   MANAGER_NAMES,
@@ -12,11 +13,14 @@ import type { OsIdentity } from './os'
 import type { Strings } from './strings'
 
 export const REASON_MAX = 500
+const INSTALL_WAIT_BUDGET_MS = OPEN_TERMINAL_WAIT_MAX_MS - 30_000
+const INSTALL_WAIT_MIN_MS = 1000
 
 export interface InstallRequest {
   packages: string[]
   manager?: string
   reason?: string
+  wait?: boolean
 }
 
 export interface InstallContext {
@@ -43,7 +47,9 @@ export function parseInstallArgs(argv: string[]): InstallRequest {
   const request: InstallRequest = { packages }
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i]
-    if ((arg === '--manager' || arg === '--reason') && i + 1 < argv.length) {
+    if (arg === '--wait') {
+      request.wait = true
+    } else if ((arg === '--manager' || arg === '--reason') && i + 1 < argv.length) {
       const value = argv[++i]
       if (arg === '--manager') request.manager = value
       else request.reason = value
@@ -95,4 +101,20 @@ export function planInstall(req: InstallRequest, ctx: InstallContext, s: Strings
   const reason = req.reason?.trim().slice(0, REASON_MAX)
   if (reason) plan.reason = reason
   return { ok: true, plan }
+}
+
+export type InstallOutcome =
+  | { ok: true; message: string }
+  | { ok: false; error: 'install-failed' | 'terminal-closed'; message: string }
+
+export function installOutcome(wait: TerminalWait, s: Strings): InstallOutcome {
+  if (wait.outcome === 'timeout') return { ok: true, message: s.installStillRunning }
+  if (wait.outcome === 'closed')
+    return { ok: false, error: 'terminal-closed', message: s.installClosed }
+  if (wait.exitCode === 0) return { ok: true, message: s.installed }
+  return { ok: false, error: 'install-failed', message: s.installFailed(wait.exitCode) }
+}
+
+export function installWaitMs(startedAt: number, now: number): number {
+  return Math.max(INSTALL_WAIT_MIN_MS, INSTALL_WAIT_BUDGET_MS - (now - startedAt))
 }

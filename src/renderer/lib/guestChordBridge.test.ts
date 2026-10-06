@@ -56,6 +56,8 @@ function browserPane() {
     back: vi.fn(),
     forward: vi.fn(),
     find: vi.fn(),
+    findNext: vi.fn(),
+    findPrevious: vi.fn(),
   }
   const off = registerBrowserHandle(web.id, handle)
   return { term, web, handle, off }
@@ -78,6 +80,12 @@ describe('guestChordSignatures', () => {
     expect(sigs).not.toContain('Ctrl+Shift+Up')
     expect(sigs).not.toContain('Ctrl+Shift+K')
     expect(sigs).not.toContain('Ctrl+Shift+Enter')
+  })
+
+  it('forwards ⌘G and ⇧⌘G so a page’s find bar steps on macOS', () => {
+    expect(guestChordSignatures(true)).toEqual(
+      expect.arrayContaining(['Cmd+G', 'Shift+Cmd+G', 'Shift+Cmd+F']),
+    )
   })
 
   it('sends the list to main now and after a rebind', () => {

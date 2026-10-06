@@ -8,7 +8,14 @@ import {
   test,
 } from '@playwright/test'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
-import { PROMPT, emptyState, emptyWorkspace, openWorkspace } from './helpers'
+import {
+  PROMPT,
+  emptyState,
+  emptyWorkspace,
+  openWorkspace,
+  pressQuit,
+  waitForExit,
+} from './helpers'
 
 const KEEP = { ...DOM_RENDERER_SETTINGS, terminal: { keepShells: true } }
 
@@ -564,5 +571,73 @@ test('KSH-C41 a kept shell waits while Ostia is closed and is the same shell whe
     await expect(screen(second.win)).toContainText(`again=${pid}`, { timeout: 15_000 })
   } finally {
     await quit(second.app)
+  }
+})
+
+function agentMidTurn(): string {
+  return binWith(
+    'claude',
+    [
+      '#!/bin/sh',
+      'ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" "$OSTIA_CLI" resume-token claude e2e-kept-2 >/dev/null 2>&1',
+      'sleep 1; ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" "$OSTIA_CLI" state working >/dev/null 2>&1',
+      'echo fake-agent-ready',
+      'exec cat',
+      '',
+    ].join('\n'),
+  )
+}
+
+const KEEP_AND_ASK = {
+  ...KEEP,
+  agents: { autoResume: true },
+  workspaces: { ...DOM_RENDERER_SETTINGS.workspaces, confirmQuit: true },
+}
+
+async function endUnattended(app: ElectronApplication): Promise<void> {
+  const exited = waitForExit(app)
+  app.process().kill('SIGTERM')
+  await exited
+}
+
+test('KSH-C70 Restart leaves a kept agent mid-turn running and asks nothing', async () => {
+  seedSettings(dataHome, KEEP_AND_ASK)
+  const bin = agentMidTurn()
+  const first = await launch(dataHome, pathWith(bin))
+  await openWorkspace(first.win)
+  await run(first.win, 'claude')
+  await expect(screen(first.win)).toContainText('fake-agent-ready', { timeout: 15_000 })
+  await first.app.evaluate(({ app: electronApp }) => {
+    electronApp.relaunch = () => undefined
+  })
+  const closed = first.app.waitForEvent('close')
+  await first.win.evaluate(() => {
+    void window.ostia.update.restart()
+  })
+  await closed
+
+  const second = await launch(dataHome, pathWith(bin))
+  try {
+    await expect(screen(second.win)).toContainText('fake-agent-ready', { timeout: 15_000 })
+    await expect(screen(second.win)).not.toContainText('--resume')
+  } finally {
+    await endUnattended(second.app)
+  }
+})
+
+test('KSH-C71 Quit still ends a kept agent mid-turn, so it asks and names the agent', async () => {
+  seedSettings(dataHome, KEEP_AND_ASK)
+  const { app, win } = await launch(dataHome, pathWith(agentMidTurn()))
+  try {
+    await openWorkspace(win)
+    await run(win, 'claude')
+    await expect(screen(win)).toContainText('fake-agent-ready', { timeout: 15_000 })
+    expect(await pressQuit(app, win)).toBe('asked')
+    const dialog = win.getByRole('dialog')
+    await expect(dialog).toContainText('1 agent will be stopped')
+    await dialog.getByRole('button', { name: 'Cancel' }).click()
+    await expect(dialog).toBeHidden()
+  } finally {
+    await endUnattended(app)
   }
 })

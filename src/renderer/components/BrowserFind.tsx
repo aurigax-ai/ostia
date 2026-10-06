@@ -1,6 +1,7 @@
 import { CaretDownIcon, CaretUpIcon, XIcon } from '@phosphor-icons/react'
 import { type KeyboardEvent, useEffect, useRef, useState } from 'react'
 import { useDict } from '../i18n/useDict'
+import { type FindStepRef, findStepKey, useFindStepRef } from './FindBar'
 import { IconButton } from './IconButton'
 import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupText } from './ui/input-group'
 
@@ -21,12 +22,14 @@ export function BrowserFind({
   onSearch,
   onClear,
   onClose,
+  stepRef,
 }: {
   focusKey: number
   result: FindResult | null
   onSearch: (request: FindRequest) => void
   onClear: () => void
   onClose: () => void
+  stepRef?: FindStepRef
 }): JSX.Element {
   const d = useDict()
   const inputRef = useRef<HTMLInputElement>(null)
@@ -41,6 +44,7 @@ export function BrowserFind({
   const step = (forward: boolean): void => {
     if (query) onSearch({ text: query, forward, next: true })
   }
+  useFindStepRef(stepRef, (by) => step(by > 0))
 
   const onChange = (value: string): void => {
     setQuery(value)
@@ -55,6 +59,12 @@ export function BrowserFind({
     } else if (e.key === 'Enter') {
       e.preventDefault()
       step(!e.shiftKey)
+    } else {
+      const by = findStepKey(e)
+      if (by === null) return
+      e.preventDefault()
+      e.stopPropagation()
+      step(by > 0)
     }
   }
 
