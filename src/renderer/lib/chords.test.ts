@@ -386,10 +386,10 @@ describe('the macOS keymap that follows cmux', () => {
   it('names only app commands Ostia ships, each with a chord that loads on macOS', () => {
     expect(parsed.ok && parsed.skipped).toEqual([])
     const shipped = [...Object.keys(DEFAULT_CHORDS), ...Object.keys(en.commands.titles)]
-    for (const [id, text] of Object.entries(raw.bindings as Record<string, string>)) {
+    for (const [id, text] of Object.entries(raw.bindings as Record<string, string | null>)) {
       expect(shipped, id).toContain(id)
       expect(isAppChord(id), id).toBe(true)
-      expect(checkBinding(id, text, true), id).toBeNull()
+      if (text !== null) expect(checkBinding(id, text, true), id).toBeNull()
     }
   })
 
@@ -426,9 +426,17 @@ describe('the macOS keymap that follows cmux', () => {
     expect(matchChord(key('t', cmd), true)).toBe('tab.new')
   })
 
+  it('jumps to a workspace on ⌘P and leaves Go to File without a key', () => {
+    useKeymap(bindings)
+    expect(matchChord(key('p', { metaKey: true }), true)).toBe('view.goToWorkspace')
+    expect(chordLabel('view.goToWorkspace', true)).toBe('⌘P')
+    expect(chordLabel('view.goToFile', true)).toBeNull()
+  })
+
   it('changes nothing until it is the chosen keymap', () => {
     expect(chordLabel('pane.splitRight', true)).toBe('⌥⌘\\')
     expect(matchChord(key('d', { metaKey: true }), true)).toBeNull()
+    expect(matchChord(key('p', { metaKey: true }), true)).toBe('view.goToFile')
   })
 })
 
@@ -727,6 +735,16 @@ describe('DEFAULT_CHORDS', () => {
       'workspace.previous',
     )
     expect(matchChord(key('PageDown', { ctrlKey: true }), false)).toBeNull()
+  })
+})
+
+describe('go to file', () => {
+  it('is ⌘P on macOS and Ctrl+Alt+G on Linux, never the readline key Ctrl+P', () => {
+    expect(matchChord(key('p', { metaKey: true }), true)).toBe('view.goToFile')
+    expect(matchChord(key('g', { ctrlKey: true, altKey: true }), false)).toBe('view.goToFile')
+    expect(matchChord(key('p', { ctrlKey: true }), false)).toBeNull()
+    expect(checkBinding('view.goToFile', 'Ctrl+P', false)).toBe('ctrl-key')
+    expect(chordLabel('view.goToFile', true)).toBe('⌘P')
   })
 })
 

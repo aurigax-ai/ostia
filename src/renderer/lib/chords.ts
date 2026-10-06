@@ -28,6 +28,7 @@ export { WORKSPACE_GOTO, bindingProblem, checkBinding } from '@shared/chordSpec'
 
 export type AppChord =
   | 'palette.toggle'
+  | 'view.goToFile'
   | 'view.toggleRail'
   | 'app.openSettings'
   | 'attention.jumpToLatest'
@@ -100,6 +101,7 @@ export const DEFAULT_CHORDS: Readonly<
   Record<AppChord | TerminalChord | BrowserChord, [mac: ChordValue, other: ChordValue]>
 > = {
   'palette.toggle': ['Cmd+K', 'Ctrl+Shift+P'],
+  'view.goToFile': ['Cmd+P', 'Ctrl+Alt+G'],
   'view.toggleRail': ['Cmd+\\', 'Ctrl+Shift+B'],
   'app.openSettings': ['Cmd+,', 'Ctrl+,'],
   'attention.jumpToLatest': ['Cmd+Shift+U', 'Ctrl+Shift+U'],
