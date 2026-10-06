@@ -1,17 +1,22 @@
-import type { GatewayRemoteStatus, GatewayTailnetState } from '@shared/types'
+import type { GatewayRemoteStatus, GatewayRoute, GatewayTailnetState } from '@shared/types'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { GatewaySection } from './GatewaySection'
 
-function remoteOn(tailnet: GatewayTailnetState): void {
+function remoteOn(
+  tailnet: GatewayTailnetState,
+  route: GatewayRoute = { kind: 'tailnet' },
+  running = true,
+): void {
   const status: GatewayRemoteStatus = {
-    running: true,
-    host: '127.0.0.1',
+    running,
+    host: route.kind === 'address' ? route.address : '127.0.0.1',
     port: 8722,
     fingerprint: 'sha256/x',
     deviceCount: 0,
     tailnet,
+    route,
   }
   vi.mocked(window.ostia.gateway.status).mockResolvedValue(status)
 }
@@ -63,11 +68,59 @@ describe('Settings → Remote over the tailnet', () => {
     expect(await screen.findByText(/refused a login link/)).toBeInTheDocument()
   })
 
-  it('TSN-C28 offers no bind-address choice', async () => {
+  it('offers Tailscale and each local address, and saves the pick while off', async () => {
+    remoteOn({ state: 'off' }, { kind: 'tailnet' }, false)
+    vi.mocked(window.ostia.gateway.bindAddresses).mockResolvedValue([
+      { address: '192.168.2.108', iface: 'wlan0' },
+    ])
+    const user = userEvent.setup()
+    render(<GatewaySection />)
+    const choice = await screen.findByRole('combobox', { name: 'Connect through' })
+    expect(choice).toHaveTextContent(/Tailscale/)
+    await user.click(choice)
+    await user.click(await screen.findByRole('option', { name: 'wlan0 · 192.168.2.108' }))
+    expect(window.ostia.gateway.setRoute).toHaveBeenCalledWith({
+      kind: 'address',
+      address: '192.168.2.108',
+    })
+  })
+
+  it('locks the route while remote access is on', async () => {
     remoteOn({ state: 'off' })
     render(<GatewaySection />)
-    await pairButton()
-    expect(screen.queryByRole('combobox', { name: 'Bind address' })).not.toBeInTheDocument()
+    expect(await screen.findByRole('combobox', { name: 'Connect through' })).toBeDisabled()
+  })
+
+  it('on a picked address hides Tailscale, warns and allows pairing', async () => {
+    remoteOn({ state: 'off' }, { kind: 'address', address: '192.168.2.108' })
+    render(<GatewaySection />)
+    expect(await screen.findByText(/Listens on 192\.168\.2\.108/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Sign in to Tailscale' })).not.toBeInTheDocument()
+    expect(screen.queryByText('Not signed in')).not.toBeInTheDocument()
+    expect(await pairButton()).toBeEnabled()
+  })
+
+  it('says when the saved address is gone instead of turning on', async () => {
+    remoteOn({ state: 'off' }, { kind: 'address', address: '10.1.2.3' }, false)
+    vi.mocked(window.ostia.gateway.enable).mockResolvedValueOnce({ error: 'address-unavailable' })
+    render(<GatewaySection />)
+    await userEvent
+      .setup()
+      .click(await screen.findByRole('switch', { name: 'Enable remote access' }))
+    expect(await screen.findByText(/10\.1\.2\.3 is no longer on this computer/)).toBeInTheDocument()
+  })
+
+  it('shows the pair code beside the QR and keeps the JSON folded', async () => {
+    remoteOn({ state: 'running', ip: '100.64.0.1', dnsName: 'ostia-x.example.ts.net' })
+    const user = userEvent.setup()
+    render(<GatewaySection />)
+    await user.click(await pairButton())
+    expect(await screen.findByText('ABCD1234')).toBeInTheDocument()
+    expect(screen.getByText('100.64.0.1:8722')).toBeInTheDocument()
+    expect(screen.queryByRole('textbox', { name: 'Connection details' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Connection details' }))
+    const details = screen.getByRole('textbox', { name: 'Connection details' })
+    expect((details as HTMLTextAreaElement).value).toContain('"pairCode": "ABCD1234"')
   })
 
   it('TSN-C31 keeps pairing disabled while the node has no tailnet IPv4', async () => {

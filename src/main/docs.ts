@@ -186,7 +186,7 @@ const CLI_HELP = `ostia — control-socket CLI
                   | react-grab toggle|get | focus-webview | is-webview-focused
   ostia browse pick [--timeout MS]  ask the user to click an element; prints its capture JSON
   ostia gateway pair                         mint a pairing code + QR payload (not-running unless the human turned remote access on)
-  ostia gateway status                       { running, host, port, fingerprint, deviceCount, tailnet }
+  ostia gateway status                       { running, host, port, fingerprint, deviceCount, tailnet, route }
   ostia gateway devices                      list paired phones (never prints tokens; caps are granted only in Settings → Remote)
   ostia gateway revoke <deviceId>             revoke a paired phone immediately
   ostia ext ls                   list enabled extensions and their commands

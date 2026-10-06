@@ -1,5 +1,9 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { GatewayTailnetState } from '../../shared/types'
+import { saveJson, storePath } from '../jsonStore'
 import type { Tailnet } from './tailnet'
 
 const handlers = vi.hoisted(() => new Map<string, (...args: unknown[]) => unknown>())
@@ -16,18 +20,24 @@ vi.mock('../controlServer', () => ({
   registerControlMethod: (name: string) => registeredMethods.push(name),
 }))
 
-const server = vi.hoisted(() => ({ running: false }))
+const LAN_ADDRESS = '192.168.2.108'
+vi.mock('./interfaces', () => ({
+  listBindAddresses: () => [{ address: LAN_ADDRESS, iface: 'wlan0' }],
+}))
+
+const server = vi.hoisted(() => ({ running: false, host: '127.0.0.1' }))
 vi.mock('./server', () => ({
-  startGateway: vi.fn(async () => {
+  startGateway: vi.fn(async (options?: { host?: string }) => {
     server.running = true
-    return { host: '127.0.0.1', port: 8722, helperPort: 40001, fingerprint: 'sha256/fp' }
+    server.host = options?.host ?? '127.0.0.1'
+    return { host: server.host, port: 8722, helperPort: 40001, fingerprint: 'sha256/fp' }
   }),
   stopGateway: vi.fn(async () => {
     server.running = false
   }),
   gatewayStatus: () => ({
     running: server.running,
-    host: server.running ? '127.0.0.1' : null,
+    host: server.running ? server.host : null,
     port: server.running ? 8722 : null,
     fingerprint: server.running ? 'sha256/fp' : null,
     deviceCount: 0,
@@ -39,6 +49,20 @@ vi.mock('./server', () => ({
 }))
 
 const { configureTailnet, registerGatewayIpc, registerGatewayMethods } = await import('./index')
+const { startGateway } = await import('./server')
+
+let prevXdg: string | undefined
+beforeAll(() => {
+  prevXdg = process.env.XDG_DATA_HOME
+  process.env.XDG_DATA_HOME = mkdtempSync(join(tmpdir(), 'ostia-gateway-route-'))
+})
+
+afterAll(() => {
+  const xdg = process.env.XDG_DATA_HOME
+  if (prevXdg === undefined) Reflect.deleteProperty(process.env, 'XDG_DATA_HOME')
+  else process.env.XDG_DATA_HOME = prevXdg
+  if (xdg) rmSync(xdg, { recursive: true, force: true })
+})
 
 let tailnetState: GatewayTailnetState = { state: 'off' }
 const tailnet: Tailnet = {
@@ -60,6 +84,7 @@ beforeEach(() => {
   handlers.clear()
   server.running = false
   tailnetState = { state: 'off' }
+  rmSync(storePath('gateway-config', 'global'), { force: true })
   configureTailnet(tailnet, { openExternal })
   registerGatewayIpc()
 })
@@ -133,5 +158,63 @@ describe('gateway IPC and socket surface for the tailnet', () => {
     expect(await invoke('gateway:pair')).toEqual({ error: 'not-running' })
     tailnetState = { state: 'needs-login', authUrl: 'https://login.tailscale.com/a/abc' }
     expect(await invoke('gateway:pair')).toEqual({ error: 'not-running' })
+  })
+
+  it('refuses a route change from a webview guest', async () => {
+    expect(
+      await invoke('gateway:set-route', 'webview', { kind: 'address', address: LAN_ADDRESS }),
+    ).toEqual({ ok: false, error: 'not-a-window' })
+    expect(await invoke('gateway:status')).toMatchObject({ route: { kind: 'tailnet' } })
+  })
+
+  it('refuses an address this computer does not have', async () => {
+    for (const route of [
+      { kind: 'address', address: '10.9.9.9' },
+      { kind: 'address', address: '0.0.0.0; rm' },
+      { kind: 'nope' },
+    ]) {
+      expect(await invoke('gateway:set-route', 'window', route)).toEqual({
+        ok: false,
+        error: 'unknown-address',
+      })
+    }
+  })
+
+  it('refuses a route change while remote access is on', async () => {
+    await invoke('gateway:enable')
+    expect(
+      await invoke('gateway:set-route', 'window', { kind: 'address', address: LAN_ADDRESS }),
+    ).toEqual({ ok: false, error: 'running' })
+  })
+
+  it('listens on the picked address without the tailnet and pairs with that address', async () => {
+    expect(
+      await invoke('gateway:set-route', 'window', { kind: 'address', address: LAN_ADDRESS }),
+    ).toEqual({ ok: true, route: { kind: 'address', address: LAN_ADDRESS } })
+    expect(await invoke('gateway:enable')).toMatchObject({
+      running: true,
+      host: LAN_ADDRESS,
+      route: { kind: 'address', address: LAN_ADDRESS },
+    })
+    expect(startGateway).toHaveBeenCalledWith({ host: LAN_ADDRESS })
+    expect(tailnet.start).not.toHaveBeenCalled()
+    expect(await invoke('gateway:pair')).toMatchObject({ host: LAN_ADDRESS, port: 8722 })
+  })
+
+  it('goes back to the tailnet when Tailscale is picked again', async () => {
+    await invoke('gateway:set-route', 'window', { kind: 'address', address: LAN_ADDRESS })
+    await invoke('gateway:set-route', 'window', { kind: 'tailnet' })
+    await invoke('gateway:enable')
+    expect(startGateway).toHaveBeenCalledWith()
+    expect(tailnet.start).toHaveBeenCalledWith({ helperPort: 40001, port: 8722 })
+  })
+
+  it('starts nothing when the saved address is no longer on this computer', async () => {
+    saveJson(storePath('gateway-config', 'global'), {
+      route: { kind: 'address', address: '10.1.2.3' },
+    })
+    expect(await invoke('gateway:enable')).toEqual({ error: 'address-unavailable' })
+    expect(startGateway).not.toHaveBeenCalled()
+    expect(tailnet.start).not.toHaveBeenCalled()
   })
 })

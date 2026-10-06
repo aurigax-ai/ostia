@@ -30,6 +30,7 @@ const FRAME_PTY_RESIZE = 0x03
 const MAX_PTY_DIM = 1000
 
 export interface GatewayStartOptions {
+  host?: string
   port?: number
 }
 
@@ -62,6 +63,7 @@ const MAX_FRAME_BYTES = 1024 * 1024
 
 let wss: WebSocketServer | null = null
 let heartbeat: ReturnType<typeof setInterval> | null = null
+let boundHost: string | null = null
 let boundPort: number | null = null
 let boundHelperPort: number | null = null
 let currentFingerprint: string | null = null
@@ -201,7 +203,12 @@ function isAllowedHostHeader(hostHeader: string | undefined): boolean {
   const headerHost = sepIdx === -1 ? hostHeader : hostHeader.slice(0, sepIdx)
   const headerPort = sepIdx === -1 ? undefined : hostHeader.slice(sepIdx + 1)
   if (headerPort !== undefined && Number(headerPort) !== boundPort) return false
-  return headerHost === LOOPBACK || headerHost === 'localhost' || tailnetHosts.has(headerHost)
+  return (
+    headerHost === LOOPBACK ||
+    headerHost === 'localhost' ||
+    headerHost === boundHost ||
+    tailnetHosts.has(headerHost)
+  )
 }
 
 export function setTailnetHosts(hosts: string[]): void {
@@ -584,6 +591,7 @@ export async function startGateway(options: GatewayStartOptions = {}): Promise<G
   if (httpsServer) await stopGateway()
 
   const cert: GatewayCert = await getCert()
+  const host = options.host ?? LOOPBACK
   const port = options.port ?? DEFAULT_PORT
 
   const server = createHttpsServer({ cert: cert.cert, key: cert.key }, requestHandler)
@@ -599,7 +607,7 @@ export async function startGateway(options: GatewayStartOptions = {}): Promise<G
 
   await new Promise<void>((resolve, reject) => {
     server.once('error', reject)
-    server.listen(port, LOOPBACK, () => {
+    server.listen(port, host, () => {
       server.removeListener('error', reject)
       resolve()
     })
@@ -609,6 +617,7 @@ export async function startGateway(options: GatewayStartOptions = {}): Promise<G
   httpsServer = server
   helperServer = helper
   wss = wsServer
+  boundHost = host
   boundPort = (server.address() as AddressInfo).port
   boundHelperPort = (helper.address() as AddressInfo).port
   currentFingerprint = cert.fingerprint
@@ -616,7 +625,7 @@ export async function startGateway(options: GatewayStartOptions = {}): Promise<G
   subscribePlatformEvents()
 
   return {
-    host: LOOPBACK,
+    host,
     port: boundPort,
     helperPort: boundHelperPort,
     fingerprint: cert.fingerprint,
@@ -641,6 +650,7 @@ export async function stopGateway(): Promise<void> {
   wss = null
   httpsServer = null
   helperServer = null
+  boundHost = null
   boundPort = null
   boundHelperPort = null
   currentFingerprint = null
@@ -658,7 +668,7 @@ export function gatewayHelperPort(): number | null {
 export function gatewayStatus(): GatewayStatus {
   return {
     running: httpsServer !== null,
-    host: httpsServer ? LOOPBACK : null,
+    host: boundHost,
     port: boundPort,
     fingerprint: currentFingerprint,
     deviceCount: listDevices().length,

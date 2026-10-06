@@ -2,16 +2,20 @@ import { hostname } from 'node:os'
 import { type IpcMainInvokeEvent, ipcMain } from 'electron'
 import type {
   GatewayDevice,
+  GatewayEnableResponse,
   GatewayPairResponse,
   GatewayRemoteStatus,
   GatewaySetCapResult,
+  GatewaySetRouteResult,
   GatewayTailnetActionResult,
   GatewayTailnetState,
 } from '../../shared/types'
 import { registerControlMethod } from '../controlServer'
 import type { Device } from './devices'
 import { list as listDevices, revoke as revokeDevice, setDeviceCap } from './devices'
+import { listBindAddresses } from './interfaces'
 import { newCode } from './pairing'
+import { loadRoute, parseRoute, saveRoute } from './route'
 import {
   applyDeviceCaps,
   closeDeviceSockets,
@@ -57,13 +61,40 @@ function tailnetState(): GatewayTailnetState {
 }
 
 export function remoteStatus(): GatewayRemoteStatus {
-  return { ...gatewayStatus(), tailnet: tailnetState() }
+  return { ...gatewayStatus(), tailnet: tailnetState(), route: loadRoute() }
 }
 
-export async function enableRemote(): Promise<GatewayRemoteStatus> {
+function isBindable(address: string): boolean {
+  return listBindAddresses().some((a) => a.address === address)
+}
+
+export async function enableRemote(): Promise<GatewayEnableResponse> {
+  const route = loadRoute()
+  if (route.kind === 'address') {
+    if (!isBindable(route.address)) return { error: 'address-unavailable' }
+    await startGateway({ host: route.address })
+    return remoteStatus()
+  }
   const started = await startGateway()
   tailnet?.start({ helperPort: started.helperPort, port: started.port })
   return remoteStatus()
+}
+
+export function setRoute(value: unknown): GatewaySetRouteResult {
+  if (gatewayStatus().running) return { ok: false, error: 'running' }
+  const route = parseRoute(value)
+  if (!route || (route.kind === 'address' && !isBindable(route.address))) {
+    return { ok: false, error: 'unknown-address' }
+  }
+  saveRoute(route)
+  return { ok: true, route }
+}
+
+function pairHost(): string | null {
+  const route = loadRoute()
+  if (route.kind === 'address') return gatewayStatus().host === route.address ? route.address : null
+  const node = tailnetState()
+  return node.state === 'running' ? node.ip : null
 }
 
 export async function disableRemote(): Promise<GatewayRemoteStatus> {
@@ -74,12 +105,13 @@ export async function disableRemote(): Promise<GatewayRemoteStatus> {
 
 export function gatewayPair(): GatewayPairResponse {
   const status = gatewayStatus()
-  const node = tailnetState()
-  if (!status.running || !status.port || !status.fingerprint) return { error: 'not-running' }
-  if (node.state !== 'running' || !node.ip) return { error: 'not-running' }
+  const host = pairHost()
+  if (!status.running || !status.port || !status.fingerprint || !host) {
+    return { error: 'not-running' }
+  }
   return {
     v: 1,
-    host: node.ip,
+    host,
     port: status.port,
     fingerprint: status.fingerprint,
     pairCode: newCode(),
@@ -134,7 +166,7 @@ async function tailnetSignOut(): Promise<GatewayTailnetActionResult> {
   await tailnet.signOut()
   const helperPort = gatewayHelperPort()
   const port = gatewayStatus().port
-  if (helperPort && port) tailnet.start({ helperPort, port })
+  if (helperPort && port && loadRoute().kind === 'tailnet') tailnet.start({ helperPort, port })
   return { ok: true }
 }
 
@@ -170,6 +202,11 @@ export function registerGatewayIpc(): void {
   ipcMain.handle('gateway:set-cap', (e, params): GatewaySetCapResult => {
     if (!fromWindow(e)) return { ok: false, error: 'invalid-cap' }
     return gatewaySetCap(params)
+  })
+  ipcMain.handle('gateway:bind-addresses', () => listBindAddresses())
+  ipcMain.handle('gateway:set-route', (e, params): GatewaySetRouteResult => {
+    if (!fromWindow(e)) return { ok: false, error: 'not-a-window' }
+    return setRoute(params)
   })
   ipcMain.handle('gateway:tailnet-sign-in', (e): GatewayTailnetActionResult => {
     if (!fromWindow(e)) return { ok: false, error: 'not-a-window' }
