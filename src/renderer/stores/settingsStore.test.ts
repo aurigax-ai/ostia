@@ -615,6 +615,15 @@ describe('settingsStore', () => {
       expect(useSettingsStore.getState().sync).toEqual({ dir: '/home/me/Sync' })
     })
 
+    it('PSY-C32 refuses an agent turning secret sync on', () => {
+      useSettingsStore.setState({ sync: { dir: '/home/me/Sync' } })
+      expect(() => store().setByPath('sync.secrets', true)).toThrow(/unknown settings key/)
+      expect(() => store().setByPath('sync', { dir: '/home/me/Sync', secrets: true })).toThrow(
+        /unknown settings key/,
+      )
+      expect(useSettingsStore.getState().sync).toEqual({ dir: '/home/me/Sync' })
+    })
+
     it('MGR-C16 refuses manager settings from ostia settings set', () => {
       expect(() => store().setByPath('manager.agents', { x: ['rm'] })).toThrow(
         /unknown settings key/,

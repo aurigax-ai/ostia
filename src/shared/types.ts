@@ -305,7 +305,7 @@ export interface SettingsApi {
 
 export interface SyncConflict {
   id: string
-  kind: 'setting' | 'file'
+  kind: 'setting' | 'file' | 'secret'
   key: string
   local: string | null
   remote: string | null
@@ -326,6 +326,31 @@ export interface SyncStatus {
   skipped: string[]
   heldBack: string[]
   offers: SyncOffer[]
+  secrets: SecretSyncStatus
+}
+
+export interface SecretSyncStatus {
+  state: 'off' | 'needs-setup' | 'locked' | 'unlocked' | 'damaged'
+  logins: boolean
+}
+
+export interface SecretActionResult {
+  ok: boolean
+  error?: string
+  recoveryKey?: string
+  status: SyncStatus
+}
+
+export interface SecretSyncApi {
+  enable: () => Promise<SecretActionResult>
+  disable: () => Promise<SecretActionResult>
+  remove: () => Promise<SecretActionResult>
+  setLogins: (on: boolean) => Promise<SecretActionResult>
+  setup: (password: string, confirm: string) => Promise<SecretActionResult>
+  reset: (password: string, confirm: string) => Promise<SecretActionResult>
+  unlock: (password: string) => Promise<SecretActionResult>
+  changePassword: (password: string, confirm: string) => Promise<SecretActionResult>
+  recover: (recoveryKey: string, password: string, confirm: string) => Promise<SecretActionResult>
 }
 
 export interface SyncApi {
@@ -333,6 +358,7 @@ export interface SyncApi {
   run: () => Promise<SyncStatus>
   resolve: (conflictId: string) => Promise<SyncStatus>
   install: (extId: string) => Promise<SyncStatus>
+  secrets: SecretSyncApi
   pickFolder: () => Promise<string | null>
   onStatus: (cb: (status: SyncStatus) => void) => () => void
 }

@@ -13,6 +13,7 @@ const status = (s: Partial<SyncStatus>): SyncStatus => ({
   skipped: [],
   heldBack: [],
   offers: [],
+  secrets: { state: 'off', logins: false },
   ...s,
 })
 

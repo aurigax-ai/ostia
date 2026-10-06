@@ -106,7 +106,7 @@ import {
   registerControlServer,
   stopControlServer,
 } from './controlServer'
-import { registerCredentials } from './credentials'
+import { credentials, registerCredentials } from './credentials'
 import { type Diagnostics, registerDiagnostics } from './diagnostics'
 import { registerDocsMethods } from './docs'
 import { registerEditorLanguageIpc } from './editorLanguages'
@@ -188,6 +188,7 @@ import { registerPrivacyIpc } from './privacyIpc'
 import { privateTmpDir } from './privateTmp'
 import { INTERRUPT_GRACE_MS, type ProcessRegistry, registerProcessMethods } from './processManager'
 import { type ProfileSyncHandle, startProfileSync } from './profileSync/ipc'
+import { flatSource, groupedSource, loginsSource } from './profileSync/secrets'
 import { registerProjectRootIpc } from './projectRoot'
 import { KubeContextReader, NodeVersionResolver, promptContext } from './promptContext'
 import { type ReapReason, RecoveryBook, orphanVerdict, planRecovery } from './ptyReaper'
@@ -3206,6 +3207,28 @@ app.whenReady().then(() => {
         .filter((ext) => ext.builtin)
         .map((ext) => ext.id) ?? [],
     installExtension: async (id, url) => (await marketplace.installSuggested(id, url, true)).ok,
+    secretSources: () => {
+      const store = (name: string) => {
+        const path = storePath(name, 'global')
+        return { deps: encryptedFile(path), mtime: () => statSync(path).mtimeMs }
+      }
+      const vault = store('vault')
+      const ext = store('extension-secrets')
+      const assist = store('assist-keys')
+      const mcp = store('mcp-secrets')
+      const logins = credentials()
+      return [
+        flatSource(vault.deps, vault.mtime),
+        groupedSource('extensions', ext.deps, ext.mtime),
+        groupedSource('assistant', assist.deps, assist.mtime),
+        groupedSource('mcp', mcp.deps, mcp.mtime),
+        ...(logins ? [loginsSource(logins)] : []),
+      ]
+    },
+    protect: {
+      encrypt: (plain) => safeStorage.encryptString(plain).toString('base64'),
+      decrypt: (kept) => safeStorage.decryptString(Buffer.from(kept, 'base64')),
+    },
     detectSecrets: (text) =>
       redactionScan.scan(text, parsePrivacySettings(readSettingsFile().privacy).redaction.patterns),
   })

@@ -1,7 +1,7 @@
 import { readFileSync, utimesSync } from 'node:fs'
 import { join } from 'node:path'
 import type { SecretSpan } from '../../shared/redaction'
-import type { SyncConflict, SyncOffer, SyncStatus } from '../../shared/types'
+import type { SecretSyncStatus, SyncConflict, SyncOffer, SyncStatus } from '../../shared/types'
 import {
   canonicalJson,
   flatten,
@@ -14,6 +14,7 @@ import {
 import {
   type JsonObject,
   type Profile,
+  SECRETS_FILE,
   SETTINGS_FILE,
   type SyncedExtension,
   decodeProfile,
@@ -27,6 +28,7 @@ import {
   withLocalOnly,
   writeAtomic,
 } from './profile'
+import type { SecretSync } from './secrets'
 
 export type DetectSecrets = (text: string) => Promise<SecretSpan[]>
 
@@ -61,6 +63,7 @@ export interface ProfileSyncDeps {
   builtinIds: () => string[]
   installExtension: (id: string, marketplace: string) => Promise<boolean>
   detectSecrets: DetectSecrets
+  secrets?: SecretSync
 }
 
 export interface SyncRunResult {
@@ -78,7 +81,7 @@ type Held = { value: unknown } | null
 
 interface StoredConflict {
   id: string
-  kind: 'setting' | 'file'
+  kind: 'setting' | 'file' | 'secret'
   key: string
   local: Held
   remote: Held
@@ -94,6 +97,7 @@ interface SyncState {
   installedAtSync: string[]
   skipped: string[]
   heldBack: string[]
+  secrets: SecretSyncStatus | null
 }
 
 interface LocalProfile {
@@ -109,9 +113,12 @@ interface Plan {
   write: boolean
   outgoing: Map<string, string>
   apply: () => boolean
+  saveSecretBase: () => void
   state: (version: string) => SyncState
   invalid: string[]
 }
+
+const SECRETS_OFF: SecretSyncStatus = { state: 'off', logins: false }
 
 const OFF: SyncStatus = {
   dir: null,
@@ -121,6 +128,7 @@ const OFF: SyncStatus = {
   skipped: [],
   heldBack: [],
   offers: [],
+  secrets: SECRETS_OFF,
 }
 
 const held = (value: unknown): Held => (value === undefined ? null : { value })
@@ -167,6 +175,7 @@ export class ProfileSync {
       installedAtSync: [],
       skipped: [],
       heldBack: [],
+      secrets: null,
     }
     try {
       const raw = JSON.parse(readFileSync(this.path(STATE_FILE), 'utf8')) as SyncState
@@ -180,6 +189,7 @@ export class ProfileSync {
         installedAtSync: Array.isArray(raw.installedAtSync) ? raw.installedAtSync : [],
         skipped: Array.isArray(raw.skipped) ? raw.skipped : [],
         heldBack: Array.isArray(raw.heldBack) ? raw.heldBack : [],
+        secrets: isObject(raw.secrets) ? raw.secrets : null,
       }
     } catch {
       return fresh
@@ -254,6 +264,11 @@ export class ProfileSync {
       skipped: state.skipped,
       heldBack: state.heldBack,
       offers: state.offers,
+      secrets: this.deps.secrets
+        ? state.secrets?.state === 'damaged'
+          ? state.secrets
+          : this.deps.secrets.status()
+        : SECRETS_OFF,
     }
   }
 
@@ -312,6 +327,7 @@ export class ProfileSync {
       }
       const pulledSettings = plan.apply()
       this.saveBase(method.id, plan.outgoing)
+      plan.saveSecretBase()
       const next = plan.state(version)
       this.saveState(next)
       const error = plan.invalid.length ? `invalid-json:${plan.invalid.join(',')}` : undefined
@@ -351,6 +367,9 @@ export class ProfileSync {
   }
 
   private async plan(remote: SyncSnapshot, state: SyncState): Promise<Plan> {
+    const secretPlan = this.deps.secrets
+      ? await this.deps.secrets.plan(remote.files.get(SECRETS_FILE))
+      : null
     const local = this.readLocal()
     const theirs = decodeProfile(remote.files)
     const baseFiles = this.loadBase(state.target)
@@ -447,6 +466,11 @@ export class ProfileSync {
       if (raw === undefined) outgoing.delete(SETTINGS_FILE)
       else outgoing.set(SETTINGS_FILE, raw)
     }
+    const secretsOut = secretPlan ? secretPlan.outgoing : undefined
+    const remoteSecrets = remote.files.get(SECRETS_FILE)
+    if (secretsOut === undefined) {
+      if (remoteSecrets !== undefined) outgoing.set(SECRETS_FILE, remoteSecrets)
+    } else if (secretsOut !== null) outgoing.set(SECRETS_FILE, secretsOut)
 
     const mergedSettingsLeaves = settingsMerge.merged
     const mergedFiles = filesMerge.merged
@@ -480,9 +504,22 @@ export class ProfileSync {
         }),
       ),
     ]
+    const secretConflicts: StoredConflict[] = secretPlan?.conflicts
+      ? secretPlan.conflicts.map((c) => ({
+          id: c.id,
+          kind: 'secret',
+          key: c.key,
+          local: null,
+          remote: null,
+          winner: c.winner,
+        }))
+      : state.conflicts.filter((c) => c.kind === 'secret')
     const conflicts = [
-      ...state.conflicts.filter((c) => !fresh.some((f) => f.id === c.id) && stillCurrent(c)),
+      ...state.conflicts.filter(
+        (c) => c.kind !== 'secret' && !fresh.some((f) => f.id === c.id) && stillCurrent(c),
+      ),
       ...fresh,
+      ...secretConflicts,
     ]
 
     const apply = (): boolean => {
@@ -511,6 +548,7 @@ export class ProfileSync {
           stamp(target, remoteTime(path))
         }
       }
+      secretPlan?.apply()
       return pulledSettings
     }
 
@@ -519,6 +557,7 @@ export class ProfileSync {
       write: !sameFiles(outgoing, remote.files),
       outgoing,
       apply,
+      saveSecretBase: () => secretPlan?.saveBase(),
       invalid,
       state: (version) => ({
         target: state.target,
@@ -529,6 +568,7 @@ export class ProfileSync {
         installedAtSync: extensions.filter((e) => installedIds.has(e.id)).map((e) => e.id),
         skipped: [...new Set([...local.skipped, ...remote.skipped])].sort(),
         heldBack: [...heldKeys].map((key) => keyPath(key).join('.')).sort(),
+        secrets: secretPlan?.status ?? null,
       }),
     }
   }
@@ -538,7 +578,7 @@ export class ProfileSync {
     if (!method) return OFF
     const state = this.loadState(method.id)
     const conflict = state.conflicts.find((c) => c.id === id)
-    if (!conflict) return this.status()
+    if (!conflict || conflict.kind === 'secret') return this.status()
     const other = conflict.winner === 'local' ? conflict.remote : conflict.local
     const time = this.now().getTime()
     if (conflict.kind === 'setting') {

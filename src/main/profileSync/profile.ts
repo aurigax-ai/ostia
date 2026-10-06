@@ -25,8 +25,10 @@ export interface SyncedExtension {
 export const SETTINGS_FILE = 'settings.json'
 export const EXTENSIONS_FILE = 'extensions.json'
 export const META_FILE = 'profile.json'
-export const TOP_FILES = [SETTINGS_FILE, EXTENSIONS_FILE, META_FILE] as const
+export const SECRETS_FILE = 'secrets.enc'
+export const TOP_FILES = [SETTINGS_FILE, EXTENSIONS_FILE, META_FILE, SECRETS_FILE] as const
 export const TOP_FILE_MAX_BYTES = 1024 * 1024
+export const SECRETS_FILE_MAX_BYTES = 16 * 1024 * 1024
 export const COMPLETION_FILES_MAX = 500
 
 export const LOCAL_ONLY_ROOTS: readonly string[] = [
@@ -244,10 +246,13 @@ export function readProfileFolders(root: string): FolderRead {
   return out
 }
 
-export function readTopFile(path: string): { text: string; mtimeMs: number } | 'skipped' | null {
+export function readTopFile(
+  path: string,
+  maxBytes = TOP_FILE_MAX_BYTES,
+): { text: string; mtimeMs: number } | 'skipped' | null {
   const st = lstatOrNull(path)
   if (!st) return null
-  if (!st.isFile() || st.size > TOP_FILE_MAX_BYTES) return 'skipped'
+  if (!st.isFile() || st.size > maxBytes) return 'skipped'
   try {
     return { text: readFileSync(path, 'utf8'), mtimeMs: st.mtimeMs }
   } catch {

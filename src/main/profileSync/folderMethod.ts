@@ -3,7 +3,10 @@ import { statSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { type SyncMethod, type SyncSnapshot, SyncTargetError, type WriteResult } from './engine'
 import {
+  SECRETS_FILE,
+  SECRETS_FILE_MAX_BYTES,
   TOP_FILES,
+  TOP_FILE_MAX_BYTES,
   readProfileFolders,
   readTopFile,
   removeRegularFile,
@@ -46,7 +49,10 @@ export class FolderMethod implements SyncMethod {
     const files = new Map<string, string>()
     const skipped = [...folders.skipped]
     for (const name of TOP_FILES) {
-      const top = readTopFile(join(this.dir, name))
+      const top = readTopFile(
+        join(this.dir, name),
+        name === SECRETS_FILE ? SECRETS_FILE_MAX_BYTES : TOP_FILE_MAX_BYTES,
+      )
       if (top === 'skipped') skipped.push(name)
       else if (top) files.set(name, top.text)
     }

@@ -5,6 +5,7 @@ import { fmt, useDict } from '../i18n/useDict'
 import { useSettingsStore } from '../stores/settingsStore'
 import { Hint } from './Hint'
 import { ControlRow, SectionHead, WarningNote } from './SettingsPanel'
+import { SyncSecretsSection } from './SyncSecretsSection'
 import { Button } from './ui/button'
 import { Separator } from './ui/separator'
 
@@ -16,6 +17,7 @@ const OFF: SyncStatus = {
   skipped: [],
   heldBack: [],
   offers: [],
+  secrets: { state: 'off', logins: false },
 }
 
 export function syncErrorText(d: Dict, error: string | undefined): string {
@@ -171,6 +173,7 @@ export function SyncSection(): JSX.Element {
           })}
         </section>
       ) : null}
+      {dir ? <SyncSecretsSection status={status} onStatus={setStatus} /> : null}
       {dir && status.offers.length > 0 ? (
         <section aria-label={d.sync.offersTitle} className="mt-4">
           <SectionHead title={d.sync.offersTitle} desc={d.sync.offersDesc} />

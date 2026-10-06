@@ -10,6 +10,7 @@ const SYNC_OFF: SyncStatus = {
   skipped: [],
   heldBack: [],
   offers: [],
+  secrets: { state: 'off', logins: false },
 }
 
 export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
@@ -117,6 +118,17 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       run: vi.fn().mockResolvedValue(SYNC_OFF),
       resolve: vi.fn().mockResolvedValue(SYNC_OFF),
       install: vi.fn().mockResolvedValue(SYNC_OFF),
+      secrets: {
+        enable: vi.fn().mockResolvedValue({ ok: true, status: SYNC_OFF }),
+        disable: vi.fn().mockResolvedValue({ ok: true, status: SYNC_OFF }),
+        remove: vi.fn().mockResolvedValue({ ok: true, status: SYNC_OFF }),
+        setLogins: vi.fn().mockResolvedValue({ ok: true, status: SYNC_OFF }),
+        setup: vi.fn().mockResolvedValue({ ok: true, status: SYNC_OFF }),
+        reset: vi.fn().mockResolvedValue({ ok: true, status: SYNC_OFF }),
+        unlock: vi.fn().mockResolvedValue({ ok: true, status: SYNC_OFF }),
+        changePassword: vi.fn().mockResolvedValue({ ok: true, status: SYNC_OFF }),
+        recover: vi.fn().mockResolvedValue({ ok: true, status: SYNC_OFF }),
+      },
       pickFolder: vi.fn().mockResolvedValue(null),
       onStatus: vi.fn(noopUnsub),
     },
