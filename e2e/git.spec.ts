@@ -3,6 +3,7 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { _electron as electron, expect, test } from '@playwright/test'
 import { freshDataHome, isolatedLaunch } from './dataHome'
+import { extensionHosts } from './extensionHosts'
 import { emptyState, emptyWorkspace, openWorkspace, waitForPaletteSelection } from './helpers'
 
 test('a dirty repo shows in the sidebar and the top bar, opens a diff, commits, and shows the graph', async () => {
@@ -36,10 +37,12 @@ test('a dirty repo shows in the sidebar and the top bar, opens a diff, commits, 
     await expect(chips.filter({ hasText: '1 • +1' })).toBeVisible({ timeout: 15_000 })
     const branchChip = chips.filter({ hasText: /^main$/ })
     await expect(branchChip).toBeVisible()
+    expect(extensionHosts(app)).not.toContain('git')
     await branchChip.click()
 
     const panelTitle = win.locator('.pane-header .title').filter({ hasText: /^Git$/ })
     await expect(panelTitle).toBeVisible({ timeout: 15_000 })
+    expect(extensionHosts(app)).toContain('git')
     const guestEval = (script: string): Promise<string> =>
       app.evaluate(async ({ webContents }, code) => {
         const guest = webContents

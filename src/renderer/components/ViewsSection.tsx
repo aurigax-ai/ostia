@@ -4,7 +4,7 @@ import type { Dict } from '../i18n/dict'
 import { fmt, useDict } from '../i18n/useDict'
 import { useViewsStore } from '../stores/viewsStore'
 import { IconButton } from './IconButton'
-import { SectionHead } from './SettingsPanel'
+import { SectionHead, WarningNote } from './SettingsPanel'
 import { Highlight, useSearchGroup } from './SettingsSearch'
 import { Badge } from './ui/badge'
 import { Switch } from './ui/switch'
@@ -21,7 +21,11 @@ function Problems({ view }: { view: ViewInfo }): JSX.Element | null {
   if (view.problems.length === 0) return null
   return (
     <div className="mt-1.5 flex flex-col gap-1">
-      <p className="text-attn-fg text-ui-xs">{view.stale ? d.views.stale : d.views.invalid}</p>
+      {view.stale ? (
+        <WarningNote>{d.views.stale}</WarningNote>
+      ) : (
+        <p className="text-attn-fg text-ui-xs">{d.views.invalid}</p>
+      )}
       <ul className="flex flex-col gap-0.5 rounded-sm border border-line bg-bg-sunken px-2 py-1.5 font-mono text-ui-xs">
         {view.problems.map((p, i) => (
           <li key={`${p.path}-${i}`} className="flex min-w-0 gap-2">

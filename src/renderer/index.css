@@ -21,6 +21,7 @@
   --color-attn: #bf5f54;
   --color-attn-glow: rgba(191, 95, 84, 0.2);
   --color-attn-fg: #db8176;
+  --color-warn-fg: #e0a458;
   --color-on-attn: #e3edf5;
   --color-ok: #58c98c;
   --color-add: #58c98c;
@@ -76,6 +77,7 @@
   --attn: var(--color-attn);
   --attn-glow: var(--color-attn-glow);
   --attn-fg: var(--color-attn-fg);
+  --warn-fg: var(--color-warn-fg);
   --lock: var(--color-group-yellow);
   --on-attn: var(--color-on-attn);
   --ok: var(--color-ok);
@@ -1219,6 +1221,22 @@
   width: 100%;
 }
 
+.file-name-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 1px 8px 1px 0;
+}
+
+.file-row.drop-target {
+  background: var(--surface-2);
+  outline: 1px solid var(--line-strong);
+}
+
+.file-row.cut {
+  opacity: 0.55;
+}
+
 .file-row:hover {
   background: var(--surface-2);
   color: var(--fg);
@@ -2331,7 +2349,7 @@ button.prompt-chip:focus-visible {
   place-items: center;
   border: none;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--fg) 10%, transparent);
+  background: transparent;
   color: var(--fg);
   transition-property: background-color;
   transition-duration: var(--motion-fast);

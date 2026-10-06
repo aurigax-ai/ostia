@@ -13,7 +13,7 @@ interface MarketplaceStoreState {
   failure: MarketplaceFailure | null
   load: () => Promise<void>
   add: (url: string) => Promise<boolean>
-  remove: (marketplaceId: string) => Promise<boolean>
+  remove: (marketplaceId: string, uninstallExtensions: boolean) => Promise<boolean>
   refresh: (marketplaceId: string) => Promise<boolean>
   install: (marketplaceId: string, extId: string) => Promise<boolean>
   installCode: (marketplaceId: string, code: string) => Promise<boolean>
@@ -38,7 +38,8 @@ export const useMarketplaceStore = create<MarketplaceStoreState>((set) => {
     failure: null,
     load: async () => set({ state: await window.ostia.marketplace.list(), loaded: true }),
     add: (url) => run(() => window.ostia.marketplace.add(url)),
-    remove: (id) => run(() => window.ostia.marketplace.remove(id)),
+    remove: (id, uninstallExtensions) =>
+      run(() => window.ostia.marketplace.remove(id, uninstallExtensions)),
     refresh: (id) => run(() => window.ostia.marketplace.refresh(id)),
     install: (id, extId) => run(() => window.ostia.marketplace.install(id, extId)),
     installCode: (id, code) => run(() => window.ostia.marketplace.installCode(id, code)),

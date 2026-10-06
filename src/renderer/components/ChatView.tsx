@@ -82,7 +82,7 @@ import {
 import { resolveLinkPath } from '../lib/fileLinks'
 import { openFileAt } from '../lib/openFile'
 import { openSidebarUrl } from '../lib/sidebarItems'
-import { useChatModel } from '../stores/assistStore'
+import { useChatModel, wakeAssist } from '../stores/assistStore'
 import {
   type ChatNotice,
   chatFor,
@@ -185,6 +185,9 @@ export function ChatView(props: ChatViewProps): JSX.Element | null {
   const key = chatKey(props.workspaceId)
   const sessionId = useChatStore((s) => s.current[key])
   const { workspaceId, preferSessionId } = props
+  useEffect(() => {
+    wakeAssist()
+  }, [])
   useEffect(() => {
     void ensureSession(workspaceId, preferSessionId)
   }, [workspaceId, preferSessionId])

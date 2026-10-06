@@ -11,16 +11,26 @@ function bundledFamilies(): string[] {
   return [...document.fonts].map((face) => face.family.replace(/^["']|["']$/g, ''))
 }
 
+function sortedFamilies(names: string[]): string[] {
+  return [...new Set(names)].sort((a, b) => a.localeCompare(b))
+}
+
 async function queryFamilies(): Promise<string[]> {
   const query = (window as unknown as { queryLocalFonts?: QueryLocalFonts }).queryLocalFonts
   const installed = query ? (await query()).map((f) => f.family) : []
-  return [...new Set([...bundledFamilies(), ...installed])].sort((a, b) => a.localeCompare(b))
+  return sortedFamilies([...bundledFamilies(), ...installed])
 }
 
 export function localFontFamilies(): Promise<string[]> {
-  families ??= queryFamilies().catch(() => {
-    families = null
-    return []
-  })
+  families ??= queryFamilies().then(
+    (names) => {
+      if (names.length === 0) families = null
+      return names
+    },
+    () => {
+      families = null
+      return sortedFamilies(bundledFamilies())
+    },
+  )
   return families
 }

@@ -117,10 +117,12 @@ import { type SecretStoreDeps, createSecretStore } from './extensionSecrets'
 import { ExtensionStore } from './extensionStore'
 import { DismissedSuggestions, suggestionFor } from './extensionSuggestions'
 import { openInExternalEditor } from './externalEditor'
+import { FileOps } from './fileOps'
 import { FileWatches, TreeWatches } from './fileWatch'
 import { readBinaryConfined } from './fsBinary'
 import { registerGatewayIpc, registerGatewayMethods } from './gateway'
 import { configureGatewayControl, stopGateway } from './gateway/server'
+import { GIT_EXTENSION, GitBoard } from './gitBoard'
 import { GlobalHotkey, toggleWindows } from './globalHotkey'
 import { type GuestChords, registerGuestChords } from './guestChords'
 import { clearGuestNetwork, watchGuestNetwork } from './guestNetwork'
@@ -1150,6 +1152,8 @@ const errorBuffers = new Map<number, ConsoleEntry[]>()
 const terminalState = new Map<string, TerminalStateSnapshot>()
 
 let extensionHost: ExtensionHost | null = null
+let gitBoard: GitBoard | null = null
+const ON_DEMAND_EXTENSIONS = [GIT_EXTENSION, 'assistant']
 
 function refreshAgentPlugins(): void {
   try {
@@ -1686,7 +1690,9 @@ function registerRemoteFilesIpc(host: ExtensionHost): void {
 function registerMarketplaceIpc(marketplace: Marketplace): void {
   ipcMain.handle('marketplace:list', () => marketplace.state())
   ipcMain.handle('marketplace:add', (_e, url: unknown) => marketplace.add(url))
-  ipcMain.handle('marketplace:remove', (_e, id: unknown) => marketplace.remove(id))
+  ipcMain.handle('marketplace:remove', (_e, id: unknown, uninstallExtensions: unknown) =>
+    marketplace.remove(id, uninstallExtensions),
+  )
   ipcMain.handle('marketplace:refresh', (_e, id: unknown) => marketplace.refresh(id))
   ipcMain.handle('marketplace:install', (_e, id: unknown, extId: unknown) =>
     marketplace.install(id, extId),
@@ -2446,6 +2452,15 @@ function registerFsIpc(): void {
   registerProjectRootIpc(allowedRoots)
   registerSearchIpc(ripgrepPath(app.getAppPath(), process.platform, process.arch), allowedRoots)
 
+  const fileOps = new FileOps({ roots: allowedRoots, trash: (path) => shell.trashItem(path) })
+  ipcMain.handle('files:create', (_e, dir: unknown, name: unknown, kind: unknown) =>
+    fileOps.create(dir, name, kind),
+  )
+  ipcMain.handle('files:rename', (_e, path: unknown, name: unknown) => fileOps.rename(path, name))
+  ipcMain.handle('files:move', (_e, paths: unknown, dir: unknown) => fileOps.move(paths, dir))
+  ipcMain.handle('files:copy', (_e, paths: unknown, dir: unknown) => fileOps.copy(paths, dir))
+  ipcMain.handle('files:trash', (_e, paths: unknown) => fileOps.trash(paths))
+
   ipcMain.handle('fs:list', (_e, dir: string): FsEntry[] => {
     const safe = resolveSafe(dir, allowedRoots)
     if (safe === null) return []
@@ -3152,6 +3167,7 @@ app.whenReady().then(() => {
     agentNames: () => Object.keys(managerAgents(managerSettings())),
     offerToAgentIn: (offer) => agentOffers.offer(offer),
     focusPaneIn: focusPaneInWindow,
+    startOnDemand: ON_DEMAND_EXTENSIONS,
   })
   refreshAgentPlugins()
   registerExtensionMethods(() => extensionHost)
@@ -3349,6 +3365,13 @@ app.whenReady().then(() => {
   broker.register()
   broker.openAll()
   extensionHost.startEager()
+  gitBoard = new GitBoard({
+    host: extensionHost,
+    listWorkspaces: () => listWorkspaces({ execCommand, windowIds }),
+    listPanes: () => listPanes({ execCommand, getTerminalState, ptyPid, windowIds }),
+    log: (line) => console.error(`[git] ${line}`),
+  })
+  gitBoard.start()
   extensionHost.watchUserExtensions()
   viewHost.watch()
   app.on('browser-window-focus', emitFocusChanged)
@@ -3474,6 +3497,7 @@ app.on('before-quit', (event) => {
   workspaceSandboxes.clearTmp(!keepingShells)
   scratchFolders.removeAll()
   portForwarder.stopAll()
+  gitBoard?.stop()
   extensionHost?.stopAll()
   mcpOAuth?.closeAll()
   mcpHost?.closeAll()

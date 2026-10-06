@@ -253,6 +253,7 @@ export interface OstiaExtension {
     workspaceId?: string
     text: string
     icon?: ExtensionIcon
+    badge?: string
     tone?: SidebarTone
     kind?: SidebarKind
     url?: string

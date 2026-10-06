@@ -2,7 +2,7 @@
   "id": "completions",
   "name": "Command completions",
   "version": "1.0.0",
-  "api": "2.1",
+  "api": "2.2",
   "description": "Subcommands, options and argument values with descriptions for about 700 command-line tools, shown by the input editor on Tab. Converted from Fig's open-source completion specs (@withfig/autocomplete, MIT). Your own specs in ~/.config/ostia/completions take precedence.",
   "category": "completions",
   "locales": ["zh-Hant"],

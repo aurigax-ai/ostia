@@ -22,7 +22,7 @@ export function FontPicker({
   const d = useDict()
   const [families, setFamilies] = useState<string[] | null>(null)
   const load = (): void => {
-    if (families === null) void localFontFamilies().then(setFamilies)
+    if (families === null || families.length === 0) void localFontFamilies().then(setFamilies)
   }
   const missing = families !== null && families.length > 0 && !families.includes(value)
   return (

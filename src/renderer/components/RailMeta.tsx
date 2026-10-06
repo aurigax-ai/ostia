@@ -6,12 +6,18 @@ import { openSidebarUrl } from '../lib/sidebarItems'
 import { useExtensionsStore } from '../stores/extensionsStore'
 import { Hint } from './Hint'
 import { extensionIcon } from './extensionIcons'
+import { Badge } from './ui/badge'
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover'
 
 const itemKey = (item: ExtensionSidebarItem): string => `${item.extId}:${item.key}`
 
 const signatureOf = (items: readonly ExtensionSidebarItem[]): string =>
-  items.map((item) => `${itemKey(item)}\u0000${item.icon ?? ''}\u0000${item.text}`).join('\n')
+  items
+    .map(
+      (item) =>
+        `${itemKey(item)}\u0000${item.icon ?? ''}\u0000${item.badge ?? ''}\u0000${item.text}`,
+    )
+    .join('\n')
 
 function onResize(el: HTMLElement, cb: () => void): () => void {
   const observer = new ResizeObserver(cb)
@@ -38,6 +44,11 @@ export function SidebarItem({
   const body = (
     <>
       {Icon ? <Icon size={12} aria-hidden /> : null}
+      {item.badge ? (
+        <Badge variant="outline" className="h-4 px-1 text-ui-xs tracking-caps">
+          {item.badge}
+        </Badge>
+      ) : null}
       <span className="ext-item-text">{item.text}</span>
     </>
   )

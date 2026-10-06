@@ -31,6 +31,7 @@ import {
   TerminalWindowIcon,
   TranslateIcon,
   TreeStructureIcon,
+  WarningIcon,
 } from '@phosphor-icons/react'
 import type { ApprovalMode } from '@shared/approvals'
 import { type ExtensionInfo, PRODUCT_PLACEHOLDER } from '@shared/extensions'
@@ -131,9 +132,8 @@ import { UpdateCheck } from './UpdateCheck'
 import { ViewsSection } from './ViewsSection'
 import { WorkspaceSandboxPage } from './WorkspaceSandboxPage'
 import { WorkspacesSection } from './WorkspacesSection'
-import { ATTENTION_ALERT } from './attentionStyles'
 import { extensionIcon } from './extensionIcons'
-import { Alert } from './ui/alert'
+import { Alert, AlertAction, AlertDescription } from './ui/alert'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
@@ -915,8 +915,29 @@ export function SubHead({ title, desc }: { title: string; desc?: string }): JSX.
   )
 }
 
-export function WarningNote({ children }: { children: React.ReactNode }): JSX.Element {
-  return <Alert className={cn(ATTENTION_ALERT, 'mt-1')}>{children}</Alert>
+export function WarningNote({
+  children,
+  actions,
+}: {
+  children: React.ReactNode
+  actions?: React.ReactNode
+}): JSX.Element {
+  return (
+    <Alert
+      className={cn(
+        'mt-1 items-center rounded-none border-0 bg-transparent p-0 text-warn-fg has-data-[slot=alert-action]:pr-0',
+        actions ? 'has-[>svg]:grid-cols-[auto_1fr_auto]' : null,
+      )}
+    >
+      <WarningIcon className="size-3.5" />
+      <AlertDescription className="text-warn-fg text-ui-sm [&_p:not(:last-child)]:mb-1">
+        {children}
+      </AlertDescription>
+      {actions ? (
+        <AlertAction className="static flex items-center gap-1">{actions}</AlertAction>
+      ) : null}
+    </Alert>
+  )
 }
 
 export function ControlRow({
@@ -1985,9 +2006,9 @@ export function ExtensionsSection({
                         })}
                       </p>
                       {ext.unapproved.length > 0 && ext.status !== 'pending-approval' ? (
-                        <p className="mt-0.5 text-attn-fg text-ui-xs">
+                        <WarningNote>
                           {fmt(d.extensions.unapproved, { caps: ext.unapproved.join(', ') })}
-                        </p>
+                        </WarningNote>
                       ) : null}
                       <ExtensionAgentPlugin ext={ext} explain={false} />
                     </div>

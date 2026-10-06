@@ -77,6 +77,10 @@ export function assistProvider(point: AssistPoint): AssistProviderInfo | null {
   return useAssistStore.getState().availability[point] ?? null
 }
 
+export function wakeAssist(): void {
+  window.ostia?.assist?.wake?.()
+}
+
 export function startAssistAvailability(): () => void {
   const apply = (availability: AssistAvailability): void =>
     useAssistStore.getState().setAvailability(availability)

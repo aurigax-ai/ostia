@@ -40,6 +40,7 @@ import {
   chordsOf,
   chordsWithout,
   conflictsWith,
+  terminalKeyConflicts,
   useBindings,
   workspaceDigit,
 } from '../lib/chords'
@@ -269,12 +270,12 @@ export function KeybindingRow({ id, title }: { id: string; title: string }): JSX
           </p>
         ) : null}
         {ignored && mode.kind === 'idle' ? (
-          <p className="mt-1 text-attn-fg text-ui-sm">
+          <WarningNote>
             {fmt(d.keyboard.ignored, {
               value: ignored.value,
               reason: problemText(ignored.problem, d, isMac),
             })}
-          </p>
+          </WarningNote>
         ) : null}
       </TableCell>
       <TableCell className="py-1.5 text-right align-top">
@@ -472,7 +473,7 @@ function TerminalKeyEditor({
       return
     }
     setProblem(null)
-    const commandsUsing = conflictsWith('', spec, isMac)
+    const commandsUsing = terminalKeyConflicts(spec, isMac)
     const found = terminalKeyFor(spec, isMac)
     const existing = found && found.signature !== previous?.signature ? found : null
     if (!replacing && (commandsUsing.length > 0 || existing)) {
@@ -566,7 +567,7 @@ function TerminalKeyLine({ row }: { row: TerminalKeyRow }): JSX.Element {
   const d = useDict()
   const [editing, setEditing] = useState(false)
   const keys = chordText(row.spec, isMac)
-  const shadowedBy = conflictsWith('', row.spec, isMac)[0]
+  const shadowedBy = terminalKeyConflicts(row.spec, isMac)[0]
   if (editing) {
     return (
       <TableRow className="hover:bg-transparent">
@@ -589,9 +590,9 @@ function TerminalKeyLine({ row }: { row: TerminalKeyRow }): JSX.Element {
       <TableCell className="py-1.5 align-top whitespace-normal">
         <Kbd>{keys}</Kbd>
         {shadowedBy ? (
-          <p className="mt-1 text-attn-fg text-ui-sm">
+          <WarningNote>
             {fmt(d.keyboard.shadowed, { command: commandTitle(shadowedBy, d) })}
-          </p>
+          </WarningNote>
         ) : null}
       </TableCell>
       <TableCell className="py-1.5 text-right align-top">

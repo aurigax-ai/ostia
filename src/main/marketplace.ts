@@ -384,8 +384,15 @@ export class Marketplace {
   private installState(sourceId: string, manifest: ExtensionManifest): MarketplaceInstallState {
     if (this.deps.builtinIds().includes(manifest.id)) return 'conflict'
     if (!existsSync(this.installDir(manifest.id))) return 'available'
-    if (this.records.installs[manifest.id] !== sourceId) return 'conflict'
-    return this.installedVersion(manifest.id) === manifest.version ? 'installed' : 'update'
+    const owner = this.records.installs[manifest.id]
+    if (owner === sourceId) {
+      return this.installedVersion(manifest.id) === manifest.version ? 'installed' : 'update'
+    }
+    return owner !== undefined && !this.hasSource(owner) ? 'replace' : 'conflict'
+  }
+
+  private hasSource(id: string): boolean {
+    return this.records.sources.some((source) => source.id === id)
   }
 
   private isShown(sourceId: string, entry: CatalogEntry): boolean {
@@ -395,7 +402,10 @@ export class Marketplace {
   }
 
   private info(source: Source): MarketplaceInfo {
-    const base = { id: source.id, url: source.url }
+    const installs = Object.entries(this.records.installs)
+      .filter(([extId, owner]) => owner === source.id && existsSync(this.installDir(extId)))
+      .map(([extId]) => extId)
+    const base = { id: source.id, url: source.url, installs }
     const locale = this.deps.locale?.()
     const catalog = existsSync(this.cloneDir(source.id))
       ? readCatalog(this.cloneDir(source.id))
@@ -528,6 +538,16 @@ export class Marketplace {
     })
   }
 
+  private listedAnywhere(extId: string, onlyUrl: string | null): boolean {
+    return this.records.sources.some((source) => {
+      if (onlyUrl !== null && source.url !== onlyUrl) return false
+      const dir = this.cloneDir(source.id)
+      const catalog = existsSync(dir) ? readCatalog(dir) : null
+      if (catalog === null || typeof catalog === 'string') return false
+      return catalog.entries.some((e) => e.manifest.id === extId && this.isShown(source.id, e))
+    })
+  }
+
   installSuggested(
     extId: unknown,
     officialUrl: string,
@@ -543,7 +563,7 @@ export class Marketplace {
       let source = this.sourceListing(extId, only)
       if (!source) {
         if (!official || this.records.sources.some((s) => s.url === official)) {
-          return this.fail('unknown-extension')
+          return this.fail(this.listedAnywhere(extId, only) ? 'conflict' : 'unknown-extension')
         }
         const added = await this.addSource(official)
         if (!added.ok) return added
@@ -562,16 +582,24 @@ export class Marketplace {
     })
   }
 
-  remove(id: unknown): Promise<MarketplaceResult> {
+  remove(id: unknown, uninstallExtensions: unknown): Promise<MarketplaceResult> {
     return this.serialized(async () => {
       const source = this.records.sources.find((s) => s.id === id)
       if (!source) return this.fail('unknown-marketplace')
+      if (uninstallExtensions === true) {
+        for (const [extId, owner] of Object.entries(this.records.installs)) {
+          if (owner !== source.id) continue
+          const failure = this.removeInstall(extId)
+          if (failure) return failure
+        }
+      }
       rmSync(this.cloneDir(source.id), { recursive: true, force: true })
       this.records = {
         ...this.records,
         sources: this.records.sources.filter((s) => s.id !== source.id),
       }
       this.save()
+      this.deps.rescan()
       return this.ok()
     })
   }
@@ -592,7 +620,7 @@ export class Marketplace {
     if (!plan.ok) return this.fail(plan.error)
     const target = this.installDir(entry.manifest.id)
     try {
-      if (state === 'available') this.deps.forget(entry.manifest.id)
+      if (state === 'available' || state === 'replace') this.deps.forget(entry.manifest.id)
       rmSync(target, { recursive: true, force: true })
       const manifestLast = [
         ...plan.files.filter((f) => f !== EXTENSION_MANIFEST_FILE),
@@ -643,19 +671,25 @@ export class Marketplace {
       if (typeof extId !== 'string' || !Object.hasOwn(this.records.installs, extId)) {
         return this.fail('not-installed')
       }
-      const target = this.installDir(extId)
-      if (existsSync(target) && !isRealDirectory(target)) return this.fail('conflict')
-      try {
-        rmSync(target, { recursive: true, force: true })
-      } catch (err) {
-        return this.fail('write-failed', (err as Error).message)
-      }
-      const { [extId]: _removed, ...installs } = this.records.installs
-      this.records = { ...this.records, installs }
+      const failure = this.removeInstall(extId)
+      if (failure) return failure
       this.save()
-      this.deps.forget(extId)
       this.deps.rescan()
       return this.ok()
     })
+  }
+
+  private removeInstall(extId: string): MarketplaceResult | null {
+    const target = this.installDir(extId)
+    if (existsSync(target) && !isRealDirectory(target)) return this.fail('conflict')
+    try {
+      rmSync(target, { recursive: true, force: true })
+    } catch (err) {
+      return this.fail('write-failed', (err as Error).message)
+    }
+    const { [extId]: _removed, ...installs } = this.records.installs
+    this.records = { ...this.records, installs }
+    this.deps.forget(extId)
+    return null
   }
 }

@@ -2,13 +2,24 @@ import {
   ArrowClockwiseIcon,
   CaretRightIcon,
   EyeIcon,
+  FilePlusIcon,
+  FolderPlusIcon,
   SlidersHorizontalIcon,
   XIcon,
 } from '@phosphor-icons/react'
 import { BUILTIN_ICON_THEME, type LoadedIconTheme } from '@shared/iconTheme'
 import { type RemoteFileError, type RemoteFolder, remotePath } from '@shared/remoteFolders'
 import type { FsEntry } from '@shared/types'
-import { type KeyboardEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import {
+  type DragEvent,
+  type HTMLAttributes,
+  type KeyboardEvent,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import { fmt, useDict } from '../i18n/useDict'
 import { findPane } from '../layout/tree'
 import { FOLDED_CRUMB, crumbsOf, fitCrumbs, maxFitLevel } from '../lib/breadcrumb'
@@ -25,11 +36,14 @@ import {
   nestingRules,
   sortEntries,
 } from '../lib/fileTree'
+import { copyInto, moveInto, parentOf } from '../lib/fileTreeActions'
 import { homeDir } from '../lib/homeDir'
 import { type IconVariant, themeIconSrc } from '../lib/iconTheme'
 import { openFileInWorkspace } from '../lib/openFile'
 import { useEffectiveTheme } from '../lib/theme'
+import { isMac } from '../platform'
 import type { FileSortBy, FileSortOrder, FileTreeSettings } from '../settings/fileTreeSettings'
+import { useFileTreeStore } from '../stores/fileTreeStore'
 import { useActiveIconTheme, useAvailableIconThemes } from '../stores/iconThemeStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useRemoteFoldersStore } from '../stores/remoteFoldersStore'
@@ -37,6 +51,7 @@ import { useSettingsStore } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
 import { FileMenu, type TreeVisibility } from './FileMenu'
+import { FileTrashDialog, NameInputRow, treeRowKey } from './FileTreeOps'
 import { FilesSearch } from './FilesSearch'
 import { Hint } from './Hint'
 import { IconButton } from './IconButton'
@@ -200,6 +215,20 @@ export function FilesView(): JSX.Element {
         <span>{d.rail.files}</span>
         <div className="files-toolbar">
           <IconButton
+            icon={FilePlusIcon}
+            label={d.filesView.ops.newFile}
+            onClick={() =>
+              useFileTreeStore.getState().setEdit({ kind: 'create', entry: 'file', dir: cwd })
+            }
+          />
+          <IconButton
+            icon={FolderPlusIcon}
+            label={d.filesView.ops.newFolder}
+            onClick={() =>
+              useFileTreeStore.getState().setEdit({ kind: 'create', entry: 'folder', dir: cwd })
+            }
+          />
+          <IconButton
             icon={EyeIcon}
             label={d.filesView.showExcluded}
             aria-pressed={tree.settings.showExcluded}
@@ -226,6 +255,7 @@ export function FilesView(): JSX.Element {
           {local}
         </div>
       )}
+      <FileTrashDialog workspaceId={workspaceId} />
     </>
   )
 }
@@ -351,7 +381,9 @@ function listingError(err: unknown): RemoteFileError {
 
 function useListing(path: string, list: ListFiles): DirListing | null {
   const [listing, setListing] = useState<DirListing | null>(null)
+  const version = useFileTreeStore((s) => s.versions[path] ?? 0)
   useEffect(() => {
+    void version
     let alive = true
     list(path).then(
       (entries) => {
@@ -364,7 +396,7 @@ function useListing(path: string, list: ListFiles): DirListing | null {
     return () => {
       alive = false
     }
-  }, [path, list])
+  }, [path, list, version])
   return listing
 }
 
@@ -455,7 +487,13 @@ function Listing({
   tree: TreeContext
 }): JSX.Element | null {
   const items = tree.nest(tree.visible(entries, path))
+  const edit = useFileTreeStore((s) => s.edit)
+  const creating =
+    edit?.kind === 'create' && edit.dir === path && !tree.remote ? (
+      <NameInputRow key={`${edit.entry}:${path}`} edit={edit} depth={depth} />
+    ) : null
   if (items.length === 0) {
+    if (creating) return creating
     return depth === 0 ? (
       <Empty className="px-3 py-6">
         <EmptyDescription className="text-ui-sm">{tree.emptyText}</EmptyDescription>
@@ -464,6 +502,7 @@ function Listing({
   }
   return (
     <>
+      {creating}
       {items.map(({ entry, nested }) =>
         entry.dir ? (
           <DirRow key={entry.name} entry={entry} path={path} depth={depth} tree={tree} />
@@ -527,6 +566,7 @@ function RowShell({
       dir={dir}
       trigger={row}
       visibility={visibilityOf(tree, fullPath)}
+      editable
     />
   )
 }
@@ -542,8 +582,58 @@ function expandKey(e: KeyboardEvent<HTMLButtonElement>, setOpen: (open: boolean)
   e.preventDefault()
 }
 
-function rowClass(active: boolean, excluded: boolean): string {
-  return `file-row${active ? ' active' : ''}${excluded ? ' excluded' : ''}`
+function rowClass(active: boolean, excluded: boolean, cut = false): string {
+  return `file-row${active ? ' active' : ''}${excluded ? ' excluded' : ''}${cut ? ' cut' : ''}`
+}
+
+function useRowEdit(fullPath: string): { renaming: boolean; cut: boolean } {
+  const renaming = useFileTreeStore((s) => s.edit?.kind === 'rename' && s.edit.path === fullPath)
+  const cut = useFileTreeStore(
+    (s) => s.clipboard?.mode === 'cut' && s.clipboard.paths.includes(fullPath),
+  )
+  return { renaming, cut }
+}
+
+function startPathDrag(e: DragEvent<HTMLElement>, fullPath: string, tree: TreeContext): void {
+  if (tree.remote) {
+    e.preventDefault()
+    return
+  }
+  e.dataTransfer.setData(OSTIA_PATH_MIME, fullPath)
+  e.dataTransfer.setData('text/plain', fullPath)
+  e.dataTransfer.effectAllowed = 'copyMove'
+}
+
+function isCopyDrop(e: DragEvent<HTMLElement>): boolean {
+  return isMac ? e.altKey : e.ctrlKey
+}
+
+function useFolderDrop(
+  dir: string,
+  tree: TreeContext,
+): Pick<HTMLAttributes<HTMLElement>, 'onDragOver' | 'onDragLeave' | 'onDrop'> & { over: boolean } {
+  const [over, setOver] = useState(false)
+  const workspaceId = tree.focus.workspaceId
+  if (tree.remote || !workspaceId) return { over: false }
+  return {
+    over,
+    onDragOver: (e) => {
+      if (!e.dataTransfer.types.includes(OSTIA_PATH_MIME)) return
+      e.preventDefault()
+      e.dataTransfer.dropEffect = isCopyDrop(e) ? 'copy' : 'move'
+      setOver(true)
+    },
+    onDragLeave: () => setOver(false),
+    onDrop: (e) => {
+      setOver(false)
+      const source = e.dataTransfer.getData(OSTIA_PATH_MIME)
+      if (!source) return
+      e.preventDefault()
+      e.stopPropagation()
+      if (isCopyDrop(e)) void copyInto(workspaceId, [source], dir)
+      else if (parentOf(source) !== dir) void moveInto(workspaceId, [source], dir)
+    },
+  }
 }
 
 type ChainState = CompactChain | { error: RemoteFileError }
@@ -552,7 +642,13 @@ function useCompactChain(fullPath: string, open: boolean, tree: TreeContext): Ch
   const [chain, setChain] = useState<ChainState | null>(null)
   const compact = tree.settings.compactFolders
   const { visible, list } = tree
+  const version = useFileTreeStore((s) => s.versions[fullPath] ?? 0)
+  const nestedVersion = useFileTreeStore((s) =>
+    chain && !('error' in chain) && chain.path !== fullPath ? (s.versions[chain.path] ?? 0) : 0,
+  )
   useEffect(() => {
+    void version
+    void nestedVersion
     if (!open) return
     let alive = true
     const resolve = compact
@@ -569,7 +665,7 @@ function useCompactChain(fullPath: string, open: boolean, tree: TreeContext): Ch
     return () => {
       alive = false
     }
-  }, [fullPath, open, compact, visible, list])
+  }, [fullPath, open, compact, visible, list, version, nestedVersion])
   return chain
 }
 
@@ -608,16 +704,34 @@ function DirRow({
   const names = chain ? [entry.name, ...chain.names] : [entry.name]
   const last = names[names.length - 1]
   const excluded = tree.settings.showExcluded && tree.isExcluded(fullPath, tree.root)
+  const menuPath = chain?.path ?? fullPath
+  const { renaming, cut } = useRowEdit(menuPath)
+  const { over, ...drop } = useFolderDrop(menuPath, tree)
+  const creatingHere = useFileTreeStore(
+    (s) => s.edit?.kind === 'create' && (s.edit.dir === fullPath || s.edit.dir === menuPath),
+  )
 
-  const row = (
+  useEffect(() => {
+    if (creatingHere) setOpen(true)
+  }, [creatingHere])
+
+  const row = renaming ? (
+    <NameInputRow edit={{ kind: 'rename', path: menuPath }} depth={depth} />
+  ) : (
     <button
       ref={rowRef}
       type="button"
-      className={rowClass(false, excluded)}
+      className={`${rowClass(false, excluded, cut)}${over ? ' drop-target' : ''}`}
       aria-expanded={open}
       style={{ paddingLeft: 8 + depth * 13 }}
+      draggable={!tree.remote}
+      onDragStart={(e) => startPathDrag(e, menuPath, tree)}
+      {...drop}
       onClick={() => setOpen((o) => !o)}
-      onKeyDown={(e) => expandKey(e, setOpen)}
+      onKeyDown={(e) => {
+        if (!tree.remote && treeRowKey(e, tree.focus.workspaceId, menuPath, true)) return
+        expandKey(e, setOpen)
+      }}
     >
       <CaretRightIcon size={12} className={`file-twisty${open ? ' open' : ''}`} />
       <RowIcon entry={{ name: last, dir: true }} open={open} tree={tree} />
@@ -634,7 +748,7 @@ function DirRow({
 
   return (
     <>
-      <RowShell row={row} fullPath={chain?.path ?? fullPath} dir tree={tree} />
+      {renaming ? row : <RowShell row={row} fullPath={menuPath} dir tree={tree} />}
       {open && chain ? (
         <Listing entries={chain.entries} path={chain.path} depth={depth + 1} tree={tree} />
       ) : null}
@@ -664,6 +778,7 @@ function FileRow({
   const [open, setOpen] = useState(false)
   const excluded = tree.settings.showExcluded && tree.isExcluded(fullPath, tree.root)
   const parent = nested.length > 0
+  const { renaming, cut } = useRowEdit(fullPath)
 
   useEffect(() => {
     if (holdsActive) setOpen(true)
@@ -673,21 +788,15 @@ function FileRow({
     if (active) rowRef.current?.scrollIntoView({ block: 'nearest' })
   }, [active])
 
-  const row = (
+  const row = renaming ? (
+    <NameInputRow edit={{ kind: 'rename', path: fullPath }} depth={depth} />
+  ) : (
     <button
       ref={rowRef}
       type="button"
       draggable={!tree.remote}
-      onDragStart={(e) => {
-        if (tree.remote) {
-          e.preventDefault()
-          return
-        }
-        e.dataTransfer.setData(OSTIA_PATH_MIME, fullPath)
-        e.dataTransfer.setData('text/plain', fullPath)
-        e.dataTransfer.effectAllowed = 'copy'
-      }}
-      className={rowClass(active, excluded)}
+      onDragStart={(e) => startPathDrag(e, fullPath, tree)}
+      className={rowClass(active, excluded, cut)}
       aria-current={active ? 'true' : undefined}
       aria-expanded={parent ? open : undefined}
       style={{ paddingLeft: 8 + depth * 13 }}
@@ -695,7 +804,10 @@ function FileRow({
         if (parent && isTwisty(e.target)) setOpen((o) => !o)
         else openFileInWorkspace(fullPath)
       }}
-      onKeyDown={parent ? (e) => expandKey(e, setOpen) : undefined}
+      onKeyDown={(e) => {
+        if (!tree.remote && treeRowKey(e, tree.focus.workspaceId, fullPath, false)) return
+        if (parent) expandKey(e, setOpen)
+      }}
     >
       {parent ? (
         <CaretRightIcon size={12} className={`file-twisty${open ? ' open' : ''}`} />
@@ -709,7 +821,7 @@ function FileRow({
 
   return (
     <>
-      <RowShell row={row} fullPath={fullPath} dir={false} tree={tree} />
+      {renaming ? row : <RowShell row={row} fullPath={fullPath} dir={false} tree={tree} />}
       {parent && open
         ? nested.map((child) => (
             <FileRow

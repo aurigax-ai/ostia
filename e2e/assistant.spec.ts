@@ -1,5 +1,6 @@
 import { _electron as electron, expect, test } from '@playwright/test'
 import { isolatedLaunch } from './dataHome'
+import { extensionHosts } from './extensionHosts'
 import { type FakeRequest, startFakeProvider } from './fakeProvider'
 import { PROMPT, openWorkspace } from './helpers'
 
@@ -26,6 +27,7 @@ test('an OpenAI-compatible provider added in Settings with two models answers in
     const win = await app.firstWindow()
     await win.waitForLoadState('domcontentloaded')
     await openWorkspace(win)
+    expect(extensionHosts(app)).not.toContain('assistant')
 
     await win.keyboard.press('Control+,')
     const settings = win.getByRole('region', { name: 'Settings' })
@@ -33,7 +35,8 @@ test('an OpenAI-compatible provider added in Settings with two models answers in
     await settings.getByRole('button', { name: 'Assistant', exact: true }).click()
     await expect(
       settings.getByText('Add a provider and a model first. Nothing is sent until then.'),
-    ).toBeVisible()
+    ).toBeVisible({ timeout: 15_000 })
+    await expect.poll(() => extensionHosts(app), { timeout: 15_000 }).toContain('assistant')
     await settings.getByRole('button', { name: 'Add provider' }).click()
     await win.getByRole('menuitem', { name: 'OpenAI-compatible', exact: true }).click()
     const card = settings.getByRole('listitem', { name: 'OpenAI-compatible' })
