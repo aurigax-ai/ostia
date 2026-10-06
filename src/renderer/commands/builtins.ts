@@ -32,7 +32,14 @@ import { wakePane } from '../lib/hibernationScheduler'
 import { mergeRefusalText } from '../lib/mergeRefusalText'
 import { startNewWorkspace, startScratchWorkspace } from '../lib/newWorkspace'
 import { openRequestedFiles } from '../lib/openFile'
-import { GO_TO_WORKSPACE_SYMBOL_COMMAND, SYMBOLS_PREFIX } from '../lib/paletteModes'
+import {
+  FILES_PREFIX,
+  GO_TO_FILE_COMMAND,
+  GO_TO_WORKSPACE_COMMAND,
+  GO_TO_WORKSPACE_SYMBOL_COMMAND,
+  SYMBOLS_PREFIX,
+  WORKSPACES_PREFIX,
+} from '../lib/paletteModes'
 import { type PaneAgentReport, isStaleAgentReport, paneAgentReport } from '../lib/paneAgent'
 import { terminalFor } from '../lib/terminalHandles'
 import { resetZoom } from '../lib/wheelZoom'
@@ -857,6 +864,20 @@ export function registerBuiltinCommands(): void {
     category: 'view',
     target: 'none',
     run: () => useUIStore.getState().togglePalette(),
+  })
+
+  registerCore({
+    id: GO_TO_FILE_COMMAND,
+    category: 'view',
+    target: 'none',
+    run: () => useUIStore.getState().openPalette('search', FILES_PREFIX),
+  })
+
+  registerCore({
+    id: GO_TO_WORKSPACE_COMMAND,
+    category: 'view',
+    target: 'none',
+    run: () => useUIStore.getState().openPalette('search', WORKSPACES_PREFIX),
   })
 
   registerCore({

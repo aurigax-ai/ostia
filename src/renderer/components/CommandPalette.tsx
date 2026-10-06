@@ -13,11 +13,18 @@ import { allPanes, firstPaneOfKind } from '../layout/tree'
 import type { PaneNode } from '../layout/types'
 import { useChatAvailable } from '../lib/assistFeatures'
 import { chordLabel, useBindings } from '../lib/chords'
-import { openFileAt } from '../lib/openFile'
+import { childPath } from '../lib/fileTree'
+import { openFileAt, openFileInWorkspace } from '../lib/openFile'
 import { paletteFilter } from '../lib/paletteFilter'
 import { PALETTE_MODES, type PaletteMode, paletteMode, paletteQuery } from '../lib/paletteModes'
 import { type RemoteWorkspace, remoteWorkspacesOf } from '../lib/windowWorkspaces'
 import { revealPane } from '../lib/workspaceActivity'
+import {
+  FILE_SEARCH_DELAY_MS,
+  type WorkspaceFileResult,
+  findWorkspaceFiles,
+  splitFilePath,
+} from '../lib/workspaceFileSearch'
 import {
   SYMBOL_SEARCH_DELAY_MS,
   type WorkspaceSymbolResult,
@@ -28,6 +35,7 @@ import { isMac } from '../platform'
 import { useAssistProvider } from '../stores/assistStore'
 import { chatFor, currentSessionId } from '../stores/chatStore'
 import { useLayoutStore } from '../stores/layoutStore'
+import { useSettingsStore } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
 import { useWindowsStore } from '../stores/windowsStore'
 import { type Workspace, useWorkspacesStore } from '../stores/workspacesStore'
@@ -69,6 +77,9 @@ export function CommandPalette(): JSX.Element {
   const places = useMemo(() => (open ? snapshotPlaces() : EMPTY_PLACES), [open])
   const askMode = openMode === 'ask' && chat !== null
   const activeWorkspaceId = useWorkspacesStore((s) => s.activeWorkspaceId)
+  const activeWorkDir = useWorkspacesStore(
+    (s) => s.workspaces.find((w) => w.id === s.activeWorkspaceId)?.workDir ?? null,
+  )
 
   useSyncExternalStore(subscribeCommands, commandsVersion)
 
@@ -127,7 +138,7 @@ export function CommandPalette(): JSX.Element {
         )}
         showCloseButton={false}
       >
-        <Command filter={paletteFilter}>
+        <Command filter={paletteFilter} shouldFilter={mode !== 'files'}>
           {askMode && chat ? (
             <ChatView
               workspaceId={activeWorkspaceId}
@@ -171,6 +182,8 @@ export function CommandPalette(): JSX.Element {
                     workspaceId={activeWorkspaceId}
                     onDone={finish}
                   />
+                ) : mode === 'files' ? (
+                  <FileItems query={paletteQuery(search)} workDir={activeWorkDir} onDone={finish} />
                 ) : (
                   <CommandEmpty>{d.palette.empty}</CommandEmpty>
                 )}
@@ -465,6 +478,69 @@ function TabItems({
           >
             <span>{pane.title}</span>
             <ItemMeta>{where}</ItemMeta>
+          </CommandItem>
+        )
+      })}
+    </CommandGroup>
+  )
+}
+
+function FileItems({
+  query,
+  workDir,
+  onDone,
+}: {
+  query: string
+  workDir: string | null
+  onDone: () => void
+}): JSX.Element | null {
+  const d = useDict()
+  const includeIgnored = useSettingsStore((s) => s.files.searchIgnored)
+  const [result, setResult] = useState<WorkspaceFileResult | null>(null)
+  useEffect(() => {
+    if (!workDir || !query) {
+      setResult(null)
+      return
+    }
+    let live = true
+    const timer = setTimeout(() => {
+      void findWorkspaceFiles(workDir, query, includeIgnored).then((next) => {
+        if (live && next.status !== 'cancelled') setResult(next)
+      })
+    }, FILE_SEARCH_DELAY_MS)
+    return () => {
+      live = false
+      clearTimeout(timer)
+    }
+  }, [workDir, query, includeIgnored])
+  const status = (text: string): JSX.Element => (
+    <output className="block px-3 py-6 text-center text-fg-muted text-ui-sm">{text}</output>
+  )
+  if (!workDir) return status(d.palette.filesNoWorkspace)
+  if (!query) return status(d.palette.filesHint)
+  if (!result) return null
+  if (result.status === 'failed') return status(d.palette.filesFailed)
+  if (result.status === 'cancelled') return null
+  if (result.hits.length === 0) return status(d.palette.empty)
+  const symbol = symbolOf('files')
+  return (
+    <CommandGroup
+      key={result.hits.map((hit) => hit.path).join('\n')}
+      heading={d.palette.modes.files}
+    >
+      {result.hits.map((hit) => {
+        const { name, dir } = splitFilePath(hit.path)
+        return (
+          <CommandItem
+            key={hit.path}
+            value={`${symbol} ${hit.path}`}
+            onSelect={() => {
+              openFileInWorkspace(childPath(result.root, hit.path))
+              onDone()
+            }}
+          >
+            <span>{name}</span>
+            {dir ? <ItemMeta mono>{dir}</ItemMeta> : null}
           </CommandItem>
         )
       })}
