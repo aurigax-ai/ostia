@@ -9,6 +9,7 @@ export const SCREEN_INFO_FORMAT = [
   '#{mouse_button_flag}',
   '#{mouse_any_flag}',
   '#{mouse_sgr_flag}',
+  '#{bracket_paste_flag}',
 ].join(' ')
 
 const RESET = '\x1b[0m'
@@ -19,6 +20,7 @@ const MODES: [index: number, set: string][] = [
   [7, '\x1b[?1002h'],
   [8, '\x1b[?1003h'],
   [9, '\x1b[?1006h'],
+  [10, '\x1b[?2004h'],
 ]
 
 function lines(rows: readonly string[]): string {

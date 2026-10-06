@@ -15,6 +15,17 @@ describe('screenReplay', () => {
     )
   })
 
+  it('KSH-C66 turns bracketed paste back on when the program had it on', () => {
+    expect(screenReplay('0 2 0 1 0 0 0 0 0 0 1', ['$ '], null)).toBe(
+      '$ \x1b[0m\x1b[1;3H\x1b[?2004h',
+    )
+    expect(screenReplay('0 2 0 1 0 0 0 0 0 0 0', ['$ '], null)).not.toContain('\x1b[?2004h')
+  })
+
+  it('leaves bracketed paste off when tmux has no flag for it', () => {
+    expect(screenReplay('0 2 0 1 0 0 0 0 0 0 ', ['$ '], null)).not.toContain('\x1b[?2004h')
+  })
+
   it('hides the cursor when the program hid it', () => {
     expect(screenReplay('0 0 0 0 0 0 0 0 0 0', [''], null)).toContain('\x1b[?25l')
   })
