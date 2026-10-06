@@ -162,17 +162,23 @@ describe('keymapFor', () => {
 describe('the macOS keymap shipped with the app', () => {
   const dir = join(__dirname, '..', 'extensions', 'keymap-macos')
 
-  it('is offered on macOS only and every one of its entries loads there', () => {
+  it('offers cmux and iTerm2 on macOS only, and every entry of each loads there', () => {
     const res = readManifest(dir)
     if (!res.ok) throw new Error(res.error)
-    const [keymap] = res.manifest.contributes.keymaps ?? []
-    expect(keymap).toMatchObject({ id: 'cmux', platform: 'darwin' })
-    const source = { extId: res.manifest.id, dir, keymap }
-    const mac = keymapFor('keymap-macos/cmux', deps([source], 'darwin'))
-    if (!mac.ok) throw new Error(mac.error)
-    expect(mac.keymap.skipped).toEqual([])
-    const raw = JSON.parse(readFileSync(join(dir, keymap.path), 'utf8'))
-    expect(Object.keys(mac.keymap.bindings)).toEqual(Object.keys(raw.bindings))
-    expect(keymapFor('keymap-macos/cmux', deps([source], 'linux')).ok).toBe(false)
+    const keymaps = res.manifest.contributes.keymaps ?? []
+    expect(keymaps.map((k) => [k.id, k.platform])).toEqual([
+      ['cmux', 'darwin'],
+      ['iterm2', 'darwin'],
+    ])
+    for (const keymap of keymaps) {
+      const ref = `keymap-macos/${keymap.id}`
+      const source = { extId: res.manifest.id, dir, keymap }
+      const mac = keymapFor(ref, deps([source], 'darwin'))
+      if (!mac.ok) throw new Error(mac.error)
+      expect(mac.keymap.skipped, ref).toEqual([])
+      const raw = JSON.parse(readFileSync(join(dir, keymap.path), 'utf8'))
+      expect(Object.keys(mac.keymap.bindings), ref).toEqual(Object.keys(raw.bindings))
+      expect(keymapFor(ref, deps([source], 'linux')).ok, ref).toBe(false)
+    }
   })
 })

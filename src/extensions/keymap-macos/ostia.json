@@ -1,13 +1,19 @@
 {
   "id": "keymap-macos",
-  "name": "macOS keymap (cmux)",
-  "version": "1.0.0",
+  "name": "macOS keymaps (cmux, iTerm2)",
+  "version": "1.1.0",
   "api": "2.1",
-  "description": "Shortcuts that follow cmux's defaults on macOS: ⌘D splits right, ⇧⌘D splits down, ⌥⌘ with an arrow moves between panes, ⌘N opens a workspace, ⇧⌘P opens the palette and ⌘B the sidebar. Off until you pick it in Settings → Keyboard.",
+  "description": "Shortcuts that follow cmux or iTerm2 on macOS. cmux: ⌘D splits right, ⇧⌘D splits down, ⌥⌘ with an arrow moves between panes, ⌘N opens a workspace, ⇧⌘P opens the palette and ⌘B the sidebar. iTerm2: ⌘↑ and ⌘↓ scroll one line, ⇧⌘↑ and ⇧⌘↓ select the previous and next block, ⌘N opens a workspace and ⌘T a tab. Off until you pick one in Settings → Keyboard.",
   "locales": ["zh-Hant"],
   "contributes": {
     "keymaps": [
-      { "id": "cmux", "label": "macOS (cmux)", "path": "assets/cmux.json", "platform": "darwin" }
+      { "id": "cmux", "label": "macOS (cmux)", "path": "assets/cmux.json", "platform": "darwin" },
+      {
+        "id": "iterm2",
+        "label": "macOS (iTerm2)",
+        "path": "assets/iterm2.json",
+        "platform": "darwin"
+      }
     ]
   }
 }
