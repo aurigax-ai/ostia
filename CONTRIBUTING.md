@@ -8,9 +8,8 @@ Conventions for people and coding agents (Claude Code, Codex) working in this re
 2. **Branch from the latest `main`**: `<type>/<short-description>`, where type is `fix`, `feat`, `docs`, `refactor`, `test` or `ci`. `main` is protected: every change, admins included, goes through a pull request, and force pushes and branch deletion are blocked.
 3. **Commit** with [Conventional Commits](https://www.conventionalcommits.org/) in English (`fix(terminal): …`, `feat(browser): …`). No code comments: `scripts/comments.mjs` rejects them.
 4. **Check before pushing**:
-    - on your own machine run `biome check`, `tsc` and `vitest related <changed files> --run`; leave the full test suite and e2e to the release candidate and the nightly run
-    - `pnpm typecheck`, `pnpm lint`, `pnpm test`
-    - the e2e specs for what you touched (`pnpm test:e2e e2e/<spec>.ts`); PR CI does not run e2e, so this is the only e2e check a change gets before the nightly run
+    - `pnpm typecheck`, `pnpm lint` and `pnpm exec vitest related <changed files> --run`. The full unit suite and e2e run in CI: unit on every PR, e2e on release candidates and every night.
+    - when a change needs e2e evidence, run only the specs you touched on CI: `gh workflow run ci.yml --ref <branch> -f full=true -f specs=e2e/<spec>.ts` (see CI below)
     - macOS-only behaviour (menus, Cmd keys) on a real Mac. For a bug fix, revert only the code, keep the new test, and confirm the test fails.
     - scan the whole branch for secrets (tokens, keys, certificates); nothing may match
 5. **Open a PR.** First line of the description: `Closes #N` (one line per issue). Then why, what changed, how it was tested, and what is not verified yet. Same labels and milestone as the issue. Check the link with `gh pr view <N> --json closingIssuesReferences`.
