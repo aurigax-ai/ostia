@@ -52,6 +52,7 @@ import { anchorToFocusedPane, canMoveWorkspace, moveWorkspaceTo } from '../lib/w
 import { isMac } from '../platform'
 import { keymapSettingValue, terminalKeymapSettingValue } from '../settings/keymapSetting'
 import { settingsSchemaAt } from '../settings/settingsSchema'
+import { useAgentTurnStore } from '../stores/agentTurnStore'
 import { useAttentionStore } from '../stores/attentionStore'
 import { useBlocksStore } from '../stores/blocksStore'
 import { useHistorySearchStore } from '../stores/historySearchStore'
@@ -378,6 +379,7 @@ export function registerBuiltinCommands(): void {
     run: ({ state, message }, ctx) => {
       if (!ctx.activePaneId) throw new Error('no target pane')
       if (isStaleAgentReport(ctx.activePaneId, state)) return
+      useAgentTurnStore.getState().report(ctx.activePaneId, state)
       const seen = isPaneViewed(ctx.activePaneId)
       signalPane(ctx.activePaneId, { type: 'set', state, message, at: Date.now() })
       if (state === 'waiting' || state === 'done') {
