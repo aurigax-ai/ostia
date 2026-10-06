@@ -117,6 +117,7 @@ import { type SecretStoreDeps, createSecretStore } from './extensionSecrets'
 import { ExtensionStore } from './extensionStore'
 import { DismissedSuggestions, suggestionFor } from './extensionSuggestions'
 import { openInExternalEditor } from './externalEditor'
+import { FileOps } from './fileOps'
 import { FileWatches, TreeWatches } from './fileWatch'
 import { readBinaryConfined } from './fsBinary'
 import { registerGatewayIpc, registerGatewayMethods } from './gateway'
@@ -2445,6 +2446,15 @@ function registerFsIpc(): void {
   registerOpenPathIpc(allowedRoots)
   registerProjectRootIpc(allowedRoots)
   registerSearchIpc(ripgrepPath(app.getAppPath(), process.platform, process.arch), allowedRoots)
+
+  const fileOps = new FileOps({ roots: allowedRoots, trash: (path) => shell.trashItem(path) })
+  ipcMain.handle('files:create', (_e, dir: unknown, name: unknown, kind: unknown) =>
+    fileOps.create(dir, name, kind),
+  )
+  ipcMain.handle('files:rename', (_e, path: unknown, name: unknown) => fileOps.rename(path, name))
+  ipcMain.handle('files:move', (_e, paths: unknown, dir: unknown) => fileOps.move(paths, dir))
+  ipcMain.handle('files:copy', (_e, paths: unknown, dir: unknown) => fileOps.copy(paths, dir))
+  ipcMain.handle('files:trash', (_e, paths: unknown) => fileOps.trash(paths))
 
   ipcMain.handle('fs:list', (_e, dir: string): FsEntry[] => {
     const safe = resolveSafe(dir, allowedRoots)

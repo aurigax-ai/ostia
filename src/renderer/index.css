@@ -1221,6 +1221,22 @@
   width: 100%;
 }
 
+.file-name-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 1px 8px 1px 0;
+}
+
+.file-row.drop-target {
+  background: var(--surface-2);
+  outline: 1px solid var(--line-strong);
+}
+
+.file-row.cut {
+  opacity: 0.55;
+}
+
 .file-row:hover {
   background: var(--surface-2);
   color: var(--fg);
