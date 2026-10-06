@@ -153,17 +153,18 @@ describe('idRegistry', () => {
     expect(workspaceHasManager('s-plain')).toBe(false)
   })
 
-  it('gives a reattached pane back its old token and id, dropping the ones minted at restore', () => {
+  it('gives a reattached pane its old token and its stable id, dropping the minted token', () => {
+    setPaneIdSalt(randomBytes(32))
     const minted = registerPane({ windowId: 'w9', workspaceId: 'ws9', paneId: 'kept-1' })
     const adopted = adoptPane({
       windowId: 'w9',
       workspaceId: 'ws9',
       paneId: 'kept-1',
-      externalId: 'ext-kept-1',
       token: 'tok-kept-1',
     })
+    expect(adopted.externalId).toBe(stablePaneExternalId('kept-1'))
     expect(resolveToken('tok-kept-1')).toBe(adopted)
-    expect(resolveExternal('ext-kept-1')?.paneId).toBe('kept-1')
+    expect(resolveExternal(adopted.externalId)?.paneId).toBe('kept-1')
     expect(resolveToken(minted.token)).toBeUndefined()
     expect(getByPaneId('kept-1')?.token).toBe('tok-kept-1')
     removePane('kept-1')

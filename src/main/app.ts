@@ -2084,13 +2084,15 @@ function registerPtyIpc(): void {
   ): Promise<PtyAttachResult> {
     const subId = String(e.sender.id)
     const { pane, meta } = kept
-    adoptPane({
+    const identity = adoptPane({
       windowId: subId,
       workspaceId: meta.workspaceId,
       paneId,
-      externalId: meta.externalId,
       token: meta.token,
     })
+    if (identity.externalId !== meta.externalId) {
+      appLog?.info('kept-pane-id-changed', { pane: paneId })
+    }
     takeRestoredScrollback(paneId)
     hibernatedPanes.delete(paneId)
     const cols = opts.cols || pane.cols
@@ -2144,7 +2146,7 @@ function registerPtyIpc(): void {
           cwd: meta.process.cwd,
           workspaceId: meta.workspaceId,
           paneId,
-          externalPaneId: meta.externalId,
+          externalPaneId: identity.externalId,
         },
         entry.session.cursor,
       )
