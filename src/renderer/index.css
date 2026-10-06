@@ -1956,6 +1956,17 @@ button.prompt-chip:focus-visible {
   padding: 4px 6px;
 }
 
+.ghostty-host {
+  position: absolute;
+  inset: 4px 6px;
+  overflow: hidden;
+}
+
+.ghostty-failure {
+  position: absolute;
+  inset: 4px 6px auto;
+}
+
 .xterm-host:not(.link-modifier) .xterm .xterm-cursor-pointer {
   cursor: inherit;
 }

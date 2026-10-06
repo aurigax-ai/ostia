@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { useSettingsStore } from '../stores/settingsStore'
@@ -115,5 +115,28 @@ describe('SettingsPanel terminal and pane rows', () => {
     expect(
       screen.getByRole('switch', { name: 'Keep shells running across a restart' }),
     ).toHaveAttribute('aria-disabled', 'true')
+  })
+
+  function rowOf(label: string): HTMLElement {
+    const row = screen.getByText(label).closest<HTMLElement>('[data-settings-row]')
+    if (!row) throw new Error(`no row for ${label}`)
+    return row
+  }
+
+  it('marks the terminal engine and keeping shells as experimental', async () => {
+    tmuxReport([])
+    await openSection('Terminal')
+    expect(within(rowOf('Terminal engine')).getByText('Experimental')).toBeVisible()
+    expect(
+      within(rowOf('Keep shells running across a restart')).getByText('Experimental'),
+    ).toBeVisible()
+    expect(within(rowOf('Scroll speed')).queryByText('Experimental')).toBeNull()
+  })
+
+  it('switches the terminal engine to Ghostty', async () => {
+    const user = await openSection('Terminal')
+    await user.click(screen.getByRole('combobox', { name: 'Terminal engine' }))
+    await user.click(await screen.findByRole('option', { name: 'Ghostty' }))
+    expect(useSettingsStore.getState().terminal.renderer).toBe('ghostty')
   })
 })

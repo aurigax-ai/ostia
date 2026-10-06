@@ -110,6 +110,7 @@
     "electron-builder": "^26.15.3",
     "electron-vite": "^4.0.1",
     "esbuild": "^0.21.5",
+    "ghostty-web": "^0.4.0",
     "jsdom": "^29.1.1",
     "mdast-util-from-markdown": "2.0.3",
     "mdast-util-gfm": "3.1.0",

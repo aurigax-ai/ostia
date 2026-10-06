@@ -86,6 +86,7 @@ import { useSandboxStore } from '../stores/sandboxStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { AssistComposer } from './AssistComposer'
 import { Blocks } from './Blocks'
+import { GhosttyTerminalView } from './GhosttyTerminal'
 import { InputEditor } from './InputEditor'
 import { RiskyPasteDialog } from './RiskyPasteDialog'
 import { useSelectionSend } from './SelectionSend'
@@ -97,15 +98,22 @@ import { isPromptRepaint, nextSizeAction, settleFit } from './terminalSizing'
 const FOCUS_REPORTS = new Set(['\x1b[I', '\x1b[O'])
 const LINK_HINT_DELAY_MS = 400
 
-export function TerminalView({
-  workspaceId,
-  paneId,
-  cwd,
-}: {
+interface TerminalViewProps {
   workspaceId: string
   paneId: string
   cwd?: string
-}): JSX.Element {
+}
+
+export function TerminalView(props: TerminalViewProps): JSX.Element {
+  const [renderer] = useState(() => useSettingsStore.getState().terminal.renderer)
+  return renderer === 'ghostty' ? (
+    <GhosttyTerminalView {...props} />
+  ) : (
+    <XtermTerminalView {...props} />
+  )
+}
+
+function XtermTerminalView({ workspaceId, paneId, cwd }: TerminalViewProps): JSX.Element {
   const hostRef = useRef<HTMLDivElement>(null)
   const surfaceRef = useRef<HTMLDivElement>(null)
   const termRef = useRef<Xterm | null>(null)
