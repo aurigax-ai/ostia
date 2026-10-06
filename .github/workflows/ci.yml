@@ -152,9 +152,43 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm lint
 
-  unit:
+  unit-arch:
     needs: changes
     if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-24.04
+    container:
+      image: archlinux:latest
+      options: --privileged
+    steps:
+      - run: pacman -Syu --noconfirm --needed git base-devel python zsh bubblewrap socat ripgrep tmux
+      - uses: actions/checkout@v7
+      - run: |
+          git config --global --add safe.directory '*'
+          for k in apparmor_restrict_unprivileged_userns apparmor_restrict_unprivileged_unconfined; do
+            [ ! -e /proc/sys/kernel/$k ] || sysctl -w kernel.$k=0 || true
+          done
+          zsh -fc 'autoload -U compaudit; compaudit' | xargs -r chmod go-w
+          git config --global user.name 'Ostia CI'
+          git config --global user.email 'ci@ostia.invalid'
+      - uses: ./.github/actions/setup
+      - run: pnpm test
+
+  build-arch:
+    needs: changes
+    if: needs.changes.outputs.full == 'true'
+    runs-on: ubuntu-24.04
+    container:
+      image: archlinux:latest
+    steps:
+      - run: pacman -Syu --noconfirm --needed git base-devel python
+      - uses: actions/checkout@v7
+      - run: git config --global --add safe.directory '*'
+      - uses: ./.github/actions/setup
+      - run: pnpm build
+
+  unit:
+    needs: changes
+    if: needs.changes.outputs.full == 'true'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
@@ -366,7 +400,7 @@ jobs:
           retention-days: 14
 
   ci-result:
-    needs: [changes, static, unit, build, e2e, e2e-ptrace]
+    needs: [changes, static, unit-arch, unit, build, build-arch, e2e, e2e-ptrace]
     if: ${{ !cancelled() }}
     runs-on: ${{ fromJSON(needs.changes.outputs.linux) }}
     steps:
@@ -380,5 +414,6 @@ jobs:
             .changes.result == "success" and
             (."e2e-ptrace".result | IN("success", "skipped")) and
             .e2e.result == (if $full == "true" and $platform != "macos" then "success" else "skipped" end) and
-            (del(.changes, ."e2e-ptrace", .e2e) | to_entries
-              | all(.value.result == (if $code == "true" then "success" else "skipped" end)))'
+            (del(.changes, ."e2e-ptrace", .e2e, .unit, ."build-arch") | to_entries
+              | all(.value.result == (if $code == "true" then "success" else "skipped" end))) and
+            ((.unit, ."build-arch") | .result == (if $full == "true" then "success" else "skipped" end))'
