@@ -274,6 +274,39 @@ describe('user terminal keys on top of the preset', () => {
   })
 })
 
+describe('the terminal key table order', () => {
+  const signatures = (keymap: string | null, user: Record<string, never> = {}) =>
+    terminalKeyTable(user, keymap, true).rows.map((r) => r.signature)
+
+  it('keeps shared keys in the same relative order across presets', () => {
+    const a = signatures(null)
+    const b = signatures(NATURAL_TEXT_EDITING)
+    const shared = a.filter((s) => b.includes(s))
+    expect(shared.length).toBeGreaterThan(0)
+    expect(b.filter((s) => a.includes(s))).toEqual(shared)
+  })
+
+  it('does not depend on the order a user lists their keys in', () => {
+    const one = terminalKeyTable(
+      {
+        'Ctrl+Shift+Y': { type: 'escape', value: 'y' },
+        'Ctrl+Shift+A': { type: 'escape', value: 'a' },
+      },
+      null,
+      true,
+    )
+    const two = terminalKeyTable(
+      {
+        'Ctrl+Shift+A': { type: 'escape', value: 'a' },
+        'Ctrl+Shift+Y': { type: 'escape', value: 'y' },
+      },
+      null,
+      true,
+    )
+    expect(one.rows.map((r) => r.signature)).toEqual(two.rows.map((r) => r.signature))
+  })
+})
+
 describe('a command and a terminal key on the same chord', () => {
   it('runs the command and sends nothing', () => {
     useSettingsStore.setState({ keybindings: { 'tab.previous': 'Cmd+Left' } })
