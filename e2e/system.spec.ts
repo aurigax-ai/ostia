@@ -54,7 +54,17 @@ for (const run of [...Array(15).keys()]) test(`ostia system install asks the hum
     const agent = win.locator('.xterm').first()
     await agent.click()
     await win.keyboard.type('ostia system install ripgrep --manager pacman --reason e2e-check')
+    const jiggle = app.evaluate(async ({ BrowserWindow }) => {
+      const w = BrowserWindow.getAllWindows()[0]
+      const [width, height] = w.getSize()
+      for (let i = 0; i < 80; i++) {
+        w.setSize(width + (i % 2 ? 37 : 0), height)
+        await new Promise((r) => setTimeout(r, 20))
+      }
+      w.setSize(width, height)
+    })
     await win.keyboard.press('Enter')
+    await jiggle
 
     await expect(win.locator('.xterm')).toHaveCount(2, { timeout: 20_000 })
     const installer = win.locator('.xterm-rows').filter({ hasText: 'fake pacman installed' })
