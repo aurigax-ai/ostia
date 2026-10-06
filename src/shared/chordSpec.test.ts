@@ -2,11 +2,16 @@ import { describe, expect, it } from 'vitest'
 import {
   CHORDS_PER_COMMAND_MAX,
   type ChordSpec,
+  bindingProblem,
+  checkBinding,
   chordText,
   formatChord,
+  formatScopedChord,
   overlaps,
   parseChord,
   parseKeybindings,
+  parseScopedChord,
+  sameScope,
   specFromEvent,
   stealsTerminalKey,
   usedByMonaco,
@@ -160,11 +165,48 @@ describe('stealsTerminalKey', () => {
     }
   })
 
+  it('allows Ctrl+PageUp and Ctrl+PageDown on Linux, which no shell or Monaco needs', () => {
+    expect(stealsTerminalKey(chord('Ctrl+PageUp'), false)).toBeNull()
+    expect(stealsTerminalKey(chord('Ctrl+PageDown'), false)).toBeNull()
+    expect(stealsTerminalKey(chord('Ctrl+Home'), false)).toBe('ctrl-key')
+    expect(stealsTerminalKey(chord('PageUp'), false)).toBe('bare')
+    expect(stealsTerminalKey(chord('Alt+PageUp'), false)).toBe('needs-modifier')
+    expect(stealsTerminalKey(chord('Ctrl+PageUp', true), true)).toBe('needs-modifier')
+  })
+
   it('needs Cmd on macOS, where Ctrl and Option chords belong to the shell', () => {
     expect(stealsTerminalKey(chord('Cmd+K', true), true)).toBeNull()
     expect(stealsTerminalKey(chord('Cmd+Up', true), true)).toBeNull()
     expect(stealsTerminalKey(chord('Ctrl+Shift+P', true), true)).toBe('needs-modifier')
     expect(stealsTerminalKey(chord('Alt+K', true), true)).toBe('needs-modifier')
+  })
+})
+
+describe('bindingProblem for browser commands', () => {
+  it('lets a browser command take a plain Ctrl key, because a terminal passes it on to the shell', () => {
+    for (const id of [
+      'browser.focusAddress',
+      'browser.reload',
+      'browser.back',
+      'browser.forward',
+    ]) {
+      expect(bindingProblem(id, chord('Ctrl+L'), false), id).toBeNull()
+      expect(bindingProblem(id, chord('Ctrl+R'), false), id).toBeNull()
+      expect(bindingProblem(id, chord('Ctrl+Left'), false), id).toBeNull()
+    }
+  })
+
+  it('still refuses what no browser command may take', () => {
+    expect(bindingProblem('browser.reload', chord('Ctrl+Alt+Tab'), false)).toBe('tab')
+    expect(bindingProblem('browser.reload', chord('Ctrl+Escape'), false)).toBe('escape')
+    expect(bindingProblem('browser.reload', chord('F5'), false)).toBe('bare')
+    expect(bindingProblem('browser.reload', chord('Alt+Tab'), false)).toBe('tab')
+  })
+
+  it('keeps plain Ctrl keys closed to every other command', () => {
+    expect(bindingProblem('palette.toggle', chord('Ctrl+L'), false)).toBe('ctrl-key')
+    expect(bindingProblem('palette.toggle', chord('Ctrl+R'), false)).toBe('ctrl-key')
+    expect(bindingProblem('tab.next', chord('Ctrl+PageDown'), false)).toBeNull()
   })
 })
 
@@ -186,6 +228,35 @@ describe('usedByMonaco', () => {
   })
 })
 
+describe('parseScopedChord', () => {
+  it('reads a terminal: prefix in any case and writes it back in one form', () => {
+    const spec = parseScopedChord(' Terminal:Cmd+K ', true)
+    expect(spec).toEqual({ ...chord('Cmd+K', true), terminal: true })
+    expect(formatScopedChord(spec as ChordSpec, true)).toBe('terminal:Cmd+K')
+    expect(parseScopedChord('Cmd+K', true)).toEqual(chord('Cmd+K', true))
+    expect(formatScopedChord(chord('Cmd+K', true), true)).toBe('Cmd+K')
+  })
+
+  it('refuses a prefix with no chord and any other prefix', () => {
+    expect(parseScopedChord('terminal:', true)).toBeNull()
+    expect(parseScopedChord('terminal:Ctrl+Nope', false)).toBeNull()
+    expect(parseScopedChord('editor:Cmd+K', true)).toBeNull()
+  })
+
+  it('tells chords of a terminal from chords of the whole window', () => {
+    const inTerminal = parseScopedChord('terminal:Cmd+D', true) as ChordSpec
+    expect(sameScope(inTerminal, chord('Cmd+D', true))).toBe(false)
+    expect(sameScope(inTerminal, parseScopedChord('terminal:Cmd+K', true) as ChordSpec)).toBe(true)
+    expect(sameScope(chord('Cmd+D', true), chord('Cmd+K', true))).toBe(true)
+  })
+
+  it('checks a prefixed binding by the chord after the prefix', () => {
+    expect(checkBinding('terminal.clear', 'terminal:Ctrl+Shift+K', false)).toBeNull()
+    expect(checkBinding('terminal.clear', 'terminal:Ctrl+K', false)).toBe('ctrl-key')
+    expect(checkBinding('terminal.clear', 'terminal:', false)).toBe('invalid')
+  })
+})
+
 describe('parseKeybindings', () => {
   it('keeps chord strings and nulls, and drops everything else', () => {
     const parsed = parseKeybindings(
@@ -200,12 +271,14 @@ describe('parseKeybindings', () => {
   it('keeps a list of chords, trimmed and without repeats, and drops the entries that do not parse', () => {
     const parsed = parseKeybindings({
       'tab.next': [' Ctrl+Tab ', 'Shift+Cmd+]', 'Ctrl+Tab', 'Ctrl+Nope', 7],
+      'pane.splitRight': ['terminal:Cmd+D', 'terminal:', 'Cmd+Alt+\\'],
       'view.zoomIn': ['Ctrl+Nope'],
       'view.zoomOut': [],
       find: Array.from({ length: 12 }, (_, i) => `Ctrl+F${i + 1}`),
     })
     expect({ ...parsed }).toEqual({
       'tab.next': ['Ctrl+Tab', 'Shift+Cmd+]'],
+      'pane.splitRight': ['terminal:Cmd+D', 'Cmd+Alt+\\'],
       find: Array.from({ length: CHORDS_PER_COMMAND_MAX }, (_, i) => `Ctrl+F${i + 1}`),
     })
   })

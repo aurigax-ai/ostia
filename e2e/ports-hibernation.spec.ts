@@ -3,6 +3,7 @@ import { createServer } from 'node:net'
 import { join } from 'node:path'
 import { type Page, _electron as electron, expect, test } from '@playwright/test'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
+import { extensionHosts } from './extensionHosts'
 import { PROMPT, openWorkspace } from './helpers'
 
 async function freePort(): Promise<number> {
@@ -42,6 +43,7 @@ test('a port a terminal listens on shows in the top bar and opens in the browser
       .locator('.topbar-right .workspace-chips')
       .getByRole('button', { name: 'Listening ports: 1. Click to list them.' })
     await expect(chip).toBeVisible({ timeout: 20_000 })
+    expect(extensionHosts(app)).not.toContain('ports')
     await chip.click()
     await win
       .getByRole('button', { name: `Open http://localhost:${port}/ in the browser pane` })
@@ -62,6 +64,7 @@ test('a port a terminal listens on shows in the top bar and opens in the browser
         { timeout: 15_000 },
       )
       .toContain(`http://localhost:${port}/`)
+    expect(extensionHosts(app)).not.toContain('ports')
 
     await win.getByRole('tablist').getByRole('tab').first().click()
     await win.locator('.xterm').first().click()

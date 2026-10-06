@@ -183,6 +183,7 @@ import {
   portalSupported,
 } from './portal'
 import { callerVerdict, procFs, ttysOf } from './portalCaller'
+import { PORTS_EXTENSION, PortsBoard } from './portsBoard'
 import { acceptsPrimarySelection } from './primarySelection'
 import { registerPrivacyIpc } from './privacyIpc'
 import { privateTmpDir } from './privateTmp'
@@ -1153,7 +1154,8 @@ const terminalState = new Map<string, TerminalStateSnapshot>()
 
 let extensionHost: ExtensionHost | null = null
 let gitBoard: GitBoard | null = null
-const ON_DEMAND_EXTENSIONS = [GIT_EXTENSION, 'assistant']
+let portsBoard: PortsBoard | null = null
+const ON_DEMAND_EXTENSIONS = [GIT_EXTENSION, PORTS_EXTENSION, 'assistant']
 
 function refreshAgentPlugins(): void {
   try {
@@ -3372,6 +3374,12 @@ app.whenReady().then(() => {
     log: (line) => console.error(`[git] ${line}`),
   })
   gitBoard.start()
+  portsBoard = new PortsBoard({
+    host: extensionHost,
+    listPanes: () => listPanes({ execCommand, getTerminalState, ptyPid, windowIds }),
+    log: (line) => console.error(`[ports] ${line}`),
+  })
+  portsBoard.start()
   extensionHost.watchUserExtensions()
   viewHost.watch()
   app.on('browser-window-focus', emitFocusChanged)
@@ -3498,6 +3506,7 @@ app.on('before-quit', (event) => {
   scratchFolders.removeAll()
   portForwarder.stopAll()
   gitBoard?.stop()
+  portsBoard?.stop()
   extensionHost?.stopAll()
   mcpOAuth?.closeAll()
   mcpHost?.closeAll()

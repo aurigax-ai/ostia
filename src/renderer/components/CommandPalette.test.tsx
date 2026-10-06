@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest'
 import type { SearchOutcome } from '@shared/search'
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { registerBuiltinCommands } from '../commands/builtins'
@@ -103,6 +103,19 @@ describe('CommandPalette', () => {
     expect(input.tagName).toBe('INPUT')
     expect(input).toHaveAttribute('placeholder', 'Search commands, workspaces, tabs… (? for help)')
     expect(screen.getByRole('option', { name: /Open Settings/ })).toBeInTheDocument()
+  })
+
+  it('puts the command id and its shortcut in separate right-hand cells', async () => {
+    useUIStore.setState({ paletteOpen: true })
+    render(<CommandPalette />)
+
+    const option = await screen.findByRole('option', { name: /Open Settings/ })
+
+    expect(within(option).getByText('app.openSettings')).toHaveAttribute(
+      'data-slot',
+      'palette-meta',
+    )
+    expect(option.querySelector('kbd')?.parentElement).toHaveClass('justify-end')
   })
 
   describe('prefixes', () => {

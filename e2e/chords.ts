@@ -1,7 +1,7 @@
 export const isMac = process.platform === 'darwin'
 
 export const chords = {
-  palette: isMac ? 'Meta+k' : 'Control+Shift+p',
+  palette: isMac ? 'Meta+Shift+p' : 'Control+Shift+p',
   find: isMac ? 'Meta+f' : 'Control+Shift+f',
   copy: isMac ? 'Meta+c' : 'Control+Shift+c',
   paste: isMac ? 'Meta+v' : 'Control+Shift+v',
