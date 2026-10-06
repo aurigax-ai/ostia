@@ -30,6 +30,7 @@ export type AppChord =
   | 'history.search'
   | 'workflows.search'
   | 'workspace.new'
+  | 'tab.new'
   | 'agent.resume'
   | 'workspace.goto'
   | 'selection.sendToAgent'
@@ -100,7 +101,8 @@ export const DEFAULT_CHORDS: Readonly<
   'attention.jumpToLatest': ['Cmd+Shift+U', 'Ctrl+Shift+U'],
   'history.search': ['Cmd+Shift+H', 'Ctrl+Shift+H'],
   'workflows.search': ['Cmd+Shift+S', 'Ctrl+Shift+S'],
-  'workspace.new': ['Cmd+T', 'Ctrl+Shift+T'],
+  'workspace.new': ['Cmd+N', 'Ctrl+Shift+N'],
+  'tab.new': ['Cmd+T', 'Ctrl+Shift+T'],
   'agent.resume': ['Cmd+Shift+R', 'Ctrl+Shift+R'],
   'workspace.goto': [`Cmd+${DIGIT_RANGE}`, `Ctrl+${DIGIT_RANGE}`],
   'selection.sendToAgent': ['Cmd+Shift+E', 'Ctrl+Shift+E'],

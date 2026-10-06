@@ -61,7 +61,7 @@ test('a diff pane is hidden with its workspace and behind Settings', async () =>
     await win.keyboard.press('Escape')
     await expect(sides.last()).toBeVisible()
 
-    await win.keyboard.press('Control+Shift+T')
+    await win.keyboard.press('Control+Shift+N')
     await expect(win.locator('.rail-row')).toHaveCount(2, { timeout: 10_000 })
     await expect(emptyWorkspace(win)).toBeVisible()
     await expect(sides.first()).toBeHidden()

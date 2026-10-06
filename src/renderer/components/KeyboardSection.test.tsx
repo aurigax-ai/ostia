@@ -225,7 +225,8 @@ describe('KeyboardSection', () => {
     render(<KeyboardSection />)
     expect(within(row(/Command Palette/)).getByText('Ctrl+Shift+P')).toBeInTheDocument()
     expect(within(row(/Split Pane Right/)).getByText('Ctrl+Alt+\\')).toBeInTheDocument()
-    expect(within(row(/New Terminal Tab/)).getByText('Unassigned')).toBeInTheDocument()
+    expect(within(row(/New Terminal Tab/)).getByText('Ctrl+Shift+T')).toBeInTheDocument()
+    expect(within(row(/New Browser Tab/)).getByText('Unassigned')).toBeInTheDocument()
     expect(within(row(/Copy \(terminal\)/)).getByText('Ctrl+Shift+C')).toBeInTheDocument()
   })
 

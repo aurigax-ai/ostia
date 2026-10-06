@@ -138,12 +138,12 @@ test('boots with no workspace, and Ctrl+Shift+T opens an empty one that offers a
     await expect(emptyState(win)).toBeVisible({ timeout: 15_000 })
     await expect(emptyState(win).getByRole('heading', { name: 'No workspaces' })).toBeVisible()
     await expect(emptyState(win).getByRole('button', { name: /New workspace/ })).toContainText(
-      'Ctrl+Shift+T',
+      'Ctrl+Shift+N',
     )
     await win.waitForTimeout(1_000)
     await expect(win.locator('.xterm')).toHaveCount(0)
 
-    await win.keyboard.press('Control+Shift+T')
+    await win.keyboard.press('Control+Shift+N')
 
     await expect(win.locator('.rail-tab')).toHaveCount(1)
     await expect(win.locator('.xterm')).toHaveCount(0)

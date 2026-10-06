@@ -49,7 +49,7 @@ describe('WorkZone', () => {
     expect(screen.getByRole('heading', { name: 'No workspaces' })).toBeInTheDocument()
     expect(screen.getByText('Start a terminal in your home folder.')).toBeInTheDocument()
     const button = screen.getByRole('button', { name: /New workspace/ })
-    expect(button).toHaveTextContent('Ctrl+Shift+T')
+    expect(button).toHaveTextContent('Ctrl+Shift+N')
     expect(screen.queryByTestId(/^terminal-/)).toBeNull()
   })
 
