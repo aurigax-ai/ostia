@@ -251,6 +251,7 @@ import {
 import { registerSystemRequirementsIpc } from './systemRequirementsIpc'
 import { PTY_COLOR_ENV, PTY_TERM_NAME, paneShellEnv } from './terminalType'
 import { SANDBOX_NOT_KEPT, TMUX_MISSING, keepShellsNotice } from './tmux/keepShellsBanner'
+import { KeptAttention } from './tmux/keptAttention'
 import {
   type KeptHostMeta,
   type KeptMeta,
@@ -1159,6 +1160,7 @@ let mcpHost: McpHost | null = null
 let mcpOAuth: McpOAuth | null = null
 let broker: WindowBroker | null = null
 const agentRunning = new AgentRunningPanes(() => broker?.persist())
+const keptAttention = new KeptAttention()
 const reachesPane: OriginReach = (senderWindowId, sourcePaneId, targetPaneId) =>
   broker?.reaches(senderWindowId, sourcePaneId, targetPaneId) ?? false
 let settingsSync: SettingsSyncHandle | null = null
@@ -2086,6 +2088,7 @@ function registerPtyIpc(): void {
     if (identity.externalId !== meta.externalId) {
       appLog?.info('kept-pane-id-changed', { pane: paneId })
     }
+    keptAttention.reattached(paneId, agentRunning.has(paneId))
     takeRestoredScrollback(paneId)
     hibernatedPanes.delete(paneId)
     const cols = opts.cols || pane.cols
@@ -2292,6 +2295,7 @@ function trackPty(
         ptys.delete(paneId)
         movingPanes.delete(paneId)
         agentRunning.shellEnded(paneId)
+        keptAttention.reported(paneId)
         recoveryHeld.delete(paneId)
         closedPanes.delete(paneId)
       }
@@ -2994,7 +2998,7 @@ app.whenReady().then(() => {
       errors,
     )
   registerNotifyIpc(notifyDeps)
-  registerAttentionMethods({ execCommand })
+  registerAttentionMethods({ execCommand, reported: (paneId) => keptAttention.reported(paneId) })
   registerPaneRenameMethods({ execCommand })
   registerPaneResumeMethods({
     execCommand,
@@ -3040,6 +3044,8 @@ app.whenReady().then(() => {
     isConfined: (paneId) => ptys.get(paneId)?.sandboxed === true,
     managerAllowsInput: () => managerSettings().allowInput,
     attention: async (to) => {
+      const unreported = keptAttention.peek(to.paneId)
+      if (unreported) return unreported
       const res = await execCommand(targetOf(to), 'attention.peek')
       return res.ok && res.result && typeof res.result === 'object' ? res.result : {}
     },

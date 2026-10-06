@@ -48,6 +48,10 @@ export class AgentRunningPanes {
     for (const workspace of snapshotWorkspaces(snapshot)) runningPaneIds(workspace.root, this.panes)
   }
 
+  has(paneId: string): boolean {
+    return this.panes.has(paneId)
+  }
+
   report(paneId: string, running: boolean, attached: boolean): void {
     if (!attached || this.panes.has(paneId) === running) return
     if (running) this.panes.add(paneId)

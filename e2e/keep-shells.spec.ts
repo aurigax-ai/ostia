@@ -436,6 +436,58 @@ test('KSH-C36 an agent still running after a restart stays marked and is never r
   }
 })
 
+test('KSH-C67 text sent to an agent that kept running across a restart waits for its next report', async () => {
+  test.setTimeout(90_000)
+  const cli = 'ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" "$OSTIA_CLI"'
+  const bin = binWith(
+    'claude',
+    [
+      '#!/bin/sh',
+      `${cli} resume-token claude e2e-kept-2 >/dev/null 2>&1`,
+      'echo "agent-pane=$OSTIA_PANE_ID"',
+      'echo fake-agent-ready',
+      'read answer',
+      `${cli} state working >/dev/null 2>&1`,
+      'echo "reported-$((2+2))"',
+      'exec cat',
+      '',
+    ].join('\n'),
+  )
+  const first = await launch(dataHome, pathWith(bin))
+  await openWorkspace(first.win)
+  await run(first.win, 'claude')
+  await expect(screen(first.win)).toContainText('fake-agent-ready', { timeout: 15_000 })
+  const firstScreen = (await screen(first.win).textContent()) ?? ''
+  const agentPane = /agent-pane=([0-9a-f-]{36})/.exec(firstScreen)?.[1]
+  expect(agentPane).toBeTruthy()
+  await expect
+    .poll(() => savedPanes().some((p) => p.agentRunning === true), { timeout: 15_000 })
+    .toBe(true)
+  await restart(first)
+
+  const second = await launch(dataHome, pathWith(bin))
+  try {
+    const { win } = second
+    await expect(screen(win)).toContainText('fake-agent-ready', { timeout: 15_000 })
+    await win.locator('.pane.active').getByRole('button', { name: 'Split right' }).click()
+    await expect(win.locator('.xterm')).toHaveCount(2, { timeout: 15_000 })
+    await expect(screen(win, 1)).toContainText(PROMPT, { timeout: 15_000 })
+    await run(win, `ostia pane send ${agentPane} typed-early; echo "text-rc=$?"`, 1)
+    const card = win.getByRole('region', { name: 'Agent permission request' })
+    await expect(card).toBeVisible({ timeout: 20_000 })
+    await card.getByRole('button', { name: 'Allow for this pane' }).click()
+    await expect(screen(win, 1)).toContainText('agent-waiting', { timeout: 15_000 })
+    await expect(screen(win, 1)).toContainText(/text-rc=[1-9]/)
+    await expect(screen(win)).not.toContainText('typed-early')
+    await run(win, `ostia pane key ${agentPane} enter`, 1)
+    await expect(screen(win)).toContainText('reported-4', { timeout: 15_000 })
+    await run(win, `ostia pane send ${agentPane} "after-$((3*3))" --enter`, 1)
+    await expect(screen(win)).toContainText('after-9', { timeout: 15_000 })
+  } finally {
+    await quit(second.app)
+  }
+})
+
 test('KSH-C37 a process tab is still listed after a restart and can still be killed', async () => {
   const first = await launch(dataHome)
   await openWorkspace(first.win)
