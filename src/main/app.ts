@@ -166,7 +166,7 @@ import { openFileForExtension, registerOpenFileMethods } from './openFileMethods
 import { registerOpenPathIpc } from './openPath'
 import type { OriginReach } from './originAgents'
 import { loadPaneIdSalt } from './paneIdSalt'
-import { type PaneIo, registerPaneIoMethods } from './paneIo'
+import { type PaneIo, pastedText, registerPaneIoMethods } from './paneIo'
 import { listPanes, listWorkspaces, registerPaneListMethods } from './paneList'
 import type { PaneProcess } from './paneProcess'
 import { registerPaneRenameMethods } from './paneRename'
@@ -639,10 +639,16 @@ const paneIo: PaneIo = {
   write: (paneId, data) => {
     const entry = ptys.get(paneId)
     if (!entry) return false
-    entry.pty.write(data)
+    const pasted = entry.kept ? pastedText(data) : null
+    if (entry.kept && pasted !== null) entry.kept.paste(pasted)
+    else entry.pty.write(data)
     return true
   },
-  bracketedPaste: (paneId) => ptys.get(paneId)?.mirror.bracketedPaste === true,
+  bracketedPaste: (paneId) => {
+    const entry = ptys.get(paneId)
+    if (!entry) return false
+    return entry.kept !== null || entry.mirror.bracketedPaste
+  },
   outputCursor: (paneId) => ptys.get(paneId)?.session.cursor,
 }
 

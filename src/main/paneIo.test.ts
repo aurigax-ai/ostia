@@ -29,6 +29,7 @@ const { markManager, registerExtension, registerPane } = await import('./idRegis
 const { inputBytes, keyBytes, paneReach, pasteBytes, registerPaneIoMethods } = await import(
   './paneIo'
 )
+const { pastedText } = await import('./paneIo')
 
 type Identity = ReturnType<typeof registerPane>
 
@@ -379,6 +380,12 @@ describe('pasteBytes', () => {
   it('wraps text in paste markers, sends newlines as Enter, drops embedded markers', () => {
     expect(pasteBytes('a\nb\r\nc')).toBe('\x1b[200~a\rb\rc\x1b[201~')
     expect(pasteBytes('x\x1b[201~rm -rf /\x1b[200~')).toBe('\x1b[200~xrm -rf /\x1b[201~')
+  })
+
+  it('gives back the text of a paste it wrapped, and nothing for other bytes', () => {
+    expect(pastedText(pasteBytes('a\nb'))).toBe('a\rb')
+    expect(pastedText('a\rb')).toBeNull()
+    expect(pastedText('\x1b[200~a\x1b[201~b\x1b[201~')).toBeNull()
   })
 })
 

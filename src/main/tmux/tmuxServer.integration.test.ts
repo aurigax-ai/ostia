@@ -1,12 +1,13 @@
 import { execFileSync } from 'node:child_process'
 import { chmodSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { basename, join } from 'node:path'
 import { afterAll, afterEach, describe, expect, it, vi } from 'vitest'
 import { programPath } from '../systemRequirements'
 import { type TmuxPane, TmuxServer, TmuxSocketDirError, serverEnv } from './tmuxServer'
 
 const tmux = programPath('tmux') ?? 'tmux'
+const tmuxVersion = Number(/(\d+\.\d+)/.exec(execFileSync(tmux, ['-V'], { encoding: 'utf8' }))?.[1])
 const root = mkdtempSync(join(tmpdir(), 'ostia-tmux-'))
 const home = join(root, 'home')
 mkdirSync(home, { recursive: true })
@@ -20,9 +21,9 @@ afterEach(async () => {
 
 afterAll(() => rmSync(root, { recursive: true, force: true }))
 
-async function connect(dir = join(root, 'sock')): Promise<TmuxServer> {
+async function connect(dir = join(root, 'sock'), name = `t${names++}`): Promise<TmuxServer> {
   const server = await TmuxServer.connect(
-    { tmux, dir, name: `t${names++}`, defaultTerminal: 'screen-256color', env },
+    { tmux, dir, name, defaultTerminal: 'screen-256color', env },
     () => undefined,
   )
   servers.push(server)
@@ -143,13 +144,17 @@ describe('TmuxServer', () => {
 
   it('KSH-C14 shows output that arrives during a snapshot exactly once and in order', async () => {
     const server = await connect()
-    const pane = await spawnSh(
+    await spawnSh(
       server,
       'i=0; while [ $i -lt 4000 ]; do echo n$i; i=$((i+1)); done; sleep 5',
       80,
       24,
     )
     await new Promise((r) => setTimeout(r, 30))
+    const again = await connect(join(root, 'sock'), basename(server.socketPath))
+    const [kept] = await again.windows()
+    if (!kept) throw new Error('the window is gone')
+    const pane = again.adopt(kept)
     let after = ''
     pane.onData((d) => {
       after += d
@@ -172,14 +177,32 @@ describe('TmuxServer', () => {
     for (const { n, out } of panes) await until(() => out.text().includes(`early-${n}`))
   })
 
-  it('KSH-C66 replays bracketed paste for a program that turned it on', async () => {
+  it.skipIf(tmuxVersion < 3.7)(
+    'KSH-C66 replays bracketed paste for a program that turned it on (tmux 3.7 and later)',
+    async () => {
+      const server = await connect()
+      const pane = await spawnSh(server, "printf '\\033[?2004hpaste-on'; sleep 5")
+      const out = collect(pane)
+      await until(() => out.text().includes('paste-on'))
+      const screen = await pane.snapshot(80, 24)
+      pane.live()
+      expect(screen).toContain('\x1b[?2004h')
+    },
+  )
+
+  it('KSH-C66 pastes with markers only into a program that asked for bracketed paste', async () => {
     const server = await connect()
-    const pane = await spawnSh(server, "printf '\\033[?2004hpaste-on'; sleep 5")
-    const out = collect(pane)
-    await until(() => out.text().includes('paste-on'))
-    const screen = await pane.snapshot(80, 24)
-    pane.live()
-    expect(screen).toContain('\x1b[?2004h')
+    const ready = 'stty raw -echo; echo ready; exec cat -v'
+    const bracketed = await spawnSh(server, `printf '\\033[?2004h'; ${ready}`)
+    const plain = await spawnSh(server, ready)
+    const outBracketed = collect(bracketed)
+    const outPlain = collect(plain)
+    await until(() => outBracketed.text().includes('ready') && outPlain.text().includes('ready'))
+    bracketed.paste('line-1\rline-2')
+    plain.paste('line-1\rline-2')
+    await until(() => outBracketed.text().includes('^[[200~line-1^Mline-2^[[201~'))
+    await until(() => outPlain.text().includes('line-1^Mline-2'))
+    expect(outPlain.text()).not.toContain('200~')
   })
 
   it('KSH-C65 says what tmux printed when it could not start its server', async () => {

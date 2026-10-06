@@ -436,20 +436,22 @@ test('KSH-C36 an agent still running after a restart stays marked and is never r
   }
 })
 
-test('KSH-C67 text sent to an agent that kept running across a restart waits for its next report', async () => {
+test('KSH-C67 text sent to an agent that kept running across a restart waits for its next report, then pastes', async () => {
   test.setTimeout(90_000)
   const cli = 'ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" "$OSTIA_CLI"'
   const bin = binWith(
     'claude',
     [
       '#!/bin/sh',
+      "printf '\\033[?2004h'",
       `${cli} resume-token claude e2e-kept-2 >/dev/null 2>&1`,
       'echo "agent-pane=$OSTIA_PANE_ID"',
       'echo fake-agent-ready',
       'read answer',
       `${cli} state working >/dev/null 2>&1`,
       'echo "reported-$((2+2))"',
-      'exec cat',
+      'stty raw -echo',
+      'exec cat -v',
       '',
     ].join('\n'),
   )
@@ -481,8 +483,10 @@ test('KSH-C67 text sent to an agent that kept running across a restart waits for
     await expect(screen(win)).not.toContainText('typed-early')
     await run(win, `ostia pane key ${agentPane} enter`, 1)
     await expect(screen(win)).toContainText('reported-4', { timeout: 15_000 })
-    await run(win, `ostia pane send ${agentPane} "after-$((3*3))" --enter`, 1)
+    await run(win, `ostia pane send ${agentPane} "after-$((3*3))"`, 1)
     await expect(screen(win)).toContainText('after-9', { timeout: 15_000 })
+    await run(win, `ostia pane send ${agentPane} "$(printf 'line-%s\\n' 1 2)"`, 1)
+    await expect(screen(win)).toContainText('^[[200~line-1^Mline-2^[[201~', { timeout: 15_000 })
   } finally {
     await quit(second.app)
   }

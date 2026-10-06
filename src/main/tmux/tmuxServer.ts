@@ -411,6 +411,17 @@ export class TmuxPane {
     for (const line of sendKeysCommands(this.paneId, data)) this.server.send(line)
   }
 
+  paste(text: string): void {
+    if (this.exited || this.detached) return
+    const buffer = tmuxQuote(`ostia-paste-${this.paneId}`)
+    void this.server
+      .batch([
+        `set-buffer -b ${buffer} -- ${tmuxQuote(text)}`,
+        `paste-buffer -d -p -r -b ${buffer} -t ${this.paneId}`,
+      ])
+      .catch(() => undefined)
+  }
+
   resize(cols: number, rows: number): void {
     if (this.exited || this.detached || cols <= 0 || rows <= 0) return
     if (cols === this.cols && rows === this.rows) return
