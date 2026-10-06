@@ -57,6 +57,8 @@ interface Waiter {
 }
 
 const RUN_TIMEOUT_MS = 5000
+const RUN_DRAIN_MS = 200
+const RUN_STDERR_CAP = 2000
 
 export function inheritedFds(platform: NodeJS.Platform = process.platform): number[] {
   try {
@@ -73,17 +75,40 @@ function withoutInheritedFds(first: ('pipe' | 'ignore')[], devNull: number): Std
   return [...first, ...Array.from({ length: highest - 2 }, () => devNull)]
 }
 
-function run(tmux: string, args: string[], env: NodeJS.ProcessEnv): Promise<boolean> {
+interface RunResult {
+  ok: boolean
+  stderr: string
+}
+
+function run(tmux: string, args: string[], env: NodeJS.ProcessEnv): Promise<RunResult> {
   const devNull = openSync('/dev/null', 'r+')
-  const stdio = withoutInheritedFds(['ignore', 'ignore', 'ignore'], devNull)
-  return new Promise<boolean>((resolve) => {
+  const stdio = withoutInheritedFds(['ignore', 'ignore', 'pipe'], devNull)
+  return new Promise<RunResult>((resolve) => {
     const child = spawn(tmux, args, { env, stdio })
-    const timer = setTimeout(() => child.kill(), RUN_TIMEOUT_MS)
-    child.on('error', () => resolve(false))
-    child.on('exit', (code) => {
+    let stderr = ''
+    let code: number | null = null
+    let drain: NodeJS.Timeout | undefined
+    const timer = setTimeout(() => {
+      child.kill()
+      finish(false)
+    }, RUN_TIMEOUT_MS)
+    const finish = (ok: boolean): void => {
       clearTimeout(timer)
-      resolve(code === 0)
+      clearTimeout(drain)
+      resolve({ ok, stderr: stderr.trim().slice(0, RUN_STDERR_CAP) })
+    }
+    child.stderr?.on('data', (chunk: Buffer) => {
+      stderr += chunk.toString('utf8')
     })
+    child.on('error', (err) => {
+      stderr += err.message
+      finish(false)
+    })
+    child.on('exit', (exitCode) => {
+      code = exitCode
+      drain = setTimeout(() => finish(code === 0), RUN_DRAIN_MS)
+    })
+    child.on('close', () => finish(code === 0))
   }).finally(() => closeSync(devNull))
 }
 
@@ -135,7 +160,7 @@ export class TmuxServer {
     writeFileSync(conf, tmuxConf(options.defaultTerminal), { mode: 0o600 })
     const base = ['-S', socket, '-f', conf]
     const env = serverEnv(options.env)
-    if (!(await run(options.tmux, [...base, 'has-session', '-t', TMUX_SESSION], env))) {
+    if (!(await run(options.tmux, [...base, 'has-session', '-t', TMUX_SESSION], env)).ok) {
       const started = await run(
         options.tmux,
         [
@@ -153,7 +178,10 @@ export class TmuxServer {
         ],
         env,
       )
-      if (!started) throw new Error('tmux could not start its server')
+      if (!started.ok) {
+        const reason = started.stderr ? `: ${started.stderr}` : ''
+        throw new Error(`tmux could not start its server${reason}`)
+      }
     }
     const devNull = openSync('/dev/null', 'r+')
     const client = spawn(options.tmux, [...base, '-C', 'attach-session', '-t', TMUX_SESSION], {
