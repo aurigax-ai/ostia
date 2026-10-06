@@ -93,6 +93,7 @@ import { registerChatSessionIpc } from './chatSessionsIpc'
 import { registerChatToolsIpc } from './chatToolsIpc'
 import { type ClipboardEdits, registerClipboardEdits } from './clipboardEdits'
 import { confirmQuit, freezeAll, registerCloseGuard } from './closeGuard'
+import { registerCmuxSessionIpc } from './cmuxSession'
 import { registerCompletionIpc } from './completionSpecs'
 import { attachContextMenu } from './contextMenu'
 import { connHasCap, setCapFilter, setScriptTokenCheck } from './controlAuth'
@@ -2931,6 +2932,7 @@ app.whenReady().then(() => {
   scratchFolders.sweep()
   workspaceSandboxes.sweepTmp()
   registerScratchIpc(scratchFolders)
+  registerCmuxSessionIpc()
   clipboardEdits = registerClipboardEdits({
     ipc: ipcMain,
     isAppWindow: (sender) => windows.get(String(sender.id))?.webContents === sender,

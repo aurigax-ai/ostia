@@ -1,0 +1,625 @@
+{
+  "version": 1,
+  "createdAt": 1791284775.069335,
+  "windows": [
+    {
+      "windowId": "00000000-0000-4000-8000-000000000031",
+      "frame": {
+        "height": 949,
+        "width": 1512,
+        "x": 0,
+        "y": 0
+      },
+      "sidebar": {
+        "isVisible": true,
+        "selection": "tabs",
+        "width": 240
+      },
+      "tabManager": {
+        "selectedWorkspaceIndex": 0,
+        "workspaces": [
+          {
+            "workspaceId": "00000000-0000-4000-8000-000000000001",
+            "stableId": "00000000-0000-4000-8000-000000000002",
+            "processTitle": "zsh",
+            "customTitle": "Office",
+            "customTitleSource": "user",
+            "isPinned": false,
+            "isMuted": false,
+            "isManuallyUnread": false,
+            "hasUnreadIndicator": false,
+            "currentDirectory": "/Users/alex/Code",
+            "focusedPanelId": "00000000-0000-4000-8000-000000000003",
+            "layout": {
+              "type": "pane",
+              "pane": {
+                "isFullWidthTabMode": false,
+                "panelIds": [
+                  "00000000-0000-4000-8000-000000000003",
+                  "00000000-0000-4000-8000-000000000004"
+                ],
+                "selectedPanelId": "00000000-0000-4000-8000-000000000003"
+              }
+            },
+            "layoutMode": "splits",
+            "panels": [
+              {
+                "id": "00000000-0000-4000-8000-000000000003",
+                "stableSurfaceId": "00000000-0000-4000-8000-000000000005",
+                "type": "terminal",
+                "title": "Inbox",
+                "directory": "/Users/alex/Code",
+                "directoryIsTrustedRemoteReport": false,
+                "isPinned": false,
+                "isManuallyUnread": false,
+                "hasUnreadIndicator": false,
+                "listeningPorts": [],
+                "ttyName": "ttys013",
+                "terminal": {
+                  "isRemoteTerminal": false,
+                  "workingDirectory": "/Users/alex/Code",
+                  "wasAgentRunning": false
+                },
+                "customTitle": "Inbox",
+                "customTitleSource": "user"
+              },
+              {
+                "id": "00000000-0000-4000-8000-000000000004",
+                "stableSurfaceId": "00000000-0000-4000-8000-000000000007",
+                "type": "terminal",
+                "title": "Kitchen",
+                "directory": "/Users/alex/Code/home",
+                "directoryIsTrustedRemoteReport": false,
+                "isPinned": false,
+                "isManuallyUnread": false,
+                "hasUnreadIndicator": false,
+                "listeningPorts": [],
+                "ttyName": "ttys006",
+                "terminal": {
+                  "isRemoteTerminal": false,
+                  "workingDirectory": "/Users/alex/Code/home",
+                  "agent": {
+                    "kind": "claude",
+                    "sessionId": "00000000-0000-4000-8000-000000000006",
+                    "workingDirectory": "/Users/alex/Code/home",
+                    "permissionMode": "bypassPermissions"
+                  },
+                  "wasAgentRunning": true
+                },
+                "customTitle": "Kitchen",
+                "customTitleSource": "user"
+              }
+            ],
+            "statusEntries": [],
+            "logEntries": [],
+            "taskStatusHidden": true
+          },
+          {
+            "workspaceId": "00000000-0000-4000-8000-000000000116",
+            "stableId": "00000000-0000-4000-8000-000000000117",
+            "processTitle": "zsh",
+            "customTitle": "App",
+            "customTitleSource": "user",
+            "isPinned": true,
+            "currentDirectory": "/Users/alex/Code/acme/app",
+            "focusedPanelId": "00000000-0000-4000-8000-000000000103",
+            "layout": {
+              "type": "split",
+              "split": {
+                "orientation": "horizontal",
+                "dividerPosition": 0.6,
+                "first": {
+                  "type": "pane",
+                  "pane": {
+                    "panelIds": [
+                      "00000000-0000-4000-8000-000000000101",
+                      "00000000-0000-4000-8000-000000000103",
+                      "00000000-0000-4000-8000-000000000105"
+                    ],
+                    "selectedPanelId": "00000000-0000-4000-8000-000000000103"
+                  }
+                },
+                "second": {
+                  "type": "split",
+                  "split": {
+                    "orientation": "vertical",
+                    "dividerPosition": 0.25,
+                    "first": {
+                      "type": "pane",
+                      "pane": {
+                        "panelIds": [
+                          "00000000-0000-4000-8000-000000000107"
+                        ],
+                        "selectedPanelId": "00000000-0000-4000-8000-000000000107"
+                      }
+                    },
+                    "second": {
+                      "type": "pane",
+                      "pane": {
+                        "panelIds": [
+                          "00000000-0000-4000-8000-000000000109",
+                          "00000000-0000-4000-8000-000000000111",
+                          "00000000-0000-4000-8000-000000000113"
+                        ],
+                        "selectedPanelId": "00000000-0000-4000-8000-000000000109"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "layoutMode": "splits",
+            "panels": [
+              {
+                "id": "00000000-0000-4000-8000-000000000101",
+                "stableSurfaceId": "00000000-0000-4000-8000-000000000102",
+                "type": "terminal",
+                "title": "Server",
+                "directory": "/Users/alex/Code/acme/app",
+                "isPinned": false,
+                "isManuallyUnread": false,
+                "listeningPorts": [],
+                "terminal": {
+                  "isRemoteTerminal": false,
+                  "workingDirectory": "/Users/alex/Code/acme/app",
+                  "scrollback": "$ pnpm dev\nready on http://localhost:5173\n"
+                },
+                "customTitle": "Server",
+                "customTitleSource": "user"
+              },
+              {
+                "id": "00000000-0000-4000-8000-000000000103",
+                "stableSurfaceId": "00000000-0000-4000-8000-000000000104",
+                "type": "terminal",
+                "title": "Refactor",
+                "directory": "/Users/alex/Code/acme/app/src",
+                "isPinned": false,
+                "isManuallyUnread": false,
+                "listeningPorts": [],
+                "terminal": {
+                  "isRemoteTerminal": false,
+                  "workingDirectory": "/Users/alex/Code/acme/app/src",
+                  "agent": {
+                    "kind": "codex",
+                    "sessionId": "0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b",
+                    "workingDirectory": "/Users/alex/Code/acme/app/src"
+                  },
+                  "wasAgentRunning": true
+                },
+                "customTitle": "Refactor",
+                "customTitleSource": "user"
+              },
+              {
+                "id": "00000000-0000-4000-8000-000000000105",
+                "stableSurfaceId": "00000000-0000-4000-8000-000000000106",
+                "type": "terminal",
+                "title": "zsh",
+                "directory": "/Users/alex/Code/acme/app",
+                "isPinned": false,
+                "isManuallyUnread": false,
+                "listeningPorts": [],
+                "terminal": {
+                  "isRemoteTerminal": false,
+                  "workingDirectory": "/Users/alex/Code/acme/app"
+                }
+              },
+              {
+                "id": "00000000-0000-4000-8000-000000000107",
+                "stableSurfaceId": "00000000-0000-4000-8000-000000000108",
+                "type": "browser",
+                "title": "Vite App",
+                "isPinned": false,
+                "isManuallyUnread": false,
+                "listeningPorts": [],
+                "browser": {
+                  "urlString": "http://localhost:5173/",
+                  "shouldRenderWebView": true,
+                  "pageZoom": 1,
+                  "developerToolsVisible": false,
+                  "isMuted": false,
+                  "backHistoryURLStrings": [
+                    "http://localhost:5173/login"
+                  ]
+                }
+              },
+              {
+                "id": "00000000-0000-4000-8000-000000000109",
+                "stableSurfaceId": "00000000-0000-4000-8000-000000000110",
+                "type": "markdown",
+                "title": "README.md",
+                "isPinned": false,
+                "isManuallyUnread": false,
+                "listeningPorts": [],
+                "markdown": {
+                  "filePath": "/Users/alex/Code/acme/app/README.md"
+                }
+              },
+              {
+                "id": "00000000-0000-4000-8000-000000000111",
+                "stableSurfaceId": "00000000-0000-4000-8000-000000000112",
+                "type": "workspaceTodo",
+                "title": "Todos",
+                "isPinned": false,
+                "isManuallyUnread": false,
+                "listeningPorts": [],
+                "workspaceTodo": {}
+              },
+              {
+                "id": "00000000-0000-4000-8000-000000000113",
+                "stableSurfaceId": "00000000-0000-4000-8000-000000000114",
+                "type": "terminal",
+                "title": "Review",
+                "directory": "/Users/alex/Code/acme/app",
+                "isPinned": false,
+                "isManuallyUnread": false,
+                "listeningPorts": [],
+                "terminal": {
+                  "isRemoteTerminal": false,
+                  "workingDirectory": "/Users/alex/Code/acme/app",
+                  "agent": {
+                    "kind": "gemini",
+                    "sessionId": "f0e1d2c3",
+                    "workingDirectory": "/Users/alex/Code/acme/app"
+                  },
+                  "wasAgentRunning": true
+                },
+                "customTitle": "Review",
+                "customTitleSource": "user"
+              }
+            ],
+            "statusEntries": [],
+            "logEntries": [],
+            "customDescription": "Web client and API"
+          },
+          {
+            "workspaceId": "00000000-0000-4000-8000-000000000008",
+            "stableId": "00000000-0000-4000-8000-000000000009",
+            "processTitle": "zsh",
+            "customTitle": "Client work",
+            "customTitleSource": "user",
+            "isPinned": false,
+            "isMuted": false,
+            "isManuallyUnread": false,
+            "hasUnreadIndicator": false,
+            "currentDirectory": "/Users/alex/Code/work",
+            "focusedPanelId": "00000000-0000-4000-8000-000000000010",
+            "layout": {
+              "type": "pane",
+              "pane": {
+                "isFullWidthTabMode": false,
+                "panelIds": [
+                  "00000000-0000-4000-8000-000000000010",
+                  "00000000-0000-4000-8000-000000000011",
+                  "00000000-0000-4000-8000-000000000012"
+                ],
+                "selectedPanelId": "00000000-0000-4000-8000-000000000010"
+              }
+            },
+            "layoutMode": "splits",
+            "panels": [
+              {
+                "id": "00000000-0000-4000-8000-000000000010",
+                "stableSurfaceId": "00000000-0000-4000-8000-000000000014",
+                "type": "terminal",
+                "title": "Spec review",
+                "directory": "/Users/alex/Code/work",
+                "directoryIsTrustedRemoteReport": false,
+                "isPinned": false,
+                "isManuallyUnread": false,
+                "hasUnreadIndicator": false,
+                "listeningPorts": [],
+                "ttyName": "ttys004",
+                "terminal": {
+                  "isRemoteTerminal": false,
+                  "workingDirectory": "/Users/alex/Code/work",
+                  "agent": {
+                    "kind": "claude",
+                    "sessionId": "00000000-0000-4000-8000-000000000013",
+                    "workingDirectory": "/Users/alex/Code/work",
+                    "permissionMode": "bypassPermissions"
+                  },
+                  "wasAgentRunning": true
+                },
+                "customTitle": "Spec review",
+                "customTitleSource": "user"
+              },
+              {
+                "id": "00000000-0000-4000-8000-000000000011",
+                "stableSurfaceId": "00000000-0000-4000-8000-000000000016",
+                "type": "terminal",
+                "title": "Budget",
+                "directory": "/Users/alex/Code/work",
+                "directoryIsTrustedRemoteReport": false,
+                "isPinned": false,
+                "isManuallyUnread": false,
+                "hasUnreadIndicator": false,
+                "listeningPorts": [],
+                "ttyName": "ttys066",
+                "terminal": {
+                  "isRemoteTerminal": false,
+                  "workingDirectory": "/Users/alex/Code/work",
+                  "agent": {
+                    "kind": "claude",
+                    "sessionId": "00000000-0000-4000-8000-000000000015",
+                    "workingDirectory": "/Users/alex/Code/work",
+                    "permissionMode": "bypassPermissions"
+                  },
+                  "wasAgentRunning": true
+                },
+                "customTitle": "Budget",
+                "customTitleSource": "user"
+              },
+              {
+                "id": "00000000-0000-4000-8000-000000000012",
+                "stableSurfaceId": "00000000-0000-4000-8000-000000000018",
+                "type": "terminal",
+                "title": "Release notes",
+                "directory": "/Users/alex/Code/work",
+                "directoryIsTrustedRemoteReport": false,
+                "isPinned": false,
+                "isManuallyUnread": false,
+                "hasUnreadIndicator": false,
+                "listeningPorts": [],
+                "ttyName": "ttys007",
+                "terminal": {
+                  "isRemoteTerminal": false,
+                  "workingDirectory": "/Users/alex/Code/work",
+                  "agent": {
+                    "kind": "claude",
+                    "sessionId": "00000000-0000-4000-8000-000000000017",
+                    "workingDirectory": "/Users/alex/Code/work",
+                    "permissionMode": "bypassPermissions"
+                  },
+                  "wasAgentRunning": true
+                },
+                "customTitle": "Release notes",
+                "customTitleSource": "user"
+              }
+            ],
+            "statusEntries": [],
+            "logEntries": [],
+            "taskStatusHidden": true
+          },
+          {
+            "workspaceId": "00000000-0000-4000-8000-000000000019",
+            "stableId": "00000000-0000-4000-8000-000000000020",
+            "processTitle": "zsh",
+            "customTitle": "Editor",
+            "customTitleSource": "user",
+            "isPinned": false,
+            "isMuted": false,
+            "isManuallyUnread": false,
+            "hasUnreadIndicator": false,
+            "currentDirectory": "/Users/alex/Code/acme",
+            "focusedPanelId": "00000000-0000-4000-8000-000000000021",
+            "layout": {
+              "type": "pane",
+              "pane": {
+                "isFullWidthTabMode": false,
+                "panelIds": [
+                  "00000000-0000-4000-8000-000000000021"
+                ],
+                "selectedPanelId": "00000000-0000-4000-8000-000000000021"
+              }
+            },
+            "layoutMode": "splits",
+            "panels": [
+              {
+                "id": "00000000-0000-4000-8000-000000000021",
+                "stableSurfaceId": "00000000-0000-4000-8000-000000000023",
+                "type": "terminal",
+                "title": "Plan",
+                "directory": "/Users/alex/Code/acme",
+                "directoryIsTrustedRemoteReport": false,
+                "isPinned": false,
+                "isManuallyUnread": false,
+                "hasUnreadIndicator": false,
+                "listeningPorts": [],
+                "ttyName": "ttys008",
+                "terminal": {
+                  "isRemoteTerminal": false,
+                  "workingDirectory": "/Users/alex/Code/acme",
+                  "agent": {
+                    "kind": "claude",
+                    "sessionId": "00000000-0000-4000-8000-000000000022",
+                    "workingDirectory": "/Users/alex/Code/acme",
+                    "permissionMode": "bypassPermissions"
+                  },
+                  "wasAgentRunning": true
+                },
+                "customTitle": "Plan",
+                "customTitleSource": "user"
+              }
+            ],
+            "statusEntries": [],
+            "logEntries": [],
+            "taskStatusHidden": true
+          },
+          {
+            "workspaceId": "00000000-0000-4000-8000-000000000024",
+            "stableId": "00000000-0000-4000-8000-000000000025",
+            "processTitle": "zsh",
+            "customTitle": "Research",
+            "customTitleSource": "user",
+            "isPinned": false,
+            "isMuted": false,
+            "isManuallyUnread": false,
+            "hasUnreadIndicator": false,
+            "currentDirectory": "/Users/alex/Code/acme",
+            "focusedPanelId": "00000000-0000-4000-8000-000000000026",
+            "layout": {
+              "type": "pane",
+              "pane": {
+                "isFullWidthTabMode": false,
+                "panelIds": [
+                  "00000000-0000-4000-8000-000000000027",
+                  "00000000-0000-4000-8000-000000000026"
+                ],
+                "selectedPanelId": "00000000-0000-4000-8000-000000000026"
+              }
+            },
+            "layoutMode": "splits",
+            "panels": [
+              {
+                "id": "00000000-0000-4000-8000-000000000027",
+                "stableSurfaceId": "00000000-0000-4000-8000-000000000028",
+                "type": "terminal",
+                "title": "Design sync",
+                "directory": "/Users/alex/Code/acme",
+                "directoryIsTrustedRemoteReport": false,
+                "isPinned": false,
+                "isManuallyUnread": false,
+                "hasUnreadIndicator": false,
+                "listeningPorts": [],
+                "ttyName": "ttys001",
+                "terminal": {
+                  "isRemoteTerminal": false,
+                  "workingDirectory": "/Users/alex/Code/acme",
+                  "wasAgentRunning": false
+                },
+                "customTitle": "Design sync",
+                "customTitleSource": "user"
+              },
+              {
+                "id": "00000000-0000-4000-8000-000000000026",
+                "stableSurfaceId": "00000000-0000-4000-8000-000000000030",
+                "type": "terminal",
+                "title": "Benchmarks",
+                "directory": "/Users/alex/Code/acme",
+                "directoryIsTrustedRemoteReport": false,
+                "isPinned": false,
+                "isManuallyUnread": false,
+                "hasUnreadIndicator": false,
+                "listeningPorts": [],
+                "ttyName": "ttys033",
+                "terminal": {
+                  "isRemoteTerminal": false,
+                  "workingDirectory": "/Users/alex/Code/acme",
+                  "agent": {
+                    "kind": "claude",
+                    "sessionId": "00000000-0000-4000-8000-000000000029",
+                    "workingDirectory": "/Users/alex/Code/acme",
+                    "permissionMode": "bypassPermissions"
+                  },
+                  "wasAgentRunning": true
+                },
+                "customTitle": "Benchmarks",
+                "customTitleSource": "user"
+              }
+            ],
+            "statusEntries": [],
+            "logEntries": [],
+            "taskStatusHidden": true,
+            "groupId": "00000000-0000-4000-8000-000000000115"
+          }
+        ],
+        "workspaceGroups": [
+          {
+            "id": "00000000-0000-4000-8000-000000000115",
+            "name": "Acme",
+            "isCollapsed": false
+          }
+        ]
+      }
+    },
+    {
+      "windowId": "00000000-0000-4000-8000-000000000125",
+      "frame": {
+        "x": 80,
+        "y": 60,
+        "width": 1200,
+        "height": 800
+      },
+      "sidebar": {
+        "isVisible": true,
+        "selection": "tabs",
+        "width": 220
+      },
+      "tabManager": {
+        "selectedWorkspaceIndex": 0,
+        "workspaces": [
+          {
+            "workspaceId": "00000000-0000-4000-8000-000000000122",
+            "stableId": "00000000-0000-4000-8000-000000000123",
+            "processTitle": "zsh",
+            "customTitle": "Ops",
+            "customTitleSource": "user",
+            "isPinned": false,
+            "currentDirectory": "/Users/alex/Code/home/infra",
+            "focusedPanelId": "00000000-0000-4000-8000-000000000118",
+            "layout": {
+              "type": "split",
+              "split": {
+                "orientation": "vertical",
+                "dividerPosition": 0.5,
+                "first": {
+                  "type": "pane",
+                  "pane": {
+                    "panelIds": [
+                      "00000000-0000-4000-8000-000000000118"
+                    ],
+                    "selectedPanelId": "00000000-0000-4000-8000-000000000118"
+                  }
+                },
+                "second": {
+                  "type": "pane",
+                  "pane": {
+                    "panelIds": [
+                      "00000000-0000-4000-8000-000000000120"
+                    ],
+                    "selectedPanelId": "00000000-0000-4000-8000-000000000120"
+                  }
+                }
+              }
+            },
+            "layoutMode": "canvas",
+            "panels": [
+              {
+                "id": "00000000-0000-4000-8000-000000000118",
+                "stableSurfaceId": "00000000-0000-4000-8000-000000000119",
+                "type": "terminal",
+                "title": "Deploy",
+                "directory": "/Users/alex/Code/home/infra",
+                "isPinned": false,
+                "isManuallyUnread": false,
+                "listeningPorts": [],
+                "terminal": {
+                  "isRemoteTerminal": false,
+                  "workingDirectory": "/Users/alex/Code/home/infra"
+                },
+                "customTitle": "Deploy",
+                "customTitleSource": "user"
+              },
+              {
+                "id": "00000000-0000-4000-8000-000000000120",
+                "stableSurfaceId": "00000000-0000-4000-8000-000000000121",
+                "type": "terminal",
+                "title": "db01",
+                "directory": "/srv/app",
+                "isPinned": false,
+                "isManuallyUnread": false,
+                "listeningPorts": [],
+                "terminal": {
+                  "isRemoteTerminal": true,
+                  "workingDirectory": "/srv/app"
+                },
+                "customTitle": "db01",
+                "customTitleSource": "user"
+              }
+            ],
+            "statusEntries": [],
+            "logEntries": [],
+            "groupId": "00000000-0000-4000-8000-000000000124"
+          }
+        ],
+        "workspaceGroups": [
+          {
+            "id": "00000000-0000-4000-8000-000000000124",
+            "name": "Infra",
+            "isCollapsed": true
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -5,6 +5,7 @@ import { commands } from './commands/registry'
 import { ActionConfirmDialog } from './components/ActionConfirmDialog'
 import { AgentOfferDialog } from './components/AgentOfferDialog'
 import { CloseConfirmDialog } from './components/CloseConfirmDialog'
+import { CmuxImportDialog } from './components/CmuxImportDialog'
 import { CommandPalette } from './components/CommandPalette'
 import { DeckRail } from './components/DeckRail'
 import { DetachedTitleBar } from './components/DetachedTitleBar'
@@ -126,6 +127,7 @@ export function App(): JSX.Element {
           <ExtensionApprovalDialog />
           <CloseConfirmDialog />
           <MergeConfirmDialog />
+          <CmuxImportDialog />
           <ActionConfirmDialog />
           <RemoteFolderDialog />
           <AgentOfferDialog />

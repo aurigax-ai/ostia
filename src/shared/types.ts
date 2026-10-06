@@ -16,6 +16,7 @@ import type { Capability, PhoneGrantableCap } from './capabilities'
 import type { ChatSessionsApi } from './chatSessions'
 import type { ChatToolsApi } from './chatTools'
 import type { ClipboardChords, ClipboardEdit } from './clipboardChords'
+import type { CmuxSessionRead } from './cmuxSession'
 import type { SpecCommand } from './completionSpec'
 import type {
   CredentialImportResult,
@@ -566,6 +567,7 @@ export interface WindowsApi {
   landing: (paneId: string) => Promise<boolean>
   give: (workspace: SnapshotWorkspace) => Promise<boolean>
   returnToMain: (workspaces: SnapshotWorkspace[]) => Promise<boolean>
+  openWith: (workspaces: SnapshotWorkspace[]) => Promise<boolean>
   report: (workspaces: WindowWorkspaceReport[]) => void
   focusWorkspace: (workspaceId: string, jumpToUnread: boolean) => void
   returnWorkspace: (workspaceId: string) => void
@@ -589,6 +591,7 @@ export interface WorkspaceApi {
   save: (snapshot: AppSnapshot | null) => void
   load: () => Promise<AppSnapshot | null>
   merge: (sourceId: string, targetId: string) => Promise<WorkspaceMergeResult>
+  readCmux: (path?: string) => Promise<CmuxSessionRead>
 }
 
 export type LifecycleEvent =
