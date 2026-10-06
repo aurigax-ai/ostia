@@ -61,7 +61,9 @@ export function CloseConfirmDialog(): JSX.Element {
         {pending?.kind === 'quit' ? (
           <ul aria-label={text.body} className="flex flex-col gap-1">
             {lossLines(d, quitLosses(pending.groups)).map((line) => (
-              <li key={line} className="font-medium text-fg text-ui-sm">{line}</li>
+              <li key={line} className="font-medium text-fg text-ui-sm">
+                {line}
+              </li>
             ))}
           </ul>
         ) : null}

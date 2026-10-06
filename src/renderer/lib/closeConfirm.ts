@@ -15,6 +15,7 @@ import { isRestorable } from '../stores/persistence'
 import { useQuestionsStore } from '../stores/questionsStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { type Workspace, useWorkspacesStore } from '../stores/workspacesStore'
+import { commandAgent } from './hibernation'
 import { runningAgent, runningAgentOf } from './paneAgent'
 
 export function runningCommandsOf(
@@ -51,31 +52,73 @@ function hasPendingRequest(paneId: string): boolean {
   )
 }
 
+function agentIdle(paneId: string): boolean {
+  if (agentTurnOf(paneId) !== 'idle') return false
+  const state = useAttentionStore.getState().byPane[paneId]?.state
+  return state !== 'working' && state !== 'waiting' && !hasPendingRequest(paneId)
+}
+
 function resumesAfterQuit(workspace: Workspace, pane: PaneNode): boolean {
   const { agents, behavior } = useSettingsStore.getState()
   if (!agents.autoResume || !behavior.restoreWorkspace || !isRestorable(workspace)) return false
   if (pane.kind !== 'terminal' || !pane.resume || pane.hibernated) return false
-  if (runningAgentOf(pane.id) !== pane.resume.agent || agentTurnOf(pane.id) !== 'idle') return false
-  const state = useAttentionStore.getState().byPane[pane.id]?.state
-  return state !== 'working' && state !== 'waiting' && !hasPendingRequest(pane.id)
+  return runningAgentOf(pane.id) === pane.resume.agent && agentIdle(pane.id)
 }
 
-type PaneFilter = (pane: PaneNode) => boolean
+function atNestedPrompt(paneId: string): boolean {
+  const draft = useBlocksStore.getState().drafts[paneId]
+  return draft !== undefined && !draft.remote
+}
+
+function hasShellIntegration(paneId: string): boolean {
+  const { byPane, drafts, running } = useBlocksStore.getState()
+  return (
+    (byPane[paneId]?.length ?? 0) > 0 ||
+    drafts[paneId] !== undefined ||
+    running[paneId] !== undefined
+  )
+}
+
+interface RunningContext {
+  kept: ReadonlySet<string>
+  busy: Readonly<Record<string, string>>
+  quitting: boolean
+}
+
+const PLAIN: RunningContext = { kept: new Set(), busy: {}, quitting: false }
+
+function runningIn(
+  workspace: Workspace,
+  panes: readonly PaneNode[],
+  context: RunningContext,
+): { commands: string[]; agents: string[] } {
+  const { running, byPane } = useBlocksStore.getState()
+  const commands: string[] = []
+  const agents: string[] = []
+  for (const pane of panes) {
+    if (pane.hibernated || (context.quitting && resumesAfterQuit(workspace, pane))) continue
+    const blockId = running[pane.id]
+    if (blockId !== undefined) {
+      if (atNestedPrompt(pane.id)) continue
+      const command = byPane[pane.id]?.find((b) => b.id === blockId)?.command.trim() ?? ''
+      if (runningAgent(pane.id) !== null) agents.push(command)
+      else commands.push(command)
+      continue
+    }
+    const program = context.busy[pane.id]
+    if (program === undefined) continue
+    if (commandAgent(program)) agents.push(program)
+    else commands.push(program)
+  }
+  return { commands, agents }
+}
 
 function groupOf(
   workspace: Workspace,
   panes: readonly PaneNode[],
-  resumes: PaneFilter = () => false,
+  context: RunningContext = PLAIN,
 ): RunningGroup | null {
-  const { running, byPane } = useBlocksStore.getState()
-  const live = panes.filter((p) => running[p.id] !== undefined && !resumes(p))
-  const isAgent = (p: PaneNode): boolean => runningAgent(p.id) !== null
-  const commands = runningCommandsOf(
-    live.filter((p) => !isAgent(p)).map((p) => p.id),
-    running,
-    byPane,
-  )
-  const agents = runningCommandsOf(live.filter(isAgent).map((p) => p.id), running, byPane)
+  const { commands, agents } = runningIn(workspace, panes, context)
   const files = unsavedFilesOf(
     panes,
     useEditorStatus.getState().dirty,
@@ -91,37 +134,59 @@ function groupOf(
   }
 }
 
-function runningGroup(
-  workspace: Workspace,
-  kept: ReadonlySet<string> = new Set(),
-  resumes?: PaneFilter,
-): RunningGroup | null {
-  if (workspace.kind === 'manager') {
-    const name = workspace.customName ?? workspace.name
-    return { workspaceId: workspace.id, workspace: name, commands: [], agents: [name], files: [] }
-  }
+function managerGroup(workspace: Workspace, panes: readonly PaneNode[]): RunningGroup | null {
+  const manager = panes.find((p) => p.kind === 'manager')
+  if (manager && agentIdle(manager.id)) return null
+  const name = workspace.customName ?? workspace.name
+  return { workspaceId: workspace.id, workspace: name, commands: [], agents: [name], files: [] }
+}
+
+function runningGroup(workspace: Workspace, context: RunningContext = PLAIN): RunningGroup | null {
   const layout = useLayoutStore.getState().byWorkspace[workspace.id]
+  const panes = layout ? allPanes(layout.root) : []
+  if (workspace.kind === 'manager') return managerGroup(workspace, panes)
   return layout
     ? groupOf(
         workspace,
-        allPanes(layout.root).filter((p) => !kept.has(p.id)),
-        resumes,
+        panes.filter((p) => !context.kept.has(p.id)),
+        context,
       )
     : null
 }
 
 function runningGroups(
   workspaces: readonly Workspace[],
-  kept: ReadonlySet<string> = new Set(),
-  quitting = false,
+  context: RunningContext = PLAIN,
 ): RunningGroup[] {
   const groups: RunningGroup[] = []
   for (const workspace of workspaces) {
-    const resumes = quitting ? (p: PaneNode) => resumesAfterQuit(workspace, p) : undefined
-    const group = runningGroup(workspace, kept, resumes)
+    const group = runningGroup(workspace, context)
     if (group) groups.push(group)
   }
   return groups
+}
+
+async function busyPrograms(panes: readonly PaneNode[]): Promise<Record<string, string>> {
+  const busy = window.ostia?.pty?.busy
+  const out: Record<string, string> = {}
+  if (!busy) return out
+  const plain = panes.filter(
+    (p) => p.kind === 'terminal' && !p.hibernated && !hasShellIntegration(p.id),
+  )
+  const names = await Promise.all(plain.map((p) => busy(p.id).catch(() => null)))
+  for (const [index, pane] of plain.entries()) {
+    const name = names[index]
+    if (name) out[pane.id] = name
+  }
+  return out
+}
+
+function panesOf(workspaces: readonly Workspace[]): PaneNode[] {
+  const { byWorkspace } = useLayoutStore.getState()
+  return workspaces.flatMap((w) => {
+    const layout = byWorkspace[w.id]
+    return layout ? allPanes(layout.root) : []
+  })
 }
 
 async function confirmGroups(kind: CloseConfirmKind, groups: RunningGroup[]): Promise<boolean> {
@@ -132,10 +197,9 @@ async function confirmGroups(kind: CloseConfirmKind, groups: RunningGroup[]): Pr
 function groupsToConfirm(
   workspaces: readonly Workspace[],
   enabled: boolean,
-  kept: ReadonlySet<string> = new Set(),
-  quitting = false,
+  context: RunningContext = PLAIN,
 ): RunningGroup[] {
-  return enabled ? runningGroups(workspaces, kept, quitting) : []
+  return enabled ? runningGroups(workspaces, context) : []
 }
 
 function emptyGroup(workspace: Workspace): RunningGroup {
@@ -169,7 +233,9 @@ async function closeGroups(workspaces: readonly Workspace[]): Promise<RunningGro
     if (workspace.kind !== 'scratch') continue
     counts[workspace.id] = await window.ostia.scratch.files(workspace.id).catch(() => 0)
   }
-  return withScratchGroups(workspaces, groupsToConfirm(workspaces, confirmClose), counts)
+  const busy = confirmClose ? await busyPrograms(panesOf(workspaces)) : {}
+  const groups = groupsToConfirm(workspaces, confirmClose, { ...PLAIN, busy })
+  return withScratchGroups(workspaces, groups, counts)
 }
 
 export async function requestCloseWorkspace(id: string): Promise<void> {
@@ -194,18 +260,19 @@ function isManagerPane(workspaceId: string, paneId: string): boolean {
   return layout ? findPane(layout.root, paneId)?.kind === 'manager' : false
 }
 
-function paneGroup(workspace: Workspace, paneId: string): RunningGroup | null {
+async function paneGroup(workspace: Workspace, paneId: string): Promise<RunningGroup | null> {
   if (isManagerPane(workspace.id, paneId)) return runningGroup(workspace)
   const layout = useLayoutStore.getState().byWorkspace[workspace.id]
   const pane = layout ? findPane(layout.root, paneId) : null
-  return pane ? groupOf(workspace, [pane]) : null
+  if (!pane) return null
+  return groupOf(workspace, [pane], { ...PLAIN, busy: await busyPrograms([pane]) })
 }
 
 export async function requestClosePane(workspaceId: string, paneId: string): Promise<void> {
   if (useLayoutStore.getState().isLocked(workspaceId, paneId)) return
   const workspace = useWorkspacesStore.getState().workspaces.find((w) => w.id === workspaceId)
   const { confirmClose } = useSettingsStore.getState().workspaces
-  const group = workspace && confirmClose ? paneGroup(workspace, paneId) : null
+  const group = workspace && confirmClose ? await paneGroup(workspace, paneId) : null
   if (await confirmGroups('pane', group ? [group] : [])) {
     useLayoutStore.getState().closePane(workspaceId, paneId)
   }
@@ -220,14 +287,24 @@ export async function closePaneForAgent(workspaceId: string, paneId: string): Pr
   else useLayoutStore.getState().closePane(workspaceId, paneId)
 }
 
-export function quitGroups(kept: ReadonlySet<string> = new Set()): RunningGroup[] {
+export function quitGroups(
+  kept: ReadonlySet<string> = new Set(),
+  busy: Readonly<Record<string, string>> = {},
+): RunningGroup[] {
   const { confirmQuit: enabled } = useSettingsStore.getState().workspaces
   const { workspaces } = useWorkspacesStore.getState()
-  const groups = groupsToConfirm(workspaces, enabled, kept, true)
+  const groups = groupsToConfirm(workspaces, enabled, { kept, busy, quitting: true })
   const scratch = workspaces.filter(
     (w) => w.kind === 'scratch' && !groups.some((g) => g.workspaceId === w.id),
   )
   return [...groups, ...scratch.map(emptyGroup)]
+}
+
+export async function collectQuitGroups(kept: ReadonlySet<string>): Promise<RunningGroup[]> {
+  const { confirmQuit: enabled } = useSettingsStore.getState().workspaces
+  const { workspaces } = useWorkspacesStore.getState()
+  const panes = panesOf(workspaces).filter((p) => !kept.has(p.id))
+  return quitGroups(kept, enabled ? await busyPrograms(panes) : {})
 }
 
 export function confirmQuit(groups: RunningGroup[]): Promise<boolean> {

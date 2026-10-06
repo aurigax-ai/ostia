@@ -1,7 +1,7 @@
 import type { ApprovalRequest } from '@shared/approvals'
 import type { QuestionRequest } from '@shared/questions'
 import type { AttentionState } from '@shared/types'
-import { afterEach, beforeAll, describe, expect, it } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { PaneNode } from '../layout/types'
 import { useAgentTurnStore } from '../stores/agentTurnStore'
 import { useApprovalsStore } from '../stores/approvalsStore'
@@ -13,14 +13,23 @@ import { useLayoutStore } from '../stores/layoutStore'
 import { useQuestionsStore } from '../stores/questionsStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { type WorkspaceKind, useWorkspacesStore } from '../stores/workspacesStore'
-import { quitGroups, quitLosses, requestClosePane } from './closeConfirm'
+import {
+  collectQuitGroups,
+  quitGroups,
+  quitLosses,
+  requestClosePane,
+  requestCloseWorkspace,
+} from './closeConfirm'
 
 type Row =
   | 'idle shell'
+  | 'nested idle shell'
   | 'foreground process'
+  | 'process without shell integration'
   | 'agent working'
   | 'agent waiting'
   | 'agent idle'
+  | 'hibernated pane'
   | 'unsaved editor'
 type KeepShells = 'off' | 'on, quit' | 'on, restart'
 type Lost = 'nothing' | 'processes' | 'agents' | 'files'
@@ -63,30 +72,52 @@ function reportTurn(paneId: string, state: AttentionState): void {
   useAttentionStore.getState().dispatch(paneId, { type: 'set', state, at: Date.now() })
 }
 
-function seedRow(row: Row): void {
+function prompt(paneId: string, remote = false): void {
+  useBlocksStore.getState().promptStart(paneId, { line: 9 }, '/w', remote)
+}
+
+function seedRow(row: Row): Record<string, string> {
   if (row === 'unsaved editor') {
     seedWorkspace({ type: 'pane', id: 'p1', title: 'notes.md', kind: 'editor', filePath: FILE })
     useEditorStatus.getState().setDirty(FILE, true)
-    return
+    return {}
+  }
+  if (row === 'hibernated pane') {
+    seedWorkspace({ ...terminal('p1'), hibernated: true })
+    run('p1', 'claude')
+    return { p1: 'claude' }
   }
   seedWorkspace(terminal('p1', row.startsWith('agent')))
-  if (row === 'idle shell') return
+  if (row === 'idle shell') {
+    prompt('p1')
+    return {}
+  }
+  if (row === 'process without shell integration') return { p1: 'sleep' }
+  if (row === 'nested idle shell') {
+    run('p1', 'zsh')
+    prompt('p1')
+    return { p1: 'zsh' }
+  }
   if (row === 'foreground process') {
     run('p1', 'npm run dev')
-    return
+    return {}
   }
   run('p1', 'claude')
   if (row === 'agent working') reportTurn('p1', 'working')
   if (row === 'agent waiting') reportTurn('p1', 'waiting')
   if (row === 'agent idle') reportTurn('p1', 'done')
+  return {}
 }
 
 function kept(keepShells: KeepShells, row: Row): Set<string> {
   return keepShells === 'on, restart' && row !== 'unsaved editor' ? new Set(['p1']) : new Set()
 }
 
-function lost(keep: ReadonlySet<string> = new Set()): Lost[] {
-  const losses = quitLosses(quitGroups(keep))
+function lost(
+  keep: ReadonlySet<string> = new Set(),
+  busy: Record<string, string> = {},
+): Lost[] {
+  const losses = quitLosses(quitGroups(keep, busy))
   const out: Lost[] = []
   if (losses.processes > 0) out.push('processes')
   if (losses.agents > 0) out.push('agents')
@@ -97,10 +128,13 @@ function lost(keep: ReadonlySet<string> = new Set()): Lost[] {
 const TABLE: [Row, KeepShells, boolean, Lost][] = []
 const EXPECTED: Record<Row, (keepShells: KeepShells, autoResume: boolean) => Lost> = {
   'idle shell': () => 'nothing',
+  'nested idle shell': () => 'nothing',
   'foreground process': (k) => (k === 'on, restart' ? 'nothing' : 'processes'),
+  'process without shell integration': (k) => (k === 'on, restart' ? 'nothing' : 'processes'),
   'agent working': (k) => (k === 'on, restart' ? 'nothing' : 'agents'),
   'agent waiting': (k) => (k === 'on, restart' ? 'nothing' : 'agents'),
   'agent idle': (k, autoResume) => (k === 'on, restart' || autoResume ? 'nothing' : 'agents'),
+  'hibernated pane': () => 'nothing',
   'unsaved editor': () => 'files',
 }
 for (const row of Object.keys(EXPECTED) as Row[]) {
@@ -142,8 +176,8 @@ describe('what a quit loses', () => {
 
   it.each(TABLE)('%s | keep-shells %s | auto-resume %s', (row, keep, auto, expected) => {
     useSettingsStore.getState().setAutoResume(auto)
-    seedRow(row)
-    expect(lost(kept(keep, row))).toEqual([expected])
+    const busy = seedRow(row)
+    expect(lost(kept(keep, row), busy)).toEqual([expected])
   })
 
   describe('an idle agent with auto-resume on', () => {
@@ -212,8 +246,9 @@ describe('what a quit loses', () => {
     it('still asks before closing its pane, which nothing restores', async () => {
       idleAgent()
       void requestClosePane('w1', 'p1')
-      await Promise.resolve()
-      expect(useCloseConfirmStore.getState().pending?.groups[0]?.agents).toEqual(['claude'])
+      await vi.waitFor(() => {
+        expect(useCloseConfirmStore.getState().pending?.groups[0]?.agents).toEqual(['claude'])
+      })
     })
   })
 
@@ -230,5 +265,102 @@ describe('what a quit loses', () => {
     useSettingsStore.getState().setWorkspaces({ confirmQuit: false })
     seedRow('foreground process')
     expect(quitGroups()).toEqual([])
+  })
+
+  describe('what shell integration cannot see', () => {
+    function plainShell(paneId: string, program: string | null): void {
+      const programs: Record<string, string | null> = { [paneId]: program }
+      vi.mocked(window.ostia.pty.busy).mockImplementation(async (id) => programs[id] ?? null)
+    }
+
+    beforeEach(() => {
+      vi.mocked(window.ostia.pty.busy).mockReset()
+      vi.mocked(window.ostia.pty.busy).mockResolvedValue(null)
+    })
+
+    it('asks about a program running in a shell that reports no blocks', async () => {
+      seedWorkspace(terminal('p1', false))
+      plainShell('p1', 'sleep')
+      expect((await collectQuitGroups(new Set())).map((g) => g.commands)).toEqual([['sleep']])
+    })
+
+    it('counts an agent running in such a shell as an agent', async () => {
+      seedWorkspace(terminal('p1', false))
+      plainShell('p1', 'claude')
+      expect((await collectQuitGroups(new Set())).map((g) => g.agents)).toEqual([['claude']])
+    })
+
+    it('quits at once when that shell is at its own prompt', async () => {
+      seedWorkspace(terminal('p1', false))
+      plainShell('p1', null)
+      expect(await collectQuitGroups(new Set())).toEqual([])
+    })
+
+    it('does not ask the pty about a pane whose shell reports blocks', async () => {
+      seedWorkspace(terminal('p1', false))
+      prompt('p1')
+      plainShell('p1', 'zsh')
+      expect(await collectQuitGroups(new Set())).toEqual([])
+      expect(window.ostia.pty.busy).not.toHaveBeenCalled()
+    })
+
+    it('asks before closing a pane or a workspace whose plain shell runs a program', async () => {
+      seedWorkspace(terminal('p1', false))
+      plainShell('p1', 'make')
+      void requestClosePane('w1', 'p1')
+      await vi.waitFor(() => {
+        expect(useCloseConfirmStore.getState().pending?.groups[0]?.commands).toEqual(['make'])
+      })
+      useCloseConfirmStore.getState().answer(false)
+      void requestCloseWorkspace('w1')
+      await vi.waitFor(() => {
+        expect(useCloseConfirmStore.getState().pending?.kind).toBe('workspace')
+      })
+    })
+  })
+
+  describe('a nested shell at its prompt', () => {
+    it('does not count as running, since the program in front is a shell waiting for input', () => {
+      seedWorkspace(terminal('p1', false))
+      run('p1', 'nix-shell')
+      prompt('p1')
+      expect(quitGroups()).toEqual([])
+    })
+
+    it('still counts once it runs a command, which ends the stale block', () => {
+      seedWorkspace(terminal('p1', false))
+      run('p1', 'bash')
+      prompt('p1')
+      useBlocksStore.getState().commandStart('p1', { line: 10 }, 'npm test')
+      expect(quitGroups().map((g) => g.commands)).toEqual([['npm test']])
+    })
+
+    it('still counts when the prompt comes from a remote shell over ssh', () => {
+      seedWorkspace(terminal('p1', false))
+      run('p1', 'ssh build-box')
+      prompt('p1', true)
+      expect(quitGroups().map((g) => g.commands)).toEqual([['ssh build-box']])
+    })
+  })
+
+  describe('the manager workspace', () => {
+    function seedManager(): void {
+      seedWorkspace({ type: 'pane', id: 'm1', title: 'Manager', kind: 'manager' }, 'manager')
+    }
+
+    it('does not ask once its agent has ended its turn, since it resumes on the next start', () => {
+      seedManager()
+      reportTurn('m1', 'done')
+      expect(quitGroups()).toEqual([])
+    })
+
+    it('asks while its agent works or waits, or before it has reported a turn', () => {
+      seedManager()
+      expect(lost()).toEqual(['agents'])
+      reportTurn('m1', 'working')
+      expect(lost()).toEqual(['agents'])
+      reportTurn('m1', 'waiting')
+      expect(lost()).toEqual(['agents'])
+    })
   })
 })
