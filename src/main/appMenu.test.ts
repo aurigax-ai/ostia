@@ -16,6 +16,7 @@ const {
   MAC_CLOSE_WINDOW_ACCELERATOR,
   MAC_SETTINGS_ACCELERATOR,
   installAppMenu,
+  linuxAppMenuTemplate,
   macAppMenuTemplate,
 } = await import('./appMenu')
 
@@ -153,11 +154,18 @@ describe('macOS application menu', () => {
   })
 
   it('installs the menu and the About panel name on macOS only', () => {
-    installAppMenu('linux', { productName: 'Ostia', openSettings })
-    installAppMenu('win32', { productName: 'Ostia', openSettings })
-    expect(installed).toEqual([])
     installAppMenu('darwin', { productName: 'Ostia', openSettings })
     expect(installed).toHaveLength(1)
+    expect(installed[0]).not.toBeNull()
     expect(about).toEqual([{ applicationName: 'Ostia' }])
+  })
+
+  it('replaces the default Electron menu on Linux and Windows with one that has no reload, quit or zoom', () => {
+    installAppMenu('linux', { productName: 'Ostia', openSettings })
+    installAppMenu('win32', { productName: 'Ostia', openSettings })
+    expect(installed).toHaveLength(2)
+    expect(about).toEqual([])
+    const roles = flatten(linuxAppMenuTemplate()).flatMap((item) => (item.role ? [item.role] : []))
+    expect(roles).toEqual(['togglefullscreen', 'toggleDevTools'])
   })
 })
