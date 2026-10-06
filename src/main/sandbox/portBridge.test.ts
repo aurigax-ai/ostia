@@ -178,25 +178,28 @@ describe('portBridgeCommand run in a shell', () => {
   })
 })
 
-describe('portBridgeCommand while Ostia is away', () => {
-  it('KSH-C59 keeps retrying once a second while its shell lives, and joins a bridge that comes back', async () => {
-    const work = join(dir, 'away')
-    mkdirSync(work, { mode: 0o700 })
-    const shell = spawn('sh', ['-c', `${portBridgeCommand(work, 'cafe0001')} sleep 30`], {
-      env: { PATH: '/usr/bin:/bin' },
+describe.skipIf(process.platform !== 'linux')(
+  'portBridgeCommand while Ostia is away (Linux only: the port bridge runs on Linux)',
+  () => {
+    it('KSH-C59 keeps retrying once a second while its shell lives, and joins a bridge that comes back', async () => {
+      const work = join(dir, 'away')
+      mkdirSync(work, { mode: 0o700 })
+      const shell = spawn('sh', ['-c', `${portBridgeCommand(work, 'cafe0001')} sleep 30`], {
+        env: { PATH: '/usr/bin:/bin' },
+      })
+      try {
+        await new Promise((r) => setTimeout(r, 2500))
+        expect(shell.exitCode).toBeNull()
+        const bridge = await PortBridge.open(work, undefined, 'cafe0001')
+        if (!bridge) throw new Error('bridge did not open')
+        await until(() => (bridge.connected ? true : undefined))
+        bridge.close()
+      } finally {
+        shell.kill()
+      }
     })
-    try {
-      await new Promise((r) => setTimeout(r, 2500))
-      expect(shell.exitCode).toBeNull()
-      const bridge = await PortBridge.open(work, undefined, 'cafe0001')
-      if (!bridge) throw new Error('bridge did not open')
-      await until(() => (bridge.connected ? true : undefined))
-      bridge.close()
-    } finally {
-      shell.kill()
-    }
-  })
-})
+  },
+)
 
 describe('PortBridge', () => {
   it('is connected only while a supervisor holds its control socket', async () => {
