@@ -35,7 +35,7 @@ export function createWheelRows(): WheelRows {
       if (deltaY === 0 || !(scale.cellHeight > 0)) return 0
       if (Math.sign(deltaY) !== Math.sign(pending)) pending = 0
       pending += (deltaY * scale.sensitivity) / scale.cellHeight
-      const rows = Math.trunc(pending)
+      const rows = Math.trunc(pending) || 0
       pending -= rows
       return Math.max(-scale.maxRows, Math.min(scale.maxRows, rows))
     },
