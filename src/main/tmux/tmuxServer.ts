@@ -60,6 +60,25 @@ interface Waiter {
 }
 
 const RUN_TIMEOUT_MS = 5000
+const SERVER_EXIT_WAIT_MS = 3000
+const SERVER_EXIT_POLL_MS = 20
+
+function processAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0)
+    return true
+  } catch {
+    return false
+  }
+}
+
+async function processGone(pid: number, ms: number): Promise<void> {
+  if (pid <= 0) return
+  const end = Date.now() + ms
+  while (processAlive(pid) && Date.now() < end) {
+    await new Promise((resolve) => setTimeout(resolve, SERVER_EXIT_POLL_MS))
+  }
+}
 const RUN_DRAIN_MS = 200
 const RUN_STDERR_CAP = 2000
 
@@ -141,6 +160,7 @@ export class TmuxServer {
   private readonly pendingOutput = new Map<string, string[]>()
   private readonly parser: ControlModeParser
   private closed = false
+  private serverPid = 0
 
   private constructor(
     private readonly options: TmuxServerOptions,
@@ -199,6 +219,8 @@ export class TmuxServer {
     await server.command(
       `refresh-client -B ${tmuxQuote(`${COMMAND_SUBSCRIPTION}:%*:#{pane_current_command}`)}`,
     )
+    const [pid] = await server.command(`display-message -p ${tmuxQuote('#{pid}')}`)
+    server.serverPid = Number(pid) || 0
     return server
   }
 
@@ -294,6 +316,7 @@ export class TmuxServer {
   async killServer(): Promise<void> {
     await this.command('kill-server').catch(() => undefined)
     this.close()
+    await processGone(this.serverPid, SERVER_EXIT_WAIT_MS)
   }
 
   close(): void {

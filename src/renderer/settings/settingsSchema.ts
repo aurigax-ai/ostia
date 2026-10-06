@@ -45,6 +45,14 @@ const font = (title: string) => ({
   properties: {
     family: { type: 'string', description: 'Font family name.' },
     size: { type: 'number', minimum: 8, maximum: 32, description: 'Font size in px.' },
+    baseSize: {
+      type: 'number',
+      minimum: 8,
+      maximum: 32,
+      description:
+        'Font size in px that Cmd/Ctrl+scroll zoom returns to. Set while the size is zoomed, ' +
+        'removed when the zoom is reset or the size is changed in Settings.',
+    },
     weight: {
       type: 'number',
       enum: [300, 400, 450, 500, 600, 700],
@@ -268,7 +276,7 @@ export const SETTINGS_JSON_SCHEMA = {
           type: 'boolean',
           description:
             'Hold Cmd (macOS) or Ctrl and scroll over a terminal or the editor to change its ' +
-            'font size. Default: true.',
+            'font size. Default: off on macOS, on elsewhere.',
         },
         gpuAcceleration: {
           type: 'boolean',
