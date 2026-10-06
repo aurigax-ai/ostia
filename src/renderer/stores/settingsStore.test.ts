@@ -17,6 +17,7 @@ type Persisted = Pick<
   | 'editor'
   | 'keymap'
   | 'keybindings'
+  | 'terminalKeys'
   | 'terminal'
   | 'panes'
   | 'agents'
@@ -59,6 +60,7 @@ describe('settingsStore', () => {
       editor: s.editor,
       keymap: s.keymap,
       keybindings: s.keybindings,
+      terminalKeys: s.terminalKeys,
       agents: s.agents,
       assistant: s.assistant,
       workspaceGroups: s.workspaceGroups,
@@ -452,6 +454,7 @@ describe('settingsStore', () => {
         editor: s.editor,
         keymap: s.keymap,
         keybindings: s.keybindings,
+        terminalKeys: s.terminalKeys,
         agents: s.agents,
         assistant: s.assistant,
         workspaceGroups: s.workspaceGroups,
@@ -620,6 +623,7 @@ describe('settingsStore', () => {
         editor: s.editor,
         keymap: s.keymap,
         keybindings: s.keybindings,
+        terminalKeys: s.terminalKeys,
         agents: s.agents,
         assistant: s.assistant,
         workspaceGroups: s.workspaceGroups,
