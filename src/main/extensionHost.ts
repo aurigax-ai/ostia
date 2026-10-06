@@ -95,6 +95,7 @@ import {
   type ExtensionSettingValues,
   type ExtensionSidebarItem,
   type ExtensionStatus,
+  OPEN_TERMINAL_WAIT_MAX_MS,
   PANE_CHIP_ITEMS_MAX,
   PANE_CHIP_TEXT_MAX,
   PANE_CHIP_TOOLTIP_MAX,
@@ -108,6 +109,7 @@ import {
   TERMINAL_ARG_MAX,
   TERMINAL_COMMAND_MAX_ARGS,
   TERMINAL_TITLE_MAX,
+  type TerminalWait,
   type WorkspaceChip,
   commandArgument,
   effectiveSettingValues,
@@ -418,6 +420,14 @@ function hasControlChar(text: string): boolean {
   return false
 }
 
+export function terminalWaitMs(raw: unknown): number | null | string {
+  if (raw === undefined) return null
+  if (typeof raw !== 'number' || !Number.isFinite(raw) || raw <= 0) {
+    return 'waitMs must be a positive number of milliseconds'
+  }
+  return Math.min(Math.round(raw), OPEN_TERMINAL_WAIT_MAX_MS)
+}
+
 export function terminalArgv(raw: unknown): string[] | string {
   if (!Array.isArray(raw) || raw.length === 0) return 'command must be a non-empty array'
   if (raw.length > TERMINAL_COMMAND_MAX_ARGS) {
@@ -501,6 +511,7 @@ export function loopbackOrigin(url: string): string | null {
 
 export class ExtensionHost {
   private runtimes = new Map<string, Runtime>()
+  private terminalWaits = new Map<string, (wait: TerminalWait) => void>()
   private sidebar = new Map<string, ExtensionSidebarItem>()
   private chips = new Map<string, PaneChip>()
   private workspaceChipSlots = new Map<string, WorkspaceChip>()
@@ -1291,6 +1302,7 @@ export class ExtensionHost {
   }
 
   emitEvent<T extends ExtensionEventType>(type: T, payload: ExtensionEventPayloads[T]): void {
+    this.settleTerminalWait(type, payload)
     for (const listener of this.eventListeners) listener(type, payload)
     for (const rt of this.runtimes.values()) {
       if (rt.conn && rt.subscriptions.has(type)) {
@@ -1695,11 +1707,39 @@ export class ExtensionHost {
     if (typeof p.title === 'string' && p.title.trim()) {
       req.title = p.title.trim().slice(0, TERMINAL_TITLE_MAX)
     }
+    const waitMs = terminalWaitMs(p.waitMs)
+    if (typeof waitMs === 'string') return fail('invalid-params', waitMs)
     if (!this.deps.openTerminalIn) return fail('no-window')
     const paneId = await this.deps.openTerminalIn(req)
     if (!paneId) return fail('not-opened', 'no workspace to open it in')
     this.reach(rt, paneId)
-    return { ok: true, paneId }
+    if (waitMs === null) return { ok: true, paneId }
+    return { ok: true, paneId, wait: await this.waitForTerminal(paneId, waitMs) }
+  }
+
+  private waitForTerminal(paneId: string, ms: number): Promise<TerminalWait> {
+    this.terminalWaits.get(paneId)?.({ outcome: 'timeout' })
+    return new Promise((resolve) => {
+      const settle = (wait: TerminalWait): void => {
+        clearTimeout(timer)
+        if (this.terminalWaits.get(paneId) === settle) this.terminalWaits.delete(paneId)
+        resolve(wait)
+      }
+      const timer = setTimeout(() => settle({ outcome: 'timeout' }), ms)
+      timer.unref?.()
+      this.terminalWaits.set(paneId, settle)
+    })
+  }
+
+  private settleTerminalWait<T extends ExtensionEventType>(
+    type: T,
+    payload: ExtensionEventPayloads[T],
+  ): void {
+    if (type !== 'command.finished' && type !== 'pane.closed') return
+    const { paneId, exitCode } = payload as { paneId: string; exitCode?: number }
+    const settle = this.terminalWaits.get(paneId)
+    if (!settle) return
+    settle(type === 'pane.closed' ? { outcome: 'closed' } : { outcome: 'finished', exitCode })
   }
 
   private reach(rt: Runtime, paneId: string): void {

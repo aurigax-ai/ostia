@@ -2,7 +2,7 @@
   "id": "keymap-macos",
   "name": "macOS keymaps (cmux, iTerm2)",
   "version": "1.3.0",
-  "api": "2.2",
+  "api": "2.3",
   "description": "Shortcuts that follow cmux or iTerm2 on macOS. cmux: ⌘D splits right, ⇧⌘D splits down, ⌥⌘ with an arrow moves between panes, ⌘N opens a workspace, ⌘T a tab, ⇧⌘P opens the palette and ⌘B the sidebar. iTerm2: ⌘↑ and ⌘↓ scroll one line, ⇧⌘↑ and ⇧⌘↓ select the previous and next block, ⌘N opens a workspace and ⌘T a tab. Off until you pick one in Settings → Keyboard.",
   "locales": ["zh-Hant"],
   "contributes": {

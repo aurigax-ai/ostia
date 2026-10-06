@@ -11,13 +11,19 @@ import {
   runTool,
 } from '../sdk'
 import { installConfirm } from './confirm'
-import { type InstallContext, parseInstallArgs, planInstall } from './install'
+import {
+  type InstallContext,
+  installOutcome,
+  installWaitMs,
+  parseInstallArgs,
+  planInstall,
+} from './install'
 import { MANAGER_NAMES, type ManagerName, defaultManager, findOnPath } from './managers'
 import { type OsIdentity, parseOsRelease, parseSwVers, windowsRelease } from './os'
 import { stringsFor } from './strings'
 
 const OS_RELEASE_FILES = ['/etc/os-release', '/usr/lib/os-release']
-const INSTALL_USAGE = 'install <pkg...> [--manager <name>] [--reason <text>]'
+const INSTALL_USAGE = 'install <pkg...> [--manager <name>] [--reason <text>] [--wait]'
 
 function isExecutable(file: string): boolean {
   try {
@@ -73,10 +79,12 @@ async function main(): Promise<void> {
   const ext = await connect()
 
   const install = async (args: unknown, caller: ExtensionCaller): Promise<ExtensionResult> => {
+    const startedAt = Date.now()
     const s = stringsFor(caller.locale)
     const parsed = cliArgs(args)
     if (!parsed) return failure('invalid-args', INSTALL_USAGE)
-    const planned = planInstall(parseInstallArgs(parsed.argv), await installContext(), s)
+    const request = parseInstallArgs(parsed.argv)
+    const planned = planInstall(request, await installContext(), s)
     if (!planned.ok) return failure(planned.error, planned.message)
     const { plan } = planned
     const approved = await ext.confirm(installConfirm(plan, s))
@@ -95,6 +103,7 @@ async function main(): Promise<void> {
       afterPaneId: caller.paneId,
       cwd: caller.cwd,
       title: s.terminalTitle,
+      waitMs: request.wait ? installWaitMs(startedAt, Date.now()) : undefined,
     })
     if (!opened.ok) {
       return {
@@ -104,7 +113,17 @@ async function main(): Promise<void> {
         data: { approved: true, command: plan.command },
       }
     }
-    return ok(undefined, { approved: true, command: plan.command, paneId: opened.paneId })
+    const data = { approved: true, command: plan.command, paneId: opened.paneId }
+    if (!opened.wait) return ok(undefined, data)
+    const outcome = installOutcome(opened.wait, s)
+    const waited = {
+      ...data,
+      finished: opened.wait.outcome === 'finished',
+      exitCode: opened.wait.exitCode,
+    }
+    if (!outcome.ok)
+      return { ok: false, error: outcome.error, message: outcome.message, data: waited }
+    return ok(outcome.message, waited)
   }
 
   const handlers: Record<string, CommandHandler> = {
