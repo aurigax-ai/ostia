@@ -73,8 +73,8 @@ importers:
         specifier: ^4.0.125
         version: 4.0.125(react@18.3.1)(zod@4.6.5)
       '@aurigax-ai/ghostty-web':
-        specifier: github:aurigax-ai/ghostty-web#1ae9e05
-        version: https://codeload.github.com/aurigax-ai/ghostty-web/tar.gz/1ae9e0531e6d483240147addef7105c063e4279b
+        specifier: ^0.1.0
+        version: 0.1.0
       '@base-ui/react':
         specifier: ^1.7.0
         version: 1.7.0(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -384,9 +384,8 @@ packages:
   '@asamuzakjp/nwsapi@2.3.9':
     resolution: {integrity: sha512-n8GuYSrI9bF7FFZ/SjhwevlHc8xaVlb/7HmHelnc/PZXBD2ZR49NnN9sMMuDdEGPeeRQ5d0hqlSlEpgCX3Wl0Q==}
 
-  '@aurigax-ai/ghostty-web@https://codeload.github.com/aurigax-ai/ghostty-web/tar.gz/1ae9e0531e6d483240147addef7105c063e4279b':
-    resolution: {gitHosted: true, integrity: sha512-HOKKF4yejRvzjE+cHhCCaswi1UR83ng+HyznQnPFF8gCXC1TQZddI2MQoRBSl2S09+ufdSNhvi7+synHUdI1dg==, tarball: https://codeload.github.com/aurigax-ai/ghostty-web/tar.gz/1ae9e0531e6d483240147addef7105c063e4279b}
-    version: 0.1.0
+  '@aurigax-ai/ghostty-web@0.1.0':
+    resolution: {integrity: sha512-+aqBHNefIsq3pZfgmR3dk0Tyj+xIx6kyT8yUwYV+VfUyX/z4wdjE1bFifAvOWq1t9Mw6q+IHDq9rYAUJdEbn9g==}
 
   '@babel/code-frame@7.29.7':
     resolution: {integrity: sha512-Aup7aUOfpbAUg2ROOJN6Iw5f9DMBlzu0mIkm/malLQFN/YQgO48wCj0Kxa3sEHJvPVFg7siR+qRInwXd2qhQKw==}
@@ -4989,7 +4988,7 @@ snapshots:
 
   '@asamuzakjp/nwsapi@2.3.9': {}
 
-  '@aurigax-ai/ghostty-web@https://codeload.github.com/aurigax-ai/ghostty-web/tar.gz/1ae9e0531e6d483240147addef7105c063e4279b': {}
+  '@aurigax-ai/ghostty-web@0.1.0': {}
 
   '@babel/code-frame@7.29.7':
     dependencies:
