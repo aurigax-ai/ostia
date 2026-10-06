@@ -125,11 +125,11 @@ function decodeMeta(raw: string): unknown {
   }
 }
 
-function parseExit(value: string): number | null {
+export function parseExit(value: string): number | null {
   const [dead, status, signal] = value.split(':')
   if (dead !== '1') return null
   if (status) return Number(status)
-  return signal ? 128 + Number(signal) : 0
+  return signal ? 128 + Number(signal) : null
 }
 
 export class TmuxServer {
