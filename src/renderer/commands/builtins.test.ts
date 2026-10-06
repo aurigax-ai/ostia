@@ -660,6 +660,21 @@ describe('builtins route to store actions', () => {
     expect(closePane).toHaveBeenCalledWith('s1', 'pX')
   })
 
+  it('describes the paneId pane.close takes and refuses one that is not a string', async () => {
+    const closePane = vi.spyOn(useLayoutStore.getState(), 'closePane').mockImplementation(() => {})
+    const described = commands.describe().find((c) => c.id === 'pane.close')
+    expect(described?.argsSchema).toEqual({
+      type: 'object',
+      properties: { paneId: { type: 'string' } },
+    })
+
+    const fromSocket = { ...ctx('s1', 'pA'), target: { workspaceId: 's1', paneId: 'pA' } }
+    const result = await commands.execWith(fromSocket, 'pane.close', { paneId: 7 })
+
+    expect(result.ok ? '' : result.error.message).toContain('paneId must be a string')
+    expect(closePane).not.toHaveBeenCalled()
+  })
+
   it('falls back to the active pane when pane.close gets no paneId', async () => {
     const closePane = vi.spyOn(useLayoutStore.getState(), 'closePane').mockImplementation(() => {})
 
