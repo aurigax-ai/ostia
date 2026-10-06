@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { atLocalPrompt } from './localPrompt'
+import { atLocalPrompt, busyProgram } from './localPrompt'
 
 describe('atLocalPrompt', () => {
   it('is true while the pane’s own shell holds the terminal', () => {
@@ -20,5 +20,19 @@ describe('atLocalPrompt', () => {
     expect(atLocalPrompt({ foreground: 'bwrap', shell: '/bin/sh', sandboxed: true })).toBe(true)
     expect(atLocalPrompt({ foreground: '', shell: '/usr/bin/zsh', sandboxed: false })).toBe(true)
     expect(atLocalPrompt({ foreground: 'zsh', shell: '', sandboxed: false })).toBe(true)
+  })
+})
+
+describe('busyProgram', () => {
+  it('names the program that holds the terminal instead of the shell', () => {
+    const fish = { foreground: '/usr/bin/sleep', shell: '/usr/bin/fish', sandboxed: false }
+    expect(busyProgram(fish)).toBe('sleep')
+    expect(busyProgram({ foreground: 'ssh', shell: '/bin/zsh', sandboxed: false })).toBe('ssh')
+  })
+
+  it('names nothing at the shell’s own prompt or when it cannot tell', () => {
+    expect(busyProgram({ foreground: 'fish', shell: '/usr/bin/fish', sandboxed: false })).toBeNull()
+    expect(busyProgram({ foreground: 'sleep', shell: '/bin/sh', sandboxed: true })).toBeNull()
+    expect(busyProgram({ foreground: '', shell: '/bin/zsh', sandboxed: false })).toBeNull()
   })
 })

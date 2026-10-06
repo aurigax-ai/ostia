@@ -148,7 +148,7 @@ import { describeSkipped, registerKeymapIpc } from './keymaps'
 import { registerLanguagePackIpc } from './languagePacks'
 import { LanguageServers, scrubbedEnv } from './languageServers'
 import { registerLanguageServersIpc } from './languageServersIpc'
-import { atLocalPrompt } from './localPrompt'
+import { atLocalPrompt, busyProgram } from './localPrompt'
 import { registerLoginFill } from './loginFill'
 import { ManagedServers, downloadBaseUrl } from './managedServers'
 import { ManagerService, managerWindowId } from './manager'
@@ -2212,6 +2212,19 @@ function registerPtyIpc(): void {
     try {
       const name = entry.pty.process
       return typeof name === 'string' && name ? (name.split('/').pop() ?? null) : null
+    } catch {
+      return null
+    }
+  })
+  ipcMain.handle('pty:busy', (e, paneId: string): string | null => {
+    const entry = ptys.get(String(paneId))
+    if (!entry?.subs.has(String(e.sender.id))) return null
+    try {
+      return busyProgram({
+        foreground: entry.pty.process,
+        shell: entry.shell,
+        sandboxed: entry.sandboxed,
+      })
     } catch {
       return null
     }
