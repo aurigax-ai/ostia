@@ -833,6 +833,105 @@ describe('builtins route to store actions', () => {
     expect(useLayoutStore.getState().isLocked('s1', pane.id)).toBe(false)
   })
 
+  describe('opening the first pane of an empty workspace', () => {
+    const newTabKeys: [string, boolean, Partial<KeyLike>][] = [
+      ['macOS', true, { key: 't', metaKey: true }],
+      ['Linux', false, { key: 'T', ctrlKey: true, shiftKey: true }],
+    ]
+    const activeContext = (): CommandContext => {
+      const activeWorkspaceId = useWorkspacesStore.getState().activeWorkspaceId
+      const layout = activeWorkspaceId
+        ? useLayoutStore.getState().byWorkspace[activeWorkspaceId]
+        : null
+      return { activeWorkspaceId, activePaneId: layout?.activePaneId ?? null }
+    }
+    const seed = (withPane: boolean): void => {
+      const pane = createPane('terminal')
+      useWorkspacesStore.setState({
+        workspaces: [{ id: 's1', name: 's1', kind: 'terminal', workDir: '/w', state: 'idle' }],
+        activeWorkspaceId: 's1',
+      })
+      useLayoutStore.setState({
+        byWorkspace: withPane
+          ? { s1: { root: pane, activePaneId: pane.id, zoomedPaneId: null } }
+          : {},
+      })
+      commands.setContextProvider(activeContext)
+    }
+    const press = (mac: boolean, keys: Partial<KeyLike>): void => {
+      const event = {
+        key: '',
+        ctrlKey: false,
+        metaKey: false,
+        shiftKey: false,
+        altKey: false,
+        preventDefault: () => {},
+        ...keys,
+      }
+      expect(runAppChord(event, mac)).toBe(true)
+    }
+
+    afterEach(() => {
+      commands.setContextProvider(() => ({ activeWorkspaceId: null, activePaneId: null }))
+    })
+
+    it.each(newTabKeys)('opens a terminal on %s', async (_name, mac, keys) => {
+      seed(false)
+
+      press(mac, keys)
+
+      await vi.waitFor(() => expect(useLayoutStore.getState().byWorkspace.s1).toBeDefined())
+      expect(useLayoutStore.getState().byWorkspace.s1.root).toMatchObject({
+        type: 'pane',
+        kind: 'terminal',
+        cwd: '/w',
+      })
+    })
+
+    it.each(newTabKeys)('adds a tab to an existing pane on %s', async (_name, mac, keys) => {
+      seed(true)
+
+      press(mac, keys)
+
+      await vi.waitFor(() =>
+        expect(useLayoutStore.getState().byWorkspace.s1.root.type).toBe('tabs'),
+      )
+      const root = useLayoutStore.getState().byWorkspace.s1.root
+      expect(root.type === 'tabs' ? root.children : []).toHaveLength(2)
+    })
+
+    it('opens a browser pane with tab.newBrowser', async () => {
+      seed(false)
+
+      await commands.exec('tab.newBrowser')
+
+      expect(useLayoutStore.getState().byWorkspace.s1.root).toMatchObject({
+        type: 'pane',
+        kind: 'browser',
+        url: 'about:blank',
+      })
+    })
+
+    it.each(['pane.splitRight', 'pane.splitDown'])('opens one terminal with %s', async (id) => {
+      seed(false)
+
+      await commands.exec(id)
+
+      expect(useLayoutStore.getState().byWorkspace.s1.root).toMatchObject({
+        type: 'pane',
+        kind: 'terminal',
+      })
+    })
+
+    it('does nothing when the named pane is not there', async () => {
+      seed(false)
+
+      await commands.exec('tab.new', { paneId: 'gone' })
+
+      expect(useLayoutStore.getState().byWorkspace.s1).toBeUndefined()
+    })
+  })
+
   it('routes pane.focus to layout.focusPane', async () => {
     const focusPane = vi.spyOn(useLayoutStore.getState(), 'focusPane').mockImplementation(() => {})
 
