@@ -21,9 +21,7 @@ const pageKeys: Record<'palette' | 'focusAddress' | 'reload' | 'back' | 'find', 
   palette: { keyCode: isMac ? 'K' : 'P', modifiers: mod },
   focusAddress: { keyCode: 'L', modifiers: mod },
   reload: isMac ? { keyCode: 'R', modifiers: mod } : { keyCode: 'F5', modifiers: ['control'] },
-  back: isMac
-    ? { keyCode: '[', modifiers: mod }
-    : { keyCode: 'Left', modifiers: ['control', 'alt'] },
+  back: isMac ? { keyCode: '[', modifiers: mod } : { keyCode: 'Left', modifiers: ['alt'] },
   find: { keyCode: 'F', modifiers: mod },
 }
 

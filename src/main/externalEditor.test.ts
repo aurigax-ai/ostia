@@ -84,7 +84,11 @@ describe('openInExternalEditor', () => {
     dir = mkdtempSync(join(tmpdir(), 'ostia-ext-editor-'))
     const out = join(dir, 'args.txt')
     const script = join(dir, 'fake-editor')
-    writeFileSync(script, `#!/bin/sh\nprintf '%s\\n' "$@" > '${out}'\n`)
+    const partial = `${out}.partial`
+    writeFileSync(
+      script,
+      `#!/bin/sh\nprintf '%s\\n' "$@" > '${partial}' && mv '${partial}' '${out}'\n`,
+    )
     chmodSync(script, 0o755)
     const file = join(dir, 'a b; echo pwned.txt')
     const res = await openInExternalEditor({

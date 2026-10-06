@@ -49,6 +49,11 @@ const CLI_HELP = `ostia — control-socket CLI
   ostia workspace rename [--workspace <id>] <name…> | --clear  rename your workspace in the
                                  sidebar (--clear goes back to its default name); another
                                  workspace asks the human (send-other-pane, all-workspaces)
+  ostia workspace import-cmux [file] [--json]
+                                 recreate cmux's saved workspaces (names, folders, splits,
+                                 tabs; default file ~/Library/Application Support/cmux/
+                                 session-com.cmuxterm.app.json). Workspaces already here are
+                                 skipped; it prints what could not be carried over
   ostia resume-token <claude|codex> <id|->
                                  remember this pane's agent session so a restored pane
                                  offers Resume (Ctrl+Shift+R); '-' reads a hook's JSON
