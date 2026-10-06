@@ -1655,11 +1655,18 @@ export const en = {
     copy: 'Copy (terminal)',
     paste: 'Paste (terminal)',
     find: 'Find (terminal)',
-    keymap: 'Presets',
+    keymap: 'App shortcuts',
     keymapDesc:
-      'The {product} default, iTerm2’s Natural Text Editing, or a keymap from an extension. The changes you make below apply on top of it.',
-    keymapDefault: '{product} default',
-    naturalTextEditing: 'Natural Text Editing (iTerm2)',
+      'The shortcuts for commands: the {product} defaults or a keymap from an extension. The changes you make below apply on top of it.',
+    appKeymaps: { ostia: '{product}' },
+    terminalKeymap: 'Text editing',
+    terminalKeymapDesc:
+      'The keys that move and delete by line and word in the shell. Pick No translation if your shell uses vi mode.',
+    terminalKeymaps: {
+      ostia: '{product} standard',
+      'natural-text-editing': 'Natural Text Editing (iTerm2)',
+      none: 'No translation',
+    },
     naturalTextEditingNote:
       'Natural Text Editing also sends ^D for Forward Delete on its own, which ends the shell on an empty line.',
     keymapFailed:
@@ -4204,11 +4211,18 @@ export const zhHant: Dict = {
     copy: '複製（終端機）',
     paste: '貼上（終端機）',
     find: '在終端機中尋找',
-    keymap: '快捷鍵配置',
+    keymap: 'App 鍵位',
     keymapDesc:
-      '{product} 預設、iTerm2 的 Natural Text Editing，或擴充功能提供的快捷鍵配置。你在下方所做的變更會套用在它之上。',
-    keymapDefault: '{product} 預設',
-    naturalTextEditing: 'Natural Text Editing（iTerm2）',
+      '指令的快捷鍵：{product} 預設或擴充功能提供的快捷鍵配置。你在下方所做的變更會套用在它之上。',
+    appKeymaps: { ostia: '{product}' },
+    terminalKeymap: '文字編輯',
+    terminalKeymapDesc:
+      '在 Shell 裡依行、依字移動與刪除的按鍵。Shell 用 vi 模式的話請選「不轉換」。',
+    terminalKeymaps: {
+      ostia: '{product} 標準',
+      'natural-text-editing': 'Natural Text Editing（iTerm2）',
+      none: '不轉換',
+    },
     naturalTextEditingNote: 'Natural Text Editing 也會讓單獨按 ⌦ 送出 ^D，在空行上會結束 Shell。',
     keymapFailed: '無法載入快捷鍵配置「{name}」（{error}），因此使用預設快捷鍵。',
     keymapSkipped: '快捷鍵配置「{name}」中有這台電腦無法使用的快捷鍵，已略過：',

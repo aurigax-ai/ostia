@@ -501,6 +501,11 @@ Chords the shell needs are refused with an error: plain Ctrl+letter (Ctrl+R incl
 plain or Ctrl arrows, Escape, Tab, and keys without Ctrl/Cmd. Unlisted commands keep
 their default.
 
+`keymap` (`"ostia"` or an extension keymap like `"keymap-macos/cmux"`) and `terminalKeymap`
+(`"ostia"`, `"natural-text-editing"` or `"none"`) pick the App shortcuts and text editing
+presets; `null` uses this platform's default. `keymap`, `terminalKeymap`, `keybindings` and
+`terminalKeys` are kept per platform: what you set applies to this computer's platform only.
+
 `set` deep-sets a dot-path into the live settings (the Settings UI updates at once, no
 restart) and saves `settings.json`. It prints `{previous, value, applied}`; keep
 `previous` to put the old value back. A value is refused (nothing changes) when the key

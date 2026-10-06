@@ -10,6 +10,13 @@ import {
   usedByMonaco,
 } from '@shared/chordSpec'
 import {
+  NATURAL_TEXT_EDITING,
+  OSTIA_KEYMAP,
+  appKeymapsFor,
+  keyboardPlatform,
+  terminalKeymapsFor,
+} from '@shared/keyboardPresets'
+import {
   TERMINAL_SEND_TYPES,
   type TerminalSend,
   type TerminalSendType,
@@ -38,12 +45,12 @@ import {
   resetTerminalKey,
   saveTerminalKey,
   terminalKeyFor,
+  terminalKeymapOf,
 } from '../lib/keyPresets'
 import { BASE_LANGUAGE } from '../lib/languagePacks'
 import { isMac, platform } from '../platform'
-import { NATURAL_TEXT_EDITING } from '../settings/keymapSetting'
 import { useExtensionsStore } from '../stores/extensionsStore'
-import { keymapChoices, useKeymapStore } from '../stores/keymapStore'
+import { appKeymap, keymapChoices, useKeymapStore } from '../stores/keymapStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { ControlRow, SectionHead, SelectField, WarningNote } from './SettingsPanel'
 import { Button } from './ui/button'
@@ -313,38 +320,43 @@ function PendingChoice({
   )
 }
 
-const DEFAULT_KEYMAP = 'default'
+function appKeymapLabel(id: string, d: Dict): string {
+  return (d.keyboard.appKeymaps as Record<string, string | undefined>)[id] ?? id
+}
 
-function KeymapPicker(): JSX.Element {
+function terminalKeymapLabel(id: string, d: Dict): string {
+  return (d.keyboard.terminalKeymaps as Record<string, string | undefined>)[id] ?? id
+}
+
+function KeymapPickers(): JSX.Element {
   const d = useDict()
-  const ref = useSettingsStore((s) => s.keymap)
   const setKeymap = useSettingsStore((s) => s.setKeymap)
+  const setTerminalKeymap = useSettingsStore((s) => s.setTerminalKeymap)
+  const chosenTerminal = useSettingsStore((s) => s.terminalKeymap)
+  useSettingsStore((s) => s.keymap)
   const list = useExtensionsStore((s) => s.list)
+  const here = keyboardPlatform(platform)
   const choices = keymapChoices(list, platform)
-  const builtins: { value: string; label: string }[] = isMac
-    ? [{ value: NATURAL_TEXT_EDITING, label: d.keyboard.naturalTextEditing }]
-    : []
+  const ref = appKeymap()
   const chosen = choices.find((c) => c.ref === ref)
-  const builtin = builtins.find((b) => b.value === ref)
   const loaded = useKeymapStore((s) => (chosen && s.ref === chosen.ref ? s.loaded : null))
   const error = useKeymapStore((s) => (chosen && s.ref === chosen.ref ? s.error : null))
+  const terminal = terminalKeymapOf(chosenTerminal, isMac)
+  const appOptions = [
+    ...appKeymapsFor(here).map((k) => ({ value: k.id, label: appKeymapLabel(k.id, d) })),
+    ...choices.map((c) => ({ value: c.ref, label: c.label })),
+  ]
+  const appValue = appOptions.some((o) => o.value === ref) ? ref : OSTIA_KEYMAP
   return (
     <div className="mb-3">
       <ControlRow label={d.keyboard.keymap} desc={d.keyboard.keymapDesc}>
         <SelectField
           label={d.keyboard.keymap}
-          value={chosen?.ref ?? builtin?.value ?? DEFAULT_KEYMAP}
-          onChange={(v) => setKeymap(v === DEFAULT_KEYMAP ? null : v)}
-          options={[
-            { value: DEFAULT_KEYMAP, label: d.keyboard.keymapDefault },
-            ...builtins,
-            ...choices.map((c) => ({ value: c.ref, label: c.label })),
-          ]}
+          value={appValue}
+          onChange={setKeymap}
+          options={appOptions}
         />
       </ControlRow>
-      {builtin?.value === NATURAL_TEXT_EDITING ? (
-        <WarningNote>{d.keyboard.naturalTextEditingNote}</WarningNote>
-      ) : null}
       {chosen && error ? (
         <WarningNote>{fmt(d.keyboard.keymapFailed, { name: chosen.label, error })}</WarningNote>
       ) : null}
@@ -363,6 +375,20 @@ function KeymapPicker(): JSX.Element {
             ))}
           </ul>
         </WarningNote>
+      ) : null}
+      <ControlRow label={d.keyboard.terminalKeymap} desc={d.keyboard.terminalKeymapDesc}>
+        <SelectField
+          label={d.keyboard.terminalKeymap}
+          value={terminal}
+          onChange={setTerminalKeymap}
+          options={terminalKeymapsFor(here).map((k) => ({
+            value: k.id,
+            label: terminalKeymapLabel(k.id, d),
+          }))}
+        />
+      </ControlRow>
+      {terminal === NATURAL_TEXT_EDITING ? (
+        <WarningNote>{d.keyboard.naturalTextEditingNote}</WarningNote>
       ) : null}
     </div>
   )
@@ -579,7 +605,7 @@ export function KeyboardSection(): JSX.Element {
   const terminalKeys = useSettingsStore((s) => s.terminalKeys)
   const setKeybindings = useSettingsStore((s) => s.setKeybindings)
   const setTerminalKeys = useSettingsStore((s) => s.setTerminalKeys)
-  useSettingsStore((s) => s.keymap)
+  useSettingsStore((s) => s.terminalKeymap)
   useBindings()
   useSyncExternalStore(subscribeCommands, commandsVersion)
 
@@ -600,7 +626,7 @@ export function KeyboardSection(): JSX.Element {
   return (
     <section aria-label={d.keyboard.title}>
       <SectionHead title={d.keyboard.title} desc={d.keyboard.desc} />
-      <KeymapPicker />
+      <KeymapPickers />
       <div className="mb-2 flex items-center gap-2">
         <InputGroup className="h-7 flex-1">
           <InputGroupAddon>

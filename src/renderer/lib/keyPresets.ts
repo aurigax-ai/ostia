@@ -6,46 +6,30 @@ import {
   specFromEvent,
 } from '@shared/chordSpec'
 import {
+  type PresetKeys,
+  keyboardPlatform,
+  terminalKeymapIn,
+  terminalKeymapKeys,
+} from '@shared/keyboardPresets'
+import {
   type TerminalKeyMap,
   type TerminalSend,
   sameSend,
   sendChordProblem,
   sendData,
 } from '@shared/terminalKeys'
-import { NATURAL_TEXT_EDITING } from '../settings/keymapSetting'
 import { useSettingsStore } from '../stores/settingsStore'
 import { matchChord } from './chords'
 
-export type PresetKeys = Readonly<Record<string, TerminalSend>>
+const envOf = (mac: boolean) => ({ platform: mac ? 'darwin' : 'linux' })
 
-const hex = (value: string): TerminalSend => ({ type: 'hex', value })
-const esc = (value: string): TerminalSend => ({ type: 'escape', value })
-
-export const OSTIA_KEYS: PresetKeys = {
-  'Cmd+Backspace': hex('0x15'),
-  'Cmd+Left': hex('0x01'),
-  'Cmd+Right': hex('0x05'),
-  'Alt+Left': esc('b'),
-  'Alt+Right': esc('f'),
-  'Alt+Backspace': hex('0x1b 0x7f'),
-  'Alt+Delete': esc('d'),
-  'Cmd+Delete': hex('0x0b'),
+export function terminalKeymapOf(chosen: string | null, mac: boolean): string {
+  return terminalKeymapIn(chosen, envOf(mac))
 }
 
-export const NATURAL_TEXT_EDITING_KEYS: PresetKeys = {
-  'Alt+Backspace': hex('0x1b 0x7f'),
-  'Alt+Left': esc('b'),
-  'Alt+Right': esc('f'),
-  'Alt+Delete': esc('d'),
-  'Cmd+Backspace': hex('0x15'),
-  'Cmd+Left': hex('0x01'),
-  'Cmd+Right': hex('0x05'),
-  Delete: hex('0x04'),
-}
-
-export function presetKeys(keymap: string | null, mac: boolean): PresetKeys {
-  if (!mac) return {}
-  return keymap === NATURAL_TEXT_EDITING ? NATURAL_TEXT_EDITING_KEYS : OSTIA_KEYS
+export function presetKeys(terminalKeymap: string | null, mac: boolean): PresetKeys {
+  const env = envOf(mac)
+  return terminalKeymapKeys(terminalKeymapIn(terminalKeymap, env), keyboardPlatform(env.platform))
 }
 
 export interface TerminalKeyRow {
@@ -69,12 +53,12 @@ export function signatureOf(keys: string, mac: boolean): string | null {
 
 export function terminalKeyTable(
   user: TerminalKeyMap,
-  keymap: string | null,
+  terminalKeymap: string | null,
   mac: boolean,
 ): TerminalKeyTable {
   const bySignature = new Map<string, TerminalKeyRow>()
   const presets = new Map<string, TerminalSend>()
-  for (const [keys, send] of Object.entries(presetKeys(keymap, mac))) {
+  for (const [keys, send] of Object.entries(presetKeys(terminalKeymap, mac))) {
     const spec = parseChord(keys, mac)
     const data = sendData(send)
     if (!spec || data === null) continue
@@ -100,15 +84,15 @@ export function terminalKeyTable(
 
 let cache: {
   user: TerminalKeyMap
-  keymap: string | null
+  terminalKeymap: string | null
   mac: boolean
   table: TerminalKeyTable
 } | null = null
 
 export function currentTerminalKeys(mac: boolean): TerminalKeyTable {
-  const { terminalKeys: user, keymap } = useSettingsStore.getState()
-  if (cache?.user !== user || cache.keymap !== keymap || cache.mac !== mac) {
-    cache = { user, keymap, mac, table: terminalKeyTable(user, keymap, mac) }
+  const { terminalKeys: user, terminalKeymap } = useSettingsStore.getState()
+  if (cache?.user !== user || cache.terminalKeymap !== terminalKeymap || cache.mac !== mac) {
+    cache = { user, terminalKeymap, mac, table: terminalKeyTable(user, terminalKeymap, mac) }
   }
   return cache.table
 }
@@ -149,7 +133,7 @@ export function saveTerminalKey(
   const signature = formatChord(spec, mac)
   if (previous && previous.signature !== signature) removeTerminalKey(previous, mac)
   for (const keys of userKeysFor(signature, mac)) settings.resetTerminalKey(keys)
-  const preset = presetKeys(settings.keymap, mac)
+  const preset = presetKeys(settings.terminalKeymap, mac)
   const fromPreset = Object.entries(preset).find(([keys]) => signatureOf(keys, mac) === signature)
   if (fromPreset && sameSend(fromPreset[1], send)) return
   settings.setTerminalKey(signature, send)

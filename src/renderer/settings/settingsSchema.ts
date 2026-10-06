@@ -1,5 +1,13 @@
 import { GLOBAL_HOTKEY_MAX_LENGTH } from '../../shared/globalHotkey'
 import {
+  KEYBOARD_PLATFORMS,
+  type KeyboardPlatform,
+  OSTIA_KEYMAP,
+  TERMINAL_KEYMAPS,
+  isKeyboardPlatform,
+  keyboardPlatform,
+} from '../../shared/keyboardPresets'
+import {
   BELL_MODES,
   LONG_COMMAND_MAX_SECONDS,
   LONG_COMMAND_MIN_SECONDS,
@@ -16,6 +24,7 @@ import { TERMINAL_SEND_MAX, TERMINAL_SEND_TYPES } from '../../shared/terminalKey
 import { SHELL_SETTING_MAX_LENGTH } from '../../shared/terminalShell'
 import { MATCH_OSTIA_THEME } from '../../shared/themeChoice'
 import { DEFAULT_CHORDS, bindableIds } from '../lib/chords'
+import { platform } from '../platform'
 import { BUILTIN_COLOR_SCHEMES } from '../plugins/colorSchemes'
 import { ACTIONS_MAX, ACTION_ICONS, ACTION_ID, ACTION_PLACES, ACTION_TITLE_MAX } from './actions'
 import {
@@ -26,7 +35,8 @@ import {
   NESTING_MAX,
   PATTERN_MAX_LENGTH,
 } from './fileTreeSettings'
-import { KEYMAP_SETTING_PATTERN, NATURAL_TEXT_EDITING } from './keymapSetting'
+import { KEYBOARD_FIELDS } from './keyboardSettings'
+import { KEYMAP_SETTING_PATTERN } from './keymapSetting'
 
 const font = (title: string) => ({
   type: 'object',
@@ -71,6 +81,67 @@ export function keybindingsSchema(ids: readonly string[]) {
       'their default. Edit them in Settings → Keyboard.',
     properties: Object.fromEntries(ids.map((id) => [id, CHORD_VALUE])),
     additionalProperties: CHORD_VALUE,
+  }
+}
+
+const KEYMAP_VALUE = {
+  type: 'string',
+  pattern: KEYMAP_SETTING_PATTERN.source,
+  examples: [OSTIA_KEYMAP, 'keymap-macos/cmux'],
+  description:
+    '"ostia" for the default command shortcuts, or a keymap an enabled extension contributes ' +
+    '(contributes.keymaps), as "<extension id>/<keymap id>": its chords replace the default ' +
+    'command shortcuts, and your keybindings apply on top. An id no enabled extension offers ' +
+    'on this computer counts as "ostia".',
+}
+
+const TERMINAL_KEYMAP_VALUE = {
+  type: 'string',
+  enum: TERMINAL_KEYMAPS.map((k) => k.id),
+  description:
+    '"ostia": Cmd and Option line and word editing (macOS). "natural-text-editing": the keys ' +
+    'of iTerm2’s Natural Text Editing preset (macOS). "none": keys go to the terminal as ' +
+    'typed, for shells in vi mode. A preset this platform doesn’t have counts as its default.',
+}
+
+const TERMINAL_KEYS_VALUE = {
+  type: 'object',
+  description:
+    'Chord → what to send, or null to drop a key the text editing preset sends. They apply ' +
+    'on top of the preset; a command bound to the same chord wins.',
+  additionalProperties: {
+    oneOf: [
+      { type: 'null' },
+      {
+        type: 'object',
+        additionalProperties: false,
+        required: ['type', 'value'],
+        properties: {
+          type: {
+            type: 'string',
+            enum: [...TERMINAL_SEND_TYPES],
+            description:
+              '"text": the value, with \\n \\r \\t \\e \\\\ and \\xHH escapes. ' +
+              '"escape": ESC, then the value. "hex": bytes like "0x1b 0x7f" (0x00-0x7f).',
+          },
+          value: { type: 'string', minLength: 1, maxLength: TERMINAL_SEND_MAX },
+        },
+      },
+    ],
+  },
+}
+
+const KEYBINDINGS_DESC =
+  'Your keyboard shortcuts for each platform ("mac", "linux"): command id → chord, or null ' +
+  'to unbind. Unlisted commands keep their default. Edit them in Settings → Keyboard.'
+
+export function perPlatformSchema<T>(description: string, value: T) {
+  const properties = Object.fromEntries(KEYBOARD_PLATFORMS.map((p) => [p, value]))
+  return {
+    type: 'object',
+    description,
+    additionalProperties: false,
+    properties: properties as Record<KeyboardPlatform, T>,
   }
 }
 
@@ -752,46 +823,26 @@ export const SETTINGS_JSON_SCHEMA = {
         },
       },
     },
-    keymap: {
-      type: ['string', 'null'],
-      pattern: KEYMAP_SETTING_PATTERN.source,
-      examples: [NATURAL_TEXT_EDITING, 'keymap-macos/cmux'],
-      description:
-        'The keyboard preset. null: the default. "natural-text-editing": the terminal keys of ' +
-        'iTerm2’s Natural Text Editing preset (macOS). Or a keymap an enabled extension ' +
-        'contributes (contributes.keymaps), as "<extension id>/<keymap id>": its chords ' +
-        'replace the default command shortcuts. Your keybindings and terminalKeys apply on ' +
-        'top. An id no enabled extension offers on this computer counts as null. Pick it in ' +
-        'Settings → Keyboard. Default: null.',
-    },
-    keybindings: keybindingsSchema(Object.keys(DEFAULT_CHORDS)),
-    terminalKeys: {
-      type: 'object',
-      description:
-        'Keys that send text to the terminal: chord → what to send, or null to drop a key ' +
-        'the preset sends. They apply on top of the preset; a command bound to the same ' +
-        'chord wins. Only you can change this, in Settings → Keyboard; agents cannot.',
-      additionalProperties: {
-        oneOf: [
-          { type: 'null' },
-          {
-            type: 'object',
-            additionalProperties: false,
-            required: ['type', 'value'],
-            properties: {
-              type: {
-                type: 'string',
-                enum: [...TERMINAL_SEND_TYPES],
-                description:
-                  '"text": the value, with \\n \\r \\t \\e \\\\ and \\xHH escapes. ' +
-                  '"escape": ESC, then the value. "hex": bytes like "0x1b 0x7f" (0x00-0x7f).',
-              },
-              value: { type: 'string', minLength: 1, maxLength: TERMINAL_SEND_MAX },
-            },
-          },
-        ],
-      },
-    },
+    keymap: perPlatformSchema(
+      'The App shortcuts preset for each platform ("mac", "linux"). A platform without one ' +
+        'uses its default. Pick it in Settings → Keyboard.',
+      KEYMAP_VALUE,
+    ),
+    terminalKeymap: perPlatformSchema(
+      'The text editing preset for each platform ("mac", "linux"): the keys that send line and ' +
+        'word editing sequences to the shell. A platform without one uses its default. Pick ' +
+        'it in Settings → Keyboard.',
+      TERMINAL_KEYMAP_VALUE,
+    ),
+    keybindings: perPlatformSchema(
+      KEYBINDINGS_DESC,
+      keybindingsSchema(Object.keys(DEFAULT_CHORDS)),
+    ),
+    terminalKeys: perPlatformSchema(
+      'Your keys that send text to the terminal, for each platform ("mac", "linux"). Only you ' +
+        'can change this, in Settings → Keyboard; agents cannot.',
+      TERMINAL_KEYS_VALUE,
+    ),
     workspaceGroups: {
       type: 'object',
       additionalProperties: false,
@@ -1015,7 +1066,7 @@ export function fullSettingsSchema() {
     ...SETTINGS_JSON_SCHEMA,
     properties: {
       ...SETTINGS_JSON_SCHEMA.properties,
-      keybindings: keybindingsSchema(bindableIds()),
+      keybindings: perPlatformSchema(KEYBINDINGS_DESC, keybindingsSchema(bindableIds())),
     },
   }
 }
@@ -1026,9 +1077,15 @@ interface SchemaNode {
   [key: string]: unknown
 }
 
+const PER_PLATFORM: ReadonlySet<string> = new Set(KEYBOARD_FIELDS)
+
 export function settingsSchemaAt(path?: string): unknown {
   let node = fullSettingsSchema() as unknown as SchemaNode
-  for (const key of (path ?? '').split('.').filter(Boolean)) {
+  const keys = (path ?? '').split('.').filter(Boolean)
+  if (PER_PLATFORM.has(keys[0]) && !isKeyboardPlatform(keys[1])) {
+    keys.splice(1, 0, keyboardPlatform(platform))
+  }
+  for (const key of keys) {
     const extra = node.additionalProperties
     const next = node.properties?.[key] ?? (typeof extra === 'object' ? extra : undefined)
     if (!next) throw new Error(`unknown settings key: ${path}`)

@@ -30,15 +30,28 @@ describe('KeyboardSection on macOS', () => {
     render(<KeyboardSection />)
     const defaults = ['⌘Backspace', '⌘←', '⌘→', '⌥←', '⌥→', '⌥Backspace', '⌥Delete', '⌘Delete']
     expect(editButtons()).toEqual(defaults.map((keys) => `Edit ${keys}`).sort())
-    await userEvent.click(screen.getByRole('combobox', { name: 'Presets' }))
+    expect(screen.getByRole('combobox', { name: 'App shortcuts' })).toHaveTextContent('Ostia')
+    expect(screen.getByRole('combobox', { name: 'Text editing' })).toHaveTextContent(
+      'Ostia standard',
+    )
+    await userEvent.click(screen.getByRole('combobox', { name: 'Text editing' }))
     await userEvent.click(
       await screen.findByRole('option', { name: 'Natural Text Editing (iTerm2)' }),
     )
-    expect(useSettingsStore.getState().keymap).toBe('natural-text-editing')
+    expect(useSettingsStore.getState().terminalKeymap).toBe('natural-text-editing')
+    expect(useSettingsStore.getState().keymap).toBeNull()
     expect(screen.getByText(/sends \^D for Forward Delete on its own/)).toBeInTheDocument()
     expect(editButtons()).toContain('Edit Delete')
     expect(editButtons()).not.toContain('Edit ⌘Delete')
     expect(useSettingsStore.getState().terminalKeys).toEqual({})
+  })
+
+  it('sends nothing with No translation and lists no terminal keys', async () => {
+    render(<KeyboardSection />)
+    await userEvent.click(screen.getByRole('combobox', { name: 'Text editing' }))
+    await userEvent.click(await screen.findByRole('option', { name: 'No translation' }))
+    expect(useSettingsStore.getState().terminalKeymap).toBe('none')
+    expect(screen.queryAllByRole('button', { name: /^Edit / })).toEqual([])
   })
 
   it('removes a preset key with null and Reset all brings it back', async () => {

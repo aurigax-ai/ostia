@@ -1,15 +1,18 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { type ChordSpec, type KeyLike, parseChord } from '@shared/chordSpec'
+import {
+  NATURAL_TEXT_EDITING,
+  NATURAL_TEXT_EDITING_KEYS,
+  NO_TERMINAL_KEYMAP,
+  OSTIA_TERMINAL_KEYS,
+} from '@shared/keyboardPresets'
 import { parseKeymapBindings } from '@shared/keymapFile'
 import { afterEach, describe, expect, it } from 'vitest'
-import { NATURAL_TEXT_EDITING } from '../settings/keymapSetting'
 import { useKeymapStore } from '../stores/keymapStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { matchChord } from './chords'
 import {
-  NATURAL_TEXT_EDITING_KEYS,
-  OSTIA_KEYS,
   currentTerminalKeys,
   presetKeys,
   removeTerminalKey,
@@ -75,8 +78,8 @@ describe('Ostia default preset', () => {
     for (const [name, event, sent] of OSTIA_SENDS) {
       expect(terminalKeyData(event, true), name).toBe(sent)
     }
-    expect(currentTerminalKeys(true).rows).toHaveLength(Object.keys(OSTIA_KEYS).length)
-    expect(Object.keys(OSTIA_KEYS)).toHaveLength(OSTIA_SENDS.length)
+    expect(currentTerminalKeys(true).rows).toHaveLength(Object.keys(OSTIA_TERMINAL_KEYS).length)
+    expect(Object.keys(OSTIA_TERMINAL_KEYS)).toHaveLength(OSTIA_SENDS.length)
   })
 
   it('keeps the five keys macOS had before, byte for byte, which are also Ghostty’s defaults', () => {
@@ -110,16 +113,38 @@ describe('Ostia default preset', () => {
     }
   })
 
-  it('sends nothing outside macOS, where Super is not a line-editing key', () => {
+  it('leaves Linux as it was: without settings no key is turned into a sequence', () => {
     expect(presetKeys(null, false)).toEqual({})
     expect(presetKeys(NATURAL_TEXT_EDITING, false)).toEqual({})
-    for (const [name, event] of OSTIA_SENDS) expect(terminalKeyData(event, false), name).toBeNull()
+    expect(currentTerminalKeys(false).rows).toEqual([])
+    for (const [name, event] of [...OSTIA_SENDS, ...NATURAL_SENDS]) {
+      expect(terminalKeyData(event, false), name).toBeNull()
+    }
+    for (const event of [
+      key('ArrowLeft', { ctrlKey: true }),
+      key('Backspace', { ctrlKey: true }),
+      key('Home'),
+      key('End'),
+    ]) {
+      expect(terminalKeyData(event, false), JSON.stringify(event)).toBeNull()
+    }
+  })
+
+  it('sends nothing with No translation, for shells in vi mode', () => {
+    useSettingsStore.setState({ terminalKeymap: NO_TERMINAL_KEYMAP })
+    for (const [name, event] of OSTIA_SENDS) expect(terminalKeyData(event, true), name).toBeNull()
+    expect(currentTerminalKeys(true).rows).toEqual([])
+  })
+
+  it('falls back to the platform default for a text editing preset the platform lacks', () => {
+    useSettingsStore.setState({ terminalKeymap: 'gone' })
+    expect(terminalKeyData(key('ArrowLeft', cmd), true)).toBe('\x01')
   })
 })
 
 describe('Natural Text Editing preset', () => {
   it('sends exactly the eight keys of iTerm2’s preset', () => {
-    useSettingsStore.setState({ keymap: NATURAL_TEXT_EDITING })
+    useSettingsStore.setState({ terminalKeymap: NATURAL_TEXT_EDITING })
     for (const [name, event, sent] of NATURAL_SENDS) {
       expect(terminalKeyData(event, true), name).toBe(sent)
     }
@@ -128,7 +153,7 @@ describe('Natural Text Editing preset', () => {
   })
 
   it('has no Cmd+Forward Delete, as in iTerm2', () => {
-    useSettingsStore.setState({ keymap: NATURAL_TEXT_EDITING })
+    useSettingsStore.setState({ terminalKeymap: NATURAL_TEXT_EDITING })
     expect(terminalKeyData(key('Delete', cmd), true)).toBeNull()
   })
 })
@@ -187,7 +212,7 @@ describe('user terminal keys on top of the preset', () => {
 
   it('override the Natural Text Editing preset the same way', () => {
     useSettingsStore.setState({
-      keymap: NATURAL_TEXT_EDITING,
+      terminalKeymap: NATURAL_TEXT_EDITING,
       terminalKeys: { Delete: null, 'Cmd+Delete': { type: 'hex', value: '0x0b' } },
     })
     expect(terminalKeyData(key('Delete'), true)).toBeNull()

@@ -136,8 +136,8 @@ describe('KeyboardSection', () => {
     const stop = startKeymapSync()
     try {
       render(<KeyboardSection />)
-      const picker = screen.getByRole('combobox', { name: 'Presets' })
-      expect(picker).toHaveTextContent('Ostia default')
+      const picker = screen.getByRole('combobox', { name: 'App shortcuts' })
+      expect(picker).toHaveTextContent('Ostia')
       expect(within(row(/Command Palette/)).getByText('Ctrl+Shift+P')).toBeInTheDocument()
 
       await userEvent.click(picker)
@@ -165,9 +165,9 @@ describe('KeyboardSection', () => {
       press('P', { ctrlKey: true, altKey: true, code: 'KeyP' })
       expect(useSettingsStore.getState().keybindings).toEqual({})
 
-      await userEvent.click(screen.getByRole('combobox', { name: 'Presets' }))
-      await userEvent.click(await screen.findByRole('option', { name: 'Ostia default' }))
-      expect(useSettingsStore.getState().keymap).toBeNull()
+      await userEvent.click(screen.getByRole('combobox', { name: 'App shortcuts' }))
+      await userEvent.click(await screen.findByRole('option', { name: 'Ostia' }))
+      expect(useSettingsStore.getState().keymap).toBe('ostia')
       expect(within(row(/Command Palette/)).getByText('Ctrl+Shift+P')).toBeInTheDocument()
       expect(screen.queryByText(/pane\.zoom “Ctrl\+X”/)).toBeNull()
     } finally {
@@ -181,7 +181,7 @@ describe('KeyboardSection', () => {
     const stop = startKeymapSync()
     try {
       render(<KeyboardSection />)
-      expect(screen.getByRole('combobox', { name: 'Presets' })).toHaveTextContent('Ostia default')
+      expect(screen.getByRole('combobox', { name: 'App shortcuts' })).toHaveTextContent('Ostia')
       expect(within(row(/Command Palette/)).getByText('Ctrl+Shift+P')).toBeInTheDocument()
       expect(window.ostia.keymaps.load).not.toHaveBeenCalled()
     } finally {
@@ -218,7 +218,7 @@ describe('KeyboardSection', () => {
     })
     useSettingsStore.setState({ locale: 'zh-Hant' })
     render(<KeyboardSection />)
-    expect(screen.getByRole('combobox', { name: '快捷鍵配置' })).toHaveTextContent('預設')
+    expect(screen.getByRole('combobox', { name: 'App 鍵位' })).toHaveTextContent('Ostia')
   })
 
   it('lists commands with their current shortcut, including palette commands without one', () => {
