@@ -1800,6 +1800,12 @@ export const en = {
     selectAll: 'Select All',
     clear: 'Clear Terminal',
   },
+  terminalLinks: {
+    click: 'Click',
+    openPane: 'Open in a browser pane',
+    openSystem: 'Open in the system browser',
+    openFile: 'Open the file',
+  },
   terminalGhost: {
     copy: 'Copy',
     paste: 'Paste',
@@ -4444,6 +4450,12 @@ export const zhHant: Dict = {
     paste: '貼上',
     selectAll: '全選',
     clear: '清除終端機畫面',
+  },
+  terminalLinks: {
+    click: '點擊',
+    openPane: '在瀏覽器窗格開啟',
+    openSystem: '在系統瀏覽器開啟',
+    openFile: '開啟檔案',
   },
   terminalGhost: {
     copy: '複製',
