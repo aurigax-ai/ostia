@@ -600,6 +600,7 @@ function CommandItems({
     return (
       <CommandItem
         key={c.id}
+        className={grouped ? undefined : 'mx-1'}
         value={searchValue(symbol, c, shown)}
         onSelect={() => {
           if (c.id === ASK_COMMAND_ID) {
@@ -624,13 +625,7 @@ function CommandItems({
       </CommandItem>
     )
   }
-  if (!grouped) {
-    return (
-      <div className="p-1">
-        {[...groups.values()].flatMap((group) => group.items).map(renderItem)}
-      </div>
-    )
-  }
+  if (!grouped) return <>{[...groups.values()].flatMap((group) => group.items).map(renderItem)}</>
   return (
     <>
       {[...groups.entries()].map(([key, group]) => (
