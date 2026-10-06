@@ -1,5 +1,5 @@
 import type { AssistPoint, AssistRequests } from '@shared/assist'
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { Terminal as Xterm } from '@xterm/xterm'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -78,6 +78,7 @@ describe('AssistComposer', () => {
   })
 
   afterEach(() => {
+    cleanup()
     unregister()
     useBlocksStore.setState(blocksInit, true)
     useAssistComposerStore.setState({ paneId: null })
@@ -118,8 +119,10 @@ describe('AssistComposer', () => {
     expect(setSetting).toHaveBeenCalledWith('assistant', 'typos', true)
     await userEvent.click(screen.getByRole('switch', { name: 'Prompt review' }))
     expect(setSetting).toHaveBeenCalledWith('assistant', 'promptReview', false)
-    useExtensionsStore.setState(extensionsInit, true)
-    useAssistStore.setState({ overview: [] })
+    act(() => {
+      useExtensionsStore.setState(extensionsInit, true)
+      useAssistStore.setState({ overview: [] })
+    })
   })
 
   it('shows a typo fix as a hint and applies it only on Tab', async () => {
