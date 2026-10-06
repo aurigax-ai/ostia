@@ -1,9 +1,10 @@
 import { type AgentResume, resumeCommand } from '@shared/agentResume'
+import type { CmuxImportReport } from '@shared/cmuxSession'
 import { wantsDesktopBanner } from '@shared/notificationSettings'
 import { OPEN_FILES_COMMAND, parseFileTargets } from '@shared/openFiles'
 import type { AttentionState } from '@shared/types'
 import { type WorkspaceGroupColor, normalizeGroupName } from '@shared/workspaceGroups'
-import { ZOOM_DEFAULT, stepZoom } from '@shared/zoom'
+import { stepZoom } from '@shared/zoom'
 import { currentDict } from '../i18n/useDict'
 import { type DropZone, type FocusDirection, allPanes, findPane, tabNeighbor } from '../layout/tree'
 import type { Direction, SurfaceKind } from '../layout/types'
@@ -25,6 +26,7 @@ import {
   requestClosePane,
   requestCloseWorkspace,
 } from '../lib/closeConfirm'
+import { runCmuxImport } from '../lib/cmuxImport'
 import { focusActivePaneWhenReady } from '../lib/focusNewTerminal'
 import { wakePane } from '../lib/hibernationScheduler'
 import { mergeRefusalText } from '../lib/mergeRefusalText'
@@ -33,6 +35,7 @@ import { openRequestedFiles } from '../lib/openFile'
 import { GO_TO_WORKSPACE_SYMBOL_COMMAND, SYMBOLS_PREFIX } from '../lib/paletteModes'
 import { type PaneAgentReport, isStaleAgentReport, paneAgentReport } from '../lib/paneAgent'
 import { terminalFor } from '../lib/terminalHandles'
+import { resetZoom } from '../lib/wheelZoom'
 import { openWorkflowPicker } from '../lib/workflows'
 import {
   focusAdjacentTab,
@@ -797,6 +800,27 @@ export function registerBuiltinCommands(): void {
     },
   })
 
+  registerCore<{ path?: unknown } | undefined, CmuxImportReport>({
+    id: 'workspace.importCmux',
+    category: 'workspace',
+    target: 'none',
+    argsSchema: {
+      type: 'object',
+      properties: { path: { type: 'string' } },
+    },
+    run: (args, ctx) => {
+      const path = args?.path
+      if (path !== undefined && (typeof path !== 'string' || !path.startsWith('/'))) {
+        throw new Error('path must be an absolute path')
+      }
+      return runCmuxImport({
+        ...(path === undefined ? {} : { path }),
+        callerWorkspaceId: ctx.activeWorkspaceId,
+        remote: ctx.origin === 'remote',
+      })
+    },
+  })
+
   registerCore({
     id: 'palette.toggle',
     category: 'view',
@@ -841,7 +865,7 @@ export function registerBuiltinCommands(): void {
     id: 'view.zoomReset',
     category: 'view',
     target: 'none',
-    run: () => useSettingsStore.getState().setZoom(ZOOM_DEFAULT),
+    run: resetZoom,
   })
 
   registerCore({

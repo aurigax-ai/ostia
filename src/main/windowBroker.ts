@@ -14,6 +14,7 @@ import type {
   WindowWorkspaceReport,
   WorkspaceLiveState,
 } from '../shared/types'
+import { MAX_WORKSPACES } from '../shared/workspaceLimits'
 import type { AgentRunningPanes } from './agentRunning'
 import { approvals } from './approvals'
 import { getByPaneId, panesOwnedBy, rehomePanes } from './idRegistry'
@@ -336,6 +337,33 @@ export class WindowBroker {
     return true
   }
 
+  private openWith(source: BrowserWindow, raw: unknown): boolean {
+    if (!Array.isArray(raw) || raw.length === 0 || raw.length > MAX_WORKSPACES) return false
+    const parsed = raw.map(parseHandoff)
+    if (parsed.some((w) => w === null)) return false
+    const workspaces = parsed as SnapshotWorkspace[]
+    const paneIds = workspaces.flatMap(handoffPaneIds)
+    if (new Set(workspaces.map((w) => w.id)).size !== workspaces.length) return false
+    if (new Set(paneIds).size !== paneIds.length) return false
+    if (workspaces.some((w) => this.windowOfWorkspace(w.id) !== undefined)) return false
+    if (paneIds.some((paneId) => getByPaneId(paneId) !== undefined)) return false
+    const slot = randomUUID().slice(0, 8)
+    const bounds = this.detachedBounds(source)
+    const snapshot: AppSnapshot = {
+      v: 1,
+      savedAt: '',
+      activeWorkspaceId: workspaces[0].id,
+      workspaces,
+      groups: [],
+    }
+    this.book.open(slot, bounds)
+    this.book.save(slot, snapshot)
+    this.boot.set(slot, snapshot)
+    this.deps.createWindow(slot, bounds)
+    this.persist()
+    return true
+  }
+
   private returnWorkspaces(
     source: BrowserWindow,
     slot: string,
@@ -539,6 +567,11 @@ export class WindowBroker {
     ipcMain.handle('windows:give', (e, raw: unknown) => {
       const source = senderWindow(e)
       return source ? this.give(source, raw) : false
+    })
+
+    ipcMain.handle('windows:open-with', (e, raw: unknown) => {
+      const source = senderWindow(e)
+      return source ? this.openWith(source, raw) : false
     })
 
     ipcMain.handle('windows:return', (e, raw: unknown) => {

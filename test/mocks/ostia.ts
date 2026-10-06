@@ -116,6 +116,7 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       save: vi.fn(),
       load: vi.fn().mockResolvedValue(null),
       merge: vi.fn().mockResolvedValue({ ok: true }),
+      readCmux: vi.fn().mockResolvedValue({ ok: false, error: 'not-found' }),
     },
     scratch: {
       create: vi.fn().mockResolvedValue('/tmp/ostia-scratch-1000/1-aaaaaaaaaaaa'),
@@ -129,6 +130,7 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       landing: vi.fn().mockResolvedValue(true),
       give: vi.fn().mockResolvedValue(true),
       returnToMain: vi.fn().mockResolvedValue(true),
+      openWith: vi.fn().mockResolvedValue(true),
       report: vi.fn(),
       focusWorkspace: vi.fn(),
       returnWorkspace: vi.fn(),

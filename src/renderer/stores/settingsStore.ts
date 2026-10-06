@@ -56,6 +56,7 @@ import { ZOOM_DEFAULT, clampZoom } from '../../shared/zoom'
 import type { Locale } from '../i18n/dict'
 import { normalizeHex } from '../lib/color'
 import type { GroupRule } from '../lib/workspaceGroups'
+import { isMac } from '../platform'
 import { platform } from '../platform'
 import { type UserAction, parseActions } from '../settings/actions'
 import {
@@ -94,6 +95,7 @@ export interface SurfaceFont {
   family: string
   size: number
   weight: number
+  baseSize?: number
 }
 
 export interface TerminalFont extends SurfaceFont {
@@ -355,7 +357,7 @@ const DEFAULTS: Persisted = {
     inputEditorVim: false,
     historySuggestions: true,
     checkForUpdates: true,
-    wheelZoom: true,
+    wheelZoom: !isMac,
   },
   files: DEFAULT_FILE_TREE_SETTINGS,
   terminal: DEFAULT_TERMINAL_SETTINGS,
@@ -663,7 +665,22 @@ function pickBooleans<T extends object>(base: T, raw: unknown): T {
   return out
 }
 
-const mergeFont = (base: SurfaceFont, p?: Partial<SurfaceFont>): SurfaceFont => ({ ...base, ...p })
+export const FONT_SIZE_MIN = 8
+export const FONT_SIZE_MAX = 32
+
+function withBaseSize(font: SurfaceFont): SurfaceFont {
+  const { baseSize, ...rest } = font
+  const valid =
+    typeof baseSize === 'number' &&
+    Number.isFinite(baseSize) &&
+    baseSize >= FONT_SIZE_MIN &&
+    baseSize <= FONT_SIZE_MAX &&
+    baseSize !== font.size
+  return valid ? { ...rest, baseSize } : rest
+}
+
+const mergeFont = (base: SurfaceFont, p?: Partial<SurfaceFont>): SurfaceFont =>
+  withBaseSize({ ...base, ...p })
 
 export const useSettingsStore = create<SettingsState>((set, get) => ({
   ...DEFAULTS,
@@ -713,9 +730,12 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     scheduleSave(get)
   },
   setSurfaceFont: (surface, patch) => {
-    set((s) => ({
-      appearance: { ...s.appearance, [surface]: { ...s.appearance[surface], ...patch } },
-    }))
+    set((s) => {
+      const { baseSize, ...rest } = s.appearance[surface]
+      const kept = 'size' in patch && !('baseSize' in patch) ? {} : { baseSize }
+      const next = withBaseSize({ ...rest, ...kept, ...patch })
+      return { appearance: { ...s.appearance, [surface]: next } }
+    })
     scheduleSave(get)
   },
   setBehavior: (patch) => {
