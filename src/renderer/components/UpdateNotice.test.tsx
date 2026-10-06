@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { useUpdateStore } from '../stores/updateStore'
 import { UpdateNotice } from './UpdateNotice'
@@ -16,8 +16,11 @@ describe('UpdateNotice', () => {
     init = useUpdateStore.getState()
   })
 
-  afterEach(() => useUpdateStore.setState(init, true))
+  afterEach(() => {
+    cleanup()
 
+    useUpdateStore.setState(init, true)
+  })
   it('shows nothing until a new build is installed', () => {
     const { container } = render(<UpdateNotice />)
     expect(container.innerHTML).toBe('')

@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest'
 import type { WorkspaceSandbox } from '@shared/sandbox'
-import { cleanup, render, screen, within } from '@testing-library/react'
+import { act, cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { installLocalStorage } from '../../../test/mocks/memoryStorage'
@@ -128,7 +128,7 @@ describe('SettingsPanel sandbox nav', () => {
 
   it('unfolds to the workspace when its settings are asked for from the workspace menu', async () => {
     renderSettings()
-    useUIStore.getState().openWorkspaceSettings('w1')
+    act(() => useUIStore.getState().openWorkspaceSettings('w1'))
     const list = await within(nav()).findByRole('list', { name: 'Sandbox pages' })
     expect(within(list).getByRole('button', { name: 'terminal' })).toHaveAttribute(
       'aria-current',

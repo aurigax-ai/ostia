@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createPane } from '../layout/tree'
 import { useBlocksStore } from '../stores/blocksStore'
@@ -30,8 +30,10 @@ function runCommand(paneId: string, command: string): void {
 
 describe('AgentSessionButton', () => {
   const initial = useBlocksStore.getState()
-  afterEach(() => useBlocksStore.setState(initial, true))
-
+  afterEach(() => {
+    cleanup()
+    useBlocksStore.setState(initial, true)
+  })
   it('shows nothing when no agent is running in the pane', () => {
     const pane = createPane('terminal')
     runCommand(pane.id, 'pnpm test')

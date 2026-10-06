@@ -1,6 +1,6 @@
 import type { PickCapture, PickOutcome, PickState } from '@shared/pick'
 import type { RegionCapture } from '@shared/regionCapture'
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { runAgentIn } from '../../../test/mocks/agentPanes'
@@ -61,6 +61,7 @@ beforeEach(() => {
 let stopAgents: () => void = () => {}
 
 afterEach(() => {
+  cleanup()
   stopAgents()
   stopAgents = () => {}
   useWorkspacesStore.setState(workspacesInit, true)
@@ -436,8 +437,11 @@ describe('BrowserView profile', () => {
     )
   }
 
-  afterEach(() => useSandboxStore.setState({ enabled: {} }))
+  afterEach(() => {
+    cleanup()
 
+    useSandboxStore.setState({ enabled: {} })
+  })
   it('claims its profile from main and uses the partition main granted', async () => {
     const { container } = renderWith('ws', 'shared')
     await waitFor(() => expect(container.querySelector('webview')).not.toBeNull())
