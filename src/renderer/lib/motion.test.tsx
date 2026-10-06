@@ -26,6 +26,9 @@ const codeFiles = [
 const RAW_TIMING =
   /(?<![\w.-])(?!0m?s\b|0\.001ms\b)\d*\.?\d+m?s\b|cubic-bezier|steps\(|\bease(?:-in|-out|-in-out)?\b|\blinear\b/
 
+const LAYOUT_PROPERTY =
+  /^(?:all|width|height|(?:min|max)-(?:width|height)|inset|top|right|bottom|left|margin(?:-[a-z]+)?|padding(?:-[a-z]+)?|flex(?:-[a-z]+)?|grid(?:-[a-z]+)?|gap|(?:row|column)-gap|font-size|line-height)$/
+
 const FORBIDDEN_CODE_MOTION = [
   /\b(?:duration|delay)-(?:\d|\[)/,
   /\bease-(?:linear|in|out|in-out|\[)/,
@@ -157,6 +160,26 @@ describe('motion CSS contract', () => {
         .map((decl) => `${file}: ${decl}`),
     )
     expect(offenders).toEqual([])
+  })
+
+  it('never transitions a layout property, so a panel toggle reflows once', () => {
+    const transitioned = (decl: string): string[] => {
+      const [prop, value] = decl.split(/:(.*)/s)
+      const parts = value.split(',').map((part) => part.trim())
+      return prop.trim() === 'transition-property' ? parts : parts.map((p) => p.split(/\s+/)[0])
+    }
+    const cssOffenders = styleFiles.flatMap((file) =>
+      motionDeclarations(readFileSync(file, 'utf8'))
+        .filter((decl) => /^transition(-property)?\s*:/.test(decl))
+        .filter((decl) => transitioned(decl).some((name) => LAYOUT_PROPERTY.test(name)))
+        .map((decl) => `${file}: ${decl}`),
+    )
+    const codeOffenders = codeFiles.flatMap((file) =>
+      [...readFileSync(file, 'utf8').matchAll(/\btransition-\[([^\]]+)\]/g)]
+        .filter((m) => m[1].split(',').some((name) => LAYOUT_PROPERTY.test(name.trim())))
+        .map((m) => `${file}: ${m[0]}`),
+    )
+    expect([...cssOffenders, ...codeOffenders]).toEqual([])
   })
 
   it('uses no raw durations, easings, press scaling or tw-animate classes in code', () => {

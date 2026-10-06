@@ -351,7 +351,6 @@
   flex-direction: column;
   background: var(--surface-1);
   border-right: 1px solid var(--line);
-  transition: width var(--motion-slow) var(--ease-out);
   overflow: hidden;
 }
 
@@ -409,10 +408,6 @@
 :root[data-rail-resizing] {
   cursor: col-resize;
   user-select: none;
-}
-
-:root[data-rail-resizing] .deck-rail {
-  transition: none;
 }
 
 :root[data-rail-resizing] :is(webview, iframe) {
