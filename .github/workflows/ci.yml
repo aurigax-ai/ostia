@@ -160,18 +160,25 @@ jobs:
       image: archlinux:latest
       options: --privileged
     steps:
-      - run: pacman -Syu --noconfirm --needed git base-devel python zsh bubblewrap socat ripgrep tmux
+      - run: pacman -Syu --noconfirm --needed git base-devel python zsh bubblewrap socat ripgrep tmux openssh sudo nss gtk3 alsa-lib libxss libxtst libxkbcommon mesa
       - uses: actions/checkout@v7
       - run: |
           git config --global --add safe.directory '*'
           for k in apparmor_restrict_unprivileged_userns apparmor_restrict_unprivileged_unconfined; do
             [ ! -e /proc/sys/kernel/$k ] || sysctl -w kernel.$k=0 || true
           done
-          zsh -fc 'autoload -U compaudit; compaudit' | xargs -r chmod go-w
-          git config --global user.name 'Ostia CI'
-          git config --global user.email 'ci@ostia.invalid'
+          useradd -m ci
       - uses: ./.github/actions/setup
-      - run: pnpm test
+      - run: |
+          chmod a+x /root
+          chown -R ci:ci "$GITHUB_WORKSPACE"
+          runuser -u ci -- bash -c '
+            git config --global user.name "Ostia CI"
+            git config --global user.email "ci@ostia.invalid"
+            git config --global --add safe.directory "*"
+            zsh -fc "autoload -U compaudit; compaudit" | xargs -r chmod go-w
+          '
+          runuser -u ci -- env "PATH=$PATH" bash -c 'cd "$1" && pnpm test' _ "$GITHUB_WORKSPACE"
 
   build-arch:
     needs: changes
