@@ -170,6 +170,7 @@ import { registerOpenPathIpc } from './openPath'
 import type { OriginReach } from './originAgents'
 import { loadPaneIdSalt } from './paneIdSalt'
 import { type PaneIo, pastedText, registerPaneIoMethods } from './paneIo'
+import { writeOstiaLauncher } from './paneLauncher'
 import { listPanes, listWorkspaces, registerPaneListMethods } from './paneList'
 import type { PaneProcess } from './paneProcess'
 import { registerPaneRenameMethods } from './paneRename'
@@ -579,6 +580,7 @@ function writeKeptLaunchers(): void {
     `require(${JSON.stringify(join(app.getAppPath(), 'out/cli/index.js'))})\n`,
     0o600,
   )
+  writeOstiaLauncher(dir)
 }
 
 function keptPaneEnv(env: NodeJS.ProcessEnv): Record<string, string> {
@@ -1915,6 +1917,7 @@ function registerPtyIpc(): void {
         SHELL_STATE: stateFile,
       }),
       agentHooks: settings.agents?.hooks,
+      launcherDir: keptLauncherDir(),
     })
     let secretNotice = ''
     let sandboxStamp: string | null = null

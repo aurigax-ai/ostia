@@ -1,3 +1,4 @@
+import { delimiter } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { paneShellEnv } from './terminalType'
 
@@ -42,5 +43,16 @@ describe('paneShellEnv', () => {
       OSTIA_NO_CODEX_HOOKS: '',
       COLORTERM: 'truecolor',
     })
+  })
+})
+
+describe('paneShellEnv launcher directory', () => {
+  it('prepends the launcher directory to PATH when one is given', () => {
+    const env = paneShellEnv({ ...parts, launcherDir: '/ud/bin' })
+    expect(env.PATH).toBe(`/ud/bin${delimiter}/bin`)
+  })
+
+  it('leaves PATH alone when no launcher directory is given', () => {
+    expect(paneShellEnv(parts).PATH).toBe('/bin')
   })
 })

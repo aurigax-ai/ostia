@@ -18,7 +18,7 @@ import {
 } from '../shared/claudeAttention'
 import type { OpenFilesResult } from '../shared/openFiles'
 import { SCRIPT_TOKEN_PREFIX } from '../shared/scriptTokens'
-import type { CommandResult } from '../shared/types'
+import type { CommandDescriptor, CommandResult } from '../shared/types'
 import type { WorkflowEntry, WorkflowListing } from '../shared/workflows'
 import { runAgentHook } from './agentHook'
 import { parseArgs } from './args'
@@ -26,6 +26,7 @@ import { runAskVerb } from './ask'
 import { runBrowse } from './browse'
 import { BUS_QUEUED_HINT, type BusSendOk, type SentMessage, runBusHook, sentLines } from './bus'
 import { runCmuxImportVerb } from './cmuxImport'
+import { commandHelp, wantsHelp } from './commandHelp'
 import { describeFailure } from './failure'
 import { type FileProbe, fileWord, isClaimedWord, parseFileArg, refusalLine } from './fileArgs'
 import { runManagerVerb } from './manager'
@@ -1395,6 +1396,15 @@ async function main(): Promise<void> {
       await runBrowse(conn, process.argv.slice(3))
     } else if (cmd === 'gateway') {
       await runGatewayVerb(conn)
+    } else if (cmd && wantsHelp(process.argv[3])) {
+      const list = await conn.sendRequest<CommandDescriptor[]>('command.list')
+      const found = list.find((c) => c.id === cmd)
+      if (found) {
+        console.log(commandHelp(found))
+      } else {
+        console.error(`ostia: unknown command '${cmd}' (try: ostia commands)`)
+        process.exitCode = 1
+      }
     } else if (cmd) {
       const raw = process.argv[3]
       const args = raw ? JSON.parse(raw) : undefined
