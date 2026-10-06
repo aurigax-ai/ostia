@@ -10,6 +10,13 @@ import {
 } from './blocks'
 import { inputEditorFor, terminalFor } from './terminalHandles'
 
+function raceLog(...args: unknown[]): void {
+  const g = globalThis as { __race?: string[] }
+  g.__race ??= []
+  g.__race.push(args.map((a) => (typeof a === 'string' ? a : JSON.stringify(a))).join(' '))
+}
+
+
 export type BlockPart = 'command' | 'output' | 'both'
 
 function findBlock(paneId: string, blockId?: string): CommandBlock | undefined {
@@ -115,9 +122,9 @@ export function runWhenIdle(
     if (done || !atReadyPrompt(paneId)) return
     stop()
     const ok = insertCommand(paneId, command, true)
-    console.log('[race] runWhenIdle insert', paneId, Date.now(), ok)
+    raceLog('[race] runWhenIdle insert', paneId, Date.now(), ok)
   }
-  console.log('[race] runWhenIdle start', paneId, Date.now())
+  raceLog('[race] runWhenIdle start', paneId, Date.now())
   const unsubscribe = useBlocksStore.subscribe(attempt)
   const timer = setTimeout(stop, timeoutMs)
   attempt()

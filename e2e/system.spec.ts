@@ -72,14 +72,14 @@ for (const run of [...Array(25).keys()]) test(`ostia system install asks the hum
         timeout: 20_000,
       })
     } catch (err) {
-      dumpRace()
+      const trace = await win.evaluate(() => (globalThis as { __race?: string[] }).__race ?? [])
+      process.stdout.write(`===TRACE\n${trace.join('\n')}\n===ENDTRACE\n`)
       const texts = await win.evaluate(() =>
         [...document.querySelectorAll('.xterm-rows')].map((r) => r.textContent),
       )
       process.stdout.write(`===ROWS\n${JSON.stringify(texts)}\n`)
       throw err
     }
-    if (test.info().title.endsWith('#0')) dumpRace()
     const term = await win.evaluate(() => document.querySelectorAll('.xterm-rows').length)
     process.stdout.write(`rows ${term}\n`)
     const agentRows = win.locator('.xterm-rows').filter({ hasText: 'e2e-check' })

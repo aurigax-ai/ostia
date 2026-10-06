@@ -75,6 +75,13 @@ import { TerminalFind, findOptions } from './TerminalFind'
 import { TerminalMenu } from './TerminalMenu'
 import { isPromptRepaint, nextSizeAction, settleFit } from './terminalSizing'
 
+function raceLog(...args: unknown[]): void {
+  const g = globalThis as { __race?: string[] }
+  g.__race ??= []
+  g.__race.push(args.map((a) => (typeof a === 'string' ? a : JSON.stringify(a))).join(' '))
+}
+
+
 const FOCUS_REPORTS = new Set(['\x1b[I', '\x1b[O'])
 
 export function TerminalView({
@@ -452,7 +459,7 @@ export function TerminalView({
     const oscBlocks = term.parser.registerOscHandler(133, (data) => {
       const [kind, arg] = data.split(';')
       const blocks = useBlocksStore.getState()
-      console.log('[race] mark', kind, paneId, Date.now())
+      raceLog('[race] mark', kind, paneId, Date.now())
       if (kind === 'A') {
         promptMarker?.dispose()
         promptMarker = term.registerMarker(0)
@@ -460,7 +467,7 @@ export function TerminalView({
         reportedCommand = null
         blocks.promptStart(paneId, anchor(), remote ? null : cwdRef.current, remote)
       } else if (kind === 'B') {
-        console.log('[race] mark B', paneId, Date.now())
+        raceLog('[race] mark B', paneId, Date.now())
         inputAnchor = anchor()
         inputCol = term.buffer.active.cursorX
         blocks.promptEnd(paneId, inputAnchor)
@@ -501,7 +508,7 @@ export function TerminalView({
     let holdDims = { cols: 0, rows: 0 }
     markPaneActivity(paneId)
     const offData = window.ostia.pty.onData(paneId, (d) => {
-      if (d.length > 1) console.log(
+      raceLog(
         '[race] data',
         paneId,
         Date.now(),
@@ -526,7 +533,7 @@ export function TerminalView({
     })
 
     const attachAtCurrentSize = (cols: number, rows: number): void => {
-      console.log('[race] attach', paneId, Date.now(), cols, rows)
+      raceLog('[race] attach', paneId, Date.now(), cols, rows)
       attached = true
       lastSizeRef.current = { cols, rows }
       const flushPending = (): void => {
@@ -574,7 +581,7 @@ export function TerminalView({
       if (action.type === 'attach') {
         attachAtCurrentSize(action.cols, action.rows)
       } else if (action.type === 'resize') {
-        console.log('[race] resize', paneId, Date.now(), action.cols, action.rows)
+        raceLog('[race] resize', paneId, Date.now(), action.cols, action.rows)
         lastSizeRef.current = { cols: action.cols, rows: action.rows }
         window.ostia.pty.resize(paneId, action.cols, action.rows)
       }
@@ -590,7 +597,7 @@ export function TerminalView({
       if (disposed) return
       const redraw = held.join('')
       held = []
-      console.log(
+      raceLog(
         '[race] flush',
         paneId,
         Date.now(),
@@ -633,7 +640,7 @@ export function TerminalView({
               draftRow >= 1 && draftRow <= term.rows ? Math.min(draftRow, cursorRow) : cursorRow
             holdDims = { cols: dims.cols, rows: dims.rows }
             holdForRedraw = true
-            console.log('[race] hold', paneId, Date.now(), dims.cols, dims.rows)
+            raceLog('[race] hold', paneId, Date.now(), dims.cols, dims.rows)
             lastSizeRef.current = { cols: dims.cols, rows: dims.rows }
             window.ostia.pty.resize(paneId, dims.cols, dims.rows)
             holdCapTimer = setTimeout(flushHold, 150)
@@ -645,7 +652,7 @@ export function TerminalView({
     }
 
     const input = term.onData((d) => {
-      if (d.length > 1) console.log('[race] write', paneId, Date.now(), JSON.stringify(d.slice(0, 200)))
+      raceLog('[race] write', paneId, Date.now(), JSON.stringify(d.slice(0, 200)))
       window.ostia.pty.write(paneId, d)
       if (!FOCUS_REPORTS.has(d)) markPaneActivity(paneId)
       if (!FOCUS_REPORTS.has(d) && useBlocksStore.getState().selected[paneId]) {
