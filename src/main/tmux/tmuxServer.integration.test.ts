@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process'
 import { chmodSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
+import { Terminal } from '@xterm/headless'
 import { afterAll, afterEach, describe, expect, it, vi } from 'vitest'
 import { programPath } from '../systemRequirements'
 import { type TmuxPane, TmuxServer, TmuxSocketDirError, serverEnv } from './tmuxServer'
@@ -44,6 +45,18 @@ async function until(check: () => boolean, ms = 5000): Promise<void> {
     if (Date.now() > end) throw new Error('timed out')
     await new Promise((r) => setTimeout(r, 20))
   }
+}
+
+async function rendered(...chunks: string[]): Promise<string> {
+  const term = new Terminal({ cols: 80, rows: 24, scrollback: 10_000 })
+  for (const chunk of chunks) await new Promise<void>((resolve) => term.write(chunk, resolve))
+  const buffer = term.buffer.active
+  const lines: string[] = []
+  for (let y = 0; y < buffer.length; y++) {
+    lines.push(buffer.getLine(y)?.translateToString(true) ?? '')
+  }
+  term.dispose()
+  return lines.join('\n')
 }
 
 function spawnSh(server: TmuxServer, script: string, cols = 80, rows = 24): Promise<TmuxPane> {
@@ -162,7 +175,8 @@ describe('TmuxServer', () => {
     const screen = await pane.snapshot(80, 24)
     pane.live()
     await until(() => after.includes('n3999') || screen.includes('n3999'))
-    const numbers = [...`${screen}\n${after}`.matchAll(/n(\d+)/g)].map((m) => Number(m[1]))
+    const shown = await rendered(screen, after)
+    const numbers = [...shown.matchAll(/n(\d+)/g)].map((m) => Number(m[1]))
     const first = numbers[0] ?? 0
     expect(numbers).toEqual(Array.from({ length: 4000 - first }, (_, i) => first + i))
   })
