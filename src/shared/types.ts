@@ -829,9 +829,23 @@ export interface GatewayStatus {
   deviceCount: number
 }
 
+export type GatewayRoute = { kind: 'tailnet' } | { kind: 'address'; address: string }
+
+export interface GatewayBindAddress {
+  address: string
+  iface: string
+}
+
 export interface GatewayRemoteStatus extends GatewayStatus {
   tailnet: GatewayTailnetState
+  route: GatewayRoute
 }
+
+export type GatewayEnableResponse = GatewayRemoteStatus | { error: 'address-unavailable' }
+
+export type GatewaySetRouteResult =
+  | { ok: true; route: GatewayRoute }
+  | { ok: false; error: 'not-a-window' | 'running' | 'unknown-address' }
 
 export interface GatewayPairResult {
   v: 1
@@ -861,7 +875,7 @@ export type GatewaySetCapResult =
   | { ok: false; error: 'not-found' | 'invalid-cap' | 'requires-command' }
 
 export interface GatewayApi {
-  enable: () => Promise<GatewayRemoteStatus>
+  enable: () => Promise<GatewayEnableResponse>
   disable: () => Promise<GatewayRemoteStatus>
   pair: () => Promise<GatewayPairResponse>
   status: () => Promise<GatewayRemoteStatus>
@@ -872,6 +886,8 @@ export interface GatewayApi {
     cap: PhoneGrantableCap,
     granted: boolean,
   ) => Promise<GatewaySetCapResult>
+  bindAddresses: () => Promise<GatewayBindAddress[]>
+  setRoute: (route: GatewayRoute) => Promise<GatewaySetRouteResult>
   tailnetSignIn: () => Promise<GatewayTailnetActionResult>
   tailnetSignOut: () => Promise<GatewayTailnetActionResult>
   onTailnetChanged: (cb: (state: GatewayTailnetState) => void) => () => void

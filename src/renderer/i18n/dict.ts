@@ -2733,7 +2733,15 @@ export const en = {
     remoteDesc: 'Pair a phone or another device to control this desktop remotely. Off by default.',
     remoteEnable: 'Enable remote access',
     remoteEnableDesc:
-      'Lets the {product} phone app reach this computer through your own Tailscale tailnet. Nothing listens on your local network.',
+      'Lets the {product} phone app reach this computer, through your own Tailscale tailnet or an address you pick.',
+    remoteRoute: 'Connect through',
+    remoteRouteDesc: 'How the phone reaches this computer. Change it while remote access is off.',
+    remoteRouteTailnet: 'Tailscale ({product}’s own node)',
+    remoteRouteAddress: '{iface} · {address}',
+    remoteRouteMissing: '{address} (not available)',
+    remoteAddressWarning:
+      'Listens on {address}. Anyone who can reach that address can ask to pair; pairing still needs the code shown here.',
+    remoteAddressUnavailable: '{address} is no longer on this computer. Pick another address.',
     remoteTailscale: 'Tailscale',
     remoteTailscaleDesc:
       'Install Tailscale on the phone and sign in to the same tailnet. There is no hosted relay and no {product} account.',
@@ -2758,6 +2766,9 @@ export const en = {
     remotePairButton: 'Show pairing code',
     remotePairing: 'Starting…',
     remotePairExpires: 'Expires in {n}s',
+    remotePairCode: 'Pair code',
+    remotePairAddress: 'Address',
+    remotePairDetails: 'Connection details',
     remotePairExpired: 'Pairing code expired. Pair again to get a new one.',
     remoteCopy: 'Copy',
     remoteCopied: 'Copied',
@@ -5447,7 +5458,15 @@ export const zhHant: Dict = {
     remoteDesc: '配對手機或其他裝置以遠端控制此桌面。預設為關閉。',
     remoteEnable: '啟用遠端存取',
     remoteEnableDesc:
-      '讓 {product} 手機應用程式透過您自己的 Tailscale tailnet 連到這台電腦。不會在區域網路上開放任何連接埠。',
+      '讓 {product} 手機應用程式透過您自己的 Tailscale tailnet 或您選擇的位址連到這台電腦。',
+    remoteRoute: '連線方式',
+    remoteRouteDesc: '手機如何連到這台電腦。請在遠端存取關閉時變更。',
+    remoteRouteTailnet: 'Tailscale（{product} 自己的節點）',
+    remoteRouteAddress: '{iface} · {address}',
+    remoteRouteMissing: '{address}（無法使用）',
+    remoteAddressWarning:
+      '在 {address} 上接聽。任何能連到該位址的人都可以要求配對；配對仍需要此處顯示的代碼。',
+    remoteAddressUnavailable: '這台電腦已沒有 {address}。請選擇其他位址。',
     remoteTailscale: 'Tailscale',
     remoteTailscaleDesc:
       '在手機上安裝 Tailscale 並登入同一個 tailnet。不經過任何雲端中繼，也不需要 {product} 帳號。',
@@ -5470,6 +5489,9 @@ export const zhHant: Dict = {
     remotePairButton: '顯示配對碼',
     remotePairing: '啟動中…',
     remotePairExpires: '將於 {n} 秒後失效',
+    remotePairCode: '配對碼',
+    remotePairAddress: '位址',
+    remotePairDetails: '連線詳細資料',
     remotePairExpired: '配對代碼已失效，請重新配對以取得新代碼。',
     remoteCopy: '複製',
     remoteCopied: '已複製',

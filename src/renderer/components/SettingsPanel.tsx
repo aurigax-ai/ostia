@@ -946,6 +946,7 @@ export function ControlRow({
   error,
   errorId,
   labelHint,
+  below,
   children,
 }: {
   label: string
@@ -953,7 +954,8 @@ export function ControlRow({
   error?: string | null
   errorId?: string
   labelHint?: React.ReactNode
-  children: React.ReactNode
+  below?: React.ReactNode
+  children?: React.ReactNode
 }): JSX.Element {
   const search = useSearchRow([label, desc])
   return (
@@ -986,10 +988,13 @@ export function ControlRow({
             {error}
           </p>
         ) : null}
+        {below ? <div className="mt-1.5">{below}</div> : null}
       </div>
-      <div className="flex shrink-0 items-center gap-2">
-        <SearchScopeProvider value={search.scope}>{children}</SearchScopeProvider>
-      </div>
+      {children ? (
+        <div className="flex shrink-0 items-center gap-2">
+          <SearchScopeProvider value={search.scope}>{children}</SearchScopeProvider>
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -1000,18 +1005,20 @@ export function SelectField<T extends string>({
   options,
   label,
   width = 'w-fit min-w-44 max-w-80',
+  disabled,
 }: {
   value: T
   onChange: (v: T) => void
   options: { value: T; label: string }[]
   label: string
   width?: string
+  disabled?: boolean
 }): JSX.Element {
   const current = options.find((o) => o.value === value)?.label ?? value
   useSearchLeaf(options.map((o) => o.label))
   return (
     <Select value={value} onValueChange={(v) => onChange(v as T)}>
-      <SelectTrigger size="sm" aria-label={label} className={width}>
+      <SelectTrigger size="sm" aria-label={label} className={width} disabled={disabled}>
         <span className="min-w-0 truncate">
           <Highlight text={current} />
         </span>

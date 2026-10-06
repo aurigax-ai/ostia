@@ -91,10 +91,13 @@ import type {
   FsBinaryResult,
   FsEntry,
   FsKind,
+  GatewayBindAddress,
   GatewayDevice,
+  GatewayEnableResponse,
   GatewayPairResponse,
   GatewayRemoteStatus,
   GatewaySetCapResult,
+  GatewaySetRouteResult,
   GatewayTailnetActionResult,
   GatewayTailnetState,
   ManagerOpenPaneRequest,
@@ -870,7 +873,7 @@ const bridge: OstiaBridge = {
     open: (req) => ipcRenderer.invoke('editor:open-external', req) as Promise<ExternalEditorResult>,
   },
   gateway: {
-    enable: () => ipcRenderer.invoke('gateway:enable') as Promise<GatewayRemoteStatus>,
+    enable: () => ipcRenderer.invoke('gateway:enable') as Promise<GatewayEnableResponse>,
     disable: () => ipcRenderer.invoke('gateway:disable') as Promise<GatewayRemoteStatus>,
     pair: () => ipcRenderer.invoke('gateway:pair') as Promise<GatewayPairResponse>,
     status: () => ipcRenderer.invoke('gateway:status') as Promise<GatewayRemoteStatus>,
@@ -886,6 +889,10 @@ const bridge: OstiaBridge = {
         cap,
         granted,
       }) as Promise<GatewaySetCapResult>,
+    bindAddresses: () =>
+      ipcRenderer.invoke('gateway:bind-addresses') as Promise<GatewayBindAddress[]>,
+    setRoute: (route) =>
+      ipcRenderer.invoke('gateway:set-route', route) as Promise<GatewaySetRouteResult>,
     tailnetSignIn: () =>
       ipcRenderer.invoke('gateway:tailnet-sign-in') as Promise<GatewayTailnetActionResult>,
     tailnetSignOut: () =>
