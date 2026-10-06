@@ -23,7 +23,7 @@ import { WorkZone } from './components/WorkZone'
 import { WorkflowPicker } from './components/WorkflowPicker'
 import { TooltipProvider } from './components/ui/tooltip'
 import { runAppChord } from './lib/chords'
-import { confirmQuit, quitGroups } from './lib/closeConfirm'
+import { collectQuitGroups, confirmQuit } from './lib/closeConfirm'
 import { handleDocumentClipboardChord, syncClipboardChords } from './lib/documentClipboard'
 import { wireGuestChords } from './lib/guestChordBridge'
 import { installMiddlePasteGuard } from './lib/middlePaste'
@@ -96,7 +96,7 @@ export function App(): JSX.Element {
 
   useEffect(() => {
     const offs = [
-      window.ostia.window.onRunningQuery((kept) => quitGroups(new Set(kept))),
+      window.ostia.window.onRunningQuery((kept) => collectQuitGroups(new Set(kept))),
       window.ostia.window.onConfirmClose(confirmQuit),
       window.ostia.window.onFreeze(freezeSnapshots),
     ]

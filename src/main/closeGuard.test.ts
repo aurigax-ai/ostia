@@ -90,6 +90,17 @@ describe('parseRunningGroups', () => {
     ])
   })
 
+  it('keeps the agents a window names apart from its shell commands', () => {
+    const groups = parseRunningGroups([
+      { workspaceId: 'w1', workspace: 'api', commands: [], agents: ['claude', 3], files: [] },
+      { workspaceId: 'w2', workspace: 'web', commands: ['make'], agents: 'claude', files: [] },
+    ])
+    expect(groups).toEqual([
+      { workspaceId: 'w1', workspace: 'api', commands: [], agents: ['claude'], files: [] },
+      { workspaceId: 'w2', workspace: 'web', commands: ['make'], files: [] },
+    ])
+  })
+
   it('treats anything but an array as nothing running', () => {
     expect(parseRunningGroups(undefined)).toEqual([])
     expect(parseRunningGroups({ workspaceId: 'w1' })).toEqual([])
@@ -102,11 +113,13 @@ describe('withScratchFiles', () => {
       { workspaceId: 'w1', workspace: 'Scratch', commands: [], files: [], scratchFiles: 999 },
       { workspaceId: 'w2', workspace: 'Scratch 2', commands: [], files: [] },
       { workspaceId: 'w3', workspace: 'api', commands: ['sleep 100'], files: [] },
+      { workspaceId: 'w4', workspace: 'agents', commands: [], agents: ['codex'], files: [] },
     ])
     const counts: Record<string, number> = { w1: 2, w2: 0 }
     expect(withScratchFiles(groups, (id) => counts[id] ?? 0)).toEqual([
       { workspaceId: 'w1', workspace: 'Scratch', commands: [], files: [], scratchFiles: 2 },
       { workspaceId: 'w3', workspace: 'api', commands: ['sleep 100'], files: [] },
+      { workspaceId: 'w4', workspace: 'agents', commands: [], agents: ['codex'], files: [] },
     ])
   })
 })

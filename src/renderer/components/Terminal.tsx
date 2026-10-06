@@ -3,7 +3,7 @@ import { FitAddon } from '@xterm/addon-fit'
 import { SearchAddon } from '@xterm/addon-search'
 import { Unicode11Addon } from '@xterm/addon-unicode11'
 import { WebLinksAddon } from '@xterm/addon-web-links'
-import { type FontWeight, type IMarker, Terminal as Xterm } from '@xterm/xterm'
+import { type FontWeight, type IBufferRange, type IMarker, Terminal as Xterm } from '@xterm/xterm'
 import { keptShellReattached } from '../lib/autoResume'
 import { silenceQueryReplies } from '../lib/tmuxQueries'
 import '@xterm/xterm/css/xterm.css'
@@ -25,7 +25,15 @@ import { bellActions, createBellThrottle } from '../lib/bell'
 import { canTypeInto, insertCommand, selectedBlockOutput, stepBlock } from '../lib/blockActions'
 import { decodeCommandLine, readCommandText } from '../lib/blockText'
 import { openBrowserAs } from '../lib/browserProfile'
-import { isAppChord, isBrowserChord, isTerminalCommandChord, matchChord } from '../lib/chords'
+import {
+  execChord,
+  findStep,
+  isAppChord,
+  isBrowserChord,
+  isTerminalCommandChord,
+  matchChord,
+  matchTerminalChord,
+} from '../lib/chords'
 import {
   PROGRAM_PASTE_KEY,
   keyPastePlan,
@@ -35,7 +43,14 @@ import {
 import { currentScheme, terminalTheme, useScheme } from '../lib/colorScheme'
 import { acceptsPathDrop, droppedPaths, pathsAsInput } from '../lib/dropPaths'
 import { terminalKeyData } from '../lib/keyPresets'
-import { attachLinkModifier, linkModifierHeld, linkTarget } from '../lib/linkModifier'
+import {
+  type LinkKind,
+  attachLinkClaim,
+  attachLinkModifier,
+  linkModifierHeld,
+  linkSpan,
+  linkTarget,
+} from '../lib/linkModifier'
 import { openFileAt } from '../lib/openFile'
 import { isLocalHost, parseOsc7 } from '../lib/osc7'
 import { registerOsc52 } from '../lib/osc52'
@@ -76,10 +91,12 @@ import { InputEditor } from './InputEditor'
 import { RiskyPasteDialog } from './RiskyPasteDialog'
 import { useSelectionSend } from './SelectionSend'
 import { TerminalFind, findOptions } from './TerminalFind'
+import { type LinkHintBox, TerminalLinkHint } from './TerminalLinkHint'
 import { TerminalMenu } from './TerminalMenu'
 import { isPromptRepaint, nextSizeAction, settleFit } from './terminalSizing'
 
 const FOCUS_REPORTS = new Set(['\x1b[I', '\x1b[O'])
+const LINK_HINT_DELAY_MS = 400
 
 export function TerminalView({
   workspaceId,
@@ -110,7 +127,9 @@ export function TerminalView({
   const pasteClipboardRef = useRef<() => void>(() => {})
   const [pendingPaste, setPendingPaste] = useState<string | null>(null)
   const [search, setSearch] = useState<SearchAddon | null>(null)
+  const [linkHint, setLinkHint] = useState<LinkHintBox | null>(null)
   const [findOpen, setFindOpen] = useState(false)
+  const findStepRef = useRef<((by: number) => void) | null>(null)
   const [alternateScreen, setAlternateScreen] = useState(false)
   const [suppressedPrompt, setSuppressedPrompt] = useState<LineAnchor | null>(null)
   const searchOptions = useMemo(() => findOptions(palette), [palette])
@@ -159,14 +178,47 @@ export function TerminalView({
     term.loadAddon(fit)
     term.loadAddon(new Unicode11Addon())
     term.unicode.activeVersion = '11'
+    let hoveredLink = false
+    let linkHintTimer: ReturnType<typeof setTimeout> | null = null
+    const showLinkHint = (kind: LinkKind, range: IBufferRange): void => {
+      hoveredLink = true
+      if (linkHintTimer) clearTimeout(linkHintTimer)
+      linkHintTimer = setTimeout(() => {
+        const cells = measureCells(host, term)
+        if (!cells) return
+        const span = linkSpan(range, term.buffer.active.viewportY, term.cols)
+        setLinkHint({
+          kind,
+          left: cells.left + span.start * cells.width,
+          top: cells.top + span.row * cells.height,
+          width: (span.end - span.start) * cells.width,
+          height: cells.height,
+        })
+      }, LINK_HINT_DELAY_MS)
+    }
+    const hideLinkHint = (): void => {
+      hoveredLink = false
+      if (linkHintTimer) clearTimeout(linkHintTimer)
+      linkHintTimer = null
+      setLinkHint(null)
+    }
+    const openWebLink = (e: MouseEvent, uri: string): void => {
+      if (!linkModifierHeld(e, isMac)) return
+      if (linkTarget(useSettingsStore.getState().browser.openTerminalLinks, e) === 'pane') {
+        openBrowserAs(workspaceIdRef.current, uri, 'human')
+      } else {
+        window.open(uri, '_blank')
+      }
+    }
+    term.options.linkHandler = {
+      activate: openWebLink,
+      hover: (_e, _text, range) => showLinkHint('web', range),
+      leave: hideLinkHint,
+    }
     term.loadAddon(
-      new WebLinksAddon((e, uri) => {
-        if (!linkModifierHeld(e, isMac)) return
-        if (linkTarget(useSettingsStore.getState().browser.openTerminalLinks, e) === 'pane') {
-          openBrowserAs(workspaceIdRef.current, uri, 'human')
-        } else {
-          window.open(uri, '_blank')
-        }
+      new WebLinksAddon(openWebLink, {
+        hover: (_e, _text, range) => showLinkHint('web', range),
+        leave: hideLinkHint,
       }),
     )
     const searchAddon = new SearchAddon()
@@ -176,6 +228,11 @@ export function TerminalView({
     attachWheelReports(term, () => measureCells(host, term)?.height ?? 0, isLinux)
     const detachWheelZoom = attachWheelZoom(host, 'terminal', isMac)
     const detachLinkModifier = attachLinkModifier(host, isMac)
+    const linkScreen = host.querySelector('.xterm-screen')
+    const detachLinkClaim =
+      linkScreen instanceof HTMLElement
+        ? attachLinkClaim(linkScreen, (e) => hoveredLink && linkModifierHeld(e, isMac))
+        : () => {}
     termRef.current = term
     setSearch(searchAddon)
     const unregisterTerminal = registerTerminal(paneId, term)
@@ -261,7 +318,16 @@ export function TerminalView({
         }
         return false
       }
-      const chord = matchChord(e, isMac)
+      const scoped = matchTerminalChord(e, isMac)
+      if (scoped && e.type === 'keydown') e.stopPropagation()
+      if (isAppChord(scoped)) {
+        if (e.type === 'keydown') {
+          e.preventDefault()
+          execChord(scoped, e)
+        }
+        return false
+      }
+      const chord = scoped ?? matchChord(e, isMac)
       if (!chord || isBrowserChord(chord)) {
         const sent = terminalKeyData(e, isMac)
         if (sent && !inputEditorFor(paneId)) {
@@ -285,8 +351,12 @@ export function TerminalView({
       if (isMac && clipboard && isNativeClipboardKey(e)) return true
       if (e.type !== 'keydown' || isAppChord(chord)) return false
       e.preventDefault()
+      const findBy = findStep(chord)
       if (chord === 'find') setFindOpen(true)
-      else if (chord === 'block.selectPrev') stepBlock(paneId, 'prev')
+      else if (findBy !== null) {
+        if (findStepRef.current) findStepRef.current(findBy)
+        else setFindOpen(true)
+      } else if (chord === 'block.selectPrev') stepBlock(paneId, 'prev')
       else if (chord === 'block.selectNext') stepBlock(paneId, 'next')
       else if (isTerminalCommandChord(chord)) void commands.exec(chord)
       else if (chord === 'copy') {
@@ -407,6 +477,8 @@ export function TerminalView({
         stat: (path) => window.ostia.fs.stat(path),
         open: openFileAt,
         modifierHeld: (e) => linkModifierHeld(e, isMac),
+        hover: (range) => showLinkHint('file', range),
+        leave: hideLinkHint,
       }),
     )
     const copySelection = term.onSelectionChange(() => {
@@ -695,6 +767,9 @@ export function TerminalView({
       fileLinks.dispose()
       detachWheelZoom()
       detachLinkModifier()
+      detachLinkClaim()
+      if (linkHintTimer) clearTimeout(linkHintTimer)
+      setLinkHint(null)
       titleChange.dispose()
       titles.cancel()
       promptMarker?.dispose()
@@ -827,10 +902,12 @@ export function TerminalView({
           onNeedRows={makeRows}
         />
         <AssistComposer paneId={paneId} cwd={cwd} termRef={termRef} />
+        <TerminalLinkHint hint={linkHint} />
         {findOpen && search && (
           <TerminalFind
             search={search}
             options={searchOptions}
+            stepRef={findStepRef}
             onClose={() => {
               setFindOpen(false)
               termRef.current?.focus()

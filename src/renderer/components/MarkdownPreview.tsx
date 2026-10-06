@@ -1,7 +1,7 @@
 import { type KeyboardEvent, useEffect, useRef, useState } from 'react'
 import Markdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { matchChord } from '../lib/chords'
+import { findStep, matchChord } from '../lib/chords'
 import { sourceLinesOf, trackSelection } from '../lib/domSelection'
 import { isMac } from '../platform'
 import { DocumentFind } from './DocumentFind'
@@ -60,6 +60,7 @@ export function MarkdownPreview({
   const rootRef = useRef<HTMLDivElement>(null)
   const articleRef = useRef<HTMLElement>(null)
   const [finding, setFinding] = useState(false)
+  const findStepRef = useRef<((by: number) => void) | null>(null)
   const onChangeRef = useRef(onSelectionChange)
   onChangeRef.current = onSelectionChange
 
@@ -77,7 +78,15 @@ export function MarkdownPreview({
   }, [])
 
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>): void => {
-    if (matchChord(e, isMac) !== 'find' && !isPlainFindKey(e)) return
+    const chord = matchChord(e, isMac)
+    const by = findStep(chord)
+    if (by !== null) {
+      e.preventDefault()
+      if (findStepRef.current) findStepRef.current(by)
+      else setFinding(true)
+      return
+    }
+    if (chord !== 'find' && !isPlainFindKey(e)) return
     e.preventDefault()
     setFinding(true)
   }
@@ -89,6 +98,7 @@ export function MarkdownPreview({
         <DocumentFind
           rootRef={articleRef}
           content={source}
+          stepRef={findStepRef}
           onClose={() => {
             setFinding(false)
             rootRef.current?.focus()

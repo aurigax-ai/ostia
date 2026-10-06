@@ -1,11 +1,10 @@
 import { CopyIcon } from '@phosphor-icons/react'
 import { PHONE_GRANTABLE_CAPS, type PhoneGrantableCap } from '@shared/capabilities'
 import type {
-  GatewayBindAddress,
-  GatewayBindKind,
   GatewayDevice,
   GatewayPairResult,
-  GatewayStatus,
+  GatewayRemoteStatus,
+  GatewayTailnetState,
 } from '@shared/types'
 import QRCode from 'qrcode'
 import { useCallback, useEffect, useState } from 'react'
@@ -21,24 +20,28 @@ import {
   DialogHeader,
   DialogTitle,
 } from './ui/dialog'
-import { Select, SelectContent, SelectItem, SelectTrigger } from './ui/select'
 import { Separator } from './ui/separator'
 import { Switch } from './ui/switch'
 import { Textarea } from './ui/textarea'
 
 const PAIR_CODE_TTL_S = 120
-const LOOPBACK = '127.0.0.1'
 
-function bindKindLabel(d: Dict, kind: GatewayBindKind): string {
-  if (kind === 'loopback') return d.settings.remoteBindLoopback
-  if (kind === 'lan') return d.settings.remoteBindLan
-  if (kind === 'tailscale') return d.settings.remoteBindTailscale
-  return d.settings.remoteBindCustom
+function tailnetSummary(d: Dict, node: GatewayTailnetState): string {
+  if (node.state === 'starting') return d.settings.remoteTailnetStarting
+  if (node.state === 'needs-login') return d.settings.remoteTailnetNeedsLogin
+  if (node.state === 'running') {
+    return fmt(d.settings.remoteTailnetRunning, { name: node.dnsName ?? '', ip: node.ip ?? '' })
+  }
+  return d.settings.remoteTailnetOff
 }
 
-function bindLabel(d: Dict, a: GatewayBindAddress): string {
-  const kind = bindKindLabel(d, a.kind)
-  return `${a.iface ? `${kind} (${a.iface})` : kind} · ${a.address}`
+function tailnetProblem(d: Dict, node: GatewayTailnetState): string | null {
+  if (node.state === 'running' && !node.ip) return d.settings.remoteTailnetNoIpv4
+  if (node.state !== 'error') return null
+  if (node.code === 'helper-stopped') return d.settings.remoteTailnetHelperStopped
+  if (node.code === 'state-dir-unsafe') return d.settings.remoteTailnetStateDirUnsafe
+  if (node.code === 'helper-unavailable') return d.settings.remoteTailnetUnavailable
+  return fmt(d.settings.remoteTailnetError, { code: node.code })
 }
 
 function capLabel(d: Dict, cap: PhoneGrantableCap): string {
@@ -81,13 +84,11 @@ function DeviceGrants({
 
 export function GatewaySection(): JSX.Element {
   const d = useDict()
-  const [status, setStatus] = useState<GatewayStatus | null>(null)
+  const [status, setStatus] = useState<GatewayRemoteStatus | null>(null)
+  const [tailnet, setTailnet] = useState<GatewayTailnetState>({ state: 'off' })
   const [devices, setDevices] = useState<GatewayDevice[]>([])
-  const [addresses, setAddresses] = useState<GatewayBindAddress[]>([])
-  const [host, setHost] = useState(LOOPBACK)
   const [confirmDevice, setConfirmDevice] = useState<GatewayDevice | null>(null)
-  const [warning, setWarning] = useState<string | null>(null)
-  const [toggling, setToggling] = useState(false)
+  const [signInError, setSignInError] = useState<string | null>(null)
   const [pairing, setPairing] = useState(false)
   const [pairResult, setPairResult] = useState<GatewayPairResult | null>(null)
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null)
@@ -100,15 +101,13 @@ export function GatewaySection(): JSX.Element {
       window.ostia.gateway.devices(),
     ])
     setStatus(nextStatus)
+    setTailnet(nextStatus.tailnet)
     setDevices(list)
   }, [])
 
   useEffect(() => {
     void refresh()
-    void window.ostia.gateway.bindOptions().then((opts) => {
-      setAddresses(opts.addresses)
-      setHost(opts.selected)
-    })
+    return window.ostia.gateway.onTailnetChanged(setTailnet)
   }, [refresh])
 
   useEffect(() => {
@@ -119,23 +118,35 @@ export function GatewaySection(): JSX.Element {
 
   const expired = pairResult !== null && secondsLeft <= 0
   const running = status?.running ?? false
+  const canPair = running && tailnet.state === 'running' && tailnet.ip !== null
+  const problem = tailnetProblem(d, tailnet)
 
   const onToggle = async (checked: boolean): Promise<void> => {
-    setToggling(true)
-    try {
-      if (checked) {
-        const result = await window.ostia.gateway.enable({ host })
-        setWarning(result.warning ?? null)
-      } else {
-        await window.ostia.gateway.disable()
-        setWarning(null)
-        setPairResult(null)
-        setQrDataUrl(null)
-      }
-    } finally {
-      setToggling(false)
-      await refresh()
+    setSignInError(null)
+    if (checked) {
+      await window.ostia.gateway.enable()
+    } else {
+      await window.ostia.gateway.disable()
+      setPairResult(null)
+      setQrDataUrl(null)
     }
+    await refresh()
+  }
+
+  const onSignIn = async (): Promise<void> => {
+    const result = await window.ostia.gateway.tailnetSignIn()
+    setSignInError(
+      !result.ok && result.error === 'login-link-refused'
+        ? d.settings.remoteTailnetLoginRefused
+        : null,
+    )
+  }
+
+  const onSignOut = async (): Promise<void> => {
+    await window.ostia.gateway.tailnetSignOut()
+    setPairResult(null)
+    setQrDataUrl(null)
+    await refresh()
   }
 
   const onPair = async (): Promise<void> => {
@@ -143,8 +154,8 @@ export function GatewaySection(): JSX.Element {
     setCopied(false)
     try {
       const result = await window.ostia.gateway.pair()
+      if ('error' in result) return
       setPairResult(result)
-      setWarning(result.warning ?? null)
       setSecondsLeft(PAIR_CODE_TTL_S)
       const dataUrl = await QRCode.toDataURL(JSON.stringify(result), { margin: 1, width: 220 })
       setQrDataUrl(dataUrl)
@@ -178,9 +189,6 @@ export function GatewaySection(): JSX.Element {
     if (device) await setCap(device.deviceId, 'destructive', true)
   }
 
-  const exposed = host !== LOOPBACK && host !== '::1' && host !== 'localhost'
-  const selectedAddress = addresses.find((a) => a.address === host)
-
   const onCopy = async (): Promise<void> => {
     if (!pairResult) return
     await navigator.clipboard.writeText(JSON.stringify(pairResult))
@@ -198,42 +206,25 @@ export function GatewaySection(): JSX.Element {
         onChange={(v) => void onToggle(v)}
       />
 
-      <ControlRow label={d.settings.remoteHost} desc={d.settings.remoteHostDesc}>
-        <Select value={host} onValueChange={(v) => setHost(String(v))}>
-          <SelectTrigger
-            size="sm"
-            aria-label={d.settings.remoteHost}
-            className="w-fit min-w-64 max-w-80"
-            disabled={running || toggling}
-          >
-            <span className="min-w-0 truncate">
-              {selectedAddress ? bindLabel(d, selectedAddress) : host}
-            </span>
-          </SelectTrigger>
-          <SelectContent>
-            {addresses.map((a) => (
-              <SelectItem key={a.address} value={a.address}>
-                {bindLabel(d, a)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </ControlRow>
-
-      {exposed && !warning ? (
-        <WarningNote>{fmt(d.settings.remoteExposedWarning, { host })}</WarningNote>
-      ) : null}
-
-      <ControlRow label={d.settings.remoteStatus}>
+      <ControlRow label={d.settings.remoteTailscale} desc={d.settings.remoteTailscaleDesc}>
         <span className="flex items-center gap-2 text-fg-muted text-ui-sm">
-          <span className={`dot ${running ? 'done' : ''}`} />
-          {running && status?.host
-            ? fmt(d.settings.remoteRunning, { host: `${status.host}:${status.port}` })
-            : d.settings.remoteStopped}
+          <span className={`dot ${tailnet.state === 'running' ? 'done' : ''}`} />
+          <span className="min-w-0 truncate">{tailnetSummary(d, tailnet)}</span>
+          {running && tailnet.state === 'needs-login' ? (
+            <Button variant="outline" size="sm" onClick={() => void onSignIn()}>
+              {d.settings.remoteTailnetSignIn}
+            </Button>
+          ) : null}
+          {tailnet.state === 'running' ? (
+            <Button variant="ghost" size="sm" onClick={() => void onSignOut()}>
+              {d.settings.remoteTailnetSignOut}
+            </Button>
+          ) : null}
         </span>
       </ControlRow>
 
-      {warning ? <WarningNote>{warning}</WarningNote> : null}
+      {problem ? <WarningNote>{problem}</WarningNote> : null}
+      {signInError ? <WarningNote>{signInError}</WarningNote> : null}
 
       <Separator className="my-3" />
 
@@ -242,7 +233,12 @@ export function GatewaySection(): JSX.Element {
           <div className="text-fg text-ui-base">{d.settings.remotePair}</div>
           <p className="mt-0.5 text-fg-muted text-ui-sm">{d.settings.remotePairDesc}</p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => void onPair()} disabled={pairing}>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => void onPair()}
+          disabled={pairing || !canPair}
+        >
           {pairing ? d.settings.remotePairing : d.settings.remotePairButton}
         </Button>
       </div>

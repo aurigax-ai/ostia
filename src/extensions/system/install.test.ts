@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { type InstallContext, parseInstallArgs, planInstall } from './install'
+import {
+  type InstallContext,
+  installOutcome,
+  installWaitMs,
+  parseInstallArgs,
+  planInstall,
+} from './install'
 import { stringsFor } from './strings'
 
 const s = stringsFor('en')
@@ -16,6 +22,11 @@ describe('parseInstallArgs', () => {
     expect(
       parseInstallArgs(['ripgrep', '--reason', 'search the repo', 'fd', '--manager', 'paru']),
     ).toEqual({ packages: ['ripgrep', 'fd'], manager: 'paru', reason: 'search the repo' })
+  })
+
+  it('reads --wait as a switch anywhere in the arguments', () => {
+    expect(parseInstallArgs(['--wait', 'zig'])).toEqual({ packages: ['zig'], wait: true })
+    expect(parseInstallArgs(['zig'])).toEqual({ packages: ['zig'] })
   })
 
   it('keeps a dangling flag as a package so validation rejects it', () => {
@@ -82,5 +93,36 @@ describe('planInstall', () => {
     })
     const root = planInstall({ packages: ['x'] }, { ...arch, hasSudo: false, isRoot: true }, s)
     expect(root.ok && root.plan.command).toBe('pacman -S --needed x')
+  })
+})
+
+describe('installOutcome', () => {
+  it('reports success only for exit code 0', () => {
+    expect(installOutcome({ outcome: 'finished', exitCode: 0 }, s)).toEqual({
+      ok: true,
+      message: s.installed,
+    })
+    expect(installOutcome({ outcome: 'finished', exitCode: 1 }, s)).toEqual({
+      ok: false,
+      error: 'install-failed',
+      message: s.installFailed(1),
+    })
+    expect(installOutcome({ outcome: 'finished' }, s)).toMatchObject({ error: 'install-failed' })
+  })
+
+  it('tells a closed terminal from one still running', () => {
+    expect(installOutcome({ outcome: 'closed' }, s)).toMatchObject({ error: 'terminal-closed' })
+    expect(installOutcome({ outcome: 'timeout' }, s)).toEqual({
+      ok: true,
+      message: s.installStillRunning,
+    })
+  })
+})
+
+describe('installWaitMs', () => {
+  it('waits what is left of the command budget after the human answered', () => {
+    expect(installWaitMs(0, 0)).toBe(570_000)
+    expect(installWaitMs(0, 60_000)).toBe(510_000)
+    expect(installWaitMs(0, 10 * 60_000)).toBe(1000)
   })
 })

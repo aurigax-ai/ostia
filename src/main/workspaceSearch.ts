@@ -29,6 +29,7 @@ export function parseSearchRequest(raw: unknown): SearchRequest | null {
     caseSensitive: r.caseSensitive === true,
     wholeWord: r.wholeWord === true,
     includeIgnored: r.includeIgnored === true,
+    ...(r.namesOnly === true ? { namesOnly: true } : {}),
   }
 }
 
@@ -44,12 +45,17 @@ export function folderPaths(files: readonly string[]): string[] {
   return [...folders]
 }
 
-export function nameHits(text: string, files: readonly string[], limit: number): SearchNameHit[] {
-  const foldersOnly = text.trimEnd().endsWith('/')
+export function nameHits(
+  text: string,
+  files: readonly string[],
+  limit: number,
+  filesOnly = false,
+): SearchNameHit[] {
+  const foldersOnly = !filesOnly && text.trimEnd().endsWith('/')
   const query = foldersOnly ? text.trimEnd().replace(/\/+$/, '') : text
   if (!query.trim()) return []
   const candidates = [
-    ...folderPaths(files).map((path) => ({ path, dir: true })),
+    ...(filesOnly ? [] : folderPaths(files).map((path) => ({ path, dir: true }))),
     ...(foldersOnly ? [] : files.map((path) => ({ path, dir: false }))),
   ]
   const hits: (SearchNameHit & { score: number })[] = []
@@ -114,6 +120,22 @@ export class WorkspaceSearch {
     const controller = new AbortController()
     this.running.set(caller, controller)
     try {
+      if (req.namesOnly) {
+        const list = await this.fileList(root, req.includeIgnored)
+        if (controller.signal.aborted) return { ok: false, error: 'cancelled', message: '' }
+        if (!list.ok) return list
+        return {
+          ok: true,
+          results: {
+            root,
+            names: nameHits(req.text, list.value.paths, NAME_LIMIT, true),
+            files: [],
+            pdfs: [],
+            matches: 0,
+            truncated: list.value.truncated,
+          },
+        }
+      }
       const [list, text] = await Promise.all([
         this.fileList(root, req.includeIgnored),
         searchText(this.bin, root, req, controller.signal),

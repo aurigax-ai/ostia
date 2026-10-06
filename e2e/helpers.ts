@@ -1,4 +1,4 @@
-import { type Locator, type Page, expect } from '@playwright/test'
+import { type ElectronApplication, type Locator, type Page, expect } from '@playwright/test'
 
 export const PROMPT = /[❯$%#]/
 
@@ -28,4 +28,33 @@ export async function waitForPaletteSelection(win: Page, title: string): Promise
 
 function escapeRegExp(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+export async function waitForExit(app: ElectronApplication): Promise<void> {
+  const proc = app.process()
+  if (proc.exitCode !== null || proc.signalCode !== null) return
+  await new Promise<void>((resolve) => proc.once('exit', () => resolve()))
+}
+
+async function dialogShown(win: Page): Promise<'asked' | null> {
+  try {
+    await win.getByRole('dialog').waitFor({ timeout: 30_000 })
+    return 'asked'
+  } catch {
+    return null
+  }
+}
+
+export async function pressQuit(app: ElectronApplication, win: Page): Promise<'quit' | 'asked'> {
+  const exited = waitForExit(app).then(() => 'quit' as const)
+  if (process.platform === 'darwin') {
+    await app
+      .evaluate(({ app: electronApp }) => {
+        setTimeout(() => electronApp.quit(), 0)
+      })
+      .catch(() => {})
+  } else {
+    await win.evaluate(() => window.ostia.window.quit()).catch(() => {})
+  }
+  return Promise.race([exited, dialogShown(win).then((shown) => shown ?? exited)])
 }

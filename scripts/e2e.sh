@@ -24,4 +24,4 @@ until [ -s "$display_file" ]; do
   sleep 0.05
 done
 
-DISPLAY=":$(cat "$display_file")" env -u WAYLAND_DISPLAY playwright test "$@"
+DISPLAY=":$(cat "$display_file")" env -u WAYLAND_DISPLAY -u XDG_SESSION_TYPE playwright test "$@"

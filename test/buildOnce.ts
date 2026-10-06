@@ -3,7 +3,7 @@ import { resolve } from 'node:path'
 
 export default function setup(): void {
   execSync(
-    'pnpm run build:cli && pnpm run build:redaction-worker && pnpm run build:extensions && pnpm run build:sdk && pnpm run build:marketplace',
+    'pnpm run build:cli && pnpm run build:tsnet && pnpm run build:redaction-worker && pnpm run build:extensions && pnpm run build:sdk && pnpm run build:marketplace',
     {
       cwd: resolve(__dirname, '..'),
       stdio: 'ignore',

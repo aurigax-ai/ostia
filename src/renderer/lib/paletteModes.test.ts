@@ -7,6 +7,8 @@ describe('paletteMode', () => {
     expect(paletteMode('>split')).toBe('commands')
     expect(paletteMode('@pay')).toBe('workspaces')
     expect(paletteMode('  #zsh')).toBe('tabs')
+    expect(paletteMode('/main')).toBe('files')
+    expect(paletteMode('%greet')).toBe('symbols')
   })
 
   it('searches everything without a prefix', () => {

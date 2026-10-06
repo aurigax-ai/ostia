@@ -95,12 +95,24 @@ export function macAppMenuTemplate(
   ]
 }
 
+export function linuxAppMenuTemplate(): MenuItemConstructorOptions[] {
+  return [
+    {
+      label: 'View',
+      submenu: [{ role: 'togglefullscreen' }, { role: 'toggleDevTools' }],
+    },
+  ]
+}
+
 export interface AppMenu {
   setSpec: (raw: unknown) => boolean
 }
 
 export function installAppMenu(platform: NodeJS.Platform, deps: AppMenuDeps): AppMenu {
-  if (platform !== 'darwin') return { setSpec: () => false }
+  if (platform !== 'darwin') {
+    Menu.setApplicationMenu(Menu.buildFromTemplate(linuxAppMenuTemplate()))
+    return { setSpec: () => false }
+  }
   app.setAboutPanelOptions({ applicationName: deps.productName })
   Menu.setApplicationMenu(Menu.buildFromTemplate(macAppMenuTemplate(deps)))
   let last = ''

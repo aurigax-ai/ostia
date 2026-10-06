@@ -121,6 +121,18 @@ describe('KeyboardSection', () => {
     useUIStore.setState({ paletteOpen: false })
   })
 
+  it('marks the chords that act only in a terminal', () => {
+    render(<KeyboardSection />)
+    const clear = within(row(/Clear Terminal/))
+    expect(clear.getByText('Ctrl+Shift+K')).toBeInTheDocument()
+    expect(clear.getByText('in a terminal')).toBeInTheDocument()
+    const zoom = within(row(/Zoom Pane/))
+    expect(zoom.getByText('Ctrl+Shift+Enter')).toBeInTheDocument()
+    expect(zoom.getByText('Ctrl+Shift+X')).toBeInTheDocument()
+    expect(zoom.getAllByText('in a terminal')).toHaveLength(1)
+    expect(within(row(/Command Palette/)).queryByText('in a terminal')).toBeNull()
+  })
+
   it('picks a keymap, lists the entries it skipped, and puts the user’s chords on top of it', async () => {
     useExtensionsStore.setState({ list: [keymapExtension] })
     vi.mocked(window.ostia.keymaps.load).mockResolvedValue({

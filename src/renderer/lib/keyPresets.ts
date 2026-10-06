@@ -19,7 +19,7 @@ import {
   sendData,
 } from '@shared/terminalKeys'
 import { useSettingsStore } from '../stores/settingsStore'
-import { isBrowserChord, matchChord } from './chords'
+import { isBrowserChord, matchChordInTerminal } from './chords'
 
 const envOf = (mac: boolean) => ({ platform: mac ? 'darwin' : 'linux' })
 
@@ -102,7 +102,7 @@ export function terminalKeyFor(spec: ChordSpec, mac: boolean): TerminalKeyRow | 
 }
 
 export function terminalKeyData(e: KeyLike, mac: boolean): string | null {
-  const chord = matchChord(e, mac)
+  const chord = matchChordInTerminal(e, mac)
   if (chord && !isBrowserChord(chord)) return null
   const spec = specFromEvent(e)
   return spec ? (terminalKeyFor(spec, mac)?.data ?? null) : null
