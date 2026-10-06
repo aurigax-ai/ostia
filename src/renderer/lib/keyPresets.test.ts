@@ -11,7 +11,7 @@ import { parseKeymapBindings } from '@shared/keymapFile'
 import { afterEach, describe, expect, it } from 'vitest'
 import { useKeymapStore } from '../stores/keymapStore'
 import { useSettingsStore } from '../stores/settingsStore'
-import { matchChord } from './chords'
+import { matchChord, matchChordInTerminal } from './chords'
 import {
   currentTerminalKeys,
   presetKeys,
@@ -210,7 +210,7 @@ describe('macOS (cmux) preset', () => {
         skipped: [],
       },
     })
-    expect(matchChord(key('ArrowLeft', { metaKey: true, altKey: true }), true)).toBe(
+    expect(matchChordInTerminal(key('ArrowLeft', { metaKey: true, altKey: true }), true)).toBe(
       'pane.focusLeft',
     )
     for (const [name, event, sent] of OSTIA_SENDS) {
@@ -265,9 +265,9 @@ describe('user terminal keys on top of the preset', () => {
 
   it('work on Linux too, on top of its own preset', () => {
     useSettingsStore.setState({
-      terminalKeys: { 'Ctrl+Shift+K': { type: 'escape', value: 'k' }, 'Ctrl+Backspace': null },
+      terminalKeys: { 'Ctrl+Shift+Y': { type: 'escape', value: 'y' }, 'Ctrl+Backspace': null },
     })
-    expect(terminalKeyData(key('K', { ctrlKey: true, shiftKey: true }), false)).toBe('\x1bk')
+    expect(terminalKeyData(key('Y', { ctrlKey: true, shiftKey: true }), false)).toBe('\x1by')
     expect(terminalKeyData(key('Backspace', { ctrlKey: true }), false)).toBeNull()
     expect(terminalKeyData(key('ArrowLeft', { ctrlKey: true }), false)).toBe('\x1bb')
     expect(terminalKeyData(key('ArrowLeft', cmd), false)).toBeNull()

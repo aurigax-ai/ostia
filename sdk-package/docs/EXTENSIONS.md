@@ -363,18 +363,23 @@ other editors' keybindings. It is data only: a manifest entry and one JSON file,
 }
 ```
 
-The file maps command ids to chords, or to `null` to unbind a command:
+The file maps command ids to a chord, a list of chords that all run the command (menus and
+hints show the first one that works everywhere), or `null` to unbind a command:
 
 ```json
 {
   "bindings": {
-    "pane.splitRight": "Cmd+D",
-    "pane.splitDown": "Cmd+Shift+D",
+    "pane.splitRight": "terminal:Cmd+D",
+    "pane.splitDown": "terminal:Cmd+Shift+D",
+    "tab.next": ["Ctrl+Tab", "Shift+Cmd+]"],
     "dashboard.toggle": "Cmd+Alt+D",
     "view.toggleRail": null
   }
 }
 ```
+
+A list replaces all of the command's default chords. A chord in a list that the computer can't
+use is skipped and reported; the rest of the list still applies.
 
 Chords are written as in the `keybindings` setting: modifiers `Ctrl`, `Shift`, `Alt` (`Option`),
 `Cmd` (`Meta`, `Super`) and `Mod` (Cmd on macOS, Ctrl elsewhere), then one key (`A`–`Z`, `0`–`9`,
@@ -382,6 +387,12 @@ Chords are written as in the `keybindings` setting: modifiers `Ctrl`, `Shift`, `
 `Home`, `End`, `PageUp`, `PageDown`, `Insert`); `workspace.goto` takes the range `1-9` and no
 other command does. A command id is any palette command, including another extension's
 (`<extId>.<command>`). Commands the file does not name keep their default.
+
+A chord written with the `terminal:` prefix (`"terminal:Cmd+D"`) runs the command only while a
+terminal has the focus. Everywhere else the key keeps its other use: the editor, the browser
+and the other panels never see it as this command, and a chord bound without the prefix to
+another command still runs there. Ostia's own defaults use this for ⌘K, which clears the
+terminal in a terminal and opens the palette everywhere else.
 
 Nothing changes until the human picks the keymap in Settings → Keyboard → Keymap; the choice is
 the `keymap` setting, `"<extension id>/<keymap id>"` (`"keymap-macos/cmux"`), and `null`, the
@@ -813,7 +824,7 @@ Connect to the unix socket and speak JSON-RPC 2.0 with LSP-style framing
 |---|---|---|
 | `ext.registerCommands` | `{commands: (string \| CommandContribution)[]}` | Returns `{ok, commands}`. |
 | `ext.subscribe` | `{events: string[]}` | `pane.created`, `pane.closed`, `command.started`, `command.finished`, `cwd.changed`, `focus.changed` need `read-board`; `notification` needs `notify`. |
-| `ext.setSidebarItem` | `{key?, workspaceId?, text, icon?, tone?, kind?, url?}` | With `workspaceId` it shows on that workspace's row, without it in the sidebar footer. `tone`: `neutral`, `brand`, `ok`, `warn`, `error`. `kind` places a row item: `location` (where the workspace is, like a branch) shares the line with the folder; `live` (the default; what is running, like ports or counts) goes on the line below, where items that don't fit fold into a `+N` popover. The footer ignores `kind`. Empty `text` removes the item. 80 chars, 32 items. With an http(s) `url` the item is a link: clicking it switches to that workspace and opens the URL in its browser pane. |
+| `ext.setSidebarItem` | `{key?, workspaceId?, text, icon?, badge?, tone?, kind?, url?}` | `badge` (1-6 letters or digits, e.g. `SSH`) shows as a small outlined label before `text`, to say what kind of thing the item is; anything else is ignored. With `workspaceId` it shows on that workspace's row, without it in the sidebar footer. `tone`: `neutral`, `brand`, `ok`, `warn`, `error`. `kind` places a row item: `location` (where the workspace is, like a branch) shares the line with the folder; `live` (the default; what is running, like ports or counts) goes on the line below, where items that don't fit fold into a `+N` popover. The footer ignores `kind`. Empty `text` removes the item. 80 chars, 32 items. With an http(s) `url` the item is a link: clicking it switches to that workspace and opens the URL in its browser pane. |
 | `ext.notify` | `{title, body?, openPanel?}` | Needs `notify`. Goes into the notification center and the desktop. With `openPanel: true` (and a panel in your manifest) clicking it opens your panel instead of jumping to a pane; with `openPanel: "/path"` it opens the panel at that path (or navigates your open panel there), from the desktop notice and from the notification center alike. |
 | `ext.openPanel` | `{workspaceId?, path?}` | Opens (or focuses) your panel in that workspace, else the active one. An already-open panel is focused, not reloaded; with `path` it navigates the open panel there instead of opening a second one. See [Panels](#panels) for what `path` means. |
 | `ext.setPaneChip` | `{paneId, id, text, tooltip?, tone?, icon?, items?, command?, url?}` | Shows `text` (40 chars) as chip `id` (from your `contributes.paneChips`) on that pane's header; setting it again replaces the value. `paneId` is an external pane id (`caller.paneId`, `pane.list`, events). `tone`: as for sidebar items. `command`: one of your own palette commands; clicking the chip focuses the pane and runs it, so `caller.paneId` is that pane. `url` (http/https, instead of `command`): clicking the chip opens it in the browser pane of that pane's workspace. `icon` (one of the sidebar item icon names, e.g. `plugs`): the chip shows as that icon with `text` as a small badge, which keeps the header narrow (a count reads best); with `items` it shows a dot instead of the badge, since the list itself gives the count. `items` (instead of `command` or `url`; 1-20 `{text, url?}`, text 80 chars, url http/https): clicking the chip lists them in a popover; an item with a url opens in the browser pane on click and can be copied. A bad `icon`, `items` or `url` is refused with `invalid-params`. Empty `text` clears it. Chips vanish when the pane closes or your process stops; set them again after a restart. |
@@ -1382,7 +1393,7 @@ only `src/extensions/sdk/` and `src/shared/` — never `src/main` or `src/render
 | Id | What it does |
 |---|---|
 | `git` | The branch per workspace in the sidebar; `git.branch` (`main • ↑2 ↓1`, click opens the panel) and `git.diff-stats` (`3 • +12 -4`) workspace chips in the top bar for the active workspace; a Git panel with Changes (stage, unstage, discard after `ext.confirm`, commit; flat list or folder tree), Graph (lanes, ref badges, an uncommitted-changes row, the current, all or chosen branches; a commit's files open as diffs) and Blame pages ("Show Changes", "Show Graph", "Blame File"); settings `pollSeconds`, `showDiffStats`, `graphScope`, `changesView` (the panel's controls write the last two with `ext.setSetting`); `ostia git status|changes|diff|open|log|blame|stage|unstage|commit` (discard is panel only) |
-| `keymap-macos` | Two macOS keymaps as `contributes.keymaps` entries with no process (`platform: "darwin"`). `cmux` (`assets/cmux.json`) follows cmux's default shortcuts: ⇧⌘P palette, ⌘B sidebar, ⌘N new workspace, ⌘T new tab, ⌘D split right, ⇧⌘D split down, ⌥⌘ and an arrow to move between panes, ⇧⌘↩ zoom, and ⌥⌘D for the dashboard, whose default ⇧⌘D becomes split down. `iterm2` (`assets/iterm2.json`) follows iTerm2's default global keys: ⌘↑ ⌘↓ scroll one line, ⇧⌘↑ ⇧⌘↓ select the previous and next block, ⌘N new workspace, ⌘T new tab. Enabled like every built-in but not chosen: the `keymap` setting stays `null` until the human picks one in Settings → Keyboard |
+| `keymap-macos` | Two macOS keymaps as `contributes.keymaps` entries with no process (`platform: "darwin"`). `cmux` (`assets/cmux.json`) follows cmux's default shortcuts and drops Ostia's older second keys: ⇧⌘P palette (⌘K no longer opens it), ⌘B sidebar, ⌘N new workspace, ⌘T new tab, ⌥⌘D the dashboard, and in a terminal ⌘D split right, ⇧⌘D split down, ⌥⌘ and an arrow to move between panes, ⇧⌘↩ zoom, and ⌘K or ⇧⌘K to clear. `iterm2` (`assets/iterm2.json`) follows iTerm2's default global keys: ⌘↑ ⌘↓ scroll one line, ⇧⌘↑ ⇧⌘↓ select the previous and next block, ⌘N new workspace, ⌘T new tab. Enabled like every built-in but not chosen: the `keymap` setting stays `null` until the human picks one in Settings → Keyboard |
 | `langpack-zh-hant` | Traditional Chinese (`zh-Hant`) for the interface, as a `contributes.languages` pack with no process. Its `zh-Hant.json` is generated at build time from `zhHant` in `src/renderer/i18n/dict.ts`, which stays typed against the English catalog so a missing string fails the typecheck |
 | `ports` | Per workspace, a `ports` workspace chip in the top bar: a plug with the number of TCP ports its terminals' processes listen on; click it for the list, click a port to open it in the browser pane. A foreground `ssh` shows as its host in the sidebar and as an `ssh` chip with `user@host` on its pane. Polls only while Ostia is focused. `ostia ports ls [--all]`. Settings: `intervalSeconds` (default 3), `portHost` (`localhost` or `127.0.0.1`) |
 | `system` | `ostia system info` (OS, kernel, arch, shell, package managers on PATH and the default one) and `ostia system install <pkg...> [--manager <name>] [--reason <text>]`: validates the names, shows the human the exact install command and the reason, and on Approve runs it in a new terminal next to the agent (`ext.openTerminal`). Returns `{approved, command, paneId?}`; a denial exits 1 |

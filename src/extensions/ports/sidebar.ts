@@ -14,6 +14,7 @@ export interface SidebarEntry {
   key: string
   text: string
   icon?: ExtensionIcon
+  badge?: string
   kind: SidebarKind
 }
 
@@ -55,7 +56,7 @@ export function sidebarEntries(groups: Map<string, WorkspaceProcesses>): Sidebar
       workspaceId,
       key: SSH_KEY,
       text: group.ssh.join(' '),
-      icon: 'server',
+      badge: 'SSH',
       kind: 'live',
     })
   }

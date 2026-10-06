@@ -100,6 +100,7 @@ import {
   PANE_CHIP_TOOLTIP_MAX,
   type PaneChip,
   SETTINGS_CHANGED_EVENT,
+  SIDEBAR_BADGE_PATTERN,
   SIDEBAR_KINDS,
   SIDEBAR_TONES,
   type SidebarKind,
@@ -367,7 +368,10 @@ export interface ExtensionHostDeps {
   remoteFolders?: Pick<RemoteFoldersDeps, 'windowOfWorkspace' | 'refusal' | 'confirm'> & {
     publish: (folders: RemoteFolders) => void
   }
+  startOnDemand?: readonly string[]
 }
+
+export type ExtensionEventListener = (type: ExtensionEventType, payload: unknown) => void
 
 const HOST_TERMINAL_NOTE = 'Runs outside the sandbox, in a terminal you can watch:'
 export interface ExtensionSecretStore {
@@ -500,6 +504,10 @@ export class ExtensionHost {
   private sidebar = new Map<string, ExtensionSidebarItem>()
   private chips = new Map<string, PaneChip>()
   private workspaceChipSlots = new Map<string, WorkspaceChip>()
+  private coreSidebarSlots = new Set<string>()
+  private coreChipSlots = new Set<string>()
+  private corePaneChipSlots = new Set<string>()
+  private eventListeners = new Set<ExtensionEventListener>()
   private settings: Map<string, ExtensionSettingValues>
   private assistSettings: AssistModelSettings
   private changes = new EventEmitter()
@@ -786,11 +794,13 @@ export class ExtensionHost {
     this.deps.broadcast('extensions:chips', this.paneChips())
   }
 
-  private clearChipsWhere(match: (chip: PaneChip) => boolean): void {
+  private clearChipsWhere(match: (chip: PaneChip) => boolean, keepCore = false): void {
     let removed = false
     for (const [slot, chip] of this.chips) {
+      if (keepCore && this.corePaneChipSlots.has(slot)) continue
       if (match(chip)) {
         this.chips.delete(slot)
+        this.corePaneChipSlots.delete(slot)
         removed = true
       }
     }
@@ -809,11 +819,16 @@ export class ExtensionHost {
     this.deps.publishWorkspaceChips?.(this.workspaceChips())
   }
 
-  private clearWorkspaceChipsWhere(match: (chip: WorkspaceChip) => boolean): void {
+  private clearWorkspaceChipsWhere(
+    match: (chip: WorkspaceChip) => boolean,
+    keepCore = false,
+  ): void {
     let removed = false
     for (const [slot, chip] of this.workspaceChipSlots) {
+      if (keepCore && this.coreChipSlots.has(slot)) continue
       if (match(chip)) {
         this.workspaceChipSlots.delete(slot)
+        this.coreChipSlots.delete(slot)
         removed = true
       }
     }
@@ -864,13 +879,38 @@ export class ExtensionHost {
       approved: [...rt.ext.manifest.capabilities],
     })
     if (rt.identity) setCaps(rt.identity.externalId, this.granted(rt))
-    if (startsWithWindow(rt)) this.start(rt)
+    if (this.eager(rt)) this.start(rt)
     this.changed(rt)
     return this.list()
   }
 
+  private onDemand(rt: Runtime): boolean {
+    if (!rt.ext.builtin || !this.deps.startOnDemand?.includes(rt.ext.manifest.id)) return false
+    return rt.ext.manifest.contributes.assist.length === 0 || this.assistEntries(rt).length === 0
+  }
+
   private eager(rt: Runtime): boolean {
-    return this.active(rt) && startsWithWindow(rt)
+    return this.active(rt) && startsWithWindow(rt) && !this.onDemand(rt)
+  }
+
+  isRunning(extId: string): boolean {
+    return Boolean(this.runtimes.get(extId)?.proc)
+  }
+
+  isEnabled(extId: string): boolean {
+    const rt = this.runtimes.get(extId)
+    return rt ? this.active(rt) : false
+  }
+
+  settingValuesOf(extId: string): ExtensionSettingValues {
+    const rt = this.runtimes.get(extId)
+    return rt ? this.settingValues(rt) : {}
+  }
+
+  wakeAssist(): void {
+    for (const rt of this.runtimes.values()) {
+      if (rt.ext.manifest.contributes.assist.length > 0 && rt.state !== 'crashed') this.start(rt)
+    }
   }
 
   startEager(): void {
@@ -990,11 +1030,13 @@ export class ExtensionHost {
     this.changed(rt)
   }
 
-  private clearSidebarOf(extId: string): void {
+  private clearSidebarOf(extId: string, keepCore = false): void {
     let removed = false
     for (const [key, item] of this.sidebar) {
+      if (keepCore && this.coreSidebarSlots.has(key)) continue
       if (item.extId === extId) {
         this.sidebar.delete(key)
+        this.coreSidebarSlots.delete(key)
         removed = true
       }
     }
@@ -1012,9 +1054,9 @@ export class ExtensionHost {
     rt.assistStatus = {}
     rt.assistReport = null
     this.dropAssistStreams(rt)
-    this.clearSidebarOf(id)
-    this.clearChipsWhere((chip) => chip.extId === id)
-    this.clearWorkspaceChipsWhere((chip) => chip.extId === id)
+    this.clearSidebarOf(id, true)
+    this.clearChipsWhere((chip) => chip.extId === id, true)
+    this.clearWorkspaceChipsWhere((chip) => chip.extId === id, true)
     this.remoteFolders?.extensionGone(id)
     if (rt.stopping || !this.active(rt)) {
       rt.state = 'idle'
@@ -1238,7 +1280,18 @@ export class ExtensionHost {
       .map((rt) => rt.ext.manifest.id)
   }
 
+  onEvent(listener: ExtensionEventListener): () => void {
+    this.eventListeners.add(listener)
+    return () => this.eventListeners.delete(listener)
+  }
+
+  watch(extId: string, listener: () => void): () => void {
+    this.changes.on(extId, listener)
+    return () => this.changes.off(extId, listener)
+  }
+
   emitEvent<T extends ExtensionEventType>(type: T, payload: ExtensionEventPayloads[T]): void {
+    for (const listener of this.eventListeners) listener(type, payload)
     for (const rt of this.runtimes.values()) {
       if (rt.conn && rt.subscriptions.has(type)) {
         void rt.conn.sendNotification('ext.event', { type, payload }).catch(() => {})
@@ -1294,7 +1347,17 @@ export class ExtensionHost {
   }
 
   setSidebarItem(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
-    const rt = this.runtimeOf(identity, conn)
+    return this.putSidebarItem(this.runtimeOf(identity, conn), params, false)
+  }
+
+  publishSidebarItem(extId: string, params: unknown): ExtensionResult {
+    const rt = this.runtimes.get(extId)
+    if (!rt || !this.active(rt))
+      return fail('extension-disabled', `extension '${extId}' is not enabled`)
+    return this.putSidebarItem(rt, params, true)
+  }
+
+  private putSidebarItem(rt: Runtime, params: unknown, core: boolean): ExtensionResult {
     const extId = rt.ext.manifest.id
     if (!rt.ext.manifest.contributes.sidebarItems) {
       return fail('not-contributed', 'manifest does not contribute sidebarItems')
@@ -1306,6 +1369,7 @@ export class ExtensionHost {
     const slot = `${extId}\u0000${workspaceId ?? ''}\u0000${key}`
     const text = typeof p.text === 'string' ? p.text.trim().slice(0, SIDEBAR_TEXT_MAX) : ''
     if (!text) {
+      this.coreSidebarSlots.delete(slot)
       if (this.sidebar.delete(slot)) this.sidebarChanged()
       return { ok: true }
     }
@@ -1316,9 +1380,12 @@ export class ExtensionHost {
     const item: ExtensionSidebarItem = { extId, key, text, tone, kind }
     if (workspaceId) item.workspaceId = workspaceId
     if (EXTENSION_ICONS.includes(p.icon as ExtensionIcon)) item.icon = p.icon as ExtensionIcon
+    if (typeof p.badge === 'string' && SIDEBAR_BADGE_PATTERN.test(p.badge)) item.badge = p.badge
     const url = sidebarItemUrl(p.url)
     if (url) item.url = url
     this.sidebar.set(slot, item)
+    if (core) this.coreSidebarSlots.add(slot)
+    else this.coreSidebarSlots.delete(slot)
     this.sidebarChanged()
     return { ok: true }
   }
@@ -1368,7 +1435,17 @@ export class ExtensionHost {
   }
 
   setPaneChip(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
-    const rt = this.runtimeOf(identity, conn)
+    return this.putPaneChip(this.runtimeOf(identity, conn), params, false)
+  }
+
+  publishPaneChip(extId: string, params: unknown): ExtensionResult {
+    const rt = this.runtimes.get(extId)
+    if (!rt || !this.active(rt))
+      return fail('extension-disabled', `extension '${extId}' is not enabled`)
+    return this.putPaneChip(rt, params, true)
+  }
+
+  private putPaneChip(rt: Runtime, params: unknown, core: boolean): ExtensionResult {
     const p = (params ?? {}) as Record<string, unknown>
     const declared = rt.ext.manifest.contributes.paneChips.find((c) => c.id === p.id)
     if (!declared) return fail('not-contributed', `no pane chip '${String(p.id)}' in manifest`)
@@ -1377,11 +1454,14 @@ export class ExtensionHost {
     const slot = `${rt.ext.manifest.id}\u0000${pane.paneId}\u0000${declared.id}`
     const value = this.chipValue(rt, declared, p)
     if (value === null) {
+      this.corePaneChipSlots.delete(slot)
       if (this.chips.delete(slot)) this.chipsChanged()
       return { ok: true }
     }
     if ('ok' in value) return value
     this.chips.set(slot, { ...value, paneId: pane.paneId })
+    if (core) this.corePaneChipSlots.add(slot)
+    else this.corePaneChipSlots.delete(slot)
     this.chipsChanged()
     return { ok: true }
   }
@@ -1392,7 +1472,17 @@ export class ExtensionHost {
   }
 
   setWorkspaceChip(identity: PaneIdentity, conn: MessageConnection, params: unknown) {
-    const rt = this.runtimeOf(identity, conn)
+    return this.putWorkspaceChip(this.runtimeOf(identity, conn), params, false)
+  }
+
+  publishWorkspaceChip(extId: string, params: unknown): ExtensionResult {
+    const rt = this.runtimes.get(extId)
+    if (!rt || !this.active(rt))
+      return fail('extension-disabled', `extension '${extId}' is not enabled`)
+    return this.putWorkspaceChip(rt, params, true)
+  }
+
+  private putWorkspaceChip(rt: Runtime, params: unknown, core: boolean): ExtensionResult {
     const p = (params ?? {}) as Record<string, unknown>
     const declared = rt.ext.manifest.contributes.workspaceChips.find((c) => c.id === p.id)
     if (!declared) {
@@ -1405,11 +1495,14 @@ export class ExtensionHost {
     const slot = `${rt.ext.manifest.id}\u0000${workspaceId}\u0000${declared.id}`
     const value = this.chipValue(rt, declared, p)
     if (value === null) {
+      this.coreChipSlots.delete(slot)
       if (this.workspaceChipSlots.delete(slot)) this.publishWorkspaceChips()
       return { ok: true }
     }
     if ('ok' in value) return value
     this.workspaceChipSlots.set(slot, { ...value, workspaceId })
+    if (core) this.coreChipSlots.add(slot)
+    else this.coreChipSlots.delete(slot)
     this.publishWorkspaceChips()
     return { ok: true }
   }
@@ -1936,6 +2029,7 @@ export class ExtensionHost {
     const before = new Map(
       [...this.runtimes].map(([id, rt]) => [id, JSON.stringify(this.assistEntries(rt))]),
     )
+    const waiting = [...this.runtimes.values()].filter((rt) => this.onDemand(rt))
     this.assistSettings = next
     const keys = this.deps.assistKeys
     for (const [id, rt] of this.runtimes) {
@@ -1944,6 +2038,7 @@ export class ExtensionHost {
         if (!kept) keys?.set(id, key, null)
       }
       if (before.get(id) !== JSON.stringify(this.assistEntries(rt))) this.sendAssistProviders(rt)
+      if (waiting.includes(rt) && this.eager(rt)) this.start(rt)
     }
     this.assistChanged()
   }
@@ -2230,7 +2325,7 @@ export class ExtensionHost {
         if (rt.proc || rt.restartTimer) this.stop(rt)
       } else {
         if (rt.identity) setCaps(rt.identity.externalId, this.granted(rt))
-        if (startsWithWindow(rt)) this.start(rt)
+        if (this.eager(rt)) this.start(rt)
       }
     }
     this.changed()

@@ -23,6 +23,7 @@ export interface AssistHost {
   setShortcuts: (raw: unknown) => void
   assistCatalog: () => AssistCatalog
   setAssistProviderKey: (providerId: unknown, value: unknown) => AssistKeyResult
+  wakeAssist: () => void
   assistModels: (extId: unknown, provider?: unknown) => Promise<AssistModelsResult>
   setAssistModelLoaded: (
     extId: unknown,
@@ -113,6 +114,7 @@ export function registerAssistIpc(host: () => AssistHost | null): void {
   ipcMain.on('assist:cancel', (e, requestId: unknown) => router.cancel(e.sender.id, requestId))
   ipcMain.handle('assist:overview', () => host()?.assistOverview() ?? [])
   ipcMain.on('assist:shortcuts', (_e, shortcuts: unknown) => host()?.setShortcuts(shortcuts))
+  ipcMain.on('assist:wake', () => host()?.wakeAssist())
   ipcMain.handle(
     'assist:models',
     (_e, extId: unknown, provider: unknown): Promise<AssistModelsResult> =>

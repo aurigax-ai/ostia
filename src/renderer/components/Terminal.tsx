@@ -25,7 +25,14 @@ import { bellActions, createBellThrottle } from '../lib/bell'
 import { canTypeInto, insertCommand, selectedBlockOutput, stepBlock } from '../lib/blockActions'
 import { decodeCommandLine, readCommandText } from '../lib/blockText'
 import { openBrowserAs } from '../lib/browserProfile'
-import { isAppChord, isBrowserChord, isTerminalCommandChord, matchChord } from '../lib/chords'
+import {
+  execChord,
+  isAppChord,
+  isBrowserChord,
+  isTerminalCommandChord,
+  matchChord,
+  matchTerminalChord,
+} from '../lib/chords'
 import {
   PROGRAM_PASTE_KEY,
   keyPastePlan,
@@ -52,7 +59,9 @@ import { inputEditorFor, registerTerminal } from '../lib/terminalHandles'
 import { terminalTitle } from '../lib/terminalTitle'
 import { createTitleCommitter } from '../lib/titleCommit'
 import { terminalFontStack } from '../lib/uiFonts'
+import { measureCells } from '../lib/usePromptGeometry'
 import { loadWebglRenderer } from '../lib/webglRenderer'
+import { attachWheelReports } from '../lib/wheelReports'
 import { attachWheelZoom } from '../lib/wheelZoom'
 import {
   isPaneViewed,
@@ -171,6 +180,7 @@ export function TerminalView({
     term.loadAddon(searchAddon)
     term.open(host)
     if (behavior.gpuAcceleration) loadWebglRenderer(term)
+    attachWheelReports(term, () => measureCells(host, term)?.height ?? 0, isLinux)
     const detachWheelZoom = attachWheelZoom(host, 'terminal', isMac)
     const detachLinkModifier = attachLinkModifier(host, isMac)
     termRef.current = term
@@ -258,7 +268,16 @@ export function TerminalView({
         }
         return false
       }
-      const chord = matchChord(e, isMac)
+      const scoped = matchTerminalChord(e, isMac)
+      if (scoped && e.type === 'keydown') e.stopPropagation()
+      if (isAppChord(scoped)) {
+        if (e.type === 'keydown') {
+          e.preventDefault()
+          execChord(scoped, e)
+        }
+        return false
+      }
+      const chord = scoped ?? matchChord(e, isMac)
       if (!chord || isBrowserChord(chord)) {
         const sent = terminalKeyData(e, isMac)
         if (sent && !inputEditorFor(paneId)) {

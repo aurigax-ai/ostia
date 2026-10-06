@@ -108,6 +108,23 @@ describe('workspace row meta lines', () => {
     expect(within(location).queryByText(':3000')).toBeNull()
   })
 
+  it('labels an item with its badge before the text', () => {
+    seed([
+      {
+        extId: 'ports',
+        key: 'ssh',
+        workspaceId: 's1',
+        text: '192.168.2.25',
+        badge: 'SSH',
+        tone: 'neutral',
+        kind: 'live',
+      },
+    ])
+    const item = row().querySelector('.rail-meta.live .ext-item') as HTMLElement
+    expect(item).toHaveTextContent('SSH192.168.2.25')
+    expect(within(item).getByText('SSH')).not.toBe(within(item).getByText('192.168.2.25'))
+  })
+
   it('shows no live line without live items', () => {
     seed([branch])
     expect(row().querySelector('.rail-meta.location')).not.toBeNull()

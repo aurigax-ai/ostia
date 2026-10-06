@@ -43,30 +43,30 @@ export function RequirementsNoteView({
   const d = useDict()
   const workspaceId = useWorkspacesStore((s) => s.activeWorkspaceId)
   if (!report || report.missing.length === 0) return null
-  const command = report.hint.command
+  const installHere = report.canInstall && workspaceId !== null
+  const command = installHere ? null : report.hint.command
+  const actions = installHere ? (
+    <Button
+      size="xs"
+      onClick={() =>
+        workspaceId && void window.ostia.system.installRequirements(feature, workspaceId)
+      }
+    >
+      {d.manager.install}
+    </Button>
+  ) : command ? (
+    <Button
+      variant="outline"
+      size="xs"
+      onClick={() => void navigator.clipboard?.writeText(command)}
+    >
+      {d.manager.copyCommand}
+    </Button>
+  ) : null
   return (
-    <WarningNote>
+    <WarningNote actions={actions}>
       <p>{fmt(body, { packages: report.hint.packages.join(', ') })}</p>
-      {report.canInstall && workspaceId ? (
-        <Button
-          size="sm"
-          className="mt-2"
-          onClick={() => void window.ostia.system.installRequirements(feature, workspaceId)}
-        >
-          {d.manager.install}
-        </Button>
-      ) : command ? (
-        <div className="mt-2 flex items-center gap-2">
-          <code className="min-w-0 flex-1 truncate font-mono text-ui-sm">{command}</code>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => void navigator.clipboard?.writeText(command)}
-          >
-            {d.manager.copyCommand}
-          </Button>
-        </div>
-      ) : null}
+      {command ? <code className="block truncate font-mono text-ui-sm">{command}</code> : null}
     </WarningNote>
   )
 }

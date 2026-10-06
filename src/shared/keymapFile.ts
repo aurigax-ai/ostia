@@ -1,4 +1,9 @@
-import { type ChordProblem, type KeybindingMap, checkBinding } from './chordSpec'
+import {
+  CHORDS_PER_COMMAND_MAX,
+  type ChordProblem,
+  type KeybindingMap,
+  checkBinding,
+} from './chordSpec'
 import { isDangerousSegment } from './protoGuard'
 
 export const KEYMAP_FILE_MAX_BYTES = 64 * 1024
@@ -45,8 +50,8 @@ export function parseKeymapBindings(raw: unknown, mac: boolean): KeymapBindingsR
   const bindings: KeybindingMap = Object.create(null)
   const skipped: KeymapSkip[] = []
   for (const [command, value] of Object.entries(raw.bindings)) {
-    const skip = (problem: ChordProblem): void => {
-      skipped.push({ command: command.slice(0, KEYMAP_COMMAND_MAX), value: shown(value), problem })
+    const skip = (problem: ChordProblem, entry: unknown = value): void => {
+      skipped.push({ command: command.slice(0, KEYMAP_COMMAND_MAX), value: shown(entry), problem })
     }
     if (!command || command.length > KEYMAP_COMMAND_MAX || isDangerousSegment(command)) {
       skip('invalid')
@@ -56,17 +61,28 @@ export function parseKeymapBindings(raw: unknown, mac: boolean): KeymapBindingsR
       bindings[command] = null
       continue
     }
-    if (typeof value !== 'string' || value.length > KEYMAP_CHORD_MAX) {
+    const list = Array.isArray(value)
+    const texts: unknown[] = list ? value.slice(0, CHORDS_PER_COMMAND_MAX) : [value]
+    if (texts.length === 0) {
       skip('invalid')
       continue
     }
-    const chord = value.trim()
-    const problem = checkBinding(command, chord, mac)
-    if (problem) {
-      skip(problem)
-      continue
+    const chords: string[] = []
+    for (const text of texts) {
+      if (typeof text !== 'string' || text.length > KEYMAP_CHORD_MAX) {
+        skip('invalid', text)
+        continue
+      }
+      const chord = text.trim()
+      const problem = checkBinding(command, chord, mac)
+      if (problem) {
+        skip(problem, text)
+        continue
+      }
+      if (!chords.includes(chord)) chords.push(chord)
     }
-    bindings[command] = chord
+    if (chords.length === 0) continue
+    bindings[command] = list ? chords : chords[0]
   }
   return { ok: true, bindings, skipped }
 }

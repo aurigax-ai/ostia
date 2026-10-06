@@ -6,6 +6,7 @@ export interface ChordSpec {
   alt: boolean
   meta: boolean
   key: string
+  terminal?: boolean
 }
 
 export interface KeyLike {
@@ -17,7 +18,15 @@ export interface KeyLike {
   altKey: boolean
 }
 
-export type KeybindingMap = Record<string, string | null>
+export type ChordValue = string | readonly string[]
+
+export type KeybindingMap = Record<string, ChordValue | null>
+
+export const CHORDS_PER_COMMAND_MAX = 8
+
+export function chordTexts(value: ChordValue): string[] {
+  return typeof value === 'string' ? [value] : [...value]
+}
 
 export const DIGIT_RANGE = '1-9'
 
@@ -127,7 +136,7 @@ const ARROW_GLYPHS: Record<string, string> = { up: '↑', down: '↓', left: '�
 
 const ARROWS = new Set(['up', 'down', 'left', 'right'])
 
-const CTRL_SAFE_KEYS = new Set([',', '.', ';', "'", '=', DIGIT_RANGE])
+const CTRL_SAFE_KEYS = new Set([',', '.', ';', "'", '=', 'pageup', 'pagedown', DIGIT_RANGE])
 
 function normalizeKey(raw: string): string | null {
   const lower = raw.toLowerCase()
@@ -259,19 +268,41 @@ export const BROWSER_CHORD_IDS = [
 
 const BROWSER_IDS: ReadonlySet<string> = new Set(BROWSER_CHORD_IDS)
 
+const notShellOwned = (spec: ChordSpec): boolean => spec.key !== 'escape' && spec.key !== 'tab'
+
 const altChord = (spec: ChordSpec): boolean =>
-  spec.alt && !spec.ctrl && !spec.meta && spec.key !== 'escape' && spec.key !== 'tab'
+  spec.alt && !spec.ctrl && !spec.meta && notShellOwned(spec)
+
+const ctrlChord = (spec: ChordSpec): boolean =>
+  spec.ctrl && !spec.alt && !spec.shift && !spec.meta && notShellOwned(spec)
 
 export function bindingProblem(id: string, spec: ChordSpec, mac: boolean): ChordProblem | null {
-  const browserAlt = BROWSER_IDS.has(id) && altChord(spec)
-  const steal = browserAlt ? null : stealsTerminalKey(spec, mac)
+  const browserOnly = BROWSER_IDS.has(id) && (altChord(spec) || ctrlChord(spec))
+  const steal = browserOnly ? null : stealsTerminalKey(spec, mac)
   if (steal) return steal
   const isRange = spec.key === DIGIT_RANGE
   return isRange === (id === WORKSPACE_GOTO) ? null : 'digit-range'
 }
 
+export const TERMINAL_SCOPE = 'terminal:'
+
+export function parseScopedChord(text: string, mac: boolean): ChordSpec | null {
+  const trimmed = text.trim()
+  const terminal = trimmed.toLowerCase().startsWith(TERMINAL_SCOPE)
+  const spec = parseChord(terminal ? trimmed.slice(TERMINAL_SCOPE.length) : trimmed, mac)
+  return spec && terminal ? { ...spec, terminal: true } : spec
+}
+
+export function formatScopedChord(spec: ChordSpec, mac: boolean): string {
+  return `${spec.terminal ? TERMINAL_SCOPE : ''}${formatChord(spec, mac)}`
+}
+
+export function sameScope(a: ChordSpec, b: ChordSpec): boolean {
+  return Boolean(a.terminal) === Boolean(b.terminal)
+}
+
 export function checkBinding(id: string, text: string, mac: boolean): ChordProblem | null {
-  const spec = parseChord(text, mac)
+  const spec = parseScopedChord(text, mac)
   return spec ? bindingProblem(id, spec, mac) : 'invalid'
 }
 
@@ -318,15 +349,30 @@ export function usedByMonaco(spec: ChordSpec, mac: boolean): boolean {
   return monacoDefaults(mac).some((m) => sameChord(m, spec))
 }
 
+const parsesSomewhere = (text: string): boolean =>
+  parseScopedChord(text, true) !== null || parseScopedChord(text, false) !== null
+
+export function parseChordValue(value: unknown): ChordValue | null {
+  if (typeof value === 'string') return parsesSomewhere(value) ? value.trim() : null
+  if (!Array.isArray(value)) return null
+  const texts = value
+    .filter((v): v is string => typeof v === 'string' && parsesSomewhere(v))
+    .map((v) => v.trim())
+  const unique = [...new Set(texts)].slice(0, CHORDS_PER_COMMAND_MAX)
+  return unique.length > 0 ? unique : null
+}
+
 export function parseKeybindings(raw: unknown): KeybindingMap {
   const out: KeybindingMap = Object.create(null)
   if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return out
   for (const [id, value] of Object.entries(raw as Record<string, unknown>)) {
     if (!id || isDangerousSegment(id)) continue
-    if (value === null) out[id] = null
-    else if (typeof value === 'string' && (parseChord(value, true) || parseChord(value, false))) {
-      out[id] = value.trim()
+    if (value === null) {
+      out[id] = null
+      continue
     }
+    const chords = parseChordValue(value)
+    if (chords !== null) out[id] = chords
   }
   return out
 }

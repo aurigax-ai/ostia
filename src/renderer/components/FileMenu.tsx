@@ -32,6 +32,7 @@ import { useSettingsStore } from '../stores/settingsStore'
 import { focusSurface } from '../stores/surfaceSlotsStore'
 import { useUIStore } from '../stores/uiStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
+import { FileOpsMenuItems } from './FileTreeOps'
 import { MenuContent, MenuItem, MenuSubContent, MenuSubTrigger } from './Menu'
 import { useAgentTargets, useNoAgentsText } from './PickSendPanel'
 import {
@@ -195,17 +196,22 @@ export function FileMenu({
   dir,
   trigger,
   visibility,
+  editable = false,
 }: {
   workspaceId: string
   path: string
   dir?: boolean
   trigger: ReactElement
   visibility?: TreeVisibility
+  editable?: boolean
 }): JSX.Element {
   return (
     <ContextMenu>
       <ContextMenuTrigger render={trigger} />
       <MenuContent>
+        {editable ? (
+          <FileOpsMenuItems workspaceId={workspaceId} path={path} dir={dir ?? false} />
+        ) : null}
         <FileMenuItems workspaceId={workspaceId} path={path} dir={dir} visibility={visibility} />
       </MenuContent>
     </ContextMenu>

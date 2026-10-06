@@ -5,7 +5,7 @@ import {
   DEFAULT_APPROVAL_SETTINGS,
   parseApprovalSettings,
 } from '@shared/approvals'
-import type { KeybindingMap } from '@shared/chordSpec'
+import type { ChordValue, KeybindingMap } from '@shared/chordSpec'
 import { keyboardPlatform } from '@shared/keyboardPresets'
 import type { TerminalKeyMap, TerminalSend } from '@shared/terminalKeys'
 import { debounce } from 'es-toolkit'
@@ -432,7 +432,7 @@ interface SettingsState extends Persisted {
   trustAction: (fingerprint: string) => void
   removeAction: (id: string) => void
   setKeymap: (ref: string | null) => void
-  setKeybinding: (id: string, chord: string | null) => void
+  setKeybinding: (id: string, chord: ChordValue | null) => void
   resetKeybinding: (id: string) => void
   setKeybindings: (map: KeybindingMap) => void
   setTerminalKeymap: (id: string | null) => void

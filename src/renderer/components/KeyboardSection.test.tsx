@@ -121,6 +121,18 @@ describe('KeyboardSection', () => {
     useUIStore.setState({ paletteOpen: false })
   })
 
+  it('marks the chords that act only in a terminal', () => {
+    render(<KeyboardSection />)
+    const clear = within(row(/Clear Terminal/))
+    expect(clear.getByText('Ctrl+Shift+K')).toBeInTheDocument()
+    expect(clear.getByText('in a terminal')).toBeInTheDocument()
+    const zoom = within(row(/Zoom Pane/))
+    expect(zoom.getByText('Ctrl+Shift+Enter')).toBeInTheDocument()
+    expect(zoom.getByText('Ctrl+Shift+X')).toBeInTheDocument()
+    expect(zoom.getAllByText('in a terminal')).toHaveLength(1)
+    expect(within(row(/Command Palette/)).queryByText('in a terminal')).toBeNull()
+  })
+
   it('picks a keymap, lists the entries it skipped, and puts the user’s chords on top of it', async () => {
     useExtensionsStore.setState({ list: [keymapExtension] })
     vi.mocked(window.ostia.keymaps.load).mockResolvedValue({
@@ -304,6 +316,33 @@ describe('KeyboardSection', () => {
     expect(within(row(/Command Palette/)).getByText('Unassigned')).toBeInTheDocument()
   })
 
+  it('shows every chord of a command, and taking one leaves the others', async () => {
+    useSettingsStore.setState({ keybindings: { 'palette.toggle': ['Ctrl+Shift+Y', 'Ctrl+Alt+P'] } })
+    render(<KeyboardSection />)
+    const palette = within(row(/Command Palette/))
+    expect(palette.getByText('Ctrl+Shift+Y')).toBeInTheDocument()
+    expect(palette.getByText('Ctrl+Alt+P')).toBeInTheDocument()
+    await record('Toggle Sidebar')
+    press('P', { ctrlKey: true, altKey: true, code: 'KeyP' })
+    await userEvent.click(screen.getByRole('button', { name: 'Replace' }))
+    expect(useSettingsStore.getState().keybindings).toEqual({
+      'palette.toggle': 'Ctrl+Shift+Y',
+      'view.toggleRail': 'Ctrl+Alt+P',
+    })
+    await record('Command Palette')
+    press('U', { ctrlKey: true, altKey: true, code: 'KeyU' })
+    expect(useSettingsStore.getState().keybindings['palette.toggle']).toBe('Ctrl+Alt+U')
+  })
+
+  it('names the chord of a list this computer ignores', () => {
+    useSettingsStore.setState({ keybindings: { 'palette.toggle': ['Ctrl+Shift+Y', 'Ctrl+R'] } })
+    render(<KeyboardSection />)
+    expect(within(row(/Command Palette/)).getByText('Ctrl+Shift+Y')).toBeInTheDocument()
+    expect(
+      within(row(/Command Palette/)).getByText(/“Ctrl\+R” is ignored on this computer/),
+    ).toBeInTheDocument()
+  })
+
   it('warns about a Monaco default and saves only when confirmed', async () => {
     render(<KeyboardSection />)
     await record('Command Palette')
@@ -389,6 +428,18 @@ describe('KeyboardSection', () => {
     await userEvent.click(screen.getByRole('option', { name: 'No translation' }))
     expect(useSettingsStore.getState().terminalKeymap).toBe('none')
     expect(screen.queryAllByRole('button', { name: /^Edit / })).toEqual([])
+  })
+
+  it('flags no default Linux terminal key, though browser back and forward share Alt+arrows', () => {
+    render(<KeyboardSection />)
+    expect(screen.getByRole('button', { name: 'Edit Alt+←' })).toBeInTheDocument()
+    expect(screen.queryByText(/Key conflict with/)).toBeNull()
+  })
+
+  it('flags a terminal key an app chord takes first', () => {
+    useSettingsStore.setState({ terminalKeys: { 'Ctrl+Shift+P': { type: 'escape', value: 'p' } } })
+    render(<KeyboardSection />)
+    expect(within(row(/ESC p/)).getByText('Key conflict with Command Palette')).toBeInTheDocument()
   })
 
   it('adds a key that sends text to the terminal, refusing keys that type, and removes it', async () => {

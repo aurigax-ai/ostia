@@ -225,6 +225,20 @@ export function setPaneEditor(
   return mapPane(root, paneId, (p) => ({ ...named(p, title), kind: 'editor', filePath, cwd }))
 }
 
+export function movedPath(path: string, from: string, to: string): string | null {
+  if (path === from) return to
+  return path.startsWith(`${from}/`) ? to + path.slice(from.length) : null
+}
+
+export function followMovedFile(root: LayoutNode, from: string, to: string): LayoutNode {
+  return mapPanes(root, (p) => {
+    if (p.kind !== 'editor' || !p.filePath) return p
+    const next = movedPath(p.filePath, from, to)
+    if (next === null) return p
+    return setPaneEditor(p, p.id, next.slice(next.lastIndexOf('/') + 1), next) as PaneNode
+  })
+}
+
 function titleFromUrl(url: string): string {
   try {
     return new URL(url).hostname || url

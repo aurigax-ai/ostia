@@ -6,7 +6,7 @@ export const MARKETPLACE_MANIFEST_FILE = 'ostia-marketplace.json'
 export const MARKETPLACE_URL_MAX = 2000
 export const MARKETPLACE_CODE_PATTERN = /^[a-z2-7]{26}$/
 
-export type MarketplaceInstallState = 'available' | 'installed' | 'update' | 'conflict'
+export type MarketplaceInstallState = 'available' | 'installed' | 'update' | 'replace' | 'conflict'
 
 export interface MarketplaceExtension {
   id: string
@@ -28,6 +28,7 @@ export interface MarketplaceInfo {
   error?: string
   problems: string[]
   extensions: MarketplaceExtension[]
+  installs: string[]
   unlisted: boolean
 }
 
@@ -58,7 +59,7 @@ export type MarketplaceResult =
 export interface MarketplaceApi {
   list: () => Promise<MarketplaceState>
   add: (url: string) => Promise<MarketplaceResult>
-  remove: (marketplaceId: string) => Promise<MarketplaceResult>
+  remove: (marketplaceId: string, uninstallExtensions: boolean) => Promise<MarketplaceResult>
   refresh: (marketplaceId: string) => Promise<MarketplaceResult>
   install: (marketplaceId: string, extId: string) => Promise<MarketplaceResult>
   installCode: (marketplaceId: string, code: string) => Promise<MarketplaceResult>

@@ -27,6 +27,7 @@ function hangingHost() {
     setAssistModelLoaded: async () => ({ ok: false, error: 'unavailable' }),
     assistCatalog: () => EMPTY_ASSIST_CATALOG,
     setAssistProviderKey: () => ({ ok: true }),
+    wakeAssist: () => {},
     assist: <P extends AssistPoint>(_point: P, _input: unknown, opts: AssistCallOptions = {}) => {
       calls.push(opts)
       return new Promise<AssistResponse<P>>((resolve) => {
@@ -47,6 +48,7 @@ describe('createAssistRouter', () => {
       setAssistModelLoaded: async () => ({ ok: false, error: 'unavailable' }),
       assistCatalog: () => EMPTY_ASSIST_CATALOG,
       setAssistProviderKey: () => ({ ok: true }),
+      wakeAssist: () => {},
       assist: async <P extends AssistPoint>(
         _point: P,
         _input: unknown,

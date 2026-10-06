@@ -106,13 +106,12 @@ function ExtensionRow({
                 : d.extensions.noPermissions,
           })}
         </p>
-        {ext.state === 'conflict' ? (
-          <p className="mt-0.5 text-attn-fg text-ui-xs">{d.marketplace.conflict}</p>
-        ) : null}
+        {ext.state === 'conflict' ? <WarningNote>{d.marketplace.conflict}</WarningNote> : null}
+        {ext.state === 'replace' ? <WarningNote>{d.marketplace.orphaned}</WarningNote> : null}
       </div>
-      {ext.state === 'available' || ext.state === 'update' ? (
+      {ext.state === 'available' || ext.state === 'update' || ext.state === 'replace' ? (
         <Button
-          variant={ext.state === 'update' ? 'default' : 'outline'}
+          variant={ext.state === 'available' ? 'outline' : 'default'}
           size="sm"
           className="shrink-0"
           disabled={busy}
@@ -120,7 +119,9 @@ function ExtensionRow({
         >
           {ext.state === 'update'
             ? fmt(d.marketplace.update, { version: ext.version })
-            : d.marketplace.install}
+            : ext.state === 'replace'
+              ? d.marketplace.replace
+              : d.marketplace.install}
         </Button>
       ) : null}
     </li>
@@ -158,11 +159,59 @@ function InstallCodeForm({ marketplace }: { marketplace: MarketplaceInfo }): JSX
   )
 }
 
+function RemoveMarketplaceButton({
+  marketplace,
+}: {
+  marketplace: MarketplaceInfo
+}): JSX.Element {
+  const d = useDict()
+  const busy = useMarketplaceStore((s) => s.busy)
+  const remove = useMarketplaceStore((s) => s.remove)
+  const [asking, setAsking] = useState(false)
+  const removeWith = (uninstallExtensions: boolean): void => {
+    setAsking(false)
+    void remove(marketplace.id, uninstallExtensions)
+  }
+  return (
+    <>
+      <IconButton
+        icon={TrashIcon}
+        label={fmt(d.marketplace.remove, { name: marketplace.name })}
+        disabled={busy}
+        onClick={() => {
+          if (marketplace.installs.length > 0) setAsking(true)
+          else removeWith(false)
+        }}
+      />
+      <AlertDialog open={asking} onOpenChange={setAsking}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {fmt(d.marketplace.removeTitle, { name: marketplace.name })}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {fmt(d.marketplace.removeBody, { list: marketplace.installs.join(', ') })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel size="sm">{d.marketplace.cancel}</AlertDialogCancel>
+            <Button variant="outline" size="sm" onClick={() => removeWith(false)}>
+              {d.marketplace.keepExtensions}
+            </Button>
+            <AlertDialogAction size="sm" onClick={() => removeWith(true)}>
+              {d.marketplace.uninstallExtensions}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  )
+}
+
 function MarketplaceCard({ marketplace }: { marketplace: MarketplaceInfo }): JSX.Element {
   const d = useDict()
   const busy = useMarketplaceStore((s) => s.busy)
   const refresh = useMarketplaceStore((s) => s.refresh)
-  const remove = useMarketplaceStore((s) => s.remove)
   return (
     <li aria-label={marketplace.name} className="rounded-sm border border-line">
       <div className="flex items-start justify-between gap-6 border-line border-b px-3 py-2">
@@ -180,12 +229,7 @@ function MarketplaceCard({ marketplace }: { marketplace: MarketplaceInfo }): JSX
             disabled={busy}
             onClick={() => void refresh(marketplace.id)}
           />
-          <IconButton
-            icon={TrashIcon}
-            label={fmt(d.marketplace.remove, { name: marketplace.name })}
-            disabled={busy}
-            onClick={() => void remove(marketplace.id)}
-          />
+          <RemoveMarketplaceButton marketplace={marketplace} />
         </div>
       </div>
       {marketplace.error ? (

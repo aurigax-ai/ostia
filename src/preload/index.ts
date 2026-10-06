@@ -42,6 +42,7 @@ import type {
   PaneChip,
   WorkspaceChip,
 } from '../shared/extensions'
+import type { FileOpResult } from '../shared/fileOps'
 import type { GuestChordFire } from '../shared/guestChords'
 import type { LoadedIconTheme } from '../shared/iconTheme'
 import type { KeymapLoad } from '../shared/keymapFile'
@@ -637,10 +638,23 @@ const bridge: OstiaBridge = {
   selection: {
     send: (req) => ipcRenderer.invoke('selection:send', req) as Promise<SelectionSendResult>,
   },
+  fileOps: {
+    create: (dir, name, kind) =>
+      ipcRenderer.invoke('files:create', dir, name, kind) as Promise<FileOpResult>,
+    rename: (path, name) => ipcRenderer.invoke('files:rename', path, name) as Promise<FileOpResult>,
+    move: (paths, dir) => ipcRenderer.invoke('files:move', paths, dir) as Promise<FileOpResult>,
+    copy: (paths, dir) => ipcRenderer.invoke('files:copy', paths, dir) as Promise<FileOpResult>,
+    trash: (paths) => ipcRenderer.invoke('files:trash', paths) as Promise<FileOpResult>,
+  },
   marketplace: {
     list: () => ipcRenderer.invoke('marketplace:list') as Promise<MarketplaceState>,
     add: (url) => ipcRenderer.invoke('marketplace:add', url) as Promise<MarketplaceResult>,
-    remove: (id) => ipcRenderer.invoke('marketplace:remove', id) as Promise<MarketplaceResult>,
+    remove: (id, uninstallExtensions) =>
+      ipcRenderer.invoke(
+        'marketplace:remove',
+        id,
+        uninstallExtensions,
+      ) as Promise<MarketplaceResult>,
     refresh: (id) => ipcRenderer.invoke('marketplace:refresh', id) as Promise<MarketplaceResult>,
     install: (id, extId) =>
       ipcRenderer.invoke('marketplace:install', id, extId) as Promise<MarketplaceResult>,
@@ -790,6 +804,7 @@ const bridge: OstiaBridge = {
     },
     setProviderKey: (providerId, value) =>
       ipcRenderer.invoke('assist:set-provider-key', providerId, value),
+    wake: () => ipcRenderer.send('assist:wake'),
   },
   chatSessions: {
     list: () => ipcRenderer.invoke('chat:list') as Promise<ChatSessionSummary[]>,

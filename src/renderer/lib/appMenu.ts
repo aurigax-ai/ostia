@@ -23,6 +23,7 @@ const LAYOUT: Layout = {
   file: [
     'workspace.new',
     'workspace.newScratch',
+    'window.new',
     SEPARATOR,
     'tab.new',
     'tab.newBrowser',
