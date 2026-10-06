@@ -503,6 +503,16 @@ export function TerminalView({
     let holdEraseRow = 1
     let holdCursor = { row: 1, col: 1 }
     let holdDims = { cols: 0, rows: 0 }
+    let unparsed = 0
+    let awaitingParse = false
+    let parseAwaited = false
+    const writeOutput = (data: string, done?: () => void): void => {
+      unparsed++
+      term.write(data, () => {
+        unparsed--
+        done?.()
+      })
+    }
     markPaneActivity(paneId)
     const offData = window.ostia.pty.onData(paneId, (d) => {
       markPaneActivity(paneId)
@@ -513,7 +523,7 @@ export function TerminalView({
         if (holdIdleTimer) clearTimeout(holdIdleTimer)
         holdIdleTimer = setTimeout(flushHold, 24)
       } else {
-        term.write(d)
+        writeOutput(d)
       }
     })
     const offExit = window.ostia.pty.onExit(paneId, (_code, closes) => {
@@ -528,7 +538,7 @@ export function TerminalView({
       lastSizeRef.current = { cols, rows }
       const flushPending = (): void => {
         replayed = true
-        for (const d of pending) term.write(d)
+        for (const d of pending) writeOutput(d)
         pending.length = 0
       }
       window.ostia.pty
@@ -552,7 +562,7 @@ export function TerminalView({
           useBlocksStore.getState().resetPane(paneId)
           if (buffer) {
             replaying = true
-            term.write(buffer, () => {
+            writeOutput(buffer, () => {
               replaying = false
             })
           }
@@ -591,20 +601,20 @@ export function TerminalView({
       const { cols, rows } = holdDims
       if (redraw.length > 0 && isPromptRepaint(redraw)) {
         const restore = `\x1b[${holdCursor.row};${holdCursor.col}H`
-        term.write(`\x1b[${holdEraseRow};1H\x1b[0J${restore}`, () => {
+        writeOutput(`\x1b[${holdEraseRow};1H\x1b[0J${restore}`, () => {
           if (disposed) return
           term.resize(cols, rows)
-          term.write(redraw)
+          writeOutput(redraw)
           syncSize()
         })
       } else {
         term.resize(cols, rows)
-        if (redraw.length > 0) term.write(redraw)
+        if (redraw.length > 0) writeOutput(redraw)
         syncSize()
       }
     }
     const syncSize = (): void => {
-      if (holdForRedraw) return
+      if (holdForRedraw || awaitingParse) return
       if (attached && host && fit && host.offsetWidth > 0 && host.offsetHeight > 0) {
         const dims = fit.proposeDimensions()
         const last = lastSizeRef.current
@@ -616,7 +626,18 @@ export function TerminalView({
         ) {
           const blocks = useBlocksStore.getState()
           const draft = blocks.drafts[paneId]
-          if (draft && !blocks.running[paneId]) {
+          if (draft && !blocks.running[paneId] && unparsed > 0 && !parseAwaited) {
+            awaitingParse = true
+            term.write('', () => {
+              awaitingParse = false
+              if (disposed) return
+              parseAwaited = true
+              syncSize()
+              parseAwaited = false
+            })
+            return
+          }
+          if (draft && !blocks.running[paneId] && unparsed === 0) {
             const markLine = promptMarker && !promptMarker.isDisposed ? promptMarker.line : -1
             const draftRow = markLine - term.buffer.active.baseY + 1
             const cursorRow = term.buffer.active.cursorY + 1
