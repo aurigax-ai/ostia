@@ -462,6 +462,31 @@ export class WorkspaceSandboxes {
     for (const id of [...this.hosts.keys()]) this.stop(id)
   }
 
+  private async spawnKeptHost(workspaceId: string, kept: KeptSandboxHosts): Promise<string | null> {
+    const channel = kept.channel(workspaceId)
+    const tmpDir = this.tmpDir(workspaceId)
+    mkdirSync(tmpDir, { recursive: true, mode: 0o700 })
+    rmSync(channel, { force: true })
+    try {
+      await kept.spawn(workspaceId, {
+        file: this.deps.nodePath,
+        args: [this.deps.hostScript, HOST_LISTEN_FLAG, channel],
+        env: {
+          ...definedEnv(this.deps.hostEnv ?? process.env),
+          CLAUDE_CODE_TMPDIR: tmpDir,
+          ELECTRON_RUN_AS_NODE: '1',
+        },
+        channel,
+        tmpDir,
+      })
+    } catch {
+      return null
+    }
+    this.keptHosts.add(workspaceId)
+    await waitForChannel(channel)
+    return channel
+  }
+
   private host(workspaceId: string): Promise<SandboxHost> {
     const existing = this.hosts.get(workspaceId)
     if (existing) return existing
@@ -489,27 +514,18 @@ export class WorkspaceSandboxes {
           this.packagePolicy(workspaceId),
           false,
         )
-      } else if (kept?.enabled()) {
-        const channel = kept.channel(workspaceId)
-        const tmpDir = this.tmpDir(workspaceId)
-        mkdirSync(tmpDir, { recursive: true, mode: 0o700 })
-        rmSync(channel, { force: true })
-        await kept.spawn(workspaceId, {
-          file: this.deps.nodePath,
-          args: [this.deps.hostScript, HOST_LISTEN_FLAG, channel],
-          env: {
-            ...definedEnv(this.deps.hostEnv ?? process.env),
-            CLAUDE_CODE_TMPDIR: tmpDir,
-            ELECTRON_RUN_AS_NODE: '1',
-          },
-          channel,
-          tmpDir,
-        })
-        this.keptHosts.add(workspaceId)
-        await waitForChannel(channel)
-        await host.attach(channel, this.config(workspaceId), this.packagePolicy(workspaceId), true)
       } else {
-        await host.start(this.config(workspaceId), this.packagePolicy(workspaceId))
+        const channel = kept?.enabled() ? await this.spawnKeptHost(workspaceId, kept) : null
+        if (channel) {
+          await host.attach(
+            channel,
+            this.config(workspaceId),
+            this.packagePolicy(workspaceId),
+            true,
+          )
+        } else {
+          await host.start(this.config(workspaceId), this.packagePolicy(workspaceId))
+        }
       }
       return host
     })().catch((err: unknown) => {

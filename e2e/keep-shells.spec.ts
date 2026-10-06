@@ -181,18 +181,45 @@ test('KSH-C13 the saved scrollback of a kept pane is not shown a second time', a
   expect(saved.split('once-42').length - 1).toBe(1)
 })
 
-test('KSH-C20 with tmux gone a new terminal starts no shell and says tmux is missing', async () => {
+async function newTerminal(win: Page): Promise<void> {
+  await emptyState(win)
+    .getByRole('button', { name: /New workspace/ })
+    .click()
+  await emptyWorkspace(win).getByRole('button', { name: 'New terminal' }).click()
+}
+
+test('KSH-C20 with tmux gone a new terminal starts a plain shell and says it is not kept', async () => {
   const bin = binWith('tmux', '#!/bin/sh\necho "tmux 3.1"\n')
   const { app, win } = await launch(dataHome, pathWith(bin))
   try {
-    await emptyState(win)
-      .getByRole('button', { name: /New workspace/ })
-      .click()
-    await emptyWorkspace(win).getByRole('button', { name: 'New terminal' }).click()
+    await newTerminal(win)
     await expect(screen(win)).toContainText('tmux 3.2 or newer is not installed', {
       timeout: 15_000,
     })
-    await expect(screen(win)).toContainText('No shell was started')
+    await expect(screen(win)).toContainText('This shell will not survive a restart')
+    await expect(screen(win)).toContainText(PROMPT, { timeout: 15_000 })
+    await run(win, `${PARENT}; echo plain-$((6*7))`)
+    await expect(screen(win)).toContainText('plain-42', { timeout: 15_000 })
+    await expect(screen(win)).not.toContainText('parent=tmux')
+  } finally {
+    await quit(app)
+  }
+})
+
+test('KSH-C65 when tmux cannot start its server a new terminal starts a plain shell and says why', async () => {
+  const bin = binWith(
+    'tmux',
+    '#!/bin/sh\nif [ "$1" = -V ]; then echo "tmux 3.4"; exit 0; fi\necho "server refused-$((6*7))" >&2\nexit 1\n',
+  )
+  const { app, win } = await launch(dataHome, pathWith(bin))
+  try {
+    await newTerminal(win)
+    await expect(screen(win)).toContainText('tmux could not start its server: server refused-42', {
+      timeout: 15_000,
+    })
+    await expect(screen(win)).toContainText('This shell will not survive a restart')
+    await run(win, 'echo plain-$((6*7))')
+    await expect(screen(win)).toContainText('plain-42', { timeout: 15_000 })
   } finally {
     await quit(app)
   }

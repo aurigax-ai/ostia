@@ -104,6 +104,22 @@ describe('WorkspaceSandboxes with kept hosts', () => {
     },
   )
 
+  it.skipIf(process.platform === 'darwin')(
+    'KSH-C64 starts a plain host when tmux cannot keep one, and wraps through it',
+    async () => {
+      const store = new SandboxStore(join(root, 'fallback.json'))
+      store.set('ws-fallback', { enabled: true, allowRead: [], domains: [], controls: {} })
+      const { kept } = keptHosts()
+      kept.spawn = async () => {
+        throw new Error('tmux could not start its server')
+      }
+      const manager = sandboxes(store, kept)
+      expect(await manager.wrap('ws-fallback', 'echo plain', 'bash')).toContain('echo plain')
+      expect(manager.isKept('ws-fallback')).toBe(false)
+      manager.stopAll()
+    },
+  )
+
   it('KSH-C57 removes a kept tmp folder whose workspace keeps nothing and keeps the live one', () => {
     const store = new SandboxStore(join(root, 'sweep.json'))
     const { kept } = keptHosts(undefined, 'sweep-tmp')

@@ -1,10 +1,19 @@
 import { TMUX_MIN_VERSION } from '../../shared/keepShells'
 
 export const TMUX_MISSING = `tmux ${TMUX_MIN_VERSION} or newer is not installed`
+export const SANDBOX_NOT_KEPT = "this workspace's sandbox was started without tmux"
 
-export function keepShellsBanner(reason: string): string {
+function oneLine(text: string): string {
+  return Array.from(text, (c) => (c < ' ' || c === '\x7f' ? ' ' : c))
+    .join('')
+    .replace(/ {2,}/g, ' ')
+    .trim()
+}
+
+export function keepShellsNotice(reason: string): string {
   return [
-    `\r\n\x1b[38;2;239;89;111m Keep shells: ${reason}\x1b[0m\r\n`,
-    ' No shell was started. Install tmux, or turn off Keep shells running in Settings.\r\n',
-  ].join('')
+    `\x1b[2m Keep shells: ${oneLine(reason)}.`,
+    ' This shell will not survive a restart.\x1b[0m',
+    '',
+  ].join('\r\n')
 }

@@ -250,7 +250,7 @@ import {
 } from './systemRequirements'
 import { registerSystemRequirementsIpc } from './systemRequirementsIpc'
 import { PTY_COLOR_ENV, PTY_TERM_NAME, paneShellEnv } from './terminalType'
-import { TMUX_MISSING, keepShellsBanner } from './tmux/keepShellsBanner'
+import { SANDBOX_NOT_KEPT, TMUX_MISSING, keepShellsNotice } from './tmux/keepShellsBanner'
 import {
   type KeptHostMeta,
   type KeptMeta,
@@ -1965,21 +1965,16 @@ function registerPtyIpc(): void {
       portBridge?.close()
       return attachPty(e, paneId, opts)
     }
-    const keep =
-      parseKeepShells(settings.terminal?.keepShells) &&
-      !host &&
-      (!sandboxed || workspaceSandboxes.isKept(workspaceId))
+    const wantsKeep = parseKeepShells(settings.terminal?.keepShells) && !host
+    let notKept = ''
+    if (wantsKeep && !keptShellsOptions()) {
+      notKept = TMUX_MISSING
+    } else if (wantsKeep && sandboxed && !workspaceSandboxes.isKept(workspaceId)) {
+      notKept = SANDBOX_NOT_KEPT
+    }
     let kept: TmuxPane | null = null
     let keptMeta: KeptMeta | null = null
-    if (keep) {
-      if (!keptShellsOptions()) {
-        return {
-          created: false,
-          buffer: keepShellsBanner(TMUX_MISSING),
-          cursor: 0,
-          dropped: false,
-        }
-      }
+    if (wantsKeep && !notKept) {
       keptMeta = withKeptProcess({
         paneId,
         externalId: identity.externalId,
@@ -2003,15 +1998,12 @@ function registerPtyIpc(): void {
           meta: keptMeta,
         })
       } catch (err) {
-        return {
-          created: false,
-          buffer: keepShellsBanner(err instanceof Error ? err.message : String(err)),
-          cursor: 0,
-          dropped: false,
-        }
+        notKept = err instanceof Error ? err.message : String(err)
+        keptMeta = null
+        appLog?.info('kept-spawn-failed', { pane: paneId, reason: notKept })
       }
       if (ptys.has(paneId)) {
-        kept.kill()
+        kept?.kill()
         return attachPty(e, paneId, opts)
       }
     }
@@ -2053,6 +2045,7 @@ function registerPtyIpc(): void {
     const seam = hibernatedPanes.delete(paneId) ? HIBERNATE_SEAM : RESTORE_SEAM
     if (history) feedPty(entry, `${history}${seam}`)
     if (secretNotice) feedPty(entry, secretNotice)
+    if (notKept) feedPty(entry, keepShellsNotice(notKept))
     if (sandboxed && workspaceSandboxes.claimHomeNotice(workspaceId)) {
       const notice = hiddenHomeNotice()
       if (notice) feedPty(entry, notice)
