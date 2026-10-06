@@ -43,6 +43,11 @@ import {
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog'
 import { Kbd } from './ui/kbd'
 
+const LIST_CLASS = 'max-h-[min(27rem,calc(88vh-5rem))]'
+
+const GROUP_CLASS =
+  '**:[[cmdk-group-heading]]:pt-3 **:[[cmdk-group-heading]]:pb-1.5 **:[[cmdk-group-heading]]:text-ui-base **:[[cmdk-group-heading]]:font-semibold'
+
 const subscribeCommands = (cb: () => void): (() => void) => commands.subscribe(cb)
 const commandsVersion = (): number => commands.version()
 
@@ -123,7 +128,7 @@ export function CommandPalette(): JSX.Element {
       <DialogContent
         className={cn(
           'top-[12vh] origin-top translate-y-0 overflow-hidden rounded-xl! p-0',
-          askMode ? 'sm:max-w-3xl' : 'sm:max-w-2xl',
+          askMode ? 'sm:max-w-3xl' : 'sm:max-w-[47rem]',
         )}
         showCloseButton={false}
       >
@@ -164,7 +169,7 @@ export function CommandPalette(): JSX.Element {
                   enterAsk(mode === 'help' ? '' : search)
                 }}
               />
-              <CommandList>
+              <CommandList className={LIST_CLASS}>
                 {mode === 'symbols' ? (
                   <SymbolItems
                     query={paletteQuery(search)}
@@ -258,7 +263,7 @@ function ArgumentStep({
           run()
         }}
       />
-      <CommandList>
+      <CommandList className={LIST_CLASS}>
         <CommandEmpty>
           {argument
             ? fmt(d.palette.runWith, { title: command.title, value: argument })
@@ -300,7 +305,7 @@ function ChoiceStep({
         value={value}
         onValueChange={onValueChange}
       />
-      <CommandList>
+      <CommandList className={LIST_CLASS}>
         {choices !== null && choices.length === 0 ? (
           <CommandEmpty>{command.emptyChoices?.() ?? command.argument}</CommandEmpty>
         ) : null}
@@ -314,8 +319,7 @@ function ChoiceStep({
               onDone()
             }}
           >
-            <span>{choice.label}</span>
-            {choice.disabledReason ? <ItemMeta>{choice.disabledReason}</ItemMeta> : null}
+            <ItemRow name={choice.label} meta={choice.disabledReason} />
           </CommandItem>
         ))}
       </CommandList>
@@ -338,7 +342,7 @@ function HelpItems({
 }): JSX.Element {
   const d = useDict()
   return (
-    <CommandGroup heading={d.palette.helpHeading}>
+    <CommandGroup heading={d.palette.helpHeading} className={GROUP_CLASS}>
       {askName ? (
         <CommandItem value={`? tab ${fmt(d.ask.tabHint, { name: askName })}`} onSelect={onAsk}>
           <Kbd>Tab</Kbd>
@@ -391,7 +395,7 @@ function WorkspaceItems({
   if (workspaces.length === 0 && remote.length === 0) return null
   const symbol = symbolOf('workspaces')
   return (
-    <CommandGroup heading={d.palette.modes.workspaces}>
+    <CommandGroup heading={d.palette.modes.workspaces} className={GROUP_CLASS}>
       {workspaces.map((w) => {
         const name = w.customName ?? w.name
         return (
@@ -404,8 +408,7 @@ function WorkspaceItems({
               onDone()
             }}
           >
-            <span>{name}</span>
-            <ItemMeta mono>{w.workDir}</ItemMeta>
+            <ItemRow name={name} meta={w.workDir} mono />
           </CommandItem>
         )
       })}
@@ -419,23 +422,48 @@ function WorkspaceItems({
           }}
         >
           <AppWindowIcon aria-label={d.window.inOtherWindow} />
-          <span>{w.name}</span>
-          <ItemMeta mono>{w.workDir}</ItemMeta>
+          <ItemRow name={w.name} meta={w.workDir} mono />
         </CommandItem>
       ))}
     </CommandGroup>
   )
 }
 
-function ItemMeta({ mono, children }: { mono?: boolean; children: string }): JSX.Element {
+function ItemRow({
+  name,
+  meta,
+  keys,
+  detail,
+  mono,
+  nameMono,
+}: {
+  name: string
+  meta?: string
+  keys?: string | null
+  detail?: string
+  mono?: boolean
+  nameMono?: boolean
+}): JSX.Element {
   return (
-    <span
-      className={cn(
-        'ml-auto min-w-0 truncate text-fg-muted text-ui-xs group-data-selected/command-item:text-fg',
-        mono && 'font-mono',
-      )}
-    >
-      {children}
+    <span className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto_7.5rem] items-center gap-x-3 tabular-nums">
+      <span className="flex min-w-0 items-baseline gap-2">
+        <span className={cn('truncate', nameMono && 'font-mono')}>{name}</span>
+        {detail ? (
+          <span className="min-w-0 truncate text-fg-muted text-ui-xs">{detail}</span>
+        ) : null}
+      </span>
+      <span
+        data-slot="palette-meta"
+        className={cn(
+          'min-w-0 max-w-80 justify-self-end truncate text-fg-muted text-ui-xs group-data-selected/command-item:text-fg',
+          mono && 'font-mono',
+        )}
+      >
+        {meta}
+      </span>
+      <span className="flex justify-end">
+        {keys ? <Kbd className="whitespace-nowrap">{keys}</Kbd> : null}
+      </span>
     </span>
   )
 }
@@ -451,7 +479,7 @@ function TabItems({
   if (tabs.length === 0) return null
   const symbol = symbolOf('tabs')
   return (
-    <CommandGroup heading={d.palette.modes.tabs}>
+    <CommandGroup heading={d.palette.modes.tabs} className={GROUP_CLASS}>
       {tabs.map(({ pane, workspace }) => {
         const where = workspace.customName ?? workspace.name
         return (
@@ -463,8 +491,7 @@ function TabItems({
               onDone()
             }}
           >
-            <span>{pane.title}</span>
-            <ItemMeta>{where}</ItemMeta>
+            <ItemRow name={pane.title} meta={where} />
           </CommandItem>
         )
       })}
@@ -512,7 +539,7 @@ function SymbolItems({
     .workspaces.find((w) => w.id === workspaceId)?.workDir
   const symbol = symbolOf('symbols')
   return (
-    <CommandGroup heading={d.palette.modes.symbols} forceMount>
+    <CommandGroup heading={d.palette.modes.symbols} className={GROUP_CLASS} forceMount>
       {result.hits.map((hit) => {
         const place = symbolPlace(hit, workDir)
         return (
@@ -525,11 +552,7 @@ function SymbolItems({
               onDone()
             }}
           >
-            <span className="font-mono">{hit.name}</span>
-            {hit.container ? (
-              <span className="min-w-0 truncate text-fg-muted text-ui-xs">{hit.container}</span>
-            ) : null}
-            <ItemMeta mono>{place}</ItemMeta>
+            <ItemRow name={hit.name} nameMono detail={hit.container} meta={place} mono />
           </CommandItem>
         )
       })}
@@ -577,6 +600,7 @@ function CommandItems({
     return (
       <CommandItem
         key={c.id}
+        className={grouped ? undefined : 'mx-1'}
         value={searchValue(symbol, c, shown)}
         onSelect={() => {
           if (c.id === ASK_COMMAND_ID) {
@@ -597,9 +621,7 @@ function CommandItems({
           onDone()
         }}
       >
-        <span>{shown.title}</span>
-        <ItemMeta mono>{c.id}</ItemMeta>
-        {keys ? <Kbd>{keys}</Kbd> : null}
+        <ItemRow name={shown.title} meta={c.id} keys={keys} mono />
       </CommandItem>
     )
   }
@@ -607,7 +629,7 @@ function CommandItems({
   return (
     <>
       {[...groups.entries()].map(([key, group]) => (
-        <CommandGroup key={key} heading={group.heading}>
+        <CommandGroup key={key} heading={group.heading} className={GROUP_CLASS}>
           {group.items.map(renderItem)}
         </CommandGroup>
       ))}
