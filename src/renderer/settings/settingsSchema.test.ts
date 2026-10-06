@@ -54,6 +54,8 @@ describe('SETTINGS_JSON_SCHEMA', () => {
     for (const font of [ui, terminal, editor]) {
       expect(font.properties.size.minimum).toBe(8)
       expect(font.properties.size.maximum).toBe(32)
+      expect(font.properties.baseSize.minimum).toBe(8)
+      expect(font.properties.baseSize.maximum).toBe(32)
     }
   })
 

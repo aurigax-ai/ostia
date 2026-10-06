@@ -6,6 +6,7 @@ import { registerBrowserHandle } from '../lib/browserHandles'
 import { type KeyLike, runAppChord } from '../lib/chords'
 import * as closeConfirm from '../lib/closeConfirm'
 import { registerTerminal } from '../lib/terminalHandles'
+import { activeFontZoom, zoomFont } from '../lib/wheelZoom'
 import { useAttentionStore } from '../stores/attentionStore'
 import { useBlocksStore } from '../stores/blocksStore'
 import { useCloseConfirmStore } from '../stores/closeConfirmStore'
@@ -635,6 +636,20 @@ describe('builtins route to store actions', () => {
     expect(zoom()).toBe(100)
     for (let i = 0; i < 10; i++) await commands.execWith(ctx(null, null), 'view.zoomOut')
     expect(zoom()).toBe(80)
+  })
+
+  it('view.zoomReset also puts a scroll-zoomed terminal and editor font back', async () => {
+    const store = useSettingsStore.getState()
+    store.setSurfaceFont('terminal', { size: 12 })
+    store.setSurfaceFont('editor', { size: 14 })
+    zoomFont('terminal', 3)
+    zoomFont('editor', -1)
+
+    await commands.execWith(ctx(null, null), 'view.zoomReset')
+
+    const { terminal, editor } = useSettingsStore.getState().appearance
+    expect([terminal.size, editor.size]).toEqual([12, 14])
+    expect(activeFontZoom(useSettingsStore.getState().appearance)).toBeNull()
   })
 
   it('routes pane.close to layout.closePane with an explicit paneId', async () => {

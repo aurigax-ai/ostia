@@ -617,6 +617,7 @@ export const en = {
   topbar: {
     toggleSidebar: 'Toggle sidebar',
     settings: 'Settings',
+    resetZoom: 'Reset zoom to 100%',
   },
   window: {
     minimize: 'Minimize',
@@ -3255,6 +3256,7 @@ export const zhHant: Dict = {
   topbar: {
     toggleSidebar: '切換側邊欄',
     settings: '設定',
+    resetZoom: '回到 100%',
   },
   window: {
     minimize: '最小化',

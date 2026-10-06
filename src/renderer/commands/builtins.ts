@@ -4,7 +4,7 @@ import { wantsDesktopBanner } from '@shared/notificationSettings'
 import { OPEN_FILES_COMMAND, parseFileTargets } from '@shared/openFiles'
 import type { AttentionState } from '@shared/types'
 import { type WorkspaceGroupColor, normalizeGroupName } from '@shared/workspaceGroups'
-import { ZOOM_DEFAULT, stepZoom } from '@shared/zoom'
+import { stepZoom } from '@shared/zoom'
 import { currentDict } from '../i18n/useDict'
 import { type DropZone, type FocusDirection, allPanes, findPane, tabNeighbor } from '../layout/tree'
 import type { Direction, SurfaceKind } from '../layout/types'
@@ -35,6 +35,7 @@ import { openRequestedFiles } from '../lib/openFile'
 import { GO_TO_WORKSPACE_SYMBOL_COMMAND, SYMBOLS_PREFIX } from '../lib/paletteModes'
 import { type PaneAgentReport, isStaleAgentReport, paneAgentReport } from '../lib/paneAgent'
 import { terminalFor } from '../lib/terminalHandles'
+import { resetZoom } from '../lib/wheelZoom'
 import { openWorkflowPicker } from '../lib/workflows'
 import {
   focusAdjacentTab,
@@ -864,7 +865,7 @@ export function registerBuiltinCommands(): void {
     id: 'view.zoomReset',
     category: 'view',
     target: 'none',
-    run: () => useSettingsStore.getState().setZoom(ZOOM_DEFAULT),
+    run: resetZoom,
   })
 
   registerCore({

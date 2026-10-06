@@ -27,6 +27,7 @@ import { DropdownMenu, MenuItem, MenuSubContent, MenuSubTrigger } from './Menu'
 import { NotificationCenter } from './NotificationCenter'
 import { PanelToggles } from './PanelToggles'
 import { UpdateNotice } from './UpdateNotice'
+import { ZoomReset } from './ZoomReset'
 import { Button } from './ui/button'
 import { ButtonGroup } from './ui/button-group'
 import { ContextMenuSeparator, ContextMenuSub } from './ui/context-menu'
@@ -94,6 +95,7 @@ export function TopBar(): JSX.Element {
 
       <div className="topbar-right">
         <WorkspaceChips workspaceId={dashboardActive ? null : activeWorkspaceId} />
+        <ZoomReset />
         <UpdateNotice />
         <IconButton
           size="bar"
