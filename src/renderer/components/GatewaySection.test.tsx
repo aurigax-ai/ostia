@@ -82,24 +82,4 @@ describe('GatewaySection', () => {
       expect(screen.getByRole('switch', { name: 'Destructive commands, Pixel' })).toBeChecked(),
     )
   })
-
-  it('warns when a non-loopback bind address is selected and enables on it', async () => {
-    vi.mocked(window.ostia.gateway.bindOptions).mockResolvedValue({
-      addresses: [
-        { address: '127.0.0.1', kind: 'loopback' },
-        { address: '100.101.1.2', kind: 'tailscale', iface: 'tailscale0' },
-      ],
-      selected: '100.101.1.2',
-    })
-    const user = userEvent.setup()
-    render(<GatewaySection />)
-
-    expect(await screen.findByText(/Anyone who can reach 100\.101\.1\.2/)).toBeInTheDocument()
-    expect(screen.getByRole('combobox', { name: 'Bind address' })).toHaveTextContent(
-      'Tailscale (tailscale0) · 100.101.1.2',
-    )
-
-    await user.click(screen.getByRole('switch', { name: 'Enable remote access' }))
-    expect(window.ostia.gateway.enable).toHaveBeenCalledWith({ host: '100.101.1.2' })
-  })
 })

@@ -53,7 +53,7 @@ export function resetPairRateLimit(): void {
   pairAttemptsByIp.clear()
 }
 
-function pairAuditLogPath(): string {
+export function pairAuditLogPath(): string {
   return join(appDataDir(), 'gateway-pair-audit.log')
 }
 
