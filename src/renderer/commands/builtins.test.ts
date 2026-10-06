@@ -1164,12 +1164,52 @@ describe('builtins route to store actions', () => {
     expect(toggleRail).toHaveBeenCalled()
   })
 
-  it('routes view.searchFiles to ui.searchFiles', async () => {
-    const searchFiles = vi.spyOn(useUIStore.getState(), 'searchFiles').mockImplementation(() => {})
+  describe('view.searchFiles', () => {
+    const mountPanel = (): HTMLInputElement => {
+      const panel = document.createElement('aside')
+      panel.id = 'files-panel'
+      const input = document.createElement('input')
+      panel.append(input)
+      document.body.append(panel)
+      return input
+    }
+    const outside = (): HTMLButtonElement => {
+      const button = document.createElement('button')
+      document.body.append(button)
+      return button
+    }
 
-    await commands.execWith(ctx(null, null), 'view.searchFiles')
+    afterEach(() => {
+      document.body.replaceChildren()
+      useUIStore.setState({ filesOpen: false, filesSearchFocus: false })
+    })
 
-    expect(searchFiles).toHaveBeenCalled()
+    it('opens the Files panel and asks for the search box when it is closed', async () => {
+      useUIStore.setState({ filesOpen: false, filesSearchFocus: false })
+
+      await commands.execWith(ctx(null, null), 'view.searchFiles')
+
+      expect(useUIStore.getState()).toMatchObject({ filesOpen: true, filesSearchFocus: true })
+    })
+
+    it('closes the Files panel when focus is inside it', async () => {
+      useUIStore.setState({ filesOpen: true, filesSearchFocus: false })
+      mountPanel().focus()
+
+      await commands.execWith(ctx(null, null), 'view.searchFiles')
+
+      expect(useUIStore.getState()).toMatchObject({ filesOpen: false, filesSearchFocus: false })
+    })
+
+    it('moves focus to the search box without closing when focus is elsewhere', async () => {
+      useUIStore.setState({ filesOpen: true, filesSearchFocus: false })
+      mountPanel()
+      outside().focus()
+
+      await commands.execWith(ctx(null, null), 'view.searchFiles')
+
+      expect(useUIStore.getState()).toMatchObject({ filesOpen: true, filesSearchFocus: true })
+    })
   })
 
   it('routes app.openSettings to ui.openSettings', async () => {
