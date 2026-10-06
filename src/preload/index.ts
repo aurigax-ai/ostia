@@ -801,6 +801,7 @@ const bridge: OstiaBridge = {
     },
     setProviderKey: (providerId, value) =>
       ipcRenderer.invoke('assist:set-provider-key', providerId, value),
+    wake: () => ipcRenderer.send('assist:wake'),
   },
   chatSessions: {
     list: () => ipcRenderer.invoke('chat:list') as Promise<ChatSessionSummary[]>,

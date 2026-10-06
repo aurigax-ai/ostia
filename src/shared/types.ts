@@ -902,7 +902,7 @@ export interface OstiaBridge {
   notifications: NotificationsApi
   workflows: WorkflowsApi
   completions: CompletionsApi
-  assist: AssistApi
+  assist: AssistApi & { wake: () => void }
   chatSessions: ChatSessionsApi
   privacy: PrivacyApi
   chatTools: ChatToolsApi

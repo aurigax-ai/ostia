@@ -21,7 +21,7 @@ import { featuresInUse, toggleAssistFeature } from '../lib/assistFeatures'
 import { openAssistUi } from '../lib/assistUi'
 import { useChordLabel } from '../lib/chords'
 import { isMac } from '../platform'
-import { useAssistStore } from '../stores/assistStore'
+import { useAssistStore, wakeAssist } from '../stores/assistStore'
 import { useExtensionsStore } from '../stores/extensionsStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
@@ -438,6 +438,9 @@ function ExtensionGroups({ ext }: { ext: ExtensionInfo }): JSX.Element {
 
 export function AssistantSection(): JSX.Element {
   const d = useDict()
+  useEffect(() => {
+    wakeAssist()
+  }, [])
   const list = useExtensionsStore((s) => s.list)
   const exts = list.filter((e) => e.enabled && isAssistExtension(e))
   const chat = exts.some((e) => e.assist.includes('chat'))

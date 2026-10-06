@@ -26,8 +26,9 @@ import {
   registerExtensionMethods,
 } from './extensionHost'
 import { ExtensionStore } from './extensionStore'
+import { GitBoard } from './gitBoard'
 import { type PaneIdentity, registerPane } from './idRegistry'
-import { registerPaneListMethods } from './paneList'
+import { type PaneListDeps, listPanes, listWorkspaces, registerPaneListMethods } from './paneList'
 
 const repoRoot = process.cwd()
 
@@ -59,6 +60,7 @@ describe('built-in git extension against a real repository', () => {
   let dir: string
   let repo: string
   let host: ExtensionHost
+  let board: GitBoard
   const broadcasts: { channel: string; payload: unknown }[] = []
   const openDiffIn = vi.fn()
   const openPanelIn = vi.fn()
@@ -100,7 +102,7 @@ describe('built-in git extension against a real repository', () => {
     const identity = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'p-git' })
     const other = registerPane({ windowId: 'w1', workspaceId: 's2', paneId: 'p-plain' })
     fileIdentity = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'p-file' })
-    registerPaneListMethods({
+    const paneDeps: PaneListDeps = {
       execCommand: async (_target, id) =>
         ({
           ok: true,
@@ -151,7 +153,8 @@ describe('built-in git extension against a real repository', () => {
       getTerminalState: () => undefined,
       ptyPid: () => undefined,
       windowIds: () => ['1'],
-    })
+    }
+    registerPaneListMethods(paneDeps)
     expect(identity.externalId).not.toBe(other.externalId)
     host = new ExtensionHost({
       roots: [{ dir: join(repoRoot, 'out', 'extensions'), builtin: true }],
@@ -166,6 +169,7 @@ describe('built-in git extension against a real repository', () => {
       notify: () => {},
       confirm,
       log: () => {},
+      startOnDemand: ['git'],
     })
     registerExtensionMethods(() => host)
     registerControlServer(
@@ -177,9 +181,16 @@ describe('built-in git extension against a real repository', () => {
       socketPath,
     )
     host.startEager()
+    board = new GitBoard({
+      host,
+      listWorkspaces: () => listWorkspaces(paneDeps),
+      listPanes: () => listPanes(paneDeps),
+    })
+    board.start()
   })
 
   afterAll(() => {
+    board.stop()
     host.stopAll()
     stopControlServer()
     rmSync(dir, { recursive: true, force: true })
@@ -195,6 +206,7 @@ describe('built-in git extension against a real repository', () => {
       kind: 'location',
     })
     expect(itemText('s2')).toBeUndefined()
+    expect(host.isRunning('git')).toBe(false)
   })
 
   it('puts a chip up once main knows the workspace, even if it was refused before', async () => {
@@ -216,6 +228,17 @@ describe('built-in git extension against a real repository', () => {
     writeFileSync(file, original)
     host.emitEvent('command.finished', { paneId: 'x', workspaceId: 's1', exitCode: 0 })
     await until(() => (chip('s1', 'diff-stats')?.text === before ? true : undefined))
+  })
+
+  it('keeps the git process down until a command needs it, and the board stays up after', async () => {
+    expect(host.isRunning('git')).toBe(false)
+    expect(host.list().find((e) => e.id === 'git')?.status).toBe('idle')
+    const res = await host.invoke('git', 'status', null, caller())
+    expect(res.ok).toBe(true)
+    expect(host.isRunning('git')).toBe(true)
+    await new Promise((r) => setTimeout(r, 400))
+    expect(itemText('s1')).toBe('main')
+    expect(chip('s1', 'branch')?.text).toBe('main')
   })
 
   it('lists staged, unstaged and untracked changes for the workspace repo', async () => {
