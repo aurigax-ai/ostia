@@ -264,6 +264,13 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       dismiss: vi.fn().mockResolvedValue(true),
       onChange: vi.fn(() => () => {}),
     },
+    fileOps: {
+      create: vi.fn().mockResolvedValue({ ok: true, paths: [] }),
+      rename: vi.fn().mockResolvedValue({ ok: true, paths: [] }),
+      move: vi.fn().mockResolvedValue({ ok: true, paths: [] }),
+      copy: vi.fn().mockResolvedValue({ ok: true, paths: [] }),
+      trash: vi.fn().mockResolvedValue({ ok: true, paths: [] }),
+    },
     marketplace: {
       list: vi.fn().mockResolvedValue({ marketplaces: [], installed: [] }),
       add: vi.fn().mockResolvedValue({ ok: true, state: { marketplaces: [], installed: [] } }),

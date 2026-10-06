@@ -19,6 +19,7 @@ import {
   firstBrowserPane,
   firstPaneId,
   firstPaneOfKind,
+  followMovedFile,
   graftNode,
   hasLockedPane,
   mergeLayouts,
@@ -86,6 +87,7 @@ interface LayoutState {
   setLocked: (workspaceId: string, paneId: string, locked: boolean) => void
   isLocked: (workspaceId: string, paneId?: string) => boolean
   setTitle: (workspaceId: string, paneId: string, title: string) => void
+  followMovedFile: (from: string, to: string) => void
   rename: (workspaceId: string, paneId: string, title: string) => void
   setDefaultTitle: (workspaceId: string, paneId: string, title: string) => void
   openFile: (workspaceId: string, path: string) => void
@@ -395,6 +397,18 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       return root === layout.root
         ? s
         : { byWorkspace: { ...s.byWorkspace, [workspaceId]: { ...layout, root } } }
+    }),
+
+  followMovedFile: (from, to) =>
+    set((s) => {
+      let changed = false
+      const byWorkspace: Record<string, WorkspaceLayout> = {}
+      for (const [id, layout] of Object.entries(s.byWorkspace)) {
+        const root = followMovedFile(layout.root, from, to)
+        changed ||= root !== layout.root
+        byWorkspace[id] = root === layout.root ? layout : { ...layout, root }
+      }
+      return changed ? { byWorkspace } : s
     }),
 
   setTitle: (workspaceId, paneId, title) =>
