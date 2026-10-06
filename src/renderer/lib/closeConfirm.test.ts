@@ -113,10 +113,7 @@ function kept(keepShells: KeepShells, row: Row): Set<string> {
   return keepShells === 'on, restart' && row !== 'unsaved editor' ? new Set(['p1']) : new Set()
 }
 
-function lost(
-  keep: ReadonlySet<string> = new Set(),
-  busy: Record<string, string> = {},
-): Lost[] {
+function lost(keep: ReadonlySet<string> = new Set(), busy: Record<string, string> = {}): Lost[] {
   const losses = quitLosses(quitGroups(keep, busy))
   const out: Lost[] = []
   if (losses.processes > 0) out.push('processes')
