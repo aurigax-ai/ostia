@@ -579,7 +579,11 @@ export function SettingsPanel(): JSX.Element | null {
         </nav>
 
         <ScrollArea className="min-h-0">
-          <div ref={contentRef} className="mx-auto max-w-3xl px-8 py-5">
+          <div
+            ref={contentRef}
+            data-slot="settings-content"
+            className="mx-auto max-w-3xl select-text px-8 py-5 [&_[data-slot=kbd]]:pointer-events-auto [&_[data-slot=kbd]]:select-text [&_[data-slot=label]]:select-text"
+          >
             {q && visible.length === 0 ? (
               <p className="text-fg-muted text-ui-sm">{d.settings.noMatches}</p>
             ) : null}
