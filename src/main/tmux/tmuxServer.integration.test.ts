@@ -194,8 +194,8 @@ describe('TmuxServer', () => {
     const server = await connect()
     const ready = 'stty raw -echo; echo ready; exec cat -v'
     const bracketed = await spawnSh(server, `printf '\\033[?2004h'; ${ready}`)
-    const plain = await spawnSh(server, ready)
     const outBracketed = collect(bracketed)
+    const plain = await spawnSh(server, ready)
     const outPlain = collect(plain)
     await until(() => outBracketed.text().includes('ready') && outPlain.text().includes('ready'))
     bracketed.paste('line-1\rline-2')
