@@ -3,6 +3,7 @@ import { createServer } from 'node:net'
 import { join } from 'node:path'
 import { type ElectronApplication, _electron as electron, expect, test } from '@playwright/test'
 import { freshDataHome, isolatedLaunch } from './dataHome'
+import { extensionHosts } from './extensionHosts'
 import { openWorkspace } from './helpers'
 
 const SERVER = `require('node:http')
@@ -85,6 +86,7 @@ test('the ports extension puts ports and ssh chips on the pane, and a port chip 
     await expect(
       win.locator('.pane-header .pane-chip').filter({ hasText: 'deploy@build-box' }),
     ).toBeVisible({ timeout: 20_000 })
+    expect(extensionHosts(app)).not.toContain('ports')
   } finally {
     await app.close()
   }
