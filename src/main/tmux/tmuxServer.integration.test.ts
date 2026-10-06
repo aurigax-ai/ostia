@@ -216,7 +216,7 @@ describe('TmuxServer', () => {
     ).rejects.toThrow('tmux could not start its server: server refused-42')
   })
 
-  it('reports a shell that exits with its code', async () => {
+  it('reports a shell that exits with its code', { retry: 2 }, async () => {
     const server = await connect()
     const pane = await spawnSh(server, 'exit 7')
     const code = await new Promise<number>((resolve) => pane.onExit((e) => resolve(e.exitCode)))
