@@ -182,6 +182,17 @@ const PANE_FOCUS_COMMANDS: readonly (readonly [CoreCommandId, FocusDirection])[]
   ['pane.focusDown', 'down'],
 ]
 
+function workspaceWithoutPanes(ctx: CommandContext, paneId?: string): string | null {
+  const workspaceId = ctx.activeWorkspaceId
+  if (!workspaceId || paneId || ctx.activePaneId) return null
+  return useLayoutStore.getState().byWorkspace[workspaceId] ? null : workspaceId
+}
+
+function openFirstTerminal(ctx: CommandContext, workspaceId: string): void {
+  useLayoutStore.getState().ensure(workspaceId)
+  if (ctx.origin !== 'remote') focusActivePaneWhenReady(workspaceId)
+}
+
 const WORKSPACE_DIR = /^(\/|~(\/|$))/
 const PANE_LOCKED = 'pane-locked: the human locked this pane; only they can unlock it'
 
@@ -198,6 +209,11 @@ export function registerBuiltinCommands(): void {
     category: 'pane',
     hidden: true,
     run: ({ paneId, direction }, ctx) => {
+      const empty = workspaceWithoutPanes(ctx, paneId)
+      if (empty) {
+        openFirstTerminal(ctx, empty)
+        return
+      }
       const target = paneId ?? ctx.activePaneId
       if (ctx.activeWorkspaceId && target) {
         useLayoutStore.getState().split(ctx.activeWorkspaceId, target, direction)
@@ -210,6 +226,11 @@ export function registerBuiltinCommands(): void {
     id: 'tab.new',
     category: 'pane',
     run: (args, ctx) => {
+      const empty = workspaceWithoutPanes(ctx, args?.paneId)
+      if (empty) {
+        openFirstTerminal(ctx, empty)
+        return
+      }
       const target = args?.paneId ?? ctx.activePaneId
       if (ctx.activeWorkspaceId && target) {
         useLayoutStore.getState().newTab(ctx.activeWorkspaceId, target, 'terminal')
@@ -223,6 +244,12 @@ export function registerBuiltinCommands(): void {
     category: 'pane',
     capabilities: ['browse'],
     run: (args, ctx) => {
+      const empty = workspaceWithoutPanes(ctx, args?.paneId)
+      if (empty) {
+        const profile = browserProfileIn(empty, openerOf(ctx))
+        useLayoutStore.getState().openBrowser(empty, 'about:blank', profile)
+        return
+      }
       const target = args?.paneId ?? ctx.activePaneId
       if (ctx.activeWorkspaceId && target) {
         const profile = browserProfileIn(ctx.activeWorkspaceId, openerOf(ctx))
@@ -247,7 +274,11 @@ export function registerBuiltinCommands(): void {
     id: 'pane.close',
     category: 'pane',
     capabilities: ['kill-pane'],
+    argsSchema: { type: 'object', properties: { paneId: { type: 'string' } } },
     run: async (args, ctx) => {
+      if (args?.paneId !== undefined && typeof args.paneId !== 'string') {
+        throw new Error('paneId must be a string')
+      }
       if (!ctx.activeWorkspaceId) return
       const target = args?.paneId ?? ctx.activePaneId
       const layout = useLayoutStore.getState()

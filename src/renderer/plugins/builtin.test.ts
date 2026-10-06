@@ -22,6 +22,7 @@ const REQUIRED_TOKEN_KEYS = [
   'attn',
   'attn-glow',
   'attn-fg',
+  'warn-fg',
   'ok',
   'add',
   'del',
@@ -61,6 +62,10 @@ describe('BUILTIN_PLUGINS', () => {
         `${id} attn-fg`,
       ).toBeGreaterThanOrEqual(4.5)
       expect(
+        wcagContrast(tokens['warn-fg'], tokens['surface-1']),
+        `${id} warn-fg`,
+      ).toBeGreaterThanOrEqual(4.5)
+      expect(
         wcagContrast(tokens['fg-dim'], tokens['surface-1']),
         `${id} fg-dim`,
       ).toBeGreaterThanOrEqual(3)
@@ -85,7 +90,7 @@ describe('BUILTIN_PLUGINS', () => {
   it('keeps every text token of the light theme at 4.5:1 or better on all its surfaces', () => {
     const { tokens } = themes().find((t) => t.id === 'ostia-light') as Theme
     const surfaces = ['bg', 'bg-sunken', 'surface-1', 'surface-2', 'surface-3']
-    for (const text of ['fg', 'fg-muted', 'brand', 'brand-bright', 'attn-fg', 'ok']) {
+    for (const text of ['fg', 'fg-muted', 'brand', 'brand-bright', 'attn-fg', 'warn-fg', 'ok']) {
       for (const surface of surfaces) {
         expect(
           wcagContrast(tokens[text], tokens[surface]),

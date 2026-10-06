@@ -11,6 +11,7 @@ import {
   findPane,
   firstPaneId,
   firstPaneOfKind,
+  followMovedFile,
   graftNode,
   hasLockedPane,
   isPaneShown,
@@ -1121,5 +1122,27 @@ describe('adjacentTab', () => {
     const b = createPane()
     expect(adjacentTab(a, a.id, 1)).toBeNull()
     expect(adjacentTab(splitOf('vertical', a, b), a.id, -1)).toBeNull()
+  })
+})
+
+describe('followMovedFile', () => {
+  it('points editors at a renamed file and at files under a moved folder', () => {
+    const file = { ...createPane('editor'), filePath: '/p/notes.md', title: 'notes.md' }
+    const nested = { ...createPane('editor'), filePath: '/p/src/main.ts', title: 'main.ts' }
+    const other = { ...createPane('editor'), filePath: '/p/srcx/a.ts', title: 'a.ts' }
+    const root = splitOf('horizontal', file, splitOf('vertical', nested, other))
+
+    const renamed = followMovedFile(root, '/p/notes.md', '/p/readme.md')
+    expect(JSON.stringify(renamed)).toContain('"filePath":"/p/readme.md"')
+    expect(JSON.stringify(renamed)).toContain('"title":"readme.md"')
+
+    const moved = followMovedFile(root, '/p/src', '/p/lib')
+    expect(JSON.stringify(moved)).toContain('"filePath":"/p/lib/main.ts"')
+    expect(JSON.stringify(moved)).toContain('"filePath":"/p/srcx/a.ts"')
+  })
+
+  it('returns the same tree when no editor shows the moved path', () => {
+    const root = splitOf('horizontal', createPane(), createPane())
+    expect(followMovedFile(root, '/p/a', '/p/b')).toBe(root)
   })
 })

@@ -48,6 +48,27 @@ describe('parseKeymapBindings', () => {
     ])
   })
 
+  it('keeps a list of chords, skipping and reporting the ones it cannot use', () => {
+    const res = parseKeymapBindings(
+      {
+        bindings: {
+          'tab.next': ['Ctrl+Tab', ' Shift+Cmd+] ', 'Ctrl+X', 'Shift+Cmd+]'],
+          'pane.zoom': ['Ctrl+X', 7],
+          'pane.close': [],
+        },
+      },
+      true,
+    )
+    if (!res.ok) throw new Error(res.error)
+    expect(res.bindings).toEqual({ 'tab.next': ['Ctrl+Tab', 'Shift+Cmd+]'] })
+    expect(res.skipped).toEqual([
+      { command: 'tab.next', value: 'Ctrl+X', problem: 'needs-modifier' },
+      { command: 'pane.zoom', value: 'Ctrl+X', problem: 'needs-modifier' },
+      { command: 'pane.zoom', value: '7', problem: 'invalid' },
+      { command: 'pane.close', value: '[]', problem: 'invalid' },
+    ])
+  })
+
   it('checks chords for the platform it loads on', () => {
     const raw = { bindings: { 'palette.toggle': 'Ctrl+Shift+P', 'pane.splitRight': 'Cmd+D' } }
     const mac = parseKeymapBindings(raw, true)

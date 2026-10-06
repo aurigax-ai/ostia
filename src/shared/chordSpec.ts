@@ -17,7 +17,15 @@ export interface KeyLike {
   altKey: boolean
 }
 
-export type KeybindingMap = Record<string, string | null>
+export type ChordValue = string | readonly string[]
+
+export type KeybindingMap = Record<string, ChordValue | null>
+
+export const CHORDS_PER_COMMAND_MAX = 8
+
+export function chordTexts(value: ChordValue): string[] {
+  return typeof value === 'string' ? [value] : [...value]
+}
 
 export const DIGIT_RANGE = '1-9'
 
@@ -318,15 +326,30 @@ export function usedByMonaco(spec: ChordSpec, mac: boolean): boolean {
   return monacoDefaults(mac).some((m) => sameChord(m, spec))
 }
 
+const parsesSomewhere = (text: string): boolean =>
+  parseChord(text, true) !== null || parseChord(text, false) !== null
+
+export function parseChordValue(value: unknown): ChordValue | null {
+  if (typeof value === 'string') return parsesSomewhere(value) ? value.trim() : null
+  if (!Array.isArray(value)) return null
+  const texts = value
+    .filter((v): v is string => typeof v === 'string' && parsesSomewhere(v))
+    .map((v) => v.trim())
+  const unique = [...new Set(texts)].slice(0, CHORDS_PER_COMMAND_MAX)
+  return unique.length > 0 ? unique : null
+}
+
 export function parseKeybindings(raw: unknown): KeybindingMap {
   const out: KeybindingMap = Object.create(null)
   if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return out
   for (const [id, value] of Object.entries(raw as Record<string, unknown>)) {
     if (!id || isDangerousSegment(id)) continue
-    if (value === null) out[id] = null
-    else if (typeof value === 'string' && (parseChord(value, true) || parseChord(value, false))) {
-      out[id] = value.trim()
+    if (value === null) {
+      out[id] = null
+      continue
     }
+    const chords = parseChordValue(value)
+    if (chords !== null) out[id] = chords
   }
   return out
 }

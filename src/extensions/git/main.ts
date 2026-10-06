@@ -11,7 +11,6 @@ import {
   expandHome,
   failure,
   namedArgs,
-  nextBackoff,
   ok,
   parseFlags,
   startPanelServer,
@@ -27,7 +26,6 @@ import {
   diffSides,
   discard,
   graphLog,
-  lineChanges,
   log,
   pickChange,
   readStatus,
@@ -39,24 +37,12 @@ import {
 } from './repo'
 import { type GraphScope, parseScope, planScope } from './scope'
 import { type GitSettings, readGitSettings } from './settings'
-import {
-  type ChangeArea,
-  type RepoStatus,
-  branchChipText,
-  branchLabel,
-  diffStatsChipText,
-  summarize,
-} from './status'
+import { type ChangeArea, type RepoStatus, summarize } from './status'
 import { stringsFor } from './strings'
 import { ViewStateStore } from './viewState'
 import { WorkspaceCwds } from './workspaces'
 
 const REFRESH_DEBOUNCE_MS = 300
-const CHIP_RETRY_MS = 300
-const CHIP_RETRY_MAX_MS = 5000
-const SIDEBAR_KEY = 'branch'
-const BRANCH_CHIP = 'branch'
-const DIFF_STATS_CHIP = 'diff-stats'
 const AREAS: ChangeArea[] = ['staged', 'unstaged', 'untracked', 'conflicted']
 const DEFAULT_LOG_LIMIT = 50
 const MAX_LOG_LIMIT = 500
@@ -150,9 +136,6 @@ function blamePanelPath(file: string): string {
 
 class GitExtension {
   private cwds = new WorkspaceCwds()
-  private shown = new Map<string, string>()
-  private chips = new Map<string, string>()
-  private chipRefusals = 0
   private signature = ''
   private timer: ReturnType<typeof setTimeout> | null = null
   private poll: ReturnType<typeof setInterval> | null = null
@@ -242,9 +225,7 @@ class GitExtension {
         }
         return found
       }
-      const cwds = this.cwds.resolve(workspaces, panes)
-      await this.syncSidebar(cwds, repoFor)
-      await this.syncChips(cwds, repoFor)
+      await this.track(this.cwds.resolve(workspaces, panes), repoFor)
     } catch (err) {
       console.error(err instanceof Error ? err.message : String(err))
     } finally {
@@ -256,94 +237,19 @@ class GitExtension {
     }
   }
 
-  private async syncSidebar(
+  private async track(
     cwds: Map<string, string>,
     repoFor: (cwd: string) => Promise<Repo | null>,
   ): Promise<void> {
-    const next = new Map<string, string>()
     const parts: string[] = []
     for (const [workspaceId, cwd] of cwds) {
       const repo = await repoFor(cwd)
-      if (!repo) continue
-      next.set(workspaceId, branchLabel(repo.status.branch))
-      parts.push(`${workspaceId}\u0000${repo.root}\u0000${JSON.stringify(repo.status)}`)
+      if (repo) parts.push(`${workspaceId}\u0000${repo.root}\u0000${JSON.stringify(repo.status)}`)
     }
-    for (const [workspaceId, text] of next) {
-      if (this.shown.get(workspaceId) === text) continue
-      await this.ext.setSidebarItem({
-        workspaceId,
-        key: SIDEBAR_KEY,
-        text,
-        icon: 'git-branch',
-        kind: 'location',
-      })
-    }
-    for (const workspaceId of this.shown.keys()) {
-      if (!next.has(workspaceId)) {
-        await this.ext.setSidebarItem({ workspaceId, key: SIDEBAR_KEY, text: '' })
-      }
-    }
-    this.shown = next
     const signature = parts.sort().join('\n')
     if (signature !== this.signature) {
       this.signature = signature
       this.onChanged()
-    }
-  }
-
-  private async syncChips(
-    cwds: Map<string, string>,
-    repoFor: (cwd: string) => Promise<Repo | null>,
-  ): Promise<void> {
-    const stats = new Map<string, Promise<string>>()
-    const statsFor = (repo: Repo): Promise<string> => {
-      let found = stats.get(repo.root)
-      if (!found) {
-        const untracked = repo.status.changes
-          .filter((c) => c.area === 'untracked')
-          .map((c) => c.path)
-        found = lineChanges(repo.root, untracked)
-          .then(diffStatsChipText)
-          .catch(() => '')
-        stats.set(repo.root, found)
-      }
-      return found
-    }
-    const next = new Map<string, string>()
-    for (const [workspaceId, cwd] of cwds) {
-      const repo = await repoFor(cwd)
-      if (!repo) continue
-      const branch = branchChipText(repo.status.branch)
-      if (branch) next.set(`${workspaceId}\u0000${BRANCH_CHIP}`, branch)
-      if (this.settings.showDiffStats) {
-        const diff = await statsFor(repo)
-        if (diff) next.set(`${workspaceId}\u0000${DIFF_STATS_CHIP}`, diff)
-      }
-    }
-    const accepted = new Map<string, string>()
-    for (const [key, text] of next) {
-      if (this.chips.get(key) === text) {
-        accepted.set(key, text)
-        continue
-      }
-      const [workspaceId, id] = key.split('\u0000')
-      const res = await this.ext.setWorkspaceChip({
-        workspaceId,
-        id,
-        text,
-        ...(id === BRANCH_CHIP ? { command: 'show' } : {}),
-      })
-      if (res.ok) accepted.set(key, text)
-    }
-    for (const key of this.chips.keys()) {
-      if (next.has(key)) continue
-      const [workspaceId, id] = key.split('\u0000')
-      if (cwds.has(workspaceId)) await this.ext.clearWorkspaceChip(workspaceId, id)
-    }
-    this.chips = accepted
-    this.chipRefusals = accepted.size < next.size ? this.chipRefusals + 1 : 0
-    if (this.chipRefusals > 0) {
-      this.schedule(nextBackoff(this.chipRefusals, CHIP_RETRY_MS, CHIP_RETRY_MAX_MS))
     }
   }
 

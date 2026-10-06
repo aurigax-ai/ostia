@@ -41,7 +41,7 @@ describe('sidebarEntries', () => {
   it('makes one ssh item per workspace and nothing for its ports', () => {
     const entries = sidebarEntries(new Map([['s1', { ports: [3000, 5173], ssh: ['box', 'prod'] }]]))
     expect(entries).toEqual([
-      { workspaceId: 's1', key: 'ssh', text: 'box prod', icon: 'server', kind: 'live' },
+      { workspaceId: 's1', key: 'ssh', text: 'box prod', badge: 'SSH', kind: 'live' },
     ])
   })
 

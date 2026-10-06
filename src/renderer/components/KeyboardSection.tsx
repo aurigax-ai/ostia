@@ -2,8 +2,10 @@ import { MagnifyingGlassIcon, MinusIcon, PlusIcon } from '@phosphor-icons/react'
 import {
   type ChordProblem,
   type ChordSpec,
+  type ChordValue,
   DIGIT_RANGE,
   chordText,
+  chordTexts,
   formatChord,
   sameChord,
   specFromEvent,
@@ -29,12 +31,14 @@ import type { Dict } from '../i18n/dict'
 import { fmt, useDict } from '../i18n/useDict'
 import {
   WORKSPACE_GOTO,
-  baseChord,
+  baseChords,
   bindableIds,
   bindingProblem,
   checkBinding,
-  chordOf,
+  chordsOf,
+  chordsWithout,
   conflictsWith,
+  terminalKeyConflicts,
   useBindings,
   workspaceDigit,
 } from '../lib/chords'
@@ -77,11 +81,24 @@ function commandTitle(id: string, d: Dict): string {
 }
 
 function matchesQuery(row: { id: string; title: string; english: string }, q: string): boolean {
-  const spec = chordOf(row.id, isMac)
-  const keys = spec ? chordText(spec, isMac).toLowerCase() : ''
-  return (
-    [row.title, row.english, row.id].some((t) => t.toLowerCase().includes(q)) || keys.includes(q)
-  )
+  const keys = chordsOf(row.id, isMac).map((spec) => chordText(spec, isMac).toLowerCase())
+  return [row.title, row.english, row.id, ...keys].some((t) => t.toLowerCase().includes(q))
+}
+
+function firstIgnored(
+  id: string,
+  value: ChordValue,
+): { value: string; problem: ChordProblem } | null {
+  for (const text of chordTexts(value)) {
+    const problem = checkBinding(id, text, isMac)
+    if (problem) return { value: text, problem }
+  }
+  return null
+}
+
+function keepChords(texts: string[]): ChordValue | null {
+  if (texts.length === 0) return null
+  return texts.length === 1 ? texts[0] : texts
 }
 
 function sendText(send: TerminalSend): string {
@@ -174,14 +191,14 @@ export function KeybindingRow({ id, title }: { id: string; title: string }): JSX
   const resetKeybinding = useSettingsStore((s) => s.resetKeybinding)
   const [mode, setMode] = useState<Mode>({ kind: 'idle' })
   const [refusal, setRefusal] = useState<string | null>(null)
-  const current = chordOf(id, isMac)
-  const ignored = typeof override === 'string' ? checkBinding(id, override, isMac) : null
+  const current = chordsOf(id, isMac)
+  const ignored = override ? firstIgnored(id, override) : null
 
   const save = (spec: ChordSpec, replace: string[], terminal: TerminalKeyRow | null): void => {
-    for (const other of replace) setKeybinding(other, null)
+    for (const other of replace) setKeybinding(other, keepChords(chordsWithout(other, spec, isMac)))
     if (terminal) removeTerminalKey(terminal, isMac)
-    const fallback = baseChord(id, isMac)
-    if (fallback && sameChord(fallback, spec)) resetKeybinding(id)
+    const base = baseChords(id, isMac)
+    if (base.length === 1 && sameChord(base[0], spec)) resetKeybinding(id)
     else setKeybinding(id, formatChord(spec, isMac))
     setMode({ kind: 'idle' })
   }
@@ -230,8 +247,12 @@ export function KeybindingRow({ id, title }: { id: string; title: string }): JSX
             onConfirm={() => save(mode.spec, mode.conflicts, mode.terminal)}
             onCancel={cancel}
           />
-        ) : current ? (
-          <Kbd>{chordText(current, isMac)}</Kbd>
+        ) : current.length > 0 ? (
+          <span className="flex flex-wrap gap-1">
+            {current.map((spec) => (
+              <Kbd key={formatChord(spec, isMac)}>{chordText(spec, isMac)}</Kbd>
+            ))}
+          </span>
         ) : (
           <span className="text-fg-muted text-ui-sm">{d.keyboard.unassigned}</span>
         )}
@@ -240,13 +261,13 @@ export function KeybindingRow({ id, title }: { id: string; title: string }): JSX
             {refusal}
           </p>
         ) : null}
-        {ignored && typeof override === 'string' && mode.kind === 'idle' ? (
-          <p className="mt-1 text-attn-fg text-ui-sm">
+        {ignored && mode.kind === 'idle' ? (
+          <WarningNote>
             {fmt(d.keyboard.ignored, {
-              value: override,
-              reason: problemText(ignored, d, isMac),
+              value: ignored.value,
+              reason: problemText(ignored.problem, d, isMac),
             })}
-          </p>
+          </WarningNote>
         ) : null}
       </TableCell>
       <TableCell className="py-1.5 text-right align-top">
@@ -444,14 +465,16 @@ function TerminalKeyEditor({
       return
     }
     setProblem(null)
-    const commandsUsing = conflictsWith('', spec, isMac)
+    const commandsUsing = terminalKeyConflicts(spec, isMac)
     const found = terminalKeyFor(spec, isMac)
     const existing = found && found.signature !== previous?.signature ? found : null
     if (!replacing && (commandsUsing.length > 0 || existing)) {
       setReplacing({ commands: commandsUsing, existing })
       return
     }
-    for (const id of commandsUsing) setKeybinding(id, null)
+    for (const other of commandsUsing) {
+      setKeybinding(other, keepChords(chordsWithout(other, spec, isMac)))
+    }
     saveTerminalKey(spec, send, previous, isMac)
     onDone()
   }
@@ -536,7 +559,7 @@ function TerminalKeyLine({ row }: { row: TerminalKeyRow }): JSX.Element {
   const d = useDict()
   const [editing, setEditing] = useState(false)
   const keys = chordText(row.spec, isMac)
-  const shadowedBy = conflictsWith('', row.spec, isMac)[0]
+  const shadowedBy = terminalKeyConflicts(row.spec, isMac)[0]
   if (editing) {
     return (
       <TableRow className="hover:bg-transparent">
@@ -559,9 +582,9 @@ function TerminalKeyLine({ row }: { row: TerminalKeyRow }): JSX.Element {
       <TableCell className="py-1.5 align-top whitespace-normal">
         <Kbd>{keys}</Kbd>
         {shadowedBy ? (
-          <p className="mt-1 text-attn-fg text-ui-sm">
+          <WarningNote>
             {fmt(d.keyboard.shadowed, { command: commandTitle(shadowedBy, d) })}
-          </p>
+          </WarningNote>
         ) : null}
       </TableCell>
       <TableCell className="py-1.5 text-right align-top">

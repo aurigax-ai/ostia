@@ -363,18 +363,23 @@ other editors' keybindings. It is data only: a manifest entry and one JSON file,
 }
 ```
 
-The file maps command ids to chords, or to `null` to unbind a command:
+The file maps command ids to a chord, a list of chords that all run the command (menus and
+hints show the first), or `null` to unbind a command:
 
 ```json
 {
   "bindings": {
     "pane.splitRight": "Cmd+D",
     "pane.splitDown": "Cmd+Shift+D",
+    "tab.next": ["Ctrl+Tab", "Shift+Cmd+]"],
     "dashboard.toggle": "Cmd+Alt+D",
     "view.toggleRail": null
   }
 }
 ```
+
+A list replaces all of the command's default chords. A chord in a list that the computer can't
+use is skipped and reported; the rest of the list still applies.
 
 Chords are written as in the `keybindings` setting: modifiers `Ctrl`, `Shift`, `Alt` (`Option`),
 `Cmd` (`Meta`, `Super`) and `Mod` (Cmd on macOS, Ctrl elsewhere), then one key (`A`–`Z`, `0`–`9`,
@@ -813,7 +818,7 @@ Connect to the unix socket and speak JSON-RPC 2.0 with LSP-style framing
 |---|---|---|
 | `ext.registerCommands` | `{commands: (string \| CommandContribution)[]}` | Returns `{ok, commands}`. |
 | `ext.subscribe` | `{events: string[]}` | `pane.created`, `pane.closed`, `command.started`, `command.finished`, `cwd.changed`, `focus.changed` need `read-board`; `notification` needs `notify`. |
-| `ext.setSidebarItem` | `{key?, workspaceId?, text, icon?, tone?, kind?, url?}` | With `workspaceId` it shows on that workspace's row, without it in the sidebar footer. `tone`: `neutral`, `brand`, `ok`, `warn`, `error`. `kind` places a row item: `location` (where the workspace is, like a branch) shares the line with the folder; `live` (the default; what is running, like ports or counts) goes on the line below, where items that don't fit fold into a `+N` popover. The footer ignores `kind`. Empty `text` removes the item. 80 chars, 32 items. With an http(s) `url` the item is a link: clicking it switches to that workspace and opens the URL in its browser pane. |
+| `ext.setSidebarItem` | `{key?, workspaceId?, text, icon?, badge?, tone?, kind?, url?}` | `badge` (1-6 letters or digits, e.g. `SSH`) shows as a small outlined label before `text`, to say what kind of thing the item is; anything else is ignored. With `workspaceId` it shows on that workspace's row, without it in the sidebar footer. `tone`: `neutral`, `brand`, `ok`, `warn`, `error`. `kind` places a row item: `location` (where the workspace is, like a branch) shares the line with the folder; `live` (the default; what is running, like ports or counts) goes on the line below, where items that don't fit fold into a `+N` popover. The footer ignores `kind`. Empty `text` removes the item. 80 chars, 32 items. With an http(s) `url` the item is a link: clicking it switches to that workspace and opens the URL in its browser pane. |
 | `ext.notify` | `{title, body?, openPanel?}` | Needs `notify`. Goes into the notification center and the desktop. With `openPanel: true` (and a panel in your manifest) clicking it opens your panel instead of jumping to a pane; with `openPanel: "/path"` it opens the panel at that path (or navigates your open panel there), from the desktop notice and from the notification center alike. |
 | `ext.openPanel` | `{workspaceId?, path?}` | Opens (or focuses) your panel in that workspace, else the active one. An already-open panel is focused, not reloaded; with `path` it navigates the open panel there instead of opening a second one. See [Panels](#panels) for what `path` means. |
 | `ext.setPaneChip` | `{paneId, id, text, tooltip?, tone?, icon?, items?, command?, url?}` | Shows `text` (40 chars) as chip `id` (from your `contributes.paneChips`) on that pane's header; setting it again replaces the value. `paneId` is an external pane id (`caller.paneId`, `pane.list`, events). `tone`: as for sidebar items. `command`: one of your own palette commands; clicking the chip focuses the pane and runs it, so `caller.paneId` is that pane. `url` (http/https, instead of `command`): clicking the chip opens it in the browser pane of that pane's workspace. `icon` (one of the sidebar item icon names, e.g. `plugs`): the chip shows as that icon with `text` as a small badge, which keeps the header narrow (a count reads best); with `items` it shows a dot instead of the badge, since the list itself gives the count. `items` (instead of `command` or `url`; 1-20 `{text, url?}`, text 80 chars, url http/https): clicking the chip lists them in a popover; an item with a url opens in the browser pane on click and can be copied. A bad `icon`, `items` or `url` is refused with `invalid-params`. Empty `text` clears it. Chips vanish when the pane closes or your process stops; set them again after a restart. |

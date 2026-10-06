@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import {
   type ChordSpec,
   bindingProblem,
+  chordTexts,
   formatChord,
   parseChord,
   stealsTerminalKey,
@@ -20,11 +21,15 @@ import {
   type KeybindingMap,
   TERMINAL_COMMAND_CHORDS,
   baseChord,
+  baseChords,
   bindableIds,
   checkBinding,
   chordLabel,
+  chordsOf,
+  chordsWithout,
   conflictsWith,
   currentBindings,
+  defaultChords,
   effectiveBindings,
   isAppChord,
   isBrowserChord,
@@ -32,6 +37,7 @@ import {
   matchChord,
   runAppChord,
   setKeybindingSetting,
+  terminalKeyConflicts,
   workspaceDigit,
   workspaceIndex,
 } from './chords'
@@ -44,8 +50,7 @@ afterEach(() => {
   useKeymapStore.setState(initialKeymap, true)
 })
 
-const bind = (keybindings: Record<string, string | null>): void =>
-  useSettingsStore.setState({ keybindings })
+const bind = (keybindings: KeybindingMap): void => useSettingsStore.setState({ keybindings })
 
 const useKeymap = (bindings: KeybindingMap): void =>
   useKeymapStore.setState({
@@ -187,7 +192,7 @@ describe('block chords', () => {
     expect(matchChord(key('s', { metaKey: true, shiftKey: true }), true)).toBe('workflows.search')
     expect(isAppChord('workflows.search')).toBe(true)
     for (const mac of [false, true]) {
-      const spec = effectiveBindings({}, mac).byId.get('workflows.search')
+      const [spec] = effectiveBindings({}, mac).byId.get('workflows.search') ?? []
       if (!spec) throw new Error('unbound')
       expect(stealsTerminalKey(spec, mac)).toBeNull()
       expect(usedByMonaco(spec, mac)).toBe(false)
@@ -392,10 +397,13 @@ describe('the macOS keymap that follows cmux', () => {
     useKeymap(bindings)
     const { byId, bySignature } = currentBindings(true)
     for (const [id, text] of Object.entries(bindings)) {
-      expect(byId.get(id), id).toEqual(text === null ? undefined : chord(text, true))
+      const expected = text === null ? undefined : chordTexts(text).map((t) => chord(t, true))
+      expect(byId.get(id), id).toEqual(expected)
     }
-    for (const [id, spec] of byId) expect(conflictsWith(id, spec, true), id).toEqual([])
-    expect(bySignature.size).toBe(byId.size)
+    for (const [id, specs] of byId) {
+      for (const spec of specs) expect(conflictsWith(id, spec, true), id).toEqual([])
+    }
+    expect(bySignature.size).toBe([...byId.values()].flat().length)
   })
 
   it('binds cmux’s shortcuts and moves the dashboard off ⇧⌘D', () => {
@@ -445,8 +453,10 @@ describe('the macOS keymap that follows iTerm2', () => {
   it('leaves no two commands on one chord on macOS', () => {
     useKeymap(bindings)
     const { byId, bySignature } = currentBindings(true)
-    for (const [id, spec] of byId) expect(conflictsWith(id, spec, true), id).toEqual([])
-    expect(bySignature.size).toBe(byId.size)
+    for (const [id, specs] of byId) {
+      for (const spec of specs) expect(conflictsWith(id, spec, true), id).toEqual([])
+    }
+    expect(bySignature.size).toBe([...byId.values()].flat().length)
   })
 
   it('scrolls a line with ⌘↑ ⌘↓, keeps blocks on ⇧⌘↑ ⇧⌘↓ and leaves ⌘← ⌘→ to the line ends', () => {
@@ -464,6 +474,75 @@ describe('the macOS keymap that follows iTerm2', () => {
     expect(matchChord(key('Home', cmd), true)).toBe('terminal.scrollToTop')
     expect(matchChord(key('ArrowLeft', cmd), true)).toBeNull()
     expect(matchChord(key('ArrowRight', cmd), true)).toBeNull()
+  })
+})
+
+describe('commands with several chords', () => {
+  const cs = { ctrlKey: true, shiftKey: true }
+
+  it('run from any of their chords, and show the first one', () => {
+    bind({ 'palette.toggle': ['Ctrl+Shift+Y', 'Ctrl+Alt+P'] })
+    expect(matchChord(key('Y', cs), false)).toBe('palette.toggle')
+    expect(matchChord(key('p', { ctrlKey: true, altKey: true }), false)).toBe('palette.toggle')
+    expect(matchChord(key('P', cs), false)).toBeNull()
+    expect(chordLabel('palette.toggle', false)).toBe('Ctrl+Shift+Y')
+    expect(chordsOf('palette.toggle', false).map((c) => formatChord(c, false))).toEqual([
+      'Ctrl+Shift+Y',
+      'Ctrl+Alt+P',
+    ])
+  })
+
+  it('keep the chords that work here when some in the list do not, and the default when none do', () => {
+    bind({ 'palette.toggle': ['Ctrl+R', 'Ctrl+Shift+Y'], 'view.toggleRail': ['Ctrl+R'] })
+    expect(chordsOf('palette.toggle', false).map((c) => formatChord(c, false))).toEqual([
+      'Ctrl+Shift+Y',
+    ])
+    expect(chordLabel('view.toggleRail', false)).toBe('Ctrl+Shift+B')
+  })
+
+  it('come from a keymap list too, and a user string replaces the whole list', () => {
+    useKeymap({ 'tab.next': ['Ctrl+Tab', 'Cmd+Shift+]'] })
+    expect(matchChord(key('Tab', { ctrlKey: true }), true)).toBe('tab.next')
+    expect(matchChord(key(']', { metaKey: true, shiftKey: true }), true)).toBe('tab.next')
+    expect(baseChords('tab.next', true)).toHaveLength(2)
+    bind({ 'tab.next': 'Cmd+Alt+]' })
+    expect(matchChord(key(']', { metaKey: true, shiftKey: true }), true)).toBeNull()
+    expect(matchChord(key('Tab', { ctrlKey: true }), true)).toBeNull()
+    expect(chordLabel('tab.next', true)).toBe('⌥⌘]')
+  })
+
+  it('conflict on any of their chords, and lose only that one when it is taken', () => {
+    bind({ 'palette.toggle': ['Ctrl+Shift+Y', 'Ctrl+Alt+P'] })
+    const taken = chord('Ctrl+Alt+P', false)
+    expect(conflictsWith('view.toggleRail', taken, false)).toEqual(['palette.toggle'])
+    expect(chordsWithout('palette.toggle', taken, false)).toEqual(['Ctrl+Shift+Y'])
+    expect(chordsWithout('palette.toggle', chord('Ctrl+Shift+Y', false), false)).toEqual([
+      'Ctrl+Alt+P',
+    ])
+  })
+
+  it('leave the defaults as single chords', () => {
+    for (const mac of [true, false]) {
+      for (const id of Object.keys(DEFAULT_CHORDS)) {
+        expect(defaultChords(id, mac).length, `${id} ${mac}`).toBeLessThanOrEqual(1)
+      }
+    }
+  })
+})
+
+describe('setKeybindingSetting with lists', () => {
+  it('takes a list of chords from an agent and refuses one bad chord in it', () => {
+    setKeybindingSetting('keybindings.palette.toggle', ['Ctrl+Shift+Y', 'Ctrl+Alt+P'], false)
+    expect(useSettingsStore.getState().keybindings['palette.toggle']).toEqual([
+      'Ctrl+Shift+Y',
+      'Ctrl+Alt+P',
+    ])
+    expect(() => setKeybindingSetting('keybindings.find', ['Ctrl+Alt+F', 'Ctrl+R'], false)).toThrow(
+      /keybindings.find: "Ctrl\+R" is a plain Ctrl key/,
+    )
+    expect(() => setKeybindingSetting('keybindings.find', [], false)).toThrow(/1 to 8 chords/)
+    expect(() => setKeybindingSetting('keybindings.find', [7], false)).toThrow(/chord string/)
+    expect(useSettingsStore.getState().keybindings.find).toBeUndefined()
   })
 })
 
@@ -520,6 +599,22 @@ describe('conflictsWith', () => {
   })
 })
 
+describe('terminalKeyConflicts', () => {
+  const spec = (text: string) =>
+    parseChord(text, false) as NonNullable<ReturnType<typeof parseChord>>
+
+  it('ignores browser chords, which never take a key from a terminal', () => {
+    expect(conflictsWith('', spec('Alt+Left'), false)).toEqual(['browser.back'])
+    expect(terminalKeyConflicts(spec('Alt+Left'), false)).toEqual([])
+    expect(terminalKeyConflicts(spec('Alt+Right'), false)).toEqual([])
+  })
+
+  it('names app and terminal chords that take the same key', () => {
+    expect(terminalKeyConflicts(spec('Ctrl+Shift+P'), false)).toEqual(['palette.toggle'])
+    expect(terminalKeyConflicts(spec('Ctrl+Shift+C'), false)).toEqual(['copy'])
+  })
+})
+
 describe('bindableIds', () => {
   it('lists every default chord and each visible palette command', () => {
     commands.register({ id: 'test.visible', title: 'Visible', run: () => {} })
@@ -552,7 +647,7 @@ describe('setKeybindingSetting', () => {
     expect(() => setKeybindingSetting('keybindings.find', 'Escape', false)).toThrow(/Escape/)
     expect(() => setKeybindingSetting('keybindings.find', 'Alt+F', false)).toThrow(/Ctrl or Cmd/)
     expect(() => setKeybindingSetting('keybindings.find', 42, false)).toThrow(
-      /chord string or null/,
+      /chord string, a list of them or null/,
     )
     expect(() => setKeybindingSetting('keybindings.find', 'Ctrl+Nope', false)).toThrow(
       /is not a chord/,
@@ -596,15 +691,19 @@ describe('DEFAULT_CHORDS', () => {
       const { byId } = effectiveBindings({}, mac)
       const seen = new Map<string, string>()
       for (const id of Object.keys(DEFAULT_CHORDS)) {
-        const spec = byId.get(id)
+        const specs = byId.get(id) ?? []
         const text = DEFAULT_CHORDS[id as keyof typeof DEFAULT_CHORDS][mac ? 0 : 1]
-        if (!spec && text === '') continue
-        if (!spec) throw new Error(`${id} has no default on ${mac ? 'macOS' : 'Linux'}`)
-        expect(bindingProblem(id, spec, mac), id).toBeNull()
-        if (PANE_WORK.includes(id)) expect(usedByMonaco(spec, mac), id).toBe(false)
-        const signature = formatChord(spec, mac)
-        expect(seen.get(signature), `${id} vs ${seen.get(signature)}`).toBeUndefined()
-        seen.set(signature, id)
+        if (specs.length === 0 && text === '') continue
+        if (specs.length === 0) {
+          throw new Error(`${id} has no default on ${mac ? 'macOS' : 'Linux'}`)
+        }
+        for (const spec of specs) {
+          expect(bindingProblem(id, spec, mac), id).toBeNull()
+          if (PANE_WORK.includes(id)) expect(usedByMonaco(spec, mac), id).toBe(false)
+          const signature = formatChord(spec, mac)
+          expect(seen.get(signature), `${id} vs ${seen.get(signature)}`).toBeUndefined()
+          seen.set(signature, id)
+        }
       }
     }
   })
@@ -709,7 +808,9 @@ describe('browser chords', () => {
         'browser.forward',
       ]) {
         const [macText, otherText] = DEFAULT_CHORDS[id as keyof typeof DEFAULT_CHORDS]
-        expect(checkBinding(id, mac ? macText : otherText, mac), `${id} ${mac}`).toBeNull()
+        for (const text of chordTexts(mac ? macText : otherText)) {
+          expect(checkBinding(id, text, mac), `${id} ${mac}`).toBeNull()
+        }
       }
     }
     expect(DEFAULT_CHORDS['browser.reload']).toEqual(['Cmd+R', 'Ctrl+F5'])

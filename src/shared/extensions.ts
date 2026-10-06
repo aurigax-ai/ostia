@@ -234,10 +234,13 @@ export interface ExtensionSidebarItem {
   workspaceId?: string
   text: string
   icon?: ExtensionIcon
+  badge?: string
   tone: SidebarTone
   kind: SidebarKind
   url?: string
 }
+
+export const SIDEBAR_BADGE_PATTERN = /^[A-Za-z0-9]{1,6}$/
 
 export const SIDEBAR_URL_MAX = 2048
 

@@ -104,11 +104,14 @@ describe('writeKeyboard', () => {
     })
   })
 
-  it('round-trips a file with both platforms unchanged', () => {
+  it('round-trips a file with both platforms unchanged, chord lists included', () => {
     const file = {
       keymap: { mac: 'keymap-macos/cmux', linux: 'ostia' },
       terminalKeymap: { mac: 'natural-text-editing', linux: 'none' },
-      keybindings: { mac: { 'pane.zoom': null }, linux: { 'pane.zoom': 'Ctrl+Shift+Z' } },
+      keybindings: {
+        mac: { 'pane.zoom': null, 'tab.next': ['Ctrl+Tab', 'Shift+Cmd+]'] },
+        linux: { 'pane.zoom': 'Ctrl+Shift+Z' },
+      },
       terminalKeys: { mac: { Delete: null } },
     }
     for (const here of ['mac', 'linux'] as const) {

@@ -27,6 +27,7 @@ import type {
 import type { EditorLanguagesApi } from './editorLanguages'
 import type { SuggestionsApi } from './extensionSuggestions'
 import type { ExtensionResult, ExtensionsApi } from './extensions'
+import type { FileOpsApi } from './fileOps'
 import type { GuestChordFire } from './guestChords'
 import type { IconThemesApi } from './iconTheme'
 import type { KeymapsApi } from './keymapFile'
@@ -893,6 +894,7 @@ export interface OstiaBridge {
   guestChords: GuestChordsApi
   files: FilesApi
   extensions: ExtensionsApi
+  fileOps: FileOpsApi
   marketplace: MarketplaceApi
   suggestions: SuggestionsApi
   externalEditor: ExternalEditorApi
@@ -900,7 +902,7 @@ export interface OstiaBridge {
   notifications: NotificationsApi
   workflows: WorkflowsApi
   completions: CompletionsApi
-  assist: AssistApi
+  assist: AssistApi & { wake: () => void }
   chatSessions: ChatSessionsApi
   privacy: PrivacyApi
   chatTools: ChatToolsApi
