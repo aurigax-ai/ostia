@@ -34,6 +34,7 @@ export function syncErrorText(d: Dict, error: string | undefined): string {
 }
 
 function conflictValue(d: Dict, conflict: SyncConflict, value: string | null): string {
+  if (conflict.kind === 'secret') return value ?? d.sync.conflictDeleted
   if (conflict.kind === 'file')
     return value === null ? d.sync.conflictDeleted : d.sync.conflictEdited
   return value ?? d.sync.conflictDeleted
@@ -47,6 +48,9 @@ export function SyncSection(): JSX.Element {
   const [status, setStatus] = useState<SyncStatus>(OFF)
   const [busy, setBusy] = useState(false)
   const [installing, setInstalling] = useState<string | null>(null)
+  const [revealed, setRevealed] = useState<
+    Record<string, { local: string | null; remote: string | null }>
+  >({})
 
   useEffect(() => {
     let live = true
@@ -81,7 +85,17 @@ export function SyncSection(): JSX.Element {
   }
 
   const resolve = async (id: string): Promise<void> => {
+    setRevealed(({ [id]: _gone, ...rest }) => rest)
     setStatus(await window.ostia.sync.resolve(id))
+  }
+
+  const toggleReveal = async (id: string): Promise<void> => {
+    if (revealed[id]) {
+      setRevealed(({ [id]: _gone, ...rest }) => rest)
+      return
+    }
+    const res = await window.ostia.sync.secrets.reveal(id)
+    if (res.ok) setRevealed((all) => ({ ...all, [id]: { local: res.local, remote: res.remote } }))
   }
 
   const install = async (id: string): Promise<void> => {
@@ -154,17 +168,34 @@ export function SyncSection(): JSX.Element {
         <section aria-label={d.sync.conflictsTitle} className="mt-4">
           <SectionHead title={d.sync.conflictsTitle} desc={d.sync.conflictsDesc} />
           {status.conflicts.map((conflict) => {
-            const kept = conflict.winner === 'local' ? conflict.local : conflict.remote
-            const other = conflict.winner === 'local' ? conflict.remote : conflict.local
+            const shownValues = conflict.kind === 'secret' ? revealed[conflict.id] : conflict
+            const kept = shownValues
+              ? conflict.winner === 'local'
+                ? shownValues.local
+                : shownValues.remote
+              : null
+            const other = shownValues
+              ? conflict.winner === 'local'
+                ? shownValues.remote
+                : shownValues.local
+              : null
+            const desc =
+              conflict.kind === 'secret' && !shownValues
+                ? fmt(d.sync.secretChanged, {
+                    here: time.format(new Date(conflict.localAt ?? 0)),
+                    there: time.format(new Date(conflict.remoteAt ?? 0)),
+                  })
+                : fmt(d.sync.conflictValues, {
+                    kept: conflictValue(d, conflict, kept),
+                    other: conflictValue(d, conflict, other),
+                  })
             return (
-              <ControlRow
-                key={conflict.id}
-                label={conflict.key}
-                desc={fmt(d.sync.conflictValues, {
-                  kept: conflictValue(d, conflict, kept),
-                  other: conflictValue(d, conflict, other),
-                })}
-              >
+              <ControlRow key={conflict.id} label={conflict.key} desc={desc}>
+                {conflict.kind === 'secret' ? (
+                  <Button variant="ghost" size="sm" onClick={() => void toggleReveal(conflict.id)}>
+                    {shownValues ? d.sync.hide : d.sync.reveal}
+                  </Button>
+                ) : null}
                 <Button variant="outline" size="sm" onClick={() => void resolve(conflict.id)}>
                   {d.sync.useOther}
                 </Button>

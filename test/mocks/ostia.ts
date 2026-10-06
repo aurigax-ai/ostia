@@ -119,6 +119,7 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       resolve: vi.fn().mockResolvedValue(SYNC_OFF),
       install: vi.fn().mockResolvedValue(SYNC_OFF),
       secrets: {
+        reveal: vi.fn().mockResolvedValue({ ok: false }),
         enable: vi.fn().mockResolvedValue({ ok: true, status: SYNC_OFF }),
         disable: vi.fn().mockResolvedValue({ ok: true, status: SYNC_OFF }),
         remove: vi.fn().mockResolvedValue({ ok: true, status: SYNC_OFF }),

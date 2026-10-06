@@ -1,7 +1,7 @@
 import { createHmac } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import type { SecretSyncStatus } from '../../shared/types'
+import type { SecretReveal, SecretSyncStatus } from '../../shared/types'
 import type { CredentialStore } from '../credentials'
 import { type SecretStoreDeps, sanitizeSecrets } from '../extensionSecrets'
 import { BASE_DIR } from './engine'
@@ -53,6 +53,8 @@ export interface SecretConflict {
   id: string
   key: string
   winner: 'local' | 'remote'
+  localAt: number
+  remoteAt: number
 }
 
 export interface SecretPlan {
@@ -71,6 +73,8 @@ type Pending = 'create' | 'rewrap' | 'reset' | 'remove' | null
 
 interface StoredSecretConflict extends SecretConflict {
   winnerMac: string
+  local: string | null
+  remote: string | null
 }
 
 interface LocalState {
@@ -277,6 +281,43 @@ export class SecretSync {
     this.save({ ...this.load(), logins: on })
   }
 
+  private opened(kept: string | null): string | null {
+    return kept === null ? null : this.deps.protect.decrypt(kept)
+  }
+
+  async reveal(id: string): Promise<SecretReveal> {
+    const conflict = this.load().conflicts.find((c) => c.id === id)
+    if (!conflict) return { ok: false }
+    try {
+      return {
+        ok: true,
+        local: this.opened(conflict.local),
+        remote: this.opened(conflict.remote),
+        winner: conflict.winner,
+      }
+    } catch {
+      return { ok: false }
+    }
+  }
+
+  async resolve(id: string): Promise<boolean> {
+    const state = this.load()
+    const conflict = state.conflicts.find((c) => c.id === id)
+    if (!conflict) return false
+    const entry = id.slice('secret:'.length)
+    const source = this.deps.sources().find((s) => s.name === sourceOf(entry))
+    if (!source) return false
+    let other: string | null
+    try {
+      other = this.opened(conflict.winner === 'local' ? conflict.remote : conflict.local)
+    } catch {
+      return false
+    }
+    source.write(new Map([[keyOf(entry), other]]))
+    this.save({ ...state, conflicts: state.conflicts.filter((c) => c.id !== id) })
+    return true
+  }
+
   async disable(): Promise<void> {
     const state = this.load()
     this.save({ ...OFF_STATE, logins: state.logins })
@@ -373,11 +414,17 @@ export class SecretSync {
         .digest('base64')
     const describe = (id: string): string =>
       included.find((s) => s.name === sourceOf(id))?.describe(keyOf(id)) ?? keyOf(id)
+    const kept = (value: string | undefined): string | null =>
+      value === undefined ? null : this.deps.protect.encrypt(value)
     const fresh: StoredSecretConflict[] = merge.conflicts.map((c) => ({
       id: `secret:${c.key}`,
       key: describe(c.key),
       winner: c.winner,
+      localAt: local.get(c.key)?.at ?? 0,
+      remoteAt: remoteIncluded.get(c.key)?.at ?? 0,
       winnerMac: mac(merge.merged.get(c.key)),
+      local: kept(c.local),
+      remote: kept(c.remote),
     }))
     const conflicts = [
       ...state.conflicts.filter(
@@ -417,7 +464,13 @@ export class SecretSync {
         writeAtomic(this.basePath(), this.deps.protect.encrypt(body))
       },
       status: { state: 'unlocked', logins: state.logins },
-      conflicts: conflicts.map(({ id, key, winner }) => ({ id, key, winner })),
+      conflicts: conflicts.map(({ id, key, winner, localAt, remoteAt }) => ({
+        id,
+        key,
+        winner,
+        localAt,
+        remoteAt,
+      })),
     }
   }
 }

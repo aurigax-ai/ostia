@@ -86,6 +86,8 @@ interface StoredConflict {
   local: Held
   remote: Held
   winner: 'local' | 'remote'
+  localAt?: number
+  remoteAt?: number
 }
 
 interface SyncState {
@@ -259,6 +261,8 @@ export class ProfileSync {
           local: shown(c.local, c.kind),
           remote: shown(c.remote, c.kind),
           winner: c.winner,
+          ...(c.localAt !== undefined ? { localAt: c.localAt } : {}),
+          ...(c.remoteAt !== undefined ? { remoteAt: c.remoteAt } : {}),
         }),
       ),
       skipped: state.skipped,
@@ -512,6 +516,8 @@ export class ProfileSync {
           local: null,
           remote: null,
           winner: c.winner,
+          localAt: c.localAt,
+          remoteAt: c.remoteAt,
         }))
       : state.conflicts.filter((c) => c.kind === 'secret')
     const conflicts = [
@@ -578,7 +584,11 @@ export class ProfileSync {
     if (!method) return OFF
     const state = this.loadState(method.id)
     const conflict = state.conflicts.find((c) => c.id === id)
-    if (!conflict || conflict.kind === 'secret') return this.status()
+    if (!conflict) return this.status()
+    if (conflict.kind === 'secret') {
+      if (!(await this.deps.secrets?.resolve(id))) return this.status()
+      return (await this.run()).status
+    }
     const other = conflict.winner === 'local' ? conflict.remote : conflict.local
     const time = this.now().getTime()
     if (conflict.kind === 'setting') {

@@ -99,6 +99,41 @@ describe('SyncSection', () => {
     )
   })
 
+  it('shows a secret conflict without values until the human reveals it', async () => {
+    useSettingsStore.setState({ sync: { dir: '/home/me/Sync/ostia' } })
+    const conflict = {
+      id: 'secret:logins\u0000["https://example.com","me"]',
+      kind: 'secret' as const,
+      key: 'https://example.com (me)',
+      local: null,
+      remote: null,
+      winner: 'local' as const,
+      localAt: Date.UTC(2026, 9, 6, 12),
+      remoteAt: Date.UTC(2026, 9, 6, 11),
+    }
+    vi.mocked(window.ostia.sync.status).mockResolvedValue(
+      status({ dir: '/home/me/Sync/ostia', state: 'ok', conflicts: [conflict] }),
+    )
+    vi.mocked(window.ostia.sync.secrets.reveal).mockResolvedValue({
+      ok: true,
+      local: 'from-b-pass',
+      remote: 'from-a-pass',
+      winner: 'local',
+    })
+    render(<SyncSection />)
+    const list = await screen.findByRole('region', { name: 'Changed on both machines' })
+    expect(list).toHaveTextContent('https://example.com (me)')
+    expect(list).toHaveTextContent(/Changed here .* on the other machine /)
+    expect(list).not.toHaveTextContent('from-a-pass')
+    await userEvent.click(screen.getByRole('button', { name: 'Reveal' }))
+    expect(window.ostia.sync.secrets.reveal).toHaveBeenCalledWith(conflict.id)
+    expect(list).toHaveTextContent('Kept: from-b-pass · Other: from-a-pass')
+    await userEvent.click(screen.getByRole('button', { name: 'Hide' }))
+    expect(list).not.toHaveTextContent('from-a-pass')
+    await userEvent.click(screen.getByRole('button', { name: 'Use the other value' }))
+    expect(window.ostia.sync.resolve).toHaveBeenCalledWith(conflict.id)
+  })
+
   it('offers an extension from another machine and installs it only on click', async () => {
     useSettingsStore.setState({ sync: { dir: '/home/me/Sync/ostia' } })
     const offer = { id: 'trellis', marketplace: 'https://github.com/aurigax-ai/ostia-extensions' }

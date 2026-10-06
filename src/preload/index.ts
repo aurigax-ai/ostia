@@ -320,6 +320,7 @@ const bridge: OstiaBridge = {
     resolve: (conflictId) => ipcRenderer.invoke('sync:resolve', conflictId) as Promise<SyncStatus>,
     install: (extId) => ipcRenderer.invoke('sync:install', extId) as Promise<SyncStatus>,
     secrets: {
+      reveal: (conflictId) => ipcRenderer.invoke('sync:secrets-reveal', conflictId),
       enable: () => ipcRenderer.invoke('sync:secrets-enable'),
       disable: () => ipcRenderer.invoke('sync:secrets-disable'),
       remove: () => ipcRenderer.invoke('sync:secrets-remove'),

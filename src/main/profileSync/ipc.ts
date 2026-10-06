@@ -149,6 +149,9 @@ export function startProfileSync(deps: ProfileSyncIpcDeps): ProfileSyncHandle {
     await work
     return { ok: true }
   }
+  ipcMain.handle('sync:secrets-reveal', (_e, id: unknown) =>
+    typeof id === 'string' && id.length <= SECRET_INPUT_MAX ? secrets.reveal(id) : { ok: false },
+  )
   secretAction('sync:secrets-enable', () => done(secrets.enable()), 0)
   secretAction('sync:secrets-disable', () => done(secrets.disable()), 0)
   secretAction('sync:secrets-remove', () => done(secrets.remove()), 0)

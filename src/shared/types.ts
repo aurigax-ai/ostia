@@ -310,6 +310,8 @@ export interface SyncConflict {
   local: string | null
   remote: string | null
   winner: 'local' | 'remote'
+  localAt?: number
+  remoteAt?: number
 }
 
 export interface SyncOffer {
@@ -341,7 +343,12 @@ export interface SecretActionResult {
   status: SyncStatus
 }
 
+export type SecretReveal =
+  | { ok: true; local: string | null; remote: string | null; winner: 'local' | 'remote' }
+  | { ok: false }
+
 export interface SecretSyncApi {
+  reveal: (conflictId: string) => Promise<SecretReveal>
   enable: () => Promise<SecretActionResult>
   disable: () => Promise<SecretActionResult>
   remove: () => Promise<SecretActionResult>

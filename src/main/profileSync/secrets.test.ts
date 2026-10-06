@@ -180,6 +180,27 @@ function filesUnder(dir: string): string[] {
     .filter((path) => statSync(path).isFile())
 }
 
+async function loginClash(): Promise<{ target: string; a: Machine; b: Machine; id: string }> {
+  const target = temp()
+  const a = machine(target)
+  const b = machine(target)
+  a.logins.save({ origin: 'https://example.com', username: 'me', password: 'first-password' })
+  await setUp(a)
+  await a.secrets.setLogins(true)
+  await a.sync.run()
+  await b.secrets.unlock(PASSWORD)
+  await b.secrets.setLogins(true)
+  await b.sync.run()
+  a.clock.ms += 1000
+  a.logins.save({ origin: 'https://example.com', username: 'me', password: 'from-a-pass' })
+  b.clock.ms += 2000
+  b.logins.save({ origin: 'https://example.com', username: 'me', password: 'from-b-pass' })
+  await a.sync.run()
+  const res = await b.sync.run()
+  const id = res.status.conflicts.find((c) => c.kind === 'secret')?.id ?? ''
+  return { target, a, b, id }
+}
+
 describe('secret sync', () => {
   it('PSY-C28 sends no secret while secret sync is off', async () => {
     const target = temp()
@@ -533,5 +554,47 @@ describe('secret sync', () => {
     expect((await a.secrets.unlock(NEW_PASSWORD)).ok).toBe(true)
     await a.sync.run()
     expect(a.vault.data.get('FROM_B')?.value).toBe('b-value')
+  })
+
+  it('PSY-C51 reveals both values of one conflict only when asked', async () => {
+    const { b, id } = await loginClash()
+    expect(id).not.toBe('')
+    expect(await b.secrets.reveal(id)).toEqual({
+      ok: true,
+      local: 'from-b-pass',
+      remote: 'from-a-pass',
+      winner: 'local',
+    })
+    expect(JSON.stringify(b.sync.status())).not.toMatch(/from-a-pass|from-b-pass/)
+  })
+
+  it('PSY-C52 applies and pushes the other secret when the human picks it', async () => {
+    const { a, b, id } = await loginClash()
+    b.clock.ms += 1000
+    const status = await b.sync.resolve(id)
+    expect(b.logins.forOrigin('https://example.com')[0]?.password).toBe('from-a-pass')
+    expect(status.conflicts.filter((c) => c.kind === 'secret')).toEqual([])
+    await a.sync.run()
+    expect(a.logins.forOrigin('https://example.com')[0]?.password).toBe('from-a-pass')
+  })
+
+  it('PSY-C53 keeps the losing secret only encrypted, and reveals it after a restart', async () => {
+    const { target, b, id } = await loginClash()
+    for (const path of [...filesUnder(b.userData), ...filesUnder(target)]) {
+      expect(readFileSync(path, 'utf8')).not.toContain('from-a-pass')
+    }
+    const again = b.restart()
+    expect(await again.secrets.reveal(id)).toMatchObject({ ok: true, remote: 'from-a-pass' })
+  })
+
+  it('PSY-C54 returns and changes nothing for an unknown or resolved conflict', async () => {
+    const { b, id } = await loginClash()
+    expect(await b.secrets.reveal('secret:vault\0NOPE')).toEqual({ ok: false })
+    await b.sync.resolve('secret:vault\0NOPE')
+    expect(b.logins.forOrigin('https://example.com')[0]?.password).toBe('from-b-pass')
+    await b.sync.resolve(id)
+    expect(await b.secrets.reveal(id)).toEqual({ ok: false })
+    await b.sync.resolve(id)
+    expect(b.logins.forOrigin('https://example.com')[0]?.password).toBe('from-a-pass')
   })
 })
