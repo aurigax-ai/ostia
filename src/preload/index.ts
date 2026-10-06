@@ -18,6 +18,7 @@ import type {
   ChatSessionSummary,
 } from '../shared/chatSessions'
 import type { McpServerStatus } from '../shared/chatTools'
+import type { CmuxSessionRead } from '../shared/cmuxSession'
 import type { SpecCommand } from '../shared/completionSpec'
 import type {
   CredentialImportResult,
@@ -327,6 +328,7 @@ const bridge: OstiaBridge = {
     load: () => ipcRenderer.invoke('workspace:load') as Promise<AppSnapshot | null>,
     merge: (sourceId, targetId) =>
       ipcRenderer.invoke('workspace:merge', sourceId, targetId) as Promise<WorkspaceMergeResult>,
+    readCmux: (path) => ipcRenderer.invoke('workspace:read-cmux', path) as Promise<CmuxSessionRead>,
   },
   scratch: {
     create: () => ipcRenderer.invoke('scratch:create') as Promise<string | null>,
@@ -342,6 +344,8 @@ const bridge: OstiaBridge = {
     give: (workspace) => ipcRenderer.invoke('windows:give', workspace) as Promise<boolean>,
     returnToMain: (workspaces) =>
       ipcRenderer.invoke('windows:return', workspaces) as Promise<boolean>,
+    openWith: (workspaces) =>
+      ipcRenderer.invoke('windows:open-with', workspaces) as Promise<boolean>,
     report: (workspaces) => ipcRenderer.send('windows:report', workspaces),
     focusWorkspace: (workspaceId, jumpToUnread) =>
       ipcRenderer.send('windows:focus-workspace', workspaceId, jumpToUnread),

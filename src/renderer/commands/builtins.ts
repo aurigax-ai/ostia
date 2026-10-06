@@ -1,4 +1,5 @@
 import { type AgentResume, resumeCommand } from '@shared/agentResume'
+import type { CmuxImportReport } from '@shared/cmuxSession'
 import { wantsDesktopBanner } from '@shared/notificationSettings'
 import { OPEN_FILES_COMMAND, parseFileTargets } from '@shared/openFiles'
 import type { AttentionState } from '@shared/types'
@@ -20,6 +21,7 @@ import { announceBusMessage } from '../lib/busNotice'
 import { setKeybindingSetting } from '../lib/chords'
 import { clearKeepingScrollback } from '../lib/clearTerminal'
 import { closePaneForAgent, requestCloseOthers, requestClosePane } from '../lib/closeConfirm'
+import { runCmuxImport } from '../lib/cmuxImport'
 import { focusActivePaneWhenReady } from '../lib/focusNewTerminal'
 import { wakePane } from '../lib/hibernationScheduler'
 import { mergeRefusalText } from '../lib/mergeRefusalText'
@@ -784,6 +786,27 @@ export function registerBuiltinCommands(): void {
       }
       useUIStore.getState().showWorkspaces()
       return { workspaceId: await startScratchWorkspace({ sandboxed }) }
+    },
+  })
+
+  registerCore<{ path?: unknown } | undefined, CmuxImportReport>({
+    id: 'workspace.importCmux',
+    category: 'workspace',
+    target: 'none',
+    argsSchema: {
+      type: 'object',
+      properties: { path: { type: 'string' } },
+    },
+    run: (args, ctx) => {
+      const path = args?.path
+      if (path !== undefined && (typeof path !== 'string' || !path.startsWith('/'))) {
+        throw new Error('path must be an absolute path')
+      }
+      return runCmuxImport({
+        ...(path === undefined ? {} : { path }),
+        callerWorkspaceId: ctx.activeWorkspaceId,
+        remote: ctx.origin === 'remote',
+      })
     },
   })
 

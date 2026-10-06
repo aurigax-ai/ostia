@@ -25,6 +25,7 @@ import { parseArgs } from './args'
 import { runAskVerb } from './ask'
 import { runBrowse } from './browse'
 import { BUS_QUEUED_HINT, type BusSendOk, type SentMessage, runBusHook, sentLines } from './bus'
+import { runCmuxImportVerb } from './cmuxImport'
 import { describeFailure } from './failure'
 import { type FileProbe, fileWord, isClaimedWord, parseFileArg, refusalLine } from './fileArgs'
 import { runManagerVerb } from './manager'
@@ -978,7 +979,8 @@ async function runStateVerb(conn: MessageConnection): Promise<void> {
 
 const WORKSPACE_USAGE =
   'ostia workspace: usage: workspace list [--json] | describe <text|-> | describe --clear | ' +
-  'group <name> | ungroup | dir [path] | rename [--workspace <id>] <name…> | rename --clear'
+  'group <name> | ungroup | dir [path] | rename [--workspace <id>] <name…> | rename --clear | ' +
+  'import-cmux [session-file] [--json]'
 
 interface WorkspaceListing {
   workspaceId: string
@@ -1042,6 +1044,10 @@ async function runWorkspaceVerb(conn: MessageConnection): Promise<void> {
   }
   if (sub === 'ungroup') {
     await runWorkspaceCommand(conn, 'ungroup', 'workspace.ungroup')
+    return
+  }
+  if (sub === 'import-cmux') {
+    process.exitCode = await runCmuxImportVerb(conn, rest, process.cwd())
     return
   }
   if (sub === 'dir') {
@@ -1214,6 +1220,7 @@ commands:
   workspace dir [path]      make this folder (default: the current one) the workspace's folder
   workspace list [--json]   every workspace with its sidebar group (--json adds the groups)
   workspace group <name> | ungroup   move this workspace into a sidebar group, or out of it
+  workspace import-cmux [file] [--json]   recreate cmux's saved workspaces, splits and tabs
   resume-token <claude|codex> <id|->  remember how to resume this pane's agent after a restart
   workflow list [--json] | show <name> [--json]   saved command workflows (read-only)
   view list [--json] | open <name>   declarative views (~/.config/ostia/views/<name>.json)

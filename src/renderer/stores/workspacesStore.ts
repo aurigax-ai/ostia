@@ -117,7 +117,7 @@ export function resetWorkspaceIds(): void {
   groupSeq = 0
 }
 
-function nameFromWorkDir(workDir: string): string {
+export function nameFromWorkDir(workDir: string): string {
   if (!workDir || workDir === '~') return 'home'
   const trimmed = workDir.replace(/\/+$/, '')
   const last = trimmed.split('/').pop()
