@@ -1,6 +1,7 @@
 import { Terminal } from '@xterm/xterm'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { SCRIPT_COMMANDS } from '../../main/commandArgs'
+import { DEFAULT_CAPABILITIES } from '../../shared/capabilities'
 import { SCRIPT_CAPABILITIES } from '../../shared/scriptTokens'
 import { createPane, splitOf, tabsOf } from '../layout/tree'
 import * as blockActions from '../lib/blockActions'
@@ -8,6 +9,7 @@ import { registerBrowserHandle } from '../lib/browserHandles'
 import { type KeyLike, runAppChord } from '../lib/chords'
 import * as closeConfirm from '../lib/closeConfirm'
 import { registerTerminal } from '../lib/terminalHandles'
+import { needsTrust } from '../lib/userActions'
 import { activeFontZoom, zoomFont } from '../lib/wheelZoom'
 import { useAttentionStore } from '../stores/attentionStore'
 import { useBlocksStore } from '../stores/blocksStore'
@@ -1986,13 +1988,17 @@ describe('commands open to script tokens', () => {
     const described = commands.describe().find((c) => c.id === id)
     expect(described).toBeDefined()
     const unreachable = (described?.capabilities ?? []).filter(
-      (cap) => !SCRIPT_CAPABILITIES.includes(cap),
+      (cap) => !DEFAULT_CAPABILITIES.includes(cap) && !SCRIPT_CAPABILITIES.includes(cap),
     )
     expect(unreachable).toEqual([])
   })
 
-  it('workspace.new asks for all-workspaces and not drive-self', () => {
+  it('workspace.new keeps the default capabilities an in-app pane token holds', () => {
     const described = commands.describe().find((c) => c.id === 'workspace.new')
-    expect(described?.capabilities).toEqual(['all-workspaces'])
+    expect(described?.capabilities).toEqual(DEFAULT_CAPABILITIES)
+  })
+
+  it('workspace.new does not need trust', () => {
+    expect(needsTrust({ command: 'workspace.new' })).toBe(false)
   })
 })

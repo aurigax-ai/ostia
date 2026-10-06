@@ -806,7 +806,6 @@ export function registerBuiltinCommands(): void {
     id: 'workspace.new',
     category: 'workspace',
     target: 'none',
-    capabilities: ['all-workspaces'],
     argsSchema: {
       type: 'object',
       properties: { dir: { type: 'string' }, name: { type: 'string' }, focus: { type: 'boolean' } },

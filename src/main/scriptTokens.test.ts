@@ -10,6 +10,7 @@ import {
   createMessageConnection,
 } from 'vscode-jsonrpc/node'
 import type { ApprovalOutcome } from '../shared/approvals'
+import { DEFAULT_CAPABILITIES } from '../shared/capabilities'
 import type { CommandResult } from '../shared/types'
 
 let answer: ApprovalOutcome = 'deny'
@@ -247,7 +248,7 @@ describe('script tokens on command.exec', () => {
         listCommandsFor: (windowId) =>
           windowId === 'w1'
             ? ([
-                descriptor('workspace.new', ['all-workspaces']),
+                descriptor('workspace.new', DEFAULT_CAPABILITIES),
                 descriptor('pane.close', ['kill-pane']),
                 descriptor('tab.new', []),
               ] as never)
@@ -284,6 +285,14 @@ describe('script tokens on command.exec', () => {
       'needs-elevation: all-workspaces',
     )
     expect(executed).toEqual([])
+    expect(request).not.toHaveBeenCalled()
+  })
+
+  it('lets an in-app pane token run workspace.new with its default capabilities', async () => {
+    const me = registerPane({ windowId: 'w1', workspaceId: 'ws1', paneId: 'pane-ws-new' })
+    const conn = await client(me.token)
+    const res = await conn.sendRequest<CommandResult>('command.exec', { id: 'workspace.new' })
+    expect(res).toEqual({ ok: true, result: { workspaceId: 'ws-new' } })
     expect(request).not.toHaveBeenCalled()
   })
 

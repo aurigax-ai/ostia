@@ -10,7 +10,7 @@ import {
   StreamMessageWriter,
   createMessageConnection,
 } from 'vscode-jsonrpc/node'
-import type { Capability } from '../shared/capabilities'
+import { type Capability, DEFAULT_CAPABILITIES } from '../shared/capabilities'
 import { TARGET_PANE_PARAM } from '../shared/extensions'
 import { PRODUCT_NAME } from '../shared/product'
 import type {
@@ -221,7 +221,9 @@ export function registerControlServer(deps: ControlServerDeps, socketPathOverrid
         }
         const caps: Capability[] = [
           ...(crossTarget ? (['all-workspaces'] as const) : []),
-          ...desc.capabilities,
+          ...(script
+            ? desc.capabilities.filter((cap) => !DEFAULT_CAPABILITIES.includes(cap))
+            : desc.capabilities),
         ]
         await ensureCaps(
           authed,
