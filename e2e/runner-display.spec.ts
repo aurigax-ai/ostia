@@ -16,21 +16,21 @@ function hasXvfb(): boolean {
   }
 }
 
-function fakePlaywright(): string {
+function fakePlaywright(script = 'echo "$DISPLAY"\nsleep 1'): string {
   const bin = join(freshDataHome(), 'bin')
   mkdirSync(bin, { recursive: true })
-  writeFileSync(join(bin, 'playwright'), '#!/bin/sh\necho "$DISPLAY"\nsleep 1\n')
+  writeFileSync(join(bin, 'playwright'), `#!/bin/sh\n${script}\n`)
   chmodSync(join(bin, 'playwright'), 0o755)
   return bin
 }
 
-function displayOfRun(bin: string): Promise<string> {
+function displayOfRun(bin: string, env: NodeJS.ProcessEnv = {}): Promise<string> {
   const { OSTIA_E2E_VISIBLE: _visible, ...inherited } = process.env
   return new Promise((done, fail) => {
     execFile(
       'bash',
       [RUNNER],
-      { env: { ...inherited, PATH: `${bin}:${process.env.PATH}` } },
+      { env: { ...inherited, ...env, PATH: `${bin}:${process.env.PATH}` } },
       (error, stdout) => (error ? fail(error) : done(stdout.trim())),
     )
   })
@@ -45,4 +45,14 @@ test('test runs started at the same moment each get a virtual display of their o
   for (const display of displays) expect(display).toMatch(/^:\d+$/)
   expect(new Set(displays).size).toBe(CONCURRENT_RUNS)
   expect(displays).not.toContain(process.env.DISPLAY)
+})
+
+test('test runs never see the desktop session, so Electron cannot pick Wayland', async () => {
+  test.skip(!hasXvfb(), 'needs Xvfb')
+  const bin = fakePlaywright('echo "${WAYLAND_DISPLAY-unset} ${XDG_SESSION_TYPE-unset}"')
+  const seen = await displayOfRun(bin, {
+    WAYLAND_DISPLAY: 'wayland-0',
+    XDG_SESSION_TYPE: 'wayland',
+  })
+  expect(seen).toBe('unset unset')
 })
