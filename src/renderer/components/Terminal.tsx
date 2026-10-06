@@ -8,6 +8,7 @@ import '@xterm/xterm/css/xterm.css'
 import { isNativeClipboardKey } from '@shared/chordSpec'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { wantsDesktopBanner } from '../../shared/notificationSettings'
+import { commands } from '../commands/registry'
 import { currentDict, fmt } from '../i18n/useDict'
 import { tail } from '../lib/askContext'
 import {
@@ -22,7 +23,7 @@ import { bellActions, createBellThrottle } from '../lib/bell'
 import { canTypeInto, insertCommand, selectedBlockOutput, stepBlock } from '../lib/blockActions'
 import { decodeCommandLine, readCommandText } from '../lib/blockText'
 import { openBrowserAs } from '../lib/browserProfile'
-import { isAppChord, isBrowserChord, matchChord } from '../lib/chords'
+import { isAppChord, isBrowserChord, isTerminalCommandChord, matchChord } from '../lib/chords'
 import {
   PROGRAM_PASTE_KEY,
   keyPastePlan,
@@ -282,6 +283,7 @@ export function TerminalView({
       if (chord === 'find') setFindOpen(true)
       else if (chord === 'block.selectPrev') stepBlock(paneId, 'prev')
       else if (chord === 'block.selectNext') stepBlock(paneId, 'next')
+      else if (isTerminalCommandChord(chord)) void commands.exec(chord)
       else if (chord === 'copy') {
         const selection = term.getSelection()
         if (selection) void navigator.clipboard.writeText(selection)

@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import type { ExtensionInfo } from '@shared/extensions'
 import type { KeymapInfo } from '@shared/keymap'
 import type { KeymapLoad } from '@shared/keymapFile'
@@ -79,6 +81,17 @@ describe('keymapChoices', () => {
     expect(keymapProvider('keys/mac', list, 'linux')).toBeNull()
     expect(keymapProvider('off/any', list, 'linux')).toBeNull()
     expect(keymapProvider('keys/any', list, 'linux')?.ext.id).toBe('keys')
+  })
+
+  it('offers the shipped cmux and iTerm2 keymaps under App shortcuts on macOS only', () => {
+    const dir = join(__dirname, '../../extensions/keymap-macos')
+    const manifest = JSON.parse(readFileSync(join(dir, 'ostia.json'), 'utf8'))
+    const list = [provider(manifest.id, manifest.contributes.keymaps)]
+    expect(keymapChoices(list, 'darwin').map((c) => [c.ref, c.label])).toEqual([
+      ['keymap-macos/cmux', 'macOS (cmux)'],
+      ['keymap-macos/iterm2', 'macOS (iTerm2)'],
+    ])
+    expect(keymapChoices(list, 'linux')).toEqual([])
   })
 })
 
