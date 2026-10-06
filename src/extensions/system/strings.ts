@@ -17,6 +17,10 @@ export interface Strings {
   noSudo: string
   onePackageOnly: (manager: string) => string
   notOpened: (reason: string) => string
+  installed: string
+  installFailed: (code: number | undefined) => string
+  installClosed: string
+  installStillRunning: string
 }
 
 const en: Strings = {
@@ -41,6 +45,12 @@ const en: Strings = {
   noSudo: 'this manager needs root and sudo is not on PATH',
   onePackageOnly: (manager) => `${manager} installs one package per request`,
   notOpened: (reason) => `approved, but the terminal could not be opened (${reason})`,
+  installed: 'installed: the install command finished with exit code 0',
+  installFailed: (code) =>
+    `the install command failed (exit code ${code ?? 'unknown'}); read its terminal or ask the human`,
+  installClosed: 'the install terminal was closed before the command finished',
+  installStillRunning:
+    'the install is still running in its terminal; check with `command -v` or the package manager later',
 }
 
 const zhHant: Strings = {
@@ -64,6 +74,11 @@ const zhHant: Strings = {
   noSudo: '這個套件管理器需要 root 權限，但 PATH 中沒有 sudo',
   onePackageOnly: (manager) => `${manager} 每次只能安裝一個套件`,
   notOpened: (reason) => `已核准，但無法開啟終端機（${reason}）`,
+  installed: '已安裝：安裝指令結束，結束代碼為 0',
+  installFailed: (code) =>
+    `安裝指令失敗（結束代碼 ${code ?? '未知'}）；請查看它的終端機或詢問使用者`,
+  installClosed: '安裝指令結束前，終端機已被關閉',
+  installStillRunning: '安裝仍在它的終端機中執行；稍後請用 `command -v` 或套件管理器確認',
 }
 
 export function stringsFor(locale: string | undefined): Strings {

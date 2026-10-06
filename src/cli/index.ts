@@ -619,11 +619,6 @@ interface GatewayErr {
   error: string
   message?: string
 }
-interface GatewayStartResult {
-  host: string
-  port: number
-  fingerprint: string
-}
 interface GatewayStatusResult {
   running: boolean
   host: string | null
@@ -657,29 +652,7 @@ function describeGatewayError(res: GatewayErr): string {
 async function runGatewayVerb(conn: MessageConnection): Promise<void> {
   const sub = process.argv[3]
 
-  if (sub === 'enable') {
-    const { values } = parseArgs(process.argv.slice(4), {
-      values: { host: '--host', port: '--port' },
-    })
-    const res = await conn.sendRequest<GatewayStartResult | GatewayErr>('gateway.enable', {
-      host: values.host || undefined,
-      port: numberFlag(values.port, 'port'),
-    })
-    if (isErrResult(res)) {
-      console.error(`ostia: gateway enable failed (${describeGatewayError(res)})`)
-      process.exitCode = 1
-      return
-    }
-    console.log(JSON.stringify(res))
-  } else if (sub === 'disable') {
-    const res = await conn.sendRequest<GatewayOk | GatewayErr>('gateway.disable', {})
-    if (isErrResult(res)) {
-      console.error(`ostia: gateway disable failed (${describeGatewayError(res)})`)
-      process.exitCode = 1
-      return
-    }
-    console.log('ok')
-  } else if (sub === 'pair') {
+  if (sub === 'pair') {
     const res = await conn.sendRequest<GatewayPairResult | GatewayErr>('gateway.pair', {})
     if (isErrResult(res)) {
       console.error(`ostia: gateway pair failed (${describeGatewayError(res)})`)
@@ -722,7 +695,7 @@ async function runGatewayVerb(conn: MessageConnection): Promise<void> {
     }
   } else {
     console.error(
-      `ostia gateway: unknown subcommand '${sub ?? ''}' (try: enable, pair, status, devices, revoke, disable)`,
+      `ostia gateway: unknown subcommand '${sub ?? ''}' (try: pair, status, devices, revoke)`,
     )
     process.exitCode = 1
   }

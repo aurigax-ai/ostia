@@ -16,6 +16,7 @@ import {
 import { useDict } from '../i18n/useDict'
 import { latestRequest, naturalCommandQuery } from '../lib/assistComposer'
 import { featureEnabled, setAssistFeature, useAssistFeature } from '../lib/assistFeatures'
+import { execChord, isAppChord, matchTerminalChord } from '../lib/chords'
 import { smartClipboardAction } from '../lib/clipboardKeys'
 import {
   type CompletionMatch,
@@ -806,6 +807,13 @@ export function InputEditor({
     const area = e.currentTarget
     if (naturalOpen && onNaturalKey(e, naturalOpen)) return
     if (menuShown && onMenuKey(e, menuShown)) return
+    const scoped = matchTerminalChord(e, isMac)
+    if (isAppChord(scoped)) {
+      e.preventDefault()
+      e.stopPropagation()
+      execChord(scoped, e)
+      return
+    }
     if (e.key === 'Home' || e.key === 'End' || e.key === 'Escape') setMenu(null)
     if (normal && onNormalKey(e)) return
     const plain = !e.ctrlKey && !e.metaKey && !e.altKey

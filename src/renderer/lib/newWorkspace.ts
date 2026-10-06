@@ -3,7 +3,7 @@ import { useLayoutStore } from '../stores/layoutStore'
 import { useSandboxStore } from '../stores/sandboxStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useWindowsStore } from '../stores/windowsStore'
-import { useWorkspacesStore } from '../stores/workspacesStore'
+import { nameFromWorkDir, nextWorkspaceId, useWorkspacesStore } from '../stores/workspacesStore'
 import { codeName } from './codeName'
 
 export function newWorkspaceDir(
@@ -19,6 +19,14 @@ function focusedPaneCwd(): string | undefined {
   const layout = workspaceId ? useLayoutStore.getState().byWorkspace[workspaceId] : undefined
   if (!layout?.activePaneId) return undefined
   return findPane(layout.root, layout.activePaneId)?.cwd
+}
+
+export function openNewWindow(): Promise<boolean> {
+  const { inheritFolder, defaultFolder } = useSettingsStore.getState().workspaces
+  const workDir = newWorkspaceDir(inheritFolder, defaultFolder, focusedPaneCwd())
+  return window.ostia.windows.openWith([
+    { id: nextWorkspaceId(), name: nameFromWorkDir(workDir), kind: 'terminal', workDir },
+  ])
 }
 
 export interface NewWorkspaceOptions {

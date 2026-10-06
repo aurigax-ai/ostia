@@ -1,15 +1,17 @@
 import { type RefObject, useEffect, useMemo, useState } from 'react'
 import { useDict } from '../i18n/useDict'
 import { clearFind, findRanges, paintFind } from '../lib/domFind'
-import { FindBar, findStatus } from './FindBar'
+import { FindBar, type FindStepRef, findStatus } from './FindBar'
 
 export function DocumentFind({
   rootRef,
   content,
+  stepRef,
   onClose,
 }: {
   rootRef: RefObject<HTMLElement>
   content: string
+  stepRef?: FindStepRef
   onClose: () => void
 }): JSX.Element {
   const d = useDict()
@@ -41,6 +43,7 @@ export function DocumentFind({
         if (ranges.length > 0) setActive((i) => (i + by + ranges.length) % ranges.length)
       }}
       onClose={onClose}
+      stepRef={stepRef}
     />
   )
 }

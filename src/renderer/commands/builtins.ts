@@ -2,6 +2,7 @@ import { type AgentResume, resumeCommand } from '@shared/agentResume'
 import type { CmuxImportReport } from '@shared/cmuxSession'
 import { wantsDesktopBanner } from '@shared/notificationSettings'
 import { OPEN_FILES_COMMAND, parseFileTargets } from '@shared/openFiles'
+import { PROGRAM_SETTINGS } from '@shared/programSettings'
 import type { AttentionState } from '@shared/types'
 import { type WorkspaceGroupColor, normalizeGroupName } from '@shared/workspaceGroups'
 import { stepZoom } from '@shared/zoom'
@@ -32,7 +33,14 @@ import { wakePane } from '../lib/hibernationScheduler'
 import { mergeRefusalText } from '../lib/mergeRefusalText'
 import { startNewWorkspace, startScratchWorkspace } from '../lib/newWorkspace'
 import { openRequestedFiles } from '../lib/openFile'
-import { GO_TO_WORKSPACE_SYMBOL_COMMAND, SYMBOLS_PREFIX } from '../lib/paletteModes'
+import {
+  FILES_PREFIX,
+  GO_TO_FILE_COMMAND,
+  GO_TO_WORKSPACE_COMMAND,
+  GO_TO_WORKSPACE_SYMBOL_COMMAND,
+  SYMBOLS_PREFIX,
+  WORKSPACES_PREFIX,
+} from '../lib/paletteModes'
 import { type PaneAgentReport, isStaleAgentReport, paneAgentReport } from '../lib/paneAgent'
 import { terminalFor } from '../lib/terminalHandles'
 import { resetZoom } from '../lib/wheelZoom'
@@ -52,6 +60,7 @@ import { anchorToFocusedPane, canMoveWorkspace, moveWorkspaceTo } from '../lib/w
 import { isMac } from '../platform'
 import { keymapSettingValue, terminalKeymapSettingValue } from '../settings/keymapSetting'
 import { settingsSchemaAt } from '../settings/settingsSchema'
+import { useAgentTurnStore } from '../stores/agentTurnStore'
 import { useAttentionStore } from '../stores/attentionStore'
 import { useBlocksStore } from '../stores/blocksStore'
 import { useHistorySearchStore } from '../stores/historySearchStore'
@@ -98,22 +107,6 @@ interface WorkspaceGroupEntry {
   collapsed: boolean
   workspaceIds: string[]
 }
-
-const PROGRAM_SETTINGS: readonly {
-  group: 'behavior' | 'notifications' | 'agents' | 'terminal' | 'workspaces'
-  field: string
-}[] = [
-  { group: 'behavior', field: 'externalEditor' },
-  { group: 'behavior', field: 'checkForUpdates' },
-  { group: 'notifications', field: 'command' },
-  { group: 'agents', field: 'autoResume' },
-  { group: 'agents', field: 'hooks' },
-  { group: 'terminal', field: 'warnOnRiskyPaste' },
-  { group: 'terminal', field: 'shell' },
-  { group: 'terminal', field: 'osc52Write' },
-  { group: 'terminal', field: 'keepShells' },
-  { group: 'workspaces', field: 'globalHotkey' },
-]
 
 const HUMAN_ONLY_ROOTS: readonly string[] = ['privacy', 'terminalKeys']
 
@@ -421,6 +414,7 @@ export function registerBuiltinCommands(): void {
     run: ({ state, message }, ctx) => {
       if (!ctx.activePaneId) throw new Error('no target pane')
       if (isStaleAgentReport(ctx.activePaneId, state)) return
+      useAgentTurnStore.getState().report(ctx.activePaneId, state)
       const seen = isPaneViewed(ctx.activePaneId)
       signalPane(ctx.activePaneId, { type: 'set', state, message, at: Date.now() })
       if (state === 'waiting' || state === 'done') {
@@ -879,6 +873,20 @@ export function registerBuiltinCommands(): void {
   })
 
   registerCore({
+    id: GO_TO_FILE_COMMAND,
+    category: 'view',
+    target: 'none',
+    run: () => useUIStore.getState().openPalette('search', FILES_PREFIX),
+  })
+
+  registerCore({
+    id: GO_TO_WORKSPACE_COMMAND,
+    category: 'view',
+    target: 'none',
+    run: () => useUIStore.getState().openPalette('search', WORKSPACES_PREFIX),
+  })
+
+  registerCore({
     id: GO_TO_WORKSPACE_SYMBOL_COMMAND,
     category: 'view',
     target: 'none',
@@ -890,6 +898,13 @@ export function registerBuiltinCommands(): void {
     category: 'view',
     target: 'none',
     run: () => useUIStore.getState().toggleRail(),
+  })
+
+  registerCore({
+    id: 'view.searchFiles',
+    category: 'view',
+    target: 'none',
+    run: () => useUIStore.getState().searchFiles(),
   })
 
   const zoomBy = (direction: 1 | -1): void => {

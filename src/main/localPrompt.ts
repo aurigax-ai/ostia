@@ -12,3 +12,7 @@ export function atLocalPrompt({ foreground, shell, sandboxed }: PromptOwner): bo
   if (sandboxed || shell === '' || foreground === '') return true
   return programName(foreground) === programName(shell)
 }
+
+export function busyProgram(owner: PromptOwner): string | null {
+  return atLocalPrompt(owner) ? null : programName(owner.foreground)
+}

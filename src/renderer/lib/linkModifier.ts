@@ -1,3 +1,5 @@
+import type { IBufferRange } from '@xterm/xterm'
+
 export const LINK_MODIFIER_CLASS = 'link-modifier'
 
 export function linkModifierHeld(e: { ctrlKey: boolean; metaKey: boolean }, mac: boolean): boolean {
@@ -26,4 +28,30 @@ export type LinkTarget = 'pane' | 'system'
 
 export function linkTarget(opensInPane: boolean, e: { shiftKey: boolean }): LinkTarget {
   return opensInPane !== e.shiftKey ? 'pane' : 'system'
+}
+
+export type LinkKind = 'web' | 'file'
+
+export interface LinkSpan {
+  row: number
+  start: number
+  end: number
+}
+
+export function linkSpan(range: IBufferRange, viewportY: number, cols: number): LinkSpan {
+  const end = range.end.y === range.start.y ? range.end.x : cols
+  return { row: range.start.y - 1 - viewportY, start: range.start.x - 1, end }
+}
+
+export function attachLinkClaim(
+  screen: HTMLElement,
+  claims: (e: MouseEvent) => boolean,
+): () => void {
+  const claim = (e: MouseEvent): void => {
+    if (e.button !== 0 || !claims(e)) return
+    e.preventDefault()
+    e.stopPropagation()
+  }
+  screen.addEventListener('mousedown', claim)
+  return () => screen.removeEventListener('mousedown', claim)
 }

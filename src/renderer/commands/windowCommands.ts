@@ -1,3 +1,4 @@
+import { openNewWindow } from '../lib/newWorkspace'
 import {
   movePaneToNewWindow,
   moveWorkspaceToNewWindow,
@@ -6,6 +7,13 @@ import {
 import { registerCore } from './core'
 
 export function registerWindowCommands(detached: boolean): void {
+  registerCore<undefined, { opened: boolean }>({
+    id: 'window.new',
+    category: 'window',
+    target: 'none',
+    capabilities: ['drive-self'],
+    run: async () => ({ opened: await openNewWindow() }),
+  })
   if (detached) {
     registerCore<undefined, { moved: boolean }>({
       id: 'window.moveToMain',
