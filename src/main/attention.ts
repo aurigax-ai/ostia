@@ -17,7 +17,6 @@ export const ATTENTION_MESSAGE_MAX = 1024
 
 export interface AttentionDeps {
   execCommand: (target: CommandTarget, id: string, args?: unknown) => Promise<CommandResult>
-  reported?: (paneId: string) => void
 }
 
 export function targetOf(identity: PaneIdentity): CommandTarget {
@@ -63,9 +62,9 @@ export function registerAttentionMethods(deps: AttentionDeps): void {
         state: state === 'clear' ? 'none' : state,
         message: clampMessage(message),
       })
-      if (!res.ok) return { ok: false, error: res.error.code, message: res.error.message }
-      deps.reported?.(target.paneId)
-      return { ok: true }
+      return res.ok
+        ? { ok: true }
+        : { ok: false, error: res.error.code, message: res.error.message }
     },
   })
 }

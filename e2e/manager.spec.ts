@@ -12,7 +12,7 @@ function shellQuote(value: string): string {
   return `'${value.replaceAll("'", `'\\''`)}'`
 }
 
-async function launchOstia(manager: object = {}, settings: object = {}) {
+async function launchOstia(manager: object = {}) {
   const dataHome = freshDataHome()
   const home = join(dataHome, 'home')
   mkdirSync(home, { recursive: true })
@@ -22,7 +22,6 @@ async function launchOstia(manager: object = {}, settings: object = {}) {
       agents: { fake: ['fake-agent'], sh: ['bash', '--norc', '--noprofile'] },
       ...manager,
     },
-    ...settings,
   })
   const portal = join(dataHome, 'portal.sock')
   const launchOptions = isolatedLaunch(dataHome)
@@ -236,20 +235,6 @@ test('MGR-C31 a worker pane cannot call the manager verbs', async () => {
     const screen = win.locator('.xterm-rows').first()
     await expect(screen).toContainText(/not-available-to-pane\s*0/, { timeout: 20_000 })
   } finally {
-    await app.close().catch(() => {})
-  }
-})
-
-test('KSH-C42 the manager never runs in tmux, even with Keep shells running on', async () => {
-  test.setTimeout(90_000)
-  const { app, home, portal } = await launchOstia({}, { terminal: { keepShells: true } })
-  const mirror = runMirror(portal, home, ['sh'])
-  try {
-    mirror.type('echo "parent=$(ps -o comm= -p $PPID) tmux=${TMUX-none}"\r')
-    await expect.poll(mirror.output, { timeout: 20_000 }).toMatch(/parent=\S+ tmux=none/)
-    expect(mirror.output()).not.toMatch(/parent=tmux/)
-  } finally {
-    mirror.child.kill()
     await app.close().catch(() => {})
   }
 })

@@ -36,7 +36,6 @@ describe('settingsStore terminal and pane settings', () => {
       theme: 'match',
       shell: '',
       osc52Write: false,
-      keepShells: false,
       primarySelection: true,
       macOptionIsMeta: false,
     })
@@ -72,7 +71,6 @@ describe('settingsStore terminal and pane settings', () => {
       theme: 'match',
       shell: '',
       osc52Write: false,
-      keepShells: false,
       primarySelection: true,
       macOptionIsMeta: false,
     })

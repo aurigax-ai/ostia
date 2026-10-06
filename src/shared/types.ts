@@ -121,7 +121,7 @@ export interface WindowControls {
   isSystemDark: () => Promise<boolean>
   onSystemDarkChange: (cb: (dark: boolean) => void) => () => void
   onMaximizeChange: (cb: (maximized: boolean) => void) => () => void
-  onRunningQuery: (cb: (kept: string[]) => RunningGroup[]) => () => void
+  onRunningQuery: (cb: () => RunningGroup[]) => () => void
   onConfirmClose: (cb: (groups: RunningGroup[]) => Promise<boolean>) => () => void
   onFreeze: (cb: () => void) => () => void
 }
@@ -177,8 +177,6 @@ export interface PtyAttachResult {
   host?: boolean
   cols?: number
   rows?: number
-  kept?: boolean
-  reattached?: boolean
 }
 
 export interface SystemApi {

@@ -1,8 +1,6 @@
 import { type ChildProcess, spawn } from 'node:child_process'
-import type { Socket } from 'node:net'
 import type { SandboxRuntimeConfig } from '@anthropic-ai/sandbox-runtime'
 import type { PackageRef } from '../../shared/packages'
-import { JsonLines, connectHostChannel, writeMessage } from './hostChannel'
 import type { PackageBlockReason, PackagePolicy } from './packagePolicy'
 import type { HostRequest, HostResponse, HostToMain, MainToHost } from './protocol'
 
@@ -30,7 +28,6 @@ export interface SandboxHostDeps {
 
 export class SandboxHost {
   private child: ChildProcess | null = null
-  private socket: Socket | null = null
   private seq = 0
   private readonly pending = new Map<number, (res: HostResponse) => void>()
   private dead = false
@@ -45,41 +42,19 @@ export class SandboxHost {
     this.child = child
     child.stderr?.resume()
     child.on('message', (message: HostToMain) => this.onMessage(message))
-    child.on('exit', () => this.gone())
+    child.on('exit', () => {
+      this.dead = true
+      for (const resolve of this.pending.values()) {
+        resolve({ id: -1, ok: false, error: 'sandbox host exited' })
+      }
+      this.pending.clear()
+      this.deps.onExit?.()
+    })
     await this.call({ type: 'init', config, ...(packages ? { packages } : {}) })
   }
 
-  async attach(
-    channel: string,
-    config: SandboxRuntimeConfig,
-    packages: PackagePolicy | undefined,
-    fresh: boolean,
-  ): Promise<void> {
-    const socket = await connectHostChannel(channel)
-    this.socket = socket
-    const lines = new JsonLines((message) => this.onMessage(message as HostToMain))
-    socket.on('data', (chunk: Buffer) => lines.push(chunk))
-    socket.on('error', () => socket.destroy())
-    socket.on('close', () => this.gone())
-    await this.call({ type: fresh ? 'init' : 'update', config, ...(packages ? { packages } : {}) })
-  }
-
   get alive(): boolean {
-    return (this.child !== null || this.socket !== null) && !this.dead
-  }
-
-  release(): void {
-    this.socket?.end()
-  }
-
-  private gone(): void {
-    if (this.dead) return
-    this.dead = true
-    for (const resolve of this.pending.values()) {
-      resolve({ id: -1, ok: false, error: 'sandbox host exited' })
-    }
-    this.pending.clear()
-    this.deps.onExit?.()
+    return this.child !== null && !this.dead
   }
 
   async wrap(
@@ -106,23 +81,15 @@ export class SandboxHost {
   }
 
   stop(): void {
-    if (this.dead) return
-    if (this.child) this.child.disconnect()
-    else if (this.socket) {
-      const socket = this.socket
-      void this.call({ type: 'shutdown' })
-        .catch(() => undefined)
-        .finally(() => socket.end())
-    }
+    if (this.child && !this.dead) this.child.disconnect()
   }
 
   private post(message: MainToHost): void {
-    if (this.socket) writeMessage(this.socket, message)
-    else this.child?.send(message)
+    this.child?.send(message)
   }
 
   private call(request: Request): Promise<HostResponse & { ok: true }> {
-    if ((!this.child && !this.socket) || this.dead) {
+    if (!this.child || this.dead) {
       return Promise.reject(new SandboxHostError('sandbox host is not running'))
     }
     const id = ++this.seq

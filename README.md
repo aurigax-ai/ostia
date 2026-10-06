@@ -59,7 +59,8 @@ Applications.
 
 ### Debian and Ubuntu (x64)
 
-The apt repository starts with Ostia 0.5.8. Until 0.5.8 is released, use the tarball below.
+The apt repository starts with Ostia 0.5.8. Until 0.5.8 is released, use the tarball or AppImage
+below.
 
 ```bash
 sudo install -d -m 0755 /etc/apt/keyrings
@@ -72,12 +73,12 @@ sudo apt update && sudo apt install ostia
 
 ### Other Linux (x64)
 
-Get the tarball from the
+Get the AppImage or the tarball from the
 [latest release](https://github.com/aurigax-ai/ostia/releases/latest).
 
 ```bash
-tar -xzf ostia-*-linux-x64.tar.gz
-./ostia-*-linux-x64/ostia
+chmod +x ostia-*.AppImage
+./ostia-*.AppImage
 ```
 
 ## Build from source

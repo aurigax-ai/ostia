@@ -59,30 +59,19 @@ function groupOf(workspace: Workspace, panes: readonly PaneNode[]): RunningGroup
   }
 }
 
-function runningGroup(
-  workspace: Workspace,
-  kept: ReadonlySet<string> = new Set(),
-): RunningGroup | null {
+function runningGroup(workspace: Workspace): RunningGroup | null {
   if (workspace.kind === 'manager') {
     const name = workspace.customName ?? workspace.name
     return { workspaceId: workspace.id, workspace: name, commands: [name], files: [] }
   }
   const layout = useLayoutStore.getState().byWorkspace[workspace.id]
-  return layout
-    ? groupOf(
-        workspace,
-        allPanes(layout.root).filter((p) => !kept.has(p.id)),
-      )
-    : null
+  return layout ? groupOf(workspace, allPanes(layout.root)) : null
 }
 
-function runningGroups(
-  workspaces: readonly Workspace[],
-  kept: ReadonlySet<string> = new Set(),
-): RunningGroup[] {
+function runningGroups(workspaces: readonly Workspace[]): RunningGroup[] {
   const groups: RunningGroup[] = []
   for (const workspace of workspaces) {
-    const group = runningGroup(workspace, kept)
+    const group = runningGroup(workspace)
     if (group) groups.push(group)
   }
   return groups
@@ -93,12 +82,8 @@ async function confirmGroups(kind: CloseConfirmKind, groups: RunningGroup[]): Pr
   return useCloseConfirmStore.getState().ask(kind, groups)
 }
 
-function groupsToConfirm(
-  workspaces: readonly Workspace[],
-  enabled: boolean,
-  kept: ReadonlySet<string> = new Set(),
-): RunningGroup[] {
-  return enabled ? runningGroups(workspaces, kept) : []
+function groupsToConfirm(workspaces: readonly Workspace[], enabled: boolean): RunningGroup[] {
+  return enabled ? runningGroups(workspaces) : []
 }
 
 function emptyGroup(workspace: Workspace): RunningGroup {
@@ -183,10 +168,10 @@ export async function closePaneForAgent(workspaceId: string, paneId: string): Pr
   else useLayoutStore.getState().closePane(workspaceId, paneId)
 }
 
-export function quitGroups(kept: ReadonlySet<string> = new Set()): RunningGroup[] {
+export function quitGroups(): RunningGroup[] {
   const { confirmQuit: enabled } = useSettingsStore.getState().workspaces
   const { workspaces } = useWorkspacesStore.getState()
-  const groups = groupsToConfirm(workspaces, enabled, kept)
+  const groups = groupsToConfirm(workspaces, enabled)
   const scratch = workspaces.filter(
     (w) => w.kind === 'scratch' && !groups.some((g) => g.workspaceId === w.id),
   )

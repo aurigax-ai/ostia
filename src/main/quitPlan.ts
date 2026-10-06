@@ -26,10 +26,3 @@ export function exitAfterDeadline(
   timer.unref?.()
   return timer
 }
-
-export function keptOnQuit(
-  restart: boolean,
-  panes: readonly { paneId: string; kept: boolean }[],
-): string[] {
-  return restart ? panes.filter((p) => p.kept).map((p) => p.paneId) : []
-}

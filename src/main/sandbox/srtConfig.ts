@@ -23,22 +23,6 @@ export interface SandboxPaths {
   containerSockets?: string[]
   tmpRoot?: string
   srtVendorDir?: string
-  keptSocketPath?: string
-}
-
-export interface KeptShellPaths {
-  tmuxDir: string
-  socketPath: string
-  launcherDir: string
-}
-
-export function withKeptShells(paths: SandboxBasePaths, kept: KeptShellPaths): SandboxBasePaths {
-  return {
-    ...paths,
-    dataDirs: [...paths.dataDirs, kept.tmuxDir],
-    keptSocketPath: kept.socketPath,
-    runtimeReads: [...paths.runtimeReads, kept.launcherDir],
-  }
 }
 
 export type SandboxBasePaths = Omit<SandboxPaths, 'workDir' | 'tmpDir'>
@@ -264,7 +248,6 @@ export function buildSrtConfig(
             allowUnixSockets: sockets
               ? [
                   paths.socketPath,
-                  ...(paths.keptSocketPath ? [paths.keptSocketPath] : []),
                   join(tmpDir, SSH_AGENT_SOCKET_NAME),
                   ...expand(policy.allowSockets).filter((p) => !touches(p, guarded)),
                 ]
@@ -280,7 +263,6 @@ export function buildSrtConfig(
           workDir,
           tmpDir,
           paths.socketPath,
-          ...(paths.keptSocketPath ? [paths.keptSocketPath] : []),
           ...agentDirs,
           ...paths.runtimeReads,
           ...opened(policy.allowRead),

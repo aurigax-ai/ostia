@@ -4,8 +4,6 @@ import { SearchAddon } from '@xterm/addon-search'
 import { Unicode11Addon } from '@xterm/addon-unicode11'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import { type FontWeight, type IMarker, Terminal as Xterm } from '@xterm/xterm'
-import { keptShellReattached } from '../lib/autoResume'
-import { silenceQueryReplies } from '../lib/tmuxQueries'
 import '@xterm/xterm/css/xterm.css'
 import { isNativeClipboardKey } from '@shared/chordSpec'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -490,7 +488,6 @@ export function TerminalView({
 
     let disposed = false
     let attached = false
-    let querySilencer: { dispose(): void } | null = null
     let replayed = false
     const pending: string[] = []
     let holdForRedraw = false
@@ -538,10 +535,8 @@ export function TerminalView({
           hostToken: useSandboxStore.getState().takeHostToken(paneId),
           ...spawnPromptOption(useSettingsStore.getState()),
         })
-        .then(({ buffer, sandboxed, sandboxStamp, host, shell, kept, reattached }) => {
+        .then(({ buffer, sandboxed, sandboxStamp, host, shell }) => {
           if (disposed) return
-          if (kept && !querySilencer) querySilencer = silenceQueryReplies(term)
-          if (reattached) keptShellReattached(workspaceIdRef.current, paneId)
           commitShellTitle(workspaceIdRef.current, paneId, shell)
           useSandboxStore.getState().notePane(paneId, sandboxed ?? false, sandboxStamp)
           if (host) useSandboxStore.getState().noteHost(paneId)
@@ -662,7 +657,6 @@ export function TerminalView({
 
     return () => {
       disposed = true
-      querySilencer?.dispose()
       syncSizeRef.current = () => {}
       if (resizeTimer) clearTimeout(resizeTimer)
       if (rafId) cancelAnimationFrame(rafId)

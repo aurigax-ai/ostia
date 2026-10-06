@@ -126,13 +126,6 @@ describe('AgentRunningPanes', () => {
     expect(runningIds(book.mark(fresh))).toEqual(['a'])
   })
 
-  it('says which panes had a running agent when Ostia last saved', () => {
-    const book = new AgentRunningPanes(() => {})
-    book.seed(snapshot([pane('a', { agentRunning: true }), pane('b')]))
-    expect(book.has('a')).toBe(true)
-    expect(book.has('b')).toBe(false)
-  })
-
   it('asks for a save only when the set changes', () => {
     const onChange = vi.fn()
     const book = new AgentRunningPanes(onChange)

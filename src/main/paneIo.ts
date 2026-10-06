@@ -105,12 +105,6 @@ export function pasteBytes(text: string): string {
   return `${PASTE_START}${body.replace(/\r?\n/g, '\r')}${PASTE_END}`
 }
 
-export function pastedText(bytes: string): string | null {
-  if (!bytes.startsWith(PASTE_START) || !bytes.endsWith(PASTE_END)) return null
-  const body = bytes.slice(PASTE_START.length, bytes.length - PASTE_END.length)
-  return body.includes(PASTE_START) || body.includes(PASTE_END) ? null : body
-}
-
 function optionalFlag(raw: unknown, name: string): boolean | undefined {
   if (raw === undefined) return undefined
   if (typeof raw !== 'boolean') throw fail(`bad-request: ${name}`)

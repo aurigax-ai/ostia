@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
 import { SettingsPanel } from './SettingsPanel'
@@ -79,41 +79,5 @@ describe('SettingsPanel terminal and pane rows', () => {
     await user.click(screen.getByRole('switch', { name: 'Dim inactive panes' }))
     expect(useSettingsStore.getState().panes.focusOnHover).toBe(true)
     expect(useSettingsStore.getState().panes.dimInactive).toBe(false)
-  })
-
-  function tmuxReport(missing: { program: string; package: string; needs?: string }[]) {
-    window.ostia.system.requirements = vi.fn().mockResolvedValue({
-      missing,
-      hint: { command: 'sudo pacman -S --needed tmux', packages: ['tmux'] },
-      canInstall: false,
-    })
-  }
-
-  it('KSH-C17 turns keeping shells on when tmux is ready', async () => {
-    tmuxReport([])
-    const user = await openSection('Terminal')
-    const keep = screen.getByRole('switch', { name: 'Keep shells running across a restart' })
-    await waitFor(() => expect(keep).not.toHaveAttribute('aria-disabled', 'true'))
-    await user.click(keep)
-    expect(useSettingsStore.getState().terminal.keepShells).toBe(true)
-  })
-
-  it('KSH-C18 keeps the switch off and offers the install while tmux is missing', async () => {
-    tmuxReport([{ program: 'tmux', package: 'tmux' }])
-    const user = await openSection('Terminal')
-    expect(await screen.findByText('sudo pacman -S --needed tmux')).toBeInTheDocument()
-    const keep = screen.getByRole('switch', { name: 'Keep shells running across a restart' })
-    expect(keep).toHaveAttribute('aria-disabled', 'true')
-    await user.click(keep)
-    expect(useSettingsStore.getState().terminal.keepShells).toBe(false)
-  })
-
-  it('KSH-C19 names the tmux version needed when the installed one is too old', async () => {
-    tmuxReport([{ program: 'tmux', package: 'tmux', needs: '3.2' }])
-    await openSection('Terminal')
-    expect(await screen.findByText(/tmux 3\.2 or newer/)).toBeInTheDocument()
-    expect(
-      screen.getByRole('switch', { name: 'Keep shells running across a restart' }),
-    ).toHaveAttribute('aria-disabled', 'true')
   })
 })

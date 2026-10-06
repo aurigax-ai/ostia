@@ -128,13 +128,4 @@ describe('PortRequests', () => {
       expect(requests.ports('ws')).toEqual([{ port: 5173, process: 'node', exposed: false }])
     }
   })
-
-  it('does not ask again about a listener whose port is already exposed, as after a restart', async () => {
-    const { requests, asks, exposed, listen } = setup({ policy: 'ask' })
-    exposed.add(3000)
-    listen([{ port: 3000, process: 'node' }])
-    await requests.scan('ws')
-    expect(asks).toEqual([])
-    expect([...exposed]).toEqual([3000])
-  })
 })

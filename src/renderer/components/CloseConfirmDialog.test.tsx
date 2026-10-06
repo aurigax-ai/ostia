@@ -226,18 +226,6 @@ describe('close confirmation', () => {
     await expect(confirmQuit(quitGroups())).resolves.toBe(true)
   })
 
-  it('KSH-C39 leaves a kept shell out of the restart question', async () => {
-    seed('sleep 100')
-    expect(quitGroups(new Set(['p1']))).toEqual([])
-    await expect(confirmQuit(quitGroups(new Set(['p1'])))).resolves.toBe(true)
-  })
-
-  it('KSH-C40 still asks about a running command whose shell is not kept', () => {
-    seed('sleep 100')
-    expect(quitGroups(new Set()).map((g) => g.commands)).toEqual([['sleep 100']])
-    expect(quitGroups(new Set(['p2'])).map((g) => g.commands)).toEqual([['sleep 100']])
-  })
-
   describe('scratch workspaces', () => {
     function seedScratch(files: number): void {
       seed(null)

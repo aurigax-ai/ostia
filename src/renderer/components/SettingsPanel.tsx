@@ -34,7 +34,6 @@ import {
 } from '@phosphor-icons/react'
 import type { ApprovalMode } from '@shared/approvals'
 import { type ExtensionInfo, PRODUCT_PLACEHOLDER } from '@shared/extensions'
-import { KEEP_SHELLS_FEATURE, TMUX_MIN_VERSION } from '@shared/keepShells'
 import {
   BELL_MODES,
   type BellMode,
@@ -111,7 +110,6 @@ import { MarketplaceSection, UninstallExtensionButton } from './MarketplaceSecti
 import { PasswordsSection } from './PasswordsSection'
 import { PrivacySection } from './PrivacySection'
 import { PromptSection } from './PromptSection'
-import { RequirementsNoteView, useRequirementsReport } from './RequirementsNote'
 import { SandboxSection } from './SandboxSection'
 import {
   Highlight,
@@ -1011,17 +1009,15 @@ export function ToggleRow({
   desc,
   checked,
   onChange,
-  disabled,
 }: {
   label: string
   desc: string
   checked: boolean
   onChange: (v: boolean) => void
-  disabled?: boolean
 }): JSX.Element {
   return (
     <ControlRow label={label} desc={desc}>
-      <Switch checked={checked} onCheckedChange={onChange} aria-label={label} disabled={disabled} />
+      <Switch checked={checked} onCheckedChange={onChange} aria-label={label} />
     </ControlRow>
   )
 }
@@ -1541,8 +1537,6 @@ function TerminalSection(): JSX.Element {
   const promptStyle = useSettingsStore((s) => s.terminal.prompt.style)
   const shell = useSettingsStore((s) => s.terminal.shell)
   const osc52Write = useSettingsStore((s) => s.terminal.osc52Write)
-  const keepShells = useSettingsStore((s) => s.terminal.keepShells)
-  const keepShellsReport = useRequirementsReport(KEEP_SHELLS_FEATURE)
   const primarySelection = useSettingsStore((s) => s.terminal.primarySelection)
   const macOptionIsMeta = useSettingsStore((s) => s.terminal.macOptionIsMeta)
   const modeLabel: Record<InputMode, string> = {
@@ -1726,18 +1720,6 @@ function TerminalSection(): JSX.Element {
             className="h-7 w-56 font-mono"
           />
         </ControlRow>
-        <ToggleRow
-          label={d.settings.keepShells}
-          desc={d.settings.keepShellsDesc}
-          checked={keepShells}
-          disabled={!keepShells && (!keepShellsReport || keepShellsReport.missing.length > 0)}
-          onChange={(v) => setTerminal({ keepShells: v })}
-        />
-        <RequirementsNoteView
-          feature={KEEP_SHELLS_FEATURE}
-          body={fmt(d.settings.keepShellsRequirementsBody, { version: TMUX_MIN_VERSION })}
-          report={keepShellsReport}
-        />
       </SettingsGroup>
     </div>
   )

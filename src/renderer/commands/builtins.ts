@@ -110,7 +110,6 @@ const PROGRAM_SETTINGS: readonly {
   { group: 'terminal', field: 'warnOnRiskyPaste' },
   { group: 'terminal', field: 'shell' },
   { group: 'terminal', field: 'osc52Write' },
-  { group: 'terminal', field: 'keepShells' },
   { group: 'workspaces', field: 'globalHotkey' },
 ]
 

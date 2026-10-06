@@ -2,7 +2,6 @@ import { SandboxManager } from '@anthropic-ai/sandbox-runtime'
 import type { SandboxRuntimeConfig } from '@anthropic-ai/sandbox-runtime'
 import { REGISTRY_HOSTS, parsePackageDownload } from '../../shared/packages'
 import { PRODUCT_DISPLAY_NAME } from '../../shared/productDisplay'
-import { type ListeningChannel, type Respond, listenHostChannel } from './hostChannel'
 import { cachedLookups } from './packageLookups'
 import { type PackagePolicy, decidePackage } from './packagePolicy'
 import type { HostToMain, MainToHost } from './protocol'
@@ -68,16 +67,8 @@ function reportViolations(): void {
 const pendingAsks = new Map<number, (allow: boolean) => void>()
 let askSeq = 0
 
-let channel: ListeningChannel | null = null
-
 function send(message: HostToMain): void {
-  if (channel) channel.send(message)
-  else process.send?.(message)
-}
-
-function shutdown(): void {
-  channel?.close()
-  void SandboxManager.reset().finally(() => process.exit(0))
+  process.send?.(message)
 }
 
 function ask(host: string, port: number | undefined): Promise<boolean> {
@@ -88,7 +79,7 @@ function ask(host: string, port: number | undefined): Promise<boolean> {
   })
 }
 
-async function handle(message: MainToHost, respond: Respond): Promise<void> {
+async function handle(message: MainToHost): Promise<void> {
   if (message.type === 'ask-answer') {
     pendingAsks.get(message.askId)?.(message.allow)
     pendingAsks.delete(message.askId)
@@ -99,7 +90,7 @@ async function handle(message: MainToHost, respond: Respond): Promise<void> {
     if (message.type === 'init') {
       const deps = await SandboxManager.checkDependenciesAsync()
       if (deps.errors.length > 0) {
-        respond({ id, ok: false, error: deps.errors.join('; '), missing: deps.errors })
+        send({ id, ok: false, error: deps.errors.join('; '), missing: deps.errors })
         return
       }
       packagePolicy = message.packages ?? null
@@ -109,42 +100,31 @@ async function handle(message: MainToHost, respond: Respond): Promise<void> {
         true,
       )
       reportViolations()
-      respond({ id, ok: true })
+      send({ id, ok: true })
     } else if (message.type === 'wrap') {
       const wrapped = await SandboxManager.wrapWithSandbox(
         message.command,
         message.binShell,
         message.customConfig,
       )
-      respond({ id, ok: true, wrapped })
+      send({ id, ok: true, wrapped })
     } else if (message.type === 'update') {
       packagePolicy = message.packages ?? null
       SandboxManager.updateConfig(withFirewall(message.config))
-      respond({ id, ok: true })
-    } else if (message.type === 'shutdown') {
-      respond({ id, ok: true })
-      shutdown()
+      send({ id, ok: true })
     } else {
       SandboxManager.cleanupAfterCommand()
-      respond({ id, ok: true })
+      send({ id, ok: true })
     }
   } catch (err) {
-    respond({ id, ok: false, error: err instanceof Error ? err.message : String(err) })
+    send({ id, ok: false, error: err instanceof Error ? err.message : String(err) })
   }
 }
 
-const LISTEN_FLAG = '--listen'
-const listenIndex = process.argv.indexOf(LISTEN_FLAG)
-const listenPath = listenIndex === -1 ? undefined : process.argv[listenIndex + 1]
+process.on('message', (message: MainToHost) => {
+  void handle(message)
+})
 
-if (listenPath) {
-  for (const signal of ['SIGHUP', 'SIGTERM', 'SIGINT'] as const) process.on(signal, shutdown)
-  channel = await listenHostChannel(listenPath, (message, respond) => {
-    void handle(message, respond)
-  })
-} else {
-  process.on('message', (message: MainToHost) => {
-    void handle(message, (response) => process.send?.(response))
-  })
-  process.on('disconnect', shutdown)
-}
+process.on('disconnect', () => {
+  void SandboxManager.reset().finally(() => process.exit(0))
+})

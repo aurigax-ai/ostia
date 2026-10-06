@@ -13,7 +13,6 @@ export type HostRequest =
     }
   | { id: number; type: 'update'; config: SandboxRuntimeConfig; packages?: PackagePolicy }
   | { id: number; type: 'cleanup' }
-  | { id: number; type: 'shutdown' }
 
 export type HostResponse =
   | { id: number; ok: true; wrapped?: string }
