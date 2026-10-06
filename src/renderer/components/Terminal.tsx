@@ -173,7 +173,7 @@ export function TerminalView({
     term.loadAddon(searchAddon)
     term.open(host)
     if (behavior.gpuAcceleration) loadWebglRenderer(term)
-    if (isMac) attachWheelReports(term, () => measureCells(host, term)?.height ?? 0)
+    attachWheelReports(term, () => measureCells(host, term)?.height ?? 0, isLinux)
     const detachWheelZoom = attachWheelZoom(host, 'terminal', isMac)
     const detachLinkModifier = attachLinkModifier(host, isMac)
     termRef.current = term

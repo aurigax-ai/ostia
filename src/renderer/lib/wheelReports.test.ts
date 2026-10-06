@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { type WheelTerminal, attachWheelReports, createWheelRows, wheelRoute } from './wheelReports'
 
 const CELL = 17
-const scale = { cellHeight: CELL, sensitivity: 1, maxRows: 40 }
+const scale = { cellHeight: CELL, sensitivity: 1, maxRows: 40, notches: false }
 
 type TrackingMode = WheelTerminal['modes']['mouseTrackingMode']
 
@@ -11,6 +11,7 @@ function fakeTerminal(state: {
   buffer: 'normal' | 'alternate'
   cellHeight?: number
   sensitivity?: number
+  notches?: boolean
 }) {
   const element = document.createElement('div')
   const handled: WheelEvent[] = []
@@ -32,7 +33,7 @@ function fakeTerminal(state: {
       handler = h
     },
   } as unknown as WheelTerminal
-  attachWheelReports(term, () => state.cellHeight ?? CELL)
+  attachWheelReports(term, () => state.cellHeight ?? CELL, state.notches ?? false)
   const wheel = (deltaY: number, init: WheelEventInit = {}): WheelEvent => {
     const e = new WheelEvent('wheel', {
       deltaY,
@@ -73,6 +74,23 @@ describe('createWheelRows', () => {
     expect(rows.take(10, scale)).toBe(0)
     expect(rows.take(-10, scale)).toBe(0)
     expect(rows.take(-10, scale)).toBe(-1)
+  })
+
+  it('keeps a Linux wheel notch at one row and accumulates touchpad deltas', () => {
+    const linux = { ...scale, notches: true }
+    expect(createWheelRows().take(120, linux)).toBe(1)
+    expect(createWheelRows().take(-53, linux)).toBe(-1)
+    expect(createWheelRows().take(10_000, linux)).toBe(1)
+    const rows = createWheelRows()
+    expect([5, 5, 5, 5].map((d) => rows.take(d, linux))).toEqual([0, 0, 0, 1])
+  })
+
+  it('lets a Linux wheel notch drop the touchpad leftover', () => {
+    const rows = createWheelRows()
+    const linux = { ...scale, notches: true }
+    expect(rows.take(10, linux)).toBe(0)
+    expect(rows.take(120, linux)).toBe(1)
+    expect(rows.take(10, linux)).toBe(0)
   })
 
   it('does nothing without a measured cell', () => {
@@ -144,6 +162,19 @@ describe('attachWheelReports', () => {
     const unmeasured = fakeTerminal({ mode: 'any', buffer: 'alternate', cellHeight: 0 })
     const early = unmeasured.wheel(51)
     expect(unmeasured.handled).toEqual([early])
+  })
+
+  it('sends one tick per Linux wheel notch and accumulates touchpad travel', () => {
+    const app = fakeTerminal({ mode: 'any', buffer: 'alternate', notches: true })
+    app.wheel(120)
+    app.wheel(-100)
+    expect(app.ticks().map((e) => e.deltaY)).toEqual([1, -1])
+    for (let i = 0; i < 12; i++) app.wheel(4)
+    expect(app.ticks()).toHaveLength(4)
+
+    const less = fakeTerminal({ mode: 'none', buffer: 'alternate', notches: true })
+    less.wheel(53)
+    expect(less.ticks().map((e) => e.deltaY)).toEqual([1])
   })
 
   it('swallows a delta too small for a row without letting it scroll the page', () => {

@@ -2,6 +2,8 @@ import type { Terminal } from '@xterm/xterm'
 
 export type WheelRoute = 'report' | 'arrows'
 
+export const WHEEL_NOTCH_DELTA = 50
+
 const WHEEL_TRACKING_MODES: ReadonlySet<string> = new Set(['vt200', 'drag', 'any'])
 
 export type WheelTerminal = Pick<
@@ -13,6 +15,7 @@ export interface WheelScale {
   cellHeight: number
   sensitivity: number
   maxRows: number
+  notches: boolean
 }
 
 export interface WheelRows {
@@ -32,7 +35,12 @@ export function createWheelRows(): WheelRows {
   let pending = 0
   return {
     take: (deltaY, scale) => {
-      if (deltaY === 0 || !(scale.cellHeight > 0)) return 0
+      if (deltaY === 0) return 0
+      if (scale.notches && Math.abs(deltaY) >= WHEEL_NOTCH_DELTA) {
+        pending = 0
+        return Math.sign(deltaY)
+      }
+      if (!(scale.cellHeight > 0)) return 0
       if (Math.sign(deltaY) !== Math.sign(pending)) pending = 0
       pending += (deltaY * scale.sensitivity) / scale.cellHeight
       const rows = Math.trunc(pending) || 0
@@ -61,7 +69,11 @@ function wheelTick(source: WheelEvent, direction: number): WheelEvent {
   })
 }
 
-export function attachWheelReports(term: WheelTerminal, cellHeight: () => number): void {
+export function attachWheelReports(
+  term: WheelTerminal,
+  cellHeight: () => number,
+  notches: boolean,
+): void {
   const ticks = new WeakSet<WheelEvent>()
   const rows = createWheelRows()
   let lastRoute: WheelRoute | null = null
@@ -81,6 +93,7 @@ export function attachWheelReports(term: WheelTerminal, cellHeight: () => number
       cellHeight: height,
       sensitivity: term.options.scrollSensitivity ?? 1,
       maxRows: Math.max(1, term.rows),
+      notches,
     })
     for (let i = 0; i < Math.abs(count); i++) {
       const tick = wheelTick(e, Math.sign(count))
