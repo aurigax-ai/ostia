@@ -356,8 +356,16 @@ export function chordsWithout(id: string, spec: ChordSpec, mac: boolean): string
     .map((bound) => formatScopedChord(bound, mac))
 }
 
+export function chordsWithoutKey(id: string, spec: ChordSpec, mac: boolean): string[] {
+  return chordsOf(id, mac)
+    .filter((bound) => !overlaps(bound, spec))
+    .map((bound) => formatScopedChord(bound, mac))
+}
+
 export function terminalKeyConflicts(spec: ChordSpec, mac: boolean): string[] {
-  return conflictsWith('', spec, mac).filter((id) => !isBrowserChord(id))
+  const inTerminal = conflictsWith('', { ...spec, terminal: true }, mac)
+  const everywhere = conflictsWith('', { ...spec, terminal: false }, mac)
+  return [...new Set([...inTerminal, ...everywhere])].filter((id) => !isBrowserChord(id))
 }
 
 export function bindableIds(): string[] {

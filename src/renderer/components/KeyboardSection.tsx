@@ -39,6 +39,7 @@ import {
   checkBinding,
   chordsOf,
   chordsWithout,
+  chordsWithoutKey,
   conflictsWith,
   terminalKeyConflicts,
   useBindings,
@@ -481,7 +482,7 @@ function TerminalKeyEditor({
       return
     }
     for (const other of commandsUsing) {
-      setKeybinding(other, keepChords(chordsWithout(other, spec, isMac)))
+      setKeybinding(other, keepChords(chordsWithoutKey(other, spec, isMac)))
     }
     saveTerminalKey(spec, send, previous, isMac)
     onDone()

@@ -30,6 +30,7 @@ import {
   chordLabel,
   chordsOf,
   chordsWithout,
+  chordsWithoutKey,
   conflictsWith,
   currentBindings,
   defaultChords,
@@ -647,6 +648,18 @@ describe('terminalKeyConflicts', () => {
   it('names app and terminal chords that take the same key', () => {
     expect(terminalKeyConflicts(spec('Ctrl+Shift+P'), false)).toEqual(['palette.toggle'])
     expect(terminalKeyConflicts(spec('Ctrl+Shift+C'), false)).toEqual(['copy'])
+  })
+
+  it('names a command that takes the key only in a terminal first, since it wins there', () => {
+    expect(terminalKeyConflicts(spec('Ctrl+Shift+K'), false)).toEqual(['terminal.clear'])
+    const cmdK = parseChord('Cmd+K', true) as ChordSpec
+    expect(terminalKeyConflicts(cmdK, true)).toEqual(['terminal.clear', 'palette.toggle'])
+  })
+
+  it('lets a terminal key take a chord from a command in either scope', () => {
+    const cmdD = parseChord('Cmd+D', true) as ChordSpec
+    expect(chordsWithout('pane.splitRight', cmdD, true)).toEqual(['terminal:Cmd+D', 'Alt+Cmd+\\'])
+    expect(chordsWithoutKey('pane.splitRight', cmdD, true)).toEqual(['Alt+Cmd+\\'])
   })
 })
 
