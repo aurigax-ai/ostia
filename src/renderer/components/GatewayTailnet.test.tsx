@@ -68,7 +68,7 @@ describe('Settings → Remote over the tailnet', () => {
     expect(await screen.findByText(/refused a login link/)).toBeInTheDocument()
   })
 
-  it('offers Tailscale and each local address, and saves the pick while off', async () => {
+  it('TSN-C37 offers Tailscale and each local address, and saves the pick while off', async () => {
     remoteOn({ state: 'off' }, { kind: 'tailnet' }, false)
     vi.mocked(window.ostia.gateway.bindAddresses).mockResolvedValue([
       { address: '192.168.2.108', iface: 'wlan0' },
@@ -85,13 +85,13 @@ describe('Settings → Remote over the tailnet', () => {
     })
   })
 
-  it('locks the route while remote access is on', async () => {
+  it('TSN-C38 locks the route while remote access is on', async () => {
     remoteOn({ state: 'off' })
     render(<GatewaySection />)
     expect(await screen.findByRole('combobox', { name: 'Connect through' })).toBeDisabled()
   })
 
-  it('on a picked address hides Tailscale, warns and allows pairing', async () => {
+  it('TSN-C39 on a picked address hides Tailscale, warns and allows pairing', async () => {
     remoteOn({ state: 'off' }, { kind: 'address', address: '192.168.2.108' })
     render(<GatewaySection />)
     expect(await screen.findByText(/Listens on 192\.168\.2\.108/)).toBeInTheDocument()
@@ -100,7 +100,7 @@ describe('Settings → Remote over the tailnet', () => {
     expect(await pairButton()).toBeEnabled()
   })
 
-  it('says when the saved address is gone instead of turning on', async () => {
+  it('TSN-C41 says when the saved address is gone instead of turning on', async () => {
     remoteOn({ state: 'off' }, { kind: 'address', address: '10.1.2.3' }, false)
     vi.mocked(window.ostia.gateway.enable).mockResolvedValueOnce({ error: 'address-unavailable' })
     render(<GatewaySection />)
@@ -110,7 +110,7 @@ describe('Settings → Remote over the tailnet', () => {
     expect(await screen.findByText(/10\.1\.2\.3 is no longer on this computer/)).toBeInTheDocument()
   })
 
-  it('shows the pair code beside the QR and keeps the JSON folded', async () => {
+  it('TSN-C42 shows the pair code beside the QR and keeps the JSON folded', async () => {
     remoteOn({ state: 'running', ip: '100.64.0.1', dnsName: 'ostia-x.example.ts.net' })
     const user = userEvent.setup()
     render(<GatewaySection />)

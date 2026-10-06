@@ -160,14 +160,14 @@ describe('gateway IPC and socket surface for the tailnet', () => {
     expect(await invoke('gateway:pair')).toEqual({ error: 'not-running' })
   })
 
-  it('refuses a route change from a webview guest', async () => {
+  it('TSN-C40 refuses a route change from a webview guest', async () => {
     expect(
       await invoke('gateway:set-route', 'webview', { kind: 'address', address: LAN_ADDRESS }),
     ).toEqual({ ok: false, error: 'not-a-window' })
     expect(await invoke('gateway:status')).toMatchObject({ route: { kind: 'tailnet' } })
   })
 
-  it('refuses an address this computer does not have', async () => {
+  it('TSN-C40 refuses an address this computer does not have', async () => {
     for (const route of [
       { kind: 'address', address: '10.9.9.9' },
       { kind: 'address', address: '0.0.0.0; rm' },
@@ -180,14 +180,14 @@ describe('gateway IPC and socket surface for the tailnet', () => {
     }
   })
 
-  it('refuses a route change while remote access is on', async () => {
+  it('TSN-C38 refuses a route change while remote access is on', async () => {
     await invoke('gateway:enable')
     expect(
       await invoke('gateway:set-route', 'window', { kind: 'address', address: LAN_ADDRESS }),
     ).toEqual({ ok: false, error: 'running' })
   })
 
-  it('listens on the picked address without the tailnet and pairs with that address', async () => {
+  it('TSN-C39 listens on the picked address without the tailnet and pairs with it', async () => {
     expect(
       await invoke('gateway:set-route', 'window', { kind: 'address', address: LAN_ADDRESS }),
     ).toEqual({ ok: true, route: { kind: 'address', address: LAN_ADDRESS } })
@@ -201,7 +201,7 @@ describe('gateway IPC and socket surface for the tailnet', () => {
     expect(await invoke('gateway:pair')).toMatchObject({ host: LAN_ADDRESS, port: 8722 })
   })
 
-  it('goes back to the tailnet when Tailscale is picked again', async () => {
+  it('TSN-C37 goes back to the tailnet when Tailscale is picked again', async () => {
     await invoke('gateway:set-route', 'window', { kind: 'address', address: LAN_ADDRESS })
     await invoke('gateway:set-route', 'window', { kind: 'tailnet' })
     await invoke('gateway:enable')
@@ -209,7 +209,7 @@ describe('gateway IPC and socket surface for the tailnet', () => {
     expect(tailnet.start).toHaveBeenCalledWith({ helperPort: 40001, port: 8722 })
   })
 
-  it('starts nothing when the saved address is no longer on this computer', async () => {
+  it('TSN-C41 starts nothing when the saved address is no longer on this computer', async () => {
     saveJson(storePath('gateway-config', 'global'), {
       route: { kind: 'address', address: '10.1.2.3' },
     })
