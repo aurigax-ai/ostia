@@ -2156,7 +2156,7 @@ function registerPtyIpc(): void {
       cursor,
       dropped,
       shell: shellName(meta.shell) || undefined,
-      sandboxed: false,
+      sandboxed: sandbox !== undefined,
       kept: true,
       reattached: true,
     }

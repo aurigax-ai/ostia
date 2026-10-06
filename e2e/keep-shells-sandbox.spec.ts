@@ -144,6 +144,7 @@ test('KSH-C50 a sandboxed shell reaching an allowed domain keeps working across 
     try {
       await expect(screen(second.win)).toContainText(/n(1\d|2\d)=200/, { timeout: 30_000 })
       await expect(screen(second.win)).toContainText('n30=200', { timeout: 30_000 })
+      await expect(second.win.getByRole('button', { name: 'Restart to apply' })).toHaveCount(0)
     } finally {
       await quit(second.app)
     }
