@@ -7,7 +7,7 @@ import {
 } from '@phosphor-icons/react'
 import { type CSSProperties, type KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { fmt, useDict } from '../i18n/useDict'
-import { matchChord } from '../lib/chords'
+import { findStep, matchChord } from '../lib/chords'
 import { cropToPng } from '../lib/cropImage'
 import { clearFind, findRanges, paintFind } from '../lib/domFind'
 import { trackSelection } from '../lib/domSelection'
@@ -296,10 +296,16 @@ export function PdfViewer({
     '--scale-round-y': '1px',
   } as CSSProperties
 
+  const stepFind = (by: number): void => {
+    if (matches.length > 0) setActive((i) => (i + by + matches.length) % matches.length)
+  }
+
   const onFindKey = (e: KeyboardEvent<HTMLDivElement>): void => {
-    if (!isFindKey(e)) return
+    const by = findStep(matchChord(e, isMac))
+    if (by === null && !isFindKey(e)) return
     e.preventDefault()
-    setFinding(true)
+    if (by !== null && finding) stepFind(by)
+    else setFinding(true)
   }
 
   return (
@@ -315,9 +321,7 @@ export function PdfViewer({
             setQuery(q)
             setActive(0)
           }}
-          onStep={(by) => {
-            if (matches.length > 0) setActive((i) => (i + by + matches.length) % matches.length)
-          }}
+          onStep={stepFind}
           onClose={() => {
             setFinding(false)
             setQuery('')

@@ -25,7 +25,13 @@ import { bellActions, createBellThrottle } from '../lib/bell'
 import { canTypeInto, insertCommand, selectedBlockOutput, stepBlock } from '../lib/blockActions'
 import { decodeCommandLine, readCommandText } from '../lib/blockText'
 import { openBrowserAs } from '../lib/browserProfile'
-import { isAppChord, isBrowserChord, isTerminalCommandChord, matchChord } from '../lib/chords'
+import {
+  findStep,
+  isAppChord,
+  isBrowserChord,
+  isTerminalCommandChord,
+  matchChord,
+} from '../lib/chords'
 import {
   PROGRAM_PASTE_KEY,
   keyPastePlan,
@@ -111,6 +117,7 @@ export function TerminalView({
   const [pendingPaste, setPendingPaste] = useState<string | null>(null)
   const [search, setSearch] = useState<SearchAddon | null>(null)
   const [findOpen, setFindOpen] = useState(false)
+  const findStepRef = useRef<((by: number) => void) | null>(null)
   const [alternateScreen, setAlternateScreen] = useState(false)
   const [suppressedPrompt, setSuppressedPrompt] = useState<LineAnchor | null>(null)
   const searchOptions = useMemo(() => findOptions(palette), [palette])
@@ -285,8 +292,12 @@ export function TerminalView({
       if (isMac && clipboard && isNativeClipboardKey(e)) return true
       if (e.type !== 'keydown' || isAppChord(chord)) return false
       e.preventDefault()
+      const findBy = findStep(chord)
       if (chord === 'find') setFindOpen(true)
-      else if (chord === 'block.selectPrev') stepBlock(paneId, 'prev')
+      else if (findBy !== null) {
+        if (findStepRef.current) findStepRef.current(findBy)
+        else setFindOpen(true)
+      } else if (chord === 'block.selectPrev') stepBlock(paneId, 'prev')
       else if (chord === 'block.selectNext') stepBlock(paneId, 'next')
       else if (isTerminalCommandChord(chord)) void commands.exec(chord)
       else if (chord === 'copy') {
@@ -831,6 +842,7 @@ export function TerminalView({
           <TerminalFind
             search={search}
             options={searchOptions}
+            stepRef={findStepRef}
             onClose={() => {
               setFindOpen(false)
               termRef.current?.focus()

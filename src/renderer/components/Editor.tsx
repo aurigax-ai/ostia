@@ -5,7 +5,7 @@ import { type RemoteFileError, isRemotePath, parseRemotePath } from '@shared/rem
 import { useEffect, useRef, useState } from 'react'
 import { externalEditorError, openPaneInExternalEditor } from '../commands/externalEditor'
 import { fmt, useDict } from '../i18n/useDict'
-import { matchChord, runAppChord } from '../lib/chords'
+import { findStep, matchChord, runAppChord } from '../lib/chords'
 import { changedLines, minimalLineEdit } from '../lib/diskReload'
 import { registerEditorPosition } from '../lib/editorPositions'
 import { createAutoSave, saveFormatted } from '../lib/editorSave'
@@ -50,6 +50,11 @@ function behaviorOptions(
     insertSpaces: s.insertSpaces,
     detectIndentation: false,
   }
+}
+
+function findAction(by: 1 | -1 | null): string {
+  if (by === null) return 'actions.find'
+  return by > 0 ? 'editor.action.nextMatchFindAction' : 'editor.action.previousMatchFindAction'
 }
 
 const BINARY_SNIFF_BYTES = 8192
@@ -257,10 +262,12 @@ export function EditorView({
     editorRef.current = editor
     setLiveEditor(editor)
     const appChordKeys = editor.onKeyDown((e) => {
-      if (matchChord(e.browserEvent, isMac) === 'find') {
+      const chord = matchChord(e.browserEvent, isMac)
+      const findBy = findStep(chord)
+      if (chord === 'find' || findBy !== null) {
         e.preventDefault()
         e.stopPropagation()
-        void editor.getAction('actions.find')?.run()
+        void editor.getAction(findAction(findBy))?.run()
         return
       }
       if (runAppChord(e.browserEvent, isMac)) e.stopPropagation()

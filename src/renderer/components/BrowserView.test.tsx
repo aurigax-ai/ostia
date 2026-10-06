@@ -5,12 +5,13 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { runAgentIn } from '../../../test/mocks/agentPanes'
 import { resetIds } from '../layout/tree'
-import { browserPaneOfGuest } from '../lib/browserHandles'
+import { browserPaneOfGuest, runBrowserAction } from '../lib/browserHandles'
 import { startRegionCapture } from '../lib/regionCaptures'
 import { useAttentionStore } from '../stores/attentionStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { usePaneRecencyStore } from '../stores/paneRecencyStore'
 import { useSandboxStore } from '../stores/sandboxStore'
+import { useSettingsStore } from '../stores/settingsStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
 import { BrowserView } from './BrowserView'
 import { TooltipProvider } from './ui/tooltip'
@@ -549,6 +550,36 @@ describe('BrowserView keys', () => {
     expect(screen.queryByRole('textbox', { name: 'Find in page' })).toBeNull()
     expect(guest.stopFindInPage).toHaveBeenCalledWith('clearSelection')
     expect(guest.focus).toHaveBeenCalled()
+  })
+
+  it('steps find in page with F3 in the bar and with the find-next chords from the pane', async () => {
+    const initialSettings = useSettingsStore.getState()
+    useSettingsStore.setState({ keybindings: { 'find.next': 'Ctrl+Alt+G' } })
+    try {
+      const { workspaceId } = twoTerminals()
+      const { container } = renderView(workspaceId)
+      await waitFor(() => expect(container.querySelector('webview')).not.toBeNull())
+      const { guest } = await readyGuest(container)
+      const back = screen.getByRole('button', { name: 'Back' })
+      const findNext = { key: 'g', code: 'KeyG', ctrlKey: true, altKey: true }
+      fireEvent.keyDown(back, findNext)
+      const find = await screen.findByRole('textbox', { name: 'Find in page' })
+      await userEvent.type(find, 'ab')
+      guest.findInPage.mockClear()
+      await userEvent.type(find, '{F3}')
+      expect(guest.findInPage).toHaveBeenLastCalledWith('ab', { forward: true, findNext: false })
+      await userEvent.type(find, '{Shift>}{F3}{/Shift}')
+      expect(guest.findInPage).toHaveBeenLastCalledWith('ab', { forward: false, findNext: false })
+      fireEvent.keyDown(back, findNext)
+      expect(guest.findInPage).toHaveBeenLastCalledWith('ab', { forward: true, findNext: false })
+      act(() => {
+        runBrowserAction(BROWSER, 'findPrevious')
+      })
+      expect(guest.findInPage).toHaveBeenLastCalledWith('ab', { forward: false, findNext: false })
+      expect(guest.findInPage).toHaveBeenCalledTimes(4)
+    } finally {
+      useSettingsStore.setState(initialSettings, true)
+    }
   })
 
   it('lets main find the pane of its guest', async () => {

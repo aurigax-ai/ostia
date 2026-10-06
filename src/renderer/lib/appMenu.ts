@@ -35,6 +35,7 @@ const LAYOUT: Layout = {
     'palette.toggle',
     SEPARATOR,
     'view.toggleRail',
+    'view.searchFiles',
     'dashboard.toggle',
     SEPARATOR,
     'pane.splitRight',

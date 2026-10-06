@@ -94,6 +94,7 @@ export const en = {
       'terminal.scrollLineUp': 'Scroll Up One Line',
       'terminal.scrollLineDown': 'Scroll Down One Line',
       'view.toggleRail': 'Toggle Sidebar',
+      'view.searchFiles': 'Search Files',
       'view.goToWorkspaceSymbol': 'Go to Symbol in Workspace',
       'view.zoomIn': 'Zoom In',
       'view.zoomOut': 'Zoom Out',
@@ -1741,6 +1742,8 @@ export const en = {
     copy: 'Copy (terminal)',
     paste: 'Paste (terminal)',
     find: 'Find (terminal)',
+    findNext: 'Find Next',
+    findPrevious: 'Find Previous',
     keymap: 'App shortcuts',
     keymapDesc:
       'The shortcuts for commands: the {product} defaults or a keymap from an extension. The changes you make below apply on top of it.',
@@ -2775,6 +2778,7 @@ export const zhHant: Dict = {
       'terminal.scrollLineUp': '往上捲一行',
       'terminal.scrollLineDown': '往下捲一行',
       'view.toggleRail': '切換側邊欄',
+      'view.searchFiles': '搜尋檔案',
       'view.goToWorkspaceSymbol': '前往工作區中的符號',
       'view.zoomIn': '放大',
       'view.zoomOut': '縮小',
@@ -4386,6 +4390,8 @@ export const zhHant: Dict = {
     copy: '複製（終端機）',
     paste: '貼上（終端機）',
     find: '在終端機中尋找',
+    findNext: '尋找下一個',
+    findPrevious: '尋找上一個',
     keymap: 'App 鍵位',
     keymapDesc:
       '指令的快捷鍵：{product} 預設或擴充功能提供的快捷鍵配置。你在下方所做的變更會套用在它之上。',
