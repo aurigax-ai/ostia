@@ -2,6 +2,7 @@ import '@testing-library/jest-dom/vitest'
 import { act, cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { registerBuiltinCommands } from '../commands/builtins'
 import { resetIds } from '../layout/tree'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useUIStore } from '../stores/uiStore'
@@ -29,6 +30,7 @@ describe('WorkZone', () => {
   let uiInit: ReturnType<typeof useUIStore.getState>
 
   beforeAll(() => {
+    registerBuiltinCommands()
     workspacesInit = useWorkspacesStore.getState()
     layoutInit = useLayoutStore.getState()
     uiInit = useUIStore.getState()
@@ -50,7 +52,20 @@ describe('WorkZone', () => {
     expect(screen.getByText('Start a terminal in your home folder.')).toBeInTheDocument()
     const button = screen.getByRole('button', { name: /New workspace/ })
     expect(button).toHaveTextContent('Ctrl+Shift+N')
+    expect(screen.getByRole('button', { name: /New terminal/ })).toHaveTextContent('Ctrl+Shift+T')
     expect(screen.queryByTestId(/^terminal-/)).toBeNull()
+  })
+
+  it('opens a workspace with a running terminal from the empty state', async () => {
+    renderZone()
+
+    await userEvent.setup().click(screen.getByRole('button', { name: /New terminal/ }))
+
+    const id = useWorkspacesStore.getState().activeWorkspaceId
+    expect(id).not.toBeNull()
+    const paneId = useLayoutStore.getState().byWorkspace[id ?? '']?.activePaneId
+    expect(screen.getByTestId(`terminal-${paneId}`)).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'No workspaces' })).toBeNull()
   })
 
   it('opens an empty workspace at home that offers a terminal', async () => {

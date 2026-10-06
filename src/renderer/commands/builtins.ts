@@ -219,6 +219,11 @@ export function registerBuiltinCommands(): void {
     id: 'tab.new',
     category: 'pane',
     run: (args, ctx) => {
+      if (!ctx.activeWorkspaceId && !args?.paneId) {
+        const created = startNewWorkspace()
+        if (created) openFirstTerminal(ctx, created)
+        return
+      }
       const empty = workspaceWithoutPanes(ctx, args?.paneId)
       if (empty) {
         openFirstTerminal(ctx, empty)
