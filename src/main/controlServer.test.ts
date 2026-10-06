@@ -9,7 +9,13 @@ import {
   StreamMessageWriter,
   createMessageConnection,
 } from 'vscode-jsonrpc/node'
-import type { CommandDescriptor, CommandResult, TerminalStateSnapshot } from '../shared/types'
+import type {
+  CommandDescriptor,
+  CommandResult,
+  CommandTarget,
+  TerminalStateSnapshot,
+} from '../shared/types'
+import { grant } from './capabilityStore'
 import {
   type ControlServerDeps,
   keptControlSocketPath,
@@ -104,6 +110,43 @@ describe('controlServer (socket auth, end-to-end)', () => {
     await expect(
       client.conn.sendRequest('command.exec', { id: 'pane.splitRight', target }),
     ).rejects.toThrow(/all-workspaces/)
+  })
+
+  it('resolves a target given only by workspace to the window that shows it, once granted', async () => {
+    socketPath = nextSocketPath()
+    const id = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'pTestReach' })
+    const executed: CommandTarget[] = []
+    registerControlServer(
+      {
+        ...fakeDeps,
+        execCommand: async (target) => {
+          executed.push(target)
+          return { ok: true } as CommandResult
+        },
+        windowOfWorkspace: (workspaceId) => (workspaceId === 's-far' ? 'w2' : undefined),
+      },
+      socketPath,
+    )
+    client = connectClient(socketPath)
+    await client.conn.sendRequest('hello', { token: id.token })
+
+    const target = { workspaceId: 's-far', paneId: null }
+    await expect(
+      client.conn.sendRequest('command.exec', { id: 'pane.splitRight', target }),
+    ).rejects.toThrow(/all-workspaces/)
+    expect(executed).toEqual([])
+
+    grant(id.externalId, 'all-workspaces')
+    await client.conn.sendRequest('command.exec', { id: 'pane.splitRight', target })
+    expect(executed).toEqual([{ windowId: 'w2', workspaceId: 's-far', paneId: null }])
+
+    await expect(
+      client.conn.sendRequest('command.exec', {
+        id: 'pane.splitRight',
+        target: { workspaceId: 's-gone', paneId: null },
+      }),
+    ).rejects.toThrow('unknown-workspace: s-gone')
+    expect(executed).toHaveLength(1)
   })
 
   it('rejects hello with a bogus token', async () => {

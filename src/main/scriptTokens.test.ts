@@ -143,6 +143,14 @@ describe('script token store', () => {
     expect(() => parseTokenRequest({ name: 'x', caps: [] })).toThrow('caps')
     expect(() => parseTokenRequest({ name: 'x', caps: ['destructive'] })).toThrow('can hold only')
   })
+
+  it('lets a token hold process and send-other-pane, but never shell or kill-pane', () => {
+    expect(
+      parseTokenRequest({ name: 'cron', caps: ['process', 'send-other-pane', 'all-workspaces'] }),
+    ).toEqual({ name: 'cron', caps: ['all-workspaces', 'process', 'send-other-pane'] })
+    expect(() => parseTokenRequest({ name: 'x', caps: ['shell'] })).toThrow('can hold only')
+    expect(() => parseTokenRequest({ name: 'x', caps: ['kill-pane'] })).toThrow('can hold only')
+  })
 })
 
 describe('script callers on the control socket', () => {

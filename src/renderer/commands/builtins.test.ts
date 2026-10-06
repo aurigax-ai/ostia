@@ -947,6 +947,40 @@ describe('builtins route to store actions', () => {
     })
   })
 
+  it('opens a tab in the named workspace through its active pane, leaving the active workspace alone', async () => {
+    const mine = createPane('terminal')
+    const theirs = createPane('terminal')
+    useWorkspacesStore.setState({
+      workspaces: [
+        { id: 's1', name: 's1', kind: 'terminal', workDir: '/w', state: 'idle' },
+        { id: 's2', name: 's2', kind: 'terminal', workDir: '/w', state: 'idle' },
+      ],
+      activeWorkspaceId: 's1',
+    })
+    useLayoutStore.setState({
+      byWorkspace: {
+        s1: { root: mine, activePaneId: mine.id, zoomedPaneId: null },
+        s2: { root: theirs, activePaneId: theirs.id, zoomedPaneId: null },
+      },
+    })
+
+    const res = await commands.execWith(
+      {
+        activeWorkspaceId: 's2',
+        activePaneId: null,
+        target: { workspaceId: 's2', paneId: null },
+        origin: 'remote',
+      },
+      'tab.new',
+    )
+
+    expect(res.ok).toBe(true)
+    const root = useLayoutStore.getState().byWorkspace.s2.root
+    expect(root.type === 'tabs' ? root.children : []).toHaveLength(2)
+    expect(useLayoutStore.getState().byWorkspace.s1.root).toBe(mine)
+    expect(useWorkspacesStore.getState().activeWorkspaceId).toBe('s1')
+  })
+
   it('routes pane.focus to layout.focusPane', async () => {
     const focusPane = vi.spyOn(useLayoutStore.getState(), 'focusPane').mockImplementation(() => {})
 
@@ -1482,6 +1516,38 @@ describe('builtins with zero workspaces', () => {
     expect(res.ok).toBe(true)
     const [only] = useWorkspacesStore.getState().workspaces
     expect(only).toMatchObject({ workDir: '/home/u/sonar', customName: 'Sonar search' })
+  })
+
+  it('keeps the active workspace and the sidebar view when workspace.new is given focus: false', async () => {
+    await commands.exec('workspace.new', { name: 'first' })
+    const first = useWorkspacesStore.getState().activeWorkspaceId
+    const showWorkspaces = vi
+      .spyOn(useUIStore.getState(), 'showWorkspaces')
+      .mockImplementation(() => {})
+
+    const res = await commands.exec('workspace.new', { name: 'second', focus: false })
+
+    const second = useWorkspacesStore.getState().workspaces.find((w) => w.customName === 'second')
+    expect(second).toBeDefined()
+    expect(res).toEqual({ ok: true, result: { workspaceId: second?.id } })
+    expect(useWorkspacesStore.getState().activeWorkspaceId).toBe(first)
+    expect(showWorkspaces).not.toHaveBeenCalled()
+  })
+
+  it('still focuses the new workspace when focus is true or left out', async () => {
+    await commands.exec('workspace.new', { name: 'first' })
+
+    await commands.exec('workspace.new', { name: 'second', focus: true })
+
+    const second = useWorkspacesStore.getState().workspaces.find((w) => w.customName === 'second')
+    expect(useWorkspacesStore.getState().activeWorkspaceId).toBe(second?.id)
+  })
+
+  it('refuses a focus that is not a boolean for workspace.new', async () => {
+    const res = await commands.exec('workspace.new', { focus: 'no' })
+
+    expect(res.ok).toBe(false)
+    expect(useWorkspacesStore.getState().workspaces).toEqual([])
   })
 
   it('refuses a relative dir for workspace.new instead of ignoring it', async () => {

@@ -4,6 +4,7 @@ import { MANAGER_AGENT_NAME } from '../shared/managerSettings'
 import { PRODUCT_DISPLAY_NAME } from '../shared/productDisplay'
 import { quoteArgv } from '../shared/shellQuote'
 import { connHasCap } from './controlAuth'
+import { ensureCaps } from './controlElevation'
 import {
   type ControlMethodContext,
   registerControlMethod,
@@ -434,13 +435,26 @@ export function registerProcessMethods(deps: ProcessDeps): ProcessRegistry {
     cmd: string,
     name: string,
     givenCwd: string | undefined,
+    givenWorkspace: string | undefined,
   ): Promise<{ id: string; name: string; paneId: string } | typeof NOT_OPENED> => {
-    const cwd = givenCwd ?? deps.cwdOfPane(ctx.identity.paneId)
+    const home = ctx.identity.workspaceId
+    const workspaceId = givenWorkspace ?? home
+    if (!workspaceId) throw badRequest('workspace')
+    const here = workspaceId === home
+    if (!here) {
+      await ensureCaps(
+        ctx.authed,
+        ctx.identity,
+        ['all-workspaces'],
+        'process.run',
+        `open a terminal in workspace ${workspaceId}`,
+      )
+    }
+    const cwd = givenCwd ?? (here ? deps.cwdOfPane(ctx.identity.paneId) : undefined)
     const opened = await deps.openTab({
       command: cmd,
-      workspaceId: ctx.identity.workspaceId,
-      windowId: ctx.identity.windowId,
-      afterPaneId: ctx.identity.paneId,
+      workspaceId,
+      ...(here ? { windowId: ctx.identity.windowId, afterPaneId: ctx.identity.paneId } : {}),
       backgroundTab: true,
       pinTitle: true,
       title: name,
@@ -452,7 +466,7 @@ export function registerProcessMethods(deps: ProcessDeps): ProcessRegistry {
       name,
       cmd,
       cwd,
-      workspaceId: ctx.identity.workspaceId,
+      workspaceId,
       ownerPaneId: ctx.identity.paneId,
       paneId: pane.paneId,
       externalPaneId: pane.externalId,
@@ -460,24 +474,38 @@ export function registerProcessMethods(deps: ProcessDeps): ProcessRegistry {
     return { id: entry.id, name: entry.name, paneId: entry.externalPaneId }
   }
 
+  const workspaceOf = (raw: unknown): string | undefined => {
+    if (raw === undefined || raw === null) return undefined
+    if (typeof raw !== 'string' || !raw) throw badRequest('workspace')
+    return raw
+  }
+
   registerControlMethod('process.run', {
     cap: 'process',
+    scripts: true,
     handler: (raw, ctx) => {
       const p = record(raw)
       const cmd = commandOf(p.cmd)
-      return runInTab(ctx, cmd, nameOf(p.name) ?? defaultName(cmd), cwdOf(p.cwd))
+      return runInTab(
+        ctx,
+        cmd,
+        nameOf(p.name) ?? defaultName(cmd),
+        cwdOf(p.cwd),
+        workspaceOf(p.workspace),
+      )
     },
   })
 
   registerControlMethod('agent.run', {
     cap: 'process',
+    scripts: true,
     handler: (raw, ctx) => {
       const p = record(raw)
       const agent = agentOf(p.agent)
       const argv = deps.agentArgv(agent)
       if (!argv) return UNKNOWN_AGENT
       const cmd = commandOf(quoteArgv([...argv, promptOf(p.prompt)]))
-      return runInTab(ctx, cmd, nameOf(p.name) ?? agent, cwdOf(p.cwd))
+      return runInTab(ctx, cmd, nameOf(p.name) ?? agent, cwdOf(p.cwd), workspaceOf(p.workspace))
     },
   })
 

@@ -73,11 +73,14 @@ const CLI_HELP = `ostia — control-socket CLI
   ostia view validate <file>     check a view file: file:line: path: message, exit 1 on problems
   ostia view list [--json]       view files and their status (pending until the human enables)
   ostia view open <name>         open an enabled panel view as a pane in this workspace
-  ostia process run "<cmd>" [--name X] [--cwd P]  run a command in a new terminal tab beside
-                                 you, where the human can watch and type; your shell line is
-                                 pasted as written and run by the tab's own shell (zsh or bash).
-                                 Prints {id,name,paneId}; your pane keeps the focus
-  ostia agent run <agent> [--name X] [--cwd P] <prompt|->  start another agent (claude, codex or
+  ostia process run "<cmd>" [--name X] [--cwd P] [--workspace <id|name>]  run a command in a new
+                                 terminal tab beside you, where the human can watch and type;
+                                 your shell line is pasted as written and run by the tab's own
+                                 shell (zsh or bash). Prints {id,name,paneId}; your pane keeps
+                                 the focus. --workspace opens the tab in that workspace instead
+                                 (an id or a unique name from ostia workspace list); another
+                                 workspace needs all-workspaces
+  ostia agent run <agent> [--name X] [--cwd P] [--workspace <id|name>] <prompt|->  start another agent (claude, codex or
                                  one the human configured) in a new terminal tab with that prompt
                                  as its one argument, quoted for you (- reads it from stdin).
                                  Same result and rules as process run: follow it with ostia process
@@ -113,16 +116,18 @@ const CLI_HELP = `ostia — control-socket CLI
                                  change it, and it survives a restart. --clear instead of a
                                  title hands the tab back to the program. Your own pane
                                  ($OSTIA_PANE_ID) needs nothing; another pane asks the human
-                                 (send-other-pane, plus all-workspaces outside your workspace)
+                                 (send-other-pane, plus all-workspaces outside your workspace).
+                                 A script token needs both capabilities on the token
   ostia token create <name> --cap <capability>…  make a token for scripts outside Ostia
                                  (launchd jobs, cron, a dispatcher). It can hold only
-                                 read-board, read-other-pane, type-other-pane and
-                                 all-workspaces, asks the human first (settings-write plus
-                                 those capabilities) and is printed once. A script sets
-                                 OSTIA_TOKEN to it; with OSTIA_SOCKET unset, ostia finds the
-                                 socket in control.json in the app data folder. Scripts reach
-                                 only pane.list, workspace.list, workspace.groups, pane.read
-                                 and pane.input, never ask the human, and get
+                                 read-board, read-other-pane, type-other-pane, send-other-pane,
+                                 process and all-workspaces, asks the human first
+                                 (settings-write plus those capabilities) and is printed once.
+                                 A script sets OSTIA_TOKEN to it; with OSTIA_SOCKET unset, ostia
+                                 finds the socket in control.json in the app data folder.
+                                 Scripts reach only pane.list, workspace.list, workspace.groups,
+                                 pane.read, pane.input, pane.rename, process.run and agent.run
+                                 (which must name a --workspace), never ask the human, and get
                                  needs-elevation for a capability the token lacks
   ostia token list [--json]      the tokens (never their values)
   ostia token revoke <id>        delete a token; scripts using it are cut off at once
@@ -199,8 +204,12 @@ const CLI_HELP = `ostia — control-socket CLI
   A browse <sel> is an @eN ref from snapshot, a CSS selector, text=Label or xpath=//…
   (refs are valid until the next navigation).
 
-  ostia <command-id> [jsonArgs]  run any registered command by id, with an
-                                  optional JSON-encoded args blob
+  ostia <command-id> [jsonArgs] [--workspace <id|name>]  run any registered command by id,
+                                  with an optional JSON-encoded args blob. --workspace runs it
+                                  in that workspace (tab.new adds a tab to its active pane);
+                                  another workspace needs all-workspaces
+  ostia workspace.new [jsonArgs] [--no-focus]  open a workspace without switching to it
+                                  (same as {"focus":false}); prints its workspaceId
 `
 
 export const MANAGER_HELP = `

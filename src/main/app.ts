@@ -3319,7 +3319,12 @@ app.whenReady().then(() => {
   })
   registerScriptTokenMethods(scriptTokensPath)
   setScriptTokenCheck((token) => verifyScriptToken(scriptTokensPath(), token))
-  registerControlServer({ execCommand, listCommandsFor, getTerminalState })
+  registerControlServer({
+    execCommand,
+    listCommandsFor,
+    getTerminalState,
+    windowOfWorkspace: workspaceWindowId,
+  })
   writeControlInfo(controlInfoPath(), controlSocketPath(), process.pid)
   listenKeptControlSocket(keptControlSocketPath(app.getPath('userData')))
   registerManagerIpc()

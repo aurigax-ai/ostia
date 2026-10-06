@@ -107,6 +107,7 @@ export interface ControlServerDeps {
   execCommand: (target: CommandTarget, id: string, args?: unknown) => Promise<CommandResult>
   listCommandsFor: (windowId: string) => CommandDescriptor[]
   getTerminalState: (paneId: string) => TerminalStateSnapshot | undefined
+  windowOfWorkspace?: (workspaceId: string) => string | undefined
 }
 
 let server: Server | null = null
@@ -170,7 +171,13 @@ export function registerControlServer(deps: ControlServerDeps, socketPathOverrid
           workspaceId: me.workspaceId,
           paneId: me.paneId,
         }
-        const target = params.target ?? selfTarget
+        const given = params.target
+        const target: CommandTarget = given
+          ? {
+              ...given,
+              windowId: given.windowId ?? deps.windowOfWorkspace?.(given.workspaceId),
+            }
+          : selfTarget
         const crossTarget =
           target.paneId !== me.paneId ||
           target.windowId !== me.windowId ||
@@ -200,6 +207,12 @@ export function registerControlServer(deps: ControlServerDeps, socketPathOverrid
           describeParams(params.id, { command: params.id, args: params.args }),
         )
 
+        if (given?.workspaceId && deps.windowOfWorkspace && !target.windowId) {
+          throw new ResponseError(
+            ErrorCodes.InvalidParams,
+            `unknown-workspace: ${given.workspaceId}`,
+          )
+        }
         return deps.execCommand(target, params.id, params.args)
       },
     )

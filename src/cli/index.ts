@@ -26,6 +26,7 @@ import { runAskVerb } from './ask'
 import { runBrowse } from './browse'
 import { BUS_QUEUED_HINT, type BusSendOk, type SentMessage, runBusHook, sentLines } from './bus'
 import { runCmuxImportVerb } from './cmuxImport'
+import { buildCommandCall, parseCommandFlags, resolveWorkspaceRef } from './crossWorkspace'
 import { describeFailure } from './failure'
 import { type FileProbe, fileWord, isClaimedWord, parseFileArg, refusalLine } from './fileArgs'
 import { runManagerVerb } from './manager'
@@ -752,19 +753,27 @@ function describeErrResult(res: ErrResult): string {
 
 async function runAgentVerb(conn: MessageConnection): Promise<void> {
   const { values: flags, positional } = parseArgs(process.argv.slice(4), {
-    values: { name: '--name', cwd: '--cwd' },
+    values: { name: '--name', cwd: '--cwd', workspace: '--workspace' },
     unknown: 'keep',
   })
   const [agent, given] = positional
   if (process.argv[3] !== 'run' || !agent || given === undefined) {
-    console.error('usage: ostia agent run <agent> [--name N] [--cwd DIR] <prompt|->')
+    console.error(
+      'usage: ostia agent run <agent> [--name N] [--cwd DIR] [--workspace <id|name>] <prompt|->',
+    )
     process.exitCode = 1
     return
   }
   const prompt = given === '-' ? await readAllStdin() : given
   const res = await conn.sendRequest<{ id: string; name: string; paneId: string } | ErrResult>(
     'agent.run',
-    { agent, prompt, name: flags.name, ...(flags.cwd ? { cwd: resolvePath(flags.cwd) } : {}) },
+    {
+      agent,
+      prompt,
+      name: flags.name,
+      ...(flags.cwd ? { cwd: resolvePath(flags.cwd) } : {}),
+      ...(flags.workspace ? { workspace: await resolveWorkspaceRef(conn, flags.workspace) } : {}),
+    },
   )
   if (isErrResult(res)) {
     console.error(`ostia: agent run failed (${describeErrResult(res)})`)
@@ -780,7 +789,7 @@ async function runProcessVerb(conn: MessageConnection): Promise<void> {
 
   if (sub === 'run') {
     const { values: flags, positional } = parseArgs(rawArgs, {
-      values: { name: '--name', cwd: '--cwd' },
+      values: { name: '--name', cwd: '--cwd', workspace: '--workspace' },
       unknown: 'keep',
     })
     const cmd = positional[0]
@@ -791,7 +800,16 @@ async function runProcessVerb(conn: MessageConnection): Promise<void> {
     }
     const res = await conn.sendRequest<{ id: string; name: string; paneId: string } | ErrResult>(
       'process.run',
-      { cmd, name: flags.name, cwd: resolvePath(flags.cwd ?? '.') },
+      {
+        cmd,
+        name: flags.name,
+        ...(flags.workspace
+          ? {
+              workspace: await resolveWorkspaceRef(conn, flags.workspace),
+              ...(flags.cwd ? { cwd: resolvePath(flags.cwd) } : {}),
+            }
+          : { cwd: resolvePath(flags.cwd ?? '.') }),
+      },
     )
     if (isErrResult(res)) {
       console.error(`ostia: process run failed (${describeErrResult(res)})`)
@@ -1226,9 +1244,9 @@ commands:
   view list [--json] | open <name>   declarative views (~/.config/ostia/views/<name>.json)
   view validate <file> | schema      check a view file / print its JSON schema (no app needed)
   <file>... | open <file>...   show files in Ostia's viewer, any path (file:line[:col] jumps)
-  process run "<cmd>" [--name N] [--cwd DIR] | ls | logs | kill | restart <id|name>
+  process run "<cmd>" [--name N] [--cwd DIR] [--workspace <id|name>] | ls | logs | kill | restart <id|name>
                             run a command in a new terminal tab the human can watch
-  agent run <agent> [--name N] [--cwd DIR] <prompt|->
+  agent run <agent> [--name N] [--cwd DIR] [--workspace <id|name>] <prompt|->
                             start claude, codex or an agent the human configured in a new
                             terminal tab with that prompt; talk to it with ostia pane
   pane send <pane> <text> [--enter] | key <pane> <key>… | read <pane> [--lines N]
@@ -1237,7 +1255,10 @@ commands:
   vault | bus | settings | browse | gateway <subcommand> ...
   ext ls | ext <extId> <command> [args...]
   <extId> <command> [args...]  an extension command, e.g. ostia git status
-  <command.id> [json-args]     run any registered command (see: ostia commands)
+  <command.id> [json-args] [--workspace <id|name>]
+                            run any registered command (see: ostia commands); --workspace runs
+                            it in that workspace (needs all-workspaces)
+  workspace.new [json-args] [--no-focus]   open a workspace without switching to it
 
 run 'ostia docs' inside an Ostia pane for the full reference.`
 
@@ -1396,9 +1417,14 @@ async function main(): Promise<void> {
     } else if (cmd === 'gateway') {
       await runGatewayVerb(conn)
     } else if (cmd) {
-      const raw = process.argv[3]
-      const args = raw ? JSON.parse(raw) : undefined
-      const res = await conn.sendRequest<CommandResult>('command.exec', { id: cmd, args })
+      const flags = parseCommandFlags(process.argv.slice(3))
+      const workspace = flags.workspace
+        ? await resolveWorkspaceRef(conn, flags.workspace)
+        : undefined
+      const res = await conn.sendRequest<CommandResult>(
+        'command.exec',
+        buildCommandCall(cmd, flags, workspace),
+      )
       if (res.ok) {
         console.log('ok')
         if (res.result !== undefined) console.log(JSON.stringify(res.result))
