@@ -6,8 +6,10 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest
 vi.mock('electron', () => ({
   ipcMain: { handle: vi.fn(), on: vi.fn() },
   webContents: {},
-  clipboard: { writeImage: vi.fn() },
-  nativeImage: { createFromBuffer: vi.fn((buf: Buffer) => ({ fromBuffer: buf })) },
+  clipboard: { write: vi.fn(async () => undefined) },
+  ClipboardItem: class {
+    constructor(readonly items: Record<string, Blob>) {}
+  },
 }))
 vi.mock('./browse', async (importOriginal) => ({
   ...(await importOriginal<typeof import('./browse')>()),
@@ -236,11 +238,17 @@ describe('writeRegionReport', () => {
 describe('copyRegionImage', () => {
   it('writes the captured PNG to the clipboard for the owning window only', async () => {
     const id = await captured()
-    expect(copyRegionImage('browser-1', id, 'w2')).toEqual({ ok: false, error: 'not-found' })
-    expect(copyRegionImage('term-1', id, 'w1')).toEqual({ ok: false, error: 'capture-expired' })
-    expect(clipboard.writeImage).not.toHaveBeenCalled()
-    expect(copyRegionImage('browser-1', id, 'w1')).toEqual({ ok: true })
-    expect(clipboard.writeImage).toHaveBeenCalledWith({ fromBuffer: PNG })
+    expect(await copyRegionImage('browser-1', id, 'w2')).toEqual({ ok: false, error: 'not-found' })
+    expect(await copyRegionImage('term-1', id, 'w1')).toEqual({
+      ok: false,
+      error: 'capture-expired',
+    })
+    expect(clipboard.write).not.toHaveBeenCalled()
+    expect(await copyRegionImage('browser-1', id, 'w1')).toEqual({ ok: true })
+    const [[items]] = vi.mocked(clipboard.write).mock.calls
+    expect(items).toHaveLength(1)
+    const png = (items[0] as unknown as { items: Record<string, Blob> }).items['image/png']
+    expect(Buffer.from(await png.arrayBuffer())).toEqual(PNG)
   })
 })
 
@@ -278,12 +286,12 @@ describe('stored regions', () => {
   it('keeps only the five newest captures and evicts the oldest', async () => {
     const ids: string[] = []
     for (let i = 0; i < 6; i++) ids.push(await captured())
-    expect(copyRegionImage('browser-1', ids[0], 'w1')).toEqual({
+    expect(await copyRegionImage('browser-1', ids[0], 'w1')).toEqual({
       ok: false,
       error: 'capture-expired',
     })
-    expect(copyRegionImage('browser-1', ids[1], 'w1')).toEqual({ ok: true })
-    expect(copyRegionImage('browser-1', ids[5], 'w1')).toEqual({ ok: true })
+    expect(await copyRegionImage('browser-1', ids[1], 'w1')).toEqual({ ok: true })
+    expect(await copyRegionImage('browser-1', ids[5], 'w1')).toEqual({ ok: true })
     const stale = await writeRegionReport(
       { captureId: ids[0], sourcePaneId: 'browser-1', targetPaneId: 'term-1', note: '' },
       'w1',

@@ -1,6 +1,6 @@
 import { readdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { clipboard, ipcMain, nativeImage } from 'electron'
+import { ClipboardItem, clipboard, ipcMain } from 'electron'
 import {
   PICK_NOTE_MAX,
   type PickSendResult,
@@ -131,15 +131,17 @@ export async function writeRegionReport(
   return { ok: true, path, imagePath }
 }
 
-export function copyRegionImage(
+export async function copyRegionImage(
   paneId: string,
   captureId: string,
   senderWindowId: string,
-): RegionCopyResult {
+): Promise<RegionCopyResult> {
   if (getByPaneId(paneId)?.windowId !== senderWindowId) return { ok: false, error: 'not-found' }
   const stored = regions.get(captureId)
   if (!stored || stored.paneId !== paneId) return { ok: false, error: 'capture-expired' }
-  clipboard.writeImage(nativeImage.createFromBuffer(stored.png))
+  await clipboard.write([
+    new ClipboardItem({ 'image/png': new Blob([new Uint8Array(stored.png)]) }),
+  ])
   return { ok: true }
 }
 

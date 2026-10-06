@@ -5,7 +5,6 @@ import type { AppLog } from './appLog'
 import { ReportLimiter, normalizePaneIds, normalizeRendererReport } from './rendererReports'
 
 export const CRASH_RELOADS_PER_MINUTE = 3
-const CONSOLE_ERROR_LEVEL = 3
 
 export type RecoveryReason = 'reload' | 'render-error' | 'renderer-gone'
 
@@ -142,13 +141,13 @@ export function registerDiagnostics(deps: DiagnosticsDeps): Diagnostics {
       log.info('renderer-reload', { window: windowId })
       contents.reload()
     })
-    contents.on('console-message', (_e, level, message, line, sourceId) => {
-      if (level < CONSOLE_ERROR_LEVEL) return
+    contents.on('console-message', (event) => {
+      if (event.level !== 'error') return
       if (!allowReport(`console:${windowId}`, windowId)) return
       log.error('renderer-console-error', {
         window: windowId,
-        message,
-        source: sourceOf(sourceId, line),
+        message: event.message,
+        source: sourceOf(event.sourceId, event.lineNumber),
       })
     })
     win.on('unresponsive', () => log.warn('window-unresponsive', { window: windowId }))

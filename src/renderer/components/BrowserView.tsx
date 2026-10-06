@@ -84,6 +84,7 @@ export function BrowserView({
   const lastAppliedUrlRef = useRef(startUrl.current)
   const readyRef = useRef(false)
   const pendingUrlRef = useRef<string | null>(null)
+  const staleSrcRef = useRef<string | null>(null)
   const [address, setAddress] = useState(startUrl.current)
   const [src, setSrc] = useState(startUrl.current)
   const editingRef = useRef(false)
@@ -115,6 +116,7 @@ export function BrowserView({
   const load = useCallback(
     (next: string): void => {
       if (next !== srcRef.current) {
+        if (!readyRef.current) staleSrcRef.current ??= srcRef.current
         srcRef.current = next
         pendingUrlRef.current = null
         setSrc(next)
@@ -200,8 +202,13 @@ export function BrowserView({
     readyRef.current = false
     const onDomReady = (): void => {
       readyRef.current = true
+      const stale = staleSrcRef.current
+      staleSrcRef.current = null
       withGuest((wv) => wv.setZoomFactor(useSettingsStore.getState().browser.defaultZoom / 100))
       withGuest((wv) => window.ostia?.browser?.register?.(paneId, wv.getWebContentsId()))
+      withGuest((wv) => {
+        if (stale !== null && wv.getURL() === stale) pendingUrlRef.current ??= srcRef.current
+      })
       const pending = pendingUrlRef.current
       if (pending) load(pending)
     }

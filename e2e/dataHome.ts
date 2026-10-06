@@ -10,6 +10,8 @@ export function freshDataHome(): string {
   return dir
 }
 
+export const SOFTWARE_WEBGL = '--enable-unsafe-swiftshader'
+
 export const DOM_RENDERER_SETTINGS = {
   behavior: { gpuAcceleration: false },
   workspaces: { confirmQuit: false },
