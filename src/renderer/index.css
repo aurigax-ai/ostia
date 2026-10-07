@@ -3583,13 +3583,7 @@ button.prompt-chip:focus-visible {
 }
 
 .key-reveal {
-  animation: key-reveal 150ms ease-out;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .key-reveal {
-    animation: none;
-  }
+  animation: key-reveal var(--motion-base) var(--ease-out);
 }
 
 @keyframes key-reveal {
