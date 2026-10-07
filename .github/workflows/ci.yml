@@ -95,11 +95,12 @@ jobs:
           # e.g. while the Mac mini is offline: set to "off".
           LINUX_SWITCH: ${{ vars.OSTIA_SELF_HOSTED_LINUX }}
           MACOS_SWITCH: ${{ vars.OSTIA_SELF_HOSTED_MACOS }}
+          REF_TYPE: ${{ github.ref_type }}
         run: |
           linux='"ubuntu-24.04"'
           macos='"macos-26"'
           if [ "$TRUSTED" = true ]; then
-            [ "$LINUX_SWITCH" = off ] || linux='"ostia-linux"'
+            if [ "$LINUX_SWITCH" != off ] && [ "$REF_TYPE" != tag ]; then linux='"ostia-linux"'; fi
             [ "$MACOS_SWITCH" = off ] || macos='["self-hosted","ostia-macos"]'
           fi
           echo "linux=$linux" >> "$GITHUB_OUTPUT"
