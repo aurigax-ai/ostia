@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
-import { _electron as electron, expect, test } from '@playwright/test'
+import { _electron as electron, expect, test } from './test'
 import { type FakeMcpHttp, startFakeMcpHttp } from '../test/fixtures/mcp/startHttpServer'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { type FakeProvider, fakeAssistantSettings, startFakeProvider } from './fakeProvider'

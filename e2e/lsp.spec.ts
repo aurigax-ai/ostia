@@ -7,7 +7,7 @@ import {
   _electron as electron,
   expect,
   test,
-} from '@playwright/test'
+} from './test'
 import { PRODUCT_NAME } from '../src/shared/product'
 import { installFakeLanguageExtension } from '../test/fixtures/lsp/installFakeExtension'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'

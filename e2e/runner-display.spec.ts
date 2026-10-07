@@ -1,7 +1,7 @@
 import { execFile, execFileSync } from 'node:child_process'
 import { chmodSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
-import { expect, test } from '@playwright/test'
+import { expect, test } from './test'
 import { freshDataHome } from './dataHome'
 
 const RUNNER = resolve(__dirname, '../scripts/e2e.sh')
