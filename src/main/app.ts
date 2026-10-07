@@ -31,6 +31,7 @@ import { appEnv } from '../shared/appEnv'
 import { SHARED_BROWSER_PARTITION, browserPartition } from '../shared/browserProfile'
 import { MANAGER_CAPABILITIES } from '../shared/capabilities'
 import { parseChatToolSettings } from '../shared/chatTools'
+import { desktopsOf } from '../shared/desktopChords'
 import type { DiscreteGpuInfo } from '../shared/discreteGpu'
 import { languageForPath } from '../shared/editorLanguages'
 import { EXTENSION_SUGGESTIONS } from '../shared/extensionSuggestions'
@@ -1604,6 +1605,7 @@ function registerIpc(): void {
       platform: process.platform,
       hostName: hostname(),
       home: app.getPath('home'),
+      desktops: process.platform === 'linux' ? desktopsOf(process.env.XDG_CURRENT_DESKTOP) : [],
     }),
   )
 

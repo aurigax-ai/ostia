@@ -15,6 +15,7 @@ import {
   specFromEvent,
   usedByMonaco,
 } from '@shared/chordSpec'
+import { desktopTaking } from '@shared/desktopChords'
 import {
   TERMINAL_SEND_TYPES,
   type TerminalSend,
@@ -41,6 +42,7 @@ import {
   useBindings,
   workspaceDigit,
 } from '../lib/chords'
+import { currentDesktops } from '../lib/desktop'
 import {
   type TerminalKeyRow,
   removeTerminalKey,
@@ -63,7 +65,7 @@ import {
   withChordReplaced,
 } from '../lib/keySources'
 import { BASE_LANGUAGE } from '../lib/languagePacks'
-import { sendActionKey } from '../lib/presetDiff'
+import { SEND_ACTION_KEYS, type SendActionKey, actionSend, sendActionKey } from '../lib/presetDiff'
 import { isMac, platform } from '../platform'
 import { useExtensionsStore } from '../stores/extensionsStore'
 import { appKeymap, keymapChoices, useKeymapStore } from '../stores/keymapStore'
@@ -194,6 +196,24 @@ function SourceLabel({
     return <span className="text-fg-muted text-ui-xs">{presetName}</span>
   }
   return null
+}
+
+function DesktopNote({ specs }: { specs: readonly ChordSpec[] }): JSX.Element | null {
+  const d = useDict()
+  const desktops = currentDesktops()
+  const taken = specs.flatMap((spec) => {
+    const desktop = desktopTaking(spec, desktops)
+    return desktop ? [{ desktop, keys: chordText(spec, isMac) }] : []
+  })
+  if (taken.length === 0) return null
+  return (
+    <WarningNote>
+      {fmt(d.keyboard.desktopTakes, {
+        desktop: taken[0].desktop,
+        keys: taken.map((t) => t.keys).join(' '),
+      })}
+    </WarningNote>
+  )
 }
 
 function CustomBar({ on }: { on: boolean }): JSX.Element | null {
@@ -438,6 +458,7 @@ export function KeybindingRow({
           ) : null}
         </KeyNotice>
       ) : null}
+      <DesktopNote specs={current} />
       {ignored && mode.kind === 'idle' ? (
         <WarningNote>
           {fmt(d.keyboard.ignored, {
@@ -568,6 +589,10 @@ interface Replacing {
   existing: TerminalKeyRow | null
 }
 
+const CUSTOM_SEND = 'custom'
+
+type SendChoice = SendActionKey | typeof CUSTOM_SEND
+
 function TerminalKeyEditor({
   previous,
   onDone,
@@ -578,12 +603,16 @@ function TerminalKeyEditor({
   const d = useDict()
   const setKeybinding = useSettingsStore((s) => s.setKeybinding)
   const [spec, setSpec] = useState<ChordSpec | null>(previous?.spec ?? null)
+  const [choice, setChoice] = useState<SendChoice>(
+    previous ? (sendActionKey(previous.send) ?? CUSTOM_SEND) : SEND_ACTION_KEYS[0],
+  )
   const [type, setType] = useState<TerminalSendType>(previous?.send.type ?? 'text')
   const [value, setValue] = useState(previous?.send.value ?? '')
   const [recording, setRecording] = useState(previous === null)
   const [problem, setProblem] = useState<string | null>(null)
   const [replacing, setReplacing] = useState<Replacing | null>(null)
   const keys = spec ? chordText(spec, isMac) : ''
+  const custom = choice === CUSTOM_SEND
 
   const onRecord = (raw: ChordSpec): void => {
     const refused = sendChordProblem(raw)
@@ -603,13 +632,13 @@ function TerminalKeyEditor({
   }
 
   const save = (): void => {
-    const send: TerminalSend = { type, value }
+    const send: TerminalSend = choice === CUSTOM_SEND ? { type, value } : actionSend(choice)
     if (!spec) {
       setProblem(d.keyboard.needsShortcut)
       return
     }
     if (sendData(send) === null) {
-      setProblem(d.keyboard.badSend[type])
+      setProblem(d.keyboard.badSend[send.type])
       return
     }
     setProblem(null)
@@ -630,27 +659,6 @@ function TerminalKeyEditor({
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex flex-wrap items-center gap-1.5">
-        <SelectField
-          label={d.keyboard.sendType}
-          value={type}
-          onChange={(v) => {
-            setType(v)
-            setReplacing(null)
-          }}
-          options={TERMINAL_SEND_TYPES.map((t) => ({ value: t, label: d.keyboard.sendTypes[t] }))}
-          width="w-fit min-w-36"
-        />
-        <Input
-          value={value}
-          aria-label={d.keyboard.sendValue}
-          spellCheck={false}
-          autoComplete="off"
-          onChange={(e) => {
-            setValue(e.target.value)
-            setReplacing(null)
-          }}
-          className="h-7 w-56 font-mono text-ui-sm"
-        />
         {recording ? (
           <ChordRecorder
             label={d.keyboard.recordTerminalKey}
@@ -675,7 +683,48 @@ function TerminalKeyEditor({
         >
           {d.keyboard.record}
         </Button>
+        <SelectField
+          label={d.keyboard.sendAction}
+          value={choice}
+          onChange={(v) => {
+            setChoice(v)
+            setReplacing(null)
+          }}
+          options={[
+            ...SEND_ACTION_KEYS.map((key) => ({
+              value: key as SendChoice,
+              label: d.keyboard.sendActions[key],
+            })),
+            { value: CUSTOM_SEND, label: d.keyboard.customSend },
+          ]}
+          width="w-fit min-w-44"
+        />
       </div>
+      {custom ? (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <SelectField
+            label={d.keyboard.sendType}
+            value={type}
+            onChange={(v) => {
+              setType(v)
+              setReplacing(null)
+            }}
+            options={TERMINAL_SEND_TYPES.map((t) => ({ value: t, label: d.keyboard.sendTypes[t] }))}
+            width="w-fit min-w-36"
+          />
+          <Input
+            value={value}
+            aria-label={d.keyboard.sendValue}
+            spellCheck={false}
+            autoComplete="off"
+            onChange={(e) => {
+              setValue(e.target.value)
+              setReplacing(null)
+            }}
+            className="h-7 w-56 font-mono text-ui-sm"
+          />
+        </div>
+      ) : null}
       {problem ? (
         <p role="alert" className="text-attn-fg text-ui-sm">
           {problem}
@@ -761,6 +810,7 @@ function TerminalKeyLine({
           {fmt(d.keyboard.shadowed, { command: commandTitle(shadowedBy, d) })}
         </WarningNote>
       ) : null}
+      <DesktopNote specs={[row.spec]} />
     </>
   )
   return (

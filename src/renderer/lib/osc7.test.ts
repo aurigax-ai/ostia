@@ -55,6 +55,7 @@ describe('isLocalHost', () => {
       platform: 'linux',
       hostName: '',
       home: '/home/me',
+      desktops: [],
     })
     await loadLocalHostName()
     expect(isLocalHost('db')).toBe(true)

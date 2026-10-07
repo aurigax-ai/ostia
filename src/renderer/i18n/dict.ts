@@ -2140,6 +2140,8 @@ export const en = {
     sendTypes: { text: 'Text', escape: 'Escape sequence', hex: 'Hex codes' },
     sendType: 'Send',
     sendValue: 'What to send',
+    sendAction: 'Action',
+    customSend: 'Custom bytes (advanced)',
     custom: 'Custom',
     addTerminalKey: 'Add a terminal key',
     recordTerminalKey: 'Record a shortcut for the terminal key',
@@ -2155,6 +2157,7 @@ export const en = {
     sendConflict: '{keys} already sends {send} to the terminal. Replacing changes it.',
     terminalConflict: '{keys} sends {send} to the terminal. Replacing removes it there.',
     shadowed: 'Key conflict with {command}',
+    desktopTakes: '{desktop} takes {keys} first, so it never reaches {product}',
     problems: {
       invalid: 'it isn’t a shortcut like Ctrl+Shift+K.',
       escape: 'Escape belongs to the shell.',
@@ -5229,6 +5232,8 @@ export const zhHant: Dict = {
     sendTypes: { text: '文字', escape: 'Escape 序列', hex: 'Hex 碼' },
     sendType: '送出',
     sendValue: '送出內容',
+    sendAction: '動作',
+    customSend: '自訂位元組（進階）',
     custom: '自訂',
     addTerminalKey: '新增終端機按鍵',
     recordTerminalKey: '為終端機按鍵錄製快捷鍵',
@@ -5244,6 +5249,7 @@ export const zhHant: Dict = {
     sendConflict: '{keys} 已會送出 {send} 到終端機。取代後會改掉它。',
     terminalConflict: '{keys} 會送出 {send} 到終端機。取代後會從終端機按鍵移除。',
     shadowed: '按鍵與 {command} 衝突',
+    desktopTakes: '{desktop} 會先攔下 {keys}，{product} 收不到',
     problems: {
       invalid: '這不是像 Ctrl+Shift+K 的快捷鍵。',
       escape: 'Esc 屬於 Shell。',
