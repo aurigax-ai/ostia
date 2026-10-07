@@ -2,6 +2,7 @@ import type { ExtensionInfo, ExtensionSettingResult, PaneChip } from '@shared/ex
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { renderSettled } from '../../../test/render'
 import { commands } from '../commands/registry'
 import { chipsForPane, paneChipCatalog } from '../lib/extensionChips'
 import { useExtensionsStore } from '../stores/extensionsStore'
@@ -10,7 +11,7 @@ import { useSettingsStore } from '../stores/settingsStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
 import { PaneChips } from './ExtensionChips'
 import { ExtensionPanelView } from './ExtensionPanelView'
-import { ExtensionsSection } from './SettingsPanel'
+import { ExtensionsSection } from './InstalledExtensions'
 
 function ext(overrides: Partial<ExtensionInfo>): ExtensionInfo {
   return {
@@ -264,9 +265,9 @@ describe('Extension API v2 UI', () => {
       settingValues: { loud: false, count: 3, greeting: 'hi' },
     })
 
-    it('shows a control per setting with the effective value', () => {
+    it('shows a control per setting with the effective value', async () => {
       useExtensionsStore.setState({ list: [withSettings] })
-      render(<ExtensionsSection />)
+      await renderSettled(<ExtensionsSection />)
       expect(screen.getByRole('group', { name: 'Demo settings' })).toBeInTheDocument()
       expect(screen.getByText('Shout it')).toBeInTheDocument()
       expect(screen.getByRole('switch', { name: 'Loud' })).not.toBeChecked()
@@ -283,7 +284,7 @@ describe('Extension API v2 UI', () => {
       const setSetting = vi.fn().mockResolvedValue(result)
       window.ostia.extensions.setSetting = setSetting
       useExtensionsStore.setState({ list: [withSettings] })
-      render(<ExtensionsSection />)
+      await renderSettled(<ExtensionsSection />)
 
       await userEvent.setup().click(screen.getByRole('switch', { name: 'Loud' }))
 
@@ -296,7 +297,7 @@ describe('Extension API v2 UI', () => {
       const setSetting = vi.fn().mockResolvedValue({ ok: false, error: 'invalid-value' })
       window.ostia.extensions.setSetting = setSetting
       useExtensionsStore.setState({ list: [withSettings] })
-      render(<ExtensionsSection />)
+      await renderSettled(<ExtensionsSection />)
       const user = userEvent.setup()
       const input = screen.getByRole('spinbutton', { name: 'Count' })
 
@@ -308,9 +309,9 @@ describe('Extension API v2 UI', () => {
       expect(useSettingsStore.getState().extensionSettings).toEqual({})
     })
 
-    it('shows no form for an extension without settings', () => {
+    it('shows no form for an extension without settings', async () => {
       useExtensionsStore.setState({ list: [ext({})] })
-      render(<ExtensionsSection />)
+      await renderSettled(<ExtensionsSection />)
       expect(screen.queryByRole('group', { name: 'Demo settings' })).toBeNull()
     })
   })
