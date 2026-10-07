@@ -21,8 +21,8 @@ export function startActivationResume(): () => void {
   let humanInput = false
   let last = activePane()
 
-  const onInput = (): void => {
-    if (humanInput) return
+  const onInput = (e: Event): void => {
+    if (!e.isTrusted || humanInput) return
     humanInput = true
     setTimeout(() => {
       humanInput = false

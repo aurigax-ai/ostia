@@ -28,6 +28,17 @@ function seed(): void {
   })
 }
 
+const inputListeners = new Map<string, EventListener>()
+const addListener = window.addEventListener.bind(window)
+vi.spyOn(window, 'addEventListener').mockImplementation((type, listener, options) => {
+  if (typeof listener === 'function') inputListeners.set(type, listener)
+  addListener(type, listener, options)
+})
+
+function human(type: string): void {
+  inputListeners.get(type)?.({ type, isTrusted: true } as Event)
+}
+
 const focus = (paneId: string) => useLayoutStore.getState().focusPane('w1', paneId)
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0))
 
@@ -49,19 +60,19 @@ describe('startActivationResume', () => {
   })
 
   it('resumes the pane the human clicks', () => {
-    window.dispatchEvent(new MouseEvent('pointerdown'))
+    human('pointerdown')
     focus(back.id)
     expect(resumeOnActivation).toHaveBeenCalledWith(back.id)
   })
 
   it('resumes the pane the human reaches with the keyboard or a tab switch', () => {
-    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab' }))
+    human('keydown')
     focus(back.id)
     expect(resumeOnActivation).toHaveBeenCalledWith(back.id)
   })
 
   it('resumes the shown pane of the workspace the human switches to', () => {
-    window.dispatchEvent(new MouseEvent('click'))
+    human('click')
     useWorkspacesStore.getState().setActive('w2')
     expect(resumeOnActivation).toHaveBeenCalledWith(other.id)
   })
@@ -72,22 +83,30 @@ describe('startActivationResume', () => {
     expect(resumeOnActivation).not.toHaveBeenCalled()
   })
 
-  it('never resumes on a focus change after the human input is handled', async () => {
+  it('never counts a script-dispatched event as the human', () => {
+    window.dispatchEvent(new MouseEvent('click'))
     window.dispatchEvent(new MouseEvent('pointerdown'))
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab' }))
+    focus(back.id)
+    expect(resumeOnActivation).not.toHaveBeenCalled()
+  })
+
+  it('never resumes on a focus change after the human input is handled', async () => {
+    human('pointerdown')
     await settle()
     focus(back.id)
     expect(resumeOnActivation).not.toHaveBeenCalled()
   })
 
   it('never resumes on pointer-over viewing', () => {
-    window.dispatchEvent(new MouseEvent('mousemove'))
-    window.dispatchEvent(new MouseEvent('pointerover'))
+    human('mousemove')
+    human('pointerover')
     focus(back.id)
     expect(resumeOnActivation).not.toHaveBeenCalled()
   })
 
   it('never resumes a background tab or the pane that is already active', () => {
-    window.dispatchEvent(new MouseEvent('pointerdown'))
+    human('pointerdown')
     const added = createPane('terminal')
     useLayoutStore.setState((s) => ({
       byWorkspace: {
