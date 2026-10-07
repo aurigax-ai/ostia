@@ -553,6 +553,25 @@ describe('builtins route to store actions', () => {
     expect(useSettingsStore.getState().behavior.checkForUpdates).toBe(true)
   })
 
+  it('settings.set and settings.unset refuse the update channel, directly or via behavior', async () => {
+    const direct = await commands.execWith(ctx(null, null), 'settings.set', {
+      key: 'behavior.updateChannel',
+      value: 'main',
+    })
+    const nested = await commands.execWith(ctx(null, null), 'settings.set', {
+      key: 'behavior',
+      value: { ...useSettingsStore.getState().behavior, updateChannel: 'main' },
+    })
+    const unset = await commands.execWith(ctx(null, null), 'settings.unset', {
+      key: 'behavior.updateChannel',
+    })
+    expect(direct.ok).toBe(false)
+    if (!direct.ok) expect(direct.error.message).toMatch(/behavior.updateChannel/)
+    expect(nested.ok).toBe(false)
+    expect(unset.ok).toBe(false)
+    expect(useSettingsStore.getState().behavior.updateChannel).toBe('stable')
+  })
+
   it('app.checkForUpdates opens Settings on About and asks main to check', async () => {
     const updateInit = useUpdateStore.getState()
     const openSettings = vi

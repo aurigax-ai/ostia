@@ -984,6 +984,13 @@ export const en = {
     automatic: 'Check for updates automatically',
     automaticDesc:
       'Asks GitHub once after launch and then once a day whether a newer release exists. Updating is always your own click, through the way you installed it.',
+    channel: 'Update channel',
+    channelStable: 'Stable',
+    channelMain: 'Main',
+    channelDesc:
+      'Stable offers releases only. Main also offers the daily build of the main branch and release candidates, and a newer release when there is one.',
+    channelStableOnly:
+      'Main builds come only as the Linux tarball. Installs from apt, Homebrew or the disk image stay on Stable.',
   },
   passwords: {
     title: 'Passwords',
@@ -4137,6 +4144,13 @@ export const zhHant: Dict = {
     automatic: '自動檢查更新',
     automaticDesc:
       '啟動後向 GitHub 查詢一次，之後每天查詢一次是否有新版本。更新一律由你自己點選，並依照你安裝的方式進行。',
+    channel: '更新管道',
+    channelStable: '穩定版',
+    channelMain: 'Main',
+    channelDesc:
+      '穩定版只提供正式發行版本。Main 另外提供 main 分支的每日建置與候選版本，有更新的正式版本時也會提供。',
+    channelStableOnly:
+      'Main 建置只以 Linux tarball 提供。透過 apt、Homebrew 或磁碟映像安裝的版本維持在穩定版。',
   },
   passwords: {
     title: '密碼',

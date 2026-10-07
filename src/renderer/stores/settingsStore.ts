@@ -51,6 +51,11 @@ import {
   parsePrivacySettings,
   parseRedactionSettings,
 } from '../../shared/redaction'
+import {
+  DEFAULT_UPDATE_CHANNEL,
+  type UpdateChannel,
+  parseUpdateChannel,
+} from '../../shared/releases'
 import { type SandboxGlobals, parseSandboxGlobals } from '../../shared/sandbox'
 import { type TelemetrySettings, parseTelemetrySettings } from '../../shared/telemetry'
 import { normalizeGroupName } from '../../shared/workspaceGroups'
@@ -229,6 +234,7 @@ export interface Behavior {
   inputEditorVim: boolean
   historySuggestions: boolean
   checkForUpdates: boolean
+  updateChannel: UpdateChannel
   wheelZoom: boolean
   discreteGpu: boolean
 }
@@ -362,6 +368,7 @@ const DEFAULTS: Persisted = {
     inputEditorVim: false,
     historySuggestions: true,
     checkForUpdates: true,
+    updateChannel: DEFAULT_UPDATE_CHANNEL,
     wheelZoom: !isMac,
     discreteGpu: false,
   },
@@ -468,6 +475,7 @@ function parseBehavior(raw: unknown): Behavior {
         ? src.externalEditor
         : DEFAULTS.behavior.externalEditor,
     inputMode: inputMode(src.inputMode),
+    updateChannel: parseUpdateChannel(src.updateChannel),
   }
 }
 

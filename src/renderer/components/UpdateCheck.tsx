@@ -5,6 +5,7 @@ import { replaceLabel } from '../lib/replaceText'
 import { useSettingsStore } from '../stores/settingsStore'
 import { restartReady, updateAction, useUpdateStore } from '../stores/updateStore'
 import { ToggleRow } from './SettingsPanel'
+import { UpdateChannelPicker } from './UpdateChannelPicker'
 import { Button } from './ui/button'
 
 export function UpdateCheck(): JSX.Element {
@@ -100,6 +101,7 @@ export function UpdateCheck(): JSX.Element {
           checked={automatic}
           onChange={(v) => setBehavior({ checkForUpdates: v })}
         />
+        <UpdateChannelPicker />
       </div>
     </div>
   )
