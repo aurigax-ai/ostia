@@ -2861,6 +2861,14 @@ export const en = {
     remoteCapCommand: 'Run commands',
     remoteCapInput: 'Type into panes',
     remoteCapDestructive: 'Destructive commands',
+    remoteCapCommandDesc:
+      'Run palette commands from the phone, such as opening a workspace or splitting a pane.',
+    remoteCapInputDesc: 'Type text and keys into a terminal the phone has open.',
+    remoteCapDestructiveDesc: 'Commands that close panes, kill processes or discard work.',
+    remoteCapNeeds: '{desc} Needs {cap}.',
+    remoteRevokeTitle: 'Revoke {name}?',
+    remoteRevokeBody:
+      '{name} is disconnected at once and has to pair again to reach this computer.',
     remoteDestructiveTitle: 'Allow destructive commands?',
     remoteDestructiveBody:
       '{name} will be able to run commands that close panes, kill processes or discard work. Only allow this for a phone you control.',
@@ -5660,6 +5668,12 @@ export const zhHant: Dict = {
     remoteCapCommand: '執行指令',
     remoteCapInput: '在窗格中輸入',
     remoteCapDestructive: '破壞性指令',
+    remoteCapCommandDesc: '從手機執行命令面板的指令，例如開啟工作區或分割窗格。',
+    remoteCapInputDesc: '在手機開啟的終端機中輸入文字與按鍵。',
+    remoteCapDestructiveDesc: '會關閉窗格、終止程序或捨棄工作的指令。',
+    remoteCapNeeds: '{desc}需要「{cap}」。',
+    remoteRevokeTitle: '撤銷 {name}？',
+    remoteRevokeBody: '{name} 會立即中斷連線，必須重新配對才能連到這台電腦。',
     remoteDestructiveTitle: '允許破壞性指令？',
     remoteDestructiveBody:
       '{name} 將能執行關閉窗格、終止程序或捨棄工作的指令。僅對您掌控的手機允許此權限。',
