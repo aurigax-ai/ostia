@@ -333,7 +333,7 @@ describe('SettingsPanel extensions nav', () => {
       await renderSettings()
       const user = userEvent.setup()
       await user.click(screen.getByRole('textbox', { name: 'Search settings' }))
-      await user.keyboard('board sync')
+      await user.paste('board sync')
       expect(within(nav()).getByRole('button', { name: 'Board sync' })).toBeInTheDocument()
       expect(within(nav()).queryByRole('button', { name: 'Ports' })).toBeNull()
     })

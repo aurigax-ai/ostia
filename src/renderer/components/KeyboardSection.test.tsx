@@ -59,19 +59,25 @@ const press = (key: string, init: KeyboardEventInit = {}): void => {
   })
 }
 
-const row = (name: RegExp): HTMLElement => {
-  const cell = screen.getAllByRole('cell').find((c) => name.test(c.textContent ?? ''))
+const rowWhere = (matches: (text: string) => boolean, name: string): HTMLElement => {
+  const cell = [...document.querySelectorAll('td')].find((c) => matches(c.textContent ?? ''))
   const tr = cell?.closest('tr')
   if (!tr) throw new Error(`no row for ${name}`)
   return tr
 }
 
+const row = (name: RegExp): HTMLElement => rowWhere((text) => name.test(text), String(name))
+
 const change = async (keys: string, command: string): Promise<void> => {
-  await userEvent.click(screen.getByRole('button', { name: `Change ${keys} for ${command}` }))
+  await userEvent.click(
+    screen.getByLabelText(`Change ${keys} for ${command}`, { selector: 'button' }),
+  )
 }
 
 const add = async (command: string): Promise<void> => {
-  await userEvent.click(screen.getByRole('button', { name: `Add a shortcut for ${command}` }))
+  await userEvent.click(
+    screen.getByLabelText(`Add a shortcut for ${command}`, { selector: 'button' }),
+  )
 }
 
 const groupNames = (): string[] =>
@@ -100,6 +106,17 @@ const applyPreset = async (layer: string, name: string): Promise<void> => {
 
 const columnWidths = (): string[] =>
   [...screen.getByRole('table').querySelectorAll('col')].map((c) => c.className)
+
+let stopSync: (() => void) | null = null
+
+const syncKeymaps = (): void => {
+  stopSync = startKeymapSync()
+}
+
+const stopKeymapSync = (): void => {
+  stopSync?.()
+  stopSync = null
+}
 
 describe('ChordRecorder', () => {
   afterEach(cleanup)
@@ -144,6 +161,7 @@ describe('KeyboardSection', () => {
   })
 
   afterEach(() => {
+    stopKeymapSync()
     cleanup()
     useSettingsStore.setState(initialSettings, true)
     usePluginsStore.setState(initialPlugins, true)
@@ -176,63 +194,53 @@ describe('KeyboardSection', () => {
         skipped: [{ command: 'pane.zoom', value: 'Ctrl+X', problem: 'ctrl-key' }],
       },
     })
-    const stop = startKeymapSync()
-    try {
-      render(<KeyboardSection />)
-      expect(applied('App shortcuts')).toBe('Ostia')
-      expect(within(row(/Command Palette/)).getByText('Ctrl+Shift+P')).toBeInTheDocument()
+    syncKeymaps()
+    render(<KeyboardSection />)
+    expect(applied('App shortcuts')).toBe('Ostia')
+    expect(within(row(/Command Palette/)).getByText('Ctrl+Shift+P')).toBeInTheDocument()
 
-      expect(
-        within(presets('App shortcuts')).queryByRole('button', { name: 'Mac only' }),
-      ).toBeNull()
-      await applyPreset('App shortcuts', 'Alt keys')
-      expect(useSettingsStore.getState().keymap).toBe('keys/alt')
-      expect(await within(row(/Command Palette/)).findByText('Ctrl+Alt+P')).toBeInTheDocument()
-      expect(within(row(/Toggle Sidebar/)).getByText('Unassigned')).toBeInTheDocument()
-      expect(window.ostia.keymaps.load).toHaveBeenCalledWith('keys/alt')
-      expect(
-        screen.getByText(
-          'pane.zoom “Ctrl+X”: plain Ctrl keys belong to the shell. Add Shift or Alt.',
-        ),
-      ).toBeInTheDocument()
-      expect(screen.queryByRole('button', { name: 'Reset Command Palette' })).toBeNull()
-      expect(within(row(/Command Palette/)).getByText('Alt keys')).toBeInTheDocument()
-      expect(within(row(/Toggle Sidebar/)).getByText('Alt keys')).toBeInTheDocument()
-      expect(within(row(/Toggle Sidebar/)).getByText('removes Ctrl+Shift+B')).toBeInTheDocument()
-      expect(within(row(/New Terminal Tab/)).queryByText('Alt keys')).toBeNull()
+    expect(within(presets('App shortcuts')).queryByRole('button', { name: 'Mac only' })).toBeNull()
+    await applyPreset('App shortcuts', 'Alt keys')
+    expect(useSettingsStore.getState().keymap).toBe('keys/alt')
+    expect(await within(row(/Command Palette/)).findByText('Ctrl+Alt+P')).toBeInTheDocument()
+    expect(within(row(/Toggle Sidebar/)).getByText('Unassigned')).toBeInTheDocument()
+    expect(window.ostia.keymaps.load).toHaveBeenCalledWith('keys/alt')
+    expect(
+      screen.getByText(
+        'pane.zoom “Ctrl+X”: plain Ctrl keys belong to the shell. Add Shift or Alt.',
+      ),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Reset Command Palette' })).toBeNull()
+    expect(within(row(/Command Palette/)).getByText('Alt keys')).toBeInTheDocument()
+    expect(within(row(/Toggle Sidebar/)).getByText('Alt keys')).toBeInTheDocument()
+    expect(within(row(/Toggle Sidebar/)).getByText('removes Ctrl+Shift+B')).toBeInTheDocument()
+    expect(within(row(/New Terminal Tab/)).queryByText('Alt keys')).toBeNull()
 
-      await change('Ctrl+Alt+P', 'Command Palette')
-      press('Y', { ctrlKey: true, shiftKey: true, code: 'KeyY' })
-      expect(within(row(/Command Palette/)).getByText('Ctrl+Shift+Y')).toBeInTheDocument()
-      await userEvent.click(screen.getByRole('button', { name: 'Reset Command Palette' }))
-      expect(useSettingsStore.getState().keybindings).toEqual({})
-      expect(within(row(/Command Palette/)).getByText('Ctrl+Alt+P')).toBeInTheDocument()
+    await change('Ctrl+Alt+P', 'Command Palette')
+    press('Y', { ctrlKey: true, shiftKey: true, code: 'KeyY' })
+    expect(within(row(/Command Palette/)).getByText('Ctrl+Shift+Y')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Reset Command Palette' }))
+    expect(useSettingsStore.getState().keybindings).toEqual({})
+    expect(within(row(/Command Palette/)).getByText('Ctrl+Alt+P')).toBeInTheDocument()
 
-      await change('Ctrl+Alt+P', 'Command Palette')
-      press('P', { ctrlKey: true, altKey: true, code: 'KeyP' })
-      expect(useSettingsStore.getState().keybindings).toEqual({})
+    await change('Ctrl+Alt+P', 'Command Palette')
+    press('P', { ctrlKey: true, altKey: true, code: 'KeyP' })
+    expect(useSettingsStore.getState().keybindings).toEqual({})
 
-      await applyPreset('App shortcuts', 'Ostia')
-      expect(useSettingsStore.getState().keymap).toBe('ostia')
-      expect(within(row(/Command Palette/)).getByText('Ctrl+Shift+P')).toBeInTheDocument()
-      expect(screen.queryByText(/pane\.zoom “Ctrl\+X”/)).toBeNull()
-    } finally {
-      stop()
-    }
+    await applyPreset('App shortcuts', 'Ostia')
+    expect(useSettingsStore.getState().keymap).toBe('ostia')
+    expect(within(row(/Command Palette/)).getByText('Ctrl+Shift+P')).toBeInTheDocument()
+    expect(screen.queryByText(/pane\.zoom “Ctrl\+X”/)).toBeNull()
   })
 
   it('shows the default preset and table for a keymap no enabled extension offers here', () => {
     useExtensionsStore.setState({ list: [{ ...keymapExtension, enabled: false }] })
     useSettingsStore.setState({ keymap: 'keys/alt' })
-    const stop = startKeymapSync()
-    try {
-      render(<KeyboardSection />)
-      expect(applied('App shortcuts')).toBe('Ostia')
-      expect(within(row(/Command Palette/)).getByText('Ctrl+Shift+P')).toBeInTheDocument()
-      expect(window.ostia.keymaps.load).not.toHaveBeenCalled()
-    } finally {
-      stop()
-    }
+    syncKeymaps()
+    render(<KeyboardSection />)
+    expect(applied('App shortcuts')).toBe('Ostia')
+    expect(within(row(/Command Palette/)).getByText('Ctrl+Shift+P')).toBeInTheDocument()
+    expect(window.ostia.keymaps.load).not.toHaveBeenCalled()
   })
 
   it('says when the chosen keymap cannot be loaded', async () => {
@@ -242,18 +250,14 @@ describe('KeyboardSection', () => {
       ok: false,
       error: 'keys.json: missing',
     })
-    const stop = startKeymapSync()
-    try {
-      render(<KeyboardSection />)
-      expect(
-        await screen.findByText(
-          'The keymap “Alt keys” couldn’t be loaded (keys.json: missing), so the default shortcuts apply.',
-        ),
-      ).toBeInTheDocument()
-      expect(within(row(/Command Palette/)).getByText('Ctrl+Shift+P')).toBeInTheDocument()
-    } finally {
-      stop()
-    }
+    syncKeymaps()
+    render(<KeyboardSection />)
+    expect(
+      await screen.findByText(
+        'The keymap “Alt keys” couldn’t be loaded (keys.json: missing), so the default shortcuts apply.',
+      ),
+    ).toBeInTheDocument()
+    expect(within(row(/Command Palette/)).getByText('Ctrl+Shift+P')).toBeInTheDocument()
   })
 
   it('names the keymap picker in Traditional Chinese', () => {
@@ -719,27 +723,23 @@ describe('KeyboardSection', () => {
         skipped: [],
       },
     })
-    const stop = startKeymapSync()
-    try {
-      render(<KeyboardSection />)
-      const widths = ['w-[42%]', 'w-[36%]', 'w-[22%]']
-      expect(screen.getByRole('table')).toHaveClass('table-fixed')
-      expect(columnWidths()).toEqual(widths)
-      await pickPreset('App shortcuts', 'Alt keys')
-      expect(await screen.findByText(/Switching to Alt keys changes/)).toBeInTheDocument()
-      expect(columnWidths()).toEqual(widths)
-      await userEvent.click(screen.getByRole('button', { name: 'Apply Alt keys' }))
-      expect(await within(row(/Command Palette/)).findByText('Ctrl+Alt+P')).toBeInTheDocument()
-      expect(screen.getByRole('table')).toHaveClass('table-fixed')
-      expect(columnWidths()).toEqual(widths)
-      await userEvent.click(screen.getByRole('button', { name: 'Details for Command Palette' }))
-      expect(columnWidths()).toEqual(widths)
-      await applyPreset('Text editing', 'No translation')
-      expect(screen.getByRole('table')).toHaveClass('table-fixed')
-      expect(columnWidths()).toEqual(widths)
-    } finally {
-      stop()
-    }
+    syncKeymaps()
+    render(<KeyboardSection />)
+    const widths = ['w-[42%]', 'w-[36%]', 'w-[22%]']
+    expect(screen.getByRole('table')).toHaveClass('table-fixed')
+    expect(columnWidths()).toEqual(widths)
+    await pickPreset('App shortcuts', 'Alt keys')
+    expect(await screen.findByText(/Switching to Alt keys changes/)).toBeInTheDocument()
+    expect(columnWidths()).toEqual(widths)
+    await userEvent.click(screen.getByRole('button', { name: 'Apply Alt keys' }))
+    expect(await within(row(/Command Palette/)).findByText('Ctrl+Alt+P')).toBeInTheDocument()
+    expect(screen.getByRole('table')).toHaveClass('table-fixed')
+    expect(columnWidths()).toEqual(widths)
+    await userEvent.click(screen.getByRole('button', { name: 'Details for Command Palette' }))
+    expect(columnWidths()).toEqual(widths)
+    await applyPreset('Text editing', 'No translation')
+    expect(screen.getByRole('table')).toHaveClass('table-fixed')
+    expect(columnWidths()).toEqual(widths)
   })
 })
 
@@ -781,6 +781,7 @@ describe('KeyboardSection layered view', () => {
   })
 
   afterEach(() => {
+    stopKeymapSync()
     cleanup()
     useSettingsStore.setState(initialSettings, true)
     useExtensionsStore.setState(initialExtensions, true)
@@ -792,52 +793,48 @@ describe('KeyboardSection layered view', () => {
       useExtensionsStore.setState({ list: [keymapExtension] })
       useSettingsStore.setState({ keybindings: { 'view.toggleRail': 'Ctrl+Shift+J' } })
       vi.mocked(window.ostia.keymaps.load).mockResolvedValue(altKeys)
-      const stop = startKeymapSync()
-      try {
-        render(<KeyboardSection />)
-        await pickPreset('App shortcuts', 'Alt keys')
-        expect(
-          await screen.findByText('Switching to Alt keys changes these keys (2)'),
-        ).toBeInTheDocument()
-        expect(window.ostia.keymaps.load).toHaveBeenCalledWith('keys/alt')
-        expect(useSettingsStore.getState().keymap).toBeNull()
-        expect(within(row(/Command Palette/)).getByText('Ctrl+Shift+P')).toBeInTheDocument()
-        const items = within(preview()).getAllByRole('listitem')
-        const palette = items.find((li) => li.textContent?.includes('Command Palette'))
-        expect(palette).toHaveTextContent('Ctrl+Shift+P→Ctrl+Alt+P')
-        const sidebar = items.find((li) => li.textContent?.includes('Toggle Sidebar'))
-        expect(sidebar).toHaveTextContent('Ctrl+Shift+B→None')
-        expect(within(sidebar as HTMLElement).getByText('yours stays')).toBeInTheDocument()
-        expect(
-          within(preview()).getByText('Your custom keys stay on top: Toggle Sidebar'),
-        ).toBeInTheDocument()
-        expect(
-          within(presets('App shortcuts')).getByRole('button', { name: 'Alt keys' }),
-        ).toHaveAttribute('data-previewing')
-        expect(applied('App shortcuts')).toBe('Ostia')
+      syncKeymaps()
+      render(<KeyboardSection />)
+      await pickPreset('App shortcuts', 'Alt keys')
+      expect(
+        await screen.findByText('Switching to Alt keys changes these keys (2)'),
+      ).toBeInTheDocument()
+      expect(window.ostia.keymaps.load).toHaveBeenCalledWith('keys/alt')
+      expect(useSettingsStore.getState().keymap).toBeNull()
+      expect(within(row(/Command Palette/)).getByText('Ctrl+Shift+P')).toBeInTheDocument()
+      const items = within(preview()).getAllByRole('listitem')
+      const palette = items.find((li) => li.textContent?.includes('Command Palette'))
+      expect(palette).toHaveTextContent('Ctrl+Shift+P→Ctrl+Alt+P')
+      const sidebar = items.find((li) => li.textContent?.includes('Toggle Sidebar'))
+      expect(sidebar).toHaveTextContent('Ctrl+Shift+B→None')
+      expect(within(sidebar as HTMLElement).getByText('yours stays')).toBeInTheDocument()
+      expect(
+        within(preview()).getByText('Your custom keys stay on top: Toggle Sidebar'),
+      ).toBeInTheDocument()
+      expect(
+        within(presets('App shortcuts')).getByRole('button', { name: 'Alt keys' }),
+      ).toHaveAttribute('data-previewing')
+      expect(applied('App shortcuts')).toBe('Ostia')
 
-        await userEvent.click(within(preview()).getByRole('button', { name: 'Cancel' }))
-        expect(document.querySelector('[data-slot="preset-preview"]')).toBeNull()
-        expect(useSettingsStore.getState().keymap).toBeNull()
-        expect(useSettingsStore.getState().keybindings).toEqual({
-          'view.toggleRail': 'Ctrl+Shift+J',
-        })
+      await userEvent.click(within(preview()).getByRole('button', { name: 'Cancel' }))
+      expect(document.querySelector('[data-slot="preset-preview"]')).toBeNull()
+      expect(useSettingsStore.getState().keymap).toBeNull()
+      expect(useSettingsStore.getState().keybindings).toEqual({
+        'view.toggleRail': 'Ctrl+Shift+J',
+      })
 
-        await applyPreset('App shortcuts', 'Alt keys')
-        expect(useSettingsStore.getState().keymap).toBe('keys/alt')
-        expect(document.querySelector('[data-slot="preset-preview"]')).toBeNull()
-        expect(
-          await within(presets('App shortcuts').closest('section') as HTMLElement).findByRole(
-            'button',
-            { name: '2 keys differ from Ostia' },
-          ),
-        ).toBeInTheDocument()
-        expect(useSettingsStore.getState().keybindings).toEqual({
-          'view.toggleRail': 'Ctrl+Shift+J',
-        })
-      } finally {
-        stop()
-      }
+      await applyPreset('App shortcuts', 'Alt keys')
+      expect(useSettingsStore.getState().keymap).toBe('keys/alt')
+      expect(document.querySelector('[data-slot="preset-preview"]')).toBeNull()
+      expect(
+        await within(presets('App shortcuts').closest('section') as HTMLElement).findByRole(
+          'button',
+          { name: '2 keys differ from Ostia' },
+        ),
+      ).toBeInTheDocument()
+      expect(useSettingsStore.getState().keybindings).toEqual({
+        'view.toggleRail': 'Ctrl+Shift+J',
+      })
     })
 
     it('says when a preset changes nothing, and picking the applied one closes the preview', async () => {
@@ -881,47 +878,41 @@ describe('KeyboardSection layered view', () => {
         terminalKeys: { 'Ctrl+Alt+K': { type: 'text', value: 'k' }, 'Alt+Left': null },
       })
       vi.mocked(window.ostia.keymaps.load).mockResolvedValue(altKeys)
-      const stop = startKeymapSync()
-      try {
-        render(<KeyboardSection />)
-        await userEvent.click(
-          await screen.findByRole('button', { name: '2 keys differ from Ostia' }),
-        )
-        expect(screen.getByRole('button', { name: 'My changes (7)' })).toHaveAttribute(
-          'aria-pressed',
-          'true',
-        )
-        expect(screen.queryByRole('textbox', { name: 'Search shortcuts' })).toBeNull()
-        expect(
-          groupNames().map((g) => g.replace(/Revert these|Change all back to Ostia/, '')),
-        ).toEqual(['You customized (3)', 'You removed (2)', 'App shortcuts “Alt keys” brings (2)'])
-        const find = row(/Find \(terminal\)/)
-        expect(find).toHaveAttribute('data-change', 'custom')
-        expect(within(find).getByText('Ctrl+Alt+F')).toBeInTheDocument()
-        expect(within(find).getByText('was Ctrl+Shift+F')).toBeInTheDocument()
-        expect(within(row(/pane\.zoom/)).getByText('Unassigned')).toBeInTheDocument()
-        expect(within(row(/Back one word/)).getByText('Not translated')).toBeInTheDocument()
-        expect(within(row(/Command Palette/)).getByText('Ostia: Ctrl+Shift+P')).toBeInTheDocument()
-        expect(within(row(/Command Palette/)).getByText('Ctrl+Alt+P')).toBeInTheDocument()
+      syncKeymaps()
+      render(<KeyboardSection />)
+      await userEvent.click(await screen.findByRole('button', { name: '2 keys differ from Ostia' }))
+      expect(screen.getByRole('button', { name: 'My changes (7)' })).toHaveAttribute(
+        'aria-pressed',
+        'true',
+      )
+      expect(screen.queryByRole('textbox', { name: 'Search shortcuts' })).toBeNull()
+      expect(
+        groupNames().map((g) => g.replace(/Revert these|Change all back to Ostia/, '')),
+      ).toEqual(['You customized (3)', 'You removed (2)', 'App shortcuts “Alt keys” brings (2)'])
+      const find = row(/Find \(terminal\)/)
+      expect(find).toHaveAttribute('data-change', 'custom')
+      expect(within(find).getByText('Ctrl+Alt+F')).toBeInTheDocument()
+      expect(within(find).getByText('was Ctrl+Shift+F')).toBeInTheDocument()
+      expect(within(row(/pane\.zoom/)).getByText('Unassigned')).toBeInTheDocument()
+      expect(within(row(/Back one word/)).getByText('Not translated')).toBeInTheDocument()
+      expect(within(row(/Command Palette/)).getByText('Ostia: Ctrl+Shift+P')).toBeInTheDocument()
+      expect(within(row(/Command Palette/)).getByText('Ctrl+Alt+P')).toBeInTheDocument()
 
-        await userEvent.click(screen.getByRole('button', { name: 'Revert Find (terminal)' }))
-        expect(useSettingsStore.getState().keybindings).toEqual({
-          'tab.new': 'Ctrl+Alt+T',
-          'pane.zoom': null,
-        })
-        await userEvent.click(screen.getByRole('button', { name: 'Revert all in You removed (2)' }))
-        expect(useSettingsStore.getState().keybindings).toEqual({ 'tab.new': 'Ctrl+Alt+T' })
-        expect(useSettingsStore.getState().terminalKeys).toEqual({
-          'Ctrl+Alt+K': { type: 'text', value: 'k' },
-        })
-        await userEvent.click(
-          screen.getByRole('button', { name: 'Change App shortcuts back to Ostia' }),
-        )
-        expect(useSettingsStore.getState().keymap).toBe('ostia')
-        expect(groupNames()).toEqual(['You customized (2)Revert these'])
-      } finally {
-        stop()
-      }
+      await userEvent.click(screen.getByRole('button', { name: 'Revert Find (terminal)' }))
+      expect(useSettingsStore.getState().keybindings).toEqual({
+        'tab.new': 'Ctrl+Alt+T',
+        'pane.zoom': null,
+      })
+      await userEvent.click(screen.getByRole('button', { name: 'Revert all in You removed (2)' }))
+      expect(useSettingsStore.getState().keybindings).toEqual({ 'tab.new': 'Ctrl+Alt+T' })
+      expect(useSettingsStore.getState().terminalKeys).toEqual({
+        'Ctrl+Alt+K': { type: 'text', value: 'k' },
+      })
+      await userEvent.click(
+        screen.getByRole('button', { name: 'Change App shortcuts back to Ostia' }),
+      )
+      expect(useSettingsStore.getState().keymap).toBe('ostia')
+      expect(groupNames()).toEqual(['You customized (2)Revert these'])
     })
 
     it('asks before reverting everything, and Cancel keeps it all', async () => {
@@ -995,22 +986,18 @@ describe('KeyboardSection layered view', () => {
         keybindings: { 'palette.toggle': 'Ctrl+Shift+Y' },
       })
       vi.mocked(window.ostia.keymaps.load).mockResolvedValue(altKeys)
-      const stop = startKeymapSync()
-      try {
-        render(<KeyboardSection />)
-        await screen.findByRole('button', { name: '2 keys differ from Ostia' })
-        await userEvent.click(toggleFor('Command Palette'))
-        expect(layer('preset')).toHaveTextContent('Alt keys')
-        expect(layer('preset')).toHaveTextContent('Ctrl+Alt+P')
-        expect(layer('user')).toHaveAttribute('data-effective')
-        await userEvent.click(
-          within(detail()).getByRole('button', { name: 'Back to Alt keys’s value' }),
-        )
-        expect(useSettingsStore.getState().keybindings).toEqual({})
-        expect(layer('preset')).toHaveAttribute('data-effective')
-      } finally {
-        stop()
-      }
+      syncKeymaps()
+      render(<KeyboardSection />)
+      await screen.findByRole('button', { name: '2 keys differ from Ostia' })
+      await userEvent.click(toggleFor('Command Palette'))
+      expect(layer('preset')).toHaveTextContent('Alt keys')
+      expect(layer('preset')).toHaveTextContent('Ctrl+Alt+P')
+      expect(layer('user')).toHaveAttribute('data-effective')
+      await userEvent.click(
+        within(detail()).getByRole('button', { name: 'Back to Alt keys’s value' }),
+      )
+      expect(useSettingsStore.getState().keybindings).toEqual({})
+      expect(layer('preset')).toHaveAttribute('data-effective')
     })
 
     it('moves with ↑↓, expands with Enter and collapses with Esc without closing settings', async () => {

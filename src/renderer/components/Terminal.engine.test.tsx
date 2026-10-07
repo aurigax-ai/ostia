@@ -1,7 +1,9 @@
 import '@testing-library/jest-dom/vitest'
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
+import { type RenderResult, act, cleanup, render, screen, waitFor } from '@testing-library/react'
+import type { ReactElement } from 'react'
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { renderSettled } from '../../../test/render'
+import { loadGhostty } from '../lib/ghosttyEngine'
 import { useSettingsStore } from '../stores/settingsStore'
 import { TerminalView } from './Terminal'
 
@@ -15,6 +17,13 @@ function useGhostty(): void {
   useSettingsStore.setState({
     terminal: { ...useSettingsStore.getState().terminal, renderer: 'ghostty' },
   })
+}
+
+async function renderGhostty(ui: ReactElement): Promise<RenderResult> {
+  useGhostty()
+  const result = render(ui)
+  await act(() => loadGhostty())
+  return result
 }
 
 describe('TerminalView engines', () => {
@@ -51,8 +60,9 @@ describe('TerminalView engines', () => {
   })
 
   it('draws a new terminal with Ghostty and starts its shell through the shared path', async () => {
-    useGhostty()
-    const { container } = render(<TerminalView workspaceId="w1" paneId="p1" cwd="/home/me" />)
+    const { container } = await renderGhostty(
+      <TerminalView workspaceId="w1" paneId="p1" cwd="/home/me" />,
+    )
     await waitFor(() => expect(container.querySelector('.ghostty-host canvas')).not.toBeNull())
     expect(container.querySelector('.ghostty-screen')).not.toBeNull()
     await waitFor(() =>
@@ -71,8 +81,7 @@ describe('TerminalView engines', () => {
   })
 
   it('asks before pasting several lines into a Ghostty terminal', async () => {
-    useGhostty()
-    const { container } = render(<TerminalView workspaceId="w1" paneId="p1" />)
+    const { container } = await renderGhostty(<TerminalView workspaceId="w1" paneId="p1" />)
     await waitFor(() => expect(container.querySelector('.ghostty-host textarea')).not.toBeNull())
     const textarea = container.querySelector('.ghostty-host textarea') as HTMLTextAreaElement
     const paste = new Event('paste', { bubbles: true, cancelable: true }) as ClipboardEvent
