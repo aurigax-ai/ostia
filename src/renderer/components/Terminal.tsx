@@ -87,6 +87,7 @@ import {
   isPaneVisible,
   shouldNotifyCommandEnd,
   signalPane,
+  usePaneVisible,
 } from '../lib/workspaceActivity'
 import { isLinux, isMac } from '../platform'
 import { useAttentionStore } from '../stores/attentionStore'
@@ -173,6 +174,7 @@ function TerminalSurface({
   const [findOpen, setFindOpen] = useState(false)
   const findStepRef = useRef<((by: number) => void) | null>(null)
   const [alternateScreen, setAlternateScreen] = useState(false)
+  const shown = usePaneVisible(paneId)
   const [suppressedPrompt, setSuppressedPrompt] = useState<LineAnchor | null>(null)
   const searchOptions = useMemo(() => findOptions(palette), [palette])
   const selectionSend = useSelectionSend(workspaceId, paneId)
@@ -979,7 +981,7 @@ function TerminalSurface({
             />
           }
         />
-        <Blocks paneId={paneId} termRef={termRef} hostRef={hostRef} />
+        <Blocks paneId={paneId} termRef={termRef} hostRef={hostRef} shown={shown} />
         <InputEditor
           paneId={paneId}
           cwd={cwd}
@@ -987,6 +989,7 @@ function TerminalSurface({
           fontSize={font.size}
           palette={palette}
           alternateScreen={alternateScreen}
+          paneShown={shown}
           suppressedPrompt={suppressedPrompt}
           termRef={termRef}
           hostRef={hostRef}

@@ -3,6 +3,7 @@ import { create } from 'zustand'
 
 export interface LineAnchor {
   readonly line: number
+  dispose?(): void
 }
 
 export interface CommandBlock {
@@ -52,7 +53,37 @@ interface BlocksState {
   dropPane: (paneId: string) => void
 }
 
-export const useBlocksStore = create<BlocksState>((set) => ({
+type Anchored = Pick<BlocksState, 'byPane' | 'drafts'>
+
+function paneAnchors(s: Anchored, paneId: string): Set<LineAnchor> {
+  const anchors = new Set<LineAnchor>()
+  for (const b of s.byPane[paneId] ?? []) {
+    anchors.add(b.promptLine)
+    anchors.add(b.outputStartLine)
+    if (b.inputLine) anchors.add(b.inputLine)
+    if (b.endLine) anchors.add(b.endLine)
+  }
+  const draft = s.drafts[paneId]
+  if (draft) {
+    anchors.add(draft.promptLine)
+    if (draft.inputLine) anchors.add(draft.inputLine)
+  }
+  return anchors
+}
+
+function releaseDropped(
+  before: Anchored,
+  after: Anchored,
+  paneId: string,
+  incoming: LineAnchor[] = [],
+): void {
+  const live = paneAnchors(after, paneId)
+  for (const anchor of [...paneAnchors(before, paneId), ...incoming]) {
+    if (!live.has(anchor)) anchor.dispose?.()
+  }
+}
+
+export const useBlocksStore = create<BlocksState>((set, get) => ({
   byPane: {},
   drafts: {},
   running: {},
@@ -68,19 +99,26 @@ export const useBlocksStore = create<BlocksState>((set) => ({
       return { agentBlocks: { ...s.agentBlocks, [paneId]: { blockId, agent } } }
     }),
 
-  promptStart: (paneId, line, cwd, remote = false) =>
+  promptStart: (paneId, line, cwd, remote = false) => {
+    const before = get()
     set((s) => ({
       drafts: { ...s.drafts, [paneId]: { promptLine: line, inputLine: null, cwd, remote } },
-    })),
+    }))
+    releaseDropped(before, get(), paneId)
+  },
 
-  promptEnd: (paneId, line) =>
+  promptEnd: (paneId, line) => {
+    const before = get()
     set((s) => {
       const draft = s.drafts[paneId]
       if (!draft) return s
       return { drafts: { ...s.drafts, [paneId]: { ...draft, inputLine: line } } }
-    }),
+    })
+    releaseDropped(before, get(), paneId)
+  },
 
-  commandStart: (paneId, line, command = '') =>
+  commandStart: (paneId, line, command = '') => {
+    const before = get()
     set((s) => {
       const draft = s.drafts[paneId] ?? {
         promptLine: line,
@@ -118,9 +156,12 @@ export const useBlocksStore = create<BlocksState>((set) => ({
         running: { ...s.running, [paneId]: block.id },
         drafts: { ...s.drafts, [paneId]: undefined },
       }
-    }),
+    })
+    releaseDropped(before, get(), paneId)
+  },
 
-  commandEnd: (paneId, line, exitCode, endCol, wholeCommand) =>
+  commandEnd: (paneId, line, exitCode, endCol, wholeCommand) => {
+    const before = get()
     set((s) => {
       const runningId = s.running[paneId]
       if (!runningId) return s
@@ -141,7 +182,9 @@ export const useBlocksStore = create<BlocksState>((set) => ({
         byPane: { ...s.byPane, [paneId]: next },
         running: { ...s.running, [paneId]: undefined },
       }
-    }),
+    })
+    releaseDropped(before, get(), paneId, [line])
+  },
 
   select: (paneId, blockId) =>
     set((s) => {

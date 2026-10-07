@@ -100,6 +100,7 @@ export interface InputEditorProps {
   fontSize: number
   palette?: TerminalColors
   alternateScreen: boolean
+  paneShown: boolean
   suppressedPrompt: LineAnchor | null
   termRef: RefObject<Xterm | null>
   hostRef: RefObject<HTMLElement | null>
@@ -261,6 +262,7 @@ export function InputEditor({
   fontSize,
   palette,
   alternateScreen,
+  paneShown,
   suppressedPrompt,
   ownsFocus,
   termRef,
@@ -282,6 +284,7 @@ export function InputEditor({
     termRef,
     hostRef,
     visible,
+    paneShown,
     ostiaPrompt ? 'ostia' : 'shell',
     prompt.sameLine,
   )

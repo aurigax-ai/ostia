@@ -4,6 +4,26 @@ import { type LineAnchor, useBlocksStore } from './blocksStore'
 const store = () => useBlocksStore.getState()
 const at = (line: number): LineAnchor => ({ line })
 
+interface Tracked extends LineAnchor {
+  disposed: boolean
+}
+
+function tracker(): { mark: (line: number) => Tracked; live: () => number } {
+  const made: Tracked[] = []
+  const mark = (line: number): Tracked => {
+    const anchor: Tracked = {
+      line,
+      disposed: false,
+      dispose() {
+        anchor.disposed = true
+      },
+    }
+    made.push(anchor)
+    return anchor
+  }
+  return { mark, live: () => made.filter((a) => !a.disposed).length }
+}
+
 describe('blocksStore', () => {
   let init: ReturnType<typeof useBlocksStore.getState>
 
@@ -307,5 +327,51 @@ describe('blocksStore', () => {
     store().select('t', store().byPane.t?.[0]?.id ?? null)
     for (let i = 1; i <= 200; i++) store().commandStart('t', at(i), `cmd ${i}`)
     expect(store().selected.t).toBeUndefined()
+  })
+
+  it('disposes the anchors of a block that ages out, keeping live ones bounded', () => {
+    const p = 'pane-evict'
+    const { mark, live } = tracker()
+    const first: Tracked[] = []
+    for (let i = 0; i < 260; i++) {
+      const anchors = [mark(i), mark(i), mark(i), mark(i)]
+      if (i === 0) first.push(...anchors)
+      store().promptStart(p, anchors[0], '/w')
+      store().promptEnd(p, anchors[1])
+      store().commandStart(p, anchors[2], `cmd ${i}`)
+      store().commandEnd(p, anchors[3], 0)
+    }
+    expect(store().byPane[p]).toHaveLength(200)
+    expect(first.every((a) => a.disposed)).toBe(true)
+    expect(live()).toBe(200 * 4)
+  })
+
+  it('keeps an evicted block anchor that a newer block still uses', () => {
+    const p = 'pane-shared'
+    const { mark } = tracker()
+    store().commandStart(p, mark(0), 'lost end')
+    const shared = mark(1)
+    store().commandStart(p, shared, 'next')
+    for (let i = 2; i <= 200; i++) store().commandStart(p, mark(i), `cmd ${i}`)
+    expect(store().byPane[p]?.[0].outputStartLine).toBe(shared)
+    expect(shared.disposed).toBe(false)
+  })
+
+  it('disposes a replaced draft and an end that matches no running block', () => {
+    const p = 'pane-drafts'
+    const { mark } = tracker()
+    const oldPrompt = mark(0)
+    const oldInput = mark(0)
+    store().promptStart(p, oldPrompt, '/w')
+    store().promptEnd(p, oldInput)
+    const newInput = mark(0)
+    store().promptEnd(p, newInput)
+    expect(oldInput.disposed).toBe(true)
+    store().promptStart(p, mark(1), '/w')
+    expect(oldPrompt.disposed).toBe(true)
+    expect(newInput.disposed).toBe(true)
+    const orphanEnd = mark(1)
+    store().commandEnd(p, orphanEnd, 0)
+    expect(orphanEnd.disposed).toBe(true)
   })
 })
