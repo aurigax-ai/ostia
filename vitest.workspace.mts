@@ -19,6 +19,7 @@ export default defineWorkspace([
         'test/quarantine.test.ts',
         'test/e2eImports.test.ts',
         'test/affectedTests.test.ts',
+        'test/ciMergeQueue.test.ts',
         'test/mergeQueueVerified.test.ts',
         'test/retry.test.ts',
       ],

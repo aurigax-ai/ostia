@@ -67,16 +67,18 @@ jobs:
       # nightly schedule and manual dispatch. A pull request that changes the
       # e2e harness runs the full Linux suite (macOS stays on the nightly and
       # tags); one that changes other e2e files runs only the specs it changed
-      # and the specs importing a changed file (changed). Pull requests and the
-      # merge queue also get static, unit, unit-dom and build; pushes to main
-      # run no e2e but also run unit-macos, and a push the merge queue already
-      # passed runs only unit-macos and quarantine (verified).
-      full: ${{ github.ref_type == 'tag' || github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.full) || steps.e2e_paths.outputs.harness == 'true' }}
+      # and the specs importing a changed file (changed). The merge queue runs
+      # the full Linux suite when the group changes code, and skips e2e for a
+      # docs-only group. Pull requests and the merge queue also get static,
+      # unit, unit-dom and build; pushes to main run no e2e but also run
+      # unit-macos, and a push the merge queue already passed runs only
+      # unit-macos and quarantine (verified).
+      full: ${{ github.ref_type == 'tag' || github.event_name == 'schedule' || (github.event_name == 'merge_group' && steps.filter.outputs.code == 'true') || (github.event_name == 'workflow_dispatch' && inputs.full) || steps.e2e_paths.outputs.harness == 'true' }}
       changed: ${{ steps.e2e_paths.outputs.harness != 'true' && steps.e2e_paths.outputs.e2e == 'true' }}
       linux: ${{ steps.runner.outputs.linux }}
       linux_small: ${{ steps.runner.outputs.linux_small }}
       macos: ${{ steps.runner.outputs.macos }}
-      platform: ${{ inputs.platform || 'all' }}
+      platform: ${{ inputs.platform || (github.event_name == 'merge_group' && 'linux') || 'all' }}
       specs: ${{ steps.plan.outputs.specs }}
       repeat: ${{ steps.plan.outputs.repeat }}
       shards: ${{ steps.plan.outputs.shards }}
