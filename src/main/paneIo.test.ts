@@ -74,6 +74,7 @@ registerPaneIoMethods({
       : undefined,
   processPane: (ref) => processes.get(ref),
   isChild: (ownerPaneId, paneId) => children.get(paneId) === ownerPaneId,
+  createdWorkspace: () => false,
   isSandboxed: (workspaceId) => sandboxedWorkspaces.has(workspaceId),
   isConfined: (paneId) => confinedPanes.has(paneId),
   managerAllowsInput: () => managerInput,
@@ -183,11 +184,13 @@ const facts = (
     caller?: Partial<{ paneId: string; workspaceId: string; sandboxed: boolean }>
     target?: Partial<{ paneId: string; workspaceId: string; manager: boolean; confined: boolean }>
     ownChild?: boolean
+    createdWorkspace?: boolean
   } = {},
 ) => ({
   caller: { paneId: 'a', workspaceId: 'ws1', sandboxed: false, ...over.caller },
   target: { paneId: 'b', workspaceId: 'ws1', manager: false, confined: false, ...over.target },
   ownChild: over.ownChild ?? false,
+  createdWorkspace: over.createdWorkspace ?? false,
 })
 
 describe('paneReach', () => {
@@ -222,6 +225,28 @@ describe('paneReach', () => {
       allowed: true,
       caps: ['type-other-pane', 'all-workspaces'],
     })
+  })
+
+  it('keeps a tab its own in a workspace the caller created, and only its own tabs there', () => {
+    const created = { workspaceId: 'ws2' }
+    expect(
+      paneReach('input', facts({ ownChild: true, createdWorkspace: true, target: created })),
+    ).toEqual({ allowed: true, caps: ['process'] })
+    expect(paneReach('read', facts({ createdWorkspace: true, target: created }))).toEqual({
+      allowed: true,
+      caps: ['read-other-pane', 'all-workspaces'],
+    })
+    expect(
+      paneReach(
+        'input',
+        facts({
+          caller: { sandboxed: true },
+          ownChild: true,
+          createdWorkspace: true,
+          target: created,
+        }),
+      ),
+    ).toEqual({ allowed: false, error: 'sandboxed' })
   })
 
   it('never lets a sandboxed caller out of its workspace or into a host pane', () => {

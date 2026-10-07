@@ -192,7 +192,8 @@ ostia process restart <id|name>    # Ctrl+C, then the same line again in the sam
   new. A full-screen program (an agent, an editor) has no useful log: use `ostia pane read`.
 - `kill` leaves the tab open with its output. `restart` fails with `still-running` when the
   command ignores Ctrl+C; `kill` it and `run` it again.
-- You see only your own workspace's processes (others need `all-workspaces`).
+- You see only your own workspace's processes and those you started in a workspace your pane
+  created (others need `all-workspaces`).
 
 ## Talk to another terminal pane
 
@@ -208,8 +209,8 @@ ostia pane rename <pane> <title...> | --clear  # name its tab (your own needs no
 
 `<pane>` is a `paneId` from `ostia pane.list`, or a process id or name from `ostia process ls`.
 
-- A tab **you** opened with `ostia process run` or `ostia agent run` is yours to type into,
-  read, wake and close, with no question asked.
+- A tab **you** opened with `ostia process run` or `ostia agent run`, in your workspace or one
+  your pane created, is yours to type into, read, wake and close, with no question asked.
 - Any other pane asks the human first: typing needs `type-other-pane`, reading needs
   `read-other-pane`, closing needs `kill-pane`, and a pane in another workspace also needs
   `all-workspaces`. A screen
@@ -241,9 +242,45 @@ ostia pane rename <pane> <title...> | --clear  # name its tab (your own needs no
 
 ## Coordinating worker agents
 
+**Where workers go.** The human's stated preference always wins: what they told you, their
+CLAUDE.md, AGENTS.md or project instructions, or their memory notes. Use the default below only
+when they said nothing.
+
+*Default: one workers workspace beside yours.* A background workspace named
+`<project> · workers`, in the same sidebar group as your workspace, holds every worker as a tab.
+The human sees your workspace and its workers together in the sidebar, the workers row lights up
+when one is waiting or done, and your own tab row stays yours.
+
+```sh
+ostia workspace list --json      # your workspace's groupId; is a '<project> · workers' already there?
+ostia workspace group "<project>"  # only if your workspace is in no group yet
+ostia workspace.new '{"name":"<project> · workers","dir":"<repo>","focus":false,"group":"<project>"}'
+                                 # prints ok, then {"workspaceId":"…"}; the human's view stays put
+ostia agent run claude - --name <name> --cwd <worktree> --workspace <workspaceId> < task.md
+```
+
+- Create the workers workspace once and reuse it: look for it by name in `ostia workspace list`
+  before making another. `group` is the group's name; it joins that group, or makes it.
+- A workspace your pane created with `workspace.new` needs no question to open tabs in, and the
+  tabs you open there stay yours (send, read, wait, wake and close with no question, as beside
+  you). Ostia remembers that only while your pane is open and until it restarts; after that,
+  `--workspace` asks the human once for `all-workspaces`, and your workers there ask for
+  `type-other-pane` like any other pane (see Asks below).
+- Name each worker by its task (`issue-398`, `fix-login`), never `worker-3`: the name is its tab
+  title and how you address it.
+
+*Other layouts, when the human asks for them:*
+
+| Layout | How |
+|---|---|
+| Workers as tabs beside you | `ostia agent run …` without `--workspace`: they open after your tab, in launch order |
+| Two or three workers side by side | the same `--split-tab <name>` on each: one tab, a segment per worker |
+| A workspace per worker | `workspace.new` with `"focus":false` and the same `"group"` for each, then `--workspace` |
+| A group per task | `workspace.new` with `"group":"<task>"`; your workspace stays in its own group |
+
 1. **Dispatch.** When workers edit the same repo, give each one its own checkout:
-   `git worktree add ../<repo>-<branch> -b <branch>`. Start each with its task on stdin:
-   `ostia agent run claude - --name <name> --cwd <dir> < task.md`.
+   `git worktree add ../<repo>-<branch> -b <branch>`. Start each with its task on stdin, in the
+   layout above: `ostia agent run claude - --name <name> --cwd <dir> [--workspace <id>] < task.md`.
    End every task with a report step, with your id (`externalId` in `ostia whoami`) filled in:
    `ostia bus send <your id> "<branch> done|blocked: <sha> <summary>; tests: <result>"`.
    The worker's first send to another pane asks the human once for `send-other-pane`.

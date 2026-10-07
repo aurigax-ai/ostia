@@ -39,6 +39,7 @@ const exitedPanes = new Set<string>()
 registerPaneWaitMethods({
   processPane: (ref) => processes.get(ref),
   isChild: (ownerPaneId, paneId) => children.get(paneId) === ownerPaneId,
+  createdWorkspace: () => false,
   isSandboxed: () => false,
   isConfined: () => false,
   watch,

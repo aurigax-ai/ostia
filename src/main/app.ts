@@ -3151,14 +3151,11 @@ app.whenReady().then(() => {
   }
   const paneReachDeps: PaneReachDeps = {
     processPane: (ref, ctx) => {
-      const entry = registry.resolve(
-        ref,
-        ctx.identity.workspaceId,
-        connHasCap(ctx.authed, 'all-workspaces'),
-      )
+      const entry = registry.resolve(ref, ctx.identity, connHasCap(ctx.authed, 'all-workspaces'))
       return entry && entry.status !== 'closed' ? entry.paneId : undefined
     },
     isChild: (ownerPaneId, paneId) => registry.isChild(ownerPaneId, paneId),
+    createdWorkspace: (creatorPaneId, workspaceId) => registry.created(creatorPaneId, workspaceId),
     isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
     isConfined: (paneId) => ptys.get(paneId)?.sandboxed === true,
   }
@@ -3487,6 +3484,8 @@ app.whenReady().then(() => {
     isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
     windowOfWorkspace: workspaceWindowId,
     primaryWindow: primaryWindowId,
+    workspaceCreated: (creatorPaneId, workspaceId) =>
+      registry.workspaceCreated(creatorPaneId, workspaceId),
   })
   writeControlInfo(controlInfoPath(), controlSocketPath(), process.pid)
   listenKeptControlSocket(keptControlSocketPath(app.getPath('userData')))

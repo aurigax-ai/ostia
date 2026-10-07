@@ -112,6 +112,13 @@ export interface ControlServerDeps {
   isSandboxed: (workspaceId: string) => boolean
   windowOfWorkspace?: (workspaceId: string) => string | undefined
   primaryWindow?: () => string | undefined
+  workspaceCreated?: (creatorPaneId: string, workspaceId: string) => void
+}
+
+function createdWorkspaceId(result: unknown): string | undefined {
+  if (!result || typeof result !== 'object') return undefined
+  const id = (result as { workspaceId?: unknown }).workspaceId
+  return typeof id === 'string' && id ? id : undefined
 }
 
 let server: Server | null = null
@@ -245,6 +252,10 @@ export function registerControlServer(deps: ControlServerDeps, socketPathOverrid
           )
         }
         const result = await deps.execCommand(target, params.id, args)
+        if (result.ok && params.id === 'workspace.new' && !script) {
+          const created = createdWorkspaceId(result.result)
+          if (created) deps.workspaceCreated?.(me.paneId, created)
+        }
         if (result.ok || !pane) return result
         return {
           ...result,

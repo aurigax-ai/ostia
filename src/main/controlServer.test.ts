@@ -103,6 +103,38 @@ describe('controlServer (socket auth, end-to-end)', () => {
     ])
   })
 
+  it('tells the app which pane created a workspace with workspace.new, and nothing else', async () => {
+    socketPath = nextSocketPath()
+    const id = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'pCreator' })
+    const created: [string, string][] = []
+    registerControlServer(
+      {
+        ...fakeDeps,
+        listCommandsFor: () =>
+          [
+            ...fakeDeps.listCommandsFor('w1'),
+            { ...fakeDeps.listCommandsFor('w1')[0], id: 'workspace.new', target: 'none' },
+          ] as CommandDescriptor[],
+        execCommand: async (_target, commandId) =>
+          (commandId === 'workspace.new'
+            ? { ok: true, result: { workspaceId: 'w-workers' } }
+            : { ok: true, result: { workspaceId: 'w-other' } }) as CommandResult,
+        workspaceCreated: (paneId, workspaceId) => created.push([paneId, workspaceId]),
+      },
+      socketPath,
+    )
+    client = connectClient(socketPath)
+    await client.conn.sendRequest('hello', { token: id.token })
+
+    await client.conn.sendRequest('command.exec', { id: 'pane.splitRight' })
+    await client.conn.sendRequest('command.exec', {
+      id: 'workspace.new',
+      args: { name: 'ostia · workers', focus: false },
+    })
+
+    expect(created).toEqual([['pCreator', 'w-workers']])
+  })
+
   it('requires all-workspaces to target another workspace, even from the caller own pane', async () => {
     socketPath = nextSocketPath()
     const id = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'pTest1' })

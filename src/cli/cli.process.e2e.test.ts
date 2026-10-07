@@ -74,10 +74,11 @@ registerPaneIoMethods({
   },
   state: (paneId) => ({ paneId, generation: 1, cwd: '/w', running: true, blockCount: 1 }),
   processPane: (ref, ctx) => {
-    const entry = registry.resolve(ref, ctx.identity.workspaceId, false)
+    const entry = registry.resolve(ref, ctx.identity, false)
     return entry && entry.status !== 'closed' ? entry.paneId : undefined
   },
   isChild: (ownerPaneId, paneId) => registry.isChild(ownerPaneId, paneId),
+  createdWorkspace: (creatorPaneId, workspaceId) => registry.created(creatorPaneId, workspaceId),
   isSandboxed: () => false,
   isConfined: () => false,
   managerAllowsInput: () => false,
