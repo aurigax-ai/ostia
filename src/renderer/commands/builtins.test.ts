@@ -376,6 +376,32 @@ describe('builtins route to store actions', () => {
     expect(useSettingsStore.getState().privacy.redaction).toEqual({ enabled: true, patterns: [] })
   })
 
+  it('settings.set and settings.unset refuse capabilities and workspace group rules, so an agent cannot widen its reach', async () => {
+    const exec = (id: string, args: unknown) => commands.execWith(ctx(null, null), id, args)
+    const attempts = [
+      ['capabilities', await exec('settings.set', { key: 'capabilities.reach', value: 'group' })],
+      [
+        'capabilities',
+        await exec('settings.set', { key: 'capabilities', value: { reach: 'group' } }),
+      ],
+      ['capabilities', await exec('settings.unset', { key: 'capabilities.reach' })],
+      [
+        'workspaceGroups',
+        await exec('settings.set', {
+          key: 'workspaceGroups.byCwd',
+          value: [{ pattern: '/**', group: 'terminal' }],
+        }),
+      ],
+      ['workspaceGroups', await exec('settings.unset', { key: 'workspaceGroups' })],
+    ] as const
+    for (const [root, res] of attempts) {
+      expect(res.ok).toBe(false)
+      if (!res.ok) expect(res.error.message).toBe(`${root} can only be changed by you in Settings`)
+    }
+    expect(useSettingsStore.getState().capabilities?.reach).toBeUndefined()
+    expect(useSettingsStore.getState().workspaceGroups.byCwd).toEqual([])
+  })
+
   it('settings.set picks a text editing preset, refuses unknown ones, and unset goes back to null', async () => {
     const exec = (id: string, args: unknown) => commands.execWith(ctx(null, null), id, args)
     expect(await exec('settings.set', { key: 'terminalKeymap', value: 'none' })).toEqual({

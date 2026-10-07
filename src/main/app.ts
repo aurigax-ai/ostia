@@ -92,7 +92,7 @@ import { registerBrowserStorageIpc } from './browserStorage'
 import { browserUserAgent } from './browserUserAgent'
 import { registerBusMethods } from './bus'
 import { announceBusMessage } from './busNotice'
-import { dropIdentity, refreshGrantedCaps, setCaps } from './capabilityStore'
+import { dropIdentity, loadReachMode, refreshCapabilitySettings, setCaps } from './capabilityStore'
 import { createChatSessionStore } from './chatSessions'
 import { registerChatSessionIpc } from './chatSessionsIpc'
 import { ChatToolGrants } from './chatToolGrants'
@@ -102,7 +102,7 @@ import { confirmQuit, freezeAll, registerCloseGuard } from './closeGuard'
 import { registerCmuxSessionIpc } from './cmuxSession'
 import { registerCompletionIpc } from './completionSpecs'
 import { attachContextMenu } from './contextMenu'
-import { connHasCap, setCapFilter, setScriptTokenCheck } from './controlAuth'
+import { setCapFilter, setScriptTokenCheck } from './controlAuth'
 import { clearControlInfo, controlInfoPath, writeControlInfo } from './controlDiscovery'
 import {
   controlSocketPath,
@@ -231,6 +231,7 @@ import { PtySession, type Subscriber, type SubscriberRole } from './ptySession'
 import { questions, registerQuestions } from './questions'
 import { QUIT_SIGNALS, exitAfterDeadline, keptOnQuit, planQuit } from './quitPlan'
 import { confirmQuitNatively } from './quitPrompt'
+import { createReach } from './reach'
 import { createRedactor, createScrollbackRedactor } from './redaction'
 import { createWorkerScan, redactionWorkerScript } from './redactionScan'
 import { registerReleaseCheck, releaseUserAgent } from './releaseCheck'
@@ -1168,6 +1169,26 @@ setCapFilter((conn, cap) => {
   return workspaceSandboxes.resolved(workspaceId).controls.allWorkspaces
 })
 
+const reach = createReach({
+  mode: loadReachMode,
+  home: homedir(),
+  workDir: (workspaceId) => workDirForWorkspace(workspaceId),
+  isScratch: (workspaceId) => scratchFolders.isScratch(workspaceId),
+  hasManager: (workspaceId) => workspaceHasManager(workspaceId),
+  sandbox: (workspaceId) => ({
+    ...workspaceSandboxes.settings(workspaceId),
+    enabled: workspaceSandboxes.isEnabled(workspaceId),
+  }),
+  workspaces: async () => {
+    const [workspaces, groups] = await Promise.all([
+      listWorkspaces({ execCommand, windowIds }),
+      listWorkspaceGroups({ execCommand, windowIds }),
+    ])
+    return { workspaces, groups }
+  },
+  ask: (ask) => approvals()?.request(ask) ?? null,
+})
+
 function workspaceOfGuest(guest: Electron.WebContents): string | undefined {
   for (const [paneId, wcId] of browserPanes) {
     if (wcId === guest.id) return getByPaneId(paneId)?.workspaceId
@@ -1582,6 +1603,7 @@ function registerIpc(): void {
       extensionHost?.remoteFolders?.ownerChanged(event.workspaceId)
     } else if (event.type === 'workspace-closed') {
       removeWorkspace(event.workspaceId)
+      reach.forget(event.workspaceId)
       processes?.workspaceClosed(event.workspaceId)
       extensionHost?.clearWorkspaceChips(event.workspaceId)
       extensionHost?.remoteFolders?.workspaceClosed(event.workspaceId)
@@ -2640,7 +2662,7 @@ function registerFsIpc(): void {
       writeFileSync(safe, content, 'utf8')
       if (safe === settingsFile) {
         settingsChanged()
-        refreshGrantedCaps()
+        refreshCapabilitySettings()
         extensionHost?.refreshLocale()
         extensionHost?.reloadAssistSettings()
         applyGlobalHotkey()
@@ -2958,10 +2980,12 @@ async function openWorker(req: {
 }): Promise<string | null> {
   let workspaceId = req.workspaceId
   if (!workspaceId) {
-    const created = await execCommand({ workspaceId: '', paneId: null }, 'workspace.new', {
-      ...(req.cwd ? { dir: req.cwd } : {}),
-      ...(req.name ? { name: req.name } : {}),
-    })
+    const created = await reach.byAgent(() =>
+      execCommand({ workspaceId: '', paneId: null }, 'workspace.new', {
+        ...(req.cwd ? { dir: req.cwd } : {}),
+        ...(req.name ? { name: req.name } : {}),
+      }),
+    )
     const result = created.ok ? (created.result as { workspaceId?: unknown }) : undefined
     if (typeof result?.workspaceId !== 'string') return null
     workspaceId = result.workspaceId
@@ -3150,7 +3174,7 @@ app.whenReady().then(() => {
     )
   registerNotifyIpc(notifyDeps)
   registerAttentionMethods({ execCommand, reported: (paneId) => keptAttention.reported(paneId) })
-  registerPaneRenameMethods({ execCommand })
+  registerPaneRenameMethods({ execCommand, reach })
   registerPaneResumeMethods({
     execCommand,
     onResume: (identity, resume) => {
@@ -3181,6 +3205,7 @@ app.whenReady().then(() => {
     },
     cwdOfPane: (paneId) => terminalState.get(paneId)?.cwd,
     agentArgv: (name) => managerAgents(managerSettings())[name] ?? null,
+    reach,
     interruptGraceMs: INTERRUPT_GRACE_MS,
   })
   processes = registry
@@ -3199,14 +3224,11 @@ app.whenReady().then(() => {
     return res.ok && (res.result as { woke?: unknown } | undefined)?.woke === true
   }
   const paneReachDeps: PaneReachDeps = {
-    processPane: (ref, ctx) => {
-      const entry = registry.resolve(
-        ref,
-        ctx.identity.workspaceId,
-        connHasCap(ctx.authed, 'all-workspaces'),
-      )
+    processPane: async (ref, ctx) => {
+      const entry = registry.resolve(ref, ctx.identity.workspaceId, await reach.visible(ctx))
       return entry && entry.status !== 'closed' ? entry.paneId : undefined
     },
+    inScope: reach.inScope,
     isChild: (ownerPaneId, paneId) => registry.isChild(ownerPaneId, paneId),
     isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
     isConfined: (paneId) => ptys.get(paneId)?.sandboxed === true,
@@ -3514,10 +3536,11 @@ app.whenReady().then(() => {
     screenshotRoots: [homedir(), app.getPath('userData')],
     consoleBuffers,
     errorBuffers,
+    reach,
   })
-  registerPickMethods({ browserPanes, isSharedPane, errorBuffers, broadcast })
+  registerPickMethods({ browserPanes, isSharedPane, errorBuffers, broadcast, reach })
   registerPickIpc(
-    { browserPanes, isSharedPane, errorBuffers, broadcast },
+    { browserPanes, isSharedPane, errorBuffers, broadcast, reach },
     reachesPane,
     redactor.text,
   )
@@ -3529,6 +3552,7 @@ app.whenReady().then(() => {
     browserPanes,
     isSharedPane,
     ownedGuest: (paneId, senderWindowId) => ownedGuest(browserPanes, paneId, senderWindowId),
+    reach,
   })
   registerScriptTokenMethods(scriptTokensPath)
   setScriptTokenCheck((token) => verifyScriptToken(scriptTokensPath(), token))
@@ -3539,6 +3563,7 @@ app.whenReady().then(() => {
     isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
     windowOfWorkspace: workspaceWindowId,
     primaryWindow: primaryWindowId,
+    byAgent: reach.byAgent,
   })
   writeControlInfo(controlInfoPath(), controlSocketPath(), process.pid)
   listenKeptControlSocket(keptControlSocketPath(app.getPath('userData')))

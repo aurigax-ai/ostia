@@ -171,7 +171,7 @@ ostia process restart <id|name>    # Ctrl+C, then the same line again in the sam
   interactive shell (zsh or bash), so the human's aliases and functions apply. Quote it once
   for your own shell: `ostia process run "claude 'fix the login bug'" --name fixer`.
   It starts in your current folder unless you pass `--cwd`. `--workspace <id|name>` opens the
-  tab in another workspace (needs `all-workspaces`).
+  tab in another workspace (needs `all-workspaces` outside your reach, see below).
 - To hand work to another agent, `ostia agent run claude "fix the login bug" --name fixer`
   (or `codex`, or an agent name the human configured) does the quoting for you: the prompt is
   passed as one argument, and `-` reads it from stdin for a long one. The agent opens in its own
@@ -193,7 +193,7 @@ ostia process restart <id|name>    # Ctrl+C, then the same line again in the sam
   new. A full-screen program (an agent, an editor) has no useful log: use `ostia pane read`.
 - `kill` leaves the tab open with its output. `restart` fails with `still-running` when the
   command ignores Ctrl+C; `kill` it and `run` it again.
-- You see only your own workspace's processes (others need `all-workspaces`).
+- You see only the processes of workspaces in your reach (others need `all-workspaces`).
 
 ## Talk to another terminal pane
 
@@ -212,7 +212,7 @@ ostia pane rename <pane> <title...> | --clear  # name its tab (your own needs no
 - A tab **you** opened with `ostia process run` or `ostia agent run` is yours to type into,
   read, wake and close, with no question asked.
 - Any other pane asks the human first: typing needs `type-other-pane`, reading needs
-  `read-other-pane`, closing needs `kill-pane`, and a pane in another workspace also needs
+  `read-other-pane`, closing needs `kill-pane`, and a pane outside your reach also needs
   `all-workspaces`. A screen
   can hold secrets, so read only what the task needs.
 - From a sandboxed workspace you reach only sandboxed terminals of your own workspace.
@@ -888,6 +888,27 @@ granted per device only by the human in Settings → Remote — there is deliber
 socket method for it, so don't try to raise a phone's caps; ask the user. This is a separate,
 smaller vocabulary from the `Capability` list below; see `ostia-companion/NETWORK-CONTRACT.md` for
 the full protocol.
+
+## Your reach
+
+Your reach is the set of workspaces you act on without `all-workspaces`. The human sets it in
+Settings → Agents (`capabilities.reach`), and only the human: `ostia settings set` refuses it,
+and so does every other way you could try. Don't ask for it to change; ask for the one action.
+
+- `workspace`: your own workspace only.
+- `project` (the default): also every workspace of your git repository, any worktree, or of
+  your folder when it is not a repository. A sibling workspace for your workers in another
+  worktree of the same repository is in it. A workspace whose folder an agent set
+  (`ostia workspace dir`) counts only after the human confirms it on a card, so moving your
+  workspace into another repository gains you nothing.
+- `group`: also the workspaces the human put in your sidebar group. A workspace an agent moved
+  into the group (`ostia workspace group`, or one an agent created there) counts only after the
+  human confirms it on a card, so grouping a workspace yourself gains you nothing.
+
+Scratch and sandboxed workspaces are never in anyone's reach, and from a sandboxed
+workspace you reach only your own. Reach replaces only `all-workspaces`: panes you did not open
+still ask for `type-other-pane`, `read-other-pane` or `kill-pane`, and `destructive` and
+`credentials` always ask.
 
 ## Capabilities & elevation
 

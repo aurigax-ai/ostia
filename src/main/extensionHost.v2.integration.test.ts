@@ -2,6 +2,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { ownWorkspaceReach } from '../../test/reach'
 import type { ExtensionCaller, PaneChip, WorkspaceChip } from '../shared/extensions'
 import type { CommandResult, CommandTarget } from '../shared/types'
 import { registerAttentionMethods } from './attention'
@@ -80,6 +81,7 @@ describe('Extension API v2 over a real control socket with the echo fixture', ()
     registerBrowseMethods({
       browserPanes: new Map(),
       isSharedPane: () => false,
+      reach: ownWorkspaceReach(),
       execCommand,
       screenshotRoots: [dir],
       consoleBuffers: new Map(),

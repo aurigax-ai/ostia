@@ -119,10 +119,10 @@ export function registerPaneWaitMethods(deps: PaneWaitDeps): void {
       if (p.panes.length > PANE_WAIT_MAX_PANES) throw fail('too-many: panes')
       const until = waitUntil(p.until)
       const timeoutMs = waitTimeout(p.timeoutMs)
-      const panes = (p.panes as unknown[]).map((ref) => ({
-        ref: String(ref),
-        to: paneTarget(deps, ref, ctx),
-      }))
+      const panes: { ref: string; to: PaneIdentity }[] = []
+      for (const ref of p.panes as unknown[]) {
+        panes.push({ ref: String(ref), to: await paneTarget(deps, ref, ctx) })
+      }
       for (const { ref, to } of panes) {
         await ensurePaneReach(deps, 'read', to, ctx, {
           ref,

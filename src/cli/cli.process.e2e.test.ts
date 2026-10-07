@@ -16,6 +16,7 @@ const { getByPaneId, registerPane } = await import('../main/idRegistry')
 const { registerPaneIoMethods } = await import('../main/paneIo')
 const { PaneWaking } = await import('../main/paneWaking')
 const { registerProcessMethods } = await import('../main/processManager')
+const { ownWorkspaceReach } = await import('../../test/reach')
 const { PtyRingBuffer } = await import('../main/ptyRingBuffer')
 
 type OpenRequest = Parameters<Parameters<typeof registerProcessMethods>[0]['openTab']>[0]
@@ -32,8 +33,10 @@ const reruns: { paneId: string; command: string }[] = []
 const closedPanes: string[] = []
 let tabSeq = 0
 
+const reach = ownWorkspaceReach()
 const registry = registerProcessMethods({
   isSandboxed: () => false,
+  reach,
   openTab: async (req) => {
     opened.push(req)
     tabSeq += 1
@@ -74,10 +77,11 @@ registerPaneIoMethods({
     outputCursor: () => undefined,
   },
   state: (paneId) => ({ paneId, generation: 1, cwd: '/w', running: true, blockCount: 1 }),
-  processPane: (ref, ctx) => {
-    const entry = registry.resolve(ref, ctx.identity.workspaceId, false)
+  processPane: async (ref, ctx) => {
+    const entry = registry.resolve(ref, ctx.identity.workspaceId, await reach.visible(ctx))
     return entry && entry.status !== 'closed' ? entry.paneId : undefined
   },
+  inScope: reach.inScope,
   isChild: (ownerPaneId, paneId) => registry.isChild(ownerPaneId, paneId),
   isSandboxed: () => false,
   isConfined: () => false,

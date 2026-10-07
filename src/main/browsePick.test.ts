@@ -20,6 +20,7 @@ const {
   MAX_PICK_TIMEOUT_MS,
 } = await import('./browsePick')
 const { getByPaneId, registerPane, removePane } = await import('./idRegistry')
+const { ownWorkspaceReach } = await import('../../test/reach')
 
 const sameWindow = (sender: string, _source: string, target: string): boolean =>
   getByPaneId(target)?.windowId === sender
@@ -60,6 +61,7 @@ function deps() {
   return {
     browserPanes: new Map<string, number>(),
     isSharedPane: () => false,
+    reach: ownWorkspaceReach(),
     errorBuffers: new Map([[42, [{ level: 'error', text: 'boom', ts: 1 }]]]),
     broadcast: vi.fn(),
   }

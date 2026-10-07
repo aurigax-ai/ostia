@@ -1102,6 +1102,10 @@ export const en = {
     secret: '{pane} wants the secret {subject}',
     package: '{pane} wants to install {subject}',
     packageMalware: 'Known malware: {pane} tried to install {subject}',
+    reachFolderConfirm:
+      'An agent set a workspace’s folder to {subject}. {pane} can reach it without asking only after you confirm it belongs to this project',
+    reachConfirm:
+      'An agent put workspace {subject} in this group. {pane} can reach it without asking only after you confirm it belongs there',
     outcomeWorkspace: 'Allowed for this workspace',
     outcomeUntilRestart: 'Allowed until restart',
     deny: 'Deny',
@@ -1119,6 +1123,17 @@ export const en = {
       'What happens when an agent needs a permission it does not have. Destructive actions always ask.',
     modeAsk: 'Ask me',
     modeAllow: 'Allow and record',
+    reach: 'Agent reach',
+    reachDesc:
+      'Which other workspaces an agent acts on without asking to act on panes and workspaces other than its own. Only you can change this.',
+    reachWorkspace: 'Its own workspace',
+    reachWorkspaceDesc: 'An agent acts only on its own workspace without asking.',
+    reachProject: 'Its project',
+    reachProjectDesc:
+      'Workspaces of the same git repository, any worktree, or of the same folder outside a repository count as its own. Scratch, manager and sandboxed workspaces never do.',
+    reachGroup: 'Its sidebar group',
+    reachGroupDesc:
+      'Workspaces you put in its sidebar group count as its own. A workspace an agent moved into the group counts only after you confirm it.',
     caps: {
       'send-other-pane': 'send messages to other panes',
       'type-other-pane': 'type into other terminal panes',
@@ -4117,6 +4132,10 @@ export const zhHant: Dict = {
     secret: '{pane} 想取得機密 {subject}',
     package: '{pane} 想安裝 {subject}',
     packageMalware: '已知惡意套件：{pane} 試圖安裝 {subject}',
+    reachFolderConfirm:
+      '代理程式將某個工作區的資料夾設為 {subject}。需要你確認它屬於此專案後，{pane} 才能不經詢問觸及它',
+    reachConfirm:
+      '工作區 {subject} 是由代理程式放入此群組的。需要你確認它屬於此群組後，{pane} 才能不經詢問觸及它',
     outcomeWorkspace: '此工作區內允許',
     outcomeUntilRestart: '重新啟動前允許',
     deny: '拒絕',
@@ -4133,6 +4152,17 @@ export const zhHant: Dict = {
     modeDesc: '代理程式需要尚未擁有的權限時的處理方式。破壞性操作一律詢問。',
     modeAsk: '詢問我',
     modeAllow: '允許並記錄',
+    reach: '代理程式觸及範圍',
+    reachDesc:
+      '代理程式不必詢問「操作它所屬以外的窗格與工作區」就能操作的其他工作區。只有你能變更此設定。',
+    reachWorkspace: '它自己的工作區',
+    reachWorkspaceDesc: '代理程式只能不經詢問操作它自己的工作區。',
+    reachProject: '它的專案',
+    reachProjectDesc:
+      '同一個 git 儲存庫（任何 worktree）或儲存庫外同一資料夾的工作區，視同它自己的。暫存、管理員與沙箱工作區永遠不算。',
+    reachGroup: '它的側邊欄群組',
+    reachGroupDesc:
+      '你放進它側邊欄群組的工作區視同它自己的。代理程式移入群組的工作區，須經你確認後才算。',
     caps: {
       'send-other-pane': '傳送訊息到其他窗格',
       'type-other-pane': '在其他終端機窗格輸入',

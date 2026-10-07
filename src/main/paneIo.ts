@@ -5,6 +5,7 @@ import { ensureCaps } from './controlElevation'
 import { type ControlMethodContext, registerControlMethod } from './controlServer'
 import { type PaneIdentity, getByPaneId, resolveExternal } from './idRegistry'
 import type { PaneWaking } from './paneWaking'
+import type { Reach } from './reach'
 import { SANDBOXED_REFUSAL } from './sandboxedCaller'
 
 export const READ_LINES_DEFAULT = 200
@@ -147,6 +148,7 @@ export interface ReachFacts {
   caller: { paneId: string; workspaceId: string; sandboxed: boolean }
   target: { paneId: string; workspaceId: string; manager: boolean; confined: boolean }
   ownChild: boolean
+  sameScope: boolean
 }
 
 export type ReachVerdict = { allowed: true; caps: Capability[] } | { allowed: false; error: string }
@@ -167,15 +169,17 @@ export function paneReach(kind: PaneReach, facts: ReachFacts): ReachVerdict {
   if (caller.sandboxed && !(sameWorkspace && target.confined)) {
     return { allowed: false, error: 'sandboxed' }
   }
-  if (facts.ownChild && sameWorkspace) return { allowed: true, caps: ['process'] }
+  const sameScope = sameWorkspace || facts.sameScope
+  if (facts.ownChild && sameScope) return { allowed: true, caps: ['process'] }
   return {
     allowed: true,
-    caps: [REACH_CAPS[kind], ...(sameWorkspace ? [] : (['all-workspaces'] as const))],
+    caps: [REACH_CAPS[kind], ...(sameScope ? [] : (['all-workspaces'] as const))],
   }
 }
 
 export interface PaneReachDeps {
-  processPane: (ref: string, ctx: ControlMethodContext) => string | undefined
+  processPane: (ref: string, ctx: ControlMethodContext) => Promise<string | undefined>
+  inScope: Reach['inScope']
   isChild: (ownerPaneId: string, paneId: string) => boolean
   isSandboxed: (workspaceId: string) => boolean
   isConfined: (paneId: string) => boolean
@@ -222,13 +226,13 @@ export function paneRefs(raw: unknown): string[] {
   return [...new Set(raw as string[])]
 }
 
-export function paneTarget(
+export async function paneTarget(
   deps: Pick<PaneReachDeps, 'processPane'>,
   raw: unknown,
   ctx: ControlMethodContext,
-): PaneIdentity {
+): Promise<PaneIdentity> {
   if (typeof raw !== 'string' || !raw) throw fail('bad-request: pane')
-  const processPane = deps.processPane(raw, ctx)
+  const processPane = await deps.processPane(raw, ctx)
   const found = processPane ? getByPaneId(processPane) : resolveExternal(raw)
   if (found?.kind !== 'pane') throw fail(`unknown-pane: ${raw}`)
   return found
@@ -242,11 +246,13 @@ export async function ensurePaneReach(
   ask: { ref: string; method: string; detail: string },
 ): Promise<void> {
   const me = ctx.identity
+  const sandboxed = deps.isSandboxed(me.workspaceId)
+  const sameScope = !sandboxed && to.manager !== true && (await deps.inScope(ctx, to.workspaceId))
   const verdict = paneReach(kind, {
     caller: {
       paneId: me.paneId,
       workspaceId: me.workspaceId,
-      sandboxed: deps.isSandboxed(me.workspaceId),
+      sandboxed,
     },
     target: {
       paneId: to.paneId,
@@ -255,6 +261,7 @@ export async function ensurePaneReach(
       confined: deps.isConfined(to.paneId),
     },
     ownChild: deps.isChild(me.paneId, to.paneId),
+    sameScope,
   })
   if (!verdict.allowed) {
     throw fail(
@@ -265,7 +272,7 @@ export async function ensurePaneReach(
 }
 
 export function registerPaneIoMethods(deps: PaneIoDeps): void {
-  const target = (raw: unknown, ctx: ControlMethodContext): PaneIdentity =>
+  const target = (raw: unknown, ctx: ControlMethodContext): Promise<PaneIdentity> =>
     paneTarget(deps, raw, ctx)
 
   const reach = (
@@ -298,7 +305,7 @@ export function registerPaneIoMethods(deps: PaneIoDeps): void {
     scripts: true,
     handler: async (raw, ctx) => {
       const p = record(raw)
-      const to = target(p.pane, ctx)
+      const to = await target(p.pane, ctx)
       const parts = inputParts(p.text, p.keys)
       const paste = optionalFlag(p.paste, 'paste') ?? parts.text.includes('\n')
       const force = optionalFlag(p.force, 'force') === true
@@ -353,7 +360,7 @@ export function registerPaneIoMethods(deps: PaneIoDeps): void {
       const panes: PaneIdentity[] = []
       const asleepPanes: PaneIdentity[] = []
       for (const ref of refs) {
-        const to = target(ref, ctx)
+        const to = await target(ref, ctx)
         await ensurePaneReach(deps, 'input', to, ctx, {
           ref,
           method: 'pane.wake',
@@ -393,7 +400,7 @@ export function registerPaneIoMethods(deps: PaneIoDeps): void {
       const refs = paneRefs(record(raw).panes)
       const panes: PaneIdentity[] = []
       for (const ref of refs) {
-        const to = target(ref, ctx)
+        const to = await target(ref, ctx)
         await ensurePaneReach(deps, 'close', to, ctx, {
           ref,
           method: 'pane.close',
@@ -415,7 +422,7 @@ export function registerPaneIoMethods(deps: PaneIoDeps): void {
     scripts: true,
     handler: async (raw, ctx) => {
       const p = record(raw)
-      const to = target(p.pane, ctx)
+      const to = await target(p.pane, ctx)
       const lines = readLineCount(p.lines)
       await reach('read', to, String(p.pane), ctx, `read the screen of ${to.externalId}`)
       const text = await deps.io.read(to.paneId, lines)

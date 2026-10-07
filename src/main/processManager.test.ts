@@ -8,6 +8,7 @@ import {
   StreamMessageWriter,
   createMessageConnection,
 } from 'vscode-jsonrpc/node'
+import { ownWorkspaceReach } from '../../test/reach'
 import type { Capability } from '../shared/capabilities'
 import type { CommandResult } from '../shared/types'
 import { grant, setCaps } from './capabilityStore'
@@ -55,6 +56,7 @@ const sandboxedWorkspaces = new Set<string>()
 
 const registry = registerProcessMethods({
   isSandboxed: (workspaceId) => sandboxedWorkspaces.has(workspaceId),
+  reach: ownWorkspaceReach(),
   openTab: async (req) => {
     if (openFails) return null
     opened.push(req)
