@@ -35,6 +35,7 @@ describe('terminalKeyChanges', () => {
     expect(changes).toEqual([
       {
         keys: 'Alt+←',
+        signature: 'Alt+Left',
         before: { type: 'escape', value: 'b' },
         after: { type: 'escape', value: 'f' },
       },

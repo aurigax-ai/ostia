@@ -274,12 +274,20 @@ test('on macOS the cmux keymap is opt-in: picking it drops ⌘K for the palette,
     await expect(win.locator('.xterm')).toHaveCount(1)
 
     const settings = await openKeyboardSettings(win)
-    const picker = settings.getByRole('combobox', { name: 'App shortcuts' })
-    await expect(picker).toContainText('Ostia')
+    const presets = settings.getByRole('group', { name: 'App shortcuts' })
+    await expect(presets.getByRole('button', { name: 'Ostia' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
     await expect(paletteRow(win)).toContainText('⌘K')
-    await picker.click()
-    await win.getByRole('option', { name: 'macOS (cmux)' }).click()
-    await expect(picker).toContainText('macOS (cmux)')
+    await presets.getByRole('button', { name: 'macOS (cmux)' }).click()
+    await expect(settings.getByText(/Switching to macOS \(cmux\) changes these keys/)).toBeVisible()
+    await expect(paletteRow(win)).toContainText('⌘K')
+    await settings.getByRole('button', { name: 'Apply macOS (cmux)' }).click()
+    await expect(presets.getByRole('button', { name: 'macOS (cmux)' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
     await expect(paletteRow(win)).toContainText('⌘⇧P')
     await expect(win.getByRole('button', { name: 'Change ⌘K for Command Palette' })).toHaveCount(0)
     await closeSettings(win)

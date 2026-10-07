@@ -107,6 +107,7 @@ import type {
   OpenPathResult,
   OriginAgents,
   OstiaBridge,
+  PaneActivity,
   Platform,
   PromptContext,
   PtyAttachResult,
@@ -199,7 +200,8 @@ const bridge: OstiaBridge = {
     listDir: (paneId, dir) => ipcRenderer.invoke('pty:list-dir', paneId, dir),
     localPrompt: (paneId) => ipcRenderer.invoke('pty:local-prompt', paneId),
     foreground: (paneId) => ipcRenderer.invoke('pty:foreground', paneId) as Promise<string | null>,
-    busy: (paneId) => ipcRenderer.invoke('pty:busy', paneId) as Promise<string | null>,
+    activity: (paneId) =>
+      ipcRenderer.invoke('pty:activity', paneId) as Promise<PaneActivity | null>,
     promptContext: (paneId, want) =>
       ipcRenderer.invoke('pty:prompt-context', paneId, want) as Promise<PromptContext | null>,
     onData: (paneId, cb) => {
