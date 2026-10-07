@@ -3,17 +3,18 @@ import type { MarketplaceState } from '@shared/marketplace'
 import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { renderSettled } from '../../../test/render'
 import { syncExtensionCommands, wireExtensionBridge } from '../commands/extensionBridge'
 import { useExtensionsStore } from '../stores/extensionsStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useMarketplaceStore } from '../stores/marketplaceStore'
 import { useUIStore } from '../stores/uiStore'
 import { type Workspace, useWorkspacesStore } from '../stores/workspacesStore'
+import { BrowseExtensions } from './BrowseExtensions'
 import { CommandPalette } from './CommandPalette'
 import { ExtensionApprovalDialog } from './ExtensionApprovalDialog'
-import { MarketplaceSection } from './MarketplaceSection'
+import { ExtensionsSection } from './InstalledExtensions'
 import { PanelToggles } from './PanelToggles'
-import { ExtensionsSection } from './SettingsPanel'
 
 if (!Element.prototype.getAnimations) {
   Element.prototype.getAnimations = () => []
@@ -112,18 +113,18 @@ describe('extension wording follows the list main resolved for the language', ()
   })
 
   it('Settings → Extensions shows the English name, then the translated one, then English again', async () => {
-    render(<ExtensionsSection />)
+    await renderSettled(<ExtensionsSection />)
     const section = screen.getByRole('region', { name: 'Extensions' })
-    expect(within(section).getByText('Greeter')).toBeInTheDocument()
+    expect(within(section).getByRole('listitem', { name: 'Greeter' })).toBeInTheDocument()
     expect(within(section).getByText('Says hello')).toBeInTheDocument()
 
     await act(async () => announce([TRADITIONAL_CHINESE]))
-    expect(within(section).getByText('問候者')).toBeInTheDocument()
+    expect(within(section).getByRole('listitem', { name: '問候者' })).toBeInTheDocument()
     expect(within(section).getByText('向你打招呼')).toBeInTheDocument()
     expect(within(section).queryByText('Greeter')).toBeNull()
 
     await act(async () => announce([ENGLISH]))
-    expect(within(section).getByText('Greeter')).toBeInTheDocument()
+    expect(within(section).getByRole('listitem', { name: 'Greeter' })).toBeInTheDocument()
     expect(within(section).queryByText('問候者')).toBeNull()
   })
 
@@ -202,6 +203,8 @@ describe('extension wording follows the list main resolved for the language', ()
               category: 'tools',
               capabilities: [],
               runsProcess: true,
+              agentSkills: [],
+              agentHooks: [],
               state: 'available',
             },
           ],
@@ -209,7 +212,7 @@ describe('extension wording follows the list main resolved for the language', ()
       ],
     })
     vi.mocked(window.ostia.marketplace.list).mockResolvedValue(listing('Weather'))
-    render(<MarketplaceSection />)
+    render(<BrowseExtensions />)
     expect(await screen.findByRole('listitem', { name: 'Weather' })).toBeInTheDocument()
 
     vi.mocked(window.ostia.marketplace.list).mockResolvedValue(listing('天氣'))
