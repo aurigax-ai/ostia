@@ -233,6 +233,7 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
     },
     system: {
       requirements: vi.fn().mockResolvedValue(null),
+      discreteGpu: vi.fn().mockResolvedValue(null),
       installRequirements: vi.fn().mockResolvedValue({ ok: true }),
     },
     secrets: {

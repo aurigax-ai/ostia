@@ -31,6 +31,7 @@ import { appEnv } from '../shared/appEnv'
 import { SHARED_BROWSER_PARTITION, browserPartition } from '../shared/browserProfile'
 import { MANAGER_CAPABILITIES } from '../shared/capabilities'
 import { parseChatToolSettings } from '../shared/chatTools'
+import type { DiscreteGpuInfo } from '../shared/discreteGpu'
 import { languageForPath } from '../shared/editorLanguages'
 import { EXTENSION_SUGGESTIONS } from '../shared/extensionSuggestions'
 import type { ExtensionPanelContext, ExtensionResult, WorkspaceChip } from '../shared/extensions'
@@ -112,6 +113,7 @@ import {
 } from './controlServer'
 import { credentials, registerCredentials } from './credentials'
 import { type Diagnostics, registerDiagnostics } from './diagnostics'
+import { discreteGpu, gpuStartPlan, querySwitcherooGpus } from './discreteGpu'
 import { registerDocsMethods } from './docs'
 import { registerEditorLanguageIpc } from './editorLanguages'
 import { emitPlatformEvent, emitSessionState, platformEvents } from './events'
@@ -1856,6 +1858,11 @@ function registerPtyIpc(): void {
       extensionHost
         ? extensionHost.invoke('system', 'install', args, caller)
         : Promise.resolve({ ok: false, error: 'extension-unavailable' }),
+  })
+  ipcMain.handle('system:discrete-gpu', async (): Promise<DiscreteGpuInfo | null> => {
+    if (process.platform !== 'linux') return null
+    const gpu = discreteGpu(await querySwitcherooGpus())
+    return gpu ? { name: gpu.name, inUse: gpuStartPlan(process.env, gpu).kind === 'stay' } : null
   })
   const attaching = new Map<string, Promise<PtyAttachResult>>()
   ipcMain.handle('pty:attach', async (e, paneId: string, opts: PtySpawnOptions) => {

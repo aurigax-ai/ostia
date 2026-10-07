@@ -25,6 +25,7 @@ import type {
   CredentialSaveResult,
   CredentialSummary,
 } from '../shared/credentials'
+import type { DiscreteGpuInfo } from '../shared/discreteGpu'
 import type { EditorLanguage } from '../shared/editorLanguages'
 import type { ExtensionSuggestion } from '../shared/extensionSuggestions'
 import type {
@@ -534,6 +535,7 @@ const bridge: OstiaBridge = {
         feature,
         workspaceId,
       ) as Promise<ExtensionResult>,
+    discreteGpu: () => ipcRenderer.invoke('system:discrete-gpu') as Promise<DiscreteGpuInfo | null>,
   },
   secrets: {
     view: (workspaceId) =>

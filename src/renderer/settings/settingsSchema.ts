@@ -305,6 +305,13 @@ export const SETTINGS_JSON_SCHEMA = {
             'and show a notice when one does. Nothing is downloaded or installed. Only you can ' +
             'change this, in Settings → About. Default: true.',
         },
+        discreteGpu: {
+          type: 'boolean',
+          description:
+            'Linux: run the app on the discrete GPU that switcheroo-control lists. Needs ' +
+            'switcheroo-control. Programs in terminals keep the default GPU. Applies on the ' +
+            'next start. Only you can change this, in Settings → Terminal. Default: false.',
+        },
         externalEditor: {
           type: 'string',
           description:
