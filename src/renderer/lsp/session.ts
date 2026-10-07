@@ -33,6 +33,7 @@ const SYNC_NONE = 0
 export const INITIALIZE_TIMEOUT_MS = 60_000
 export const PULL_DEBOUNCE_MS = 200
 export const PULL_MAX_RETRIES = 3
+export const FULL_SYNC_DEBOUNCE_MS = 50
 const SYNC_INCREMENTAL = 2
 const SERVER_CANCELLED = -32802
 
@@ -244,6 +245,7 @@ export class LspSession {
   private effective: ServerCapabilities | null = null
   private closed = false
   private flushQueued = false
+  private flushTimer: ReturnType<typeof setTimeout> | null = null
 
   constructor(
     readonly info: LspSessionInfo,
@@ -529,6 +531,11 @@ export class LspSession {
   }
 
   private queueFlush(): void {
+    if (this.syncKind() !== SYNC_INCREMENTAL) {
+      if (this.flushTimer) clearTimeout(this.flushTimer)
+      this.flushTimer = setTimeout(() => this.flush(), FULL_SYNC_DEBOUNCE_MS)
+      return
+    }
     if (this.flushQueued) return
     this.flushQueued = true
     queueMicrotask(() => this.flush())
@@ -536,6 +543,10 @@ export class LspSession {
 
   private flush(): void {
     this.flushQueued = false
+    if (this.flushTimer) {
+      clearTimeout(this.flushTimer)
+      this.flushTimer = null
+    }
     for (const [uri, document] of this.documents) {
       if (!document.dirty) continue
       document.dirty = false
@@ -589,6 +600,8 @@ export class LspSession {
     this.closed = true
     for (const document of this.documents.values()) document.subscription.dispose()
     for (const uri of [...this.pulls.keys()]) this.forgetPull(uri)
+    if (this.flushTimer) clearTimeout(this.flushTimer)
+    this.flushTimer = null
     this.documents.clear()
     this.hooks.onClosed()
   }

@@ -6,7 +6,7 @@ import { FakeModel, createFakeMonaco } from '../../../test/mocks/monaco'
 const fake = createFakeMonaco()
 vi.mock('../monaco/setup', () => ({ monaco: fake.monaco }))
 
-const { LspSession } = await import('./session')
+const { FULL_SYNC_DEBOUNCE_MS, LspSession } = await import('./session')
 
 const info = {
   sessionId: 's1',
@@ -50,6 +50,10 @@ async function settled(): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, 0))
 }
 
+async function debounced(): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, FULL_SYNC_DEBOUNCE_MS + 20))
+}
+
 afterEach(() => {
   for (const session of open.splice(0)) session.dispose()
 })
@@ -79,7 +83,7 @@ describe('LspSession', () => {
     const model = new FakeModel('/work/proj/a.txt', 'one\ntwo')
     session.openDocument(model as never, 'fake')
     model.edit({ startLineNumber: 1, startColumn: 1, endLineNumber: 1, endColumn: 4 }, 'ONE')
-    await settled()
+    await debounced()
     expect(notifications.slice(1)).toEqual([
       {
         method: 'textDocument/didOpen',
@@ -123,20 +127,29 @@ describe('LspSession', () => {
     })
   })
 
-  it('sends one whole-text didChange for several edits in one tick', async () => {
+  it('sends one whole-text didChange for keystrokes typed in separate tasks within the debounce', async () => {
     const { session, notifications } = await start({ textDocumentSync: 1 })
-    const model = new FakeModel('/work/proj/a.txt', 'one\ntwo')
+    const model = new FakeModel('/work/proj/a.txt', 'one')
     session.openDocument(model as never, 'fake')
-    model.edit({ startLineNumber: 1, startColumn: 1, endLineNumber: 1, endColumn: 4 }, 'ONE')
-    model.edit({ startLineNumber: 2, startColumn: 1, endLineNumber: 2, endColumn: 4 }, 'TWO')
-    model.edit({ startLineNumber: 2, startColumn: 4, endLineNumber: 2, endColumn: 4 }, '!')
-    await settled()
+    for (const [column, key] of [
+      [4, 'a'],
+      [5, 'b'],
+      [6, 'c'],
+    ] as const) {
+      model.edit(
+        { startLineNumber: 1, startColumn: column, endLineNumber: 1, endColumn: column },
+        key,
+      )
+      await settled()
+    }
+    expect(notifications.some((n) => n.method === 'textDocument/didChange')).toBe(false)
+    await debounced()
     expect(notifications.filter((n) => n.method === 'textDocument/didChange')).toEqual([
       {
         method: 'textDocument/didChange',
         params: {
           textDocument: { uri: 'file:///work/proj/a.txt', version: 2 },
-          contentChanges: [{ text: 'ONE\nTWO!' }],
+          contentChanges: [{ text: 'oneabc' }],
         },
       },
     ])
@@ -160,21 +173,25 @@ describe('LspSession', () => {
     })
   })
 
-  it('flushes pending edits before a request so the server answers on the latest text', async () => {
+  it('flushes pending edits before a request inside the debounce so the server answers on the latest text', async () => {
     const { session, link } = await start({ textDocumentSync: 1 })
     link.server.onRequest('textDocument/hover', () => null)
     const model = new FakeModel('/work/proj/a.txt', 'one')
     session.openDocument(model as never, 'fake')
-    model.edit({ startLineNumber: 1, startColumn: 1, endLineNumber: 1, endColumn: 4 }, 'ONE')
-    await session.request('textDocument/hover', {})
+    model.edit({ startLineNumber: 1, startColumn: 4, endLineNumber: 1, endColumn: 4 }, 'a')
     await settled()
-    const methods = (link.received as unknown as { method: string; params: unknown }[]).map(
-      (m) => m.method,
-    )
-    expect(methods.slice(methods.indexOf('textDocument/didOpen'))).toEqual([
-      'textDocument/didOpen',
-      'textDocument/didChange',
-      'textDocument/hover',
+    await session.request('textDocument/hover', {})
+    model.edit({ startLineNumber: 1, startColumn: 5, endLineNumber: 1, endColumn: 5 }, 'b')
+    await debounced()
+    const messages = link.received as unknown as {
+      method: string
+      params: { contentChanges?: unknown }
+    }[]
+    const sent = messages.slice(messages.findIndex((m) => m.method === 'textDocument/didOpen') + 1)
+    expect(sent.map((m) => [m.method, m.params.contentChanges])).toEqual([
+      ['textDocument/didChange', [{ text: 'onea' }]],
+      ['textDocument/hover', undefined],
+      ['textDocument/didChange', [{ text: 'oneab' }]],
     ])
   })
 
