@@ -256,7 +256,7 @@ import {
 } from './sandbox/visibility'
 import { SandboxUnavailableError, WorkspaceSandboxes } from './sandbox/workspaceSandboxes'
 import { ScratchFolders, registerScratchIpc } from './scratchFolders'
-import { ScreenMirror } from './screenMirror'
+import { HIBERNATE_SEAM, RESTORE_SEAM, ScreenMirror } from './screenMirror'
 import { registerScriptTokenMethods, verifyScriptToken } from './scriptTokens'
 import { registerSecretMethods } from './secrets/register'
 import { prepareSecrets } from './secrets/secretInjection'
@@ -267,6 +267,7 @@ import { ServerOverrides } from './serverOverrides'
 import { ExecutableIndex, commandNames, readShellState } from './shellCommands'
 import { closesPaneOnExit } from './shellExit'
 import { INTEGRATION_DIR, setAgentPlugins, shellIntegrationSpawnOptions } from './shellIntegration'
+import { sandboxCwd, spawnFolder } from './spawnCwd'
 import {
   SANDBOX_FEATURE,
   installHint,
@@ -398,8 +399,6 @@ function removeStateFile(entry: PtyEntry): void {
 }
 
 const SANDBOX_LOST_WHILE_AWAY = `its sandbox ended while ${PRODUCT_DISPLAY_NAME} was closed`
-const RESTORE_SEAM = '\x1b]133;D\x07\r\n\x1b[2m── workspace restored ──\x1b[0m\r\n'
-const HIBERNATE_SEAM = '\x1b]133;D\x07\r\n\x1b[2m── woke from hibernation ──\x1b[0m\r\n'
 
 const hibernatedPanes = new Set<string>()
 const movingPanes = new Set<string>()
@@ -690,27 +689,6 @@ function resizePty(entry: PtyEntry | undefined, cols: number, rows: number): voi
     return
   }
   entry.mirror.resize(c, r)
-}
-
-function expandHome(p: string): string {
-  const home = homedir()
-  if (p === '~') return home
-  if (p.startsWith('~/')) return join(home, p.slice(2))
-  return p
-}
-
-function resolveCwd(cwd?: string): string {
-  const home = homedir()
-  const p = expandHome(cwd ?? home)
-  try {
-    if (statSync(p).isDirectory()) return p
-  } catch {}
-  return home
-}
-
-function sandboxCwd(cwd: string, workDir: string | undefined): string {
-  if (!workDir) return cwd
-  return cwd === workDir || cwd.startsWith(`${workDir}/`) ? cwd : workDir
 }
 
 const scratchFolders = new ScratchFolders(privateTmpDir(`${PRODUCT_NAME}-scratch`))
@@ -1957,7 +1935,8 @@ function registerPtyIpc(): void {
     let portBridge: PortBridge | null = null
     let file = shell
     let args = [...integration.args, ...shellArgs]
-    let cwd = resolveCwd(opts.cwd)
+    const folder = spawnFolder(opts.cwd)
+    let cwd = folder.cwd
     const host = opts.hostToken ? hostPaneGrants.consume(opts.hostToken) : false
     const sandboxed = !host && workspaceId !== '' && workspaceSandboxes.isEnabled(workspaceId)
     if (sandboxed) {
@@ -2100,6 +2079,7 @@ function registerPtyIpc(): void {
       const notice = hiddenHomeNotice()
       if (notice) feedPty(entry, notice)
     }
+    if (history) entry.mirror.markRestored(history)
 
     pty.onData((d) => feedPty(entry, d))
     pty.onExit(({ exitCode }) => session.exit(exitCode))
@@ -2115,6 +2095,7 @@ function registerPtyIpc(): void {
       host,
       ...(sandboxStamp ? { sandboxStamp } : {}),
       ...(kept ? { kept: true } : {}),
+      ...(folder.missing ? { cwdMissing: true } : {}),
     }
   }
 
@@ -2424,7 +2405,7 @@ function spawnManagerPty(req: {
   const windowId = getByPaneId(req.paneId)?.windowId || primaryWindowId()
   const [file, ...args] = managerLaunchArgv(req.argv, req.resume)
   if (!mod || !windowId || !file) return false
-  const cwd = resolveCwd(req.cwd)
+  const { cwd } = spawnFolder(req.cwd)
   const env = {
     ...process.env,
     ...(req.path === undefined ? {} : { PATH: req.path }),

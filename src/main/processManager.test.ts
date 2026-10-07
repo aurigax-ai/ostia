@@ -11,12 +11,12 @@ import {
 import type { CommandResult } from '../shared/types'
 import { grant, setCaps } from './capabilityStore'
 import { registerControlServer, stopControlServer } from './controlServer'
-import type { TerminalOpenRequest } from './extensionHost'
 import { type PaneIdentity, registerExtension, registerPane, removePane } from './idRegistry'
 import {
   type ProcessInfo,
   type ProcessOutput,
   ProcessRegistry,
+  type ProcessTabRequest,
   registerProcessMethods,
 } from './processManager'
 import { PtyRingBuffer } from './ptyRingBuffer'
@@ -27,7 +27,7 @@ const exit = (code: number): string => `\x1b]133;D;${code}\x1b\\`
 
 const GRACE_MS = 40
 const rings = new Map<string, PtyRingBuffer>()
-const opened: TerminalOpenRequest[] = []
+const opened: ProcessTabRequest[] = []
 const written: { paneId: string; data: string }[] = []
 const ended: string[] = []
 const reruns: { paneId: string; command: string }[] = []
@@ -193,6 +193,7 @@ describe('process.run', () => {
         workspaceId: 'ws1',
         windowId: 'w1',
         afterPaneId: 'agent-pane',
+        openedPaneIds: [],
         backgroundTab: true,
         pinTitle: true,
         title: 'worker',
@@ -203,6 +204,17 @@ describe('process.run', () => {
     expect(started).not.toHaveProperty('pid')
     const [info] = await conn.sendRequest<ProcessInfo[]>('process.list')
     expect(info).toMatchObject({ name: 'worker', cmd, status: 'starting', paneId: started.paneId })
+  })
+
+  it("passes the caller's live tabs, oldest first, so the next one opens after them", async () => {
+    const conn = await client(agent)
+    const first = await start(conn, 'echo one')
+    const second = await start(conn, 'echo two')
+    registry.paneClosed(first.tab)
+    await start(conn, 'echo three')
+    await start(await client(neighbour), 'echo other')
+
+    expect(opened.map((o) => o.openedPaneIds)).toEqual([[], [first.tab], [second.tab], []])
   })
 
   it('names an unnamed process after its program and opens it in the given folder', async () => {

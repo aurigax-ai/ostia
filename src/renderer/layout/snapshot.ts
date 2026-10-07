@@ -38,7 +38,14 @@ export interface RestorableLayout {
 }
 
 function fromPane(pane: PaneNode, live: ReadonlySet<string>): SnapshotPaneNode {
-  const { kind, hibernated, resumePending, ...rest } = pane
+  const {
+    kind,
+    hibernated,
+    resumePending,
+    spawnDir: _spawnDir,
+    resumeFolderMissing: _missing,
+    ...rest
+  } = pane
   const keepHibernated = hibernated === true && Boolean(rest.resume)
   const agentRunning =
     !keepHibernated && Boolean(rest.resume) && (live.has(pane.id) || resumePending === true)
@@ -73,7 +80,10 @@ function fromLayoutNode(node: LayoutNode, live: ReadonlySet<string>): SnapshotNo
 
 function toPane(node: SnapshotPaneNode): PaneNode {
   const { agentRunning, ...rest } = node
-  return agentRunning && rest.resume ? { ...rest, resumePending: true } : { ...rest }
+  if (!agentRunning || !rest.resume) return { ...rest }
+  return rest.resume.cwd
+    ? { ...rest, resumePending: true, spawnDir: rest.resume.cwd }
+    : { ...rest, resumePending: true }
 }
 
 function persistableRoot(root: LayoutNode, workDir: string): LayoutNode {

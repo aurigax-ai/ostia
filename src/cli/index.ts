@@ -9,7 +9,7 @@ import {
   createMessageConnection,
 } from 'vscode-jsonrpc/node'
 import { controlInfoPath, readControlSocket } from '../main/controlDiscovery'
-import { RESUMABLE_AGENTS, isResumableAgent, resumeIdFromHookPayload } from '../shared/agentResume'
+import { RESUMABLE_AGENTS, isResumableAgent, resumeFromHookPayload } from '../shared/agentResume'
 import { readEnv } from '../shared/appEnv'
 import {
   CLAUDE_ATTENTION_EVENTS,
@@ -1207,15 +1207,15 @@ async function runResumeTokenVerb(conn: MessageConnection): Promise<void> {
     process.exitCode = 1
     return
   }
-  const id = resumeIdFromHookPayload(raw === '-' ? await readAllStdin() : raw)
-  if (!id) {
+  const session = resumeFromHookPayload(raw === '-' ? await readAllStdin() : raw)
+  if (!session) {
     console.error('ostia resume-token: no agent session id found')
     process.exitCode = 1
     return
   }
   const res = await conn.sendRequest<{ ok: boolean; error?: string }>('pane.setResume', {
     agent,
-    id,
+    ...session,
   })
   if (res.ok) {
     console.log('ok')

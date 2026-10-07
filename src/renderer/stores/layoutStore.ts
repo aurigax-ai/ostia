@@ -10,6 +10,7 @@ import {
   type DropZone,
   addTab,
   allPanes,
+  backgroundTabAnchor,
   closePane,
   createPane,
   createTerminalPane,
@@ -48,6 +49,7 @@ import {
   setPaneView,
   setResumePending,
   setSizes,
+  settleSpawnDir,
   slotCount,
   slotPaneOfKind,
   splitBeside,
@@ -89,6 +91,7 @@ interface LayoutState {
   setResume: (workspaceId: string, paneId: string, resume: AgentResume) => void
   setResumePending: (workspaceId: string, paneId: string, pending: boolean) => void
   setHibernated: (workspaceId: string, paneId: string, hibernated: boolean) => void
+  settleSpawnDir: (workspaceId: string, paneId: string, missing: boolean) => void
   setLocked: (workspaceId: string, paneId: string, locked: boolean) => void
   isLocked: (workspaceId: string, paneId?: string) => boolean
   setTitle: (workspaceId: string, paneId: string, title: string) => void
@@ -117,6 +120,7 @@ interface LayoutState {
 
 export interface OpenTerminalPlacement {
   afterPaneId?: string
+  openedPaneIds?: string[]
   cwd?: string
   title?: string
   backgroundTab?: boolean
@@ -495,6 +499,16 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
         : { byWorkspace: { ...s.byWorkspace, [workspaceId]: { ...layout, root } } }
     }),
 
+  settleSpawnDir: (workspaceId, paneId, missing) =>
+    set((s) => {
+      const layout = s.byWorkspace[workspaceId]
+      if (!layout) return s
+      const root = settleSpawnDir(layout.root, paneId, missing)
+      return root === layout.root
+        ? s
+        : { byWorkspace: { ...s.byWorkspace, [workspaceId]: { ...layout, root } } }
+    }),
+
   setLocked: (workspaceId, paneId, locked) =>
     set((s) => {
       const layout = s.byWorkspace[workspaceId]
@@ -730,7 +744,8 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
         if (opts.backgroundTab) {
           const pane = newTerminalPane()
           createdPaneId = pane.id
-          return { ...l, root: describeTerminal(addTab(l.root, beside, pane, true), pane.id, opts) }
+          const after = backgroundTabAnchor(l.root, beside, opts.openedPaneIds ?? [])
+          return { ...l, root: describeTerminal(addTab(l.root, after, pane, true), pane.id, opts) }
         }
         const { root, newPaneId } = splitBeside(l.root, beside, 'horizontal', newTerminalPane())
         if (!newPaneId) return l

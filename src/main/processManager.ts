@@ -266,6 +266,12 @@ export class ProcessRegistry {
     return workspaceId === null ? all : all.filter((e) => this.workspaceOf(e) === workspaceId)
   }
 
+  openedBy(ownerPaneId: string): string[] {
+    return [...this.entries.values()]
+      .filter((e) => e.ownerPaneId === ownerPaneId && e.status !== 'closed')
+      .map((e) => e.paneId)
+  }
+
   splitTabMember(workspaceId: string, splitTab: string): string | undefined {
     const members = [...this.entries.values()].filter(
       (e) =>
@@ -336,6 +342,7 @@ export class ProcessRegistry {
 }
 
 export interface ProcessTabRequest extends TerminalOpenRequest {
+  openedPaneIds?: string[]
   splitTab?: SplitTabPlacement
 }
 
@@ -486,6 +493,7 @@ export function registerProcessMethods(deps: ProcessDeps): ProcessRegistry {
       workspaceId: ctx.identity.workspaceId,
       windowId: ctx.identity.windowId,
       afterPaneId: ctx.identity.paneId,
+      openedPaneIds: registry.openedBy(ctx.identity.paneId),
       backgroundTab: true,
       pinTitle: true,
       title: name,

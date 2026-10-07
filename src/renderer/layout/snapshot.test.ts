@@ -314,6 +314,31 @@ describe('agent running at save', () => {
     expect(restored.children.find((p) => p.id === idle.id)?.resumePending).toBeUndefined()
   })
 
+  it('restores a running agent’s pane to start its shell in the agent’s folder, never saving that mark', () => {
+    const agent = {
+      ...createPane('terminal'),
+      cwd: '/w',
+      resume: { ...resume, cwd: '/w/tree' },
+      spawnDir: '/w/tree',
+      resumeFolderMissing: '/w/old',
+    }
+    const snap = buildSnapshot({
+      workspaces: [workspace],
+      groups: [],
+      activeWorkspaceId: 'w1',
+      layouts: { w1: { root: agent, activePaneId: agent.id } },
+      savedAt: 'now',
+      liveAgentPanes: new Set([agent.id]),
+    })
+    expect(snap.workspaces[0].root).not.toHaveProperty('spawnDir')
+    expect(snap.workspaces[0].root).not.toHaveProperty('resumeFolderMissing')
+    expect(restoreSnapshot(snap).layouts.w1.root).toMatchObject({
+      cwd: '/w',
+      resumePending: true,
+      spawnDir: '/w/tree',
+    })
+  })
+
   it('saves and restores a locked pane as locked', () => {
     const kept = { ...createPane('terminal'), locked: true as const }
     const snap = buildSnapshot({

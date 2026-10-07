@@ -1605,7 +1605,12 @@ describe('agent resume', () => {
     const r = await commands.execWith(ctx('s1', pane.id), 'agent.resume')
     expect(r).toMatchObject({ ok: true, result: { resumed: true } })
     expect(useLayoutStore.getState().byWorkspace.s1.root).not.toHaveProperty('hibernated')
-    expect(whenIdle).toHaveBeenCalledWith(pane.id, 'codex resume r-9')
+    expect(whenIdle).toHaveBeenCalledWith(
+      pane.id,
+      'codex resume r-9',
+      undefined,
+      expect.any(Function),
+    )
     expect(insert).not.toHaveBeenCalled()
   })
 

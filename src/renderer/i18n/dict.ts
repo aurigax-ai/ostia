@@ -607,6 +607,9 @@ export const en = {
     hibernatedTitle: 'Hibernated',
     hibernatedBody:
       'This agent sat idle out of sight, so its shell was stopped to save memory. The scrollback is kept. Resume starts a fresh shell and runs {command}.',
+    resumeFolderMissingLabel: 'Agent folder missing',
+    resumeFolderMissing:
+      'The folder {agent} worked in no longer exists: {path}. Nothing was run. Restore the folder and cd into it to resume, or close the tab.',
   },
   palette: {
     title: 'Command palette',
@@ -3424,6 +3427,9 @@ export const zhHant: Dict = {
     hibernatedTitle: '已休眠',
     hibernatedBody:
       '這個代理程式在背景閒置，因此停止了它的 shell 以節省記憶體。捲動紀錄已保留。繼續會啟動新的 shell 並執行 {command}。',
+    resumeFolderMissingLabel: '代理程式資料夾不存在',
+    resumeFolderMissing:
+      '{agent} 工作的資料夾已不存在：{path}。未執行任何指令。還原資料夾並 cd 進去即可繼續，或關閉分頁。',
   },
   palette: {
     title: '指令面板',

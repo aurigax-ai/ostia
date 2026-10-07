@@ -182,6 +182,7 @@ export interface PtyAttachResult {
   rows?: number
   kept?: boolean
   reattached?: boolean
+  cwdMissing?: boolean
 }
 
 export interface SystemApi {
@@ -454,6 +455,7 @@ export interface SnapshotSplitNode {
 }
 
 export interface ProcessTerminalRequest extends ExtensionOpenTerminalRequest {
+  openedPaneIds?: string[]
   splitTab?: SplitTabPlacement
 }
 

@@ -187,9 +187,38 @@ describe('the pane.wake command an agent reaches through main', () => {
       result: { woke: true },
     })
     expect(typed).toHaveBeenCalledTimes(1)
-    expect(typed).toHaveBeenCalledWith('idle-claude', 'claude --resume tok-idle-claude')
+    expect(typed).toHaveBeenCalledWith(
+      'idle-claude',
+      'claude --resume tok-idle-claude',
+      undefined,
+      expect.any(Function),
+    )
     expect(hibernated('idle-claude')).toBe(false)
     expect(hibernated('fresh-claude')).toBe(true)
+  })
+
+  it('starts the woken shell in the token’s folder and types nothing once that folder is gone', async () => {
+    seed(10)
+    useLayoutStore
+      .getState()
+      .setResume('s2', 'idle-claude', { agent: 'claude', id: 'tok-idle-claude', cwd: '/b/tree' })
+    await hibernateWorkspace('s2')
+    const typed = vi.spyOn(blockActions, 'runWhenIdle').mockImplementation(() => () => {})
+    await commands.execWith(target('idle-claude'), 'pane.wake')
+    const pane = () =>
+      findPane(useLayoutStore.getState().byWorkspace.s2?.root ?? terminal('x'), 'idle-claude')
+    expect(pane()?.spawnDir).toBe('/b/tree')
+    const allowed = typed.mock.calls[0][3]
+    expect(allowed?.()).toBe(true)
+
+    useLayoutStore.getState().settleSpawnDir('s2', 'idle-claude', true)
+    expect(pane()?.spawnDir).toBeUndefined()
+    expect(pane()?.resumeFolderMissing).toBe('/b/tree')
+    expect(allowed?.()).toBe(false)
+    expect(await commands.execWith(target('idle-claude'), 'agent.resume')).toEqual({
+      ok: true,
+      result: { resumed: false },
+    })
   })
 
   it('wakes nothing and types nothing for a pane that is not hibernated', async () => {
