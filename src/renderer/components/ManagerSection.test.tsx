@@ -112,9 +112,9 @@ describe('ManagerSection', () => {
     useWorkspacesStore.setState({ activeWorkspaceId: 'w1' })
     render(<ManagerSection />)
     const user = userEvent.setup()
-    expect(await screen.findByText(/needs iproute2/)).toBeInTheDocument()
+    expect(await screen.findByText(/iproute2 is needed/)).toBeInTheDocument()
     expect(window.ostia.system.requirements).toHaveBeenCalledWith('manager')
-    await user.click(screen.getByRole('button', { name: 'Install' }))
+    await user.click(screen.getByRole('button', { name: 'Install iproute2' }))
     expect(window.ostia.system.installRequirements).toHaveBeenCalledWith('manager', 'w1')
   })
 
@@ -122,7 +122,7 @@ describe('ManagerSection', () => {
     vi.mocked(window.ostia.system.requirements).mockResolvedValue(missingSs(false))
     render(<ManagerSection />)
     expect(await screen.findByText('sudo pacman -S --needed iproute2')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Install' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Install iproute2' })).toBeNull()
     expect(screen.getByRole('button', { name: 'Copy command' })).toBeInTheDocument()
   })
 

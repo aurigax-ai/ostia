@@ -36,6 +36,7 @@ describe('system requirements IPC', () => {
     const { args, caller } = calls[0]
     expect((args as { argv: string[] }).argv.slice(0, 2)).toEqual(['bubblewrap', 'socat'])
     expect((args as { argv: string[] }).argv).toContain('--reason')
+    expect((args as { argv: string[] }).argv.at(-1)).toBe('--wait')
     expect(caller).toMatchObject({ kind: 'user', workspaceId: 'ws', capabilities: ['shell'] })
   })
 
