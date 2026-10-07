@@ -160,8 +160,7 @@ test('a missing program is offered for install, with the exact command shown bef
         () =>
           app.evaluate(
             () =>
-              JSON.stringify((globalThis as { ostiaE2eAsked?: unknown[] }).ostiaE2eAsked ?? []) ??
-              '',
+              JSON.stringify((globalThis as { ostiaE2eAsked?: unknown[] }).ostiaE2eAsked ?? []) ?? '',
           ),
         { timeout: 15_000 },
       )

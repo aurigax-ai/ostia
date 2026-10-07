@@ -80,11 +80,7 @@ async function confirmQuitIfAsked(win: Page, done: Promise<boolean>): Promise<vo
       .then(() => true)
       .catch(() => false),
   ])
-  if (asked)
-    await dialog
-      .getByRole('button', { name: 'Quit' })
-      .click()
-      .catch(() => {})
+  if (asked) await dialog.getByRole('button', { name: 'Quit' }).click().catch(() => {})
 }
 
 async function stopApp({ app, win }: Launched, how: 'quit' | NodeJS.Signals): Promise<void> {
