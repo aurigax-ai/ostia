@@ -315,7 +315,9 @@ describe('EditorView', () => {
 
   it('formats the document before writing when format on save is on', async () => {
     vi.mocked(window.ostia.fs.read).mockResolvedValue('text')
-    useSettingsStore.getState().setEditor({ formatOnSave: true })
+    useSettingsStore.setState({
+      editor: { ...useSettingsStore.getState().editor, formatOnSave: true },
+    })
     render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.txt" />)
     await waitFor(() => expect(fake.state.model).not.toBeNull())
     act(() => fake.state.model?.setValue('unformatted'))
@@ -329,7 +331,9 @@ describe('EditorView', () => {
 
   it('just saves when format on save is on but no formatter exists', async () => {
     vi.mocked(window.ostia.fs.read).mockResolvedValue('text')
-    useSettingsStore.getState().setEditor({ formatOnSave: true })
+    useSettingsStore.setState({
+      editor: { ...useSettingsStore.getState().editor, formatOnSave: true },
+    })
     render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.txt" />)
     await waitFor(() => expect(fake.state.model).not.toBeNull())
     act(() => fake.state.model?.setValue('changed'))
@@ -341,7 +345,9 @@ describe('EditorView', () => {
 
   it('auto-saves one second after the last edit when auto save is afterDelay', async () => {
     vi.mocked(window.ostia.fs.read).mockResolvedValue('text')
-    useSettingsStore.getState().setEditor({ autoSave: 'afterDelay' })
+    useSettingsStore.setState({
+      editor: { ...useSettingsStore.getState().editor, autoSave: 'afterDelay' },
+    })
     const fileWrites = () =>
       vi.mocked(window.ostia.fs.write).mock.calls.filter(([path]) => path === '/w/a.txt')
     render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.txt" />)
@@ -376,7 +382,9 @@ describe('EditorView', () => {
 
   it('auto-saves a dirty file when the editor loses focus and auto save is onFocusChange', async () => {
     vi.mocked(window.ostia.fs.read).mockResolvedValue('text')
-    useSettingsStore.getState().setEditor({ autoSave: 'onFocusChange' })
+    useSettingsStore.setState({
+      editor: { ...useSettingsStore.getState().editor, autoSave: 'onFocusChange' },
+    })
     render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.txt" />)
     await waitFor(() => expect(fake.state.model).not.toBeNull())
     act(() => fake.state.model?.setValue('changed'))

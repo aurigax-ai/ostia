@@ -226,6 +226,10 @@ export class WindowBroker {
     return [mainId, ...ids.filter((id) => id !== mainId)]
   }
 
+  workspacesOf(win: BrowserWindow): WindowWorkspaceReport[] {
+    return this.reports.get(windowIdOf(win)) ?? []
+  }
+
   windowOfWorkspace(workspaceId: string): string | undefined {
     for (const [windowId, workspaces] of this.reports) {
       if (workspaces.some((w) => w.id === workspaceId)) return windowId
