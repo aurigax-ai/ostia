@@ -3575,7 +3575,11 @@ function persistScrollback(): Promise<void> {
     return scrollbackSaves
   }
   scrollbackSaves = scrollbackSaves
-    .then(async () => saveScrollback(await redactScrollback(toSave)))
+    .then(async () => {
+      const redacted = await redactScrollback(toSave)
+      if (broker && !broker.persisting) return
+      await saveScrollback(redacted)
+    })
     .catch((err: unknown) => console.error('[workspace] scrollback save failed', err))
   return scrollbackSaves
 }
@@ -3588,7 +3592,7 @@ let lastScrollbackSignature = ''
 
 function autosaveScrollback(): void {
   let signature = ''
-  for (const [paneId, entry] of ptys) signature += `${paneId}:${entry.session.since(0).cursor};`
+  for (const [paneId, entry] of ptys) signature += `${paneId}:${entry.mirror.revision};`
   signature += `pending:${Object.keys(pendingRestoredScrollback()).length}`
   if (signature === lastScrollbackSignature) return
   lastScrollbackSignature = signature

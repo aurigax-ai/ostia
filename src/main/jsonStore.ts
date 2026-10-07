@@ -1,4 +1,5 @@
 import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
+import { mkdir, rename, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { PRODUCT_NAME } from '../shared/product'
 import { appDataDir } from './userDirs'
@@ -37,4 +38,11 @@ export function saveJson(path: string, data: unknown, opts?: { secure?: boolean 
     chmodSync(dir, 0o700)
     chmodSync(path, 0o600)
   }
+}
+
+export async function saveJsonAsync(path: string, data: unknown): Promise<void> {
+  await mkdir(dirname(path), { recursive: true })
+  const tmp = `${path}.tmp`
+  await writeFile(tmp, JSON.stringify(data), 'utf8')
+  await rename(tmp, path)
 }
