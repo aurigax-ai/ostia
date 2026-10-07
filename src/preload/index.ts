@@ -871,6 +871,14 @@ const bridge: OstiaBridge = {
     mcpCancelSignIn: (server) => ipcRenderer.send('chatTools:mcp-cancel-sign-in', server),
     mcpSignOut: (server) => ipcRenderer.invoke('chatTools:mcp-sign-out', server),
     mcpTest: (server) => ipcRenderer.invoke('chatTools:mcp-test', server),
+    alwaysGrants: () => ipcRenderer.invoke('chatTools:always-grants'),
+    grantAlways: (key) => ipcRenderer.invoke('chatTools:grant-always', key),
+    removeAlwaysGrant: (key) => ipcRenderer.invoke('chatTools:remove-always-grant', key),
+    onAlwaysGrants: (cb) => {
+      const handler = (_e: unknown, keys: string[]): void => cb(keys)
+      ipcRenderer.on('chatTools:always-grants', handler)
+      return () => ipcRenderer.removeListener('chatTools:always-grants', handler)
+    },
   },
   externalEditor: {
     open: (req) => ipcRenderer.invoke('editor:open-external', req) as Promise<ExternalEditorResult>,

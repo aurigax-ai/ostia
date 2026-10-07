@@ -317,3 +317,33 @@ describe('ChatToolsSettings', () => {
     expect(useSettingsStore.getState().assistant.skillFolders).toEqual([])
   })
 })
+
+describe('ChatToolsSettings always-allowed tools', () => {
+  afterEach(() => {
+    cleanup()
+    resetChatTools()
+    vi.mocked(window.ostia.chatTools.removeAlwaysGrant).mockReset().mockResolvedValue([])
+  })
+
+  it('lists every always-allowed tool and removes one at once', async () => {
+    useChatToolsStore.setState({ standing: ['open_url', 'read-outside', 'mcp__fake__echo'] })
+    vi.mocked(window.ostia.chatTools.removeAlwaysGrant).mockResolvedValue([
+      'read-outside',
+      'mcp__fake__echo',
+    ])
+    await renderSettled(<ChatToolsSettings />)
+    const group = screen.getByText('Always-allowed chat tools').closest('section') as HTMLElement
+    expect(within(group).getByText('Open a URL')).toBeInTheDocument()
+    expect(within(group).getByText('Read outside the workspace folder')).toBeInTheDocument()
+    expect(within(group).getByText('mcp__fake__echo')).toBeInTheDocument()
+    await userEvent.click(within(group).getAllByRole('button', { name: 'Remove' })[0])
+    expect(window.ostia.chatTools.removeAlwaysGrant).toHaveBeenCalledWith('open_url')
+    await waitFor(() => expect(within(group).queryByText('Open a URL')).toBeNull())
+    expect(useChatToolsStore.getState().standing).toEqual(['read-outside', 'mcp__fake__echo'])
+  })
+
+  it('says when no chat tool is always allowed', async () => {
+    await renderSettled(<ChatToolsSettings />)
+    expect(screen.getByText('No chat tool is always allowed.')).toBeInTheDocument()
+  })
+})
