@@ -100,12 +100,26 @@ export function missingRequirements(
   for (const r of registry.get(feature) ?? []) {
     if (!r.platforms.includes(platform) || (r.onlyWithPtyRelay && !ptyRelay)) continue
     const path = programPath(r.program, env.path)
-    if (!path) missing.push({ program: r.program, package: r.package })
-    else if (r.minVersion && !meetsVersion(path, r.minVersion.args, r.minVersion.version)) {
-      missing.push({ program: r.program, package: r.package, needs: r.minVersion.version })
+    if (!path) {
+      missing.push({ program: r.program, package: r.package })
+      continue
     }
+    if (!r.minVersion) continue
+    const output = versionOutput(path, r.minVersion.args)
+    if (versionAtLeast(output, r.minVersion.version)) continue
+    const found = foundVersion(output)
+    missing.push({
+      program: r.program,
+      package: r.package,
+      needs: r.minVersion.version,
+      ...(found ? { found } : {}),
+    })
   }
   return missing
+}
+
+export function foundVersion(output: string): string | null {
+  return /\d+\.\d+[0-9A-Za-z.-]*/.exec(output)?.[0] ?? null
 }
 
 export function versionAtLeast(output: string, wanted: string): boolean {
@@ -116,18 +130,15 @@ export function versionAtLeast(output: string, wanted: string): boolean {
   return have > major || (have === major && haveMinor >= minor)
 }
 
-function meetsVersion(path: string, args: string[], wanted: string): boolean {
+function versionOutput(path: string, args: string[]): string {
   try {
-    return versionAtLeast(
-      execFileSync(path, args, {
-        encoding: 'utf8',
-        timeout: 2000,
-        stdio: ['ignore', 'pipe', 'ignore'],
-      }),
-      wanted,
-    )
+    return execFileSync(path, args, {
+      encoding: 'utf8',
+      timeout: 2000,
+      stdio: ['ignore', 'pipe', 'ignore'],
+    })
   } catch {
-    return false
+    return ''
   }
 }
 

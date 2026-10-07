@@ -7,9 +7,7 @@
   "capabilities": ["agent-plugin", "notify"],
   "main": "main.js",
   "contributes": {
-    "commands": [
-      { "id": "on-hook", "title": "Agent kit hook", "palette": false, "stdin": true }
-    ],
+    "commands": [{ "id": "on-hook", "title": "Agent kit hook", "palette": false, "stdin": true }],
     "agentSkills": [{ "name": "review", "path": "skills/review", "files": ["checklist.md"] }],
     "agentHooks": [
       { "event": "SessionStart", "command": "on-hook" },

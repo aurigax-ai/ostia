@@ -80,9 +80,11 @@ const CHORD_VALUE = {
   maxItems: CHORDS_PER_COMMAND_MAX,
   description:
     'A chord like "Ctrl+Shift+K", "Cmd+Alt+P" or "Mod+Shift+K" (Mod is Cmd on macOS, Ctrl ' +
-    'elsewhere), a list of chords that all run the command (the first is the one menus ' +
-    'show), or null to unbind. Chords the shell needs are ignored: plain Ctrl+letter, ' +
-    'plain or Ctrl arrows, Escape, Tab and keys without Ctrl/Cmd.',
+    'elsewhere), a list of chords that all run the command (menus show the first one that ' +
+    'works everywhere), or null to unbind. A chord written "terminal:Cmd+K" runs the ' +
+    'command only while a terminal has the focus, and elsewhere the key keeps its other ' +
+    'use. Chords the shell needs are ignored: plain Ctrl+letter, plain or Ctrl arrows, ' +
+    'Escape, Tab and keys without Ctrl/Cmd.',
 }
 
 export function keybindingsSchema(ids: readonly string[]) {
@@ -438,12 +440,20 @@ export const SETTINGS_JSON_SCHEMA = {
             'macOS: send Option+key as Meta (Esc+key) so readline and fzf Alt shortcuts work; ' +
             'Option then no longer types special characters. Default: false.',
         },
+        renderer: {
+          type: 'string',
+          enum: ['xterm', 'ghostty'],
+          description:
+            'Experimental. Engine for terminals opened from now on and terminals restored at ' +
+            'the next start; an open terminal keeps its engine. "ghostty" runs Ghostty\'s own ' +
+            'emulator (libghostty-vt) and falls back to "xterm" if it cannot start. Default: "xterm".',
+        },
         keepShells: {
           type: 'boolean',
           description:
-            'Run new terminals in a private tmux server (tmux 3.2 or newer) so restarting for an ' +
-            'update or a crash leaves them running; Quit still ends them. Only you can change ' +
-            'this, in Settings; agents cannot. Default: false.',
+            'Experimental. Run new terminals in a private tmux server (tmux 3.2 or newer) so ' +
+            'restarting for an update or a crash leaves them running; Quit still ends them. ' +
+            'Only you can change this, in Settings; agents cannot. Default: false.',
         },
         osc52Write: {
           type: 'boolean',
@@ -666,6 +676,10 @@ export const SETTINGS_JSON_SCHEMA = {
         autoResume: {
           type: 'boolean',
           description: `Resume an agent session that was running when ${PRODUCT_DISPLAY_NAME} quit, at its pane's first idle prompt once the pane is visible. Only you can change this; ostia settings set refuses it. Default: false.`,
+        },
+        autoSendReferences: {
+          type: 'boolean',
+          description: `Press Enter after ${PRODUCT_DISPLAY_NAME} pastes a reference you sent (Point at element, Capture region, Send selection) into a pane running claude or codex, so the agent reads it at once. Never at a shell prompt, and never for references from the file menu, an extension or an agent. Only you can change this; ostia settings set refuses it. Default: true.`,
         },
         hooks: {
           type: 'object',

@@ -1,7 +1,8 @@
 import '@testing-library/jest-dom/vitest'
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
+import type { SearchOutcome } from '@shared/search'
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { registerBuiltinCommands } from '../commands/builtins'
 import { commands } from '../commands/registry'
 import { zhHant } from '../i18n/dict'
@@ -79,7 +80,7 @@ describe('CommandPalette', () => {
         expect(screen.getAllByRole('option')[0]).toHaveAccessibleName(/SSH: Connect to Host/),
       )
     } finally {
-      commands.unregister('ssh.connect')
+      act(() => commands.unregister('ssh.connect'))
     }
   })
 
@@ -102,6 +103,19 @@ describe('CommandPalette', () => {
     expect(input.tagName).toBe('INPUT')
     expect(input).toHaveAttribute('placeholder', 'Search commands, workspaces, tabs… (? for help)')
     expect(screen.getByRole('option', { name: /Open Settings/ })).toBeInTheDocument()
+  })
+
+  it('puts the command id and its shortcut in separate right-hand cells', async () => {
+    useUIStore.setState({ paletteOpen: true })
+    render(<CommandPalette />)
+
+    const option = await screen.findByRole('option', { name: /Open Settings/ })
+
+    expect(within(option).getByText('app.openSettings')).toHaveAttribute(
+      'data-slot',
+      'palette-meta',
+    )
+    expect(option.querySelector('kbd')?.parentElement).toHaveClass('justify-end')
   })
 
   describe('prefixes', () => {
@@ -184,7 +198,7 @@ describe('CommandPalette', () => {
   })
 
   describe('commands that take an argument', () => {
-    afterEach(() => commands.unregister('test.card'))
+    afterEach(() => act(() => commands.unregister('test.card')))
 
     const register = (run = vi.fn()) => {
       commands.register<{ argument?: string }, void>({
@@ -384,6 +398,7 @@ describe('CommandPalette', () => {
     }
 
     afterEach(() => {
+      cleanup()
       searchWorkspaceSymbols.mockReset()
       useEditorRevealStore.setState({ pending: {} })
     })
@@ -438,6 +453,144 @@ describe('CommandPalette', () => {
       render(<CommandPalette />)
       expect(await screen.findByRole('status')).toBeInTheDocument()
       expect(searchWorkspaceSymbols).not.toHaveBeenCalled()
+    })
+  })
+  describe('files in the workspace', () => {
+    beforeEach(() => {
+      vi.mocked(window.ostia.search.run).mockClear()
+    })
+
+    const outcome = (root: string, paths: string[]): SearchOutcome => ({
+      ok: true,
+      results: {
+        root,
+        names: paths.map((path) => ({ path, dir: false, positions: [0] })),
+        files: [],
+        pdfs: [],
+        matches: 0,
+        truncated: false,
+      },
+    })
+
+    const seed = () =>
+      useWorkspacesStore.setState({
+        workspaces: [
+          { id: 'w2', name: 'web', kind: 'terminal', workDir: '/src/web', state: 'idle' },
+        ],
+        activeWorkspaceId: 'w2',
+      })
+
+    it('opens on the file prefix, searches names only as the human types and keeps the order it is given', async () => {
+      seed()
+      vi.mocked(window.ostia.search.run).mockResolvedValue(
+        outcome('/src/web', ['src/lib/greet.ts', 'README.md']),
+      )
+      render(<CommandPalette />)
+      act(() => {
+        void commands.exec('view.goToFile')
+      })
+      const input = await screen.findByRole('combobox')
+      expect(input).toHaveValue('/')
+      expect(await screen.findByRole('status')).toHaveTextContent('Type part of a file name')
+      expect(window.ostia.search.run).not.toHaveBeenCalled()
+      await userEvent.type(input, 'gre')
+
+      const options = await screen.findAllByRole('option')
+      expect(options).toHaveLength(2)
+      expect(options[0]).toHaveTextContent('greet.ts')
+      expect(options[0]).toHaveTextContent('src/lib')
+      expect(options[1]).toHaveTextContent('README.md')
+      await waitFor(() =>
+        expect(window.ostia.search.run).toHaveBeenLastCalledWith({
+          root: '/src/web',
+          text: 'gre',
+          regex: false,
+          caseSensitive: false,
+          wholeWord: false,
+          includeIgnored: false,
+          namesOnly: true,
+        }),
+      )
+      expect(screen.queryByRole('option', { name: /Open Settings/ })).toBeNull()
+    })
+
+    it('opens the highlighted file on Enter and closes', async () => {
+      seed()
+      vi.mocked(window.ostia.search.run).mockResolvedValue(
+        outcome('/src/web', ['src/lib/greet.ts', 'README.md']),
+      )
+      const openFile = vi.spyOn(useLayoutStore.getState(), 'openFile').mockImplementation(() => {})
+      useUIStore.setState({ paletteOpen: true, paletteSeed: '/gre' })
+      render(<CommandPalette />)
+      await screen.findByRole('option', { name: /greet/ })
+      await userEvent.type(screen.getByRole('combobox'), '{Enter}')
+
+      expect(openFile).toHaveBeenCalledWith('w2', '/src/web/src/lib/greet.ts')
+      expect(useUIStore.getState().paletteOpen).toBe(false)
+    })
+
+    it('opens the file that is clicked', async () => {
+      seed()
+      vi.mocked(window.ostia.search.run).mockResolvedValue(
+        outcome('/src/web', ['src/lib/greet.ts', 'README.md']),
+      )
+      const openFile = vi.spyOn(useLayoutStore.getState(), 'openFile').mockImplementation(() => {})
+      useUIStore.setState({ paletteOpen: true, paletteSeed: '/read' })
+      render(<CommandPalette />)
+      await userEvent.click(await screen.findByRole('option', { name: /README/ }))
+
+      expect(openFile).toHaveBeenCalledWith('w2', '/src/web/README.md')
+    })
+
+    it('highlights the first hit again when the hits change', async () => {
+      seed()
+      vi.mocked(window.ostia.search.run).mockResolvedValue(outcome('/src/web', ['a.ts', 'b.ts']))
+      useUIStore.setState({ paletteOpen: true, paletteSeed: '/t' })
+      render(<CommandPalette />)
+      await screen.findByRole('option', { name: /a\.ts/ })
+      await userEvent.type(screen.getByRole('combobox'), '{ArrowDown}')
+      expect(screen.getByRole('option', { name: /b\.ts/ })).toHaveAttribute('aria-selected', 'true')
+
+      vi.mocked(window.ostia.search.run).mockResolvedValue(outcome('/src/web', ['c.ts', 'b.ts']))
+      await userEvent.type(screen.getByRole('combobox'), 's')
+
+      await screen.findByRole('option', { name: /c\.ts/ })
+      await waitFor(() =>
+        expect(screen.getByRole('option', { name: /c\.ts/ })).toHaveAttribute(
+          'aria-selected',
+          'true',
+        ),
+      )
+    })
+
+    it('says so when nothing matches, when the search fails and when there is no workspace', async () => {
+      seed()
+      vi.mocked(window.ostia.search.run).mockResolvedValue(outcome('/src/web', []))
+      useUIStore.setState({ paletteOpen: true, paletteSeed: '/zzz' })
+      render(<CommandPalette />)
+      expect(await screen.findByRole('status')).toHaveTextContent('Nothing matches')
+      cleanup()
+
+      vi.mocked(window.ostia.search.run).mockResolvedValue({
+        ok: false,
+        error: 'failed',
+        message: '',
+      })
+      render(<CommandPalette />)
+      expect(await screen.findByRole('status')).toHaveTextContent('Could not search')
+      cleanup()
+
+      useWorkspacesStore.setState({ workspaces: [], activeWorkspaceId: null })
+      render(<CommandPalette />)
+      expect(await screen.findByRole('status')).toHaveTextContent('Open a workspace')
+    })
+
+    it('lists the file prefix in the help', async () => {
+      useUIStore.setState({ paletteOpen: true, paletteSeed: '?' })
+      render(<CommandPalette />)
+      expect(
+        await screen.findByRole('option', { name: /Files in this workspace/ }),
+      ).toBeInTheDocument()
     })
   })
 })

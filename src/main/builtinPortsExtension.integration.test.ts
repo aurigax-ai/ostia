@@ -24,7 +24,8 @@ import { registerControlServer, stopControlServer } from './controlServer'
 import { ExtensionHost, registerExtensionMethods } from './extensionHost'
 import { ExtensionStore } from './extensionStore'
 import { registerPane } from './idRegistry'
-import { registerPaneListMethods } from './paneList'
+import { type PaneListDeps, listPanes, registerPaneListMethods } from './paneList'
+import { PortsBoard } from './portsBoard'
 
 const repoRoot = process.cwd()
 
@@ -58,6 +59,7 @@ describe.skipIf(process.platform !== 'linux')(
   () => {
     let dir: string
     let host: ExtensionHost
+    let board: PortsBoard
     let web: ChildProcess
     let remote: ChildProcess
     let inheritor: ChildProcess
@@ -129,7 +131,7 @@ describe.skipIf(process.platform !== 'linux')(
         'p-idle': process.pid,
         'p-inherit': inheritor.pid,
       }
-      registerPaneListMethods({
+      const paneDeps: PaneListDeps = {
         execCommand: async () =>
           ({
             ok: true,
@@ -143,7 +145,8 @@ describe.skipIf(process.platform !== 'linux')(
         getTerminalState: () => undefined,
         ptyPid: (paneId) => pids[paneId],
         windowIds: () => ['1'],
-      })
+      }
+      registerPaneListMethods(paneDeps)
       host = new ExtensionHost({
         roots: [{ dir: join(dir, 'extensions'), builtin: true }],
         store: new ExtensionStore(join(dir, 'extensions.json')),
@@ -155,6 +158,7 @@ describe.skipIf(process.platform !== 'linux')(
         openDiffIn: () => {},
         notify: () => {},
         log: () => {},
+        startOnDemand: ['ports'],
       })
       registerExtensionMethods(() => host)
       registerControlServer(
@@ -166,9 +170,12 @@ describe.skipIf(process.platform !== 'linux')(
         socketPath,
       )
       host.startEager()
+      board = new PortsBoard({ host, listPanes: () => listPanes(paneDeps) })
+      board.start()
     })
 
     afterAll(() => {
+      board?.stop()
       host?.stopAll()
       stopControlServer()
       web?.kill('SIGKILL')
@@ -196,6 +203,7 @@ describe.skipIf(process.platform !== 'linux')(
       })
       expect(chipsOf('p-web')).toEqual([])
       expect(workspaceChip('s2')).toBeUndefined()
+      expect(host.isRunning('ports')).toBe(false)
     })
 
     it('puts the user@host of a foreground ssh on its pane as a chip', async () => {
@@ -232,6 +240,7 @@ describe.skipIf(process.platform !== 'linux')(
     })
 
     it('answers ls with the caller’s workspace only unless it may see all', async () => {
+      expect(host.isRunning('ports')).toBe(false)
       const caller = (caps: ExtensionCaller['capabilities']): ExtensionCaller => ({
         kind: 'pane',
         workspaceId: 's1',
@@ -257,6 +266,7 @@ describe.skipIf(process.platform !== 'linux')(
             .map((w) => w.workspaceId)
             .sort(),
       ).toEqual(['s1', 's2', 's4'])
+      expect(host.isRunning('ports')).toBe(true)
     })
 
     it('drops the workspace’s ports chip once the listener exits', async () => {

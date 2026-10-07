@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest'
 import type { SearchOutcome } from '@shared/search'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import * as pdfSearch from '../lib/pdfSearch'
@@ -8,6 +8,7 @@ import { useEditorRevealStore } from '../stores/editorRevealStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { usePdfFindStore } from '../stores/pdfFindStore'
 import { useSettingsStore } from '../stores/settingsStore'
+import { useUIStore } from '../stores/uiStore'
 import { type Workspace, useWorkspacesStore } from '../stores/workspacesStore'
 import { FilesPanel } from './FilesPanel'
 
@@ -68,7 +69,21 @@ describe('Files panel search', () => {
     useLayoutStore.setState(layoutInit, true)
     useSettingsStore.setState(settingsInit, true)
     useEditorRevealStore.setState(revealInit, true)
+    useUIStore.setState({ filesOpen: false, filesSearchFocus: false })
     vi.restoreAllMocks()
+  })
+
+  it('takes the focus and selects its text when Search Files runs', async () => {
+    seed()
+    vi.mocked(window.ostia.search.run).mockResolvedValue(RESULTS)
+    render(<FilesPanel />)
+    const box = screen.getByRole('textbox', { name: 'Search files' }) as HTMLInputElement
+    await userEvent.setup().type(box, 'no')
+    box.blur()
+    act(() => useUIStore.getState().searchFiles())
+    expect(box).toHaveFocus()
+    expect([box.selectionStart, box.selectionEnd]).toEqual([0, 2])
+    expect(useUIStore.getState()).toMatchObject({ filesOpen: true, filesSearchFocus: false })
   })
 
   it('searches the tree folder for names and text and lists both', async () => {

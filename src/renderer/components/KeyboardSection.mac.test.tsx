@@ -80,6 +80,17 @@ describe('KeyboardSection on macOS', () => {
     expect(useSettingsStore.getState().terminalKeys).toEqual({})
   })
 
+  it('shows ⌘K for the palette next to ⇧⌘P, and ⌘D as a split in a terminal only', () => {
+    render(<KeyboardSection />)
+    const palette = screen.getByRole('button', { name: 'Reset Command Palette' }).closest('tr')
+    expect(palette).toHaveTextContent('⌘⇧P')
+    expect(palette).toHaveTextContent('⌘K')
+    expect(palette).not.toHaveTextContent('in a terminal')
+    const split = screen.getByRole('button', { name: 'Reset Split Pane Right' }).closest('tr')
+    expect(split).toHaveTextContent('⌘Din a terminal')
+    expect(split).toHaveTextContent('⌥⌘\\')
+  })
+
   it('offers to take ⌘← from the terminal when a command is recorded on it', async () => {
     render(<KeyboardSection />)
     await userEvent.click(

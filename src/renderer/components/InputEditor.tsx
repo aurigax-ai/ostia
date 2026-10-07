@@ -1,7 +1,6 @@
 import { ClipboardTextIcon, CopyIcon } from '@phosphor-icons/react'
 import type { CommandSuggestion } from '@shared/assist'
 import type { SpecCommand } from '@shared/completionSpec'
-import type { Terminal as Xterm } from '@xterm/xterm'
 import {
   type CSSProperties,
   type KeyboardEvent,
@@ -16,6 +15,7 @@ import {
 import { useDict } from '../i18n/useDict'
 import { latestRequest, naturalCommandQuery } from '../lib/assistComposer'
 import { featureEnabled, setAssistFeature, useAssistFeature } from '../lib/assistFeatures'
+import { execChord, isAppChord, matchTerminalChord } from '../lib/chords'
 import { smartClipboardAction } from '../lib/clipboardKeys'
 import {
   type CompletionMatch,
@@ -46,6 +46,7 @@ import {
   suggestionWord,
 } from '../lib/inputEditor'
 import { applyLineEdit, lineEditOp, shellKeyBytes } from '../lib/lineEditing'
+import type { OstiaTerminal as Xterm } from '../lib/ostiaTerminal'
 import { planDraftPaste } from '../lib/pasteGate'
 import { cellBox, rowsToMake } from '../lib/promptOverlay'
 import { historyHiddenFrom } from '../lib/scratchPanes'
@@ -806,6 +807,13 @@ export function InputEditor({
     const area = e.currentTarget
     if (naturalOpen && onNaturalKey(e, naturalOpen)) return
     if (menuShown && onMenuKey(e, menuShown)) return
+    const scoped = matchTerminalChord(e, isMac)
+    if (isAppChord(scoped)) {
+      e.preventDefault()
+      e.stopPropagation()
+      execChord(scoped, e)
+      return
+    }
     if (e.key === 'Home' || e.key === 'End' || e.key === 'Escape') setMenu(null)
     if (normal && onNormalKey(e)) return
     const plain = !e.ctrlKey && !e.metaKey && !e.altKey

@@ -1,6 +1,17 @@
 import type { BrowserProfile } from '@shared/browserProfile'
-import type { OstiaBridge } from '@shared/types'
+import type { OstiaBridge, SyncStatus } from '@shared/types'
 import { vi } from 'vitest'
+
+const SYNC_OFF: SyncStatus = {
+  dir: null,
+  state: 'off',
+  lastSync: null,
+  conflicts: [],
+  skipped: [],
+  heldBack: [],
+  offers: [],
+  secrets: { state: 'off', logins: false },
+}
 
 export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
   const noopUnsub = () => () => {}
@@ -51,6 +62,7 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       listDir: vi.fn().mockResolvedValue([]),
       localPrompt: vi.fn().mockResolvedValue(true),
       foreground: vi.fn().mockResolvedValue(null),
+      busy: vi.fn().mockResolvedValue(null),
       promptContext: vi.fn().mockResolvedValue(null),
       onData: vi.fn(noopUnsub),
       onExit: vi.fn(noopUnsub),
@@ -103,12 +115,22 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       onChanged: vi.fn(noopUnsub),
     },
     sync: {
-      status: vi
-        .fn()
-        .mockResolvedValue({ dir: null, state: 'off', lastSync: null, lastConflict: null }),
-      run: vi
-        .fn()
-        .mockResolvedValue({ dir: null, state: 'off', lastSync: null, lastConflict: null }),
+      status: vi.fn().mockResolvedValue(SYNC_OFF),
+      run: vi.fn().mockResolvedValue(SYNC_OFF),
+      resolve: vi.fn().mockResolvedValue(SYNC_OFF),
+      install: vi.fn().mockResolvedValue(SYNC_OFF),
+      secrets: {
+        reveal: vi.fn().mockResolvedValue({ ok: false }),
+        enable: vi.fn().mockResolvedValue({ ok: true, status: SYNC_OFF }),
+        disable: vi.fn().mockResolvedValue({ ok: true, status: SYNC_OFF }),
+        remove: vi.fn().mockResolvedValue({ ok: true, status: SYNC_OFF }),
+        setLogins: vi.fn().mockResolvedValue({ ok: true, status: SYNC_OFF }),
+        setup: vi.fn().mockResolvedValue({ ok: true, status: SYNC_OFF }),
+        reset: vi.fn().mockResolvedValue({ ok: true, status: SYNC_OFF }),
+        unlock: vi.fn().mockResolvedValue({ ok: true, status: SYNC_OFF }),
+        changePassword: vi.fn().mockResolvedValue({ ok: true, status: SYNC_OFF }),
+        recover: vi.fn().mockResolvedValue({ ok: true, status: SYNC_OFF }),
+      },
       pickFolder: vi.fn().mockResolvedValue(null),
       onStatus: vi.fn(noopUnsub),
     },
@@ -372,11 +394,27 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       open: vi.fn().mockResolvedValue({ ok: true, argv: [] }),
     },
     gateway: {
-      enable: vi.fn().mockResolvedValue({ host: '127.0.0.1', port: 8722, fingerprint: 'sha256/x' }),
-      disable: vi.fn().mockResolvedValue({ ok: true }),
+      enable: vi.fn().mockResolvedValue({
+        running: true,
+        host: '127.0.0.1',
+        port: 8722,
+        fingerprint: 'sha256/x',
+        deviceCount: 0,
+        tailnet: { state: 'starting' },
+        route: { kind: 'tailnet' },
+      }),
+      disable: vi.fn().mockResolvedValue({
+        running: false,
+        host: null,
+        port: null,
+        fingerprint: null,
+        deviceCount: 0,
+        tailnet: { state: 'off' },
+        route: { kind: 'tailnet' },
+      }),
       pair: vi.fn().mockResolvedValue({
         v: 1,
-        host: '127.0.0.1',
+        host: '100.64.0.1',
         port: 8722,
         fingerprint: 'sha256/x',
         pairCode: 'ABCD1234',
@@ -388,14 +426,22 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
         port: null,
         fingerprint: null,
         deviceCount: 0,
+        tailnet: { state: 'off' },
+        route: { kind: 'tailnet' },
+        discoverable: false,
       }),
       devices: vi.fn().mockResolvedValue({ devices: [] }),
       revoke: vi.fn().mockResolvedValue({ ok: true }),
       setCap: vi.fn().mockResolvedValue({ ok: true, caps: ['read', 'notify'] }),
-      bindOptions: vi.fn().mockResolvedValue({
-        addresses: [{ address: '127.0.0.1', kind: 'loopback' }],
-        selected: '127.0.0.1',
-      }),
+      bindAddresses: vi.fn().mockResolvedValue([]),
+      setRoute: vi.fn(async (route) => ({ ok: true, route })),
+      tailnetSignIn: vi.fn().mockResolvedValue({ ok: true }),
+      tailnetSignOut: vi.fn().mockResolvedValue({ ok: true }),
+      onTailnetChanged: vi.fn(noopUnsub),
+      setDiscoverable: vi.fn().mockResolvedValue({ ok: true }),
+      pairRequests: vi.fn().mockResolvedValue([]),
+      answerPairRequest: vi.fn().mockResolvedValue({ ok: true }),
+      onPairRequestsChanged: vi.fn(noopUnsub),
     },
     notifications: {
       list: vi.fn().mockResolvedValue([]),

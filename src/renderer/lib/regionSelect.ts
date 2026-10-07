@@ -14,6 +14,16 @@ export const MIN_REGION = 2
 
 export const ZOOM_STEPS = [0.1, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4, 6, 8] as const
 
+const ZOOM_MIN = ZOOM_STEPS[0]
+const ZOOM_MAX = ZOOM_STEPS[ZOOM_STEPS.length - 1]
+const PINCH_RATE = 0.01
+const PINCH_DELTA_MAX = 50
+
+export interface ZoomAnchor {
+  content: Point
+  client: Point
+}
+
 function clamp(n: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, n))
 }
@@ -79,4 +89,21 @@ export function stepZoom(current: number, direction: 1 | -1): number {
 
 export function zoomPercent(scale: number): number {
   return Math.round(scale * 100)
+}
+
+export function pinchZoom(scale: number, deltaY: number): number {
+  const delta = clamp(deltaY, -PINCH_DELTA_MAX, PINCH_DELTA_MAX)
+  return clamp(scale * Math.exp(-delta * PINCH_RATE), ZOOM_MIN, ZOOM_MAX)
+}
+
+export function anchoredScroll(
+  scroll: Point,
+  anchor: ZoomAnchor,
+  box: { left: number; top: number },
+  scale: number,
+): Point {
+  return {
+    x: scroll.x + box.left + anchor.content.x * scale - anchor.client.x,
+    y: scroll.y + box.top + anchor.content.y * scale - anchor.client.y,
+  }
 }

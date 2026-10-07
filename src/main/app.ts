@@ -40,6 +40,7 @@ import { MANAGER_FEATURE, managerAgents, parseManagerSettings } from '../shared/
 import { OPEN_FILES_MAX } from '../shared/openFiles'
 import { OFFICIAL_MARKETPLACE, PRODUCT_NAME } from '../shared/product'
 import { PRODUCT_DISPLAY_NAME } from '../shared/productDisplay'
+import { parsePrivacySettings } from '../shared/redaction'
 import { type RemoteCwd, normalizeRemoteCwd } from '../shared/remoteFolders'
 import { parseSandboxGlobals } from '../shared/sandbox'
 import { quoteArg, quoteArgv } from '../shared/shellQuote'
@@ -68,6 +69,7 @@ import { registerAgentTranscriptIpc } from './agentTranscript'
 import { type AppLog, LOG_FILE_NAME, createAppLog } from './appLog'
 import { installAppMenu } from './appMenu'
 import { registerAppUpdate } from './appUpdate'
+import { appVersion } from './appVersion'
 import { approvals, registerApprovals } from './approvals'
 import { registerAssistIpc } from './assistIpc'
 import { registerAttentionMethods, targetOf } from './attention'
@@ -105,13 +107,13 @@ import {
   registerControlServer,
   stopControlServer,
 } from './controlServer'
-import { registerCredentials } from './credentials'
+import { credentials, registerCredentials } from './credentials'
 import { type Diagnostics, registerDiagnostics } from './diagnostics'
 import { registerDocsMethods } from './docs'
 import { registerEditorLanguageIpc } from './editorLanguages'
 import { emitPlatformEvent, emitSessionState, platformEvents } from './events'
 import { confirmForExtension } from './extensionConfirm'
-import { ExtensionHost, type TerminalOpenRequest, registerExtensionMethods } from './extensionHost'
+import { ExtensionHost, registerExtensionMethods } from './extensionHost'
 import type { ExtensionRoot } from './extensionManifest'
 import { type SecretStoreDeps, createSecretStore } from './extensionSecrets'
 import { ExtensionStore } from './extensionStore'
@@ -120,8 +122,17 @@ import { openInExternalEditor } from './externalEditor'
 import { FileOps } from './fileOps'
 import { FileWatches, TreeWatches } from './fileWatch'
 import { readBinaryConfined } from './fsBinary'
-import { registerGatewayIpc, registerGatewayMethods } from './gateway'
+import {
+  configureAnnouncer,
+  configureTailnet,
+  onTailnetChange,
+  registerGatewayIpc,
+  registerGatewayMethods,
+} from './gateway'
+import { createBonjourPublisher } from './gateway/announce'
+import { listPairRequests, onPairRequestsChanged } from './gateway/pairRequests'
 import { configureGatewayControl, stopGateway } from './gateway/server'
+import { createTailnet, tailnetNodeName, tsnetHelperPath } from './gateway/tailnet'
 import { GIT_EXTENSION, GitBoard } from './gitBoard'
 import { GlobalHotkey, toggleWindows } from './globalHotkey'
 import { type GuestChords, registerGuestChords } from './guestChords'
@@ -147,7 +158,7 @@ import { describeSkipped, registerKeymapIpc } from './keymaps'
 import { registerLanguagePackIpc } from './languagePacks'
 import { LanguageServers, scrubbedEnv } from './languageServers'
 import { registerLanguageServersIpc } from './languageServersIpc'
-import { atLocalPrompt } from './localPrompt'
+import { atLocalPrompt, busyProgram } from './localPrompt'
 import { registerLoginFill } from './loginFill'
 import { ManagedServers, downloadBaseUrl } from './managedServers'
 import { ManagerService, managerWindowId } from './manager'
@@ -169,11 +180,18 @@ import { openFileForExtension, registerOpenFileMethods } from './openFileMethods
 import { registerOpenPathIpc } from './openPath'
 import type { OriginReach } from './originAgents'
 import { loadPaneIdSalt } from './paneIdSalt'
-import { type PaneIo, pastedText, registerPaneIoMethods } from './paneIo'
+import {
+  type PaneAttentionPeek,
+  type PaneIo,
+  type PaneReachDeps,
+  pastedText,
+  registerPaneIoMethods,
+} from './paneIo'
 import { listPanes, listWorkspaces, registerPaneListMethods } from './paneList'
 import type { PaneProcess } from './paneProcess'
 import { registerPaneRenameMethods } from './paneRename'
 import { registerPaneResumeMethods } from './paneResume'
+import { PaneWatch, registerPaneWaitMethods } from './paneWait'
 import { resolveSafe } from './pathGuard'
 import {
   type MirrorHandle,
@@ -183,10 +201,18 @@ import {
   portalSupported,
 } from './portal'
 import { callerVerdict, procFs, ttysOf } from './portalCaller'
+import { PORTS_EXTENSION, PortsBoard } from './portsBoard'
 import { acceptsPrimarySelection } from './primarySelection'
 import { registerPrivacyIpc } from './privacyIpc'
 import { privateTmpDir } from './privateTmp'
-import { INTERRUPT_GRACE_MS, type ProcessRegistry, registerProcessMethods } from './processManager'
+import {
+  INTERRUPT_GRACE_MS,
+  type ProcessRegistry,
+  type ProcessTabRequest,
+  registerProcessMethods,
+} from './processManager'
+import { type ProfileSyncHandle, startProfileSync } from './profileSync/ipc'
+import { flatSource, groupedSource, loginsSource } from './profileSync/secrets'
 import { registerProjectRootIpc } from './projectRoot'
 import { KubeContextReader, NodeVersionResolver, promptContext } from './promptContext'
 import { type ReapReason, RecoveryBook, orphanVerdict, planRecovery } from './ptyReaper'
@@ -238,7 +264,6 @@ import { SecretService } from './secrets/secretService'
 import { WorkspaceAgents } from './secrets/workspaceAgents'
 import { registerSelectionIpc } from './selectionReport'
 import { ServerOverrides } from './serverOverrides'
-import { type SettingsSyncHandle, startSettingsSync } from './settingsSyncIpc'
 import { ExecutableIndex, commandNames, readShellState } from './shellCommands'
 import { closesPaneOnExit } from './shellExit'
 import { INTEGRATION_DIR, setAgentPlugins, shellIntegrationSpawnOptions } from './shellIntegration'
@@ -1153,7 +1178,8 @@ const terminalState = new Map<string, TerminalStateSnapshot>()
 
 let extensionHost: ExtensionHost | null = null
 let gitBoard: GitBoard | null = null
-const ON_DEMAND_EXTENSIONS = [GIT_EXTENSION, 'assistant']
+let portsBoard: PortsBoard | null = null
+const ON_DEMAND_EXTENSIONS = [GIT_EXTENSION, PORTS_EXTENSION, 'assistant']
 
 function refreshAgentPlugins(): void {
   try {
@@ -1172,9 +1198,10 @@ let mcpOAuth: McpOAuth | null = null
 let broker: WindowBroker | null = null
 const agentRunning = new AgentRunningPanes(() => broker?.persist())
 const keptAttention = new KeptAttention()
+const paneWatch = new PaneWatch()
 const reachesPane: OriginReach = (senderWindowId, sourcePaneId, targetPaneId) =>
   broker?.reaches(senderWindowId, sourcePaneId, targetPaneId) ?? false
-let settingsSync: SettingsSyncHandle | null = null
+let profileSync: ProfileSyncHandle | null = null
 
 const EXTENSION_PARTITION_PREFIX = 'ostia-ext-'
 
@@ -1191,6 +1218,9 @@ function extensionRoots(): ExtensionRoot[] {
     { dir: join(configDir(), 'extensions'), builtin: false },
   ]
 }
+
+let stopTailnet: (() => Promise<void>) | null = null
+let stopAnnouncing: (() => void) | null = null
 
 function broadcast(channel: string, payload: unknown): void {
   for (const win of windows.values()) {
@@ -1435,7 +1465,7 @@ function registerIpc(): void {
     'app:info',
     (): AppInfo => ({
       name: PRODUCT_DISPLAY_NAME,
-      version: app.getVersion(),
+      version: appVersion(),
       platform: process.platform,
       hostName: hostname(),
       home: app.getPath('home'),
@@ -1511,6 +1541,7 @@ function registerIpc(): void {
       removePane(event.paneId)
       terminalState.delete(event.paneId)
       processes?.paneClosed(event.paneId)
+      paneWatch.emit(event.paneId, { kind: 'closed' })
     } else if (event.type === 'workspace-added') {
       setWorkspaceWorkDir(event.workspaceId, event.workDir, windowId)
       scratchFolders.bind(event.workspaceId, event.workDir, windowId)
@@ -1527,6 +1558,8 @@ function registerIpc(): void {
     } else if (event.type === 'workspace-activated') {
     } else if (event.type === 'workspace-state') {
       emitSessionState(event.workspaceId, event.state)
+    } else if (event.type === 'pane-attention') {
+      paneWatch.attention(event.paneId, event.state, event.message)
     }
   })
 
@@ -1545,6 +1578,7 @@ function registerIpc(): void {
         cur.lastExitCode !== snapshot.lastExitCode
       terminalState.set(snapshot.paneId, snapshot)
       if (changed) {
+        paneWatch.emit(snapshot.paneId, { kind: 'state' })
         const identity = getByPaneId(snapshot.paneId)
         if (identity) {
           emitTerminalExtensionEvents(identity.externalId, identity.workspaceId, cur, snapshot)
@@ -2213,6 +2247,19 @@ function registerPtyIpc(): void {
       return null
     }
   })
+  ipcMain.handle('pty:busy', (e, paneId: string): string | null => {
+    const entry = ptys.get(String(paneId))
+    if (!entry?.subs.has(String(e.sender.id))) return null
+    try {
+      return busyProgram({
+        foreground: entry.pty.process,
+        shell: entry.shell,
+        sandboxed: entry.sandboxed,
+      })
+    } catch {
+      return null
+    }
+  })
   ipcMain.handle('pty:commands', async (e, paneId: string): Promise<string[]> => {
     const entry = ptys.get(paneId)
     if (!entry?.subs.has(String(e.sender.id))) return []
@@ -2702,6 +2749,7 @@ function readSettingsFile(): {
   workspaces?: { globalHotkey?: unknown }
   manager?: unknown
   assistant?: unknown
+  privacy?: unknown
   terminal?: { shell?: unknown; keepShells?: unknown }
   agents?: { hooks?: unknown }
 } {
@@ -2739,7 +2787,7 @@ function focusPaneInWindow(pane: PaneIdentity): boolean {
 const OPEN_TERMINAL_TIMEOUT_MS = 5000
 let openTerminalSeq = 0
 
-function openTerminalInWindow(req: TerminalOpenRequest): Promise<string | null> {
+function openTerminalInWindow(req: ProcessTabRequest): Promise<string | null> {
   const { windowId: requestedWindow, ...payload } = req
   const windowId =
     requestedWindow ?? (req.workspaceId ? workspaceWindowId(req.workspaceId) : undefined)
@@ -2925,6 +2973,7 @@ app.whenReady().then(() => {
   appLog = createAppLog(join(logDir, LOG_FILE_NAME))
   diagnostics = registerDiagnostics({
     log: appLog,
+    version: appVersion(),
     logDir,
     testHooks: process.env.NODE_ENV === 'test',
     startRecovery,
@@ -2977,6 +3026,7 @@ app.whenReady().then(() => {
     openExternal: openExternalSafe,
     readSettings: readSettingsFile,
     log: appLog,
+    version: appVersion(),
   })
   registerAgentTranscriptIpc()
   const notifyDeps = {
@@ -3033,7 +3083,10 @@ app.whenReady().then(() => {
   })
   const registry = registerProcessMethods({
     openTab: openTerminalInWindow,
-    onChange: (entry) => syncKeptMeta(entry.paneId),
+    onChange: (entry) => {
+      syncKeptMeta(entry.paneId)
+      paneWatch.emit(entry.paneId, { kind: 'state' })
+    },
     ring: (paneId) => {
       const session = ptys.get(paneId)?.session
       return session ? (from) => session.since(from) : undefined
@@ -3053,9 +3106,21 @@ app.whenReady().then(() => {
     interruptGraceMs: INTERRUPT_GRACE_MS,
   })
   processes = registry
-  registerPaneIoMethods({
-    io: paneIo,
-    state: getTerminalState,
+  const peekAttention = async (to: PaneIdentity): Promise<PaneAttentionPeek> => {
+    const unreported = keptAttention.peek(to.paneId)
+    if (unreported) return unreported
+    const res = await execCommand(targetOf(to), 'attention.peek')
+    return res.ok && res.result && typeof res.result === 'object' ? res.result : {}
+  }
+  const paneHibernated = async (to: PaneIdentity): Promise<boolean> => {
+    const res = await execCommand(targetOf(to), 'pane.hibernated')
+    return res.ok && (res.result as { hibernated?: unknown } | undefined)?.hibernated === true
+  }
+  const wakeHibernatedPane = async (to: PaneIdentity): Promise<boolean> => {
+    const res = await execCommand(targetOf(to), 'pane.wake')
+    return res.ok && (res.result as { woke?: unknown } | undefined)?.woke === true
+  }
+  const paneReachDeps: PaneReachDeps = {
     processPane: (ref, ctx) => {
       const entry = registry.resolve(
         ref,
@@ -3067,15 +3132,28 @@ app.whenReady().then(() => {
     isChild: (ownerPaneId, paneId) => registry.isChild(ownerPaneId, paneId),
     isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
     isConfined: (paneId) => ptys.get(paneId)?.sandboxed === true,
+  }
+  registerPaneIoMethods({
+    ...paneReachDeps,
+    io: paneIo,
+    state: getTerminalState,
     managerAllowsInput: () => managerSettings().allowInput,
-    attention: async (to) => {
-      const unreported = keptAttention.peek(to.paneId)
-      if (unreported) return unreported
-      const res = await execCommand(targetOf(to), 'attention.peek')
-      return res.ok && res.result && typeof res.result === 'object' ? res.result : {}
-    },
+    attention: peekAttention,
     inputSent: (to) => void execCommand(targetOf(to), 'attention.typed'),
+    hibernated: paneHibernated,
+    wake: wakeHibernatedPane,
+    close: (to) => execCommand(targetOf(to), 'pane.close'),
     delay: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+  })
+  registerPaneWaitMethods({
+    ...paneReachDeps,
+    watch: paneWatch,
+    attention: peekAttention,
+    exited: (paneId) => {
+      const entry = registry.forPane(paneId)
+      if (entry) return entry.status === 'exited'
+      return terminalState.get(paneId)?.running === false
+    },
   })
   registerDocsMethods({ extensions: () => extensionHost?.listForAgents() ?? [] })
   registerVaultMethods({ isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId) })
@@ -3099,21 +3177,9 @@ app.whenReady().then(() => {
         text,
       ).catch(() => {})
     },
+    hibernated: paneHibernated,
   })
   const extensionStore = new ExtensionStore(join(app.getPath('userData'), 'extensions.json'))
-  settingsSync = startSettingsSync({
-    userData: app.getPath('userData'),
-    broadcast: (channel, payload) => broadcast(channel, payload),
-    onExtensionsPulled: () => {
-      extensionStore.reload()
-      extensionHost?.reloadRecords()
-    },
-    onSettingsPulled: () => {
-      extensionHost?.reloadSettings()
-      extensionHost?.refreshLocale()
-    },
-  })
-  settingsSync.run()
   extensionHost = new ExtensionHost({
     onChanged: () => {
       languageServers?.refresh()
@@ -3186,28 +3252,69 @@ app.whenReady().then(() => {
       extensionHost?.setLanguageServerEnabled(extId, serverId, enabled),
     setOverride: (key, override) => serverOverrides.choose(key, override),
   })
-  registerMarketplaceIpc(
-    new Marketplace({
-      recordsPath: join(app.getPath('userData'), 'marketplaces.json'),
-      clonesDir: join(app.getPath('userData'), 'marketplaces'),
-      extensionsDir: join(configDir(), 'extensions'),
-      builtinIds: () =>
-        extensionHost
-          ?.list()
-          .filter((ext) => ext.builtin)
-          .map((ext) => ext.id) ?? [],
-      forget: (extId) => {
-        managedServers.forgetExtension(extId)
-        serverOverrides.forgetExtension(extId)
-        extensionStore.delete(extId)
-        for (const secrets of [extensionSecretStore(), assistKeyStore()]) {
-          for (const key of secrets.keys(extId)) secrets.set(extId, key, null)
-        }
-      },
-      rescan: () => extensionHost?.rescan(),
-      locale: readLocale,
-    }),
-  )
+  const marketplace = new Marketplace({
+    recordsPath: join(app.getPath('userData'), 'marketplaces.json'),
+    clonesDir: join(app.getPath('userData'), 'marketplaces'),
+    extensionsDir: join(configDir(), 'extensions'),
+    builtinIds: () =>
+      extensionHost
+        ?.list()
+        .filter((ext) => ext.builtin)
+        .map((ext) => ext.id) ?? [],
+    forget: (extId) => {
+      managedServers.forgetExtension(extId)
+      serverOverrides.forgetExtension(extId)
+      extensionStore.delete(extId)
+      for (const secrets of [extensionSecretStore(), assistKeyStore()]) {
+        for (const key of secrets.keys(extId)) secrets.set(extId, key, null)
+      }
+    },
+    rescan: () => extensionHost?.rescan(),
+    locale: readLocale,
+  })
+  registerMarketplaceIpc(marketplace)
+  profileSync = startProfileSync({
+    userData: app.getPath('userData'),
+    configDir: configDir(),
+    readSettings: readSettingsFile,
+    broadcast: (channel, payload) => broadcast(channel, payload),
+    onSettingsPulled: () => {
+      extensionHost?.reloadSettings()
+      extensionHost?.refreshLocale()
+    },
+    installedExtensions: () => marketplace.syncedInstalls(),
+    builtinIds: () =>
+      extensionHost
+        ?.list()
+        .filter((ext) => ext.builtin)
+        .map((ext) => ext.id) ?? [],
+    installExtension: async (id, url) => (await marketplace.installSuggested(id, url, true)).ok,
+    secretSources: () => {
+      const store = (name: string) => {
+        const path = storePath(name, 'global')
+        return { deps: encryptedFile(path), mtime: () => statSync(path).mtimeMs }
+      }
+      const vault = store('vault')
+      const ext = store('extension-secrets')
+      const assist = store('assist-keys')
+      const mcp = store('mcp-secrets')
+      const logins = credentials()
+      return [
+        flatSource(vault.deps, vault.mtime),
+        groupedSource('extensions', ext.deps, ext.mtime),
+        groupedSource('assistant', assist.deps, assist.mtime),
+        groupedSource('mcp', mcp.deps, mcp.mtime),
+        ...(logins ? [loginsSource(logins)] : []),
+      ]
+    },
+    protect: {
+      encrypt: (plain) => safeStorage.encryptString(plain).toString('base64'),
+      decrypt: (kept) => safeStorage.decryptString(Buffer.from(kept, 'base64')),
+    },
+    detectSecrets: (text) =>
+      redactionScan.scan(text, parsePrivacySettings(readSettingsFile().privacy).redaction.patterns),
+  })
+  void profileSync.run()
   registerAssistIpc(() => extensionHost)
   registerChatSessionIpc(
     createChatSessionStore({ dir: join(dirname(storePath('chat', 'global')), 'chat-sessions') }),
@@ -3280,6 +3387,22 @@ app.whenReady().then(() => {
   )
   registerPaneListMethods({ execCommand, getTerminalState, ptyPid, windowIds })
   registerGatewayMethods()
+  const tailnet = createTailnet({
+    command: tsnetHelperPath(app.getAppPath(), process.platform),
+    stateDir: join(app.getPath('userData'), 'tsnet'),
+    hostname: tailnetNodeName(hostname()),
+    onChange: (state) => {
+      onTailnetChange(state)
+      broadcast('gateway:tailnet-changed', state)
+    },
+    log: (event, fields) => appLog?.info(event, fields),
+  })
+  configureTailnet(tailnet, { openExternal: (url) => void openExternalSafe(url) })
+  stopTailnet = () => tailnet.stop()
+  const publisher = createBonjourPublisher()
+  configureAnnouncer(publisher)
+  stopAnnouncing = publisher.unpublish
+  onPairRequestsChanged(() => broadcast('gateway:pair-requests-changed', listPairRequests()))
   registerGatewayIpc()
   configureGatewayControl({
     execCommand,
@@ -3374,6 +3497,12 @@ app.whenReady().then(() => {
     log: (line) => console.error(`[git] ${line}`),
   })
   gitBoard.start()
+  portsBoard = new PortsBoard({
+    host: extensionHost,
+    listPanes: () => listPanes({ execCommand, getTerminalState, ptyPid, windowIds }),
+    log: (line) => console.error(`[ports] ${line}`),
+  })
+  portsBoard.start()
   extensionHost.watchUserExtensions()
   viewHost.watch()
   app.on('browser-window-focus', emitFocusChanged)
@@ -3500,14 +3629,17 @@ app.on('before-quit', (event) => {
   scratchFolders.removeAll()
   portForwarder.stopAll()
   gitBoard?.stop()
+  portsBoard?.stop()
   extensionHost?.stopAll()
   mcpOAuth?.closeAll()
   mcpHost?.closeAll()
   viewHost?.stop()
-  settingsSync?.stop()
+  profileSync?.stop()
   stopControlServer()
   clearControlInfo(controlInfoPath(), controlSocketPath())
   portal?.stop()
+  void stopTailnet?.()
+  stopAnnouncing?.()
   void stopGateway()
   appTray?.remove()
   globalHotkey?.clear()

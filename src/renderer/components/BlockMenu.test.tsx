@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPane, firstPaneOfKind } from '../layout/tree'
@@ -42,6 +42,7 @@ describe('BlockMenu', () => {
   })
 
   afterEach(() => {
+    cleanup()
     resetChats()
     useChatStore.setState({
       current: {},
@@ -175,7 +176,7 @@ describe('BlockMenu', () => {
 
     expect(await screen.findByRole('menuitem', { name: 'Copy output' })).toBeInTheDocument()
     expect(screen.queryByRole('menuitem', { name: 'Ask assistant about this output' })).toBeNull()
-    useAssistStore.setState({ overview: [] })
+    act(() => useAssistStore.setState({ overview: [] }))
   })
 
   describe('Explain error', () => {
@@ -233,7 +234,7 @@ describe('BlockMenu', () => {
 
       expect(await screen.findByRole('menuitem', { name: 'Copy output' })).toBeInTheDocument()
       expect(screen.queryByRole('menuitem', { name: 'Explain error' })).toBeNull()
-      useAssistStore.setState({ overview: [] })
+      act(() => useAssistStore.setState({ overview: [] }))
     })
 
     it('is not offered without an assistant that serves chat', async () => {

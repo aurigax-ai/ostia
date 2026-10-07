@@ -40,12 +40,15 @@ export interface SplitNode {
   direction: Direction
   children: LayoutNode[]
   sizes: number[]
+  name?: string
 }
+
+export type TabNode = PaneNode | SplitNode
 
 export interface TabsNode {
   type: 'tabs'
   id: string
-  children: PaneNode[]
+  children: TabNode[]
   activeId: string
 }
 

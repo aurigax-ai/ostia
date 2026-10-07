@@ -36,6 +36,16 @@ describe('buildAppMenuSpec', () => {
     expect(spec.help.items).toEqual([])
   })
 
+  it('puts New Window in the File menu with its shortcut', () => {
+    const spec = buildAppMenuSpec(en, registry(['workspace.new', 'window.new']), (id) =>
+      id === 'window.new' ? 'Shift+Cmd+N' : null,
+    )
+    expect(spec.file.items).toEqual([
+      { command: 'workspace.new', label: 'T workspace.new' },
+      { command: 'window.new', label: 'T window.new', accelerator: 'Shift+Cmd+N' },
+    ])
+  })
+
   it('shows Find in Page with the find shortcut', () => {
     const spec = buildAppMenuSpec(en, registry(['browser.find']), (id) =>
       id === 'find' ? 'Cmd+F' : null,
