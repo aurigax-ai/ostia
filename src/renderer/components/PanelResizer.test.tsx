@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { installLocalStorage } from '../../../test/mocks/memoryStorage'
 import { FILES_WIDTH, PANEL_KEY_STEP, RAIL_WIDTH, panelMaxWidth } from '../lib/panelWidth'
@@ -156,8 +156,9 @@ describe('Files panel resizer', () => {
     document.documentElement.removeAttribute('data-rail-resizing')
   })
 
-  it('sits on the Files panel edge and controls the panel', () => {
+  it('sits on the Files panel edge and controls the panel', async () => {
     render(<FilesPanel />)
+    await act(async () => {})
     const el = filesSeparator()
     expect(el).toHaveAttribute('aria-controls', 'files-panel')
     expect(document.getElementById('files-panel')).toContainElement(el)
@@ -165,8 +166,9 @@ describe('Files panel resizer', () => {
     expect(filesVar()).toBe(`${FILES_WIDTH.defaultWidth}px`)
   })
 
-  it('widens with a drag, stores the width apart from the rail, and never collapses', () => {
+  it('widens with a drag, stores the width apart from the rail, and never collapses', async () => {
     render(<FilesPanel />)
+    await act(async () => {})
     const el = filesSeparator()
     pointer('pointerdown', el, 500)
     pointer('pointermove', el, 700)

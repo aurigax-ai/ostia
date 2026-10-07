@@ -24,12 +24,16 @@ jobs:
   package:
     needs: ci
     runs-on: ${{ fromJSON(needs.ci.outputs.linux) }}
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
+        timeout-minutes: 10
       - name: Tag matches package.json version
         run: test "v$(node -p 'require("./package.json").version')" = "$GITHUB_REF_NAME"
       - run: pnpm build
+      - name: Build version is the plain tag version
+        run: test "v$(node -p 'require("./out/build-info.json").version')" = "$GITHUB_REF_NAME"
       - run: pnpm exec electron-builder --linux dir deb --publish never
       - name: Archive the unpacked app
         run: |
@@ -47,13 +51,17 @@ jobs:
   package-macos:
     needs: ci
     runs-on: macos-26
+    timeout-minutes: 30
     environment: release-macos
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
+        timeout-minutes: 10
       - name: Tag matches package.json version
         run: test "v$(node -p 'require("./package.json").version')" = "$GITHUB_REF_NAME"
       - run: pnpm build
+      - name: Build version is the plain tag version
+        run: test "v$(node -p 'require("./out/build-info.json").version')" = "$GITHUB_REF_NAME"
       - name: Import the Developer ID certificate into a temporary keychain
         env:
           P12_B64: ${{ secrets.CSC_LINK }}
@@ -105,12 +113,14 @@ jobs:
     # Stays GitHub-hosted: npm trusted publishing (OIDC) does not support
     # self-hosted runners (docs.npmjs.com/trusted-publishers).
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     permissions:
       contents: read
       id-token: write
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
+        timeout-minutes: 10
       - uses: actions/setup-node@v7
         with:
           node-version: 24
@@ -123,6 +133,7 @@ jobs:
   publish:
     needs: [ci, package, package-macos]
     runs-on: ${{ fromJSON(needs.ci.outputs.linux) }}
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
         with:

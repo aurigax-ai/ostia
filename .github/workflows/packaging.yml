@@ -23,9 +23,11 @@ concurrency:
 jobs:
   apt:
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
+        timeout-minutes: 10
       - run: pnpm build
       - run: pnpm exec electron-builder --linux deb --publish never
       - name: Fake a newer version of the same package to test the upgrade
@@ -41,7 +43,7 @@ jobs:
           ls -l repo
       - name: Sign the repository with a throwaway key
         run: |
-          command -v apt-ftparchive || sudo apt-get install -y apt-utils
+          command -v apt-ftparchive || scripts/retry.sh sudo apt-get install -y apt-utils
           gpg --batch --passphrase '' --quick-gen-key 'Ostia CI throwaway <ci@invalid>' ed25519 sign 1d
           fpr=$(gpg --batch --with-colons --list-secret-keys | awk -F: '/^fpr:/ {print $10; exit}')
           gpg --batch --export "$fpr" > repo/ostia.gpg
@@ -51,6 +53,7 @@ jobs:
 
   homebrew:
     runs-on: macos-26
+    timeout-minutes: 10
     env:
       HOMEBREW_GITHUB_API_TOKEN: ${{ github.token }}
     steps:

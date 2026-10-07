@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { useSettingsStore } from '../stores/settingsStore'
@@ -73,7 +73,7 @@ describe('WorkspacesSection', () => {
     fireEvent.change(screen.getByRole('textbox', { name: 'Default folder' }), {
       target: { value: '~/code' },
     })
-    await vi.waitFor(() => expect(window.ostia.fs.stat).toHaveBeenCalledWith('~/code'))
+    await waitFor(() => expect(window.ostia.fs.stat).toHaveBeenCalledWith('~/code'))
 
     expect(screen.queryByText('Not a folder, or outside your home folder.')).toBeNull()
   })

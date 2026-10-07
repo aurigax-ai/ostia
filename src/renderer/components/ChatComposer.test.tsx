@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest'
 import type { AssistCatalog, AssistChunk } from '@shared/assist'
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { registerBuiltinCommands } from '../commands/builtins'
@@ -191,7 +191,7 @@ describe('chat composer row', () => {
     const button = await modeButton()
     expect(button).toHaveAttribute('data-mode', 'ask')
     const first = currentSessionId('w1') as string
-    button.focus()
+    act(() => button.focus())
     await userEvent.keyboard('{Enter}')
     const write = await screen.findByRole('menuitemradio', { name: /^Write/ })
     expect(write).toHaveTextContent(

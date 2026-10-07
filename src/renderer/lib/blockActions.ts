@@ -1,4 +1,3 @@
-import type { Terminal } from '@xterm/xterm'
 import { type CommandBlock, useBlocksStore } from '../stores/blocksStore'
 import { readBufferText } from './blockText'
 import {
@@ -8,6 +7,7 @@ import {
   scrollTargetFor,
   stepSelection,
 } from './blocks'
+import type { OstiaTerminal as Terminal } from './ostiaTerminal'
 import { inputEditorFor, terminalFor } from './terminalHandles'
 
 export type BlockPart = 'command' | 'output' | 'both'
@@ -103,6 +103,7 @@ export function runWhenIdle(
   paneId: string,
   command: string,
   timeoutMs = RUN_WHEN_IDLE_TIMEOUT_MS,
+  allowed: () => boolean = () => true,
 ): () => void {
   let done = false
   const stop = (): void => {
@@ -114,7 +115,7 @@ export function runWhenIdle(
   const attempt = (): void => {
     if (done || !atReadyPrompt(paneId)) return
     stop()
-    insertCommand(paneId, command, true)
+    if (allowed()) insertCommand(paneId, command, true)
   }
   const unsubscribe = useBlocksStore.subscribe(attempt)
   const timer = setTimeout(stop, timeoutMs)

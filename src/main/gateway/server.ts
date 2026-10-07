@@ -14,14 +14,9 @@ import { PLATFORM_EVENT_TYPES, type PlatformEventType, platformEvents } from '..
 import { getByPaneId, resolveExternal } from '../idRegistry'
 import { type GatewayCert, getCert } from './cert'
 import { type GatewayControlDeps, dispatchGatewayMethod } from './controlDispatch'
-import {
-  type Device,
-  get as getDevice,
-  list as listDevices,
-  registerDevice,
-  verifyToken,
-} from './devices'
-import { auditPairAttempt, checkPairRateLimit, consumeCode } from './pairing'
+import { type Device, get as getDevice, list as listDevices, verifyToken } from './devices'
+import { cancelPairRequest, openPairRequest, revealPairRequest } from './pairRequests'
+import { auditPairAttempt, checkPairRateLimit, consumeCode, isLiveCode } from './pairing'
 import { readProxyHeader } from './proxyProtocol'
 
 const FRAME_PTY_OUTPUT = 0x01
@@ -30,6 +25,7 @@ const FRAME_PTY_RESIZE = 0x03
 const MAX_PTY_DIM = 1000
 
 export interface GatewayStartOptions {
+  host?: string
   port?: number
 }
 
@@ -62,6 +58,7 @@ const MAX_FRAME_BYTES = 1024 * 1024
 
 let wss: WebSocketServer | null = null
 let heartbeat: ReturnType<typeof setInterval> | null = null
+let boundHost: string | null = null
 let boundPort: number | null = null
 let boundHelperPort: number | null = null
 let currentFingerprint: string | null = null
@@ -201,7 +198,12 @@ function isAllowedHostHeader(hostHeader: string | undefined): boolean {
   const headerHost = sepIdx === -1 ? hostHeader : hostHeader.slice(0, sepIdx)
   const headerPort = sepIdx === -1 ? undefined : hostHeader.slice(sepIdx + 1)
   if (headerPort !== undefined && Number(headerPort) !== boundPort) return false
-  return headerHost === LOOPBACK || headerHost === 'localhost' || tailnetHosts.has(headerHost)
+  return (
+    headerHost === LOOPBACK ||
+    headerHost === 'localhost' ||
+    headerHost === boundHost ||
+    tailnetHosts.has(headerHost)
+  )
 }
 
 export function setTailnetHosts(hosts: string[]): void {
@@ -245,6 +247,8 @@ function sendJson(res: ServerResponse, status: number, body: unknown): void {
   res.end(data)
 }
 
+const COMMIT = /^[0-9a-f]{64}$/
+
 async function handlePair(req: IncomingMessage, res: ServerResponse): Promise<void> {
   const ip = peerAddress(req.socket)
   if (!checkPairRateLimit(ip)) {
@@ -255,6 +259,7 @@ async function handlePair(req: IncomingMessage, res: ServerResponse): Promise<vo
   const body = (await readJsonBody(req)) as {
     pairCode?: unknown
     device?: { name?: unknown; pubkey?: unknown }
+    commit?: unknown
   } | null
   const pairCode = body?.pairCode
   const device = body?.device
@@ -267,18 +272,54 @@ async function handlePair(req: IncomingMessage, res: ServerResponse): Promise<vo
     auditPairAttempt(ip, 'bad-request')
     sendJson(res, 400, {
       error: 'bad-request',
-      message: 'expected { pairCode, device: { name, pubkey } }',
+      message: 'expected { pairCode, device: { name, pubkey }, commit }',
     })
     return
   }
-  if (!consumeCode(pairCode)) {
+  if (!isLiveCode(pairCode)) {
     auditPairAttempt(ip, 'invalid-code')
     sendJson(res, 401, { error: 'invalid-pair-code' })
     return
   }
-  const { deviceId, token, caps } = registerDevice({ name: device.name, pubkey: device.pubkey })
-  auditPairAttempt(ip, 'ok')
-  sendJson(res, 200, { deviceId, deviceToken: token, caps, expiresAt: null })
+  if (typeof body?.commit !== 'string' || !COMMIT.test(body.commit)) {
+    auditPairAttempt(ip, 'bad-request')
+    sendJson(res, 400, { error: 'bad-request', message: 'commit must be 64 hex characters' })
+    return
+  }
+  consumeCode(pairCode)
+  const { requestId, desktopNonce } = openPairRequest({
+    name: device.name,
+    pubkey: device.pubkey,
+    commit: body.commit,
+    peer: ip,
+  })
+  sendJson(res, 200, { requestId, nonce: desktopNonce })
+}
+
+async function handlePairConfirm(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  const body = (await readJsonBody(req)) as { requestId?: unknown; nonce?: unknown } | null
+  if (typeof body?.requestId !== 'string' || typeof body.nonce !== 'string') {
+    sendJson(res, 400, { error: 'bad-request', message: 'expected { requestId, nonce }' })
+    return
+  }
+  const requestId = body.requestId
+  const outcome = revealPairRequest(
+    requestId,
+    body.nonce,
+    currentFingerprint ?? '',
+    (status, reply) => sendJson(res, status, reply),
+  )
+  if (outcome === 'unknown-request') {
+    sendJson(res, 404, { error: 'unknown-request' })
+    return
+  }
+  if (outcome === 'commit-mismatch') {
+    sendJson(res, 400, { error: 'commit-mismatch' })
+    return
+  }
+  res.on('close', () => {
+    if (!res.writableEnded) cancelPairRequest(requestId)
+  })
 }
 
 function requestHandler(req: IncomingMessage, res: ServerResponse): void {
@@ -292,6 +333,10 @@ function requestHandler(req: IncomingMessage, res: ServerResponse): void {
   }
   if (req.method === 'POST' && req.url === '/pair') {
     handlePair(req, res).catch(() => sendJson(res, 500, { error: 'internal-error' }))
+    return
+  }
+  if (req.method === 'POST' && req.url === '/pair/confirm') {
+    handlePairConfirm(req, res).catch(() => sendJson(res, 500, { error: 'internal-error' }))
     return
   }
   sendJson(res, 404, { error: 'not-found' })
@@ -584,6 +629,7 @@ export async function startGateway(options: GatewayStartOptions = {}): Promise<G
   if (httpsServer) await stopGateway()
 
   const cert: GatewayCert = await getCert()
+  const host = options.host ?? LOOPBACK
   const port = options.port ?? DEFAULT_PORT
 
   const server = createHttpsServer({ cert: cert.cert, key: cert.key }, requestHandler)
@@ -599,7 +645,7 @@ export async function startGateway(options: GatewayStartOptions = {}): Promise<G
 
   await new Promise<void>((resolve, reject) => {
     server.once('error', reject)
-    server.listen(port, LOOPBACK, () => {
+    server.listen(port, host, () => {
       server.removeListener('error', reject)
       resolve()
     })
@@ -609,6 +655,7 @@ export async function startGateway(options: GatewayStartOptions = {}): Promise<G
   httpsServer = server
   helperServer = helper
   wss = wsServer
+  boundHost = host
   boundPort = (server.address() as AddressInfo).port
   boundHelperPort = (helper.address() as AddressInfo).port
   currentFingerprint = cert.fingerprint
@@ -616,7 +663,7 @@ export async function startGateway(options: GatewayStartOptions = {}): Promise<G
   subscribePlatformEvents()
 
   return {
-    host: LOOPBACK,
+    host,
     port: boundPort,
     helperPort: boundHelperPort,
     fingerprint: cert.fingerprint,
@@ -641,6 +688,7 @@ export async function stopGateway(): Promise<void> {
   wss = null
   httpsServer = null
   helperServer = null
+  boundHost = null
   boundPort = null
   boundHelperPort = null
   currentFingerprint = null
@@ -658,7 +706,7 @@ export function gatewayHelperPort(): number | null {
 export function gatewayStatus(): GatewayStatus {
   return {
     running: httpsServer !== null,
-    host: httpsServer ? LOOPBACK : null,
+    host: boundHost,
     port: boundPort,
     fingerprint: currentFingerprint,
     deviceCount: listDevices().length,

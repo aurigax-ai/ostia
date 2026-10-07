@@ -1,8 +1,10 @@
 import { delimiter } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { paneShellEnv } from './terminalType'
+import { newWindowCommand } from './tmux/tmuxCommand'
 
 const parts = {
+  version: '1.2.3',
   parent: { PATH: '/bin', HOME: '/home/u' },
   integration: { ZDOTDIR: '/tmp/z' },
   pane: { OSTIA_PANE_ID: 'p1', OSTIA_TOKEN: 't' },
@@ -42,7 +44,23 @@ describe('paneShellEnv', () => {
       OSTIA_NO_CLAUDE_HOOKS: '1',
       OSTIA_NO_CODEX_HOOKS: '',
       COLORTERM: 'truecolor',
+      TERM_PROGRAM: 'ostia',
+      TERM_PROGRAM_VERSION: '1.2.3',
     })
+  })
+
+  it('overrides a terminal identity inherited from the parent environment', () => {
+    const parent = { ...parts.parent, TERM_PROGRAM: 'iTerm.app', TERM_PROGRAM_VERSION: '9' }
+    const env = paneShellEnv({ ...parts, parent })
+    expect(env.TERM_PROGRAM).toBe('ostia')
+    expect(env.TERM_PROGRAM_VERSION).toBe('1.2.3')
+  })
+
+  it('reaches the keep-shells tmux window as -e flags', () => {
+    const env = paneShellEnv({ ...parts })
+    const command = newWindowCommand({ session: 's', file: '/bin/sh', args: [], cwd: '/', env })
+    expect(command).toContain('-e "TERM_PROGRAM=ostia"')
+    expect(command).toContain('-e "TERM_PROGRAM_VERSION=1.2.3"')
   })
 })
 

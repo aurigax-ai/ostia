@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { TARGET_PANE, seedSendTarget } from '../../../test/mocks/sendTarget'
@@ -26,6 +26,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  cleanup()
   unseed()
   vi.mocked(cropToPng).mockReset()
 })
@@ -60,6 +61,22 @@ describe('ImageViewer', () => {
     expect(screen.getByText('Zoom 100%')).toBeInTheDocument()
   })
 
+  it('marks the canvas as a region-select surface only once the image has loaded', async () => {
+    vi.mocked(window.ostia.fs.readBinary).mockResolvedValue({ ok: true, data: PNG })
+    render(<ImageViewer workspaceId="w1" paneId="img-pane" filePath="/w/shots/login.png" />)
+    const img = await waitFor(() => {
+      const found = document.querySelector<HTMLImageElement>('img[alt="login.png"]')
+      if (!found) throw new Error('image not rendered')
+      return found
+    })
+    const canvas = document.querySelector('.viewer-canvas') as HTMLElement
+    expect(canvas).not.toHaveClass('region-select')
+    Object.defineProperty(img, 'naturalWidth', { value: 40 })
+    Object.defineProperty(img, 'naturalHeight', { value: 20 })
+    fireEvent.load(img)
+    await waitFor(() => expect(canvas).toHaveClass('region-select'))
+  })
+
   it('explains a file over the size cap instead of showing it', async () => {
     vi.mocked(window.ostia.fs.readBinary).mockResolvedValue({
       ok: false,
@@ -83,6 +100,23 @@ describe('ImageViewer', () => {
       'aria-pressed',
       'true',
     )
+  })
+
+  it('zooms with a pinch or Ctrl+wheel and leaves a plain wheel to scroll', async () => {
+    await renderLoaded()
+    const stage = document.querySelector('.viewer-stage') as HTMLElement
+    canvasAt(16, 16)
+
+    expect(fireEvent.wheel(stage, { deltaY: -40, clientX: 50, clientY: 40 })).toBe(true)
+    expect(screen.getByText('Zoom 100%')).toBeInTheDocument()
+
+    expect(fireEvent.wheel(stage, { deltaY: -40, ctrlKey: true, clientX: 50, clientY: 40 })).toBe(
+      false,
+    )
+    expect(await screen.findByText('Zoom 149%')).toBeInTheDocument()
+
+    fireEvent.wheel(stage, { deltaY: 40, ctrlKey: true, clientX: 50, clientY: 40 })
+    expect(await screen.findByText('Zoom 100%')).toBeInTheDocument()
   })
 
   it('crops a dragged region in image pixels and sends it with the PNG', async () => {

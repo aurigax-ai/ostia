@@ -4,13 +4,17 @@ import {
   adjacentTab,
   adoptIds,
   allPanes,
+  backgroundTabAnchor,
   closePane,
   createPane,
   createTerminalPane,
   findExtensionPane,
   findPane,
+  findSplitTab,
+  findSplitTabByName,
   firstPaneId,
   firstPaneOfKind,
+  focusIdOf,
   followMovedFile,
   graftNode,
   hasLockedPane,
@@ -18,6 +22,7 @@ import {
   mergeLayouts,
   movePane,
   moveTab,
+  nameSplitTabOf,
   paneIds,
   paneInDirection,
   placementOf,
@@ -36,8 +41,13 @@ import {
   setPaneTitle,
   setPaneUrl,
   setSizes,
+  settleSpawnDir,
+  splitBeside,
   splitOf,
   splitPane,
+  splitTabOfPane,
+  tabIdOf,
+  tabNeighbor,
   tabsOf,
   tabsOfPane,
   withoutPanes,
@@ -784,6 +794,32 @@ describe('tabs', () => {
     expect(paneIds(stack)).toEqual([a.id, c.id, b.id])
   })
 
+  it('opens background tabs from one caller right after it in launch order', () => {
+    const agent = createPane()
+    const other = createPane()
+    const opened: string[] = []
+    let root: LayoutNode = tabsOf(agent.id, agent, other)
+    for (let i = 0; i < 3; i++) {
+      const tab = createPane()
+      root = addTab(root, backgroundTabAnchor(root, agent.id, opened), tab, true)
+      opened.push(tab.id)
+    }
+    expect(paneIds(root)).toEqual([agent.id, ...opened, other.id])
+    expect(root).toMatchObject({ activeId: agent.id })
+  })
+
+  it("skips the caller's tabs that left its stack and ignores another caller's tabs", () => {
+    const agent = createPane()
+    const moved = createPane()
+    const kept = createPane()
+    const foreign = createPane()
+    const root = splitOf('horizontal', tabsOf(agent.id, agent, kept, foreign), moved)
+    expect(backgroundTabAnchor(root, agent.id, [kept.id, moved.id])).toBe(kept.id)
+    expect(backgroundTabAnchor(root, agent.id, [moved.id, 'pane-closed'])).toBe(agent.id)
+    expect(backgroundTabAnchor(root, agent.id, [])).toBe(agent.id)
+    expect(backgroundTabAnchor(agent, agent.id, [kept.id])).toBe(agent.id)
+  })
+
   it('selects a tab and returns the same tree when it is already shown', () => {
     const a = createPane()
     const b = createPane()
@@ -807,11 +843,11 @@ describe('tabs', () => {
     expect(closePane(tabsOf(a.id, a, b), a.id)).toBe(b)
   })
 
-  it('splits beside the whole tab stack, not inside it', () => {
+  it('splits beside the whole tab stack with splitBeside', () => {
     const a = createPane()
     const b = createPane()
     const tabs = tabsOf(b.id, a, b)
-    const { root, newPaneId } = splitPane(tabs, b.id, 'vertical')
+    const { root, newPaneId } = splitBeside(tabs, b.id, 'vertical')
     expect(root.type).toBe('split')
     if (root.type === 'split') {
       expect(root.children[0]).toBe(tabs)
@@ -878,6 +914,33 @@ describe('setPaneHibernated', () => {
     const awake = setPaneHibernated(asleep, root.id, false)
     expect(awake).not.toHaveProperty('hibernated')
     expect(setPaneHibernated(awake, root.id, false)).toBe(awake)
+  })
+
+  it('wakes a pane whose token names a folder with the next shell starting there', () => {
+    const root = {
+      ...createPane(),
+      cwd: '/w',
+      resume: { agent: 'claude' as const, id: 'a', cwd: '/w/t' },
+    }
+    const awake = setPaneHibernated(setPaneHibernated(root, root.id, true), root.id, false)
+    expect(awake).toMatchObject({ cwd: '/w', spawnDir: '/w/t' })
+  })
+})
+
+describe('settleSpawnDir', () => {
+  it('drops the spawn folder once the shell started, keeping it as missing only when it was gone', () => {
+    const root = { ...createPane(), spawnDir: '/w/t' }
+    expect(settleSpawnDir(root, root.id, false)).not.toHaveProperty('spawnDir')
+    const gone = settleSpawnDir(root, root.id, true)
+    expect(gone).not.toHaveProperty('spawnDir')
+    expect(gone).toMatchObject({ resumeFolderMissing: '/w/t' })
+    expect(settleSpawnDir(gone, root.id, true)).toBe(gone)
+  })
+
+  it('clears the missing folder when the shell reports that folder again', () => {
+    const root = { ...createPane(), resumeFolderMissing: '/w/t' }
+    expect(setPaneCwd(root, root.id, '/home')).toMatchObject({ resumeFolderMissing: '/w/t' })
+    expect(setPaneCwd(root, root.id, '/w/t')).not.toHaveProperty('resumeFolderMissing')
   })
 })
 
@@ -1144,5 +1207,210 @@ describe('followMovedFile', () => {
   it('returns the same tree when no editor shows the moved path', () => {
     const root = splitOf('horizontal', createPane(), createPane())
     expect(followMovedFile(root, '/p/a', '/p/b')).toBe(root)
+  })
+})
+
+describe('split tabs', () => {
+  const stack = () => {
+    const [a, b, c] = [createPane(), createPane(), createPane()]
+    return { a, b, c, root: tabsOf(b.id, a, b) as LayoutNode }
+  }
+
+  it('turns the shown tab of a stack into a split tab when it splits', () => {
+    const { a, b, c, root } = stack()
+    const { root: next, newPaneId } = splitPane(root, b.id, 'horizontal', c)
+    expect(newPaneId).toBe(c.id)
+    expect(next).toMatchObject({ type: 'tabs', id: root.id, activeId: b.id })
+    if (next.type !== 'tabs') throw new Error('expected tabs')
+    expect(next.children[0]).toBe(a)
+    expect(next.children[1]).toMatchObject({ type: 'split', direction: 'horizontal' })
+    expect(paneIds(next.children[1])).toEqual([b.id, c.id])
+    expect(splitTabOfPane(next, c.id)?.id).toBe(next.children[1].id)
+  })
+
+  it('splits a lone pane slot as before', () => {
+    const a = createPane()
+    const { root } = splitPane(a, a.id, 'vertical')
+    expect(root).toMatchObject({ type: 'split', direction: 'vertical' })
+  })
+
+  it('grows a split tab inside itself, nesting another direction', () => {
+    const { b, c, root } = stack()
+    const d = createPane()
+    const once = splitPane(root, b.id, 'horizontal', c).root
+    const twice = splitPane(once, c.id, 'vertical', d).root
+    const tab = splitTabOfPane(twice, d.id)
+    expect(tab).toMatchObject({ direction: 'horizontal' })
+    expect(tab?.children[1]).toMatchObject({ type: 'split', direction: 'vertical' })
+    expect(paneIds(twice)).toHaveLength(4)
+    expect(twice.type === 'tabs' && twice.children).toHaveLength(2)
+  })
+
+  it('adds a sibling in the same direction instead of nesting', () => {
+    const { b, c, root } = stack()
+    const d = createPane()
+    const once = splitPane(root, b.id, 'horizontal', c).root
+    const twice = splitPane(once, c.id, 'horizontal', d).root
+    const tab = splitTabOfPane(twice, d.id)
+    expect(tab?.children.map((n) => n.id)).toEqual([b.id, c.id, d.id])
+    expect(tab?.sizes).toEqual([1, 0.5, 0.5])
+  })
+
+  it('shows only the panes of the shown tab', () => {
+    const { a, b, c, root } = stack()
+    const next = splitPane(root, b.id, 'horizontal', c).root
+    expect(isPaneShown(next, b.id)).toBe(true)
+    expect(isPaneShown(next, c.id)).toBe(true)
+    expect(isPaneShown(next, a.id)).toBe(false)
+    const other = selectTab(next, a.id)
+    expect(isPaneShown(other, c.id)).toBe(false)
+    expect(selectTab(next, c.id)).toMatchObject({ activeId: c.id })
+    expect(isPaneShown(selectTab(next, c.id), b.id)).toBe(true)
+  })
+
+  it('turns a split tab closed down to one pane back into a plain tab', () => {
+    const { a, b, c, root } = stack()
+    const next = splitPane(root, b.id, 'horizontal', c).root
+    const closed = closePane(next, b.id)
+    expect(closed).toMatchObject({ type: 'tabs', activeId: c.id })
+    expect(closed.type === 'tabs' && closed.children).toEqual([a, c])
+  })
+
+  it('keeps focus inside the split tab when its focused pane closes', () => {
+    const { b, c, root } = stack()
+    const d = createPane()
+    const next = splitPane(splitPane(root, b.id, 'horizontal', c).root, c.id, 'horizontal', d).root
+    const focused = selectTab(next, c.id)
+    expect(closePane(focused, c.id)).toMatchObject({ activeId: b.id })
+  })
+
+  it('unwraps a lone split tab to an ordinary split without its name', () => {
+    const { a, b, c, root } = stack()
+    const named = nameSplitTabOf(splitPane(root, b.id, 'horizontal', c).root, b.id, 'api')
+    const closed = closePane(named, a.id)
+    expect(closed).toMatchObject({ type: 'split' })
+    expect(closed).not.toHaveProperty('name')
+    expect(paneIds(closed)).toEqual([b.id, c.id])
+  })
+
+  it('names a split tab once and finds it by name and id', () => {
+    const { b, c, root } = stack()
+    const next = splitPane(root, b.id, 'horizontal', c).root
+    const named = nameSplitTabOf(next, c.id, 'api')
+    const tab = findSplitTabByName(named, 'api')
+    expect(tab).toMatchObject({ name: 'api' })
+    expect(findSplitTab(named, tab?.id ?? '')).toBe(tab)
+    expect(nameSplitTabOf(named, c.id, 'web')).toBe(named)
+    expect(nameSplitTabOf(root, b.id, 'web')).toBe(root)
+  })
+
+  it('steps tabs, not panes, with adjacentTab and tabNeighbor', () => {
+    const { a, b, c, root } = stack()
+    const next = splitPane(root, b.id, 'horizontal', c).root
+    const tabId = tabIdOf(next, c.id)
+    expect(tabId).not.toBe(c.id)
+    expect(adjacentTab(next, c.id, 1)).toBe(a.id)
+    expect(adjacentTab(next, a.id, 1)).toBe(b.id)
+    expect(tabNeighbor(next, a.id, 1)).toBe(tabId)
+    expect(tabNeighbor(next, c.id, -1)).toBe(a.id)
+  })
+
+  it('moves the whole split tab in the strip and keeps its focused pane shown', () => {
+    const { a, b, c, root } = stack()
+    const next = selectTab(splitPane(root, b.id, 'horizontal', c).root, c.id)
+    const tabId = tabIdOf(next, c.id) ?? ''
+    const moved = moveTab(next, tabId, a.id, false)
+    expect(moved.type === 'tabs' && moved.children.map((t) => t.id)).toEqual([tabId, a.id])
+    expect(moved).toMatchObject({ activeId: c.id })
+    expect(focusIdOf(moved, tabId)).toBe(c.id)
+  })
+
+  it('pulls one segment out of a split tab as its own tab', () => {
+    const { a, b, c, root } = stack()
+    const next = splitPane(root, b.id, 'horizontal', c).root
+    const moved = moveTab(next, c.id, a.id, false)
+    expect(moved.type === 'tabs' && moved.children).toEqual([c, a, b])
+    expect(moved).toMatchObject({ activeId: c.id })
+  })
+
+  it('drops a pane on the edge of a pane in a stack into that tab', () => {
+    const [a, b, c] = [createPane(), createPane(), createPane()]
+    const root = splitOf('horizontal', tabsOf(a.id, a, b), c)
+    const moved = movePane(root, c.id, a.id, 'bottom')
+    expect(moved.type).toBe('tabs')
+    expect(splitTabOfPane(moved, c.id)).toMatchObject({ direction: 'vertical' })
+    expect(paneIds(splitTabOfPane(moved, c.id) as LayoutNode)).toEqual([a.id, c.id])
+  })
+
+  it('moves a whole split tab to an edge of a plain slot as an ordinary split', () => {
+    const { b, c, root } = stack()
+    const d = createPane()
+    const withTab = nameSplitTabOf(splitPane(root, b.id, 'horizontal', c).root, b.id, 'api')
+    const tree = splitOf('horizontal', withTab, d)
+    const tabId = tabIdOf(tree, b.id) ?? ''
+    const moved = movePane(tree, tabId, d.id, 'bottom')
+    const outer = moved.type === 'split' ? moved.children[1] : null
+    expect(outer).toMatchObject({ type: 'split', direction: 'vertical' })
+    const inner = outer?.type === 'split' ? outer.children[1] : null
+    expect(inner).toMatchObject({ type: 'split', id: tabId })
+    expect(inner).not.toHaveProperty('name')
+  })
+
+  it('adds a split tab dropped on the center as a tab, keeping its name', () => {
+    const { b, c, root } = stack()
+    const d = createPane()
+    const withTab = nameSplitTabOf(splitPane(root, b.id, 'horizontal', c).root, b.id, 'api')
+    const tree = splitOf('horizontal', withTab, d)
+    const tabId = tabIdOf(tree, b.id) ?? ''
+    const moved = movePane(tree, tabId, d.id, 'center')
+    const tabs = tabsOfPane(moved, d.id)
+    expect(tabs?.children.map((t) => t.id)).toEqual([d.id, tabId])
+    expect(findSplitTab(moved, tabId)).toMatchObject({ name: 'api' })
+  })
+
+  it('walks the shown split tab when moving focus by direction', () => {
+    const { a, b, c, root } = stack()
+    const e = createPane()
+    const tree = splitOf('horizontal', e, splitPane(root, b.id, 'vertical', c).root)
+    expect(paneInDirection(tree, b.id, 'down')).toBe(c.id)
+    expect(paneInDirection(tree, c.id, 'left')).toBe(e.id)
+    expect(paneInDirection(tree, e.id, 'right')).toBe(b.id)
+    expect(paneInDirection(tree, a.id, 'left')).toBe(e.id)
+    const hidden = selectTab(tree, a.id)
+    expect(paneInDirection(hidden, e.id, 'right')).toBe(a.id)
+  })
+
+  it('resizes a split inside a split tab', () => {
+    const { b, c, root } = stack()
+    const next = splitPane(root, b.id, 'horizontal', c).root
+    const tabId = tabIdOf(next, c.id) ?? ''
+    const sized = setSizes(next, tabId, [3, 1])
+    expect(findSplitTab(sized, tabId)?.sizes).toEqual([3, 1])
+    expect(setSizes(next, 'nope', [1])).toBe(next)
+  })
+
+  it('remembers a split-tab neighbour and grafts a returning pane back into the tab', () => {
+    const { b, c, root } = stack()
+    const next = splitPane(root, b.id, 'horizontal', c).root
+    const beside = placementOf(next, c.id)
+    expect(beside).toEqual({ paneId: b.id, zone: 'right' })
+    const without = closePane(next, c.id)
+    const back = graftNode(without, c, beside ?? undefined)
+    expect(splitTabOfPane(back, c.id)?.children.map((n) => n.id)).toEqual([b.id, c.id])
+  })
+
+  it('reads a split tab neighbour as a center placement for a plain tab', () => {
+    const { a, b, c, root } = stack()
+    const next = splitPane(root, b.id, 'horizontal', c).root
+    expect(placementOf(next, a.id)).toEqual({ paneId: b.id, zone: 'center' })
+  })
+
+  it('maps pane changes through split tabs and returns the same tree for no change', () => {
+    const { b, c, root } = stack()
+    const next = splitPane(root, b.id, 'horizontal', c).root
+    expect(setPaneCwd(next, c.id, '/x')).not.toBe(next)
+    expect(findPane(setPaneCwd(next, c.id, '/x'), c.id)?.cwd).toBe('/x')
+    expect(setPaneLocked(next, c.id, false)).toBe(next)
+    expect(withoutPanes(next, () => false)).toBe(next)
   })
 })

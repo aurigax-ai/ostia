@@ -69,6 +69,7 @@ import { registerAgentTranscriptIpc } from './agentTranscript'
 import { type AppLog, LOG_FILE_NAME, createAppLog } from './appLog'
 import { installAppMenu } from './appMenu'
 import { registerAppUpdate } from './appUpdate'
+import { appVersion } from './appVersion'
 import { approvals, registerApprovals } from './approvals'
 import { registerAssistIpc } from './assistIpc'
 import { registerAttentionMethods, targetOf } from './attention'
@@ -88,7 +89,7 @@ import { registerBrowserStorageIpc } from './browserStorage'
 import { browserUserAgent } from './browserUserAgent'
 import { registerBusMethods } from './bus'
 import { announceBusMessage } from './busNotice'
-import { dropIdentity, setCaps } from './capabilityStore'
+import { dropIdentity, refreshGrantedCaps, setCaps } from './capabilityStore'
 import { createChatSessionStore } from './chatSessions'
 import { registerChatSessionIpc } from './chatSessionsIpc'
 import { registerChatToolsIpc } from './chatToolsIpc'
@@ -112,7 +113,7 @@ import { registerDocsMethods } from './docs'
 import { registerEditorLanguageIpc } from './editorLanguages'
 import { emitPlatformEvent, emitSessionState, platformEvents } from './events'
 import { confirmForExtension } from './extensionConfirm'
-import { ExtensionHost, type TerminalOpenRequest, registerExtensionMethods } from './extensionHost'
+import { ExtensionHost, registerExtensionMethods } from './extensionHost'
 import type { ExtensionRoot } from './extensionManifest'
 import { type SecretStoreDeps, createSecretStore } from './extensionSecrets'
 import { ExtensionStore } from './extensionStore'
@@ -122,11 +123,14 @@ import { FileOps } from './fileOps'
 import { FileWatches, TreeWatches } from './fileWatch'
 import { readBinaryConfined } from './fsBinary'
 import {
+  configureAnnouncer,
   configureTailnet,
   onTailnetChange,
   registerGatewayIpc,
   registerGatewayMethods,
 } from './gateway'
+import { createBonjourPublisher } from './gateway/announce'
+import { listPairRequests, onPairRequestsChanged } from './gateway/pairRequests'
 import { configureGatewayControl, stopGateway } from './gateway/server'
 import { createTailnet, tailnetNodeName, tsnetHelperPath } from './gateway/tailnet'
 import { GIT_EXTENSION, GitBoard } from './gitBoard'
@@ -176,12 +180,19 @@ import { openFileForExtension, registerOpenFileMethods } from './openFileMethods
 import { registerOpenPathIpc } from './openPath'
 import type { OriginReach } from './originAgents'
 import { loadPaneIdSalt } from './paneIdSalt'
-import { type PaneIo, pastedText, registerPaneIoMethods } from './paneIo'
+import {
+  type PaneAttentionPeek,
+  type PaneIo,
+  type PaneReachDeps,
+  pastedText,
+  registerPaneIoMethods,
+} from './paneIo'
 import { writeOstiaLauncher } from './paneLauncher'
 import { listPanes, listWorkspaces, registerPaneListMethods } from './paneList'
 import type { PaneProcess } from './paneProcess'
 import { registerPaneRenameMethods } from './paneRename'
 import { registerPaneResumeMethods } from './paneResume'
+import { PaneWatch, registerPaneWaitMethods } from './paneWait'
 import { resolveSafe } from './pathGuard'
 import {
   type MirrorHandle,
@@ -195,7 +206,12 @@ import { PORTS_EXTENSION, PortsBoard } from './portsBoard'
 import { acceptsPrimarySelection } from './primarySelection'
 import { registerPrivacyIpc } from './privacyIpc'
 import { privateTmpDir } from './privateTmp'
-import { INTERRUPT_GRACE_MS, type ProcessRegistry, registerProcessMethods } from './processManager'
+import {
+  INTERRUPT_GRACE_MS,
+  type ProcessRegistry,
+  type ProcessTabRequest,
+  registerProcessMethods,
+} from './processManager'
 import { type ProfileSyncHandle, startProfileSync } from './profileSync/ipc'
 import { flatSource, groupedSource, loginsSource } from './profileSync/secrets'
 import { registerProjectRootIpc } from './projectRoot'
@@ -241,7 +257,7 @@ import {
 } from './sandbox/visibility'
 import { SandboxUnavailableError, WorkspaceSandboxes } from './sandbox/workspaceSandboxes'
 import { ScratchFolders, registerScratchIpc } from './scratchFolders'
-import { ScreenMirror } from './screenMirror'
+import { HIBERNATE_SEAM, RESTORE_SEAM, ScreenMirror } from './screenMirror'
 import { registerScriptTokenMethods, verifyScriptToken } from './scriptTokens'
 import { registerSecretMethods } from './secrets/register'
 import { prepareSecrets } from './secrets/secretInjection'
@@ -252,6 +268,7 @@ import { ServerOverrides } from './serverOverrides'
 import { ExecutableIndex, commandNames, readShellState } from './shellCommands'
 import { closesPaneOnExit } from './shellExit'
 import { INTEGRATION_DIR, setAgentPlugins, shellIntegrationSpawnOptions } from './shellIntegration'
+import { sandboxCwd, spawnFolder } from './spawnCwd'
 import {
   SANDBOX_FEATURE,
   installHint,
@@ -262,7 +279,7 @@ import {
   requirementLabel,
 } from './systemRequirements'
 import { registerSystemRequirementsIpc } from './systemRequirementsIpc'
-import { PTY_COLOR_ENV, PTY_TERM_NAME, paneShellEnv } from './terminalType'
+import { PTY_COLOR_ENV, PTY_TERM_NAME, paneShellEnv, ptyIdentityEnv } from './terminalType'
 import { SANDBOX_NOT_KEPT, TMUX_MISSING, keepShellsNotice } from './tmux/keepShellsBanner'
 import { KeptAttention } from './tmux/keptAttention'
 import {
@@ -383,8 +400,6 @@ function removeStateFile(entry: PtyEntry): void {
 }
 
 const SANDBOX_LOST_WHILE_AWAY = `its sandbox ended while ${PRODUCT_DISPLAY_NAME} was closed`
-const RESTORE_SEAM = '\x1b]133;D\x07\r\n\x1b[2m── workspace restored ──\x1b[0m\r\n'
-const HIBERNATE_SEAM = '\x1b]133;D\x07\r\n\x1b[2m── woke from hibernation ──\x1b[0m\r\n'
 
 const hibernatedPanes = new Set<string>()
 const movingPanes = new Set<string>()
@@ -676,27 +691,6 @@ function resizePty(entry: PtyEntry | undefined, cols: number, rows: number): voi
     return
   }
   entry.mirror.resize(c, r)
-}
-
-function expandHome(p: string): string {
-  const home = homedir()
-  if (p === '~') return home
-  if (p.startsWith('~/')) return join(home, p.slice(2))
-  return p
-}
-
-function resolveCwd(cwd?: string): string {
-  const home = homedir()
-  const p = expandHome(cwd ?? home)
-  try {
-    if (statSync(p).isDirectory()) return p
-  } catch {}
-  return home
-}
-
-function sandboxCwd(cwd: string, workDir: string | undefined): string {
-  if (!workDir) return cwd
-  return cwd === workDir || cwd.startsWith(`${workDir}/`) ? cwd : workDir
 }
 
 const scratchFolders = new ScratchFolders(privateTmpDir(`${PRODUCT_NAME}-scratch`))
@@ -1184,6 +1178,7 @@ let mcpOAuth: McpOAuth | null = null
 let broker: WindowBroker | null = null
 const agentRunning = new AgentRunningPanes(() => broker?.persist())
 const keptAttention = new KeptAttention()
+const paneWatch = new PaneWatch()
 const reachesPane: OriginReach = (senderWindowId, sourcePaneId, targetPaneId) =>
   broker?.reaches(senderWindowId, sourcePaneId, targetPaneId) ?? false
 let profileSync: ProfileSyncHandle | null = null
@@ -1205,6 +1200,7 @@ function extensionRoots(): ExtensionRoot[] {
 }
 
 let stopTailnet: (() => Promise<void>) | null = null
+let stopAnnouncing: (() => void) | null = null
 
 function broadcast(channel: string, payload: unknown): void {
   for (const win of windows.values()) {
@@ -1449,7 +1445,7 @@ function registerIpc(): void {
     'app:info',
     (): AppInfo => ({
       name: PRODUCT_DISPLAY_NAME,
-      version: app.getVersion(),
+      version: appVersion(),
       platform: process.platform,
       hostName: hostname(),
       home: app.getPath('home'),
@@ -1525,6 +1521,7 @@ function registerIpc(): void {
       removePane(event.paneId)
       terminalState.delete(event.paneId)
       processes?.paneClosed(event.paneId)
+      paneWatch.emit(event.paneId, { kind: 'closed' })
     } else if (event.type === 'workspace-added') {
       setWorkspaceWorkDir(event.workspaceId, event.workDir, windowId)
       scratchFolders.bind(event.workspaceId, event.workDir, windowId)
@@ -1541,6 +1538,8 @@ function registerIpc(): void {
     } else if (event.type === 'workspace-activated') {
     } else if (event.type === 'workspace-state') {
       emitSessionState(event.workspaceId, event.state)
+    } else if (event.type === 'pane-attention') {
+      paneWatch.attention(event.paneId, event.state, event.message)
     }
   })
 
@@ -1559,6 +1558,7 @@ function registerIpc(): void {
         cur.lastExitCode !== snapshot.lastExitCode
       terminalState.set(snapshot.paneId, snapshot)
       if (changed) {
+        paneWatch.emit(snapshot.paneId, { kind: 'state' })
         const identity = getByPaneId(snapshot.paneId)
         if (identity) {
           emitTerminalExtensionEvents(identity.externalId, identity.workspaceId, cur, snapshot)
@@ -1917,6 +1917,7 @@ function registerPtyIpc(): void {
     const rows = opts.rows || 24
     const stateFile = join(privateTmpDir(`${PRODUCT_NAME}-shell-state`), randomUUID())
     let env = paneShellEnv({
+      version: app.getVersion(),
       parent: process.env,
       integration: integration.env,
       pane: appEnv({
@@ -1937,7 +1938,8 @@ function registerPtyIpc(): void {
     let portBridge: PortBridge | null = null
     let file = shell
     let args = [...integration.args, ...shellArgs]
-    let cwd = resolveCwd(opts.cwd)
+    const folder = spawnFolder(opts.cwd)
+    let cwd = folder.cwd
     const host = opts.hostToken ? hostPaneGrants.consume(opts.hostToken) : false
     const sandboxed = !host && workspaceId !== '' && workspaceSandboxes.isEnabled(workspaceId)
     if (sandboxed) {
@@ -2080,6 +2082,7 @@ function registerPtyIpc(): void {
       const notice = hiddenHomeNotice()
       if (notice) feedPty(entry, notice)
     }
+    if (history) entry.mirror.markRestored(history)
 
     pty.onData((d) => feedPty(entry, d))
     pty.onExit(({ exitCode }) => session.exit(exitCode))
@@ -2095,6 +2098,7 @@ function registerPtyIpc(): void {
       host,
       ...(sandboxStamp ? { sandboxStamp } : {}),
       ...(kept ? { kept: true } : {}),
+      ...(folder.missing ? { cwdMissing: true } : {}),
     }
   }
 
@@ -2404,12 +2408,13 @@ function spawnManagerPty(req: {
   const windowId = getByPaneId(req.paneId)?.windowId || primaryWindowId()
   const [file, ...args] = managerLaunchArgv(req.argv, req.resume)
   if (!mod || !windowId || !file) return false
-  const cwd = resolveCwd(req.cwd)
+  const { cwd } = spawnFolder(req.cwd)
   const env = {
     ...process.env,
     ...(req.path === undefined ? {} : { PATH: req.path }),
     ...paneEnv(req.paneId, windowId, cwd),
     ...PTY_COLOR_ENV,
+    ...ptyIdentityEnv(app.getVersion()),
   } as Record<string, string>
   const identity = markManager(req.paneId)
   if (identity) setCaps(identity.externalId, MANAGER_CAPABILITIES)
@@ -2551,9 +2556,8 @@ function registerFsIpc(): void {
     try {
       writeFileSync(safe, content, 'utf8')
       if (safe === settingsFile) {
-        for (const win of windows.values()) {
-          if (!win.isDestroyed()) win.webContents.send('settings:changed')
-        }
+        settingsChanged()
+        refreshGrantedCaps()
         extensionHost?.refreshLocale()
         extensionHost?.reloadAssistSettings()
         applyGlobalHotkey()
@@ -2563,6 +2567,12 @@ function registerFsIpc(): void {
       return false
     }
   })
+}
+
+function settingsChanged(): void {
+  for (const win of windows.values()) {
+    if (!win.isDestroyed()) win.webContents.send('settings:changed')
+  }
 }
 
 export function listCommandsFor(windowId: string): CommandDescriptor[] {
@@ -2766,7 +2776,7 @@ function focusPaneInWindow(pane: PaneIdentity): boolean {
 const OPEN_TERMINAL_TIMEOUT_MS = 5000
 let openTerminalSeq = 0
 
-function openTerminalInWindow(req: TerminalOpenRequest): Promise<string | null> {
+function openTerminalInWindow(req: ProcessTabRequest): Promise<string | null> {
   const { windowId: requestedWindow, ...payload } = req
   const windowId =
     requestedWindow ?? (req.workspaceId ? workspaceWindowId(req.workspaceId) : undefined)
@@ -2952,6 +2962,7 @@ app.whenReady().then(() => {
   appLog = createAppLog(join(logDir, LOG_FILE_NAME))
   diagnostics = registerDiagnostics({
     log: appLog,
+    version: appVersion(),
     logDir,
     testHooks: process.env.NODE_ENV === 'test',
     startRecovery,
@@ -2993,7 +3004,7 @@ app.whenReady().then(() => {
   registerFsIpc()
   registerSelectionIpc(reachesPane, redactor.text)
   registerPrivacyIpc(redactor)
-  registerApprovals(revealWindow)
+  registerApprovals(revealWindow, settingsChanged)
   registerQuestions()
   registerCredentials()
   registerAppUpdate(() => {
@@ -3004,6 +3015,7 @@ app.whenReady().then(() => {
     openExternal: openExternalSafe,
     readSettings: readSettingsFile,
     log: appLog,
+    version: appVersion(),
   })
   registerAgentTranscriptIpc()
   const notifyDeps = {
@@ -3060,7 +3072,10 @@ app.whenReady().then(() => {
   })
   const registry = registerProcessMethods({
     openTab: openTerminalInWindow,
-    onChange: (entry) => syncKeptMeta(entry.paneId),
+    onChange: (entry) => {
+      syncKeptMeta(entry.paneId)
+      paneWatch.emit(entry.paneId, { kind: 'state' })
+    },
     ring: (paneId) => {
       const session = ptys.get(paneId)?.session
       return session ? (from) => session.since(from) : undefined
@@ -3080,9 +3095,21 @@ app.whenReady().then(() => {
     interruptGraceMs: INTERRUPT_GRACE_MS,
   })
   processes = registry
-  registerPaneIoMethods({
-    io: paneIo,
-    state: getTerminalState,
+  const peekAttention = async (to: PaneIdentity): Promise<PaneAttentionPeek> => {
+    const unreported = keptAttention.peek(to.paneId)
+    if (unreported) return unreported
+    const res = await execCommand(targetOf(to), 'attention.peek')
+    return res.ok && res.result && typeof res.result === 'object' ? res.result : {}
+  }
+  const paneHibernated = async (to: PaneIdentity): Promise<boolean> => {
+    const res = await execCommand(targetOf(to), 'pane.hibernated')
+    return res.ok && (res.result as { hibernated?: unknown } | undefined)?.hibernated === true
+  }
+  const wakeHibernatedPane = async (to: PaneIdentity): Promise<boolean> => {
+    const res = await execCommand(targetOf(to), 'pane.wake')
+    return res.ok && (res.result as { woke?: unknown } | undefined)?.woke === true
+  }
+  const paneReachDeps: PaneReachDeps = {
     processPane: (ref, ctx) => {
       const entry = registry.resolve(
         ref,
@@ -3094,15 +3121,28 @@ app.whenReady().then(() => {
     isChild: (ownerPaneId, paneId) => registry.isChild(ownerPaneId, paneId),
     isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
     isConfined: (paneId) => ptys.get(paneId)?.sandboxed === true,
+  }
+  registerPaneIoMethods({
+    ...paneReachDeps,
+    io: paneIo,
+    state: getTerminalState,
     managerAllowsInput: () => managerSettings().allowInput,
-    attention: async (to) => {
-      const unreported = keptAttention.peek(to.paneId)
-      if (unreported) return unreported
-      const res = await execCommand(targetOf(to), 'attention.peek')
-      return res.ok && res.result && typeof res.result === 'object' ? res.result : {}
-    },
+    attention: peekAttention,
     inputSent: (to) => void execCommand(targetOf(to), 'attention.typed'),
+    hibernated: paneHibernated,
+    wake: wakeHibernatedPane,
+    close: (to) => execCommand(targetOf(to), 'pane.close'),
     delay: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+  })
+  registerPaneWaitMethods({
+    ...paneReachDeps,
+    watch: paneWatch,
+    attention: peekAttention,
+    exited: (paneId) => {
+      const entry = registry.forPane(paneId)
+      if (entry) return entry.status === 'exited'
+      return terminalState.get(paneId)?.running === false
+    },
   })
   registerDocsMethods({ extensions: () => extensionHost?.listForAgents() ?? [] })
   registerVaultMethods({ isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId) })
@@ -3126,6 +3166,7 @@ app.whenReady().then(() => {
         text,
       ).catch(() => {})
     },
+    hibernated: paneHibernated,
   })
   const extensionStore = new ExtensionStore(join(app.getPath('userData'), 'extensions.json'))
   extensionHost = new ExtensionHost({
@@ -3347,6 +3388,10 @@ app.whenReady().then(() => {
   })
   configureTailnet(tailnet, { openExternal: (url) => void openExternalSafe(url) })
   stopTailnet = () => tailnet.stop()
+  const publisher = createBonjourPublisher()
+  configureAnnouncer(publisher)
+  stopAnnouncing = publisher.unpublish
+  onPairRequestsChanged(() => broadcast('gateway:pair-requests-changed', listPairRequests()))
   registerGatewayIpc()
   configureGatewayControl({
     execCommand,
@@ -3583,6 +3628,7 @@ app.on('before-quit', (event) => {
   clearControlInfo(controlInfoPath(), controlSocketPath())
   portal?.stop()
   void stopTailnet?.()
+  stopAnnouncing?.()
   void stopGateway()
   appTray?.remove()
   globalHotkey?.clear()

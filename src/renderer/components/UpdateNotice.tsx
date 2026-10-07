@@ -4,7 +4,6 @@ import {
   type Icon as IconComponent,
   XIcon,
 } from '@phosphor-icons/react'
-import { buildLabel } from '@shared/buildInfo'
 import { fmt, useDict } from '../i18n/useDict'
 import { showsUpdate, useUpdateStore } from '../stores/updateStore'
 import { Hint } from './Hint'
@@ -58,7 +57,7 @@ export function UpdateNotice(): JSX.Element | null {
       <NoticeGroup
         icon={ArrowClockwiseIcon}
         label={d.update.restart}
-        hint={fmt(d.update.body, { build: buildLabel(available) })}
+        hint={fmt(d.update.body, { build: available.version })}
         onAct={() => void window.ostia.update.restart()}
         dismissLabel={d.update.later}
         onDismiss={dismiss}
