@@ -1,10 +1,8 @@
 import { allPanes, findPane, findSplitTab, tabIdOf, takeTab } from '../layout/tree'
 import type { PaneNode } from '../layout/types'
-import { mergeChatWorkspace } from '../stores/chatStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useSandboxStore } from '../stores/sandboxStore'
 import { focusSurfaceWhenReady } from '../stores/surfaceSlotsStore'
-import { useUIStore } from '../stores/uiStore'
 import { type Workspace, type WorkspaceKind, useWorkspacesStore } from '../stores/workspacesStore'
 
 export type TabMoveRefusal = 'same' | 'unknown' | 'manager' | 'scratch' | 'sandbox'
@@ -84,15 +82,6 @@ export function canMoveTabTo(sourceId: string, tabId: string, targetId: string):
   return tabMoveRefusal(sideOf(source), sideOf(target), tabPanes(sourceId, tabId)) === null
 }
 
-function finishWholeMove(sourceId: string, targetId: string, wasActive: boolean): void {
-  mergeChatWorkspace(sourceId, targetId)
-  const workspaces = useWorkspacesStore.getState()
-  workspaces.release(sourceId)
-  if (wasActive) workspaces.setActive(targetId)
-  const ui = useUIStore.getState()
-  if (ui.settingsWorkspaceId === sourceId) useUIStore.setState({ settingsWorkspaceId: targetId })
-}
-
 export async function moveTabToWorkspace(
   sourceId: string,
   tabId: string,
@@ -102,16 +91,13 @@ export async function moveTabToWorkspace(
   const root = useLayoutStore.getState().byWorkspace[sourceId]?.root
   const taken = root ? takeTab(root, tabId) : null
   if (!taken) return false
-  const whole = taken.rest === null
   const paneIds = allPanes(taken.tab).map((p) => p.id)
-  const result = await window.ostia.workspace.movePanes(sourceId, targetId, paneIds, whole)
+  const result = await window.ostia.workspace.movePanes(sourceId, targetId, paneIds)
   if (!result.ok) return false
-  const wasActive = useWorkspacesStore.getState().activeWorkspaceId === sourceId
   const moved = useLayoutStore.getState().moveTabTo(sourceId, targetId, tabId)
   if (moved.length === 0) return false
-  if (whole) finishWholeMove(sourceId, targetId, wasActive)
-  const shown = wasActive ? useWorkspacesStore.getState().activeWorkspaceId : null
-  const focus = shown ? useLayoutStore.getState().byWorkspace[shown]?.activePaneId : null
+  const wasActive = useWorkspacesStore.getState().activeWorkspaceId === sourceId
+  const focus = wasActive ? useLayoutStore.getState().byWorkspace[sourceId]?.activePaneId : null
   if (focus) focusSurfaceWhenReady(focus)
   return true
 }

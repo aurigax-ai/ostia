@@ -89,12 +89,7 @@ describe('moveTabToWorkspace', () => {
 
     expect(await moveTabToWorkspace(source.id, moving, target.id)).toBe(true)
 
-    expect(window.ostia.workspace.movePanes).toHaveBeenCalledWith(
-      source.id,
-      target.id,
-      [moving],
-      false,
-    )
+    expect(window.ostia.workspace.movePanes).toHaveBeenCalledWith(source.id, target.id, [moving])
     expect(paneIds(rootOf(source.id))).toEqual([kept])
     expect(paneIds(rootOf(target.id))).toEqual([...target.panes, moving])
     expect(useLayoutStore.getState().byWorkspace[target.id].activePaneId).toBe(moving)
@@ -150,10 +145,11 @@ describe('moveTabToWorkspace', () => {
     expect(tabsOfPane(rootOf(target.id), fourth)?.children).toHaveLength(3)
   })
 
-  it('moves the workspace when its last tab moves', async () => {
+  it('leaves the source workspace in place with no panes when its last tab moves, never merging', async () => {
     const source = seed('/home/u/api', 1)
     const target = seed('/home/u/web', 1)
     useWorkspacesStore.getState().setActive(source.id)
+    const project = useWorkspacesStore.getState().workspaces.find((w) => w.id === source.id)
     vi.mocked(window.ostia.lifecycle.emit).mockClear()
 
     expect(await moveTabToWorkspace(source.id, source.panes[0], target.id)).toBe(true)
@@ -162,13 +158,19 @@ describe('moveTabToWorkspace', () => {
       source.id,
       target.id,
       source.panes,
-      true,
     )
-    expect(useWorkspacesStore.getState().workspaces.map((w) => w.id)).toEqual([target.id])
+    expect(window.ostia.workspace.merge).not.toHaveBeenCalled()
+    expect(useWorkspacesStore.getState().workspaces.map((w) => w.id)).toEqual([
+      source.id,
+      target.id,
+    ])
+    expect(useWorkspacesStore.getState().workspaces.find((w) => w.id === source.id)).toEqual(
+      project,
+    )
     expect(useLayoutStore.getState().byWorkspace[source.id]).toBeUndefined()
     expect(paneIds(rootOf(target.id))).toEqual([...target.panes, ...source.panes])
-    expect(useWorkspacesStore.getState().activeWorkspaceId).toBe(target.id)
-    expect(emitted().filter((e) => e.type === 'pane-closed')).toEqual([])
+    expect(useWorkspacesStore.getState().activeWorkspaceId).toBe(source.id)
+    expect(emitted()).toEqual([])
   })
 
   it('stays put when main refuses', async () => {

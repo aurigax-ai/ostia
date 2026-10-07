@@ -1853,11 +1853,9 @@ function registerPtyIpc(): void {
   registerPaneMoveIpc({
     ownerWindow: windowForWorkspace,
     paneOf: getByPaneId,
-    hasManager: workspaceHasManager,
     isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
     isScratch: (workspaceId) => scratchFolders.isScratch(workspaceId),
     movePanes: movePanesToWorkspace,
-    moveWorkspace: mergeWorkspace,
   })
   registerSandboxIpc({
     sandboxes: workspaceSandboxes,

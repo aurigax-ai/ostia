@@ -664,12 +664,7 @@ export interface WorkspaceApi {
   save: (snapshot: AppSnapshot | null) => void
   load: () => Promise<AppSnapshot | null>
   merge: (sourceId: string, targetId: string) => Promise<WorkspaceMergeResult>
-  movePanes: (
-    sourceId: string,
-    targetId: string,
-    paneIds: string[],
-    whole: boolean,
-  ) => Promise<PaneMoveResult>
+  movePanes: (sourceId: string, targetId: string, paneIds: string[]) => Promise<PaneMoveResult>
   readCmux: (path?: string) => Promise<CmuxSessionRead>
 }
 
