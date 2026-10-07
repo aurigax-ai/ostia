@@ -138,7 +138,7 @@ export const CLIENT_CAPABILITIES: ClientCapabilities = {
     },
     semanticTokens: {
       dynamicRegistration: true,
-      requests: { full: true },
+      requests: { full: { delta: true } },
       tokenTypes: [...SEMANTIC_TOKEN_TYPES],
       tokenModifiers: [...SEMANTIC_TOKEN_MODIFIERS],
       formats: ['relative'],

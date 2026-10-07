@@ -257,9 +257,28 @@ describe('the editor client against a real fake language server', () => {
       tokenModifiers: ['declaration'],
     })
     const tokens = (await (semantic.provideDocumentSemanticTokens as Provide)(model, null)) as {
+      resultId: string
       data: Uint32Array
     }
     expect([...tokens.data]).toEqual([0, 0, 2, 0, 0, 2, 0, 7, 0, 0])
+  })
+
+  it('asks for semantic token deltas against the last result and passes the edits on', async () => {
+    const semantic = fake.active('DocumentSemanticTokensProvider')[0].provider
+    const provide = semantic.provideDocumentSemanticTokens as Provide
+    const first = (await provide(model, null)) as { resultId: string }
+    const tail = { startLineNumber: 4, startColumn: 1, endLineNumber: 4, endColumn: 1 }
+    model.edit(tail, 'fn ')
+    const delta = (await provide(model, first.resultId)) as {
+      resultId: string
+      edits: { start: number; deleteCount: number; data?: Uint32Array }[]
+    }
+    model.edit({ ...tail, endColumn: 4 }, '')
+    expect(delta.resultId).not.toBe(first.resultId)
+    expect(delta.edits.map((change) => ({ ...change, data: [...(change.data ?? [])] }))).toEqual([
+      { start: 10, deleteCount: 0, data: [1, 0, 2, 0, 0] },
+    ])
+    expect(recorded()).toContain('textDocument/semanticTokens/full/delta')
   })
 
   it('renames in the open document through the editor and in a closed file on disk', async () => {
