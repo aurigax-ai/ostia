@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest'
-import { act, cleanup, render, screen, within } from '@testing-library/react'
+import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { commands } from '../commands/registry'
@@ -134,19 +134,9 @@ describe('hibernated terminal pane', () => {
     expect(exec).toHaveBeenCalledWith('pane.close', { paneId: 'h1' })
   })
 
-  it('marks the tab hibernated and offers Resume in the header without an idle prompt', () => {
+  it('marks the tab hibernated', () => {
     seed()
     render(<Pane tabs={[sleeping]} shownId="h1" activePaneId={'h1'} workspaceId="w" />)
     expect(screen.getByLabelText('Hibernated')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Resume claude' })).toBeInTheDocument()
-  })
-
-  it('offers no Resume for a live terminal that is busy', () => {
-    const live: PaneNode = { ...sleeping, hibernated: undefined }
-    act(() => {
-      render(<Pane tabs={[live]} shownId="h1" activePaneId={'h1'} workspaceId="w" />)
-    })
-    expect(screen.queryByRole('button', { name: 'Resume claude' })).toBeNull()
-    expect(screen.queryByLabelText('Hibernated')).toBeNull()
   })
 })

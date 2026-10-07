@@ -24,6 +24,7 @@ import { registerSelectionSendCommand } from './commands/selectionSend'
 import { wireTerminalStateBridge } from './commands/terminalStateBridge'
 import { registerWindowCommands } from './commands/windowCommands'
 import { AppErrorBoundary, CrashTestHook, RecoveryScreen } from './components/AppErrorBoundary'
+import { startActivationResume } from './lib/activationResume'
 import { startAgentRunningReport } from './lib/agentRunningReport'
 import { startAppMenu } from './lib/appMenu'
 import { startShortcutReporting } from './lib/assistShortcuts'
@@ -128,6 +129,7 @@ async function boot(): Promise<void> {
   startPaneRecencySync()
   startHibernation()
   startAutoResume()
+  startActivationResume()
   startAgentDetection()
   startAgentRunningReport()
   startWorkspaceProjects()
