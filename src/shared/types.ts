@@ -24,6 +24,7 @@ import type {
   CredentialSaveResult,
   CredentialSummary,
 } from './credentials'
+import type { DiscreteGpuInfo } from './discreteGpu'
 import type { EditorLanguagesApi } from './editorLanguages'
 import type { SuggestionsApi } from './extensionSuggestions'
 import type { ExtensionOpenTerminalRequest, ExtensionResult, ExtensionsApi } from './extensions'
@@ -196,6 +197,7 @@ export interface PtyAttachResult {
 export interface SystemApi {
   requirements: (feature: string) => Promise<RequirementsReport | null>
   installRequirements: (feature: string, workspaceId: string) => Promise<ExtensionResult>
+  discreteGpu: () => Promise<DiscreteGpuInfo | null>
 }
 
 export interface SecretsApi {
@@ -251,8 +253,10 @@ export interface PtyApi {
   attach: (paneId: string, opts: PtySpawnOptions) => Promise<PtyAttachResult>
   detach: (paneId: string) => void
   hibernate: (paneId: string) => Promise<boolean>
+  stashed: (paneId: string) => Promise<string | null>
   restart: (paneId: string) => Promise<boolean>
   reportAgentRunning: (paneId: string, running: boolean) => void
+  reportWaking: (paneId: string, waking: boolean) => void
   write: (paneId: string, data: string) => void
   resize: (paneId: string, cols: number, rows: number) => void
   commands: (paneId: string) => Promise<string[]>
@@ -657,10 +661,15 @@ export type WorkspaceMergeError = 'not-owned' | 'manager' | SandboxMergeRefusal
 
 export type WorkspaceMergeResult = { ok: true } | { ok: false; error: WorkspaceMergeError }
 
+export type PaneMoveError = 'not-owned' | 'manager' | 'sandbox' | 'scratch'
+
+export type PaneMoveResult = { ok: true } | { ok: false; error: PaneMoveError }
+
 export interface WorkspaceApi {
   save: (snapshot: AppSnapshot | null) => void
   load: () => Promise<AppSnapshot | null>
   merge: (sourceId: string, targetId: string) => Promise<WorkspaceMergeResult>
+  movePanes: (sourceId: string, targetId: string, paneIds: string[]) => Promise<PaneMoveResult>
   readCmux: (path?: string) => Promise<CmuxSessionRead>
 }
 

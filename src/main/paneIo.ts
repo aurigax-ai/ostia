@@ -4,6 +4,7 @@ import type { CommandResult, TerminalStateSnapshot } from '../shared/types'
 import { ensureCaps } from './controlElevation'
 import { type ControlMethodContext, registerControlMethod } from './controlServer'
 import { type PaneIdentity, getByPaneId, resolveExternal } from './idRegistry'
+import type { PaneWaking } from './paneWaking'
 import type { Reach } from './reach'
 import { SANDBOXED_REFUSAL } from './sandboxedCaller'
 
@@ -13,6 +14,9 @@ export const INPUT_MAX_LENGTH = 16 * 1024
 export const PASTE_SETTLE_MS = 100
 export const CONFIRM_DEFAULT_MS = 2000
 export const CONFIRM_MAX_MS = 10_000
+export const WAKE_WAIT_MIN_MS = 1000
+export const WAKE_WAIT_DEFAULT_MS = 2 * 60_000
+export const WAKE_WAIT_MAX_MS = 30 * 60_000
 const CONFIRM_POLL_MS = 50
 const PASTE_START = '\x1b[200~'
 const PASTE_END = '\x1b[201~'
@@ -126,6 +130,12 @@ export function confirmWindow(raw: unknown): number {
   return Math.min(ms, CONFIRM_MAX_MS)
 }
 
+export function wakeWaitTimeout(raw: unknown): number {
+  if (raw === undefined) return WAKE_WAIT_DEFAULT_MS
+  if (typeof raw !== 'number' || !Number.isFinite(raw)) throw fail('bad-request: timeoutMs')
+  return Math.min(WAKE_WAIT_MAX_MS, Math.max(WAKE_WAIT_MIN_MS, raw))
+}
+
 export function readLineCount(raw: unknown): number {
   const n = raw === undefined ? READ_LINES_DEFAULT : Number(raw)
   if (!Number.isInteger(n) || n < 1) throw fail('bad-request: lines')
@@ -183,6 +193,7 @@ export interface PaneIoDeps extends PaneReachDeps {
   inputSent: (pane: PaneIdentity) => void
   hibernated: (pane: PaneIdentity) => Promise<boolean>
   wake: (pane: PaneIdentity) => Promise<boolean>
+  waking: PaneWaking
   close: (pane: PaneIdentity) => Promise<CommandResult>
   delay: (ms: number) => Promise<void>
 }
@@ -196,6 +207,12 @@ export const PANE_REFS_MAX = 32
 
 function asleep(to: PaneIdentity): ResponseError<void> {
   return fail(`hibernated: ${to.externalId} is asleep; wake it with ostia pane wake`)
+}
+
+function starting(to: PaneIdentity): ResponseError<void> {
+  return fail(
+    `waking: ${to.externalId} is starting its agent; wait for it with ostia pane wake --wait`,
+  )
 }
 
 function notHibernated(to: PaneIdentity): ResponseError<void> {
@@ -301,6 +318,7 @@ export function registerPaneIoMethods(deps: PaneIoDeps): void {
       ].join(' ')
       await reach('input', to, String(p.pane), ctx, `type into ${to.externalId}: ${shown}`)
       if (await deps.hibernated(to)) throw asleep(to)
+      if (deps.waking.has(to.paneId)) throw starting(to)
       if (parts.text && !force) {
         const attention = await deps.attention(to)
         if (attention.state === 'waiting') {
@@ -334,9 +352,13 @@ export function registerPaneIoMethods(deps: PaneIoDeps): void {
   registerControlMethod('pane.wake', {
     scripts: true,
     handler: async (raw, ctx) => {
-      const refs = paneRefs(record(raw).panes)
+      const p = record(raw)
+      const refs = paneRefs(p.panes)
+      const wait = optionalFlag(p.wait, 'wait') === true
+      const timeoutMs = wakeWaitTimeout(p.timeoutMs)
       ensureManagerInput(ctx)
       const panes: PaneIdentity[] = []
+      const asleepPanes: PaneIdentity[] = []
       for (const ref of refs) {
         const to = await target(ref, ctx)
         await ensurePaneReach(deps, 'input', to, ctx, {
@@ -344,15 +366,31 @@ export function registerPaneIoMethods(deps: PaneIoDeps): void {
           method: 'pane.wake',
           detail: `wake ${to.externalId}: type its agent's resume command`,
         })
-        if (!(await deps.hibernated(to))) throw notHibernated(to)
         panes.push(to)
+        if (wait && deps.waking.has(to.paneId)) continue
+        if (!(await deps.hibernated(to))) throw notHibernated(to)
+        asleepPanes.push(to)
       }
       const woke: string[] = []
-      for (const to of panes) {
+      for (const to of asleepPanes) {
         if (!(await deps.wake(to))) throw notHibernated(to)
+        deps.waking.start(to.paneId)
         woke.push(to.externalId)
       }
-      return { ok: true, woke }
+      if (!wait) return { ok: true, woke }
+      const ended = await deps.waking.until(
+        panes.map((to) => to.paneId),
+        timeoutMs,
+        (cancel) => ctx.conn.onClose(cancel),
+      )
+      const external = (paneId: string): string =>
+        panes.find((to) => to.paneId === paneId)?.externalId ?? paneId
+      if (ended.how === 'started') return { ok: true, woke, started: true }
+      if (ended.how === 'timeout') return { ok: true, woke, timedOut: true }
+      if (ended.how === 'closed') return { ok: true, woke, closed: external(ended.paneId) }
+      throw fail(
+        `resume-failed: ${external(ended.paneId)} could not start its agent; read it with ostia pane read`,
+      )
     },
   })
 

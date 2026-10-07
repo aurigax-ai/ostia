@@ -229,6 +229,7 @@ export interface Behavior {
   historySuggestions: boolean
   checkForUpdates: boolean
   wheelZoom: boolean
+  discreteGpu: boolean
 }
 
 export type NewWorkspacePlacement = 'end' | 'top' | 'afterCurrent'
@@ -361,6 +362,7 @@ const DEFAULTS: Persisted = {
     historySuggestions: true,
     checkForUpdates: true,
     wheelZoom: !isMac,
+    discreteGpu: false,
   },
   files: DEFAULT_FILE_TREE_SETTINGS,
   terminal: DEFAULT_TERMINAL_SETTINGS,

@@ -1,7 +1,13 @@
 import { cn } from '@/lib/utils'
 import { LockSimpleIcon, XIcon } from '@phosphor-icons/react'
 import { Allotment } from 'allotment'
-import { type DragEvent, type KeyboardEvent, useLayoutEffect, useRef } from 'react'
+import {
+  type CSSProperties,
+  type DragEvent,
+  type KeyboardEvent,
+  useLayoutEffect,
+  useRef,
+} from 'react'
 import { commands } from '../commands/registry'
 import { fmt, useDict } from '../i18n/useDict'
 import { allPanes } from '../layout/tree'
@@ -16,12 +22,12 @@ import { useQuestionsStore } from '../stores/questionsStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { focusSurface } from '../stores/surfaceSlotsStore'
 import { ApprovalCard } from './ApprovalCard'
-import { Hint } from './Hint'
 import { IconButton } from './IconButton'
 import { PaneTabMenu } from './PaneTabMenu'
 import { QuestionNotice } from './QuestionNotice'
 import { TabBody } from './TabBody'
 import { TabFace, usePaneMark, usePaneTitle } from './TabFace'
+import { TabHint } from './TabHint'
 
 function focusPane(paneId: string): void {
   void commands.exec('pane.focus', { paneId })
@@ -102,16 +108,16 @@ function SplitTabSegment({
         void commands.exec('pane.close', { paneId: pane.id })
       }}
     >
-      <Hint label={title}>
+      <TabHint pane={pane}>
         <button
           type="button"
           className="split-tab-segment-main"
           aria-current={focused ? 'true' : undefined}
           onClick={() => focusPane(pane.id)}
         >
-          <TabFace pane={pane} />
+          <TabFace pane={pane} segment />
         </button>
-      </Hint>
+      </TabHint>
       {pane.locked ? (
         <IconButton
           icon={LockSimpleIcon}
@@ -173,8 +179,10 @@ export function SplitTabPill({
   workspaceId: string | null
 }): JSX.Element {
   const label = useSplitTabLabel(tab)
+  const panes = allPanes(tab)
   return (
     <div
+      style={{ '--split-segments': panes.length } as CSSProperties}
       className={cn(
         'pane-tab pane-split-tab',
         selected && 'selected',
@@ -196,17 +204,15 @@ export function SplitTabPill({
     >
       <SplitTabGlyph tab={tab} focusedId={selected ? focusedId : null} />
       {tab.name ? <span className="split-tab-name">{tab.name}</span> : null}
-      <div className="split-tab-pill">
-        {allPanes(tab).map((pane) => (
-          <SplitTabSegment
-            key={pane.id}
-            pane={pane}
-            focused={selected && pane.id === focusedId}
-            showClose={showClose}
-            workspaceId={workspaceId}
-          />
-        ))}
-      </div>
+      {panes.map((pane) => (
+        <SplitTabSegment
+          key={pane.id}
+          pane={pane}
+          focused={selected && pane.id === focusedId}
+          showClose={showClose}
+          workspaceId={workspaceId}
+        />
+      ))}
     </div>
   )
 }

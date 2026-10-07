@@ -2,6 +2,7 @@ import { join } from 'node:path'
 import { BrowserWindow, app, ipcMain } from 'electron'
 import { type BuildInfo, sameBuild } from '../shared/buildInfo'
 import { readBuildInfo, runningBuild } from './appVersion'
+import { restoreGpuLaunchEnv } from './discreteGpu'
 
 export const UPDATE_POLL_MS = 30_000
 
@@ -53,6 +54,7 @@ export function registerAppUpdate(quit: () => void): void {
   }
   ipcMain.handle('app:update-state', () => watcher?.check() ?? watcher?.available() ?? null)
   ipcMain.handle('app:restart', () => {
+    restoreGpuLaunchEnv(process.env)
     app.relaunch()
     quit()
   })

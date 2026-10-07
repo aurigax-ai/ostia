@@ -1802,6 +1802,7 @@ describe('agent resume', () => {
       'codex resume r-9',
       undefined,
       expect.any(Function),
+      expect.any(Function),
     )
     expect(insert).not.toHaveBeenCalled()
   })

@@ -50,6 +50,8 @@ import {
   WORKSPACES_PREFIX,
 } from '../lib/paletteModes'
 import { type PaneAgentReport, isStaleAgentReport, paneAgentReport } from '../lib/paneAgent'
+import { tabMoveRefusalText } from '../lib/tabMoveRefusalText'
+import { activeTabId, moveTabToWorkspace, tabMoveTargets } from '../lib/tabWorkspaceMove'
 import { terminalFor } from '../lib/terminalHandles'
 import { resetZoom } from '../lib/wheelZoom'
 import { openWorkflowPicker } from '../lib/workflows'
@@ -407,6 +409,29 @@ export function registerBuiltinCommands(): void {
       },
     })
   }
+
+  registerCore<{ argument?: string } | undefined, { moved: boolean }>({
+    id: 'tab.moveToWorkspace',
+    category: 'pane',
+    local: true,
+    choices: async () => {
+      const workspaceId = useWorkspacesStore.getState().activeWorkspaceId
+      const tabId = workspaceId ? activeTabId(workspaceId) : null
+      if (!workspaceId || !tabId) return []
+      const d = currentDict()
+      return tabMoveTargets(workspaceId, tabId).map((t) => {
+        const reason = tabMoveRefusalText(d, t.refusal)
+        return { value: t.id, label: t.name, ...(reason ? { disabledReason: reason } : {}) }
+      })
+    },
+    emptyChoices: () => currentDict().tabMove.noTargets,
+    run: async (args, ctx) => {
+      const target = args?.argument
+      const tabId = ctx.activeWorkspaceId ? activeTabId(ctx.activeWorkspaceId) : null
+      if (!ctx.activeWorkspaceId || !tabId || !target) return { moved: false }
+      return { moved: await moveTabToWorkspace(ctx.activeWorkspaceId, tabId, target) }
+    },
+  })
 
   registerCore<{ paneId?: string; zoom?: boolean } | undefined>({
     id: 'pane.zoom',

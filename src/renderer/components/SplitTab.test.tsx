@@ -70,6 +70,15 @@ describe('SplitTabPill', () => {
     expect(container.querySelectorAll('.split-tab-segment')).toHaveLength(2)
   })
 
+  it('lays the segments straight in the tab row without a card around them', () => {
+    const { root } = stackWithSplit()
+    const { container } = renderStack(root)
+    const pill = container.querySelector('.pane-split-tab') as HTMLElement
+    const segments = pill.querySelectorAll(':scope > .split-tab-segment')
+    expect(segments).toHaveLength(2)
+    expect(pill.querySelector('.split-tab-pill')).toBeNull()
+  })
+
   it('draws the glyph from the real tree', () => {
     const { root, c } = stackWithSplit()
     const d = terminal('delta')
@@ -84,7 +93,7 @@ describe('SplitTabPill', () => {
     expect(glyph?.querySelector('.split-tab-glyph-pane.focused')).toBeInTheDocument()
   })
 
-  it('puts the attention mark and blink on the segment whose pane needs the human', () => {
+  it('puts the attention mark on the segment whose pane needs the human', () => {
     const { root, b, c } = stackWithSplit()
     useAttentionStore.setState({
       byPane: { [c.id]: { state: 'waiting', unread: true, at: 1 } },
@@ -93,9 +102,22 @@ describe('SplitTabPill', () => {
     const waiting = container.querySelector(`[data-segment-id="${c.id}"]`)
     const calm = container.querySelector(`[data-segment-id="${b.id}"]`)
     expect(waiting).toHaveAttribute('data-attention', 'waiting')
-    expect(waiting?.querySelector('.pane-kind-blink')).toBeInTheDocument()
+    expect(waiting?.querySelector('.pane-attn-mark')).toBeInTheDocument()
     expect(calm).not.toHaveAttribute('data-attention')
-    expect(calm?.querySelector('.pane-kind-blink')).toBeNull()
+    expect(calm?.querySelector('.pane-attn-mark')).toBeNull()
+  })
+
+  it('shows terminal segments by title alone and keeps the icon of other kinds', () => {
+    const [a, b] = [terminal('alpha'), terminal('beta')]
+    const web = createPane('browser', 'docs')
+    const root = splitPane(tabsOf(b.id, a, b), b.id, 'horizontal', web).root as TabsNode
+    const { container } = renderStack(root)
+    const term = container.querySelector(`[data-segment-id="${b.id}"]`)
+    const browser = container.querySelector(`[data-segment-id="${web.id}"]`)
+    expect(term?.querySelector('.pane-kind')).toBeNull()
+    expect(term?.querySelector('.title')).toHaveTextContent('beta')
+    expect(browser?.querySelector('.pane-kind')).toBeInTheDocument()
+    expect(container.querySelector(`[data-tab-id="${a.id}"] .pane-kind`)).toBeInTheDocument()
   })
 
   it('focuses the pane of a clicked segment', () => {

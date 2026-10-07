@@ -25,6 +25,7 @@ import type {
   CredentialSaveResult,
   CredentialSummary,
 } from '../shared/credentials'
+import type { DiscreteGpuInfo } from '../shared/discreteGpu'
 import type { EditorLanguage } from '../shared/editorLanguages'
 import type { ExtensionSuggestion } from '../shared/extensionSuggestions'
 import type {
@@ -108,6 +109,7 @@ import type {
   OriginAgents,
   OstiaBridge,
   PaneActivity,
+  PaneMoveResult,
   Platform,
   PromptContext,
   PtyAttachResult,
@@ -192,8 +194,10 @@ const bridge: OstiaBridge = {
       ipcRenderer.invoke('pty:attach', paneId, opts) as Promise<PtyAttachResult>,
     detach: (paneId) => ipcRenderer.send('pty:detach', paneId),
     hibernate: (paneId) => ipcRenderer.invoke('pty:hibernate', paneId) as Promise<boolean>,
+    stashed: (paneId) => ipcRenderer.invoke('pty:stashed', paneId) as Promise<string | null>,
     restart: (paneId) => ipcRenderer.invoke('pty:restart', paneId) as Promise<boolean>,
     reportAgentRunning: (paneId, running) => ipcRenderer.send('pty:agent-running', paneId, running),
+    reportWaking: (paneId, waking) => ipcRenderer.send('pty:waking', paneId, waking),
     write: (paneId, data) => ipcRenderer.send('pty:write', paneId, data),
     resize: (paneId, cols, rows) => ipcRenderer.send('pty:resize', paneId, cols, rows),
     commands: (paneId) => ipcRenderer.invoke('pty:commands', paneId) as Promise<string[]>,
@@ -355,6 +359,13 @@ const bridge: OstiaBridge = {
     load: () => ipcRenderer.invoke('workspace:load') as Promise<AppSnapshot | null>,
     merge: (sourceId, targetId) =>
       ipcRenderer.invoke('workspace:merge', sourceId, targetId) as Promise<WorkspaceMergeResult>,
+    movePanes: (sourceId, targetId, paneIds) =>
+      ipcRenderer.invoke(
+        'workspace:move-panes',
+        sourceId,
+        targetId,
+        paneIds,
+      ) as Promise<PaneMoveResult>,
     readCmux: (path) => ipcRenderer.invoke('workspace:read-cmux', path) as Promise<CmuxSessionRead>,
   },
   scratch: {
@@ -534,6 +545,7 @@ const bridge: OstiaBridge = {
         feature,
         workspaceId,
       ) as Promise<ExtensionResult>,
+    discreteGpu: () => ipcRenderer.invoke('system:discrete-gpu') as Promise<DiscreteGpuInfo | null>,
   },
   secrets: {
     view: (workspaceId) =>

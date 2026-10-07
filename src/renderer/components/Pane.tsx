@@ -42,6 +42,8 @@ import { HostPaneBadge, SandboxRestartButton } from './SandboxRestartButton'
 import { SplitTabBody, SplitTabPill } from './SplitTab'
 import { TabBody } from './TabBody'
 import { TabFace, usePaneMark } from './TabFace'
+import { TabHint } from './TabHint'
+import { TabRow } from './TabRow'
 
 interface PaneProps {
   tabs: TabNode[]
@@ -251,13 +253,11 @@ export function Pane({
         onDragLeave={() => usePaneDnd.getState().leave(shown.id)}
         onDrop={onHeaderDrop}
       >
-        <div
-          className="pane-tabs"
-          role="tablist"
-          aria-label={d.pane.tabs}
-          onDoubleClick={(e) => {
-            if (e.target === e.currentTarget) void commands.exec('tab.new', { paneId: shown.id })
-          }}
+        <TabRow
+          tabs={tabs}
+          shownTabId={shownTab.id}
+          label={d.pane.tabs}
+          onNewTab={() => void commands.exec('tab.new', { paneId: shown.id })}
         >
           {tabs.map((tab) => {
             const dropMark =
@@ -282,7 +282,7 @@ export function Pane({
               />
             )
           })}
-        </div>
+        </TabRow>
         {unread && attention?.message ? (
           <span className="pane-attn">
             <span className="pane-attn-msg">{attention.message}</span>
@@ -412,18 +412,20 @@ function PaneTab({
         void commands.exec('pane.close', { paneId: pane.id })
       }}
     >
-      <button
-        type="button"
-        role="tab"
-        aria-selected={selected}
-        className="pane-tab-main"
-        onClick={() => {
-          void commands.exec('pane.focus', { paneId: pane.id })
-          requestAnimationFrame(() => focusSurface(pane.id))
-        }}
-      >
-        <TabFace pane={pane} />
-      </button>
+      <TabHint pane={pane}>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={selected}
+          className="pane-tab-main"
+          onClick={() => {
+            void commands.exec('pane.focus', { paneId: pane.id })
+            requestAnimationFrame(() => focusSurface(pane.id))
+          }}
+        >
+          <TabFace pane={pane} />
+        </button>
+      </TabHint>
       {pane.locked ? (
         <IconButton
           icon={LockSimpleIcon}

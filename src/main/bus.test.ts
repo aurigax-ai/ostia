@@ -236,7 +236,32 @@ describe('bus seen marks', () => {
       { timeoutMs: 1000 },
     )
     expect(second.timedOut).toBe(true)
-    expect(second.messages.map((m) => m.text)).toEqual(['old news'])
+    expect(second.messages).toEqual([])
+  })
+
+  it('answers only the new message when one ends the wait, not what was already seen', async () => {
+    await send('old news')
+    inbox()
+    const waiting = call<Promise<{ messages: Stored[]; timedOut: boolean }>>('bus.wait', receiver, {
+      timeoutMs: 5000,
+    })
+    await send('fresh')
+    const woken = await waiting
+    expect(woken.timedOut).toBe(false)
+    expect(woken.messages.map((m) => m.text)).toEqual(['fresh'])
+  })
+
+  it('answers only the unseen messages already in the inbox', async () => {
+    await send('old news')
+    inbox()
+    await send('fresh')
+    const res = await call<Promise<{ messages: Stored[]; timedOut: boolean }>>(
+      'bus.wait',
+      receiver,
+      { timeoutMs: 1000 },
+    )
+    expect(res.timedOut).toBe(false)
+    expect(res.messages.map((m) => m.text)).toEqual(['fresh'])
   })
 })
 

@@ -14,6 +14,8 @@ import {
   saveSnapshot,
   scrollbackPath,
   snapshotPath,
+  stashScrollback,
+  stashedScreen,
   takeRestoredScrollback,
   trimScrollback,
 } from './workspaceSnapshot'
@@ -595,6 +597,21 @@ describe('saveScrollback / takeRestoredScrollback', () => {
     loadRestoredScrollback()
     expect(takeRestoredScrollback('pane-1')).toBe('last output')
     expect(takeRestoredScrollback('pane-1')).toBeNull()
+  })
+
+  it('shows a stashed screen to its own window without consuming its one-shot replay', () => {
+    stashScrollback('pane-peek', 'asleep output')
+    expect(stashedScreen('pane-peek', 'w1', 'w1')).toBe('asleep output')
+    expect(stashedScreen('pane-peek', 'w1', 'w1')).toBe('asleep output')
+    expect(takeRestoredScrollback('pane-peek')).toBe('asleep output')
+    expect(stashedScreen('pane-peek', 'w1', 'w1')).toBeNull()
+  })
+
+  it('refuses a stashed screen to a window that does not own the pane', () => {
+    stashScrollback('pane-other', 'secret output')
+    expect(stashedScreen('pane-other', 'w2', 'w1')).toBeNull()
+    expect(stashedScreen('pane-other', 'w2', undefined)).toBeNull()
+    expect(takeRestoredScrollback('pane-other')).toBe('secret output')
   })
 
   it('returns null for a pane with no saved output', () => {

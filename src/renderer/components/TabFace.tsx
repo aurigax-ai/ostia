@@ -46,7 +46,13 @@ export function usePaneMark(pane: PaneNode): ReturnType<typeof tabMark> {
   return useAttentionStore((s) => tabMark(s.byPane[pane.id]))
 }
 
-export function TabFace({ pane }: { pane: PaneNode }): JSX.Element {
+export function TabFace({
+  pane,
+  segment = false,
+}: {
+  pane: PaneNode
+  segment?: boolean
+}): JSX.Element {
   const d = useDict()
   const panelIcon = useExtensionsStore((s) =>
     pane.kind === 'extension'
@@ -89,12 +95,14 @@ export function TabFace({ pane }: { pane: PaneNode }): JSX.Element {
           }
         />
       ) : null}
-      <Icon
-        key={loud ? attention?.at : undefined}
-        size={16}
-        className={cn('pane-kind', loud && 'pane-kind-blink')}
-        aria-label={pane.hibernated ? d.pane.hibernated : undefined}
-      />
+      {segment && pane.kind === 'terminal' && !pane.hibernated ? null : (
+        <Icon
+          key={loud ? attention?.at : undefined}
+          size={16}
+          className={cn('pane-kind', loud && 'pane-kind-blink')}
+          aria-label={pane.hibernated ? d.pane.hibernated : undefined}
+        />
+      )}
       {dirty && !diskProblem ? (
         <span className="dot pane-tab-dirty" role="img" aria-label={d.pane.unsaved} />
       ) : null}

@@ -192,9 +192,25 @@ describe('the pane.wake command an agent reaches through main', () => {
       'claude --resume tok-idle-claude',
       undefined,
       expect.any(Function),
+      expect.any(Function),
     )
     expect(hibernated('idle-claude')).toBe(false)
     expect(hibernated('fresh-claude')).toBe(true)
+  })
+
+  it('reports the pane as waking to main, and as no longer waking when its resume cannot run', async () => {
+    seed(10)
+    await hibernateWorkspace('s2')
+    const typed = vi.spyOn(blockActions, 'runWhenIdle').mockImplementation(() => () => {})
+    const report = vi.mocked(window.ostia.pty.reportWaking)
+    report.mockClear()
+    await commands.execWith(target('idle-claude'), 'pane.wake')
+    expect(report.mock.calls).toEqual([['idle-claude', true]])
+    typed.mock.calls[0][4]?.()
+    expect(report.mock.calls).toEqual([
+      ['idle-claude', true],
+      ['idle-claude', false],
+    ])
   })
 
   it('starts the woken shell in the token’s folder and types nothing once that folder is gone', async () => {
@@ -233,5 +249,6 @@ describe('the pane.wake command an agent reaches through main', () => {
       result: { woke: false },
     })
     expect(typed).not.toHaveBeenCalled()
+    expect(window.ostia.pty.reportWaking).not.toHaveBeenCalledWith('npm', true)
   })
 })

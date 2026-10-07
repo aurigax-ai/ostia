@@ -29,6 +29,7 @@ import {
   BUS_QUEUED_HINT,
   type BusSendOk,
   type SentMessage,
+  busWaitTimeoutMs,
   runBusHook,
   sentLines,
 } from './bus'
@@ -548,7 +549,7 @@ async function runBusVerb(conn: MessageConnection): Promise<void> {
     })
   } else if (sub === 'wait') {
     const { values } = parseArgs(rawArgs, { values: { timeout: '--timeout' } })
-    const timeoutMs = numberFlag(values.timeout, 'timeout')
+    const timeoutMs = busWaitTimeoutMs(values.timeout)
     const res = await conn.sendRequest<BusWaitResult | BusErr>('bus.wait', { timeoutMs })
     if ('messages' in res) {
       console.log(JSON.stringify(res))
@@ -1274,9 +1275,11 @@ commands:
   pane wait <pane>… [--until done|waiting|idle|exited]… [--timeout <s>] [--json]
                             block until one of those panes' agents stops working; exit 0
                             reached, 3 timed out, 4 pane closed
-  pane wake <pane>… [--json]
+  pane wake <pane>… [--wait [--timeout <s>]] [--json]
                             wake hibernated agent panes: each types its agent's resume
-                            command at a fresh prompt (same asks as pane send)
+                            command at a fresh prompt (same asks as pane send); --wait
+                            returns once their agents started: exit 0 started, 3 timed
+                            out, 4 pane closed
   pane close <pane>… [--json]
                             close those panes at once, even while a command runs (a tab you
                             opened needs nothing more, any other asks for kill-pane)
