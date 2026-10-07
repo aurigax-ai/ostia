@@ -5,8 +5,8 @@ runs:
   steps:
     # GitHub-hosted: the .deb files are cached per image version and package
     # list and installed with dpkg, so a warm job never asks the Ubuntu mirrors
-    # (apt-get update hung there for 30 min, #463). Self-hosted: apt as before,
-    # until the runner image carries every package in packages.txt.
+    # (apt-get update hung there for 30 min, #463). Self-hosted: the ARC runner
+    # image (homelab-infra ci/images/arc-runner) already carries packages.txt.
     - id: key
       if: runner.environment == 'github-hosted'
       shell: bash
@@ -32,18 +32,14 @@ runs:
       run: |
         debs=(~/debs/*.deb)
         [ ! -e "${debs[0]}" ] || sudo dpkg -i "${debs[@]}"
-    - if: runner.environment != 'github-hosted'
-      shell: bash
-      run: |
-        mapfile -t packages < "$GITHUB_ACTION_PATH/packages.txt"
-        scripts/retry.sh sudo apt-get update
-        scripts/retry.sh sudo apt-get install -y "${packages[@]}"
     # The sysctls exist only on Ubuntu (GitHub-hosted); the ARC node runs SELinux.
+    # compaudit exits 1 when it lists insecure directories; that list is what
+    # xargs fixes, so its status must not fail the step under pipefail.
     - shell: bash
       run: |
         for k in apparmor_restrict_unprivileged_userns apparmor_restrict_unprivileged_unconfined; do
           [ ! -e /proc/sys/kernel/$k ] || sudo sysctl -w kernel.$k=0
         done
-        zsh -fc 'autoload -U compaudit; compaudit' | xargs -r sudo chmod go-w
+        { zsh -fc 'autoload -U compaudit; compaudit' || true; } | xargs -r sudo chmod go-w
         git config --global user.name 'Ostia CI'
         git config --global user.email 'ci@ostia.invalid'
