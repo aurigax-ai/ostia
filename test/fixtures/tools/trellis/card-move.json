@@ -1,1 +1,12 @@
-{"id":"01a0f962-a8b7-789e-8de1-e226512a7639","title":"Rename the config keys","body":"","version":2,"created_at":1790890387639,"updated_at":1790890411030,"ref":"DEMO-5","column":"in-progress","priority":"normal","labels":["chore"]}
+{
+  "id": "01a0f962-a8b7-789e-8de1-e226512a7639",
+  "title": "Rename the config keys",
+  "body": "",
+  "version": 2,
+  "created_at": 1790890387639,
+  "updated_at": 1790890411030,
+  "ref": "DEMO-5",
+  "column": "in-progress",
+  "priority": "normal",
+  "labels": ["chore"]
+}

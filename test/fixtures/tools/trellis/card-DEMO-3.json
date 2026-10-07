@@ -1,1 +1,22 @@
-{"id":"01a0f962-a8a8-70fe-a8b0-6dc1c420d45e","title":"Write the rollback runbook","body":"","version":1,"created_at":1790890387624,"updated_at":1790890387624,"ref":"DEMO-3","column":"backlog","priority":"low","labels":["docs"],"blocked_by":[{"ref":"DEMO-1","title":"Checkout fails on an empty cart","done":false}],"relations":[{"rel":"blocked_by","ref":"DEMO-1","title":"Checkout fails on an empty cart","column":"in-progress","done":false}]}
+{
+  "id": "01a0f962-a8a8-70fe-a8b0-6dc1c420d45e",
+  "title": "Write the rollback runbook",
+  "body": "",
+  "version": 1,
+  "created_at": 1790890387624,
+  "updated_at": 1790890387624,
+  "ref": "DEMO-3",
+  "column": "backlog",
+  "priority": "low",
+  "labels": ["docs"],
+  "blocked_by": [{ "ref": "DEMO-1", "title": "Checkout fails on an empty cart", "done": false }],
+  "relations": [
+    {
+      "rel": "blocked_by",
+      "ref": "DEMO-1",
+      "title": "Checkout fails on an empty cart",
+      "column": "in-progress",
+      "done": false
+    }
+  ]
+}

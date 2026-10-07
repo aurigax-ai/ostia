@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseAgentResume, resumeCommand, resumeIdFromHookPayload } from './agentResume'
+import { parseAgentResume, resumeCommand, resumeFromHookPayload } from './agentResume'
 
 describe('parseAgentResume', () => {
   it('accepts a known agent with a plain id', () => {
@@ -16,6 +16,20 @@ describe('parseAgentResume', () => {
     expect(parseAgentResume({ agent: 'claude', id: '-x' })).toBeNull()
     expect(parseAgentResume(null)).toBeNull()
   })
+
+  it('keeps an absolute cwd and drops one that is relative, too long or has a control character', () => {
+    expect(parseAgentResume({ agent: 'claude', id: 'abc', cwd: '/work/tree' })).toEqual({
+      agent: 'claude',
+      id: 'abc',
+      cwd: '/work/tree',
+    })
+    for (const cwd of ['work/tree', `/${'a'.repeat(4096)}`, '/work\ntree', '/work\u001btree', 7]) {
+      expect(parseAgentResume({ agent: 'claude', id: 'abc', cwd })).toEqual({
+        agent: 'claude',
+        id: 'abc',
+      })
+    }
+  })
 })
 
 describe('resumeCommand', () => {
@@ -25,10 +39,10 @@ describe('resumeCommand', () => {
   })
 })
 
-describe('resumeIdFromHookPayload', () => {
+describe('resumeFromHookPayload', () => {
   it('reads session_id from a Claude Code hook event', () => {
     const event = JSON.stringify({ session_id: 'ffe55127-cb1f', hook_event_name: 'SessionStart' })
-    expect(resumeIdFromHookPayload(event)).toBe('ffe55127-cb1f')
+    expect(resumeFromHookPayload(event)).toEqual({ id: 'ffe55127-cb1f' })
   })
 
   it('reads session_id from a Codex SessionStart hook event', () => {
@@ -37,13 +51,24 @@ describe('resumeIdFromHookPayload', () => {
       hook_event_name: 'SessionStart',
       source: 'resume',
     })
-    expect(resumeIdFromHookPayload(event)).toBe('01a0f04c-15fd-7b22-8538-ca8250a46988')
+    expect(resumeFromHookPayload(event)).toEqual({ id: '01a0f04c-15fd-7b22-8538-ca8250a46988' })
+  })
+
+  it('keeps the folder the session belongs to from the event’s cwd', () => {
+    const event = JSON.stringify({
+      session_id: 'ffe55127-cb1f',
+      hook_event_name: 'SessionStart',
+      cwd: '/home/u/work/tree',
+    })
+    expect(resumeFromHookPayload(event)).toEqual({ id: 'ffe55127-cb1f', cwd: '/home/u/work/tree' })
+    const relative = JSON.stringify({ session_id: 'ffe55127-cb1f', cwd: 'tree' })
+    expect(resumeFromHookPayload(relative)).toEqual({ id: 'ffe55127-cb1f' })
   })
 
   it('takes a bare id and refuses anything else', () => {
-    expect(resumeIdFromHookPayload('abc-123\n')).toBe('abc-123')
-    expect(resumeIdFromHookPayload('not an id')).toBeNull()
-    expect(resumeIdFromHookPayload('{broken')).toBeNull()
-    expect(resumeIdFromHookPayload(JSON.stringify({ session_id: 'a b' }))).toBeNull()
+    expect(resumeFromHookPayload('abc-123\n')).toEqual({ id: 'abc-123' })
+    expect(resumeFromHookPayload('not an id')).toBeNull()
+    expect(resumeFromHookPayload('{broken')).toBeNull()
+    expect(resumeFromHookPayload(JSON.stringify({ session_id: 'a b' }))).toBeNull()
   })
 })

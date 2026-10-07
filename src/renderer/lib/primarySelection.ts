@@ -1,4 +1,4 @@
-import type { Terminal } from '@xterm/xterm'
+import type { OstiaTerminal as Terminal } from './ostiaTerminal'
 
 export const PRIMARY_WRITE_DELAY_MS = 150
 

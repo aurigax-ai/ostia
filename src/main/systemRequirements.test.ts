@@ -131,15 +131,27 @@ describe('systemRequirements', () => {
     ).toEqual([{ program: 'tmux', package: 'tmux' }])
   })
 
-  it('KSH-C19 names the version needed when tmux is older than 3.2 or will not say', () => {
-    for (const version of ['tmux 3.1c', 'tmux 2.9', 'not a version']) {
+  it('KSH-C19 names the version needed and the one found when tmux is older than 3.2', () => {
+    for (const [version, found] of [
+      ['tmux 3.1c', '3.1c'],
+      ['tmux 2.9', '2.9'],
+    ]) {
       expect(
         missingRequirements(KEEP_SHELLS_FEATURE, {
           platform: 'linux',
           path: versionedTmux(version),
         }),
-      ).toEqual([{ program: 'tmux', package: 'tmux', needs: '3.2' }])
+      ).toEqual([{ program: 'tmux', package: 'tmux', needs: '3.2', found }])
     }
+  })
+
+  it('KSH-C19 names only the version needed when tmux will not say which it is', () => {
+    expect(
+      missingRequirements(KEEP_SHELLS_FEATURE, {
+        platform: 'linux',
+        path: versionedTmux('not a version'),
+      }),
+    ).toEqual([{ program: 'tmux', package: 'tmux', needs: '3.2' }])
   })
 })
 

@@ -1,6 +1,6 @@
 import { readFileSync, readdirSync } from 'node:fs'
 import { join, resolve } from 'node:path'
-import { act, renderHook } from '@testing-library/react'
+import { act, cleanup, renderHook } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useMotionAttribute, useReducedMotion } from './motion'
@@ -67,6 +67,7 @@ beforeAll(() => {
 })
 
 afterEach(() => {
+  cleanup()
   useSettingsStore.setState(settingsInit, true)
   delete document.documentElement.dataset.motion
 })

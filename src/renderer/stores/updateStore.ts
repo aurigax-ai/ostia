@@ -1,4 +1,4 @@
-import { type BuildInfo, buildLabel, sameBuild } from '@shared/buildInfo'
+import { type BuildInfo, sameBuild } from '@shared/buildInfo'
 import type { ReleaseCheckResult, ReleaseInfo } from '@shared/releases'
 import { create } from 'zustand'
 import { currentDict, fmt } from '../i18n/useDict'
@@ -51,7 +51,7 @@ function notify(info: BuildInfo): void {
   if (typeof Notification === 'undefined') return
   const d = currentDict()
   const note = new Notification(d.update.title, {
-    body: fmt(d.update.body, { build: buildLabel(info) }),
+    body: fmt(d.update.body, { build: info.version }),
   })
   note.onclick = () => window.focus()
 }

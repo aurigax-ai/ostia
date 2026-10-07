@@ -194,6 +194,19 @@ describe('runWhenIdle', () => {
     expect(term.paste).not.toHaveBeenCalled()
   })
 
+  it('types nothing at the idle prompt when its guard refuses, and stops waiting', () => {
+    let allowed = false
+    runWhenIdle(NEW, 'claude --resume abc', undefined, () => allowed)
+    const s = useBlocksStore.getState()
+    s.promptStart(NEW, { line: 0 }, '/home')
+    s.promptEnd(NEW, { line: 0 })
+    expect(term.paste).not.toHaveBeenCalled()
+    allowed = true
+    s.promptStart(NEW, { line: 0 }, '/home')
+    s.promptEnd(NEW, { line: 0 })
+    expect(term.paste).not.toHaveBeenCalled()
+  })
+
   it('can be cancelled before the prompt appears', () => {
     const cancel = runWhenIdle(NEW, 'echo never')
     cancel()

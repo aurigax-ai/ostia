@@ -10,6 +10,7 @@ export const PROGRAM_SETTINGS: readonly { group: ProgramSettingGroup; field: str
   { group: 'behavior', field: 'checkForUpdates' },
   { group: 'notifications', field: 'command' },
   { group: 'agents', field: 'autoResume' },
+  { group: 'agents', field: 'autoSendReferences' },
   { group: 'agents', field: 'hooks' },
   { group: 'terminal', field: 'warnOnRiskyPaste' },
   { group: 'terminal', field: 'shell' },

@@ -64,5 +64,8 @@ mac:
   entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.plist
   notarize: true
+  extraResources:
+    - from: packaging/bin/ostia
+      to: bin/ostia
 win:
   target: nsis

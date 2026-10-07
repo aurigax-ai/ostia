@@ -1,1 +1,5 @@
-{"projects":[{"key":"DEMO","name":"DEMO","description":"","boards":1,"created_at":1790890387605}]}
+{
+  "projects": [
+    { "key": "DEMO", "name": "DEMO", "description": "", "boards": 1, "created_at": 1790890387605 }
+  ]
+}
