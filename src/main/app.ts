@@ -11,7 +11,7 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { homedir, hostname, tmpdir } from 'node:os'
-import { dirname, join } from 'node:path'
+import { basename, dirname, join } from 'node:path'
 import {
   BrowserWindow,
   app,
@@ -45,6 +45,7 @@ import { parsePrivacySettings } from '../shared/redaction'
 import { type RemoteCwd, normalizeRemoteCwd } from '../shared/remoteFolders'
 import { parseSandboxGlobals } from '../shared/sandbox'
 import { quoteArg, quoteArgv } from '../shared/shellQuote'
+import { bucketCount } from '../shared/telemetry'
 import { shellArgv, shellName } from '../shared/terminalShell'
 import type {
   AppInfo,
@@ -294,7 +295,7 @@ import {
   requirementLabel,
 } from './systemRequirements'
 import { registerSystemRequirementsIpc } from './systemRequirementsIpc'
-import { TELEMETRY_FILE, type Telemetry, registerTelemetry } from './telemetry'
+import { type SessionFacts, TELEMETRY_FILE, type Telemetry, registerTelemetry } from './telemetry'
 import { PTY_COLOR_ENV, PTY_TERM_NAME, paneShellEnv, ptyIdentityEnv } from './terminalType'
 import { SANDBOX_NOT_KEPT, TMUX_MISSING, keepShellsNotice } from './tmux/keepShellsBanner'
 import { KeptAttention } from './tmux/keptAttention'
@@ -331,6 +332,7 @@ import {
 } from './workspaceRegistry'
 import { registerSearchIpc } from './workspaceSearch'
 import {
+  type RestoreOutcome,
   dropRestoredScrollback,
   handoffPaneIds,
   loadRestoredScrollback,
@@ -442,6 +444,48 @@ const closedPanes = new Set<string>()
 let appLog: AppLog | null = null
 let diagnostics: Diagnostics | null = null
 let telemetry: Telemetry | null = null
+let restoreOutcome: RestoreOutcome = 'none'
+
+function telemetrySessionFacts(): SessionFacts {
+  const settings = readSettingsFile() as {
+    behavior?: { inputMode?: unknown; gpuAcceleration?: unknown }
+    terminal?: { renderer?: unknown; prompt?: { style?: unknown } }
+  }
+  const text = (value: unknown, fallback: string): string =>
+    typeof value === 'string' ? value : fallback
+  const installed = marketplaceInstallIds()
+  const enabled =
+    extensionHost
+      ?.list()
+      .filter((ext) => ext.enabled && installed.includes(ext.id))
+      .map((ext) => ext.id) ?? []
+  let workspaces = 0
+  for (const win of windows.values()) {
+    if (!win.isDestroyed()) workspaces += broker?.workspacesOf(win).length ?? 0
+  }
+  return {
+    windows: bucketCount(windows.size),
+    workspaces: bucketCount(workspaces),
+    restore: restoreOutcome,
+    inEffect: {
+      features: {
+        input_mode: text(settings.behavior?.inputMode, 'terminal'),
+        prompt_style: text(settings.terminal?.prompt?.style, 'shell'),
+      },
+      terminal: {
+        engine: text(settings.terminal?.renderer, 'xterm'),
+        gpu: settings.behavior?.gpuAcceleration === false ? 'off' : 'on',
+      },
+    },
+    installedExtensions: installed,
+    enabledExtensions: enabled,
+  }
+}
+
+function shellFamily(shell: string): string {
+  const name = basename(shell).toLowerCase()
+  return name === 'zsh' || name === 'bash' || name === 'fish' ? name : 'other'
+}
 const officialMarketplaceId = marketplaceId(normalizeMarketplaceUrl(OFFICIAL_MARKETPLACE) ?? '')
 let marketplaceInstallIds: () => string[] = () => []
 let telemetrySentForQuit = false
@@ -680,6 +724,7 @@ function killPty(paneId: string, reason: ReapReason): void {
 function hibernatePty(paneId: string): boolean {
   const entry = ptys.get(paneId)
   if (!entry) return false
+  telemetry?.count('agents', 'hibernation')
   stashScrollback(paneId, entry.mirror.serialize())
   hibernatedPanes.add(paneId)
   paneWaking.end(paneId, 'failed')
@@ -1746,9 +1791,12 @@ function registerExtensionIpc(host: ExtensionHost): void {
   ipcMain.handle('extensions:workspace-chips', (e) =>
     workspaceChipsForWindow(host.workspaceChips(), workspaceWindowId, String(e.sender.id)),
   )
-  ipcMain.handle('extensions:set-setting', (_e, extId: unknown, key: unknown, value: unknown) =>
-    host.setSetting(String(extId), String(key), value),
-  )
+  ipcMain.handle('extensions:set-setting', (_e, extId: unknown, key: unknown, value: unknown) => {
+    if (typeof extId === 'string' && marketplaceInstallIds().includes(extId)) {
+      telemetry?.count('extensions', 'setting_change', `${extId}.${String(key)}`)
+    }
+    return host.setSetting(String(extId), String(key), value)
+  })
   ipcMain.handle('extensions:set-secret', (_e, extId: unknown, key: unknown, value: unknown) =>
     host.setSecret(String(extId), String(key), value),
   )
@@ -2030,6 +2078,7 @@ function registerPtyIpc(): void {
 
     const mod = loadPty()
     if (!mod) {
+      telemetry?.count('terminal', 'spawn_failure', 'node-pty-unavailable')
       return {
         created: false,
         buffer: '\r\n\x1b[38;2;239;89;111m node-pty unavailable — run: pnpm rebuild\x1b[0m\r\n',
@@ -2042,6 +2091,7 @@ function registerPtyIpc(): void {
       settings.terminal?.shell,
       process.env.SHELL ?? (process.platform === 'win32' ? 'powershell.exe' : 'bash'),
     )
+    telemetry?.count('terminal', 'shell', shellFamily(shell))
     const resolved = attachWorkspace(getByPaneId(paneId)?.workspaceId, opts.workspaceId ?? '')
     if (!resolved.ok) {
       return {
@@ -2234,6 +2284,7 @@ function registerPtyIpc(): void {
     pty.onExit(({ exitCode }) => session.exit(exitCode))
     const { data, cursor, dropped } = session.since(0)
     session.addLiveSubscriber(mkSub(entry))
+    if (folder.missing) telemetry?.count('terminal', 'spawn_failure', 'cwd-missing')
     return {
       created: true,
       buffer: data,
@@ -3128,7 +3179,8 @@ app.whenReady().then(() => {
     version: appVersion(),
     stamp: runningBuild()?.telemetry,
     readSettings: readSettingsFile,
-    marketplaceExtensions: () => marketplaceInstallIds(),
+    locale: readLocale,
+    session: telemetrySessionFacts,
     log: (event, fields) => appLog?.info(event, fields),
   })
   diagnostics = registerDiagnostics({
@@ -3142,7 +3194,7 @@ app.whenReady().then(() => {
     openPath: (path) => shell.openPath(path),
   })
   handleQuitSignals()
-  loadRestoredScrollback()
+  restoreOutcome = loadRestoredScrollback()
   void keptShells
     .start(parseKeepShells(readSettingsFile().terminal?.keepShells), savedPaneIds())
     .then(() => {
@@ -3176,11 +3228,32 @@ app.whenReady().then(() => {
   registerFsIpc()
   registerSelectionIpc(reachesPane, redactor.text)
   registerPrivacyIpc(redactor)
+  const approvalCaps = new Map<string, readonly string[]>()
   registerApprovals(revealWindow, settingsChanged, {
-    opened: askHub.approvalOpened,
-    settled: askHub.settled,
+    opened: (request) => {
+      approvalCaps.set(request.id, request.caps)
+      for (const cap of request.caps) telemetry?.count('agents', 'approval_shown', cap)
+      askHub.approvalOpened(request)
+    },
+    settled: (id, outcome) => {
+      const caps = approvalCaps.get(id) ?? []
+      approvalCaps.delete(id)
+      if (outcome !== 'timeout' && outcome !== 'auto') {
+        for (const cap of caps) telemetry?.count('agents', 'approval_answered', cap)
+      }
+      askHub.settled(id, outcome)
+    },
   })
-  registerQuestions({ opened: askHub.questionOpened, settled: askHub.settled })
+  registerQuestions({
+    opened: (request) => {
+      telemetry?.count('agents', 'question_asked')
+      askHub.questionOpened(request)
+    },
+    settled: (id, outcome) => {
+      if (outcome === 'answered') telemetry?.count('agents', 'question_answered')
+      askHub.settled(id, outcome)
+    },
+  })
   registerPermissionAsk({ questions, phoneCanAnswer: phoneCanRespond })
   registerCredentials()
   registerAppUpdate(() => {
@@ -3243,6 +3316,7 @@ app.whenReady().then(() => {
   registerPaneResumeMethods({
     execCommand,
     onResume: (identity, resume) => {
+      telemetry?.count('agents', 'resume')
       paneWaking.end(identity.paneId, 'started')
       if (identity.manager) managerService?.rememberResume(resume)
     },
@@ -3339,6 +3413,7 @@ app.whenReady().then(() => {
   })
   registerBusMethods({
     managerSendAllowed: () => managerLimiter?.busAllowed() ?? true,
+    sent: () => telemetry?.count('agents', 'bus_message'),
     announce: (from, to, text) => {
       void announceBusMessage(
         {

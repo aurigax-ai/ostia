@@ -1599,39 +1599,73 @@ export const en = {
     notSentMany: '{count} secrets are not sent to the assistant',
     groupTelemetry: 'Telemetry',
     telemetryDesc:
-      'Off unless you turn it on. Reports go from {product} alone, in batches over https, to one fixed endpoint. Never included: terminal output, what you type, command lines, file paths or names, URLs, environment, settings values, workspace names or tokens.',
-    errorReports: 'Error reports',
-    errorReportsDesc:
-      'Uncaught errors and crashes of {product}, its windows and its extensions: the error name, a stack trace reduced to file names inside the app, the app version, the Electron version, the operating system and the architecture.',
-    usageData: 'Usage data',
-    usageDataDesc:
-      'Counts only: app starts, session length, which palette commands, pane kinds and settings sections were used, and which extensions you installed from the official marketplace.',
+      'Off unless you turn it on, one category at a time. Reports go from {product} alone, in batches over https, to PostHog. Never included, in any category: terminal output or input, command lines, prompts, file paths or names, URLs, environment, settings values, workspace names, custom keybindings, tokens, anything typed.',
+    noEndpoint:
+      'This build has no telemetry endpoint, so nothing is sent and there is nothing to turn on.',
+    alwaysIncluded: 'Always included with anything you share',
+    installContext: 'Install context',
+    installContextSends:
+      'A random install id you can reset, the app and Electron versions, the operating system family and version, the architecture, the display language and whether this is a packaged build.',
+    categories: {
+      errors: {
+        label: 'Crash and error reports',
+        sends: 'What breaks: error names, messages and file names, never your data.',
+        details:
+          'Uncaught errors and rejections in the main process, renderer crashes, errors caught by the app and surface error boundaries, and extension process crashes (the extension id only for built-in and official-marketplace extensions). Each report holds the error name, the message after paths are stripped and secrets redacted, and stack frames reduced to function and file names.',
+      },
+      usage: {
+        label: 'App usage',
+        sends: 'Whether {product} is used and whether restore holds up.',
+        details:
+          'App starts, session length in minutes, the number of windows and workspaces at session end (as a range), and whether the workspace restore succeeded or failed.',
+      },
+      features: {
+        label: 'Feature usage',
+        sends: 'Which features matter: counts of commands, pane kinds and settings pages.',
+        details:
+          'Counts per palette command id, pane kind opened, settings section opened and default chord used (custom bindings are never sent), plus the input mode and prompt style in effect.',
+      },
+      terminal: {
+        label: 'Terminal engine and performance',
+        sends: 'Which engine and GPU setting you run, and when they fall back.',
+        details:
+          'The terminal engine (xterm or Ghostty), whether GPU acceleration is on, WebGL fallback events, hibernation wake counts, terminal spawn failures as a reason code, and the shell family (zsh, bash, fish or other).',
+      },
+      extensions: {
+        label: 'Extensions',
+        sends: 'Which official-marketplace extensions are installed and enabled.',
+        details:
+          'The ids of installed and enabled extensions from the official marketplace only, never hand-installed ones or other marketplaces, and counts of setting changes by key name for those extensions.',
+      },
+      agents: {
+        label: 'AI agent usage',
+        sends: 'How the agent workflow is used: counts of sessions, approvals and questions.',
+        details:
+          'Counts of agent sessions by agent name (claude, codex or other), resume and hibernation counts, approval cards shown and answered by capability name, questions asked and answered, and bus messages sent. Never the prompts, answers or messages themselves.',
+      },
+    },
+    showDetails: 'Show details',
+    hideDetails: 'Hide details',
+    newCategory: 'New',
     installId: 'Install id',
     installIdDesc:
-      'A random id that groups reports from this installation. It is tied to nothing else. Resetting it also drops every queued and remembered report.',
+      'A random id that groups reports from this installation. It is tied to nothing else. Resetting it also drops every queued and remembered report; the old id is never sent again.',
     resetInstallId: 'Reset install id',
+    reviewConsent: 'Review consent again',
     showReports: 'Show what {product} sends',
     reportsTitle: 'What {product} sends',
     reportsDesc:
       'The reports waiting to be sent and the last ones sent, exactly as they go out. Nothing here is editable.',
+    reportsFilter: 'Category',
+    reportsAll: 'All categories',
     reportsQueued: 'Waiting to be sent',
     reportsSent: 'Last sent',
     reportsNone: 'Nothing.',
     consentTitle: 'Help improve {product}?',
     consentBody:
-      '{product} can send error reports and usage counts to its developers. Both are off unless you turn them on here or later in Settings → Privacy.',
-    consentCollected: 'What is sent',
-    consentCollectedBody:
-      'Error reports: the error name, a stack trace reduced to file names inside the app, the app and Electron versions, the operating system and the architecture. Usage data: counts of app starts, session length, palette commands, pane kinds, settings sections and extensions installed from the official marketplace. A random install id you can reset groups the reports.',
-    consentNever: 'What is never sent',
-    consentNeverBody:
-      'Terminal output, what you type, command lines, file paths or names, URLs, environment, settings values, workspace names, tokens or your IP address. Detected secrets are redacted and free text is clipped.',
-    consentWhere: 'Where it goes',
-    consentWhereBody:
-      'Over https from {product} alone, in batches, to one fixed endpoint run by the developers. The renderer never names a URL.',
-    consentShare: 'Share',
-    noEndpoint:
-      'This build has no telemetry endpoint, so nothing is sent and there is nothing to turn on.',
+      '{product} can send reports to its developers, one category at a time. Everything is off until you tick it here or later in Settings → Privacy.',
+    consentSelectAll: 'Select all',
+    consentShare: 'Share selected',
     consentDecline: 'Don’t share',
   },
   manager: {
@@ -4658,37 +4692,71 @@ export const zhHant: Dict = {
     notSentMany: '有 {count} 個機密不會送給助理',
     groupTelemetry: '遙測',
     telemetryDesc:
-      '除非你開啟，否則關閉。報告只由 {product} 自己分批透過 https 送到一個固定端點。絕不包含：終端機輸出、你輸入的內容、指令列、檔案路徑或名稱、URL、環境變數、設定值、工作區名稱或權杖。',
-    errorReports: '錯誤回報',
-    errorReportsDesc:
-      '{product}、其視窗與擴充功能未處理的錯誤與當機：錯誤名稱、只保留應用程式內檔名的堆疊追蹤、應用程式版本、Electron 版本、作業系統與架構。',
-    usageData: '使用資料',
-    usageDataDesc:
-      '只有計數：應用程式啟動次數、工作階段長度、使用過的命令面板指令、窗格種類與設定分頁，以及你從官方市集安裝的擴充功能。',
+      '除非你逐項開啟，否則關閉。報告只由 {product} 自己分批透過 https 送到 PostHog。任何類別都絕不包含：終端機輸出或輸入、指令列、提示詞、檔案路徑或名稱、URL、環境變數、設定值、工作區名稱、自訂按鍵、權杖、你輸入的任何內容。',
+    noEndpoint: '這個版本沒有設定遙測端點，因此不會送出任何內容，也沒有可開啟的項目。',
+    alwaysIncluded: '只要分享任何項目就一定包含',
+    installContext: '安裝資訊',
+    installContextSends:
+      '一個可重設的隨機安裝識別碼、應用程式與 Electron 版本、作業系統家族與版本、架構、顯示語言，以及是否為打包版本。',
+    categories: {
+      errors: {
+        label: '當機與錯誤回報',
+        sends: '哪裡壞了：錯誤名稱、訊息與檔名，絕不包含你的資料。',
+        details:
+          '主程序未處理的錯誤與拒絕、畫面程序當機、應用程式與窗格錯誤邊界捕捉到的錯誤，以及擴充功能程序當機（只有內建與官方市集擴充功能會附上識別碼）。每份回報包含錯誤名稱、移除路徑並遮蔽機密後的訊息，以及只保留函式與檔名的堆疊。',
+      },
+      usage: {
+        label: '應用程式使用',
+        sends: '{product} 有沒有被使用，以及還原是否可靠。',
+        details:
+          '啟動次數、工作階段長度（分鐘）、結束時的視窗與工作區數量（以區間表示），以及工作區還原成功或失敗。',
+      },
+      features: {
+        label: '功能使用',
+        sends: '哪些功能重要：指令、窗格種類與設定頁面的計數。',
+        details:
+          '每個命令面板指令、開啟的窗格種類、開啟的設定分頁與使用的預設快速鍵的計數（自訂按鍵絕不送出），以及目前的輸入模式與提示樣式。',
+      },
+      terminal: {
+        label: '終端機引擎與效能',
+        sends: '你使用哪個引擎與 GPU 設定，以及何時退回。',
+        details:
+          '終端機引擎（xterm 或 Ghostty）、GPU 加速是否開啟、WebGL 退回事件、休眠喚醒次數、終端機啟動失敗的原因代碼，以及 shell 家族（zsh、bash、fish 或其他）。',
+      },
+      extensions: {
+        label: '擴充功能',
+        sends: '安裝並啟用了哪些官方市集擴充功能。',
+        details:
+          '只有官方市集擴充功能的安裝與啟用識別碼，絕不包含手動安裝或其他市集的擴充功能，以及這些擴充功能的設定變更計數（只有鍵名）。',
+      },
+      agents: {
+        label: 'AI 代理使用',
+        sends: '代理工作流程的使用方式：工作階段、核准與提問的計數。',
+        details:
+          '依代理名稱（claude、codex 或其他）計算的工作階段數、恢復與休眠次數、依權限名稱計算的核准卡片顯示與回答數、提問與回答數，以及匯流排訊息數。絕不包含提示詞、回答或訊息本身。',
+      },
+    },
+    showDetails: '顯示詳情',
+    hideDetails: '隱藏詳情',
+    newCategory: '新',
     installId: '安裝識別碼',
     installIdDesc:
-      '一個隨機識別碼，用來把這個安裝送出的報告歸在一起，與其他任何東西無關。重設它也會丟棄所有排隊中與已記住的報告。',
+      '一個隨機識別碼，用來把這個安裝送出的報告歸在一起，與其他任何東西無關。重設它也會丟棄所有排隊中與已記住的報告；舊識別碼不會再送出。',
     resetInstallId: '重設安裝識別碼',
+    reviewConsent: '重新檢視同意',
     showReports: '顯示 {product} 會送出的內容',
     reportsTitle: '{product} 會送出的內容',
     reportsDesc: '等待送出的報告與最近送出的報告，和實際送出的完全一樣。這裡的內容無法編輯。',
+    reportsFilter: '類別',
+    reportsAll: '所有類別',
     reportsQueued: '等待送出',
     reportsSent: '最近送出',
     reportsNone: '沒有內容。',
     consentTitle: '要協助改進 {product} 嗎？',
     consentBody:
-      '{product} 可以把錯誤回報與使用計數送給開發者。兩者都是關閉的，除非你在這裡或之後在「設定 → 隱私」開啟。',
-    consentCollected: '會送出的內容',
-    consentCollectedBody:
-      '錯誤回報：錯誤名稱、只保留應用程式內檔名的堆疊追蹤、應用程式與 Electron 版本、作業系統與架構。使用資料：應用程式啟動次數、工作階段長度、命令面板指令、窗格種類、設定分頁，以及從官方市集安裝的擴充功能的計數。一個可重設的隨機安裝識別碼會把報告歸在一起。',
-    consentNever: '絕不送出的內容',
-    consentNeverBody:
-      '終端機輸出、你輸入的內容、指令列、檔案路徑或名稱、URL、環境變數、設定值、工作區名稱、權杖或你的 IP 位址。偵測到的機密會被遮蔽，自由文字會被截短。',
-    consentWhere: '送到哪裡',
-    consentWhereBody:
-      '只由 {product} 自己分批透過 https 送到開發者營運的一個固定端點。畫面端永遠不會指定 URL。',
-    consentShare: '分享',
-    noEndpoint: '這個版本沒有設定遙測端點，因此不會送出任何內容，也沒有可開啟的項目。',
+      '{product} 可以逐類別把報告送給開發者。全部都是關閉的，除非你在這裡或之後在「設定 → 隱私」勾選。',
+    consentSelectAll: '全選',
+    consentShare: '分享所選',
     consentDecline: '不分享',
   },
   manager: {

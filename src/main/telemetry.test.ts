@@ -7,7 +7,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { FAKE } from '../../test/fixtures/secrets/samples'
 import { envName } from '../shared/appEnv'
 import {
-  type HostProperties,
+  DEFAULT_TELEMETRY_SETTINGS,
+  type InstallContext,
+  TELEMETRY_CATEGORIES,
   TELEMETRY_QUEUE_MAX,
   TELEMETRY_SEND_ATTEMPTS,
   TELEMETRY_URL_ENV,
@@ -28,16 +30,31 @@ vi.mock('electron', () => ({
 
 const { createTelemetry, readTelemetrySettings, registerTelemetry, telemetryEndpoint } =
   await import('./telemetry')
+type SessionFacts = import('./telemetry').SessionFacts
 
-const host: HostProperties = {
+const context: InstallContext = {
   app_version: '1.0.0',
   electron_version: '33',
   os_name: 'linux',
   os_version: '6',
   arch: 'x64',
+  locale: 'en',
+  channel: 'source',
 }
 
 const endpoint = { url: 'https://us.i.posthog.com/batch/', apiKey: 'phc_test' }
+
+const facts: SessionFacts = {
+  windows: '1',
+  workspaces: '2-3',
+  restore: 'ok',
+  inEffect: {
+    features: { input_mode: 'terminal', prompt_style: 'shell' },
+    terminal: { engine: 'xterm', gpu: 'on' },
+  },
+  installedExtensions: ['trellis'],
+  enabledExtensions: ['trellis'],
+}
 
 interface Harness {
   file: string
@@ -58,10 +75,13 @@ afterEach(() => {
   vi.useRealTimers()
 })
 
-function harness(settings: Partial<TelemetrySettings> = {}): Harness {
+const only = (...on: Array<keyof TelemetrySettings>): TelemetrySettings =>
+  Object.fromEntries(TELEMETRY_CATEGORIES.map((k) => [k, on.includes(k)])) as TelemetrySettings
+
+function harness(settings: TelemetrySettings = DEFAULT_TELEMETRY_SETTINGS): Harness {
   const h: Harness = {
     file: join(dir, 'telemetry.json'),
-    settings: { errors: false, usage: false, ...settings },
+    settings,
     sent: [],
     respond: () => new Response(null, { status: 200 }),
     fetchFn: async (input, init) => {
@@ -79,11 +99,10 @@ function harness(settings: Partial<TelemetrySettings> = {}): Harness {
 function create(h: Harness, extra: Partial<Parameters<typeof createTelemetry>[0]> = {}) {
   return createTelemetry({
     file: h.file,
-    version: '1.0.0',
     endpoint,
-    host,
+    context: () => context,
     settings: () => h.settings,
-    marketplaceExtensions: () => ['trellis'],
+    session: () => facts,
     fetchFn: h.fetchFn,
     flushDelayMs: 0,
     retryDelayMs: 0,
@@ -96,18 +115,7 @@ const boom = () => ({ source: 'main-exception' as const, name: 'Error', message:
 interface SentEvent {
   event: string
   distinct_id: string
-  properties: {
-    $process_person_profile?: boolean
-    $ip?: unknown
-    $exception_list?: Array<{ value: string }>
-    app_version?: string
-    app_starts?: number
-    session_minutes?: number
-    commands?: unknown
-    surfaces?: unknown
-    settings?: unknown
-    marketplace_extensions?: unknown
-  }
+  properties: Record<string, unknown> & { $exception_list?: Array<{ value: string }> }
 }
 
 const batchEvents = (body: string): SentEvent[] => JSON.parse(body).batch
@@ -137,21 +145,21 @@ describe('telemetryEndpoint', () => {
 
 describe('readTelemetrySettings', () => {
   it('reads privacy.telemetry from the settings file and is off for anything else', () => {
-    expect(readTelemetrySettings({ privacy: { telemetry: { errors: true } } })).toEqual({
-      errors: true,
-      usage: false,
-    })
-    expect(readTelemetrySettings(null)).toEqual({ errors: false, usage: false })
-    expect(readTelemetrySettings({ privacy: 'x' })).toEqual({ errors: false, usage: false })
+    expect(readTelemetrySettings({ privacy: { telemetry: { errors: true } } })).toEqual(
+      only('errors'),
+    )
+    expect(readTelemetrySettings(null)).toEqual(DEFAULT_TELEMETRY_SETTINGS)
+    expect(readTelemetrySettings({ privacy: 'x' })).toEqual(DEFAULT_TELEMETRY_SETTINGS)
   })
 })
 
 describe('createTelemetry', () => {
-  it('sends nothing while both switches are off', async () => {
+  it('sends nothing while every category is off', async () => {
     const h = harness()
     const t = create(h)
     t.error(boom())
-    t.count('command', 'pane.split')
+    t.count('features', 'command', 'pane.split')
+    t.count('agents', 'bus_message')
     await t.flush()
     await t.shutdown()
     expect(h.sent).toEqual([])
@@ -159,7 +167,7 @@ describe('createTelemetry', () => {
   })
 
   it('queues an error report and sends it as one capture batch with the project key', async () => {
-    const h = harness({ errors: true })
+    const h = harness(only('errors'))
     const t = create(h)
     t.error({
       ...boom(),
@@ -181,13 +189,66 @@ describe('createTelemetry', () => {
     expect(event.properties.$process_person_profile).toBe(false)
     expect(event.properties.$ip).toBeUndefined()
     expect(event.properties.$exception_list?.[0].value).toBe('token [redacted] in <path>')
-    expect(event.properties.app_version).toBe('1.0.0')
+    expect(event.properties.channel).toBe('source')
     expect(t.reports().queued).toEqual([])
     expect(t.reports().sent).toEqual([event])
   })
 
+  it('carries only the enabled categories in the usage event, namespaced', async () => {
+    const h = harness(only('usage', 'terminal'))
+    let now = 1_000_000
+    const t = create(h, { now: () => now })
+    t.count('features', 'command', 'pane.split')
+    t.count('agents', 'bus_message')
+    t.count('terminal', 'shell', 'zsh')
+    t.count('terminal', 'wake')
+    now += 31 * 60_000
+    await t.shutdown()
+    expect(h.sent).toHaveLength(1)
+    const [event] = batchEvents(h.sent[0].body)
+    expect(event.event).toBe('usage')
+    expect(event.properties['usage.app_starts']).toBe(1)
+    expect(event.properties['usage.session_minutes']).toBe(31)
+    expect(event.properties['usage.windows']).toBe('1')
+    expect(event.properties['usage.workspaces']).toBe('2-3')
+    expect(event.properties['usage.restore']).toBe('ok')
+    expect(event.properties['terminal.engine']).toBe('xterm')
+    expect(event.properties['terminal.gpu']).toBe('on')
+    expect(event.properties['terminal.shell.zsh']).toBe(1)
+    expect(event.properties['terminal.wake']).toBe(1)
+    const keys = Object.keys(event.properties)
+    expect(keys.some((k) => k.startsWith('features.'))).toBe(false)
+    expect(keys.some((k) => k.startsWith('agents.'))).toBe(false)
+    expect(keys.some((k) => k.startsWith('extensions.'))).toBe(false)
+    expect(event.properties.$exception_list).toBeUndefined()
+  })
+
+  it('counts only for a category that is on, and only known keys and ids', async () => {
+    const h = harness(only('features', 'extensions', 'agents'))
+    const t = create(h)
+    t.count('features', 'command', 'pane.split')
+    t.count('features', 'command', 'pane.split')
+    t.count('features', 'command', 'bad id with spaces')
+    t.count('features', 'nope', 'x')
+    t.count('features', 'command')
+    t.count('terminal', 'wake')
+    t.count('agents', 'session', 'claude')
+    t.count('agents', 'bus_message', 'extra')
+    t.count('nope' as never, 'x')
+    await t.shutdown()
+    const [event] = batchEvents(h.sent[0].body)
+    expect(event.properties['features.command.pane.split']).toBe(2)
+    expect(event.properties['agents.session.claude']).toBe(1)
+    expect(event.properties['extensions.installed']).toEqual(['trellis'])
+    expect(event.properties['extensions.enabled']).toEqual(['trellis'])
+    expect(event.properties['agents.bus_message']).toBeUndefined()
+    expect(Object.keys(event.properties).some((k) => k.startsWith('terminal.'))).toBe(false)
+    expect(Object.keys(event.properties).some((k) => k.includes('nope'))).toBe(false)
+    expect(Object.keys(event.properties).some((k) => k.includes('bad id'))).toBe(false)
+  })
+
   it('persists the queue and the install id in a 0600 file and reloads them', async () => {
-    const h = harness({ errors: true })
+    const h = harness(only('errors'))
     const t = create(h, { endpoint: null })
     t.error(boom())
     const id = t.state().installId
@@ -200,7 +261,7 @@ describe('createTelemetry', () => {
   })
 
   it('caps the queue and drops a report after the retry cap', async () => {
-    const h = harness({ errors: true })
+    const h = harness(only('errors'))
     h.respond = () => new Response(null, { status: 500 })
     const t = create(h, { endpoint: null })
     for (let i = 0; i < TELEMETRY_QUEUE_MAX + 5; i++) t.error(boom())
@@ -212,50 +273,30 @@ describe('createTelemetry', () => {
     expect(JSON.parse(readFileSync(h.file, 'utf8')).queue).toHaveLength(TELEMETRY_QUEUE_MAX - 20)
   })
 
-  it('drops queued reports of a kind whose switch turned off', async () => {
-    const h = harness({ errors: true, usage: true })
+  it('drops queued reports of a category that turned off, keeping the rest of a usage event', async () => {
+    const h = harness(only('errors', 'usage', 'agents'))
+    vi.useFakeTimers()
     const t = create(h, { endpoint: null, usageIntervalMs: 60_000 })
     t.error(boom())
-    t.count('command', 'pane.split')
-    vi.useFakeTimers()
-    const live = create(h, { endpoint: null, usageIntervalMs: 60_000 })
-    live.count('surface', 'terminal')
+    t.count('agents', 'bus_message')
     vi.advanceTimersByTime(60_000)
-    expect(live.reports().queued.map((r) => r.event)).toEqual(['$exception', 'usage'])
-    h.settings = { errors: false, usage: true }
-    live.settingsChanged()
-    expect(live.reports().queued.map((r) => r.event)).toEqual(['usage'])
-    h.settings = { errors: false, usage: false }
-    live.settingsChanged()
-    expect(live.reports().queued).toEqual([])
-  })
-
-  it('sends one usage event at shutdown with the counts, session length and marketplace ids', async () => {
-    const h = harness({ usage: true })
-    let now = 1_000_000
-    const t = create(h, { now: () => now })
-    t.count('command', 'pane.split')
-    t.count('command', 'pane.split')
-    t.count('surface', 'browser')
-    t.count('settings', 'privacy')
-    t.count('command', 'bad id with spaces')
-    t.count('nope' as never, 'x')
-    now += 31 * 60_000
-    await t.shutdown()
-    expect(h.sent).toHaveLength(1)
-    const [event] = batchEvents(h.sent[0].body)
-    expect(event.event).toBe('usage')
-    expect(event.properties.app_starts).toBe(1)
-    expect(event.properties.session_minutes).toBe(31)
-    expect(event.properties.commands).toEqual({ 'pane.split': 2 })
-    expect(event.properties.surfaces).toEqual({ browser: 1 })
-    expect(event.properties.settings).toEqual({ privacy: 1 })
-    expect(event.properties.marketplace_extensions).toEqual(['trellis'])
-    expect(event.properties.$exception_list).toBeUndefined()
+    expect(t.reports().queued.map((r) => r.event)).toEqual(['$exception', 'usage'])
+    h.settings = only('usage', 'agents')
+    t.settingsChanged()
+    expect(t.reports().queued.map((r) => r.event)).toEqual(['usage'])
+    h.settings = only('agents')
+    t.settingsChanged()
+    const [usage] = t.reports().queued
+    const properties = usage.properties as Record<string, unknown>
+    expect(properties['agents.bus_message']).toBe(1)
+    expect(properties['usage.app_starts']).toBeUndefined()
+    h.settings = DEFAULT_TELEMETRY_SETTINGS
+    t.settingsChanged()
+    expect(t.reports().queued).toEqual([])
   })
 
   it('reset gives a new install id and forgets every report', async () => {
-    const h = harness({ errors: true })
+    const h = harness(only('errors'))
     const t = create(h)
     t.error(boom())
     await t.flush()
@@ -266,8 +307,27 @@ describe('createTelemetry', () => {
     expect(t.reports()).toEqual({ queued: [], sent: [] })
   })
 
+  it('remembers the consent answer and marks a category added later as new, never re-asking', () => {
+    const h = harness()
+    const t = create(h)
+    expect(t.state().asked).toBe(false)
+    expect(t.state().newCategories).toEqual([])
+    t.consented()
+    const file = JSON.parse(readFileSync(h.file, 'utf8'))
+    expect(file.asked).toBe(true)
+    expect(typeof file.answeredAt).toBe('string')
+    file.seen = file.seen.filter((c: string) => c !== 'terminal')
+    writeFileSync(h.file, JSON.stringify(file))
+    const later = create(h)
+    expect(later.state().asked).toBe(true)
+    expect(later.state().newCategories).toEqual(['terminal'])
+    expect(readTelemetrySettings({ privacy: { telemetry: { errors: true } } }).terminal).toBe(false)
+    later.categoriesSeen()
+    expect(create(h).state().newCategories).toEqual([])
+  })
+
   it('drops a corrupt queue entry instead of failing every flush', async () => {
-    const h = harness({ errors: true })
+    const h = harness(only('errors'))
     const t = create(h)
     t.error(boom())
     const file = JSON.parse(readFileSync(h.file, 'utf8'))
@@ -288,16 +348,8 @@ describe('createTelemetry', () => {
     expect(create(h, { endpoint: null }).state().available).toBe(false)
   })
 
-  it('remembers that the consent dialog was answered', () => {
-    const h = harness()
-    const t = create(h)
-    expect(t.state().asked).toBe(false)
-    t.consented()
-    expect(create(h).state().asked).toBe(true)
-  })
-
   it('never contacts the network without an endpoint', async () => {
-    const h = harness({ errors: true })
+    const h = harness(only('errors'))
     const t = create(h, { endpoint: null })
     t.error(boom())
     await t.flush()
@@ -333,7 +385,7 @@ describe('sendBatch over http', () => {
   })
 
   it('posts the batch to the ingest host', async () => {
-    const h = harness({ errors: true })
+    const h = harness(only('errors'))
     const t = create(h, {
       endpoint: telemetryEndpoint(false, { [envName(TELEMETRY_URL_ENV)]: url }, undefined),
       fetchFn: undefined,
@@ -353,15 +405,17 @@ describe('registerTelemetry', () => {
       file: join(dir, 'telemetry.json'),
       version: '1.0.0',
       stamp: undefined,
-      readSettings: () => ({ privacy: { telemetry: { usage: true } } }),
-      marketplaceExtensions: () => [],
+      readSettings: () => ({ privacy: { telemetry: { features: true } } }),
+      locale: () => 'en',
+      session: () => facts,
     })
     const state = (await handlers.get('telemetry:state')?.()) as { installId: string }
     expect(state.installId).toBe(t.state().installId)
-    handlers.get('telemetry:count')?.({}, 'command', 'pane.split')
-    handlers.get('telemetry:count')?.({}, 42, 'pane.split')
+    handlers.get('telemetry:count')?.({}, 'features', 'command', 'pane.split')
+    handlers.get('telemetry:count')?.({}, 42, 'command', 'pane.split')
     await handlers.get('telemetry:consented')?.()
     expect(t.state().asked).toBe(true)
+    await handlers.get('telemetry:categories-seen')?.()
     const next = (await handlers.get('telemetry:reset-id')?.()) as string
     expect(next).not.toBe(state.installId)
     expect(await handlers.get('telemetry:reports')?.()).toEqual({ queued: [], sent: [] })

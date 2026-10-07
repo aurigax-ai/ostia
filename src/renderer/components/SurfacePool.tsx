@@ -85,7 +85,7 @@ export function SurfacePool(): JSX.Element {
     for (const s of surfaces) {
       if (seen.current.has(s.paneId)) continue
       seen.current.add(s.paneId)
-      countUsage('surface', s.kind)
+      countUsage('features', 'surface', s.kind)
     }
     for (const paneId of seen.current) if (!live.has(paneId)) seen.current.delete(paneId)
   }, [surfaces])

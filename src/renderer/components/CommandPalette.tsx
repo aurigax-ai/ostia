@@ -55,7 +55,7 @@ import { Kbd } from './ui/kbd'
 const LIST_CLASS = 'max-h-[min(27rem,calc(88vh-5rem))]'
 
 function runFromPalette(id: string, args?: { argument: string }): void {
-  countUsage('command', id)
+  countUsage('features', 'command', id)
   void commands.exec(id, args)
 }
 

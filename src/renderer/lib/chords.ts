@@ -24,6 +24,7 @@ import { isDangerousSegment } from '@shared/protoGuard'
 import { commands } from '../commands/registry'
 import { useKeymapStore } from '../stores/keymapStore'
 import { useSettingsStore } from '../stores/settingsStore'
+import { countUsage } from './usageCounts'
 
 export type { KeyLike, KeybindingMap } from '@shared/chordSpec'
 export { WORKSPACE_GOTO, bindingProblem, checkBinding } from '@shared/chordSpec'
@@ -344,8 +345,13 @@ export function runAppChord(e: KeyLike & { preventDefault: () => void }, mac: bo
   const chord = matchChord(e, mac)
   if (!isAppChord(chord)) return false
   e.preventDefault()
+  if (isDefaultBinding(chord)) countUsage('features', 'chord', chord)
   execChord(chord, e)
   return true
+}
+
+export function isDefaultBinding(id: string): boolean {
+  return id in DEFAULT_CHORDS && useSettingsStore.getState().keybindings[id] === undefined
 }
 
 export function chordsOf(id: string, mac: boolean): readonly ChordSpec[] {

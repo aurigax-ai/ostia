@@ -1,12 +1,24 @@
-import type { TelemetryReport, TelemetryReports } from '@shared/telemetry'
+import {
+  TELEMETRY_CATEGORIES,
+  type TelemetryCategory,
+  type TelemetryReport,
+  type TelemetryReports,
+  reportCategories,
+} from '@shared/telemetry'
 import { useEffect, useState } from 'react'
 import { useDict } from '../i18n/useDict'
+import { SelectField } from './SettingsPanel'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog'
+
+type Filter = TelemetryCategory | 'all'
 
 function ReportList({
   title,
   reports,
-}: { title: string; reports: TelemetryReport[] }): JSX.Element {
+}: {
+  title: string
+  reports: TelemetryReport[]
+}): JSX.Element {
   const d = useDict()
   return (
     <section aria-label={title} className="flex min-h-0 flex-col gap-1">
@@ -31,6 +43,7 @@ export function TelemetryReportsDialog({
 }): JSX.Element {
   const d = useDict()
   const [reports, setReports] = useState<TelemetryReports | null>(null)
+  const [filter, setFilter] = useState<Filter>('all')
   useEffect(() => {
     if (!open) return
     let stale = false
@@ -46,6 +59,8 @@ export function TelemetryReportsDialog({
       stale = true
     }
   }, [open])
+  const keep = (report: TelemetryReport): boolean =>
+    filter === 'all' || reportCategories(report).includes(filter)
   return (
     <Dialog
       open={open}
@@ -58,10 +73,22 @@ export function TelemetryReportsDialog({
           <DialogTitle>{d.privacy.reportsTitle}</DialogTitle>
           <DialogDescription>{d.privacy.reportsDesc}</DialogDescription>
         </DialogHeader>
+        <SelectField
+          value={filter}
+          onChange={(next) => setFilter(next as Filter)}
+          label={d.privacy.reportsFilter}
+          options={[
+            { value: 'all', label: d.privacy.reportsAll },
+            ...TELEMETRY_CATEGORIES.map((c) => ({
+              value: c,
+              label: d.privacy.categories[c].label,
+            })),
+          ]}
+        />
         {reports ? (
           <div className="flex flex-col gap-3">
-            <ReportList title={d.privacy.reportsQueued} reports={reports.queued} />
-            <ReportList title={d.privacy.reportsSent} reports={reports.sent} />
+            <ReportList title={d.privacy.reportsQueued} reports={reports.queued.filter(keep)} />
+            <ReportList title={d.privacy.reportsSent} reports={reports.sent.filter(keep)} />
           </div>
         ) : null}
       </DialogContent>

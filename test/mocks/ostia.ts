@@ -376,8 +376,11 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       preview: vi.fn(async (text: string) => ({ text, count: 0, kinds: {} })),
     },
     telemetry: {
-      state: vi.fn().mockResolvedValue({ installId: 'install-id', asked: true, available: true }),
+      state: vi
+        .fn()
+        .mockResolvedValue({ installId: 'install-id', asked: true, available: true, newCategories: [] }),
       consented: vi.fn().mockResolvedValue(undefined),
+      categoriesSeen: vi.fn().mockResolvedValue(undefined),
       resetInstallId: vi.fn().mockResolvedValue('new-install-id'),
       reports: vi.fn().mockResolvedValue({ queued: [], sent: [] }),
       count: vi.fn(),

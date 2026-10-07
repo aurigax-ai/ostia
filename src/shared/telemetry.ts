@@ -5,11 +5,64 @@ export const TELEMETRY_QUEUE_MAX = 50
 export const TELEMETRY_SENT_MAX = 20
 export const TELEMETRY_BATCH_MAX = 20
 export const TELEMETRY_SEND_ATTEMPTS = 3
-export const TELEMETRY_COUNT_ID_MAX = 80
 export const TELEMETRY_COUNTS_MAX = 200
+export const TELEMETRY_LIST_MAX = 100
 
-export const USAGE_COUNT_KINDS = ['command', 'surface', 'settings'] as const
-export type UsageCountKind = (typeof USAGE_COUNT_KINDS)[number]
+export const TELEMETRY_CATEGORIES = [
+  'errors',
+  'usage',
+  'features',
+  'terminal',
+  'extensions',
+  'agents',
+] as const
+export type TelemetryCategory = (typeof TELEMETRY_CATEGORIES)[number]
+
+export const USAGE_CATEGORIES = ['usage', 'features', 'terminal', 'extensions', 'agents'] as const
+export type UsageCategory = (typeof USAGE_CATEGORIES)[number]
+
+export type UsageKeyKind = 'count' | 'ids' | 'value' | 'list'
+
+export const USAGE_KEYS: Record<UsageCategory, Record<string, UsageKeyKind>> = {
+  usage: {
+    app_starts: 'count',
+    session_minutes: 'value',
+    windows: 'value',
+    workspaces: 'value',
+    restore: 'value',
+  },
+  features: {
+    command: 'ids',
+    surface: 'ids',
+    settings: 'ids',
+    chord: 'ids',
+    input_mode: 'value',
+    prompt_style: 'value',
+  },
+  terminal: {
+    engine: 'value',
+    gpu: 'value',
+    webgl_fallback: 'count',
+    wake: 'count',
+    spawn_failure: 'ids',
+    shell: 'ids',
+  },
+  extensions: {
+    installed: 'list',
+    enabled: 'list',
+    setting_change: 'ids',
+  },
+  agents: {
+    session: 'ids',
+    resume: 'count',
+    hibernation: 'count',
+    approval_shown: 'ids',
+    approval_answered: 'ids',
+    question_asked: 'count',
+    question_answered: 'count',
+    bus_message: 'count',
+  },
+}
 
 export const ERROR_SOURCES = [
   'main-exception',
@@ -23,16 +76,34 @@ export const ERROR_SOURCES = [
 ] as const
 export type ErrorSource = (typeof ERROR_SOURCES)[number]
 
-export interface TelemetrySettings {
-  errors: boolean
-  usage: boolean
-}
+export type TelemetrySettings = Record<TelemetryCategory, boolean>
 
-export const DEFAULT_TELEMETRY_SETTINGS: TelemetrySettings = { errors: false, usage: false }
+export const DEFAULT_TELEMETRY_SETTINGS: TelemetrySettings = {
+  errors: false,
+  usage: false,
+  features: false,
+  terminal: false,
+  extensions: false,
+  agents: false,
+}
 
 export function parseTelemetrySettings(raw: unknown): TelemetrySettings {
   const value = typeof raw === 'object' && raw !== null ? (raw as Record<string, unknown>) : {}
-  return { errors: value.errors === true, usage: value.usage === true }
+  const out = { ...DEFAULT_TELEMETRY_SETTINGS }
+  for (const category of TELEMETRY_CATEGORIES) out[category] = value[category] === true
+  return out
+}
+
+export function anyTelemetryOn(settings: TelemetrySettings): boolean {
+  return TELEMETRY_CATEGORIES.some((category) => settings[category])
+}
+
+export function isTelemetryCategory(value: unknown): value is TelemetryCategory {
+  return typeof value === 'string' && (TELEMETRY_CATEGORIES as readonly string[]).includes(value)
+}
+
+export function isUsageCategory(value: unknown): value is UsageCategory {
+  return typeof value === 'string' && (USAGE_CATEGORIES as readonly string[]).includes(value)
 }
 
 export interface TelemetryEndpoint {
@@ -62,12 +133,14 @@ export interface StackFrame {
   colno?: number
 }
 
-export interface HostProperties {
+export interface InstallContext {
   app_version: string
   electron_version: string
   os_name: string
   os_version: string
   arch: string
+  locale: string
+  channel: 'packaged' | 'source'
 }
 
 export interface ExceptionEntry {
@@ -85,7 +158,7 @@ interface ReportBase {
 
 export interface ErrorReport extends ReportBase {
   event: '$exception'
-  properties: HostProperties & {
+  properties: InstallContext & {
     $process_person_profile: false
     $exception_list: [ExceptionEntry]
     source: ErrorSource
@@ -93,17 +166,15 @@ export interface ErrorReport extends ReportBase {
   }
 }
 
+export type UsageValue = number | string | string[]
+
+export type UsageProperties = InstallContext & { $process_person_profile: false } & {
+  [key: string]: UsageValue | false
+}
+
 export interface UsageReport extends ReportBase {
   event: 'usage'
-  properties: HostProperties & {
-    $process_person_profile: false
-    app_starts: 1
-    session_minutes: number
-    commands: Record<string, number>
-    surfaces: Record<string, number>
-    settings: Record<string, number>
-    marketplace_extensions: string[]
-  }
+  properties: UsageProperties
 }
 
 export type TelemetryReport = ErrorReport | UsageReport
@@ -111,6 +182,8 @@ export type TelemetryReport = ErrorReport | UsageReport
 const PATH_PATTERN =
   /(?:[A-Za-z]:\\|\\\\|~[\\/]|(?<![A-Za-z0-9_:.])\/)[^\s'"`<>()[\]{},;:]*(?:[\\/][^\s'"`<>()[\]{},;:]*)*/g
 const FILE_URL_PATTERN = /\b(?:file|app):\/\/[^\s'"`<>()]+/g
+const QUOTED_PATH_PATTERN = /(['"`])(?:\/|~[\\/]|[A-Za-z]:\\)[^'"`\n]*\1/g
+
 const TAB = 9
 const LINE_FEED = 10
 const SPACE = 32
@@ -120,8 +193,6 @@ function isKeptChar(char: string): boolean {
   const code = char.charCodeAt(0)
   return code === TAB || code === LINE_FEED || (code >= SPACE && code !== DELETE)
 }
-
-const QUOTED_PATH_PATTERN = /(['"`])(?:\/|~[\\/]|[A-Za-z]:\\)[^'"`\n]*\1/g
 
 export function stripPaths(text: string): string {
   return text
@@ -179,7 +250,7 @@ export interface ErrorInput {
 
 export interface ReportContext {
   installId: string
-  host: HostProperties
+  context: InstallContext
   now: () => number
   newId: () => string
   redact: (text: string) => string
@@ -195,7 +266,7 @@ export function buildErrorReport(input: ErrorInput, ctx: ReportContext): ErrorRe
     distinct_id: ctx.installId,
     timestamp: new Date(ctx.now()).toISOString(),
     properties: {
-      ...ctx.host,
+      ...ctx.context,
       $process_person_profile: false,
       source: input.source,
       ...(input.extension ? { extension: input.extension } : {}),
@@ -211,35 +282,80 @@ export function buildErrorReport(input: ErrorInput, ctx: ReportContext): ErrorRe
   }
 }
 
-export interface UsageInput {
-  sessionMinutes: number
-  commands: Record<string, number>
-  surfaces: Record<string, number>
-  settings: Record<string, number>
-  marketplaceExtensions: string[]
+export type CategoryCounts = Record<string, number | string | string[] | Record<string, number>>
+export type UsageCounts = Record<UsageCategory, CategoryCounts>
+
+export const emptyUsageCounts = (): UsageCounts => ({
+  usage: {},
+  features: {},
+  terminal: {},
+  extensions: {},
+  agents: {},
+})
+
+export function usageProperties(
+  counts: UsageCounts,
+  enabled: TelemetrySettings,
+): Record<string, UsageValue> {
+  const out: Record<string, UsageValue> = {}
+  for (const category of USAGE_CATEGORIES) {
+    if (!enabled[category]) continue
+    for (const [key, value] of Object.entries(counts[category])) {
+      if (typeof value === 'object' && !Array.isArray(value)) {
+        for (const [id, n] of Object.entries(value)) out[`${category}.${key}.${id}`] = n
+      } else {
+        out[`${category}.${key}`] = value
+      }
+    }
+  }
+  return out
 }
 
-export function buildUsageReport(input: UsageInput, ctx: ReportContext): UsageReport {
+export function buildUsageReport(
+  counts: UsageCounts,
+  enabled: TelemetrySettings,
+  ctx: ReportContext,
+): UsageReport {
   return {
     uuid: ctx.newId(),
     event: 'usage',
     distinct_id: ctx.installId,
     timestamp: new Date(ctx.now()).toISOString(),
     properties: {
-      ...ctx.host,
+      ...ctx.context,
       $process_person_profile: false,
-      app_starts: 1,
-      session_minutes: input.sessionMinutes,
-      commands: input.commands,
-      surfaces: input.surfaces,
-      settings: input.settings,
-      marketplace_extensions: input.marketplaceExtensions,
+      ...usageProperties(counts, enabled),
     },
   }
 }
 
 export function isUsageReport(report: TelemetryReport): report is UsageReport {
   return report.event === 'usage'
+}
+
+export function reportCategories(report: TelemetryReport): TelemetryCategory[] {
+  if (!isUsageReport(report)) return ['errors']
+  const out = new Set<TelemetryCategory>()
+  for (const key of Object.keys(report.properties)) {
+    const prefix = key.slice(0, key.indexOf('.'))
+    if (isUsageCategory(prefix)) out.add(prefix)
+  }
+  return TELEMETRY_CATEGORIES.filter((category) => out.has(category))
+}
+
+export function withoutCategories(
+  report: UsageReport,
+  disabled: TelemetrySettings,
+): UsageReport | null {
+  const properties: UsageProperties = { ...report.properties }
+  let kept = false
+  for (const key of Object.keys(properties)) {
+    const prefix = key.slice(0, key.indexOf('.'))
+    if (!isUsageCategory(prefix)) continue
+    if (disabled[prefix]) kept = true
+    else delete properties[key]
+  }
+  return kept ? { ...report, properties } : null
 }
 
 export function buildBatch(reports: TelemetryReport[], apiKey: string): string {
@@ -255,14 +371,25 @@ export interface TelemetryState {
   installId: string
   asked: boolean
   available: boolean
+  newCategories: TelemetryCategory[]
 }
 
 export const COUNT_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,79}$/
+export const VALUE_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,39}$/
+
+export function bucketCount(n: number): string {
+  if (n <= 0) return '0'
+  if (n === 1) return '1'
+  if (n <= 3) return '2-3'
+  if (n <= 7) return '4-7'
+  return '8+'
+}
 
 export interface TelemetryApi {
   state: () => Promise<TelemetryState>
   consented: () => Promise<void>
+  categoriesSeen: () => Promise<void>
   resetInstallId: () => Promise<string>
   reports: () => Promise<TelemetryReports>
-  count: (kind: UsageCountKind, id: string) => void
+  count: (category: UsageCategory, key: string, id?: string) => void
 }

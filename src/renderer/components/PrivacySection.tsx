@@ -10,13 +10,16 @@ import {
   patternProblem,
   placeholderFor,
 } from '@shared/redaction'
+import { TELEMETRY_CATEGORIES, type TelemetryCategory } from '@shared/telemetry'
 import { useEffect, useState } from 'react'
 import type { Dict } from '../i18n/dict'
 import { fmt, useDict } from '../i18n/useDict'
 import { redactedCountLabel } from '../lib/chatRedaction'
 import { useSettingsStore } from '../stores/settingsStore'
+import { useTelemetryConsentStore } from '../stores/telemetryConsentStore'
 import { IconButton } from './IconButton'
 import { ControlRow, SectionHead, SettingsGroup, ToggleRow, WarningNote } from './SettingsPanel'
+import { CategoryDetails } from './TelemetryConsentDialog'
 import { TelemetryReportsDialog } from './TelemetryReportsDialog'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
@@ -222,8 +225,10 @@ function TelemetryGroup(): JSX.Element {
   const d = useDict()
   const telemetry = useSettingsStore((s) => s.privacy.telemetry)
   const setTelemetry = useSettingsStore((s) => s.setTelemetry)
+  const showConsent = useTelemetryConsentStore((s) => s.show)
   const [installId, setInstallId] = useState('')
   const [available, setAvailable] = useState<boolean | null>(null)
+  const [fresh, setFresh] = useState<TelemetryCategory[]>([])
   const [showReports, setShowReports] = useState(false)
   useEffect(() => {
     let stale = false
@@ -233,6 +238,8 @@ function TelemetryGroup(): JSX.Element {
         if (stale) return
         setInstallId(state.installId)
         setAvailable(state.available)
+        setFresh(state.newCategories)
+        if (state.newCategories.length > 0) void window.ostia.telemetry.categoriesSeen()
       })
       .catch(() => {})
     return () => {
@@ -242,8 +249,9 @@ function TelemetryGroup(): JSX.Element {
   const reset = async (): Promise<void> => {
     setInstallId(await window.ostia.telemetry.resetInstallId())
   }
-  if (available === null)
+  if (available === null) {
     return <SettingsGroup title={d.privacy.groupTelemetry}>{null}</SettingsGroup>
+  }
   if (!available) {
     return (
       <SettingsGroup title={d.privacy.groupTelemetry} desc={d.privacy.telemetryDesc}>
@@ -261,18 +269,27 @@ function TelemetryGroup(): JSX.Element {
         </Button>
       }
     >
-      <ToggleRow
-        label={d.privacy.errorReports}
-        desc={d.privacy.errorReportsDesc}
-        checked={telemetry.errors}
-        onChange={(on) => void setTelemetry({ errors: on })}
-      />
-      <ToggleRow
-        label={d.privacy.usageData}
-        desc={d.privacy.usageDataDesc}
-        checked={telemetry.usage}
-        onChange={(on) => void setTelemetry({ usage: on })}
-      />
+      <p className="pb-2 text-fg-muted text-ui-sm">
+        <span className="font-medium text-fg">{d.privacy.installContext}</span>{' '}
+        <span>({d.privacy.alwaysIncluded.toLowerCase()})</span>: {d.privacy.installContextSends}
+      </p>
+      {TELEMETRY_CATEGORIES.map((category) => (
+        <ToggleRow
+          key={category}
+          label={d.privacy.categories[category].label}
+          desc={d.privacy.categories[category].sends}
+          labelHint={
+            fresh.includes(category) ? (
+              <Badge variant="outline" className="text-ui-xs">
+                {d.privacy.newCategory}
+              </Badge>
+            ) : undefined
+          }
+          below={<CategoryDetails category={category} />}
+          checked={telemetry[category]}
+          onChange={(on) => void setTelemetry({ [category]: on })}
+        />
+      ))}
       <ControlRow label={d.privacy.installId} desc={d.privacy.installIdDesc}>
         <div className="flex items-center gap-2">
           <span className="font-mono text-fg-muted text-ui-xs" aria-label={d.privacy.installId}>
@@ -283,6 +300,11 @@ function TelemetryGroup(): JSX.Element {
           </Button>
         </div>
       </ControlRow>
+      <div className="pt-2">
+        <Button variant="outline" size="sm" onClick={() => showConsent(telemetry)}>
+          {d.privacy.reviewConsent}
+        </Button>
+      </div>
       <TelemetryReportsDialog open={showReports} onClose={() => setShowReports(false)} />
     </SettingsGroup>
   )

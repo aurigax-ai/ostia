@@ -8,26 +8,35 @@ import {
   COUNT_ID_PATTERN,
   DEFAULT_TELEMETRY_SETTINGS,
   type ErrorInput,
-  type HostProperties,
+  type InstallContext,
   TELEMETRY_BATCH_MAX,
+  TELEMETRY_CATEGORIES,
   TELEMETRY_COUNTS_MAX,
+  TELEMETRY_LIST_MAX,
   TELEMETRY_QUEUE_MAX,
   TELEMETRY_SEND_ATTEMPTS,
   TELEMETRY_SENT_MAX,
   TELEMETRY_URL_ENV,
+  type TelemetryCategory,
   type TelemetryEndpoint,
   type TelemetryReport,
   type TelemetryReports,
   type TelemetrySettings,
   type TelemetryState,
-  USAGE_COUNT_KINDS,
-  type UsageCountKind,
+  USAGE_KEYS,
+  type UsageCategory,
+  VALUE_PATTERN,
+  anyTelemetryOn,
   buildBatch,
   buildErrorReport,
   buildUsageReport,
+  emptyUsageCounts,
+  isTelemetryCategory,
+  isUsageCategory,
   isUsageReport,
   parseIngest,
   parseTelemetrySettings,
+  withoutCategories,
 } from '../shared/telemetry'
 import { type LogFields, redactSecrets } from './appLog'
 import { loadJson, saveJson } from './jsonStore'
@@ -76,6 +85,8 @@ interface Queued {
 interface StoredTelemetry {
   installId: string
   asked: boolean
+  answeredAt: string | null
+  seen: TelemetryCategory[]
   queue: Queued[]
   sent: TelemetryReport[]
 }
@@ -107,7 +118,15 @@ function parseStored(raw: unknown): StoredTelemetry {
           typeof r === 'object' && r !== null && typeof (r as TelemetryReport).uuid === 'string',
       )
     : []
-  return { installId, asked: value.asked === true, queue, sent: sent.slice(-TELEMETRY_SENT_MAX) }
+  const seen = Array.isArray(value.seen) ? value.seen.filter(isTelemetryCategory) : []
+  return {
+    installId,
+    asked: value.asked === true,
+    answeredAt: typeof value.answeredAt === 'string' ? value.answeredAt : null,
+    seen,
+    queue,
+    sent: sent.slice(-TELEMETRY_SENT_MAX),
+  }
 }
 
 export type SendOutcome = 'sent' | 'failed'
@@ -135,13 +154,21 @@ export async function sendBatch(opts: {
   }
 }
 
+export interface SessionFacts {
+  windows: string
+  workspaces: string
+  restore: string
+  inEffect: Partial<Record<UsageCategory, Record<string, string>>>
+  installedExtensions: string[]
+  enabledExtensions: string[]
+}
+
 export interface TelemetryDeps {
   file: string
-  version: string
   endpoint: TelemetryEndpoint | null
-  host: HostProperties
+  context: () => InstallContext
   settings: () => TelemetrySettings
-  marketplaceExtensions: () => string[]
+  session: () => SessionFacts
   fetchFn?: typeof fetch
   now?: () => number
   newId?: () => string
@@ -153,9 +180,10 @@ export interface TelemetryDeps {
 
 export interface Telemetry {
   error: (input: ErrorInput) => void
-  count: (kind: UsageCountKind, id: string) => void
+  count: (category: UsageCategory, key: string, id?: string) => void
   state: () => TelemetryState
   consented: () => void
+  categoriesSeen: () => void
   resetInstallId: () => string
   reports: () => TelemetryReports
   settingsChanged: () => void
@@ -163,17 +191,13 @@ export interface Telemetry {
   shutdown: () => Promise<void>
 }
 
-type Counts = Record<UsageCountKind, Record<string, number>>
-
-const emptyCounts = (): Counts => ({ command: {}, surface: {}, settings: {} })
-
 export function createTelemetry(deps: TelemetryDeps): Telemetry {
   const now = deps.now ?? Date.now
   const newId = deps.newId ?? newEventId
   const stored = parseStored(loadJson<unknown>(deps.file, {}))
   const startedAt = now()
   let usageSentAt = startedAt
-  let counts = emptyCounts()
+  let counts = emptyUsageCounts()
   let flushTimer: NodeJS.Timeout | null = null
   let retryTimer: NodeJS.Timeout | null = null
   let sending: Promise<void> | null = null
@@ -187,22 +211,13 @@ export function createTelemetry(deps: TelemetryDeps): Telemetry {
     }
   }
 
-  const context = () => ({
+  const reportContext = () => ({
     installId: stored.installId,
-    host: deps.host,
+    context: deps.context(),
     now,
     newId,
     redact: redactSecrets,
   })
-
-  const enqueue = (report: TelemetryReport): void => {
-    stored.queue.push({ report, attempts: 0 })
-    if (stored.queue.length > TELEMETRY_QUEUE_MAX) {
-      stored.queue.splice(0, stored.queue.length - TELEMETRY_QUEUE_MAX)
-    }
-    save()
-    scheduleFlush(deps.flushDelayMs ?? TELEMETRY_FLUSH_DELAY_MS)
-  }
 
   const scheduleFlush = (delay: number): void => {
     if (!deps.endpoint || flushTimer || shutDown) return
@@ -213,13 +228,29 @@ export function createTelemetry(deps: TelemetryDeps): Telemetry {
     flushTimer.unref()
   }
 
-  const allowed = (report: TelemetryReport, settings: TelemetrySettings): boolean =>
-    isUsageReport(report) ? settings.usage : settings.errors
+  const enqueue = (report: TelemetryReport): void => {
+    stored.queue.push({ report, attempts: 0 })
+    if (stored.queue.length > TELEMETRY_QUEUE_MAX) {
+      stored.queue.splice(0, stored.queue.length - TELEMETRY_QUEUE_MAX)
+    }
+    save()
+    scheduleFlush(deps.flushDelayMs ?? TELEMETRY_FLUSH_DELAY_MS)
+  }
 
-  const dropDisallowed = (): void => {
+  const dropKind = (): void => {
     const settings = deps.settings()
-    const kept = stored.queue.filter((q) => allowed(q.report, settings))
-    if (kept.length === stored.queue.length) return
+    const kept: Queued[] = []
+    for (const q of stored.queue) {
+      if (!isUsageReport(q.report)) {
+        if (settings.errors) kept.push(q)
+        continue
+      }
+      const trimmed = withoutCategories(q.report, settings)
+      if (trimmed) kept.push({ ...q, report: trimmed })
+    }
+    const changed =
+      kept.length !== stored.queue.length || kept.some((q, i) => q !== stored.queue[i])
+    if (!changed) return
     stored.queue = kept
     save()
   }
@@ -227,7 +258,7 @@ export function createTelemetry(deps: TelemetryDeps): Telemetry {
   const sendQueued = async (): Promise<void> => {
     const endpoint = deps.endpoint
     if (!endpoint) return
-    dropDisallowed()
+    dropKind()
     const batch = stored.queue.slice(0, TELEMETRY_BATCH_MAX)
     if (batch.length === 0) return
     const outcome = await sendBatch({
@@ -236,7 +267,7 @@ export function createTelemetry(deps: TelemetryDeps): Telemetry {
         batch.map((q) => q.report),
         endpoint.apiKey,
       ),
-      client: telemetryClient(deps.version),
+      client: telemetryClient(deps.context().app_version),
       fetchFn: deps.fetchFn,
     })
     const batchIds = new Set(batch.map((q) => q.report.uuid))
@@ -269,23 +300,49 @@ export function createTelemetry(deps: TelemetryDeps): Telemetry {
     return sending
   }
 
+  const setValue = (category: UsageCategory, key: string, value: string | number): void => {
+    if (USAGE_KEYS[category][key] !== 'value') return
+    if (typeof value === 'string' && !VALUE_PATTERN.test(value)) return
+    counts[category][key] = value
+  }
+
+  const setList = (category: UsageCategory, key: string, values: string[]): void => {
+    if (USAGE_KEYS[category][key] !== 'list') return
+    counts[category][key] = values
+      .filter((v) => COUNT_ID_PATTERN.test(v))
+      .slice(0, TELEMETRY_LIST_MAX)
+  }
+
+  const sessionFacts = (settings: TelemetrySettings): void => {
+    const facts = deps.session()
+    if (settings.usage) {
+      counts.usage.app_starts = 1
+      setValue('usage', 'session_minutes', Math.round((now() - usageSentAt) / 60_000))
+      setValue('usage', 'windows', facts.windows)
+      setValue('usage', 'workspaces', facts.workspaces)
+      setValue('usage', 'restore', facts.restore)
+    }
+    for (const [category, values] of Object.entries(facts.inEffect)) {
+      if (!isUsageCategory(category) || !settings[category]) continue
+      for (const [key, value] of Object.entries(values)) setValue(category, key, value)
+    }
+    if (settings.extensions) {
+      setList('extensions', 'installed', facts.installedExtensions)
+      setList('extensions', 'enabled', facts.enabledExtensions)
+    }
+  }
+
   const takeUsage = (): void => {
-    if (!deps.settings().usage) {
-      counts = emptyCounts()
+    const settings = deps.settings()
+    const sendable = { ...settings, errors: false }
+    if (!anyTelemetryOn(sendable)) {
+      counts = emptyUsageCounts()
       usageSentAt = now()
       return
     }
-    const report = buildUsageReport(
-      {
-        sessionMinutes: Math.round((now() - usageSentAt) / 60_000),
-        commands: counts.command,
-        surfaces: counts.surface,
-        settings: counts.settings,
-        marketplaceExtensions: deps.marketplaceExtensions(),
-      },
-      context(),
-    )
-    counts = emptyCounts()
+    sessionFacts(settings)
+    const report = buildUsageReport(counts, settings, reportContext())
+    counts = emptyUsageCounts()
     usageSentAt = now()
     enqueue(report)
   }
@@ -293,37 +350,60 @@ export function createTelemetry(deps: TelemetryDeps): Telemetry {
   const usageTimer = setInterval(takeUsage, deps.usageIntervalMs ?? TELEMETRY_USAGE_INTERVAL_MS)
   usageTimer.unref()
 
+  const newCategories = (): TelemetryCategory[] =>
+    stored.asked ? TELEMETRY_CATEGORIES.filter((c) => !stored.seen.includes(c)) : []
+
   return {
     error: (input) => {
       if (!deps.settings().errors) return
-      enqueue(buildErrorReport(input, context()))
+      enqueue(buildErrorReport(input, reportContext()))
     },
-    count: (kind, id) => {
-      if (!USAGE_COUNT_KINDS.includes(kind) || !COUNT_ID_PATTERN.test(id)) return
-      if (!deps.settings().usage) return
-      const bucket = counts[kind]
+    count: (category, key, id) => {
+      if (!isUsageCategory(category)) return
+      const kind = USAGE_KEYS[category][key]
+      if (kind !== 'count' && kind !== 'ids') return
+      if (!deps.settings()[category]) return
+      if (kind === 'count') {
+        if (id !== undefined) return
+        const current = counts[category][key]
+        counts[category][key] = (typeof current === 'number' ? current : 0) + 1
+        return
+      }
+      if (typeof id !== 'string' || !COUNT_ID_PATTERN.test(id)) return
+      const current = counts[category][key]
+      const bucket: Record<string, number> =
+        typeof current === 'object' && !Array.isArray(current) ? current : {}
       if (!(id in bucket) && Object.keys(bucket).length >= TELEMETRY_COUNTS_MAX) return
       bucket[id] = (bucket[id] ?? 0) + 1
+      counts[category][key] = bucket
     },
     state: () => ({
       installId: stored.installId,
       asked: stored.asked,
       available: deps.endpoint !== null,
+      newCategories: newCategories(),
     }),
     consented: () => {
       stored.asked = true
+      stored.answeredAt = new Date(now()).toISOString()
+      stored.seen = [...TELEMETRY_CATEGORIES]
+      save()
+    },
+    categoriesSeen: () => {
+      if (newCategories().length === 0) return
+      stored.seen = [...TELEMETRY_CATEGORIES]
       save()
     },
     resetInstallId: () => {
       stored.installId = newInstallId()
       stored.queue = []
       stored.sent = []
-      counts = emptyCounts()
+      counts = emptyUsageCounts()
       save()
       return stored.installId
     },
     reports: () => ({ queued: stored.queue.map((q) => q.report), sent: [...stored.sent] }),
-    settingsChanged: dropDisallowed,
+    settingsChanged: dropKind,
     flush,
     shutdown: async () => {
       if (shutDown) return
@@ -341,13 +421,15 @@ export function createTelemetry(deps: TelemetryDeps): Telemetry {
   }
 }
 
-export function hostProperties(version: string): HostProperties {
+export function installContext(version: string, locale: string, packaged: boolean): InstallContext {
   return {
     app_version: version,
     electron_version: process.versions.electron ?? '',
     os_name: platform(),
     os_version: release(),
     arch: arch(),
+    locale: VALUE_PATTERN.test(locale) ? locale : 'en',
+    channel: packaged ? 'packaged' : 'source',
   }
 }
 
@@ -356,25 +438,26 @@ export function registerTelemetry(deps: {
   version: string
   stamp: TelemetryStamp | undefined
   readSettings: () => unknown
-  marketplaceExtensions: () => string[]
+  locale: () => string | undefined
+  session: () => SessionFacts
   log?: (event: string, fields?: LogFields) => void
 }): Telemetry {
   const telemetry = createTelemetry({
     file: deps.file,
-    version: deps.version,
     endpoint: telemetryEndpoint(app.isPackaged, process.env, deps.stamp),
-    host: hostProperties(deps.version),
+    context: () => installContext(deps.version, deps.locale() ?? 'en', app.isPackaged),
     settings: () => readTelemetrySettings(deps.readSettings()),
-    marketplaceExtensions: deps.marketplaceExtensions,
+    session: deps.session,
     log: deps.log,
   })
   ipcMain.handle('telemetry:state', () => telemetry.state())
   ipcMain.handle('telemetry:consented', () => telemetry.consented())
+  ipcMain.handle('telemetry:categories-seen', () => telemetry.categoriesSeen())
   ipcMain.handle('telemetry:reset-id', () => telemetry.resetInstallId())
   ipcMain.handle('telemetry:reports', () => telemetry.reports())
-  ipcMain.on('telemetry:count', (_e, kind: unknown, id: unknown) => {
-    if (typeof kind === 'string' && typeof id === 'string') {
-      telemetry.count(kind as UsageCountKind, id)
+  ipcMain.on('telemetry:count', (_e, category: unknown, key: unknown, id: unknown) => {
+    if (typeof category === 'string' && typeof key === 'string') {
+      telemetry.count(category as UsageCategory, key, typeof id === 'string' ? id : undefined)
     }
   })
   return telemetry

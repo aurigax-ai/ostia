@@ -113,24 +113,37 @@ Without `pnpm rebuild`, terminals stay disabled and the log says `node-pty unava
 
 ## Privacy and telemetry
 
-Ostia sends nothing unless you turn it on. On first start it asks once, and Settings → Privacy
-has two switches you can change at any time:
+Ostia sends nothing unless you turn it on. On first start it asks once, with every box unticked,
+and Settings → Privacy has one switch per category you can change at any time:
 
-- **Error reports**: uncaught errors and crashes of the app, its windows and its extensions. A
-  report holds the error name, a stack trace reduced to file names inside the app, the app and
-  Electron versions, the operating system and the architecture.
-- **Usage data**: counts only. App starts, session length, which palette commands, pane kinds and
-  settings sections were used, and which extensions you installed from the official marketplace.
+- **Crash and error reports**: uncaught errors and crashes of the app, its windows and its
+  extensions. A report holds the error name, the message with paths stripped and secrets
+  redacted, and a stack trace reduced to function and file names.
+- **App usage**: app starts, session length, how many windows and workspaces were open (as a
+  range), and whether the workspace restore succeeded.
+- **Feature usage**: counts of palette commands, pane kinds, settings sections and default
+  chords used, plus the input mode and prompt style in effect. Custom keybindings are never sent.
+- **Terminal engine and performance**: the engine (xterm or Ghostty), whether GPU acceleration
+  is on, WebGL fallbacks, hibernation wakes, spawn failures as a reason code, and the shell
+  family.
+- **Extensions**: ids of installed and enabled extensions from the official marketplace only,
+  and counts of their setting changes by key name.
+- **AI agent usage**: counts of agent sessions by agent name, resumes, hibernations, approval
+  cards by capability, questions and bus messages. Never the prompts or messages themselves.
 
-Reports are grouped by a random install id you can reset in Settings. They go from the main
+Whatever you share also carries the install context: a random install id you can reset, the app
+and Electron versions, the operating system and architecture, the display language and whether
+the build is packaged.
+
+Reports go from the main
 process alone, in batches over https, to PostHog (`us.i.posthog.com`), the analytics service the
 developers use. The project key is stamped into release builds only: a build from source has no
-key, sends nothing, never asks, and Settings → Privacy says so. Never included:
-terminal output, what you type, command lines, file paths or names, URLs, environment variables,
-settings values, workspace names, tokens or your IP address. Detected secrets are redacted and free
+key, sends nothing, never asks, and Settings → Privacy says so. Never included, in any category:
+terminal output, what you type, command lines, prompts, file paths or names, URLs, environment
+variables, settings values, workspace names, custom keybindings, tokens or your IP address. Detected secrets are redacted and free
 text is clipped. **Show what Ostia sends** in Settings → Privacy lists the queued and last-sent
-reports exactly as they go out. Turning a switch off stops sending at once and drops what was
-queued.
+reports exactly as they go out, filtered by category, and **Review consent again** reopens the
+first-start dialog. Turning a category off stops its sends at once and drops what was queued.
 
 ## Licence
 

@@ -1,4 +1,4 @@
-import { rmSync } from 'node:fs'
+import { existsSync, rmSync } from 'node:fs'
 import { parseAgentResume } from '../shared/agentResume'
 import { isDangerousSegment } from '../shared/protoGuard'
 import { isRemotePath } from '../shared/remoteFolders'
@@ -423,13 +423,17 @@ export function saveScrollback(
   return write
 }
 
-export function loadRestoredScrollback(): void {
+export type RestoreOutcome = 'ok' | 'none' | 'failed'
+
+export function loadRestoredScrollback(): RestoreOutcome {
   restored.clear()
+  if (!existsSync(scrollbackPath())) return 'none'
   const raw = loadJson<unknown>(scrollbackPath(), null)
-  if (!isRecord(raw)) return
+  if (!isRecord(raw)) return 'failed'
   for (const [paneId, data] of Object.entries(raw)) {
     if (typeof data === 'string' && data && !isDangerousSegment(paneId)) restored.set(paneId, data)
   }
+  return 'ok'
 }
 
 export function takeRestoredScrollback(paneId: string): string | null {

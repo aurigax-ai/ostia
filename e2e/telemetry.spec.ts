@@ -69,7 +69,14 @@ async function openPrivacy(win: Page) {
   return settings
 }
 
-test('nothing is sent before consent, error reports go out after Share, and stop after opting out', async () => {
+const allEvents = (posthog: FakePostHog) =>
+  posthog.batches.flatMap((b) => b.events) as Array<{
+    event: string
+    distinct_id: string
+    properties: Record<string, unknown>
+  }>
+
+test('Don’t share sends nothing, even through a crash and a quit', async () => {
   test.setTimeout(120_000)
   const posthog = await startFakePostHog()
   const dataHome = freshDataHome()
@@ -78,47 +85,98 @@ test('nothing is sent before consent, error reports go out after Share, and stop
   try {
     const consent = win.getByTestId('telemetry-consent-dialog')
     await expect(consent).toBeVisible()
-    await expect(consent).toContainText('What is never sent')
+    await expect(consent).toContainText('always included with anything you share')
+    for (const box of await consent.getByRole('checkbox').all()) await expect(box).not.toBeChecked()
+    await expect(consent.getByRole('button', { name: 'Share selected' })).toBeDisabled()
     await crashRenderer(app, win)
     await expect(win.getByTestId('telemetry-consent-dialog')).toBeVisible()
-    await win.waitForTimeout(6_000)
-    expect(posthog.batches).toEqual([])
-
     await win
       .getByTestId('telemetry-consent-dialog')
-      .getByRole('button', { name: 'Share', exact: true })
+      .getByRole('button', { name: 'Don’t share' })
       .click()
     await expect(win.getByTestId('telemetry-consent-dialog')).toHaveCount(0)
     await crashRenderer(app, win)
-    await expect.poll(() => posthog.batches.length, { timeout: 20_000 }).toBe(1)
-    expect(posthog.batches[0].path).toBe('/batch/')
-    expect(posthog.batches[0].apiKey).toBe('phc_e2e')
-    const events = posthog.batches[0].events as Array<Record<string, unknown>>
-    const report = events.find((e) => e.event === '$exception') as Record<string, unknown>
-    const properties = report.properties as Record<string, unknown>
-    expect(properties.source).toBe('render-error')
-    expect(properties.$process_person_profile).toBe(false)
-    const [exception] = properties.$exception_list as Array<Record<string, unknown>>
-    expect(exception.value).toContain('test crash requested by the E2E hook')
-    expect(JSON.stringify(report)).not.toContain(dataHome)
-    expect(JSON.stringify(report)).not.toContain('/home/')
-    expect(report.distinct_id).toMatch(/^[0-9a-f-]{36}$/)
-
-    const settings = await openPrivacy(win)
-    await expect(settings.getByRole('switch', { name: 'Error reports' })).toBeChecked()
-    await settings.getByRole('switch', { name: 'Error reports' }).click()
-    await expect(settings.getByRole('switch', { name: 'Error reports' })).not.toBeChecked()
-    await win.keyboard.press('Escape')
-    await crashRenderer(app, win)
     await win.waitForTimeout(6_000)
-    expect(posthog.batches).toHaveLength(1)
   } finally {
     await app.close()
+  }
+  try {
+    await new Promise((resolve) => setTimeout(resolve, 2_000))
+    expect(posthog.batches).toEqual([])
+  } finally {
     await posthog.close()
   }
 })
 
-test('usage data is sent once at quit as counts only, and the reports dialog shows it first', async () => {
+test('sharing only errors sends an exception and a usage event without other categories, and off stops it', async () => {
+  test.setTimeout(150_000)
+  const posthog = await startFakePostHog()
+  const dataHome = freshDataHome()
+  seedTelemetryAnswered(dataHome, false)
+  let { app, win } = await launch(posthog, dataHome)
+  try {
+    const consent = win.getByTestId('telemetry-consent-dialog')
+    await consent.getByRole('checkbox', { name: /Crash and error reports/ }).click()
+    await consent.getByRole('button', { name: 'Share selected', exact: true }).click()
+    await expect(consent).toHaveCount(0)
+    await crashRenderer(app, win)
+    await expect.poll(() => posthog.batches.length, { timeout: 20_000 }).toBe(1)
+    expect(posthog.batches[0].path).toBe('/batch/')
+    expect(posthog.batches[0].apiKey).toBe('phc_e2e')
+    const report = allEvents(posthog).find((e) => e.event === '$exception')
+    expect(report).toBeDefined()
+    expect(report?.properties.source).toBe('render-error')
+    expect(report?.properties.$process_person_profile).toBe(false)
+    expect(report?.properties.channel).toBe('source')
+    const [exception] = report?.properties.$exception_list as Array<Record<string, unknown>>
+    expect(exception.value).toContain('test crash requested by the E2E hook')
+    expect(JSON.stringify(report)).not.toContain(dataHome)
+    expect(JSON.stringify(report)).not.toContain('/home/')
+    expect(report?.distinct_id).toMatch(/^[0-9a-f-]{36}$/)
+
+    const settings = await openPrivacy(win)
+    await expect(settings.getByRole('switch', { name: 'Crash and error reports' })).toBeChecked()
+    await expect(settings.getByRole('switch', { name: 'App usage' })).not.toBeChecked()
+    await settings.getByRole('button', { name: 'Show what Ostia sends' }).click()
+    const reports = win.getByTestId('telemetry-reports-dialog')
+    await expect(reports.getByRole('region', { name: 'Last sent' })).toContainText('$exception')
+    await win.keyboard.press('Escape')
+    await expect(reports).toHaveCount(0)
+  } finally {
+    await app.close()
+  }
+  await expect
+    .poll(() => allEvents(posthog).filter((e) => e.event === 'usage').length, {
+      timeout: 10_000,
+    })
+    .toBe(0)
+  ;({ app, win } = await launch(posthog, dataHome))
+  try {
+    await expect(win.getByTestId('telemetry-consent-dialog')).toHaveCount(0)
+    const settings = await openPrivacy(win)
+    await settings.getByRole('switch', { name: 'App usage' }).click()
+    await expect(settings.getByRole('switch', { name: 'App usage' })).toBeChecked()
+    await win.keyboard.press('Escape')
+  } finally {
+    await app.close()
+  }
+  try {
+    await expect
+      .poll(() => allEvents(posthog).filter((e) => e.event === 'usage').length, { timeout: 10_000 })
+      .toBe(1)
+    const usage = allEvents(posthog).find((e) => e.event === 'usage')
+    const keys = Object.keys(usage?.properties ?? {})
+    expect(usage?.properties['usage.app_starts']).toBe(1)
+    expect(keys.some((k) => k.startsWith('features.'))).toBe(false)
+    expect(keys.some((k) => k.startsWith('agents.'))).toBe(false)
+    expect(keys.some((k) => k.startsWith('terminal.'))).toBe(false)
+    expect(JSON.stringify(usage)).not.toContain(dataHome)
+  } finally {
+    await posthog.close()
+  }
+})
+
+test('turning errors off afterwards sends nothing more', async () => {
   test.setTimeout(120_000)
   const posthog = await startFakePostHog()
   const dataHome = freshDataHome()
@@ -126,33 +184,20 @@ test('usage data is sent once at quit as counts only, and the reports dialog sho
   const { app, win } = await launch(posthog, dataHome)
   try {
     const consent = win.getByTestId('telemetry-consent-dialog')
-    await consent.getByRole('checkbox', { name: /Error reports/ }).click()
-    await consent.getByRole('button', { name: 'Share', exact: true }).click()
+    await consent.getByRole('checkbox', { name: /Crash and error reports/ }).click()
+    await consent.getByRole('button', { name: 'Share selected', exact: true }).click()
     await expect(consent).toHaveCount(0)
-
     const settings = await openPrivacy(win)
-    await expect(settings.getByRole('switch', { name: 'Usage data' })).toBeChecked()
-    await expect(settings.getByRole('switch', { name: 'Error reports' })).not.toBeChecked()
-    await settings.getByRole('button', { name: 'Show what Ostia sends' }).click()
-    const reports = win.getByTestId('telemetry-reports-dialog')
-    await expect(reports.getByRole('region', { name: 'Waiting to be sent' })).toContainText(
-      'Nothing.',
-    )
+    await settings.getByRole('switch', { name: 'Crash and error reports' }).click()
+    await expect(
+      settings.getByRole('switch', { name: 'Crash and error reports' }),
+    ).not.toBeChecked()
     await win.keyboard.press('Escape')
-    await expect(reports).toHaveCount(0)
+    await crashRenderer(app, win)
+    await win.waitForTimeout(6_000)
+    expect(posthog.batches).toEqual([])
   } finally {
     await app.close()
-  }
-  try {
-    await expect.poll(() => posthog.batches.length, { timeout: 10_000 }).toBe(1)
-    const events = posthog.batches[0].events as Array<Record<string, unknown>>
-    expect(events).toHaveLength(1)
-    expect(events[0].event).toBe('usage')
-    const properties = events[0].properties as Record<string, Record<string, number>>
-    expect(properties.settings).toEqual({ appearance: 1, privacy: 1 })
-    expect(properties.surfaces).toEqual({})
-    expect(JSON.stringify(events[0])).not.toContain(dataHome)
-  } finally {
     await posthog.close()
   }
 })

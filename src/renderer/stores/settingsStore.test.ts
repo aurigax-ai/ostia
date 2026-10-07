@@ -1,5 +1,6 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { DEFAULT_CONTROLS } from '../../shared/sandbox'
+import { DEFAULT_TELEMETRY_SETTINGS } from '../../shared/telemetry'
 import { parsePersisted, useSettingsStore } from './settingsStore'
 
 const store = () => useSettingsStore.getState()
@@ -638,7 +639,7 @@ describe('settingsStore', () => {
       const written = JSON.parse(vi.mocked(window.ostia.fs.write).mock.calls[0][1])
       expect(written.privacy).toEqual({
         redaction: { enabled: false, patterns: ['ACME-[0-9]{4}'] },
-        telemetry: { errors: false, usage: false },
+        telemetry: DEFAULT_TELEMETRY_SETTINGS,
       })
     })
 
@@ -897,7 +898,7 @@ describe('settingsStore', () => {
       }
       expect(store().privacy).toEqual({
         redaction: { enabled: true, patterns: [] },
-        telemetry: { errors: false, usage: false },
+        telemetry: DEFAULT_TELEMETRY_SETTINGS,
       })
     })
 

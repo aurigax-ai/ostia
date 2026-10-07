@@ -242,7 +242,7 @@ export function SettingsPanel(): JSX.Element | null {
   )
 
   useEffect(() => {
-    if (open) countUsage('settings', active)
+    if (open) countUsage('features', 'settings', active)
   }, [open, active])
 
   useEffect(() => {
@@ -1065,6 +1065,7 @@ export function ToggleRow({
   onChange,
   disabled,
   labelHint,
+  below,
 }: {
   label: string
   desc: string
@@ -1072,9 +1073,10 @@ export function ToggleRow({
   onChange: (v: boolean) => void
   disabled?: boolean
   labelHint?: React.ReactNode
+  below?: React.ReactNode
 }): JSX.Element {
   return (
-    <ControlRow label={label} desc={desc} labelHint={labelHint}>
+    <ControlRow label={label} desc={desc} labelHint={labelHint} below={below}>
       <Switch checked={checked} onCheckedChange={onChange} aria-label={label} disabled={disabled} />
     </ControlRow>
   )
