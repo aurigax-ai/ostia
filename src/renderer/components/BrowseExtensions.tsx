@@ -26,6 +26,7 @@ import {
   useMarketplaceList,
 } from './MarketplaceSection'
 import { SectionHead, SelectField, WarningNote } from './SettingsPanel'
+import { TextLink } from './TextLink'
 import { extensionIcon } from './extensionIcons'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
@@ -206,9 +207,9 @@ function EntryDetails({
       {ext.state === 'conflict' ? (
         <WarningNote
           actions={
-            <Button variant="link" size="xs" onClick={() => openInExtensions(ext.id)}>
+            <TextLink size="xs" onClick={() => openInExtensions(ext.id)}>
               {d.extensionsBrowse.showInstalled}
-            </Button>
+            </TextLink>
           }
         >
           {d.marketplace.conflict}
@@ -217,9 +218,9 @@ function EntryDetails({
       {ext.state === 'replace' ? (
         <WarningNote
           actions={
-            <Button variant="link" size="xs" disabled={busy} onClick={() => void replace()}>
+            <TextLink size="xs" disabled={busy} onClick={() => void replace()}>
               {d.marketplace.replace}
-            </Button>
+            </TextLink>
           }
         >
           {d.marketplace.orphaned}
@@ -284,14 +285,9 @@ function InstalledNote({ extId }: { extId: string }): JSX.Element | null {
   return (
     <output className="mb-2 flex flex-wrap items-center gap-x-2 text-fg text-ui-sm">
       {fmt(d.extensionsBrowse.waitsForApproval, { name })}
-      <Button
-        variant="link"
-        size="xs"
-        className="h-5 px-0 text-ui-sm"
-        onClick={() => openInExtensions(extId)}
-      >
+      <TextLink size="xs" className="h-5 px-0 text-ui-sm" onClick={() => openInExtensions(extId)}>
         {d.extensionsBrowse.openInExtensions}
-      </Button>
+      </TextLink>
     </output>
   )
 }

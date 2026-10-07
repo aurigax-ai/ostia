@@ -13,6 +13,7 @@ import {
   type RunningGroup,
   useCloseConfirmStore,
 } from '../stores/closeConfirmStore'
+import { TextLink } from './TextLink'
 import { Button } from './ui/button'
 import {
   Dialog,
@@ -110,14 +111,13 @@ export function CloseConfirmDialog(): JSX.Element {
                         ? d.closeConfirm.scratchFilesOne
                         : fmt(d.closeConfirm.scratchFiles, { count: group.scratchFiles })}
                     </span>
-                    <Button
-                      variant="link"
+                    <TextLink
                       size="xs"
                       className="h-5 px-1 text-ui-sm"
                       onClick={() => window.ostia.scratch.reveal(group.workspaceId)}
                     >
                       {d.closeConfirm.reveal}
-                    </Button>
+                    </TextLink>
                   </li>
                 ) : null}
                 {group.files.map((file) => (

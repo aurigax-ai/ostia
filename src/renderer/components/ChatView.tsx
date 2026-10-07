@@ -119,6 +119,7 @@ import { ChatToolPart } from './ChatToolPart'
 import { ChatToolsMenu } from './ChatToolsMenu'
 import { Hint } from './Hint'
 import { IconButton } from './IconButton'
+import { TextLink } from './TextLink'
 import {
   CodeBlock,
   CodeBlockActions,
@@ -775,9 +776,8 @@ function ChatSession({
             {editing ? (
               <span className="flex min-w-0 items-center gap-1 px-1 text-fg-muted text-ui-xs">
                 <span className="truncate">{d.chatActions.editing}</span>
-                <Button
+                <TextLink
                   type="button"
-                  variant="link"
                   size="xs"
                   className="h-5 px-1 text-ui-xs"
                   onClick={() => {
@@ -786,7 +786,7 @@ function ChatSession({
                   }}
                 >
                   {d.chatActions.cancelEdit}
-                </Button>
+                </TextLink>
               </span>
             ) : (
               <p aria-live="polite" className="truncate px-1 text-fg-muted text-ui-xs empty:hidden">

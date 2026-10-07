@@ -31,6 +31,7 @@ import { Hint } from './Hint'
 import { IconButton } from './IconButton'
 import { stateLabel, useLocalAgentTargets } from './PickSendPanel'
 import { QuestionCard } from './QuestionCard'
+import { TextLink } from './TextLink'
 import { Button } from './ui/button'
 
 const OPEN_POPUP = '[role="dialog"], [role="listbox"], [role="menu"]'
@@ -179,14 +180,13 @@ function NeedsYouCard({
             <Hint label={where.path}>
               <span className="truncate font-mono">{where.shortPath}</span>
             </Hint>
-            <Button
-              variant="link"
+            <TextLink
               size="xs"
               className="ml-auto h-auto p-0 text-ui-xs"
               onClick={() => revealPane(item.approval.paneId)}
             >
               {d.dashboard.goToPane}
-            </Button>
+            </TextLink>
           </div>
         ) : null
       }
@@ -262,15 +262,14 @@ function WorkspaceEntry({ workspace: w }: { workspace: Workspace }): JSX.Element
       className="flex flex-col gap-1 border-line border-b px-1 py-2 last:border-b-0"
     >
       <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-        <Button
-          variant="link"
+        <TextLink
           size="sm"
           aria-label={fmt(d.dashboard.openWorkspace, { name })}
           className="h-auto min-w-0 justify-start p-0 font-medium text-fg text-ui-base"
           onClick={open}
         >
           <span className="truncate">{name}</span>
-        </Button>
+        </TextLink>
         <StateMark state={w.state} />
         {unread > 0 ? (
           <span className="unread-dot" role="img" aria-label={fmt(d.rail.unread, { n: unread })} />
@@ -337,15 +336,14 @@ function RemoteEntry({ workspace: w }: { workspace: RemoteWorkspace }): JSX.Elem
       data-workspace={w.id}
       className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 border-line border-b px-1 py-2 last:border-b-0"
     >
-      <Button
-        variant="link"
+      <TextLink
         size="sm"
         aria-label={fmt(d.dashboard.openWorkspace, { name: w.name })}
         className="h-auto min-w-0 justify-start p-0 font-medium text-fg text-ui-base"
         onClick={() => window.ostia.windows.focusWorkspace(w.id, false)}
       >
         <span className="truncate">{w.name}</span>
-      </Button>
+      </TextLink>
       <StateMark state={w.state} />
       <PathText path={w.workDir} />
       <span className="ml-auto flex shrink-0 items-center gap-1 text-fg-muted text-ui-xs">
