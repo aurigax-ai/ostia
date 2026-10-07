@@ -50,6 +50,7 @@ if (!existsSync(join(sdk, 'package.json'))) {
 
 rmSync(out, { recursive: true, force: true })
 cpSync(marketplaceProject, out, { recursive: true })
+cpSync('LICENSE', join(out, 'LICENSE'))
 for (const id of ids) {
   cpSync(join('src/extensions', id), join(out, 'src/extensions', id), { recursive: true })
 }
