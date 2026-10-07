@@ -1,7 +1,7 @@
 import { chmodSync, mkdirSync, writeFileSync } from 'node:fs'
 import { createServer } from 'node:net'
 import { join } from 'node:path'
-import { type ElectronApplication, _electron as electron, expect, test } from '@playwright/test'
+import { type ElectronApplication, _electron as electron, expect, test } from './test'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { extensionHosts } from './extensionHosts'
 import { openWorkspace } from './helpers'

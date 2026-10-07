@@ -6,7 +6,7 @@ import {
   _electron as electron,
   expect,
   test,
-} from '@playwright/test'
+} from './test'
 import { freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { PROMPT, emptyWorkspace, openWorkspace } from './helpers'
 

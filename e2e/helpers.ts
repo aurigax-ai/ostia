@@ -1,4 +1,4 @@
-import { type ElectronApplication, type Locator, type Page, expect } from '@playwright/test'
+import { type ElectronApplication, type Locator, type Page, expect } from './test'
 
 export const PROMPT = /[❯$%#]/
 

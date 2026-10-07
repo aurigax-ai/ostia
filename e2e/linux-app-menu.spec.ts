@@ -1,4 +1,4 @@
-import { _electron as electron, expect, test } from '@playwright/test'
+import { _electron as electron, expect, test } from './test'
 import { isMac } from './chords'
 import { isolatedLaunch } from './dataHome'
 

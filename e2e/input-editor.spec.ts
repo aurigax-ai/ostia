@@ -1,7 +1,7 @@
 import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { type Page, _electron as electron, expect, test } from '@playwright/test'
+import { type Page, _electron as electron, expect, test } from './test'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { openWorkspace } from './helpers'
 

@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process'
 import { appendFileSync, mkdirSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
-import { type ElectronApplication, _electron as electron, expect, test } from '@playwright/test'
+import { type ElectronApplication, _electron as electron, expect, test } from './test'
 import { SOFTWARE_WEBGL, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { emptyState, emptyWorkspace } from './helpers'
 
