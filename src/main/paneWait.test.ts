@@ -37,7 +37,8 @@ const attentionOf = new Map<string, { state?: string; message?: string }>()
 const exitedPanes = new Set<string>()
 
 registerPaneWaitMethods({
-  processPane: (ref) => processes.get(ref),
+  processPane: async (ref) => processes.get(ref),
+  inScope: async (ctx, workspaceId) => ctx.identity.workspaceId === workspaceId,
   isChild: (ownerPaneId, paneId) => children.get(paneId) === ownerPaneId,
   isSandboxed: () => false,
   isConfined: () => false,

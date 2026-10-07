@@ -643,6 +643,7 @@ const bridge: OstiaBridge = {
     answer: (id, answer) => ipcRenderer.invoke('approvals:answer', id, answer) as Promise<boolean>,
     revoke: (id) => ipcRenderer.invoke('approvals:revoke', id) as Promise<boolean>,
     removeAlways: (cap) => ipcRenderer.invoke('approvals:remove-always', cap) as Promise<boolean>,
+    setReach: (mode) => ipcRenderer.invoke('approvals:set-reach', mode) as Promise<boolean>,
     onChange: (cb) => {
       const handler = (_event: unknown, state: ApprovalState): void => cb(state)
       ipcRenderer.on('approvals:changed', handler)

@@ -46,6 +46,7 @@ import {
   clampLongCommandSeconds,
 } from '@shared/notificationSettings'
 import { PRODUCT_DISPLAY_NAME } from '@shared/productDisplay'
+import { REACH_MODES, type ReachMode, parseReachMode } from '@shared/reach'
 import type { AppInfo, Platform } from '@shared/types'
 import { ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from '@shared/zoom'
 import { Fragment, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -1512,6 +1513,33 @@ function AlwaysAllowedGroup(): JSX.Element {
   )
 }
 
+function ReachGroup(): JSX.Element {
+  const d = useDict()
+  const reach = useSettingsStore((s) => parseReachMode(s.capabilities?.reach))
+  const label: Record<ReachMode, string> = {
+    workspace: d.approvals.reachWorkspace,
+    project: d.approvals.reachProject,
+    group: d.approvals.reachGroup,
+  }
+  const explain: Record<ReachMode, string> = {
+    workspace: d.approvals.reachWorkspaceDesc,
+    project: d.approvals.reachProjectDesc,
+    group: d.approvals.reachGroupDesc,
+  }
+  return (
+    <SettingsGroup title={d.approvals.reach} desc={d.approvals.reachDesc}>
+      <ControlRow label={d.approvals.reach} desc={explain[reach]}>
+        <SelectField
+          value={reach}
+          onChange={(mode) => void window.ostia.approvals.setReach(mode)}
+          label={d.approvals.reach}
+          options={REACH_MODES.map((mode) => ({ value: mode, label: label[mode] }))}
+        />
+      </ControlRow>
+    </SettingsGroup>
+  )
+}
+
 function AgentsSection(): JSX.Element {
   const d = useDict()
   const hibernation = useSettingsStore((s) => s.agents.hibernation)
@@ -1540,6 +1568,7 @@ function AgentsSection(): JSX.Element {
           />
         </ControlRow>
       </SettingsGroup>
+      <ReachGroup />
       <AlwaysAllowedGroup />
       <SettingsGroup title={d.settings.groupResume}>
         <ToggleRow

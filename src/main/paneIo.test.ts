@@ -36,6 +36,7 @@ type Identity = ReturnType<typeof registerPane>
 const written: { paneId: string; data: string }[] = []
 const children = new Map<string, string>()
 const processes = new Map<string, string>()
+const scopedWorkspaces = new Set<string>()
 const sandboxedWorkspaces = new Set<string>()
 const confinedPanes = new Set<string>()
 const pasteMode = new Set<string>()
@@ -72,7 +73,9 @@ registerPaneIoMethods({
           lastExitCode: 1,
         }
       : undefined,
-  processPane: (ref) => processes.get(ref),
+  processPane: async (ref) => processes.get(ref),
+  inScope: async (ctx, workspaceId) =>
+    ctx.identity.workspaceId === workspaceId || scopedWorkspaces.has(workspaceId),
   isChild: (ownerPaneId, paneId) => children.get(paneId) === ownerPaneId,
   isSandboxed: (workspaceId) => sandboxedWorkspaces.has(workspaceId),
   isConfined: (paneId) => confinedPanes.has(paneId),
@@ -183,11 +186,13 @@ const facts = (
     caller?: Partial<{ paneId: string; workspaceId: string; sandboxed: boolean }>
     target?: Partial<{ paneId: string; workspaceId: string; manager: boolean; confined: boolean }>
     ownChild?: boolean
+    sameScope?: boolean
   } = {},
 ) => ({
   caller: { paneId: 'a', workspaceId: 'ws1', sandboxed: false, ...over.caller },
   target: { paneId: 'b', workspaceId: 'ws1', manager: false, confined: false, ...over.target },
   ownChild: over.ownChild ?? false,
+  sameScope: over.sameScope ?? false,
 })
 
 describe('paneReach', () => {
@@ -222,6 +227,31 @@ describe('paneReach', () => {
       allowed: true,
       caps: ['type-other-pane', 'all-workspaces'],
     })
+  })
+
+  it('needs no all-workspaces for a pane in the caller’s reach scope, and only process for its own tab there', () => {
+    const scoped = facts({ target: { workspaceId: 'ws2' }, sameScope: true })
+    expect(paneReach('input', scoped)).toEqual({ allowed: true, caps: ['type-other-pane'] })
+    expect(paneReach('read', scoped)).toEqual({ allowed: true, caps: ['read-other-pane'] })
+    expect(paneReach('close', scoped)).toEqual({ allowed: true, caps: ['kill-pane'] })
+    expect(
+      paneReach(
+        'input',
+        facts({ ownChild: true, target: { workspaceId: 'ws2' }, sameScope: true }),
+      ),
+    ).toEqual({ allowed: true, caps: ['process'] })
+  })
+
+  it('keeps a sandboxed caller and the manager pane out, even within its reach scope', () => {
+    expect(
+      paneReach(
+        'read',
+        facts({ caller: { sandboxed: true }, target: { workspaceId: 'ws2' }, sameScope: true }),
+      ),
+    ).toEqual({ allowed: false, error: 'sandboxed' })
+    expect(
+      paneReach('read', facts({ target: { workspaceId: 'ws2', manager: true }, sameScope: true })),
+    ).toEqual({ allowed: false, error: 'unknown-pane' })
   })
 
   it('never lets a sandboxed caller out of its workspace or into a host pane', () => {

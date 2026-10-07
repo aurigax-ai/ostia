@@ -21,6 +21,7 @@ export const APPROVAL_KINDS = [
   'secret',
   'package',
   'package-malware',
+  'reach-group',
 ] as const
 export type ApprovalKind = (typeof APPROVAL_KINDS)[number]
 
@@ -29,6 +30,7 @@ export function answersFor(kind: ApprovalKind = 'capability'): readonly Approval
   if (kind === 'secret') return ['once', 'session', 'deny']
   if (kind === 'package') return ['once', 'workspace', 'deny']
   if (kind === 'package-malware') return ['once', 'deny']
+  if (kind === 'reach-group') return ['workspace', 'deny']
   return ['workspace', 'session', 'deny']
 }
 

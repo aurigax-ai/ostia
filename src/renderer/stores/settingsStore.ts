@@ -43,6 +43,7 @@ import {
 } from '../../shared/notificationSettings'
 import { parsePromptSettings } from '../../shared/promptSettings'
 import { isDangerousSegment } from '../../shared/protoGuard'
+import type { ReachMode } from '../../shared/reach'
 import {
   DEFAULT_PRIVACY_SETTINGS,
   type PrivacySettings,
@@ -278,6 +279,7 @@ export type FontSurface = 'ui' | 'terminal' | 'editor'
 
 export interface Capabilities {
   grants?: Capability[]
+  reach?: ReachMode
 }
 
 export interface SyncSettings {

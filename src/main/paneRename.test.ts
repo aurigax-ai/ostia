@@ -29,6 +29,7 @@ registerPaneRenameMethods({
     calls.push({ target, id, args })
     return reply
   },
+  reach: { inScope: async (ctx, workspaceId) => ctx.identity.workspaceId === workspaceId },
 })
 
 const sibling = registerPane({ windowId: 'w1', workspaceId: 'ws1', paneId: 'rename-sibling' })

@@ -19,7 +19,13 @@ import {
 } from '../shared/approvals'
 import { ALL_CAPABILITIES, type Capability } from '../shared/capabilities'
 import { clip } from '../shared/pick'
-import { addStandingGrants, grant, removeStandingGrant, revoke } from './capabilityStore'
+import {
+  addStandingGrants,
+  grant,
+  removeStandingGrant,
+  revoke,
+  setReachMode,
+} from './capabilityStore'
 
 export interface ApprovalAsk {
   externalId: string
@@ -252,5 +258,8 @@ export function registerApprovals(
     ALL_CAPABILITIES.includes(cap as Capability)
       ? persist(() => removeStandingGrant(cap as Capability))
       : false,
+  )
+  ipcMain.handle('approvals:set-reach', (e, mode: unknown) =>
+    e.sender.getType() === 'window' ? persist(() => setReachMode(mode)) : false,
   )
 }

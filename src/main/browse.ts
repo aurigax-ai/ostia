@@ -34,6 +34,7 @@ import { clearRequestLog, networkIdleFor, requestsFor } from './guestNetwork'
 import { type PaneIdentity, getByPaneId, resolveExternal } from './idRegistry'
 import { resolveSafe } from './pathGuard'
 import { privateTmpDir } from './privateTmp'
+import type { Reach } from './reach'
 
 type MethodCtx = { identity: PaneIdentity; authed: AuthedConn }
 
@@ -45,6 +46,7 @@ export interface BrowseDeps {
   consoleBuffers: Map<number, ConsoleEntry[]>
   errorBuffers: Map<number, ConsoleEntry[]>
   allowNavigation?: (workspaceId: string, url: string) => Promise<boolean>
+  reach: Pick<Reach, 'inScope'>
 }
 
 export interface ConsoleEntry {
@@ -203,7 +205,7 @@ function liveGuest(wcId: number | undefined): Electron.WebContents | null {
 export const SHARED_PROFILE_DETAIL =
   "act in the human's signed-in browser: this tab uses their own browser profile, with their cookies, logins and open sessions"
 
-type GuestDeps = Pick<BrowseDeps, 'browserPanes' | 'isSharedPane'>
+type GuestDeps = Pick<BrowseDeps, 'browserPanes' | 'isSharedPane' | 'reach'>
 
 async function elevate(
   ctx: MethodCtx,
@@ -248,10 +250,7 @@ export async function resolveGuest(
     if (!identity) return { ok: false, error: 'no-browser-pane' }
     const wcId = deps.browserPanes.get(identity.paneId)
     if (wcId === undefined) return { ok: false, error: 'browser-not-ready' }
-    const crossBoundary =
-      identity.workspaceId !== ctx.identity.workspaceId ||
-      identity.windowId !== ctx.identity.windowId
-    if (crossBoundary) {
+    if (!(await deps.reach.inScope(ctx, identity.workspaceId))) {
       const refused = await elevate(ctx, 'all-workspaces', `pane ${paneId}`)
       if (refused) return refused
     }

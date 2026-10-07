@@ -119,7 +119,12 @@ interface WorkspaceGroupEntry {
   workspaceIds: string[]
 }
 
-const HUMAN_ONLY_ROOTS: readonly string[] = ['privacy', 'terminalKeys']
+const HUMAN_ONLY_ROOTS: readonly string[] = [
+  'privacy',
+  'terminalKeys',
+  'capabilities',
+  'workspaceGroups',
+]
 
 export function launchesProgram(key: string, value: unknown): string | null {
   const path = key.split('.').filter(Boolean).join('.')
