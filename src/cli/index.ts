@@ -1207,6 +1207,9 @@ commands:
   pane send <pane> <text> [--enter] | key <pane> <key>… | read <pane> [--lines N]
                             type into or read another terminal pane (asks the human unless
                             you opened it with ostia process run)
+  pane wait <pane>… [--until done|waiting|idle|exited]… [--timeout <s>] [--json]
+                            block until one of those panes' agents stops working; exit 0
+                            reached, 3 timed out, 4 pane closed
   vault | bus | settings | browse | gateway <subcommand> ...
   ext ls | ext <extId> <command> [args...]
   <extId> <command> [args...]  an extension command, e.g. ostia git status

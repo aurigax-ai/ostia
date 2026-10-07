@@ -176,11 +176,18 @@ import { openFileForExtension, registerOpenFileMethods } from './openFileMethods
 import { registerOpenPathIpc } from './openPath'
 import type { OriginReach } from './originAgents'
 import { loadPaneIdSalt } from './paneIdSalt'
-import { type PaneIo, pastedText, registerPaneIoMethods } from './paneIo'
+import {
+  type PaneAttentionPeek,
+  type PaneIo,
+  type PaneReachDeps,
+  pastedText,
+  registerPaneIoMethods,
+} from './paneIo'
 import { listPanes, listWorkspaces, registerPaneListMethods } from './paneList'
 import type { PaneProcess } from './paneProcess'
 import { registerPaneRenameMethods } from './paneRename'
 import { registerPaneResumeMethods } from './paneResume'
+import { PaneWatch, registerPaneWaitMethods } from './paneWait'
 import { resolveSafe } from './pathGuard'
 import {
   type MirrorHandle,
@@ -1182,6 +1189,7 @@ let mcpOAuth: McpOAuth | null = null
 let broker: WindowBroker | null = null
 const agentRunning = new AgentRunningPanes(() => broker?.persist())
 const keptAttention = new KeptAttention()
+const paneWatch = new PaneWatch()
 const reachesPane: OriginReach = (senderWindowId, sourcePaneId, targetPaneId) =>
   broker?.reaches(senderWindowId, sourcePaneId, targetPaneId) ?? false
 let profileSync: ProfileSyncHandle | null = null
@@ -1523,6 +1531,7 @@ function registerIpc(): void {
       removePane(event.paneId)
       terminalState.delete(event.paneId)
       processes?.paneClosed(event.paneId)
+      paneWatch.emit(event.paneId, { kind: 'closed' })
     } else if (event.type === 'workspace-added') {
       setWorkspaceWorkDir(event.workspaceId, event.workDir, windowId)
       scratchFolders.bind(event.workspaceId, event.workDir, windowId)
@@ -1539,6 +1548,8 @@ function registerIpc(): void {
     } else if (event.type === 'workspace-activated') {
     } else if (event.type === 'workspace-state') {
       emitSessionState(event.workspaceId, event.state)
+    } else if (event.type === 'pane-attention') {
+      paneWatch.attention(event.paneId, event.state, event.message)
     }
   })
 
@@ -1557,6 +1568,7 @@ function registerIpc(): void {
         cur.lastExitCode !== snapshot.lastExitCode
       terminalState.set(snapshot.paneId, snapshot)
       if (changed) {
+        paneWatch.emit(snapshot.paneId, { kind: 'state' })
         const identity = getByPaneId(snapshot.paneId)
         if (identity) {
           emitTerminalExtensionEvents(identity.externalId, identity.workspaceId, cur, snapshot)
@@ -3057,7 +3069,10 @@ app.whenReady().then(() => {
   })
   const registry = registerProcessMethods({
     openTab: openTerminalInWindow,
-    onChange: (entry) => syncKeptMeta(entry.paneId),
+    onChange: (entry) => {
+      syncKeptMeta(entry.paneId)
+      paneWatch.emit(entry.paneId, { kind: 'state' })
+    },
     ring: (paneId) => {
       const session = ptys.get(paneId)?.session
       return session ? (from) => session.since(from) : undefined
@@ -3077,9 +3092,13 @@ app.whenReady().then(() => {
     interruptGraceMs: INTERRUPT_GRACE_MS,
   })
   processes = registry
-  registerPaneIoMethods({
-    io: paneIo,
-    state: getTerminalState,
+  const peekAttention = async (to: PaneIdentity): Promise<PaneAttentionPeek> => {
+    const unreported = keptAttention.peek(to.paneId)
+    if (unreported) return unreported
+    const res = await execCommand(targetOf(to), 'attention.peek')
+    return res.ok && res.result && typeof res.result === 'object' ? res.result : {}
+  }
+  const paneReachDeps: PaneReachDeps = {
     processPane: (ref, ctx) => {
       const entry = registry.resolve(
         ref,
@@ -3091,15 +3110,25 @@ app.whenReady().then(() => {
     isChild: (ownerPaneId, paneId) => registry.isChild(ownerPaneId, paneId),
     isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
     isConfined: (paneId) => ptys.get(paneId)?.sandboxed === true,
+  }
+  registerPaneIoMethods({
+    ...paneReachDeps,
+    io: paneIo,
+    state: getTerminalState,
     managerAllowsInput: () => managerSettings().allowInput,
-    attention: async (to) => {
-      const unreported = keptAttention.peek(to.paneId)
-      if (unreported) return unreported
-      const res = await execCommand(targetOf(to), 'attention.peek')
-      return res.ok && res.result && typeof res.result === 'object' ? res.result : {}
-    },
+    attention: peekAttention,
     inputSent: (to) => void execCommand(targetOf(to), 'attention.typed'),
     delay: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+  })
+  registerPaneWaitMethods({
+    ...paneReachDeps,
+    watch: paneWatch,
+    attention: peekAttention,
+    exited: (paneId) => {
+      const entry = registry.forPane(paneId)
+      if (entry) return entry.status === 'exited'
+      return terminalState.get(paneId)?.running === false
+    },
   })
   registerDocsMethods({ extensions: () => extensionHost?.listForAgents() ?? [] })
   registerVaultMethods({ isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId) })

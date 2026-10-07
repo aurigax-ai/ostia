@@ -651,6 +651,7 @@ export type LifecycleEvent =
   | { type: 'workspace-closed'; workspaceId: string }
   | { type: 'workspace-activated'; workspaceId: string }
   | { type: 'workspace-state'; workspaceId: string; state: WorkspaceLiveState }
+  | { type: 'pane-attention'; paneId: string; state: AttentionState; message?: string }
 
 export interface LifecycleApi {
   emit: (event: LifecycleEvent) => void

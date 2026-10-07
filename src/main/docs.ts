@@ -80,8 +80,9 @@ const CLI_HELP = `ostia — control-socket CLI
   ostia agent run <agent> [--name X] [--cwd P] <prompt|->  start another agent (claude, codex or
                                  one the human configured) in a new terminal tab with that prompt
                                  as its one argument, quoted for you (- reads it from stdin).
-                                 Same result and rules as process run: follow it with ostia process
-                                 logs, talk to it with ostia pane send and ostia pane read
+                                 Same result and rules as process run: wait for it with ostia pane
+                                 wait, follow it with ostia process logs, talk to it with ostia
+                                 pane send and ostia pane read
   ostia process ls               id, name, status, paneId, command of this workspace's
                                  processes: starting, running, exited(code), or closed (the
                                  human closed the tab)
@@ -109,6 +110,17 @@ const CLI_HELP = `ostia — control-socket CLI
                                  A tab you opened with ostia process run needs nothing more;
                                  any other pane asks the human (type-other-pane,
                                  read-other-pane, plus all-workspaces outside your workspace)
+  ostia pane wait <pane>… [--until done|waiting|idle|exited]… [--timeout <s>] [--json]
+                                 block until any of those panes reaches one of the --until
+                                 states (default done, waiting and exited: it stopped working),
+                                 then print paneId, state and the agent's message; --json
+                                 prints {paneId,state,message}. A pane already there answers
+                                 at once. done and waiting are what its agent reported, idle
+                                 is no reported state, exited is its command ended (for a tab
+                                 from process run or agent run) or no command runs. Default
+                                 timeout 10 minutes, at most 30: loop on it. Exit 0 reached,
+                                 3 timed out, 4 pane closed. Same asks as pane read; it reads
+                                 the state only, never the screen
   ostia pane rename <pane> <title…>  name that pane's tab; programs (OSC titles) no longer
                                  change it, and it survives a restart. --clear instead of a
                                  title hands the tab back to the program. Your own pane

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parsePaneArgs, parseWorkspaceRenameArgs } from './pane'
+import { parsePaneArgs, parseWorkspaceRenameArgs, waitOutcome } from './pane'
 
 describe('parsePaneArgs', () => {
   it('joins the words of send into one text and adds Enter only when asked', () => {
@@ -123,5 +123,49 @@ describe('parseWorkspaceRenameArgs', () => {
     expect(() => parseWorkspaceRenameArgs(['--clear', 'x'])).toThrow(
       'usage: ostia workspace rename',
     )
+  })
+})
+
+describe('pane wait', () => {
+  it('takes several panes, repeated --until and seconds for --timeout', () => {
+    expect(
+      parsePaneArgs([
+        'wait',
+        'fixer',
+        'w2',
+        '--until',
+        'waiting',
+        '--until',
+        'idle',
+        '--timeout',
+        '90',
+      ]),
+    ).toEqual({
+      method: 'pane.wait',
+      params: { panes: ['fixer', 'w2'], until: ['waiting', 'idle'], timeoutMs: 90_000 },
+      json: false,
+    })
+    expect(parsePaneArgs(['wait', 'fixer', '--json'])).toEqual({
+      method: 'pane.wait',
+      params: { panes: ['fixer'] },
+      json: true,
+    })
+    expect(() => parsePaneArgs(['wait', 'fixer', '--timeout', 'soon'])).toThrow(
+      "--timeout expects seconds, got 'soon'",
+    )
+  })
+
+  it('exits 0 when reached, 3 when timed out and 4 when the pane closed', () => {
+    const reached = { reached: true as const, paneId: 'p1', state: 'waiting', message: 'Allow?' }
+    expect(waitOutcome(reached, false)).toEqual({ line: 'p1\twaiting\tAllow?', code: 0 })
+    expect(waitOutcome(reached, true)).toEqual({
+      line: JSON.stringify({ paneId: 'p1', state: 'waiting', message: 'Allow?' }),
+      code: 0,
+    })
+    expect(waitOutcome({ timedOut: true }, false).code).toBe(3)
+    expect(waitOutcome({ closed: true, paneId: 'p1' }, false)).toEqual({
+      line: 'ostia pane wait: p1 closed',
+      code: 4,
+    })
   })
 })
