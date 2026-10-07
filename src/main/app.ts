@@ -2198,6 +2198,7 @@ function registerPtyIpc(): void {
         releaseMergedSandbox(workspaceId, entry)
       })
       const exposed = keptHost?.exposed ?? []
+      portRequests.keep(workspaceId, exposed)
       void workspaceSandboxes
         .connect(workspaceId)
         .then(() => restoreKeptExposed(workspaceId, exposed))
