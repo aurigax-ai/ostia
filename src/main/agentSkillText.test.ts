@@ -52,11 +52,25 @@ describe('Ostia agent skills', () => {
       'hibernated: true',
       'ostia pane wake',
       'running: true',
+      'asleep: true',
+      'ostia bus sent',
+      'type-other-pane',
+      'not-approved',
       'ostia pane close <name>',
+      'git worktree remove',
     ]) {
       expect(section, command).toContain(command)
     }
     expect(section).not.toMatch(/manager/i)
     expect(skillText('ostia-skill.md').match(/Coordinator pattern/g)).toBeNull()
+  })
+
+  it('lists every pane.list field and each section once', () => {
+    const text = skillText('ostia-skill.md')
+    for (const field of ['agentState', 'agentMessage', 'agentSessionId', 'hibernated?', 'pid?']) {
+      expect(text, field).toContain(field)
+    }
+    const headings = text.match(/^## .+$/gm) ?? []
+    expect(new Set(headings).size).toBe(headings.length)
   })
 })
