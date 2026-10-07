@@ -89,7 +89,7 @@ import { registerBrowserStorageIpc } from './browserStorage'
 import { browserUserAgent } from './browserUserAgent'
 import { registerBusMethods } from './bus'
 import { announceBusMessage } from './busNotice'
-import { dropIdentity, setCaps } from './capabilityStore'
+import { dropIdentity, refreshGrantedCaps, setCaps } from './capabilityStore'
 import { createChatSessionStore } from './chatSessions'
 import { registerChatSessionIpc } from './chatSessionsIpc'
 import { registerChatToolsIpc } from './chatToolsIpc'
@@ -2553,9 +2553,8 @@ function registerFsIpc(): void {
     try {
       writeFileSync(safe, content, 'utf8')
       if (safe === settingsFile) {
-        for (const win of windows.values()) {
-          if (!win.isDestroyed()) win.webContents.send('settings:changed')
-        }
+        settingsChanged()
+        refreshGrantedCaps()
         extensionHost?.refreshLocale()
         extensionHost?.reloadAssistSettings()
         applyGlobalHotkey()
@@ -2565,6 +2564,12 @@ function registerFsIpc(): void {
       return false
     }
   })
+}
+
+function settingsChanged(): void {
+  for (const win of windows.values()) {
+    if (!win.isDestroyed()) win.webContents.send('settings:changed')
+  }
 }
 
 export function listCommandsFor(windowId: string): CommandDescriptor[] {
@@ -2996,7 +3001,7 @@ app.whenReady().then(() => {
   registerFsIpc()
   registerSelectionIpc(reachesPane, redactor.text)
   registerPrivacyIpc(redactor)
-  registerApprovals(revealWindow)
+  registerApprovals(revealWindow, settingsChanged)
   registerQuestions()
   registerCredentials()
   registerAppUpdate(() => {

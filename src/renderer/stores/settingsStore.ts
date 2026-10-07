@@ -603,7 +603,19 @@ function applySetting(s: SettingsState, path: string, value: unknown): SettingCh
 
 let lastWritten: string | null = null
 
+async function capabilitiesOnDisk(path: string): Promise<Capabilities | undefined> {
+  const raw = await window.ostia.fs.read(path).catch(() => null)
+  if (!raw) return undefined
+  try {
+    return parsePersisted(JSON.parse(raw) as Partial<Persisted>).capabilities
+  } catch {
+    return undefined
+  }
+}
+
 async function writeSettings(s: SettingsState): Promise<void> {
+  const path = await window.ostia.settings.path()
+  const capabilities = await capabilitiesOnDisk(path)
   const keyboard = writeKeyboard(
     {
       keymap: s.keymap,
@@ -631,7 +643,7 @@ async function writeSettings(s: SettingsState): Promise<void> {
     assistant: s.assistant,
     workspaceGroups: s.workspaceGroups,
     extensionSettings: s.extensionSettings,
-    capabilities: s.capabilities,
+    capabilities,
     manager: s.manager,
     sync: s.sync,
     approvals: s.approvals,
@@ -640,7 +652,6 @@ async function writeSettings(s: SettingsState): Promise<void> {
     sandbox: s.sandbox,
     privacy: s.privacy,
   }
-  const path = await window.ostia.settings.path()
   const text = `${JSON.stringify(snapshot, null, 2)}\n`
   lastWritten = text
   await window.ostia.fs.write(path, text)

@@ -34,6 +34,7 @@ import {
   WarningIcon,
 } from '@phosphor-icons/react'
 import type { ApprovalMode } from '@shared/approvals'
+import type { Capability } from '@shared/capabilities'
 import { type ExtensionInfo, PRODUCT_PLACEHOLDER } from '@shared/extensions'
 import { KEEP_SHELLS_FEATURE, TMUX_MIN_VERSION } from '@shared/keepShells'
 import {
@@ -98,6 +99,7 @@ import {
 import { useUIStore } from '../stores/uiStore'
 import { type Workspace, useWorkspacesStore } from '../stores/workspacesStore'
 import { ActionsSection } from './ActionsSection'
+import { capLabel } from './ApprovalCard'
 import { AssistantSection, isAssistExtension } from './AssistantSection'
 import { BrowserSettingsSection, EditorSettingsSection } from './BrowserEditorSettings'
 import { ExtensionAgentPlugin } from './ExtensionAgentPlugin'
@@ -1484,6 +1486,32 @@ export function NumberRow({
   )
 }
 
+const NO_GRANTS: readonly Capability[] = []
+
+function AlwaysAllowedGroup(): JSX.Element {
+  const d = useDict()
+  const caps = useSettingsStore((s) => s.capabilities?.grants ?? NO_GRANTS)
+  return (
+    <SettingsGroup title={d.approvals.always} desc={d.approvals.alwaysDesc}>
+      {caps.length === 0 ? (
+        <p className="py-1.5 text-fg-muted text-ui-sm">{d.approvals.alwaysNone}</p>
+      ) : (
+        caps.map((cap) => (
+          <ControlRow key={cap} label={capLabel(d.approvals.caps, cap)}>
+            <Button
+              variant="outline"
+              size="xs"
+              onClick={() => void window.ostia.approvals.removeAlways(cap)}
+            >
+              {d.approvals.alwaysRemove}
+            </Button>
+          </ControlRow>
+        ))
+      )}
+    </SettingsGroup>
+  )
+}
+
 function AgentsSection(): JSX.Element {
   const d = useDict()
   const hibernation = useSettingsStore((s) => s.agents.hibernation)
@@ -1512,6 +1540,7 @@ function AgentsSection(): JSX.Element {
           />
         </ControlRow>
       </SettingsGroup>
+      <AlwaysAllowedGroup />
       <SettingsGroup title={d.settings.groupResume}>
         <ToggleRow
           label={d.settings.autoResume}

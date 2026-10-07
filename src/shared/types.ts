@@ -817,6 +817,7 @@ export interface ApprovalsApi {
   state: () => Promise<ApprovalState>
   answer: (id: string, answer: ApprovalAnswer) => Promise<boolean>
   revoke: (id: string) => Promise<boolean>
+  removeAlways: (cap: Capability) => Promise<boolean>
   onChange: (cb: (state: ApprovalState) => void) => () => void
 }
 
