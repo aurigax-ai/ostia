@@ -6,6 +6,7 @@ import {
 } from '@shared/assist'
 import type * as Monaco from 'monaco-editor'
 import { assistProvider, assistRequest } from '../stores/assistStore'
+import { isLargeModel } from './largeFile'
 
 export const INLINE_DEBOUNCE_MS = 300
 const NEIGHBORS = 2
@@ -68,7 +69,7 @@ export function registerInlineAssist(monaco: typeof Monaco): void {
       if (!assistProvider('completion') || model.uri.scheme !== 'file') return { items: [] }
       const others = monaco.editor
         .getModels()
-        .filter((m) => m !== model && m.uri.scheme === 'file')
+        .filter((m) => m !== model && m.uri.scheme === 'file' && !isLargeModel(m))
         .map(documentOf)
       const request = buildCompletionRequest(documentOf(model), model.getOffsetAt(position), others)
       const abort = requests.begin(model)

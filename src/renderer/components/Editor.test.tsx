@@ -4,6 +4,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { TARGET_PANE, seedSendTarget } from '../../../test/mocks/sendTarget'
 import { commands } from '../commands/registry'
 import { openSelectionSend } from '../lib/selectionSenders'
+import { LARGE_FILE_LINES, fileFeatureOptions } from '../monaco/largeFile'
 import { useEditorStatus } from '../stores/editorStatusStore'
 import { useLiveSelectionStore } from '../stores/liveSelectionStore'
 import { useSettingsStore } from '../stores/settingsStore'
@@ -29,6 +30,12 @@ const fake = vi.hoisted(() => {
     }
     getAlternativeVersionId() {
       return this.version
+    }
+    getValueLength() {
+      return this.value.length
+    }
+    getLineCount() {
+      return this.value.split('\n').length
     }
     undoStack: string[] = []
     getFullModelRange() {
@@ -231,6 +238,7 @@ vi.mock('../lsp/client', () => ({
 }))
 
 const { EditorView } = await import('./Editor')
+const { openDocument } = await import('../lsp/client')
 
 describe('EditorView', () => {
   let init: ReturnType<typeof useEditorStatus.getState>
@@ -432,6 +440,50 @@ describe('EditorView', () => {
     await waitFor(() => expect(fake.state.model).not.toBeNull())
     expect(fake.state.themedAtCreate).toBe(true)
     expect(fake.state.createOptions?.theme).toBeUndefined()
+  })
+
+  it('opens a large file without the language server and costly features, with a notice', async () => {
+    vi.mocked(openDocument).mockClear()
+    vi.mocked(window.ostia.fs.read).mockResolvedValue({
+      ok: true,
+      version: 'v1',
+      text: 'x\n'.repeat(LARGE_FILE_LINES),
+    })
+    const { rerender } = render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/big.log" />)
+    expect(
+      await screen.findByText(
+        'Large file: language server, folding, bracket colors, highlights and suggestions are off.',
+      ),
+    ).toBeInTheDocument()
+    expect(fake.state.optionUpdates).toContainEqual(fileFeatureOptions(true))
+    expect(openDocument).not.toHaveBeenCalled()
+
+    vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, version: 'v1', text: 'small' })
+    rerender(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.ts" />)
+    await waitFor(() => expect(openDocument).toHaveBeenCalledTimes(1))
+    expect(fake.state.optionUpdates.at(-1)).toEqual(fileFeatureOptions(false))
+    expect(screen.queryByText(/Large file/)).toBeNull()
+  })
+
+  it('updates the Markdown preview once typing pauses', async () => {
+    useSettingsStore.setState({
+      editor: { ...useSettingsStore.getState().editor, markdownPreview: true },
+    })
+    vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, version: 'v1', text: 'first' })
+    render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/README.md" />)
+    expect(await screen.findByText('first')).toBeInTheDocument()
+    vi.useFakeTimers()
+    try {
+      act(() => fake.state.model?.setValue('second'))
+      act(() => fake.state.model?.setValue('third'))
+      expect(screen.getByText('first')).toBeInTheDocument()
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(200)
+      })
+      expect(screen.getByText('third')).toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('keeps the file dirty and shows an error when the write fails', async () => {
