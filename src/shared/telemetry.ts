@@ -1,6 +1,3 @@
-export const TELEMETRY_PROJECT_KEY = 'phc_riRHRct7KAaS6yjgZu4Hxzp2bJD7vsKXdHNjoHTqZjRD'
-export const TELEMETRY_INGEST_HOST = 'https://us.i.posthog.com'
-
 export const TELEMETRY_URL_ENV = 'TELEMETRY_URL'
 export const TELEMETRY_MESSAGE_MAX = 1000
 export const TELEMETRY_FRAMES_MAX = 50

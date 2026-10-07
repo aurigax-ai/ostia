@@ -124,7 +124,8 @@ has two switches you can change at any time:
 
 Reports are grouped by a random install id you can reset in Settings. They go from the main
 process alone, in batches over https, to PostHog (`us.i.posthog.com`), the analytics service the
-developers use; the project key in the app only lets it write events. Never included:
+developers use. The project key is stamped into release builds only: a build from source has no
+key, sends nothing, never asks, and Settings → Privacy says so. Never included:
 terminal output, what you type, command lines, file paths or names, URLs, environment variables,
 settings values, workspace names, tokens or your IP address. Detected secrets are redacted and free
 text is clipped. **Show what Ostia sends** in Settings → Privacy lists the queued and last-sent

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { buildVersion } from '../../scripts/buildVersion.mjs'
-import { parseBuildInfo, releaseVersion } from './buildInfo'
+import { buildVersion, telemetryStamp } from '../../scripts/buildVersion.mjs'
+import { parseBuildInfo, parseTelemetryStamp, releaseVersion } from './buildInfo'
 import { isNewerVersion, parseVersion } from './releases'
 
 describe('buildVersion', () => {
@@ -55,5 +55,40 @@ describe('parseBuildInfo', () => {
     ).toEqual({ version: '0.5.9+sha.1a2b3c', builtAt: '2026-10-06T00:00:00Z' })
     expect(parseBuildInfo({ version: '0.5.9' })).toBeNull()
     expect(parseBuildInfo(null)).toBeNull()
+  })
+})
+
+describe('telemetryStamp', () => {
+  it('stamps the key and host only when the release build has both', () => {
+    expect(
+      telemetryStamp({ OSTIA_TELEMETRY_KEY: 'phc_x', OSTIA_TELEMETRY_HOST: 'https://h' }),
+    ).toEqual({ key: 'phc_x', host: 'https://h' })
+    expect(telemetryStamp({ OSTIA_TELEMETRY_KEY: 'phc_x' })).toBeNull()
+    expect(
+      telemetryStamp({ OSTIA_TELEMETRY_KEY: '', OSTIA_TELEMETRY_HOST: 'https://h' }),
+    ).toBeNull()
+    expect(telemetryStamp({})).toBeNull()
+  })
+
+  it('is read back from the stamp only when complete, and never invented', () => {
+    expect(
+      parseBuildInfo({
+        version: '1.0.0',
+        builtAt: 't',
+        telemetry: { key: 'phc_x', host: 'https://h' },
+      }),
+    ).toEqual({ version: '1.0.0', builtAt: 't', telemetry: { key: 'phc_x', host: 'https://h' } })
+    expect(parseBuildInfo({ version: '1.0.0', builtAt: 't', telemetry: { key: 'phc_x' } })).toEqual(
+      {
+        version: '1.0.0',
+        builtAt: 't',
+      },
+    )
+    expect(parseBuildInfo({ version: '1.0.0', builtAt: 't' })).toEqual({
+      version: '1.0.0',
+      builtAt: 't',
+    })
+    expect(parseTelemetryStamp({ key: '', host: 'https://h' })).toBeNull()
+    expect(parseTelemetryStamp('x')).toBeNull()
   })
 })

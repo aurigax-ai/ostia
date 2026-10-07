@@ -71,7 +71,7 @@ import { registerAgentTranscriptIpc } from './agentTranscript'
 import { type AppLog, LOG_FILE_NAME, createAppLog } from './appLog'
 import { installAppMenu } from './appMenu'
 import { registerAppUpdate } from './appUpdate'
-import { appVersion } from './appVersion'
+import { appVersion, runningBuild } from './appVersion'
 import { approvals, registerApprovals } from './approvals'
 import { createAskHub } from './asks'
 import { registerAssistIpc } from './assistIpc'
@@ -3126,6 +3126,7 @@ app.whenReady().then(() => {
   telemetry = registerTelemetry({
     file: join(app.getPath('userData'), TELEMETRY_FILE),
     version: appVersion(),
+    stamp: runningBuild()?.telemetry,
     readSettings: readSettingsFile,
     marketplaceExtensions: () => marketplaceInstallIds(),
     log: (event, fields) => appLog?.info(event, fields),

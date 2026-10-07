@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { arch, platform, release } from 'node:os'
 import { app, ipcMain } from 'electron'
 import { readEnv } from '../shared/appEnv'
+import type { TelemetryStamp } from '../shared/buildInfo'
 import { PRODUCT_NAME } from '../shared/product'
 import {
   COUNT_ID_PATTERN,
@@ -10,8 +11,6 @@ import {
   type HostProperties,
   TELEMETRY_BATCH_MAX,
   TELEMETRY_COUNTS_MAX,
-  TELEMETRY_INGEST_HOST,
-  TELEMETRY_PROJECT_KEY,
   TELEMETRY_QUEUE_MAX,
   TELEMETRY_SEND_ATTEMPTS,
   TELEMETRY_SENT_MAX,
@@ -43,11 +42,11 @@ export const TELEMETRY_QUIT_TIMEOUT_MS = 2_000
 export function telemetryEndpoint(
   isPackaged: boolean,
   env: Record<string, string | undefined>,
+  stamp: TelemetryStamp | undefined,
 ): TelemetryEndpoint | null {
   const override = isPackaged ? undefined : readEnv(TELEMETRY_URL_ENV, env)
-  return override
-    ? parseIngest(override, '')
-    : parseIngest(TELEMETRY_INGEST_HOST, TELEMETRY_PROJECT_KEY)
+  if (override) return parseIngest(override, '')
+  return stamp ? parseIngest(stamp.host, stamp.key) : null
 }
 
 export function readTelemetrySettings(settings: unknown): TelemetrySettings {
@@ -355,6 +354,7 @@ export function hostProperties(version: string): HostProperties {
 export function registerTelemetry(deps: {
   file: string
   version: string
+  stamp: TelemetryStamp | undefined
   readSettings: () => unknown
   marketplaceExtensions: () => string[]
   log?: (event: string, fields?: LogFields) => void
@@ -362,7 +362,7 @@ export function registerTelemetry(deps: {
   const telemetry = createTelemetry({
     file: deps.file,
     version: deps.version,
-    endpoint: telemetryEndpoint(app.isPackaged, process.env),
+    endpoint: telemetryEndpoint(app.isPackaged, process.env, deps.stamp),
     host: hostProperties(deps.version),
     settings: () => readTelemetrySettings(deps.readSettings()),
     marketplaceExtensions: deps.marketplaceExtensions,

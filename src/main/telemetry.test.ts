@@ -113,18 +113,25 @@ interface SentEvent {
 const batchEvents = (body: string): SentEvent[] => JSON.parse(body).batch
 
 describe('telemetryEndpoint', () => {
-  it('honours the url override only when unpackaged, else the shipped key and host', () => {
+  const stamp = { key: 'phc_release', host: 'https://us.i.posthog.com' }
+
+  it('uses the build stamp from release.yml, and nothing without one', () => {
+    expect(telemetryEndpoint(true, {}, stamp)).toEqual({
+      url: 'https://us.i.posthog.com/batch/',
+      apiKey: 'phc_release',
+    })
+    expect(telemetryEndpoint(true, {}, undefined)).toBeNull()
+    expect(telemetryEndpoint(false, {}, undefined)).toBeNull()
+  })
+
+  it('honours the url override only when unpackaged', () => {
     const env = { [envName(TELEMETRY_URL_ENV)]: 'http://phc_e2e@127.0.0.1:1' }
-    expect(telemetryEndpoint(false, env)).toEqual({
+    expect(telemetryEndpoint(false, env, stamp)).toEqual({
       url: 'http://127.0.0.1:1/batch/',
       apiKey: 'phc_e2e',
     })
-    const shipped = {
-      url: 'https://us.i.posthog.com/batch/',
-      apiKey: expect.stringMatching(/^phc_/),
-    }
-    expect(telemetryEndpoint(true, env)).toEqual(shipped)
-    expect(telemetryEndpoint(false, {})).toEqual(shipped)
+    expect(telemetryEndpoint(true, env, stamp)?.apiKey).toBe('phc_release')
+    expect(telemetryEndpoint(true, env, undefined)).toBeNull()
   })
 })
 
@@ -328,7 +335,7 @@ describe('sendBatch over http', () => {
   it('posts the batch to the ingest host', async () => {
     const h = harness({ errors: true })
     const t = create(h, {
-      endpoint: telemetryEndpoint(false, { [envName(TELEMETRY_URL_ENV)]: url }),
+      endpoint: telemetryEndpoint(false, { [envName(TELEMETRY_URL_ENV)]: url }, undefined),
       fetchFn: undefined,
     })
     t.error(boom())
@@ -345,6 +352,7 @@ describe('registerTelemetry', () => {
     const t = registerTelemetry({
       file: join(dir, 'telemetry.json'),
       version: '1.0.0',
+      stamp: undefined,
       readSettings: () => ({ privacy: { telemetry: { usage: true } } }),
       marketplaceExtensions: () => [],
     })
