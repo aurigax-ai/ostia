@@ -470,7 +470,6 @@ jobs:
     continue-on-error: true
     permissions:
       contents: read
-      issues: read
     strategy:
       fail-fast: false
       matrix:
@@ -503,11 +502,6 @@ jobs:
           git config --global user.email 'ci@ostia.invalid'
       - uses: ./.github/actions/setup
         timeout-minutes: 10
-      - if: runner.os == 'Linux'
-        continue-on-error: true
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: node scripts/quarantine.mjs issues
       - if: runner.os == 'macOS'
         run: pnpm rebuild
       - run: node scripts/quarantine.mjs unit "$RUNS"
@@ -522,6 +516,27 @@ jobs:
           path: out
       - if: env.E2E == 'true' && steps.out.outcome == 'success'
         run: node scripts/quarantine.mjs e2e "$RUNS"
+
+  # Pull requests and the merge queue only check the format of
+  # test/quarantine.json (test/quarantine.test.ts). Pushes to main, the
+  # nightly run, manual runs and tags (release.yml) fail here once an entry's date has
+  # passed or its issue is closed. Not part of ci-result, so a PR is never
+  # held up by a date it did not touch.
+  quarantine-dates:
+    if: github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/quarantine.mjs issues
 
   ci-result:
     needs: [changes, static, unit, unit-dom, build, e2e, e2e-ptrace]

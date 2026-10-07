@@ -1,0 +1,44 @@
+name: Quarantine reminders
+
+on:
+  # Same time as the nightly CI run: 18:00 UTC = 02:00 Asia/Taipei.
+  schedule:
+    - cron: '0 18 * * *'
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: Print the comments instead of posting them
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quarantine-reminders
+  cancel-in-progress: false
+
+jobs:
+  # Comments once on the issue of every test/quarantine.json entry that
+  # expires within 7 days, so it gets fixed or renewed before the date fails
+  # main, nightly and release tags (the quarantine-dates job in ci.yml).
+  remind:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry-run }}
+        run: |
+          if [ "$DRY_RUN" = true ]; then
+            node scripts/quarantine.mjs remind --dry-run
+          else
+            node scripts/quarantine.mjs remind
+          fi
