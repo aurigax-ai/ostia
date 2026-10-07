@@ -465,7 +465,7 @@ jobs:
   # pass/fail counts per entry. Never part of ci-result.
   quarantine:
     needs: [changes, build, build-macos]
-    if: ${{ !cancelled() && needs.changes.outputs.code == 'true' && github.event_name != 'merge_group' }}
+    if: ${{ !cancelled() && needs.changes.outputs.code == 'true' && github.event_name != 'merge_group' && github.event_name != 'pull_request' }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
     continue-on-error: true
@@ -474,13 +474,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - runner: ubuntu-24.04
-            out: out
-          - runner: macos-26
-            out: out-macos
+        include: ${{ fromJSON(contains(fromJSON('["schedule","workflow_dispatch"]'), github.event_name) && inputs.platform != 'linux' && '[{"runner":"ubuntu-24.04","out":"out"},{"runner":"macos-26","out":"out-macos"}]' || '[{"runner":"ubuntu-24.04","out":"out"}]') }}
     env:
-      RUNS: 5
+      RUNS: ${{ contains(fromJSON('["schedule","workflow_dispatch"]'), github.event_name) && 10 || 5 }}
       E2E: ${{ needs.changes.outputs.full == 'true' && (needs.build.result == 'success' || needs.build-macos.result == 'success') }}
     steps:
       - uses: actions/checkout@v7
