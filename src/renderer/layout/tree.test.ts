@@ -41,6 +41,7 @@ import {
   setPaneTitle,
   setPaneUrl,
   setSizes,
+  settleSpawnDir,
   splitBeside,
   splitOf,
   splitPane,
@@ -913,6 +914,33 @@ describe('setPaneHibernated', () => {
     const awake = setPaneHibernated(asleep, root.id, false)
     expect(awake).not.toHaveProperty('hibernated')
     expect(setPaneHibernated(awake, root.id, false)).toBe(awake)
+  })
+
+  it('wakes a pane whose token names a folder with the next shell starting there', () => {
+    const root = {
+      ...createPane(),
+      cwd: '/w',
+      resume: { agent: 'claude' as const, id: 'a', cwd: '/w/t' },
+    }
+    const awake = setPaneHibernated(setPaneHibernated(root, root.id, true), root.id, false)
+    expect(awake).toMatchObject({ cwd: '/w', spawnDir: '/w/t' })
+  })
+})
+
+describe('settleSpawnDir', () => {
+  it('drops the spawn folder once the shell started, keeping it as missing only when it was gone', () => {
+    const root = { ...createPane(), spawnDir: '/w/t' }
+    expect(settleSpawnDir(root, root.id, false)).not.toHaveProperty('spawnDir')
+    const gone = settleSpawnDir(root, root.id, true)
+    expect(gone).not.toHaveProperty('spawnDir')
+    expect(gone).toMatchObject({ resumeFolderMissing: '/w/t' })
+    expect(settleSpawnDir(gone, root.id, true)).toBe(gone)
+  })
+
+  it('clears the missing folder when the shell reports that folder again', () => {
+    const root = { ...createPane(), resumeFolderMissing: '/w/t' }
+    expect(setPaneCwd(root, root.id, '/home')).toMatchObject({ resumeFolderMissing: '/w/t' })
+    expect(setPaneCwd(root, root.id, '/w/t')).not.toHaveProperty('resumeFolderMissing')
   })
 })
 

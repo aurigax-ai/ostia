@@ -1,11 +1,10 @@
-import { resumeCommand } from '@shared/agentResume'
 import { allPanes, findPane } from '../layout/tree'
 import { useLayoutStore } from '../stores/layoutStore'
 import { clampIdleSeconds, clampMaxLive, useSettingsStore } from '../stores/settingsStore'
-import { runWhenIdle } from './blockActions'
 import { type HibernationCandidate, pickHibernation } from './hibernation'
 import { paneActivityAt } from './paneActivity'
 import { runningAgentOf } from './paneAgent'
+import { resumeWhenIdle } from './resumeFolder'
 import { isPaneVisible, workspaceOfPane } from './workspaceActivity'
 
 export const HIBERNATION_CHECK_MS = 5000
@@ -42,7 +41,7 @@ export function wakePane(paneId: string): boolean {
   const pane = layout ? findPane(layout.root, paneId) : null
   if (!workspaceId || !pane?.hibernated) return false
   useLayoutStore.getState().setHibernated(workspaceId, paneId, false)
-  if (pane.resume) runWhenIdle(paneId, resumeCommand(pane.resume))
+  if (pane.resume) resumeWhenIdle(paneId, pane.resume)
   return true
 }
 

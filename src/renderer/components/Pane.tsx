@@ -44,6 +44,7 @@ import { Hint } from './Hint'
 import { IconButton } from './IconButton'
 import { PaneHeaderActions, PaneTabMenu } from './PaneTabMenu'
 import { QuestionNotice } from './QuestionNotice'
+import { ResumeFolderNotice } from './ResumeFolderNotice'
 import { HostPaneBadge, SandboxRestartButton } from './SandboxRestartButton'
 import { SplitTabBody, SplitTabPill } from './SplitTab'
 import { TabBody } from './TabBody'
@@ -353,6 +354,12 @@ export function Pane({
           <ApprovalCard request={approval} paneTitle={shown.title} />
         ) : question ? (
           <QuestionNotice question={question} />
+        ) : shown.resumeFolderMissing && shown.resume ? (
+          <ResumeFolderNotice
+            paneId={shown.id}
+            resume={shown.resume}
+            folder={shown.resumeFolderMissing}
+          />
         ) : null}
       </div>
 
@@ -374,7 +381,8 @@ function ResumeButton({ pane }: { pane: PaneNode }): JSX.Element | null {
   const d = useDict()
   const idle = useBlocksStore((s) => isIdlePrompt(s, pane.id))
   const resumeKeys = useChordLabel('agent.resume', isMac)
-  if (pane.kind !== 'terminal' || !pane.resume || !(idle || pane.hibernated)) return null
+  if (pane.kind !== 'terminal' || !pane.resume || pane.resumeFolderMissing) return null
+  if (!(idle || pane.hibernated)) return null
   const label = fmt(d.pane.resume, { agent: pane.resume.agent })
   return (
     <Hint label={[resumeCommand(pane.resume), resumeKeys].filter(Boolean).join('  ')}>

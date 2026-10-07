@@ -477,6 +477,7 @@ export function registerBuiltinCommands(): void {
       const pane = layout ? findPane(layout.root, ctx.activePaneId) : null
       if (pane?.kind !== 'terminal' || !pane.resume) return { resumed: false }
       if (pane.hibernated) return { resumed: wakePane(pane.id) }
+      if (pane.resumeFolderMissing) return { resumed: false }
       return { resumed: insertCommand(pane.id, resumeCommand(pane.resume), true) }
     },
   })

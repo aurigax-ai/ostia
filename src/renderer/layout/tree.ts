@@ -130,7 +130,21 @@ export function setResumePending(root: LayoutNode, paneId: string, pending: bool
 }
 
 export function setPaneCwd(root: LayoutNode, paneId: string, cwd: string): LayoutNode {
-  return mapPane(root, paneId, (p) => (p.cwd === cwd ? p : { ...p, cwd }))
+  return mapPane(root, paneId, (p) => {
+    if (p.resumeFolderMissing === cwd) {
+      const { resumeFolderMissing: _missing, ...rest } = p
+      return { ...rest, cwd }
+    }
+    return p.cwd === cwd ? p : { ...p, cwd }
+  })
+}
+
+export function settleSpawnDir(root: LayoutNode, paneId: string, missing: boolean): LayoutNode {
+  return mapPane(root, paneId, (p) => {
+    if (p.spawnDir === undefined) return p
+    const { spawnDir, ...rest } = p
+    return missing ? { ...rest, resumeFolderMissing: spawnDir } : rest
+  })
 }
 
 export function setPaneUrl(root: LayoutNode, paneId: string, url: string): LayoutNode {
@@ -172,9 +186,16 @@ export function setDefaultPaneTitles(root: LayoutNode, title: string): LayoutNod
 }
 
 export function setPaneResume(root: LayoutNode, paneId: string, resume: AgentResume): LayoutNode {
-  return mapPane(root, paneId, (p) =>
-    p.resume?.agent === resume.agent && p.resume.id === resume.id ? p : { ...p, resume },
-  )
+  return mapPane(root, paneId, (p) => {
+    if (
+      p.resume?.agent === resume.agent &&
+      p.resume.id === resume.id &&
+      p.resume.cwd === resume.cwd
+    )
+      return p
+    const { resumeFolderMissing: _missing, ...rest } = p
+    return { ...rest, resume }
+  })
 }
 
 export function setPaneHibernated(
@@ -186,7 +207,7 @@ export function setPaneHibernated(
     if (Boolean(p.hibernated) === hibernated) return p
     if (hibernated) return { ...p, hibernated: true }
     const { hibernated: _hibernated, ...awake } = p
-    return awake
+    return awake.resume?.cwd ? { ...awake, spawnDir: awake.resume.cwd } : awake
   })
 }
 
