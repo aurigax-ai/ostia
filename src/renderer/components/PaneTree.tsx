@@ -2,7 +2,7 @@ import { GlobeIcon, TerminalWindowIcon } from '@phosphor-icons/react'
 import { Allotment } from 'allotment'
 import { useDict } from '../i18n/useDict'
 import { panelFractions } from '../layout/panelSize'
-import { findPane } from '../layout/tree'
+import { findPane, slotKey } from '../layout/tree'
 import type { LayoutNode } from '../layout/types'
 import { openBrowserAs } from '../lib/browserProfile'
 import { useChordLabel } from '../lib/chords'
@@ -80,7 +80,7 @@ function NodeView({
     )
   }
 
-  const compositionKey = `${node.id}:${equalized}:${node.children.map((c) => c.id).join(',')}`
+  const compositionKey = `${node.id}:${equalized}:${node.children.map(slotKey).join(',')}`
 
   return (
     <Allotment
@@ -91,7 +91,7 @@ function NodeView({
       onDragEnd={(sizes) => rememberPanelFractions(panelFractions(node, sizes))}
     >
       {node.children.map((child) => (
-        <Allotment.Pane key={child.id} minSize={160}>
+        <Allotment.Pane key={slotKey(child)} minSize={160}>
           <NodeView
             node={child}
             workspaceId={workspaceId}

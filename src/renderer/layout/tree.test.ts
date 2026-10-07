@@ -42,6 +42,7 @@ import {
   setPaneUrl,
   setSizes,
   settleSpawnDir,
+  slotKey,
   splitBeside,
   splitOf,
   splitPane,
@@ -220,6 +221,23 @@ describe('splitOf', () => {
     expect(split.children).toEqual([a, b])
     expect(split.sizes).toEqual([1, 1])
     expect(split.id).toMatch(/^split-/)
+  })
+})
+
+describe('slotKey', () => {
+  it('keeps a slot’s key when a tab joins its lone pane, so the split around it stays mounted', () => {
+    const terminal = createPane()
+    const panel = createPane('extension')
+    const before = splitOf('horizontal', terminal, panel)
+    const after = addTab(before, panel.id, createPane('diff'))
+    if (after.type !== 'split') throw new Error('expected a split')
+    expect(after.children[1].type).toBe('tabs')
+    expect(after.children.map(slotKey)).toEqual(before.children.map(slotKey))
+  })
+
+  it('names a split by its own id', () => {
+    const split = splitOf('vertical', createPane(), createPane())
+    expect(slotKey(split)).toBe(split.id)
   })
 })
 

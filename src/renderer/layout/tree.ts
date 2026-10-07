@@ -91,6 +91,10 @@ export function slotCount(node: LayoutNode): number {
   return 1
 }
 
+export function slotKey(node: LayoutNode): string {
+  return node.type === 'tabs' ? slotKey(node.children[0]) : node.id
+}
+
 export function equalizeSizes(node: LayoutNode): LayoutNode {
   if (node.type !== 'split') return node
   const children = node.children.map(equalizeSizes)
