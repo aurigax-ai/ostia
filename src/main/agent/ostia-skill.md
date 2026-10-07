@@ -192,8 +192,7 @@ ostia process restart <id|name>    # Ctrl+C, then the same line again in the sam
   new. A full-screen program (an agent, an editor) has no useful log: use `ostia pane read`.
 - `kill` leaves the tab open with its output. `restart` fails with `still-running` when the
   command ignores Ctrl+C; `kill` it and `run` it again.
-- You see only your own workspace's processes and those you started in a workspace your pane
-  created (others need `all-workspaces`).
+- You see only your own workspace's processes (others need `all-workspaces`).
 
 ## Talk to another terminal pane
 
@@ -209,8 +208,8 @@ ostia pane rename <pane> <title...> | --clear  # name its tab (your own needs no
 
 `<pane>` is a `paneId` from `ostia pane.list`, or a process id or name from `ostia process ls`.
 
-- A tab **you** opened with `ostia process run` or `ostia agent run`, in your workspace or one
-  your pane created, is yours to type into, read, wake and close, with no question asked.
+- A tab **you** opened with `ostia process run` or `ostia agent run` is yours to type into,
+  read, wake and close, with no question asked.
 - Any other pane asks the human first: typing needs `type-other-pane`, reading needs
   `read-other-pane`, closing needs `kill-pane`, and a pane in another workspace also needs
   `all-workspaces`. A screen
@@ -261,11 +260,13 @@ ostia agent run claude - --name <name> --cwd <worktree> --workspace <workspaceId
 
 - Create the workers workspace once and reuse it: look for it by name in `ostia workspace list`
   before making another. `group` is the group's name; it joins that group, or makes it.
-- A workspace your pane created with `workspace.new` needs no question to open tabs in, and the
-  tabs you open there stay yours (send, read, wait, wake and close with no question, as beside
-  you). Ostia remembers that only while your pane is open and until it restarts; after that,
-  `--workspace` asks the human once for `all-workspaces`, and your workers there ask for
-  `type-other-pane` like any other pane (see Asks below).
+- Whether you reach a sibling workspace without a question is the human's choice, set in
+  `capabilities.reach` (only they change it). The default, `project`, treats workspaces on the
+  same git repository (any of its worktrees) with the same sandbox state as yours, so a workers
+  workspace on your repo needs no card and your tabs there stay yours to send, read, wait, wake
+  and close. When the workers workspace is outside that scope (another repo, `reach` set to
+  `workspace`, or a group membership you made yourself under `group`), `--workspace` and every
+  `pane` verb there ask the human for `all-workspaces`, as for any other workspace.
 - Name each worker by its task (`issue-398`, `fix-login`), never `worker-3`: the name is its tab
   title and how you address it.
 

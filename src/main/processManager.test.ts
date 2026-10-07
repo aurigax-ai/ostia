@@ -324,61 +324,6 @@ describe('process.run in another workspace', () => {
     expect(info).toMatchObject({ name: 'far', paneId: started.paneId })
   })
 
-  it('needs no grant in a workspace the caller created, and lines its tabs up in launch order', async () => {
-    const me = freshPane('ws1')
-    registry.workspaceCreated(me.paneId, 'ws2')
-    const conn = await client(me)
-    const first = await conn.sendRequest<Started>('agent.run', {
-      agent: 'claude',
-      prompt: 'one',
-      name: 'w-one',
-      workspace: 'ws2',
-    })
-    await conn.sendRequest('agent.run', { agent: 'claude', prompt: 'two', workspace: 'ws2' })
-
-    expect(opened.map((req) => req.workspaceId)).toEqual(['ws2', 'ws2'])
-    expect(opened[0]).not.toHaveProperty('afterPaneId')
-    expect(opened[1]?.openedPaneIds).toEqual([`tab-${tabSeq - 1}`])
-    expect((await conn.sendRequest<ProcessInfo[]>('process.list')).map((p) => p.name)).toEqual([
-      'w-one',
-      'claude',
-    ])
-    await expect(conn.sendRequest('process.info', { id: 'w-one' })).resolves.toMatchObject({
-      paneId: first.paneId,
-    })
-  })
-
-  it('still asks for all-workspaces in a workspace another pane created', async () => {
-    const creator = freshPane('ws1')
-    registry.workspaceCreated(creator.paneId, 'ws2')
-    const conn = await client(freshPane('ws1'))
-    await expect(conn.sendRequest('process.run', { cmd: 'ls', workspace: 'ws2' })).rejects.toThrow(
-      'needs-elevation: all-workspaces',
-    )
-    expect(opened).toEqual([])
-  })
-
-  it('forgets a created workspace once its creator pane closes', async () => {
-    const me = freshPane('ws1')
-    registry.workspaceCreated(me.paneId, 'ws2')
-    registry.paneClosed(me.paneId)
-    const conn = await client(me)
-    await expect(conn.sendRequest('process.run', { cmd: 'ls', workspace: 'ws2' })).rejects.toThrow(
-      'needs-elevation: all-workspaces',
-    )
-  })
-
-  it('never lets a sandboxed caller into a workspace it created', async () => {
-    const me = freshPane('ws1')
-    sandboxedWorkspaces.add('ws1')
-    registry.workspaceCreated(me.paneId, 'ws2')
-    const conn = await client(me)
-    await expect(conn.sendRequest('process.run', { cmd: 'ls', workspace: 'ws2' })).rejects.toThrow(
-      'sandboxed',
-    )
-    expect(opened).toEqual([])
-  })
-
   it('needs no grant when the named workspace is the caller own', async () => {
     const conn = await client(freshPane('ws1'))
     await conn.sendRequest('process.run', { cmd: 'ls', workspace: 'ws1' })

@@ -84,11 +84,6 @@ export interface NewProcess {
   splitTab?: string
 }
 
-export interface ProcessCaller {
-  paneId: string
-  workspaceId: string
-}
-
 export interface RegistryDeps {
   ring: (paneId: string) => RingReader | undefined
   workspaceOfPane: (paneId: string) => string | undefined
@@ -127,7 +122,6 @@ export class ProcessRegistry {
   private readonly tracked = new Map<string, Tracking>()
   private readonly byPane = new Map<string, ProcessEntry>()
   private readonly frozen = new Map<string, RingSlice>()
-  private readonly creators = new Map<string, string>()
   private counter = 0
 
   constructor(private readonly deps: RegistryDeps) {}
@@ -212,22 +206,7 @@ export class ProcessRegistry {
     }
   }
 
-  workspaceCreated(creatorPaneId: string, workspaceId: string): void {
-    this.creators.set(workspaceId, creatorPaneId)
-  }
-
-  created(creatorPaneId: string, workspaceId: string): boolean {
-    return this.creators.get(workspaceId) === creatorPaneId
-  }
-
-  reaches(caller: ProcessCaller, workspaceId: string): boolean {
-    return workspaceId === caller.workspaceId || this.created(caller.paneId, workspaceId)
-  }
-
   paneClosed(paneId: string): void {
-    for (const [workspaceId, creator] of this.creators) {
-      if (creator === paneId) this.creators.delete(workspaceId)
-    }
     const entry = this.byPane.get(paneId)
     if (!entry) return
     this.release(entry)
@@ -237,7 +216,6 @@ export class ProcessRegistry {
   }
 
   workspaceClosed(workspaceId: string): void {
-    this.creators.delete(workspaceId)
     for (const entry of [...this.entries.values()]) {
       if (this.workspaceOf(entry) !== workspaceId) continue
       this.release(entry)
@@ -285,9 +263,9 @@ export class ProcessRegistry {
     return entry.workspaceId
   }
 
-  list(caller: ProcessCaller | null): ProcessEntry[] {
+  list(workspaceId: string | null): ProcessEntry[] {
     const all = [...this.entries.values()]
-    return caller === null ? all : all.filter((e) => this.reaches(caller, this.workspaceOf(e)))
+    return workspaceId === null ? all : all.filter((e) => this.workspaceOf(e) === workspaceId)
   }
 
   openedBy(ownerPaneId: string): string[] {
@@ -304,17 +282,13 @@ export class ProcessRegistry {
     return members[members.length - 1]?.paneId
   }
 
-  resolve(ref: string, caller: ProcessCaller, everyWorkspace: boolean): ProcessEntry | undefined {
+  resolve(ref: string, workspaceId: string, everyWorkspace: boolean): ProcessEntry | undefined {
     const visible = (entry: ProcessEntry): boolean =>
-      everyWorkspace || this.reaches(caller, this.workspaceOf(entry))
+      everyWorkspace || this.workspaceOf(entry) === workspaceId
     const byId = this.entries.get(ref)
     if (byId) return visible(byId) ? byId : undefined
     const named = [...this.entries.values()].filter((e) => e.name === ref).reverse()
-    return (
-      named.find((e) => this.workspaceOf(e) === caller.workspaceId) ??
-      named.find((e) => e.ownerPaneId === caller.paneId && visible(e)) ??
-      named.find(visible)
-    )
+    return named.find((e) => this.workspaceOf(e) === workspaceId) ?? named.find(visible)
   }
 
   output(entry: ProcessEntry, since: number): ProcessOutput | undefined {
@@ -490,7 +464,7 @@ export function registerProcessMethods(deps: ProcessDeps): ProcessRegistry {
   const find = (raw: unknown, ctx: ControlMethodContext): ProcessEntry | undefined => {
     const { id } = record(raw)
     return typeof id === 'string'
-      ? registry.resolve(id, ctx.identity, everyWorkspace(ctx))
+      ? registry.resolve(id, ctx.identity.workspaceId, everyWorkspace(ctx))
       : undefined
   }
 
@@ -525,8 +499,7 @@ export function registerProcessMethods(deps: ProcessDeps): ProcessRegistry {
     if (!here && home && deps.isSandboxed(home)) {
       throw new ResponseError(ErrorCodes.InvalidRequest, SANDBOXED_REFUSAL)
     }
-    const created = !here && registry.reaches(ctx.identity, workspaceId)
-    if (!here && !created) {
+    if (!here) {
       await ensureCaps(
         ctx.authed,
         ctx.identity,
@@ -546,9 +519,7 @@ export function registerProcessMethods(deps: ProcessDeps): ProcessRegistry {
             afterPaneId: ctx.identity.paneId,
             openedPaneIds: registry.openedBy(ctx.identity.paneId),
           }
-        : created
-          ? { openedPaneIds: registry.openedBy(ctx.identity.paneId) }
-          : {}),
+        : {}),
       backgroundTab: true,
       pinTitle: true,
       title: name,
@@ -616,7 +587,9 @@ export function registerProcessMethods(deps: ProcessDeps): ProcessRegistry {
   registerTargetableMethod('process.list', {
     cap: 'process',
     handler: (_params, ctx) =>
-      registry.list(everyWorkspace(ctx) ? null : ctx.identity).map((entry) => registry.info(entry)),
+      registry
+        .list(everyWorkspace(ctx) ? null : ctx.identity.workspaceId)
+        .map((entry) => registry.info(entry)),
   })
 
   registerTargetableMethod('process.info', {

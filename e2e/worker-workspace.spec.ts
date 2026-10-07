@@ -32,7 +32,7 @@ async function run(win: Page, line: string): Promise<void> {
 const coordinatorRows = (win: Page) => win.locator('.xterm-rows').first()
 const memberRows = (win: Page) => win.locator('.rail-group-members .rail-row')
 
-test('a coordinator dispatches workers into a background workers workspace in its sidebar group, with no question', async () => {
+test('a coordinator makes a background workers workspace in its sidebar group and dispatches a worker there', async () => {
   test.setTimeout(90_000)
   const { app, win } = await launch(freshDataHome())
   try {
@@ -51,19 +51,18 @@ test('a coordinator dispatches workers into a background workers workspace in it
 
     await run(
       win,
-      `ostia process run "echo hi-from-$((40+2)); sleep 30" --name fixer --workspace "proj · workers" && ostia process ls`,
+      `ostia process run "echo hi-from-$((40+2)); sleep 30" --name fixer --workspace "proj · workers"`,
     )
-    await expect(coordinatorRows(win)).toContainText(/fixer\s+(starting|running)/, {
-      timeout: 20_000,
-    })
+    const card = win.getByRole('region', { name: 'Agent permission request' })
+    await expect(card).toBeVisible({ timeout: 20_000 })
+    await card.getByRole('button', { name: 'Allow once' }).click()
+    await expect(coordinatorRows(win)).toContainText('"name":"fixer"', { timeout: 20_000 })
     await expect(win.getByRole('tablist').getByRole('tab')).toHaveCount(1)
-
-    await run(win, 'sleep 2; ostia pane read fixer')
-    await expect(coordinatorRows(win)).toContainText('hi-from-42', { timeout: 20_000 })
-    await expect(coordinatorRows(win)).not.toContainText('not-approved')
+    await expect(win.locator('.rail-tab.active')).not.toContainText('proj · workers')
 
     await memberRows(win).nth(1).locator('.rail-tab-main').click()
     await expect(win.locator('.rail-tab.active')).toContainText('proj · workers')
+    await expect(win.getByRole('tab', { name: /fixer/ })).toBeVisible({ timeout: 15_000 })
     await expect(win.locator('.xterm-rows').last()).toContainText('hi-from-42', { timeout: 15_000 })
   } finally {
     await quit(app)

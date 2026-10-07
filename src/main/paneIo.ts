@@ -137,7 +137,6 @@ export interface ReachFacts {
   caller: { paneId: string; workspaceId: string; sandboxed: boolean }
   target: { paneId: string; workspaceId: string; manager: boolean; confined: boolean }
   ownChild: boolean
-  createdWorkspace: boolean
 }
 
 export type ReachVerdict = { allowed: true; caps: Capability[] } | { allowed: false; error: string }
@@ -158,8 +157,7 @@ export function paneReach(kind: PaneReach, facts: ReachFacts): ReachVerdict {
   if (caller.sandboxed && !(sameWorkspace && target.confined)) {
     return { allowed: false, error: 'sandboxed' }
   }
-  if (facts.ownChild && (sameWorkspace || facts.createdWorkspace))
-    return { allowed: true, caps: ['process'] }
+  if (facts.ownChild && sameWorkspace) return { allowed: true, caps: ['process'] }
   return {
     allowed: true,
     caps: [REACH_CAPS[kind], ...(sameWorkspace ? [] : (['all-workspaces'] as const))],
@@ -169,7 +167,6 @@ export function paneReach(kind: PaneReach, facts: ReachFacts): ReachVerdict {
 export interface PaneReachDeps {
   processPane: (ref: string, ctx: ControlMethodContext) => string | undefined
   isChild: (ownerPaneId: string, paneId: string) => boolean
-  createdWorkspace: (creatorPaneId: string, workspaceId: string) => boolean
   isSandboxed: (workspaceId: string) => boolean
   isConfined: (paneId: string) => boolean
 }
@@ -241,7 +238,6 @@ export async function ensurePaneReach(
       confined: deps.isConfined(to.paneId),
     },
     ownChild: deps.isChild(me.paneId, to.paneId),
-    createdWorkspace: deps.createdWorkspace(me.paneId, to.workspaceId),
   })
   if (!verdict.allowed) {
     throw fail(
