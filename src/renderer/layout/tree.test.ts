@@ -4,6 +4,7 @@ import {
   adjacentTab,
   adoptIds,
   allPanes,
+  backgroundTabAnchor,
   closePane,
   createPane,
   createTerminalPane,
@@ -790,6 +791,32 @@ describe('tabs', () => {
     const stack = addTab(tabsOf(b.id, a, b), a.id, c, true)
     expect(stack).toMatchObject({ activeId: b.id })
     expect(paneIds(stack)).toEqual([a.id, c.id, b.id])
+  })
+
+  it('opens background tabs from one caller right after it in launch order', () => {
+    const agent = createPane()
+    const other = createPane()
+    const opened: string[] = []
+    let root: LayoutNode = tabsOf(agent.id, agent, other)
+    for (let i = 0; i < 3; i++) {
+      const tab = createPane()
+      root = addTab(root, backgroundTabAnchor(root, agent.id, opened), tab, true)
+      opened.push(tab.id)
+    }
+    expect(paneIds(root)).toEqual([agent.id, ...opened, other.id])
+    expect(root).toMatchObject({ activeId: agent.id })
+  })
+
+  it("skips the caller's tabs that left its stack and ignores another caller's tabs", () => {
+    const agent = createPane()
+    const moved = createPane()
+    const kept = createPane()
+    const foreign = createPane()
+    const root = splitOf('horizontal', tabsOf(agent.id, agent, kept, foreign), moved)
+    expect(backgroundTabAnchor(root, agent.id, [kept.id, moved.id])).toBe(kept.id)
+    expect(backgroundTabAnchor(root, agent.id, [moved.id, 'pane-closed'])).toBe(agent.id)
+    expect(backgroundTabAnchor(root, agent.id, [])).toBe(agent.id)
+    expect(backgroundTabAnchor(agent, agent.id, [kept.id])).toBe(agent.id)
   })
 
   it('selects a tab and returns the same tree when it is already shown', () => {

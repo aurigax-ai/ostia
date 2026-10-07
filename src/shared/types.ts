@@ -454,6 +454,7 @@ export interface SnapshotSplitNode {
 }
 
 export interface ProcessTerminalRequest extends ExtensionOpenTerminalRequest {
+  openedPaneIds?: string[]
   splitTab?: SplitTabPlacement
 }
 

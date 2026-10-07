@@ -10,6 +10,7 @@ import {
   type DropZone,
   addTab,
   allPanes,
+  backgroundTabAnchor,
   closePane,
   createPane,
   createTerminalPane,
@@ -117,6 +118,7 @@ interface LayoutState {
 
 export interface OpenTerminalPlacement {
   afterPaneId?: string
+  openedPaneIds?: string[]
   cwd?: string
   title?: string
   backgroundTab?: boolean
@@ -730,7 +732,8 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
         if (opts.backgroundTab) {
           const pane = newTerminalPane()
           createdPaneId = pane.id
-          return { ...l, root: describeTerminal(addTab(l.root, beside, pane, true), pane.id, opts) }
+          const after = backgroundTabAnchor(l.root, beside, opts.openedPaneIds ?? [])
+          return { ...l, root: describeTerminal(addTab(l.root, after, pane, true), pane.id, opts) }
         }
         const { root, newPaneId } = splitBeside(l.root, beside, 'horizontal', newTerminalPane())
         if (!newPaneId) return l
