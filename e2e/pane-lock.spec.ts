@@ -30,9 +30,11 @@ test('an agent closes a busy tab without a confirm, but never a tab the human lo
     await expect(tabs).toHaveCount(2)
     await expect(win.locator('.xterm-rows').nth(1)).toContainText(PROMPT, { timeout: 15_000 })
     await win.locator('.xterm').nth(1).click()
-    await win.keyboard.type('sleep 300')
+    await win.keyboard.type('echo "BUSY=$OSTIA_PANE_ID."; sleep 300')
     await win.keyboard.press('Enter')
-    const busy = await tabs.nth(1).getAttribute('data-tab-id')
+    const busyRows = win.locator('.xterm-rows').nth(1)
+    await expect(busyRows).toContainText(/BUSY=[\w-]+\./, { timeout: 15_000 })
+    const busy = (await busyRows.textContent())?.match(/BUSY=([\w-]+)\./)?.[1]
     await tabs.nth(0).getByRole('tab').click()
 
     await tabs.nth(1).click({ button: 'right' })
