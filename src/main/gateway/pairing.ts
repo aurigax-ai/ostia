@@ -3,6 +3,8 @@ import { appendFileSync, mkdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { appDataDir } from '../userDirs'
 
+export { formatCode } from '../../shared/pairCode'
+
 const CODE_TTL_MS = 120_000
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 const CODE_LENGTH = 8
@@ -42,10 +44,6 @@ export function newCode(): string {
   setTimeout(codesChanged, CODE_TTL_MS + 1).unref?.()
   codesChanged()
   return code
-}
-
-export function formatCode(code: string): string {
-  return `${code.slice(0, 4)}-${code.slice(4)}`
 }
 
 export function isLiveCode(code: string): boolean {

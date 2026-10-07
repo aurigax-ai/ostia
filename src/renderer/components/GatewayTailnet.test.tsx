@@ -116,7 +116,7 @@ describe('Settings → Remote over the tailnet', () => {
     const user = userEvent.setup()
     render(<GatewaySection />)
     await user.click(await pairButton())
-    expect(await screen.findByText('ABCD1234')).toBeInTheDocument()
+    expect(await screen.findByText('ABCD-1234')).toBeInTheDocument()
     expect(screen.getByText('100.64.0.1:8722')).toBeInTheDocument()
     expect(screen.queryByRole('textbox', { name: 'Connection details' })).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Connection details' }))

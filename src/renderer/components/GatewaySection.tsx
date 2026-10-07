@@ -1,9 +1,11 @@
 import { cn } from '@/lib/utils'
 import { CaretRightIcon, CopyIcon } from '@phosphor-icons/react'
 import { PHONE_GRANTABLE_CAPS, type PhoneGrantableCap } from '@shared/capabilities'
+import { formatCode } from '@shared/pairCode'
 import type {
   GatewayBindAddress,
   GatewayDevice,
+  GatewayPairRequest,
   GatewayPairResult,
   GatewayRemoteStatus,
   GatewayRoute,
@@ -85,6 +87,58 @@ function tailnetProblem(d: Dict, node: GatewayTailnetState): string | null {
   return fmt(d.settings.remoteTailnetError, { code: node.code })
 }
 
+function spacedCheckCode(code: string): string {
+  return `${code.slice(0, 3)} ${code.slice(3)}`
+}
+
+function PairRequests({
+  requests,
+  onAnswer,
+}: {
+  requests: GatewayPairRequest[]
+  onAnswer: (requestId: string, approve: boolean) => void
+}): JSX.Element | null {
+  const d = useDict()
+  if (requests.length === 0) return null
+  return (
+    <ul className="mt-3 flex flex-col gap-2">
+      {requests.map((r) => (
+        <li
+          key={r.requestId}
+          className="motion-enter flex items-center justify-between gap-4 rounded-md border border-line-strong bg-surface-1 p-3"
+        >
+          <div className="min-w-0">
+            <div className="truncate text-fg text-ui-base">
+              {fmt(d.settings.remotePairRequest, { name: r.name })}
+            </div>
+            <div className="mt-1 font-mono font-semibold text-fg text-ui-lg tabular-nums">
+              {spacedCheckCode(r.checkCode)}
+            </div>
+            <p className="mt-0.5 text-fg-muted text-ui-sm">{d.settings.remotePairCheck}</p>
+          </div>
+          <div className="flex shrink-0 gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onAnswer(r.requestId, false)}
+              aria-label={fmt(d.settings.remotePairDenyFor, { name: r.name })}
+            >
+              {d.settings.remotePairDeny}
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => onAnswer(r.requestId, true)}
+              aria-label={fmt(d.settings.remotePairApproveFor, { name: r.name })}
+            >
+              {d.settings.remotePairApprove}
+            </Button>
+          </div>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
 function capLabel(d: Dict, cap: PhoneGrantableCap): string {
   if (cap === 'command') return d.settings.remoteCapCommand
   if (cap === 'input') return d.settings.remoteCapInput
@@ -138,6 +192,7 @@ export function GatewaySection(): JSX.Element {
   const [secondsLeft, setSecondsLeft] = useState(0)
   const [copied, setCopied] = useState(false)
   const [detailsOpen, setDetailsOpen] = useState(false)
+  const [requests, setRequests] = useState<GatewayPairRequest[]>([])
 
   const refresh = useCallback(async () => {
     const [nextStatus, { devices: list }] = await Promise.all([
@@ -152,16 +207,44 @@ export function GatewaySection(): JSX.Element {
   useEffect(() => {
     void refresh()
     void window.ostia.gateway.bindAddresses().then(setAddresses)
-    return window.ostia.gateway.onTailnetChanged(setTailnet)
+    void window.ostia.gateway.pairRequests().then(setRequests)
+    const offRequests = window.ostia.gateway.onPairRequestsChanged((next) => {
+      setRequests(next)
+      void refresh()
+    })
+    const offTailnet = window.ostia.gateway.onTailnetChanged(setTailnet)
+    return () => {
+      offRequests()
+      offTailnet()
+    }
+  }, [refresh])
+
+  const mintCode = useCallback(async (): Promise<void> => {
+    setPairing(true)
+    setCopied(false)
+    try {
+      const result = await window.ostia.gateway.pair()
+      if ('error' in result) return
+      setPairResult(result)
+      setSecondsLeft(PAIR_CODE_TTL_S)
+      const dataUrl = await QRCode.toDataURL(JSON.stringify(result), { margin: 1, width: 220 })
+      setQrDataUrl(dataUrl)
+    } finally {
+      setPairing(false)
+      await refresh()
+    }
   }, [refresh])
 
   useEffect(() => {
-    if (!pairResult || secondsLeft <= 0) return
+    if (!pairResult) return
+    if (secondsLeft <= 0) {
+      void mintCode()
+      return
+    }
     const t = setTimeout(() => setSecondsLeft((s) => s - 1), 1000)
     return () => clearTimeout(t)
-  }, [pairResult, secondsLeft])
+  }, [pairResult, secondsLeft, mintCode])
 
-  const expired = pairResult !== null && secondsLeft <= 0
   const running = status?.running ?? false
   const route: GatewayRoute = status?.route ?? { kind: 'tailnet' }
   const viaTailnet = route.kind === 'tailnet'
@@ -208,20 +291,15 @@ export function GatewaySection(): JSX.Element {
     await refresh()
   }
 
-  const onPair = async (): Promise<void> => {
-    setPairing(true)
-    setCopied(false)
-    try {
-      const result = await window.ostia.gateway.pair()
-      if ('error' in result) return
-      setPairResult(result)
-      setSecondsLeft(PAIR_CODE_TTL_S)
-      const dataUrl = await QRCode.toDataURL(JSON.stringify(result), { margin: 1, width: 220 })
-      setQrDataUrl(dataUrl)
-    } finally {
-      setPairing(false)
-      await refresh()
-    }
+  const onDiscoverable = async (on: boolean): Promise<void> => {
+    await window.ostia.gateway.setDiscoverable(on)
+    await refresh()
+  }
+
+  const onAnswer = async (requestId: string, approve: boolean): Promise<void> => {
+    await window.ostia.gateway.answerPairRequest(requestId, approve)
+    setRequests(await window.ostia.gateway.pairRequests())
+    await refresh()
   }
 
   const onRevoke = async (deviceId: string): Promise<void> => {
@@ -276,6 +354,13 @@ export function GatewaySection(): JSX.Element {
         />
       </ControlRow>
 
+      <ToggleRow
+        label={d.settings.remoteDiscoverable}
+        desc={d.settings.remoteDiscoverableDesc}
+        checked={status?.discoverable ?? false}
+        onChange={(v) => void onDiscoverable(v)}
+      />
+
       {viaTailnet ? (
         <ControlRow
           label={d.settings.remoteTailscale}
@@ -317,12 +402,14 @@ export function GatewaySection(): JSX.Element {
         <Button
           variant="outline"
           size="sm"
-          onClick={() => void onPair()}
+          onClick={() => void mintCode()}
           disabled={pairing || !canPair}
         >
           {pairing ? d.settings.remotePairing : d.settings.remotePairButton}
         </Button>
       </div>
+
+      <PairRequests requests={requests} onAnswer={(id, approve) => void onAnswer(id, approve)} />
 
       {pairResult && qrDataUrl ? (
         <div className="mt-3 rounded-md border border-line bg-surface-1 p-4">
@@ -337,13 +424,8 @@ export function GatewaySection(): JSX.Element {
             <dl className="flex min-w-0 flex-col gap-3">
               <div>
                 <dt className="text-fg-muted text-ui-xs">{d.settings.remotePairCode}</dt>
-                <dd
-                  className={cn(
-                    'select-all font-mono font-semibold text-ui-lg',
-                    expired ? 'text-fg-muted line-through' : 'text-fg',
-                  )}
-                >
-                  {pairResult.pairCode}
+                <dd className="select-all font-mono font-semibold text-fg text-ui-lg">
+                  {formatCode(pairResult.pairCode)}
                 </dd>
               </div>
               <div>
@@ -353,9 +435,7 @@ export function GatewaySection(): JSX.Element {
                 </dd>
               </div>
               <p className="text-fg-muted text-ui-xs">
-                {expired
-                  ? d.settings.remotePairExpired
-                  : fmt(d.settings.remotePairExpires, { n: secondsLeft })}
+                {fmt(d.settings.remotePairExpires, { n: Math.max(secondsLeft, 0) })}
               </p>
             </dl>
           </div>
