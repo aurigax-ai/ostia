@@ -10,9 +10,23 @@ import { TooltipProvider } from './ui/tooltip'
 
 vi.mock('../platform', () => ({ platform: 'darwin', isMac: true, isLinux: false }))
 
+const labelReads = vi.hoisted(() => ({ count: 0 }))
+
+vi.mock('../lib/chords', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../lib/chords')>()
+  return {
+    ...actual,
+    useChordLabel: (id: string, mac: boolean) => {
+      labelReads.count += 1
+      return actual.useChordLabel(id, mac)
+    },
+  }
+})
+
 const initialSettings = useSettingsStore.getState()
 
 afterEach(() => {
+  labelReads.count = 0
   cleanup()
   useSettingsStore.setState(initialSettings, true)
 })
@@ -59,6 +73,27 @@ describe('Hint', () => {
     expect(description.current).toBe(screen.getByText('Description'))
     expect(screen.getByText('Hinted title')).toHaveAttribute('data-slot', 'tooltip-trigger')
     expect(screen.getByText('Hinted description')).toHaveAttribute('data-slot', 'tooltip-trigger')
+  })
+
+  it('reads the bound key only while its tooltip is open', async () => {
+    await renderSettled(
+      <TooltipProvider delay={0}>
+        <Hint label="Toggle Sidebar" command="view.toggleRail">
+          <button type="button">rail</button>
+        </Hint>
+        <Hint label="Settings" command="app.openSettings">
+          <button type="button">settings</button>
+        </Hint>
+      </TooltipProvider>,
+    )
+    act(() => {
+      useSettingsStore.setState({ keybindings: { 'view.toggleRail': 'Cmd+Shift+K' } })
+    })
+    expect(labelReads.count).toBe(0)
+
+    await userEvent.hover(screen.getByRole('button', { name: 'rail' }))
+    expect(await screen.findByText('⌘⇧K')).toBeInTheDocument()
+    expect(labelReads.count).toBeGreaterThan(0)
   })
 
   it('shows the bound key next to the label on hover', async () => {

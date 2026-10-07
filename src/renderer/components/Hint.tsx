@@ -30,11 +30,16 @@ export function Hint({
   children: ReactElement
   side?: Side
 }): JSX.Element {
-  const keys = useShortcutHint(command)
   return (
     <Tooltip>
       <TooltipTrigger render={children} />
-      <TooltipContent side={side}>{withShortcut(label, keys)}</TooltipContent>
+      <TooltipContent side={side}>
+        {command ? <ShortcutLabel label={label} command={command} /> : label}
+      </TooltipContent>
     </Tooltip>
   )
+}
+
+function ShortcutLabel({ label, command }: { label: ReactNode; command: string }): JSX.Element {
+  return <>{withShortcut(label, useShortcutHint(command))}</>
 }
