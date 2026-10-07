@@ -287,11 +287,41 @@ describe('Marketplace', () => {
             category: 'other',
             capabilities: ['notify'],
             runsProcess: true,
+            agentSkills: [],
+            agentHooks: [],
             state: 'available',
           },
         ],
       },
     ])
+  })
+
+  it('describes the icon, agent skills and hooks an offered extension declares', async () => {
+    const repo = marketplaceRepo()
+    writeExtension(repo, 'extensions/weather', {
+      ...weather('1.0.0'),
+      capabilities: ['notify', 'agent-plugin'],
+      contributes: {
+        commands: [{ id: 'note', title: 'Note the prompt', stdin: true, palette: false }],
+        panel: { title: 'Weather', icon: 'globe', entry: 'panel.html' },
+        agentSkills: [{ name: 'forecast', path: 'skills/forecast' }],
+        agentHooks: [{ event: 'UserPromptSubmit', command: 'note' }],
+      },
+    })
+    mkdirSync(join(repo, 'extensions/weather/skills/forecast'), { recursive: true })
+    writeFileSync(
+      join(repo, 'extensions/weather/skills/forecast/SKILL.md'),
+      '---\nname: forecast\ndescription: Reads the forecast\n---\nBody\n',
+    )
+    writeFileSync(join(repo, 'extensions/weather/panel.html'), '')
+    commit(repo)
+    const h = harness()
+    const res = await h.marketplace.add(repo)
+    expect(res.state.marketplaces[0]?.extensions[0]).toMatchObject({
+      icon: 'globe',
+      agentSkills: ['forecast'],
+      agentHooks: [{ event: 'UserPromptSubmit', command: 'Note the prompt' }],
+    })
   })
 
   it('remembers its marketplaces across restarts', async () => {

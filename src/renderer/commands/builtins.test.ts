@@ -1287,6 +1287,13 @@ describe('builtins route to store actions', () => {
     expect(openSettings).toHaveBeenCalled()
   })
 
+  it('opens Settings on Browse extensions from app.browseExtensions', async () => {
+    await commands.execWith(ctx(null, null), 'app.browseExtensions')
+
+    expect(useUIStore.getState().settingsActive).toBe(true)
+    expect(useUIStore.getState().settingsSection).toBe('browseExtensions')
+  })
+
   it('toggles the dashboard from dashboard.toggle without a target', async () => {
     const byId = Object.fromEntries(commands.describe().map((c) => [c.id, c]))
     expect(byId['dashboard.toggle'].target).toBe('none')
