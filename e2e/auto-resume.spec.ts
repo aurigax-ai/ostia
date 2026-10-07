@@ -94,7 +94,7 @@ test('with auto-resume on, every agent resumes at startup: shown tab, background
   }
 })
 
-test('with auto-resume off, a restored agent tab only offers the Resume button', async () => {
+test('with auto-resume off, a restored agent waits until the human activates its tab', async () => {
   const dataHome = freshDataHome()
   seedSettings(dataHome, DOM_RENDERER_SETTINGS)
   seedAgentTabs(dataHome)
@@ -102,13 +102,14 @@ test('with auto-resume off, a restored agent tab only offers the Resume button',
   try {
     const win = await app.firstWindow()
     await win.waitForLoadState('domcontentloaded')
-    await expect(win.getByRole('button', { name: /Resume claude/ })).toBeVisible({
-      timeout: 20_000,
-    })
-    await expect(win.locator('.pane-slot:not([data-hidden]) .xterm-rows')).toContainText(/[❯$%#]/, {
-      timeout: 15_000,
-    })
+    const shown = win.locator('.pane-slot:not([data-hidden]) .xterm-rows')
+    await expect(shown).toContainText(/[❯$%#]/, { timeout: 20_000 })
+    await win.waitForTimeout(1_500)
     await expect(win.locator('.xterm-rows').filter({ hasText: 'claude --resume' })).toHaveCount(0)
+
+    await win.getByRole('tab').nth(1).click()
+    await expect(shown).toContainText(/fake claude .*--resume back-2222/, { timeout: 20_000 })
+    await expect(win.locator('.xterm-rows').filter({ hasText: 'front-1111' })).toHaveCount(0)
   } finally {
     await app.close()
   }
@@ -277,11 +278,8 @@ test('an agent that exited before the quit does not resume after the restart', a
 
   const second = await launchAgentApp(dataHome)
   try {
-    await expect(second.win.getByRole('button', { name: /Resume claude/ })).toBeVisible({
-      timeout: 20_000,
-    })
     const shown = second.win.locator('.pane-slot:not([data-hidden]) .xterm-rows')
-    await expect(shown).toContainText(/[❯$%#]/, { timeout: 15_000 })
+    await expect(shown).toContainText(/[❯$%#]/, { timeout: 20_000 })
     await second.win.waitForTimeout(1_500)
     await expect(shown).not.toContainText('fake-agent-resumed')
   } finally {

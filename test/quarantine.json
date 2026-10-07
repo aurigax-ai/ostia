@@ -67,5 +67,19 @@
     "name": "a browser pane moved to its own window sends a picked element to the agent it left behind",
     "issue": 320,
     "until": "2026-11-05"
+  },
+  {
+    "file": "e2e/system.spec.ts",
+    "name": "ostia system install asks the human, then runs the command in a new terminal beside the agent",
+    "issue": 392,
+    "until": "2026-11-06",
+    "platforms": ["linux"]
+  },
+  {
+    "file": "e2e/keep-shells-sandbox.spec.ts",
+    "name": "KSH-C58 an exposed port answers again after a restart without a new approval",
+    "issue": 393,
+    "until": "2026-11-06",
+    "platforms": ["linux"]
   }
 ]

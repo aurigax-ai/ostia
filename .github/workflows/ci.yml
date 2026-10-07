@@ -2,6 +2,7 @@ name: CI
 
 on:
   pull_request:
+  merge_group:
   push:
     branches: [main]
   workflow_call:
@@ -47,7 +48,7 @@ env:
   PTRACE_E2E: with Unix sockets off the shell still starts
 
 concurrency:
-  group: ci-${{ github.event_name }}-${{ github.ref }}-${{ github.event.pull_request.number || github.sha }}${{ github.event_name == 'workflow_dispatch' && format('-{0}-{1}-{2}-{3}', inputs.full, inputs.platform, inputs.specs, inputs.repeat) || '' }}
+  group: ci-${{ github.event_name }}-${{ github.ref }}${{ github.event_name != 'push' && format('-{0}', github.event.pull_request.number || github.sha) || '' }}${{ github.event_name == 'workflow_dispatch' && format('-{0}-{1}-{2}-{3}', inputs.full, inputs.platform, inputs.specs, inputs.repeat) || '' }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
@@ -64,9 +65,9 @@ jobs:
       # nightly schedule and manual dispatch. A pull request that changes the
       # e2e harness runs the full Linux suite (macOS stays on the nightly and
       # tags); one that changes other e2e files runs only the specs it changed
-      # and the specs importing a changed file (changed). Pull requests also get
-      # static, unit, unit-dom and build; pushes to main run no e2e but also
-      # run unit-macos.
+      # and the specs importing a changed file (changed). Pull requests and the
+      # merge queue also get static, unit, unit-dom and build; pushes to main
+      # run no e2e but also run unit-macos.
       full: ${{ github.ref_type == 'tag' || github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.full) || steps.e2e_paths.outputs.harness == 'true' }}
       changed: ${{ steps.e2e_paths.outputs.harness != 'true' && steps.e2e_paths.outputs.e2e == 'true' }}
       linux: ${{ steps.runner.outputs.linux }}
@@ -76,9 +77,9 @@ jobs:
       repeat: ${{ steps.plan.outputs.repeat }}
       shards: ${{ steps.plan.outputs.shards }}
       macos_matrix: ${{ steps.plan.outputs.macos_matrix }}
-      # Pull requests run only the unit tests their diff against the merge-base
-      # can affect (scripts/affectedTests.mjs); empty means every test, as on
-      # main, the nightly run, tags and manual dispatch.
+      # Pull requests and merge queue groups run only the unit tests their diff
+      # against the base can affect (scripts/affectedTests.mjs); empty means
+      # every test, as on main, the nightly run, tags and manual dispatch.
       tests: ${{ steps.tests.outputs.plan }}
     steps:
       # Routing only, not security: a PR can edit this step. The self-hosted
@@ -142,15 +143,15 @@ jobs:
           } >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v7
         with:
-          fetch-depth: ${{ github.event_name == 'pull_request' && '0' || '1' }}
-      - if: github.event_name == 'pull_request'
+          fetch-depth: ${{ (github.event_name == 'pull_request' || github.event_name == 'merge_group') && '0' || '1' }}
+      - if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
         id: tests
         env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
         run: |
           plan=$(node scripts/affectedTests.mjs plan "$BASE_SHA") || plan=
           echo "plan=$plan" >> "$GITHUB_OUTPUT"
-      - if: github.event_name == 'pull_request' || github.event_name == 'push'
+      - if: github.event_name == 'pull_request' || github.event_name == 'push' || github.event_name == 'merge_group'
         uses: dorny/paths-filter@v4
         id: filter
         with:
@@ -353,7 +354,7 @@ jobs:
 
   unit-macos:
     needs: changes
-    if: needs.changes.outputs.code == 'true' && needs.changes.outputs.platform != 'linux' && github.event_name != 'pull_request'
+    if: needs.changes.outputs.code == 'true' && needs.changes.outputs.platform != 'linux' && github.event_name != 'pull_request' && github.event_name != 'merge_group'
     runs-on: ${{ fromJSON(needs.changes.outputs.macos) }}
     timeout-minutes: 45
     continue-on-error: true
@@ -457,7 +458,7 @@ jobs:
   # pass/fail counts per entry. Never part of ci-result.
   quarantine:
     needs: [changes, build, build-macos]
-    if: ${{ !cancelled() && needs.changes.outputs.code == 'true' }}
+    if: ${{ !cancelled() && needs.changes.outputs.code == 'true' && github.event_name != 'merge_group' }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
     continue-on-error: true

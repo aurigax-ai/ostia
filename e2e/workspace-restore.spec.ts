@@ -338,11 +338,14 @@ test('restores tabs and offers to resume the agent a tab was running', async () 
     const term = first.win.locator('.pane-slot:not([data-hidden]) .xterm')
     await term.click()
     await waitForTerminalFocus(first.win)
-    await first.win.keyboard.type('ostia resume-token claude ffe55127-cb1f-4efd')
+    await first.win.keyboard.type(
+      'ostia resume-token claude ffe55127-cb1f-4efd && echo token-$((6*7))',
+    )
     await first.win.keyboard.press('Enter')
-    await expect(first.win.getByRole('button', { name: /Resume claude/ })).toBeVisible({
-      timeout: 15_000,
-    })
+    await expect(first.win.locator('.pane-slot:not([data-hidden]) .xterm-rows')).toContainText(
+      'token-42',
+      { timeout: 15_000 },
+    )
   } finally {
     await quitApp(first.app)
   }
@@ -353,8 +356,10 @@ test('restores tabs and offers to resume the agent a tab was running', async () 
   const second = await launchApp(dataHome)
   try {
     await expect(second.win.getByRole('tab')).toHaveCount(2, { timeout: 15_000 })
-    const resume = second.win.getByRole('button', { name: /Resume claude/ })
-    await expect(resume).toBeVisible({ timeout: 15_000 })
+    await expect(second.win.locator('.pane-slot:not([data-hidden]) .xterm-rows')).toContainText(
+      /[❯$%#]/,
+      { timeout: 15_000 },
+    )
     await second.win.keyboard.press('Control+Shift+R')
     await expect(second.win.locator('.pane-slot:not([data-hidden]) .xterm-rows')).toContainText(
       'claude --resume ffe55127-cb1f-4efd',

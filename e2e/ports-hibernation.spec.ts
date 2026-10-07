@@ -78,7 +78,7 @@ test('a port a terminal listens on shows in the top bar and opens in the browser
   }
 })
 
-test('an idle hidden agent hibernates and resumes when the human asks', async () => {
+test('an idle hidden agent hibernates and resumes when the human opens its tab', async () => {
   test.setTimeout(90_000)
   const dataHome = freshDataHome()
   const bin = join(dataHome, 'bin')
@@ -95,8 +95,8 @@ test('an idle hidden agent hibernates and resumes when the human asks', async ()
     await win.waitForLoadState('domcontentloaded')
     await openWorkspace(win)
 
-    await typeLine(win, 'ostia resume-token claude e2e-tok-1')
-    await expect(win.getByRole('button', { name: 'Resume claude' })).toBeVisible({
+    await typeLine(win, 'ostia resume-token claude e2e-tok-1 && echo token-$((6*7))')
+    await expect(win.locator('.xterm-rows').first()).toContainText('token-42', {
       timeout: 15_000,
     })
     await typeLine(win, 'claude')
@@ -115,10 +115,6 @@ test('an idle hidden agent hibernates and resumes when the human asks', async ()
     await expect(win.locator('.xterm')).toHaveCount(1)
 
     await sleeping.click()
-    const view = win.locator('.hibernated-view')
-    await expect(view).toContainText('Hibernated')
-    await expect(view).toContainText('claude --resume e2e-tok-1')
-    await view.getByRole('button', { name: 'Resume claude' }).click()
 
     const rows = win.locator('.pane-slot:not([data-hidden]) .xterm-rows')
     await expect(rows).toContainText('woke from hibernation', { timeout: 15_000 })
@@ -130,7 +126,7 @@ test('an idle hidden agent hibernates and resumes when the human asks', async ()
   }
 })
 
-test('a hibernated agent is still hibernated after a restart and wakes when the human asks', async () => {
+test('a hibernated agent is still hibernated after a restart and wakes when the human opens its tab', async () => {
   test.setTimeout(120_000)
   const dataHome = freshDataHome()
   const bin = join(dataHome, 'bin')
@@ -149,8 +145,8 @@ test('a hibernated agent is still hibernated after a restart and wakes when the 
     const win = await first.firstWindow()
     await win.waitForLoadState('domcontentloaded')
     await openWorkspace(win)
-    await typeLine(win, 'ostia resume-token claude e2e-tok-2')
-    await expect(win.getByRole('button', { name: 'Resume claude' })).toBeVisible({
+    await typeLine(win, 'ostia resume-token claude e2e-tok-2 && echo token-$((6*7))')
+    await expect(win.locator('.xterm-rows').first()).toContainText('token-42', {
       timeout: 15_000,
     })
     await typeLine(win, 'claude')
@@ -188,9 +184,6 @@ test('a hibernated agent is still hibernated after a restart and wakes when the 
     await expect(win.locator('.xterm')).toHaveCount(1)
 
     await sleeping.click()
-    const view = win.locator('.hibernated-view')
-    await expect(view).toContainText('claude --resume e2e-tok-2')
-    await view.getByRole('button', { name: 'Resume claude' }).click()
     const rows = win.locator('.pane-slot:not([data-hidden]) .xterm-rows')
     await expect(rows).toContainText(/fake agent up: .*--resume e2e-tok-2/, { timeout: 20_000 })
     await expect(win.locator('.hibernated-view')).toHaveCount(0)
