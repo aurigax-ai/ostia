@@ -54,7 +54,7 @@ Example: `ostia manager spawn claude --cwd ~/src/api --name "api tests" -- "run 
   message as context when the human wakes it (or you do, with `ostia pane wake <paneId>`, which
   needs the same **Allow typing into other panes** switch as `manager input`).
 - `ostia bus sent [--json]` — your own messages, each `seen` or `unseen` by its worker.
-- `ostia bus inbox [--drain]`, `ostia bus wait [--timeout MS]` — your own inbox. Workers' answers
+- `ostia bus inbox [--drain]`, `ostia bus wait [--timeout <s>]` — your own inbox (`bus wait` prints only new messages). Workers' answers
   also arrive as context at your next prompt, marked as messages from other panes.
 - `ostia whoami` prints your own `paneId`.
 
