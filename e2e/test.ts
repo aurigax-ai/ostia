@@ -29,6 +29,12 @@ async function stopTrace(app: ElectronApplication): Promise<void> {
   }
 }
 
+function processExit(app: ElectronApplication): Promise<void> {
+  const child = app.process()
+  if (child.exitCode !== null || child.signalCode !== null) return Promise.resolve()
+  return new Promise((resolve) => child.once('exit', () => resolve()))
+}
+
 export const _electron: Electron = {
   async launch(options) {
     const app = await playwrightElectron.launch(options)
@@ -38,8 +44,10 @@ export const _electron: Electron = {
     recording.set(app, path)
     const close = app.close.bind(app)
     app.close = async () => {
+      const exited = processExit(app)
       await stopTrace(app)
       await close()
+      await exited
     }
     return app
   },

@@ -41,6 +41,10 @@ test('quitting with a program running in a shell without blocks asks and names i
   try {
     await run(win, 'echo plain-$((6*7)); sleep 100')
     await expect(win.locator('.xterm-rows').first()).toContainText('plain-42', { timeout: 15_000 })
+    const paneId = await win.locator('.pane').first().getAttribute('data-pane-id')
+    await expect
+      .poll(() => win.evaluate((id) => window.ostia.pty.foreground(id ?? ''), paneId))
+      .toBe('sleep')
     expect(await pressQuit(app, win)).toBe('asked')
     const dialog = win.getByRole('dialog')
     await expect(dialog).toContainText('1 shell process will be ended')
