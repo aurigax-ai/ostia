@@ -149,6 +149,9 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
+        with:
+          go: false
+          electron: false
       - run: pnpm typecheck
       - run: pnpm lint
 
@@ -180,6 +183,8 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
+        with:
+          electron: false
       - run: pnpm build
       - uses: actions/upload-artifact@v7
         with:
