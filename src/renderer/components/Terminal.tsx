@@ -803,10 +803,11 @@ function TerminalSurface({
       }
     })
 
-    syncSizeRef.current = syncSize
-    syncSize()
+    syncSizeRef.current = () => {
+      if (attached) syncSize()
+    }
     const unregisterOffscreen = registerOffscreenStarter(paneId, () => {
-      if (attached || disposed) return
+      if (attached || disposed || (host.offsetWidth > 0 && host.offsetHeight > 0)) return
       const grid = offscreenGrid()
       term.resize(grid.cols, grid.rows)
       attachAtCurrentSize(grid.cols, grid.rows)
@@ -816,7 +817,8 @@ function TerminalSurface({
     let rafId = 0
     const ro = new ResizeObserver(() => {
       if (!attached) {
-        syncSize()
+        cancelAnimationFrame(rafId)
+        rafId = requestAnimationFrame(syncSize)
         return
       }
       if (resizeTimer) clearTimeout(resizeTimer)

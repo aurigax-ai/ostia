@@ -12,6 +12,23 @@ if (!Element.prototype.getAnimations) {
 }
 
 const realGetContext = HTMLCanvasElement.prototype.getContext
+const realResizeObserver = globalThis.ResizeObserver
+
+class InitialObservation {
+  private connected = true
+  constructor(private readonly callback: ResizeObserverCallback) {}
+  observe(target: Element): void {
+    setTimeout(() => {
+      if (this.connected) {
+        this.callback([{ target } as ResizeObserverEntry], this as unknown as ResizeObserver)
+      }
+    })
+  }
+  unobserve(): void {}
+  disconnect(): void {
+    this.connected = false
+  }
+}
 
 function useGhostty(): void {
   useSettingsStore.setState({
@@ -47,10 +64,12 @@ describe('TerminalView engines', () => {
     } as typeof HTMLCanvasElement.prototype.getContext
     Object.defineProperty(HTMLElement.prototype, 'offsetWidth', { configurable: true, value: 800 })
     Object.defineProperty(HTMLElement.prototype, 'offsetHeight', { configurable: true, value: 600 })
+    globalThis.ResizeObserver = InitialObservation as unknown as typeof ResizeObserver
   })
 
   afterAll(() => {
     HTMLCanvasElement.prototype.getContext = realGetContext
+    globalThis.ResizeObserver = realResizeObserver
   })
 
   afterEach(() => {
