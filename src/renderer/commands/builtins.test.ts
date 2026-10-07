@@ -683,6 +683,40 @@ describe('builtins route to store actions', () => {
     expect(closePane).toHaveBeenCalledWith('s1', 'pA')
   })
 
+  it('closes the settings page instead of a pane when settings is showing', async () => {
+    const closePane = vi.spyOn(useLayoutStore.getState(), 'closePane').mockImplementation(() => {})
+    const ask = vi.spyOn(closeConfirm, 'requestClosePane').mockResolvedValue()
+    useUIStore.getState().openSettings()
+
+    await commands.execWith(ctx('s1', 'pA'), 'pane.close')
+
+    const ui = useUIStore.getState()
+    expect([ui.settingsActive, ui.settingsTabOpen]).toEqual([false, false])
+    expect(ask).not.toHaveBeenCalled()
+    expect(closePane).not.toHaveBeenCalled()
+  })
+
+  it('returns from the dashboard instead of closing a pane', async () => {
+    const ask = vi.spyOn(closeConfirm, 'requestClosePane').mockResolvedValue()
+    useUIStore.getState().openDashboard()
+
+    await commands.execWith(ctx('s1', 'pA'), 'pane.close')
+
+    expect(useUIStore.getState().dashboardActive).toBe(false)
+    expect(ask).not.toHaveBeenCalled()
+  })
+
+  it('still closes the named pane while settings is showing', async () => {
+    const ask = vi.spyOn(closeConfirm, 'requestClosePane').mockResolvedValue()
+    useUIStore.getState().openSettings()
+
+    await commands.execWith(ctx('s1', 'pA'), 'pane.close', { paneId: 'pX' })
+
+    expect(ask).toHaveBeenCalledWith('s1', 'pX')
+    expect(useUIStore.getState().settingsActive).toBe(true)
+    useUIStore.getState().closeSettings()
+  })
+
   it('asks the human before closing a pane but closes at once for an agent on the socket', async () => {
     const ask = vi.spyOn(closeConfirm, 'requestClosePane').mockResolvedValue()
     const closePane = vi.spyOn(useLayoutStore.getState(), 'closePane').mockImplementation(() => {})

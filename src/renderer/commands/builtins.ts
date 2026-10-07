@@ -272,6 +272,17 @@ export function registerBuiltinCommands(): void {
       if (args?.paneId !== undefined && typeof args.paneId !== 'string') {
         throw new Error('paneId must be a string')
       }
+      if (args?.paneId === undefined && !ctx.target) {
+        const ui = useUIStore.getState()
+        if (ui.settingsActive) {
+          ui.closeSettings()
+          return
+        }
+        if (ui.dashboardActive) {
+          ui.showWorkspaces()
+          return
+        }
+      }
       if (!ctx.activeWorkspaceId) return
       const target = args?.paneId ?? ctx.activePaneId
       const layout = useLayoutStore.getState()
