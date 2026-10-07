@@ -243,9 +243,47 @@ ostia pane rename <pane> <title...> | --clear  # name its tab (your own needs no
 
 ## Coordinating worker agents
 
+**Where workers go.** The human's stated preference always wins: what they told you, their
+CLAUDE.md, AGENTS.md or project instructions, or their memory notes. Use the default below only
+when they said nothing.
+
+*Default: one workers workspace beside yours.* A background workspace named
+`<project> · workers`, in the same sidebar group as your workspace, holds every worker as a tab.
+The human sees your workspace and its workers together in the sidebar, the workers row lights up
+when one is waiting or done, and your own tab row stays yours.
+
+```sh
+ostia workspace list --json      # your workspace's groupId; is a '<project> · workers' already there?
+ostia workspace group "<project>"  # only if your workspace is in no group yet
+ostia workspace.new '{"name":"<project> · workers","dir":"<repo>","focus":false,"group":"<project>"}'
+                                 # prints ok, then {"workspaceId":"…"}; the human's view stays put
+ostia agent run claude - --name <name> --cwd <worktree> --workspace <workspaceId> < task.md
+```
+
+- Create the workers workspace once and reuse it: look for it by name in `ostia workspace list`
+  before making another. `group` is the group's name; it joins that group, or makes it.
+- Whether you reach a sibling workspace without a question is the human's choice, set in
+  `capabilities.reach` (only they change it). The default, `project`, treats workspaces on the
+  same git repository (any of its worktrees) with the same sandbox state as yours, so a workers
+  workspace on your repo needs no card and your tabs there stay yours to send, read, wait, wake
+  and close. When the workers workspace is outside that scope (another repo, `reach` set to
+  `workspace`, or a group membership you made yourself under `group`), `--workspace` and every
+  `pane` verb there ask the human for `all-workspaces`, as for any other workspace.
+- Name each worker by its task (`issue-398`, `fix-login`), never `worker-3`: the name is its tab
+  title and how you address it.
+
+*Other layouts, when the human asks for them:*
+
+| Layout | How |
+|---|---|
+| Workers as tabs beside you | `ostia agent run …` without `--workspace`: they open after your tab, in launch order |
+| Two or three workers side by side | the same `--split-tab <name>` on each: one tab, a segment per worker |
+| A workspace per worker | `workspace.new` with `"focus":false` and the same `"group"` for each, then `--workspace` |
+| A group per task | `workspace.new` with `"group":"<task>"`; your workspace stays in its own group |
+
 1. **Dispatch.** When workers edit the same repo, give each one its own checkout:
-   `git worktree add ../<repo>-<branch> -b <branch>`. Start each with its task on stdin:
-   `ostia agent run claude - --name <name> --cwd <dir> < task.md`.
+   `git worktree add ../<repo>-<branch> -b <branch>`. Start each with its task on stdin, in the
+   layout above: `ostia agent run claude - --name <name> --cwd <dir> [--workspace <id>] < task.md`.
    End every task with a report step, with your id (`externalId` in `ostia whoami`) filled in:
    `ostia bus send <your id> "<branch> done|blocked: <sha> <summary>; tests: <result>"`.
    The worker's first send to another pane asks the human once for `send-other-pane`.

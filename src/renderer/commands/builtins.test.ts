@@ -1309,6 +1309,34 @@ describe('builtins route to store actions', () => {
     expect(res).toEqual({ ok: true, result: { workspaceId: created } })
   })
 
+  it('workspace.new opens a background workspace in a named group beside the caller', async () => {
+    const store = useWorkspacesStore.getState()
+    store.addWorkspace('/home/u/proj')
+    const coordinator = useWorkspacesStore.getState().activeWorkspaceId as string
+    store.moveToGroupNamed(coordinator, 'proj')
+
+    const res = await commands.execWith(ctx(null, null), 'workspace.new', {
+      dir: '/home/u/proj',
+      name: 'proj · workers',
+      focus: false,
+      group: 'proj',
+    })
+
+    const after = useWorkspacesStore.getState()
+    const workers = after.workspaces.find((w) => w.customName === 'proj · workers')
+    expect(res).toEqual({ ok: true, result: { workspaceId: workers?.id } })
+    expect(after.activeWorkspaceId).toBe(coordinator)
+    expect(workers?.groupId).toBe(after.workspaces.find((w) => w.id === coordinator)?.groupId)
+    expect(after.groups.map((g) => g.name)).toEqual(['proj'])
+  })
+
+  it('workspace.new refuses a blank group and opens nothing', async () => {
+    const before = useWorkspacesStore.getState().workspaces.length
+    const res = await commands.execWith(ctx(null, null), 'workspace.new', { group: '  ' })
+    expect(res.ok).toBe(false)
+    expect(useWorkspacesStore.getState().workspaces).toHaveLength(before)
+  })
+
   it('routes palette.toggle to ui.togglePalette', async () => {
     const togglePalette = vi
       .spyOn(useUIStore.getState(), 'togglePalette')
