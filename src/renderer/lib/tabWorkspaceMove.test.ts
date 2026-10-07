@@ -1,5 +1,7 @@
 import type { LifecycleEvent } from '@shared/types'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { registerBuiltinCommands } from '../commands/builtins'
+import { commands } from '../commands/registry'
 import { findPane, paneIds, splitTabOfPane, tabsOfPane } from '../layout/tree'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useSandboxStore } from '../stores/sandboxStore'
@@ -17,6 +19,7 @@ let layoutInit: ReturnType<typeof useLayoutStore.getState>
 let sandboxInit: ReturnType<typeof useSandboxStore.getState>
 
 beforeAll(() => {
+  registerBuiltinCommands()
   workspacesInit = useWorkspacesStore.getState()
   layoutInit = useLayoutStore.getState()
   sandboxInit = useSandboxStore.getState()
@@ -197,5 +200,41 @@ describe('moveTabToWorkspace', () => {
     expect(tabMoveTargets(source.id, source.panes[1])).toEqual([
       { id: target.id, name: 'web', refusal: 'sandbox' },
     ])
+  })
+})
+
+describe('pane.moveToWorkspace command', () => {
+  it('needs all-workspaces and type-other-pane when an agent calls it directly', () => {
+    expect(commands.describe().find((c) => c.id === 'pane.moveToWorkspace')).toMatchObject({
+      hidden: true,
+      capabilities: ['all-workspaces', 'type-other-pane'],
+    })
+  })
+
+  it('moves the target pane through the same move path', async () => {
+    const source = seed('/home/u/api', 2)
+    const target = seed('/home/u/web', 1)
+    const ctx = { activeWorkspaceId: source.id, activePaneId: source.panes[1] }
+
+    const res = await commands.execWith(ctx, 'pane.moveToWorkspace', { workspaceId: target.id })
+
+    expect(res).toEqual({ ok: true, result: { moved: [source.panes[1]] } })
+    expect(window.ostia.workspace.movePanes).toHaveBeenCalledWith(source.id, target.id, [
+      source.panes[1],
+    ])
+    expect(paneIds(rootOf(target.id))).toEqual([...target.panes, source.panes[1]])
+  })
+
+  it('answers the refusal instead of moving', async () => {
+    const source = seed('/home/u/api', 2)
+    const target = seed('/home/u/web', 1)
+    useSandboxStore.setState((s) => ({ enabled: { ...s.enabled, [target.id]: true } }))
+    const ctx = { activeWorkspaceId: source.id, activePaneId: source.panes[1] }
+
+    const res = await commands.execWith(ctx, 'pane.moveToWorkspace', { workspaceId: target.id })
+
+    expect(res.ok).toBe(false)
+    expect(!res.ok && res.error.message).toMatch(/^sandbox:/)
+    expect(window.ostia.workspace.movePanes).not.toHaveBeenCalled()
   })
 })

@@ -209,6 +209,22 @@ describe('paneReach', () => {
     }
   })
 
+  it('lets a pane move itself and asks type-other-pane to move any other pane', () => {
+    expect(paneReach('move', facts({ target: { paneId: 'a' } }))).toEqual({
+      allowed: true,
+      caps: [],
+    })
+    expect(paneReach('move', facts())).toEqual({ allowed: true, caps: ['type-other-pane'] })
+    expect(paneReach('move', facts({ ownChild: true }))).toEqual({
+      allowed: true,
+      caps: ['process'],
+    })
+    expect(paneReach('move', facts({ target: { workspaceId: 'ws2' } }))).toEqual({
+      allowed: true,
+      caps: ['type-other-pane', 'all-workspaces'],
+    })
+  })
+
   it('asks for the elevated capability for any other pane of the workspace', () => {
     expect(paneReach('input', facts())).toEqual({ allowed: true, caps: ['type-other-pane'] })
     expect(paneReach('read', facts())).toEqual({ allowed: true, caps: ['read-other-pane'] })

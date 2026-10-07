@@ -1283,6 +1283,10 @@ commands:
   pane close <pane>… [--json]
                             close those panes at once, even while a command runs (a tab you
                             opened needs nothing more, any other asks for kill-pane)
+  pane move <pane>… --workspace <id|name> [--json]
+                            move those running tabs into another workspace of their window
+                            (a tab you opened needs nothing more, any other asks for
+                            type-other-pane; all-workspaces outside your reach)
   vault | bus | settings | browse | gateway <subcommand> ...
   ext ls | ext <extId> <command> [args...]
   <extId> <command> [args...]  an extension command, e.g. ostia git status

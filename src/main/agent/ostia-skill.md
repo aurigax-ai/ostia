@@ -204,6 +204,7 @@ ostia pane read <pane> [--lines N] [--json]  # its screen as plain text
 ostia pane wait <pane>... [--until done|waiting|idle|exited]... [--timeout <s>] [--json]
 ostia pane wake <pane>... [--wait [--timeout <s>]] [--json]  # wake hibernated agent panes
 ostia pane close <pane>... [--json]      # close those panes
+ostia pane move <pane>... --workspace <id|name> [--json]  # move running tabs to another workspace
 ostia pane rename <pane> <title...> | --clear  # name its tab (your own needs nothing)
 ```
 
@@ -240,6 +241,13 @@ ostia pane rename <pane> <title...> | --clear  # name its tab (your own needs no
 - `pane close` closes the pane at once, even while a command runs in it; the human is asked
   only when it holds their unsaved file changes. A pane the human locked answers
   `pane-locked`: leave it open, you can't unlock it.
+- `pane move` moves running tabs into another workspace of the same window (`--workspace`
+  takes an id or a name from `ostia workspace list`). The process, screen and `paneId` stay
+  the same; each lands as a new tab. Your own pane and tabs you opened need nothing more;
+  any other pane asks for `type-other-pane`, and a workspace outside your reach asks for
+  `all-workspaces`. It refuses sandboxed and scratch workspaces (`sandboxed:`, `scratch:`)
+  and another window (`other-window:`). Moving a workspace's last tab leaves that workspace
+  empty; it never merges workspaces.
 
 ## Coordinating worker agents
 

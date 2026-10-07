@@ -61,11 +61,11 @@ export interface PaneAttentionPeek {
   message?: string
 }
 
-function fail(message: string): ResponseError<void> {
+export function fail(message: string): ResponseError<void> {
   return new ResponseError(ErrorCodes.InvalidRequest, message)
 }
 
-function record(raw: unknown): Record<string, unknown> {
+export function record(raw: unknown): Record<string, unknown> {
   return typeof raw === 'object' && raw !== null && !Array.isArray(raw)
     ? (raw as Record<string, unknown>)
     : {}
@@ -142,7 +142,7 @@ export function readLineCount(raw: unknown): number {
   return Math.min(n, READ_LINES_MAX)
 }
 
-export type PaneReach = 'input' | 'read' | 'close'
+export type PaneReach = 'input' | 'read' | 'close' | 'move'
 
 export interface ReachFacts {
   caller: { paneId: string; workspaceId: string; sandboxed: boolean }
@@ -157,13 +157,14 @@ const REACH_CAPS: Readonly<Record<PaneReach, Capability>> = {
   input: 'type-other-pane',
   read: 'read-other-pane',
   close: 'kill-pane',
+  move: 'type-other-pane',
 }
 
 export function paneReach(kind: PaneReach, facts: ReachFacts): ReachVerdict {
   const { caller, target } = facts
   if (target.manager) return { allowed: false, error: 'unknown-pane' }
   if (caller.paneId === target.paneId && kind !== 'close') {
-    return kind === 'read' ? { allowed: true, caps: [] } : { allowed: false, error: 'own-pane' }
+    return kind === 'input' ? { allowed: false, error: 'own-pane' } : { allowed: true, caps: [] }
   }
   const sameWorkspace = caller.workspaceId === target.workspaceId
   if (caller.sandboxed && !(sameWorkspace && target.confined)) {

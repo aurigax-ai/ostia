@@ -85,9 +85,7 @@ test('a running tab moves to another workspace by its menu and back by a rail dr
       { timeout: 10_000 },
     )
 
-    await win
-      .locator(`.pane-tab[data-tab-id="${moving}"]`)
-      .dragTo(win.locator('.rail-row').nth(0))
+    await win.locator(`.pane-tab[data-tab-id="${moving}"]`).dragTo(win.locator('.rail-row').nth(0))
     await expect(visibleTabs(win)).toHaveCount(1)
     await expect(win.locator('.pane-drop-layer')).toHaveCount(0)
     await win.locator('.rail-tab-main').nth(0).click()
@@ -98,6 +96,77 @@ test('a running tab moves to another workspace by its menu and back by a rail dr
     await runIn(win, home, `kill -0 ${pid} && echo again-$((${pid}+0))`)
     await expect(win.locator('.pane-slot:not([data-hidden]) .xterm-rows:visible')).toContainText(
       `again-${pid}`,
+      { timeout: 10_000 },
+    )
+  } finally {
+    await app
+      .evaluate(({ app: electronApp }) => {
+        setTimeout(() => electronApp.quit(), 0)
+      })
+      .catch(() => {})
+    await app.close().catch(() => {})
+  }
+})
+
+test('an agent moves a running tab to another workspace with ostia pane move, same process', async () => {
+  test.setTimeout(150_000)
+  const app = await electron.launch(isolatedLaunch(freshDataHome()))
+  try {
+    const win = await app.firstWindow()
+    await win.waitForLoadState('domcontentloaded')
+    await openWorkspace(win)
+    await win.getByRole('button', { name: 'New terminal tab' }).first().click()
+    await expect(visibleTabs(win)).toHaveCount(2)
+    const [home, moving] = await visibleTabs(win).evaluateAll((tabs) =>
+      tabs.map((t) => t.getAttribute('data-tab-id') ?? ''),
+    )
+    await expect(win.locator('.xterm-rows:visible')).toContainText(PROMPT, { timeout: 15_000 })
+
+    await runIn(win, moving, "sh -c 'echo id-$OSTIA_PANE_ID-pid-$$-up; exec sleep 777'")
+    const screen = win.locator('.pane-slot:not([data-hidden]) .xterm-rows:visible')
+    await expect(screen).toContainText(/id-[0-9a-f-]+-pid-\d+-up/, { timeout: 15_000 })
+    const [, paneId, pid] =
+      (await screen.textContent())?.match(/id-([0-9a-f-]+)-pid-(\d+)-up/) ?? []
+    if (!paneId || !pid) throw new Error('no pane id or pid')
+    await win
+      .locator('.pane-slot:not([data-hidden]) .xterm:visible')
+      .evaluate((el) => el.setAttribute('data-move-mark', 'moving'))
+
+    await newTerminalWorkspace(win)
+    await renameRow(win, 1, 'workers')
+    await win.locator('.rail-tab-main').nth(0).click()
+    await expect(visibleTabs(win)).toHaveCount(2)
+
+    await runIn(win, home, `ostia pane move ${paneId} --workspace workers && echo MOVED-$((40+2))`)
+    const card = win.getByRole('region', { name: 'Agent permission request' })
+    const homeScreen = win.locator('.pane-slot:not([data-hidden]) .xterm-rows:visible')
+    await expect
+      .poll(
+        async () => {
+          if (await card.isVisible()) {
+            await card.getByRole('button', { name: 'Allow once' }).click()
+          }
+          return (await homeScreen.textContent()) ?? ''
+        },
+        { timeout: 40_000 },
+      )
+      .toContain('MOVED-42')
+
+    await expect(visibleTabs(win)).toHaveCount(1)
+    await expect(win.locator('.rail-row')).toHaveCount(2)
+    await win.locator('.rail-tab-main').nth(1).click()
+    await expect(visibleTabs(win)).toHaveCount(2)
+    await expect(win.locator(`.pane-tab[data-tab-id="${moving}"]:visible`)).toHaveCount(1)
+    await expect(win.locator('.xterm[data-move-mark="moving"]')).toBeVisible()
+
+    const workersHome = await visibleTabs(win).evaluateAll(
+      (tabs, id) => tabs.map((t) => t.getAttribute('data-tab-id') ?? '').find((t) => t !== id),
+      moving,
+    )
+    if (!workersHome) throw new Error('no workers tab')
+    await runIn(win, workersHome, `kill -0 ${pid} && echo alive-$((${pid}+0))`)
+    await expect(win.locator('.pane-slot:not([data-hidden]) .xterm-rows:visible')).toContainText(
+      `alive-${pid}`,
       { timeout: 10_000 },
     )
   } finally {
