@@ -4,7 +4,7 @@ import { type AgentSessionInfo, formatTokens } from '@shared/agentSessionInfo'
 import { useEffect, useState } from 'react'
 import { fmt, useDict } from '../i18n/useDict'
 import type { PaneNode } from '../layout/types'
-import { agentSession } from '../lib/agentSession'
+import { type AgentSession, agentSession } from '../lib/agentSession'
 import { commandAgent } from '../lib/hibernation'
 import { formatDuration } from '../lib/promptChips'
 import { useAttentionStore } from '../stores/attentionStore'
@@ -68,27 +68,31 @@ function Field({ label, value, mono }: { label: string; value: string; mono?: bo
   )
 }
 
-export function AgentSessionButton({ pane }: { pane: PaneNode }): JSX.Element | null {
-  const d = useDict()
-  const [open, setOpen] = useState(false)
+export function usePaneAgentSession(pane: PaneNode): AgentSession | null {
   const running = useBlocksStore((s) => {
     const id = s.running[pane.id]
     return id ? s.byPane[pane.id]?.find((b) => b.id === id) : undefined
   })
   const attention = useAttentionStore((s) => s.byPane[pane.id])
-  const now = useNow(open)
   const agent = useBlocksStore((s) => {
     const blockId = s.running[pane.id]
     if (!blockId) return null
     const marked = s.agentBlocks[pane.id]
     return marked?.blockId === blockId ? marked.agent : null
   })
-  const session = agentSession(
+  return agentSession(
     pane,
     running,
     attention,
     running ? (commandAgent(running.command) ?? agent) : null,
   )
+}
+
+export function AgentSessionButton({ pane }: { pane: PaneNode }): JSX.Element | null {
+  const d = useDict()
+  const [open, setOpen] = useState(false)
+  const now = useNow(open)
+  const session = usePaneAgentSession(pane)
   const info = useSessionInfo(
     session?.sessionId ? { agent: session.agent, id: session.sessionId } : null,
     open,

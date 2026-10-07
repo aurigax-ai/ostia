@@ -39,7 +39,9 @@ test('a multi-line paste asks first; Cancel pastes nothing, Enter pastes, and Do
     await win.waitForTimeout(500)
     await expect(win.locator('.xterm-rows').first()).not.toContainText('ostiacancelled')
 
-    await app.evaluate(({ clipboard }) => clipboard.writeText('echo ostiafirst\necho ostiapasted42'))
+    await app.evaluate(({ clipboard }) =>
+      clipboard.writeText('echo ostiafirst\necho ostiapasted42'),
+    )
     await win.keyboard.press('Control+Shift+V')
     await expect(dialog).toBeVisible()
     await expect(dialog.getByRole('button', { name: 'Paste' })).toBeFocused()
