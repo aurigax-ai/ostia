@@ -387,6 +387,7 @@ describe('registerReleaseCheck', () => {
   })
 
   const start = vi.fn(async () => 'opened' as const)
+  const replaceStart = vi.fn(async (_version: string) => 'started' as const)
   const register = (settings: unknown = {}, version = '0.2.0'): void =>
     registerReleaseCheck({
       openExternal,
@@ -400,12 +401,15 @@ describe('registerReleaseCheck', () => {
         paneState: vi.fn(),
         paneClosed: vi.fn(),
       },
+      replaceAvailability: async () => ({ ok: true }),
+      replacer: { start: replaceStart, state: () => ({ status: 'idle' }) },
     })
   const APT_COMMAND = 'sudo apt update && sudo apt install --only-upgrade ostia'
   const state = (version: string | null) => ({
     release: version ? release(version) : null,
     method: 'apt',
     updateCommand: APT_COMMAND,
+    replace: version ? { ok: true } : null,
   })
 
   const invoke = (channel: string): unknown => handlers.get(channel)?.()
@@ -419,11 +423,14 @@ describe('registerReleaseCheck', () => {
       status: 'available',
       release: release('0.3.0'),
     })
-    expect(sent).toEqual([['app:release-available', state('0.3.0')]])
+    await vi.waitFor(() => expect(sent).toEqual([['app:release-available', state('0.3.0')]]))
     expect(await invoke('app:release-state')).toEqual(state('0.3.0'))
     expect(await invoke('app:update-run')).toBe('opened')
     expect(start).toHaveBeenCalledTimes(1)
     expect(await invoke('app:update-run-state')).toEqual({ status: 'idle' })
+    expect(await invoke('app:install-replace')).toBe('started')
+    expect(replaceStart).toHaveBeenCalledWith('0.3.0')
+    expect(await invoke('app:install-replace-state')).toEqual({ status: 'idle' })
 
     expect(await invoke('app:release-open')).toBe(true)
     expect(openExternal).toHaveBeenCalledWith(release('0.3.0').url)
@@ -479,7 +486,7 @@ describe('registerReleaseCheck', () => {
     register()
     await invoke('app:release-check')
     await invoke('app:release-dismiss')
-    expect(sent.at(-1)).toEqual(['app:release-available', state(null)])
+    await vi.waitFor(() => expect(sent.at(-1)).toEqual(['app:release-available', state(null)]))
 
     handlers.clear()
     sent.length = 0

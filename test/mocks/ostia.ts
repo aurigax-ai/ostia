@@ -230,7 +230,9 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       state: vi.fn().mockResolvedValue(null),
       restart: vi.fn().mockResolvedValue(undefined),
       onAvailable: vi.fn(() => () => {}),
-      release: vi.fn().mockResolvedValue({ release: null, method: 'dev', updateCommand: null }),
+      release: vi
+        .fn()
+        .mockResolvedValue({ release: null, method: 'dev', updateCommand: null, replace: null }),
       checkRelease: vi.fn().mockResolvedValue({ status: 'latest', version: '0.0.0' }),
       openRelease: vi.fn().mockResolvedValue(true),
       dismissRelease: vi.fn().mockResolvedValue(undefined),
@@ -238,6 +240,10 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       runUpdate: vi.fn().mockResolvedValue('opened'),
       updateRun: vi.fn().mockResolvedValue({ status: 'idle' }),
       onUpdateRun: vi.fn(() => () => {}),
+      replaceInstall: vi.fn().mockResolvedValue('started'),
+      replaceState: vi.fn().mockResolvedValue({ status: 'idle' }),
+      onReplace: vi.fn(() => () => {}),
+      onProgress: vi.fn(() => () => {}),
     },
     system: {
       requirements: vi.fn().mockResolvedValue(null),

@@ -6,7 +6,8 @@ import {
   XIcon,
 } from '@phosphor-icons/react'
 import { fmt, useDict } from '../i18n/useDict'
-import { showsUpdate, updateAction, useUpdateStore } from '../stores/updateStore'
+import { replaceLabel } from '../lib/replaceText'
+import { restartReady, showsUpdate, updateAction, useUpdateStore } from '../stores/updateStore'
 import { Hint } from './Hint'
 import { Button } from './ui/button'
 import { ButtonGroup, ButtonGroupSeparator } from './ui/button-group'
@@ -56,6 +57,11 @@ export function UpdateNotice(): JSX.Element | null {
   const release = useUpdateStore((s) => s.release)
   const action = useUpdateStore(updateAction)
   const run = useUpdateStore((s) => s.updateRun)
+  const ready = useUpdateStore(restartReady)
+  const replace = useUpdateStore((s) => s.replace)
+  const replaceRun = useUpdateStore((s) => s.replaceRun)
+  const progress = useUpdateStore((s) => s.progress)
+  const replaceInstall = useUpdateStore((s) => s.replaceInstall)
   const askUpdate = useUpdateStore((s) => s.askUpdate)
   const dismissRelease = useUpdateStore((s) => s.dismissRelease)
   if (restartVisible && available) {
@@ -70,7 +76,7 @@ export function UpdateNotice(): JSX.Element | null {
       />
     )
   }
-  if (run.status === 'done') {
+  if (ready) {
     return (
       <NoticeGroup
         icon={ArrowClockwiseIcon}
@@ -78,17 +84,43 @@ export function UpdateNotice(): JSX.Element | null {
         hint={d.update.restartAppHint}
         onAct={() => void window.ostia.update.restart()}
         dismissLabel={d.update.later}
-        onDismiss={() => useUpdateStore.getState().receiveUpdateRun({ status: 'idle' })}
+        onDismiss={() => {
+          const store = useUpdateStore.getState()
+          store.receiveUpdateRun({ status: 'idle' })
+          if (store.replaceRun.status === 'done') store.receiveReplace({ status: 'idle' })
+        }}
       />
     )
   }
   if (!release || !action) return null
+  if (action === 'replace') {
+    const busy = replaceRun.status === 'downloading' || replaceRun.status === 'installing'
+    return (
+      <NoticeGroup
+        icon={DownloadSimpleIcon}
+        label={busy ? replaceLabel(d, replaceRun, progress) : d.update.downloadInstall}
+        hint={
+          replaceRun.status === 'failed'
+            ? d.update.replaceFailed[replaceRun.reason]
+            : fmt(d.update.releaseAvailable, { version: release.version })
+        }
+        onAct={() => void replaceInstall()}
+        disabled={busy}
+        dismissLabel={d.update.dismissRelease}
+        onDismiss={dismissRelease}
+      />
+    )
+  }
   if (action === 'release') {
     return (
       <NoticeGroup
         icon={ArrowSquareOutIcon}
         label={fmt(d.update.releaseAvailable, { version: release.version })}
-        hint={d.update.releaseHint}
+        hint={
+          replace && !replace.ok && replace.reason === 'leftover' && replace.path
+            ? fmt(d.update.replaceLeftover, { path: replace.path })
+            : d.update.releaseHint
+        }
         onAct={() => void window.ostia.update.openRelease()}
         dismissLabel={d.update.dismissRelease}
         onDismiss={dismissRelease}

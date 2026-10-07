@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { type InstallProbe, detectInstallMethod, seededInstallMethod } from './installMethod'
+import {
+  type InstallProbe,
+  detectInstallMethod,
+  replaceableAppDir,
+  seededInstallMethod,
+} from './installMethod'
 
 const HOME = '/home/u'
 
@@ -82,5 +87,36 @@ describe('seededInstallMethod', () => {
     expect(seededInstallMethod(true, { OSTIA_INSTALL_METHOD: 'apt' })).toBeNull()
     expect(seededInstallMethod(false, { OSTIA_INSTALL_METHOD: 'snap' })).toBeNull()
     expect(seededInstallMethod(false, {})).toBeNull()
+  })
+})
+
+describe('replaceableAppDir', () => {
+  const execPath = '/home/u/.local/share/ostia/app/ostia'
+
+  it('is the folder of the running binary for local and tarball installs', () => {
+    for (const method of ['local', 'tarball'] as const) {
+      expect(replaceableAppDir({ method, isPackaged: true, execPath, env: {} })).toBe(
+        '/home/u/.local/share/ostia/app',
+      )
+    }
+  })
+
+  it('is null for installs a package manager owns or a dev build without the env', () => {
+    for (const method of ['apt', 'brew', 'dmg', 'dev'] as const) {
+      expect(replaceableAppDir({ method, isPackaged: true, execPath, env: {} })).toBeNull()
+    }
+    expect(
+      replaceableAppDir({ method: 'tarball', isPackaged: false, execPath, env: {} }),
+    ).toBeNull()
+  })
+
+  it('takes OSTIA_INSTALL_APP_DIR only when unpackaged', () => {
+    const env = { OSTIA_INSTALL_APP_DIR: '/tmp/app' }
+    expect(replaceableAppDir({ method: 'tarball', isPackaged: false, execPath, env })).toBe(
+      '/tmp/app',
+    )
+    expect(replaceableAppDir({ method: 'tarball', isPackaged: true, execPath, env })).toBe(
+      '/home/u/.local/share/ostia/app',
+    )
   })
 })

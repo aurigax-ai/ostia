@@ -46,7 +46,14 @@ import type {
 import type { FileOpResult } from '../shared/fileOps'
 import type { GuestChordFire } from '../shared/guestChords'
 import type { LoadedIconTheme } from '../shared/iconTheme'
-import type { ReleaseState, UpdateRunStart, UpdateRunState } from '../shared/installMethod'
+import type {
+  ReleaseState,
+  ReplaceProgress,
+  ReplaceStart,
+  ReplaceState,
+  UpdateRunStart,
+  UpdateRunState,
+} from '../shared/installMethod'
 import type { KeymapLoad } from '../shared/keymapFile'
 import type { LanguagePack } from '../shared/languagePack'
 import type {
@@ -545,6 +552,18 @@ const bridge: OstiaBridge = {
       const handler = (_event: unknown, state: UpdateRunState): void => cb(state)
       ipcRenderer.on('app:update-run-state', handler)
       return () => ipcRenderer.removeListener('app:update-run-state', handler)
+    },
+    replaceInstall: () => ipcRenderer.invoke('app:install-replace') as Promise<ReplaceStart>,
+    replaceState: () => ipcRenderer.invoke('app:install-replace-state') as Promise<ReplaceState>,
+    onReplace: (cb) => {
+      const handler = (_event: unknown, state: ReplaceState): void => cb(state)
+      ipcRenderer.on('app:install-replace-state', handler)
+      return () => ipcRenderer.removeListener('app:install-replace-state', handler)
+    },
+    onProgress: (cb) => {
+      const handler = (_event: unknown, progress: ReplaceProgress): void => cb(progress)
+      ipcRenderer.on('app:update-progress', handler)
+      return () => ipcRenderer.removeListener('app:update-progress', handler)
     },
   },
   system: {
