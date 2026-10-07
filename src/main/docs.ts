@@ -187,7 +187,9 @@ const CLI_HELP = `ostia — control-socket CLI
                                               (wake it with ostia pane wake)
   ostia bus inbox [--drain]                   print your inbox, marking it seen (optionally clearing it)
   ostia bus sent [--json]                     your own recent messages, each seen or unseen
-  ostia bus wait [--timeout MS]               block until an unseen message arrives (default 30s)
+  ostia bus wait [--timeout <s>]              block until an unseen message arrives and print only
+                                              the new ones (default 30 s, 1–120 s); a timeout
+                                              prints {"messages":[],"timedOut":true}
   ostia bus handoff <to> --task "..." --summary "..."  hand a task off to another pane
   ostia bus claim <id>                        claim a handoff addressed to you
   ostia bus handoffs [--all]                  list your handoffs (--all needs all-workspaces)
