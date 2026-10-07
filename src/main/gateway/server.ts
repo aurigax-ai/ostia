@@ -21,7 +21,8 @@ import {
   registerDevice,
   verifyToken,
 } from './devices'
-import { auditPairAttempt, checkPairRateLimit, consumeCode } from './pairing'
+import { cancelPairRequest, openPairRequest, revealPairRequest } from './pairRequests'
+import { auditPairAttempt, checkPairRateLimit, consumeCode, isLiveCode } from './pairing'
 import { readProxyHeader } from './proxyProtocol'
 
 const FRAME_PTY_OUTPUT = 0x01
@@ -252,6 +253,8 @@ function sendJson(res: ServerResponse, status: number, body: unknown): void {
   res.end(data)
 }
 
+const COMMIT = /^[0-9a-f]{64}$/
+
 async function handlePair(req: IncomingMessage, res: ServerResponse): Promise<void> {
   const ip = peerAddress(req.socket)
   if (!checkPairRateLimit(ip)) {
@@ -262,6 +265,7 @@ async function handlePair(req: IncomingMessage, res: ServerResponse): Promise<vo
   const body = (await readJsonBody(req)) as {
     pairCode?: unknown
     device?: { name?: unknown; pubkey?: unknown }
+    commit?: unknown
   } | null
   const pairCode = body?.pairCode
   const device = body?.device
@@ -274,18 +278,54 @@ async function handlePair(req: IncomingMessage, res: ServerResponse): Promise<vo
     auditPairAttempt(ip, 'bad-request')
     sendJson(res, 400, {
       error: 'bad-request',
-      message: 'expected { pairCode, device: { name, pubkey } }',
+      message: 'expected { pairCode, device: { name, pubkey }, commit }',
     })
     return
   }
-  if (!consumeCode(pairCode)) {
+  if (!isLiveCode(pairCode)) {
     auditPairAttempt(ip, 'invalid-code')
     sendJson(res, 401, { error: 'invalid-pair-code' })
     return
   }
-  const { deviceId, token, caps } = registerDevice({ name: device.name, pubkey: device.pubkey })
-  auditPairAttempt(ip, 'ok')
-  sendJson(res, 200, { deviceId, deviceToken: token, caps, expiresAt: null })
+  if (typeof body?.commit !== 'string' || !COMMIT.test(body.commit)) {
+    auditPairAttempt(ip, 'bad-request')
+    sendJson(res, 400, { error: 'bad-request', message: 'commit must be 64 hex characters' })
+    return
+  }
+  consumeCode(pairCode)
+  const { requestId, desktopNonce } = openPairRequest({
+    name: device.name,
+    pubkey: device.pubkey,
+    commit: body.commit,
+    peer: ip,
+  })
+  sendJson(res, 200, { requestId, nonce: desktopNonce })
+}
+
+async function handlePairConfirm(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  const body = (await readJsonBody(req)) as { requestId?: unknown; nonce?: unknown } | null
+  if (typeof body?.requestId !== 'string' || typeof body.nonce !== 'string') {
+    sendJson(res, 400, { error: 'bad-request', message: 'expected { requestId, nonce }' })
+    return
+  }
+  const requestId = body.requestId
+  const outcome = revealPairRequest(
+    requestId,
+    body.nonce,
+    currentFingerprint ?? '',
+    (status, reply) => sendJson(res, status, reply),
+  )
+  if (outcome === 'unknown-request') {
+    sendJson(res, 404, { error: 'unknown-request' })
+    return
+  }
+  if (outcome === 'commit-mismatch') {
+    sendJson(res, 400, { error: 'commit-mismatch' })
+    return
+  }
+  res.on('close', () => {
+    if (!res.writableEnded) cancelPairRequest(requestId)
+  })
 }
 
 function requestHandler(req: IncomingMessage, res: ServerResponse): void {
@@ -299,6 +339,10 @@ function requestHandler(req: IncomingMessage, res: ServerResponse): void {
   }
   if (req.method === 'POST' && req.url === '/pair') {
     handlePair(req, res).catch(() => sendJson(res, 500, { error: 'internal-error' }))
+    return
+  }
+  if (req.method === 'POST' && req.url === '/pair/confirm') {
+    handlePairConfirm(req, res).catch(() => sendJson(res, 500, { error: 'internal-error' }))
     return
   }
   sendJson(res, 404, { error: 'not-found' })
