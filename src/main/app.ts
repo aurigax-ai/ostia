@@ -277,7 +277,7 @@ import {
   requirementLabel,
 } from './systemRequirements'
 import { registerSystemRequirementsIpc } from './systemRequirementsIpc'
-import { PTY_COLOR_ENV, PTY_TERM_NAME, paneShellEnv } from './terminalType'
+import { PTY_COLOR_ENV, PTY_TERM_NAME, paneShellEnv, ptyIdentityEnv } from './terminalType'
 import { SANDBOX_NOT_KEPT, TMUX_MISSING, keepShellsNotice } from './tmux/keepShellsBanner'
 import { KeptAttention } from './tmux/keptAttention'
 import {
@@ -1937,6 +1937,7 @@ function registerPtyIpc(): void {
     const rows = opts.rows || 24
     const stateFile = join(privateTmpDir(`${PRODUCT_NAME}-shell-state`), randomUUID())
     let env = paneShellEnv({
+      version: app.getVersion(),
       parent: process.env,
       integration: integration.env,
       pane: appEnv({
@@ -2429,6 +2430,7 @@ function spawnManagerPty(req: {
     ...(req.path === undefined ? {} : { PATH: req.path }),
     ...paneEnv(req.paneId, windowId, cwd),
     ...PTY_COLOR_ENV,
+    ...ptyIdentityEnv(app.getVersion()),
   } as Record<string, string>
   const identity = markManager(req.paneId)
   if (identity) setCaps(identity.externalId, MANAGER_CAPABILITIES)
