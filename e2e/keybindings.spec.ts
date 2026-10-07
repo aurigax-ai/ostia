@@ -29,6 +29,11 @@ async function focusTerminal(win: Page) {
 
 const palette = (win: Page) => win.getByRole('dialog', { name: 'Command palette' })
 
+async function expectPaletteOpen(win: Page) {
+  await expect(palette(win)).toBeVisible()
+  await expect(palette(win).getByRole('combobox')).toBeFocused()
+}
+
 test('a rebound palette chord works from a focused terminal, refuses Ctrl+R, and resets', async () => {
   test.skip(isMac, 'the macOS chords are covered by the next test')
   const app = await electron.launch(isolatedLaunch())
@@ -57,7 +62,7 @@ test('a rebound palette chord works from a focused terminal, refuses Ctrl+R, and
     await win.waitForTimeout(400)
     await expect(palette(win)).toHaveCount(0)
     await win.keyboard.press('Control+Shift+Y')
-    await expect(palette(win)).toBeVisible()
+    await expectPaletteOpen(win)
     await win.keyboard.press('Escape')
     await expect(palette(win)).toHaveCount(0)
 
@@ -103,8 +108,7 @@ test('on macOS the palette is ⇧⌘P everywhere and ⌘K outside a terminal, a 
     await win.waitForTimeout(400)
     await expect(palette(win)).toHaveCount(0)
     await win.keyboard.press('Meta+Shift+Y')
-    await expect(palette(win)).toBeVisible()
-    await expect(win.getByRole('combobox').first()).toBeFocused()
+    await expectPaletteOpen(win)
     await win.keyboard.press('Escape')
     await expect(palette(win)).toHaveCount(0)
 
@@ -116,7 +120,7 @@ test('on macOS the palette is ⇧⌘P everywhere and ⌘K outside a terminal, a 
 
     await focusTerminal(win)
     await win.keyboard.press('Meta+Shift+p')
-    await expect(palette(win)).toBeVisible()
+    await expectPaletteOpen(win)
     await win.keyboard.press('Escape')
     await expect(palette(win)).toHaveCount(0)
 
