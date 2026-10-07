@@ -497,8 +497,9 @@ pending-approval list — read-only; approving is always the human's job, never 
 ostia bus send <toExternalId> "<message>"                     # prints {"ok":true,"id":…,"delivered":"waiting"|"queued"}
 ostia bus inbox [--drain]                                    # print (and optionally clear) your inbox
 ostia bus sent [--json]                                       # your own recent messages: seen or unseen
-ostia bus wait [--timeout MS]                                 # block until an unseen message arrives
-                                                                # (clamped to 1s–120s, default 30s)
+ostia bus wait [--timeout <s>]                                # block until an unseen message arrives;
+                                                                # prints only the new ones (1–120 s,
+                                                                # default 30 s; timeout: "messages":[])
 ostia bus handoff <toExternalId> --task "<task>" --summary "<summary>"
 ostia bus claim <id>                                          # claim a handoff addressed to you
 ostia bus handoffs [--all]                                    # your handoffs (to/from you);
