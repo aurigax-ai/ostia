@@ -74,12 +74,20 @@ export function tabMoveTargets(sourceId: string, tabId: string): TabMoveTarget[]
     }))
 }
 
-export function canMoveTabTo(sourceId: string, tabId: string, targetId: string): boolean {
+export function tabMoveRefusalFor(
+  sourceId: string,
+  tabId: string,
+  targetId: string,
+): TabMoveRefusal | null {
   const { workspaces } = useWorkspacesStore.getState()
   const source = workspaces.find((w) => w.id === sourceId)
   const target = workspaces.find((w) => w.id === targetId)
-  if (!source || !target) return false
-  return tabMoveRefusal(sideOf(source), sideOf(target), tabPanes(sourceId, tabId)) === null
+  if (!source || !target) return 'unknown'
+  return tabMoveRefusal(sideOf(source), sideOf(target), tabPanes(sourceId, tabId))
+}
+
+export function canMoveTabTo(sourceId: string, tabId: string, targetId: string): boolean {
+  return tabMoveRefusalFor(sourceId, tabId, targetId) === null
 }
 
 export async function moveTabToWorkspace(
@@ -94,10 +102,14 @@ export async function moveTabToWorkspace(
   const paneIds = allPanes(taken.tab).map((p) => p.id)
   const result = await window.ostia.workspace.movePanes(sourceId, targetId, paneIds)
   if (!result.ok) return false
+  const shownBefore = useLayoutStore.getState().byWorkspace[sourceId]?.activePaneId
   const moved = useLayoutStore.getState().moveTabTo(sourceId, targetId, tabId)
   if (moved.length === 0) return false
-  const wasActive = useWorkspacesStore.getState().activeWorkspaceId === sourceId
-  const focus = wasActive ? useLayoutStore.getState().byWorkspace[sourceId]?.activePaneId : null
+  const wasShown =
+    useWorkspacesStore.getState().activeWorkspaceId === sourceId &&
+    shownBefore !== undefined &&
+    moved.includes(shownBefore)
+  const focus = wasShown ? useLayoutStore.getState().byWorkspace[sourceId]?.activePaneId : null
   if (focus) focusSurfaceWhenReady(focus)
   return true
 }

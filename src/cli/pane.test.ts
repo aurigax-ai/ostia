@@ -244,3 +244,23 @@ describe('pane close', () => {
     expect(() => parsePaneArgs(['close'])).toThrow('ostia pane close <pane>')
   })
 })
+
+describe('pane move', () => {
+  it('takes one or more panes, a --workspace and --json', () => {
+    expect(parsePaneArgs(['move', 'fixer', 'w2', '--workspace', 'api · workers'])).toEqual({
+      method: 'pane.moveTo',
+      params: { panes: ['fixer', 'w2'], workspace: 'api · workers' },
+      json: false,
+    })
+    expect(parsePaneArgs(['move', 'fixer', '--workspace', 'w3', '--json'])).toEqual({
+      method: 'pane.moveTo',
+      params: { panes: ['fixer'], workspace: 'w3' },
+      json: true,
+    })
+  })
+
+  it('needs a pane and a workspace', () => {
+    expect(() => parsePaneArgs(['move', 'fixer'])).toThrow('ostia pane move <pane>')
+    expect(() => parsePaneArgs(['move', '--workspace', 'w3'])).toThrow('ostia pane move <pane>')
+  })
+})

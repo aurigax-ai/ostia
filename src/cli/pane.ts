@@ -1,5 +1,6 @@
 import type { MessageConnection } from 'vscode-jsonrpc/node'
 import { FlagError, parseArgs } from './args'
+import { resolveWorkspaceRef } from './crossWorkspace'
 
 export interface PaneInputParams {
   pane: string
@@ -17,6 +18,7 @@ export type PaneCall =
   | { method: 'pane.wait'; params: PaneWaitParams; json: boolean }
   | { method: 'pane.wake'; params: PaneWakeParams; json: boolean }
   | { method: 'pane.close'; params: { panes: string[] }; json: boolean }
+  | { method: 'pane.moveTo'; params: { panes: string[]; workspace: string }; json: boolean }
 
 export interface PaneWakeParams {
   panes: string[]
@@ -53,6 +55,7 @@ const USAGE = [
   '       ostia pane wait <pane>… [--until done|waiting|idle|exited]… [--timeout <s>] [--json]',
   '       ostia pane wake <pane>… [--wait [--timeout <s>]] [--json]',
   '       ostia pane close <pane>… [--json]',
+  '       ostia pane move <pane>… --workspace <id|name> [--json]',
   '<pane> is a paneId or a process id or name (ostia process ls); list panes with',
   'ostia pane.list (JSON: paneId, kind, title, cwd, running, agent, agentState, hibernated, …)',
 ].join('\n')
@@ -100,6 +103,19 @@ function parseClose(argv: string[]): PaneCall {
   const { positional, booleans } = parseArgs(argv, { booleans: { json: '--json' } })
   if (positional.length === 0) throw new Error(USAGE)
   return { method: 'pane.close', params: { panes: positional }, json: booleans.json }
+}
+
+function parseMove(argv: string[]): PaneCall {
+  const { positional, values, booleans } = parseArgs(argv, {
+    values: { workspace: '--workspace' },
+    booleans: { json: '--json' },
+  })
+  if (positional.length === 0 || !values.workspace) throw new Error(USAGE)
+  return {
+    method: 'pane.moveTo',
+    params: { panes: positional, workspace: values.workspace },
+    json: booleans.json,
+  }
 }
 
 function parseWake(argv: string[]): PaneCall {
@@ -167,6 +183,7 @@ export function parsePaneArgs(argv: string[]): PaneCall {
   if (sub === 'wait') return parseWait([pane, ...rest])
   if (sub === 'wake') return parseWake([pane, ...rest])
   if (sub === 'close') return parseClose([pane, ...rest])
+  if (sub === 'move') return parseMove([pane, ...rest])
   if (sub === 'send') {
     const { positional: words, booleans } = parseArgs(rest, {
       booleans: {
@@ -254,6 +271,15 @@ export async function runPaneVerb(
       return 1
     }
     call = { method: 'pane.input', params: { ...call.params, text } }
+  }
+  if (call.method === 'pane.moveTo') {
+    const workspace = await resolveWorkspaceRef(conn, call.params.workspace)
+    const result = await conn.sendRequest<{ moved: string[] }>(call.method, {
+      ...call.params,
+      workspace,
+    })
+    console.log(call.json ? JSON.stringify(result) : result.moved.join('\n'))
+    return 0
   }
   if (call.method === 'pane.wait') {
     const result = await conn.sendRequest<PaneWaitResult>(call.method, call.params)

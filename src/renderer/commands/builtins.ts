@@ -51,7 +51,12 @@ import {
 } from '../lib/paletteModes'
 import { type PaneAgentReport, isStaleAgentReport, paneAgentReport } from '../lib/paneAgent'
 import { tabMoveRefusalText } from '../lib/tabMoveRefusalText'
-import { activeTabId, moveTabToWorkspace, tabMoveTargets } from '../lib/tabWorkspaceMove'
+import {
+  activeTabId,
+  moveTabToWorkspace,
+  tabMoveRefusalFor,
+  tabMoveTargets,
+} from '../lib/tabWorkspaceMove'
 import { terminalFor } from '../lib/terminalHandles'
 import { resetZoom } from '../lib/wheelZoom'
 import { openWorkflowPicker } from '../lib/workflows'
@@ -409,6 +414,30 @@ export function registerBuiltinCommands(): void {
       },
     })
   }
+
+  registerCore<{ workspaceId: string }, { moved: string[] }>({
+    id: 'pane.moveToWorkspace',
+    category: 'pane',
+    hidden: true,
+    capabilities: ['all-workspaces', 'type-other-pane'],
+    argsSchema: {
+      type: 'object',
+      properties: { workspaceId: { type: 'string' } },
+      required: ['workspaceId'],
+    },
+    run: async (args, ctx) => {
+      const source = ctx.activeWorkspaceId
+      const paneId = ctx.activePaneId
+      if (!source || !paneId) throw new Error('no target pane')
+      if (typeof args?.workspaceId !== 'string') throw new Error('workspaceId must be a string')
+      const refusal = tabMoveRefusalFor(source, paneId, args.workspaceId)
+      if (refusal) throw new Error(`${refusal}: ${currentDict().tabMove[refusal]}`)
+      if (!(await moveTabToWorkspace(source, paneId, args.workspaceId))) {
+        throw new Error('move-failed: the pane did not move')
+      }
+      return { moved: [paneId] }
+    },
+  })
 
   registerCore<{ argument?: string } | undefined, { moved: boolean }>({
     id: 'tab.moveToWorkspace',

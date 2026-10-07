@@ -198,6 +198,7 @@ import {
 import { writeOstiaLauncher } from './paneLauncher'
 import { listPanes, listWorkspaceGroups, listWorkspaces, registerPaneListMethods } from './paneList'
 import { registerPaneMoveIpc } from './paneMove'
+import { registerPaneMoveToMethods } from './paneMoveTo'
 import type { PaneProcess } from './paneProcess'
 import { registerPaneRenameMethods } from './paneRename'
 import { registerPaneResumeMethods } from './paneResume'
@@ -3293,6 +3294,14 @@ app.whenReady().then(() => {
     waking: paneWaking,
     close: (to) => execCommand(targetOf(to), 'pane.close'),
     delay: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+  })
+  registerPaneMoveToMethods({
+    ...paneReachDeps,
+    ownerWindow: windowForWorkspace,
+    paneOf: getByPaneId,
+    isScratch: (workspaceId) => scratchFolders.isScratch(workspaceId),
+    ensureReach: reach.ensure,
+    move: (to, workspaceId) => execCommand(targetOf(to), 'pane.moveToWorkspace', { workspaceId }),
   })
   registerPaneWaitMethods({
     ...paneReachDeps,

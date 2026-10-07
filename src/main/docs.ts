@@ -156,6 +156,17 @@ const CLI_HELP = `ostia — control-socket CLI
                                  or agent run needs nothing more; any other pane asks the
                                  human (kill-pane, plus all-workspaces outside your
                                  reach). A pane the human locked answers pane-locked
+  ostia pane move <pane>… --workspace <id|name> [--json]  move those tabs, running, into
+                                 another workspace of their window; each lands as a new
+                                 tab with the same paneId, process and screen. Prints the
+                                 moved paneIds. A tab you opened with process run or agent
+                                 run, or your own pane, needs nothing more; any other pane
+                                 asks the human (type-other-pane), and a workspace or pane
+                                 outside your reach asks all-workspaces. Never into or out
+                                 of a sandboxed or scratch workspace (sandboxed:, scratch:),
+                                 never across windows (other-window:). A locked pane may
+                                 move. Moving a workspace's last tab leaves that workspace
+                                 empty
   ostia pane rename <pane> <title…>  name that pane's tab; programs (OSC titles) no longer
                                  change it, and it survives a restart. --clear instead of a
                                  title hands the tab back to the program. Your own pane
