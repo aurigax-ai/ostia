@@ -11,10 +11,15 @@ vi.mock('./controlElevation', () => ({ ensureCaps: vi.fn(async () => {}) }))
 const { ensureCaps } = await import('./controlElevation')
 const { SHARED_PROFILE_DETAIL, defaultBrowserPane, resolveGuest } = await import('./browse')
 const { registerPane, removePane } = await import('./idRegistry')
+const { ownWorkspaceReach } = await import('../../test/reach')
 
 const shared = new Set<string>()
 const browserPanes = new Map<string, number>()
-const deps = { browserPanes, isSharedPane: (paneId: string) => shared.has(paneId) }
+const deps = {
+  browserPanes,
+  isSharedPane: (paneId: string) => shared.has(paneId),
+  reach: ownWorkspaceReach(),
+}
 
 let caller: ReturnType<typeof registerPane>
 let humanTab: ReturnType<typeof registerPane>

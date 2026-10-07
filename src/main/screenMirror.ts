@@ -92,6 +92,8 @@ export class ScreenMirror {
   private disposed = false
   private targetCols: number
   private targetRows: number
+  private changes = 0
+  private serialized: { at: number; text: string } | undefined
 
   constructor(cols: number, rows: number) {
     this.targetCols = Math.max(1, cols)
@@ -106,6 +108,11 @@ export class ScreenMirror {
       this.onPromptMark(data.split(';')[0])
       return false
     })
+    this.term.onWriteParsed(() => this.changes++)
+  }
+
+  get revision(): number {
+    return this.changes
   }
 
   get cols(): number {
@@ -151,6 +158,13 @@ export class ScreenMirror {
 
   serialize(): string {
     if (this.disposed) return ''
+    if (this.serialized?.at === this.changes) return this.serialized.text
+    const text = this.serializeHistory()
+    this.serialized = { at: this.changes, text }
+    return text
+  }
+
+  private serializeHistory(): string {
     const buffer = this.term.buffer.normal
     const end = this.historyEnd()
     const untouched = this.untouched

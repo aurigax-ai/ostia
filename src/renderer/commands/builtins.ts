@@ -121,7 +121,12 @@ interface WorkspaceGroupEntry {
   workspaceIds: string[]
 }
 
-const HUMAN_ONLY_ROOTS: readonly string[] = ['privacy', 'terminalKeys']
+const HUMAN_ONLY_ROOTS: readonly string[] = [
+  'privacy',
+  'terminalKeys',
+  'capabilities',
+  'workspaceGroups',
+]
 
 export function launchesProgram(key: string, value: unknown): string | null {
   const path = key.split('.').filter(Boolean).join('.')
@@ -880,7 +885,7 @@ export function registerBuiltinCommands(): void {
   })
 
   registerCore<
-    { dir?: unknown; name?: unknown; focus?: unknown } | undefined,
+    { dir?: unknown; name?: unknown; focus?: unknown; group?: unknown } | undefined,
     { workspaceId: string | null }
   >({
     id: 'workspace.new',
@@ -888,12 +893,18 @@ export function registerBuiltinCommands(): void {
     target: 'none',
     argsSchema: {
       type: 'object',
-      properties: { dir: { type: 'string' }, name: { type: 'string' }, focus: { type: 'boolean' } },
+      properties: {
+        dir: { type: 'string' },
+        name: { type: 'string' },
+        focus: { type: 'boolean' },
+        group: { type: 'string' },
+      },
     },
     run: (args) => {
       const dir = args?.dir
       const name = args?.name
       const focus = args?.focus
+      const group = args?.group
       if (dir !== undefined && (typeof dir !== 'string' || !WORKSPACE_DIR.test(dir))) {
         throw new Error('dir must be an absolute path or start with ~')
       }
@@ -901,8 +912,13 @@ export function registerBuiltinCommands(): void {
       if (focus !== undefined && typeof focus !== 'boolean') {
         throw new Error('focus must be a boolean')
       }
+      if (group !== undefined && (typeof group !== 'string' || !normalizeGroupName(group))) {
+        throw new Error('group must be a group name')
+      }
       if (focus !== false) useUIStore.getState().showWorkspaces()
-      return { workspaceId: startNewWorkspace({ dir, name, focus: focus !== false }) }
+      const workspaceId = startNewWorkspace({ dir, name, focus: focus !== false })
+      if (workspaceId && group) useWorkspacesStore.getState().moveToGroupNamed(workspaceId, group)
+      return { workspaceId }
     },
   })
 

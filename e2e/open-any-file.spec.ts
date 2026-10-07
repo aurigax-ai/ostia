@@ -99,14 +99,20 @@ test('ostia <file> shows a text file and an image from outside the home folder, 
     await win.locator('.xterm').first().click()
     const neighbour = join(dataHome, 'outside', 'neighbour.txt')
     writeFileSync(neighbour, 'never opened\n')
-    expect(await win.evaluate((path) => window.ostia.fs.read(path), log)).toBeNull()
+    expect(await win.evaluate((path) => window.ostia.fs.read(path), log)).toEqual({
+      ok: false,
+      error: 'denied',
+    })
 
     await win.keyboard.type(`ostia ${log}:2 ${image}`)
     await win.keyboard.press('Enter')
 
     await expect(tab(win, 'app.log')).toBeVisible({ timeout: 15_000 })
     await expect(tab(win, 'shot.png')).toBeVisible()
-    expect(await win.evaluate((path) => window.ostia.fs.read(path), neighbour)).toBeNull()
+    expect(await win.evaluate((path) => window.ostia.fs.read(path), neighbour)).toEqual({
+      ok: false,
+      error: 'denied',
+    })
     await expect(win.locator('.viewer-meta:visible')).toHaveText('1 × 1', { timeout: 15_000 })
 
     await tab(win, 'app.log').getByRole('tab').click()

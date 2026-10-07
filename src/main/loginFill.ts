@@ -6,6 +6,7 @@ import { resolveGuest } from './browse'
 import { ensureCaps } from './controlElevation'
 import { registerControlMethod } from './controlServer'
 import { credentials } from './credentials'
+import type { Reach } from './reach'
 
 export const LOGIN_WORLD_ID = 1026
 
@@ -38,6 +39,7 @@ export function registerLoginFill(deps: {
   browserPanes: Map<string, number>
   isSharedPane: (paneId: string) => boolean
   ownedGuest: (paneId: string, senderWindowId: string) => Electron.WebContents | null
+  reach: Pick<Reach, 'inScope'>
 }): void {
   ipcMain.handle('credentials:for-page', (e, paneId: unknown): CredentialSummary[] => {
     const guest = typeof paneId === 'string' ? deps.ownedGuest(paneId, String(e.sender.id)) : null

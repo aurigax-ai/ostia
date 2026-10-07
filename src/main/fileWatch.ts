@@ -4,11 +4,13 @@ import {
   type FSWatcher,
   existsSync,
   lstatSync,
-  readFileSync,
   readdirSync,
+  statSync,
   watch,
 } from 'node:fs'
+import { readFile, stat } from 'node:fs/promises'
 import { basename, dirname, join } from 'node:path'
+import { type FileStamp, stampOf } from './fsText'
 
 export interface FileChange {
   path: string
@@ -40,18 +42,62 @@ interface DirWatch {
   files: Map<string, Set<string>>
 }
 
-function fingerprint(path: string): string | null {
+interface Fingerprint extends FileStamp {
+  hash: string | null
+}
+
+function sameStamp(a: FileStamp, b: FileStamp): boolean {
+  return a.ino === b.ino && a.mtimeMs === b.mtimeMs && a.size === b.size
+}
+
+function digest(data: string | Uint8Array): string {
+  return createHash('sha1').update(data).digest('hex')
+}
+
+async function fingerprintAfter(
+  path: string,
+  before: Fingerprint | null,
+): Promise<Fingerprint | null> {
   try {
-    return createHash('sha1').update(readFileSync(path)).digest('hex')
+    const info = await stat(path)
+    if (!info.isFile()) return null
+    const stamp = stampOf(info)
+    if (before?.hash && sameStamp(before, stamp)) return before
+    return { ...stamp, hash: digest(await readFile(path)) }
   } catch {
     return null
   }
 }
 
+function fingerprintNow(path: string): Promise<Fingerprint | null> {
+  let at: FileStamp
+  try {
+    const info = statSync(path)
+    if (!info.isFile()) return Promise.resolve(null)
+    at = stampOf(info)
+  } catch {
+    return Promise.resolve(null)
+  }
+  return (async () => {
+    try {
+      const data = await readFile(path)
+      const unchanged = sameStamp(at, stampOf(await stat(path)))
+      return { ...at, hash: unchanged ? digest(data) : null }
+    } catch {
+      return { ...at, hash: null }
+    }
+  })()
+}
+
+function sameContent(a: Fingerprint | null, b: Fingerprint | null): boolean {
+  if (a === null || b === null) return a === b
+  return a.hash !== null && a.hash === b.hash
+}
+
 export class FileWatches {
   private readonly dirs = new Map<string, DirWatch>()
   private readonly timers = new Map<string, ReturnType<typeof setTimeout>>()
-  private readonly lastSeen = new Map<string, string | null>()
+  private readonly lastSeen = new Map<string, Promise<Fingerprint | null>>()
   private reconciler: ReturnType<typeof setInterval> | null = null
 
   constructor(private readonly deps: FileWatchesDeps) {}
@@ -79,8 +125,41 @@ export class FileWatches {
     const owners = entry.files.get(name) ?? new Set<string>()
     owners.add(owner)
     entry.files.set(name, owners)
-    if (!this.lastSeen.has(safe)) this.lastSeen.set(safe, fingerprint(safe))
+    if (!this.lastSeen.has(safe)) this.lastSeen.set(safe, fingerprintNow(safe))
     return true
+  }
+
+  async wrote(
+    writer: string,
+    path: string,
+    stamp: FileStamp,
+    data: string | Uint8Array,
+  ): Promise<void> {
+    const safe = this.deps.confine(path)
+    if (safe === null) return
+    const written: Fingerprint = { ...stamp, hash: digest(data) }
+    const step = await this.advance(safe, async () => written)
+    if (!step || sameContent(step.before, written)) return
+    const others = [...this.ownersOf(safe)].filter((owner) => owner !== writer)
+    if (others.length > 0) this.deps.onChange({ path: safe, exists: true, owners: others })
+  }
+
+  private ownersOf(path: string): Set<string> {
+    return this.dirs.get(dirname(path))?.files.get(basename(path)) ?? new Set()
+  }
+
+  private async advance(
+    path: string,
+    next: (before: Fingerprint | null) => Promise<Fingerprint | null>,
+  ): Promise<{ before: Fingerprint | null; after: Fingerprint | null } | null> {
+    const previous = this.lastSeen.get(path)
+    if (previous === undefined) return null
+    const step = previous.then(async (before) => ({ before, after: await next(before) }))
+    this.lastSeen.set(
+      path,
+      step.then((s) => s.after),
+    )
+    return step
   }
 
   unwatch(owner: string, path: string): void {
@@ -124,7 +203,7 @@ export class FileWatches {
       const dirGone = !existsSync(dir)
       for (const name of entry.files.keys()) {
         const path = `${dir}/${name}`
-        if (dirGone || (this.lastSeen.get(path) && !existsSync(path))) this.touched(dir, name)
+        if (dirGone || !existsSync(path)) this.touched(dir, name)
       }
     }
   }
@@ -155,14 +234,16 @@ export class FileWatches {
       path,
       setTimeout(() => {
         this.timers.delete(path)
-        const current = this.dirs.get(dir)?.files.get(name)
-        if (!current || current.size === 0) return
-        const seen = existsSync(path) ? fingerprint(path) : null
-        if (seen === this.lastSeen.get(path)) return
-        this.lastSeen.set(path, seen)
-        this.deps.onChange({ path, exists: seen !== null, owners: [...current] })
+        void this.check(path)
       }, this.deps.debounceMs),
     )
+  }
+
+  private async check(path: string): Promise<void> {
+    const step = await this.advance(path, (before) => fingerprintAfter(path, before))
+    const owners = this.ownersOf(path)
+    if (!step || owners.size === 0 || sameContent(step.before, step.after)) return
+    this.deps.onChange({ path, exists: step.after !== null, owners: [...owners] })
   }
 }
 

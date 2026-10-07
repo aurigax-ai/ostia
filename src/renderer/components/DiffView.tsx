@@ -1,12 +1,13 @@
 import { cn } from '@/lib/utils'
 import { ArrowSquareOutIcon, ColumnsIcon, RowsIcon } from '@phosphor-icons/react'
+import { DIFF_TEXT_MAX } from '@shared/extensions'
 import { useEffect, useRef, useState } from 'react'
 import { useDict } from '../i18n/useDict'
 import { registerEditorPosition } from '../lib/editorPositions'
 import { codeFontStack } from '../lib/uiFonts'
 import { langFor } from '../monaco/language'
 import { monaco } from '../monaco/setup'
-import { initialMonacoTheme, useMonacoTheme } from '../monaco/useMonacoTheme'
+import { ensureMonacoTheme } from '../monaco/useMonacoTheme'
 import { useDiffStore } from '../stores/diffStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useExternalEditorAction } from './Editor'
@@ -14,6 +15,9 @@ import { Hint } from './Hint'
 import { IconButton } from './IconButton'
 import { ATTENTION_ALERT } from './attentionStyles'
 import { Alert } from './ui/alert'
+
+const DIFF_COMPUTATION_MS = 2000
+const MB = 1024 * 1024
 
 export function DiffView({ paneId }: { paneId: string }): JSX.Element {
   const d = useDict()
@@ -27,18 +31,20 @@ export function DiffView({ paneId }: { paneId: string }): JSX.Element {
     () => useSettingsStore.getState().editor.diffLayout === 'inline',
   )
   const external = useExternalEditorAction(paneId)
-  useMonacoTheme()
 
   useEffect(() => {
     const host = hostRef.current
     if (!host) return
     const initial = useSettingsStore.getState().appearance.editor
+    ensureMonacoTheme()
     const diff = monaco.editor.createDiffEditor(host, {
-      theme: initialMonacoTheme(),
       automaticLayout: true,
       readOnly: true,
       originalEditable: false,
       renderSideBySide: true,
+      hideUnchangedRegions: { enabled: true },
+      maxComputationTime: DIFF_COMPUTATION_MS,
+      maxFileSize: DIFF_TEXT_MAX / MB,
       fontFamily: codeFontStack(initial.family),
       fontSize: initial.size,
       fontWeight: String(initial.weight),

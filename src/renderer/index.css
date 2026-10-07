@@ -2396,6 +2396,20 @@ button.prompt-chip:focus-visible {
   z-index: 1;
 }
 
+.blocks-lines {
+  position: absolute;
+  left: 0;
+  right: 0;
+  overflow: hidden;
+}
+
+.blocks-track {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+}
+
 .block-gutter {
   position: absolute;
   left: 0;
@@ -3500,6 +3514,11 @@ button.prompt-chip:focus-visible {
 
 .motion-hint[data-instant] {
   transition-duration: 0ms;
+}
+
+:has(> [data-slot="tooltip-content"]),
+[data-slot="tooltip-content"] {
+  pointer-events: none;
 }
 
 .block-frame {

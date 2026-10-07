@@ -16,6 +16,8 @@ const KIND_TEXT: Record<Exclude<ApprovalKind, 'capability'>, (d: Dict) => string
   secret: (d) => d.approvals.secret,
   package: (d) => d.approvals.package,
   'package-malware': (d) => d.approvals.packageMalware,
+  'reach-group': (d) => d.approvals.reachConfirm,
+  'reach-project': (d) => d.approvals.reachFolderConfirm,
 }
 
 const PLACEMENT_CLASS = {

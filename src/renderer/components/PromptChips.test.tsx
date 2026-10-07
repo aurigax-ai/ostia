@@ -47,6 +47,7 @@ function renderEditor() {
       fontFamily="monospace"
       fontSize={13}
       alternateScreen={false}
+      paneShown
       suppressedPrompt={null}
       ownsFocus={() => true}
       onSubmit={vi.fn(() => true)}

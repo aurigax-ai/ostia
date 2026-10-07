@@ -8,6 +8,7 @@ let frame = 0
 let typed = ''
 let line = 0
 let timer = null
+let finished = false
 
 const out = (text) => process.stdout.write(text)
 const spinner = () => SPINNER[frame % SPINNER.length]
@@ -33,7 +34,12 @@ const tick = () => {
 
 const finish = () => {
   if (timer) clearInterval(timer)
-  out(`\x1b]0;✳ ${titleTask}\x07\r\n\x1b[2Kbusy-agent done\r\n`)
+  finished = true
+  out(`\x1b]0;✳ ${titleTask}\x07\r\n\x1b[2Kbusy-agent done, press a key to exit\r\n`)
+}
+
+const exit = () => {
+  out('busy-agent exited\r\n')
   process.stdin.setRawMode?.(false)
   process.exit(0)
 }
@@ -41,9 +47,16 @@ const finish = () => {
 if (process.stdin.isTTY) process.stdin.setRawMode(true)
 process.stdin.setEncoding('utf8')
 process.stdin.on('data', (data) => {
+  if (finished) {
+    exit()
+    return
+  }
   for (const ch of data) {
-    if (ch === '\x03' || ch === '\x04') finish()
-    else if (ch === '\x7f') typed = typed.slice(0, -1)
+    if (ch === '\x03' || ch === '\x04') {
+      finish()
+      return
+    }
+    if (ch === '\x7f') typed = typed.slice(0, -1)
     else if (ch >= ' ') typed += ch
   }
   redraw()

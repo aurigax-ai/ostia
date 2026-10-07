@@ -112,6 +112,7 @@ export interface ControlServerDeps {
   isSandboxed: (workspaceId: string) => boolean
   windowOfWorkspace?: (workspaceId: string) => string | undefined
   primaryWindow?: () => string | undefined
+  byAgent?: <T>(run: () => Promise<T>) => Promise<T>
 }
 
 let server: Server | null = null
@@ -244,7 +245,8 @@ export function registerControlServer(deps: ControlServerDeps, socketPathOverrid
             `unknown-workspace: ${given.workspaceId}`,
           )
         }
-        const result = await deps.execCommand(target, params.id, args)
+        const exec = (): Promise<CommandResult> => deps.execCommand(target, params.id, args)
+        const result = await (deps.byAgent ? deps.byAgent(exec) : exec())
         if (result.ok || !pane) return result
         return {
           ...result,

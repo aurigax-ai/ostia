@@ -50,7 +50,8 @@ const CLI_HELP = `ostia — control-socket CLI
   ostia workspace ungroup        take this pane's workspace out of its group
   ostia workspace rename [--workspace <id>] <name…> | --clear  rename your workspace in the
                                  sidebar (--clear goes back to its default name); another
-                                 workspace asks the human (send-other-pane, all-workspaces)
+                                 workspace asks the human (send-other-pane, plus
+                                 all-workspaces outside your reach)
   ostia workspace import-cmux [file] [--json]
                                  recreate cmux's saved workspaces (names, folders, splits,
                                  tabs; default file ~/Library/Application Support/cmux/
@@ -82,9 +83,9 @@ const CLI_HELP = `ostia — control-socket CLI
                                  the focus. --workspace opens the tab in that workspace instead
                                  (an id, or a name from ostia workspace list: the name shown in
                                  the rail first, then the folder name; a name two workspaces
-                                 share is refused with the candidates listed); another
-                                 workspace needs all-workspaces, and a sandboxed workspace
-                                 opens tabs only in itself.
+                                 share is refused with the candidates listed); a workspace
+                                 outside your reach needs all-workspaces, and a sandboxed
+                                 workspace opens tabs only in itself.
                                  --split-tab T: the first run with T opens its tab as usual;
                                  each later run with the same T joins that tab, splitting it
                                  --split right (default) or down, so one tab shows them side
@@ -124,7 +125,7 @@ const CLI_HELP = `ostia — control-socket CLI
                                  lines, max 2000); --json adds cwd, running, lastExitCode.
                                  A tab you opened with ostia process run needs nothing more;
                                  any other pane asks the human (type-other-pane,
-                                 read-other-pane, plus all-workspaces outside your workspace)
+                                 read-other-pane, plus all-workspaces outside your reach)
   ostia pane wait <pane>… [--until done|waiting|idle|exited]… [--timeout <s>] [--json]
                                  block until any of those panes reaches one of the --until
                                  states (default done, waiting and exited: it stopped working),
@@ -154,12 +155,12 @@ const CLI_HELP = `ostia — control-socket CLI
                                  Prints the closed paneIds. A tab you opened with process run
                                  or agent run needs nothing more; any other pane asks the
                                  human (kill-pane, plus all-workspaces outside your
-                                 workspace). A pane the human locked answers pane-locked
+                                 reach). A pane the human locked answers pane-locked
   ostia pane rename <pane> <title…>  name that pane's tab; programs (OSC titles) no longer
                                  change it, and it survives a restart. --clear instead of a
                                  title hands the tab back to the program. Your own pane
                                  ($OSTIA_PANE_ID) needs nothing; another pane asks the human
-                                 (send-other-pane, plus all-workspaces outside your workspace).
+                                 (send-other-pane, plus all-workspaces outside your reach).
                                  A script token needs both capabilities on the token
   ostia token create <name> --cap <capability>…  make a token for scripts outside Ostia
                                  (launchd jobs, cron, a dispatcher). It can hold only
@@ -250,6 +251,19 @@ const CLI_HELP = `ostia — control-socket CLI
   ostia ext <extId> <command> [args...]  run an extension command
   ostia <extId> <command> [args...]      same, when <extId> isn't a built-in verb
   ostia docs                     show this help
+
+  Your reach: the workspaces you act on without all-workspaces. The human sets it in
+  Settings → Agents (capabilities.reach), and only the human: settings set refuses it.
+    workspace  your own workspace only
+    project    (default) also every workspace of your git repository, any worktree, or of
+               your folder outside a repository
+               (a workspace whose folder an agent set with ostia workspace dir counts only
+               after the human confirms it on a card)
+    group      also the workspaces the human put in your sidebar group; one an agent moved
+               into the group counts only after the human confirms it on a card
+  Scratch and sandboxed workspaces are never in it, and a sandboxed pane reaches only its own
+  workspace. type-other-pane, read-other-pane and kill-pane still ask for panes you
+  did not open; outside your reach all-workspaces asks as well.
 
   A browse <sel> is an @eN ref from snapshot, a CSS selector, text=Label or xpath=//…
   (refs are valid until the next navigation).

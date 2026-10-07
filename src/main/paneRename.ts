@@ -5,11 +5,13 @@ import { targetOf } from './attention'
 import { ensureCaps } from './controlElevation'
 import { registerControlMethod } from './controlServer'
 import { type PaneIdentity, resolveExternal, windowOfWorkspace } from './idRegistry'
+import type { Reach } from './reach'
 
 export const NAME_MAX = 200
 
 export interface PaneRenameDeps {
   execCommand: (target: CommandTarget, id: string, args?: unknown) => Promise<CommandResult>
+  reach: Pick<Reach, 'inScope'>
 }
 
 function fail(message: string): ResponseError<void> {
@@ -38,9 +40,9 @@ export function cleanName(raw: unknown, field: string): string {
   return name
 }
 
-export function renameCaps(self: boolean, sameWorkspace: boolean): Capability[] {
+export function renameCaps(self: boolean, sameScope: boolean): Capability[] {
   if (self) return ['drive-self']
-  return sameWorkspace ? ['send-other-pane'] : ['send-other-pane', 'all-workspaces']
+  return sameScope ? ['send-other-pane'] : ['send-other-pane', 'all-workspaces']
 }
 
 function targetPane(raw: unknown, me: PaneIdentity): PaneIdentity {
@@ -72,7 +74,10 @@ export function registerPaneRenameMethods(deps: PaneRenameDeps): void {
       const me = ctx.identity
       if (me.kind === 'script' && p.pane === undefined) throw fail('bad-request: pane')
       const to = targetPane(p.pane, me)
-      const caps = renameCaps(to === me, to.workspaceId === me.workspaceId)
+      const caps =
+        to === me
+          ? renameCaps(true, true)
+          : renameCaps(false, await deps.reach.inScope(ctx, to.workspaceId))
       const detail = title
         ? `rename ${to.externalId} to ${JSON.stringify(title)}`
         : `let ${to.externalId} take its title from the program again`
@@ -97,7 +102,10 @@ export function registerPaneRenameMethods(deps: PaneRenameDeps): void {
       const detail = name
         ? `rename workspace ${workspaceId} to ${JSON.stringify(name)}`
         : `reset the name of workspace ${workspaceId}`
-      await ensureCaps(ctx.authed, me, renameCaps(self, self), 'workspace.rename', detail)
+      const caps = self
+        ? renameCaps(true, true)
+        : renameCaps(false, await deps.reach.inScope(ctx, workspaceId))
+      await ensureCaps(ctx.authed, me, caps, 'workspace.rename', detail)
       await run(deps, { windowId, workspaceId, paneId: null }, 'workspace.rename', { name })
       return { ok: true, workspaceId, name }
     },

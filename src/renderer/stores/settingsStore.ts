@@ -43,6 +43,7 @@ import {
 } from '../../shared/notificationSettings'
 import { parsePromptSettings } from '../../shared/promptSettings'
 import { isDangerousSegment } from '../../shared/protoGuard'
+import type { ReachMode } from '../../shared/reach'
 import {
   DEFAULT_PRIVACY_SETTINGS,
   type PrivacySettings,
@@ -279,6 +280,7 @@ export type FontSurface = 'ui' | 'terminal' | 'editor'
 
 export interface Capabilities {
   grants?: Capability[]
+  reach?: ReachMode
 }
 
 export interface SyncSettings {
@@ -606,7 +608,8 @@ function applySetting(s: SettingsState, path: string, value: unknown): SettingCh
 let lastWritten: string | null = null
 
 async function capabilitiesOnDisk(path: string): Promise<Capabilities | undefined> {
-  const raw = await window.ostia.fs.read(path).catch(() => null)
+  const res = await window.ostia.fs.read(path).catch(() => null)
+  const raw = res?.ok ? res.text : ''
   if (!raw) return undefined
   try {
     return parsePersisted(JSON.parse(raw) as Partial<Persisted>).capabilities
@@ -712,7 +715,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
 
   init: async () => {
     const path = await window.ostia.settings.path()
-    const raw = await window.ostia.fs.read(path)
+    const res = await window.ostia.fs.read(path)
+    const raw = res.ok ? res.text : ''
     if (!raw || raw === lastWritten) return
     try {
       set(parsePersisted(JSON.parse(raw) as Partial<Persisted>))

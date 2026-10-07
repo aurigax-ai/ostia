@@ -13,6 +13,7 @@ const fake = vi.hoisted(() => {
   }
   const state = {
     created: 0,
+    themedAtCreate: false,
     disposed: 0,
     options: [] as Record<string, unknown>[],
     model: null as { original: FakeModel; modified: FakeModel } | null,
@@ -38,6 +39,7 @@ const fake = vi.hoisted(() => {
       defineTheme: vi.fn(),
       createDiffEditor: (_host: HTMLElement, options: Record<string, unknown>) => {
         state.created += 1
+        state.themedAtCreate = monaco.editor.setTheme.mock.calls.length > 0
         state.options.push(options)
         return diff
       },
@@ -88,7 +90,7 @@ describe('DiffView', () => {
     fake.state.position = null
   })
 
-  it('creates a read-only side-by-side diff editor themed like the editor', () => {
+  it('creates a read-only side-by-side diff editor once the scheme theme is set', () => {
     useDiffStore.getState().set('d1', CONTENT)
     render(<DiffView paneId="d1" />)
     expect(fake.state.created).toBe(1)
@@ -96,7 +98,18 @@ describe('DiffView', () => {
       readOnly: true,
       originalEditable: false,
       renderSideBySide: true,
-      theme: 'ostia-scheme-adeberry',
+    })
+    expect(fake.state.options[0].theme).toBeUndefined()
+    expect(fake.state.themedAtCreate).toBe(true)
+  })
+
+  it('collapses unchanged regions and bounds the diff computation by time and size', () => {
+    useDiffStore.getState().set('d1', CONTENT)
+    render(<DiffView paneId="d1" />)
+    expect(fake.state.options[0]).toMatchObject({
+      hideUnchangedRegions: { enabled: true },
+      maxComputationTime: 2000,
+      maxFileSize: 5,
     })
   })
 

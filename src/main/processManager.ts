@@ -9,8 +9,6 @@ import {
   normalizeSplitTabName,
   parseSplitTabSide,
 } from '../shared/splitTabs'
-import { connHasCap } from './controlAuth'
-import { ensureCaps } from './controlElevation'
 import {
   type ControlMethodContext,
   registerControlMethod,
@@ -18,6 +16,7 @@ import {
 } from './controlServer'
 import type { TerminalOpenRequest } from './extensionHost'
 import { getByPaneId, resolveExternal } from './idRegistry'
+import type { Reach } from './reach'
 import { SANDBOXED_REFUSAL } from './sandboxedCaller'
 import { PromptMarkScanner, plainTerminalText } from './terminalText'
 
@@ -282,9 +281,15 @@ export class ProcessRegistry {
     return members[members.length - 1]?.paneId
   }
 
-  resolve(ref: string, workspaceId: string, everyWorkspace: boolean): ProcessEntry | undefined {
-    const visible = (entry: ProcessEntry): boolean =>
-      everyWorkspace || this.workspaceOf(entry) === workspaceId
+  resolve(
+    ref: string,
+    workspaceId: string,
+    reaches: (workspaceId: string) => boolean,
+  ): ProcessEntry | undefined {
+    const visible = (entry: ProcessEntry): boolean => {
+      const owner = this.workspaceOf(entry)
+      return owner === workspaceId || reaches(owner)
+    }
     const byId = this.entries.get(ref)
     if (byId) return visible(byId) ? byId : undefined
     const named = [...this.entries.values()].filter((e) => e.name === ref).reverse()
@@ -358,6 +363,7 @@ export interface ProcessDeps {
   cwdOfPane: (paneId: string) => string | undefined
   agentArgv: (name: string) => string[] | null
   isSandboxed: (workspaceId: string) => boolean
+  reach: Pick<Reach, 'ensure' | 'visible'>
   interruptGraceMs: number
   onChange?: (entry: ProcessEntry) => void
 }
@@ -458,13 +464,13 @@ export function registerProcessMethods(deps: ProcessDeps): ProcessRegistry {
     ...(deps.onChange ? { onChange: deps.onChange } : {}),
   })
 
-  const everyWorkspace = (ctx: ControlMethodContext): boolean =>
-    connHasCap(ctx.authed, 'all-workspaces')
-
-  const find = (raw: unknown, ctx: ControlMethodContext): ProcessEntry | undefined => {
+  const find = async (
+    raw: unknown,
+    ctx: ControlMethodContext,
+  ): Promise<ProcessEntry | undefined> => {
     const { id } = record(raw)
     return typeof id === 'string'
-      ? registry.resolve(id, ctx.identity.workspaceId, everyWorkspace(ctx))
+      ? registry.resolve(id, ctx.identity.workspaceId, await deps.reach.visible(ctx))
       : undefined
   }
 
@@ -500,10 +506,9 @@ export function registerProcessMethods(deps: ProcessDeps): ProcessRegistry {
       throw new ResponseError(ErrorCodes.InvalidRequest, SANDBOXED_REFUSAL)
     }
     if (!here) {
-      await ensureCaps(
-        ctx.authed,
-        ctx.identity,
-        ['all-workspaces'],
+      await deps.reach.ensure(
+        ctx,
+        workspaceId,
         'process.run',
         `open a terminal in workspace ${workspaceId}`,
       )
@@ -586,24 +591,31 @@ export function registerProcessMethods(deps: ProcessDeps): ProcessRegistry {
 
   registerTargetableMethod('process.list', {
     cap: 'process',
-    handler: (_params, ctx) =>
-      registry
-        .list(everyWorkspace(ctx) ? null : ctx.identity.workspaceId)
-        .map((entry) => registry.info(entry)),
+    handler: async (_params, ctx) => {
+      const reaches = await deps.reach.visible(ctx)
+      const home = ctx.identity.workspaceId
+      return registry
+        .list(null)
+        .filter((entry) => {
+          const owner = registry.workspaceOf(entry)
+          return owner === home || reaches(owner)
+        })
+        .map((entry) => registry.info(entry))
+    },
   })
 
   registerTargetableMethod('process.info', {
     cap: 'process',
-    handler: (params, ctx) => {
-      const entry = find(params, ctx)
+    handler: async (params, ctx) => {
+      const entry = await find(params, ctx)
       return entry ? registry.info(entry) : NOT_FOUND
     },
   })
 
   registerTargetableMethod('process.output', {
     cap: 'process',
-    handler: (params, ctx) => {
-      const entry = find(params, ctx)
+    handler: async (params, ctx) => {
+      const entry = await find(params, ctx)
       if (!entry) return NOT_FOUND
       if (entry.status === 'closed') return CLOSED
       const since = Number(record(params).sinceCursor ?? 0)
@@ -621,7 +633,7 @@ export function registerProcessMethods(deps: ProcessDeps): ProcessRegistry {
   registerControlMethod('process.kill', {
     cap: 'process',
     handler: async (params, ctx) => {
-      const entry = find(params, ctx)
+      const entry = await find(params, ctx)
       if (!entry) return NOT_FOUND
       if (entry.status === 'closed') return CLOSED
       if (entry.status === 'exited') return { ok: true, status: entry.status }
@@ -633,7 +645,7 @@ export function registerProcessMethods(deps: ProcessDeps): ProcessRegistry {
   registerControlMethod('process.restart', {
     cap: 'process',
     handler: async (params, ctx) => {
-      const entry = find(params, ctx)
+      const entry = await find(params, ctx)
       if (!entry) return NOT_FOUND
       if (entry.status === 'closed') return CLOSED
       if (!deps.hasShell(entry.paneId)) {

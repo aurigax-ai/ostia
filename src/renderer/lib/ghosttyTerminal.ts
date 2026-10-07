@@ -12,6 +12,7 @@ import wasmDataUrl from '@aurigax-ai/ghostty-web/ghostty-vt.wasm?dataurl'
 import type { ILinkProvider } from '@xterm/xterm'
 import type {
   OstiaTerminal,
+  PauseTerminal,
   TerminalDisposable,
   TerminalOptions,
   TerminalParser,
@@ -114,6 +115,7 @@ export interface GhosttyTerminal {
   fit: { fit(): void; proposeDimensions(): { cols: number; rows: number } | undefined }
   search: TerminalSearch
   silenceQueryReplies(): TerminalDisposable
+  setPaused: PauseTerminal
 }
 
 export function oneBasedRange(range: GhosttyRange) {
@@ -279,6 +281,7 @@ export function createGhosttyTerminal(
       clearDecorations: () => search.clearDecorations(),
       onDidChangeResults: search.onDidChangeResults,
     },
+    setPaused: (paused, pauseOptions) => t.setPaused(paused, pauseOptions),
     silenceQueryReplies: () => {
       t.answerQueries = false
       return {

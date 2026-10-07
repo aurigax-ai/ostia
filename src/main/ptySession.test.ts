@@ -73,3 +73,25 @@ describe('PtySession', () => {
     expect(sink).toEqual(['new'])
   })
 })
+
+describe('PtySession subscriber lifecycle', () => {
+  it('closes a subscriber when it is removed or replaced by a re-attach with the same id', () => {
+    const s = new PtySession()
+    const closed: string[] = []
+    const first = { ...sub('w', 'owner', []), close: () => closed.push('first') }
+    const second = { ...sub('w', 'owner', []), close: () => closed.push('second') }
+    s.addLiveSubscriber(first)
+    s.addLiveSubscriber(second)
+    expect(closed).toEqual(['first'])
+    s.removeSubscriber('w')
+    expect(closed).toEqual(['first', 'second'])
+  })
+
+  it('flushes every subscriber before reporting the exit', () => {
+    const order: string[] = []
+    const s = new PtySession({ onExit: () => order.push('exit') })
+    s.addLiveSubscriber({ ...sub('w', 'owner', []), flush: () => order.push('flush') })
+    s.exit(0)
+    expect(order).toEqual(['flush', 'exit'])
+  })
+})

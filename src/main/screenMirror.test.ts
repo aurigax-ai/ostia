@@ -1,5 +1,5 @@
 import { Terminal } from '@xterm/headless'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { HIBERNATE_SEAM, HISTORY_LINES, RESTORE_SEAM, ScreenMirror } from './screenMirror'
 
 const WIDE = 127
@@ -147,6 +147,39 @@ describe('ScreenMirror', () => {
     const history = mirror.serialize()
     mirror.dispose()
     expect(history).toBe(`${' '.repeat(69)}X`)
+  })
+
+  it('walks the buffer again only after the screen changed', async () => {
+    const mirror = await mirrored('FIRST-OUT\r\n')
+    const buffer = (mirror as unknown as { term: Terminal }).term.buffer.normal
+    const reads = vi.spyOn(buffer, 'getLine')
+    const first = mirror.serialize()
+    const walked = reads.mock.calls.length
+    expect(walked).toBeGreaterThan(0)
+    expect(mirror.serialize()).toBe(first)
+    expect(reads.mock.calls.length).toBe(walked)
+    mirror.write('MORE-OUT\r\n')
+    await mirror.flush()
+    expect(mirror.serialize()).toContain('MORE-OUT')
+    expect(reads.mock.calls.length).toBeGreaterThan(walked)
+    mirror.dispose()
+  })
+
+  it('moves its revision on parsed output, a resize and a restore mark, never on a read', async () => {
+    const mirror = await mirrored('out\r\n', 80, 10)
+    const seen = [mirror.revision]
+    mirror.serialize()
+    seen.push(mirror.revision)
+    mirror.resize(40, 10)
+    await mirror.flush()
+    seen.push(mirror.revision)
+    mirror.markRestored('old')
+    await mirror.flush()
+    seen.push(mirror.revision)
+    mirror.dispose()
+    expect(seen[1]).toBe(seen[0])
+    expect(seen[2]).toBeGreaterThan(seen[1])
+    expect(seen[3]).toBeGreaterThan(seen[2])
   })
 
   it('ignores writes and serializes nothing once disposed', async () => {

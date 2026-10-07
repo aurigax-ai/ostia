@@ -376,6 +376,32 @@ describe('builtins route to store actions', () => {
     expect(useSettingsStore.getState().privacy.redaction).toEqual({ enabled: true, patterns: [] })
   })
 
+  it('settings.set and settings.unset refuse capabilities and workspace group rules, so an agent cannot widen its reach', async () => {
+    const exec = (id: string, args: unknown) => commands.execWith(ctx(null, null), id, args)
+    const attempts = [
+      ['capabilities', await exec('settings.set', { key: 'capabilities.reach', value: 'group' })],
+      [
+        'capabilities',
+        await exec('settings.set', { key: 'capabilities', value: { reach: 'group' } }),
+      ],
+      ['capabilities', await exec('settings.unset', { key: 'capabilities.reach' })],
+      [
+        'workspaceGroups',
+        await exec('settings.set', {
+          key: 'workspaceGroups.byCwd',
+          value: [{ pattern: '/**', group: 'terminal' }],
+        }),
+      ],
+      ['workspaceGroups', await exec('settings.unset', { key: 'workspaceGroups' })],
+    ] as const
+    for (const [root, res] of attempts) {
+      expect(res.ok).toBe(false)
+      if (!res.ok) expect(res.error.message).toBe(`${root} can only be changed by you in Settings`)
+    }
+    expect(useSettingsStore.getState().capabilities?.reach).toBeUndefined()
+    expect(useSettingsStore.getState().workspaceGroups.byCwd).toEqual([])
+  })
+
   it('settings.set picks a text editing preset, refuses unknown ones, and unset goes back to null', async () => {
     const exec = (id: string, args: unknown) => commands.execWith(ctx(null, null), id, args)
     expect(await exec('settings.set', { key: 'terminalKeymap', value: 'none' })).toEqual({
@@ -1281,6 +1307,34 @@ describe('builtins route to store actions', () => {
     const created = useWorkspacesStore.getState().activeWorkspaceId
     expect(created).not.toBeNull()
     expect(res).toEqual({ ok: true, result: { workspaceId: created } })
+  })
+
+  it('workspace.new opens a background workspace in a named group beside the caller', async () => {
+    const store = useWorkspacesStore.getState()
+    store.addWorkspace('/home/u/proj')
+    const coordinator = useWorkspacesStore.getState().activeWorkspaceId as string
+    store.moveToGroupNamed(coordinator, 'proj')
+
+    const res = await commands.execWith(ctx(null, null), 'workspace.new', {
+      dir: '/home/u/proj',
+      name: 'proj · workers',
+      focus: false,
+      group: 'proj',
+    })
+
+    const after = useWorkspacesStore.getState()
+    const workers = after.workspaces.find((w) => w.customName === 'proj · workers')
+    expect(res).toEqual({ ok: true, result: { workspaceId: workers?.id } })
+    expect(after.activeWorkspaceId).toBe(coordinator)
+    expect(workers?.groupId).toBe(after.workspaces.find((w) => w.id === coordinator)?.groupId)
+    expect(after.groups.map((g) => g.name)).toEqual(['proj'])
+  })
+
+  it('workspace.new refuses a blank group and opens nothing', async () => {
+    const before = useWorkspacesStore.getState().workspaces.length
+    const res = await commands.execWith(ctx(null, null), 'workspace.new', { group: '  ' })
+    expect(res.ok).toBe(false)
+    expect(useWorkspacesStore.getState().workspaces).toHaveLength(before)
   })
 
   it('routes palette.toggle to ui.togglePalette', async () => {

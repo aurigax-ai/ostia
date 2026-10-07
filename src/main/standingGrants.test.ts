@@ -31,7 +31,7 @@ describe('standing grants', () => {
 
   it('refuses to save a grant for a capability that always asks', () => {
     writeFileSync(settingsFile, JSON.stringify({ capabilities: { grants: [] } }))
-    store.refreshGrantedCaps()
+    store.refreshCapabilitySettings()
 
     expect(store.addStandingGrants(['shell', 'destructive'])).toBe(false)
     expect(store.addStandingGrants(['credentials'])).toBe(false)
@@ -43,7 +43,7 @@ describe('standing grants', () => {
 
   it('remove revokes the grant from every pane at once', () => {
     writeFileSync(settingsFile, JSON.stringify({}))
-    store.refreshGrantedCaps()
+    store.refreshCapabilitySettings()
     store.initCaps('pane-d')
     store.addStandingGrants(['send-other-pane', 'browse'])
     expect(store.hasCap('pane-d', 'browse')).toBe(true)
@@ -58,13 +58,39 @@ describe('standing grants', () => {
 
   it('applies a hand edit of settings.json without a restart', () => {
     writeFileSync(settingsFile, JSON.stringify({}))
-    store.refreshGrantedCaps()
+    store.refreshCapabilitySettings()
     store.initCaps('pane-e')
 
     writeFileSync(settingsFile, JSON.stringify({ capabilities: { grants: ['kill-pane'] } }))
-    store.refreshGrantedCaps()
+    store.refreshCapabilitySettings()
 
     expect(store.hasCap('pane-e', 'kill-pane')).toBe(true)
+  })
+
+  it('reads the agent reach from settings.json, defaulting to project, and applies a hand edit', () => {
+    writeFileSync(settingsFile, JSON.stringify({}))
+    store.refreshCapabilitySettings()
+    expect(store.loadReachMode()).toBe('project')
+
+    writeFileSync(settingsFile, JSON.stringify({ capabilities: { reach: 'group' } }))
+    store.refreshCapabilitySettings()
+    expect(store.loadReachMode()).toBe('group')
+
+    writeFileSync(settingsFile, JSON.stringify({ capabilities: { reach: 'everything' } }))
+    store.refreshCapabilitySettings()
+    expect(store.loadReachMode()).toBe('project')
+  })
+
+  it('writes the agent reach Settings picks, keeps the grants, and refuses an unknown mode', () => {
+    writeFileSync(settingsFile, JSON.stringify({ capabilities: { grants: ['browse'] } }))
+    store.refreshCapabilitySettings()
+
+    expect(store.setReachMode('workspace')).toBe(true)
+    expect(saved().capabilities).toEqual({ grants: ['browse'], reach: 'workspace' })
+    expect(store.loadReachMode()).toBe('workspace')
+
+    expect(store.setReachMode('everything')).toBe(false)
+    expect(saved().capabilities).toEqual({ grants: ['browse'], reach: 'workspace' })
   })
 
   it('never overwrites a settings.json it cannot parse', () => {
@@ -80,7 +106,9 @@ describe('standing grants', () => {
       .filter((f) => /\.tsx?$/.test(f) && !/\.test\.tsx?$/.test(f))
       .map((f) => join(root, f))
     const callers = sources
-      .filter((f) => /addStandingGrants|removeStandingGrant/.test(readFileSync(f, 'utf8')))
+      .filter((f) =>
+        /addStandingGrants|removeStandingGrant|setReachMode/.test(readFileSync(f, 'utf8')),
+      )
       .map((f) => relative(root, f))
       .sort()
     expect(callers).toEqual(['main/approvals.ts', 'main/capabilityStore.ts'])

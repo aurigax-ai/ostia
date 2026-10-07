@@ -28,12 +28,14 @@ import { failedRequestsFor } from './guestNetwork'
 import { getByPaneId } from './idRegistry'
 import type { OriginReach } from './originAgents'
 import { privateTmpDir } from './privateTmp'
+import type { Reach } from './reach'
 
 export interface PickDeps {
   browserPanes: Map<string, number>
   isSharedPane: (paneId: string) => boolean
   errorBuffers: Map<number, ConsoleEntry[]>
   broadcast: (channel: string, payload: unknown) => void
+  reach: Pick<Reach, 'inScope'>
 }
 
 export const PICK_WORLD_ID = 1024

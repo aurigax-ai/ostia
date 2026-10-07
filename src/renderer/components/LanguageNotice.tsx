@@ -43,6 +43,15 @@ function Bar({ children }: { children: React.ReactNode }): JSX.Element {
   )
 }
 
+export function LargeFileNotice(): JSX.Element {
+  const d = useDict()
+  return (
+    <Bar>
+      <span className="truncate">{d.editor.largeFile}</span>
+    </Bar>
+  )
+}
+
 function ServerBar({ server }: { server: LanguageServerInfo }): JSX.Element {
   const d = useDict()
   const t = d.languageNotice

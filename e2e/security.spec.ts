@@ -4,7 +4,7 @@ import { isolatedLaunch } from './dataHome'
 type OstiaFs = {
   ostia: {
     fs: {
-      read: (p: string) => Promise<string | null>
+      read: (p: string) => Promise<{ ok: boolean; error?: string }>
       list: (p: string) => Promise<{ name: string; dir: boolean }[]>
       write: (p: string, c: string) => Promise<boolean>
     }
@@ -20,12 +20,12 @@ test('fs:* is confined to allowed roots (blocks /etc/passwd + ../ escapes)', asy
     const passwd = await win.evaluate(() =>
       (window as unknown as OstiaFs).ostia.fs.read('/etc/passwd'),
     )
-    expect(passwd).toBeNull()
+    expect(passwd).toEqual({ ok: false, error: 'denied' })
 
     const escaped = await win.evaluate(() =>
       (window as unknown as OstiaFs).ostia.fs.read('~/../../../../etc/passwd'),
     )
-    expect(escaped).toBeNull()
+    expect(escaped).toEqual({ ok: false, error: 'denied' })
 
     const wrote = await win.evaluate(() =>
       (window as unknown as OstiaFs).ostia.fs.write('/tmp/ostia-e2e-should-not-exist.txt', 'x'),

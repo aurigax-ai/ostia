@@ -53,6 +53,7 @@ function renderEditor(overrides: Partial<InputEditorProps> = {}) {
     fontFamily: 'monospace',
     fontSize: 13,
     alternateScreen: false,
+    paneShown: true,
     suppressedPrompt: null,
     ownsFocus: () => true,
     termRef: { current: fakeTerm() },

@@ -89,6 +89,8 @@ test('an agent that redraws its spinner and title every frame does not re-render
     await win.keyboard.press('Control+c')
     await expect(rows).toContainText('busy-agent done', { timeout: 15_000 })
     await expect(title).toHaveText('✳ Busy task')
+    await win.keyboard.press('q')
+    await expect(rows).toContainText('busy-agent exited', { timeout: 15_000 })
   } finally {
     await app.close()
   }
