@@ -173,7 +173,7 @@ describe.skipIf(skipWithoutTmux)('KeptShells', () => {
       channel: join(root, `${workspaceId}.sock`),
       tmpDir: join(root, workspaceId),
       protocol,
-      exposed: [3000],
+      exposed: [{ port: 3000, process: 'node', pid: 41 }],
     }
     return kept.spawnHost({
       file: '/bin/sh',
@@ -192,7 +192,7 @@ describe.skipIf(skipWithoutTmux)('KeptShells', () => {
     first.kept.release()
     const second = await restart(name, new Set(['p1']))
     expect(second.kept.isWaiting('p1')).toBe(true)
-    expect(second.kept.keptHost('w1')?.exposed).toEqual([3000])
+    expect(second.kept.keptHost('w1')?.exposed).toEqual([{ port: 3000, process: 'node', pid: 41 }])
     expect(second.kept.claimHost('w1')?.pane.pid).toBe(hostPane.pid)
   })
 

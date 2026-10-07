@@ -912,21 +912,10 @@ const keptHostPanes = new Map<string, { pane: TmuxPane; meta: KeptHostMeta }>()
 function syncKeptExposed(workspaceId: string): void {
   const host = keptHostPanes.get(workspaceId)
   if (!host) return
-  host.meta = { ...host.meta, exposed: portForwarder.exposed(workspaceId) }
+  const exposed = portRequests.exposures(workspaceId)
+  if (JSON.stringify(exposed) === JSON.stringify(host.meta.exposed)) return
+  host.meta = { ...host.meta, exposed }
   host.pane.setMeta(host.meta)
-}
-
-const EXPOSE_RESTORE_WAIT_MS = 10_000
-const EXPOSE_RESTORE_POLL_MS = 200
-
-async function restoreKeptExposed(workspaceId: string, ports: readonly number[]): Promise<void> {
-  if (ports.length === 0) return
-  const end = Date.now() + EXPOSE_RESTORE_WAIT_MS
-  while (portForwarder.refusal(workspaceId) !== null) {
-    if (Date.now() > end) return
-    await new Promise((resolve) => setTimeout(resolve, EXPOSE_RESTORE_POLL_MS))
-  }
-  for (const port of ports) await portForwarder.expose(workspaceId, port)
 }
 
 const sandboxViolations = new ViolationLog()
@@ -1138,7 +1127,9 @@ const hostPaneGrants = new HostPaneGrants({ now: Date.now, ttlMs: HOST_GRANT_TTL
 function scanSandboxPorts(): void {
   const workspaces = new Set<string>()
   for (const entry of ptys.values()) if (entry.sandboxed) workspaces.add(entry.workspaceId)
-  for (const workspaceId of workspaces) void portRequests.scan(workspaceId)
+  for (const workspaceId of workspaces) {
+    void portRequests.scan(workspaceId).then(() => syncKeptExposed(workspaceId))
+  }
 }
 
 const GH_TOKEN_TTL_MS = 60_000
@@ -2361,12 +2352,8 @@ function registerPtyIpc(): void {
         void workspaceSandboxes.cleanup(workspaceId)
         releaseMergedSandbox(workspaceId, entry)
       })
-      const exposed = keptHost?.exposed ?? []
-      portRequests.keep(workspaceId, exposed)
-      void workspaceSandboxes
-        .connect(workspaceId)
-        .then(() => restoreKeptExposed(workspaceId, exposed))
-        .catch(() => undefined)
+      portRequests.keep(workspaceId, keptHost?.exposed ?? [])
+      void workspaceSandboxes.connect(workspaceId).catch(() => undefined)
     }
     pane.onData((d) => feedPty(entry, d))
     pane.onExit(({ exitCode }) => entry.session.exit(exitCode))

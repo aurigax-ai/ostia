@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
+import type { KeptExposure } from '../sandbox/portRequests'
 import { HOST_PROTOCOL_VERSION } from '../sandbox/protocol'
 import type { NewWindowSpec } from './tmuxCommand'
 import { type KeptWindow, type TmuxPane, TmuxServer, type TmuxServerOptions } from './tmuxServer'
@@ -41,7 +42,24 @@ export interface KeptHostMeta {
   channel: string
   tmpDir: string
   protocol: number
-  exposed: number[]
+  exposed: KeptExposure[]
+}
+
+function isPort(raw: unknown): raw is number {
+  return Number.isInteger(raw) && (raw as number) > 0 && (raw as number) < 65536
+}
+
+function parseExposure(raw: unknown): KeptExposure | null {
+  if (typeof raw !== 'object' || raw === null) return null
+  const r = raw as Record<string, unknown>
+  const process = text(r.process)
+  if (!isPort(r.port) || !process) return null
+  return {
+    port: r.port,
+    process,
+    ...(Number.isInteger(r.pid) && (r.pid as number) > 0 ? { pid: r.pid as number } : {}),
+    ...(r.byHuman === true ? { byHuman: true as const } : {}),
+  }
 }
 
 export function parseKeptHost(raw: unknown): KeptHostMeta | null {
@@ -52,7 +70,7 @@ export function parseKeptHost(raw: unknown): KeptHostMeta | null {
   const tmpDir = text(r.tmpDir)
   if (r.kind !== SANDBOX_HOST_KIND || !workspaceId || !channel || !tmpDir) return null
   const exposed = Array.isArray(r.exposed)
-    ? r.exposed.filter((p): p is number => Number.isInteger(p) && p > 0 && p < 65536)
+    ? r.exposed.map(parseExposure).filter((e): e is KeptExposure => e !== null)
     : []
   const protocol = Number.isInteger(r.protocol) ? (r.protocol as number) : 0
   return { kind: SANDBOX_HOST_KIND, workspaceId, channel, tmpDir, protocol, exposed }
