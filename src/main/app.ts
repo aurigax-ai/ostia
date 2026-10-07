@@ -1323,6 +1323,10 @@ const askHub = createAskHub({
   resolved: (resolved) => emitPlatformEvent('ask.resolved', resolved),
 })
 const keptAttention = new KeptAttention()
+
+function keptUnreported(paneId: string): boolean {
+  return keptAttention.peek(paneId) !== undefined
+}
 const paneWatch = new PaneWatch()
 const paneWaking = new PaneWaking()
 const isWaking = (paneId: string): boolean => paneWaking.has(paneId)
@@ -2384,6 +2388,7 @@ function registerPtyIpc(): void {
       dropped,
       shell: shellName(meta.shell) || undefined,
       sandboxed: sandbox !== undefined,
+      ...(sandbox?.stamp ? { sandboxStamp: sandbox.stamp } : {}),
       kept: true,
       reattached: true,
     }
@@ -3427,7 +3432,14 @@ app.whenReady().then(() => {
         {
           execCommand,
           listPanes: () =>
-            listPanes({ execCommand, getTerminalState, ptyPid, windowIds, waking: isWaking }),
+            listPanes({
+              execCommand,
+              getTerminalState,
+              ptyPid,
+              windowIds,
+              waking: isWaking,
+              unreported: keptUnreported,
+            }),
           listWorkspaces: () => listWorkspaces({ execCommand, windowIds }),
         },
         from,
@@ -3657,7 +3669,14 @@ app.whenReady().then(() => {
   platformEvents.on('notify', (n: { title: string; body?: string; from: string }) =>
     extensionHost?.emitEvent('notification', n),
   )
-  registerPaneListMethods({ execCommand, getTerminalState, ptyPid, windowIds, waking: isWaking })
+  registerPaneListMethods({
+    execCommand,
+    getTerminalState,
+    ptyPid,
+    windowIds,
+    waking: isWaking,
+    unreported: keptUnreported,
+  })
   registerGatewayMethods()
   const tailnet = createTailnet({
     command: tsnetHelperPath(app.getAppPath(), process.platform),
@@ -3681,7 +3700,14 @@ app.whenReady().then(() => {
     listCommandsFor,
     getTerminalState,
     listPanes: () =>
-      listPanes({ execCommand, getTerminalState, ptyPid, windowIds, waking: isWaking }),
+      listPanes({
+        execCommand,
+        getTerminalState,
+        ptyPid,
+        windowIds,
+        waking: isWaking,
+        unreported: keptUnreported,
+      }),
     listWorkspaces: () => listWorkspaces({ execCommand, windowIds }),
     fileScope: phoneFileScope,
     listWorkspaceGroups: () => listWorkspaceGroups({ execCommand, windowIds }),
@@ -3782,14 +3808,28 @@ app.whenReady().then(() => {
     host: extensionHost,
     listWorkspaces: () => listWorkspaces({ execCommand, windowIds }),
     listPanes: () =>
-      listPanes({ execCommand, getTerminalState, ptyPid, windowIds, waking: isWaking }),
+      listPanes({
+        execCommand,
+        getTerminalState,
+        ptyPid,
+        windowIds,
+        waking: isWaking,
+        unreported: keptUnreported,
+      }),
     log: (line) => console.error(`[git] ${line}`),
   })
   gitBoard.start()
   portsBoard = new PortsBoard({
     host: extensionHost,
     listPanes: () =>
-      listPanes({ execCommand, getTerminalState, ptyPid, windowIds, waking: isWaking }),
+      listPanes({
+        execCommand,
+        getTerminalState,
+        ptyPid,
+        windowIds,
+        waking: isWaking,
+        unreported: keptUnreported,
+      }),
     log: (line) => console.error(`[ports] ${line}`),
   })
   portsBoard.start()

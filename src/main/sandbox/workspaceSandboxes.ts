@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readdirSync, rmSync } from 'node:fs'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import type { SandboxRuntimeConfig } from '@anthropic-ai/sandbox-runtime'
 import type { PackageRef } from '../../shared/packages'
 import { PRODUCT_DISPLAY_NAME } from '../../shared/productDisplay'
@@ -216,9 +216,18 @@ export class WorkspaceSandboxes {
   wrapStamp(workspaceId: string): string | null {
     try {
       const { network, filesystem } = this.config(workspaceId)
+      const plumbing = new Set(this.plumbingPaths(workspaceId))
+      const policy = (list: readonly string[] | undefined): string[] | undefined =>
+        list?.filter((path) => !plumbing.has(path))
       const baked = {
-        filesystem,
-        allowUnixSockets: network.allowUnixSockets,
+        filesystem: {
+          ...filesystem,
+          denyRead: policy(filesystem.denyRead),
+          allowRead: policy(filesystem.allowRead),
+          allowWrite: policy(filesystem.allowWrite),
+          denyWrite: policy(filesystem.denyWrite),
+        },
+        allowUnixSockets: policy(network.allowUnixSockets),
         allowAllUnixSockets: network.allowAllUnixSockets,
         allowLocalBinding: network.allowLocalBinding,
       }
@@ -226,6 +235,22 @@ export class WorkspaceSandboxes {
     } catch {
       return null
     }
+  }
+
+  private plumbingPaths(workspaceId: string): string[] {
+    const base = this.basePaths()
+    const tmpDir = this.tmpDir(workspaceId)
+    return [
+      base.socketPath,
+      ...(base.keptSocketPath ? [base.keptSocketPath] : []),
+      ...base.runtimeReads,
+      ...base.dataDirs,
+      ...(base.agentSockets ?? []).map((sock) => dirname(sock)),
+      ...(base.runtimeDir ? [base.runtimeDir] : []),
+      ...(base.tmpRoot ? [base.tmpRoot] : []),
+      tmpDir,
+      join(tmpDir, SSH_AGENT_SOCKET_NAME),
+    ]
   }
 
   writeRefusal(workspaceId: string, path: string): WriteRefusal | null {

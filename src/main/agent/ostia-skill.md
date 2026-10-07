@@ -49,7 +49,7 @@ JSON, one object per pane:
 | `workspaceId`, `kind`, `title`, `cwd`, `filePath?` | where it is and what it shows (`kind`: terminal, editor, browser, …) |
 | `running`, `blockCount`, `lastExitCode`, `pid?` | a command is running in its shell; how many commands ran; the last exit code |
 | `agent?` | `claude`, `codex`, … while an agent runs in the pane; absent at a shell prompt |
-| `agentState?`, `agentMessage?` | what that agent reported: `working`, `waiting`, `done`, `error`; absent when nothing is pending |
+| `agentState?`, `agentMessage?` | what that agent reported: `working`, `waiting`, `done`, `error`, or `unknown` for an agent that kept running across a restart and has not reported since; absent when nothing is pending |
 | `agentSessionId?` | the agent session a Resume or wake continues |
 | `hibernated?` | `true` when Ostia stopped the idle agent to save memory (wake it with `ostia pane wake`) |
 | `waking?` | `true` from `ostia pane wake` until the woken agent has started; `pane send` refuses it until then (`ostia pane wake --wait` waits for it) |
