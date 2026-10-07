@@ -34,7 +34,7 @@ import {
 } from '@phosphor-icons/react'
 import type { ExtensionSidebarItem } from '@shared/extensions'
 import { WORKSPACE_GROUP_COLORS, type WorkspaceGroupColor } from '@shared/workspaceGroups'
-import { useEffect, useRef, useState } from 'react'
+import { createContext, useContext, useEffect, useRef, useState } from 'react'
 import Markdown, { type Components } from 'react-markdown'
 import type { Dict } from '../i18n/dict'
 import { fmt, useDict } from '../i18n/useDict'
@@ -50,6 +50,7 @@ import {
 import { beginDrag, endWorkspaceDrag } from '../lib/paneDrag'
 import { RAIL_WIDTH } from '../lib/panelWidth'
 import { type RowDropZone, rowDropZone } from '../lib/railDropZone'
+import { useRailMotion } from '../lib/railMotion'
 import { sidebarLines, visibleSidebarItems } from '../lib/sidebarItems'
 import { moveWorkspaceToNewWindow } from '../lib/windowHandoff'
 import { type RemoteWorkspace, remoteWorkspacesOf } from '../lib/windowWorkspaces'
@@ -154,14 +155,24 @@ interface DragHandlers {
 
 const RAIL_ID = 'deck-rail'
 
+const RailCollapsedContext = createContext(false)
+
 export function DeckRail(): JSX.Element {
   const d = useDict()
   const collapsed = useUIStore((s) => s.railCollapsed)
   const setRailCollapsed = useUIStore((s) => s.setRailCollapsed)
+  const motion = useRailMotion(collapsed)
   return (
     <>
-      <aside id={RAIL_ID} className={`deck-rail${collapsed ? ' collapsed' : ''}`}>
-        <WorkspacesView />
+      <aside
+        id={RAIL_ID}
+        className={`deck-rail${motion.shownCollapsed ? ' collapsed' : ''}`}
+        data-rail-motion={motion.phase ?? undefined}
+        onAnimationEnd={motion.onAnimationEnd}
+      >
+        <RailCollapsedContext.Provider value={motion.shownCollapsed}>
+          <WorkspacesView />
+        </RailCollapsedContext.Provider>
       </aside>
       <PanelResizer
         spec={RAIL_WIDTH}
@@ -998,7 +1009,7 @@ function TabRow({
   after?: React.ReactNode
   badge?: React.ReactNode
 }): JSX.Element {
-  const collapsed = useUIStore((s) => s.railCollapsed)
+  const collapsed = useContext(RailCollapsedContext)
   if (editor) {
     return (
       <div className={`rail-tab${active ? ' active' : ''}`}>

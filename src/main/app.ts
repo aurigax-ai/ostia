@@ -92,6 +92,7 @@ import { announceBusMessage } from './busNotice'
 import { dropIdentity, refreshGrantedCaps, setCaps } from './capabilityStore'
 import { createChatSessionStore } from './chatSessions'
 import { registerChatSessionIpc } from './chatSessionsIpc'
+import { ChatToolGrants } from './chatToolGrants'
 import { registerChatToolsIpc } from './chatToolsIpc'
 import { type ClipboardEdits, registerClipboardEdits } from './clipboardEdits'
 import { confirmQuit, freezeAll, registerCloseGuard } from './closeGuard'
@@ -187,7 +188,7 @@ import {
   pastedText,
   registerPaneIoMethods,
 } from './paneIo'
-import { listPanes, listWorkspaces, registerPaneListMethods } from './paneList'
+import { listPanes, listWorkspaceGroups, listWorkspaces, registerPaneListMethods } from './paneList'
 import type { PaneProcess } from './paneProcess'
 import { registerPaneRenameMethods } from './paneRename'
 import { registerPaneResumeMethods } from './paneResume'
@@ -3328,6 +3329,8 @@ app.whenReady().then(() => {
     mcp: mcpHost,
     secrets: mcpSecrets,
     oauth: mcpOAuth,
+    grants: new ChatToolGrants(join(app.getPath('userData'), 'chat-tool-grants.json')),
+    onGrants: (keys) => broadcast('chatTools:always-grants', keys),
   })
   const workflowDeps: WorkflowDeps = {
     userDir: join(configDir(), 'workflows'),
@@ -3396,6 +3399,7 @@ app.whenReady().then(() => {
     getTerminalState,
     listPanes: () => listPanes({ execCommand, getTerminalState, ptyPid, windowIds }),
     listWorkspaces: () => listWorkspaces({ execCommand, windowIds }),
+    listWorkspaceGroups: () => listWorkspaceGroups({ execCommand, windowIds }),
     primaryWindowId,
     attachPhoneObserver,
     ptyResize,
