@@ -3,6 +3,7 @@ import type { LayoutNode, PaneNode } from '../layout/types'
 import { useBlocksStore } from '../stores/blocksStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useSettingsStore } from '../stores/settingsStore'
+import { wakePane } from './hibernationScheduler'
 import { resumeWhenIdle } from './resumeFolder'
 
 interface PendingPane {
@@ -36,6 +37,16 @@ function clear(workspaceId: string, paneId: string): void {
   useLayoutStore.getState().setResumePending(workspaceId, paneId, false)
 }
 
+const activated = new Set<string>()
+let sweepNow: (() => void) | null = null
+
+export function resumeOnActivation(paneId: string): void {
+  if (wakePane(paneId)) return
+  if (!pendingPanes().some(({ pane }) => pane.id === paneId)) return
+  activated.add(paneId)
+  sweepNow?.()
+}
+
 export function startAutoResume(): () => void {
   const scheduled = new Map<string, () => void>()
 
@@ -49,18 +60,22 @@ export function startAutoResume(): () => void {
       cancel()
       scheduled.delete(paneId)
     }
+    for (const paneId of [...activated]) {
+      if (!waiting.has(paneId)) activated.delete(paneId)
+    }
     for (const { workspaceId, pane } of panes) {
       const resume = pane.resume
       if (!resume) continue
-      if (
-        !enabled ||
-        running[pane.id] !== undefined ||
-        pane.kind !== 'terminal' ||
-        pane.resumeFolderMissing
-      ) {
+      if (running[pane.id] !== undefined || pane.kind !== 'terminal' || pane.resumeFolderMissing) {
         scheduled.get(pane.id)?.()
         scheduled.delete(pane.id)
+        activated.delete(pane.id)
         clear(workspaceId, pane.id)
+        continue
+      }
+      if (!enabled && !activated.has(pane.id)) {
+        scheduled.get(pane.id)?.()
+        scheduled.delete(pane.id)
         continue
       }
       if (scheduled.has(pane.id)) continue
@@ -68,6 +83,7 @@ export function startAutoResume(): () => void {
     }
   }
 
+  sweepNow = sweep
   sweep()
   const unsubscribe = [
     useLayoutStore.subscribe(sweep),
@@ -77,6 +93,8 @@ export function startAutoResume(): () => void {
     }),
   ]
   return () => {
+    sweepNow = null
+    activated.clear()
     for (const off of unsubscribe) off()
     for (const cancel of scheduled.values()) cancel()
     scheduled.clear()
