@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { managedUpdateMethod, updateCommandLine } from './installMethod'
+import {
+  managedUpdateMethod,
+  offersUpdateChannels,
+  updateChannelFor,
+  updateCommandLine,
+} from './installMethod'
 
 describe('updateCommandLine', () => {
   it('is the fixed command per managed method, without any version', () => {
@@ -14,5 +19,17 @@ describe('updateCommandLine', () => {
       expect(updateCommandLine(method)).toBeNull()
       expect(managedUpdateMethod(method)).toBeNull()
     }
+  })
+})
+
+describe('updateChannelFor', () => {
+  it('offers the main channel only to tarball and local installs', () => {
+    expect(['tarball', 'local'].every((m) => offersUpdateChannels(m as 'tarball'))).toBe(true)
+    for (const method of ['apt', 'brew', 'dmg', 'dev'] as const) {
+      expect(offersUpdateChannels(method)).toBe(false)
+      expect(updateChannelFor(method, 'main')).toBe('stable')
+    }
+    expect(updateChannelFor('tarball', 'main')).toBe('main')
+    expect(updateChannelFor('local', 'stable')).toBe('stable')
   })
 })

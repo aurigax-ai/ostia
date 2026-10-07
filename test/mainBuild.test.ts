@@ -23,7 +23,13 @@ const mainBuild = (run: number) => ({ tagName: `v0.5.10-main.${run}`, isPrerelea
 describe('mainBuildRunOf', () => {
   it('reads the run number of a main build tag only', () => {
     expect(mainBuildRunOf('v0.5.10-main.412')).toBe(412)
-    for (const tag of ['v0.5.9', 'v0.5.9-rc.3', 'v0.5.10-main.0', '0.5.10-main.4', 'v0.5.10-main.4+x']) {
+    for (const tag of [
+      'v0.5.9',
+      'v0.5.9-rc.3',
+      'v0.5.10-main.0',
+      '0.5.10-main.4',
+      'v0.5.10-main.4+x',
+    ]) {
       expect(mainBuildRunOf(tag)).toBeNull()
     }
   })

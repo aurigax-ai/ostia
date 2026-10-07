@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { envName } from '../shared/appEnv'
+import type { InstallMethod } from '../shared/installMethod'
 import type { ReleaseInfo, UpdateChannel } from '../shared/releases'
 
 const handlers = new Map<string, (...args: unknown[]) => unknown>()
@@ -463,13 +464,17 @@ describe('registerReleaseCheck', () => {
 
   const start = vi.fn(async () => 'opened' as const)
   const replaceStart = vi.fn(async (_version: string) => 'started' as const)
-  const register = (settings: unknown = {}, version = '0.2.0'): void =>
+  const register = (
+    settings: unknown = {},
+    version = '0.2.0',
+    method: InstallMethod = 'apt',
+  ): { settingsChanged: () => void } =>
     registerReleaseCheck({
       openExternal,
       readSettings: () => settings,
       log: { file: '', info, warn: vi.fn(), error: vi.fn() },
       version,
-      method: () => 'apt',
+      method: () => method,
       updateRunner: {
         start,
         state: () => ({ status: 'idle' }),
@@ -545,7 +550,7 @@ describe('registerReleaseCheck', () => {
 
   it('offers a main build on the main channel and never an older release on stable', async () => {
     const list = `[${body('0.3.1-main.9', { prerelease: true })},${body('0.3.0')}]`
-    register({ behavior: { updateChannel: 'main' } }, '0.3.1-main.8+sha.1a2b3c')
+    register({ behavior: { updateChannel: 'main' } }, '0.3.1-main.8+sha.1a2b3c', 'tarball')
     github.reply = { status: 200, body: list }
     expect(await invoke('app:release-check')).toEqual({
       status: 'available',
@@ -553,7 +558,7 @@ describe('registerReleaseCheck', () => {
     })
 
     handlers.clear()
-    register({ behavior: { updateChannel: 'stable' } }, '0.3.1-main.9+sha.4d5e6f')
+    register({ behavior: { updateChannel: 'stable' } }, '0.3.1-main.9+sha.4d5e6f', 'tarball')
     github.reply = { status: 200, body: body('0.3.0') }
     expect(await invoke('app:release-check')).toEqual({ status: 'latest', version: '0.3.1-main.9' })
     github.reply = { status: 200, body: body('0.3.1') }
@@ -561,6 +566,17 @@ describe('registerReleaseCheck', () => {
       status: 'available',
       release: release('0.3.1'),
     })
+  })
+
+  it('keeps an install from a package manager or disk image on stable', async () => {
+    for (const method of ['apt', 'brew', 'dmg'] as const) {
+      handlers.clear()
+      github.requests.length = 0
+      register({ behavior: { updateChannel: 'main' } }, '0.2.0', method)
+      github.reply = { status: 200, body: body('0.2.0') }
+      await invoke('app:release-check')
+      expect(github.requests.map((r) => r.url)).toEqual(['/repos/aurigax-ai/ostia/releases/latest'])
+    }
   })
 
   it('checks by itself shortly after startup, and not at all while the setting is off', async () => {

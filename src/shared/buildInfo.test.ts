@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { buildVersion, mainBuildRun, nextPatch, telemetryStamp } from '../../scripts/buildVersion.mjs'
+import {
+  buildVersion,
+  mainBuildRun,
+  nextPatch,
+  telemetryStamp,
+} from '../../scripts/buildVersion.mjs'
 import { parseBuildInfo, parseTelemetryStamp, releaseVersion } from './buildInfo'
 import { isMainChannelVersion, isNewerVersion, parseVersion } from './releases'
 

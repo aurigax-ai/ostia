@@ -156,7 +156,13 @@ describe('isMainChannelVersion', () => {
   it('accepts main builds and release candidates, nothing else', () => {
     expect(isMainChannelVersion(version('0.5.10-main.412'))).toBe(true)
     expect(isMainChannelVersion(version('0.5.9-rc.3'))).toBe(true)
-    for (const text of ['0.5.9', '0.5.10-main', '0.5.10-main.x', '0.5.10-main.4.1', '1.0.0-beta.1']) {
+    for (const text of [
+      '0.5.9',
+      '0.5.10-main',
+      '0.5.10-main.x',
+      '0.5.10-main.4.1',
+      '1.0.0-beta.1',
+    ]) {
       expect(isMainChannelVersion(version(text))).toBe(false)
     }
   })

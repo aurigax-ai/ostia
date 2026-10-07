@@ -1,7 +1,7 @@
 import type { InstallMethod } from '@shared/installMethod'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, beforeAll, describe, expect, it } from 'vitest'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useUpdateStore } from '../stores/updateStore'
 import { UpdateChannelPicker } from './UpdateChannelPicker'
@@ -27,6 +27,7 @@ describe('UpdateChannelPicker', () => {
     'lets the human pick Main on a %s install and forgets the last check result',
     async (method) => {
       const user = userEvent.setup()
+      vi.mocked(window.ostia.fs.write).mockClear()
       installedWith(method)
       useUpdateStore.setState({ releaseCheck: { status: 'latest', version: '0.5.9' } })
       render(<UpdateChannelPicker />)
@@ -37,6 +38,12 @@ describe('UpdateChannelPicker', () => {
       await user.click(await screen.findByRole('option', { name: 'Main' }))
 
       expect(useSettingsStore.getState().behavior.updateChannel).toBe('main')
+      await waitFor(() =>
+        expect(window.ostia.fs.write).toHaveBeenCalledWith(
+          expect.any(String),
+          expect.stringContaining('"updateChannel": "main"'),
+        ),
+      )
       expect(useUpdateStore.getState().releaseCheck).toEqual({ status: 'idle' })
       expect(screen.getByRole('combobox', { name: 'Update channel' })).toHaveTextContent('Main')
     },

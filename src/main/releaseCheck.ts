@@ -8,15 +8,16 @@ import {
   type ReplaceProgress,
   type ReplaceState,
   type UpdateRunState,
+  updateChannelFor,
   updateCommandLine,
 } from '../shared/installMethod'
 import { PRODUCT_NAME } from '../shared/product'
 import {
+  type ParsedRelease,
   RELEASE_API_BASE_URL,
   RELEASE_REPOSITORY,
   type ReleaseCheckError,
   type ReleaseCheckResult,
-  type ParsedRelease,
   type ReleaseInfo,
   type UpdateChannel,
   isNewerVersion,
@@ -98,10 +99,7 @@ async function readCapped(response: Response, maxBytes: number): Promise<string 
   }
 }
 
-function readRelease(
-  text: string | null,
-  parse: (raw: unknown) => ParsedRelease,
-): LatestRelease {
+function readRelease(text: string | null, parse: (raw: unknown) => ParsedRelease): LatestRelease {
   if (text === null) return { kind: 'error', error: 'unavailable' }
   let raw: unknown
   try {
@@ -301,7 +299,7 @@ export function registerReleaseCheck(deps: {
       }),
     now: Date.now,
     enabled: () => readCheckForUpdates(deps.readSettings()),
-    channel: () => readUpdateChannel(deps.readSettings()),
+    channel: () => updateChannelFor(deps.method(), readUpdateChannel(deps.readSettings())),
     loadDismissed,
     saveDismissed: (version) => {
       try {

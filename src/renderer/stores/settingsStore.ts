@@ -672,12 +672,20 @@ async function writeSettings(s: SettingsState): Promise<void> {
   await window.ostia.fs.write(path, text)
 }
 
+const saveSettings = (s: SettingsState): Promise<void> =>
+  writeSettings(s).catch((err: unknown) => console.error('[settings] save failed', err))
+
 const scheduleSave = debounce((get: () => SettingsState): void => {
-  writeSettings(get()).catch((err: unknown) => console.error('[settings] save failed', err))
+  void saveSettings(get())
 }, 300)
 
 export function cancelSettingsSave(): void {
   scheduleSave.cancel()
+}
+
+export function saveSettingsNow(): Promise<void> {
+  scheduleSave.cancel()
+  return saveSettings(useSettingsStore.getState())
 }
 
 const extensionSettingsOf = (v: unknown): Record<string, ExtensionSettingValues> => {
