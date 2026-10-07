@@ -2,7 +2,7 @@
   "id": "fake-more",
   "name": "Fake features",
   "version": "1.0.0",
-  "api": "2.0",
+  "api": "3.0",
   "description": "Test fixture: a fake language server that folds, shows code lens, answers diagnostic pulls, finds workspace symbols and registers most of it after it started",
   "category": "languages",
   "capabilities": ["language-server"],

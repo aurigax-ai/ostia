@@ -2,7 +2,7 @@
   "id": "tasker",
   "name": "Tasker",
   "version": "0.1.0",
-  "api": "2.0",
+  "api": "3.0",
   "description": "Test fixture: hands tasks to agents with ext.runAgent and ext.offerToAgent",
   "capabilities": ["shell"],
   "main": "main.js",

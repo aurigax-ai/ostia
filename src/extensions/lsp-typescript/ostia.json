@@ -3,7 +3,7 @@
   "name": "TypeScript and JavaScript",
   "version": "1.0.0",
   "locales": ["zh-Hant"],
-  "api": "2.3",
+  "api": "3.0",
   "description": "TypeScript and JavaScript diagnostics, completion, hover and navigation in the editor. Ships typescript-language-server and TypeScript inside this extension and runs them with {product}'s own runtime; a project that has its own TypeScript uses that one.",
   "category": "languages",
   "capabilities": ["language-server"],

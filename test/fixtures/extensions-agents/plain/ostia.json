@@ -2,7 +2,7 @@
   "id": "plain",
   "name": "Plain",
   "version": "0.1.0",
-  "api": "2.0",
+  "api": "3.0",
   "description": "Test fixture: asks for agent methods without the shell capability",
   "capabilities": ["notify"],
   "main": "main.js",

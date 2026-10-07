@@ -354,7 +354,7 @@ other editors' keybindings. It is data only: a manifest entry and one JSON file,
   "id": "keymap-macos",
   "name": "macOS keymap (cmux)",
   "version": "1.0.0",
-  "api": "2.0",
+  "api": "3.0",
   "contributes": {
     "keymaps": [
       { "id": "cmux", "label": "macOS (cmux)", "path": "assets/cmux.json", "platform": "darwin" }
@@ -459,7 +459,7 @@ registration of text synchronization.
   "id": "lsp-pyright",
   "name": "Python (Pyright)",
   "version": "1.0.0",
-  "api": "2.0",
+  "api": "3.0",
   "category": "languages",
   "capabilities": ["language-server"],
   "contributes": {
@@ -683,7 +683,7 @@ folder or file your manifest doesn't name is not copied, and an extension withou
 ```json
 {
   "id": "review-kit",
-  "api": "2.0",
+  "api": "3.0",
   "capabilities": ["agent-plugin"],
   "main": "main.js",
   "contributes": {
