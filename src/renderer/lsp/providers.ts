@@ -13,6 +13,7 @@ import type {
   LocationLink,
   Range,
   SemanticTokens,
+  SemanticTokensDelta,
   ServerCapabilities,
   SignatureHelp,
   SymbolInformation,
@@ -588,21 +589,41 @@ export function registerProviders(
   const semantic = capabilities.semanticTokensProvider
   if (semantic?.legend && semantic.full) {
     const { legend } = semantic
+    const deltas = typeof semantic.full === 'object' && semantic.full.delta === true
     registrations.push(
       languages.registerDocumentSemanticTokensProvider(language, {
         getLegend: () => ({
           tokenTypes: [...legend.tokenTypes],
           tokenModifiers: [...legend.tokenModifiers],
         }),
-        async provideDocumentSemanticTokens(model, _lastResultId, token) {
+        async provideDocumentSemanticTokens(model, lastResultId, token) {
           const session = sessionOf(model, 'textDocument/semanticTokens')
           if (!session) return null
-          const tokens = await session.request<SemanticTokens>(
-            'textDocument/semanticTokens/full',
-            { textDocument: { uri: model.uri.toString() } },
-            token,
-          )
-          return tokens ? { data: new Uint32Array(tokens.data) } : null
+          const textDocument = { uri: model.uri.toString() }
+          const tokens =
+            deltas && lastResultId
+              ? await session.request<SemanticTokens | SemanticTokensDelta>(
+                  'textDocument/semanticTokens/full/delta',
+                  { textDocument, previousResultId: lastResultId },
+                  token,
+                )
+              : await session.request<SemanticTokens>(
+                  'textDocument/semanticTokens/full',
+                  { textDocument },
+                  token,
+                )
+          if (!tokens) return null
+          if ('edits' in tokens) {
+            return {
+              resultId: tokens.resultId,
+              edits: tokens.edits.map((change) => ({
+                start: change.start,
+                deleteCount: change.deleteCount,
+                data: change.data ? new Uint32Array(change.data) : undefined,
+              })),
+            }
+          }
+          return { resultId: tokens.resultId, data: new Uint32Array(tokens.data) }
         },
         releaseDocumentSemanticTokens: () => {},
       }),

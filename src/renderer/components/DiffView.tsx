@@ -1,5 +1,6 @@
 import { cn } from '@/lib/utils'
 import { ArrowSquareOutIcon, ColumnsIcon, RowsIcon } from '@phosphor-icons/react'
+import { DIFF_TEXT_MAX } from '@shared/extensions'
 import { useEffect, useRef, useState } from 'react'
 import { useDict } from '../i18n/useDict'
 import { registerEditorPosition } from '../lib/editorPositions'
@@ -14,6 +15,9 @@ import { Hint } from './Hint'
 import { IconButton } from './IconButton'
 import { ATTENTION_ALERT } from './attentionStyles'
 import { Alert } from './ui/alert'
+
+const DIFF_COMPUTATION_MS = 2000
+const MB = 1024 * 1024
 
 export function DiffView({ paneId }: { paneId: string }): JSX.Element {
   const d = useDict()
@@ -38,6 +42,9 @@ export function DiffView({ paneId }: { paneId: string }): JSX.Element {
       readOnly: true,
       originalEditable: false,
       renderSideBySide: true,
+      hideUnchangedRegions: { enabled: true },
+      maxComputationTime: DIFF_COMPUTATION_MS,
+      maxFileSize: DIFF_TEXT_MAX / MB,
       fontFamily: codeFontStack(initial.family),
       fontSize: initial.size,
       fontWeight: String(initial.weight),

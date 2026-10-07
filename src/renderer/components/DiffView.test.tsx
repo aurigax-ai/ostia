@@ -103,6 +103,16 @@ describe('DiffView', () => {
     expect(fake.state.themedAtCreate).toBe(true)
   })
 
+  it('collapses unchanged regions and bounds the diff computation by time and size', () => {
+    useDiffStore.getState().set('d1', CONTENT)
+    render(<DiffView paneId="d1" />)
+    expect(fake.state.options[0]).toMatchObject({
+      hideUnchangedRegions: { enabled: true },
+      maxComputationTime: 2000,
+      maxFileSize: 5,
+    })
+  })
+
   it('feeds original and modified text with the language inferred from the path', () => {
     useDiffStore.getState().set('d1', CONTENT)
     render(<DiffView paneId="d1" />)
