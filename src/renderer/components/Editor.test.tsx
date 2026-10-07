@@ -788,6 +788,15 @@ describe('EditorView', () => {
       openDiff.mockRestore()
     })
 
+    it('offers no compare when either side is beyond the diff size cap', async () => {
+      const { DIFF_TEXT_MAX } = await import('@shared/extensions')
+      await open()
+      act(() => fake.state.model?.setValue('my edit'))
+      await diskChanges('x'.repeat(DIFF_TEXT_MAX + 1))
+      await screen.findByRole('button', { name: 'Reload' })
+      expect(screen.queryByRole('button', { name: 'Compare' })).toBeNull()
+    })
+
     it('ERL-C9 pauses autosave while the disk changed under unsaved edits', async () => {
       useSettingsStore.setState({
         editor: { ...useSettingsStore.getState().editor, autoSave: 'onFocusChange' },

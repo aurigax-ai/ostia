@@ -1,6 +1,7 @@
 import { cn } from '@/lib/utils'
 import { CodeIcon, EyeIcon, PaperPlaneTiltIcon } from '@phosphor-icons/react'
 import { AUTO_SAVE_DELAY_MS, type EditorSettings } from '@shared/browserEditorSettings'
+import { DIFF_TEXT_MAX } from '@shared/extensions'
 import { type RemoteFileError, isRemotePath, parseRemotePath } from '@shared/remoteFolders'
 import type { FsTextResult } from '@shared/types'
 import { useEffect, useRef, useState } from 'react'
@@ -689,6 +690,10 @@ export function EditorView({
     return () => useEditorStatus.getState().setDisk(filePath, null)
   }, [filePath, diskBar])
 
+  const comparable = (disk: string): boolean =>
+    disk.length <= DIFF_TEXT_MAX &&
+    (editorRef.current?.getModel()?.getValueLength() ?? 0) <= DIFF_TEXT_MAX
+
   const compareWithDisk = (disk: string): void => {
     const model = editorRef.current?.getModel()
     const file = pathRef.current
@@ -791,9 +796,11 @@ export function EditorView({
             </span>
             {diskBar.kind === 'changed' ? (
               <>
-                <Button variant="outline" size="xs" onClick={() => compareWithDisk(diskBar.disk)}>
-                  {d.editor.diskCompare}
-                </Button>
+                {comparable(diskBar.disk) ? (
+                  <Button variant="outline" size="xs" onClick={() => compareWithDisk(diskBar.disk)}>
+                    {d.editor.diskCompare}
+                  </Button>
+                ) : null}
                 <Button
                   variant="outline"
                   size="xs"
@@ -823,9 +830,11 @@ export function EditorView({
               </>
             ) : diskBar.kind === 'conflict' ? (
               <>
-                <Button variant="outline" size="xs" onClick={() => compareWithDisk(diskBar.disk)}>
-                  {d.editor.diskCompare}
-                </Button>
+                {comparable(diskBar.disk) ? (
+                  <Button variant="outline" size="xs" onClick={() => compareWithDisk(diskBar.disk)}>
+                    {d.editor.diskCompare}
+                  </Button>
+                ) : null}
                 <Button variant="outline" size="xs" onClick={() => setDiskBar(null)}>
                   {d.editor.diskCancel}
                 </Button>
