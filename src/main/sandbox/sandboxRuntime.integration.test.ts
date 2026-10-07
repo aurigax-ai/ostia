@@ -1,5 +1,6 @@
-import { spawn } from 'node:child_process'
+import { execFileSync, spawn } from 'node:child_process'
 import {
+  chmodSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -42,11 +43,14 @@ function contents(path: string): string {
   }
 }
 
-function run(script: string): Promise<{ code: number; out: string }> {
+function run(
+  script: string,
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<{ code: number; out: string }> {
   return host.wrap(script, 'bash').then(
     (wrapped) =>
       new Promise((resolve) => {
-        const child = spawn('/bin/sh', ['-c', wrapped], { cwd: workDir, env: { ...process.env } })
+        const child = spawn('/bin/sh', ['-c', wrapped], { cwd: workDir, env: { ...env } })
         let out = ''
         child.stdout.on('data', (d: Buffer) => {
           out += d.toString('utf8')
@@ -194,6 +198,21 @@ describe('sandbox runtime', () => {
     expect(asks).toContain('blocked.localhost')
     expect(originHosts).toContain('allowed.localhost')
     expect(originHosts).not.toContain('blocked.localhost')
+  }, 60_000)
+
+  it("reaches the proxy on a command's first connection even when the relays start slowly", async () => {
+    const slowBin = join(root, 'slow-socat')
+    mkdirSync(slowBin)
+    const realSocat = execFileSync('/bin/sh', ['-c', 'command -v socat'], {
+      encoding: 'utf8',
+    }).trim()
+    writeFileSync(join(slowBin, 'socat'), `#!/bin/sh\nsleep 0.1\nexec ${realSocat} "$@"\n`)
+    chmodSync(join(slowBin, 'socat'), 0o755)
+    const res = await run(
+      `env -u NO_PROXY -u no_proxy curl -s -m 20 -w "|first=%{http_code}\\n" http://allowed.localhost:${originPort}/`,
+      { ...process.env, PATH: `${slowBin}:${process.env.PATH}` },
+    )
+    expect(res.out).toContain('ORIGIN-REACHED|first=200')
   }, 60_000)
 
   it('SBX-C55 keeps other unix sockets out of reach while the ostia socket works', async () => {

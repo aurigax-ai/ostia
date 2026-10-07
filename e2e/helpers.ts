@@ -58,3 +58,16 @@ export async function pressQuit(app: ElectronApplication, win: Page): Promise<'q
   }
   return Promise.race([exited, dialogShown(win).then((shown) => shown ?? exited)])
 }
+
+export async function hoverInEditor(
+  win: Page,
+  target: Locator,
+  position?: { x: number; y: number },
+): Promise<void> {
+  const box = await target.boundingBox()
+  if (!box) throw new Error('hover target has no box')
+  const at = position ?? { x: box.width / 2, y: box.height / 2 }
+  await target.hover({ force: true, position: at })
+  await win.evaluate(() => new Promise((resolve) => requestAnimationFrame(resolve)))
+  await target.hover({ force: true, position: { x: Math.min(at.x + 1, box.width - 1), y: at.y } })
+}

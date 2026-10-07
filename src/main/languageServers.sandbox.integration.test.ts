@@ -46,7 +46,7 @@ function start(builtin: boolean): void {
       owner: (workspaceId) => (sandboxes.isEnabled(workspaceId) ? workspaceId : null),
       readable: (workspaceId, path) => {
         const { denyRead, allowRead } = sandboxes.config(workspaceId).filesystem
-        return visibleInSandbox(path, { denyRead, allowRead: allowRead ?? [] })
+        return visibleInSandbox(path, { denyRead, allowRead })
       },
       wrap: (workspaceId, command, extraReads) => {
         wrapped.push({ command, extraReads })
