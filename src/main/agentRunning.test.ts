@@ -72,6 +72,22 @@ describe('AgentRunningPanes', () => {
     expect(runningIds(book.mark(snapshot([pane('a'), pane('b')])))).toEqual(['a'])
   })
 
+  it('marks a pane inside a split tab', () => {
+    const book = new AgentRunningPanes(() => {})
+    book.report('c', true, true)
+    const saved = snapshot([pane('a')])
+    const root = saved.workspaces[0].root
+    if (root?.type !== 'tabs') throw new Error('expected tabs')
+    root.children.push({
+      type: 'split',
+      id: 's1',
+      direction: 'horizontal',
+      sizes: [1, 1],
+      children: [pane('b'), pane('c')],
+    })
+    expect(runningIds(book.mark(saved))).toEqual(['c'])
+  })
+
   it('keeps the mark after Ostia took the shell away, whatever the renderer saves later', () => {
     const book = new AgentRunningPanes(() => {})
     book.report('a', true, true)

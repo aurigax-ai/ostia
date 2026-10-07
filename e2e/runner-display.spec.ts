@@ -56,3 +56,15 @@ test('test runs never see the desktop session, so Electron cannot pick Wayland',
   })
   expect(seen).toBe('unset unset')
 })
+
+test('test runs see every Vulkan driver, so WebGL can fall back to SwiftShader', async () => {
+  test.skip(!hasXvfb(), 'needs Xvfb')
+  const bin = fakePlaywright(
+    'echo "${VK_LOADER_DRIVERS_SELECT-unset} ${VK_LOADER_DRIVERS_DISABLE-unset}"',
+  )
+  const seen = await displayOfRun(bin, {
+    VK_LOADER_DRIVERS_SELECT: '*intel*',
+    VK_LOADER_DRIVERS_DISABLE: '*swiftshader*',
+  })
+  expect(seen).toBe('unset unset')
+})

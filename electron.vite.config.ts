@@ -2,7 +2,7 @@ import { resolve } from 'node:path'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
-import { fontDataUrl } from './scripts/fontDataUrl.mjs'
+import { dataUrl } from './scripts/dataUrl.mjs'
 
 export default defineConfig({
   main: {
@@ -42,6 +42,6 @@ export default defineConfig({
         input: { index: resolve('src/renderer/index.html') },
       },
     },
-    plugins: [fontDataUrl(), react(), tailwindcss()],
+    plugins: [dataUrl(), react(), tailwindcss()],
   },
 })

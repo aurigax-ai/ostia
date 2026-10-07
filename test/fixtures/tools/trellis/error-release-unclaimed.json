@@ -1,1 +1,7 @@
-{"error":{"fix":"trellis card claim DEMO-5","code":"not_yours","message":"you do not claim DEMO-5"}}
+{
+  "error": {
+    "fix": "trellis card claim DEMO-5",
+    "code": "not_yours",
+    "message": "you do not claim DEMO-5"
+  }
+}

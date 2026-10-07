@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { dropZoneAt, endedOutside, paneDropTarget, tabDropTarget } from './dropZone'
+import { cellDropTarget, dropZoneAt, endedOutside, paneDropTarget, tabDropTarget } from './dropZone'
 
 const pane = { left: 100, top: 50, width: 800, height: 1000 }
 
@@ -101,5 +101,34 @@ describe('endedOutside', () => {
     expect(endedOutside({ ...end, dropEffect: 'move', point: { x: 1500, y: 400 } }, viewport)).toBe(
       false,
     )
+  })
+})
+
+describe('cellDropTarget', () => {
+  it('targets the cell on every zone for a pane from elsewhere', () => {
+    expect(cellDropTarget('c', ['a', 'split-1'], 'x', 'left')).toEqual({
+      targetId: 'c',
+      zone: 'left',
+    })
+    expect(cellDropTarget('c', ['a', 'split-1'], 'x', 'center')).toEqual({
+      targetId: 'c',
+      zone: 'center',
+    })
+  })
+
+  it('refuses a drop on the cell itself and a center drop of a tab of the same stack', () => {
+    expect(cellDropTarget('c', ['a', 'split-1'], 'c', 'right')).toBeNull()
+    expect(cellDropTarget('c', ['a', 'split-1'], 'a', 'center')).toBeNull()
+    expect(cellDropTarget('c', ['a', 'split-1'], 'a', 'bottom')).toEqual({
+      targetId: 'c',
+      zone: 'bottom',
+    })
+  })
+
+  it('lets a sibling segment be pulled out into its own tab with a center drop', () => {
+    expect(cellDropTarget('c', ['a', 'split-1'], 'b', 'center')).toEqual({
+      targetId: 'c',
+      zone: 'center',
+    })
   })
 })

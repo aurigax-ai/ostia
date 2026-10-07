@@ -1,6 +1,8 @@
 import '@testing-library/jest-dom/vitest'
 import { cleanup } from '@testing-library/react'
 import { afterEach, beforeEach, vi } from 'vitest'
+import { startConsoleGuard, stopConsoleGuard } from './consoleGuard'
+import { installLocalStorage } from './mocks/memoryStorage'
 import { makeOstiaMock } from './mocks/ostia'
 
 if (!('ResizeObserver' in globalThis)) {
@@ -42,11 +44,17 @@ if (!Element.prototype.getAnimations) {
   Element.prototype.getAnimations = () => []
 }
 
+HTMLCanvasElement.prototype.getContext = (() =>
+  null) as typeof HTMLCanvasElement.prototype.getContext
+
 beforeEach(() => {
+  startConsoleGuard()
+  installLocalStorage()
   vi.stubGlobal('ostia', makeOstiaMock())
 })
 
 afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()
+  stopConsoleGuard()
 })

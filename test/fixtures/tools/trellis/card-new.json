@@ -1,1 +1,11 @@
-{"id":"01a0f963-040f-7807-8662-e9aca9da3b94","title":"Rename the keys","body":"Old keys break the loader.","version":1,"created_at":1790890411023,"updated_at":1790890411023,"ref":"DEMO-6","column":"backlog","priority":"normal"}
+{
+  "id": "01a0f963-040f-7807-8662-e9aca9da3b94",
+  "title": "Rename the keys",
+  "body": "Old keys break the loader.",
+  "version": 1,
+  "created_at": 1790890411023,
+  "updated_at": 1790890411023,
+  "ref": "DEMO-6",
+  "column": "backlog",
+  "priority": "normal"
+}

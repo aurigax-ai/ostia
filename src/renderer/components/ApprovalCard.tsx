@@ -1,17 +1,10 @@
 import { cn } from '@/lib/utils'
 import { ShieldWarningIcon } from '@phosphor-icons/react'
-import {
-  ALWAYS_ASK,
-  type ApprovalAnswer,
-  type ApprovalKind,
-  type ApprovalRequest,
-  answersFor,
-} from '@shared/approvals'
+import type { ApprovalKind, ApprovalRequest } from '@shared/approvals'
 import type { ReactNode } from 'react'
 import type { Dict } from '../i18n/dict'
 import { fmt, useDict } from '../i18n/useDict'
-import { useApprovalsStore } from '../stores/approvalsStore'
-import { Button } from './ui/button'
+import { ApprovalActions } from './ApprovalActions'
 
 export function capLabel(caps: Record<string, string>, cap: string): string {
   return caps[cap] ?? cap
@@ -23,12 +16,6 @@ const KIND_TEXT: Record<Exclude<ApprovalKind, 'capability'>, (d: Dict) => string
   secret: (d) => d.approvals.secret,
   package: (d) => d.approvals.package,
   'package-malware': (d) => d.approvals.packageMalware,
-}
-
-function answerLabel(d: Dict, kind: ApprovalKind, answer: ApprovalAnswer): string {
-  if (answer === 'once') return d.approvals.allowOnce
-  if (answer === 'workspace') return d.approvals.allowWorkspace
-  return kind === 'capability' ? d.approvals.allowSession : d.approvals.allowUntilRestart
 }
 
 const PLACEMENT_CLASS = {
@@ -48,12 +35,7 @@ export function ApprovalCard({
   lead?: ReactNode
 }): JSX.Element {
   const d = useDict()
-  const answer = useApprovalsStore((s) => s.answer)
   const kind = request.kind ?? 'capability'
-  const alwaysAsks = request.caps.some((cap) => ALWAYS_ASK.includes(cap))
-  const allows = [...answersFor(kind)]
-    .filter((a) => a !== 'deny' && !(alwaysAsks && a === 'session'))
-    .reverse()
   const subject = request.subject ?? ''
   return (
     <section
@@ -87,21 +69,7 @@ export function ApprovalCard({
           </code>
         ) : null}
       </div>
-      <div className="flex flex-wrap justify-end gap-2">
-        <Button variant="ghost" size="sm" onClick={() => void answer(request.id, 'deny')}>
-          {d.approvals.deny}
-        </Button>
-        {allows.map((choice, index) => (
-          <Button
-            key={choice}
-            variant={index === allows.length - 1 ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => void answer(request.id, choice)}
-          >
-            {answerLabel(d, kind, choice)}
-          </Button>
-        ))}
-      </div>
+      <ApprovalActions request={request} size="sm" />
     </section>
   )
 }

@@ -172,6 +172,7 @@ export function postBusMessage(from: string, to: string, text: string): string {
 export interface BusDeps {
   managerSendAllowed: () => boolean
   announce: (from: PaneIdentity, to: PaneIdentity, text: string) => void
+  hibernated: (pane: PaneIdentity) => Promise<boolean>
 }
 
 function receiverOf(to: unknown): PaneIdentity | undefined {
@@ -208,7 +209,8 @@ export function registerBusMethods(deps: BusDeps): void {
       const id = randomUUID()
       const delivered = deliver(data, { id, from, to, text, ts: new Date().toISOString() })
       announceQueued(delivered, ctx.identity, receiver, text)
-      return { ok: true, id, delivered }
+      const asleep = await deps.hibernated(receiver)
+      return { ok: true, id, delivered, ...(asleep ? { asleep: true } : {}) }
     },
   })
 

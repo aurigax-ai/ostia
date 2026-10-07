@@ -13,8 +13,10 @@ const CLI_HELP = `ostia — control-socket CLI
                                  . or ~) or names a file here that is no command or extension
   ostia pane.list                 every pane, every workspace — {paneId(external),workspaceId,
                                   kind,title,cwd,running,blockCount,lastExitCode,agent,
-                                  agentSessionId,agentState,agentMessage}; a restored pane keeps
-                                  its paneId across restarts
+                                  agentSessionId,agentState,agentMessage,splitTabId,
+                                  splitTabName,hibernated}; a restored pane keeps its paneId
+                                  across restarts. splitTabId is set for a pane inside a split
+                                  tab (one tab showing several panes side by side)
   ostia workspace.list              every workspace — {workspaceId,name,kind,workDir,state,groupId}
   ostia notify <title> [body]    desktop notification + marks this pane unread in Ostia
   ostia ask "<question>" [--context <text|->] [--choice <label>]… [--multi] [--timeout <seconds>] [--json]
@@ -76,12 +78,19 @@ const CLI_HELP = `ostia — control-socket CLI
   ostia process run "<cmd>" [--name X] [--cwd P]  run a command in a new terminal tab beside
                                  you, where the human can watch and type; your shell line is
                                  pasted as written and run by the tab's own shell (zsh or bash).
-                                 Prints {id,name,paneId}; your pane keeps the focus
-  ostia agent run <agent> [--name X] [--cwd P] <prompt|->  start another agent (claude, codex or
+                                 Prints {id,name,paneId}; your pane keeps the focus.
+                                 --split-tab T: the first run with T opens its tab as usual;
+                                 each later run with the same T joins that tab, splitting it
+                                 --split right (default) or down, so one tab shows them side
+                                 by side (a split tab named T). It never types into a pane
+                                 that is already open
+  ostia agent run <agent> [--name X] [--cwd P] [--split-tab T [--split right|down]] <prompt|->
+                                 start another agent (claude, codex or
                                  one the human configured) in a new terminal tab with that prompt
                                  as its one argument, quoted for you (- reads it from stdin).
-                                 Same result and rules as process run: follow it with ostia process
-                                 logs, talk to it with ostia pane send and ostia pane read
+                                 Same result and rules as process run: wait for it with ostia pane
+                                 wait, follow it with ostia process logs, talk to it with ostia
+                                 pane send and ostia pane read
   ostia process ls               id, name, status, paneId, command of this workspace's
                                  processes: starting, running, exited(code), or closed (the
                                  human closed the tab)
@@ -109,6 +118,29 @@ const CLI_HELP = `ostia — control-socket CLI
                                  A tab you opened with ostia process run needs nothing more;
                                  any other pane asks the human (type-other-pane,
                                  read-other-pane, plus all-workspaces outside your workspace)
+  ostia pane wait <pane>… [--until done|waiting|idle|exited]… [--timeout <s>] [--json]
+                                 block until any of those panes reaches one of the --until
+                                 states (default done, waiting and exited: it stopped working),
+                                 then print paneId, state and the agent's message; --json
+                                 prints {paneId,state,message}. A pane already there answers
+                                 at once. done and waiting are what its agent reported, idle
+                                 is no reported state, exited is its command ended (for a tab
+                                 from process run or agent run) or no command runs. Default
+                                 timeout 10 minutes, at most 30: loop on it. Exit 0 reached,
+                                 3 timed out, 4 pane closed. Same asks as pane read; it reads
+                                 the state only, never the screen
+  ostia pane wake <pane>… [--json]  wake panes Ostia hibernated (hibernated: true in ostia
+                                 pane.list): each gets a fresh shell that runs its agent's
+                                 own resume command, nothing else. Prints the woken paneIds.
+                                 A pane that is awake answers not-hibernated. Same asks as
+                                 pane send, which refuses a hibernated pane. Send nothing
+                                 until ostia pane.list shows it running: true
+  ostia pane close <pane>… [--json]  close those panes at once, even while a command runs in
+                                 them; the human is asked only about unsaved file changes.
+                                 Prints the closed paneIds. A tab you opened with process run
+                                 or agent run needs nothing more; any other pane asks the
+                                 human (kill-pane, plus all-workspaces outside your
+                                 workspace). A pane the human locked answers pane-locked
   ostia pane rename <pane> <title…>  name that pane's tab; programs (OSC titles) no longer
                                  change it, and it survives a restart. --clear instead of a
                                  title hands the tab back to the program. Your own pane
@@ -136,7 +168,9 @@ const CLI_HELP = `ostia — control-socket CLI
   ostia secret get <name> [--reason t]  ask the human for a secret's value (prints it on approval)
   ostia bus send <toExternalId> "<msg>"       send a message to another pane's inbox; answers
                                               delivered: waiting (the receiver is in bus wait)
-                                              or queued (it reads it at its next prompt)
+                                              or queued (it reads it at its next prompt);
+                                              asleep: true when the receiver is hibernated
+                                              (wake it with ostia pane wake)
   ostia bus inbox [--drain]                   print your inbox, marking it seen (optionally clearing it)
   ostia bus sent [--json]                     your own recent messages, each seen or unseen
   ostia bus wait [--timeout MS]               block until an unseen message arrives (default 30s)

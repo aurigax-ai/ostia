@@ -2,6 +2,7 @@ import type { SyncStatus } from '@shared/types'
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { renderSettled } from '../../../test/render'
 import { useSettingsStore } from '../stores/settingsStore'
 import { SyncSection } from './SyncSection'
 
@@ -30,7 +31,7 @@ describe('SyncSection', () => {
   })
 
   it('shows sync as off with no folder and disables Sync now', async () => {
-    render(<SyncSection />)
+    await renderSettled(<SyncSection />)
     expect(screen.getByText('Not set')).toBeInTheDocument()
     expect(screen.getByRole('status')).toHaveTextContent('Off')
     expect(screen.getByRole('button', { name: 'Sync now' })).toBeDisabled()
@@ -68,7 +69,7 @@ describe('SyncSection', () => {
       push = cb
       return () => {}
     })
-    render(<SyncSection />)
+    await renderSettled(<SyncSection />)
     act(() => push(status({ dir: '/mnt/gone', state: 'error', error: 'missing' })))
     expect(screen.getByRole('status')).toHaveTextContent('The sync folder does not exist.')
   })

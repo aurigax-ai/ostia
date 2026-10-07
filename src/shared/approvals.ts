@@ -3,7 +3,7 @@ import type { Capability } from './capabilities'
 export const APPROVAL_MODES = ['ask', 'allow'] as const
 export type ApprovalMode = (typeof APPROVAL_MODES)[number]
 
-export const APPROVAL_ANSWERS = ['once', 'session', 'workspace', 'deny'] as const
+export const APPROVAL_ANSWERS = ['once', 'session', 'always', 'workspace', 'deny'] as const
 export type ApprovalAnswer = (typeof APPROVAL_ANSWERS)[number]
 
 export type ApprovalOutcome = ApprovalAnswer | 'auto' | 'timeout'
@@ -25,10 +25,18 @@ export const APPROVAL_KINDS = [
 export type ApprovalKind = (typeof APPROVAL_KINDS)[number]
 
 export function answersFor(kind: ApprovalKind = 'capability'): readonly ApprovalAnswer[] {
-  if (kind === 'capability' || kind === 'secret') return ['once', 'session', 'deny']
+  if (kind === 'capability') return ['once', 'session', 'always', 'deny']
+  if (kind === 'secret') return ['once', 'session', 'deny']
   if (kind === 'package') return ['once', 'workspace', 'deny']
   if (kind === 'package-malware') return ['once', 'deny']
   return ['workspace', 'session', 'deny']
+}
+
+const STANDING_ANSWERS: readonly ApprovalAnswer[] = ['session', 'always']
+
+export function offeredAnswers(req: Pick<ApprovalRequest, 'kind' | 'caps'>): ApprovalAnswer[] {
+  const alwaysAsks = req.caps.some((cap) => ALWAYS_ASK.includes(cap))
+  return answersFor(req.kind).filter((answer) => !(alwaysAsks && STANDING_ANSWERS.includes(answer)))
 }
 
 export interface ApprovalRequest {

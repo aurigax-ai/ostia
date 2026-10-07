@@ -1,5 +1,6 @@
 import type { ApprovalRequest } from '@shared/approvals'
 import { fireEvent, render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { newRequests, useApprovalsStore } from '../stores/approvalsStore'
 import { ApprovalCard } from './ApprovalCard'
@@ -20,29 +21,51 @@ describe('ApprovalCard', () => {
     useApprovalsStore.setState({ pending: [], history: [] })
   })
 
-  it('says which pane wants what, and answers with the button the human clicks', () => {
+  it('says which pane wants what, and answers once or denies with the buttons', () => {
     render(<ApprovalCard request={REQUEST} paneTitle="claude" />)
 
     expect(screen.getByText(/claude wants to type commands into terminals/)).toBeTruthy()
     expect(screen.getByText('Resume Agent')).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: 'Allow for this pane' }))
-    expect(window.ostia.approvals.answer).toHaveBeenCalledWith('approval-1', 'session')
+    fireEvent.click(screen.getByRole('button', { name: 'Allow once' }))
+    expect(window.ostia.approvals.answer).toHaveBeenCalledWith('approval-1', 'once')
     fireEvent.click(screen.getByRole('button', { name: 'Deny' }))
     expect(window.ostia.approvals.answer).toHaveBeenCalledWith('approval-1', 'deny')
   })
 
-  it('offers no session grant for destructive requests', () => {
-    render(<ApprovalCard request={{ ...REQUEST, caps: ['destructive'] }} paneTitle="claude" />)
+  it.each([
+    ['Allow for this pane', 'session'],
+    ['Always allow', 'always'],
+  ])('offers %s under the caret', async (label, answer) => {
+    render(<ApprovalCard request={REQUEST} paneTitle="claude" />)
 
-    expect(screen.queryByRole('button', { name: 'Allow for this pane' })).toBeNull()
-    expect(screen.getByRole('button', { name: 'Allow once' })).toBeTruthy()
+    await userEvent.click(screen.getByRole('button', { name: 'More ways to allow' }))
+    await userEvent.click(await screen.findByRole('menuitem', { name: label }))
+
+    expect(window.ostia.approvals.answer).toHaveBeenCalledWith('approval-1', answer)
   })
 
-  it('offers no session grant for credentials, which main would refuse', () => {
-    render(<ApprovalCard request={{ ...REQUEST, caps: ['credentials'] }} paneTitle="claude" />)
+  it.each([['destructive'], ['credentials']] as const)(
+    'offers only Allow once for %s, which main would refuse to grant',
+    (cap) => {
+      render(<ApprovalCard request={{ ...REQUEST, caps: [cap] }} paneTitle="claude" />)
 
-    expect(screen.queryByRole('button', { name: 'Allow for this pane' })).toBeNull()
-    expect(screen.getByRole('button', { name: 'Allow once' })).toBeTruthy()
+      expect(screen.getByRole('button', { name: 'Allow once' })).toBeTruthy()
+      expect(screen.queryByRole('button', { name: 'More ways to allow' })).toBeNull()
+    },
+  )
+
+  it('never offers Always allow for a request that is not a capability', async () => {
+    render(
+      <ApprovalCard
+        request={{ ...REQUEST, caps: [], kind: 'secret', subject: 'GH_TOKEN' }}
+        paneTitle="claude"
+      />,
+    )
+
+    await userEvent.click(screen.getByRole('button', { name: 'More ways to allow' }))
+
+    expect(await screen.findByRole('menuitem', { name: 'Allow until restart' })).toBeTruthy()
+    expect(screen.queryByRole('menuitem', { name: 'Always allow' })).toBeNull()
   })
 })
 

@@ -35,4 +35,21 @@ describe('PtyRingBuffer', () => {
     expect(data).toBe('\x1b[31mZ')
     expect(data[0]).toBe('\x1b')
   })
+
+  it('trims a quarter below the cap so pushes after a trim leave the kept text alone', () => {
+    const rb = new PtyRingBuffer(100)
+    rb.push('a'.repeat(110))
+    const trimmed = rb.since(0).data
+    expect(trimmed.length).toBeLessThanOrEqual(75)
+    rb.push('c'.repeat(20))
+    expect(rb.since(0).data).toBe(`${trimmed}${'c'.repeat(20)}`)
+  })
+
+  it('never holds more than the cap', () => {
+    const rb = new PtyRingBuffer(64)
+    for (let i = 0; i < 500; i++) {
+      rb.push(`line ${i}\r\n`)
+      expect(rb.since(0).data.length).toBeLessThanOrEqual(64)
+    }
+  })
 })
