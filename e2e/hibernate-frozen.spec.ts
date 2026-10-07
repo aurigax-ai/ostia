@@ -47,10 +47,7 @@ async function launch(dataHome: string): Promise<Launched> {
 
 async function hibernatedAgent(): Promise<Launched & { dataHome: string; sleeping: Locator }> {
   const dataHome = freshDataHome()
-  seedSettings(dataHome, {
-    ...DOM_RENDERER_SETTINGS,
-    agents: { hibernation: { enabled: true, idleSeconds: 5, maxLiveTerminals: 0 } },
-  })
+  seedSettings(dataHome, DOM_RENDERER_SETTINGS)
   const { app, win } = await launch(dataHome)
   await openWorkspace(win)
   await expect(win.locator('.xterm-rows').first()).toContainText(PROMPT, { timeout: 15_000 })
@@ -60,10 +57,10 @@ async function hibernatedAgent(): Promise<Launched & { dataHome: string; sleepin
   await expect(win.locator('.xterm-rows').first()).toContainText(`${MARK} up`, {
     timeout: 15_000,
   })
-  await win.getByRole('button', { name: 'New terminal tab' }).click()
+  await win.locator('.rail-row').first().click({ button: 'right' })
+  await win.getByRole('menuitem', { name: 'Hibernate agents' }).click()
   const sleeping = win.getByRole('tab').first()
-  await expect(sleeping.getByLabel('Hibernated')).toBeVisible({ timeout: 45_000 })
-  await sleeping.click()
+  await expect(sleeping.getByLabel('Hibernated')).toBeVisible({ timeout: 15_000 })
   return { app, win, dataHome, sleeping }
 }
 
@@ -118,7 +115,6 @@ test('a hibernated pane shows its saved screen after a restart', async () => {
   try {
     const restored = win.getByRole('tab').first()
     await expect(restored.getByLabel('Hibernated')).toBeVisible({ timeout: 15_000 })
-    await restored.click()
     const frozen = frozenScreen(win)
     await expect(frozen.getByText('Asleep')).toBeVisible()
     await expect(frozen.locator('.xterm-rows')).toContainText(`${MARK} up`, { timeout: 15_000 })

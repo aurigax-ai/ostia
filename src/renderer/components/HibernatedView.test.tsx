@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest'
-import { act, cleanup, render, screen, within } from '@testing-library/react'
+import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
@@ -58,7 +58,6 @@ vi.mock('./Terminal', () => ({
 
 const { Pane } = await import('./Pane')
 const { SurfacePool } = await import('./SurfacePool')
-const { wakePane } = await import('../lib/hibernationScheduler')
 
 let layoutInit: ReturnType<typeof useLayoutStore.getState>
 let workspacesInit: ReturnType<typeof useWorkspacesStore.getState>
@@ -144,15 +143,13 @@ describe('hibernated terminal pane', () => {
     expect(window.ostia.pty.write).not.toHaveBeenCalled()
   })
 
-  it('wakes into a fresh terminal in place of the frozen screen and resumes the agent at its first idle prompt', () => {
+  it('wakes into a fresh terminal in place of the frozen screen and resumes the agent at its first idle prompt', async () => {
     seed()
     const whenIdle = vi.spyOn(blockActions, 'runWhenIdle').mockReturnValue(() => {})
     render(<SurfacePool />)
     const host = surfaceHost('h1')
     document.body.appendChild(host)
-    act(() => {
-      wakePane('h1')
-    })
+    await userEvent.click(within(host).getByRole('button', { name: 'Resume claude' }))
     const layout = useLayoutStore.getState().byWorkspace.s1
     expect(layout && findPane(layout.root, 'h1')?.hibernated).toBeUndefined()
     expect(whenIdle).toHaveBeenCalledWith(
@@ -167,7 +164,7 @@ describe('hibernated terminal pane', () => {
     host.remove()
   })
 
-  it('starts the woken shell in the folder the agent session belongs to, not the pane folder', () => {
+  it('starts the woken shell in the folder the agent session belongs to, not the pane folder', async () => {
     seed()
     useLayoutStore.setState({
       byWorkspace: {
@@ -186,9 +183,7 @@ describe('hibernated terminal pane', () => {
     render(<SurfacePool />)
     const host = surfaceHost('h1')
     document.body.appendChild(host)
-    act(() => {
-      wakePane('h1')
-    })
+    await userEvent.click(within(host).getByRole('button', { name: 'Resume claude' }))
     expect(within(host).getByTestId('terminal-h1')).toHaveAttribute('data-cwd', '/a/tree')
     host.remove()
   })
@@ -215,19 +210,9 @@ describe('hibernated terminal pane', () => {
     expect(exec).toHaveBeenCalledWith('pane.close', { paneId: 'h1' })
   })
 
-  it('marks the tab hibernated and offers Resume in the header without an idle prompt', () => {
+  it('marks the tab hibernated', () => {
     seed()
     render(<Pane tabs={[sleeping]} shownId="h1" activePaneId={'h1'} workspaceId="w" />)
     expect(screen.getByLabelText('Hibernated')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Resume claude' })).toBeInTheDocument()
-  })
-
-  it('offers no Resume for a live terminal that is busy', () => {
-    const live: PaneNode = { ...sleeping, hibernated: undefined }
-    act(() => {
-      render(<Pane tabs={[live]} shownId="h1" activePaneId={'h1'} workspaceId="w" />)
-    })
-    expect(screen.queryByRole('button', { name: 'Resume claude' })).toBeNull()
-    expect(screen.queryByLabelText('Hibernated')).toBeNull()
   })
 })

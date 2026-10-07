@@ -1,16 +1,19 @@
-import { MoonIcon } from '@phosphor-icons/react'
+import { MoonIcon, PlayIcon } from '@phosphor-icons/react'
+import type { AgentResume } from '@shared/agentResume'
 import { FitAddon } from '@xterm/addon-fit'
 import { Unicode11Addon } from '@xterm/addon-unicode11'
 import { type FontWeight, Terminal as Xterm } from '@xterm/xterm'
 import { useEffect, useRef } from 'react'
-import { useDict } from '../i18n/useDict'
+import { fmt, useDict } from '../i18n/useDict'
 import { matchChordInTerminal } from '../lib/chords'
 import { smartClipboardAction } from '../lib/clipboardKeys'
 import { currentScheme, terminalTheme, useScheme } from '../lib/colorScheme'
+import { wakePane } from '../lib/hibernationScheduler'
 import { terminalFontStack } from '../lib/uiFonts'
 import { isMac } from '../platform'
 import { useSettingsStore } from '../stores/settingsStore'
 import { Badge } from './ui/badge'
+import { Button } from './ui/button'
 import '@xterm/xterm/css/xterm.css'
 
 function wantsCopy(e: KeyboardEvent, hasSelection: boolean): boolean {
@@ -19,7 +22,13 @@ function wantsCopy(e: KeyboardEvent, hasSelection: boolean): boolean {
   return matchChordInTerminal(e, isMac) === 'copy'
 }
 
-export function HibernatedView({ paneId }: { paneId: string }): JSX.Element {
+export function HibernatedView({
+  paneId,
+  resume,
+}: {
+  paneId: string
+  resume?: AgentResume
+}): JSX.Element {
   const d = useDict()
   const hostRef = useRef<HTMLDivElement>(null)
   const termRef = useRef<Xterm | null>(null)
@@ -99,10 +108,18 @@ export function HibernatedView({ paneId }: { paneId: string }): JSX.Element {
         className="xterm-host hibernated-screen"
         style={{ background: palette.background }}
       />
-      <Badge variant="outline" className="hibernated-mark text-fg-muted text-ui-xs">
-        <MoonIcon aria-hidden />
-        {d.pane.asleep}
-      </Badge>
+      <div className="hibernated-mark">
+        <Badge variant="outline" className="bg-bg text-fg-muted text-ui-xs">
+          <MoonIcon aria-hidden />
+          {d.pane.asleep}
+        </Badge>
+        {resume ? (
+          <Button variant="outline" size="sm" onClick={() => wakePane(paneId)}>
+            <PlayIcon data-icon="inline-start" aria-hidden />
+            {fmt(d.pane.resume, { agent: resume.agent })}
+          </Button>
+        ) : null}
+      </div>
     </div>
   )
 }

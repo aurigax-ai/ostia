@@ -73,7 +73,7 @@ writeJson('api.json', { version: apiVersion(), digest: contractDigest(out) })
 copyBundledSources([library, cli, schema], out)
 cpSync(join(sdk, 'panel.css'), join(out, 'panel.css'))
 cpSync(join(assets, 'README.md'), join(out, 'README.md'))
-cpSync('LICENSE', join(out, 'LICENSE'))
+cpSync(join(assets, 'LICENSE'), join(out, 'LICENSE'))
 cpSync(join(assets, 'template'), join(out, 'template'), { recursive: true })
 const template = JSON.parse(readFileSync(join(assets, 'template/package.json'), 'utf8'))
 writeJson('template/package.json', {
@@ -91,7 +91,7 @@ writeJson('package.json', {
     'Write extensions for Ostia: the client library, its types, manifest schemas and a project generator',
   keywords: ['ostia', 'terminal', 'extension', 'sdk', 'coding-agents'],
   ostiaExtensionApi: apiVersion(),
-  license: app.license,
+  license: 'MIT',
   homepage: `${repository}/tree/main/sdk-package#readme`,
   bugs: `${repository}/issues`,
   repository: { type: 'git', url: `git+${repository}.git`, directory: sdk },

@@ -121,7 +121,7 @@ function Surface({
   ) : s.kind === 'view' && s.viewName ? (
     <ViewSurface workspaceId={s.workspaceId} paneId={s.paneId} viewName={s.viewName} />
   ) : s.hibernated ? (
-    <HibernatedView paneId={s.paneId} />
+    <HibernatedView paneId={s.paneId} resume={s.resume} />
   ) : (
     <TerminalView key={generation} workspaceId={s.workspaceId} paneId={s.paneId} cwd={s.cwd} />
   )

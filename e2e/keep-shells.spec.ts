@@ -532,10 +532,8 @@ test('KSH-C38 waking a hibernated agent with the setting on starts a fresh windo
   const { app, win } = await launch(dataHome, pathWith(bin))
   try {
     await openWorkspace(win)
-    await run(win, 'ostia resume-token claude e2e-kept-tok')
-    await expect(win.getByRole('button', { name: 'Resume claude' })).toBeVisible({
-      timeout: 15_000,
-    })
+    await run(win, 'ostia resume-token claude e2e-kept-tok && echo token-$((6*7))')
+    await expect(screen(win)).toContainText('token-42', { timeout: 15_000 })
     await run(win, PARENT)
     await expect(screen(win)).toContainText('parent=tmux', { timeout: 15_000 })
     await run(win, 'claude')
@@ -545,7 +543,6 @@ test('KSH-C38 waking a hibernated agent with the setting on starts a fresh windo
     const sleeping = win.getByRole('tab').first()
     await expect(sleeping.getByLabel('Hibernated')).toBeVisible({ timeout: 30_000 })
     await sleeping.click()
-    await win.getByRole('button', { name: 'Resume claude' }).click()
     const rows = win.locator('.pane-slot:not([data-hidden]) .xterm-rows')
     await expect(rows).toContainText(/fake agent up: .*--resume e2e-kept-tok/, { timeout: 15_000 })
   } finally {
