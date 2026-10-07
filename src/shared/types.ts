@@ -24,6 +24,7 @@ import type {
   CredentialSaveResult,
   CredentialSummary,
 } from './credentials'
+import type { DiscreteGpuInfo } from './discreteGpu'
 import type { EditorLanguagesApi } from './editorLanguages'
 import type { SuggestionsApi } from './extensionSuggestions'
 import type { ExtensionOpenTerminalRequest, ExtensionResult, ExtensionsApi } from './extensions'
@@ -195,6 +196,7 @@ export interface PtyAttachResult {
 export interface SystemApi {
   requirements: (feature: string) => Promise<RequirementsReport | null>
   installRequirements: (feature: string, workspaceId: string) => Promise<ExtensionResult>
+  discreteGpu: () => Promise<DiscreteGpuInfo | null>
 }
 
 export interface SecretsApi {

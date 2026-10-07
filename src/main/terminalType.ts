@@ -1,5 +1,6 @@
 import { delimiter } from 'node:path'
 import { agentHooksEnv } from '../shared/agentHooks'
+import { withoutGpuLaunchEnv } from './discreteGpu'
 import { withLauncherOnPath } from './paneLauncher'
 
 export const PTY_TERM_NAME = 'xterm-256color'
@@ -21,7 +22,7 @@ export interface PaneShellEnvParts {
 
 export function paneShellEnv(parts: PaneShellEnvParts): Record<string, string> {
   const env = {
-    ...parts.parent,
+    ...withoutGpuLaunchEnv(parts.parent),
     ...parts.integration,
     ...parts.pane,
     ...agentHooksEnv(parts.agentHooks),

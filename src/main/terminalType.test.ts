@@ -1,5 +1,6 @@
 import { delimiter } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { GPU_RESTORE_ENV } from './discreteGpu'
 import { paneShellEnv } from './terminalType'
 import { newWindowCommand } from './tmux/tmuxCommand'
 
@@ -54,6 +55,17 @@ describe('paneShellEnv', () => {
     const env = paneShellEnv({ ...parts, parent })
     expect(env.TERM_PROGRAM).toBe('ostia')
     expect(env.TERM_PROGRAM_VERSION).toBe('1.2.3')
+  })
+
+  it('keeps the discrete GPU variables Ostia relaunched with out of the shell', () => {
+    const parent = {
+      ...parts.parent,
+      DRI_PRIME: 'pci-0000_03_00_0',
+      [GPU_RESTORE_ENV]: JSON.stringify({ DRI_PRIME: null }),
+    }
+    const env = paneShellEnv({ ...parts, parent })
+    expect(env.DRI_PRIME).toBeUndefined()
+    expect(env[GPU_RESTORE_ENV]).toBeUndefined()
   })
 
   it('reaches the keep-shells tmux window as -e flags', () => {
