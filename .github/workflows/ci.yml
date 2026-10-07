@@ -61,8 +61,8 @@ jobs:
       code: ${{ github.ref_type == 'tag' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || steps.filter.outputs.code }}
       # The e2e suites (Linux, macOS) are the slow part. They run for tags
       # (v1.2.3 and pre-releases such as v1.2.3-rc.1, via release.yml), the
-      # nightly schedule and manual dispatch; pull requests and pushes to main
-      # get static, unit, unit-dom, unit-macos and build only.
+      # nightly schedule and manual dispatch; pull requests get static, unit,
+      # unit-dom and build only, and pushes to main also run unit-macos.
       full: ${{ github.ref_type == 'tag' || github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.full) }}
       linux: ${{ steps.runner.outputs.linux }}
       macos: ${{ steps.runner.outputs.macos }}
@@ -332,7 +332,7 @@ jobs:
 
   unit-macos:
     needs: changes
-    if: needs.changes.outputs.code == 'true' && needs.changes.outputs.platform != 'linux'
+    if: needs.changes.outputs.code == 'true' && needs.changes.outputs.platform != 'linux' && github.event_name != 'pull_request'
     runs-on: ${{ fromJSON(needs.changes.outputs.macos) }}
     timeout-minutes: 45
     continue-on-error: true
