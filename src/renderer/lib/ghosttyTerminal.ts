@@ -2,8 +2,10 @@ import {
   FitAddon,
   Ghostty,
   type ILink as GhosttyLink,
+  type IBufferRange as GhosttyRange,
   Terminal as GhosttyTerm,
   type IDisposable,
+  SearchAddon,
   type SemanticPromptEvent,
 } from '@aurigax-ai/ghostty-web'
 import wasmDataUrl from '@aurigax-ai/ghostty-web/ghostty-vt.wasm?dataurl'
@@ -13,6 +15,8 @@ import type {
   TerminalDisposable,
   TerminalOptions,
   TerminalParser,
+  TerminalSearch,
+  WebLinkHandler,
 } from './ostiaTerminal'
 
 type OscHandler = (data: string) => boolean | Promise<boolean>
@@ -108,14 +112,41 @@ export function oneBasedLinks(provider: ILinkProvider, live: () => boolean) {
 export interface GhosttyTerminal {
   term: OstiaTerminal
   fit: { fit(): void; proposeDimensions(): { cols: number; rows: number } | undefined }
+  search: TerminalSearch
   silenceQueryReplies(): TerminalDisposable
 }
 
-export function createGhosttyTerminal(options: TerminalOptions, gpu: boolean): GhosttyTerminal {
+export function oneBasedRange(range: GhosttyRange) {
+  return {
+    start: { x: range.start.x + 1, y: range.start.y + 1 },
+    end: { x: range.end.x + 1, y: range.end.y + 1 },
+  }
+}
+
+function fontWeightOf(weight: TerminalOptions['fontWeight']): 'normal' | 'bold' | number {
+  if (weight === undefined || weight === 'normal' || weight === 'bold') return weight ?? 'normal'
+  return Number(weight)
+}
+
+export function createGhosttyTerminal(
+  options: TerminalOptions,
+  gpu: boolean,
+  links: WebLinkHandler,
+): GhosttyTerminal {
   if (!engine) throw new Error('Ghostty engine is not loaded')
   const t = new GhosttyTerm({
     ghostty: engine,
     renderer: gpu ? 'webgl' : 'canvas',
+    fontWeight: fontWeightOf(options.fontWeight),
+    lineHeight: options.lineHeight,
+    scrollSensitivity: options.scrollSensitivity,
+    minimumContrastRatio: options.minimumContrastRatio,
+    macOptionIsMeta: options.macOptionIsMeta,
+    linkHandler: {
+      activate: (event, uri, range) => links.activate(event, uri, oneBasedRange(range)),
+      hover: (event, uri, range) => links.hover(event, uri, oneBasedRange(range)),
+      leave: (event, uri, range) => links.leave(event, uri, oneBasedRange(range)),
+    },
     fontFamily: options.fontFamily,
     fontSize: options.fontSize,
     cursorStyle: options.cursorStyle,
@@ -125,6 +156,8 @@ export function createGhosttyTerminal(options: TerminalOptions, gpu: boolean): G
   })
   const fit = new FitAddon()
   t.loadAddon(fit)
+  const search = new SearchAddon()
+  t.loadAddon(search)
 
   const osc = new OscRoutes()
   const subscriptions: IDisposable[] = [
@@ -153,16 +186,22 @@ export function createGhosttyTerminal(options: TerminalOptions, gpu: boolean): G
   const settable = new Set<keyof TerminalOptions>([
     'fontFamily',
     'fontSize',
+    'fontWeight',
+    'lineHeight',
     'cursorStyle',
     'cursorBlink',
     'theme',
     'scrollback',
+    'scrollSensitivity',
+    'minimumContrastRatio',
+    'macOptionIsMeta',
   ])
   const termOptions = new Proxy({} as TerminalOptions, {
     get: (_target, key: string) => (t.options as unknown as Record<string, unknown>)[key],
     set: (_target, key: string, value: unknown) => {
       if (settable.has(key as keyof TerminalOptions)) {
-        ;(t.options as unknown as Record<string, unknown>)[key] = value
+        ;(t.options as unknown as Record<string, unknown>)[key] =
+          key === 'fontWeight' ? fontWeightOf(value as TerminalOptions['fontWeight']) : value
       }
       return true
     },
@@ -234,6 +273,12 @@ export function createGhosttyTerminal(options: TerminalOptions, gpu: boolean): G
   return {
     term,
     fit,
+    search: {
+      findNext: (text, findOptions) => search.findNext(text, findOptions),
+      findPrevious: (text, findOptions) => search.findPrevious(text, findOptions),
+      clearDecorations: () => search.clearDecorations(),
+      onDidChangeResults: search.onDidChangeResults,
+    },
     silenceQueryReplies: () => {
       t.answerQueries = false
       return {

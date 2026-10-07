@@ -59,6 +59,8 @@ import {
   type OstiaTerminal,
   type TerminalMarker,
   type TerminalOptions,
+  type TerminalSearch,
+  type WebLinkHandler,
   terminalScreen,
 } from '../lib/ostiaTerminal'
 import { forgetPaneActivity, markPaneActivity } from '../lib/paneActivity'
@@ -172,7 +174,7 @@ function TerminalSurface({
   const pasteRef = useRef<(text: string) => void>(() => {})
   const pasteClipboardRef = useRef<() => void>(() => {})
   const [pendingPaste, setPendingPaste] = useState<string | null>(null)
-  const [search, setSearch] = useState<SearchAddon | null>(null)
+  const [search, setSearch] = useState<TerminalSearch | null>(null)
   const [linkHint, setLinkHint] = useState<LinkHintBox | null>(null)
   const [findOpen, setFindOpen] = useState(false)
   const [alternateScreen, setAlternateScreen] = useState(false)
@@ -252,13 +254,19 @@ function TerminalSurface({
         window.open(uri, '_blank')
       }
     }
-    let searchAddon: SearchAddon | null = null
+    const webLinks: WebLinkHandler = {
+      activate: openWebLink,
+      hover: (_e, _text, range) => showLinkHint('web', range),
+      leave: hideLinkHint,
+    }
+    let searchAddon: TerminalSearch | null = null
     let silenceReplies: () => { dispose(): void }
     const ghostty = engine === 'ghostty' ? ghosttyModule() : null
     if (ghostty) {
-      const created = ghostty.createGhosttyTerminal(options, behavior.gpuAcceleration)
+      const created = ghostty.createGhosttyTerminal(options, behavior.gpuAcceleration, webLinks)
       term = created.term
       fit = created.fit
+      searchAddon = created.search
       silenceReplies = created.silenceQueryReplies
     } else {
       const xterm = new Xterm({ ...options, allowProposedApi: true })
@@ -266,19 +274,16 @@ function TerminalSurface({
       xterm.loadAddon(xtermFit)
       xterm.loadAddon(new Unicode11Addon())
       xterm.unicode.activeVersion = '11'
-      xterm.options.linkHandler = {
-        activate: openWebLink,
-        hover: (_e, _text, range) => showLinkHint('web', range),
-        leave: hideLinkHint,
-      }
+      xterm.options.linkHandler = webLinks
       xterm.loadAddon(
         new WebLinksAddon(openWebLink, {
           hover: (_e, _text, range) => showLinkHint('web', range),
           leave: hideLinkHint,
         }),
       )
-      searchAddon = new SearchAddon()
-      xterm.loadAddon(searchAddon)
+      const xtermSearch = new SearchAddon()
+      xterm.loadAddon(xtermSearch)
+      searchAddon = xtermSearch
       xterm.open(host)
       if (behavior.gpuAcceleration) loadWebglRenderer(xterm)
       term = xterm

@@ -1,8 +1,9 @@
 import { CaretDownIcon, CaretUpIcon, XIcon } from '@phosphor-icons/react'
-import type { ISearchOptions, SearchAddon } from '@xterm/addon-search'
+import type { ISearchOptions } from '@xterm/addon-search'
 import type { ITheme } from '@xterm/xterm'
 import { type KeyboardEvent, useEffect, useRef, useState } from 'react'
 import { useDict } from '../i18n/useDict'
+import type { TerminalSearch } from '../lib/ostiaTerminal'
 import { IconButton } from './IconButton'
 import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupText } from './ui/input-group'
 
@@ -25,7 +26,7 @@ export function TerminalFind({
   options,
   onClose,
 }: {
-  search: SearchAddon
+  search: TerminalSearch
   options: ISearchOptions
   onClose: () => void
 }): JSX.Element {

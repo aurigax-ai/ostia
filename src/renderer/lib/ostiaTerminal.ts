@@ -1,4 +1,5 @@
-import type { ILinkProvider, IParser, Terminal as Xterm } from '@xterm/xterm'
+import type { ISearchOptions } from '@xterm/addon-search'
+import type { IBufferRange, ILinkProvider, IParser, Terminal as Xterm } from '@xterm/xterm'
 
 export interface TerminalDisposable {
   dispose(): void
@@ -57,6 +58,19 @@ export interface TerminalOptions {
   scrollback?: number
   minimumContrastRatio?: number
   macOptionIsMeta?: boolean
+}
+
+export interface TerminalSearch {
+  findNext(term: string, options?: ISearchOptions): boolean
+  findPrevious(term: string, options?: ISearchOptions): boolean
+  clearDecorations(): void
+  readonly onDidChangeResults: TerminalEvent<{ resultIndex: number; resultCount: number }>
+}
+
+export interface WebLinkHandler {
+  activate(event: MouseEvent, uri: string, range: IBufferRange): void
+  hover(event: MouseEvent, uri: string, range: IBufferRange): void
+  leave(event: MouseEvent, uri: string, range: IBufferRange): void
 }
 
 export interface OstiaTerminal {
