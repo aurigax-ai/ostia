@@ -75,13 +75,12 @@ export function adoptPane(input: {
   windowId: string
   workspaceId: string
   paneId: string
-  token: string
 }): PaneIdentity {
   removePane(input.paneId)
-  const externalId = stablePaneExternalId(input.paneId)
-  const taken = byExternal.get(externalId) ?? byToken.get(input.token)
+  const minted = mint(input.paneId)
+  const taken = byExternal.get(minted.externalId)
   if (taken) removePane(taken.paneId)
-  const identity: PaneIdentity = { kind: 'pane', ...input, externalId }
+  const identity: PaneIdentity = { kind: 'pane', ...input, ...minted }
   byPane.set(identity.paneId, identity)
   index(identity)
   return identity

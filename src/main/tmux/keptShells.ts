@@ -1,10 +1,17 @@
 import { execFileSync } from 'node:child_process'
-import { existsSync } from 'node:fs'
+import { createHash } from 'node:crypto'
+import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { KeptExposure } from '../sandbox/portRequests'
 import { HOST_PROTOCOL_VERSION } from '../sandbox/protocol'
 import type { NewWindowSpec } from './tmuxCommand'
-import { type KeptWindow, type TmuxPane, TmuxServer, type TmuxServerOptions } from './tmuxServer'
+import {
+  type KeptWindow,
+  type TmuxPane,
+  TmuxServer,
+  type TmuxServerOptions,
+  ensureTmuxSocketDir,
+} from './tmuxServer'
 
 export interface KeptProcessMeta {
   name: string
@@ -25,7 +32,6 @@ export interface KeptSandboxMeta {
 export interface KeptMeta {
   paneId: string
   externalId: string
-  token: string
   workspaceId: string
   shell: string
   stateFile: string
@@ -126,13 +132,12 @@ export function parseKeptMeta(raw: unknown): KeptMeta | null {
   const fields = {
     paneId: text(r.paneId),
     externalId: text(r.externalId),
-    token: text(r.token),
     workspaceId: text(r.workspaceId),
     shell: text(r.shell),
     stateFile: text(r.stateFile),
     spawnPath: text(r.spawnPath),
   }
-  if (Object.values(fields).some((v) => v === null) || !fields.paneId || !fields.token) return null
+  if (Object.values(fields).some((v) => v === null) || !fields.paneId) return null
   const keptProcess = parseProcess(r.process)
   const sandbox = parseSandbox(r.sandbox)
   return {
@@ -149,8 +154,12 @@ export interface KeptShell {
 
 export type KeptShellsLog = (event: string, fields: Record<string, string>) => void
 
+export type KeptProgram = Omit<TmuxServerOptions, 'dir' | 'name'>
+
 export interface KeptShellsDeps {
-  options: () => TmuxServerOptions | null
+  dir: string
+  name: string
+  program: () => KeptProgram | null
   log: KeptShellsLog
 }
 
@@ -169,6 +178,11 @@ interface Waiting<M> {
 
 const HOST_WINDOW_COLS = 80
 const HOST_WINDOW_ROWS = 24
+const TOKENS_DIR = 'tokens'
+
+function tokenName(paneId: string): string {
+  return createHash('sha256').update(paneId).digest('hex').slice(0, 32)
+}
 
 export class KeptShells {
   private server: TmuxServer | null = null
@@ -231,12 +245,30 @@ export class KeptShells {
     return this.lostSandbox.delete(paneId)
   }
 
+  tokenFile(paneId: string): string {
+    return join(this.tokensDir(), tokenName(paneId))
+  }
+
+  writeToken(paneId: string, token: string): string {
+    const dir = this.tokensDir()
+    ensureTmuxSocketDir(this.deps.dir, process.getuid?.() ?? 0)
+    mkdirSync(dir, { recursive: true, mode: 0o700 })
+    const file = this.tokenFile(paneId)
+    writeFileSync(file, token, { mode: 0o600 })
+    return file
+  }
+
+  removeToken(paneId: string): void {
+    rmSync(this.tokenFile(paneId), { force: true })
+  }
+
   async quit(): Promise<void> {
     this.waiting.clear()
     this.hosts.clear()
     const server = this.server ?? (this.socketExists() ? await this.connect() : null)
     await server?.killServer()
     this.server = null
+    this.sweepTokens()
   }
 
   quitNow(): void {
@@ -244,10 +276,11 @@ export class KeptShells {
     this.hosts.clear()
     this.server?.close()
     this.server = null
-    const options = this.deps.options()
-    if (!options || !existsSync(join(options.dir, options.name))) return
+    this.sweepTokens()
+    const program = this.socketExists() ? this.deps.program() : null
+    if (!program) return
     try {
-      execFileSync(options.tmux, ['-S', join(options.dir, options.name), 'kill-server'], {
+      execFileSync(program.tmux, ['-S', this.socketPath(), 'kill-server'], {
         stdio: 'ignore',
         timeout: 3000,
       })
@@ -262,7 +295,10 @@ export class KeptShells {
   }
 
   private async reconcile(keep: boolean, saved: ReadonlySet<string> | null): Promise<void> {
-    if (!this.socketExists()) return
+    if (!this.socketExists()) {
+      this.sweepTokens()
+      return
+    }
     const server = await this.connect()
     if (!keep) {
       for (const window of await server.windows()) {
@@ -316,18 +352,39 @@ export class KeptShells {
       this.deps.log('sandbox-host-reap', { workspace: workspaceId, reason: 'unclaimed' })
       await server.killWindow(host.window.windowId)
     }
+    this.sweepTokens(new Set([...this.waiting.keys()].map(tokenName)))
+  }
+
+  private tokensDir(): string {
+    return join(this.deps.dir, TOKENS_DIR, this.deps.name)
+  }
+
+  private sweepTokens(keep: ReadonlySet<string> = new Set()): void {
+    let names: string[] = []
+    try {
+      names = readdirSync(this.tokensDir())
+    } catch {
+      return
+    }
+    for (const name of names) {
+      if (!keep.has(name)) rmSync(join(this.tokensDir(), name), { force: true })
+    }
+  }
+
+  private socketPath(): string {
+    return join(this.deps.dir, this.deps.name)
   }
 
   private socketExists(): boolean {
-    const options = this.deps.options()
-    return options !== null && existsSync(join(options.dir, options.name))
+    return existsSync(this.socketPath())
   }
 
   private connect(): Promise<TmuxServer> {
     if (this.server?.alive) return Promise.resolve(this.server)
     if (this.connecting) return this.connecting
-    const options = this.deps.options()
-    if (!options) return Promise.reject(new Error('tmux is not available'))
+    const program = this.deps.program()
+    if (!program) return Promise.reject(new Error('tmux is not available'))
+    const options: TmuxServerOptions = { ...program, dir: this.deps.dir, name: this.deps.name }
     let server: TmuxServer | null = null
     const connecting = TmuxServer.connect(options, () => {
       if (this.server === server) this.server = null

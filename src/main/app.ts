@@ -265,7 +265,12 @@ import {
 import { hiddenHomeNotice, sandboxFailureBanner } from './sandbox/spawnBanner'
 import { sandboxSpawnEnv } from './sandbox/spawnEnv'
 import { reportSandboxSpawnFailure } from './sandbox/spawnFailureNotice'
-import { reachableContainerSockets, srtVendorDir, withKeptShells } from './sandbox/srtConfig'
+import {
+  type SandboxBasePaths,
+  reachableContainerSockets,
+  srtVendorDir,
+  withKeptShells,
+} from './sandbox/srtConfig'
 import { SandboxStore } from './sandbox/store'
 import { ViolationLog, recordViolations } from './sandbox/violations'
 import {
@@ -299,18 +304,25 @@ import {
 } from './systemRequirements'
 import { registerSystemRequirementsIpc } from './systemRequirementsIpc'
 import { type SessionFacts, TELEMETRY_FILE, type Telemetry, registerTelemetry } from './telemetry'
-import { PTY_COLOR_ENV, PTY_TERM_NAME, paneShellEnv, ptyIdentityEnv } from './terminalType'
+import {
+  PTY_COLOR_ENV,
+  PTY_TERM_NAME,
+  paneShellEnv,
+  ptyIdentityEnv,
+  withPaneToken,
+} from './terminalType'
 import { SANDBOX_NOT_KEPT, TMUX_MISSING, keepShellsNotice } from './tmux/keepShellsBanner'
 import { KeptAttention } from './tmux/keptAttention'
 import {
   type KeptHostMeta,
   type KeptMeta,
   type KeptProcessMeta,
+  type KeptProgram,
   type KeptShell,
   KeptShells,
   SANDBOX_HOST_KIND,
 } from './tmux/keptShells'
-import type { TmuxPane, TmuxServerOptions } from './tmux/tmuxServer'
+import type { TmuxPane } from './tmux/tmuxServer'
 import { AppTray, closeAction, isHiddenLaunch, readCloseToTray, unreadWorkspaces } from './tray'
 import { type UpdateRunner, createUpdateRunner } from './updateRun'
 import { OLD_PRODUCT_NAME, appConfigDir, configHome, dataHome } from './userDirs'
@@ -587,15 +599,6 @@ function openExternalSafe(url: string): boolean {
   return true
 }
 
-const keptShells = new KeptShells({
-  options: keptShellsOptions,
-  log: (event, fields) => appLog?.info(event, fields),
-})
-let tmuxTerminal: string | null = null
-let restartRequested = false
-let updateRunner: UpdateRunner | null = null
-const UPDATE_HOST_GRANT_ID = 'core:update'
-
 function keptTmuxDir(): string {
   return join(tmpdir(), `${PRODUCT_NAME}-tmux-${process.getuid?.() ?? 0}`)
 }
@@ -604,17 +607,26 @@ function keptShellsName(): string {
   return createHash('sha256').update(app.getPath('userData')).digest('hex').slice(0, 16)
 }
 
-function keptShellsOptions(): TmuxServerOptions | null {
+const keptShells = new KeptShells({
+  dir: keptTmuxDir(),
+  name: keptShellsName(),
+  program: keptShellsProgram,
+  log: (event, fields) => appLog?.info(event, fields),
+})
+let tmuxTerminal: string | null = null
+let restartRequested = false
+let updateRunner: UpdateRunner | null = null
+const UPDATE_HOST_GRANT_ID = 'core:update'
+
+function keepShellsOn(): boolean {
+  return parseKeepShells(readSettingsFile().terminal?.keepShells)
+}
+
+function keptShellsProgram(): KeptProgram | null {
   if (missingRequirements(KEEP_SHELLS_FEATURE).length > 0) return null
   const tmux = programPath('tmux')
   if (!tmux) return null
-  return {
-    tmux,
-    dir: keptTmuxDir(),
-    name: keptShellsName(),
-    defaultTerminal: tmuxDefaultTerminal(),
-    env: process.env,
-  }
+  return { tmux, defaultTerminal: tmuxDefaultTerminal(), env: process.env }
 }
 
 function tmuxDefaultTerminal(): string {
@@ -668,7 +680,7 @@ function syncKeptMeta(paneId: string): void {
   entry.kept.setMeta(entry.keptMeta)
 }
 
-function keptLauncherDir(): string {
+function paneLauncherDir(): string {
   return join(app.getPath('userData'), 'bin')
 }
 
@@ -679,7 +691,7 @@ function replaceFile(path: string, content: string, mode: number): void {
 }
 
 function writeKeptLaunchers(): void {
-  const dir = keptLauncherDir()
+  const dir = paneLauncherDir()
   mkdirSync(dir, { recursive: true, mode: 0o700 })
   replaceFile(
     join(dir, 'ostia-node'),
@@ -691,7 +703,17 @@ function writeKeptLaunchers(): void {
     `require(${JSON.stringify(join(app.getAppPath(), 'out/cli/index.js'))})\n`,
     0o600,
   )
-  writeOstiaLauncher(dir)
+}
+
+let keptPlumbingReady = false
+
+function ensureKeptPlumbing(): void {
+  if (keptPlumbingReady) return
+  keptPlumbingReady = true
+  try {
+    writeKeptLaunchers()
+  } catch {}
+  listenKeptControlSocket(keptControlSocketPath(app.getPath('userData')))
 }
 
 function keptPaneEnv(env: NodeJS.ProcessEnv): Record<string, string> {
@@ -700,7 +722,7 @@ function keptPaneEnv(env: NodeJS.ProcessEnv): Record<string, string> {
     if (value === undefined || key === 'TERM') continue
     out[key] = value
   }
-  const launchers = keptLauncherDir()
+  const launchers = paneLauncherDir()
   return Object.assign(
     out,
     appEnv({
@@ -724,6 +746,7 @@ function killPty(paneId: string, reason: ReapReason): void {
   entry.flow.dispose()
   entry.mirror.dispose()
   removeStateFile(entry)
+  keptShells.removeToken(paneId)
   ptys.delete(paneId)
 }
 
@@ -821,37 +844,38 @@ function isScratchPane(paneId: string): boolean {
 const workspaceSandboxes: WorkspaceSandboxes = new WorkspaceSandboxes({
   store: new SandboxStore(join(app.getPath('userData'), 'sandbox.json')),
   globals: () => parseSandboxGlobals((readSettingsFile() as { sandbox?: unknown }).sandbox),
-  basePaths: () =>
-    withKeptShells(
-      {
-        home: homedir(),
-        dataDirs: [
-          app.getPath('userData'),
-          dirname(storePath('workspaces', 'global')),
-          ...[
-            join(app.getPath('appData'), OLD_PRODUCT_NAME),
-            join(configHome(), OLD_PRODUCT_NAME),
-            join(dataHome(), OLD_PRODUCT_NAME),
-          ].filter((dir) => existsSync(dir)),
-        ],
-        runtimeDir: process.env.XDG_RUNTIME_DIR,
-        agentSockets: process.env.SSH_AUTH_SOCK ? [process.env.SSH_AUTH_SOCK] : [],
-        containerSockets: reachableContainerSockets(),
-        socketPath: controlSocketPath(),
-        srtVendorDir: srtVendorDir(app.getAppPath()),
-        runtimeReads: [
-          INTEGRATION_DIR,
-          privateTmpDir(`${PRODUCT_NAME}-shell-state`),
-          app.getAppPath(),
-          dirname(process.execPath),
-        ],
-      },
-      {
-        tmuxDir: keptTmuxDir(),
-        socketPath: keptControlSocketPath(app.getPath('userData')),
-        launcherDir: keptLauncherDir(),
-      },
-    ),
+  basePaths: () => {
+    const base: SandboxBasePaths = {
+      home: homedir(),
+      dataDirs: [
+        app.getPath('userData'),
+        dirname(storePath('workspaces', 'global')),
+        ...[
+          join(app.getPath('appData'), OLD_PRODUCT_NAME),
+          join(configHome(), OLD_PRODUCT_NAME),
+          join(dataHome(), OLD_PRODUCT_NAME),
+        ].filter((dir) => existsSync(dir)),
+      ],
+      runtimeDir: process.env.XDG_RUNTIME_DIR,
+      agentSockets: process.env.SSH_AUTH_SOCK ? [process.env.SSH_AUTH_SOCK] : [],
+      containerSockets: reachableContainerSockets(),
+      socketPath: controlSocketPath(),
+      srtVendorDir: srtVendorDir(app.getAppPath()),
+      runtimeReads: [
+        INTEGRATION_DIR,
+        privateTmpDir(`${PRODUCT_NAME}-shell-state`),
+        app.getAppPath(),
+        dirname(process.execPath),
+        paneLauncherDir(),
+      ],
+    }
+    return keepShellsOn()
+      ? withKeptShells(base, {
+          tmuxDir: keptTmuxDir(),
+          socketPath: keptControlSocketPath(app.getPath('userData')),
+        })
+      : base
+  },
   workDir: (workspaceId) => workDirForWorkspace(workspaceId),
   tmpRoot: privateTmpDir(`${PRODUCT_NAME}-sbx`),
   nodePath: process.execPath,
@@ -868,8 +892,7 @@ const workspaceSandboxes: WorkspaceSandboxes = new WorkspaceSandboxes({
       lines,
     ),
   kept: {
-    enabled: () =>
-      parseKeepShells(readSettingsFile().terminal?.keepShells) && keptShellsOptions() !== null,
+    enabled: () => keepShellsOn() && keptShellsProgram() !== null,
     tmpRoot: join(privateTmpDir(`${PRODUCT_NAME}-sbx`), `kept-${keptShellsName()}`),
     channel: (workspaceId) =>
       join(
@@ -2123,7 +2146,6 @@ function registerPtyIpc(): void {
       integration: integration.env,
       pane: appEnv({
         PANE_ID: identity.externalId,
-        TOKEN: identity.token,
         START_DIR: opts.cwd ?? '',
         SOCKET: controlSocketPath(),
         CLI: join(app.getAppPath(), 'out/cli/index.js'),
@@ -2131,7 +2153,7 @@ function registerPtyIpc(): void {
         SHELL_STATE: stateFile,
       }),
       agentHooks: settings.agents?.hooks,
-      launcherDir: keptLauncherDir(),
+      launcherDir: paneLauncherDir(),
     })
     let secretNotice = ''
     let sandboxStamp: string | null = null
@@ -2143,6 +2165,9 @@ function registerPtyIpc(): void {
     let cwd = folder.cwd
     const host = opts.hostToken ? hostPaneGrants.consume(opts.hostToken) : false
     const sandboxed = !host && workspaceId !== '' && workspaceSandboxes.isEnabled(workspaceId)
+    const wantsKeep = keepShellsOn() && !host
+    let notKept = wantsKeep && !keptShellsProgram() ? TMUX_MISSING : ''
+    let tokenFile: string | null = null
     if (sandboxed) {
       try {
         writeFileSync(stateFile, '', { mode: 0o600 })
@@ -2157,6 +2182,11 @@ function registerPtyIpc(): void {
         )
           ? await PortBridge.open(workspaceSandboxes.tmpDir(workspaceId))
           : null
+        if (wantsKeep && !notKept) {
+          await workspaceSandboxes.connect(workspaceId)
+          if (!workspaceSandboxes.isKept(workspaceId)) notKept = SANDBOX_NOT_KEPT
+        }
+        if (wantsKeep && !notKept) tokenFile = keptShells.writeToken(paneId, identity.token)
         const wrapped = await workspaceSandboxes.wrap(
           workspaceId,
           sandboxedShellCommand(
@@ -2167,6 +2197,7 @@ function registerPtyIpc(): void {
           ),
           'bash',
           [stateFile],
+          tokenFile ? [tokenFile] : [],
         )
         sandboxStamp = workspaceSandboxes.wrapStamp(workspaceId)
         file = '/bin/sh'
@@ -2183,6 +2214,7 @@ function registerPtyIpc(): void {
         cwd = sandboxCwd(cwd, workspaceSandboxes.workDir(workspaceId))
       } catch (err) {
         portBridge?.close()
+        if (tokenFile) keptShells.removeToken(paneId)
         const missing = err instanceof SandboxUnavailableError ? err.missing : []
         onSandboxSpawnFailure?.(workspaceId, missing)
         return {
@@ -2198,20 +2230,17 @@ function registerPtyIpc(): void {
       portBridge?.close()
       return attachPty(e, paneId, opts)
     }
-    const wantsKeep = parseKeepShells(settings.terminal?.keepShells) && !host
-    let notKept = ''
-    if (wantsKeep && !keptShellsOptions()) {
-      notKept = TMUX_MISSING
-    } else if (wantsKeep && sandboxed && !workspaceSandboxes.isKept(workspaceId)) {
-      notKept = SANDBOX_NOT_KEPT
+    if (wantsKeep && !notKept && !tokenFile) {
+      tokenFile = keptShells.writeToken(paneId, identity.token)
     }
+    env = withPaneToken(env, identity.token, tokenFile)
     let kept: TmuxPane | null = null
     let keptMeta: KeptMeta | null = null
     if (wantsKeep && !notKept) {
+      ensureKeptPlumbing()
       keptMeta = withKeptProcess({
         paneId,
         externalId: identity.externalId,
-        token: identity.token,
         workspaceId,
         shell,
         stateFile,
@@ -2265,6 +2294,7 @@ function registerPtyIpc(): void {
       portBridge,
     })
     const { session } = entry
+    if (tokenFile) entry.exitListeners.add(() => keptShells.removeToken(paneId))
     if (sandboxed) {
       entry.exitListeners.add(() => {
         if (resizePipe) rmSync(resizePipe, { force: true })
@@ -2313,15 +2343,12 @@ function registerPtyIpc(): void {
   ): Promise<PtyAttachResult> {
     const subId = String(e.sender.id)
     const { pane, meta } = kept
-    const identity = adoptPane({
-      windowId: subId,
-      workspaceId: meta.workspaceId,
-      paneId,
-      token: meta.token,
-    })
+    const identity = adoptPane({ windowId: subId, workspaceId: meta.workspaceId, paneId })
     if (identity.externalId !== meta.externalId) {
       appLog?.info('kept-pane-id-changed', { pane: paneId })
     }
+    ensureKeptPlumbing()
+    keptShells.writeToken(paneId, identity.token)
     keptAttention.reattached(paneId, agentRunning.has(paneId))
     takeRestoredScrollback(paneId)
     hibernatedPanes.delete(paneId)
@@ -3208,7 +3235,7 @@ app.whenReady().then(() => {
       workspaceSandboxes.sweepKeptTmp(kept)
     })
   try {
-    writeKeptLaunchers()
+    writeOstiaLauncher(paneLauncherDir())
   } catch {}
   scratchFolders.sweep()
   workspaceSandboxes.sweepTmp()
@@ -3760,7 +3787,7 @@ app.whenReady().then(() => {
     byAgent: reach.byAgent,
   })
   writeControlInfo(controlInfoPath(), controlSocketPath(), process.pid)
-  listenKeptControlSocket(keptControlSocketPath(app.getPath('userData')))
+  if (keepShellsOn()) ensureKeptPlumbing()
   registerManagerIpc()
   managerLimiter = registerManagerMethods({
     settings: managerSettings,

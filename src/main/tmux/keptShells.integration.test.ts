@@ -1,13 +1,13 @@
 import { execFileSync, spawn as spawnChild } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, afterEach, describe, expect, it } from 'vitest'
 import { running, skipWithoutTmux, tmuxPath } from '../../../test/tmux'
 import { HOST_PROTOCOL_VERSION } from '../sandbox/protocol'
 import { type KeptHostMeta, type KeptMeta, KeptShells, SANDBOX_HOST_KIND } from './keptShells'
-import type { TmuxPane, TmuxServerOptions } from './tmuxServer'
+import type { TmuxPane } from './tmuxServer'
 
 const tmux = tmuxPath ?? 'tmux'
 const root = mkdtempSync(join(tmpdir(), 'ostia-kept-'))
@@ -23,14 +23,12 @@ afterAll(() => rmSync(root, { recursive: true, force: true }))
 
 function instance(name: string): { kept: KeptShells; log: [string, Record<string, unknown>][] } {
   const log: [string, Record<string, unknown>][] = []
-  const options: TmuxServerOptions = {
-    tmux,
+  const kept = new KeptShells({
     dir: join(root, 'sock'),
     name,
-    defaultTerminal: 'screen-256color',
-    env: process.env,
-  }
-  const kept = new KeptShells({ options: () => options, log: (e, f) => log.push([e, f]) })
+    program: () => ({ tmux, defaultTerminal: 'screen-256color', env: process.env }),
+    log: (e, f) => log.push([e, f]),
+  })
   live.push(kept)
   return { kept, log }
 }
@@ -39,7 +37,6 @@ function meta(paneId: string): KeptMeta {
   return {
     paneId,
     externalId: `ext-${paneId}`,
-    token: `token-${paneId}`,
     workspaceId: 'w1',
     shell: '/bin/sh',
     stateFile: '',
@@ -138,6 +135,29 @@ describe.skipIf(skipWithoutTmux)('KeptShells', () => {
     expect(third.kept.isWaiting('p1')).toBe(false)
   })
 
+  it('KSH-C74 keeps a kept pane token out of tmux, and removes the token files of shells it ends', async () => {
+    const name = `k${names++}`
+    const first = instance(name)
+    await spawn(first.kept, 'p1')
+    await spawn(first.kept, 'p2')
+    const tokens = ['p1', 'p2'].map((paneId) => `secret-${paneId}-${randomUUID()}`)
+    const files = ['p1', 'p2'].map((paneId, i) => first.kept.writeToken(paneId, tokens[i]))
+    first.kept.release()
+    const second = await restart(name, new Set(['p1']))
+    const socket = join(root, 'sock', name)
+    const dump = execFileSync(tmux, ['-S', socket, 'list-windows', '-a', '-F', '#{@ostia-meta}'], {
+      encoding: 'utf8',
+    })
+      .split('\n')
+      .map((line) => Buffer.from(line, 'base64').toString('utf8'))
+      .join('\n')
+    for (const token of tokens) expect(dump).not.toContain(token)
+    expect(readFileSync(files[0], 'utf8')).toBe(tokens[0])
+    expect(existsSync(files[1])).toBe(false)
+    await second.kept.quit()
+    expect(existsSync(files[0])).toBe(false)
+  })
+
   it('hands a kept shell back once, with its identity', async () => {
     const name = `k${names++}`
     const first = instance(name)
@@ -146,7 +166,7 @@ describe.skipIf(skipWithoutTmux)('KeptShells', () => {
     const second = await restart(name, new Set(['p1']))
     const claimed = second.kept.claim('p1')
     expect(claimed?.pane.pid).toBe(pane.pid)
-    expect(claimed?.meta.token).toBe('token-p1')
+    expect(claimed?.meta.externalId).toBe('ext-p1')
     expect(second.kept.claim('p1')).toBeNull()
   })
 

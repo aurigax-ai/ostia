@@ -1,4 +1,6 @@
+import { createHash } from 'node:crypto'
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import {
@@ -131,15 +133,23 @@ test('KSH-C8 a running command survives Ostia being killed and is there after a 
   }
 })
 
-test('KSH-C1 with the setting off a terminal is a plain child of Ostia, with no tmux', async () => {
+test('KSH-C1 KSH-C81 with the setting off a terminal is a plain child of Ostia, and nothing for kept shells exists', async () => {
   seedSettings(dataHome, DOM_RENDERER_SETTINGS)
   const { app, win } = await launch(dataHome)
   try {
     await openWorkspace(win)
-    await run(win, `${PARENT}; echo tmux=\${TMUX-none}`)
-    await expect(screen(win)).toContainText('tmux=none', { timeout: 15_000 })
+    await run(win, `${PARENT}; echo tmux=\${TMUX-none} file=\${OSTIA_TOKEN_FILE-none}`)
+    await expect(screen(win)).toContainText('tmux=none file=none', { timeout: 15_000 })
     await expect(screen(win)).toContainText(/parent=\S+/)
     await expect(screen(win)).not.toContainText(/parent=tmux/)
+    const userData = join(dataHome, 'userData')
+    const name = createHash('sha256').update(userData).digest('hex').slice(0, 16)
+    expect(existsSync(join(userData, 'bin', 'ostia'))).toBe(true)
+    expect(existsSync(join(userData, 'bin', 'ostia-node'))).toBe(false)
+    expect(existsSync(join(userData, 'bin', 'ostia-cli.js'))).toBe(false)
+    expect(
+      existsSync(join(tmpdir(), `ostia-kept-${process.getuid?.() ?? 0}`, `${name}.sock`)),
+    ).toBe(false)
   } finally {
     await quit(app)
   }
@@ -364,9 +374,15 @@ test('KSH-C33 a kept pane runs the CLI of the Ostia that is running now', async 
   }
 })
 
-test('KSH-C34 no file on disk holds a kept pane token, before or after a restart', async () => {
+test('KSH-C72 KSH-C74 a kept pane gets a new token after a restart, held only in its own 0600 file', async () => {
   const first = await launch(dataHome)
   await openWorkspace(first.win)
+  await run(first.win, 'echo "before=$(cat "$OSTIA_TOKEN_FILE") env=${OSTIA_TOKEN:-none}"')
+  await expect(screen(first.win)).toContainText(/before=[0-9a-f]{64} env=none/, {
+    timeout: 15_000,
+  })
+  const [, before] =
+    /before=([0-9a-f]{64})/.exec((await screen(first.win).textContent()) ?? '') ?? []
   await savedLayout(first.win)
   await restart(first)
 
@@ -375,9 +391,12 @@ test('KSH-C34 no file on disk holds a kept pane token, before or after a restart
     await expect(screen(second.win)).toContainText(PROMPT, { timeout: 15_000 })
     await run(
       second.win,
-      `grep -rlF -- "$OSTIA_TOKEN" ${join(dataHome, 'userData')} ${join(dataHome, 'ostia')} "\${TMPDIR:-/tmp}"/ostia-* 2>/dev/null; echo "token-files=$(grep -rlF -- "$OSTIA_TOKEN" ${dataHome} "\${TMPDIR:-/tmp}"/ostia-* 2>/dev/null | wc -l)"`,
+      `clear; t=$(cat "$OSTIA_TOKEN_FILE"); echo "mode=$(ls -l "$OSTIA_TOKEN_FILE" | cut -c1-10) others=$(grep -rlF -- "$t" ${dataHome} "\${TMPDIR:-/tmp}"/ostia-* 2>/dev/null | grep -vxF "$OSTIA_TOKEN_FILE" | wc -l | tr -d ' ') same=$([ "$t" = "${before}" ] && echo yes || echo no)"; ostia whoami >/dev/null && echo who-ok`,
     )
-    await expect(screen(second.win)).toContainText('token-files=0', { timeout: 15_000 })
+    await expect(screen(second.win)).toContainText('mode=-rw------- others=0 same=no', {
+      timeout: 15_000,
+    })
+    await expect(screen(second.win)).toContainText('who-ok')
   } finally {
     await quit(second.app)
   }

@@ -35,10 +35,12 @@ export function parseProcStat(text: string): ProcStat | null {
   return { ppid, ttyNr }
 }
 
-const TOKEN_ENTRY = `${envName('TOKEN')}=`
+const TOKEN_ENTRIES = [`${envName('TOKEN')}=`, `${envName('TOKEN_FILE')}=`]
 
 export function hasPaneToken(environ: string): boolean {
-  return environ.split('\0').some((entry) => entry.startsWith(TOKEN_ENTRY))
+  return environ
+    .split('\0')
+    .some((entry) => TOKEN_ENTRIES.some((prefix) => entry.startsWith(prefix)))
 }
 
 function statOf(pid: number, proc: ProcReader): ProcStat | null {

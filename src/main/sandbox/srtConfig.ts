@@ -29,7 +29,6 @@ export interface SandboxPaths {
 export interface KeptShellPaths {
   tmuxDir: string
   socketPath: string
-  launcherDir: string
 }
 
 export function withKeptShells(paths: SandboxBasePaths, kept: KeptShellPaths): SandboxBasePaths {
@@ -37,7 +36,6 @@ export function withKeptShells(paths: SandboxBasePaths, kept: KeptShellPaths): S
     ...paths,
     dataDirs: [...paths.dataDirs, kept.tmuxDir],
     keptSocketPath: kept.socketPath,
-    runtimeReads: [...paths.runtimeReads, kept.launcherDir],
   }
 }
 

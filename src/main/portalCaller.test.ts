@@ -68,6 +68,10 @@ describe('hasPaneToken', () => {
     expect(hasPaneToken('A=1\0PINE_TOKEN=abc\0')).toBe(false)
     expect(hasPaneToken('A=OSTIA_TOKEN=abc\0NOT_OSTIA_TOKEN=1')).toBe(false)
   })
+
+  it('treats a kept pane, which has OSTIA_TOKEN_FILE instead of OSTIA_TOKEN, as inside', () => {
+    expect(hasPaneToken('A=1\0OSTIA_TOKEN_FILE=/tmp/t\0')).toBe(true)
+  })
 })
 
 describe('judgeCaller', () => {

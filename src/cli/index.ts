@@ -40,6 +40,7 @@ import { describeFailure } from './failure'
 import { type FileProbe, fileWord, isClaimedWord, parseFileArg, refusalLine } from './fileArgs'
 import { runManagerVerb } from './manager'
 import { parseWorkspaceRenameArgs, runPaneVerb } from './pane'
+import { paneToken } from './paneToken'
 import { runPermissionHook } from './permissionHook'
 import { runPortalCommand } from './portal'
 import { runTokenVerb } from './token'
@@ -1309,7 +1310,7 @@ function connectSocket(socketPath: string): Promise<Socket> {
 }
 
 async function main(): Promise<void> {
-  const token = readEnv('TOKEN')
+  const token = paneToken()
   const socketPath =
     readEnv('SOCKET') ??
     (token?.startsWith(SCRIPT_TOKEN_PREFIX) ? readControlSocket(controlInfoPath()) : undefined)
