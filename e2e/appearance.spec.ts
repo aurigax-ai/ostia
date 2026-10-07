@@ -162,7 +162,8 @@ test('saving settings.json from the window applies it to that window and its Set
 
     await win.evaluate(async () => {
       const path = await window.ostia.settings.path()
-      const current = JSON.parse((await window.ostia.fs.read(path)) ?? '{}')
+      const res = await window.ostia.fs.read(path)
+      const current = JSON.parse(res.ok ? res.text : '{}')
       current.appearance = { ...current.appearance, theme: 'ostia-light', accent: '#ff8800' }
       await window.ostia.fs.write(path, JSON.stringify(current, null, 2))
     })

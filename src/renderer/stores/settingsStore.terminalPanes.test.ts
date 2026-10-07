@@ -50,8 +50,10 @@ describe('settingsStore terminal and pane settings', () => {
   })
 
   it('validates both sections when settings.json loads', async () => {
-    vi.mocked(window.ostia.fs.read).mockResolvedValue(
-      JSON.stringify({
+    vi.mocked(window.ostia.fs.read).mockResolvedValue({
+      ok: true,
+      version: 'v1',
+      text: JSON.stringify({
         terminal: {
           scrollSpeed: 50,
           scrollbackLines: 12,
@@ -61,7 +63,7 @@ describe('settingsStore terminal and pane settings', () => {
         },
         panes: { dimInactive: false, focusOnHover: 'yes' },
       }),
-    )
+    })
     await store().init()
     expect(store().terminal).toEqual({
       scrollSpeed: 5,

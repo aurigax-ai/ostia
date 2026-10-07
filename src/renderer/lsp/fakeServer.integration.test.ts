@@ -95,9 +95,9 @@ afterAll(() => {
 beforeEach(() => {
   vi.mocked(window.ostia.fs.read).mockImplementation(async (path) => {
     try {
-      return readFileSync(path, 'utf8')
+      return { ok: true, version: 'v1', text: readFileSync(path, 'utf8') }
     } catch {
-      return null
+      return { ok: false, error: 'missing' }
     }
   })
   vi.mocked(window.ostia.fs.write).mockImplementation(async (path, text) => {

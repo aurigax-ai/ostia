@@ -772,6 +772,8 @@ export const en = {
   },
   editor: {
     binary: 'Binary file, not opened in the editor',
+    tooLarge: 'This file is too large to open in the editor ({size} MB).',
+    unreadable: 'Could not read this file, so it is not opened in the editor.',
     saveError: 'Could not save {path}',
     diskChanged: 'Changed on disk. Your unsaved edits are kept.',
     diskConflict:
@@ -3772,6 +3774,8 @@ export const zhHant: Dict = {
     preview: '預覽 Markdown',
     editSource: '編輯 Markdown 原始碼',
     binary: '二進位檔案，未在編輯器中開啟',
+    tooLarge: '檔案太大，無法在編輯器中開啟（{size} MB）。',
+    unreadable: '無法讀取此檔案，因此未在編輯器中開啟。',
     saveError: '無法儲存 {path}',
     diskChanged: '檔案在磁碟上已變更。你未儲存的編輯會保留。',
     diskConflict: '此檔案在你開啟後於磁碟上變更。儲存會覆寫該變更。',

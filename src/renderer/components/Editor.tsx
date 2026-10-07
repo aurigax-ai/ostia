@@ -2,6 +2,7 @@ import { cn } from '@/lib/utils'
 import { CodeIcon, EyeIcon, PaperPlaneTiltIcon } from '@phosphor-icons/react'
 import { AUTO_SAVE_DELAY_MS, type EditorSettings } from '@shared/browserEditorSettings'
 import { type RemoteFileError, isRemotePath, parseRemotePath } from '@shared/remoteFolders'
+import type { FsTextResult } from '@shared/types'
 import { useEffect, useRef, useState } from 'react'
 import { externalEditorError, openPaneInExternalEditor } from '../commands/externalEditor'
 import { fmt, useDict } from '../i18n/useDict'
@@ -57,14 +58,22 @@ function findAction(by: 1 | -1 | null): string {
   return by > 0 ? 'editor.action.nextMatchFindAction' : 'editor.action.previousMatchFindAction'
 }
 
-const BINARY_SNIFF_BYTES = 8192
-
-export function isBinary(content: string): boolean {
-  return content.slice(0, BINARY_SNIFF_BYTES).includes('\0')
-}
+const MB = 1024 * 1024
 
 const savedVersions = new Map<string, number>()
 const diskBase = new Map<string, string | null>()
+const diskVersions = new Map<string, string>()
+
+function setDiskBase(key: string, text: string | null, version: string | null = null): void {
+  diskBase.set(key, text)
+  if (version === null) diskVersions.delete(key)
+  else diskVersions.set(key, version)
+}
+async function unchangedOnDisk(key: string, filePath: string): Promise<boolean> {
+  const known = diskVersions.get(key)
+  return known !== undefined && (await window.ostia.fs.version(filePath)) === known
+}
+
 const RELOAD_HIGHLIGHT_MS = 2000
 
 const remoteVersions = new Map<string, string | null>()
@@ -96,20 +105,35 @@ function uriFor(filePath: string): monaco.Uri {
     : monaco.Uri.file(filePath)
 }
 
+type Blocked = { kind: 'binary' } | { kind: 'too-large'; size: number } | { kind: 'unreadable' }
+
 interface Loaded {
   content: string | null
   version: string | null
   problem: RemoteFileError | null
+  blocked: Blocked | null
 }
+
+function blockedBy(res: Exclude<FsTextResult, { ok: true }>): Blocked {
+  if (res.error === 'binary') return { kind: 'binary' }
+  if (res.error === 'too-large') return { kind: 'too-large', size: res.size }
+  return { kind: 'unreadable' }
+}
+
+const NOTHING_LOADED: Loaded = { content: null, version: null, problem: null, blocked: null }
 
 async function loadText(filePath: string): Promise<Loaded> {
   if (!isRemotePath(filePath)) {
-    return { content: await window.ostia.fs.read(filePath), version: null, problem: null }
+    const res = await window.ostia.fs.read(filePath)
+    if (res.ok) return { ...NOTHING_LOADED, content: res.text, version: res.version }
+    if (res.error === 'missing') return NOTHING_LOADED
+    return { ...NOTHING_LOADED, blocked: blockedBy(res) }
   }
   const res = await window.ostia.remoteFiles.read(filePath)
-  if (res.ok) return { content: res.content, version: res.version, problem: null }
-  if (res.error === 'not-found') return { content: null, version: null, problem: null }
-  return { content: null, version: null, problem: res.error }
+  if (res.ok) return { ...NOTHING_LOADED, content: res.content, version: res.version }
+  if (res.error === 'not-found') return NOTHING_LOADED
+  if (res.error === 'binary') return { ...NOTHING_LOADED, blocked: { kind: 'binary' } }
+  return { ...NOTHING_LOADED, problem: res.error }
 }
 
 function shownPath(filePath: string): string {
@@ -124,6 +148,7 @@ function createTrackedModel(filePath: string, content: string): monaco.editor.IT
   model.onWillDispose(() => {
     savedVersions.delete(model.uri.toString())
     remoteVersions.delete(model.uri.toString())
+    diskVersions.delete(model.uri.toString())
     useEditorStatus.getState().setDirty(filePath, false)
   })
   return model
@@ -176,7 +201,7 @@ export function EditorView({
   const reducedMotion = useReducedMotion()
   const reducedMotionRef = useRef(reducedMotion)
   reducedMotionRef.current = reducedMotion
-  const [binary, setBinary] = useState(false)
+  const [blocked, setBlocked] = useState<Blocked | null>(null)
   const [remoteProblem, setRemoteProblem] = useState<RemoteFileError | null>(null)
   const remote = isRemotePath(filePath)
   const [unsavedPath, setUnsavedPath] = useState<string | null>(null)
@@ -189,7 +214,7 @@ export function EditorView({
   >(() => {})
   const checkDiskRef = useRef<() => Promise<void>>(async () => {})
   const [preview, setPreview] = useState(() => useSettingsStore.getState().editor.markdownPreview)
-  const markdown = isMarkdownPath(filePath) && !binary
+  const markdown = isMarkdownPath(filePath) && !blocked
   const [liveEditor, setLiveEditor] = useState<monaco.editor.IStandaloneCodeEditor | null>(null)
   const previewText = useModelText(liveEditor, markdown && preview)
   const external = useExternalEditorAction(paneId)
@@ -201,7 +226,7 @@ export function EditorView({
   const sendSelectionRef = useRef<() => void>(() => {})
   sendSelectionRef.current = () => {
     const file = pathRef.current
-    if (!file || binary) return
+    if (!file || blocked) return
     if (markdown && preview) {
       const sel = previewSelectionRef.current
       if (!sel) {
@@ -325,21 +350,26 @@ export function EditorView({
         return
       }
       const key = model.uri.toString()
-      if (!force) {
-        const onDisk = await window.ostia.fs.read(fp)
-        if (onDisk !== null && diskBase.has(key) && onDisk !== diskBase.get(key)) {
-          setDiskBar({ kind: 'conflict', disk: onDisk })
+      if (!force && !(await unchangedOnDisk(key, fp))) {
+        const res = await window.ostia.fs.read(fp)
+        if (!res.ok && res.error !== 'missing') {
+          setUnsavedPath(fp)
+          return
+        }
+        if (res.ok && diskBase.has(key) && res.text !== diskBase.get(key)) {
+          setDiskBar({ kind: 'conflict', disk: res.text })
           return
         }
       }
       let version = model.getAlternativeVersionId()
+      let text = ''
       const ok = await saveFormatted({
         formatOnSave: useSettingsStore.getState().editor.formatOnSave,
         format: async () => editor.getAction('editor.action.formatDocument')?.run(),
         write: () => {
           version = model.getAlternativeVersionId()
-          const text = model.getValue()
-          diskBase.set(key, text)
+          text = model.getValue()
+          setDiskBase(key, text)
           return window.ostia.fs.write(fp, text)
         },
       }).catch(() => false)
@@ -347,6 +377,8 @@ export function EditorView({
         setUnsavedPath(fp)
         return
       }
+      const written = await window.ostia.fs.version(fp)
+      if (written !== null && diskBase.get(key) === text) diskVersions.set(key, written)
       savedVersions.set(model.uri.toString(), version)
       documentSaved(model)
       useEditorStatus.getState().setDirty(fp, isDirty(model))
@@ -391,7 +423,7 @@ export function EditorView({
         editor.pushUndoStop()
         editor.restoreViewState(view)
       }
-      diskBase.set(model.uri.toString(), text)
+      setDiskBase(model.uri.toString(), text)
       if (version !== undefined) remoteVersions.set(model.uri.toString(), version)
       markSaved(model, pathOf(model))
       showChanged(changed)
@@ -432,16 +464,19 @@ export function EditorView({
         return
       }
       const key = model.uri.toString()
-      const onDisk = await window.ostia.fs.read(pathOf(model))
+      const res = await window.ostia.fs.read(pathOf(model))
       if (editor.getModel() !== model) return
+      if (!res.ok && res.error !== 'missing') return
+      const onDisk = res.ok ? res.text : null
       if (onDisk === diskBase.get(key)) return
       if (onDisk === null) {
-        diskBase.set(key, null)
+        setDiskBase(key, null)
         setDiskBar({ kind: 'deleted' })
         return
       }
       if (!isDirty(model)) {
         reloadFrom(model, onDisk)
+        if (res.ok) diskVersions.set(key, res.version)
         setDiskBar(null)
         return
       }
@@ -552,14 +587,13 @@ export function EditorView({
     let releaseDocument = (): void => {}
     const isRemote = isRemotePath(filePath)
     setRemoteProblem(null)
-    void loadText(filePath).then(({ content, version, problem }) => {
+    void loadText(filePath).then(({ content, version, problem, blocked }) => {
       if (!alive || !editorRef.current) return
-      if (problem === 'binary' || (content !== null && isBinary(content))) {
+      setBlocked(blocked)
+      if (blocked) {
         editor.setModel(null)
-        setBinary(true)
         return
       }
-      setBinary(false)
       const existing = monaco.editor.getModel(uriFor(filePath))
       if (problem) {
         editor.setModel(existing)
@@ -572,7 +606,7 @@ export function EditorView({
         markSaved(existing, filePath)
       }
       if (!existing || !isDirty(existing)) {
-        diskBase.set(model.uri.toString(), content)
+        setDiskBase(model.uri.toString(), content, isRemote ? null : version)
         if (isRemote) remoteVersions.set(model.uri.toString(), version)
       }
       editor.setModel(model)
@@ -656,10 +690,14 @@ export function EditorView({
   return (
     <>
       {filePath && remote ? <RemoteFileBar filePath={filePath} problem={remoteProblem} /> : null}
-      {filePath && !binary && !remote ? (
+      {filePath && !blocked && !remote ? (
         <LanguageNotice paneId={paneId} filePath={filePath} />
       ) : null}
-      <div ref={hostRef} className="editor-host" style={binary ? { display: 'none' } : undefined} />
+      <div
+        ref={hostRef}
+        className="editor-host"
+        style={blocked ? { display: 'none' } : undefined}
+      />
       {markdown && preview ? (
         <MarkdownPreview
           source={previewText}
@@ -687,9 +725,15 @@ export function EditorView({
           onClick={() => setPreview((p) => !p)}
         />
       ) : null}
-      {binary ? (
+      {blocked ? (
         <div className="pane-body editor-binary">
-          <span className="ghost">{d.editor.binary}</span>
+          <span className="ghost">
+            {blocked.kind === 'binary'
+              ? d.editor.binary
+              : blocked.kind === 'too-large'
+                ? fmt(d.editor.tooLarge, { size: (blocked.size / MB).toFixed(1) })
+                : d.editor.unreadable}
+          </span>
         </div>
       ) : null}
       {diskBar ? (
@@ -723,7 +767,7 @@ export function EditorView({
                   onClick={() => {
                     const model = editorRef.current?.getModel()
                     if (model) {
-                      diskBase.set(model.uri.toString(), diskBar.disk)
+                      setDiskBase(model.uri.toString(), diskBar.disk)
                       if (diskBar.version !== undefined) {
                         remoteVersions.set(model.uri.toString(), diskBar.version)
                       }
