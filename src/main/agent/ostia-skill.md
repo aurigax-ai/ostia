@@ -523,8 +523,8 @@ doesn't exist (`unknown settings key`), the type differs, or the setting doesn't
 (`invalid value for <key>`, e.g. an enum value it doesn't list); look the key up with
 `ostia settings schema <key>` instead of guessing. Keys that launch programs or grant
 permissions or guard the human (`behavior.externalEditor`, `behavior.checkForUpdates`,
-`notifications.command`, `agents.autoResume`, `agents.hooks`, `terminal.warnOnRiskyPaste`,
-`terminal.shell`, `terminal.osc52Write`, `workspaces.globalHotkey`, `capabilities`,
+`notifications.command`, `agents.autoResume`, `agents.autoSendReferences`, `agents.hooks`,
+`terminal.warnOnRiskyPaste`, `terminal.shell`, `terminal.osc52Write`, `workspaces.globalHotkey`, `capabilities`,
 `approvals`, `sync`, `terminalKeys`) are the human's; you can't set them. `get` with no
 key returns every readable setting; with a key it prints `null` if absent.
 
@@ -712,10 +712,13 @@ The human and the agent can both point at an element in a browser pane:
 - **Human → agent.** The human clicks **Point at element** in a browser pane's toolbar, clicks the
   broken thing, writes what's wrong, and sends it to a terminal pane. Ostia writes a markdown
   report to a private tmp dir (`/tmp/ostia-reports-<uid>/capture-N-<page>.md`, where `<page>` is the page's host and path) and:
-  - pastes `@<report path> ` at that pane's prompt (never presses Enter) if the pane is at an idle
+  - pastes `@<report path> ` at that pane's prompt if the pane is at an idle
     shell prompt or its agent reported `ostia state waiting`/`done`, followed by `@<screenshot>.png `
     when the capture has a screenshot and the human left Settings → Browser → Attach the
-    screenshot on; otherwise the references go to the human's clipboard;
+    screenshot on; otherwise the references go to the human's clipboard. When the pane runs
+    claude or codex and the human left Settings → Agents → Send references to agents right away
+    on, Ostia then presses Enter once, so the references arrive as your next prompt; it never
+    presses Enter at a shell prompt;
   - delivers a bus message to that pane whose `text` is JSON:
     `{"kind":"capture","report":"<path>","image":"<png>|null","url":"…","selector":"…","note":"…"}`
     (read it with `ostia bus inbox`; it marks nothing unread and is not repeated in your prompt
@@ -753,7 +756,8 @@ terminal pane they can send selected text or a command block's output (the block
 **Send output to agent…**). Ostia
 writes `/tmp/ostia-reports-<uid>/selection-N.md` (plus `selection-N.png` for image and PDF
 regions), pastes `@<report path> ` under the same rules as a pick report (idle prompt, or your
-agent reported `waiting`/`done`; otherwise the human's clipboard), sets your pane to `working`,
+agent reported `waiting`/`done`; otherwise the human's clipboard; Enter only for claude or codex
+with the human's switch on), sets your pane to `working`,
 and sends a bus message whose `text` is JSON:
 `{"kind":"selection","report":"<path>","file":"<path>|null","image":"<png path>|null","note":"…"}`
 (`file` is null for terminal text).

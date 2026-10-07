@@ -1477,6 +1477,8 @@ function AgentsSection(): JSX.Element {
   const set = useSettingsStore((s) => s.setHibernation)
   const autoResume = useSettingsStore((s) => s.agents.autoResume)
   const setAutoResume = useSettingsStore((s) => s.setAutoResume)
+  const autoSendReferences = useSettingsStore((s) => s.agents.autoSendReferences)
+  const setAutoSendReferences = useSettingsStore((s) => s.setAutoSendReferences)
   const hooks = useSettingsStore((s) => s.agents.hooks)
   const setAgentHooks = useSettingsStore((s) => s.setAgentHooks)
   const approvalMode = useSettingsStore((s) => s.approvals.mode)
@@ -1503,6 +1505,14 @@ function AgentsSection(): JSX.Element {
           desc={d.settings.autoResumeDesc}
           checked={autoResume}
           onChange={setAutoResume}
+        />
+      </SettingsGroup>
+      <SettingsGroup title={d.settings.groupReferences}>
+        <ToggleRow
+          label={d.settings.autoSendReferences}
+          desc={d.settings.autoSendReferencesDesc}
+          checked={autoSendReferences}
+          onChange={setAutoSendReferences}
         />
       </SettingsGroup>
       <SettingsGroup title={d.settings.groupAgentHooks}>

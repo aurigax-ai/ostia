@@ -327,6 +327,25 @@ describe('builtins route to store actions', () => {
     expect(useSettingsStore.getState().agents.autoResume).toBe(false)
   })
 
+  it('settings.set and settings.unset refuse the reference auto-send switch, directly or via agents', async () => {
+    const direct = await commands.execWith(ctx(null, null), 'settings.set', {
+      key: 'agents.autoSendReferences',
+      value: false,
+    })
+    const nested = await commands.execWith(ctx(null, null), 'settings.set', {
+      key: 'agents',
+      value: { ...useSettingsStore.getState().agents, autoSendReferences: false },
+    })
+    const unset = await commands.execWith(ctx(null, null), 'settings.unset', {
+      key: 'agents.autoSendReferences',
+    })
+    for (const res of [direct, nested, unset]) {
+      expect(res.ok).toBe(false)
+      if (!res.ok) expect(res.error.message).toMatch(/agents.autoSendReferences/)
+    }
+    expect(useSettingsStore.getState().agents.autoSendReferences).toBe(true)
+  })
+
   it('settings.set and settings.unset refuse secret redaction, whole or by key', async () => {
     const off = await commands.execWith(ctx(null, null), 'settings.set', {
       key: 'privacy.redaction.enabled',

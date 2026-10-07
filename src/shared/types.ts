@@ -577,6 +577,7 @@ export interface OriginReferenceRequest {
   paneId: string
   text: string
   note?: string
+  pointedByHuman?: boolean
 }
 
 export interface ReferenceInsert {
@@ -584,6 +585,7 @@ export interface ReferenceInsert {
   paneId: string
   text: string
   note?: string
+  pointedByHuman?: boolean
 }
 
 export interface NewWorkspaceRequest {

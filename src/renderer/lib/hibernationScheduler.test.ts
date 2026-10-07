@@ -51,6 +51,7 @@ function seed(maxLiveTerminals: number): void {
     agents: {
       hibernation: { enabled: true, idleSeconds: 600, maxLiveTerminals },
       autoResume: false,
+      autoSendReferences: true,
       hooks: { claude: true, codex: true },
     },
   })
@@ -124,6 +125,7 @@ describe('hibernateIdleAgents', () => {
       agents: {
         hibernation: { enabled: false, idleSeconds: 600, maxLiveTerminals: 0 },
         autoResume: false,
+        autoSendReferences: true,
         hooks: { claude: true, codex: true },
       },
     })
