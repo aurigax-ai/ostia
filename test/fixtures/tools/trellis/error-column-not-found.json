@@ -1,1 +1,7 @@
-{"error":{"fix":"trellis column ls","code":"column_not_found","message":"no column \"nowhere\" (have: backlog, in-progress, review, done)"}}
+{
+  "error": {
+    "fix": "trellis column ls",
+    "code": "column_not_found",
+    "message": "no column \"nowhere\" (have: backlog, in-progress, review, done)"
+  }
+}

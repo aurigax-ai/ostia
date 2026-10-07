@@ -364,7 +364,7 @@ describe('chat', () => {
       await screen.findByRole('combobox', { name: 'Your question' }),
       'what is in this folder?',
     )
-    await new Promise((resolve) => setTimeout(resolve, 400))
+    await act(() => new Promise((resolve) => setTimeout(resolve, 400)))
     expect(screen.queryByTestId('chat-redaction-count')).toBeNull()
   })
 

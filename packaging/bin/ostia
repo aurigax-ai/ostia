@@ -1,7 +1,20 @@
 #!/bin/sh
 set -e
-self=$(readlink -f "$0")
-resources=$(cd "$(dirname "$self")/.." && pwd)
-OSTIA_APP_BIN=$(cd "$resources/.." && pwd)/ostia
+self=$0
+while [ -L "$self" ]; do
+  dir=$(cd "$(dirname "$self")" && pwd)
+  target=$(readlink "$self")
+  case $target in
+    /*) self=$target ;;
+    *) self=$dir/$target ;;
+  esac
+done
+resources=$(cd "$(dirname "$self")/.." && pwd -P)
+app=$(cd "$resources/.." && pwd -P)
+if [ -x "$app/MacOS/Ostia" ]; then
+  OSTIA_APP_BIN=$app/MacOS/Ostia
+else
+  OSTIA_APP_BIN=$app/ostia
+fi
 export OSTIA_APP_BIN
 ELECTRON_RUN_AS_NODE=1 exec "$OSTIA_APP_BIN" "$resources/app.asar/out/cli/index.js" "$@"

@@ -3,6 +3,7 @@ import type { McpServerSettings, McpServerStatus } from '@shared/chatTools'
 import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { renderSettled } from '../../../test/render'
 import { resetChatTools, useChatToolsStore } from '../stores/chatToolsStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { ChatToolsSettings } from './ChatToolsSettings'
@@ -62,8 +63,8 @@ describe('ChatToolsSettings', () => {
     vi.mocked(window.ostia.sync.pickFolder).mockReset().mockResolvedValue(null)
   })
 
-  it('shows short empty states with their add actions and the access rows', () => {
-    render(<ChatToolsSettings />)
+  it('shows short empty states with their add actions and the access rows', async () => {
+    await renderSettled(<ChatToolsSettings />)
     expect(screen.getByText('Read the workspace')).toBeInTheDocument()
     expect(screen.getByText('Asks every time')).toBeInTheDocument()
     expect(screen.getByText('No MCP servers')).toBeInTheDocument()
@@ -133,21 +134,19 @@ describe('ChatToolsSettings', () => {
     expect(servers()).toEqual([github])
   })
 
-  it('renders real status: connected with tool count, error with its message, not connected', () => {
+  it('renders real status: connected with tool count, error with its message, not connected', async () => {
     seed([github, { ...github, name: 'broken' }, { ...github, name: 'idle' }])
-    useChatToolsStore.setState({
-      mcp: [
-        status({
-          state: 'ready',
-          tools: [
-            { name: 'search', description: 'Search code', inputSchema: {} },
-            { name: 'issue', description: '', inputSchema: {} },
-          ],
-        }),
-        status({ name: 'broken', state: 'error', error: 'spawn npx ENOENT' }),
-      ],
-    })
-    render(<ChatToolsSettings />)
+    vi.mocked(window.ostia.chatTools.mcpRefresh).mockResolvedValue([
+      status({
+        state: 'ready',
+        tools: [
+          { name: 'search', description: 'Search code', inputSchema: {} },
+          { name: 'issue', description: '', inputSchema: {} },
+        ],
+      }),
+      status({ name: 'broken', state: 'error', error: 'spawn npx ENOENT' }),
+    ])
+    await renderSettled(<ChatToolsSettings />)
     const rows = within(screen.getByRole('list', { name: 'MCP servers' })).getAllByRole('listitem')
     expect(rows[0]).toHaveTextContent('Connected · 2 tools')
     expect(rows[1]).toHaveTextContent('Error')
@@ -313,9 +312,7 @@ describe('ChatToolsSettings', () => {
     vi.mocked(window.ostia.sync.pickFolder).mockResolvedValue('relative/skills')
     const user = userEvent.setup()
     render(<ChatToolsSettings />)
-    await act(async () => {
-      await user.click(screen.getByRole('button', { name: 'Add folder' }))
-    })
+    await user.click(screen.getByRole('button', { name: 'Add folder' }))
     expect(await screen.findByText('Choose a folder with an absolute path.')).toBeInTheDocument()
     expect(useSettingsStore.getState().assistant.skillFolders).toEqual([])
   })

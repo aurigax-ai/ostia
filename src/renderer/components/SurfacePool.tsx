@@ -50,7 +50,7 @@ function collect(node: LayoutNode, workspaceId: string, out: SurfaceRef[]): void
         paneId: pane.id,
         workspaceId,
         kind: pane.kind,
-        cwd: pane.cwd,
+        cwd: pane.spawnDir ?? pane.cwd,
         filePath: pane.filePath,
         url: pane.url,
         extensionId: pane.extensionId,

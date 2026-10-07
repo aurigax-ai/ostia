@@ -1,3 +1,5 @@
+import { TERMINAL_INPUT_SELECTOR } from '../lib/ostiaTerminal'
+
 const hosts = new Map<string, HTMLDivElement>()
 let holder: HTMLDivElement | null = null
 
@@ -37,7 +39,7 @@ function focusTarget(paneId: string): HTMLElement | null {
   const host = hosts.get(paneId)
   return (
     host?.querySelector<HTMLElement>('.input-editor:not([hidden]) textarea') ??
-    host?.querySelector<HTMLElement>('.xterm-helper-textarea') ??
+    host?.querySelector<HTMLElement>(TERMINAL_INPUT_SELECTOR) ??
     null
   )
 }

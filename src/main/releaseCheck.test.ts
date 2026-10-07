@@ -386,11 +386,12 @@ describe('registerReleaseCheck', () => {
     await github.close()
   })
 
-  const register = (settings: unknown = {}): void =>
+  const register = (settings: unknown = {}, version = '0.2.0'): void =>
     registerReleaseCheck({
       openExternal,
       readSettings: () => settings,
       log: { file: '', info, warn: vi.fn(), error: vi.fn() },
+      version,
     })
 
   const invoke = (channel: string): unknown => handlers.get(channel)?.()
@@ -429,6 +430,18 @@ describe('registerReleaseCheck', () => {
     expect(await invoke('app:release-check')).toEqual({ status: 'error', error: 'rate-limited' })
     expect(sent).toEqual([])
     expect(openExternal).not.toHaveBeenCalled()
+  })
+
+  it('compares a local build without its build metadata and never sends the commit', async () => {
+    register({}, '0.3.0+sha.1a2b3c.dirty')
+    github.reply = { status: 200, body: body('0.3.0') }
+    expect(await invoke('app:release-check')).toEqual({ status: 'latest', version: '0.3.0' })
+    github.reply = { status: 200, body: body('0.4.0') }
+    expect(await invoke('app:release-check')).toEqual({
+      status: 'available',
+      release: release('0.4.0'),
+    })
+    expect(github.requests[0].headers['user-agent']).toBe('ostia/0.3.0')
   })
 
   it('checks by itself shortly after startup, and not at all while the setting is off', async () => {

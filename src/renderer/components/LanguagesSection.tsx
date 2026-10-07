@@ -12,13 +12,13 @@ import type {
   LspLog,
   LspLogEntry,
 } from '@shared/languageServers'
-import type { RequirementsReport } from '@shared/systemRequirements'
 import { type FormEvent, useEffect, useId, useState } from 'react'
 import type { Dict } from '../i18n/dict'
 import { fmt, useDict } from '../i18n/useDict'
 import { useLanguageServersStore } from '../stores/languageServersStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
 import { IconButton } from './IconButton'
+import { useRequirements } from './RequirementsNote'
 import { SectionHead } from './SettingsPanel'
 import { Highlight, useSearchGroup } from './SettingsSearch'
 import { Badge } from './ui/badge'
@@ -331,41 +331,45 @@ function InstallProgram({ server }: { server: LanguageServerInfo }): JSX.Element
   const d = useDict()
   const t = d.languageServers
   const workspaceId = useWorkspacesStore((s) => s.activeWorkspaceId)
-  const [report, setReport] = useState<RequirementsReport | null>(null)
-  const feature = server.requirement
-  useEffect(() => {
-    if (!feature) return
-    let live = true
-    void window.ostia.system.requirements(feature).then((next) => {
-      if (live) setReport(next)
-    })
-    return () => {
-      live = false
-    }
-  }, [feature])
-  if (!feature || !report || report.missing.length === 0) return null
+  const { report, installing, install } = useRequirements(server.requirement ?? null)
+  if (!report || report.missing.length === 0) return null
   const command = report.hint.command
   if (report.canInstall && workspaceId) {
     return (
-      <Button
-        size="sm"
-        onClick={() => void window.ostia.system.installRequirements(feature, workspaceId)}
-      >
-        {fmt(t.install, { name: server.name })}
-      </Button>
+      <div className="mt-1 flex items-center gap-2">
+        <Button
+          variant="secondary"
+          size="xs"
+          disabled={installing}
+          onClick={() => install(workspaceId)}
+        >
+          {fmt(t.install, { name: server.name })}
+        </Button>
+        {installing ? (
+          <span className="text-fg-muted text-ui-xs">{d.requirements.installing}</span>
+        ) : null}
+      </div>
     )
   }
-  if (!command) return null
   return (
-    <div className="mt-1 flex items-center gap-2">
-      <code className="min-w-0 flex-1 truncate font-mono text-fg text-ui-xs">{command}</code>
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => void navigator.clipboard?.writeText(command)}
-      >
-        {t.copyCommand}
-      </Button>
+    <div className="mt-1">
+      <p className="text-fg-muted text-ui-xs">
+        {command
+          ? d.requirements.cantInstall
+          : fmt(d.requirements.cantInstallNoCommand, { packages: report.hint.packages.join(', ') })}
+      </p>
+      {command ? (
+        <div className="mt-1 flex items-center gap-2">
+          <code className="min-w-0 flex-1 truncate font-mono text-fg text-ui-xs">{command}</code>
+          <Button
+            variant="outline"
+            size="xs"
+            onClick={() => void navigator.clipboard?.writeText(command)}
+          >
+            {t.copyCommand}
+          </Button>
+        </div>
+      ) : null}
     </div>
   )
 }

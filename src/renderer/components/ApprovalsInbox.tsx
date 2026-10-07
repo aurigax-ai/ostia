@@ -1,13 +1,9 @@
-import {
-  type ApprovalKind,
-  type ApprovalOutcome,
-  type ApprovalRequest,
-  answersFor,
-} from '@shared/approvals'
+import type { ApprovalKind, ApprovalOutcome, ApprovalRequest } from '@shared/approvals'
 import type { Dict } from '../i18n/dict'
 import { useDict } from '../i18n/useDict'
 import { revealPane } from '../lib/workspaceActivity'
 import { useApprovalsStore } from '../stores/approvalsStore'
+import { ApprovalActions } from './ApprovalActions'
 import { capLabel } from './ApprovalCard'
 import { Button } from './ui/button'
 
@@ -19,6 +15,8 @@ function outcomeLabel(d: Dict, outcome: ApprovalOutcome, kind: ApprovalKind): st
       return d.approvals.outcomeOnce
     case 'session':
       return kind === 'capability' ? d.approvals.outcomeSession : d.approvals.outcomeUntilRestart
+    case 'always':
+      return d.approvals.outcomeAlways
     case 'workspace':
       return d.approvals.outcomeWorkspace
     case 'deny':
@@ -42,7 +40,6 @@ export function ApprovalsInbox({
   const d = useDict()
   const pending = useApprovalsStore((s) => s.pending)
   const history = useApprovalsStore((s) => s.history)
-  const answer = useApprovalsStore((s) => s.answer)
   const revoke = useApprovalsStore((s) => s.revoke)
   if (pending.length === 0 && history.length === 0) return null
   const caps = (list: readonly string[]): string =>
@@ -76,20 +73,7 @@ export function ApprovalsInbox({
                 <span className="text-ui-sm [overflow-wrap:anywhere]">
                   {what(req)}: {req.action}
                 </span>
-                <div className="flex justify-end gap-1">
-                  <Button variant="ghost" size="xs" onClick={() => void answer(req.id, 'deny')}>
-                    {d.approvals.deny}
-                  </Button>
-                  {answersFor(req.kind).includes('once') ? (
-                    <Button size="xs" onClick={() => void answer(req.id, 'once')}>
-                      {d.approvals.allowOnce}
-                    </Button>
-                  ) : (
-                    <Button size="xs" onClick={() => void answer(req.id, 'workspace')}>
-                      {d.approvals.allowWorkspace}
-                    </Button>
-                  )}
-                </div>
+                <ApprovalActions request={req} size="xs" />
               </li>
             ))}
           </ul>

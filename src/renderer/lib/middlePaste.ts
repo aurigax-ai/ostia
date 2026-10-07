@@ -1,6 +1,8 @@
+import { TERMINAL_INPUT_SELECTOR } from './ostiaTerminal'
+
 const MIDDLE_BUTTON = 1
 const TERMINAL = '.terminal-surface'
-const TERMINAL_INPUT = '.xterm-helper-textarea'
+const TERMINAL_INPUT = TERMINAL_INPUT_SELECTOR
 const TEXT_TARGET =
   'input, textarea, .monaco-editor, [contenteditable]:not([contenteditable="false"])'
 

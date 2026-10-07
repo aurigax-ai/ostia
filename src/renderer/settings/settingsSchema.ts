@@ -440,12 +440,20 @@ export const SETTINGS_JSON_SCHEMA = {
             'macOS: send Option+key as Meta (Esc+key) so readline and fzf Alt shortcuts work; ' +
             'Option then no longer types special characters. Default: false.',
         },
+        renderer: {
+          type: 'string',
+          enum: ['xterm', 'ghostty'],
+          description:
+            'Experimental. Engine for terminals opened from now on and terminals restored at ' +
+            'the next start; an open terminal keeps its engine. "ghostty" runs Ghostty\'s own ' +
+            'emulator (libghostty-vt) and falls back to "xterm" if it cannot start. Default: "xterm".',
+        },
         keepShells: {
           type: 'boolean',
           description:
-            'Run new terminals in a private tmux server (tmux 3.2 or newer) so restarting for an ' +
-            'update or a crash leaves them running; Quit still ends them. Only you can change ' +
-            'this, in Settings; agents cannot. Default: false.',
+            'Experimental. Run new terminals in a private tmux server (tmux 3.2 or newer) so ' +
+            'restarting for an update or a crash leaves them running; Quit still ends them. ' +
+            'Only you can change this, in Settings; agents cannot. Default: false.',
         },
         osc52Write: {
           type: 'boolean',
@@ -668,6 +676,10 @@ export const SETTINGS_JSON_SCHEMA = {
         autoResume: {
           type: 'boolean',
           description: `Resume an agent session that was running when ${PRODUCT_DISPLAY_NAME} quit, at its pane's first idle prompt once the pane is visible. Only you can change this; ostia settings set refuses it. Default: false.`,
+        },
+        autoSendReferences: {
+          type: 'boolean',
+          description: `Press Enter after ${PRODUCT_DISPLAY_NAME} pastes a reference you sent (Point at element, Capture region, Send selection) into a pane running claude or codex, so the agent reads it at once. Never at a shell prompt, and never for references from the file menu, an extension or an agent. Only you can change this; ostia settings set refuses it. Default: true.`,
         },
         hooks: {
           type: 'object',

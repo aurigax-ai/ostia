@@ -93,3 +93,14 @@ export function endedOutside(end: DragEnd, viewport: Viewport): boolean {
   const y = end.point.y - end.origin.y
   return x < 0 || y < 0 || x >= viewport.width || y >= viewport.height
 }
+
+export function cellDropTarget(
+  cellId: string,
+  stackTabIds: readonly string[],
+  sourceId: string | null,
+  zone: DropZone,
+): PaneDropTarget | null {
+  if (sourceId === cellId) return null
+  if (zone === 'center' && sourceId && stackTabIds.includes(sourceId)) return null
+  return { targetId: cellId, zone }
+}

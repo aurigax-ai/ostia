@@ -200,6 +200,56 @@ test('restores a clean final screen at a different window size', async () => {
   }
 })
 
+test('adds no seam to a pane left unused across restarts', async () => {
+  test.setTimeout(120_000)
+  const marker = `ostia_unused_${Date.now()}`
+  seedSettings(dataHome, DOM_RENDERER_SETTINGS)
+
+  const first = await launchApp(dataHome)
+  try {
+    await openWorkspace(first.win)
+    await first.win.locator('.xterm').first().click()
+    await waitForTerminalFocus(first.win)
+    await first.win.keyboard.type(`echo ${marker}`)
+    await first.win.keyboard.press('Enter')
+    await expect(first.win.locator('.xterm-rows').first()).toContainText(marker, {
+      timeout: 15_000,
+    })
+  } finally {
+    await quitApp(first.app)
+  }
+
+  const scrollbackFile = join(dataHome, 'ostia', 'scrollback.json')
+  for (let restart = 0; restart < 2; restart++) {
+    const idle = await launchApp(dataHome)
+    try {
+      await expect(idle.win.locator('.xterm-rows').first()).toContainText('workspace restored', {
+        timeout: 15_000,
+      })
+      await waitForShellPrompt(idle.win)
+      await idle.win.waitForTimeout(1_000)
+    } finally {
+      await quitApp(idle.app)
+    }
+    const saved = readFileSync(scrollbackFile, 'utf8')
+    expect(saved).toContain(marker)
+    expect(saved).not.toContain('workspace restored')
+  }
+
+  const last = await launchApp(dataHome)
+  try {
+    await expect(last.win.locator('.xterm-rows').first()).toContainText('workspace restored', {
+      timeout: 15_000,
+    })
+    await waitForShellPrompt(last.win)
+    const lines = await paneLines(last.win)
+    expect(lines.filter((l) => l.includes('workspace restored'))).toHaveLength(1)
+    expect(lines.filter((l) => l.includes(`echo ${marker}`))).toHaveLength(1)
+  } finally {
+    await quitApp(last.app)
+  }
+})
+
 test('boots with no workspaces when there is nothing to restore', async () => {
   const { app, win } = await launchApp(dataHome)
   try {

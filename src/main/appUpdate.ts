@@ -1,7 +1,7 @@
-import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { BrowserWindow, app, ipcMain } from 'electron'
-import { type BuildInfo, parseBuildInfo, sameBuild } from '../shared/buildInfo'
+import { type BuildInfo, sameBuild } from '../shared/buildInfo'
+import { readBuildInfo, runningBuild } from './appVersion'
 
 export const UPDATE_POLL_MS = 30_000
 
@@ -29,14 +29,6 @@ export function createUpdateWatcher(deps: {
   }
 }
 
-function readBuildInfo(path: string): BuildInfo | null {
-  try {
-    return parseBuildInfo(JSON.parse(readFileSync(path, 'utf8')))
-  } catch {
-    return null
-  }
-}
-
 function announce(info: BuildInfo): void {
   for (const win of BrowserWindow.getAllWindows()) {
     if (!win.isDestroyed()) win.webContents.send('app:update-available', info)
@@ -47,7 +39,7 @@ export function registerAppUpdate(quit: () => void): void {
   let watcher: UpdateWatcher | null = null
   if (app.isPackaged) {
     const path = join(process.resourcesPath, 'build-info.json')
-    const current = readBuildInfo(path)
+    const current = runningBuild()
     if (current) {
       const w = createUpdateWatcher({
         current,
