@@ -120,32 +120,24 @@ interface TerminalFit {
 }
 
 export function TerminalView(props: TerminalViewProps): JSX.Element {
-  const [engine] = useState<TerminalRenderer>(() => useSettingsStore.getState().terminal.renderer)
+  const [engine, setEngine] = useState<TerminalRenderer>(
+    () => useSettingsStore.getState().terminal.renderer,
+  )
   const [ready, setReady] = useState(() => engine !== 'ghostty' || ghosttyModule() !== null)
-  const [failure, setFailure] = useState<string | null>(null)
   useEffect(() => {
     if (ready) return
     let live = true
     loadGhostty()
-      .then(() => {
-        if (live) setReady(true)
+      .catch(() => {
+        if (live) setEngine('xterm')
       })
-      .catch((err: unknown) => {
-        if (live) setFailure(err instanceof Error ? err.message : String(err))
+      .finally(() => {
+        if (live) setReady(true)
       })
     return () => {
       live = false
     }
   }, [ready])
-  if (failure) {
-    return (
-      <div className="terminal-surface">
-        <p role="alert" className="ghostty-failure text-fg-muted text-ui-sm">
-          {fmt(currentDict().settings.ghosttyFailed, { reason: failure })}
-        </p>
-      </div>
-    )
-  }
   if (!ready) return <div className="terminal-surface" />
   return <TerminalSurface engine={engine} {...props} />
 }

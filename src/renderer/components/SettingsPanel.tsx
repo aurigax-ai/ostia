@@ -52,6 +52,7 @@ import type { Dict, Locale } from '../i18n/dict'
 import { fmt, useDict, withProductName } from '../i18n/useDict'
 import { ACCENT_PRESETS, normalizeHex } from '../lib/color'
 import { extensionMatchesQuery } from '../lib/extensionSettingText'
+import { ghosttyFailure } from '../lib/ghosttyEngine'
 import { useReducedMotion } from '../lib/motion'
 import { openFileInWorkspace } from '../lib/openFile'
 import {
@@ -1769,6 +1770,11 @@ function TerminalSection(): JSX.Element {
             options={TERMINAL_RENDERERS.map((r) => ({ value: r, label: rendererLabel[r] }))}
           />
         </ControlRow>
+        {renderer === 'ghostty' && ghosttyFailure() ? (
+          <WarningNote>
+            {fmt(d.settings.ghosttyFailed, { reason: ghosttyFailure() ?? '' })}
+          </WarningNote>
+        ) : null}
       </SettingsGroup>
       <SettingsGroup title={d.settings.groupSession}>
         <ToggleRow

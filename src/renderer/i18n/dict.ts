@@ -2729,10 +2729,10 @@ export const en = {
     experimental: 'Experimental',
     terminalRenderer: 'Terminal engine',
     terminalRendererDesc:
-      'Terminals opened from now on use this engine. Ghostty has no find yet, ignores the GPU acceleration, font weight, line height and contrast settings, and opens web links in your browser.',
+      'Terminals opened from now on, and terminals restored at the next start, use this engine. A terminal that is already open keeps its engine.',
     rendererXterm: 'xterm.js',
     rendererGhostty: 'Ghostty',
-    ghosttyFailed: 'Ghostty could not start: {reason}',
+    ghosttyFailed: 'Ghostty could not start, so terminals use xterm.js: {reason}',
     externalEditor: 'External editor',
     externalEditorDesc:
       '“auto” uses code, cursor or zed from your PATH. Empty turns it off. Placeholders: {file}, {line}, {column}.',
@@ -5461,10 +5461,10 @@ export const zhHant: Dict = {
     experimental: '實驗性',
     terminalRenderer: '終端機引擎',
     terminalRendererDesc:
-      '此後開啟的終端機使用此引擎。Ghostty 目前還不能尋找，會忽略 GPU 加速、字重、行高與對比設定，並在你的瀏覽器中開啟網頁連結。',
+      '此後開啟的終端機，以及下次啟動時還原的終端機，都使用此引擎；已開啟的終端機維持原本的引擎。',
     rendererXterm: 'xterm.js',
     rendererGhostty: 'Ghostty',
-    ghosttyFailed: 'Ghostty 無法啟動：{reason}',
+    ghosttyFailed: 'Ghostty 無法啟動，終端機改用 xterm.js：{reason}',
     externalEditor: '外部編輯器',
     externalEditorDesc:
       '「auto」會使用 PATH 中的 code、cursor 或 zed。留空則停用。預留位置：{file}、{line}、{column}。',
