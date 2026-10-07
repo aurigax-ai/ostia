@@ -109,6 +109,7 @@
   --motion-fast: 90ms;
   --motion-base: 150ms;
   --motion-slow: 220ms;
+  --motion-panel: 180ms;
   --motion-highlight: 2000ms;
   --motion-fast-exit: 63ms;
   --motion-base-exit: 105ms;
@@ -351,12 +352,67 @@
   flex-direction: column;
   background: var(--surface-1);
   border-right: 1px solid var(--line);
-  transition: width var(--motion-slow) var(--ease-out);
   overflow: hidden;
 }
 
 .deck-rail.collapsed {
   width: var(--rail-w-collapsed);
+}
+
+.deck-rail[data-rail-motion] {
+  z-index: 1;
+  will-change: transform;
+}
+
+.deck-rail[data-rail-motion="opening"] {
+  animation: rail-slide var(--motion-panel) var(--ease-in-out) both;
+}
+
+.deck-rail[data-rail-motion="closing"] {
+  animation: rail-slide var(--motion-panel) var(--ease-in-out) reverse both;
+}
+
+.deck-rail[data-rail-motion="opening"] > * {
+  animation: rail-content-fade var(--motion-panel) var(--ease-in-out) both;
+}
+
+.deck-rail[data-rail-motion="closing"] > * {
+  animation: rail-content-fade var(--motion-panel) var(--ease-in-out) reverse both;
+}
+
+.app:has(> .deck-rail[data-rail-motion]) {
+  grid-template-columns: var(--rail-w-collapsed) auto 1fr;
+  overflow: clip;
+}
+
+.app:has(> .deck-rail[data-rail-motion]) > :is(.files-panel, .workzone) {
+  will-change: transform;
+}
+
+.app:has(> .deck-rail[data-rail-motion="opening"]) > :is(.files-panel, .workzone) {
+  animation: rail-follow var(--motion-panel) var(--ease-in-out) both;
+}
+
+.app:has(> .deck-rail[data-rail-motion="closing"]) > :is(.files-panel, .workzone) {
+  animation: rail-follow var(--motion-panel) var(--ease-in-out) reverse both;
+}
+
+@keyframes rail-slide {
+  from {
+    transform: translateX(calc(var(--rail-w-collapsed) - var(--rail-w)));
+  }
+}
+
+@keyframes rail-content-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes rail-follow {
+  to {
+    transform: translateX(calc(var(--rail-w) - var(--rail-w-collapsed)));
+  }
 }
 
 .panel-resizer {
@@ -409,10 +465,6 @@
 :root[data-rail-resizing] {
   cursor: col-resize;
   user-select: none;
-}
-
-:root[data-rail-resizing] .deck-rail {
-  transition: none;
 }
 
 :root[data-rail-resizing] :is(webview, iframe) {
