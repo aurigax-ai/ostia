@@ -18,6 +18,7 @@ jobs:
   ci:
     permissions:
       contents: read
+      issues: read
       pull-requests: read
     uses: ./.github/workflows/ci.yml
 
