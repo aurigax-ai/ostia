@@ -1,6 +1,6 @@
 import { ErrorCodes, ResponseError } from 'vscode-jsonrpc/node'
 import type { Capability } from '../shared/capabilities'
-import type { TerminalStateSnapshot } from '../shared/types'
+import type { CommandResult, TerminalStateSnapshot } from '../shared/types'
 import { ensureCaps } from './controlElevation'
 import { type ControlMethodContext, registerControlMethod } from './controlServer'
 import { type PaneIdentity, getByPaneId, resolveExternal } from './idRegistry'
@@ -130,7 +130,7 @@ export function readLineCount(raw: unknown): number {
   return Math.min(n, READ_LINES_MAX)
 }
 
-export type PaneReach = 'input' | 'read'
+export type PaneReach = 'input' | 'read' | 'close'
 
 export interface ReachFacts {
   caller: { paneId: string; workspaceId: string; sandboxed: boolean }
@@ -140,10 +140,16 @@ export interface ReachFacts {
 
 export type ReachVerdict = { allowed: true; caps: Capability[] } | { allowed: false; error: string }
 
+const REACH_CAPS: Readonly<Record<PaneReach, Capability>> = {
+  input: 'type-other-pane',
+  read: 'read-other-pane',
+  close: 'kill-pane',
+}
+
 export function paneReach(kind: PaneReach, facts: ReachFacts): ReachVerdict {
   const { caller, target } = facts
   if (target.manager) return { allowed: false, error: 'unknown-pane' }
-  if (caller.paneId === target.paneId) {
+  if (caller.paneId === target.paneId && kind !== 'close') {
     return kind === 'read' ? { allowed: true, caps: [] } : { allowed: false, error: 'own-pane' }
   }
   const sameWorkspace = caller.workspaceId === target.workspaceId
@@ -153,23 +159,26 @@ export function paneReach(kind: PaneReach, facts: ReachFacts): ReachVerdict {
   if (facts.ownChild && sameWorkspace) return { allowed: true, caps: ['process'] }
   return {
     allowed: true,
-    caps: [
-      kind === 'input' ? 'type-other-pane' : 'read-other-pane',
-      ...(sameWorkspace ? [] : (['all-workspaces'] as const)),
-    ],
+    caps: [REACH_CAPS[kind], ...(sameWorkspace ? [] : (['all-workspaces'] as const))],
   }
 }
 
-export interface PaneIoDeps {
-  io: PaneIo
-  state: (paneId: string) => TerminalStateSnapshot | undefined
+export interface PaneReachDeps {
   processPane: (ref: string, ctx: ControlMethodContext) => string | undefined
   isChild: (ownerPaneId: string, paneId: string) => boolean
   isSandboxed: (workspaceId: string) => boolean
   isConfined: (paneId: string) => boolean
+}
+
+export interface PaneIoDeps extends PaneReachDeps {
+  io: PaneIo
+  state: (paneId: string) => TerminalStateSnapshot | undefined
   managerAllowsInput: () => boolean
   attention: (pane: PaneIdentity) => Promise<PaneAttentionPeek>
   inputSent: (pane: PaneIdentity) => void
+  hibernated: (pane: PaneIdentity) => Promise<boolean>
+  wake: (pane: PaneIdentity) => Promise<boolean>
+  close: (pane: PaneIdentity) => Promise<CommandResult>
   delay: (ms: number) => Promise<void>
 }
 
@@ -179,43 +188,83 @@ const REFUSALS: Readonly<Record<string, string>> = {
     'sandboxed: a sandboxed workspace reaches only the sandboxed terminals of its own workspace',
 }
 
-export function registerPaneIoMethods(deps: PaneIoDeps): void {
-  const target = (raw: unknown, ctx: ControlMethodContext): PaneIdentity => {
-    if (typeof raw !== 'string' || !raw) throw fail('bad-request: pane')
-    const processPane = deps.processPane(raw, ctx)
-    const found = processPane ? getByPaneId(processPane) : resolveExternal(raw)
-    if (found?.kind !== 'pane') throw fail(`unknown-pane: ${raw}`)
-    return found
-  }
+export const PANE_REFS_MAX = 32
 
-  const reach = async (
+function asleep(to: PaneIdentity): ResponseError<void> {
+  return fail(`hibernated: ${to.externalId} is asleep; wake it with ostia pane wake`)
+}
+
+function notHibernated(to: PaneIdentity): ResponseError<void> {
+  return fail(`not-hibernated: ${to.externalId} is not hibernated`)
+}
+
+export function paneRefs(raw: unknown): string[] {
+  if (!Array.isArray(raw) || raw.length === 0) throw fail('bad-request: panes')
+  if (raw.length > PANE_REFS_MAX) throw fail('too-many: panes')
+  if (!raw.every((ref) => typeof ref === 'string' && ref)) throw fail('bad-request: panes')
+  return [...new Set(raw as string[])]
+}
+
+export function paneTarget(
+  deps: Pick<PaneReachDeps, 'processPane'>,
+  raw: unknown,
+  ctx: ControlMethodContext,
+): PaneIdentity {
+  if (typeof raw !== 'string' || !raw) throw fail('bad-request: pane')
+  const processPane = deps.processPane(raw, ctx)
+  const found = processPane ? getByPaneId(processPane) : resolveExternal(raw)
+  if (found?.kind !== 'pane') throw fail(`unknown-pane: ${raw}`)
+  return found
+}
+
+export async function ensurePaneReach(
+  deps: PaneReachDeps,
+  kind: PaneReach,
+  to: PaneIdentity,
+  ctx: ControlMethodContext,
+  ask: { ref: string; method: string; detail: string },
+): Promise<void> {
+  const me = ctx.identity
+  const verdict = paneReach(kind, {
+    caller: {
+      paneId: me.paneId,
+      workspaceId: me.workspaceId,
+      sandboxed: deps.isSandboxed(me.workspaceId),
+    },
+    target: {
+      paneId: to.paneId,
+      workspaceId: to.workspaceId,
+      manager: to.manager === true,
+      confined: deps.isConfined(to.paneId),
+    },
+    ownChild: deps.isChild(me.paneId, to.paneId),
+  })
+  if (!verdict.allowed) {
+    throw fail(
+      verdict.error === 'unknown-pane' ? `unknown-pane: ${ask.ref}` : REFUSALS[verdict.error],
+    )
+  }
+  await ensureCaps(ctx.authed, me, verdict.caps, ask.method, ask.detail)
+}
+
+export function registerPaneIoMethods(deps: PaneIoDeps): void {
+  const target = (raw: unknown, ctx: ControlMethodContext): PaneIdentity =>
+    paneTarget(deps, raw, ctx)
+
+  const reach = (
     kind: PaneReach,
     to: PaneIdentity,
     ref: string,
     ctx: ControlMethodContext,
     detail: string,
-  ): Promise<void> => {
-    const me = ctx.identity
-    const verdict = paneReach(kind, {
-      caller: {
-        paneId: me.paneId,
-        workspaceId: me.workspaceId,
-        sandboxed: deps.isSandboxed(me.workspaceId),
-      },
-      target: {
-        paneId: to.paneId,
-        workspaceId: to.workspaceId,
-        manager: to.manager === true,
-        confined: deps.isConfined(to.paneId),
-      },
-      ownChild: deps.isChild(me.paneId, to.paneId),
-    })
-    if (!verdict.allowed) {
+  ): Promise<void> => ensurePaneReach(deps, kind, to, ctx, { ref, method: `pane.${kind}`, detail })
+
+  const ensureManagerInput = (ctx: ControlMethodContext): void => {
+    if (ctx.identity.manager && !deps.managerAllowsInput()) {
       throw fail(
-        verdict.error === 'unknown-pane' ? `unknown-pane: ${ref}` : REFUSALS[verdict.error],
+        'input-off: typing into panes is off; the human can turn on manager.allowInput in Settings → Manager',
       )
     }
-    await ensureCaps(ctx.authed, me, verdict.caps, `pane.${kind}`, detail)
   }
 
   const respondedSince = async (paneId: string, before: number | undefined, ms: number) => {
@@ -238,16 +287,13 @@ export function registerPaneIoMethods(deps: PaneIoDeps): void {
       const force = optionalFlag(p.force, 'force') === true
       const confirm = optionalFlag(p.confirm, 'confirm') === true
       const confirmMs = confirmWindow(p.confirmMs)
-      if (ctx.identity.manager && !deps.managerAllowsInput()) {
-        throw fail(
-          'input-off: typing into panes is off; the human can turn on manager.allowInput in Settings → Manager',
-        )
-      }
+      ensureManagerInput(ctx)
       const shown = [
         ...(typeof p.text === 'string' ? [JSON.stringify(p.text)] : []),
         ...(Array.isArray(p.keys) ? p.keys.map(String) : []),
       ].join(' ')
       await reach('input', to, String(p.pane), ctx, `type into ${to.externalId}: ${shown}`)
+      if (await deps.hibernated(to)) throw asleep(to)
       if (parts.text && !force) {
         const attention = await deps.attention(to)
         if (attention.state === 'waiting') {
@@ -275,6 +321,55 @@ export function registerPaneIoMethods(deps: PaneIoDeps): void {
       const result = { ok: true, paneId: to.externalId, bytes: first.length + rest.length, pasted }
       if (!confirm) return result
       return { ...result, responded: await respondedSince(to.paneId, before, confirmMs) }
+    },
+  })
+
+  registerControlMethod('pane.wake', {
+    scripts: true,
+    handler: async (raw, ctx) => {
+      const refs = paneRefs(record(raw).panes)
+      ensureManagerInput(ctx)
+      const panes: PaneIdentity[] = []
+      for (const ref of refs) {
+        const to = target(ref, ctx)
+        await ensurePaneReach(deps, 'input', to, ctx, {
+          ref,
+          method: 'pane.wake',
+          detail: `wake ${to.externalId}: type its agent's resume command`,
+        })
+        if (!(await deps.hibernated(to))) throw notHibernated(to)
+        panes.push(to)
+      }
+      const woke: string[] = []
+      for (const to of panes) {
+        if (!(await deps.wake(to))) throw notHibernated(to)
+        woke.push(to.externalId)
+      }
+      return { ok: true, woke }
+    },
+  })
+
+  registerControlMethod('pane.close', {
+    scripts: true,
+    handler: async (raw, ctx) => {
+      const refs = paneRefs(record(raw).panes)
+      const panes: PaneIdentity[] = []
+      for (const ref of refs) {
+        const to = target(ref, ctx)
+        await ensurePaneReach(deps, 'close', to, ctx, {
+          ref,
+          method: 'pane.close',
+          detail: `close ${to.externalId}`,
+        })
+        panes.push(to)
+      }
+      const closed: string[] = []
+      for (const to of panes) {
+        const res = await deps.close(to)
+        if (!res.ok) throw fail(res.error.message)
+        closed.push(to.externalId)
+      }
+      return { ok: true, closed }
     },
   })
 

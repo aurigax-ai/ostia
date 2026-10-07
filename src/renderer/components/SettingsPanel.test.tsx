@@ -2,6 +2,7 @@ import '@testing-library/jest-dom/vitest'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { renderSettled } from '../../../test/render'
 import { languagesFrom } from '../lib/languagePacks'
 import { useExtensionsStore } from '../stores/extensionsStore'
 import { usePluginsStore } from '../stores/pluginsStore'
@@ -13,9 +14,9 @@ if (!Element.prototype.getAnimations) {
   Element.prototype.getAnimations = () => []
 }
 
-function renderSettings(): void {
+async function renderSettings(): Promise<void> {
   useUIStore.setState({ settingsActive: true, settingsTabOpen: true })
-  render(<SettingsPanel />)
+  await renderSettled(<SettingsPanel />)
 }
 
 describe('SettingsPanel', () => {
@@ -46,8 +47,8 @@ describe('SettingsPanel', () => {
     vi.restoreAllMocks()
   })
 
-  it('renders the settings surface with its section nav and the Appearance pane by default', () => {
-    renderSettings()
+  it('renders the settings surface with its section nav and the Appearance pane by default', async () => {
+    await renderSettings()
 
     expect(screen.getByRole('region', { name: 'Settings' })).toBeInTheDocument()
 
@@ -63,8 +64,8 @@ describe('SettingsPanel', () => {
     expect(screen.getByText('Editor font')).toBeInTheDocument()
   })
 
-  it('groups the section nav under headings, in order, so related pages sit together', () => {
-    renderSettings()
+  it('groups the section nav under headings, in order, so related pages sit together', async () => {
+    await renderSettings()
 
     const headings = screen.getByRole('region', { name: 'Settings' }).querySelectorAll('nav h3')
     expect([...headings].map((h) => h.textContent)).toEqual([
@@ -107,7 +108,7 @@ describe('SettingsPanel', () => {
       ],
     }))
     const setTheme = vi.spyOn(useSettingsStore.getState(), 'setTheme').mockImplementation(() => {})
-    renderSettings()
+    await renderSettings()
     const user = userEvent.setup()
 
     await user.click(screen.getByRole('combobox', { name: 'Ostia theme' }))
@@ -121,9 +122,9 @@ describe('SettingsPanel', () => {
     expect(setTheme).toHaveBeenCalledWith('test-theme')
   })
 
-  it('reflects the current theme in the theme picker trigger', () => {
+  it('reflects the current theme in the theme picker trigger', async () => {
     useSettingsStore.setState((s) => ({ appearance: { ...s.appearance, theme: 'oxocarbon' } }))
-    renderSettings()
+    await renderSettings()
 
     expect(screen.getByRole('combobox', { name: 'Ostia theme' })).toHaveTextContent('Oxocarbon')
   })
@@ -137,7 +138,7 @@ describe('SettingsPanel', () => {
         { extId: 'langpack-zh-hant', id: 'zh-Hant', label: '繁體中文', catalog: {} },
       ]),
     })
-    renderSettings()
+    await renderSettings()
     const user = userEvent.setup()
 
     await user.click(screen.getByRole('button', { name: 'Language' }))
@@ -183,7 +184,7 @@ describe('SettingsPanel', () => {
         },
       ],
     })
-    renderSettings()
+    await renderSettings()
     const user = userEvent.setup()
     const files = () => useSettingsStore.getState().files
 
@@ -244,7 +245,7 @@ describe('SettingsPanel', () => {
     const setBehavior = vi
       .spyOn(useSettingsStore.getState(), 'setBehavior')
       .mockImplementation(() => {})
-    renderSettings()
+    await renderSettings()
     const user = userEvent.setup()
 
     await user.click(screen.getByRole('button', { name: 'Terminal' }))
@@ -263,7 +264,7 @@ describe('SettingsPanel', () => {
         terminal: { ...s.terminal, prompt: { ...s.terminal.prompt, style: 'ostia' } },
       })),
     )
-    renderSettings()
+    await renderSettings()
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: 'Terminal' }))
     const link = screen.getByRole('button', { name: 'Edit prompt' })
@@ -285,7 +286,7 @@ describe('SettingsPanel', () => {
   })
 
   it('opens the Prompt page from the Terminal page’s Edit prompt link with the keyboard', async () => {
-    renderSettings()
+    await renderSettings()
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: 'Terminal' }))
     screen.getByRole('button', { name: 'Edit prompt' }).focus()
@@ -300,7 +301,7 @@ describe('SettingsPanel', () => {
     const setBehavior = vi
       .spyOn(useSettingsStore.getState(), 'setBehavior')
       .mockImplementation(() => {})
-    renderSettings()
+    await renderSettings()
     const user = userEvent.setup()
 
     await user.click(screen.getByRole('button', { name: 'Terminal' }))
@@ -319,7 +320,7 @@ describe('SettingsPanel', () => {
     const setBehavior = vi
       .spyOn(useSettingsStore.getState(), 'setBehavior')
       .mockImplementation(() => {})
-    renderSettings()
+    await renderSettings()
     const user = userEvent.setup()
 
     await user.click(screen.getByRole('button', { name: 'Terminal' }))
@@ -335,7 +336,7 @@ describe('SettingsPanel', () => {
     const setSurfaceFont = vi
       .spyOn(useSettingsStore.getState(), 'setSurfaceFont')
       .mockImplementation(() => {})
-    renderSettings()
+    await renderSettings()
     const user = userEvent.setup()
 
     const family = screen.getByRole('combobox', { name: 'Terminal font, Family' })
@@ -351,7 +352,7 @@ describe('SettingsPanel', () => {
   })
 
   it('warns when the chosen font is not installed', async () => {
-    renderSettings()
+    await renderSettings()
     const user = userEvent.setup()
     await user.click(screen.getByRole('combobox', { name: 'Terminal font, Family' }))
     expect(await screen.findByText('Not installed; a fallback font is used')).toBeInTheDocument()
@@ -361,18 +362,18 @@ describe('SettingsPanel', () => {
     const setSurfaceFont = vi
       .spyOn(useSettingsStore.getState(), 'setSurfaceFont')
       .mockImplementation(() => {})
-    renderSettings()
+    await renderSettings()
     const user = userEvent.setup()
     await user.click(screen.getByRole('combobox', { name: 'UI font, Weight' }))
     await user.click(await screen.findByRole('option', { name: '600' }))
     expect(setSurfaceFont).toHaveBeenCalledWith('ui', { weight: 600 })
   })
 
-  it('changes a font size via setSurfaceFont, clamping to the 8–32 range', () => {
+  it('changes a font size via setSurfaceFont, clamping to the 8–32 range', async () => {
     const setSurfaceFont = vi
       .spyOn(useSettingsStore.getState(), 'setSurfaceFont')
       .mockImplementation(() => {})
-    renderSettings()
+    await renderSettings()
     const sizeInput = screen.getByRole('spinbutton', { name: 'Terminal font, Size' })
 
     fireEvent.change(sizeInput, { target: { value: '18' } })
@@ -385,7 +386,7 @@ describe('SettingsPanel', () => {
     expect(setSurfaceFont).toHaveBeenLastCalledWith('terminal', { size: 8 })
   })
 
-  it('reflects the current appearance settings in the controls', () => {
+  it('reflects the current appearance settings in the controls', async () => {
     useSettingsStore.setState((s) => ({
       appearance: {
         ...s.appearance,
@@ -393,7 +394,7 @@ describe('SettingsPanel', () => {
         ui: { family: 'Comic Code', size: 20, weight: 500 },
       },
     }))
-    renderSettings()
+    await renderSettings()
 
     expect(screen.getByRole('combobox', { name: 'Ostia theme' })).toHaveTextContent('Dracula')
     expect(screen.getByRole('combobox', { name: 'UI font, Family' })).toHaveValue('Comic Code')
@@ -409,7 +410,7 @@ describe('SettingsPanel', () => {
       hostName: 'devbox',
       home: '/home/me',
     })
-    renderSettings()
+    await renderSettings()
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: 'About' }))
     expect(await screen.findByText('v0.5.9-rc.3+sha.1a2b3c.dirty')).toBeInTheDocument()
@@ -420,7 +421,7 @@ describe('SettingsPanel', () => {
   })
 
   it('opens the log folder from About', async () => {
-    renderSettings()
+    await renderSettings()
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: 'About' }))
     await user.click(await screen.findByRole('button', { name: 'Open log folder' }))
@@ -434,7 +435,7 @@ describe('SettingsPanel', () => {
     const setSidebar = vi
       .spyOn(useSettingsStore.getState(), 'setSidebar')
       .mockImplementation(() => {})
-    renderSettings()
+    await renderSettings()
     const user = userEvent.setup()
 
     await user.click(screen.getByRole('button', { name: 'Notifications' }))
@@ -449,7 +450,7 @@ describe('SettingsPanel', () => {
   })
 
   it('shows light and dark theme pickers only when following the system, each listing its own kind', async () => {
-    renderSettings()
+    await renderSettings()
     const user = userEvent.setup()
     expect(screen.queryByRole('combobox', { name: 'Light theme' })).not.toBeInTheDocument()
 
@@ -468,7 +469,7 @@ describe('SettingsPanel', () => {
   })
 
   it('sets the accent from a preset or a valid hex, ignores an invalid one and resets it', async () => {
-    renderSettings()
+    await renderSettings()
     const user = userEvent.setup()
     const hex = screen.getByRole('textbox', { name: 'Custom accent hex' })
 
@@ -489,9 +490,9 @@ describe('SettingsPanel', () => {
     expect(useSettingsStore.getState().appearance.accent).toBe('')
   })
 
-  it('shows a custom accent in the color picker swatch and no preset as selected', () => {
+  it('shows a custom accent in the color picker swatch and no preset as selected', async () => {
     useSettingsStore.setState((s) => ({ appearance: { ...s.appearance, accent: '#123456' } }))
-    renderSettings()
+    await renderSettings()
 
     const picker = screen.getByLabelText('Pick a custom accent color')
     expect(picker).toHaveValue('#123456')
@@ -503,9 +504,9 @@ describe('SettingsPanel', () => {
     }
   })
 
-  it('leaves the color picker swatch unfilled when the accent is a preset', () => {
+  it('leaves the color picker swatch unfilled when the accent is a preset', async () => {
     useSettingsStore.setState((s) => ({ appearance: { ...s.appearance, accent: '#f2b347' } }))
-    renderSettings()
+    await renderSettings()
 
     expect(screen.getByRole('button', { name: 'Accent #f2b347' })).toHaveAttribute(
       'aria-pressed',
@@ -516,8 +517,8 @@ describe('SettingsPanel', () => {
     expect(swatch.style.background).toBe('')
   })
 
-  it('applies a color picked in the custom picker as the accent', () => {
-    renderSettings()
+  it('applies a color picked in the custom picker as the accent', async () => {
+    await renderSettings()
 
     fireEvent.change(screen.getByLabelText('Pick a custom accent color'), {
       target: { value: '#aa33cc' },
@@ -529,7 +530,7 @@ describe('SettingsPanel', () => {
 
   it('links the terminal colors to the ostia theme until the match switch is turned off', async () => {
     useSettingsStore.setState((s) => ({ appearance: { ...s.appearance, theme: 'dracula' } }))
-    renderSettings()
+    await renderSettings()
     const user = userEvent.setup()
     const match = screen.getByRole('switch', { name: 'Terminal colors: Match Ostia theme' })
 
@@ -552,12 +553,12 @@ describe('SettingsPanel', () => {
     expect(useSettingsStore.getState().terminal.theme).toBe('match')
   })
 
-  it('previews the resolved terminal and editor schemes with their own backgrounds', () => {
+  it('previews the resolved terminal and editor schemes with their own backgrounds', async () => {
     useSettingsStore.setState((s) => ({
       terminal: { ...s.terminal, theme: 'gruvbox-light' },
       editor: { ...s.editor, theme: 'nord' },
     }))
-    renderSettings()
+    await renderSettings()
 
     const preview = screen.getByTestId('theme-preview')
     expect(preview).toHaveAccessibleName(
@@ -572,7 +573,7 @@ describe('SettingsPanel', () => {
   })
 
   it('commits the interface zoom on blur, clamped to 80-150', async () => {
-    renderSettings()
+    await renderSettings()
     const user = userEvent.setup()
     const zoom = screen.getByRole('spinbutton', { name: 'Interface zoom' })
 
@@ -585,7 +586,7 @@ describe('SettingsPanel', () => {
   })
 
   it('edits the notification command from the Notifications page', async () => {
-    renderSettings()
+    await renderSettings()
     const user = userEvent.setup()
 
     await user.click(screen.getByRole('button', { name: 'Notifications' }))
@@ -597,7 +598,7 @@ describe('SettingsPanel', () => {
   })
 
   it('exposes accessible names on its controls (a11y)', async () => {
-    renderSettings()
+    await renderSettings()
     const user = userEvent.setup()
 
     expect(screen.getByRole('combobox', { name: 'Ostia theme' })).toBeInTheDocument()
@@ -641,7 +642,7 @@ describe('SettingsPanel', () => {
         },
       ],
     })
-    renderSettings()
+    await renderSettings()
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: 'Extensions' }))
     expect(screen.getByRole('switch', { name: 'Enable Assistant' })).toBeInTheDocument()
@@ -653,8 +654,8 @@ describe('SettingsPanel', () => {
     expect(screen.getByText('MCP servers')).toBeInTheDocument()
   })
 
-  it('lets the settings content area be selected while buttons stay unselectable', () => {
-    renderSettings()
+  it('lets the settings content area be selected while buttons stay unselectable', async () => {
+    await renderSettings()
     const content = document.querySelector('[data-slot="settings-content"]')
     expect(content).not.toBeNull()
     expect(content).toHaveClass('select-text')

@@ -103,6 +103,7 @@ export function runWhenIdle(
   paneId: string,
   command: string,
   timeoutMs = RUN_WHEN_IDLE_TIMEOUT_MS,
+  allowed: () => boolean = () => true,
 ): () => void {
   let done = false
   const stop = (): void => {
@@ -114,7 +115,7 @@ export function runWhenIdle(
   const attempt = (): void => {
     if (done || !atReadyPrompt(paneId)) return
     stop()
-    insertCommand(paneId, command, true)
+    if (allowed()) insertCommand(paneId, command, true)
   }
   const unsubscribe = useBlocksStore.subscribe(attempt)
   const timer = setTimeout(stop, timeoutMs)

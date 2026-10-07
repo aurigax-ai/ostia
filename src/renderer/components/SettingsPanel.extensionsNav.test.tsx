@@ -1,9 +1,10 @@
 import '@testing-library/jest-dom/vitest'
 import type { ExtensionInfo } from '@shared/extensions'
-import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { installLocalStorage } from '../../../test/mocks/memoryStorage'
+import { renderSettled } from '../../../test/render'
 import { EXTENSIONS_NAV_EXPANDED_KEY } from '../lib/settingsNav'
 import { useExtensionsStore } from '../stores/extensionsStore'
 import { usePluginsStore } from '../stores/pluginsStore'
@@ -76,9 +77,9 @@ const BOARD = ext('board', 'Board', {
   settingsPage: { title: 'Board sync', icon: 'kanban' },
 })
 
-function renderSettings(): void {
+async function renderSettings(): Promise<void> {
   useUIStore.setState({ settingsActive: true, settingsTabOpen: true })
-  render(<SettingsPanel />)
+  await renderSettled(<SettingsPanel />)
 }
 
 function nav(): HTMLElement {
@@ -118,7 +119,7 @@ describe('SettingsPanel extensions nav', () => {
   })
 
   it('expands Extensions into one entry per extension and remembers it', async () => {
-    renderSettings()
+    await renderSettings()
     const user = userEvent.setup()
     expect(disclosure()).toHaveAttribute('aria-expanded', 'false')
     expect(within(nav()).queryByRole('button', { name: 'Ports' })).toBeNull()
@@ -133,7 +134,7 @@ describe('SettingsPanel extensions nav', () => {
     expect(window.localStorage.getItem(EXTENSIONS_NAV_EXPANDED_KEY)).toBe('true')
 
     cleanup()
-    renderSettings()
+    await renderSettings()
     expect(disclosure()).toHaveAttribute('aria-expanded', 'true')
     expect(within(nav()).getByRole('button', { name: 'Ports' })).toBeInTheDocument()
   })
@@ -141,7 +142,7 @@ describe('SettingsPanel extensions nav', () => {
   it('opens Extensions scrolled to the extension a child entry names, and highlights it', async () => {
     const scrolled = vi.spyOn(Element.prototype, 'scrollIntoView')
     window.localStorage.setItem(EXTENSIONS_NAV_EXPANDED_KEY, 'true')
-    renderSettings()
+    await renderSettings()
     const user = userEvent.setup()
 
     await user.click(within(nav()).getByRole('button', { name: 'Ports' }))
@@ -167,7 +168,7 @@ describe('SettingsPanel extensions nav', () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     try {
       window.localStorage.setItem(EXTENSIONS_NAV_EXPANDED_KEY, 'true')
-      renderSettings()
+      await renderSettings()
       const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
       await user.click(within(nav()).getByRole('button', { name: 'Git' }))
       expect(screen.getByTestId('extension-anchor-highlight')).toBeInTheDocument()
@@ -181,7 +182,7 @@ describe('SettingsPanel extensions nav', () => {
   })
 
   it('expands and collapses from the keyboard and walks back from a child to Extensions', async () => {
-    renderSettings()
+    await renderSettings()
     const user = userEvent.setup()
     const extensionsButton = within(nav()).getByRole('button', { name: 'Extensions' })
     extensionsButton.focus()
@@ -207,9 +208,9 @@ describe('SettingsPanel extensions nav', () => {
     expect(extensionsButton).toHaveFocus()
   })
 
-  it('anchors to an extension from a deep link, in either form', () => {
+  it('anchors to an extension from a deep link, in either form', async () => {
     const scrolled = vi.spyOn(Element.prototype, 'scrollIntoView')
-    renderSettings()
+    await renderSettings()
 
     act(() => useUIStore.getState().openSettings('extensions/git'))
 
@@ -232,7 +233,7 @@ describe('SettingsPanel extensions nav', () => {
   })
 
   it('finds an extension by its name or a setting title in the search box', async () => {
-    renderSettings()
+    await renderSettings()
     const user = userEvent.setup()
     const search = screen.getByRole('textbox', { name: 'Search settings' })
     const searchFor = async (text: string): Promise<void> => {
@@ -267,7 +268,7 @@ describe('SettingsPanel extensions nav', () => {
     it('gets its own nav entry that draws the same form', async () => {
       const setSetting = vi.fn(async () => null)
       useExtensionsStore.setState({ setSetting })
-      renderSettings()
+      await renderSettings()
       const user = userEvent.setup()
       const entry = within(nav()).getByRole('button', { name: 'Board sync' })
       expect(entry.querySelector('svg')).not.toBeNull()
@@ -284,7 +285,7 @@ describe('SettingsPanel extensions nav', () => {
     })
 
     it('moves its form off the Extensions list, leaving a link to the page', async () => {
-      renderSettings()
+      await renderSettings()
       const user = userEvent.setup()
       await user.click(within(nav()).getByRole('button', { name: 'Extensions' }))
 
@@ -297,8 +298,8 @@ describe('SettingsPanel extensions nav', () => {
       expect(screen.getByRole('heading', { level: 2, name: 'Board sync' })).toBeInTheDocument()
     })
 
-    it('opens the page from a deep link to the extension', () => {
-      renderSettings()
+    it('opens the page from a deep link to the extension', async () => {
+      await renderSettings()
       act(() => useUIStore.getState().openSettings('extensions/board'))
       expect(screen.getByRole('heading', { level: 2, name: 'Board sync' })).toBeInTheDocument()
       expect(within(nav()).getByRole('button', { name: 'Board sync' })).toHaveAttribute(
@@ -308,7 +309,7 @@ describe('SettingsPanel extensions nav', () => {
     })
 
     it('is found by its page title in the search box', async () => {
-      renderSettings()
+      await renderSettings()
       const user = userEvent.setup()
       await user.click(screen.getByRole('textbox', { name: 'Search settings' }))
       await user.keyboard('board sync')
@@ -320,7 +321,7 @@ describe('SettingsPanel extensions nav', () => {
       useExtensionsStore.setState({
         list: [PORTS, GIT, { ...BOARD, enabled: false, status: 'disabled', settingsPage: null }],
       })
-      renderSettings()
+      await renderSettings()
       const user = userEvent.setup()
       expect(within(nav()).queryByRole('button', { name: 'Board sync' })).toBeNull()
       await user.click(within(nav()).getByRole('button', { name: 'Extensions' }))
@@ -329,7 +330,7 @@ describe('SettingsPanel extensions nav', () => {
     })
 
     it('falls back to Extensions when the open page goes away', async () => {
-      renderSettings()
+      await renderSettings()
       const user = userEvent.setup()
       await user.click(within(nav()).getByRole('button', { name: 'Board sync' }))
       act(() =>

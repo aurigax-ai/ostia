@@ -53,6 +53,7 @@ concurrency:
 jobs:
   changes:
     runs-on: ubuntu-24.04
+    timeout-minutes: 5
     permissions:
       contents: read
       pull-requests: read
@@ -61,7 +62,7 @@ jobs:
       # The e2e suites (Linux, macOS) are the slow part. They run for tags
       # (v1.2.3 and pre-releases such as v1.2.3-rc.1, via release.yml), the
       # nightly schedule and manual dispatch; pull requests and pushes to main
-      # get static, unit, unit-macos and build only.
+      # get static, unit, unit-dom, unit-macos and build only.
       full: ${{ github.ref_type == 'tag' || github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.full) }}
       linux: ${{ steps.runner.outputs.linux }}
       macos: ${{ steps.runner.outputs.macos }}
@@ -146,9 +147,11 @@ jobs:
     needs: changes
     if: needs.changes.outputs.code == 'true'
     runs-on: ${{ fromJSON(needs.changes.outputs.linux) }}
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
+        timeout-minutes: 10
         with:
           go: false
           electron: false
@@ -159,11 +162,12 @@ jobs:
     needs: changes
     if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
       - run: |
-          sudo apt-get update
-          sudo apt-get install -y zsh bubblewrap socat ripgrep tmux
+          scripts/retry.sh sudo apt-get update
+          scripts/retry.sh sudo apt-get install -y zsh bubblewrap socat ripgrep tmux
           # Ubuntu (GitHub-hosted) only; the ARC node runs SELinux and has no such sysctl.
           for k in apparmor_restrict_unprivileged_userns apparmor_restrict_unprivileged_unconfined; do
             [ ! -e /proc/sys/kernel/$k ] || sudo sysctl -w kernel.$k=0
@@ -172,17 +176,36 @@ jobs:
           git config --global user.name 'Ostia CI'
           git config --global user.email 'ci@ostia.invalid'
       - uses: ./.github/actions/setup
-      - run: pnpm test
+        timeout-minutes: 10
+      - run: pnpm test:unit
+        timeout-minutes: 20
       - run: go test ./...
         working-directory: tsnet-helper
+
+  unit-dom:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ${{ fromJSON(needs.changes.outputs.linux) }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+        timeout-minutes: 10
+        with:
+          go: false
+          electron: false
+      - run: pnpm test:dom
+        timeout-minutes: 10
 
   build:
     needs: changes
     if: needs.changes.outputs.code == 'true'
     runs-on: ${{ fromJSON(needs.changes.outputs.linux) }}
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
+        timeout-minutes: 10
         with:
           electron: false
       - run: pnpm build
@@ -196,6 +219,7 @@ jobs:
     needs: [changes, build]
     if: needs.changes.outputs.full == 'true' && needs.changes.outputs.platform != 'macos'
     runs-on: ${{ fromJSON(needs.changes.outputs.linux) }}
+    timeout-minutes: ${{ needs.changes.outputs.repeat == '1' && 25 || 180 }}
     strategy:
       fail-fast: false
       matrix:
@@ -203,8 +227,8 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - run: |
-          sudo apt-get update
-          sudo apt-get install -y xvfb zsh bubblewrap socat ripgrep tmux
+          scripts/retry.sh sudo apt-get update
+          scripts/retry.sh sudo apt-get install -y xvfb zsh bubblewrap socat ripgrep tmux
           # Ubuntu (GitHub-hosted) only; the ARC node runs SELinux and has no such sysctl.
           for k in apparmor_restrict_unprivileged_userns apparmor_restrict_unprivileged_unconfined; do
             [ ! -e /proc/sys/kernel/$k ] || sudo sysctl -w kernel.$k=0
@@ -213,6 +237,7 @@ jobs:
           git config --global user.name 'Ostia CI'
           git config --global user.email 'ci@ostia.invalid'
       - uses: ./.github/actions/setup
+        timeout-minutes: 10
       - uses: actions/cache@v6
         id: pty
         with:
@@ -224,7 +249,8 @@ jobs:
         with:
           name: out
           path: out
-      - env:
+      - timeout-minutes: ${{ needs.changes.outputs.repeat == '1' && 20 || 150 }}
+        env:
           SELF_HOSTED: ${{ runner.environment == 'self-hosted' }}
           SPECS: ${{ needs.changes.outputs.specs }}
           REPEAT: ${{ needs.changes.outputs.repeat }}
@@ -248,11 +274,12 @@ jobs:
       && needs.changes.outputs.linux != '"ubuntu-24.04"'
       && (needs.changes.outputs.specs == '' || contains(needs.changes.outputs.specs, 'sandbox'))
     runs-on: ubuntu-24.04
+    timeout-minutes: ${{ needs.changes.outputs.repeat == '1' && 10 || 60 }}
     steps:
       - uses: actions/checkout@v7
       - run: |
-          sudo apt-get update
-          sudo apt-get install -y xvfb zsh bubblewrap socat ripgrep tmux
+          scripts/retry.sh sudo apt-get update
+          scripts/retry.sh sudo apt-get install -y xvfb zsh bubblewrap socat ripgrep tmux
           for k in apparmor_restrict_unprivileged_userns apparmor_restrict_unprivileged_unconfined; do
             [ ! -e /proc/sys/kernel/$k ] || sudo sysctl -w kernel.$k=0
           done
@@ -260,6 +287,7 @@ jobs:
           git config --global user.name 'Ostia CI'
           git config --global user.email 'ci@ostia.invalid'
       - uses: ./.github/actions/setup
+        timeout-minutes: 10
       - uses: actions/cache@v6
         id: pty
         with:
@@ -271,7 +299,8 @@ jobs:
         with:
           name: out
           path: out
-      - env:
+      - timeout-minutes: ${{ needs.changes.outputs.repeat == '1' && 5 || 45 }}
+        env:
           REPEAT: ${{ needs.changes.outputs.repeat }}
         run: pnpm test:e2e e2e/sandbox.spec.ts --grep "$PTRACE_E2E" --repeat-each="$REPEAT"
       - if: ${{ !cancelled() }}
@@ -288,6 +317,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.code == 'true' && needs.changes.outputs.platform != 'linux'
     runs-on: ${{ fromJSON(needs.changes.outputs.macos) }}
+    timeout-minutes: 45
     continue-on-error: true
     steps:
       - uses: actions/checkout@v7
@@ -298,18 +328,22 @@ jobs:
           git config --global user.name 'Ostia CI'
           git config --global user.email 'ci@ostia.invalid'
       - uses: ./.github/actions/setup
+        timeout-minutes: 10
       - run: pnpm rebuild
       - run: pnpm typecheck
       - run: pnpm test
+        timeout-minutes: 35
 
   build-macos:
     needs: changes
     if: needs.changes.outputs.full == 'true' && needs.changes.outputs.platform != 'linux'
     runs-on: macos-26
+    timeout-minutes: 20
     continue-on-error: true
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
+        timeout-minutes: 10
       - run: pnpm rebuild
       - run: pnpm build
       - uses: actions/upload-artifact@v7
@@ -321,6 +355,7 @@ jobs:
   e2e-macos:
     needs: [changes, build-macos]
     runs-on: macos-26
+    timeout-minutes: ${{ needs.changes.outputs.repeat == '1' && 20 || 120 }}
     continue-on-error: true
     strategy:
       fail-fast: false
@@ -334,12 +369,14 @@ jobs:
           git config --global user.name 'Ostia CI'
           git config --global user.email 'ci@ostia.invalid'
       - uses: ./.github/actions/setup
+        timeout-minutes: 10
       - run: pnpm rebuild
       - uses: actions/download-artifact@v8
         with:
           name: out-macos
           path: out
-      - env:
+      - timeout-minutes: ${{ needs.changes.outputs.repeat == '1' && 10 || 90 }}
+        env:
           SPECS: ${{ matrix.specs }}
           REPEAT: ${{ needs.changes.outputs.repeat }}
         run: |
@@ -356,10 +393,12 @@ jobs:
     needs: [changes, e2e]
     if: ${{ !cancelled() && needs.e2e.result != 'skipped' }}
     runs-on: ${{ fromJSON(needs.changes.outputs.linux) }}
+    timeout-minutes: 10
     continue-on-error: true
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
+        timeout-minutes: 10
       - uses: actions/download-artifact@v8
         with:
           pattern: blob-*
@@ -372,10 +411,74 @@ jobs:
           path: playwright-report
           retention-days: 14
 
+  # Runs only the tests in test/quarantine.json, several times, and reports
+  # pass/fail counts per entry. Never part of ci-result.
+  quarantine:
+    needs: [changes, build, build-macos]
+    if: ${{ !cancelled() && needs.changes.outputs.code == 'true' }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    continue-on-error: true
+    permissions:
+      contents: read
+      issues: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            out: out
+          - runner: macos-26
+            out: out-macos
+    env:
+      RUNS: 5
+      E2E: ${{ needs.changes.outputs.full == 'true' && (needs.build.result == 'success' || needs.build-macos.result == 'success') }}
+    steps:
+      - uses: actions/checkout@v7
+      - if: runner.os == 'Linux'
+        run: |
+          scripts/retry.sh sudo apt-get update
+          scripts/retry.sh sudo apt-get install -y xvfb zsh bubblewrap socat ripgrep tmux
+          for k in apparmor_restrict_unprivileged_userns apparmor_restrict_unprivileged_unconfined; do
+            [ ! -e /proc/sys/kernel/$k ] || sudo sysctl -w kernel.$k=0
+          done
+          zsh -fc 'autoload -U compaudit; compaudit' | xargs -r sudo chmod go-w
+          git config --global user.name 'Ostia CI'
+          git config --global user.email 'ci@ostia.invalid'
+      - if: runner.os == 'macOS'
+        run: |
+          command -v rg >/dev/null || brew install ripgrep
+          command -v tmux >/dev/null || brew install tmux
+          zsh -fc 'autoload -U compaudit; compaudit' | xargs chmod go-w
+          git config --global user.name 'Ostia CI'
+          git config --global user.email 'ci@ostia.invalid'
+      - uses: ./.github/actions/setup
+        timeout-minutes: 10
+      - if: runner.os == 'Linux'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/quarantine.mjs issues
+      - if: runner.os == 'macOS'
+        run: pnpm rebuild
+      - run: node scripts/quarantine.mjs unit "$RUNS"
+      - if: env.E2E == 'true' && runner.os == 'Linux'
+        run: pnpm rebuild
+      - if: env.E2E == 'true'
+        id: out
+        continue-on-error: true
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ matrix.out }}
+          path: out
+      - if: env.E2E == 'true' && steps.out.outcome == 'success'
+        run: node scripts/quarantine.mjs e2e "$RUNS"
+
   ci-result:
-    needs: [changes, static, unit, build, e2e, e2e-ptrace]
+    needs: [changes, static, unit, unit-dom, build, e2e, e2e-ptrace]
     if: ${{ !cancelled() }}
     runs-on: ${{ fromJSON(needs.changes.outputs.linux) }}
+    timeout-minutes: 5
     steps:
       - env:
           NEEDS: ${{ toJSON(needs) }}

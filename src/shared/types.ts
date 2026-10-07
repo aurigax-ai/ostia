@@ -26,7 +26,7 @@ import type {
 } from './credentials'
 import type { EditorLanguagesApi } from './editorLanguages'
 import type { SuggestionsApi } from './extensionSuggestions'
-import type { ExtensionResult, ExtensionsApi } from './extensions'
+import type { ExtensionOpenTerminalRequest, ExtensionResult, ExtensionsApi } from './extensions'
 import type { FileOpsApi } from './fileOps'
 import type { GuestChordFire } from './guestChords'
 import type { IconThemesApi } from './iconTheme'
@@ -75,6 +75,7 @@ import type { SandboxReadPreset } from './sandboxPresets'
 import type { SearchApi } from './search'
 import type { SecretEntry, SecretGrant } from './secrets'
 import type { SelectionSendRequest, SelectionSendResult } from './selection'
+import type { SplitTabPlacement } from './splitTabs'
 import type { RequirementsReport } from './systemRequirements'
 import type { ViewsApi } from './views'
 import type { WorkflowDocument, WorkflowListing, WorkflowSaveResult } from './workflows'
@@ -181,6 +182,7 @@ export interface PtyAttachResult {
   rows?: number
   kept?: boolean
   reattached?: boolean
+  cwdMissing?: boolean
 }
 
 export interface SystemApi {
@@ -449,12 +451,20 @@ export interface SnapshotSplitNode {
   direction: 'horizontal' | 'vertical'
   children: SnapshotNode[]
   sizes: number[]
+  name?: string
 }
+
+export interface ProcessTerminalRequest extends ExtensionOpenTerminalRequest {
+  openedPaneIds?: string[]
+  splitTab?: SplitTabPlacement
+}
+
+export type SnapshotTabNode = SnapshotPaneNode | SnapshotSplitNode
 
 export interface SnapshotTabsNode {
   type: 'tabs'
   id: string
-  children: SnapshotPaneNode[]
+  children: SnapshotTabNode[]
   activeId: string
 }
 
@@ -653,6 +663,7 @@ export type LifecycleEvent =
   | { type: 'workspace-closed'; workspaceId: string }
   | { type: 'workspace-activated'; workspaceId: string }
   | { type: 'workspace-state'; workspaceId: string; state: WorkspaceLiveState }
+  | { type: 'pane-attention'; paneId: string; state: AttentionState; message?: string }
 
 export interface LifecycleApi {
   emit: (event: LifecycleEvent) => void
@@ -806,6 +817,7 @@ export interface ApprovalsApi {
   state: () => Promise<ApprovalState>
   answer: (id: string, answer: ApprovalAnswer) => Promise<boolean>
   revoke: (id: string) => Promise<boolean>
+  removeAlways: (cap: Capability) => Promise<boolean>
   onChange: (cb: (state: ApprovalState) => void) => () => void
 }
 

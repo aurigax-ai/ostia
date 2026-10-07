@@ -278,6 +278,7 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       state: vi.fn().mockResolvedValue({ pending: [], history: [] }),
       answer: vi.fn().mockResolvedValue(true),
       revoke: vi.fn().mockResolvedValue(true),
+      removeAlways: vi.fn().mockResolvedValue(true),
       onChange: vi.fn(() => () => {}),
     },
     questions: {

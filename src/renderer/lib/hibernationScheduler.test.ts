@@ -1,10 +1,13 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { registerBuiltinCommands } from '../commands/builtins'
+import { commands } from '../commands/registry'
 import { findPane } from '../layout/tree'
 import type { PaneNode } from '../layout/types'
 import { useBlocksStore } from '../stores/blocksStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
+import * as blockActions from './blockActions'
 import { hibernateIdleAgents, hibernateWorkspace, wakeWorkspace } from './hibernationScheduler'
 import { forgetPaneActivity, markPaneActivity } from './paneActivity'
 
@@ -17,6 +20,7 @@ const NOW = 10_000_000
 const IDS = ['shown', 'idle-claude', 'fresh-claude', 'no-token', 'npm', 'at-prompt']
 
 beforeAll(() => {
+  registerBuiltinCommands()
   layoutInit = useLayoutStore.getState()
   blocksInit = useBlocksStore.getState()
   settingsInit = useSettingsStore.getState()
@@ -30,6 +34,7 @@ afterEach(() => {
   useWorkspacesStore.setState(workspacesInit, true)
   for (const id of IDS) forgetPaneActivity(id)
   vi.mocked(window.ostia.pty.hibernate).mockClear()
+  vi.restoreAllMocks()
 })
 
 const terminal = (id: string, resume = true): PaneNode => ({
@@ -163,5 +168,70 @@ describe('hibernateWorkspace', () => {
     expect(wakeWorkspace('s2')).toEqual(['idle-claude', 'fresh-claude'])
     expect(hibernated('idle-claude')).toBe(false)
     expect(hibernated('shown')).toBe(true)
+  })
+})
+
+describe('the pane.wake command an agent reaches through main', () => {
+  const target = (paneId: string) => ({ activeWorkspaceId: 's2', activePaneId: paneId })
+
+  it('wakes a hibernated pane and types only its stored resume command at the first idle prompt', async () => {
+    seed(10)
+    await hibernateWorkspace('s2')
+    const typed = vi.spyOn(blockActions, 'runWhenIdle').mockImplementation(() => () => {})
+    expect(await commands.execWith(target('idle-claude'), 'pane.hibernated')).toEqual({
+      ok: true,
+      result: { hibernated: true },
+    })
+    expect(await commands.execWith(target('idle-claude'), 'pane.wake')).toEqual({
+      ok: true,
+      result: { woke: true },
+    })
+    expect(typed).toHaveBeenCalledTimes(1)
+    expect(typed).toHaveBeenCalledWith(
+      'idle-claude',
+      'claude --resume tok-idle-claude',
+      undefined,
+      expect.any(Function),
+    )
+    expect(hibernated('idle-claude')).toBe(false)
+    expect(hibernated('fresh-claude')).toBe(true)
+  })
+
+  it('starts the woken shell in the token’s folder and types nothing once that folder is gone', async () => {
+    seed(10)
+    useLayoutStore
+      .getState()
+      .setResume('s2', 'idle-claude', { agent: 'claude', id: 'tok-idle-claude', cwd: '/b/tree' })
+    await hibernateWorkspace('s2')
+    const typed = vi.spyOn(blockActions, 'runWhenIdle').mockImplementation(() => () => {})
+    await commands.execWith(target('idle-claude'), 'pane.wake')
+    const pane = () =>
+      findPane(useLayoutStore.getState().byWorkspace.s2?.root ?? terminal('x'), 'idle-claude')
+    expect(pane()?.spawnDir).toBe('/b/tree')
+    const allowed = typed.mock.calls[0][3]
+    expect(allowed?.()).toBe(true)
+
+    useLayoutStore.getState().settleSpawnDir('s2', 'idle-claude', true)
+    expect(pane()?.spawnDir).toBeUndefined()
+    expect(pane()?.resumeFolderMissing).toBe('/b/tree')
+    expect(allowed?.()).toBe(false)
+    expect(await commands.execWith(target('idle-claude'), 'agent.resume')).toEqual({
+      ok: true,
+      result: { resumed: false },
+    })
+  })
+
+  it('wakes nothing and types nothing for a pane that is not hibernated', async () => {
+    seed(10)
+    const typed = vi.spyOn(blockActions, 'runWhenIdle').mockImplementation(() => () => {})
+    expect(await commands.execWith(target('npm'), 'pane.hibernated')).toEqual({
+      ok: true,
+      result: { hibernated: false },
+    })
+    expect(await commands.execWith(target('npm'), 'pane.wake')).toEqual({
+      ok: true,
+      result: { woke: false },
+    })
+    expect(typed).not.toHaveBeenCalled()
   })
 })
