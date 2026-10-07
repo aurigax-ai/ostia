@@ -18,6 +18,7 @@ jobs:
   ci:
     permissions:
       contents: read
+      issues: read
       pull-requests: read
     uses: ./.github/workflows/ci.yml
 
@@ -49,7 +50,6 @@ jobs:
           if-no-files-found: error
 
   package-macos:
-    needs: ci
     runs-on: macos-26
     timeout-minutes: 30
     environment: release-macos

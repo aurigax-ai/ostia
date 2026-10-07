@@ -5,31 +5,91 @@ import { join, relative } from 'node:path'
 import {
   ROOT,
   activeEntries,
+  dueForReminder,
   entryKey,
   loadQuarantine,
   quarantineProblems,
+  reminderBody,
+  unreminded,
 } from '../test/quarantine.mjs'
 
-const USAGE =
-  'usage: node scripts/quarantine.mjs issues | unit <runs> | e2e <runs> [playwright args]'
+const USAGE = [
+  'usage: node scripts/quarantine.mjs issues [--today=YYYY-MM-DD]',
+  '       node scripts/quarantine.mjs remind [--today=YYYY-MM-DD] [--dry-run]',
+  '       node scripts/quarantine.mjs unit <runs> | e2e <runs> [playwright args]',
+].join('\n')
 
-async function issueStates(entries) {
-  const repo = process.env.GITHUB_REPOSITORY || 'aurigax-ai/ostia'
+const REPO = process.env.GITHUB_REPOSITORY || 'aurigax-ai/ostia'
+
+async function github(path, init = {}) {
   const token = process.env.GH_TOKEN || process.env.GITHUB_TOKEN
   const headers = { accept: 'application/vnd.github+json', 'user-agent': 'ostia-quarantine' }
   if (token) headers.authorization = `Bearer ${token}`
+  const res = await fetch(`https://api.github.com/repos/${REPO}/${path}`, {
+    ...init,
+    headers: { ...headers, ...init.headers },
+  })
+  if (!res.ok) throw new Error(`${path}: GitHub answered ${res.status}`)
+  return res.json()
+}
+
+async function issueStates(entries) {
   const states = {}
   for (const issue of new Set(entries.map((entry) => entry.issue))) {
-    const res = await fetch(`https://api.github.com/repos/${repo}/issues/${issue}`, { headers })
-    if (!res.ok) throw new Error(`issue #${issue}: GitHub answered ${res.status}`)
-    states[issue] = (await res.json()).state
+    states[issue] = (await github(`issues/${issue}`)).state
   }
   return states
 }
 
-async function checkIssues() {
+function isRealDate(value) {
+  const ms = Date.parse(`${value}T00:00:00Z`)
+  return !Number.isNaN(ms) && new Date(ms).toISOString().slice(0, 10) === value
+}
+
+function todayFrom(flags) {
+  const today = flags.find((flag) => flag.startsWith('--today='))?.slice('--today='.length)
+  if (today === undefined) return new Date().toISOString().slice(0, 10)
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(today) || !isRealDate(today)) {
+    console.error(USAGE)
+    process.exit(2)
+  }
+  return today
+}
+
+async function commentBodies(issue) {
+  const bodies = []
+  for (let page = 1; ; page++) {
+    const comments = await github(`issues/${issue}/comments?per_page=100&page=${page}`)
+    bodies.push(...comments.map((comment) => comment.body ?? ''))
+    if (comments.length < 100) return bodies
+  }
+}
+
+async function remind(flags) {
+  const today = todayFrom(flags)
+  const dryRun = flags.includes('--dry-run')
+  const due = dueForReminder(loadQuarantine(), today)
+  const byIssue = Map.groupBy(due, (entry) => entry.issue)
+  for (const [issue, entries] of byIssue) {
+    const pending = unreminded(entries, await commentBodies(issue))
+    if (!pending.length) {
+      console.log(`quarantine: #${issue} already reminded`)
+      continue
+    }
+    const body = reminderBody(pending, today)
+    if (dryRun) {
+      console.log(`quarantine: would comment on #${issue}:\n${body}`)
+      continue
+    }
+    await github(`issues/${issue}/comments`, { method: 'POST', body: JSON.stringify({ body }) })
+    console.log(`quarantine: reminded #${issue} of ${pending.length} entries`)
+  }
+  if (!byIssue.size) console.log(`quarantine: nothing expires within a week of ${today}`)
+}
+
+async function checkIssues(flags) {
   const entries = loadQuarantine()
-  const today = new Date().toISOString().slice(0, 10)
+  const today = todayFrom(flags)
   const problems = quarantineProblems(entries, { today, issueStates: await issueStates(entries) })
   for (const problem of problems) console.error(`quarantine: ${problem}`)
   if (problems.length) {
@@ -155,7 +215,9 @@ function runE2e(runs, args) {
 
 const [command, runsArg, ...rest] = process.argv.slice(2)
 const runs = Number(runsArg)
-if (command === 'issues') await checkIssues()
+const flags = process.argv.slice(3)
+if (command === 'issues') await checkIssues(flags)
+else if (command === 'remind') await remind(flags)
 else if (command === 'unit' && runs > 0) runUnit(runs)
 else if (command === 'e2e' && runs > 0) runE2e(runs, rest)
 else {
