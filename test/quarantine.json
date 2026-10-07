@@ -68,5 +68,11 @@
     "issue": 193,
     "until": "2026-11-05",
     "platforms": ["darwin"]
+  },
+  {
+    "file": "e2e/detached-send.spec.ts",
+    "name": "a browser pane moved to its own window sends a picked element to the agent it left behind",
+    "issue": 320,
+    "until": "2026-11-05"
   }
 ]
