@@ -3907,3 +3907,16 @@ button.prompt-chip:focus-visible {
   z-index: 2;
   outline: none;
 }
+
+.key-reveal {
+  animation: key-reveal var(--motion-base) var(--ease-out);
+}
+
+@keyframes key-reveal {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}

@@ -89,6 +89,16 @@ describe('gateway/devices', () => {
       expect(get(deviceId)?.caps).toContain('input')
     })
 
+    it('keeps respond in the canonical order read, notify, respond, command, input, destructive', () => {
+      const { deviceId } = registerDevice({ name: 'Phone', pubkey: 'pk' })
+      setDeviceCap(deviceId, 'input', true)
+      setDeviceCap(deviceId, 'command', true)
+      expect(setDeviceCap(deviceId, 'respond', true)).toEqual({
+        ok: true,
+        caps: ['read', 'notify', 'respond', 'command', 'input'],
+      })
+    })
+
     it('revokes a granted cap', () => {
       const { deviceId } = registerDevice({ name: 'Phone', pubkey: 'pk' })
       setDeviceCap(deviceId, 'command', true)

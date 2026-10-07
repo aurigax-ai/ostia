@@ -307,6 +307,10 @@ export function busHookCommand(event: AgentHookEvent): string {
   return `${IN_PANE} && ${CLI_RUN} bus hook ${event} 2>/dev/null || true`
 }
 
+export function permissionHookCommand(agent: HookAgent): string {
+  return `${IN_PANE} && ${CLI_RUN} permission-hook ${agent} 2>/dev/null || true`
+}
+
 export function extensionHookCommand(hook: ExtensionAgentHook, agent: HookAgent): string {
   return `${IN_PANE} && ${CLI_RUN} agent-hook ${hook.extId} ${hook.command} ${agent} ${hook.event} 2>/dev/null || true`
 }
@@ -346,6 +350,7 @@ export function claudeHookSettings(extensionHooks: readonly ExtensionAgentHook[]
     ...(hooks.PreToolUse ?? []),
   ]
   hooks.StopFailure = [{ hooks: [commandHook(hookCommand('claude-hook StopFailure'))] }]
+  hooks.PermissionRequest = [{ hooks: [commandHook(permissionHookCommand('claude'))] }]
   return { hooks }
 }
 
@@ -497,7 +502,7 @@ export function codexHookCommands(
       busHookCommand('SessionStart'),
     ],
     UserPromptSubmit: [hookCommand('state working'), busHookCommand('UserPromptSubmit')],
-    PermissionRequest: [hookCommand('state waiting -')],
+    PermissionRequest: [hookCommand('state waiting -'), permissionHookCommand('codex')],
     Stop: [hookCommand('state done')],
   }
   const commands: Partial<Record<CodexHookEvent, string[]>> = {}

@@ -229,6 +229,15 @@ describe('ScreenMirror restored history', () => {
     expect(lines.findIndex((l) => l === 'LS-OUT')).toBeGreaterThan(seamLine)
   })
 
+  it('saves the restored history unchanged when the shell prints before its first prompt', async () => {
+    const history = await serialized(zshSession())
+    const greeting = 'To run a command as administrator, use "sudo <command>".\r\n'
+    const first = await restoredRun(history, RESTORE_SEAM, `${greeting}${freshPrompt('13:00:00')}`)
+    const second = await restoredRun(first, RESTORE_SEAM, `${greeting}${freshPrompt('13:05:00')}`)
+    expect(first).toBe(history)
+    expect(second).toBe(history)
+  })
+
   it('does the same for a pane woken from hibernation', async () => {
     const history = await serialized(zshSession())
     const asleep = await restoredRun(history, HIBERNATE_SEAM, freshPrompt('13:00:00'))

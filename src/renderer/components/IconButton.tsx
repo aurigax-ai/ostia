@@ -14,14 +14,15 @@ export interface IconButtonProps
   label: string
   size?: IconButtonSize
   hintSide?: 'top' | 'bottom' | 'left' | 'right'
+  command?: string
 }
 
 export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(function IconButton(
-  { icon: Icon, label, size = 'row', hintSide = 'bottom', className, ...props },
+  { icon: Icon, label, command, size = 'row', hintSide = 'bottom', className, ...props },
   ref,
 ) {
   return (
-    <Hint label={label} side={hintSide}>
+    <Hint label={label} command={command} side={hintSide}>
       <button
         ref={ref}
         type="button"

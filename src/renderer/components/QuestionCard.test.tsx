@@ -245,4 +245,45 @@ describe('QuestionCard', () => {
     expect(screen.queryByRole('button', { name: 'Go to pane' })).toBeNull()
     expect(screen.getByRole('button', { name: 'Dismiss' })).toBeInTheDocument()
   })
+
+  describe('a permission request', () => {
+    const PERMISSION = question({
+      question: 'Bash: rm -rf node_modules',
+      context: 'rm -rf node_modules',
+      choices: ['once', 'always', 'deny'],
+      mode: 'single',
+      permission: { agent: 'claude', tool: 'Bash' },
+    })
+
+    it('names the agent and the tool, shows its input and offers the allow and deny buttons', () => {
+      show(PERMISSION)
+      expect(
+        screen.getByRole('heading', { name: 'Claude Code asks to use Bash' }),
+      ).toBeInTheDocument()
+      expect(screen.getByLabelText('Context')).toHaveTextContent('rm -rf node_modules')
+      expect(screen.queryByLabelText('Comment or reply')).toBeNull()
+      expect(screen.queryByRole('radio')).toBeNull()
+      for (const name of ['Allow once', 'Always allow', 'Deny', 'Answer in terminal']) {
+        expect(screen.getByRole('button', { name })).toBeInTheDocument()
+      }
+    })
+
+    it('answers with the picked choice', async () => {
+      const user = userEvent.setup()
+      show(PERMISSION)
+      await user.click(screen.getByRole('button', { name: 'Deny' }))
+      expect(window.ostia.questions.answer).toHaveBeenCalledWith('question-1', {
+        choices: [2],
+        text: '',
+      })
+    })
+
+    it('hands the request back to the agent’s own prompt from Answer in terminal', async () => {
+      const user = userEvent.setup()
+      show(PERMISSION)
+      await user.click(screen.getByRole('button', { name: 'Answer in terminal' }))
+      expect(window.ostia.questions.dismiss).toHaveBeenCalledWith('question-1')
+      expect(window.ostia.questions.answer).not.toHaveBeenCalled()
+    })
+  })
 })
