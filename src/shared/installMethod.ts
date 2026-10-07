@@ -38,8 +38,53 @@ export type UpdateRunState =
 
 export type UpdateRunStart = 'opened' | 'no-action' | 'busy' | 'not-opened'
 
+export const UPDATE_DOWNLOAD_HOSTS: readonly string[] = [
+  'github.com',
+  'objects.githubusercontent.com',
+  'release-assets.githubusercontent.com',
+]
+
+export const REPLACEABLE_METHODS: readonly InstallMethod[] = ['local', 'tarball']
+
+export type ReplaceBlock = 'not-writable' | 'system-path' | 'symlink' | 'leftover'
+
+export type ReplaceAvailability = { ok: true } | { ok: false; reason: ReplaceBlock; path?: string }
+
+export type ReplaceFailure =
+  | 'blocked'
+  | 'offline'
+  | 'http-error'
+  | 'redirect-refused'
+  | 'too-large'
+  | 'no-checksum'
+  | 'checksum-mismatch'
+  | 'bad-archive'
+  | 'extract-failed'
+  | 'not-executable'
+  | 'wrong-version'
+  | 'swap-failed'
+
+export type ReplaceState =
+  | { status: 'idle' }
+  | { status: 'downloading' }
+  | { status: 'installing' }
+  | { status: 'done'; version: string }
+  | { status: 'failed'; reason: ReplaceFailure }
+
+export interface ReplaceProgress {
+  received: number
+  total: number
+}
+
+export type ReplaceStart = 'started' | 'busy' | 'no-action'
+
+export function isReplaceable(method: InstallMethod): boolean {
+  return REPLACEABLE_METHODS.includes(method)
+}
+
 export interface ReleaseState {
   release: ReleaseInfo | null
   method: InstallMethod
   updateCommand: string | null
+  replace: ReplaceAvailability | null
 }

@@ -1,8 +1,9 @@
 import { ArrowClockwiseIcon, ArrowSquareOutIcon, DownloadSimpleIcon } from '@phosphor-icons/react'
 import type { ReleaseCheckError } from '@shared/releases'
 import { fmt, useDict } from '../i18n/useDict'
+import { replaceLabel } from '../lib/replaceText'
 import { useSettingsStore } from '../stores/settingsStore'
-import { updateAction, useUpdateStore } from '../stores/updateStore'
+import { restartReady, updateAction, useUpdateStore } from '../stores/updateStore'
 import { ToggleRow } from './SettingsPanel'
 import { Button } from './ui/button'
 
@@ -12,6 +13,11 @@ export function UpdateCheck(): JSX.Element {
   const pending = useUpdateStore((s) => s.release)
   const method = useUpdateStore((s) => s.method)
   const run = useUpdateStore((s) => s.updateRun)
+  const ready = useUpdateStore(restartReady)
+  const replace = useUpdateStore((s) => s.replace)
+  const replaceRun = useUpdateStore((s) => s.replaceRun)
+  const progress = useUpdateStore((s) => s.progress)
+  const replaceInstall = useUpdateStore((s) => s.replaceInstall)
   const askUpdate = useUpdateStore((s) => s.askUpdate)
   const checkForUpdates = useUpdateStore((s) => s.checkForUpdates)
   const automatic = useSettingsStore((s) => s.behavior.checkForUpdates)
@@ -23,7 +29,8 @@ export function UpdateCheck(): JSX.Element {
   }
   const release =
     check.status === 'available' ? check.release : check.status === 'idle' ? pending : null
-  const action = updateAction({ release, method })
+  const action = updateAction({ release, method, replace })
+  const replacing = replaceRun.status === 'downloading' || replaceRun.status === 'installing'
   const message = release
     ? fmt(d.update.releaseAvailable, { version: release.version })
     : check.status === 'latest'
@@ -50,10 +57,25 @@ export function UpdateCheck(): JSX.Element {
             : fmt(d.update.updateFailed, { code: run.exitCode })}
         </p>
       ) : null}
-      {run.status === 'done' ? (
+      {replaceRun.status === 'failed' ? (
+        <p className="text-ui-sm text-warn-fg">{d.update.replaceFailed[replaceRun.reason]}</p>
+      ) : null}
+      {release && replace && !replace.ok ? (
+        <p className="text-fg-muted text-ui-xs">
+          {replace.reason === 'leftover' && replace.path
+            ? fmt(d.update.replaceLeftover, { path: replace.path })
+            : d.update.replaceBlocked[replace.reason]}
+        </p>
+      ) : null}
+      {ready ? (
         <Button size="sm" onClick={() => void window.ostia.update.restart()}>
           <ArrowClockwiseIcon data-icon="inline-start" aria-hidden />
           {d.update.restartApp}
+        </Button>
+      ) : action === 'replace' ? (
+        <Button size="sm" disabled={replacing} onClick={() => void replaceInstall()}>
+          <DownloadSimpleIcon data-icon="inline-start" aria-hidden />
+          {replacing ? replaceLabel(d, replaceRun, progress) : d.update.downloadInstall}
         </Button>
       ) : action === 'apt' || action === 'brew' ? (
         <Button size="sm" disabled={run.status === 'running'} onClick={askUpdate}>

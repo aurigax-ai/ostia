@@ -4,6 +4,9 @@ import { releaseVersion } from '../shared/buildInfo'
 import {
   type InstallMethod,
   type ReleaseState,
+  type ReplaceAvailability,
+  type ReplaceProgress,
+  type ReplaceState,
   type UpdateRunState,
   updateCommandLine,
 } from '../shared/installMethod'
@@ -19,6 +22,7 @@ import {
   parseVersion,
 } from '../shared/releases'
 import type { AppLog } from './appLog'
+import type { InstallReplacer } from './installReplace'
 import { loadJson, saveJson, storePath } from './jsonStore'
 import type { UpdateRunner } from './updateRun'
 
@@ -205,8 +209,12 @@ function loadDismissed(): string | null {
   return typeof version === 'string' && parseVersion(version) ? version : null
 }
 
-export function releaseState(release: ReleaseInfo | null, method: InstallMethod): ReleaseState {
-  return { release, method, updateCommand: updateCommandLine(method) }
+export function releaseState(
+  release: ReleaseInfo | null,
+  method: InstallMethod,
+  replace: ReplaceAvailability | null,
+): ReleaseState {
+  return { release, method, updateCommand: updateCommandLine(method), replace }
 }
 
 function broadcast(channel: string, payload: unknown): void {
@@ -219,6 +227,14 @@ export function announceUpdateRun(state: UpdateRunState): void {
   broadcast('app:update-run-state', state)
 }
 
+export function announceReplace(state: ReplaceState): void {
+  broadcast('app:install-replace-state', state)
+}
+
+export function announceReplaceProgress(progress: ReplaceProgress): void {
+  broadcast('app:update-progress', progress)
+}
+
 export function registerReleaseCheck(deps: {
   openExternal: (url: string) => boolean
   readSettings: () => unknown
@@ -226,7 +242,11 @@ export function registerReleaseCheck(deps: {
   version: string
   method: () => InstallMethod
   updateRunner: UpdateRunner
+  replaceAvailability: () => Promise<ReplaceAvailability | null>
+  replacer: InstallReplacer
 }): void {
+  const stateOf = async (pending: ReleaseInfo | null): Promise<ReleaseState> =>
+    releaseState(pending, deps.method(), pending ? await deps.replaceAvailability() : null)
   const endpoint = releaseEndpoint(app.isPackaged, process.env)
   const currentVersion = releaseVersion(deps.version)
   const checker = createReleaseChecker({
@@ -246,7 +266,9 @@ export function registerReleaseCheck(deps: {
         deps.log?.warn('release-dismiss-unsaved')
       }
     },
-    onChange: (pending) => broadcast('app:release-available', releaseState(pending, deps.method())),
+    onChange: (pending) => {
+      void stateOf(pending).then((state) => broadcast('app:release-available', state))
+    },
     log: (trigger, outcome, latest) =>
       deps.log?.info('release-check', { trigger, outcome, latest }),
   })
@@ -254,7 +276,12 @@ export function registerReleaseCheck(deps: {
     setTimeout(() => void checker.tick(), RELEASE_CHECK_STARTUP_DELAY_MS).unref()
     setInterval(() => void checker.tick(), RELEASE_CHECK_RETRY_MS).unref()
   }
-  ipcMain.handle('app:release-state', () => releaseState(checker.pending(), deps.method()))
+  ipcMain.handle('app:release-state', () => stateOf(checker.pending()))
+  ipcMain.handle('app:install-replace', () => {
+    const release = checker.available()
+    return release ? deps.replacer.start(release.version) : 'no-action'
+  })
+  ipcMain.handle('app:install-replace-state', () => deps.replacer.state())
   ipcMain.handle('app:update-run', () => deps.updateRunner.start())
   ipcMain.handle('app:update-run-state', () => deps.updateRunner.state())
   ipcMain.handle('app:release-check', () => checker.check('manual'))

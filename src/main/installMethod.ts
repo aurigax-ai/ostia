@@ -1,12 +1,13 @@
 import { realpathSync } from 'node:fs'
 import { homedir } from 'node:os'
-import { join, sep } from 'node:path'
+import { dirname, join, sep } from 'node:path'
 import { app } from 'electron'
 import { type EnvSource, readEnv } from '../shared/appEnv'
-import { type InstallMethod, isInstallMethod } from '../shared/installMethod'
+import { type InstallMethod, isInstallMethod, isReplaceable } from '../shared/installMethod'
 import { PRODUCT_NAME } from '../shared/product'
 
 export const INSTALL_METHOD_ENV = 'INSTALL_METHOD'
+export const INSTALL_APP_DIR_ENV = 'INSTALL_APP_DIR'
 export const APT_APP_DIR = `/opt/${PRODUCT_NAME}`
 export const APT_PACKAGE_LIST = `/var/lib/dpkg/info/${PRODUCT_NAME}.list`
 export const HOMEBREW_PREFIXES = ['/opt/homebrew', '/usr/local'] as const
@@ -48,6 +49,23 @@ export function seededInstallMethod(isPackaged: boolean, env: EnvSource): Instal
   return isInstallMethod(seeded) ? seeded : null
 }
 
+function realExecPath(): string {
+  try {
+    return realpathSync(process.execPath)
+  } catch {
+    return process.execPath
+  }
+}
+
+export function installAppDir(): string | null {
+  return replaceableAppDir({
+    method: installMethod(),
+    isPackaged: app.isPackaged,
+    execPath: realExecPath(),
+    env: process.env,
+  })
+}
+
 function existsReal(path: string): boolean {
   try {
     realpathSync(path)
@@ -55,6 +73,17 @@ function existsReal(path: string): boolean {
   } catch {
     return false
   }
+}
+
+export function replaceableAppDir(opts: {
+  method: InstallMethod
+  isPackaged: boolean
+  execPath: string
+  env: EnvSource
+}): string | null {
+  if (!isReplaceable(opts.method)) return null
+  if (!opts.isPackaged) return readEnv(INSTALL_APP_DIR_ENV, opts.env) ?? null
+  return dirname(opts.execPath)
 }
 
 let detected: InstallMethod | undefined
@@ -66,12 +95,8 @@ export function installMethod(): InstallMethod {
     detected = seeded
     return seeded
   }
-  let execPath = process.execPath
-  try {
-    execPath = realpathSync(process.execPath)
-  } catch {}
   detected = detectInstallMethod({
-    execPath,
+    execPath: realExecPath(),
     platform: process.platform,
     isPackaged: app.isPackaged,
     env: process.env,

@@ -1,6 +1,17 @@
+import { execFileSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  writeFileSync,
+} from 'node:fs'
 import { type Server, createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
-import { resolve } from 'node:path'
+import { tmpdir } from 'node:os'
+import { join, resolve } from 'node:path'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { PROMPT, emptyState, openWorkspace } from './helpers'
 import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
@@ -17,9 +28,15 @@ interface FakeGitHub {
   close: () => Promise<void>
 }
 
-async function startFakeGitHub(): Promise<FakeGitHub> {
+async function startFakeGitHub(files: Record<string, Buffer> = {}): Promise<FakeGitHub> {
   const requests: FakeGitHub['requests'] = []
   const server: Server = createServer((req, res) => {
+    const file = files[req.url ?? '']
+    if (file) {
+      res.writeHead(200, { 'content-length': file.byteLength })
+      res.end(file)
+      return
+    }
     requests.push({ path: req.url, userAgent: req.headers['user-agent'] })
     res.writeHead(200, { 'content-type': 'application/json' })
     res.end(
@@ -169,6 +186,91 @@ test('an apt install offers Update with apt, runs the exact command after a conf
     const settings = await openAbout(win)
     await expect(settings.getByText('Installed with apt')).toBeVisible()
     await expect(settings.getByRole('button', { name: 'Restart Ostia' })).toBeVisible()
+  } finally {
+    await app.close()
+    await github.close()
+  }
+})
+
+function appFolder(dir: string, version: string): void {
+  mkdirSync(join(dir, 'resources'), { recursive: true })
+  writeFileSync(join(dir, 'ostia'), '#!/bin/sh\n', { mode: 0o755 })
+  writeFileSync(
+    join(dir, 'resources', 'build-info.json'),
+    JSON.stringify({ version, builtAt: '2026-10-07T00:00:00Z' }),
+  )
+}
+
+interface ReplaceLayout {
+  appDir: string
+  files: Record<string, Buffer>
+}
+
+function replaceLayout(checksum: (archive: Buffer) => string): ReplaceLayout {
+  const root = mkdtempSync(join(tmpdir(), 'ostia-e2e-replace-'))
+  const appDir = join(root, 'apps', 'ostia')
+  appFolder(appDir, '1.0.0')
+  const top = `ostia-${VERSION}-linux-x64`
+  appFolder(join(root, 'stage', top), VERSION)
+  const file = join(root, 'stage', `${top}.tar.gz`)
+  execFileSync('tar', ['-C', join(root, 'stage'), '-czf', file, top])
+  const archive = readFileSync(file)
+  const base = `/aurigax-ai/ostia/releases/download/v${VERSION}`
+  return {
+    appDir,
+    files: {
+      [`${base}/${top}.tar.gz`]: archive,
+      [`${base}/SHA256SUMS`]: Buffer.from(`${checksum(archive)}  ${top}.tar.gz\n`),
+    },
+  }
+}
+
+const versionIn = (dir: string): string =>
+  JSON.parse(readFileSync(join(dir, 'resources', 'build-info.json'), 'utf8')).version
+
+function replaceEnv(github: FakeGitHub, appDir: string): Record<string, string> {
+  return {
+    OSTIA_INSTALL_METHOD: 'tarball',
+    OSTIA_INSTALL_APP_DIR: appDir,
+    OSTIA_RELEASE_DOWNLOAD_BASE_URL: github.url,
+  }
+}
+
+test('a tarball install downloads the release, swaps the app folder and then offers a restart', async () => {
+  const layout = replaceLayout((archive) => createHash('sha256').update(archive).digest('hex'))
+  const github = await startFakeGitHub(layout.files)
+  const { app, win } = await launch(github, freshDataHome(), replaceEnv(github, layout.appDir))
+  try {
+    const notice = win.locator('.update-notice')
+    await notice.getByRole('button', { name: 'Download and install' }).click({ timeout: 20_000 })
+    await expect(notice.getByRole('button', { name: 'Restart Ostia' })).toBeVisible({
+      timeout: 30_000,
+    })
+    expect(versionIn(layout.appDir)).toBe(VERSION)
+    expect(versionIn(`${layout.appDir}.old`)).toBe('1.0.0')
+    expect(existsSync(`${layout.appDir}.new`)).toBe(false)
+    expect(existsSync(`${layout.appDir}.download`)).toBe(false)
+    expect(await openedExternally(app)).toEqual([])
+  } finally {
+    await app.close()
+    await github.close()
+  }
+})
+
+test('a wrong checksum leaves the app folder as it was and says why', async () => {
+  const layout = replaceLayout(() => 'f'.repeat(64))
+  const github = await startFakeGitHub(layout.files)
+  const { app, win } = await launch(github, freshDataHome(), replaceEnv(github, layout.appDir))
+  try {
+    const notice = win.locator('.update-notice')
+    await notice.getByRole('button', { name: 'Download and install' }).click({ timeout: 20_000 })
+    const settings = await openAbout(win)
+    await expect(
+      settings.getByText('The downloaded archive didn’t match its checksum. Nothing was changed.'),
+    ).toBeVisible({ timeout: 30_000 })
+    expect(versionIn(layout.appDir)).toBe('1.0.0')
+    expect(readdirSync(join(layout.appDir, '..'))).toEqual(['ostia'])
+    await expect(settings.getByRole('button', { name: 'Download and install' })).toBeEnabled()
   } finally {
     await app.close()
     await github.close()
