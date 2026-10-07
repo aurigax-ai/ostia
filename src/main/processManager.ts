@@ -3,7 +3,12 @@ import { ErrorCodes, ResponseError } from 'vscode-jsonrpc/node'
 import { MANAGER_AGENT_NAME } from '../shared/managerSettings'
 import { PRODUCT_DISPLAY_NAME } from '../shared/productDisplay'
 import { quoteArgv } from '../shared/shellQuote'
-import { type SplitTabSide, normalizeSplitTabName, parseSplitTabSide } from '../shared/splitTabs'
+import {
+  type SplitTabPlacement,
+  type SplitTabSide,
+  normalizeSplitTabName,
+  parseSplitTabSide,
+} from '../shared/splitTabs'
 import { connHasCap } from './controlAuth'
 import {
   type ControlMethodContext,
@@ -330,8 +335,12 @@ export class ProcessRegistry {
   }
 }
 
+export interface ProcessTabRequest extends TerminalOpenRequest {
+  splitTab?: SplitTabPlacement
+}
+
 export interface ProcessDeps {
-  openTab: (req: TerminalOpenRequest) => Promise<string | null>
+  openTab: (req: ProcessTabRequest) => Promise<string | null>
   ring: (paneId: string) => RingReader | undefined
   writePane: (paneId: string, data: string) => boolean
   endShell: (paneId: string) => void

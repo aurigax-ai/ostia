@@ -26,7 +26,7 @@ import type {
 } from './credentials'
 import type { EditorLanguagesApi } from './editorLanguages'
 import type { SuggestionsApi } from './extensionSuggestions'
-import type { ExtensionResult, ExtensionsApi } from './extensions'
+import type { ExtensionOpenTerminalRequest, ExtensionResult, ExtensionsApi } from './extensions'
 import type { FileOpsApi } from './fileOps'
 import type { GuestChordFire } from './guestChords'
 import type { IconThemesApi } from './iconTheme'
@@ -75,6 +75,7 @@ import type { SandboxReadPreset } from './sandboxPresets'
 import type { SearchApi } from './search'
 import type { SecretEntry, SecretGrant } from './secrets'
 import type { SelectionSendRequest, SelectionSendResult } from './selection'
+import type { SplitTabPlacement } from './splitTabs'
 import type { RequirementsReport } from './systemRequirements'
 import type { ViewsApi } from './views'
 import type { WorkflowDocument, WorkflowListing, WorkflowSaveResult } from './workflows'
@@ -450,6 +451,10 @@ export interface SnapshotSplitNode {
   children: SnapshotNode[]
   sizes: number[]
   name?: string
+}
+
+export interface ProcessTerminalRequest extends ExtensionOpenTerminalRequest {
+  splitTab?: SplitTabPlacement
 }
 
 export type SnapshotTabNode = SnapshotPaneNode | SnapshotSplitNode

@@ -129,7 +129,6 @@ import {
   type RemoteFolder,
 } from '../shared/remoteFolders'
 import { quoteArgv } from '../shared/shellQuote'
-import type { SplitTabPlacement } from '../shared/splitTabs'
 import type { Workflow } from '../shared/workflows'
 import type { AgentPluginSource } from './agentSkills'
 import { dropIdentity, hasCap, setCaps } from './capabilityStore'
@@ -397,7 +396,6 @@ export interface TerminalOpenRequest {
   title?: string
   backgroundTab?: boolean
   pinTitle?: boolean
-  splitTab?: SplitTabPlacement
 }
 
 export interface ExtensionConfirmRequest {
