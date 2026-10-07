@@ -123,7 +123,8 @@ has two switches you can change at any time:
   settings sections were used, and which extensions you installed from the official marketplace.
 
 Reports are grouped by a random install id you can reset in Settings. They go from the main
-process alone, in batches over https, to one fixed endpoint run by the developers. Never included:
+process alone, in batches over https, to one fixed endpoint run by the developers,
+`telemetry.apogex.dev`. Never included:
 terminal output, what you type, command lines, file paths or names, URLs, environment variables,
 settings values, workspace names, tokens or your IP address. Detected secrets are redacted and free
 text is clipped. **Show what Ostia sends** in Settings → Privacy lists the queued and last-sent

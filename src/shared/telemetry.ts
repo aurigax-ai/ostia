@@ -1,4 +1,4 @@
-export const TELEMETRY_DSN = ''
+export const TELEMETRY_DSN = 'https://15d38e4c8e9e458eb7fe8297e5736093@telemetry.apogex.dev/1'
 
 export const TELEMETRY_URL_ENV = 'TELEMETRY_URL'
 export const TELEMETRY_MESSAGE_MAX = 1000

@@ -105,8 +105,10 @@ describe('telemetryEndpoint', () => {
       url: 'http://127.0.0.1:1/api/7/envelope/',
       publicKey: 'k',
     })
-    expect(telemetryEndpoint(true, env)).toBeNull()
-    expect(telemetryEndpoint(false, {})).toBeNull()
+    const shipped = { url: 'https://telemetry.apogex.dev/api/1/envelope/', publicKey: 'k' }
+    expect(telemetryEndpoint(true, env)?.url).toBe(shipped.url)
+    expect(telemetryEndpoint(false, {})?.url).toBe(shipped.url)
+    expect(telemetryEndpoint(true, env)?.publicKey).toMatch(/^[0-9a-f]{32}$/)
   })
 })
 
