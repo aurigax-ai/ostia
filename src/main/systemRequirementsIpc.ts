@@ -20,7 +20,12 @@ export function requirementsInstallArgs(
 ): { argv: string[] } {
   const packages = [...new Set(missing.map((m) => m.package))]
   return {
-    argv: [...packages, '--reason', `${PRODUCT_DISPLAY_NAME}'s ${feature} feature needs them`],
+    argv: [
+      ...packages,
+      '--reason',
+      `${PRODUCT_DISPLAY_NAME}'s ${feature} feature needs them`,
+      '--wait',
+    ],
   }
 }
 
