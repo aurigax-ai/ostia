@@ -98,7 +98,9 @@ describe('WorkZone', () => {
 
       expect(screen.getByRole('button', { name: /New browser/ })).toHaveTextContent('Ctrl+Shift+B')
     } finally {
-      useSettingsStore.setState({ keybindings: before })
+      act(() => {
+        useSettingsStore.setState({ keybindings: before })
+      })
     }
   })
 
