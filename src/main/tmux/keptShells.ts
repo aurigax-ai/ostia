@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
+import { HOST_PROTOCOL_VERSION } from '../sandbox/protocol'
 import type { NewWindowSpec } from './tmuxCommand'
 import { type KeptWindow, type TmuxPane, TmuxServer, type TmuxServerOptions } from './tmuxServer'
 
@@ -39,6 +40,7 @@ export interface KeptHostMeta {
   workspaceId: string
   channel: string
   tmpDir: string
+  protocol: number
   exposed: number[]
 }
 
@@ -52,7 +54,8 @@ export function parseKeptHost(raw: unknown): KeptHostMeta | null {
   const exposed = Array.isArray(r.exposed)
     ? r.exposed.filter((p): p is number => Number.isInteger(p) && p > 0 && p < 65536)
     : []
-  return { kind: SANDBOX_HOST_KIND, workspaceId, channel, tmpDir, exposed }
+  const protocol = Number.isInteger(r.protocol) ? (r.protocol as number) : 0
+  return { kind: SANDBOX_HOST_KIND, workspaceId, channel, tmpDir, protocol, exposed }
 }
 
 function nullableText(raw: unknown): string | null {
@@ -257,11 +260,18 @@ export class KeptShells {
     const liveHosts = new Map<string, Waiting<KeptHostMeta>>()
     for (const window of windows) {
       const host = parseKeptHost(window.meta)
-      if (host && !window.dead) liveHosts.set(host.workspaceId, { window, meta: host })
+      if (host && !window.dead && host.protocol === HOST_PROTOCOL_VERSION) {
+        liveHosts.set(host.workspaceId, { window, meta: host })
+      }
     }
     for (const window of windows) {
-      if (parseKeptHost(window.meta)) {
-        if (window.dead) await server.killWindow(window.windowId)
+      const host = parseKeptHost(window.meta)
+      if (host) {
+        if (liveHosts.get(host.workspaceId)?.window === window) continue
+        if (!window.dead) {
+          this.deps.log('sandbox-host-reap', { workspace: host.workspaceId, reason: 'protocol' })
+        }
+        await server.killWindow(window.windowId)
         continue
       }
       const meta = parseKeptMeta(window.meta)

@@ -255,6 +255,7 @@ import { PackageRequests } from './sandbox/packageRequests'
 import { PortBridge, bridgesPorts } from './sandbox/portBridge'
 import { PortForwarder, type SandboxPane } from './sandbox/portForwarder'
 import { PortRequests } from './sandbox/portRequests'
+import { HOST_PROTOCOL_VERSION } from './sandbox/protocol'
 import {
   needsPtyRelay,
   relayForced,
@@ -887,6 +888,7 @@ const workspaceSandboxes: WorkspaceSandboxes = new WorkspaceSandboxes({
         workspaceId,
         channel: spec.channel,
         tmpDir: spec.tmpDir,
+        protocol: HOST_PROTOCOL_VERSION,
         exposed: [],
       }
       const pane = await keptShells.spawnHost({

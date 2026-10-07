@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, afterEach, describe, expect, it } from 'vitest'
 import { running, skipWithoutTmux, tmuxPath } from '../../../test/tmux'
+import { HOST_PROTOCOL_VERSION } from '../sandbox/protocol'
 import { type KeptHostMeta, type KeptMeta, KeptShells, SANDBOX_HOST_KIND } from './keptShells'
 import type { TmuxPane, TmuxServerOptions } from './tmuxServer'
 
@@ -161,12 +162,17 @@ describe.skipIf(skipWithoutTmux)('KeptShells', () => {
     })
   }
 
-  function host(kept: KeptShells, workspaceId = 'w1'): Promise<TmuxPane> {
+  function host(
+    kept: KeptShells,
+    workspaceId = 'w1',
+    protocol = HOST_PROTOCOL_VERSION,
+  ): Promise<TmuxPane> {
     const hostMeta: KeptHostMeta = {
       kind: SANDBOX_HOST_KIND,
       workspaceId,
       channel: join(root, `${workspaceId}.sock`),
       tmpDir: join(root, workspaceId),
+      protocol,
       exposed: [3000],
     }
     return kept.spawnHost({
@@ -215,6 +221,25 @@ describe.skipIf(skipWithoutTmux)('KeptShells', () => {
     await ended(pane.pid)
     expect(second.kept.takeSandboxLost('p1')).toBe(true)
     expect(second.kept.takeSandboxLost('p1')).toBe(false)
+  })
+
+  it('KSH-C75 ends the sandbox host of another protocol version and the shells that use it, and marks them lost', async () => {
+    const name = `k${names++}`
+    const first = instance(name)
+    const hostPane = await host(first.kept, 'w1', HOST_PROTOCOL_VERSION + 1)
+    const pane = await sandboxed(first.kept, 'p1')
+    first.kept.release()
+    const second = await restart(name, new Set(['p1']))
+    expect(second.kept.isWaiting('p1')).toBe(false)
+    expect(second.kept.keptHost('w1')).toBeUndefined()
+    expect(second.log).toContainEqual([
+      'sandbox-host-reap',
+      { workspace: 'w1', reason: 'protocol' },
+    ])
+    expect(second.log).toContainEqual(['pty-reap', { pane: 'p1', reason: 'sandbox-gone' }])
+    expect(second.kept.takeSandboxLost('p1')).toBe(true)
+    await ended(hostPane.pid)
+    await ended(pane.pid)
   })
 
   it('KSH-C60 never writes an injected secret into a tmux option, environment or the config', async () => {

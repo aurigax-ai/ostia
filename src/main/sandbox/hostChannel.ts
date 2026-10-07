@@ -1,6 +1,12 @@
 import { chmodSync, lstatSync, rmSync } from 'node:fs'
 import { type Socket, connect, createServer } from 'node:net'
-import type { HostAsk, HostResponse, HostToMain, MainToHost } from './protocol'
+import {
+  HOST_PROTOCOL_VERSION,
+  type HostAsk,
+  type HostResponse,
+  type HostToMain,
+  type MainToHost,
+} from './protocol'
 
 const NEWLINE = 0x0a
 const QUEUE_MAX = 200
@@ -92,6 +98,7 @@ export function listenHostChannel(
     socket.on('close', () => {
       if (current === socket) current = null
     })
+    writeMessage(socket, { type: 'hello', protocol: HOST_PROTOCOL_VERSION })
     for (const message of queue.splice(0)) writeMessage(socket, message)
     for (const ask of asks.values()) writeMessage(socket, ask)
   })
