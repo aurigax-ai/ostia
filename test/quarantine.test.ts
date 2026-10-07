@@ -1,10 +1,16 @@
+import { spawnSync } from 'node:child_process'
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
   ROOT,
+  dueForReminder,
   isListed,
   loadQuarantine,
   playwrightPattern,
   quarantineProblems,
+  reminderBody,
+  reminderMarker,
+  unreminded,
 } from './quarantine.mjs'
 
 const today = new Date().toISOString().slice(0, 10)
@@ -24,7 +30,7 @@ const issueStates = { 63: 'open', 122: 'open', 124: 'closed' }
 
 describe('test/quarantine.json', () => {
   it('lists only live tests with a date no more than 30 days out', () => {
-    expect(quarantineProblems(loadQuarantine(), { today })).toEqual([])
+    expect(quarantineProblems(loadQuarantine(), { today, enforceExpiry: false })).toEqual([])
   })
 })
 
@@ -36,6 +42,36 @@ describe('quarantineProblems', () => {
   it('fails an entry whose date has passed', () => {
     expect(quarantineProblems([valid], { today: '2026-10-21', issueStates })).toEqual([
       expect.stringContaining('expired on 2026-10-20'),
+    ])
+  })
+
+  it('leaves the date and the issue state to main and nightly when expiry is not enforced', () => {
+    const closed = { ...valid, issue: 124 }
+    expect(
+      quarantineProblems([valid, closed], {
+        today: '2026-10-21',
+        issueStates,
+        enforceExpiry: false,
+      }),
+    ).toEqual([expect.stringContaining('listed twice')])
+  })
+
+  it('passes an entry on its last day and fails it the day after', () => {
+    const entry = { ...valid, until: '2026-11-05' }
+    expect(quarantineProblems([entry], { today: '2026-10-08', issueStates })).toEqual([])
+    expect(quarantineProblems([entry], { today: '2026-11-05', issueStates })).toEqual([])
+    expect(quarantineProblems([entry], { today: '2026-11-06', issueStates })).toEqual([
+      expect.stringContaining('expired on 2026-11-05'),
+    ])
+    expect(
+      quarantineProblems([entry], { today: '2026-11-06', issueStates, enforceExpiry: false }),
+    ).toEqual([])
+  })
+
+  it('still fails a date more than 30 days out when expiry is not enforced', () => {
+    const entry = { ...valid, until: daysFrom('2026-10-08', 31) }
+    expect(quarantineProblems([entry], { today: '2026-10-08', enforceExpiry: false })).toEqual([
+      expect.stringContaining('more than 30 days out'),
     ])
   })
 
@@ -97,4 +133,48 @@ describe('playwrightPattern', () => {
     expect(pattern.test('  b.spec.ts group does (x)')).toBe(false)
     expect(pattern.test('  a.spec.ts group does (x) too')).toBe(false)
   })
+})
+
+describe('reminders', () => {
+  const entry = { ...valid, until: '2026-11-05' }
+  const other = { ...valid, name: 'runNotifyCommand > other', until: '2026-11-20' }
+
+  it('are due from 7 days before the date, including after it', () => {
+    expect(dueForReminder([entry, other], '2026-10-08')).toEqual([])
+    expect(dueForReminder([entry, other], '2026-10-28')).toEqual([])
+    expect(dueForReminder([entry, other], '2026-10-29')).toEqual([entry])
+    expect(dueForReminder([entry, other], '2026-11-06')).toEqual([entry])
+  })
+
+  it('are posted once per entry and date', () => {
+    const body = reminderBody([entry], '2026-10-29')
+    expect(body).toContain(reminderMarker(entry))
+    expect(body).toContain('expires on 2026-11-05')
+    expect(unreminded([entry], ['unrelated', body])).toEqual([])
+    expect(unreminded([{ ...entry, until: '2026-11-12' }], [body])).toHaveLength(1)
+    expect(unreminded([entry, other], [body])).toEqual([other])
+  })
+
+  it('say when an entry has already expired', () => {
+    expect(reminderBody([entry], '2026-11-06')).toContain('expired on 2026-11-05')
+    expect(reminderBody([entry], '2026-11-05')).toContain('expires today')
+  })
+})
+
+describe('scripts/quarantine.mjs --today', () => {
+  const run = (...args: string[]) =>
+    spawnSync(process.execPath, [join(ROOT, 'scripts/quarantine.mjs'), ...args], {
+      encoding: 'utf8',
+    })
+
+  it.each(['2026-13-40', '2026-02-30', 'tomorrow', '2026-1-1'])(
+    'rejects %s with usage',
+    (value) => {
+      for (const command of ['issues', 'remind']) {
+        const result = run(command, `--today=${value}`)
+        expect(result.status).toBe(2)
+        expect(result.stderr).toContain('usage:')
+      }
+    },
+  )
 })
