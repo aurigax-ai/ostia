@@ -61,7 +61,7 @@ jobs:
       # The e2e suites (Linux, macOS) are the slow part. They run for tags
       # (v1.2.3 and pre-releases such as v1.2.3-rc.1, via release.yml), the
       # nightly schedule and manual dispatch; pull requests and pushes to main
-      # get static, unit, unit-macos and build only.
+      # get static, unit, unit-dom, unit-macos and build only.
       full: ${{ github.ref_type == 'tag' || github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.full) }}
       linux: ${{ steps.runner.outputs.linux }}
       macos: ${{ steps.runner.outputs.macos }}
@@ -172,9 +172,21 @@ jobs:
           git config --global user.name 'Ostia CI'
           git config --global user.email 'ci@ostia.invalid'
       - uses: ./.github/actions/setup
-      - run: pnpm test
+      - run: pnpm test:unit
       - run: go test ./...
         working-directory: tsnet-helper
+
+  unit-dom:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ${{ fromJSON(needs.changes.outputs.linux) }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+        with:
+          go: false
+          electron: false
+      - run: pnpm test:dom
 
   build:
     needs: changes
@@ -434,7 +446,7 @@ jobs:
         run: node scripts/quarantine.mjs e2e "$RUNS"
 
   ci-result:
-    needs: [changes, static, unit, build, e2e, e2e-ptrace]
+    needs: [changes, static, unit, unit-dom, build, e2e, e2e-ptrace]
     if: ${{ !cancelled() }}
     runs-on: ${{ fromJSON(needs.changes.outputs.linux) }}
     steps:
