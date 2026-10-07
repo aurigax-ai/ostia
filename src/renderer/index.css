@@ -3781,6 +3781,7 @@ button.prompt-chip:focus-visible {
   flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
+  scrollbar-gutter: stable;
   padding: 16px;
   background: var(--bg-sunken);
 }
