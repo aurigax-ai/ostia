@@ -967,7 +967,7 @@ export function ControlRow({
       data-settings-row
       hidden={search.hidden}
       data-search-hit={search.hit || undefined}
-      className={`flex justify-between gap-6 py-1.5 ${desc || error ? 'items-start' : 'items-center'}`}
+      className={`flex justify-between gap-6 py-1.5 ${desc || error || below ? 'items-start' : 'items-center'}`}
     >
       <div className="min-w-0">
         {labelHint ? (
@@ -1612,16 +1612,21 @@ function TerminalSection(): JSX.Element {
         />
         <ControlRow
           label={d.prompt.title}
-          desc={promptStyle === 'ostia' ? d.settings.promptStylePine : d.settings.promptStyleShell}
+          below={
+            <Button
+              variant="link"
+              size="xs"
+              className="h-auto p-0 font-normal text-ui-sm"
+              onClick={() => useUIStore.getState().openSettings('prompt')}
+            >
+              {d.settings.promptOpen}
+              <CaretRightIcon data-icon="inline-end" />
+            </Button>
+          }
         >
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => useUIStore.getState().openSettings('prompt')}
-          >
-            {d.settings.promptOpen}
-            <CaretRightIcon data-icon="inline-end" />
-          </Button>
+          <span className="text-fg-muted text-ui-sm">
+            {promptStyle === 'ostia' ? d.settings.promptStylePine : d.settings.promptStyleShell}
+          </span>
         </ControlRow>
         {promptStyle === 'ostia' && mode !== 'editor' ? (
           <WarningNote>{d.settings.promptNeedsEditor}</WarningNote>

@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest'
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { languagesFrom } from '../lib/languagePacks'
@@ -257,11 +257,40 @@ describe('SettingsPanel', () => {
     expect(setBehavior).toHaveBeenCalledWith({ inputMode: 'editor' })
   })
 
-  it('opens the Prompt page from the Terminal page’s Edit prompt button', async () => {
+  it('shows the prompt mode on the right of the Prompt row and Edit prompt as a link below the label', async () => {
+    act(() =>
+      useSettingsStore.setState((s) => ({
+        terminal: { ...s.terminal, prompt: { ...s.terminal.prompt, style: 'ostia' } },
+      })),
+    )
     renderSettings()
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: 'Terminal' }))
-    await user.click(screen.getByRole('button', { name: 'Edit prompt' }))
+    const link = screen.getByRole('button', { name: 'Edit prompt' })
+    const row = link.closest('[data-settings-row]') as HTMLElement
+    const [labelSide, valueSide] = Array.from(row.children)
+    expect(labelSide).toHaveTextContent('Prompt')
+    expect(labelSide).toContainElement(link)
+    expect(valueSide).toHaveTextContent(/^Ostia prompt$/)
+    expect(link).toHaveAttribute('data-slot', 'button')
+    expect(link.className).toContain('underline-offset-4')
+    expect(link.className).not.toContain('border-border')
+
+    act(() =>
+      useSettingsStore.setState((s) => ({
+        terminal: { ...s.terminal, prompt: { ...s.terminal.prompt, style: 'shell' } },
+      })),
+    )
+    expect(await within(row).findByText('Shell prompt')).toBeInTheDocument()
+  })
+
+  it('opens the Prompt page from the Terminal page’s Edit prompt link with the keyboard', async () => {
+    renderSettings()
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'Terminal' }))
+    screen.getByRole('button', { name: 'Edit prompt' }).focus()
+    expect(screen.getByRole('button', { name: 'Edit prompt' })).toHaveFocus()
+    await user.keyboard('{Enter}')
     expect(screen.getByRole('heading', { level: 2, name: 'Prompt' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Prompt' })).toHaveAttribute('aria-current', 'page')
     expect(screen.getByRole('combobox', { name: 'Prompt style' })).toBeInTheDocument()
