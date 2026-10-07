@@ -3581,3 +3581,22 @@ button.prompt-chip:focus-visible {
   z-index: 2;
   outline: none;
 }
+
+.key-reveal {
+  animation: key-reveal 150ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .key-reveal {
+    animation: none;
+  }
+}
+
+@keyframes key-reveal {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
