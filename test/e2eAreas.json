@@ -306,10 +306,12 @@
         "src/shared/keymap",
         "src/shared/keyboardPresets.ts",
         "src/shared/chordSpec.ts",
+        "src/shared/desktopChords.ts",
         "src/shared/clipboardChords.ts",
         "src/shared/guestChords.ts",
         "src/shared/terminalKeys.ts",
         "src/renderer/lib/chords.ts",
+        "src/renderer/lib/desktop.ts",
         "src/renderer/lib/key",
         "src/renderer/lib/clipboardKeys.ts",
         "src/renderer/lib/documentClipboard.ts",
@@ -329,7 +331,8 @@
         "e2e/clipboard-keys.spec.ts",
         "e2e/clipboard-surfaces.spec.ts",
         "e2e/context-menus.spec.ts",
-        "e2e/keybindings.spec.ts"
+        "e2e/keybindings.spec.ts",
+        "e2e/palette-focus.spec.ts"
       ]
     },
     {
@@ -363,6 +366,7 @@
         "src/main/releaseCheck.ts",
         "src/main/appUpdate.ts",
         "src/main/installMethod.ts",
+        "src/main/installReplace.ts",
         "src/main/updateRun.ts",
         "src/shared/installMethod.ts",
         "src/shared/releases.ts",
@@ -819,7 +823,7 @@
     {
       "name": "command palette",
       "paths": ["src/renderer/components/CommandPalette.tsx", "src/renderer/lib/palette"],
-      "specs": ["e2e/command-palette-layout.spec.ts"]
+      "specs": ["e2e/command-palette-layout.spec.ts", "e2e/palette-focus.spec.ts"]
     },
     {
       "name": "crash recovery",
