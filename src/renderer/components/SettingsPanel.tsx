@@ -112,7 +112,7 @@ import { MarketplaceSection, UninstallExtensionButton } from './MarketplaceSecti
 import { PasswordsSection } from './PasswordsSection'
 import { PrivacySection } from './PrivacySection'
 import { PromptSection } from './PromptSection'
-import { RequirementsNoteView, useRequirementsReport } from './RequirementsNote'
+import { RequirementsNoteView, useRequirements } from './RequirementsNote'
 import { SandboxSection } from './SandboxSection'
 import {
   Highlight,
@@ -1574,7 +1574,8 @@ function TerminalSection(): JSX.Element {
   const shell = useSettingsStore((s) => s.terminal.shell)
   const osc52Write = useSettingsStore((s) => s.terminal.osc52Write)
   const keepShells = useSettingsStore((s) => s.terminal.keepShells)
-  const keepShellsReport = useRequirementsReport(KEEP_SHELLS_FEATURE)
+  const keepShellsRequirements = useRequirements(KEEP_SHELLS_FEATURE)
+  const keepShellsReport = keepShellsRequirements.report
   const primarySelection = useSettingsStore((s) => s.terminal.primarySelection)
   const macOptionIsMeta = useSettingsStore((s) => s.terminal.macOptionIsMeta)
   const modeLabel: Record<InputMode, string> = {
@@ -1766,9 +1767,8 @@ function TerminalSection(): JSX.Element {
           onChange={(v) => setTerminal({ keepShells: v })}
         />
         <RequirementsNoteView
-          feature={KEEP_SHELLS_FEATURE}
           body={fmt(d.settings.keepShellsRequirementsBody, { version: TMUX_MIN_VERSION })}
-          report={keepShellsReport}
+          requirements={keepShellsRequirements}
         />
       </SettingsGroup>
     </div>

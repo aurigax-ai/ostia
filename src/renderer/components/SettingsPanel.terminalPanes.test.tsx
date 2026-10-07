@@ -81,7 +81,9 @@ describe('SettingsPanel terminal and pane rows', () => {
     expect(useSettingsStore.getState().panes.dimInactive).toBe(false)
   })
 
-  function tmuxReport(missing: { program: string; package: string; needs?: string }[]) {
+  function tmuxReport(
+    missing: { program: string; package: string; needs?: string; found?: string }[],
+  ) {
     window.ostia.system.requirements = vi.fn().mockResolvedValue({
       missing,
       hint: { command: 'sudo pacman -S --needed tmux', packages: ['tmux'] },
@@ -109,11 +111,25 @@ describe('SettingsPanel terminal and pane rows', () => {
   })
 
   it('KSH-C19 names the tmux version needed when the installed one is too old', async () => {
-    tmuxReport([{ program: 'tmux', package: 'tmux', needs: '3.2' }])
+    tmuxReport([{ program: 'tmux', package: 'tmux', needs: '3.2', found: '3.1' }])
     await openSection('Terminal')
     expect(await screen.findByText(/tmux 3\.2 or newer/)).toBeInTheDocument()
+    expect(screen.getByText('Found tmux 3.1.')).toBeInTheDocument()
     expect(
       screen.getByRole('switch', { name: 'Keep shells running across a restart' }),
     ).toHaveAttribute('aria-disabled', 'true')
+  })
+
+  it('KSH-C18 lets the switch turn on once a re-check finds tmux, without reopening Settings', async () => {
+    tmuxReport([{ program: 'tmux', package: 'tmux' }])
+    const user = await openSection('Terminal')
+    expect(await screen.findByText('tmux is not installed.')).toBeInTheDocument()
+    tmuxReport([])
+    fireEvent(window, new Event('focus'))
+    await waitFor(() => expect(screen.queryByText('tmux is not installed.')).toBeNull())
+    const keep = screen.getByRole('switch', { name: 'Keep shells running across a restart' })
+    await waitFor(() => expect(keep).not.toHaveAttribute('aria-disabled', 'true'))
+    await user.click(keep)
+    expect(useSettingsStore.getState().terminal.keepShells).toBe(true)
   })
 })

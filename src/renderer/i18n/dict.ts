@@ -1288,7 +1288,7 @@ export const en = {
   marketplace: {
     title: 'Marketplaces',
     desc: 'A marketplace is a git repository that lists extensions. Installing copies an extension to this computer; it still waits for your approval before it runs.',
-    requirementsBody: 'Install {packages} to add or refresh marketplaces.',
+    requirementsBody: '{packages} is needed to add or refresh marketplaces.',
     addLabel: 'Marketplace repository',
     addPlaceholder: 'owner/repo, a git URL or a folder',
     add: 'Add',
@@ -1521,8 +1521,17 @@ export const en = {
     busPerMinute: 'Messages per minute',
     busPerMinuteDesc: 'Most bus messages the manager can send in a minute.',
     requirementsBody:
-      'The manager needs {packages} to check that ostia <agent> comes from outside {product}. Until it is installed, every ostia <agent> is refused.',
-    install: 'Install',
+      '{packages} is needed to check that ostia <agent> comes from outside {product}. Until it is installed, every ostia <agent> is refused.',
+  },
+  requirements: {
+    notInstalled: '{program} is not installed.',
+    found: 'Found {program} {version}.',
+    tooOld: 'The installed {program} is too old.',
+    install: 'Install {packages}',
+    installing: 'Waiting for the install to finish in its terminal.',
+    cantInstall: '{product} can’t install it on this system. Run this command yourself:',
+    cantInstallNoCommand:
+      '{product} can’t install it on this system. Install {packages} with your package manager.',
     copyCommand: 'Copy command',
   },
   closeConfirm: {
@@ -2724,8 +2733,7 @@ export const en = {
     keepShells: 'Keep shells running across a restart',
     keepShellsDesc:
       'Terminals opened from now on run in a private tmux server, so restarting for an update or a crash leaves them running. Quit still ends them.',
-    keepShellsRequirementsBody:
-      'Keeping shells needs tmux {version} or newer. Install {packages} first.',
+    keepShellsRequirementsBody: 'tmux {version} or newer is needed to keep shells.',
     externalEditor: 'External editor',
     externalEditorDesc:
       '“auto” uses code, cursor or zed from your PATH. Empty turns it off. Placeholders: {file}, {line}, {column}.',
@@ -4057,7 +4065,7 @@ export const zhHant: Dict = {
   marketplace: {
     title: '市集',
     desc: '市集是一個列出擴充功能的 git 儲存庫。安裝會把擴充功能複製到這台電腦；執行前仍需您核准。',
-    requirementsBody: '安裝 {packages} 後才能新增或重新整理市集。',
+    requirementsBody: '需要 {packages} 才能新增或重新整理市集。',
     addLabel: '市集儲存庫',
     addPlaceholder: 'owner/repo、git 網址或資料夾',
     add: '新增',
@@ -4284,8 +4292,16 @@ export const zhHant: Dict = {
     busPerMinute: '每分鐘訊息數',
     busPerMinuteDesc: '管理員每分鐘可傳送的匯流排訊息上限。',
     requirementsBody:
-      '管理員需要 {packages} 來確認 ostia <agent> 來自 {product} 之外。在安裝之前，所有 ostia <agent> 都會被拒絕。',
-    install: '安裝',
+      '需要 {packages} 才能確認 ostia <agent> 來自 {product} 之外。在安裝之前，所有 ostia <agent> 都會被拒絕。',
+  },
+  requirements: {
+    notInstalled: '尚未安裝 {program}。',
+    found: '找到 {program} {version}。',
+    tooOld: '已安裝的 {program} 版本太舊。',
+    install: '安裝 {packages}',
+    installing: '正在等待終端機中的安裝完成。',
+    cantInstall: '{product} 無法在這個系統上安裝。請自行執行這個指令：',
+    cantInstallNoCommand: '{product} 無法在這個系統上安裝。請用您的套件管理工具安裝 {packages}。',
     copyCommand: '複製指令',
   },
   closeConfirm: {
@@ -5450,7 +5466,7 @@ export const zhHant: Dict = {
     keepShells: '重新啟動時保留 shell',
     keepShellsDesc:
       '此後開啟的終端機在私有的 tmux 伺服器中執行，因此為更新而重新啟動或當機後仍會繼續執行。結束程式時仍會關閉它們。',
-    keepShellsRequirementsBody: '保留 shell 需要 tmux {version} 或更新版本。請先安裝 {packages}。',
+    keepShellsRequirementsBody: '需要 tmux {version} 或更新版本才能保留 shell。',
     externalEditor: '外部編輯器',
     externalEditorDesc:
       '「auto」會使用 PATH 中的 code、cursor 或 zed。留空則停用。預留位置：{file}、{line}、{column}。',
