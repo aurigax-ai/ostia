@@ -112,13 +112,13 @@ test('an idle hidden agent hibernates and resumes when the human asks', async ()
 
     const sleeping = win.getByRole('tab').first()
     await expect(sleeping.getByLabel('Hibernated')).toBeVisible({ timeout: 30_000 })
-    await expect(win.locator('.xterm')).toHaveCount(1)
+    await expect(win.locator('.terminal-surface .xterm')).toHaveCount(1)
 
     await sleeping.click()
     const view = win.locator('.hibernated-view')
-    await expect(view).toContainText('Hibernated')
-    await expect(view).toContainText('claude --resume e2e-tok-1')
-    await view.getByRole('button', { name: 'Resume claude' }).click()
+    await expect(view).toContainText('Asleep')
+    await expect(view.locator('.xterm-rows')).toContainText('fake agent up:')
+    await win.getByRole('button', { name: 'Resume claude' }).click()
 
     const rows = win.locator('.pane-slot:not([data-hidden]) .xterm-rows')
     await expect(rows).toContainText('woke from hibernation', { timeout: 15_000 })
@@ -185,12 +185,12 @@ test('a hibernated agent is still hibernated after a restart and wakes when the 
     await expect(win.locator('.pane-slot:not([data-hidden]) .xterm-rows')).toContainText(PROMPT, {
       timeout: 15_000,
     })
-    await expect(win.locator('.xterm')).toHaveCount(1)
+    await expect(win.locator('.terminal-surface .xterm')).toHaveCount(1)
 
     await sleeping.click()
     const view = win.locator('.hibernated-view')
-    await expect(view).toContainText('claude --resume e2e-tok-2')
-    await view.getByRole('button', { name: 'Resume claude' }).click()
+    await expect(view).toContainText('Asleep')
+    await win.getByRole('button', { name: 'Resume claude' }).click()
     const rows = win.locator('.pane-slot:not([data-hidden]) .xterm-rows')
     await expect(rows).toContainText(/fake agent up: .*--resume e2e-tok-2/, { timeout: 20_000 })
     await expect(win.locator('.hibernated-view')).toHaveCount(0)

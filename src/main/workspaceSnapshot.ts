@@ -430,6 +430,10 @@ export function takeRestoredScrollback(paneId: string): string | null {
   return data
 }
 
+export function peekRestoredScrollback(paneId: string): string | null {
+  return restored.get(paneId) ?? null
+}
+
 export function stashScrollback(paneId: string, data: string): void {
   if (!data || isDangerousSegment(paneId)) return
   restored.set(paneId, trimScrollback(data))

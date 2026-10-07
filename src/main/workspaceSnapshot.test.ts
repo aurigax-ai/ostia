@@ -10,10 +10,12 @@ import {
   loadSnapshot,
   parseHandoff,
   parseSnapshot,
+  peekRestoredScrollback,
   saveScrollback,
   saveSnapshot,
   scrollbackPath,
   snapshotPath,
+  stashScrollback,
   takeRestoredScrollback,
   trimScrollback,
 } from './workspaceSnapshot'
@@ -595,6 +597,14 @@ describe('saveScrollback / takeRestoredScrollback', () => {
     loadRestoredScrollback()
     expect(takeRestoredScrollback('pane-1')).toBe('last output')
     expect(takeRestoredScrollback('pane-1')).toBeNull()
+  })
+
+  it('shows a stashed screen without consuming its one-shot replay', () => {
+    stashScrollback('pane-peek', 'asleep output')
+    expect(peekRestoredScrollback('pane-peek')).toBe('asleep output')
+    expect(peekRestoredScrollback('pane-peek')).toBe('asleep output')
+    expect(takeRestoredScrollback('pane-peek')).toBe('asleep output')
+    expect(peekRestoredScrollback('pane-peek')).toBeNull()
   })
 
   it('returns null for a pane with no saved output', () => {

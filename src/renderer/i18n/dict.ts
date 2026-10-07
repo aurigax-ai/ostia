@@ -605,9 +605,7 @@ export const en = {
     hostHint: 'This terminal runs outside the sandbox. It closes when its command ends.',
     sandboxRestartHint: 'The sandbox setting changed. Restart this shell to apply it.',
     hibernated: 'Hibernated',
-    hibernatedTitle: 'Hibernated',
-    hibernatedBody:
-      'This agent sat idle out of sight, so its shell was stopped to save memory. The scrollback is kept. Resume starts a fresh shell and runs {command}.',
+    asleep: 'Asleep',
     resumeFolderMissingLabel: 'Agent folder missing',
     resumeFolderMissing:
       'The folder {agent} worked in no longer exists: {path}. Nothing was run. Restore the folder and cd into it to resume, or close the tab.',
@@ -3604,9 +3602,7 @@ export const zhHant: Dict = {
     hostHint: '此終端機在沙箱外執行，指令結束時會關閉。',
     sandboxRestartHint: '沙箱設定已變更。重新啟動此 shell 以套用。',
     hibernated: '已休眠',
-    hibernatedTitle: '已休眠',
-    hibernatedBody:
-      '這個代理程式在背景閒置，因此停止了它的 shell 以節省記憶體。捲動紀錄已保留。繼續會啟動新的 shell 並執行 {command}。',
+    asleep: '休眠中',
     resumeFolderMissingLabel: '代理程式資料夾不存在',
     resumeFolderMissing:
       '{agent} 工作的資料夾已不存在：{path}。未執行任何指令。還原資料夾並 cd 進去即可繼續，或關閉分頁。',

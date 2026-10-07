@@ -61,7 +61,7 @@ test('a woken agent starts in the folder its session belongs to, not the pane’
   const tree = join(root, 'work', 'tree')
   const { app, win } = await hibernatedAgentIn(tree, 'e2e-tok-here')
   try {
-    await win.locator('.hibernated-view').getByRole('button', { name: 'Resume claude' }).click()
+    await win.getByRole('button', { name: 'Resume claude' }).click()
     const rows = win.locator('.pane-slot:not([data-hidden]) .xterm-rows')
     await expect(rows).toContainText(`--resume e2e-tok-here in ${tree}`, { timeout: 20_000 })
     await expect(win.locator('[data-resume-folder-missing]')).toHaveCount(0)
@@ -76,7 +76,7 @@ test('waking an agent whose folder was removed shows a notice and runs nothing',
   const { app, win } = await hibernatedAgentIn(tree, 'e2e-tok-gone')
   try {
     renameSync(tree, join(root, 'work', 'tree-moved'))
-    await win.locator('.hibernated-view').getByRole('button', { name: 'Resume claude' }).click()
+    await win.getByRole('button', { name: 'Resume claude' }).click()
     const notice = win.getByRole('region', { name: 'Agent folder missing' })
     await expect(notice).toBeVisible({ timeout: 20_000 })
     await expect(notice).toContainText(tree)

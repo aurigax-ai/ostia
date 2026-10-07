@@ -325,6 +325,7 @@ import {
   handoffPaneIds,
   loadRestoredScrollback,
   loadSnapshot,
+  peekRestoredScrollback,
   pendingRestoredScrollback,
   saveScrollback,
   scrollbackToSave,
@@ -2246,6 +2247,10 @@ function registerPtyIpc(): void {
   })
 
   ipcMain.handle('pty:hibernate', (_e, paneId: string): boolean => hibernatePty(String(paneId)))
+
+  ipcMain.handle('pty:stashed', (_e, paneId: string): string | null =>
+    peekRestoredScrollback(String(paneId)),
+  )
 
   ipcMain.handle('pty:restart', (e, paneId: string): boolean => {
     const entry = ptys.get(String(paneId))

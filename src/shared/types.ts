@@ -250,6 +250,7 @@ export interface PtyApi {
   attach: (paneId: string, opts: PtySpawnOptions) => Promise<PtyAttachResult>
   detach: (paneId: string) => void
   hibernate: (paneId: string) => Promise<boolean>
+  stashed: (paneId: string) => Promise<string | null>
   restart: (paneId: string) => Promise<boolean>
   reportAgentRunning: (paneId: string, running: boolean) => void
   write: (paneId: string, data: string) => void

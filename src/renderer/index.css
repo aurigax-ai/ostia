@@ -1934,6 +1934,20 @@
   background: var(--bg);
 }
 
+.hibernated-screen {
+  position: absolute;
+  inset: 0;
+  opacity: 0.55;
+}
+
+.hibernated-mark {
+  position: absolute;
+  top: 8px;
+  right: 16px;
+  background: var(--bg);
+  pointer-events: none;
+}
+
 .terminal-surface {
   position: absolute;
   inset: 0;
