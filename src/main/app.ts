@@ -844,6 +844,17 @@ function sandboxCanRead(workspaceId: string, path: string): boolean {
   }
 }
 
+function phoneFileRules(workspaceId: string): SandboxReadRules {
+  const ostiaData = [app.getPath('userData')]
+  if (!workspaceSandboxes.isEnabled(workspaceId)) return { denyRead: ostiaData, allowRead: [] }
+  try {
+    const { denyRead, allowRead } = workspaceSandboxes.config(workspaceId).filesystem
+    return { denyRead: [...denyRead, ...ostiaData], allowRead: allowRead ?? [] }
+  } catch {
+    return { denyRead: ['/'], allowRead: [] }
+  }
+}
+
 const LANGUAGE_SERVER_WATCH_DEBOUNCE_MS = 300
 const languageServerWatches = new TreeWatches({
   confine: (dir) => resolveSafe(dir, fileRoots()),
@@ -3396,6 +3407,7 @@ app.whenReady().then(() => {
     getTerminalState,
     listPanes: () => listPanes({ execCommand, getTerminalState, ptyPid, windowIds }),
     listWorkspaces: () => listWorkspaces({ execCommand, windowIds }),
+    fileReadRules: phoneFileRules,
     primaryWindowId,
     attachPhoneObserver,
     ptyResize,

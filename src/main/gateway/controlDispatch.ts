@@ -7,6 +7,8 @@ import type {
 } from '../../shared/types'
 import { resolveExternal } from '../idRegistry'
 import type { PaneEntry, WorkspaceEntry } from '../paneList'
+import type { SandboxReadRules } from '../sandbox/visibility'
+import { type WorkspaceFileOutcome, listWorkspaceFiles, readWorkspaceFile } from './workspaceFiles'
 
 export interface GatewayControlDeps {
   execCommand: (target: CommandTarget, id: string, args?: unknown) => Promise<CommandResult>
@@ -14,6 +16,7 @@ export interface GatewayControlDeps {
   getTerminalState: (paneId: string) => TerminalStateSnapshot | undefined
   listPanes: () => Promise<PaneEntry[]>
   listWorkspaces: () => Promise<WorkspaceEntry[]>
+  fileReadRules: (workspaceId: string) => SandboxReadRules
   primaryWindowId: () => string | undefined
   attachPhoneObserver: (
     rendererPaneId: string,
@@ -45,6 +48,22 @@ function needsElevation(cap: string): RpcOutcome {
 
 function invalidParams(message: string): RpcOutcome {
   return { ok: false, code: -32602, message }
+}
+
+function fileOutcome<T>(outcome: WorkspaceFileOutcome<T>, wrap: (value: T) => unknown): RpcOutcome {
+  return outcome.ok ? { ok: true, result: wrap(outcome.value) } : invalidParams(outcome.error)
+}
+
+async function workspaceFolder(
+  params: Record<string, unknown>,
+  deps: GatewayControlDeps,
+): Promise<{ workspaceId: string; workDir: string; path: string } | RpcOutcome> {
+  const { sessionId, path } = params
+  if (typeof sessionId !== 'string' || !sessionId) return invalidParams('missing sessionId')
+  if (typeof path !== 'string') return invalidParams('missing path')
+  const workspace = (await deps.listWorkspaces()).find((w) => w.workspaceId === sessionId)
+  if (!workspace) return invalidParams('unknown-session')
+  return { workspaceId: sessionId, workDir: workspace.workDir, path }
 }
 
 const PHONE_CAP_ALLOWS: Partial<Record<string, Capability[]>> = {
@@ -151,6 +170,30 @@ export async function dispatchGatewayMethod(
       const identity = resolveExternal(paneId)
       const cwd = identity ? (deps.getTerminalState(identity.paneId)?.cwd ?? null) : null
       return { ok: true, result: { cwd } }
+    }
+
+    case 'fs.list': {
+      if (!hasCap('read')) return needsElevation('read')
+      const folder = await workspaceFolder(p, deps)
+      if ('ok' in folder) return folder
+      const rules = deps.fileReadRules(folder.workspaceId)
+      return fileOutcome(
+        await listWorkspaceFiles(folder.workDir, folder.path, rules),
+        (entries) => ({
+          entries,
+        }),
+      )
+    }
+
+    case 'fs.read': {
+      if (!hasCap('read')) return needsElevation('read')
+      const folder = await workspaceFolder(p, deps)
+      if ('ok' in folder) return folder
+      const rules = deps.fileReadRules(folder.workspaceId)
+      return fileOutcome(
+        await readWorkspaceFile(folder.workDir, folder.path, p.maxBytes, rules),
+        (read) => read,
+      )
     }
 
     default:
