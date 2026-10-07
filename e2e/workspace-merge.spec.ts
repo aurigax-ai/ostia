@@ -1,6 +1,6 @@
-import { type Page, _electron as electron, expect, test } from './test'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { PROMPT, emptyWorkspace, openWorkspace } from './helpers'
+import { type Page, _electron as electron, expect, test } from './test'
 
 const shownTerminals = (win: Page) => win.locator('.pane-slot:not([data-hidden]) .xterm')
 

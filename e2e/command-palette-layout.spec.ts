@@ -1,7 +1,7 @@
-import { type Page, _electron as electron, expect, test } from './test'
 import { chords } from './chords'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { emptyState, openWorkspace } from './helpers'
+import { type Page, _electron as electron, expect, test } from './test'
 
 const OLD_LIST_HEIGHT = 288
 const OLD_DIALOG_WIDTH = 672

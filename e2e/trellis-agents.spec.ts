@@ -9,10 +9,10 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { join, resolve } from 'node:path'
-import { type ElectronApplication, _electron as electron, expect, test } from './test'
 import { PRODUCT_NAME } from '../src/shared/product'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { waitForPaletteSelection } from './helpers'
+import { type ElectronApplication, _electron as electron, expect, test } from './test'
 
 const FIXTURES = resolve(__dirname, '../test/fixtures/tools')
 const MARKETPLACE = resolve(__dirname, '../out/marketplace/extensions')

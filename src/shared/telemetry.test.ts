@@ -3,11 +3,10 @@ import { FAKE } from '../../test/fixtures/secrets/samples'
 import {
   type ReportContext,
   TELEMETRY_MESSAGE_MAX,
-  authHeader,
-  buildEnvelope,
+  buildBatch,
   buildErrorReport,
   buildUsageReport,
-  parseDsn,
+  parseIngest,
   parseTelemetrySettings,
   reduceStack,
   stripPaths,
@@ -15,17 +14,19 @@ import {
 
 const ctx: ReportContext = {
   installId: 'install-1',
-  version: '1.2.3',
-  contexts: {
-    app: { app_version: '1.2.3' },
-    os: { name: 'linux', version: '6.1' },
-    device: { arch: 'x64' },
-    runtime: { name: 'electron', version: '33.0.0' },
+  host: {
+    app_version: '1.2.3',
+    electron_version: '33.0.0',
+    os_name: 'linux',
+    os_version: '6.1',
+    arch: 'x64',
   },
   now: () => 1_700_000_000_000,
   newId: () => 'event-1',
   redact: (text) => text.replace(/ghp_[A-Za-z0-9]+/g, '[redacted]'),
 }
+
+const frame = (rest: object) => ({ platform: 'node', in_app: true, ...rest })
 
 describe('parseTelemetrySettings', () => {
   it('is off unless each switch is exactly true', () => {
@@ -38,24 +39,24 @@ describe('parseTelemetrySettings', () => {
   })
 })
 
-describe('parseDsn', () => {
-  it('turns a Sentry DSN into the envelope url and the public key', () => {
-    expect(parseDsn('https://abc123@glitchtip.example.com/4')).toEqual({
-      url: 'https://glitchtip.example.com/api/4/envelope/',
-      publicKey: 'abc123',
-    })
-    expect(parseDsn('http://k@127.0.0.1:8000/prefix/12')).toEqual({
-      url: 'http://127.0.0.1:8000/prefix/api/12/envelope/',
-      publicKey: 'k',
+describe('parseIngest', () => {
+  it('turns the ingest host and project key into the batch url', () => {
+    expect(parseIngest('https://us.i.posthog.com', 'phc_abc')).toEqual({
+      url: 'https://us.i.posthog.com/batch/',
+      apiKey: 'phc_abc',
     })
   })
 
-  it('refuses an empty, keyless, non-http or project-less DSN', () => {
-    expect(parseDsn('')).toBeNull()
-    expect(parseDsn('https://glitchtip.example.com/4')).toBeNull()
-    expect(parseDsn('ftp://k@host/4')).toBeNull()
-    expect(parseDsn('https://k@host/')).toBeNull()
-    expect(parseDsn('https://k@host/abc')).toBeNull()
+  it('reads the key from the url for a test override, and refuses the rest', () => {
+    expect(parseIngest('http://phc_e2e@127.0.0.1:8000', '')).toEqual({
+      url: 'http://127.0.0.1:8000/batch/',
+      apiKey: 'phc_e2e',
+    })
+    expect(parseIngest('', '')).toBeNull()
+    expect(parseIngest('', 'phc_abc')).toBeNull()
+    expect(parseIngest('https://us.i.posthog.com', '')).toBeNull()
+    expect(parseIngest('ftp://k@host', '')).toBeNull()
+    expect(parseIngest('https://host/?x=1', 'phc_abc')).toBeNull()
   })
 })
 
@@ -79,9 +80,9 @@ describe('reduceStack', () => {
     ].join('\n')
     const frames = reduceStack(stack)
     expect(frames).toEqual([
-      { filename: 'task_queues', lineno: 95, colno: 5 },
-      { function: 'async Object.<anonymous>', filename: 'index.js', lineno: 3, colno: 1 },
-      { function: 'runIt', filename: 'app.js', lineno: 12, colno: 5 },
+      frame({ filename: 'task_queues', lineno: 95, colno: 5 }),
+      frame({ function: 'async Object.<anonymous>', filename: 'index.js', lineno: 3, colno: 1 }),
+      frame({ function: 'runIt', filename: 'app.js', lineno: 12, colno: 5 }),
     ])
     expect(JSON.stringify(frames)).not.toContain('ann')
   })
@@ -92,7 +93,7 @@ describe('reduceStack', () => {
 })
 
 describe('buildErrorReport', () => {
-  it('holds only the allowed fields, with paths stripped and secrets redacted', () => {
+  it('is a $exception event holding only the allowed fields, paths stripped and secrets redacted', () => {
     const report = buildErrorReport(
       {
         source: 'main-exception',
@@ -103,24 +104,36 @@ describe('buildErrorReport', () => {
       ctx,
     )
     expect(Object.keys(report).sort()).toEqual([
-      'contexts',
-      'event_id',
-      'exception',
-      'level',
-      'platform',
-      'release',
-      'tags',
+      'distinct_id',
+      'event',
+      'properties',
       'timestamp',
-      'user',
+      'uuid',
     ])
-    expect(report.user).toEqual({ id: 'install-1' })
-    expect(report.exception.values[0].type).toBe('TypeError')
-    expect(report.exception.values[0].value).toBe('token [redacted] at <path>')
-    expect(report.exception.values[0].stacktrace?.frames).toEqual([
-      { function: 'f', filename: 'x.js', lineno: 1, colno: 2 },
+    expect(report.event).toBe('$exception')
+    expect(report.distinct_id).toBe('install-1')
+    expect(report.timestamp).toBe('2023-11-14T22:13:20.000Z')
+    expect(Object.keys(report.properties).sort()).toEqual([
+      '$exception_list',
+      '$process_person_profile',
+      'app_version',
+      'arch',
+      'electron_version',
+      'os_name',
+      'os_version',
+      'source',
     ])
+    expect(report.properties.$process_person_profile).toBe(false)
+    const [entry] = report.properties.$exception_list
+    expect(entry.type).toBe('TypeError')
+    expect(entry.value).toBe('token [redacted] at <path>')
+    expect(entry.stacktrace).toEqual({
+      type: 'raw',
+      frames: [frame({ function: 'f', filename: 'x.js', lineno: 1, colno: 2 })],
+    })
     expect(JSON.stringify(report)).not.toContain('ghp_')
     expect(JSON.stringify(report)).not.toContain('/home')
+    expect(JSON.stringify(report)).not.toContain('$ip')
   })
 
   it('clips the message and falls back to Error for an odd name', () => {
@@ -128,9 +141,10 @@ describe('buildErrorReport', () => {
       { source: 'renderer-error', name: 'not a name', message: 'x'.repeat(5000) },
       ctx,
     )
-    expect(report.exception.values[0].type).toBe('Error')
-    expect(report.exception.values[0].value).toHaveLength(TELEMETRY_MESSAGE_MAX)
-    expect(report.exception.values[0].stacktrace).toBeUndefined()
+    const [entry] = report.properties.$exception_list
+    expect(entry.type).toBe('Error')
+    expect(entry.value).toHaveLength(TELEMETRY_MESSAGE_MAX)
+    expect(entry.stacktrace).toBeUndefined()
   })
 
   it('names the extension only when given', () => {
@@ -138,12 +152,13 @@ describe('buildErrorReport', () => {
       { source: 'extension-crashed', name: 'ExtensionCrashed', message: 'x', extension: 'git' },
       ctx,
     )
-    expect(report.tags).toEqual({ source: 'extension-crashed', extension: 'git' })
+    expect(report.properties.source).toBe('extension-crashed')
+    expect(report.properties.extension).toBe('git')
   })
 })
 
 describe('buildUsageReport', () => {
-  it('is an info event named usage carrying counts only', () => {
+  it('is a usage event carrying counts only', () => {
     const report = buildUsageReport(
       {
         sessionMinutes: 42,
@@ -154,10 +169,12 @@ describe('buildUsageReport', () => {
       },
       ctx,
     )
-    expect(report.level).toBe('info')
-    expect(report.message).toBe('usage')
-    expect(report.tags).toEqual({ app_starts: '1', session_minutes: '42' })
-    expect(report.extra).toEqual({
+    expect(report.event).toBe('usage')
+    expect(report.properties).toEqual({
+      ...ctx.host,
+      $process_person_profile: false,
+      app_starts: 1,
+      session_minutes: 42,
       commands: { 'pane.split': 2 },
       surfaces: { terminal: 3 },
       settings: { privacy: 1 },
@@ -166,22 +183,12 @@ describe('buildUsageReport', () => {
   })
 })
 
-describe('buildEnvelope', () => {
-  it('writes one envelope header and one event item per report', () => {
+describe('buildBatch', () => {
+  it('is the capture batch body with the project key and the reports as given', () => {
     const report = buildErrorReport({ source: 'main-exception', name: 'E', message: 'm' }, ctx)
-    const lines = buildEnvelope([report, report], 1_700_000_000_000).split('\n')
-    expect(JSON.parse(lines[0])).toEqual({ sent_at: '2023-11-14T22:13:20.000Z' })
-    const item = JSON.parse(lines[1])
-    expect(item.type).toBe('event')
-    expect(item.length).toBe(Buffer.byteLength(lines[2]))
-    expect(JSON.parse(lines[2])).toEqual(report)
-    expect(JSON.parse(lines[3]).type).toBe('event')
-    expect(lines).toHaveLength(6)
-  })
-
-  it('builds the Sentry auth header without a secret key', () => {
-    expect(authHeader('pub', 'ostia/1.0.0')).toBe(
-      'Sentry sentry_version=7, sentry_key=pub, sentry_client=ostia/1.0.0',
-    )
+    expect(JSON.parse(buildBatch([report, report], 'phc_abc'))).toEqual({
+      api_key: 'phc_abc',
+      batch: [report, report],
+    })
   })
 })

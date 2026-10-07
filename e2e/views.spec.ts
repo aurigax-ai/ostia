@@ -1,8 +1,8 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { type Locator, type Page, _electron as electron, expect, test } from './test'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { openWorkspace, waitForPaletteSelection } from './helpers'
+import { type Locator, type Page, _electron as electron, expect, test } from './test'
 
 const AGENTS_VIEW = {
   version: 1,

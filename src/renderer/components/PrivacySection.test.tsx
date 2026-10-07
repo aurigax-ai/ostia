@@ -180,20 +180,20 @@ describe('PrivacySection', () => {
     vi.mocked(window.ostia.telemetry.reports).mockResolvedValue({
       queued: [
         {
-          event_id: 'e1',
-          timestamp: 1,
-          level: 'error',
-          platform: 'node',
-          release: '1.0.0',
-          user: { id: 'install-id' },
-          tags: { source: 'main-exception' },
-          contexts: {
-            app: { app_version: '1.0.0' },
-            os: { name: 'linux', version: '6' },
-            device: { arch: 'x64' },
-            runtime: { name: 'electron', version: '33' },
+          uuid: 'e1',
+          event: '$exception',
+          distinct_id: 'install-id',
+          timestamp: '2026-10-07T00:00:00.000Z',
+          properties: {
+            app_version: '1.0.0',
+            electron_version: '33',
+            os_name: 'linux',
+            os_version: '6',
+            arch: 'x64',
+            $process_person_profile: false,
+            source: 'main-exception',
+            $exception_list: [{ type: 'TypeError', value: 'boom', mechanism: { handled: true } }],
           },
-          exception: { values: [{ type: 'TypeError', value: 'boom' }] },
         },
       ],
       sent: [],

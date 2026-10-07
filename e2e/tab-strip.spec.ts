@@ -1,6 +1,6 @@
-import { _electron as electron, expect, test } from './test'
 import { isolatedLaunch } from './dataHome'
 import { openWorkspace } from './helpers'
+import { _electron as electron, expect, test } from './test'
 
 test('double-clicking the empty part of the tab strip opens a new terminal tab', async () => {
   const app = await electron.launch(isolatedLaunch())

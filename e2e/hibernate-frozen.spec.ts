@@ -1,5 +1,8 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
+import { fakeAgentBin, isolatedHome } from './fakeAgent'
+import { PROMPT, openWorkspace } from './helpers'
 import {
   type ElectronApplication,
   type Locator,
@@ -8,9 +11,6 @@ import {
   expect,
   test,
 } from './test'
-import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
-import { fakeAgentBin, isolatedHome } from './fakeAgent'
-import { PROMPT, openWorkspace } from './helpers'
 
 test.describe.configure({ timeout: 120_000 })
 

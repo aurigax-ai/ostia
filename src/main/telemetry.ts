@@ -7,14 +7,15 @@ import {
   COUNT_ID_PATTERN,
   DEFAULT_TELEMETRY_SETTINGS,
   type ErrorInput,
+  type HostProperties,
   TELEMETRY_BATCH_MAX,
   TELEMETRY_COUNTS_MAX,
-  TELEMETRY_DSN,
+  TELEMETRY_INGEST_HOST,
+  TELEMETRY_PROJECT_KEY,
   TELEMETRY_QUEUE_MAX,
   TELEMETRY_SEND_ATTEMPTS,
   TELEMETRY_SENT_MAX,
   TELEMETRY_URL_ENV,
-  type TelemetryContexts,
   type TelemetryEndpoint,
   type TelemetryReport,
   type TelemetryReports,
@@ -22,12 +23,11 @@ import {
   type TelemetryState,
   USAGE_COUNT_KINDS,
   type UsageCountKind,
-  authHeader,
-  buildEnvelope,
+  buildBatch,
   buildErrorReport,
   buildUsageReport,
   isUsageReport,
-  parseDsn,
+  parseIngest,
   parseTelemetrySettings,
 } from '../shared/telemetry'
 import { type LogFields, redactSecrets } from './appLog'
@@ -45,7 +45,9 @@ export function telemetryEndpoint(
   env: Record<string, string | undefined>,
 ): TelemetryEndpoint | null {
   const override = isPackaged ? undefined : readEnv(TELEMETRY_URL_ENV, env)
-  return parseDsn(override || TELEMETRY_DSN)
+  return override
+    ? parseIngest(override, '')
+    : parseIngest(TELEMETRY_INGEST_HOST, TELEMETRY_PROJECT_KEY)
 }
 
 export function readTelemetrySettings(settings: unknown): TelemetrySettings {
@@ -96,16 +98,14 @@ function parseStored(raw: unknown): StoredTelemetry {
             typeof (q as Queued).attempts === 'number' &&
             typeof (q as Queued).report === 'object' &&
             (q as Queued).report !== null &&
-            typeof (q as Queued).report.event_id === 'string',
+            typeof (q as Queued).report.uuid === 'string',
         )
         .slice(-TELEMETRY_QUEUE_MAX)
     : []
   const sent = Array.isArray(value.sent)
     ? value.sent.filter(
         (r): r is TelemetryReport =>
-          typeof r === 'object' &&
-          r !== null &&
-          typeof (r as TelemetryReport).event_id === 'string',
+          typeof r === 'object' && r !== null && typeof (r as TelemetryReport).uuid === 'string',
       )
     : []
   return { installId, asked: value.asked === true, queue, sent: sent.slice(-TELEMETRY_SENT_MAX) }
@@ -113,9 +113,9 @@ function parseStored(raw: unknown): StoredTelemetry {
 
 export type SendOutcome = 'sent' | 'failed'
 
-export async function sendEnvelope(opts: {
+export async function sendBatch(opts: {
   endpoint: TelemetryEndpoint
-  envelope: string
+  body: string
   client: string
   fetchFn?: typeof fetch
   timeoutMs?: number
@@ -124,12 +124,8 @@ export async function sendEnvelope(opts: {
   try {
     const response = await fetchFn(opts.endpoint.url, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-sentry-envelope',
-        'User-Agent': opts.client,
-        'X-Sentry-Auth': authHeader(opts.endpoint.publicKey, opts.client),
-      },
-      body: opts.envelope,
+      headers: { 'Content-Type': 'application/json', 'User-Agent': opts.client },
+      body: opts.body,
       redirect: 'manual',
       signal: AbortSignal.timeout(opts.timeoutMs ?? TELEMETRY_REQUEST_TIMEOUT_MS),
     })
@@ -144,7 +140,7 @@ export interface TelemetryDeps {
   file: string
   version: string
   endpoint: TelemetryEndpoint | null
-  contexts: TelemetryContexts
+  host: HostProperties
   settings: () => TelemetrySettings
   marketplaceExtensions: () => string[]
   fetchFn?: typeof fetch
@@ -194,8 +190,7 @@ export function createTelemetry(deps: TelemetryDeps): Telemetry {
 
   const context = () => ({
     installId: stored.installId,
-    version: deps.version,
-    contexts: deps.contexts,
+    host: deps.host,
     now,
     newId,
     redact: redactSecrets,
@@ -230,24 +225,24 @@ export function createTelemetry(deps: TelemetryDeps): Telemetry {
     save()
   }
 
-  const sendBatch = async (): Promise<void> => {
+  const sendQueued = async (): Promise<void> => {
     const endpoint = deps.endpoint
     if (!endpoint) return
     dropDisallowed()
     const batch = stored.queue.slice(0, TELEMETRY_BATCH_MAX)
     if (batch.length === 0) return
-    const outcome = await sendEnvelope({
+    const outcome = await sendBatch({
       endpoint,
-      envelope: buildEnvelope(
+      body: buildBatch(
         batch.map((q) => q.report),
-        now(),
+        endpoint.apiKey,
       ),
       client: telemetryClient(deps.version),
       fetchFn: deps.fetchFn,
     })
-    const batchIds = new Set(batch.map((q) => q.report.event_id))
+    const batchIds = new Set(batch.map((q) => q.report.uuid))
     if (outcome === 'sent') {
-      stored.queue = stored.queue.filter((q) => !batchIds.has(q.report.event_id))
+      stored.queue = stored.queue.filter((q) => !batchIds.has(q.report.uuid))
       stored.sent = [...stored.sent, ...batch.map((q) => q.report)].slice(-TELEMETRY_SENT_MAX)
       deps.log?.('telemetry-sent', { reports: batch.length })
       save()
@@ -255,7 +250,7 @@ export function createTelemetry(deps: TelemetryDeps): Telemetry {
       return
     }
     stored.queue = stored.queue
-      .map((q) => (batchIds.has(q.report.event_id) ? { ...q, attempts: q.attempts + 1 } : q))
+      .map((q) => (batchIds.has(q.report.uuid) ? { ...q, attempts: q.attempts + 1 } : q))
       .filter((q) => q.attempts < TELEMETRY_SEND_ATTEMPTS)
     deps.log?.('telemetry-send-failed', { reports: batch.length })
     save()
@@ -269,7 +264,7 @@ export function createTelemetry(deps: TelemetryDeps): Telemetry {
   }
 
   const flush = (): Promise<void> => {
-    sending ??= sendBatch().finally(() => {
+    sending ??= sendQueued().finally(() => {
       sending = null
     })
     return sending
@@ -347,12 +342,13 @@ export function createTelemetry(deps: TelemetryDeps): Telemetry {
   }
 }
 
-export function hostContexts(version: string): TelemetryContexts {
+export function hostProperties(version: string): HostProperties {
   return {
-    app: { app_version: version },
-    os: { name: platform(), version: release() },
-    device: { arch: arch() },
-    runtime: { name: 'electron', version: process.versions.electron ?? '' },
+    app_version: version,
+    electron_version: process.versions.electron ?? '',
+    os_name: platform(),
+    os_version: release(),
+    arch: arch(),
   }
 }
 
@@ -367,7 +363,7 @@ export function registerTelemetry(deps: {
     file: deps.file,
     version: deps.version,
     endpoint: telemetryEndpoint(app.isPackaged, process.env),
-    contexts: hostContexts(deps.version),
+    host: hostProperties(deps.version),
     settings: () => readTelemetrySettings(deps.readSettings()),
     marketplaceExtensions: deps.marketplaceExtensions,
     log: deps.log,

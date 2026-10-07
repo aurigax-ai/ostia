@@ -1,9 +1,9 @@
 import { execFileSync } from 'node:child_process'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { type ElectronApplication, _electron as electron, expect, test } from './test'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { openWorkspace, waitForPaletteSelection } from './helpers'
+import { type ElectronApplication, _electron as electron, expect, test } from './test'
 
 function makeRepo(home: string): void {
   let clock = Math.floor(Date.now() / 1000) - 3600

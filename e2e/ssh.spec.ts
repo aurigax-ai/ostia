@@ -1,8 +1,8 @@
 import { mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
-import { type ElectronApplication, _electron as electron, expect, test } from './test'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { openWorkspace } from './helpers'
+import { type ElectronApplication, _electron as electron, expect, test } from './test'
 
 const FAKE_SSH_BIN = resolve(__dirname, '../test/fixtures/ssh/bin')
 const SSH_CAPTURES = resolve(__dirname, '../test/fixtures/ssh')

@@ -1,6 +1,6 @@
-import { _electron as electron, expect, test } from './test'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { emptyState, openWorkspace } from './helpers'
+import { _electron as electron, expect, test } from './test'
 
 test('bulk output reaches the screen in full, acknowledged by the renderer, and the shell stays responsive', async () => {
   const dataHome = freshDataHome()

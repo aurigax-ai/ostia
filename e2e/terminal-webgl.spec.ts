@@ -1,7 +1,7 @@
-import { _electron as electron, expect, test } from './test'
 import { SOFTWARE_WEBGL, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { emptyState, emptyWorkspace } from './helpers'
 import { redRowGaps } from './pixels'
+import { _electron as electron, expect, test } from './test'
 
 test('the GPU renderer draws stacked block characters without gaps between rows', async () => {
   const dataHome = freshDataHome()

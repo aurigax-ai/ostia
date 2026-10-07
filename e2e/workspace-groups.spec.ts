@@ -1,12 +1,6 @@
-import {
-  type ElectronApplication,
-  type Page,
-  _electron as electron,
-  expect,
-  test,
-} from './test'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { emptyWorkspace, openWorkspace } from './helpers'
+import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
 
 interface Launched {
   app: ElectronApplication

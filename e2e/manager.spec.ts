@@ -1,9 +1,9 @@
 import { type ChildProcess, spawn } from 'node:child_process'
 import { mkdirSync } from 'node:fs'
 import { join, resolve } from 'node:path'
-import { type Page, _electron as electron, expect, test } from './test'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { openWorkspace } from './helpers'
+import { type Page, _electron as electron, expect, test } from './test'
 
 const CLI = resolve('out/cli/index.js')
 const FAKE_AGENT_BIN = resolve('test/fixtures/manager/bin')

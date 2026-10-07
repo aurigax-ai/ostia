@@ -1,5 +1,9 @@
 import { cpSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
+import { PRODUCT_NAME } from '../src/shared/product'
+import { installFakeLanguageExtension } from '../test/fixtures/lsp/installFakeExtension'
+import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
+import { PROMPT, openWorkspace } from './helpers'
 import {
   type ElectronApplication,
   type Locator,
@@ -8,10 +12,6 @@ import {
   expect,
   test,
 } from './test'
-import { PRODUCT_NAME } from '../src/shared/product'
-import { installFakeLanguageExtension } from '../test/fixtures/lsp/installFakeExtension'
-import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
-import { PROMPT, openWorkspace } from './helpers'
 
 const MARKETPLACE = resolve(__dirname, '../out/marketplace/extensions')
 

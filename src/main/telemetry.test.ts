@@ -7,10 +7,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { FAKE } from '../../test/fixtures/secrets/samples'
 import { envName } from '../shared/appEnv'
 import {
+  type HostProperties,
   TELEMETRY_QUEUE_MAX,
   TELEMETRY_SEND_ATTEMPTS,
   TELEMETRY_URL_ENV,
-  type TelemetryContexts,
   type TelemetrySettings,
 } from '../shared/telemetry'
 
@@ -29,14 +29,15 @@ vi.mock('electron', () => ({
 const { createTelemetry, readTelemetrySettings, registerTelemetry, telemetryEndpoint } =
   await import('./telemetry')
 
-const contexts: TelemetryContexts = {
-  app: { app_version: '1.0.0' },
-  os: { name: 'linux', version: '6' },
-  device: { arch: 'x64' },
-  runtime: { name: 'electron', version: '33' },
+const host: HostProperties = {
+  app_version: '1.0.0',
+  electron_version: '33',
+  os_name: 'linux',
+  os_version: '6',
+  arch: 'x64',
 }
 
-const endpoint = { url: 'https://glitchtip.example/api/1/envelope/', publicKey: 'k' }
+const endpoint = { url: 'https://us.i.posthog.com/batch/', apiKey: 'phc_test' }
 
 interface Harness {
   file: string
@@ -80,7 +81,7 @@ function create(h: Harness, extra: Partial<Parameters<typeof createTelemetry>[0]
     file: h.file,
     version: '1.0.0',
     endpoint,
-    contexts,
+    host,
     settings: () => h.settings,
     marketplaceExtensions: () => ['trellis'],
     fetchFn: h.fetchFn,
@@ -92,23 +93,38 @@ function create(h: Harness, extra: Partial<Parameters<typeof createTelemetry>[0]
 
 const boom = () => ({ source: 'main-exception' as const, name: 'Error', message: 'boom' })
 
-const envelopeEvents = (body: string) =>
-  body
-    .split('\n')
-    .filter((line, i) => i > 0 && i % 2 === 0 && line)
-    .map((line) => JSON.parse(line))
+interface SentEvent {
+  event: string
+  distinct_id: string
+  properties: {
+    $process_person_profile?: boolean
+    $ip?: unknown
+    $exception_list?: Array<{ value: string }>
+    app_version?: string
+    app_starts?: number
+    session_minutes?: number
+    commands?: unknown
+    surfaces?: unknown
+    settings?: unknown
+    marketplace_extensions?: unknown
+  }
+}
+
+const batchEvents = (body: string): SentEvent[] => JSON.parse(body).batch
 
 describe('telemetryEndpoint', () => {
-  it('honours the url override only when unpackaged, else the built-in DSN', () => {
-    const env = { [envName(TELEMETRY_URL_ENV)]: 'http://k@127.0.0.1:1/7' }
+  it('honours the url override only when unpackaged, else the shipped key and host', () => {
+    const env = { [envName(TELEMETRY_URL_ENV)]: 'http://phc_e2e@127.0.0.1:1' }
     expect(telemetryEndpoint(false, env)).toEqual({
-      url: 'http://127.0.0.1:1/api/7/envelope/',
-      publicKey: 'k',
+      url: 'http://127.0.0.1:1/batch/',
+      apiKey: 'phc_e2e',
     })
-    const shipped = { url: 'https://telemetry.apogex.dev/api/1/envelope/', publicKey: 'k' }
-    expect(telemetryEndpoint(true, env)?.url).toBe(shipped.url)
-    expect(telemetryEndpoint(false, {})?.url).toBe(shipped.url)
-    expect(telemetryEndpoint(true, env)?.publicKey).toMatch(/^[0-9a-f]{32}$/)
+    const shipped = {
+      url: 'https://us.i.posthog.com/batch/',
+      apiKey: expect.stringMatching(/^phc_/),
+    }
+    expect(telemetryEndpoint(true, env)).toEqual(shipped)
+    expect(telemetryEndpoint(false, {})).toEqual(shipped)
   })
 })
 
@@ -135,7 +151,7 @@ describe('createTelemetry', () => {
     expect(t.reports()).toEqual({ queued: [], sent: [] })
   })
 
-  it('queues an error report and sends it as one Sentry envelope with the auth header', async () => {
+  it('queues an error report and sends it as one capture batch with the project key', async () => {
     const h = harness({ errors: true })
     const t = create(h)
     t.error({
@@ -147,19 +163,18 @@ describe('createTelemetry', () => {
     await t.flush()
     expect(h.sent).toHaveLength(1)
     expect(h.sent[0].url).toBe(endpoint.url)
-    expect(h.sent[0].headers['X-Sentry-Auth']).toBe(
-      'Sentry sentry_version=7, sentry_key=k, sentry_client=ostia/1.0.0',
-    )
-    expect(h.sent[0].headers['Content-Type']).toBe('application/x-sentry-envelope')
+    expect(h.sent[0].headers['Content-Type']).toBe('application/json')
+    expect(h.sent[0].headers['User-Agent']).toBe('ostia/1.0.0')
     expect(h.sent[0].body).not.toContain('ghp_')
     expect(h.sent[0].body).not.toContain('/home/ann')
-    const [event] = envelopeEvents(h.sent[0].body)
-    expect(event.user).toEqual({ id: t.state().installId })
-    expect(event.user.ip_address).toBeUndefined()
-    expect(event.breadcrumbs).toBeUndefined()
-    expect(event.request).toBeUndefined()
-    expect(event.environment).toBeUndefined()
-    expect(event.contexts).toEqual(contexts)
+    expect(JSON.parse(h.sent[0].body).api_key).toBe('phc_test')
+    const [event] = batchEvents(h.sent[0].body)
+    expect(event.event).toBe('$exception')
+    expect(event.distinct_id).toBe(t.state().installId)
+    expect(event.properties.$process_person_profile).toBe(false)
+    expect(event.properties.$ip).toBeUndefined()
+    expect(event.properties.$exception_list?.[0].value).toBe('token [redacted] in <path>')
+    expect(event.properties.app_version).toBe('1.0.0')
     expect(t.reports().queued).toEqual([])
     expect(t.reports().sent).toEqual([event])
   })
@@ -199,10 +214,10 @@ describe('createTelemetry', () => {
     const live = create(h, { endpoint: null, usageIntervalMs: 60_000 })
     live.count('surface', 'terminal')
     vi.advanceTimersByTime(60_000)
-    expect(live.reports().queued.map((r) => r.level)).toEqual(['error', 'info'])
+    expect(live.reports().queued.map((r) => r.event)).toEqual(['$exception', 'usage'])
     h.settings = { errors: false, usage: true }
     live.settingsChanged()
-    expect(live.reports().queued.map((r) => r.level)).toEqual(['info'])
+    expect(live.reports().queued.map((r) => r.event)).toEqual(['usage'])
     h.settings = { errors: false, usage: false }
     live.settingsChanged()
     expect(live.reports().queued).toEqual([])
@@ -221,17 +236,15 @@ describe('createTelemetry', () => {
     now += 31 * 60_000
     await t.shutdown()
     expect(h.sent).toHaveLength(1)
-    const [event] = envelopeEvents(h.sent[0].body)
-    expect(event.level).toBe('info')
-    expect(event.message).toBe('usage')
-    expect(event.tags).toEqual({ app_starts: '1', session_minutes: '31' })
-    expect(event.extra).toEqual({
-      commands: { 'pane.split': 2 },
-      surfaces: { browser: 1 },
-      settings: { privacy: 1 },
-      marketplace_extensions: ['trellis'],
-    })
-    expect(event.exception).toBeUndefined()
+    const [event] = batchEvents(h.sent[0].body)
+    expect(event.event).toBe('usage')
+    expect(event.properties.app_starts).toBe(1)
+    expect(event.properties.session_minutes).toBe(31)
+    expect(event.properties.commands).toEqual({ 'pane.split': 2 })
+    expect(event.properties.surfaces).toEqual({ browser: 1 })
+    expect(event.properties.settings).toEqual({ privacy: 1 })
+    expect(event.properties.marketplace_extensions).toEqual(['trellis'])
+    expect(event.properties.$exception_list).toBeUndefined()
   })
 
   it('reset gives a new install id and forgets every report', async () => {
@@ -251,7 +264,7 @@ describe('createTelemetry', () => {
     const t = create(h)
     t.error(boom())
     const file = JSON.parse(readFileSync(h.file, 'utf8'))
-    file.queue.push({ report: null, attempts: 0 }, { report: { level: 'error' }, attempts: 0 })
+    file.queue.push({ report: null, attempts: 0 }, { report: { event: '$exception' }, attempts: 0 })
     file.sent = [null]
     writeFileSync(h.file, JSON.stringify(file))
     const again = create(h)
@@ -287,10 +300,10 @@ describe('createTelemetry', () => {
   })
 })
 
-describe('sendEnvelope over http', () => {
+describe('sendBatch over http', () => {
   let server: Server
   let url: string
-  const received: Array<{ auth: string | undefined; body: string }> = []
+  const received: Array<{ path: string | undefined; body: string }> = []
 
   beforeEach(async () => {
     server = createServer((req, res) => {
@@ -299,12 +312,12 @@ describe('sendEnvelope over http', () => {
         body += chunk
       })
       req.on('end', () => {
-        received.push({ auth: req.headers['x-sentry-auth'] as string | undefined, body })
+        received.push({ path: req.url, body })
         res.writeHead(200).end('{}')
       })
     })
     await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
-    url = `http://k@127.0.0.1:${(server.address() as AddressInfo).port}/3`
+    url = `http://phc_e2e@127.0.0.1:${(server.address() as AddressInfo).port}`
   })
 
   afterEach(async () => {
@@ -312,7 +325,7 @@ describe('sendEnvelope over http', () => {
     await new Promise<void>((resolve) => server.close(() => resolve()))
   })
 
-  it('posts the envelope to the DSN project endpoint', async () => {
+  it('posts the batch to the ingest host', async () => {
     const h = harness({ errors: true })
     const t = create(h, {
       endpoint: telemetryEndpoint(false, { [envName(TELEMETRY_URL_ENV)]: url }),
@@ -321,8 +334,9 @@ describe('sendEnvelope over http', () => {
     t.error(boom())
     await t.flush()
     expect(received).toHaveLength(1)
-    expect(received[0].auth).toContain('sentry_key=k')
-    expect(envelopeEvents(received[0].body)[0].exception.values[0].value).toBe('boom')
+    expect(received[0].path).toBe('/batch/')
+    expect(JSON.parse(received[0].body).api_key).toBe('phc_e2e')
+    expect(batchEvents(received[0].body)[0].properties.$exception_list?.[0].value).toBe('boom')
   })
 })
 

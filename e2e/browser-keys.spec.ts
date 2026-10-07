@@ -1,15 +1,9 @@
 import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
-import {
-  type ElectronApplication,
-  type Page,
-  _electron as electron,
-  expect,
-  test,
-} from './test'
 import { isMac } from './chords'
 import { isolatedLaunch } from './dataHome'
 import { openWorkspace } from './helpers'
+import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
 
 interface GuestKey {
   keyCode: string

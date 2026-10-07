@@ -1,7 +1,7 @@
-import { _electron as electron, expect, test } from './test'
 import { chords } from './chords'
 import { isolatedLaunch } from './dataHome'
 import { openWorkspace, waitForPaletteSelection } from './helpers'
+import { _electron as electron, expect, test } from './test'
 
 async function launch() {
   const app = await electron.launch(isolatedLaunch())

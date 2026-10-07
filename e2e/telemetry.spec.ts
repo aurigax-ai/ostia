@@ -1,49 +1,33 @@
 import { type Server, createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
-import {
-  type ElectronApplication,
-  type Page,
-  _electron as electron,
-  expect,
-  test,
-} from './test'
 import { freshDataHome, isolatedLaunch, seedTelemetryAnswered } from './dataHome'
 import { emptyState } from './helpers'
+import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
 
-interface FakeGlitchTip {
+interface FakePostHog {
   dsn: string
-  envelopes: Array<{ path: string | undefined; auth: string | undefined; events: unknown[] }>
+  batches: Array<{ path: string | undefined; apiKey: string | undefined; events: unknown[] }>
   close: () => Promise<void>
 }
 
-function eventsOf(body: string): unknown[] {
-  return body
-    .split('\n')
-    .filter((line, i) => i > 0 && i % 2 === 0 && line)
-    .map((line) => JSON.parse(line))
-}
-
-async function startFakeGlitchTip(): Promise<FakeGlitchTip> {
-  const envelopes: FakeGlitchTip['envelopes'] = []
+async function startFakePostHog(): Promise<FakePostHog> {
+  const batches: FakePostHog['batches'] = []
   const server: Server = createServer((req, res) => {
     let body = ''
     req.on('data', (chunk) => {
       body += chunk
     })
     req.on('end', () => {
-      envelopes.push({
-        path: req.url,
-        auth: req.headers['x-sentry-auth'] as string | undefined,
-        events: eventsOf(body),
-      })
+      const parsed = JSON.parse(body) as { api_key?: string; batch?: unknown[] }
+      batches.push({ path: req.url, apiKey: parsed.api_key, events: parsed.batch ?? [] })
       res.writeHead(200, { 'content-type': 'application/json' })
       res.end('{}')
     })
   })
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
   return {
-    dsn: `http://e2e@127.0.0.1:${(server.address() as AddressInfo).port}/5`,
-    envelopes,
+    dsn: `http://phc_e2e@127.0.0.1:${(server.address() as AddressInfo).port}`,
+    batches,
     close: () =>
       new Promise<void>((resolve) => {
         server.closeAllConnections()
@@ -53,13 +37,13 @@ async function startFakeGlitchTip(): Promise<FakeGlitchTip> {
 }
 
 async function launch(
-  glitchtip: FakeGlitchTip,
+  posthog: FakePostHog,
   dataHome: string,
 ): Promise<{ app: ElectronApplication; win: Page }> {
   const launchOptions = isolatedLaunch(dataHome)
   const app = await electron.launch({
     ...launchOptions,
-    env: { ...launchOptions.env, OSTIA_TELEMETRY_URL: glitchtip.dsn },
+    env: { ...launchOptions.env, OSTIA_TELEMETRY_URL: posthog.dsn },
   })
   const win = await app.firstWindow()
   await win.waitForLoadState('domcontentloaded')
@@ -87,10 +71,10 @@ async function openPrivacy(win: Page) {
 
 test('nothing is sent before consent, error reports go out after Share, and stop after opting out', async () => {
   test.setTimeout(120_000)
-  const glitchtip = await startFakeGlitchTip()
+  const posthog = await startFakePostHog()
   const dataHome = freshDataHome()
   seedTelemetryAnswered(dataHome, false)
-  const { app, win } = await launch(glitchtip, dataHome)
+  const { app, win } = await launch(posthog, dataHome)
   try {
     const consent = win.getByTestId('telemetry-consent-dialog')
     await expect(consent).toBeVisible()
@@ -98,22 +82,27 @@ test('nothing is sent before consent, error reports go out after Share, and stop
     await crashRenderer(app, win)
     await expect(win.getByTestId('telemetry-consent-dialog')).toBeVisible()
     await win.waitForTimeout(6_000)
-    expect(glitchtip.envelopes).toEqual([])
+    expect(posthog.batches).toEqual([])
 
-    await win.getByTestId('telemetry-consent-dialog').getByRole('button', { name: 'Share', exact: true }).click()
+    await win
+      .getByTestId('telemetry-consent-dialog')
+      .getByRole('button', { name: 'Share', exact: true })
+      .click()
     await expect(win.getByTestId('telemetry-consent-dialog')).toHaveCount(0)
     await crashRenderer(app, win)
-    await expect.poll(() => glitchtip.envelopes.length, { timeout: 20_000 }).toBe(1)
-    expect(glitchtip.envelopes[0].path).toBe('/api/5/envelope/')
-    expect(glitchtip.envelopes[0].auth).toContain('sentry_key=e2e')
-    const events = glitchtip.envelopes[0].events as Array<Record<string, unknown>>
-    const report = events.find((e) => e.level === 'error') as Record<string, unknown>
-    expect(report.tags).toEqual({ source: 'render-error' })
-    const exception = (report.exception as { values: Array<Record<string, unknown>> }).values[0]
+    await expect.poll(() => posthog.batches.length, { timeout: 20_000 }).toBe(1)
+    expect(posthog.batches[0].path).toBe('/batch/')
+    expect(posthog.batches[0].apiKey).toBe('phc_e2e')
+    const events = posthog.batches[0].events as Array<Record<string, unknown>>
+    const report = events.find((e) => e.event === '$exception') as Record<string, unknown>
+    const properties = report.properties as Record<string, unknown>
+    expect(properties.source).toBe('render-error')
+    expect(properties.$process_person_profile).toBe(false)
+    const [exception] = properties.$exception_list as Array<Record<string, unknown>>
     expect(exception.value).toContain('test crash requested by the E2E hook')
     expect(JSON.stringify(report)).not.toContain(dataHome)
     expect(JSON.stringify(report)).not.toContain('/home/')
-    expect(report.user).toEqual({ id: expect.stringMatching(/^[0-9a-f-]{36}$/) })
+    expect(report.distinct_id).toMatch(/^[0-9a-f-]{36}$/)
 
     const settings = await openPrivacy(win)
     await expect(settings.getByRole('switch', { name: 'Error reports' })).toBeChecked()
@@ -122,19 +111,19 @@ test('nothing is sent before consent, error reports go out after Share, and stop
     await win.keyboard.press('Escape')
     await crashRenderer(app, win)
     await win.waitForTimeout(6_000)
-    expect(glitchtip.envelopes).toHaveLength(1)
+    expect(posthog.batches).toHaveLength(1)
   } finally {
     await app.close()
-    await glitchtip.close()
+    await posthog.close()
   }
 })
 
 test('usage data is sent once at quit as counts only, and the reports dialog shows it first', async () => {
   test.setTimeout(120_000)
-  const glitchtip = await startFakeGlitchTip()
+  const posthog = await startFakePostHog()
   const dataHome = freshDataHome()
   seedTelemetryAnswered(dataHome, false)
-  const { app, win } = await launch(glitchtip, dataHome)
+  const { app, win } = await launch(posthog, dataHome)
   try {
     const consent = win.getByTestId('telemetry-consent-dialog')
     await consent.getByRole('checkbox', { name: /Error reports/ }).click()
@@ -155,16 +144,15 @@ test('usage data is sent once at quit as counts only, and the reports dialog sho
     await app.close()
   }
   try {
-    await expect.poll(() => glitchtip.envelopes.length, { timeout: 10_000 }).toBe(1)
-    const events = glitchtip.envelopes[0].events as Array<Record<string, unknown>>
+    await expect.poll(() => posthog.batches.length, { timeout: 10_000 }).toBe(1)
+    const events = posthog.batches[0].events as Array<Record<string, unknown>>
     expect(events).toHaveLength(1)
-    expect(events[0].level).toBe('info')
-    expect(events[0].message).toBe('usage')
-    const extra = events[0].extra as Record<string, Record<string, number>>
-    expect(extra.settings).toEqual({ appearance: 1, privacy: 1 })
-    expect(extra.surfaces).toEqual({})
+    expect(events[0].event).toBe('usage')
+    const properties = events[0].properties as Record<string, Record<string, number>>
+    expect(properties.settings).toEqual({ appearance: 1, privacy: 1 })
+    expect(properties.surfaces).toEqual({})
     expect(JSON.stringify(events[0])).not.toContain(dataHome)
   } finally {
-    await glitchtip.close()
+    await posthog.close()
   }
 })

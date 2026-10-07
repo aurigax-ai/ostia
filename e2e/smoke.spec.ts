@@ -1,6 +1,6 @@
-import { _electron as electron, expect, test } from './test'
 import { isolatedLaunch } from './dataHome'
 import { emptyState, openWorkspace } from './helpers'
+import { _electron as electron, expect, test } from './test'
 
 test('boots and renders the main window', async () => {
   const app = await electron.launch(isolatedLaunch())

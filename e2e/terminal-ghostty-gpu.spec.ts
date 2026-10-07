@@ -1,7 +1,7 @@
-import { type Page, _electron as electron, expect, test } from './test'
 import { SOFTWARE_WEBGL, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { emptyState, emptyWorkspace } from './helpers'
 import { redRowGaps } from './pixels'
+import { type Page, _electron as electron, expect, test } from './test'
 
 const GHOSTTY_GPU = {
   behavior: { gpuAcceleration: true },

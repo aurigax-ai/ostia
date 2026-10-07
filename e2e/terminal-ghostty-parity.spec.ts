@@ -1,10 +1,10 @@
 import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
-import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
 import { chords } from './chords'
 import { SOFTWARE_WEBGL, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { emptyState, emptyWorkspace } from './helpers'
 import { redRowGaps } from './pixels'
+import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
 
 const GHOSTTY = {
   behavior: { gpuAcceleration: false },
@@ -40,8 +40,7 @@ async function run(win: Page, command: string): Promise<void> {
   await win.keyboard.press('Enter')
 }
 
-const clipboard = (app: ElectronApplication) =>
-  app.evaluate(({ clipboard: c }) => c.readText())
+const clipboard = (app: ElectronApplication) => app.evaluate(({ clipboard: c }) => c.readText())
 
 test('Ghostty blocks: each command gets a block whose output can be copied', async () => {
   test.setTimeout(60_000)
@@ -190,7 +189,12 @@ test('Ghostty theme: an open terminal takes a new color scheme', async () => {
     await expect(win.locator('html')).toHaveAttribute('data-theme', 'ostia-light')
     await expect.poll(() => screenBackground(win)).not.toBe(dark)
     const light = (await screenBackground(win)).split(',').map(Number)
-    expect(light.reduce((a, b) => a + b, 0)).toBeGreaterThan(dark.split(',').map(Number).reduce((a, b) => a + b, 0))
+    expect(light.reduce((a, b) => a + b, 0)).toBeGreaterThan(
+      dark
+        .split(',')
+        .map(Number)
+        .reduce((a, b) => a + b, 0),
+    )
   } finally {
     await app.close()
   }
@@ -198,10 +202,9 @@ test('Ghostty theme: an open terminal takes a new color scheme', async () => {
 
 test('Ghostty on the GPU keeps drawing glyphs from before its atlas grew', async () => {
   test.setTimeout(90_000)
-  const { app, win } = await launchGhostty(
-    { behavior: { gpuAcceleration: true } },
-    [SOFTWARE_WEBGL],
-  )
+  const { app, win } = await launchGhostty({ behavior: { gpuAcceleration: true } }, [
+    SOFTWARE_WEBGL,
+  ])
   try {
     await expect(win.locator('.ghostty-host canvas')).toHaveCount(2)
     const redBlocks = "clear; printf '\\033[38;2;255;0;0m%s\\n%s\\n%s\\033[0m\\n' ███ ███ ███"

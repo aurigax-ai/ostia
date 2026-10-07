@@ -1,9 +1,9 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { _electron as electron, expect, test } from './test'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { openWorkspace } from './helpers'
 import { textPdf } from './pdfFixture'
+import { _electron as electron, expect, test } from './test'
 
 test('PDF text is found from the Files panel and with find in the PDF viewer', async () => {
   test.setTimeout(90_000)

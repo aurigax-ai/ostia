@@ -1,7 +1,7 @@
-import { type Page, _electron as electron, expect, test } from './test'
 import { chords, isMac } from './chords'
 import { isolatedLaunch } from './dataHome'
 import { openWorkspace } from './helpers'
+import { type Page, _electron as electron, expect, test } from './test'
 
 const shownTerminalFocused = (win: Page) =>
   win.waitForFunction(() => {

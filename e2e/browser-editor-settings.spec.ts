@@ -2,9 +2,9 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { join } from 'node:path'
-import { type Page, _electron as electron, expect, test } from './test'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { openWorkspace } from './helpers'
+import { type Page, _electron as electron, expect, test } from './test'
 
 async function listen(
   onRequest: (url: string) => void,
@@ -138,7 +138,10 @@ test('a hyperlink in a mouse-reporting program shows its hint and opens only in 
     )
     await win.keyboard.press('Enter')
 
-    const row = win.locator('.xterm-rows').first().locator('div', { hasText: /^docs\s+page\s*$/ })
+    const row = win
+      .locator('.xterm-rows')
+      .first()
+      .locator('div', { hasText: /^docs\s+page\s*$/ })
     await expect(row).toHaveCount(1, { timeout: 15_000 })
     const target = await row.evaluate((el) => {
       const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT)

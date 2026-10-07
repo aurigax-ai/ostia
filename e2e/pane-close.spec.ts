@@ -1,7 +1,7 @@
-import { type Page, _electron as electron, expect, test } from './test'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { fakeAgentBin, isolatedHome } from './fakeAgent'
 import { PROMPT, openWorkspace } from './helpers'
+import { type Page, _electron as electron, expect, test } from './test'
 
 async function typeLine(win: Page, line: string): Promise<void> {
   await win.keyboard.type(line)

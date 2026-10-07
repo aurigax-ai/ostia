@@ -1,5 +1,7 @@
 import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { freshDataHome, isolatedLaunch, testHome } from './dataHome'
+import { PROMPT, openWorkspace } from './helpers'
 import {
   type ElectronApplication,
   type Locator,
@@ -8,8 +10,6 @@ import {
   expect,
   test,
 } from './test'
-import { freshDataHome, isolatedLaunch, testHome } from './dataHome'
-import { PROMPT, openWorkspace } from './helpers'
 
 interface Launched {
   app: ElectronApplication

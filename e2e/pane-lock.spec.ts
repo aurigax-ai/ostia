@@ -1,6 +1,6 @@
-import { type Page, _electron as electron, expect, test } from './test'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { PROMPT, openWorkspace } from './helpers'
+import { type Page, _electron as electron, expect, test } from './test'
 
 async function run(win: Page, line: string): Promise<void> {
   await win.locator('.xterm').first().click()

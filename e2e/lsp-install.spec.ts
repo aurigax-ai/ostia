@@ -5,6 +5,10 @@ import { type IncomingHttpHeaders, type Server, createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { join, resolve } from 'node:path'
 import { gzipSync } from 'node:zlib'
+import { MARKETPLACE_MANIFEST_FILE } from '../src/shared/marketplace'
+import { PRODUCT_NAME } from '../src/shared/product'
+import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
+import { openWorkspace } from './helpers'
 import {
   type ElectronApplication,
   type Locator,
@@ -13,10 +17,6 @@ import {
   expect,
   test,
 } from './test'
-import { MARKETPLACE_MANIFEST_FILE } from '../src/shared/marketplace'
-import { PRODUCT_NAME } from '../src/shared/product'
-import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
-import { openWorkspace } from './helpers'
 
 const FAKE_SERVER = resolve(__dirname, '../test/fixtures/lsp/fake-server.mjs')
 const ASSET_PATH = '/ostia-test/fake-native/releases/download/1.0.0/fake-native.gz'

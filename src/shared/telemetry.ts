@@ -1,4 +1,5 @@
-export const TELEMETRY_DSN = 'https://15d38e4c8e9e458eb7fe8297e5736093@telemetry.apogex.dev/1'
+export const TELEMETRY_PROJECT_KEY = 'phc_riRHRct7KAaS6yjgZu4Hxzp2bJD7vsKXdHNjoHTqZjRD'
+export const TELEMETRY_INGEST_HOST = 'https://us.i.posthog.com'
 
 export const TELEMETRY_URL_ENV = 'TELEMETRY_URL'
 export const TELEMETRY_MESSAGE_MAX = 1000
@@ -39,53 +40,68 @@ export function parseTelemetrySettings(raw: unknown): TelemetrySettings {
 
 export interface TelemetryEndpoint {
   url: string
-  publicKey: string
+  apiKey: string
 }
 
-export function parseDsn(dsn: string): TelemetryEndpoint | null {
+export function parseIngest(host: string, apiKey: string): TelemetryEndpoint | null {
   let url: URL
   try {
-    url = new URL(dsn)
+    url = new URL(host)
   } catch {
     return null
   }
   if (url.protocol !== 'https:' && url.protocol !== 'http:') return null
-  const projectId = url.pathname.replace(/\/+$/, '').split('/').pop() ?? ''
-  if (!/^\d+$/.test(projectId) || url.username === '') return null
-  const base = `${url.protocol}//${url.host}${url.pathname.slice(0, url.pathname.lastIndexOf(`/${projectId}`))}`
-  return { url: `${base}/api/${projectId}/envelope/`, publicKey: url.username }
+  const key = apiKey || url.username
+  if (key === '' || url.search !== '' || url.hash !== '') return null
+  return { url: `${url.protocol}//${url.host}/batch/`, apiKey: key }
 }
 
 export interface StackFrame {
+  platform: 'node'
+  in_app: true
   filename?: string
   function?: string
   lineno?: number
   colno?: number
 }
 
-export interface ErrorReport {
-  event_id: string
-  timestamp: number
-  level: 'error'
-  platform: 'node'
-  release: string
-  user: { id: string }
-  tags: { source: ErrorSource; extension?: string }
-  contexts: TelemetryContexts
-  exception: { values: [{ type: string; value: string; stacktrace?: { frames: StackFrame[] } }] }
+export interface HostProperties {
+  app_version: string
+  electron_version: string
+  os_name: string
+  os_version: string
+  arch: string
 }
 
-export interface UsageReport {
-  event_id: string
-  timestamp: number
-  level: 'info'
-  platform: 'node'
-  release: string
-  message: 'usage'
-  user: { id: string }
-  tags: { app_starts: '1'; session_minutes: string }
-  contexts: TelemetryContexts
-  extra: {
+export interface ExceptionEntry {
+  type: string
+  value: string
+  mechanism: { handled: boolean }
+  stacktrace?: { type: 'raw'; frames: StackFrame[] }
+}
+
+interface ReportBase {
+  uuid: string
+  distinct_id: string
+  timestamp: string
+}
+
+export interface ErrorReport extends ReportBase {
+  event: '$exception'
+  properties: HostProperties & {
+    $process_person_profile: false
+    $exception_list: [ExceptionEntry]
+    source: ErrorSource
+    extension?: string
+  }
+}
+
+export interface UsageReport extends ReportBase {
+  event: 'usage'
+  properties: HostProperties & {
+    $process_person_profile: false
+    app_starts: 1
+    session_minutes: number
     commands: Record<string, number>
     surfaces: Record<string, number>
     settings: Record<string, number>
@@ -94,13 +110,6 @@ export interface UsageReport {
 }
 
 export type TelemetryReport = ErrorReport | UsageReport
-
-export interface TelemetryContexts {
-  app: { app_version: string }
-  os: { name: string; version: string }
-  device: { arch: string }
-  runtime: { name: 'electron'; version: string }
-}
 
 const PATH_PATTERN =
   /(?:[A-Za-z]:\\|\\\\|~[\\/]|(?<![A-Za-z0-9_:.])\/)[^\s'"`<>()[\]{},;:]*(?:[\\/][^\s'"`<>()[\]{},;:]*)*/g
@@ -148,13 +157,13 @@ export function reduceStack(
     const match = FRAME_PATTERN.exec(line)
     if (!match) continue
     const [, fn, location, lineno, colno] = match
-    const frame: StackFrame = {}
+    const frame: StackFrame = { platform: 'node', in_app: true }
     if (fn && /^[A-Za-z0-9_$.<>\[\] ]+$/.test(fn)) frame.function = fn
     const file = baseName(location)
     if (file && /^[A-Za-z0-9_.-]+$/.test(file)) frame.filename = file
     if (lineno) frame.lineno = Number(lineno)
     if (colno) frame.colno = Number(colno)
-    if (Object.keys(frame).length > 0) frames.push(frame)
+    if (Object.keys(frame).length > 2) frames.push(frame)
   }
   return frames.slice(0, max).reverse()
 }
@@ -173,8 +182,7 @@ export interface ErrorInput {
 
 export interface ReportContext {
   installId: string
-  version: string
-  contexts: TelemetryContexts
+  host: HostProperties
   now: () => number
   newId: () => string
   redact: (text: string) => string
@@ -185,20 +193,21 @@ const NAME_PATTERN = /^[A-Za-z][A-Za-z0-9_]{0,99}$/
 export function buildErrorReport(input: ErrorInput, ctx: ReportContext): ErrorReport {
   const frames = reduceStack(input.stack)
   return {
-    event_id: ctx.newId(),
-    timestamp: Math.floor(ctx.now() / 1000),
-    level: 'error',
-    platform: 'node',
-    release: ctx.version,
-    user: { id: ctx.installId },
-    tags: { source: input.source, ...(input.extension ? { extension: input.extension } : {}) },
-    contexts: ctx.contexts,
-    exception: {
-      values: [
+    uuid: ctx.newId(),
+    event: '$exception',
+    distinct_id: ctx.installId,
+    timestamp: new Date(ctx.now()).toISOString(),
+    properties: {
+      ...ctx.host,
+      $process_person_profile: false,
+      source: input.source,
+      ...(input.extension ? { extension: input.extension } : {}),
+      $exception_list: [
         {
           type: NAME_PATTERN.test(input.name) ? input.name : 'Error',
           value: sanitizeText(input.message, ctx.redact),
-          ...(frames.length > 0 ? { stacktrace: { frames } } : {}),
+          mechanism: { handled: true },
+          ...(frames.length > 0 ? { stacktrace: { type: 'raw', frames } } : {}),
         },
       ],
     },
@@ -215,16 +224,15 @@ export interface UsageInput {
 
 export function buildUsageReport(input: UsageInput, ctx: ReportContext): UsageReport {
   return {
-    event_id: ctx.newId(),
-    timestamp: Math.floor(ctx.now() / 1000),
-    level: 'info',
-    platform: 'node',
-    release: ctx.version,
-    message: 'usage',
-    user: { id: ctx.installId },
-    tags: { app_starts: '1', session_minutes: String(input.sessionMinutes) },
-    contexts: ctx.contexts,
-    extra: {
+    uuid: ctx.newId(),
+    event: 'usage',
+    distinct_id: ctx.installId,
+    timestamp: new Date(ctx.now()).toISOString(),
+    properties: {
+      ...ctx.host,
+      $process_person_profile: false,
+      app_starts: 1,
+      session_minutes: input.sessionMinutes,
       commands: input.commands,
       surfaces: input.surfaces,
       settings: input.settings,
@@ -234,25 +242,11 @@ export function buildUsageReport(input: UsageInput, ctx: ReportContext): UsageRe
 }
 
 export function isUsageReport(report: TelemetryReport): report is UsageReport {
-  return report.level === 'info'
+  return report.event === 'usage'
 }
 
-export function buildEnvelope(reports: TelemetryReport[], sentAt: number): string {
-  const header = JSON.stringify({ sent_at: new Date(sentAt).toISOString() })
-  const items = reports.map((report) => {
-    const body = JSON.stringify(report)
-    const itemHeader = JSON.stringify({
-      type: 'event',
-      length: new TextEncoder().encode(body).length,
-      content_type: 'application/json',
-    })
-    return `${itemHeader}\n${body}`
-  })
-  return `${header}\n${items.join('\n')}\n`
-}
-
-export function authHeader(publicKey: string, client: string): string {
-  return `Sentry sentry_version=7, sentry_key=${publicKey}, sentry_client=${client}`
+export function buildBatch(reports: TelemetryReport[], apiKey: string): string {
+  return JSON.stringify({ api_key: apiKey, batch: reports })
 }
 
 export interface TelemetryReports {
