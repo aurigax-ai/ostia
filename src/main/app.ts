@@ -256,7 +256,7 @@ import {
 } from './sandbox/visibility'
 import { SandboxUnavailableError, WorkspaceSandboxes } from './sandbox/workspaceSandboxes'
 import { ScratchFolders, registerScratchIpc } from './scratchFolders'
-import { ScreenMirror } from './screenMirror'
+import { HIBERNATE_SEAM, RESTORE_SEAM, ScreenMirror } from './screenMirror'
 import { registerScriptTokenMethods, verifyScriptToken } from './scriptTokens'
 import { registerSecretMethods } from './secrets/register'
 import { prepareSecrets } from './secrets/secretInjection'
@@ -398,8 +398,6 @@ function removeStateFile(entry: PtyEntry): void {
 }
 
 const SANDBOX_LOST_WHILE_AWAY = `its sandbox ended while ${PRODUCT_DISPLAY_NAME} was closed`
-const RESTORE_SEAM = '\x1b]133;D\x07\r\n\x1b[2m── workspace restored ──\x1b[0m\r\n'
-const HIBERNATE_SEAM = '\x1b]133;D\x07\r\n\x1b[2m── woke from hibernation ──\x1b[0m\r\n'
 
 const hibernatedPanes = new Set<string>()
 const movingPanes = new Set<string>()
@@ -2100,6 +2098,7 @@ function registerPtyIpc(): void {
       const notice = hiddenHomeNotice()
       if (notice) feedPty(entry, notice)
     }
+    if (history) entry.mirror.markRestored(history)
 
     pty.onData((d) => feedPty(entry, d))
     pty.onExit(({ exitCode }) => session.exit(exitCode))

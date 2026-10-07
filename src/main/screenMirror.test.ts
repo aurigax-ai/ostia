@@ -1,6 +1,6 @@
 import { Terminal } from '@xterm/headless'
 import { describe, expect, it } from 'vitest'
-import { HISTORY_LINES, ScreenMirror } from './screenMirror'
+import { HIBERNATE_SEAM, HISTORY_LINES, RESTORE_SEAM, ScreenMirror } from './screenMirror'
 
 const WIDE = 127
 const NARROW = 90
@@ -188,5 +188,58 @@ describe('ScreenMirror.bracketedPaste', () => {
     expect(mirror.bracketedPaste).toBe(false)
     mirror.dispose()
     expect(mirror.bracketedPaste).toBe(false)
+  })
+})
+
+async function restoredRun(history: string, seam: string, after: string): Promise<string> {
+  const mirror = new ScreenMirror(WIDE, 30)
+  mirror.write(`${history}${seam}`)
+  mirror.markRestored(history)
+  mirror.write(after)
+  await mirror.flush()
+  const saved = mirror.serialize()
+  mirror.dispose()
+  return saved
+}
+
+const seams = (text: string, seam: string) => text.split(seam.slice(seam.indexOf('──'))).length - 1
+const freshPrompt = (clock: string) => `${precmd(null)}${promptLines(clock)}`
+const ranCommand = (clock: string) =>
+  `${freshPrompt(clock)}ls\r\n${mark('C')}LS-OUT\r\n${precmd(0)}${promptLines(clock)}`
+
+describe('ScreenMirror restored history', () => {
+  it('saves the restored history unchanged while no command ran, restart after restart', async () => {
+    const history = await serialized(zshSession())
+    const first = await restoredRun(history, RESTORE_SEAM, freshPrompt('13:00:00'))
+    const second = await restoredRun(first, RESTORE_SEAM, freshPrompt('13:05:00'))
+    expect(first).toBe(history)
+    expect(second).toBe(history)
+    expect(seams(second, RESTORE_SEAM)).toBe(0)
+  })
+
+  it('keeps one seam before the output of a command run after the restore', async () => {
+    const history = await serialized(zshSession())
+    const used = await restoredRun(history, RESTORE_SEAM, ranCommand('13:00:00'))
+    const idle = await restoredRun(used, RESTORE_SEAM, freshPrompt('13:05:00'))
+    expect(idle).toBe(used)
+    expect(seams(idle, RESTORE_SEAM)).toBe(1)
+    const lines = await screenText(idle, WIDE)
+    const seamLine = lines.findIndex((l) => l.includes('workspace restored'))
+    expect(seamLine).toBeGreaterThan(lines.findIndex((l) => l === 'MARKER-OUT'))
+    expect(lines.findIndex((l) => l === 'LS-OUT')).toBeGreaterThan(seamLine)
+  })
+
+  it('does the same for a pane woken from hibernation', async () => {
+    const history = await serialized(zshSession())
+    const asleep = await restoredRun(history, HIBERNATE_SEAM, freshPrompt('13:00:00'))
+    expect(asleep).toBe(history)
+    const used = await restoredRun(asleep, HIBERNATE_SEAM, ranCommand('13:05:00'))
+    expect(seams(used, HIBERNATE_SEAM)).toBe(1)
+  })
+
+  it('saves the whole screen once a shell without marks prints past the seam', async () => {
+    const saved = await restoredRun('old', RESTORE_SEAM, 'new output\r\n$ ')
+    const lines = await screenText(saved, WIDE)
+    expect(lines).toEqual(['old', '── workspace restored ──', 'new output', '$'])
   })
 })
