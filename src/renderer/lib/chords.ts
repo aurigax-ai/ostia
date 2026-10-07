@@ -29,13 +29,17 @@ export type { KeyLike, KeybindingMap } from '@shared/chordSpec'
 export { WORKSPACE_GOTO, bindingProblem, checkBinding } from '@shared/chordSpec'
 
 export type AppChord =
+  | 'app.quit'
   | 'palette.toggle'
+  | 'view.goToFile'
   | 'view.toggleRail'
   | 'app.openSettings'
+  | 'view.searchFiles'
   | 'attention.jumpToLatest'
   | 'history.search'
   | 'workflows.search'
   | 'workspace.new'
+  | 'window.new'
   | 'tab.new'
   | 'terminal.clear'
   | 'agent.resume'
@@ -76,6 +80,8 @@ export type TerminalChord =
   | 'copy'
   | 'paste'
   | 'find'
+  | 'find.next'
+  | 'find.previous'
   | 'block.selectPrev'
   | 'block.selectNext'
   | TerminalCommandChord
@@ -86,6 +92,8 @@ export const TERMINAL_CHORDS: readonly TerminalChord[] = [
   'copy',
   'paste',
   'find',
+  'find.next',
+  'find.previous',
   'block.selectPrev',
   'block.selectNext',
   ...TERMINAL_COMMAND_CHORDS,
@@ -102,13 +110,17 @@ const BROWSER_SET: ReadonlySet<string> = new Set(BROWSER_CHORDS)
 export const DEFAULT_CHORDS: Readonly<
   Record<AppChord | TerminalChord | BrowserChord, [mac: ChordValue, other: ChordValue]>
 > = {
+  'app.quit': ['', 'Ctrl+Shift+Q'],
   'palette.toggle': [['Shift+Cmd+P', 'Cmd+K'], 'Ctrl+Shift+P'],
+  'view.goToFile': ['Cmd+P', 'Ctrl+Alt+G'],
   'view.toggleRail': [['Cmd+B', 'Cmd+\\'], 'Ctrl+Shift+B'],
   'app.openSettings': ['Cmd+,', 'Ctrl+,'],
+  'view.searchFiles': ['Shift+Cmd+F', ''],
   'attention.jumpToLatest': ['Cmd+Shift+U', 'Ctrl+Shift+U'],
   'history.search': ['Cmd+Shift+H', 'Ctrl+Shift+H'],
   'workflows.search': ['Cmd+Shift+S', 'Ctrl+Shift+S'],
   'workspace.new': ['Cmd+N', 'Ctrl+Shift+N'],
+  'window.new': ['Cmd+Shift+N', 'Ctrl+Shift+Alt+N'],
   'tab.new': ['Cmd+T', 'Ctrl+Shift+T'],
   'terminal.clear': ['terminal:Cmd+K', 'terminal:Ctrl+Shift+K'],
   'agent.resume': ['Cmd+Shift+R', 'Ctrl+Shift+R'],
@@ -130,13 +142,21 @@ export const DEFAULT_CHORDS: Readonly<
     ['terminal:Ctrl+Shift+Enter', 'Ctrl+Shift+X'],
   ],
   'pane.close': ['Cmd+W', 'Ctrl+Shift+W'],
-  'tab.next': [['Ctrl+Tab', 'Shift+Cmd+]'], 'Ctrl+Tab'],
-  'tab.previous': [['Ctrl+Shift+Tab', 'Shift+Cmd+['], 'Ctrl+Shift+Tab'],
+  'tab.next': [
+    ['Ctrl+Tab', 'Shift+Cmd+]'],
+    ['Ctrl+Tab', 'Ctrl+PageDown'],
+  ],
+  'tab.previous': [
+    ['Ctrl+Shift+Tab', 'Shift+Cmd+['],
+    ['Ctrl+Shift+Tab', 'Ctrl+PageUp'],
+  ],
   'workspace.next': ['Cmd+Ctrl+]', 'Ctrl+Shift+PageDown'],
   'workspace.previous': ['Cmd+Ctrl+[', 'Ctrl+Shift+PageUp'],
   copy: ['Cmd+C', 'Ctrl+Shift+C'],
   paste: ['Cmd+V', 'Ctrl+Shift+V'],
   find: ['Cmd+F', 'Ctrl+Shift+F'],
+  'find.next': ['Cmd+G', ''],
+  'find.previous': ['Shift+Cmd+G', ''],
   'block.selectPrev': ['Cmd+Up', 'Ctrl+Shift+Up'],
   'block.selectNext': ['Cmd+Down', 'Ctrl+Shift+Down'],
   'terminal.scrollToTop': ['Cmd+Home', ''],
@@ -147,13 +167,13 @@ export const DEFAULT_CHORDS: Readonly<
   'terminal.scrollLineDown': ['', ''],
   'tab.moveLeft': ['Shift+Cmd+Left', ''],
   'tab.moveRight': ['Shift+Cmd+Right', ''],
-  'browser.focusAddress': ['Cmd+L', 'Ctrl+Shift+L'],
-  'browser.reload': ['Cmd+R', 'Ctrl+F5'],
+  'browser.focusAddress': ['Cmd+L', ['Ctrl+L', 'Ctrl+Shift+L']],
+  'browser.reload': ['Cmd+R', ['Ctrl+R', 'Ctrl+F5']],
   'browser.back': ['Cmd+[', 'Alt+Left'],
   'browser.forward': ['Cmd+]', 'Alt+Right'],
 }
 
-function specsOf(value: ChordValue, mac: boolean, id?: string): ChordSpec[] {
+export function specsOf(value: ChordValue, mac: boolean, id?: string): ChordSpec[] {
   const out: ChordSpec[] = []
   for (const text of chordTexts(value)) {
     const spec = parseScopedChord(text, mac)
@@ -296,6 +316,11 @@ export function matchTerminalChord(e: KeyLike, mac: boolean): string | null {
 
 export function matchChordInTerminal(e: KeyLike, mac: boolean): string | null {
   return matchTerminalChord(e, mac) ?? matchChord(e, mac)
+}
+
+export function findStep(chord: string | null): 1 | -1 | null {
+  if (chord === 'find.next') return 1
+  return chord === 'find.previous' ? -1 : null
 }
 
 export function isAppChord(chord: string | null): chord is string {

@@ -31,6 +31,15 @@ describe('parseSearchRequest', () => {
     expect(parseSearchRequest({ text: 'a' })).toBeNull()
     expect(parseSearchRequest(null)).toBeNull()
   })
+
+  it('carries namesOnly only when it is true', () => {
+    expect(parseSearchRequest({ root: '/r', text: 'a', namesOnly: true })).toEqual(
+      request('/r', 'a', { namesOnly: true }),
+    )
+    expect(parseSearchRequest({ root: '/r', text: 'a', namesOnly: 'yes' })).toEqual(
+      request('/r', 'a'),
+    )
+  })
 })
 
 describe('folderPaths', () => {
@@ -59,6 +68,13 @@ describe('nameHits', () => {
 
   it('stops at the limit', () => {
     expect(nameHits('s', files, 2)).toHaveLength(2)
+  })
+
+  it('returns files only, and treats a trailing / as part of the query, when asked for files only', () => {
+    const hits = nameHits('main', files, 10, true)
+    expect(hits.map((h) => h.path)).toEqual(['src/main/search.ts'])
+    expect(nameHits('src/', files, 10, true).every((h) => !h.dir)).toBe(true)
+    expect(nameHits('src/', files, 10, true).length).toBeGreaterThan(0)
   })
 })
 
@@ -110,6 +126,29 @@ describe('WorkspaceSearch', () => {
     const res = await search.run(1, request(root, 'needle', { includeIgnored: true }))
     if (!res.ok) throw new Error(res.message)
     expect(res.results.files.map((f) => f.path)).toEqual(['build/out.txt', 'src/notes/todo.md'])
+  })
+
+  it('lists only matching file names, with no folders and no text search, when namesOnly is set', async () => {
+    const search = new WorkspaceSearch(RG, [home])
+    const res = await search.run(1, request(root, 'notes', { namesOnly: true }))
+    if (!res.ok) throw new Error(res.message)
+    expect(res.results.names.map((n) => n.path)).toEqual(['src/notes/todo.md'])
+    expect(res.results.names.every((n) => !n.dir)).toBe(true)
+    expect(res.results.files).toEqual([])
+    expect(res.results.pdfs).toEqual([])
+
+    const body = await search.run(1, request(root, 'needle', { namesOnly: true }))
+    if (!body.ok) throw new Error(body.message)
+    expect(body.results.names).toEqual([])
+    expect(body.results.files).toEqual([])
+  })
+
+  it('cancels an earlier names-only search when the caller starts another', async () => {
+    const search = new WorkspaceSearch(RG, [home])
+    const first = search.run(9, request(root, 'todo', { namesOnly: true }))
+    const second = search.run(9, request(root, 'paper', { namesOnly: true }))
+    expect(await first).toMatchObject({ ok: false, error: 'cancelled' })
+    expect((await second).ok).toBe(true)
   })
 
   it('refuses a folder outside the allowed roots', async () => {

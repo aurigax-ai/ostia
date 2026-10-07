@@ -1,10 +1,9 @@
-import { CaretDownIcon, CaretUpIcon, XIcon } from '@phosphor-icons/react'
-import type { ISearchOptions, SearchAddon } from '@xterm/addon-search'
+import type { ISearchOptions } from '@xterm/addon-search'
 import type { ITheme } from '@xterm/xterm'
-import { type KeyboardEvent, useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useDict } from '../i18n/useDict'
-import { IconButton } from './IconButton'
-import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupText } from './ui/input-group'
+import type { TerminalSearch } from '../lib/ostiaTerminal'
+import { FindBar, type FindStepRef } from './FindBar'
 
 export function findOptions(palette: ITheme): ISearchOptions {
   const match = palette.brightBlack ?? '#5c6266'
@@ -23,20 +22,19 @@ export function findOptions(palette: ITheme): ISearchOptions {
 export function TerminalFind({
   search,
   options,
+  stepRef,
   onClose,
 }: {
-  search: SearchAddon
+  search: TerminalSearch
   options: ISearchOptions
+  stepRef?: FindStepRef
   onClose: () => void
 }): JSX.Element {
   const d = useDict()
-  const inputRef = useRef<HTMLInputElement>(null)
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<{ index: number; count: number } | null>(null)
 
   useEffect(() => {
-    inputRef.current?.focus()
-    inputRef.current?.select()
     const sub = search.onDidChangeResults((r) =>
       setResults({ index: r.resultIndex, count: r.resultCount }),
     )
@@ -46,30 +44,18 @@ export function TerminalFind({
     }
   }, [search])
 
-  const next = (): void => {
-    if (query) search.findNext(query, options)
-  }
-  const prev = (): void => {
-    if (query) search.findPrevious(query, options)
+  const step = (by: number): void => {
+    if (!query) return
+    if (by < 0) search.findPrevious(query, options)
+    else search.findNext(query, options)
   }
 
-  const onChange = (value: string): void => {
+  const onQuery = (value: string): void => {
     setQuery(value)
     if (value) search.findNext(value, { ...options, incremental: true })
     else {
       search.clearDecorations()
       setResults(null)
-    }
-  }
-
-  const onKeyDown = (e: KeyboardEvent<HTMLInputElement>): void => {
-    if (e.key === 'Escape') {
-      e.preventDefault()
-      onClose()
-    } else if (e.key === 'Enter') {
-      e.preventDefault()
-      if (e.shiftKey) prev()
-      else next()
     }
   }
 
@@ -83,27 +69,14 @@ export function TerminalFind({
           : `${results.index + 1}/${results.count}`
 
   return (
-    <div className="term-find">
-      <InputGroup className="h-7 w-64">
-        <InputGroupInput
-          ref={inputRef}
-          className="text-ui-sm md:text-ui-sm"
-          aria-label={d.find.label}
-          placeholder={d.find.placeholder}
-          spellCheck={false}
-          value={query}
-          onChange={(e) => onChange(e.target.value)}
-          onKeyDown={onKeyDown}
-        />
-        <InputGroupAddon align="inline-end">
-          <InputGroupText className="term-find-count text-ui-sm tabular-nums" aria-live="polite">
-            {status}
-          </InputGroupText>
-        </InputGroupAddon>
-      </InputGroup>
-      <IconButton icon={CaretUpIcon} label={d.find.previous} onClick={prev} />
-      <IconButton icon={CaretDownIcon} label={d.find.next} onClick={next} />
-      <IconButton icon={XIcon} label={d.find.close} onClick={onClose} />
-    </div>
+    <FindBar
+      label={d.find.label}
+      query={query}
+      status={status}
+      onQuery={onQuery}
+      onStep={step}
+      onClose={onClose}
+      stepRef={stepRef}
+    />
   )
 }

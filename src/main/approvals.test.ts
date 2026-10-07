@@ -25,6 +25,7 @@ function setup(mode: ApprovalMode = 'ask', windowOpen = true) {
   const grant = vi.fn()
   const revoke = vi.fn()
   const reveal = vi.fn()
+  const always = vi.fn((_caps: readonly Capability[]) => true)
   let currentMode = mode
   const approvals = createApprovals({
     mode: () => currentMode,
@@ -34,6 +35,7 @@ function setup(mode: ApprovalMode = 'ask', windowOpen = true) {
     },
     grant,
     revoke,
+    always,
     now: () => 1000,
     timeoutMs: 5000,
     reveal,
@@ -44,6 +46,7 @@ function setup(mode: ApprovalMode = 'ask', windowOpen = true) {
     grant,
     revoke,
     reveal,
+    always,
     setMode: (m: ApprovalMode) => {
       currentMode = m
     },
@@ -105,13 +108,55 @@ describe('approvals', () => {
     expect(approvals.revoke('7', id)).toBe(false)
   })
 
+  it('always allow saves the caps as a standing grant and lets the request through', async () => {
+    const { approvals, always, grant } = setup()
+    const outcome = approvals.request({ ...ASK, caps: ['send-other-pane'] })
+    const id = approvals.stateFor('7').pending[0].id
+
+    expect(approvals.answer('7', id, 'always')).toBe(true)
+
+    await expect(outcome).resolves.toBe('always')
+    expect(always).toHaveBeenCalledWith(['send-other-pane'])
+    expect(grant).toHaveBeenCalledWith('ext-1', 'send-other-pane')
+    expect(approvals.stateFor('7').history[0]).toMatchObject({
+      outcome: 'always',
+      revocable: false,
+    })
+  })
+
+  it('keeps the card when the standing grant cannot be saved', async () => {
+    const { approvals, always } = setup()
+    always.mockReturnValue(false)
+    void approvals.request(ASK)
+    const id = approvals.stateFor('7').pending[0].id
+
+    expect(approvals.answer('7', id, 'always')).toBe(false)
+    expect(approvals.stateFor('7').pending.map((p) => p.id)).toEqual([id])
+  })
+
+  it.each([
+    ['destructive', { caps: ['destructive'] as Capability[] }],
+    ['credentials', { caps: ['browse', 'credentials'] as Capability[] }],
+    ['a sandbox domain', { caps: [] as Capability[], kind: 'sandbox-domain' as const }],
+    ['a secret', { caps: [] as Capability[], kind: 'secret' as const }],
+    ['a package', { caps: [] as Capability[], kind: 'package' as const }],
+  ])('refuses always allow for %s even when the renderer sends it', (_name, ask) => {
+    const { approvals, always } = setup()
+    void approvals.request({ ...ASK, ...ask })
+    const id = approvals.stateFor('7').pending[0].id
+
+    expect(approvals.answer('7', id, 'always')).toBe(false)
+    expect(always).not.toHaveBeenCalled()
+    expect(approvals.stateFor('7').pending.map((p) => p.id)).toEqual([id])
+  })
+
   it('ignores answers from another window and unknown answers', async () => {
     const { approvals } = setup()
     const outcome = approvals.request(ASK)
     const id = approvals.stateFor('7').pending[0].id
 
     expect(approvals.answer('8', id, 'once')).toBe(false)
-    expect(approvals.answer('7', id, 'always')).toBe(false)
+    expect(approvals.answer('7', id, 'forever')).toBe(false)
     expect(approvals.stateFor('8').pending).toEqual([])
     approvals.answer('7', id, 'deny')
     await expect(outcome).resolves.toBe('deny')
@@ -167,6 +212,7 @@ describe('approvals', () => {
       },
       grant: vi.fn(),
       revoke: vi.fn(),
+      always: vi.fn(() => true),
       reveal: vi.fn(),
       now: () => 1000,
       timeoutMs: 5000,

@@ -4,11 +4,13 @@ import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
 import { Terminal } from '@xterm/headless'
 import { afterAll, afterEach, describe, expect, it, vi } from 'vitest'
-import { programPath } from '../systemRequirements'
+import { skipWithoutTmux, tmuxPath } from '../../../test/tmux'
 import { type TmuxPane, TmuxServer, TmuxSocketDirError, serverEnv } from './tmuxServer'
 
-const tmux = programPath('tmux') ?? 'tmux'
-const tmuxVersion = Number(/(\d+\.\d+)/.exec(execFileSync(tmux, ['-V'], { encoding: 'utf8' }))?.[1])
+const tmux = tmuxPath ?? 'tmux'
+const tmuxVersion = skipWithoutTmux
+  ? 0
+  : Number(/(\d+\.\d+)/.exec(execFileSync(tmux, ['-V'], { encoding: 'utf8' }))?.[1])
 const root = mkdtempSync(join(tmpdir(), 'ostia-tmux-'))
 const home = join(root, 'home')
 mkdirSync(home, { recursive: true })
@@ -71,7 +73,7 @@ function spawnSh(server: TmuxServer, script: string, cols = 80, rows = 24): Prom
   })
 }
 
-describe('TmuxServer', () => {
+describe.skipIf(skipWithoutTmux)('TmuxServer', () => {
   it('KSH-C23 starts a shell at the size it was asked for', async () => {
     const server = await connect()
     const pane = await spawnSh(server, 'stty size; sleep 5', 154, 40)

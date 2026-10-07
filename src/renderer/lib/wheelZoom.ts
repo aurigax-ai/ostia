@@ -39,6 +39,13 @@ export function activeFontZoom(appearance: Record<FontSurface, SurfaceFont>): nu
   return null
 }
 
+export function activeZoom(
+  appearance: Record<FontSurface, SurfaceFont> & { zoom: number },
+): number | null {
+  if (appearance.zoom !== ZOOM_DEFAULT) return appearance.zoom
+  return activeFontZoom(appearance)
+}
+
 export function resetFontZoom(): void {
   const { appearance, setSurfaceFont } = useSettingsStore.getState()
   for (const surface of ZOOMABLE_SURFACES) {

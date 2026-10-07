@@ -30,5 +30,5 @@ fi
 echo "repository $url: ${versions[*]}"
 
 for image in $images; do
-  docker run --rm --network host -v "$here/smoke.sh:/smoke.sh:ro" "$image" bash /smoke.sh "$url" "$want" "$from"
+  docker run --rm --network host -v "$here/smoke.sh:/smoke.sh:ro" -v "$here/../../scripts/retry.sh:/retry.sh:ro" "$image" bash /smoke.sh "$url" "$want" "$from"
 done

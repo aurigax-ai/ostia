@@ -194,6 +194,19 @@ describe('settingsStore', () => {
       expect(written).not.toHaveProperty('keyboardElsewhere')
     })
 
+    it('keeps a grant main wrote after the last load when it saves another change', async () => {
+      vi.mocked(window.ostia.fs.read).mockResolvedValue(JSON.stringify({}))
+      await store().init()
+      vi.mocked(window.ostia.fs.read).mockResolvedValue(
+        JSON.stringify({ capabilities: { grants: ['send-other-pane'] } }),
+      )
+      store().setNotifications({ whenFocused: true })
+      await vi.runAllTimersAsync()
+      const written = JSON.parse(String(vi.mocked(window.ostia.fs.write).mock.calls.at(-1)?.[1]))
+      expect(written.notifications.whenFocused).toBe(true)
+      expect(written.capabilities).toEqual({ grants: ['send-other-pane'] })
+    })
+
     it('keeps terminal keys that parse, null drops, and saves them', async () => {
       vi.mocked(window.ostia.fs.read).mockResolvedValue(
         JSON.stringify({
@@ -605,6 +618,23 @@ describe('settingsStore', () => {
         allowInput: false,
         limits: { maxWorkers: 8, spawnsPer10Min: 20, busPerMinute: 60 },
       })
+    })
+
+    it('PSY-C20 refuses an agent changing the sync target', () => {
+      useSettingsStore.setState({ sync: { dir: '/home/me/Sync' } })
+      expect(() => store().setByPath('sync.dir', '/tmp/evil')).toThrow(/unknown settings key/)
+      expect(() => store().setByPath('sync', { dir: '/tmp/evil' })).toThrow(/unknown settings key/)
+      expect(() => store().unsetByPath('sync')).toThrow(/unknown settings key/)
+      expect(useSettingsStore.getState().sync).toEqual({ dir: '/home/me/Sync' })
+    })
+
+    it('PSY-C32 refuses an agent turning secret sync on', () => {
+      useSettingsStore.setState({ sync: { dir: '/home/me/Sync' } })
+      expect(() => store().setByPath('sync.secrets', true)).toThrow(/unknown settings key/)
+      expect(() => store().setByPath('sync', { dir: '/home/me/Sync', secrets: true })).toThrow(
+        /unknown settings key/,
+      )
+      expect(useSettingsStore.getState().sync).toEqual({ dir: '/home/me/Sync' })
     })
 
     it('MGR-C16 refuses manager settings from ostia settings set', () => {

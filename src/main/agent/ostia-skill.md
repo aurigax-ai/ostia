@@ -1,6 +1,6 @@
 ---
 name: ostia
-description: Use when a coding agent is running inside Ostia (a terminal-workspace app) — detectable via the env vars OSTIA_SOCKET/OSTIA_TOKEN/OSTIA_PANE_ID/OSTIA_START_DIR — and wants to control its own pane or coordinate with other agents/panes in the workspace. Covers the `ostia` CLI: identity (whoami), introspection (commands, docs), opening files, desktop notifications, pane attention state (ostia state waiting/done), asking the human a question and waiting for the answer (ostia ask: free text, one choice or several), running commands in terminal tabs the human can watch (ostia process), typing into and reading other terminal panes (ostia pane send/key/read), an encrypted secret vault, sandboxed workspaces (asking for a domain, an exposed port or a secret: ostia sandbox request-domain/expose, ostia secret ls/get), a cross-agent message bus, driving the in-app browser with agent-browser's command contract (open/snapshot refs/click/fill/type/press/find/wait/get/eval/screenshot/cookies/storage/network/tabs/--json/batch, pick element), reading the selection reports (text, image regions, PDF text or regions, terminal output) a human sends from files and terminals Ostia shows (@/tmp/ostia-reports-*/selection-N.md), reading the human's saved command workflows (ostia workflow list/show), building sidebar sections and panels for the human as data-only JSON views (ostia view schema/validate/list/open), reading/writing app settings, learning the OS and asking the human to install system packages (ostia system info/install — never run sudo yourself), and pairing/managing the LAN control gateway (a phone companion app, off by default, elevated, LAN/Tailscale only — no hosted relay). Boards, cards and knowledge entries are not Ostia's: use the `trellis` CLI. Also covers the capability/elevation model and a recipe for two agents (e.g. Claude + Codex) in different panes coordinating work. Triggers on "ostia", "ostia CLI", "am I in Ostia", "control the terminal workspace", "talk to the other pane/agent", "hand off a task to another agent", "ostia bus/vault/settings/browse/gateway", "automate the browser", "agent browser automation in Ostia", "pair a phone with Ostia", "ostia gateway", "selection-N.md", "the human sent me a selection", "build a sidebar/panel/dashboard in Ostia", "ostia view".
+description: Use whenever you run inside Ostia (OSTIA_SOCKET and OSTIA_TOKEN are set). Read it before you tell the human to run a command or install something (ask with `ostia system install`, never sudo), ask the human a question (`ostia ask`), start a long or background command they should watch (`ostia process run`), read or type into another terminal pane, drive the in-app browser, open a file or URL for the human, notify them or mark your pane waiting/done, or hand work to another agent (`ostia bus`). Also covers sandboxed workspaces (asking for a domain, a port or a secret), the secret vault, settings, sidebar views, selection reports the human sends (@/tmp/ostia-reports-*), saved workflows, the LAN gateway and capabilities. Boards, cards and notes are Trellis, not Ostia.
 ---
 
 # Ostia — the agent toolbelt
@@ -38,7 +38,8 @@ ostia info           # this pane's mirrored terminal state (cwd, running, gen, .
 ostia cwd            # just this pane's current working directory
 ostia pane.list      # every pane, every workspace — JSON array of
                      # { paneId(external), workspaceId, kind, title, cwd, running,
-                     #   blockCount, lastExitCode } — the pane roster (see below)
+                     #   blockCount, lastExitCode, splitTabId?, splitTabName? }
+                     # — the pane roster (see below)
 ostia workspace.list   # every workspace — JSON array of { workspaceId, name, kind, workDir, state, groupId? }
 ```
 
@@ -128,10 +129,8 @@ ostia workspace.new
 ostia editor.open '{"path":"src/index.ts"}'  # the raw command: reuses the editor pane, home folder only
 ```
 
-`ostia pane.close` (with `'{"paneId":"…"}'` for another pane, which needs `kill-pane`) closes
-the pane at once, even while a command runs in it; the human is asked only when it holds their
-unsaved file changes. A pane the human locked answers `pane-locked`: leave it open, you can't
-unlock it.
+`ostia pane.close` closes your own pane; close another one with `ostia pane close <pane>`
+(below).
 
 `ostia commands` is the authoritative list (id + argsSchema + capabilities) — check
 it before guessing an id or an args shape.
@@ -145,6 +144,7 @@ focus.
 
 ```sh
 ostia process run "npm run dev" [--name web] [--cwd /path]  # -> { id, name, paneId }
+ostia process run "npm run api" --name api --split-tab dev [--split right|down]
 ostia process ls                   # id, name, status, paneId, cmd
 ostia process logs <id|name> [--since N]  # that command's output only, as plain text
 ostia process kill <id|name>       # Ctrl+C; ends the tab's shell if it keeps running
@@ -162,6 +162,12 @@ ostia process restart <id|name>    # Ctrl+C, then the same line again in the sam
   fixer` shows what it printed, and `ostia pane send <paneId> "..." --enter` and
   `ostia pane read <paneId>` let you answer it. An unknown name answers `unknown-agent`: start
   that one with `ostia process run` instead.
+- To show related processes in one tab, give them the same `--split-tab <name>`: the first
+  run opens its tab as usual, and every later run with that name joins that tab beside the
+  others (`--split right`, the default, or `--split down`). The human sees one tab, a split
+  tab, with a segment per process. `ostia agent run` takes the same flags. It still only
+  opens new terminals: it never types into one that is open. `ostia pane.list` gives
+  each member's `splitTabId` and `splitTabName`.
 - Status is `starting` (not typed yet), `running`, `exited(<code>)`, or `closed` (the human
   closed the tab; start it again with `ostia process run`). Nothing survives a restart of
   Ostia: a restored tab is an idle shell and the list is empty.
@@ -178,22 +184,70 @@ ostia process restart <id|name>    # Ctrl+C, then the same line again in the sam
 ostia pane send <pane> "text" [--enter]  # type text; no Enter unless --enter
 ostia pane key <pane> <key>...           # enter tab escape up down ctrl-c ...
 ostia pane read <pane> [--lines N] [--json]  # its screen as plain text
+ostia pane wait <pane>... [--until done|waiting|idle|exited]... [--timeout <s>] [--json]
+ostia pane wake <pane>... [--json]       # wake hibernated agent panes
+ostia pane close <pane>... [--json]      # close those panes
 ```
 
 `<pane>` is a paneId from `ostia pane.list`, or a process id or name from `ostia process ls`.
 
-- A tab **you** opened with `ostia process run` is yours to type into and read, with no
-  question asked. This is how you dispatch a worker and talk to it:
-  `ostia process run "claude" --name worker`, then
-  `ostia pane send worker "summarise src/main" --enter`, then `ostia pane read worker`.
+- A tab **you** opened with `ostia process run` or `ostia agent run` is yours to type into,
+  read, wake and close, with no question asked.
 - Any other pane asks the human first: typing needs `type-other-pane`, reading needs
-  `read-other-pane`, and a pane in another workspace also needs `all-workspaces`. A screen
+  `read-other-pane`, closing needs `kill-pane`, and a pane in another workspace also needs
+  `all-workspaces`. A screen
   can hold secrets, so read only what the task needs.
 - From a sandboxed workspace you reach only sandboxed terminals of your own workspace.
 - Read before you type, and type only what the program on screen is waiting for. Keys:
   enter, tab, shift-tab, escape, backspace, delete, space, up, down, left, right, home, end,
   pageup, pagedown, ctrl-a to ctrl-z.
 - `read --json` adds `cwd`, `running` and `lastExitCode`.
+- `pane wait` blocks until any named pane stops working, instead of polling `pane.list` or
+  guessing from its screen. By default it returns on `done` or `waiting` (what the agent
+  reported) or `exited` (its command ended); `--until idle` also waits for a pane with no
+  reported state. It prints `<paneId>\t<state>\t<message>` (`--json`:
+  `{paneId, state, message}`) and answers at once for a pane already there. Exit 0 reached,
+  3 timed out (default 10 minutes, `--timeout` up to 1800 s: run it again), 4 the pane
+  closed. It needs the same asks as `read` and never reads the screen. A finished pane the
+  human looked at reads `idle`, not `done`.
+- A pane Ostia hibernated (an idle agent it stopped to save memory; `hibernated: true` in
+  `ostia pane.list`) has no program running: `pane send` and `pane key` refuse it with
+  `hibernated:`. `ostia pane wake <pane>` starts a fresh shell there and types the agent's own
+  resume command, nothing else; it needs the same asks as `send` and answers `not-hibernated`
+  for a pane that is awake.
+- `pane close` closes the pane at once, even while a command runs in it; the human is asked
+  only when it holds their unsaved file changes. A pane the human locked answers
+  `pane-locked`: leave it open, you can't unlock it.
+
+## Coordinating worker agents
+
+1. **Dispatch.** When workers edit the same repo, give each one its own checkout:
+   `git worktree add ../<repo>-<branch> -b <branch>`. Start each with its task on stdin:
+   `ostia agent run claude - --name <name> --cwd <dir> < task.md`.
+   End every task with a report step, with your id (`externalId` in `ostia whoami`) filled in:
+   `ostia bus send <your id> "<branch> done|blocked: <sha> <summary>; tests: <result>"`.
+   The worker's first send to another pane asks the human once for `send-other-pane`.
+2. **Wait; don't poll screens.** Run `ostia pane wait <name>...` (returns on `done`,
+   `waiting` or `exited`) in the background or with a long `--timeout`, and/or
+   `ostia bus wait` for reports. Read reports with `ostia bus inbox`, then clear them with
+   `ostia bus inbox --drain`: messages stay in the inbox and come back on every read until
+   drained.
+3. **On `waiting`,** the worker needs the human or an answer. Read it with
+   `ostia pane read <name>`, then tell the human or answer it: a permission prompt with
+   `ostia pane key <name> <key>...`, a question that takes text with
+   `ostia pane send <name> "..." --enter --force --confirm` (text to a waiting agent needs
+   `--force`). Exit 2 means nothing happened on screen: press `ostia pane key <name> enter`.
+4. **Hibernated workers.** `ostia pane.list` shows `hibernated: true`. Run
+   `ostia pane wake <name>`, then send nothing until `ostia pane.list` shows that pane
+   `running: true` (its agent is back); before that, text would land at a bare shell prompt.
+5. **Follow-up work** goes to the same worker, whose context is warm:
+   `ostia pane send <name> "..." --enter --confirm`. Never type a task while it is `waiting`
+   on a permission prompt (`pane send` refuses); answer the prompt with `ostia pane key` first.
+6. **Review before merging.** Never trust a worker's "done": read its diff
+   (`git -C <dir> diff main...<branch>`) and its test results yourself.
+7. **Finish.** `ostia pane close <name>` closes a worker's tab and stops its agent, with no
+   question for a tab you opened; `ostia process kill <name>` stops the agent but keeps the
+   tab.
 
 ## Workflows — the human's saved commands (read-only)
 
@@ -398,8 +452,9 @@ commits in the Git panel and on the terminal's branch chips.
 ```sh
 ostia system info      # {os:{platform,id,idLike,name,version}, kernel, arch, shell, isRoot,
                        #  packageManagers:{available:[...], default}}
-ostia system install <pkg...> [--manager <name>] [--reason <text>]
+ostia system install <pkg...> [--manager <name>] [--reason <text>] [--wait]
                        # → {approved:true, command, paneId} | {approved:false, command} + exit 1
+                       # --wait adds {finished, exitCode}; exit 1 if the install failed
 ```
 
 Check `ostia system info` before guessing the distro or package manager. **Never run `sudo`,
@@ -407,8 +462,12 @@ Check `ostia system info` before guessing the distro or package manager. **Never
 `ostia system install` and always pass `--reason` (the human reads it). It shows the human the exact
 command in a dialog and waits for Approve/Deny (it can take minutes; don't time it out). On
 Approve the command runs in a new terminal pane beside yours, where the human answers any sudo
-prompt; the call returns as soon as that pane opens, not when the install finishes, so verify
-afterwards (`command -v rg`, or re-run your check) before relying on it. On Deny nothing runs:
+prompt. **Pass `--wait`** so the call returns only when the install command ends, with its exit
+code: nobody has to tell you it finished. Run it in the background, or with a timeout of at least
+10 minutes, since it waits for the human twice (Approve, then the sudo password). It gives up
+after about 10 minutes in all (`finished: false`, the install still running) and fails if the
+install failed or the human closed its terminal. Without `--wait` it returns as soon as the pane
+opens. Either way, check the result (`command -v rg`, or re-run your check) before relying on it. On Deny nothing runs:
 don't retry the same request, ask the human what they'd prefer. Package names must be plain
 names (`ripgrep`, `libssl-dev`, `python3.12`); no flags, paths or versions with spaces.
 `--manager` picks one of `pacman paru yay apt dnf zypper apk brew flatpak snap nix-env winget`
@@ -456,6 +515,8 @@ ostia bus done <id>                                           # mark a handoff c
   prompt, when the human presses Enter there, or when it runs `ostia bus inbox` / `ostia bus wait`
   itself. If you need an answer now, say so to the human (`ostia state waiting "…"`) or keep a
   worker you opened with `ostia process run` / `ostia agent run` moving with `ostia pane send`.
+- `asleep: true`: the receiver is hibernated and reads nothing until it is woken
+  (`ostia pane wake <pane>`).
 - `ostia bus sent` lists what you sent, newest last, as `<time> <to> seen <time>|unseen <first
   line>`. `seen` means the receiver's hook, `bus inbox` or `bus wait` showed it, not that the
   agent acted on it. Sending to an id no open pane holds answers `unknown-pane`.
@@ -518,8 +579,8 @@ doesn't exist (`unknown settings key`), the type differs, or the setting doesn't
 (`invalid value for <key>`, e.g. an enum value it doesn't list); look the key up with
 `ostia settings schema <key>` instead of guessing. Keys that launch programs or grant
 permissions or guard the human (`behavior.externalEditor`, `behavior.checkForUpdates`,
-`notifications.command`, `agents.autoResume`, `agents.hooks`, `terminal.warnOnRiskyPaste`,
-`terminal.shell`, `terminal.osc52Write`, `workspaces.globalHotkey`, `capabilities`,
+`notifications.command`, `agents.autoResume`, `agents.autoSendReferences`, `agents.hooks`,
+`terminal.warnOnRiskyPaste`, `terminal.shell`, `terminal.osc52Write`, `workspaces.globalHotkey`, `capabilities`,
 `approvals`, `sync`, `terminalKeys`) are the human's; you can't set them. `get` with no
 key returns every readable setting; with a key it prints `null` if absent.
 
@@ -707,10 +768,13 @@ The human and the agent can both point at an element in a browser pane:
 - **Human → agent.** The human clicks **Point at element** in a browser pane's toolbar, clicks the
   broken thing, writes what's wrong, and sends it to a terminal pane. Ostia writes a markdown
   report to a private tmp dir (`/tmp/ostia-reports-<uid>/capture-N-<page>.md`, where `<page>` is the page's host and path) and:
-  - pastes `@<report path> ` at that pane's prompt (never presses Enter) if the pane is at an idle
+  - pastes `@<report path> ` at that pane's prompt if the pane is at an idle
     shell prompt or its agent reported `ostia state waiting`/`done`, followed by `@<screenshot>.png `
     when the capture has a screenshot and the human left Settings → Browser → Attach the
-    screenshot on; otherwise the references go to the human's clipboard;
+    screenshot on; otherwise the references go to the human's clipboard. When the pane runs
+    claude or codex and the human left Settings → Agents → Send references to agents right away
+    on, Ostia then presses Enter once, so the references arrive as your next prompt; it never
+    presses Enter at a shell prompt;
   - delivers a bus message to that pane whose `text` is JSON:
     `{"kind":"capture","report":"<path>","image":"<png>|null","url":"…","selector":"…","note":"…"}`
     (read it with `ostia bus inbox`; it marks nothing unread and is not repeated in your prompt
@@ -748,7 +812,8 @@ terminal pane they can send selected text or a command block's output (the block
 **Send output to agent…**). Ostia
 writes `/tmp/ostia-reports-<uid>/selection-N.md` (plus `selection-N.png` for image and PDF
 regions), pastes `@<report path> ` under the same rules as a pick report (idle prompt, or your
-agent reported `waiting`/`done`; otherwise the human's clipboard), sets your pane to `working`,
+agent reported `waiting`/`done`; otherwise the human's clipboard; Enter only for claude or codex
+with the human's switch on), sets your pane to `working`,
 and sends a bus message whose `text` is JSON:
 `{"kind":"selection","report":"<path>","file":"<path>|null","image":"<png path>|null","note":"…"}`
 (`file` is null for terminal text).
@@ -772,29 +837,29 @@ it writes for you. Work with the rest. If the task needs the value, read it from
 The human can also paste just a path at your prompt (`@<path> `, from the file tree's or an editor
 tab's **Send path to agent**): that is the file itself, not a report.
 
-## Gateway — LAN phone pairing (elevated)
+## Gateway — phone pairing (elevated)
 
 ```sh
-ostia gateway enable [--host H] [--port P]  # start the LAN control gateway (default 127.0.0.1:8722)
-ostia gateway pair                          # mint a pairing code + QR payload (also enables the
-                                             # gateway if it wasn't already running)
-ostia gateway status                        # { running, host, port, fingerprint, deviceCount }
+ostia gateway pair                          # mint a pairing code + QR payload; answers
+                                             # not-running unless remote access is on
+ostia gateway status                        # { running, host, port, fingerprint, deviceCount, tailnet, route }
 ostia gateway devices                       # list paired phones — deviceId, name, caps, createdAt
                                              # (never prints bearer tokens)
 ostia gateway revoke <deviceId>              # revoke a paired phone immediately
-ostia gateway disable                       # stop the gateway
 ```
 
-Lets the Ostia Companion phone app pair over LAN (or your own Tailscale/VPN — **no hosted relay,
-no cloud rendezvous, no accounts**) and mirror/drive this desktop. **Off by default**; every verb
-here needs the elevated `gateway` capability (see below) on top of whatever the human has granted.
+Lets the Ostia Companion phone app reach this desktop, through the human's own Tailscale tailnet
+or a local address the human picked (**no hosted relay, no Ostia account**), and mirror/drive it.
+**Off by default**, and only the human turns it on, picks the route and signs in to Tailscale, in
+Settings → Remote; no verb here starts it or changes the route. Every verb
+needs the elevated `gateway` capability (see below) on top of whatever the human has granted.
 `pair` prints the pairing JSON (and an `ostia-pair://` URI wrapping the same payload) for the phone
 to scan/paste — there's no ASCII-QR rendering in the CLI itself, pipe the JSON through your own QR
 tool if you want one. A paired device only gets a strict phone-facing capability subset
 (`read`/`notify` by default). `command`/`input`/`destructive` are
 granted per device only by the human in Settings → Remote — there is deliberately no CLI verb or
 socket method for it, so don't try to raise a phone's caps; ask the user. This is a separate,
-smaller vocabulary from the `Capability` list below; see `pine-companion/NETWORK-CONTRACT.md` for
+smaller vocabulary from the `Capability` list below; see `ostia-companion/NETWORK-CONTRACT.md` for
 the full protocol.
 
 ## Capabilities & elevation
@@ -839,8 +904,9 @@ you act. Commands without an explicit list default to the same default set above
 
 ## Multi-agent coordination recipe
 
-Two agents in different panes of the same Ostia window (e.g. Claude driving pane A,
-Codex driving pane B) can coordinate like this:
+Two peer agents in different panes of the same Ostia window (e.g. Claude driving pane A,
+Codex driving pane B) can coordinate like this. To start and supervise workers of your own,
+follow "Coordinating worker agents" instead.
 
 1. **Learn identities.** Run `ostia pane.list` to see every pane's `externalId`
    (its `paneId` field) plus `title`/`cwd`, which is often enough to tell panes
@@ -853,7 +919,8 @@ Codex driving pane B) can coordinate like this:
    unit of work. The receiver gets it without polling: at once if it is blocked
    in `ostia bus wait`, otherwise as context at its next prompt (and the human sees
    its pane marked unread). An idle agent is not woken, so check `ostia bus sent`:
-   `unseen` means it has not had a turn yet. The receiver then runs `ostia bus
+   `unseen` means it has not had a turn yet, and `asleep: true` in the send's answer means
+   it is hibernated. The receiver then runs `ostia bus
    claim <id>` and eventually `ostia bus done <id>`, and answers with `ostia bus
    send <yourExternalId> "..."`.
 3. **Plan shared work** on the project's Trellis board (the `trellis` CLI: cards,

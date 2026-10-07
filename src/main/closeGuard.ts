@@ -68,12 +68,14 @@ export function parseRunningGroups(raw: unknown): RunningGroup[] {
   const groups: RunningGroup[] = []
   for (const entry of raw.slice(0, GROUPS_MAX)) {
     if (typeof entry !== 'object' || entry === null) continue
-    const { workspaceId, workspace, commands, files } = entry as Record<string, unknown>
+    const { workspaceId, workspace, commands, agents, files } = entry as Record<string, unknown>
     if (typeof workspaceId !== 'string' || typeof workspace !== 'string') continue
+    const agentCommands = strings(agents)
     groups.push({
       workspaceId: workspaceId.slice(0, TEXT_MAX),
       workspace: workspace.slice(0, TEXT_MAX),
       commands: strings(commands),
+      ...(agentCommands.length > 0 ? { agents: agentCommands } : {}),
       files: strings(files),
     })
   }
@@ -88,7 +90,8 @@ export function withScratchFiles(
   for (const group of groups) {
     const count = scratchFiles(group.workspaceId)
     const next = count > 0 ? { ...group, scratchFiles: count } : group
-    if (next.commands.length > 0 || next.files.length > 0 || count > 0) out.push(next)
+    const agents = next.agents?.length ?? 0
+    if (next.commands.length > 0 || agents > 0 || next.files.length > 0 || count > 0) out.push(next)
   }
   return out
 }

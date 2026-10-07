@@ -79,7 +79,10 @@ export function terminalKeyTable(
     const preset = presets.get(signature) ?? null
     bySignature.set(signature, { signature, spec, send, data, preset, userKey: keys })
   }
-  return { rows: [...bySignature.values()], bySignature }
+  const rows = [...bySignature.values()].sort((x, y) =>
+    x.signature < y.signature ? -1 : x.signature > y.signature ? 1 : 0,
+  )
+  return { rows, bySignature }
 }
 
 let cache: {

@@ -4,14 +4,14 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { build } from 'esbuild'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { skipWithoutTmux, tmuxPath } from '../../../test/tmux'
 import { DEFAULT_CONTROLS } from '../../shared/sandbox'
-import { programPath } from '../systemRequirements'
 import { SandboxHost } from './hostClient'
 import { buildSrtConfig, withKeptShells } from './srtConfig'
 
 const repoRoot = process.cwd()
 const hostScript = join(repoRoot, 'node_modules/.cache/ostia-test/sandbox-host-kept-paths.mjs')
-const tmux = programPath('tmux') ?? 'tmux'
+const tmux = tmuxPath ?? 'tmux'
 
 let root: string
 let tmuxDir: string
@@ -80,21 +80,24 @@ afterAll(() => {
   if (root) rmSync(root, { recursive: true, force: true })
 })
 
-describe.skipIf(process.platform === 'darwin')('a sandbox and the kept-shells tmux server', () => {
-  it('KSH-C54 a sandboxed shell cannot list or reach the tmux socket folder', async () => {
-    const listed = await run(
-      `ls ${tmuxDir}; [ -S ${socket} ] && echo socket-visible || echo socket-hidden`,
-    )
-    expect(listed.out).not.toContain('kept')
-    expect(listed.out).toContain('socket-hidden')
-  })
-
-  it('KSH-C55 a sandboxed shell cannot use tmux to type into a pane outside the sandbox', async () => {
-    const sent = await run(`${tmux} -S ${socket} send-keys -t k 'echo escaped' Enter; echo rc=$?`)
-    expect(sent.out).toMatch(/rc=[1-9]/)
-    const panes = execFileSync(tmux, ['-S', socket, 'capture-pane', '-p', '-t', 'k'], {
-      encoding: 'utf8',
+describe.skipIf(process.platform === 'darwin' || skipWithoutTmux)(
+  'a sandbox and the kept-shells tmux server',
+  () => {
+    it('KSH-C54 a sandboxed shell cannot list or reach the tmux socket folder', async () => {
+      const listed = await run(
+        `ls ${tmuxDir}; [ -S ${socket} ] && echo socket-visible || echo socket-hidden`,
+      )
+      expect(listed.out).not.toContain('kept')
+      expect(listed.out).toContain('socket-hidden')
     })
-    expect(panes).not.toContain('escaped')
-  })
-})
+
+    it('KSH-C55 a sandboxed shell cannot use tmux to type into a pane outside the sandbox', async () => {
+      const sent = await run(`${tmux} -S ${socket} send-keys -t k 'echo escaped' Enter; echo rc=$?`)
+      expect(sent.out).toMatch(/rc=[1-9]/)
+      const panes = execFileSync(tmux, ['-S', socket, 'capture-pane', '-p', '-t', 'k'], {
+        encoding: 'utf8',
+      })
+      expect(panes).not.toContain('escaped')
+    })
+  },
+)

@@ -1,4 +1,9 @@
-import { MagnifyingGlassIcon, MinusIcon, PlusIcon } from '@phosphor-icons/react'
+import {
+  ArrowCounterClockwiseIcon,
+  MagnifyingGlassIcon,
+  PlusIcon,
+  XIcon,
+} from '@phosphor-icons/react'
 import {
   type ChordProblem,
   type ChordSpec,
@@ -6,10 +11,7 @@ import {
   DIGIT_RANGE,
   chordText,
   chordTexts,
-  formatChord,
   formatScopedChord,
-  sameChord,
-  sameScope,
   specFromEvent,
   usedByMonaco,
 } from '@shared/chordSpec'
@@ -27,7 +29,7 @@ import {
   sendChordProblem,
   sendData,
 } from '@shared/terminalKeys'
-import { useEffect, useState, useSyncExternalStore } from 'react'
+import { Fragment, useEffect, useState, useSyncExternalStore } from 'react'
 import { commandWording, commands } from '../commands/registry'
 import type { Dict } from '../i18n/dict'
 import { fmt, useDict } from '../i18n/useDict'
@@ -41,20 +43,34 @@ import {
   chordsWithout,
   chordsWithoutKey,
   conflictsWith,
+  keymapBindings,
   terminalKeyConflicts,
   useBindings,
   workspaceDigit,
 } from '../lib/chords'
 import {
   type TerminalKeyRow,
-  currentTerminalKeys,
   removeTerminalKey,
   resetTerminalKey,
   saveTerminalKey,
   terminalKeyFor,
   terminalKeymapOf,
 } from '../lib/keyPresets'
+import {
+  type KeySource,
+  type TerminalKeySources,
+  canAddChord,
+  commandGroup,
+  commandSources,
+  groupRows,
+  overrideFor,
+  terminalKeySources,
+  withChordAdded,
+  withChordRemoved,
+  withChordReplaced,
+} from '../lib/keySources'
 import { BASE_LANGUAGE } from '../lib/languagePacks'
+import { sendActionKey } from '../lib/presetDiff'
 import { isMac, platform } from '../platform'
 import { useExtensionsStore } from '../stores/extensionsStore'
 import { appKeymap, keymapChoices, useKeymapStore } from '../stores/keymapStore'
@@ -64,7 +80,7 @@ import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { InputGroup, InputGroupAddon, InputGroupInput } from './ui/input-group'
 import { Kbd } from './ui/kbd'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table'
+import { TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table'
 
 const subscribeCommands = (cb: () => void): (() => void) => commands.subscribe(cb)
 const commandsVersion = (): number => commands.version()
@@ -73,6 +89,8 @@ const TERMINAL_TITLES: Record<string, (d: Dict) => string> = {
   copy: (d) => d.keyboard.copy,
   paste: (d) => d.keyboard.paste,
   find: (d) => d.keyboard.find,
+  'find.next': (d) => d.keyboard.findNext,
+  'find.previous': (d) => d.keyboard.findPrevious,
 }
 
 function commandTitle(id: string, d: Dict): string {
@@ -109,7 +127,12 @@ function sendText(send: TerminalSend): string {
 }
 
 function matchesTerminalRow(row: TerminalKeyRow, q: string, d: Dict): boolean {
+  const action = sendActionKey(row.send)
+  const actions = action
+    ? [d.keyboard.sendActions[action], BASE_LANGUAGE.catalog.keyboard.sendActions[action]]
+    : []
   return [
+    ...actions,
     d.keyboard.sendTitle,
     BASE_LANGUAGE.catalog.keyboard.sendTitle,
     d.keyboard.sendTypes[row.send.type],
@@ -185,46 +208,131 @@ interface Pending {
   terminal: TerminalKeyRow | null
 }
 
-type Mode = { kind: 'idle' } | { kind: 'recording' } | ({ kind: 'pending' } & Pending)
+type Target = number | null
 
-export function KeybindingRow({ id, title }: { id: string; title: string }): JSX.Element {
+type Mode =
+  | { kind: 'idle' }
+  | { kind: 'recording'; target: Target }
+  | ({ kind: 'pending'; target: Target } & Pending)
+
+function SourceLabel({
+  label,
+  presetName,
+}: {
+  label: KeySource | null
+  presetName: string | null
+}): JSX.Element | null {
   const d = useDict()
-  const override = useSettingsStore((s) => (id in s.keybindings ? s.keybindings[id] : undefined))
+  if (label === 'user') {
+    return <span className="text-brand text-ui-xs">{d.keyboard.custom}</span>
+  }
+  if (label === 'preset' && presetName) {
+    return <span className="text-fg-muted text-ui-xs">{presetName}</span>
+  }
+  return null
+}
+
+function CustomBar({ on }: { on: boolean }): JSX.Element | null {
+  if (!on) return null
+  return (
+    <span
+      aria-hidden
+      data-slot="custom-bar"
+      className="absolute inset-y-1 left-0 w-0.5 rounded-full bg-brand"
+    />
+  )
+}
+
+function KeyNotice({ children }: { children: React.ReactNode }): JSX.Element {
+  return (
+    <div
+      data-slot="key-notice"
+      className="absolute top-full left-0 z-20 mt-0.5 w-max max-w-md rounded-md border border-line bg-popover p-2 text-popover-foreground shadow-md"
+    >
+      {children}
+    </div>
+  )
+}
+
+function RecordingChip({
+  label,
+  onRecord,
+  onCancel,
+}: {
+  label: string
+  onRecord: (spec: ChordSpec) => void
+  onCancel: () => void
+}): JSX.Element {
+  return (
+    <span className="inline-flex h-5 items-center rounded-sm px-1 ring-1 ring-brand">
+      <ChordRecorder label={label} onRecord={onRecord} onCancel={onCancel} />
+    </span>
+  )
+}
+
+export function KeybindingRow({
+  id,
+  title,
+  presetName,
+}: {
+  id: string
+  title: string
+  presetName: string | null
+}): JSX.Element {
+  const d = useDict()
+  const user = useSettingsStore((s) => s.keybindings)
+  const override = id in user ? user[id] : undefined
   const setKeybinding = useSettingsStore((s) => s.setKeybinding)
   const resetKeybinding = useSettingsStore((s) => s.resetKeybinding)
   const [mode, setMode] = useState<Mode>({ kind: 'idle' })
   const [refusal, setRefusal] = useState<string | null>(null)
   const current = chordsOf(id, isMac)
+  const sources = commandSources(id, user, keymapBindings(), isMac)
   const ignored = override ? firstIgnored(id, override) : null
 
-  const save = (spec: ChordSpec, replace: string[], terminal: TerminalKeyRow | null): void => {
+  const apply = (next: string[]): void => {
+    const result = overrideFor(next, baseChords(id, isMac), isMac)
+    if (result.reset) resetKeybinding(id)
+    else setKeybinding(id, result.value)
+  }
+
+  const save = (
+    spec: ChordSpec,
+    target: Target,
+    replace: string[],
+    terminal: TerminalKeyRow | null,
+  ): void => {
     for (const other of replace) setKeybinding(other, keepChords(chordsWithout(other, spec, isMac)))
     if (terminal) removeTerminalKey(terminal, isMac)
-    const base = baseChords(id, isMac)
-    const isBase = base.length === 1 && sameChord(base[0], spec) && sameScope(base[0], spec)
-    if (isBase) resetKeybinding(id)
-    else setKeybinding(id, formatChord(spec, isMac))
+    apply(
+      target === null
+        ? withChordAdded(current, spec, isMac)
+        : withChordReplaced(current, target, spec, isMac),
+    )
     setMode({ kind: 'idle' })
   }
 
   const onRecord = (raw: ChordSpec): void => {
-    const spec = recordedChord(id, raw)
-    const problem = bindingProblem(id, spec, isMac)
+    if (mode.kind !== 'recording') return
+    const target = mode.target
+    const recorded = recordedChord(id, raw)
+    const scoped = target === null ? recorded : { ...recorded, terminal: current[target]?.terminal }
+    const problem = bindingProblem(id, scoped, isMac)
     if (problem) {
       setRefusal(
         fmt(d.keyboard.refused, {
-          keys: chordText(spec, isMac),
+          keys: chordText(scoped, isMac),
           reason: problemText(problem, d, isMac),
         }),
       )
       return
     }
     setRefusal(null)
-    const conflicts = conflictsWith(id, spec, isMac)
-    const monaco = usedByMonaco(spec, isMac)
-    const terminal = terminalKeyFor(spec, isMac)
-    if (conflicts.length === 0 && !monaco && !terminal) save(spec, [], null)
-    else setMode({ kind: 'pending', spec, conflicts, monaco, terminal })
+    const conflicts = conflictsWith(id, scoped, isMac)
+    const monaco = usedByMonaco(scoped, isMac)
+    const terminal = terminalKeyFor(scoped, isMac)
+    if (conflicts.length === 0 && !monaco && !terminal) save(scoped, target, [], null)
+    else setMode({ kind: 'pending', target, spec: scoped, conflicts, monaco, terminal })
   }
 
   const cancel = (): void => {
@@ -232,43 +340,100 @@ export function KeybindingRow({ id, title }: { id: string; title: string }): JSX
     setMode({ kind: 'idle' })
   }
 
+  const startRecording = (target: Target): void => {
+    setRefusal(null)
+    const same = mode.kind === 'recording' && mode.target === target
+    setMode(same ? { kind: 'idle' } : { kind: 'recording', target })
+  }
+
+  const recordingAt = (target: Target): boolean =>
+    mode.kind === 'recording' && mode.target === target
+  const recorder = (
+    <RecordingChip
+      label={fmt(d.keyboard.recordFor, { command: title })}
+      onRecord={onRecord}
+      onCancel={cancel}
+    />
+  )
+
   return (
-    <TableRow className="hover:bg-transparent">
-      <TableCell className="py-1.5 align-top whitespace-normal">
-        <div className="text-fg text-ui-base">{title}</div>
-        <div className="font-mono text-fg-muted text-ui-xs">{id}</div>
+    <TableRow data-source={sources.label ?? 'default'} className="group/row hover:bg-surface-2">
+      <TableCell className="relative py-1.5 pl-3 align-top whitespace-normal">
+        <CustomBar on={sources.label === 'user'} />
+        <div className="truncate text-fg text-ui-base">{title}</div>
+        <div className="truncate font-mono text-fg-muted text-ui-xs">{id}</div>
       </TableCell>
-      <TableCell className="py-1.5 align-top whitespace-normal">
-        {mode.kind === 'recording' ? (
-          <ChordRecorder
-            label={fmt(d.keyboard.recordFor, { command: title })}
-            onRecord={onRecord}
-            onCancel={cancel}
-          />
-        ) : mode.kind === 'pending' ? (
-          <PendingChoice
-            pending={mode}
-            onConfirm={() => save(mode.spec, mode.conflicts, mode.terminal)}
-            onCancel={cancel}
-          />
-        ) : current.length > 0 ? (
-          <span className="flex flex-wrap items-center gap-1">
-            {current.map((spec) => (
-              <span key={formatScopedChord(spec, isMac)} className="inline-flex items-center gap-1">
-                <Kbd>{chordText(spec, isMac)}</Kbd>
+      <TableCell className="relative py-1.5 align-top whitespace-normal">
+        <span className="flex flex-wrap items-center gap-1">
+          {current.map((spec, i) => {
+            const keys = chordText(spec, isMac)
+            if (recordingAt(i)) return <span key={formatScopedChord(spec, isMac)}>{recorder}</span>
+            return (
+              <span
+                key={formatScopedChord(spec, isMac)}
+                className="group/chip inline-flex items-center gap-0.5"
+              >
+                <button
+                  type="button"
+                  className="rounded-sm outline-none focus-visible:ring-1 focus-visible:ring-brand"
+                  aria-label={fmt(d.keyboard.changeFor, { keys, command: title })}
+                  onClick={() => startRecording(i)}
+                >
+                  <Kbd className="text-fg">{keys}</Kbd>
+                </button>
                 {spec.terminal ? (
                   <span className="text-fg-muted text-ui-xs">{d.keyboard.inTerminal}</span>
                 ) : null}
+                <Button
+                  variant="ghost"
+                  size="icon-2xs"
+                  className="text-fg-dim opacity-0 group-hover/chip:opacity-100 focus-visible:opacity-100"
+                  aria-label={fmt(d.keyboard.removeChordFor, { keys, command: title })}
+                  onClick={() => {
+                    cancel()
+                    apply(withChordRemoved(current, i, isMac))
+                  }}
+                >
+                  <XIcon />
+                </Button>
               </span>
-            ))}
-          </span>
-        ) : (
-          <span className="text-fg-muted text-ui-sm">{d.keyboard.unassigned}</span>
-        )}
-        {refusal ? (
-          <p role="alert" className="mt-1 text-attn-fg text-ui-sm">
-            {refusal}
-          </p>
+            )
+          })}
+          {current.length === 0 && !recordingAt(null) ? (
+            <span className="text-fg-muted text-ui-sm">{d.keyboard.unassigned}</span>
+          ) : null}
+          {recordingAt(null) ? recorder : null}
+          {canAddChord(current) && !recordingAt(null) ? (
+            <Button
+              variant="ghost"
+              size="icon-2xs"
+              className={
+                current.length === 0
+                  ? 'text-fg-muted'
+                  : 'text-fg-dim opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100'
+              }
+              aria-label={fmt(d.keyboard.addFor, { command: title })}
+              onClick={() => startRecording(null)}
+            >
+              <PlusIcon />
+            </Button>
+          ) : null}
+        </span>
+        {refusal || mode.kind === 'pending' ? (
+          <KeyNotice>
+            {refusal ? (
+              <p role="alert" className="text-attn-fg text-ui-sm">
+                {refusal}
+              </p>
+            ) : null}
+            {mode.kind === 'pending' ? (
+              <PendingChoice
+                pending={mode}
+                onConfirm={() => save(mode.spec, mode.target, mode.conflicts, mode.terminal)}
+                onCancel={cancel}
+              />
+            ) : null}
+          </KeyNotice>
         ) : null}
         {ignored && mode.kind === 'idle' ? (
           <WarningNote>
@@ -279,32 +444,32 @@ export function KeybindingRow({ id, title }: { id: string; title: string }): JSX
           </WarningNote>
         ) : null}
       </TableCell>
-      <TableCell className="py-1.5 text-right align-top">
-        <div className="flex justify-end gap-1">
-          <Button
-            variant="outline"
-            size="xs"
-            aria-label={fmt(d.keyboard.recordFor, { command: title })}
-            aria-pressed={mode.kind === 'recording'}
-            onClick={() => {
-              setRefusal(null)
-              setMode(mode.kind === 'recording' ? { kind: 'idle' } : { kind: 'recording' })
-            }}
-          >
-            {d.keyboard.record}
-          </Button>
-          <Button
-            variant="ghost"
-            size="xs"
-            aria-label={fmt(d.keyboard.resetFor, { command: title })}
-            disabled={override === undefined}
-            onClick={() => {
-              cancel()
-              resetKeybinding(id)
-            }}
-          >
-            {d.keyboard.reset}
-          </Button>
+      <TableCell className="py-1.5 align-top whitespace-normal">
+        <div className="flex items-center gap-1">
+          <div className="flex min-w-0 flex-1 flex-col">
+            <SourceLabel label={sources.label} presetName={presetName} />
+            {sources.label && sources.dropped.length > 0 ? (
+              <span className="text-fg-dim text-ui-xs">
+                {fmt(d.keyboard.dropped, {
+                  keys: sources.dropped.map((spec) => chordText(spec, isMac)).join(' '),
+                })}
+              </span>
+            ) : null}
+          </div>
+          {override !== undefined ? (
+            <Button
+              variant="ghost"
+              size="icon-2xs"
+              className="text-fg-muted"
+              aria-label={fmt(d.keyboard.resetFor, { command: title })}
+              onClick={() => {
+                cancel()
+                resetKeybinding(id)
+              }}
+            >
+              <ArrowCounterClockwiseIcon />
+            </Button>
+          ) : null}
         </div>
       </TableCell>
     </TableRow>
@@ -324,7 +489,7 @@ function PendingChoice({
   const keys = chordText(pending.spec, isMac)
   return (
     <div className="flex flex-col gap-1.5">
-      <Kbd>{keys}</Kbd>
+      <Kbd className="text-fg">{keys}</Kbd>
       {pending.conflicts.map((other) => (
         <WarningNote key={other}>
           {fmt(d.keyboard.conflict, { keys, command: commandTitle(other, d) })}
@@ -564,11 +729,24 @@ function TerminalKeyEditor({
   )
 }
 
-function TerminalKeyLine({ row }: { row: TerminalKeyRow }): JSX.Element {
+function sendActionText(send: TerminalSend, d: Dict): string | null {
+  const key = sendActionKey(send)
+  return key ? d.keyboard.sendActions[key] : null
+}
+
+function TerminalKeyLine({
+  entry,
+  presetName,
+}: {
+  entry: TerminalKeySources
+  presetName: string | null
+}): JSX.Element {
   const d = useDict()
   const [editing, setEditing] = useState(false)
+  const { row } = entry
   const keys = chordText(row.spec, isMac)
   const shadowedBy = terminalKeyConflicts(row.spec, isMac)[0]
+  const action = sendActionText(row.send, d)
   if (editing) {
     return (
       <TableRow className="hover:bg-transparent">
@@ -579,55 +757,101 @@ function TerminalKeyLine({ row }: { row: TerminalKeyRow }): JSX.Element {
     )
   }
   return (
-    <TableRow className="hover:bg-transparent">
-      <TableCell className="py-1.5 align-top whitespace-normal">
-        <div className="text-fg text-ui-base">{d.keyboard.sendTitle}</div>
-        <div className="flex flex-wrap gap-1.5 text-fg-muted text-ui-xs">
-          <span>{d.keyboard.sendTypes[row.send.type]}</span>
-          <span className="font-mono">{sendText(row.send)}</span>
-          <span>{row.userKey ? d.keyboard.custom : d.keyboard.fromPreset}</span>
-        </div>
+    <TableRow data-source={entry.label ?? 'default'} className="group/row hover:bg-surface-2">
+      <TableCell className="relative py-1.5 pl-3 align-top whitespace-normal">
+        <CustomBar on={entry.label === 'user'} />
+        {action ? (
+          <>
+            <div className="truncate text-fg text-ui-base">{action}</div>
+            <div className="truncate font-mono text-fg-muted text-ui-xs">{sendText(row.send)}</div>
+          </>
+        ) : (
+          <>
+            <div className="truncate font-mono text-fg text-ui-base">{sendText(row.send)}</div>
+            <div className="truncate text-fg-muted text-ui-xs">
+              {d.keyboard.sendTypes[row.send.type]}
+            </div>
+          </>
+        )}
       </TableCell>
       <TableCell className="py-1.5 align-top whitespace-normal">
-        <Kbd>{keys}</Kbd>
+        <span className="group/chip inline-flex items-center gap-0.5">
+          <button
+            type="button"
+            className="rounded-sm outline-none focus-visible:ring-1 focus-visible:ring-brand"
+            aria-label={fmt(d.keyboard.editFor, { keys })}
+            onClick={() => setEditing(true)}
+          >
+            <Kbd className="text-fg">{keys}</Kbd>
+          </button>
+          <Button
+            variant="ghost"
+            size="icon-2xs"
+            className="text-fg-dim opacity-0 group-hover/chip:opacity-100 focus-visible:opacity-100"
+            aria-label={fmt(d.keyboard.removeFor, { keys })}
+            onClick={() => removeTerminalKey(row, isMac)}
+          >
+            <XIcon />
+          </Button>
+        </span>
         {shadowedBy ? (
           <WarningNote>
             {fmt(d.keyboard.shadowed, { command: commandTitle(shadowedBy, d) })}
           </WarningNote>
         ) : null}
       </TableCell>
-      <TableCell className="py-1.5 text-right align-top">
-        <div className="flex justify-end gap-1">
-          <Button
-            variant="outline"
-            size="xs"
-            aria-label={fmt(d.keyboard.editFor, { keys })}
-            onClick={() => setEditing(true)}
-          >
-            {d.keyboard.edit}
-          </Button>
-          <Button
-            variant="ghost"
-            size="xs"
-            aria-label={fmt(d.keyboard.resetFor, { command: keys })}
-            disabled={!row.preset || !row.userKey}
-            onClick={() => resetTerminalKey(row, isMac)}
-          >
-            {d.keyboard.reset}
-          </Button>
-          <Button
-            variant="ghost"
-            size="xs"
-            aria-label={fmt(d.keyboard.removeFor, { keys })}
-            onClick={() => removeTerminalKey(row, isMac)}
-          >
-            <MinusIcon />
-          </Button>
+      <TableCell className="py-1.5 align-top whitespace-normal">
+        <div className="flex items-center gap-1">
+          <div className="flex min-w-0 flex-1 flex-col">
+            <SourceLabel label={entry.label} presetName={presetName} />
+          </div>
+          {row.preset && row.userKey ? (
+            <Button
+              variant="ghost"
+              size="icon-2xs"
+              className="text-fg-muted"
+              aria-label={fmt(d.keyboard.resetFor, { command: keys })}
+              onClick={() => resetTerminalKey(row, isMac)}
+            >
+              <ArrowCounterClockwiseIcon />
+            </Button>
+          ) : null}
         </div>
       </TableCell>
     </TableRow>
   )
 }
+
+function GroupHead({ name }: { name: string }): JSX.Element {
+  return (
+    <TableRow className="border-line hover:bg-transparent">
+      <TableHead
+        colSpan={3}
+        scope="colgroup"
+        className="h-7 pt-3 pl-3 font-medium text-fg-muted text-ui-xs"
+      >
+        {name}
+      </TableHead>
+    </TableRow>
+  )
+}
+
+function useKeymapNames(): { app: string | null; terminal: string | null } {
+  const d = useDict()
+  const chosenTerminal = useSettingsStore((s) => s.terminalKeymap)
+  useSettingsStore((s) => s.keymap)
+  const list = useExtensionsStore((s) => s.list)
+  const loaded = useKeymapStore((s) => s.loaded)
+  const ref = appKeymap()
+  const chosen = keymapChoices(list, platform).find((c) => c.ref === ref)
+  const terminal = terminalKeymapOf(chosenTerminal, isMac)
+  return {
+    app: chosen && loaded ? (loaded.label ?? chosen.label) : null,
+    terminal: terminal === terminalKeymapOf(null, isMac) ? null : terminalKeymapLabel(terminal, d),
+  }
+}
+
+export const KEY_TABLE_COLUMNS = ['w-[42%]', 'w-[36%]', 'w-[22%]'] as const
 
 export function KeyboardSection(): JSX.Element {
   const d = useDict()
@@ -635,24 +859,27 @@ export function KeyboardSection(): JSX.Element {
   const [adding, setAdding] = useState(false)
   const keybindings = useSettingsStore((s) => s.keybindings)
   const terminalKeys = useSettingsStore((s) => s.terminalKeys)
+  const terminalKeymap = useSettingsStore((s) => s.terminalKeymap)
   const setKeybindings = useSettingsStore((s) => s.setKeybindings)
   const setTerminalKeys = useSettingsStore((s) => s.setTerminalKeys)
-  useSettingsStore((s) => s.terminalKeymap)
+  const names = useKeymapNames()
   useBindings()
   useSyncExternalStore(subscribeCommands, commandsVersion)
 
+  const categories = new Map(commands.list().map((c) => [c.id, c.category]))
   const rows = bindableIds()
     .map((id) => ({
       id,
       title: commandTitle(id, d),
       english: commandTitle(id, BASE_LANGUAGE.catalog),
+      group: commandGroup(id, categories.get(id)),
     }))
     .sort((a, b) => a.title.localeCompare(b.title))
-  const sends = currentTerminalKeys(isMac).rows
+  const sends = terminalKeySources(terminalKeys, terminalKeymap, isMac)
 
   const q = query.trim().toLowerCase()
   const visible = q ? rows.filter((r) => matchesQuery(r, q)) : rows
-  const visibleSends = q ? sends.filter((r) => matchesTerminalRow(r, q, d)) : sends
+  const visibleSends = q ? sends.filter((r) => matchesTerminalRow(r.row, q, d)) : sends
   const untouched = Object.keys(keybindings).length === 0 && Object.keys(terminalKeys).length === 0
 
   return (
@@ -686,17 +913,36 @@ export function KeyboardSection(): JSX.Element {
       {visible.length === 0 && visibleSends.length === 0 && !adding ? (
         <p className="py-2 text-fg-muted text-ui-sm">{d.keyboard.none}</p>
       ) : (
-        <Table className="text-ui-base">
+        <table data-slot="table" className="w-full table-fixed caption-bottom text-ui-base">
+          <colgroup>
+            {KEY_TABLE_COLUMNS.map((width) => (
+              <col key={width} className={width} />
+            ))}
+          </colgroup>
           <TableHeader>
             <TableRow className="border-line hover:bg-transparent">
-              <TableHead className="h-8 text-fg-muted text-ui-sm">{d.keyboard.command}</TableHead>
-              <TableHead className="h-8 text-fg-muted text-ui-sm">{d.keyboard.shortcut}</TableHead>
-              <TableHead className="h-8 text-right text-fg-muted text-ui-sm">
-                <span className="sr-only">{d.keyboard.actions}</span>
+              <TableHead className="h-8 pl-3 text-fg-muted text-ui-sm">
+                {d.keyboard.command}
               </TableHead>
+              <TableHead className="h-8 text-fg-muted text-ui-sm">{d.keyboard.shortcut}</TableHead>
+              <TableHead className="h-8 text-fg-muted text-ui-sm">{d.keyboard.source}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
+            {groupRows(visible).map(({ group, rows: inGroup }) => (
+              <Fragment key={group}>
+                <GroupHead name={d.keyboard.groups[group]} />
+                {inGroup.map((r) => (
+                  <KeybindingRow key={r.id} id={r.id} title={r.title} presetName={names.app} />
+                ))}
+              </Fragment>
+            ))}
+            {visibleSends.length > 0 || adding ? (
+              <GroupHead name={d.keyboard.groups.textEditing} />
+            ) : null}
+            {visibleSends.map((r) => (
+              <TerminalKeyLine key={r.row.signature} entry={r} presetName={names.terminal} />
+            ))}
             {adding ? (
               <TableRow className="hover:bg-transparent">
                 <TableCell colSpan={3} className="py-1.5 whitespace-normal">
@@ -704,14 +950,8 @@ export function KeyboardSection(): JSX.Element {
                 </TableCell>
               </TableRow>
             ) : null}
-            {visibleSends.map((r) => (
-              <TerminalKeyLine key={r.signature} row={r} />
-            ))}
-            {visible.map((r) => (
-              <KeybindingRow key={r.id} id={r.id} title={r.title} />
-            ))}
           </TableBody>
-        </Table>
+        </table>
       )}
       <div className="mt-2 flex">
         <Button variant="outline" size="sm" disabled={adding} onClick={() => setAdding(true)}>
