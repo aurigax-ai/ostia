@@ -17,6 +17,7 @@ function remoteOn(
     deviceCount: 0,
     tailnet,
     route,
+    discoverable: false,
   }
   vi.mocked(window.ostia.gateway.status).mockResolvedValue(status)
 }
