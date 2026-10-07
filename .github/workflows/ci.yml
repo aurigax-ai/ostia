@@ -146,9 +146,6 @@ jobs:
     needs: changes
     if: needs.changes.outputs.code == 'true'
     runs-on: ${{ fromJSON(needs.changes.outputs.linux) }}
-    permissions:
-      contents: read
-      issues: read
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
@@ -157,11 +154,6 @@ jobs:
           electron: false
       - run: pnpm typecheck
       - run: pnpm lint
-      # Every test/quarantine.json entry's issue is still open; dates are
-      # checked offline by the unit job.
-      - env:
-          GH_TOKEN: ${{ github.token }}
-        run: node scripts/quarantine.mjs issues
 
   unit:
     needs: changes
@@ -387,6 +379,9 @@ jobs:
     if: ${{ !cancelled() && needs.changes.outputs.code == 'true' }}
     runs-on: ${{ matrix.runner }}
     continue-on-error: true
+    permissions:
+      contents: read
+      issues: read
     strategy:
       fail-fast: false
       matrix:
@@ -418,6 +413,11 @@ jobs:
           git config --global user.name 'Ostia CI'
           git config --global user.email 'ci@ostia.invalid'
       - uses: ./.github/actions/setup
+      - if: runner.os == 'Linux'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/quarantine.mjs issues
       - if: runner.os == 'macOS'
         run: pnpm rebuild
       - run: node scripts/quarantine.mjs unit "$RUNS"
