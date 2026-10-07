@@ -1,0 +1,6 @@
+xvfb
+zsh
+bubblewrap
+socat
+ripgrep
+tmux
