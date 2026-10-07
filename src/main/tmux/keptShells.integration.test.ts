@@ -1,10 +1,10 @@
-import { execFileSync } from 'node:child_process'
+import { execFileSync, spawn as spawnChild } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, afterEach, describe, expect, it } from 'vitest'
-import { skipWithoutTmux, tmuxPath } from '../../../test/tmux'
+import { running, skipWithoutTmux, tmuxPath } from '../../../test/tmux'
 import { type KeptHostMeta, type KeptMeta, KeptShells, SANDBOX_HOST_KIND } from './keptShells'
 import type { TmuxPane, TmuxServerOptions } from './tmuxServer'
 
@@ -58,17 +58,8 @@ function spawn(kept: KeptShells, paneId: string): Promise<TmuxPane> {
   })
 }
 
-function alive(pid: number): boolean {
-  try {
-    process.kill(pid, 0)
-    return true
-  } catch {
-    return false
-  }
-}
-
 async function ended(pid: number): Promise<void> {
-  await expect.poll(() => alive(pid), { timeout: PROCESS_END_MS }).toBe(false)
+  await expect.poll(() => running(pid), { timeout: PROCESS_END_MS }).toBe(false)
 }
 
 async function restart(name: string, saved: ReadonlySet<string> | null, keep = true) {
@@ -78,6 +69,16 @@ async function restart(name: string, saved: ReadonlySet<string> | null, keep = t
 }
 
 describe.skipIf(skipWithoutTmux)('KeptShells', () => {
+  it('counts a shell that exited but was not reaped yet as ended, as tmux 3.4 leaves one whose SIGCHLD it lost', async () => {
+    const parent = spawnChild('/bin/sh', ['-c', 'sleep 0.1 & echo $!; exec sleep 5'])
+    const pid = await new Promise<number>((resolve) =>
+      parent.stdout.once('data', (d: Buffer) => resolve(Number(d.toString('utf8').trim()))),
+    )
+    await ended(pid)
+    expect(() => process.kill(pid, 0)).not.toThrow()
+    parent.kill()
+  })
+
   it('KSH-C15 ends a kept shell the restored layout does not name and logs it', async () => {
     const name = `k${names++}`
     const first = instance(name)
@@ -88,7 +89,7 @@ describe.skipIf(skipWithoutTmux)('KeptShells', () => {
     expect(second.kept.isWaiting('p1')).toBe(true)
     expect(second.kept.isWaiting('p2')).toBe(false)
     expect(second.log).toContainEqual(['pty-reap', { pane: 'p2', reason: 'unclaimed' }])
-    expect(alive(named.pid)).toBe(true)
+    expect(running(named.pid)).toBe(true)
     await ended(unnamed.pid)
   })
 
