@@ -5,6 +5,7 @@ import { effectiveBindings } from './chords'
 
 export interface TerminalKeyChange {
   keys: string
+  signature: string
   before: TerminalSend | null
   after: TerminalSend | null
 }
@@ -35,10 +36,10 @@ export function terminalKeyChanges(
   for (const [signature, [keys, send]] of after) {
     const old = before.get(signature)?.[1] ?? null
     if (old && sameSend(old, send)) continue
-    out.push({ keys, before: old, after: send })
+    out.push({ keys, signature, before: old, after: send })
   }
   for (const [signature, [keys, send]] of before) {
-    if (!after.has(signature)) out.push({ keys, before: send, after: null })
+    if (!after.has(signature)) out.push({ keys, signature, before: send, after: null })
   }
   return out
 }
