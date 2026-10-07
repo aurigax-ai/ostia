@@ -106,7 +106,10 @@ describe('PrivacySection', () => {
 
   it('marks a hand-edited invalid pattern as ignored', async () => {
     useSettingsStore.setState({
-      privacy: { redaction: { enabled: true, patterns: ['ok-[0-9]{2}', 'ACME-['] } },
+      privacy: {
+        redaction: { enabled: true, patterns: ['ok-[0-9]{2}', 'ACME-['] },
+        telemetry: { errors: false, usage: false },
+      },
     })
     await renderSettled(<PrivacySection />)
     const alerts = screen.getAllByRole('alert')
@@ -137,5 +140,73 @@ describe('PrivacySection', () => {
     render(<PrivacySection />)
     await userEvent.type(screen.getByLabelText('Text to check'), 'git status')
     expect(await screen.findByText('Nothing would be redacted.')).toBeInTheDocument()
+  })
+
+  it('shows the telemetry switches off, saves one at once, and resets the install id', async () => {
+    const user = userEvent.setup()
+    await renderSettled(<PrivacySection />)
+    const errors = screen.getByRole('switch', { name: 'Error reports' })
+    const usage = screen.getByRole('switch', { name: 'Usage data' })
+    expect(errors).not.toBeChecked()
+    expect(usage).not.toBeChecked()
+    expect(screen.getByLabelText('Install id')).toHaveTextContent('install-id')
+
+    await user.click(errors)
+    expect(useSettingsStore.getState().privacy.telemetry).toEqual({ errors: true, usage: false })
+    const written = JSON.parse(vi.mocked(window.ostia.fs.write).mock.calls[0][1])
+    expect(written.privacy.telemetry).toEqual({ errors: true, usage: false })
+
+    await user.click(screen.getByRole('button', { name: 'Reset install id' }))
+    await waitFor(() =>
+      expect(screen.getByLabelText('Install id')).toHaveTextContent('new-install-id'),
+    )
+    expect(window.ostia.telemetry.resetInstallId).toHaveBeenCalled()
+  })
+
+  it('offers no switches in a build without an endpoint, and says so', async () => {
+    vi.mocked(window.ostia.telemetry.state).mockResolvedValueOnce({
+      installId: 'install-id',
+      asked: true,
+      available: false,
+    })
+    await renderSettled(<PrivacySection />)
+    await screen.findByText(/This build has no telemetry endpoint/)
+    expect(screen.queryByRole('switch', { name: 'Error reports' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('switch', { name: 'Usage data' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Reset install id' })).not.toBeInTheDocument()
+  })
+
+  it('shows the queued and last-sent reports read-only, as main holds them', async () => {
+    vi.mocked(window.ostia.telemetry.reports).mockResolvedValue({
+      queued: [
+        {
+          event_id: 'e1',
+          timestamp: 1,
+          level: 'error',
+          platform: 'node',
+          release: '1.0.0',
+          user: { id: 'install-id' },
+          tags: { source: 'main-exception' },
+          contexts: {
+            app: { app_version: '1.0.0' },
+            os: { name: 'linux', version: '6' },
+            device: { arch: 'x64' },
+            runtime: { name: 'electron', version: '33' },
+          },
+          exception: { values: [{ type: 'TypeError', value: 'boom' }] },
+        },
+      ],
+      sent: [],
+    })
+    const user = userEvent.setup()
+    await renderSettled(<PrivacySection />)
+    await user.click(
+      screen.getByRole('button', { name: `Show what ${PRODUCT_DISPLAY_NAME} sends` }),
+    )
+    const dialog = await screen.findByTestId('telemetry-reports-dialog')
+    const queued = within(dialog).getByRole('region', { name: 'Waiting to be sent' })
+    await waitFor(() => expect(queued).toHaveTextContent('"value": "boom"'))
+    expect(within(dialog).getByRole('region', { name: 'Last sent' })).toHaveTextContent('Nothing.')
+    expect(within(dialog).queryByRole('textbox')).not.toBeInTheDocument()
   })
 })

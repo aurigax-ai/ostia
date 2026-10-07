@@ -1,9 +1,10 @@
 import type { AgentResume } from '@shared/agentResume'
 import type { BrowserProfile } from '@shared/browserProfile'
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { allPanes, paneBrowserProfile } from '../layout/tree'
 import type { LayoutNode, SurfaceKind } from '../layout/types'
+import { countUsage } from '../lib/usageCounts'
 import { useDiffStore } from '../stores/diffStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useSandboxStore } from '../stores/sandboxStore'
@@ -76,10 +77,17 @@ export function SurfacePool(): JSX.Element {
     return out
   }, [byWorkspace])
 
+  const seen = useRef(new Set<string>())
   useEffect(() => {
     const live = new Set(surfaces.map((s) => s.paneId))
     releaseSurfaces(live)
     useDiffStore.getState().retain(live)
+    for (const s of surfaces) {
+      if (seen.current.has(s.paneId)) continue
+      seen.current.add(s.paneId)
+      countUsage('surface', s.kind)
+    }
+    for (const paneId of seen.current) if (!live.has(paneId)) seen.current.delete(paneId)
   }, [surfaces])
 
   return (

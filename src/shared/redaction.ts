@@ -1,3 +1,9 @@
+import {
+  DEFAULT_TELEMETRY_SETTINGS,
+  type TelemetrySettings,
+  parseTelemetrySettings,
+} from './telemetry'
+
 export interface RedactionSettings {
   enabled: boolean
   patterns: string[]
@@ -5,6 +11,7 @@ export interface RedactionSettings {
 
 export interface PrivacySettings {
   redaction: RedactionSettings
+  telemetry: TelemetrySettings
 }
 
 export const REDACTION_PATTERNS_MAX = 20
@@ -16,6 +23,7 @@ export const CUSTOM_KIND = 'custom'
 
 export const DEFAULT_PRIVACY_SETTINGS: PrivacySettings = {
   redaction: { enabled: true, patterns: [] },
+  telemetry: DEFAULT_TELEMETRY_SETTINGS,
 }
 
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -34,7 +42,11 @@ export function parseRedactionSettings(raw: unknown): RedactionSettings {
 }
 
 export function parsePrivacySettings(raw: unknown): PrivacySettings {
-  return { redaction: parseRedactionSettings(isRecord(raw) ? raw.redaction : undefined) }
+  const src = isRecord(raw) ? raw : {}
+  return {
+    redaction: parseRedactionSettings(src.redaction),
+    telemetry: parseTelemetrySettings(src.telemetry),
+  }
 }
 
 export type PatternProblem =

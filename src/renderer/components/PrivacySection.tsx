@@ -16,7 +16,8 @@ import { fmt, useDict } from '../i18n/useDict'
 import { redactedCountLabel } from '../lib/chatRedaction'
 import { useSettingsStore } from '../stores/settingsStore'
 import { IconButton } from './IconButton'
-import { SectionHead, SettingsGroup, ToggleRow, WarningNote } from './SettingsPanel'
+import { ControlRow, SectionHead, SettingsGroup, ToggleRow, WarningNote } from './SettingsPanel'
+import { TelemetryReportsDialog } from './TelemetryReportsDialog'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
@@ -217,6 +218,76 @@ function TestBox({ revision }: { revision: number }): JSX.Element {
   )
 }
 
+function TelemetryGroup(): JSX.Element {
+  const d = useDict()
+  const telemetry = useSettingsStore((s) => s.privacy.telemetry)
+  const setTelemetry = useSettingsStore((s) => s.setTelemetry)
+  const [installId, setInstallId] = useState('')
+  const [available, setAvailable] = useState<boolean | null>(null)
+  const [showReports, setShowReports] = useState(false)
+  useEffect(() => {
+    let stale = false
+    window.ostia.telemetry
+      .state()
+      .then((state) => {
+        if (stale) return
+        setInstallId(state.installId)
+        setAvailable(state.available)
+      })
+      .catch(() => {})
+    return () => {
+      stale = true
+    }
+  }, [])
+  const reset = async (): Promise<void> => {
+    setInstallId(await window.ostia.telemetry.resetInstallId())
+  }
+  if (available === null)
+    return <SettingsGroup title={d.privacy.groupTelemetry}>{null}</SettingsGroup>
+  if (!available) {
+    return (
+      <SettingsGroup title={d.privacy.groupTelemetry} desc={d.privacy.telemetryDesc}>
+        <p className="py-1.5 text-fg-muted text-ui-sm">{d.privacy.noEndpoint}</p>
+      </SettingsGroup>
+    )
+  }
+  return (
+    <SettingsGroup
+      title={d.privacy.groupTelemetry}
+      desc={d.privacy.telemetryDesc}
+      action={
+        <Button variant="outline" size="sm" onClick={() => setShowReports(true)}>
+          {d.privacy.showReports}
+        </Button>
+      }
+    >
+      <ToggleRow
+        label={d.privacy.errorReports}
+        desc={d.privacy.errorReportsDesc}
+        checked={telemetry.errors}
+        onChange={(on) => void setTelemetry({ errors: on })}
+      />
+      <ToggleRow
+        label={d.privacy.usageData}
+        desc={d.privacy.usageDataDesc}
+        checked={telemetry.usage}
+        onChange={(on) => void setTelemetry({ usage: on })}
+      />
+      <ControlRow label={d.privacy.installId} desc={d.privacy.installIdDesc}>
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-fg-muted text-ui-xs" aria-label={d.privacy.installId}>
+            {installId}
+          </span>
+          <Button variant="outline" size="sm" onClick={() => void reset()}>
+            {d.privacy.resetInstallId}
+          </Button>
+        </div>
+      </ControlRow>
+      <TelemetryReportsDialog open={showReports} onClose={() => setShowReports(false)} />
+    </SettingsGroup>
+  )
+}
+
 export function PrivacySection(): JSX.Element {
   const d = useDict()
   const enabled = useSettingsStore((s) => s.privacy.redaction.enabled)
@@ -249,6 +320,7 @@ export function PrivacySection(): JSX.Element {
       <KindList kinds={kinds} />
       <Patterns onChanged={() => setRevision((n) => n + 1)} />
       <TestBox revision={revision} />
+      <TelemetryGroup />
     </div>
   )
 }

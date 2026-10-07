@@ -65,6 +65,7 @@ import {
 } from '../lib/settingsNav'
 import { firstMatchControl, matchesQuery } from '../lib/settingsSearch'
 import { useEffectiveTheme } from '../lib/theme'
+import { countUsage } from '../lib/usageCounts'
 import { isLinux, isMac, platform } from '../platform'
 import type { ClipboardKeys, TerminalRenderer } from '../settings/terminalPaneSettings'
 import {
@@ -239,6 +240,10 @@ export function SettingsPanel(): JSX.Element | null {
   const targetWorkspace = useWorkspacesStore((s) =>
     s.workspaces.find((w) => w.id === settingsWorkspaceId),
   )
+
+  useEffect(() => {
+    if (open) countUsage('settings', active)
+  }, [open, active])
 
   useEffect(() => {
     if (settingsRequest === 0) return

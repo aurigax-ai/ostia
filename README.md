@@ -111,6 +111,25 @@ pnpm build && pnpm test:e2e   # Playwright against the built app
 
 Without `pnpm rebuild`, terminals stay disabled and the log says `node-pty unavailable`.
 
+## Privacy and telemetry
+
+Ostia sends nothing unless you turn it on. On first start it asks once, and Settings → Privacy
+has two switches you can change at any time:
+
+- **Error reports**: uncaught errors and crashes of the app, its windows and its extensions. A
+  report holds the error name, a stack trace reduced to file names inside the app, the app and
+  Electron versions, the operating system and the architecture.
+- **Usage data**: counts only. App starts, session length, which palette commands, pane kinds and
+  settings sections were used, and which extensions you installed from the official marketplace.
+
+Reports are grouped by a random install id you can reset in Settings. They go from the main
+process alone, in batches over https, to one fixed endpoint run by the developers. Never included:
+terminal output, what you type, command lines, file paths or names, URLs, environment variables,
+settings values, workspace names, tokens or your IP address. Detected secrets are redacted and free
+text is clipped. **Show what Ostia sends** in Settings → Privacy lists the queued and last-sent
+reports exactly as they go out. Turning a switch off stops sending at once and drops what was
+queued.
+
 ## Licence
 
 From 0.5.10, Ostia is licensed under the [Functional Source License, Version 1.1, MIT Future License](LICENSE) (FSL-1.1-MIT). It is source-available, not open source.

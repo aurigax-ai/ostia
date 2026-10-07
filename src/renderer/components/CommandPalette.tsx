@@ -17,6 +17,7 @@ import { childPath } from '../lib/fileTree'
 import { openFileAt, openFileInWorkspace } from '../lib/openFile'
 import { paletteFilter } from '../lib/paletteFilter'
 import { PALETTE_MODES, type PaletteMode, paletteMode, paletteQuery } from '../lib/paletteModes'
+import { countUsage } from '../lib/usageCounts'
 import { type RemoteWorkspace, remoteWorkspacesOf } from '../lib/windowWorkspaces'
 import { revealPane } from '../lib/workspaceActivity'
 import {
@@ -52,6 +53,11 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Kbd } from './ui/kbd'
 
 const LIST_CLASS = 'max-h-[min(27rem,calc(88vh-5rem))]'
+
+function runFromPalette(id: string, args?: { argument: string }): void {
+  countUsage('command', id)
+  void commands.exec(id, args)
+}
 
 const GROUP_CLASS =
   '**:[[cmdk-group-heading]]:pt-3 **:[[cmdk-group-heading]]:pb-1.5 **:[[cmdk-group-heading]]:text-ui-base **:[[cmdk-group-heading]]:font-semibold'
@@ -260,7 +266,7 @@ function ArgumentStep({
   const argument = value.trim()
   const run = (): void => {
     if (!argument) return
-    void commands.exec(command.id, { argument })
+    runFromPalette(command.id, { argument })
     onDone()
   }
   if (command.choices) {
@@ -339,7 +345,7 @@ function ChoiceStep({
             value={`${choice.label} ${choice.value}`}
             disabled={choice.disabledReason !== undefined}
             onSelect={() => {
-              void commands.exec(command.id, { argument: choice.value })
+              runFromPalette(command.id, { argument: choice.value })
               onDone()
             }}
           >
@@ -705,7 +711,7 @@ function CommandItems({
             })
             return
           }
-          void commands.exec(c.id)
+          runFromPalette(c.id)
           onDone()
         }}
       >

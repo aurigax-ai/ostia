@@ -294,6 +294,7 @@ import {
   requirementLabel,
 } from './systemRequirements'
 import { registerSystemRequirementsIpc } from './systemRequirementsIpc'
+import { TELEMETRY_FILE, type Telemetry, registerTelemetry } from './telemetry'
 import { PTY_COLOR_ENV, PTY_TERM_NAME, paneShellEnv, ptyIdentityEnv } from './terminalType'
 import { SANDBOX_NOT_KEPT, TMUX_MISSING, keepShellsNotice } from './tmux/keepShellsBanner'
 import { KeptAttention } from './tmux/keptAttention'
@@ -440,6 +441,11 @@ const recoveryHeld = new Set<string>()
 const closedPanes = new Set<string>()
 let appLog: AppLog | null = null
 let diagnostics: Diagnostics | null = null
+let telemetry: Telemetry | null = null
+const officialMarketplaceId = marketplaceId(normalizeMarketplaceUrl(OFFICIAL_MARKETPLACE) ?? '')
+let marketplaceInstallIds: () => string[] = () => []
+let telemetrySentForQuit = false
+let sendingTelemetryForQuit = false
 let processes: ProcessRegistry | null = null
 
 function windowOfPane(paneId: string): string | undefined {
@@ -1832,7 +1838,7 @@ function registerMarketplaceIpc(marketplace: Marketplace): void {
       extensions: () => extensionHost?.list() ?? [],
       listings: () => marketplace.languageListings(),
       dismissed: () => dismissed.list(),
-      official: marketplaceId(normalizeMarketplaceUrl(OFFICIAL_MARKETPLACE) ?? ''),
+      official: officialMarketplaceId,
       languageOf: editorLanguageOf,
     })
   })
@@ -2711,6 +2717,7 @@ function registerFsIpc(): void {
       void fileWatches?.wrote(String(e.sender.id), safe, stamp, content)
       if (safe === settingsFile) {
         settingsChanged()
+        telemetry?.settingsChanged()
         refreshCapabilitySettings()
         extensionHost?.refreshLocale()
         extensionHost?.reloadAssistSettings()
@@ -3116,8 +3123,16 @@ app.whenReady().then(() => {
   })
   const logDir = join(app.getPath('userData'), 'logs')
   appLog = createAppLog(join(logDir, LOG_FILE_NAME))
+  telemetry = registerTelemetry({
+    file: join(app.getPath('userData'), TELEMETRY_FILE),
+    version: appVersion(),
+    readSettings: readSettingsFile,
+    marketplaceExtensions: () => marketplaceInstallIds(),
+    log: (event, fields) => appLog?.info(event, fields),
+  })
   diagnostics = registerDiagnostics({
     log: appLog,
+    telemetry,
     version: appVersion(),
     logDir,
     testHooks: process.env.NODE_ENV === 'test',
@@ -3344,6 +3359,13 @@ app.whenReady().then(() => {
       languageServers?.refresh()
       refreshAgentPlugins()
     },
+    onCrashed: (extId, builtin) =>
+      telemetry?.error({
+        source: 'extension-crashed',
+        name: 'ExtensionCrashed',
+        message: 'exited too often',
+        ...(builtin || marketplaceInstallIds().includes(extId) ? { extension: extId } : {}),
+      }),
     hostGrants: hostPaneGrants,
     isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
     roots: extensionRoots(),
@@ -3432,6 +3454,11 @@ app.whenReady().then(() => {
     locale: readLocale,
   })
   registerMarketplaceIpc(marketplace)
+  marketplaceInstallIds = () =>
+    marketplace
+      .syncedInstalls()
+      .filter((install) => marketplaceId(install.marketplace) === officialMarketplaceId)
+      .map((install) => install.id)
   profileSync = startProfileSync({
     userData: app.getPath('userData'),
     configDir: configDir(),
@@ -3785,6 +3812,16 @@ app.on('before-quit', (event) => {
     savingScrollbackForQuit = true
     void persistScrollback().finally(() => {
       scrollbackSavedForQuit = true
+      app.quit()
+    })
+    return
+  }
+  if (!telemetrySentForQuit) {
+    event.preventDefault()
+    if (sendingTelemetryForQuit) return
+    sendingTelemetryForQuit = true
+    void (telemetry?.shutdown() ?? Promise.resolve()).finally(() => {
+      telemetrySentForQuit = true
       app.quit()
     })
     return

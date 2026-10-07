@@ -1597,6 +1597,42 @@ export const en = {
     willRedactMany: '{count} secrets will be redacted',
     notSentOne: '1 secret is not sent to the assistant',
     notSentMany: '{count} secrets are not sent to the assistant',
+    groupTelemetry: 'Telemetry',
+    telemetryDesc:
+      'Off unless you turn it on. Reports go from {product} alone, in batches over https, to one fixed endpoint. Never included: terminal output, what you type, command lines, file paths or names, URLs, environment, settings values, workspace names or tokens.',
+    errorReports: 'Error reports',
+    errorReportsDesc:
+      'Uncaught errors and crashes of {product}, its windows and its extensions: the error name, a stack trace reduced to file names inside the app, the app version, the Electron version, the operating system and the architecture.',
+    usageData: 'Usage data',
+    usageDataDesc:
+      'Counts only: app starts, session length, which palette commands, pane kinds and settings sections were used, and which extensions you installed from the official marketplace.',
+    installId: 'Install id',
+    installIdDesc:
+      'A random id that groups reports from this installation. It is tied to nothing else. Resetting it also drops every queued and remembered report.',
+    resetInstallId: 'Reset install id',
+    showReports: 'Show what {product} sends',
+    reportsTitle: 'What {product} sends',
+    reportsDesc:
+      'The reports waiting to be sent and the last ones sent, exactly as they go out. Nothing here is editable.',
+    reportsQueued: 'Waiting to be sent',
+    reportsSent: 'Last sent',
+    reportsNone: 'Nothing.',
+    consentTitle: 'Help improve {product}?',
+    consentBody:
+      '{product} can send error reports and usage counts to its developers. Both are off unless you turn them on here or later in Settings → Privacy.',
+    consentCollected: 'What is sent',
+    consentCollectedBody:
+      'Error reports: the error name, a stack trace reduced to file names inside the app, the app and Electron versions, the operating system and the architecture. Usage data: counts of app starts, session length, palette commands, pane kinds, settings sections and extensions installed from the official marketplace. A random install id you can reset groups the reports.',
+    consentNever: 'What is never sent',
+    consentNeverBody:
+      'Terminal output, what you type, command lines, file paths or names, URLs, environment, settings values, workspace names, tokens or your IP address. Detected secrets are redacted and free text is clipped.',
+    consentWhere: 'Where it goes',
+    consentWhereBody:
+      'Over https from {product} alone, in batches, to one fixed endpoint run by the developers. The renderer never names a URL.',
+    consentShare: 'Share',
+    noEndpoint:
+      'This build has no telemetry endpoint, so nothing is sent and there is nothing to turn on.',
+    consentDecline: 'Don’t share',
   },
   manager: {
     workspaceName: 'Manager · {agent}',
@@ -4620,6 +4656,40 @@ export const zhHant: Dict = {
     willRedactMany: '將遮蔽 {count} 個機密',
     notSentOne: '有 1 個機密不會送給助理',
     notSentMany: '有 {count} 個機密不會送給助理',
+    groupTelemetry: '遙測',
+    telemetryDesc:
+      '除非你開啟，否則關閉。報告只由 {product} 自己分批透過 https 送到一個固定端點。絕不包含：終端機輸出、你輸入的內容、指令列、檔案路徑或名稱、URL、環境變數、設定值、工作區名稱或權杖。',
+    errorReports: '錯誤回報',
+    errorReportsDesc:
+      '{product}、其視窗與擴充功能未處理的錯誤與當機：錯誤名稱、只保留應用程式內檔名的堆疊追蹤、應用程式版本、Electron 版本、作業系統與架構。',
+    usageData: '使用資料',
+    usageDataDesc:
+      '只有計數：應用程式啟動次數、工作階段長度、使用過的命令面板指令、窗格種類與設定分頁，以及你從官方市集安裝的擴充功能。',
+    installId: '安裝識別碼',
+    installIdDesc:
+      '一個隨機識別碼，用來把這個安裝送出的報告歸在一起，與其他任何東西無關。重設它也會丟棄所有排隊中與已記住的報告。',
+    resetInstallId: '重設安裝識別碼',
+    showReports: '顯示 {product} 會送出的內容',
+    reportsTitle: '{product} 會送出的內容',
+    reportsDesc: '等待送出的報告與最近送出的報告，和實際送出的完全一樣。這裡的內容無法編輯。',
+    reportsQueued: '等待送出',
+    reportsSent: '最近送出',
+    reportsNone: '沒有內容。',
+    consentTitle: '要協助改進 {product} 嗎？',
+    consentBody:
+      '{product} 可以把錯誤回報與使用計數送給開發者。兩者都是關閉的，除非你在這裡或之後在「設定 → 隱私」開啟。',
+    consentCollected: '會送出的內容',
+    consentCollectedBody:
+      '錯誤回報：錯誤名稱、只保留應用程式內檔名的堆疊追蹤、應用程式與 Electron 版本、作業系統與架構。使用資料：應用程式啟動次數、工作階段長度、命令面板指令、窗格種類、設定分頁，以及從官方市集安裝的擴充功能的計數。一個可重設的隨機安裝識別碼會把報告歸在一起。',
+    consentNever: '絕不送出的內容',
+    consentNeverBody:
+      '終端機輸出、你輸入的內容、指令列、檔案路徑或名稱、URL、環境變數、設定值、工作區名稱、權杖或你的 IP 位址。偵測到的機密會被遮蔽，自由文字會被截短。',
+    consentWhere: '送到哪裡',
+    consentWhereBody:
+      '只由 {product} 自己分批透過 https 送到開發者營運的一個固定端點。畫面端永遠不會指定 URL。',
+    consentShare: '分享',
+    noEndpoint: '這個版本沒有設定遙測端點，因此不會送出任何內容，也沒有可開啟的項目。',
+    consentDecline: '不分享',
   },
   manager: {
     workspaceName: '管理員 · {agent}',

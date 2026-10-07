@@ -638,6 +638,7 @@ describe('settingsStore', () => {
       const written = JSON.parse(vi.mocked(window.ostia.fs.write).mock.calls[0][1])
       expect(written.privacy).toEqual({
         redaction: { enabled: false, patterns: ['ACME-[0-9]{4}'] },
+        telemetry: { errors: false, usage: false },
       })
     })
 
@@ -886,10 +887,18 @@ describe('settingsStore', () => {
     })
 
     it('refuses every privacy key so an agent cannot turn redaction off or add a pattern', () => {
-      for (const path of ['privacy', 'privacy.redaction.enabled', 'privacy.redaction.patterns']) {
+      for (const path of [
+        'privacy',
+        'privacy.redaction.enabled',
+        'privacy.redaction.patterns',
+        'privacy.telemetry.errors',
+      ]) {
         expect(() => store().setByPath(path, false)).toThrow('unknown settings key')
       }
-      expect(store().privacy).toEqual({ redaction: { enabled: true, patterns: [] } })
+      expect(store().privacy).toEqual({
+        redaction: { enabled: true, patterns: [] },
+        telemetry: { errors: false, usage: false },
+      })
     })
 
     it('refuses capabilities.grants so an agent cannot elevate itself', () => {

@@ -21,7 +21,10 @@ function redactExtras(text: string): string {
 
 describe('parseRedactionSettings', () => {
   it('is on with no patterns when nothing is stored', () => {
-    expect(parsePrivacySettings(undefined)).toEqual({ redaction: { enabled: true, patterns: [] } })
+    expect(parsePrivacySettings(undefined)).toEqual({
+      redaction: { enabled: true, patterns: [] },
+      telemetry: { errors: false, usage: false },
+    })
   })
 
   it('turns off only on an explicit false', () => {
