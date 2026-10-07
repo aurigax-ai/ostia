@@ -257,7 +257,7 @@ describe('parseSnapshot', () => {
     expect(parsed?.workspaces[0].root).toMatchObject({ type: 'tabs', activeId: 'pane-1' })
   })
 
-  it('unwraps a one-tab stack and rejects a stack holding a split', () => {
+  it('unwraps a one-tab stack, also when its only tab is a split tab', () => {
     const one = {
       type: 'tabs',
       id: 'tabs-3',
@@ -268,11 +268,99 @@ describe('parseSnapshot', () => {
       parseSnapshot(snap({ workspaces: [{ ...snap().workspaces[0], root: one as never }] }))
         ?.workspaces[0].root,
     ).toMatchObject({ type: 'pane', id: 'pane-1' })
-    const nested = { ...one, children: [split('pane-1', 'pane-2')] }
+    const lone = { ...one, children: [split('pane-1', 'pane-2')] }
     expect(
-      parseSnapshot(snap({ workspaces: [{ ...snap().workspaces[0], root: nested as never }] }))
+      parseSnapshot(snap({ workspaces: [{ ...snap().workspaces[0], root: lone as never }] }))
+        ?.workspaces[0].root,
+    ).toMatchObject({ type: 'split', id: 'split-1' })
+  })
+
+  it('keeps a split tab with its name and a shown pane inside it', () => {
+    const tabs = {
+      type: 'tabs',
+      id: 'tabs-3',
+      activeId: 'pane-3',
+      children: [
+        { type: 'pane', id: 'pane-1', title: 'zsh', kind: 'terminal' },
+        { ...split('pane-2', 'pane-3'), name: '  api  ' },
+      ],
+    }
+    const root = parseSnapshot(
+      snap({ workspaces: [{ ...snap().workspaces[0], root: tabs as never }] }),
+    )?.workspaces[0].root
+    expect(root).toMatchObject({ type: 'tabs', activeId: 'pane-3' })
+    expect(root?.type === 'tabs' && root.children[1]).toMatchObject({
+      type: 'split',
+      name: 'api',
+      sizes: [1, 1],
+    })
+  })
+
+  it('drops a bad split tab name and repairs the shown pane to the first pane', () => {
+    const tabs = {
+      type: 'tabs',
+      id: 'tabs-3',
+      activeId: 'pane-9',
+      children: [
+        { ...split('pane-2', 'pane-3'), name: 'a\u0007b' },
+        { type: 'pane', id: 'pane-1', title: 'zsh', kind: 'terminal' },
+      ],
+    }
+    const root = parseSnapshot(
+      snap({ workspaces: [{ ...snap().workspaces[0], root: tabs as never }] }),
+    )?.workspaces[0].root
+    expect(root).toMatchObject({ type: 'tabs', activeId: 'pane-2' })
+    expect(root?.type === 'tabs' && root.children[0]).not.toHaveProperty('name')
+  })
+
+  it('rejects a tab stack inside a split tab and keeps a name only on a split tab', () => {
+    const inner = {
+      type: 'tabs',
+      id: 'tabs-4',
+      activeId: 'pane-2',
+      children: [
+        { type: 'pane', id: 'pane-2', title: 'zsh', kind: 'terminal' },
+        { type: 'pane', id: 'pane-3', title: 'zsh', kind: 'terminal' },
+      ],
+    }
+    const bad = {
+      type: 'tabs',
+      id: 'tabs-3',
+      activeId: 'pane-1',
+      children: [
+        { type: 'pane', id: 'pane-1', title: 'zsh', kind: 'terminal' },
+        {
+          ...split('pane-4', 'pane-5'),
+          children: [{ type: 'pane', id: 'pane-4', title: 'zsh', kind: 'terminal' }, inner],
+        },
+      ],
+    }
+    expect(
+      parseSnapshot(snap({ workspaces: [{ ...snap().workspaces[0], root: bad as never }] }))
         ?.workspaces,
     ).toEqual([])
+    const plain = { ...split('pane-1', 'pane-2'), name: 'api' }
+    expect(
+      parseSnapshot(snap({ workspaces: [{ ...snap().workspaces[0], root: plain as never }] }))
+        ?.workspaces[0].root,
+    ).not.toHaveProperty('name')
+  })
+
+  it('accepts a split tab in a handoff', () => {
+    const tabs = {
+      type: 'tabs',
+      id: 'tabs-3',
+      activeId: 'pane-2',
+      children: [
+        { type: 'pane', id: 'pane-1', title: 'zsh', kind: 'terminal' },
+        { ...split('pane-2', 'pane-3'), name: 'api' },
+      ],
+    }
+    const workspace = parseHandoff({ ...snap().workspaces[0], activePaneId: 'pane-2', root: tabs })
+    expect(workspace?.root).toMatchObject({ type: 'tabs', activeId: 'pane-2' })
+    expect(workspace?.root?.type === 'tabs' && workspace.root.children[1]).toMatchObject({
+      name: 'api',
+    })
   })
 
   it('keeps a description and pin, and drops a description that is not text', () => {

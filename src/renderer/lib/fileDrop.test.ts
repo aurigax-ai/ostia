@@ -166,7 +166,11 @@ describe('file drops', () => {
       useWorkspacesStore.getState().activeWorkspaceId,
     )
     const stack = tabsOfPane(layout().root, second)
-    expect(stack?.children.map((p) => p.filePath)).toEqual([undefined, '/tmp/a.txt', '/mnt/b.png'])
+    expect((stack ? allPanes(stack) : []).map((p) => p.filePath)).toEqual([
+      undefined,
+      '/tmp/a.txt',
+      '/mnt/b.png',
+    ])
     expect(tabsOfPane(layout().root, first)).toBeNull()
     expect(document.documentElement.hasAttribute(FILE_DRAG_ATTRIBUTE)).toBe(false)
   })
@@ -179,10 +183,9 @@ describe('file drops', () => {
     sidebar.dispatchEvent(dragEvent('drop', ['Files'], [{ path: '/var/log/x.log' }]))
     await settled()
 
-    expect(tabsOfPane(layout().root, first)?.children.map((p) => p.filePath)).toEqual([
-      undefined,
-      '/var/log/x.log',
-    ])
+    expect(
+      (tabsOfPane(layout().root, first)?.children ?? []).flatMap(allPanes).map((p) => p.filePath),
+    ).toEqual([undefined, '/var/log/x.log'])
   })
 
   it('opens a workspace for a drop when none is open', async () => {

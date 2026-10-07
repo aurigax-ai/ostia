@@ -26,8 +26,16 @@ function markPane(pane: SnapshotPaneNode, panes: ReadonlySet<string>): SnapshotP
 
 function markNode(node: SnapshotNode, panes: ReadonlySet<string>): SnapshotNode {
   if (node.type === 'pane') return markPane(node, panes)
-  if (node.type === 'tabs')
-    return { ...node, children: node.children.map((c) => markPane(c, panes)) }
+  if (node.type === 'tabs') {
+    return {
+      ...node,
+      children: node.children.map((c) =>
+        c.type === 'pane'
+          ? markPane(c, panes)
+          : { ...c, children: c.children.map((n) => markNode(n, panes)) },
+      ),
+    }
+  }
   return { ...node, children: node.children.map((c) => markNode(c, panes)) }
 }
 

@@ -1,6 +1,6 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { zhHant } from '../i18n/dict'
-import { findPane, firstPaneId, paneIds, tabsOfPane } from '../layout/tree'
+import { allPanes, findPane, firstPaneId, paneIds, tabsOfPane } from '../layout/tree'
 import type { SplitNode } from '../layout/types'
 import { BASE_LANGUAGE } from '../lib/languagePacks'
 import { useLayoutStore } from './layoutStore'
@@ -443,7 +443,7 @@ describe('layoutStore', () => {
       useLayoutStore.getState().openFileTab('sess', '/tmp/b.png')
 
       const stack = tabsOfPane(layoutOf('sess').root, second)
-      expect(stack?.children.map((p) => p.filePath)).toEqual([
+      expect((stack ? allPanes(stack) : []).map((p) => p.filePath)).toEqual([
         undefined,
         '/tmp/a.txt',
         '/tmp/b.png',

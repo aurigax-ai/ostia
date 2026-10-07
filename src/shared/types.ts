@@ -449,12 +449,15 @@ export interface SnapshotSplitNode {
   direction: 'horizontal' | 'vertical'
   children: SnapshotNode[]
   sizes: number[]
+  name?: string
 }
+
+export type SnapshotTabNode = SnapshotPaneNode | SnapshotSplitNode
 
 export interface SnapshotTabsNode {
   type: 'tabs'
   id: string
-  children: SnapshotPaneNode[]
+  children: SnapshotTabNode[]
   activeId: string
 }
 

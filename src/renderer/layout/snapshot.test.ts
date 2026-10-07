@@ -1,7 +1,16 @@
 import type { AppSnapshot } from '@shared/types'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { buildSnapshot, restoreSnapshot } from './snapshot'
-import { createPane, resetIds, setDefaultPaneTitle, setPaneView, splitOf } from './tree'
+import {
+  createPane,
+  nameSplitTabOf,
+  resetIds,
+  setDefaultPaneTitle,
+  setPaneView,
+  splitOf,
+  splitPane,
+  tabsOf,
+} from './tree'
 import type { LayoutNode } from './types'
 
 beforeEach(() => resetIds())
@@ -42,6 +51,16 @@ describe('buildSnapshot', () => {
     const captured = build(root, a.id)?.workspaces[0].root
     expect(captured).toMatchObject({ type: 'split', direction: 'vertical', sizes: [1, 1] })
     expect(captured?.type === 'split' && captured.children.map((c) => c.id)).toEqual([a.id, b.id])
+  })
+
+  it('round-trips a named split tab and the pane shown in it', () => {
+    const [a, b, c] = [createPane(), createPane(), createPane()]
+    const stacked = splitPane(tabsOf(b.id, a, b), b.id, 'vertical', c).root
+    const root = nameSplitTabOf(stacked, c.id, 'api')
+    const snapshot = build(root, c.id)
+    const restored = restoreSnapshot(snapshot).layouts.s1
+    expect(restored.root).toEqual(root)
+    expect(restored.activePaneId).toBe(c.id)
   })
 
   it('carries an editor’s file path and a browser’s url', () => {
