@@ -10,7 +10,7 @@ import {
 } from './test'
 import { PRODUCT_NAME } from '../src/shared/product'
 import { installFakeLanguageExtension } from '../test/fixtures/lsp/installFakeExtension'
-import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch } from './dataHome'
+import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { PROMPT, openWorkspace } from './helpers'
 
 const MARKETPLACE = resolve(__dirname, '../out/marketplace/extensions')
@@ -33,13 +33,11 @@ async function launch(
   mkdirSync(project, { recursive: true })
   for (const [name, text] of Object.entries(files)) writeFileSync(join(project, name), text)
   const settingsFile = join(dataHome, 'userData', 'settings.json')
-  mkdirSync(join(dataHome, 'userData'), { recursive: true })
-  const seeded = {
+  seedSettings(dataHome, {
     ...DOM_RENDERER_SETTINGS,
     workspaces: { ...DOM_RENDERER_SETTINGS.workspaces, defaultFolder: project },
     ...settings,
-  }
-  writeFileSync(settingsFile, `${JSON.stringify(seeded, null, 2)}\n`)
+  })
   const options = isolatedLaunch(dataHome)
   install(join(options.env.XDG_CONFIG_HOME, PRODUCT_NAME, 'extensions'))
   const app = await electron.launch({ ...options, env: { ...options.env, HOME: home } })
@@ -77,7 +75,7 @@ async function hoverOn(
   await win.mouse.move(2, 2)
   await win.keyboard.press('Escape')
   await expect(win.locator('.monaco-hover:visible')).toHaveCount(0)
-  await expect(target).toBeInViewport()
+  await expect(target).toBeInViewport({ ratio: 1 })
   await target.hover({ force: true, ...(position ? { position } : {}) })
   const hover = win.locator('.monaco-hover:visible')
   await expect(hover).toBeVisible({ timeout: 15_000 })

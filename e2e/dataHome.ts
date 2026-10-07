@@ -20,7 +20,7 @@ export const DOM_RENDERER_SETTINGS = {
 export function seedSettings(dataHome: string, settings: object): void {
   const userData = join(dataHome, 'userData')
   mkdirSync(userData, { recursive: true })
-  writeFileSync(join(userData, 'settings.json'), JSON.stringify(settings))
+  writeFileSync(join(userData, 'settings.json'), `${JSON.stringify(settings, null, 2)}\n`)
 }
 
 const TEST_ZSHRC = "PROMPT='%~ ❯ '\n"
