@@ -1338,8 +1338,32 @@
 .file-name-edit {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 1px 8px 1px 0;
+}
+
+.file-row.editing,
+.file-row.editing:hover {
+  background: transparent;
+}
+
+.file-name-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 20px;
+  margin-left: -3px;
+  padding: 0 2px;
+  border: 1px solid var(--focus-border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  box-shadow: none;
+  color: var(--fg);
+  font-size: var(--text-ui-sm);
+  line-height: var(--text-ui-sm--line-height);
+  outline: none;
+}
+
+.file-name-input[aria-invalid="true"] {
+  border-color: var(--attn);
+  box-shadow: none;
 }
 
 .file-row.drop-target {

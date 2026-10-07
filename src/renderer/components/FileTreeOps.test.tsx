@@ -74,6 +74,36 @@ describe('Files tree operations', () => {
     expect(useFileTreeStore.getState().versions[`${CWD}/src`]).toBe(1)
   })
 
+  it('draws the new folder field as a tree row aligned with its siblings', async () => {
+    seed()
+    render(<FilesView />)
+    const sibling = await screen.findByRole('button', { name: 'src' })
+    await userEvent.click(screen.getByRole('button', { name: 'New folder' }))
+    const input = await screen.findByRole('textbox', { name: 'New folder name' })
+    const row = input.closest('.file-row') as HTMLElement
+    expect(row).not.toBeNull()
+    expect(row.style.paddingLeft).toBe(sibling.style.paddingLeft)
+    expect(row.querySelector('.file-twisty')).not.toBeNull()
+    expect(row.querySelector('.file-icon')).not.toBeNull()
+    expect(input).toHaveClass('file-name-input')
+  })
+
+  it('draws the rename field in the file row with its own icon and the name selected', async () => {
+    seed()
+    render(<FilesView />)
+    const sibling = await screen.findByRole('button', { name: 'src' })
+    fireEvent.keyDown(screen.getByRole('button', { name: 'notes.md' }), { key: 'F2' })
+    const input = (await screen.findByRole('textbox', {
+      name: 'New name for notes.md',
+    })) as HTMLInputElement
+    const row = input.closest('.file-row') as HTMLElement
+    expect(row.style.paddingLeft).toBe(sibling.style.paddingLeft)
+    expect(row.querySelector('.file-twisty-spacer')).not.toBeNull()
+    expect(row.querySelector('.file-icon')).not.toBeNull()
+    await waitFor(() => expect(input.selectionEnd).toBe('notes'.length))
+    expect(input.selectionStart).toBe(0)
+  })
+
   it('keeps the name field open with a warning when the name is taken', async () => {
     seed()
     vi.mocked(window.ostia.fileOps.create).mockResolvedValue({ ok: false, error: 'exists' })

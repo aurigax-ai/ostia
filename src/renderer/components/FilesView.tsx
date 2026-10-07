@@ -490,7 +490,15 @@ function Listing({
   const edit = useFileTreeStore((s) => s.edit)
   const creating =
     edit?.kind === 'create' && edit.dir === path && !tree.remote ? (
-      <NameInputRow key={`${edit.entry}:${path}`} edit={edit} depth={depth} />
+      <NameInputRow
+        key={`${edit.entry}:${path}`}
+        edit={edit}
+        depth={depth}
+        dir={edit.entry === 'folder'}
+        icon={
+          <RowIcon entry={{ name: '', dir: edit.entry === 'folder' }} open={false} tree={tree} />
+        }
+      />
     ) : null
   if (items.length === 0) {
     if (creating) return creating
@@ -716,7 +724,12 @@ function DirRow({
   }, [creatingHere])
 
   const row = renaming ? (
-    <NameInputRow edit={{ kind: 'rename', path: menuPath }} depth={depth} />
+    <NameInputRow
+      edit={{ kind: 'rename', path: menuPath }}
+      depth={depth}
+      dir
+      icon={<RowIcon entry={{ name: last, dir: true }} open={open} tree={tree} />}
+    />
   ) : (
     <button
       ref={rowRef}
@@ -789,7 +802,12 @@ function FileRow({
   }, [active])
 
   const row = renaming ? (
-    <NameInputRow edit={{ kind: 'rename', path: fullPath }} depth={depth} />
+    <NameInputRow
+      edit={{ kind: 'rename', path: fullPath }}
+      depth={depth}
+      dir={false}
+      icon={<RowIcon entry={entry} open={false} tree={tree} />}
+    />
   ) : (
     <button
       ref={rowRef}
