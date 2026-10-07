@@ -248,3 +248,96 @@ test('a PDF shows the crop cursor only while selecting a region', async () => {
     await app.close()
   }
 })
+
+async function pinch(win: Page, x: number, y: number, deltaY: number): Promise<void> {
+  await win.mouse.move(x, y)
+  await win.keyboard.down('Control')
+  await win.mouse.wheel(0, deltaY)
+  await win.keyboard.up('Control')
+}
+
+test('a pinch zooms the image around the pointer and a drag still selects', async () => {
+  test.setTimeout(120_000)
+  const { app, win } = await launchWithHome({ 'chart.png': solidPng(1200, 800) })
+  try {
+    await openFromFiles(win, 'chart.png')
+    const canvas = win.locator('.viewer-canvas')
+    await expect(win.locator('.viewer-meta')).toHaveText('1200 × 800', { timeout: 15_000 })
+    const before = await canvas.boundingBox()
+    if (!before) throw new Error('image canvas has no box')
+    const fitScale = before.width / 1200
+    const x = before.x + before.width * 0.4
+    const y = before.y + before.height * 0.6
+    const content = { x: (x - before.x) / fitScale, y: (y - before.y) / fitScale }
+
+    await pinch(win, x, y, -50)
+    const zoomed = fitScale * Math.exp(0.5)
+    await expect(win.locator('.viewer-zoom')).toHaveText(`Zoom ${Math.round(zoomed * 100)}%`)
+    await expect.poll(async () => (await canvas.boundingBox())?.width).toBeCloseTo(1200 * zoomed, 0)
+    const after = await canvas.boundingBox()
+    if (!after) throw new Error('image canvas has no box')
+    const scale = after.width / 1200
+    expect(Math.abs((x - after.x) / scale - content.x)).toBeLessThan(2)
+    expect(Math.abs((y - after.y) / scale - content.y)).toBeLessThan(2)
+    expect(
+      await app.evaluate(({ BrowserWindow }) =>
+        BrowserWindow.getAllWindows()[0].webContents.getZoomFactor(),
+      ),
+    ).toBe(1)
+
+    await win.mouse.wheel(0, 60)
+    await expect.poll(async () => (await canvas.boundingBox())?.y).toBeLessThan(after.y - 30)
+    await expect(win.locator('.viewer-zoom')).toHaveText(`Zoom ${Math.round(zoomed * 100)}%`)
+
+    const box = await canvas.boundingBox()
+    if (!box) throw new Error('image canvas has no box')
+    await win.mouse.move(x, y)
+    await win.mouse.down()
+    await win.mouse.move(x + 120, y + 60, { steps: 6 })
+    await win.mouse.up()
+    await win.getByRole('button', { name: 'Send region to agent' }).click()
+    const report = await sendAndReadReport(win, 'zoomed in')
+    const region = report.match(/- Region: x (\d+), y (\d+), (\d+) × (\d+)/)
+    expect(region).not.toBeNull()
+    const [, rx, ry, rw, rh] = (region as RegExpMatchArray).map(Number)
+    expect(Math.abs(rx - (x - box.x) / scale)).toBeLessThanOrEqual(2)
+    expect(Math.abs(ry - (y - box.y) / scale)).toBeLessThanOrEqual(2)
+    expect(Math.abs(rw - 120 / scale)).toBeLessThanOrEqual(2)
+    expect(Math.abs(rh - 60 / scale)).toBeLessThanOrEqual(2)
+  } finally {
+    await app.close()
+  }
+})
+
+test('a pinch zooms the PDF page and a region drag still selects', async () => {
+  test.setTimeout(120_000)
+  const { app, win } = await launchWithHome({ 'invoice.pdf': textPdf('Hello Ostia PDF') })
+  try {
+    await openFromFiles(win, 'invoice.pdf')
+    await expect(win.getByText('Page 1 of 1')).toBeVisible({ timeout: 15_000 })
+    const page = win.locator('.pdf-page')
+    const zoom = win.locator('.viewer-zoom')
+    const start = await page.boundingBox()
+    if (!start) throw new Error('pdf page has no box')
+    const percent = async (): Promise<number> =>
+      Number((await zoom.textContent())?.match(/\d+/)?.[0])
+    const fit = await percent()
+
+    await pinch(win, start.x + 40, start.y + 40, 40)
+    await expect.poll(percent).toBe(Math.round(fit * Math.exp(-0.4)))
+    await expect.poll(async () => (await page.boundingBox())?.width).toBeLessThan(start.width)
+
+    await win.getByRole('button', { name: 'Select a region' }).click()
+    const box = await win.locator('.pdf-region-layer').boundingBox()
+    if (!box) throw new Error('pdf region layer has no box')
+    await win.mouse.move(box.x + 10, box.y + 10)
+    await win.mouse.down()
+    await win.mouse.move(box.x + 70, box.y + 50, { steps: 6 })
+    await win.mouse.up()
+    const region = await win.locator('.viewer-region').boundingBox()
+    if (!region) throw new Error('no region drawn')
+    expect(Math.abs(region.width - 60)).toBeLessThan(6)
+  } finally {
+    await app.close()
+  }
+})

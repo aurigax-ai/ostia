@@ -123,6 +123,24 @@ describe('PdfViewer', () => {
     expect(cropToPng).not.toHaveBeenCalled()
   })
 
+  it('follows a pinch at once and redraws the page once it settles', async () => {
+    await renderPdf()
+    const page = await (fake.doc.getPage.mock.results.at(-1)?.value as Promise<{
+      render: ReturnType<typeof vi.fn>
+    }>)
+    await waitFor(() => expect(page.render).toHaveBeenCalled())
+    const drawn = page.render.mock.calls.length
+    const stage = document.querySelector('.viewer-stage') as HTMLElement
+
+    for (let i = 0; i < 4; i++) fireEvent.wheel(stage, { deltaY: -10, ctrlKey: true })
+    expect(await screen.findByText('Zoom 149%')).toBeInTheDocument()
+    expect(page.render).toHaveBeenCalledTimes(drawn)
+
+    await waitFor(() => expect(page.render).toHaveBeenCalledTimes(drawn + 1))
+    const [{ viewport }] = page.render.mock.calls[drawn] as [{ viewport: { scale: number } }]
+    expect(viewport.scale).toBeCloseTo(Math.exp(0.4))
+  })
+
   it('shows the region-select surface only in region mode', async () => {
     await renderPdf()
     expect(document.querySelector('.region-select')).toBeNull()

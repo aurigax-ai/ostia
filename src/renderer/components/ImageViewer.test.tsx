@@ -102,6 +102,23 @@ describe('ImageViewer', () => {
     )
   })
 
+  it('zooms with a pinch or Ctrl+wheel and leaves a plain wheel to scroll', async () => {
+    await renderLoaded()
+    const stage = document.querySelector('.viewer-stage') as HTMLElement
+    canvasAt(16, 16)
+
+    expect(fireEvent.wheel(stage, { deltaY: -40, clientX: 50, clientY: 40 })).toBe(true)
+    expect(screen.getByText('Zoom 100%')).toBeInTheDocument()
+
+    expect(fireEvent.wheel(stage, { deltaY: -40, ctrlKey: true, clientX: 50, clientY: 40 })).toBe(
+      false,
+    )
+    expect(await screen.findByText('Zoom 149%')).toBeInTheDocument()
+
+    fireEvent.wheel(stage, { deltaY: 40, ctrlKey: true, clientX: 50, clientY: 40 })
+    expect(await screen.findByText('Zoom 100%')).toBeInTheDocument()
+  })
+
   it('crops a dragged region in image pixels and sends it with the PNG', async () => {
     const img = await renderLoaded()
     await userEvent.click(screen.getByRole('button', { name: 'Zoom in' }))
