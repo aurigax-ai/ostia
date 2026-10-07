@@ -23,6 +23,7 @@ concurrency:
 jobs:
   cask:
     runs-on: macos-26
+    timeout-minutes: 15
     environment: release-packages
     env:
       TAG: ${{ inputs.tag }}
