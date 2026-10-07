@@ -15,7 +15,7 @@ async function launch(settings: object) {
   const win = await app.firstWindow()
   await win.waitForLoadState('domcontentloaded')
   await openWorkspace(win)
-  return { app, win }
+  return { app, win, proc: app.process() }
 }
 
 async function run(win: Page, command: string): Promise<void> {
@@ -25,19 +25,19 @@ async function run(win: Page, command: string): Promise<void> {
 }
 
 test('quitting with only idle shells shows no dialog', async () => {
-  const { app, win } = await launch({
+  const { app, win, proc } = await launch({
     ...DOM_RENDERER_SETTINGS,
     workspaces: { ...DOM_RENDERER_SETTINGS.workspaces, confirmQuit: true },
   })
   try {
     expect(await pressQuit(app, win)).toBe('quit')
   } finally {
-    app.process().kill('SIGKILL')
+    proc.kill('SIGKILL')
   }
 })
 
 test('quitting with a program running in a shell without blocks asks and names it', async () => {
-  const { app, win } = await launch(PLAIN_SHELL)
+  const { app, win, proc } = await launch(PLAIN_SHELL)
   try {
     await run(win, 'echo plain-$((6*7)); sleep 100')
     await expect(win.locator('.xterm-rows').first()).toContainText('plain-42', { timeout: 15_000 })
@@ -46,23 +46,23 @@ test('quitting with a program running in a shell without blocks asks and names i
     await expect(dialog).toContainText('1 shell process will be ended')
     await expect(dialog).toContainText('sleep')
   } finally {
-    app.process().kill('SIGKILL')
+    proc.kill('SIGKILL')
   }
 })
 
 test('quitting with an idle shell without blocks shows no dialog', async () => {
-  const { app, win } = await launch(PLAIN_SHELL)
+  const { app, win, proc } = await launch(PLAIN_SHELL)
   try {
     await run(win, 'echo idle-$((6*7))')
     await expect(win.locator('.xterm-rows').first()).toContainText('idle-42', { timeout: 15_000 })
     expect(await pressQuit(app, win)).toBe('quit')
   } finally {
-    app.process().kill('SIGKILL')
+    proc.kill('SIGKILL')
   }
 })
 
 test('quitting while the window is too busy to answer asks instead of quitting', async () => {
-  const { app, win } = await launch({
+  const { app, win, proc } = await launch({
     ...DOM_RENDERER_SETTINGS,
     workspaces: { ...DOM_RENDERER_SETTINGS.workspaces, confirmQuit: true },
   })
@@ -88,8 +88,8 @@ test('quitting while the window is too busy to answer asks instead of quitting',
         timeout: 15_000,
       })
       .toEqual([expect.stringContaining('The window did not answer')])
-    expect(app.process().exitCode).toBeNull()
+    expect(proc.exitCode).toBeNull()
   } finally {
-    app.process().kill('SIGKILL')
+    proc.kill('SIGKILL')
   }
 })
