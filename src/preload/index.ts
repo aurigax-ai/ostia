@@ -243,6 +243,7 @@ const bridge: OstiaBridge = {
     read: (path) => ipcRenderer.invoke('fs:read', path) as Promise<FsTextResult>,
     stat: (path) => ipcRenderer.invoke('fs:stat', path) as Promise<FsKind | null>,
     write: (path, content) => ipcRenderer.invoke('fs:write', path, content) as Promise<boolean>,
+    version: (path) => ipcRenderer.invoke('fs:version', path) as Promise<string | null>,
     readBinary: (path) => ipcRenderer.invoke('fs:read-binary', path) as Promise<FsBinaryResult>,
     watch: (path) => ipcRenderer.invoke('fs:watch', path) as Promise<boolean>,
     unwatch: (path) => ipcRenderer.send('fs:unwatch', path),

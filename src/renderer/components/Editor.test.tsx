@@ -234,19 +234,27 @@ describe('EditorView', () => {
     useSettingsStore.setState({
       editor: { ...useSettingsStore.getState().editor, markdownPreview: true },
     })
-    vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, text: '# Title\n\nPreview body' })
+    vi.mocked(window.ostia.fs.read).mockResolvedValue({
+      ok: true,
+      version: 'v1',
+      text: '# Title\n\nPreview body',
+    })
     const md = render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/README.md" />)
     expect(await screen.findByText('Preview body')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Edit Markdown source' })).toBeInTheDocument()
     md.unmount()
-    vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, text: 'const a = 1' })
+    vi.mocked(window.ostia.fs.read).mockResolvedValue({
+      ok: true,
+      version: 'v1',
+      text: 'const a = 1',
+    })
     render(<EditorView workspaceId="w1" paneId="p2" filePath="/w/a.ts" />)
     await waitFor(() => expect(fake.state.model).not.toBeNull())
     expect(screen.queryByRole('button', { name: 'Edit Markdown source' })).toBeNull()
   })
 
   it('scrolls without smooth animation while motion is reduced', async () => {
-    vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, text: 'text' })
+    vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, version: 'v1', text: 'text' })
     act(() => useSettingsStore.getState().setMotion('reduced'))
     render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.txt" />)
     await waitFor(() => expect(fake.state.model).not.toBeNull())
@@ -257,14 +265,14 @@ describe('EditorView', () => {
   })
 
   it('does not overwrite a model with unsaved edits when the file is reopened', async () => {
-    vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, text: 'disk v1' })
+    vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, version: 'v1', text: 'disk v1' })
     const { rerender } = render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.txt" />)
     await waitFor(() => expect(fake.state.model?.getValue()).toBe('disk v1'))
 
     act(() => fake.state.model?.setValue('my edit'))
     expect(useEditorStatus.getState().dirty['/w/a.txt']).toBe(true)
 
-    vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, text: 'disk v2' })
+    vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, version: 'v1', text: 'disk v2' })
     rerender(<EditorView workspaceId="w1" paneId="p1" filePath="/w/b.txt" />)
     await waitFor(() => expect(fake.state.model?.uri.path).toBe('/w/b.txt'))
     rerender(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.txt" />)
@@ -275,11 +283,11 @@ describe('EditorView', () => {
   })
 
   it('refreshes a clean model from disk when the file is reopened', async () => {
-    vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, text: 'disk v1' })
+    vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, version: 'v1', text: 'disk v1' })
     const { rerender } = render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.txt" />)
     await waitFor(() => expect(fake.state.model?.getValue()).toBe('disk v1'))
 
-    vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, text: 'disk v2' })
+    vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, version: 'v1', text: 'disk v2' })
     rerender(<EditorView workspaceId="w1" paneId="p1" filePath="/w/b.txt" />)
     await waitFor(() => expect(fake.state.model?.uri.path).toBe('/w/b.txt'))
     rerender(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.txt" />)
@@ -289,7 +297,7 @@ describe('EditorView', () => {
   })
 
   it('keeps the file dirty and shows an error when the write fails', async () => {
-    vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, text: 'text' })
+    vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, version: 'v1', text: 'text' })
     vi.mocked(window.ostia.fs.write).mockResolvedValue(false)
     render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.txt" />)
     await waitFor(() => expect(fake.state.model).not.toBeNull())
@@ -302,7 +310,7 @@ describe('EditorView', () => {
   })
 
   it('clears the dirty flag after a successful save', async () => {
-    vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, text: 'text' })
+    vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, version: 'v1', text: 'text' })
     render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.txt" />)
     await waitFor(() => expect(fake.state.model).not.toBeNull())
     act(() => fake.state.model?.setValue('changed'))
@@ -313,8 +321,48 @@ describe('EditorView', () => {
     expect(window.ostia.fs.write).toHaveBeenCalledWith('/w/a.txt', 'changed')
   })
 
+  it('saves twice without re-reading a file whose disk version did not move', async () => {
+    vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, version: 'v1', text: 'text' })
+    vi.mocked(window.ostia.fs.version)
+      .mockResolvedValueOnce('v1')
+      .mockResolvedValueOnce('v2')
+      .mockResolvedValueOnce('v2')
+      .mockResolvedValueOnce('v3')
+    render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.txt" />)
+    await waitFor(() => expect(fake.state.model).not.toBeNull())
+
+    act(() => fake.state.model?.setValue('one'))
+    act(() => fake.state.save?.())
+    await waitFor(() => expect(useEditorStatus.getState().dirty['/w/a.txt']).toBeUndefined())
+    act(() => fake.state.model?.setValue('two'))
+    act(() => fake.state.save?.())
+    await waitFor(() => expect(window.ostia.fs.write).toHaveBeenCalledWith('/w/a.txt', 'two'))
+
+    expect(window.ostia.fs.write).toHaveBeenCalledTimes(2)
+    expect(window.ostia.fs.read).toHaveBeenCalledTimes(1)
+  })
+
+  it('re-reads before saving when the disk version moved and holds on a real conflict', async () => {
+    vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, version: 'v1', text: 'text' })
+    render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.txt" />)
+    await waitFor(() => expect(fake.state.model).not.toBeNull())
+    act(() => fake.state.model?.setValue('mine'))
+
+    vi.mocked(window.ostia.fs.version).mockResolvedValue('v2')
+    vi.mocked(window.ostia.fs.read).mockResolvedValue({
+      ok: true,
+      version: 'v2',
+      text: 'theirs',
+    })
+    act(() => fake.state.save?.())
+
+    expect(await screen.findByText(/changed on disk after you opened it/)).toBeInTheDocument()
+    expect(window.ostia.fs.read).toHaveBeenCalledTimes(2)
+    expect(window.ostia.fs.write).not.toHaveBeenCalled()
+  })
+
   it('formats the document before writing when format on save is on', async () => {
-    vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, text: 'text' })
+    vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, version: 'v1', text: 'text' })
     useSettingsStore.setState({
       editor: { ...useSettingsStore.getState().editor, formatOnSave: true },
     })
@@ -330,7 +378,7 @@ describe('EditorView', () => {
   })
 
   it('just saves when format on save is on but no formatter exists', async () => {
-    vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, text: 'text' })
+    vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, version: 'v1', text: 'text' })
     useSettingsStore.setState({
       editor: { ...useSettingsStore.getState().editor, formatOnSave: true },
     })
@@ -344,7 +392,7 @@ describe('EditorView', () => {
   })
 
   it('auto-saves one second after the last edit when auto save is afterDelay', async () => {
-    vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, text: 'text' })
+    vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, version: 'v1', text: 'text' })
     useSettingsStore.setState({
       editor: { ...useSettingsStore.getState().editor, autoSave: 'afterDelay' },
     })
@@ -367,7 +415,7 @@ describe('EditorView', () => {
   })
 
   it('does not auto-save on a timer when auto save is off', async () => {
-    vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, text: 'text' })
+    vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, version: 'v1', text: 'text' })
     render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.txt" />)
     await waitFor(() => expect(fake.state.model).not.toBeNull())
     vi.useFakeTimers()
@@ -381,7 +429,7 @@ describe('EditorView', () => {
   })
 
   it('auto-saves a dirty file when the editor loses focus and auto save is onFocusChange', async () => {
-    vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, text: 'text' })
+    vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, version: 'v1', text: 'text' })
     useSettingsStore.setState({
       editor: { ...useSettingsStore.getState().editor, autoSave: 'onFocusChange' },
     })
@@ -431,7 +479,7 @@ describe('EditorView', () => {
   })
 
   it('refuses to save when the file can no longer be read', async () => {
-    vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, text: 'text' })
+    vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, version: 'v1', text: 'text' })
     render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.txt" />)
     await waitFor(() => expect(fake.state.model).not.toBeNull())
     act(() => fake.state.model?.setValue('changed'))
@@ -452,7 +500,7 @@ describe('EditorView', () => {
       changed = null
       disk = 'disk v1'
       vi.mocked(window.ostia.fs.read).mockImplementation(async () =>
-        disk === null ? { ok: false, error: 'missing' } : { ok: true, text: disk },
+        disk === null ? { ok: false, error: 'missing' } : { ok: true, version: 'v1', text: disk },
       )
       vi.mocked(window.ostia.fs.onChanged).mockImplementation((cb) => {
         changed = cb
@@ -671,7 +719,7 @@ describe('EditorView → Open in External Editor', () => {
   })
 
   it('opens the file at the cursor with the configured template', async () => {
-    vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, text: 'text' })
+    vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, version: 'v1', text: 'text' })
     render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a b.ts" />)
     await waitFor(() => expect(fake.state.model).not.toBeNull())
     fake.state.position = { lineNumber: 12, column: 5 }
@@ -691,7 +739,7 @@ describe('EditorView → Open in External Editor', () => {
   })
 
   it('tells the user how to configure an editor when none is found', async () => {
-    vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, text: 'text' })
+    vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, version: 'v1', text: 'text' })
     vi.mocked(window.ostia.externalEditor.open).mockResolvedValue({ ok: false, error: 'no-editor' })
     render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.ts" />)
     await waitFor(() => expect(fake.state.model).not.toBeNull())
@@ -732,7 +780,11 @@ describe('EditorView → Send Selection to Agent', () => {
   }
 
   it('reports the selected lines for the workspace’s chat, and clears them when the selection ends', async () => {
-    vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, text: 'one\ntwo\nthree' })
+    vi.mocked(window.ostia.fs.read).mockResolvedValue({
+      ok: true,
+      version: 'v1',
+      text: 'one\ntwo\nthree',
+    })
     render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/src/a.ts" />)
     await waitFor(() => expect(fake.state.model).not.toBeNull())
     const reported = () => useLiveSelectionStore.getState().byWorkspace.w1
@@ -755,7 +807,7 @@ describe('EditorView → Send Selection to Agent', () => {
   it('runs an app chord pressed in the editor and keeps the editor from seeing it', async () => {
     const ran = vi.fn()
     commands.register({ id: 'palette.toggle', title: 'Palette', run: ran })
-    vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, text: 'one' })
+    vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, version: 'v1', text: 'one' })
     render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/src/a.ts" />)
     await waitFor(() => expect(fake.state.model).not.toBeNull())
     const stopPropagation = vi.fn()
@@ -767,7 +819,11 @@ describe('EditorView → Send Selection to Agent', () => {
   })
 
   it('adds a context-menu action that opens the send panel with the file and range', async () => {
-    vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, text: 'one\ntwo\nthree' })
+    vi.mocked(window.ostia.fs.read).mockResolvedValue({
+      ok: true,
+      version: 'v1',
+      text: 'one\ntwo\nthree',
+    })
     render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/src/a.ts" />)
     await waitFor(() => expect(fake.state.model).not.toBeNull())
     select(2, 1, 3, 6)
@@ -801,7 +857,7 @@ describe('EditorView → Send Selection to Agent', () => {
   })
 
   it('answers the palette command for its pane and says so when nothing is selected', async () => {
-    vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, text: 'text' })
+    vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, version: 'v1', text: 'text' })
     render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.ts" />)
     await waitFor(() => expect(fake.state.model).not.toBeNull())
 
@@ -816,6 +872,7 @@ describe('EditorView → Send Selection to Agent', () => {
   it('sends the Markdown preview selection with its source lines', async () => {
     vi.mocked(window.ostia.fs.read).mockResolvedValue({
       ok: true,
+      version: 'v1',
       text: '# Title\n\nBody text here',
     })
     render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/README.md" />)

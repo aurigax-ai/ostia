@@ -284,6 +284,7 @@ export interface FsApi {
   list: (path: string) => Promise<FsEntry[]>
   read: (path: string) => Promise<FsTextResult>
   write: (path: string, content: string) => Promise<boolean>
+  version: (path: string) => Promise<string | null>
   stat: (path: string) => Promise<FsKind | null>
   readBinary: (path: string) => Promise<FsBinaryResult>
   watch: (path: string) => Promise<boolean>
@@ -308,7 +309,7 @@ export type FsBinaryResult =
   | { ok: false; error: 'too-large'; size: number }
 
 export type FsTextResult =
-  | { ok: true; text: string }
+  | { ok: true; text: string; version: string }
   | { ok: false; error: 'missing' | 'denied' | 'unreadable' | 'binary' }
   | { ok: false; error: 'too-large'; size: number }
 

@@ -62,6 +62,18 @@ const MB = 1024 * 1024
 
 const savedVersions = new Map<string, number>()
 const diskBase = new Map<string, string | null>()
+const diskVersions = new Map<string, string>()
+
+function setDiskBase(key: string, text: string | null, version: string | null = null): void {
+  diskBase.set(key, text)
+  if (version === null) diskVersions.delete(key)
+  else diskVersions.set(key, version)
+}
+async function unchangedOnDisk(key: string, filePath: string): Promise<boolean> {
+  const known = diskVersions.get(key)
+  return known !== undefined && (await window.ostia.fs.version(filePath)) === known
+}
+
 const RELOAD_HIGHLIGHT_MS = 2000
 
 const remoteVersions = new Map<string, string | null>()
@@ -113,7 +125,7 @@ const NOTHING_LOADED: Loaded = { content: null, version: null, problem: null, bl
 async function loadText(filePath: string): Promise<Loaded> {
   if (!isRemotePath(filePath)) {
     const res = await window.ostia.fs.read(filePath)
-    if (res.ok) return { ...NOTHING_LOADED, content: res.text }
+    if (res.ok) return { ...NOTHING_LOADED, content: res.text, version: res.version }
     if (res.error === 'missing') return NOTHING_LOADED
     return { ...NOTHING_LOADED, blocked: blockedBy(res) }
   }
@@ -136,6 +148,7 @@ function createTrackedModel(filePath: string, content: string): monaco.editor.IT
   model.onWillDispose(() => {
     savedVersions.delete(model.uri.toString())
     remoteVersions.delete(model.uri.toString())
+    diskVersions.delete(model.uri.toString())
     useEditorStatus.getState().setDirty(filePath, false)
   })
   return model
@@ -337,7 +350,7 @@ export function EditorView({
         return
       }
       const key = model.uri.toString()
-      if (!force) {
+      if (!force && !(await unchangedOnDisk(key, fp))) {
         const res = await window.ostia.fs.read(fp)
         if (!res.ok && res.error !== 'missing') {
           setUnsavedPath(fp)
@@ -349,13 +362,14 @@ export function EditorView({
         }
       }
       let version = model.getAlternativeVersionId()
+      let text = ''
       const ok = await saveFormatted({
         formatOnSave: useSettingsStore.getState().editor.formatOnSave,
         format: async () => editor.getAction('editor.action.formatDocument')?.run(),
         write: () => {
           version = model.getAlternativeVersionId()
-          const text = model.getValue()
-          diskBase.set(key, text)
+          text = model.getValue()
+          setDiskBase(key, text)
           return window.ostia.fs.write(fp, text)
         },
       }).catch(() => false)
@@ -363,6 +377,8 @@ export function EditorView({
         setUnsavedPath(fp)
         return
       }
+      const written = await window.ostia.fs.version(fp)
+      if (written !== null && diskBase.get(key) === text) diskVersions.set(key, written)
       savedVersions.set(model.uri.toString(), version)
       documentSaved(model)
       useEditorStatus.getState().setDirty(fp, isDirty(model))
@@ -407,7 +423,7 @@ export function EditorView({
         editor.pushUndoStop()
         editor.restoreViewState(view)
       }
-      diskBase.set(model.uri.toString(), text)
+      setDiskBase(model.uri.toString(), text)
       if (version !== undefined) remoteVersions.set(model.uri.toString(), version)
       markSaved(model, pathOf(model))
       showChanged(changed)
@@ -454,12 +470,13 @@ export function EditorView({
       const onDisk = res.ok ? res.text : null
       if (onDisk === diskBase.get(key)) return
       if (onDisk === null) {
-        diskBase.set(key, null)
+        setDiskBase(key, null)
         setDiskBar({ kind: 'deleted' })
         return
       }
       if (!isDirty(model)) {
         reloadFrom(model, onDisk)
+        if (res.ok) diskVersions.set(key, res.version)
         setDiskBar(null)
         return
       }
@@ -589,7 +606,7 @@ export function EditorView({
         markSaved(existing, filePath)
       }
       if (!existing || !isDirty(existing)) {
-        diskBase.set(model.uri.toString(), content)
+        setDiskBase(model.uri.toString(), content, isRemote ? null : version)
         if (isRemote) remoteVersions.set(model.uri.toString(), version)
       }
       editor.setModel(model)
@@ -750,7 +767,7 @@ export function EditorView({
                   onClick={() => {
                     const model = editorRef.current?.getModel()
                     if (model) {
-                      diskBase.set(model.uri.toString(), diskBar.disk)
+                      setDiskBase(model.uri.toString(), diskBar.disk)
                       if (diskBar.version !== undefined) {
                         remoteVersions.set(model.uri.toString(), diskBar.version)
                       }

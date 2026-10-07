@@ -2,7 +2,7 @@ import { chmodSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { beforeAll, describe, expect, it } from 'vitest'
-import { FS_TEXT_SNIFF_BYTES, readTextConfined } from './fsText'
+import { FS_TEXT_SNIFF_BYTES, readTextConfined, versionConfined, writeText } from './fsText'
 import { resolveSafe } from './pathGuard'
 
 let root: string
@@ -25,7 +25,7 @@ beforeAll(() => {
 
 describe('readTextConfined', () => {
   it('returns the UTF-8 text of a file inside an allowed root', async () => {
-    expect(await readTextConfined(join(root, 'a.txt'), confine)).toEqual({
+    expect(await readTextConfined(join(root, 'a.txt'), confine)).toMatchObject({
       ok: true,
       text: 'héllo\n',
     })
@@ -71,5 +71,24 @@ describe('readTextConfined', () => {
       ok: false,
       error: 'unreadable',
     })
+  })
+
+  it('returns the same version as fs:version until the file is written again', async () => {
+    const file = join(root, 'versioned.txt')
+    writeFileSync(file, 'one')
+    const read = await readTextConfined(file, confine)
+    const before = await versionConfined(file, confine)
+    expect(read.ok && read.version).toBe(before)
+    await new Promise((r) => setTimeout(r, 20))
+    await writeText(file, 'three')
+    const after = await versionConfined(file, confine)
+    expect(after).not.toBeNull()
+    expect(after).not.toBe(before)
+  })
+
+  it('has no version for a missing file, a folder or a path outside the roots', async () => {
+    expect(await versionConfined(join(root, 'nope.txt'), confine)).toBeNull()
+    expect(await versionConfined(join(root, 'dir'), confine)).toBeNull()
+    expect(await versionConfined(join(outside, 'secret.txt'), confine)).toBeNull()
   })
 })

@@ -72,7 +72,11 @@ describe('textEditsByUri', () => {
 describe('applyWorkspaceEdit', () => {
   it('edits an open document through its model and a closed file on disk', async () => {
     const model = fake.addModel(new FakeModel('/p/open.txt', 'open one'))
-    vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, text: 'closed one\n' })
+    vi.mocked(window.ostia.fs.read).mockResolvedValue({
+      ok: true,
+      version: 'v1',
+      text: 'closed one\n',
+    })
     vi.mocked(window.ostia.fs.write).mockResolvedValue(true)
     const applied = await applyWorkspaceEdit(
       {
@@ -106,7 +110,7 @@ describe('applyWorkspaceEdit', () => {
 
   it('refuses the whole edit when any file is outside the folder the server may edit', async () => {
     const model = fake.addModel(new FakeModel('/p/open.txt', 'open one'))
-    vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, text: 'secret\n' })
+    vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, version: 'v1', text: 'secret\n' })
     for (const uri of [
       'file:///home/u/.zshrc',
       'file:///p/../home/u/.zshrc',

@@ -317,7 +317,7 @@ describe('chat actions', () => {
 
   it('attaches a file from the @ picker as a chip with its size and sends it as context', async () => {
     vi.mocked(window.ostia.fs.list).mockResolvedValue([{ name: 'README.md', dir: false }])
-    vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, text: 'hello' })
+    vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, version: 'v1', text: 'hello' })
     const { pending } = captureRequests()
     render(<ChatPane workspaceId="w1" paneId="p-chat" />)
 

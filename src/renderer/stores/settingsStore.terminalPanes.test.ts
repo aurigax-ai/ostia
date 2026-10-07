@@ -52,6 +52,7 @@ describe('settingsStore terminal and pane settings', () => {
   it('validates both sections when settings.json loads', async () => {
     vi.mocked(window.ostia.fs.read).mockResolvedValue({
       ok: true,
+      version: 'v1',
       text: JSON.stringify({
         terminal: {
           scrollSpeed: 50,
