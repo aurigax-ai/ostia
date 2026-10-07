@@ -3516,6 +3516,11 @@ button.prompt-chip:focus-visible {
   transition-duration: 0ms;
 }
 
+:has(> [data-slot="tooltip-content"]),
+[data-slot="tooltip-content"] {
+  pointer-events: none;
+}
+
 .block-frame {
   animation: motion-fade-in var(--motion-fast) var(--ease-out);
 }
