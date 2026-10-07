@@ -59,7 +59,7 @@ export function RegionCropOverlay({
       role="application"
       aria-label={label}
       tabIndex={-1}
-      className="region-crop-layer"
+      className="region-crop-layer region-select"
       onKeyDown={onKeyDown}
       onPointerDown={(e) => {
         if (e.button !== 0) return

@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
   ZOOM_STEPS,
+  anchoredScroll,
   dragRegion,
   fitScale,
   fitWidthScale,
+  pinchZoom,
   pixelRect,
   scaleRegion,
   stepZoom,
@@ -107,5 +109,46 @@ describe('stepZoom', () => {
   it('stops at the ends of the scale', () => {
     expect(stepZoom(ZOOM_STEPS[0], -1)).toBe(ZOOM_STEPS[0])
     expect(stepZoom(8, 1)).toBe(8)
+  })
+})
+
+describe('pinchZoom', () => {
+  it('zooms in on a pinch out and out on a pinch in, smoothly', () => {
+    expect(pinchZoom(1, -10)).toBeCloseTo(Math.exp(0.1))
+    expect(pinchZoom(1, 10)).toBeCloseTo(Math.exp(-0.1))
+    expect(pinchZoom(2, 0)).toBe(2)
+  })
+
+  it('undoes a pinch with the opposite one', () => {
+    expect(pinchZoom(pinchZoom(1.3, -7), 7)).toBeCloseTo(1.3)
+  })
+
+  it('limits one mouse-wheel notch to a bounded step', () => {
+    expect(pinchZoom(1, -120)).toBeCloseTo(Math.exp(0.5))
+    expect(pinchZoom(1, 120)).toBeCloseTo(Math.exp(-0.5))
+  })
+
+  it('stays within the zoom steps range', () => {
+    expect(pinchZoom(ZOOM_STEPS[0], 50)).toBe(ZOOM_STEPS[0])
+    expect(pinchZoom(7.9, -50)).toBe(8)
+  })
+})
+
+describe('anchoredScroll', () => {
+  it('keeps the content point under the pointer in place after a zoom', () => {
+    const anchor = { content: { x: 100, y: 50 }, client: { x: 216, y: 166 } }
+    const scroll = anchoredScroll({ x: 0, y: 0 }, anchor, { left: 116, top: 116 }, 2)
+    expect(scroll).toEqual({ x: 100, y: 50 })
+    const box = { left: 116 - scroll.x, top: 116 - scroll.y }
+    expect(box.left + anchor.content.x * 2).toBe(anchor.client.x)
+    expect(box.top + anchor.content.y * 2).toBe(anchor.client.y)
+  })
+
+  it('scrolls back when zooming out', () => {
+    const anchor = { content: { x: 100, y: 50 }, client: { x: 216, y: 166 } }
+    expect(anchoredScroll({ x: 300, y: 200 }, anchor, { left: -184, top: -84 }, 1)).toEqual({
+      x: 0,
+      y: 0,
+    })
   })
 })
