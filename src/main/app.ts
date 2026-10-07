@@ -54,6 +54,7 @@ import type {
   FsEntry,
   FsKind,
   LifecycleEvent,
+  PaneActivity,
   PromptContext,
   PromptContextRequest,
   PtyAttachResult,
@@ -221,6 +222,7 @@ import { type ReapReason, RecoveryBook, orphanVerdict, planRecovery } from './pt
 import { PtySession, type Subscriber, type SubscriberRole } from './ptySession'
 import { questions, registerQuestions } from './questions'
 import { QUIT_SIGNALS, exitAfterDeadline, keptOnQuit, planQuit } from './quitPlan'
+import { confirmQuitNatively } from './quitPrompt'
 import { createRedactor, createScrollbackRedactor } from './redaction'
 import { createWorkerScan, redactionWorkerScript } from './redactionScan'
 import { registerReleaseCheck, releaseUserAgent } from './releaseCheck'
@@ -384,6 +386,20 @@ function holdsLocalPrompt(entry: PtyEntry): boolean {
     shell: entry.shell,
     sandboxed: entry.sandboxed,
   })
+}
+
+function paneActivity(entry: PtyEntry): PaneActivity {
+  let program: string | null = null
+  try {
+    program = busyProgram({
+      foreground: entry.pty.process,
+      shell: entry.shell,
+      sandboxed: entry.sandboxed,
+    })
+  } catch {
+    program = null
+  }
+  return { program, agentRunning: agentRunning.has(entry.paneId) }
 }
 
 function sandboxReadRules(entry: PtyEntry): SandboxReadRules | null {
@@ -2245,18 +2261,10 @@ function registerPtyIpc(): void {
       return null
     }
   })
-  ipcMain.handle('pty:busy', (e, paneId: string): string | null => {
+  ipcMain.handle('pty:activity', (e, paneId: string): PaneActivity | null => {
     const entry = ptys.get(String(paneId))
     if (!entry?.subs.has(String(e.sender.id))) return null
-    try {
-      return busyProgram({
-        foreground: entry.pty.process,
-        shell: entry.shell,
-        sandboxed: entry.sandboxed,
-      })
-    } catch {
-      return null
-    }
+    return paneActivity(entry)
   })
   ipcMain.handle('pty:commands', async (e, paneId: string): Promise<string[]> => {
     const entry = ptys.get(paneId)
@@ -3577,15 +3585,21 @@ app.on('before-quit', (event) => {
     if (quitAsking) return
     quitAsking = true
     const all = BrowserWindow.getAllWindows()
-    void confirmQuit(
-      all,
-      BrowserWindow.getFocusedWindow() ?? mainWindow(),
-      (workspaceId) => scratchFolders.countFiles(workspaceId),
-      keptOnQuit(
+    void confirmQuit(all, BrowserWindow.getFocusedWindow() ?? mainWindow(), {
+      scratchFiles: (workspaceId) => scratchFolders.countFiles(workspaceId),
+      kept: keptOnQuit(
         restartRequested,
         [...ptys.values()].map((entry) => ({ paneId: entry.paneId, kept: entry.kept !== null })),
       ),
-    ).then((approved) => {
+      workspacesOf: (win) => broker?.workspacesOf(win) ?? [],
+      processes: () =>
+        [...ptys.values()].map((entry) => ({
+          paneId: entry.paneId,
+          workspaceId: entry.workspaceId,
+          ...paneActivity(entry),
+        })),
+      confirmNative: (groups) => confirmQuitNatively(groups, readLocale() ?? 'en'),
+    }).then((approved) => {
       quitAsking = false
       if (!approved) {
         restartRequested = false

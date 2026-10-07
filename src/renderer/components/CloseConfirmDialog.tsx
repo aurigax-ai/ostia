@@ -1,4 +1,10 @@
-import { FileDashedIcon, FlaskIcon, RobotIcon, TerminalWindowIcon } from '@phosphor-icons/react'
+import {
+  FileDashedIcon,
+  FlaskIcon,
+  QuestionIcon,
+  RobotIcon,
+  TerminalWindowIcon,
+} from '@phosphor-icons/react'
 import type { Dict } from '../i18n/dict'
 import { fmt, useDict } from '../i18n/useDict'
 import { type QuitLosses, quitLosses } from '../lib/closeConfirm'
@@ -122,6 +128,12 @@ export function CloseConfirmDialog(): JSX.Element {
                     </span>
                   </li>
                 ))}
+                {group.unanswered ? (
+                  <li className="flex min-w-0 items-center gap-2 text-fg-muted">
+                    <QuestionIcon size={14} className="shrink-0" aria-hidden />
+                    <span className="truncate text-fg text-ui-sm">{d.closeConfirm.unanswered}</span>
+                  </li>
+                ) : null}
               </ul>
             </li>
           ))}
@@ -153,7 +165,7 @@ function withScratch(
 ): ConfirmCopy {
   const count = groups.reduce((sum, g) => sum + (g.scratchFiles ?? 0), 0)
   const onlyScratch = groups.every(
-    (g) => g.commands.length === 0 && !g.agents?.length && g.files.length === 0,
+    (g) => g.commands.length === 0 && !g.agents?.length && g.files.length === 0 && !g.unanswered,
   )
   if (count === 0 || !onlyScratch) return copy[kind]
   return {

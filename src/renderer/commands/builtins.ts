@@ -976,6 +976,13 @@ export function registerBuiltinCommands(): void {
   })
 
   registerCore({
+    id: 'app.browseExtensions',
+    category: 'app',
+    target: 'none',
+    run: () => useUIStore.getState().openSettings('browseExtensions'),
+  })
+
+  registerCore({
     id: 'dashboard.toggle',
     category: 'view',
     target: 'none',
