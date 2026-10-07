@@ -505,6 +505,14 @@ const bridge: OstiaBridge = {
         workspaceId,
       ) as Promise<OpenFileVerdict[]>,
   },
+  terminalLinks: {
+    probe: (paneId, path) =>
+      ipcRenderer.invoke('terminal-links:probe', paneId, path) as Promise<FsKind | null>,
+    admit: (paneId, path) =>
+      ipcRenderer.invoke('terminal-links:admit', paneId, path) as Promise<OpenFileVerdict | null>,
+    openFolder: (paneId, path) =>
+      ipcRenderer.invoke('terminal-links:open-folder', paneId, path) as Promise<OpenPathResult>,
+  },
   clipboard: {
     edit: (edit) => ipcRenderer.invoke('clipboard:edit', edit) as Promise<void>,
     hasImage: () => ipcRenderer.invoke('clipboard:has-image') as Promise<boolean>,

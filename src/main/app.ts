@@ -312,6 +312,7 @@ import {
 } from './systemRequirements'
 import { registerSystemRequirementsIpc } from './systemRequirementsIpc'
 import { type SessionFacts, TELEMETRY_FILE, type Telemetry, registerTelemetry } from './telemetry'
+import { TerminalPathLinks, registerTerminalPathLinkIpc } from './terminalPathLinks'
 import { PTY_COLOR_ENV, PTY_TERM_NAME, paneShellEnv, ptyIdentityEnv } from './terminalType'
 import { SANDBOX_NOT_KEPT, TMUX_MISSING, keepShellsNotice } from './tmux/keepShellsBanner'
 import { KeptAttention } from './tmux/keptAttention'
@@ -2717,6 +2718,15 @@ function registerFsIpc(): void {
   const allowedRoots = fileRoots()
   const settingsFile = join(app.getPath('userData'), 'settings.json')
   registerOpenPathIpc(allowedRoots)
+  registerTerminalPathLinkIpc(
+    new TerminalPathLinks({
+      grants: openFileGrants,
+      pane: (paneId) => getByPaneId(paneId),
+      isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
+      isScratch: (workspaceId) => scratchFolders.isScratch(workspaceId),
+      openFolder: (path) => shell.openPath(path),
+    }),
+  )
   registerProjectRootIpc(allowedRoots)
   registerSearchIpc(ripgrepPath(app.getAppPath(), process.platform, process.arch), allowedRoots)
 

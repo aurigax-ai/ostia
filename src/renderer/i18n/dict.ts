@@ -2216,6 +2216,8 @@ export const en = {
     openNewTab: 'Open in a new browser tab',
     openSystem: 'Open in the system browser',
     openFile: 'Open the file',
+    revealFolder: 'Show the folder in Files',
+    openFolder: 'Open the folder in the file manager',
   },
   terminalGhost: {
     copy: 'Copy',
@@ -5340,6 +5342,8 @@ export const zhHant: Dict = {
     openNewTab: '在新的瀏覽器分頁開啟',
     openSystem: '在系統瀏覽器開啟',
     openFile: '開啟檔案',
+    revealFolder: '在「檔案」中顯示資料夾',
+    openFolder: '在檔案管理員開啟資料夾',
   },
   terminalGhost: {
     copy: '複製',

@@ -800,6 +800,12 @@ export interface FilesApi {
   admitDropped: (files: File[], workspaceId: string | null) => Promise<OpenFileVerdict[]>
 }
 
+export interface TerminalLinksApi {
+  probe: (paneId: string, path: string) => Promise<FsKind | null>
+  admit: (paneId: string, path: string) => Promise<OpenFileVerdict | null>
+  openFolder: (paneId: string, path: string) => Promise<OpenPathResult>
+}
+
 export interface ClipboardApi {
   edit: (edit: ClipboardEdit) => Promise<void>
   hasImage: () => Promise<boolean>
@@ -1038,6 +1044,7 @@ export interface OstiaBridge {
   clipboard: ClipboardApi
   guestChords: GuestChordsApi
   files: FilesApi
+  terminalLinks: TerminalLinksApi
   extensions: ExtensionsApi
   fileOps: FileOpsApi
   marketplace: MarketplaceApi

@@ -175,7 +175,7 @@ export function FilesView(): JSX.Element {
   const d = useDict()
   const focus = useTreeFocus()
   const { workspaceId, cwd, activeFile } = focus
-  const [revealed, setRevealed] = useState<{ root: string; path: string } | null>(null)
+  const revealed = useFileTreeStore((s) => s.revealed)
   const reveal = revealed?.root === cwd ? revealed.path : null
   const stableFocus = useMemo(
     () => ({ workspaceId, cwd, activeFile, reveal }),
@@ -200,7 +200,7 @@ export function FilesView(): JSX.Element {
         isHidden={(path) =>
           !tree.settings.showExcluded && isUnderExcluded(tree.isExcluded, path, cwd)
         }
-        onReveal={(path) => setRevealed({ root: cwd, path })}
+        onReveal={(path) => useFileTreeStore.getState().reveal(cwd, path)}
       >
         <div className="file-tree">
           <Dir key={cwd} path={cwd} depth={0} tree={tree} />
