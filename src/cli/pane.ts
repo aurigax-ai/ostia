@@ -53,8 +53,11 @@ const USAGE = [
   '       ostia pane wait <pane>… [--until done|waiting|idle|exited]… [--timeout <s>] [--json]',
   '       ostia pane wake <pane>… [--wait [--timeout <s>]] [--json]',
   '       ostia pane close <pane>… [--json]',
-  '<pane> is a pane id from ostia pane.list, or a process id or name from ostia process ls',
+  '<pane> is a paneId or a process id or name (ostia process ls); list panes with',
+  'ostia pane.list (JSON: paneId, kind, title, cwd, running, agent, agentState, hibernated, …)',
 ].join('\n')
+
+const PANE_LIST_HINT = 'list panes with ostia pane.list (JSON), not ostia pane list'
 
 function readFlags(argv: string[]) {
   try {
@@ -159,6 +162,7 @@ export function waitOutcome(result: PaneWaitResult, json: boolean): { line: stri
 
 export function parsePaneArgs(argv: string[]): PaneCall {
   const [sub, pane, ...rest] = argv
+  if (sub === 'list') throw new Error(PANE_LIST_HINT)
   if (!sub || !pane) throw new Error(USAGE)
   if (sub === 'wait') return parseWait([pane, ...rest])
   if (sub === 'wake') return parseWake([pane, ...rest])

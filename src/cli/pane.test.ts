@@ -88,6 +88,14 @@ describe('parsePaneArgs', () => {
     expect(() => parsePaneArgs(['key', 'p1'])).toThrow('usage: ostia pane')
     expect(() => parsePaneArgs(['frobnicate', 'p1'])).toThrow('usage: ostia pane')
   })
+
+  it('points pane list at the pane.list command', () => {
+    for (const argv of [['list'], ['list', '--json']]) {
+      expect(() => parsePaneArgs(argv)).toThrow(
+        'list panes with ostia pane.list (JSON), not ostia pane list',
+      )
+    }
+  })
 })
 
 describe('pane rename', () => {
