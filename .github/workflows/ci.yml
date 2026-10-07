@@ -69,7 +69,8 @@ jobs:
       # tags); one that changes other e2e files runs only the specs it changed
       # and the specs importing a changed file (changed). Pull requests and the
       # merge queue also get static, unit, unit-dom and build; pushes to main
-      # run no e2e but also run unit-macos.
+      # run no e2e but also run unit-macos, and a push the merge queue already
+      # passed runs only unit-macos and quarantine (verified).
       full: ${{ github.ref_type == 'tag' || github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.full) || steps.e2e_paths.outputs.harness == 'true' }}
       changed: ${{ steps.e2e_paths.outputs.harness != 'true' && steps.e2e_paths.outputs.e2e == 'true' }}
       linux: ${{ steps.runner.outputs.linux }}
@@ -80,9 +81,10 @@ jobs:
       repeat: ${{ steps.plan.outputs.repeat }}
       shards: ${{ steps.plan.outputs.shards }}
       macos_matrix: ${{ steps.plan.outputs.macos_matrix }}
-      # Pull requests and merge queue groups run only the unit tests their diff
-      # against the base can affect (scripts/affectedTests.mjs); empty means
-      # every test, as on main, the nightly run, tags and manual dispatch.
+      # Pull requests run only the unit tests their diff against the base can
+      # affect (scripts/affectedTests.mjs); empty means every test, as in the
+      # merge queue, on main, the nightly run, tags and manual dispatch. The
+      # merge queue runs every test so that a main push can skip them.
       tests: ${{ steps.tests.outputs.plan }}
       # A push to main whose sha already passed ci-result in the merge queue
       # (scripts/mergeQueueVerified.mjs) skips static, unit, unit-dom and build.
@@ -156,10 +158,10 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: ${{ (github.event_name == 'pull_request' || github.event_name == 'merge_group') && '0' || '1' }}
-      - if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
+      - if: github.event_name == 'pull_request'
         id: tests
         env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
           plan=$(node scripts/affectedTests.mjs plan "$BASE_SHA") || plan=
           echo "plan=$plan" >> "$GITHUB_OUTPUT"
