@@ -1,6 +1,6 @@
 import { ErrorCodes, ResponseError } from 'vscode-jsonrpc/node'
 import type { Capability } from '../shared/capabilities'
-import type { TerminalStateSnapshot } from '../shared/types'
+import type { CommandResult, TerminalStateSnapshot } from '../shared/types'
 import { ensureCaps } from './controlElevation'
 import { type ControlMethodContext, registerControlMethod } from './controlServer'
 import { type PaneIdentity, getByPaneId, resolveExternal } from './idRegistry'
@@ -130,7 +130,7 @@ export function readLineCount(raw: unknown): number {
   return Math.min(n, READ_LINES_MAX)
 }
 
-export type PaneReach = 'input' | 'read'
+export type PaneReach = 'input' | 'read' | 'close'
 
 export interface ReachFacts {
   caller: { paneId: string; workspaceId: string; sandboxed: boolean }
@@ -140,10 +140,16 @@ export interface ReachFacts {
 
 export type ReachVerdict = { allowed: true; caps: Capability[] } | { allowed: false; error: string }
 
+const REACH_CAPS: Readonly<Record<PaneReach, Capability>> = {
+  input: 'type-other-pane',
+  read: 'read-other-pane',
+  close: 'kill-pane',
+}
+
 export function paneReach(kind: PaneReach, facts: ReachFacts): ReachVerdict {
   const { caller, target } = facts
   if (target.manager) return { allowed: false, error: 'unknown-pane' }
-  if (caller.paneId === target.paneId) {
+  if (caller.paneId === target.paneId && kind !== 'close') {
     return kind === 'read' ? { allowed: true, caps: [] } : { allowed: false, error: 'own-pane' }
   }
   const sameWorkspace = caller.workspaceId === target.workspaceId
@@ -153,10 +159,7 @@ export function paneReach(kind: PaneReach, facts: ReachFacts): ReachVerdict {
   if (facts.ownChild && sameWorkspace) return { allowed: true, caps: ['process'] }
   return {
     allowed: true,
-    caps: [
-      kind === 'input' ? 'type-other-pane' : 'read-other-pane',
-      ...(sameWorkspace ? [] : (['all-workspaces'] as const)),
-    ],
+    caps: [REACH_CAPS[kind], ...(sameWorkspace ? [] : (['all-workspaces'] as const))],
   }
 }
 
@@ -175,6 +178,7 @@ export interface PaneIoDeps extends PaneReachDeps {
   inputSent: (pane: PaneIdentity) => void
   hibernated: (pane: PaneIdentity) => Promise<boolean>
   wake: (pane: PaneIdentity) => Promise<boolean>
+  close: (pane: PaneIdentity) => Promise<CommandResult>
   delay: (ms: number) => Promise<void>
 }
 
@@ -184,7 +188,7 @@ const REFUSALS: Readonly<Record<string, string>> = {
     'sandboxed: a sandboxed workspace reaches only the sandboxed terminals of its own workspace',
 }
 
-export const WAKE_PANES_MAX = 32
+export const PANE_REFS_MAX = 32
 
 function asleep(to: PaneIdentity): ResponseError<void> {
   return fail(`hibernated: ${to.externalId} is asleep; wake it with ostia pane wake`)
@@ -194,9 +198,9 @@ function notHibernated(to: PaneIdentity): ResponseError<void> {
   return fail(`not-hibernated: ${to.externalId} is not hibernated`)
 }
 
-export function wakeRefs(raw: unknown): string[] {
+export function paneRefs(raw: unknown): string[] {
   if (!Array.isArray(raw) || raw.length === 0) throw fail('bad-request: panes')
-  if (raw.length > WAKE_PANES_MAX) throw fail('too-many: panes')
+  if (raw.length > PANE_REFS_MAX) throw fail('too-many: panes')
   if (!raw.every((ref) => typeof ref === 'string' && ref)) throw fail('bad-request: panes')
   return [...new Set(raw as string[])]
 }
@@ -323,7 +327,7 @@ export function registerPaneIoMethods(deps: PaneIoDeps): void {
   registerControlMethod('pane.wake', {
     scripts: true,
     handler: async (raw, ctx) => {
-      const refs = wakeRefs(record(raw).panes)
+      const refs = paneRefs(record(raw).panes)
       ensureManagerInput(ctx)
       const panes: PaneIdentity[] = []
       for (const ref of refs) {
@@ -342,6 +346,30 @@ export function registerPaneIoMethods(deps: PaneIoDeps): void {
         woke.push(to.externalId)
       }
       return { ok: true, woke }
+    },
+  })
+
+  registerControlMethod('pane.close', {
+    scripts: true,
+    handler: async (raw, ctx) => {
+      const refs = paneRefs(record(raw).panes)
+      const panes: PaneIdentity[] = []
+      for (const ref of refs) {
+        const to = target(ref, ctx)
+        await ensurePaneReach(deps, 'close', to, ctx, {
+          ref,
+          method: 'pane.close',
+          detail: `close ${to.externalId}`,
+        })
+        panes.push(to)
+      }
+      const closed: string[] = []
+      for (const to of panes) {
+        const res = await deps.close(to)
+        if (!res.ok) throw fail(res.error.message)
+        closed.push(to.externalId)
+      }
+      return { ok: true, closed }
     },
   })
 

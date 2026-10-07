@@ -286,6 +286,12 @@ export function registerBuiltinCommands(): void {
       if (!ctx.activeWorkspaceId) return
       const target = args?.paneId ?? ctx.activePaneId
       const layout = useLayoutStore.getState()
+      if (args?.paneId !== undefined) {
+        const tree = layout.byWorkspace[ctx.activeWorkspaceId]
+        if (!tree || !findPane(tree.root, args.paneId)) {
+          throw new Error(`unknown-pane: ${args.paneId}`)
+        }
+      }
       if (!target) {
         const empty = !args?.paneId && !layout.byWorkspace[ctx.activeWorkspaceId]
         if (empty && !ctx.target) await requestCloseWorkspace(ctx.activeWorkspaceId)

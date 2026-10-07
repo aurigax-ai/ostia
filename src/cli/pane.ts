@@ -15,7 +15,7 @@ export type PaneCall =
   | { method: 'pane.read'; params: { pane: string; lines?: number }; json: boolean }
   | { method: 'pane.rename'; params: { pane: string; title: string } }
   | { method: 'pane.wait'; params: PaneWaitParams; json: boolean }
-  | { method: 'pane.wake'; params: { panes: string[] }; json: boolean }
+  | { method: 'pane.wake' | 'pane.close'; params: { panes: string[] }; json: boolean }
 
 export interface PaneWaitParams {
   panes: string[]
@@ -38,6 +38,7 @@ const USAGE = [
   '       ostia pane rename <pane> <title…> | --clear',
   '       ostia pane wait <pane>… [--until done|waiting|idle|exited]… [--timeout <s>] [--json]',
   '       ostia pane wake <pane>… [--json]',
+  '       ostia pane close <pane>… [--json]',
   '<pane> is a pane id from ostia pane.list, or a process id or name from ostia process ls',
 ].join('\n')
 
@@ -76,10 +77,10 @@ function parseWait(argv: string[]): PaneCall {
   }
 }
 
-function parseWake(argv: string[]): PaneCall {
+function parsePanes(method: 'pane.wake' | 'pane.close', argv: string[]): PaneCall {
   const { positional, booleans } = parseArgs(argv, { booleans: { json: '--json' } })
   if (positional.length === 0) throw new Error(USAGE)
-  return { method: 'pane.wake', params: { panes: positional }, json: booleans.json }
+  return { method, params: { panes: positional }, json: booleans.json }
 }
 
 export function waitOutcome(result: PaneWaitResult, json: boolean): { line: string; code: number } {
@@ -106,7 +107,8 @@ export function parsePaneArgs(argv: string[]): PaneCall {
   const [sub, pane, ...rest] = argv
   if (!sub || !pane) throw new Error(USAGE)
   if (sub === 'wait') return parseWait([pane, ...rest])
-  if (sub === 'wake') return parseWake([pane, ...rest])
+  if (sub === 'wake') return parsePanes('pane.wake', [pane, ...rest])
+  if (sub === 'close') return parsePanes('pane.close', [pane, ...rest])
   if (sub === 'send') {
     const { positional: words, booleans } = parseArgs(rest, {
       booleans: {
@@ -210,6 +212,9 @@ export async function runPaneVerb(
   } else if (call.method === 'pane.wake') {
     const { woke } = result as { woke: string[] }
     console.log(call.json ? JSON.stringify(result) : woke.join('\n'))
+  } else if (call.method === 'pane.close') {
+    const { closed } = result as { closed: string[] }
+    console.log(call.json ? JSON.stringify(result) : closed.join('\n'))
   } else if (call.method === 'pane.input' && call.params.confirm) {
     const responded = (result as { responded?: boolean }).responded === true
     console.log(responded ? 'ok' : 'sent, but the pane printed nothing back')

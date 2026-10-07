@@ -135,6 +135,12 @@ const CLI_HELP = `ostia — control-socket CLI
                                  A pane that is awake answers not-hibernated. Same asks as
                                  pane send, which refuses a hibernated pane. Send nothing
                                  until ostia pane.list shows it running: true
+  ostia pane close <pane>… [--json]  close those panes at once, even while a command runs in
+                                 them; the human is asked only about unsaved file changes.
+                                 Prints the closed paneIds. A tab you opened with process run
+                                 or agent run needs nothing more; any other pane asks the
+                                 human (kill-pane, plus all-workspaces outside your
+                                 workspace). A pane the human locked answers pane-locked
   ostia pane rename <pane> <title…>  name that pane's tab; programs (OSC titles) no longer
                                  change it, and it survives a restart. --clear instead of a
                                  title hands the tab back to the program. Your own pane

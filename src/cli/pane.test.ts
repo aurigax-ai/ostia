@@ -86,7 +86,7 @@ describe('parsePaneArgs', () => {
     expect(() => parsePaneArgs(['send'])).toThrow('usage: ostia pane')
     expect(() => parsePaneArgs(['send', 'p1'])).toThrow('usage: ostia pane')
     expect(() => parsePaneArgs(['key', 'p1'])).toThrow('usage: ostia pane')
-    expect(() => parsePaneArgs(['close', 'p1'])).toThrow('usage: ostia pane')
+    expect(() => parsePaneArgs(['frobnicate', 'p1'])).toThrow('usage: ostia pane')
   })
 })
 
@@ -183,5 +183,21 @@ describe('pane wake', () => {
       json: true,
     })
     expect(() => parsePaneArgs(['wake'])).toThrow('ostia pane wake <pane>')
+  })
+})
+
+describe('pane close', () => {
+  it('takes one or more panes and --json', () => {
+    expect(parsePaneArgs(['close', 'fixer', 'w2'])).toEqual({
+      method: 'pane.close',
+      params: { panes: ['fixer', 'w2'] },
+      json: false,
+    })
+    expect(parsePaneArgs(['close', 'fixer', '--json'])).toEqual({
+      method: 'pane.close',
+      params: { panes: ['fixer'] },
+      json: true,
+    })
+    expect(() => parsePaneArgs(['close'])).toThrow('ostia pane close <pane>')
   })
 })
