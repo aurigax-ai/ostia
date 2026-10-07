@@ -1,4 +1,4 @@
-import 'monaco-editor/esm/vs/editor/edcore.main.js'
+import 'monaco-editor/esm/vs/features/register.all.js'
 import * as monaco from 'monaco-editor/esm/vs/editor/editor.api.js'
 import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker'
 import cssWorker from 'monaco-editor/esm/vs/language/css/css.worker?worker'
@@ -20,7 +20,7 @@ import { registerInlineAssist } from './inlineAssist'
 import { SETTINGS_LANGUAGE_ID } from './language'
 import { registerSettingsLanguage } from './settingsLanguage'
 
-import.meta.glob('../../../node_modules/monaco-editor/esm/vs/basic-languages/*/*.contribution.js', {
+import.meta.glob('../../../node_modules/monaco-editor/esm/vs/languages/definitions/*/register.js', {
   eager: true,
 })
 

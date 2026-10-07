@@ -1,5 +1,5 @@
 import type * as Monaco from 'monaco-editor'
-import { setupMode } from 'monaco-editor/esm/vs/language/json/jsonMode.js'
+import { setupMode } from 'monaco-editor/esm/vs/languages/features/json/jsonMode.js'
 import { SETTINGS_LANGUAGE_ID } from './language'
 
 const ALL_FEATURES = {

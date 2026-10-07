@@ -2,7 +2,7 @@ declare module 'monaco-editor/esm/vs/editor/editor.api.js' {
   export * from 'monaco-editor'
 }
 
-declare module 'monaco-editor/esm/vs/language/json/jsonMode.js' {
+declare module 'monaco-editor/esm/vs/languages/features/json/jsonMode.js' {
   export function setupMode(defaults: unknown): { dispose(): void }
 }
 
