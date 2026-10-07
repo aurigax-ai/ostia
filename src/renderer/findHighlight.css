@@ -1,0 +1,8 @@
+::highlight(ostia-find) {
+  background-color: var(--brand-glow);
+}
+
+::highlight(ostia-find-active) {
+  background-color: var(--brand-glow);
+  text-decoration: underline 2px var(--brand);
+}
