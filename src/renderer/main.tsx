@@ -5,6 +5,7 @@ import './assets/fonts/hack-nerd-font.css'
 import './assets/fonts/meslo-nerd-font.css'
 import 'allotment/dist/style.css'
 import './index.css'
+import './findHighlight.css'
 
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'

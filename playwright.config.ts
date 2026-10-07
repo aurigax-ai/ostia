@@ -15,7 +15,7 @@ export default defineConfig({
   workers: 1,
   reporter: process.env.CI ? [['list'], ['blob']] : [['list']],
   use: {
-    trace: 'on-first-retry',
+    trace: process.env.CI ? 'retain-on-failure' : 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
   },
