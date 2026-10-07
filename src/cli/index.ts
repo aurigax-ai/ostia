@@ -18,7 +18,7 @@ import {
 } from '../shared/claudeAttention'
 import type { OpenFilesResult } from '../shared/openFiles'
 import { SCRIPT_TOKEN_PREFIX } from '../shared/scriptTokens'
-import type { CommandResult } from '../shared/types'
+import type { CommandDescriptor, CommandResult } from '../shared/types'
 import type { WorkflowEntry, WorkflowListing } from '../shared/workflows'
 import { runAgentHook } from './agentHook'
 import { parseArgs } from './args'
@@ -33,11 +33,13 @@ import {
   sentLines,
 } from './bus'
 import { runCmuxImportVerb } from './cmuxImport'
+import { commandHelp, wantsHelp } from './commandHelp'
 import { buildCommandCall, parseCommandFlags, resolveWorkspaceRef } from './crossWorkspace'
 import { describeFailure } from './failure'
 import { type FileProbe, fileWord, isClaimedWord, parseFileArg, refusalLine } from './fileArgs'
 import { runManagerVerb } from './manager'
 import { parseWorkspaceRenameArgs, runPaneVerb } from './pane'
+import { runPermissionHook } from './permissionHook'
 import { runPortalCommand } from './portal'
 import { runTokenVerb } from './token'
 import { buildVersionAt } from './version'
@@ -392,6 +394,7 @@ const CORE_VERBS = new Set([
   'state',
   'resume-token',
   'claude-hook',
+  'permission-hook',
   'agent-hook',
   'open',
   'docs',
@@ -1403,6 +1406,13 @@ async function main(): Promise<void> {
       await runResumeTokenVerb(conn)
     } else if (cmd === 'claude-hook') {
       await runClaudeHookVerb(conn)
+    } else if (cmd === 'permission-hook') {
+      process.exitCode = await runPermissionHook(process.argv.slice(3), {
+        readInput: readAllStdin,
+        ask: (params) => conn.sendRequest('permission.ask', params),
+        out: (line) => console.log(line),
+        err: (line) => console.error(line),
+      })
     } else if (cmd === 'agent-hook') {
       process.exitCode = await runAgentHook(process.argv.slice(3), {
         readInput: readAllStdin,
@@ -1450,6 +1460,15 @@ async function main(): Promise<void> {
       await runBrowse(conn, process.argv.slice(3))
     } else if (cmd === 'gateway') {
       await runGatewayVerb(conn)
+    } else if (cmd && wantsHelp(process.argv[3])) {
+      const list = await conn.sendRequest<CommandDescriptor[]>('command.list')
+      const found = list.find((c) => c.id === cmd)
+      if (found) {
+        console.log(commandHelp(found))
+      } else {
+        console.error(`ostia: unknown command '${cmd}' (try: ostia commands)`)
+        process.exitCode = 1
+      }
     } else if (cmd) {
       const flags = parseCommandFlags(process.argv.slice(3))
       const workspace = flags.workspace

@@ -88,7 +88,7 @@ export class ScreenMirror {
   private readonly term: Terminal
   private promptStart: IMarker | undefined
   private promptStartCol = 0
-  private untouched: { history: string; seamEnd: IMarker } | undefined
+  private untouched: { history: string; seamEnd: IMarker; prompted: boolean } | undefined
   private disposed = false
   private targetCols: number
   private targetRows: number
@@ -145,7 +145,7 @@ export class ScreenMirror {
       if (this.disposed) return
       this.clearUntouched()
       const seamEnd = this.term.registerMarker(0)
-      if (seamEnd) this.untouched = { history, seamEnd }
+      if (seamEnd) this.untouched = { history, seamEnd, prompted: false }
     })
   }
 
@@ -198,10 +198,20 @@ export class ScreenMirror {
       this.clearPromptStart()
       this.promptStart = this.term.registerMarker(0)
       this.promptStartCol = this.term.buffer.active.cursorX
+      this.skipStartupOutput()
     } else if (kind === COMMAND_START) {
       this.clearPromptStart()
       this.clearUntouched()
     }
+  }
+
+  private skipStartupOutput(): void {
+    const untouched = this.untouched
+    if (!untouched || untouched.prompted) return
+    const firstPrompt = this.term.registerMarker(0)
+    if (!firstPrompt) return
+    untouched.seamEnd.dispose()
+    this.untouched = { ...untouched, seamEnd: firstPrompt, prompted: true }
   }
 
   private clearUntouched(): void {

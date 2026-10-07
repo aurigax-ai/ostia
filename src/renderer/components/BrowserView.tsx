@@ -426,18 +426,21 @@ export function BrowserView({
         <IconButton
           icon={ArrowLeftIcon}
           label={d.browser.back}
+          command="browser.back"
           disabled={!canGoBack}
           onClick={() => withGuest((wv) => wv.goBack())}
         />
         <IconButton
           icon={ArrowRightIcon}
           label={d.browser.forward}
+          command="browser.forward"
           disabled={!canGoForward}
           onClick={() => withGuest((wv) => wv.goForward())}
         />
         <IconButton
           icon={ArrowClockwiseIcon}
           label={d.browser.reload}
+          command="browser.reload"
           onClick={() => withGuest((wv) => wv.reload())}
         />
         <Input

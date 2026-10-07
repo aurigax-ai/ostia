@@ -247,6 +247,30 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
     }
   })
 
+  it('<command.id> --help / -h print the command help from the app without running it', async () => {
+    for (const flag of ['--help', '-h']) {
+      const res = await runOstia(
+        ['pane.splitRight', flag],
+        withEnv({ OSTIA_SOCKET: socketPath, OSTIA_TOKEN: identity.token }),
+      )
+      expect(res.stderr).toBe('')
+      expect(res.code).toBe(0)
+      expect(res.stdout).toContain('pane.splitRight: Split Right')
+      expect(res.stdout).toContain('usage: ostia pane.splitRight [json-args]')
+    }
+    expect(execCalls).toEqual([])
+  })
+
+  it('<command.id> --help: an unknown id exits 1 instead of parsing the flag as JSON', async () => {
+    const res = await runOstia(
+      ['pane.bogus', '--help'],
+      withEnv({ OSTIA_SOCKET: socketPath, OSTIA_TOKEN: identity.token }),
+    )
+    expect(res.code).toBe(1)
+    expect(res.stderr).toContain("unknown command 'pane.bogus'")
+    expect(res.stderr).not.toContain('JSON')
+  })
+
   it('stale OSTIA_SOCKET: prints "app not reachable" and exits 1 without a stack trace', async () => {
     const stale = join(tmpdir(), `ostia-cli-e2e-${process.pid}-stale.sock`)
     const res = await runOstia(['whoami'], withEnv({ OSTIA_SOCKET: stale, OSTIA_TOKEN: 'x' }))

@@ -25,6 +25,7 @@ import {
   codexHookTrustHash,
   codexWrapper,
   extensionHookCommand,
+  permissionHookCommand,
   shellIntegrationDir,
   shellIntegrationFiles,
   shellIntegrationSpawnOptions,
@@ -693,6 +694,20 @@ describe('shellIntegrationSpawnOptions', () => {
       )
       expect(commands('Stop').join(' ')).not.toContain('bus hook')
       expect(commands('Notification').join(' ')).not.toContain('bus hook')
+    })
+
+    it('asks Ostia for a permission decision and keeps the hook’s stdout for it', () => {
+      const hooks = claudeHookSettings().hooks as Record<string, { hooks: { command: string }[] }[]>
+      expect(hooks.PermissionRequest?.[0]?.hooks.map((h) => h.command)).toEqual([
+        permissionHookCommand('claude'),
+      ])
+      expect(permissionHookCommand('claude')).toBe(
+        '[ -n "${OSTIA_SOCKET}" ] && ELECTRON_RUN_AS_NODE=1 "${OSTIA_NODE}" "${OSTIA_CLI}" permission-hook claude 2>/dev/null || true',
+      )
+      expect(codexHookCommands('/tmp/codex-context.md').PermissionRequest).toEqual([
+        expect.stringContaining('state waiting -'),
+        permissionHookCommand('codex'),
+      ])
     })
 
     it('makes claude in a Ostia shell load the plugin and keep the user’s arguments', () => {
