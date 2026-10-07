@@ -4,6 +4,9 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+patchedDependencies:
+  swr@2.5.1: 88cbabb501253020ef82b08d21a0172d1f299c8b2e9fc3523475a159d7202ac9
+
 importers:
 
   .:
@@ -4971,7 +4974,7 @@ snapshots:
       '@ai-sdk/provider-utils': 5.0.51(zod@4.6.5)
       ai: 7.0.122(zod@4.6.5)
       react: 18.3.1
-      swr: 2.5.1(react@18.3.1)
+      swr: 2.5.1(patch_hash=88cbabb501253020ef82b08d21a0172d1f299c8b2e9fc3523475a159d7202ac9)(react@18.3.1)
       throttleit: 2.1.0
     transitivePeerDependencies:
       - zod
@@ -9192,7 +9195,7 @@ snapshots:
     dependencies:
       has-flag: 4.0.0
 
-  swr@2.5.1(react@18.3.1):
+  swr@2.5.1(patch_hash=88cbabb501253020ef82b08d21a0172d1f299c8b2e9fc3523475a159d7202ac9)(react@18.3.1):
     dependencies:
       dequal: 2.0.3
       react: 18.3.1

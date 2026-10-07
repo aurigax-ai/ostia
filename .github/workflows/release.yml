@@ -24,9 +24,11 @@ jobs:
   package:
     needs: ci
     runs-on: ${{ fromJSON(needs.ci.outputs.linux) }}
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
+        timeout-minutes: 10
       - name: Tag matches package.json version
         run: test "v$(node -p 'require("./package.json").version')" = "$GITHUB_REF_NAME"
       - run: pnpm build
@@ -49,10 +51,12 @@ jobs:
   package-macos:
     needs: ci
     runs-on: macos-26
+    timeout-minutes: 30
     environment: release-macos
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
+        timeout-minutes: 10
       - name: Tag matches package.json version
         run: test "v$(node -p 'require("./package.json").version')" = "$GITHUB_REF_NAME"
       - run: pnpm build
@@ -109,12 +113,14 @@ jobs:
     # Stays GitHub-hosted: npm trusted publishing (OIDC) does not support
     # self-hosted runners (docs.npmjs.com/trusted-publishers).
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     permissions:
       contents: read
       id-token: write
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
+        timeout-minutes: 10
       - uses: actions/setup-node@v7
         with:
           node-version: 24
@@ -127,6 +133,7 @@ jobs:
   publish:
     needs: [ci, package, package-macos]
     runs-on: ${{ fromJSON(needs.ci.outputs.linux) }}
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
         with:

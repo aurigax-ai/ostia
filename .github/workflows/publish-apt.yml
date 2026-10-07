@@ -23,6 +23,7 @@ concurrency:
 jobs:
   apt:
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     environment: release-packages
     env:
       TAG: ${{ inputs.tag }}
@@ -48,7 +49,7 @@ jobs:
           ls -l repo
       - name: Prune and sign
         run: |
-          command -v apt-ftparchive || sudo apt-get install -y apt-utils
+          command -v apt-ftparchive || scripts/retry.sh sudo apt-get install -y apt-utils
           packaging/apt/build-repo.sh repo
       - name: Install and upgrade from the signed repository before uploading
         run: packaging/apt/test-repo.sh repo
