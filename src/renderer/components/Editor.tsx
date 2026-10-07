@@ -20,6 +20,7 @@ import {
 } from '../lib/remoteFileSync'
 import { registerSelectionSender } from '../lib/selectionSenders'
 import { codeFontStack } from '../lib/uiFonts'
+import { usePaneVisible } from '../lib/usePaneVisible'
 import { attachWheelZoom } from '../lib/wheelZoom'
 import { documentSaved, openDocument } from '../lsp/client'
 import { useAskSelectionAction, useAssistCompletionsAction } from '../monaco/assistAction'
@@ -27,7 +28,7 @@ import { langFor } from '../monaco/language'
 import { useLiveEditorSelection } from '../monaco/liveSelection'
 import { holdModel } from '../monaco/modelHolds'
 import { monaco } from '../monaco/setup'
-import { initialMonacoTheme, useMonacoTheme } from '../monaco/useMonacoTheme'
+import { ensureMonacoTheme } from '../monaco/useMonacoTheme'
 import { isMac } from '../platform'
 import { useEditorRevealStore } from '../stores/editorRevealStore'
 import { useEditorStatus } from '../stores/editorStatusStore'
@@ -227,7 +228,9 @@ export function EditorView({
   const [liveEditor, setLiveEditor] = useState<monaco.editor.IStandaloneCodeEditor | null>(null)
   const previewText = useModelText(liveEditor, markdown && preview)
   const external = useExternalEditorAction(paneId)
-  useMonacoTheme()
+  const visible = usePaneVisible(paneId)
+  const visibleRef = useRef(visible)
+  const missedCheckRef = useRef(false)
   const openExternalRef = useRef(external.open)
   openExternalRef.current = external.open
   const selectionSend = useSelectionSend(workspaceId, paneId)
@@ -277,9 +280,9 @@ export function EditorView({
     if (!host) return
 
     const initial = useSettingsStore.getState().appearance.editor
+    ensureMonacoTheme()
     const editor = monaco.editor.create(host, {
-      theme: initialMonacoTheme(),
-      automaticLayout: true,
+      automaticLayout: false,
       fontFamily: codeFontStack(initial.family),
       fontSize: initial.size,
       fontWeight: String(initial.weight),
@@ -520,8 +523,13 @@ export function EditorView({
     const blurSub = editor.onDidBlurEditorText(() => saveIfDirty('onFocusChange'))
 
     const detachWheelZoom = attachWheelZoom(host, 'editor', isMac)
+    const resize = new ResizeObserver(() => {
+      if (visibleRef.current) editor.layout()
+    })
+    resize.observe(host)
 
     return () => {
+      resize.disconnect()
       clearTimeout(highlightTimer)
       autoSave.cancel()
       appChordKeys.dispose()
@@ -641,7 +649,8 @@ export function EditorView({
       if (change.path === pathRef.current) void checkDiskRef.current()
     })
     const onFocus = (): void => {
-      void checkDiskRef.current()
+      if (visibleRef.current) void checkDiskRef.current()
+      else missedCheckRef.current = true
     }
     window.addEventListener('focus', onFocus)
     return () => {
@@ -651,12 +660,24 @@ export function EditorView({
   }, [])
 
   useEffect(() => {
-    if (!remote) return
+    if (!remote || !visible) return
     const timer = setInterval(() => {
       if (document.visibilityState !== 'hidden') void checkDiskRef.current()
     }, REMOTE_POLL_MS)
     return () => clearInterval(timer)
-  }, [remote])
+  }, [remote, visible])
+
+  useEffect(() => {
+    visibleRef.current = visible
+    if (!visible) {
+      if (remote) missedCheckRef.current = true
+      return
+    }
+    editorRef.current?.layout()
+    if (!missedCheckRef.current) return
+    missedCheckRef.current = false
+    void checkDiskRef.current()
+  }, [visible, remote])
 
   useEffect(() => {
     if (!filePath) return

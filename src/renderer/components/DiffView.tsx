@@ -6,7 +6,7 @@ import { registerEditorPosition } from '../lib/editorPositions'
 import { codeFontStack } from '../lib/uiFonts'
 import { langFor } from '../monaco/language'
 import { monaco } from '../monaco/setup'
-import { initialMonacoTheme, useMonacoTheme } from '../monaco/useMonacoTheme'
+import { ensureMonacoTheme } from '../monaco/useMonacoTheme'
 import { useDiffStore } from '../stores/diffStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useExternalEditorAction } from './Editor'
@@ -27,14 +27,13 @@ export function DiffView({ paneId }: { paneId: string }): JSX.Element {
     () => useSettingsStore.getState().editor.diffLayout === 'inline',
   )
   const external = useExternalEditorAction(paneId)
-  useMonacoTheme()
 
   useEffect(() => {
     const host = hostRef.current
     if (!host) return
     const initial = useSettingsStore.getState().appearance.editor
+    ensureMonacoTheme()
     const diff = monaco.editor.createDiffEditor(host, {
-      theme: initialMonacoTheme(),
       automaticLayout: true,
       readOnly: true,
       originalEditable: false,

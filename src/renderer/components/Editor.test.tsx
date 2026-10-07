@@ -116,7 +116,13 @@ const fake = vi.hoisted(() => {
     }[]
     createOptions: Record<string, unknown> | null
     optionUpdates: Record<string, unknown>[]
+    visible: boolean
+    layouts: number
+    themedAtCreate: boolean
   } = {
+    themedAtCreate: false,
+    visible: true,
+    layouts: 0,
     createOptions: null,
     optionUpdates: [],
     model: null,
@@ -185,6 +191,9 @@ const fake = vi.hoisted(() => {
         ? { run: async () => state.formatRuns?.() }
         : null,
     onDidChangeModel: (l: Listener) => listen(state.modelListeners, l),
+    layout: () => {
+      state.layouts += 1
+    },
     dispose: () => {},
   }
   const monaco = {
@@ -196,6 +205,7 @@ const fake = vi.hoisted(() => {
       defineTheme: vi.fn(),
       create: (_host: unknown, options: Record<string, unknown>) => {
         state.createOptions = options
+        state.themedAtCreate = monaco.editor.setTheme.mock.calls.length > 0
         return editor
       },
       getModel: (uri: { toString(): string }) => models.get(uri.toString()) ?? null,
@@ -211,6 +221,9 @@ const fake = vi.hoisted(() => {
 
 vi.mock('../monaco/setup', () => ({
   monaco: fake.monaco,
+}))
+vi.mock('../lib/usePaneVisible', () => ({
+  usePaneVisible: () => fake.state.visible,
 }))
 vi.mock('../lsp/client', () => ({
   openDocument: vi.fn(() => () => {}),
@@ -237,6 +250,8 @@ describe('EditorView', () => {
     fake.state.decorations = []
     fake.state.createOptions = null
     fake.state.optionUpdates = []
+    fake.state.visible = true
+    fake.state.layouts = 0
     useSettingsStore.setState(initSettings, true)
     useEditorStatus.setState(init, true)
   })
@@ -380,6 +395,43 @@ describe('EditorView', () => {
     render(<EditorView workspaceId="w1" paneId="p2" filePath="/w/a.txt" />)
     await waitFor(() => expect(fake.state.model).toBe(model))
     expect(fake.state.model?.getValue()).toBe('my edit')
+  })
+
+  it('lays out only while shown, on resize and when it is shown again', async () => {
+    const resized: (() => void)[] = []
+    const original = globalThis.ResizeObserver
+    globalThis.ResizeObserver = class {
+      constructor(cb: () => void) {
+        resized.push(cb)
+      }
+      observe() {}
+      disconnect() {}
+    } as unknown as typeof ResizeObserver
+    try {
+      vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, version: 'v1', text: 'text' })
+      fake.state.visible = false
+      const { rerender } = render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.txt" />)
+      await waitFor(() => expect(fake.state.model).not.toBeNull())
+      expect(fake.state.createOptions?.automaticLayout).toBe(false)
+      for (const cb of resized) cb()
+      expect(fake.state.layouts).toBe(0)
+
+      fake.state.visible = true
+      rerender(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.txt" />)
+      expect(fake.state.layouts).toBe(1)
+      for (const cb of resized) cb()
+      expect(fake.state.layouts).toBe(2)
+    } finally {
+      globalThis.ResizeObserver = original
+    }
+  })
+
+  it('creates the editor once the scheme theme is set, without a theme of its own', async () => {
+    vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, version: 'v1', text: 'text' })
+    render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.txt" />)
+    await waitFor(() => expect(fake.state.model).not.toBeNull())
+    expect(fake.state.themedAtCreate).toBe(true)
+    expect(fake.state.createOptions?.theme).toBeUndefined()
   })
 
   it('keeps the file dirty and shows an error when the write fails', async () => {
@@ -617,6 +669,23 @@ describe('EditorView', () => {
         window.dispatchEvent(new Event('focus'))
         await new Promise((r) => setTimeout(r, 0))
       })
+      await waitFor(() => expect(fake.state.model?.getValue()).toBe('disk v2'))
+    })
+
+    it('leaves the disk alone on focus while hidden, and checks it once it is shown', async () => {
+      fake.state.visible = false
+      const { rerender } = render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.txt" />)
+      await waitFor(() => expect(fake.state.model?.getValue()).toBe('disk v1'))
+      const reads = vi.mocked(window.ostia.fs.read).mock.calls.length
+      disk = 'disk v2'
+      await act(async () => {
+        window.dispatchEvent(new Event('focus'))
+        await new Promise((r) => setTimeout(r, 0))
+      })
+      expect(window.ostia.fs.read).toHaveBeenCalledTimes(reads)
+
+      fake.state.visible = true
+      rerender(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.txt" />)
       await waitFor(() => expect(fake.state.model?.getValue()).toBe('disk v2'))
     })
 
