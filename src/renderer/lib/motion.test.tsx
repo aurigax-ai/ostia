@@ -182,14 +182,15 @@ describe('motion CSS contract', () => {
     expect([...cssOffenders, ...codeOffenders]).toEqual([])
   })
 
+  const railRules = [
+    ...css.matchAll(/\n((?:\.deck-rail|\.app:has\(> \.deck-rail)[^{\n]*)\{([^}]*)\}/g),
+  ]
+
   it('slides the sidebar with transform and opacity only, so a toggle reflows once', () => {
-    const railRules = [...css.matchAll(/\n(\.deck-rail[^{\n]*)\{([^}]*)\}/g)]
     const animated = railRules.flatMap(([, , body]) =>
       [...body.matchAll(/animation:\s*([a-z-]+)/g)].map((m) => m[1]),
     )
-    expect(new Set(animated)).toEqual(
-      new Set(['rail-slide-in', 'rail-slide-out', 'rail-content-in', 'rail-content-out']),
-    )
+    expect(new Set(animated)).toEqual(new Set(['rail-slide', 'rail-content-fade', 'rail-follow']))
     for (const name of animated) {
       const start = css.indexOf(`@keyframes ${name} {`)
       expect(start, name).toBeGreaterThan(-1)
@@ -206,6 +207,24 @@ describe('motion CSS contract', () => {
     )
     expect(new Set(durations)).toEqual(new Set(['--motion-panel']))
     expect(css).toMatch(/--motion-panel: (1[5-9]\d|200)ms;/)
+  })
+
+  it('moves the main area and middle panels with the sidebar edge, on one shared timing', () => {
+    const follow = railRules.filter(([, selector]) => /\.workzone/.test(selector))
+    expect(follow.map(([, selector]) => selector.trim())).toEqual([
+      '.app:has(> .deck-rail[data-rail-motion]) > :is(.files-panel, .workzone)',
+      '.app:has(> .deck-rail[data-rail-motion="opening"]) > :is(.files-panel, .workzone)',
+      '.app:has(> .deck-rail[data-rail-motion="closing"]) > :is(.files-panel, .workzone)',
+    ])
+    const timings = railRules.flatMap(([, , body]) =>
+      [...body.matchAll(/animation:\s*[a-z-]+\s+(var\([^)]+\)\s+var\([^)]+\))/g)].map((m) => m[1]),
+    )
+    expect(new Set(timings)).toEqual(new Set(['var(--motion-panel) var(--ease-in-out)']))
+    expect(css).toContain('transform: translateX(calc(var(--rail-w-collapsed) - var(--rail-w)));')
+    expect(css).toContain('transform: translateX(calc(var(--rail-w) - var(--rail-w-collapsed)));')
+    const footprint = railRules.find(([, selector]) => /\[data-rail-motion\]\)\s*$/.test(selector))
+    expect(footprint?.[2]).toMatch(/grid-template-columns: var\(--rail-w-collapsed\) auto 1fr;/)
+    expect(footprint?.[2]).toMatch(/overflow: clip;/)
   })
 
   it('uses no raw durations, easings, press scaling or tw-animate classes in code', () => {

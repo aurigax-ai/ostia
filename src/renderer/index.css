@@ -365,42 +365,53 @@
 }
 
 .deck-rail[data-rail-motion="opening"] {
-  animation: rail-slide-in var(--motion-panel) var(--ease-out) both;
+  animation: rail-slide var(--motion-panel) var(--ease-in-out) both;
 }
 
 .deck-rail[data-rail-motion="closing"] {
-  animation: rail-slide-out var(--motion-panel) var(--ease-in-out) both;
+  animation: rail-slide var(--motion-panel) var(--ease-in-out) reverse both;
 }
 
 .deck-rail[data-rail-motion="opening"] > * {
-  animation: rail-content-in var(--motion-panel) var(--ease-out) both;
+  animation: rail-content-fade var(--motion-panel) var(--ease-in-out) both;
 }
 
 .deck-rail[data-rail-motion="closing"] > * {
-  animation: rail-content-out var(--motion-panel) var(--ease-in-out) both;
+  animation: rail-content-fade var(--motion-panel) var(--ease-in-out) reverse both;
 }
 
-@keyframes rail-slide-in {
+.app:has(> .deck-rail[data-rail-motion]) {
+  grid-template-columns: var(--rail-w-collapsed) auto 1fr;
+  overflow: clip;
+}
+
+.app:has(> .deck-rail[data-rail-motion]) > :is(.files-panel, .workzone) {
+  will-change: transform;
+}
+
+.app:has(> .deck-rail[data-rail-motion="opening"]) > :is(.files-panel, .workzone) {
+  animation: rail-follow var(--motion-panel) var(--ease-in-out) both;
+}
+
+.app:has(> .deck-rail[data-rail-motion="closing"]) > :is(.files-panel, .workzone) {
+  animation: rail-follow var(--motion-panel) var(--ease-in-out) reverse both;
+}
+
+@keyframes rail-slide {
   from {
-    transform: translateX(calc(var(--rail-w-collapsed) - 100%));
+    transform: translateX(calc(var(--rail-w-collapsed) - var(--rail-w)));
   }
 }
 
-@keyframes rail-slide-out {
-  to {
-    transform: translateX(calc(var(--rail-w-collapsed) - 100%));
-  }
-}
-
-@keyframes rail-content-in {
+@keyframes rail-content-fade {
   from {
     opacity: 0;
   }
 }
 
-@keyframes rail-content-out {
+@keyframes rail-follow {
   to {
-    opacity: 0;
+    transform: translateX(calc(var(--rail-w) - var(--rail-w-collapsed)));
   }
 }
 

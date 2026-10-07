@@ -53,11 +53,11 @@ describe('DeckRail toggle motion', () => {
     expect(rail()).toHaveAttribute('data-rail-motion', 'closing')
 
     fireEvent.animationEnd(rail().firstElementChild as Element, {
-      animationName: 'rail-content-out',
+      animationName: 'rail-content-fade',
     })
     expect(rail()).toHaveAttribute('data-rail-motion', 'closing')
 
-    fireEvent.animationEnd(rail(), { animationName: 'rail-slide-out' })
+    fireEvent.animationEnd(rail(), { animationName: 'rail-slide' })
     expect(rail()).toHaveClass('collapsed')
     expect(rail()).not.toHaveAttribute('data-rail-motion')
   })
@@ -72,7 +72,7 @@ describe('DeckRail toggle motion', () => {
     expect(rail()).not.toHaveClass('collapsed')
     expect(rail()).toHaveAttribute('data-rail-motion', 'opening')
 
-    fireEvent.animationEnd(rail(), { animationName: 'rail-slide-in' })
+    fireEvent.animationEnd(rail(), { animationName: 'rail-slide' })
     expect(rail()).not.toHaveAttribute('data-rail-motion')
     expect(rail()).not.toHaveClass('collapsed')
   })
@@ -86,8 +86,36 @@ describe('DeckRail toggle motion', () => {
     expect(rail()).not.toHaveClass('collapsed')
     expect(rail()).toHaveAttribute('data-rail-motion', 'opening')
 
-    fireEvent.animationEnd(rail(), { animationName: 'rail-slide-out' })
+    fireEvent.animationEnd(rail(), { animationName: 'rail-slide' })
     expect(rail()).not.toHaveClass('collapsed')
+    expect(rail()).not.toHaveAttribute('data-rail-motion')
+  })
+
+  it('turns around from where the slide is instead of restarting it', () => {
+    const fake = (animationName: string) => ({
+      animationName,
+      currentTime: 60 as number | null,
+      effect: { getComputedTiming: () => ({ duration: 180 }) },
+    })
+    const running = [fake('rail-slide'), fake('rail-content-fade'), fake('rail-follow')]
+    const other = { ...fake('waiting-ring'), currentTime: 5 }
+    Object.defineProperty(document, 'getAnimations', {
+      configurable: true,
+      value: () => [...running, other],
+    })
+    try {
+      seedWorkspaces()
+      render(<DeckRail />)
+
+      setCollapsed(true)
+      expect(rail()).toHaveAttribute('data-rail-motion', 'closing')
+      setCollapsed(false)
+      expect(rail()).toHaveAttribute('data-rail-motion', 'opening')
+      expect(running.map((a) => a.currentTime)).toEqual([120, 120, 120])
+      expect(other.currentTime).toBe(5)
+    } finally {
+      Reflect.deleteProperty(document, 'getAnimations')
+    }
   })
 
   it('settles on its own when the animation never reports an end', () => {
