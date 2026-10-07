@@ -35,23 +35,20 @@ function fullFor(ctx: { event: string; code: string; harness?: string }): boolea
   return evaluate('branch', ctx.event, false, ctx.code, ctx.harness ?? '') === true
 }
 
-function ciResultAccepts(opts: { code: boolean; full: boolean; e2e: string }): boolean {
+function ciResultAccepts(opts: {
+  code: boolean
+  full: boolean
+  e2e: string
+  platform?: string
+  verified?: boolean
+}): boolean {
   const step = workflow.jobs['ci-result'].steps?.find((candidate) =>
     candidate.run?.includes('jq -e'),
   )
   const run = step?.run ?? ''
   const program = run.slice(run.indexOf("'") + 1, run.lastIndexOf("'"))
-  const needs = [
-    'changes',
-    'static',
-    'unit',
-    'unit-dom',
-    'build',
-    'e2e',
-    'e2e-ptrace',
-    'e2e-report',
-  ]
-  const other = opts.code ? 'success' : 'skipped'
+  const needs = [workflow.jobs['ci-result'].needs ?? []].flat()
+  const other = opts.code && !opts.verified ? 'success' : 'skipped'
   const results = Object.fromEntries(
     needs.map((name) => [
       name,
@@ -61,7 +58,7 @@ function ciResultAccepts(opts: { code: boolean; full: boolean; e2e: string }): b
             ? 'success'
             : name === 'e2e'
               ? opts.e2e
-              : name === 'e2e-ptrace'
+              : ['e2e-ptrace', 'build-macos', 'e2e-macos'].includes(name)
                 ? 'skipped'
                 : other,
       },
@@ -83,18 +80,34 @@ function ciResultAccepts(opts: { code: boolean; full: boolean; e2e: string }): b
         'false',
         '--arg',
         'platform',
-        'linux',
+        opts.platform ?? 'linux',
         '--arg',
         'gate',
         'false',
         program,
       ],
-      { input: JSON.stringify(results), stdio: ['pipe', 'pipe', 'pipe'] },
+      {
+        input: JSON.stringify(results),
+        stdio: ['pipe', 'pipe', 'pipe'],
+        env: { ...process.env, VERIFIED: String(opts.verified ?? false) },
+      },
     )
     return true
-  } catch {
-    return false
+  } catch (error) {
+    if ((error as { status?: number }).status === 1) {
+      return false
+    }
+    throw error
   }
+}
+
+function platformFor(event: string, input = ''): string {
+  const expression = (workflow.jobs.changes.outputs?.platform ?? '')
+    .replace(/^\$\{\{\s*|\s*\}\}$/g, '')
+    .replaceAll('github.event_name', 'event')
+    .replaceAll('inputs.platform', 'input')
+    .replaceAll('==', '===')
+  return new Function('event', 'input', `return ${expression}`)(event, input) as string
 }
 
 describe('merge queue e2e gating', () => {
@@ -125,5 +138,11 @@ describe('merge queue e2e gating', () => {
 
   it('old condition (full for every merge_group) would fail a docs-only group', () => {
     expect(ciResultAccepts({ code: false, full: true, e2e: 'skipped' })).toBe(false)
+  })
+
+  it('runs only Linux e2e in the merge queue unless dispatch overrides', () => {
+    expect(platformFor('merge_group')).toBe('linux')
+    expect(platformFor('merge_group', 'macos')).toBe('macos')
+    expect(platformFor('pull_request')).toBe('all')
   })
 })
