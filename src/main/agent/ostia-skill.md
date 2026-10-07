@@ -71,7 +71,7 @@ ostia state error "Tests failed"              # ring + error marker
 ostia state clear                             # back to normal
 echo '{"message":"..."}' | ostia state waiting -   # message from stdin (JSON "message" field or raw text)
 ostia state done --pane <externalId>          # another pane — needs all-workspaces
-ostia resume-token claude <session-id>       # after a restart this pane offers "Resume claude"
+ostia resume-token claude <session-id>       # after a restart this pane resumes the session when the human opens it
 ostia workspace describe "PR [#512](https://github.com/o/r/pull/512): fix refunds"  # sidebar summary; --clear removes it
 ostia workspace group "payments"              # put this workspace in a sidebar group (created if missing)
 ostia workspace ungroup                       # take it out again

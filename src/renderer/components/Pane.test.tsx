@@ -5,7 +5,6 @@ import { createPortal } from 'react-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { commands } from '../commands/registry'
 import type { PaneNode } from '../layout/types'
-import { useBlocksStore } from '../stores/blocksStore'
 import { useQuestionsStore } from '../stores/questionsStore'
 import { useUIStore } from '../stores/uiStore'
 import { Pane } from './Pane'
@@ -191,26 +190,6 @@ describe('Pane', () => {
       expect(exec).not.toHaveBeenCalledWith('tab.new', expect.anything())
       await user.dblClick(screen.getByRole('tablist'))
       expect(exec).toHaveBeenCalledWith('tab.new', { paneId: 'pb' })
-    })
-
-    it('offers Resume only for a terminal with a saved token at an idle prompt', () => {
-      const blocksInit = useBlocksStore.getState()
-      const withToken: PaneNode = { ...a, resume: { agent: 'claude', id: 'abc' } }
-      const draft = { promptLine: null, inputLine: null } as never
-      useBlocksStore.setState({ drafts: { pa: draft }, running: {} })
-
-      const { rerender } = render(
-        <Pane tabs={[withToken]} shownId="pa" activePaneId={'pa'} workspaceId="w" />,
-      )
-      expect(screen.getByRole('button', { name: /Resume claude/ })).toBeInTheDocument()
-
-      act(() => useBlocksStore.setState({ running: { pa: 'b1' } }))
-      expect(screen.queryByRole('button', { name: /Resume/ })).toBeNull()
-
-      act(() => useBlocksStore.setState({ running: {} }))
-      rerender(<Pane tabs={[a]} shownId="pa" activePaneId={'pa'} workspaceId="w" />)
-      expect(screen.queryByRole('button', { name: /Resume/ })).toBeNull()
-      act(() => useBlocksStore.setState(blocksInit, true))
     })
   })
 })

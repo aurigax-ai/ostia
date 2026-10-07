@@ -7,6 +7,7 @@ import { useChordLabel } from '../lib/chords'
 import { startNewWorkspace } from '../lib/newWorkspace'
 import { isMac } from '../platform'
 import { useLayoutStore } from '../stores/layoutStore'
+import { useSettingsStore } from '../stores/settingsStore'
 import { coversWorkspaces, useUIStore } from '../stores/uiStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
 import { DashboardPanel } from './DashboardPanel'
@@ -21,7 +22,10 @@ export function WorkZone(): JSX.Element {
   const workspaces = useWorkspacesStore((s) => s.workspaces)
   const activeWorkspaceId = useWorkspacesStore((s) => s.activeWorkspaceId)
   const covered = useUIStore(coversWorkspaces)
-  const awaitingResume = useLayoutStore((s) => workspacesAwaitingResume(s.byWorkspace).join('\n'))
+  const autoResume = useSettingsStore((s) => s.agents.autoResume)
+  const awaitingResume = useLayoutStore((s) =>
+    autoResume ? workspacesAwaitingResume(s.byWorkspace).join('\n') : '',
+  )
   const [mounted, setMounted] = useState<string[]>(() =>
     activeWorkspaceId ? [activeWorkspaceId] : [],
   )
