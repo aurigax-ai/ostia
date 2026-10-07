@@ -1,3 +1,4 @@
+import type { ChildProcess } from 'node:child_process'
 import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
@@ -147,7 +148,7 @@ function fakeResumableClaude(dataHome: string, turn?: 'working' | 'done'): strin
 async function launchAgentApp(
   dataHome: string,
   turn?: 'working' | 'done',
-): Promise<{ app: ElectronApplication; win: Page }> {
+): Promise<{ app: ElectronApplication; win: Page; proc: ChildProcess }> {
   const bin = fakeResumableClaude(dataHome, turn)
   const launch = isolatedLaunch(dataHome)
   const app = await electron.launch({
@@ -156,7 +157,7 @@ async function launchAgentApp(
   })
   const win = await app.firstWindow()
   await win.waitForLoadState('domcontentloaded')
-  return { app, win }
+  return { app, win, proc: app.process() }
 }
 
 function savedPanes(dataHome: string): Record<string, unknown>[] {
@@ -295,12 +296,12 @@ const CONFIRM_QUIT_SETTINGS = {
 test('quitting with an agent idle at its prompt and auto-resume on asks nothing, and the agent resumes', async () => {
   const dataHome = freshDataHome()
   seedSettings(dataHome, CONFIRM_QUIT_SETTINGS)
-  const { app, win } = await launchAgentApp(dataHome, 'done')
+  const { app, win, proc } = await launchAgentApp(dataHome, 'done')
   try {
     await startResumableAgent(dataHome, win)
     expect(await pressQuit(app, win)).toBe('quit')
   } finally {
-    app.process().kill('SIGKILL')
+    proc.kill('SIGKILL')
   }
   expect(agentRunningSaved(dataHome)).toBe(true)
   await expectAutoResumed(dataHome)
@@ -309,7 +310,7 @@ test('quitting with an agent idle at its prompt and auto-resume on asks nothing,
 test('quitting with an agent mid-turn still asks, and names the agent it would stop', async () => {
   const dataHome = freshDataHome()
   seedSettings(dataHome, CONFIRM_QUIT_SETTINGS)
-  const { app, win } = await launchAgentApp(dataHome, 'working')
+  const { app, win, proc } = await launchAgentApp(dataHome, 'working')
   try {
     await startResumableAgent(dataHome, win)
     expect(await pressQuit(app, win)).toBe('asked')
@@ -317,6 +318,6 @@ test('quitting with an agent mid-turn still asks, and names the agent it would s
     await expect(dialog).toContainText('1 agent will be stopped')
     await Promise.all([waitForExit(app), dialog.getByRole('button', { name: 'Quit' }).click()])
   } finally {
-    app.process().kill('SIGKILL')
+    proc.kill('SIGKILL')
   }
 })
