@@ -264,7 +264,10 @@ describe('pane.input', () => {
     await expect(
       conn.sendRequest('pane.input', { pane: 'echo', text: 'hello world', keys: ['enter'] }),
     ).resolves.toEqual({ ok: true, paneId: child.externalId, bytes: 12, pasted: false })
-    expect(written).toEqual([{ paneId: 'child-pane', data: 'hello world\r' }])
+    expect(written).toEqual([
+      { paneId: 'child-pane', data: 'hello world' },
+      { paneId: 'child-pane', data: '\r' },
+    ])
     expect(request).not.toHaveBeenCalled()
   })
 
@@ -432,7 +435,31 @@ describe('pane.input for unattended agents', () => {
     const conn = await granted()
     await conn.sendRequest('pane.input', { pane: sibling.externalId, text: 'ls', keys: ['enter'] })
     await conn.sendRequest('pane.input', { pane: sibling.externalId, text: 'ls', paste: true })
-    expect(written.map((w) => w.data)).toEqual(['ls\r', '\x1b[200~ls\x1b[201~'])
+    expect(written.map((w) => w.data)).toEqual(['ls', '\r', '\x1b[200~ls\x1b[201~'])
+  })
+
+  it('presses Enter after one line of text only once the text settled, pasted or typed', async () => {
+    const conn = await granted()
+    await conn.sendRequest('pane.input', {
+      pane: sibling.externalId,
+      text: 'one line of text',
+      keys: ['enter'],
+    })
+    expect(written.map((w) => w.data)).toEqual(['one line of text', '\r'])
+    expect(delays).toEqual([100])
+
+    pasteMode.add('sibling-pane')
+    await conn.sendRequest('pane.input', {
+      pane: sibling.externalId,
+      text: 'one line of text',
+      keys: ['enter'],
+      paste: true,
+    })
+    expect(written.map((w) => w.data).slice(2)).toEqual([
+      '\x1b[200~one line of text\x1b[201~',
+      '\r',
+    ])
+    expect(delays).toEqual([100, 100])
   })
 
   it('refuses text to an agent waiting for the human and says why', async () => {
