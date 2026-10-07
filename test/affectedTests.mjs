@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process'
 import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 
@@ -37,4 +38,20 @@ export function domFileReaders(root = ROOT) {
 export function vitestArgs(project, files) {
   if (files === null) return ['run', '--project', project]
   return ['related', '--run', '--project', project, '--passWithNoTests', ...files]
+}
+
+export const EVERY_TEST = { node: null, dom: null }
+
+function git(root, ...args) {
+  return execFileSync('git', args, { cwd: root, encoding: 'utf8', stdio: 'pipe' }).trim()
+}
+
+export function planAgainst(baseRef, root = ROOT) {
+  try {
+    const base = git(root, 'merge-base', baseRef, 'HEAD')
+    const changed = git(root, 'diff', '--name-only', base, 'HEAD').split('\n').filter(Boolean)
+    return { tests: planTests(changed, domFileReaders(root)), problem: null }
+  } catch (error) {
+    return { tests: EVERY_TEST, problem: String(error.stderr || error.message).trim() }
+  }
 }

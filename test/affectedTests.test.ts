@@ -1,7 +1,7 @@
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { createVitest } from 'vitest/node'
-import { ROOT, domFileReaders, planTests, vitestArgs } from './affectedTests.mjs'
+import { ROOT, domFileReaders, planAgainst, planTests, vitestArgs } from './affectedTests.mjs'
 
 const readers = ['src/renderer/lib/motion.test.tsx']
 
@@ -48,6 +48,20 @@ describe('planTests', () => {
       node: [],
       dom: readers,
     })
+  })
+})
+
+describe('planAgainst', () => {
+  it('plans every test, and names the problem, when the base cannot be found', () => {
+    const { tests, problem } = planAgainst('origin/no-such-branch')
+    expect(tests).toEqual({ node: null, dom: null })
+    expect(problem).toMatch(/no-such-branch/)
+  })
+
+  it('plans from the diff against the merge-base of a commit it can find', () => {
+    const { tests, problem } = planAgainst('HEAD')
+    expect(problem).toBeNull()
+    expect(tests).toEqual({ node: [], dom: domFileReaders() })
   })
 })
 

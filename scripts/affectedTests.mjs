@@ -1,18 +1,13 @@
-import { execFileSync, spawnSync } from 'node:child_process'
+import { spawnSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
-import { ROOT, domFileReaders, planTests, vitestArgs } from '../test/affectedTests.mjs'
+import { ROOT, planAgainst, vitestArgs } from '../test/affectedTests.mjs'
 
 const USAGE = 'usage: node scripts/affectedTests.mjs plan <base-ref> | run <node|dom> [plan]'
 
-function git(...args) {
-  return execFileSync('git', args, { cwd: ROOT, encoding: 'utf8' }).trim()
-}
-
 function plan(baseRef) {
-  const base = git('merge-base', baseRef, 'HEAD')
-  const changed = git('diff', '--name-only', base, 'HEAD').split('\n').filter(Boolean)
-  const tests = planTests(changed, domFileReaders())
+  const { tests, problem } = planAgainst(baseRef)
+  if (problem) console.error(`cannot plan against ${baseRef}, running every test: ${problem}`)
   for (const project of ['node', 'dom']) {
     const files = tests[project]
     console.error(
