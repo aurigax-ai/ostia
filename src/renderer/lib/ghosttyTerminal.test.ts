@@ -113,6 +113,23 @@ describe('Ghostty terminal adapter', () => {
     expect(term.buffer.active.getLine(line ?? -1)?.translateToString(true)).toBe('$ marked')
   })
 
+  it('draws no frame while paused, keeps parsing, and redraws once on resume', async () => {
+    const ghostty = open()
+    const frame = () => new Promise((resolve) => requestAnimationFrame(resolve))
+    const renders: unknown[] = []
+    ghostty.term.onRender((range) => renders.push(range))
+    ghostty.setPaused(true)
+    for (let i = 0; i < 5; i++) {
+      ghostty.term.write(`hidden ${i}\r\n`)
+      await frame()
+    }
+    expect(renders).toHaveLength(0)
+    expect(ghostty.term.buffer.active.getLine(4)?.translateToString(true)).toBe('hidden 4')
+
+    ghostty.setPaused(false)
+    expect(renders).toEqual([{ start: 0, end: ghostty.term.rows - 1 }])
+  })
+
   it('stops answering terminal queries while shells are kept in tmux', () => {
     const ghostty = open()
     const sent: string[] = []
