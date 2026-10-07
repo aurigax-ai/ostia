@@ -11,7 +11,7 @@ import {
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import { createPane } from '../layout/tree'
+import { createPane, tabsOf } from '../layout/tree'
 import { useAttentionStore } from '../stores/attentionStore'
 import { useBlocksStore } from '../stores/blocksStore'
 import { useLayoutStore } from '../stores/layoutStore'
@@ -235,19 +235,29 @@ describe('DeckRail', () => {
     expect(idleDot).not.toHaveClass('working')
   })
 
-  it('swaps the workspace icon for a moon while one of its panes is hibernated', () => {
+  it('shows the moon only when every terminal of the workspace is hibernated', () => {
     seedWorkspaces()
-    const sleeping = { ...createPane('terminal'), hibernated: true as const }
-    const awake = createPane('terminal')
+    const asleep = { ...createPane('terminal'), hibernated: true as const }
+    const alsoAsleep = { ...createPane('terminal'), hibernated: true as const }
+    const editor = createPane('editor')
+    const root = tabsOf(asleep.id, asleep, alsoAsleep, editor)
     useLayoutStore.setState({
-      byWorkspace: {
-        s1: { root: sleeping, activePaneId: sleeping.id, zoomedPaneId: null },
-        s2: { root: awake, activePaneId: awake.id, zoomedPaneId: null },
-      },
+      byWorkspace: { s1: { root, activePaneId: asleep.id, zoomedPaneId: null } },
     })
     render(<DeckRail />)
     expect(within(rowFor(/alpha/)).getByRole('img', { name: 'Hibernated' })).toBeInTheDocument()
-    expect(within(rowFor(/beta/)).queryByRole('img', { name: 'Hibernated' })).toBeNull()
+  })
+
+  it('keeps the kind icon when one hibernated tab sits among running terminals', () => {
+    seedWorkspaces()
+    const asleep = { ...createPane('terminal'), hibernated: true as const }
+    const running = createPane('terminal')
+    const root = tabsOf(running.id, running, asleep)
+    useLayoutStore.setState({
+      byWorkspace: { s1: { root, activePaneId: running.id, zoomedPaneId: null } },
+    })
+    render(<DeckRail />)
+    expect(within(rowFor(/alpha/)).queryByRole('img', { name: 'Hibernated' })).toBeNull()
   })
 
   it('hibernates the workspace agents from its menu, and offers to wake them after', async () => {
