@@ -31,6 +31,7 @@ import type { ExtensionOpenTerminalRequest, ExtensionResult, ExtensionsApi } fro
 import type { FileOpsApi } from './fileOps'
 import type { GuestChordFire } from './guestChords'
 import type { IconThemesApi } from './iconTheme'
+import type { ReleaseState, UpdateRunStart, UpdateRunState } from './installMethod'
 import type { KeymapsApi } from './keymapFile'
 import type { LanguagePacksApi } from './languagePack'
 import type { LspApi } from './languageServers'
@@ -48,7 +49,7 @@ import type {
   RegionCopyResult,
   RegionSendRequest,
 } from './regionCapture'
-import type { ReleaseCheckResult, ReleaseInfo } from './releases'
+import type { ReleaseCheckResult } from './releases'
 import type {
   RemoteCwd,
   RemoteFolder,
@@ -816,11 +817,14 @@ export interface AppUpdateApi {
   state: () => Promise<BuildInfo | null>
   restart: () => Promise<void>
   onAvailable: (cb: (info: BuildInfo) => void) => () => void
-  release: () => Promise<ReleaseInfo | null>
+  release: () => Promise<ReleaseState>
   checkRelease: () => Promise<ReleaseCheckResult>
   openRelease: () => Promise<boolean>
   dismissRelease: () => Promise<void>
-  onRelease: (cb: (release: ReleaseInfo | null) => void) => () => void
+  onRelease: (cb: (state: ReleaseState) => void) => () => void
+  runUpdate: () => Promise<UpdateRunStart>
+  updateRun: () => Promise<UpdateRunState>
+  onUpdateRun: (cb: (state: UpdateRunState) => void) => () => void
 }
 
 export type CredentialFillResult =

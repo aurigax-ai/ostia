@@ -1,11 +1,12 @@
 import {
   ArrowClockwiseIcon,
   ArrowSquareOutIcon,
+  DownloadSimpleIcon,
   type Icon as IconComponent,
   XIcon,
 } from '@phosphor-icons/react'
 import { fmt, useDict } from '../i18n/useDict'
-import { showsUpdate, useUpdateStore } from '../stores/updateStore'
+import { showsUpdate, updateAction, useUpdateStore } from '../stores/updateStore'
 import { Hint } from './Hint'
 import { Button } from './ui/button'
 import { ButtonGroup, ButtonGroupSeparator } from './ui/button-group'
@@ -15,6 +16,7 @@ function NoticeGroup({
   label,
   hint,
   onAct,
+  disabled,
   dismissLabel,
   onDismiss,
 }: {
@@ -22,6 +24,7 @@ function NoticeGroup({
   label: string
   hint: string
   onAct: () => void
+  disabled?: boolean
   dismissLabel: string
   onDismiss: () => void
 }): JSX.Element {
@@ -29,7 +32,7 @@ function NoticeGroup({
     <output className="update-notice no-drag">
       <ButtonGroup aria-label={label}>
         <Hint label={hint} side="bottom">
-          <Button size="xs" onClick={onAct}>
+          <Button size="xs" onClick={onAct} disabled={disabled}>
             <Icon data-icon="inline-start" aria-hidden />
             {label}
           </Button>
@@ -51,6 +54,9 @@ export function UpdateNotice(): JSX.Element | null {
   const available = useUpdateStore((s) => s.available)
   const dismiss = useUpdateStore((s) => s.dismiss)
   const release = useUpdateStore((s) => s.release)
+  const action = useUpdateStore(updateAction)
+  const run = useUpdateStore((s) => s.updateRun)
+  const askUpdate = useUpdateStore((s) => s.askUpdate)
   const dismissRelease = useUpdateStore((s) => s.dismissRelease)
   if (restartVisible && available) {
     return (
@@ -64,13 +70,39 @@ export function UpdateNotice(): JSX.Element | null {
       />
     )
   }
-  if (!release) return null
+  if (run.status === 'done') {
+    return (
+      <NoticeGroup
+        icon={ArrowClockwiseIcon}
+        label={d.update.restartApp}
+        hint={d.update.restartAppHint}
+        onAct={() => void window.ostia.update.restart()}
+        dismissLabel={d.update.later}
+        onDismiss={() => useUpdateStore.getState().receiveUpdateRun({ status: 'idle' })}
+      />
+    )
+  }
+  if (!release || !action) return null
+  if (action === 'release') {
+    return (
+      <NoticeGroup
+        icon={ArrowSquareOutIcon}
+        label={fmt(d.update.releaseAvailable, { version: release.version })}
+        hint={d.update.releaseHint}
+        onAct={() => void window.ostia.update.openRelease()}
+        dismissLabel={d.update.dismissRelease}
+        onDismiss={dismissRelease}
+      />
+    )
+  }
+  const running = run.status === 'running'
   return (
     <NoticeGroup
-      icon={ArrowSquareOutIcon}
-      label={fmt(d.update.releaseAvailable, { version: release.version })}
-      hint={d.update.releaseHint}
-      onAct={() => void window.ostia.update.openRelease()}
+      icon={DownloadSimpleIcon}
+      label={running ? d.update.updating : d.update.updateWith[action]}
+      hint={fmt(d.update.releaseAvailable, { version: release.version })}
+      onAct={askUpdate}
+      disabled={running}
       dismissLabel={d.update.dismissRelease}
       onDismiss={dismissRelease}
     />
