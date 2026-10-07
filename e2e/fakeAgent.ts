@@ -1,6 +1,6 @@
 import { chmodSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { type Page, expect } from '@playwright/test'
+import { type Page, expect } from './test'
 
 export function isolatedHome(dataHome: string): string {
   const home = join(dataHome, 'home')

@@ -1,6 +1,6 @@
 import { copyFileSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
-import { _electron as electron, expect, test } from '@playwright/test'
+import { _electron as electron, expect, test } from './test'
 import { buildSync } from 'esbuild'
 import { PRODUCT_NAME } from '../src/shared/product'
 import { freshDataHome, isolatedLaunch } from './dataHome'

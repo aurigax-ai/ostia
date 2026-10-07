@@ -11,7 +11,7 @@ import {
 } from 'node:fs'
 import { type Server, createServer } from 'node:http'
 import { join, resolve } from 'node:path'
-import { type ElectronApplication, _electron as electron, expect, test } from '@playwright/test'
+import { type ElectronApplication, _electron as electron, expect, test } from './test'
 import { PRODUCT_NAME } from '../src/shared/product'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { waitForPaletteSelection } from './helpers'

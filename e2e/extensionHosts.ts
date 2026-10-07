@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import type { ElectronApplication } from '@playwright/test'
+import type { ElectronApplication } from './test'
 
 const HOST_SCRIPT = /[/\\]extensions[/\\]([^/\\\s]+)[/\\]main\.js(\s|$)/
 

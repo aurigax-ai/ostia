@@ -12,7 +12,7 @@ import {
   _electron as electron,
   expect,
   test,
-} from '@playwright/test'
+} from './test'
 import { MARKETPLACE_MANIFEST_FILE } from '../src/shared/marketplace'
 import { PRODUCT_NAME } from '../src/shared/product'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
