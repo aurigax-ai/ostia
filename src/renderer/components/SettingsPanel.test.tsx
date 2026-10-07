@@ -401,14 +401,21 @@ describe('SettingsPanel', () => {
     expect(screen.getByRole('spinbutton', { name: 'UI font, Size' })).toHaveValue(20)
   })
 
-  it('shows the version on About and copies it', async () => {
+  it('shows the full build version on About and copies it', async () => {
+    vi.mocked(window.ostia.info).mockResolvedValue({
+      name: 'Ostia',
+      version: '0.5.9-rc.3+sha.1a2b3c.dirty',
+      platform: 'linux',
+      hostName: 'devbox',
+      home: '/home/me',
+    })
     renderSettings()
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: 'About' }))
-    expect(await screen.findByText('v0.0.0')).toBeInTheDocument()
+    expect(await screen.findByText('v0.5.9-rc.3+sha.1a2b3c.dirty')).toBeInTheDocument()
     expect(screen.getByText(`Copyright ${new Date().getFullYear()} Ostia`)).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Copy version' }))
-    expect(await navigator.clipboard.readText()).toBe('v0.0.0')
+    expect(await navigator.clipboard.readText()).toBe('v0.5.9-rc.3+sha.1a2b3c.dirty')
     expect(await screen.findByRole('button', { name: 'Copied' })).toBeInTheDocument()
   })
 
