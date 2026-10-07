@@ -101,5 +101,6 @@ describe('GatewaySection pairing', () => {
     render(<GatewaySection />)
     await user.click(await screen.findByRole('switch', { name: 'Discoverable' }))
     expect(window.ostia.gateway.setDiscoverable).toHaveBeenCalledWith(true)
+    await waitFor(() => expect(window.ostia.gateway.status).toHaveBeenCalledTimes(2))
   })
 })
