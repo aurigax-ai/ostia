@@ -1,7 +1,7 @@
 import { cn } from '@/lib/utils'
 import { CaretRightIcon, CopyIcon } from '@phosphor-icons/react'
-import { PHONE_GRANTABLE_CAPS, type PhoneGrantableCap } from '@shared/capabilities'
 import { formatCode } from '@shared/pairCode'
+import { PHONE_GRANTABLE_CAPS, type PhoneGrantableCap } from '@shared/phoneCapabilities'
 import type {
   GatewayBindAddress,
   GatewayDevice,

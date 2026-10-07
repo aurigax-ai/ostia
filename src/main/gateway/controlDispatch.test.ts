@@ -672,6 +672,57 @@ describe('dispatchGatewayMethod — asks and agent replies', () => {
     expect(t.created).toEqual([])
   })
 
+  it('keeps destructive and credentials cards on the desktop: never listed, never answered', async () => {
+    const t = setup()
+    for (const cap of ['destructive', 'credentials'] as const) {
+      const approvals = createApprovals({
+        mode: () => 'ask',
+        publish: () => true,
+        grant: vi.fn(),
+        revoke: vi.fn(),
+        always: () => true,
+        now: () => 1,
+        timeoutMs: 60_000,
+        reveal: vi.fn(),
+        opened: (request) => t.hub.approvalOpened(request),
+      })
+      const hub = createAskHub({
+        questions: () => null,
+        approvals: () => approvals,
+        identity: () => t.pane,
+        created: (ask) => t.created.push(ask),
+        resolved: vi.fn(),
+      })
+      const outcome = approvals.request({
+        externalId: t.pane.externalId,
+        windowId: '7',
+        paneId: 'p-asks',
+        workspaceId: 'ws-asks',
+        caps: [cap],
+        action: `command.exec needs ${cap}`,
+        detail: '{}',
+      })
+      const [pendingCard] = approvals.open()
+      const deps = fakeDeps({ listAsks: hub.list, answerAsk: hub.answer })
+      expect((await dispatchGatewayMethod('ask.list', {}, ['read'], deps)) as unknown).toEqual({
+        ok: true,
+        result: { asks: [] },
+      })
+      expect(
+        await dispatchGatewayMethod(
+          'ask.answer',
+          { askId: pendingCard?.request.id, choiceId: 'once' },
+          RESPOND,
+          deps,
+        ),
+      ).toEqual({ ok: false, code: -32602, message: 'unknown-ask' })
+      expect(approvals.open()).toHaveLength(1)
+      approvals.answer('7', pendingCard?.request.id ?? '', 'deny')
+      expect(await outcome).toBe('deny')
+    }
+    expect(t.created).toEqual([])
+  })
+
   it('needs respond for ask.answer, agent.prompt and agent.interrupt', async () => {
     const t = setup()
     for (const method of ['ask.answer', 'agent.prompt', 'agent.interrupt']) {

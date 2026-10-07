@@ -1,5 +1,10 @@
 import type { PermissionAgent } from '../shared/agentPermissions'
-import { type ApprovalAnswer, type ApprovalRequest, offeredAnswers } from '../shared/approvals'
+import {
+  ALWAYS_ASK,
+  type ApprovalAnswer,
+  type ApprovalRequest,
+  offeredAnswers,
+} from '../shared/approvals'
 import type { QuestionRequest } from '../shared/questions'
 import type { Approvals } from './approvals'
 import type { PaneIdentity } from './idRegistry'
@@ -67,7 +72,10 @@ const APPROVAL_LABELS: Record<ApprovalAnswer, AskChoice> = {
 }
 
 function isPhoneApproval(request: ApprovalRequest): boolean {
-  return (request.kind ?? 'capability') === 'capability'
+  return (
+    (request.kind ?? 'capability') === 'capability' &&
+    !request.caps.some((cap) => ALWAYS_ASK.includes(cap))
+  )
 }
 
 function questionAsk(request: QuestionRequest, identity: PaneIdentity): Ask {
