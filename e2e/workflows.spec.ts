@@ -4,7 +4,7 @@ import {
   _electron as electron,
   expect,
   test,
-} from '@playwright/test'
+} from './test'
 import { isolatedLaunch } from './dataHome'
 import {
   PROMPT,

@@ -1,4 +1,4 @@
-import { type Page, _electron as electron, expect, test } from '@playwright/test'
+import { type Page, _electron as electron, expect, test } from './test'
 import { chords } from './chords'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { emptyState, openWorkspace } from './helpers'
