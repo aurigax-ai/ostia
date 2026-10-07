@@ -259,15 +259,16 @@ export function registerPaneIoMethods(deps: PaneIoDeps): void {
       }
       const pasted = paste && parts.text !== '' && deps.io.bracketedPaste(to.paneId)
       const before = deps.io.outputCursor(to.paneId)
-      const first = pasted ? pasteBytes(parts.text) : parts.text + parts.keys
-      const rest = pasted ? parts.keys : ''
+      const text = pasted ? pasteBytes(parts.text) : parts.text
+      const first = text || parts.keys
+      const rest = text ? parts.keys : ''
       if (!deps.io.write(to.paneId, first)) {
         throw fail(`no-terminal: ${to.externalId} has no running terminal`)
       }
       if (rest) {
         await deps.delay(PASTE_SETTLE_MS)
         if (!deps.io.write(to.paneId, rest)) {
-          throw fail(`no-terminal: ${to.externalId} closed before the keys after the paste`)
+          throw fail(`no-terminal: ${to.externalId} closed before the keys after the text`)
         }
       }
       deps.inputSent(to)
