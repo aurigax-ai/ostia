@@ -1172,7 +1172,7 @@ const reach = createReach({
     ...workspaceSandboxes.settings(workspaceId),
     enabled: workspaceSandboxes.isEnabled(workspaceId),
   }),
-  groups: async () => {
+  workspaces: async () => {
     const [workspaces, groups] = await Promise.all([
       listWorkspaces({ execCommand, windowIds }),
       listWorkspaceGroups({ execCommand, windowIds }),

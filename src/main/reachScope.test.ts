@@ -4,11 +4,11 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { type WorkspaceSandbox, emptyWorkspaceSandbox } from '../shared/sandbox'
 import {
-  GroupProvenance,
+  AgentProvenance,
   type ScopeWorkspace,
   projectKey,
   sameReachScope,
-  unconfirmedGroupMembers,
+  unconfirmedMembers,
 } from './reachScope'
 
 const home = realpathSync(mkdtempSync(join(tmpdir(), 'reach-home-')))
@@ -43,6 +43,7 @@ function ws(id: string, over: Partial<ScopeWorkspace> = {}): ScopeWorkspace {
     id,
     shareable: true,
     project: projectKey(terminal, home),
+    folderByAgent: false,
     sandbox: emptyWorkspaceSandbox(),
     group: null,
     ...over,
@@ -131,21 +132,32 @@ describe('sameReachScope', () => {
     const target = ws('c', { group: { id: 'g1', byAgent: true } })
     expect(sameReachScope(caller, target, 'group')).toBe(false)
     expect(sameReachScope(target, caller, 'group')).toBe(false)
-    expect(unconfirmedGroupMembers(caller, target, 'group')).toEqual(['c'])
-    expect(unconfirmedGroupMembers(caller, target, 'project')).toEqual([])
+    expect(unconfirmedMembers(caller, target, 'group')).toEqual(['c'])
+    expect(unconfirmedMembers(caller, target, 'project')).toEqual([])
+  })
+
+  it('project: a workspace whose folder an agent set is not shared until it is confirmed', () => {
+    const moved = ws('m', { folderByAgent: true })
+    expect(sameReachScope(a, moved, 'project')).toBe(false)
+    expect(sameReachScope(moved, a, 'project')).toBe(false)
+    expect(unconfirmedMembers(a, moved, 'project')).toEqual(['m'])
+    expect(
+      unconfirmedMembers(a, ws('x', { folderByAgent: true, project: null }), 'project'),
+    ).toEqual([])
+    expect(sameReachScope(moved, moved, 'project')).toBe(true)
   })
 
   it('group: nothing to confirm when the pair could not share a scope anyway', () => {
     const caller = ws('a', { group: { id: 'g1', byAgent: false } })
     const sandboxed = ws('c', { group: { id: 'g1', byAgent: true }, sandbox: SANDBOXED })
-    expect(unconfirmedGroupMembers(caller, sandboxed, 'group')).toEqual([])
+    expect(unconfirmedMembers(caller, sandboxed, 'group')).toEqual([])
   })
 })
 
-describe('GroupProvenance', () => {
+describe('AgentProvenance', () => {
   it('counts a membership as the agent’s until the human confirms it or moves the workspace', () => {
-    const p = new GroupProvenance()
-    p.placedByAgent('w1', 'g1')
+    const p = new AgentProvenance()
+    p.setByAgent('w1', 'g1')
     expect(p.byAgent('w1', 'g1')).toBe(true)
     expect(p.byAgent('w1', 'g2')).toBe(false)
     p.confirm('w1')

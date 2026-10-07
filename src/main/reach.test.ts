@@ -15,7 +15,6 @@ const { grant, initCaps } = await import('./capabilityStore')
 const { setCapFilter } = await import('./controlAuth')
 const { registerPane } = await import('./idRegistry')
 const { createReach } = await import('./reach')
-type ReachGroupListing = import('./reach').ReachGroupListing
 
 const home = realpathSync(mkdtempSync(join(tmpdir(), 'reach-runtime-')))
 const repoA = join(home, 'a')
@@ -31,7 +30,16 @@ const workDirs: Record<string, string> = {
 }
 
 let mode: ReachMode = 'project'
-let listing: ReachGroupListing = { workspaces: [], groups: [] }
+let groupOf: Record<string, string | undefined> = {}
+const listing = () => ({
+  workspaces: Object.entries(workDirs).map(([workspaceId, workDir]) => ({
+    workspaceId,
+    name: workspaceId,
+    workDir,
+    ...(groupOf[workspaceId] ? { groupId: groupOf[workspaceId] } : {}),
+  })),
+  groups: [{ groupId: 'g1', name: 'terminal' }],
+})
 const ask = vi.fn((a: ApprovalAsk) => request(a))
 
 const reach = createReach({
@@ -41,7 +49,7 @@ const reach = createReach({
   isScratch: (id) => id === 'scratch',
   hasManager: () => false,
   sandbox: () => emptyWorkspaceSandbox(),
-  groups: async () => listing,
+  workspaces: async () => listing(),
   ask,
 })
 
@@ -56,20 +64,9 @@ function caller(workspaceId = 'coord') {
   }
 }
 
-function grouped(entries: Record<string, string | undefined>): ReachGroupListing {
-  return {
-    workspaces: Object.entries(entries).map(([workspaceId, groupId]) => ({
-      workspaceId,
-      name: workspaceId,
-      ...(groupId ? { groupId } : {}),
-    })),
-    groups: [{ groupId: 'g1', name: 'terminal' }],
-  }
-}
-
 beforeEach(() => {
   mode = 'project'
-  listing = { workspaces: [], groups: [] }
+  groupOf = {}
   request.mockReset()
   request.mockResolvedValue('deny')
   ask.mockClear()
@@ -114,16 +111,16 @@ describe('createReach', () => {
 
   it('group: a membership the human made is one scope', async () => {
     mode = 'group'
-    listing = grouped({ coord: 'g1', elsewhere: 'g1' })
+    groupOf = { coord: 'g1', elsewhere: 'g1' }
     expect(await reach.inScope(caller(), 'elsewhere')).toBe(true)
     expect(ask).not.toHaveBeenCalled()
   })
 
   it('group: a workspace an agent moved into the group asks the human to confirm it first', async () => {
     mode = 'group'
-    listing = grouped({ coord: 'g1', elsewhere: undefined })
+    groupOf = { coord: 'g1', elsewhere: undefined }
     await reach.byAgent(async () => {
-      listing = grouped({ coord: 'g1', elsewhere: 'g1' })
+      groupOf = { coord: 'g1', elsewhere: 'g1' }
     })
 
     expect(await reach.inScope(caller(), 'elsewhere')).toBe(false)
@@ -140,9 +137,9 @@ describe('createReach', () => {
 
   it('group: a caller holding all-workspaces is never shown the confirm card', async () => {
     mode = 'group'
-    listing = grouped({ coord: 'g1', workers: undefined })
+    groupOf = { coord: 'g1', workers: undefined }
     await reach.byAgent(async () => {
-      listing = grouped({ coord: 'g1', workers: 'g1' })
+      groupOf = { coord: 'g1', workers: 'g1' }
     })
     const strong = caller()
     grant(strong.identity.externalId, 'all-workspaces')
@@ -152,12 +149,63 @@ describe('createReach', () => {
 
   it('group: an agent that put its own workspace in a group gains nothing from it', async () => {
     mode = 'group'
-    listing = grouped({ coord: undefined, workers: 'g1' })
+    groupOf = { coord: undefined, workers: 'g1' }
     await reach.byAgent(async () => {
-      listing = grouped({ coord: 'g1', workers: 'g1' })
+      groupOf = { coord: 'g1', workers: 'g1' }
     })
     expect(await reach.inScope(caller(), 'workers')).toBe(false)
     expect(ask).toHaveBeenCalledWith(expect.objectContaining({ subject: 'coord' }))
+  })
+
+  it('project: an agent that points its own workspace at another repository gains no reach without the card', async () => {
+    workDirs.rogue = repoB
+    await reach.byAgent(async () => {
+      workDirs.rogue = repoA
+    })
+
+    expect(await reach.inScope(caller('rogue'), 'workers')).toBe(false)
+    expect(ask).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: 'reach-project', subject: repoA, caps: [] }),
+    )
+    expect((await reach.visible(caller('rogue')))('workers')).toBe(false)
+    await expect(reach.ensure(caller('rogue'), 'workers', 'process.run', 'x')).rejects.toThrow(
+      'denied: all-workspaces',
+    )
+
+    request.mockResolvedValue('workspace')
+    expect(await reach.inScope(caller('rogue'), 'workers')).toBe(true)
+    ask.mockClear()
+    expect(await reach.inScope(caller('rogue'), 'workers')).toBe(true)
+    expect(ask).not.toHaveBeenCalled()
+  })
+
+  it('project: a workspace whose folder an agent set is not reached without the card either', async () => {
+    workDirs.moved = repoB
+    await reach.byAgent(async () => {
+      workDirs.moved = repoA
+    })
+    expect(await reach.inScope(caller(), 'moved')).toBe(false)
+    expect(ask).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: 'reach-project', detail: 'workspace moved' }),
+    )
+  })
+
+  it('project: the human setting the folder afterwards clears the agent’s mark', async () => {
+    workDirs.handed = repoB
+    await reach.byAgent(async () => {
+      workDirs.handed = repoA
+    })
+    workDirs.handed = join(repoA, 'src')
+    expect(await reach.inScope(caller('handed'), 'workers')).toBe(true)
+    expect(ask).not.toHaveBeenCalled()
+  })
+
+  it('project: a workspace an agent created in its own project needs no card', async () => {
+    await reach.byAgent(async () => {
+      workDirs.fresh = repoA
+    })
+    expect(await reach.inScope(caller(), 'fresh')).toBe(true)
+    expect(ask).not.toHaveBeenCalled()
   })
 
   it('group: a group listing that fails gives no group reach', async () => {
@@ -169,7 +217,7 @@ describe('createReach', () => {
       isScratch: () => false,
       hasManager: () => false,
       sandbox: () => emptyWorkspaceSandbox(),
-      groups: async () => {
+      workspaces: async () => {
         throw new Error('window gone')
       },
       ask,

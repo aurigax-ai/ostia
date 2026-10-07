@@ -23,7 +23,7 @@ function repoWithWorktree(home: string): { main: string; worktree: string; other
   return { main, worktree, other }
 }
 
-test('an agent starts a worker in a workspace of its own project without asking, and asks for another project', async () => {
+test('an agent starts a worker in a workspace of its own project without asking, and asks for another project or one it moved its folder into', async () => {
   test.setTimeout(90_000)
   const dataHome = freshDataHome()
   const bin = fakeAgentBin(dataHome)
@@ -70,6 +70,20 @@ test('an agent starts a worker in a workspace of its own project without asking,
     await card.getByRole('button', { name: 'Deny' }).click()
     await expect(coordinator).toContainText('denied: all-workspaces', { timeout: 15_000 })
     await expect(coordinator).toContainText('other-exit-1')
+
+    await win.locator('.xterm:visible').first().click()
+    await typeLine(win, `ostia workspace dir ${dirs.other}; echo dir-exit-$?`)
+    await expect(coordinator).toContainText('dir-exit-0', { timeout: 15_000 })
+    await typeLine(
+      win,
+      'ostia agent run claude "look again" --name drifter --workspace other; echo drift-exit-$?',
+    )
+    await expect(card).toBeVisible({ timeout: 15_000 })
+    await expect(card).toContainText(`An agent set a workspace’s folder to ${dirs.other}`)
+    await card.getByRole('button', { name: 'Deny' }).click()
+    await expect(card).toContainText('act on other panes and workspaces', { timeout: 15_000 })
+    await card.getByRole('button', { name: 'Deny' }).click()
+    await expect(coordinator).toContainText('drift-exit-1', { timeout: 15_000 })
   } finally {
     await app.close()
   }

@@ -1098,6 +1098,8 @@ export const en = {
     secret: '{pane} wants the secret {subject}',
     package: '{pane} wants to install {subject}',
     packageMalware: 'Known malware: {pane} tried to install {subject}',
+    reachFolderConfirm:
+      'An agent set a workspace’s folder to {subject}. {pane} can reach it without asking only after you confirm it belongs to this project',
     reachConfirm:
       'An agent put workspace {subject} in this group. {pane} can reach it without asking only after you confirm it belongs there',
     outcomeWorkspace: 'Allowed for this workspace',
@@ -4102,6 +4104,8 @@ export const zhHant: Dict = {
     secret: '{pane} 想取得機密 {subject}',
     package: '{pane} 想安裝 {subject}',
     packageMalware: '已知惡意套件：{pane} 試圖安裝 {subject}',
+    reachFolderConfirm:
+      '代理程式將某個工作區的資料夾設為 {subject}。需要你確認它屬於此專案後，{pane} 才能不經詢問觸及它',
     reachConfirm:
       '工作區 {subject} 是由代理程式放入此群組的。需要你確認它屬於此群組後，{pane} 才能不經詢問觸及它',
     outcomeWorkspace: '此工作區內允許',

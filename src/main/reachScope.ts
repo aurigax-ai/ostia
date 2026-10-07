@@ -12,6 +12,7 @@ export interface ScopeWorkspace {
   id: string
   shareable: boolean
   project: string | null
+  folderByAgent: boolean
   sandbox: WorkspaceSandbox
   group: ScopeGroup | null
 }
@@ -31,20 +32,38 @@ export function sameReachScope(
   if (!caller.shareable || !target.shareable) return false
   if (caller.sandbox.enabled) return false
   if (sandboxMergeRefusal(caller.sandbox, target.sandbox) !== null) return false
-  if (mode === 'project') return caller.project !== null && caller.project === target.project
+  if (mode === 'project') {
+    return (
+      caller.project !== null &&
+      caller.project === target.project &&
+      !caller.folderByAgent &&
+      !target.folderByAgent
+    )
+  }
   return sameGroup(caller, target) && !caller.group?.byAgent && !target.group?.byAgent
 }
 
-export function unconfirmedGroupMembers(
+function markedByAgent(w: ScopeWorkspace, mode: ReachMode): boolean {
+  if (mode === 'project') return w.folderByAgent
+  return mode === 'group' && w.group?.byAgent === true
+}
+
+function confirmed(w: ScopeWorkspace): ScopeWorkspace {
+  return {
+    ...w,
+    folderByAgent: false,
+    group: w.group ? { ...w.group, byAgent: false } : null,
+  }
+}
+
+export function unconfirmedMembers(
   caller: ScopeWorkspace,
   target: ScopeWorkspace,
   mode: ReachMode,
 ): string[] {
-  if (mode !== 'group' || !sameGroup(caller, target)) return []
-  const confirmed = (w: ScopeWorkspace): ScopeWorkspace =>
-    w.group ? { ...w, group: { ...w.group, byAgent: false } } : w
+  if (sameReachScope(caller, target, mode)) return []
   if (!sameReachScope(confirmed(caller), confirmed(target), mode)) return []
-  return [caller, target].filter((w) => w.group?.byAgent).map((w) => w.id)
+  return [caller, target].filter((w) => markedByAgent(w, mode)).map((w) => w.id)
 }
 
 function realOr(path: string): string {
@@ -93,15 +112,15 @@ export function projectKey(workDir: string, home: string): string | null {
   return `dir:${dir}`
 }
 
-export class GroupProvenance {
+export class AgentProvenance {
   private readonly placed = new Map<string, string>()
 
-  placedByAgent(workspaceId: string, groupId: string): void {
-    this.placed.set(workspaceId, groupId)
+  setByAgent(workspaceId: string, value: string): void {
+    this.placed.set(workspaceId, value)
   }
 
-  byAgent(workspaceId: string, groupId: string): boolean {
-    return this.placed.get(workspaceId) === groupId
+  byAgent(workspaceId: string, value: string): boolean {
+    return this.placed.get(workspaceId) === value
   }
 
   confirm(workspaceId: string): void {

@@ -9,7 +9,7 @@ export function ownWorkspaceReach(): Reach {
     isScratch: () => false,
     hasManager: () => false,
     sandbox: () => emptyWorkspaceSandbox(),
-    groups: async () => ({ workspaces: [], groups: [] }),
+    workspaces: async () => ({ workspaces: [], groups: [] }),
     ask: () => null,
   })
 }

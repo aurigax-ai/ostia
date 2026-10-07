@@ -897,7 +897,9 @@ and so does every other way you could try. Don't ask for it to change; ask for t
 - `workspace`: your own workspace only.
 - `project` (the default): also every workspace of your git repository, any worktree, or of
   your folder when it is not a repository. A sibling workspace for your workers in another
-  worktree of the same repository is in it.
+  worktree of the same repository is in it. A workspace whose folder an agent set
+  (`ostia workspace dir`) counts only after the human confirms it on a card, so moving your
+  workspace into another repository gains you nothing.
 - `group`: also the workspaces the human put in your sidebar group. A workspace an agent moved
   into the group (`ostia workspace group`, or one an agent created there) counts only after the
   human confirms it on a card, so grouping a workspace yourself gains you nothing.

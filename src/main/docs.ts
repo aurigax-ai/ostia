@@ -248,6 +248,8 @@ const CLI_HELP = `ostia — control-socket CLI
     workspace  your own workspace only
     project    (default) also every workspace of your git repository, any worktree, or of
                your folder outside a repository
+               (a workspace whose folder an agent set with ostia workspace dir counts only
+               after the human confirms it on a card)
     group      also the workspaces the human put in your sidebar group; one an agent moved
                into the group counts only after the human confirms it on a card
   Scratch and sandboxed workspaces are never in it, and a sandboxed pane reaches only its own

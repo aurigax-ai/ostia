@@ -6,17 +6,17 @@ import { connHasCap } from './controlAuth'
 import { ensureCaps } from './controlElevation'
 import type { ControlMethodContext } from './controlServer'
 import {
-  GroupProvenance,
+  AgentProvenance,
   type ScopeWorkspace,
   projectKey,
   sameReachScope,
-  unconfirmedGroupMembers,
+  unconfirmedMembers,
 } from './reachScope'
 
 export type ReachCaller = Pick<ControlMethodContext, 'identity' | 'authed'>
 
-export interface ReachGroupListing {
-  workspaces: { workspaceId: string; name: string; groupId?: string }[]
+export interface ReachListing {
+  workspaces: { workspaceId: string; name: string; workDir: string; groupId?: string }[]
   groups: { groupId: string; name: string }[]
 }
 
@@ -27,7 +27,7 @@ export interface ReachDeps {
   isScratch: (workspaceId: string) => boolean
   hasManager: (workspaceId: string) => boolean
   sandbox: (workspaceId: string) => WorkspaceSandbox
-  groups: () => Promise<ReachGroupListing>
+  workspaces: () => Promise<ReachListing>
   ask: (ask: ApprovalAsk) => Promise<ApprovalOutcome> | null
 }
 
@@ -39,15 +39,16 @@ export interface Reach {
   forget: (workspaceId: string) => void
 }
 
-const NO_GROUPS: ReachGroupListing = { workspaces: [], groups: [] }
+const NO_WORKSPACES: ReachListing = { workspaces: [], groups: [] }
 
 export function createReach(deps: ReachDeps): Reach {
-  const provenance = new GroupProvenance()
+  const groupsByAgent = new AgentProvenance()
+  const foldersByAgent = new AgentProvenance()
 
-  const listing = async (mode: ReachMode): Promise<ReachGroupListing> =>
-    mode === 'group' ? await deps.groups().catch(() => NO_GROUPS) : NO_GROUPS
+  const listing = async (mode: ReachMode): Promise<ReachListing> =>
+    mode === 'group' ? await deps.workspaces().catch(() => NO_WORKSPACES) : NO_WORKSPACES
 
-  const factsOf = (workspaceId: string, groups: ReachGroupListing): ScopeWorkspace => {
+  const factsOf = (workspaceId: string, groups: ReachListing): ScopeWorkspace => {
     const workDir = deps.workDir(workspaceId)
     const groupId = groups.workspaces.find((w) => w.workspaceId === workspaceId)?.groupId
     return {
@@ -55,33 +56,52 @@ export function createReach(deps: ReachDeps): Reach {
       shareable:
         workDir !== undefined && !deps.isScratch(workspaceId) && !deps.hasManager(workspaceId),
       project: workDir === undefined ? null : projectKey(workDir, deps.home),
+      folderByAgent: workDir !== undefined && foldersByAgent.byAgent(workspaceId, workDir),
       sandbox: deps.sandbox(workspaceId),
-      group: groupId ? { id: groupId, byAgent: provenance.byAgent(workspaceId, groupId) } : null,
+      group: groupId ? { id: groupId, byAgent: groupsByAgent.byAgent(workspaceId, groupId) } : null,
     }
   }
 
-  const confirmMembership = async (
-    ctx: ReachCaller,
+  const confirmCard = (
+    mode: ReachMode,
     workspaceId: string,
-    groups: ReachGroupListing,
+    groups: ReachListing,
+  ): Pick<ApprovalAsk, 'kind' | 'subject' | 'detail'> => {
+    if (mode === 'project') {
+      return {
+        kind: 'reach-project',
+        subject: deps.workDir(workspaceId) ?? workspaceId,
+        detail: `workspace ${workspaceId}`,
+      }
+    }
+    const entry = groups.workspaces.find((w) => w.workspaceId === workspaceId)
+    const group = groups.groups.find((g) => g.groupId === entry?.groupId)
+    return {
+      kind: 'reach-group',
+      subject: entry?.name ?? workspaceId,
+      detail: `workspace ${workspaceId} in group ${JSON.stringify(group?.name ?? '')}`,
+    }
+  }
+
+  const confirmMember = async (
+    ctx: ReachCaller,
+    mode: ReachMode,
+    workspaceId: string,
+    groups: ReachListing,
   ): Promise<boolean> => {
     const me = ctx.identity
     if (me.kind !== 'pane' || me.externalId !== ctx.authed.externalId) return false
-    const entry = groups.workspaces.find((w) => w.workspaceId === workspaceId)
-    const group = groups.groups.find((g) => g.groupId === entry?.groupId)
     const pending = deps.ask({
       externalId: ctx.authed.externalId,
       windowId: me.windowId,
       paneId: me.paneId,
       workspaceId: me.workspaceId,
       caps: [],
-      kind: 'reach-group',
-      subject: entry?.name ?? workspaceId,
       action: 'reach',
-      detail: `workspace ${workspaceId} in group ${JSON.stringify(group?.name ?? '')}`,
+      ...confirmCard(mode, workspaceId, groups),
     })
     if (!pending || (await pending) !== 'workspace') return false
-    provenance.confirm(workspaceId)
+    ;(mode === 'project' ? foldersByAgent : groupsByAgent).confirm(workspaceId)
     return true
   }
 
@@ -95,8 +115,8 @@ export function createReach(deps: ReachDeps): Reach {
     const target = factsOf(workspaceId, groups)
     if (sameReachScope(caller, target, mode)) return true
     if (connHasCap(ctx.authed, 'all-workspaces')) return false
-    for (const id of unconfirmedGroupMembers(caller, target, mode)) {
-      if (!(await confirmMembership(ctx, id, groups))) return false
+    for (const id of unconfirmedMembers(caller, target, mode)) {
+      if (!(await confirmMember(ctx, mode, id, groups))) return false
     }
     return sameReachScope(factsOf(callerId, groups), factsOf(workspaceId, groups), mode)
   }
@@ -122,15 +142,18 @@ export function createReach(deps: ReachDeps): Reach {
   }
 
   const byAgent = async <T>(run: () => Promise<T>): Promise<T> => {
-    const before = await deps.groups().catch(() => null)
+    const before = await deps.workspaces().catch(() => null)
     try {
       return await run()
     } finally {
-      const after = await deps.groups().catch(() => null)
+      const after = await deps.workspaces().catch(() => null)
       for (const w of after?.workspaces ?? []) {
         const was = before?.workspaces.find((b) => b.workspaceId === w.workspaceId)
         if (w.groupId && (!before || was?.groupId !== w.groupId)) {
-          provenance.placedByAgent(w.workspaceId, w.groupId)
+          groupsByAgent.setByAgent(w.workspaceId, w.groupId)
+        }
+        if (!before || (was && was.workDir !== w.workDir)) {
+          foldersByAgent.setByAgent(w.workspaceId, w.workDir)
         }
       }
     }
@@ -141,6 +164,9 @@ export function createReach(deps: ReachDeps): Reach {
     ensure,
     visible,
     byAgent,
-    forget: (workspaceId) => provenance.forget(workspaceId),
+    forget: (workspaceId) => {
+      groupsByAgent.forget(workspaceId)
+      foldersByAgent.forget(workspaceId)
+    },
   }
 }
