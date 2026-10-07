@@ -121,6 +121,7 @@ describe('ostia ssh (real extension process, real socket, fake ssh)', () => {
         execCommand: async () => ({ ok: true, result: null }) as CommandResult,
         listCommandsFor: () => [],
         getTerminalState: () => undefined,
+        isSandboxed: () => false,
       },
       socketPath,
     )

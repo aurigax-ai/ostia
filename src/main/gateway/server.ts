@@ -160,6 +160,14 @@ export function broadcastEvent(type: PlatformEventType, payload: unknown): void 
   }
 }
 
+export function phoneCanRespond(): boolean {
+  for (const [ws, state] of sockets) {
+    const device = state.device ? getDevice(state.device.deviceId) : null
+    if (device?.caps.includes('respond') && ws.readyState === ws.OPEN) return true
+  }
+  return false
+}
+
 let eventSubscriptions: Array<{ type: PlatformEventType; listener: (payload: unknown) => void }> =
   []
 

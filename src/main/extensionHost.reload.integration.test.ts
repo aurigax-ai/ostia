@@ -78,6 +78,7 @@ describe('ExtensionHost hot reload of the user extensions directory', () => {
         execCommand: async () => ({ ok: true, result: null }) as CommandResult,
         listCommandsFor: () => [],
         getTerminalState: () => undefined,
+        isSandboxed: () => false,
       },
       socketPath,
     )

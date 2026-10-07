@@ -1,6 +1,5 @@
 import { cn } from '@/lib/utils'
 import { CaretRightIcon, CopyIcon } from '@phosphor-icons/react'
-import { PHONE_GRANTABLE_CAPS, type PhoneGrantableCap } from '@shared/capabilities'
 import {
   DEFAULT_GATEWAY_ROUTE,
   LOOPBACK_ADDRESS,
@@ -8,6 +7,7 @@ import {
   parsePhoneAddress,
 } from '@shared/gatewayRoute'
 import { formatCode } from '@shared/pairCode'
+import { PHONE_GRANTABLE_CAPS, type PhoneGrantableCap } from '@shared/phoneCapabilities'
 import type {
   GatewayBindAddress,
   GatewayDevice,
@@ -209,6 +209,7 @@ const CAP_NEEDS: Partial<Record<PhoneGrantableCap, PhoneGrantableCap>> = {
 
 function capText(d: Dict): Record<PhoneGrantableCap, { label: string; desc: string }> {
   return {
+    respond: { label: d.settings.remoteCapRespond, desc: d.settings.remoteCapRespondDesc },
     command: { label: d.settings.remoteCapCommand, desc: d.settings.remoteCapCommandDesc },
     input: { label: d.settings.remoteCapInput, desc: d.settings.remoteCapInputDesc },
     destructive: {

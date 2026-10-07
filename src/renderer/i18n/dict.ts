@@ -1043,6 +1043,9 @@ export const en = {
     workspacesEmpty:
       'No workspaces are open. Each one appears here with its state, latest message, agents and extension status.',
     questionNotice: 'Agent asks',
+    permissionTitle: '{agent} asks to use {tool}',
+    permissionInTerminal: 'Answer in terminal',
+    permissionInTerminalHint: 'Show the agent’s own prompt in its pane instead',
     question: 'Question from {pane}',
     justNow: 'just now',
     waitsUntil: 'waits until {time}',
@@ -2984,11 +2987,14 @@ export const en = {
     remoteRevokeFor: 'Revoke {name}',
     remoteGrantsDesc:
       'Read and notifications are always on. Removing a permission disconnects the device so it reconnects with the smaller set.',
+    remoteCapRespond: 'Answer agents',
     remoteCapCommand: 'Run commands',
     remoteCapInput: 'Type into panes',
     remoteCapDestructive: 'Destructive commands',
     remoteCapCommandDesc:
       'Run palette commands from the phone, such as opening a workspace or splitting a pane.',
+    remoteCapRespondDesc:
+      'Answer agent questions and permission requests, and send a message to an agent. Never types raw keys.',
     remoteCapInputDesc: 'Type text and keys into a terminal the phone has open.',
     remoteCapDestructiveDesc: 'Commands that close panes, kill processes or discard work.',
     remoteCapNeeds: '{desc} Needs {cap}.',
@@ -4029,6 +4035,9 @@ export const zhHant: Dict = {
     workspacesEmpty:
       '沒有開啟的工作區。每個工作區會在這裡顯示狀態、最新訊息、代理程式和擴充功能狀態。',
     questionNotice: '代理程式提問',
+    permissionTitle: '{agent} 請求使用 {tool}',
+    permissionInTerminal: '在終端機中回答',
+    permissionInTerminalHint: '改為在窗格中顯示代理程式自己的提示',
     question: '來自 {pane} 的問題',
     justNow: '剛剛',
     waitsUntil: '等到 {time}',
@@ -5914,10 +5923,12 @@ export const zhHant: Dict = {
     remoteCapFor: '{name}：{cap}',
     remoteRevokeFor: '撤銷 {name}',
     remoteGrantsDesc: '讀取與通知永遠開啟。移除權限會中斷該裝置的連線，使其以較小的權限重新連線。',
+    remoteCapRespond: '回覆代理程式',
     remoteCapCommand: '執行指令',
     remoteCapInput: '在窗格中輸入',
     remoteCapDestructive: '破壞性指令',
     remoteCapCommandDesc: '從手機執行命令面板的指令，例如開啟工作區或分割窗格。',
+    remoteCapRespondDesc: '回答代理程式的問題與權限請求，並傳訊息給代理程式。不會輸入原始按鍵。',
     remoteCapInputDesc: '在手機開啟的終端機中輸入文字與按鍵。',
     remoteCapDestructiveDesc: '會關閉窗格、終止程序或捨棄工作的指令。',
     remoteCapNeeds: '{desc}需要「{cap}」。',

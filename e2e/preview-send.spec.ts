@@ -316,6 +316,7 @@ test('a pinch zooms the PDF page and a region drag still selects', async () => {
     await openFromFiles(win, 'invoice.pdf')
     await expect(win.getByText('Page 1 of 1')).toBeVisible({ timeout: 15_000 })
     const page = win.locator('.pdf-page')
+    await expect(page).toBeVisible()
     const zoom = win.locator('.viewer-zoom')
     const start = await page.boundingBox()
     if (!start) throw new Error('pdf page has no box')
@@ -350,6 +351,7 @@ test('the PDF region hint never moves the page under a drag', async () => {
     await openFromFiles(win, 'invoice.pdf')
     await expect(win.getByText('Page 1 of 1')).toBeVisible({ timeout: 15_000 })
     const page = win.locator('.pdf-page')
+    await expect(page).toBeVisible()
     const shown = await page.boundingBox()
     if (!shown) throw new Error('pdf page has no box')
 

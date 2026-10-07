@@ -160,7 +160,9 @@ describe('WorkspaceSandboxes', () => {
     expect(await readIn(managerA, 'a')).toContain('NOTE-CONTENT')
     const inB = await readIn(managerB, 'b')
     expect(inB).not.toContain('NOTE-CONTENT')
-    expect(inB).toContain('No such file or directory')
+    expect(inB).toContain(
+      process.platform === 'darwin' ? 'Operation not permitted' : 'No such file or directory',
+    )
     managerA.stopAll()
     managerB.stopAll()
   }, 30_000)

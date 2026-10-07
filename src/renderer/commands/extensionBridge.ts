@@ -6,6 +6,7 @@ import type {
 import type { ProcessTerminalRequest } from '@shared/types'
 import { flushSync } from 'react-dom'
 import { runWhenIdle } from '../lib/blockActions'
+import { startOffscreen } from '../lib/offscreenStart'
 import { pinTitle } from '../lib/pinnedTitles'
 import { revealPane } from '../lib/workspaceActivity'
 import { useAgentOfferStore } from '../stores/agentOfferStore'
@@ -135,6 +136,7 @@ export function openExtensionTerminal(req: ProcessTerminalRequest): string | nul
   if (!req.backgroundTab && workspaces.activeWorkspaceId !== workspaceId) {
     workspaces.setActive(workspaceId)
   }
+  startOffscreen(paneId)
   runWhenIdle(paneId, req.command)
   return paneId
 }

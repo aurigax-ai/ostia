@@ -33,7 +33,17 @@ export interface ApprovalAsk {
   subject?: string
 }
 
-export interface ApprovalDeps {
+export interface ApprovalEvents {
+  opened: (request: ApprovalRequest) => void
+  settled: (id: string, outcome: ApprovalOutcome) => void
+}
+
+export interface OpenApproval {
+  windowId: string
+  request: ApprovalRequest
+}
+
+export interface ApprovalDeps extends Partial<ApprovalEvents> {
   mode: () => ApprovalMode
   publish: (windowId: string, state: ApprovalState) => boolean
   grant: (externalId: string, cap: Capability) => void
@@ -63,6 +73,7 @@ export interface Approvals {
   stateFor: (windowId: string) => ApprovalState
   forget: (externalId: string) => void
   rehome: (externalIds: readonly string[], windowId: string) => void
+  open: () => OpenApproval[]
 }
 
 function publicRecord({ windowId: _w, externalId: _e, ...record }: StoredRecord): ApprovalRecord {
@@ -122,9 +133,11 @@ export function createApprovals(deps: ApprovalDeps): Approvals {
         }
         record(owned, req, outcome)
         publish(ask.windowId)
+        deps.settled?.(req.id, outcome)
         resolve(outcome)
       }
       pending.set(req.id, { ...owned, req, settle })
+      deps.opened?.(req)
       if (!publish(ask.windowId)) settle('deny')
       else deps.reveal(ask.windowId)
     })
@@ -176,7 +189,10 @@ export function createApprovals(deps: ApprovalDeps): Approvals {
     for (const id of touched) publish(id)
   }
 
-  return { request, answer, revoke: revokeRecord, stateFor, forget, rehome }
+  const open = (): OpenApproval[] =>
+    [...pending.values()].map((p) => ({ windowId: p.windowId, request: p.req }))
+
+  return { request, answer, revoke: revokeRecord, stateFor, forget, rehome, open }
 }
 
 function readApprovalMode(): ApprovalMode {
@@ -206,6 +222,7 @@ export function approvals(): Approvals | null {
 export function registerApprovals(
   reveal: (windowId: string) => void,
   settingsChanged: () => void,
+  events: ApprovalEvents,
 ): void {
   const persist = (write: () => boolean): boolean => {
     if (!write()) return false
@@ -221,6 +238,7 @@ export function registerApprovals(
     now: Date.now,
     timeoutMs: APPROVAL_TIMEOUT_MS,
     reveal,
+    ...events,
   })
   const current = active
   ipcMain.handle('approvals:state', (e) => current.stateFor(String(e.sender.id)))

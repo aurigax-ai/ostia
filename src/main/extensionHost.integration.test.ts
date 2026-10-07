@@ -88,6 +88,7 @@ describe('ExtensionHost over a real control socket with a fixture extension proc
         execCommand: async () => ({ ok: true, result: null }) as CommandResult,
         listCommandsFor: () => [],
         getTerminalState: () => undefined,
+        isSandboxed: () => false,
       },
       socketPath,
     )

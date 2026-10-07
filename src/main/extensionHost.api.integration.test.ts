@@ -55,6 +55,7 @@ describe('ExtensionHost confirm and panel notifications', () => {
         execCommand: async () => ({ ok: true, result: null }) as CommandResult,
         listCommandsFor: () => [],
         getTerminalState: () => undefined,
+        isSandboxed: () => false,
       },
       socketPath,
     )

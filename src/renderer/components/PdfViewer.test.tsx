@@ -141,6 +141,28 @@ describe('PdfViewer', () => {
     expect(viewport.scale).toBeCloseTo(Math.exp(0.4))
   })
 
+  it('draws a newly opened page once, at its fit width', async () => {
+    const width = vi
+      .spyOn(HTMLElement.prototype, 'clientWidth', 'get')
+      .mockImplementation(function (this: HTMLElement) {
+        return this.classList.contains('viewer-stage') ? 1232 : 0
+      })
+    try {
+      await renderPdf()
+      const page = await (fake.doc.getPage.mock.results.at(-1)?.value as Promise<{
+        render: ReturnType<typeof vi.fn>
+      }>)
+      await waitFor(() => expect(page.render).toHaveBeenCalled())
+      await new Promise((resolve) => setTimeout(resolve, 300))
+
+      expect(page.render).toHaveBeenCalledTimes(1)
+      const [{ viewport }] = page.render.mock.calls[0] as [{ viewport: { scale: number } }]
+      expect(viewport.scale).toBe(2)
+    } finally {
+      width.mockRestore()
+    }
+  })
+
   it('shows the region-select surface only in region mode', async () => {
     await renderPdf()
     expect(document.querySelector('.region-select')).toBeNull()

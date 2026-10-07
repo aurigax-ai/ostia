@@ -18,7 +18,7 @@ import {
 } from '../shared/claudeAttention'
 import type { OpenFilesResult } from '../shared/openFiles'
 import { SCRIPT_TOKEN_PREFIX } from '../shared/scriptTokens'
-import type { CommandResult } from '../shared/types'
+import type { CommandDescriptor, CommandResult } from '../shared/types'
 import type { WorkflowEntry, WorkflowListing } from '../shared/workflows'
 import { runAgentHook } from './agentHook'
 import { parseArgs } from './args'
@@ -33,10 +33,13 @@ import {
   sentLines,
 } from './bus'
 import { runCmuxImportVerb } from './cmuxImport'
+import { commandHelp, wantsHelp } from './commandHelp'
+import { buildCommandCall, parseCommandFlags, resolveWorkspaceRef } from './crossWorkspace'
 import { describeFailure } from './failure'
 import { type FileProbe, fileWord, isClaimedWord, parseFileArg, refusalLine } from './fileArgs'
 import { runManagerVerb } from './manager'
 import { parseWorkspaceRenameArgs, runPaneVerb } from './pane'
+import { runPermissionHook } from './permissionHook'
 import { runPortalCommand } from './portal'
 import { runTokenVerb } from './token'
 import { buildVersionAt } from './version'
@@ -391,6 +394,7 @@ const CORE_VERBS = new Set([
   'state',
   'resume-token',
   'claude-hook',
+  'permission-hook',
   'agent-hook',
   'open',
   'docs',
@@ -750,13 +754,13 @@ function splitTabParams(flags: {
 
 async function runAgentVerb(conn: MessageConnection): Promise<void> {
   const { values: flags, positional } = parseArgs(process.argv.slice(4), {
-    values: { name: '--name', cwd: '--cwd', ...SPLIT_TAB_FLAGS },
+    values: { name: '--name', cwd: '--cwd', workspace: '--workspace', ...SPLIT_TAB_FLAGS },
     unknown: 'keep',
   })
   const [agent, given] = positional
   if (process.argv[3] !== 'run' || !agent || given === undefined) {
     console.error(
-      'usage: ostia agent run <agent> [--name N] [--cwd DIR] [--split-tab T [--split right|down]] <prompt|->',
+      'usage: ostia agent run <agent> [--name N] [--cwd DIR] [--workspace <id|name>] [--split-tab T [--split right|down]] <prompt|->',
     )
     process.exitCode = 1
     return
@@ -775,6 +779,7 @@ async function runAgentVerb(conn: MessageConnection): Promise<void> {
       prompt,
       name: flags.name,
       ...(flags.cwd ? { cwd: resolvePath(flags.cwd) } : {}),
+      ...(flags.workspace ? { workspace: await resolveWorkspaceRef(conn, flags.workspace) } : {}),
       ...splitTab,
     },
   )
@@ -792,7 +797,7 @@ async function runProcessVerb(conn: MessageConnection): Promise<void> {
 
   if (sub === 'run') {
     const { values: flags, positional } = parseArgs(rawArgs, {
-      values: { name: '--name', cwd: '--cwd', ...SPLIT_TAB_FLAGS },
+      values: { name: '--name', cwd: '--cwd', workspace: '--workspace', ...SPLIT_TAB_FLAGS },
       unknown: 'keep',
     })
     const cmd = positional[0]
@@ -809,7 +814,17 @@ async function runProcessVerb(conn: MessageConnection): Promise<void> {
     }
     const res = await conn.sendRequest<{ id: string; name: string; paneId: string } | ErrResult>(
       'process.run',
-      { cmd, name: flags.name, cwd: resolvePath(flags.cwd ?? '.'), ...splitTab },
+      {
+        cmd,
+        name: flags.name,
+        ...(flags.workspace
+          ? {
+              workspace: await resolveWorkspaceRef(conn, flags.workspace),
+              ...(flags.cwd ? { cwd: resolvePath(flags.cwd) } : {}),
+            }
+          : { cwd: resolvePath(flags.cwd ?? '.') }),
+        ...splitTab,
+      },
     )
     if (isErrResult(res)) {
       console.error(`ostia: process run failed (${describeErrResult(res)})`)
@@ -1245,11 +1260,12 @@ commands:
   view list [--json] | open <name>   declarative views (~/.config/ostia/views/<name>.json)
   view validate <file> | schema      check a view file / print its JSON schema (no app needed)
   <file>... | open <file>...   show files in Ostia's viewer, any path (file:line[:col] jumps)
-  process run "<cmd>" [--name N] [--cwd DIR] [--split-tab T [--split right|down]]
-            | ls | logs | kill | restart <id|name>
+  process run "<cmd>" [--name N] [--cwd DIR] [--workspace <id|name>]
+              [--split-tab T [--split right|down]] | ls | logs | kill | restart <id|name>
                             run a command in a new terminal tab the human can watch;
                             the same --split-tab T puts them side by side in one tab
-  agent run <agent> [--name N] [--cwd DIR] [--split-tab T [--split right|down]] <prompt|->
+  agent run <agent> [--name N] [--cwd DIR] [--workspace <id|name>]
+            [--split-tab T [--split right|down]] <prompt|->
                             start claude, codex or an agent the human configured in a new
                             terminal tab with that prompt; talk to it with ostia pane
   pane send <pane> <text> [--enter] | key <pane> <key>… | read <pane> [--lines N]
@@ -1267,7 +1283,10 @@ commands:
   vault | bus | settings | browse | gateway <subcommand> ...
   ext ls | ext <extId> <command> [args...]
   <extId> <command> [args...]  an extension command, e.g. ostia git status
-  <command.id> [json-args]     run any registered command (see: ostia commands)
+  <command.id> [json-args] [--workspace <id|name>]
+                            run any registered command (see: ostia commands); --workspace runs
+                            it in that workspace (needs all-workspaces)
+  workspace.new [json-args] [--no-focus]   open a workspace without switching to it
 
 run 'ostia docs' inside an Ostia pane for the full reference.`
 
@@ -1387,6 +1406,13 @@ async function main(): Promise<void> {
       await runResumeTokenVerb(conn)
     } else if (cmd === 'claude-hook') {
       await runClaudeHookVerb(conn)
+    } else if (cmd === 'permission-hook') {
+      process.exitCode = await runPermissionHook(process.argv.slice(3), {
+        readInput: readAllStdin,
+        ask: (params) => conn.sendRequest('permission.ask', params),
+        out: (line) => console.log(line),
+        err: (line) => console.error(line),
+      })
     } else if (cmd === 'agent-hook') {
       process.exitCode = await runAgentHook(process.argv.slice(3), {
         readInput: readAllStdin,
@@ -1434,10 +1460,24 @@ async function main(): Promise<void> {
       await runBrowse(conn, process.argv.slice(3))
     } else if (cmd === 'gateway') {
       await runGatewayVerb(conn)
+    } else if (cmd && wantsHelp(process.argv[3])) {
+      const list = await conn.sendRequest<CommandDescriptor[]>('command.list')
+      const found = list.find((c) => c.id === cmd)
+      if (found) {
+        console.log(commandHelp(found))
+      } else {
+        console.error(`ostia: unknown command '${cmd}' (try: ostia commands)`)
+        process.exitCode = 1
+      }
     } else if (cmd) {
-      const raw = process.argv[3]
-      const args = raw ? JSON.parse(raw) : undefined
-      const res = await conn.sendRequest<CommandResult>('command.exec', { id: cmd, args })
+      const flags = parseCommandFlags(process.argv.slice(3))
+      const workspace = flags.workspace
+        ? await resolveWorkspaceRef(conn, flags.workspace)
+        : undefined
+      const res = await conn.sendRequest<CommandResult>(
+        'command.exec',
+        buildCommandCall(cmd, flags, workspace),
+      )
       if (res.ok) {
         console.log('ok')
         if (res.result !== undefined) console.log(JSON.stringify(res.result))

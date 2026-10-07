@@ -12,7 +12,7 @@
   "packageManager": "pnpm@11.10.0",
   "license": "MIT",
   "scripts": {
-    "dev": "pnpm run build:sandbox-host && pnpm run build:redaction-worker && electron-vite dev",
+    "dev": "pnpm run build:cli && pnpm run build:sandbox-host && pnpm run build:redaction-worker && electron-vite dev",
     "build": "electron-vite build && pnpm run build:cli && pnpm run build:tsnet && pnpm run build:sandbox-host && pnpm run build:redaction-worker && pnpm run build:extensions && pnpm run build:sdk && pnpm run build:marketplace && node scripts/build-info.mjs",
     "build:cli": "esbuild src/cli/index.ts --bundle --platform=node --format=cjs --packages=external --outfile=out/cli/index.js",
     "build:tsnet": "node scripts/build-tsnet.mjs",
