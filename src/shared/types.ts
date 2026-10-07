@@ -839,7 +839,16 @@ export interface GatewayBindAddress {
 export interface GatewayRemoteStatus extends GatewayStatus {
   tailnet: GatewayTailnetState
   route: GatewayRoute
+  discoverable: boolean
 }
+
+export interface GatewayPairRequest {
+  requestId: string
+  name: string
+  checkCode: string
+}
+
+export type GatewayActionResult = { ok: true } | { ok: false; error: 'not-a-window' | 'invalid' }
 
 export type GatewayEnableResponse = GatewayRemoteStatus | { error: 'address-unavailable' }
 
@@ -891,6 +900,10 @@ export interface GatewayApi {
   tailnetSignIn: () => Promise<GatewayTailnetActionResult>
   tailnetSignOut: () => Promise<GatewayTailnetActionResult>
   onTailnetChanged: (cb: (state: GatewayTailnetState) => void) => () => void
+  setDiscoverable: (on: boolean) => Promise<GatewayActionResult>
+  pairRequests: () => Promise<GatewayPairRequest[]>
+  answerPairRequest: (requestId: string, approve: boolean) => Promise<GatewayActionResult>
+  onPairRequestsChanged: (cb: (requests: GatewayPairRequest[]) => void) => () => void
 }
 
 export interface ExternalEditorRequest {

@@ -1,6 +1,7 @@
 import { hostname } from 'node:os'
 import { type IpcMainInvokeEvent, ipcMain } from 'electron'
 import type {
+  GatewayActionResult,
   GatewayDevice,
   GatewayEnableResponse,
   GatewayPairResponse,
@@ -14,8 +15,9 @@ import { registerControlMethod } from '../controlServer'
 import type { Device } from './devices'
 import { list as listDevices, revoke as revokeDevice, setDeviceCap } from './devices'
 import { listBindAddresses } from './interfaces'
+import { answerPairRequest, listPairRequests } from './pairRequests'
 import { newCode } from './pairing'
-import { loadRoute, parseRoute, saveRoute } from './route'
+import { loadDiscoverable, loadRoute, parseRoute, saveDiscoverable, saveRoute } from './route'
 import {
   applyDeviceCaps,
   closeDeviceSockets,
@@ -61,7 +63,12 @@ function tailnetState(): GatewayTailnetState {
 }
 
 export function remoteStatus(): GatewayRemoteStatus {
-  return { ...gatewayStatus(), tailnet: tailnetState(), route: loadRoute() }
+  return {
+    ...gatewayStatus(),
+    tailnet: tailnetState(),
+    route: loadRoute(),
+    discoverable: loadDiscoverable(),
+  }
 }
 
 function isBindable(address: string): boolean {
@@ -151,6 +158,20 @@ function fromWindow(e: IpcMainInvokeEvent): boolean {
   return e.sender.getType() === 'window'
 }
 
+function setDiscoverable(value: unknown): GatewayActionResult {
+  if (typeof value !== 'boolean') return { ok: false, error: 'invalid' }
+  saveDiscoverable(value)
+  return { ok: true }
+}
+
+function answerPair(params: unknown): GatewayActionResult {
+  const { requestId, approve } = (params ?? {}) as { requestId?: unknown; approve?: unknown }
+  if (typeof requestId !== 'string' || typeof approve !== 'boolean') {
+    return { ok: false, error: 'invalid' }
+  }
+  return answerPairRequest(requestId, approve) ? { ok: true } : { ok: false, error: 'invalid' }
+}
+
 function tailnetSignIn(): GatewayTailnetActionResult {
   const node = tailnetState()
   if (node.state !== 'needs-login') return { ok: false, error: 'no-login-link' }
@@ -207,6 +228,15 @@ export function registerGatewayIpc(): void {
   ipcMain.handle('gateway:set-route', (e, params): GatewaySetRouteResult => {
     if (!fromWindow(e)) return { ok: false, error: 'not-a-window' }
     return setRoute(params)
+  })
+  ipcMain.handle('gateway:set-discoverable', (e, value): GatewayActionResult => {
+    if (!fromWindow(e)) return { ok: false, error: 'not-a-window' }
+    return setDiscoverable(value)
+  })
+  ipcMain.handle('gateway:pair-requests', () => listPairRequests())
+  ipcMain.handle('gateway:pair-answer', (e, params): GatewayActionResult => {
+    if (!fromWindow(e)) return { ok: false, error: 'not-a-window' }
+    return answerPair(params)
   })
   ipcMain.handle('gateway:tailnet-sign-in', (e): GatewayTailnetActionResult => {
     if (!fromWindow(e)) return { ok: false, error: 'not-a-window' }
