@@ -73,8 +73,8 @@ importers:
         specifier: ^4.0.125
         version: 4.0.125(react@18.3.1)(zod@4.6.5)
       '@aurigax-ai/ghostty-web':
-        specifier: ^0.2.0
-        version: 0.2.0
+        specifier: ^0.3.0
+        version: 0.3.0
       '@base-ui/react':
         specifier: ^1.7.0
         version: 1.7.0(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -384,8 +384,8 @@ packages:
   '@asamuzakjp/nwsapi@2.3.9':
     resolution: {integrity: sha512-n8GuYSrI9bF7FFZ/SjhwevlHc8xaVlb/7HmHelnc/PZXBD2ZR49NnN9sMMuDdEGPeeRQ5d0hqlSlEpgCX3Wl0Q==}
 
-  '@aurigax-ai/ghostty-web@0.2.0':
-    resolution: {integrity: sha512-ICBR6xGvNRPwwIkTCX2+tgxSOiIAzOyJioojiAQs/R4Oxec6kMWGZL8zaI6jKDnz5f0f7NR6v+EAJ1zNq+PtTA==}
+  '@aurigax-ai/ghostty-web@0.3.0':
+    resolution: {integrity: sha512-nvwsG321v6Fo/5mWeYoMMfYGdtTk1nfEi3tQGqArU9lu0yd2JcrIqGqB/BXuKdWvQJucNuQWiD6seEREy8uKBA==}
 
   '@babel/code-frame@7.29.7':
     resolution: {integrity: sha512-Aup7aUOfpbAUg2ROOJN6Iw5f9DMBlzu0mIkm/malLQFN/YQgO48wCj0Kxa3sEHJvPVFg7siR+qRInwXd2qhQKw==}
@@ -4988,7 +4988,7 @@ snapshots:
 
   '@asamuzakjp/nwsapi@2.3.9': {}
 
-  '@aurigax-ai/ghostty-web@0.2.0': {}
+  '@aurigax-ai/ghostty-web@0.3.0': {}
 
   '@babel/code-frame@7.29.7':
     dependencies:

@@ -6,4 +6,4 @@ allowBuilds:
   node-pty: true
 minimumReleaseAgeExclude:
   - '@anthropic-ai/sandbox-runtime@0.0.78'
-  - '@aurigax-ai/ghostty-web@0.2.0'
+  - '@aurigax-ai/ghostty-web@0.3.0'
