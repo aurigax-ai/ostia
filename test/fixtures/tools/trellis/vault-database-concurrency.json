@@ -1,1 +1,17 @@
-{"id":"01a0f962-a8ea-7ab3-ad57-9221cd9403f7","slug":"database-concurrency","title":"Database concurrency","path":"/home/user/.trellis/projects/DEMO/vault/database-concurrency.md","template":"decision","summary":"WAL mode so readers never block checkout","provenance":"authored","body":"\n## Context\n\nReaders blocked writers during checkout.\n\n## Options considered\n\n- WAL\n- a rollback journal\n\n## Decision\n\nUse **WAL**.\n\n```sh\nsqlite3 shop.db \"PRAGMA journal_mode=WAL\"\n```\n\n## Consequences\n\nOne more file next to the database.\n","version":1,"created_at":1790890387690,"updated_at":1790890394688,"ref":"/DEMO/vault/database-concurrency","tags":["db"],"sources":["/DEMO/cards/DEMO-1"],"fields":{}}
+{
+  "id": "01a0f962-a8ea-7ab3-ad57-9221cd9403f7",
+  "slug": "database-concurrency",
+  "title": "Database concurrency",
+  "path": "/home/user/.trellis/projects/DEMO/vault/database-concurrency.md",
+  "template": "decision",
+  "summary": "WAL mode so readers never block checkout",
+  "provenance": "authored",
+  "body": "\n## Context\n\nReaders blocked writers during checkout.\n\n## Options considered\n\n- WAL\n- a rollback journal\n\n## Decision\n\nUse **WAL**.\n\n```sh\nsqlite3 shop.db \"PRAGMA journal_mode=WAL\"\n```\n\n## Consequences\n\nOne more file next to the database.\n",
+  "version": 1,
+  "created_at": 1790890387690,
+  "updated_at": 1790890394688,
+  "ref": "/DEMO/vault/database-concurrency",
+  "tags": ["db"],
+  "sources": ["/DEMO/cards/DEMO-1"],
+  "fields": {}
+}

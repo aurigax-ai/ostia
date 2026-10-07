@@ -17,6 +17,7 @@ asarUnpack:
   - out/cli/**
   - out/sandbox/**
   - out/redaction/**
+  - out/tsnet/**
   - node_modules/@anthropic-ai/sandbox-runtime/**
   - node_modules/@vscode/ripgrep-*/**
 npmRebuild: true
@@ -63,5 +64,8 @@ mac:
   entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.plist
   notarize: true
+  extraResources:
+    - from: packaging/bin/ostia
+      to: bin/ostia
 win:
   target: nsis

@@ -1,5 +1,6 @@
 import { BrowserWindow, app, ipcMain } from 'electron'
 import { readEnv } from '../shared/appEnv'
+import { releaseVersion } from '../shared/buildInfo'
 import { PRODUCT_NAME } from '../shared/product'
 import {
   RELEASE_API_BASE_URL,
@@ -207,9 +208,10 @@ export function registerReleaseCheck(deps: {
   openExternal: (url: string) => boolean
   readSettings: () => unknown
   log: AppLog | null
+  version: string
 }): void {
   const endpoint = releaseEndpoint(app.isPackaged, process.env)
-  const currentVersion = app.getVersion()
+  const currentVersion = releaseVersion(deps.version)
   const checker = createReleaseChecker({
     currentVersion,
     fetchLatest: () =>

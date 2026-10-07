@@ -82,7 +82,7 @@ describe('hibernated terminal pane', () => {
 
   it('marks the tab hibernated and offers Resume in the header without an idle prompt', () => {
     seed()
-    render(<Pane tabs={[sleeping]} shownId="h1" active />)
+    render(<Pane tabs={[sleeping]} shownId="h1" activePaneId={'h1'} workspaceId="w" />)
     expect(screen.getByLabelText('Hibernated')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Resume claude' })).toBeInTheDocument()
   })
@@ -90,7 +90,7 @@ describe('hibernated terminal pane', () => {
   it('offers no Resume for a live terminal that is busy', () => {
     const live: PaneNode = { ...sleeping, hibernated: undefined }
     act(() => {
-      render(<Pane tabs={[live]} shownId="h1" active />)
+      render(<Pane tabs={[live]} shownId="h1" activePaneId={'h1'} workspaceId="w" />)
     })
     expect(screen.queryByRole('button', { name: 'Resume claude' })).toBeNull()
     expect(screen.queryByLabelText('Hibernated')).toBeNull()

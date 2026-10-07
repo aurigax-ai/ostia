@@ -1,5 +1,5 @@
 import type { ReleaseCheckResult } from '@shared/releases'
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { useSettingsStore } from '../stores/settingsStore'
 import { startUpdateWatch, useUpdateStore } from '../stores/updateStore'
@@ -29,6 +29,7 @@ describe('UpdateCheck', () => {
   })
 
   afterEach(() => {
+    cleanup()
     useUpdateStore.setState(updateInit, true)
     useSettingsStore.setState(settingsInit, true)
   })

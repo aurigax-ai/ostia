@@ -16,6 +16,8 @@ function handle(guestId: number | null): BrowserHandle {
     back: vi.fn(),
     forward: vi.fn(),
     find: vi.fn(),
+    findNext: vi.fn(),
+    findPrevious: vi.fn(),
   }
 }
 

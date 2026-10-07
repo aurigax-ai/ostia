@@ -26,7 +26,7 @@ import type {
 } from './credentials'
 import type { EditorLanguagesApi } from './editorLanguages'
 import type { SuggestionsApi } from './extensionSuggestions'
-import type { ExtensionResult, ExtensionsApi } from './extensions'
+import type { ExtensionOpenTerminalRequest, ExtensionResult, ExtensionsApi } from './extensions'
 import type { FileOpsApi } from './fileOps'
 import type { GuestChordFire } from './guestChords'
 import type { IconThemesApi } from './iconTheme'
@@ -75,6 +75,7 @@ import type { SandboxReadPreset } from './sandboxPresets'
 import type { SearchApi } from './search'
 import type { SecretEntry, SecretGrant } from './secrets'
 import type { SelectionSendRequest, SelectionSendResult } from './selection'
+import type { SplitTabPlacement } from './splitTabs'
 import type { RequirementsReport } from './systemRequirements'
 import type { ViewsApi } from './views'
 import type { WorkflowDocument, WorkflowListing, WorkflowSaveResult } from './workflows'
@@ -122,7 +123,7 @@ export interface WindowControls {
   isSystemDark: () => Promise<boolean>
   onSystemDarkChange: (cb: (dark: boolean) => void) => () => void
   onMaximizeChange: (cb: (maximized: boolean) => void) => () => void
-  onRunningQuery: (cb: (kept: string[]) => RunningGroup[]) => () => void
+  onRunningQuery: (cb: (kept: string[]) => RunningGroup[] | Promise<RunningGroup[]>) => () => void
   onConfirmClose: (cb: (groups: RunningGroup[]) => Promise<boolean>) => () => void
   onFreeze: (cb: () => void) => () => void
 }
@@ -131,6 +132,7 @@ export interface RunningGroup {
   workspaceId: string
   workspace: string
   commands: string[]
+  agents?: string[]
   files: string[]
   scratchFiles?: number
 }
@@ -246,6 +248,7 @@ export interface PtyApi {
   resize: (paneId: string, cols: number, rows: number) => void
   commands: (paneId: string) => Promise<string[]>
   foreground: (paneId: string) => Promise<string | null>
+  busy: (paneId: string) => Promise<string | null>
   promptContext: (paneId: string, want: PromptContextRequest) => Promise<PromptContext | null>
   onData: (paneId: string, cb: (data: string) => void) => () => void
   onExit: (paneId: string, cb: (exitCode: number, closes: boolean) => void) => () => void
@@ -304,8 +307,19 @@ export interface SettingsApi {
 }
 
 export interface SyncConflict {
-  at: string
-  files: string[]
+  id: string
+  kind: 'setting' | 'file' | 'secret'
+  key: string
+  local: string | null
+  remote: string | null
+  winner: 'local' | 'remote'
+  localAt?: number
+  remoteAt?: number
+}
+
+export interface SyncOffer {
+  id: string
+  marketplace: string
 }
 
 export interface SyncStatus {
@@ -313,12 +327,48 @@ export interface SyncStatus {
   state: 'off' | 'ok' | 'error'
   error?: string
   lastSync: string | null
-  lastConflict: SyncConflict | null
+  conflicts: SyncConflict[]
+  skipped: string[]
+  heldBack: string[]
+  offers: SyncOffer[]
+  secrets: SecretSyncStatus
+}
+
+export interface SecretSyncStatus {
+  state: 'off' | 'needs-setup' | 'locked' | 'unlocked' | 'damaged'
+  logins: boolean
+}
+
+export interface SecretActionResult {
+  ok: boolean
+  error?: string
+  recoveryKey?: string
+  status: SyncStatus
+}
+
+export type SecretReveal =
+  | { ok: true; local: string | null; remote: string | null; winner: 'local' | 'remote' }
+  | { ok: false }
+
+export interface SecretSyncApi {
+  reveal: (conflictId: string) => Promise<SecretReveal>
+  enable: () => Promise<SecretActionResult>
+  disable: () => Promise<SecretActionResult>
+  remove: () => Promise<SecretActionResult>
+  setLogins: (on: boolean) => Promise<SecretActionResult>
+  setup: (password: string, confirm: string) => Promise<SecretActionResult>
+  reset: (password: string, confirm: string) => Promise<SecretActionResult>
+  unlock: (password: string) => Promise<SecretActionResult>
+  changePassword: (password: string, confirm: string) => Promise<SecretActionResult>
+  recover: (recoveryKey: string, password: string, confirm: string) => Promise<SecretActionResult>
 }
 
 export interface SyncApi {
   status: () => Promise<SyncStatus>
   run: () => Promise<SyncStatus>
+  resolve: (conflictId: string) => Promise<SyncStatus>
+  install: (extId: string) => Promise<SyncStatus>
+  secrets: SecretSyncApi
   pickFolder: () => Promise<string | null>
   onStatus: (cb: (status: SyncStatus) => void) => () => void
 }
@@ -400,12 +450,19 @@ export interface SnapshotSplitNode {
   direction: 'horizontal' | 'vertical'
   children: SnapshotNode[]
   sizes: number[]
+  name?: string
 }
+
+export interface ProcessTerminalRequest extends ExtensionOpenTerminalRequest {
+  splitTab?: SplitTabPlacement
+}
+
+export type SnapshotTabNode = SnapshotPaneNode | SnapshotSplitNode
 
 export interface SnapshotTabsNode {
   type: 'tabs'
   id: string
-  children: SnapshotPaneNode[]
+  children: SnapshotTabNode[]
   activeId: string
 }
 
@@ -528,6 +585,7 @@ export interface OriginReferenceRequest {
   paneId: string
   text: string
   note?: string
+  pointedByHuman?: boolean
 }
 
 export interface ReferenceInsert {
@@ -535,6 +593,7 @@ export interface ReferenceInsert {
   paneId: string
   text: string
   note?: string
+  pointedByHuman?: boolean
 }
 
 export interface NewWorkspaceRequest {
@@ -602,6 +661,7 @@ export type LifecycleEvent =
   | { type: 'workspace-closed'; workspaceId: string }
   | { type: 'workspace-activated'; workspaceId: string }
   | { type: 'workspace-state'; workspaceId: string; state: WorkspaceLiveState }
+  | { type: 'pane-attention'; paneId: string; state: AttentionState; message?: string }
 
 export interface LifecycleApi {
   emit: (event: LifecycleEvent) => void
@@ -765,6 +825,13 @@ export interface QuestionsApi {
   onChange: (cb: (state: QuestionState) => void) => () => void
 }
 
+export type GatewayTailnetState =
+  | { state: 'off' }
+  | { state: 'starting' }
+  | { state: 'needs-login'; authUrl: string }
+  | { state: 'running'; ip: string | null; dnsName: string | null }
+  | { state: 'error'; code: string }
+
 export interface GatewayStatus {
   running: boolean
   host: string | null
@@ -773,12 +840,32 @@ export interface GatewayStatus {
   deviceCount: number
 }
 
-export interface GatewayEnableResult {
-  host: string
-  port: number
-  fingerprint: string
-  warning?: string
+export type GatewayRoute = { kind: 'tailnet' } | { kind: 'address'; address: string }
+
+export interface GatewayBindAddress {
+  address: string
+  iface: string
 }
+
+export interface GatewayRemoteStatus extends GatewayStatus {
+  tailnet: GatewayTailnetState
+  route: GatewayRoute
+  discoverable: boolean
+}
+
+export interface GatewayPairRequest {
+  requestId: string
+  name: string
+  checkCode: string
+}
+
+export type GatewayActionResult = { ok: true } | { ok: false; error: 'not-a-window' | 'invalid' }
+
+export type GatewayEnableResponse = GatewayRemoteStatus | { error: 'address-unavailable' }
+
+export type GatewaySetRouteResult =
+  | { ok: true; route: GatewayRoute }
+  | { ok: false; error: 'not-a-window' | 'running' | 'unknown-address' }
 
 export interface GatewayPairResult {
   v: 1
@@ -787,8 +874,13 @@ export interface GatewayPairResult {
   fingerprint: string
   pairCode: string
   name: string
-  warning?: string
 }
+
+export type GatewayPairResponse = GatewayPairResult | { error: 'not-running' }
+
+export type GatewayTailnetActionResult =
+  | { ok: true }
+  | { ok: false; error: 'not-a-window' | 'no-login-link' | 'login-link-refused' }
 
 export interface GatewayDevice {
   deviceId: string
@@ -798,28 +890,15 @@ export interface GatewayDevice {
   createdAt: string
 }
 
-export type GatewayBindKind = 'loopback' | 'lan' | 'tailscale' | 'custom'
-
-export interface GatewayBindAddress {
-  address: string
-  kind: GatewayBindKind
-  iface?: string
-}
-
-export interface GatewayBindOptions {
-  addresses: GatewayBindAddress[]
-  selected: string
-}
-
 export type GatewaySetCapResult =
   | { ok: true; caps: string[] }
   | { ok: false; error: 'not-found' | 'invalid-cap' | 'requires-command' }
 
 export interface GatewayApi {
-  enable: (opts?: { host?: string; port?: number }) => Promise<GatewayEnableResult>
-  disable: () => Promise<{ ok: true }>
-  pair: () => Promise<GatewayPairResult>
-  status: () => Promise<GatewayStatus>
+  enable: () => Promise<GatewayEnableResponse>
+  disable: () => Promise<GatewayRemoteStatus>
+  pair: () => Promise<GatewayPairResponse>
+  status: () => Promise<GatewayRemoteStatus>
   devices: () => Promise<{ devices: GatewayDevice[] }>
   revoke: (deviceId: string) => Promise<{ ok: boolean; error?: string }>
   setCap: (
@@ -827,7 +906,15 @@ export interface GatewayApi {
     cap: PhoneGrantableCap,
     granted: boolean,
   ) => Promise<GatewaySetCapResult>
-  bindOptions: () => Promise<GatewayBindOptions>
+  bindAddresses: () => Promise<GatewayBindAddress[]>
+  setRoute: (route: GatewayRoute) => Promise<GatewaySetRouteResult>
+  tailnetSignIn: () => Promise<GatewayTailnetActionResult>
+  tailnetSignOut: () => Promise<GatewayTailnetActionResult>
+  onTailnetChanged: (cb: (state: GatewayTailnetState) => void) => () => void
+  setDiscoverable: (on: boolean) => Promise<GatewayActionResult>
+  pairRequests: () => Promise<GatewayPairRequest[]>
+  answerPairRequest: (requestId: string, approve: boolean) => Promise<GatewayActionResult>
+  onPairRequestsChanged: (cb: (requests: GatewayPairRequest[]) => void) => () => void
 }
 
 export interface ExternalEditorRequest {

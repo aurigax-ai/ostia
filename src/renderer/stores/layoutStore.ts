@@ -1,6 +1,7 @@
 import type { AgentResume } from '@shared/agentResume'
 import type { BrowserProfile } from '@shared/browserProfile'
 import type { DiffContent } from '@shared/extensions'
+import type { SplitTabPlacement } from '@shared/splitTabs'
 import type { PanePlacement } from '@shared/types'
 import { create } from 'zustand'
 import { currentDict } from '../i18n/useDict'
@@ -15,16 +16,19 @@ import {
   equalizeSizes,
   findExtensionPane,
   findPane,
+  findSplitTabByName,
   findViewPane,
   firstBrowserPane,
   firstPaneId,
   firstPaneOfKind,
+  focusIdOf,
   followMovedFile,
   graftNode,
   hasLockedPane,
   mergeLayouts,
   movePane,
   moveTab,
+  nameSplitTabOf,
   paneIds,
   renamePane,
   selectTab,
@@ -46,6 +50,7 @@ import {
   setSizes,
   slotCount,
   slotPaneOfKind,
+  splitBeside,
   splitPane,
   tabsOfPane,
 } from '../layout/tree'
@@ -115,6 +120,26 @@ export interface OpenTerminalPlacement {
   cwd?: string
   title?: string
   backgroundTab?: boolean
+  splitTab?: SplitTabPlacement
+}
+
+function splitTabAnchor(root: LayoutNode, splitTab: SplitTabPlacement): string | null {
+  const named = findSplitTabByName(root, splitTab.name)
+  if (named) {
+    const panes = allPanes(named)
+    return panes[panes.length - 1].id
+  }
+  return splitTab.joinPaneId && findPane(root, splitTab.joinPaneId) ? splitTab.joinPaneId : null
+}
+
+function joinSplitTab(
+  root: LayoutNode,
+  anchor: string,
+  pane: PaneNode,
+  splitTab: SplitTabPlacement,
+): LayoutNode {
+  const direction: Direction = splitTab.side === 'down' ? 'vertical' : 'horizontal'
+  return nameSplitTabOf(splitPane(root, anchor, direction, pane).root, pane.id, splitTab.name)
 }
 
 function describeTerminal(root: LayoutNode, paneId: string, opts: OpenTerminalPlacement) {
@@ -200,7 +225,7 @@ function openSingleton(
         targetPaneId = existing.id
         return { ...l, activePaneId: existing.id }
       }
-      const { root, newPaneId } = splitPane(l.root, l.activePaneId, 'horizontal')
+      const { root, newPaneId } = splitBeside(l.root, l.activePaneId, 'horizontal')
       if (!newPaneId) return l
       createdPaneId = newPaneId
       targetPaneId = newPaneId
@@ -219,9 +244,9 @@ function openSingleton(
 }
 
 function successorOf(before: LayoutNode, after: LayoutNode, closedId: string): string {
-  const sibling = tabsOfPane(before, closedId)?.children.find((c) => c.id !== closedId)
-  if (!sibling) return firstPaneId(after)
-  return tabsOfPane(after, sibling.id)?.activeId ?? sibling.id
+  const tabs = tabsOfPane(before, closedId)
+  const survivor = tabs ? closePane(tabs, closedId) : null
+  return survivor && survivor !== tabs ? firstPaneId(survivor) : firstPaneId(after)
 }
 
 export const useLayoutStore = create<LayoutState>((set, get) => ({
@@ -362,21 +387,19 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
   movePane: (workspaceId, sourceId, targetId, zone) =>
     set(
       (s) =>
-        patch(s, workspaceId, (l) => ({
-          ...l,
-          root: movePane(l.root, sourceId, targetId, zone),
-          activePaneId: sourceId,
-        })) ?? s,
+        patch(s, workspaceId, (l) => {
+          const root = movePane(l.root, sourceId, targetId, zone)
+          return { ...l, root, activePaneId: focusIdOf(root, sourceId) ?? l.activePaneId }
+        }) ?? s,
     ),
 
   moveTab: (workspaceId, sourceId, targetId, after) =>
     set(
       (s) =>
-        patch(s, workspaceId, (l) => ({
-          ...l,
-          root: moveTab(l.root, sourceId, targetId, after),
-          activePaneId: sourceId,
-        })) ?? s,
+        patch(s, workspaceId, (l) => {
+          const root = moveTab(l.root, sourceId, targetId, after)
+          return { ...l, root, activePaneId: focusIdOf(root, sourceId) ?? l.activePaneId }
+        }) ?? s,
     ),
 
   setCwd: (workspaceId, paneId, cwd) =>
@@ -516,7 +539,7 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
             activePaneId: pane.id,
           }
         }
-        const { root, newPaneId } = splitPane(l.root, l.activePaneId, 'horizontal')
+        const { root, newPaneId } = splitBeside(l.root, l.activePaneId, 'horizontal')
         if (!newPaneId) return l
         createdPaneId = newPaneId
         return { ...l, root: setPaneEditor(root, newPaneId, title, path), activePaneId: newPaneId }
@@ -558,7 +581,7 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     let createdPaneId: string | null = null
     set((s) => {
       const next = patch(s, workspaceId, (l) => {
-        const { root, newPaneId } = splitPane(l.root, l.activePaneId, 'horizontal')
+        const { root, newPaneId } = splitBeside(l.root, l.activePaneId, 'horizontal')
         if (!newPaneId) return l
         createdPaneId = newPaneId
         return { ...l, root: setPaneEditor(root, newPaneId, title, path), activePaneId: newPaneId }
@@ -697,12 +720,19 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       const next = patch(s, workspaceId, (l) => {
         const beside =
           opts.afterPaneId && findPane(l.root, opts.afterPaneId) ? opts.afterPaneId : l.activePaneId
+        const anchor = opts.splitTab ? splitTabAnchor(l.root, opts.splitTab) : null
+        if (anchor && opts.splitTab) {
+          const pane = newTerminalPane()
+          createdPaneId = pane.id
+          const root = joinSplitTab(l.root, anchor, pane, opts.splitTab)
+          return { ...l, root: describeTerminal(root, pane.id, opts) }
+        }
         if (opts.backgroundTab) {
           const pane = newTerminalPane()
           createdPaneId = pane.id
           return { ...l, root: describeTerminal(addTab(l.root, beside, pane, true), pane.id, opts) }
         }
-        const { root, newPaneId } = splitPane(l.root, beside, 'horizontal', newTerminalPane())
+        const { root, newPaneId } = splitBeside(l.root, beside, 'horizontal', newTerminalPane())
         if (!newPaneId) return l
         createdPaneId = newPaneId
         return {

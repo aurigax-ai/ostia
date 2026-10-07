@@ -2,12 +2,8 @@ import type { Terminal } from '@xterm/xterm'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAttentionStore } from '../stores/attentionStore'
 import { useBlocksStore } from '../stores/blocksStore'
-import {
-  ENTER_AFTER_PASTE_MS,
-  canMessageAgent,
-  planAgentMessage,
-  sendToAgent,
-} from './agentMessage'
+import { ENTER_AFTER_PASTE_MS } from './agentEnter'
+import { canMessageAgent, planAgentMessage, sendToAgent } from './agentMessage'
 import { registerTerminal } from './terminalHandles'
 
 const PANE = 'pane-agent'

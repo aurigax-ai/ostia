@@ -71,7 +71,14 @@ describe('parseTerminalSettings', () => {
       keepShells: false,
       primarySelection: true,
       macOptionIsMeta: false,
+      renderer: 'xterm',
     })
+  })
+
+  it('keeps a known terminal renderer and falls back to xterm for anything else', () => {
+    expect(parseTerminalSettings({ renderer: 'ghostty' }).renderer).toBe('ghostty')
+    expect(parseTerminalSettings({ renderer: 'kitty' }).renderer).toBe('xterm')
+    expect(parseTerminalSettings({ renderer: 1 }).renderer).toBe('xterm')
   })
 
   it('keeps the shell command as trimmed text and drops a non-string one', () => {

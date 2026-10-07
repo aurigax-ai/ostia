@@ -609,6 +609,7 @@ describe('FilesView', () => {
       await loadHomeDir()
 
       render(<FilesView />)
+      await act(async () => {})
 
       expect(crumbText()).toEqual(['~', 'Personal', 'terminal', '.sdd', 'verify'])
     })
@@ -620,11 +621,13 @@ describe('FilesView', () => {
 
       lineWidth(150)
       const { unmount } = render(<FilesView />)
+      await act(async () => {})
       expect(crumbText()).toEqual(['~', 'P', 't', '.s', 'verify'])
       unmount()
 
       lineWidth(90)
       render(<FilesView />)
+      await act(async () => {})
       expect(crumbText()).toEqual(['…', '.s', 'verify'])
     })
 
@@ -636,6 +639,7 @@ describe('FilesView', () => {
       useSettingsStore.getState().setFiles({ breadcrumb: 'full' })
 
       render(<FilesView />)
+      await act(async () => {})
 
       expect(crumbText()).toEqual(['~', 'Personal', 'terminal', '.sdd', 'verify'])
     })
@@ -648,6 +652,7 @@ describe('FilesView', () => {
       useSettingsStore.getState().setFiles({ breadcrumb: 'short' })
 
       render(<FilesView />)
+      await act(async () => {})
 
       expect(crumbText()).toEqual(['~', 'P', 't', '.s', 'verify'])
     })

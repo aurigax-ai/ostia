@@ -1,5 +1,5 @@
 import type { WorkflowEntry, WorkflowListing } from '@shared/workflows'
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { registerBuiltinCommands } from '../commands/builtins'
@@ -73,6 +73,7 @@ describe('WorkflowPicker', () => {
   })
 
   afterEach(() => {
+    cleanup()
     useBlocksStore.setState(blocksInit, true)
     useLayoutStore.setState(layoutInit, true)
     useWorkspacesStore.setState(workspacesInit, true)

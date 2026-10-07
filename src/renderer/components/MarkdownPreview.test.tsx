@@ -2,9 +2,15 @@ import '@testing-library/jest-dom/vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { useSettingsStore } from '../stores/settingsStore'
 import { MarkdownPreview, isMarkdownPath } from './MarkdownPreview'
 
-afterEach(cleanup)
+const initialSettings = useSettingsStore.getState()
+
+afterEach(() => {
+  cleanup()
+  useSettingsStore.setState(initialSettings, true)
+})
 
 describe('MarkdownPreview', () => {
   it('renders headings, GitHub tables and task lists inside a typeset container', () => {
@@ -113,6 +119,32 @@ describe('MarkdownPreview find', () => {
     await user.keyboard('{Escape}')
     expect(screen.queryByRole('textbox', { name: 'Find in preview' })).not.toBeInTheDocument()
     expect(preview).toHaveFocus()
+  })
+
+  it('steps with F3 and Shift+F3 in the find bar', async () => {
+    render(<MarkdownPreview source={SOURCE} />)
+    const preview = document.querySelector('.markdown-preview') as HTMLElement
+    const user = userEvent.setup()
+    fireEvent.keyDown(preview, { key: 'F', code: 'KeyF', ctrlKey: true, shiftKey: true })
+    await user.type(screen.getByRole('textbox', { name: 'Find in preview' }), 'needle')
+    await user.keyboard('{F3}{F3}')
+    expect(screen.getByText('3/3')).toBeInTheDocument()
+    await user.keyboard('{Shift>}{F3}{/Shift}')
+    expect(screen.getByText('2/3')).toBeInTheDocument()
+  })
+
+  it('steps with the find-next chord from the preview, and opens the bar when it is closed', async () => {
+    useSettingsStore.setState({ keybindings: { 'find.next': 'Ctrl+Alt+G' } })
+    render(<MarkdownPreview source={SOURCE} />)
+    const preview = document.querySelector('.markdown-preview') as HTMLElement
+    const findNext = { key: 'g', code: 'KeyG', ctrlKey: true, altKey: true }
+    fireEvent.keyDown(preview, findNext)
+    const box = screen.getByRole('textbox', { name: 'Find in preview' })
+    await userEvent.setup().type(box, 'needle')
+    fireEvent.keyDown(box, findNext)
+    expect(screen.getByText('2/3')).toBeInTheDocument()
+    fireEvent.keyDown(preview, findNext)
+    expect(screen.getByText('3/3')).toBeInTheDocument()
   })
 
   it('also opens with Ctrl+F', () => {

@@ -1,8 +1,9 @@
-import type { Terminal as Xterm } from '@xterm/xterm'
 import { type RefObject, useEffect, useState } from 'react'
 import { fmt, useDict } from '../i18n/useDict'
 import { blockSpan, commandLine, stickyBlock } from '../lib/blocks'
 import { createCellBoxCache } from '../lib/cellBox'
+import type { OstiaTerminal as Xterm } from '../lib/ostiaTerminal'
+import { terminalScreen } from '../lib/ostiaTerminal'
 import { useExitPresence } from '../lib/useExitPresence'
 import { useBlocksStore } from '../stores/blocksStore'
 import { BlockMenu } from './BlockMenu'
@@ -56,7 +57,7 @@ export function Blocks({
     const host = hostRef.current
     if (!term || !host) return
 
-    const cells = createCellBoxCache(host)
+    const cells = createCellBoxCache(host, () => term.rows)
     const recompute = (): void => {
       const state = useBlocksStore.getState()
       const list = state.byPane[paneId]
@@ -115,7 +116,7 @@ export function Blocks({
     const offResize = term.onResize(remeasure)
     const boxObserver = new ResizeObserver(remeasure)
     boxObserver.observe(host)
-    const screen = host.querySelector('.xterm-screen')
+    const screen = terminalScreen(host)
     if (screen) boxObserver.observe(screen)
     return () => {
       offRender.dispose()

@@ -1,6 +1,7 @@
-import { FileDashedIcon, FlaskIcon, TerminalWindowIcon } from '@phosphor-icons/react'
+import { FileDashedIcon, FlaskIcon, RobotIcon, TerminalWindowIcon } from '@phosphor-icons/react'
 import type { Dict } from '../i18n/dict'
 import { fmt, useDict } from '../i18n/useDict'
+import { type QuitLosses, quitLosses } from '../lib/closeConfirm'
 import {
   type CloseConfirmKind,
   type RunningGroup,
@@ -57,6 +58,15 @@ export function CloseConfirmDialog(): JSX.Element {
           <DialogTitle>{text.title}</DialogTitle>
           <DialogDescription>{text.body}</DialogDescription>
         </DialogHeader>
+        {pending?.kind === 'quit' ? (
+          <ul aria-label={text.body} className="flex flex-col gap-1">
+            {lossLines(d, quitLosses(pending.groups)).map((line) => (
+              <li key={line} className="font-medium text-fg text-ui-sm">
+                {line}
+              </li>
+            ))}
+          </ul>
+        ) : null}
         <ul aria-label={text.title} className="flex max-h-56 flex-col gap-2 overflow-auto">
           {pending?.groups.map((group) => (
             <li key={group.workspaceId}>
@@ -71,6 +81,18 @@ export function CloseConfirmDialog(): JSX.Element {
                     <TerminalWindowIcon size={14} className="shrink-0" aria-hidden />
                     <span className="truncate font-mono text-fg text-ui-sm">
                       {command || d.closeConfirm.unknownCommand}
+                    </span>
+                  </li>
+                ))}
+                {group.agents?.map((agent, index) => (
+                  <li
+                    // biome-ignore lint/suspicious/noArrayIndexKey: agents can repeat and never reorder while the dialog is open
+                    key={index}
+                    className="flex min-w-0 items-center gap-2 text-fg-muted"
+                  >
+                    <RobotIcon size={14} className="shrink-0" aria-hidden />
+                    <span className="truncate font-mono text-fg text-ui-sm">
+                      {agent || d.closeConfirm.unknownCommand}
                     </span>
                   </li>
                 ))}
@@ -130,7 +152,9 @@ function withScratch(
   copy: Record<CloseConfirmKind, ConfirmCopy>,
 ): ConfirmCopy {
   const count = groups.reduce((sum, g) => sum + (g.scratchFiles ?? 0), 0)
-  const onlyScratch = groups.every((g) => g.commands.length === 0 && g.files.length === 0)
+  const onlyScratch = groups.every(
+    (g) => g.commands.length === 0 && !g.agents?.length && g.files.length === 0,
+  )
   if (count === 0 || !onlyScratch) return copy[kind]
   return {
     title:
@@ -138,4 +162,16 @@ function withScratch(
     body: d.closeConfirm.scratchBody,
     action: kind === 'quit' ? copy.quit.action : d.closeConfirm.scratchAction,
   }
+}
+
+function lossLines(d: Dict, losses: QuitLosses): string[] {
+  const c = d.closeConfirm
+  const line = (count: number, one: string, many: string): string[] =>
+    count === 0 ? [] : [count === 1 ? one : fmt(many, { count })]
+  return [
+    ...line(losses.processes, c.lostProcessesOne, c.lostProcesses),
+    ...line(losses.agents, c.lostAgentsOne, c.lostAgents),
+    ...line(losses.files, c.lostFilesOne, c.lostFiles),
+    ...line(losses.scratchFiles, c.lostScratchOne, c.lostScratch),
+  ]
 }

@@ -2,7 +2,7 @@
   "id": "system",
   "name": "System",
   "version": "1.0.0",
-  "api": "2.2",
+  "api": "2.3",
   "description": "Tells agents about this computer (OS, kernel, shell, package managers) and lets them ask you to install system packages. Nothing is installed unless you approve the exact command, and it runs in a new terminal where you see it.",
   "category": "tools",
   "capabilities": ["shell"],
@@ -19,7 +19,7 @@
       {
         "id": "install",
         "title": "Ask the human to install system packages",
-        "usage": "install <pkg...> [--manager <name>] [--reason <text>]",
+        "usage": "install <pkg...> [--manager <name>] [--reason <text>] [--wait]",
         "palette": false,
         "interactive": true
       }

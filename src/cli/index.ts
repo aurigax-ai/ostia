@@ -24,7 +24,14 @@ import { runAgentHook } from './agentHook'
 import { parseArgs } from './args'
 import { runAskVerb } from './ask'
 import { runBrowse } from './browse'
-import { BUS_QUEUED_HINT, type BusSendOk, type SentMessage, runBusHook, sentLines } from './bus'
+import {
+  BUS_ASLEEP_HINT,
+  BUS_QUEUED_HINT,
+  type BusSendOk,
+  type SentMessage,
+  runBusHook,
+  sentLines,
+} from './bus'
 import { runCmuxImportVerb } from './cmuxImport'
 import { describeFailure } from './failure'
 import { type FileProbe, fileWord, isClaimedWord, parseFileArg, refusalLine } from './fileArgs'
@@ -32,6 +39,7 @@ import { runManagerVerb } from './manager'
 import { parseWorkspaceRenameArgs, runPaneVerb } from './pane'
 import { runPortalCommand } from './portal'
 import { runTokenVerb } from './token'
+import { buildVersionAt } from './version'
 import { isOfflineViewVerb, runOfflineViewVerb, runViewVerb } from './view'
 
 interface ProcInfo {
@@ -504,7 +512,8 @@ async function runBusVerb(conn: MessageConnection): Promise<void> {
     const res = await conn.sendRequest<BusSendOk | BusErr>('bus.send', { to, text })
     if (res.ok) {
       console.log(JSON.stringify(res))
-      if (res.delivered === 'queued') console.error(BUS_QUEUED_HINT)
+      if (res.asleep) console.error(BUS_ASLEEP_HINT)
+      else if (res.delivered === 'queued') console.error(BUS_QUEUED_HINT)
     } else {
       console.error(`ostia: bus send failed (${describeBusError(res)})`)
       process.exitCode = 1
@@ -618,11 +627,6 @@ interface GatewayErr {
   error: string
   message?: string
 }
-interface GatewayStartResult {
-  host: string
-  port: number
-  fingerprint: string
-}
 interface GatewayStatusResult {
   running: boolean
   host: string | null
@@ -656,29 +660,7 @@ function describeGatewayError(res: GatewayErr): string {
 async function runGatewayVerb(conn: MessageConnection): Promise<void> {
   const sub = process.argv[3]
 
-  if (sub === 'enable') {
-    const { values } = parseArgs(process.argv.slice(4), {
-      values: { host: '--host', port: '--port' },
-    })
-    const res = await conn.sendRequest<GatewayStartResult | GatewayErr>('gateway.enable', {
-      host: values.host || undefined,
-      port: numberFlag(values.port, 'port'),
-    })
-    if (isErrResult(res)) {
-      console.error(`ostia: gateway enable failed (${describeGatewayError(res)})`)
-      process.exitCode = 1
-      return
-    }
-    console.log(JSON.stringify(res))
-  } else if (sub === 'disable') {
-    const res = await conn.sendRequest<GatewayOk | GatewayErr>('gateway.disable', {})
-    if (isErrResult(res)) {
-      console.error(`ostia: gateway disable failed (${describeGatewayError(res)})`)
-      process.exitCode = 1
-      return
-    }
-    console.log('ok')
-  } else if (sub === 'pair') {
+  if (sub === 'pair') {
     const res = await conn.sendRequest<GatewayPairResult | GatewayErr>('gateway.pair', {})
     if (isErrResult(res)) {
       console.error(`ostia: gateway pair failed (${describeGatewayError(res)})`)
@@ -721,7 +703,7 @@ async function runGatewayVerb(conn: MessageConnection): Promise<void> {
     }
   } else {
     console.error(
-      `ostia gateway: unknown subcommand '${sub ?? ''}' (try: enable, pair, status, devices, revoke, disable)`,
+      `ostia gateway: unknown subcommand '${sub ?? ''}' (try: pair, status, devices, revoke)`,
     )
     process.exitCode = 1
   }
@@ -750,21 +732,51 @@ function describeErrResult(res: ErrResult): string {
   return res.message ? `${res.error}: ${res.message}` : res.error
 }
 
+const SPLIT_TAB_FLAGS = { splitTab: '--split-tab', split: '--split' } as const
+
+function splitTabParams(flags: {
+  splitTab?: string
+  split?: string
+}): { splitTab?: string; split?: string } | string {
+  if (flags.split !== undefined && flags.splitTab === undefined) return '--split needs --split-tab'
+  if (flags.split !== undefined && flags.split !== 'right' && flags.split !== 'down') {
+    return `--split expects right or down, got '${flags.split}'`
+  }
+  return {
+    ...(flags.splitTab !== undefined ? { splitTab: flags.splitTab } : {}),
+    ...(flags.split !== undefined ? { split: flags.split } : {}),
+  }
+}
+
 async function runAgentVerb(conn: MessageConnection): Promise<void> {
   const { values: flags, positional } = parseArgs(process.argv.slice(4), {
-    values: { name: '--name', cwd: '--cwd' },
+    values: { name: '--name', cwd: '--cwd', ...SPLIT_TAB_FLAGS },
     unknown: 'keep',
   })
   const [agent, given] = positional
   if (process.argv[3] !== 'run' || !agent || given === undefined) {
-    console.error('usage: ostia agent run <agent> [--name N] [--cwd DIR] <prompt|->')
+    console.error(
+      'usage: ostia agent run <agent> [--name N] [--cwd DIR] [--split-tab T [--split right|down]] <prompt|->',
+    )
+    process.exitCode = 1
+    return
+  }
+  const splitTab = splitTabParams(flags)
+  if (typeof splitTab === 'string') {
+    console.error(`ostia agent run: ${splitTab}`)
     process.exitCode = 1
     return
   }
   const prompt = given === '-' ? await readAllStdin() : given
   const res = await conn.sendRequest<{ id: string; name: string; paneId: string } | ErrResult>(
     'agent.run',
-    { agent, prompt, name: flags.name, ...(flags.cwd ? { cwd: resolvePath(flags.cwd) } : {}) },
+    {
+      agent,
+      prompt,
+      name: flags.name,
+      ...(flags.cwd ? { cwd: resolvePath(flags.cwd) } : {}),
+      ...splitTab,
+    },
   )
   if (isErrResult(res)) {
     console.error(`ostia: agent run failed (${describeErrResult(res)})`)
@@ -780,7 +792,7 @@ async function runProcessVerb(conn: MessageConnection): Promise<void> {
 
   if (sub === 'run') {
     const { values: flags, positional } = parseArgs(rawArgs, {
-      values: { name: '--name', cwd: '--cwd' },
+      values: { name: '--name', cwd: '--cwd', ...SPLIT_TAB_FLAGS },
       unknown: 'keep',
     })
     const cmd = positional[0]
@@ -789,9 +801,15 @@ async function runProcessVerb(conn: MessageConnection): Promise<void> {
       process.exitCode = 1
       return
     }
+    const splitTab = splitTabParams(flags)
+    if (typeof splitTab === 'string') {
+      console.error(`ostia process run: ${splitTab}`)
+      process.exitCode = 1
+      return
+    }
     const res = await conn.sendRequest<{ id: string; name: string; paneId: string } | ErrResult>(
       'process.run',
-      { cmd, name: flags.name, cwd: resolvePath(flags.cwd ?? '.') },
+      { cmd, name: flags.name, cwd: resolvePath(flags.cwd ?? '.'), ...splitTab },
     )
     if (isErrResult(res)) {
       console.error(`ostia: process run failed (${describeErrResult(res)})`)
@@ -1208,6 +1226,7 @@ async function runResumeTokenVerb(conn: MessageConnection): Promise<void> {
 }
 
 const USAGE = `usage: ostia <command> [args]
+       ostia --version
 
 commands:
   whoami | commands | info | cwd | pane.list | workspace.list | docs
@@ -1226,14 +1245,25 @@ commands:
   view list [--json] | open <name>   declarative views (~/.config/ostia/views/<name>.json)
   view validate <file> | schema      check a view file / print its JSON schema (no app needed)
   <file>... | open <file>...   show files in Ostia's viewer, any path (file:line[:col] jumps)
-  process run "<cmd>" [--name N] [--cwd DIR] | ls | logs | kill | restart <id|name>
-                            run a command in a new terminal tab the human can watch
-  agent run <agent> [--name N] [--cwd DIR] <prompt|->
+  process run "<cmd>" [--name N] [--cwd DIR] [--split-tab T [--split right|down]]
+            | ls | logs | kill | restart <id|name>
+                            run a command in a new terminal tab the human can watch;
+                            the same --split-tab T puts them side by side in one tab
+  agent run <agent> [--name N] [--cwd DIR] [--split-tab T [--split right|down]] <prompt|->
                             start claude, codex or an agent the human configured in a new
                             terminal tab with that prompt; talk to it with ostia pane
   pane send <pane> <text> [--enter] | key <pane> <key>… | read <pane> [--lines N]
                             type into or read another terminal pane (asks the human unless
                             you opened it with ostia process run)
+  pane wait <pane>… [--until done|waiting|idle|exited]… [--timeout <s>] [--json]
+                            block until one of those panes' agents stops working; exit 0
+                            reached, 3 timed out, 4 pane closed
+  pane wake <pane>… [--json]
+                            wake hibernated agent panes: each types its agent's resume
+                            command at a fresh prompt (same asks as pane send)
+  pane close <pane>… [--json]
+                            close those panes at once, even while a command runs (a tab you
+                            opened needs nothing more, any other asks for kill-pane)
   vault | bus | settings | browse | gateway <subcommand> ...
   ext ls | ext <extId> <command> [args...]
   <extId> <command> [args...]  an extension command, e.g. ostia git status
@@ -1260,6 +1290,15 @@ async function main(): Promise<void> {
   const [cmd] = process.argv.slice(2)
   if (cmd === '--help' || cmd === '-h' || cmd === 'help') {
     console.log(USAGE)
+    return
+  }
+  if (cmd === '--version') {
+    const version = buildVersionAt(__dirname)
+    if (version) console.log(version)
+    else {
+      console.error('ostia: build-info.json is missing')
+      process.exitCode = 1
+    }
     return
   }
   if (isOfflineViewVerb(process.argv.slice(2))) {

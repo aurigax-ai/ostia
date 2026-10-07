@@ -6,6 +6,7 @@ import {
   auditPairAttempt,
   checkPairRateLimit,
   consumeCode,
+  formatCode,
   newCode,
   resetCodes,
   resetPairRateLimit,
@@ -21,6 +22,10 @@ describe('gateway/pairing', () => {
     const code = newCode()
     expect(code).toHaveLength(8)
     expect(code).toMatch(/^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{8}$/)
+  })
+
+  it('CPD-C7 shows a code as two groups of four joined by a dash', () => {
+    expect(formatCode('ABCDEFGH')).toBe('ABCD-EFGH')
   })
 
   it('newCode mints distinct codes across calls', () => {

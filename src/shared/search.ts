@@ -5,6 +5,7 @@ export interface SearchRequest {
   caseSensitive: boolean
   wholeWord: boolean
   includeIgnored: boolean
+  namesOnly?: boolean
 }
 
 export interface LineMatch {
