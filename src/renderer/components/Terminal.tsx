@@ -25,7 +25,7 @@ import {
 import { bellActions, createBellThrottle } from '../lib/bell'
 import { canTypeInto, insertCommand, selectedBlockOutput, stepBlock } from '../lib/blockActions'
 import { decodeCommandLine, readCommandText } from '../lib/blockText'
-import { openBrowserAs } from '../lib/browserProfile'
+import { openBrowserAs, openBrowserTabAs } from '../lib/browserProfile'
 import {
   execChord,
   findStep,
@@ -51,7 +51,7 @@ import {
   attachLinkModifier,
   linkModifierHeld,
   linkSpan,
-  linkTarget,
+  webLinkTarget,
 } from '../lib/linkModifier'
 import { noteFittedGrid, offscreenGrid, registerOffscreenStarter } from '../lib/offscreenStart'
 import { openFileAt } from '../lib/openFile'
@@ -234,6 +234,7 @@ function TerminalSurface({
         const span = linkSpan(range, term.buffer.active.viewportY, term.cols)
         setLinkHint({
           kind,
+          plainClick: term.modes.mouseTrackingMode === 'none',
           left: cells.left + span.start * cells.width,
           top: cells.top + span.row * cells.height,
           width: (span.end - span.start) * cells.width,
@@ -248,12 +249,14 @@ function TerminalSurface({
       setLinkHint(null)
     }
     const openWebLink = (e: MouseEvent, uri: string): void => {
-      if (!linkModifierHeld(e, isMac)) return
-      if (linkTarget(useSettingsStore.getState().browser.openTerminalLinks, e) === 'pane') {
-        openBrowserAs(workspaceIdRef.current, uri, 'human')
-      } else {
-        window.open(uri, '_blank')
-      }
+      const target = webLinkTarget(e, {
+        mac: isMac,
+        hasSelection: term.hasSelection(),
+        mouseReporting: term.modes.mouseTrackingMode !== 'none',
+      })
+      if (target === 'same-tab') openBrowserAs(workspaceIdRef.current, uri, 'human')
+      else if (target === 'new-tab') openBrowserTabAs(workspaceIdRef.current, uri, 'human')
+      else if (target === 'system') window.open(uri, '_blank')
     }
     const webLinks: WebLinkHandler = {
       activate: openWebLink,

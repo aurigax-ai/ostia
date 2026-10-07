@@ -1,10 +1,10 @@
 import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
-import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
 import { chords } from './chords'
 import { SOFTWARE_WEBGL, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { emptyState, emptyWorkspace } from './helpers'
 import { redRowGaps } from './pixels'
+import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
 
 const GHOSTTY = {
   behavior: { gpuAcceleration: false },
@@ -40,8 +40,7 @@ async function run(win: Page, command: string): Promise<void> {
   await win.keyboard.press('Enter')
 }
 
-const clipboard = (app: ElectronApplication) =>
-  app.evaluate(({ clipboard: c }) => c.readText())
+const clipboard = (app: ElectronApplication) => app.evaluate(({ clipboard: c }) => c.readText())
 
 test('Ghostty blocks: each command gets a block whose output can be copied', async () => {
   test.setTimeout(60_000)
@@ -122,8 +121,8 @@ test('Ghostty find: counts matches in the output and steps through them', async 
   }
 })
 
-test('Ghostty web links: the hint shows on hover and Ctrl+click opens a browser pane', async () => {
-  test.setTimeout(60_000)
+test('Ghostty web links: a plain click reuses the browser pane, Ctrl adds a tab, Ctrl+Shift goes outside', async () => {
+  test.setTimeout(90_000)
   const requests: string[] = []
   const server = createServer((req, res) => {
     requests.push(req.url ?? '')
@@ -131,23 +130,75 @@ test('Ghostty web links: the hint shows on hover and Ctrl+click opens a browser 
     res.end('<title>ghostty link</title>')
   })
   await new Promise<void>((ready) => server.listen(0, '127.0.0.1', ready))
-  const url = `http://127.0.0.1:${(server.address() as AddressInfo).port}/ghostty`
-  const { app, win } = await launchGhostty({ browser: { openTerminalLinks: true } })
+  const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`
+  const { app, win } = await launchGhostty()
   try {
-    await run(win, `clear; printf '%s\\n' '${url}'`)
-    await win.waitForTimeout(800)
-    const box = await win.locator('.ghostty-screen').first().boundingBox()
-    if (!box) throw new Error('terminal screen not found')
-    const target = { x: box.x + 30, y: box.y + 8 }
-    await win.mouse.move(target.x, target.y + 80)
-    await win.mouse.move(target.x, target.y, { steps: 6 })
+    await app.evaluate(({ shell }) => {
+      const opened: string[] = []
+      Object.assign(globalThis, { __openedExternally: opened })
+      shell.openExternal = async (url: string) => {
+        opened.push(url)
+      }
+    })
+    const screen = () => win.locator('.pane-slot:not([data-hidden]) .ghostty-screen').first()
+    const show = async (url: string): Promise<{ x: number; y: number }> => {
+      const box = await screen().boundingBox()
+      if (!box) throw new Error('terminal screen not found')
+      await win.mouse.click(box.x + box.width / 2, box.y + box.height - 8)
+      await run(win, `clear; printf '%s\\n' '${url}'`)
+      await win.waitForTimeout(800)
+      return { x: box.x + 30, y: box.y + 8 }
+    }
+    const clickWith = async (url: string, keys: string[]): Promise<void> => {
+      const target = await show(url)
+      await win.mouse.move(target.x, target.y + 80)
+      await win.mouse.move(target.x, target.y, { steps: 6 })
+      for (const key of keys) await win.keyboard.down(key)
+      await win.mouse.click(target.x, target.y)
+      for (const key of keys.reverse()) await win.keyboard.up(key)
+    }
+    const addresses = win.locator('.browser-address')
+    const shown = win.locator('.pane-slot:not([data-hidden]) .browser-address')
+    const backToTerminal = async (): Promise<void> => {
+      await win.locator('.pane-tab').first().click()
+      await expect(screen()).toBeVisible()
+    }
+
+    const first = await show(`${base}/first`)
+    await win.mouse.move(first.x, first.y + 80)
+    await win.mouse.move(first.x, first.y, { steps: 6 })
     const hint = win.locator('[data-slot="tooltip-content"]')
-    await expect(hint).toContainText('Ctrl+Click Open in a browser pane', { timeout: 5_000 })
-    await win.keyboard.down('Control')
-    await win.mouse.click(target.x, target.y)
-    await win.keyboard.up('Control')
-    await expect(win.locator('.browser-address')).toHaveValue(url, { timeout: 15_000 })
-    await expect.poll(() => requests, { timeout: 15_000 }).toContain('/ghostty')
+    await expect(hint).toContainText('Click Open in the browser pane', { timeout: 5_000 })
+    await expect(hint).toContainText('Ctrl+Click Open in a new browser tab')
+    await expect(hint).toContainText('Ctrl+Shift+Click Open in the system browser')
+
+    await clickWith(`${base}/first`, [])
+    await expect(shown).toHaveValue(`${base}/first`, { timeout: 15_000 })
+    await expect.poll(() => requests, { timeout: 15_000 }).toContain('/first')
+    await expect(addresses).toHaveCount(1)
+
+    await backToTerminal()
+    await clickWith(`${base}/second`, [])
+    await expect(shown).toHaveValue(`${base}/second`, { timeout: 15_000 })
+    await expect(addresses).toHaveCount(1)
+
+    await backToTerminal()
+    await clickWith(`${base}/first`, ['Control'])
+    await expect(shown).toHaveValue(`${base}/first`, { timeout: 15_000 })
+    await expect(addresses).toHaveCount(2)
+
+    await backToTerminal()
+    await clickWith(`${base}/second`, ['Control', 'Shift'])
+    await expect
+      .poll(
+        () =>
+          app.evaluate(
+            () => (globalThis as unknown as { __openedExternally: string[] }).__openedExternally,
+          ),
+        { timeout: 15_000 },
+      )
+      .toEqual([`${base}/second`])
+    await expect(addresses).toHaveCount(2)
   } finally {
     await app.close()
     server.close()
@@ -190,7 +241,12 @@ test('Ghostty theme: an open terminal takes a new color scheme', async () => {
     await expect(win.locator('html')).toHaveAttribute('data-theme', 'ostia-light')
     await expect.poll(() => screenBackground(win)).not.toBe(dark)
     const light = (await screenBackground(win)).split(',').map(Number)
-    expect(light.reduce((a, b) => a + b, 0)).toBeGreaterThan(dark.split(',').map(Number).reduce((a, b) => a + b, 0))
+    expect(light.reduce((a, b) => a + b, 0)).toBeGreaterThan(
+      dark
+        .split(',')
+        .map(Number)
+        .reduce((a, b) => a + b, 0),
+    )
   } finally {
     await app.close()
   }
@@ -198,10 +254,9 @@ test('Ghostty theme: an open terminal takes a new color scheme', async () => {
 
 test('Ghostty on the GPU keeps drawing glyphs from before its atlas grew', async () => {
   test.setTimeout(90_000)
-  const { app, win } = await launchGhostty(
-    { behavior: { gpuAcceleration: true } },
-    [SOFTWARE_WEBGL],
-  )
+  const { app, win } = await launchGhostty({ behavior: { gpuAcceleration: true } }, [
+    SOFTWARE_WEBGL,
+  ])
   try {
     await expect(win.locator('.ghostty-host canvas')).toHaveCount(2)
     const redBlocks = "clear; printf '\\033[38;2;255;0;0m%s\\n%s\\n%s\\033[0m\\n' ███ ███ ███"

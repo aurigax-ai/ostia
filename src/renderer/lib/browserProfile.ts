@@ -20,3 +20,7 @@ export function browserProfileIn(workspaceId: string, opener: BrowserOpener): Br
 export function openBrowserAs(workspaceId: string, url: string, opener: BrowserOpener): void {
   useLayoutStore.getState().openBrowser(workspaceId, url, browserProfileIn(workspaceId, opener))
 }
+
+export function openBrowserTabAs(workspaceId: string, url: string, opener: BrowserOpener): void {
+  useLayoutStore.getState().openBrowserTab(workspaceId, url, browserProfileIn(workspaceId, opener))
+}

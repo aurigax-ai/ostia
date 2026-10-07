@@ -19,7 +19,6 @@ export const ZOOM_MAX = 300
 export interface BrowserSettings {
   searchEngine: SearchEngine
   customSearchUrl: string
-  openTerminalLinks: boolean
   defaultZoom: number
   attachCaptureImage: boolean
 }
@@ -27,7 +26,6 @@ export interface BrowserSettings {
 export const DEFAULT_BROWSER_SETTINGS: BrowserSettings = {
   searchEngine: 'google',
   customSearchUrl: '',
-  openTerminalLinks: false,
   defaultZoom: 100,
   attachCaptureImage: true,
 }
@@ -72,7 +70,6 @@ export function parseBrowserSettings(raw: unknown): BrowserSettings {
   return {
     searchEngine: oneOf(SEARCH_ENGINES, src.searchEngine, defaults.searchEngine),
     customSearchUrl: typeof src.customSearchUrl === 'string' ? src.customSearchUrl : '',
-    openTerminalLinks: typeof src.openTerminalLinks === 'boolean' ? src.openTerminalLinks : false,
     defaultZoom:
       typeof src.defaultZoom === 'number' ? clampZoom(src.defaultZoom) : defaults.defaultZoom,
     attachCaptureImage:

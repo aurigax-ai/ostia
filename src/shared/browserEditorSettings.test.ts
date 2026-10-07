@@ -70,21 +70,19 @@ describe('parseBrowserSettings', () => {
     expect(
       parseBrowserSettings({
         searchEngine: 'kagi',
-        openTerminalLinks: true,
         defaultZoom: 500,
         attachCaptureImage: false,
       }),
     ).toEqual({
       ...DEFAULT_BROWSER_SETTINGS,
       searchEngine: 'kagi',
-      openTerminalLinks: true,
       defaultZoom: 300,
       attachCaptureImage: false,
     })
     expect(
       parseBrowserSettings({
         searchEngine: 'nope',
-        openTerminalLinks: 'yes',
+        defaultZoom: 'big',
         attachCaptureImage: 1,
       }),
     ).toEqual(DEFAULT_BROWSER_SETTINGS)

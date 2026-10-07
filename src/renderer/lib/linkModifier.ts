@@ -24,10 +24,26 @@ export function attachLinkModifier(host: HTMLElement, mac: boolean): () => void 
   }
 }
 
-export type LinkTarget = 'pane' | 'system'
+export type WebLinkTarget = 'same-tab' | 'new-tab' | 'system'
 
-export function linkTarget(opensInPane: boolean, e: { shiftKey: boolean }): LinkTarget {
-  return opensInPane !== e.shiftKey ? 'pane' : 'system'
+export interface WebLinkClick {
+  ctrlKey: boolean
+  metaKey: boolean
+  shiftKey: boolean
+  detail: number
+}
+
+export interface WebLinkClickContext {
+  mac: boolean
+  hasSelection: boolean
+  mouseReporting: boolean
+}
+
+export function webLinkTarget(e: WebLinkClick, ctx: WebLinkClickContext): WebLinkTarget | null {
+  if (linkModifierHeld(e, ctx.mac)) return e.shiftKey ? 'system' : 'new-tab'
+  if (e.ctrlKey || e.metaKey || e.shiftKey || e.detail > 1) return null
+  if (ctx.hasSelection || ctx.mouseReporting) return null
+  return 'same-tab'
 }
 
 export type LinkKind = 'web' | 'file'
