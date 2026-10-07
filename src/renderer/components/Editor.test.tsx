@@ -78,6 +78,17 @@ const fake = vi.hoisted(() => {
       this.disposeListeners.push(l)
       return { dispose() {} }
     }
+    disposed = false
+    isDisposed() {
+      return this.disposed
+    }
+    dispose() {
+      if (this.disposed) return
+      for (const l of this.disposeListeners) l()
+      this.disposed = true
+      if (models.get(this.uri.toString()) === this) models.delete(this.uri.toString())
+      if (state.model === this) editor.setModel(null)
+    }
   }
   const models = new Map<string, FakeModel>()
   interface FakeSelection {
@@ -294,6 +305,81 @@ describe('EditorView', () => {
 
     await waitFor(() => expect(fake.state.model?.getValue()).toBe('disk v2'))
     expect(useEditorStatus.getState().dirty['/w/a.txt']).toBeUndefined()
+  })
+
+  it('shares one model between two panes and disposes it when the last one closes', async () => {
+    vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, version: 'v1', text: 'disk v1' })
+    const first = render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.txt" />)
+    await waitFor(() => expect(fake.state.model?.getValue()).toBe('disk v1'))
+    const model = fake.models.get('file:///w/a.txt')
+    const second = render(<EditorView workspaceId="w1" paneId="p2" filePath="/w/a.txt" />)
+    await waitFor(() => expect(window.ostia.fs.read).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(fake.state.model).toBe(model))
+
+    first.unmount()
+    expect(model?.isDisposed()).toBe(false)
+    second.unmount()
+    expect(model?.isDisposed()).toBe(true)
+
+    vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, version: 'v1', text: 'disk v2' })
+    render(<EditorView workspaceId="w1" paneId="p3" filePath="/w/a.txt" />)
+    await waitFor(() => expect(fake.state.model?.getValue()).toBe('disk v2'))
+    expect(fake.state.model).not.toBe(model)
+  })
+
+  it('disposes the model of a clean file the pane moves away from', async () => {
+    vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, version: 'v1', text: 'text' })
+    const { rerender } = render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.txt" />)
+    await waitFor(() => expect(fake.state.model?.uri.path).toBe('/w/a.txt'))
+    const model = fake.state.model
+
+    rerender(<EditorView workspaceId="w1" paneId="p1" filePath="/w/b.txt" />)
+    await waitFor(() => expect(fake.state.model?.uri.path).toBe('/w/b.txt'))
+
+    expect(model?.isDisposed()).toBe(true)
+    expect(fake.models.has('file:///w/a.txt')).toBe(false)
+  })
+
+  it('keeps showing the old file until the next one has loaded', async () => {
+    vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, version: 'v1', text: 'text a' })
+    const { rerender } = render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.txt" />)
+    await waitFor(() => expect(fake.state.model?.uri.path).toBe('/w/a.txt'))
+    const shown: (string | null)[] = []
+    const record = (): void => {
+      shown.push(fake.state.model?.uri.path ?? null)
+    }
+    fake.state.modelListeners.push(record)
+    let finish: (text: string) => void = () => {}
+    vi.mocked(window.ostia.fs.read).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finish = (text) => resolve({ ok: true, version: 'v2', text })
+        }),
+    )
+
+    rerender(<EditorView workspaceId="w1" paneId="p1" filePath="/w/b.txt" />)
+    await waitFor(() => expect(window.ostia.fs.read).toHaveBeenLastCalledWith('/w/b.txt'))
+    expect(fake.state.model?.uri.path).toBe('/w/a.txt')
+    await act(async () => finish('text b'))
+
+    fake.state.modelListeners.splice(fake.state.modelListeners.indexOf(record), 1)
+    expect(shown).toEqual(['/w/b.txt'])
+    expect(fake.models.has('file:///w/a.txt')).toBe(false)
+  })
+
+  it('keeps the model of a file with unsaved edits after its last pane closes', async () => {
+    vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, version: 'v1', text: 'disk v1' })
+    const first = render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.txt" />)
+    await waitFor(() => expect(fake.state.model?.getValue()).toBe('disk v1'))
+    const model = fake.state.model
+    act(() => model?.setValue('my edit'))
+
+    first.unmount()
+    expect(model?.isDisposed()).toBe(false)
+
+    render(<EditorView workspaceId="w1" paneId="p2" filePath="/w/a.txt" />)
+    await waitFor(() => expect(fake.state.model).toBe(model))
+    expect(fake.state.model?.getValue()).toBe('my edit')
   })
 
   it('keeps the file dirty and shows an error when the write fails', async () => {

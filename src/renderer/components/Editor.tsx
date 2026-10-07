@@ -25,6 +25,7 @@ import { documentSaved, openDocument } from '../lsp/client'
 import { useAskSelectionAction, useAssistCompletionsAction } from '../monaco/assistAction'
 import { langFor } from '../monaco/language'
 import { useLiveEditorSelection } from '../monaco/liveSelection'
+import { holdModel } from '../monaco/modelHolds'
 import { monaco } from '../monaco/setup'
 import { initialMonacoTheme, useMonacoTheme } from '../monaco/useMonacoTheme'
 import { isMac } from '../platform'
@@ -147,11 +148,18 @@ function createTrackedModel(filePath: string, content: string): monaco.editor.IT
   model.onDidChangeContent(() => useEditorStatus.getState().setDirty(filePath, isDirty(model)))
   model.onWillDispose(() => {
     savedVersions.delete(model.uri.toString())
+    diskBase.delete(model.uri.toString())
     remoteVersions.delete(model.uri.toString())
     diskVersions.delete(model.uri.toString())
     useEditorStatus.getState().setDirty(filePath, false)
   })
   return model
+}
+
+function holdShown(held: { current: () => void }, model: monaco.editor.ITextModel | null): void {
+  const previous = held.current
+  held.current = model ? holdModel(model, isDirty) : () => {}
+  previous()
 }
 
 export function useExternalEditorAction(paneId: string): {
@@ -213,6 +221,7 @@ export function EditorView({
     (model: monaco.editor.ITextModel, text: string, version?: string) => void
   >(() => {})
   const checkDiskRef = useRef<() => Promise<void>>(async () => {})
+  const releaseShownRef = useRef<() => void>(() => {})
   const [preview, setPreview] = useState(() => useSettingsStore.getState().editor.markdownPreview)
   const markdown = isMarkdownPath(filePath) && !blocked
   const [liveEditor, setLiveEditor] = useState<monaco.editor.IStandaloneCodeEditor | null>(null)
@@ -520,6 +529,8 @@ export function EditorView({
       blurSub.dispose()
       detachWheelZoom()
       editor.dispose()
+      releaseShownRef.current()
+      releaseShownRef.current = () => {}
       editorRef.current = null
       setLiveEditor(null)
     }
@@ -592,11 +603,13 @@ export function EditorView({
       setBlocked(blocked)
       if (blocked) {
         editor.setModel(null)
+        holdShown(releaseShownRef, null)
         return
       }
       const existing = monaco.editor.getModel(uriFor(filePath))
       if (problem) {
         editor.setModel(existing)
+        holdShown(releaseShownRef, existing)
         setRemoteProblem(problem)
         return
       }
@@ -610,6 +623,7 @@ export function EditorView({
         if (isRemote) remoteVersions.set(model.uri.toString(), version)
       }
       editor.setModel(model)
+      holdShown(releaseShownRef, model)
       applyReveal(editor, filePath)
       if (!isRemote) releaseDocument = openDocument(model, paneId)
     })
