@@ -669,6 +669,10 @@ export const SETTINGS_JSON_SCHEMA = {
           type: 'boolean',
           description: `Resume an agent session that was running when ${PRODUCT_DISPLAY_NAME} quit, at its pane's first idle prompt once the pane is visible. Only you can change this; ostia settings set refuses it. Default: false.`,
         },
+        autoSendReferences: {
+          type: 'boolean',
+          description: `Press Enter after ${PRODUCT_DISPLAY_NAME} pastes a reference you sent (Point at element, Capture region, Send selection) into a pane running claude or codex, so the agent reads it at once. Never at a shell prompt, and never for references from the file menu, an extension or an agent. Only you can change this; ostia settings set refuses it. Default: true.`,
+        },
         hooks: {
           type: 'object',
           additionalProperties: false,

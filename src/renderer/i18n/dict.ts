@@ -2600,6 +2600,10 @@ export const en = {
     autoResume: 'Resume agents after a restart',
     autoResumeDesc:
       'An agent session that was running when {product} quit resumes at its pane’s first idle prompt once the pane is visible. Background tabs and other workspaces resume when you open them. Only you can change this.',
+    groupReferences: 'References',
+    autoSendReferences: 'Send references to agents right away',
+    autoSendReferencesDesc:
+      'When you point at an element, capture a region or send a selection to a pane running Claude Code or Codex, press Enter after pasting so the agent reads it at once. Never at a shell prompt. Only you can change this.',
     groupAgentHooks: 'Integration',
     claudeHooks: 'Claude Code integration',
     claudeHooksDesc:
@@ -5341,6 +5345,10 @@ export const zhHant: Dict = {
     autoResume: '重新啟動後自動恢復代理程式',
     autoResumeDesc:
       '結束 {product} 時仍在執行的代理程式工作階段，會在其窗格顯示後、於第一個閒置提示字元自動恢復。背景分頁與其他工作區會在你開啟時才恢復。只有你能變更此設定。',
+    groupReferences: '參照',
+    autoSendReferences: '立即將參照送給代理程式',
+    autoSendReferencesDesc:
+      '當你指向元素、擷取區域或傳送選取內容到執行 Claude Code 或 Codex 的窗格時，貼上後按下 Enter，讓代理程式立即讀取。絕不在 shell 提示字元按下。只有你能變更此設定。',
     groupAgentHooks: '整合',
     claudeHooks: 'Claude Code 整合',
     claudeHooksDesc:
