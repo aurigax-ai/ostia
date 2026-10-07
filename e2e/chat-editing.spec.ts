@@ -1,13 +1,5 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import {
-  type ElectronApplication,
-  type Locator,
-  type Page,
-  _electron as electron,
-  expect,
-  test,
-} from './test'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import {
   type FakeProvider,
@@ -17,6 +9,14 @@ import {
   startFakeProvider,
 } from './fakeProvider'
 import { openWorkspace } from './helpers'
+import {
+  type ElectronApplication,
+  type Locator,
+  type Page,
+  _electron as electron,
+  expect,
+  test,
+} from './test'
 
 const ORIGINAL = 'one\ntwo\nthree\n'
 const EDITED = 'one\nTWO\nthree\n'

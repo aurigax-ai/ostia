@@ -1,6 +1,6 @@
-import { type Page, _electron as electron, expect, test } from './test'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { PROMPT, emptyState, emptyWorkspace } from './helpers'
+import { type Page, _electron as electron, expect, test } from './test'
 
 async function typesIntoNewest(win: Page, count: number, marker: string): Promise<void> {
   await expect(win.locator('.xterm:visible')).toHaveCount(count, { timeout: 15_000 })

@@ -1,16 +1,10 @@
 import { execFileSync } from 'node:child_process'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import {
-  type ElectronApplication,
-  type Page,
-  _electron as electron,
-  expect,
-  test,
-} from './test'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { type FakeProvider, fakeAssistantSettings, startFakeProvider } from './fakeProvider'
 import { openWorkspace } from './helpers'
+import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
 
 const UI_FAMILY = 'Geist Variable'
 const CODE_FAMILY = 'Geist Mono Variable'

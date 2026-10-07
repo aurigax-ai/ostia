@@ -1,8 +1,8 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { _electron as electron, expect, test } from './test'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { emptyState, openWorkspace, waitForPaletteSelection } from './helpers'
+import { _electron as electron, expect, test } from './test'
 
 test('the Traditional Chinese pack is an extension: pick it, keep it across a restart, lose it when disabled', async () => {
   const dataHome = freshDataHome()

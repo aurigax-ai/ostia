@@ -2,11 +2,11 @@ import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from
 import { type Server, createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { join } from 'node:path'
-import { type Page, _electron as electron, expect, test } from './test'
 import { buildSync } from 'esbuild'
 import { PRODUCT_NAME } from '../src/shared/product'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { PROMPT, openWorkspace } from './helpers'
+import { type Page, _electron as electron, expect, test } from './test'
 
 async function launch(env: Record<string, string> = {}) {
   const dataHome = freshDataHome()

@@ -1,8 +1,8 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { _electron as electron, expect, test } from './test'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { openWorkspace } from './helpers'
+import { _electron as electron, expect, test } from './test'
 
 test('Ctrl+click on a file path in terminal output opens it in the editor at that line', async () => {
   test.setTimeout(60_000)

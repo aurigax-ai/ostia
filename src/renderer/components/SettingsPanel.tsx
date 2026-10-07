@@ -65,6 +65,7 @@ import {
 } from '../lib/settingsNav'
 import { firstMatchControl, matchesQuery } from '../lib/settingsSearch'
 import { useEffectiveTheme } from '../lib/theme'
+import { countUsage } from '../lib/usageCounts'
 import { isLinux, isMac, platform } from '../platform'
 import type { ClipboardKeys, TerminalRenderer } from '../settings/terminalPaneSettings'
 import {
@@ -239,6 +240,10 @@ export function SettingsPanel(): JSX.Element | null {
   const targetWorkspace = useWorkspacesStore((s) =>
     s.workspaces.find((w) => w.id === settingsWorkspaceId),
   )
+
+  useEffect(() => {
+    if (open) countUsage('features', 'settings', active)
+  }, [open, active])
 
   useEffect(() => {
     if (settingsRequest === 0) return
@@ -1060,6 +1065,7 @@ export function ToggleRow({
   onChange,
   disabled,
   labelHint,
+  below,
 }: {
   label: string
   desc: string
@@ -1067,9 +1073,10 @@ export function ToggleRow({
   onChange: (v: boolean) => void
   disabled?: boolean
   labelHint?: React.ReactNode
+  below?: React.ReactNode
 }): JSX.Element {
   return (
-    <ControlRow label={label} desc={desc} labelHint={labelHint}>
+    <ControlRow label={label} desc={desc} labelHint={labelHint} below={below}>
       <Switch checked={checked} onCheckedChange={onChange} aria-label={label} disabled={disabled} />
     </ControlRow>
   )

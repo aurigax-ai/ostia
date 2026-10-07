@@ -1,9 +1,9 @@
 import { cpSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { _electron as electron, expect, test } from './test'
 import { PRODUCT_NAME } from '../src/shared/product'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { openWorkspace } from './helpers'
+import { _electron as electron, expect, test } from './test'
 
 const fixture = join(__dirname, '..', 'test', 'fixtures', 'extensions-e2e', 'icons')
 

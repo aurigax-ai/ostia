@@ -1,5 +1,6 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { DEFAULT_CONTROLS } from '../../shared/sandbox'
+import { DEFAULT_TELEMETRY_SETTINGS } from '../../shared/telemetry'
 import { parsePersisted, useSettingsStore } from './settingsStore'
 
 const store = () => useSettingsStore.getState()
@@ -637,6 +638,7 @@ describe('settingsStore', () => {
       const written = JSON.parse(vi.mocked(window.ostia.fs.write).mock.calls[0][1])
       expect(written.privacy).toEqual({
         redaction: { enabled: false, patterns: ['ACME-[0-9]{4}'] },
+        telemetry: DEFAULT_TELEMETRY_SETTINGS,
       })
     })
 
@@ -885,10 +887,18 @@ describe('settingsStore', () => {
     })
 
     it('refuses every privacy key so an agent cannot turn redaction off or add a pattern', () => {
-      for (const path of ['privacy', 'privacy.redaction.enabled', 'privacy.redaction.patterns']) {
+      for (const path of [
+        'privacy',
+        'privacy.redaction.enabled',
+        'privacy.redaction.patterns',
+        'privacy.telemetry.errors',
+      ]) {
         expect(() => store().setByPath(path, false)).toThrow('unknown settings key')
       }
-      expect(store().privacy).toEqual({ redaction: { enabled: true, patterns: [] } })
+      expect(store().privacy).toEqual({
+        redaction: { enabled: true, patterns: [] },
+        telemetry: DEFAULT_TELEMETRY_SETTINGS,
+      })
     })
 
     it('refuses capabilities.grants so an agent cannot elevate itself', () => {

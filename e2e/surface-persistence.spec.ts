@@ -1,6 +1,6 @@
-import { _electron as electron, expect, test } from './test'
 import { isolatedLaunch } from './dataHome'
 import { openWorkspace } from './helpers'
+import { _electron as electron, expect, test } from './test'
 
 test('splitting keeps the original terminal DOM node and its history', async () => {
   const app = await electron.launch(isolatedLaunch())

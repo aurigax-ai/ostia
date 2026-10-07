@@ -35,6 +35,9 @@ jobs:
       - name: Tag matches package.json version
         run: test "v$(node -p 'require("./package.json").version')" = "$GITHUB_REF_NAME"
       - run: pnpm build
+        env:
+          OSTIA_TELEMETRY_KEY: ${{ vars.OSTIA_TELEMETRY_KEY }}
+          OSTIA_TELEMETRY_HOST: ${{ vars.OSTIA_TELEMETRY_HOST }}
       - name: Build version is the plain tag version
         run: test "v$(node -p 'require("./out/build-info.json").version')" = "$GITHUB_REF_NAME"
       - run: pnpm exec electron-builder --linux dir deb --publish never
@@ -62,6 +65,9 @@ jobs:
       - name: Tag matches package.json version
         run: test "v$(node -p 'require("./package.json").version')" = "$GITHUB_REF_NAME"
       - run: pnpm build
+        env:
+          OSTIA_TELEMETRY_KEY: ${{ vars.OSTIA_TELEMETRY_KEY }}
+          OSTIA_TELEMETRY_HOST: ${{ vars.OSTIA_TELEMETRY_HOST }}
       - name: Build version is the plain tag version
         run: test "v$(node -p 'require("./out/build-info.json").version')" = "$GITHUB_REF_NAME"
       - name: Import the Developer ID certificate into a temporary keychain

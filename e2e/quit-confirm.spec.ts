@@ -1,6 +1,6 @@
-import { type Page, _electron as electron, expect, test } from './test'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { openWorkspace, pressQuit } from './helpers'
+import { type Page, _electron as electron, expect, test } from './test'
 
 const PLAIN_SHELL = {
   ...DOM_RENDERER_SETTINGS,

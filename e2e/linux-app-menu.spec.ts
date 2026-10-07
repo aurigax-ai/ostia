@@ -1,6 +1,6 @@
-import { _electron as electron, expect, test } from './test'
 import { isMac } from './chords'
 import { isolatedLaunch } from './dataHome'
+import { _electron as electron, expect, test } from './test'
 
 test('on Linux the default Electron menu is replaced, so Ctrl+R and Ctrl+Q do nothing', async () => {
   test.skip(isMac, 'macOS has its own application menu')

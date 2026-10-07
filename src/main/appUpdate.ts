@@ -30,9 +30,13 @@ export function createUpdateWatcher(deps: {
   }
 }
 
+function withoutTelemetry(info: BuildInfo): BuildInfo {
+  return { version: info.version, builtAt: info.builtAt }
+}
+
 function announce(info: BuildInfo): void {
   for (const win of BrowserWindow.getAllWindows()) {
-    if (!win.isDestroyed()) win.webContents.send('app:update-available', info)
+    if (!win.isDestroyed()) win.webContents.send('app:update-available', withoutTelemetry(info))
   }
 }
 
@@ -52,7 +56,10 @@ export function registerAppUpdate(quit: () => void): void {
       app.on('browser-window-focus', () => w.check())
     }
   }
-  ipcMain.handle('app:update-state', () => watcher?.check() ?? watcher?.available() ?? null)
+  ipcMain.handle('app:update-state', () => {
+    const next = watcher?.check() ?? watcher?.available() ?? null
+    return next ? withoutTelemetry(next) : null
+  })
   ipcMain.handle('app:restart', () => {
     restoreGpuLaunchEnv(process.env)
     app.relaunch()

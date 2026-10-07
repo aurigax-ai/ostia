@@ -1,12 +1,12 @@
 import { execFileSync } from 'node:child_process'
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { type Locator, type Page, _electron as electron, expect, test } from './test'
 import { buildSync } from 'esbuild'
 import { MARKETPLACE_MANIFEST_FILE } from '../src/shared/marketplace'
 import { PRODUCT_NAME } from '../src/shared/product'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { openWorkspace } from './helpers'
+import { type Locator, type Page, _electron as electron, expect, test } from './test'
 
 const fixture = join(__dirname, '..', 'test', 'fixtures', 'extensions-e2e', 'hello')
 

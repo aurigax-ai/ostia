@@ -1,3 +1,6 @@
+import { freshDataHome, isolatedLaunch } from './dataHome'
+import { fakeAgentBin } from './fakeAgent'
+import { PROMPT, openWorkspace } from './helpers'
 import {
   type ElectronApplication,
   type Locator,
@@ -6,9 +9,6 @@ import {
   expect,
   test,
 } from './test'
-import { freshDataHome, isolatedLaunch } from './dataHome'
-import { fakeAgentBin } from './fakeAgent'
-import { PROMPT, openWorkspace } from './helpers'
 
 const LINE_AGENT =
   '#!/bin/sh\necho fake-agent-ready\nwhile IFS= read -r line; do echo "agent-got:$line"; done\n'

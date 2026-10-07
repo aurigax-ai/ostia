@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { _electron as electron, expect, test } from './test'
 import { freshDataHome, isolatedLaunch } from './dataHome'
+import { _electron as electron, expect, test } from './test'
 
 function seedOldFolders(dataHome: string): string {
   const oldData = join(dataHome, 'pine')

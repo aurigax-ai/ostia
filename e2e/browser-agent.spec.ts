@@ -3,9 +3,9 @@ import { existsSync, readFileSync } from 'node:fs'
 import { type Server, createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { join, resolve } from 'node:path'
-import { _electron as electron, expect, test } from './test'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { openWorkspace } from './helpers'
+import { _electron as electron, expect, test } from './test'
 
 const CLI = resolve(__dirname, '../out/cli/index.js')
 
@@ -135,7 +135,9 @@ test('an agent drives the in-app browser with the agent-browser command contract
 
     expect((await ostia('find', 'label', 'Name', 'fill', 'Grace')).code).toBe(0)
     expect((await ostia('find', 'role', 'button', 'click', '--name', 'Greet')).code).toBe(0)
-    await expect.poll(async () => (await ostia('get', 'text', '#greeting')).out).toBe('Hello, Grace')
+    await expect
+      .poll(async () => (await ostia('get', 'text', '#greeting')).out)
+      .toBe('Hello, Grace')
 
     const title = await json('eval', 'document.title')
     expect(title).toEqual({ success: true, data: { result: 'Agent fixture' }, error: null })

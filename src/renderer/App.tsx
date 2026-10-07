@@ -17,6 +17,7 @@ import { RemoteFolderDialog } from './components/RemoteFolderDialog'
 import { SandboxFolderDialog } from './components/SandboxFolderDialog'
 import { SandboxRequirementsDialog } from './components/SandboxRequirementsDialog'
 import { SaveWorkflowDialog } from './components/SaveWorkflowDialog'
+import { TelemetryConsentDialog } from './components/TelemetryConsentDialog'
 import { TopBar } from './components/TopBar'
 import { WindowControls } from './components/WindowControls'
 import { WorkZone } from './components/WorkZone'
@@ -138,6 +139,7 @@ export function App(): JSX.Element {
           <HistorySearch />
           <WorkflowPicker />
           <SaveWorkflowDialog />
+          {detached ? null : <TelemetryConsentDialog />}
         </div>
       </TooltipProvider>
     </IconContext.Provider>

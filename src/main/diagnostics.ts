@@ -1,6 +1,7 @@
 import { mkdirSync } from 'node:fs'
 import { basename } from 'node:path'
 import { type BrowserWindow, app, ipcMain } from 'electron'
+import type { ErrorInput } from '../shared/telemetry'
 import type { AppLog } from './appLog'
 import { ReportLimiter, normalizePaneIds, normalizeRendererReport } from './rendererReports'
 
@@ -10,6 +11,7 @@ export type RecoveryReason = 'reload' | 'render-error' | 'renderer-gone'
 
 export interface DiagnosticsDeps {
   log: AppLog
+  telemetry: { error: (input: ErrorInput) => void }
   version: string
   logDir: string
   testHooks: boolean
@@ -26,6 +28,17 @@ function errorFields(err: unknown): { message: string; stack?: string } {
   if (err instanceof Error) return { message: err.message, stack: err.stack }
   return { message: String(err) }
 }
+
+function errorName(err: unknown): string {
+  return err instanceof Error ? err.name : 'Error'
+}
+
+const RENDERER_SOURCES = {
+  error: 'renderer-error',
+  rejection: 'renderer-rejection',
+  render: 'render-error',
+  surface: 'surface-error',
+} as const
 
 function sourceOf(sourceId: string, line: number): string | undefined {
   return sourceId ? `${basename(sourceId)}:${line}` : undefined
@@ -45,10 +58,16 @@ export function registerDiagnostics(deps: DiagnosticsDeps): Diagnostics {
 
   process.on('uncaughtException', (err) => {
     log.error('main-uncaught-exception', errorFields(err))
+    deps.telemetry.error({ source: 'main-exception', name: errorName(err), ...errorFields(err) })
     console.error('[main] uncaught exception', err)
   })
   process.on('unhandledRejection', (reason) => {
     log.error('main-unhandled-rejection', errorFields(reason))
+    deps.telemetry.error({
+      source: 'main-rejection',
+      name: errorName(reason),
+      ...errorFields(reason),
+    })
     console.error('[main] unhandled rejection', reason)
   })
 
@@ -85,6 +104,12 @@ export function registerDiagnostics(deps: DiagnosticsDeps): Diagnostics {
     if (report.kind === 'render') deps.startRecovery(windowId, 'render-error')
     if (!allowReport(`report:${windowId}`, windowId)) return
     log.error('renderer-error', { window: windowId, ...report })
+    deps.telemetry.error({
+      source: RENDERER_SOURCES[report.kind],
+      name: 'Error',
+      message: report.message,
+      stack: report.stack,
+    })
   })
 
   ipcMain.on('diagnostics:ready', (e, raw: unknown) => {
@@ -134,6 +159,11 @@ export function registerDiagnostics(deps: DiagnosticsDeps): Diagnostics {
         exitCode: details.exitCode,
       })
       if (details.reason === 'clean-exit' || win.isDestroyed()) return
+      deps.telemetry.error({
+        source: 'renderer-gone',
+        name: 'RendererGone',
+        message: `${details.reason} (${details.exitCode})`,
+      })
       deps.startRecovery(windowId, 'renderer-gone')
       if (!crashReloads.take(windowId).allowed) {
         log.error('renderer-reload-skipped', { window: windowId, reason: 'crash-loop' })

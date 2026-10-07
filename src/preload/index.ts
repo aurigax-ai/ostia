@@ -862,6 +862,14 @@ const bridge: OstiaBridge = {
     redact: (texts) => ipcRenderer.invoke('privacy:redact', texts),
     preview: (text) => ipcRenderer.invoke('privacy:preview', text),
   },
+  telemetry: {
+    state: () => ipcRenderer.invoke('telemetry:state'),
+    consented: () => ipcRenderer.invoke('telemetry:consented'),
+    categoriesSeen: () => ipcRenderer.invoke('telemetry:categories-seen'),
+    resetInstallId: () => ipcRenderer.invoke('telemetry:reset-id'),
+    reports: () => ipcRenderer.invoke('telemetry:reports'),
+    count: (category, key, id) => ipcRenderer.send('telemetry:count', category, key, id),
+  },
   chatTools: {
     read: (req) => ipcRenderer.invoke('chatTools:read', req),
     list: (req) => ipcRenderer.invoke('chatTools:list', req),

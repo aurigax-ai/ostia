@@ -1,8 +1,8 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { _electron as electron, expect, test } from './test'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { openWorkspace } from './helpers'
+import { _electron as electron, expect, test } from './test'
 
 test('the Files panel searches folder names, file names and text with the bundled ripgrep', async () => {
   test.setTimeout(90_000)

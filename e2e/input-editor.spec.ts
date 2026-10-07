@@ -1,9 +1,9 @@
 import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { type Page, _electron as electron, expect, test } from './test'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { openWorkspace } from './helpers'
+import { type Page, _electron as electron, expect, test } from './test'
 
 async function switchToEditorMode(win: Page): Promise<void> {
   await win.locator('.topbar').getByRole('button', { name: 'Settings' }).click()

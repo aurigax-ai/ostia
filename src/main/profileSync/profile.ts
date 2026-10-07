@@ -73,9 +73,14 @@ export const PROFILE_FOLDERS: readonly ProfileFolder[] = [
 export const isObject = (v: unknown): v is JsonObject =>
   typeof v === 'object' && v !== null && !Array.isArray(v)
 
+export const LOCAL_ONLY_FIELDS: readonly { group: string; field: string }[] = [
+  ...PROGRAM_SETTINGS,
+  { group: 'privacy', field: 'telemetry' },
+]
+
 export function isLocalOnlyPath(path: readonly string[]): boolean {
   if (LOCAL_ONLY_ROOTS.includes(path[0])) return true
-  return PROGRAM_SETTINGS.some(({ group, field }) => path[0] === group && path[1] === field)
+  return LOCAL_ONLY_FIELDS.some(({ group, field }) => path[0] === group && path[1] === field)
 }
 
 export function syncedSettings(settings: JsonObject): JsonObject {
@@ -98,7 +103,7 @@ export function syncedSettings(settings: JsonObject): JsonObject {
 export function withLocalOnly(merged: JsonObject, local: JsonObject): JsonObject {
   const out = structuredClone(merged)
   for (const key of LOCAL_ONLY_ROOTS) if (key in local) out[key] = local[key]
-  for (const { group, field } of PROGRAM_SETTINGS) {
+  for (const { group, field } of LOCAL_ONLY_FIELDS) {
     const from = local[group]
     if (!isObject(from) || !(field in from)) continue
     const into = isObject(out[group]) ? (out[group] as JsonObject) : {}

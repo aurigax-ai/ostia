@@ -61,5 +61,12 @@
     "issue": 193,
     "until": "2026-11-03",
     "platforms": ["darwin"]
+  },
+  {
+    "file": "src/main/tmux/keptShells.integration.test.ts",
+    "name": "KeptShells > KSH-C52 ends a sandboxed shell whose sandbox host died while Ostia was away and marks it lost",
+    "issue": 448,
+    "until": "2026-11-05",
+    "platforms": ["linux"]
   }
 ]

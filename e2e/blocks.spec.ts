@@ -1,7 +1,7 @@
-import { _electron as electron, expect, test } from './test'
 import { chords } from './chords'
 import { isolatedLaunch } from './dataHome'
 import { openWorkspace } from './helpers'
+import { _electron as electron, expect, test } from './test'
 
 test('blocks: select, copy output, navigate by chord, and reinsert from history', async () => {
   test.setTimeout(90_000)

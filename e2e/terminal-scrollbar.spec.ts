@@ -1,6 +1,6 @@
-import { _electron as electron, expect, test } from './test'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { emptyState, openWorkspace } from './helpers'
+import { _electron as electron, expect, test } from './test'
 
 test('the terminal text stops before the scrollbar and inside the pane', async () => {
   const dataHome = freshDataHome()

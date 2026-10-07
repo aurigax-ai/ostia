@@ -1,14 +1,8 @@
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import {
-  type ElectronApplication,
-  type Page,
-  _electron as electron,
-  expect,
-  test,
-} from './test'
 import { freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { PROMPT, emptyWorkspace, openWorkspace } from './helpers'
+import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
 
 const WORKSPACES = 5
 const EXIT_TIMEOUT_MS = 15_000
@@ -80,7 +74,11 @@ async function confirmQuitIfAsked(win: Page, done: Promise<boolean>): Promise<vo
       .then(() => true)
       .catch(() => false),
   ])
-  if (asked) await dialog.getByRole('button', { name: 'Quit' }).click().catch(() => {})
+  if (asked)
+    await dialog
+      .getByRole('button', { name: 'Quit' })
+      .click()
+      .catch(() => {})
 }
 
 async function stopApp({ app, win }: Launched, how: 'quit' | NodeJS.Signals): Promise<void> {

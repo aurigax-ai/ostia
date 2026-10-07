@@ -91,7 +91,12 @@ describe('CommandPalette', () => {
 
     await userEvent.click(await screen.findByRole('option', { name: /Open Settings/ }))
 
-    expect(exec).toHaveBeenCalledWith('app.openSettings')
+    expect(exec).toHaveBeenCalledWith('app.openSettings', undefined)
+    expect(window.ostia.telemetry.count).toHaveBeenCalledWith(
+      'features',
+      'command',
+      'app.openSettings',
+    )
     expect(useUIStore.getState().paletteOpen).toBe(false)
   })
 

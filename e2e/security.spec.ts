@@ -1,5 +1,5 @@
-import { _electron as electron, expect, test } from './test'
 import { isolatedLaunch } from './dataHome'
+import { _electron as electron, expect, test } from './test'
 
 type OstiaFs = {
   ostia: {

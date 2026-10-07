@@ -1,8 +1,8 @@
 import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
-import { _electron as electron, expect, test } from './test'
 import { isolatedLaunch } from './dataHome'
 import { openWorkspace } from './helpers'
+import { _electron as electron, expect, test } from './test'
 
 test('a browser tab shows why a page failed, then loads a page as plain Chrome and takes its title', async () => {
   const agents: string[] = []

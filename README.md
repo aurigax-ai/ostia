@@ -111,6 +111,40 @@ pnpm build && pnpm test:e2e   # Playwright against the built app
 
 Without `pnpm rebuild`, terminals stay disabled and the log says `node-pty unavailable`.
 
+## Privacy and telemetry
+
+Ostia sends nothing unless you turn it on. On first start it asks once, with every box unticked,
+and Settings → Privacy has one switch per category you can change at any time:
+
+- **Crash and error reports**: uncaught errors and crashes of the app, its windows and its
+  extensions. A report holds the error name, the message with paths stripped and secrets
+  redacted, and a stack trace reduced to function and file names.
+- **App usage**: app starts, session length, how many windows and workspaces were open (as a
+  range), and whether the workspace restore succeeded.
+- **Feature usage**: counts of palette commands, pane kinds, settings sections and default
+  chords used, plus the input mode and prompt style in effect. Custom keybindings are never sent.
+- **Terminal engine and performance**: the engine (xterm or Ghostty), whether GPU acceleration
+  is on, WebGL fallbacks, hibernation wakes, spawn failures as a reason code, and the shell
+  family.
+- **Extensions**: ids of installed and enabled extensions from the official marketplace only,
+  and counts of their setting changes by key name.
+- **AI agent usage**: counts of agent sessions by agent name, resumes, hibernations, approval
+  cards by capability, questions and bus messages. Never the prompts or messages themselves.
+
+Whatever you share also carries the install context: a random install id you can reset, the app
+and Electron versions, the operating system and architecture, the display language and whether
+the build is packaged.
+
+Reports go from the main
+process alone, in batches over https, to PostHog (`us.i.posthog.com`), the analytics service the
+developers use. The project key is stamped into release builds only: a build from source has no
+key, sends nothing, never asks, and Settings → Privacy says so. Never included, in any category:
+terminal output, what you type, command lines, prompts, file paths or names, URLs, environment
+variables, settings values, workspace names, custom keybindings, tokens or your IP address. Detected secrets are redacted and free
+text is clipped. **Show what Ostia sends** in Settings → Privacy lists the queued and last-sent
+reports exactly as they go out, filtered by category, and **Review consent again** reopens the
+first-start dialog. Turning a category off stops its sends at once and drops what was queued.
+
 ## Licence
 
 From 0.5.10, Ostia is licensed under the [Functional Source License, Version 1.1, MIT Future License](LICENSE) (FSL-1.1-MIT). It is source-available, not open source.

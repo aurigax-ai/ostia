@@ -1,6 +1,6 @@
-import { _electron as electron, expect, test } from './test'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { openWorkspace } from './helpers'
+import { _electron as electron, expect, test } from './test'
 
 for (const order of ['enter-first', 'resize-first'] as const) {
   test(`output that arrives while a resize is held survives the next resize (${order})`, async () => {

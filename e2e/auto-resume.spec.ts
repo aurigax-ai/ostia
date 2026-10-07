@@ -1,15 +1,9 @@
 import type { ChildProcess } from 'node:child_process'
 import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import {
-  type ElectronApplication,
-  type Page,
-  _electron as electron,
-  expect,
-  test,
-} from './test'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { openWorkspace, pressQuit, waitForExit } from './helpers'
+import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
 
 function seedAgentTabs(dataHome: string): void {
   mkdirSync(join(dataHome, 'ostia'), { recursive: true })

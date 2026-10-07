@@ -52,6 +52,7 @@ import {
   parseRedactionSettings,
 } from '../../shared/redaction'
 import { type SandboxGlobals, parseSandboxGlobals } from '../../shared/sandbox'
+import { type TelemetrySettings, parseTelemetrySettings } from '../../shared/telemetry'
 import { normalizeGroupName } from '../../shared/workspaceGroups'
 import { ZOOM_DEFAULT, clampZoom } from '../../shared/zoom'
 import type { Locale } from '../i18n/dict'
@@ -425,6 +426,7 @@ interface SettingsState extends Persisted {
   setSandbox: (next: SandboxGlobals) => Promise<void>
   setManager: (patch: Partial<ManagerSettings>) => void
   setRedaction: (patch: Partial<RedactionSettings>) => Promise<void>
+  setTelemetry: (patch: Partial<TelemetrySettings>) => Promise<void>
   setBrowser: (patch: Partial<BrowserSettings>) => void
   setEditor: (patch: Partial<EditorSettings>) => void
   setAutoResume: (autoResume: boolean) => void
@@ -824,7 +826,20 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   },
   setRedaction: async (patch) => {
     set((s) => ({
-      privacy: { redaction: parseRedactionSettings({ ...s.privacy.redaction, ...patch }) },
+      privacy: {
+        ...s.privacy,
+        redaction: parseRedactionSettings({ ...s.privacy.redaction, ...patch }),
+      },
+    }))
+    scheduleSave.cancel()
+    await writeSettings(get())
+  },
+  setTelemetry: async (patch) => {
+    set((s) => ({
+      privacy: {
+        ...s.privacy,
+        telemetry: parseTelemetrySettings({ ...s.privacy.telemetry, ...patch }),
+      },
     }))
     scheduleSave.cancel()
     await writeSettings(get())

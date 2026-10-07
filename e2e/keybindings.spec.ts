@@ -1,7 +1,7 @@
-import { type Page, _electron as electron, expect, test } from './test'
 import { isMac } from './chords'
 import { isolatedLaunch } from './dataHome'
 import { openWorkspace } from './helpers'
+import { type Page, _electron as electron, expect, test } from './test'
 
 async function openKeyboardSettings(win: Page) {
   await win.locator('.topbar').getByRole('button', { name: 'Settings' }).click()

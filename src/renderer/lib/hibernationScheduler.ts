@@ -5,6 +5,7 @@ import { type HibernationCandidate, pickHibernation } from './hibernation'
 import { paneActivityAt } from './paneActivity'
 import { runningAgentOf } from './paneAgent'
 import { resumeWhenIdle } from './resumeFolder'
+import { countUsage } from './usageCounts'
 import { isPaneVisible, workspaceOfPane } from './workspaceActivity'
 
 export const HIBERNATION_CHECK_MS = 5000
@@ -41,6 +42,7 @@ export function wakePane(paneId: string): boolean {
   const pane = layout ? findPane(layout.root, paneId) : null
   if (!workspaceId || !pane?.hibernated) return false
   useLayoutStore.getState().setHibernated(workspaceId, paneId, false)
+  countUsage('terminal', 'wake')
   if (pane.resume) {
     window.ostia.pty.reportWaking(paneId, true)
     resumeWhenIdle(paneId, pane.resume, () => window.ostia.pty.reportWaking(paneId, false))
