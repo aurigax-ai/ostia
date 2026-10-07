@@ -18,6 +18,7 @@ export default defineWorkspace([
         'src/extensions/**/*.test.ts',
         'test/quarantine.test.ts',
         'test/affectedTests.test.ts',
+        'test/mergeQueueVerified.test.ts',
       ],
     },
   },

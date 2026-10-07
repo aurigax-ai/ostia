@@ -58,6 +58,8 @@ jobs:
     permissions:
       contents: read
       pull-requests: read
+      checks: read
+      actions: read
     outputs:
       code: ${{ github.ref_type == 'tag' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || steps.filter.outputs.code }}
       # The e2e suites (Linux, macOS) are the slow part. They run for tags
@@ -77,6 +79,10 @@ jobs:
       # against the base can affect (scripts/affectedTests.mjs); empty means
       # every test, as on main, the nightly run, tags and manual dispatch.
       tests: ${{ steps.tests.outputs.plan }}
+      # A push to main whose sha already passed ci-result in the merge queue
+      # (scripts/mergeQueueVerified.mjs) skips static, unit, unit-dom and build.
+      # Any other push, or a failed lookup, runs them as before.
+      verified: ${{ steps.verified.outputs.verified == 'true' }}
     steps:
       # Routing only, not security: a PR can edit this step. The self-hosted
       # runners enforce the same rule in their job-started hook, which a PR
@@ -157,10 +163,21 @@ jobs:
               - '**'
               - '!**/*.md'
               - '!docs/**'
+      - if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        id: verified
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.sha }}
+        run: |
+          verified=$(node scripts/mergeQueueVerified.mjs "$SHA" 2> "$RUNNER_TEMP/verified.log") || verified=false
+          [ "$verified" = true ] || verified=false
+          cat "$RUNNER_TEMP/verified.log"
+          echo "verified=$verified" >> "$GITHUB_OUTPUT"
+          { echo "Merge queue verified: $verified"; cat "$RUNNER_TEMP/verified.log"; } >> "$GITHUB_STEP_SUMMARY"
 
   static:
     needs: changes
-    if: needs.changes.outputs.code == 'true'
+    if: needs.changes.outputs.code == 'true' && needs.changes.outputs.verified != 'true'
     runs-on: ${{ fromJSON(needs.changes.outputs.linux) }}
     timeout-minutes: 10
     steps:
@@ -175,7 +192,7 @@ jobs:
 
   unit:
     needs: changes
-    if: needs.changes.outputs.code == 'true'
+    if: needs.changes.outputs.code == 'true' && needs.changes.outputs.verified != 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -201,7 +218,7 @@ jobs:
 
   unit-dom:
     needs: changes
-    if: needs.changes.outputs.code == 'true'
+    if: needs.changes.outputs.code == 'true' && needs.changes.outputs.verified != 'true'
     runs-on: ${{ fromJSON(needs.changes.outputs.linux) }}
     timeout-minutes: 15
     steps:
@@ -218,7 +235,7 @@ jobs:
 
   build:
     needs: changes
-    if: needs.changes.outputs.code == 'true'
+    if: needs.changes.outputs.code == 'true' && needs.changes.outputs.verified != 'true'
     runs-on: ${{ fromJSON(needs.changes.outputs.linux) }}
     timeout-minutes: 10
     steps:
@@ -508,10 +525,11 @@ jobs:
           CODE: ${{ needs.changes.outputs.code }}
           FULL: ${{ needs.changes.outputs.full }}
           PLATFORM: ${{ needs.changes.outputs.platform }}
+          VERIFIED: ${{ needs.changes.outputs.verified }}
         run: |
           echo "$NEEDS" | jq -e --arg code "$CODE" --arg full "$FULL" --arg platform "$PLATFORM" '
             .changes.result == "success" and
             (."e2e-ptrace".result | IN("success", "skipped")) and
             .e2e.result == (if $full == "true" and $platform != "macos" then "success" else "skipped" end) and
             (del(.changes, ."e2e-ptrace", .e2e) | to_entries
-              | all(.value.result == (if $code == "true" then "success" else "skipped" end)))'
+              | all(.value.result == (if $code == "true" and env.VERIFIED != "true" then "success" else "skipped" end)))'
