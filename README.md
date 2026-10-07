@@ -59,6 +59,9 @@ notarized `ostia-<version>-arm64.dmg` from the
 [latest release](https://github.com/aurigax-ai/ostia/releases/latest) and drag Ostia to
 Applications.
 
+The cask also links the `ostia` command into your PATH, so `ostia --help` works in any terminal.
+With the dmg, run `Ostia.app/Contents/Resources/bin/ostia` directly.
+
 ### Debian and Ubuntu (x64)
 
 ```bash

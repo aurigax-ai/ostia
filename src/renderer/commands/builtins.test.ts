@@ -327,6 +327,25 @@ describe('builtins route to store actions', () => {
     expect(useSettingsStore.getState().agents.autoResume).toBe(false)
   })
 
+  it('settings.set and settings.unset refuse the reference auto-send switch, directly or via agents', async () => {
+    const direct = await commands.execWith(ctx(null, null), 'settings.set', {
+      key: 'agents.autoSendReferences',
+      value: false,
+    })
+    const nested = await commands.execWith(ctx(null, null), 'settings.set', {
+      key: 'agents',
+      value: { ...useSettingsStore.getState().agents, autoSendReferences: false },
+    })
+    const unset = await commands.execWith(ctx(null, null), 'settings.unset', {
+      key: 'agents.autoSendReferences',
+    })
+    for (const res of [direct, nested, unset]) {
+      expect(res.ok).toBe(false)
+      if (!res.ok) expect(res.error.message).toMatch(/agents.autoSendReferences/)
+    }
+    expect(useSettingsStore.getState().agents.autoSendReferences).toBe(true)
+  })
+
   it('settings.set and settings.unset refuse secret redaction, whole or by key', async () => {
     const off = await commands.execWith(ctx(null, null), 'settings.set', {
       key: 'privacy.redaction.enabled',
@@ -654,6 +673,15 @@ describe('builtins route to store actions', () => {
 
   it('routes pane.close to layout.closePane with an explicit paneId', async () => {
     const closePane = vi.spyOn(useLayoutStore.getState(), 'closePane').mockImplementation(() => {})
+    useLayoutStore.setState({
+      byWorkspace: {
+        s1: {
+          root: { ...createPane('terminal'), id: 'pX' },
+          activePaneId: 'pX',
+          zoomedPaneId: null,
+        },
+      },
+    })
 
     await commands.execWith(ctx('s1', 'pA'), 'pane.close', { paneId: 'pX' })
 
@@ -684,6 +712,15 @@ describe('builtins route to store actions', () => {
   })
 
   it('asks the human before closing a pane but closes at once for an agent on the socket', async () => {
+    useLayoutStore.setState({
+      byWorkspace: {
+        s1: {
+          root: { ...createPane('terminal'), id: 'pX' },
+          activePaneId: 'pX',
+          zoomedPaneId: null,
+        },
+      },
+    })
     const ask = vi.spyOn(closeConfirm, 'requestClosePane').mockResolvedValue()
     const closePane = vi.spyOn(useLayoutStore.getState(), 'closePane').mockImplementation(() => {})
 
@@ -696,6 +733,28 @@ describe('builtins route to store actions', () => {
     await commands.execWith(fromSocket, 'pane.close', { paneId: 'pX' })
     expect(ask).not.toHaveBeenCalled()
     expect(closePane).toHaveBeenCalledWith('s1', 'pX')
+  })
+
+  it('answers unknown-pane for a paneId that names no pane in the workspace', async () => {
+    const closePane = vi.spyOn(useLayoutStore.getState(), 'closePane').mockImplementation(() => {})
+    const ask = vi.spyOn(closeConfirm, 'requestClosePane').mockResolvedValue()
+    useLayoutStore.setState({
+      byWorkspace: {
+        s1: {
+          root: { ...createPane('terminal'), id: 'pX' },
+          activePaneId: 'pX',
+          zoomedPaneId: null,
+        },
+      },
+    })
+    const fromSocket = { ...ctx('s1', 'pA'), target: { workspaceId: 's1', paneId: 'pA' } }
+
+    for (const context of [fromSocket, ctx('s1', 'pA')]) {
+      const result = await commands.execWith(context, 'pane.close', { paneId: 'p-external' })
+      expect(result.ok ? '' : result.error.message).toContain('unknown-pane: p-external')
+    }
+    expect(closePane).not.toHaveBeenCalled()
+    expect(ask).not.toHaveBeenCalled()
   })
 
   it('still asks the human when an agent closes a pane holding unsaved changes', async () => {
@@ -803,8 +862,9 @@ describe('builtins route to store actions', () => {
     it('leaves an empty workspace open when the named pane is not there', async () => {
       seed(false)
 
-      await commands.execWith(activeContext(), 'pane.close', { paneId: 'gone' })
+      const result = await commands.execWith(activeContext(), 'pane.close', { paneId: 'gone' })
 
+      expect(result.ok ? '' : result.error.message).toContain('unknown-pane: gone')
       expect(ids()).toEqual(['s1', 's2'])
     })
 
@@ -1585,7 +1645,12 @@ describe('agent resume', () => {
     const r = await commands.execWith(ctx('s1', pane.id), 'agent.resume')
     expect(r).toMatchObject({ ok: true, result: { resumed: true } })
     expect(useLayoutStore.getState().byWorkspace.s1.root).not.toHaveProperty('hibernated')
-    expect(whenIdle).toHaveBeenCalledWith(pane.id, 'codex resume r-9')
+    expect(whenIdle).toHaveBeenCalledWith(
+      pane.id,
+      'codex resume r-9',
+      undefined,
+      expect.any(Function),
+    )
     expect(insert).not.toHaveBeenCalled()
   })
 

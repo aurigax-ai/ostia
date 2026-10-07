@@ -9,6 +9,7 @@ import { isRemotePath } from '@shared/remoteFolders'
 import type { ReactElement } from 'react'
 import { commands } from '../commands/registry'
 import { useDict } from '../i18n/useDict'
+import { splitTabOfPane } from '../layout/tree'
 import type { PaneNode } from '../layout/types'
 import { useChordLabel } from '../lib/chords'
 import { runUserAction } from '../lib/userActions'
@@ -46,7 +47,8 @@ export function PaneTabMenu({
     const layout = workspaceId ? s.byWorkspace[workspaceId] : undefined
     if (!layout) return null
     if (layout.zoomedPaneId === pane.id) return 'zoomed'
-    return layout.root.type === 'split' ? 'zoomable' : null
+    const shared = layout.root.type === 'split' || splitTabOfPane(layout.root, pane.id) !== null
+    return shared ? 'zoomable' : null
   })
   if (!file && tabActions.length === 0 && !movable && !lockable && !zoom) return trigger
 

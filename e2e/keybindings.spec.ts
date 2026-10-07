@@ -301,7 +301,9 @@ test('Ctrl+Shift+Q quits Ostia from a focused terminal on Linux', async () => {
     await openWorkspace(win)
     await focusTerminal(win)
     const closed = new Promise<void>((done) => app.once('close', () => done()))
-    await win.keyboard.press('Control+Shift+q')
+    await win.keyboard.press('Control+Shift+q').catch((error: unknown) => {
+      if (!String(error).includes('has been closed')) throw error
+    })
     await closed
   } finally {
     await app.close().catch(() => undefined)

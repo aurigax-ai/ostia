@@ -1,6 +1,7 @@
 import { hostname } from 'node:os'
 import { type IpcMainInvokeEvent, ipcMain } from 'electron'
 import type {
+  GatewayActionResult,
   GatewayDevice,
   GatewayEnableResponse,
   GatewayPairResponse,
@@ -11,11 +12,13 @@ import type {
   GatewayTailnetState,
 } from '../../shared/types'
 import { registerControlMethod } from '../controlServer'
+import { type Announcement, type Publisher, announcementFor, sameAnnouncement } from './announce'
 import type { Device } from './devices'
 import { list as listDevices, revoke as revokeDevice, setDeviceCap } from './devices'
 import { listBindAddresses } from './interfaces'
-import { newCode } from './pairing'
-import { loadRoute, parseRoute, saveRoute } from './route'
+import { answerPairRequest, listPairRequests } from './pairRequests'
+import { liveCodeCount, newCode, onCodesChanged } from './pairing'
+import { loadDiscoverable, loadRoute, parseRoute, saveDiscoverable, saveRoute } from './route'
 import {
   applyDeviceCaps,
   closeDeviceSockets,
@@ -32,6 +35,32 @@ export interface TailnetDeps {
   controlUrl?: string
 }
 
+let announcer: Publisher | null = null
+let announced: Announcement | null = null
+
+export function configureAnnouncer(publisher: Publisher): void {
+  announcer = publisher
+  announced = null
+}
+
+function refreshAnnouncement(): void {
+  const status = gatewayStatus()
+  const next = announcementFor({
+    discoverable: loadDiscoverable(),
+    liveCodes: liveCodeCount(),
+    name: hostname(),
+    host: status.running ? pairHost() : null,
+    port: status.port,
+    fingerprint: status.fingerprint,
+  })
+  if (sameAnnouncement(next, announced)) return
+  announced = next
+  if (next) announcer?.publish(next)
+  else announcer?.unpublish()
+}
+
+onCodesChanged(refreshAnnouncement)
+
 let tailnet: Tailnet | null = null
 let tailnetDeps: TailnetDeps = { openExternal: () => {} }
 
@@ -44,6 +73,7 @@ export function onTailnetChange(state: GatewayTailnetState): void {
   setTailnetHosts(
     state.state === 'running' ? [state.ip, state.dnsName].filter((h): h is string => !!h) : [],
   )
+  refreshAnnouncement()
 }
 
 function toPhoneSafeDevice(d: Device): GatewayDevice {
@@ -61,7 +91,12 @@ function tailnetState(): GatewayTailnetState {
 }
 
 export function remoteStatus(): GatewayRemoteStatus {
-  return { ...gatewayStatus(), tailnet: tailnetState(), route: loadRoute() }
+  return {
+    ...gatewayStatus(),
+    tailnet: tailnetState(),
+    route: loadRoute(),
+    discoverable: loadDiscoverable(),
+  }
 }
 
 function isBindable(address: string): boolean {
@@ -100,6 +135,7 @@ function pairHost(): string | null {
 export async function disableRemote(): Promise<GatewayRemoteStatus> {
   await tailnet?.stop()
   await stopGateway()
+  refreshAnnouncement()
   return remoteStatus()
 }
 
@@ -149,6 +185,21 @@ export function gatewaySetCap(params: unknown): GatewaySetCapResult {
 
 function fromWindow(e: IpcMainInvokeEvent): boolean {
   return e.sender.getType() === 'window'
+}
+
+function setDiscoverable(value: unknown): GatewayActionResult {
+  if (typeof value !== 'boolean') return { ok: false, error: 'invalid' }
+  saveDiscoverable(value)
+  refreshAnnouncement()
+  return { ok: true }
+}
+
+function answerPair(params: unknown): GatewayActionResult {
+  const { requestId, approve } = (params ?? {}) as { requestId?: unknown; approve?: unknown }
+  if (typeof requestId !== 'string' || typeof approve !== 'boolean') {
+    return { ok: false, error: 'invalid' }
+  }
+  return answerPairRequest(requestId, approve) ? { ok: true } : { ok: false, error: 'invalid' }
 }
 
 function tailnetSignIn(): GatewayTailnetActionResult {
@@ -207,6 +258,15 @@ export function registerGatewayIpc(): void {
   ipcMain.handle('gateway:set-route', (e, params): GatewaySetRouteResult => {
     if (!fromWindow(e)) return { ok: false, error: 'not-a-window' }
     return setRoute(params)
+  })
+  ipcMain.handle('gateway:set-discoverable', (e, value): GatewayActionResult => {
+    if (!fromWindow(e)) return { ok: false, error: 'not-a-window' }
+    return setDiscoverable(value)
+  })
+  ipcMain.handle('gateway:pair-requests', () => listPairRequests())
+  ipcMain.handle('gateway:pair-answer', (e, params): GatewayActionResult => {
+    if (!fromWindow(e)) return { ok: false, error: 'not-a-window' }
+    return answerPair(params)
   })
   ipcMain.handle('gateway:tailnet-sign-in', (e): GatewayTailnetActionResult => {
     if (!fromWindow(e)) return { ok: false, error: 'not-a-window' }

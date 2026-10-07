@@ -18,7 +18,14 @@ export function PaneTree({ workspaceId }: { workspaceId: string }): JSX.Element 
   if (layout.zoomedPaneId) {
     const zoomed = findPane(layout.root, layout.zoomedPaneId)
     if (zoomed) {
-      return <Pane tabs={[zoomed]} shownId={zoomed.id} active={zoomed.id === layout.activePaneId} />
+      return (
+        <Pane
+          tabs={[zoomed]}
+          shownId={zoomed.id}
+          activePaneId={layout.activePaneId}
+          workspaceId={workspaceId}
+        />
+      )
     }
   }
   return (
@@ -48,14 +55,23 @@ function NodeView({
   const resize = useLayoutStore((s) => s.resize)
 
   if (node.type === 'pane') {
-    return <Pane tabs={[node]} shownId={node.id} active={node.id === activePaneId} split={split} />
+    return (
+      <Pane
+        tabs={[node]}
+        shownId={node.id}
+        activePaneId={activePaneId}
+        workspaceId={workspaceId}
+        split={split}
+      />
+    )
   }
   if (node.type === 'tabs') {
     return (
       <Pane
         tabs={node.children}
         shownId={node.activeId}
-        active={node.activeId === activePaneId}
+        activePaneId={activePaneId}
+        workspaceId={workspaceId}
         split={split}
       />
     )

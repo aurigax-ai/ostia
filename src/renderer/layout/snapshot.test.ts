@@ -1,7 +1,16 @@
 import type { AppSnapshot } from '@shared/types'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { buildSnapshot, restoreSnapshot } from './snapshot'
-import { createPane, resetIds, setDefaultPaneTitle, setPaneView, splitOf } from './tree'
+import {
+  createPane,
+  nameSplitTabOf,
+  resetIds,
+  setDefaultPaneTitle,
+  setPaneView,
+  splitOf,
+  splitPane,
+  tabsOf,
+} from './tree'
 import type { LayoutNode } from './types'
 
 beforeEach(() => resetIds())
@@ -42,6 +51,16 @@ describe('buildSnapshot', () => {
     const captured = build(root, a.id)?.workspaces[0].root
     expect(captured).toMatchObject({ type: 'split', direction: 'vertical', sizes: [1, 1] })
     expect(captured?.type === 'split' && captured.children.map((c) => c.id)).toEqual([a.id, b.id])
+  })
+
+  it('round-trips a named split tab and the pane shown in it', () => {
+    const [a, b, c] = [createPane(), createPane(), createPane()]
+    const stacked = splitPane(tabsOf(b.id, a, b), b.id, 'vertical', c).root
+    const root = nameSplitTabOf(stacked, c.id, 'api')
+    const snapshot = build(root, c.id)
+    const restored = restoreSnapshot(snapshot).layouts.s1
+    expect(restored.root).toEqual(root)
+    expect(restored.activePaneId).toBe(c.id)
   })
 
   it('carries an editor’s file path and a browser’s url', () => {
@@ -293,6 +312,31 @@ describe('agent running at save', () => {
     }
     expect(restored.children.find((p) => p.id === agent.id)?.resumePending).toBe(true)
     expect(restored.children.find((p) => p.id === idle.id)?.resumePending).toBeUndefined()
+  })
+
+  it('restores a running agent’s pane to start its shell in the agent’s folder, never saving that mark', () => {
+    const agent = {
+      ...createPane('terminal'),
+      cwd: '/w',
+      resume: { ...resume, cwd: '/w/tree' },
+      spawnDir: '/w/tree',
+      resumeFolderMissing: '/w/old',
+    }
+    const snap = buildSnapshot({
+      workspaces: [workspace],
+      groups: [],
+      activeWorkspaceId: 'w1',
+      layouts: { w1: { root: agent, activePaneId: agent.id } },
+      savedAt: 'now',
+      liveAgentPanes: new Set([agent.id]),
+    })
+    expect(snap.workspaces[0].root).not.toHaveProperty('spawnDir')
+    expect(snap.workspaces[0].root).not.toHaveProperty('resumeFolderMissing')
+    expect(restoreSnapshot(snap).layouts.w1.root).toMatchObject({
+      cwd: '/w',
+      resumePending: true,
+      spawnDir: '/w/tree',
+    })
   })
 
   it('saves and restores a locked pane as locked', () => {

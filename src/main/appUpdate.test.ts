@@ -9,7 +9,7 @@ vi.mock('electron', () => ({
 
 const { createUpdateWatcher } = await import('./appUpdate')
 
-const RUNNING = { version: '1.0.0', commit: 'abc', builtAt: '2026-09-30T10:00:00Z' }
+const RUNNING = { version: '1.0.0+sha.abcabc', builtAt: '2026-09-30T10:00:00Z' }
 
 describe('createUpdateWatcher', () => {
   it('stays quiet while the installed build is the running one', () => {
@@ -20,7 +20,7 @@ describe('createUpdateWatcher', () => {
   })
 
   it('announces a new build once, even at the same version, and again for a later one', () => {
-    let disk = { ...RUNNING, commit: 'def', builtAt: '2026-09-30T11:00:00Z' }
+    let disk = { ...RUNNING, version: '1.0.0+sha.defdef', builtAt: '2026-09-30T11:00:00Z' }
     const onUpdate = vi.fn()
     const watcher = createUpdateWatcher({ current: RUNNING, read: () => disk, onUpdate })
 

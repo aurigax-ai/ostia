@@ -32,14 +32,16 @@ describe('Pane settings', () => {
   }
 
   it('does not dim an inactive split pane when dimming is off', () => {
-    const { container } = render(<Pane tabs={[pane]} shownId="p9" active={false} split />)
+    const { container } = render(
+      <Pane tabs={[pane]} shownId="p9" activePaneId="elsewhere" workspaceId="w" split />,
+    )
     expect(container.querySelector('.pane')).toHaveClass('dimmed')
     act(() => useSettingsStore.getState().setPanes({ dimInactive: false }))
     expect(container.querySelector('.pane')).not.toHaveClass('dimmed')
   })
 
   it('removes the tab close button when hidden', () => {
-    render(<Pane tabs={[pane]} shownId="p9" active />)
+    render(<Pane tabs={[pane]} shownId="p9" activePaneId={'p9'} workspaceId="w" />)
     expect(screen.getByRole('button', { name: 'Close tab' })).toBeInTheDocument()
     act(() => useSettingsStore.getState().setPanes({ hideTabClose: true }))
     expect(screen.queryByRole('button', { name: 'Close tab' })).toBeNull()
@@ -47,7 +49,9 @@ describe('Pane settings', () => {
 
   it('does nothing on hover by default', () => {
     const exec = vi.spyOn(commands, 'exec').mockResolvedValue({ ok: true, result: undefined })
-    const { container } = render(<Pane tabs={[pane]} shownId="p9" active={false} />)
+    const { container } = render(
+      <Pane tabs={[pane]} shownId="p9" activePaneId="elsewhere" workspaceId="w" />,
+    )
     enterPane(container)
     vi.advanceTimersByTime(500)
     expect(exec).not.toHaveBeenCalled()
@@ -56,7 +60,9 @@ describe('Pane settings', () => {
   it('focuses an inactive pane after the pointer rests on it', () => {
     useSettingsStore.getState().setPanes({ focusOnHover: true })
     const exec = vi.spyOn(commands, 'exec').mockResolvedValue({ ok: true, result: undefined })
-    const { container } = render(<Pane tabs={[pane]} shownId="p9" active={false} />)
+    const { container } = render(
+      <Pane tabs={[pane]} shownId="p9" activePaneId="elsewhere" workspaceId="w" />,
+    )
     enterPane(container)
     vi.advanceTimersByTime(100)
     expect(exec).not.toHaveBeenCalled()
@@ -67,7 +73,9 @@ describe('Pane settings', () => {
   it('cancels the focus when the pointer leaves early', () => {
     useSettingsStore.getState().setPanes({ focusOnHover: true })
     const exec = vi.spyOn(commands, 'exec').mockResolvedValue({ ok: true, result: undefined })
-    const { container } = render(<Pane tabs={[pane]} shownId="p9" active={false} />)
+    const { container } = render(
+      <Pane tabs={[pane]} shownId="p9" activePaneId="elsewhere" workspaceId="w" />,
+    )
     enterPane(container)
     container.querySelector('.pane')?.dispatchEvent(new MouseEvent('mouseleave'))
     vi.advanceTimersByTime(500)
@@ -77,7 +85,9 @@ describe('Pane settings', () => {
   it('never steals focus from a text field or an open dialog', () => {
     useSettingsStore.getState().setPanes({ focusOnHover: true })
     const exec = vi.spyOn(commands, 'exec').mockResolvedValue({ ok: true, result: undefined })
-    const { container } = render(<Pane tabs={[pane]} shownId="p9" active={false} />)
+    const { container } = render(
+      <Pane tabs={[pane]} shownId="p9" activePaneId="elsewhere" workspaceId="w" />,
+    )
     const field = document.createElement('input')
     document.body.appendChild(field)
     field.focus()
@@ -97,7 +107,9 @@ describe('Pane settings', () => {
   it('leaves an already active pane alone', () => {
     useSettingsStore.getState().setPanes({ focusOnHover: true })
     const exec = vi.spyOn(commands, 'exec').mockResolvedValue({ ok: true, result: undefined })
-    const { container } = render(<Pane tabs={[pane]} shownId="p9" active />)
+    const { container } = render(
+      <Pane tabs={[pane]} shownId="p9" activePaneId={'p9'} workspaceId="w" />,
+    )
     enterPane(container)
     vi.advanceTimersByTime(500)
     expect(exec).not.toHaveBeenCalled()

@@ -1,10 +1,30 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { mountSurface, parkSurface, releaseSurfaces, surfaceHost } from './surfaceSlotsStore'
+import {
+  focusSurface,
+  mountSurface,
+  parkSurface,
+  releaseSurfaces,
+  surfaceHost,
+} from './surfaceSlotsStore'
 
 const div = () => document.createElement('div')
 
 describe('surfaceSlotsStore', () => {
   afterEach(() => releaseSurfaces(new Set()))
+
+  it('focusSurface focuses the input of a Ghostty terminal', () => {
+    const slot = div()
+    document.body.appendChild(slot)
+    mountSurface('pane-1', slot)
+    const ghostty = div()
+    ghostty.className = 'ghostty-host'
+    const input = document.createElement('textarea')
+    ghostty.appendChild(input)
+    surfaceHost('pane-1').appendChild(ghostty)
+    focusSurface('pane-1')
+    expect(document.activeElement).toBe(input)
+    slot.remove()
+  })
 
   it('returns the same host element for a pane on every call', () => {
     expect(surfaceHost('pane-1')).toBe(surfaceHost('pane-1'))

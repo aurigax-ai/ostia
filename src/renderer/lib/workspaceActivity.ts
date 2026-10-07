@@ -1,3 +1,4 @@
+import type { AttentionState } from '@shared/types'
 import {
   type FocusDirection,
   adjacentTab,
@@ -15,6 +16,7 @@ import { useWindowsStore } from '../stores/windowsStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
 import {
   type AttentionEvent,
+  type PaneAttention,
   aggregateWorkspaceState,
   latestUnread,
   paneLiveState,
@@ -201,9 +203,37 @@ export function jumpToLatestUnreadIn(workspaceId: string): boolean {
   return target !== null && revealPane(target)
 }
 
+export interface PaneAttentionChange {
+  paneId: string
+  state: AttentionState
+  message?: string
+}
+
+export function paneAttentionChanges(
+  next: Readonly<Record<string, PaneAttention>>,
+  prev: Readonly<Record<string, PaneAttention>>,
+): PaneAttentionChange[] {
+  const changes: PaneAttentionChange[] = []
+  for (const [paneId, attention] of Object.entries(next)) {
+    const before = prev[paneId]
+    if (before?.state === attention.state && before?.message === attention.message) continue
+    if (!before && attention.state === 'none') continue
+    changes.push({
+      paneId,
+      state: attention.state,
+      ...(attention.message ? { message: attention.message } : {}),
+    })
+  }
+  return changes
+}
+
 export function startAttentionSync(): () => void {
   const offAttention = useAttentionStore.subscribe((s, prev) => {
-    if (s.byPane !== prev.byPane) syncAllWorkspaceStates()
+    if (s.byPane === prev.byPane) return
+    for (const change of paneAttentionChanges(s.byPane, prev.byPane)) {
+      window.ostia?.lifecycle?.emit?.({ type: 'pane-attention', ...change })
+    }
+    syncAllWorkspaceStates()
   })
   const offBlocks = useBlocksStore.subscribe((s, prev) => {
     if (s.running !== prev.running) syncAllWorkspaceStates()

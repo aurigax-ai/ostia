@@ -416,11 +416,11 @@ describe('KeyboardSection', () => {
     expect(picker).toHaveTextContent('Ostia standard')
     const buttons = screen.getAllByRole('button', { name: /^Edit / })
     expect(buttons.map((b) => b.getAttribute('aria-label'))).toEqual([
-      'Edit Ctrl+←',
-      'Edit Ctrl+→',
       'Edit Alt+←',
       'Edit Alt+→',
       'Edit Ctrl+Backspace',
+      'Edit Ctrl+←',
+      'Edit Ctrl+→',
     ])
     await userEvent.click(picker)
     expect(await screen.findByRole('option', { name: 'Ostia standard' })).toBeInTheDocument()
@@ -453,8 +453,8 @@ describe('KeyboardSection', () => {
     expect(useSettingsStore.getState().terminalKeys).toEqual({
       'Ctrl+Alt+K': { type: 'text', value: 'clear\\r' },
     })
-    expect(within(row(/clear/)).getByText('Ctrl+Alt+K')).toBeInTheDocument()
-    expect(within(row(/clear/)).getByText('Custom')).toBeInTheDocument()
+    expect(within(row(/clear\\r/)).getByText('Ctrl+Alt+K')).toBeInTheDocument()
+    expect(within(row(/clear\\r/)).getByText('Custom')).toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: 'Remove Ctrl+Alt+K' }))
     expect(useSettingsStore.getState().terminalKeys).toEqual({})
