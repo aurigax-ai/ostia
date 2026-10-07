@@ -2738,6 +2738,13 @@ export const en = {
     keepShellsDesc:
       'Terminals opened from now on run in a private tmux server, so restarting for an update or a crash leaves them running. Quit still ends them.',
     keepShellsRequirementsBody: 'tmux {version} or newer is needed to keep shells.',
+    experimental: 'Experimental',
+    terminalRenderer: 'Terminal engine',
+    terminalRendererDesc:
+      'Terminals opened from now on, and terminals restored at the next start, use this engine. A terminal that is already open keeps its engine.',
+    rendererXterm: 'xterm.js',
+    rendererGhostty: 'Ghostty',
+    ghosttyFailed: 'Ghostty could not start, so terminals use xterm.js: {reason}',
     externalEditor: 'External editor',
     externalEditorDesc:
       '“auto” uses code, cursor or zed from your PATH. Empty turns it off. Placeholders: {file}, {line}, {column}.',
@@ -5484,6 +5491,13 @@ export const zhHant: Dict = {
     keepShellsDesc:
       '此後開啟的終端機在私有的 tmux 伺服器中執行，因此為更新而重新啟動或當機後仍會繼續執行。結束程式時仍會關閉它們。',
     keepShellsRequirementsBody: '需要 tmux {version} 或更新版本才能保留 shell。',
+    experimental: '實驗性',
+    terminalRenderer: '終端機引擎',
+    terminalRendererDesc:
+      '此後開啟的終端機，以及下次啟動時還原的終端機，都使用此引擎；已開啟的終端機維持原本的引擎。',
+    rendererXterm: 'xterm.js',
+    rendererGhostty: 'Ghostty',
+    ghosttyFailed: 'Ghostty 無法啟動，終端機改用 xterm.js：{reason}',
     externalEditor: '外部編輯器',
     externalEditorDesc:
       '「auto」會使用 PATH 中的 code、cursor 或 zed。留空則停用。預留位置：{file}、{line}、{column}。',

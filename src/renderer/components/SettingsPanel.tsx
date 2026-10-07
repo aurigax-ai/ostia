@@ -52,6 +52,7 @@ import type { Dict, Locale } from '../i18n/dict'
 import { fmt, useDict, withProductName } from '../i18n/useDict'
 import { ACCENT_PRESETS, normalizeHex } from '../lib/color'
 import { extensionMatchesQuery } from '../lib/extensionSettingText'
+import { ghosttyFailure } from '../lib/ghosttyEngine'
 import { useReducedMotion } from '../lib/motion'
 import { openFileInWorkspace } from '../lib/openFile'
 import {
@@ -64,7 +65,7 @@ import {
 import { firstMatchControl, matchesQuery } from '../lib/settingsSearch'
 import { useEffectiveTheme } from '../lib/theme'
 import { isLinux, isMac, platform } from '../platform'
-import type { ClipboardKeys } from '../settings/terminalPaneSettings'
+import type { ClipboardKeys, TerminalRenderer } from '../settings/terminalPaneSettings'
 import {
   CONTRAST_MAX,
   CONTRAST_MIN,
@@ -72,6 +73,7 @@ import {
   SCROLLBACK_MIN,
   SCROLL_SPEED_MAX,
   SCROLL_SPEED_MIN,
+  TERMINAL_RENDERERS,
 } from '../settings/terminalPaneSettings'
 import { WINDOW_TITLE_MAX } from '../settings/windowTitle'
 import { useExtensionsStore } from '../stores/extensionsStore'
@@ -1038,21 +1040,32 @@ export function SelectField<T extends string>({
   )
 }
 
+export function ExperimentalBadge(): JSX.Element {
+  const d = useDict()
+  return (
+    <Badge variant="outline" className="h-4 px-1 text-ui-xs tracking-caps">
+      {d.settings.experimental}
+    </Badge>
+  )
+}
+
 export function ToggleRow({
   label,
   desc,
   checked,
   onChange,
   disabled,
+  labelHint,
 }: {
   label: string
   desc: string
   checked: boolean
   onChange: (v: boolean) => void
   disabled?: boolean
+  labelHint?: React.ReactNode
 }): JSX.Element {
   return (
-    <ControlRow label={label} desc={desc}>
+    <ControlRow label={label} desc={desc} labelHint={labelHint}>
       <Switch checked={checked} onCheckedChange={onChange} aria-label={label} disabled={disabled} />
     </ControlRow>
   )
@@ -1584,6 +1597,7 @@ function TerminalSection(): JSX.Element {
   const shell = useSettingsStore((s) => s.terminal.shell)
   const osc52Write = useSettingsStore((s) => s.terminal.osc52Write)
   const keepShells = useSettingsStore((s) => s.terminal.keepShells)
+  const renderer = useSettingsStore((s) => s.terminal.renderer)
   const keepShellsRequirements = useRequirements(KEEP_SHELLS_FEATURE)
   const keepShellsReport = keepShellsRequirements.report
   const primarySelection = useSettingsStore((s) => s.terminal.primarySelection)
@@ -1591,6 +1605,10 @@ function TerminalSection(): JSX.Element {
   const modeLabel: Record<InputMode, string> = {
     terminal: d.settings.inputModeTerminal,
     editor: d.settings.inputModeEditor,
+  }
+  const rendererLabel: Record<TerminalRenderer, string> = {
+    xterm: d.settings.rendererXterm,
+    ghostty: d.settings.rendererGhostty,
   }
   const styleLabel: Record<CursorStyle, string> = {
     block: d.settings.styleBlock,
@@ -1756,6 +1774,23 @@ function TerminalSection(): JSX.Element {
           checked={gpuAcceleration}
           onChange={(v) => setBehavior({ gpuAcceleration: v })}
         />
+        <ControlRow
+          label={d.settings.terminalRenderer}
+          desc={d.settings.terminalRendererDesc}
+          labelHint={<ExperimentalBadge />}
+        >
+          <SelectField
+            value={renderer}
+            onChange={(r) => setTerminal({ renderer: r })}
+            label={d.settings.terminalRenderer}
+            options={TERMINAL_RENDERERS.map((r) => ({ value: r, label: rendererLabel[r] }))}
+          />
+        </ControlRow>
+        {renderer === 'ghostty' && ghosttyFailure() ? (
+          <WarningNote>
+            {fmt(d.settings.ghosttyFailed, { reason: ghosttyFailure() ?? '' })}
+          </WarningNote>
+        ) : null}
       </SettingsGroup>
       <SettingsGroup title={d.settings.groupSession}>
         <ToggleRow
@@ -1778,6 +1813,7 @@ function TerminalSection(): JSX.Element {
           label={d.settings.keepShells}
           desc={d.settings.keepShellsDesc}
           checked={keepShells}
+          labelHint={<ExperimentalBadge />}
           disabled={!keepShells && (!keepShellsReport || keepShellsReport.missing.length > 0)}
           onChange={(v) => setTerminal({ keepShells: v })}
         />

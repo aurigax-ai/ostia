@@ -21,7 +21,7 @@ import { isWorkspaceGroupColor, normalizeGroupName } from '../shared/workspaceGr
 import { MAX_LAYOUT_DEPTH, MAX_PANES, MAX_WORKSPACES } from '../shared/workspaceLimits'
 import { normalizeDescription } from '../shared/workspaceText'
 import { loadJson, saveJson, storePath } from './jsonStore'
-import { PtyRingBuffer } from './ptyRingBuffer'
+import { tailCut } from './ptyRingBuffer'
 
 const SNAPSHOT_VERSION = 1
 
@@ -373,10 +373,7 @@ export function loadSnapshot(): AppSnapshot | null {
 }
 
 export function trimScrollback(data: string, capBytes = SCROLLBACK_CAP_BYTES): string {
-  if (data.length <= capBytes) return data
-  const ring = new PtyRingBuffer(capBytes)
-  ring.push(data)
-  return ring.since(0).data
+  return data.slice(tailCut(data, capBytes))
 }
 
 const restored = new Map<string, string>()

@@ -22,6 +22,7 @@ const RELATIVE_SCALE_FILES = new Map([
 
 const SETTINGS_FONT_FILES = new Map([
   ['src/renderer/components/Terminal.tsx', 'passes the terminal font settings to xterm'],
+  ['src/renderer/lib/ghosttyTerminal.ts', 'passes the terminal font settings to Ghostty'],
   ['src/renderer/components/ManagerView.tsx', 'passes the terminal font settings to xterm'],
   ['src/renderer/components/Editor.tsx', 'passes the editor font settings to Monaco'],
   ['src/renderer/components/DiffView.tsx', 'passes the editor font settings to Monaco'],

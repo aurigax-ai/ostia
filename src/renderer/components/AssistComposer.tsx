@@ -6,7 +6,6 @@ import type {
   CommandSuggestion,
   PromptReview,
 } from '@shared/assist'
-import type { Terminal as Xterm } from '@xterm/xterm'
 import { type KeyboardEvent, type RefObject, useEffect, useMemo, useRef, useState } from 'react'
 import { composerAgentName, composerModeOf } from '../commands/assistCompose'
 import { fmt, useDict } from '../i18n/useDict'
@@ -14,6 +13,7 @@ import { type ComposerMode, latestRequest, wordDiff } from '../lib/assistCompose
 import { featureEnabled, setAssistFeature, useAssistFeature } from '../lib/assistFeatures'
 import { insertCommand } from '../lib/blockActions'
 import { redactedCount } from '../lib/chatRedaction'
+import type { OstiaTerminal as Xterm } from '../lib/ostiaTerminal'
 import { canInsertReference } from '../lib/sendPick'
 import { terminalFor } from '../lib/terminalHandles'
 import { isMac, platform } from '../platform'

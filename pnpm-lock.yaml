@@ -75,6 +75,9 @@ importers:
       '@ai-sdk/react':
         specifier: ^4.0.125
         version: 4.0.125(react@18.3.1)(zod@4.6.5)
+      '@aurigax-ai/ghostty-web':
+        specifier: ^0.3.1
+        version: 0.3.1
       '@base-ui/react':
         specifier: ^1.7.0
         version: 1.7.0(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -383,6 +386,9 @@ packages:
 
   '@asamuzakjp/nwsapi@2.3.9':
     resolution: {integrity: sha512-n8GuYSrI9bF7FFZ/SjhwevlHc8xaVlb/7HmHelnc/PZXBD2ZR49NnN9sMMuDdEGPeeRQ5d0hqlSlEpgCX3Wl0Q==}
+
+  '@aurigax-ai/ghostty-web@0.3.1':
+    resolution: {integrity: sha512-O4nvjpKOaPUGsI6myh6+V+ZxXUbI68jcYAYYGL4+U7sO01/ECNH9BTPKgFDmK0PHF+slhT85oG7IodCKjq6/gw==}
 
   '@babel/code-frame@7.29.7':
     resolution: {integrity: sha512-Aup7aUOfpbAUg2ROOJN6Iw5f9DMBlzu0mIkm/malLQFN/YQgO48wCj0Kxa3sEHJvPVFg7siR+qRInwXd2qhQKw==}
@@ -5001,6 +5007,8 @@ snapshots:
   '@asamuzakjp/generational-cache@1.0.1': {}
 
   '@asamuzakjp/nwsapi@2.3.9': {}
+
+  '@aurigax-ai/ghostty-web@0.3.1': {}
 
   '@babel/code-frame@7.29.7':
     dependencies:
