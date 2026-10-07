@@ -187,7 +187,7 @@ import {
   pastedText,
   registerPaneIoMethods,
 } from './paneIo'
-import { listPanes, listWorkspaces, registerPaneListMethods } from './paneList'
+import { listPanes, listWorkspaceGroups, listWorkspaces, registerPaneListMethods } from './paneList'
 import type { PaneProcess } from './paneProcess'
 import { registerPaneRenameMethods } from './paneRename'
 import { registerPaneResumeMethods } from './paneResume'
@@ -3396,6 +3396,7 @@ app.whenReady().then(() => {
     getTerminalState,
     listPanes: () => listPanes({ execCommand, getTerminalState, ptyPid, windowIds }),
     listWorkspaces: () => listWorkspaces({ execCommand, windowIds }),
+    listWorkspaceGroups: () => listWorkspaceGroups({ execCommand, windowIds }),
     primaryWindowId,
     attachPhoneObserver,
     ptyResize,
