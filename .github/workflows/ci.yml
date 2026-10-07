@@ -474,7 +474,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include: ${{ fromJSON(contains(fromJSON('["schedule","workflow_dispatch"]'), github.event_name) && '[{"runner":"ubuntu-24.04","out":"out"},{"runner":"macos-26","out":"out-macos"}]' || '[{"runner":"ubuntu-24.04","out":"out"}]') }}
+        include: ${{ fromJSON(contains(fromJSON('["schedule","workflow_dispatch"]'), github.event_name) && inputs.platform != 'linux' && '[{"runner":"ubuntu-24.04","out":"out"},{"runner":"macos-26","out":"out-macos"}]' || '[{"runner":"ubuntu-24.04","out":"out"}]') }}
     env:
       RUNS: ${{ contains(fromJSON('["schedule","workflow_dispatch"]'), github.event_name) && 10 || 5 }}
       E2E: ${{ needs.changes.outputs.full == 'true' && (needs.build.result == 'success' || needs.build-macos.result == 'success') }}
