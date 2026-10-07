@@ -185,7 +185,7 @@ ostia pane send <pane> "text" [--enter]  # type text; no Enter unless --enter
 ostia pane key <pane> <key>...           # enter tab escape up down ctrl-c ...
 ostia pane read <pane> [--lines N] [--json]  # its screen as plain text
 ostia pane wait <pane>... [--until done|waiting|idle|exited]... [--timeout <s>] [--json]
-ostia pane wake <pane>... [--json]       # wake hibernated agent panes
+ostia pane wake <pane>... [--wait [--timeout <s>]] [--json]  # wake hibernated agent panes
 ostia pane close <pane>... [--json]      # close those panes
 ```
 
@@ -214,7 +214,11 @@ ostia pane close <pane>... [--json]      # close those panes
   `ostia pane.list`) has no program running: `pane send` and `pane key` refuse it with
   `hibernated:`. `ostia pane wake <pane>` starts a fresh shell there and types the agent's own
   resume command, nothing else; it needs the same asks as `send` and answers `not-hibernated`
-  for a pane that is awake.
+  for a pane that is awake. Until that agent has started, the pane shows `waking: true` in
+  `ostia pane.list` and `pane send` and `pane key` refuse it with `waking:`. With `--wait` it
+  answers only once every named pane's agent has started: exit 0 started, 3 timed out
+  (default 2 minutes, `--timeout` up to 1800 s), 4 a pane closed, 1 with `resume-failed:`
+  when the agent could not start. `--wait` on a pane that is already waking just waits.
 - `pane close` closes the pane at once, even while a command runs in it; the human is asked
   only when it holds their unsaved file changes. A pane the human locked answers
   `pane-locked`: leave it open, you can't unlock it.
@@ -238,8 +242,9 @@ ostia pane close <pane>... [--json]      # close those panes
    `ostia pane send <name> "..." --enter --force --confirm` (text to a waiting agent needs
    `--force`). Exit 2 means nothing happened on screen: press `ostia pane key <name> enter`.
 4. **Hibernated workers.** `ostia pane.list` shows `hibernated: true`. Run
-   `ostia pane wake <name>`, then send nothing until `ostia pane.list` shows that pane
-   `running: true` (its agent is back); before that, text would land at a bare shell prompt.
+   `ostia pane wake <name> --wait && ostia pane send <name> "..." --enter --confirm`: `--wait`
+   returns once the worker's agent has started, and `pane send` refuses a pane that is
+   still `waking`.
 5. **Follow-up work** goes to the same worker, whose context is warm:
    `ostia pane send <name> "..." --enter --confirm`. Never type a task while it is `waiting`
    on a permission prompt (`pane send` refuses); answer the prompt with `ostia pane key` first.

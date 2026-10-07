@@ -41,7 +41,10 @@ export function wakePane(paneId: string): boolean {
   const pane = layout ? findPane(layout.root, paneId) : null
   if (!workspaceId || !pane?.hibernated) return false
   useLayoutStore.getState().setHibernated(workspaceId, paneId, false)
-  if (pane.resume) resumeWhenIdle(paneId, pane.resume)
+  if (pane.resume) {
+    window.ostia.pty.reportWaking(paneId, true)
+    resumeWhenIdle(paneId, pane.resume, () => window.ostia.pty.reportWaking(paneId, false))
+  }
   return true
 }
 

@@ -186,21 +186,26 @@ describe('runWhenIdle', () => {
   })
 
   it('gives up after the timeout and never types into the pane later', () => {
-    runWhenIdle(NEW, 'echo late', 1000)
+    const gaveUp = vi.fn()
+    runWhenIdle(NEW, 'echo late', 1000, undefined, gaveUp)
     vi.advanceTimersByTime(1000)
+    expect(gaveUp).toHaveBeenCalledTimes(1)
     const s = useBlocksStore.getState()
     s.promptStart(NEW, { line: 0 }, '/home')
     s.promptEnd(NEW, { line: 0 })
     expect(term.paste).not.toHaveBeenCalled()
+    expect(gaveUp).toHaveBeenCalledTimes(1)
   })
 
   it('types nothing at the idle prompt when its guard refuses, and stops waiting', () => {
     let allowed = false
-    runWhenIdle(NEW, 'claude --resume abc', undefined, () => allowed)
+    const gaveUp = vi.fn()
+    runWhenIdle(NEW, 'claude --resume abc', undefined, () => allowed, gaveUp)
     const s = useBlocksStore.getState()
     s.promptStart(NEW, { line: 0 }, '/home')
     s.promptEnd(NEW, { line: 0 })
     expect(term.paste).not.toHaveBeenCalled()
+    expect(gaveUp).toHaveBeenCalledTimes(1)
     allowed = true
     s.promptStart(NEW, { line: 0 }, '/home')
     s.promptEnd(NEW, { line: 0 })
@@ -208,8 +213,11 @@ describe('runWhenIdle', () => {
   })
 
   it('can be cancelled before the prompt appears', () => {
-    const cancel = runWhenIdle(NEW, 'echo never')
+    const gaveUp = vi.fn()
+    const cancel = runWhenIdle(NEW, 'echo never', 1000, undefined, gaveUp)
     cancel()
+    vi.advanceTimersByTime(1000)
+    expect(gaveUp).not.toHaveBeenCalled()
     const s = useBlocksStore.getState()
     s.promptStart(NEW, { line: 0 }, '/home')
     s.promptEnd(NEW, { line: 0 })

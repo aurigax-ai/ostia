@@ -10,6 +10,16 @@ export function resumeFolderMissing(paneId: string): string | undefined {
   return layout ? findPane(layout.root, paneId)?.resumeFolderMissing : undefined
 }
 
-export function resumeWhenIdle(paneId: string, resume: AgentResume): () => void {
-  return runWhenIdle(paneId, resumeCommand(resume), undefined, () => !resumeFolderMissing(paneId))
+export function resumeWhenIdle(
+  paneId: string,
+  resume: AgentResume,
+  onGiveUp?: () => void,
+): () => void {
+  return runWhenIdle(
+    paneId,
+    resumeCommand(resume),
+    undefined,
+    () => !resumeFolderMissing(paneId),
+    onGiveUp,
+  )
 }

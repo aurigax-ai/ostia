@@ -54,6 +54,7 @@ export interface PaneEntry extends PaneAgentFields {
   splitTabId?: string
   splitTabName?: string
   hibernated?: true
+  waking?: true
 }
 
 export interface PaneListDeps {
@@ -61,6 +62,7 @@ export interface PaneListDeps {
   getTerminalState: (paneId: string) => TerminalStateSnapshot | undefined
   ptyPid: (paneId: string) => number | undefined
   windowIds: () => string[]
+  waking: (paneId: string) => boolean
 }
 
 async function listFromEveryWindow<T>(
@@ -107,6 +109,7 @@ export async function listPanes(deps: PaneListDeps): Promise<PaneEntry[]> {
       lastExitCode: state?.lastExitCode,
       ...(pid ? { pid } : {}),
       ...(p.hibernated === true ? { hibernated: true } : {}),
+      ...(deps.waking(p.paneId) ? { waking: true } : {}),
       ...agentFields(p),
       ...(typeof p.splitTabId === 'string' ? { splitTabId: p.splitTabId } : {}),
       ...(typeof p.splitTabName === 'string' ? { splitTabName: p.splitTabName } : {}),

@@ -32,6 +32,7 @@ describe('paneList.listPanes', () => {
       getTerminalState,
       ptyPid: () => undefined,
       windowIds: ONE_WINDOW,
+      waking: () => false,
     }
 
     const panes = await listPanes(deps)
@@ -73,6 +74,7 @@ describe('paneList.listPanes', () => {
       getTerminalState: vi.fn(),
       ptyPid,
       windowIds: ONE_WINDOW,
+      waking: () => false,
     })
 
     expect(panes.find((p) => p.paneId === term.externalId)?.pid).toBe(4242)
@@ -100,6 +102,7 @@ describe('paneList.listPanes', () => {
       getTerminalState: vi.fn(),
       ptyPid: vi.fn(),
       windowIds: ONE_WINDOW,
+      waking: () => false,
     })
 
     expect(panes[0]).toMatchObject({ paneId: editor.externalId, filePath: '/work/a.ts' })
@@ -124,6 +127,7 @@ describe('paneList.listPanes', () => {
       getTerminalState: vi.fn(),
       ptyPid: vi.fn(),
       windowIds: ONE_WINDOW,
+      waking: () => false,
     })
     expect(panes[0]).toMatchObject({
       paneId: inTab.externalId,
@@ -153,11 +157,35 @@ describe('paneList.listPanes', () => {
       getTerminalState: vi.fn(),
       ptyPid: vi.fn(),
       windowIds: ONE_WINDOW,
+      waking: () => false,
     })
 
     expect(panes[0]).toMatchObject({ paneId: asleep.externalId, hibernated: true })
     expect(panes[1].paneId).toBe(awake.externalId)
     expect(panes[1]).not.toHaveProperty('hibernated')
+  })
+
+  it('marks a woken pane waking: true until main sees its agent start', async () => {
+    const woken = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'p-woken' })
+    const other = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'p-other' })
+    const execCommand = vi.fn().mockResolvedValue(
+      ok([
+        { paneId: 'p-woken', workspaceId: 's1', kind: 'terminal', title: 'zsh' },
+        { paneId: 'p-other', workspaceId: 's1', kind: 'terminal', title: 'zsh' },
+      ]),
+    )
+
+    const panes = await listPanes({
+      execCommand,
+      getTerminalState: vi.fn(),
+      ptyPid: vi.fn(),
+      windowIds: ONE_WINDOW,
+      waking: (paneId) => paneId === 'p-woken',
+    })
+
+    expect(panes[0]).toMatchObject({ paneId: woken.externalId, waking: true })
+    expect(panes[1].paneId).toBe(other.externalId)
+    expect(panes[1]).not.toHaveProperty('waking')
   })
 
   it("passes an agent pane's kind, session id and state through and drops malformed ones", async () => {
@@ -191,6 +219,7 @@ describe('paneList.listPanes', () => {
       getTerminalState: vi.fn(),
       ptyPid: vi.fn(),
       windowIds: ONE_WINDOW,
+      waking: () => false,
     })
 
     expect(panes.find((p) => p.paneId === agent.externalId)).toMatchObject({
@@ -217,6 +246,7 @@ describe('paneList.listPanes', () => {
       getTerminalState,
       ptyPid: () => undefined,
       windowIds: ONE_WINDOW,
+      waking: () => false,
     })
 
     expect(panes).toEqual([])
@@ -238,6 +268,7 @@ describe('paneList.listPanes', () => {
       getTerminalState,
       ptyPid: () => undefined,
       windowIds: ONE_WINDOW,
+      waking: () => false,
     })
 
     expect(panes).toEqual([
@@ -263,6 +294,7 @@ describe('paneList.listPanes', () => {
       getTerminalState: vi.fn(),
       ptyPid: () => undefined,
       windowIds: ONE_WINDOW,
+      waking: () => false,
     })
     expect(panes).toEqual([])
   })
@@ -361,6 +393,7 @@ describe('paneList across windows', () => {
       getTerminalState: vi.fn(),
       ptyPid: () => undefined,
       windowIds: () => ['1', '2'],
+      waking: () => false,
     })
 
     expect(panes.map((p) => p.workspaceId)).toEqual(['s9'])

@@ -50,8 +50,8 @@ describe('Ostia agent skills', () => {
       '--enter --force --confirm',
       'ostia pane key <name> enter',
       'hibernated: true',
-      'ostia pane wake',
-      'running: true',
+      'ostia pane wake <name> --wait && ostia pane send <name>',
+      'waking',
       'ostia pane close <name>',
     ]) {
       expect(section, command).toContain(command)
