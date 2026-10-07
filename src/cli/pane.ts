@@ -14,6 +14,20 @@ export type PaneCall =
   | { method: 'pane.input'; params: PaneInputParams; stdin?: true }
   | { method: 'pane.read'; params: { pane: string; lines?: number }; json: boolean }
   | { method: 'pane.rename'; params: { pane: string; title: string } }
+  | { method: 'pane.wait'; params: PaneWaitParams; json: boolean }
+
+export interface PaneWaitParams {
+  panes: string[]
+  until?: string[]
+  timeoutMs?: number
+}
+
+export type PaneWaitResult =
+  | { reached: true; paneId: string; state: string; message?: string }
+  | { timedOut: true }
+  | { closed: true; paneId: string }
+
+export const PANE_WAIT_EXIT = { reached: 0, timedOut: 3, closed: 4 } as const
 
 const USAGE = [
   'usage: ostia pane send <pane> [--enter] [--paste|--raw] [--force] [--confirm]',
@@ -21,6 +35,7 @@ const USAGE = [
   '       ostia pane key <pane> <key>…',
   '       ostia pane read <pane> [--lines N] [--json]',
   '       ostia pane rename <pane> <title…> | --clear',
+  '       ostia pane wait <pane>… [--until done|waiting|idle|exited]… [--timeout <s>] [--json]',
   '<pane> is a pane id from ostia pane.list, or a process id or name from ostia process ls',
 ].join('\n')
 
@@ -33,9 +48,56 @@ function readFlags(argv: string[]) {
   }
 }
 
+function parseWait(argv: string[]): PaneCall {
+  const { positional, values, lists, booleans } = parseArgs(argv, {
+    values: { timeout: '--timeout' },
+    lists: { until: '--until' },
+    booleans: { json: '--json' },
+  })
+  if (positional.length === 0) throw new Error(USAGE)
+  let timeoutMs: number | undefined
+  if (values.timeout !== undefined) {
+    const seconds = Number(values.timeout)
+    if (!Number.isFinite(seconds) || seconds <= 0) {
+      throw new Error(`--timeout expects seconds, got '${values.timeout}'`)
+    }
+    timeoutMs = Math.round(seconds * 1000)
+  }
+  return {
+    method: 'pane.wait',
+    params: {
+      panes: positional,
+      ...(lists.until.length > 0 ? { until: lists.until } : {}),
+      ...(timeoutMs === undefined ? {} : { timeoutMs }),
+    },
+    json: booleans.json,
+  }
+}
+
+export function waitOutcome(result: PaneWaitResult, json: boolean): { line: string; code: number } {
+  if ('reached' in result) {
+    const { paneId, state, message } = result
+    const line = json
+      ? JSON.stringify({ paneId, state, message: message ?? null })
+      : [paneId, state, ...(message ? [message] : [])].join('\t')
+    return { line, code: PANE_WAIT_EXIT.reached }
+  }
+  if ('closed' in result) {
+    const line = json
+      ? JSON.stringify({ paneId: result.paneId, state: 'closed', message: null })
+      : `ostia pane wait: ${result.paneId} closed`
+    return { line, code: PANE_WAIT_EXIT.closed }
+  }
+  return {
+    line: json ? JSON.stringify({ timedOut: true }) : 'ostia pane wait: timed out',
+    code: PANE_WAIT_EXIT.timedOut,
+  }
+}
+
 export function parsePaneArgs(argv: string[]): PaneCall {
   const [sub, pane, ...rest] = argv
   if (!sub || !pane) throw new Error(USAGE)
+  if (sub === 'wait') return parseWait([pane, ...rest])
   if (sub === 'send') {
     const { positional: words, booleans } = parseArgs(rest, {
       booleans: {
@@ -123,6 +185,13 @@ export async function runPaneVerb(
       return 1
     }
     call = { method: 'pane.input', params: { ...call.params, text } }
+  }
+  if (call.method === 'pane.wait') {
+    const result = await conn.sendRequest<PaneWaitResult>(call.method, call.params)
+    const { line, code } = waitOutcome(result, call.json)
+    if (code === PANE_WAIT_EXIT.reached || call.json) console.log(line)
+    else console.error(line)
+    return code
   }
   const result = await conn.sendRequest<unknown>(call.method, call.params)
   if (call.method === 'pane.read' && !call.json) {

@@ -186,6 +186,7 @@ ostia process restart <id|name>    # Ctrl+C, then the same line again in the sam
 ostia pane send <pane> "text" [--enter]  # type text; no Enter unless --enter
 ostia pane key <pane> <key>...           # enter tab escape up down ctrl-c ...
 ostia pane read <pane> [--lines N] [--json]  # its screen as plain text
+ostia pane wait <pane>... [--until done|waiting|idle|exited]... [--timeout <s>] [--json]
 ```
 
 `<pane>` is a paneId from `ostia pane.list`, or a process id or name from `ostia process ls`.
@@ -202,6 +203,18 @@ ostia pane read <pane> [--lines N] [--json]  # its screen as plain text
   enter, tab, shift-tab, escape, backspace, delete, space, up, down, left, right, home, end,
   pageup, pagedown, ctrl-a to ctrl-z.
 - `read --json` adds `cwd`, `running` and `lastExitCode`.
+- `pane wait` blocks until any named pane stops working, instead of polling `pane.list` or
+  guessing from its screen. By default it returns on `done` or `waiting` (what the agent
+  reported) or `exited` (its command ended); `--until idle` also waits for a pane with no
+  reported state. It prints `<paneId>\t<state>\t<message>` (`--json`:
+  `{paneId, state, message}`) and answers at once for a pane already there. Exit 0 reached,
+  3 timed out (default 10 minutes, `--timeout` up to 1800 s: run it again), 4 the pane
+  closed. It needs the same asks as `read` and never reads the screen. A finished pane the
+  human looked at reads `idle`, not `done`.
+- Coordinator pattern: `ostia agent run claude "fix the login bug" --name fixer`, then
+  `ostia pane wait fixer`, then `ostia pane read fixer` (or `ostia bus inbox`, if you asked it
+  to report with `ostia bus send`). On `waiting`, read the screen and answer it, or tell the
+  human; then wait again.
 
 ## Workflows — the human's saved commands (read-only)
 
