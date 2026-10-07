@@ -4,6 +4,7 @@ import { relative, resolve } from 'node:path'
 export const ROOT = process.cwd()
 export const REGISTRY = resolve(ROOT, 'test/quarantine.json')
 export const MAX_DAYS = 30
+export const REMIND_DAYS = 7
 export const PLATFORMS = ['linux', 'darwin']
 const DAY_MS = 86_400_000
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
@@ -57,7 +58,10 @@ export function announce(entries, runner) {
   console.warn(`${runner}: quarantined by test/quarantine.json, skipped:\n${lines.join('\n')}`)
 }
 
-export function quarantineProblems(entries, { today, issueStates = {}, root = ROOT }) {
+export function quarantineProblems(
+  entries,
+  { today, issueStates = {}, root = ROOT, enforceExpiry = true },
+) {
   if (!Array.isArray(entries)) return ['the registry is not a list']
   const problems = []
   const todayMs = Date.parse(`${today}T00:00:00Z`)
@@ -80,14 +84,17 @@ export function quarantineProblems(entries, { today, issueStates = {}, root = RO
     if (seen.has(key)) fail('listed twice')
     seen.add(key)
     if (!Number.isInteger(entry.issue) || entry.issue <= 0) fail('needs an issue number')
-    else if (issueStates[entry.issue] === 'closed') fail(`issue #${entry.issue} is closed`)
+    else if (enforceExpiry && issueStates[entry.issue] === 'closed')
+      fail(`issue #${entry.issue} is closed`)
     const untilMs =
       typeof entry.until === 'string' && ISO_DATE.test(entry.until)
         ? Date.parse(`${entry.until}T00:00:00Z`)
         : Number.NaN
     if (Number.isNaN(untilMs)) fail('until must be a date like 2026-10-31')
-    else if (untilMs < todayMs) fail(`expired on ${entry.until}`)
-    else if (untilMs - todayMs > MAX_DAYS * DAY_MS) fail(`until is more than ${MAX_DAYS} days out`)
+    else if (untilMs < todayMs) {
+      if (enforceExpiry) fail(`expired on ${entry.until}`)
+    } else if (untilMs - todayMs > MAX_DAYS * DAY_MS)
+      fail(`until is more than ${MAX_DAYS} days out`)
     if (
       entry.platforms !== undefined &&
       (!Array.isArray(entry.platforms) ||
@@ -106,4 +113,47 @@ export function quarantineProblems(entries, { today, issueStates = {}, root = RO
     if (missing.length) fail(`no test titled ${JSON.stringify(missing.join(' > '))} in the file`)
   }
   return problems
+}
+
+export function daysLeft(entry, today) {
+  return Math.round(
+    (Date.parse(`${entry.until}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / DAY_MS,
+  )
+}
+
+export function dueForReminder(entries, today, days = REMIND_DAYS) {
+  return entries.filter((entry) => ISO_DATE.test(entry.until) && daysLeft(entry, today) <= days)
+}
+
+export function reminderMarker(entry) {
+  return `<!-- quarantine-reminder: ${entryKey(entry)} until ${entry.until} -->`
+}
+
+export function unreminded(entries, commentBodies) {
+  return entries.filter(
+    (entry) => !commentBodies.some((body) => body.includes(reminderMarker(entry))),
+  )
+}
+
+export function reminderBody(entries, today) {
+  const lines = entries.map((entry) => {
+    const left = daysLeft(entry, today)
+    const when =
+      left < 0
+        ? `expired on ${entry.until}`
+        : left === 0
+          ? 'expires today'
+          : `expires on ${entry.until}`
+    return `- \`${entryKey(entry)}\` ${when}`
+  })
+  return [
+    'Quarantined tests for this issue in `test/quarantine.json`:',
+    '',
+    ...lines,
+    '',
+    'Once a date passes, CI fails on pushes to main, the nightly run and release tags.',
+    'Fix the test and remove its entry, or give it a new date no more than 30 days out.',
+    '',
+    ...entries.map(reminderMarker),
+  ].join('\n')
 }
