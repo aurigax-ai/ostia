@@ -101,7 +101,11 @@ async function chunksOf(stream: AsyncIterable<UIMessageChunk>): Promise<UIMessag
   return out
 }
 
-const prompt = { system: 'be brief', messages: [{ role: 'user' as const, content: 'hi' }] }
+const prompt = {
+  system: 'be brief',
+  messages: [{ role: 'user' as const, content: 'hi' }],
+  maxOutputTokens: 64,
+}
 
 describe('OpenAI-compatible provider', () => {
   it('streams SSE deltas into UI message chunks and the whole reply', async () => {
@@ -268,7 +272,10 @@ describe('Anthropic provider', () => {
     expect(await result.text).toBe('Hi there')
     expect(seen[0].url).toBe('/v1/messages')
     expect(seen[0].headers['x-api-key']).toBe('ak')
-    expect(seen[0].body).toMatchObject({ system: [{ type: 'text', text: 'be brief' }] })
+    expect(seen[0].body).toMatchObject({
+      system: [{ type: 'text', text: 'be brief' }],
+      max_tokens: 64,
+    })
   })
 })
 

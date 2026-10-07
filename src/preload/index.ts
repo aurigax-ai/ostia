@@ -91,9 +91,11 @@ import type {
   FsBinaryResult,
   FsEntry,
   FsKind,
+  GatewayActionResult,
   GatewayBindAddress,
   GatewayDevice,
   GatewayEnableResponse,
+  GatewayPairRequest,
   GatewayPairResponse,
   GatewayRemoteStatus,
   GatewaySetCapResult,
@@ -638,6 +640,7 @@ const bridge: OstiaBridge = {
     state: () => ipcRenderer.invoke('approvals:state') as Promise<ApprovalState>,
     answer: (id, answer) => ipcRenderer.invoke('approvals:answer', id, answer) as Promise<boolean>,
     revoke: (id) => ipcRenderer.invoke('approvals:revoke', id) as Promise<boolean>,
+    removeAlways: (cap) => ipcRenderer.invoke('approvals:remove-always', cap) as Promise<boolean>,
     onChange: (cb) => {
       const handler = (_event: unknown, state: ApprovalState): void => cb(state)
       ipcRenderer.on('approvals:changed', handler)
@@ -901,6 +904,20 @@ const bridge: OstiaBridge = {
       const handler = (_event: unknown, state: GatewayTailnetState): void => cb(state)
       ipcRenderer.on('gateway:tailnet-changed', handler)
       return () => ipcRenderer.removeListener('gateway:tailnet-changed', handler)
+    },
+    setDiscoverable: (on) =>
+      ipcRenderer.invoke('gateway:set-discoverable', on) as Promise<GatewayActionResult>,
+    pairRequests: () =>
+      ipcRenderer.invoke('gateway:pair-requests') as Promise<GatewayPairRequest[]>,
+    answerPairRequest: (requestId, approve) =>
+      ipcRenderer.invoke('gateway:pair-answer', {
+        requestId,
+        approve,
+      }) as Promise<GatewayActionResult>,
+    onPairRequestsChanged: (cb) => {
+      const handler = (_event: unknown, requests: GatewayPairRequest[]): void => cb(requests)
+      ipcRenderer.on('gateway:pair-requests-changed', handler)
+      return () => ipcRenderer.removeListener('gateway:pair-requests-changed', handler)
     },
   },
   notifications: {

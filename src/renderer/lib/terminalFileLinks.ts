@@ -1,12 +1,7 @@
-import type {
-  IBufferCellPosition,
-  IBufferRange,
-  ILink,
-  ILinkProvider,
-  Terminal,
-} from '@xterm/xterm'
+import type { IBufferCellPosition, IBufferRange, ILink, ILinkProvider } from '@xterm/xterm'
 import { LRUCache } from 'lru-cache'
 import { findFileLinks, resolveLinkPath } from './fileLinks'
+import type { OstiaTerminal as Terminal } from './ostiaTerminal'
 
 interface LogicalLine {
   text: string

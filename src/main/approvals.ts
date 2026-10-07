@@ -2,7 +2,6 @@ import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { app, ipcMain, webContents } from 'electron'
 import {
-  ALWAYS_ASK,
   APPROVAL_ANSWERS,
   APPROVAL_DETAIL_MAX,
   APPROVAL_HISTORY_MAX,
@@ -14,13 +13,13 @@ import {
   type ApprovalRecord,
   type ApprovalRequest,
   type ApprovalState,
-  answersFor,
   autoApproves,
+  offeredAnswers,
   parseApprovalSettings,
 } from '../shared/approvals'
-import type { Capability } from '../shared/capabilities'
+import { ALL_CAPABILITIES, type Capability } from '../shared/capabilities'
 import { clip } from '../shared/pick'
-import { grant, revoke } from './capabilityStore'
+import { addStandingGrants, grant, removeStandingGrant, revoke } from './capabilityStore'
 
 export interface ApprovalAsk {
   externalId: string
@@ -39,6 +38,7 @@ export interface ApprovalDeps {
   publish: (windowId: string, state: ApprovalState) => boolean
   grant: (externalId: string, cap: Capability) => void
   revoke: (externalId: string, cap: Capability) => void
+  always: (caps: readonly Capability[]) => boolean
   now: () => number
   timeoutMs: number
   reveal: (windowId: string) => void
@@ -116,7 +116,8 @@ export function createApprovals(deps: ApprovalDeps): Approvals {
       const settle = (outcome: ApprovalOutcome): void => {
         if (!pending.delete(req.id)) return
         clearTimeout(timer)
-        if (outcome === 'session' && (req.kind ?? 'capability') === 'capability') {
+        const standing = outcome === 'session' || outcome === 'always'
+        if (standing && (req.kind ?? 'capability') === 'capability') {
           for (const cap of req.caps) deps.grant(ask.externalId, cap)
         }
         record(owned, req, outcome)
@@ -133,8 +134,8 @@ export function createApprovals(deps: ApprovalDeps): Approvals {
     const entry = pending.get(id)
     if (!entry || entry.windowId !== windowId) return false
     if (!APPROVAL_ANSWERS.includes(value as ApprovalAnswer)) return false
-    if (!answersFor(entry.req.kind).includes(value as ApprovalAnswer)) return false
-    if (value === 'session' && entry.req.caps.some((cap) => ALWAYS_ASK.includes(cap))) return false
+    if (!offeredAnswers(entry.req).includes(value as ApprovalAnswer)) return false
+    if (value === 'always' && !deps.always(entry.req.caps)) return false
     entry.settle(value as ApprovalAnswer)
     return true
   }
@@ -202,12 +203,21 @@ export function approvals(): Approvals | null {
   return active
 }
 
-export function registerApprovals(reveal: (windowId: string) => void): void {
+export function registerApprovals(
+  reveal: (windowId: string) => void,
+  settingsChanged: () => void,
+): void {
+  const persist = (write: () => boolean): boolean => {
+    if (!write()) return false
+    settingsChanged()
+    return true
+  }
   active = createApprovals({
     mode: readApprovalMode,
     publish: publishToWindow,
     grant,
     revoke,
+    always: (caps) => persist(() => addStandingGrants(caps)),
     now: Date.now,
     timeoutMs: APPROVAL_TIMEOUT_MS,
     reveal,
@@ -219,5 +229,10 @@ export function registerApprovals(reveal: (windowId: string) => void): void {
   )
   ipcMain.handle('approvals:revoke', (e, id: unknown) =>
     typeof id === 'string' ? current.revoke(String(e.sender.id), id) : false,
+  )
+  ipcMain.handle('approvals:remove-always', (_e, cap: unknown) =>
+    ALL_CAPABILITIES.includes(cap as Capability)
+      ? persist(() => removeStandingGrant(cap as Capability))
+      : false,
   )
 }

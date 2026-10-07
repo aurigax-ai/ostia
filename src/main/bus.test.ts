@@ -19,7 +19,12 @@ const { markManager, registerPane } = await import('./idRegistry')
 
 const announce = vi.fn()
 let managerMaySend = true
-registerBusMethods({ managerSendAllowed: () => managerMaySend, announce })
+const asleepPanes = new Set<string>()
+registerBusMethods({
+  managerSendAllowed: () => managerMaySend,
+  announce,
+  hibernated: async (pane) => asleepPanes.has(pane.paneId),
+})
 
 const sender = registerPane({ windowId: 'w1', workspaceId: 'ws1', paneId: 'bus-sender' })
 const receiver = registerPane({ windowId: 'w1', workspaceId: 'ws1', paneId: 'bus-receiver' })
@@ -62,7 +67,7 @@ const inbox = (identity = receiver, drain = false) =>
   call<{ messages: Stored[] }>('bus.inbox', identity, { drain }).messages
 const sent = (identity = sender) => call<{ messages: Sent[] }>('bus.sent', identity).messages
 const send = (text: string, to = receiver.externalId, from = sender) =>
-  call<Promise<{ ok: boolean; id?: string; delivered?: string; error?: string }>>(
+  call<Promise<{ ok: boolean; id?: string; delivered?: string; asleep?: true; error?: string }>>(
     'bus.send',
     from,
     { to, text },
@@ -75,6 +80,7 @@ beforeEach(() => {
   ensureCaps.mockClear()
   ensureCaps.mockImplementation(async () => {})
   managerMaySend = true
+  asleepPanes.clear()
 })
 
 afterAll(() => rmSync(dataHome, { recursive: true, force: true }))
@@ -272,5 +278,16 @@ describe('messages Ostia sends on the human’s action', () => {
     expect(context()).toContain('left over')
     expect((await send('new')).delivered).toBe('queued')
     expect(sent().map((m) => m.preview)).toEqual(['new'])
+  })
+})
+
+describe('bus.send to a hibernated pane', () => {
+  it('stores the message and says the receiver is asleep, and says nothing for an awake one', async () => {
+    const awake = await send('first')
+    expect(awake).toMatchObject({ ok: true, delivered: 'queued' })
+    expect(awake).not.toHaveProperty('asleep')
+    asleepPanes.add('bus-receiver')
+    expect(await send('second')).toMatchObject({ ok: true, delivered: 'queued', asleep: true })
+    expect(inbox().map((m) => m.text)).toEqual(['first', 'second'])
   })
 })

@@ -194,6 +194,19 @@ describe('settingsStore', () => {
       expect(written).not.toHaveProperty('keyboardElsewhere')
     })
 
+    it('keeps a grant main wrote after the last load when it saves another change', async () => {
+      vi.mocked(window.ostia.fs.read).mockResolvedValue(JSON.stringify({}))
+      await store().init()
+      vi.mocked(window.ostia.fs.read).mockResolvedValue(
+        JSON.stringify({ capabilities: { grants: ['send-other-pane'] } }),
+      )
+      store().setNotifications({ whenFocused: true })
+      await vi.runAllTimersAsync()
+      const written = JSON.parse(String(vi.mocked(window.ostia.fs.write).mock.calls.at(-1)?.[1]))
+      expect(written.notifications.whenFocused).toBe(true)
+      expect(written.capabilities).toEqual({ grants: ['send-other-pane'] })
+    })
+
     it('keeps terminal keys that parse, null drops, and saves them', async () => {
       vi.mocked(window.ostia.fs.read).mockResolvedValue(
         JSON.stringify({

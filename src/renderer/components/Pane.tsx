@@ -1,26 +1,19 @@
 import { cn } from '@/lib/utils'
 import {
-  BroadcastIcon,
-  ChatCircleTextIcon,
-  FileCodeIcon,
-  GitDiffIcon,
   GlobeIcon,
-  type Icon as IconComponent,
   LockSimpleIcon,
-  MoonIcon,
   PlayIcon,
-  RobotIcon,
   SquareSplitHorizontalIcon,
   SquareSplitVerticalIcon,
   TerminalWindowIcon,
   XIcon,
 } from '@phosphor-icons/react'
 import { resumeCommand } from '@shared/agentResume'
-import { type DragEvent, useCallback, useEffect, useLayoutEffect, useRef } from 'react'
+import { type DragEvent, useEffect, useRef } from 'react'
 import { commands } from '../commands/registry'
 import { fmt, useDict } from '../i18n/useDict'
-import type { DropZone, PaneNode, SurfaceKind } from '../layout/types'
-import { needsYou, tabMark } from '../lib/attention'
+import { allPanes, findPane, firstPaneId } from '../layout/tree'
+import type { PaneNode, SurfaceKind, TabNode } from '../layout/types'
 import { isIdlePrompt } from '../lib/blocks'
 import { useChordLabel } from '../lib/chords'
 import { type TabDrop, dropZoneAt, paneDropTarget, tabDropTarget } from '../lib/dropZone'
@@ -28,6 +21,7 @@ import { HOVER_FOCUS_DELAY_MS, canFocusOnHover } from '../lib/hoverFocus'
 import {
   PANE_DND,
   beginPaneDrag,
+  dropPaneOn,
   endPaneDrag,
   isPaneDrag,
   reportForeignDrop,
@@ -38,13 +32,10 @@ import { isMac } from '../platform'
 import { useApprovalsStore } from '../stores/approvalsStore'
 import { useAttentionStore } from '../stores/attentionStore'
 import { useBlocksStore } from '../stores/blocksStore'
-import { useEditorStatus } from '../stores/editorStatusStore'
-import { useExtensionsStore } from '../stores/extensionsStore'
 import { usePaneDnd } from '../stores/paneDndStore'
 import { useQuestionsStore } from '../stores/questionsStore'
 import { useSettingsStore } from '../stores/settingsStore'
-import { focusSurface, mountSurface, parkSurface } from '../stores/surfaceSlotsStore'
-import { useViewsStore } from '../stores/viewsStore'
+import { focusSurface } from '../stores/surfaceSlotsStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
 import { AgentSessionButton } from './AgentSessionButton'
 import { ApprovalCard } from './ApprovalCard'
@@ -53,39 +44,45 @@ import { Hint } from './Hint'
 import { IconButton } from './IconButton'
 import { PaneHeaderActions, PaneTabMenu } from './PaneTabMenu'
 import { QuestionNotice } from './QuestionNotice'
+import { ResumeFolderNotice } from './ResumeFolderNotice'
 import { HostPaneBadge, SandboxRestartButton } from './SandboxRestartButton'
-import { extensionIcon } from './extensionIcons'
+import { SplitTabBody, SplitTabPill } from './SplitTab'
+import { TabBody } from './TabBody'
+import { TabFace, usePaneMark } from './TabFace'
 import { Button } from './ui/button'
-import { viewIcon } from './viewIcons'
 
 interface PaneProps {
-  tabs: PaneNode[]
+  tabs: TabNode[]
   shownId: string
-  active: boolean
+  activePaneId: string
+  workspaceId: string
   split?: boolean
 }
 
 const SERVICE_SURFACES: ReadonlySet<SurfaceKind> = new Set(['extension', 'chat', 'view'])
 
-const SURFACE_ICON: Record<SurfaceKind, IconComponent> = {
-  terminal: TerminalWindowIcon,
-  editor: FileCodeIcon,
-  agent: RobotIcon,
-  browser: GlobeIcon,
-  extension: extensionIcon(undefined),
-  diff: GitDiffIcon,
-  chat: ChatCircleTextIcon,
-  view: viewIcon(undefined),
-  manager: BroadcastIcon,
+function holds(tab: TabNode, paneId: string): boolean {
+  return tab.type === 'pane' ? tab.id === paneId : findPane(tab, paneId) !== null
 }
 
-function hasSurface(kind: SurfaceKind): boolean {
-  return kind !== 'agent'
+function cellOf(target: EventTarget | null): string | undefined {
+  return target instanceof Element
+    ? target.closest<HTMLElement>('[data-cell-id]')?.dataset.cellId
+    : undefined
 }
 
-export function Pane({ tabs, shownId, active, split = false }: PaneProps): JSX.Element {
+export function Pane({
+  tabs,
+  shownId,
+  activePaneId,
+  workspaceId,
+  split = false,
+}: PaneProps): JSX.Element {
   const d = useDict()
-  const shown = tabs.find((t) => t.id === shownId) ?? tabs[0]
+  const shownTab = tabs.find((t) => holds(t, shownId)) ?? tabs[0]
+  const shown =
+    shownTab.type === 'pane' ? shownTab : (findPane(shownTab, shownId) ?? allPanes(shownTab)[0])
+  const active = holds(shownTab, activePaneId)
   const dragging = usePaneDnd((s) => s.dragging)
   const over = usePaneDnd((s) => (s.overId === shown.id ? s.zone : null))
   const tabDrop = usePaneDnd((s) => (s.overId === shown.id ? s.tab : null))
@@ -99,37 +96,54 @@ export function Pane({ tabs, shownId, active, split = false }: PaneProps): JSX.E
   const hideTabClose = useSettingsStore((s) => s.panes.hideTabClose)
   useEffect(() => {
     const frame = frameRef.current
-    if (!frame || !focusOnHover || active) return
+    if (!frame || !focusOnHover) return
     let timer: ReturnType<typeof setTimeout> | null = null
+    let armedFor: string | null = null
     const cancel = (): void => {
       if (timer) clearTimeout(timer)
       timer = null
+      armedFor = null
     }
     const arm = (e: MouseEvent): void => {
+      const target = cellOf(e.target) ?? shown.id
+      if (e.buttons !== 0 || target === activePaneId) {
+        cancel()
+        return
+      }
+      if (armedFor === target) return
       cancel()
-      if (e.buttons !== 0) return
+      armedFor = target
       timer = setTimeout(() => {
         timer = null
+        armedFor = null
         if (!canFocusOnHover(document)) return
-        void commands.exec('pane.focus', { paneId: shown.id })
-        requestAnimationFrame(() => focusSurface(shown.id))
+        void commands.exec('pane.focus', { paneId: target })
+        requestAnimationFrame(() => focusSurface(target))
       }, HOVER_FOCUS_DELAY_MS)
     }
     frame.addEventListener('mouseenter', arm)
+    frame.addEventListener('mousemove', arm)
     frame.addEventListener('mouseleave', cancel)
     frame.addEventListener('mousedown', cancel, true)
     return () => {
       cancel()
       frame.removeEventListener('mouseenter', arm)
+      frame.removeEventListener('mousemove', arm)
       frame.removeEventListener('mouseleave', cancel)
       frame.removeEventListener('mousedown', cancel, true)
     }
-  }, [focusOnHover, active, shown.id])
+  }, [focusOnHover, activePaneId, shown.id])
   useEffect(() => {
     const frame = frameRef.current
     if (!frame) return
-    const point = (): void => viewPointedPane(shown.id)
-    const leave = (): void => leavePane(shown.id)
+    let pointed = shown.id
+    const point = (e: MouseEvent): void => {
+      const target = cellOf(e.target) ?? shown.id
+      if (target !== pointed) leavePane(pointed)
+      pointed = target
+      viewPointedPane(target)
+    }
+    const leave = (): void => leavePane(pointed)
     frame.addEventListener('mouseenter', point)
     frame.addEventListener('mousemove', point)
     frame.addEventListener('mouseleave', leave)
@@ -143,8 +157,9 @@ export function Pane({ tabs, shownId, active, split = false }: PaneProps): JSX.E
   useEffect(() => {
     const frame = frameRef.current
     if (!frame) return
-    const activate = (): void => {
-      if (!active) void commands.exec('pane.focus', { paneId: shown.id })
+    const activate = (e: Event): void => {
+      const target = cellOf(e.target) ?? shown.id
+      if (target !== activePaneId) void commands.exec('pane.focus', { paneId: target })
     }
     frame.addEventListener('mousedown', activate, true)
     frame.addEventListener('focusin', activate)
@@ -152,24 +167,18 @@ export function Pane({ tabs, shownId, active, split = false }: PaneProps): JSX.E
       frame.removeEventListener('mousedown', activate, true)
       frame.removeEventListener('focusin', activate)
     }
-  }, [active, shown.id])
+  }, [activePaneId, shown.id])
 
   const tabIds = tabs.map((t) => t.id)
   const slot = { tabIds, shownId: shown.id }
+  const tabFocus = (id: string): string => {
+    const tab = tabs.find((t) => t.id === id)
+    return tab ? firstPaneId(tab) : id
+  }
 
   const zoneAt = (e: DragEvent<HTMLElement>) => {
     const rect = frameRef.current?.getBoundingClientRect()
     return rect ? dropZoneAt(rect, e.clientX, e.clientY) : 'center'
-  }
-
-  const dropPaneHere = (sourceId: string, targetId: string, zone: DropZone): void => {
-    const dnd = usePaneDnd.getState()
-    dnd.dropped()
-    if (dnd.sourceId === sourceId) {
-      void commands.exec('pane.move', { sourceId, targetId, zone })
-      return
-    }
-    reportForeignDrop(sourceId, { paneId: targetId, zone })
   }
 
   const onLayerDragOver = (e: DragEvent<HTMLDivElement>): void => {
@@ -195,7 +204,7 @@ export function Pane({ tabs, shownId, active, split = false }: PaneProps): JSX.E
       usePaneDnd.getState().dropped()
       return
     }
-    dropPaneHere(sourceId, target.targetId, target.zone)
+    dropPaneOn(sourceId, tabFocus(target.targetId), target.zone)
   }
 
   const hoveredTab = (e: DragEvent<HTMLElement>): TabDrop | null => {
@@ -234,7 +243,7 @@ export function Pane({ tabs, shownId, active, split = false }: PaneProps): JSX.E
       })
       return
     }
-    reportForeignDrop(sourceId, { paneId: target.targetId, zone: 'center' })
+    reportForeignDrop(sourceId, { paneId: tabFocus(target.targetId), zone: 'center' })
   }
 
   return (
@@ -258,15 +267,29 @@ export function Pane({ tabs, shownId, active, split = false }: PaneProps): JSX.E
             if (e.target === e.currentTarget) void commands.exec('tab.new', { paneId: shown.id })
           }}
         >
-          {tabs.map((tab) => (
-            <PaneTab
-              key={tab.id}
-              pane={tab}
-              selected={tab.id === shown.id}
-              dropMark={tabDrop?.targetId === tab.id ? (tabDrop.after ? 'after' : 'before') : null}
-              showClose={!hideTabClose}
-            />
-          ))}
+          {tabs.map((tab) => {
+            const dropMark =
+              tabDrop?.targetId === tab.id ? (tabDrop.after ? 'after' : 'before') : null
+            return tab.type === 'pane' ? (
+              <PaneTab
+                key={tab.id}
+                pane={tab}
+                selected={tab === shownTab}
+                dropMark={dropMark}
+                showClose={!hideTabClose}
+              />
+            ) : (
+              <SplitTabPill
+                key={tab.id}
+                tab={tab}
+                selected={tab === shownTab}
+                focusedId={shown.id}
+                dropMark={dropMark}
+                showClose={!hideTabClose}
+                workspaceId={workspaceId}
+              />
+            )
+          })}
         </div>
         {unread && attention?.message ? (
           <span className="pane-attn">
@@ -312,18 +335,36 @@ export function Pane({ tabs, shownId, active, split = false }: PaneProps): JSX.E
       </div>
 
       <div className="pane-body pane-body-term">
-        {tabs.map((tab) => (
-          <TabBody key={tab.id} pane={tab} shown={tab.id === shown.id} />
-        ))}
-        {approval ? (
+        {tabs.map((tab) =>
+          tab.type === 'pane' ? (
+            <TabBody key={tab.id} pane={tab} shown={tab === shownTab} />
+          ) : (
+            <SplitTabBody
+              key={tab.id}
+              tab={tab}
+              workspaceId={workspaceId}
+              shown={tab === shownTab}
+              focusedId={shown.id}
+              frameActive={active}
+              stackTabIds={tabIds}
+            />
+          ),
+        )}
+        {shownTab.type !== 'pane' ? null : approval ? (
           <ApprovalCard request={approval} paneTitle={shown.title} />
         ) : question ? (
           <QuestionNotice question={question} />
+        ) : shown.resumeFolderMissing && shown.resume ? (
+          <ResumeFolderNotice
+            paneId={shown.id}
+            resume={shown.resume}
+            folder={shown.resumeFolderMissing}
+          />
         ) : null}
       </div>
 
       {shown.kind === 'terminal' ? null : <div className="pane-file-drop" />}
-      {dragging ? (
+      {dragging && shownTab.type === 'pane' ? (
         <div
           className="pane-drop-layer"
           onDragOver={onLayerDragOver}
@@ -340,7 +381,8 @@ function ResumeButton({ pane }: { pane: PaneNode }): JSX.Element | null {
   const d = useDict()
   const idle = useBlocksStore((s) => isIdlePrompt(s, pane.id))
   const resumeKeys = useChordLabel('agent.resume', isMac)
-  if (pane.kind !== 'terminal' || !pane.resume || !(idle || pane.hibernated)) return null
+  if (pane.kind !== 'terminal' || !pane.resume || pane.resumeFolderMissing) return null
+  if (!(idle || pane.hibernated)) return null
   const label = fmt(d.pane.resume, { agent: pane.resume.agent })
   return (
     <Hint label={[resumeCommand(pane.resume), resumeKeys].filter(Boolean).join('  ')}>
@@ -364,33 +406,7 @@ function PaneTab({
   showClose: boolean
 }): JSX.Element {
   const d = useDict()
-  const panel = useExtensionsStore((s) =>
-    pane.kind === 'extension' ? s.list.find((e) => e.id === pane.extensionId)?.panel : undefined,
-  )
-  const viewIconName = useViewsStore((s) =>
-    pane.kind === 'view' ? s.views.find((v) => v.name === pane.viewName)?.icon : undefined,
-  )
-  const Icon = pane.hibernated
-    ? MoonIcon
-    : pane.kind === 'extension'
-      ? extensionIcon(panel?.icon)
-      : pane.kind === 'view'
-        ? viewIcon(viewIconName)
-        : SURFACE_ICON[pane.kind]
-  const dirty = useEditorStatus((s) =>
-    pane.kind === 'editor' && pane.filePath ? (s.dirty[pane.filePath] ?? false) : false,
-  )
-  const diskProblem = useEditorStatus((s) =>
-    pane.kind === 'editor' && pane.filePath ? (s.disk[pane.filePath] ?? null) : null,
-  )
-  const diskLabel = {
-    changed: d.editor.diskMarkChanged,
-    conflict: d.editor.diskMarkConflict,
-    deleted: d.editor.diskMarkDeleted,
-  }
-  const attention = useAttentionStore((s) => s.byPane[pane.id])
-  const mark = tabMark(attention)
-  const loud = needsYou(attention)
+  const mark = usePaneMark(pane)
   const workspaceId = useWorkspacesStore((s) => s.activeWorkspaceId)
 
   const tab = (
@@ -429,32 +445,7 @@ function PaneTab({
           requestAnimationFrame(() => focusSurface(pane.id))
         }}
       >
-        {mark ? (
-          <span
-            className="pane-attn-mark"
-            role="img"
-            aria-label={
-              mark === 'waiting' || mark === 'error' ? d.attention.needsYou : d.attention.unread
-            }
-          />
-        ) : null}
-        <Icon
-          key={loud ? attention?.at : undefined}
-          size={16}
-          className={cn('pane-kind', loud && 'pane-kind-blink')}
-          aria-label={pane.hibernated ? d.pane.hibernated : undefined}
-        />
-        {dirty && !diskProblem ? (
-          <span className="dot pane-tab-dirty" role="img" aria-label={d.pane.unsaved} />
-        ) : null}
-        <span className={cn('title', diskProblem === 'deleted' && 'line-through')}>
-          {panel?.title ?? pane.title}
-        </span>
-        {diskProblem ? (
-          <Hint label={diskLabel[diskProblem]}>
-            <span className="pane-disk-mark" role="img" aria-label={diskLabel[diskProblem]} />
-          </Hint>
-        ) : null}
+        <TabFace pane={pane} />
       </button>
       {pane.locked ? (
         <IconButton
@@ -474,28 +465,4 @@ function PaneTab({
     </div>
   )
   return <PaneTabMenu pane={pane} workspaceId={workspaceId} trigger={tab} />
-}
-
-function TabBody({ pane, shown }: { pane: PaneNode; shown: boolean }): JSX.Element | null {
-  const slotEl = useRef<HTMLDivElement | null>(null)
-  const slotRef = useCallback(
-    (el: HTMLDivElement | null) => {
-      if (slotEl.current) parkSurface(pane.id, slotEl.current)
-      slotEl.current = el
-      if (el) mountSurface(pane.id, el)
-    },
-    [pane.id],
-  )
-  useLayoutEffect(() => {
-    if (slotEl.current) slotEl.current.inert = !shown
-  }, [shown])
-
-  if (!hasSurface(pane.kind)) {
-    return shown ? (
-      <div className="pane-slot pane-slot-ghost">
-        <span className="ghost">{pane.title}</span>
-      </div>
-    ) : null
-  }
-  return <div className="pane-slot" data-hidden={shown ? undefined : ''} ref={slotRef} />
 }

@@ -151,13 +151,19 @@ export function reachesTarget(
 
 export function parseReferenceRequest(raw: unknown): OriginReferenceRequest | null {
   if (typeof raw !== 'object' || raw === null) return null
-  const { workspaceId, paneId, text, note } = raw as Record<string, unknown>
+  const { workspaceId, paneId, text, note, pointedByHuman } = raw as Record<string, unknown>
   if (typeof workspaceId !== 'string' || !workspaceId || workspaceId.length > ID_MAX) return null
   if (typeof paneId !== 'string' || !paneId || paneId.length > ID_MAX) return null
   if (typeof text !== 'string' || !text || text.length > REFERENCE_TEXT_MAX) return null
   const summary =
     typeof note === 'string' ? note.trim().replace(/\s+/g, ' ').slice(0, REFERENCE_NOTE_MAX) : ''
-  return { workspaceId, paneId, text, ...(summary ? { note: summary } : {}) }
+  return {
+    workspaceId,
+    paneId,
+    text,
+    ...(summary ? { note: summary } : {}),
+    ...(pointedByHuman === true ? { pointedByHuman: true } : {}),
+  }
 }
 
 interface PendingInsert {
@@ -190,6 +196,7 @@ export class ReferenceRelay {
         paneId: request.paneId,
         text: request.text,
         ...(request.note ? { note: request.note } : {}),
+        ...(request.pointedByHuman ? { pointedByHuman: true } : {}),
       }
       if (!this.deliver(windowId, insert)) settle(false)
     })

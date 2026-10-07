@@ -5,10 +5,19 @@ import {
   type RefObject,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
 } from 'react'
-import { type Point, type Size, dragRegion, toContentPoint } from './regionSelect'
+import {
+  type Point,
+  type Size,
+  type ZoomAnchor,
+  anchoredScroll,
+  dragRegion,
+  pinchZoom,
+  toContentPoint,
+} from './regionSelect'
 
 export type FileBytes = { status: 'loading' } | FsBinaryResult
 
@@ -53,6 +62,7 @@ export function useElementSize(ref: RefObject<HTMLElement>): Size {
 
 export interface RegionDrag {
   region: Region | null
+  enabled: boolean
   clear: () => void
   handlers: {
     onPointerDown: (e: ReactPointerEvent<HTMLElement>) => void
@@ -80,6 +90,7 @@ export function useRegionDrag(opts: { scale: number; bounds: Size; enabled: bool
 
   return {
     region,
+    enabled: opts.enabled,
     clear,
     handlers: {
       onPointerDown: (e) => {
@@ -97,4 +108,67 @@ export function useRegionDrag(opts: { scale: number; bounds: Size; enabled: bool
       },
     },
   }
+}
+
+export function usePinchZoom(opts: {
+  stageRef: RefObject<HTMLElement>
+  contentRef: RefObject<HTMLElement>
+  scale: number
+  onZoom: (scale: number) => void
+}): void {
+  const { stageRef, contentRef, scale } = opts
+  const scaleRef = useRef(scale)
+  const anchorRef = useRef<ZoomAnchor | null>(null)
+  const onZoomRef = useRef(opts.onZoom)
+  onZoomRef.current = opts.onZoom
+
+  useLayoutEffect(() => {
+    scaleRef.current = scale
+    const anchor = anchorRef.current
+    anchorRef.current = null
+    const stage = stageRef.current
+    const content = contentRef.current
+    if (!anchor || !stage || !content) return
+    const next = anchoredScroll(
+      { x: stage.scrollLeft, y: stage.scrollTop },
+      anchor,
+      content.getBoundingClientRect(),
+      scale,
+    )
+    stage.scrollLeft = next.x
+    stage.scrollTop = next.y
+  }, [scale, stageRef, contentRef])
+
+  useEffect(() => {
+    const stage = stageRef.current
+    if (!stage) return
+    const onWheel = (e: WheelEvent): void => {
+      if (!e.ctrlKey) return
+      e.preventDefault()
+      const content = contentRef.current
+      if (!content) return
+      const current = scaleRef.current
+      const next = pinchZoom(current, e.deltaY)
+      if (next === current) return
+      const client = { x: e.clientX, y: e.clientY }
+      const point =
+        anchorRef.current?.content ??
+        toContentPoint(client, content.getBoundingClientRect(), current)
+      anchorRef.current = { content: point, client }
+      scaleRef.current = next
+      onZoomRef.current(next)
+    }
+    stage.addEventListener('wheel', onWheel, { passive: false })
+    return () => stage.removeEventListener('wheel', onWheel)
+  }, [stageRef, contentRef])
+}
+
+export function useSettled<T>(value: T, delayMs: number): T {
+  const [settled, setSettled] = useState(value)
+  useEffect(() => {
+    if (Object.is(value, settled)) return
+    const timer = window.setTimeout(() => setSettled(value), delayMs)
+    return () => window.clearTimeout(timer)
+  }, [value, settled, delayMs])
+  return settled
 }

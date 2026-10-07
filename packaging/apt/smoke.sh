@@ -8,21 +8,21 @@ export DEBIAN_FRONTEND=noninteractive
 
 . /etc/os-release
 echo "== $PRETTY_NAME: install ${from:-$want}${from:+, then upgrade to $want}"
-apt-get update -qq
-apt-get install -y -qq curl ca-certificates >/dev/null
+/retry.sh apt-get update -qq
+/retry.sh apt-get install -y -qq curl ca-certificates >/dev/null
 install -d -m 0755 /etc/apt/keyrings
 curl -fsSL "$url/ostia.gpg" -o /etc/apt/keyrings/ostia.gpg
 echo "deb [signed-by=/etc/apt/keyrings/ostia.gpg] $url ./" > /etc/apt/sources.list.d/ostia.list
-apt-get update
+/retry.sh apt-get update
 
 version() { dpkg-query -W -f '${Version}' ostia; }
 
 if [ -n "$from" ]; then
-  apt-get install -y "ostia=$from"
+  /retry.sh apt-get install -y "ostia=$from"
   test "$(version)" = "$from"
-  apt-get install -y --only-upgrade ostia
+  /retry.sh apt-get install -y --only-upgrade ostia
 else
-  apt-get install -y ostia
+  /retry.sh apt-get install -y ostia
 fi
 
 echo "installed: $(version), wanted: $want"

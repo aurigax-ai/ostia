@@ -14,10 +14,14 @@ function isContextEvent(value: unknown): value is AgentHookEvent {
 export const BUS_QUEUED_HINT =
   'queued: the receiver reads it at its next prompt, or the human presses Enter in that pane (ostia bus sent shows when it was seen)'
 
+export const BUS_ASLEEP_HINT =
+  'asleep: the receiver is hibernated; wake it with ostia pane wake <pane> so its agent reads the message'
+
 export interface BusSendOk {
   ok: true
   id?: string
   delivered?: BusDelivery
+  asleep?: true
 }
 
 export interface SentMessage {

@@ -4,6 +4,7 @@ import type { ExtensionInfo } from '@shared/extensions'
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { renderSettled } from '../../../test/render'
 import { useAssistStore } from '../stores/assistStore'
 import { resetChatTools } from '../stores/chatToolsStore'
 import { useExtensionsStore } from '../stores/extensionsStore'
@@ -206,13 +207,13 @@ describe('AssistantSection', () => {
     expect(useUIStore.getState().settingsExtension).toBe(assistant.id)
   })
 
-  it('offers nothing but adding a provider until one is set up', () => {
+  it('offers nothing but adding a provider until one is set up', async () => {
     useExtensionsStore.setState({ list: [assistant] })
     useAssistStore.setState({
       overview: [{ ...assistantState, setup: 'no-provider', providers: [] }],
       catalog: { models: [], chat: null, fast: null },
     })
-    render(<AssistantSection />)
+    await renderSettled(<AssistantSection />)
     expect(screen.getByText('No providers yet')).toBeInTheDocument()
     expect(
       screen.getByText('Add a provider and a model first. Nothing is sent until then.'),
@@ -222,9 +223,9 @@ describe('AssistantSection', () => {
     expect(screen.getByRole('button', { name: 'Add provider' })).toBeInTheDocument()
   })
 
-  it('lists two providers with their own state, key and models, plus the one an extension brings', () => {
+  it('lists two providers with their own state, key and models, plus the one an extension brings', async () => {
     seed()
-    render(<AssistantSection />)
+    await renderSettled(<AssistantSection />)
     expect(within(provider('Ollama')).getByRole('status')).toHaveTextContent('Ready')
     expect(within(provider('OpenAI')).getByRole('status')).toHaveTextContent('Needs an API key')
     expect(within(provider('OpenAI')).getByText('Required by this provider.')).toBeInTheDocument()
@@ -380,9 +381,9 @@ describe('AssistantSection', () => {
     )
   })
 
-  it("keeps an extension's own settings without repeating the feature switches", () => {
+  it("keeps an extension's own settings without repeating the feature switches", async () => {
     seed()
-    render(<AssistantSection />)
+    await renderSettled(<AssistantSection />)
     expect(screen.getByRole('spinbutton', { name: 'Request limit' })).toBeInTheDocument()
     expect(screen.getByRole('textbox', { name: 'Address' })).toBeInTheDocument()
     expect(screen.queryByRole('switch', { name: 'Chat' })).toBeNull()
