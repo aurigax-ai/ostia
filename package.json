@@ -1,6 +1,6 @@
 {
   "name": "ostia",
-  "version": "0.5.9-rc.5",
+  "version": "0.5.9",
   "description": "Terminal Workspace — the ultimate CLI workspace (terminal + IDE + agents)",
   "private": true,
   "type": "commonjs",
@@ -37,13 +37,16 @@
     "test:watch": "vitest --project node --project dom",
     "test:coverage": "vitest run --project node --project dom --coverage",
     "test:unit": "vitest run --project node",
+    "test:dom": "vitest run --project dom",
     "test:security": "vitest run --project security",
     "test:e2e": "bash scripts/e2e.sh",
+    "bench:terminal": "OSTIA_E2E_BENCH=1 bash scripts/e2e.sh --workers=1",
     "postinstall": "install-electron"
   },
   "dependencies": {
     "@anthropic-ai/sandbox-runtime": "0.0.78",
     "@xterm/headless": "^6.0.0",
+    "bonjour-service": "^1.4.4",
     "commander": "^14.0.3",
     "electron-log": "^5.4.4",
     "es-toolkit": "^1.52.0",
@@ -65,6 +68,7 @@
     "@ai-sdk/openai": "^4.0.81",
     "@ai-sdk/openai-compatible": "^3.0.59",
     "@ai-sdk/react": "^4.0.125",
+    "@aurigax-ai/ghostty-web": "^0.3.1",
     "@base-ui/react": "^1.7.0",
     "@biomejs/biome": "^1.9.4",
     "@electron/rebuild": "^4.2.0",

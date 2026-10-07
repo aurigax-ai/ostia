@@ -278,6 +278,7 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       state: vi.fn().mockResolvedValue({ pending: [], history: [] }),
       answer: vi.fn().mockResolvedValue(true),
       revoke: vi.fn().mockResolvedValue(true),
+      removeAlways: vi.fn().mockResolvedValue(true),
       onChange: vi.fn(() => () => {}),
     },
     questions: {
@@ -428,6 +429,7 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
         deviceCount: 0,
         tailnet: { state: 'off' },
         route: { kind: 'tailnet' },
+        discoverable: false,
       }),
       devices: vi.fn().mockResolvedValue({ devices: [] }),
       revoke: vi.fn().mockResolvedValue({ ok: true }),
@@ -437,6 +439,10 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       tailnetSignIn: vi.fn().mockResolvedValue({ ok: true }),
       tailnetSignOut: vi.fn().mockResolvedValue({ ok: true }),
       onTailnetChanged: vi.fn(noopUnsub),
+      setDiscoverable: vi.fn().mockResolvedValue({ ok: true }),
+      pairRequests: vi.fn().mockResolvedValue([]),
+      answerPairRequest: vi.fn().mockResolvedValue({ ok: true }),
+      onPairRequestsChanged: vi.fn(noopUnsub),
     },
     notifications: {
       list: vi.fn().mockResolvedValue([]),

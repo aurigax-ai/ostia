@@ -1,4 +1,6 @@
 import type { PanePlacement, ScreenPoint } from '@shared/types'
+import { commands } from '../commands/registry'
+import type { DropZone } from '../layout/types'
 import { usePaneDnd } from '../stores/paneDndStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
 import { endedOutside } from './dropZone'
@@ -127,4 +129,14 @@ export function startPaneDragTracking(): () => void {
     document.removeEventListener('drop', drop)
     document.removeEventListener('mousemove', pointerBack)
   }
+}
+
+export function dropPaneOn(sourceId: string, targetId: string, zone: DropZone): void {
+  const dnd = usePaneDnd.getState()
+  dnd.dropped()
+  if (dnd.sourceId === sourceId) {
+    void commands.exec('pane.move', { sourceId, targetId, zone })
+    return
+  }
+  reportForeignDrop(sourceId, { paneId: targetId, zone })
 }

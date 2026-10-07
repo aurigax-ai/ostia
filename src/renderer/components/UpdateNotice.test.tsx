@@ -3,7 +3,7 @@ import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { useUpdateStore } from '../stores/updateStore'
 import { UpdateNotice } from './UpdateNotice'
 
-const BUILD = { version: '1.0.0', commit: 'def', builtAt: '2026-09-30T11:00:00Z' }
+const BUILD = { version: '1.0.0+sha.defdef', builtAt: '2026-09-30T11:00:00Z' }
 const RELEASE = {
   version: '1.1.0',
   url: 'https://github.com/aurigax-ai/ostia/releases/tag/v1.1.0',
@@ -36,7 +36,7 @@ describe('UpdateNotice', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Later' }))
     expect(screen.queryByRole('button', { name: 'Restart to update' })).toBeNull()
 
-    act(() => useUpdateStore.getState().receive({ ...BUILD, commit: 'ghi' }))
+    act(() => useUpdateStore.getState().receive({ ...BUILD, version: '1.0.0+sha.123abc' }))
     expect(screen.getByRole('button', { name: 'Restart to update' })).toBeTruthy()
   })
 

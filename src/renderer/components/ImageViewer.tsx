@@ -5,7 +5,7 @@ import { cropToPng } from '../lib/cropImage'
 import { imageMimeType } from '../lib/fileKinds'
 import { type Size, fitScale } from '../lib/regionSelect'
 import { registerSelectionSender } from '../lib/selectionSenders'
-import { useElementSize, useFileBytes, useRegionDrag } from '../lib/viewerHooks'
+import { useElementSize, useFileBytes, usePinchZoom, useRegionDrag } from '../lib/viewerHooks'
 import { IconButton } from './IconButton'
 import { useSelectionSend } from './SelectionSend'
 import { ViewerMessage, type Zoom, ZoomControls, useBytesProblem } from './ViewerChrome'
@@ -31,6 +31,7 @@ export function ImageViewer({
   const [zoom, setZoom] = useState<Zoom>('fit')
   const stageRef = useRef<HTMLDivElement>(null)
   const imgRef = useRef<HTMLImageElement>(null)
+  const canvasRef = useRef<HTMLDivElement>(null)
   const stage = useElementSize(stageRef)
   const selectionSend = useSelectionSend(workspaceId, paneId)
 
@@ -44,6 +45,7 @@ export function ImageViewer({
 
   const scale = zoom === 'fit' ? (natural ? fitScale(natural, stage, STAGE_PADDING) : 1) : zoom
   const drag = useRegionDrag({ scale, bounds: natural ?? NO_SIZE, enabled: natural !== null })
+  usePinchZoom({ stageRef, contentRef: canvasRef, scale, onZoom: setZoom })
 
   const sendRef = useRef<() => void>(() => {})
   sendRef.current = () => {
@@ -115,7 +117,8 @@ export function ImageViewer({
           <ViewerMessage>{message}</ViewerMessage>
         ) : url ? (
           <div
-            className="viewer-canvas"
+            ref={canvasRef}
+            className={drag.enabled ? 'viewer-canvas region-select' : 'viewer-canvas'}
             tabIndex={-1}
             onKeyDown={onCanvasKeyDown}
             style={

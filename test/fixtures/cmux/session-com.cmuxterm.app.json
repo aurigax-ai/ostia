@@ -127,9 +127,7 @@
                     "first": {
                       "type": "pane",
                       "pane": {
-                        "panelIds": [
-                          "00000000-0000-4000-8000-000000000107"
-                        ],
+                        "panelIds": ["00000000-0000-4000-8000-000000000107"],
                         "selectedPanelId": "00000000-0000-4000-8000-000000000107"
                       }
                     },
@@ -217,9 +215,7 @@
                   "pageZoom": 1,
                   "developerToolsVisible": false,
                   "isMuted": false,
-                  "backHistoryURLStrings": [
-                    "http://localhost:5173/login"
-                  ]
+                  "backHistoryURLStrings": ["http://localhost:5173/login"]
                 }
               },
               {
@@ -396,9 +392,7 @@
               "type": "pane",
               "pane": {
                 "isFullWidthTabMode": false,
-                "panelIds": [
-                  "00000000-0000-4000-8000-000000000021"
-                ],
+                "panelIds": ["00000000-0000-4000-8000-000000000021"],
                 "selectedPanelId": "00000000-0000-4000-8000-000000000021"
               }
             },
@@ -555,18 +549,14 @@
                 "first": {
                   "type": "pane",
                   "pane": {
-                    "panelIds": [
-                      "00000000-0000-4000-8000-000000000118"
-                    ],
+                    "panelIds": ["00000000-0000-4000-8000-000000000118"],
                     "selectedPanelId": "00000000-0000-4000-8000-000000000118"
                   }
                 },
                 "second": {
                   "type": "pane",
                   "pane": {
-                    "panelIds": [
-                      "00000000-0000-4000-8000-000000000120"
-                    ],
+                    "panelIds": ["00000000-0000-4000-8000-000000000120"],
                     "selectedPanelId": "00000000-0000-4000-8000-000000000120"
                   }
                 }

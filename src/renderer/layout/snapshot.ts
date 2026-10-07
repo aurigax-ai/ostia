@@ -3,6 +3,7 @@ import type {
   SnapshotGroup,
   SnapshotNode,
   SnapshotPaneNode,
+  SnapshotSplitNode,
   SnapshotWorkspace,
   WorkspaceOrigin,
 } from '@shared/types'
@@ -14,7 +15,7 @@ import {
   isRemoteFilePane,
   withoutPanes,
 } from './tree'
-import type { LayoutNode, PaneNode } from './types'
+import type { LayoutNode, PaneNode, SplitNode } from './types'
 
 export interface RestorableWorkspace {
   id: string
@@ -37,7 +38,14 @@ export interface RestorableLayout {
 }
 
 function fromPane(pane: PaneNode, live: ReadonlySet<string>): SnapshotPaneNode {
-  const { kind, hibernated, resumePending, ...rest } = pane
+  const {
+    kind,
+    hibernated,
+    resumePending,
+    spawnDir: _spawnDir,
+    resumeFolderMissing: _missing,
+    ...rest
+  } = pane
   const keepHibernated = hibernated === true && Boolean(rest.resume)
   const agentRunning =
     !keepHibernated && Boolean(rest.resume) && (live.has(pane.id) || resumePending === true)
@@ -49,10 +57,7 @@ function fromPane(pane: PaneNode, live: ReadonlySet<string>): SnapshotPaneNode {
   }
 }
 
-function fromLayoutNode(node: LayoutNode, live: ReadonlySet<string>): SnapshotNode {
-  if (node.type === 'pane') return fromPane(node, live)
-  if (node.type === 'tabs')
-    return { ...node, children: node.children.map((c) => fromPane(c, live)) }
+function fromSplit(node: SplitNode, live: ReadonlySet<string>): SnapshotSplitNode {
   return {
     ...node,
     children: node.children.map((c) => fromLayoutNode(c, live)),
@@ -60,9 +65,25 @@ function fromLayoutNode(node: LayoutNode, live: ReadonlySet<string>): SnapshotNo
   }
 }
 
+function fromLayoutNode(node: LayoutNode, live: ReadonlySet<string>): SnapshotNode {
+  if (node.type === 'pane') return fromPane(node, live)
+  if (node.type === 'tabs') {
+    return {
+      ...node,
+      children: node.children.map((c) =>
+        c.type === 'pane' ? fromPane(c, live) : fromSplit(c, live),
+      ),
+    }
+  }
+  return fromSplit(node, live)
+}
+
 function toPane(node: SnapshotPaneNode): PaneNode {
   const { agentRunning, ...rest } = node
-  return agentRunning && rest.resume ? { ...rest, resumePending: true } : { ...rest }
+  if (!agentRunning || !rest.resume) return { ...rest }
+  return rest.resume.cwd
+    ? { ...rest, resumePending: true, spawnDir: rest.resume.cwd }
+    : { ...rest, resumePending: true }
 }
 
 function persistableRoot(root: LayoutNode, workDir: string): LayoutNode {
@@ -78,10 +99,19 @@ function persistableRoot(root: LayoutNode, workDir: string): LayoutNode {
   )
 }
 
+function toSplit(node: SnapshotSplitNode): SplitNode {
+  return { ...node, children: node.children.map(toLayoutNode), sizes: [...node.sizes] }
+}
+
 function toLayoutNode(node: SnapshotNode): LayoutNode {
   if (node.type === 'pane') return toPane(node)
-  if (node.type === 'tabs') return { ...node, children: node.children.map(toPane) }
-  return { ...node, children: node.children.map(toLayoutNode), sizes: [...node.sizes] }
+  if (node.type === 'tabs') {
+    return {
+      ...node,
+      children: node.children.map((c) => (c.type === 'pane' ? toPane(c) : toSplit(c))),
+    }
+  }
+  return toSplit(node)
 }
 
 function copyGroup(group: SnapshotGroup): SnapshotGroup {

@@ -1,7 +1,8 @@
 import type { PromptContext } from '@shared/types'
-import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { renderSettled } from '../../../test/render'
 import { commands } from '../commands/registry'
 import { type LineAnchor, useBlocksStore } from '../stores/blocksStore'
 import { useExtensionsStore } from '../stores/extensionsStore'
@@ -39,7 +40,7 @@ function useOstia(chips: string[], patch: { sameLine?: boolean; separator?: '$' 
 }
 
 function renderEditor() {
-  return render(
+  return renderSettled(
     <InputEditor
       paneId={PANE}
       cwd="/home/u/proj"
@@ -86,10 +87,10 @@ describe('Ostia prompt in the input editor', () => {
     vi.mocked(window.ostia.pty.promptContext).mockReset()
   })
 
-  it('leaves the prompt to the shell with the shell prompt style', () => {
+  it('leaves the prompt to the shell with the shell prompt style', async () => {
     useSettingsStore.setState((s) => ({ behavior: { ...s.behavior, inputMode: 'editor' } }))
     idlePrompt()
-    renderEditor()
+    await renderEditor()
     expect(screen.getByRole('textbox', { name: 'Command input' })).toBeVisible()
     expect(screen.queryByRole('list', { name: 'Prompt' })).toBeNull()
     expect(window.ostia.pty.promptContext).not.toHaveBeenCalled()
@@ -98,7 +99,7 @@ describe('Ostia prompt in the input editor', () => {
   it('shows the chips in order with the pane’s real values and hides empty ones', async () => {
     useOstia(['user', 'kube', 'cwd', 'exitCode'])
     idlePrompt()
-    renderEditor()
+    await renderEditor()
     expect(await within(chipRow()).findByText('ada')).toBeVisible()
     const labels = within(chipRow())
       .getAllByRole('listitem')
@@ -113,7 +114,7 @@ describe('Ostia prompt in the input editor', () => {
     useBlocksStore.getState().commandStart(PANE, { line: 1 }, 'false')
     useBlocksStore.getState().commandEnd(PANE, { line: 2 }, 1)
     idlePrompt()
-    renderEditor()
+    await renderEditor()
     const chip = await within(chipRow()).findByLabelText('Last exit code: 1')
     expect(chip).toHaveAttribute('data-tone', 'error')
   })
@@ -121,7 +122,7 @@ describe('Ostia prompt in the input editor', () => {
   it('puts the chips and the separator on the input line when sameLine is on', async () => {
     useOstia(['cwd'], { sameLine: true, separator: '$' })
     idlePrompt()
-    const { container } = renderEditor()
+    const { container } = await renderEditor()
     const line = container.querySelector('.input-editor-line')
     expect(line).not.toBeNull()
     expect(line?.contains(chipRow())).toBe(true)
@@ -131,7 +132,7 @@ describe('Ostia prompt in the input editor', () => {
   it('opens Files when the cwd chip is clicked', async () => {
     useOstia(['cwd'])
     idlePrompt()
-    renderEditor()
+    await renderEditor()
     await userEvent.click(within(chipRow()).getByRole('button', { name: /Working directory/ }))
     expect(useUIStore.getState().filesOpen).toBe(true)
   })
@@ -184,7 +185,7 @@ describe('Ostia prompt in the input editor', () => {
     })
     useOstia(['git.dirty', 'cwd', 'git.branch'])
     idlePrompt()
-    renderEditor()
+    await renderEditor()
     await within(chipRow()).findByText('~/proj')
     expect(
       within(chipRow())
@@ -228,7 +229,7 @@ describe('Ostia prompt in the input editor', () => {
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
     useOstia(['user', 'cwd'], { separator: '$' })
     idlePrompt()
-    renderEditor()
+    await renderEditor()
     await within(chipRow()).findByText('ada')
     fireEvent.contextMenu(chipRow())
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Copy prompt' }))
@@ -248,7 +249,7 @@ describe('Ostia prompt in the input editor', () => {
   it('asks main again at each new prompt', async () => {
     useOstia(['user'])
     idlePrompt()
-    renderEditor()
+    await renderEditor()
     await within(chipRow()).findByText('ada')
     const calls = vi.mocked(window.ostia.pty.promptContext).mock.calls.length
     vi.mocked(window.ostia.pty.promptContext).mockResolvedValue({ ...CONTEXT, user: 'root' })

@@ -1,7 +1,8 @@
+import { TERMINAL_INPUT_SELECTOR } from './ostiaTerminal'
 export const HOVER_FOCUS_DELAY_MS = 150
 
 const TEXT_ENTRY = 'input, textarea, select, [contenteditable="true"], [contenteditable=""]'
-const SURFACE_INPUTS = '.xterm-helper-textarea, .monaco-editor textarea'
+const SURFACE_INPUTS = `${TERMINAL_INPUT_SELECTOR}, .monaco-editor textarea`
 const OVERLAYS =
   '[role="dialog"], [role="alertdialog"], [role="listbox"], [role="menu"], [cmdk-root]'
 

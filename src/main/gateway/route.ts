@@ -18,10 +18,27 @@ export function parseRoute(value: unknown): GatewayRoute | null {
   return null
 }
 
+interface GatewayConfig {
+  route?: unknown
+  discoverable?: unknown
+}
+
+function loadConfig(): GatewayConfig {
+  return loadJson<GatewayConfig>(routePath(), {})
+}
+
 export function loadRoute(): GatewayRoute {
-  return parseRoute(loadJson<{ route?: unknown }>(routePath(), {}).route) ?? TAILNET_ROUTE
+  return parseRoute(loadConfig().route) ?? TAILNET_ROUTE
 }
 
 export function saveRoute(route: GatewayRoute): void {
-  saveJson(routePath(), { route })
+  saveJson(routePath(), { ...loadConfig(), route })
+}
+
+export function loadDiscoverable(): boolean {
+  return loadConfig().discoverable === true
+}
+
+export function saveDiscoverable(discoverable: boolean): void {
+  saveJson(routePath(), { ...loadConfig(), discoverable })
 }
