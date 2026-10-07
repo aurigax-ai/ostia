@@ -1587,6 +1587,7 @@ export const en = {
     scratchFilesOne: '1 file in the scratch folder',
     scratchAction: 'Delete',
     reveal: 'Reveal',
+    unanswered: 'The window did not answer, so it may have running commands or unsaved files',
   },
   appMenu: {
     file: 'File',
@@ -4392,6 +4393,7 @@ export const zhHant: Dict = {
     scratchFilesOne: '暫存資料夾中有 1 個檔案',
     scratchAction: '刪除',
     reveal: '顯示資料夾',
+    unanswered: '視窗沒有回應，可能仍有執行中的指令或未儲存的檔案',
   },
   appMenu: {
     file: '檔案',
