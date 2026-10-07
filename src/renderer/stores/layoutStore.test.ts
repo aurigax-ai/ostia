@@ -1,6 +1,14 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { zhHant } from '../i18n/dict'
-import { allPanes, findPane, firstPaneId, paneIds, tabsOfPane } from '../layout/tree'
+import {
+  allPanes,
+  findPane,
+  firstPaneId,
+  isPaneShown,
+  paneIds,
+  splitTabOfPane,
+  tabsOfPane,
+} from '../layout/tree'
 import type { SplitNode } from '../layout/types'
 import { BASE_LANGUAGE } from '../lib/languagePacks'
 import { useLayoutStore } from './layoutStore'
@@ -137,6 +145,46 @@ describe('layoutStore', () => {
 
       expect(findPane(layoutOf('sess').root, named)).not.toHaveProperty('defaultTitle')
       expect(findPane(layoutOf('sess').root, browser)).not.toHaveProperty('defaultTitle')
+    })
+  })
+
+  describe('openTerminal with a split tab', () => {
+    const open = (
+      opts: Parameters<ReturnType<typeof useLayoutStore.getState>['openTerminal']>[1],
+    ) => useLayoutStore.getState().openTerminal('sess', { backgroundTab: true, ...opts }) as string
+
+    it('opens the first member as a background tab and joins later ones into a named split tab', () => {
+      const caller = ensure('sess')
+      const web = open({ afterPaneId: caller, splitTab: { name: 'dev', side: 'right' } })
+      expect(splitTabOfPane(layoutOf('sess').root, web)).toBeNull()
+      expect(tabsOfPane(layoutOf('sess').root, web)?.activeId).toBe(caller)
+
+      const api = open({
+        afterPaneId: caller,
+        splitTab: { name: 'dev', side: 'right', joinPaneId: web },
+      })
+      const tab = splitTabOfPane(layoutOf('sess').root, api)
+      expect(tab).toMatchObject({ name: 'dev', direction: 'horizontal' })
+      expect(tab && paneIds(tab)).toEqual([web, api])
+      expect(layoutOf('sess').activePaneId).toBe(caller)
+      expect(isPaneShown(layoutOf('sess').root, caller)).toBe(true)
+      expect(isPaneShown(layoutOf('sess').root, api)).toBe(false)
+
+      const docs = open({ afterPaneId: caller, splitTab: { name: 'dev', side: 'down' } })
+      const grown = splitTabOfPane(layoutOf('sess').root, docs)
+      expect(grown?.id).toBe(tab?.id)
+      expect(grown && paneIds(grown)).toEqual([web, api, docs])
+      expect(grown?.children[1]).toMatchObject({ type: 'split', direction: 'vertical' })
+    })
+
+    it('opens a new background tab when the member to join is gone', () => {
+      const caller = ensure('sess')
+      const pane = open({
+        afterPaneId: caller,
+        splitTab: { name: 'dev', side: 'right', joinPaneId: 'pane-gone' },
+      })
+      expect(splitTabOfPane(layoutOf('sess').root, pane)).toBeNull()
+      expect(tabsOfPane(layoutOf('sess').root, pane)?.children).toHaveLength(2)
     })
   })
 

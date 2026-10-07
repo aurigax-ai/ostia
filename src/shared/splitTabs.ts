@@ -10,6 +10,12 @@ function hasControlCharacter(text: string): boolean {
 
 export type SplitTabSide = 'right' | 'down'
 
+export interface SplitTabPlacement {
+  name: string
+  side: SplitTabSide
+  joinPaneId?: string
+}
+
 export function normalizeSplitTabName(raw: unknown): string | null {
   if (typeof raw !== 'string') return null
   const name = raw.trim()

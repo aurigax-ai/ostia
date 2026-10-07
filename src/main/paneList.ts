@@ -17,6 +17,8 @@ interface RendererPaneEntry extends PaneAgentFields {
   title: string
   cwd?: string
   filePath?: string
+  splitTabId?: string
+  splitTabName?: string
 }
 
 export interface WorkspaceEntry {
@@ -48,6 +50,8 @@ export interface PaneEntry extends PaneAgentFields {
   blockCount: number
   lastExitCode?: number
   pid?: number
+  splitTabId?: string
+  splitTabName?: string
 }
 
 export interface PaneListDeps {
@@ -101,6 +105,8 @@ export async function listPanes(deps: PaneListDeps): Promise<PaneEntry[]> {
       lastExitCode: state?.lastExitCode,
       ...(pid ? { pid } : {}),
       ...agentFields(p),
+      ...(typeof p.splitTabId === 'string' ? { splitTabId: p.splitTabId } : {}),
+      ...(typeof p.splitTabName === 'string' ? { splitTabName: p.splitTabName } : {}),
     })
   }
   return mapped

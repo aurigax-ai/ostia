@@ -38,7 +38,8 @@ ostia info           # this pane's mirrored terminal state (cwd, running, gen, .
 ostia cwd            # just this pane's current working directory
 ostia pane.list      # every pane, every workspace — JSON array of
                      # { paneId(external), workspaceId, kind, title, cwd, running,
-                     #   blockCount, lastExitCode } — the pane roster (see below)
+                     #   blockCount, lastExitCode, splitTabId?, splitTabName? }
+                     # — the pane roster (see below)
 ostia workspace.list   # every workspace — JSON array of { workspaceId, name, kind, workDir, state, groupId? }
 ```
 
@@ -145,6 +146,7 @@ focus.
 
 ```sh
 ostia process run "npm run dev" [--name web] [--cwd /path]  # -> { id, name, paneId }
+ostia process run "npm run api" --name api --split-tab dev [--split right|down]
 ostia process ls                   # id, name, status, paneId, cmd
 ostia process logs <id|name> [--since N]  # that command's output only, as plain text
 ostia process kill <id|name>       # Ctrl+C; ends the tab's shell if it keeps running
@@ -162,6 +164,12 @@ ostia process restart <id|name>    # Ctrl+C, then the same line again in the sam
   fixer` shows what it printed, and `ostia pane send <paneId> "..." --enter` and
   `ostia pane read <paneId>` let you answer it. An unknown name answers `unknown-agent`: start
   that one with `ostia process run` instead.
+- To show related processes in one tab, give them the same `--split-tab <name>`: the first
+  run opens its tab as usual, and every later run with that name joins that tab beside the
+  others (`--split right`, the default, or `--split down`). The human sees one tab, a split
+  tab, with a segment per process. `ostia agent run` takes the same flags. It still only
+  opens new terminals: it never types into one that is open. `ostia pane.list` gives
+  each member's `splitTabId` and `splitTabName`.
 - Status is `starting` (not typed yet), `running`, `exited(<code>)`, or `closed` (the human
   closed the tab; start it again with `ostia process run`). Nothing survives a restart of
   Ostia: a restored tab is an idle shell and the list is empty.

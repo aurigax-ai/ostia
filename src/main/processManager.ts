@@ -3,6 +3,7 @@ import { ErrorCodes, ResponseError } from 'vscode-jsonrpc/node'
 import { MANAGER_AGENT_NAME } from '../shared/managerSettings'
 import { PRODUCT_DISPLAY_NAME } from '../shared/productDisplay'
 import { quoteArgv } from '../shared/shellQuote'
+import { type SplitTabSide, normalizeSplitTabName, parseSplitTabSide } from '../shared/splitTabs'
 import { connHasCap } from './controlAuth'
 import {
   type ControlMethodContext,
@@ -44,6 +45,7 @@ export interface ProcessEntry {
   exitCode?: number
   outputStart?: number
   outputEnd?: number
+  splitTab?: string
 }
 
 export interface ProcessInfo {
@@ -55,6 +57,7 @@ export interface ProcessInfo {
   exitCode: number | undefined
   paneId: string
   startedAt: string
+  splitTab?: string
 }
 
 export interface ProcessOutput {
@@ -71,6 +74,7 @@ export interface NewProcess {
   ownerPaneId: string
   paneId: string
   externalPaneId: string
+  splitTab?: string
 }
 
 export interface RegistryDeps {
@@ -128,6 +132,7 @@ export class ProcessRegistry {
       externalPaneId: input.externalPaneId,
       startedAt: this.deps.now().toISOString(),
       status: 'starting',
+      ...(input.splitTab ? { splitTab: input.splitTab } : {}),
     }
     this.entries.set(id, entry)
     this.byPane.set(entry.paneId, entry)
@@ -150,6 +155,7 @@ export class ProcessRegistry {
       startedAt: kept.startedAt,
       status: kept.status,
       ...(kept.exitCode !== undefined ? { exitCode: kept.exitCode } : {}),
+      ...(kept.splitTab ? { splitTab: kept.splitTab } : {}),
       outputStart: cursor,
     }
     this.entries.set(id, entry)
@@ -255,6 +261,14 @@ export class ProcessRegistry {
     return workspaceId === null ? all : all.filter((e) => this.workspaceOf(e) === workspaceId)
   }
 
+  splitTabMember(workspaceId: string, splitTab: string): string | undefined {
+    const members = [...this.entries.values()].filter(
+      (e) =>
+        e.splitTab === splitTab && e.status !== 'closed' && this.workspaceOf(e) === workspaceId,
+    )
+    return members[members.length - 1]?.paneId
+  }
+
   resolve(ref: string, workspaceId: string, everyWorkspace: boolean): ProcessEntry | undefined {
     const visible = (entry: ProcessEntry): boolean =>
       everyWorkspace || this.workspaceOf(entry) === workspaceId
@@ -292,6 +306,7 @@ export class ProcessRegistry {
       exitCode: entry.exitCode,
       paneId: entry.externalPaneId,
       startedAt: entry.startedAt,
+      ...(entry.splitTab ? { splitTab: entry.splitTab } : {}),
     }
   }
 
@@ -393,6 +408,23 @@ function defaultName(cmd: string): string {
   return (cmd.trim().split(/\s+/)[0] ?? '').slice(0, PROCESS_NAME_MAX)
 }
 
+interface SplitTabRequest {
+  name: string
+  side: SplitTabSide
+}
+
+function splitTabOf(rawName: unknown, rawSide: unknown): SplitTabRequest | undefined {
+  if (rawName === undefined || rawName === null) {
+    if (rawSide !== undefined && rawSide !== null) throw badRequest('split needs splitTab')
+    return undefined
+  }
+  const name = normalizeSplitTabName(rawName)
+  if (!name) throw badRequest('splitTab')
+  const side = rawSide === undefined || rawSide === null ? 'right' : parseSplitTabSide(rawSide)
+  if (!side) throw badRequest('split must be right or down')
+  return { name, side }
+}
+
 function cwdOf(raw: unknown): string | undefined {
   if (raw === undefined || raw === null) return undefined
   if (typeof raw !== 'string' || !isAbsolute(raw)) throw badRequest('cwd must be absolute')
@@ -434,8 +466,12 @@ export function registerProcessMethods(deps: ProcessDeps): ProcessRegistry {
     cmd: string,
     name: string,
     givenCwd: string | undefined,
+    splitTab: SplitTabRequest | undefined,
   ): Promise<{ id: string; name: string; paneId: string } | typeof NOT_OPENED> => {
     const cwd = givenCwd ?? deps.cwdOfPane(ctx.identity.paneId)
+    const joinPaneId = splitTab
+      ? registry.splitTabMember(ctx.identity.workspaceId, splitTab.name)
+      : undefined
     const opened = await deps.openTab({
       command: cmd,
       workspaceId: ctx.identity.workspaceId,
@@ -445,6 +481,7 @@ export function registerProcessMethods(deps: ProcessDeps): ProcessRegistry {
       pinTitle: true,
       title: name,
       ...(cwd ? { cwd } : {}),
+      ...(splitTab ? { splitTab: { ...splitTab, ...(joinPaneId ? { joinPaneId } : {}) } } : {}),
     })
     const pane = opened ? resolveExternal(opened) : undefined
     if (pane?.kind !== 'pane') return NOT_OPENED
@@ -456,6 +493,7 @@ export function registerProcessMethods(deps: ProcessDeps): ProcessRegistry {
       ownerPaneId: ctx.identity.paneId,
       paneId: pane.paneId,
       externalPaneId: pane.externalId,
+      ...(splitTab ? { splitTab: splitTab.name } : {}),
     })
     return { id: entry.id, name: entry.name, paneId: entry.externalPaneId }
   }
@@ -465,7 +503,13 @@ export function registerProcessMethods(deps: ProcessDeps): ProcessRegistry {
     handler: (raw, ctx) => {
       const p = record(raw)
       const cmd = commandOf(p.cmd)
-      return runInTab(ctx, cmd, nameOf(p.name) ?? defaultName(cmd), cwdOf(p.cwd))
+      return runInTab(
+        ctx,
+        cmd,
+        nameOf(p.name) ?? defaultName(cmd),
+        cwdOf(p.cwd),
+        splitTabOf(p.splitTab, p.split),
+      )
     },
   })
 
@@ -477,7 +521,13 @@ export function registerProcessMethods(deps: ProcessDeps): ProcessRegistry {
       const argv = deps.agentArgv(agent)
       if (!argv) return UNKNOWN_AGENT
       const cmd = commandOf(quoteArgv([...argv, promptOf(p.prompt)]))
-      return runInTab(ctx, cmd, nameOf(p.name) ?? agent, cwdOf(p.cwd))
+      return runInTab(
+        ctx,
+        cmd,
+        nameOf(p.name) ?? agent,
+        cwdOf(p.cwd),
+        splitTabOf(p.splitTab, p.split),
+      )
     },
   })
 

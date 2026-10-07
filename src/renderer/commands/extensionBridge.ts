@@ -125,6 +125,7 @@ export function openExtensionTerminal(req: ExtensionOpenTerminalRequest): string
       cwd: req.cwd,
       title: req.title,
       backgroundTab: req.backgroundTab,
+      splitTab: req.splitTab,
     })
   const paneId = req.backgroundTab ? openKeepingFocus(open) : open()
   if (!paneId) return null

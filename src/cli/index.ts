@@ -723,21 +723,51 @@ function describeErrResult(res: ErrResult): string {
   return res.message ? `${res.error}: ${res.message}` : res.error
 }
 
+const SPLIT_TAB_FLAGS = { splitTab: '--split-tab', split: '--split' } as const
+
+function splitTabParams(flags: {
+  splitTab?: string
+  split?: string
+}): { splitTab?: string; split?: string } | string {
+  if (flags.split !== undefined && flags.splitTab === undefined) return '--split needs --split-tab'
+  if (flags.split !== undefined && flags.split !== 'right' && flags.split !== 'down') {
+    return `--split expects right or down, got '${flags.split}'`
+  }
+  return {
+    ...(flags.splitTab !== undefined ? { splitTab: flags.splitTab } : {}),
+    ...(flags.split !== undefined ? { split: flags.split } : {}),
+  }
+}
+
 async function runAgentVerb(conn: MessageConnection): Promise<void> {
   const { values: flags, positional } = parseArgs(process.argv.slice(4), {
-    values: { name: '--name', cwd: '--cwd' },
+    values: { name: '--name', cwd: '--cwd', ...SPLIT_TAB_FLAGS },
     unknown: 'keep',
   })
   const [agent, given] = positional
   if (process.argv[3] !== 'run' || !agent || given === undefined) {
-    console.error('usage: ostia agent run <agent> [--name N] [--cwd DIR] <prompt|->')
+    console.error(
+      'usage: ostia agent run <agent> [--name N] [--cwd DIR] [--split-tab T [--split right|down]] <prompt|->',
+    )
+    process.exitCode = 1
+    return
+  }
+  const splitTab = splitTabParams(flags)
+  if (typeof splitTab === 'string') {
+    console.error(`ostia agent run: ${splitTab}`)
     process.exitCode = 1
     return
   }
   const prompt = given === '-' ? await readAllStdin() : given
   const res = await conn.sendRequest<{ id: string; name: string; paneId: string } | ErrResult>(
     'agent.run',
-    { agent, prompt, name: flags.name, ...(flags.cwd ? { cwd: resolvePath(flags.cwd) } : {}) },
+    {
+      agent,
+      prompt,
+      name: flags.name,
+      ...(flags.cwd ? { cwd: resolvePath(flags.cwd) } : {}),
+      ...splitTab,
+    },
   )
   if (isErrResult(res)) {
     console.error(`ostia: agent run failed (${describeErrResult(res)})`)
@@ -753,7 +783,7 @@ async function runProcessVerb(conn: MessageConnection): Promise<void> {
 
   if (sub === 'run') {
     const { values: flags, positional } = parseArgs(rawArgs, {
-      values: { name: '--name', cwd: '--cwd' },
+      values: { name: '--name', cwd: '--cwd', ...SPLIT_TAB_FLAGS },
       unknown: 'keep',
     })
     const cmd = positional[0]
@@ -762,9 +792,15 @@ async function runProcessVerb(conn: MessageConnection): Promise<void> {
       process.exitCode = 1
       return
     }
+    const splitTab = splitTabParams(flags)
+    if (typeof splitTab === 'string') {
+      console.error(`ostia process run: ${splitTab}`)
+      process.exitCode = 1
+      return
+    }
     const res = await conn.sendRequest<{ id: string; name: string; paneId: string } | ErrResult>(
       'process.run',
-      { cmd, name: flags.name, cwd: resolvePath(flags.cwd ?? '.') },
+      { cmd, name: flags.name, cwd: resolvePath(flags.cwd ?? '.'), ...splitTab },
     )
     if (isErrResult(res)) {
       console.error(`ostia: process run failed (${describeErrResult(res)})`)
@@ -1199,9 +1235,11 @@ commands:
   view list [--json] | open <name>   declarative views (~/.config/ostia/views/<name>.json)
   view validate <file> | schema      check a view file / print its JSON schema (no app needed)
   <file>... | open <file>...   show files in Ostia's viewer, any path (file:line[:col] jumps)
-  process run "<cmd>" [--name N] [--cwd DIR] | ls | logs | kill | restart <id|name>
-                            run a command in a new terminal tab the human can watch
-  agent run <agent> [--name N] [--cwd DIR] <prompt|->
+  process run "<cmd>" [--name N] [--cwd DIR] [--split-tab T [--split right|down]]
+            | ls | logs | kill | restart <id|name>
+                            run a command in a new terminal tab the human can watch;
+                            the same --split-tab T puts them side by side in one tab
+  agent run <agent> [--name N] [--cwd DIR] [--split-tab T [--split right|down]] <prompt|->
                             start claude, codex or an agent the human configured in a new
                             terminal tab with that prompt; talk to it with ostia pane
   pane send <pane> <text> [--enter] | key <pane> <key>… | read <pane> [--lines N]

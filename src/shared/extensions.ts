@@ -11,6 +11,7 @@ import type { KeymapContribution, KeymapInfo } from './keymap'
 import type { LanguageContribution, LanguageInfo } from './languagePack'
 import type { LanguageServerContribution, LanguageServerSummary } from './languageServers'
 import type { RemoteCwd } from './remoteFolders'
+import type { SplitTabPlacement } from './splitTabs'
 import type { Workflow } from './workflows'
 
 export const EXTENSION_MANIFEST_FILE = 'ostia.json'
@@ -489,6 +490,7 @@ export interface ExtensionOpenTerminalRequest {
   title?: string
   backgroundTab?: boolean
   pinTitle?: boolean
+  splitTab?: SplitTabPlacement
 }
 
 export interface ExtensionsApi {

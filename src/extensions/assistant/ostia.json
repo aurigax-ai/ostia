@@ -2,7 +2,7 @@
   "id": "assistant",
   "name": "Assistant",
   "version": "1.0.0",
-  "api": "2.3",
+  "api": "2.4",
   "description": "Language models of your choice (Ollama, OpenRouter, OpenAI, Anthropic or any OpenAI-compatible server) for a chat pane that can edit files with you, typo fixes and prompt review before you send to an agent, command suggestions and completions at the prompt, editor completions and Explain error. Nothing is sent until you add a provider in Settings → Assistant.",
   "category": "ai",
   "capabilities": ["assist", "notify"],

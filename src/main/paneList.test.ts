@@ -105,6 +105,33 @@ describe('paneList.listPanes', () => {
     expect(panes[0]).toMatchObject({ paneId: editor.externalId, filePath: '/work/a.ts' })
   })
 
+  it('passes the split tab a pane sits in through', async () => {
+    const inTab = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'p-split-member' })
+    const execCommand = vi.fn().mockResolvedValue(
+      ok([
+        {
+          paneId: 'p-split-member',
+          workspaceId: 's1',
+          kind: 'terminal',
+          title: 'api',
+          splitTabId: 'split-3',
+          splitTabName: 'dev',
+        },
+      ]),
+    )
+    const panes = await listPanes({
+      execCommand,
+      getTerminalState: vi.fn(),
+      ptyPid: vi.fn(),
+      windowIds: ONE_WINDOW,
+    })
+    expect(panes[0]).toMatchObject({
+      paneId: inTab.externalId,
+      splitTabId: 'split-3',
+      splitTabName: 'dev',
+    })
+  })
+
   it("passes an agent pane's kind, session id and state through and drops malformed ones", async () => {
     const agent = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'p-agent' })
     const shell = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'p-agent-bad' })

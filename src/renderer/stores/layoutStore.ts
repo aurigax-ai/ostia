@@ -1,6 +1,7 @@
 import type { AgentResume } from '@shared/agentResume'
 import type { BrowserProfile } from '@shared/browserProfile'
 import type { DiffContent } from '@shared/extensions'
+import type { SplitTabPlacement } from '@shared/splitTabs'
 import type { PanePlacement } from '@shared/types'
 import { create } from 'zustand'
 import { currentDict } from '../i18n/useDict'
@@ -15,6 +16,7 @@ import {
   equalizeSizes,
   findExtensionPane,
   findPane,
+  findSplitTabByName,
   findViewPane,
   firstBrowserPane,
   firstPaneId,
@@ -26,6 +28,7 @@ import {
   mergeLayouts,
   movePane,
   moveTab,
+  nameSplitTabOf,
   paneIds,
   renamePane,
   selectTab,
@@ -117,6 +120,26 @@ export interface OpenTerminalPlacement {
   cwd?: string
   title?: string
   backgroundTab?: boolean
+  splitTab?: SplitTabPlacement
+}
+
+function splitTabAnchor(root: LayoutNode, splitTab: SplitTabPlacement): string | null {
+  const named = findSplitTabByName(root, splitTab.name)
+  if (named) {
+    const panes = allPanes(named)
+    return panes[panes.length - 1].id
+  }
+  return splitTab.joinPaneId && findPane(root, splitTab.joinPaneId) ? splitTab.joinPaneId : null
+}
+
+function joinSplitTab(
+  root: LayoutNode,
+  anchor: string,
+  pane: PaneNode,
+  splitTab: SplitTabPlacement,
+): LayoutNode {
+  const direction: Direction = splitTab.side === 'down' ? 'vertical' : 'horizontal'
+  return nameSplitTabOf(splitPane(root, anchor, direction, pane).root, pane.id, splitTab.name)
 }
 
 function describeTerminal(root: LayoutNode, paneId: string, opts: OpenTerminalPlacement) {
@@ -697,6 +720,13 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       const next = patch(s, workspaceId, (l) => {
         const beside =
           opts.afterPaneId && findPane(l.root, opts.afterPaneId) ? opts.afterPaneId : l.activePaneId
+        const anchor = opts.splitTab ? splitTabAnchor(l.root, opts.splitTab) : null
+        if (anchor && opts.splitTab) {
+          const pane = newTerminalPane()
+          createdPaneId = pane.id
+          const root = joinSplitTab(l.root, anchor, pane, opts.splitTab)
+          return { ...l, root: describeTerminal(root, pane.id, opts) }
+        }
         if (opts.backgroundTab) {
           const pane = newTerminalPane()
           createdPaneId = pane.id

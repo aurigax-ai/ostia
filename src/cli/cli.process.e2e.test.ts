@@ -187,6 +187,65 @@ describe('ostia process (the real CLI against a live control server)', () => {
     expect(Object.keys(started).sort()).toEqual(['id', 'name', 'paneId'])
   })
 
+  it('run --split-tab: the first opens its own tab, later ones join the newest member', async () => {
+    const first = await ostia(['process', 'run', 'pnpm web', '--split-tab', 'dev'])
+    expect(first.stderr).toBe('')
+    expect(opened[0]).toMatchObject({
+      backgroundTab: true,
+      splitTab: { name: 'dev', side: 'right' },
+    })
+    expect(opened[0].splitTab).not.toHaveProperty('joinPaneId')
+    const firstTab = `tab-${tabSeq}`
+
+    await ostia(['process', 'run', 'pnpm api', '--split-tab', 'dev', '--split', 'down'])
+    expect(opened[1]).toMatchObject({
+      splitTab: { name: 'dev', side: 'down', joinPaneId: firstTab },
+    })
+    const secondTab = `tab-${tabSeq}`
+
+    await ostia(['agent', 'run', 'claude', '--split-tab', 'dev', 'watch the logs'])
+    expect(opened[2]).toMatchObject({ splitTab: { name: 'dev', joinPaneId: secondTab } })
+
+    await ostia(['process', 'run', 'pnpm docs', '--split-tab', 'other'])
+    expect(opened[3].splitTab).toEqual({ name: 'other', side: 'right' })
+    const listed = await ostia(['process', 'ls'])
+    expect(listed.code).toBe(0)
+  })
+
+  it('run --split-tab: skips a member whose tab the human closed', async () => {
+    await ostia(['process', 'run', 'pnpm web', '--split-tab', 'gone'])
+    registry.paneClosed(`tab-${tabSeq}`)
+    await ostia(['process', 'run', 'pnpm api', '--split-tab', 'gone'])
+    expect(opened[1].splitTab).toEqual({ name: 'gone', side: 'right' })
+  })
+
+  it('run: refuses --split without --split-tab and a side that is not right or down', async () => {
+    const lone = await ostia(['process', 'run', 'pnpm web', '--split', 'down'])
+    expect(lone.code).toBe(1)
+    expect(lone.stderr).toContain('--split needs --split-tab')
+    const sideways = await ostia([
+      'process',
+      'run',
+      'pnpm web',
+      '--split-tab',
+      'x',
+      '--split',
+      'up',
+    ])
+    expect(sideways.code).toBe(1)
+    expect(sideways.stderr).toContain("--split expects right or down, got 'up'")
+    const agentSide = await ostia(['agent', 'run', 'claude', '--split', 'down', 'hi'])
+    expect(agentSide.code).toBe(1)
+    expect(opened).toHaveLength(0)
+  })
+
+  it('run: the socket refuses a split tab name with control characters', async () => {
+    const res = await ostia(['process', 'run', 'pnpm web', '--split-tab', 'a\u0007b'])
+    expect(res.code).toBe(1)
+    expect(res.stderr).toContain('splitTab')
+    expect(opened).toHaveLength(0)
+  })
+
   it('run: starts in the folder the caller is in', async () => {
     await ostia(['process', 'run', 'pnpm dev'], join(home, 'api'))
     expect(opened[0]).toMatchObject({ cwd: join(home, 'api'), title: 'pnpm' })
