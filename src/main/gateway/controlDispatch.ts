@@ -1,12 +1,14 @@
 import type { Capability } from '../../shared/capabilities'
+import { plainBlock } from '../../shared/questions'
 import type {
   CommandDescriptor,
   CommandResult,
   CommandTarget,
   TerminalStateSnapshot,
 } from '../../shared/types'
+import type { Ask, AskAnswerResult } from '../asks'
 import { resolveExternal } from '../idRegistry'
-import type { PaneEntry, WorkspaceEntry } from '../paneList'
+import type { PaneEntry, WorkspaceEntry, WorkspaceGroupEntry } from '../paneList'
 
 export interface GatewayControlDeps {
   execCommand: (target: CommandTarget, id: string, args?: unknown) => Promise<CommandResult>
@@ -14,6 +16,7 @@ export interface GatewayControlDeps {
   getTerminalState: (paneId: string) => TerminalStateSnapshot | undefined
   listPanes: () => Promise<PaneEntry[]>
   listWorkspaces: () => Promise<WorkspaceEntry[]>
+  listWorkspaceGroups: () => Promise<WorkspaceGroupEntry[]>
   primaryWindowId: () => string | undefined
   attachPhoneObserver: (
     rendererPaneId: string,
@@ -21,18 +24,34 @@ export interface GatewayControlDeps {
   ) => { cursor: number; dropped: boolean; cols: number; rows: number; detach: () => void } | null
   ptyResize: (rendererPaneId: string, cols: number, rows: number) => void
   ptyWrite: (rendererPaneId: string, data: string) => void
+  listAsks: () => Ask[]
+  answerAsk: (askId: string, choiceId: unknown, text: unknown) => AskAnswerResult
+  agentRunning: (rendererPaneId: string) => boolean
+}
+
+export const AGENT_PROMPT_MAX = 8000
+export const AGENT_ENTER_DELAY_MS = 60
+
+const INTERRUPT_KEYS: Record<string, string> = { esc: '\x1b', 'ctrl-c': '\x03' }
+
+function bracketedPaste(text: string): string {
+  return `\x1b[200~${text}\x1b[201~`
 }
 
 export type RpcOutcome =
   | { ok: true; result: unknown }
   | { ok: false; code: number; message: string; data?: unknown }
 
-function toWireSession({
-  workspaceId,
-  groupId: _groupId,
-  ...rest
-}: WorkspaceEntry): Record<string, unknown> {
-  return { sessionId: workspaceId, ...rest }
+function toWireSession(
+  { workspaceId, groupId, ...rest }: WorkspaceEntry,
+  groupNames: Map<string, string>,
+): Record<string, unknown> {
+  const name = groupId ? groupNames.get(groupId) : undefined
+  return {
+    sessionId: workspaceId,
+    ...rest,
+    ...(groupId && name !== undefined ? { group: { id: groupId, name } } : {}),
+  }
 }
 
 function toWirePane({ workspaceId, ...rest }: PaneEntry): Record<string, unknown> {
@@ -75,6 +94,17 @@ function resolveTarget(target: unknown, primaryWindowId: string | undefined): Co
   return { windowId: identity.windowId, workspaceId: identity.workspaceId, paneId: identity.paneId }
 }
 
+function agentPaneOf(paneId: unknown, deps: GatewayControlDeps): string | RpcOutcome {
+  if (typeof paneId !== 'string' || !paneId) return invalidParams('missing paneId')
+  const identity = resolveExternal(paneId)
+  if (!identity || identity.kind !== 'pane' || identity.manager)
+    return invalidParams('not-an-agent')
+  if (!deps.agentRunning(identity.paneId)) {
+    return invalidParams('not-an-agent')
+  }
+  return identity.paneId
+}
+
 export async function dispatchGatewayMethod(
   method: string,
   params: unknown,
@@ -87,7 +117,15 @@ export async function dispatchGatewayMethod(
   switch (method) {
     case 'session.list': {
       if (!hasCap('read')) return needsElevation('read')
-      return { ok: true, result: { sessions: (await deps.listWorkspaces()).map(toWireSession) } }
+      const [workspaces, groups] = await Promise.all([
+        deps.listWorkspaces(),
+        deps.listWorkspaceGroups(),
+      ])
+      const groupNames = new Map(groups.map((g) => [g.groupId, g.name]))
+      return {
+        ok: true,
+        result: { sessions: workspaces.map((w) => toWireSession(w, groupNames)) },
+      }
     }
 
     case 'pane.list': {
@@ -151,6 +189,45 @@ export async function dispatchGatewayMethod(
       const identity = resolveExternal(paneId)
       const cwd = identity ? (deps.getTerminalState(identity.paneId)?.cwd ?? null) : null
       return { ok: true, result: { cwd } }
+    }
+
+    case 'ask.list': {
+      if (!hasCap('read')) return needsElevation('read')
+      return { ok: true, result: { asks: deps.listAsks() } }
+    }
+
+    case 'ask.answer': {
+      if (!hasCap('respond')) return needsElevation('respond')
+      if (typeof p.askId !== 'string' || !p.askId) return invalidParams('missing askId')
+      const answered = deps.answerAsk(p.askId, p.choiceId, p.text)
+      return answered === 'ok' ? { ok: true, result: { ok: true } } : invalidParams(answered)
+    }
+
+    case 'agent.prompt': {
+      if (!hasCap('respond')) return needsElevation('respond')
+      const paneId = agentPaneOf(p.paneId, deps)
+      if (typeof paneId !== 'string') return paneId
+      if (typeof p.text !== 'string') return invalidParams('missing text')
+      const text = plainBlock(p.text).slice(0, AGENT_PROMPT_MAX)
+      if (!text) return invalidParams('missing text')
+      deps.ptyWrite(paneId, bracketedPaste(text))
+      setTimeout(() => {
+        if (deps.agentRunning(paneId)) deps.ptyWrite(paneId, '\r')
+      }, AGENT_ENTER_DELAY_MS)
+      return { ok: true, result: { ok: true } }
+    }
+
+    case 'agent.interrupt': {
+      if (!hasCap('respond')) return needsElevation('respond')
+      const paneId = agentPaneOf(p.paneId, deps)
+      if (typeof paneId !== 'string') return paneId
+      const key =
+        typeof p.key === 'string' && Object.hasOwn(INTERRUPT_KEYS, p.key)
+          ? INTERRUPT_KEYS[p.key]
+          : undefined
+      if (!key) return invalidParams('unknown key')
+      deps.ptyWrite(paneId, key)
+      return { ok: true, result: { ok: true } }
     }
 
     default:

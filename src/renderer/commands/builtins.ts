@@ -230,6 +230,11 @@ export function registerBuiltinCommands(): void {
     id: 'tab.new',
     category: 'pane',
     run: (args, ctx) => {
+      if (!ctx.activeWorkspaceId && !args?.paneId) {
+        const created = startNewWorkspace()
+        if (created) openFirstTerminal(ctx, created)
+        return
+      }
       const empty = workspaceWithoutPanes(ctx, args?.paneId)
       if (empty) {
         openFirstTerminal(ctx, empty)
@@ -282,6 +287,17 @@ export function registerBuiltinCommands(): void {
     run: async (args, ctx) => {
       if (args?.paneId !== undefined && typeof args.paneId !== 'string') {
         throw new Error('paneId must be a string')
+      }
+      if (args?.paneId === undefined && !ctx.target) {
+        const ui = useUIStore.getState()
+        if (ui.settingsActive) {
+          ui.closeSettings()
+          return
+        }
+        if (ui.dashboardActive) {
+          ui.showWorkspaces()
+          return
+        }
       }
       if (!ctx.activeWorkspaceId) return
       const target = args?.paneId ?? ctx.activePaneId
@@ -928,7 +944,21 @@ export function registerBuiltinCommands(): void {
     id: 'view.searchFiles',
     category: 'view',
     target: 'none',
-    run: () => useUIStore.getState().searchFiles(),
+    run: () => {
+      const ui = useUIStore.getState()
+      if (!ui.filesOpen) {
+        ui.searchFiles()
+        return
+      }
+      const focused = document.activeElement
+      if (focused instanceof Element && focused.closest('#files-panel')) {
+        ui.toggleFiles()
+        const workspaceId = useWorkspacesStore.getState().activeWorkspaceId
+        if (workspaceId) focusActivePaneWhenReady(workspaceId)
+        return
+      }
+      ui.searchFiles()
+    },
   })
 
   const zoomBy = (direction: 1 | -1): void => {
@@ -962,6 +992,13 @@ export function registerBuiltinCommands(): void {
     category: 'app',
     target: 'none',
     run: () => useUIStore.getState().openSettings(),
+  })
+
+  registerCore({
+    id: 'app.browseExtensions',
+    category: 'app',
+    target: 'none',
+    run: () => useUIStore.getState().openSettings('browseExtensions'),
   })
 
   registerCore({

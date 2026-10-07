@@ -1,6 +1,8 @@
 import { ArrowSquareOutIcon, ChatCircleTextIcon, CheckCircleIcon } from '@phosphor-icons/react'
+import type { PermissionChoice } from '@shared/agentPermissions'
 import type { QuestionRequest } from '@shared/questions'
 import { type KeyboardEvent, useEffect, useMemo, useState } from 'react'
+import type { Dict } from '../i18n/dict'
 import { fmt, useDict } from '../i18n/useDict'
 import { type PaneWhere, agoText, isLongContext } from '../lib/dashboard'
 import { revealPane } from '../lib/workspaceActivity'
@@ -28,6 +30,67 @@ function useNow(): number {
 function toggled(choices: readonly number[], index: number, on: boolean): number[] {
   const rest = choices.filter((c) => c !== index)
   return on ? [...rest, index].sort((a, b) => a - b) : rest
+}
+
+export function questionTitle(d: Dict, question: QuestionRequest): string {
+  if (!question.permission) return question.question
+  return fmt(d.dashboard.permissionTitle, {
+    agent: d.agentSession[question.permission.agent],
+    tool: question.permission.tool,
+  })
+}
+
+function permissionLabel(d: Dict, choice: PermissionChoice): string {
+  if (choice === 'once') return d.approvals.allowOnce
+  if (choice === 'always') return d.approvals.allowAlways
+  return d.approvals.deny
+}
+
+function permissionVariant(choice: PermissionChoice): 'default' | 'outline' | 'destructive' {
+  if (choice === 'once') return 'default'
+  return choice === 'always' ? 'outline' : 'destructive'
+}
+
+function PermissionActions({
+  question,
+  where,
+}: {
+  question: QuestionRequest
+  where: PaneWhere | null
+}): JSX.Element {
+  const d = useDict()
+  const answer = useQuestionsStore((s) => s.answer)
+  const dismiss = useQuestionsStore((s) => s.dismiss)
+  return (
+    <div className="flex flex-wrap items-center justify-end gap-2">
+      {where ? (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="mr-auto"
+          onClick={() => revealPane(question.paneId)}
+        >
+          <ArrowSquareOutIcon data-icon="inline-start" />
+          {d.dashboard.goToPane}
+        </Button>
+      ) : null}
+      <Hint label={d.dashboard.permissionInTerminalHint}>
+        <Button variant="ghost" size="sm" onClick={() => void dismiss(question.id)}>
+          {d.dashboard.permissionInTerminal}
+        </Button>
+      </Hint>
+      {(question.choices as PermissionChoice[]).map((choice, index) => (
+        <Button
+          key={choice}
+          size="sm"
+          variant={permissionVariant(choice)}
+          onClick={() => void answer(question.id, { choices: [index], text: '' })}
+        >
+          {permissionLabel(d, choice)}
+        </Button>
+      ))}
+    </div>
+  )
 }
 
 export function QuestionCard({
@@ -102,7 +165,9 @@ export function QuestionCard({
         ) : null}
       </header>
 
-      <h3 className="font-medium text-ui-emphasis [overflow-wrap:anywhere]">{question.question}</h3>
+      <h3 className="font-medium text-ui-emphasis [overflow-wrap:anywhere]">
+        {questionTitle(d, question)}
+      </h3>
 
       {question.context ? (
         <div className="flex flex-col items-start gap-1">
@@ -110,8 +175,8 @@ export function QuestionCard({
             id={`${ids}-context`}
             aria-label={d.dashboard.context}
             className={`whitespace-pre-wrap text-fg-muted text-ui-sm [overflow-wrap:anywhere] ${
-              longContext && !expanded ? 'line-clamp-4' : ''
-            }`}
+              question.permission ? 'font-mono' : ''
+            } ${longContext && !expanded ? 'line-clamp-4' : ''}`}
           >
             {question.context}
           </p>
@@ -134,6 +199,8 @@ export function QuestionCard({
           <CheckCircleIcon size={14} aria-hidden />
           {d.dashboard.sent}
         </output>
+      ) : question.permission ? (
+        <PermissionActions question={question} where={where} />
       ) : (
         <>
           {question.mode === 'single' ? (

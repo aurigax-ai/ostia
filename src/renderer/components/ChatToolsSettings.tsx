@@ -14,6 +14,7 @@ import {
   type McpServerStatus,
   type McpSignInResult,
   type McpTestResult,
+  READ_OUTSIDE_GRANT,
   mcpTransportOf,
 } from '@shared/chatTools'
 import { isSkillPath } from '@shared/managerSettings'
@@ -21,8 +22,14 @@ import { quoteArgv } from '@shared/shellQuote'
 import { useEffect, useState } from 'react'
 import { fmt, useDict } from '../i18n/useDict'
 import { skillsInFolder } from '../lib/mcpServerForm'
-import { refreshMcp, refreshSkills, useChatToolsStore } from '../stores/chatToolsStore'
+import {
+  refreshMcp,
+  refreshSkills,
+  removeAlwaysGrant,
+  useChatToolsStore,
+} from '../stores/chatToolsStore'
 import { useSettingsStore } from '../stores/settingsStore'
+import { toolTitle } from './ChatToolPart'
 import { Hint } from './Hint'
 import { IconButton } from './IconButton'
 import { McpServerDialog, saveMcpServers } from './McpServerDialog'
@@ -104,6 +111,31 @@ function AccessRows(): JSX.Element {
         </ControlRow>
       ))}
     </div>
+  )
+}
+
+function AlwaysAllowedTools(): JSX.Element {
+  const d = useDict()
+  const t = d.chatTools.always
+  const keys = useChatToolsStore((s) => s.standing)
+  useChatToolsStore((s) => s.mcp)
+  return (
+    <SettingsGroup title={t.title} desc={t.desc}>
+      {keys.length === 0 ? (
+        <p className="py-1.5 text-fg-muted text-ui-sm">{t.none}</p>
+      ) : (
+        keys.map((key) => (
+          <ControlRow
+            key={key}
+            label={key === READ_OUTSIDE_GRANT ? t.readOutside : toolTitle(d, key)}
+          >
+            <Button variant="outline" size="xs" onClick={() => void removeAlwaysGrant(key)}>
+              {t.remove}
+            </Button>
+          </ControlRow>
+        ))
+      )}
+    </SettingsGroup>
   )
 }
 
@@ -519,6 +551,7 @@ export function ChatToolsSettings(): JSX.Element {
       <SettingsGroup title={t.settingsTitle} desc={t.settingsDesc}>
         <AccessRows />
       </SettingsGroup>
+      <AlwaysAllowedTools />
       <McpServers />
       <SkillFolders />
     </>

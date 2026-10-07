@@ -21,6 +21,7 @@ export function DashboardButton(): JSX.Element {
       <IconButton
         size="bar"
         icon={SquaresFourIcon}
+        command="dashboard.toggle"
         label={waiting > 0 ? fmt(d.dashboard.openPending, { n: waiting }) : d.dashboard.open}
         aria-pressed={active}
         onClick={toggle}

@@ -163,12 +163,13 @@ export function usePinchZoom(opts: {
   }, [stageRef, contentRef])
 }
 
-export function useSettled<T>(value: T, delayMs: number): T {
+export function useSettled<T>(value: T | null, delayMs: number): T | null {
   const [settled, setSettled] = useState(value)
+  if (settled === null && value !== null) setSettled(value)
   useEffect(() => {
     if (Object.is(value, settled)) return
     const timer = window.setTimeout(() => setSettled(value), delayMs)
     return () => window.clearTimeout(timer)
   }, [value, settled, delayMs])
-  return settled
+  return settled ?? value
 }

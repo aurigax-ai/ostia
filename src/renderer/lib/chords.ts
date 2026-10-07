@@ -173,7 +173,7 @@ export const DEFAULT_CHORDS: Readonly<
   'browser.forward': ['Cmd+]', 'Alt+Right'],
 }
 
-function specsOf(value: ChordValue, mac: boolean, id?: string): ChordSpec[] {
+export function specsOf(value: ChordValue, mac: boolean, id?: string): ChordSpec[] {
   const out: ChordSpec[] = []
   for (const text of chordTexts(value)) {
     const spec = parseScopedChord(text, mac)

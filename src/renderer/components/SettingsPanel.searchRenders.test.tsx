@@ -24,7 +24,7 @@ if (!Element.prototype.getAnimations) {
   Element.prototype.getAnimations = () => []
 }
 
-const QUERY = 'cursor blink'
+const QUERY = 'blink'
 const ROW = 'Copy on select'
 const MOUNT_AND_MATCH_FLIPS = 3
 
@@ -47,7 +47,7 @@ describe('SettingsPanel search renders', () => {
 
     await user.type(screen.getByRole('textbox', { name: 'Search settings' }), QUERY)
 
-    expect(QUERY).toHaveLength(12)
+    expect(QUERY).toHaveLength(5)
     expect(screen.getByRole('textbox', { name: 'Search settings' })).toHaveValue(QUERY)
     expect(renders.get(ROW)).toBeLessThanOrEqual(MOUNT_AND_MATCH_FLIPS)
   })

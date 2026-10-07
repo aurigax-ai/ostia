@@ -169,7 +169,7 @@ const CONTEXT_ICONS: Record<AskContextKind, Icon> = {
 }
 
 const REHYPE_PLUGINS = [rehypeFileLinks]
-const REDACTION_PREVIEW_MS = 300
+export const REDACTION_PREVIEW_MS = 300
 
 export type ChatVariant = 'pane' | 'palette'
 

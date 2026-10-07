@@ -31,10 +31,14 @@ const deps = {
   getTerminalState: vi.fn(),
   listPanes: vi.fn().mockResolvedValue([]),
   listWorkspaces: vi.fn().mockResolvedValue([]),
+  listWorkspaceGroups: vi.fn().mockResolvedValue([]),
   primaryWindowId: vi.fn().mockReturnValue('w1'),
   attachPhoneObserver: vi.fn(),
   ptyResize: vi.fn(),
   ptyWrite: vi.fn(),
+  listAsks: vi.fn().mockReturnValue([]),
+  answerAsk: vi.fn().mockReturnValue('unknown-ask'),
+  agentRunning: vi.fn().mockReturnValue(false),
 } satisfies GatewayControlDeps
 
 let port = 0

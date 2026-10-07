@@ -72,6 +72,10 @@ test('an extension installed while ostia runs asks for approval, then drives chi
     const settings = win.getByRole('region', { name: 'Settings' })
     await expect(settings).toBeVisible({ timeout: 10_000 })
     await settings.getByRole('button', { name: 'Extensions', exact: true }).click()
+    await settings
+      .getByRole('list', { name: 'Installed extensions' })
+      .getByRole('button', { name: 'Hello', exact: true })
+      .click()
     const greeting = settings.getByRole('textbox', { name: 'Greeting' })
     await expect(greeting).toHaveValue('hello')
     await greeting.fill('hey')
