@@ -8,18 +8,23 @@ import {
   type ReplaceProgress,
   type ReplaceState,
   type UpdateRunState,
+  updateChannelFor,
   updateCommandLine,
 } from '../shared/installMethod'
 import { PRODUCT_NAME } from '../shared/product'
 import {
+  type ParsedRelease,
   RELEASE_API_BASE_URL,
   RELEASE_REPOSITORY,
   type ReleaseCheckError,
   type ReleaseCheckResult,
   type ReleaseInfo,
+  type UpdateChannel,
   isNewerVersion,
   parseLatestRelease,
+  parseUpdateChannel,
   parseVersion,
+  pickMainChannelRelease,
 } from '../shared/releases'
 import type { AppLog } from './appLog'
 import type { InstallReplacer } from './installReplace'
@@ -32,6 +37,7 @@ export const RELEASE_CHECK_RETRY_MS = 60 * 60 * 1000
 export const RELEASE_REQUEST_TIMEOUT_MS = 10_000
 export const RELEASE_RESPONSE_MAX_BYTES = 1024 * 1024
 export const RELEASE_API_URL_ENV = 'RELEASE_API_URL'
+export const MAIN_CHANNEL_PAGE_SIZE = 30
 
 export type LatestRelease =
   | { kind: 'release'; release: ReleaseInfo }
@@ -56,11 +62,20 @@ export function releaseEndpoint(
   }
 }
 
-export function readCheckForUpdates(settings: unknown): boolean {
-  if (typeof settings !== 'object' || settings === null) return true
+function readBehavior(settings: unknown): Record<string, unknown> {
+  if (typeof settings !== 'object' || settings === null) return {}
   const behavior = (settings as { behavior?: unknown }).behavior
-  if (typeof behavior !== 'object' || behavior === null) return true
-  return (behavior as { checkForUpdates?: unknown }).checkForUpdates !== false
+  return typeof behavior === 'object' && behavior !== null
+    ? (behavior as Record<string, unknown>)
+    : {}
+}
+
+export function readCheckForUpdates(settings: unknown): boolean {
+  return readBehavior(settings).checkForUpdates !== false
+}
+
+export function readUpdateChannel(settings: unknown): UpdateChannel {
+  return parseUpdateChannel(readBehavior(settings).updateChannel)
 }
 
 export function releaseUserAgent(version: string): string {
@@ -84,7 +99,7 @@ async function readCapped(response: Response, maxBytes: number): Promise<string 
   }
 }
 
-function readRelease(text: string | null): LatestRelease {
+function readRelease(text: string | null, parse: (raw: unknown) => ParsedRelease): LatestRelease {
   if (text === null) return { kind: 'error', error: 'unavailable' }
   let raw: unknown
   try {
@@ -92,19 +107,30 @@ function readRelease(text: string | null): LatestRelease {
   } catch {
     return { kind: 'error', error: 'unavailable' }
   }
-  const parsed = parseLatestRelease(raw)
+  const parsed = parse(raw)
   if (parsed.ok) return { kind: 'release', release: parsed.release }
   return parsed.reason === 'not-stable' ? { kind: 'none' } : { kind: 'error', error: 'unavailable' }
+}
+
+function releaseQuery(channel: UpdateChannel): {
+  path: string
+  parse: (raw: unknown) => ParsedRelease
+} {
+  return channel === 'main'
+    ? { path: `releases?per_page=${MAIN_CHANNEL_PAGE_SIZE}`, parse: pickMainChannelRelease }
+    : { path: 'releases/latest', parse: parseLatestRelease }
 }
 
 export async function fetchLatestRelease(opts: {
   baseUrl: string
   userAgent: string
+  channel: UpdateChannel
   timeoutMs?: number
 }): Promise<LatestRelease> {
   const { owner, name } = RELEASE_REPOSITORY
+  const query = releaseQuery(opts.channel)
   try {
-    const response = await fetch(`${opts.baseUrl}/repos/${owner}/${name}/releases/latest`, {
+    const response = await fetch(`${opts.baseUrl}/repos/${owner}/${name}/${query.path}`, {
       headers: { 'User-Agent': opts.userAgent, Accept: 'application/vnd.github+json' },
       redirect: 'manual',
       signal: AbortSignal.timeout(opts.timeoutMs ?? RELEASE_REQUEST_TIMEOUT_MS),
@@ -114,7 +140,7 @@ export async function fetchLatestRelease(opts: {
       return { kind: 'error', error: 'rate-limited' }
     }
     if (response.status !== 200) return { kind: 'error', error: 'unavailable' }
-    return readRelease(await readCapped(response, RELEASE_RESPONSE_MAX_BYTES))
+    return readRelease(await readCapped(response, RELEASE_RESPONSE_MAX_BYTES), query.parse)
   } catch {
     return { kind: 'error', error: 'offline' }
   }
@@ -126,13 +152,15 @@ export interface ReleaseChecker {
   available: () => ReleaseInfo | null
   pending: () => ReleaseInfo | null
   dismiss: () => void
+  settingsChanged: () => Promise<void>
 }
 
 export function createReleaseChecker(deps: {
   currentVersion: string
-  fetchLatest: () => Promise<LatestRelease>
+  fetchLatest: (channel: UpdateChannel) => Promise<LatestRelease>
   now: () => number
   enabled: () => boolean
+  channel: () => UpdateChannel
   loadDismissed: () => string | null
   saveDismissed: (version: string) => void
   onChange: (pending: ReleaseInfo | null) => void
@@ -143,6 +171,7 @@ export function createReleaseChecker(deps: {
   let published: string | null = null
   let nextAutoAt = 0
   let running: Promise<ReleaseCheckResult> | null = null
+  let channel = deps.channel()
 
   const pending = (): ReleaseInfo | null =>
     available && (!dismissed || isNewerVersion(available.version, dismissed)) ? available : null
@@ -155,7 +184,8 @@ export function createReleaseChecker(deps: {
   }
 
   const run = async (trigger: ReleaseCheckTrigger): Promise<ReleaseCheckResult> => {
-    const latest = await deps.fetchLatest()
+    channel = deps.channel()
+    const latest = await deps.fetchLatest(channel)
     if (latest.kind === 'error') {
       nextAutoAt = deps.now() + RELEASE_CHECK_RETRY_MS
       deps.log?.(trigger, latest.error, undefined)
@@ -185,11 +215,13 @@ export function createReleaseChecker(deps: {
     return running
   }
 
+  const tick = async (): Promise<void> => {
+    if (deps.enabled() && deps.now() >= nextAutoAt) await check('auto')
+  }
+
   return {
     check,
-    tick: async () => {
-      if (deps.enabled() && deps.now() >= nextAutoAt) await check('auto')
-    },
+    tick,
     available: () => available,
     pending,
     dismiss: () => {
@@ -197,6 +229,14 @@ export function createReleaseChecker(deps: {
       dismissed = available.version
       publish()
       deps.saveDismissed(dismissed)
+    },
+    settingsChanged: async () => {
+      if (deps.channel() === channel) return
+      channel = deps.channel()
+      available = null
+      nextAutoAt = 0
+      publish()
+      await tick()
     },
   }
 }
@@ -244,20 +284,22 @@ export function registerReleaseCheck(deps: {
   updateRunner: UpdateRunner
   replaceAvailability: () => Promise<ReplaceAvailability | null>
   replacer: InstallReplacer
-}): void {
+}): { settingsChanged: () => void } {
   const stateOf = async (pending: ReleaseInfo | null): Promise<ReleaseState> =>
     releaseState(pending, deps.method(), pending ? await deps.replaceAvailability() : null)
   const endpoint = releaseEndpoint(app.isPackaged, process.env)
   const currentVersion = releaseVersion(deps.version)
   const checker = createReleaseChecker({
     currentVersion,
-    fetchLatest: () =>
+    fetchLatest: (channel) =>
       fetchLatestRelease({
         baseUrl: endpoint.baseUrl,
         userAgent: releaseUserAgent(currentVersion),
+        channel,
       }),
     now: Date.now,
     enabled: () => readCheckForUpdates(deps.readSettings()),
+    channel: () => updateChannelFor(deps.method(), readUpdateChannel(deps.readSettings())),
     loadDismissed,
     saveDismissed: (version) => {
       try {
@@ -290,4 +332,5 @@ export function registerReleaseCheck(deps: {
     const release = checker.available()
     return release ? deps.openExternal(release.url) : false
   })
+  return { settingsChanged: () => void checker.settingsChanged() }
 }

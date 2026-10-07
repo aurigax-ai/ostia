@@ -1476,6 +1476,7 @@ function handleQuitSignals(): void {
 const startedHidden = app.commandLine.hasSwitch('hidden')
 let appTray: AppTray | null = null
 let globalHotkey: GlobalHotkey | null = null
+let releaseChecks: { settingsChanged: () => void } | null = null
 let managerService: ManagerService | null = null
 let managerLimiter: ManagerLimiter | null = null
 let portal: Portal | null = null
@@ -2795,6 +2796,7 @@ function registerFsIpc(): void {
         extensionHost?.refreshLocale()
         extensionHost?.reloadAssistSettings()
         applyGlobalHotkey()
+        releaseChecks?.settingsChanged()
       }
       return true
     } catch {
@@ -3302,7 +3304,7 @@ app.whenReady().then(() => {
     },
     () => appLog?.warn('install-sweep-failed'),
   )
-  registerReleaseCheck({
+  releaseChecks = registerReleaseCheck({
     openExternal: openExternalSafe,
     readSettings: readSettingsFile,
     log: appLog,

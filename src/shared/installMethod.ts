@@ -1,5 +1,5 @@
 import { PRODUCT_NAME } from './product'
-import type { ReleaseInfo } from './releases'
+import { DEFAULT_UPDATE_CHANNEL, type ReleaseInfo, type UpdateChannel } from './releases'
 import { quoteArgv } from './shellQuote'
 
 export const INSTALL_METHODS = ['apt', 'brew', 'local', 'tarball', 'dmg', 'dev'] as const
@@ -15,6 +15,16 @@ export const UPDATE_COMMANDS: Readonly<Record<'apt' | 'brew', readonly (readonly
 }
 
 export type ManagedInstallMethod = keyof typeof UPDATE_COMMANDS
+
+export const CHANNEL_INSTALL_METHODS: readonly InstallMethod[] = ['tarball', 'local']
+
+export function offersUpdateChannels(method: InstallMethod): boolean {
+  return CHANNEL_INSTALL_METHODS.includes(method)
+}
+
+export function updateChannelFor(method: InstallMethod, picked: UpdateChannel): UpdateChannel {
+  return offersUpdateChannels(method) ? picked : DEFAULT_UPDATE_CHANNEL
+}
 
 export function isInstallMethod(value: unknown): value is InstallMethod {
   return typeof value === 'string' && (INSTALL_METHODS as readonly string[]).includes(value)

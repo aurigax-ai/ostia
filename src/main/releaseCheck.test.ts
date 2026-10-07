@@ -5,7 +5,8 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { envName } from '../shared/appEnv'
-import type { ReleaseInfo } from '../shared/releases'
+import type { InstallMethod } from '../shared/installMethod'
+import type { ReleaseInfo, UpdateChannel } from '../shared/releases'
 
 const handlers = new Map<string, (...args: unknown[]) => unknown>()
 const sent: Array<[string, unknown]> = []
@@ -33,6 +34,7 @@ const {
   createReleaseChecker,
   fetchLatestRelease,
   readCheckForUpdates,
+  readUpdateChannel,
   registerReleaseCheck,
   releaseEndpoint,
 } = await import('./releaseCheck')
@@ -91,17 +93,19 @@ function harness(opts: { current?: string; dismissed?: string | null; enabled?: 
   const state = {
     now: 1_000_000,
     enabled: opts.enabled ?? true,
+    channel: 'stable' as UpdateChannel,
     latest: { kind: 'none' } as LatestRelease,
     saved: [] as string[],
     changes: [] as Array<ReleaseInfo | null>,
     logs: [] as Array<[string, string, string | undefined]>,
   }
-  const fetchLatest = vi.fn(async () => state.latest)
+  const fetchLatest = vi.fn(async (_channel: UpdateChannel) => state.latest)
   const checker = createReleaseChecker({
     currentVersion: opts.current ?? '0.2.0',
     fetchLatest,
     now: () => state.now,
     enabled: () => state.enabled,
+    channel: () => state.channel,
     loadDismissed: () => opts.dismissed ?? null,
     saveDismissed: (version) => state.saved.push(version),
     onChange: (pending) => state.changes.push(pending),
@@ -153,7 +157,55 @@ describe('readCheckForUpdates', () => {
   })
 })
 
+describe('readUpdateChannel', () => {
+  it('is stable unless the human picked main', () => {
+    expect(readUpdateChannel({ behavior: { updateChannel: 'main' } })).toBe('main')
+    expect(readUpdateChannel({ behavior: { updateChannel: 'nightly' } })).toBe('stable')
+    expect(readUpdateChannel({ behavior: null })).toBe('stable')
+    expect(readUpdateChannel(null)).toBe('stable')
+  })
+})
+
 describe('createReleaseChecker', () => {
+  it('asks for the channel the human picked', async () => {
+    const h = harness()
+    h.state.channel = 'main'
+    await h.checker.check('manual')
+    expect(h.fetchLatest).toHaveBeenCalledWith('main')
+  })
+
+  it('drops what the old channel found and checks again when the channel changes', async () => {
+    const h = harness()
+    h.state.latest = found('0.3.0-main.4')
+    h.state.channel = 'main'
+    await h.checker.settingsChanged()
+    expect(h.checker.available()).toEqual(release('0.3.0-main.4'))
+
+    h.state.latest = { kind: 'none' }
+    h.state.channel = 'stable'
+    await h.checker.settingsChanged()
+    expect(h.fetchLatest.mock.calls).toEqual([['main'], ['stable']])
+    expect(h.checker.available()).toBeNull()
+    expect(h.state.changes).toEqual([release('0.3.0-main.4'), null])
+  })
+
+  it('does not check again when the settings change but the channel does not', async () => {
+    const h = harness()
+    await h.checker.check('manual')
+    await h.checker.settingsChanged()
+    expect(h.fetchLatest).toHaveBeenCalledTimes(1)
+  })
+
+  it('clears the old channel result without asking while automatic checks are off', async () => {
+    const h = harness({ enabled: false })
+    h.state.latest = found('0.3.0')
+    await h.checker.check('manual')
+    h.state.channel = 'main'
+    await h.checker.settingsChanged()
+    expect(h.fetchLatest).toHaveBeenCalledTimes(1)
+    expect(h.checker.pending()).toBeNull()
+  })
+
   it('announces a strictly newer release once and reports it as available', async () => {
     const { state, checker } = harness()
     state.latest = found('0.3.0')
@@ -298,8 +350,32 @@ describe('fetchLatestRelease', () => {
 
   afterEach(() => github.close())
 
-  const fetchFrom = (timeoutMs?: number): Promise<LatestRelease> =>
-    fetchLatestRelease({ baseUrl: github.url, userAgent: 'ostia/0.2.0', timeoutMs })
+  const fetchFrom = (
+    timeoutMs?: number,
+    channel: UpdateChannel = 'stable',
+  ): Promise<LatestRelease> =>
+    fetchLatestRelease({ baseUrl: github.url, userAgent: 'ostia/0.2.0', channel, timeoutMs })
+
+  it('lists the releases on the main channel and picks the highest main build or release', async () => {
+    github.reply = {
+      status: 200,
+      body: `[${body('0.2.1-main.7', { prerelease: true })},${body('0.2.0')},${body('0.2.1-main.12', { prerelease: true })}]`,
+    }
+
+    expect(await fetchFrom(undefined, 'main')).toEqual(found('0.2.1-main.12'))
+
+    expect(github.requests.map((r) => r.url)).toEqual([
+      '/repos/aurigax-ai/ostia/releases?per_page=30',
+    ])
+    expect(github.requests[0].headers['user-agent']).toBe('ostia/0.2.0')
+  })
+
+  it('reports no release on the main channel for an empty list and unavailable for a non-list', async () => {
+    github.reply = { status: 200, body: '[]' }
+    expect(await fetchFrom(undefined, 'main')).toEqual({ kind: 'none' })
+    github.reply = { status: 200, body: body('0.3.0') }
+    expect(await fetchFrom(undefined, 'main')).toEqual({ kind: 'error', error: 'unavailable' })
+  })
 
   it('asks for the latest release of the repository and sends only a product user agent', async () => {
     github.reply = { status: 200, body: body('0.3.0') }
@@ -388,13 +464,17 @@ describe('registerReleaseCheck', () => {
 
   const start = vi.fn(async () => 'opened' as const)
   const replaceStart = vi.fn(async (_version: string) => 'started' as const)
-  const register = (settings: unknown = {}, version = '0.2.0'): void =>
+  const register = (
+    settings: unknown = {},
+    version = '0.2.0',
+    method: InstallMethod = 'apt',
+  ): { settingsChanged: () => void } =>
     registerReleaseCheck({
       openExternal,
       readSettings: () => settings,
       log: { file: '', info, warn: vi.fn(), error: vi.fn() },
       version,
-      method: () => 'apt',
+      method: () => method,
       updateRunner: {
         start,
         state: () => ({ status: 'idle' }),
@@ -466,6 +546,37 @@ describe('registerReleaseCheck', () => {
       release: release('0.4.0'),
     })
     expect(github.requests[0].headers['user-agent']).toBe('ostia/0.3.0')
+  })
+
+  it('offers a main build on the main channel and never an older release on stable', async () => {
+    const list = `[${body('0.3.1-main.9', { prerelease: true })},${body('0.3.0')}]`
+    register({ behavior: { updateChannel: 'main' } }, '0.3.1-main.8+sha.1a2b3c', 'tarball')
+    github.reply = { status: 200, body: list }
+    expect(await invoke('app:release-check')).toEqual({
+      status: 'available',
+      release: release('0.3.1-main.9'),
+    })
+
+    handlers.clear()
+    register({ behavior: { updateChannel: 'stable' } }, '0.3.1-main.9+sha.4d5e6f', 'tarball')
+    github.reply = { status: 200, body: body('0.3.0') }
+    expect(await invoke('app:release-check')).toEqual({ status: 'latest', version: '0.3.1-main.9' })
+    github.reply = { status: 200, body: body('0.3.1') }
+    expect(await invoke('app:release-check')).toEqual({
+      status: 'available',
+      release: release('0.3.1'),
+    })
+  })
+
+  it('keeps an install from a package manager or disk image on stable', async () => {
+    for (const method of ['apt', 'brew', 'dmg'] as const) {
+      handlers.clear()
+      github.requests.length = 0
+      register({ behavior: { updateChannel: 'main' } }, '0.2.0', method)
+      github.reply = { status: 200, body: body('0.2.0') }
+      await invoke('app:release-check')
+      expect(github.requests.map((r) => r.url)).toEqual(['/repos/aurigax-ai/ostia/releases/latest'])
+    }
   })
 
   it('checks by itself shortly after startup, and not at all while the setting is off', async () => {
