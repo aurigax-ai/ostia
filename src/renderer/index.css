@@ -1942,6 +1942,21 @@
   background: var(--bg);
 }
 
+.hibernated-screen {
+  position: absolute;
+  inset: 0;
+  opacity: 0.55;
+}
+
+.hibernated-mark {
+  position: absolute;
+  top: 8px;
+  right: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .terminal-surface {
   position: absolute;
   inset: 0;

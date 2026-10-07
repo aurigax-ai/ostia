@@ -192,6 +192,7 @@ const bridge: OstiaBridge = {
       ipcRenderer.invoke('pty:attach', paneId, opts) as Promise<PtyAttachResult>,
     detach: (paneId) => ipcRenderer.send('pty:detach', paneId),
     hibernate: (paneId) => ipcRenderer.invoke('pty:hibernate', paneId) as Promise<boolean>,
+    stashed: (paneId) => ipcRenderer.invoke('pty:stashed', paneId) as Promise<string | null>,
     restart: (paneId) => ipcRenderer.invoke('pty:restart', paneId) as Promise<boolean>,
     reportAgentRunning: (paneId, running) => ipcRenderer.send('pty:agent-running', paneId, running),
     write: (paneId, data) => ipcRenderer.send('pty:write', paneId, data),

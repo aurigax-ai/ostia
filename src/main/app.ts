@@ -329,6 +329,7 @@ import {
   saveScrollback,
   scrollbackToSave,
   stashScrollback,
+  stashedScreen,
   takeRestoredScrollback,
 } from './workspaceSnapshot'
 
@@ -2247,6 +2248,10 @@ function registerPtyIpc(): void {
   })
 
   ipcMain.handle('pty:hibernate', (_e, paneId: string): boolean => hibernatePty(String(paneId)))
+
+  ipcMain.handle('pty:stashed', (e, paneId: string): string | null =>
+    stashedScreen(String(paneId), String(e.sender.id), windowOfPane(String(paneId))),
+  )
 
   ipcMain.handle('pty:restart', (e, paneId: string): boolean => {
     const entry = ptys.get(String(paneId))
