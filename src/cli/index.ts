@@ -1261,6 +1261,9 @@ commands:
   pane wake <pane>… [--json]
                             wake hibernated agent panes: each types its agent's resume
                             command at a fresh prompt (same asks as pane send)
+  pane close <pane>… [--json]
+                            close those panes at once, even while a command runs (a tab you
+                            opened needs nothing more, any other asks for kill-pane)
   vault | bus | settings | browse | gateway <subcommand> ...
   ext ls | ext <extId> <command> [args...]
   <extId> <command> [args...]  an extension command, e.g. ostia git status

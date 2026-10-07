@@ -52,8 +52,7 @@ describe('Ostia agent skills', () => {
       'hibernated: true',
       'ostia pane wake',
       'running: true',
-      'ostia process kill <name>',
-      `ostia pane.close '{"paneId":"<id>"}'`,
+      'ostia pane close <name>',
     ]) {
       expect(section, command).toContain(command)
     }

@@ -43,6 +43,8 @@ const attentionOf = new Map<string, { state?: string; message?: string }>()
 const typedInto: string[] = []
 const asleepPanes = new Set<string>()
 const woken: string[] = []
+const closed: string[] = []
+const lockedPanes = new Set<string>()
 const delays: number[] = []
 let cursor = 0
 let echoes = true
@@ -83,6 +85,13 @@ registerPaneIoMethods({
   wake: async (pane) => {
     woken.push(pane.paneId)
     return asleepPanes.delete(pane.paneId)
+  },
+  close: async (pane) => {
+    if (lockedPanes.has(pane.paneId)) {
+      return { ok: false, error: { code: 'command-failed', message: 'pane-locked: locked' } }
+    }
+    closed.push(pane.paneId)
+    return { ok: true, result: undefined }
   },
   delay: async (ms) => {
     delays.push(ms)
@@ -154,6 +163,8 @@ beforeEach(() => {
   typedInto.length = 0
   asleepPanes.clear()
   woken.length = 0
+  closed.length = 0
+  lockedPanes.clear()
   delays.length = 0
   cursor = 0
   echoes = true
@@ -478,6 +489,87 @@ describe('pane.wake', () => {
       conn.sendRequest('pane.input', { pane: 'echo', text: 'hi', keys: ['enter'] }),
     ).rejects.toThrow(`hibernated: ${child.externalId} is asleep; wake it with ostia pane wake`)
     expect(written).toEqual([])
+  })
+})
+
+describe('pane.close', () => {
+  it('closes a tab the caller opened, by process name, without asking', async () => {
+    const conn = await client(agent)
+    await expect(conn.sendRequest('pane.close', { panes: ['echo'] })).resolves.toEqual({
+      ok: true,
+      closed: [child.externalId],
+    })
+    expect(closed).toEqual(['child-pane'])
+    expect(request).not.toHaveBeenCalled()
+  })
+
+  it('asks for kill-pane before closing a pane the caller did not open, and stops on Deny', async () => {
+    const conn = await client(agent)
+    await expect(conn.sendRequest('pane.close', { panes: [sibling.externalId] })).rejects.toThrow(
+      'denied: kill-pane',
+    )
+    expect(asked[0]).toMatchObject({ caps: ['kill-pane'], action: 'pane.close' })
+    expect(closed).toEqual([])
+    answer = 'once'
+    await conn.sendRequest('pane.close', { panes: [sibling.externalId] })
+    expect(closed).toEqual(['sibling-pane'])
+  })
+
+  it('needs all-workspaces as well for a pane in another workspace', async () => {
+    const conn = await client(agent)
+    await expect(conn.sendRequest('pane.close', { panes: [foreign.externalId] })).rejects.toThrow(
+      'denied: kill-pane, all-workspaces',
+    )
+    expect(closed).toEqual([])
+  })
+
+  it('checks every named pane before closing any', async () => {
+    const conn = await client(agent)
+    await expect(
+      conn.sendRequest('pane.close', { panes: ['echo', sibling.externalId] }),
+    ).rejects.toThrow('denied: kill-pane')
+    expect(closed).toEqual([])
+  })
+
+  it('answers pane-locked for a locked pane', async () => {
+    lockedPanes.add('child-pane')
+    const conn = await client(agent)
+    await expect(conn.sendRequest('pane.close', { panes: ['echo'] })).rejects.toThrow('pane-locked')
+    expect(closed).toEqual([])
+  })
+
+  it('answers unknown-pane for an unknown name and for the manager pane', async () => {
+    answer = 'once'
+    const conn = await client(agent)
+    await expect(conn.sendRequest('pane.close', { panes: ['nope'] })).rejects.toThrow(
+      'unknown-pane: nope',
+    )
+    await expect(conn.sendRequest('pane.close', { panes: [manager.externalId] })).rejects.toThrow(
+      `unknown-pane: ${manager.externalId}`,
+    )
+    expect(closed).toEqual([])
+  })
+
+  it('refuses a sandboxed caller at a host pane', async () => {
+    sandboxedWorkspaces.add('ws1')
+    const caller = freshPane('ws1')
+    grant(caller.externalId, 'kill-pane')
+    const conn = await client(caller)
+    await expect(conn.sendRequest('pane.close', { panes: [sibling.externalId] })).rejects.toThrow(
+      'sandboxed:',
+    )
+    expect(closed).toEqual([])
+  })
+
+  it('is not available to extensions', async () => {
+    setCaps(extension.externalId, ['process', 'all-workspaces', 'kill-pane'])
+    const ext = await client(extension)
+    await expect(
+      ext.sendRequest('pane.close', {
+        panes: [sibling.externalId],
+        targetPaneId: agent.externalId,
+      }),
+    ).rejects.toThrow('not-available-to-extension')
   })
 })
 

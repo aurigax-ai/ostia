@@ -129,10 +129,8 @@ ostia workspace.new
 ostia editor.open '{"path":"src/index.ts"}'  # the raw command: reuses the editor pane, home folder only
 ```
 
-`ostia pane.close` (with `'{"paneId":"…"}'` for another pane, which needs `kill-pane`) closes
-the pane at once, even while a command runs in it; the human is asked only when it holds their
-unsaved file changes. A pane the human locked answers `pane-locked`: leave it open, you can't
-unlock it.
+`ostia pane.close` closes your own pane; close another one with `ostia pane close <pane>`
+(below).
 
 `ostia commands` is the authoritative list (id + argsSchema + capabilities) — check
 it before guessing an id or an args shape.
@@ -188,14 +186,16 @@ ostia pane key <pane> <key>...           # enter tab escape up down ctrl-c ...
 ostia pane read <pane> [--lines N] [--json]  # its screen as plain text
 ostia pane wait <pane>... [--until done|waiting|idle|exited]... [--timeout <s>] [--json]
 ostia pane wake <pane>... [--json]       # wake hibernated agent panes
+ostia pane close <pane>... [--json]      # close those panes
 ```
 
 `<pane>` is a paneId from `ostia pane.list`, or a process id or name from `ostia process ls`.
 
 - A tab **you** opened with `ostia process run` or `ostia agent run` is yours to type into,
-  read and wake, with no question asked.
+  read, wake and close, with no question asked.
 - Any other pane asks the human first: typing needs `type-other-pane`, reading needs
-  `read-other-pane`, and a pane in another workspace also needs `all-workspaces`. A screen
+  `read-other-pane`, closing needs `kill-pane`, and a pane in another workspace also needs
+  `all-workspaces`. A screen
   can hold secrets, so read only what the task needs.
 - From a sandboxed workspace you reach only sandboxed terminals of your own workspace.
 - Read before you type, and type only what the program on screen is waiting for. Keys:
@@ -215,6 +215,9 @@ ostia pane wake <pane>... [--json]       # wake hibernated agent panes
   `hibernated:`. `ostia pane wake <pane>` starts a fresh shell there and types the agent's own
   resume command, nothing else; it needs the same asks as `send` and answers `not-hibernated`
   for a pane that is awake.
+- `pane close` closes the pane at once, even while a command runs in it; the human is asked
+  only when it holds their unsaved file changes. A pane the human locked answers
+  `pane-locked`: leave it open, you can't unlock it.
 
 ## Coordinating worker agents
 
@@ -242,8 +245,9 @@ ostia pane wake <pane>... [--json]       # wake hibernated agent panes
    on a permission prompt (`pane send` refuses); answer the prompt with `ostia pane key` first.
 6. **Review before merging.** Never trust a worker's "done": read its diff
    (`git -C <dir> diff main...<branch>`) and its test results yourself.
-7. **Finish.** `ostia process kill <name>` stops the agent. Closing the tab is
-   `ostia pane.close '{"paneId":"<id>"}'` (needs `kill-pane`, asks the human).
+7. **Finish.** `ostia pane close <name>` closes a worker's tab and stops its agent, with no
+   question for a tab you opened; `ostia process kill <name>` stops the agent but keeps the
+   tab.
 
 ## Workflows — the human's saved commands (read-only)
 

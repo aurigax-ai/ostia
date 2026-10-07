@@ -3140,6 +3140,7 @@ app.whenReady().then(() => {
     inputSent: (to) => void execCommand(targetOf(to), 'attention.typed'),
     hibernated: paneHibernated,
     wake: wakeHibernatedPane,
+    close: (to) => execCommand(targetOf(to), 'pane.close'),
     delay: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
   })
   registerPaneWaitMethods({

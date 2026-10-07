@@ -12,7 +12,7 @@ const request = vi.fn(async () => answer)
 vi.mock('../main/approvals', () => ({ approvals: () => ({ request }) }))
 
 const { registerControlServer, stopControlServer } = await import('../main/controlServer')
-const { registerPane } = await import('../main/idRegistry')
+const { getByPaneId, registerPane } = await import('../main/idRegistry')
 const { registerPaneIoMethods } = await import('../main/paneIo')
 const { registerProcessMethods } = await import('../main/processManager')
 const { PtyRingBuffer } = await import('../main/ptyRingBuffer')
@@ -28,6 +28,7 @@ const rings = new Map<string, InstanceType<typeof PtyRingBuffer>>()
 const opened: OpenRequest[] = []
 const written: { paneId: string; data: string }[] = []
 const reruns: { paneId: string; command: string }[] = []
+const closedPanes: string[] = []
 let tabSeq = 0
 
 const registry = registerProcessMethods({
@@ -83,6 +84,10 @@ registerPaneIoMethods({
   inputSent: () => {},
   hibernated: async () => false,
   wake: async () => false,
+  close: async (pane) => {
+    closedPanes.push(pane.paneId)
+    return { ok: true, result: undefined }
+  },
   delay: async () => {},
 })
 
@@ -162,6 +167,7 @@ beforeEach(() => {
   opened.length = 0
   written.length = 0
   reruns.length = 0
+  closedPanes.length = 0
 })
 
 afterEach(() => {
@@ -378,6 +384,25 @@ describe('ostia pane (the real CLI against a live control server)', () => {
     const allowed = await ostia(['pane', 'read', other.externalId])
     expect(allowed.code).toBe(0)
     expect(allowed.stdout.trim()).toBe('screen of other-pane (200)')
+  })
+
+  it('close: closes a tab the caller opened by process name without asking', async () => {
+    const { tab } = await run('sleep 30', '--name', 'sleeper')
+    const res = await ostia(['pane', 'close', 'sleeper'])
+    expect(res.code).toBe(0)
+    expect(res.stdout.trim()).toBe(getByPaneId(tab)?.externalId)
+    expect(closedPanes).toEqual([tab])
+    expect(request).not.toHaveBeenCalled()
+  })
+
+  it('close: asks for kill-pane for another pane and answers unknown-pane for an unknown name', async () => {
+    const denied = await ostia(['pane', 'close', other.externalId])
+    expect(denied.code).toBe(1)
+    expect(denied.stderr).toContain('denied: kill-pane')
+    const unknown = await ostia(['pane', 'close', 'nobody'])
+    expect(unknown.code).toBe(1)
+    expect(unknown.stderr).toContain('unknown-pane: nobody')
+    expect(closedPanes).toEqual([])
   })
 
   it('prints usage for a missing pane or an unknown key', async () => {
