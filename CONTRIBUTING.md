@@ -8,7 +8,7 @@ Conventions for people and coding agents (Claude Code, Codex) working in this re
 2. **Branch from the latest `main`**: `<type>/<short-description>`, where type is `fix`, `feat`, `docs`, `refactor`, `test` or `ci`. `main` is protected: every change, admins included, goes through a pull request, and force pushes and branch deletion are blocked.
 3. **Commit** with [Conventional Commits](https://www.conventionalcommits.org/) in English (`fix(terminal): …`, `feat(browser): …`). No code comments: `scripts/comments.mjs` rejects them.
 4. **Check before pushing**:
-    - `pnpm typecheck`, `pnpm lint` and `pnpm exec vitest related <changed files> --run`. The full unit suite and e2e run in CI: unit on every PR, e2e on release candidates and every night.
+    - `pnpm typecheck`, `pnpm lint` and `pnpm exec vitest related <changed files> --run`. CI runs unit tests on every PR (the tests your diff affects, or all of them; see CI below) and e2e on release candidates and every night.
     - when a change needs e2e evidence, run only the specs you touched on CI: `gh workflow run ci.yml --ref <branch> -f full=true -f specs=e2e/<spec>.ts` (see CI below)
     - macOS-only behaviour (menus, Cmd keys) on a real Mac. For a bug fix, revert only the code, keep the new test, and confirm the test fails.
     - scan the whole branch for secrets (tokens, keys, certificates); nothing may match
@@ -41,7 +41,7 @@ Every issue and PR gets the milestone of the release line it lands in. Open mile
 
 ## CI
 
-- Pull requests and pushes to `main` run static checks, unit tests (Linux and macOS) and builds. The e2e suites (Linux and macOS) run for `v*` tags, every night on `main`, and on demand: `gh workflow run ci.yml --ref <branch> -f full=true`, or Actions → CI → Run workflow.
+- Pull requests and pushes to `main` run static checks, unit tests (Linux and macOS) and builds. A pull request runs only the unit tests its diff against the merge-base can affect (`scripts/affectedTests.mjs`): `vitest related` over the changed files, every node test once a change reaches code outside `src/renderer` (the CLI, extensions and SDK built for the tests bundle it), and the dom tests that read files at run time. A change outside `src/` and `e2e/` (lockfile, `package.json`, configs, `test/`, `scripts/`, `.github/`), other than a root `*.md`, runs every test, as do pushes to `main`, the nightly run and tags. The e2e suites (Linux and macOS) run for `v*` tags, every night on `main`, and on demand: `gh workflow run ci.yml --ref <branch> -f full=true`, or Actions → CI → Run workflow.
 - A manual run can be narrowed with three inputs. `platform` is `all` (default), `linux` or `macos`: `linux` starts no macOS job, `macos` starts no Linux e2e job (static, unit and build still run on Linux). `specs` is a space-separated list of e2e files or patterns; when set, Linux runs one e2e job instead of four shards and macOS runs one job instead of four groups. `repeat` is passed to Playwright as `--repeat-each`. The inputs only apply when `full` is true. Examples:
     - `gh workflow run ci.yml --ref <branch> -f platform=linux -f specs=e2e/system.spec.ts -f repeat=3`
     - `gh workflow run ci.yml --ref <branch> -f platform=macos -f specs="e2e/ssh.spec.ts e2e/ssh-remote-files.spec.ts"`
