@@ -41,10 +41,15 @@ async function issueStates(entries) {
   return states
 }
 
+function isRealDate(value) {
+  const ms = Date.parse(`${value}T00:00:00Z`)
+  return !Number.isNaN(ms) && new Date(ms).toISOString().slice(0, 10) === value
+}
+
 function todayFrom(flags) {
   const today = flags.find((flag) => flag.startsWith('--today='))?.slice('--today='.length)
   if (today === undefined) return new Date().toISOString().slice(0, 10)
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(today)) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(today) || !isRealDate(today)) {
     console.error(USAGE)
     process.exit(2)
   }

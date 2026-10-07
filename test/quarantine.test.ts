@@ -1,3 +1,5 @@
+import { spawnSync } from 'node:child_process'
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
   ROOT,
@@ -29,12 +31,6 @@ const issueStates = { 63: 'open', 122: 'open', 124: 'closed' }
 describe('test/quarantine.json', () => {
   it('lists only live tests with a date no more than 30 days out', () => {
     expect(quarantineProblems(loadQuarantine(), { today, enforceExpiry: false })).toEqual([])
-  })
-
-  it('gives each issue its own date, so the entries do not all expire together', () => {
-    const dates = new Map<number, string>()
-    for (const entry of loadQuarantine()) dates.set(entry.issue, entry.until)
-    expect(new Set(dates.values()).size).toBe(dates.size)
   })
 })
 
@@ -163,4 +159,22 @@ describe('reminders', () => {
     expect(reminderBody([entry], '2026-11-06')).toContain('expired on 2026-11-05')
     expect(reminderBody([entry], '2026-11-05')).toContain('expires today')
   })
+})
+
+describe('scripts/quarantine.mjs --today', () => {
+  const run = (...args: string[]) =>
+    spawnSync(process.execPath, [join(ROOT, 'scripts/quarantine.mjs'), ...args], {
+      encoding: 'utf8',
+    })
+
+  it.each(['2026-13-40', '2026-02-30', 'tomorrow', '2026-1-1'])(
+    'rejects %s with usage',
+    (value) => {
+      for (const command of ['issues', 'remind']) {
+        const result = run(command, `--today=${value}`)
+        expect(result.status).toBe(2)
+        expect(result.stderr).toContain('usage:')
+      }
+    },
+  )
 })

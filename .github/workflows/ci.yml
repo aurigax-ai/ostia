@@ -470,7 +470,6 @@ jobs:
     continue-on-error: true
     permissions:
       contents: read
-      issues: read
     strategy:
       fail-fast: false
       matrix:
@@ -520,11 +519,11 @@ jobs:
 
   # Pull requests and the merge queue only check the format of
   # test/quarantine.json (test/quarantine.test.ts). Pushes to main, the
-  # nightly run and tags (release.yml) fail here once an entry's date has
+  # nightly run, manual runs and tags (release.yml) fail here once an entry's date has
   # passed or its issue is closed. Not part of ci-result, so a PR is never
   # held up by a date it did not touch.
   quarantine-dates:
-    if: github.event_name == 'push' || github.event_name == 'schedule'
+    if: github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
