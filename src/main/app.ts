@@ -92,6 +92,7 @@ import { announceBusMessage } from './busNotice'
 import { dropIdentity, refreshGrantedCaps, setCaps } from './capabilityStore'
 import { createChatSessionStore } from './chatSessions'
 import { registerChatSessionIpc } from './chatSessionsIpc'
+import { ChatToolGrants } from './chatToolGrants'
 import { registerChatToolsIpc } from './chatToolsIpc'
 import { type ClipboardEdits, registerClipboardEdits } from './clipboardEdits'
 import { confirmQuit, freezeAll, registerCloseGuard } from './closeGuard'
@@ -3328,6 +3329,8 @@ app.whenReady().then(() => {
     mcp: mcpHost,
     secrets: mcpSecrets,
     oauth: mcpOAuth,
+    grants: new ChatToolGrants(join(app.getPath('userData'), 'chat-tool-grants.json')),
+    onGrants: (keys) => broadcast('chatTools:always-grants', keys),
   })
   const workflowDeps: WorkflowDeps = {
     userDir: join(configDir(), 'workflows'),
