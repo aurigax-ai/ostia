@@ -284,7 +284,8 @@ describe('ostia pane (the real CLI against a live control server)', () => {
     expect(key.code).toBe(0)
 
     expect(written).toEqual([
-      { paneId: tab, data: 'hello world\r' },
+      { paneId: tab, data: 'hello world' },
+      { paneId: tab, data: '\r' },
       { paneId: tab, data: '\x04' },
     ])
     expect(request).not.toHaveBeenCalled()
