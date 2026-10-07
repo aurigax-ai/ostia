@@ -29,6 +29,7 @@ import {
   BUS_QUEUED_HINT,
   type BusSendOk,
   type SentMessage,
+  busWaitTimeoutMs,
   runBusHook,
   sentLines,
 } from './bus'
@@ -548,7 +549,7 @@ async function runBusVerb(conn: MessageConnection): Promise<void> {
     })
   } else if (sub === 'wait') {
     const { values } = parseArgs(rawArgs, { values: { timeout: '--timeout' } })
-    const timeoutMs = numberFlag(values.timeout, 'timeout')
+    const timeoutMs = busWaitTimeoutMs(values.timeout)
     const res = await conn.sendRequest<BusWaitResult | BusErr>('bus.wait', { timeoutMs })
     if ('messages' in res) {
       console.log(JSON.stringify(res))

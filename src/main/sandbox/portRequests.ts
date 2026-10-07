@@ -42,6 +42,7 @@ function granted(outcome: ApprovalOutcome): boolean {
 
 export class PortRequests {
   private readonly seen = new Map<string, Map<number, SandboxListener>>()
+  private readonly kept = new Map<string, Set<number>>()
 
   constructor(private readonly deps: PortRequestsDeps) {}
 
@@ -90,15 +91,21 @@ export class PortRequests {
     }
   }
 
+  keep(workspaceId: string, ports: readonly number[]): void {
+    if (!this.kept.has(workspaceId)) this.kept.set(workspaceId, new Set(ports))
+  }
+
   forget(workspaceId: string): void {
     this.seen.delete(workspaceId)
+    this.kept.delete(workspaceId)
   }
 
   private async onNewListener(workspaceId: string, listener: SandboxListener): Promise<void> {
+    const kept = this.kept.get(workspaceId)?.delete(listener.port) ?? false
     if (this.deps.forwarder.exposed(workspaceId).includes(listener.port)) return
     const policy = this.deps.policy(workspaceId)
     if (policy === 'deny' || this.deps.forwarder.refusal(workspaceId)) return
-    if (policy === 'ask') {
+    if (policy === 'ask' && !kept) {
       const outcome = await this.deps.ask({
         workspaceId,
         port: listener.port,

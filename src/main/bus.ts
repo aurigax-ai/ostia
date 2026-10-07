@@ -146,9 +146,9 @@ function deliver(data: BusData, msg: Message): BusDelivery {
   data.inboxes[msg.to] = inbox
   if (!msg.quiet) remember(data, msg)
   const delivery: BusDelivery = hasWaiter(msg.to) ? 'waiting' : 'queued'
-  if (delivery === 'waiting') markSeen(data, inbox, msg.ts)
+  if (delivery === 'waiting') markSeen(data, [msg], msg.ts)
   saveBus(data)
-  wake(msg.to, inbox)
+  wake(msg.to, [msg])
   return delivery
 }
 
@@ -255,17 +255,17 @@ export function registerBusMethods(deps: BusDeps): void {
       const clamped = clampTimeout(timeoutMs)
 
       const data = loadBus()
-      const already = data.inboxes[me] ?? []
-      if (already.some((message) => !message.seenAt)) {
-        markSeen(data, already, new Date().toISOString())
+      const fresh = (data.inboxes[me] ?? []).filter((message) => !message.seenAt)
+      if (fresh.length > 0) {
+        markSeen(data, fresh, new Date().toISOString())
         saveBus(data)
-        return Promise.resolve({ messages: already, timedOut: false })
+        return Promise.resolve({ messages: fresh, timedOut: false })
       }
 
       return new Promise<WaitResult>((resolve) => {
         let settled = false
         const timer = setTimeout(() => {
-          finish({ messages: loadBus().inboxes[me] ?? [], timedOut: true })
+          finish({ messages: [], timedOut: true })
         }, clamped)
         const finish = (result: WaitResult): void => {
           if (settled) return
