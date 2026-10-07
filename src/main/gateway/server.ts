@@ -14,12 +14,7 @@ import { PLATFORM_EVENT_TYPES, type PlatformEventType, platformEvents } from '..
 import { getByPaneId, resolveExternal } from '../idRegistry'
 import { type GatewayCert, getCert } from './cert'
 import { type GatewayControlDeps, dispatchGatewayMethod } from './controlDispatch'
-import {
-  type Device,
-  get as getDevice,
-  list as listDevices,
-  verifyToken,
-} from './devices'
+import { type Device, get as getDevice, list as listDevices, verifyToken } from './devices'
 import { cancelPairRequest, openPairRequest, revealPairRequest } from './pairRequests'
 import { auditPairAttempt, checkPairRateLimit, consumeCode, isLiveCode } from './pairing'
 import { readProxyHeader } from './proxyProtocol'

@@ -8,6 +8,21 @@ const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 const CODE_LENGTH = 8
 
 const codes = new Map<string, number>()
+const codeListeners = new Set<() => void>()
+
+function codesChanged(): void {
+  for (const listener of codeListeners) listener()
+}
+
+export function onCodesChanged(listener: () => void): () => void {
+  codeListeners.add(listener)
+  return () => codeListeners.delete(listener)
+}
+
+export function liveCodeCount(): number {
+  sweepExpired()
+  return codes.size
+}
 
 function sweepExpired(): void {
   const now = Date.now()
@@ -24,6 +39,8 @@ export function newCode(): string {
     code += CODE_ALPHABET[bytes[i] % CODE_ALPHABET.length]
   }
   codes.set(code, Date.now() + CODE_TTL_MS)
+  setTimeout(codesChanged, CODE_TTL_MS + 1).unref?.()
+  codesChanged()
   return code
 }
 
@@ -39,6 +56,7 @@ export function isLiveCode(code: string): boolean {
 export function consumeCode(code: string): boolean {
   const expiry = codes.get(code)
   codes.delete(code)
+  if (expiry !== undefined) codesChanged()
   return expiry !== undefined && Date.now() <= expiry
 }
 
