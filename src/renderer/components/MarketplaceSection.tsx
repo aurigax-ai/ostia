@@ -1,11 +1,7 @@
 import { ArrowsClockwiseIcon, TrashIcon } from '@phosphor-icons/react'
-import {
-  MARKETPLACE_FEATURE,
-  type MarketplaceExtension,
-  type MarketplaceInfo,
-} from '@shared/marketplace'
+import { MARKETPLACE_FEATURE, type MarketplaceInfo } from '@shared/marketplace'
 import { useEffect, useState } from 'react'
-import { fmt, useDict, withProductName } from '../i18n/useDict'
+import { fmt, useDict } from '../i18n/useDict'
 import { useExtensionsStore } from '../stores/extensionsStore'
 import { useMarketplaceStore } from '../stores/marketplaceStore'
 import { IconButton } from './IconButton'
@@ -21,16 +17,17 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from './ui/alert-dialog'
-import { Badge } from './ui/badge'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 
 export function UninstallExtensionButton({
   extId,
   name,
+  size = 'sm',
 }: {
   extId: string
   name: string
+  size?: 'xs' | 'sm'
 }): JSX.Element | null {
   const d = useDict()
   const installed = useMarketplaceStore((s) => s.state.installed.includes(extId))
@@ -40,7 +37,7 @@ export function UninstallExtensionButton({
   if (!installed) return null
   return (
     <>
-      <Button variant="outline" size="sm" disabled={busy} onClick={() => setAsking(true)}>
+      <Button variant="outline" size={size} disabled={busy} onClick={() => setAsking(true)}>
         {d.marketplace.uninstall}
       </Button>
       <AlertDialog open={asking} onOpenChange={setAsking}>
@@ -67,67 +64,6 @@ export function UninstallExtensionButton({
   )
 }
 
-function ExtensionRow({
-  marketplace,
-  ext,
-}: {
-  marketplace: MarketplaceInfo
-  ext: MarketplaceExtension
-}): JSX.Element {
-  const d = useDict()
-  const busy = useMarketplaceStore((s) => s.busy)
-  const install = useMarketplaceStore((s) => s.install)
-  return (
-    <li aria-label={ext.name} className="flex items-start justify-between gap-6 px-3 py-2">
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <span className="text-fg text-ui-base">{ext.name}</span>
-          <span className="text-fg-muted text-ui-xs tabular-nums">{ext.version}</span>
-          <Badge variant="outline" className="text-ui-xs">
-            {d.extensions.categories[ext.category]}
-          </Badge>
-          {ext.state === 'installed' || ext.state === 'update' ? (
-            <Badge variant="outline" className="text-ui-xs">
-              {ext.state === 'update' && ext.installedVersion
-                ? fmt(d.marketplace.installedVersion, { version: ext.installedVersion })
-                : d.marketplace.installed}
-            </Badge>
-          ) : null}
-        </div>
-        {ext.description ? (
-          <p className="mt-0.5 text-fg-muted text-ui-sm">{withProductName(ext.description)}</p>
-        ) : null}
-        <p className="mt-0.5 text-fg-muted text-ui-xs">
-          {ext.runsProcess ? d.marketplace.runsProcess : d.marketplace.dataOnly} ·{' '}
-          {fmt(d.extensions.permissionsList, {
-            list:
-              ext.capabilities.length > 0
-                ? ext.capabilities.join(', ')
-                : d.extensions.noPermissions,
-          })}
-        </p>
-        {ext.state === 'conflict' ? <WarningNote>{d.marketplace.conflict}</WarningNote> : null}
-        {ext.state === 'replace' ? <WarningNote>{d.marketplace.orphaned}</WarningNote> : null}
-      </div>
-      {ext.state === 'available' || ext.state === 'update' || ext.state === 'replace' ? (
-        <Button
-          variant={ext.state === 'available' ? 'outline' : 'default'}
-          size="sm"
-          className="shrink-0"
-          disabled={busy}
-          onClick={() => void install(marketplace.id, ext.id)}
-        >
-          {ext.state === 'update'
-            ? fmt(d.marketplace.update, { version: ext.version })
-            : ext.state === 'replace'
-              ? d.marketplace.replace
-              : d.marketplace.install}
-        </Button>
-      ) : null}
-    </li>
-  )
-}
-
 function InstallCodeForm({ marketplace }: { marketplace: MarketplaceInfo }): JSX.Element {
   const d = useDict()
   const busy = useMarketplaceStore((s) => s.busy)
@@ -139,7 +75,7 @@ function InstallCodeForm({ marketplace }: { marketplace: MarketplaceInfo }): JSX
   }
   return (
     <form
-      className="flex items-center gap-2 border-line border-t px-3 py-2"
+      className="mt-1 flex items-center gap-2"
       onSubmit={(e) => {
         e.preventDefault()
         void submit()
@@ -208,19 +144,16 @@ function RemoveMarketplaceButton({
   )
 }
 
-function MarketplaceCard({ marketplace }: { marketplace: MarketplaceInfo }): JSX.Element {
+function MarketplaceRow({ marketplace }: { marketplace: MarketplaceInfo }): JSX.Element {
   const d = useDict()
   const busy = useMarketplaceStore((s) => s.busy)
   const refresh = useMarketplaceStore((s) => s.refresh)
   return (
-    <li aria-label={marketplace.name} className="rounded-sm border border-line">
-      <div className="flex items-start justify-between gap-6 border-line border-b px-3 py-2">
+    <li aria-label={marketplace.name} className="flex flex-col py-2">
+      <div className="flex items-start justify-between gap-6">
         <div className="min-w-0">
-          <div className="text-fg text-ui-base">{marketplace.name}</div>
+          <div className="text-fg text-ui-sm">{marketplace.name}</div>
           <div className="truncate font-mono text-fg-muted text-ui-xs">{marketplace.url}</div>
-          {marketplace.description ? (
-            <p className="mt-0.5 text-fg-muted text-ui-sm">{marketplace.description}</p>
-          ) : null}
         </div>
         <div className="flex shrink-0 items-center gap-1">
           <IconButton
@@ -232,22 +165,13 @@ function MarketplaceCard({ marketplace }: { marketplace: MarketplaceInfo }): JSX
           <RemoveMarketplaceButton marketplace={marketplace} />
         </div>
       </div>
-      {marketplace.error ? (
-        <div className="px-3 py-2">
-          <WarningNote>{marketplace.error}</WarningNote>
-        </div>
-      ) : marketplace.extensions.length === 0 ? (
-        <p className="px-3 py-2 text-fg-muted text-ui-sm">{d.marketplace.noExtensions}</p>
-      ) : (
-        <ul className="flex flex-col">
-          {marketplace.extensions.map((ext) => (
-            <ExtensionRow key={ext.id} marketplace={marketplace} ext={ext} />
-          ))}
-        </ul>
-      )}
+      {marketplace.error ? <WarningNote>{marketplace.error}</WarningNote> : null}
+      {!marketplace.error && marketplace.extensions.length === 0 ? (
+        <p className="mt-0.5 text-fg-muted text-ui-xs">{d.marketplace.noExtensions}</p>
+      ) : null}
       {marketplace.unlisted ? <InstallCodeForm marketplace={marketplace} /> : null}
       {marketplace.problems.length > 0 ? (
-        <div className="border-line border-t px-3 py-2 text-fg-muted text-ui-xs">
+        <div className="mt-1 text-fg-muted text-ui-xs">
           <div>{d.marketplace.problems}</div>
           <ul className="mt-0.5 font-mono">
             {marketplace.problems.map((problem) => (
@@ -260,20 +184,38 @@ function MarketplaceCard({ marketplace }: { marketplace: MarketplaceInfo }): JSX
   )
 }
 
-export function MarketplaceSection(): JSX.Element {
-  const d = useDict()
+export function useMarketplaceList(): MarketplaceInfo[] {
   const marketplaces = useMarketplaceStore((s) => s.state.marketplaces)
-  const busy = useMarketplaceStore((s) => s.busy)
-  const failure = useMarketplaceStore((s) => s.failure)
   const load = useMarketplaceStore((s) => s.load)
-  const add = useMarketplaceStore((s) => s.add)
-  const [url, setUrl] = useState('')
   useEffect(() => {
     if (!useMarketplaceStore.getState().loaded) void load()
     return useExtensionsStore.subscribe((next, previous) => {
       if (next.list !== previous.list) void load()
     })
   }, [load])
+  return marketplaces
+}
+
+export function MarketplaceFailureNote(): JSX.Element | null {
+  const d = useDict()
+  const failure = useMarketplaceStore((s) => s.failure)
+  if (!failure) return null
+  return (
+    <WarningNote>
+      <p>{d.marketplace.errors[failure.error]}</p>
+      {failure.detail ? (
+        <p className="mt-1 break-words font-mono text-ui-xs">{failure.detail}</p>
+      ) : null}
+    </WarningNote>
+  )
+}
+
+export function MarketplacesPanel(): JSX.Element {
+  const d = useDict()
+  const marketplaces = useMarketplaceStore((s) => s.state.marketplaces)
+  const busy = useMarketplaceStore((s) => s.busy)
+  const add = useMarketplaceStore((s) => s.add)
+  const [url, setUrl] = useState('')
   const submit = async (): Promise<void> => {
     if (!url.trim() || busy) return
     if (await add(url)) setUrl('')
@@ -300,20 +242,12 @@ export function MarketplaceSection(): JSX.Element {
           {busy ? d.marketplace.working : d.marketplace.add}
         </Button>
       </form>
-      {failure ? (
-        <WarningNote>
-          <p>{d.marketplace.errors[failure.error]}</p>
-          {failure.detail ? (
-            <p className="mt-1 break-words font-mono text-ui-xs">{failure.detail}</p>
-          ) : null}
-        </WarningNote>
-      ) : null}
       {marketplaces.length === 0 ? (
-        <p className="mt-3 text-fg-muted text-ui-sm">{d.marketplace.none}</p>
+        <p className="mt-2 text-fg-muted text-ui-sm">{d.marketplace.none}</p>
       ) : (
-        <ul className="mt-3 flex flex-col gap-3">
+        <ul className="mt-1 flex flex-col divide-y divide-line">
           {marketplaces.map((marketplace) => (
-            <MarketplaceCard key={marketplace.id} marketplace={marketplace} />
+            <MarketplaceRow key={marketplace.id} marketplace={marketplace} />
           ))}
         </ul>
       )}

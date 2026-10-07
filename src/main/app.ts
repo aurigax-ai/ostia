@@ -54,6 +54,7 @@ import type {
   FsEntry,
   FsKind,
   LifecycleEvent,
+  PaneActivity,
   PromptContext,
   PromptContextRequest,
   PtyAttachResult,
@@ -71,6 +72,7 @@ import { installAppMenu } from './appMenu'
 import { registerAppUpdate } from './appUpdate'
 import { appVersion } from './appVersion'
 import { approvals, registerApprovals } from './approvals'
+import { createAskHub } from './asks'
 import { registerAssistIpc } from './assistIpc'
 import { registerAttentionMethods, targetOf } from './attention'
 import {
@@ -132,7 +134,7 @@ import {
 } from './gateway'
 import { createBonjourPublisher } from './gateway/announce'
 import { listPairRequests, onPairRequestsChanged } from './gateway/pairRequests'
-import { configureGatewayControl, stopGateway } from './gateway/server'
+import { configureGatewayControl, phoneCanRespond, stopGateway } from './gateway/server'
 import { createTailnet, tailnetNodeName, tsnetHelperPath } from './gateway/tailnet'
 import { GIT_EXTENSION, GitBoard } from './gitBoard'
 import { GlobalHotkey, toggleWindows } from './globalHotkey'
@@ -188,12 +190,14 @@ import {
   pastedText,
   registerPaneIoMethods,
 } from './paneIo'
+import { writeOstiaLauncher } from './paneLauncher'
 import { listPanes, listWorkspaceGroups, listWorkspaces, registerPaneListMethods } from './paneList'
 import type { PaneProcess } from './paneProcess'
 import { registerPaneRenameMethods } from './paneRename'
 import { registerPaneResumeMethods } from './paneResume'
 import { PaneWatch, registerPaneWaitMethods } from './paneWait'
 import { resolveSafe } from './pathGuard'
+import { registerPermissionAsk } from './permissionAsk'
 import {
   type MirrorHandle,
   type MirrorSink,
@@ -220,6 +224,7 @@ import { type ReapReason, RecoveryBook, orphanVerdict, planRecovery } from './pt
 import { PtySession, type Subscriber, type SubscriberRole } from './ptySession'
 import { questions, registerQuestions } from './questions'
 import { QUIT_SIGNALS, exitAfterDeadline, keptOnQuit, planQuit } from './quitPlan'
+import { confirmQuitNatively } from './quitPrompt'
 import { createRedactor, createScrollbackRedactor } from './redaction'
 import { createWorkerScan, redactionWorkerScript } from './redactionScan'
 import { registerReleaseCheck, releaseUserAgent } from './releaseCheck'
@@ -383,6 +388,20 @@ function holdsLocalPrompt(entry: PtyEntry): boolean {
     shell: entry.shell,
     sandboxed: entry.sandboxed,
   })
+}
+
+function paneActivity(entry: PtyEntry): PaneActivity {
+  let program: string | null = null
+  try {
+    program = busyProgram({
+      foreground: entry.pty.process,
+      shell: entry.shell,
+      sandboxed: entry.sandboxed,
+    })
+  } catch {
+    program = null
+  }
+  return { program, agentRunning: agentRunning.has(entry.paneId) }
 }
 
 function sandboxReadRules(entry: PtyEntry): SandboxReadRules | null {
@@ -604,6 +623,7 @@ function writeKeptLaunchers(): void {
     `require(${JSON.stringify(join(app.getAppPath(), 'out/cli/index.js'))})\n`,
     0o600,
   )
+  writeOstiaLauncher(dir)
 }
 
 function keptPaneEnv(env: NodeJS.ProcessEnv): Record<string, string> {
@@ -1176,6 +1196,14 @@ let mcpHost: McpHost | null = null
 let mcpOAuth: McpOAuth | null = null
 let broker: WindowBroker | null = null
 const agentRunning = new AgentRunningPanes(() => broker?.persist())
+
+const askHub = createAskHub({
+  questions,
+  approvals,
+  identity: getByPaneId,
+  created: (ask) => emitPlatformEvent('ask.created', { ask }),
+  resolved: (resolved) => emitPlatformEvent('ask.resolved', resolved),
+})
 const keptAttention = new KeptAttention()
 const paneWatch = new PaneWatch()
 const reachesPane: OriginReach = (senderWindowId, sourcePaneId, targetPaneId) =>
@@ -1929,6 +1957,7 @@ function registerPtyIpc(): void {
         SHELL_STATE: stateFile,
       }),
       agentHooks: settings.agents?.hooks,
+      launcherDir: keptLauncherDir(),
     })
     let secretNotice = ''
     let sandboxStamp: string | null = null
@@ -2229,18 +2258,10 @@ function registerPtyIpc(): void {
       return null
     }
   })
-  ipcMain.handle('pty:busy', (e, paneId: string): string | null => {
+  ipcMain.handle('pty:activity', (e, paneId: string): PaneActivity | null => {
     const entry = ptys.get(String(paneId))
     if (!entry?.subs.has(String(e.sender.id))) return null
-    try {
-      return busyProgram({
-        foreground: entry.pty.process,
-        shell: entry.shell,
-        sandboxed: entry.sandboxed,
-      })
-    } catch {
-      return null
-    }
+    return paneActivity(entry)
   })
   ipcMain.handle('pty:commands', async (e, paneId: string): Promise<string[]> => {
     const entry = ptys.get(paneId)
@@ -3002,8 +3023,12 @@ app.whenReady().then(() => {
   registerFsIpc()
   registerSelectionIpc(reachesPane, redactor.text)
   registerPrivacyIpc(redactor)
-  registerApprovals(revealWindow, settingsChanged)
-  registerQuestions()
+  registerApprovals(revealWindow, settingsChanged, {
+    opened: askHub.approvalOpened,
+    settled: askHub.settled,
+  })
+  registerQuestions({ opened: askHub.questionOpened, settled: askHub.settled })
+  registerPermissionAsk({ questions, phoneCanAnswer: phoneCanRespond })
   registerCredentials()
   registerAppUpdate(() => {
     restartRequested = true
@@ -3404,6 +3429,9 @@ app.whenReady().then(() => {
     attachPhoneObserver,
     ptyResize,
     ptyWrite,
+    listAsks: askHub.list,
+    answerAsk: askHub.answer,
+    agentRunning: (paneId) => agentRunning.has(paneId) && ptys.has(paneId),
   })
   const sharedBrowser = session.fromPartition(SHARED_BROWSER_PARTITION)
   sharedBrowser.setUserAgent(browserUserAgent(sharedBrowser.getUserAgent(), app.getName()))
@@ -3560,15 +3588,21 @@ app.on('before-quit', (event) => {
     if (quitAsking) return
     quitAsking = true
     const all = BrowserWindow.getAllWindows()
-    void confirmQuit(
-      all,
-      BrowserWindow.getFocusedWindow() ?? mainWindow(),
-      (workspaceId) => scratchFolders.countFiles(workspaceId),
-      keptOnQuit(
+    void confirmQuit(all, BrowserWindow.getFocusedWindow() ?? mainWindow(), {
+      scratchFiles: (workspaceId) => scratchFolders.countFiles(workspaceId),
+      kept: keptOnQuit(
         restartRequested,
         [...ptys.values()].map((entry) => ({ paneId: entry.paneId, kept: entry.kept !== null })),
       ),
-    ).then((approved) => {
+      workspacesOf: (win) => broker?.workspacesOf(win) ?? [],
+      processes: () =>
+        [...ptys.values()].map((entry) => ({
+          paneId: entry.paneId,
+          workspaceId: entry.workspaceId,
+          ...paneActivity(entry),
+        })),
+      confirmNative: (groups) => confirmQuitNatively(groups, readLocale() ?? 'en'),
+    }).then((approved) => {
       quitAsking = false
       if (!approved) {
         restartRequested = false

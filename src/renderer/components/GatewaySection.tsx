@@ -1,7 +1,7 @@
 import { cn } from '@/lib/utils'
 import { CaretRightIcon, CopyIcon } from '@phosphor-icons/react'
-import { PHONE_GRANTABLE_CAPS, type PhoneGrantableCap } from '@shared/capabilities'
 import { formatCode } from '@shared/pairCode'
+import { PHONE_GRANTABLE_CAPS, type PhoneGrantableCap } from '@shared/phoneCapabilities'
 import type {
   GatewayBindAddress,
   GatewayDevice,
@@ -23,6 +23,16 @@ import {
   ToggleRow,
   WarningNote,
 } from './SettingsPanel'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from './ui/alert-dialog'
 import { Button } from './ui/button'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible'
 import {
@@ -139,41 +149,101 @@ function PairRequests({
   )
 }
 
-function capLabel(d: Dict, cap: PhoneGrantableCap): string {
-  if (cap === 'command') return d.settings.remoteCapCommand
-  if (cap === 'input') return d.settings.remoteCapInput
-  return d.settings.remoteCapDestructive
+const CAP_NEEDS: Partial<Record<PhoneGrantableCap, PhoneGrantableCap>> = {
+  destructive: 'command',
 }
 
-function DeviceGrants({
+function capText(d: Dict): Record<PhoneGrantableCap, { label: string; desc: string }> {
+  return {
+    respond: { label: d.settings.remoteCapRespond, desc: d.settings.remoteCapRespondDesc },
+    command: { label: d.settings.remoteCapCommand, desc: d.settings.remoteCapCommandDesc },
+    input: { label: d.settings.remoteCapInput, desc: d.settings.remoteCapInputDesc },
+    destructive: {
+      label: d.settings.remoteCapDestructive,
+      desc: d.settings.remoteCapDestructiveDesc,
+    },
+  }
+}
+
+function DeviceRow({
   device,
   onChange,
+  onRevoke,
 }: {
   device: GatewayDevice
   onChange: (cap: PhoneGrantableCap, granted: boolean) => void
+  onRevoke: () => void
 }): JSX.Element {
   const d = useDict()
+  const [asking, setAsking] = useState(false)
+  const text = capText(d)
   return (
-    <fieldset
-      aria-label={fmt(d.settings.remoteGrantsFor, { name: device.name })}
-      className="mt-1.5 grid grid-cols-2 gap-x-4 gap-y-1"
-    >
-      {PHONE_GRANTABLE_CAPS.map((cap) => {
-        const label = fmt(d.settings.remoteCapFor, { cap: capLabel(d, cap), name: device.name })
-        const disabled = cap === 'destructive' && !device.caps.includes('command')
-        return (
-          <div key={cap} className="flex items-center justify-between gap-2 text-fg text-ui-sm">
-            {capLabel(d, cap)}
-            <Switch
-              checked={device.caps.includes(cap)}
-              disabled={disabled}
-              onCheckedChange={(v) => onChange(cap, v)}
-              aria-label={label}
-            />
-          </div>
-        )
-      })}
-    </fieldset>
+    <li className="border-line border-t pt-2 first:border-t-0 first:pt-0">
+      <div className="flex items-center justify-between gap-6 py-1.5">
+        <div className="flex min-w-0 items-baseline gap-2">
+          <span className="truncate font-medium text-fg text-ui-base">{device.name}</span>
+          <span className="shrink-0 text-fg-muted text-ui-sm tabular-nums">
+            {fmt(d.settings.remotePairedOn, {
+              date: new Date(device.createdAt).toLocaleDateString(),
+            })}
+          </span>
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="-mr-2.5 text-attn-fg hover:text-attn-fg"
+          onClick={() => setAsking(true)}
+          aria-label={fmt(d.settings.remoteRevokeFor, { name: device.name })}
+        >
+          {d.settings.remoteRevoke}
+        </Button>
+      </div>
+      <fieldset aria-label={fmt(d.settings.remoteGrantsFor, { name: device.name })}>
+        {PHONE_GRANTABLE_CAPS.map((cap) => {
+          const needs = CAP_NEEDS[cap]
+          const { label, desc } = text[cap]
+          return (
+            <ControlRow
+              key={cap}
+              label={label}
+              desc={needs ? fmt(d.settings.remoteCapNeeds, { desc, cap: text[needs].label }) : desc}
+            >
+              <Switch
+                checked={device.caps.includes(cap)}
+                disabled={needs !== undefined && !device.caps.includes(needs)}
+                onCheckedChange={(v) => onChange(cap, v)}
+                aria-label={fmt(d.settings.remoteCapFor, { cap: label, name: device.name })}
+              />
+            </ControlRow>
+          )
+        })}
+      </fieldset>
+      <AlertDialog open={asking} onOpenChange={setAsking}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {fmt(d.settings.remoteRevokeTitle, { name: device.name })}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {fmt(d.settings.remoteRevokeBody, { name: device.name })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel size="sm">{d.settings.remoteCancel}</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              size="sm"
+              onClick={() => {
+                setAsking(false)
+                onRevoke()
+              }}
+            >
+              {d.settings.remoteRevoke}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </li>
   )
 }
 
@@ -478,29 +548,14 @@ export function GatewaySection(): JSX.Element {
       {devices.length === 0 ? (
         <p className="text-fg-muted text-ui-sm">{d.settings.remoteNoDevices}</p>
       ) : (
-        <ul className="flex flex-col gap-0.5">
+        <ul className="flex flex-col">
           {devices.map((dev) => (
-            <li key={dev.deviceId} className="rounded-sm px-2.5 py-1.5">
-              <div className="flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="truncate text-fg text-ui-base">{dev.name}</div>
-                  <div className="truncate text-fg-muted text-ui-xs tabular-nums">
-                    {fmt(d.settings.remotePairedOn, {
-                      date: new Date(dev.createdAt).toLocaleDateString(),
-                    })}
-                  </div>
-                </div>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={() => void onRevoke(dev.deviceId)}
-                  aria-label={fmt(d.settings.remoteRevokeFor, { name: dev.name })}
-                >
-                  {d.settings.remoteRevoke}
-                </Button>
-              </div>
-              <DeviceGrants device={dev} onChange={(cap, v) => onCapChange(dev, cap, v)} />
-            </li>
+            <DeviceRow
+              key={dev.deviceId}
+              device={dev}
+              onChange={(cap, v) => onCapChange(dev, cap, v)}
+              onRevoke={() => void onRevoke(dev.deviceId)}
+            />
           ))}
         </ul>
       )}

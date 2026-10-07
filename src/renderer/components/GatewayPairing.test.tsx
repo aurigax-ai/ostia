@@ -1,5 +1,5 @@
 import type { GatewayPairRequest, GatewayRemoteStatus } from '@shared/types'
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { GatewaySection } from './GatewaySection'
@@ -15,6 +15,8 @@ const STATUS: GatewayRemoteStatus = {
   discoverable: false,
 }
 
+const STATUS_LATENCY_MS = 50
+
 function qr(pairCode: string) {
   return {
     v: 1 as const,
@@ -28,6 +30,7 @@ function qr(pairCode: string) {
 
 async function showCode(): Promise<void> {
   const button = await screen.findByRole('button', { name: 'Show pairing code' })
+  await waitFor(() => expect(button).toBeEnabled())
   await act(async () => {
     fireEvent.click(button)
   })
@@ -43,7 +46,9 @@ async function tick(seconds: number): Promise<void> {
 
 describe('GatewaySection pairing', () => {
   beforeEach(() => {
-    vi.mocked(window.ostia.gateway.status).mockResolvedValue(STATUS)
+    vi.mocked(window.ostia.gateway.status).mockImplementation(
+      () => new Promise((resolve) => setTimeout(() => resolve(STATUS), STATUS_LATENCY_MS)),
+    )
     vi.mocked(window.ostia.gateway.pair)
       .mockResolvedValueOnce(qr('ABCD2345'))
       .mockResolvedValueOnce(qr('WXYZ6789'))

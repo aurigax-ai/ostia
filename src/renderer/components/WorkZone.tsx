@@ -1,5 +1,6 @@
-import { PlusIcon } from '@phosphor-icons/react'
+import { PlusIcon, TerminalWindowIcon } from '@phosphor-icons/react'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { commands } from '../commands/registry'
 import { useDict } from '../i18n/useDict'
 import { workspacesAwaitingResume } from '../lib/autoResume'
 import { useChordLabel } from '../lib/chords'
@@ -13,7 +14,7 @@ import { PaneTree } from './PaneTree'
 import { SettingsPanel } from './SettingsPanel'
 import { SurfacePool } from './SurfacePool'
 import { Button } from './ui/button'
-import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from './ui/empty'
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from './ui/empty'
 import { Kbd } from './ui/kbd'
 
 export function WorkZone(): JSX.Element {
@@ -82,6 +83,7 @@ function NoWorkspaces(): JSX.Element {
   const d = useDict()
   const showWorkspaces = useUIStore((s) => s.showWorkspaces)
   const newWorkspaceKeys = useChordLabel('workspace.new', isMac)
+  const newTerminalKeys = useChordLabel('tab.new', isMac)
   return (
     <Empty className="workzone-empty">
       <EmptyHeader>
@@ -90,20 +92,33 @@ function NoWorkspaces(): JSX.Element {
         </EmptyTitle>
         <EmptyDescription className="text-ui-base">{d.workzone.emptyBody}</EmptyDescription>
       </EmptyHeader>
-      <Button
-        onClick={() => {
-          showWorkspaces()
-          startNewWorkspace()
-        }}
-      >
-        <PlusIcon data-icon="inline-start" />
-        {d.rail.newWorkspace}
-        {newWorkspaceKeys ? (
-          <Kbd className="ml-1 bg-primary-foreground/15 text-primary-foreground">
-            {newWorkspaceKeys}
-          </Kbd>
-        ) : null}
-      </Button>
+      <EmptyContent className="flex-row justify-center">
+        <Button
+          onClick={() => {
+            showWorkspaces()
+            startNewWorkspace()
+          }}
+        >
+          <PlusIcon data-icon="inline-start" />
+          {d.rail.newWorkspace}
+          {newWorkspaceKeys ? (
+            <Kbd className="ml-1 bg-primary-foreground/15 text-primary-foreground">
+              {newWorkspaceKeys}
+            </Kbd>
+          ) : null}
+        </Button>
+        <Button
+          variant="outline"
+          onClick={() => {
+            showWorkspaces()
+            void commands.exec('tab.new')
+          }}
+        >
+          <TerminalWindowIcon data-icon="inline-start" />
+          {d.pane.newTerminal}
+          {newTerminalKeys ? <Kbd className="ml-1">{newTerminalKeys}</Kbd> : null}
+        </Button>
+      </EmptyContent>
     </Empty>
   )
 }

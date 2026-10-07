@@ -1,8 +1,8 @@
 import type { ApprovalRequest } from '@shared/approvals'
 import type { QuestionRequest } from '@shared/questions'
-import type { AttentionState } from '@shared/types'
+import type { AttentionState, PaneActivity } from '@shared/types'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { PaneNode } from '../layout/types'
+import type { LayoutNode, PaneNode } from '../layout/types'
 import { useAgentTurnStore } from '../stores/agentTurnStore'
 import { useApprovalsStore } from '../stores/approvalsStore'
 import { useAttentionStore } from '../stores/attentionStore'
@@ -29,6 +29,7 @@ type Row =
   | 'agent working'
   | 'agent waiting'
   | 'agent idle'
+  | 'agent the renderer lost'
   | 'hibernated pane'
   | 'unsaved editor'
 type KeepShells = 'off' | 'on, quit' | 'on, restart'
@@ -47,13 +48,14 @@ function terminal(id: string, resume = true): PaneNode {
   }
 }
 
-function seedWorkspace(pane: PaneNode, kind: WorkspaceKind = 'terminal'): void {
+function seedWorkspace(root: LayoutNode, kind: WorkspaceKind = 'terminal'): void {
   useWorkspacesStore.setState({
     workspaces: [{ id: 'w1', name: 'alpha', kind, workDir: '/w', state: 'idle' }],
     activeWorkspaceId: 'w1',
   })
+  const activePaneId = root.type === 'tabs' ? root.activeId : root.id
   useLayoutStore.setState({
-    byWorkspace: { w1: { root: pane, activePaneId: pane.id, zoomedPaneId: null } },
+    byWorkspace: { w1: { root, activePaneId, zoomedPaneId: null } },
   })
 }
 
@@ -76,7 +78,7 @@ function prompt(paneId: string, remote = false): void {
   useBlocksStore.getState().promptStart(paneId, { line: 9 }, '/w', remote)
 }
 
-function seedRow(row: Row): Record<string, string> {
+function seedRow(row: Row): Record<string, PaneActivity> {
   if (row === 'unsaved editor') {
     seedWorkspace({ type: 'pane', id: 'p1', title: 'notes.md', kind: 'editor', filePath: FILE })
     useEditorStatus.getState().setDirty(FILE, true)
@@ -85,18 +87,21 @@ function seedRow(row: Row): Record<string, string> {
   if (row === 'hibernated pane') {
     seedWorkspace({ ...terminal('p1'), hibernated: true })
     run('p1', 'claude')
-    return { p1: 'claude' }
+    return { p1: { program: 'claude', agentRunning: true } }
   }
   seedWorkspace(terminal('p1', row.startsWith('agent')))
   if (row === 'idle shell') {
     prompt('p1')
     return {}
   }
-  if (row === 'process without shell integration') return { p1: 'sleep' }
+  if (row === 'process without shell integration') {
+    return { p1: { program: 'sleep', agentRunning: false } }
+  }
+  if (row === 'agent the renderer lost') return { p1: { program: 'claude', agentRunning: true } }
   if (row === 'nested idle shell') {
     run('p1', 'zsh')
     prompt('p1')
-    return { p1: 'zsh' }
+    return { p1: { program: 'zsh', agentRunning: false } }
   }
   if (row === 'foreground process') {
     run('p1', 'npm run dev')
@@ -113,8 +118,11 @@ function kept(keepShells: KeepShells, row: Row): Set<string> {
   return keepShells === 'on, restart' && row !== 'unsaved editor' ? new Set(['p1']) : new Set()
 }
 
-function lost(keep: ReadonlySet<string> = new Set(), busy: Record<string, string> = {}): Lost[] {
-  const losses = quitLosses(quitGroups(keep, busy))
+function lost(
+  keep: ReadonlySet<string> = new Set(),
+  activity: Record<string, PaneActivity> = {},
+): Lost[] {
+  const losses = quitLosses(quitGroups(keep, activity))
   const out: Lost[] = []
   if (losses.processes > 0) out.push('processes')
   if (losses.agents > 0) out.push('agents')
@@ -131,6 +139,7 @@ const EXPECTED: Record<Row, (keepShells: KeepShells, autoResume: boolean) => Los
   'agent working': (k) => (k === 'on, restart' ? 'nothing' : 'agents'),
   'agent waiting': (k) => (k === 'on, restart' ? 'nothing' : 'agents'),
   'agent idle': (k, autoResume) => (k === 'on, restart' || autoResume ? 'nothing' : 'agents'),
+  'agent the renderer lost': (k) => (k === 'on, restart' ? 'nothing' : 'agents'),
   'hibernated pane': () => 'nothing',
   'unsaved editor': () => 'files',
 }
@@ -173,8 +182,8 @@ describe('what a quit loses', () => {
 
   it.each(TABLE)('%s | keep-shells %s | auto-resume %s', (row, keep, auto, expected) => {
     useSettingsStore.getState().setAutoResume(auto)
-    const busy = seedRow(row)
-    expect(lost(kept(keep, row), busy)).toEqual([expected])
+    const activity = seedRow(row)
+    expect(lost(kept(keep, row), activity)).toEqual([expected])
   })
 
   describe('an idle agent with auto-resume on', () => {
@@ -265,14 +274,14 @@ describe('what a quit loses', () => {
   })
 
   describe('what shell integration cannot see', () => {
-    function plainShell(paneId: string, program: string | null): void {
-      const programs: Record<string, string | null> = { [paneId]: program }
-      vi.mocked(window.ostia.pty.busy).mockImplementation(async (id) => programs[id] ?? null)
+    function plainShell(paneId: string, program: string | null, agentRunning = false): void {
+      const answers: Record<string, PaneActivity> = { [paneId]: { program, agentRunning } }
+      vi.mocked(window.ostia.pty.activity).mockImplementation(async (id) => answers[id] ?? null)
     }
 
     beforeEach(() => {
-      vi.mocked(window.ostia.pty.busy).mockReset()
-      vi.mocked(window.ostia.pty.busy).mockResolvedValue(null)
+      vi.mocked(window.ostia.pty.activity).mockReset()
+      vi.mocked(window.ostia.pty.activity).mockResolvedValue(null)
     })
 
     it('asks about a program running in a shell that reports no blocks', async () => {
@@ -293,12 +302,38 @@ describe('what a quit loses', () => {
       expect(await collectQuitGroups(new Set())).toEqual([])
     })
 
-    it('does not ask the pty about a pane whose shell reports blocks', async () => {
+    it('ignores the program in front of a pane whose shell reports blocks', async () => {
       seedWorkspace(terminal('p1', false))
       prompt('p1')
-      plainShell('p1', 'zsh')
+      plainShell('p1', 'bash')
       expect(await collectQuitGroups(new Set())).toEqual([])
-      expect(window.ostia.pty.busy).not.toHaveBeenCalled()
+    })
+
+    it('asks about an agent main still sees running after the renderer lost its blocks', async () => {
+      seedWorkspace(terminal('p1'))
+      plainShell('p1', null, true)
+      expect((await collectQuitGroups(new Set())).map((g) => g.agents)).toEqual([['claude']])
+    })
+
+    it('asks before closing a pane whose agent runs in a background tab', async () => {
+      seedWorkspace({
+        type: 'tabs',
+        id: 't1',
+        activeId: 'p2',
+        children: [terminal('p1'), terminal('p2', false)],
+      })
+      plainShell('p1', null, true)
+      void requestCloseWorkspace('w1')
+      await vi.waitFor(() => {
+        expect(useCloseConfirmStore.getState().pending?.groups[0]?.agents).toEqual(['claude'])
+      })
+    })
+
+    it('does not ask about a hibernated pane even when main remembers its agent', async () => {
+      seedWorkspace({ ...terminal('p1'), hibernated: true })
+      plainShell('p1', null, true)
+      expect(await collectQuitGroups(new Set())).toEqual([])
+      expect(window.ostia.pty.activity).not.toHaveBeenCalled()
     })
 
     it('asks before closing a pane or a workspace whose plain shell runs a program', async () => {

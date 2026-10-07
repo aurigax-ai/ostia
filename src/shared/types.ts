@@ -12,7 +12,7 @@ import type {
   StorageWriteResult,
 } from './browserStorage'
 import type { BuildInfo } from './buildInfo'
-import type { Capability, PhoneGrantableCap } from './capabilities'
+import type { Capability } from './capabilities'
 import type { ChatSessionsApi } from './chatSessions'
 import type { ChatToolsApi } from './chatTools'
 import type { ClipboardChords, ClipboardEdit } from './clipboardChords'
@@ -35,6 +35,7 @@ import type { LanguagePacksApi } from './languagePack'
 import type { LspApi } from './languageServers'
 import type { MarketplaceApi } from './marketplace'
 import type { OpenFileVerdict } from './openFiles'
+import type { PhoneGrantableCap } from './phoneCapabilities'
 import type { PickOutcome, PickSendRequest, PickSendResult, PickState, PickTheme } from './pick'
 import type { PromptSeparator } from './promptSettings'
 import type { QuestionReply, QuestionState } from './questions'
@@ -135,6 +136,12 @@ export interface RunningGroup {
   agents?: string[]
   files: string[]
   scratchFiles?: number
+  unanswered?: boolean
+}
+
+export interface PaneActivity {
+  program: string | null
+  agentRunning: boolean
 }
 
 export interface PtySpawnOptions {
@@ -249,7 +256,7 @@ export interface PtyApi {
   resize: (paneId: string, cols: number, rows: number) => void
   commands: (paneId: string) => Promise<string[]>
   foreground: (paneId: string) => Promise<string | null>
-  busy: (paneId: string) => Promise<string | null>
+  activity: (paneId: string) => Promise<PaneActivity | null>
   promptContext: (paneId: string, want: PromptContextRequest) => Promise<PromptContext | null>
   onData: (paneId: string, cb: (data: string) => void) => () => void
   onExit: (paneId: string, cb: (exitCode: number, closes: boolean) => void) => () => void

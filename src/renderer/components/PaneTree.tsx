@@ -5,12 +5,15 @@ import { panelFractions } from '../layout/panelSize'
 import { findPane } from '../layout/tree'
 import type { LayoutNode } from '../layout/types'
 import { openBrowserAs } from '../lib/browserProfile'
+import { useChordLabel } from '../lib/chords'
 import { focusActivePaneWhenReady } from '../lib/focusNewTerminal'
 import { rememberPanelFractions } from '../lib/panelSizes'
+import { isMac } from '../platform'
 import { useLayoutStore } from '../stores/layoutStore'
 import { Pane } from './Pane'
 import { Button } from './ui/button'
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from './ui/empty'
+import { Kbd } from './ui/kbd'
 
 export function PaneTree({ workspaceId }: { workspaceId: string }): JSX.Element {
   const layout = useLayoutStore((s) => s.byWorkspace[workspaceId])
@@ -105,6 +108,8 @@ function NodeView({
 function EmptyWorkspace({ workspaceId }: { workspaceId: string }): JSX.Element {
   const d = useDict()
   const ensure = useLayoutStore((s) => s.ensure)
+  const newTerminalKeys = useChordLabel('tab.new', isMac)
+  const newBrowserKeys = useChordLabel('tab.newBrowser', isMac)
   return (
     <Empty className="workspace-empty h-full">
       <EmptyHeader>
@@ -122,6 +127,11 @@ function EmptyWorkspace({ workspaceId }: { workspaceId: string }): JSX.Element {
         >
           <TerminalWindowIcon data-icon="inline-start" />
           {d.pane.newTerminal}
+          {newTerminalKeys ? (
+            <Kbd className="ml-1 bg-primary-foreground/15 text-primary-foreground">
+              {newTerminalKeys}
+            </Kbd>
+          ) : null}
         </Button>
         <Button
           variant="outline"
@@ -129,6 +139,7 @@ function EmptyWorkspace({ workspaceId }: { workspaceId: string }): JSX.Element {
         >
           <GlobeIcon data-icon="inline-start" />
           {d.pane.newBrowser}
+          {newBrowserKeys ? <Kbd className="ml-1">{newBrowserKeys}</Kbd> : null}
         </Button>
       </EmptyContent>
     </Empty>

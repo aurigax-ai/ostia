@@ -583,7 +583,9 @@ describe('BrowserView keys', () => {
       expect(guest.findInPage).toHaveBeenLastCalledWith('ab', { forward: false, findNext: false })
       expect(guest.findInPage).toHaveBeenCalledTimes(4)
     } finally {
-      useSettingsStore.setState(initialSettings, true)
+      act(() => {
+        useSettingsStore.setState(initialSettings, true)
+      })
     }
   })
 
