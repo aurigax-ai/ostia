@@ -159,6 +159,9 @@ jobs:
         with:
           name: packages-macos
           path: dist
+      - name: Checksums of every release asset
+        working-directory: dist
+        run: sha256sum -- *.tar.gz *.deb *.dmg > SHA256SUMS && cat SHA256SUMS
       - uses: softprops/action-gh-release@v3
         with:
           body_path: notes.md
@@ -166,6 +169,7 @@ jobs:
             dist/*.tar.gz
             dist/*.deb
             dist/*.dmg
+            dist/SHA256SUMS
           prerelease: ${{ contains(github.ref_name, '-') }}
 
   apt:

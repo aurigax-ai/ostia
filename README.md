@@ -83,6 +83,9 @@ tar -xzf ostia-*-linux-x64.tar.gz
 ./ostia-*-linux-x64/ostia
 ```
 
+Every release also carries `SHA256SUMS`. To check the archive before extracting it, download that
+file beside it and run `sha256sum -c --ignore-missing SHA256SUMS`.
+
 ## Build from source
 
 You need Node.js and pnpm.
