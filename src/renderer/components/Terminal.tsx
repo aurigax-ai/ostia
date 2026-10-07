@@ -59,6 +59,7 @@ import { isLocalHost, parseOsc7 } from '../lib/osc7'
 import { registerOsc52 } from '../lib/osc52'
 import {
   type OstiaTerminal,
+  type PauseTerminal,
   type TerminalMarker,
   type TerminalOptions,
   type TerminalSearch,
@@ -79,6 +80,7 @@ import { inputEditorFor, registerTerminal } from '../lib/terminalHandles'
 import { terminalTitle } from '../lib/terminalTitle'
 import { createTitleCommitter } from '../lib/titleCommit'
 import { terminalFontStack } from '../lib/uiFonts'
+import { keepDrawing, usePauseWhenHidden } from '../lib/usePauseWhenHidden'
 import { measureCells } from '../lib/usePromptGeometry'
 import { loadWebglRenderer } from '../lib/webglRenderer'
 import { attachWheelReports } from '../lib/wheelReports'
@@ -154,6 +156,7 @@ function TerminalSurface({
   const hostRef = useRef<HTMLDivElement>(null)
   const surfaceRef = useRef<HTMLDivElement>(null)
   const termRef = useRef<OstiaTerminal | null>(null)
+  const pauseRef = useRef<PauseTerminal>(keepDrawing)
   const lastSizeRef = useRef({ cols: 0, rows: 0 })
   const syncSizeRef = useRef<() => void>(() => {})
   const spawnCwd = useRef(cwd)
@@ -266,6 +269,7 @@ function TerminalSurface({
       fit = created.fit
       searchAddon = created.search
       silenceReplies = created.silenceQueryReplies
+      pauseRef.current = created.setPaused
     } else {
       const xterm = new Xterm({ ...options, allowProposedApi: true })
       const xtermFit = new FitAddon()
@@ -880,6 +884,7 @@ function TerminalSurface({
       forgetPaneActivity(paneId)
       useBlocksStore.getState().dropPane(paneId)
       window.ostia.pty.detach(paneId)
+      pauseRef.current = keepDrawing
       term.dispose()
       termRef.current = null
       setSearch(null)
@@ -889,6 +894,8 @@ function TerminalSurface({
       setPendingPaste(null)
     }
   }, [paneId, engine])
+
+  usePauseWhenHidden(pauseRef, shown, paneId, engine)
 
   useEffect(() => {
     const term = termRef.current
