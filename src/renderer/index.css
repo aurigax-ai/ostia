@@ -3442,9 +3442,19 @@ button.prompt-chip:focus-visible {
   text-align: center;
 }
 
+.viewer-body {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
 .viewer-hint {
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: 3;
   display: block;
-  flex: none;
+  pointer-events: none;
   padding: 4px 12px;
   border-bottom: 1px solid var(--line);
   background: var(--surface-2);

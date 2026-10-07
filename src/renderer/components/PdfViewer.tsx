@@ -379,39 +379,41 @@ export function PdfViewer({
           onClick={() => sendRef.current()}
         />
       </div>
-      {regionMode && !region ? (
-        <output className="viewer-hint">{d.viewer.regionHint}</output>
-      ) : null}
-      <div ref={stageRef} className="viewer-stage">
-        {message ? <ViewerMessage>{message}</ViewerMessage> : null}
-        <div
-          ref={pageRef}
-          className="pdf-page"
-          style={message || !page ? { ...pageStyle, display: 'none' } : pageStyle}
-        >
-          <canvas ref={canvasRef} className="pdf-canvas" />
-          <div ref={textRef} className="pdf-text" data-region-mode={regionMode || undefined} />
-          {regionMode ? (
-            <div
-              className={drag.enabled ? 'pdf-region-layer region-select' : 'pdf-region-layer'}
-              tabIndex={-1}
-              onKeyDown={onRegionKeyDown}
-              {...drag.handlers}
-            >
-              {region ? (
-                <div
-                  className="viewer-region"
-                  style={{
-                    left: region.x * scale,
-                    top: region.y * scale,
-                    width: region.width * scale,
-                    height: region.height * scale,
-                  }}
-                />
-              ) : null}
-            </div>
-          ) : null}
+      <div className="viewer-body">
+        <div ref={stageRef} className="viewer-stage">
+          {message ? <ViewerMessage>{message}</ViewerMessage> : null}
+          <div
+            ref={pageRef}
+            className="pdf-page"
+            style={message || !page ? { ...pageStyle, display: 'none' } : pageStyle}
+          >
+            <canvas ref={canvasRef} className="pdf-canvas" />
+            <div ref={textRef} className="pdf-text" data-region-mode={regionMode || undefined} />
+            {regionMode ? (
+              <div
+                className={drag.enabled ? 'pdf-region-layer region-select' : 'pdf-region-layer'}
+                tabIndex={-1}
+                onKeyDown={onRegionKeyDown}
+                {...drag.handlers}
+              >
+                {region ? (
+                  <div
+                    className="viewer-region"
+                    style={{
+                      left: region.x * scale,
+                      top: region.y * scale,
+                      width: region.width * scale,
+                      height: region.height * scale,
+                    }}
+                  />
+                ) : null}
+              </div>
+            ) : null}
+          </div>
         </div>
+        {regionMode && !region ? (
+          <output className="viewer-hint">{d.viewer.regionHint}</output>
+        ) : null}
       </div>
       {selectionSend.panel}
       {selectionSend.status}

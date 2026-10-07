@@ -337,6 +337,42 @@ test('a pinch zooms the PDF page and a region drag still selects', async () => {
     const region = await win.locator('.viewer-region').boundingBox()
     if (!region) throw new Error('no region drawn')
     expect(Math.abs(region.width - 60)).toBeLessThan(6)
+    expect(Math.abs(region.height - 40)).toBeLessThan(6)
+  } finally {
+    await app.close()
+  }
+})
+
+test('the PDF region hint never moves the page under a drag', async () => {
+  test.setTimeout(120_000)
+  const { app, win } = await launchWithHome({ 'invoice.pdf': textPdf('Hello Ostia PDF') })
+  try {
+    await openFromFiles(win, 'invoice.pdf')
+    await expect(win.getByText('Page 1 of 1')).toBeVisible({ timeout: 15_000 })
+    const page = win.locator('.pdf-page')
+    const shown = await page.boundingBox()
+    if (!shown) throw new Error('pdf page has no box')
+
+    await win.getByRole('button', { name: 'Select a region' }).click()
+    const hint = win.getByText('Drag across the page to select a region.')
+    await expect(hint).toBeVisible()
+    const box = await page.boundingBox()
+    if (!box) throw new Error('pdf page has no box')
+    expect(box.y).toBe(shown.y)
+
+    await win.mouse.move(box.x + 40, box.y + 60)
+    await win.mouse.down()
+    await win.mouse.move(box.x + 100, box.y + 100, { steps: 4 })
+    await expect(hint).toHaveCount(0)
+    expect((await page.boundingBox())?.y).toBe(box.y)
+    await win.mouse.move(box.x + 140, box.y + 160, { steps: 4 })
+    await win.mouse.up()
+
+    const region = await win.locator('.viewer-region').boundingBox()
+    if (!region) throw new Error('no region drawn')
+    expect(Math.abs(region.y - (box.y + 60))).toBeLessThan(3)
+    expect(Math.abs(region.height - 100)).toBeLessThan(3)
+    expect(Math.abs(region.width - 100)).toBeLessThan(3)
   } finally {
     await app.close()
   }
