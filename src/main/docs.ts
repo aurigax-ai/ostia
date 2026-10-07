@@ -83,7 +83,8 @@ const CLI_HELP = `ostia — control-socket CLI
                                  (an id, or a name from ostia workspace list: the name shown in
                                  the rail first, then the folder name; a name two workspaces
                                  share is refused with the candidates listed); another
-                                 workspace needs all-workspaces.
+                                 workspace needs all-workspaces, and a sandboxed workspace
+                                 opens tabs only in itself.
                                  --split-tab T: the first run with T opens its tab as usual;
                                  each later run with the same T joins that tab, splitting it
                                  --split right (default) or down, so one tab shows them side

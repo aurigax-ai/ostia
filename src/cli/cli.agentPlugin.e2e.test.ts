@@ -148,6 +148,7 @@ describe('extension agent skills and hooks reach a fake agent (real CLI, real so
         execCommand: async () => ({ ok: true, result: null }) as CommandResult,
         listCommandsFor: () => [],
         getTerminalState: () => undefined,
+        isSandboxed: () => false,
       },
       socketPath,
     )

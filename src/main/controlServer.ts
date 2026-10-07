@@ -24,6 +24,7 @@ import { type AuthedConn, authenticate, connHasCap } from './controlAuth'
 import { ensureCaps, needsElevation } from './controlElevation'
 import { type PaneIdentity, resolveExternal } from './idRegistry'
 import { privateTmpDir, socketPath } from './privateTmp'
+import { SANDBOXED_REFUSAL } from './sandboxedCaller'
 
 export function controlSocketPath(): string {
   return socketPath(process.env.XDG_RUNTIME_DIR || tmpdir(), `${PRODUCT_NAME}-${process.pid}.sock`)
@@ -108,6 +109,7 @@ export interface ControlServerDeps {
   execCommand: (target: CommandTarget, id: string, args?: unknown) => Promise<CommandResult>
   listCommandsFor: (windowId: string) => CommandDescriptor[]
   getTerminalState: (paneId: string) => TerminalStateSnapshot | undefined
+  isSandboxed: (workspaceId: string) => boolean
   windowOfWorkspace?: (workspaceId: string) => string | undefined
   primaryWindow?: () => string | undefined
 }
@@ -200,6 +202,9 @@ export function registerControlServer(deps: ControlServerDeps, socketPathOverrid
             ErrorCodes.InvalidParams,
             'bad-request: pane.close from a script token needs {"paneId": <id from ostia pane list>}',
           )
+        }
+        if (!script && target.workspaceId !== me.workspaceId && deps.isSandboxed(me.workspaceId)) {
+          throw new ResponseError(ErrorCodes.InvalidRequest, SANDBOXED_REFUSAL)
         }
         const crossTarget =
           script ||

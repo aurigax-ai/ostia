@@ -30,7 +30,10 @@ function nextSocketPath(): string {
   return join(tmpdir(), `ostia-test-${process.pid}-${socketCounter}.sock`)
 }
 
+const sandboxedWorkspaces = new Set<string>()
+
 const fakeDeps: ControlServerDeps = {
+  isSandboxed: (workspaceId) => sandboxedWorkspaces.has(workspaceId),
   execCommand: async () => ({ ok: true, result: 'did-it' }) as CommandResult,
   listCommandsFor: () =>
     [
@@ -67,6 +70,7 @@ describe('controlServer (socket auth, end-to-end)', () => {
     client?.destroy()
     client = null
     stopControlServer()
+    sandboxedWorkspaces.clear()
   })
 
   it('accepts hello with the real token, then serves whoami/command.exec/command.list', async () => {
@@ -244,6 +248,47 @@ describe('controlServer (socket auth, end-to-end)', () => {
         target: { workspaceId: 's1', paneId: null },
       }),
     ).rejects.toThrow(`pane ${far.externalId} is in workspace s-far, not s1`)
+  })
+
+  it('refuses a sandboxed caller any command in another workspace, even with all-workspaces', async () => {
+    socketPath = nextSocketPath()
+    sandboxedWorkspaces.add('s-box')
+    const me = registerPane({ windowId: 'w1', workspaceId: 's-box', paneId: 'pBoxed' })
+    const far = registerPane({ windowId: 'w2', workspaceId: 's-far', paneId: 'pFarAway' })
+    grant(me.externalId, 'all-workspaces')
+    const executed: CommandTarget[] = []
+    registerControlServer(
+      {
+        ...fakeDeps,
+        execCommand: async (target) => {
+          executed.push(target)
+          return { ok: true } as CommandResult
+        },
+        windowOfWorkspace: (workspaceId) => (workspaceId === 's-far' ? 'w2' : undefined),
+      },
+      socketPath,
+    )
+    client = connectClient(socketPath)
+    await client.conn.sendRequest('hello', { token: me.token })
+    const refusal =
+      'sandboxed: a sandboxed workspace reaches only the sandboxed terminals of its own workspace'
+
+    await expect(
+      client.conn.sendRequest('command.exec', {
+        id: 'tab.new',
+        target: { workspaceId: 's-far', paneId: null },
+      }),
+    ).rejects.toThrow(refusal)
+    await expect(
+      client.conn.sendRequest('command.exec', {
+        id: 'pane.splitRight',
+        args: { paneId: far.externalId },
+      }),
+    ).rejects.toThrow(refusal)
+    expect(executed).toEqual([])
+
+    await client.conn.sendRequest('command.exec', { id: 'pane.splitRight' })
+    expect(executed).toEqual([{ windowId: 'w1', workspaceId: 's-box', paneId: 'pBoxed' }])
   })
 
   it('rejects hello with a bogus token', async () => {

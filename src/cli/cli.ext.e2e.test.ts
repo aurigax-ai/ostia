@@ -92,6 +92,7 @@ describe('ostia CLI → extensions (real processes, real socket)', () => {
         execCommand: async () => ({ ok: true, result: null }) as CommandResult,
         listCommandsFor: () => [],
         getTerminalState: () => undefined,
+        isSandboxed: () => false,
       },
       socketPath,
     )

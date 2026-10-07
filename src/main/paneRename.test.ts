@@ -39,11 +39,13 @@ markManager('rename-mgr')
 const SCRIPT_TOKEN = 'ostia_rename-script'
 const GRANTED = 'ostia_rename-granted'
 const BARE = 'ostia_rename-bare'
+const NO_REACH = 'ostia_rename-no-reach'
 setScriptTokenCheck((token) => {
   if (token === GRANTED) {
     return { id: 'script_rename_granted', caps: ['send-other-pane', 'all-workspaces'] }
   }
   if (token === BARE) return { id: 'script_rename_bare', caps: ['all-workspaces'] }
+  if (token === NO_REACH) return { id: 'script_rename_no_reach', caps: ['send-other-pane'] }
   return token === SCRIPT_TOKEN
     ? { id: 'script_rename', caps: [...SCRIPT_CAPABILITIES] }
     : undefined
@@ -77,6 +79,7 @@ beforeEach(() => {
       execCommand: async () => ({ ok: true }) as CommandResult,
       listCommandsFor: () => [],
       getTerminalState: () => undefined,
+      isSandboxed: () => false,
     },
     socketPath,
   )
@@ -240,6 +243,16 @@ describe('rename from a script token', () => {
     await expect(
       conn.sendRequest('pane.rename', { pane: sibling.externalId, title: 'x' }),
     ).rejects.toThrow('needs-elevation: send-other-pane')
+    expect(calls).toEqual([])
+    expect(request).not.toHaveBeenCalled()
+  })
+
+  it('needs all-workspaces for any pane, since a script has no workspace of its own', async () => {
+    const conn = await client({ token: NO_REACH })
+
+    await expect(
+      conn.sendRequest('pane.rename', { pane: sibling.externalId, title: 'x' }),
+    ).rejects.toThrow('needs-elevation: all-workspaces')
     expect(calls).toEqual([])
     expect(request).not.toHaveBeenCalled()
   })

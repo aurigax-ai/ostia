@@ -82,6 +82,7 @@ const fakeDeps: ControlServerDeps = {
       },
     ] as CommandDescriptor[],
   getTerminalState: () => undefined,
+  isSandboxed: () => false,
 }
 
 interface RunResult {

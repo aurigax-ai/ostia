@@ -83,6 +83,7 @@ beforeEach(() => {
       execCommand: async () => ({ ok: true }) as CommandResult,
       listCommandsFor: () => [],
       getTerminalState: () => undefined,
+      isSandboxed: () => false,
     },
     socketPath,
   )
@@ -254,6 +255,7 @@ describe('script tokens on command.exec', () => {
               ] as never)
             : [],
         getTerminalState: () => undefined,
+        isSandboxed: () => false,
         windowOfWorkspace: (workspaceId) => (workspaceId === 'ws2' ? 'w1' : undefined),
         primaryWindow: () => 'w1',
       },
@@ -284,6 +286,9 @@ describe('script tokens on command.exec', () => {
     await expect(conn.sendRequest('command.exec', { id: 'workspace.new' })).rejects.toThrow(
       'needs-elevation: all-workspaces',
     )
+    await expect(
+      conn.sendRequest('command.exec', { id: 'workspace.new', args: { focus: false } }),
+    ).rejects.toThrow('needs-elevation: all-workspaces')
     expect(executed).toEqual([])
     expect(request).not.toHaveBeenCalled()
   })

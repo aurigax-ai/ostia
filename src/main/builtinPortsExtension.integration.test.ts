@@ -166,6 +166,7 @@ describe.skipIf(process.platform !== 'linux')(
           execCommand: async () => ({ ok: true, result: null }) as CommandResult,
           listCommandsFor: () => [],
           getTerminalState: () => undefined,
+          isSandboxed: () => false,
         },
         socketPath,
       )

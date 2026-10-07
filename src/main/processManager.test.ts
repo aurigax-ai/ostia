@@ -13,7 +13,14 @@ import type { CommandResult } from '../shared/types'
 import { grant, setCaps } from './capabilityStore'
 import { setScriptTokenCheck } from './controlAuth'
 import { registerControlServer, stopControlServer } from './controlServer'
-import { type PaneIdentity, registerExtension, registerPane, removePane } from './idRegistry'
+import {
+  type PaneIdentity,
+  getByPaneId,
+  registerExtension,
+  registerPane,
+  removePane,
+  resolveExternal,
+} from './idRegistry'
 import {
   type ProcessInfo,
   type ProcessOutput,
@@ -22,6 +29,7 @@ import {
   registerProcessMethods,
 } from './processManager'
 import { PtyRingBuffer } from './ptyRingBuffer'
+import { attachWorkspace } from './sandbox/attachWorkspace'
 
 const PROMPT = '\x1b]133;A\x1b\\user@host % \x1b]133;B\x1b\\'
 const C = '\x1b]133;C\x1b\\'
@@ -43,7 +51,10 @@ const AGENTS: Record<string, string[]> = {
   reviewer: ['codex', '--model', 'o4'],
 }
 
+const sandboxedWorkspaces = new Set<string>()
+
 const registry = registerProcessMethods({
+  isSandboxed: (workspaceId) => sandboxedWorkspaces.has(workspaceId),
   openTab: async (req) => {
     if (openFails) return null
     opened.push(req)
@@ -127,6 +138,7 @@ beforeEach(() => {
       execCommand: async () => ({ ok: true }) as CommandResult,
       listCommandsFor: () => [],
       getTerminalState: () => undefined,
+      isSandboxed: () => false,
     },
     socketPath,
   )
@@ -143,6 +155,7 @@ afterEach(() => {
   for (const c of clients.splice(0)) c.dispose()
   stopControlServer()
   for (const workspaceId of ['ws1', 'ws2']) registry.workspaceClosed(workspaceId)
+  sandboxedWorkspaces.clear()
 })
 
 describe('agent.run', () => {
@@ -325,6 +338,45 @@ describe('process.run in another workspace', () => {
     await expect(conn.sendRequest('process.run', { cmd: 'ls', workspace: 7 })).rejects.toThrow(
       'bad-request: workspace',
     )
+  })
+})
+
+describe('process.run across a sandbox', () => {
+  it('refuses a sandboxed caller another workspace even with all-workspaces, and opens nothing', async () => {
+    sandboxedWorkspaces.add('ws1')
+    const me = freshPane('ws1')
+    grant(me.externalId, 'all-workspaces')
+    const conn = await client(me)
+
+    await expect(conn.sendRequest('process.run', { cmd: 'ls', workspace: 'ws2' })).rejects.toThrow(
+      'sandboxed: a sandboxed workspace reaches only the sandboxed terminals of its own workspace',
+    )
+    await expect(
+      conn.sendRequest('agent.run', { agent: 'claude', prompt: 'hi', workspace: 'ws2' }),
+    ).rejects.toThrow('sandboxed:')
+    expect(opened).toEqual([])
+  })
+
+  it('still opens a sandboxed caller a tab in its own workspace', async () => {
+    sandboxedWorkspaces.add('ws1')
+    const conn = await client(freshPane('ws1'))
+    await conn.sendRequest('process.run', { cmd: 'ls', workspace: 'ws1' })
+    expect(opened[0]).toMatchObject({ workspaceId: 'ws1', windowId: 'w1' })
+  })
+
+  it('opens a tab in a sandboxed workspace as that workspace pane, so its shell spawns wrapped', async () => {
+    sandboxedWorkspaces.add('ws2')
+    const me = freshPane('ws1')
+    grant(me.externalId, 'all-workspaces')
+    const conn = await client(me)
+
+    const started = await conn.sendRequest<Started>('process.run', { cmd: 'ls', workspace: 'ws2' })
+
+    expect(opened[0]).not.toHaveProperty('hostToken')
+    const pane = resolveExternal(started.paneId)
+    const paneId = pane?.kind === 'pane' ? pane.paneId : ''
+    expect(getByPaneId(paneId)?.workspaceId).toBe('ws2')
+    expect(attachWorkspace(getByPaneId(paneId)?.workspaceId, 'ws1')).toEqual({ ok: false })
   })
 })
 

@@ -18,6 +18,7 @@ import {
 } from './controlServer'
 import type { TerminalOpenRequest } from './extensionHost'
 import { getByPaneId, resolveExternal } from './idRegistry'
+import { SANDBOXED_REFUSAL } from './sandboxedCaller'
 import { PromptMarkScanner, plainTerminalText } from './terminalText'
 
 export const PROCESS_COMMAND_MAX = 8 * 1024
@@ -356,6 +357,7 @@ export interface ProcessDeps {
   runInPane: (paneId: string, command: string) => boolean
   cwdOfPane: (paneId: string) => string | undefined
   agentArgv: (name: string) => string[] | null
+  isSandboxed: (workspaceId: string) => boolean
   interruptGraceMs: number
   onChange?: (entry: ProcessEntry) => void
 }
@@ -494,6 +496,9 @@ export function registerProcessMethods(deps: ProcessDeps): ProcessRegistry {
       )
     }
     const here = workspaceId === home
+    if (!here && home && deps.isSandboxed(home)) {
+      throw new ResponseError(ErrorCodes.InvalidRequest, SANDBOXED_REFUSAL)
+    }
     if (!here) {
       await ensureCaps(
         ctx.authed,

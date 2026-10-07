@@ -3078,6 +3078,7 @@ app.whenReady().then(() => {
       return session ? (from) => session.since(from) : undefined
     },
     writePane: paneIo.write,
+    isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
     endShell: (paneId) => killPty(paneId, 'process-kill'),
     hasShell: (paneId) => ptys.has(paneId),
     runInPane: (paneId, command) => {
@@ -3434,6 +3435,7 @@ app.whenReady().then(() => {
     execCommand,
     listCommandsFor,
     getTerminalState,
+    isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
     windowOfWorkspace: workspaceWindowId,
     primaryWindow: primaryWindowId,
   })
