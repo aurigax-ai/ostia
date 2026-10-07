@@ -123,11 +123,14 @@ import { FileOps } from './fileOps'
 import { FileWatches, TreeWatches } from './fileWatch'
 import { readBinaryConfined } from './fsBinary'
 import {
+  configureAnnouncer,
   configureTailnet,
   onTailnetChange,
   registerGatewayIpc,
   registerGatewayMethods,
 } from './gateway'
+import { createBonjourPublisher } from './gateway/announce'
+import { listPairRequests, onPairRequestsChanged } from './gateway/pairRequests'
 import { configureGatewayControl, stopGateway } from './gateway/server'
 import { createTailnet, tailnetNodeName, tsnetHelperPath } from './gateway/tailnet'
 import { GIT_EXTENSION, GitBoard } from './gitBoard'
@@ -1204,6 +1207,7 @@ function extensionRoots(): ExtensionRoot[] {
 }
 
 let stopTailnet: (() => Promise<void>) | null = null
+let stopAnnouncing: (() => void) | null = null
 
 function broadcast(channel: string, payload: unknown): void {
   for (const win of windows.values()) {
@@ -3347,6 +3351,10 @@ app.whenReady().then(() => {
   })
   configureTailnet(tailnet, { openExternal: (url) => void openExternalSafe(url) })
   stopTailnet = () => tailnet.stop()
+  const publisher = createBonjourPublisher()
+  configureAnnouncer(publisher)
+  stopAnnouncing = publisher.unpublish
+  onPairRequestsChanged(() => broadcast('gateway:pair-requests-changed', listPairRequests()))
   registerGatewayIpc()
   configureGatewayControl({
     execCommand,
@@ -3583,6 +3591,7 @@ app.on('before-quit', (event) => {
   clearControlInfo(controlInfoPath(), controlSocketPath())
   portal?.stop()
   void stopTailnet?.()
+  stopAnnouncing?.()
   void stopGateway()
   appTray?.remove()
   globalHotkey?.clear()
