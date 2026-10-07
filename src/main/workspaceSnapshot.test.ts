@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -555,9 +555,9 @@ describe('saveSnapshot / loadSnapshot', () => {
 })
 
 describe('clearPersisted', () => {
-  it('forgets both the snapshot and the saved scrollback', () => {
+  it('forgets both the snapshot and the saved scrollback', async () => {
     saveSnapshot(snap())
-    saveScrollback({ 'pane-1': 'hello' })
+    await saveScrollback({ 'pane-1': 'hello' })
     clearPersisted()
     expect(loadSnapshot()).toBeNull()
     loadRestoredScrollback()
@@ -590,43 +590,51 @@ describe('trimScrollback', () => {
 })
 
 describe('saveScrollback / takeRestoredScrollback', () => {
-  it('replays a pane’s saved output exactly once', () => {
-    saveScrollback({ 'pane-1': 'last output' })
+  it('replays a pane’s saved output exactly once', async () => {
+    await saveScrollback({ 'pane-1': 'last output' })
     loadRestoredScrollback()
     expect(takeRestoredScrollback('pane-1')).toBe('last output')
     expect(takeRestoredScrollback('pane-1')).toBeNull()
   })
 
-  it('returns null for a pane with no saved output', () => {
-    saveScrollback({ 'pane-1': 'x' })
+  it('returns null for a pane with no saved output', async () => {
+    await saveScrollback({ 'pane-1': 'x' })
     loadRestoredScrollback()
     expect(takeRestoredScrollback('pane-2')).toBeNull()
   })
 
-  it('trims each pane to the cap on write', () => {
-    saveScrollback({ 'pane-1': 'x'.repeat(SCROLLBACK_CAP_BYTES * 3) })
+  it('trims each pane to the cap on write', async () => {
+    await saveScrollback({ 'pane-1': 'x'.repeat(SCROLLBACK_CAP_BYTES * 3) })
     loadRestoredScrollback()
     expect((takeRestoredScrollback('pane-1') ?? '').length).toBeLessThanOrEqual(
       SCROLLBACK_CAP_BYTES,
     )
   })
 
-  it('never writes a scratch pane’s output', () => {
-    saveScrollback({ 'pane-1': 'kept', 'pane-2': 'scratch output' }, (id) => id === 'pane-2')
+  it('never writes a scratch pane’s output', async () => {
+    await saveScrollback({ 'pane-1': 'kept', 'pane-2': 'scratch output' }, (id) => id === 'pane-2')
     loadRestoredScrollback()
     expect(takeRestoredScrollback('pane-1')).toBe('kept')
     expect(takeRestoredScrollback('pane-2')).toBeNull()
   })
 
-  it('skips panes with nothing to replay', () => {
-    saveScrollback({ 'pane-1': '', 'pane-2': 'kept' })
+  it('skips panes with nothing to replay', async () => {
+    await saveScrollback({ 'pane-1': '', 'pane-2': 'kept' })
     loadRestoredScrollback()
     expect(takeRestoredScrollback('pane-1')).toBeNull()
     expect(takeRestoredScrollback('pane-2')).toBe('kept')
   })
 
-  it('survives a corrupt scrollback file', () => {
-    saveScrollback({ 'pane-1': 'x' })
+  it('writes the file off the calling tick, compact and without a temp file left', async () => {
+    const saving = saveScrollback({ 'pane-1': 'later' })
+    expect(existsSync(scrollbackPath())).toBe(false)
+    await saving
+    expect(readFileSync(scrollbackPath(), 'utf8')).toBe('{"pane-1":"later"}')
+    expect(existsSync(`${scrollbackPath()}.tmp`)).toBe(false)
+  })
+
+  it('survives a corrupt scrollback file', async () => {
+    await saveScrollback({ 'pane-1': 'x' })
     writeFileSync(scrollbackPath(), 'not json at all', 'utf8')
     expect(() => loadRestoredScrollback()).not.toThrow()
     expect(takeRestoredScrollback('pane-1')).toBeNull()
