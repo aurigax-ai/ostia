@@ -11,7 +11,7 @@ const STATUS: GatewayRemoteStatus = {
   fingerprint: 'sha256/x',
   deviceCount: 0,
   tailnet: { state: 'running', ip: '100.64.0.1', dnsName: 'ostia-x.example.ts.net' },
-  route: { kind: 'tailnet' },
+  route: { bindAddress: '127.0.0.1', tailnet: true, phoneAddress: null },
   discoverable: false,
 }
 

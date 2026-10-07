@@ -137,7 +137,7 @@ describe('gateway behind the tsnet helper', () => {
     configureGatewayControl(deps)
     const started = await startGateway({ port: 0 })
     port = started.port
-    helperPort = started.helperPort
+    helperPort = started.helperPort ?? 0
     fingerprint = started.fingerprint
     setTailnetHosts([TAILNET_IP, TAILNET_NAME])
   }, 30_000)

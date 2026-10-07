@@ -2772,9 +2772,20 @@ export const en = {
     remoteEnable: 'Enable remote access',
     remoteEnableDesc:
       'Lets the {product} phone app reach this computer, through your own Tailscale tailnet or an address you pick.',
-    remoteRoute: 'Connect through',
-    remoteRouteDesc: 'How the phone reaches this computer. Change it while remote access is off.',
-    remoteRouteTailnet: 'Tailscale ({product}’s own node)',
+    remoteBind: 'Bind address',
+    remoteBindDesc:
+      'Where the gateway listens. 127.0.0.1 reaches only programs on this computer, such as your own tunnel; any other address reaches whoever can reach it. Change it while remote access is off.',
+    remoteBindLoopback: '{address} · this computer only',
+    remoteTailnetNode: 'Use {product}’s Tailscale node',
+    remoteTailnetNodeDesc:
+      '{product} joins your tailnet as its own node and forwards phones to the gateway. Off: no node runs and nothing signs in; the gateway listens only on the bind address.',
+    remotePhoneAddress: 'Address the phone uses',
+    remotePhoneAddressDesc:
+      'Optional. The pairing code carries this host:port instead of the bind address, for a tunnel or forward you set up. It must pass TCP through unchanged: the phone pins this computer’s certificate, so a proxy that ends TLS will not work.',
+    remotePhoneAddressInvalid:
+      'Enter a host name or IPv4 address and a port, like host.example:8722.',
+    remoteLoopbackOnly:
+      'A phone cannot reach 127.0.0.1. Set the address the phone uses, pick another bind address or use the Tailscale node.',
     remoteRouteAddress: '{iface} · {address}',
     remoteRouteMissing: '{address} (not available)',
     remoteAddressWarning:
@@ -5543,9 +5554,19 @@ export const zhHant: Dict = {
     remoteEnable: '啟用遠端存取',
     remoteEnableDesc:
       '讓 {product} 手機應用程式透過您自己的 Tailscale tailnet 或您選擇的位址連到這台電腦。',
-    remoteRoute: '連線方式',
-    remoteRouteDesc: '手機如何連到這台電腦。請在遠端存取關閉時變更。',
-    remoteRouteTailnet: 'Tailscale（{product} 自己的節點）',
+    remoteBind: '接聽位址',
+    remoteBindDesc:
+      '閘道在哪個位址接聽。127.0.0.1 只有這台電腦上的程式（例如您自己的通道）能連到；其他位址則是任何能連到它的人都能連。請在遠端存取關閉時變更。',
+    remoteBindLoopback: '{address} · 僅限這台電腦',
+    remoteTailnetNode: '使用 {product} 的 Tailscale 節點',
+    remoteTailnetNodeDesc:
+      '{product} 以自己的節點加入您的 tailnet，並將手機的連線轉給閘道。關閉時不執行節點也不登入；閘道只在接聽位址上接聽。',
+    remotePhoneAddress: '手機使用的位址',
+    remotePhoneAddressDesc:
+      '選填。配對碼會帶著這個 host:port，而不是接聽位址，供您自己設定的通道或轉送使用。它必須原封不動地轉送 TCP：手機會釘選這台電腦的憑證，所以終止 TLS 的代理無法使用。',
+    remotePhoneAddressInvalid: '請輸入主機名稱或 IPv4 位址與連接埠，例如 host.example:8722。',
+    remoteLoopbackOnly:
+      '手機無法連到 127.0.0.1。請設定手機使用的位址、選擇其他接聽位址，或使用 Tailscale 節點。',
     remoteRouteAddress: '{iface} · {address}',
     remoteRouteMissing: '{address}（無法使用）',
     remoteAddressWarning:
