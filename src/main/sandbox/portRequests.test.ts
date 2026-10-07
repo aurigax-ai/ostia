@@ -232,6 +232,15 @@ describe('PortRequests', () => {
     expect(asks).toEqual([4000])
   })
 
+  it('records the program serving an exposed port from listeners read now, before a scan saw it', async () => {
+    const { requests } = setup({ policy: 'ask' })
+    await requests.exposeByHuman('ws', 3000)
+    expect(requests.exposures('ws')).toEqual([])
+    expect(requests.exposures('ws', [{ port: 3000, process: 'node', pid: 41 }])).toEqual([
+      { port: 3000, process: 'node', pid: 41, byHuman: true },
+    ])
+  })
+
   it('records what program serves each exposed port and whether the human exposed it', async () => {
     const { requests, listen } = setup({ policy: 'allow' })
     listen([

@@ -253,7 +253,7 @@ import { registerSandboxIpc } from './sandbox/ipc'
 import { packageCooldownEnv } from './sandbox/packageEnv'
 import { PackageRequests } from './sandbox/packageRequests'
 import { PortBridge, bridgesPorts } from './sandbox/portBridge'
-import { PortForwarder, type SandboxPane } from './sandbox/portForwarder'
+import { PortForwarder, type SandboxListener, type SandboxPane } from './sandbox/portForwarder'
 import { PortRequests } from './sandbox/portRequests'
 import { HOST_PROTOCOL_VERSION } from './sandbox/protocol'
 import {
@@ -932,10 +932,10 @@ const workspaceSandboxes: WorkspaceSandboxes = new WorkspaceSandboxes({
 
 const keptHostPanes = new Map<string, { pane: TmuxPane; meta: KeptHostMeta }>()
 
-function syncKeptExposed(workspaceId: string): void {
+function syncKeptExposed(workspaceId: string, listening?: readonly SandboxListener[]): void {
   const host = keptHostPanes.get(workspaceId)
   if (!host) return
-  const exposed = portRequests.exposures(workspaceId)
+  const exposed = portRequests.exposures(workspaceId, listening)
   if (JSON.stringify(exposed) === JSON.stringify(host.meta.exposed)) return
   host.meta = { ...host.meta, exposed }
   host.pane.setMeta(host.meta)
@@ -3981,6 +3981,11 @@ app.on('before-quit', (event) => {
   managerService?.shutdown()
   appLog?.info('app-quit', { ptys: ptys.size })
   const keepingShells = restartRequested
+  if (keepingShells) {
+    for (const workspaceId of keptHostPanes.keys()) {
+      syncKeptExposed(workspaceId, portForwarder.listeners(workspaceId))
+    }
+  }
   for (const entry of ptys.values()) {
     entry.mirror.dispose()
     if (keepingShells && entry.kept) {

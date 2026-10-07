@@ -83,8 +83,8 @@ export class PortRequests {
     return this.deps.forwarder.unexpose(workspaceId, port)
   }
 
-  exposures(workspaceId: string): KeptExposure[] {
-    const seen = this.seen.get(workspaceId)
+  exposures(workspaceId: string, listening?: readonly SandboxListener[]): KeptExposure[] {
+    const seen = listening ? new Map(listening.map((l) => [l.port, l])) : this.seen.get(workspaceId)
     const human = this.byHuman.get(workspaceId)
     const out: KeptExposure[] = []
     for (const port of this.deps.forwarder.exposed(workspaceId)) {
