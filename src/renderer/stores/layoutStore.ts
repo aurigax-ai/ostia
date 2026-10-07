@@ -26,6 +26,7 @@ import {
   followMovedFile,
   graftNode,
   hasLockedPane,
+  landTab,
   mergeLayouts,
   movePane,
   moveTab,
@@ -55,6 +56,7 @@ import {
   splitBeside,
   splitPane,
   tabsOfPane,
+  takeTab,
 } from '../layout/tree'
 import type { Direction, LayoutNode, PaneNode, SurfaceKind } from '../layout/types'
 import { rememberedPanelFraction } from '../lib/panelSizes'
@@ -114,6 +116,7 @@ interface LayoutState {
   release: (workspaceId: string) => void
   releasePane: (workspaceId: string, paneId: string) => void
   merge: (sourceId: string, targetId: string) => void
+  moveTabTo: (sourceId: string, targetId: string, tabId: string) => string[]
   adopt: (layouts: Record<string, WorkspaceLayout>) => void
   graft: (workspaceId: string, layout: WorkspaceLayout, beside?: PanePlacement) => void
 }
@@ -840,6 +843,41 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
         })) ?? s
       )
     }),
+
+  moveTabTo: (sourceId, targetId, tabId) => {
+    const source = get().byWorkspace[sourceId]
+    const taken = source && sourceId !== targetId ? takeTab(source.root, tabId) : null
+    if (!source || !taken) return []
+    const moved = paneIds(taken.tab)
+    const shown = focusIdOf(source.root, tabId) ?? firstPaneId(taken.tab)
+    set((s) => {
+      const target = s.byWorkspace[targetId]
+      const landed: WorkspaceLayout = {
+        ...target,
+        root: landTab(target?.root ?? null, taken.tab, target?.activePaneId ?? shown),
+        activePaneId: shown,
+        zoomedPaneId: null,
+      }
+      const seeded = { ...s, byWorkspace: { ...s.byWorkspace, [targetId]: target ?? landed } }
+      const next = { ...seeded, ...patch(seeded, targetId, () => landed) }
+      const rest = taken.rest
+      if (!rest) {
+        const { [sourceId]: _moved, ...byWorkspace } = next.byWorkspace
+        return { byWorkspace }
+      }
+      return (
+        patch(next, sourceId, (l) => ({
+          ...l,
+          root: rest,
+          activePaneId: moved.includes(l.activePaneId)
+            ? (taken.successor ?? firstPaneId(rest))
+            : l.activePaneId,
+          zoomedPaneId: l.zoomedPaneId && moved.includes(l.zoomedPaneId) ? null : l.zoomedPaneId,
+        })) ?? next
+      )
+    })
+    return moved
+  },
 
   adopt: (layouts) => {
     set((s) => ({ byWorkspace: { ...s.byWorkspace, ...layouts } }))

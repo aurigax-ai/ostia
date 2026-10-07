@@ -147,6 +147,7 @@ import {
   adoptPane,
   getByPaneId,
   markManager,
+  moveToWorkspace,
   panesOwnedBy,
   registerPane,
   rehomeWorkspace,
@@ -193,6 +194,7 @@ import {
 } from './paneIo'
 import { writeOstiaLauncher } from './paneLauncher'
 import { listPanes, listWorkspaceGroups, listWorkspaces, registerPaneListMethods } from './paneList'
+import { registerPaneMoveIpc } from './paneMove'
 import type { PaneProcess } from './paneProcess'
 import { registerPaneRenameMethods } from './paneRename'
 import { registerPaneResumeMethods } from './paneResume'
@@ -1811,6 +1813,19 @@ function releaseMergedSandbox(workspaceId: string, exiting?: PtyEntry): void {
   forgetSandboxRuntime(workspaceId)
 }
 
+function movePanesToWorkspace(paneIds: string[], sourceId: string, targetId: string): void {
+  for (const identity of moveToWorkspace(paneIds, targetId)) {
+    extensionHost?.emitEvent('pane.created', {
+      paneId: identity.externalId,
+      workspaceId: targetId,
+    })
+  }
+  for (const paneId of paneIds) {
+    const entry = ptys.get(paneId)
+    if (entry?.workspaceId === sourceId) entry.workspaceId = targetId
+  }
+}
+
 function mergeWorkspace(sourceId: string, targetId: string): void {
   for (const identity of rehomeWorkspace(sourceId, targetId)) {
     extensionHost?.emitEvent('pane.created', {
@@ -1834,6 +1849,15 @@ function registerPtyIpc(): void {
     hasManager: workspaceHasManager,
     sandboxRefusal: (sourceId, targetId) => workspaceSandboxes.mergeRefusal(sourceId, targetId),
     merge: mergeWorkspace,
+  })
+  registerPaneMoveIpc({
+    ownerWindow: windowForWorkspace,
+    paneOf: getByPaneId,
+    hasManager: workspaceHasManager,
+    isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
+    isScratch: (workspaceId) => scratchFolders.isScratch(workspaceId),
+    movePanes: movePanesToWorkspace,
+    moveWorkspace: mergeWorkspace,
   })
   registerSandboxIpc({
     sandboxes: workspaceSandboxes,

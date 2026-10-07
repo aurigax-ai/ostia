@@ -138,6 +138,7 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       save: vi.fn(),
       load: vi.fn().mockResolvedValue(null),
       merge: vi.fn().mockResolvedValue({ ok: true }),
+      movePanes: vi.fn().mockResolvedValue({ ok: true }),
       readCmux: vi.fn().mockResolvedValue({ ok: false, error: 'not-found' }),
     },
     scratch: {
