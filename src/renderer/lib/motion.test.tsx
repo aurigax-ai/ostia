@@ -26,6 +26,9 @@ const codeFiles = [
 const RAW_TIMING =
   /(?<![\w.-])(?!0m?s\b|0\.001ms\b)\d*\.?\d+m?s\b|cubic-bezier|steps\(|\bease(?:-in|-out|-in-out)?\b|\blinear\b/
 
+const LAYOUT_PROPERTY =
+  /^(?:all|width|height|(?:min|max)-(?:width|height)|inset|top|right|bottom|left|margin(?:-[a-z]+)?|padding(?:-[a-z]+)?|flex(?:-[a-z]+)?|grid(?:-[a-z]+)?|gap|(?:row|column)-gap|font-size|line-height)$/
+
 const FORBIDDEN_CODE_MOTION = [
   /\b(?:duration|delay)-(?:\d|\[)/,
   /\bease-(?:linear|in|out|in-out|\[)/,
@@ -158,6 +161,71 @@ describe('motion CSS contract', () => {
         .map((decl) => `${file}: ${decl}`),
     )
     expect(offenders).toEqual([])
+  })
+
+  it('never transitions a layout property, so a panel toggle reflows once', () => {
+    const transitioned = (decl: string): string[] => {
+      const [prop, value] = decl.split(/:(.*)/s)
+      const parts = value.split(',').map((part) => part.trim())
+      return prop.trim() === 'transition-property' ? parts : parts.map((p) => p.split(/\s+/)[0])
+    }
+    const cssOffenders = styleFiles.flatMap((file) =>
+      motionDeclarations(readFileSync(file, 'utf8'))
+        .filter((decl) => /^transition(-property)?\s*:/.test(decl))
+        .filter((decl) => transitioned(decl).some((name) => LAYOUT_PROPERTY.test(name)))
+        .map((decl) => `${file}: ${decl}`),
+    )
+    const codeOffenders = codeFiles.flatMap((file) =>
+      [...readFileSync(file, 'utf8').matchAll(/\btransition-\[([^\]]+)\]/g)]
+        .filter((m) => m[1].split(',').some((name) => LAYOUT_PROPERTY.test(name.trim())))
+        .map((m) => `${file}: ${m[0]}`),
+    )
+    expect([...cssOffenders, ...codeOffenders]).toEqual([])
+  })
+
+  const railRules = [
+    ...css.matchAll(/\n((?:\.deck-rail|\.app:has\(> \.deck-rail)[^{\n]*)\{([^}]*)\}/g),
+  ]
+
+  it('slides the sidebar with transform and opacity only, so a toggle reflows once', () => {
+    const animated = railRules.flatMap(([, , body]) =>
+      [...body.matchAll(/animation:\s*([a-z-]+)/g)].map((m) => m[1]),
+    )
+    expect(new Set(animated)).toEqual(new Set(['rail-slide', 'rail-content-fade', 'rail-follow']))
+    for (const name of animated) {
+      const start = css.indexOf(`@keyframes ${name} {`)
+      expect(start, name).toBeGreaterThan(-1)
+      const body = css.slice(start, css.indexOf('\n}', start))
+      const props = [...body.matchAll(/^\s+([a-z-]+):/gm)].map((m) => m[1])
+      expect(props.length, name).toBeGreaterThan(0)
+      expect(
+        props.filter((p) => p !== 'transform' && p !== 'opacity'),
+        name,
+      ).toEqual([])
+    }
+    const durations = railRules.flatMap(([, , body]) =>
+      [...body.matchAll(/animation:\s*[a-z-]+\s+var\((--motion-[a-z-]+)\)/g)].map((m) => m[1]),
+    )
+    expect(new Set(durations)).toEqual(new Set(['--motion-panel']))
+    expect(css).toMatch(/--motion-panel: (1[5-9]\d|200)ms;/)
+  })
+
+  it('moves the main area and middle panels with the sidebar edge, on one shared timing', () => {
+    const follow = railRules.filter(([, selector]) => /\.workzone/.test(selector))
+    expect(follow.map(([, selector]) => selector.trim())).toEqual([
+      '.app:has(> .deck-rail[data-rail-motion]) > :is(.files-panel, .workzone)',
+      '.app:has(> .deck-rail[data-rail-motion="opening"]) > :is(.files-panel, .workzone)',
+      '.app:has(> .deck-rail[data-rail-motion="closing"]) > :is(.files-panel, .workzone)',
+    ])
+    const timings = railRules.flatMap(([, , body]) =>
+      [...body.matchAll(/animation:\s*[a-z-]+\s+(var\([^)]+\)\s+var\([^)]+\))/g)].map((m) => m[1]),
+    )
+    expect(new Set(timings)).toEqual(new Set(['var(--motion-panel) var(--ease-in-out)']))
+    expect(css).toContain('transform: translateX(calc(var(--rail-w-collapsed) - var(--rail-w)));')
+    expect(css).toContain('transform: translateX(calc(var(--rail-w) - var(--rail-w-collapsed)));')
+    const footprint = railRules.find(([, selector]) => /\[data-rail-motion\]\)\s*$/.test(selector))
+    expect(footprint?.[2]).toMatch(/grid-template-columns: var\(--rail-w-collapsed\) auto 1fr;/)
+    expect(footprint?.[2]).toMatch(/overflow: clip;/)
   })
 
   it('uses no raw durations, easings, press scaling or tw-animate classes in code', () => {

@@ -1,4 +1,4 @@
-import { ipcMain } from 'electron'
+import { type IpcMainInvokeEvent, ipcMain } from 'electron'
 import {
   type ChatFsTarget,
   type ChatPlanRequest,
@@ -24,6 +24,7 @@ import {
   writeTool,
 } from './chatFsTools'
 import { listSkills, loadSkill } from './chatSkills'
+import type { ChatToolGrants } from './chatToolGrants'
 import type { ExtensionSecretStore } from './extensionHost'
 import { type McpHost, serverSecrets } from './mcpHost'
 import type { McpOAuth } from './mcpOAuth'
@@ -34,6 +35,8 @@ export interface ChatToolsDeps {
   mcp: McpHost
   secrets: ExtensionSecretStore
   oauth: McpOAuth
+  grants: ChatToolGrants
+  onGrants: (keys: string[]) => void
 }
 
 export async function signInToMcp(
@@ -76,6 +79,23 @@ export function setMcpSecret(
   return res.ok ? { ok: true } : { ok: false, error: res.error }
 }
 
+function fromWindow(e: IpcMainInvokeEvent): boolean {
+  return e.sender.getType() === 'window'
+}
+
+export function changeAlwaysGrant(
+  deps: Pick<ChatToolsDeps, 'grants' | 'onGrants'>,
+  e: IpcMainInvokeEvent,
+  change: 'add' | 'remove',
+  key: unknown,
+): string[] {
+  if (!fromWindow(e)) return deps.grants.list()
+  const changed = change === 'add' ? deps.grants.add(key) : deps.grants.remove(key)
+  const keys = deps.grants.list()
+  if (changed) deps.onGrants(keys)
+  return keys
+}
+
 export function registerChatToolsIpc(deps: ChatToolsDeps): void {
   ipcMain.handle('chatTools:read', (_e, req: ChatReadRequest) => readTool(req, deps.roots()))
   ipcMain.handle('chatTools:list', (_e, req: ChatFsTarget) => listTool(req, deps.roots()))
@@ -110,4 +130,11 @@ export function registerChatToolsIpc(deps: ChatToolsDeps): void {
   ipcMain.on('chatTools:mcp-cancel-sign-in', (_e, server: unknown) => deps.oauth.cancel(server))
   ipcMain.handle('chatTools:mcp-sign-out', (_e, server: unknown) => signOutOfMcp(deps, server))
   ipcMain.handle('chatTools:mcp-test', (_e, server: unknown) => deps.mcp.test(server))
+  ipcMain.handle('chatTools:always-grants', () => deps.grants.list())
+  ipcMain.handle('chatTools:grant-always', (e, key: unknown) =>
+    changeAlwaysGrant(deps, e, 'add', key),
+  )
+  ipcMain.handle('chatTools:remove-always-grant', (e, key: unknown) =>
+    changeAlwaysGrant(deps, e, 'remove', key),
+  )
 }
