@@ -80,7 +80,7 @@ describe('CommandPalette', () => {
         expect(screen.getAllByRole('option')[0]).toHaveAccessibleName(/SSH: Connect to Host/),
       )
     } finally {
-      commands.unregister('ssh.connect')
+      act(() => commands.unregister('ssh.connect'))
     }
   })
 
@@ -198,7 +198,7 @@ describe('CommandPalette', () => {
   })
 
   describe('commands that take an argument', () => {
-    afterEach(() => commands.unregister('test.card'))
+    afterEach(() => act(() => commands.unregister('test.card')))
 
     const register = (run = vi.fn()) => {
       commands.register<{ argument?: string }, void>({
@@ -398,6 +398,7 @@ describe('CommandPalette', () => {
     }
 
     afterEach(() => {
+      cleanup()
       searchWorkspaceSymbols.mockReset()
       useEditorRevealStore.setState({ pending: {} })
     })

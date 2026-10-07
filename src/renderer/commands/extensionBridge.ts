@@ -2,8 +2,8 @@ import type {
   ExtensionInfo,
   ExtensionOpenDiffRequest,
   ExtensionOpenPanelRequest,
-  ExtensionOpenTerminalRequest,
 } from '@shared/extensions'
+import type { ProcessTerminalRequest } from '@shared/types'
 import { flushSync } from 'react-dom'
 import { runWhenIdle } from '../lib/blockActions'
 import { pinTitle } from '../lib/pinnedTitles'
@@ -115,16 +115,18 @@ function openKeepingFocus(open: () => string | null): string | null {
   return paneId
 }
 
-export function openExtensionTerminal(req: ExtensionOpenTerminalRequest): string | null {
+export function openExtensionTerminal(req: ProcessTerminalRequest): string | null {
   const workspaces = useWorkspacesStore.getState()
   const workspaceId = req.workspaceId ?? workspaces.activeWorkspaceId
   if (!workspaceId || !workspaces.workspaces.some((w) => w.id === workspaceId)) return null
   const open = (): string | null =>
     useLayoutStore.getState().openTerminal(workspaceId, {
       afterPaneId: req.afterPaneId,
+      openedPaneIds: req.openedPaneIds,
       cwd: req.cwd,
       title: req.title,
       backgroundTab: req.backgroundTab,
+      splitTab: req.splitTab,
     })
   const paneId = req.backgroundTab ? openKeepingFocus(open) : open()
   if (!paneId) return null

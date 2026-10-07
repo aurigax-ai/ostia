@@ -1,1 +1,20 @@
-{"error":{"code":"contention","message":"card claimed by agent:9a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d (last seen 0s ago)","fix":"trellis agent ls   # see who has claimed what","detail":{"claimed_by":{"id":"agent:9a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d","handle":"agent:9a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d","kind":"","cwd":"","host":"","pid":0,"first_seen":0,"last_seen":1790890394672},"recommended_action":"take_another_card"}}}
+{
+  "error": {
+    "code": "contention",
+    "message": "card claimed by agent:9a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d (last seen 0s ago)",
+    "fix": "trellis agent ls   # see who has claimed what",
+    "detail": {
+      "claimed_by": {
+        "id": "agent:9a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d",
+        "handle": "agent:9a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d",
+        "kind": "",
+        "cwd": "",
+        "host": "",
+        "pid": 0,
+        "first_seen": 0,
+        "last_seen": 1790890394672
+      },
+      "recommended_action": "take_another_card"
+    }
+  }
+}

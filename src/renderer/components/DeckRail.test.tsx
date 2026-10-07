@@ -1,5 +1,6 @@
 import '@testing-library/jest-dom/vitest'
 import {
+  act,
   cleanup,
   createEvent,
   fireEvent,
@@ -93,7 +94,7 @@ describe('DeckRail', () => {
     const { rerender } = render(<DeckRail />)
     expect(screen.getByText('alpha')).not.toHaveClass('wrap')
 
-    useSettingsStore.getState().setWorkspaces({ wrapTitles: true })
+    act(() => useSettingsStore.getState().setWorkspaces({ wrapTitles: true }))
     rerender(<DeckRail />)
     expect(screen.getByText('alpha')).toHaveClass('wrap')
   })
@@ -109,7 +110,7 @@ describe('DeckRail', () => {
     expect(screen.getByText('/home/alpha')).toBeInTheDocument()
     expect(screen.getByText('fix login')).toBeInTheDocument()
 
-    useSettingsStore.getState().setSidebar({ showPath: false, showDescription: false })
+    act(() => useSettingsStore.getState().setSidebar({ showPath: false, showDescription: false }))
     rerender(<DeckRail />)
     expect(screen.queryByText('/home/alpha')).toBeNull()
     expect(screen.queryByText('fix login')).toBeNull()
@@ -405,7 +406,7 @@ describe('DeckRail', () => {
       seedRows()
       const { rerender } = render(<DeckRail />)
       expect(screen.queryByText('2')).toBeNull()
-      useUIStore.setState({ digitHints: true })
+      act(() => useUIStore.setState({ digitHints: true }))
       rerender(<DeckRail />)
       expect(screen.getByText('1')).toHaveClass('tab-digit')
       expect(screen.getByText('2')).toHaveClass('tab-digit')

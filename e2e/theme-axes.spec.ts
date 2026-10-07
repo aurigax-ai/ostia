@@ -28,7 +28,6 @@ async function showUpdateNotice(app: ElectronApplication): Promise<void> {
   await app.evaluate(({ BrowserWindow }) => {
     BrowserWindow.getAllWindows()[0].webContents.send('app:update-available', {
       version: '9.9.9',
-      commit: 'abcdef1',
       builtAt: '2026-09-30T00:00:00.000Z',
     })
   })

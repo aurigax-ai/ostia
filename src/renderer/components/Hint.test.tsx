@@ -1,9 +1,11 @@
-import '@testing-library/jest-dom/vitest'
-import { act, cleanup, render, renderHook, screen } from '@testing-library/react'
+import { act, cleanup, renderHook, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { createRef } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { renderSettled } from '../../../test/render'
 import { useSettingsStore } from '../stores/settingsStore'
 import { Hint, useShortcutHint } from './Hint'
+import { ItemDescription, ItemTitle } from './ui/item'
 import { TooltipProvider } from './ui/tooltip'
 
 vi.mock('../platform', () => ({ platform: 'darwin', isMac: true, isLinux: false }))
@@ -38,8 +40,29 @@ describe('useShortcutHint', () => {
 })
 
 describe('Hint', () => {
+  it('anchors on an item title and description, which take the trigger ref', async () => {
+    const title = createRef<HTMLDivElement>()
+    const description = createRef<HTMLParagraphElement>()
+    await renderSettled(
+      <>
+        <ItemTitle ref={title}>Title</ItemTitle>
+        <ItemDescription ref={description}>Description</ItemDescription>
+        <Hint label="Full title">
+          <ItemTitle>Hinted title</ItemTitle>
+        </Hint>
+        <Hint label="Full description">
+          <ItemDescription>Hinted description</ItemDescription>
+        </Hint>
+      </>,
+    )
+    expect(title.current).toBe(screen.getByText('Title'))
+    expect(description.current).toBe(screen.getByText('Description'))
+    expect(screen.getByText('Hinted title')).toHaveAttribute('data-slot', 'tooltip-trigger')
+    expect(screen.getByText('Hinted description')).toHaveAttribute('data-slot', 'tooltip-trigger')
+  })
+
   it('shows the bound key next to the label on hover', async () => {
-    render(
+    await renderSettled(
       <TooltipProvider delay={0}>
         <Hint label="Toggle Sidebar" command="view.toggleRail">
           <button type="button">x</button>

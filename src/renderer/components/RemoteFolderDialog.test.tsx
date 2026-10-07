@@ -1,11 +1,19 @@
 import '@testing-library/jest-dom/vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { act, cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { useRemoteFoldersStore, wireRemoteFolders } from '../stores/remoteFoldersStore'
 import { RemoteFolderDialog } from './RemoteFolderDialog'
 
 const ASK = { extName: 'SSH', host: 'dev@db', path: '/srv/app' }
+
+function ask(request: typeof ASK): Promise<boolean> {
+  let answer!: Promise<boolean>
+  act(() => {
+    answer = useRemoteFoldersStore.getState().ask(request)
+  })
+  return answer
+}
 
 afterEach(() => {
   cleanup()
@@ -17,7 +25,7 @@ describe('RemoteFolderDialog', () => {
   it('SSH-C58 names the extension, the host and the folder, and answers yes only on Open', async () => {
     const user = userEvent.setup()
     render(<RemoteFolderDialog />)
-    const answer = useRemoteFoldersStore.getState().ask(ASK)
+    const answer = ask(ASK)
 
     const dialog = await screen.findByTestId('remote-folder-dialog')
     expect(dialog).toHaveTextContent('SSH will show this folder in Files')
@@ -31,19 +39,19 @@ describe('RemoteFolderDialog', () => {
   it('answers no on Cancel, on Escape and when a newer question replaces it', async () => {
     const user = userEvent.setup()
     render(<RemoteFolderDialog />)
-    const cancelled = useRemoteFoldersStore.getState().ask(ASK)
+    const cancelled = ask(ASK)
     await user.click(await screen.findByRole('button', { name: 'Cancel' }))
     expect(await cancelled).toBe(false)
 
-    const escaped = useRemoteFoldersStore.getState().ask(ASK)
+    const escaped = ask(ASK)
     await screen.findByTestId('remote-folder-dialog')
     await user.keyboard('{Escape}')
     expect(await escaped).toBe(false)
 
-    const replaced = useRemoteFoldersStore.getState().ask(ASK)
-    const latest = useRemoteFoldersStore.getState().ask({ ...ASK, path: '/srv/other' })
+    const replaced = ask(ASK)
+    const latest = ask({ ...ASK, path: '/srv/other' })
     expect(await replaced).toBe(false)
-    useRemoteFoldersStore.getState().answer(false)
+    act(() => useRemoteFoldersStore.getState().answer(false))
     expect(await latest).toBe(false)
   })
 })

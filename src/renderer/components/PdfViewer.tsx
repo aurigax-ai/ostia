@@ -15,7 +15,13 @@ import { type PdfDocument, type PdfPage, loadPdfjs, openPdf } from '../lib/pdf'
 import { itemTexts, pageItems, pdfMatches } from '../lib/pdfText'
 import { type Size, fitWidthScale, pixelRect } from '../lib/regionSelect'
 import { registerSelectionSender } from '../lib/selectionSenders'
-import { useElementSize, useFileBytes, useRegionDrag } from '../lib/viewerHooks'
+import {
+  useElementSize,
+  useFileBytes,
+  usePinchZoom,
+  useRegionDrag,
+  useSettled,
+} from '../lib/viewerHooks'
 import { isMac } from '../platform'
 import { usePdfFindStore } from '../stores/pdfFindStore'
 import { FindBar, findStatus } from './FindBar'
@@ -24,6 +30,7 @@ import { useSelectionSend } from './SelectionSend'
 import { ViewerMessage, type Zoom, ZoomControls, useBytesProblem } from './ViewerChrome'
 
 const STAGE_PADDING = 16
+const RENDER_SETTLE_MS = 120
 const NO_SIZE: Size = { width: 0, height: 0 }
 
 function usePdfDocument(bytes: ReturnType<typeof useFileBytes>): {
@@ -167,6 +174,7 @@ export function PdfViewer({
   const stageRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const textRef = useRef<HTMLDivElement>(null)
+  const pageRef = useRef<HTMLDivElement>(null)
   const stage = useElementSize(stageRef)
   const selectionSend = useSelectionSend(workspaceId, paneId)
 
@@ -176,7 +184,10 @@ export function PdfViewer({
   const drag = useRegionDrag({ scale, bounds: pageSize, enabled: regionMode && base !== null })
   const pageCount = doc?.numPages ?? 0
 
-  const textVersion = usePageRender(page, scale, canvasRef, textRef)
+  usePinchZoom({ stageRef, contentRef: pageRef, scale, onZoom: setZoom })
+  const renderScale = useSettled(scale, RENDER_SETTLE_MS)
+
+  const textVersion = usePageRender(page, renderScale, canvasRef, textRef)
   const [finding, setFinding] = useState(false)
   const [query, setQuery] = useState('')
   const [active, setActive] = useState(0)
@@ -368,38 +379,41 @@ export function PdfViewer({
           onClick={() => sendRef.current()}
         />
       </div>
-      {regionMode && !region ? (
-        <output className="viewer-hint">{d.viewer.regionHint}</output>
-      ) : null}
-      <div ref={stageRef} className="viewer-stage">
-        {message ? <ViewerMessage>{message}</ViewerMessage> : null}
-        <div
-          className="pdf-page"
-          style={message || !page ? { ...pageStyle, display: 'none' } : pageStyle}
-        >
-          <canvas ref={canvasRef} className="pdf-canvas" />
-          <div ref={textRef} className="pdf-text" data-region-mode={regionMode || undefined} />
-          {regionMode ? (
-            <div
-              className="pdf-region-layer"
-              tabIndex={-1}
-              onKeyDown={onRegionKeyDown}
-              {...drag.handlers}
-            >
-              {region ? (
-                <div
-                  className="viewer-region"
-                  style={{
-                    left: region.x * scale,
-                    top: region.y * scale,
-                    width: region.width * scale,
-                    height: region.height * scale,
-                  }}
-                />
-              ) : null}
-            </div>
-          ) : null}
+      <div className="viewer-body">
+        <div ref={stageRef} className="viewer-stage">
+          {message ? <ViewerMessage>{message}</ViewerMessage> : null}
+          <div
+            ref={pageRef}
+            className="pdf-page"
+            style={message || !page ? { ...pageStyle, display: 'none' } : pageStyle}
+          >
+            <canvas ref={canvasRef} className="pdf-canvas" />
+            <div ref={textRef} className="pdf-text" data-region-mode={regionMode || undefined} />
+            {regionMode ? (
+              <div
+                className={drag.enabled ? 'pdf-region-layer region-select' : 'pdf-region-layer'}
+                tabIndex={-1}
+                onKeyDown={onRegionKeyDown}
+                {...drag.handlers}
+              >
+                {region ? (
+                  <div
+                    className="viewer-region"
+                    style={{
+                      left: region.x * scale,
+                      top: region.y * scale,
+                      width: region.width * scale,
+                      height: region.height * scale,
+                    }}
+                  />
+                ) : null}
+              </div>
+            ) : null}
+          </div>
         </div>
+        {regionMode && !region ? (
+          <output className="viewer-hint">{d.viewer.regionHint}</output>
+        ) : null}
       </div>
       {selectionSend.panel}
       {selectionSend.status}
