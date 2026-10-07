@@ -131,6 +131,7 @@ import {
   useSettingsSearch,
 } from './SettingsSearch'
 import { SyncSection } from './SyncSection'
+import { TextLink } from './TextLink'
 import { ThemeRows } from './ThemeSettings'
 import { UpdateCheck } from './UpdateCheck'
 import { ViewsSection } from './ViewsSection'
@@ -1671,15 +1672,14 @@ function TerminalSection(): JSX.Element {
         <ControlRow
           label={d.prompt.title}
           below={
-            <Button
-              variant="link"
+            <TextLink
               size="xs"
               className="h-auto p-0 font-normal text-ui-sm"
               onClick={() => useUIStore.getState().openSettings('prompt')}
             >
               {d.settings.promptOpen}
               <CaretRightIcon data-icon="inline-end" />
-            </Button>
+            </TextLink>
           }
         >
           <span className="text-fg-muted text-ui-sm">
@@ -2119,8 +2119,7 @@ export function ExtensionsSection({
                     </div>
                   </div>
                   {ext.settingsPage ? (
-                    <Button
-                      variant="link"
+                    <TextLink
                       size="xs"
                       className="h-5 self-start px-0 text-ui-sm"
                       onClick={() =>
@@ -2128,18 +2127,17 @@ export function ExtensionsSection({
                       }
                     >
                       {d.extensions.openSettingsPage}
-                    </Button>
+                    </TextLink>
                   ) : !isAssistExtension(ext) ? (
                     <ExtensionSettingsForm ext={ext} />
                   ) : ext.enabled ? (
-                    <Button
-                      variant="link"
+                    <TextLink
                       size="xs"
                       className="h-5 self-start px-0 text-ui-sm"
                       onClick={() => useUIStore.getState().openSettings('assistant')}
                     >
                       {d.assistantSettings.configure}
-                    </Button>
+                    </TextLink>
                   ) : null}
                 </li>
               )}

@@ -7,6 +7,7 @@ import { revealPane } from '../lib/workspaceActivity'
 import { EMPTY_DRAFT, type QuestionDraft, useQuestionsStore } from '../stores/questionsStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { Hint } from './Hint'
+import { TextLink } from './TextLink'
 import { Button } from './ui/button'
 import { Checkbox } from './ui/checkbox'
 import { Label } from './ui/label'
@@ -115,8 +116,7 @@ export function QuestionCard({
             {question.context}
           </p>
           {longContext ? (
-            <Button
-              variant="link"
+            <TextLink
               size="xs"
               className="h-auto p-0 text-ui-xs"
               aria-expanded={expanded}
@@ -124,7 +124,7 @@ export function QuestionCard({
               onClick={() => setExpanded((on) => !on)}
             >
               {expanded ? d.dashboard.showLess : d.dashboard.showMore}
-            </Button>
+            </TextLink>
           ) : null}
         </div>
       ) : null}
@@ -157,14 +157,13 @@ export function QuestionCard({
                 ))}
               </RadioGroup>
               {draft.choices.length > 0 ? (
-                <Button
-                  variant="link"
+                <TextLink
                   size="xs"
                   className="h-auto self-start p-0 px-2 text-ui-xs"
                   onClick={() => update({ choices: [] })}
                 >
                   {d.dashboard.clearChoice}
-                </Button>
+                </TextLink>
               ) : null}
             </fieldset>
           ) : null}
