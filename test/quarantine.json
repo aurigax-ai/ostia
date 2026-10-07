@@ -1,12 +1,5 @@
 [
   {
-    "file": "src/renderer/components/BrowserView.test.tsx",
-    "name": "BrowserView address bar > follows navigation when the user is not typing, and Escape restores the page address",
-    "issue": 70,
-    "until": "2026-11-05",
-    "platforms": ["linux"]
-  },
-  {
     "file": "e2e/stale-waiting.spec.ts",
     "name": "an agent that waited and then exited leaves the pane idle, and a late report is ignored",
     "issue": 129,
