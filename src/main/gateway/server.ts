@@ -18,7 +18,6 @@ import {
   type Device,
   get as getDevice,
   list as listDevices,
-  registerDevice,
   verifyToken,
 } from './devices'
 import { cancelPairRequest, openPairRequest, revealPairRequest } from './pairRequests'
