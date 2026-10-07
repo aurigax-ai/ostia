@@ -27,6 +27,10 @@ export function newCode(): string {
   return code
 }
 
+export function formatCode(code: string): string {
+  return `${code.slice(0, 4)}-${code.slice(4)}`
+}
+
 export function consumeCode(code: string): boolean {
   const expiry = codes.get(code)
   codes.delete(code)
