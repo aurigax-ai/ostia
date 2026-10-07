@@ -28,6 +28,14 @@ export default defineWorkspace([
       globals: true,
       setupFiles: ['./test/domEvents.ts', './test/setup.ts', './test/quarantineSetup.ts'],
       include: ['src/renderer/**/*.test.{ts,tsx}'],
+      deps: {
+        optimizer: {
+          web: {
+            enabled: true,
+            include: ['@phosphor-icons/react'],
+          },
+        },
+      },
     },
   },
   {
