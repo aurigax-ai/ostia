@@ -181,7 +181,7 @@ export class TmuxServer {
     const socket = join(dir, options.name)
     const conf = join(dir, `${options.name}.conf`)
     writeFileSync(conf, tmuxConf(options.defaultTerminal), { mode: 0o600 })
-    const base = ['-S', socket, '-f', conf]
+    const base = ['-u', '-S', socket, '-f', conf]
     const env = serverEnv(options.env)
     if (!(await run(options.tmux, [...base, 'has-session', '-t', TMUX_SESSION], env)).ok) {
       const started = await run(

@@ -81,6 +81,37 @@ describe.skipIf(skipWithoutTmux)('TmuxServer', () => {
     await until(() => out.text().includes('40 154'))
   })
 
+  it('KSH-C82 carries UTF-8 typed text, window options and screen text whole when the locale is not UTF-8', async () => {
+    const server = await TmuxServer.connect(
+      {
+        tmux,
+        dir: join(root, 'sock'),
+        name: `t${names++}`,
+        defaultTerminal: 'screen-256color',
+        env: { ...env, LANG: 'C', LC_ALL: 'C', LC_CTYPE: 'C' },
+      },
+      () => undefined,
+    )
+    servers.push(server)
+    const text = '日本語 🙂 é'
+    const pane = await server.spawn({
+      file: '/bin/sh',
+      args: ['-c', 'read -r line; printf "%s" "$line" | od -An -tx1 | tr -d " \\n"; echo; sleep 5'],
+      cwd: root,
+      env: { PATH: process.env.PATH ?? '/usr/bin:/bin', HOME: home },
+      cols: 80,
+      rows: 24,
+      meta: { paneId: 'p1', title: text },
+    })
+    const out = collect(pane)
+    pane.write(`${text}\r`)
+    const hex = Buffer.from(text, 'utf8').toString('hex')
+    await until(() => out.text().includes(hex))
+    const [window] = (await server.windows()).filter((w) => w.windowId === pane.windowId)
+    expect(window?.meta).toEqual({ paneId: 'p1', title: text })
+    expect(await pane.snapshot(80, 24)).toContain(text)
+  })
+
   it('KSH-C30 passes Ctrl+B to the program instead of acting as a prefix', async () => {
     const server = await connect()
     const pane = await spawnSh(server, 'exec cat -v')
