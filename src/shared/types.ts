@@ -253,6 +253,7 @@ export interface PtyApi {
   stashed: (paneId: string) => Promise<string | null>
   restart: (paneId: string) => Promise<boolean>
   reportAgentRunning: (paneId: string, running: boolean) => void
+  reportWaking: (paneId: string, waking: boolean) => void
   write: (paneId: string, data: string) => void
   resize: (paneId: string, cols: number, rows: number) => void
   commands: (paneId: string) => Promise<string[]>

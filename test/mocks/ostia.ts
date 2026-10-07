@@ -57,6 +57,7 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       stashed: vi.fn().mockResolvedValue(null),
       restart: vi.fn().mockResolvedValue(true),
       reportAgentRunning: vi.fn(),
+      reportWaking: vi.fn(),
       write: vi.fn(),
       resize: vi.fn(),
       commands: vi.fn().mockResolvedValue([]),

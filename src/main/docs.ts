@@ -14,7 +14,7 @@ const CLI_HELP = `ostia — control-socket CLI
   ostia pane.list                 every pane, every workspace — {paneId(external),workspaceId,
                                   kind,title,cwd,running,blockCount,lastExitCode,agent,
                                   agentSessionId,agentState,agentMessage,splitTabId,
-                                  splitTabName,hibernated}; a restored pane keeps its paneId
+                                  splitTabName,hibernated,waking}; a restored pane keeps its paneId
                                   across restarts. splitTabId is set for a pane inside a split
                                   tab (one tab showing several panes side by side)
   ostia workspace.list              every workspace — {workspaceId,name,kind,workDir,state,groupId}
@@ -136,12 +136,19 @@ const CLI_HELP = `ostia — control-socket CLI
                                  timeout 10 minutes, at most 30: loop on it. Exit 0 reached,
                                  3 timed out, 4 pane closed. Same asks as pane read; it reads
                                  the state only, never the screen
-  ostia pane wake <pane>… [--json]  wake panes Ostia hibernated (hibernated: true in ostia
-                                 pane.list): each gets a fresh shell that runs its agent's
-                                 own resume command, nothing else. Prints the woken paneIds.
-                                 A pane that is awake answers not-hibernated. Same asks as
-                                 pane send, which refuses a hibernated pane. Send nothing
-                                 until ostia pane.list shows it running: true
+  ostia pane wake <pane>… [--wait [--timeout <s>]] [--json]  wake panes Ostia hibernated
+                                 (hibernated: true in ostia pane.list): each gets a fresh
+                                 shell that runs its agent's own resume command, nothing
+                                 else. Prints the woken paneIds. A pane that is awake
+                                 answers not-hibernated. Same asks as pane send, which
+                                 refuses a hibernated pane, and refuses a pane with waking:
+                                 true in ostia pane.list (woken, agent not started yet).
+                                 --wait answers once every pane's agent has started; a pane
+                                 already waking is waited on, not woken again. Default
+                                 timeout 2 minutes, at most 30. Exit 0 started, 3 timed
+                                 out, 4 pane closed, 1 resume-failed (the agent could not
+                                 start). Then send: ostia pane wake X --wait && ostia pane
+                                 send X --enter "..."
   ostia pane close <pane>… [--json]  close those panes at once, even while a command runs in
                                  them; the human is asked only about unsaved file changes.
                                  Prints the closed paneIds. A tab you opened with process run

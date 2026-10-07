@@ -605,6 +605,7 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
         getTerminalState: () => undefined,
         ptyPid: () => undefined,
         windowIds: () => ['1'],
+        waking: () => false,
       })
 
       const json = await runOstia(['workspace', 'list', '--json'], env())

@@ -157,7 +157,9 @@ describe('hibernated terminal pane', () => {
       'claude --resume tok-1',
       undefined,
       expect.any(Function),
+      expect.any(Function),
     )
+    expect(window.ostia.pty.reportWaking).toHaveBeenCalledWith('h1', true)
     expect(within(host).getByTestId('terminal-h1')).toBeInTheDocument()
     expect(within(host).queryByText('Asleep')).toBeNull()
     expect(terms[0]?.disposed).toBe(true)

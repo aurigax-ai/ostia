@@ -15,7 +15,21 @@ export type PaneCall =
   | { method: 'pane.read'; params: { pane: string; lines?: number }; json: boolean }
   | { method: 'pane.rename'; params: { pane: string; title: string } }
   | { method: 'pane.wait'; params: PaneWaitParams; json: boolean }
-  | { method: 'pane.wake' | 'pane.close'; params: { panes: string[] }; json: boolean }
+  | { method: 'pane.wake'; params: PaneWakeParams; json: boolean }
+  | { method: 'pane.close'; params: { panes: string[] }; json: boolean }
+
+export interface PaneWakeParams {
+  panes: string[]
+  wait?: true
+  timeoutMs?: number
+}
+
+export interface PaneWakeResult {
+  woke: string[]
+  started?: true
+  timedOut?: true
+  closed?: string
+}
 
 export interface PaneWaitParams {
   panes: string[]
@@ -37,7 +51,7 @@ const USAGE = [
   '       ostia pane read <pane> [--lines N] [--json]',
   '       ostia pane rename <pane> <title…> | --clear',
   '       ostia pane wait <pane>… [--until done|waiting|idle|exited]… [--timeout <s>] [--json]',
-  '       ostia pane wake <pane>… [--json]',
+  '       ostia pane wake <pane>… [--wait [--timeout <s>]] [--json]',
   '       ostia pane close <pane>… [--json]',
   '<pane> is a paneId or a process id or name (ostia process ls); list panes with',
   'ostia pane.list (JSON: paneId, kind, title, cwd, running, agent, agentState, hibernated, …)',
@@ -54,6 +68,15 @@ function readFlags(argv: string[]) {
   }
 }
 
+function timeoutFlag(raw: string | undefined): number | undefined {
+  if (raw === undefined) return undefined
+  const seconds = Number(raw)
+  if (!Number.isFinite(seconds) || seconds <= 0) {
+    throw new Error(`--timeout expects seconds, got '${raw}'`)
+  }
+  return Math.round(seconds * 1000)
+}
+
 function parseWait(argv: string[]): PaneCall {
   const { positional, values, lists, booleans } = parseArgs(argv, {
     values: { timeout: '--timeout' },
@@ -61,14 +84,7 @@ function parseWait(argv: string[]): PaneCall {
     booleans: { json: '--json' },
   })
   if (positional.length === 0) throw new Error(USAGE)
-  let timeoutMs: number | undefined
-  if (values.timeout !== undefined) {
-    const seconds = Number(values.timeout)
-    if (!Number.isFinite(seconds) || seconds <= 0) {
-      throw new Error(`--timeout expects seconds, got '${values.timeout}'`)
-    }
-    timeoutMs = Math.round(seconds * 1000)
-  }
+  const timeoutMs = timeoutFlag(values.timeout)
   return {
     method: 'pane.wait',
     params: {
@@ -80,10 +96,48 @@ function parseWait(argv: string[]): PaneCall {
   }
 }
 
-function parsePanes(method: 'pane.wake' | 'pane.close', argv: string[]): PaneCall {
+function parseClose(argv: string[]): PaneCall {
   const { positional, booleans } = parseArgs(argv, { booleans: { json: '--json' } })
   if (positional.length === 0) throw new Error(USAGE)
-  return { method, params: { panes: positional }, json: booleans.json }
+  return { method: 'pane.close', params: { panes: positional }, json: booleans.json }
+}
+
+function parseWake(argv: string[]): PaneCall {
+  const { positional, values, booleans } = parseArgs(argv, {
+    values: { timeout: '--timeout' },
+    booleans: { wait: '--wait', json: '--json' },
+  })
+  if (positional.length === 0) throw new Error(USAGE)
+  if (values.timeout !== undefined && !booleans.wait) throw new Error('--timeout needs --wait')
+  const timeoutMs = timeoutFlag(values.timeout)
+  return {
+    method: 'pane.wake',
+    params: {
+      panes: positional,
+      ...(booleans.wait ? { wait: true as const } : {}),
+      ...(timeoutMs === undefined ? {} : { timeoutMs }),
+    },
+    json: booleans.json,
+  }
+}
+
+export function wakeOutcome(result: PaneWakeResult, json: boolean): { line: string; code: number } {
+  if (result.timedOut) {
+    return {
+      line: json ? JSON.stringify(result) : 'ostia pane wake: timed out',
+      code: PANE_WAIT_EXIT.timedOut,
+    }
+  }
+  if (result.closed) {
+    return {
+      line: json ? JSON.stringify(result) : `ostia pane wake: ${result.closed} closed`,
+      code: PANE_WAIT_EXIT.closed,
+    }
+  }
+  return {
+    line: json ? JSON.stringify(result) : result.woke.join('\n'),
+    code: PANE_WAIT_EXIT.reached,
+  }
 }
 
 export function waitOutcome(result: PaneWaitResult, json: boolean): { line: string; code: number } {
@@ -111,8 +165,8 @@ export function parsePaneArgs(argv: string[]): PaneCall {
   if (sub === 'list') throw new Error(PANE_LIST_HINT)
   if (!sub || !pane) throw new Error(USAGE)
   if (sub === 'wait') return parseWait([pane, ...rest])
-  if (sub === 'wake') return parsePanes('pane.wake', [pane, ...rest])
-  if (sub === 'close') return parsePanes('pane.close', [pane, ...rest])
+  if (sub === 'wake') return parseWake([pane, ...rest])
+  if (sub === 'close') return parseClose([pane, ...rest])
   if (sub === 'send') {
     const { positional: words, booleans } = parseArgs(rest, {
       booleans: {
@@ -214,8 +268,10 @@ export async function runPaneVerb(
   } else if (call.method === 'pane.read') {
     console.log(JSON.stringify(result, null, 2))
   } else if (call.method === 'pane.wake') {
-    const { woke } = result as { woke: string[] }
-    console.log(call.json ? JSON.stringify(result) : woke.join('\n'))
+    const { line, code } = wakeOutcome(result as PaneWakeResult, call.json)
+    if (code === PANE_WAIT_EXIT.reached || call.json) console.log(line)
+    else console.error(line)
+    return code
   } else if (call.method === 'pane.close') {
     const { closed } = result as { closed: string[] }
     console.log(call.json ? JSON.stringify(result) : closed.join('\n'))
