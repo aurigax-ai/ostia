@@ -116,6 +116,7 @@ describe('assist routing across providers, models and extensions', () => {
         execCommand: async () => ({ ok: true, result: null }),
         listCommandsFor: () => [],
         getTerminalState: () => undefined,
+        isSandboxed: () => false,
       },
       socketPath,
     )

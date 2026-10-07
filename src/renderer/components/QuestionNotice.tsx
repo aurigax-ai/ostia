@@ -3,6 +3,7 @@ import type { QuestionRequest } from '@shared/questions'
 import { useDict } from '../i18n/useDict'
 import { useQuestionsStore } from '../stores/questionsStore'
 import { useUIStore } from '../stores/uiStore'
+import { questionTitle } from './QuestionCard'
 import { Button } from './ui/button'
 
 export function QuestionNotice({ question }: { question: QuestionRequest }): JSX.Element {
@@ -18,7 +19,7 @@ export function QuestionNotice({ question }: { question: QuestionRequest }): JSX
     >
       <ChatCircleTextIcon size={14} aria-hidden className="shrink-0" />
       <span className="line-clamp-2 min-w-0 flex-1 [overflow-wrap:anywhere]">
-        {question.question}
+        {questionTitle(d, question)}
       </span>
       <Button size="sm" onClick={answer}>
         {d.dashboard.answer}

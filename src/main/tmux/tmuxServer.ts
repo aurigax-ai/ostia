@@ -375,6 +375,7 @@ export class TmuxServer {
     for (let tries = 0; tries < EXIT_POLL_TRIES; tries++) {
       await new Promise((resolve) => setTimeout(resolve, EXIT_POLL_MS))
       if (this.closed || pane.hasExited) return
+      this.nudgeReaper()
       let lines: string[] = []
       try {
         lines = await this.command(`display-message -p -t ${pane.paneId} ${tmuxQuote(DEAD_FORMAT)}`)
@@ -386,6 +387,13 @@ export class TmuxServer {
       }
     }
     pane.died(0)
+  }
+
+  private nudgeReaper(): void {
+    if (this.serverPid <= 0) return
+    try {
+      process.kill(this.serverPid, 'SIGCHLD')
+    } catch {}
   }
 
   private holdOutput(pane: string, data: string): void {

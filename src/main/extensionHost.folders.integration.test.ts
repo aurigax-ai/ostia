@@ -56,6 +56,7 @@ describe('ExtensionHost remote folders (real extension process, real socket)', (
         execCommand: async () => ({ ok: true, result: null }) as CommandResult,
         listCommandsFor: () => [],
         getTerminalState: () => undefined,
+        isSandboxed: () => false,
       },
       socketPath,
     )

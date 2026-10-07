@@ -65,10 +65,12 @@ async function run(
 
 export function registerPaneRenameMethods(deps: PaneRenameDeps): void {
   registerControlMethod('pane.rename', {
+    scripts: true,
     handler: async (raw, ctx) => {
       const p = record(raw)
       const title = cleanName(p.title, 'title')
       const me = ctx.identity
+      if (me.kind === 'script' && p.pane === undefined) throw fail('bad-request: pane')
       const to = targetPane(p.pane, me)
       const caps = renameCaps(to === me, to.workspaceId === me.workspaceId)
       const detail = title

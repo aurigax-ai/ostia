@@ -32,6 +32,7 @@ const closedPanes: string[] = []
 let tabSeq = 0
 
 const registry = registerProcessMethods({
+  isSandboxed: () => false,
   openTab: async (req) => {
     opened.push(req)
     tabSeq += 1
@@ -159,6 +160,7 @@ beforeEach(() => {
       execCommand: async () => ({ ok: true }) as CommandResult,
       listCommandsFor: () => [],
       getTerminalState: () => undefined,
+      isSandboxed: () => false,
     },
     socketPath,
   )

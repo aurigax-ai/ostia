@@ -45,13 +45,28 @@ describe('GatewaySection', () => {
     expect(window.ostia.gateway.setCap).toHaveBeenLastCalledWith('dev_1', 'input', false)
   })
 
+  it('grants answering agents on its own switch, apart from typing and commands', async () => {
+    const user = userEvent.setup()
+    render(<GatewaySection />)
+    const respond = await screen.findByRole('switch', { name: 'Answer agents, Pixel' })
+    expect(respond).not.toBeChecked()
+    await user.click(respond)
+    expect(window.ostia.gateway.setCap).toHaveBeenCalledWith('dev_1', 'respond', true)
+    expect(window.ostia.gateway.setCap).toHaveBeenCalledTimes(1)
+  })
+
   it('draws one row per permission in a single column, each with its description', async () => {
     render(<GatewaySection />)
     const grants = await screen.findByRole('group', { name: 'Permissions, Pixel' })
     const rows = grants.querySelectorAll(':scope > [data-settings-row]')
     expect(
       [...rows].map((row) => within(row as HTMLElement).getByRole('switch').ariaLabel),
-    ).toEqual(['Run commands, Pixel', 'Type into panes, Pixel', 'Destructive commands, Pixel'])
+    ).toEqual([
+      'Answer agents, Pixel',
+      'Run commands, Pixel',
+      'Type into panes, Pixel',
+      'Destructive commands, Pixel',
+    ])
     expect(
       within(grants).getByText('Type text and keys into a terminal the phone has open.'),
     ).toBeInTheDocument()

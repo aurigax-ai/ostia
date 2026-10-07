@@ -10,6 +10,7 @@ import {
   parseSplitTabSide,
 } from '../shared/splitTabs'
 import { connHasCap } from './controlAuth'
+import { ensureCaps } from './controlElevation'
 import {
   type ControlMethodContext,
   registerControlMethod,
@@ -17,6 +18,7 @@ import {
 } from './controlServer'
 import type { TerminalOpenRequest } from './extensionHost'
 import { getByPaneId, resolveExternal } from './idRegistry'
+import { SANDBOXED_REFUSAL } from './sandboxedCaller'
 import { PromptMarkScanner, plainTerminalText } from './terminalText'
 
 export const PROCESS_COMMAND_MAX = 8 * 1024
@@ -355,6 +357,7 @@ export interface ProcessDeps {
   runInPane: (paneId: string, command: string) => boolean
   cwdOfPane: (paneId: string) => string | undefined
   agentArgv: (name: string) => string[] | null
+  isSandboxed: (workspaceId: string) => boolean
   interruptGraceMs: number
   onChange?: (entry: ProcessEntry) => void
 }
@@ -482,18 +485,41 @@ export function registerProcessMethods(deps: ProcessDeps): ProcessRegistry {
     cmd: string,
     name: string,
     givenCwd: string | undefined,
+    givenWorkspace: string | undefined,
     splitTab: SplitTabRequest | undefined,
   ): Promise<{ id: string; name: string; paneId: string } | typeof NOT_OPENED> => {
-    const cwd = givenCwd ?? deps.cwdOfPane(ctx.identity.paneId)
-    const joinPaneId = splitTab
-      ? registry.splitTabMember(ctx.identity.workspaceId, splitTab.name)
-      : undefined
+    const home = ctx.identity.workspaceId
+    const workspaceId = givenWorkspace ?? home
+    if (!workspaceId) {
+      throw badRequest(
+        'workspace: a script token has no workspace of its own; pass --workspace <id|name> (ostia workspace list), which needs all-workspaces on the token',
+      )
+    }
+    const here = workspaceId === home
+    if (!here && home && deps.isSandboxed(home)) {
+      throw new ResponseError(ErrorCodes.InvalidRequest, SANDBOXED_REFUSAL)
+    }
+    if (!here) {
+      await ensureCaps(
+        ctx.authed,
+        ctx.identity,
+        ['all-workspaces'],
+        'process.run',
+        `open a terminal in workspace ${workspaceId}`,
+      )
+    }
+    const cwd = givenCwd ?? (here ? deps.cwdOfPane(ctx.identity.paneId) : undefined)
+    const joinPaneId = splitTab ? registry.splitTabMember(workspaceId, splitTab.name) : undefined
     const opened = await deps.openTab({
       command: cmd,
-      workspaceId: ctx.identity.workspaceId,
-      windowId: ctx.identity.windowId,
-      afterPaneId: ctx.identity.paneId,
-      openedPaneIds: registry.openedBy(ctx.identity.paneId),
+      workspaceId,
+      ...(here
+        ? {
+            windowId: ctx.identity.windowId,
+            afterPaneId: ctx.identity.paneId,
+            openedPaneIds: registry.openedBy(ctx.identity.paneId),
+          }
+        : {}),
       backgroundTab: true,
       pinTitle: true,
       title: name,
@@ -506,7 +532,7 @@ export function registerProcessMethods(deps: ProcessDeps): ProcessRegistry {
       name,
       cmd,
       cwd,
-      workspaceId: ctx.identity.workspaceId,
+      workspaceId,
       ownerPaneId: ctx.identity.paneId,
       paneId: pane.paneId,
       externalPaneId: pane.externalId,
@@ -515,8 +541,15 @@ export function registerProcessMethods(deps: ProcessDeps): ProcessRegistry {
     return { id: entry.id, name: entry.name, paneId: entry.externalPaneId }
   }
 
+  const workspaceOf = (raw: unknown): string | undefined => {
+    if (raw === undefined || raw === null) return undefined
+    if (typeof raw !== 'string' || !raw) throw badRequest('workspace')
+    return raw
+  }
+
   registerControlMethod('process.run', {
     cap: 'process',
+    scripts: true,
     handler: (raw, ctx) => {
       const p = record(raw)
       const cmd = commandOf(p.cmd)
@@ -525,6 +558,7 @@ export function registerProcessMethods(deps: ProcessDeps): ProcessRegistry {
         cmd,
         nameOf(p.name) ?? defaultName(cmd),
         cwdOf(p.cwd),
+        workspaceOf(p.workspace),
         splitTabOf(p.splitTab, p.split),
       )
     },
@@ -532,6 +566,7 @@ export function registerProcessMethods(deps: ProcessDeps): ProcessRegistry {
 
   registerControlMethod('agent.run', {
     cap: 'process',
+    scripts: true,
     handler: (raw, ctx) => {
       const p = record(raw)
       const agent = agentOf(p.agent)
@@ -543,6 +578,7 @@ export function registerProcessMethods(deps: ProcessDeps): ProcessRegistry {
         cmd,
         nameOf(p.name) ?? agent,
         cwdOf(p.cwd),
+        workspaceOf(p.workspace),
         splitTabOf(p.splitTab, p.split),
       )
     },

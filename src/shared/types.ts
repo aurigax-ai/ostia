@@ -12,7 +12,7 @@ import type {
   StorageWriteResult,
 } from './browserStorage'
 import type { BuildInfo } from './buildInfo'
-import type { Capability, PhoneGrantableCap } from './capabilities'
+import type { Capability } from './capabilities'
 import type { ChatSessionsApi } from './chatSessions'
 import type { ChatToolsApi } from './chatTools'
 import type { ClipboardChords, ClipboardEdit } from './clipboardChords'
@@ -35,6 +35,7 @@ import type { LanguagePacksApi } from './languagePack'
 import type { LspApi } from './languageServers'
 import type { MarketplaceApi } from './marketplace'
 import type { OpenFileVerdict } from './openFiles'
+import type { PhoneGrantableCap } from './phoneCapabilities'
 import type { PickOutcome, PickSendRequest, PickSendResult, PickState, PickTheme } from './pick'
 import type { PromptSeparator } from './promptSettings'
 import type { QuestionReply, QuestionState } from './questions'
@@ -849,11 +850,21 @@ export interface GatewayStatus {
   deviceCount: number
 }
 
-export type GatewayRoute = { kind: 'tailnet' } | { kind: 'address'; address: string }
+export interface GatewayPhoneAddress {
+  host: string
+  port: number
+}
+
+export interface GatewayRoute {
+  bindAddress: string
+  tailnet: boolean
+  phoneAddress: GatewayPhoneAddress | null
+}
 
 export interface GatewayBindAddress {
   address: string
   iface: string
+  loopback: boolean
 }
 
 export interface GatewayRemoteStatus extends GatewayStatus {
@@ -874,7 +885,10 @@ export type GatewayEnableResponse = GatewayRemoteStatus | { error: 'address-unav
 
 export type GatewaySetRouteResult =
   | { ok: true; route: GatewayRoute }
-  | { ok: false; error: 'not-a-window' | 'running' | 'unknown-address' }
+  | {
+      ok: false
+      error: 'not-a-window' | 'running' | 'unknown-address' | 'invalid-phone-address'
+    }
 
 export interface GatewayPairResult {
   v: 1

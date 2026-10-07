@@ -10,7 +10,7 @@ import {
   StreamMessageWriter,
   createMessageConnection,
 } from 'vscode-jsonrpc/node'
-import type { Capability } from '../shared/capabilities'
+import { type Capability, DEFAULT_CAPABILITIES } from '../shared/capabilities'
 import { TARGET_PANE_PARAM } from '../shared/extensions'
 import { PRODUCT_NAME } from '../shared/product'
 import type {
@@ -19,10 +19,12 @@ import type {
   CommandTarget,
   TerminalStateSnapshot,
 } from '../shared/types'
+import { SCRIPT_COMMANDS, externalPaneMessage, internalPaneArgs } from './commandArgs'
 import { type AuthedConn, authenticate, connHasCap } from './controlAuth'
 import { ensureCaps, needsElevation } from './controlElevation'
 import { type PaneIdentity, resolveExternal } from './idRegistry'
 import { privateTmpDir, socketPath } from './privateTmp'
+import { SANDBOXED_REFUSAL } from './sandboxedCaller'
 
 export function controlSocketPath(): string {
   return socketPath(process.env.XDG_RUNTIME_DIR || tmpdir(), `${PRODUCT_NAME}-${process.pid}.sock`)
@@ -107,6 +109,9 @@ export interface ControlServerDeps {
   execCommand: (target: CommandTarget, id: string, args?: unknown) => Promise<CommandResult>
   listCommandsFor: (windowId: string) => CommandDescriptor[]
   getTerminalState: (paneId: string) => TerminalStateSnapshot | undefined
+  isSandboxed: (workspaceId: string) => boolean
+  windowOfWorkspace?: (workspaceId: string) => string | undefined
+  primaryWindow?: () => string | undefined
 }
 
 let server: Server | null = null
@@ -162,16 +167,47 @@ export function registerControlServer(deps: ControlServerDeps, socketPathOverrid
         args?: unknown
         target?: CommandTarget
       }): Promise<CommandResult> => {
-        const me = requireIdentity('panes')
+        const me = requireIdentity('panes', true)
         if (!authed) throw unauthenticatedError('call hello first')
-
-        const selfTarget: CommandTarget = {
-          windowId: me.windowId,
-          workspaceId: me.workspaceId,
-          paneId: me.paneId,
+        const script = me.kind === 'script'
+        if (script && !SCRIPT_COMMANDS.has(params.id)) {
+          throw new ResponseError(ErrorCodes.InvalidRequest, 'not-available-to-script')
         }
-        const target = params.target ?? selfTarget
+
+        const translated = internalPaneArgs(params.args)
+        if (!translated.ok) throw new ResponseError(ErrorCodes.InvalidParams, translated.error)
+        const { args, pane } = translated
+
+        const selfTarget: CommandTarget = script
+          ? { windowId: deps.primaryWindow?.(), workspaceId: '', paneId: null }
+          : { windowId: me.windowId, workspaceId: me.workspaceId, paneId: me.paneId }
+        const given = params.target
+        let target: CommandTarget = given
+          ? {
+              ...given,
+              windowId: given.windowId ?? deps.windowOfWorkspace?.(given.workspaceId),
+            }
+          : selfTarget
+        if (pane?.workspaceId && pane.workspaceId !== target.workspaceId) {
+          if (given) {
+            throw new ResponseError(
+              ErrorCodes.InvalidParams,
+              `bad-request: pane ${pane.externalId} is in workspace ${pane.workspaceId}, not ${given.workspaceId}`,
+            )
+          }
+          target = { windowId: pane.windowId, workspaceId: pane.workspaceId, paneId: null }
+        }
+        if (script && params.id === 'pane.close' && !target.workspaceId) {
+          throw new ResponseError(
+            ErrorCodes.InvalidParams,
+            'bad-request: pane.close from a script token needs {"paneId": <id from ostia pane list>}',
+          )
+        }
+        if (!script && target.workspaceId !== me.workspaceId && deps.isSandboxed(me.workspaceId)) {
+          throw new ResponseError(ErrorCodes.InvalidRequest, SANDBOXED_REFUSAL)
+        }
         const crossTarget =
+          script ||
           target.paneId !== me.paneId ||
           target.windowId !== me.windowId ||
           target.workspaceId !== me.workspaceId
@@ -190,7 +226,9 @@ export function registerControlServer(deps: ControlServerDeps, socketPathOverrid
         }
         const caps: Capability[] = [
           ...(crossTarget ? (['all-workspaces'] as const) : []),
-          ...desc.capabilities,
+          ...(script
+            ? desc.capabilities.filter((cap) => !DEFAULT_CAPABILITIES.includes(cap))
+            : desc.capabilities),
         ]
         await ensureCaps(
           authed,
@@ -200,7 +238,18 @@ export function registerControlServer(deps: ControlServerDeps, socketPathOverrid
           describeParams(params.id, { command: params.id, args: params.args }),
         )
 
-        return deps.execCommand(target, params.id, params.args)
+        if (given?.workspaceId && deps.windowOfWorkspace && !target.windowId) {
+          throw new ResponseError(
+            ErrorCodes.InvalidParams,
+            `unknown-workspace: ${given.workspaceId}`,
+          )
+        }
+        const result = await deps.execCommand(target, params.id, args)
+        if (result.ok || !pane) return result
+        return {
+          ...result,
+          error: { ...result.error, message: externalPaneMessage(result.error.message, pane) },
+        }
       },
     )
 

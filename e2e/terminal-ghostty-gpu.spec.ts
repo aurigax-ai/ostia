@@ -24,7 +24,11 @@ test('with GPU acceleration on, Ghostty draws on WebGL and stacked blocks leave 
   const dataHome = freshDataHome()
   seedSettings(dataHome, GHOSTTY_GPU)
   const launch = isolatedLaunch(dataHome)
-  const app = await electron.launch({ ...launch, args: [SOFTWARE_WEBGL, ...launch.args] })
+  const app = await electron.launch({
+    ...launch,
+    args: [SOFTWARE_WEBGL, ...launch.args],
+    env: { ...launch.env, SHELL: '/bin/zsh' },
+  })
   try {
     const win = await app.firstWindow()
     await openGhostty(win)
@@ -42,7 +46,11 @@ test('a Ghostty terminal whose WebGL context is lost keeps drawing on the canvas
   const dataHome = freshDataHome()
   seedSettings(dataHome, GHOSTTY_GPU)
   const launch = isolatedLaunch(dataHome)
-  const app = await electron.launch({ ...launch, args: [SOFTWARE_WEBGL, ...launch.args] })
+  const app = await electron.launch({
+    ...launch,
+    args: [SOFTWARE_WEBGL, ...launch.args],
+    env: { ...launch.env, SHELL: '/bin/zsh' },
+  })
   try {
     const win = await app.firstWindow()
     await openGhostty(win)

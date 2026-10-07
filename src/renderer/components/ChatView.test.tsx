@@ -1,9 +1,10 @@
 import '@testing-library/jest-dom/vitest'
 import type { AssistChunk } from '@shared/assist'
 import type { ChatSessionSummary } from '@shared/chatSessions'
-import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { renderSettled } from '../../../test/render'
 import { registerBuiltinCommands } from '../commands/builtins'
 import { commands } from '../commands/registry'
 import { firstPaneOfKind } from '../layout/tree'
@@ -17,7 +18,7 @@ import { useSettingsStore } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
 import { ChatPane } from './ChatPane'
-import { ChatView, hasVisibleContent } from './ChatView'
+import { ChatView, REDACTION_PREVIEW_MS, hasVisibleContent } from './ChatView'
 import { CommandPalette } from './CommandPalette'
 
 vi.mock('../lib/colorize', () => ({ colorizeCode: async () => null }))
@@ -327,32 +328,36 @@ describe('chat', () => {
         'API_KEY=SECRET',
       )
     useUIStore.setState({ paletteOpen: true, paletteMode: 'ask' })
-    render(<CommandPalette />)
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    try {
+      await renderSettled(<CommandPalette />)
 
-    expect(await screen.findByTestId('chat-redaction-count')).toHaveTextContent(
-      '1 secret will be redacted',
-    )
-    await userEvent.type(
-      await screen.findByRole('combobox', { name: 'Your question' }),
-      'why is SECRET refused?',
-    )
-    await waitFor(() =>
+      await act(() => vi.advanceTimersByTimeAsync(REDACTION_PREVIEW_MS))
+      expect(screen.getByTestId('chat-redaction-count')).toHaveTextContent(
+        '1 secret will be redacted',
+      )
+      const box = screen.getByRole('combobox', { name: 'Your question' })
+      fireEvent.change(box, { target: { value: 'why is SECRET refused?' } })
+      await act(() => vi.advanceTimersByTimeAsync(REDACTION_PREVIEW_MS))
       expect(screen.getByTestId('chat-redaction-count')).toHaveTextContent(
         '2 secrets will be redacted',
-      ),
-    )
-    await userEvent.keyboard('{Enter}')
-    await waitFor(() => expect(pending).toHaveLength(1))
-    const sent = pending[0].input as {
-      messages: { content: string }[]
-      context: { text: string }[]
+      )
+      fireEvent.keyDown(box, { key: 'Enter' })
+      await act(() => vi.advanceTimersByTimeAsync(0))
+      expect(pending).toHaveLength(1)
+      const sent = pending[0].input as {
+        messages: { content: string }[]
+        context: { text: string }[]
+      }
+      expect(sent.messages[0].content).toBe('why is [redacted:test] refused?')
+      expect(sent.context.map((c) => c.text)).toContain('API_KEY=[redacted:test]')
+      expect(JSON.stringify(sent)).not.toContain('SECRET')
+      const question = screen.getByLabelText('Your question', { selector: '.chat-message' })
+      expect(question).toHaveTextContent('why is [redacted:test] refused?')
+      expect(question).toHaveTextContent('2 secrets redacted')
+    } finally {
+      vi.useRealTimers()
     }
-    expect(sent.messages[0].content).toBe('why is [redacted:test] refused?')
-    expect(sent.context.map((c) => c.text)).toContain('API_KEY=[redacted:test]')
-    expect(JSON.stringify(sent)).not.toContain('SECRET')
-    const question = await screen.findByLabelText('Your question', { selector: '.chat-message' })
-    expect(question).toHaveTextContent('why is [redacted:test] refused?')
-    expect(question).toHaveTextContent('2 secrets redacted')
   })
 
   it('shows no redaction note when nothing would be redacted', async () => {

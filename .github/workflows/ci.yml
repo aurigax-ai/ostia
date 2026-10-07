@@ -64,7 +64,9 @@ jobs:
       # nightly schedule and manual dispatch. A pull request that changes the
       # e2e harness runs the full Linux suite (macOS stays on the nightly and
       # tags); one that changes other e2e files runs only the specs it changed
-      # and the specs importing a changed file (changed); pushes to main run none.
+      # and the specs importing a changed file (changed). Pull requests also get
+      # static, unit, unit-dom and build; pushes to main run no e2e but also
+      # run unit-macos.
       full: ${{ github.ref_type == 'tag' || github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.full) || steps.e2e_paths.outputs.harness == 'true' }}
       changed: ${{ steps.e2e_paths.outputs.harness != 'true' && steps.e2e_paths.outputs.e2e == 'true' }}
       linux: ${{ steps.runner.outputs.linux }}
@@ -74,6 +76,10 @@ jobs:
       repeat: ${{ steps.plan.outputs.repeat }}
       shards: ${{ steps.plan.outputs.shards }}
       macos_matrix: ${{ steps.plan.outputs.macos_matrix }}
+      # Pull requests run only the unit tests their diff against the merge-base
+      # can affect (scripts/affectedTests.mjs); empty means every test, as on
+      # main, the nightly run, tags and manual dispatch.
+      tests: ${{ steps.tests.outputs.plan }}
     steps:
       # Routing only, not security: a PR can edit this step. The self-hosted
       # runners enforce the same rule in their job-started hook, which a PR
@@ -135,6 +141,15 @@ jobs:
             echo "macos_matrix=$macos_matrix"
           } >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: ${{ github.event_name == 'pull_request' && '0' || '1' }}
+      - if: github.event_name == 'pull_request'
+        id: tests
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          plan=$(node scripts/affectedTests.mjs plan "$BASE_SHA") || plan=
+          echo "plan=$plan" >> "$GITHUB_OUTPUT"
       - if: github.event_name == 'pull_request' || github.event_name == 'push'
         uses: dorny/paths-filter@v4
         id: filter
@@ -191,8 +206,10 @@ jobs:
           git config --global user.email 'ci@ostia.invalid'
       - uses: ./.github/actions/setup
         timeout-minutes: 10
-      - run: pnpm test:unit
+      - run: node scripts/affectedTests.mjs run node "$TESTS"
         timeout-minutes: 20
+        env:
+          TESTS: ${{ needs.changes.outputs.tests }}
       - run: go test ./...
         working-directory: tsnet-helper
 
@@ -208,8 +225,10 @@ jobs:
         with:
           go: false
           electron: false
-      - run: pnpm test:dom
+      - run: node scripts/affectedTests.mjs run dom "$TESTS"
         timeout-minutes: 10
+        env:
+          TESTS: ${{ needs.changes.outputs.tests }}
 
   build:
     needs: changes
@@ -334,7 +353,7 @@ jobs:
 
   unit-macos:
     needs: changes
-    if: needs.changes.outputs.code == 'true' && needs.changes.outputs.platform != 'linux'
+    if: needs.changes.outputs.code == 'true' && needs.changes.outputs.platform != 'linux' && github.event_name != 'pull_request'
     runs-on: ${{ fromJSON(needs.changes.outputs.macos) }}
     timeout-minutes: 45
     continue-on-error: true
@@ -350,8 +369,12 @@ jobs:
         timeout-minutes: 10
       - run: pnpm rebuild
       - run: pnpm typecheck
-      - run: pnpm test
+      - run: |
+          node scripts/affectedTests.mjs run node "$TESTS"
+          node scripts/affectedTests.mjs run dom "$TESTS"
         timeout-minutes: 35
+        env:
+          TESTS: ${{ needs.changes.outputs.tests }}
 
   build-macos:
     needs: changes

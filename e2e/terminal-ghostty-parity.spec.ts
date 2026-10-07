@@ -19,7 +19,11 @@ async function launchGhostty(
   const dataHome = freshDataHome()
   seedSettings(dataHome, { ...GHOSTTY, ...settings })
   const launch = isolatedLaunch(dataHome)
-  const app = await electron.launch({ ...launch, args: [...args, ...launch.args] })
+  const app = await electron.launch({
+    ...launch,
+    args: [...args, ...launch.args],
+    env: { ...launch.env, SHELL: '/bin/zsh' },
+  })
   const win = await app.firstWindow()
   await emptyState(win)
     .getByRole('button', { name: /New workspace/ })

@@ -8,10 +8,19 @@ import {
   StreamMessageWriter,
   createMessageConnection,
 } from 'vscode-jsonrpc/node'
+import type { Capability } from '../shared/capabilities'
 import type { CommandResult } from '../shared/types'
 import { grant, setCaps } from './capabilityStore'
+import { setScriptTokenCheck } from './controlAuth'
 import { registerControlServer, stopControlServer } from './controlServer'
-import { type PaneIdentity, registerExtension, registerPane, removePane } from './idRegistry'
+import {
+  type PaneIdentity,
+  getByPaneId,
+  registerExtension,
+  registerPane,
+  removePane,
+  resolveExternal,
+} from './idRegistry'
 import {
   type ProcessInfo,
   type ProcessOutput,
@@ -20,6 +29,7 @@ import {
   registerProcessMethods,
 } from './processManager'
 import { PtyRingBuffer } from './ptyRingBuffer'
+import { attachWorkspace } from './sandbox/attachWorkspace'
 
 const PROMPT = '\x1b]133;A\x1b\\user@host % \x1b]133;B\x1b\\'
 const C = '\x1b]133;C\x1b\\'
@@ -41,7 +51,10 @@ const AGENTS: Record<string, string[]> = {
   reviewer: ['codex', '--model', 'o4'],
 }
 
+const sandboxedWorkspaces = new Set<string>()
+
 const registry = registerProcessMethods({
+  isSandboxed: (workspaceId) => sandboxedWorkspaces.has(workspaceId),
   openTab: async (req) => {
     if (openFails) return null
     opened.push(req)
@@ -125,6 +138,7 @@ beforeEach(() => {
       execCommand: async () => ({ ok: true }) as CommandResult,
       listCommandsFor: () => [],
       getTerminalState: () => undefined,
+      isSandboxed: () => false,
     },
     socketPath,
   )
@@ -141,6 +155,7 @@ afterEach(() => {
   for (const c of clients.splice(0)) c.dispose()
   stopControlServer()
   for (const workspaceId of ['ws1', 'ws2']) registry.workspaceClosed(workspaceId)
+  sandboxedWorkspaces.clear()
 })
 
 describe('agent.run', () => {
@@ -261,6 +276,144 @@ describe('process.run', () => {
     }
     const list = await ext.sendRequest<ProcessInfo[]>('process.list', target)
     expect(list.map((p) => p.name)).toEqual(['web'])
+  })
+})
+
+const SCRIPT_TOKENS: Record<string, Capability[]> = {
+  ostia_full: ['process', 'all-workspaces'],
+  ostia_no_reach: ['process'],
+  ostia_no_process: ['all-workspaces'],
+}
+setScriptTokenCheck((token) => {
+  const caps = SCRIPT_TOKENS[token]
+  return caps ? { id: `script_${token}`, caps } : undefined
+})
+
+let reachSeq = 0
+function freshPane(workspaceId: string): PaneIdentity {
+  reachSeq += 1
+  return registerPane({ windowId: 'w1', workspaceId, paneId: `reach-pane-${reachSeq}` })
+}
+
+describe('process.run in another workspace', () => {
+  it('is refused without the all-workspaces grant and opens nothing', async () => {
+    const conn = await client(freshPane('ws1'))
+    await expect(conn.sendRequest('process.run', { cmd: 'ls', workspace: 'ws2' })).rejects.toThrow(
+      'needs-elevation: all-workspaces',
+    )
+    await expect(
+      conn.sendRequest('agent.run', { agent: 'claude', prompt: 'hi', workspace: 'ws2' }),
+    ).rejects.toThrow('needs-elevation: all-workspaces')
+    expect(opened).toEqual([])
+  })
+
+  it('opens the tab in the named workspace once all-workspaces is granted', async () => {
+    const me = freshPane('ws1')
+    grant(me.externalId, 'all-workspaces')
+    const conn = await client(me)
+    const started = await conn.sendRequest<Started>('process.run', {
+      cmd: 'ls',
+      name: 'far',
+      workspace: 'ws2',
+    })
+
+    expect(opened).toEqual([
+      { command: 'ls', workspaceId: 'ws2', backgroundTab: true, pinTitle: true, title: 'far' },
+    ])
+    const [info] = await conn.sendRequest<ProcessInfo[]>('process.list')
+    expect(info).toMatchObject({ name: 'far', paneId: started.paneId })
+  })
+
+  it('needs no grant when the named workspace is the caller own', async () => {
+    const conn = await client(freshPane('ws1'))
+    await conn.sendRequest('process.run', { cmd: 'ls', workspace: 'ws1' })
+    expect(opened[0]).toMatchObject({ workspaceId: 'ws1', windowId: 'w1' })
+  })
+
+  it('refuses a workspace that is not a non-empty string', async () => {
+    const conn = await client(freshPane('ws1'))
+    await expect(conn.sendRequest('process.run', { cmd: 'ls', workspace: '' })).rejects.toThrow(
+      'bad-request: workspace',
+    )
+    await expect(conn.sendRequest('process.run', { cmd: 'ls', workspace: 7 })).rejects.toThrow(
+      'bad-request: workspace',
+    )
+  })
+})
+
+describe('process.run across a sandbox', () => {
+  it('refuses a sandboxed caller another workspace even with all-workspaces, and opens nothing', async () => {
+    sandboxedWorkspaces.add('ws1')
+    const me = freshPane('ws1')
+    grant(me.externalId, 'all-workspaces')
+    const conn = await client(me)
+
+    await expect(conn.sendRequest('process.run', { cmd: 'ls', workspace: 'ws2' })).rejects.toThrow(
+      'sandboxed: a sandboxed workspace reaches only the sandboxed terminals of its own workspace',
+    )
+    await expect(
+      conn.sendRequest('agent.run', { agent: 'claude', prompt: 'hi', workspace: 'ws2' }),
+    ).rejects.toThrow('sandboxed:')
+    expect(opened).toEqual([])
+  })
+
+  it('still opens a sandboxed caller a tab in its own workspace', async () => {
+    sandboxedWorkspaces.add('ws1')
+    const conn = await client(freshPane('ws1'))
+    await conn.sendRequest('process.run', { cmd: 'ls', workspace: 'ws1' })
+    expect(opened[0]).toMatchObject({ workspaceId: 'ws1', windowId: 'w1' })
+  })
+
+  it('opens a tab in a sandboxed workspace as that workspace pane, so its shell spawns wrapped', async () => {
+    sandboxedWorkspaces.add('ws2')
+    const me = freshPane('ws1')
+    grant(me.externalId, 'all-workspaces')
+    const conn = await client(me)
+
+    const started = await conn.sendRequest<Started>('process.run', { cmd: 'ls', workspace: 'ws2' })
+
+    expect(opened[0]).not.toHaveProperty('hostToken')
+    const pane = resolveExternal(started.paneId)
+    const paneId = pane?.kind === 'pane' ? pane.paneId : ''
+    expect(getByPaneId(paneId)?.workspaceId).toBe('ws2')
+    expect(attachWorkspace(getByPaneId(paneId)?.workspaceId, 'ws1')).toEqual({ ok: false })
+  })
+})
+
+describe('process.run from a script token', () => {
+  it('opens a tab in the named workspace when the token holds process and all-workspaces', async () => {
+    const conn = await client({ token: 'ostia_full' } as PaneIdentity)
+    const started = await conn.sendRequest<Started>('process.run', {
+      cmd: 'claude',
+      name: 'line',
+      workspace: 'ws2',
+    })
+    expect(opened).toEqual([
+      { command: 'claude', workspaceId: 'ws2', backgroundTab: true, pinTitle: true, title: 'line' },
+    ])
+    expect(started.name).toBe('line')
+  })
+
+  it('has no workspace of its own, so it must name one', async () => {
+    const conn = await client({ token: 'ostia_full' } as PaneIdentity)
+    await expect(conn.sendRequest('process.run', { cmd: 'ls' })).rejects.toThrow(
+      'bad-request: workspace: a script token has no workspace of its own; pass --workspace <id|name>',
+    )
+    await expect(conn.sendRequest('agent.run', { agent: 'claude', prompt: 'hi' })).rejects.toThrow(
+      'needs all-workspaces on the token',
+    )
+  })
+
+  it('is refused without all-workspaces or without process', async () => {
+    const noReach = await client({ token: 'ostia_no_reach' } as PaneIdentity)
+    await expect(
+      noReach.sendRequest('process.run', { cmd: 'ls', workspace: 'ws2' }),
+    ).rejects.toThrow('needs-elevation: all-workspaces')
+    const noProcess = await client({ token: 'ostia_no_process' } as PaneIdentity)
+    await expect(
+      noProcess.sendRequest('process.run', { cmd: 'ls', workspace: 'ws2' }),
+    ).rejects.toThrow('needs-elevation: process')
+    expect(opened).toEqual([])
   })
 })
 

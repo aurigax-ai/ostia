@@ -39,6 +39,7 @@ import Markdown, { type Components } from 'react-markdown'
 import type { Dict } from '../i18n/dict'
 import { fmt, useDict } from '../i18n/useDict'
 import { allPanes, hasLockedPane, paneIds } from '../layout/tree'
+import type { LayoutNode } from '../layout/types'
 import { aggregateWorkspaceState, latestWaitingAt, unreadCount } from '../lib/attention'
 import { requestCloseOthers, requestCloseWorkspace } from '../lib/closeConfirm'
 import {
@@ -504,10 +505,15 @@ function stateLabel(d: Dict, state: WorkspaceState): string {
   return labels[state]
 }
 
+function isAsleep(root: LayoutNode): boolean {
+  const terminals = allPanes(root).filter((p) => p.kind === 'terminal')
+  return terminals.length > 0 && terminals.every((p) => p.hibernated)
+}
+
 function WorkspaceIcon({ workspace }: { workspace: Workspace }): JSX.Element {
   const d = useDict()
   const root = useLayoutStore((s) => s.byWorkspace[workspace.id]?.root)
-  const hibernated = root ? allPanes(root).some((p) => p.hibernated) : false
+  const hibernated = root ? isAsleep(root) : false
   const KindIcon = hibernated ? MoonIcon : KIND_ICON[workspace.kind]
   const waitingAt = useAttentionStore((s) => (root ? latestWaitingAt(s.byPane, paneIds(root)) : 0))
   const unread = useUnread([workspace.id])

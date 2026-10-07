@@ -10,6 +10,7 @@ import {
   createMessageConnection,
 } from 'vscode-jsonrpc/node'
 import type { ApprovalOutcome } from '../shared/approvals'
+import { DEFAULT_CAPABILITIES } from '../shared/capabilities'
 import type { CommandResult } from '../shared/types'
 
 let answer: ApprovalOutcome = 'deny'
@@ -82,6 +83,7 @@ beforeEach(() => {
       execCommand: async () => ({ ok: true }) as CommandResult,
       listCommandsFor: () => [],
       getTerminalState: () => undefined,
+      isSandboxed: () => false,
     },
     socketPath,
   )
@@ -141,6 +143,17 @@ describe('script token store', () => {
     expect(() => parseTokenRequest({ name: '', caps: ['read-board'] })).toThrow('name')
     expect(() => parseTokenRequest({ name: 'a\nb', caps: ['read-board'] })).toThrow('name')
     expect(() => parseTokenRequest({ name: 'x', caps: [] })).toThrow('caps')
+    expect(() => parseTokenRequest({ name: 'x', caps: ['destructive'] })).toThrow('can hold only')
+  })
+
+  it('lets a token hold process, send-other-pane and kill-pane, but never shell', () => {
+    expect(
+      parseTokenRequest({
+        name: 'cron',
+        caps: ['process', 'send-other-pane', 'all-workspaces', 'kill-pane'],
+      }),
+    ).toEqual({ name: 'cron', caps: ['all-workspaces', 'process', 'send-other-pane', 'kill-pane'] })
+    expect(() => parseTokenRequest({ name: 'x', caps: ['shell'] })).toThrow('can hold only')
     expect(() => parseTokenRequest({ name: 'x', caps: ['destructive'] })).toThrow('can hold only')
   })
 })
@@ -208,5 +221,133 @@ describe('script callers on the control socket', () => {
     await expect(
       conn.sendRequest('token.create', { name: 'more', caps: ['type-other-pane'] }),
     ).rejects.toThrow('not-available-to-script')
+  })
+})
+
+describe('script tokens on command.exec', () => {
+  const descriptor = (id: string, capabilities: string[]) => ({
+    id,
+    title: id,
+    category: null,
+    hidden: false,
+    argsSchema: null,
+    resultSchema: null,
+    capabilities,
+    target: 'active',
+  })
+  let executed: { target: unknown; id: string; args: unknown }[] = []
+
+  beforeEach(() => {
+    executed = []
+    stopControlServer()
+    registerControlServer(
+      {
+        execCommand: async (target, id, args) => {
+          executed.push({ target, id, args })
+          return { ok: true, result: { workspaceId: 'ws-new' } } as CommandResult
+        },
+        listCommandsFor: (windowId) =>
+          windowId === 'w1'
+            ? ([
+                descriptor('workspace.new', DEFAULT_CAPABILITIES),
+                descriptor('pane.close', ['kill-pane']),
+                descriptor('tab.new', []),
+              ] as never)
+            : [],
+        getTerminalState: () => undefined,
+        isSandboxed: () => false,
+        windowOfWorkspace: (workspaceId) => (workspaceId === 'ws2' ? 'w1' : undefined),
+        primaryWindow: () => 'w1',
+      },
+      socketPath,
+    )
+  })
+
+  it('creates a workspace in the primary window when the token holds all-workspaces', async () => {
+    const { token } = createScriptToken(storeFile, 'f5', ['all-workspaces'])
+    const conn = await client(token)
+    const res = await conn.sendRequest<CommandResult>('command.exec', {
+      id: 'workspace.new',
+      args: { name: 'W-two', focus: false },
+    })
+    expect(res).toEqual({ ok: true, result: { workspaceId: 'ws-new' } })
+    expect(executed).toEqual([
+      {
+        target: { windowId: 'w1', workspaceId: '', paneId: null },
+        id: 'workspace.new',
+        args: { name: 'W-two', focus: false },
+      },
+    ])
+  })
+
+  it('refuses workspace.new without all-workspaces and never asks the human', async () => {
+    const { token } = createScriptToken(storeFile, 'f5', ['process'])
+    const conn = await client(token)
+    await expect(conn.sendRequest('command.exec', { id: 'workspace.new' })).rejects.toThrow(
+      'needs-elevation: all-workspaces',
+    )
+    await expect(
+      conn.sendRequest('command.exec', { id: 'workspace.new', args: { focus: false } }),
+    ).rejects.toThrow('needs-elevation: all-workspaces')
+    expect(executed).toEqual([])
+    expect(request).not.toHaveBeenCalled()
+  })
+
+  it('lets an in-app pane token run workspace.new with its default capabilities', async () => {
+    const me = registerPane({ windowId: 'w1', workspaceId: 'ws1', paneId: 'pane-ws-new' })
+    const conn = await client(me.token)
+    const res = await conn.sendRequest<CommandResult>('command.exec', { id: 'workspace.new' })
+    expect(res).toEqual({ ok: true, result: { workspaceId: 'ws-new' } })
+    expect(request).not.toHaveBeenCalled()
+  })
+
+  it('closes a pane named by its pane.list id, in that pane workspace, with kill-pane', async () => {
+    const target = registerPane({ windowId: 'w1', workspaceId: 'ws2', paneId: 'inner-close-1' })
+    const { token } = createScriptToken(storeFile, 'f5', ['all-workspaces', 'kill-pane'])
+    const conn = await client(token)
+    await conn.sendRequest('command.exec', {
+      id: 'pane.close',
+      args: { paneId: target.externalId },
+    })
+    expect(executed).toEqual([
+      {
+        target: { windowId: 'w1', workspaceId: 'ws2', paneId: null },
+        id: 'pane.close',
+        args: { paneId: 'inner-close-1' },
+      },
+    ])
+  })
+
+  it('refuses pane.close without kill-pane or without all-workspaces', async () => {
+    const target = registerPane({ windowId: 'w1', workspaceId: 'ws2', paneId: 'inner-close-2' })
+    const noKill = await client(createScriptToken(storeFile, 'a', ['all-workspaces']).token)
+    await expect(
+      noKill.sendRequest('command.exec', { id: 'pane.close', args: { paneId: target.externalId } }),
+    ).rejects.toThrow('needs-elevation: kill-pane')
+    const noReach = await client(createScriptToken(storeFile, 'b', ['kill-pane']).token)
+    await expect(
+      noReach.sendRequest('command.exec', {
+        id: 'pane.close',
+        args: { paneId: target.externalId },
+      }),
+    ).rejects.toThrow('needs-elevation: all-workspaces')
+    expect(executed).toEqual([])
+    expect(request).not.toHaveBeenCalled()
+  })
+
+  it('refuses pane.close for an id no pane has, and every other command', async () => {
+    const conn = await client(
+      createScriptToken(storeFile, 'c', ['all-workspaces', 'kill-pane']).token,
+    )
+    await expect(
+      conn.sendRequest('command.exec', { id: 'pane.close', args: { paneId: 'no-such-pane' } }),
+    ).rejects.toThrow('unknown-pane: no-such-pane')
+    await expect(conn.sendRequest('command.exec', { id: 'pane.close' })).rejects.toThrow(
+      'needs {"paneId"',
+    )
+    await expect(conn.sendRequest('command.exec', { id: 'tab.new' })).rejects.toThrow(
+      'not-available-to-script',
+    )
+    expect(executed).toEqual([])
   })
 })

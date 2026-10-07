@@ -53,6 +53,7 @@ import {
   linkSpan,
   linkTarget,
 } from '../lib/linkModifier'
+import { noteFittedGrid, offscreenGrid, registerOffscreenStarter } from '../lib/offscreenStart'
 import { openFileAt } from '../lib/openFile'
 import { isLocalHost, parseOsc7 } from '../lib/osc7'
 import { registerOsc52 } from '../lib/osc52'
@@ -714,6 +715,7 @@ function TerminalSurface({
       const fitted = safeFit(host, fit, term)
       const { cols, rows } = term
       const action = nextSizeAction({ fitted, attached, cols, rows, last: lastSizeRef.current })
+      if (action.type !== 'none') noteFittedGrid(action.cols, action.rows)
       if (action.type === 'attach') {
         attachAtCurrentSize(action.cols, action.rows)
       } else if (action.type === 'resize') {
@@ -803,6 +805,12 @@ function TerminalSurface({
 
     syncSizeRef.current = syncSize
     syncSize()
+    const unregisterOffscreen = registerOffscreenStarter(paneId, () => {
+      if (attached || disposed) return
+      const grid = offscreenGrid()
+      term.resize(grid.cols, grid.rows)
+      attachAtCurrentSize(grid.cols, grid.rows)
+    })
 
     let resizeTimer: ReturnType<typeof setTimeout> | null = null
     let rafId = 0
@@ -820,6 +828,7 @@ function TerminalSurface({
 
     return () => {
       disposed = true
+      unregisterOffscreen()
       querySilencer?.dispose()
       syncSizeRef.current = () => {}
       if (resizeTimer) clearTimeout(resizeTimer)

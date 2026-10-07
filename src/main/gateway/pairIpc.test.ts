@@ -23,15 +23,19 @@ vi.mock('../controlServer', () => ({
 
 const LAN_ADDRESS = '192.168.2.108'
 vi.mock('./interfaces', () => ({
-  listBindAddresses: () => [{ address: LAN_ADDRESS, iface: 'wlan0' }],
+  listBindAddresses: () => [
+    { address: '127.0.0.1', iface: 'lo', loopback: true },
+    { address: LAN_ADDRESS, iface: 'wlan0', loopback: false },
+  ],
 }))
 
 const server = vi.hoisted(() => ({ running: false, host: '127.0.0.1' }))
 vi.mock('./server', () => ({
-  startGateway: vi.fn(async (options?: { host?: string }) => {
+  startGateway: vi.fn(async (options?: { host?: string; tailnet?: boolean }) => {
     server.running = true
     server.host = options?.host ?? '127.0.0.1'
-    return { host: server.host, port: 8722, helperPort: 40001, fingerprint: 'sha256/fp' }
+    const helperPort = options?.tailnet === false ? null : 40001
+    return { host: server.host, port: 8722, helperPort, fingerprint: 'sha256/fp' }
   }),
   stopGateway: vi.fn(async () => {
     server.running = false

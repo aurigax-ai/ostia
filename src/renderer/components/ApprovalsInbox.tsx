@@ -5,6 +5,7 @@ import { revealPane } from '../lib/workspaceActivity'
 import { useApprovalsStore } from '../stores/approvalsStore'
 import { ApprovalActions } from './ApprovalActions'
 import { capLabel } from './ApprovalCard'
+import { TextLink } from './TextLink'
 import { Button } from './ui/button'
 
 const HISTORY_SHOWN = 10
@@ -60,16 +61,15 @@ export function ApprovalsInbox({
           <ul className="flex flex-col gap-1">
             {pending.map((req) => (
               <li key={req.id} className="flex flex-col gap-1 rounded-sm bg-surface-2 p-1.5">
-                <Button
-                  variant="link"
+                <TextLink
                   size="xs"
-                  className="h-auto justify-start truncate p-0 font-normal text-fg-muted text-ui-xs hover:text-fg"
+                  className="h-auto justify-start truncate p-0 font-normal text-ui-xs"
                   onClick={() => {
                     if (revealPane(req.paneId)) onReveal()
                   }}
                 >
                   {whereOf(req.paneId) ?? req.paneId}
-                </Button>
+                </TextLink>
                 <span className="text-ui-sm [overflow-wrap:anywhere]">
                   {what(req)}: {req.action}
                 </span>

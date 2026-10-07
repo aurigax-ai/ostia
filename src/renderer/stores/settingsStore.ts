@@ -661,6 +661,10 @@ const scheduleSave = debounce((get: () => SettingsState): void => {
   writeSettings(get()).catch((err: unknown) => console.error('[settings] save failed', err))
 }, 300)
 
+export function cancelSettingsSave(): void {
+  scheduleSave.cancel()
+}
+
 const extensionSettingsOf = (v: unknown): Record<string, ExtensionSettingValues> => {
   if (!isPlainObject(v)) return {}
   const out: Record<string, ExtensionSettingValues> = {}

@@ -1,11 +1,15 @@
 import { Terminal } from '@xterm/xterm'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { SCRIPT_COMMANDS } from '../../main/commandArgs'
+import { type Capability, DEFAULT_CAPABILITIES } from '../../shared/capabilities'
+import { SCRIPT_CAPABILITIES } from '../../shared/scriptTokens'
 import { createPane, splitOf, tabsOf } from '../layout/tree'
 import * as blockActions from '../lib/blockActions'
 import { registerBrowserHandle } from '../lib/browserHandles'
 import { type KeyLike, runAppChord } from '../lib/chords'
 import * as closeConfirm from '../lib/closeConfirm'
 import { registerTerminal } from '../lib/terminalHandles'
+import { needsTrust } from '../lib/userActions'
 import { activeFontZoom, zoomFont } from '../lib/wheelZoom'
 import { useAttentionStore } from '../stores/attentionStore'
 import { useBlocksStore } from '../stores/blocksStore'
@@ -674,17 +678,18 @@ describe('builtins route to store actions', () => {
     expect(activeFontZoom(useSettingsStore.getState().appearance)).toBeNull()
   })
 
-  it('routes pane.close to layout.closePane with an explicit paneId', async () => {
-    const closePane = vi.spyOn(useLayoutStore.getState(), 'closePane').mockImplementation(() => {})
+  const withPanes = (...ids: string[]): void => {
+    const panes = ids.map((id) => ({ ...createPane('terminal'), id }))
     useLayoutStore.setState({
       byWorkspace: {
-        s1: {
-          root: { ...createPane('terminal'), id: 'pX' },
-          activePaneId: 'pX',
-          zoomedPaneId: null,
-        },
+        s1: { root: tabsOf(ids[0], ...panes), activePaneId: ids[0], zoomedPaneId: null },
       },
     })
+  }
+
+  it('routes pane.close to layout.closePane with an explicit paneId', async () => {
+    withPanes('pA', 'pX')
+    const closePane = vi.spyOn(useLayoutStore.getState(), 'closePane').mockImplementation(() => {})
 
     await commands.execWith(ctx('s1', 'pA'), 'pane.close', { paneId: 'pX' })
 
@@ -703,6 +708,17 @@ describe('builtins route to store actions', () => {
     const result = await commands.execWith(fromSocket, 'pane.close', { paneId: 7 })
 
     expect(result.ok ? '' : result.error.message).toContain('paneId must be a string')
+    expect(closePane).not.toHaveBeenCalled()
+  })
+
+  it('fails instead of reporting success when the paneId names no pane in the workspace', async () => {
+    withPanes('pA')
+    const closePane = vi.spyOn(useLayoutStore.getState(), 'closePane').mockImplementation(() => {})
+    const fromSocket = { ...ctx('s1', null), target: { workspaceId: 's1', paneId: null } }
+
+    const result = await commands.execWith(fromSocket, 'pane.close', { paneId: 'p-elsewhere' })
+
+    expect(result.ok ? '' : result.error.message).toContain('unknown-pane: p-elsewhere')
     expect(closePane).not.toHaveBeenCalled()
   })
 
@@ -757,15 +773,7 @@ describe('builtins route to store actions', () => {
   })
 
   it('asks the human before closing a pane but closes at once for an agent on the socket', async () => {
-    useLayoutStore.setState({
-      byWorkspace: {
-        s1: {
-          root: { ...createPane('terminal'), id: 'pX' },
-          activePaneId: 'pX',
-          zoomedPaneId: null,
-        },
-      },
-    })
+    withPanes('pA', 'pX')
     const ask = vi.spyOn(closeConfirm, 'requestClosePane').mockResolvedValue()
     const closePane = vi.spyOn(useLayoutStore.getState(), 'closePane').mockImplementation(() => {})
 
@@ -1052,6 +1060,40 @@ describe('builtins route to store actions', () => {
     })
   })
 
+  it('opens a tab in the named workspace through its active pane, leaving the active workspace alone', async () => {
+    const mine = createPane('terminal')
+    const theirs = createPane('terminal')
+    useWorkspacesStore.setState({
+      workspaces: [
+        { id: 's1', name: 's1', kind: 'terminal', workDir: '/w', state: 'idle' },
+        { id: 's2', name: 's2', kind: 'terminal', workDir: '/w', state: 'idle' },
+      ],
+      activeWorkspaceId: 's1',
+    })
+    useLayoutStore.setState({
+      byWorkspace: {
+        s1: { root: mine, activePaneId: mine.id, zoomedPaneId: null },
+        s2: { root: theirs, activePaneId: theirs.id, zoomedPaneId: null },
+      },
+    })
+
+    const res = await commands.execWith(
+      {
+        activeWorkspaceId: 's2',
+        activePaneId: null,
+        target: { workspaceId: 's2', paneId: null },
+        origin: 'remote',
+      },
+      'tab.new',
+    )
+
+    expect(res.ok).toBe(true)
+    const root = useLayoutStore.getState().byWorkspace.s2.root
+    expect(root.type === 'tabs' ? root.children : []).toHaveLength(2)
+    expect(useLayoutStore.getState().byWorkspace.s1.root).toBe(mine)
+    expect(useWorkspacesStore.getState().activeWorkspaceId).toBe('s1')
+  })
+
   it('routes pane.focus to layout.focusPane', async () => {
     const focusPane = vi.spyOn(useLayoutStore.getState(), 'focusPane').mockImplementation(() => {})
 
@@ -1269,12 +1311,52 @@ describe('builtins route to store actions', () => {
     expect(toggleRail).toHaveBeenCalled()
   })
 
-  it('routes view.searchFiles to ui.searchFiles', async () => {
-    const searchFiles = vi.spyOn(useUIStore.getState(), 'searchFiles').mockImplementation(() => {})
+  describe('view.searchFiles', () => {
+    const mountPanel = (): HTMLInputElement => {
+      const panel = document.createElement('aside')
+      panel.id = 'files-panel'
+      const input = document.createElement('input')
+      panel.append(input)
+      document.body.append(panel)
+      return input
+    }
+    const outside = (): HTMLButtonElement => {
+      const button = document.createElement('button')
+      document.body.append(button)
+      return button
+    }
 
-    await commands.execWith(ctx(null, null), 'view.searchFiles')
+    afterEach(() => {
+      document.body.replaceChildren()
+      useUIStore.setState({ filesOpen: false, filesSearchFocus: false })
+    })
 
-    expect(searchFiles).toHaveBeenCalled()
+    it('opens the Files panel and asks for the search box when it is closed', async () => {
+      useUIStore.setState({ filesOpen: false, filesSearchFocus: false })
+
+      await commands.execWith(ctx(null, null), 'view.searchFiles')
+
+      expect(useUIStore.getState()).toMatchObject({ filesOpen: true, filesSearchFocus: true })
+    })
+
+    it('closes the Files panel when focus is inside it', async () => {
+      useUIStore.setState({ filesOpen: true, filesSearchFocus: false })
+      mountPanel().focus()
+
+      await commands.execWith(ctx(null, null), 'view.searchFiles')
+
+      expect(useUIStore.getState()).toMatchObject({ filesOpen: false, filesSearchFocus: false })
+    })
+
+    it('moves focus to the search box without closing when focus is elsewhere', async () => {
+      useUIStore.setState({ filesOpen: true, filesSearchFocus: false })
+      mountPanel()
+      outside().focus()
+
+      await commands.execWith(ctx(null, null), 'view.searchFiles')
+
+      expect(useUIStore.getState()).toMatchObject({ filesOpen: true, filesSearchFocus: true })
+    })
   })
 
   it('routes app.openSettings to ui.openSettings', async () => {
@@ -1612,6 +1694,38 @@ describe('builtins with zero workspaces', () => {
     expect(res.ok).toBe(true)
     const [only] = useWorkspacesStore.getState().workspaces
     expect(only).toMatchObject({ workDir: '/home/u/sonar', customName: 'Sonar search' })
+  })
+
+  it('keeps the active workspace and the sidebar view when workspace.new is given focus: false', async () => {
+    await commands.exec('workspace.new', { name: 'first' })
+    const first = useWorkspacesStore.getState().activeWorkspaceId
+    const showWorkspaces = vi
+      .spyOn(useUIStore.getState(), 'showWorkspaces')
+      .mockImplementation(() => {})
+
+    const res = await commands.exec('workspace.new', { name: 'second', focus: false })
+
+    const second = useWorkspacesStore.getState().workspaces.find((w) => w.customName === 'second')
+    expect(second).toBeDefined()
+    expect(res).toEqual({ ok: true, result: { workspaceId: second?.id } })
+    expect(useWorkspacesStore.getState().activeWorkspaceId).toBe(first)
+    expect(showWorkspaces).not.toHaveBeenCalled()
+  })
+
+  it('still focuses the new workspace when focus is true or left out', async () => {
+    await commands.exec('workspace.new', { name: 'first' })
+
+    await commands.exec('workspace.new', { name: 'second', focus: true })
+
+    const second = useWorkspacesStore.getState().workspaces.find((w) => w.customName === 'second')
+    expect(useWorkspacesStore.getState().activeWorkspaceId).toBe(second?.id)
+  })
+
+  it('refuses a focus that is not a boolean for workspace.new', async () => {
+    const res = await commands.exec('workspace.new', { focus: 'no' })
+
+    expect(res.ok).toBe(false)
+    expect(useWorkspacesStore.getState().workspaces).toEqual([])
   })
 
   it('refuses a relative dir for workspace.new instead of ignoring it', async () => {
@@ -2005,5 +2119,52 @@ describe('browser commands', () => {
     } finally {
       off()
     }
+  })
+})
+
+describe('commands open to script tokens', () => {
+  it.each([...SCRIPT_COMMANDS])('%s needs only capabilities a script token can hold', (id) => {
+    const described = commands.describe().find((c) => c.id === id)
+    expect(described).toBeDefined()
+    const unreachable = (described?.capabilities ?? []).filter(
+      (cap) => !DEFAULT_CAPABILITIES.includes(cap) && !SCRIPT_CAPABILITIES.includes(cap),
+    )
+    expect(unreachable).toEqual([])
+  })
+
+  const SCRIPT_RELAXED_ALLOWLIST: Record<string, { relaxed: Capability[]; reason: string }> = {
+    'workspace.new': {
+      relaxed: DEFAULT_CAPABILITIES,
+      reason: 'a script has no pane, so all-workspaces stands in for every default capability',
+    },
+    'pane.close': {
+      relaxed: [],
+      reason: 'declares only kill-pane, so no default capability is relaxed',
+    },
+  }
+
+  it('SCRIPT_COMMANDS matches the relaxed-capability allowlist', () => {
+    expect(
+      [...SCRIPT_COMMANDS].sort(),
+      'a new script command must first be added to SCRIPT_RELAXED_ALLOWLIST with a reason',
+    ).toEqual(Object.keys(SCRIPT_RELAXED_ALLOWLIST).sort())
+  })
+
+  it.each([...SCRIPT_COMMANDS])('%s relaxes only capabilities its allowlist entry names', (id) => {
+    const described = commands.describe().find((c) => c.id === id)
+    const relaxed = (described?.capabilities ?? []).filter((cap) =>
+      DEFAULT_CAPABILITIES.includes(cap),
+    )
+    const allowed = SCRIPT_RELAXED_ALLOWLIST[id]?.relaxed ?? []
+    expect(relaxed.filter((cap) => !allowed.includes(cap))).toEqual([])
+  })
+
+  it('workspace.new keeps the default capabilities an in-app pane token holds', () => {
+    const described = commands.describe().find((c) => c.id === 'workspace.new')
+    expect(described?.capabilities).toEqual(DEFAULT_CAPABILITIES)
+  })
+
+  it('workspace.new does not need trust', () => {
+    expect(needsTrust({ command: 'workspace.new' })).toBe(false)
   })
 })

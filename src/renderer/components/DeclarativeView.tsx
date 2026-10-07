@@ -10,6 +10,7 @@ import { runViewAction } from '../lib/views'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
 import { Hint } from './Hint'
+import { TextLink } from './TextLink'
 import { ATTENTION_ALERT } from './attentionStyles'
 import { Alert } from './ui/alert'
 import { Badge } from './ui/badge'
@@ -208,8 +209,7 @@ function Node({ node, ctx }: { node: RenderNode; ctx: RenderContext }): JSX.Elem
       if (!url) return <span className="text-fg-muted text-ui-sm">{node.label}</span>
       return (
         <Hint label={fmt(ctx.d.views.openUrl, { url })}>
-          <Button
-            variant="link"
+          <TextLink
             size="xs"
             className="h-auto w-fit min-w-0 justify-start p-0 font-normal text-ui-sm"
             onClick={(e) => {
@@ -218,7 +218,7 @@ function Node({ node, ctx }: { node: RenderNode; ctx: RenderContext }): JSX.Elem
             }}
           >
             <span className="truncate">{node.label}</span>
-          </Button>
+          </TextLink>
         </Hint>
       )
     }

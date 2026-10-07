@@ -17,6 +17,7 @@ import { ExtensionSettingsForm } from './ExtensionSettingsForm'
 import { UninstallExtensionButton, useMarketplaceList } from './MarketplaceSection'
 import { WarningNote } from './SettingsPanel'
 import { SearchGroup } from './SettingsSearch'
+import { TextLink } from './TextLink'
 import { extensionIcon } from './extensionIcons'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
@@ -127,26 +128,24 @@ function ExtensionSettingsArea({ ext }: { ext: ExtensionInfo }): JSX.Element | n
   const d = useDict()
   if (ext.settingsPage) {
     return (
-      <Button
-        variant="link"
+      <TextLink
         size="xs"
         className="h-5 self-start px-0 text-ui-sm"
         onClick={() => useUIStore.getState().openSettings('extensions', { extension: ext.id })}
       >
         {d.extensions.openSettingsPage}
-      </Button>
+      </TextLink>
     )
   }
   if (isAssistExtension(ext)) {
     return ext.enabled ? (
-      <Button
-        variant="link"
+      <TextLink
         size="xs"
         className="h-5 self-start px-0 text-ui-sm"
         onClick={() => useUIStore.getState().openSettings('assistant')}
       >
         {d.assistantSettings.configure}
-      </Button>
+      </TextLink>
     ) : null
   }
   if (ext.settings.length === 0 && ext.secrets.length === 0) {

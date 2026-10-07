@@ -86,7 +86,12 @@ describe('Extension API v2 over a real control socket with the echo fixture', ()
       errorBuffers: new Map(),
     })
     registerControlServer(
-      { execCommand, listCommandsFor: () => [], getTerminalState: () => undefined },
+      {
+        execCommand,
+        listCommandsFor: () => [],
+        getTerminalState: () => undefined,
+        isSandboxed: () => false,
+      },
       socketPath,
     )
   })

@@ -1,12 +1,19 @@
 import { cn } from '@/lib/utils'
 import { CaretRightIcon, CopyIcon } from '@phosphor-icons/react'
-import { PHONE_GRANTABLE_CAPS, type PhoneGrantableCap } from '@shared/capabilities'
+import {
+  DEFAULT_GATEWAY_ROUTE,
+  LOOPBACK_ADDRESS,
+  formatPhoneAddress,
+  parsePhoneAddress,
+} from '@shared/gatewayRoute'
 import { formatCode } from '@shared/pairCode'
+import { PHONE_GRANTABLE_CAPS, type PhoneGrantableCap } from '@shared/phoneCapabilities'
 import type {
   GatewayBindAddress,
   GatewayDevice,
   GatewayPairRequest,
   GatewayPairResult,
+  GatewayPhoneAddress,
   GatewayRemoteStatus,
   GatewayRoute,
   GatewayTailnetState,
@@ -43,40 +50,87 @@ import {
   DialogHeader,
   DialogTitle,
 } from './ui/dialog'
+import { Input } from './ui/input'
 import { Separator } from './ui/separator'
 import { Switch } from './ui/switch'
 import { Textarea } from './ui/textarea'
 
 const PAIR_CODE_TTL_S = 120
-const TAILNET_CHOICE = 'tailnet'
 
-function routeChoice(route: GatewayRoute): string {
-  return route.kind === 'tailnet' ? TAILNET_CHOICE : route.address
-}
-
-function routeOf(choice: string): GatewayRoute {
-  return choice === TAILNET_CHOICE ? { kind: 'tailnet' } : { kind: 'address', address: choice }
-}
-
-function routeOptions(
+function bindOptions(
   d: Dict,
   addresses: GatewayBindAddress[],
-  route: GatewayRoute,
+  bindAddress: string,
 ): { value: string; label: string }[] {
-  const options = [
-    { value: TAILNET_CHOICE, label: d.settings.remoteRouteTailnet },
-    ...addresses.map((a) => ({
-      value: a.address,
-      label: fmt(d.settings.remoteRouteAddress, { iface: a.iface, address: a.address }),
-    })),
-  ]
-  if (route.kind === 'address' && !addresses.some((a) => a.address === route.address)) {
+  const options = addresses.map((a) => ({
+    value: a.address,
+    label: a.loopback
+      ? fmt(d.settings.remoteBindLoopback, { address: a.address })
+      : fmt(d.settings.remoteRouteAddress, { iface: a.iface, address: a.address }),
+  }))
+  if (!addresses.some((a) => a.address === bindAddress)) {
     options.push({
-      value: route.address,
-      label: fmt(d.settings.remoteRouteMissing, { address: route.address }),
+      value: bindAddress,
+      label: fmt(d.settings.remoteRouteMissing, { address: bindAddress }),
     })
   }
   return options
+}
+
+function PhoneAddressRow({
+  route,
+  disabled,
+  onSave,
+}: {
+  route: GatewayRoute
+  disabled: boolean
+  onSave: (phoneAddress: GatewayPhoneAddress | null) => Promise<void>
+}): JSX.Element {
+  const d = useDict()
+  const saved = route.phoneAddress ? formatPhoneAddress(route.phoneAddress) : ''
+  const [text, setText] = useState(saved)
+  const [invalid, setInvalid] = useState(false)
+  useEffect(() => setText(saved), [saved])
+
+  const commit = (): void => {
+    const trimmed = text.trim()
+    if (trimmed === saved) {
+      setInvalid(false)
+      return
+    }
+    const phoneAddress = trimmed === '' ? null : parsePhoneAddress(trimmed)
+    if (trimmed !== '' && !phoneAddress) {
+      setInvalid(true)
+      return
+    }
+    setInvalid(false)
+    void onSave(phoneAddress)
+  }
+
+  return (
+    <ControlRow
+      label={d.settings.remotePhoneAddress}
+      desc={d.settings.remotePhoneAddressDesc}
+      error={invalid ? d.settings.remotePhoneAddressInvalid : null}
+      errorId="remote-phone-address-error"
+    >
+      <Input
+        value={text}
+        spellCheck={false}
+        placeholder="host:port"
+        disabled={disabled}
+        aria-label={d.settings.remotePhoneAddress}
+        aria-invalid={invalid || undefined}
+        aria-describedby={invalid ? 'remote-phone-address-error' : undefined}
+        onChange={(e) => setText(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') commit()
+        }}
+        className="h-7 w-56 font-mono"
+      />
+    </ControlRow>
+  )
 }
 
 function tailnetSummary(d: Dict, node: GatewayTailnetState): string {
@@ -155,6 +209,7 @@ const CAP_NEEDS: Partial<Record<PhoneGrantableCap, PhoneGrantableCap>> = {
 
 function capText(d: Dict): Record<PhoneGrantableCap, { label: string; desc: string }> {
   return {
+    respond: { label: d.settings.remoteCapRespond, desc: d.settings.remoteCapRespondDesc },
     command: { label: d.settings.remoteCapCommand, desc: d.settings.remoteCapCommandDesc },
     input: { label: d.settings.remoteCapInput, desc: d.settings.remoteCapInputDesc },
     destructive: {
@@ -315,16 +370,18 @@ export function GatewaySection(): JSX.Element {
   }, [pairResult, secondsLeft, mintCode])
 
   const running = status?.running ?? false
-  const route: GatewayRoute = status?.route ?? { kind: 'tailnet' }
-  const viaTailnet = route.kind === 'tailnet'
+  const route: GatewayRoute = status?.route ?? DEFAULT_GATEWAY_ROUTE
+  const exposed = route.bindAddress !== LOOPBACK_ADDRESS
+  const unreachable = !route.tailnet && !exposed && route.phoneAddress === null
+  const viaTailnet = route.tailnet
   const canPair = viaTailnet
     ? running && tailnet.state === 'running' && tailnet.ip !== null
-    : running && status?.host === route.address
+    : running && (route.phoneAddress !== null || (exposed && status?.host === route.bindAddress))
   const problem = viaTailnet ? tailnetProblem(d, tailnet) : null
 
-  const onRoute = async (choice: string): Promise<void> => {
+  const onRoute = async (next: Partial<GatewayRoute>): Promise<void> => {
     setRouteError(null)
-    await window.ostia.gateway.setRoute(routeOf(choice))
+    await window.ostia.gateway.setRoute({ ...route, ...next })
     await refresh()
   }
 
@@ -333,8 +390,8 @@ export function GatewaySection(): JSX.Element {
     setRouteError(null)
     if (checked) {
       const result = await window.ostia.gateway.enable()
-      if ('error' in result && route.kind === 'address') {
-        setRouteError(fmt(d.settings.remoteAddressUnavailable, { address: route.address }))
+      if ('error' in result) {
+        setRouteError(fmt(d.settings.remoteAddressUnavailable, { address: route.bindAddress }))
       }
     } else {
       await window.ostia.gateway.disable()
@@ -412,22 +469,23 @@ export function GatewaySection(): JSX.Element {
         onChange={(v) => void onToggle(v)}
       />
 
-      <ControlRow label={d.settings.remoteRoute} desc={d.settings.remoteRouteDesc}>
+      <ControlRow label={d.settings.remoteBind} desc={d.settings.remoteBindDesc}>
         <SelectField
-          value={routeChoice(route)}
-          onChange={(v) => void onRoute(v)}
-          options={routeOptions(d, addresses, route)}
-          label={d.settings.remoteRoute}
+          value={route.bindAddress}
+          onChange={(v) => void onRoute({ bindAddress: v })}
+          options={bindOptions(d, addresses, route.bindAddress)}
+          label={d.settings.remoteBind}
           width="w-fit min-w-64 max-w-80"
           disabled={running}
         />
       </ControlRow>
 
       <ToggleRow
-        label={d.settings.remoteDiscoverable}
-        desc={d.settings.remoteDiscoverableDesc}
-        checked={status?.discoverable ?? false}
-        onChange={(v) => void onDiscoverable(v)}
+        label={d.settings.remoteTailnetNode}
+        desc={d.settings.remoteTailnetNodeDesc}
+        checked={route.tailnet}
+        onChange={(v) => void onRoute({ tailnet: v })}
+        disabled={running}
       />
 
       {viaTailnet ? (
@@ -452,10 +510,27 @@ export function GatewaySection(): JSX.Element {
           }
         />
       ) : (
-        <WarningNote>
-          {fmt(d.settings.remoteAddressWarning, { address: route.address })}
-        </WarningNote>
+        <PhoneAddressRow
+          route={route}
+          disabled={running}
+          onSave={(phoneAddress) => onRoute({ phoneAddress })}
+        />
       )}
+
+      {unreachable ? <WarningNote>{d.settings.remoteLoopbackOnly}</WarningNote> : null}
+
+      {exposed ? (
+        <WarningNote>
+          {fmt(d.settings.remoteAddressWarning, { address: route.bindAddress })}
+        </WarningNote>
+      ) : null}
+
+      <ToggleRow
+        label={d.settings.remoteDiscoverable}
+        desc={d.settings.remoteDiscoverableDesc}
+        checked={status?.discoverable ?? false}
+        onChange={(v) => void onDiscoverable(v)}
+      />
 
       {problem ? <WarningNote>{problem}</WarningNote> : null}
       {signInError ? <WarningNote>{signInError}</WarningNote> : null}
