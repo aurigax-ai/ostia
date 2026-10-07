@@ -4,7 +4,7 @@ import {
   attachLinkClaim,
   attachLinkModifier,
   linkSpan,
-  linkTarget,
+  webLinkTarget,
 } from './linkModifier'
 
 describe('attachLinkModifier', () => {
@@ -42,12 +42,44 @@ describe('attachLinkModifier', () => {
   })
 })
 
-describe('linkTarget', () => {
-  it('follows the setting on a plain modifier click and flips it while Shift is held', () => {
-    expect(linkTarget(true, { shiftKey: false })).toBe('pane')
-    expect(linkTarget(true, { shiftKey: true })).toBe('system')
-    expect(linkTarget(false, { shiftKey: false })).toBe('system')
-    expect(linkTarget(false, { shiftKey: true })).toBe('pane')
+describe('webLinkTarget', () => {
+  const plain = { ctrlKey: false, metaKey: false, shiftKey: false, detail: 1 }
+  const idle = { mac: false, hasSelection: false, mouseReporting: false }
+
+  it('opens a plain click in the same browser tab', () => {
+    expect(webLinkTarget(plain, idle)).toBe('same-tab')
+  })
+
+  it('opens a Ctrl+click in a new browser tab and Ctrl+Shift+click in the system browser', () => {
+    expect(webLinkTarget({ ...plain, ctrlKey: true }, idle)).toBe('new-tab')
+    expect(webLinkTarget({ ...plain, ctrlKey: true, shiftKey: true }, idle)).toBe('system')
+  })
+
+  it('uses Cmd instead of Ctrl on macOS', () => {
+    const mac = { ...idle, mac: true }
+    expect(webLinkTarget({ ...plain, metaKey: true }, mac)).toBe('new-tab')
+    expect(webLinkTarget({ ...plain, metaKey: true, shiftKey: true }, mac)).toBe('system')
+    expect(webLinkTarget({ ...plain, ctrlKey: true }, mac)).toBe(null)
+    expect(webLinkTarget({ ...plain, ctrlKey: true }, idle)).toBe('new-tab')
+    expect(webLinkTarget({ ...plain, metaKey: true }, idle)).toBe(null)
+  })
+
+  it('ignores a plain click that ends a selection or drag, or is a double click', () => {
+    expect(webLinkTarget(plain, { ...idle, hasSelection: true })).toBe(null)
+    expect(webLinkTarget({ ...plain, detail: 2 }, idle)).toBe(null)
+    expect(webLinkTarget({ ...plain, shiftKey: true }, idle)).toBe(null)
+  })
+
+  it('leaves a plain click to a program that reports the mouse but keeps modifier clicks', () => {
+    const tui = { ...idle, mouseReporting: true }
+    expect(webLinkTarget(plain, tui)).toBe(null)
+    expect(webLinkTarget({ ...plain, ctrlKey: true }, tui)).toBe('new-tab')
+    expect(webLinkTarget({ ...plain, ctrlKey: true, shiftKey: true }, tui)).toBe('system')
+  })
+
+  it('keeps modifier clicks working over a selection', () => {
+    const selected = { ...idle, hasSelection: true }
+    expect(webLinkTarget({ ...plain, ctrlKey: true }, selected)).toBe('new-tab')
   })
 })
 

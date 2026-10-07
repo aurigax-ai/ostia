@@ -99,14 +99,6 @@ export function BrowserSettingsSection(): JSX.Element {
           </>
         ) : null}
       </SettingsGroup>
-      <SettingsGroup title={d.browserSettings.groupLinks}>
-        <ToggleRow
-          label={d.browserSettings.openTerminalLinks}
-          desc={d.browserSettings.openTerminalLinksDesc}
-          checked={browser.openTerminalLinks}
-          onChange={(openTerminalLinks) => setBrowser({ openTerminalLinks })}
-        />
-      </SettingsGroup>
       <SettingsGroup title={d.browserSettings.groupPage}>
         <ControlRow label={d.browserSettings.defaultZoom} desc={d.browserSettings.defaultZoomDesc}>
           <ZoomField />

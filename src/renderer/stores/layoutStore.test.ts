@@ -630,6 +630,63 @@ describe('layoutStore', () => {
     })
   })
 
+  describe('openBrowser with several browser panes', () => {
+    it('replaces the page of the focused browser pane over an earlier one', () => {
+      ensure('sess')
+      useLayoutStore.getState().openBrowser('sess', 'https://first.example', 'isolated')
+      const first = layoutOf('sess').activePaneId
+      useLayoutStore.getState().openBrowserTab('sess', 'https://second.example', 'isolated')
+      const second = layoutOf('sess').activePaneId
+      expect(second).not.toBe(first)
+
+      useLayoutStore.getState().openBrowser('sess', 'https://third.example', 'isolated')
+      expect(layoutOf('sess').activePaneId).toBe(second)
+      expect(findPane(layoutOf('sess').root, second)?.url).toBe('https://third.example')
+      expect(findPane(layoutOf('sess').root, first)?.url).toBe('https://first.example')
+    })
+  })
+
+  describe('openBrowserTab', () => {
+    it('adds a browser pane beside the browser pane in use, emitting pane-created', () => {
+      const terminal = ensure('sess')
+      useLayoutStore.getState().openBrowser('sess', 'https://first.example', 'isolated')
+      const first = layoutOf('sess').activePaneId
+      useLayoutStore.getState().focusPane('sess', terminal)
+      emit().mockClear()
+
+      useLayoutStore.getState().openBrowserTab('sess', 'https://second.example', 'isolated')
+      const layout = layoutOf('sess')
+      const added = layout.activePaneId
+      expect(added).not.toBe(first)
+      expect(paneIds(layout.root)).toHaveLength(3)
+      expect(findPane(layout.root, added)).toMatchObject({
+        kind: 'browser',
+        url: 'https://second.example',
+      })
+      expect(findPane(layout.root, first)?.url).toBe('https://first.example')
+      const stack = tabsOfPane(layout.root, first)
+      expect(stack && paneIds(stack)).toEqual([terminal, first, added])
+      expect(emit()).toHaveBeenCalledWith({
+        type: 'pane-created',
+        workspaceId: 'sess',
+        paneId: added,
+      })
+    })
+
+    it('with no browser pane, adds one beside the focused pane with the given profile', () => {
+      const terminal = ensure('sess')
+      useLayoutStore.getState().openBrowserTab('sess', 'https://mine.example', 'shared')
+      const layout = layoutOf('sess')
+      expect(paneIds(layout.root)).toHaveLength(2)
+      expect(layout.activePaneId).not.toBe(terminal)
+      expect(findPane(layout.root, layout.activePaneId)).toMatchObject({
+        kind: 'browser',
+        url: 'https://mine.example',
+        browserProfile: 'shared',
+      })
+    })
+  })
+
   describe('openExtensionPanel', () => {
     it('with no panel of that extension, splits and creates one, emitting pane-created', () => {
       const terminal = ensure('sess')

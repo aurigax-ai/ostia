@@ -796,10 +796,6 @@ export const SETTINGS_JSON_SCHEMA = {
             'Search URL for the "custom" engine: http or https, containing {query}, e.g. ' +
             '"https://example.com/search?q={query}". An invalid template falls back to Google.',
         },
-        openTerminalLinks: {
-          type: 'boolean',
-          description: `Ctrl/Cmd+click on a web link in a terminal opens it in ${PRODUCT_DISPLAY_NAME}’s browser pane instead of the system browser; with Shift as well, the other way for that click. Default: false.`,
-        },
         defaultZoom: {
           type: 'number',
           minimum: 50,

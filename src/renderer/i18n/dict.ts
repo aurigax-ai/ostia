@@ -1956,10 +1956,6 @@ export const en = {
     customUrlDesc: 'An http or https URL containing {query}.',
     customUrlInvalid:
       'Needs an http or https URL that contains {query}. Google is used until it does.',
-    groupLinks: 'Links',
-    openTerminalLinks: 'Open terminal links in {product}',
-    openTerminalLinksDesc:
-      'Ctrl/Cmd+click on a web link in a terminal opens a browser pane instead of the system browser. Hold Shift as well to open it the other way for that click.',
     groupPage: 'Pages',
     defaultZoom: 'Default page zoom',
     defaultZoomDesc: 'Zoom applied when a page loads in a browser pane (50 to 300 percent).',
@@ -2158,7 +2154,8 @@ export const en = {
   },
   terminalLinks: {
     click: 'Click',
-    openPane: 'Open in a browser pane',
+    openPane: 'Open in the browser pane',
+    openNewTab: 'Open in a new browser tab',
     openSystem: 'Open in the system browser',
     openFile: 'Open the file',
   },
@@ -5034,10 +5031,6 @@ export const zhHant: Dict = {
     customUrl: '自訂搜尋網址',
     customUrlDesc: '包含 {query} 的 http 或 https 網址。',
     customUrlInvalid: '需要包含 {query} 的 http 或 https 網址。在此之前使用 Google。',
-    groupLinks: '連結',
-    openTerminalLinks: '在 {product} 中開啟終端機連結',
-    openTerminalLinksDesc:
-      '在終端機中按住 Ctrl/Cmd 並點擊網頁連結，會開啟瀏覽器窗格而非系統瀏覽器。同時按住 Shift 可讓該次點擊改用另一種方式開啟。',
     groupPage: '頁面',
     defaultZoom: '預設頁面縮放',
     defaultZoomDesc: '網頁在瀏覽器窗格載入時套用的縮放比例（50 至 300%）。',
@@ -5231,6 +5224,7 @@ export const zhHant: Dict = {
   terminalLinks: {
     click: '點擊',
     openPane: '在瀏覽器窗格開啟',
+    openNewTab: '在新的瀏覽器分頁開啟',
     openSystem: '在系統瀏覽器開啟',
     openFile: '開啟檔案',
   },

@@ -11,6 +11,7 @@ import {
   addTab,
   allPanes,
   backgroundTabAnchor,
+  browserPaneInUse,
   closePane,
   createPane,
   createTerminalPane,
@@ -19,7 +20,6 @@ import {
   findPane,
   findSplitTabByName,
   findViewPane,
-  firstBrowserPane,
   firstPaneId,
   firstPaneOfKind,
   focusIdOf,
@@ -105,6 +105,7 @@ interface LayoutState {
   openFileBeside: (workspaceId: string, path: string) => void
   openTerminalTab: (workspaceId: string, cwd: string) => string | null
   openBrowser: (workspaceId: string, url: string, profile: BrowserProfile) => void
+  openBrowserTab: (workspaceId: string, url: string, profile: BrowserProfile) => void
   openExtensionPanel: (workspaceId: string, extensionId: string, title: string) => string | null
   openView: (workspaceId: string, viewName: string, title: string) => string | null
   openDiff: (workspaceId: string, content: DiffContent) => string | null
@@ -623,7 +624,7 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     let createdPaneId: string | null = null
     set((s) => {
       const next = patch(s, workspaceId, (l) => {
-        const existing = firstBrowserPane(l.root, profile)
+        const existing = browserPaneInUse(l.root, l.activePaneId, profile)
         if (existing) {
           return {
             ...l,
@@ -636,6 +637,27 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
         return {
           ...l,
           root: setPaneBrowser(addTab(l.root, l.activePaneId, pane), pane.id, url, profile),
+          activePaneId: pane.id,
+        }
+      })
+      return next ?? s
+    })
+    if (createdPaneId) {
+      window.ostia?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId: createdPaneId })
+    }
+  },
+
+  openBrowserTab: (workspaceId, url, profile) => {
+    if (seedLayout(workspaceId, (p) => setPaneBrowser(p, p.id, url, profile))) return
+    let createdPaneId: string | null = null
+    set((s) => {
+      const next = patch(s, workspaceId, (l) => {
+        const beside = browserPaneInUse(l.root, l.activePaneId, profile)?.id ?? l.activePaneId
+        const pane = createPane('browser')
+        createdPaneId = pane.id
+        return {
+          ...l,
+          root: setPaneBrowser(addTab(l.root, beside, pane), pane.id, url, profile),
           activePaneId: pane.id,
         }
       })

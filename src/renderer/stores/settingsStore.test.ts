@@ -346,7 +346,7 @@ describe('settingsStore', () => {
         ok: true,
         version: 'v1',
         text: JSON.stringify({
-          browser: { searchEngine: 'kagi', openTerminalLinks: true, defaultZoom: 900 },
+          browser: { searchEngine: 'kagi', defaultZoom: 900 },
           editor: { wordWrap: 'on', tabSize: 3, autoSave: 'afterDelay' },
         }),
       })
@@ -355,7 +355,6 @@ describe('settingsStore', () => {
 
       expect(store().browser).toMatchObject({
         searchEngine: 'kagi',
-        openTerminalLinks: true,
         defaultZoom: 300,
       })
       expect(store().editor).toMatchObject({ wordWrap: 'on', tabSize: 2, autoSave: 'afterDelay' })

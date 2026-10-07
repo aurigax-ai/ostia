@@ -287,10 +287,16 @@ export function paneBrowserProfile(pane: PaneNode): BrowserProfile {
   return parseBrowserProfile(pane.browserProfile)
 }
 
-export function firstBrowserPane(node: LayoutNode, profile: BrowserProfile): PaneNode | null {
-  return (
-    allPanes(node).find((p) => p.kind === 'browser' && paneBrowserProfile(p) === profile) ?? null
-  )
+export function browserPaneInUse(
+  node: LayoutNode,
+  activePaneId: string,
+  profile: BrowserProfile,
+): PaneNode | null {
+  const isMatch = (p: PaneNode): boolean =>
+    p.kind === 'browser' && paneBrowserProfile(p) === profile
+  const active = findPane(node, activePaneId)
+  if (active && isMatch(active)) return active
+  return allPanes(node).find(isMatch) ?? null
 }
 
 export function setPaneExtension(
