@@ -1,3 +1,6 @@
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { CommandDescriptor, CommandResult } from '../../shared/types'
 import { registerPane } from '../idRegistry'
@@ -38,6 +41,11 @@ function fakeDeps(overrides: Partial<GatewayControlDeps> = {}): GatewayControlDe
     getTerminalState: vi.fn().mockReturnValue(undefined),
     listPanes: vi.fn().mockResolvedValue([]),
     listWorkspaces: vi.fn().mockResolvedValue([]),
+    fileScope: vi.fn().mockReturnValue({
+      home: '/nonexistent-home',
+      dataDirs: [],
+      rules: { denyRead: [], allowRead: [] },
+    }),
     listWorkspaceGroups: vi.fn().mockResolvedValue([]),
     primaryWindowId: vi.fn().mockReturnValue('w1'),
     attachPhoneObserver: vi.fn().mockReturnValue(null),
@@ -509,6 +517,239 @@ describe('dispatchGatewayMethod — pane.info / cwd.get', () => {
   it('cwd.get returns null cwd for an unknown paneId (never throws)', async () => {
     const res = await dispatchGatewayMethod('cwd.get', { paneId: 'ghost' }, ['read'], fakeDeps())
     expect(res).toEqual({ ok: true, result: { cwd: null } })
+  })
+})
+
+describe('dispatchGatewayMethod — fs.list / fs.read', () => {
+  let root: string
+  let outside: string
+  const caps = ['read', 'notify']
+
+  function filesDeps(
+    rules = { denyRead: [] as string[], allowRead: [] as string[] },
+    home = '/nonexistent-home',
+    dataDirs: string[] = [],
+  ) {
+    return fakeDeps({
+      listWorkspaces: vi
+        .fn()
+        .mockResolvedValue([
+          { workspaceId: 'w1', name: 'api', kind: 'terminal', workDir: root, state: 'idle' },
+        ]),
+      fileScope: vi.fn().mockReturnValue({ home, dataDirs, rules }),
+    })
+  }
+
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'gw-files-'))
+    outside = mkdtempSync(join(tmpdir(), 'gw-outside-'))
+    mkdirSync(join(root, 'src'))
+    writeFileSync(join(root, 'README.md'), 'hello')
+    writeFileSync(join(outside, 'secret.txt'), 'nope')
+    symlinkSync(join(outside, 'secret.txt'), join(root, 'leak'))
+  })
+
+  afterEach(() => {
+    rmSync(root, { recursive: true, force: true })
+    rmSync(outside, { recursive: true, force: true })
+  })
+
+  it('fs.list lists the workspace root with kind, size and mtime', async () => {
+    const res = await dispatchGatewayMethod(
+      'fs.list',
+      { sessionId: 'w1', path: '' },
+      caps,
+      filesDeps(),
+    )
+    expect(res.ok).toBe(true)
+    const { entries } = (res as { result: { entries: Record<string, unknown>[] } }).result
+    expect(entries.map((e) => [e.name, e.kind])).toEqual([
+      ['leak', 'link'],
+      ['README.md', 'file'],
+      ['src', 'dir'],
+    ])
+    const readme = entries.find((e) => e.name === 'README.md')
+    expect(readme?.size).toBe(5)
+    expect(typeof readme?.mtime).toBe('number')
+  })
+
+  it('answers outside-workspace for .., an absolute path and a symlink pointing out', async () => {
+    const deps = filesDeps()
+    const cases: [string, Record<string, unknown>][] = [
+      ['fs.list', { sessionId: 'w1', path: '..' }],
+      ['fs.read', { sessionId: 'w1', path: '../secret.txt' }],
+      ['fs.read', { sessionId: 'w1', path: join(outside, 'secret.txt') }],
+      ['fs.list', { sessionId: 'w1', path: outside }],
+      ['fs.read', { sessionId: 'w1', path: 'leak' }],
+    ]
+    for (const [method, params] of cases) {
+      expect(await dispatchGatewayMethod(method, params, caps, deps)).toEqual({
+        ok: false,
+        code: -32602,
+        message: 'outside-workspace',
+      })
+    }
+  })
+
+  it('answers not-found for a missing path', async () => {
+    const deps = filesDeps()
+    for (const method of ['fs.list', 'fs.read']) {
+      expect(
+        await dispatchGatewayMethod(method, { sessionId: 'w1', path: 'gone' }, caps, deps),
+      ).toEqual({ ok: false, code: -32602, message: 'not-found' })
+    }
+  })
+
+  it('fs.read returns UTF-8 text', async () => {
+    const res = await dispatchGatewayMethod(
+      'fs.read',
+      { sessionId: 'w1', path: 'README.md' },
+      caps,
+      filesDeps(),
+    )
+    expect(res).toEqual({ ok: true, result: { text: 'hello', size: 5, truncated: false } })
+  })
+
+  it('fs.read returns at most 256 KB of a 300 KB file with truncated: true', async () => {
+    writeFileSync(join(root, 'big.txt'), 'a'.repeat(300 * 1024))
+    const res = await dispatchGatewayMethod(
+      'fs.read',
+      { sessionId: 'w1', path: 'big.txt', maxBytes: 10 * 1024 * 1024 },
+      caps,
+      filesDeps(),
+    )
+    const result = (res as { result: { text: string; size: number; truncated: boolean } }).result
+    expect(result.text.length).toBe(256 * 1024)
+    expect(result.size).toBe(300 * 1024)
+    expect(result.truncated).toBe(true)
+  })
+
+  it('fs.read honours a smaller maxBytes', async () => {
+    const res = await dispatchGatewayMethod(
+      'fs.read',
+      { sessionId: 'w1', path: 'README.md', maxBytes: 2 },
+      caps,
+      filesDeps(),
+    )
+    expect(res).toEqual({ ok: true, result: { text: 'he', size: 5, truncated: true } })
+  })
+
+  it('fs.read returns base64 for a binary file', async () => {
+    const bytes = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x00, 0xff])
+    writeFileSync(join(root, 'img.png'), bytes)
+    const res = await dispatchGatewayMethod(
+      'fs.read',
+      { sessionId: 'w1', path: 'img.png' },
+      caps,
+      filesDeps(),
+    )
+    expect(res).toEqual({
+      ok: true,
+      result: { base64: bytes.toString('base64'), size: 6, truncated: false },
+    })
+  })
+
+  it('keeps a path the workspace sandbox hides out of reach and out of listings', async () => {
+    const deps = filesDeps({ denyRead: [join(realpathSync(root), 'src')], allowRead: [] })
+    const listed = await dispatchGatewayMethod(
+      'fs.list',
+      { sessionId: 'w1', path: '.' },
+      caps,
+      deps,
+    )
+    const names = (listed as { result: { entries: { name: string }[] } }).result.entries.map(
+      (e) => e.name,
+    )
+    expect(names).not.toContain('src')
+    expect(
+      await dispatchGatewayMethod('fs.list', { sessionId: 'w1', path: 'src' }, caps, deps),
+    ).toEqual({ ok: false, code: -32602, message: 'outside-workspace' })
+  })
+
+  it('refuses a workspace whose folder is home, above home or holds Ostia’s data', async () => {
+    const tooBroad = { ok: false, code: -32602, message: 'workspace-too-broad' }
+    const cases = [
+      filesDeps(undefined, root),
+      filesDeps(undefined, join(root, 'src')),
+      filesDeps(undefined, '/nonexistent-home', [join(root, 'src', 'ostia')]),
+    ]
+    for (const deps of cases) {
+      expect(
+        await dispatchGatewayMethod('fs.list', { sessionId: 'w1', path: '' }, caps, deps),
+      ).toEqual(tooBroad)
+      expect(
+        await dispatchGatewayMethod('fs.read', { sessionId: 'w1', path: 'README.md' }, caps, deps),
+      ).toEqual(tooBroad)
+    }
+  })
+
+  it('never lists or reads credential files, even inside the workspace folder', async () => {
+    const secrets = [
+      '.ssh/id_ed25519',
+      '.gnupg/private-keys-v1.d/key',
+      '.aws/credentials',
+      '.config/gh/hosts.yml',
+      '.docker/config.json',
+      '.cargo/credentials.toml',
+      '.ostia/vault.json',
+      'src/.netrc',
+      'src/.git-credentials',
+      'src/.npmrc',
+      'src/.env',
+      'src/.env.local',
+    ]
+    for (const secret of secrets) {
+      mkdirSync(join(root, secret, '..'), { recursive: true })
+      writeFileSync(join(root, secret), 'token')
+    }
+    writeFileSync(join(root, 'src', 'app.ts'), 'ok')
+    symlinkSync(join(root, '.ssh', 'id_ed25519'), join(root, 'notes'))
+    const deps = filesDeps()
+    const names = async (path: string) => {
+      const res = await dispatchGatewayMethod('fs.list', { sessionId: 'w1', path }, caps, deps)
+      return (res as { result: { entries: { name: string }[] } }).result.entries.map((e) => e.name)
+    }
+    expect(await names('')).toEqual([
+      '.cargo',
+      '.config',
+      '.docker',
+      '.ostia',
+      'leak',
+      'notes',
+      'README.md',
+      'src',
+    ])
+    expect(await names('src')).toEqual(['app.ts'])
+    expect(await names('.config')).toEqual([])
+    expect(await names('.docker')).toEqual([])
+    for (const path of [...secrets, '.ssh', 'notes', './src/../.aws/credentials']) {
+      for (const method of ['fs.read', 'fs.list']) {
+        expect(await dispatchGatewayMethod(method, { sessionId: 'w1', path }, caps, deps)).toEqual({
+          ok: false,
+          code: -32602,
+          message: 'not-found',
+        })
+      }
+    }
+  })
+
+  it('answers unknown-session for a workspace that is not open', async () => {
+    expect(
+      await dispatchGatewayMethod('fs.list', { sessionId: 'nope', path: '' }, caps, filesDeps()),
+    ).toEqual({ ok: false, code: -32602, message: 'unknown-session' })
+  })
+
+  it('needs the read cap for both methods', async () => {
+    for (const method of ['fs.list', 'fs.read']) {
+      expect(
+        await dispatchGatewayMethod(
+          method,
+          { sessionId: 'w1', path: 'README.md' },
+          [],
+          filesDeps(),
+        ),
+      ).toEqual({ ok: false, code: -32003, message: 'needs-elevation', data: { cap: 'read' } })
+    }
   })
 })
 

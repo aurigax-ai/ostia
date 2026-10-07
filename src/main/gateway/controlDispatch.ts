@@ -10,6 +10,12 @@ import type { Ask, AskAnswerResult } from '../asks'
 import { internalPaneArgs } from '../commandArgs'
 import { resolveExternal } from '../idRegistry'
 import type { PaneEntry, WorkspaceEntry, WorkspaceGroupEntry } from '../paneList'
+import {
+  type PhoneFileScope,
+  type WorkspaceFileOutcome,
+  listWorkspaceFiles,
+  readWorkspaceFile,
+} from './workspaceFiles'
 
 export interface GatewayControlDeps {
   execCommand: (target: CommandTarget, id: string, args?: unknown) => Promise<CommandResult>
@@ -17,6 +23,7 @@ export interface GatewayControlDeps {
   getTerminalState: (paneId: string) => TerminalStateSnapshot | undefined
   listPanes: () => Promise<PaneEntry[]>
   listWorkspaces: () => Promise<WorkspaceEntry[]>
+  fileScope: (workspaceId: string) => PhoneFileScope
   listWorkspaceGroups: () => Promise<WorkspaceGroupEntry[]>
   primaryWindowId: () => string | undefined
   attachPhoneObserver: (
@@ -65,6 +72,22 @@ function needsElevation(cap: string): RpcOutcome {
 
 function invalidParams(message: string): RpcOutcome {
   return { ok: false, code: -32602, message }
+}
+
+function fileOutcome<T>(outcome: WorkspaceFileOutcome<T>, wrap: (value: T) => unknown): RpcOutcome {
+  return outcome.ok ? { ok: true, result: wrap(outcome.value) } : invalidParams(outcome.error)
+}
+
+async function workspaceFolder(
+  params: Record<string, unknown>,
+  deps: GatewayControlDeps,
+): Promise<{ workspaceId: string; workDir: string; path: string } | RpcOutcome> {
+  const { sessionId, path } = params
+  if (typeof sessionId !== 'string' || !sessionId) return invalidParams('missing sessionId')
+  if (typeof path !== 'string') return invalidParams('missing path')
+  const workspace = (await deps.listWorkspaces()).find((w) => w.workspaceId === sessionId)
+  if (!workspace) return invalidParams('unknown-session')
+  return { workspaceId: sessionId, workDir: workspace.workDir, path }
 }
 
 const PHONE_CAP_ALLOWS: Partial<Record<string, Capability[]>> = {
@@ -192,6 +215,30 @@ export async function dispatchGatewayMethod(
       const identity = resolveExternal(paneId)
       const cwd = identity ? (deps.getTerminalState(identity.paneId)?.cwd ?? null) : null
       return { ok: true, result: { cwd } }
+    }
+
+    case 'fs.list': {
+      if (!hasCap('read')) return needsElevation('read')
+      const folder = await workspaceFolder(p, deps)
+      if ('ok' in folder) return folder
+      const scope = deps.fileScope(folder.workspaceId)
+      return fileOutcome(
+        await listWorkspaceFiles(folder.workDir, folder.path, scope),
+        (entries) => ({
+          entries,
+        }),
+      )
+    }
+
+    case 'fs.read': {
+      if (!hasCap('read')) return needsElevation('read')
+      const folder = await workspaceFolder(p, deps)
+      if ('ok' in folder) return folder
+      const scope = deps.fileScope(folder.workspaceId)
+      return fileOutcome(
+        await readWorkspaceFile(folder.workDir, folder.path, p.maxBytes, scope),
+        (read) => read,
+      )
     }
 
     case 'ask.list': {

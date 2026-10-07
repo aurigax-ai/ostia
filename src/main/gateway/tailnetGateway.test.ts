@@ -31,6 +31,11 @@ const deps = {
   getTerminalState: vi.fn(),
   listPanes: vi.fn().mockResolvedValue([]),
   listWorkspaces: vi.fn().mockResolvedValue([]),
+  fileScope: vi.fn().mockReturnValue({
+    home: '/nonexistent-home',
+    dataDirs: [],
+    rules: { denyRead: [], allowRead: [] },
+  }),
   listWorkspaceGroups: vi.fn().mockResolvedValue([]),
   primaryWindowId: vi.fn().mockReturnValue('w1'),
   attachPhoneObserver: vi.fn(),
