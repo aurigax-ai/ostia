@@ -67,6 +67,7 @@ jobs:
       # unit-macos.
       full: ${{ github.ref_type == 'tag' || github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.full) }}
       linux: ${{ steps.runner.outputs.linux }}
+      linux_small: ${{ steps.runner.outputs.linux_small }}
       macos: ${{ steps.runner.outputs.macos }}
       platform: ${{ inputs.platform || 'all' }}
       specs: ${{ steps.plan.outputs.specs }}
@@ -97,12 +98,17 @@ jobs:
           MACOS_SWITCH: ${{ vars.OSTIA_SELF_HOSTED_MACOS }}
         run: |
           linux='"ubuntu-24.04"'
+          linux_small='"ubuntu-24.04"'
           macos='"macos-26"'
           if [ "$TRUSTED" = true ]; then
-            [ "$LINUX_SWITCH" = off ] || linux='"ostia-linux"'
+            if [ "$LINUX_SWITCH" != off ]; then
+              linux='"ostia-linux"'
+              linux_small='"ostia-linux-small"'
+            fi
             [ "$MACOS_SWITCH" = off ] || macos='["self-hosted","ostia-macos"]'
           fi
           echo "linux=$linux" >> "$GITHUB_OUTPUT"
+          echo "linux_small=$linux_small" >> "$GITHUB_OUTPUT"
           echo "macos=$macos" >> "$GITHUB_OUTPUT"
       # Only workflow_dispatch can fill these in; every other trigger gets the
       # full shard and group lists and a single repeat.
@@ -415,7 +421,7 @@ jobs:
   e2e-report:
     needs: [changes, e2e]
     if: ${{ !cancelled() && needs.e2e.result != 'skipped' }}
-    runs-on: ${{ fromJSON(needs.changes.outputs.linux) }}
+    runs-on: ${{ fromJSON(needs.changes.outputs.linux_small) }}
     timeout-minutes: 10
     continue-on-error: true
     steps:
@@ -500,7 +506,7 @@ jobs:
   ci-result:
     needs: [changes, static, unit, unit-dom, build, e2e, e2e-ptrace]
     if: ${{ !cancelled() }}
-    runs-on: ${{ fromJSON(needs.changes.outputs.linux) }}
+    runs-on: ${{ fromJSON(needs.changes.outputs.linux_small) }}
     timeout-minutes: 5
     steps:
       - env:
