@@ -2134,6 +2134,7 @@ export const en = {
     sendConflict: '{keys} already sends {send} to the terminal. Replacing changes it.',
     terminalConflict: '{keys} sends {send} to the terminal. Replacing removes it there.',
     shadowed: 'Key conflict with {command}',
+    desktopTakes: '{desktop} takes {keys} first, so it never reaches {product}',
     problems: {
       invalid: 'it isn’t a shortcut like Ctrl+Shift+K.',
       escape: 'Escape belongs to the shell.',
@@ -5203,6 +5204,7 @@ export const zhHant: Dict = {
     sendConflict: '{keys} 已會送出 {send} 到終端機。取代後會改掉它。',
     terminalConflict: '{keys} 會送出 {send} 到終端機。取代後會從終端機按鍵移除。',
     shadowed: '按鍵與 {command} 衝突',
+    desktopTakes: '{desktop} 會先攔下 {keys}，{product} 收不到',
     problems: {
       invalid: '這不是像 Ctrl+Shift+K 的快捷鍵。',
       escape: 'Esc 屬於 Shell。',

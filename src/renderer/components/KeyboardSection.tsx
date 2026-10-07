@@ -15,6 +15,7 @@ import {
   specFromEvent,
   usedByMonaco,
 } from '@shared/chordSpec'
+import { desktopTaking } from '@shared/desktopChords'
 import {
   TERMINAL_SEND_TYPES,
   type TerminalSend,
@@ -41,6 +42,7 @@ import {
   useBindings,
   workspaceDigit,
 } from '../lib/chords'
+import { currentDesktops } from '../lib/desktop'
 import {
   type TerminalKeyRow,
   removeTerminalKey,
@@ -194,6 +196,24 @@ function SourceLabel({
     return <span className="text-fg-muted text-ui-xs">{presetName}</span>
   }
   return null
+}
+
+function DesktopNote({ specs }: { specs: readonly ChordSpec[] }): JSX.Element | null {
+  const d = useDict()
+  const desktops = currentDesktops()
+  const taken = specs.flatMap((spec) => {
+    const desktop = desktopTaking(spec, desktops)
+    return desktop ? [{ desktop, keys: chordText(spec, isMac) }] : []
+  })
+  if (taken.length === 0) return null
+  return (
+    <WarningNote>
+      {fmt(d.keyboard.desktopTakes, {
+        desktop: taken[0].desktop,
+        keys: taken.map((t) => t.keys).join(' '),
+      })}
+    </WarningNote>
+  )
 }
 
 function CustomBar({ on }: { on: boolean }): JSX.Element | null {
@@ -438,6 +458,7 @@ export function KeybindingRow({
           ) : null}
         </KeyNotice>
       ) : null}
+      <DesktopNote specs={current} />
       {ignored && mode.kind === 'idle' ? (
         <WarningNote>
           {fmt(d.keyboard.ignored, {
@@ -761,6 +782,7 @@ function TerminalKeyLine({
           {fmt(d.keyboard.shadowed, { command: commandTitle(shadowedBy, d) })}
         </WarningNote>
       ) : null}
+      <DesktopNote specs={[row.spec]} />
     </>
   )
   return (

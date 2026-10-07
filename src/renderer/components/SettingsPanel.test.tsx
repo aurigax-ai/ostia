@@ -424,6 +424,7 @@ describe('SettingsPanel', () => {
       platform: 'linux',
       hostName: 'devbox',
       home: '/home/me',
+      desktops: [],
     })
     await renderSettings()
     const user = userEvent.setup()

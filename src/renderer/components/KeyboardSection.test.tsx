@@ -6,6 +6,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { registerBuiltinCommands } from '../commands/builtins'
 import { commands } from '../commands/registry'
 import { zhHant } from '../i18n/dict'
+import { loadDesktops } from '../lib/desktop'
 import { languagesFrom } from '../lib/languagePacks'
 import { useExtensionsStore } from '../stores/extensionsStore'
 import { startKeymapSync, useKeymapStore } from '../stores/keymapStore'
@@ -398,6 +399,28 @@ describe('KeyboardSection', () => {
     expect(
       within(row(/Command Palette/)).getByText(/“Ctrl\+R” is ignored on this computer/),
     ).toBeInTheDocument()
+  })
+
+  it('marks a chord the desktop takes first, and only on that desktop', async () => {
+    const onDesktop = async (desktops: string[]): Promise<void> => {
+      const info = await window.ostia.info()
+      vi.mocked(window.ostia.info).mockResolvedValueOnce({ ...info, desktops })
+      await loadDesktops()
+    }
+    useSettingsStore.setState({ keybindings: { 'palette.toggle': ['Ctrl+Shift+Y', 'Super+L'] } })
+    await onDesktop(['ubuntu', 'GNOME'])
+    render(<KeyboardSection />)
+    expect(
+      within(row(/Command Palette/)).getByText(
+        'GNOME takes Super+L first, so it never reaches Ostia',
+      ),
+    ).toBeInTheDocument()
+    cleanup()
+    await onDesktop(['XFCE'])
+    render(<KeyboardSection />)
+    expect(within(row(/Command Palette/)).getByText('Super+L')).toBeInTheDocument()
+    expect(screen.queryByText(/takes .* first/)).toBeNull()
+    await onDesktop([])
   })
 
   it('warns about a Monaco default and saves only when confirmed', async () => {

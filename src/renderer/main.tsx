@@ -31,6 +31,7 @@ import { startAppMenu } from './lib/appMenu'
 import { startShortcutReporting } from './lib/assistShortcuts'
 import { startAssistUi } from './lib/assistUi'
 import { startAutoResume } from './lib/autoResume'
+import { loadDesktops } from './lib/desktop'
 import { errorDetails, reportError, startErrorReporting } from './lib/errorReporting'
 import { startFileDropTracking } from './lib/fileDrop'
 import { startHibernation } from './lib/hibernationScheduler'
@@ -85,7 +86,7 @@ const root = createRoot(container)
 async function boot(): Promise<void> {
   await initWindow()
   registerWindowCommands(useWindowsStore.getState().detached)
-  await Promise.all([loadLocalHostName(), loadHomeDir()])
+  await Promise.all([loadLocalHostName(), loadHomeDir(), loadDesktops()])
   try {
     await useSettingsStore.getState().init()
   } catch (err) {
