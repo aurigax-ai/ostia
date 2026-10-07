@@ -45,6 +45,16 @@ describe('GatewaySection', () => {
     expect(window.ostia.gateway.setCap).toHaveBeenLastCalledWith('dev_1', 'input', false)
   })
 
+  it('grants answering agents on its own switch, apart from typing and commands', async () => {
+    const user = userEvent.setup()
+    render(<GatewaySection />)
+    const respond = await screen.findByRole('switch', { name: 'Answer agents, Pixel' })
+    expect(respond).not.toBeChecked()
+    await user.click(respond)
+    expect(window.ostia.gateway.setCap).toHaveBeenCalledWith('dev_1', 'respond', true)
+    expect(window.ostia.gateway.setCap).toHaveBeenCalledTimes(1)
+  })
+
   it('keeps destructive disabled until commands are allowed', async () => {
     render(<GatewaySection />)
     const destructive = await screen.findByRole('switch', {

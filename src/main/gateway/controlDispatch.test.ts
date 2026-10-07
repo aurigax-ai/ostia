@@ -1,7 +1,22 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { CommandDescriptor, CommandResult } from '../../shared/types'
 import { registerPane } from '../idRegistry'
-import { type GatewayControlDeps, dispatchGatewayMethod } from './controlDispatch'
+import {
+  AGENT_ENTER_DELAY_MS,
+  type GatewayControlDeps,
+  dispatchGatewayMethod,
+} from './controlDispatch'
+
+vi.mock('electron', () => ({
+  app: { getPath: () => '/nonexistent' },
+  ipcMain: { handle: vi.fn() },
+  webContents: { fromId: vi.fn() },
+}))
+
+const { createApprovals } = await import('../approvals')
+const { createQuestions } = await import('../questions')
+const { createAskHub } = await import('../asks')
+const { askPermission } = await import('../permissionAsk')
 
 function descriptor(overrides: Partial<CommandDescriptor> & { id: string }): CommandDescriptor {
   return {
@@ -27,6 +42,9 @@ function fakeDeps(overrides: Partial<GatewayControlDeps> = {}): GatewayControlDe
     attachPhoneObserver: vi.fn().mockReturnValue(null),
     ptyResize: vi.fn(),
     ptyWrite: vi.fn(),
+    listAsks: vi.fn().mockReturnValue([]),
+    answerAsk: vi.fn().mockReturnValue('unknown-ask'),
+    agentRunning: vi.fn().mockReturnValue(false),
     ...overrides,
   }
 }
@@ -414,5 +432,327 @@ describe('dispatchGatewayMethod — pane.info / cwd.get', () => {
   it('cwd.get returns null cwd for an unknown paneId (never throws)', async () => {
     const res = await dispatchGatewayMethod('cwd.get', { paneId: 'ghost' }, ['read'], fakeDeps())
     expect(res).toEqual({ ok: true, result: { cwd: null } })
+  })
+})
+
+describe('dispatchGatewayMethod — asks and agent replies', () => {
+  const RESPOND = ['read', 'notify', 'respond']
+
+  function setup() {
+    const pane = registerPane({ windowId: '7', workspaceId: 'ws-asks', paneId: 'p-asks' })
+    const created: unknown[] = []
+    const resolved: unknown[] = []
+    const questions = createQuestions({
+      publish: () => true,
+      now: () => 1000,
+      opened: (request) => hub.questionOpened(request),
+      settled: (id, outcome) => hub.settled(id, outcome),
+    })
+    const approvals = createApprovals({
+      mode: () => 'ask',
+      publish: () => true,
+      grant: vi.fn(),
+      revoke: vi.fn(),
+      always: () => true,
+      now: () => 2000,
+      timeoutMs: 60_000,
+      reveal: vi.fn(),
+      opened: (request) => hub.approvalOpened(request),
+      settled: (id, outcome) => hub.settled(id, outcome),
+    })
+    const hub = createAskHub({
+      questions: () => questions,
+      approvals: () => approvals,
+      identity: (paneId) => (paneId === 'p-asks' ? pane : undefined),
+      created: (ask) => created.push(ask),
+      resolved: (r) => resolved.push(r),
+    })
+    const deps = fakeDeps({ listAsks: hub.list, answerAsk: hub.answer })
+    const conn = { onClose: () => ({ dispose: () => {} }) }
+    const ctx = { identity: pane, conn } as unknown as Parameters<typeof askPermission>[1]
+    const question = () => {
+      const ticket = questions.ask({
+        externalId: pane.externalId,
+        windowId: '7',
+        paneId: 'p-asks',
+        question: 'Which database?',
+        context: 'Adding the refunds table',
+        choices: ['staging', 'production'],
+        mode: 'single',
+      })
+      if (!ticket.ok) throw new Error(ticket.error)
+      return ticket
+    }
+    const approval = () =>
+      approvals.request({
+        externalId: pane.externalId,
+        windowId: '7',
+        paneId: 'p-asks',
+        workspaceId: 'ws-asks',
+        caps: ['shell'],
+        action: 'command.exec agent.resume',
+        detail: '{}',
+      })
+    const permission = (phoneCanAnswer = true) =>
+      askPermission(
+        { agent: 'claude', tool: 'Bash', detail: 'rm -rf node_modules', always: true },
+        ctx,
+        { questions: () => questions, phoneCanAnswer: () => phoneCanAnswer },
+      )
+    const list = async () => {
+      const res = await dispatchGatewayMethod('ask.list', {}, ['read'], deps)
+      return (res as { result: { asks: Record<string, unknown>[] } }).result.asks
+    }
+    return { pane, deps, created, resolved, question, approval, permission, list, hub, questions }
+  }
+
+  it('ask.list shapes a question, an approval and a permission request', async () => {
+    const t = setup()
+    t.question()
+    void t.approval()
+    void t.permission()
+    const asks = await t.list()
+    expect(asks).toEqual([
+      {
+        askId: expect.stringMatching(/^question-/),
+        sessionId: 'ws-asks',
+        paneId: t.pane.externalId,
+        kind: 'question',
+        title: 'Which database?',
+        detail: 'Adding the refunds table',
+        choices: [
+          { id: '0', label: 'staging', tone: 'neutral' },
+          { id: '1', label: 'production', tone: 'neutral' },
+        ],
+        allowText: true,
+        since: 1000,
+      },
+      {
+        askId: expect.stringMatching(/^question-/),
+        sessionId: 'ws-asks',
+        paneId: t.pane.externalId,
+        kind: 'permission',
+        agent: 'claude',
+        title: 'Bash: rm -rf node_modules',
+        detail: 'rm -rf node_modules',
+        choices: [
+          { id: 'once', label: 'Allow once', tone: 'primary' },
+          { id: 'always', label: 'Always allow', tone: 'neutral' },
+          { id: 'deny', label: 'Deny', tone: 'danger' },
+        ],
+        allowText: false,
+        since: 1000,
+      },
+      {
+        askId: expect.stringMatching(/^approval-/),
+        sessionId: 'ws-asks',
+        paneId: t.pane.externalId,
+        kind: 'approval',
+        title: 'command.exec agent.resume',
+        detail: '{}',
+        choices: [
+          { id: 'once', label: 'Allow once', tone: 'primary' },
+          { id: 'session', label: 'Allow for this pane', tone: 'neutral' },
+          { id: 'always', label: 'Always allow', tone: 'neutral' },
+          { id: 'deny', label: 'Deny', tone: 'danger' },
+        ],
+        allowText: false,
+        since: 2000,
+      },
+    ])
+    expect(t.created).toHaveLength(3)
+  })
+
+  it('ask.answer routes a question’s choice and text to questions.answer', async () => {
+    const t = setup()
+    const ticket = t.question()
+    const res = await dispatchGatewayMethod(
+      'ask.answer',
+      { askId: ticket.id, choiceId: '1', text: 'after the backup' },
+      RESPOND,
+      t.deps,
+    )
+    expect(res).toEqual({ ok: true, result: { ok: true } })
+    expect(await ticket.outcome).toEqual({
+      outcome: 'answered',
+      choices: ['production'],
+      text: 'after the backup',
+    })
+  })
+
+  it('ask.answer routes an approval to approvals.answer', async () => {
+    const t = setup()
+    const outcome = t.approval()
+    const [ask] = await t.list()
+    await dispatchGatewayMethod(
+      'ask.answer',
+      { askId: ask?.askId, choiceId: 'session' },
+      RESPOND,
+      t.deps,
+    )
+    expect(await outcome).toBe('session')
+  })
+
+  it('ask.answer routes a permission request back to the waiting hook', async () => {
+    const t = setup()
+    const decision = t.permission()
+    const [ask] = await t.list()
+    await dispatchGatewayMethod(
+      'ask.answer',
+      { askId: ask?.askId, choiceId: 'always' },
+      RESPOND,
+      t.deps,
+    )
+    expect(await decision).toEqual({ decision: 'always' })
+  })
+
+  it('answers unknown-ask once the phone answered the ask', async () => {
+    const t = setup()
+    const ticket = t.question()
+    const answer = () =>
+      dispatchGatewayMethod('ask.answer', { askId: ticket.id, choiceId: '0' }, RESPOND, t.deps)
+    expect((await answer()).ok).toBe(true)
+    expect(await answer()).toEqual({ ok: false, code: -32602, message: 'unknown-ask' })
+    expect(t.resolved).toEqual([{ askId: ticket.id, outcome: 'answered' }])
+  })
+
+  it('resolves the ask for the phone when the desktop answers it', async () => {
+    const t = setup()
+    const ticket = t.question()
+    expect(t.questions.answer('7', ticket.id, { choices: [1], text: '' })).toBe(true)
+    expect(t.resolved).toEqual([{ askId: ticket.id, outcome: 'answered' }])
+    expect(await t.list()).toEqual([])
+    expect(
+      await dispatchGatewayMethod(
+        'ask.answer',
+        { askId: ticket.id, choiceId: '0' },
+        RESPOND,
+        t.deps,
+      ),
+    ).toEqual({ ok: false, code: -32602, message: 'unknown-ask' })
+  })
+
+  it('refuses a choice the ask does not offer', async () => {
+    const t = setup()
+    void t.permission()
+    const [ask] = await t.list()
+    const res = await dispatchGatewayMethod(
+      'ask.answer',
+      { askId: ask?.askId, choiceId: 'forever' },
+      RESPOND,
+      t.deps,
+    )
+    expect(res).toEqual({ ok: false, code: -32602, message: 'invalid-answer' })
+  })
+
+  it('never lists a sandbox card, which only the desktop answers', async () => {
+    const t = setup()
+    const approvals = createApprovals({
+      mode: () => 'ask',
+      publish: () => true,
+      grant: vi.fn(),
+      revoke: vi.fn(),
+      always: () => true,
+      now: () => 1,
+      timeoutMs: 60_000,
+      reveal: vi.fn(),
+      opened: (request) => t.hub.approvalOpened(request),
+    })
+    void approvals.request({
+      externalId: t.pane.externalId,
+      windowId: '7',
+      paneId: 'p-asks',
+      workspaceId: 'ws-asks',
+      caps: [],
+      action: 'reach example.com',
+      detail: '',
+      kind: 'sandbox-domain',
+      subject: 'example.com',
+    })
+    expect(t.created).toEqual([])
+  })
+
+  it('needs respond for ask.answer, agent.prompt and agent.interrupt', async () => {
+    const t = setup()
+    for (const method of ['ask.answer', 'agent.prompt', 'agent.interrupt']) {
+      const res = await dispatchGatewayMethod(
+        method,
+        { askId: 'question-1', paneId: t.pane.externalId, text: 'go', key: 'esc' },
+        ['read', 'notify', 'command', 'input', 'destructive'],
+        t.deps,
+      )
+      expect(res).toEqual({
+        ok: false,
+        code: -32003,
+        message: 'needs-elevation',
+        data: { cap: 'respond' },
+      })
+    }
+  })
+
+  describe('agent.prompt / agent.interrupt', () => {
+    beforeEach(() => vi.useFakeTimers())
+    afterEach(() => vi.useRealTimers())
+
+    it('answers not-an-agent for a pane that runs no agent', async () => {
+      const pane = registerPane({ windowId: '7', workspaceId: 'ws', paneId: 'p-shell' })
+      const deps = fakeDeps({ agentRunning: vi.fn().mockReturnValue(false) })
+      for (const [method, params] of [
+        ['agent.prompt', { paneId: pane.externalId, text: 'hi' }],
+        ['agent.interrupt', { paneId: pane.externalId, key: 'esc' }],
+        ['agent.prompt', { paneId: 'nope', text: 'hi' }],
+      ] as const) {
+        expect(await dispatchGatewayMethod(method, params, RESPOND, deps)).toEqual({
+          ok: false,
+          code: -32602,
+          message: 'not-an-agent',
+        })
+      }
+      expect(deps.ptyWrite).not.toHaveBeenCalled()
+    })
+
+    it('agent.prompt pastes the text and presses Enter while the agent still runs', async () => {
+      const pane = registerPane({ windowId: '7', workspaceId: 'ws', paneId: 'p-agent' })
+      const deps = fakeDeps({ agentRunning: vi.fn().mockReturnValue(true) })
+      const res = await dispatchGatewayMethod(
+        'agent.prompt',
+        { paneId: pane.externalId, text: 'fix the\ntests\u0007' },
+        RESPOND,
+        deps,
+      )
+      expect(res).toEqual({ ok: true, result: { ok: true } })
+      expect(deps.ptyWrite).toHaveBeenCalledWith('p-agent', '\x1b[200~fix the\ntests\x1b[201~')
+      vi.advanceTimersByTime(AGENT_ENTER_DELAY_MS)
+      expect(deps.ptyWrite).toHaveBeenLastCalledWith('p-agent', '\r')
+    })
+
+    it('agent.prompt skips Enter when the agent stopped before it', async () => {
+      const pane = registerPane({ windowId: '7', workspaceId: 'ws', paneId: 'p-agent-2' })
+      const agentRunning = vi.fn().mockReturnValueOnce(true).mockReturnValue(false)
+      const deps = fakeDeps({ agentRunning })
+      await dispatchGatewayMethod(
+        'agent.prompt',
+        { paneId: pane.externalId, text: 'go' },
+        RESPOND,
+        deps,
+      )
+      vi.advanceTimersByTime(AGENT_ENTER_DELAY_MS)
+      expect(deps.ptyWrite).toHaveBeenCalledTimes(1)
+    })
+
+    it('agent.interrupt sends Escape or Ctrl+C and nothing else', async () => {
+      const pane = registerPane({ windowId: '7', workspaceId: 'ws', paneId: 'p-agent-3' })
+      const ptyWrite = vi.fn()
+      const deps = fakeDeps({ agentRunning: vi.fn().mockReturnValue(true), ptyWrite })
+      const send = (key: string) =>
+        dispatchGatewayMethod('agent.interrupt', { paneId: pane.externalId, key }, RESPOND, deps)
+      await send('esc')
+      await send('ctrl-c')
+      expect(await send('toString')).toEqual({ ok: false, code: -32602, message: 'unknown key' })
+      expect(ptyWrite.mock.calls).toEqual([
+        ['p-agent-3', '\x1b'],
+        ['p-agent-3', '\x03'],
+      ])
+    })
   })
 })

@@ -1042,6 +1042,9 @@ export const en = {
     workspacesEmpty:
       'No workspaces are open. Each one appears here with its state, latest message, agents and extension status.',
     questionNotice: 'Agent asks',
+    permissionTitle: '{agent} asks to use {tool}',
+    permissionInTerminal: 'Answer in terminal',
+    permissionInTerminalHint: 'Show the agent’s own prompt in its pane instead',
     question: 'Question from {pane}',
     justNow: 'just now',
     waitsUntil: 'waits until {time}',
@@ -2827,6 +2830,7 @@ export const en = {
     remoteRevokeFor: 'Revoke {name}',
     remoteGrantsDesc:
       'Read and notifications are always on. Removing a permission disconnects the device so it reconnects with the smaller set.',
+    remoteCapRespond: 'Answer agents',
     remoteCapCommand: 'Run commands',
     remoteCapInput: 'Type into panes',
     remoteCapDestructive: 'Destructive commands',
@@ -3863,6 +3867,9 @@ export const zhHant: Dict = {
     workspacesEmpty:
       '沒有開啟的工作區。每個工作區會在這裡顯示狀態、最新訊息、代理程式和擴充功能狀態。',
     questionNotice: '代理程式提問',
+    permissionTitle: '{agent} 請求使用 {tool}',
+    permissionInTerminal: '在終端機中回答',
+    permissionInTerminalHint: '改為在窗格中顯示代理程式自己的提示',
     question: '來自 {pane} 的問題',
     justNow: '剛剛',
     waitsUntil: '等到 {time}',
@@ -5595,6 +5602,7 @@ export const zhHant: Dict = {
     remoteCapFor: '{name}：{cap}',
     remoteRevokeFor: '撤銷 {name}',
     remoteGrantsDesc: '讀取與通知永遠開啟。移除權限會中斷該裝置的連線，使其以較小的權限重新連線。',
+    remoteCapRespond: '回覆代理程式',
     remoteCapCommand: '執行指令',
     remoteCapInput: '在窗格中輸入',
     remoteCapDestructive: '破壞性指令',

@@ -19,7 +19,9 @@ vi.mock('../controlServer', () => ({
   registerControlMethod: (name: string) => registeredMethods.push(name),
 }))
 
-const { configureGatewayControl, startGateway, stopGateway } = await import('./server')
+const { configureGatewayControl, phoneCanRespond, startGateway, stopGateway } = await import(
+  './server'
+)
 const { gatewaySetCap, registerGatewayMethods } = await import('./index')
 
 type Json = {
@@ -66,6 +68,9 @@ const deps = {
   })),
   ptyResize: vi.fn(),
   ptyWrite: vi.fn(),
+  listAsks: vi.fn().mockReturnValue([]),
+  answerAsk: vi.fn().mockReturnValue('unknown-ask'),
+  agentRunning: vi.fn().mockReturnValue(false),
 } satisfies GatewayControlDeps
 
 const clients: Client[] = []
@@ -221,6 +226,45 @@ describe('gateway server over a real WebSocket', () => {
     expect(state.params?.payload).toEqual({ sessionId: 's1', state: 'waiting' })
     const notify = await c.next((m) => m.params?.type === 'notify')
     expect(notify.params?.payload).toEqual({ title: 'Build done', from: externalPaneId })
+  })
+
+  it('sends ask.created and ask.resolved to every phone with read', async () => {
+    const first = await connect(registerDevice({ name: 'Phone', pubkey: 'pk' }).token)
+    const second = await connect(registerDevice({ name: 'Tablet', pubkey: 'pk2' }).token)
+    const ask = {
+      askId: 'question-1',
+      sessionId: 's1',
+      paneId: externalPaneId,
+      kind: 'question' as const,
+      title: 'Ship it?',
+      choices: [],
+      allowText: true,
+      since: 1,
+    }
+
+    emitPlatformEvent('ask.created', { ask })
+    emitPlatformEvent('ask.resolved', { askId: 'question-1', outcome: 'answered' })
+
+    for (const c of [first, second]) {
+      const created = await c.next((m) => m.params?.type === 'ask.created')
+      expect(created.params?.payload).toEqual({ ask })
+      const resolved = await c.next((m) => m.params?.type === 'ask.resolved')
+      expect(resolved.params?.payload).toEqual({ askId: 'question-1', outcome: 'answered' })
+    }
+  })
+
+  it('reports a phone that can answer only while one holding respond is connected', async () => {
+    const { deviceId, token } = registerDevice({ name: 'Phone', pubkey: 'pk' })
+    const c = await connect(token)
+    expect(phoneCanRespond()).toBe(false)
+
+    gatewaySetCap({ deviceId, cap: 'respond', granted: true })
+    await c.next((m) => m.params?.type === 'caps.changed')
+    expect(phoneCanRespond()).toBe(true)
+
+    c.ws.terminate()
+    await c.closed
+    await vi.waitFor(() => expect(phoneCanRespond()).toBe(false))
   })
 
   it('exposes no control-socket method that can change device permissions', () => {

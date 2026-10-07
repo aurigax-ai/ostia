@@ -35,6 +35,9 @@ const deps = {
   attachPhoneObserver: vi.fn(),
   ptyResize: vi.fn(),
   ptyWrite: vi.fn(),
+  listAsks: vi.fn().mockReturnValue([]),
+  answerAsk: vi.fn().mockReturnValue('unknown-ask'),
+  agentRunning: vi.fn().mockReturnValue(false),
 } satisfies GatewayControlDeps
 
 let port = 0

@@ -72,9 +72,17 @@ describe('platformEvents bus', () => {
     expect(needsInput).not.toHaveBeenCalled()
   })
 
-  it('PLATFORM_EVENT_TYPES lists exactly the 5 event types this bus carries', () => {
+  it('PLATFORM_EVENT_TYPES lists exactly the 7 event types this bus carries', () => {
     expect([...PLATFORM_EVENT_TYPES].sort()).toEqual(
-      ['notify', 'agent.needs-input', 'agent.done', 'session.state', 'pane.state'].sort(),
+      [
+        'notify',
+        'agent.needs-input',
+        'agent.done',
+        'session.state',
+        'pane.state',
+        'ask.created',
+        'ask.resolved',
+      ].sort(),
     )
   })
 })

@@ -140,6 +140,7 @@ function PairRequests({
 }
 
 function capLabel(d: Dict, cap: PhoneGrantableCap): string {
+  if (cap === 'respond') return d.settings.remoteCapRespond
   if (cap === 'command') return d.settings.remoteCapCommand
   if (cap === 'input') return d.settings.remoteCapInput
   return d.settings.remoteCapDestructive

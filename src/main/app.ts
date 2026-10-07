@@ -71,6 +71,7 @@ import { installAppMenu } from './appMenu'
 import { registerAppUpdate } from './appUpdate'
 import { appVersion } from './appVersion'
 import { approvals, registerApprovals } from './approvals'
+import { createAskHub } from './asks'
 import { registerAssistIpc } from './assistIpc'
 import { registerAttentionMethods, targetOf } from './attention'
 import {
@@ -131,7 +132,7 @@ import {
 } from './gateway'
 import { createBonjourPublisher } from './gateway/announce'
 import { listPairRequests, onPairRequestsChanged } from './gateway/pairRequests'
-import { configureGatewayControl, stopGateway } from './gateway/server'
+import { configureGatewayControl, phoneCanRespond, stopGateway } from './gateway/server'
 import { createTailnet, tailnetNodeName, tsnetHelperPath } from './gateway/tailnet'
 import { GIT_EXTENSION, GitBoard } from './gitBoard'
 import { GlobalHotkey, toggleWindows } from './globalHotkey'
@@ -193,6 +194,7 @@ import { registerPaneRenameMethods } from './paneRename'
 import { registerPaneResumeMethods } from './paneResume'
 import { PaneWatch, registerPaneWaitMethods } from './paneWait'
 import { resolveSafe } from './pathGuard'
+import { registerPermissionAsk } from './permissionAsk'
 import {
   type MirrorHandle,
   type MirrorSink,
@@ -1175,6 +1177,14 @@ let mcpHost: McpHost | null = null
 let mcpOAuth: McpOAuth | null = null
 let broker: WindowBroker | null = null
 const agentRunning = new AgentRunningPanes(() => broker?.persist())
+
+const askHub = createAskHub({
+  questions,
+  approvals,
+  identity: getByPaneId,
+  created: (ask) => emitPlatformEvent('ask.created', { ask }),
+  resolved: (resolved) => emitPlatformEvent('ask.resolved', resolved),
+})
 const keptAttention = new KeptAttention()
 const paneWatch = new PaneWatch()
 const reachesPane: OriginReach = (senderWindowId, sourcePaneId, targetPaneId) =>
@@ -3001,8 +3011,12 @@ app.whenReady().then(() => {
   registerFsIpc()
   registerSelectionIpc(reachesPane, redactor.text)
   registerPrivacyIpc(redactor)
-  registerApprovals(revealWindow, settingsChanged)
-  registerQuestions()
+  registerApprovals(revealWindow, settingsChanged, {
+    opened: askHub.approvalOpened,
+    settled: askHub.settled,
+  })
+  registerQuestions({ opened: askHub.questionOpened, settled: askHub.settled })
+  registerPermissionAsk({ questions, phoneCanAnswer: phoneCanRespond })
   registerCredentials()
   registerAppUpdate(() => {
     restartRequested = true
@@ -3400,6 +3414,9 @@ app.whenReady().then(() => {
     attachPhoneObserver,
     ptyResize,
     ptyWrite,
+    listAsks: askHub.list,
+    answerAsk: askHub.answer,
+    agentRunning: (paneId) => agentRunning.has(paneId) && ptys.has(paneId),
   })
   const sharedBrowser = session.fromPartition(SHARED_BROWSER_PARTITION)
   sharedBrowser.setUserAgent(browserUserAgent(sharedBrowser.getUserAgent(), app.getName()))
