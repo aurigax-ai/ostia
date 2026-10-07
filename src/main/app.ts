@@ -69,6 +69,7 @@ import { registerAgentTranscriptIpc } from './agentTranscript'
 import { type AppLog, LOG_FILE_NAME, createAppLog } from './appLog'
 import { installAppMenu } from './appMenu'
 import { registerAppUpdate } from './appUpdate'
+import { appVersion } from './appVersion'
 import { approvals, registerApprovals } from './approvals'
 import { registerAssistIpc } from './assistIpc'
 import { registerAttentionMethods, targetOf } from './attention'
@@ -1447,7 +1448,7 @@ function registerIpc(): void {
     'app:info',
     (): AppInfo => ({
       name: PRODUCT_DISPLAY_NAME,
-      version: app.getVersion(),
+      version: appVersion(),
       platform: process.platform,
       hostName: hostname(),
       home: app.getPath('home'),
@@ -2949,6 +2950,7 @@ app.whenReady().then(() => {
   appLog = createAppLog(join(logDir, LOG_FILE_NAME))
   diagnostics = registerDiagnostics({
     log: appLog,
+    version: appVersion(),
     logDir,
     testHooks: process.env.NODE_ENV === 'test',
     startRecovery,
@@ -3001,6 +3003,7 @@ app.whenReady().then(() => {
     openExternal: openExternalSafe,
     readSettings: readSettingsFile,
     log: appLog,
+    version: appVersion(),
   })
   registerAgentTranscriptIpc()
   const notifyDeps = {

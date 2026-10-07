@@ -32,6 +32,7 @@ import { runManagerVerb } from './manager'
 import { parseWorkspaceRenameArgs, runPaneVerb } from './pane'
 import { runPortalCommand } from './portal'
 import { runTokenVerb } from './token'
+import { buildVersionAt } from './version'
 import { isOfflineViewVerb, runOfflineViewVerb, runViewVerb } from './view'
 
 interface ProcInfo {
@@ -1181,6 +1182,7 @@ async function runResumeTokenVerb(conn: MessageConnection): Promise<void> {
 }
 
 const USAGE = `usage: ostia <command> [args]
+       ostia --version
 
 commands:
   whoami | commands | info | cwd | pane.list | workspace.list | docs
@@ -1233,6 +1235,15 @@ async function main(): Promise<void> {
   const [cmd] = process.argv.slice(2)
   if (cmd === '--help' || cmd === '-h' || cmd === 'help') {
     console.log(USAGE)
+    return
+  }
+  if (cmd === '--version') {
+    const version = buildVersionAt(__dirname)
+    if (version) console.log(version)
+    else {
+      console.error('ostia: build-info.json is missing')
+      process.exitCode = 1
+    }
     return
   }
   if (isOfflineViewVerb(process.argv.slice(2))) {
