@@ -26,7 +26,11 @@ function fakeDeps(overrides: Partial<GatewayControlDeps> = {}): GatewayControlDe
     getTerminalState: vi.fn().mockReturnValue(undefined),
     listPanes: vi.fn().mockResolvedValue([]),
     listWorkspaces: vi.fn().mockResolvedValue([]),
-    fileReadRules: vi.fn().mockReturnValue({ denyRead: [], allowRead: [] }),
+    fileScope: vi.fn().mockReturnValue({
+      home: '/nonexistent-home',
+      dataDirs: [],
+      rules: { denyRead: [], allowRead: [] },
+    }),
     primaryWindowId: vi.fn().mockReturnValue('w1'),
     attachPhoneObserver: vi.fn().mockReturnValue(null),
     ptyResize: vi.fn(),
@@ -426,14 +430,18 @@ describe('dispatchGatewayMethod — fs.list / fs.read', () => {
   let outside: string
   const caps = ['read', 'notify']
 
-  function filesDeps(rules = { denyRead: [] as string[], allowRead: [] as string[] }) {
+  function filesDeps(
+    rules = { denyRead: [] as string[], allowRead: [] as string[] },
+    home = '/nonexistent-home',
+    dataDirs: string[] = [],
+  ) {
     return fakeDeps({
       listWorkspaces: vi
         .fn()
         .mockResolvedValue([
           { workspaceId: 'w1', name: 'api', kind: 'terminal', workDir: root, state: 'idle' },
         ]),
-      fileReadRules: vi.fn().mockReturnValue(rules),
+      fileScope: vi.fn().mockReturnValue({ home, dataDirs, rules }),
     })
   }
 
@@ -561,6 +569,73 @@ describe('dispatchGatewayMethod — fs.list / fs.read', () => {
     expect(
       await dispatchGatewayMethod('fs.list', { sessionId: 'w1', path: 'src' }, caps, deps),
     ).toEqual({ ok: false, code: -32602, message: 'outside-workspace' })
+  })
+
+  it('refuses a workspace whose folder is home, above home or holds Ostia’s data', async () => {
+    const tooBroad = { ok: false, code: -32602, message: 'workspace-too-broad' }
+    const cases = [
+      filesDeps(undefined, root),
+      filesDeps(undefined, join(root, 'src')),
+      filesDeps(undefined, '/nonexistent-home', [join(root, 'src', 'ostia')]),
+    ]
+    for (const deps of cases) {
+      expect(
+        await dispatchGatewayMethod('fs.list', { sessionId: 'w1', path: '' }, caps, deps),
+      ).toEqual(tooBroad)
+      expect(
+        await dispatchGatewayMethod('fs.read', { sessionId: 'w1', path: 'README.md' }, caps, deps),
+      ).toEqual(tooBroad)
+    }
+  })
+
+  it('never lists or reads credential files, even inside the workspace folder', async () => {
+    const secrets = [
+      '.ssh/id_ed25519',
+      '.gnupg/private-keys-v1.d/key',
+      '.aws/credentials',
+      '.config/gh/hosts.yml',
+      '.docker/config.json',
+      '.cargo/credentials.toml',
+      '.ostia/vault.json',
+      'src/.netrc',
+      'src/.git-credentials',
+      'src/.npmrc',
+      'src/.env',
+      'src/.env.local',
+    ]
+    for (const secret of secrets) {
+      mkdirSync(join(root, secret, '..'), { recursive: true })
+      writeFileSync(join(root, secret), 'token')
+    }
+    writeFileSync(join(root, 'src', 'app.ts'), 'ok')
+    symlinkSync(join(root, '.ssh', 'id_ed25519'), join(root, 'notes'))
+    const deps = filesDeps()
+    const names = async (path: string) => {
+      const res = await dispatchGatewayMethod('fs.list', { sessionId: 'w1', path }, caps, deps)
+      return (res as { result: { entries: { name: string }[] } }).result.entries.map((e) => e.name)
+    }
+    expect(await names('')).toEqual([
+      '.cargo',
+      '.config',
+      '.docker',
+      '.ostia',
+      'leak',
+      'notes',
+      'README.md',
+      'src',
+    ])
+    expect(await names('src')).toEqual(['app.ts'])
+    expect(await names('.config')).toEqual([])
+    expect(await names('.docker')).toEqual([])
+    for (const path of [...secrets, '.ssh', 'notes', './src/../.aws/credentials']) {
+      for (const method of ['fs.read', 'fs.list']) {
+        expect(await dispatchGatewayMethod(method, { sessionId: 'w1', path }, caps, deps)).toEqual({
+          ok: false,
+          code: -32602,
+          message: 'not-found',
+        })
+      }
+    }
   })
 
   it('answers unknown-session for a workspace that is not open', async () => {

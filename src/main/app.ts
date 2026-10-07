@@ -133,6 +133,7 @@ import { createBonjourPublisher } from './gateway/announce'
 import { listPairRequests, onPairRequestsChanged } from './gateway/pairRequests'
 import { configureGatewayControl, stopGateway } from './gateway/server'
 import { createTailnet, tailnetNodeName, tsnetHelperPath } from './gateway/tailnet'
+import type { PhoneFileScope } from './gateway/workspaceFiles'
 import { GIT_EXTENSION, GitBoard } from './gitBoard'
 import { GlobalHotkey, toggleWindows } from './globalHotkey'
 import { type GuestChords, registerGuestChords } from './guestChords'
@@ -844,15 +845,19 @@ function sandboxCanRead(workspaceId: string, path: string): boolean {
   }
 }
 
-function phoneFileRules(workspaceId: string): SandboxReadRules {
-  const ostiaData = [app.getPath('userData')]
-  if (!workspaceSandboxes.isEnabled(workspaceId)) return { denyRead: ostiaData, allowRead: [] }
+function phoneReadRules(workspaceId: string): SandboxReadRules {
+  if (!workspaceSandboxes.isEnabled(workspaceId)) return { denyRead: [], allowRead: [] }
   try {
     const { denyRead, allowRead } = workspaceSandboxes.config(workspaceId).filesystem
-    return { denyRead: [...denyRead, ...ostiaData], allowRead: allowRead ?? [] }
+    return { denyRead, allowRead: allowRead ?? [] }
   } catch {
     return { denyRead: ['/'], allowRead: [] }
   }
+}
+
+function phoneFileScope(workspaceId: string): PhoneFileScope {
+  const { home, dataDirs } = workspaceSandboxes.pathEnv()
+  return { home, dataDirs, rules: phoneReadRules(workspaceId) }
 }
 
 const LANGUAGE_SERVER_WATCH_DEBOUNCE_MS = 300
@@ -3407,7 +3412,7 @@ app.whenReady().then(() => {
     getTerminalState,
     listPanes: () => listPanes({ execCommand, getTerminalState, ptyPid, windowIds }),
     listWorkspaces: () => listWorkspaces({ execCommand, windowIds }),
-    fileReadRules: phoneFileRules,
+    fileScope: phoneFileScope,
     primaryWindowId,
     attachPhoneObserver,
     ptyResize,

@@ -7,8 +7,12 @@ import type {
 } from '../../shared/types'
 import { resolveExternal } from '../idRegistry'
 import type { PaneEntry, WorkspaceEntry } from '../paneList'
-import type { SandboxReadRules } from '../sandbox/visibility'
-import { type WorkspaceFileOutcome, listWorkspaceFiles, readWorkspaceFile } from './workspaceFiles'
+import {
+  type PhoneFileScope,
+  type WorkspaceFileOutcome,
+  listWorkspaceFiles,
+  readWorkspaceFile,
+} from './workspaceFiles'
 
 export interface GatewayControlDeps {
   execCommand: (target: CommandTarget, id: string, args?: unknown) => Promise<CommandResult>
@@ -16,7 +20,7 @@ export interface GatewayControlDeps {
   getTerminalState: (paneId: string) => TerminalStateSnapshot | undefined
   listPanes: () => Promise<PaneEntry[]>
   listWorkspaces: () => Promise<WorkspaceEntry[]>
-  fileReadRules: (workspaceId: string) => SandboxReadRules
+  fileScope: (workspaceId: string) => PhoneFileScope
   primaryWindowId: () => string | undefined
   attachPhoneObserver: (
     rendererPaneId: string,
@@ -176,9 +180,9 @@ export async function dispatchGatewayMethod(
       if (!hasCap('read')) return needsElevation('read')
       const folder = await workspaceFolder(p, deps)
       if ('ok' in folder) return folder
-      const rules = deps.fileReadRules(folder.workspaceId)
+      const scope = deps.fileScope(folder.workspaceId)
       return fileOutcome(
-        await listWorkspaceFiles(folder.workDir, folder.path, rules),
+        await listWorkspaceFiles(folder.workDir, folder.path, scope),
         (entries) => ({
           entries,
         }),
@@ -189,9 +193,9 @@ export async function dispatchGatewayMethod(
       if (!hasCap('read')) return needsElevation('read')
       const folder = await workspaceFolder(p, deps)
       if ('ok' in folder) return folder
-      const rules = deps.fileReadRules(folder.workspaceId)
+      const scope = deps.fileScope(folder.workspaceId)
       return fileOutcome(
-        await readWorkspaceFile(folder.workDir, folder.path, p.maxBytes, rules),
+        await readWorkspaceFile(folder.workDir, folder.path, p.maxBytes, scope),
         (read) => read,
       )
     }

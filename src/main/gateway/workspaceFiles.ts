@@ -1,7 +1,8 @@
 import type { Dirent, Stats } from 'node:fs'
 import { lstat, open, readdir, realpath, stat } from 'node:fs/promises'
-import { isAbsolute, join, resolve } from 'node:path'
+import { isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { expandHome, resolveSafe } from '../pathGuard'
+import { HOME_HIDDEN_FILES, WORKDIR_HIDDEN_FILES, folderProblem } from '../sandbox/srtConfig'
 import { type SandboxReadRules, visibleInSandbox } from '../sandbox/visibility'
 
 export const FS_READ_MAX_BYTES = 256 * 1024
@@ -22,7 +23,45 @@ export interface WorkspaceFileRead {
   truncated: boolean
 }
 
+export interface PhoneFileScope {
+  home: string
+  dataDirs: readonly string[]
+  rules: SandboxReadRules
+}
+
+export const PHONE_HIDDEN_PATHS: readonly string[] = [
+  ...HOME_HIDDEN_FILES,
+  ...WORKDIR_HIDDEN_FILES,
+  '.ssh',
+  '.gnupg',
+  '.aws',
+  '.config/gh',
+  '.netrc',
+  '.git-credentials',
+  '.docker/config.json',
+  '.npmrc',
+  '.env',
+]
+
+const HIDDEN_NAME_PREFIXES: readonly string[] = ['.env.']
+
+function containsRun(segments: readonly string[], run: readonly string[]): boolean {
+  for (let start = 0; start + run.length <= segments.length; start++) {
+    if (run.every((part, i) => segments[start + i] === part)) return true
+  }
+  return false
+}
+
+export function isHiddenFromPhone(relativePath: string): boolean {
+  const segments = relativePath.split(sep).filter((part) => part !== '' && part !== '.')
+  if (segments.some((part) => HIDDEN_NAME_PREFIXES.some((prefix) => part.startsWith(prefix)))) {
+    return true
+  }
+  return PHONE_HIDDEN_PATHS.some((hidden) => containsRun(segments, hidden.split('/')))
+}
+
 export type WorkspaceFileError =
+  | 'workspace-too-broad'
   | 'outside-workspace'
   | 'not-found'
   | 'not-a-directory'
@@ -46,25 +85,38 @@ async function realOrNull(path: string): Promise<string | null> {
   }
 }
 
+async function workspaceRoot(
+  workDir: string,
+  scope: PhoneFileScope,
+): Promise<WorkspaceFileOutcome<string>> {
+  const root = await realOrNull(resolve(expandHome(workDir)))
+  if (root === null) return fail('not-found')
+  if (folderProblem(root, scope)) return fail('workspace-too-broad')
+  return { ok: true, value: root }
+}
+
 async function locate(
   workDir: string,
   path: string,
-  rules: SandboxReadRules,
-): Promise<WorkspaceFileOutcome<string>> {
+  scope: PhoneFileScope,
+): Promise<WorkspaceFileOutcome<{ root: string; real: string }>> {
+  const located = await workspaceRoot(workDir, scope)
+  if (!located.ok) return located
+  const root = located.value
   if (isAbsolute(path) || path.includes('\0')) return fail('outside-workspace')
-  const root = await realOrNull(resolve(expandHome(workDir)))
-  if (root === null) return fail('not-found')
   const lexical = resolveSafe(resolve(root, path), [root])
   if (lexical === null) return fail('outside-workspace')
+  if (isHiddenFromPhone(relative(root, lexical))) return fail('not-found')
   const real = await realOrNull(lexical)
   if (real === null) {
     const link = await lstat(lexical).catch(() => null)
     return fail(link?.isSymbolicLink() ? 'outside-workspace' : 'not-found')
   }
-  if (resolveSafe(real, [root]) === null || !visibleInSandbox(real, rules)) {
+  if (resolveSafe(real, [root]) === null || !visibleInSandbox(real, scope.rules)) {
     return fail('outside-workspace')
   }
-  return { ok: true, value: real }
+  if (isHiddenFromPhone(relative(root, real))) return fail('not-found')
+  return { ok: true, value: { root, real } }
 }
 
 function kindOf(entry: Dirent): FileEntryKind {
@@ -75,11 +127,11 @@ function kindOf(entry: Dirent): FileEntryKind {
 export async function listWorkspaceFiles(
   workDir: string,
   path: string,
-  rules: SandboxReadRules,
+  scope: PhoneFileScope,
 ): Promise<WorkspaceFileOutcome<WorkspaceFileEntry[]>> {
-  const located = await locate(workDir, path, rules)
+  const located = await locate(workDir, path, scope)
   if (!located.ok) return located
-  const dir = located.value
+  const { root, real: dir } = located.value
   const info = await stat(dir).catch(() => null)
   if (!info) return fail('not-found')
   if (!info.isDirectory()) return fail('not-a-directory')
@@ -88,7 +140,7 @@ export async function listWorkspaceFiles(
   const entries: WorkspaceFileEntry[] = []
   for (const dirent of dirents) {
     const full = join(dir, dirent.name)
-    if (!visibleInSandbox(full, rules)) continue
+    if (!visibleInSandbox(full, scope.rules) || isHiddenFromPhone(relative(root, full))) continue
     const own: Stats | null = await lstat(full).catch(() => null)
     if (!own) continue
     entries.push({
@@ -124,11 +176,11 @@ export async function readWorkspaceFile(
   workDir: string,
   path: string,
   maxBytes: unknown,
-  rules: SandboxReadRules,
+  scope: PhoneFileScope,
 ): Promise<WorkspaceFileOutcome<WorkspaceFileRead>> {
-  const located = await locate(workDir, path, rules)
+  const located = await locate(workDir, path, scope)
   if (!located.ok) return located
-  const handle = await open(located.value, 'r').catch(() => null)
+  const handle = await open(located.value.real, 'r').catch(() => null)
   if (!handle) return fail('not-found')
   try {
     const info = await handle.stat()

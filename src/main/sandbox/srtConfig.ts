@@ -174,7 +174,7 @@ export function protectedFiles(paths: SandboxBasePaths, workDir?: string): strin
 
 export function folderProblem(
   workDir: string,
-  paths: SandboxBasePaths,
+  paths: { home: string; dataDirs: readonly string[] },
 ): SandboxFolderReason | null {
   const folder = realPath(workDir)
   const home = realPath(paths.home)
