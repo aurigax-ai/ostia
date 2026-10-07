@@ -726,12 +726,13 @@
   box-shadow: inset 0 0 0 1px var(--line-strong);
 }
 
-.rail-row[data-drop="merge"] {
+.rail-row[data-drop="merge"],
+.rail-row[data-drop="tab"] {
   background: var(--brand-glow);
   box-shadow: inset 0 0 0 1px var(--brand);
 }
 
-.rail-merge-chip {
+.rail-drop-chip {
   position: absolute;
   top: 50%;
   right: 6px;
@@ -747,13 +748,13 @@
   translate: 0 -50%;
 }
 
-.rail-merge-chip-label {
+.rail-drop-chip-label {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.deck-rail.collapsed .rail-merge-chip-label {
+.deck-rail.collapsed .rail-drop-chip-label {
   display: none;
 }
 

@@ -108,6 +108,7 @@ import type {
   OriginAgents,
   OstiaBridge,
   PaneActivity,
+  PaneMoveResult,
   Platform,
   PromptContext,
   PtyAttachResult,
@@ -357,6 +358,13 @@ const bridge: OstiaBridge = {
     load: () => ipcRenderer.invoke('workspace:load') as Promise<AppSnapshot | null>,
     merge: (sourceId, targetId) =>
       ipcRenderer.invoke('workspace:merge', sourceId, targetId) as Promise<WorkspaceMergeResult>,
+    movePanes: (sourceId, targetId, paneIds) =>
+      ipcRenderer.invoke(
+        'workspace:move-panes',
+        sourceId,
+        targetId,
+        paneIds,
+      ) as Promise<PaneMoveResult>,
     readCmux: (path) => ipcRenderer.invoke('workspace:read-cmux', path) as Promise<CmuxSessionRead>,
   },
   scratch: {

@@ -658,10 +658,15 @@ export type WorkspaceMergeError = 'not-owned' | 'manager' | SandboxMergeRefusal
 
 export type WorkspaceMergeResult = { ok: true } | { ok: false; error: WorkspaceMergeError }
 
+export type PaneMoveError = 'not-owned' | 'manager' | 'sandbox' | 'scratch'
+
+export type PaneMoveResult = { ok: true } | { ok: false; error: PaneMoveError }
+
 export interface WorkspaceApi {
   save: (snapshot: AppSnapshot | null) => void
   load: () => Promise<AppSnapshot | null>
   merge: (sourceId: string, targetId: string) => Promise<WorkspaceMergeResult>
+  movePanes: (sourceId: string, targetId: string, paneIds: string[]) => Promise<PaneMoveResult>
   readCmux: (path?: string) => Promise<CmuxSessionRead>
 }
 
