@@ -120,8 +120,9 @@ describe('settingsStore', () => {
 
   describe('init', () => {
     it('keeps parseable keybindings and unbinds, and drops malformed entries', async () => {
-      vi.mocked(window.ostia.fs.read).mockResolvedValue(
-        JSON.stringify({
+      vi.mocked(window.ostia.fs.read).mockResolvedValue({
+        ok: true,
+        text: JSON.stringify({
           keybindings: {
             'palette.toggle': ' Ctrl+Shift+K ',
             'view.toggleRail': null,
@@ -130,7 +131,7 @@ describe('settingsStore', () => {
             'app.openSettings': 'Ctrl+R',
           },
         }),
-      )
+      })
       await store().init()
       expect({ ...store().keybindings }).toEqual({
         'palette.toggle': 'Ctrl+Shift+K',
@@ -142,9 +143,10 @@ describe('settingsStore', () => {
     it('starts without a keymap, keeps a well-formed keymap id and drops anything else', async () => {
       expect(store().keymap).toBeNull()
       expect(parsePersisted({}).keymap).toBeNull()
-      vi.mocked(window.ostia.fs.read).mockResolvedValue(
-        JSON.stringify({ keymap: 'keymap-macos/cmux' }),
-      )
+      vi.mocked(window.ostia.fs.read).mockResolvedValue({
+        ok: true,
+        text: JSON.stringify({ keymap: 'keymap-macos/cmux' }),
+      })
       await store().init()
       expect(store().keymap).toBe('keymap-macos/cmux')
       for (const keymap of ['cmux', 'Keymap/cmux', 'a/b/c', '__proto__/x', 7, {}, '']) {
@@ -168,14 +170,15 @@ describe('settingsStore', () => {
         keybindings: { 'palette.toggle': 'Cmd+Shift+Y' },
         terminalKeys: { Delete: null },
       }
-      vi.mocked(window.ostia.fs.read).mockResolvedValue(
-        JSON.stringify({
+      vi.mocked(window.ostia.fs.read).mockResolvedValue({
+        ok: true,
+        text: JSON.stringify({
           keymap: { mac: mac.keymap },
           terminalKeymap: { mac: mac.terminalKeymap },
           keybindings: { mac: mac.keybindings },
           terminalKeys: { mac: mac.terminalKeys },
         }),
-      )
+      })
       await store().init()
       expect(store().keymap).toBeNull()
       expect(store().terminalKeymap).toBeNull()
@@ -195,11 +198,12 @@ describe('settingsStore', () => {
     })
 
     it('keeps a grant main wrote after the last load when it saves another change', async () => {
-      vi.mocked(window.ostia.fs.read).mockResolvedValue(JSON.stringify({}))
+      vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, text: JSON.stringify({}) })
       await store().init()
-      vi.mocked(window.ostia.fs.read).mockResolvedValue(
-        JSON.stringify({ capabilities: { grants: ['send-other-pane'] } }),
-      )
+      vi.mocked(window.ostia.fs.read).mockResolvedValue({
+        ok: true,
+        text: JSON.stringify({ capabilities: { grants: ['send-other-pane'] } }),
+      })
       store().setNotifications({ whenFocused: true })
       await vi.runAllTimersAsync()
       const written = JSON.parse(String(vi.mocked(window.ostia.fs.write).mock.calls.at(-1)?.[1]))
@@ -208,8 +212,9 @@ describe('settingsStore', () => {
     })
 
     it('keeps terminal keys that parse, null drops, and saves them', async () => {
-      vi.mocked(window.ostia.fs.read).mockResolvedValue(
-        JSON.stringify({
+      vi.mocked(window.ostia.fs.read).mockResolvedValue({
+        ok: true,
+        text: JSON.stringify({
           terminalKeys: {
             'Cmd+Delete': { type: 'hex', value: '0x0b' },
             Delete: null,
@@ -217,7 +222,7 @@ describe('settingsStore', () => {
             'Cmd+Nope': { type: 'text', value: 'x' },
           },
         }),
-      )
+      })
       await store().init()
       expect({ ...store().terminalKeys }).toEqual({
         'Cmd+Delete': { type: 'hex', value: '0x0b' },
@@ -247,22 +252,25 @@ describe('settingsStore', () => {
     })
 
     it('keeps a known input mode and falls back to terminal for anything else', async () => {
-      vi.mocked(window.ostia.fs.read).mockResolvedValue(
-        JSON.stringify({ behavior: { inputMode: 'editor' } }),
-      )
+      vi.mocked(window.ostia.fs.read).mockResolvedValue({
+        ok: true,
+        text: JSON.stringify({ behavior: { inputMode: 'editor' } }),
+      })
       await store().init()
       expect(store().behavior.inputMode).toBe('editor')
 
-      vi.mocked(window.ostia.fs.read).mockResolvedValue(
-        JSON.stringify({ behavior: { inputMode: 'warp' } }),
-      )
+      vi.mocked(window.ostia.fs.read).mockResolvedValue({
+        ok: true,
+        text: JSON.stringify({ behavior: { inputMode: 'warp' } }),
+      })
       await store().init()
       expect(store().behavior.inputMode).toBe('terminal')
     })
 
     it('reads workspace settings, dropping bad values and blank folders', async () => {
-      vi.mocked(window.ostia.fs.read).mockResolvedValue(
-        JSON.stringify({
+      vi.mocked(window.ostia.fs.read).mockResolvedValue({
+        ok: true,
+        text: JSON.stringify({
           workspaces: {
             placement: 'top',
             inheritFolder: true,
@@ -274,7 +282,7 @@ describe('settingsStore', () => {
             globalHotkey: 'Space',
           },
         }),
-      )
+      })
       await store().init()
       expect(store().workspaces).toEqual({
         placement: 'top',
@@ -287,23 +295,25 @@ describe('settingsStore', () => {
         globalHotkey: '',
       })
 
-      vi.mocked(window.ostia.fs.read).mockResolvedValue(
-        JSON.stringify({ workspaces: { placement: 'middle', defaultFolder: '   ' } }),
-      )
+      vi.mocked(window.ostia.fs.read).mockResolvedValue({
+        ok: true,
+        text: JSON.stringify({ workspaces: { placement: 'middle', defaultFolder: '   ' } }),
+      })
       await store().init()
       expect(store().workspaces.placement).toBe('end')
       expect(store().workspaces.defaultFolder).toBe('~')
     })
 
     it('reads notification, sidebar and line-height settings, clamping and dropping bad values', async () => {
-      vi.mocked(window.ostia.fs.read).mockResolvedValue(
-        JSON.stringify({
+      vi.mocked(window.ostia.fs.read).mockResolvedValue({
+        ok: true,
+        text: JSON.stringify({
           appearance: { terminal: { lineHeight: 5 } },
           behavior: { copyOnSelect: true },
           notifications: { sound: false, agentDone: 'nope' },
           sidebar: { showPath: false, showMessage: 1 },
         }),
-      )
+      })
 
       await store().init()
 
@@ -317,12 +327,13 @@ describe('settingsStore', () => {
     })
 
     it('reads browser and editor settings, dropping invalid values and clamping zoom', async () => {
-      vi.mocked(window.ostia.fs.read).mockResolvedValue(
-        JSON.stringify({
+      vi.mocked(window.ostia.fs.read).mockResolvedValue({
+        ok: true,
+        text: JSON.stringify({
           browser: { searchEngine: 'kagi', openTerminalLinks: true, defaultZoom: 900 },
           editor: { wordWrap: 'on', tabSize: 3, autoSave: 'afterDelay' },
         }),
-      )
+      })
 
       await store().init()
 
@@ -344,8 +355,9 @@ describe('settingsStore', () => {
       expect(written.editor).toMatchObject({ formatOnSave: true, tabSize: 8 })
     })
     it('reads follow-system, themes, accent and zoom, clamping the zoom and dropping a bad accent', async () => {
-      vi.mocked(window.ostia.fs.read).mockResolvedValue(
-        JSON.stringify({
+      vi.mocked(window.ostia.fs.read).mockResolvedValue({
+        ok: true,
+        text: JSON.stringify({
           appearance: {
             followSystem: true,
             lightTheme: 'dracula',
@@ -355,7 +367,7 @@ describe('settingsStore', () => {
           },
           notifications: { command: 'say {title}' },
         }),
-      )
+      })
       await store().init()
       expect(store().appearance).toMatchObject({
         followSystem: true,
@@ -366,9 +378,10 @@ describe('settingsStore', () => {
       })
       expect(store().notifications.command).toBe('say {title}')
 
-      vi.mocked(window.ostia.fs.read).mockResolvedValue(
-        JSON.stringify({ appearance: { followSystem: 'yes', accent: 'red', zoom: 'big' } }),
-      )
+      vi.mocked(window.ostia.fs.read).mockResolvedValue({
+        ok: true,
+        text: JSON.stringify({ appearance: { followSystem: 'yes', accent: 'red', zoom: 'big' } }),
+      })
       await store().init()
       expect(store().appearance).toMatchObject({ followSystem: false, accent: '', zoom: 100 })
     })
@@ -379,12 +392,13 @@ describe('settingsStore', () => {
         maxLiveTerminals: 6,
       })
       expect(store().sidebar.showSSH).toBe(true)
-      vi.mocked(window.ostia.fs.read).mockResolvedValue(
-        JSON.stringify({
+      vi.mocked(window.ostia.fs.read).mockResolvedValue({
+        ok: true,
+        text: JSON.stringify({
           agents: { hibernation: { enabled: true, idleSeconds: 1, maxLiveTerminals: 900 } },
           sidebar: { showSSH: false },
         }),
-      )
+      })
 
       await store().init()
 
@@ -396,8 +410,9 @@ describe('settingsStore', () => {
       expect(store().sidebar.showSSH).toBe(false)
     })
     it('keeps only well-formed workspace group rules from settings.json', async () => {
-      vi.mocked(window.ostia.fs.read).mockResolvedValue(
-        JSON.stringify({
+      vi.mocked(window.ostia.fs.read).mockResolvedValue({
+        ok: true,
+        text: JSON.stringify({
           workspaceGroups: {
             byCwd: [
               { pattern: '~/work/**', group: ' Work ' },
@@ -408,7 +423,7 @@ describe('settingsStore', () => {
             ],
           },
         }),
-      )
+      })
 
       await store().init()
 
@@ -449,9 +464,10 @@ describe('settingsStore', () => {
     })
 
     it('merges a valid partial settings.json over DEFAULTS (mergeFont keeps default family)', async () => {
-      vi.mocked(window.ostia.fs.read).mockResolvedValue(
-        '{"locale":"zh-Hant","appearance":{"ui":{"size":16}}}',
-      )
+      vi.mocked(window.ostia.fs.read).mockResolvedValue({
+        ok: true,
+        text: '{"locale":"zh-Hant","appearance":{"ui":{"size":16}}}',
+      })
 
       await store().init()
 
@@ -466,7 +482,7 @@ describe('settingsStore', () => {
     })
 
     it('fills whole missing nested objects from DEFAULTS (file has only locale)', async () => {
-      vi.mocked(window.ostia.fs.read).mockResolvedValue('{"locale":"zh-Hant"}')
+      vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, text: '{"locale":"zh-Hant"}' })
 
       await store().init()
 
@@ -477,7 +493,10 @@ describe('settingsStore', () => {
     })
 
     it('merges a family-only surface font over DEFAULTS (size falls back to default)', async () => {
-      vi.mocked(window.ostia.fs.read).mockResolvedValue('{"appearance":{"ui":{"family":"X"}}}')
+      vi.mocked(window.ostia.fs.read).mockResolvedValue({
+        ok: true,
+        text: '{"appearance":{"ui":{"family":"X"}}}',
+      })
 
       await store().init()
 
@@ -487,7 +506,7 @@ describe('settingsStore', () => {
     })
 
     it('keeps DEFAULTS when settings.json is absent (fs.read → null)', async () => {
-      vi.mocked(window.ostia.fs.read).mockResolvedValue(null)
+      vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: false, error: 'missing' })
 
       await store().init()
 
@@ -520,9 +539,10 @@ describe('settingsStore', () => {
     })
 
     it('round-trips extensionSettings and saves what main stored for an extension', async () => {
-      vi.mocked(window.ostia.fs.read).mockResolvedValue(
-        '{"extensionSettings":{"git":{"fetch":true},"__proto__":{"x":1},"bad":[1]}}',
-      )
+      vi.mocked(window.ostia.fs.read).mockResolvedValue({
+        ok: true,
+        text: '{"extensionSettings":{"git":{"fetch":true},"__proto__":{"x":1},"bad":[1]}}',
+      })
 
       await store().init()
       expect(store().extensionSettings).toEqual({ git: { fetch: true } })
@@ -534,26 +554,29 @@ describe('settingsStore', () => {
     })
 
     it('reloads settings.json saved in the editor, but not its own save', async () => {
-      vi.mocked(window.ostia.fs.read).mockResolvedValue('{"locale":"en"}')
+      vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, text: '{"locale":"en"}' })
       await store().init()
       store().setTheme('dracula')
       await vi.advanceTimersByTimeAsync(300)
       const own = vi.mocked(window.ostia.fs.write).mock.calls[0][1]
 
-      vi.mocked(window.ostia.fs.read).mockResolvedValue(own)
+      vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, text: own })
       store().setZoom(120)
       await store().init()
       expect(store().appearance.zoom).toBe(120)
 
       const edited = JSON.parse(own)
       edited.appearance.theme = 'ostia-light'
-      vi.mocked(window.ostia.fs.read).mockResolvedValue(JSON.stringify(edited, null, 2))
+      vi.mocked(window.ostia.fs.read).mockResolvedValue({
+        ok: true,
+        text: JSON.stringify(edited, null, 2),
+      })
       await store().init()
       expect(store().appearance.theme).toBe('ostia-light')
     })
 
     it('logs a failed save instead of leaving the rejection unhandled', async () => {
-      vi.mocked(window.ostia.fs.read).mockResolvedValue('{"locale":"en"}')
+      vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, text: '{"locale":"en"}' })
       await store().init()
       vi.mocked(window.ostia.fs.write).mockRejectedValueOnce(new Error('disk full'))
       const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
@@ -567,9 +590,10 @@ describe('settingsStore', () => {
 
     it('redacts by default, and keeps the privacy section of settings.json through a save', async () => {
       expect(store().privacy.redaction).toEqual({ enabled: true, patterns: [] })
-      vi.mocked(window.ostia.fs.read).mockResolvedValue(
-        '{"privacy":{"redaction":{"enabled":false,"patterns":["ACME-[0-9]{4}",7]}}}',
-      )
+      vi.mocked(window.ostia.fs.read).mockResolvedValue({
+        ok: true,
+        text: '{"privacy":{"redaction":{"enabled":false,"patterns":["ACME-[0-9]{4}",7]}}}',
+      })
 
       await store().init()
       store().setTheme('dracula')
@@ -589,9 +613,10 @@ describe('settingsStore', () => {
     })
 
     it('keeps capabilities.grants from settings.json so a later save round-trips it', async () => {
-      vi.mocked(window.ostia.fs.read).mockResolvedValue(
-        '{"locale":"en","capabilities":{"grants":["browse","gateway"]}}',
-      )
+      vi.mocked(window.ostia.fs.read).mockResolvedValue({
+        ok: true,
+        text: '{"locale":"en","capabilities":{"grants":["browse","gateway"]}}',
+      })
 
       await store().init()
       store().setTheme('dracula')
@@ -603,9 +628,10 @@ describe('settingsStore', () => {
     })
 
     it('MGR-C16 keeps the manager section from settings.json so a later save round-trips it', async () => {
-      vi.mocked(window.ostia.fs.read).mockResolvedValue(
-        '{"locale":"en","manager":{"agents":{"aider":["aider","--yes"]}}}',
-      )
+      vi.mocked(window.ostia.fs.read).mockResolvedValue({
+        ok: true,
+        text: '{"locale":"en","manager":{"agents":{"aider":["aider","--yes"]}}}',
+      })
 
       await store().init()
       store().setTheme('dracula')
@@ -673,7 +699,7 @@ describe('settingsStore', () => {
     })
 
     it('keeps DEFAULTS when settings.json is invalid JSON (catch path)', async () => {
-      vi.mocked(window.ostia.fs.read).mockResolvedValue('not json{')
+      vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, text: 'not json{' })
 
       await store().init()
 

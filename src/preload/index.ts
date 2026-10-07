@@ -91,6 +91,7 @@ import type {
   FsBinaryResult,
   FsEntry,
   FsKind,
+  FsTextResult,
   GatewayActionResult,
   GatewayBindAddress,
   GatewayDevice,
@@ -239,7 +240,7 @@ const bridge: OstiaBridge = {
   },
   fs: {
     list: (path) => ipcRenderer.invoke('fs:list', path) as Promise<FsEntry[]>,
-    read: (path) => ipcRenderer.invoke('fs:read', path) as Promise<string | null>,
+    read: (path) => ipcRenderer.invoke('fs:read', path) as Promise<FsTextResult>,
     stat: (path) => ipcRenderer.invoke('fs:stat', path) as Promise<FsKind | null>,
     write: (path, content) => ipcRenderer.invoke('fs:write', path, content) as Promise<boolean>,
     readBinary: (path) => ipcRenderer.invoke('fs:read-binary', path) as Promise<FsBinaryResult>,

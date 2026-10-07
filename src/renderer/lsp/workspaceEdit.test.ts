@@ -72,7 +72,7 @@ describe('textEditsByUri', () => {
 describe('applyWorkspaceEdit', () => {
   it('edits an open document through its model and a closed file on disk', async () => {
     const model = fake.addModel(new FakeModel('/p/open.txt', 'open one'))
-    vi.mocked(window.ostia.fs.read).mockResolvedValue('closed one\n')
+    vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, text: 'closed one\n' })
     vi.mocked(window.ostia.fs.write).mockResolvedValue(true)
     const applied = await applyWorkspaceEdit(
       {
@@ -91,7 +91,7 @@ describe('applyWorkspaceEdit', () => {
   })
 
   it('reports failure when a closed file cannot be read or written, and for file operations', async () => {
-    vi.mocked(window.ostia.fs.read).mockResolvedValue(null)
+    vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: false, error: 'missing' })
     expect(
       await applyWorkspaceEdit({ changes: { 'file:///p/x.txt': [edit(0, 0, 0, 'x')] } }, '/p'),
     ).toBe(false)
@@ -106,7 +106,7 @@ describe('applyWorkspaceEdit', () => {
 
   it('refuses the whole edit when any file is outside the folder the server may edit', async () => {
     const model = fake.addModel(new FakeModel('/p/open.txt', 'open one'))
-    vi.mocked(window.ostia.fs.read).mockResolvedValue('secret\n')
+    vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, text: 'secret\n' })
     for (const uri of [
       'file:///home/u/.zshrc',
       'file:///p/../home/u/.zshrc',

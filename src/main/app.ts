@@ -125,6 +125,7 @@ import { openInExternalEditor } from './externalEditor'
 import { FileOps } from './fileOps'
 import { FileWatches, TreeWatches } from './fileWatch'
 import { readBinaryConfined } from './fsBinary'
+import { readTextConfined } from './fsText'
 import {
   configureAnnouncer,
   configureTailnet,
@@ -2546,15 +2547,9 @@ function registerFsIpc(): void {
     }
   })
 
-  ipcMain.handle('fs:read', (_e, path: string): string | null => {
-    const safe = openFileGrants.confine(path)
-    if (safe === null) return null
-    try {
-      return readFileSync(safe, 'utf8')
-    } catch {
-      return null
-    }
-  })
+  ipcMain.handle('fs:read', (_e, path: unknown) =>
+    readTextConfined(path, (candidate) => openFileGrants.confine(candidate)),
+  )
 
   ipcMain.handle('fs:read-binary', (_e, path: unknown) =>
     readBinaryConfined(path, (candidate) => openFileGrants.confine(candidate)),
