@@ -120,6 +120,21 @@ describe('WorkspaceSandboxes with kept hosts', () => {
     },
   )
 
+  it.skipIf(process.platform === 'darwin')(
+    'starts a plain host when the kept host channel path is too long for a socket',
+    async () => {
+      const store = new SandboxStore(join(root, 'long.json'))
+      store.set('ws-long', { enabled: true, allowRead: [], domains: [], controls: {} })
+      const { kept, spawned } = keptHosts()
+      kept.channel = (id) => join(root, 'x'.repeat(120), `${id}.sock`)
+      const manager = sandboxes(store, kept)
+      expect(await manager.wrap('ws-long', 'echo plain', 'bash')).toContain('echo plain')
+      expect(spawned).toEqual([])
+      expect(manager.isKept('ws-long')).toBe(false)
+      manager.stopAll()
+    },
+  )
+
   it('KSH-C57 removes a kept tmp folder whose workspace keeps nothing and keeps the live one', () => {
     const store = new SandboxStore(join(root, 'sweep.json'))
     const { kept } = keptHosts(undefined, 'sweep-tmp')

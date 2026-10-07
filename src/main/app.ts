@@ -874,7 +874,7 @@ const workspaceSandboxes: WorkspaceSandboxes = new WorkspaceSandboxes({
     channel: (workspaceId) =>
       join(
         keptTmuxDir(),
-        `${keptShellsName()}-host-${createHash('sha256').update(workspaceId).digest('hex').slice(0, 10)}.sock`,
+        `host-${createHash('sha256').update(`${keptShellsName()}\0${workspaceId}`).digest('hex').slice(0, 16)}.sock`,
       ),
     claim: (workspaceId) => {
       const claimed = keptShells.claimHost(workspaceId)

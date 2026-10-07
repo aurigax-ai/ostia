@@ -16,6 +16,7 @@ import {
   resolveSandbox,
   sandboxMergeRefusal,
 } from '../../shared/sandbox'
+import { socketPathLimit } from '../privateTmp'
 import { processAlive } from '../processAlive'
 import { SandboxHost, SandboxHostError } from './hostClient'
 import type { PackageBlockReason, PackagePolicy } from './packagePolicy'
@@ -489,6 +490,7 @@ export class WorkspaceSandboxes {
 
   private async spawnKeptHost(workspaceId: string, kept: KeptSandboxHosts): Promise<string | null> {
     const channel = kept.channel(workspaceId)
+    if (Buffer.byteLength(channel) > socketPathLimit(process.platform)) return null
     const tmpDir = this.tmpDir(workspaceId)
     mkdirSync(tmpDir, { recursive: true, mode: 0o700 })
     rmSync(channel, { force: true })

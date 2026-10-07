@@ -231,7 +231,7 @@ test('KSH-C61 no socket a sandboxed shell can see is its sandbox host', async ()
     const name = createHash('sha256').update(join(dataHome, 'userData')).digest('hex').slice(0, 16)
     await run(
       first.win,
-      `echo "host-in-tmp=$(find "$TMPDIR" -type s -name '*host*' 2>/dev/null | wc -l)"; ls ${tmuxDir} 2>/dev/null | grep -c ${name} | sed 's/^/host-seen=/'`,
+      `echo "host-in-tmp=$(find "$TMPDIR" -type s -name '*host*' 2>/dev/null | wc -l)"; ls ${tmuxDir} 2>/dev/null | grep -c -e ${name} -e '^host-' | sed 's/^/host-seen=/'`,
     )
     await expect(screen(first.win)).toContainText('host-in-tmp=0', { timeout: 15_000 })
     await expect(screen(first.win)).toContainText('host-seen=0')
