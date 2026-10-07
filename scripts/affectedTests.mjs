@@ -14,6 +14,7 @@ function plan(baseRef) {
       `${project}: ${files === null ? 'every test' : `tests related to ${files.length} files`}`,
     )
   }
+  console.error(`e2e: ${tests.e2e === null ? 'every spec' : `${tests.e2e.length} specs`}`)
   console.log(JSON.stringify(tests))
 }
 
