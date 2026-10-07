@@ -228,16 +228,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
-      - run: |
-          scripts/retry.sh sudo apt-get update
-          scripts/retry.sh sudo apt-get install -y zsh bubblewrap socat ripgrep tmux
-          # Ubuntu (GitHub-hosted) only; the ARC node runs SELinux and has no such sysctl.
-          for k in apparmor_restrict_unprivileged_userns apparmor_restrict_unprivileged_unconfined; do
-            [ ! -e /proc/sys/kernel/$k ] || sudo sysctl -w kernel.$k=0
-          done
-          zsh -fc 'autoload -U compaudit; compaudit' | xargs -r sudo chmod go-w
-          git config --global user.name 'Ostia CI'
-          git config --global user.email 'ci@ostia.invalid'
+      - uses: ./.github/actions/linux-deps
       - uses: ./.github/actions/setup
         timeout-minutes: 10
       - run: node scripts/affectedTests.mjs run node "$TESTS"
@@ -293,16 +284,7 @@ jobs:
         shard: ${{ fromJSON(needs.changes.outputs.shards) }}
     steps:
       - uses: actions/checkout@v7
-      - run: |
-          scripts/retry.sh sudo apt-get update
-          scripts/retry.sh sudo apt-get install -y xvfb zsh bubblewrap socat ripgrep tmux
-          # Ubuntu (GitHub-hosted) only; the ARC node runs SELinux and has no such sysctl.
-          for k in apparmor_restrict_unprivileged_userns apparmor_restrict_unprivileged_unconfined; do
-            [ ! -e /proc/sys/kernel/$k ] || sudo sysctl -w kernel.$k=0
-          done
-          zsh -fc 'autoload -U compaudit; compaudit' | xargs -r sudo chmod go-w
-          git config --global user.name 'Ostia CI'
-          git config --global user.email 'ci@ostia.invalid'
+      - uses: ./.github/actions/linux-deps
       - uses: ./.github/actions/setup
         timeout-minutes: 10
       - uses: actions/cache@v6
@@ -344,15 +326,7 @@ jobs:
     timeout-minutes: ${{ needs.changes.outputs.repeat == '1' && 10 || 60 }}
     steps:
       - uses: actions/checkout@v7
-      - run: |
-          scripts/retry.sh sudo apt-get update
-          scripts/retry.sh sudo apt-get install -y xvfb zsh bubblewrap socat ripgrep tmux
-          for k in apparmor_restrict_unprivileged_userns apparmor_restrict_unprivileged_unconfined; do
-            [ ! -e /proc/sys/kernel/$k ] || sudo sysctl -w kernel.$k=0
-          done
-          zsh -fc 'autoload -U compaudit; compaudit' | xargs -r sudo chmod go-w
-          git config --global user.name 'Ostia CI'
-          git config --global user.email 'ci@ostia.invalid'
+      - uses: ./.github/actions/linux-deps
       - uses: ./.github/actions/setup
         timeout-minutes: 10
       - uses: actions/cache@v6
@@ -502,15 +476,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - if: runner.os == 'Linux'
-        run: |
-          scripts/retry.sh sudo apt-get update
-          scripts/retry.sh sudo apt-get install -y xvfb zsh bubblewrap socat ripgrep tmux
-          for k in apparmor_restrict_unprivileged_userns apparmor_restrict_unprivileged_unconfined; do
-            [ ! -e /proc/sys/kernel/$k ] || sudo sysctl -w kernel.$k=0
-          done
-          zsh -fc 'autoload -U compaudit; compaudit' | xargs -r sudo chmod go-w
-          git config --global user.name 'Ostia CI'
-          git config --global user.email 'ci@ostia.invalid'
+        uses: ./.github/actions/linux-deps
       - if: runner.os == 'macOS'
         run: |
           command -v rg >/dev/null || brew install ripgrep

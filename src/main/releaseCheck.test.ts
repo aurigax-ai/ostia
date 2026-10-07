@@ -386,13 +386,27 @@ describe('registerReleaseCheck', () => {
     await github.close()
   })
 
+  const start = vi.fn(async () => 'opened' as const)
   const register = (settings: unknown = {}, version = '0.2.0'): void =>
     registerReleaseCheck({
       openExternal,
       readSettings: () => settings,
       log: { file: '', info, warn: vi.fn(), error: vi.fn() },
       version,
+      method: () => 'apt',
+      updateRunner: {
+        start,
+        state: () => ({ status: 'idle' }),
+        paneState: vi.fn(),
+        paneClosed: vi.fn(),
+      },
     })
+  const APT_COMMAND = 'sudo apt update && sudo apt install --only-upgrade ostia'
+  const state = (version: string | null) => ({
+    release: version ? release(version) : null,
+    method: 'apt',
+    updateCommand: APT_COMMAND,
+  })
 
   const invoke = (channel: string): unknown => handlers.get(channel)?.()
 
@@ -405,8 +419,11 @@ describe('registerReleaseCheck', () => {
       status: 'available',
       release: release('0.3.0'),
     })
-    expect(sent).toEqual([['app:release-available', release('0.3.0')]])
-    expect(await invoke('app:release-state')).toEqual(release('0.3.0'))
+    expect(sent).toEqual([['app:release-available', state('0.3.0')]])
+    expect(await invoke('app:release-state')).toEqual(state('0.3.0'))
+    expect(await invoke('app:update-run')).toBe('opened')
+    expect(start).toHaveBeenCalledTimes(1)
+    expect(await invoke('app:update-run-state')).toEqual({ status: 'idle' })
 
     expect(await invoke('app:release-open')).toBe(true)
     expect(openExternal).toHaveBeenCalledWith(release('0.3.0').url)
@@ -453,7 +470,7 @@ describe('registerReleaseCheck', () => {
     handlers.clear()
     register()
     await vi.advanceTimersByTimeAsync(10_000)
-    await vi.waitFor(() => expect(sent).toEqual([['app:release-available', release('0.3.0')]]))
+    await vi.waitFor(() => expect(sent).toEqual([['app:release-available', state('0.3.0')]]))
     expect(github.requests).toHaveLength(1)
   })
 
@@ -462,7 +479,7 @@ describe('registerReleaseCheck', () => {
     register()
     await invoke('app:release-check')
     await invoke('app:release-dismiss')
-    expect(sent.at(-1)).toEqual(['app:release-available', null])
+    expect(sent.at(-1)).toEqual(['app:release-available', state(null)])
 
     handlers.clear()
     sent.length = 0
@@ -471,7 +488,7 @@ describe('registerReleaseCheck', () => {
       status: 'available',
       release: release('0.3.0'),
     })
-    expect(await invoke('app:release-state')).toBeNull()
+    expect(await invoke('app:release-state')).toEqual(state(null))
     expect(sent).toEqual([])
   })
 })

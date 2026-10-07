@@ -362,6 +362,9 @@
       "paths": [
         "src/main/releaseCheck.ts",
         "src/main/appUpdate.ts",
+        "src/main/installMethod.ts",
+        "src/main/updateRun.ts",
+        "src/shared/installMethod.ts",
         "src/shared/releases.ts",
         "src/renderer/components/Update",
         "src/renderer/stores/updateStore.ts"

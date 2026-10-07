@@ -46,6 +46,7 @@ import type {
 import type { FileOpResult } from '../shared/fileOps'
 import type { GuestChordFire } from '../shared/guestChords'
 import type { LoadedIconTheme } from '../shared/iconTheme'
+import type { ReleaseState, UpdateRunStart, UpdateRunState } from '../shared/installMethod'
 import type { KeymapLoad } from '../shared/keymapFile'
 import type { LanguagePack } from '../shared/languagePack'
 import type {
@@ -59,7 +60,7 @@ import type { OpenFileVerdict } from '../shared/openFiles'
 import type { PickOutcome, PickSendResult, PickState } from '../shared/pick'
 import type { QuestionState } from '../shared/questions'
 import type { RegionCaptureOutcome, RegionCopyResult } from '../shared/regionCapture'
-import type { ReleaseCheckResult, ReleaseInfo } from '../shared/releases'
+import type { ReleaseCheckResult } from '../shared/releases'
 import type {
   RemoteFolder,
   RemoteFolderAsk,
@@ -529,14 +530,21 @@ const bridge: OstiaBridge = {
       ipcRenderer.on('app:update-available', handler)
       return () => ipcRenderer.removeListener('app:update-available', handler)
     },
-    release: () => ipcRenderer.invoke('app:release-state') as Promise<ReleaseInfo | null>,
+    release: () => ipcRenderer.invoke('app:release-state') as Promise<ReleaseState>,
     checkRelease: () => ipcRenderer.invoke('app:release-check') as Promise<ReleaseCheckResult>,
     openRelease: () => ipcRenderer.invoke('app:release-open') as Promise<boolean>,
     dismissRelease: () => ipcRenderer.invoke('app:release-dismiss') as Promise<void>,
     onRelease: (cb) => {
-      const handler = (_event: unknown, release: ReleaseInfo | null): void => cb(release)
+      const handler = (_event: unknown, state: ReleaseState): void => cb(state)
       ipcRenderer.on('app:release-available', handler)
       return () => ipcRenderer.removeListener('app:release-available', handler)
+    },
+    runUpdate: () => ipcRenderer.invoke('app:update-run') as Promise<UpdateRunStart>,
+    updateRun: () => ipcRenderer.invoke('app:update-run-state') as Promise<UpdateRunState>,
+    onUpdateRun: (cb) => {
+      const handler = (_event: unknown, state: UpdateRunState): void => cb(state)
+      ipcRenderer.on('app:update-run-state', handler)
+      return () => ipcRenderer.removeListener('app:update-run-state', handler)
     },
   },
   system: {

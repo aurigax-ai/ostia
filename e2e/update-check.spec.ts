@@ -1,12 +1,15 @@
 import { type Server, createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
+import { resolve } from 'node:path'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
-import { emptyState } from './helpers'
+import { PROMPT, emptyState, openWorkspace } from './helpers'
 import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
 
 const VERSION = '999.0.0'
 const RELEASE_URL = `https://github.com/aurigax-ai/ostia/releases/tag/v${VERSION}`
 const STARTUP_CHECK_MS = 5_000
+const FAKE_BIN = resolve(__dirname, '../test/fixtures/system/bin')
+const APT_COMMAND = 'sudo apt update && sudo apt install --only-upgrade ostia'
 
 interface FakeGitHub {
   url: string
@@ -43,11 +46,12 @@ async function startFakeGitHub(): Promise<FakeGitHub> {
 async function launch(
   github: FakeGitHub,
   dataHome: string,
+  env: Record<string, string> = {},
 ): Promise<{ app: ElectronApplication; win: Page }> {
   const launchOptions = isolatedLaunch(dataHome)
   const app = await electron.launch({
     ...launchOptions,
-    env: { ...launchOptions.env, OSTIA_RELEASE_API_URL: github.url },
+    env: { ...launchOptions.env, OSTIA_RELEASE_API_URL: github.url, ...env },
   })
   const win = await app.firstWindow()
   await app.evaluate(({ shell }) => {
@@ -126,6 +130,45 @@ test('with the automatic check off nothing is asked until the human checks from 
 
     await settings.getByRole('button', { name: 'View release' }).click()
     await expect.poll(() => openedExternally(app)).toEqual([RELEASE_URL])
+  } finally {
+    await app.close()
+    await github.close()
+  }
+})
+
+test('an apt install offers Update with apt, runs the exact command after a confirm and then offers a restart', async () => {
+  const github = await startFakeGitHub()
+  const dataHome = freshDataHome()
+  const { app, win } = await launch(github, dataHome, {
+    OSTIA_INSTALL_METHOD: 'apt',
+    PATH: `${FAKE_BIN}:${process.env.PATH}`,
+  })
+  try {
+    await openWorkspace(win)
+    const notice = win.locator('.update-notice')
+    await expect(notice.getByRole('button', { name: 'Update with apt' })).toBeVisible({
+      timeout: 20_000,
+    })
+    await notice.getByRole('button', { name: 'Update with apt' }).click()
+
+    const dialog = win.getByRole('dialog', { name: 'Update Ostia with apt' })
+    await expect(dialog).toContainText(APT_COMMAND)
+    await expect(win.locator('.xterm')).toHaveCount(1)
+    await dialog.getByRole('button', { name: 'Open terminal' }).click()
+
+    await expect(win.locator('.xterm')).toHaveCount(2, { timeout: 20_000 })
+    const updater = win.locator('.xterm-rows').filter({ hasText: 'fake apt installed' })
+    await expect(updater).toContainText('fake apt installed: update', { timeout: 20_000 })
+    await expect(updater).toContainText('fake apt installed: install --only-upgrade ostia')
+    await expect(updater).toContainText(PROMPT)
+    await expect(notice.getByRole('button', { name: 'Restart Ostia' })).toBeVisible({
+      timeout: 15_000,
+    })
+    expect(await openedExternally(app)).toEqual([])
+
+    const settings = await openAbout(win)
+    await expect(settings.getByText('Installed with apt')).toBeVisible()
+    await expect(settings.getByRole('button', { name: 'Restart Ostia' })).toBeVisible()
   } finally {
     await app.close()
     await github.close()
