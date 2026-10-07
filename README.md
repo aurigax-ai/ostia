@@ -115,6 +115,6 @@ Without `pnpm rebuild`, terminals stay disabled and the log says `node-pty unava
 
 From 0.5.10, Ostia is licensed under the [Functional Source License, Version 1.1, MIT Future License](LICENSE) (FSL-1.1-MIT). It is source-available, not open source.
 
-- You may use, copy, modify and redistribute it for anything except a Competing Use, which means offering a product that substitutes for Ostia or offers substantially similar functionality. Personal use and use inside your own company are fine.
+- You may use, copy, modify and redistribute it for anything except a Competing Use, which means making Ostia available to others in a commercial product or service that substitutes for Ostia or another AurigaX product or service, or offers substantially similar functionality. Personal use, use inside your own company, and non-commercial education and research are all fine.
 - Each release converts to the MIT licence two years after it is published.
 - Versions up to and including 0.5.9 were released under the MIT licence and stay MIT.
