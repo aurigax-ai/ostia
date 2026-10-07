@@ -72,6 +72,7 @@ import { planDraftPaste, planHumanPaste } from '../lib/pasteGate'
 import { installPrimarySelection } from '../lib/primarySelection'
 import { spawnPromptOption } from '../lib/promptChips'
 import { scrollUpSequence } from '../lib/promptOverlay'
+import { createPtyAcker } from '../lib/ptyAck'
 import { registerSelectionSender } from '../lib/selectionSenders'
 import { createFileLinkProvider } from '../lib/terminalFileLinks'
 import { inputEditorFor, registerTerminal } from '../lib/terminalHandles'
@@ -647,6 +648,13 @@ function TerminalSurface({
         done?.()
       })
     }
+    const acker = createPtyAcker((chars) => window.ostia.pty.ack(paneId, chars))
+    const writeLive = (data: string, done?: () => void): void => {
+      writeOutput(data, () => {
+        acker.written(data.length)
+        done?.()
+      })
+    }
     markPaneActivity(paneId)
     const offData = window.ostia.pty.onData(paneId, (d) => {
       markPaneActivity(paneId)
@@ -657,7 +665,7 @@ function TerminalSurface({
         if (holdIdleTimer) clearTimeout(holdIdleTimer)
         holdIdleTimer = setTimeout(flushHold, 24)
       } else {
-        writeOutput(d)
+        writeLive(d)
       }
     })
     const offExit = window.ostia.pty.onExit(paneId, (_code, closes) => {
@@ -672,7 +680,7 @@ function TerminalSurface({
       lastSizeRef.current = { cols, rows }
       const flushPending = (): void => {
         replayed = true
-        for (const d of pending) writeOutput(d)
+        for (const d of pending) writeLive(d)
         pending.length = 0
       }
       window.ostia.pty
@@ -742,12 +750,12 @@ function TerminalSurface({
         writeOutput(`\x1b[${holdEraseRow};1H\x1b[0J${restore}`, () => {
           if (disposed) return
           term.resize(cols, rows)
-          writeOutput(redraw)
+          writeLive(redraw)
           syncSize()
         })
       } else {
         term.resize(cols, rows)
-        if (redraw.length > 0) writeOutput(redraw)
+        if (redraw.length > 0) writeLive(redraw)
         syncSize()
       }
     }

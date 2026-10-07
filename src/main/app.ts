@@ -222,6 +222,7 @@ import { type ProfileSyncHandle, startProfileSync } from './profileSync/ipc'
 import { flatSource, groupedSource, loginsSource } from './profileSync/secrets'
 import { registerProjectRootIpc } from './projectRoot'
 import { KubeContextReader, NodeVersionResolver, promptContext } from './promptContext'
+import { CoalescedOutput, PtyFlowControl } from './ptyFlow'
 import { type ReapReason, RecoveryBook, orphanVerdict, planRecovery } from './ptyReaper'
 import { PtySession, type Subscriber, type SubscriberRole } from './ptySession'
 import { questions, registerQuestions } from './questions'
@@ -354,6 +355,7 @@ interface PtyEntry {
   kept: TmuxPane | null
   keptMeta: KeptMeta | null
   session: PtySession
+  flow: PtyFlowControl
   mirror: ScreenMirror
   subs: Map<string, Electron.WebContents>
   killTimer: ReturnType<typeof setTimeout> | null
@@ -655,6 +657,7 @@ function killPty(paneId: string, reason: ReapReason): void {
   try {
     entry.pty.kill()
   } catch {}
+  entry.flow.dispose()
   entry.mirror.dispose()
   removeStateFile(entry)
   ptys.delete(paneId)
@@ -700,6 +703,26 @@ const paneIo: PaneIo = {
     return entry.kept !== null || entry.mirror.bracketedPaste
   },
   outputCursor: (paneId) => ptys.get(paneId)?.session.cursor,
+}
+
+function pausePty(entry: PtyEntry, paused: boolean): void {
+  try {
+    if (paused) entry.pty.pause?.()
+    else entry.pty.resume?.()
+  } catch {}
+}
+
+function releasePtyFlow(subId: string): void {
+  for (const entry of ptys.values()) entry.flow.release(subId)
+}
+
+function windowShown(wid: string): boolean {
+  const win = windows.get(wid)
+  return win !== undefined && !win.isDestroyed() && win.isVisible() && !win.isMinimized()
+}
+
+function hidePtyFlow(wid: string): void {
+  for (const entry of ptys.values()) entry.flow.hidden(wid)
 }
 
 function resizePty(entry: PtyEntry | undefined, cols: number, rows: number): void {
@@ -1428,6 +1451,8 @@ function wireWindow(win: BrowserWindow): void {
   const wid = String(win.webContents.id)
   windows.set(wid, win)
   diagnostics?.watchWindow(win)
+  win.on('hide', () => hidePtyFlow(wid))
+  win.on('minimize', () => hidePtyFlow(wid))
   win.on('closed', () => {
     windows.delete(wid)
     releaseWindowPtys(wid)
@@ -1880,13 +1905,25 @@ function registerPtyIpc(): void {
     if (!panesOwnedBy([paneId], subId)) {
       return { created: false, buffer: '', cursor: 0, dropped: false }
     }
-    const mkSub = () => ({
-      id: subId,
-      role: (opts.role ?? 'owner') as 'owner' | 'observer',
-      send: (data: string) => {
-        if (!e.sender.isDestroyed()) e.sender.send(`pty:data:${paneId}`, data)
-      },
-    })
+    const mkSub = (entry: PtyEntry): Subscriber => {
+      const role: SubscriberRole = opts.role === 'observer' ? 'observer' : 'owner'
+      const lane = role === 'owner' ? entry.flow.open(subId, () => windowShown(subId)) : null
+      const output = new CoalescedOutput((data) => {
+        if (e.sender.isDestroyed()) return
+        e.sender.send(`pty:data:${paneId}`, data)
+        lane?.sent(data.length)
+      })
+      return {
+        id: subId,
+        role,
+        send: (data) => output.push(data),
+        flush: () => output.flush(),
+        close: () => {
+          output.close()
+          lane?.close()
+        },
+      }
+    }
 
     const existing = ptys.get(paneId)
     if (existing) {
@@ -1897,7 +1934,7 @@ function registerPtyIpc(): void {
       movingPanes.delete(paneId)
       recoveryHeld.delete(paneId)
       existing.subs.set(subId, e.sender)
-      existing.session.addLiveSubscriber(mkSub())
+      existing.session.addLiveSubscriber(mkSub(existing))
       const { data, cursor, dropped } = existing.session.since(opts.sinceCursor ?? 0)
       return {
         created: false,
@@ -1914,7 +1951,7 @@ function registerPtyIpc(): void {
     }
     await keptShells.ready
     const keptShell = keptShells.claim(paneId)
-    if (keptShell) return reattachKept(e, paneId, opts, keptShell, mkSub())
+    if (keptShell) return reattachKept(e, paneId, opts, keptShell, mkSub)
     if (keptShells.takeSandboxLost(paneId)) {
       return {
         created: false,
@@ -2131,7 +2168,7 @@ function registerPtyIpc(): void {
     pty.onData((d) => feedPty(entry, d))
     pty.onExit(({ exitCode }) => session.exit(exitCode))
     const { data, cursor, dropped } = session.since(0)
-    session.addLiveSubscriber(mkSub())
+    session.addLiveSubscriber(mkSub(entry))
     return {
       created: true,
       buffer: data,
@@ -2151,7 +2188,7 @@ function registerPtyIpc(): void {
     paneId: string,
     opts: PtySpawnOptions,
     kept: KeptShell,
-    sub: Subscriber,
+    mkSub: (entry: PtyEntry) => Subscriber,
   ): Promise<PtyAttachResult> {
     const subId = String(e.sender.id)
     const { pane, meta } = kept
@@ -2225,7 +2262,7 @@ function registerPtyIpc(): void {
     }
     pane.live()
     const { data, cursor, dropped } = entry.session.since(0)
-    entry.session.addLiveSubscriber(sub)
+    entry.session.addLiveSubscriber(mkSub(entry))
     return {
       created: false,
       buffer: data,
@@ -2260,6 +2297,12 @@ function registerPtyIpc(): void {
     const attached = ptys.get(paneId)?.subs.has(String(e.sender.id)) === true
     agentRunning.report(paneId, running, attached)
   })
+
+  ipcMain.on('pty:ack', (e, paneId: unknown, chars: unknown) => {
+    if (typeof paneId !== 'string' || typeof chars !== 'number') return
+    ptys.get(paneId)?.flow.ack(String(e.sender.id), chars)
+  })
+  app.on('render-process-gone', (_e, contents) => releasePtyFlow(String(contents.id)))
 
   ipcMain.on('pty:write', (e, paneId: string, data: string) => {
     const entry = ptys.get(paneId)
@@ -2370,6 +2413,7 @@ function trackPty(
       }
       for (const listener of entry.exitListeners) listener(code)
       processes?.shellEnded(paneId, (from) => session.since(from))
+      entry.flow.dispose()
       entry.mirror.dispose()
       removeStateFile(entry)
       if (ptys.get(paneId) === entry) {
@@ -2386,6 +2430,10 @@ function trackPty(
     paneId,
     pty,
     session,
+    flow: new PtyFlowControl({
+      pause: () => pausePty(entry, true),
+      resume: () => pausePty(entry, false),
+    }),
     mirror: new ScreenMirror(opts.cols, opts.rows),
     subs: opts.subs,
     killTimer: null,

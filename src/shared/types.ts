@@ -253,6 +253,7 @@ export interface PtyApi {
   restart: (paneId: string) => Promise<boolean>
   reportAgentRunning: (paneId: string, running: boolean) => void
   write: (paneId: string, data: string) => void
+  ack: (paneId: string, chars: number) => void
   resize: (paneId: string, cols: number, rows: number) => void
   commands: (paneId: string) => Promise<string[]>
   foreground: (paneId: string) => Promise<string | null>
