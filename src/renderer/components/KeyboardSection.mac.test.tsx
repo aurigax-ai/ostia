@@ -86,15 +86,15 @@ describe('KeyboardSection on macOS', () => {
     render(<KeyboardSection />)
     expect(screen.queryByRole('button', { name: 'Reset ⌘←' })).toBeNull()
     await userEvent.click(screen.getByRole('button', { name: 'Edit ⌘←' }))
-    const value = screen.getByRole('textbox', { name: 'What to send' })
-    expect(value).toHaveValue('0x01')
-    await userEvent.clear(value)
-    await userEvent.type(value, '0x02')
+    const action = screen.getByRole('combobox', { name: 'Action' })
+    expect(action).toHaveTextContent('Start of line')
+    await userEvent.click(action)
+    await userEvent.click(await screen.findByRole('option', { name: 'Back one word' }))
     await userEvent.click(screen.getByRole('button', { name: 'Save' }))
     expect(useSettingsStore.getState().terminalKeys).toEqual({
-      'Cmd+Left': { type: 'hex', value: '0x02' },
+      'Cmd+Left': { type: 'hex', value: '0x1b 0x62' },
     })
-    expect(within(row(/0x02/)).getByText('Custom')).toBeInTheDocument()
+    expect(within(row(/0x1b 0x62/)).getByText('Custom')).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Reset ⌘←' }))
     expect(useSettingsStore.getState().terminalKeys).toEqual({})
   })

@@ -105,6 +105,11 @@ const applyPreset = async (layer: string, name: string): Promise<void> => {
   await userEvent.click(await screen.findByRole('button', { name: `Apply ${name}` }))
 }
 
+const pickAction = async (name: string): Promise<void> => {
+  await userEvent.click(screen.getByRole('combobox', { name: 'Action' }))
+  await userEvent.click(await screen.findByRole('option', { name }))
+}
+
 const columnWidths = (): string[] =>
   [...screen.getByRole('table').querySelectorAll('col')].map((c) => c.className)
 
@@ -531,6 +536,7 @@ describe('KeyboardSection', () => {
     press('k', { code: 'KeyK' })
     expect(screen.getByRole('alert')).toHaveTextContent(/K can’t be used: single keys/)
     press('K', { ctrlKey: true, altKey: true, code: 'KeyK' })
+    await pickAction('Custom bytes (advanced)')
     await userEvent.type(screen.getByRole('textbox', { name: 'What to send' }), 'clear\\r')
     await userEvent.click(screen.getByRole('button', { name: 'Save' }))
     expect(useSettingsStore.getState().terminalKeys).toEqual({
@@ -544,10 +550,48 @@ describe('KeyboardSection', () => {
     expect(screen.queryByText('clear\\r')).toBeNull()
   })
 
+  it('adds a key by recording it and picking an action, with no bytes to type', async () => {
+    render(<KeyboardSection />)
+    await userEvent.click(screen.getByRole('button', { name: 'Add a terminal key' }))
+    press('K', { ctrlKey: true, altKey: true, code: 'KeyK' })
+    expect(screen.queryByRole('textbox', { name: 'What to send' })).toBeNull()
+    await pickAction('Delete previous word')
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+    expect(useSettingsStore.getState().terminalKeys).toEqual({
+      'Ctrl+Alt+K': { type: 'hex', value: '0x1b 0x7f' },
+    })
+    expect(within(row(/Delete previous word/)).getByText('Ctrl+Alt+K')).toBeInTheDocument()
+  })
+
+  it('edits a key by its action, and shows the bytes only for one no action matches', async () => {
+    useSettingsStore.setState({
+      terminalKeys: {
+        'Ctrl+Alt+K': { type: 'hex', value: '0x01' },
+        'Ctrl+Alt+J': { type: 'text', value: 'ls\\r' },
+      },
+    })
+    render(<KeyboardSection />)
+    await userEvent.click(screen.getByRole('button', { name: 'Edit Ctrl+Alt+K' }))
+    expect(screen.getByRole('combobox', { name: 'Action' })).toHaveTextContent('Start of line')
+    expect(screen.queryByRole('textbox', { name: 'What to send' })).toBeNull()
+    await pickAction('End of line')
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+    expect(useSettingsStore.getState().terminalKeys['Ctrl+Alt+K']).toEqual({
+      type: 'hex',
+      value: '0x05',
+    })
+    await userEvent.click(screen.getByRole('button', { name: 'Edit Ctrl+Alt+J' }))
+    expect(screen.getByRole('combobox', { name: 'Action' })).toHaveTextContent(
+      'Custom bytes (advanced)',
+    )
+    expect(screen.getByRole('textbox', { name: 'What to send' })).toHaveValue('ls\\r')
+  })
+
   it('says what is wrong with a value it cannot send and keeps the editor open', async () => {
     render(<KeyboardSection />)
     await userEvent.click(screen.getByRole('button', { name: 'Add a terminal key' }))
     press('K', { ctrlKey: true, altKey: true, code: 'KeyK' })
+    await pickAction('Custom bytes (advanced)')
     await userEvent.click(screen.getByRole('combobox', { name: 'Send' }))
     await userEvent.click(await screen.findByRole('option', { name: 'Hex codes' }))
     await userEvent.type(screen.getByRole('textbox', { name: 'What to send' }), '0x80')
@@ -566,6 +610,7 @@ describe('KeyboardSection', () => {
     render(<KeyboardSection />)
     await userEvent.click(screen.getByRole('button', { name: 'Add a terminal key' }))
     press('P', { ctrlKey: true, shiftKey: true, code: 'KeyP' })
+    await pickAction('Custom bytes (advanced)')
     await userEvent.type(screen.getByRole('textbox', { name: 'What to send' }), 'x')
     await userEvent.click(screen.getByRole('button', { name: 'Save' }))
     expect(
