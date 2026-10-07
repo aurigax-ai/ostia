@@ -8,8 +8,8 @@ const check = process.argv.includes('--check')
 const SCAN_DIRS = ['src', 'e2e', 'test', 'scripts']
 const ROOT_FILES = [
   'electron.vite.config.ts',
-  'vitest.config.ts',
-  'vitest.workspace.ts',
+  'vitest.config.mts',
+  'vitest.workspace.mts',
   'playwright.config.ts',
 ]
 const SKIP = [/node_modules/, /src\/renderer\/components\/ui\//, /\.d\.ts$/]

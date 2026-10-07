@@ -5,7 +5,7 @@ announce(activeEntries(), 'vitest')
 
 export default defineWorkspace([
   {
-    extends: './vitest.config.ts',
+    extends: './vitest.config.mts',
     test: {
       name: 'node',
       environment: 'node',
@@ -21,7 +21,7 @@ export default defineWorkspace([
     },
   },
   {
-    extends: './vitest.config.ts',
+    extends: './vitest.config.mts',
     test: {
       name: 'dom',
       environment: 'jsdom',
@@ -31,7 +31,7 @@ export default defineWorkspace([
     },
   },
   {
-    extends: './vitest.config.ts',
+    extends: './vitest.config.mts',
     test: {
       name: 'security',
       environment: 'node',

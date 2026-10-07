@@ -120,7 +120,7 @@ describe('SplitTabPill', () => {
     const { container } = renderStack(root)
     const pill = container.querySelector('.pane-split-tab') as HTMLElement
     const [first, second] = [...pill.querySelectorAll<HTMLElement>('.split-tab-segment-main')]
-    first.focus()
+    act(() => first.focus())
     fireEvent.keyDown(pill, { key: 'ArrowRight' })
     expect(second).toHaveFocus()
     fireEvent.keyDown(pill, { key: 'ArrowLeft' })

@@ -1,6 +1,7 @@
 import '@testing-library/jest-dom/vitest'
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { renderSettled } from '../../../test/render'
 import { useSettingsStore } from '../stores/settingsStore'
 import { TerminalView } from './Terminal'
 
@@ -62,8 +63,8 @@ describe('TerminalView engines', () => {
     )
   })
 
-  it('keeps xterm.js for a terminal opened before the switch', () => {
-    const { container } = render(<TerminalView workspaceId="w1" paneId="p1" />)
+  it('keeps xterm.js for a terminal opened before the switch', async () => {
+    const { container } = await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
     act(() => useGhostty())
     expect(container.querySelector('.xterm-host')).not.toBeNull()
     expect(container.querySelector('.ghostty-host')).toBeNull()
