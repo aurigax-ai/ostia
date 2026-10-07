@@ -81,6 +81,8 @@ registerPaneIoMethods({
   managerAllowsInput: () => false,
   attention: async () => ({}),
   inputSent: () => {},
+  hibernated: async () => false,
+  wake: async () => false,
   delay: async () => {},
 })
 

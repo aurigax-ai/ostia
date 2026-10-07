@@ -3110,6 +3110,14 @@ app.whenReady().then(() => {
     const res = await execCommand(targetOf(to), 'attention.peek')
     return res.ok && res.result && typeof res.result === 'object' ? res.result : {}
   }
+  const paneHibernated = async (to: PaneIdentity): Promise<boolean> => {
+    const res = await execCommand(targetOf(to), 'pane.hibernated')
+    return res.ok && (res.result as { hibernated?: unknown } | undefined)?.hibernated === true
+  }
+  const wakeHibernatedPane = async (to: PaneIdentity): Promise<boolean> => {
+    const res = await execCommand(targetOf(to), 'pane.wake')
+    return res.ok && (res.result as { woke?: unknown } | undefined)?.woke === true
+  }
   const paneReachDeps: PaneReachDeps = {
     processPane: (ref, ctx) => {
       const entry = registry.resolve(
@@ -3130,6 +3138,8 @@ app.whenReady().then(() => {
     managerAllowsInput: () => managerSettings().allowInput,
     attention: peekAttention,
     inputSent: (to) => void execCommand(targetOf(to), 'attention.typed'),
+    hibernated: paneHibernated,
+    wake: wakeHibernatedPane,
     delay: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
   })
   registerPaneWaitMethods({
@@ -3164,6 +3174,7 @@ app.whenReady().then(() => {
         text,
       ).catch(() => {})
     },
+    hibernated: paneHibernated,
   })
   const extensionStore = new ExtensionStore(join(app.getPath('userData'), 'extensions.json'))
   extensionHost = new ExtensionHost({

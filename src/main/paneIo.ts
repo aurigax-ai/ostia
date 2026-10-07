@@ -173,6 +173,8 @@ export interface PaneIoDeps extends PaneReachDeps {
   managerAllowsInput: () => boolean
   attention: (pane: PaneIdentity) => Promise<PaneAttentionPeek>
   inputSent: (pane: PaneIdentity) => void
+  hibernated: (pane: PaneIdentity) => Promise<boolean>
+  wake: (pane: PaneIdentity) => Promise<boolean>
   delay: (ms: number) => Promise<void>
 }
 
@@ -180,6 +182,23 @@ const REFUSALS: Readonly<Record<string, string>> = {
   'own-pane': 'own-pane: a pane cannot type into itself',
   sandboxed:
     'sandboxed: a sandboxed workspace reaches only the sandboxed terminals of its own workspace',
+}
+
+export const WAKE_PANES_MAX = 32
+
+function asleep(to: PaneIdentity): ResponseError<void> {
+  return fail(`hibernated: ${to.externalId} is asleep; wake it with ostia pane wake`)
+}
+
+function notHibernated(to: PaneIdentity): ResponseError<void> {
+  return fail(`not-hibernated: ${to.externalId} is not hibernated`)
+}
+
+export function wakeRefs(raw: unknown): string[] {
+  if (!Array.isArray(raw) || raw.length === 0) throw fail('bad-request: panes')
+  if (raw.length > WAKE_PANES_MAX) throw fail('too-many: panes')
+  if (!raw.every((ref) => typeof ref === 'string' && ref)) throw fail('bad-request: panes')
+  return [...new Set(raw as string[])]
 }
 
 export function paneTarget(
@@ -236,6 +255,14 @@ export function registerPaneIoMethods(deps: PaneIoDeps): void {
     detail: string,
   ): Promise<void> => ensurePaneReach(deps, kind, to, ctx, { ref, method: `pane.${kind}`, detail })
 
+  const ensureManagerInput = (ctx: ControlMethodContext): void => {
+    if (ctx.identity.manager && !deps.managerAllowsInput()) {
+      throw fail(
+        'input-off: typing into panes is off; the human can turn on manager.allowInput in Settings → Manager',
+      )
+    }
+  }
+
   const respondedSince = async (paneId: string, before: number | undefined, ms: number) => {
     if (before === undefined) return false
     for (let waited = 0; ; waited += CONFIRM_POLL_MS) {
@@ -256,16 +283,13 @@ export function registerPaneIoMethods(deps: PaneIoDeps): void {
       const force = optionalFlag(p.force, 'force') === true
       const confirm = optionalFlag(p.confirm, 'confirm') === true
       const confirmMs = confirmWindow(p.confirmMs)
-      if (ctx.identity.manager && !deps.managerAllowsInput()) {
-        throw fail(
-          'input-off: typing into panes is off; the human can turn on manager.allowInput in Settings → Manager',
-        )
-      }
+      ensureManagerInput(ctx)
       const shown = [
         ...(typeof p.text === 'string' ? [JSON.stringify(p.text)] : []),
         ...(Array.isArray(p.keys) ? p.keys.map(String) : []),
       ].join(' ')
       await reach('input', to, String(p.pane), ctx, `type into ${to.externalId}: ${shown}`)
+      if (await deps.hibernated(to)) throw asleep(to)
       if (parts.text && !force) {
         const attention = await deps.attention(to)
         if (attention.state === 'waiting') {
@@ -293,6 +317,31 @@ export function registerPaneIoMethods(deps: PaneIoDeps): void {
       const result = { ok: true, paneId: to.externalId, bytes: first.length + rest.length, pasted }
       if (!confirm) return result
       return { ...result, responded: await respondedSince(to.paneId, before, confirmMs) }
+    },
+  })
+
+  registerControlMethod('pane.wake', {
+    scripts: true,
+    handler: async (raw, ctx) => {
+      const refs = wakeRefs(record(raw).panes)
+      ensureManagerInput(ctx)
+      const panes: PaneIdentity[] = []
+      for (const ref of refs) {
+        const to = target(ref, ctx)
+        await ensurePaneReach(deps, 'input', to, ctx, {
+          ref,
+          method: 'pane.wake',
+          detail: `wake ${to.externalId}: type its agent's resume command`,
+        })
+        if (!(await deps.hibernated(to))) throw notHibernated(to)
+        panes.push(to)
+      }
+      const woke: string[] = []
+      for (const to of panes) {
+        if (!(await deps.wake(to))) throw notHibernated(to)
+        woke.push(to.externalId)
+      }
+      return { ok: true, woke }
     },
   })
 
