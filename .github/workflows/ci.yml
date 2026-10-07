@@ -108,12 +108,13 @@ jobs:
           # e.g. while the Mac mini is offline: set to "off".
           LINUX_SWITCH: ${{ vars.OSTIA_SELF_HOSTED_LINUX }}
           MACOS_SWITCH: ${{ vars.OSTIA_SELF_HOSTED_MACOS }}
+          REF_TYPE: ${{ github.ref_type }}
         run: |
           linux='"ubuntu-24.04"'
           linux_small='"ubuntu-24.04"'
           macos='"macos-26"'
           if [ "$TRUSTED" = true ]; then
-            if [ "$LINUX_SWITCH" != off ]; then
+            if [ "$LINUX_SWITCH" != off ] && [ "$REF_TYPE" != tag ]; then
               linux='"ostia-linux"'
               linux_small='"ostia-linux-small"'
             fi
@@ -483,23 +484,18 @@ jobs:
   # pass/fail counts per entry. Never part of ci-result.
   quarantine:
     needs: [changes, build, build-macos]
-    if: ${{ !cancelled() && needs.changes.outputs.code == 'true' && github.event_name != 'merge_group' }}
+    if: ${{ !cancelled() && needs.changes.outputs.code == 'true' && github.event_name != 'merge_group' && github.event_name != 'pull_request' }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
     continue-on-error: true
     permissions:
       contents: read
-      issues: read
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - runner: ubuntu-24.04
-            out: out
-          - runner: macos-26
-            out: out-macos
+        include: ${{ fromJSON(contains(fromJSON('["schedule","workflow_dispatch"]'), github.event_name) && inputs.platform != 'linux' && '[{"runner":"ubuntu-24.04","out":"out"},{"runner":"macos-26","out":"out-macos"}]' || '[{"runner":"ubuntu-24.04","out":"out"}]') }}
     env:
-      RUNS: 5
+      RUNS: ${{ contains(fromJSON('["schedule","workflow_dispatch"]'), github.event_name) && 10 || 5 }}
       E2E: ${{ needs.changes.outputs.full == 'true' && (needs.build.result == 'success' || needs.build-macos.result == 'success') }}
     steps:
       - uses: actions/checkout@v7
@@ -522,11 +518,6 @@ jobs:
           git config --global user.email 'ci@ostia.invalid'
       - uses: ./.github/actions/setup
         timeout-minutes: 10
-      - if: runner.os == 'Linux'
-        continue-on-error: true
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: node scripts/quarantine.mjs issues
       - if: runner.os == 'macOS'
         run: pnpm rebuild
       - run: node scripts/quarantine.mjs unit "$RUNS"
@@ -541,6 +532,27 @@ jobs:
           path: out
       - if: env.E2E == 'true' && steps.out.outcome == 'success'
         run: node scripts/quarantine.mjs e2e "$RUNS"
+
+  # Pull requests and the merge queue only check the format of
+  # test/quarantine.json (test/quarantine.test.ts). Pushes to main, the
+  # nightly run, manual runs and tags (release.yml) fail here once an entry's date has
+  # passed or its issue is closed. Not part of ci-result, so a PR is never
+  # held up by a date it did not touch.
+  quarantine-dates:
+    if: github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/quarantine.mjs issues
 
   ci-result:
     needs: [changes, static, unit, unit-dom, build, e2e, e2e-ptrace]
