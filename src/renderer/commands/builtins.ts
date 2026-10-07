@@ -944,7 +944,21 @@ export function registerBuiltinCommands(): void {
     id: 'view.searchFiles',
     category: 'view',
     target: 'none',
-    run: () => useUIStore.getState().searchFiles(),
+    run: () => {
+      const ui = useUIStore.getState()
+      if (!ui.filesOpen) {
+        ui.searchFiles()
+        return
+      }
+      const focused = document.activeElement
+      if (focused instanceof Element && focused.closest('#files-panel')) {
+        ui.toggleFiles()
+        const workspaceId = useWorkspacesStore.getState().activeWorkspaceId
+        if (workspaceId) focusActivePaneWhenReady(workspaceId)
+        return
+      }
+      ui.searchFiles()
+    },
   })
 
   const zoomBy = (direction: 1 | -1): void => {
