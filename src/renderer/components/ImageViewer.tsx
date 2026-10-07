@@ -115,7 +115,7 @@ export function ImageViewer({
           <ViewerMessage>{message}</ViewerMessage>
         ) : url ? (
           <div
-            className="viewer-canvas"
+            className={drag.enabled ? 'viewer-canvas region-select' : 'viewer-canvas'}
             tabIndex={-1}
             onKeyDown={onCanvasKeyDown}
             style={

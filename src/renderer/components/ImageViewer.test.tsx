@@ -61,6 +61,22 @@ describe('ImageViewer', () => {
     expect(screen.getByText('Zoom 100%')).toBeInTheDocument()
   })
 
+  it('marks the canvas as a region-select surface only once the image has loaded', async () => {
+    vi.mocked(window.ostia.fs.readBinary).mockResolvedValue({ ok: true, data: PNG })
+    render(<ImageViewer workspaceId="w1" paneId="img-pane" filePath="/w/shots/login.png" />)
+    const img = await waitFor(() => {
+      const found = document.querySelector<HTMLImageElement>('img[alt="login.png"]')
+      if (!found) throw new Error('image not rendered')
+      return found
+    })
+    const canvas = document.querySelector('.viewer-canvas') as HTMLElement
+    expect(canvas).not.toHaveClass('region-select')
+    Object.defineProperty(img, 'naturalWidth', { value: 40 })
+    Object.defineProperty(img, 'naturalHeight', { value: 20 })
+    fireEvent.load(img)
+    await waitFor(() => expect(canvas).toHaveClass('region-select'))
+  })
+
   it('explains a file over the size cap instead of showing it', async () => {
     vi.mocked(window.ostia.fs.readBinary).mockResolvedValue({
       ok: false,

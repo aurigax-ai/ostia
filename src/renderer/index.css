@@ -2194,13 +2194,16 @@ button.prompt-chip:focus-visible {
   width: 100%;
 }
 
+.region-select {
+  cursor: crosshair;
+  touch-action: none;
+}
+
 .region-crop-layer {
   position: absolute;
   inset: 0;
   z-index: 3;
-  cursor: crosshair;
   outline: none;
-  touch-action: none;
 }
 
 .region-crop-box {

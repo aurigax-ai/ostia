@@ -53,6 +53,7 @@ export function useElementSize(ref: RefObject<HTMLElement>): Size {
 
 export interface RegionDrag {
   region: Region | null
+  enabled: boolean
   clear: () => void
   handlers: {
     onPointerDown: (e: ReactPointerEvent<HTMLElement>) => void
@@ -80,6 +81,7 @@ export function useRegionDrag(opts: { scale: number; bounds: Size; enabled: bool
 
   return {
     region,
+    enabled: opts.enabled,
     clear,
     handlers: {
       onPointerDown: (e) => {

@@ -123,6 +123,16 @@ describe('PdfViewer', () => {
     expect(cropToPng).not.toHaveBeenCalled()
   })
 
+  it('shows the region-select surface only in region mode', async () => {
+    await renderPdf()
+    expect(document.querySelector('.region-select')).toBeNull()
+    const toggle = screen.getByRole('button', { name: 'Select a region' })
+    await userEvent.click(toggle)
+    expect(document.querySelector('.pdf-region-layer')).toHaveClass('region-select')
+    await userEvent.click(toggle)
+    expect(document.querySelector('.region-select')).toBeNull()
+  })
+
   it('snapshots a dragged region of the page canvas in PDF points', async () => {
     await renderPdf()
     await userEvent.click(screen.getByRole('button', { name: 'Select a region' }))

@@ -381,7 +381,7 @@ export function PdfViewer({
           <div ref={textRef} className="pdf-text" data-region-mode={regionMode || undefined} />
           {regionMode ? (
             <div
-              className="pdf-region-layer"
+              className={drag.enabled ? 'pdf-region-layer region-select' : 'pdf-region-layer'}
               tabIndex={-1}
               onKeyDown={onRegionKeyDown}
               {...drag.handlers}
