@@ -196,6 +196,7 @@ const bridge: OstiaBridge = {
     restart: (paneId) => ipcRenderer.invoke('pty:restart', paneId) as Promise<boolean>,
     reportAgentRunning: (paneId, running) => ipcRenderer.send('pty:agent-running', paneId, running),
     write: (paneId, data) => ipcRenderer.send('pty:write', paneId, data),
+    ack: (paneId, chars) => ipcRenderer.send('pty:ack', paneId, chars),
     resize: (paneId, cols, rows) => ipcRenderer.send('pty:resize', paneId, cols, rows),
     commands: (paneId) => ipcRenderer.invoke('pty:commands', paneId) as Promise<string[]>,
     listDir: (paneId, dir) => ipcRenderer.invoke('pty:list-dir', paneId, dir),
