@@ -1,5 +1,6 @@
 import 'monaco-editor/features/register.all.js'
 import * as monaco from 'monaco-editor/editor/editor.api.js'
+import 'monaco-editor/languages/definitions/register.all.js'
 import editorWorker from 'monaco-editor/editor/editor.worker.js?worker'
 import cssWorker from 'monaco-editor/language/css/css.worker.js?worker'
 import {
@@ -19,10 +20,6 @@ import { BuiltinFeatures } from './builtinFeatures'
 import { registerInlineAssist } from './inlineAssist'
 import { SETTINGS_LANGUAGE_ID } from './language'
 import { registerSettingsLanguage } from './settingsLanguage'
-
-import.meta.glob('../../../node_modules/monaco-editor/esm/vs/languages/definitions/*/register.js', {
-  eager: true,
-})
 
 self.MonacoEnvironment = {
   getWorker(_workerId, label) {
