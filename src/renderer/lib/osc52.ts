@@ -1,4 +1,4 @@
-import type { IDisposable, Terminal } from '@xterm/xterm'
+import type { TerminalDisposable as IDisposable, OstiaTerminal as Terminal } from './ostiaTerminal'
 
 export const OSC52_MAX_PAYLOAD = 1024 * 1024
 

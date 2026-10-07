@@ -1,1 +1,14 @@
-{"id":"01a0f962-a8a2-749f-a210-f6f4254a1fff","title":"Dry run for deploy","body":"## Goal\n\nAdd a `--dry-run` flag to deploy.\n\n- [ ] parse the flag\n- [x] document it\n\n<script>alert(1)</script>\n\nSee [the guide](https://example.com/guide) and [this](javascript:alert(1)).\n","claimed_by":"agent:9a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d","claim_until":1790892187665,"version":3,"created_at":1790890387618,"updated_at":1790890387671,"ref":"DEMO-2","column":"review","priority":"normal","labels":["feature"]}
+{
+  "id": "01a0f962-a8a2-749f-a210-f6f4254a1fff",
+  "title": "Dry run for deploy",
+  "body": "## Goal\n\nAdd a `--dry-run` flag to deploy.\n\n- [ ] parse the flag\n- [x] document it\n\n<script>alert(1)</script>\n\nSee [the guide](https://example.com/guide) and [this](javascript:alert(1)).\n",
+  "claimed_by": "agent:9a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d",
+  "claim_until": 1790892187665,
+  "version": 3,
+  "created_at": 1790890387618,
+  "updated_at": 1790890387671,
+  "ref": "DEMO-2",
+  "column": "review",
+  "priority": "normal",
+  "labels": ["feature"]
+}

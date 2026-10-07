@@ -31,7 +31,9 @@ works.
 - **Stays a good terminal.** Command blocks, split panes and tabs, a file tree, a Monaco editor,
   and workspaces that come back with their layout and scrollback after a restart.
 - **Bends to how you work.** Extensions from any git repository, sidebar sections written as JSON,
-  themes, prompt chips and your own key chords.
+  themes, prompt chips, and your own key chords: several keys per command, and `terminal:` chords
+  that apply only inside a terminal. Presets switch the shortcuts and text editing (for example
+  Natural Text Editing from iTerm2), and you can import workspaces and layouts from cmux.
 
 | | |
 |---|---|
@@ -61,8 +63,6 @@ The cask also links the `ostia` command into your PATH, so `ostia --help` works 
 With the dmg, run `Ostia.app/Contents/Resources/bin/ostia` directly.
 
 ### Debian and Ubuntu (x64)
-
-The apt repository starts with Ostia 0.5.8. Until 0.5.8 is released, use the tarball below.
 
 ```bash
 sudo install -d -m 0755 /etc/apt/keyrings

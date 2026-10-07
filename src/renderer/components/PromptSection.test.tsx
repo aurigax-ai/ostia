@@ -2,7 +2,7 @@ import type { ExtensionInfo } from '@shared/extensions'
 import { PRODUCT_DISPLAY_NAME } from '@shared/productDisplay'
 import { DEFAULT_PROMPT_CHIPS } from '@shared/promptSettings'
 import type { PromptContext } from '@shared/types'
-import { render, screen, within } from '@testing-library/react'
+import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { PaneNode } from '../layout/types'
@@ -107,6 +107,7 @@ describe('PromptSection', () => {
   })
 
   afterEach(() => {
+    cleanup()
     useSettingsStore.setState(settingsInit, true)
     useUIStore.setState(uiInit, true)
     useLayoutStore.setState(layoutInit, true)

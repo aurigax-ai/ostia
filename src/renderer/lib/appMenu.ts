@@ -23,6 +23,7 @@ const LAYOUT: Layout = {
   file: [
     'workspace.new',
     'workspace.newScratch',
+    'window.new',
     SEPARATOR,
     'tab.new',
     'tab.newBrowser',
@@ -35,6 +36,7 @@ const LAYOUT: Layout = {
     'palette.toggle',
     SEPARATOR,
     'view.toggleRail',
+    'view.searchFiles',
     'dashboard.toggle',
     SEPARATOR,
     'pane.splitRight',

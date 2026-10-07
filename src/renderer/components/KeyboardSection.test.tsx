@@ -121,6 +121,18 @@ describe('KeyboardSection', () => {
     useUIStore.setState({ paletteOpen: false })
   })
 
+  it('marks the chords that act only in a terminal', () => {
+    render(<KeyboardSection />)
+    const clear = within(row(/Clear Terminal/))
+    expect(clear.getByText('Ctrl+Shift+K')).toBeInTheDocument()
+    expect(clear.getByText('in a terminal')).toBeInTheDocument()
+    const zoom = within(row(/Zoom Pane/))
+    expect(zoom.getByText('Ctrl+Shift+Enter')).toBeInTheDocument()
+    expect(zoom.getByText('Ctrl+Shift+X')).toBeInTheDocument()
+    expect(zoom.getAllByText('in a terminal')).toHaveLength(1)
+    expect(within(row(/Command Palette/)).queryByText('in a terminal')).toBeNull()
+  })
+
   it('picks a keymap, lists the entries it skipped, and puts the user’s chords on top of it', async () => {
     useExtensionsStore.setState({ list: [keymapExtension] })
     vi.mocked(window.ostia.keymaps.load).mockResolvedValue({
@@ -404,11 +416,11 @@ describe('KeyboardSection', () => {
     expect(picker).toHaveTextContent('Ostia standard')
     const buttons = screen.getAllByRole('button', { name: /^Edit / })
     expect(buttons.map((b) => b.getAttribute('aria-label'))).toEqual([
-      'Edit Ctrl+←',
-      'Edit Ctrl+→',
       'Edit Alt+←',
       'Edit Alt+→',
       'Edit Ctrl+Backspace',
+      'Edit Ctrl+←',
+      'Edit Ctrl+→',
     ])
     await userEvent.click(picker)
     expect(await screen.findByRole('option', { name: 'Ostia standard' })).toBeInTheDocument()
@@ -441,8 +453,8 @@ describe('KeyboardSection', () => {
     expect(useSettingsStore.getState().terminalKeys).toEqual({
       'Ctrl+Alt+K': { type: 'text', value: 'clear\\r' },
     })
-    expect(within(row(/clear/)).getByText('Ctrl+Alt+K')).toBeInTheDocument()
-    expect(within(row(/clear/)).getByText('Custom')).toBeInTheDocument()
+    expect(within(row(/clear\\r/)).getByText('Ctrl+Alt+K')).toBeInTheDocument()
+    expect(within(row(/clear\\r/)).getByText('Custom')).toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: 'Remove Ctrl+Alt+K' }))
     expect(useSettingsStore.getState().terminalKeys).toEqual({})

@@ -8,7 +8,7 @@ import {
   test,
 } from '@playwright/test'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
-import { openWorkspace } from './helpers'
+import { openWorkspace, pressQuit, waitForExit } from './helpers'
 
 function seedAgentTabs(dataHome: string): void {
   mkdirSync(join(dataHome, 'ostia'), { recursive: true })
@@ -119,10 +119,12 @@ test.describe.configure({ timeout: 90_000 })
 const RESUME_ID = 'e2e-resume-4242'
 const AUTO_RESUME_SETTINGS = { ...DOM_RENDERER_SETTINGS, agents: { autoResume: true } }
 
-function fakeResumableClaude(dataHome: string): string {
+function fakeResumableClaude(dataHome: string, turn?: 'working' | 'done'): string {
   const bin = join(dataHome, 'bin')
   mkdirSync(bin, { recursive: true })
   const claude = join(bin, 'claude')
+  const cli = 'ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" "$OSTIA_CLI"'
+  const report = turn ? [`     sleep 1; ${cli} state ${turn} >/dev/null 2>&1`] : []
   writeFileSync(
     claude,
     [
@@ -130,6 +132,7 @@ function fakeResumableClaude(dataHome: string): string {
       'case "$*" in',
       '  *--resume*) echo "fake-agent-resumed $*" ;;',
       `  *) ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" "$OSTIA_CLI" resume-token claude ${RESUME_ID} >/dev/null 2>&1`,
+      ...report,
       '     echo fake-agent-ready ;;',
       'esac',
       'exec cat',
@@ -140,8 +143,11 @@ function fakeResumableClaude(dataHome: string): string {
   return bin
 }
 
-async function launchAgentApp(dataHome: string): Promise<{ app: ElectronApplication; win: Page }> {
-  const bin = fakeResumableClaude(dataHome)
+async function launchAgentApp(
+  dataHome: string,
+  turn?: 'working' | 'done',
+): Promise<{ app: ElectronApplication; win: Page }> {
+  const bin = fakeResumableClaude(dataHome, turn)
   const launch = isolatedLaunch(dataHome)
   const app = await electron.launch({
     ...launch,
@@ -179,12 +185,6 @@ async function startResumableAgent(dataHome: string, win: Page): Promise<string>
   })
   await expect.poll(() => agentRunningSaved(dataHome), { timeout: 15_000 }).toBe(true)
   return String(savedPanes(dataHome)[0].id)
-}
-
-async function waitForExit(app: ElectronApplication): Promise<void> {
-  const proc = app.process()
-  if (proc.exitCode !== null || proc.signalCode !== null) return
-  await new Promise<void>((resolve) => proc.once('exit', () => resolve()))
 }
 
 async function quitAndWait(app: ElectronApplication, win: Page): Promise<void> {
@@ -286,5 +286,39 @@ test('an agent that exited before the quit does not resume after the restart', a
     await expect(shown).not.toContainText('fake-agent-resumed')
   } finally {
     await second.app.close().catch(() => {})
+  }
+})
+
+const CONFIRM_QUIT_SETTINGS = {
+  ...AUTO_RESUME_SETTINGS,
+  workspaces: { ...DOM_RENDERER_SETTINGS.workspaces, confirmQuit: true },
+}
+
+test('quitting with an agent idle at its prompt and auto-resume on asks nothing, and the agent resumes', async () => {
+  const dataHome = freshDataHome()
+  seedSettings(dataHome, CONFIRM_QUIT_SETTINGS)
+  const { app, win } = await launchAgentApp(dataHome, 'done')
+  try {
+    await startResumableAgent(dataHome, win)
+    expect(await pressQuit(app, win)).toBe('quit')
+  } finally {
+    app.process().kill('SIGKILL')
+  }
+  expect(agentRunningSaved(dataHome)).toBe(true)
+  await expectAutoResumed(dataHome)
+})
+
+test('quitting with an agent mid-turn still asks, and names the agent it would stop', async () => {
+  const dataHome = freshDataHome()
+  seedSettings(dataHome, CONFIRM_QUIT_SETTINGS)
+  const { app, win } = await launchAgentApp(dataHome, 'working')
+  try {
+    await startResumableAgent(dataHome, win)
+    expect(await pressQuit(app, win)).toBe('asked')
+    const dialog = win.getByRole('dialog')
+    await expect(dialog).toContainText('1 agent will be stopped')
+    await Promise.all([waitForExit(app), dialog.getByRole('button', { name: 'Quit' }).click()])
+  } finally {
+    app.process().kill('SIGKILL')
   }
 })

@@ -1,7 +1,8 @@
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { Terminal as Xterm } from '@xterm/xterm'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { commands } from '../commands/registry'
 import { insertCommand } from '../lib/blockActions'
 import { inputEditorFor, registerTerminal } from '../lib/terminalHandles'
 import { type LineAnchor, useBlocksStore } from '../stores/blocksStore'
@@ -78,6 +79,7 @@ describe('InputEditor', () => {
   })
 
   afterEach(() => {
+    cleanup()
     useBlocksStore.setState(blocksInit, true)
     useSettingsStore.setState(settingsInit, true)
   })
@@ -249,6 +251,27 @@ describe('InputEditor', () => {
     expect(editor()).toHaveValue('ls')
   })
 
+  it('runs a chord that acts only in a terminal, such as Ctrl+Shift+K, and keeps it from the window', async () => {
+    setMode('editor')
+    idlePrompt()
+    const run = vi.fn()
+    commands.register({ id: 'terminal.clear', title: 'Clear Terminal', run })
+    const behind = vi.fn((e: KeyboardEvent) => e.code)
+    try {
+      renderEditor()
+      const user = userEvent.setup()
+      await user.type(editor() as HTMLElement, 'ls')
+      window.addEventListener('keydown', behind)
+      await user.keyboard('{Control>}{Shift>}K{/Shift}{/Control}')
+      await waitFor(() => expect(run).toHaveBeenCalledTimes(1))
+      expect(behind.mock.results.map((r) => r.value)).not.toContain('KeyK')
+      expect(editor()).toHaveValue('ls')
+    } finally {
+      window.removeEventListener('keydown', behind)
+      commands.unregister('terminal.clear')
+    }
+  })
+
   it('clears the draft on Ctrl+C and hands the draft to the shell line on Escape', async () => {
     setMode('editor')
     idlePrompt()
@@ -402,6 +425,7 @@ describe('InputEditor', () => {
     setMode('editor')
     idlePrompt()
     renderEditor()
+    await act(async () => {})
     const area = editor() as HTMLTextAreaElement
     act(() => {
       area.blur()
@@ -835,6 +859,7 @@ describe('InputEditor', () => {
       setMode('editor')
       idlePrompt()
       const { view } = renderEditor()
+      await act(async () => {})
       const field = view.container.querySelector('.input-editor-field') as HTMLElement
       act(() => {
         editor()?.dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true }))

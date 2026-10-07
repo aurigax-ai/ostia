@@ -1,6 +1,8 @@
 import { CaretDownIcon, CaretUpIcon, XIcon } from '@phosphor-icons/react'
-import { type KeyboardEvent, useEffect, useRef } from 'react'
+import { type KeyboardEvent, type MutableRefObject, useEffect, useRef } from 'react'
 import { useDict } from '../i18n/useDict'
+import { type KeyLike, findStep, matchChord } from '../lib/chords'
+import { isMac } from '../platform'
 import { IconButton } from './IconButton'
 import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupText } from './ui/input-group'
 
@@ -15,6 +17,23 @@ export function findStatus(
   return `${Math.min(active, count - 1) + 1}/${count}`
 }
 
+export type FindStepRef = MutableRefObject<((by: number) => void) | null>
+
+export function findStepKey(e: KeyLike): 1 | -1 | null {
+  if (e.key === 'F3' && !e.ctrlKey && !e.metaKey && !e.altKey) return e.shiftKey ? -1 : 1
+  return findStep(matchChord(e, isMac))
+}
+
+export function useFindStepRef(stepRef: FindStepRef | undefined, step: (by: number) => void): void {
+  useEffect(() => {
+    if (!stepRef) return
+    stepRef.current = step
+    return () => {
+      stepRef.current = null
+    }
+  })
+}
+
 export function FindBar({
   label,
   query,
@@ -22,6 +41,7 @@ export function FindBar({
   onQuery,
   onStep,
   onClose,
+  stepRef,
   className,
 }: {
   label: string
@@ -30,10 +50,12 @@ export function FindBar({
   onQuery: (query: string) => void
   onStep: (by: number) => void
   onClose: () => void
+  stepRef?: FindStepRef
   className?: string
 }): JSX.Element {
   const d = useDict()
   const inputRef = useRef<HTMLInputElement>(null)
+  useFindStepRef(stepRef, onStep)
 
   useEffect(() => {
     inputRef.current?.focus()
@@ -48,6 +70,12 @@ export function FindBar({
     } else if (e.key === 'Enter') {
       e.preventDefault()
       onStep(e.shiftKey ? -1 : 1)
+    } else {
+      const by = findStepKey(e)
+      if (by === null) return
+      e.preventDefault()
+      e.stopPropagation()
+      onStep(by)
     }
   }
 

@@ -2,11 +2,20 @@ import { type AgentResume, resumeCommand } from '@shared/agentResume'
 import type { CmuxImportReport } from '@shared/cmuxSession'
 import { wantsDesktopBanner } from '@shared/notificationSettings'
 import { OPEN_FILES_COMMAND, parseFileTargets } from '@shared/openFiles'
+import { PROGRAM_SETTINGS } from '@shared/programSettings'
 import type { AttentionState } from '@shared/types'
 import { type WorkspaceGroupColor, normalizeGroupName } from '@shared/workspaceGroups'
 import { stepZoom } from '@shared/zoom'
 import { currentDict } from '../i18n/useDict'
-import { type DropZone, type FocusDirection, allPanes, findPane, tabNeighbor } from '../layout/tree'
+import {
+  type DropZone,
+  type FocusDirection,
+  allPanes,
+  findPane,
+  splitTabOfPane,
+  tabIdOf,
+  tabNeighbor,
+} from '../layout/tree'
 import type { Direction, SurfaceKind } from '../layout/types'
 import { postAgentNotification } from '../lib/agentNotification'
 import {
@@ -32,7 +41,14 @@ import { wakePane } from '../lib/hibernationScheduler'
 import { mergeRefusalText } from '../lib/mergeRefusalText'
 import { startNewWorkspace, startScratchWorkspace } from '../lib/newWorkspace'
 import { openRequestedFiles } from '../lib/openFile'
-import { GO_TO_WORKSPACE_SYMBOL_COMMAND, SYMBOLS_PREFIX } from '../lib/paletteModes'
+import {
+  FILES_PREFIX,
+  GO_TO_FILE_COMMAND,
+  GO_TO_WORKSPACE_COMMAND,
+  GO_TO_WORKSPACE_SYMBOL_COMMAND,
+  SYMBOLS_PREFIX,
+  WORKSPACES_PREFIX,
+} from '../lib/paletteModes'
 import { type PaneAgentReport, isStaleAgentReport, paneAgentReport } from '../lib/paneAgent'
 import { terminalFor } from '../lib/terminalHandles'
 import { resetZoom } from '../lib/wheelZoom'
@@ -52,6 +68,7 @@ import { anchorToFocusedPane, canMoveWorkspace, moveWorkspaceTo } from '../lib/w
 import { isMac } from '../platform'
 import { keymapSettingValue, terminalKeymapSettingValue } from '../settings/keymapSetting'
 import { settingsSchemaAt } from '../settings/settingsSchema'
+import { useAgentTurnStore } from '../stores/agentTurnStore'
 import { useAttentionStore } from '../stores/attentionStore'
 import { useBlocksStore } from '../stores/blocksStore'
 import { useHistorySearchStore } from '../stores/historySearchStore'
@@ -78,6 +95,9 @@ interface PaneListEntry extends PaneAgentReport {
   title: string
   cwd?: string
   filePath?: string
+  splitTabId?: string
+  splitTabName?: string
+  hibernated?: true
 }
 
 interface WorkspaceListEntry {
@@ -98,22 +118,6 @@ interface WorkspaceGroupEntry {
   collapsed: boolean
   workspaceIds: string[]
 }
-
-const PROGRAM_SETTINGS: readonly {
-  group: 'behavior' | 'notifications' | 'agents' | 'terminal' | 'workspaces'
-  field: string
-}[] = [
-  { group: 'behavior', field: 'externalEditor' },
-  { group: 'behavior', field: 'checkForUpdates' },
-  { group: 'notifications', field: 'command' },
-  { group: 'agents', field: 'autoResume' },
-  { group: 'agents', field: 'hooks' },
-  { group: 'terminal', field: 'warnOnRiskyPaste' },
-  { group: 'terminal', field: 'shell' },
-  { group: 'terminal', field: 'osc52Write' },
-  { group: 'terminal', field: 'keepShells' },
-  { group: 'workspaces', field: 'globalHotkey' },
-]
 
 const HUMAN_ONLY_ROOTS: readonly string[] = ['privacy', 'terminalKeys']
 
@@ -282,6 +286,12 @@ export function registerBuiltinCommands(): void {
       if (!ctx.activeWorkspaceId) return
       const target = args?.paneId ?? ctx.activePaneId
       const layout = useLayoutStore.getState()
+      if (args?.paneId !== undefined) {
+        const tree = layout.byWorkspace[ctx.activeWorkspaceId]
+        if (!tree || !findPane(tree.root, args.paneId)) {
+          throw new Error(`unknown-pane: ${args.paneId}`)
+        }
+      }
       if (!target) {
         const empty = !args?.paneId && !layout.byWorkspace[ctx.activeWorkspaceId]
         if (empty && !ctx.target) await requestCloseWorkspace(ctx.activeWorkspaceId)
@@ -362,8 +372,9 @@ export function registerBuiltinCommands(): void {
         const layout = workspaceId ? useLayoutStore.getState().byWorkspace[workspaceId] : undefined
         if (!workspaceId || !layout || !ctx.activePaneId) return
         const neighbor = tabNeighbor(layout.root, ctx.activePaneId, step)
-        if (!neighbor) return
-        useLayoutStore.getState().moveTab(workspaceId, ctx.activePaneId, neighbor, step === 1)
+        const source = tabIdOf(layout.root, ctx.activePaneId)
+        if (!neighbor || !source) return
+        useLayoutStore.getState().moveTab(workspaceId, source, neighbor, step === 1)
       },
     })
   }
@@ -409,6 +420,7 @@ export function registerBuiltinCommands(): void {
     run: ({ state, message }, ctx) => {
       if (!ctx.activePaneId) throw new Error('no target pane')
       if (isStaleAgentReport(ctx.activePaneId, state)) return
+      useAgentTurnStore.getState().report(ctx.activePaneId, state)
       const seen = isPaneViewed(ctx.activePaneId)
       signalPane(ctx.activePaneId, { type: 'set', state, message, at: Date.now() })
       if (state === 'waiting' || state === 'done') {
@@ -466,6 +478,30 @@ export function registerBuiltinCommands(): void {
       if (pane?.kind !== 'terminal' || !pane.resume) return { resumed: false }
       if (pane.hibernated) return { resumed: wakePane(pane.id) }
       return { resumed: insertCommand(pane.id, resumeCommand(pane.resume), true) }
+    },
+  })
+
+  registerCore<undefined, { hibernated: boolean }>({
+    id: 'pane.hibernated',
+    category: 'pane',
+    hidden: true,
+    capabilities: ['read-board'],
+    run: (_args, ctx) => {
+      if (!ctx.activeWorkspaceId || !ctx.activePaneId) throw new Error('no target pane')
+      const layout = useLayoutStore.getState().byWorkspace[ctx.activeWorkspaceId]
+      const pane = layout ? findPane(layout.root, ctx.activePaneId) : null
+      return { hibernated: pane?.hibernated === true }
+    },
+  })
+
+  registerCore<undefined, { woke: boolean }>({
+    id: 'pane.wake',
+    category: 'pane',
+    hidden: true,
+    capabilities: ['type-other-pane'],
+    run: (_args, ctx) => {
+      if (!ctx.activePaneId) throw new Error('no target pane')
+      return { woke: wakePane(ctx.activePaneId) }
     },
   })
 
@@ -860,6 +896,20 @@ export function registerBuiltinCommands(): void {
   })
 
   registerCore({
+    id: GO_TO_FILE_COMMAND,
+    category: 'view',
+    target: 'none',
+    run: () => useUIStore.getState().openPalette('search', FILES_PREFIX),
+  })
+
+  registerCore({
+    id: GO_TO_WORKSPACE_COMMAND,
+    category: 'view',
+    target: 'none',
+    run: () => useUIStore.getState().openPalette('search', WORKSPACES_PREFIX),
+  })
+
+  registerCore({
     id: GO_TO_WORKSPACE_SYMBOL_COMMAND,
     category: 'view',
     target: 'none',
@@ -871,6 +921,13 @@ export function registerBuiltinCommands(): void {
     category: 'view',
     target: 'none',
     run: () => useUIStore.getState().toggleRail(),
+  })
+
+  registerCore({
+    id: 'view.searchFiles',
+    category: 'view',
+    target: 'none',
+    run: () => useUIStore.getState().searchFiles(),
   })
 
   const zoomBy = (direction: 1 | -1): void => {
@@ -1022,6 +1079,7 @@ export function registerBuiltinCommands(): void {
         const layout = byWorkspace[workspaceId]
         if (!layout) continue
         for (const pane of allPanes(layout.root)) {
+          const splitTab = splitTabOfPane(layout.root, pane.id)
           result.push({
             paneId: pane.id,
             workspaceId,
@@ -1030,6 +1088,9 @@ export function registerBuiltinCommands(): void {
             cwd: pane.cwd,
             ...(pane.kind === 'editor' && pane.filePath ? { filePath: pane.filePath } : {}),
             ...(pane.kind === 'terminal' ? paneAgentReport(pane.id, pane.resume) : {}),
+            ...(splitTab ? { splitTabId: splitTab.id } : {}),
+            ...(splitTab?.name ? { splitTabName: splitTab.name } : {}),
+            ...(pane.hibernated ? { hibernated: true } : {}),
           })
         }
       }

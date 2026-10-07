@@ -216,6 +216,53 @@ describe('close confirmation', () => {
     await expect(quit).resolves.toBe(false)
   })
 
+  it('says what the quit loses, counted, above the workspaces', async () => {
+    seed('sleep 100')
+    useBlocksStore.setState((s) => ({
+      running: { ...s.running, p2: 'b2' },
+      byPane: { ...s.byPane, p2: [{ id: 'b2', paneId: 'p2', command: 'claude' } as CommandBlock] },
+    }))
+    const groups = quitGroups()
+    expect(groups.map((g) => [g.commands, g.agents])).toEqual([
+      [['sleep 100'], undefined],
+      [[], ['claude']],
+    ])
+    render(<CloseConfirmDialog />)
+    act(() => {
+      void confirmQuit([
+        ...groups,
+        { workspaceId: 'w3', workspace: 'gamma', commands: ['make'], files: ['/c/a', '/c/b'] },
+      ])
+    })
+    const losses = await screen.findByRole('list', {
+      name: 'Quitting ends or discards everything listed here.',
+    })
+    expect(screen.getByRole('dialog')).toHaveTextContent('Quit and lose this work?')
+    expect([...losses.querySelectorAll('li')].map((li) => li.textContent)).toEqual([
+      '2 shell processes will be ended',
+      '1 agent will be stopped',
+      '2 files have unsaved changes',
+    ])
+    act(() => useCloseConfirmStore.getState().answer(false))
+  })
+
+  it('counts the files a quit deletes from scratch folders', async () => {
+    render(<CloseConfirmDialog />)
+    act(() => {
+      void confirmQuit([
+        { workspaceId: 'w1', workspace: 'S', commands: ['make'], files: [], scratchFiles: 1 },
+      ])
+    })
+    const losses = await screen.findByRole('list', {
+      name: 'Quitting ends or discards everything listed here.',
+    })
+    expect([...losses.querySelectorAll('li')].map((li) => li.textContent)).toEqual([
+      '1 shell process will be ended',
+      '1 file in a scratch folder will be deleted',
+    ])
+    act(() => useCloseConfirmStore.getState().answer(false))
+  })
+
   it('confirms quit immediately when the setting is off or nothing runs', async () => {
     seed('sleep 100')
     useSettingsStore.getState().setWorkspaces({ confirmQuit: false })

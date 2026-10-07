@@ -3,9 +3,10 @@ import { FitAddon } from '@xterm/addon-fit'
 import { SearchAddon } from '@xterm/addon-search'
 import { Unicode11Addon } from '@xterm/addon-unicode11'
 import { WebLinksAddon } from '@xterm/addon-web-links'
-import { type FontWeight, type IMarker, Terminal as Xterm } from '@xterm/xterm'
+import { type FontWeight, type IBufferRange, Terminal as Xterm } from '@xterm/xterm'
 import { keptShellReattached } from '../lib/autoResume'
 import { silenceQueryReplies } from '../lib/tmuxQueries'
+import type { TerminalRenderer } from '../settings/terminalPaneSettings'
 import '@xterm/xterm/css/xterm.css'
 import { isNativeClipboardKey } from '@shared/chordSpec'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -25,7 +26,15 @@ import { bellActions, createBellThrottle } from '../lib/bell'
 import { canTypeInto, insertCommand, selectedBlockOutput, stepBlock } from '../lib/blockActions'
 import { decodeCommandLine, readCommandText } from '../lib/blockText'
 import { openBrowserAs } from '../lib/browserProfile'
-import { isAppChord, isBrowserChord, isTerminalCommandChord, matchChord } from '../lib/chords'
+import {
+  execChord,
+  findStep,
+  isAppChord,
+  isBrowserChord,
+  isTerminalCommandChord,
+  matchChord,
+  matchTerminalChord,
+} from '../lib/chords'
 import {
   PROGRAM_PASTE_KEY,
   keyPastePlan,
@@ -34,11 +43,27 @@ import {
 } from '../lib/clipboardKeys'
 import { currentScheme, terminalTheme, useScheme } from '../lib/colorScheme'
 import { acceptsPathDrop, droppedPaths, pathsAsInput } from '../lib/dropPaths'
+import { ghosttyModule, loadGhostty } from '../lib/ghosttyEngine'
 import { terminalKeyData } from '../lib/keyPresets'
-import { attachLinkModifier, linkModifierHeld, linkTarget } from '../lib/linkModifier'
+import {
+  type LinkKind,
+  attachLinkClaim,
+  attachLinkModifier,
+  linkModifierHeld,
+  linkSpan,
+  linkTarget,
+} from '../lib/linkModifier'
 import { openFileAt } from '../lib/openFile'
 import { isLocalHost, parseOsc7 } from '../lib/osc7'
 import { registerOsc52 } from '../lib/osc52'
+import {
+  type OstiaTerminal,
+  type TerminalMarker,
+  type TerminalOptions,
+  type TerminalSearch,
+  type WebLinkHandler,
+  terminalScreen,
+} from '../lib/ostiaTerminal'
 import { forgetPaneActivity, markPaneActivity } from '../lib/paneActivity'
 import { terminalNotification } from '../lib/paneAgent'
 import { commitProgramTitle, commitShellTitle } from '../lib/paneTitle'
@@ -76,23 +101,56 @@ import { InputEditor } from './InputEditor'
 import { RiskyPasteDialog } from './RiskyPasteDialog'
 import { useSelectionSend } from './SelectionSend'
 import { TerminalFind, findOptions } from './TerminalFind'
+import { type LinkHintBox, TerminalLinkHint } from './TerminalLinkHint'
 import { TerminalMenu } from './TerminalMenu'
 import { isPromptRepaint, nextSizeAction, settleFit } from './terminalSizing'
 
 const FOCUS_REPORTS = new Set(['\x1b[I', '\x1b[O'])
+const LINK_HINT_DELAY_MS = 400
 
-export function TerminalView({
-  workspaceId,
-  paneId,
-  cwd,
-}: {
+interface TerminalViewProps {
   workspaceId: string
   paneId: string
   cwd?: string
-}): JSX.Element {
+}
+
+interface TerminalFit {
+  fit(): void
+  proposeDimensions(): { cols: number; rows: number } | undefined
+}
+
+export function TerminalView(props: TerminalViewProps): JSX.Element {
+  const [engine, setEngine] = useState<TerminalRenderer>(
+    () => useSettingsStore.getState().terminal.renderer,
+  )
+  const [ready, setReady] = useState(() => engine !== 'ghostty' || ghosttyModule() !== null)
+  useEffect(() => {
+    if (ready) return
+    let live = true
+    loadGhostty()
+      .catch(() => {
+        if (live) setEngine('xterm')
+      })
+      .finally(() => {
+        if (live) setReady(true)
+      })
+    return () => {
+      live = false
+    }
+  }, [ready])
+  if (!ready) return <div className="terminal-surface" />
+  return <TerminalSurface engine={engine} {...props} />
+}
+
+function TerminalSurface({
+  engine,
+  workspaceId,
+  paneId,
+  cwd,
+}: TerminalViewProps & { engine: TerminalRenderer }): JSX.Element {
   const hostRef = useRef<HTMLDivElement>(null)
   const surfaceRef = useRef<HTMLDivElement>(null)
-  const termRef = useRef<Xterm | null>(null)
+  const termRef = useRef<OstiaTerminal | null>(null)
   const lastSizeRef = useRef({ cols: 0, rows: 0 })
   const syncSizeRef = useRef<() => void>(() => {})
   const spawnCwd = useRef(cwd)
@@ -109,8 +167,10 @@ export function TerminalView({
   const pasteRef = useRef<(text: string) => void>(() => {})
   const pasteClipboardRef = useRef<() => void>(() => {})
   const [pendingPaste, setPendingPaste] = useState<string | null>(null)
-  const [search, setSearch] = useState<SearchAddon | null>(null)
+  const [search, setSearch] = useState<TerminalSearch | null>(null)
+  const [linkHint, setLinkHint] = useState<LinkHintBox | null>(null)
   const [findOpen, setFindOpen] = useState(false)
+  const findStepRef = useRef<((by: number) => void) | null>(null)
   const [alternateScreen, setAlternateScreen] = useState(false)
   const [suppressedPrompt, setSuppressedPrompt] = useState<LineAnchor | null>(null)
   const searchOptions = useMemo(() => findOptions(palette), [palette])
@@ -141,7 +201,7 @@ export function TerminalView({
     const initial = useSettingsStore.getState().appearance.terminal
     const behavior = useSettingsStore.getState().behavior
     const terminalSettings = useSettingsStore.getState().terminal
-    const term = new Xterm({
+    const options: TerminalOptions = {
       theme: terminalTheme(currentScheme('terminal').colors),
       fontFamily: terminalFontStack(initial.family),
       fontSize: initial.size,
@@ -153,29 +213,85 @@ export function TerminalView({
       scrollSensitivity: terminalSettings.scrollSpeed,
       minimumContrastRatio: terminalSettings.minimumContrast,
       macOptionIsMeta: terminalSettings.macOptionIsMeta,
-      allowProposedApi: true,
-    })
-    const fit = new FitAddon()
-    term.loadAddon(fit)
-    term.loadAddon(new Unicode11Addon())
-    term.unicode.activeVersion = '11'
-    term.loadAddon(
-      new WebLinksAddon((e, uri) => {
-        if (!linkModifierHeld(e, isMac)) return
-        if (linkTarget(useSettingsStore.getState().browser.openTerminalLinks, e) === 'pane') {
-          openBrowserAs(workspaceIdRef.current, uri, 'human')
-        } else {
-          window.open(uri, '_blank')
-        }
-      }),
-    )
-    const searchAddon = new SearchAddon()
-    term.loadAddon(searchAddon)
-    term.open(host)
-    if (behavior.gpuAcceleration) loadWebglRenderer(term)
+    }
+    let term: OstiaTerminal
+    let fit: TerminalFit
+    let hoveredLink = false
+    let linkHintTimer: ReturnType<typeof setTimeout> | null = null
+    const showLinkHint = (kind: LinkKind, range: IBufferRange): void => {
+      hoveredLink = true
+      if (linkHintTimer) clearTimeout(linkHintTimer)
+      linkHintTimer = setTimeout(() => {
+        const cells = measureCells(host, term)
+        if (!cells) return
+        const span = linkSpan(range, term.buffer.active.viewportY, term.cols)
+        setLinkHint({
+          kind,
+          left: cells.left + span.start * cells.width,
+          top: cells.top + span.row * cells.height,
+          width: (span.end - span.start) * cells.width,
+          height: cells.height,
+        })
+      }, LINK_HINT_DELAY_MS)
+    }
+    const hideLinkHint = (): void => {
+      hoveredLink = false
+      if (linkHintTimer) clearTimeout(linkHintTimer)
+      linkHintTimer = null
+      setLinkHint(null)
+    }
+    const openWebLink = (e: MouseEvent, uri: string): void => {
+      if (!linkModifierHeld(e, isMac)) return
+      if (linkTarget(useSettingsStore.getState().browser.openTerminalLinks, e) === 'pane') {
+        openBrowserAs(workspaceIdRef.current, uri, 'human')
+      } else {
+        window.open(uri, '_blank')
+      }
+    }
+    const webLinks: WebLinkHandler = {
+      activate: openWebLink,
+      hover: (_e, _text, range) => showLinkHint('web', range),
+      leave: hideLinkHint,
+    }
+    let searchAddon: TerminalSearch | null = null
+    let silenceReplies: () => { dispose(): void }
+    const ghostty = engine === 'ghostty' ? ghosttyModule() : null
+    if (ghostty) {
+      const created = ghostty.createGhosttyTerminal(options, behavior.gpuAcceleration, webLinks)
+      term = created.term
+      fit = created.fit
+      searchAddon = created.search
+      silenceReplies = created.silenceQueryReplies
+    } else {
+      const xterm = new Xterm({ ...options, allowProposedApi: true })
+      const xtermFit = new FitAddon()
+      xterm.loadAddon(xtermFit)
+      xterm.loadAddon(new Unicode11Addon())
+      xterm.unicode.activeVersion = '11'
+      xterm.options.linkHandler = webLinks
+      xterm.loadAddon(
+        new WebLinksAddon(openWebLink, {
+          hover: (_e, _text, range) => showLinkHint('web', range),
+          leave: hideLinkHint,
+        }),
+      )
+      const xtermSearch = new SearchAddon()
+      xterm.loadAddon(xtermSearch)
+      searchAddon = xtermSearch
+      xterm.open(host)
+      if (behavior.gpuAcceleration) loadWebglRenderer(xterm)
+      term = xterm
+      fit = xtermFit
+      silenceReplies = () => silenceQueryReplies(xterm)
+    }
+    if (ghostty) term.open(host)
     attachWheelReports(term, () => measureCells(host, term)?.height ?? 0, isLinux)
     const detachWheelZoom = attachWheelZoom(host, 'terminal', isMac)
     const detachLinkModifier = attachLinkModifier(host, isMac)
+    const linkScreen = terminalScreen(host)
+    const detachLinkClaim = linkScreen
+      ? attachLinkClaim(linkScreen, (e) => hoveredLink && linkModifierHeld(e, isMac))
+      : () => {}
     termRef.current = term
     setSearch(searchAddon)
     const unregisterTerminal = registerTerminal(paneId, term)
@@ -261,7 +377,16 @@ export function TerminalView({
         }
         return false
       }
-      const chord = matchChord(e, isMac)
+      const scoped = matchTerminalChord(e, isMac)
+      if (scoped && e.type === 'keydown') e.stopPropagation()
+      if (isAppChord(scoped)) {
+        if (e.type === 'keydown') {
+          e.preventDefault()
+          execChord(scoped, e)
+        }
+        return false
+      }
+      const chord = scoped ?? matchChord(e, isMac)
       if (!chord || isBrowserChord(chord)) {
         const sent = terminalKeyData(e, isMac)
         if (sent && !inputEditorFor(paneId)) {
@@ -285,8 +410,12 @@ export function TerminalView({
       if (isMac && clipboard && isNativeClipboardKey(e)) return true
       if (e.type !== 'keydown' || isAppChord(chord)) return false
       e.preventDefault()
+      const findBy = findStep(chord)
       if (chord === 'find') setFindOpen(true)
-      else if (chord === 'block.selectPrev') stepBlock(paneId, 'prev')
+      else if (findBy !== null) {
+        if (findStepRef.current) findStepRef.current(findBy)
+        else setFindOpen(true)
+      } else if (chord === 'block.selectPrev') stepBlock(paneId, 'prev')
       else if (chord === 'block.selectNext') stepBlock(paneId, 'next')
       else if (isTerminalCommandChord(chord)) void commands.exec(chord)
       else if (chord === 'copy') {
@@ -300,8 +429,8 @@ export function TerminalView({
 
     const cwdRef = { current: spawnCwd.current ?? null }
     let remote = false
-    let promptMarker: IMarker | undefined
-    const markers = new Set<IMarker>()
+    let promptMarker: TerminalMarker | undefined
+    const markers = new Set<TerminalMarker>()
     const anchor = (): LineAnchor => {
       const marker = term.registerMarker(0)
       if (!marker) return { line: term.buffer.active.baseY + term.buffer.active.cursorY }
@@ -407,6 +536,8 @@ export function TerminalView({
         stat: (path) => window.ostia.fs.stat(path),
         open: openFileAt,
         modifierHeld: (e) => linkModifierHeld(e, isMac),
+        hover: (range) => showLinkHint('file', range),
+        leave: hideLinkHint,
       }),
     )
     const copySelection = term.onSelectionChange(() => {
@@ -543,7 +674,7 @@ export function TerminalView({
         })
         .then(({ buffer, sandboxed, sandboxStamp, host, shell, kept, reattached }) => {
           if (disposed) return
-          if (kept && !querySilencer) querySilencer = silenceQueryReplies(term)
+          if (kept && !querySilencer) querySilencer = silenceReplies()
           if (reattached) keptShellReattached(workspaceIdRef.current, paneId)
           commitShellTitle(workspaceIdRef.current, paneId, shell)
           useSandboxStore.getState().notePane(paneId, sandboxed ?? false, sandboxStamp)
@@ -695,6 +826,9 @@ export function TerminalView({
       fileLinks.dispose()
       detachWheelZoom()
       detachLinkModifier()
+      detachLinkClaim()
+      if (linkHintTimer) clearTimeout(linkHintTimer)
+      setLinkHint(null)
       titleChange.dispose()
       titles.cancel()
       promptMarker?.dispose()
@@ -711,7 +845,7 @@ export function TerminalView({
       setSuppressedPrompt(null)
       setPendingPaste(null)
     }
-  }, [paneId])
+  }, [paneId, engine])
 
   useEffect(() => {
     const term = termRef.current
@@ -804,7 +938,13 @@ export function TerminalView({
           paneId={paneId}
           termRef={termRef}
           onPaste={() => pasteClipboardRef.current()}
-          trigger={<div ref={hostRef} className="xterm-host" style={{ background }} />}
+          trigger={
+            <div
+              ref={hostRef}
+              className={engine === 'ghostty' ? 'ghostty-host' : 'xterm-host'}
+              style={{ background }}
+            />
+          }
         />
         <Blocks paneId={paneId} termRef={termRef} hostRef={hostRef} />
         <InputEditor
@@ -827,10 +967,12 @@ export function TerminalView({
           onNeedRows={makeRows}
         />
         <AssistComposer paneId={paneId} cwd={cwd} termRef={termRef} />
+        <TerminalLinkHint hint={linkHint} />
         {findOpen && search && (
           <TerminalFind
             search={search}
             options={searchOptions}
+            stepRef={findStepRef}
             onClose={() => {
               setFindOpen(false)
               termRef.current?.focus()
@@ -857,7 +999,7 @@ function decodeBase64Utf8(b64: string): string {
   return new TextDecoder().decode(Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)))
 }
 
-function safeFit(host: HTMLElement, fit: FitAddon, term: Xterm): boolean {
+function safeFit(host: HTMLElement, fit: TerminalFit, term: OstiaTerminal): boolean {
   if (host.offsetWidth === 0 || host.offsetHeight === 0) return false
   try {
     settleFit(() => {

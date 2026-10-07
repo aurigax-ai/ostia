@@ -102,12 +102,45 @@ describe('ExtensionHost ext.openTerminal and interactive commands (real socket)'
       { command: ['echo'], cwd: 'relative/dir' },
       { command: ['echo'], afterPaneId: 'no-such-pane' },
       { command: ['echo'], afterPaneId: agentPane.externalId, workspaceId: 'w2' },
+      { command: ['echo'], waitMs: 0 },
+      { command: ['echo'], waitMs: '5000' },
     ]
     for (const args of attempts) {
       const res = await host.invoke('opener', 'open', args, caller)
       expect(res).toMatchObject({ ok: true, data: { ok: false } })
     }
     expect(openTerminalIn).not.toHaveBeenCalled()
+  })
+
+  async function openAndWait(paneId: string, waitMs: number) {
+    openTerminalIn.mockResolvedValue(paneId)
+    const result = host.invoke('opener', 'open', { command: ['sudo', 'true'], waitMs }, caller)
+    await vi.waitFor(() => expect(openTerminalIn).toHaveBeenCalled())
+    await new Promise((r) => setTimeout(r, 30))
+    return { result }
+  }
+
+  it('waits for the command it opened to finish and returns its exit code', async () => {
+    const { result } = await openAndWait('pane-install', 5000)
+    host.emitEvent('command.finished', { paneId: 'other-pane', workspaceId: 'w1', exitCode: 9 })
+    host.emitEvent('command.finished', { paneId: 'pane-install', workspaceId: 'w1', exitCode: 0 })
+    expect(await result).toEqual({
+      ok: true,
+      data: { ok: true, paneId: 'pane-install', wait: { outcome: 'finished', exitCode: 0 } },
+    })
+  })
+
+  it('stops waiting when the human closes that terminal', async () => {
+    const { result } = await openAndWait('pane-closed-early', 5000)
+    host.emitEvent('pane.closed', { paneId: 'pane-closed-early', workspaceId: 'w1' })
+    expect(await result).toMatchObject({ data: { wait: { outcome: 'closed' } } })
+  })
+
+  it('answers timeout when the command is still running after the wait', async () => {
+    const { result } = await openAndWait('pane-slow', 100)
+    expect(await result).toMatchObject({
+      data: { ok: true, paneId: 'pane-slow', wait: { outcome: 'timeout' } },
+    })
   })
 
   it('reports not-opened when no window takes the terminal', async () => {

@@ -31,7 +31,7 @@ describe('pane tab disk marker', () => {
       useEditorStatus.getState().setDirty('/w/notes.txt', true)
       useEditorStatus.getState().setDisk('/w/notes.txt', 'changed')
     })
-    render(<Pane tabs={[file]} shownId="pe" active />)
+    render(<Pane tabs={[file]} shownId="pe" activePaneId={'pe'} workspaceId="w" />)
     const tab = screen.getByRole('tab', { name: /notes\.txt/ })
     expect(tab).not.toHaveTextContent('•')
     expect(screen.getByRole('img', { name: 'Changed on disk' })).toBeInTheDocument()
@@ -39,7 +39,9 @@ describe('pane tab disk marker', () => {
 
   it('ERL-C16 strikes through a deleted file and clears when it comes back', () => {
     act(() => useEditorStatus.getState().setDisk('/w/notes.txt', 'deleted'))
-    const { container } = render(<Pane tabs={[file]} shownId="pe" active />)
+    const { container } = render(
+      <Pane tabs={[file]} shownId="pe" activePaneId={'pe'} workspaceId="w" />,
+    )
     expect(screen.getByRole('img', { name: 'Deleted on disk' })).toBeInTheDocument()
     expect(container.querySelector('.pane-tab .title')).toHaveClass('line-through')
     act(() => useEditorStatus.getState().setDisk('/w/notes.txt', null))

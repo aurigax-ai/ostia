@@ -1,5 +1,12 @@
 name: Setup
-description: pnpm, Node, the Electron download cache, and the project's dependencies
+description: pnpm, Node, Go, the Electron download cache, and the project's dependencies
+inputs:
+  go:
+    description: Install Go (the tsnet helper's toolchain)
+    default: 'true'
+  electron:
+    description: Download the Electron binary (pnpm install runs the install scripts)
+    default: 'true'
 runs:
   using: composite
   steps:
@@ -8,7 +15,12 @@ runs:
       with:
         node-version: 24
         cache: ${{ runner.environment == 'github-hosted' && 'pnpm' || '' }}
-    - if: runner.environment == 'github-hosted'
+    - if: inputs.go == 'true'
+      uses: actions/setup-go@v7
+      with:
+        go-version-file: tsnet-helper/go.mod
+        cache-dependency-path: tsnet-helper/go.sum
+    - if: inputs.electron == 'true' && runner.environment == 'github-hosted'
       uses: actions/cache@v6
       with:
         path: |
@@ -18,4 +30,6 @@ runs:
           ~/Library/Caches/electron-builder
         key: electron-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
     - shell: bash
-      run: pnpm install --frozen-lockfile
+      env:
+        IGNORE_SCRIPTS: ${{ inputs.electron != 'true' && '--ignore-scripts' || '' }}
+      run: pnpm install --frozen-lockfile $IGNORE_SCRIPTS
