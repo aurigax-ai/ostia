@@ -174,9 +174,12 @@ export interface LspSessionHooks {
 }
 
 interface SyncedDocument {
+  model: monaco.editor.ITextModel
   version: number
   languageId: string
   subscription: monaco.IDisposable
+  changes: TextDocumentContentChangeEvent[]
+  dirty: boolean
 }
 
 interface PulledDiagnostics {
@@ -240,6 +243,7 @@ export class LspSession {
   private readonly registrations = new Map<string, Registration>()
   private effective: ServerCapabilities | null = null
   private closed = false
+  private flushQueued = false
 
   constructor(
     readonly info: LspSessionInfo,
@@ -456,6 +460,7 @@ export class LspSession {
     state.running?.cancel()
     const running = new CancellationTokenSource()
     state.running = running
+    this.flush()
     const identifier = this.diagnosticOptions()?.identifier
     const previousResultId = this.pulled.get(uri)?.resultId
     let report: DiagnosticReport | null
@@ -495,25 +500,25 @@ export class LspSession {
     const uri = model.uri.toString()
     if (this.closed || this.documents.has(uri)) return
     const document: SyncedDocument = {
+      model,
       version: 1,
       languageId,
+      changes: [],
+      dirty: false,
       subscription: model.onDidChangeContent((event) => {
         const kind = this.syncKind()
         if (kind === SYNC_NONE) return
-        document.version += 1
-        const contentChanges: TextDocumentContentChangeEvent[] =
-          kind === SYNC_INCREMENTAL
-            ? event.changes.map((change) => ({
-                range: toLspRange(change.range),
-                rangeLength: change.rangeLength,
-                text: change.text,
-              }))
-            : [{ text: model.getValue() }]
-        this.notify('textDocument/didChange', {
-          textDocument: { uri, version: document.version },
-          contentChanges,
-        })
-        this.pullAfterChange(uri)
+        if (kind === SYNC_INCREMENTAL) {
+          for (const change of event.changes) {
+            document.changes.push({
+              range: toLspRange(change.range),
+              rangeLength: change.rangeLength,
+              text: change.text,
+            })
+          }
+        }
+        document.dirty = true
+        this.queueFlush()
       }),
     }
     this.documents.set(uri, document)
@@ -521,6 +526,31 @@ export class LspSession {
       textDocument: { uri, languageId, version: document.version, text: model.getValue() },
     })
     this.schedulePull(uri, 0)
+  }
+
+  private queueFlush(): void {
+    if (this.flushQueued) return
+    this.flushQueued = true
+    queueMicrotask(() => this.flush())
+  }
+
+  private flush(): void {
+    this.flushQueued = false
+    for (const [uri, document] of this.documents) {
+      if (!document.dirty) continue
+      document.dirty = false
+      document.version += 1
+      const contentChanges =
+        this.syncKind() === SYNC_INCREMENTAL
+          ? document.changes
+          : [{ text: document.model.getValue() }]
+      document.changes = []
+      this.notify('textDocument/didChange', {
+        textDocument: { uri, version: document.version },
+        contentChanges,
+      })
+      this.pullAfterChange(uri)
+    }
   }
 
   closeDocument(uri: string): void {
@@ -536,12 +566,14 @@ export class LspSession {
 
   documentSaved(uri: string): void {
     if (this.documents.has(uri) && this.sendsSave()) {
+      this.flush()
       this.notify('textDocument/didSave', { textDocument: { uri } })
     }
   }
 
   async request<R>(method: string, params: unknown, token?: CancellationToken): Promise<R | null> {
     if (this.closed) return null
+    this.flush()
     try {
       const pending = token
         ? this.conn.sendRequest(method, params, token)

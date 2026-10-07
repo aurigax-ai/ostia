@@ -123,6 +123,61 @@ describe('LspSession', () => {
     })
   })
 
+  it('sends one whole-text didChange for several edits in one tick', async () => {
+    const { session, notifications } = await start({ textDocumentSync: 1 })
+    const model = new FakeModel('/work/proj/a.txt', 'one\ntwo')
+    session.openDocument(model as never, 'fake')
+    model.edit({ startLineNumber: 1, startColumn: 1, endLineNumber: 1, endColumn: 4 }, 'ONE')
+    model.edit({ startLineNumber: 2, startColumn: 1, endLineNumber: 2, endColumn: 4 }, 'TWO')
+    model.edit({ startLineNumber: 2, startColumn: 4, endLineNumber: 2, endColumn: 4 }, '!')
+    await settled()
+    expect(notifications.filter((n) => n.method === 'textDocument/didChange')).toEqual([
+      {
+        method: 'textDocument/didChange',
+        params: {
+          textDocument: { uri: 'file:///work/proj/a.txt', version: 2 },
+          contentChanges: [{ text: 'ONE\nTWO!' }],
+        },
+      },
+    ])
+  })
+
+  it('sends the edits of one tick to an incremental server as one didChange, in order', async () => {
+    const { session, notifications } = await start({ textDocumentSync: 2 })
+    const model = new FakeModel('/work/proj/a.txt', 'one')
+    session.openDocument(model as never, 'fake')
+    model.edit({ startLineNumber: 1, startColumn: 4, endLineNumber: 1, endColumn: 4 }, 'a')
+    model.edit({ startLineNumber: 1, startColumn: 5, endLineNumber: 1, endColumn: 5 }, 'b')
+    await settled()
+    const changes = notifications.filter((n) => n.method === 'textDocument/didChange')
+    expect(changes).toHaveLength(1)
+    expect(changes[0].params).toMatchObject({
+      textDocument: { version: 2 },
+      contentChanges: [
+        { range: { start: { line: 0, character: 3 } }, text: 'a' },
+        { range: { start: { line: 0, character: 4 } }, text: 'b' },
+      ],
+    })
+  })
+
+  it('flushes pending edits before a request so the server answers on the latest text', async () => {
+    const { session, link } = await start({ textDocumentSync: 1 })
+    link.server.onRequest('textDocument/hover', () => null)
+    const model = new FakeModel('/work/proj/a.txt', 'one')
+    session.openDocument(model as never, 'fake')
+    model.edit({ startLineNumber: 1, startColumn: 1, endLineNumber: 1, endColumn: 4 }, 'ONE')
+    await session.request('textDocument/hover', {})
+    await settled()
+    const methods = (link.received as unknown as { method: string; params: unknown }[]).map(
+      (m) => m.method,
+    )
+    expect(methods.slice(methods.indexOf('textDocument/didOpen'))).toEqual([
+      'textDocument/didOpen',
+      'textDocument/didChange',
+      'textDocument/hover',
+    ])
+  })
+
   it('sends no changes to a server that does not sync documents', async () => {
     const { session, notifications } = await start({})
     const model = new FakeModel('/work/proj/a.txt', 'one')
