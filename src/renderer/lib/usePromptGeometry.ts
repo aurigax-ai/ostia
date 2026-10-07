@@ -50,6 +50,7 @@ export function usePromptGeometry(
   termRef: RefObject<Xterm | null>,
   hostRef: RefObject<HTMLElement | null>,
   enabled: boolean,
+  shown: boolean,
   style: PromptStyle,
   sameLine: boolean,
 ): PromptGeometry | null {
@@ -62,6 +63,7 @@ export function usePromptGeometry(
       setGeo(null)
       return
     }
+    if (!shown) return
     const recompute = (): void => {
       const metrics = measureCells(host, term)
       const buf = term.buffer.active
@@ -94,7 +96,7 @@ export function usePromptGeometry(
       render.dispose()
       scroll.dispose()
     }
-  }, [termRef, hostRef, enabled, style, sameLine])
+  }, [termRef, hostRef, enabled, shown, style, sameLine])
 
   return geo
 }

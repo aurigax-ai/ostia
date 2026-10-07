@@ -2396,6 +2396,20 @@ button.prompt-chip:focus-visible {
   z-index: 1;
 }
 
+.blocks-lines {
+  position: absolute;
+  left: 0;
+  right: 0;
+  overflow: hidden;
+}
+
+.blocks-track {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+}
+
 .block-gutter {
   position: absolute;
   left: 0;

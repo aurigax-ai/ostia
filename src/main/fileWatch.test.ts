@@ -24,6 +24,7 @@ import {
   TreeWatches,
   type WatchDir,
 } from './fileWatch'
+import { writeText } from './fsText'
 import { resolveSafe } from './pathGuard'
 
 const roots: string[] = []
@@ -133,6 +134,7 @@ describe('FileWatches', () => {
     watches.watch('win-1', same)
     watches.watch('win-1', other)
     await settle()
+    await pause(120)
     writeFileSync(same, 'one')
     writeFileSync(join(root, '.same.txt.tmp'), 'one')
     renameSync(join(root, '.same.txt.tmp'), same)
@@ -141,6 +143,37 @@ describe('FileWatches', () => {
     await until(() => changes.find((c) => c.path === other))
     await pause(120)
     expect(changes.map((c) => c.path)).toEqual([other])
+  })
+
+  it('tells only the other windows about a save Ostia wrote, and still reports a later outside change', async () => {
+    const { root, changes, watches } = setup()
+    const file = join(root, 'a.txt')
+    writeFileSync(file, 'one')
+    watches.watch('win-1', file)
+    watches.watch('win-2', file)
+    await settle()
+    await pause(120)
+    const stamp = await writeText(file, 'two')
+    await watches.wrote('win-1', file, stamp, 'two')
+    await pause(200)
+    expect(changes).toEqual([{ path: file, exists: true, owners: ['win-2'] }])
+
+    writeFileSync(join(root, '.a.txt.tmp'), 'three')
+    renameSync(join(root, '.a.txt.tmp'), file)
+    await until(() => (changes.length === 2 ? changes : undefined))
+    expect(changes[1]).toEqual({ path: file, exists: true, owners: ['win-1', 'win-2'] })
+  })
+
+  it('reports nothing for a save Ostia wrote when only the writer has the file open', async () => {
+    const { root, changes, watches } = setup()
+    const file = join(root, 'a.txt')
+    writeFileSync(file, 'one')
+    watches.watch('win-1', file)
+    await settle()
+    const stamp = await writeText(file, 'two')
+    await watches.wrote('win-1', file, stamp, 'two')
+    await pause(200)
+    expect(changes).toEqual([])
   })
 
   it('reports once for a burst of writes, with the last content on disk', async () => {

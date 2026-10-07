@@ -34,6 +34,7 @@ import { useModifierHint } from './lib/useModifierHint'
 import { useWindowTitle } from './lib/useWindowTitle'
 import { startLanguageServices } from './lsp/client'
 import { loadEditorLanguages } from './monaco/contributedLanguages'
+import { useMonacoTheme } from './monaco/useMonacoTheme'
 import { isMac } from './platform'
 import { registerSettingsSchema } from './settings/registerSettingsSchema'
 import { useExtensionsStore } from './stores/extensionsStore'
@@ -54,6 +55,7 @@ export function App(): JSX.Element {
   const detached = useWindowsStore((s) => s.detached)
   const theme = useEffectiveTheme()
   useMotionAttribute()
+  useMonacoTheme()
 
   useEffect(() => {
     applyTheme(document.documentElement, theme, accent)

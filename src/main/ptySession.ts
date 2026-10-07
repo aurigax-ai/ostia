@@ -5,6 +5,8 @@ export interface Subscriber {
   id: string
   role: SubscriberRole
   send: (data: string, cursor: number) => void
+  flush?: () => void
+  close?: () => void
 }
 
 export class PtySession {
@@ -30,11 +32,12 @@ export class PtySession {
   }
 
   exit(code: number): void {
+    for (const s of this.subs.values()) s.flush?.()
     this.onExitCb?.(code)
   }
 
   addSubscriber(sub: Subscriber, sinceCursor = 0): { cursor: number; dropped: boolean } {
-    this.subs.set(sub.id, sub)
+    this.replace(sub)
     const { data, cursor, dropped } = this.ring.since(sinceCursor)
     if (data) sub.send(data, cursor)
     return { cursor, dropped }
@@ -45,6 +48,12 @@ export class PtySession {
   }
 
   addLiveSubscriber(sub: Subscriber): void {
+    this.replace(sub)
+  }
+
+  private replace(sub: Subscriber): void {
+    const previous = this.subs.get(sub.id)
+    if (previous && previous !== sub) previous.close?.()
     this.subs.set(sub.id, sub)
   }
 
@@ -52,6 +61,7 @@ export class PtySession {
     const sub = this.subs.get(id)
     if (!sub) return
     this.subs.delete(id)
+    sub.close?.()
     if (sub.role === 'owner' && this.ownerCount === 0) this.onNoOwners?.()
   }
 

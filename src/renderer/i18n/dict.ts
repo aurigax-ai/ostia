@@ -776,6 +776,8 @@ export const en = {
   },
   editor: {
     binary: 'Binary file, not opened in the editor',
+    tooLarge: 'This file is too large to open in the editor ({size} MB).',
+    unreadable: 'Could not read this file, so it is not opened in the editor.',
     saveError: 'Could not save {path}',
     diskChanged: 'Changed on disk. Your unsaved edits are kept.',
     diskConflict:
@@ -796,6 +798,8 @@ export const en = {
     externalNoEditor:
       'No external editor found. Set behavior.externalEditor in Settings (e.g. code -g {file}:{line}).',
     externalFailed: 'Could not open the external editor: {error}',
+    largeFile:
+      'Large file: language server, folding, bracket colors, highlights and suggestions are off.',
   },
   crash: {
     title: 'Something went wrong',
@@ -3815,6 +3819,8 @@ export const zhHant: Dict = {
     preview: '預覽 Markdown',
     editSource: '編輯 Markdown 原始碼',
     binary: '二進位檔案，未在編輯器中開啟',
+    tooLarge: '檔案太大，無法在編輯器中開啟（{size} MB）。',
+    unreadable: '無法讀取此檔案，因此未在編輯器中開啟。',
     saveError: '無法儲存 {path}',
     diskChanged: '檔案在磁碟上已變更。你未儲存的編輯會保留。',
     diskConflict: '此檔案在你開啟後於磁碟上變更。儲存會覆寫該變更。',
@@ -3832,6 +3838,7 @@ export const zhHant: Dict = {
     externalNoEditor:
       '找不到外部編輯器。請在設定中設定 behavior.externalEditor（例如 code -g {file}:{line}）。',
     externalFailed: '無法開啟外部編輯器：{error}',
+    largeFile: '大型檔案：已關閉語言伺服器、摺疊、括號配色、醒目提示與建議。',
   },
   crash: {
     title: '發生錯誤',

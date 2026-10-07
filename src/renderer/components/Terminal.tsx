@@ -59,6 +59,7 @@ import { isLocalHost, parseOsc7 } from '../lib/osc7'
 import { registerOsc52 } from '../lib/osc52'
 import {
   type OstiaTerminal,
+  type PauseTerminal,
   type TerminalMarker,
   type TerminalOptions,
   type TerminalSearch,
@@ -72,12 +73,14 @@ import { planDraftPaste, planHumanPaste } from '../lib/pasteGate'
 import { installPrimarySelection } from '../lib/primarySelection'
 import { spawnPromptOption } from '../lib/promptChips'
 import { scrollUpSequence } from '../lib/promptOverlay'
+import { createPtyAcker } from '../lib/ptyAck'
 import { registerSelectionSender } from '../lib/selectionSenders'
 import { createFileLinkProvider } from '../lib/terminalFileLinks'
 import { inputEditorFor, registerTerminal } from '../lib/terminalHandles'
 import { terminalTitle } from '../lib/terminalTitle'
 import { createTitleCommitter } from '../lib/titleCommit'
 import { terminalFontStack } from '../lib/uiFonts'
+import { keepDrawing, usePauseWhenHidden } from '../lib/usePauseWhenHidden'
 import { measureCells } from '../lib/usePromptGeometry'
 import { loadWebglRenderer } from '../lib/webglRenderer'
 import { attachWheelReports } from '../lib/wheelReports'
@@ -87,6 +90,7 @@ import {
   isPaneVisible,
   shouldNotifyCommandEnd,
   signalPane,
+  usePaneVisible,
 } from '../lib/workspaceActivity'
 import { isLinux, isMac } from '../platform'
 import { useAttentionStore } from '../stores/attentionStore'
@@ -152,6 +156,7 @@ function TerminalSurface({
   const hostRef = useRef<HTMLDivElement>(null)
   const surfaceRef = useRef<HTMLDivElement>(null)
   const termRef = useRef<OstiaTerminal | null>(null)
+  const pauseRef = useRef<PauseTerminal>(keepDrawing)
   const lastSizeRef = useRef({ cols: 0, rows: 0 })
   const syncSizeRef = useRef<() => void>(() => {})
   const spawnCwd = useRef(cwd)
@@ -173,6 +178,7 @@ function TerminalSurface({
   const [findOpen, setFindOpen] = useState(false)
   const findStepRef = useRef<((by: number) => void) | null>(null)
   const [alternateScreen, setAlternateScreen] = useState(false)
+  const shown = usePaneVisible(paneId)
   const [suppressedPrompt, setSuppressedPrompt] = useState<LineAnchor | null>(null)
   const searchOptions = useMemo(() => findOptions(palette), [palette])
   const selectionSend = useSelectionSend(workspaceId, paneId)
@@ -263,6 +269,7 @@ function TerminalSurface({
       fit = created.fit
       searchAddon = created.search
       silenceReplies = created.silenceQueryReplies
+      pauseRef.current = created.setPaused
     } else {
       const xterm = new Xterm({ ...options, allowProposedApi: true })
       const xtermFit = new FitAddon()
@@ -645,6 +652,13 @@ function TerminalSurface({
         done?.()
       })
     }
+    const acker = createPtyAcker((chars) => window.ostia.pty.ack(paneId, chars))
+    const writeLive = (data: string, done?: () => void): void => {
+      writeOutput(data, () => {
+        acker.written(data.length)
+        done?.()
+      })
+    }
     markPaneActivity(paneId)
     const offData = window.ostia.pty.onData(paneId, (d) => {
       markPaneActivity(paneId)
@@ -655,7 +669,7 @@ function TerminalSurface({
         if (holdIdleTimer) clearTimeout(holdIdleTimer)
         holdIdleTimer = setTimeout(flushHold, 24)
       } else {
-        writeOutput(d)
+        writeLive(d)
       }
     })
     const offExit = window.ostia.pty.onExit(paneId, (_code, closes) => {
@@ -670,7 +684,7 @@ function TerminalSurface({
       lastSizeRef.current = { cols, rows }
       const flushPending = (): void => {
         replayed = true
-        for (const d of pending) writeOutput(d)
+        for (const d of pending) writeLive(d)
         pending.length = 0
       }
       window.ostia.pty
@@ -740,12 +754,12 @@ function TerminalSurface({
         writeOutput(`\x1b[${holdEraseRow};1H\x1b[0J${restore}`, () => {
           if (disposed) return
           term.resize(cols, rows)
-          writeOutput(redraw)
+          writeLive(redraw)
           syncSize()
         })
       } else {
         term.resize(cols, rows)
-        if (redraw.length > 0) writeOutput(redraw)
+        if (redraw.length > 0) writeLive(redraw)
         syncSize()
       }
     }
@@ -873,6 +887,7 @@ function TerminalSurface({
       forgetPaneActivity(paneId)
       useBlocksStore.getState().dropPane(paneId)
       window.ostia.pty.detach(paneId)
+      pauseRef.current = keepDrawing
       term.dispose()
       termRef.current = null
       setSearch(null)
@@ -882,6 +897,8 @@ function TerminalSurface({
       setPendingPaste(null)
     }
   }, [paneId, engine])
+
+  usePauseWhenHidden(pauseRef, shown, paneId, engine)
 
   useEffect(() => {
     const term = termRef.current
@@ -982,7 +999,7 @@ function TerminalSurface({
             />
           }
         />
-        <Blocks paneId={paneId} termRef={termRef} hostRef={hostRef} />
+        <Blocks paneId={paneId} termRef={termRef} hostRef={hostRef} shown={shown} />
         <InputEditor
           paneId={paneId}
           cwd={cwd}
@@ -990,6 +1007,7 @@ function TerminalSurface({
           fontSize={font.size}
           palette={palette}
           alternateScreen={alternateScreen}
+          paneShown={shown}
           suppressedPrompt={suppressedPrompt}
           termRef={termRef}
           hostRef={hostRef}

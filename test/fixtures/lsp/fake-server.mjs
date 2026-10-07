@@ -299,7 +299,7 @@ connection.onRequest('initialize', async (params) => {
   if (caps.has('semanticTokens')) {
     capabilities.semanticTokensProvider = {
       legend: { tokenTypes: ['keyword', 'function'], tokenModifiers: ['declaration'] },
-      full: true,
+      full: { delta: true },
     }
   }
   if (caps.has('inlayHints')) capabilities.inlayHintProvider = true
@@ -614,12 +614,11 @@ connection.onRequest('textDocument/codeAction', (params) => {
     }))
 })
 
-connection.onRequest('textDocument/semanticTokens/full', (params) => {
-  seen('textDocument/semanticTokens/full', params)
+function semanticData(uri) {
   const data = []
   let previousLine = 0
   let previousStart = 0
-  ;(documents.get(params.textDocument.uri) ?? '').split('\n').forEach((line, index) => {
+  ;(documents.get(uri) ?? '').split('\n').forEach((line, index) => {
     for (const match of line.matchAll(/\b(fn|KEYWORD)\b/g)) {
       const deltaLine = index - previousLine
       const deltaStart = deltaLine === 0 ? match.index - previousStart : match.index
@@ -628,7 +627,53 @@ connection.onRequest('textDocument/semanticTokens/full', (params) => {
       previousStart = match.index
     }
   })
-  return { data }
+  return data
+}
+
+const semanticResults = new Map()
+let semanticResultId = 0
+
+function semanticResult(data) {
+  semanticResultId += 1
+  const resultId = `tokens-${semanticResultId}`
+  semanticResults.set(resultId, data)
+  return resultId
+}
+
+connection.onRequest('textDocument/semanticTokens/full', (params) => {
+  seen('textDocument/semanticTokens/full', params)
+  const data = semanticData(params.textDocument.uri)
+  return { resultId: semanticResult(data), data }
+})
+
+connection.onRequest('textDocument/semanticTokens/full/delta', (params) => {
+  seen('textDocument/semanticTokens/full/delta', params)
+  const data = semanticData(params.textDocument.uri)
+  const resultId = semanticResult(data)
+  const previous = semanticResults.get(params.previousResultId)
+  if (!previous) return { resultId, data }
+  let start = 0
+  while (start < previous.length && start < data.length && previous[start] === data[start]) {
+    start += 1
+  }
+  let end = 0
+  while (
+    end < previous.length - start &&
+    end < data.length - start &&
+    previous[previous.length - 1 - end] === data[data.length - 1 - end]
+  ) {
+    end += 1
+  }
+  return {
+    resultId,
+    edits: [
+      {
+        start,
+        deleteCount: previous.length - start - end,
+        data: data.slice(start, data.length - end),
+      },
+    ],
+  }
 })
 
 connection.onRequest('textDocument/inlayHint', (params) => {

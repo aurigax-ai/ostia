@@ -258,6 +258,7 @@ export interface PtyApi {
   reportAgentRunning: (paneId: string, running: boolean) => void
   reportWaking: (paneId: string, waking: boolean) => void
   write: (paneId: string, data: string) => void
+  ack: (paneId: string, chars: number) => void
   resize: (paneId: string, cols: number, rows: number) => void
   commands: (paneId: string) => Promise<string[]>
   foreground: (paneId: string) => Promise<string | null>
@@ -287,8 +288,9 @@ export interface FsEntry {
 
 export interface FsApi {
   list: (path: string) => Promise<FsEntry[]>
-  read: (path: string) => Promise<string | null>
+  read: (path: string) => Promise<FsTextResult>
   write: (path: string, content: string) => Promise<boolean>
+  version: (path: string) => Promise<string | null>
   stat: (path: string) => Promise<FsKind | null>
   readBinary: (path: string) => Promise<FsBinaryResult>
   watch: (path: string) => Promise<boolean>
@@ -310,6 +312,11 @@ export interface RemoteFilesApi {
 export type FsBinaryResult =
   | { ok: true; data: Uint8Array }
   | { ok: false; error: 'denied' | 'unreadable' }
+  | { ok: false; error: 'too-large'; size: number }
+
+export type FsTextResult =
+  | { ok: true; text: string; version: string }
+  | { ok: false; error: 'missing' | 'denied' | 'unreadable' | 'binary' }
   | { ok: false; error: 'too-large'; size: number }
 
 export type FsKind = 'file' | 'dir'

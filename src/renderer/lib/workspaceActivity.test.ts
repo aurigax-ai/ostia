@@ -1,3 +1,4 @@
+import { act, renderHook } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { resetIds } from '../layout/tree'
 import { useAttentionStore } from '../stores/attentionStore'
@@ -15,6 +16,7 @@ import {
   signalPane,
   startAttentionSync,
   syncWorkspaceState,
+  usePaneVisible,
   viewPointedPane,
 } from './workspaceActivity'
 
@@ -108,6 +110,26 @@ describe('workspace activity + attention', () => {
     expect(jumpToLatestUnread()).toBe(first)
     expect(isPaneVisible(first)).toBe(true)
     expect(isPaneVisible(second)).toBe(false)
+  })
+
+  it('re-renders a pane hook when its tab or the dashboard hides or shows it', () => {
+    const workspaceId = homeWorkspaceId()
+    useLayoutStore.getState().ensure(workspaceId)
+    const first = useLayoutStore.getState().byWorkspace[workspaceId].activePaneId
+    const { result, unmount } = renderHook(() => usePaneVisible(first))
+    expect(result.current).toBe(true)
+
+    const second = act(() => useLayoutStore.getState().newTab(workspaceId, first, 'terminal'))
+    expect(second).toBeTruthy()
+    expect(result.current).toBe(false)
+
+    act(() => useLayoutStore.getState().focusPane(workspaceId, first))
+    expect(result.current).toBe(true)
+    act(() => useUIStore.getState().openDashboard())
+    expect(result.current).toBe(false)
+    act(() => useUIStore.getState().showWorkspaces())
+    expect(result.current).toBe(true)
+    unmount()
   })
 
   it('treats panes as not viewed while the dashboard covers them, and views the active one after', () => {

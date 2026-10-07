@@ -254,8 +254,9 @@ export function lastBlockCommand(paneId: string): string | null {
 }
 
 export async function fileAttachment(path: string, label: string): Promise<ChatContextItem | null> {
-  const text = await window.ostia.fs.read(path).catch(() => null)
-  if (text === null) return null
+  const res = await window.ostia.fs.read(path).catch(() => null)
+  if (!res?.ok) return null
+  const { text } = res
   const item: ChatContextItem = { kind: 'file', label, text: text.slice(0, CHAT_CONTEXT_TEXT_MAX) }
   return path.startsWith('/') ? { ...item, path } : item
 }

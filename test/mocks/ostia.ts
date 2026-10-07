@@ -59,6 +59,7 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       reportAgentRunning: vi.fn(),
       reportWaking: vi.fn(),
       write: vi.fn(),
+      ack: vi.fn(),
       resize: vi.fn(),
       commands: vi.fn().mockResolvedValue([]),
       listDir: vi.fn().mockResolvedValue([]),
@@ -79,8 +80,9 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
     },
     fs: {
       list: vi.fn().mockResolvedValue([]),
-      read: vi.fn().mockResolvedValue(null),
+      read: vi.fn().mockResolvedValue({ ok: false, error: 'missing' }),
       write: vi.fn().mockResolvedValue(true),
+      version: vi.fn().mockResolvedValue(null),
       stat: vi.fn().mockResolvedValue(null),
       readBinary: vi.fn().mockResolvedValue({ ok: false, error: 'unreadable' }),
       watch: vi.fn().mockResolvedValue(true),

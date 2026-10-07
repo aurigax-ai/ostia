@@ -1,4 +1,5 @@
 import type { AttentionState } from '@shared/types'
+import { useSyncExternalStore } from 'react'
 import {
   type FocusDirection,
   adjacentTab,
@@ -47,6 +48,21 @@ export function isPaneVisible(paneId: string): boolean {
   if (!layout) return false
   if (layout.zoomedPaneId) return layout.zoomedPaneId === paneId
   return isPaneShown(layout.root, paneId)
+}
+
+function subscribeVisibility(onChange: () => void): () => void {
+  const offs = [
+    useWorkspacesStore.subscribe(onChange),
+    useUIStore.subscribe(onChange),
+    useLayoutStore.subscribe(onChange),
+  ]
+  return () => {
+    for (const off of offs) off()
+  }
+}
+
+export function usePaneVisible(paneId: string): boolean {
+  return useSyncExternalStore(subscribeVisibility, () => isPaneVisible(paneId))
 }
 
 export function isPaneViewed(paneId: string): boolean {

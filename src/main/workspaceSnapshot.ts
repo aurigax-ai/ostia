@@ -22,7 +22,7 @@ import { VIEW_NAME } from '../shared/views'
 import { isWorkspaceGroupColor, normalizeGroupName } from '../shared/workspaceGroups'
 import { MAX_LAYOUT_DEPTH, MAX_PANES, MAX_WORKSPACES } from '../shared/workspaceLimits'
 import { normalizeDescription } from '../shared/workspaceText'
-import { loadJson, saveJson, storePath } from './jsonStore'
+import { loadJson, saveJson, saveJsonAsync, storePath } from './jsonStore'
 import { tailCut } from './ptyRingBuffer'
 
 const SNAPSHOT_VERSION = 1
@@ -407,11 +407,20 @@ export function scrollbackToSave(
   return out
 }
 
+let scrollbackEpoch = 0
+let scrollbackWrites: Promise<void> = Promise.resolve()
+
 export function saveScrollback(
   byPane: Record<string, string>,
   unsaved: (paneId: string) => boolean = () => false,
-): void {
-  saveJson(scrollbackPath(), scrollbackToSave(byPane, unsaved))
+): Promise<void> {
+  const epoch = scrollbackEpoch
+  const data = scrollbackToSave(byPane, unsaved)
+  const write = scrollbackWrites.then(() =>
+    epoch === scrollbackEpoch ? saveJsonAsync(scrollbackPath(), data) : undefined,
+  )
+  scrollbackWrites = write.catch(() => undefined)
+  return write
 }
 
 export function loadRestoredScrollback(): void {
@@ -452,9 +461,12 @@ export function dropRestoredScrollback(paneId: string): void {
   restored.delete(paneId)
 }
 
-export function clearPersisted(): void {
+export function clearPersisted(): Promise<void> {
   restored.clear()
+  scrollbackEpoch++
   for (const path of [snapshotPath(), scrollbackPath()]) {
     rmSync(path, { force: true })
   }
+  scrollbackWrites = scrollbackWrites.then(() => rmSync(scrollbackPath(), { force: true }))
+  return scrollbackWrites
 }
