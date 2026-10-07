@@ -1,3 +1,4 @@
+import { delimiter } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { paneShellEnv } from './terminalType'
 import { newWindowCommand } from './tmux/tmuxCommand'
@@ -60,5 +61,16 @@ describe('paneShellEnv', () => {
     const command = newWindowCommand({ session: 's', file: '/bin/sh', args: [], cwd: '/', env })
     expect(command).toContain('-e "TERM_PROGRAM=ostia"')
     expect(command).toContain('-e "TERM_PROGRAM_VERSION=1.2.3"')
+  })
+})
+
+describe('paneShellEnv launcher directory', () => {
+  it('prepends the launcher directory to PATH when one is given', () => {
+    const env = paneShellEnv({ ...parts, launcherDir: '/ud/bin' })
+    expect(env.PATH).toBe(`/ud/bin${delimiter}/bin`)
+  })
+
+  it('leaves PATH alone when no launcher directory is given', () => {
+    expect(paneShellEnv(parts).PATH).toBe('/bin')
   })
 })
