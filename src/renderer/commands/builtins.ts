@@ -230,12 +230,22 @@ export function registerBuiltinCommands(): void {
     id: 'tab.new',
     category: 'pane',
     run: (args, ctx) => {
+      if (!ctx.activeWorkspaceId && !args?.paneId) {
+        const created = startNewWorkspace()
+        if (created) openFirstTerminal(ctx, created)
+        return
+      }
       const empty = workspaceWithoutPanes(ctx, args?.paneId)
       if (empty) {
         openFirstTerminal(ctx, empty)
         return
       }
-      const target = args?.paneId ?? ctx.activePaneId
+      const target =
+        args?.paneId ??
+        ctx.activePaneId ??
+        (ctx.activeWorkspaceId
+          ? useLayoutStore.getState().byWorkspace[ctx.activeWorkspaceId]?.activePaneId
+          : null)
       if (ctx.activeWorkspaceId && target) {
         useLayoutStore.getState().newTab(ctx.activeWorkspaceId, target, 'terminal')
         if (ctx.origin !== 'remote') focusActivePaneWhenReady(ctx.activeWorkspaceId)
@@ -294,7 +304,10 @@ export function registerBuiltinCommands(): void {
           return
         }
       }
-      if (!ctx.activeWorkspaceId) return
+      if (!ctx.activeWorkspaceId) {
+        if (args?.paneId !== undefined) throw new Error(`unknown-pane: ${args.paneId}`)
+        return
+      }
       const target = args?.paneId ?? ctx.activePaneId
       const layout = useLayoutStore.getState()
       if (args?.paneId !== undefined) {
@@ -841,23 +854,30 @@ export function registerBuiltinCommands(): void {
     run: () => ({ switched: stepWorkspace(-1) }),
   })
 
-  registerCore<{ dir?: unknown; name?: unknown } | undefined, { workspaceId: string | null }>({
+  registerCore<
+    { dir?: unknown; name?: unknown; focus?: unknown } | undefined,
+    { workspaceId: string | null }
+  >({
     id: 'workspace.new',
     category: 'workspace',
     target: 'none',
     argsSchema: {
       type: 'object',
-      properties: { dir: { type: 'string' }, name: { type: 'string' } },
+      properties: { dir: { type: 'string' }, name: { type: 'string' }, focus: { type: 'boolean' } },
     },
     run: (args) => {
       const dir = args?.dir
       const name = args?.name
+      const focus = args?.focus
       if (dir !== undefined && (typeof dir !== 'string' || !WORKSPACE_DIR.test(dir))) {
         throw new Error('dir must be an absolute path or start with ~')
       }
       if (name !== undefined && typeof name !== 'string') throw new Error('name must be a string')
-      useUIStore.getState().showWorkspaces()
-      return { workspaceId: startNewWorkspace({ dir, name }) }
+      if (focus !== undefined && typeof focus !== 'boolean') {
+        throw new Error('focus must be a boolean')
+      }
+      if (focus !== false) useUIStore.getState().showWorkspaces()
+      return { workspaceId: startNewWorkspace({ dir, name, focus: focus !== false }) }
     },
   })
 
@@ -939,7 +959,21 @@ export function registerBuiltinCommands(): void {
     id: 'view.searchFiles',
     category: 'view',
     target: 'none',
-    run: () => useUIStore.getState().searchFiles(),
+    run: () => {
+      const ui = useUIStore.getState()
+      if (!ui.filesOpen) {
+        ui.searchFiles()
+        return
+      }
+      const focused = document.activeElement
+      if (focused instanceof Element && focused.closest('#files-panel')) {
+        ui.toggleFiles()
+        const workspaceId = useWorkspacesStore.getState().activeWorkspaceId
+        if (workspaceId) focusActivePaneWhenReady(workspaceId)
+        return
+      }
+      ui.searchFiles()
+    },
   })
 
   const zoomBy = (direction: 1 | -1): void => {
@@ -973,6 +1007,13 @@ export function registerBuiltinCommands(): void {
     category: 'app',
     target: 'none',
     run: () => useUIStore.getState().openSettings(),
+  })
+
+  registerCore({
+    id: 'app.browseExtensions',
+    category: 'app',
+    target: 'none',
+    run: () => useUIStore.getState().openSettings('browseExtensions'),
   })
 
   registerCore({

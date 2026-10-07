@@ -82,6 +82,10 @@ export function pairAuditLogPath(): string {
   return join(appDataDir(), 'gateway-pair-audit.log')
 }
 
+export function isLocalPeer(ip: string): boolean {
+  return ip.startsWith('127.') || ip.startsWith('::ffff:127.') || ip === '::1'
+}
+
 export function auditPairAttempt(
   ip: string,
   outcome: 'ok' | 'invalid-code' | 'bad-request' | 'rate-limited',
@@ -89,9 +93,10 @@ export function auditPairAttempt(
   try {
     const path = pairAuditLogPath()
     mkdirSync(dirname(path), { recursive: true })
+    const via = isLocalPeer(ip) ? { via: 'this-computer' } : {}
     appendFileSync(
       path,
-      `${JSON.stringify({ ts: new Date().toISOString(), ip, outcome })}\n`,
+      `${JSON.stringify({ ts: new Date().toISOString(), ip, outcome, ...via })}\n`,
       'utf8',
     )
   } catch {}

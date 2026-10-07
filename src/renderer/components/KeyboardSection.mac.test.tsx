@@ -16,8 +16,22 @@ const editButtons = (): string[] => {
   return buttons.map((b) => b.getAttribute('aria-label') ?? '').sort()
 }
 
+const applied = (layer: string): string =>
+  within(screen.getByRole('group', { name: layer }))
+    .getAllByRole('button')
+    .filter((b) => b.getAttribute('aria-pressed') === 'true')
+    .map((b) => b.textContent ?? '')
+    .join()
+
+const applyPreset = async (layer: string, name: string): Promise<void> => {
+  await userEvent.click(
+    within(screen.getByRole('group', { name: layer })).getByRole('button', { name }),
+  )
+  await userEvent.click(await screen.findByRole('button', { name: `Apply ${name}` }))
+}
+
 const row = (name: RegExp): HTMLElement => {
-  const cell = screen.getAllByRole('cell').find((c) => name.test(c.textContent ?? ''))
+  const cell = [...document.querySelectorAll('td')].find((c) => name.test(c.textContent ?? ''))
   const tr = cell?.closest('tr')
   if (!tr) throw new Error(`no row for ${name}`)
   return tr
@@ -37,14 +51,9 @@ describe('KeyboardSection on macOS', () => {
     render(<KeyboardSection />)
     const defaults = ['⌘Backspace', '⌘←', '⌘→', '⌥←', '⌥→', '⌥Backspace', '⌥Delete', '⌘Delete']
     expect(editButtons()).toEqual(defaults.map((keys) => `Edit ${keys}`).sort())
-    expect(screen.getByRole('combobox', { name: 'App shortcuts' })).toHaveTextContent('Ostia')
-    expect(screen.getByRole('combobox', { name: 'Text editing' })).toHaveTextContent(
-      'Ostia standard',
-    )
-    await userEvent.click(screen.getByRole('combobox', { name: 'Text editing' }))
-    await userEvent.click(
-      await screen.findByRole('option', { name: 'Natural Text Editing (iTerm2)' }),
-    )
+    expect(applied('App shortcuts')).toBe('Ostia')
+    expect(applied('Text editing')).toBe('Ostia standard')
+    await applyPreset('Text editing', 'Natural Text Editing (iTerm2)')
     expect(useSettingsStore.getState().terminalKeymap).toBe('natural-text-editing')
     expect(useSettingsStore.getState().keymap).toBeNull()
     expect(screen.getByText(/sends \^D for Forward Delete on its own/)).toBeInTheDocument()
@@ -55,8 +64,7 @@ describe('KeyboardSection on macOS', () => {
 
   it('sends nothing with No translation and lists no terminal keys', async () => {
     render(<KeyboardSection />)
-    await userEvent.click(screen.getByRole('combobox', { name: 'Text editing' }))
-    await userEvent.click(await screen.findByRole('option', { name: 'No translation' }))
+    await applyPreset('Text editing', 'No translation')
     expect(useSettingsStore.getState().terminalKeymap).toBe('none')
     expect(screen.queryAllByRole('button', { name: /^Edit / })).toEqual([])
   })
@@ -66,8 +74,11 @@ describe('KeyboardSection on macOS', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Remove ⌥←' }))
     expect(useSettingsStore.getState().terminalKeys).toEqual({ 'Alt+Left': null })
     expect(editButtons()).not.toContain('Edit ⌥←')
-    await userEvent.click(screen.getByRole('button', { name: 'Reset all' }))
+    await userEvent.click(screen.getByRole('button', { name: 'My changes (1)' }))
+    expect(screen.getByText('You removed (1)')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Revert ⌥←' }))
     expect(useSettingsStore.getState().terminalKeys).toEqual({})
+    await userEvent.click(screen.getByRole('button', { name: 'Active' }))
     expect(editButtons()).toContain('Edit ⌥←')
   })
 
@@ -130,14 +141,45 @@ describe('KeyboardSection on macOS', () => {
     render(<KeyboardSection />)
     expect(within(row(/Start of line/)).getByText('⌘←')).toBeInTheDocument()
     expect(within(row(/Delete line/)).getByText('0x15')).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('combobox', { name: 'Text editing' }))
-    await userEvent.click(
-      await screen.findByRole('option', { name: 'Natural Text Editing (iTerm2)' }),
-    )
+    await applyPreset('Text editing', 'Natural Text Editing (iTerm2)')
     const forward = row(/Delete character ahead/)
     expect(within(forward).getByText('Natural Text Editing (iTerm2)')).toBeInTheDocument()
     expect(forward).toHaveAttribute('data-source', 'preset')
     expect(within(row(/Start of line/)).queryByText('Natural Text Editing (iTerm2)')).toBeNull()
     expect(row(/Start of line/)).toHaveAttribute('data-source', 'default')
+  })
+
+  it('previews the two keys Natural Text Editing changes and keeps the table until Apply', async () => {
+    useSettingsStore.setState({ terminalKeys: { 'Cmd+Delete': { type: 'text', value: 'x' } } })
+    render(<KeyboardSection />)
+    await userEvent.click(
+      within(screen.getByRole('group', { name: 'Text editing' })).getByRole('button', {
+        name: 'Natural Text Editing (iTerm2)',
+      }),
+    )
+    const preview = document.querySelector<HTMLElement>('[data-slot="preset-preview"]')
+    if (!preview) throw new Error('no preview')
+    expect(
+      within(preview).getByText(
+        'Switching to Natural Text Editing (iTerm2) changes these keys (2)',
+      ),
+    ).toBeInTheDocument()
+    const items = within(preview).getAllByRole('listitem')
+    expect(items.map((li) => li.textContent)).toEqual(
+      expect.arrayContaining([
+        'DeleteNot translated→Delete character ahead',
+        '⌘DeleteDelete to end of line→Not translatedyours stays',
+      ]),
+    )
+    expect(useSettingsStore.getState().terminalKeymap).toBeNull()
+    expect(editButtons()).not.toContain('Edit Delete')
+    await userEvent.click(
+      within(preview).getByRole('button', { name: 'Apply Natural Text Editing (iTerm2)' }),
+    )
+    expect(useSettingsStore.getState().terminalKeymap).toBe('natural-text-editing')
+    expect(editButtons()).toContain('Edit Delete')
+    expect(useSettingsStore.getState().terminalKeys).toEqual({
+      'Cmd+Delete': { type: 'text', value: 'x' },
+    })
   })
 })

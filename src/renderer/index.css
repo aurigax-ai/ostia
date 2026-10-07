@@ -3781,6 +3781,7 @@ button.prompt-chip:focus-visible {
   flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
+  scrollbar-gutter: stable;
   padding: 16px;
   background: var(--bg-sunken);
 }
@@ -3905,4 +3906,17 @@ button.prompt-chip:focus-visible {
   inset: 0;
   z-index: 2;
   outline: none;
+}
+
+.key-reveal {
+  animation: key-reveal var(--motion-base) var(--ease-out);
+}
+
+@keyframes key-reveal {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }

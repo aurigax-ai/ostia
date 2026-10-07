@@ -35,13 +35,6 @@
     "platforms": ["linux"]
   },
   {
-    "file": "src/renderer/components/SettingsPanel.test.tsx",
-    "name": "SettingsPanel > edits every Files tree option from Settings → Files",
-    "issue": 124,
-    "until": "2026-11-05",
-    "platforms": ["darwin"]
-  },
-  {
     "file": "e2e/stale-waiting.spec.ts",
     "name": "an agent that waited and then exited leaves the pane idle, and a late report is ignored",
     "issue": 129,

@@ -241,12 +241,30 @@ describe.skipIf(skipWithoutTmux)('TmuxServer', () => {
     expect(() => process.kill(Number(pid), 0)).toThrow()
   })
 
-  it('reports a shell that exits with its code', { retry: 2 }, async () => {
+  it('reports a shell that exits with its code', async () => {
     const server = await connect()
     const pane = await spawnSh(server, 'exit 7')
     const code = await new Promise<number>((resolve) => pane.onExit((e) => resolve(e.exitCode)))
     expect(code).toBe(7)
   })
+
+  it('reports the code of every short-lived shell, each the last to exit on its server', async () => {
+    const codes = Array.from({ length: 6 }, (_, i) => i + 1)
+    const runs = await Promise.all(
+      Array.from({ length: 16 }, async () => {
+        const server = await connect()
+        const reported: number[] = []
+        for (const code of codes) {
+          const pane = await spawnSh(server, `exit ${code}`)
+          reported.push(
+            await new Promise<number>((resolve) => pane.onExit((e) => resolve(e.exitCode))),
+          )
+        }
+        return reported
+      }),
+    )
+    for (const reported of runs) expect(reported).toEqual(codes)
+  }, 30_000)
 
   it('keeps only the variables a pane is given from the server environment', () => {
     expect(serverEnv({ PATH: '/bin', HOME: '/h', OSTIA_TOKEN: 'x', SECRET: 'y' })).toEqual({

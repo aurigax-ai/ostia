@@ -61,6 +61,9 @@ describe('AgentComposer', () => {
       timeout: ENTER_AFTER_PASTE_MS + 1000,
     })
 
+  const sendHintClosed = () =>
+    waitFor(() => expect(document.querySelector('[data-slot="tooltip-content"]')).toBeNull())
+
   it('types the message into the agent and presses Enter when the human clicks Send', async () => {
     const user = userEvent.setup()
     render(<AgentComposer id="w1" targets={[CLAUDE]} onCancel={() => {}} />)
@@ -119,6 +122,7 @@ describe('AgentComposer', () => {
     await user.type(screen.getByLabelText('Message'), 'are you there')
     useBlocksStore.setState({ drafts: { 'p-claude': {} as never }, running: {}, agentBlocks: {} })
     await user.click(screen.getByRole('button', { name: 'Send' }))
+    await sendHintClosed()
     expect(terms['p-claude'].paste).not.toHaveBeenCalled()
     expect(window.ostia.pty.write).not.toHaveBeenCalled()
     expect(await navigator.clipboard.readText()).toBe('are you there')

@@ -10,6 +10,7 @@ import { TLSSocket, createSecureContext } from 'node:tls'
 import { app } from 'electron'
 import { type WebSocket, WebSocketServer } from 'ws'
 import { PRODUCT_NAME } from '../../shared/product'
+import type { GatewayPhoneAddress } from '../../shared/types'
 import { PLATFORM_EVENT_TYPES, type PlatformEventType, platformEvents } from '../events'
 import { getByPaneId, resolveExternal } from '../idRegistry'
 import { type GatewayCert, getCert } from './cert'
@@ -27,12 +28,14 @@ const MAX_PTY_DIM = 1000
 export interface GatewayStartOptions {
   host?: string
   port?: number
+  tailnet?: boolean
+  phoneAddress?: GatewayPhoneAddress | null
 }
 
 export interface GatewayStartResult {
   host: string
   port: number
-  helperPort: number
+  helperPort: number | null
   fingerprint: string
 }
 
@@ -53,6 +56,7 @@ let helperServer: NetServer | null = null
 const helperSockets = new Set<Socket>()
 const tailnetPeers = new WeakMap<object, string>()
 let tailnetHosts: ReadonlySet<string> = new Set()
+let phoneAddress: GatewayPhoneAddress | null = null
 const HELLO_TIMEOUT_MS = 10_000
 const MAX_FRAME_BYTES = 1024 * 1024
 
@@ -156,6 +160,14 @@ export function broadcastEvent(type: PlatformEventType, payload: unknown): void 
   }
 }
 
+export function phoneCanRespond(): boolean {
+  for (const [ws, state] of sockets) {
+    const device = state.device ? getDevice(state.device.deviceId) : null
+    if (device?.caps.includes('respond') && ws.readyState === ws.OPEN) return true
+  }
+  return false
+}
+
 let eventSubscriptions: Array<{ type: PlatformEventType; listener: (payload: unknown) => void }> =
   []
 
@@ -197,6 +209,13 @@ function isAllowedHostHeader(hostHeader: string | undefined): boolean {
   const sepIdx = hostHeader.lastIndexOf(':')
   const headerHost = sepIdx === -1 ? hostHeader : hostHeader.slice(0, sepIdx)
   const headerPort = sepIdx === -1 ? undefined : hostHeader.slice(sepIdx + 1)
+  if (
+    phoneAddress &&
+    headerHost.toLowerCase() === phoneAddress.host.toLowerCase() &&
+    (headerPort === undefined || Number(headerPort) === phoneAddress.port)
+  ) {
+    return true
+  }
   if (headerPort !== undefined && Number(headerPort) !== boundPort) return false
   return (
     headerHost === LOOPBACK ||
@@ -650,14 +669,15 @@ export async function startGateway(options: GatewayStartOptions = {}): Promise<G
       resolve()
     })
   })
-  const helper = await listenHelper(server, cert)
+  const helper = options.tailnet === false ? null : await listenHelper(server, cert)
 
   httpsServer = server
   helperServer = helper
   wss = wsServer
   boundHost = host
   boundPort = (server.address() as AddressInfo).port
-  boundHelperPort = (helper.address() as AddressInfo).port
+  boundHelperPort = helper ? (helper.address() as AddressInfo).port : null
+  phoneAddress = options.phoneAddress ?? null
   currentFingerprint = cert.fingerprint
   startHeartbeat()
   subscribePlatformEvents()
@@ -693,6 +713,7 @@ export async function stopGateway(): Promise<void> {
   boundHelperPort = null
   currentFingerprint = null
   tailnetHosts = new Set()
+  phoneAddress = null
 
   if (wssToClose) await new Promise<void>((resolve) => wssToClose.close(() => resolve()))
   if (helperToClose) await new Promise<void>((resolve) => helperToClose.close(() => resolve()))

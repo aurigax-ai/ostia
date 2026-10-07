@@ -1,5 +1,5 @@
 import { type BrowserWindow, ipcMain } from 'electron'
-import type { RunningGroup } from '../shared/types'
+import type { PaneActivity, RunningGroup } from '../shared/types'
 
 interface PendingAnswer {
   senderId: number
@@ -32,6 +32,7 @@ export function ask(
   payload: unknown,
   gone: unknown,
   timeoutMs?: number,
+  late: unknown = gone,
 ): Promise<unknown> {
   if (unresponsive(win)) return Promise.resolve(gone)
   const contents = win.webContents
@@ -50,7 +51,7 @@ export function ask(
     contents.once('render-process-gone', onGone)
     contents.once('destroyed', onGone)
     pending.set(requestId, { senderId: contents.id, settle })
-    if (timeoutMs !== undefined) timer = setTimeout(onGone, timeoutMs)
+    if (timeoutMs !== undefined) timer = setTimeout(() => settle(late), timeoutMs)
     contents.send(channel, requestId, payload)
   })
 }
@@ -91,25 +92,85 @@ export function withScratchFiles(
     const count = scratchFiles(group.workspaceId)
     const next = count > 0 ? { ...group, scratchFiles: count } : group
     const agents = next.agents?.length ?? 0
-    if (next.commands.length > 0 || agents > 0 || next.files.length > 0 || count > 0) out.push(next)
+    const loses = next.commands.length > 0 || agents > 0 || next.files.length > 0 || count > 0
+    if (loses || next.unanswered) out.push(next)
   }
   return out
 }
 
+export interface PaneProcess extends PaneActivity {
+  paneId: string
+  workspaceId: string
+}
+
+export interface WorkspaceName {
+  id: string
+  name: string
+}
+
+export function groupsFromPtys(
+  workspaces: readonly WorkspaceName[],
+  processes: readonly PaneProcess[],
+  kept: ReadonlySet<string>,
+  unanswered: boolean,
+): RunningGroup[] {
+  return workspaces.map((workspace) => {
+    const commands: string[] = []
+    const agents: string[] = []
+    for (const pane of processes) {
+      if (pane.workspaceId !== workspace.id || kept.has(pane.paneId)) continue
+      if (pane.agentRunning) agents.push(pane.program ?? '')
+      else if (pane.program !== null) commands.push(pane.program)
+    }
+    return {
+      workspaceId: workspace.id,
+      workspace: workspace.name,
+      commands,
+      ...(agents.length > 0 ? { agents } : {}),
+      files: [],
+      ...(unanswered ? { unanswered: true } : {}),
+    }
+  })
+}
+
+export interface QuitCheck {
+  scratchFiles: (workspaceId: string) => number
+  kept: readonly string[]
+  workspacesOf: (win: BrowserWindow) => readonly WorkspaceName[]
+  processes: () => readonly PaneProcess[]
+  confirmNative: (groups: readonly RunningGroup[]) => Promise<boolean>
+}
+
+const GONE = Symbol('gone')
+const LATE = Symbol('late')
+
 export async function confirmQuit(
   windows: readonly BrowserWindow[],
   asker: BrowserWindow | undefined,
-  scratchFiles: (workspaceId: string) => number,
-  kept: readonly string[] = [],
+  check: QuitCheck,
 ): Promise<boolean> {
   const live = windows.filter((w) => !w.isDestroyed())
   const answers = await Promise.all(
-    live.map((w) => ask(w, 'window:running', [...kept], [], RUNNING_ANSWER_MS)),
+    live.map((w) => ask(w, 'window:running', [...check.kept], GONE, RUNNING_ANSWER_MS, LATE)),
   )
-  const groups = withScratchFiles(answers.flatMap(parseRunningGroups), scratchFiles)
+  const kept = new Set(check.kept)
+  const answered: BrowserWindow[] = []
+  const found: RunningGroup[] = []
+  for (const [index, win] of live.entries()) {
+    const answer = answers[index]
+    if (answer === GONE || answer === LATE) {
+      const workspaces = win.isDestroyed() ? [] : check.workspacesOf(win)
+      found.push(...groupsFromPtys(workspaces, check.processes(), kept, answer === LATE))
+    } else {
+      answered.push(win)
+      found.push(...parseRunningGroups(answer))
+    }
+  }
+  const groups = withScratchFiles(found, check.scratchFiles)
   if (groups.length === 0) return true
-  const target = asker && !unresponsive(asker) ? asker : live.find((w) => !unresponsive(w))
-  if (!target) return true
+  const showing = answered.filter((w) => !unresponsive(w))
+  const target = asker && showing.includes(asker) ? asker : showing[0]
+  if (!target) return check.confirmNative(groups)
   if (target.isMinimized()) target.restore()
   target.focus()
   return (await ask(target, 'window:confirm-close', groups, true)) === true

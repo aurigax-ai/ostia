@@ -41,6 +41,9 @@ const deps = {
   attachPhoneObserver: vi.fn(),
   ptyResize: vi.fn(),
   ptyWrite: vi.fn(),
+  listAsks: vi.fn().mockReturnValue([]),
+  answerAsk: vi.fn().mockReturnValue('unknown-ask'),
+  agentRunning: vi.fn().mockReturnValue(false),
 } satisfies GatewayControlDeps
 
 let port = 0
@@ -143,7 +146,7 @@ describe('gateway behind the tsnet helper', () => {
     configureGatewayControl(deps)
     const started = await startGateway({ port: 0 })
     port = started.port
-    helperPort = started.helperPort
+    helperPort = started.helperPort ?? 0
     fingerprint = started.fingerprint
     setTailnetHosts([TAILNET_IP, TAILNET_NAME])
   }, 30_000)

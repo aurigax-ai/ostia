@@ -13,7 +13,8 @@ import { SKILLS_GROUP, builtinAvailable, groupOf, mcpGroup } from '../lib/chatTo
 import { refreshMcp, refreshSkills, useChatToolsStore } from '../stores/chatToolsStore'
 import { useExtensionsStore } from '../stores/extensionsStore'
 import { useSettingsStore } from '../stores/settingsStore'
-import { Button, buttonVariants } from './ui/button'
+import { TextLink } from './TextLink'
+import { buttonVariants } from './ui/button'
 import {
   Popover,
   PopoverContent,
@@ -91,14 +92,13 @@ function McpRow({ server, sessionId }: { server: McpServerStatus; sessionId: str
           {server.error ?? t.mcpStates[server.state]}
         </span>
         {server.state === 'error' || server.state === 'idle' ? (
-          <Button
-            variant="link"
+          <TextLink
             size="xs"
             className="h-5 px-1 text-ui-xs"
             onClick={() => void window.ostia.chatTools.mcpReconnect(server.name)}
           >
             {server.state === 'idle' ? t.connect : t.reconnect}
-          </Button>
+          </TextLink>
         ) : null}
       </div>
     </ToolRow>

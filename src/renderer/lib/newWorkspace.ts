@@ -32,6 +32,7 @@ export function openNewWindow(): Promise<boolean> {
 export interface NewWorkspaceOptions {
   dir?: string
   name?: string
+  focus?: boolean
 }
 
 export function startNewWorkspace(opts: NewWorkspaceOptions = {}): string | null {
@@ -42,10 +43,13 @@ export function startNewWorkspace(opts: NewWorkspaceOptions = {}): string | null
     return null
   }
   const store = useWorkspacesStore.getState()
+  const before = store.activeWorkspaceId
   store.addWorkspace(dir, placement)
   const created = useWorkspacesStore.getState().activeWorkspaceId
   const name = opts.name?.trim()
   if (created && name) store.rename(created, name)
+  if (opts.focus === false && before && created !== before)
+    useWorkspacesStore.setState({ activeWorkspaceId: before })
   return created
 }
 

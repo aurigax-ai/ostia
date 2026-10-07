@@ -1,12 +1,19 @@
 import { cn } from '@/lib/utils'
 import { CaretRightIcon, CopyIcon } from '@phosphor-icons/react'
-import { PHONE_GRANTABLE_CAPS, type PhoneGrantableCap } from '@shared/capabilities'
+import {
+  DEFAULT_GATEWAY_ROUTE,
+  LOOPBACK_ADDRESS,
+  formatPhoneAddress,
+  parsePhoneAddress,
+} from '@shared/gatewayRoute'
 import { formatCode } from '@shared/pairCode'
+import { PHONE_GRANTABLE_CAPS, type PhoneGrantableCap } from '@shared/phoneCapabilities'
 import type {
   GatewayBindAddress,
   GatewayDevice,
   GatewayPairRequest,
   GatewayPairResult,
+  GatewayPhoneAddress,
   GatewayRemoteStatus,
   GatewayRoute,
   GatewayTailnetState,
@@ -23,6 +30,16 @@ import {
   ToggleRow,
   WarningNote,
 } from './SettingsPanel'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from './ui/alert-dialog'
 import { Button } from './ui/button'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible'
 import {
@@ -33,40 +50,87 @@ import {
   DialogHeader,
   DialogTitle,
 } from './ui/dialog'
+import { Input } from './ui/input'
 import { Separator } from './ui/separator'
 import { Switch } from './ui/switch'
 import { Textarea } from './ui/textarea'
 
 const PAIR_CODE_TTL_S = 120
-const TAILNET_CHOICE = 'tailnet'
 
-function routeChoice(route: GatewayRoute): string {
-  return route.kind === 'tailnet' ? TAILNET_CHOICE : route.address
-}
-
-function routeOf(choice: string): GatewayRoute {
-  return choice === TAILNET_CHOICE ? { kind: 'tailnet' } : { kind: 'address', address: choice }
-}
-
-function routeOptions(
+function bindOptions(
   d: Dict,
   addresses: GatewayBindAddress[],
-  route: GatewayRoute,
+  bindAddress: string,
 ): { value: string; label: string }[] {
-  const options = [
-    { value: TAILNET_CHOICE, label: d.settings.remoteRouteTailnet },
-    ...addresses.map((a) => ({
-      value: a.address,
-      label: fmt(d.settings.remoteRouteAddress, { iface: a.iface, address: a.address }),
-    })),
-  ]
-  if (route.kind === 'address' && !addresses.some((a) => a.address === route.address)) {
+  const options = addresses.map((a) => ({
+    value: a.address,
+    label: a.loopback
+      ? fmt(d.settings.remoteBindLoopback, { address: a.address })
+      : fmt(d.settings.remoteRouteAddress, { iface: a.iface, address: a.address }),
+  }))
+  if (!addresses.some((a) => a.address === bindAddress)) {
     options.push({
-      value: route.address,
-      label: fmt(d.settings.remoteRouteMissing, { address: route.address }),
+      value: bindAddress,
+      label: fmt(d.settings.remoteRouteMissing, { address: bindAddress }),
     })
   }
   return options
+}
+
+function PhoneAddressRow({
+  route,
+  disabled,
+  onSave,
+}: {
+  route: GatewayRoute
+  disabled: boolean
+  onSave: (phoneAddress: GatewayPhoneAddress | null) => Promise<void>
+}): JSX.Element {
+  const d = useDict()
+  const saved = route.phoneAddress ? formatPhoneAddress(route.phoneAddress) : ''
+  const [text, setText] = useState(saved)
+  const [invalid, setInvalid] = useState(false)
+  useEffect(() => setText(saved), [saved])
+
+  const commit = (): void => {
+    const trimmed = text.trim()
+    if (trimmed === saved) {
+      setInvalid(false)
+      return
+    }
+    const phoneAddress = trimmed === '' ? null : parsePhoneAddress(trimmed)
+    if (trimmed !== '' && !phoneAddress) {
+      setInvalid(true)
+      return
+    }
+    setInvalid(false)
+    void onSave(phoneAddress)
+  }
+
+  return (
+    <ControlRow
+      label={d.settings.remotePhoneAddress}
+      desc={d.settings.remotePhoneAddressDesc}
+      error={invalid ? d.settings.remotePhoneAddressInvalid : null}
+      errorId="remote-phone-address-error"
+    >
+      <Input
+        value={text}
+        spellCheck={false}
+        placeholder="host:port"
+        disabled={disabled}
+        aria-label={d.settings.remotePhoneAddress}
+        aria-invalid={invalid || undefined}
+        aria-describedby={invalid ? 'remote-phone-address-error' : undefined}
+        onChange={(e) => setText(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') commit()
+        }}
+        className="h-7 w-56 font-mono"
+      />
+    </ControlRow>
+  )
 }
 
 function tailnetSummary(d: Dict, node: GatewayTailnetState): string {
@@ -139,41 +203,101 @@ function PairRequests({
   )
 }
 
-function capLabel(d: Dict, cap: PhoneGrantableCap): string {
-  if (cap === 'command') return d.settings.remoteCapCommand
-  if (cap === 'input') return d.settings.remoteCapInput
-  return d.settings.remoteCapDestructive
+const CAP_NEEDS: Partial<Record<PhoneGrantableCap, PhoneGrantableCap>> = {
+  destructive: 'command',
 }
 
-function DeviceGrants({
+function capText(d: Dict): Record<PhoneGrantableCap, { label: string; desc: string }> {
+  return {
+    respond: { label: d.settings.remoteCapRespond, desc: d.settings.remoteCapRespondDesc },
+    command: { label: d.settings.remoteCapCommand, desc: d.settings.remoteCapCommandDesc },
+    input: { label: d.settings.remoteCapInput, desc: d.settings.remoteCapInputDesc },
+    destructive: {
+      label: d.settings.remoteCapDestructive,
+      desc: d.settings.remoteCapDestructiveDesc,
+    },
+  }
+}
+
+function DeviceRow({
   device,
   onChange,
+  onRevoke,
 }: {
   device: GatewayDevice
   onChange: (cap: PhoneGrantableCap, granted: boolean) => void
+  onRevoke: () => void
 }): JSX.Element {
   const d = useDict()
+  const [asking, setAsking] = useState(false)
+  const text = capText(d)
   return (
-    <fieldset
-      aria-label={fmt(d.settings.remoteGrantsFor, { name: device.name })}
-      className="mt-1.5 grid grid-cols-2 gap-x-4 gap-y-1"
-    >
-      {PHONE_GRANTABLE_CAPS.map((cap) => {
-        const label = fmt(d.settings.remoteCapFor, { cap: capLabel(d, cap), name: device.name })
-        const disabled = cap === 'destructive' && !device.caps.includes('command')
-        return (
-          <div key={cap} className="flex items-center justify-between gap-2 text-fg text-ui-sm">
-            {capLabel(d, cap)}
-            <Switch
-              checked={device.caps.includes(cap)}
-              disabled={disabled}
-              onCheckedChange={(v) => onChange(cap, v)}
-              aria-label={label}
-            />
-          </div>
-        )
-      })}
-    </fieldset>
+    <li className="border-line border-t pt-2 first:border-t-0 first:pt-0">
+      <div className="flex items-center justify-between gap-6 py-1.5">
+        <div className="flex min-w-0 items-baseline gap-2">
+          <span className="truncate font-medium text-fg text-ui-base">{device.name}</span>
+          <span className="shrink-0 text-fg-muted text-ui-sm tabular-nums">
+            {fmt(d.settings.remotePairedOn, {
+              date: new Date(device.createdAt).toLocaleDateString(),
+            })}
+          </span>
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="-mr-2.5 text-attn-fg hover:text-attn-fg"
+          onClick={() => setAsking(true)}
+          aria-label={fmt(d.settings.remoteRevokeFor, { name: device.name })}
+        >
+          {d.settings.remoteRevoke}
+        </Button>
+      </div>
+      <fieldset aria-label={fmt(d.settings.remoteGrantsFor, { name: device.name })}>
+        {PHONE_GRANTABLE_CAPS.map((cap) => {
+          const needs = CAP_NEEDS[cap]
+          const { label, desc } = text[cap]
+          return (
+            <ControlRow
+              key={cap}
+              label={label}
+              desc={needs ? fmt(d.settings.remoteCapNeeds, { desc, cap: text[needs].label }) : desc}
+            >
+              <Switch
+                checked={device.caps.includes(cap)}
+                disabled={needs !== undefined && !device.caps.includes(needs)}
+                onCheckedChange={(v) => onChange(cap, v)}
+                aria-label={fmt(d.settings.remoteCapFor, { cap: label, name: device.name })}
+              />
+            </ControlRow>
+          )
+        })}
+      </fieldset>
+      <AlertDialog open={asking} onOpenChange={setAsking}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {fmt(d.settings.remoteRevokeTitle, { name: device.name })}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {fmt(d.settings.remoteRevokeBody, { name: device.name })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel size="sm">{d.settings.remoteCancel}</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              size="sm"
+              onClick={() => {
+                setAsking(false)
+                onRevoke()
+              }}
+            >
+              {d.settings.remoteRevoke}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </li>
   )
 }
 
@@ -246,16 +370,18 @@ export function GatewaySection(): JSX.Element {
   }, [pairResult, secondsLeft, mintCode])
 
   const running = status?.running ?? false
-  const route: GatewayRoute = status?.route ?? { kind: 'tailnet' }
-  const viaTailnet = route.kind === 'tailnet'
+  const route: GatewayRoute = status?.route ?? DEFAULT_GATEWAY_ROUTE
+  const exposed = route.bindAddress !== LOOPBACK_ADDRESS
+  const unreachable = !route.tailnet && !exposed && route.phoneAddress === null
+  const viaTailnet = route.tailnet
   const canPair = viaTailnet
     ? running && tailnet.state === 'running' && tailnet.ip !== null
-    : running && status?.host === route.address
+    : running && (route.phoneAddress !== null || (exposed && status?.host === route.bindAddress))
   const problem = viaTailnet ? tailnetProblem(d, tailnet) : null
 
-  const onRoute = async (choice: string): Promise<void> => {
+  const onRoute = async (next: Partial<GatewayRoute>): Promise<void> => {
     setRouteError(null)
-    await window.ostia.gateway.setRoute(routeOf(choice))
+    await window.ostia.gateway.setRoute({ ...route, ...next })
     await refresh()
   }
 
@@ -264,8 +390,8 @@ export function GatewaySection(): JSX.Element {
     setRouteError(null)
     if (checked) {
       const result = await window.ostia.gateway.enable()
-      if ('error' in result && route.kind === 'address') {
-        setRouteError(fmt(d.settings.remoteAddressUnavailable, { address: route.address }))
+      if ('error' in result) {
+        setRouteError(fmt(d.settings.remoteAddressUnavailable, { address: route.bindAddress }))
       }
     } else {
       await window.ostia.gateway.disable()
@@ -343,22 +469,23 @@ export function GatewaySection(): JSX.Element {
         onChange={(v) => void onToggle(v)}
       />
 
-      <ControlRow label={d.settings.remoteRoute} desc={d.settings.remoteRouteDesc}>
+      <ControlRow label={d.settings.remoteBind} desc={d.settings.remoteBindDesc}>
         <SelectField
-          value={routeChoice(route)}
-          onChange={(v) => void onRoute(v)}
-          options={routeOptions(d, addresses, route)}
-          label={d.settings.remoteRoute}
+          value={route.bindAddress}
+          onChange={(v) => void onRoute({ bindAddress: v })}
+          options={bindOptions(d, addresses, route.bindAddress)}
+          label={d.settings.remoteBind}
           width="w-fit min-w-64 max-w-80"
           disabled={running}
         />
       </ControlRow>
 
       <ToggleRow
-        label={d.settings.remoteDiscoverable}
-        desc={d.settings.remoteDiscoverableDesc}
-        checked={status?.discoverable ?? false}
-        onChange={(v) => void onDiscoverable(v)}
+        label={d.settings.remoteTailnetNode}
+        desc={d.settings.remoteTailnetNodeDesc}
+        checked={route.tailnet}
+        onChange={(v) => void onRoute({ tailnet: v })}
+        disabled={running}
       />
 
       {viaTailnet ? (
@@ -383,10 +510,27 @@ export function GatewaySection(): JSX.Element {
           }
         />
       ) : (
-        <WarningNote>
-          {fmt(d.settings.remoteAddressWarning, { address: route.address })}
-        </WarningNote>
+        <PhoneAddressRow
+          route={route}
+          disabled={running}
+          onSave={(phoneAddress) => onRoute({ phoneAddress })}
+        />
       )}
+
+      {unreachable ? <WarningNote>{d.settings.remoteLoopbackOnly}</WarningNote> : null}
+
+      {exposed ? (
+        <WarningNote>
+          {fmt(d.settings.remoteAddressWarning, { address: route.bindAddress })}
+        </WarningNote>
+      ) : null}
+
+      <ToggleRow
+        label={d.settings.remoteDiscoverable}
+        desc={d.settings.remoteDiscoverableDesc}
+        checked={status?.discoverable ?? false}
+        onChange={(v) => void onDiscoverable(v)}
+      />
 
       {problem ? <WarningNote>{problem}</WarningNote> : null}
       {signInError ? <WarningNote>{signInError}</WarningNote> : null}
@@ -478,29 +622,14 @@ export function GatewaySection(): JSX.Element {
       {devices.length === 0 ? (
         <p className="text-fg-muted text-ui-sm">{d.settings.remoteNoDevices}</p>
       ) : (
-        <ul className="flex flex-col gap-0.5">
+        <ul className="flex flex-col">
           {devices.map((dev) => (
-            <li key={dev.deviceId} className="rounded-sm px-2.5 py-1.5">
-              <div className="flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="truncate text-fg text-ui-base">{dev.name}</div>
-                  <div className="truncate text-fg-muted text-ui-xs tabular-nums">
-                    {fmt(d.settings.remotePairedOn, {
-                      date: new Date(dev.createdAt).toLocaleDateString(),
-                    })}
-                  </div>
-                </div>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={() => void onRevoke(dev.deviceId)}
-                  aria-label={fmt(d.settings.remoteRevokeFor, { name: dev.name })}
-                >
-                  {d.settings.remoteRevoke}
-                </Button>
-              </div>
-              <DeviceGrants device={dev} onChange={(cap, v) => onCapChange(dev, cap, v)} />
-            </li>
+            <DeviceRow
+              key={dev.deviceId}
+              device={dev}
+              onChange={(cap, v) => onCapChange(dev, cap, v)}
+              onRevoke={() => void onRevoke(dev.deviceId)}
+            />
           ))}
         </ul>
       )}

@@ -24,8 +24,11 @@ vi.mock('electron', () => ({
 const { registerControlServer, stopControlServer } = await import('../main/controlServer')
 const { registerPane, removePane } = await import('../main/idRegistry')
 const { questions, registerQuestions } = await import('../main/questions')
+const { registerPermissionAsk } = await import('../main/permissionAsk')
 
-registerQuestions()
+let phoneCanAnswer = true
+registerQuestions({ opened: () => {}, settled: () => {} })
+registerPermissionAsk({ questions, phoneCanAnswer: () => phoneCanAnswer })
 
 const cliPath = join(process.cwd(), 'out', 'cli', 'index.js')
 const agent = registerPane({ windowId: WINDOW_ID, workspaceId: 'ws1', paneId: 'agent-pane' })
@@ -81,6 +84,7 @@ beforeEach(() => {
       execCommand: async () => ({ ok: true }) as CommandResult,
       listCommandsFor: () => [],
       getTerminalState: () => undefined,
+      isSandboxed: () => false,
     },
     socketPath,
   )
@@ -237,5 +241,67 @@ describe('ostia ask (the real CLI against a live control server)', () => {
     expect(pending()).toHaveLength(1)
     questions()?.dismiss(WINDOW_ID, question.id)
     await run.done
+  })
+})
+
+describe('ostia permission-hook (the real CLI against a live control server)', () => {
+  const PAYLOAD = JSON.stringify({
+    hook_event_name: 'PermissionRequest',
+    tool_name: 'Bash',
+    tool_input: { command: 'npm test' },
+    permission_suggestions: [
+      {
+        type: 'addRules',
+        rules: [{ toolName: 'Bash', ruleContent: 'npm test' }],
+        behavior: 'allow',
+        destination: 'localSettings',
+      },
+    ],
+  })
+
+  afterEach(() => {
+    phoneCanAnswer = true
+  })
+
+  it('returns the allow decision a phone or the desktop picked', async () => {
+    const run = ostia(['permission-hook', 'claude'], PAYLOAD)
+    const question = await nextQuestion()
+    expect(question).toMatchObject({
+      question: 'Bash: npm test',
+      choices: ['once', 'always', 'deny'],
+      permission: { agent: 'claude', tool: 'Bash' },
+    })
+    questions()?.answer(WINDOW_ID, question.id, { choices: [0], text: '' })
+    const { code, stdout } = await run.done
+    expect(code).toBe(0)
+    expect(JSON.parse(stdout)).toEqual({
+      hookSpecificOutput: { hookEventName: 'PermissionRequest', decision: { behavior: 'allow' } },
+    })
+  })
+
+  it('returns a deny decision for Codex', async () => {
+    const run = ostia(['permission-hook', 'codex'], PAYLOAD)
+    const question = await nextQuestion()
+    expect(question.choices).toEqual(['once', 'deny'])
+    questions()?.answer(WINDOW_ID, question.id, { choices: [1], text: '' })
+    const { stdout } = await run.done
+    expect(JSON.parse(stdout).hookSpecificOutput.decision.behavior).toBe('deny')
+  })
+
+  it('prints nothing when the human answers in the terminal instead', async () => {
+    const run = ostia(['permission-hook', 'claude'], PAYLOAD)
+    const question = await nextQuestion()
+    questions()?.dismiss(WINDOW_ID, question.id)
+    const { code, stdout } = await run.done
+    expect(code).toBe(0)
+    expect(stdout).toBe('')
+  })
+
+  it('prints nothing and asks nothing while no phone can answer', async () => {
+    phoneCanAnswer = false
+    const { code, stdout } = await ostia(['permission-hook', 'claude'], PAYLOAD).done
+    expect(code).toBe(0)
+    expect(stdout).toBe('')
+    expect(pending()).toEqual([])
   })
 })

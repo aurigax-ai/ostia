@@ -2,6 +2,7 @@ import type { ExtensionInfo, ExtensionSettingsStored, PaneChip } from '@shared/e
 import type { Terminal } from '@xterm/xterm'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { findPane, isPaneShown, paneIds, resetIds, tabsOfPane } from '../layout/tree'
+import { registerOffscreenStarter } from '../lib/offscreenStart'
 import { isTitlePinned, resetPinnedTitles } from '../lib/pinnedTitles'
 import { registerTerminal } from '../lib/terminalHandles'
 import { useBlocksStore } from '../stores/blocksStore'
@@ -409,6 +410,22 @@ describe('extensionBridge', () => {
       blocks.promptEnd(paneId, { line: 0 })
       expect(paste).toHaveBeenCalledWith(`claude 'fix the "login" bug'`)
       expect(window.ostia.pty.write).toHaveBeenCalledWith(paneId, '\r')
+      unregister()
+    })
+
+    it('starts the shell of a terminal opened in a workspace nobody has looked at', () => {
+      twoWorkspaces()
+      const paneId = openExtensionTerminal({
+        requestId: 'r6',
+        workspaceId: 's1',
+        command: 'claude',
+        backgroundTab: true,
+      }) as string
+      expect(useWorkspacesStore.getState().activeWorkspaceId).toBe('s2')
+
+      const start = vi.fn()
+      const unregister = registerOffscreenStarter(paneId, start)
+      expect(start).toHaveBeenCalledTimes(1)
       unregister()
     })
 

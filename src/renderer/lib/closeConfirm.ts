@@ -1,3 +1,4 @@
+import type { PaneActivity } from '@shared/types'
 import { allPanes, findPane } from '../layout/tree'
 import type { PaneNode } from '../layout/types'
 import { agentTurnOf } from '../stores/agentTurnStore'
@@ -79,13 +80,15 @@ function hasShellIntegration(paneId: string): boolean {
   )
 }
 
+type PaneActivities = Readonly<Record<string, PaneActivity>>
+
 interface RunningContext {
   kept: ReadonlySet<string>
-  busy: Readonly<Record<string, string>>
+  activity: PaneActivities
   quitting: boolean
 }
 
-const PLAIN: RunningContext = { kept: new Set(), busy: {}, quitting: false }
+const PLAIN: RunningContext = { kept: new Set(), activity: {}, quitting: false }
 
 function runningIn(
   workspace: Workspace,
@@ -105,8 +108,13 @@ function runningIn(
       else commands.push(command)
       continue
     }
-    const program = context.busy[pane.id]
-    if (program === undefined) continue
+    const activity = context.activity[pane.id]
+    if (activity?.agentRunning) {
+      agents.push(pane.resume?.agent ?? activity.program ?? '')
+      continue
+    }
+    const program = hasShellIntegration(pane.id) ? null : (activity?.program ?? null)
+    if (program === null) continue
     if (commandAgent(program)) agents.push(program)
     else commands.push(program)
   }
@@ -166,17 +174,15 @@ function runningGroups(
   return groups
 }
 
-async function busyPrograms(panes: readonly PaneNode[]): Promise<Record<string, string>> {
-  const busy = window.ostia?.pty?.busy
-  const out: Record<string, string> = {}
-  if (!busy) return out
-  const plain = panes.filter(
-    (p) => p.kind === 'terminal' && !p.hibernated && !hasShellIntegration(p.id),
-  )
-  const names = await Promise.all(plain.map((p) => busy(p.id).catch(() => null)))
-  for (const [index, pane] of plain.entries()) {
-    const name = names[index]
-    if (name) out[pane.id] = name
+async function paneActivities(panes: readonly PaneNode[]): Promise<PaneActivities> {
+  const activity = window.ostia?.pty?.activity
+  const out: Record<string, PaneActivity> = {}
+  if (!activity) return out
+  const live = panes.filter((p) => p.kind === 'terminal' && !p.hibernated)
+  const answers = await Promise.all(live.map((p) => activity(p.id).catch(() => null)))
+  for (const [index, pane] of live.entries()) {
+    const answer = answers[index]
+    if (answer) out[pane.id] = answer
   }
   return out
 }
@@ -233,8 +239,8 @@ async function closeGroups(workspaces: readonly Workspace[]): Promise<RunningGro
     if (workspace.kind !== 'scratch') continue
     counts[workspace.id] = await window.ostia.scratch.files(workspace.id).catch(() => 0)
   }
-  const busy = confirmClose ? await busyPrograms(panesOf(workspaces)) : {}
-  const groups = groupsToConfirm(workspaces, confirmClose, { ...PLAIN, busy })
+  const activity = confirmClose ? await paneActivities(panesOf(workspaces)) : {}
+  const groups = groupsToConfirm(workspaces, confirmClose, { ...PLAIN, activity })
   return withScratchGroups(workspaces, groups, counts)
 }
 
@@ -265,7 +271,7 @@ async function paneGroup(workspace: Workspace, paneId: string): Promise<RunningG
   const layout = useLayoutStore.getState().byWorkspace[workspace.id]
   const pane = layout ? findPane(layout.root, paneId) : null
   if (!pane) return null
-  return groupOf(workspace, [pane], { ...PLAIN, busy: await busyPrograms([pane]) })
+  return groupOf(workspace, [pane], { ...PLAIN, activity: await paneActivities([pane]) })
 }
 
 export async function requestClosePane(workspaceId: string, paneId: string): Promise<void> {
@@ -289,11 +295,11 @@ export async function closePaneForAgent(workspaceId: string, paneId: string): Pr
 
 export function quitGroups(
   kept: ReadonlySet<string> = new Set(),
-  busy: Readonly<Record<string, string>> = {},
+  activity: PaneActivities = {},
 ): RunningGroup[] {
   const { confirmQuit: enabled } = useSettingsStore.getState().workspaces
   const { workspaces } = useWorkspacesStore.getState()
-  const groups = groupsToConfirm(workspaces, enabled, { kept, busy, quitting: true })
+  const groups = groupsToConfirm(workspaces, enabled, { kept, activity, quitting: true })
   const scratch = workspaces.filter(
     (w) => w.kind === 'scratch' && !groups.some((g) => g.workspaceId === w.id),
   )
@@ -304,7 +310,7 @@ export async function collectQuitGroups(kept: ReadonlySet<string>): Promise<Runn
   const { confirmQuit: enabled } = useSettingsStore.getState().workspaces
   const { workspaces } = useWorkspacesStore.getState()
   const panes = panesOf(workspaces).filter((p) => !kept.has(p.id))
-  return quitGroups(kept, enabled ? await busyPrograms(panes) : {})
+  return quitGroups(kept, enabled ? await paneActivities(panes) : {})
 }
 
 export function confirmQuit(groups: RunningGroup[]): Promise<boolean> {

@@ -27,6 +27,7 @@ import {
   SidebarSimpleIcon,
   SquareSplitHorizontalIcon,
   SquaresFourIcon,
+  StorefrontIcon,
   TerminalIcon,
   TerminalWindowIcon,
   TranslateIcon,
@@ -49,17 +50,15 @@ import type { AppInfo, Platform } from '@shared/types'
 import { ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from '@shared/zoom'
 import { Fragment, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import appIcon from '../../../resources/icon.svg'
-import type { Dict, Locale } from '../i18n/dict'
+import type { Locale } from '../i18n/dict'
 import { fmt, useDict, withProductName } from '../i18n/useDict'
 import { ACCENT_PRESETS, normalizeHex } from '../lib/color'
 import { extensionMatchesQuery } from '../lib/extensionSettingText'
 import { ghosttyFailure } from '../lib/ghosttyEngine'
-import { useReducedMotion } from '../lib/motion'
 import { openFileInWorkspace } from '../lib/openFile'
 import {
   EXTENSIONS_NAV_EXPANDED_KEY,
   SANDBOX_NAV_EXPANDED_KEY,
-  extensionAnchorId,
   navExpanded,
   rememberNavExpanded,
 } from '../lib/settingsNav'
@@ -100,19 +99,19 @@ import { useUIStore } from '../stores/uiStore'
 import { type Workspace, useWorkspacesStore } from '../stores/workspacesStore'
 import { ActionsSection } from './ActionsSection'
 import { capLabel } from './ApprovalCard'
-import { AssistantSection, isAssistExtension } from './AssistantSection'
+import { AssistantSection } from './AssistantSection'
+import { BrowseExtensions } from './BrowseExtensions'
 import { BrowserSettingsSection, EditorSettingsSection } from './BrowserEditorSettings'
-import { ExtensionAgentPlugin } from './ExtensionAgentPlugin'
 import { ExtensionSettingsForm } from './ExtensionSettingsForm'
 import { FileTreeSettingsGroups } from './FilesSettingsSection'
 import { FontPicker } from './FontPicker'
 import { GatewaySection } from './GatewaySection'
 import { Hint } from './Hint'
 import { IconButton } from './IconButton'
+import { type ExtensionAnchor, ExtensionsSection } from './InstalledExtensions'
 import { KeyboardSection } from './KeyboardSection'
 import { LanguagesSection } from './LanguagesSection'
 import { ManagerSection } from './ManagerSection'
-import { MarketplaceSection, UninstallExtensionButton } from './MarketplaceSection'
 import { PasswordsSection } from './PasswordsSection'
 import { PrivacySection } from './PrivacySection'
 import { PromptSection } from './PromptSection'
@@ -120,7 +119,6 @@ import { RequirementsNoteView, useRequirements } from './RequirementsNote'
 import { SandboxSection } from './SandboxSection'
 import {
   Highlight,
-  SearchGroup,
   SearchScopeProvider,
   type SearchStore,
   SettingsSearchSection,
@@ -131,6 +129,7 @@ import {
   useSettingsSearch,
 } from './SettingsSearch'
 import { SyncSection } from './SyncSection'
+import { TextLink } from './TextLink'
 import { ThemeRows } from './ThemeSettings'
 import { UpdateCheck } from './UpdateCheck'
 import { ViewsSection } from './ViewsSection'
@@ -144,7 +143,6 @@ import { Input } from './ui/input'
 import { InputGroup, InputGroupAddon, InputGroupInput } from './ui/input-group'
 import { ScrollArea } from './ui/scroll-area'
 import { Select, SelectContent, SelectItem, SelectTrigger } from './ui/select'
-import { Separator } from './ui/separator'
 import { Switch } from './ui/switch'
 
 const SETTINGS_GROUPS = [
@@ -177,6 +175,7 @@ type SectionId =
   | 'privacy'
   | 'editor'
   | 'extensions'
+  | 'browseExtensions'
   | 'views'
   | 'languageServers'
   | 'remote'
@@ -187,12 +186,6 @@ type SectionId =
   | 'workspace'
   | 'extensionPage'
 
-interface ExtensionAnchor {
-  id: string
-  nonce: number
-}
-
-const ANCHOR_HIGHLIGHT_MS = 2000
 const EXTENSIONS_NAV_LIST_ID = 'settings-nav-extensions'
 const SANDBOX_NAV_LIST_ID = 'settings-nav-sandbox'
 const SANDBOX_DEFAULTS_ITEM = ''
@@ -323,6 +316,12 @@ export function SettingsPanel(): JSX.Element | null {
         { id: 'privacy', group: 'security', icon: EyeSlashIcon, label: d.privacy.title },
         { id: 'passwords', group: 'security', icon: KeyIcon, label: d.passwords.title },
         { id: 'extensions', group: 'more', icon: PuzzlePieceIcon, label: d.settings.extensions },
+        {
+          id: 'browseExtensions',
+          group: 'more',
+          icon: StorefrontIcon,
+          label: d.extensionsBrowse.title,
+        },
         { id: 'remote', group: 'more', icon: DeviceMobileIcon, label: d.settings.remote },
         { id: 'about', group: 'more', icon: InfoIcon, label: d.settings.about },
       ] satisfies {
@@ -664,6 +663,7 @@ const SettingsPages = memo(function SettingsPages({
       {id === 'extensions' || (id === 'extensionPage' && !shownPage) ? (
         <ExtensionsPage anchor={anchor} />
       ) : null}
+      {id === 'browseExtensions' ? <BrowseExtensionsPage /> : null}
       {id === 'extensionPage' && shownPage ? (
         <ExtensionSettingsPage key={shownPage.id} ext={shownPage} />
       ) : null}
@@ -1671,15 +1671,14 @@ function TerminalSection(): JSX.Element {
         <ControlRow
           label={d.prompt.title}
           below={
-            <Button
-              variant="link"
+            <TextLink
               size="xs"
               className="h-auto p-0 font-normal text-ui-sm"
               onClick={() => useUIStore.getState().openSettings('prompt')}
             >
               {d.settings.promptOpen}
               <CaretRightIcon data-icon="inline-end" />
-            </Button>
+            </TextLink>
           }
         >
           <span className="text-fg-muted text-ui-sm">
@@ -1966,19 +1965,18 @@ function ExternalEditorRow(): JSX.Element {
 
 function ExtensionsPage({ anchor }: { anchor: ExtensionAnchor | null }): JSX.Element {
   const d = useDict()
-  const search = useSettingsSearch()
   return (
     <section>
       <SectionHead title={d.settings.extensions} />
-      {search && !search.forced ? null : (
-        <>
-          <MarketplaceSection />
-          <Separator className="my-3" />
-        </>
-      )}
       <ExtensionsSection anchor={anchor} />
     </section>
   )
+}
+
+function BrowseExtensionsPage(): JSX.Element | null {
+  const search = useSettingsSearch()
+  if (search && !search.forced) return null
+  return <BrowseExtensions />
 }
 
 function pageTitle(ext: ExtensionInfo): string {
@@ -1996,157 +1994,6 @@ function ExtensionSettingsPage({ ext }: { ext: ExtensionInfo }): JSX.Element {
     <section aria-label={title}>
       <SectionHead title={title} desc={fmt(d.extensions.settingsPageFrom, { name: ext.name })} />
       <ExtensionSettingsForm ext={ext} bare />
-    </section>
-  )
-}
-
-function extensionStatusLabel(d: Dict, ext: ExtensionInfo): string {
-  switch (ext.status) {
-    case 'running':
-      return d.extensions.statusRunning
-    case 'starting':
-      return d.extensions.statusStarting
-    case 'crashed':
-      return d.extensions.statusCrashed
-    case 'disabled':
-      return d.extensions.statusDisabled
-    case 'pending-approval':
-      return d.extensions.statusPending
-    default:
-      return d.extensions.statusIdle
-  }
-}
-
-export function ExtensionsSection({
-  anchor = null,
-}: {
-  anchor?: ExtensionAnchor | null
-}): JSX.Element {
-  const d = useDict()
-  const list = useExtensionsStore((s) => s.list)
-  const setEnabled = useExtensionsStore((s) => s.setEnabled)
-  const review = useExtensionsStore((s) => s.review)
-  const reducedMotion = useReducedMotion()
-  const [flash, setFlash] = useState<ExtensionAnchor | null>(null)
-  const anchorListed = anchor !== null && list.some((e) => e.id === anchor.id)
-
-  useEffect(() => {
-    if (!anchor || !anchorListed) return
-    const block = document.getElementById(extensionAnchorId(anchor.id))
-    block?.scrollIntoView({ block: 'start' })
-    block?.focus({ preventScroll: true })
-    setFlash(anchor)
-    const timer = setTimeout(() => setFlash(null), ANCHOR_HIGHLIGHT_MS)
-    return () => clearTimeout(timer)
-  }, [anchor, anchorListed])
-  return (
-    <section aria-label={d.extensions.title}>
-      <SubHead title={d.extensions.installed} desc={d.extensions.desc} />
-      {list.length === 0 ? (
-        <p className="text-fg-muted text-ui-sm">{d.extensions.none}</p>
-      ) : (
-        <ul className="flex flex-col">
-          {list.map((ext) => (
-            <SearchGroup key={ext.id} texts={[ext.name, withProductName(ext.description)]}>
-              {(search) => (
-                <li
-                  id={extensionAnchorId(ext.id)}
-                  tabIndex={-1}
-                  aria-label={ext.name}
-                  hidden={search.hidden}
-                  data-search-hit={search.hit || undefined}
-                  className="relative -mx-3 flex scroll-mt-3 flex-col rounded-sm px-3 py-2 outline-none"
-                >
-                  {flash?.id === ext.id ? (
-                    <span
-                      key={flash.nonce}
-                      aria-hidden
-                      data-testid="extension-anchor-highlight"
-                      className={cn(
-                        'settings-anchor-highlight pointer-events-none absolute inset-0 rounded-sm',
-                        reducedMotion && 'settings-anchor-highlight-static',
-                      )}
-                    />
-                  ) : null}
-                  <div className="flex items-start justify-between gap-6">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-fg text-ui-base">
-                          <Highlight text={ext.name} />
-                        </span>
-                        <span className="text-fg-muted text-ui-xs tabular-nums">{ext.version}</span>
-                        <Badge variant="outline" className="text-ui-xs">
-                          {d.extensions.categories[ext.category]}
-                        </Badge>
-                        {ext.builtin ? (
-                          <Badge variant="outline" className="text-ui-xs">
-                            {d.settings.builtin}
-                          </Badge>
-                        ) : null}
-                      </div>
-                      <p className="mt-0.5 text-fg-muted text-ui-sm">
-                        <Highlight text={withProductName(ext.description)} />
-                      </p>
-                      <p className="mt-0.5 text-fg-muted text-ui-xs">
-                        {extensionStatusLabel(d, ext)} ·{' '}
-                        {fmt(d.extensions.permissionsList, {
-                          list:
-                            ext.granted.length > 0
-                              ? ext.granted.join(', ')
-                              : d.extensions.noPermissions,
-                        })}
-                      </p>
-                      {ext.unapproved.length > 0 && ext.status !== 'pending-approval' ? (
-                        <WarningNote>
-                          {fmt(d.extensions.unapproved, { caps: ext.unapproved.join(', ') })}
-                        </WarningNote>
-                      ) : null}
-                      <ExtensionAgentPlugin ext={ext} explain={false} />
-                    </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                      {!ext.builtin &&
-                      (ext.status === 'pending-approval' || ext.unapproved.length > 0) ? (
-                        <Button variant="outline" size="sm" onClick={() => review(ext.id)}>
-                          {d.extensions.review}
-                        </Button>
-                      ) : null}
-                      <UninstallExtensionButton extId={ext.id} name={ext.name} />
-                      <Switch
-                        checked={ext.enabled}
-                        onCheckedChange={(v) => void setEnabled(ext.id, v)}
-                        aria-label={fmt(d.extensions.enable, { name: ext.name })}
-                      />
-                    </div>
-                  </div>
-                  {ext.settingsPage ? (
-                    <Button
-                      variant="link"
-                      size="xs"
-                      className="h-5 self-start px-0 text-ui-sm"
-                      onClick={() =>
-                        useUIStore.getState().openSettings('extensions', { extension: ext.id })
-                      }
-                    >
-                      {d.extensions.openSettingsPage}
-                    </Button>
-                  ) : !isAssistExtension(ext) ? (
-                    <ExtensionSettingsForm ext={ext} />
-                  ) : ext.enabled ? (
-                    <Button
-                      variant="link"
-                      size="xs"
-                      className="h-5 self-start px-0 text-ui-sm"
-                      onClick={() => useUIStore.getState().openSettings('assistant')}
-                    >
-                      {d.assistantSettings.configure}
-                    </Button>
-                  ) : null}
-                </li>
-              )}
-            </SearchGroup>
-          ))}
-        </ul>
-      )}
     </section>
   )
 }
