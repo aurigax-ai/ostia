@@ -54,8 +54,10 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       attach: vi.fn().mockResolvedValue({ created: true, buffer: '', cursor: 0, dropped: false }),
       detach: vi.fn(),
       hibernate: vi.fn().mockResolvedValue(true),
+      stashed: vi.fn().mockResolvedValue(null),
       restart: vi.fn().mockResolvedValue(true),
       reportAgentRunning: vi.fn(),
+      reportWaking: vi.fn(),
       write: vi.fn(),
       ack: vi.fn(),
       resize: vi.fn(),
@@ -140,6 +142,7 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       save: vi.fn(),
       load: vi.fn().mockResolvedValue(null),
       merge: vi.fn().mockResolvedValue({ ok: true }),
+      movePanes: vi.fn().mockResolvedValue({ ok: true }),
       readCmux: vi.fn().mockResolvedValue({ ok: false, error: 'not-found' }),
     },
     scratch: {
@@ -235,6 +238,7 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
     },
     system: {
       requirements: vi.fn().mockResolvedValue(null),
+      discreteGpu: vi.fn().mockResolvedValue(null),
       installRequirements: vi.fn().mockResolvedValue({ ok: true }),
     },
     secrets: {

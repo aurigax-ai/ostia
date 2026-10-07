@@ -61,5 +61,12 @@
     "issue": 193,
     "until": "2026-11-05",
     "platforms": ["darwin"]
+  },
+  {
+    "file": "e2e/system.spec.ts",
+    "name": "ostia system install asks the human, then runs the command in a new terminal beside the agent",
+    "issue": 392,
+    "until": "2026-11-06",
+    "platforms": ["linux"]
   }
 ]

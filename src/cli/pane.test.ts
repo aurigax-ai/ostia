@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parsePaneArgs, parseWorkspaceRenameArgs, waitOutcome } from './pane'
+import { parsePaneArgs, parseWorkspaceRenameArgs, waitOutcome, wakeOutcome } from './pane'
 
 describe('parsePaneArgs', () => {
   it('joins the words of send into one text and adds Enter only when asked', () => {
@@ -87,6 +87,14 @@ describe('parsePaneArgs', () => {
     expect(() => parsePaneArgs(['send', 'p1'])).toThrow('usage: ostia pane')
     expect(() => parsePaneArgs(['key', 'p1'])).toThrow('usage: ostia pane')
     expect(() => parsePaneArgs(['frobnicate', 'p1'])).toThrow('usage: ostia pane')
+  })
+
+  it('points pane list at the pane.list command', () => {
+    for (const argv of [['list'], ['list', '--json']]) {
+      expect(() => parsePaneArgs(argv)).toThrow(
+        'list panes with ostia pane.list (JSON), not ostia pane list',
+      )
+    }
   })
 })
 
@@ -183,6 +191,41 @@ describe('pane wake', () => {
       json: true,
     })
     expect(() => parsePaneArgs(['wake'])).toThrow('ostia pane wake <pane>')
+  })
+
+  it('takes --wait with an optional --timeout in seconds', () => {
+    expect(parsePaneArgs(['wake', 'fixer', '--wait'])).toEqual({
+      method: 'pane.wake',
+      params: { panes: ['fixer'], wait: true },
+      json: false,
+    })
+    expect(parsePaneArgs(['wake', 'fixer', '--wait', '--timeout', '30'])).toEqual({
+      method: 'pane.wake',
+      params: { panes: ['fixer'], wait: true, timeoutMs: 30_000 },
+      json: false,
+    })
+    expect(() => parsePaneArgs(['wake', 'fixer', '--timeout', '30'])).toThrow(
+      '--timeout needs --wait',
+    )
+    expect(() => parsePaneArgs(['wake', 'fixer', '--wait', '--timeout', 'soon'])).toThrow(
+      "--timeout expects seconds, got 'soon'",
+    )
+  })
+
+  it('exits 0 once started, 3 on timeout and 4 when a pane closed', () => {
+    expect(wakeOutcome({ woke: ['p1', 'p2'], started: true }, false)).toEqual({
+      line: 'p1\np2',
+      code: 0,
+    })
+    expect(wakeOutcome({ woke: ['p1'] }, true)).toEqual({ line: '{"woke":["p1"]}', code: 0 })
+    expect(wakeOutcome({ woke: ['p1'], timedOut: true }, false)).toEqual({
+      line: 'ostia pane wake: timed out',
+      code: 3,
+    })
+    expect(wakeOutcome({ woke: ['p1'], closed: 'p1' }, false)).toEqual({
+      line: 'ostia pane wake: p1 closed',
+      code: 4,
+    })
   })
 })
 

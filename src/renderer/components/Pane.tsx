@@ -2,20 +2,16 @@ import { cn } from '@/lib/utils'
 import {
   GlobeIcon,
   LockSimpleIcon,
-  PlayIcon,
   SquareSplitHorizontalIcon,
   SquareSplitVerticalIcon,
   TerminalWindowIcon,
   XIcon,
 } from '@phosphor-icons/react'
-import { resumeCommand } from '@shared/agentResume'
 import { type DragEvent, useEffect, useRef } from 'react'
 import { commands } from '../commands/registry'
-import { fmt, useDict } from '../i18n/useDict'
+import { useDict } from '../i18n/useDict'
 import { allPanes, findPane, firstPaneId } from '../layout/tree'
 import type { PaneNode, SurfaceKind, TabNode } from '../layout/types'
-import { isIdlePrompt } from '../lib/blocks'
-import { useChordLabel } from '../lib/chords'
 import { type TabDrop, dropZoneAt, paneDropTarget, tabDropTarget } from '../lib/dropZone'
 import { HOVER_FOCUS_DELAY_MS, canFocusOnHover } from '../lib/hoverFocus'
 import {
@@ -28,10 +24,8 @@ import {
 } from '../lib/paneDrag'
 import { leavePane } from '../lib/pointerView'
 import { viewPointedPane } from '../lib/workspaceActivity'
-import { isMac } from '../platform'
 import { useApprovalsStore } from '../stores/approvalsStore'
 import { useAttentionStore } from '../stores/attentionStore'
-import { useBlocksStore } from '../stores/blocksStore'
 import { usePaneDnd } from '../stores/paneDndStore'
 import { useQuestionsStore } from '../stores/questionsStore'
 import { useSettingsStore } from '../stores/settingsStore'
@@ -40,7 +34,6 @@ import { useWorkspacesStore } from '../stores/workspacesStore'
 import { AgentSessionButton } from './AgentSessionButton'
 import { ApprovalCard } from './ApprovalCard'
 import { PaneChips } from './ExtensionChips'
-import { Hint } from './Hint'
 import { IconButton } from './IconButton'
 import { PaneHeaderActions, PaneTabMenu } from './PaneTabMenu'
 import { QuestionNotice } from './QuestionNotice'
@@ -49,7 +42,8 @@ import { HostPaneBadge, SandboxRestartButton } from './SandboxRestartButton'
 import { SplitTabBody, SplitTabPill } from './SplitTab'
 import { TabBody } from './TabBody'
 import { TabFace, usePaneMark } from './TabFace'
-import { Button } from './ui/button'
+import { TabHint } from './TabHint'
+import { TabRow } from './TabRow'
 
 interface PaneProps {
   tabs: TabNode[]
@@ -259,13 +253,11 @@ export function Pane({
         onDragLeave={() => usePaneDnd.getState().leave(shown.id)}
         onDrop={onHeaderDrop}
       >
-        <div
-          className="pane-tabs"
-          role="tablist"
-          aria-label={d.pane.tabs}
-          onDoubleClick={(e) => {
-            if (e.target === e.currentTarget) void commands.exec('tab.new', { paneId: shown.id })
-          }}
+        <TabRow
+          tabs={tabs}
+          shownTabId={shownTab.id}
+          label={d.pane.tabs}
+          onNewTab={() => void commands.exec('tab.new', { paneId: shown.id })}
         >
           {tabs.map((tab) => {
             const dropMark =
@@ -290,14 +282,13 @@ export function Pane({
               />
             )
           })}
-        </div>
+        </TabRow>
         {unread && attention?.message ? (
           <span className="pane-attn">
             <span className="pane-attn-msg">{attention.message}</span>
           </span>
         ) : null}
         <PaneChips paneId={shown.id} />
-        <ResumeButton pane={shown} />
         <SandboxRestartButton pane={shown} />
         <HostPaneBadge pane={shown} />
         <div className="pane-actions">
@@ -380,23 +371,6 @@ export function Pane({
   )
 }
 
-function ResumeButton({ pane }: { pane: PaneNode }): JSX.Element | null {
-  const d = useDict()
-  const idle = useBlocksStore((s) => isIdlePrompt(s, pane.id))
-  const resumeKeys = useChordLabel('agent.resume', isMac)
-  if (pane.kind !== 'terminal' || !pane.resume || pane.resumeFolderMissing) return null
-  if (!(idle || pane.hibernated)) return null
-  const label = fmt(d.pane.resume, { agent: pane.resume.agent })
-  return (
-    <Hint label={[resumeCommand(pane.resume), resumeKeys].filter(Boolean).join('  ')}>
-      <Button variant="outline" size="xs" onClick={() => void commands.exec('agent.resume')}>
-        <PlayIcon data-icon="inline-start" aria-hidden />
-        {label}
-      </Button>
-    </Hint>
-  )
-}
-
 function PaneTab({
   pane,
   selected,
@@ -438,18 +412,20 @@ function PaneTab({
         void commands.exec('pane.close', { paneId: pane.id })
       }}
     >
-      <button
-        type="button"
-        role="tab"
-        aria-selected={selected}
-        className="pane-tab-main"
-        onClick={() => {
-          void commands.exec('pane.focus', { paneId: pane.id })
-          requestAnimationFrame(() => focusSurface(pane.id))
-        }}
-      >
-        <TabFace pane={pane} />
-      </button>
+      <TabHint pane={pane}>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={selected}
+          className="pane-tab-main"
+          onClick={() => {
+            void commands.exec('pane.focus', { paneId: pane.id })
+            requestAnimationFrame(() => focusSurface(pane.id))
+          }}
+        >
+          <TabFace pane={pane} />
+        </button>
+      </TabHint>
       {pane.locked ? (
         <IconButton
           icon={LockSimpleIcon}

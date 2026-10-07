@@ -8,6 +8,7 @@ export type ProgramSettingGroup =
 export const PROGRAM_SETTINGS: readonly { group: ProgramSettingGroup; field: string }[] = [
   { group: 'behavior', field: 'externalEditor' },
   { group: 'behavior', field: 'checkForUpdates' },
+  { group: 'behavior', field: 'discreteGpu' },
   { group: 'notifications', field: 'command' },
   { group: 'agents', field: 'autoResume' },
   { group: 'agents', field: 'autoSendReferences' },

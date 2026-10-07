@@ -1,4 +1,5 @@
 import '@testing-library/jest-dom/vitest'
+import { KEEP_SHELLS_FEATURE } from '@shared/keepShells'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
@@ -84,11 +85,11 @@ describe('SettingsPanel terminal and pane rows', () => {
   function tmuxReport(
     missing: { program: string; package: string; needs?: string; found?: string }[],
   ) {
-    window.ostia.system.requirements = vi.fn().mockResolvedValue({
-      missing,
+    window.ostia.system.requirements = vi.fn(async (feature: string) => ({
+      missing: feature === KEEP_SHELLS_FEATURE ? missing : [],
       hint: { command: 'sudo pacman -S --needed tmux', packages: ['tmux'] },
       canInstall: false,
-    })
+    }))
   }
 
   it('KSH-C17 turns keeping shells on when tmux is ready', async () => {

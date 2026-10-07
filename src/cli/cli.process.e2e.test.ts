@@ -14,6 +14,7 @@ vi.mock('../main/approvals', () => ({ approvals: () => ({ request }) }))
 const { registerControlServer, stopControlServer } = await import('../main/controlServer')
 const { getByPaneId, registerPane } = await import('../main/idRegistry')
 const { registerPaneIoMethods } = await import('../main/paneIo')
+const { PaneWaking } = await import('../main/paneWaking')
 const { registerProcessMethods } = await import('../main/processManager')
 const { PtyRingBuffer } = await import('../main/ptyRingBuffer')
 
@@ -85,6 +86,7 @@ registerPaneIoMethods({
   inputSent: () => {},
   hibernated: async () => false,
   wake: async () => false,
+  waking: new PaneWaking(),
   close: async (pane) => {
     closedPanes.push(pane.paneId)
     return { ok: true, result: undefined }

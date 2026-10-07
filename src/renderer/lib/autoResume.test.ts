@@ -9,9 +9,8 @@ import { useWorkspacesStore } from '../stores/workspacesStore'
 vi.mock('./blockActions', () => ({ runWhenIdle: vi.fn(() => vi.fn()) }))
 
 const { runWhenIdle } = await import('./blockActions')
-const { keptShellReattached, startAutoResume, workspacesAwaitingResume } = await import(
-  './autoResume'
-)
+const { keptShellReattached, resumeOnActivation, startAutoResume, workspacesAwaitingResume } =
+  await import('./autoResume')
 
 const resume = { agent: 'claude' as const, id: 'abc-1' }
 
@@ -131,12 +130,69 @@ describe('startAutoResume', () => {
     expect(pending(pane.id)?.resumeFolderMissing).toBe('/w/tree')
   })
 
-  it('does nothing and forgets the mark when the setting is off', () => {
+  it('types nothing at startup when the setting is off and keeps the mark for the human', () => {
     const pane = { ...createPane('terminal'), resume, resumePending: true as const }
     seed(pane, pane.id, false)
     stop = startAutoResume()
     expect(runWhenIdle).not.toHaveBeenCalled()
+    expect(pending(pane.id)?.resumePending).toBe(true)
+  })
+
+  it('resumes a marked pane once when the human activates it with the setting off', () => {
+    const pane = { ...createPane('terminal'), resume, resumePending: true as const }
+    seed(pane, pane.id, false)
+    stop = startAutoResume()
+
+    resumeOnActivation(pane.id)
+    resumeOnActivation(pane.id)
+    expect(scheduled()).toEqual([[pane.id, 'claude --resume abc-1']])
+
+    useBlocksStore.setState({ running: { [pane.id]: 'b1' } })
     expect(pending(pane.id)?.resumePending).toBeUndefined()
+    useBlocksStore.setState({ running: {} })
+    resumeOnActivation(pane.id)
+    expect(runWhenIdle).toHaveBeenCalledTimes(1)
+  })
+
+  it('never resumes on activation a pane without the mark', () => {
+    const pane = { ...createPane('terminal'), resume }
+    seed(pane, pane.id, false)
+    stop = startAutoResume()
+    resumeOnActivation(pane.id)
+    expect(runWhenIdle).not.toHaveBeenCalled()
+  })
+
+  it('never resumes on activation while a command runs in the pane', () => {
+    const pane = { ...createPane('terminal'), resume, resumePending: true as const }
+    seed(pane, pane.id, false)
+    useBlocksStore.setState({ running: { [pane.id]: 'b1' } })
+    stop = startAutoResume()
+    resumeOnActivation(pane.id)
+    expect(runWhenIdle).not.toHaveBeenCalled()
+    expect(pending(pane.id)?.resumePending).toBeUndefined()
+  })
+
+  it('never resumes on activation when the agent folder is gone', () => {
+    const pane = {
+      ...createPane('terminal'),
+      resume: { ...resume, cwd: '/w/tree' },
+      resumePending: true as const,
+      resumeFolderMissing: '/w/tree',
+    }
+    seed(pane, pane.id, false)
+    stop = startAutoResume()
+    resumeOnActivation(pane.id)
+    expect(runWhenIdle).not.toHaveBeenCalled()
+    expect(pending(pane.id)?.resumeFolderMissing).toBe('/w/tree')
+  })
+
+  it('wakes a hibernated pane when the human activates it', () => {
+    const pane = { ...createPane('terminal'), resume, hibernated: true as const }
+    seed(pane, pane.id, false)
+    stop = startAutoResume()
+    resumeOnActivation(pane.id)
+    expect(pending(pane.id)?.hibernated).toBeUndefined()
+    expect(scheduled()).toEqual([[pane.id, 'claude --resume abc-1']])
   })
 
   it('drops the resume when the human runs something in the pane first', () => {

@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process'
 import { constants, accessSync, statSync } from 'node:fs'
+import { DISCRETE_GPU_FEATURE } from '../shared/discreteGpu'
 import { KEEP_SHELLS_FEATURE, TMUX_MIN_VERSION } from '../shared/keepShells'
 import { MANAGER_FEATURE } from '../shared/managerSettings'
 import { MARKETPLACE_FEATURE } from '../shared/marketplace'
@@ -43,6 +44,13 @@ const registry = new Map<string, Requirement[]>([
         platforms: ['linux', 'darwin'],
         minVersion: { args: ['-V'], version: TMUX_MIN_VERSION },
       },
+    ],
+  ],
+  [
+    DISCRETE_GPU_FEATURE,
+    [
+      { program: 'switcherooctl', package: 'switcheroo-control', platforms: ['linux'] },
+      { program: 'busctl', package: 'systemd', platforms: ['linux'] },
     ],
   ],
   [

@@ -907,3 +907,27 @@ export function moveTab(
       : { ...slot, children: tabs, activeId: shownId }
   })
 }
+
+export interface TakenTab {
+  tab: TabNode
+  rest: LayoutNode | null
+  successor: string | null
+}
+
+export function takeTab(root: LayoutNode, id: string): TakenTab | null {
+  const tab = tabSource(root, id)
+  if (!tab) return null
+  const moving = new Set(paneIds(tab))
+  const rest = withoutPanes(root, (p) => moving.has(p.id))
+  if (!rest) return { tab, rest, successor: null }
+  const split = tab.type === 'pane' ? splitTabOfPane(root, tab.id) : null
+  const sibling = split ? paneIds(split).find((paneId) => !moving.has(paneId)) : undefined
+  const neighbor =
+    sibling ?? tabNeighbor(root, firstPaneId(tab), -1) ?? tabNeighbor(root, firstPaneId(tab), 1)
+  return { tab, rest, successor: (neighbor && focusIdOf(rest, neighbor)) ?? firstPaneId(rest) }
+}
+
+export function landTab(root: LayoutNode | null, tab: TabNode, anchorId: string): LayoutNode {
+  if (!root) return untab(tab)
+  return addTab(root, findPane(root, anchorId) ? anchorId : firstPaneId(root), tab)
+}

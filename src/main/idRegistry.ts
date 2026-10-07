@@ -133,6 +133,17 @@ export function rehomeWorkspace(sourceId: string, targetId: string): PaneIdentit
   return moved
 }
 
+export function moveToWorkspace(paneIds: readonly string[], workspaceId: string): PaneIdentity[] {
+  const moved: PaneIdentity[] = []
+  for (const paneId of paneIds) {
+    const identity = byPane.get(paneId)
+    if (!identity) continue
+    identity.workspaceId = workspaceId
+    moved.push(identity)
+  }
+  return moved
+}
+
 export function registerExtension(extId: string): PaneIdentity {
   removeExtension(extId)
   const identity: PaneIdentity = {

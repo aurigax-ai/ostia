@@ -21,7 +21,10 @@ Below, `ostia` means that command.
 
 - `ostia workspace.list` — every workspace: `{workspaceId, name, kind, workDir, state}`.
 - `ostia pane.list` — every pane in every workspace: `{paneId, workspaceId, kind, title, cwd,
-  running, blockCount, lastExitCode}`. `paneId` is the id every other command takes.
+  running, blockCount, lastExitCode, agent?, agentState?, agentMessage?, hibernated?}`.
+  `paneId` is the id every other command takes. `agent` is set while an agent runs there;
+  `agentState` is what it reported (`working`, `waiting`, `done`, `error`); `hibernated: true`
+  means Ostia stopped the idle agent to save memory. `ostia pane list` is not a command.
 - `ostia manager read <paneId> [--lines N]` — the pane's screen as plain text (last 200 lines by
   default, at most 2000), including a full-screen program such as another agent's TUI. This is
   how you see whether a worker is waiting for an answer.
@@ -47,9 +50,11 @@ Example: `ostia manager spawn claude --cwd ~/src/api --name "api tests" -- "run 
   `delivered: "waiting"` (the worker was in `ostia bus wait` and has it) or `"queued"`: a claude or
   codex worker then gets it as context at its next prompt, and its pane is marked unread for the
   human. An idle worker is not woken by a message. Tell the worker in its first prompt to answer
-  with `ostia bus send <yourPaneId>`.
+  with `ostia bus send <yourPaneId>`. A hibernated worker answers `asleep: true`: it gets the
+  message as context when the human wakes it (or you do, with `ostia pane wake <paneId>`, which
+  needs the same **Allow typing into other panes** switch as `manager input`).
 - `ostia bus sent [--json]` — your own messages, each `seen` or `unseen` by its worker.
-- `ostia bus inbox [--drain]`, `ostia bus wait [--timeout MS]` — your own inbox. Workers' answers
+- `ostia bus inbox [--drain]`, `ostia bus wait [--timeout <s>]` — your own inbox (`bus wait` prints only new messages). Workers' answers
   also arrive as context at your next prompt, marked as messages from other panes.
 - `ostia whoami` prints your own `paneId`.
 

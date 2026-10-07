@@ -21,6 +21,7 @@ import { useSettingsStore } from '../stores/settingsStore'
 import { FileMenuItems } from './FileMenu'
 import { IconButton } from './IconButton'
 import { MenuContent, MenuItem } from './Menu'
+import { TabMoveMenuItems } from './TabMoveMenuItems'
 import { actionIcon } from './actionIcons'
 import { ContextMenu, ContextMenuSeparator, ContextMenuTrigger } from './ui/context-menu'
 
@@ -96,6 +97,9 @@ export function PaneTabMenu({
           >
             {d.window.movePaneToNewWindow}
           </MenuItem>
+        ) : null}
+        {lockable && workspaceId ? (
+          <TabMoveMenuItems workspaceId={workspaceId} tabId={pane.id} />
         ) : null}
       </MenuContent>
     </ContextMenu>

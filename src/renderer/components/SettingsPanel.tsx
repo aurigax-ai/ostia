@@ -102,6 +102,7 @@ import { capLabel } from './ApprovalCard'
 import { AssistantSection } from './AssistantSection'
 import { BrowseExtensions } from './BrowseExtensions'
 import { BrowserSettingsSection, EditorSettingsSection } from './BrowserEditorSettings'
+import { DiscreteGpuRow } from './DiscreteGpuRow'
 import { ExtensionSettingsForm } from './ExtensionSettingsForm'
 import { FileTreeSettingsGroups } from './FilesSettingsSection'
 import { FontPicker } from './FontPicker'
@@ -1802,6 +1803,7 @@ function TerminalSection(): JSX.Element {
           checked={gpuAcceleration}
           onChange={(v) => setBehavior({ gpuAcceleration: v })}
         />
+        {isLinux ? <DiscreteGpuRow /> : null}
         <ControlRow
           label={d.settings.terminalRenderer}
           desc={d.settings.terminalRendererDesc}

@@ -324,7 +324,7 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
     )
 
     expect(res.code).toBe(1)
-    expect(res.stderr).toContain("--timeout expects a number, got 'soon'")
+    expect(res.stderr).toContain("--timeout expects seconds, got 'soon'")
   })
 
   describe('ostia state', () => {
@@ -605,6 +605,7 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
         getTerminalState: () => undefined,
         ptyPid: () => undefined,
         windowIds: () => ['1'],
+        waking: () => false,
       })
 
       const json = await runOstia(['workspace', 'list', '--json'], env())

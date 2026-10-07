@@ -36,12 +36,28 @@ ostia commands       # JSON array of commands available in this window: id, titl
 ostia docs           # this same reference, generated from the running app
 ostia info           # this pane's mirrored terminal state (cwd, running, gen, ...)
 ostia cwd            # just this pane's current working directory
-ostia pane.list      # every pane, every workspace — JSON array of
-                     # { paneId(external), workspaceId, kind, title, cwd, running,
-                     #   blockCount, lastExitCode, splitTabId?, splitTabName? }
-                     # — the pane roster (see below)
+ostia pane.list      # every pane, every workspace — JSON array (the pane roster, below)
 ostia workspace.list   # every workspace — JSON array of { workspaceId, name, kind, workDir, state, groupId? }
 ```
+
+`ostia pane.list` is one command with a dot; `ostia pane list` is not a verb. It always prints
+JSON, one object per pane:
+
+| Field | Meaning |
+|---|---|
+| `paneId` | the pane's external id: what `pane send/read/wait/wake/close`, `bus send` and `--pane` take; same as `whoami`'s `externalId` |
+| `workspaceId`, `kind`, `title`, `cwd`, `filePath?` | where it is and what it shows (`kind`: terminal, editor, browser, …) |
+| `running`, `blockCount`, `lastExitCode`, `pid?` | a command is running in its shell; how many commands ran; the last exit code |
+| `agent?` | `claude`, `codex`, … while an agent runs in the pane; absent at a shell prompt |
+| `agentState?`, `agentMessage?` | what that agent reported: `working`, `waiting`, `done`, `error`; absent when nothing is pending |
+| `agentSessionId?` | the agent session a Resume or wake continues |
+| `hibernated?` | `true` when Ostia stopped the idle agent to save memory (wake it with `ostia pane wake`) |
+| `waking?` | `true` from `ostia pane wake` until the woken agent has started; `pane send` refuses it until then (`ostia pane wake --wait` waits for it) |
+| `splitTabId?`, `splitTabName?` | the split tab it belongs to |
+
+An agent that finished its turn has `agent` set and `agentState: "done"` (no `agentState` once the
+human looked at it); a bare shell has no `agent` and `running: false`. `ostia process ls` prints
+a different id, `proc-N`, plus that tab's `paneId`; `pane` verbs take either, or the `--name`.
 
 `ostia commands` always prints JSON (there's no separate `--json` flag to pass —
 JSON is the only output format). It lists *commands*, not other panes — use
@@ -71,7 +87,7 @@ ostia state error "Tests failed"              # ring + error marker
 ostia state clear                             # back to normal
 echo '{"message":"..."}' | ostia state waiting -   # message from stdin (JSON "message" field or raw text)
 ostia state done --pane <externalId>          # another pane — needs all-workspaces
-ostia resume-token claude <session-id>       # after a restart this pane offers "Resume claude"
+ostia resume-token claude <session-id>       # after a restart this pane resumes the session when the human opens it
 ostia workspace describe "PR [#512](https://github.com/o/r/pull/512): fix refunds"  # sidebar summary; --clear removes it
 ostia workspace group "payments"              # put this workspace in a sidebar group (created if missing)
 ostia workspace ungroup                       # take it out again
@@ -154,7 +170,8 @@ ostia process restart <id|name>    # Ctrl+C, then the same line again in the sam
 - The command is your own shell line, pasted exactly as you wrote it and run by the tab's
   interactive shell (zsh or bash), so the human's aliases and functions apply. Quote it once
   for your own shell: `ostia process run "claude 'fix the login bug'" --name fixer`.
-  It starts in your current folder unless you pass `--cwd`.
+  It starts in your current folder unless you pass `--cwd`. `--workspace <id|name>` opens the
+  tab in another workspace (needs `all-workspaces`).
 - To hand work to another agent, `ostia agent run claude "fix the login bug" --name fixer`
   (or `codex`, or an agent name the human configured) does the quoting for you: the prompt is
   passed as one argument, and `-` reads it from stdin for a long one. The agent opens in its own
@@ -185,11 +202,12 @@ ostia pane send <pane> "text" [--enter]  # type text; no Enter unless --enter
 ostia pane key <pane> <key>...           # enter tab escape up down ctrl-c ...
 ostia pane read <pane> [--lines N] [--json]  # its screen as plain text
 ostia pane wait <pane>... [--until done|waiting|idle|exited]... [--timeout <s>] [--json]
-ostia pane wake <pane>... [--json]       # wake hibernated agent panes
+ostia pane wake <pane>... [--wait [--timeout <s>]] [--json]  # wake hibernated agent panes
 ostia pane close <pane>... [--json]      # close those panes
+ostia pane rename <pane> <title...> | --clear  # name its tab (your own needs nothing)
 ```
 
-`<pane>` is a paneId from `ostia pane.list`, or a process id or name from `ostia process ls`.
+`<pane>` is a `paneId` from `ostia pane.list`, or a process id or name from `ostia process ls`.
 
 - A tab **you** opened with `ostia process run` or `ostia agent run` is yours to type into,
   read, wake and close, with no question asked.
@@ -214,7 +232,11 @@ ostia pane close <pane>... [--json]      # close those panes
   `ostia pane.list`) has no program running: `pane send` and `pane key` refuse it with
   `hibernated:`. `ostia pane wake <pane>` starts a fresh shell there and types the agent's own
   resume command, nothing else; it needs the same asks as `send` and answers `not-hibernated`
-  for a pane that is awake.
+  for a pane that is awake. Until that agent has started, the pane shows `waking: true` in
+  `ostia pane.list` and `pane send` and `pane key` refuse it with `waking:`. With `--wait` it
+  answers only once every named pane's agent has started: exit 0 started, 3 timed out
+  (default 2 minutes, `--timeout` up to 1800 s), 4 a pane closed, 1 with `resume-failed:`
+  when the agent could not start. `--wait` on a pane that is already waking just waits.
 - `pane close` closes the pane at once, even while a command runs in it; the human is asked
   only when it holds their unsaved file changes. A pane the human locked answers
   `pane-locked`: leave it open, you can't unlock it.
@@ -229,41 +251,40 @@ ostia pane close <pane>... [--json]      # close those panes
    The worker's first send to another pane asks the human once for `send-other-pane`.
 2. **Wait; don't poll screens.** Run `ostia pane wait <name>...` (returns on `done`,
    `waiting` or `exited`) in the background or with a long `--timeout`, and/or
-   `ostia bus wait` for reports. Read reports with `ostia bus inbox`, then clear them with
+   `ostia bus wait` for reports. A report reaches your context on its own only at your next
+   prompt, so while you are busy in a turn, block in `ostia bus wait` (it gets a message at
+   once) or check `ostia bus inbox`. Read reports with `ostia bus inbox`, then clear them with
    `ostia bus inbox --drain`: messages stay in the inbox and come back on every read until
-   drained.
+   drained. A worker can check whether you have read its report with `ostia bus sent`.
 3. **On `waiting`,** the worker needs the human or an answer. Read it with
    `ostia pane read <name>`, then tell the human or answer it: a permission prompt with
    `ostia pane key <name> <key>...`, a question that takes text with
    `ostia pane send <name> "..." --enter --force --confirm` (text to a waiting agent needs
    `--force`). Exit 2 means nothing happened on screen: press `ostia pane key <name> enter`.
-4. **Hibernated workers.** `ostia pane.list` shows `hibernated: true`. Run
-   `ostia pane wake <name>`, then send nothing until `ostia pane.list` shows that pane
-   `running: true` (its agent is back); before that, text would land at a bare shell prompt.
+4. **Hibernated workers.** `ostia pane.list` shows `hibernated: true`, and `pane send`
+   refuses it. Don't wake a worker just to talk to it: `ostia bus send <paneId> "..."` is
+   accepted (`asleep: true`), and when the worker wakes, its agent gets the message as context
+   at start-up and `ostia bus sent` marks it `seen`. To give it work now, run
+   `ostia pane wake <paneId> --wait && ostia pane send <paneId> "..." --enter --confirm`:
+   `--wait` returns once the worker's agent has started, and `pane send` refuses a pane that
+   is still `waking`. `running: true` alone is not enough: it turns true when the resume
+   command starts, before the agent reads input.
 5. **Follow-up work** goes to the same worker, whose context is warm:
    `ostia pane send <name> "..." --enter --confirm`. Never type a task while it is `waiting`
    on a permission prompt (`pane send` refuses); answer the prompt with `ostia pane key` first.
-6. **Review before merging.** Never trust a worker's "done": read its diff
+6. **Asks.** Your own `ostia agent run` tabs need no question. Any other pane, including
+   your own workers after Ostia restarted (it forgets who opened which tab, so
+   `ostia process ls` is empty and names no longer resolve: use the `paneId`), asks the human
+   for `type-other-pane` to send, key or wake. Expect it, and tell the human up front that
+   "Allow for this pane" covers every later send and wake from your pane. On `not-approved`,
+   say what is waiting (`ostia state waiting "..."`) and retry once they answer; don't start a
+   new worker to get around it, since that throws away the worker's context.
+7. **Review before merging.** Never trust a worker's "done": read its diff
    (`git -C <dir> diff main...<branch>`) and its test results yourself.
-7. **Finish.** `ostia pane close <name>` closes a worker's tab and stops its agent, with no
+8. **Finish.** `ostia pane close <name>` closes a worker's tab and stops its agent, with no
    question for a tab you opened; `ostia process kill <name>` stops the agent but keeps the
-   tab.
-
-## Workflows — the human's saved commands (read-only)
-
-```sh
-ostia workflow list [--json]         # name<TAB>source:origin<TAB>command; --json -> {workflows, problems}
-ostia workflow show <name> [--json]  # command, {{arguments}}, descriptions, defaults
-```
-
-Workflows are parameterized commands in Warp's YAML format (`name`, `command` with
-`{{arg}}` placeholders, `description`, `tags`, `arguments[{name, description,
-default_value}]`). You see your workspace's `<workDir>/.ostia/workflows/*.yaml`, the human's `~/.config/ostia/workflows/*.yaml`, and workflows contributed by enabled
-extensions. Use them to learn how this project is built, tested and deployed: fill
-the placeholders yourself and run the command in your own shell. There is no
-`run` or `save` verb, and ostia never types a workflow for you; files that fail to
-parse are listed under `problems` (stderr in text mode). Needs `read-board`
-(a default capability).
+   tab. Close the tab first, then remove its checkout (`git worktree remove <dir>`): a tab
+   whose folder is gone can't resume its agent there and only offers to close.
 
 ## Workflows — the human's saved commands (read-only)
 
@@ -497,8 +518,9 @@ pending-approval list — read-only; approving is always the human's job, never 
 ostia bus send <toExternalId> "<message>"                     # prints {"ok":true,"id":…,"delivered":"waiting"|"queued"}
 ostia bus inbox [--drain]                                    # print (and optionally clear) your inbox
 ostia bus sent [--json]                                       # your own recent messages: seen or unseen
-ostia bus wait [--timeout MS]                                 # block until an unseen message arrives
-                                                                # (clamped to 1s–120s, default 30s)
+ostia bus wait [--timeout <s>]                                # block until an unseen message arrives;
+                                                                # prints only the new ones (1–120 s,
+                                                                # default 30 s; timeout: "messages":[])
 ostia bus handoff <toExternalId> --task "<task>" --summary "<summary>"
 ostia bus claim <id>                                          # claim a handoff addressed to you
 ostia bus handoffs [--all]                                    # your handoffs (to/from you);
@@ -515,8 +537,12 @@ ostia bus done <id>                                           # mark a handoff c
   prompt, when the human presses Enter there, or when it runs `ostia bus inbox` / `ostia bus wait`
   itself. If you need an answer now, say so to the human (`ostia state waiting "…"`) or keep a
   worker you opened with `ostia process run` / `ostia agent run` moving with `ostia pane send`.
-- `asleep: true`: the receiver is hibernated and reads nothing until it is woken
-  (`ostia pane wake <pane>`).
+- `asleep: true`: the receiver is hibernated. The message waits in its inbox; when the pane
+  wakes (`ostia pane wake <pane>`, or the human), its agent gets it as context at start-up, but
+  does not start a turn by itself.
+- A message never interrupts a turn: an agent that is busy sees it at its next prompt. To hear
+  back quickly, block in `ostia bus wait` yourself, and tell the receiver to do the same when it
+  expects you.
 - `ostia bus sent` lists what you sent, newest last, as `<time> <to> seen <time>|unseen <first
   line>`. `seen` means the receiver's hook, `bus inbox` or `bus wait` showed it, not that the
   agent acted on it. Sending to an id no open pane holds answers `unknown-pane`.

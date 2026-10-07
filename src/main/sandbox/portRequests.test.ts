@@ -137,4 +137,25 @@ describe('PortRequests', () => {
     expect(asks).toEqual([])
     expect([...exposed]).toEqual([3000])
   })
+
+  it('KSH-C58 exposes a kept port seen before its restore finishes, without asking again', async () => {
+    const { requests, asks, exposed, listen } = setup({ policy: 'ask' })
+    requests.keep('ws', [3000])
+    listen([{ port: 3000, process: 'node' }])
+    await requests.scan('ws')
+    expect(asks).toEqual([])
+    expect([...exposed]).toEqual([3000])
+  })
+
+  it('asks again about a kept port whose server stopped and started again', async () => {
+    const { requests, asks, listen } = setup({ policy: 'ask' })
+    requests.keep('ws', [3000])
+    listen([{ port: 3000, process: 'node' }])
+    await requests.scan('ws')
+    listen([])
+    await requests.scan('ws')
+    listen([{ port: 3000, process: 'node' }])
+    await requests.scan('ws')
+    expect(asks).toEqual([3000])
+  })
 })

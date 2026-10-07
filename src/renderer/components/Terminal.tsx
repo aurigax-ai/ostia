@@ -296,9 +296,9 @@ function TerminalSurface({
     attachWheelReports(term, () => measureCells(host, term)?.height ?? 0, isLinux)
     const detachWheelZoom = attachWheelZoom(host, 'terminal', isMac)
     const detachLinkModifier = attachLinkModifier(host, isMac)
-    const linkScreen = terminalScreen(host)
-    const detachLinkClaim = linkScreen
-      ? attachLinkClaim(linkScreen, (e) => hoveredLink && linkModifierHeld(e, isMac))
+    const screenElement = terminalScreen(host)
+    const detachLinkClaim = screenElement
+      ? attachLinkClaim(screenElement, (e) => hoveredLink && linkModifierHeld(e, isMac))
       : () => {}
     termRef.current = term
     setSearch(searchAddon)
@@ -839,6 +839,7 @@ function TerminalSurface({
       }, 90)
     })
     ro.observe(host)
+    if (screenElement) ro.observe(screenElement)
 
     return () => {
       disposed = true
