@@ -362,7 +362,7 @@ jobs:
     if: needs.changes.outputs.full == 'true' && needs.changes.outputs.platform != 'linux'
     runs-on: macos-26
     timeout-minutes: 20
-    continue-on-error: true
+    continue-on-error: ${{ github.ref_type != 'tag' }}
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
@@ -379,7 +379,7 @@ jobs:
     needs: [changes, build-macos]
     runs-on: macos-26
     timeout-minutes: ${{ needs.changes.outputs.repeat == '1' && 20 || 120 }}
-    continue-on-error: true
+    continue-on-error: ${{ github.ref_type != 'tag' }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.changes.outputs.macos_matrix) }}
@@ -498,7 +498,7 @@ jobs:
         run: node scripts/quarantine.mjs e2e "$RUNS"
 
   ci-result:
-    needs: [changes, static, unit, unit-dom, build, e2e, e2e-ptrace]
+    needs: [changes, static, unit, unit-dom, build, e2e, e2e-ptrace, build-macos, e2e-macos]
     if: ${{ !cancelled() }}
     runs-on: ${{ fromJSON(needs.changes.outputs.linux) }}
     timeout-minutes: 5
@@ -508,10 +508,14 @@ jobs:
           CODE: ${{ needs.changes.outputs.code }}
           FULL: ${{ needs.changes.outputs.full }}
           PLATFORM: ${{ needs.changes.outputs.platform }}
+          GATE_MACOS: ${{ github.ref_type == 'tag' }}
         run: |
-          echo "$NEEDS" | jq -e --arg code "$CODE" --arg full "$FULL" --arg platform "$PLATFORM" '
+          echo "$NEEDS" | jq -e --arg code "$CODE" --arg full "$FULL" --arg platform "$PLATFORM" --arg gate "$GATE_MACOS" '
             .changes.result == "success" and
             (."e2e-ptrace".result | IN("success", "skipped")) and
             .e2e.result == (if $full == "true" and $platform != "macos" then "success" else "skipped" end) and
-            (del(.changes, ."e2e-ptrace", .e2e) | to_entries
+            (if $gate == "true" and $full == "true" and $platform != "linux"
+              then (."build-macos".result == "success" and ."e2e-macos".result == "success")
+              else true end) and
+            (del(.changes, ."e2e-ptrace", .e2e, ."build-macos", ."e2e-macos") | to_entries
               | all(.value.result == (if $code == "true" then "success" else "skipped" end)))'
