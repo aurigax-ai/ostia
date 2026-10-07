@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { type ElectronApplication, _electron as electron, expect, test } from './test'
 import { freshDataHome, isolatedLaunch } from './dataHome'
@@ -34,6 +34,7 @@ test('ostia system install asks the human, then runs the command in a new termin
   const dataHome = freshDataHome()
   const home = join(dataHome, 'home')
   mkdirSync(home, { recursive: true })
+  writeFileSync(join(home, '.bashrc'), "PS1='runner@ostia-linux-runner-pqdgm:\\w\\$ '\n")
   const log = join(dataHome, 'system-calls.log')
   const launch = isolatedLaunch(dataHome)
   const app = await electron.launch({

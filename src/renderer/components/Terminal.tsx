@@ -289,9 +289,9 @@ function TerminalSurface({
     attachWheelReports(term, () => measureCells(host, term)?.height ?? 0, isLinux)
     const detachWheelZoom = attachWheelZoom(host, 'terminal', isMac)
     const detachLinkModifier = attachLinkModifier(host, isMac)
-    const linkScreen = terminalScreen(host)
-    const detachLinkClaim = linkScreen
-      ? attachLinkClaim(linkScreen, (e) => hoveredLink && linkModifierHeld(e, isMac))
+    const screenElement = terminalScreen(host)
+    const detachLinkClaim = screenElement
+      ? attachLinkClaim(screenElement, (e) => hoveredLink && linkModifierHeld(e, isMac))
       : () => {}
     termRef.current = term
     setSearch(searchAddon)
@@ -803,10 +803,11 @@ function TerminalSurface({
       }
     })
 
-    syncSizeRef.current = syncSize
-    syncSize()
+    syncSizeRef.current = () => {
+      if (attached) syncSize()
+    }
     const unregisterOffscreen = registerOffscreenStarter(paneId, () => {
-      if (attached || disposed) return
+      if (attached || disposed || (host.offsetWidth > 0 && host.offsetHeight > 0)) return
       const grid = offscreenGrid()
       term.resize(grid.cols, grid.rows)
       attachAtCurrentSize(grid.cols, grid.rows)
@@ -816,7 +817,8 @@ function TerminalSurface({
     let rafId = 0
     const ro = new ResizeObserver(() => {
       if (!attached) {
-        syncSize()
+        cancelAnimationFrame(rafId)
+        rafId = requestAnimationFrame(syncSize)
         return
       }
       if (resizeTimer) clearTimeout(resizeTimer)
@@ -825,6 +827,7 @@ function TerminalSurface({
       }, 90)
     })
     ro.observe(host)
+    if (screenElement) ro.observe(screenElement)
 
     return () => {
       disposed = true

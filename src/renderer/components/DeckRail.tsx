@@ -48,11 +48,12 @@ import {
   hibernatedPanes,
   wakeWorkspace,
 } from '../lib/hibernationScheduler'
-import { beginDrag, endWorkspaceDrag } from '../lib/paneDrag'
+import { beginDrag, endWorkspaceDrag, isPaneDrag } from '../lib/paneDrag'
 import { RAIL_WIDTH } from '../lib/panelWidth'
 import { type RowDropZone, rowDropZone } from '../lib/railDropZone'
 import { useRailMotion } from '../lib/railMotion'
 import { sidebarLines, visibleSidebarItems } from '../lib/sidebarItems'
+import { canMoveTabTo, moveTabToWorkspace, workspaceOfTab } from '../lib/tabWorkspaceMove'
 import { moveWorkspaceToNewWindow } from '../lib/windowHandoff'
 import { type RemoteWorkspace, remoteWorkspacesOf } from '../lib/windowWorkspaces'
 import { markWorkspaceRead } from '../lib/workspaceActivity'
@@ -70,6 +71,7 @@ import { useAttentionStore } from '../stores/attentionStore'
 import { useBlocksStore } from '../stores/blocksStore'
 import { useExtensionsStore } from '../stores/extensionsStore'
 import { useLayoutStore } from '../stores/layoutStore'
+import { usePaneDnd } from '../stores/paneDndStore'
 import { useSandboxStore } from '../stores/sandboxStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { coversWorkspaces, useUIStore } from '../stores/uiStore'
@@ -154,6 +156,23 @@ interface DragHandlers {
   end: () => void
 }
 
+interface TabDropHandlers {
+  over: (workspaceId: string) => void
+  leave: (workspaceId: string) => void
+  drop: (workspaceId: string) => void
+}
+
+function draggedTab(): { tabId: string; sourceId: string } | null {
+  const tabId = usePaneDnd.getState().sourceId
+  const sourceId = tabId ? workspaceOfTab(tabId) : null
+  return tabId && sourceId ? { tabId, sourceId } : null
+}
+
+function takesDraggedTab(workspaceId: string): boolean {
+  const dragged = draggedTab()
+  return dragged !== null && canMoveTabTo(dragged.sourceId, dragged.tabId, workspaceId)
+}
+
 const RAIL_ID = 'deck-rail'
 
 const RailCollapsedContext = createContext(false)
@@ -193,6 +212,11 @@ function WorkspacesView(): JSX.Element {
   const groups = useWorkspacesStore((s) => s.groups)
   const activeId = useWorkspacesStore((s) => s.activeWorkspaceId)
   const [drag, setDrag] = useState<RailDrag | null>(null)
+  const [tabOver, setTabOver] = useState<string | null>(null)
+  const paneDragging = usePaneDnd((s) => s.dragging)
+  useEffect(() => {
+    if (!paneDragging) setTabOver(null)
+  }, [paneDragging])
   const [renamingGroup, setRenamingGroup] = useState<string | null>(null)
   const settingsTabOpen = useUIStore((s) => s.settingsTabOpen)
   const settingsActive = useUIStore((s) => s.settingsActive)
@@ -220,7 +244,18 @@ function WorkspacesView(): JSX.Element {
     },
     end: () => setDrag(null),
   }
+  const tabDrop: TabDropHandlers = {
+    over: (workspaceId) => setTabOver(workspaceId),
+    leave: (workspaceId) => setTabOver((cur) => (cur === workspaceId ? null : cur)),
+    drop: (workspaceId) => {
+      setTabOver(null)
+      const dragged = draggedTab()
+      usePaneDnd.getState().dropped()
+      if (dragged) void moveTabToWorkspace(dragged.sourceId, dragged.tabId, workspaceId)
+    },
+  }
   const target = drag?.target ?? null
+  const tabTarget = paneDragging ? tabOver : null
 
   const row = (w: Workspace): JSX.Element => (
     <WorkspaceRow
@@ -229,14 +264,17 @@ function WorkspacesView(): JSX.Element {
       index={workspaces.indexOf(w)}
       active={!covered && w.id === activeId}
       drop={
-        target?.kind === 'merge' && target.id === w.id
-          ? 'merge'
-          : target?.kind === 'workspace' && target.id === w.id
-            ? target.place
-            : null
+        tabTarget === w.id
+          ? 'tab'
+          : target?.kind === 'merge' && target.id === w.id
+            ? 'merge'
+            : target?.kind === 'workspace' && target.id === w.id
+              ? target.place
+              : null
       }
       mergeable={drag?.mergeable.has(w.id) ?? false}
       drag={handlers}
+      tabDrop={tabDrop}
       onGroupCreated={setRenamingGroup}
     />
   )
@@ -591,6 +629,7 @@ function WorkspaceRow({
   drop,
   mergeable,
   drag,
+  tabDrop,
   onGroupCreated,
 }: {
   workspace: Workspace
@@ -599,6 +638,7 @@ function WorkspaceRow({
   drop: RowDropZone | null
   mergeable: boolean
   drag: DragHandlers
+  tabDrop: TabDropHandlers
   onGroupCreated: (groupId: string) => void
 }): JSX.Element {
   const sidebar = useSettingsStore((s) => s.sidebar)
@@ -654,17 +694,32 @@ function WorkspaceRow({
           drag.start({ kind: 'workspace', id: w.id })
         }}
         onDragOver={(e) => {
+          if (isPaneDrag([...e.dataTransfer.types])) {
+            if (!rowDropZone('tab', dragFraction(e), takesDraggedTab(w.id))) return
+            e.preventDefault()
+            e.dataTransfer.dropEffect = 'move'
+            tabDrop.over(w.id)
+            return
+          }
           if (!isRailDrag(e)) return
           e.preventDefault()
           e.stopPropagation()
-          const zone = rowDropZone(dragFraction(e), mergeable)
-          drag.over(
-            zone === 'merge'
-              ? { kind: 'merge', id: w.id }
-              : { kind: 'workspace', id: w.id, place: zone },
-          )
+          const zone = rowDropZone('workspace', dragFraction(e), mergeable)
+          if (zone === 'merge') drag.over({ kind: 'merge', id: w.id })
+          else if (zone === 'before' || zone === 'after') {
+            drag.over({ kind: 'workspace', id: w.id, place: zone })
+          }
+        }}
+        onDragLeave={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) tabDrop.leave(w.id)
         }}
         onDrop={(e) => {
+          if (isPaneDrag([...e.dataTransfer.types])) {
+            if (!takesDraggedTab(w.id)) return
+            e.preventDefault()
+            tabDrop.drop(w.id)
+            return
+          }
           if (!isRailDrag(e)) return
           e.preventDefault()
           e.stopPropagation()
@@ -723,11 +778,11 @@ function WorkspaceRow({
           }
           badge={digitHints && index < 9 ? <Kbd className="tab-digit">{index + 1}</Kbd> : null}
         />
-        {drop === 'merge' ? (
-          <output className="rail-merge-chip motion-enter">
-            <ArrowsMergeIcon size={12} />
-            <span className="rail-merge-chip-label text-ui-xs">
-              {fmt(d.merge.menuInto, { name: title })}
+        {drop === 'merge' || drop === 'tab' ? (
+          <output className="rail-drop-chip motion-enter">
+            {drop === 'tab' ? <ArrowSquareInIcon size={12} /> : <ArrowsMergeIcon size={12} />}
+            <span className="rail-drop-chip-label text-ui-xs">
+              {fmt(drop === 'tab' ? d.tabMove.into : d.merge.menuInto, { name: title })}
             </span>
           </output>
         ) : null}

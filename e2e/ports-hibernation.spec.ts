@@ -112,7 +112,7 @@ test('an idle hidden agent hibernates and resumes when the human opens its tab',
 
     const sleeping = win.getByRole('tab').first()
     await expect(sleeping.getByLabel('Hibernated')).toBeVisible({ timeout: 30_000 })
-    await expect(win.locator('.xterm')).toHaveCount(1)
+    await expect(win.locator('.terminal-surface .xterm')).toHaveCount(1)
 
     await sleeping.click()
 
@@ -181,7 +181,7 @@ test('a hibernated agent is still hibernated after a restart and wakes when the 
     await expect(win.locator('.pane-slot:not([data-hidden]) .xterm-rows')).toContainText(PROMPT, {
       timeout: 15_000,
     })
-    await expect(win.locator('.xterm')).toHaveCount(1)
+    await expect(win.locator('.terminal-surface .xterm')).toHaveCount(1)
 
     await sleeping.click()
     const rows = win.locator('.pane-slot:not([data-hidden]) .xterm-rows')

@@ -31,6 +31,7 @@ import { appEnv } from '../shared/appEnv'
 import { SHARED_BROWSER_PARTITION, browserPartition } from '../shared/browserProfile'
 import { MANAGER_CAPABILITIES } from '../shared/capabilities'
 import { parseChatToolSettings } from '../shared/chatTools'
+import type { DiscreteGpuInfo } from '../shared/discreteGpu'
 import { languageForPath } from '../shared/editorLanguages'
 import { EXTENSION_SUGGESTIONS } from '../shared/extensionSuggestions'
 import type { ExtensionPanelContext, ExtensionResult, WorkspaceChip } from '../shared/extensions'
@@ -112,6 +113,7 @@ import {
 } from './controlServer'
 import { credentials, registerCredentials } from './credentials'
 import { type Diagnostics, registerDiagnostics } from './diagnostics'
+import { discreteGpu, gpuStartPlan, querySwitcherooGpus } from './discreteGpu'
 import { registerDocsMethods } from './docs'
 import { registerEditorLanguageIpc } from './editorLanguages'
 import { emitPlatformEvent, emitSessionState, platformEvents } from './events'
@@ -147,6 +149,7 @@ import {
   adoptPane,
   getByPaneId,
   markManager,
+  moveToWorkspace,
   panesOwnedBy,
   registerPane,
   rehomeWorkspace,
@@ -193,10 +196,12 @@ import {
 } from './paneIo'
 import { writeOstiaLauncher } from './paneLauncher'
 import { listPanes, listWorkspaceGroups, listWorkspaces, registerPaneListMethods } from './paneList'
+import { registerPaneMoveIpc } from './paneMove'
 import type { PaneProcess } from './paneProcess'
 import { registerPaneRenameMethods } from './paneRename'
 import { registerPaneResumeMethods } from './paneResume'
 import { PaneWatch, registerPaneWaitMethods } from './paneWait'
+import { PaneWaking } from './paneWaking'
 import { resolveSafe } from './pathGuard'
 import { registerPermissionAsk } from './permissionAsk'
 import {
@@ -329,6 +334,7 @@ import {
   saveScrollback,
   scrollbackToSave,
   stashScrollback,
+  stashedScreen,
   takeRestoredScrollback,
 } from './workspaceSnapshot'
 
@@ -664,6 +670,7 @@ function hibernatePty(paneId: string): boolean {
   if (!entry) return false
   stashScrollback(paneId, entry.mirror.serialize())
   hibernatedPanes.add(paneId)
+  paneWaking.end(paneId, 'failed')
   entry.subs.clear()
   killPty(paneId, 'hibernated')
   terminalState.delete(paneId)
@@ -1222,6 +1229,8 @@ const askHub = createAskHub({
 })
 const keptAttention = new KeptAttention()
 const paneWatch = new PaneWatch()
+const paneWaking = new PaneWaking()
+const isWaking = (paneId: string): boolean => paneWaking.has(paneId)
 const reachesPane: OriginReach = (senderWindowId, sourcePaneId, targetPaneId) =>
   broker?.reaches(senderWindowId, sourcePaneId, targetPaneId) ?? false
 let profileSync: ProfileSyncHandle | null = null
@@ -1564,6 +1573,7 @@ function registerIpc(): void {
       removePane(event.paneId)
       terminalState.delete(event.paneId)
       processes?.paneClosed(event.paneId)
+      paneWaking.end(event.paneId, 'closed')
       paneWatch.emit(event.paneId, { kind: 'closed' })
     } else if (event.type === 'workspace-added') {
       setWorkspaceWorkDir(event.workspaceId, event.workDir, windowId)
@@ -1600,6 +1610,7 @@ function registerIpc(): void {
         cur.blockCount !== snapshot.blockCount ||
         cur.lastExitCode !== snapshot.lastExitCode
       terminalState.set(snapshot.paneId, snapshot)
+      if (cur?.running && !snapshot.running) paneWaking.end(snapshot.paneId, 'failed')
       if (changed) {
         paneWatch.emit(snapshot.paneId, { kind: 'state' })
         const identity = getByPaneId(snapshot.paneId)
@@ -1811,6 +1822,19 @@ function releaseMergedSandbox(workspaceId: string, exiting?: PtyEntry): void {
   forgetSandboxRuntime(workspaceId)
 }
 
+function movePanesToWorkspace(paneIds: string[], sourceId: string, targetId: string): void {
+  for (const identity of moveToWorkspace(paneIds, targetId)) {
+    extensionHost?.emitEvent('pane.created', {
+      paneId: identity.externalId,
+      workspaceId: targetId,
+    })
+  }
+  for (const paneId of paneIds) {
+    const entry = ptys.get(paneId)
+    if (entry?.workspaceId === sourceId) entry.workspaceId = targetId
+  }
+}
+
 function mergeWorkspace(sourceId: string, targetId: string): void {
   for (const identity of rehomeWorkspace(sourceId, targetId)) {
     extensionHost?.emitEvent('pane.created', {
@@ -1835,6 +1859,13 @@ function registerPtyIpc(): void {
     sandboxRefusal: (sourceId, targetId) => workspaceSandboxes.mergeRefusal(sourceId, targetId),
     merge: mergeWorkspace,
   })
+  registerPaneMoveIpc({
+    ownerWindow: windowForWorkspace,
+    paneOf: getByPaneId,
+    isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
+    isScratch: (workspaceId) => scratchFolders.isScratch(workspaceId),
+    movePanes: movePanesToWorkspace,
+  })
   registerSandboxIpc({
     sandboxes: workspaceSandboxes,
     ownerWindow: windowForWorkspace,
@@ -1856,6 +1887,11 @@ function registerPtyIpc(): void {
       extensionHost
         ? extensionHost.invoke('system', 'install', args, caller)
         : Promise.resolve({ ok: false, error: 'extension-unavailable' }),
+  })
+  ipcMain.handle('system:discrete-gpu', async (): Promise<DiscreteGpuInfo | null> => {
+    if (process.platform !== 'linux') return null
+    const gpu = discreteGpu(await querySwitcherooGpus())
+    return gpu ? { name: gpu.name, inUse: gpuStartPlan(process.env, gpu).kind === 'stay' } : null
   })
   const attaching = new Map<string, Promise<PtyAttachResult>>()
   ipcMain.handle('pty:attach', async (e, paneId: string, opts: PtySpawnOptions) => {
@@ -2198,6 +2234,7 @@ function registerPtyIpc(): void {
         releaseMergedSandbox(workspaceId, entry)
       })
       const exposed = keptHost?.exposed ?? []
+      portRequests.keep(workspaceId, exposed)
       void workspaceSandboxes
         .connect(workspaceId)
         .then(() => restoreKeptExposed(workspaceId, exposed))
@@ -2247,6 +2284,10 @@ function registerPtyIpc(): void {
 
   ipcMain.handle('pty:hibernate', (_e, paneId: string): boolean => hibernatePty(String(paneId)))
 
+  ipcMain.handle('pty:stashed', (e, paneId: string): string | null =>
+    stashedScreen(String(paneId), String(e.sender.id), windowOfPane(String(paneId))),
+  )
+
   ipcMain.handle('pty:restart', (e, paneId: string): boolean => {
     const entry = ptys.get(String(paneId))
     if (!entry?.subs.has(String(e.sender.id))) return false
@@ -2258,6 +2299,13 @@ function registerPtyIpc(): void {
     if (typeof paneId !== 'string' || typeof running !== 'boolean') return
     const attached = ptys.get(paneId)?.subs.has(String(e.sender.id)) === true
     agentRunning.report(paneId, running, attached)
+  })
+
+  ipcMain.on('pty:waking', (e, paneId: unknown, waking: unknown) => {
+    if (typeof paneId !== 'string' || typeof waking !== 'boolean') return
+    if (getByPaneId(paneId)?.windowId !== String(e.sender.id)) return
+    if (waking) paneWaking.start(paneId)
+    else paneWaking.end(paneId, 'failed')
   })
 
   ipcMain.on('pty:write', (e, paneId: string, data: string) => {
@@ -3106,6 +3154,7 @@ app.whenReady().then(() => {
   registerPaneResumeMethods({
     execCommand,
     onResume: (identity, resume) => {
+      paneWaking.end(identity.paneId, 'started')
       if (identity.manager) managerService?.rememberResume(resume)
     },
   })
@@ -3171,6 +3220,7 @@ app.whenReady().then(() => {
     inputSent: (to) => void execCommand(targetOf(to), 'attention.typed'),
     hibernated: paneHibernated,
     wake: wakeHibernatedPane,
+    waking: paneWaking,
     close: (to) => execCommand(targetOf(to), 'pane.close'),
     delay: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
   })
@@ -3198,7 +3248,8 @@ app.whenReady().then(() => {
       void announceBusMessage(
         {
           execCommand,
-          listPanes: () => listPanes({ execCommand, getTerminalState, ptyPid, windowIds }),
+          listPanes: () =>
+            listPanes({ execCommand, getTerminalState, ptyPid, windowIds, waking: isWaking }),
           listWorkspaces: () => listWorkspaces({ execCommand, windowIds }),
         },
         from,
@@ -3416,7 +3467,7 @@ app.whenReady().then(() => {
   platformEvents.on('notify', (n: { title: string; body?: string; from: string }) =>
     extensionHost?.emitEvent('notification', n),
   )
-  registerPaneListMethods({ execCommand, getTerminalState, ptyPid, windowIds })
+  registerPaneListMethods({ execCommand, getTerminalState, ptyPid, windowIds, waking: isWaking })
   registerGatewayMethods()
   const tailnet = createTailnet({
     command: tsnetHelperPath(app.getAppPath(), process.platform),
@@ -3439,7 +3490,8 @@ app.whenReady().then(() => {
     execCommand,
     listCommandsFor,
     getTerminalState,
-    listPanes: () => listPanes({ execCommand, getTerminalState, ptyPid, windowIds }),
+    listPanes: () =>
+      listPanes({ execCommand, getTerminalState, ptyPid, windowIds, waking: isWaking }),
     listWorkspaces: () => listWorkspaces({ execCommand, windowIds }),
     fileScope: phoneFileScope,
     listWorkspaceGroups: () => listWorkspaceGroups({ execCommand, windowIds }),
@@ -3536,13 +3588,15 @@ app.whenReady().then(() => {
   gitBoard = new GitBoard({
     host: extensionHost,
     listWorkspaces: () => listWorkspaces({ execCommand, windowIds }),
-    listPanes: () => listPanes({ execCommand, getTerminalState, ptyPid, windowIds }),
+    listPanes: () =>
+      listPanes({ execCommand, getTerminalState, ptyPid, windowIds, waking: isWaking }),
     log: (line) => console.error(`[git] ${line}`),
   })
   gitBoard.start()
   portsBoard = new PortsBoard({
     host: extensionHost,
-    listPanes: () => listPanes({ execCommand, getTerminalState, ptyPid, windowIds }),
+    listPanes: () =>
+      listPanes({ execCommand, getTerminalState, ptyPid, windowIds, waking: isWaking }),
     log: (line) => console.error(`[ports] ${line}`),
   })
   portsBoard.start()

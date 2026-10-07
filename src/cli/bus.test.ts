@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { BUS_HOOK_USAGE, type BusHookIo, runBusHook, sentLines } from './bus'
+import { BUS_HOOK_USAGE, type BusHookIo, busWaitTimeoutMs, runBusHook, sentLines } from './bus'
 
 function io(context: BusHookIo['context']): BusHookIo & { lines: string[]; errors: string[] } {
   const lines: string[] = []
@@ -68,5 +68,17 @@ describe('sentLines', () => {
 
   it('says so when nothing was sent', () => {
     expect(sentLines([])).toEqual(['(no messages sent)'])
+  })
+})
+
+describe('busWaitTimeoutMs', () => {
+  it('reads --timeout in seconds, like pane wait and ask', () => {
+    expect(busWaitTimeoutMs(undefined)).toBeUndefined()
+    expect(busWaitTimeoutMs('30')).toBe(30_000)
+    expect(busWaitTimeoutMs('1.5')).toBe(1500)
+  })
+
+  it.each(['0', '-5', 'soon', ''])('refuses %j', (raw) => {
+    expect(() => busWaitTimeoutMs(raw)).toThrow(`--timeout expects seconds, got '${raw}'`)
   })
 })

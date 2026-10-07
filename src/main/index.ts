@@ -1,7 +1,10 @@
 import './userDirsBoot'
+import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { app, dialog } from 'electron'
 import { readEnv } from '../shared/appEnv'
+import { parseDiscreteGpu } from '../shared/discreteGpu'
+import { discreteGpu, gpuStartPlan, readSwitcherooGpus } from './discreteGpu'
 import { offerOldDirsMove } from './oldDirsPrompt'
 import {
   OLD_PRODUCT_NAME,
@@ -19,7 +22,34 @@ function presetAnswer(): number | undefined {
   return ANSWERS[readEnv('E2E_OLD_DIRS') ?? '']
 }
 
+function discreteGpuSetting(): boolean {
+  try {
+    const settings = JSON.parse(
+      readFileSync(join(app.getPath('userData'), 'settings.json'), 'utf8'),
+    )
+    return parseDiscreteGpu(settings?.behavior?.discreteGpu)
+  } catch {
+    return false
+  }
+}
+
+function relaunchedOnDiscreteGpu(): boolean {
+  if (process.platform !== 'linux' || !discreteGpuSetting()) return false
+  const gpu = discreteGpu(readSwitcherooGpus())
+  if (!gpu) return false
+  const plan = gpuStartPlan(process.env, gpu)
+  if (plan.kind === 'relaunch') {
+    Object.assign(process.env, plan.env)
+    app.relaunch()
+    app.exit(0)
+    return true
+  }
+  if (plan.renderNode) app.commandLine.appendSwitch('render-node-override', plan.renderNode)
+  return false
+}
+
 async function start(): Promise<void> {
+  if (relaunchedOnDiscreteGpu()) return
   await app.whenReady()
   const preset = presetAnswer()
   const folders = savedWorkspaceFolders([

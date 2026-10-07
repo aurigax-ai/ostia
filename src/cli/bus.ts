@@ -17,6 +17,15 @@ export const BUS_QUEUED_HINT =
 export const BUS_ASLEEP_HINT =
   'asleep: the receiver is hibernated; wake it with ostia pane wake <pane> so its agent reads the message'
 
+export function busWaitTimeoutMs(raw: string | undefined): number | undefined {
+  if (raw === undefined) return undefined
+  const seconds = Number(raw)
+  if (raw.trim() === '' || !Number.isFinite(seconds) || seconds <= 0) {
+    throw new Error(`--timeout expects seconds, got '${raw}'`)
+  }
+  return Math.round(seconds * 1000)
+}
+
 export interface BusSendOk {
   ok: true
   id?: string

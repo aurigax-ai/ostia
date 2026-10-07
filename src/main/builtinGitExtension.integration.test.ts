@@ -153,6 +153,7 @@ describe('built-in git extension against a real repository', () => {
       getTerminalState: () => undefined,
       ptyPid: () => undefined,
       windowIds: () => ['1'],
+      waking: () => false,
     }
     registerPaneListMethods(paneDeps)
     expect(identity.externalId).not.toBe(other.externalId)
