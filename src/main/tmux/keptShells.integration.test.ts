@@ -4,11 +4,11 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, afterEach, describe, expect, it } from 'vitest'
-import { programPath } from '../systemRequirements'
+import { skipWithoutTmux, tmuxPath } from '../../../test/tmux'
 import { type KeptHostMeta, type KeptMeta, KeptShells, SANDBOX_HOST_KIND } from './keptShells'
 import type { TmuxPane, TmuxServerOptions } from './tmuxServer'
 
-const tmux = programPath('tmux') ?? 'tmux'
+const tmux = tmuxPath ?? 'tmux'
 const root = mkdtempSync(join(tmpdir(), 'ostia-kept-'))
 const live: KeptShells[] = []
 let names = 0
@@ -77,7 +77,7 @@ async function restart(name: string, saved: ReadonlySet<string> | null, keep = t
   return next
 }
 
-describe('KeptShells', () => {
+describe.skipIf(skipWithoutTmux)('KeptShells', () => {
   it('KSH-C15 ends a kept shell the restored layout does not name and logs it', async () => {
     const name = `k${names++}`
     const first = instance(name)
