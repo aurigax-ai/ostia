@@ -32,4 +32,4 @@ runs:
     - shell: bash
       env:
         IGNORE_SCRIPTS: ${{ inputs.electron != 'true' && '--ignore-scripts' || '' }}
-      run: pnpm install --frozen-lockfile $IGNORE_SCRIPTS
+      run: scripts/retry.sh pnpm install --frozen-lockfile $IGNORE_SCRIPTS
