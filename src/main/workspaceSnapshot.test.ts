@@ -563,6 +563,28 @@ describe('clearPersisted', () => {
     loadRestoredScrollback()
     expect(takeRestoredScrollback('pane-1')).toBeNull()
   })
+
+  it('drops a scrollback save still queued when cleared', async () => {
+    const saving = saveScrollback({ 'pane-1': 'queued' })
+    await clearPersisted()
+    await saving
+    expect(existsSync(scrollbackPath())).toBe(false)
+  })
+
+  it('leaves no saved scrollback when cleared while a save is writing', async () => {
+    const saving = saveScrollback({ 'pane-1': 'in flight' })
+    await new Promise((resolve) => setImmediate(resolve))
+    await clearPersisted()
+    await saving
+    expect(existsSync(scrollbackPath())).toBe(false)
+  })
+
+  it('saves scrollback again after a clear', async () => {
+    clearPersisted()
+    await saveScrollback({ 'pane-1': 'after' })
+    loadRestoredScrollback()
+    expect(takeRestoredScrollback('pane-1')).toBe('after')
+  })
 })
 
 describe('trimScrollback', () => {

@@ -543,7 +543,7 @@ export class WindowBroker {
       if (!slot) return
       if (snapshot === null) {
         this.persistEnabled = false
-        clearPersisted()
+        void clearPersisted()
         return
       }
       const parsed = parseSnapshot(snapshot)

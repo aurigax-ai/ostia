@@ -3575,7 +3575,11 @@ function persistScrollback(): Promise<void> {
     return scrollbackSaves
   }
   scrollbackSaves = scrollbackSaves
-    .then(async () => saveScrollback(await redactScrollback(toSave)))
+    .then(async () => {
+      const redacted = await redactScrollback(toSave)
+      if (broker && !broker.persisting) return
+      await saveScrollback(redacted)
+    })
     .catch((err: unknown) => console.error('[workspace] scrollback save failed', err))
   return scrollbackSaves
 }
