@@ -1,4 +1,5 @@
 import { ipcMain, webContents } from 'electron'
+import type { PermissionInfo } from '../shared/agentPermissions'
 import {
   QUESTIONS_PER_PANE,
   QUESTION_RATE_LIMIT,
@@ -19,11 +20,22 @@ export interface QuestionAsk extends QuestionContent {
   externalId: string
   windowId: string
   paneId: string
+  permission?: PermissionInfo
 }
 
-export interface QuestionDeps {
+export interface QuestionEvents {
+  opened: (request: QuestionRequest) => void
+  settled: (id: string, outcome: QuestionOutcome['outcome']) => void
+}
+
+export interface QuestionDeps extends Partial<QuestionEvents> {
   publish: (windowId: string, state: QuestionState) => boolean
   now: () => number
+}
+
+export interface OpenQuestion {
+  windowId: string
+  request: QuestionRequest
 }
 
 export type QuestionTicket =
@@ -45,6 +57,7 @@ export interface Questions {
   forget: (externalId: string) => void
   rehome: (externalIds: readonly string[], windowId: string) => void
   stateFor: (windowId: string) => QuestionState
+  open: () => OpenQuestion[]
 }
 
 export function createQuestions(deps: QuestionDeps): Questions {
@@ -92,6 +105,7 @@ export function createQuestions(deps: QuestionDeps): Questions {
       mode: request.mode,
       at,
       ...(request.timeoutMs === undefined ? {} : { expiresAt: at + request.timeoutMs }),
+      ...(request.permission ? { permission: { ...request.permission } } : {}),
     }
     const outcome = new Promise<QuestionOutcome>((resolve) => {
       const timer =
@@ -104,6 +118,7 @@ export function createQuestions(deps: QuestionDeps): Questions {
         pending.delete(req.id)
         clearTimeout(timer)
         publish(entry.windowId)
+        deps.settled?.(req.id, result.outcome)
         resolve(result)
       }
       pending.set(req.id, {
@@ -112,6 +127,7 @@ export function createQuestions(deps: QuestionDeps): Questions {
         req,
         settle,
       })
+      deps.opened?.(req)
       if (!publish(request.windowId)) settle({ outcome: 'closed' })
     })
     return { ok: true, id: req.id, outcome }
@@ -169,7 +185,10 @@ export function createQuestions(deps: QuestionDeps): Questions {
     for (const id of touched) publish(id)
   }
 
-  return { ask, answer, dismiss, withdraw, forget, rehome, stateFor }
+  const open = (): OpenQuestion[] =>
+    [...pending.values()].map((p) => ({ windowId: p.windowId, request: p.req }))
+
+  return { ask, answer, dismiss, withdraw, forget, rehome, stateFor, open }
 }
 
 function publishToWindow(windowId: string, state: QuestionState): boolean {
@@ -185,8 +204,8 @@ export function questions(): Questions | null {
   return active
 }
 
-export function registerQuestions(): void {
-  const current = createQuestions({ publish: publishToWindow, now: Date.now })
+export function registerQuestions(events: QuestionEvents): void {
+  const current = createQuestions({ publish: publishToWindow, now: Date.now, ...events })
   active = current
   ipcMain.handle('questions:state', (e) => current.stateFor(String(e.sender.id)))
   ipcMain.handle('questions:answer', (e, id: unknown, reply: unknown) =>

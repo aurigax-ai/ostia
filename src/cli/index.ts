@@ -38,6 +38,7 @@ import { describeFailure } from './failure'
 import { type FileProbe, fileWord, isClaimedWord, parseFileArg, refusalLine } from './fileArgs'
 import { runManagerVerb } from './manager'
 import { parseWorkspaceRenameArgs, runPaneVerb } from './pane'
+import { runPermissionHook } from './permissionHook'
 import { runPortalCommand } from './portal'
 import { runTokenVerb } from './token'
 import { buildVersionAt } from './version'
@@ -392,6 +393,7 @@ const CORE_VERBS = new Set([
   'state',
   'resume-token',
   'claude-hook',
+  'permission-hook',
   'agent-hook',
   'open',
   'docs',
@@ -1388,6 +1390,13 @@ async function main(): Promise<void> {
       await runResumeTokenVerb(conn)
     } else if (cmd === 'claude-hook') {
       await runClaudeHookVerb(conn)
+    } else if (cmd === 'permission-hook') {
+      process.exitCode = await runPermissionHook(process.argv.slice(3), {
+        readInput: readAllStdin,
+        ask: (params) => conn.sendRequest('permission.ask', params),
+        out: (line) => console.log(line),
+        err: (line) => console.error(line),
+      })
     } else if (cmd === 'agent-hook') {
       process.exitCode = await runAgentHook(process.argv.slice(3), {
         readInput: readAllStdin,
