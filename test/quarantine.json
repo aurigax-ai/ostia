@@ -1,26 +1,5 @@
 [
   {
-    "file": "src/main/sandbox/sandboxRuntime.integration.test.ts",
-    "name": "sandbox runtime > SBX-C35 reaches allowed hosts and blocks the rest",
-    "issue": 63,
-    "until": "2026-11-06",
-    "platforms": ["linux"]
-  },
-  {
-    "file": "src/main/sandbox/packageFirewall.integration.test.ts",
-    "name": "package firewall > SBX-C80 lets an old, clean package download through the terminated TLS",
-    "issue": 63,
-    "until": "2026-11-06",
-    "platforms": ["linux"]
-  },
-  {
-    "file": "src/main/sandbox/packageFirewall.integration.test.ts",
-    "name": "package firewall > refuses a deny-listed package with a 403 that gives the reason, and reports it",
-    "issue": 63,
-    "until": "2026-11-06",
-    "platforms": ["linux"]
-  },
-  {
     "file": "src/renderer/components/BrowserView.test.tsx",
     "name": "BrowserView address bar > follows navigation when the user is not typing, and Escape restores the page address",
     "issue": 70,
