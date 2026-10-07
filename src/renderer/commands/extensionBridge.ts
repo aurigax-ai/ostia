@@ -122,6 +122,7 @@ export function openExtensionTerminal(req: ProcessTerminalRequest): string | nul
   const open = (): string | null =>
     useLayoutStore.getState().openTerminal(workspaceId, {
       afterPaneId: req.afterPaneId,
+      openedPaneIds: req.openedPaneIds,
       cwd: req.cwd,
       title: req.title,
       backgroundTab: req.backgroundTab,

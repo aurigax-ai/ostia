@@ -418,6 +418,17 @@ export function tabsOfPane(node: LayoutNode, paneId: string): TabsNode | null {
   return null
 }
 
+export function backgroundTabAnchor(
+  root: LayoutNode,
+  callerId: string,
+  openedIds: readonly string[],
+): string {
+  const stack = tabsOfPane(root, callerId)
+  if (!stack) return callerId
+  const inStack = openedIds.filter((id) => tabsOfPane(root, id)?.id === stack.id)
+  return inStack[inStack.length - 1] ?? callerId
+}
+
 export function tabOfPane(root: LayoutNode, paneId: string): TabNode | null {
   const tabs = tabsOfPane(root, paneId)
   return tabs ? tabs.children[tabIndex(tabs, paneId)] : null
