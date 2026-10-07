@@ -1,5 +1,6 @@
 import { EventEmitter } from 'node:events'
 import type { WorkspaceLiveState } from '../shared/types'
+import type { Ask, AskResolved } from './asks'
 
 export interface NotifyEventPayload {
   title: string
@@ -22,6 +23,8 @@ export interface PlatformEventPayloads {
   'agent.done': { sessionId: string }
   'session.state': { sessionId: string; state: WorkspaceLiveState }
   'pane.state': PaneStateEventPayload
+  'ask.created': { ask: Ask }
+  'ask.resolved': AskResolved
 }
 
 export type PlatformEventType = keyof PlatformEventPayloads
@@ -32,6 +35,8 @@ export const PLATFORM_EVENT_TYPES: readonly PlatformEventType[] = [
   'agent.done',
   'session.state',
   'pane.state',
+  'ask.created',
+  'ask.resolved',
 ]
 
 export const platformEvents = new EventEmitter()

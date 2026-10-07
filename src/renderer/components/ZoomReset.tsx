@@ -1,10 +1,8 @@
 import { MagnifyingGlassMinusIcon, MagnifyingGlassPlusIcon } from '@phosphor-icons/react'
 import { useEffect, useRef, useState } from 'react'
 import { useDict } from '../i18n/useDict'
-import { useChordLabel } from '../lib/chords'
 import { useReducedMotion } from '../lib/motion'
 import { activeZoom, resetZoom } from '../lib/wheelZoom'
-import { isMac } from '../platform'
 import { useSettingsStore } from '../stores/settingsStore'
 import { Hint } from './Hint'
 import { Button } from './ui/button'
@@ -44,7 +42,6 @@ function useLeavingPercent(percent: number | null): number | null {
 export function ZoomReset(): JSX.Element | null {
   const d = useDict()
   const percent = useSettingsStore((s) => activeZoom(s.appearance))
-  const keys = useChordLabel('view.zoomReset', isMac)
   const leaving = useLeavingPercent(percent)
 
   if (percent === null) {
@@ -56,7 +53,7 @@ export function ZoomReset(): JSX.Element | null {
     )
   }
   return (
-    <Hint label={keys ? `${d.topbar.resetZoom} (${keys})` : d.topbar.resetZoom} side="bottom">
+    <Hint label={d.topbar.resetZoom} command="view.zoomReset" side="bottom">
       <Button
         variant="ghost"
         size="xs"

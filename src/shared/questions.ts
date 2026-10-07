@@ -1,3 +1,5 @@
+import type { PermissionInfo } from './agentPermissions'
+
 export const QUESTION_MAX = 500
 export const QUESTION_CONTEXT_MAX = 4000
 export const QUESTION_CHOICES_MAX = 12
@@ -21,6 +23,7 @@ export interface QuestionRequest {
   mode: QuestionMode
   at: number
   expiresAt?: number
+  permission?: PermissionInfo
 }
 
 export interface QuestionState {
@@ -80,7 +83,7 @@ function withoutControls(text: string, keepLayout: boolean): string {
   return out
 }
 
-function clipTo(text: string, max: number): string {
+export function clipTo(text: string, max: number): string {
   return text.length > max ? `${text.slice(0, max - 1)}…` : text
 }
 
@@ -155,7 +158,7 @@ export function normalizeQuestion(raw: unknown): QuestionContentResult {
 }
 
 export function normalizeReply(
-  request: Pick<QuestionRequest, 'choices' | 'mode'>,
+  request: Pick<QuestionRequest, 'choices' | 'mode' | 'permission'>,
   raw: unknown,
 ): QuestionReply | null {
   if (typeof raw !== 'object' || raw === null) return null
@@ -167,6 +170,7 @@ export function normalizeReply(
     picked.add(index as number)
   }
   if (request.mode !== 'multi' && picked.size > 1) return null
+  if (request.permission && picked.size !== 1) return null
   const text = clipTo(plainBlock(reply.text), QUESTION_REPLY_MAX)
   if (picked.size === 0 && !text) return null
   return { choices: [...picked].sort((a, b) => a - b), text }
