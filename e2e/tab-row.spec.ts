@@ -1,4 +1,4 @@
-import { type Locator, type Page, _electron as electron, expect, test } from '@playwright/test'
+import { type Locator, type Page, _electron as electron, expect, test } from './test'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { fakeAgentBin, startFakeAgent } from './fakeAgent'
 import { openWorkspace } from './helpers'

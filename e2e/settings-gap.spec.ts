@@ -1,6 +1,6 @@
 import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
-import { type Page, _electron as electron, expect, test } from '@playwright/test'
+import { type Page, _electron as electron, expect, test } from './test'
 import { chords, isMac } from './chords'
 import {
   DOM_RENDERER_SETTINGS,

@@ -1,6 +1,6 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { type Page, _electron as electron, expect, test } from '@playwright/test'
+import { type Page, _electron as electron, expect, test } from './test'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { fakeAgentBin, isolatedHome } from './fakeAgent'
 import { PROMPT, emptyWorkspace, openWorkspace } from './helpers'

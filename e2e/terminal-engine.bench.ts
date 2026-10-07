@@ -1,5 +1,5 @@
 import { resolve } from 'node:path'
-import { _electron as electron, expect, test } from '@playwright/test'
+import { _electron as electron, expect, test } from './test'
 import { SOFTWARE_WEBGL, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { fakeAgentBin } from './fakeAgent'
 import { emptyState, emptyWorkspace } from './helpers'
