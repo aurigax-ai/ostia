@@ -3,7 +3,7 @@ import { join, resolve } from 'node:path'
 import { PRODUCT_NAME } from '../src/shared/product'
 import { installFakeLanguageExtension } from '../test/fixtures/lsp/installFakeExtension'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
-import { PROMPT, openWorkspace } from './helpers'
+import { PROMPT, hoverInEditor, openWorkspace } from './helpers'
 import {
   type ElectronApplication,
   type Locator,
@@ -76,7 +76,7 @@ async function hoverOn(
   await win.keyboard.press('Escape')
   await expect(win.locator('.monaco-hover:visible')).toHaveCount(0)
   await expect(target).toBeInViewport({ ratio: 1 })
-  await target.hover({ force: true, ...(position ? { position } : {}) })
+  await hoverInEditor(win, target, position)
   const hover = win.locator('.monaco-hover:visible')
   await expect(hover).toBeVisible({ timeout: 15_000 })
   return hover
