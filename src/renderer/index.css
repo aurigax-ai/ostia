@@ -1686,9 +1686,14 @@
 }
 
 .pane-split-tab {
-  gap: 6px;
-  max-width: 520px;
-  padding-left: 8px;
+  gap: 0;
+  min-width: auto;
+  max-width: none;
+  padding-left: 10px;
+}
+
+.pane-split-tab:hover:not(.selected) {
+  background: color-mix(in srgb, var(--surface-1) 50%, transparent);
 }
 
 .split-tab-glyph {
@@ -1742,6 +1747,7 @@
 .split-tab-name {
   flex: 0 1 auto;
   min-width: 0;
+  margin-left: 6px;
   max-width: 120px;
   overflow: hidden;
   white-space: nowrap;
@@ -1749,30 +1755,33 @@
   font-weight: var(--font-weight-medium);
 }
 
-.split-tab-pill {
-  display: flex;
-  flex: 0 1 auto;
-  align-items: stretch;
-  min-width: 0;
-  height: calc(100% - 10px);
-  border: 1px solid var(--line-strong);
-  border-radius: 6px;
-  overflow: hidden;
-}
-
 .split-tab-segment {
+  position: relative;
   display: flex;
   flex: 0 1 auto;
   align-items: center;
-  min-width: 56px;
-  max-width: 180px;
+  align-self: stretch;
+  min-width: 96px;
+  max-width: 200px;
   padding-right: 2px;
   transition: background-color var(--motion-fast) var(--ease-out), color var(--motion-fast)
     var(--ease-out);
 }
 
-.split-tab-segment + .split-tab-segment {
-  border-left: 1px solid var(--line-strong);
+.split-tab-glyph + .split-tab-segment,
+.split-tab-name + .split-tab-segment {
+  margin-left: 4px;
+}
+
+.split-tab-segment + .split-tab-segment::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 1px;
+  height: 14px;
+  background: var(--line-strong);
+  transform: translateY(-50%);
 }
 
 .split-tab-segment:hover {
@@ -1780,7 +1789,6 @@
 }
 
 .split-tab-segment.focused {
-  background: var(--surface-2);
   color: var(--fg);
 }
 

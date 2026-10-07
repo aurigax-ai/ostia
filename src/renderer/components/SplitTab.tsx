@@ -109,7 +109,7 @@ function SplitTabSegment({
           aria-current={focused ? 'true' : undefined}
           onClick={() => focusPane(pane.id)}
         >
-          <TabFace pane={pane} />
+          <TabFace pane={pane} segment />
         </button>
       </Hint>
       {pane.locked ? (
@@ -196,17 +196,15 @@ export function SplitTabPill({
     >
       <SplitTabGlyph tab={tab} focusedId={selected ? focusedId : null} />
       {tab.name ? <span className="split-tab-name">{tab.name}</span> : null}
-      <div className="split-tab-pill">
-        {allPanes(tab).map((pane) => (
-          <SplitTabSegment
-            key={pane.id}
-            pane={pane}
-            focused={selected && pane.id === focusedId}
-            showClose={showClose}
-            workspaceId={workspaceId}
-          />
-        ))}
-      </div>
+      {allPanes(tab).map((pane) => (
+        <SplitTabSegment
+          key={pane.id}
+          pane={pane}
+          focused={selected && pane.id === focusedId}
+          showClose={showClose}
+          workspaceId={workspaceId}
+        />
+      ))}
     </div>
   )
 }
