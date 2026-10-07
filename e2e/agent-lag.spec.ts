@@ -1,5 +1,5 @@
 import { resolve } from 'node:path'
-import { type Locator, _electron as electron, expect, test } from '@playwright/test'
+import { type Locator, _electron as electron, expect, test } from './test'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { fakeAgentBin } from './fakeAgent'
 import { openWorkspace } from './helpers'

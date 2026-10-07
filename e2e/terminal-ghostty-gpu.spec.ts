@@ -1,4 +1,4 @@
-import { type Page, _electron as electron, expect, test } from '@playwright/test'
+import { type Page, _electron as electron, expect, test } from './test'
 import { SOFTWARE_WEBGL, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { emptyState, emptyWorkspace } from './helpers'
 import { redRowGaps } from './pixels'

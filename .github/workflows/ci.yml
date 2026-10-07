@@ -61,9 +61,12 @@ jobs:
       code: ${{ github.ref_type == 'tag' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || steps.filter.outputs.code }}
       # The e2e suites (Linux, macOS) are the slow part. They run for tags
       # (v1.2.3 and pre-releases such as v1.2.3-rc.1, via release.yml), the
-      # nightly schedule and manual dispatch; pull requests and pushes to main
-      # get static, unit, unit-dom, unit-macos and build only.
-      full: ${{ github.ref_type == 'tag' || github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.full) }}
+      # nightly schedule and manual dispatch. A pull request that changes the
+      # e2e harness runs the full Linux suite (macOS stays on the nightly and
+      # tags); one that changes other e2e files runs only the specs it changed
+      # and the specs importing a changed file (changed); pushes to main run none.
+      full: ${{ github.ref_type == 'tag' || github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.full) || steps.e2e_paths.outputs.harness == 'true' }}
+      changed: ${{ steps.e2e_paths.outputs.harness != 'true' && steps.e2e_paths.outputs.e2e == 'true' }}
       linux: ${{ steps.runner.outputs.linux }}
       macos: ${{ steps.runner.outputs.macos }}
       platform: ${{ inputs.platform || 'all' }}
@@ -142,6 +145,17 @@ jobs:
               - '**'
               - '!**/*.md'
               - '!docs/**'
+      - if: github.event_name == 'pull_request'
+        uses: dorny/paths-filter@v4
+        id: e2e_paths
+        with:
+          predicate-quantifier: every
+          filters: |
+            e2e:
+              - 'e2e/**'
+              - '!**/*.md'
+            harness:
+              - '{e2e/helpers.ts,e2e/dataHome.ts,e2e/test.ts,playwright.config.ts,scripts/e2e.sh}'
 
   static:
     needs: changes
@@ -217,15 +231,18 @@ jobs:
 
   e2e:
     needs: [changes, build]
-    if: needs.changes.outputs.full == 'true' && needs.changes.outputs.platform != 'macos'
+    if: (needs.changes.outputs.full == 'true' || needs.changes.outputs.changed == 'true') && needs.changes.outputs.platform != 'macos'
     runs-on: ${{ fromJSON(needs.changes.outputs.linux) }}
     timeout-minutes: ${{ needs.changes.outputs.repeat == '1' && 25 || 180 }}
     strategy:
       fail-fast: false
       matrix:
-        shard: ${{ fromJSON(needs.changes.outputs.shards) }}
+        shard: ${{ fromJSON(needs.changes.outputs.changed == 'true' && '[1]' || needs.changes.outputs.shards) }}
     steps:
+      # Depth 2 gives the pull request's merge commit its base (HEAD^1) for --only-changed.
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
       - run: |
           scripts/retry.sh sudo apt-get update
           scripts/retry.sh sudo apt-get install -y xvfb zsh bubblewrap socat ripgrep tmux
@@ -254,10 +271,12 @@ jobs:
           SELF_HOSTED: ${{ runner.environment == 'self-hosted' }}
           SPECS: ${{ needs.changes.outputs.specs }}
           REPEAT: ${{ needs.changes.outputs.repeat }}
+          CHANGED: ${{ needs.changes.outputs.changed }}
         run: |
           read -ra specs <<< "$SPECS"
           args=("${specs[@]}" --shard=${{ matrix.shard }}/${{ strategy.job-total }} --repeat-each="$REPEAT")
           if [ "$SELF_HOSTED" = true ]; then args+=(--grep-invert "$PTRACE_E2E"); fi
+          if [ "$CHANGED" = true ]; then args+=(--only-changed=HEAD^1); fi
           pnpm test:e2e "${args[@]}"
       - if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
@@ -336,7 +355,7 @@ jobs:
 
   build-macos:
     needs: changes
-    if: needs.changes.outputs.full == 'true' && needs.changes.outputs.platform != 'linux'
+    if: needs.changes.outputs.full == 'true' && needs.changes.outputs.platform != 'linux' && github.event_name != 'pull_request'
     runs-on: macos-26
     timeout-minutes: 20
     continue-on-error: true
@@ -484,11 +503,12 @@ jobs:
           NEEDS: ${{ toJSON(needs) }}
           CODE: ${{ needs.changes.outputs.code }}
           FULL: ${{ needs.changes.outputs.full }}
+          CHANGED: ${{ needs.changes.outputs.changed }}
           PLATFORM: ${{ needs.changes.outputs.platform }}
         run: |
-          echo "$NEEDS" | jq -e --arg code "$CODE" --arg full "$FULL" --arg platform "$PLATFORM" '
+          echo "$NEEDS" | jq -e --arg code "$CODE" --arg full "$FULL" --arg changed "$CHANGED" --arg platform "$PLATFORM" '
             .changes.result == "success" and
             (."e2e-ptrace".result | IN("success", "skipped")) and
-            .e2e.result == (if $full == "true" and $platform != "macos" then "success" else "skipped" end) and
+            .e2e.result == (if ($full == "true" or $changed == "true") and $platform != "macos" then "success" else "skipped" end) and
             (del(.changes, ."e2e-ptrace", .e2e) | to_entries
               | all(.value.result == (if $code == "true" then "success" else "skipped" end)))'

@@ -1,4 +1,4 @@
-import { type Page, _electron as electron, expect, test } from '@playwright/test'
+import { type Page, _electron as electron, expect, test } from './test'
 import { isMac } from './chords'
 import { isolatedLaunch } from './dataHome'
 import { openWorkspace } from './helpers'

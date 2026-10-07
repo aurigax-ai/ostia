@@ -1,4 +1,4 @@
-import { _electron as electron, expect, test } from '@playwright/test'
+import { _electron as electron, expect, test } from './test'
 import { isolatedLaunch } from './dataHome'
 
 type OstiaFs = {

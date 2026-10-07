@@ -6,7 +6,7 @@ import {
   _electron as electron,
   expect,
   test,
-} from '@playwright/test'
+} from './test'
 import { isMac } from './chords'
 import { isolatedLaunch } from './dataHome'
 import { openWorkspace } from './helpers'
