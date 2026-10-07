@@ -186,13 +186,16 @@ jobs:
     needs: changes
     if: needs.changes.outputs.code == 'true'
     runs-on: ${{ fromJSON(needs.changes.outputs.linux) }}
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
+        timeout-minutes: 10
         with:
           go: false
           electron: false
       - run: pnpm test:dom
+        timeout-minutes: 10
 
   build:
     needs: changes
