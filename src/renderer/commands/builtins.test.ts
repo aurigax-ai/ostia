@@ -1,7 +1,7 @@
 import { Terminal } from '@xterm/xterm'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { SCRIPT_COMMANDS } from '../../main/commandArgs'
-import { DEFAULT_CAPABILITIES } from '../../shared/capabilities'
+import { type Capability, DEFAULT_CAPABILITIES } from '../../shared/capabilities'
 import { SCRIPT_CAPABILITIES } from '../../shared/scriptTokens'
 import { createPane, splitOf, tabsOf } from '../layout/tree'
 import * as blockActions from '../lib/blockActions'
@@ -1991,6 +1991,33 @@ describe('commands open to script tokens', () => {
       (cap) => !DEFAULT_CAPABILITIES.includes(cap) && !SCRIPT_CAPABILITIES.includes(cap),
     )
     expect(unreachable).toEqual([])
+  })
+
+  const SCRIPT_RELAXED_ALLOWLIST: Record<string, { relaxed: Capability[]; reason: string }> = {
+    'workspace.new': {
+      relaxed: DEFAULT_CAPABILITIES,
+      reason: 'a script has no pane, so all-workspaces stands in for every default capability',
+    },
+    'pane.close': {
+      relaxed: [],
+      reason: 'declares only kill-pane, so no default capability is relaxed',
+    },
+  }
+
+  it('SCRIPT_COMMANDS matches the relaxed-capability allowlist', () => {
+    expect(
+      [...SCRIPT_COMMANDS].sort(),
+      'a new script command must first be added to SCRIPT_RELAXED_ALLOWLIST with a reason',
+    ).toEqual(Object.keys(SCRIPT_RELAXED_ALLOWLIST).sort())
+  })
+
+  it.each([...SCRIPT_COMMANDS])('%s relaxes only capabilities its allowlist entry names', (id) => {
+    const described = commands.describe().find((c) => c.id === id)
+    const relaxed = (described?.capabilities ?? []).filter((cap) =>
+      DEFAULT_CAPABILITIES.includes(cap),
+    )
+    const allowed = SCRIPT_RELAXED_ALLOWLIST[id]?.relaxed ?? []
+    expect(relaxed.filter((cap) => !allowed.includes(cap))).toEqual([])
   })
 
   it('workspace.new keeps the default capabilities an in-app pane token holds', () => {
