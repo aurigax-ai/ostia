@@ -3,6 +3,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  readdirSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -13,6 +14,18 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { FileOps, copyName, nameProblem } from './fileOps'
 
 const dirs: string[] = []
+
+function caseSensitiveTmp(): boolean {
+  const dir = mkdtempSync(join(tmpdir(), 'ostia-fileops-case-'))
+  try {
+    writeFileSync(join(dir, 'probe'), '')
+    return !existsSync(join(dir, 'PROBE'))
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+}
+
+const CASE_SENSITIVE = caseSensitiveTmp()
 afterEach(() => {
   for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true })
 })
@@ -86,11 +99,21 @@ describe('FileOps', () => {
     expect(existsSync(join(root, 'readme.md'))).toBe(true)
   })
 
-  it('refuses a case-only rename onto a different file', () => {
+  it.skipIf(!CASE_SENSITIVE)('refuses a case-only rename onto a different file', () => {
     const { root, ops } = setup()
     writeFileSync(join(root, 'Notes.md'), 'other')
     expect(ops.rename(join(root, 'notes.md'), 'Notes.md')).toEqual({ ok: false, error: 'exists' })
     expect(readFileSync(join(root, 'Notes.md'), 'utf8')).toBe('other')
+  })
+
+  it.skipIf(CASE_SENSITIVE)('renames a file to another case of its own name', () => {
+    const { root, ops } = setup()
+    expect(ops.rename(join(root, 'notes.md'), 'Notes.md')).toEqual({
+      ok: true,
+      paths: [join(root, 'Notes.md')],
+    })
+    expect(readdirSync(root)).toContain('Notes.md')
+    expect(readFileSync(join(root, 'Notes.md'), 'utf8')).toBe('notes')
   })
 
   it('moves entries into a folder, refusing a clash or a folder into itself', () => {

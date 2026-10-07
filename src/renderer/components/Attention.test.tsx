@@ -1,5 +1,5 @@
 import type { NotificationEntry } from '@shared/types'
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { findPane, resetIds } from '../layout/tree'
@@ -39,6 +39,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  cleanup()
   useWorkspacesStore.setState(workspacesInit, true)
   useLayoutStore.setState(layoutInit, true)
   useAttentionStore.setState(attentionInit, true)
@@ -126,7 +127,14 @@ describe('sidebar unread mark', () => {
 describe('pane tab attention mark', () => {
   const setup = () => {
     const { workspaceId, a } = twoPanes()
-    const view = render(<Pane tabs={[paneNode(workspaceId, a)]} shownId={a} active={false} />)
+    const view = render(
+      <Pane
+        tabs={[paneNode(workspaceId, a)]}
+        shownId={a}
+        activePaneId="elsewhere"
+        workspaceId="w"
+      />,
+    )
     const frame = view.container.querySelector('.pane') as HTMLElement
     const tab = view.container.querySelector('.pane-tab') as HTMLElement
     const blinking = () => view.container.querySelector('.pane-kind-blink')
@@ -207,7 +215,9 @@ describe('pane tab attention mark', () => {
     const icon = blinking()
     expect(icon).not.toBeNull()
 
-    rerender(<Pane tabs={[paneNode(workspaceId, a)]} shownId={a} active />)
+    rerender(
+      <Pane tabs={[paneNode(workspaceId, a)]} shownId={a} activePaneId={a} workspaceId="w" />,
+    )
     expect(blinking()).toBe(icon)
 
     signal(a, 'second', 2)
@@ -417,7 +427,7 @@ describe('NotificationCenter', () => {
       })
       expect(useExtensionsStore.getState().panelNav[layout.activePaneId]?.path).toBe('/approvals')
     } finally {
-      useExtensionsStore.setState(extInit, true)
+      act(() => useExtensionsStore.setState(extInit, true))
     }
   })
 })

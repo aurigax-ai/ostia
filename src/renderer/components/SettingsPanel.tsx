@@ -52,6 +52,7 @@ import type { Dict, Locale } from '../i18n/dict'
 import { fmt, useDict, withProductName } from '../i18n/useDict'
 import { ACCENT_PRESETS, normalizeHex } from '../lib/color'
 import { extensionMatchesQuery } from '../lib/extensionSettingText'
+import { ghosttyFailure } from '../lib/ghosttyEngine'
 import { useReducedMotion } from '../lib/motion'
 import { openFileInWorkspace } from '../lib/openFile'
 import {
@@ -64,7 +65,7 @@ import {
 import { firstMatchControl, matchesQuery } from '../lib/settingsSearch'
 import { useEffectiveTheme } from '../lib/theme'
 import { isLinux, isMac, platform } from '../platform'
-import type { ClipboardKeys } from '../settings/terminalPaneSettings'
+import type { ClipboardKeys, TerminalRenderer } from '../settings/terminalPaneSettings'
 import {
   CONTRAST_MAX,
   CONTRAST_MIN,
@@ -72,6 +73,7 @@ import {
   SCROLLBACK_MIN,
   SCROLL_SPEED_MAX,
   SCROLL_SPEED_MIN,
+  TERMINAL_RENDERERS,
 } from '../settings/terminalPaneSettings'
 import { WINDOW_TITLE_MAX } from '../settings/windowTitle'
 import { useExtensionsStore } from '../stores/extensionsStore'
@@ -112,7 +114,7 @@ import { MarketplaceSection, UninstallExtensionButton } from './MarketplaceSecti
 import { PasswordsSection } from './PasswordsSection'
 import { PrivacySection } from './PrivacySection'
 import { PromptSection } from './PromptSection'
-import { RequirementsNoteView, useRequirementsReport } from './RequirementsNote'
+import { RequirementsNoteView, useRequirements } from './RequirementsNote'
 import { SandboxSection } from './SandboxSection'
 import {
   Highlight,
@@ -579,7 +581,11 @@ export function SettingsPanel(): JSX.Element | null {
         </nav>
 
         <ScrollArea className="min-h-0">
-          <div ref={contentRef} className="mx-auto max-w-3xl px-8 py-5">
+          <div
+            ref={contentRef}
+            data-slot="settings-content"
+            className="mx-auto max-w-3xl select-text px-8 py-5 [&_[data-slot=kbd]]:pointer-events-auto [&_[data-slot=kbd]]:select-text [&_[data-slot=label]]:select-text"
+          >
             {q && visible.length === 0 ? (
               <p className="text-fg-muted text-ui-sm">{d.settings.noMatches}</p>
             ) : null}
@@ -946,6 +952,7 @@ export function ControlRow({
   error,
   errorId,
   labelHint,
+  below,
   children,
 }: {
   label: string
@@ -953,7 +960,8 @@ export function ControlRow({
   error?: string | null
   errorId?: string
   labelHint?: React.ReactNode
-  children: React.ReactNode
+  below?: React.ReactNode
+  children?: React.ReactNode
 }): JSX.Element {
   const search = useSearchRow([label, desc])
   return (
@@ -961,7 +969,7 @@ export function ControlRow({
       data-settings-row
       hidden={search.hidden}
       data-search-hit={search.hit || undefined}
-      className={`flex justify-between gap-6 py-1.5 ${desc || error ? 'items-start' : 'items-center'}`}
+      className={`flex justify-between gap-6 py-1.5 ${desc || error || below ? 'items-start' : 'items-center'}`}
     >
       <div className="min-w-0">
         {labelHint ? (
@@ -986,10 +994,13 @@ export function ControlRow({
             {error}
           </p>
         ) : null}
+        {below ? <div className="mt-1.5">{below}</div> : null}
       </div>
-      <div className="flex shrink-0 items-center gap-2">
-        <SearchScopeProvider value={search.scope}>{children}</SearchScopeProvider>
-      </div>
+      {children ? (
+        <div className="flex shrink-0 items-center gap-2">
+          <SearchScopeProvider value={search.scope}>{children}</SearchScopeProvider>
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -1000,18 +1011,20 @@ export function SelectField<T extends string>({
   options,
   label,
   width = 'w-fit min-w-44 max-w-80',
+  disabled,
 }: {
   value: T
   onChange: (v: T) => void
   options: { value: T; label: string }[]
   label: string
   width?: string
+  disabled?: boolean
 }): JSX.Element {
   const current = options.find((o) => o.value === value)?.label ?? value
   useSearchLeaf(options.map((o) => o.label))
   return (
     <Select value={value} onValueChange={(v) => onChange(v as T)}>
-      <SelectTrigger size="sm" aria-label={label} className={width}>
+      <SelectTrigger size="sm" aria-label={label} className={width} disabled={disabled}>
         <span className="min-w-0 truncate">
           <Highlight text={current} />
         </span>
@@ -1027,21 +1040,32 @@ export function SelectField<T extends string>({
   )
 }
 
+export function ExperimentalBadge(): JSX.Element {
+  const d = useDict()
+  return (
+    <Badge variant="outline" className="h-4 px-1 text-ui-xs tracking-caps">
+      {d.settings.experimental}
+    </Badge>
+  )
+}
+
 export function ToggleRow({
   label,
   desc,
   checked,
   onChange,
   disabled,
+  labelHint,
 }: {
   label: string
   desc: string
   checked: boolean
   onChange: (v: boolean) => void
   disabled?: boolean
+  labelHint?: React.ReactNode
 }): JSX.Element {
   return (
-    <ControlRow label={label} desc={desc}>
+    <ControlRow label={label} desc={desc} labelHint={labelHint}>
       <Switch checked={checked} onCheckedChange={onChange} aria-label={label} disabled={disabled} />
     </ControlRow>
   )
@@ -1466,6 +1490,8 @@ function AgentsSection(): JSX.Element {
   const set = useSettingsStore((s) => s.setHibernation)
   const autoResume = useSettingsStore((s) => s.agents.autoResume)
   const setAutoResume = useSettingsStore((s) => s.setAutoResume)
+  const autoSendReferences = useSettingsStore((s) => s.agents.autoSendReferences)
+  const setAutoSendReferences = useSettingsStore((s) => s.setAutoSendReferences)
   const hooks = useSettingsStore((s) => s.agents.hooks)
   const setAgentHooks = useSettingsStore((s) => s.setAgentHooks)
   const approvalMode = useSettingsStore((s) => s.approvals.mode)
@@ -1492,6 +1518,14 @@ function AgentsSection(): JSX.Element {
           desc={d.settings.autoResumeDesc}
           checked={autoResume}
           onChange={setAutoResume}
+        />
+      </SettingsGroup>
+      <SettingsGroup title={d.settings.groupReferences}>
+        <ToggleRow
+          label={d.settings.autoSendReferences}
+          desc={d.settings.autoSendReferencesDesc}
+          checked={autoSendReferences}
+          onChange={setAutoSendReferences}
         />
       </SettingsGroup>
       <SettingsGroup title={d.settings.groupAgentHooks}>
@@ -1563,12 +1597,18 @@ function TerminalSection(): JSX.Element {
   const shell = useSettingsStore((s) => s.terminal.shell)
   const osc52Write = useSettingsStore((s) => s.terminal.osc52Write)
   const keepShells = useSettingsStore((s) => s.terminal.keepShells)
-  const keepShellsReport = useRequirementsReport(KEEP_SHELLS_FEATURE)
+  const renderer = useSettingsStore((s) => s.terminal.renderer)
+  const keepShellsRequirements = useRequirements(KEEP_SHELLS_FEATURE)
+  const keepShellsReport = keepShellsRequirements.report
   const primarySelection = useSettingsStore((s) => s.terminal.primarySelection)
   const macOptionIsMeta = useSettingsStore((s) => s.terminal.macOptionIsMeta)
   const modeLabel: Record<InputMode, string> = {
     terminal: d.settings.inputModeTerminal,
     editor: d.settings.inputModeEditor,
+  }
+  const rendererLabel: Record<TerminalRenderer, string> = {
+    xterm: d.settings.rendererXterm,
+    ghostty: d.settings.rendererGhostty,
   }
   const styleLabel: Record<CursorStyle, string> = {
     block: d.settings.styleBlock,
@@ -1601,16 +1641,21 @@ function TerminalSection(): JSX.Element {
         />
         <ControlRow
           label={d.prompt.title}
-          desc={promptStyle === 'ostia' ? d.settings.promptStylePine : d.settings.promptStyleShell}
+          below={
+            <Button
+              variant="link"
+              size="xs"
+              className="h-auto p-0 font-normal text-ui-sm"
+              onClick={() => useUIStore.getState().openSettings('prompt')}
+            >
+              {d.settings.promptOpen}
+              <CaretRightIcon data-icon="inline-end" />
+            </Button>
+          }
         >
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => useUIStore.getState().openSettings('prompt')}
-          >
-            {d.settings.promptOpen}
-            <CaretRightIcon data-icon="inline-end" />
-          </Button>
+          <span className="text-fg-muted text-ui-sm">
+            {promptStyle === 'ostia' ? d.settings.promptStylePine : d.settings.promptStyleShell}
+          </span>
         </ControlRow>
         {promptStyle === 'ostia' && mode !== 'editor' ? (
           <WarningNote>{d.settings.promptNeedsEditor}</WarningNote>
@@ -1729,6 +1774,23 @@ function TerminalSection(): JSX.Element {
           checked={gpuAcceleration}
           onChange={(v) => setBehavior({ gpuAcceleration: v })}
         />
+        <ControlRow
+          label={d.settings.terminalRenderer}
+          desc={d.settings.terminalRendererDesc}
+          labelHint={<ExperimentalBadge />}
+        >
+          <SelectField
+            value={renderer}
+            onChange={(r) => setTerminal({ renderer: r })}
+            label={d.settings.terminalRenderer}
+            options={TERMINAL_RENDERERS.map((r) => ({ value: r, label: rendererLabel[r] }))}
+          />
+        </ControlRow>
+        {renderer === 'ghostty' && ghosttyFailure() ? (
+          <WarningNote>
+            {fmt(d.settings.ghosttyFailed, { reason: ghosttyFailure() ?? '' })}
+          </WarningNote>
+        ) : null}
       </SettingsGroup>
       <SettingsGroup title={d.settings.groupSession}>
         <ToggleRow
@@ -1751,13 +1813,13 @@ function TerminalSection(): JSX.Element {
           label={d.settings.keepShells}
           desc={d.settings.keepShellsDesc}
           checked={keepShells}
+          labelHint={<ExperimentalBadge />}
           disabled={!keepShells && (!keepShellsReport || keepShellsReport.missing.length > 0)}
           onChange={(v) => setTerminal({ keepShells: v })}
         />
         <RequirementsNoteView
-          feature={KEEP_SHELLS_FEATURE}
           body={fmt(d.settings.keepShellsRequirementsBody, { version: TMUX_MIN_VERSION })}
-          report={keepShellsReport}
+          requirements={keepShellsRequirements}
         />
       </SettingsGroup>
     </div>

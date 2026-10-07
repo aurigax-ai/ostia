@@ -1,7 +1,8 @@
-import type { ISearchOptions, SearchAddon } from '@xterm/addon-search'
+import type { ISearchOptions } from '@xterm/addon-search'
 import type { ITheme } from '@xterm/xterm'
 import { useEffect, useState } from 'react'
 import { useDict } from '../i18n/useDict'
+import type { TerminalSearch } from '../lib/ostiaTerminal'
 import { FindBar, type FindStepRef } from './FindBar'
 
 export function findOptions(palette: ITheme): ISearchOptions {
@@ -24,7 +25,7 @@ export function TerminalFind({
   stepRef,
   onClose,
 }: {
-  search: SearchAddon
+  search: TerminalSearch
   options: ISearchOptions
   stepRef?: FindStepRef
   onClose: () => void

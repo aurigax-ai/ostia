@@ -163,3 +163,23 @@ test('a pane types into and reads a tab it opened, and asks the human for any ot
     await quit(app)
   }
 })
+
+test('tabs a pane opens with ostia process run line up beside it in launch order', async () => {
+  const { app, win } = await launch(freshDataHome())
+  try {
+    await openWorkspace(win)
+    const tabs = win.getByRole('tablist').getByRole('tab')
+    await win.locator('.xterm').first().click()
+
+    await run(win, 'for n in first second third; do ostia process run "sleep 30" --name "$n"; done')
+
+    await expect(tabs).toHaveCount(4, { timeout: 20_000 })
+    await expect(tabs.nth(1)).toContainText('first')
+    await expect(tabs.nth(2)).toContainText('second')
+    await expect(tabs.nth(3)).toContainText('third')
+    await expect(tabs.nth(0)).toHaveAttribute('aria-selected', 'true')
+    expect(await callerHasFocus(win)).toBe(true)
+  } finally {
+    await quit(app)
+  }
+})

@@ -2,6 +2,7 @@ export interface MissingRequirement {
   program: string
   package: string
   needs?: string
+  found?: string
 }
 
 export type RequirementCheck = { ok: true } | { ok: false; missing: MissingRequirement[] }

@@ -23,7 +23,7 @@ describe('Pane', () => {
     const host = document.createElement('div')
     const { container } = render(
       <>
-        <Pane tabs={[pane]} shownId={pane.id} active={false} />
+        <Pane tabs={[pane]} shownId={pane.id} activePaneId="elsewhere" workspaceId="w" />
         {createPortal(<textarea aria-label="surface" />, host)}
       </>,
     )
@@ -40,18 +40,24 @@ describe('Pane', () => {
 
   it('does not re-focus a pane that is already active', () => {
     const exec = vi.spyOn(commands, 'exec').mockResolvedValue({ ok: true, result: undefined })
-    const { container } = render(<Pane tabs={[pane]} shownId={pane.id} active />)
+    const { container } = render(
+      <Pane tabs={[pane]} shownId={pane.id} activePaneId={pane.id} workspaceId="w" />,
+    )
     container.querySelector('.pane')?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
     expect(exec).not.toHaveBeenCalled()
   })
 
   it('dims an inactive pane only when the workspace is split', () => {
-    const { container, rerender } = render(<Pane tabs={[pane]} shownId={pane.id} active={false} />)
+    const { container, rerender } = render(
+      <Pane tabs={[pane]} shownId={pane.id} activePaneId="elsewhere" workspaceId="w" />,
+    )
     const frame = container.querySelector('.pane')
     expect(frame).not.toHaveClass('dimmed')
-    rerender(<Pane tabs={[pane]} shownId={pane.id} active={false} split />)
+    rerender(
+      <Pane tabs={[pane]} shownId={pane.id} activePaneId="elsewhere" workspaceId="w" split />,
+    )
     expect(frame).toHaveClass('dimmed')
-    rerender(<Pane tabs={[pane]} shownId={pane.id} active split />)
+    rerender(<Pane tabs={[pane]} shownId={pane.id} activePaneId={pane.id} workspaceId="w" split />)
     expect(frame).not.toHaveClass('dimmed')
   })
 
@@ -70,20 +76,22 @@ describe('Pane', () => {
       ],
     })
     try {
-      render(<Pane tabs={[pane]} shownId={pane.id} active />)
+      render(<Pane tabs={[pane]} shownId={pane.id} activePaneId={pane.id} workspaceId="w" />)
       const notice = screen.getByRole('region', { name: 'Agent asks' })
       expect(notice).toHaveTextContent('Which database?')
       await userEvent.setup().click(within(notice).getByRole('button', { name: 'Answer' }))
       expect(useUIStore.getState().dashboardActive).toBe(true)
       expect(useQuestionsStore.getState().focusId).toBe('question-4')
     } finally {
-      useQuestionsStore.setState({ pending: [], focusId: null })
-      useUIStore.setState({ dashboardActive: false })
+      act(() => {
+        useQuestionsStore.setState({ pending: [], focusId: null })
+        useUIStore.setState({ dashboardActive: false })
+      })
     }
   })
 
   it('shows no question notice on a pane that asked nothing', () => {
-    render(<Pane tabs={[pane]} shownId={pane.id} active />)
+    render(<Pane tabs={[pane]} shownId={pane.id} activePaneId={pane.id} workspaceId="w" />)
     expect(screen.queryByRole('region', { name: 'Agent asks' })).toBeNull()
   })
 
@@ -92,7 +100,7 @@ describe('Pane', () => {
     const b: PaneNode = { type: 'pane', id: 'pb', kind: 'browser', title: 'localhost' }
 
     it('shows one tab per pane and marks the shown one selected', () => {
-      render(<Pane tabs={[a, b]} shownId="pb" active />)
+      render(<Pane tabs={[a, b]} shownId="pb" activePaneId={'pb'} workspaceId="w" />)
       expect(screen.getByRole('tab', { name: /claude/ })).toHaveAttribute('aria-selected', 'false')
       expect(screen.getByRole('tab', { name: /localhost/ })).toHaveAttribute(
         'aria-selected',
@@ -101,7 +109,9 @@ describe('Pane', () => {
     })
 
     it('hides every body but the shown tab’s, keeping them mounted', () => {
-      const { container } = render(<Pane tabs={[a, b]} shownId="pb" active />)
+      const { container } = render(
+        <Pane tabs={[a, b]} shownId="pb" activePaneId={'pb'} workspaceId="w" />,
+      )
       const slots = container.querySelectorAll('.pane-slot')
       expect(slots).toHaveLength(2)
       expect(slots[0]).toHaveAttribute('data-hidden')
@@ -111,7 +121,7 @@ describe('Pane', () => {
 
     it('focuses a tab when it is clicked and closes it from its close button', async () => {
       const exec = vi.spyOn(commands, 'exec').mockResolvedValue({ ok: true, result: undefined })
-      render(<Pane tabs={[a, b]} shownId="pb" active />)
+      render(<Pane tabs={[a, b]} shownId="pb" activePaneId={'pb'} workspaceId="w" />)
       const user = userEvent.setup()
 
       await user.click(screen.getByRole('tab', { name: /claude/ }))
@@ -123,7 +133,14 @@ describe('Pane', () => {
 
     it('shows a locked tab with an unlock button in place of its close button', async () => {
       const exec = vi.spyOn(commands, 'exec').mockResolvedValue({ ok: true, result: undefined })
-      render(<Pane tabs={[{ ...a, locked: true }, b]} shownId="pb" active />)
+      render(
+        <Pane
+          tabs={[{ ...a, locked: true }, b]}
+          shownId="pb"
+          activePaneId={'pb'}
+          workspaceId="w"
+        />,
+      )
       const locked = screen.getByRole('tab', { name: /claude/ }).closest('.pane-tab') as HTMLElement
 
       expect(locked).toHaveClass('locked')
@@ -134,7 +151,7 @@ describe('Pane', () => {
 
     it('closes a tab on middle-click and ignores other auxiliary buttons', () => {
       const exec = vi.spyOn(commands, 'exec').mockResolvedValue({ ok: true, result: undefined })
-      render(<Pane tabs={[a, b]} shownId="pb" active />)
+      render(<Pane tabs={[a, b]} shownId="pb" activePaneId={'pb'} workspaceId="w" />)
       const tab = screen.getByRole('tab', { name: /claude/ }).closest('.pane-tab') as HTMLElement
 
       fireEvent(tab, new MouseEvent('auxclick', { bubbles: true, button: 2 }))
@@ -145,7 +162,7 @@ describe('Pane', () => {
 
     it('opens a new terminal or browser tab next to the shown one', async () => {
       const exec = vi.spyOn(commands, 'exec').mockResolvedValue({ ok: true, result: undefined })
-      render(<Pane tabs={[a]} shownId="pa" active />)
+      render(<Pane tabs={[a]} shownId="pa" activePaneId={'pa'} workspaceId="w" />)
       const user = userEvent.setup()
       await user.click(screen.getByRole('button', { name: 'New terminal tab' }))
       expect(exec).toHaveBeenCalledWith('tab.new', { paneId: 'pa' })
@@ -156,7 +173,9 @@ describe('Pane', () => {
     it('shows no new-tab or split buttons on an extension panel or a chat', () => {
       for (const kind of ['extension', 'chat'] as const) {
         const service: PaneNode = { type: 'pane', id: `s-${kind}`, kind, title: kind }
-        const view = render(<Pane tabs={[service]} shownId={service.id} active />)
+        const view = render(
+          <Pane tabs={[service]} shownId={service.id} activePaneId={service.id} workspaceId="w" />,
+        )
         for (const name of ['New terminal tab', 'New browser tab', 'Split right', 'Split down']) {
           expect(screen.queryByRole('button', { name })).toBeNull()
         }
@@ -166,7 +185,7 @@ describe('Pane', () => {
 
     it('opens a new terminal tab on a double-click in the empty part of the tab strip, not on a tab', async () => {
       const exec = vi.spyOn(commands, 'exec').mockResolvedValue({ ok: true, result: undefined })
-      render(<Pane tabs={[a, b]} shownId="pb" active />)
+      render(<Pane tabs={[a, b]} shownId="pb" activePaneId={'pb'} workspaceId="w" />)
       const user = userEvent.setup()
       await user.dblClick(screen.getByRole('tab', { name: /claude/ }))
       expect(exec).not.toHaveBeenCalledWith('tab.new', expect.anything())
@@ -180,16 +199,18 @@ describe('Pane', () => {
       const draft = { promptLine: null, inputLine: null } as never
       useBlocksStore.setState({ drafts: { pa: draft }, running: {} })
 
-      const { rerender } = render(<Pane tabs={[withToken]} shownId="pa" active />)
+      const { rerender } = render(
+        <Pane tabs={[withToken]} shownId="pa" activePaneId={'pa'} workspaceId="w" />,
+      )
       expect(screen.getByRole('button', { name: /Resume claude/ })).toBeInTheDocument()
 
       act(() => useBlocksStore.setState({ running: { pa: 'b1' } }))
       expect(screen.queryByRole('button', { name: /Resume/ })).toBeNull()
 
       act(() => useBlocksStore.setState({ running: {} }))
-      rerender(<Pane tabs={[a]} shownId="pa" active />)
+      rerender(<Pane tabs={[a]} shownId="pa" activePaneId={'pa'} workspaceId="w" />)
       expect(screen.queryByRole('button', { name: /Resume/ })).toBeNull()
-      useBlocksStore.setState(blocksInit, true)
+      act(() => useBlocksStore.setState(blocksInit, true))
     })
   })
 })

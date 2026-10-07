@@ -30,6 +30,8 @@ jobs:
       - name: Tag matches package.json version
         run: test "v$(node -p 'require("./package.json").version')" = "$GITHUB_REF_NAME"
       - run: pnpm build
+      - name: Build version is the plain tag version
+        run: test "v$(node -p 'require("./out/build-info.json").version')" = "$GITHUB_REF_NAME"
       - run: pnpm exec electron-builder --linux dir deb --publish never
       - name: Archive the unpacked app
         run: |
@@ -54,6 +56,8 @@ jobs:
       - name: Tag matches package.json version
         run: test "v$(node -p 'require("./package.json").version')" = "$GITHUB_REF_NAME"
       - run: pnpm build
+      - name: Build version is the plain tag version
+        run: test "v$(node -p 'require("./out/build-info.json").version')" = "$GITHUB_REF_NAME"
       - name: Import the Developer ID certificate into a temporary keychain
         env:
           P12_B64: ${{ secrets.CSC_LINK }}
