@@ -67,6 +67,7 @@ describe('ExtensionHost agent tasks: ext.agents, ext.runAgent, ext.offerToAgent,
         execCommand: async () => ({ ok: true, result: null }) as CommandResult,
         listCommandsFor: () => [],
         getTerminalState: () => undefined,
+        isSandboxed: () => false,
       },
       socketPath,
     )

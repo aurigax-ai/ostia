@@ -36,6 +36,7 @@ beforeAll(async () => {
       execCommand: async () => ({ ok: true }) as CommandResult,
       listCommandsFor: () => [] as CommandDescriptor[],
       getTerminalState: () => undefined,
+      isSandboxed: () => false,
     },
     socketPath,
   )

@@ -73,6 +73,7 @@ describe('assist contribution points over a real control socket', () => {
         execCommand: async () => ({ ok: true, result: null }),
         listCommandsFor: () => [],
         getTerminalState: () => undefined,
+        isSandboxed: () => false,
       },
       socketPath,
     )

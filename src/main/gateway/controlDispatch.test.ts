@@ -248,6 +248,38 @@ describe('dispatchGatewayMethod — command.exec', () => {
     )
   })
 
+  it('hands the app the inner id of a pane named in args by its external id', async () => {
+    const identity = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'p-args' })
+    const desc = descriptor({ id: 'pane.splitRight' })
+    const execCommand = vi.fn().mockResolvedValue({ ok: true, result: undefined })
+    const deps = fakeDeps({
+      listCommandsFor: vi.fn().mockReturnValue([desc]),
+      primaryWindowId: vi.fn().mockReturnValue('w1'),
+      execCommand,
+    })
+
+    await dispatchGatewayMethod(
+      'command.exec',
+      { id: 'pane.splitRight', args: { paneId: identity.externalId } },
+      ['command'],
+      deps,
+    )
+    expect(execCommand).toHaveBeenCalledWith(
+      { windowId: 'w1', workspaceId: '', paneId: null },
+      'pane.splitRight',
+      { paneId: 'p-args' },
+    )
+
+    const res = await dispatchGatewayMethod(
+      'command.exec',
+      { id: 'pane.splitRight', args: { paneId: 'nope' } },
+      ['command'],
+      deps,
+    )
+    expect(res).toMatchObject({ ok: false, message: expect.stringContaining('unknown-pane: nope') })
+    expect(execCommand).toHaveBeenCalledTimes(1)
+  })
+
   it('resolves an explicit `target` pane externalId via idRegistry', async () => {
     const identity = registerPane({ windowId: 'w2', workspaceId: 's2', paneId: 'p2' })
     const desc = descriptor({ id: 'pane.splitRight' })

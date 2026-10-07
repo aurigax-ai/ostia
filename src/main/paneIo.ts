@@ -4,6 +4,7 @@ import type { CommandResult, TerminalStateSnapshot } from '../shared/types'
 import { ensureCaps } from './controlElevation'
 import { type ControlMethodContext, registerControlMethod } from './controlServer'
 import { type PaneIdentity, getByPaneId, resolveExternal } from './idRegistry'
+import { SANDBOXED_REFUSAL } from './sandboxedCaller'
 
 export const READ_LINES_DEFAULT = 200
 export const READ_LINES_MAX = 2000
@@ -184,8 +185,7 @@ export interface PaneIoDeps extends PaneReachDeps {
 
 const REFUSALS: Readonly<Record<string, string>> = {
   'own-pane': 'own-pane: a pane cannot type into itself',
-  sandboxed:
-    'sandboxed: a sandboxed workspace reaches only the sandboxed terminals of its own workspace',
+  sandboxed: SANDBOXED_REFUSAL,
 }
 
 export const PANE_REFS_MAX = 32

@@ -53,6 +53,7 @@ describe('ExtensionHost ext.openTerminal and interactive commands (real socket)'
         execCommand: async () => ({ ok: true, result: null }) as CommandResult,
         listCommandsFor: () => [],
         getTerminalState: () => undefined,
+        isSandboxed: () => false,
       },
       socketPath,
     )

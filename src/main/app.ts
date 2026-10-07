@@ -2813,7 +2813,7 @@ function openTerminalInWindow(req: ProcessTabRequest): Promise<string | null> {
       if (rid !== requestId || String(e.sender.id) !== wid) return
       finish(
         typeof paneId === 'string' && paneId
-          ? registerPane({ windowId: wid, workspaceId: '', paneId }).externalId
+          ? registerPane({ windowId: wid, workspaceId: req.workspaceId ?? '', paneId }).externalId
           : null,
       )
     }
@@ -3104,6 +3104,7 @@ app.whenReady().then(() => {
       return session ? (from) => session.since(from) : undefined
     },
     writePane: paneIo.write,
+    isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
     endShell: (paneId) => killPty(paneId, 'process-kill'),
     hasShell: (paneId) => ptys.has(paneId),
     runInPane: (paneId, command) => {
@@ -3462,7 +3463,14 @@ app.whenReady().then(() => {
   })
   registerScriptTokenMethods(scriptTokensPath)
   setScriptTokenCheck((token) => verifyScriptToken(scriptTokensPath(), token))
-  registerControlServer({ execCommand, listCommandsFor, getTerminalState })
+  registerControlServer({
+    execCommand,
+    listCommandsFor,
+    getTerminalState,
+    isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
+    windowOfWorkspace: workspaceWindowId,
+    primaryWindow: primaryWindowId,
+  })
   writeControlInfo(controlInfoPath(), controlSocketPath(), process.pid)
   listenKeptControlSocket(keptControlSocketPath(app.getPath('userData')))
   registerManagerIpc()

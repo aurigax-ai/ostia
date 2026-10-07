@@ -73,6 +73,7 @@ describe('built-in extensions that start on demand', () => {
         execCommand: async () => ({ ok: true, result: null }) as CommandResult,
         listCommandsFor: () => [],
         getTerminalState: () => undefined,
+        isSandboxed: () => false,
       },
       socketPath,
     )

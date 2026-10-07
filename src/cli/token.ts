@@ -10,7 +10,7 @@ export const TOKEN_USAGE = [
   'usage: ostia token create <name> --cap <capability>…',
   '       ostia token list [--json]',
   '       ostia token revoke <id>',
-  'capabilities: read-board read-other-pane type-other-pane all-workspaces',
+  'capabilities: read-board read-other-pane type-other-pane send-other-pane process all-workspaces',
 ].join('\n')
 
 export function parseTokenArgs(argv: string[]): TokenCall {
