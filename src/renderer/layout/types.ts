@@ -29,6 +29,8 @@ export interface PaneNode {
   resume?: AgentResume
   hibernated?: true
   resumePending?: true
+  spawnDir?: string
+  resumeFolderMissing?: string
   locked?: true
   defaultTitle?: true
   titlePinned?: true

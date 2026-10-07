@@ -672,8 +672,11 @@ function TerminalSurface({
           hostToken: useSandboxStore.getState().takeHostToken(paneId),
           ...spawnPromptOption(useSettingsStore.getState()),
         })
-        .then(({ buffer, sandboxed, sandboxStamp, host, shell, kept, reattached }) => {
+        .then(({ buffer, sandboxed, sandboxStamp, host, shell, kept, reattached, cwdMissing }) => {
           if (disposed) return
+          useLayoutStore
+            .getState()
+            .settleSpawnDir(workspaceIdRef.current, paneId, cwdMissing === true)
           if (kept && !querySilencer) querySilencer = silenceReplies()
           if (reattached) keptShellReattached(workspaceIdRef.current, paneId)
           commitShellTitle(workspaceIdRef.current, paneId, shell)

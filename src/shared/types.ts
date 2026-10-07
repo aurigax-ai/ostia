@@ -182,6 +182,7 @@ export interface PtyAttachResult {
   rows?: number
   kept?: boolean
   reattached?: boolean
+  cwdMissing?: boolean
 }
 
 export interface SystemApi {

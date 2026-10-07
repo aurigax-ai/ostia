@@ -169,6 +169,9 @@ describe('parseSnapshot', () => {
       resume: { agent: 'claude', id: 'abc-1' },
     })
     expect(
+      withResume({ agent: 'claude', id: 'abc-1', cwd: '/w/tree' })?.workspaces[0].root,
+    ).toMatchObject({ resume: { agent: 'claude', id: 'abc-1', cwd: '/w/tree' } })
+    expect(
       withResume({ agent: 'claude', id: 'x; rm -rf ~' })?.workspaces[0].root,
     ).not.toHaveProperty('resume')
   })
