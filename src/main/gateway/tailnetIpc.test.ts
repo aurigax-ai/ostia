@@ -22,15 +22,22 @@ vi.mock('../controlServer', () => ({
 
 const LAN_ADDRESS = '192.168.2.108'
 vi.mock('./interfaces', () => ({
-  listBindAddresses: () => [{ address: LAN_ADDRESS, iface: 'wlan0' }],
+  listBindAddresses: () => [
+    { address: '127.0.0.1', iface: 'lo', loopback: true },
+    { address: LAN_ADDRESS, iface: 'wlan0', loopback: false },
+  ],
 }))
+
+const DEFAULT_ROUTE = { bindAddress: '127.0.0.1', tailnet: true, phoneAddress: null }
+const LAN_ROUTE = { bindAddress: LAN_ADDRESS, tailnet: false, phoneAddress: null }
 
 const server = vi.hoisted(() => ({ running: false, host: '127.0.0.1' }))
 vi.mock('./server', () => ({
-  startGateway: vi.fn(async (options?: { host?: string }) => {
+  startGateway: vi.fn(async (options?: { host?: string; tailnet?: boolean }) => {
     server.running = true
     server.host = options?.host ?? '127.0.0.1'
-    return { host: server.host, port: 8722, helperPort: 40001, fingerprint: 'sha256/fp' }
+    const helperPort = options?.tailnet === false ? null : 40001
+    return { host: server.host, port: 8722, helperPort, fingerprint: 'sha256/fp' }
   }),
   stopGateway: vi.fn(async () => {
     server.running = false
@@ -161,57 +168,131 @@ describe('gateway IPC and socket surface for the tailnet', () => {
   })
 
   it('TSN-C40 refuses a route change from a webview guest', async () => {
-    expect(
-      await invoke('gateway:set-route', 'webview', { kind: 'address', address: LAN_ADDRESS }),
-    ).toEqual({ ok: false, error: 'not-a-window' })
-    expect(await invoke('gateway:status')).toMatchObject({ route: { kind: 'tailnet' } })
+    expect(await invoke('gateway:set-route', 'webview', LAN_ROUTE)).toEqual({
+      ok: false,
+      error: 'not-a-window',
+    })
+    expect(await invoke('gateway:status')).toMatchObject({ route: DEFAULT_ROUTE })
   })
 
-  it('TSN-C40 refuses an address this computer does not have', async () => {
-    for (const route of [
-      { kind: 'address', address: '10.9.9.9' },
-      { kind: 'address', address: '0.0.0.0; rm' },
-      { kind: 'nope' },
-    ]) {
+  it('TSN-C44 refuses 0.0.0.0, a hostname or an address this computer does not have', async () => {
+    for (const bindAddress of ['0.0.0.0', 'localhost', 'desk.example', '10.9.9.9', '0.0.0.0; rm']) {
+      expect(await invoke('gateway:set-route', 'window', { ...LAN_ROUTE, bindAddress })).toEqual({
+        ok: false,
+        error: 'unknown-address',
+      })
+    }
+    for (const route of [{ kind: 'tailnet' }, { ...LAN_ROUTE, tailnet: 'yes' }, null]) {
       expect(await invoke('gateway:set-route', 'window', route)).toEqual({
         ok: false,
         error: 'unknown-address',
+      })
+    }
+    expect(await invoke('gateway:status')).toMatchObject({ route: DEFAULT_ROUTE })
+  })
+
+  it('TSN-C43 accepts 127.0.0.1 as the bind address', async () => {
+    const route = { ...LAN_ROUTE, bindAddress: '127.0.0.1' }
+    expect(await invoke('gateway:set-route', 'window', route)).toEqual({ ok: true, route })
+    expect(await invoke('gateway:status')).toMatchObject({ route })
+  })
+
+  it('TSN-C47 refuses a phone address with a scheme, a path, no port or a bad port', async () => {
+    for (const phoneAddress of [
+      { host: 'https://desk.example', port: 443 },
+      { host: 'desk.example/path', port: 443 },
+      { host: 'desk.example' },
+      { host: 'desk.example', port: 0 },
+      { host: 'desk.example', port: 70000 },
+      { host: '999.1.1.1', port: 8722 },
+      'desk.example:443',
+    ]) {
+      expect(await invoke('gateway:set-route', 'window', { ...LAN_ROUTE, phoneAddress })).toEqual({
+        ok: false,
+        error: 'invalid-phone-address',
       })
     }
   })
 
   it('TSN-C38 refuses a route change while remote access is on', async () => {
     await invoke('gateway:enable')
-    expect(
-      await invoke('gateway:set-route', 'window', { kind: 'address', address: LAN_ADDRESS }),
-    ).toEqual({ ok: false, error: 'running' })
+    expect(await invoke('gateway:set-route', 'window', LAN_ROUTE)).toEqual({
+      ok: false,
+      error: 'running',
+    })
   })
 
-  it('TSN-C39 listens on the picked address without the tailnet and pairs with it', async () => {
-    expect(
-      await invoke('gateway:set-route', 'window', { kind: 'address', address: LAN_ADDRESS }),
-    ).toEqual({ ok: true, route: { kind: 'address', address: LAN_ADDRESS } })
+  it('TSN-C45 with the node off listens only on the bind address, starts no tsnet and pairs with it', async () => {
+    expect(await invoke('gateway:set-route', 'window', LAN_ROUTE)).toEqual({
+      ok: true,
+      route: LAN_ROUTE,
+    })
     expect(await invoke('gateway:enable')).toMatchObject({
       running: true,
       host: LAN_ADDRESS,
-      route: { kind: 'address', address: LAN_ADDRESS },
+      route: LAN_ROUTE,
     })
-    expect(startGateway).toHaveBeenCalledWith({ host: LAN_ADDRESS })
+    expect(startGateway).toHaveBeenCalledWith({
+      host: LAN_ADDRESS,
+      tailnet: false,
+      phoneAddress: null,
+    })
     expect(tailnet.start).not.toHaveBeenCalled()
     expect(await invoke('gateway:pair')).toMatchObject({ host: LAN_ADDRESS, port: 8722 })
   })
 
-  it('TSN-C37 goes back to the tailnet when Tailscale is picked again', async () => {
-    await invoke('gateway:set-route', 'window', { kind: 'address', address: LAN_ADDRESS })
-    await invoke('gateway:set-route', 'window', { kind: 'tailnet' })
+  it('TSN-C46 with the node off puts the phone address in the pairing payload', async () => {
+    const phoneAddress = { host: 'desk.example.ts.net', port: 443 }
+    const route = { bindAddress: '127.0.0.1', tailnet: false, phoneAddress }
+    expect(await invoke('gateway:set-route', 'window', route)).toEqual({ ok: true, route })
     await invoke('gateway:enable')
-    expect(startGateway).toHaveBeenCalledWith()
+    expect(startGateway).toHaveBeenCalledWith({
+      host: '127.0.0.1',
+      tailnet: false,
+      phoneAddress,
+    })
+    expect(tailnet.start).not.toHaveBeenCalled()
+    expect(await invoke('gateway:pair')).toMatchObject({ host: 'desk.example.ts.net', port: 443 })
+  })
+
+  it('TSN-C50 offers no pairing on 127.0.0.1 with the node off and no phone address', async () => {
+    await invoke('gateway:set-route', 'window', { ...LAN_ROUTE, bindAddress: '127.0.0.1' })
+    expect(await invoke('gateway:enable')).toMatchObject({ running: true, host: '127.0.0.1' })
+    expect(await invoke('gateway:pair')).toEqual({ error: 'not-running' })
+  })
+
+  it('TSN-C46 ignores the phone address while the node is on', async () => {
+    const route = {
+      bindAddress: '127.0.0.1',
+      tailnet: true,
+      phoneAddress: { host: 'desk.example.ts.net', port: 443 },
+    }
+    await invoke('gateway:set-route', 'window', route)
+    await invoke('gateway:enable')
+    expect(startGateway).toHaveBeenCalledWith({
+      host: '127.0.0.1',
+      tailnet: true,
+      phoneAddress: null,
+    })
+    tailnetState = { state: 'running', ip: '100.64.0.9', dnsName: 'ostia-x.example.ts.net' }
+    expect(await invoke('gateway:pair')).toMatchObject({ host: '100.64.0.9', port: 8722 })
+  })
+
+  it('TSN-C45 turning the node back on starts the helper on the next enable', async () => {
+    await invoke('gateway:set-route', 'window', LAN_ROUTE)
+    await invoke('gateway:set-route', 'window', { ...LAN_ROUTE, tailnet: true })
+    await invoke('gateway:enable')
+    expect(startGateway).toHaveBeenCalledWith({
+      host: LAN_ADDRESS,
+      tailnet: true,
+      phoneAddress: null,
+    })
     expect(tailnet.start).toHaveBeenCalledWith({ helperPort: 40001, port: 8722 })
   })
 
   it('TSN-C41 starts nothing when the saved address is no longer on this computer', async () => {
     saveJson(storePath('gateway-config', 'global'), {
-      route: { kind: 'address', address: '10.1.2.3' },
+      route: { bindAddress: '10.1.2.3', tailnet: true, phoneAddress: null },
     })
     expect(await invoke('gateway:enable')).toEqual({ error: 'address-unavailable' })
     expect(startGateway).not.toHaveBeenCalled()

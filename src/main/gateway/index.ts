@@ -1,10 +1,12 @@
 import { hostname } from 'node:os'
 import { type IpcMainInvokeEvent, ipcMain } from 'electron'
+import { LOOPBACK_ADDRESS } from '../../shared/gatewayRoute'
 import type {
   GatewayActionResult,
   GatewayDevice,
   GatewayEnableResponse,
   GatewayPairResponse,
+  GatewayPhoneAddress,
   GatewayRemoteStatus,
   GatewaySetCapResult,
   GatewaySetRouteResult,
@@ -18,7 +20,7 @@ import { list as listDevices, revoke as revokeDevice, setDeviceCap } from './dev
 import { listBindAddresses } from './interfaces'
 import { answerPairRequest, listPairRequests } from './pairRequests'
 import { liveCodeCount, newCode, onCodesChanged } from './pairing'
-import { loadDiscoverable, loadRoute, parseRoute, saveDiscoverable, saveRoute } from './route'
+import { checkRoute, loadDiscoverable, loadRoute, saveDiscoverable, saveRoute } from './route'
 import {
   applyDeviceCaps,
   closeDeviceSockets,
@@ -45,12 +47,13 @@ export function configureAnnouncer(publisher: Publisher): void {
 
 function refreshAnnouncement(): void {
   const status = gatewayStatus()
+  const target = pairTarget()
   const next = announcementFor({
     discoverable: loadDiscoverable(),
     liveCodes: liveCodeCount(),
     name: hostname(),
-    host: status.running ? pairHost() : null,
-    port: status.port,
+    host: target?.host ?? null,
+    port: target?.port ?? null,
     fingerprint: status.fingerprint,
   })
   if (sameAnnouncement(next, announced)) return
@@ -105,31 +108,40 @@ function isBindable(address: string): boolean {
 
 export async function enableRemote(): Promise<GatewayEnableResponse> {
   const route = loadRoute()
-  if (route.kind === 'address') {
-    if (!isBindable(route.address)) return { error: 'address-unavailable' }
-    await startGateway({ host: route.address })
-    return remoteStatus()
+  if (!isBindable(route.bindAddress)) return { error: 'address-unavailable' }
+  const started = await startGateway({
+    host: route.bindAddress,
+    tailnet: route.tailnet,
+    phoneAddress: route.tailnet ? null : route.phoneAddress,
+  })
+  if (route.tailnet && started.helperPort) {
+    tailnet?.start({ helperPort: started.helperPort, port: started.port })
   }
-  const started = await startGateway()
-  tailnet?.start({ helperPort: started.helperPort, port: started.port })
   return remoteStatus()
 }
 
 export function setRoute(value: unknown): GatewaySetRouteResult {
   if (gatewayStatus().running) return { ok: false, error: 'running' }
-  const route = parseRoute(value)
-  if (!route || (route.kind === 'address' && !isBindable(route.address))) {
+  const route = checkRoute(value)
+  if (route === 'invalid-phone-address') return { ok: false, error: route }
+  if (route === 'unknown-address' || !isBindable(route.bindAddress)) {
     return { ok: false, error: 'unknown-address' }
   }
   saveRoute(route)
   return { ok: true, route }
 }
 
-function pairHost(): string | null {
+function pairTarget(): GatewayPhoneAddress | null {
+  const status = gatewayStatus()
+  if (!status.running || !status.port) return null
   const route = loadRoute()
-  if (route.kind === 'address') return gatewayStatus().host === route.address ? route.address : null
-  const node = tailnetState()
-  return node.state === 'running' ? node.ip : null
+  if (route.tailnet) {
+    const node = tailnetState()
+    return node.state === 'running' && node.ip ? { host: node.ip, port: status.port } : null
+  }
+  if (route.phoneAddress) return route.phoneAddress
+  if (route.bindAddress === LOOPBACK_ADDRESS || status.host !== route.bindAddress) return null
+  return { host: route.bindAddress, port: status.port }
 }
 
 export async function disableRemote(): Promise<GatewayRemoteStatus> {
@@ -141,14 +153,12 @@ export async function disableRemote(): Promise<GatewayRemoteStatus> {
 
 export function gatewayPair(): GatewayPairResponse {
   const status = gatewayStatus()
-  const host = pairHost()
-  if (!status.running || !status.port || !status.fingerprint || !host) {
-    return { error: 'not-running' }
-  }
+  const target = pairTarget()
+  if (!status.fingerprint || !target) return { error: 'not-running' }
   return {
     v: 1,
-    host,
-    port: status.port,
+    host: target.host,
+    port: target.port,
     fingerprint: status.fingerprint,
     pairCode: newCode(),
     name: hostname(),
@@ -217,7 +227,7 @@ async function tailnetSignOut(): Promise<GatewayTailnetActionResult> {
   await tailnet.signOut()
   const helperPort = gatewayHelperPort()
   const port = gatewayStatus().port
-  if (helperPort && port && loadRoute().kind === 'tailnet') tailnet.start({ helperPort, port })
+  if (helperPort && port && loadRoute().tailnet) tailnet.start({ helperPort, port })
   return { ok: true }
 }
 

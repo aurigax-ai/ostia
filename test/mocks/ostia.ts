@@ -406,7 +406,7 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
         fingerprint: 'sha256/x',
         deviceCount: 0,
         tailnet: { state: 'starting' },
-        route: { kind: 'tailnet' },
+        route: { bindAddress: '127.0.0.1', tailnet: true, phoneAddress: null },
       }),
       disable: vi.fn().mockResolvedValue({
         running: false,
@@ -415,7 +415,7 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
         fingerprint: null,
         deviceCount: 0,
         tailnet: { state: 'off' },
-        route: { kind: 'tailnet' },
+        route: { bindAddress: '127.0.0.1', tailnet: true, phoneAddress: null },
       }),
       pair: vi.fn().mockResolvedValue({
         v: 1,
@@ -432,7 +432,7 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
         fingerprint: null,
         deviceCount: 0,
         tailnet: { state: 'off' },
-        route: { kind: 'tailnet' },
+        route: { bindAddress: '127.0.0.1', tailnet: true, phoneAddress: null },
         discoverable: false,
       }),
       devices: vi.fn().mockResolvedValue({ devices: [] }),

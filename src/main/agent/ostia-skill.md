@@ -848,8 +848,9 @@ ostia gateway devices                       # list paired phones — deviceId, n
 ostia gateway revoke <deviceId>              # revoke a paired phone immediately
 ```
 
-Lets the Ostia Companion phone app reach this desktop, through the human's own Tailscale tailnet
-or a local address the human picked (**no hosted relay, no Ostia account**), and mirror/drive it.
+Lets the Ostia Companion phone app reach this desktop, through the human's own Tailscale tailnet,
+a local address or a tunnel the human set up (**no hosted relay, no Ostia account**), and
+mirror/drive it.
 **Off by default**, and only the human turns it on, picks the route and signs in to Tailscale, in
 Settings → Remote; no verb here starts it or changes the route. Every verb
 needs the elevated `gateway` capability (see below) on top of whatever the human has granted.
