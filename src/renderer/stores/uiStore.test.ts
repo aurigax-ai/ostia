@@ -1,4 +1,5 @@
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
+import { paletteReturnFocus } from '../lib/paletteFocus'
 import { coversWorkspaces, useUIStore } from './uiStore'
 
 const state = () => useUIStore.getState()
@@ -29,6 +30,28 @@ describe('uiStore', () => {
 
       state().closePalette()
       expect(state().paletteOpen).toBe(false)
+    })
+
+    it('takes focus off the terminal the moment the palette opens and gives it back on close', () => {
+      const terminal = document.createElement('textarea')
+      document.body.append(terminal)
+      terminal.focus()
+      state().togglePalette()
+      expect(document.activeElement).toBe(document.body)
+      expect(paletteReturnFocus()).toBe(terminal)
+      terminal.remove()
+    })
+
+    it('leaves focus where a command moved it while the palette was open', () => {
+      const terminal = document.createElement('textarea')
+      const other = document.createElement('input')
+      document.body.append(terminal, other)
+      terminal.focus()
+      state().openPalette()
+      other.focus()
+      expect(paletteReturnFocus()).toBe(false)
+      terminal.remove()
+      other.remove()
     })
 
     it('togglePalette flips paletteOpen, and back to the original on a second call', () => {

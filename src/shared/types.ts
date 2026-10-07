@@ -31,7 +31,14 @@ import type { ExtensionOpenTerminalRequest, ExtensionResult, ExtensionsApi } fro
 import type { FileOpsApi } from './fileOps'
 import type { GuestChordFire } from './guestChords'
 import type { IconThemesApi } from './iconTheme'
-import type { ReleaseState, UpdateRunStart, UpdateRunState } from './installMethod'
+import type {
+  ReleaseState,
+  ReplaceProgress,
+  ReplaceStart,
+  ReplaceState,
+  UpdateRunStart,
+  UpdateRunState,
+} from './installMethod'
 import type { KeymapsApi } from './keymapFile'
 import type { LanguagePacksApi } from './languagePack'
 import type { LspApi } from './languageServers'
@@ -94,6 +101,7 @@ export interface AppInfo {
   platform: Platform
   hostName: string
   home: string
+  desktops: string[]
 }
 
 export const RENDERER_ERROR_KINDS = ['error', 'rejection', 'render', 'surface'] as const
@@ -825,6 +833,10 @@ export interface AppUpdateApi {
   runUpdate: () => Promise<UpdateRunStart>
   updateRun: () => Promise<UpdateRunState>
   onUpdateRun: (cb: (state: UpdateRunState) => void) => () => void
+  replaceInstall: () => Promise<ReplaceStart>
+  replaceState: () => Promise<ReplaceState>
+  onReplace: (cb: (state: ReplaceState) => void) => () => void
+  onProgress: (cb: (progress: ReplaceProgress) => void) => () => void
 }
 
 export type CredentialFillResult =

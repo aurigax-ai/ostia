@@ -650,7 +650,7 @@ restart) and saves `settings.json`. It prints `{previous, value, applied}`; keep
 doesn't exist (`unknown settings key`), the type differs, or the setting doesn't accept it
 (`invalid value for <key>`, e.g. an enum value it doesn't list); look the key up with
 `ostia settings schema <key>` instead of guessing. Keys that launch programs or grant
-permissions or guard the human (`behavior.externalEditor`, `behavior.checkForUpdates`,
+permissions or guard the human (`behavior.externalEditor`, `behavior.checkForUpdates`, `behavior.updateChannel`,
 `notifications.command`, `agents.autoResume`, `agents.autoSendReferences`, `agents.hooks`,
 `terminal.warnOnRiskyPaste`, `terminal.shell`, `terminal.osc52Write`, `workspaces.globalHotkey`, `capabilities`,
 `approvals`, `sync`, `terminalKeys`) are the human's; you can't set them. `get` with no

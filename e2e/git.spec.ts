@@ -63,6 +63,13 @@ test('a dirty repo shows in the sidebar and the top bar, opens a diff, commits, 
       .poll(() => guestEval('document.body.innerText'), { timeout: 15_000 })
       .toContain('notes.txt')
 
+    await guestEval(`(() => {
+      window.panelLoad = 'first'
+      const box = document.querySelector('textarea.message')
+      box.value = 'draft kept'
+      box.dispatchEvent(new Event('input'))
+      return 'ok'
+    })()`)
     await guestClick('button.change[data-path="notes.txt"]')
 
     await expect(
@@ -72,6 +79,8 @@ test('a dirty repo shows in the sidebar and the top bar, opens a diff, commits, 
     await expect(diff).toBeVisible({ timeout: 15_000 })
     await expect(diff).toContainText('second line from e2e', { timeout: 15_000 })
     await expect(win.locator('.diff-title')).toHaveText(join(home, 'notes.txt'))
+    expect(await guestEval('String(window.panelLoad)')).toBe('first')
+    expect(await guestEval(`document.querySelector('textarea.message').value`)).toBe('draft kept')
 
     await guestClick('[aria-label="Stage: notes.txt"]')
     await expect

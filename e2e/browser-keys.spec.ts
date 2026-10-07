@@ -2,6 +2,7 @@ import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { isMac } from './chords'
 import { isolatedLaunch } from './dataHome'
+import { SLOW_FRAME_MS, fastFrames, slowFrames } from './frames'
 import { openWorkspace } from './helpers'
 import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
 
@@ -57,11 +58,13 @@ test('inside a web page, Ostia shortcuts still work and browser keys drive the p
     await address.press('Enter')
     await expect(win.getByRole('tab', { name: /First page/ })).toBeVisible({ timeout: 15_000 })
 
+    await slowFrames(win)
     await pressInPage(app, pageKeys.palette)
     const palette = win.getByRole('dialog', { name: 'Command palette' })
     await expect(palette).toBeVisible()
     await win.keyboard.press('Escape')
-    await expect(palette).toBeHidden()
+    await expect(palette).toBeHidden({ timeout: SLOW_FRAME_MS * 4 })
+    await fastFrames(win)
 
     const before = hits
     await pressInPage(app, pageKeys.reload)

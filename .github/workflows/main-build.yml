@@ -1,0 +1,122 @@
+name: Main build
+
+on:
+  schedule:
+    - cron: '23 4 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  NODE_OPTIONS: --max-old-space-size=5120
+
+concurrency:
+  group: main-build
+  cancel-in-progress: false
+
+jobs:
+  decide:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      checks: read
+    outputs:
+      sha: ${{ steps.decide.outputs.sha }}
+      build: ${{ steps.decide.outputs.build }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Build only when main moved and its head passed ci-result
+        id: decide
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sha=$(git rev-parse HEAD)
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          if [ -n "$(git tag --points-at "$sha" --list 'v*-main.*')" ]; then
+            echo "main has not moved since the last main build"
+            echo "build=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          gh api "repos/$GITHUB_REPOSITORY/commits/$sha/check-runs?check_name=ci-result&filter=latest&per_page=100" \
+            > "$RUNNER_TEMP/runs.json"
+          build=$(node scripts/mainBuild.mjs ci-passed "$sha" "$RUNNER_TEMP/runs.json")
+          echo "ci-result passed for $sha: $build"
+          echo "build=$build" >> "$GITHUB_OUTPUT"
+
+  package:
+    needs: decide
+    if: needs.decide.outputs.build == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.decide.outputs.sha }}
+      - uses: ./.github/actions/setup
+        timeout-minutes: 10
+      - run: pnpm build
+        env:
+          OSTIA_MAIN_BUILD: ${{ github.run_number }}
+          OSTIA_TELEMETRY_KEY: ${{ vars.OSTIA_TELEMETRY_KEY }}
+          OSTIA_TELEMETRY_HOST: ${{ vars.OSTIA_TELEMETRY_HOST }}
+      - name: Release version is the build version without its metadata
+        id: version
+        run: |
+          build=$(node -p 'require("./out/build-info.json").version')
+          version=${build%%+*}
+          echo "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+-main\.[1-9][0-9]*$'
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - run: pnpm exec electron-builder --linux dir --publish never
+      - name: Archive the unpacked app
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          name="ostia-$VERSION-linux-x64"
+          mv dist/linux-unpacked "dist/$name"
+          tar -C dist -czf "dist/$name.tar.gz" "$name"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: main-build
+          path: dist/*.tar.gz
+          if-no-files-found: error
+
+  publish:
+    needs: [decide, package]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          name: main-build
+          path: dist
+      - name: Checksums of every asset
+        working-directory: dist
+        run: sha256sum -- *.tar.gz > SHA256SUMS && cat SHA256SUMS
+      - name: Publish the main prerelease, never marked latest
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ needs.decide.outputs.sha }}
+          VERSION: ${{ needs.package.outputs.version }}
+        run: |
+          gh release create "v$VERSION" dist/*.tar.gz dist/SHA256SUMS \
+            --target "$SHA" --prerelease --latest=false \
+            --title "Main build $VERSION" \
+            --notes "Build of main at $SHA. Offered to the Main update channel."
+      - name: Keep only the newest main builds
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release list --limit 200 --json tagName,isPrerelease > "$RUNNER_TEMP/releases.json"
+          node scripts/mainBuild.mjs prune "$RUNNER_TEMP/releases.json" | while read -r tag; do
+            gh release delete "$tag" --cleanup-tag --yes
+          done

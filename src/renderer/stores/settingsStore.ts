@@ -51,6 +51,11 @@ import {
   parsePrivacySettings,
   parseRedactionSettings,
 } from '../../shared/redaction'
+import {
+  DEFAULT_UPDATE_CHANNEL,
+  type UpdateChannel,
+  parseUpdateChannel,
+} from '../../shared/releases'
 import { type SandboxGlobals, parseSandboxGlobals } from '../../shared/sandbox'
 import { type TelemetrySettings, parseTelemetrySettings } from '../../shared/telemetry'
 import { normalizeGroupName } from '../../shared/workspaceGroups'
@@ -229,6 +234,7 @@ export interface Behavior {
   inputEditorVim: boolean
   historySuggestions: boolean
   checkForUpdates: boolean
+  updateChannel: UpdateChannel
   wheelZoom: boolean
   discreteGpu: boolean
 }
@@ -362,6 +368,7 @@ const DEFAULTS: Persisted = {
     inputEditorVim: false,
     historySuggestions: true,
     checkForUpdates: true,
+    updateChannel: DEFAULT_UPDATE_CHANNEL,
     wheelZoom: !isMac,
     discreteGpu: false,
   },
@@ -468,6 +475,7 @@ function parseBehavior(raw: unknown): Behavior {
         ? src.externalEditor
         : DEFAULTS.behavior.externalEditor,
     inputMode: inputMode(src.inputMode),
+    updateChannel: parseUpdateChannel(src.updateChannel),
   }
 }
 
@@ -664,12 +672,20 @@ async function writeSettings(s: SettingsState): Promise<void> {
   await window.ostia.fs.write(path, text)
 }
 
+const saveSettings = (s: SettingsState): Promise<void> =>
+  writeSettings(s).catch((err: unknown) => console.error('[settings] save failed', err))
+
 const scheduleSave = debounce((get: () => SettingsState): void => {
-  writeSettings(get()).catch((err: unknown) => console.error('[settings] save failed', err))
+  void saveSettings(get())
 }, 300)
 
 export function cancelSettingsSave(): void {
   scheduleSave.cancel()
+}
+
+export function saveSettingsNow(): Promise<void> {
+  scheduleSave.cancel()
+  return saveSettings(useSettingsStore.getState())
 }
 
 const extensionSettingsOf = (v: unknown): Record<string, ExtensionSettingValues> => {
