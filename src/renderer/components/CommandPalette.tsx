@@ -16,6 +16,7 @@ import { chordLabel, useBindings } from '../lib/chords'
 import { childPath } from '../lib/fileTree'
 import { openFileAt, openFileInWorkspace } from '../lib/openFile'
 import { paletteFilter } from '../lib/paletteFilter'
+import { paletteReturnFocus } from '../lib/paletteFocus'
 import { PALETTE_MODES, type PaletteMode, paletteMode, paletteQuery } from '../lib/paletteModes'
 import { countUsage } from '../lib/usageCounts'
 import { type RemoteWorkspace, remoteWorkspacesOf } from '../lib/windowWorkspaces'
@@ -149,6 +150,7 @@ export function CommandPalette(): JSX.Element {
           askMode ? 'sm:max-w-3xl' : 'sm:max-w-[47rem]',
         )}
         showCloseButton={false}
+        finalFocus={paletteReturnFocus}
       >
         <Command
           filter={paletteFilter}

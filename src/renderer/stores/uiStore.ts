@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { releaseFocusForPalette } from '../lib/paletteFocus'
 import { parseSettingsTarget } from '../lib/settingsNav'
 
 export type PaletteOpenMode = 'search' | 'ask'
@@ -43,7 +44,7 @@ interface UIState {
   setDigitHints: (shown: boolean) => void
 }
 
-export const useUIStore = create<UIState>((set) => ({
+export const useUIStore = create<UIState>((set, get) => ({
   paletteOpen: false,
   paletteMode: 'search',
   paletteSeed: '',
@@ -59,12 +60,16 @@ export const useUIStore = create<UIState>((set) => ({
   promptPreviewPaneId: null,
   settingsWorkspaceId: null,
   settingsRequest: 0,
-  openPalette: (mode = 'search', seed = '') =>
-    set({ paletteOpen: true, paletteMode: mode, paletteSeed: seed }),
+  openPalette: (mode = 'search', seed = '') => {
+    if (!get().paletteOpen) releaseFocusForPalette()
+    set({ paletteOpen: true, paletteMode: mode, paletteSeed: seed })
+  },
   setPaletteMode: (paletteMode) => set({ paletteMode }),
   closePalette: () => set({ paletteOpen: false, paletteMode: 'search', paletteSeed: '' }),
-  togglePalette: () =>
-    set((s) => ({ paletteOpen: !s.paletteOpen, paletteMode: 'search', paletteSeed: '' })),
+  togglePalette: () => {
+    if (!get().paletteOpen) releaseFocusForPalette()
+    set((s) => ({ paletteOpen: !s.paletteOpen, paletteMode: 'search', paletteSeed: '' }))
+  },
   toggleRail: () => set((s) => ({ railCollapsed: !s.railCollapsed })),
   setRailCollapsed: (railCollapsed) => set({ railCollapsed }),
   openSettings: (section, options = {}) => {
