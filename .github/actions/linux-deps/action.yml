@@ -1,0 +1,49 @@
+name: Linux dependencies
+description: The system packages the Linux jobs need (packages.txt), the user-namespace sysctls, compaudit and the CI git identity
+runs:
+  using: composite
+  steps:
+    # GitHub-hosted: the .deb files are cached per image version and package
+    # list and installed with dpkg, so a warm job never asks the Ubuntu mirrors
+    # (apt-get update hung there for 30 min, #463). Self-hosted: apt as before,
+    # until the runner image carries every package in packages.txt.
+    - id: key
+      if: runner.environment == 'github-hosted'
+      shell: bash
+      run: echo "key=debs-${ImageOS:-linux}-${ImageVersion:-unknown}-$(sha256sum "$GITHUB_ACTION_PATH/packages.txt" | cut -c1-16)" >> "$GITHUB_OUTPUT"
+    - id: debs
+      if: runner.environment == 'github-hosted'
+      uses: actions/cache@v6
+      with:
+        path: ~/debs
+        key: ${{ steps.key.outputs.key }}
+    - if: runner.environment == 'github-hosted' && steps.debs.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        mapfile -t packages < "$GITHUB_ACTION_PATH/packages.txt"
+        mkdir -p ~/debs/partial
+        scripts/retry.sh sudo apt-get update
+        scripts/retry.sh sudo apt-get install -y --download-only -o "Dir::Cache::archives=$HOME/debs" "${packages[@]}"
+        sudo chown -R "$(id -u):$(id -g)" ~/debs
+        rm -rf ~/debs/partial ~/debs/lock
+        ls -l ~/debs
+    - if: runner.environment == 'github-hosted'
+      shell: bash
+      run: |
+        debs=(~/debs/*.deb)
+        [ ! -e "${debs[0]}" ] || sudo dpkg -i "${debs[@]}"
+    - if: runner.environment != 'github-hosted'
+      shell: bash
+      run: |
+        mapfile -t packages < "$GITHUB_ACTION_PATH/packages.txt"
+        scripts/retry.sh sudo apt-get update
+        scripts/retry.sh sudo apt-get install -y "${packages[@]}"
+    # The sysctls exist only on Ubuntu (GitHub-hosted); the ARC node runs SELinux.
+    - shell: bash
+      run: |
+        for k in apparmor_restrict_unprivileged_userns apparmor_restrict_unprivileged_unconfined; do
+          [ ! -e /proc/sys/kernel/$k ] || sudo sysctl -w kernel.$k=0
+        done
+        zsh -fc 'autoload -U compaudit; compaudit' | xargs -r sudo chmod go-w
+        git config --global user.name 'Ostia CI'
+        git config --global user.email 'ci@ostia.invalid'
