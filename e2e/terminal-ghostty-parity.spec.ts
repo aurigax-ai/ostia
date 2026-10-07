@@ -1,6 +1,6 @@
 import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
-import { type ElectronApplication, type Page, _electron as electron, expect, test } from '@playwright/test'
+import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
 import { chords } from './chords'
 import { SOFTWARE_WEBGL, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { emptyState, emptyWorkspace } from './helpers'

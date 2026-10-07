@@ -1,6 +1,6 @@
 import { type Server, createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
-import { _electron as electron, expect, test } from '@playwright/test'
+import { _electron as electron, expect, test } from './test'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { openWorkspace, waitForPaletteSelection } from './helpers'
 

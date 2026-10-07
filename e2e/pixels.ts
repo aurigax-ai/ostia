@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test'
+import type { Page } from './test'
 
 export async function redRowGaps(png: Buffer, page: Page): Promise<number> {
   return page.evaluate(async (b64) => {
