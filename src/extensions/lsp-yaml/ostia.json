@@ -3,7 +3,7 @@
   "name": "YAML",
   "version": "1.0.0",
   "locales": ["zh-Hant"],
-  "api": "2.3",
+  "api": "3.0",
   "description": "YAML validation, completion, hover and formatting in the editor. Ships yaml-language-server inside this extension and runs it with {product}'s own runtime.",
   "category": "languages",
   "capabilities": ["language-server"],

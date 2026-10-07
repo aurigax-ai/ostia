@@ -3,7 +3,7 @@
   "name": "C and C++ (clangd)",
   "version": "1.0.0",
   "locales": ["zh-Hant"],
-  "api": "2.3",
+  "api": "3.0",
   "description": "C and C++ diagnostics, completion, hover and navigation in the editor. Uses the clangd on your PATH; without one, {product} downloads the pinned release from GitHub, checks it and keeps it in its own data folder.",
   "category": "languages",
   "capabilities": ["language-server"],

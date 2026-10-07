@@ -2,7 +2,7 @@
   "id": "asker",
   "name": "Asker",
   "version": "0.1.0",
-  "api": "2.0",
+  "api": "3.0",
   "description": "Test fixture for ext.confirm and panel notifications",
   "capabilities": ["notify"],
   "main": "main.js",

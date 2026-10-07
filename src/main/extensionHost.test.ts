@@ -15,7 +15,7 @@ function writeExt(root: string, id: string, manifest: Record<string, unknown>): 
   mkdirSync(dir, { recursive: true })
   writeFileSync(
     join(dir, 'ostia.json'),
-    JSON.stringify({ id, name: id, version: '1.0.0', api: '2.0', ...manifest }),
+    JSON.stringify({ id, name: id, version: '1.0.0', api: '3.0', ...manifest }),
   )
   return dir
 }

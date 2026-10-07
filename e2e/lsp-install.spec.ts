@@ -55,7 +55,7 @@ function marketplaceRepo(dataHome: string): string {
       id: 'fake-native',
       name: 'Fake native',
       version: '1.0.0',
-      api: '2.0',
+      api: '3.0',
       description: 'Test fixture: a language server the app downloads',
       category: 'languages',
       capabilities: ['language-server'],

@@ -53,7 +53,7 @@ describe('manifest schemas', () => {
   })
 
   it('refuse what the loader refuses', () => {
-    const base = { id: 'demo', name: 'Demo', version: '1.0.0', api: '2.0' }
+    const base = { id: 'demo', name: 'Demo', version: '1.0.0', api: '3.0' }
     const pageSettings = { mode: { type: 'string', default: '', description: 'd' } }
     const agentHookCommand = { id: 'on-hook', title: 'Hook', palette: false, stdin: true }
     const bad: Record<string, unknown>[] = [

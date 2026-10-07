@@ -62,14 +62,6 @@ export const MANAGER_CAPABILITIES: Capability[] = ALL_CAPABILITIES.filter(
   (cap) => cap !== 'phone' && cap !== 'gateway' && cap !== 'destructive',
 )
 
-export const PHONE_BASE_CAPS = ['read', 'notify'] as const
-
-export const PHONE_GRANTABLE_CAPS = ['command', 'input', 'destructive'] as const
-
-export type PhoneGrantableCap = (typeof PHONE_GRANTABLE_CAPS)[number]
-
-export type PhoneCap = (typeof PHONE_BASE_CAPS)[number] | PhoneGrantableCap
-
 export const CAPABILITY_ALLOWS: Record<Capability, string> = {
   'drive-self': 'control your own pane',
   'read-board': 'read the workspace and pane state',

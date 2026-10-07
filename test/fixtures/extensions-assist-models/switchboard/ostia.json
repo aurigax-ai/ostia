@@ -2,7 +2,7 @@
   "id": "switchboard",
   "name": "Switchboard",
   "version": "0.1.0",
-  "api": "2.0",
+  "api": "3.0",
   "description": "Test fixture for an assist extension with several providers and models",
   "capabilities": ["assist"],
   "main": "main.js",

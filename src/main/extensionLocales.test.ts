@@ -27,7 +27,7 @@ const repoRoot = resolve(__dirname, '../..')
 
 function manifestOf(raw: Record<string, unknown>): ExtensionManifest {
   const res = parseManifest(
-    { id: 'demo', name: 'Demo', version: '1.0.0', api: '2.0', ...raw },
+    { id: 'demo', name: 'Demo', version: '1.0.0', api: '3.0', ...raw },
     '/x',
   )
   if (!res.ok) throw new Error(res.error)

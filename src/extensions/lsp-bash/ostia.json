@@ -3,7 +3,7 @@
   "name": "Shell scripts (Bash)",
   "version": "1.0.0",
   "locales": ["zh-Hant"],
-  "api": "2.3",
+  "api": "3.0",
   "description": "Completion, hover, navigation and symbols for shell scripts in the editor. Ships bash-language-server inside this extension and runs it with {product}'s own runtime. It lints with shellcheck when that is on your PATH.",
   "category": "languages",
   "capabilities": ["language-server"],

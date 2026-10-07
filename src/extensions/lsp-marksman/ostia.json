@@ -3,7 +3,7 @@
   "name": "Markdown (Marksman)",
   "version": "1.0.0",
   "locales": ["zh-Hant"],
-  "api": "2.3",
+  "api": "3.0",
   "description": "Markdown links, references, completion and diagnostics in the editor. Uses the marksman on your PATH; without one, {product} downloads the pinned release from GitHub, checks it and keeps it in its own data folder.",
   "category": "languages",
   "capabilities": ["language-server"],

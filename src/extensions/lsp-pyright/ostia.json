@@ -3,7 +3,7 @@
   "name": "Python (Pyright)",
   "version": "1.0.0",
   "locales": ["zh-Hant"],
-  "api": "2.3",
+  "api": "3.0",
   "description": "Python diagnostics, completion, hover and navigation in the editor. Ships Pyright inside this extension and runs it with {product}'s own runtime.",
   "category": "languages",
   "capabilities": ["language-server"],
