@@ -580,7 +580,11 @@ export function SettingsPanel(): JSX.Element | null {
         </nav>
 
         <ScrollArea className="min-h-0">
-          <div ref={contentRef} className="mx-auto max-w-3xl px-8 py-5">
+          <div
+            ref={contentRef}
+            data-slot="settings-content"
+            className="mx-auto max-w-3xl select-text px-8 py-5 [&_[data-slot=kbd]]:pointer-events-auto [&_[data-slot=kbd]]:select-text [&_[data-slot=label]]:select-text"
+          >
             {q && visible.length === 0 ? (
               <p className="text-fg-muted text-ui-sm">{d.settings.noMatches}</p>
             ) : null}
@@ -947,6 +951,7 @@ export function ControlRow({
   error,
   errorId,
   labelHint,
+  below,
   children,
 }: {
   label: string
@@ -954,7 +959,8 @@ export function ControlRow({
   error?: string | null
   errorId?: string
   labelHint?: React.ReactNode
-  children: React.ReactNode
+  below?: React.ReactNode
+  children?: React.ReactNode
 }): JSX.Element {
   const search = useSearchRow([label, desc])
   return (
@@ -987,10 +993,13 @@ export function ControlRow({
             {error}
           </p>
         ) : null}
+        {below ? <div className="mt-1.5">{below}</div> : null}
       </div>
-      <div className="flex shrink-0 items-center gap-2">
-        <SearchScopeProvider value={search.scope}>{children}</SearchScopeProvider>
-      </div>
+      {children ? (
+        <div className="flex shrink-0 items-center gap-2">
+          <SearchScopeProvider value={search.scope}>{children}</SearchScopeProvider>
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -1001,18 +1010,20 @@ export function SelectField<T extends string>({
   options,
   label,
   width = 'w-fit min-w-44 max-w-80',
+  disabled,
 }: {
   value: T
   onChange: (v: T) => void
   options: { value: T; label: string }[]
   label: string
   width?: string
+  disabled?: boolean
 }): JSX.Element {
   const current = options.find((o) => o.value === value)?.label ?? value
   useSearchLeaf(options.map((o) => o.label))
   return (
     <Select value={value} onValueChange={(v) => onChange(v as T)}>
-      <SelectTrigger size="sm" aria-label={label} className={width}>
+      <SelectTrigger size="sm" aria-label={label} className={width} disabled={disabled}>
         <span className="min-w-0 truncate">
           <Highlight text={current} />
         </span>

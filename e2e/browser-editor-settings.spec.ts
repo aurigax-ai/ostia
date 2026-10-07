@@ -167,7 +167,7 @@ test('a hyperlink in a mouse-reporting program shows its hint and opens only in 
     await expect(win.locator('.browser-address')).toHaveValue(url, { timeout: 15_000 })
     await expect.poll(() => requests, { timeout: 15_000 }).toContain('/osc')
 
-    await win.locator('.pane-tab', { hasText: 'zsh' }).click()
+    await win.locator('.pane-tab').first().click()
     const box = await win.locator('.pane-slot:not([data-hidden]) .xterm-screen').boundingBox()
     if (!box) throw new Error('terminal screen not found')
     await win.mouse.click(box.x + box.width / 2, box.y + box.height - 8)

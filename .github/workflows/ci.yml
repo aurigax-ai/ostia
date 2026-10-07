@@ -170,6 +170,8 @@ jobs:
           git config --global user.email 'ci@ostia.invalid'
       - uses: ./.github/actions/setup
       - run: pnpm test
+      - run: go test ./...
+        working-directory: tsnet-helper
 
   build:
     needs: changes

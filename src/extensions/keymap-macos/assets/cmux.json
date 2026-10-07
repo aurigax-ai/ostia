@@ -1,6 +1,8 @@
 {
   "bindings": {
     "palette.toggle": "Cmd+Shift+P",
+    "view.goToWorkspace": "Cmd+P",
+    "view.goToFile": null,
     "view.toggleRail": "Cmd+B",
     "workspace.new": "Cmd+N",
     "tab.new": "Cmd+T",

@@ -122,7 +122,7 @@ export interface WindowControls {
   isSystemDark: () => Promise<boolean>
   onSystemDarkChange: (cb: (dark: boolean) => void) => () => void
   onMaximizeChange: (cb: (maximized: boolean) => void) => () => void
-  onRunningQuery: (cb: (kept: string[]) => RunningGroup[]) => () => void
+  onRunningQuery: (cb: (kept: string[]) => RunningGroup[] | Promise<RunningGroup[]>) => () => void
   onConfirmClose: (cb: (groups: RunningGroup[]) => Promise<boolean>) => () => void
   onFreeze: (cb: () => void) => () => void
 }
@@ -131,6 +131,7 @@ export interface RunningGroup {
   workspaceId: string
   workspace: string
   commands: string[]
+  agents?: string[]
   files: string[]
   scratchFiles?: number
 }
@@ -246,6 +247,7 @@ export interface PtyApi {
   resize: (paneId: string, cols: number, rows: number) => void
   commands: (paneId: string) => Promise<string[]>
   foreground: (paneId: string) => Promise<string | null>
+  busy: (paneId: string) => Promise<string | null>
   promptContext: (paneId: string, want: PromptContextRequest) => Promise<PromptContext | null>
   onData: (paneId: string, cb: (data: string) => void) => () => void
   onExit: (paneId: string, cb: (exitCode: number, closes: boolean) => void) => () => void
@@ -812,6 +814,13 @@ export interface QuestionsApi {
   onChange: (cb: (state: QuestionState) => void) => () => void
 }
 
+export type GatewayTailnetState =
+  | { state: 'off' }
+  | { state: 'starting' }
+  | { state: 'needs-login'; authUrl: string }
+  | { state: 'running'; ip: string | null; dnsName: string | null }
+  | { state: 'error'; code: string }
+
 export interface GatewayStatus {
   running: boolean
   host: string | null
@@ -820,12 +829,23 @@ export interface GatewayStatus {
   deviceCount: number
 }
 
-export interface GatewayEnableResult {
-  host: string
-  port: number
-  fingerprint: string
-  warning?: string
+export type GatewayRoute = { kind: 'tailnet' } | { kind: 'address'; address: string }
+
+export interface GatewayBindAddress {
+  address: string
+  iface: string
 }
+
+export interface GatewayRemoteStatus extends GatewayStatus {
+  tailnet: GatewayTailnetState
+  route: GatewayRoute
+}
+
+export type GatewayEnableResponse = GatewayRemoteStatus | { error: 'address-unavailable' }
+
+export type GatewaySetRouteResult =
+  | { ok: true; route: GatewayRoute }
+  | { ok: false; error: 'not-a-window' | 'running' | 'unknown-address' }
 
 export interface GatewayPairResult {
   v: 1
@@ -834,8 +854,13 @@ export interface GatewayPairResult {
   fingerprint: string
   pairCode: string
   name: string
-  warning?: string
 }
+
+export type GatewayPairResponse = GatewayPairResult | { error: 'not-running' }
+
+export type GatewayTailnetActionResult =
+  | { ok: true }
+  | { ok: false; error: 'not-a-window' | 'no-login-link' | 'login-link-refused' }
 
 export interface GatewayDevice {
   deviceId: string
@@ -845,28 +870,15 @@ export interface GatewayDevice {
   createdAt: string
 }
 
-export type GatewayBindKind = 'loopback' | 'lan' | 'tailscale' | 'custom'
-
-export interface GatewayBindAddress {
-  address: string
-  kind: GatewayBindKind
-  iface?: string
-}
-
-export interface GatewayBindOptions {
-  addresses: GatewayBindAddress[]
-  selected: string
-}
-
 export type GatewaySetCapResult =
   | { ok: true; caps: string[] }
   | { ok: false; error: 'not-found' | 'invalid-cap' | 'requires-command' }
 
 export interface GatewayApi {
-  enable: (opts?: { host?: string; port?: number }) => Promise<GatewayEnableResult>
-  disable: () => Promise<{ ok: true }>
-  pair: () => Promise<GatewayPairResult>
-  status: () => Promise<GatewayStatus>
+  enable: () => Promise<GatewayEnableResponse>
+  disable: () => Promise<GatewayRemoteStatus>
+  pair: () => Promise<GatewayPairResponse>
+  status: () => Promise<GatewayRemoteStatus>
   devices: () => Promise<{ devices: GatewayDevice[] }>
   revoke: (deviceId: string) => Promise<{ ok: boolean; error?: string }>
   setCap: (
@@ -874,7 +886,11 @@ export interface GatewayApi {
     cap: PhoneGrantableCap,
     granted: boolean,
   ) => Promise<GatewaySetCapResult>
-  bindOptions: () => Promise<GatewayBindOptions>
+  bindAddresses: () => Promise<GatewayBindAddress[]>
+  setRoute: (route: GatewayRoute) => Promise<GatewaySetRouteResult>
+  tailnetSignIn: () => Promise<GatewayTailnetActionResult>
+  tailnetSignOut: () => Promise<GatewayTailnetActionResult>
+  onTailnetChanged: (cb: (state: GatewayTailnetState) => void) => () => void
 }
 
 export interface ExternalEditorRequest {

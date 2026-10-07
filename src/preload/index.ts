@@ -91,12 +91,15 @@ import type {
   FsBinaryResult,
   FsEntry,
   FsKind,
-  GatewayBindOptions,
+  GatewayBindAddress,
   GatewayDevice,
-  GatewayEnableResult,
-  GatewayPairResult,
+  GatewayEnableResponse,
+  GatewayPairResponse,
+  GatewayRemoteStatus,
   GatewaySetCapResult,
-  GatewayStatus,
+  GatewaySetRouteResult,
+  GatewayTailnetActionResult,
+  GatewayTailnetState,
   ManagerOpenPaneRequest,
   NotificationEntry,
   OpenPathResult,
@@ -155,12 +158,14 @@ const bridge: OstiaBridge = {
       return () => ipcRenderer.removeListener('window:maximized', handler)
     },
     onRunningQuery: (cb) => {
-      const handler = (_event: unknown, requestId: number, kept: unknown): void =>
-        ipcRenderer.send(
-          'window:close-answer',
-          requestId,
-          cb(Array.isArray(kept) ? kept.filter((id): id is string => typeof id === 'string') : []),
-        )
+      const handler = (_event: unknown, requestId: number, kept: unknown): void => {
+        const ids = Array.isArray(kept)
+          ? kept.filter((id): id is string => typeof id === 'string')
+          : []
+        void Promise.resolve(cb(ids))
+          .catch(() => [])
+          .then((groups) => ipcRenderer.send('window:close-answer', requestId, groups))
+      }
       ipcRenderer.on('window:running', handler)
       return () => ipcRenderer.removeListener('window:running', handler)
     },
@@ -192,6 +197,7 @@ const bridge: OstiaBridge = {
     listDir: (paneId, dir) => ipcRenderer.invoke('pty:list-dir', paneId, dir),
     localPrompt: (paneId) => ipcRenderer.invoke('pty:local-prompt', paneId),
     foreground: (paneId) => ipcRenderer.invoke('pty:foreground', paneId) as Promise<string | null>,
+    busy: (paneId) => ipcRenderer.invoke('pty:busy', paneId) as Promise<string | null>,
     promptContext: (paneId, want) =>
       ipcRenderer.invoke('pty:prompt-context', paneId, want) as Promise<PromptContext | null>,
     onData: (paneId, cb) => {
@@ -867,10 +873,10 @@ const bridge: OstiaBridge = {
     open: (req) => ipcRenderer.invoke('editor:open-external', req) as Promise<ExternalEditorResult>,
   },
   gateway: {
-    enable: (opts) => ipcRenderer.invoke('gateway:enable', opts) as Promise<GatewayEnableResult>,
-    disable: () => ipcRenderer.invoke('gateway:disable') as Promise<{ ok: true }>,
-    pair: () => ipcRenderer.invoke('gateway:pair') as Promise<GatewayPairResult>,
-    status: () => ipcRenderer.invoke('gateway:status') as Promise<GatewayStatus>,
+    enable: () => ipcRenderer.invoke('gateway:enable') as Promise<GatewayEnableResponse>,
+    disable: () => ipcRenderer.invoke('gateway:disable') as Promise<GatewayRemoteStatus>,
+    pair: () => ipcRenderer.invoke('gateway:pair') as Promise<GatewayPairResponse>,
+    status: () => ipcRenderer.invoke('gateway:status') as Promise<GatewayRemoteStatus>,
     devices: () => ipcRenderer.invoke('gateway:devices') as Promise<{ devices: GatewayDevice[] }>,
     revoke: (deviceId) =>
       ipcRenderer.invoke('gateway:revoke', { deviceId }) as Promise<{
@@ -883,7 +889,19 @@ const bridge: OstiaBridge = {
         cap,
         granted,
       }) as Promise<GatewaySetCapResult>,
-    bindOptions: () => ipcRenderer.invoke('gateway:bind-options') as Promise<GatewayBindOptions>,
+    bindAddresses: () =>
+      ipcRenderer.invoke('gateway:bind-addresses') as Promise<GatewayBindAddress[]>,
+    setRoute: (route) =>
+      ipcRenderer.invoke('gateway:set-route', route) as Promise<GatewaySetRouteResult>,
+    tailnetSignIn: () =>
+      ipcRenderer.invoke('gateway:tailnet-sign-in') as Promise<GatewayTailnetActionResult>,
+    tailnetSignOut: () =>
+      ipcRenderer.invoke('gateway:tailnet-sign-out') as Promise<GatewayTailnetActionResult>,
+    onTailnetChanged: (cb) => {
+      const handler = (_event: unknown, state: GatewayTailnetState): void => cb(state)
+      ipcRenderer.on('gateway:tailnet-changed', handler)
+      return () => ipcRenderer.removeListener('gateway:tailnet-changed', handler)
+    },
   },
   notifications: {
     list: () => ipcRenderer.invoke('notifications:list') as Promise<NotificationEntry[]>,

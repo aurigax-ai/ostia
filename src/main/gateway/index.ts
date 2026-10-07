@@ -1,27 +1,50 @@
 import { hostname } from 'node:os'
-import { ipcMain } from 'electron'
+import { type IpcMainInvokeEvent, ipcMain } from 'electron'
 import type {
-  GatewayBindOptions,
   GatewayDevice,
-  GatewayEnableResult,
-  GatewayPairResult,
+  GatewayEnableResponse,
+  GatewayPairResponse,
+  GatewayRemoteStatus,
   GatewaySetCapResult,
+  GatewaySetRouteResult,
+  GatewayTailnetActionResult,
+  GatewayTailnetState,
 } from '../../shared/types'
 import { registerControlMethod } from '../controlServer'
 import type { Device } from './devices'
 import { list as listDevices, revoke as revokeDevice, setDeviceCap } from './devices'
 import { listBindAddresses } from './interfaces'
 import { newCode } from './pairing'
+import { loadRoute, parseRoute, saveRoute } from './route'
 import {
-  type GatewayStartOptions,
   applyDeviceCaps,
   closeDeviceSockets,
-  configuredHost,
+  gatewayHelperPort,
   gatewayStatus,
-  hostWarning,
+  setTailnetHosts,
   startGateway,
   stopGateway,
 } from './server'
+import { type Tailnet, isAllowedLoginUrl } from './tailnet'
+
+export interface TailnetDeps {
+  openExternal: (url: string) => void
+  controlUrl?: string
+}
+
+let tailnet: Tailnet | null = null
+let tailnetDeps: TailnetDeps = { openExternal: () => {} }
+
+export function configureTailnet(instance: Tailnet, deps: TailnetDeps): void {
+  tailnet = instance
+  tailnetDeps = deps
+}
+
+export function onTailnetChange(state: GatewayTailnetState): void {
+  setTailnetHosts(
+    state.state === 'running' ? [state.ip, state.dnsName].filter((h): h is string => !!h) : [],
+  )
+}
 
 function toPhoneSafeDevice(d: Device): GatewayDevice {
   return {
@@ -33,39 +56,66 @@ function toPhoneSafeDevice(d: Device): GatewayDevice {
   }
 }
 
-function parseStartOptions(params: unknown): GatewayStartOptions {
-  const p = (params ?? {}) as { host?: unknown; port?: unknown }
-  const host = typeof p.host === 'string' && p.host.trim() ? p.host : undefined
-  const port =
-    typeof p.port === 'number' && Number.isInteger(p.port) && p.port > 0 && p.port <= 65535
-      ? p.port
-      : undefined
-  return { host, port }
+function tailnetState(): GatewayTailnetState {
+  return tailnet?.state() ?? { state: 'off' }
 }
 
-export function gatewayEnable(params: unknown): Promise<GatewayEnableResult> {
-  return startGateway(parseStartOptions(params))
+export function remoteStatus(): GatewayRemoteStatus {
+  return { ...gatewayStatus(), tailnet: tailnetState(), route: loadRoute() }
 }
 
-export async function gatewayDisable(): Promise<{ ok: true }> {
+function isBindable(address: string): boolean {
+  return listBindAddresses().some((a) => a.address === address)
+}
+
+export async function enableRemote(): Promise<GatewayEnableResponse> {
+  const route = loadRoute()
+  if (route.kind === 'address') {
+    if (!isBindable(route.address)) return { error: 'address-unavailable' }
+    await startGateway({ host: route.address })
+    return remoteStatus()
+  }
+  const started = await startGateway()
+  tailnet?.start({ helperPort: started.helperPort, port: started.port })
+  return remoteStatus()
+}
+
+export function setRoute(value: unknown): GatewaySetRouteResult {
+  if (gatewayStatus().running) return { ok: false, error: 'running' }
+  const route = parseRoute(value)
+  if (!route || (route.kind === 'address' && !isBindable(route.address))) {
+    return { ok: false, error: 'unknown-address' }
+  }
+  saveRoute(route)
+  return { ok: true, route }
+}
+
+function pairHost(): string | null {
+  const route = loadRoute()
+  if (route.kind === 'address') return gatewayStatus().host === route.address ? route.address : null
+  const node = tailnetState()
+  return node.state === 'running' ? node.ip : null
+}
+
+export async function disableRemote(): Promise<GatewayRemoteStatus> {
+  await tailnet?.stop()
   await stopGateway()
-  return { ok: true }
+  return remoteStatus()
 }
 
-export async function gatewayPair(): Promise<GatewayPairResult> {
-  let status = gatewayStatus()
-  if (!status.running) {
-    const started = await startGateway()
-    status = { ...status, ...started, running: true }
+export function gatewayPair(): GatewayPairResponse {
+  const status = gatewayStatus()
+  const host = pairHost()
+  if (!status.running || !status.port || !status.fingerprint || !host) {
+    return { error: 'not-running' }
   }
   return {
     v: 1,
-    host: status.host ?? '',
-    port: status.port ?? 0,
-    fingerprint: status.fingerprint ?? '',
+    host,
+    port: status.port,
+    fingerprint: status.fingerprint,
     pairCode: newCode(),
     name: hostname(),
-    warning: hostWarning(status.host),
   }
 }
 
@@ -97,26 +147,30 @@ export function gatewaySetCap(params: unknown): GatewaySetCapResult {
   return result
 }
 
-export async function gatewayBindOptions(): Promise<GatewayBindOptions> {
-  const addresses = await listBindAddresses()
-  const selected = configuredHost()
-  if (!addresses.some((a) => a.address === selected)) {
-    addresses.push({ address: selected, kind: 'custom' })
+function fromWindow(e: IpcMainInvokeEvent): boolean {
+  return e.sender.getType() === 'window'
+}
+
+function tailnetSignIn(): GatewayTailnetActionResult {
+  const node = tailnetState()
+  if (node.state !== 'needs-login') return { ok: false, error: 'no-login-link' }
+  if (!isAllowedLoginUrl(node.authUrl, tailnetDeps.controlUrl)) {
+    return { ok: false, error: 'login-link-refused' }
   }
-  return { addresses, selected }
+  tailnetDeps.openExternal(node.authUrl)
+  return { ok: true }
+}
+
+async function tailnetSignOut(): Promise<GatewayTailnetActionResult> {
+  if (!tailnet) return { ok: true }
+  await tailnet.signOut()
+  const helperPort = gatewayHelperPort()
+  const port = gatewayStatus().port
+  if (helperPort && port && loadRoute().kind === 'tailnet') tailnet.start({ helperPort, port })
+  return { ok: true }
 }
 
 export function registerGatewayMethods(): void {
-  registerControlMethod('gateway.enable', {
-    cap: 'gateway',
-    handler: (params) => gatewayEnable(params),
-  })
-
-  registerControlMethod('gateway.disable', {
-    cap: 'gateway',
-    handler: () => gatewayDisable(),
-  })
-
   registerControlMethod('gateway.pair', {
     cap: 'gateway',
     handler: () => gatewayPair(),
@@ -124,7 +178,7 @@ export function registerGatewayMethods(): void {
 
   registerControlMethod('gateway.status', {
     cap: 'gateway',
-    handler: () => gatewayStatus(),
+    handler: () => remoteStatus(),
   })
 
   registerControlMethod('gateway.devices', {
@@ -139,15 +193,27 @@ export function registerGatewayMethods(): void {
 }
 
 export function registerGatewayIpc(): void {
-  ipcMain.handle('gateway:enable', (_e, params) => gatewayEnable(params))
-  ipcMain.handle('gateway:disable', () => gatewayDisable())
+  ipcMain.handle('gateway:enable', () => enableRemote())
+  ipcMain.handle('gateway:disable', () => disableRemote())
   ipcMain.handle('gateway:pair', () => gatewayPair())
-  ipcMain.handle('gateway:status', () => gatewayStatus())
+  ipcMain.handle('gateway:status', () => remoteStatus())
   ipcMain.handle('gateway:devices', () => gatewayDevicesList())
   ipcMain.handle('gateway:revoke', (_e, params) => gatewayRevoke(params))
-  ipcMain.handle('gateway:bind-options', () => gatewayBindOptions())
   ipcMain.handle('gateway:set-cap', (e, params): GatewaySetCapResult => {
-    if (e.sender.getType() !== 'window') return { ok: false, error: 'invalid-cap' }
+    if (!fromWindow(e)) return { ok: false, error: 'invalid-cap' }
     return gatewaySetCap(params)
+  })
+  ipcMain.handle('gateway:bind-addresses', () => listBindAddresses())
+  ipcMain.handle('gateway:set-route', (e, params): GatewaySetRouteResult => {
+    if (!fromWindow(e)) return { ok: false, error: 'not-a-window' }
+    return setRoute(params)
+  })
+  ipcMain.handle('gateway:tailnet-sign-in', (e): GatewayTailnetActionResult => {
+    if (!fromWindow(e)) return { ok: false, error: 'not-a-window' }
+    return tailnetSignIn()
+  })
+  ipcMain.handle('gateway:tailnet-sign-out', (e): Promise<GatewayTailnetActionResult> => {
+    if (!fromWindow(e)) return Promise.resolve({ ok: false, error: 'not-a-window' })
+    return tailnetSignOut()
   })
 }

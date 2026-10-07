@@ -119,7 +119,7 @@ describe('gateway server over a real WebSocket', () => {
     process.env.XDG_DATA_HOME = mkdtempSync(join(tmpdir(), 'ostia-gateway-xdg-'))
     configureGatewayControl(deps)
     externalPaneId = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'p1' }).externalId
-    const started = await startGateway({ host: '127.0.0.1', port: 0 })
+    const started = await startGateway({ port: 0 })
     port = started.port
   }, 30_000)
 
@@ -227,8 +227,6 @@ describe('gateway server over a real WebSocket', () => {
     registerGatewayMethods()
     expect(registeredMethods.sort()).toEqual([
       'gateway.devices',
-      'gateway.disable',
-      'gateway.enable',
       'gateway.pair',
       'gateway.revoke',
       'gateway.status',

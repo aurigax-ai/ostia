@@ -73,6 +73,8 @@ const TERMINAL_TITLES: Record<string, (d: Dict) => string> = {
   copy: (d) => d.keyboard.copy,
   paste: (d) => d.keyboard.paste,
   find: (d) => d.keyboard.find,
+  'find.next': (d) => d.keyboard.findNext,
+  'find.previous': (d) => d.keyboard.findPrevious,
 }
 
 function commandTitle(id: string, d: Dict): string {
@@ -704,11 +706,11 @@ export function KeyboardSection(): JSX.Element {
                 </TableCell>
               </TableRow>
             ) : null}
-            {visibleSends.map((r) => (
-              <TerminalKeyLine key={r.signature} row={r} />
-            ))}
             {visible.map((r) => (
               <KeybindingRow key={r.id} id={r.id} title={r.title} />
+            ))}
+            {visibleSends.map((r) => (
+              <TerminalKeyLine key={r.signature} row={r} />
             ))}
           </TableBody>
         </Table>

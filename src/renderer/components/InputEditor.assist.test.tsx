@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { Terminal as Xterm } from '@xterm/xterm'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
@@ -56,6 +56,7 @@ describe('InputEditor natural-language commands', () => {
   })
 
   afterEach(() => {
+    cleanup()
     useBlocksStore.setState(blocksInit, true)
     useSettingsStore.setState(settingsInit, true)
     useAssistStore.setState({ availability: {} })

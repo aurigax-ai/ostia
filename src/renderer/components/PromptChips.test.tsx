@@ -1,5 +1,5 @@
 import type { PromptContext } from '@shared/types'
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { commands } from '../commands/registry'
@@ -78,6 +78,7 @@ describe('Ostia prompt in the input editor', () => {
   })
 
   afterEach(() => {
+    cleanup()
     useBlocksStore.setState(blocksInit, true)
     useSettingsStore.setState(settingsInit, true)
     useUIStore.setState(uiInit, true)

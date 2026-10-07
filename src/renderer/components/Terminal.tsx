@@ -28,6 +28,7 @@ import { decodeCommandLine, readCommandText } from '../lib/blockText'
 import { openBrowserAs } from '../lib/browserProfile'
 import {
   execChord,
+  findStep,
   isAppChord,
   isBrowserChord,
   isTerminalCommandChord,
@@ -177,6 +178,7 @@ function TerminalSurface({
   const [search, setSearch] = useState<TerminalSearch | null>(null)
   const [linkHint, setLinkHint] = useState<LinkHintBox | null>(null)
   const [findOpen, setFindOpen] = useState(false)
+  const findStepRef = useRef<((by: number) => void) | null>(null)
   const [alternateScreen, setAlternateScreen] = useState(false)
   const [suppressedPrompt, setSuppressedPrompt] = useState<LineAnchor | null>(null)
   const searchOptions = useMemo(() => findOptions(palette), [palette])
@@ -416,8 +418,12 @@ function TerminalSurface({
       if (isMac && clipboard && isNativeClipboardKey(e)) return true
       if (e.type !== 'keydown' || isAppChord(chord)) return false
       e.preventDefault()
+      const findBy = findStep(chord)
       if (chord === 'find') setFindOpen(true)
-      else if (chord === 'block.selectPrev') stepBlock(paneId, 'prev')
+      else if (findBy !== null) {
+        if (findStepRef.current) findStepRef.current(findBy)
+        else setFindOpen(true)
+      } else if (chord === 'block.selectPrev') stepBlock(paneId, 'prev')
       else if (chord === 'block.selectNext') stepBlock(paneId, 'next')
       else if (isTerminalCommandChord(chord)) void commands.exec(chord)
       else if (chord === 'copy') {
@@ -974,6 +980,7 @@ function TerminalSurface({
           <TerminalFind
             search={search}
             options={searchOptions}
+            stepRef={findStepRef}
             onClose={() => {
               setFindOpen(false)
               termRef.current?.focus()

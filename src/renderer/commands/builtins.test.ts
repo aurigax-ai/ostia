@@ -1146,12 +1146,30 @@ describe('builtins route to store actions', () => {
     expect(togglePalette).toHaveBeenCalled()
   })
 
+  it('opens the palette on the file prefix for view.goToFile and on the workspace prefix for view.goToWorkspace', async () => {
+    const openPalette = vi.spyOn(useUIStore.getState(), 'openPalette').mockImplementation(() => {})
+
+    await commands.execWith(ctx(null, null), 'view.goToFile')
+    await commands.execWith(ctx(null, null), 'view.goToWorkspace')
+
+    expect(openPalette).toHaveBeenNthCalledWith(1, 'search', '/')
+    expect(openPalette).toHaveBeenNthCalledWith(2, 'search', '@')
+  })
+
   it('routes view.toggleRail to ui.toggleRail', async () => {
     const toggleRail = vi.spyOn(useUIStore.getState(), 'toggleRail').mockImplementation(() => {})
 
     await commands.execWith(ctx(null, null), 'view.toggleRail')
 
     expect(toggleRail).toHaveBeenCalled()
+  })
+
+  it('routes view.searchFiles to ui.searchFiles', async () => {
+    const searchFiles = vi.spyOn(useUIStore.getState(), 'searchFiles').mockImplementation(() => {})
+
+    await commands.execWith(ctx(null, null), 'view.searchFiles')
+
+    expect(searchFiles).toHaveBeenCalled()
   })
 
   it('routes app.openSettings to ui.openSettings', async () => {
@@ -1842,6 +1860,8 @@ describe('browser commands', () => {
       back: vi.fn(),
       forward: vi.fn(),
       find: vi.fn(),
+      findNext: vi.fn(),
+      findPrevious: vi.fn(),
     }
     const off = registerBrowserHandle('web1', handle)
     try {

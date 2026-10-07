@@ -616,4 +616,15 @@ describe('SettingsPanel', () => {
     expect(screen.getByRole('textbox', { name: 'Base url' })).toBeInTheDocument()
     expect(screen.getByText('MCP servers')).toBeInTheDocument()
   })
+
+  it('lets the settings content area be selected while buttons stay unselectable', () => {
+    renderSettings()
+    const content = document.querySelector('[data-slot="settings-content"]')
+    expect(content).not.toBeNull()
+    expect(content).toHaveClass('select-text')
+    expect(content).toHaveClass('[&_[data-slot=kbd]]:select-text')
+    expect(content).toHaveClass('[&_[data-slot=label]]:select-text')
+    const nav = screen.getAllByRole('navigation')[0]
+    expect(nav.contains(content)).toBe(false)
+  })
 })

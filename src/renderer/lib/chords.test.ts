@@ -35,6 +35,7 @@ import {
   currentBindings,
   defaultChords,
   effectiveBindings,
+  findStep,
   isAppChord,
   isBrowserChord,
   isTerminalCommandChord,
@@ -454,10 +455,18 @@ describe('the macOS keymap that follows cmux', () => {
     expect(matchChord(key('t', cmd), true)).toBe('tab.new')
   })
 
+  it('jumps to a workspace on ⌘P and leaves Go to File without a key', () => {
+    useKeymap(bindings)
+    expect(matchChord(key('p', { metaKey: true }), true)).toBe('view.goToWorkspace')
+    expect(chordLabel('view.goToWorkspace', true)).toBe('⌘P')
+    expect(chordLabel('view.goToFile', true)).toBeNull()
+  })
+
   it('changes nothing until it is the chosen keymap', () => {
     expect(chordLabel('pane.splitRight', true)).toBe('⌥⌘\\')
     expect(matchChord(key('k', { metaKey: true }), true)).toBe('palette.toggle')
     expect(matchTerminalChord(key('K', { metaKey: true, shiftKey: true }), true)).toBeNull()
+    expect(matchChord(key('p', { metaKey: true }), true)).toBe('view.goToFile')
   })
 })
 
@@ -809,6 +818,16 @@ describe('DEFAULT_CHORDS', () => {
   })
 })
 
+describe('go to file', () => {
+  it('is ⌘P on macOS and Ctrl+Alt+G on Linux, never the readline key Ctrl+P', () => {
+    expect(matchChord(key('p', { metaKey: true }), true)).toBe('view.goToFile')
+    expect(matchChord(key('g', { ctrlKey: true, altKey: true }), false)).toBe('view.goToFile')
+    expect(matchChord(key('p', { ctrlKey: true }), false)).toBeNull()
+    expect(checkBinding('view.goToFile', 'Ctrl+P', false)).toBe('ctrl-key')
+    expect(chordLabel('view.goToFile', true)).toBe('⌘P')
+  })
+})
+
 describe('scroll and tab move chords', () => {
   it('scroll the terminal and move tabs with iTerm2’s keys on macOS, from the terminal only', () => {
     const cmd = { metaKey: true }
@@ -1011,6 +1030,47 @@ describe('browser chords', () => {
     expect(runAppChord(e, true)).toBe(false)
     expect(e.preventDefault).not.toHaveBeenCalled()
     expect(exec).not.toHaveBeenCalled()
+  })
+})
+
+describe('find next and previous', () => {
+  const cmd = { metaKey: true }
+  const cmdShift = { metaKey: true, shiftKey: true }
+
+  it('step with ⌘G and ⇧⌘G on macOS, in the surface that has the focus', () => {
+    expect(matchChord(key('g', cmd), true)).toBe('find.next')
+    expect(matchChord(key('G', cmdShift), true)).toBe('find.previous')
+    expect(findStep('find.next')).toBe(1)
+    expect(findStep('find.previous')).toBe(-1)
+    expect(findStep('find')).toBeNull()
+    expect(findStep(null)).toBeNull()
+    expect(isAppChord('find.next')).toBe(false)
+    expect(isAppChord('find.previous')).toBe(false)
+    expect(chordLabel('find.next', true)).toBe('⌘G')
+    expect(chordLabel('find.previous', true)).toBe('⌘⇧G')
+  })
+
+  it('have no chord on Linux, where Ctrl+G belongs to the shell', () => {
+    expect(chordLabel('find.next', false)).toBeNull()
+    expect(chordLabel('find.previous', false)).toBeNull()
+    expect(matchChord(key('g', { ctrlKey: true }), false)).toBeNull()
+    expect(matchChord(key('G', { ctrlKey: true, shiftKey: true }), false)).toBeNull()
+  })
+
+  it('take a chord a Linux user binds', () => {
+    bind({ 'find.next': 'Ctrl+Shift+G' })
+    expect(matchChord(key('G', { ctrlKey: true, shiftKey: true }), false)).toBe('find.next')
+  })
+})
+
+describe('search files', () => {
+  it('opens the Files search with ⇧⌘F on macOS and has no default on Linux, where Ctrl+Shift+F is find', () => {
+    const chord = matchChord(key('F', { metaKey: true, shiftKey: true }), true)
+    expect(chord).toBe('view.searchFiles')
+    expect(isAppChord(chord)).toBe(true)
+    expect(chordLabel('view.searchFiles', true)).toBe('⌘⇧F')
+    expect(chordLabel('view.searchFiles', false)).toBeNull()
+    expect(matchChord(key('F', { ctrlKey: true, shiftKey: true }), false)).toBe('find')
   })
 })
 

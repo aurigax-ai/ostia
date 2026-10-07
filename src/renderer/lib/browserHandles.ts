@@ -1,4 +1,11 @@
-export type BrowserAction = 'focusAddress' | 'reload' | 'back' | 'forward' | 'find'
+export type BrowserAction =
+  | 'focusAddress'
+  | 'reload'
+  | 'back'
+  | 'forward'
+  | 'find'
+  | 'findNext'
+  | 'findPrevious'
 
 export interface BrowserHandle {
   guestId: () => number | null
@@ -7,6 +14,8 @@ export interface BrowserHandle {
   back: () => void
   forward: () => void
   find: () => void
+  findNext: () => void
+  findPrevious: () => void
 }
 
 const handles = new Map<string, BrowserHandle>()
@@ -34,6 +43,8 @@ const CHORD_ACTIONS: Readonly<Record<string, BrowserAction>> = {
   'browser.forward': 'forward',
   'browser.find': 'find',
   find: 'find',
+  'find.next': 'findNext',
+  'find.previous': 'findPrevious',
 }
 
 export function browserActionOf(chord: string): BrowserAction | null {

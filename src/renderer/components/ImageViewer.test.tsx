@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { TARGET_PANE, seedSendTarget } from '../../../test/mocks/sendTarget'
@@ -26,6 +26,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  cleanup()
   unseed()
   vi.mocked(cropToPng).mockReset()
 })

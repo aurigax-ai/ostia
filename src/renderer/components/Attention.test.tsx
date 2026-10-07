@@ -1,5 +1,5 @@
 import type { NotificationEntry } from '@shared/types'
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { findPane, resetIds } from '../layout/tree'
@@ -39,6 +39,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  cleanup()
   useWorkspacesStore.setState(workspacesInit, true)
   useLayoutStore.setState(layoutInit, true)
   useAttentionStore.setState(attentionInit, true)
@@ -417,7 +418,7 @@ describe('NotificationCenter', () => {
       })
       expect(useExtensionsStore.getState().panelNav[layout.activePaneId]?.path).toBe('/approvals')
     } finally {
-      useExtensionsStore.setState(extInit, true)
+      act(() => useExtensionsStore.setState(extInit, true))
     }
   })
 })

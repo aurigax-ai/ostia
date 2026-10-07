@@ -7,7 +7,7 @@ import {
 } from '@phosphor-icons/react'
 import type { SearchNameHit, SearchOutcome } from '@shared/search'
 import type { FsEntry } from '@shared/types'
-import { type KeyboardEvent, type ReactNode, useEffect, useState } from 'react'
+import { type KeyboardEvent, type ReactNode, useEffect, useRef, useState } from 'react'
 import { fmt, useDict } from '../i18n/useDict'
 import { childPath } from '../lib/fileTree'
 import { openFileAt, openFileInWorkspace } from '../lib/openFile'
@@ -15,6 +15,7 @@ import { type PdfSearchResults, searchPdfs } from '../lib/pdfSearch'
 import { textMatcher } from '../lib/textMatch'
 import { usePdfFindStore } from '../stores/pdfFindStore'
 import { useSettingsStore } from '../stores/settingsStore'
+import { useUIStore } from '../stores/uiStore'
 import { IconButton } from './IconButton'
 import { fileIcon } from './fileIcon'
 import { InputGroup, InputGroupAddon, InputGroupInput } from './ui/input-group'
@@ -290,6 +291,14 @@ export function FilesSearch({
   const d = useDict()
   const [text, setText] = useState('')
   const [toggles, setToggles] = useState<SearchToggles>(NO_TOGGLES)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const focusWanted = useUIStore((s) => s.filesSearchFocus)
+  useEffect(() => {
+    if (!focusWanted) return
+    inputRef.current?.focus()
+    inputRef.current?.select()
+    useUIStore.getState().filesSearchFocused()
+  }, [focusWanted])
   const state = useSearch(root, text, toggles)
   const toggle = (key: keyof SearchToggles): void => setToggles((t) => ({ ...t, [key]: !t[key] }))
   const onKeyDown = (e: KeyboardEvent<HTMLInputElement>): void => {
@@ -310,6 +319,7 @@ export function FilesSearch({
             <MagnifyingGlassIcon />
           </InputGroupAddon>
           <InputGroupInput
+            ref={inputRef}
             className="files-search-input text-ui-sm md:text-ui-sm"
             aria-label={d.filesView.search}
             placeholder={d.filesView.searchPlaceholder}

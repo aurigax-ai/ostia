@@ -77,8 +77,10 @@ describe('Pane', () => {
       expect(useUIStore.getState().dashboardActive).toBe(true)
       expect(useQuestionsStore.getState().focusId).toBe('question-4')
     } finally {
-      useQuestionsStore.setState({ pending: [], focusId: null })
-      useUIStore.setState({ dashboardActive: false })
+      act(() => {
+        useQuestionsStore.setState({ pending: [], focusId: null })
+        useUIStore.setState({ dashboardActive: false })
+      })
     }
   })
 
@@ -189,7 +191,7 @@ describe('Pane', () => {
       act(() => useBlocksStore.setState({ running: {} }))
       rerender(<Pane tabs={[a]} shownId="pa" active />)
       expect(screen.queryByRole('button', { name: /Resume/ })).toBeNull()
-      useBlocksStore.setState(blocksInit, true)
+      act(() => useBlocksStore.setState(blocksInit, true))
     })
   })
 })

@@ -116,4 +116,16 @@ describe('uiStore', () => {
       expect(state().filesOpen).toBe(false)
     })
   })
+
+  describe('searchFiles', () => {
+    it('opens the files panel and asks its search box for the focus once', () => {
+      state().searchFiles()
+      expect(state()).toMatchObject({ filesOpen: true, filesSearchFocus: true })
+      state().filesSearchFocused()
+      expect(state().filesSearchFocus).toBe(false)
+      state().searchFiles()
+      state().toggleFiles()
+      expect(state()).toMatchObject({ filesOpen: false, filesSearchFocus: false })
+    })
+  })
 })

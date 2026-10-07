@@ -777,22 +777,22 @@ it writes for you. Work with the rest. If the task needs the value, read it from
 The human can also paste just a path at your prompt (`@<path> `, from the file tree's or an editor
 tab's **Send path to agent**): that is the file itself, not a report.
 
-## Gateway — LAN phone pairing (elevated)
+## Gateway — phone pairing (elevated)
 
 ```sh
-ostia gateway enable [--host H] [--port P]  # start the LAN control gateway (default 127.0.0.1:8722)
-ostia gateway pair                          # mint a pairing code + QR payload (also enables the
-                                             # gateway if it wasn't already running)
-ostia gateway status                        # { running, host, port, fingerprint, deviceCount }
+ostia gateway pair                          # mint a pairing code + QR payload; answers
+                                             # not-running unless remote access is on
+ostia gateway status                        # { running, host, port, fingerprint, deviceCount, tailnet, route }
 ostia gateway devices                       # list paired phones — deviceId, name, caps, createdAt
                                              # (never prints bearer tokens)
 ostia gateway revoke <deviceId>              # revoke a paired phone immediately
-ostia gateway disable                       # stop the gateway
 ```
 
-Lets the Ostia Companion phone app pair over LAN (or your own Tailscale/VPN — **no hosted relay,
-no cloud rendezvous, no accounts**) and mirror/drive this desktop. **Off by default**; every verb
-here needs the elevated `gateway` capability (see below) on top of whatever the human has granted.
+Lets the Ostia Companion phone app reach this desktop, through the human's own Tailscale tailnet
+or a local address the human picked (**no hosted relay, no Ostia account**), and mirror/drive it.
+**Off by default**, and only the human turns it on, picks the route and signs in to Tailscale, in
+Settings → Remote; no verb here starts it or changes the route. Every verb
+needs the elevated `gateway` capability (see below) on top of whatever the human has granted.
 `pair` prints the pairing JSON (and an `ostia-pair://` URI wrapping the same payload) for the phone
 to scan/paste — there's no ASCII-QR rendering in the CLI itself, pipe the JSON through your own QR
 tool if you want one. A paired device only gets a strict phone-facing capability subset

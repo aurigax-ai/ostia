@@ -1,5 +1,5 @@
 name: Setup
-description: pnpm, Node, the Electron download cache, and the project's dependencies
+description: pnpm, Node, Go, the Electron download cache, and the project's dependencies
 runs:
   using: composite
   steps:
@@ -8,6 +8,10 @@ runs:
       with:
         node-version: 24
         cache: ${{ runner.environment == 'github-hosted' && 'pnpm' || '' }}
+    - uses: actions/setup-go@v7
+      with:
+        go-version-file: tsnet-helper/go.mod
+        cache-dependency-path: tsnet-helper/go.sum
     - if: runner.environment == 'github-hosted'
       uses: actions/cache@v6
       with:

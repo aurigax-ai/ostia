@@ -3,6 +3,7 @@ import { useLayoutStore } from '../stores/layoutStore'
 import { browserActionOf, browserPaneOfGuest, runBrowserAction } from './browserHandles'
 import {
   currentBindings,
+  findStep,
   isAppChord,
   isBrowserChord,
   matchChord,
@@ -14,7 +15,8 @@ import { workspaceOfPane } from './workspaceActivity'
 export function guestChordSignatures(mac: boolean): string[] {
   const out: string[] = []
   for (const [signature, id] of currentBindings(mac).bySignature) {
-    if (isAppChord(id) || isBrowserChord(id) || id === 'find') out.push(signature)
+    const find = id === 'find' || findStep(id) !== null
+    if (isAppChord(id) || isBrowserChord(id) || find) out.push(signature)
   }
   return out
 }

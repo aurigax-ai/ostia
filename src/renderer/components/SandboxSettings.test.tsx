@@ -1,7 +1,7 @@
 import { PRODUCT_DISPLAY_NAME } from '@shared/productDisplay'
 import '@testing-library/jest-dom/vitest'
 import { DEFAULT_CONTROLS, type SandboxFixedPolicy, type WorkspaceSandbox } from '@shared/sandbox'
-import { act, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { useSettingsStore } from '../stores/settingsStore'
@@ -15,6 +15,7 @@ beforeAll(() => {
 })
 
 afterEach(() => {
+  cleanup()
   useSettingsStore.setState(settingsInit, true)
 })
 

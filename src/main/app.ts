@@ -121,8 +121,14 @@ import { openInExternalEditor } from './externalEditor'
 import { FileOps } from './fileOps'
 import { FileWatches, TreeWatches } from './fileWatch'
 import { readBinaryConfined } from './fsBinary'
-import { registerGatewayIpc, registerGatewayMethods } from './gateway'
+import {
+  configureTailnet,
+  onTailnetChange,
+  registerGatewayIpc,
+  registerGatewayMethods,
+} from './gateway'
 import { configureGatewayControl, stopGateway } from './gateway/server'
+import { createTailnet, tailnetNodeName, tsnetHelperPath } from './gateway/tailnet'
 import { GIT_EXTENSION, GitBoard } from './gitBoard'
 import { GlobalHotkey, toggleWindows } from './globalHotkey'
 import { type GuestChords, registerGuestChords } from './guestChords'
@@ -148,7 +154,7 @@ import { describeSkipped, registerKeymapIpc } from './keymaps'
 import { registerLanguagePackIpc } from './languagePacks'
 import { LanguageServers, scrubbedEnv } from './languageServers'
 import { registerLanguageServersIpc } from './languageServersIpc'
-import { atLocalPrompt } from './localPrompt'
+import { atLocalPrompt, busyProgram } from './localPrompt'
 import { registerLoginFill } from './loginFill'
 import { ManagedServers, downloadBaseUrl } from './managedServers'
 import { ManagerService, managerWindowId } from './manager'
@@ -1196,6 +1202,8 @@ function extensionRoots(): ExtensionRoot[] {
   ]
 }
 
+let stopTailnet: (() => Promise<void>) | null = null
+
 function broadcast(channel: string, payload: unknown): void {
   for (const win of windows.values()) {
     if (!win.isDestroyed()) win.webContents.send(channel, payload)
@@ -2212,6 +2220,19 @@ function registerPtyIpc(): void {
     try {
       const name = entry.pty.process
       return typeof name === 'string' && name ? (name.split('/').pop() ?? null) : null
+    } catch {
+      return null
+    }
+  })
+  ipcMain.handle('pty:busy', (e, paneId: string): string | null => {
+    const entry = ptys.get(String(paneId))
+    if (!entry?.subs.has(String(e.sender.id))) return null
+    try {
+      return busyProgram({
+        foreground: entry.pty.process,
+        shell: entry.shell,
+        sandboxed: entry.sandboxed,
+      })
     } catch {
       return null
     }
@@ -3311,6 +3332,18 @@ app.whenReady().then(() => {
   )
   registerPaneListMethods({ execCommand, getTerminalState, ptyPid, windowIds })
   registerGatewayMethods()
+  const tailnet = createTailnet({
+    command: tsnetHelperPath(app.getAppPath(), process.platform),
+    stateDir: join(app.getPath('userData'), 'tsnet'),
+    hostname: tailnetNodeName(hostname()),
+    onChange: (state) => {
+      onTailnetChange(state)
+      broadcast('gateway:tailnet-changed', state)
+    },
+    log: (event, fields) => appLog?.info(event, fields),
+  })
+  configureTailnet(tailnet, { openExternal: (url) => void openExternalSafe(url) })
+  stopTailnet = () => tailnet.stop()
   registerGatewayIpc()
   configureGatewayControl({
     execCommand,
@@ -3546,6 +3579,7 @@ app.on('before-quit', (event) => {
   stopControlServer()
   clearControlInfo(controlInfoPath(), controlSocketPath())
   portal?.stop()
+  void stopTailnet?.()
   void stopGateway()
   appTray?.remove()
   globalHotkey?.clear()
