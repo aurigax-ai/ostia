@@ -32,6 +32,7 @@ async function launch(
   const project = join(home, 'project')
   mkdirSync(project, { recursive: true })
   for (const [name, text] of Object.entries(files)) writeFileSync(join(project, name), text)
+  const settingsFile = join(dataHome, 'userData', 'settings.json')
   seedSettings(dataHome, {
     ...DOM_RENDERER_SETTINGS,
     workspaces: { ...DOM_RENDERER_SETTINGS.workspaces, defaultFolder: project },
@@ -42,7 +43,7 @@ async function launch(
   const app = await electron.launch({ ...options, env: { ...options.env, HOME: home } })
   const win = await app.firstWindow()
   await win.waitForLoadState('domcontentloaded')
-  return { app, win, project, settingsFile: join(dataHome, 'userData', 'settings.json') }
+  return { app, win, project, settingsFile }
 }
 
 function fromMarketplace(id: string): (extensionsDir: string) => void {
@@ -74,6 +75,7 @@ async function hoverOn(
   await win.mouse.move(2, 2)
   await win.keyboard.press('Escape')
   await expect(win.locator('.monaco-hover:visible')).toHaveCount(0)
+  await expect(target).toBeInViewport({ ratio: 1 })
   await target.hover({ force: true, ...(position ? { position } : {}) })
   const hover = win.locator('.monaco-hover:visible')
   await expect(hover).toBeVisible({ timeout: 15_000 })

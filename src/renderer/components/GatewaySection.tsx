@@ -19,7 +19,7 @@ import type {
   GatewayTailnetState,
 } from '@shared/types'
 import QRCode from 'qrcode'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Dict } from '../i18n/dict'
 import { fmt, useDict } from '../i18n/useDict'
 import {
@@ -317,27 +317,35 @@ export function GatewaySection(): JSX.Element {
   const [copied, setCopied] = useState(false)
   const [detailsOpen, setDetailsOpen] = useState(false)
   const [requests, setRequests] = useState<GatewayPairRequest[]>([])
+  const mounted = useRef(true)
 
   const refresh = useCallback(async () => {
     const [nextStatus, { devices: list }] = await Promise.all([
       window.ostia.gateway.status(),
       window.ostia.gateway.devices(),
     ])
+    if (!mounted.current) return
     setStatus(nextStatus)
     setTailnet(nextStatus.tailnet)
     setDevices(list)
   }, [])
 
   useEffect(() => {
+    mounted.current = true
     void refresh()
-    void window.ostia.gateway.bindAddresses().then(setAddresses)
-    void window.ostia.gateway.pairRequests().then(setRequests)
+    void window.ostia.gateway.bindAddresses().then((next) => {
+      if (mounted.current) setAddresses(next)
+    })
+    void window.ostia.gateway.pairRequests().then((next) => {
+      if (mounted.current) setRequests(next)
+    })
     const offRequests = window.ostia.gateway.onPairRequestsChanged((next) => {
       setRequests(next)
       void refresh()
     })
     const offTailnet = window.ostia.gateway.onTailnetChanged(setTailnet)
     return () => {
+      mounted.current = false
       offRequests()
       offTailnet()
     }

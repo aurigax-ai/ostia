@@ -20,6 +20,7 @@ export default defineWorkspace([
         'test/e2eImports.test.ts',
         'test/affectedTests.test.ts',
         'test/ciMergeQueue.test.ts',
+        'test/mergeQueueVerified.test.ts',
       ],
     },
   },
