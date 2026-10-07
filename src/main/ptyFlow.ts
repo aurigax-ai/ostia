@@ -28,13 +28,17 @@ export class PtyFlowControl {
     return this.paused
   }
 
-  open(id: string): FlowLane {
+  open(id: string, shown: () => boolean): FlowLane {
     const state: LaneState = { unacked: 0, closed: false }
     this.lanes.set(id, state)
     this.settle()
     return {
       sent: (chars) => {
         if (state.closed) return
+        if (!shown()) {
+          state.unacked = 0
+          return
+        }
         state.unacked += chars
         if (!this.paused && state.unacked > FLOW_HIGH_WATERMARK) this.pause()
       },
@@ -52,6 +56,13 @@ export class PtyFlowControl {
     if (!state || !Number.isFinite(chars) || chars <= 0) return
     state.unacked = Math.max(0, state.unacked - chars)
     if (this.paused) this.armStall()
+    this.settle()
+  }
+
+  hidden(id: string): void {
+    const state = this.lanes.get(id)
+    if (!state) return
+    state.unacked = 0
     this.settle()
   }
 

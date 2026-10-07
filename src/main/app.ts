@@ -716,6 +716,15 @@ function releasePtyFlow(subId: string): void {
   for (const entry of ptys.values()) entry.flow.release(subId)
 }
 
+function windowShown(wid: string): boolean {
+  const win = windows.get(wid)
+  return win !== undefined && !win.isDestroyed() && win.isVisible() && !win.isMinimized()
+}
+
+function hidePtyFlow(wid: string): void {
+  for (const entry of ptys.values()) entry.flow.hidden(wid)
+}
+
 function resizePty(entry: PtyEntry | undefined, cols: number, rows: number): void {
   if (!entry) return
   const c = cols || 80
@@ -1442,6 +1451,8 @@ function wireWindow(win: BrowserWindow): void {
   const wid = String(win.webContents.id)
   windows.set(wid, win)
   diagnostics?.watchWindow(win)
+  win.on('hide', () => hidePtyFlow(wid))
+  win.on('minimize', () => hidePtyFlow(wid))
   win.on('closed', () => {
     windows.delete(wid)
     releaseWindowPtys(wid)
@@ -1896,7 +1907,7 @@ function registerPtyIpc(): void {
     }
     const mkSub = (entry: PtyEntry): Subscriber => {
       const role: SubscriberRole = opts.role === 'observer' ? 'observer' : 'owner'
-      const lane = role === 'owner' ? entry.flow.open(subId) : null
+      const lane = role === 'owner' ? entry.flow.open(subId, () => windowShown(subId)) : null
       const output = new CoalescedOutput((data) => {
         if (e.sender.isDestroyed()) return
         e.sender.send(`pty:data:${paneId}`, data)

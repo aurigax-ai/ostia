@@ -15,6 +15,8 @@ function fakePty() {
   }
 }
 
+const shown = () => true
+
 afterEach(() => {
   vi.useRealTimers()
 })
@@ -56,7 +58,7 @@ describe('PtyFlowControl', () => {
   it('pauses above the high watermark and resumes once acknowledged below the low one', () => {
     const pty = fakePty()
     const flow = new PtyFlowControl(pty.target)
-    const lane = flow.open('w1')
+    const lane = flow.open('w1', shown)
     lane.sent(FLOW_HIGH_WATERMARK)
     expect(pty.calls).toEqual([])
     lane.sent(1)
@@ -74,7 +76,7 @@ describe('PtyFlowControl', () => {
   it('resumes a paused pty when the renderer that held it detaches', () => {
     const pty = fakePty()
     const flow = new PtyFlowControl(pty.target)
-    const lane = flow.open('w1')
+    const lane = flow.open('w1', shown)
     lane.sent(FLOW_HIGH_WATERMARK + 1)
     lane.close()
     expect(pty.calls).toEqual(['pause', 'resume'])
@@ -85,7 +87,7 @@ describe('PtyFlowControl', () => {
   it('resumes when a crashed renderer is released and stops counting what it is still sent', () => {
     const pty = fakePty()
     const flow = new PtyFlowControl(pty.target)
-    const lane = flow.open('w1')
+    const lane = flow.open('w1', shown)
     lane.sent(FLOW_HIGH_WATERMARK + 1)
     flow.release('w1')
     expect(pty.calls).toEqual(['pause', 'resume'])
@@ -96,9 +98,9 @@ describe('PtyFlowControl', () => {
   it('a re-attach replaces the lane, so the old one closing later does not drop the new one', () => {
     const pty = fakePty()
     const flow = new PtyFlowControl(pty.target)
-    const old = flow.open('w1')
+    const old = flow.open('w1', shown)
     old.sent(FLOW_HIGH_WATERMARK + 1)
-    const fresh = flow.open('w1')
+    const fresh = flow.open('w1', shown)
     expect(pty.calls).toEqual(['pause', 'resume'])
     old.close()
     fresh.sent(FLOW_HIGH_WATERMARK + 1)
@@ -109,8 +111,8 @@ describe('PtyFlowControl', () => {
   it('only pauses for a lane over the high watermark and waits for every lane to drain', () => {
     const pty = fakePty()
     const flow = new PtyFlowControl(pty.target)
-    const a = flow.open('a')
-    const b = flow.open('b')
+    const a = flow.open('a', shown)
+    const b = flow.open('b', shown)
     a.sent(FLOW_HIGH_WATERMARK + 1)
     b.sent(FLOW_HIGH_WATERMARK)
     flow.ack('a', FLOW_HIGH_WATERMARK + 1)
@@ -123,7 +125,7 @@ describe('PtyFlowControl', () => {
   it('ignores acknowledgements from unknown senders and non-positive counts', () => {
     const pty = fakePty()
     const flow = new PtyFlowControl(pty.target)
-    const lane = flow.open('w1')
+    const lane = flow.open('w1', shown)
     lane.sent(FLOW_HIGH_WATERMARK + 1)
     flow.ack('w2', FLOW_HIGH_WATERMARK)
     flow.ack('w1', -FLOW_HIGH_WATERMARK)
@@ -136,7 +138,7 @@ describe('PtyFlowControl', () => {
     vi.useFakeTimers()
     const pty = fakePty()
     const flow = new PtyFlowControl(pty.target)
-    const lane = flow.open('w1')
+    const lane = flow.open('w1', shown)
     lane.sent(FLOW_HIGH_WATERMARK + 1)
     vi.advanceTimersByTime(FLOW_STALL_MS - 1)
     flow.ack('w1', 1)
@@ -153,9 +155,38 @@ describe('PtyFlowControl', () => {
     vi.useFakeTimers()
     const pty = fakePty()
     const flow = new PtyFlowControl(pty.target)
-    flow.open('w1').sent(FLOW_HIGH_WATERMARK + 1)
+    flow.open('w1', shown).sent(FLOW_HIGH_WATERMARK + 1)
     flow.dispose()
     vi.advanceTimersByTime(FLOW_STALL_MS * 2)
     expect(pty.calls).toEqual(['pause'])
+  })
+
+  it('never pauses for a hidden window, however much it has not acknowledged', () => {
+    const pty = fakePty()
+    const flow = new PtyFlowControl(pty.target)
+    let visible = false
+    const lane = flow.open('w1', () => visible)
+    lane.sent(FLOW_HIGH_WATERMARK * 10)
+    expect(pty.calls).toEqual([])
+    visible = true
+    lane.sent(FLOW_HIGH_WATERMARK)
+    expect(pty.calls).toEqual([])
+    lane.sent(1)
+    expect(pty.calls).toEqual(['pause'])
+    flow.dispose()
+  })
+
+  it('resumes a paused pty at once when its window is hidden or minimized', () => {
+    const pty = fakePty()
+    const flow = new PtyFlowControl(pty.target)
+    let visible = true
+    const lane = flow.open('w1', () => visible)
+    lane.sent(FLOW_HIGH_WATERMARK + 1)
+    visible = false
+    flow.hidden('w1')
+    expect(pty.calls).toEqual(['pause', 'resume'])
+    lane.sent(FLOW_HIGH_WATERMARK * 10)
+    expect(pty.calls).toEqual(['pause', 'resume'])
+    flow.dispose()
   })
 })
