@@ -10,6 +10,7 @@ import {
   isPaneViewed,
   isPaneVisible,
   jumpToLatestUnread,
+  paneAttentionChanges,
   shouldNotifyCommandEnd,
   signalPane,
   startAttentionSync,
@@ -22,6 +23,26 @@ function homeWorkspaceId(): string {
     useWorkspacesStore.getState().addWorkspace()
   return useWorkspacesStore.getState().workspaces[0].id
 }
+
+describe('paneAttentionChanges', () => {
+  it('lists panes whose state or message changed and skips new panes with no state', () => {
+    const working = { state: 'working' as const, unread: false, at: 1 }
+    expect(
+      paneAttentionChanges(
+        {
+          a: working,
+          b: { state: 'waiting', unread: true, message: 'Allow?', at: 2 },
+          c: { state: 'none', unread: true, at: 2 },
+          d: { state: 'error', unread: true, at: 2 },
+        },
+        { a: working, b: { state: 'waiting', unread: true, message: 'Old', at: 1 } },
+      ),
+    ).toEqual([
+      { paneId: 'b', state: 'waiting', message: 'Allow?' },
+      { paneId: 'd', state: 'error' },
+    ])
+  })
+})
 
 describe('shouldNotifyCommandEnd', () => {
   it('notifies only for long commands while the window is unfocused', () => {
@@ -105,6 +126,25 @@ describe('workspace activity + attention', () => {
     useUIStore.getState().showWorkspaces()
     expect(useAttentionStore.getState().byPane[pane]?.unread).toBe(false)
     stop()
+  })
+
+  it('tells main every state a pane passes through, even done that viewing clears at once', () => {
+    vi.spyOn(document, 'hasFocus').mockReturnValue(true)
+    const stop = startAttentionSync()
+    const workspaceId = homeWorkspaceId()
+    useLayoutStore.getState().ensure(workspaceId)
+    const pane = useLayoutStore.getState().byWorkspace[workspaceId].activePaneId
+    const emit = vi.mocked(window.ostia.lifecycle.emit)
+    emit.mockClear()
+    signalPane(pane, { type: 'set', state: 'done', message: 'tests pass', at: 1 })
+    stop()
+    const reports = emit.mock.calls
+      .map(([event]) => event)
+      .filter((e) => e.type === 'pane-attention')
+    expect(reports).toEqual([
+      { type: 'pane-attention', paneId: pane, state: 'done', message: 'tests pass' },
+      { type: 'pane-attention', paneId: pane, state: 'none', message: 'tests pass' },
+    ])
   })
 
   it('keeps attention sync quiet with zero workspaces, then tracks the first workspace opened', () => {

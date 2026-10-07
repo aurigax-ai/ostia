@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { TARGET_PANE, seedSendTarget } from '../../../test/mocks/sendTarget'
@@ -216,6 +216,7 @@ describe('EditorView', () => {
     initSettings = useSettingsStore.getState()
   })
   afterEach(() => {
+    cleanup()
     fake.models.clear()
     fake.state.model = null
     fake.state.save = null
@@ -613,6 +614,7 @@ describe('EditorView', () => {
 
 describe('EditorView → Open in External Editor', () => {
   afterEach(() => {
+    cleanup()
     fake.models.clear()
     fake.state.model = null
     fake.state.actions = []
@@ -662,6 +664,7 @@ describe('EditorView → Send Selection to Agent', () => {
     })
   })
   afterEach(() => {
+    cleanup()
     unseed()
     fake.models.clear()
     fake.state.model = null

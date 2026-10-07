@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { TARGET_PANE, seedSendTarget } from '../../../test/mocks/sendTarget'
@@ -57,6 +57,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  cleanup()
   unseed()
   vi.mocked(cropToPng).mockReset()
 })
@@ -120,6 +121,34 @@ describe('PdfViewer', () => {
       }),
     )
     expect(cropToPng).not.toHaveBeenCalled()
+  })
+
+  it('follows a pinch at once and redraws the page once it settles', async () => {
+    await renderPdf()
+    const page = await (fake.doc.getPage.mock.results.at(-1)?.value as Promise<{
+      render: ReturnType<typeof vi.fn>
+    }>)
+    await waitFor(() => expect(page.render).toHaveBeenCalled())
+    const drawn = page.render.mock.calls.length
+    const stage = document.querySelector('.viewer-stage') as HTMLElement
+
+    for (let i = 0; i < 4; i++) fireEvent.wheel(stage, { deltaY: -10, ctrlKey: true })
+    expect(await screen.findByText('Zoom 149%')).toBeInTheDocument()
+    expect(page.render).toHaveBeenCalledTimes(drawn)
+
+    await waitFor(() => expect(page.render).toHaveBeenCalledTimes(drawn + 1))
+    const [{ viewport }] = page.render.mock.calls[drawn] as [{ viewport: { scale: number } }]
+    expect(viewport.scale).toBeCloseTo(Math.exp(0.4))
+  })
+
+  it('shows the region-select surface only in region mode', async () => {
+    await renderPdf()
+    expect(document.querySelector('.region-select')).toBeNull()
+    const toggle = screen.getByRole('button', { name: 'Select a region' })
+    await userEvent.click(toggle)
+    expect(document.querySelector('.pdf-region-layer')).toHaveClass('region-select')
+    await userEvent.click(toggle)
+    expect(document.querySelector('.region-select')).toBeNull()
   })
 
   it('snapshots a dragged region of the page canvas in PDF points', async () => {

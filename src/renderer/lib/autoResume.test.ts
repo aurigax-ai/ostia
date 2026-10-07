@@ -24,6 +24,9 @@ function seed(root: LayoutNode, activePaneId: string, autoResume: boolean): void
   useLayoutStore.setState({ byWorkspace: { w1: { root, activePaneId, zoomedPaneId: null } } })
 }
 
+const scheduled = () =>
+  vi.mocked(runWhenIdle).mock.calls.map(([paneId, command]) => [paneId, command])
+
 const pending = (id: string) => findPane(useLayoutStore.getState().byWorkspace.w1.root, id)
 
 describe('startAutoResume', () => {
@@ -53,7 +56,7 @@ describe('startAutoResume', () => {
     stop = startAutoResume()
     useLayoutStore.setState((s) => ({ byWorkspace: { ...s.byWorkspace } }))
 
-    expect(vi.mocked(runWhenIdle).mock.calls).toEqual([[pane.id, 'claude --resume abc-1']])
+    expect(scheduled()).toEqual([[pane.id, 'claude --resume abc-1']])
     expect(pending(pane.id)?.resumePending).toBe(true)
 
     useBlocksStore.setState({ running: { [pane.id]: 'b1' } })
@@ -100,10 +103,32 @@ describe('startAutoResume', () => {
     expect(workspacesAwaitingResume(useLayoutStore.getState().byWorkspace)).toEqual(['w1', 'w2'])
     stop = startAutoResume()
 
-    expect(vi.mocked(runWhenIdle).mock.calls).toEqual([
+    expect(scheduled()).toEqual([
       [back.id, 'claude --resume abc-1'],
       [other.id, 'claude --resume abc-1'],
     ])
+  })
+
+  it('types nothing and forgets the mark when the agent folder turned out to be gone', () => {
+    const pane = {
+      ...createPane('terminal'),
+      resume: { ...resume, cwd: '/w/tree' },
+      resumePending: true as const,
+      spawnDir: '/w/tree',
+    }
+    seed(pane, pane.id, true)
+    const cancel = vi.fn()
+    vi.mocked(runWhenIdle).mockReturnValueOnce(cancel)
+    stop = startAutoResume()
+    expect(runWhenIdle).toHaveBeenCalledTimes(1)
+    const guard = vi.mocked(runWhenIdle).mock.calls[0][3]
+    expect(guard?.()).toBe(true)
+
+    useLayoutStore.getState().settleSpawnDir('w1', pane.id, true)
+    expect(guard?.()).toBe(false)
+    expect(cancel).toHaveBeenCalledTimes(1)
+    expect(pending(pane.id)?.resumePending).toBeUndefined()
+    expect(pending(pane.id)?.resumeFolderMissing).toBe('/w/tree')
   })
 
   it('does nothing and forgets the mark when the setting is off', () => {

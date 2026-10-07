@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { Terminal as Xterm } from '@xterm/xterm'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
@@ -79,6 +79,7 @@ describe('InputEditor', () => {
   })
 
   afterEach(() => {
+    cleanup()
     useBlocksStore.setState(blocksInit, true)
     useSettingsStore.setState(settingsInit, true)
   })
@@ -424,6 +425,7 @@ describe('InputEditor', () => {
     setMode('editor')
     idlePrompt()
     renderEditor()
+    await act(async () => {})
     const area = editor() as HTMLTextAreaElement
     act(() => {
       area.blur()
@@ -857,6 +859,7 @@ describe('InputEditor', () => {
       setMode('editor')
       idlePrompt()
       const { view } = renderEditor()
+      await act(async () => {})
       const field = view.container.querySelector('.input-editor-field') as HTMLElement
       act(() => {
         editor()?.dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true }))

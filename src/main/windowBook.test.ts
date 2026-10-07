@@ -243,11 +243,15 @@ describe('parseHandoff', () => {
   it('keeps the hibernated mark of a pane with a resume token', () => {
     const w = workspace('w1', 'pane-1')
     if (w.root?.type === 'pane') {
-      w.root.resume = { agent: 'claude', id: 'abc' }
+      w.root.resume = { agent: 'claude', id: 'abc', cwd: '/w/tree' }
       w.root.hibernated = true
     }
     const parsed = parseHandoff(w)
-    expect(parsed?.root).toMatchObject({ id: 'pane-1', hibernated: true })
+    expect(parsed?.root).toMatchObject({
+      id: 'pane-1',
+      hibernated: true,
+      resume: { agent: 'claude', id: 'abc', cwd: '/w/tree' },
+    })
   })
 
   it('carries the project folder through a move and into the merged file', () => {

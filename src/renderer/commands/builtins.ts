@@ -7,7 +7,15 @@ import type { AttentionState } from '@shared/types'
 import { type WorkspaceGroupColor, normalizeGroupName } from '@shared/workspaceGroups'
 import { stepZoom } from '@shared/zoom'
 import { currentDict } from '../i18n/useDict'
-import { type DropZone, type FocusDirection, allPanes, findPane, tabNeighbor } from '../layout/tree'
+import {
+  type DropZone,
+  type FocusDirection,
+  allPanes,
+  findPane,
+  splitTabOfPane,
+  tabIdOf,
+  tabNeighbor,
+} from '../layout/tree'
 import type { Direction, SurfaceKind } from '../layout/types'
 import { postAgentNotification } from '../lib/agentNotification'
 import {
@@ -87,6 +95,9 @@ interface PaneListEntry extends PaneAgentReport {
   title: string
   cwd?: string
   filePath?: string
+  splitTabId?: string
+  splitTabName?: string
+  hibernated?: true
 }
 
 interface WorkspaceListEntry {
@@ -283,14 +294,16 @@ export function registerBuiltinCommands(): void {
       }
       const target = args?.paneId ?? ctx.activePaneId
       const layout = useLayoutStore.getState()
+      if (args?.paneId !== undefined) {
+        const tree = layout.byWorkspace[ctx.activeWorkspaceId]
+        if (!tree || !findPane(tree.root, args.paneId)) {
+          throw new Error(`unknown-pane: ${args.paneId}`)
+        }
+      }
       if (!target) {
         const empty = !args?.paneId && !layout.byWorkspace[ctx.activeWorkspaceId]
         if (empty && !ctx.target) await requestCloseWorkspace(ctx.activeWorkspaceId)
         return
-      }
-      const root = layout.byWorkspace[ctx.activeWorkspaceId]?.root
-      if (args?.paneId !== undefined && !(root && findPane(root, target))) {
-        throw new Error(`unknown-pane: ${target}`)
       }
       if (!ctx.target) {
         await requestClosePane(ctx.activeWorkspaceId, target)
@@ -367,8 +380,9 @@ export function registerBuiltinCommands(): void {
         const layout = workspaceId ? useLayoutStore.getState().byWorkspace[workspaceId] : undefined
         if (!workspaceId || !layout || !ctx.activePaneId) return
         const neighbor = tabNeighbor(layout.root, ctx.activePaneId, step)
-        if (!neighbor) return
-        useLayoutStore.getState().moveTab(workspaceId, ctx.activePaneId, neighbor, step === 1)
+        const source = tabIdOf(layout.root, ctx.activePaneId)
+        if (!neighbor || !source) return
+        useLayoutStore.getState().moveTab(workspaceId, source, neighbor, step === 1)
       },
     })
   }
@@ -471,7 +485,32 @@ export function registerBuiltinCommands(): void {
       const pane = layout ? findPane(layout.root, ctx.activePaneId) : null
       if (pane?.kind !== 'terminal' || !pane.resume) return { resumed: false }
       if (pane.hibernated) return { resumed: wakePane(pane.id) }
+      if (pane.resumeFolderMissing) return { resumed: false }
       return { resumed: insertCommand(pane.id, resumeCommand(pane.resume), true) }
+    },
+  })
+
+  registerCore<undefined, { hibernated: boolean }>({
+    id: 'pane.hibernated',
+    category: 'pane',
+    hidden: true,
+    capabilities: ['read-board'],
+    run: (_args, ctx) => {
+      if (!ctx.activeWorkspaceId || !ctx.activePaneId) throw new Error('no target pane')
+      const layout = useLayoutStore.getState().byWorkspace[ctx.activeWorkspaceId]
+      const pane = layout ? findPane(layout.root, ctx.activePaneId) : null
+      return { hibernated: pane?.hibernated === true }
+    },
+  })
+
+  registerCore<undefined, { woke: boolean }>({
+    id: 'pane.wake',
+    category: 'pane',
+    hidden: true,
+    capabilities: ['type-other-pane'],
+    run: (_args, ctx) => {
+      if (!ctx.activePaneId) throw new Error('no target pane')
+      return { woke: wakePane(ctx.activePaneId) }
     },
   })
 
@@ -1056,6 +1095,7 @@ export function registerBuiltinCommands(): void {
         const layout = byWorkspace[workspaceId]
         if (!layout) continue
         for (const pane of allPanes(layout.root)) {
+          const splitTab = splitTabOfPane(layout.root, pane.id)
           result.push({
             paneId: pane.id,
             workspaceId,
@@ -1064,6 +1104,9 @@ export function registerBuiltinCommands(): void {
             cwd: pane.cwd,
             ...(pane.kind === 'editor' && pane.filePath ? { filePath: pane.filePath } : {}),
             ...(pane.kind === 'terminal' ? paneAgentReport(pane.id, pane.resume) : {}),
+            ...(splitTab ? { splitTabId: splitTab.id } : {}),
+            ...(splitTab?.name ? { splitTabName: splitTab.name } : {}),
+            ...(pane.hibernated ? { hibernated: true } : {}),
           })
         }
       }

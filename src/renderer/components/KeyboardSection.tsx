@@ -706,11 +706,11 @@ export function KeyboardSection(): JSX.Element {
                 </TableCell>
               </TableRow>
             ) : null}
-            {visibleSends.map((r) => (
-              <TerminalKeyLine key={r.signature} row={r} />
-            ))}
             {visible.map((r) => (
               <KeybindingRow key={r.id} id={r.id} title={r.title} />
+            ))}
+            {visibleSends.map((r) => (
+              <TerminalKeyLine key={r.signature} row={r} />
             ))}
           </TableBody>
         </Table>

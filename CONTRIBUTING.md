@@ -8,13 +8,17 @@ Conventions for people and coding agents (Claude Code, Codex) working in this re
 2. **Branch from the latest `main`**: `<type>/<short-description>`, where type is `fix`, `feat`, `docs`, `refactor`, `test` or `ci`. `main` is protected: every change, admins included, goes through a pull request, and force pushes and branch deletion are blocked.
 3. **Commit** with [Conventional Commits](https://www.conventionalcommits.org/) in English (`fix(terminal): …`, `feat(browser): …`). No code comments: `scripts/comments.mjs` rejects them.
 4. **Check before pushing**:
-    - `pnpm typecheck`, `pnpm lint`, `pnpm test`
-    - the e2e specs for what you touched (`pnpm test:e2e e2e/<spec>.ts`); PR CI does not run e2e, so this is the only e2e check a change gets before the nightly run
+    - `pnpm typecheck`, `pnpm lint` and `pnpm exec vitest related <changed files> --run`. The full unit suite and e2e run in CI: unit on every PR, e2e on release candidates and every night.
+    - when a change needs e2e evidence, run only the specs you touched on CI: `gh workflow run ci.yml --ref <branch> -f full=true -f specs=e2e/<spec>.ts` (see CI below)
     - macOS-only behaviour (menus, Cmd keys) on a real Mac. For a bug fix, revert only the code, keep the new test, and confirm the test fails.
     - scan the whole branch for secrets (tokens, keys, certificates); nothing may match
 5. **Open a PR.** First line of the description: `Closes #N` (one line per issue). Then why, what changed, how it was tested, and what is not verified yet. Same labels and milestone as the issue. Check the link with `gh pr view <N> --json closingIssuesReferences`.
 6. **Merge** only when CI is green and a maintainer says so. Agents never merge or approve on their own. Use a merge commit (no squash) and delete the branch. If two PRs conflict, the author of the later one merges `main` into their branch; no force pushes.
 7. **Release**: bump `package.json` in a pull request, then tag `v*` on `main` (a `-rc.N` tag cuts a pre-release). The tag runs the full CI, e2e included, and the macOS signing job waits for a maintainer to approve the `release-macos` environment.
+
+## Supported platforms
+
+macOS and Arch-based Linux (CachyOS) come first. Debian and Ubuntu are supported too, but a bug there ranks below the same bug on those two.
 
 ## Labels
 
@@ -41,7 +45,10 @@ Every issue and PR gets the milestone of the release line it lands in. Open mile
 - A manual run can be narrowed with three inputs. `platform` is `all` (default), `linux` or `macos`: `linux` starts no macOS job, `macos` starts no Linux e2e job (static, unit and build still run on Linux). `specs` is a space-separated list of e2e files or patterns; when set, Linux runs one e2e job instead of four shards and macOS runs one job instead of four groups. `repeat` is passed to Playwright as `--repeat-each`. The inputs only apply when `full` is true. Examples:
     - `gh workflow run ci.yml --ref <branch> -f platform=linux -f specs=e2e/system.spec.ts -f repeat=3`
     - `gh workflow run ci.yml --ref <branch> -f platform=macos -f specs="e2e/ssh.spec.ts e2e/ssh-remote-files.spec.ts"`
-- Maintainer pushes and PRs run on self-hosted runners (Linux and `unit-macos`); fork PRs run on GitHub-hosted runners only.
+- `changes` and `unit` always run on GitHub-hosted `ubuntu-24.04` (unit needs sudo for apt and an AppArmor sysctl). For maintainer pushes and PRs, `static`, `build`, `ci-result` and the Linux e2e jobs run on the self-hosted `ostia-linux` runners (ARC on Kubernetes), and `unit-macos` on a self-hosted Mac. Fork PRs run on GitHub-hosted runners only.
+- Pull requests merge once the fast checks are green (static, Linux unit, build, `ci-result`). `unit-macos` and e2e do not block a PR; they run in full on `-rc.N` tags and nightly. `ci-result` does not include the macOS jobs, so read them separately.
 - Ask Justin before changing `.github/workflows/ci.yml`, `.github/workflows/release.yml` or `.github/actions/setup/action.yml`; the self-hosted runners depend on them.
+- Every job has `timeout-minutes` (about 3× its measured time, at least 10 minutes for a job that downloads packages), and the setup action and test steps have step timeouts. A new job gets one too.
+- Every `apt-get` and the setup action's `pnpm install` run through `scripts/retry.sh` (4 attempts, 10/20/40 s back-off). Never retry tests: a flaky test goes into `test/quarantine.json`.
 - Tests that need ptrace or `process_vm_readv` fail on the self-hosted Linux runners. Run them on GitHub-hosted Ubuntu, like `PTRACE_E2E` in `ci.yml`.
-- Repo variables `OSTIA_SELF_HOSTED_LINUX` and `OSTIA_SELF_HOSTED_MACOS` set to `off` send those jobs back to GitHub-hosted runners. Changing them needs a maintainer.
+- Repo variables `OSTIA_SELF_HOSTED_LINUX` and `OSTIA_SELF_HOSTED_MACOS` set to `off` send those jobs back to GitHub-hosted runners (`ubuntu-24.04`, `macos-26`). Changing them needs a maintainer. Only `OSTIA_SELF_HOSTED_MACOS` is set to `off` today, so macOS jobs run on GitHub-hosted runners.

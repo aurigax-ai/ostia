@@ -10,6 +10,7 @@ export type RecoveryReason = 'reload' | 'render-error' | 'renderer-gone'
 
 export interface DiagnosticsDeps {
   log: AppLog
+  version: string
   logDir: string
   testHooks: boolean
   startRecovery: (windowId: string, reason: RecoveryReason) => void
@@ -36,7 +37,7 @@ export function registerDiagnostics(deps: DiagnosticsDeps): Diagnostics {
   const crashReloads = new ReportLimiter(CRASH_RELOADS_PER_MINUTE)
 
   log.info('app-start', {
-    version: app.getVersion(),
+    version: deps.version,
     electron: process.versions.electron,
     platform: process.platform,
     packaged: app.isPackaged,

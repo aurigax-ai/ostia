@@ -125,6 +125,7 @@ export interface HibernationSettings {
 export interface AgentSettings {
   hibernation: HibernationSettings
   autoResume: boolean
+  autoSendReferences: boolean
   hooks: AgentHooks
 }
 
@@ -378,7 +379,12 @@ const DEFAULTS: Persisted = {
     showExtensionItems: true,
     showSSH: true,
   },
-  agents: { hibernation: DEFAULT_HIBERNATION, autoResume: false, hooks: DEFAULT_AGENT_HOOKS },
+  agents: {
+    hibernation: DEFAULT_HIBERNATION,
+    autoResume: false,
+    autoSendReferences: true,
+    hooks: DEFAULT_AGENT_HOOKS,
+  },
   assistant: {
     chatHistory: true,
     ...DEFAULT_CHAT_TOOL_SETTINGS,
@@ -418,6 +424,7 @@ interface SettingsState extends Persisted {
   setBrowser: (patch: Partial<BrowserSettings>) => void
   setEditor: (patch: Partial<EditorSettings>) => void
   setAutoResume: (autoResume: boolean) => void
+  setAutoSendReferences: (autoSendReferences: boolean) => void
   setAgentHooks: (patch: Partial<AgentHooks>) => void
   setChatHistory: (chatHistory: boolean) => void
   setChatTools: (patch: Partial<ChatToolSettings>) => Promise<void>
@@ -501,6 +508,7 @@ export function parsePersisted(p: Partial<Persisted>): Persisted {
     agents: {
       hibernation: parseHibernation(p.agents?.hibernation),
       autoResume: p.agents?.autoResume === true,
+      autoSendReferences: p.agents?.autoSendReferences !== false,
       hooks: parseAgentHooks(p.agents?.hooks),
     },
     assistant: {
@@ -595,7 +603,19 @@ function applySetting(s: SettingsState, path: string, value: unknown): SettingCh
 
 let lastWritten: string | null = null
 
+async function capabilitiesOnDisk(path: string): Promise<Capabilities | undefined> {
+  const raw = await window.ostia.fs.read(path).catch(() => null)
+  if (!raw) return undefined
+  try {
+    return parsePersisted(JSON.parse(raw) as Partial<Persisted>).capabilities
+  } catch {
+    return undefined
+  }
+}
+
 async function writeSettings(s: SettingsState): Promise<void> {
+  const path = await window.ostia.settings.path()
+  const capabilities = await capabilitiesOnDisk(path)
   const keyboard = writeKeyboard(
     {
       keymap: s.keymap,
@@ -623,7 +643,7 @@ async function writeSettings(s: SettingsState): Promise<void> {
     assistant: s.assistant,
     workspaceGroups: s.workspaceGroups,
     extensionSettings: s.extensionSettings,
-    capabilities: s.capabilities,
+    capabilities,
     manager: s.manager,
     sync: s.sync,
     approvals: s.approvals,
@@ -632,7 +652,6 @@ async function writeSettings(s: SettingsState): Promise<void> {
     sandbox: s.sandbox,
     privacy: s.privacy,
   }
-  const path = await window.ostia.settings.path()
   const text = `${JSON.stringify(snapshot, null, 2)}\n`
   lastWritten = text
   await window.ostia.fs.write(path, text)
@@ -870,6 +889,10 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   },
   setAutoResume: (autoResume) => {
     set((s) => ({ agents: { ...s.agents, autoResume } }))
+    scheduleSave(get)
+  },
+  setAutoSendReferences: (autoSendReferences) => {
+    set((s) => ({ agents: { ...s.agents, autoSendReferences } }))
     scheduleSave(get)
   },
   setAgentHooks: (patch) => {

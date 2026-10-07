@@ -1,6 +1,10 @@
-import type { IBufferLine, Terminal as Xterm } from '@xterm/xterm'
 import { isEqual } from 'es-toolkit'
 import { type RefObject, useEffect, useState } from 'react'
+import {
+  type TerminalBufferLine as IBufferLine,
+  type OstiaTerminal as Xterm,
+  terminalScreen,
+} from './ostiaTerminal'
 import {
   type CellMetrics,
   type PromptPlacement,
@@ -17,7 +21,7 @@ export interface PromptGeometry {
 }
 
 export function measureCells(host: HTMLElement, term: Xterm): CellMetrics | null {
-  const screen = host.querySelector('.xterm-screen')
+  const screen = terminalScreen(host)
   const stack = host.parentElement
   if (!(screen instanceof HTMLElement) || !stack || term.rows <= 0 || term.cols <= 0) return null
   const rect = screen.getBoundingClientRect()

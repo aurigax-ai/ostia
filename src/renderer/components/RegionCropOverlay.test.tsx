@@ -37,6 +37,11 @@ describe('RegionCropOverlay', () => {
     expect(screen.getByRole('application', { name: LABEL })).toHaveFocus()
   })
 
+  it('is a region-select surface like the file viewers', () => {
+    renderOverlay()
+    expect(screen.getByRole('application', { name: LABEL })).toHaveClass('region-select')
+  })
+
   it('draws the dragged rectangle with its size and reports it relative to the page area', () => {
     const { onDone } = renderOverlay()
     const layer = layerAt(100, 50, 800, 600)

@@ -1,6 +1,6 @@
 import { PRODUCT_DISPLAY_NAME } from '@shared/productDisplay'
 import '@testing-library/jest-dom/vitest'
-import { act, render, screen } from '@testing-library/react'
+import { act, cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { useSandboxStore } from '../stores/sandboxStore'
@@ -13,6 +13,7 @@ beforeAll(() => {
 })
 
 afterEach(() => {
+  cleanup()
   useSandboxStore.setState(init, true)
 })
 

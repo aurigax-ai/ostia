@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createPane } from '../layout/tree'
 import { useBlocksStore } from '../stores/blocksStore'
@@ -30,8 +30,10 @@ function runCommand(paneId: string, command: string): void {
 
 describe('AgentSessionButton', () => {
   const initial = useBlocksStore.getState()
-  afterEach(() => useBlocksStore.setState(initial, true))
-
+  afterEach(() => {
+    cleanup()
+    useBlocksStore.setState(initial, true)
+  })
   it('shows nothing when no agent is running in the pane', () => {
     const pane = createPane('terminal')
     runCommand(pane.id, 'pnpm test')
@@ -39,7 +41,7 @@ describe('AgentSessionButton', () => {
     expect(container.innerHTML).toBe('')
   })
 
-  it('shows the running agent with its session title and id', () => {
+  it('shows the running agent with its session title and id', async () => {
     const pane = {
       ...createPane('terminal', '✳ Resume tokens'),
       resume: { agent: 'claude' as const, id: 'abc-123' },
@@ -51,7 +53,7 @@ describe('AgentSessionButton', () => {
       name: 'Claude Code session: Resume tokens · Resumable',
     })
     fireEvent.click(button)
-    expect(screen.getByText('abc-123')).toBeTruthy()
+    expect(await screen.findByText('abc-123')).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Copy resume command' })).toBeTruthy()
   })
 
