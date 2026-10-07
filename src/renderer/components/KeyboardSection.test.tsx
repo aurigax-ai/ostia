@@ -182,7 +182,7 @@ describe('KeyboardSection', () => {
     expect(within(row(/Command Palette/)).queryByText('in a terminal')).toBeNull()
   })
 
-  it('picks a keymap, lists the entries it skipped, and puts the user’s chords on top of it', async () => {
+  it('picks a keymap, lists the entries it skipped, and goes back to Ostia', async () => {
     useExtensionsStore.setState({ list: [keymapExtension] })
     vi.mocked(window.ostia.keymaps.load).mockResolvedValue({
       ok: true,
@@ -216,6 +216,29 @@ describe('KeyboardSection', () => {
     expect(within(row(/Toggle Sidebar/)).getByText('removes Ctrl+Shift+B')).toBeInTheDocument()
     expect(within(row(/New Terminal Tab/)).queryByText('Alt keys')).toBeNull()
 
+    await applyPreset('App shortcuts', 'Ostia')
+    expect(useSettingsStore.getState().keymap).toBe('ostia')
+    expect(within(row(/Command Palette/)).getByText('Ctrl+Shift+P')).toBeInTheDocument()
+    expect(screen.queryByText(/pane\.zoom “Ctrl\+X”/)).toBeNull()
+  })
+
+  it('puts the user’s chords on top of a chosen keymap', async () => {
+    useExtensionsStore.setState({ list: [keymapExtension] })
+    vi.mocked(window.ostia.keymaps.load).mockResolvedValue({
+      ok: true,
+      keymap: {
+        extId: 'keys',
+        id: 'alt',
+        label: 'Alt keys',
+        bindings: { 'palette.toggle': 'Ctrl+Alt+P', 'view.toggleRail': null },
+        skipped: [{ command: 'pane.zoom', value: 'Ctrl+X', problem: 'ctrl-key' }],
+      },
+    })
+    useSettingsStore.setState({ keymap: 'keys/alt' })
+    syncKeymaps()
+    render(<KeyboardSection />)
+    expect(await within(row(/Command Palette/)).findByText('Ctrl+Alt+P')).toBeInTheDocument()
+
     await change('Ctrl+Alt+P', 'Command Palette')
     press('Y', { ctrlKey: true, shiftKey: true, code: 'KeyY' })
     expect(within(row(/Command Palette/)).getByText('Ctrl+Shift+Y')).toBeInTheDocument()
@@ -226,11 +249,6 @@ describe('KeyboardSection', () => {
     await change('Ctrl+Alt+P', 'Command Palette')
     press('P', { ctrlKey: true, altKey: true, code: 'KeyP' })
     expect(useSettingsStore.getState().keybindings).toEqual({})
-
-    await applyPreset('App shortcuts', 'Ostia')
-    expect(useSettingsStore.getState().keymap).toBe('ostia')
-    expect(within(row(/Command Palette/)).getByText('Ctrl+Shift+P')).toBeInTheDocument()
-    expect(screen.queryByText(/pane\.zoom “Ctrl\+X”/)).toBeNull()
   })
 
   it('shows the default preset and table for a keymap no enabled extension offers here', () => {

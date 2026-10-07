@@ -31,7 +31,7 @@ const applyPreset = async (layer: string, name: string): Promise<void> => {
 }
 
 const row = (name: RegExp): HTMLElement => {
-  const cell = screen.getAllByRole('cell').find((c) => name.test(c.textContent ?? ''))
+  const cell = [...document.querySelectorAll('td')].find((c) => name.test(c.textContent ?? ''))
   const tr = cell?.closest('tr')
   if (!tr) throw new Error(`no row for ${name}`)
   return tr

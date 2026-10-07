@@ -232,16 +232,14 @@ describe('SettingsPanel extensions nav', () => {
     )
   })
 
-  it('finds an extension by its name or a setting title in the search box', async () => {
+  async function searchFor(text: string): Promise<void> {
     await renderSettings()
     const user = userEvent.setup()
-    const search = screen.getByRole('textbox', { name: 'Search settings' })
-    const searchFor = async (text: string): Promise<void> => {
-      await user.clear(search)
-      await user.click(search)
-      await user.paste(text)
-    }
+    await user.click(screen.getByRole('textbox', { name: 'Search settings' }))
+    await user.paste(text)
+  }
 
+  it('finds an extension by a setting title in the search box', async () => {
     await searchFor('scan interval')
     await waitFor(() =>
       expect(within(nav()).queryByRole('button', { name: 'Appearance' })).toBeNull(),
@@ -249,16 +247,20 @@ describe('SettingsPanel extensions nav', () => {
     expect(within(nav()).getByRole('button', { name: 'Extensions' })).toBeInTheDocument()
     expect(within(nav()).getByRole('button', { name: 'Ports' })).toBeInTheDocument()
     expect(within(nav()).queryByRole('button', { name: 'Git' })).toBeNull()
+  })
 
+  it('finds an extension by its name in the search box', async () => {
     await searchFor('git')
     await waitFor(() => expect(within(nav()).queryByRole('button', { name: 'Ports' })).toBeNull())
     expect(within(nav()).getByRole('button', { name: 'Git' })).toBeInTheDocument()
+  })
 
+  it('lists no extension when the search matches none', async () => {
     await searchFor('no such thing')
     await waitFor(() =>
       expect(within(nav()).queryByRole('button', { name: 'Extensions' })).toBeNull(),
     )
-  }, 45_000)
+  })
 
   it('opens Browse extensions from its own nav entry and from a deep link', async () => {
     await renderSettings()
