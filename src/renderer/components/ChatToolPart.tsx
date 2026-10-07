@@ -1,3 +1,4 @@
+import { CaretDownIcon } from '@phosphor-icons/react'
 import { BUILTIN_TOOL_ACCESS, isBuiltinChatTool, mcpToolName } from '@shared/chatTools'
 import { useState } from 'react'
 import { fmt, useDict } from '../i18n/useDict'
@@ -7,6 +8,7 @@ import { type ToolPartLike, outputText, toolNameOf } from '../lib/chatTransport'
 import { confirmsGeneratedText } from '../lib/pasteGate'
 import { type PendingApproval, answerApproval, useChatToolsStore } from '../stores/chatToolsStore'
 import { ChatEditCard } from './ChatEditCard'
+import { DropdownMenu, MenuItem } from './Menu'
 import { RiskyPasteDialog } from './RiskyPasteDialog'
 import {
   Confirmation,
@@ -21,6 +23,8 @@ import {
   ToolHeader,
   type ToolState,
 } from './ai-elements/tool'
+import { Button } from './ui/button'
+import { ButtonGroup, ButtonGroupSeparator } from './ui/button-group'
 
 const SHOWN_OUTPUT_MAX = 4000
 
@@ -100,19 +104,30 @@ function ApprovalCard({
             </ConfirmationAction>
           </>
         ) : (
-          <>
-            {pending.grantable ? (
-              <ConfirmationAction
-                variant="outline"
-                onClick={() => answer({ approved: true, scope: 'chat' })}
-              >
-                {t.allowChat}
-              </ConfirmationAction>
-            ) : null}
+          <ButtonGroup aria-label={t.allowChoices}>
             <ConfirmationAction onClick={() => answer({ approved: true, scope: 'once' })}>
               {t.allowOnce}
             </ConfirmationAction>
-          </>
+            {pending.grantable ? (
+              <>
+                <ButtonGroupSeparator className="bg-on-brand/25" />
+                <DropdownMenu
+                  trigger={
+                    <Button type="button" size="icon-sm" aria-label={t.allowChoices}>
+                      <CaretDownIcon aria-hidden />
+                    </Button>
+                  }
+                >
+                  <MenuItem onClick={() => answer({ approved: true, scope: 'chat' })}>
+                    {t.allowChat}
+                  </MenuItem>
+                  <MenuItem onClick={() => answer({ approved: true, scope: 'always' })}>
+                    {t.allowAlways}
+                  </MenuItem>
+                </DropdownMenu>
+              </>
+            ) : null}
+          </ButtonGroup>
         )}
       </ConfirmationActions>
       <RiskyPasteDialog

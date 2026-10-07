@@ -1,5 +1,6 @@
+import type { AgentHookEvent } from './agentPlugins'
 import type { Capability } from './capabilities'
-import type { ExtensionCategory } from './extensions'
+import type { ExtensionCategory, ExtensionIcon } from './extensions'
 
 export const MARKETPLACE_FEATURE = 'marketplace'
 export const MARKETPLACE_MANIFEST_FILE = 'ostia-marketplace.json'
@@ -8,14 +9,22 @@ export const MARKETPLACE_CODE_PATTERN = /^[a-z2-7]{26}$/
 
 export type MarketplaceInstallState = 'available' | 'installed' | 'update' | 'replace' | 'conflict'
 
+export interface MarketplaceAgentHook {
+  event: AgentHookEvent
+  command: string
+}
+
 export interface MarketplaceExtension {
   id: string
   name: string
   version: string
   description: string
   category: ExtensionCategory
+  icon?: ExtensionIcon
   capabilities: Capability[]
   runsProcess: boolean
+  agentSkills: string[]
+  agentHooks: MarketplaceAgentHook[]
   state: MarketplaceInstallState
   installedVersion?: string
 }

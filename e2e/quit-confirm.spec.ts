@@ -60,3 +60,36 @@ test('quitting with an idle shell without blocks shows no dialog', async () => {
     app.process().kill('SIGKILL')
   }
 })
+
+test('quitting while the window is too busy to answer asks instead of quitting', async () => {
+  const { app, win } = await launch({
+    ...DOM_RENDERER_SETTINGS,
+    workspaces: { ...DOM_RENDERER_SETTINGS.workspaces, confirmQuit: true },
+  })
+  try {
+    await app.evaluate(({ dialog }) => {
+      const asked: string[] = []
+      Object.assign(globalThis, { quitAsked: asked })
+      dialog.showMessageBox = (async (...args: unknown[]) => {
+        const options = args.at(-1) as { detail?: string }
+        asked.push(options.detail ?? '')
+        return { response: 0, checkboxChecked: false }
+      }) as typeof dialog.showMessageBox
+    })
+    void win
+      .evaluate(() => {
+        window.ostia.window.quit()
+        const end = Date.now() + 5_000
+        while (Date.now() < end) {}
+      })
+      .catch(() => {})
+    await expect
+      .poll(() => app.evaluate(() => (globalThis as { quitAsked?: string[] }).quitAsked ?? []), {
+        timeout: 15_000,
+      })
+      .toEqual([expect.stringContaining('The window did not answer')])
+    expect(app.process().exitCode).toBeNull()
+  } finally {
+    app.process().kill('SIGKILL')
+  }
+})

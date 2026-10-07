@@ -47,7 +47,7 @@ env:
   PTRACE_E2E: with Unix sockets off the shell still starts
 
 concurrency:
-  group: ci-${{ github.event_name }}-${{ github.event.pull_request.number || github.sha }}${{ github.event_name == 'workflow_dispatch' && format('-{0}-{1}-{2}-{3}', inputs.full, inputs.platform, inputs.specs, inputs.repeat) || '' }}
+  group: ci-${{ github.event_name }}-${{ github.ref }}-${{ github.event.pull_request.number || github.sha }}${{ github.event_name == 'workflow_dispatch' && format('-{0}-{1}-{2}-{3}', inputs.full, inputs.platform, inputs.specs, inputs.repeat) || '' }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:

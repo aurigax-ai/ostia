@@ -133,7 +133,7 @@ async function launch(): Promise<Launched> {
   await openWorkspace(win)
   await win.keyboard.press('Control+,')
   const settings = win.getByRole('region', { name: 'Settings' })
-  await settings.getByRole('button', { name: 'Extensions', exact: true }).click()
+  await settings.getByRole('button', { name: 'Browse extensions', exact: true }).click()
   await settings.getByRole('textbox', { name: 'Marketplace repository' }).fill(repo)
   await settings.getByRole('button', { name: 'Add', exact: true }).click()
   await expect(settings.getByRole('listitem', { name: 'E2E marketplace' })).toBeVisible({

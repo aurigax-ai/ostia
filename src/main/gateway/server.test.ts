@@ -56,6 +56,7 @@ const deps = {
   getTerminalState: vi.fn(),
   listPanes: vi.fn().mockResolvedValue([]),
   listWorkspaces: vi.fn().mockResolvedValue([]),
+  listWorkspaceGroups: vi.fn().mockResolvedValue([]),
   primaryWindowId: vi.fn().mockReturnValue('w1'),
   attachPhoneObserver: vi.fn().mockImplementation(() => ({
     cursor: 7,

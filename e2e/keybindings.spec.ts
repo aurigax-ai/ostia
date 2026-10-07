@@ -39,11 +39,11 @@ test('a rebound palette chord works from a focused terminal, refuses Ctrl+R, and
 
     await openKeyboardSettings(win)
     await expect(paletteRow(win)).toContainText('Ctrl+Shift+P')
-    await win.getByRole('button', { name: 'Record a shortcut for Command Palette' }).click()
+    await win.getByRole('button', { name: 'Change Ctrl+Shift+P for Command Palette' }).click()
     await win.keyboard.press('Control+Shift+Y')
     await expect(paletteRow(win)).toContainText('Ctrl+Shift+Y')
 
-    await win.getByRole('button', { name: 'Record a shortcut for Command Palette' }).click()
+    await win.getByRole('button', { name: 'Change Ctrl+Shift+Y for Command Palette' }).click()
     await win.keyboard.press('Control+r')
     await expect(paletteRow(win).getByRole('alert')).toContainText(
       'Ctrl+R can’t be used: plain Ctrl keys belong to the shell',
@@ -87,12 +87,12 @@ test('on macOS the palette is ⇧⌘P everywhere and ⌘K outside a terminal, a 
 
     await openKeyboardSettings(win)
     await expect(paletteRow(win)).toContainText('⌘K')
-    await win.getByRole('button', { name: 'Record a shortcut for Command Palette' }).click()
+    await win.getByRole('button', { name: 'Change ⌘K for Command Palette' }).click()
     await win.keyboard.press('Meta+Shift+Y')
     await expect(paletteRow(win)).toContainText('Y')
-    await expect(paletteRow(win)).not.toContainText('⌘K')
+    await expect(win.getByRole('button', { name: 'Change ⌘K for Command Palette' })).toHaveCount(0)
 
-    await win.getByRole('button', { name: 'Record a shortcut for Command Palette' }).click()
+    await win.getByRole('button', { name: 'Change ⌘⇧Y for Command Palette' }).click()
     await win.keyboard.press('Control+Shift+y')
     await expect(paletteRow(win).getByRole('alert')).toContainText('it needs ⌘')
     await win.keyboard.press('Escape')
@@ -281,7 +281,7 @@ test('on macOS the cmux keymap is opt-in: picking it drops ⌘K for the palette,
     await win.getByRole('option', { name: 'macOS (cmux)' }).click()
     await expect(picker).toContainText('macOS (cmux)')
     await expect(paletteRow(win)).toContainText('⌘⇧P')
-    await expect(paletteRow(win)).not.toContainText('⌘K')
+    await expect(win.getByRole('button', { name: 'Change ⌘K for Command Palette' })).toHaveCount(0)
     await closeSettings(win)
 
     await focusTerminal(win)

@@ -255,6 +255,10 @@ test('the graph shows the uncommitted row, switches to all branches, and changes
     const settings = win.getByRole('region', { name: 'Settings' })
     await expect(settings).toBeVisible({ timeout: 10_000 })
     await settings.getByRole('button', { name: 'Extensions', exact: true }).click()
+    await settings
+      .getByRole('list', { name: 'Installed extensions' })
+      .getByRole('button', { name: 'Git', exact: true })
+      .click()
     const changesView = settings.getByRole('combobox', { name: 'Changed files layout' })
     await expect(changesView).toContainText('Folder tree')
     await expect(settings.getByRole('combobox', { name: 'Graph branches' })).toContainText(

@@ -13,6 +13,9 @@ const PAGE = `<!doctype html>
   <button data-testid="broken-button" style="margin:40px;width:160px;height:40px">Checkout</button>
 </body></html>`
 
+const LINE_AGENT =
+  '#!/bin/sh\necho fake-agent-ready\nwhile IFS= read -r line; do echo "agent-read: $line"; done\n'
+
 test('a browser pane moved to its own window sends a picked element to the agent it left behind', async () => {
   test.setTimeout(150_000)
   const dataHome = freshDataHome()
@@ -20,7 +23,7 @@ test('a browser pane moved to its own window sends a picked element to the agent
   writeFileSync(pagePath, PAGE)
   const pageUrl = pathToFileURL(pagePath).href
 
-  const bin = fakeAgentBin(dataHome)
+  const bin = fakeAgentBin(dataHome, LINE_AGENT)
   const launch = isolatedLaunch(dataHome)
   const app = await electron.launch({
     ...launch,
@@ -102,11 +105,12 @@ test('a browser pane moved to its own window sends a picked element to the agent
       timeout: 15_000,
     })
     const terminal = win.locator('.xterm-rows').first()
-    await expect(terminal).toContainText(/@\S*capture-\d+\S*\.md/, { timeout: 15_000 })
+    await expect(terminal).toContainText(/agent-read: @\S*capture-\d+\S*\.md/, { timeout: 15_000 })
     await win.waitForTimeout(500)
     const text = (await terminal.textContent()) ?? ''
-    expect(text.match(/capture-\d+\S*\.md/g)).toHaveLength(1)
-    const match = text.match(/@(\S*capture-\d+\S*\.md)/)
+    expect(text.match(/agent-read: @\S*capture-\d+\S*\.md/g)).toHaveLength(1)
+    expect([...new Set(text.match(/capture-\d+\S*\.md/g))]).toHaveLength(1)
+    const match = text.match(/agent-read: @(\S*capture-\d+\S*\.md)/)
     const report = readFileSync((match as RegExpMatchArray)[1], 'utf8')
     expect(report).toContain('[data-testid="broken-button"]')
     expect(report).toContain('Checkout button is misaligned')

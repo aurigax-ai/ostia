@@ -182,6 +182,17 @@ export function isMcpToolName(name: string): boolean {
   return name.startsWith(MCP_TOOL_PREFIX) && CHAT_TOOL_NAME_PATTERN.test(name)
 }
 
+export const READ_OUTSIDE_GRANT = 'read-outside'
+
+export const CHAT_TOOL_GRANTS_MAX = 256
+
+export function isStandingChatGrant(key: unknown): key is string {
+  if (typeof key !== 'string') return false
+  if (key === READ_OUTSIDE_GRANT) return true
+  if (isBuiltinChatTool(key)) return BUILTIN_TOOL_ACCESS[key] === 'act'
+  return isMcpToolName(key)
+}
+
 export type McpServerState = 'off' | 'idle' | 'connecting' | 'ready' | 'error'
 
 export interface McpToolInfo {
@@ -389,6 +400,10 @@ export interface ChatToolsApi {
   mcpCancelSignIn: (server: string) => void
   mcpSignOut: (server: string) => Promise<McpServerStatus[]>
   mcpTest: (server: string) => Promise<McpTestResult>
+  alwaysGrants: () => Promise<string[]>
+  grantAlways: (key: string) => Promise<string[]>
+  removeAlwaysGrant: (key: string) => Promise<string[]>
+  onAlwaysGrants: (cb: (keys: string[]) => void) => () => void
 }
 
 export const CHAT_READ_LINES_MAX = 2000
