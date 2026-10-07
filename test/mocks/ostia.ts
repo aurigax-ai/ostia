@@ -390,6 +390,10 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       mcpCancelSignIn: vi.fn(),
       mcpSignOut: vi.fn().mockResolvedValue([]),
       mcpTest: vi.fn().mockResolvedValue({ ok: true, tools: 0 }),
+      alwaysGrants: vi.fn().mockResolvedValue([]),
+      grantAlways: vi.fn().mockImplementation(async (key: string) => [key]),
+      removeAlwaysGrant: vi.fn().mockResolvedValue([]),
+      onAlwaysGrants: vi.fn(() => () => {}),
     },
     externalEditor: {
       open: vi.fn().mockResolvedValue({ ok: true, argv: [] }),

@@ -21,6 +21,7 @@ import {
   modeFor,
   nextSeq,
   requestApproval,
+  standingGrants,
   useChatToolsStore,
 } from '../stores/chatToolsStore'
 import { useEditorStatus } from '../stores/editorStatusStore'
@@ -32,9 +33,9 @@ import { idleTerminals, insertInto, runInNewTerminal } from './chatActions'
 import { contentWith, editHunks, hunkCounts, settle } from './chatHunks'
 import {
   type ApprovalAnswer,
-  READ_OUTSIDE_GRANT,
   type ToolCheck,
   decideTool,
+  readsOutsideUnasked,
 } from './chatToolPermissions'
 import { resolveLinkPath } from './fileLinks'
 import { openFileAt } from './openFile'
@@ -112,7 +113,7 @@ export const DENIED: ToolOutcome = { state: 'denied' }
 
 async function gate(
   run: ToolRun,
-  check: Omit<ToolCheck, 'mode' | 'grants'>,
+  check: Omit<ToolCheck, 'mode' | 'grants' | 'standing'>,
   input: Record<string, unknown>,
   shown: ApprovalDetail,
 ): Promise<ApprovalAnswer | null> {
@@ -121,6 +122,7 @@ async function gate(
     ...check,
     mode: modeFor(run.sessionId),
     grants: grantsFor(run.sessionId),
+    standing: standingGrants(),
   })
   if (decision.run) return null
   const detail = decision.reason ? { ...shown, reason: decision.reason } : shown
@@ -143,6 +145,10 @@ async function gate(
   return answer
 }
 
+function readsOutside(sessionId: string): boolean {
+  return readsOutsideUnasked({ grants: grantsFor(sessionId), standing: standingGrants() })
+}
+
 function pathOf(input: Record<string, unknown>, run: ToolRun, key = 'path'): string {
   const raw = str(input[key]).trim()
   return resolveLinkPath(raw || '.', run.root)
@@ -155,7 +161,7 @@ async function readGated<T>(
   path: string,
   call: (outside: boolean) => Promise<ChatFsResult<T>>,
 ): Promise<ToolOutcome> {
-  const outside = grantsFor(run.sessionId).has('read-outside')
+  const outside = readsOutside(run.sessionId)
   let res = await call(outside)
   if (!res.ok && res.error === 'outside-folder') {
     const answer = await gate(run, { name, access: 'read', outside: true }, input, { path })
@@ -437,7 +443,7 @@ async function editFile(input: Record<string, unknown>, run: ToolRun): Promise<T
   const path = pathOf(input, run)
   const call = (outside: boolean) =>
     window.ostia.chatTools.plan({ path, root: run.root, edits, outside, dirty: dirtyPaths() })
-  let plan = await call(grantsFor(run.sessionId).has(READ_OUTSIDE_GRANT))
+  let plan = await call(readsOutside(run.sessionId))
   if (!plan.ok && plan.error === 'outside-folder') {
     const answer = await gate(run, { name: 'edit_file', access: 'read', outside: true }, input, {
       path,

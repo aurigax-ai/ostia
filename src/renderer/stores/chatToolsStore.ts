@@ -9,6 +9,7 @@ import {
   DEFAULT_CHAT_MODE,
   type ToolDecision,
   type WriteAskReason,
+  alwaysGrantAfter,
   grantsAfter,
 } from '../lib/chatToolPermissions'
 
@@ -42,6 +43,7 @@ export interface ChatEditRecord extends ChatSessionEdit {
 interface ChatToolsState {
   pending: Record<string, PendingApproval>
   grants: Record<string, string[]>
+  standing: string[]
   off: Record<string, string[]>
   mode: Record<string, ChatMode>
   edits: Record<string, ChatEditRecord>
@@ -67,6 +69,7 @@ const resolvers = new Map<string, (answer: ApprovalAnswer) => void>()
 export const useChatToolsStore = create<ChatToolsState>((set) => ({
   pending: {},
   grants: {},
+  standing: [],
   off: {},
   mode: {},
   edits: {},
@@ -120,6 +123,28 @@ export function isToolOn(sessionId: string, key: string): boolean {
 
 export function grantsFor(sessionId: string): ReadonlySet<string> {
   return new Set(useChatToolsStore.getState().grants[sessionId] ?? [])
+}
+
+export function standingGrants(): ReadonlySet<string> {
+  return new Set(useChatToolsStore.getState().standing)
+}
+
+function setStanding(keys: string[]): void {
+  useChatToolsStore.setState({ standing: keys })
+}
+
+function grantAlways(key: string): void {
+  useChatToolsStore.setState((s) => ({
+    standing: s.standing.includes(key) ? s.standing : [...s.standing, key],
+  }))
+  void window.ostia.chatTools
+    .grantAlways(key)
+    .then(setStanding)
+    .catch(() => {})
+}
+
+export async function removeAlwaysGrant(key: string): Promise<void> {
+  setStanding(await window.ostia.chatTools.removeAlwaysGrant(key))
 }
 
 export function modeFor(sessionId: string): ChatMode {
@@ -178,6 +203,8 @@ export function requestApproval(
           ],
         },
       }))
+      const standingKey = alwaysGrantAfter(decision, answer)
+      if (standingKey) grantAlways(standingKey)
       resolve(answer)
     })
     useChatToolsStore.setState((s) => ({
@@ -206,11 +233,19 @@ export function startChatTools(): () => void {
   const off =
     window.ostia?.chatTools?.onMcpStatus?.((mcp) => useChatToolsStore.getState().setMcp(mcp)) ??
     (() => {})
+  const offStanding = window.ostia?.chatTools?.onAlwaysGrants?.(setStanding) ?? (() => {})
   void window.ostia?.chatTools
     ?.mcpStatus?.()
     .then((mcp) => useChatToolsStore.getState().setMcp(mcp))
     .catch(() => {})
-  return off
+  void window.ostia?.chatTools
+    ?.alwaysGrants?.()
+    .then(setStanding)
+    .catch(() => {})
+  return () => {
+    off()
+    offStanding()
+  }
 }
 
 export function resetChatTools(): void {
@@ -218,6 +253,7 @@ export function resetChatTools(): void {
   useChatToolsStore.setState({
     pending: {},
     grants: {},
+    standing: [],
     off: {},
     mode: {},
     edits: {},

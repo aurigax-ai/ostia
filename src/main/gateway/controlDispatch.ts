@@ -6,7 +6,7 @@ import type {
   TerminalStateSnapshot,
 } from '../../shared/types'
 import { resolveExternal } from '../idRegistry'
-import type { PaneEntry, WorkspaceEntry } from '../paneList'
+import type { PaneEntry, WorkspaceEntry, WorkspaceGroupEntry } from '../paneList'
 import {
   type PhoneFileScope,
   type WorkspaceFileOutcome,
@@ -21,6 +21,7 @@ export interface GatewayControlDeps {
   listPanes: () => Promise<PaneEntry[]>
   listWorkspaces: () => Promise<WorkspaceEntry[]>
   fileScope: (workspaceId: string) => PhoneFileScope
+  listWorkspaceGroups: () => Promise<WorkspaceGroupEntry[]>
   primaryWindowId: () => string | undefined
   attachPhoneObserver: (
     rendererPaneId: string,
@@ -34,12 +35,16 @@ export type RpcOutcome =
   | { ok: true; result: unknown }
   | { ok: false; code: number; message: string; data?: unknown }
 
-function toWireSession({
-  workspaceId,
-  groupId: _groupId,
-  ...rest
-}: WorkspaceEntry): Record<string, unknown> {
-  return { sessionId: workspaceId, ...rest }
+function toWireSession(
+  { workspaceId, groupId, ...rest }: WorkspaceEntry,
+  groupNames: Map<string, string>,
+): Record<string, unknown> {
+  const name = groupId ? groupNames.get(groupId) : undefined
+  return {
+    sessionId: workspaceId,
+    ...rest,
+    ...(groupId && name !== undefined ? { group: { id: groupId, name } } : {}),
+  }
 }
 
 function toWirePane({ workspaceId, ...rest }: PaneEntry): Record<string, unknown> {
@@ -110,7 +115,15 @@ export async function dispatchGatewayMethod(
   switch (method) {
     case 'session.list': {
       if (!hasCap('read')) return needsElevation('read')
-      return { ok: true, result: { sessions: (await deps.listWorkspaces()).map(toWireSession) } }
+      const [workspaces, groups] = await Promise.all([
+        deps.listWorkspaces(),
+        deps.listWorkspaceGroups(),
+      ])
+      const groupNames = new Map(groups.map((g) => [g.groupId, g.name]))
+      return {
+        ok: true,
+        result: { sessions: workspaces.map((w) => toWireSession(w, groupNames)) },
+      }
     }
 
     case 'pane.list': {

@@ -61,6 +61,7 @@ const deps = {
     dataDirs: [],
     rules: { denyRead: [], allowRead: [] },
   }),
+  listWorkspaceGroups: vi.fn().mockResolvedValue([]),
   primaryWindowId: vi.fn().mockReturnValue('w1'),
   attachPhoneObserver: vi.fn().mockImplementation(() => ({
     cursor: 7,

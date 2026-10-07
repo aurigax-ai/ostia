@@ -31,6 +31,7 @@ function fakeDeps(overrides: Partial<GatewayControlDeps> = {}): GatewayControlDe
       dataDirs: [],
       rules: { denyRead: [], allowRead: [] },
     }),
+    listWorkspaceGroups: vi.fn().mockResolvedValue([]),
     primaryWindowId: vi.fn().mockReturnValue('w1'),
     attachPhoneObserver: vi.fn().mockReturnValue(null),
     ptyResize: vi.fn(),
@@ -117,7 +118,43 @@ describe('dispatchGatewayMethod — session.list / pane.list / command.list', ()
     })
   })
 
-  it('session.list leaves sidebar groups off the phone wire', async () => {
+  it('session.list carries a grouped workspace’s group as { id, name } and none otherwise', async () => {
+    const workspaces = [
+      {
+        workspaceId: 'w1',
+        name: 'api',
+        kind: 'terminal',
+        workDir: '/x',
+        state: 'idle',
+        groupId: 'g1',
+      },
+      { workspaceId: 'w2', name: 'web', kind: 'terminal', workDir: '/y', state: 'idle' },
+    ]
+    const groups = [{ groupId: 'g1', name: 'Backend', collapsed: false, workspaceIds: ['w1'] }]
+    const deps = fakeDeps({
+      listWorkspaces: vi.fn().mockResolvedValue(workspaces),
+      listWorkspaceGroups: vi.fn().mockResolvedValue(groups),
+    })
+    const res = await dispatchGatewayMethod('session.list', {}, ['read'], deps)
+    expect(res).toEqual({
+      ok: true,
+      result: {
+        sessions: [
+          {
+            sessionId: 'w1',
+            name: 'api',
+            kind: 'terminal',
+            workDir: '/x',
+            state: 'idle',
+            group: { id: 'g1', name: 'Backend' },
+          },
+          { sessionId: 'w2', name: 'web', kind: 'terminal', workDir: '/y', state: 'idle' },
+        ],
+      },
+    })
+  })
+
+  it('session.list shows a renamed group’s new name on the next call', async () => {
     const workspaces = [
       {
         workspaceId: 'w1',
@@ -128,16 +165,24 @@ describe('dispatchGatewayMethod — session.list / pane.list / command.list', ()
         groupId: 'g1',
       },
     ]
-    const deps = fakeDeps({ listWorkspaces: vi.fn().mockResolvedValue(workspaces) })
-    const res = await dispatchGatewayMethod('session.list', {}, ['read'], deps)
-    expect(res).toEqual({
-      ok: true,
-      result: {
-        sessions: [
-          { sessionId: 'w1', name: 'api', kind: 'terminal', workDir: '/x', state: 'idle' },
-        ],
-      },
+    const listWorkspaceGroups = vi
+      .fn()
+      .mockResolvedValueOnce([
+        { groupId: 'g1', name: 'Old', collapsed: false, workspaceIds: ['w1'] },
+      ])
+      .mockResolvedValueOnce([
+        { groupId: 'g1', name: 'New', collapsed: false, workspaceIds: ['w1'] },
+      ])
+    const deps = fakeDeps({
+      listWorkspaces: vi.fn().mockResolvedValue(workspaces),
+      listWorkspaceGroups,
     })
+    const groupOf = async () => {
+      const res = await dispatchGatewayMethod('session.list', {}, ['read'], deps)
+      return res.ok ? (res.result as { sessions: { group?: unknown }[] }).sessions[0]?.group : null
+    }
+    expect(await groupOf()).toEqual({ id: 'g1', name: 'Old' })
+    expect(await groupOf()).toEqual({ id: 'g1', name: 'New' })
   })
 
   it('pane.list wraps listPanes() as { panes } with the contract’s sessionId field', async () => {
