@@ -54,6 +54,7 @@ import type {
   FsEntry,
   FsKind,
   LifecycleEvent,
+  PaneActivity,
   PromptContext,
   PromptContextRequest,
   PtyAttachResult,
@@ -92,6 +93,7 @@ import { announceBusMessage } from './busNotice'
 import { dropIdentity, refreshGrantedCaps, setCaps } from './capabilityStore'
 import { createChatSessionStore } from './chatSessions'
 import { registerChatSessionIpc } from './chatSessionsIpc'
+import { ChatToolGrants } from './chatToolGrants'
 import { registerChatToolsIpc } from './chatToolsIpc'
 import { type ClipboardEdits, registerClipboardEdits } from './clipboardEdits'
 import { confirmQuit, freezeAll, registerCloseGuard } from './closeGuard'
@@ -187,7 +189,7 @@ import {
   pastedText,
   registerPaneIoMethods,
 } from './paneIo'
-import { listPanes, listWorkspaces, registerPaneListMethods } from './paneList'
+import { listPanes, listWorkspaceGroups, listWorkspaces, registerPaneListMethods } from './paneList'
 import type { PaneProcess } from './paneProcess'
 import { registerPaneRenameMethods } from './paneRename'
 import { registerPaneResumeMethods } from './paneResume'
@@ -219,6 +221,7 @@ import { type ReapReason, RecoveryBook, orphanVerdict, planRecovery } from './pt
 import { PtySession, type Subscriber, type SubscriberRole } from './ptySession'
 import { questions, registerQuestions } from './questions'
 import { QUIT_SIGNALS, exitAfterDeadline, keptOnQuit, planQuit } from './quitPlan'
+import { confirmQuitNatively } from './quitPrompt'
 import { createRedactor, createScrollbackRedactor } from './redaction'
 import { createWorkerScan, redactionWorkerScript } from './redactionScan'
 import { registerReleaseCheck, releaseUserAgent } from './releaseCheck'
@@ -382,6 +385,20 @@ function holdsLocalPrompt(entry: PtyEntry): boolean {
     shell: entry.shell,
     sandboxed: entry.sandboxed,
   })
+}
+
+function paneActivity(entry: PtyEntry): PaneActivity {
+  let program: string | null = null
+  try {
+    program = busyProgram({
+      foreground: entry.pty.process,
+      shell: entry.shell,
+      sandboxed: entry.sandboxed,
+    })
+  } catch {
+    program = null
+  }
+  return { program, agentRunning: agentRunning.has(entry.paneId) }
 }
 
 function sandboxReadRules(entry: PtyEntry): SandboxReadRules | null {
@@ -2228,18 +2245,10 @@ function registerPtyIpc(): void {
       return null
     }
   })
-  ipcMain.handle('pty:busy', (e, paneId: string): string | null => {
+  ipcMain.handle('pty:activity', (e, paneId: string): PaneActivity | null => {
     const entry = ptys.get(String(paneId))
     if (!entry?.subs.has(String(e.sender.id))) return null
-    try {
-      return busyProgram({
-        foreground: entry.pty.process,
-        shell: entry.shell,
-        sandboxed: entry.sandboxed,
-      })
-    } catch {
-      return null
-    }
+    return paneActivity(entry)
   })
   ipcMain.handle('pty:commands', async (e, paneId: string): Promise<string[]> => {
     const entry = ptys.get(paneId)
@@ -3329,6 +3338,8 @@ app.whenReady().then(() => {
     mcp: mcpHost,
     secrets: mcpSecrets,
     oauth: mcpOAuth,
+    grants: new ChatToolGrants(join(app.getPath('userData'), 'chat-tool-grants.json')),
+    onGrants: (keys) => broadcast('chatTools:always-grants', keys),
   })
   const workflowDeps: WorkflowDeps = {
     userDir: join(configDir(), 'workflows'),
@@ -3397,6 +3408,7 @@ app.whenReady().then(() => {
     getTerminalState,
     listPanes: () => listPanes({ execCommand, getTerminalState, ptyPid, windowIds }),
     listWorkspaces: () => listWorkspaces({ execCommand, windowIds }),
+    listWorkspaceGroups: () => listWorkspaceGroups({ execCommand, windowIds }),
     primaryWindowId,
     attachPhoneObserver,
     ptyResize,
@@ -3564,15 +3576,21 @@ app.on('before-quit', (event) => {
     if (quitAsking) return
     quitAsking = true
     const all = BrowserWindow.getAllWindows()
-    void confirmQuit(
-      all,
-      BrowserWindow.getFocusedWindow() ?? mainWindow(),
-      (workspaceId) => scratchFolders.countFiles(workspaceId),
-      keptOnQuit(
+    void confirmQuit(all, BrowserWindow.getFocusedWindow() ?? mainWindow(), {
+      scratchFiles: (workspaceId) => scratchFolders.countFiles(workspaceId),
+      kept: keptOnQuit(
         restartRequested,
         [...ptys.values()].map((entry) => ({ paneId: entry.paneId, kept: entry.kept !== null })),
       ),
-    ).then((approved) => {
+      workspacesOf: (win) => broker?.workspacesOf(win) ?? [],
+      processes: () =>
+        [...ptys.values()].map((entry) => ({
+          paneId: entry.paneId,
+          workspaceId: entry.workspaceId,
+          ...paneActivity(entry),
+        })),
+      confirmNative: (groups) => confirmQuitNatively(groups, readLocale() ?? 'en'),
+    }).then((approved) => {
       quitAsking = false
       if (!approved) {
         restartRequested = false

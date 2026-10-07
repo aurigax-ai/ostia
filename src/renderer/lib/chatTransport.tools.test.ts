@@ -8,7 +8,12 @@ import type { ChatPlanOutput, ChatPreviewOutput, ChatWriteOutput } from '@shared
 import type { UIMessageChunk } from 'ai'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAssistStore } from '../stores/assistStore'
-import { answerApproval, resetChatTools, useChatToolsStore } from '../stores/chatToolsStore'
+import {
+  answerApproval,
+  removeAlwaysGrant,
+  resetChatTools,
+  useChatToolsStore,
+} from '../stores/chatToolsStore'
 import { useEditorStatus } from '../stores/editorStatusStore'
 import { decideHunk, undoEdit } from './chatReview'
 import {
@@ -114,15 +119,15 @@ function written(patch: Partial<ChatWriteOutput> = {}) {
   }
 }
 
-function sendWithTools(messages: OstiaChatMessage[], abortSignal?: AbortSignal) {
+function sendWithTools(messages: OstiaChatMessage[], abortSignal?: AbortSignal, sessionId = 's1') {
   return createAssistTransport({
-    sessionId: 's1',
+    sessionId,
     workspaceId: () => null,
     root: () => '/proj',
     model: () => sessionModel,
   }).sendMessages({
     trigger: 'submit-message',
-    chatId: 's1',
+    chatId: sessionId,
     messageId: undefined,
     messages,
     abortSignal,
@@ -777,6 +782,38 @@ describe('createAssistTransport with tools', () => {
       ['fake', 'echo'],
       ['fake', 'echo'],
     ])
+  })
+
+  it('runs a tool always allowed in one chat unasked in the next, until it is removed', async () => {
+    useChatToolsStore.getState().setMcp([
+      {
+        name: 'fake',
+        transport: 'stdio',
+        state: 'ready',
+        secretsSet: [],
+        tools: [{ name: 'echo', description: 'Echo', inputSchema: { type: 'object' } }],
+      },
+    ])
+    vi.mocked(window.ostia.chatTools.mcpCall).mockResolvedValue({ ok: true, output: 'echo: hi' })
+    replySequence([toolRound('m1', 'mcp__fake__echo', { text: 'hi' }), textRound('done')])
+    const first = sendWithTools([user('1', 'echo')]).then(drain)
+    answerApproval(await pendingApproval(), { approved: true, scope: 'always' })
+    await first
+    expect(window.ostia.chatTools.grantAlways).toHaveBeenCalledWith('mcp__fake__echo')
+
+    replySequence([toolRound('m2', 'mcp__fake__echo', { text: 'again' }), textRound('done')])
+    const second = await drain(await sendWithTools([user('1', 'echo')], undefined, 's2'))
+    expect(second.filter((c) => c.type === 'tool-approval-request')).toHaveLength(0)
+    expect(window.ostia.chatTools.mcpCall).toHaveBeenCalledTimes(2)
+
+    await removeAlwaysGrant('mcp__fake__echo')
+    replySequence([toolRound('m3', 'mcp__fake__echo', { text: 'third' }), textRound('done')])
+    const third = sendWithTools([user('1', 'echo')], undefined, 's3').then(drain)
+    const asked = await pendingApproval()
+    expect(useChatToolsStore.getState().pending[asked]).toMatchObject({ kind: 'mcp' })
+    answerApproval(asked, { approved: false })
+    await third
+    expect(window.ostia.chatTools.mcpCall).toHaveBeenCalledTimes(2)
   })
 
   it('Stop while a card waits closes the stream without running or asking again', async () => {

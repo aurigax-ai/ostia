@@ -288,6 +288,17 @@ export function registerBuiltinCommands(): void {
       if (args?.paneId !== undefined && typeof args.paneId !== 'string') {
         throw new Error('paneId must be a string')
       }
+      if (args?.paneId === undefined && !ctx.target) {
+        const ui = useUIStore.getState()
+        if (ui.settingsActive) {
+          ui.closeSettings()
+          return
+        }
+        if (ui.dashboardActive) {
+          ui.showWorkspaces()
+          return
+        }
+      }
       if (!ctx.activeWorkspaceId) {
         if (args?.paneId !== undefined) throw new Error(`unknown-pane: ${args.paneId}`)
         return
@@ -977,6 +988,13 @@ export function registerBuiltinCommands(): void {
     category: 'app',
     target: 'none',
     run: () => useUIStore.getState().openSettings(),
+  })
+
+  registerCore({
+    id: 'app.browseExtensions',
+    category: 'app',
+    target: 'none',
+    run: () => useUIStore.getState().openSettings('browseExtensions'),
   })
 
   registerCore({

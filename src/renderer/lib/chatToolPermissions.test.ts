@@ -1,17 +1,19 @@
+import { READ_OUTSIDE_GRANT } from '@shared/chatTools'
 import { describe, expect, it } from 'vitest'
 import {
   CHAT_MODES,
   DEFAULT_CHAT_MODE,
-  READ_OUTSIDE_GRANT,
   type ToolCheck,
+  alwaysGrantAfter,
   decideTool,
   grantsAfter,
+  readsOutsideUnasked,
 } from './chatToolPermissions'
 
 const none = new Set<string>()
 
 function check(patch: Partial<ToolCheck> & Pick<ToolCheck, 'name' | 'access'>): ToolCheck {
-  return { mode: 'ask', grants: none, ...patch }
+  return { mode: 'ask', grants: none, standing: none, ...patch }
 }
 
 describe('decideTool', () => {
@@ -137,5 +139,69 @@ describe('grantsAfter', () => {
     expect([...grantsAfter(none, act, { approved: false })]).toEqual([])
     const write = decideTool(check({ name: 'write_file', access: 'write' }))
     expect([...grantsAfter(none, write, { approved: true, scope: 'chat' })]).toEqual([])
+  })
+})
+
+describe('standing grants', () => {
+  it('runs a tool always allowed in an earlier chat without asking, in the same scope', () => {
+    const standing = new Set(['open_url', 'mcp__fake__echo', READ_OUTSIDE_GRANT])
+    expect(decideTool(check({ name: 'open_url', access: 'act', standing }))).toEqual({ run: true })
+    expect(decideTool(check({ name: 'mcp__fake__echo', access: 'mcp', standing }))).toEqual({
+      run: true,
+    })
+    expect(
+      decideTool(check({ name: 'read_file', access: 'read', outside: true, standing })),
+    ).toEqual({ run: true })
+    expect(readsOutsideUnasked({ grants: none, standing })).toBe(true)
+  })
+
+  it('still asks outside the granted scope', () => {
+    const standing = new Set(['open_url', 'mcp__fake__echo'])
+    expect(decideTool(check({ name: 'open_file', access: 'act', standing }))).toMatchObject({
+      run: false,
+      grantKey: 'open_file',
+    })
+    expect(decideTool(check({ name: 'mcp__other__echo', access: 'mcp', standing }))).toMatchObject({
+      run: false,
+      grantKey: 'mcp__other__echo',
+    })
+    expect(
+      decideTool(check({ name: 'read_file', access: 'read', outside: true, standing })),
+    ).toMatchObject({ run: false, kind: 'read-outside' })
+    expect(readsOutsideUnasked({ grants: none, standing })).toBe(false)
+  })
+
+  it('never lets a standing grant run a proposed command or skip the mode for edits', () => {
+    const standing = new Set(['propose_command', 'edit_file', 'write_file'])
+    expect(decideTool(check({ name: 'propose_command', access: 'command', standing }))).toEqual({
+      run: false,
+      kind: 'command',
+      grantKey: null,
+    })
+    for (const name of ['edit_file', 'write_file']) {
+      expect(decideTool(check({ name, access: 'write', standing }))).toMatchObject({
+        run: false,
+        reason: 'ask-mode',
+      })
+    }
+  })
+
+  it('makes a standing grant only for Always allow on a grantable decision', () => {
+    const always = { approved: true, scope: 'always' } as const
+    const act = decideTool(check({ name: 'open_url', access: 'act' }))
+    expect(alwaysGrantAfter(act, always)).toBe('open_url')
+    expect([...grantsAfter(none, act, always)]).toEqual([])
+    expect(alwaysGrantAfter(act, { approved: true, scope: 'chat' })).toBeNull()
+    expect(alwaysGrantAfter(act, { approved: true, scope: 'once' })).toBeNull()
+    expect(alwaysGrantAfter(act, { approved: false })).toBeNull()
+    const read = decideTool(check({ name: 'read_file', access: 'read', outside: true }))
+    expect(alwaysGrantAfter(read, always)).toBe(READ_OUTSIDE_GRANT)
+    for (const decision of [
+      decideTool(check({ name: 'propose_command', access: 'command' })),
+      decideTool(check({ name: 'edit_file', access: 'write' })),
+      decideTool(check({ name: 'write_file', access: 'write' })),
+    ]) {
+      expect(alwaysGrantAfter(decision, always)).toBeNull()
+    }
   })
 })

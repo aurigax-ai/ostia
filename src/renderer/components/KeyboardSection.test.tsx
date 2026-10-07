@@ -66,9 +66,22 @@ const row = (name: RegExp): HTMLElement => {
   return tr
 }
 
-const record = async (command: string): Promise<void> => {
-  await userEvent.click(screen.getByRole('button', { name: `Record a shortcut for ${command}` }))
+const change = async (keys: string, command: string): Promise<void> => {
+  await userEvent.click(screen.getByRole('button', { name: `Change ${keys} for ${command}` }))
 }
+
+const add = async (command: string): Promise<void> => {
+  await userEvent.click(screen.getByRole('button', { name: `Add a shortcut for ${command}` }))
+}
+
+const groupNames = (): string[] =>
+  screen
+    .getAllByRole('columnheader')
+    .filter((h) => h.getAttribute('scope') === 'colgroup')
+    .map((h) => h.textContent ?? '')
+
+const columnWidths = (): string[] =>
+  [...screen.getByRole('table').querySelectorAll('col')].map((c) => c.className)
 
 describe('ChordRecorder', () => {
   afterEach(cleanup)
@@ -164,16 +177,20 @@ describe('KeyboardSection', () => {
           'pane.zoom “Ctrl+X”: plain Ctrl keys belong to the shell. Add Shift or Alt.',
         ),
       ).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: 'Reset Command Palette' })).toBeDisabled()
+      expect(screen.queryByRole('button', { name: 'Reset Command Palette' })).toBeNull()
+      expect(within(row(/Command Palette/)).getByText('Alt keys')).toBeInTheDocument()
+      expect(within(row(/Toggle Sidebar/)).getByText('Alt keys')).toBeInTheDocument()
+      expect(within(row(/Toggle Sidebar/)).getByText('removes Ctrl+Shift+B')).toBeInTheDocument()
+      expect(within(row(/New Terminal Tab/)).queryByText('Alt keys')).toBeNull()
 
-      await record('Command Palette')
+      await change('Ctrl+Alt+P', 'Command Palette')
       press('Y', { ctrlKey: true, shiftKey: true, code: 'KeyY' })
       expect(within(row(/Command Palette/)).getByText('Ctrl+Shift+Y')).toBeInTheDocument()
       await userEvent.click(screen.getByRole('button', { name: 'Reset Command Palette' }))
       expect(useSettingsStore.getState().keybindings).toEqual({})
       expect(within(row(/Command Palette/)).getByText('Ctrl+Alt+P')).toBeInTheDocument()
 
-      await record('Command Palette')
+      await change('Ctrl+Alt+P', 'Command Palette')
       press('P', { ctrlKey: true, altKey: true, code: 'KeyP' })
       expect(useSettingsStore.getState().keybindings).toEqual({})
 
@@ -258,7 +275,7 @@ describe('KeyboardSection', () => {
 
   it('records a new chord and saves it', async () => {
     render(<KeyboardSection />)
-    await record('Command Palette')
+    await change('Ctrl+Shift+P', 'Command Palette')
     expect(within(row(/Command Palette/)).getByText(/Press a shortcut/)).toBeInTheDocument()
     press('Y', { ctrlKey: true, shiftKey: true, code: 'KeyY' })
     expect(useSettingsStore.getState().keybindings['palette.toggle']).toBe('Ctrl+Shift+Y')
@@ -267,7 +284,7 @@ describe('KeyboardSection', () => {
 
   it('refuses a plain Ctrl+R with an inline error and keeps recording', async () => {
     render(<KeyboardSection />)
-    await record('Command Palette')
+    await change('Ctrl+Shift+P', 'Command Palette')
     press('r', { ctrlKey: true, code: 'KeyR' })
     expect(within(row(/Command Palette/)).getByRole('alert')).toHaveTextContent(
       /Ctrl\+R can’t be used: plain Ctrl keys belong to the shell/,
@@ -280,7 +297,7 @@ describe('KeyboardSection', () => {
 
   it('refuses bare keys, Tab and plain arrows', async () => {
     render(<KeyboardSection />)
-    await record('Command Palette')
+    await change('Ctrl+Shift+P', 'Command Palette')
     press('k', { code: 'KeyK' })
     expect(screen.getByRole('alert')).toHaveTextContent(/single keys belong to the shell/)
     press('Tab', { shiftKey: true, code: 'Tab' })
@@ -294,7 +311,7 @@ describe('KeyboardSection', () => {
 
   it('cancels recording on Escape without changing the binding', async () => {
     render(<KeyboardSection />)
-    await record('Command Palette')
+    await change('Ctrl+Shift+P', 'Command Palette')
     press('Escape')
     expect(within(row(/Command Palette/)).getByText('Ctrl+Shift+P')).toBeInTheDocument()
     expect(useSettingsStore.getState().keybindings).toEqual({})
@@ -302,7 +319,7 @@ describe('KeyboardSection', () => {
 
   it('warns about a chord another command uses and replaces it on confirm', async () => {
     render(<KeyboardSection />)
-    await record('Toggle Sidebar')
+    await change('Ctrl+Shift+B', 'Toggle Sidebar')
     press('P', { ctrlKey: true, shiftKey: true, code: 'KeyP' })
     expect(
       screen.getByText(/Ctrl\+Shift\+P is already the shortcut for Command Palette/),
@@ -322,14 +339,14 @@ describe('KeyboardSection', () => {
     const palette = within(row(/Command Palette/))
     expect(palette.getByText('Ctrl+Shift+Y')).toBeInTheDocument()
     expect(palette.getByText('Ctrl+Alt+P')).toBeInTheDocument()
-    await record('Toggle Sidebar')
+    await change('Ctrl+Shift+B', 'Toggle Sidebar')
     press('P', { ctrlKey: true, altKey: true, code: 'KeyP' })
     await userEvent.click(screen.getByRole('button', { name: 'Replace' }))
     expect(useSettingsStore.getState().keybindings).toEqual({
       'palette.toggle': 'Ctrl+Shift+Y',
       'view.toggleRail': 'Ctrl+Alt+P',
     })
-    await record('Command Palette')
+    await change('Ctrl+Shift+Y', 'Command Palette')
     press('U', { ctrlKey: true, altKey: true, code: 'KeyU' })
     expect(useSettingsStore.getState().keybindings['palette.toggle']).toBe('Ctrl+Alt+U')
   })
@@ -345,12 +362,12 @@ describe('KeyboardSection', () => {
 
   it('warns about a Monaco default and saves only when confirmed', async () => {
     render(<KeyboardSection />)
-    await record('Command Palette')
+    await change('Ctrl+Shift+P', 'Command Palette')
     press('K', { ctrlKey: true, shiftKey: true, code: 'KeyK' })
     expect(screen.getByText(/The code editor also uses Ctrl\+Shift\+K/)).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
     expect(useSettingsStore.getState().keybindings).toEqual({})
-    await record('Command Palette')
+    await change('Ctrl+Shift+P', 'Command Palette')
     press('K', { ctrlKey: true, shiftKey: true, code: 'KeyK' })
     await userEvent.click(screen.getByRole('button', { name: 'Use anyway' }))
     expect(useSettingsStore.getState().keybindings['palette.toggle']).toBe('Ctrl+Shift+K')
@@ -358,7 +375,7 @@ describe('KeyboardSection', () => {
 
   it('records any digit as the 1-9 range for the workspace jump', async () => {
     render(<KeyboardSection />)
-    await record('Go to Workspace')
+    await userEvent.click(screen.getByRole('button', { name: /^Change .+ for Go to Workspace$/ }))
     press('#', { ctrlKey: true, altKey: true, code: 'Digit3' })
     expect(useSettingsStore.getState().keybindings['workspace.goto']).toBe('Ctrl+Alt+1-9')
   })
@@ -368,7 +385,7 @@ describe('KeyboardSection', () => {
       keybindings: { 'palette.toggle': 'Ctrl+Shift+Y', find: 'Ctrl+Alt+F' },
     })
     render(<KeyboardSection />)
-    expect(screen.getByRole('button', { name: 'Reset Toggle Sidebar' })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: 'Reset Toggle Sidebar' })).toBeNull()
     await userEvent.click(screen.getByRole('button', { name: 'Reset Command Palette' }))
     expect(useSettingsStore.getState().keybindings).toEqual({ find: 'Ctrl+Alt+F' })
     expect(within(row(/Command Palette/)).getByText('Ctrl+Shift+P')).toBeInTheDocument()
@@ -407,7 +424,8 @@ describe('KeyboardSection', () => {
     await userEvent.type(screen.getByRole('textbox', { name: '搜尋快捷鍵' }), 'toggle sidebar')
 
     expect(row(/切換側邊欄/)).toBeInTheDocument()
-    expect(screen.getAllByRole('row')).toHaveLength(2)
+    expect(groupNames()).toEqual(['顯示'])
+    expect(screen.getAllByRole('row')).toHaveLength(3)
   })
 
   it('offers Ostia standard and No translation for text editing on Linux, Ostia standard first', async () => {
@@ -500,7 +518,7 @@ describe('KeyboardSection', () => {
   it('asks before giving a command a terminal key’s chord, and removes the key on Replace', async () => {
     useSettingsStore.setState({ terminalKeys: { 'Ctrl+Alt+K': { type: 'escape', value: 'k' } } })
     render(<KeyboardSection />)
-    await record('Command Palette')
+    await change('Ctrl+Shift+P', 'Command Palette')
     press('K', { ctrlKey: true, altKey: true, code: 'KeyK' })
     expect(
       screen.getByText('Ctrl+Alt+K sends ESC k to the terminal. Replacing removes it there.'),
@@ -515,7 +533,8 @@ describe('KeyboardSection', () => {
     useSettingsStore.setState({ terminalKeys: { 'Ctrl+Alt+K': { type: 'escape', value: 'k' } } })
     render(<KeyboardSection />)
     await userEvent.type(screen.getByRole('textbox', { name: 'Search shortcuts' }), 'esc k')
-    expect(screen.getAllByRole('row')).toHaveLength(2)
+    expect(groupNames()).toEqual(['Text editing (sent to the terminal)'])
+    expect(screen.getAllByRole('row')).toHaveLength(3)
     await userEvent.click(screen.getByRole('button', { name: 'Edit Ctrl+Alt+K' }))
     const value = screen.getByRole('textbox', { name: 'What to send' })
     expect(value).toHaveValue('k')
@@ -528,5 +547,175 @@ describe('KeyboardSection', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Reset all' }))
     expect(useSettingsStore.getState().terminalKeys).toEqual({})
     expect(screen.getByRole('button', { name: 'Reset all' })).toBeDisabled()
+  })
+
+  it('removes only the chord whose × is pressed, down to unassigned, and reset brings them back', async () => {
+    render(<KeyboardSection />)
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Remove Ctrl+Shift+X from Zoom Pane' }),
+    )
+    expect(useSettingsStore.getState().keybindings['pane.zoom']).toBe('terminal:Ctrl+Shift+Enter')
+    const zoom = within(row(/Zoom Pane/))
+    expect(zoom.getByText('Ctrl+Shift+Enter')).toBeInTheDocument()
+    expect(zoom.queryByText('Ctrl+Shift+X')).toBeNull()
+    expect(zoom.getByText('Custom')).toBeInTheDocument()
+    expect(zoom.getByText('removes Ctrl+Shift+X')).toBeInTheDocument()
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Remove Ctrl+Shift+Enter from Zoom Pane' }),
+    )
+    expect(useSettingsStore.getState().keybindings['pane.zoom']).toBeNull()
+    expect(within(row(/Zoom Pane/)).getByText('Unassigned')).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Reset Zoom Pane' }))
+    expect(useSettingsStore.getState().keybindings).toEqual({})
+    expect(within(row(/Zoom Pane/)).getByText('Ctrl+Shift+X')).toBeInTheDocument()
+  })
+
+  it('re-records only the clicked chord and keeps it in the terminal scope', async () => {
+    render(<KeyboardSection />)
+    await change('Ctrl+Shift+Enter', 'Zoom Pane')
+    expect(within(row(/Zoom Pane/)).getByText(/Press a shortcut/)).toBeInTheDocument()
+    expect(within(row(/Zoom Pane/)).getByText('Ctrl+Shift+X')).toBeInTheDocument()
+    press('Z', { ctrlKey: true, altKey: true, code: 'KeyZ' })
+    expect(useSettingsStore.getState().keybindings['pane.zoom']).toEqual([
+      'terminal:Ctrl+Alt+Z',
+      'Ctrl+Shift+X',
+    ])
+    const zoom = within(row(/Zoom Pane/))
+    expect(zoom.getByText('Ctrl+Alt+Z')).toBeInTheDocument()
+    expect(zoom.getByText('in a terminal')).toBeInTheDocument()
+  })
+
+  it('adds a chord next to the existing one, and adding to an unassigned command binds it', async () => {
+    render(<KeyboardSection />)
+    await add('Command Palette')
+    press('Y', { ctrlKey: true, altKey: true, code: 'KeyY' })
+    expect(useSettingsStore.getState().keybindings['palette.toggle']).toEqual([
+      'Ctrl+Shift+P',
+      'Ctrl+Alt+Y',
+    ])
+    const palette = within(row(/Command Palette/))
+    expect(palette.getByText('Ctrl+Shift+P')).toBeInTheDocument()
+    expect(palette.getByText('Ctrl+Alt+Y')).toBeInTheDocument()
+
+    await add('New Browser Tab')
+    press('B', { ctrlKey: true, altKey: true, code: 'KeyB' })
+    expect(within(row(/New Browser Tab/)).getByText('Ctrl+Alt+B')).toBeInTheDocument()
+  })
+
+  it('cancels adding on Escape without changing anything', async () => {
+    render(<KeyboardSection />)
+    await add('Command Palette')
+    press('Escape')
+    expect(useSettingsStore.getState().keybindings).toEqual({})
+    expect(within(row(/Command Palette/)).queryByText(/Press a shortcut/)).toBeNull()
+  })
+
+  it('floats the conflict notice over the table instead of adding to the row', async () => {
+    render(<KeyboardSection />)
+    const rowsBefore = screen.getAllByRole('row').length
+    await change('Ctrl+Shift+B', 'Toggle Sidebar')
+    press('P', { ctrlKey: true, shiftKey: true, code: 'KeyP' })
+    const text = screen.getByText(/Ctrl\+Shift\+P is already the shortcut for Command Palette/)
+    const notice = text.closest('[data-slot="key-notice"]')
+    expect(notice).toHaveClass('absolute', 'top-full')
+    expect(notice?.closest('tr')).toBe(row(/Toggle Sidebar/))
+    expect(screen.getAllByRole('row')).toHaveLength(rowsBefore)
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(document.querySelector('[data-slot="key-notice"]')).toBeNull()
+  })
+
+  it('floats a refusal too', async () => {
+    render(<KeyboardSection />)
+    await change('Ctrl+Shift+P', 'Command Palette')
+    press('r', { ctrlKey: true, code: 'KeyR' })
+    expect(screen.getByRole('alert').closest('[data-slot="key-notice"]')).toHaveClass('absolute')
+  })
+
+  it('labels only the rows that differ, and marks custom rows with a side bar', () => {
+    useSettingsStore.setState({ keybindings: { 'palette.toggle': 'Ctrl+Shift+Y' } })
+    render(<KeyboardSection />)
+    const palette = row(/Command Palette/)
+    expect(palette).toHaveAttribute('data-source', 'user')
+    expect(within(palette).getByText('Custom')).toBeInTheDocument()
+    expect(palette.querySelector('[data-slot="custom-bar"]')).not.toBeNull()
+    const sidebar = row(/Toggle Sidebar/)
+    expect(sidebar).toHaveAttribute('data-source', 'default')
+    expect(sidebar.querySelector('[data-slot="custom-bar"]')).toBeNull()
+    expect(within(sidebar).queryByText('Custom')).toBeNull()
+    expect(screen.getAllByText('Custom')).toHaveLength(1)
+  })
+
+  it('groups commands by what they act on, text editing last', () => {
+    render(<KeyboardSection />)
+    const groups = groupNames()
+    expect(groups.slice(0, 6)).toEqual([
+      'Workspace and window',
+      'Pane',
+      'Terminal',
+      'View',
+      'App',
+      'Browser',
+    ])
+    expect(groups.at(-1)).toBe('Text editing (sent to the terminal)')
+    const titles = screen.getAllByRole('row').map((r) => r.textContent ?? '')
+    const at = (re: RegExp): number => titles.findIndex((t) => re.test(t))
+    expect(at(/^Pane/)).toBeLessThan(at(/Zoom Pane/))
+    expect(at(/Zoom Pane/)).toBeLessThan(at(/^Terminal$/))
+    expect(at(/^Workspace and window/)).toBeLessThan(at(/New Terminal Tab/))
+  })
+
+  it('names text editing keys by their action, bytes in small type, raw values as they are', () => {
+    useSettingsStore.setState({
+      terminalKeys: { 'Ctrl+Alt+K': { type: 'text', value: 'clear\\r' } },
+    })
+    render(<KeyboardSection />)
+    const word = within(row(/Delete previous word/))
+    expect(word.getByText('0x17')).toHaveClass('text-ui-xs')
+    expect(word.getByText('Ctrl+Backspace')).toBeInTheDocument()
+    const custom = within(row(/clear\\r/))
+    expect(custom.getByText('clear\\r')).toHaveClass('text-ui-base')
+    expect(custom.getByText('Text')).toBeInTheDocument()
+    expect(screen.queryByText('Send to terminal')).toBeNull()
+  })
+
+  it('finds a text editing key by its action name', async () => {
+    render(<KeyboardSection />)
+    await userEvent.type(screen.getByRole('textbox', { name: 'Search shortcuts' }), 'previous word')
+    expect(screen.getByText('Delete previous word')).toBeInTheDocument()
+    expect(screen.queryByText('Command Palette')).toBeNull()
+  })
+
+  it('keeps fixed column widths while switching app shortcuts and text editing', async () => {
+    useExtensionsStore.setState({ list: [keymapExtension] })
+    vi.mocked(window.ostia.keymaps.load).mockResolvedValue({
+      ok: true,
+      keymap: {
+        extId: 'keys',
+        id: 'alt',
+        label: 'Alt keys',
+        bindings: { 'palette.toggle': 'Ctrl+Alt+P' },
+        skipped: [],
+      },
+    })
+    const stop = startKeymapSync()
+    try {
+      render(<KeyboardSection />)
+      const widths = ['w-[42%]', 'w-[36%]', 'w-[22%]']
+      expect(screen.getByRole('table')).toHaveClass('table-fixed')
+      expect(columnWidths()).toEqual(widths)
+      await userEvent.click(screen.getByRole('combobox', { name: 'App shortcuts' }))
+      await userEvent.click(await screen.findByRole('option', { name: 'Alt keys' }))
+      expect(await within(row(/Command Palette/)).findByText('Ctrl+Alt+P')).toBeInTheDocument()
+      expect(screen.getByRole('table')).toHaveClass('table-fixed')
+      expect(columnWidths()).toEqual(widths)
+      await userEvent.click(screen.getByRole('combobox', { name: 'Text editing' }))
+      await userEvent.click(await screen.findByRole('option', { name: 'No translation' }))
+      expect(screen.getByRole('table')).toHaveClass('table-fixed')
+      expect(columnWidths()).toEqual(widths)
+    } finally {
+      stop()
+    }
   })
 })

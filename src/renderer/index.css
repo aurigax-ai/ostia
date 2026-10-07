@@ -323,6 +323,65 @@
   gap: 2px;
 }
 
+.zoom-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 22px;
+  min-width: 58px;
+  padding: 0 7px 0 6px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--fg) 6%, transparent);
+  box-shadow: inset 0 0 0 1px var(--line);
+  color: var(--fg-muted);
+  font-size: var(--text-ui-sm);
+  font-weight: var(--font-weight-medium);
+  line-height: 1;
+  transition: background-color var(--motion-fast) var(--ease-out), color var(--motion-fast)
+    var(--ease-out), transform var(--motion-fast) var(--ease-out);
+  animation: zoom-chip-in var(--motion-base) var(--ease-out);
+}
+
+.zoom-chip svg {
+  color: var(--brand);
+}
+
+.zoom-chip:hover {
+  background: color-mix(in srgb, var(--fg) 10%, transparent);
+  color: var(--fg);
+}
+
+.zoom-chip:active {
+  transform: scale(0.97);
+}
+
+.zoom-chip:focus-visible {
+  outline: 2px solid var(--focus-border);
+  outline-offset: 1px;
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+.zoom-chip[data-leaving] {
+  pointer-events: none;
+  animation: zoom-chip-out var(--motion-base-exit) var(--ease-in) forwards;
+}
+
+@keyframes zoom-chip-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+
+@keyframes zoom-chip-out {
+  to {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+
 .topbar-center {
   display: flex;
   align-items: center;

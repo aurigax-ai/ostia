@@ -432,15 +432,24 @@ export class Marketplace {
         const state = this.installState(source.id, manifest)
         const installedVersion = state === 'update' ? this.installedVersion(manifest.id) : undefined
         const shown = manifestIn(manifest, loadLocaleCatalogs(dir, manifest), locale)
+        const icon = manifest.contributes.panel?.icon ?? manifest.contributes.settingsPage?.icon
+        const commandTitle = (id: string): string =>
+          shown.contributes.commands.find((c) => c.id === id)?.title ?? id
         return {
           id: manifest.id,
           name: shown.name,
           version: manifest.version,
           description: shown.description,
           category: manifest.category,
+          ...(icon ? { icon } : {}),
           capabilities: manifest.capabilities,
           runsProcess:
             manifest.main !== undefined || (manifest.contributes.languageServers ?? []).length > 0,
+          agentSkills: (manifest.contributes.agentSkills ?? []).map((skill) => skill.name),
+          agentHooks: (manifest.contributes.agentHooks ?? []).map((hook) => ({
+            event: hook.event,
+            command: commandTitle(hook.command),
+          })),
           state,
           ...(installedVersion ? { installedVersion } : {}),
         }

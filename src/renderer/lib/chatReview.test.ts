@@ -41,7 +41,13 @@ function wait(toolCallId: string, path: string) {
       input: {},
       detail: { path, exists: true, before: 'x\n', after: 'y\n' },
     },
-    decideTool({ name: 'edit_file', access: 'write', mode: 'ask', grants: new Set() }),
+    decideTool({
+      name: 'edit_file',
+      access: 'write',
+      mode: 'ask',
+      grants: new Set(),
+      standing: new Set(),
+    }),
     new AbortController().signal,
   )
 }
