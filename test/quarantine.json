@@ -14,13 +14,6 @@
     "platforms": ["darwin"]
   },
   {
-    "file": "e2e/assistant.spec.ts",
-    "name": "an OpenAI-compatible provider added in Settings with two models answers in Ask with the chat model and suggests a command with the fast one, inserted, not run",
-    "issue": 151,
-    "until": "2026-11-01",
-    "platforms": ["linux"]
-  },
-  {
     "file": "src/main/languageServers.test.ts",
     "name": "LanguageServers sessions > stops with shutdown then exit once no document has been open for the idle delay",
     "issue": 193,
