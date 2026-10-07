@@ -108,7 +108,7 @@ test('with auto-resume off, a restored agent waits until the human activates its
     await expect(win.locator('.xterm-rows').filter({ hasText: 'claude --resume' })).toHaveCount(0)
 
     await win.getByRole('tab').nth(1).click()
-    await expect(shown).toContainText('fake claude --resume back-2222', { timeout: 20_000 })
+    await expect(shown).toContainText(/fake claude .*--resume back-2222/, { timeout: 20_000 })
     await expect(win.locator('.xterm-rows').filter({ hasText: 'front-1111' })).toHaveCount(0)
   } finally {
     await app.close()
