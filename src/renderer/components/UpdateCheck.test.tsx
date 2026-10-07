@@ -1,3 +1,4 @@
+import type { ReleaseState } from '@shared/installMethod'
 import type { ReleaseCheckResult } from '@shared/releases'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
@@ -9,6 +10,11 @@ const RELEASE = {
   version: '1.1.0',
   url: 'https://github.com/aurigax-ai/ostia/releases/tag/v1.1.0',
 }
+const state = (release: typeof RELEASE | null): ReleaseState => ({
+  release,
+  method: 'tarball',
+  updateCommand: null,
+})
 
 function answer(result: ReleaseCheckResult): void {
   vi.mocked(window.ostia.update.checkRelease).mockResolvedValue(result)
@@ -98,7 +104,7 @@ describe('UpdateCheck', () => {
   })
 
   it('shows a release the automatic check already found, before any manual check', async () => {
-    vi.mocked(window.ostia.update.release).mockResolvedValue(RELEASE)
+    vi.mocked(window.ostia.update.release).mockResolvedValue(state(RELEASE))
     render(<UpdateCheck />)
     let stop = (): void => {}
     await act(async () => {
@@ -111,7 +117,7 @@ describe('UpdateCheck', () => {
   })
 
   it('follows releases main announces and stops when the watch ends', () => {
-    let announce: (release: typeof RELEASE | null) => void = () => {}
+    let announce: (state: ReleaseState) => void = () => {}
     const unsubscribe = vi.fn()
     vi.mocked(window.ostia.update.onRelease).mockImplementation((cb) => {
       announce = cb
@@ -119,9 +125,9 @@ describe('UpdateCheck', () => {
     })
     const stop = startUpdateWatch()
 
-    act(() => announce(RELEASE))
+    act(() => announce(state(RELEASE)))
     expect(useUpdateStore.getState().release).toEqual(RELEASE)
-    act(() => announce(null))
+    act(() => announce(state(null)))
     expect(useUpdateStore.getState().release).toBeNull()
 
     stop()
@@ -138,5 +144,30 @@ describe('UpdateCheck', () => {
 
     fireEvent.click(toggle)
     expect(useSettingsStore.getState().behavior.checkForUpdates).toBe(true)
+  })
+
+  it('names the install method and offers its update action beside View release', async () => {
+    vi.mocked(window.ostia.update.release).mockResolvedValue({
+      release: RELEASE,
+      method: 'apt',
+      updateCommand: 'sudo apt update && sudo apt install --only-upgrade ostia',
+    })
+    render(<UpdateCheck />)
+    let stop = (): void => {}
+    await act(async () => {
+      stop = startUpdateWatch()
+    })
+
+    expect(screen.getByText('Installed with apt')).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'Update with apt' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'View release' })).toBeInTheDocument()
+
+    act(() => useUpdateStore.getState().receiveUpdateRun({ status: 'failed', exitCode: 100 }))
+    expect(
+      screen.getByText('The update command ended with code 100. See its terminal.'),
+    ).toBeInTheDocument()
+    act(() => useUpdateStore.getState().receiveUpdateRun({ status: 'done' }))
+    expect(screen.getByRole('button', { name: 'Restart Ostia' })).toBeInTheDocument()
+    stop()
   })
 })

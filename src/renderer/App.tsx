@@ -19,6 +19,7 @@ import { SandboxRequirementsDialog } from './components/SandboxRequirementsDialo
 import { SaveWorkflowDialog } from './components/SaveWorkflowDialog'
 import { TelemetryConsentDialog } from './components/TelemetryConsentDialog'
 import { TopBar } from './components/TopBar'
+import { UpdateConfirmDialog } from './components/UpdateConfirmDialog'
 import { WindowControls } from './components/WindowControls'
 import { WorkZone } from './components/WorkZone'
 import { WorkflowPicker } from './components/WorkflowPicker'
@@ -132,6 +133,7 @@ export function App(): JSX.Element {
           <MergeConfirmDialog />
           <CmuxImportDialog />
           <ActionConfirmDialog />
+          <UpdateConfirmDialog />
           <RemoteFolderDialog />
           <AgentOfferDialog />
           <SandboxRequirementsDialog />

@@ -1,6 +1,12 @@
 import { BrowserWindow, app, ipcMain } from 'electron'
 import { readEnv } from '../shared/appEnv'
 import { releaseVersion } from '../shared/buildInfo'
+import {
+  type InstallMethod,
+  type ReleaseState,
+  type UpdateRunState,
+  updateCommandLine,
+} from '../shared/installMethod'
 import { PRODUCT_NAME } from '../shared/product'
 import {
   RELEASE_API_BASE_URL,
@@ -14,6 +20,7 @@ import {
 } from '../shared/releases'
 import type { AppLog } from './appLog'
 import { loadJson, saveJson, storePath } from './jsonStore'
+import type { UpdateRunner } from './updateRun'
 
 export const RELEASE_CHECK_STARTUP_DELAY_MS = 5_000
 export const RELEASE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000
@@ -198,10 +205,18 @@ function loadDismissed(): string | null {
   return typeof version === 'string' && parseVersion(version) ? version : null
 }
 
-function announce(pending: ReleaseInfo | null): void {
+export function releaseState(release: ReleaseInfo | null, method: InstallMethod): ReleaseState {
+  return { release, method, updateCommand: updateCommandLine(method) }
+}
+
+function broadcast(channel: string, payload: unknown): void {
   for (const win of BrowserWindow.getAllWindows()) {
-    if (!win.isDestroyed()) win.webContents.send('app:release-available', pending)
+    if (!win.isDestroyed()) win.webContents.send(channel, payload)
   }
+}
+
+export function announceUpdateRun(state: UpdateRunState): void {
+  broadcast('app:update-run-state', state)
 }
 
 export function registerReleaseCheck(deps: {
@@ -209,6 +224,8 @@ export function registerReleaseCheck(deps: {
   readSettings: () => unknown
   log: AppLog | null
   version: string
+  method: () => InstallMethod
+  updateRunner: UpdateRunner
 }): void {
   const endpoint = releaseEndpoint(app.isPackaged, process.env)
   const currentVersion = releaseVersion(deps.version)
@@ -229,7 +246,7 @@ export function registerReleaseCheck(deps: {
         deps.log?.warn('release-dismiss-unsaved')
       }
     },
-    onChange: announce,
+    onChange: (pending) => broadcast('app:release-available', releaseState(pending, deps.method())),
     log: (trigger, outcome, latest) =>
       deps.log?.info('release-check', { trigger, outcome, latest }),
   })
@@ -237,7 +254,9 @@ export function registerReleaseCheck(deps: {
     setTimeout(() => void checker.tick(), RELEASE_CHECK_STARTUP_DELAY_MS).unref()
     setInterval(() => void checker.tick(), RELEASE_CHECK_RETRY_MS).unref()
   }
-  ipcMain.handle('app:release-state', () => checker.pending())
+  ipcMain.handle('app:release-state', () => releaseState(checker.pending(), deps.method()))
+  ipcMain.handle('app:update-run', () => deps.updateRunner.start())
+  ipcMain.handle('app:update-run-state', () => deps.updateRunner.state())
   ipcMain.handle('app:release-check', () => checker.check('manual'))
   ipcMain.handle('app:release-dismiss', () => checker.dismiss())
   ipcMain.handle('app:release-open', () => {

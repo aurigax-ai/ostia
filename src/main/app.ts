@@ -162,6 +162,7 @@ import {
   windowOfWorkspace,
   workspaceHasManager,
 } from './idRegistry'
+import { installMethod } from './installMethod'
 import { loadJson, saveJson, storePath } from './jsonStore'
 import { describeSkipped, registerKeymapIpc } from './keymaps'
 import { registerLanguagePackIpc } from './languagePacks'
@@ -238,7 +239,7 @@ import { confirmQuitNatively } from './quitPrompt'
 import { createReach } from './reach'
 import { createRedactor, createScrollbackRedactor } from './redaction'
 import { createWorkerScan, redactionWorkerScript } from './redactionScan'
-import { registerReleaseCheck, releaseUserAgent } from './releaseCheck'
+import { announceUpdateRun, registerReleaseCheck, releaseUserAgent } from './releaseCheck'
 import { confirmRemoteFolder, registerRemoteFolderConfirm } from './remoteFolderConfirm'
 import type { RemoteFolders } from './remoteFolders'
 import { ripgrepPath } from './ripgrep'
@@ -309,6 +310,7 @@ import {
 } from './tmux/keptShells'
 import type { TmuxPane, TmuxServerOptions } from './tmux/tmuxServer'
 import { AppTray, closeAction, isHiddenLaunch, readCloseToTray, unreadWorkspaces } from './tray'
+import { type UpdateRunner, createUpdateRunner } from './updateRun'
 import { OLD_PRODUCT_NAME, appConfigDir, configHome, dataHome } from './userDirs'
 import {
   deleteGlobalVaultValue,
@@ -589,6 +591,8 @@ const keptShells = new KeptShells({
 })
 let tmuxTerminal: string | null = null
 let restartRequested = false
+let updateRunner: UpdateRunner | null = null
+const UPDATE_HOST_GRANT_ID = 'core:update'
 
 function keptTmuxDir(): string {
   return join(tmpdir(), `${PRODUCT_NAME}-tmux-${process.getuid?.() ?? 0}`)
@@ -1657,6 +1661,7 @@ function registerIpc(): void {
         dropIdentity(identity.externalId)
         approvals()?.forget(identity.externalId)
         questions()?.forget(identity.externalId)
+        updateRunner?.paneClosed(identity.externalId)
         extensionHost?.emitEvent('pane.closed', {
           paneId: identity.externalId,
           workspaceId: event.workspaceId,
@@ -1715,6 +1720,7 @@ function registerIpc(): void {
         paneWatch.emit(snapshot.paneId, { kind: 'state' })
         const identity = getByPaneId(snapshot.paneId)
         if (identity) {
+          updateRunner?.paneState(identity.externalId, snapshot.running, snapshot.lastExitCode)
           emitTerminalExtensionEvents(identity.externalId, identity.workspaceId, cur, snapshot)
           emitPlatformEvent('pane.state', {
             paneId: identity.externalId,
@@ -3260,11 +3266,22 @@ app.whenReady().then(() => {
     restartRequested = true
     requestQuit()
   })
+  updateRunner = createUpdateRunner({
+    method: installMethod,
+    openTerminal: (req) => openTerminalInWindow(req),
+    hostToken: (command) => {
+      hostPaneGrants.offer(UPDATE_HOST_GRANT_ID, command)
+      return hostPaneGrants.claim(UPDATE_HOST_GRANT_ID, command) ?? ''
+    },
+    onChange: announceUpdateRun,
+  })
   registerReleaseCheck({
     openExternal: openExternalSafe,
     readSettings: readSettingsFile,
     log: appLog,
     version: appVersion(),
+    method: installMethod,
+    updateRunner,
   })
   registerAgentTranscriptIpc()
   const notifyDeps = {
