@@ -127,7 +127,14 @@ describe('sidebar unread mark', () => {
 describe('pane tab attention mark', () => {
   const setup = () => {
     const { workspaceId, a } = twoPanes()
-    const view = render(<Pane tabs={[paneNode(workspaceId, a)]} shownId={a} active={false} />)
+    const view = render(
+      <Pane
+        tabs={[paneNode(workspaceId, a)]}
+        shownId={a}
+        activePaneId="elsewhere"
+        workspaceId="w"
+      />,
+    )
     const frame = view.container.querySelector('.pane') as HTMLElement
     const tab = view.container.querySelector('.pane-tab') as HTMLElement
     const blinking = () => view.container.querySelector('.pane-kind-blink')
@@ -208,7 +215,9 @@ describe('pane tab attention mark', () => {
     const icon = blinking()
     expect(icon).not.toBeNull()
 
-    rerender(<Pane tabs={[paneNode(workspaceId, a)]} shownId={a} active />)
+    rerender(
+      <Pane tabs={[paneNode(workspaceId, a)]} shownId={a} activePaneId={a} workspaceId="w" />,
+    )
     expect(blinking()).toBe(icon)
 
     signal(a, 'second', 2)

@@ -7,7 +7,15 @@ import type { AttentionState } from '@shared/types'
 import { type WorkspaceGroupColor, normalizeGroupName } from '@shared/workspaceGroups'
 import { stepZoom } from '@shared/zoom'
 import { currentDict } from '../i18n/useDict'
-import { type DropZone, type FocusDirection, allPanes, findPane, tabNeighbor } from '../layout/tree'
+import {
+  type DropZone,
+  type FocusDirection,
+  allPanes,
+  findPane,
+  splitTabOfPane,
+  tabIdOf,
+  tabNeighbor,
+} from '../layout/tree'
 import type { Direction, SurfaceKind } from '../layout/types'
 import { postAgentNotification } from '../lib/agentNotification'
 import {
@@ -87,6 +95,8 @@ interface PaneListEntry extends PaneAgentReport {
   title: string
   cwd?: string
   filePath?: string
+  splitTabId?: string
+  splitTabName?: string
 }
 
 interface WorkspaceListEntry {
@@ -355,8 +365,9 @@ export function registerBuiltinCommands(): void {
         const layout = workspaceId ? useLayoutStore.getState().byWorkspace[workspaceId] : undefined
         if (!workspaceId || !layout || !ctx.activePaneId) return
         const neighbor = tabNeighbor(layout.root, ctx.activePaneId, step)
-        if (!neighbor) return
-        useLayoutStore.getState().moveTab(workspaceId, ctx.activePaneId, neighbor, step === 1)
+        const source = tabIdOf(layout.root, ctx.activePaneId)
+        if (!neighbor || !source) return
+        useLayoutStore.getState().moveTab(workspaceId, source, neighbor, step === 1)
       },
     })
   }
@@ -1037,6 +1048,7 @@ export function registerBuiltinCommands(): void {
         const layout = byWorkspace[workspaceId]
         if (!layout) continue
         for (const pane of allPanes(layout.root)) {
+          const splitTab = splitTabOfPane(layout.root, pane.id)
           result.push({
             paneId: pane.id,
             workspaceId,
@@ -1045,6 +1057,8 @@ export function registerBuiltinCommands(): void {
             cwd: pane.cwd,
             ...(pane.kind === 'editor' && pane.filePath ? { filePath: pane.filePath } : {}),
             ...(pane.kind === 'terminal' ? paneAgentReport(pane.id, pane.resume) : {}),
+            ...(splitTab ? { splitTabId: splitTab.id } : {}),
+            ...(splitTab?.name ? { splitTabName: splitTab.name } : {}),
           })
         }
       }

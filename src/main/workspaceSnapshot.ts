@@ -2,6 +2,7 @@ import { rmSync } from 'node:fs'
 import { parseAgentResume } from '../shared/agentResume'
 import { isDangerousSegment } from '../shared/protoGuard'
 import { isRemotePath } from '../shared/remoteFolders'
+import { normalizeSplitTabName } from '../shared/splitTabs'
 import type {
   AppSnapshot,
   PaneDrop,
@@ -11,6 +12,7 @@ import type {
   SnapshotNode,
   SnapshotPaneNode,
   SnapshotSurfaceKind,
+  SnapshotTabNode,
   SnapshotWindow,
   SnapshotWorkspace,
   WindowBounds,
@@ -78,7 +80,16 @@ interface ParseOptions {
 
 const SAVED: ParseOptions = { scratch: false }
 
-function parseNode(raw: unknown, paneIds: string[], depth: number): SnapshotNode | null {
+function tabPaneIds(node: SnapshotNode): string[] {
+  return node.type === 'pane' ? [node.id] : node.children.flatMap(tabPaneIds)
+}
+
+function parseNode(
+  raw: unknown,
+  paneIds: string[],
+  depth: number,
+  inTab = false,
+): SnapshotNode | null {
   if (depth > MAX_LAYOUT_DEPTH || !isRecord(raw)) return null
   const id = raw.id
   if (typeof id !== 'string' || id.length === 0) return null
@@ -117,16 +128,18 @@ function parseNode(raw: unknown, paneIds: string[], depth: number): SnapshotNode
   }
 
   if (raw.type === 'tabs') {
-    if (!Array.isArray(raw.children) || raw.children.length === 0) return null
-    const tabs: SnapshotPaneNode[] = []
+    if (inTab || !Array.isArray(raw.children) || raw.children.length === 0) return null
+    const tabs: SnapshotTabNode[] = []
     for (const child of raw.children) {
-      if (!isRecord(child) || child.type !== 'pane') return null
-      const parsed = parseNode(child, paneIds, depth + 1)
-      if (!parsed || parsed.type !== 'pane') return null
-      tabs.push(parsed)
+      if (!isRecord(child) || (child.type !== 'pane' && child.type !== 'split')) return null
+      const parsed = parseNode(child, paneIds, depth + 1, true)
+      if (!parsed || parsed.type === 'tabs') return null
+      const name = parsed.type === 'split' ? normalizeSplitTabName(child.name) : null
+      tabs.push(name && parsed.type === 'split' ? { ...parsed, name } : parsed)
     }
     if (tabs.length === 1) return tabs[0]
-    const activeId = tabs.some((t) => t.id === raw.activeId) ? (raw.activeId as string) : tabs[0].id
+    const ids = tabs.flatMap(tabPaneIds)
+    const activeId = ids.includes(raw.activeId as string) ? (raw.activeId as string) : ids[0]
     return { type: 'tabs', id, children: tabs, activeId }
   }
 
@@ -135,10 +148,11 @@ function parseNode(raw: unknown, paneIds: string[], depth: number): SnapshotNode
   const direction = raw.direction === 'vertical' ? 'vertical' : 'horizontal'
   const children: SnapshotNode[] = []
   for (const child of raw.children) {
-    const parsed = parseNode(child, paneIds, depth + 1)
+    const parsed = parseNode(child, paneIds, depth + 1, inTab)
     if (!parsed) return null
     children.push(parsed)
   }
+  if (inTab && children.length === 1) return children[0]
   const raws = raw.sizes
   const sizesOk =
     Array.isArray(raws) &&

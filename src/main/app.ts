@@ -113,7 +113,7 @@ import { registerDocsMethods } from './docs'
 import { registerEditorLanguageIpc } from './editorLanguages'
 import { emitPlatformEvent, emitSessionState, platformEvents } from './events'
 import { confirmForExtension } from './extensionConfirm'
-import { ExtensionHost, type TerminalOpenRequest, registerExtensionMethods } from './extensionHost'
+import { ExtensionHost, registerExtensionMethods } from './extensionHost'
 import type { ExtensionRoot } from './extensionManifest'
 import { type SecretStoreDeps, createSecretStore } from './extensionSecrets'
 import { ExtensionStore } from './extensionStore'
@@ -198,7 +198,12 @@ import { PORTS_EXTENSION, PortsBoard } from './portsBoard'
 import { acceptsPrimarySelection } from './primarySelection'
 import { registerPrivacyIpc } from './privacyIpc'
 import { privateTmpDir } from './privateTmp'
-import { INTERRUPT_GRACE_MS, type ProcessRegistry, registerProcessMethods } from './processManager'
+import {
+  INTERRUPT_GRACE_MS,
+  type ProcessRegistry,
+  type ProcessTabRequest,
+  registerProcessMethods,
+} from './processManager'
 import { type ProfileSyncHandle, startProfileSync } from './profileSync/ipc'
 import { flatSource, groupedSource, loginsSource } from './profileSync/secrets'
 import { registerProjectRootIpc } from './projectRoot'
@@ -2768,7 +2773,7 @@ function focusPaneInWindow(pane: PaneIdentity): boolean {
 const OPEN_TERMINAL_TIMEOUT_MS = 5000
 let openTerminalSeq = 0
 
-function openTerminalInWindow(req: TerminalOpenRequest): Promise<string | null> {
+function openTerminalInWindow(req: ProcessTabRequest): Promise<string | null> {
   const { windowId: requestedWindow, ...payload } = req
   const windowId =
     requestedWindow ?? (req.workspaceId ? workspaceWindowId(req.workspaceId) : undefined)

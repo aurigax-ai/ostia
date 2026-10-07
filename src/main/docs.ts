@@ -13,8 +13,10 @@ const CLI_HELP = `ostia — control-socket CLI
                                  . or ~) or names a file here that is no command or extension
   ostia pane.list                 every pane, every workspace — {paneId(external),workspaceId,
                                   kind,title,cwd,running,blockCount,lastExitCode,agent,
-                                  agentSessionId,agentState,agentMessage}; a restored pane keeps
-                                  its paneId across restarts
+                                  agentSessionId,agentState,agentMessage,splitTabId,
+                                  splitTabName}; a restored pane keeps its paneId across
+                                  restarts. splitTabId is set for a pane inside a split tab (one
+                                  tab showing several panes side by side)
   ostia workspace.list              every workspace — {workspaceId,name,kind,workDir,state,groupId}
   ostia notify <title> [body]    desktop notification + marks this pane unread in Ostia
   ostia ask "<question>" [--context <text|->] [--choice <label>]… [--multi] [--timeout <seconds>] [--json]
@@ -76,8 +78,14 @@ const CLI_HELP = `ostia — control-socket CLI
   ostia process run "<cmd>" [--name X] [--cwd P]  run a command in a new terminal tab beside
                                  you, where the human can watch and type; your shell line is
                                  pasted as written and run by the tab's own shell (zsh or bash).
-                                 Prints {id,name,paneId}; your pane keeps the focus
-  ostia agent run <agent> [--name X] [--cwd P] <prompt|->  start another agent (claude, codex or
+                                 Prints {id,name,paneId}; your pane keeps the focus.
+                                 --split-tab T: the first run with T opens its tab as usual;
+                                 each later run with the same T joins that tab, splitting it
+                                 --split right (default) or down, so one tab shows them side
+                                 by side (a split tab named T). It never types into a pane
+                                 that is already open
+  ostia agent run <agent> [--name X] [--cwd P] [--split-tab T [--split right|down]] <prompt|->
+                                 start another agent (claude, codex or
                                  one the human configured) in a new terminal tab with that prompt
                                  as its one argument, quoted for you (- reads it from stdin).
                                  Same result and rules as process run: follow it with ostia process
