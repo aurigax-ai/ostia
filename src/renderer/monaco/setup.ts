@@ -1,19 +1,19 @@
 import 'monaco-editor/features/register.all.js'
 import * as monaco from 'monaco-editor/editor/editor.api.js'
-import editorWorker from 'monaco-editor/editor/editor.worker?worker'
-import cssWorker from 'monaco-editor/language/css/css.worker?worker'
+import editorWorker from 'monaco-editor/editor/editor.worker.js?worker'
+import cssWorker from 'monaco-editor/language/css/css.worker.js?worker'
 import {
   cssDefaults,
   lessDefaults,
   scssDefaults,
 } from 'monaco-editor/language/css/monaco.contribution.js'
-import htmlWorker from 'monaco-editor/language/html/html.worker?worker'
+import htmlWorker from 'monaco-editor/language/html/html.worker.js?worker'
 import {
   handlebarDefaults,
   htmlDefaults,
   razorDefaults,
 } from 'monaco-editor/language/html/monaco.contribution.js'
-import jsonWorker from 'monaco-editor/language/json/json.worker?worker'
+import jsonWorker from 'monaco-editor/language/json/json.worker.js?worker'
 import { jsonDefaults } from 'monaco-editor/language/json/monaco.contribution.js'
 import { BuiltinFeatures } from './builtinFeatures'
 import { registerInlineAssist } from './inlineAssist'
