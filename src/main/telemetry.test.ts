@@ -223,6 +223,18 @@ describe('createTelemetry', () => {
     expect(event.properties.$exception_list).toBeUndefined()
   })
 
+  it('reports the app start once per launch, not again on the next interval', async () => {
+    const h = harness(only('usage'))
+    vi.useFakeTimers()
+    const t = create(h, { endpoint: null, usageIntervalMs: 60_000 })
+    vi.advanceTimersByTime(60_000)
+    vi.advanceTimersByTime(60_000)
+    const [first, second] = t.reports().queued.map((r) => r.properties as Record<string, unknown>)
+    expect(first['usage.app_starts']).toBe(1)
+    expect(second['usage.app_starts']).toBeUndefined()
+    expect(second['usage.session_minutes']).toBe(1)
+  })
+
   it('counts only for a category that is on, and only known keys and ids', async () => {
     const h = harness(only('features', 'extensions', 'agents'))
     const t = create(h)

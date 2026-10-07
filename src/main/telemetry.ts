@@ -198,6 +198,7 @@ export function createTelemetry(deps: TelemetryDeps): Telemetry {
   const startedAt = now()
   let usageSentAt = startedAt
   let counts = emptyUsageCounts()
+  let startReported = false
   let flushTimer: NodeJS.Timeout | null = null
   let retryTimer: NodeJS.Timeout | null = null
   let sending: Promise<void> | null = null
@@ -316,7 +317,10 @@ export function createTelemetry(deps: TelemetryDeps): Telemetry {
   const sessionFacts = (settings: TelemetrySettings): void => {
     const facts = deps.session()
     if (settings.usage) {
-      counts.usage.app_starts = 1
+      if (!startReported) {
+        counts.usage.app_starts = 1
+        startReported = true
+      }
       setValue('usage', 'session_minutes', Math.round((now() - usageSentAt) / 60_000))
       setValue('usage', 'windows', facts.windows)
       setValue('usage', 'workspaces', facts.workspaces)
