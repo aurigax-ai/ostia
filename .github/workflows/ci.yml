@@ -62,13 +62,13 @@ jobs:
       code: ${{ github.ref_type == 'tag' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || steps.filter.outputs.code }}
       # The e2e suites (Linux, macOS) are the slow part. They run for tags
       # (v1.2.3 and pre-releases such as v1.2.3-rc.1, via release.yml), the
-      # nightly schedule and manual dispatch; pull requests and the merge queue
-      # get static, unit, unit-dom and build only, and pushes to main also run
-      # unit-macos.
-      full: ${{ github.ref_type == 'tag' || github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.full) }}
+      # nightly schedule, manual dispatch and the merge queue (Linux only, on
+      # GitHub-hosted runners); pull requests get static, unit, unit-dom and
+      # build only, and pushes to main also run unit-macos.
+      full: ${{ github.ref_type == 'tag' || github.event_name == 'schedule' || github.event_name == 'merge_group' || (github.event_name == 'workflow_dispatch' && inputs.full) }}
       linux: ${{ steps.runner.outputs.linux }}
       macos: ${{ steps.runner.outputs.macos }}
-      platform: ${{ inputs.platform || 'all' }}
+      platform: ${{ inputs.platform || (github.event_name == 'merge_group' && 'linux') || 'all' }}
       specs: ${{ steps.plan.outputs.specs }}
       repeat: ${{ steps.plan.outputs.repeat }}
       shards: ${{ steps.plan.outputs.shards }}
