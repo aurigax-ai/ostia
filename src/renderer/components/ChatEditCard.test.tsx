@@ -83,6 +83,7 @@ function waiting(reason?: WriteAskReason, exists = true): Promise<ApprovalAnswer
       access: 'write',
       mode,
       grants: new Set(),
+      standing: new Set(),
       outside: reason === 'outside',
       symlink: reason === 'symlink',
       repository: reason === 'repository',
@@ -129,6 +130,8 @@ describe('ChatEditCard', () => {
     expect(document.querySelector('[data-diff="add"]')).toHaveTextContent('+TWO')
     expect(screen.queryByRole('button', { name: 'Undo' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Allow for this chat' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'More ways to allow' })).toBeNull()
+    expect(screen.queryByText('Always allow this tool')).toBeNull()
     await userEvent.click(screen.getByRole('button', { name: 'Accept' }))
     expect(await answer).toEqual({ approved: true, scope: 'once' })
   })
@@ -408,7 +411,13 @@ describe('ChatEditCard', () => {
           input: {},
           detail: { path: PATH, exists: true, before: MANY_BEFORE, after: MANY_AFTER },
         },
-        decideTool({ name: 'edit_file', access: 'write', mode: 'ask', grants: new Set() }),
+        decideTool({
+          name: 'edit_file',
+          access: 'write',
+          mode: 'ask',
+          grants: new Set(),
+          standing: new Set(),
+        }),
         new AbortController().signal,
       )
     }

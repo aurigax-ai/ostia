@@ -1,4 +1,4 @@
-import type { ChatToolAccess } from '@shared/chatTools'
+import { type ChatToolAccess, READ_OUTSIDE_GRANT, isStandingChatGrant } from '@shared/chatTools'
 
 export const CHAT_MODES = ['ask', 'write'] as const
 
@@ -10,8 +10,6 @@ export type ApprovalKind = 'read-outside' | 'act' | 'write' | 'command' | 'mcp'
 
 export type ToolAccess = ChatToolAccess | 'mcp'
 
-export const READ_OUTSIDE_GRANT = 'read-outside'
-
 export type WriteAskReason = 'ask-mode' | 'outside' | 'symlink' | 'repository' | 'unsaved'
 
 export interface ToolCheck {
@@ -19,6 +17,7 @@ export interface ToolCheck {
   access: ToolAccess
   mode: ChatMode
   grants: ReadonlySet<string>
+  standing: ReadonlySet<string>
   outside?: boolean
   symlink?: boolean
   repository?: boolean
@@ -29,7 +28,7 @@ export type ToolDecision =
   | { run: true }
   | { run: false; kind: ApprovalKind; grantKey: string | null; reason?: WriteAskReason }
 
-export type ApprovalScope = 'once' | 'chat'
+export type ApprovalScope = 'once' | 'chat' | 'always'
 
 export type CommandChoice = 'insert' | 'run'
 
@@ -46,15 +45,16 @@ function writeAskReason(check: ToolCheck): WriteAskReason | null {
 }
 
 export function decideTool(check: ToolCheck): ToolDecision {
-  const { name, access, grants } = check
+  const { name, access } = check
+  const granted = (key: string): boolean => check.grants.has(key) || check.standing.has(key)
   switch (access) {
     case 'read':
-      if (!check.outside || grants.has(READ_OUTSIDE_GRANT)) return { run: true }
+      if (!check.outside || granted(READ_OUTSIDE_GRANT)) return { run: true }
       return { run: false, kind: 'read-outside', grantKey: READ_OUTSIDE_GRANT }
     case 'act':
-      return grants.has(name) ? { run: true } : { run: false, kind: 'act', grantKey: name }
+      return granted(name) ? { run: true } : { run: false, kind: 'act', grantKey: name }
     case 'mcp':
-      return grants.has(name) ? { run: true } : { run: false, kind: 'mcp', grantKey: name }
+      return granted(name) ? { run: true } : { run: false, kind: 'mcp', grantKey: name }
     case 'command':
       return { run: false, kind: 'command', grantKey: null }
     case 'write': {
@@ -62,6 +62,16 @@ export function decideTool(check: ToolCheck): ToolDecision {
       return reason ? { run: false, kind: 'write', grantKey: null, reason } : { run: true }
     }
   }
+}
+
+export function readsOutsideUnasked(grants: Pick<ToolCheck, 'grants' | 'standing'>): boolean {
+  return decideTool({ ...grants, name: '', access: 'read', mode: DEFAULT_CHAT_MODE, outside: true })
+    .run
+}
+
+export function alwaysGrantAfter(decision: ToolDecision, answer: ApprovalAnswer): string | null {
+  if (decision.run || !answer.approved || answer.scope !== 'always') return null
+  return isStandingChatGrant(decision.grantKey) ? decision.grantKey : null
 }
 
 export function grantsAfter(
