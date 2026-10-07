@@ -430,7 +430,12 @@ export function takeRestoredScrollback(paneId: string): string | null {
   return data
 }
 
-export function peekRestoredScrollback(paneId: string): string | null {
+export function stashedScreen(
+  paneId: string,
+  askingWindow: string,
+  ownerWindow: string | undefined,
+): string | null {
+  if (ownerWindow === undefined || ownerWindow !== askingWindow) return null
   return restored.get(paneId) ?? null
 }
 
