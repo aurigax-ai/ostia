@@ -1,10 +1,10 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
-import { _electron as electron, expect, test } from './test'
 import { type FakeMcpHttp, startFakeMcpHttp } from '../test/fixtures/mcp/startHttpServer'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { type FakeProvider, fakeAssistantSettings, startFakeProvider } from './fakeProvider'
 import { openWorkspace } from './helpers'
+import { _electron as electron, expect, test } from './test'
 
 function findFile(dir: string, name: string): string | null {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {

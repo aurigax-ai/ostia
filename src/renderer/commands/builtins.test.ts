@@ -369,7 +369,11 @@ describe('builtins route to store actions', () => {
     const unset = await commands.execWith(ctx(null, null), 'settings.unset', {
       key: 'privacy.redaction.enabled',
     })
-    for (const res of [off, pattern, whole, unset]) {
+    const telemetry = await commands.execWith(ctx(null, null), 'settings.set', {
+      key: 'privacy.telemetry.errors',
+      value: true,
+    })
+    for (const res of [off, pattern, whole, unset, telemetry]) {
       expect(res.ok).toBe(false)
       if (!res.ok) expect(res.error.message).toBe('privacy can only be changed by you in Settings')
     }

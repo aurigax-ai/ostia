@@ -1,8 +1,8 @@
 import { mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { type Page, _electron as electron, expect, test } from './test'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { openWorkspace } from './helpers'
+import { type Page, _electron as electron, expect, test } from './test'
 
 const GREET = `name: Greet someone
 command: echo ostia_wf_{{who}}_$((20+1))

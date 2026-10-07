@@ -1,10 +1,3 @@
-import {
-  type ElectronApplication,
-  type Page,
-  _electron as electron,
-  expect,
-  test,
-} from './test'
 import { isolatedLaunch } from './dataHome'
 import {
   PROMPT,
@@ -13,6 +6,7 @@ import {
   openWorkspace,
   waitForPaletteSelection,
 } from './helpers'
+import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
 
 interface Launched {
   app: ElectronApplication

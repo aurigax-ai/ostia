@@ -1,8 +1,8 @@
 import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
-import { type ElectronApplication, _electron as electron, expect, test } from './test'
 import { isolatedLaunch } from './dataHome'
 import { openWorkspace } from './helpers'
+import { type ElectronApplication, _electron as electron, expect, test } from './test'
 
 async function recordNativeMenus(app: ElectronApplication): Promise<() => Promise<string[][]>> {
   await app.evaluate(({ Menu }) => {

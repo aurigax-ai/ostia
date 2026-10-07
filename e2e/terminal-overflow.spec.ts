@@ -1,4 +1,3 @@
-import { type Page, _electron as electron, expect, test } from './test'
 import {
   DOM_RENDERER_SETTINGS,
   SOFTWARE_WEBGL,
@@ -7,6 +6,7 @@ import {
   seedSettings,
 } from './dataHome'
 import { emptyState, emptyWorkspace } from './helpers'
+import { type Page, _electron as electron, expect, test } from './test'
 
 interface Placement {
   pastRight: number

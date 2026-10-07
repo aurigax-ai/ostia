@@ -1,14 +1,8 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
-import {
-  type ElectronApplication,
-  type Page,
-  _electron as electron,
-  expect,
-  test,
-} from './test'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { PROMPT, emptyState, emptyWorkspace } from './helpers'
+import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
 
 async function launchApp(dataHome: string): Promise<{ app: ElectronApplication; win: Page }> {
   const app = await electron.launch(isolatedLaunch(dataHome))

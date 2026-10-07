@@ -1,5 +1,9 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
+import { PRODUCT_NAME } from '../src/shared/product'
+import { installFakeLanguageExtension } from '../test/fixtures/lsp/installFakeExtension'
+import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
+import { PROMPT, emptyWorkspace, openWorkspace } from './helpers'
 import {
   type ElectronApplication,
   type Locator,
@@ -8,10 +12,6 @@ import {
   expect,
   test,
 } from './test'
-import { PRODUCT_NAME } from '../src/shared/product'
-import { installFakeLanguageExtension } from '../test/fixtures/lsp/installFakeExtension'
-import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
-import { PROMPT, emptyWorkspace, openWorkspace } from './helpers'
 
 const FAKE_SYSTEM_BIN = resolve(__dirname, '../test/fixtures/system/bin')
 const FAKE_LSP_PROGRAM = resolve(__dirname, '../test/fixtures/lsp/bin/ostia-fake-lsp')
@@ -160,7 +160,8 @@ test('a missing program is offered for install, with the exact command shown bef
         () =>
           app.evaluate(
             () =>
-              JSON.stringify((globalThis as { ostiaE2eAsked?: unknown[] }).ostiaE2eAsked ?? []) ?? '',
+              JSON.stringify((globalThis as { ostiaE2eAsked?: unknown[] }).ostiaE2eAsked ?? []) ??
+              '',
           ),
         { timeout: 15_000 },
       )

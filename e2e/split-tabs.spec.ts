@@ -1,7 +1,7 @@
-import { type Page, _electron as electron, expect, test } from './test'
 import { chords } from './chords'
 import { isolatedLaunch } from './dataHome'
 import { PROMPT, openWorkspace } from './helpers'
+import { type Page, _electron as electron, expect, test } from './test'
 
 async function addTab(win: Page): Promise<void> {
   const strip = win.getByRole('tablist')

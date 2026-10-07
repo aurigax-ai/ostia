@@ -1,6 +1,6 @@
-import { _electron as electron, expect, test } from './test'
 import { isolatedLaunch } from './dataHome'
 import { PROMPT, emptyWorkspace, openWorkspace } from './helpers'
+import { _electron as electron, expect, test } from './test'
 
 test('the Files panel opens beside the workspace list and follows the active workspace', async () => {
   test.setTimeout(60_000)

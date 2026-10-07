@@ -1,6 +1,6 @@
-import { _electron as electron, expect, test } from './test'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { openWorkspace } from './helpers'
+import { _electron as electron, expect, test } from './test'
 
 test('actions from settings.json show in the pane header and tab menu, and elevated ones ask first', async () => {
   const dataHome = freshDataHome()

@@ -14,6 +14,7 @@ import {
   parseRedactionSettings,
   patternProblem,
 } from './redaction'
+import { DEFAULT_TELEMETRY_SETTINGS } from './telemetry'
 
 function redactExtras(text: string): string {
   return applyRedactions(text, extraSpans(text)).text
@@ -21,7 +22,10 @@ function redactExtras(text: string): string {
 
 describe('parseRedactionSettings', () => {
   it('is on with no patterns when nothing is stored', () => {
-    expect(parsePrivacySettings(undefined)).toEqual({ redaction: { enabled: true, patterns: [] } })
+    expect(parsePrivacySettings(undefined)).toEqual({
+      redaction: { enabled: true, patterns: [] },
+      telemetry: DEFAULT_TELEMETRY_SETTINGS,
+    })
   })
 
   it('turns off only on an explicit false', () => {

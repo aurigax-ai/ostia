@@ -3,6 +3,7 @@ import { allPanes } from '../layout/tree'
 import { useBlocksStore } from '../stores/blocksStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { runningAgentOf } from './paneAgent'
+import { countUsage } from './usageCounts'
 
 export function paneAgentRunning(paneId: string, agent: ResumableAgent): boolean | null {
   if (runningAgentOf(paneId) === agent) return true
@@ -22,6 +23,7 @@ export function startAgentRunningReport(): () => void {
         if (running === null) reported.delete(pane.id)
         if (running === null || reported.get(pane.id) === running) continue
         reported.set(pane.id, running)
+        if (running) countUsage('agents', 'session', pane.resume.agent)
         window.ostia.pty.reportAgentRunning(pane.id, running)
       }
     }

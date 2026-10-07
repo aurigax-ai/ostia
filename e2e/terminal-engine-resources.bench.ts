@@ -1,9 +1,9 @@
 import { execFileSync } from 'node:child_process'
 import { appendFileSync, mkdirSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
-import { type ElectronApplication, _electron as electron, expect, test } from './test'
 import { SOFTWARE_WEBGL, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { emptyState, emptyWorkspace } from './helpers'
+import { type ElectronApplication, _electron as electron, expect, test } from './test'
 
 const PANES = 10
 const SETTLE_S = 20
@@ -67,7 +67,9 @@ function tree(rootPid: number): Omit<Proc, 'cat'>[] {
 
 async function classify(app: ElectronApplication, rootPid: number): Promise<Proc[]> {
   const metrics = await app.evaluate(({ app: a }) =>
-    a.getAppMetrics().map((m) => ({ pid: m.pid, type: m.type, name: m.name ?? m.serviceName ?? '' })),
+    a
+      .getAppMetrics()
+      .map((m) => ({ pid: m.pid, type: m.type, name: m.name ?? m.serviceName ?? '' })),
   )
   const byPid = new Map(metrics.map((m) => [m.pid, m]))
   return tree(rootPid).map((p) => {
@@ -164,9 +166,7 @@ for (const engine of ENGINES) {
         await win.keyboard.press('Enter')
       }
       const load = await phase(app, rootPid, LOAD_S)
-      await expect
-        .poll(() => readdirSync(doneDir).length, { timeout: 120_000 })
-        .toBe(PANES)
+      await expect.poll(() => readdirSync(doneDir).length, { timeout: 120_000 }).toBe(PANES)
       await sleep(15_000)
       const after = await phase(app, rootPid, AFTER_S)
       const row = { engine: engine.name, idle, load, after }

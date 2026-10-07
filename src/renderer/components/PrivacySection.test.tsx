@@ -1,10 +1,13 @@
 import '@testing-library/jest-dom/vitest'
 import { PRODUCT_DISPLAY_NAME } from '@shared/productDisplay'
+import { DEFAULT_TELEMETRY_SETTINGS, TELEMETRY_CATEGORIES } from '@shared/telemetry'
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { renderSettled } from '../../../test/render'
+import { en } from '../i18n/dict'
 import { useSettingsStore } from '../stores/settingsStore'
+import { useTelemetryConsentStore } from '../stores/telemetryConsentStore'
 import { PrivacySection } from './PrivacySection'
 
 if (!Element.prototype.getAnimations) {
@@ -106,7 +109,10 @@ describe('PrivacySection', () => {
 
   it('marks a hand-edited invalid pattern as ignored', async () => {
     useSettingsStore.setState({
-      privacy: { redaction: { enabled: true, patterns: ['ok-[0-9]{2}', 'ACME-['] } },
+      privacy: {
+        redaction: { enabled: true, patterns: ['ok-[0-9]{2}', 'ACME-['] },
+        telemetry: DEFAULT_TELEMETRY_SETTINGS,
+      },
     })
     await renderSettled(<PrivacySection />)
     const alerts = screen.getAllByRole('alert')
@@ -137,5 +143,135 @@ describe('PrivacySection', () => {
     render(<PrivacySection />)
     await userEvent.type(screen.getByLabelText('Text to check'), 'git status')
     expect(await screen.findByText('Nothing would be redacted.')).toBeInTheDocument()
+  })
+
+  it('shows one switch per category, off, saves one at once, and resets the install id', async () => {
+    const user = userEvent.setup()
+    await renderSettled(<PrivacySection />)
+    const labels = TELEMETRY_CATEGORIES.map((c) => en.privacy.categories[c].label)
+    for (const label of labels)
+      expect(screen.getByRole('switch', { name: label })).not.toBeChecked()
+    expect(screen.getByText(/Install context/)).toBeInTheDocument()
+    expect(screen.getByLabelText('Install id')).toHaveTextContent('install-id')
+
+    await user.click(screen.getByRole('switch', { name: 'Terminal engine and performance' }))
+    expect(useSettingsStore.getState().privacy.telemetry).toEqual({
+      ...DEFAULT_TELEMETRY_SETTINGS,
+      terminal: true,
+    })
+    const written = JSON.parse(vi.mocked(window.ostia.fs.write).mock.calls[0][1])
+    expect(written.privacy.telemetry.terminal).toBe(true)
+    expect(written.privacy.telemetry.errors).toBe(false)
+
+    await user.click(screen.getByRole('button', { name: 'Reset install id' }))
+    await waitFor(() =>
+      expect(screen.getByLabelText('Install id')).toHaveTextContent('new-install-id'),
+    )
+    expect(window.ostia.telemetry.resetInstallId).toHaveBeenCalled()
+  })
+
+  it('marks a category added since the consent as new until the page is visited', async () => {
+    vi.mocked(window.ostia.telemetry.state).mockResolvedValueOnce({
+      installId: 'install-id',
+      asked: true,
+      available: true,
+      newCategories: ['agents'],
+    })
+    await renderSettled(<PrivacySection />)
+    const row = screen
+      .getByRole('switch', { name: 'AI agent usage' })
+      .closest('[data-settings-row]')
+    expect(row).toHaveTextContent('New')
+    expect(screen.queryAllByText('New')).toHaveLength(1)
+    expect(window.ostia.telemetry.categoriesSeen).toHaveBeenCalled()
+  })
+
+  it('Review consent again opens the dialog pre-filled with the current switches', async () => {
+    useSettingsStore.setState({
+      privacy: {
+        redaction: { enabled: true, patterns: [] },
+        telemetry: { ...DEFAULT_TELEMETRY_SETTINGS, features: true },
+      },
+    })
+    const user = userEvent.setup()
+    await renderSettled(<PrivacySection />)
+    await user.click(screen.getByRole('button', { name: 'Review consent again' }))
+    expect(useTelemetryConsentStore.getState().open).toBe(true)
+    expect(useTelemetryConsentStore.getState().initial.features).toBe(true)
+    expect(useTelemetryConsentStore.getState().initial.errors).toBe(false)
+  })
+
+  it('offers no switches in a build without an endpoint, and says so', async () => {
+    vi.mocked(window.ostia.telemetry.state).mockResolvedValueOnce({
+      installId: 'install-id',
+      asked: true,
+      available: false,
+      newCategories: [],
+    })
+    await renderSettled(<PrivacySection />)
+    await screen.findByText(/This build has no telemetry endpoint/)
+    expect(
+      screen.queryByRole('switch', { name: 'Crash and error reports' }),
+    ).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Reset install id' })).not.toBeInTheDocument()
+  })
+
+  it('shows the queued and last-sent reports read-only, filtered by category', async () => {
+    vi.mocked(window.ostia.telemetry.reports).mockResolvedValue({
+      queued: [
+        {
+          uuid: 'e1',
+          event: '$exception',
+          distinct_id: 'install-id',
+          timestamp: '2026-10-07T00:00:00.000Z',
+          properties: {
+            app_version: '1.0.0',
+            electron_version: '33',
+            os_name: 'linux',
+            os_version: '6',
+            arch: 'x64',
+            locale: 'en',
+            channel: 'packaged',
+            $process_person_profile: false,
+            source: 'main-exception',
+            $exception_list: [{ type: 'TypeError', value: 'boom', mechanism: { handled: true } }],
+          },
+        },
+        {
+          uuid: 'u1',
+          event: 'usage',
+          distinct_id: 'install-id',
+          timestamp: '2026-10-07T00:00:00.000Z',
+          properties: {
+            app_version: '1.0.0',
+            electron_version: '33',
+            os_name: 'linux',
+            os_version: '6',
+            arch: 'x64',
+            locale: 'en',
+            channel: 'packaged',
+            $process_person_profile: false,
+            'agents.bus_message': 3,
+          },
+        },
+      ],
+      sent: [],
+    })
+    const user = userEvent.setup()
+    await renderSettled(<PrivacySection />)
+    await user.click(
+      screen.getByRole('button', { name: `Show what ${PRODUCT_DISPLAY_NAME} sends` }),
+    )
+    const dialog = await screen.findByTestId('telemetry-reports-dialog')
+    const queued = within(dialog).getByRole('region', { name: 'Waiting to be sent' })
+    await waitFor(() => expect(queued).toHaveTextContent('"value": "boom"'))
+    expect(queued).toHaveTextContent('agents.bus_message')
+    expect(within(dialog).getByRole('region', { name: 'Last sent' })).toHaveTextContent('Nothing.')
+    expect(within(dialog).queryByRole('textbox')).not.toBeInTheDocument()
+
+    await user.click(within(dialog).getByRole('combobox', { name: 'Category' }))
+    await user.click(await screen.findByRole('option', { name: 'AI agent usage' }))
+    await waitFor(() => expect(queued).not.toHaveTextContent('"value": "boom"'))
+    expect(queued).toHaveTextContent('agents.bus_message')
   })
 })

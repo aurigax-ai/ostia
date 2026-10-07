@@ -23,6 +23,12 @@ export function seedSettings(dataHome: string, settings: object): void {
   writeFileSync(join(userData, 'settings.json'), `${JSON.stringify(settings, null, 2)}\n`)
 }
 
+export function seedTelemetryAnswered(dataHome: string, asked = true): void {
+  const userData = join(dataHome, 'userData')
+  mkdirSync(userData, { recursive: true })
+  writeFileSync(join(userData, 'telemetry.json'), JSON.stringify({ asked }))
+}
+
 const TEST_ZSHRC = "PROMPT='%~ ❯ '\n"
 const TEST_BASHRC = "PS1='\\w ❯ '\n"
 const TEST_GITCONFIG = '[user]\n\tname = Ostia E2E\n\temail = e2e@example.com\n'
@@ -46,6 +52,7 @@ export function isolatedLaunch(dataHome: string = freshDataHome()): {
   if (!existsSync(join(dataHome, 'userData', 'settings.json'))) {
     seedSettings(dataHome, DOM_RENDERER_SETTINGS)
   }
+  if (!existsSync(join(dataHome, 'userData', 'telemetry.json'))) seedTelemetryAnswered(dataHome)
   const { ZDOTDIR: _zdotdir, ...inherited } = process.env as Record<string, string>
   const home = testHome(dataHome)
   return {

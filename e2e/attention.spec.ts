@@ -1,6 +1,6 @@
-import { _electron as electron, expect, test } from './test'
 import { isolatedLaunch } from './dataHome'
 import { openWorkspace } from './helpers'
+import { _electron as electron, expect, test } from './test'
 
 test('a terminal notification in a background pane marks it unread and Ctrl+Shift+U jumps to it', async () => {
   test.setTimeout(90_000)

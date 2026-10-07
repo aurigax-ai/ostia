@@ -1,8 +1,8 @@
 import { resolve } from 'node:path'
-import { type Locator, _electron as electron, expect, test } from './test'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { fakeAgentBin } from './fakeAgent'
 import { openWorkspace } from './helpers'
+import { type Locator, _electron as electron, expect, test } from './test'
 
 const BUSY_AGENT = resolve(__dirname, '../test/fixtures/agents/busy-agent.mjs')
 const AGENT_FPS = 30

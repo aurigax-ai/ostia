@@ -1,8 +1,8 @@
-import { _electron as electron, expect, test } from './test'
 import { isolatedLaunch } from './dataHome'
 import { extensionHosts } from './extensionHosts'
 import { type FakeRequest, startFakeProvider } from './fakeProvider'
 import { PROMPT, openWorkspace } from './helpers'
+import { _electron as electron, expect, test } from './test'
 
 const SUGGESTED = 'echo ostia-assist-suggested'
 const SECOND = 'echo ostia-assist-second'

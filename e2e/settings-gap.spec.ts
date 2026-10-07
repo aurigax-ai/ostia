@@ -1,6 +1,5 @@
 import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
-import { type Page, _electron as electron, expect, test } from './test'
 import { chords, isMac } from './chords'
 import {
   DOM_RENDERER_SETTINGS,
@@ -10,6 +9,7 @@ import {
   testHome,
 } from './dataHome'
 import { openWorkspace } from './helpers'
+import { type Page, _electron as electron, expect, test } from './test'
 
 async function launch(settings: object, inProjectFolder = false) {
   const dataHome = freshDataHome()
@@ -127,7 +127,10 @@ test('OSC 52 sets the clipboard only while terminal.osc52Write is on', async () 
 test('OSC 52 leaves the clipboard alone by default', async () => {
   const { app, win } = await launch({})
   try {
-    await run(win, 'printf \'\\033]52;c;%s\\a\' "$(printf ostia-osc52-off | base64)"; echo osc-sent')
+    await run(
+      win,
+      'printf \'\\033]52;c;%s\\a\' "$(printf ostia-osc52-off | base64)"; echo osc-sent',
+    )
     await expect(win.locator('.xterm-rows').first()).toContainText('osc-sent')
     await win.waitForTimeout(300)
     expect(await app.evaluate(({ clipboard }) => clipboard.readText())).not.toBe('ostia-osc52-off')

@@ -1,9 +1,9 @@
 import { execFileSync } from 'node:child_process'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { _electron as electron, expect, test } from './test'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { emptyWorkspace, openWorkspace } from './helpers'
+import { _electron as electron, expect, test } from './test'
 
 test('a diff pane is hidden with its workspace and behind Settings', async () => {
   const dataHome = freshDataHome()

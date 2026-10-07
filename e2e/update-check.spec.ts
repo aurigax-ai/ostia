@@ -1,14 +1,8 @@
 import { type Server, createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
-import {
-  type ElectronApplication,
-  type Page,
-  _electron as electron,
-  expect,
-  test,
-} from './test'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { emptyState } from './helpers'
+import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
 
 const VERSION = '999.0.0'
 const RELEASE_URL = `https://github.com/aurigax-ai/ostia/releases/tag/v${VERSION}`

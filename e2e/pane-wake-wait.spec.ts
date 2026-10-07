@@ -1,7 +1,7 @@
-import { type Page, _electron as electron, expect, test } from './test'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { fakeAgentBin, isolatedHome } from './fakeAgent'
 import { PROMPT, openWorkspace } from './helpers'
+import { type Page, _electron as electron, expect, test } from './test'
 
 const SLOW_AGENT = [
   '#!/bin/sh',

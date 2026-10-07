@@ -80,6 +80,7 @@ import type { SecretEntry, SecretGrant } from './secrets'
 import type { SelectionSendRequest, SelectionSendResult } from './selection'
 import type { SplitTabPlacement } from './splitTabs'
 import type { RequirementsReport } from './systemRequirements'
+import type { TelemetryApi } from './telemetry'
 import type { ViewsApi } from './views'
 import type { WorkflowDocument, WorkflowListing, WorkflowSaveResult } from './workflows'
 import type { WorkspaceGroupColor } from './workspaceGroups'
@@ -1033,6 +1034,7 @@ export interface OstiaBridge {
   assist: AssistApi & { wake: () => void }
   chatSessions: ChatSessionsApi
   privacy: PrivacyApi
+  telemetry: TelemetryApi
   chatTools: ChatToolsApi
   iconThemes: IconThemesApi
   languagePacks: LanguagePacksApi

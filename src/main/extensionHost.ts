@@ -342,6 +342,7 @@ export interface ExtensionHostDeps {
   requestTimeoutMs?: number
   interactiveTimeoutMs?: number
   log?: (extId: string, line: string) => void
+  onCrashed?: (extId: string, builtin: boolean) => void
   readExtensionSettings?: () => unknown
   readAssistSettings?: () => { assistant?: unknown } | null
   assistKeys?: ExtensionSecretStore
@@ -1083,6 +1084,7 @@ export class ExtensionHost {
     } else {
       rt.state = 'crashed'
       this.log(id, 'exited too often; not restarting')
+      this.deps.onCrashed?.(id, rt.ext.builtin)
     }
     if (rt.restartAfterExit) {
       rt.restartAfterExit = false

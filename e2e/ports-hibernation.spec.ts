@@ -1,10 +1,10 @@
 import { chmodSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { createServer } from 'node:net'
 import { join } from 'node:path'
-import { type Page, _electron as electron, expect, test } from './test'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { extensionHosts } from './extensionHosts'
 import { PROMPT, openWorkspace } from './helpers'
+import { type Page, _electron as electron, expect, test } from './test'
 
 async function freePort(): Promise<number> {
   const server = createServer()

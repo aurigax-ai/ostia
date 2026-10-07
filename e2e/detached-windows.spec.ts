@@ -1,3 +1,5 @@
+import { freshDataHome, isolatedLaunch } from './dataHome'
+import { openWorkspace } from './helpers'
 import {
   type ElectronApplication,
   type Locator,
@@ -6,8 +8,6 @@ import {
   expect,
   test,
 } from './test'
-import { freshDataHome, isolatedLaunch } from './dataHome'
-import { openWorkspace } from './helpers'
 
 interface Launched {
   app: ElectronApplication

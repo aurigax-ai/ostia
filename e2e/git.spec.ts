@@ -1,10 +1,10 @@
 import { execFileSync } from 'node:child_process'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { _electron as electron, expect, test } from './test'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { extensionHosts } from './extensionHosts'
 import { emptyState, emptyWorkspace, openWorkspace, waitForPaletteSelection } from './helpers'
+import { _electron as electron, expect, test } from './test'
 
 test('a dirty repo shows in the sidebar and the top bar, opens a diff, commits, and shows the graph', async () => {
   const dataHome = freshDataHome()

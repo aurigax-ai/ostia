@@ -1,8 +1,8 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
-import { type ElectronApplication, _electron as electron, expect, test } from './test'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { openWorkspace } from './helpers'
+import { type ElectronApplication, _electron as electron, expect, test } from './test'
 
 const FAKE_BIN = resolve(__dirname, '../test/fixtures/system/bin')
 
