@@ -41,7 +41,10 @@ describe('runNotifyCommand', () => {
     dirs.push(dir)
     const script = join(dir, 'hook.sh')
     const out = join(dir, 'out.txt')
-    writeFileSync(script, `#!/bin/sh\nprintf '%s|%s|%s' "$1" "$2" "$3" > "${out}"\n`)
+    writeFileSync(
+      script,
+      `#!/bin/sh\nprintf '%s|%s|%s' "$1" "$2" "$3" > "${out}.part" && mv "${out}.part" "${out}"\n`,
+    )
     chmodSync(script, 0o755)
 
     expect(runNotifyCommand(`${script} {title} {body} {pane}`, values)).toBe(true)

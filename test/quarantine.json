@@ -7,13 +7,6 @@
     "platforms": ["linux"]
   },
   {
-    "file": "src/main/notifyCommand.test.ts",
-    "name": "runNotifyCommand > runs the program directly with the expanded argv, so shell metacharacters stay data",
-    "issue": 122,
-    "until": "2026-11-04",
-    "platforms": ["linux"]
-  },
-  {
     "file": "e2e/stale-waiting.spec.ts",
     "name": "an agent that waited and then exited leaves the pane idle, and a late report is ignored",
     "issue": 129,
