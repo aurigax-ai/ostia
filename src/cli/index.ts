@@ -24,7 +24,14 @@ import { runAgentHook } from './agentHook'
 import { parseArgs } from './args'
 import { runAskVerb } from './ask'
 import { runBrowse } from './browse'
-import { BUS_QUEUED_HINT, type BusSendOk, type SentMessage, runBusHook, sentLines } from './bus'
+import {
+  BUS_ASLEEP_HINT,
+  BUS_QUEUED_HINT,
+  type BusSendOk,
+  type SentMessage,
+  runBusHook,
+  sentLines,
+} from './bus'
 import { runCmuxImportVerb } from './cmuxImport'
 import { describeFailure } from './failure'
 import { type FileProbe, fileWord, isClaimedWord, parseFileArg, refusalLine } from './fileArgs'
@@ -505,7 +512,8 @@ async function runBusVerb(conn: MessageConnection): Promise<void> {
     const res = await conn.sendRequest<BusSendOk | BusErr>('bus.send', { to, text })
     if (res.ok) {
       console.log(JSON.stringify(res))
-      if (res.delivered === 'queued') console.error(BUS_QUEUED_HINT)
+      if (res.asleep) console.error(BUS_ASLEEP_HINT)
+      else if (res.delivered === 'queued') console.error(BUS_QUEUED_HINT)
     } else {
       console.error(`ostia: bus send failed (${describeBusError(res)})`)
       process.exitCode = 1
@@ -1250,6 +1258,9 @@ commands:
   pane wait <pane>… [--until done|waiting|idle|exited]… [--timeout <s>] [--json]
                             block until one of those panes' agents stops working; exit 0
                             reached, 3 timed out, 4 pane closed
+  pane wake <pane>… [--json]
+                            wake hibernated agent panes: each types its agent's resume
+                            command at a fresh prompt (same asks as pane send)
   vault | bus | settings | browse | gateway <subcommand> ...
   ext ls | ext <extId> <command> [args...]
   <extId> <command> [args...]  an extension command, e.g. ostia git status

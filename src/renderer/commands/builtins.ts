@@ -97,6 +97,7 @@ interface PaneListEntry extends PaneAgentReport {
   filePath?: string
   splitTabId?: string
   splitTabName?: string
+  hibernated?: true
 }
 
 interface WorkspaceListEntry {
@@ -471,6 +472,30 @@ export function registerBuiltinCommands(): void {
       if (pane?.kind !== 'terminal' || !pane.resume) return { resumed: false }
       if (pane.hibernated) return { resumed: wakePane(pane.id) }
       return { resumed: insertCommand(pane.id, resumeCommand(pane.resume), true) }
+    },
+  })
+
+  registerCore<undefined, { hibernated: boolean }>({
+    id: 'pane.hibernated',
+    category: 'pane',
+    hidden: true,
+    capabilities: ['read-board'],
+    run: (_args, ctx) => {
+      if (!ctx.activeWorkspaceId || !ctx.activePaneId) throw new Error('no target pane')
+      const layout = useLayoutStore.getState().byWorkspace[ctx.activeWorkspaceId]
+      const pane = layout ? findPane(layout.root, ctx.activePaneId) : null
+      return { hibernated: pane?.hibernated === true }
+    },
+  })
+
+  registerCore<undefined, { woke: boolean }>({
+    id: 'pane.wake',
+    category: 'pane',
+    hidden: true,
+    capabilities: ['type-other-pane'],
+    run: (_args, ctx) => {
+      if (!ctx.activePaneId) throw new Error('no target pane')
+      return { woke: wakePane(ctx.activePaneId) }
     },
   })
 
@@ -1059,6 +1084,7 @@ export function registerBuiltinCommands(): void {
             ...(pane.kind === 'terminal' ? paneAgentReport(pane.id, pane.resume) : {}),
             ...(splitTab ? { splitTabId: splitTab.id } : {}),
             ...(splitTab?.name ? { splitTabName: splitTab.name } : {}),
+            ...(pane.hibernated ? { hibernated: true } : {}),
           })
         }
       }

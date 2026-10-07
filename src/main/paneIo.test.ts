@@ -41,6 +41,8 @@ const confinedPanes = new Set<string>()
 const pasteMode = new Set<string>()
 const attentionOf = new Map<string, { state?: string; message?: string }>()
 const typedInto: string[] = []
+const asleepPanes = new Set<string>()
+const woken: string[] = []
 const delays: number[] = []
 let cursor = 0
 let echoes = true
@@ -76,6 +78,11 @@ registerPaneIoMethods({
   attention: async (pane) => attentionOf.get(pane.paneId) ?? {},
   inputSent: (pane) => {
     typedInto.push(pane.paneId)
+  },
+  hibernated: async (pane) => asleepPanes.has(pane.paneId),
+  wake: async (pane) => {
+    woken.push(pane.paneId)
+    return asleepPanes.delete(pane.paneId)
   },
   delay: async (ms) => {
     delays.push(ms)
@@ -145,6 +152,8 @@ beforeEach(() => {
   pasteMode.clear()
   attentionOf.clear()
   typedInto.length = 0
+  asleepPanes.clear()
+  woken.length = 0
   delays.length = 0
   cursor = 0
   echoes = true
@@ -375,6 +384,99 @@ describe('pane.input', () => {
         }),
       ).rejects.toThrow('not-available-to-extension')
     }
+    expect(written).toEqual([])
+  })
+})
+
+describe('pane.wake', () => {
+  it('wakes a hibernated tab the caller opened, by process name, without asking or typing itself', async () => {
+    asleepPanes.add('child-pane')
+    const conn = await client(agent)
+    await expect(conn.sendRequest('pane.wake', { panes: ['echo'] })).resolves.toEqual({
+      ok: true,
+      woke: [child.externalId],
+    })
+    expect(woken).toEqual(['child-pane'])
+    expect(written).toEqual([])
+    expect(request).not.toHaveBeenCalled()
+  })
+
+  it('answers not-hibernated for a pane that is awake and wakes none of the named panes', async () => {
+    asleepPanes.add('child-pane')
+    answer = 'once'
+    const conn = await client(agent)
+    await expect(
+      conn.sendRequest('pane.wake', { panes: ['echo', sibling.externalId] }),
+    ).rejects.toThrow(`not-hibernated: ${sibling.externalId}`)
+    expect(woken).toEqual([])
+  })
+
+  it('asks for type-other-pane before waking a pane the caller did not open, and stops on Deny', async () => {
+    asleepPanes.add('sibling-pane')
+    const conn = await client(agent)
+    await expect(conn.sendRequest('pane.wake', { panes: [sibling.externalId] })).rejects.toThrow(
+      'denied: type-other-pane',
+    )
+    expect(asked[0]).toMatchObject({ caps: ['type-other-pane'], action: 'pane.wake' })
+    expect(asked[0].detail).toContain('resume command')
+    expect(woken).toEqual([])
+    answer = 'once'
+    await conn.sendRequest('pane.wake', { panes: [sibling.externalId] })
+    expect(woken).toEqual(['sibling-pane'])
+  })
+
+  it('needs all-workspaces as well for a pane in another workspace', async () => {
+    asleepPanes.add('foreign-pane')
+    const conn = await client(agent)
+    await expect(conn.sendRequest('pane.wake', { panes: [foreign.externalId] })).rejects.toThrow(
+      'denied: type-other-pane, all-workspaces',
+    )
+    expect(woken).toEqual([])
+  })
+
+  it('refuses a sandboxed caller outside its workspace and at a host pane', async () => {
+    sandboxedWorkspaces.add('ws1')
+    asleepPanes.add('foreign-pane')
+    asleepPanes.add('sibling-pane')
+    const caller = freshPane('ws1')
+    grant(caller.externalId, 'type-other-pane')
+    grant(caller.externalId, 'all-workspaces')
+    const conn = await client(caller)
+    for (const pane of [foreign.externalId, sibling.externalId]) {
+      await expect(conn.sendRequest('pane.wake', { panes: [pane] })).rejects.toThrow('sandboxed:')
+    }
+    expect(woken).toEqual([])
+  })
+
+  it('answers unknown-pane for the manager pane and refuses the caller its own pane', async () => {
+    answer = 'once'
+    asleepPanes.add('mgr-pane')
+    const conn = await client(agent)
+    await expect(conn.sendRequest('pane.wake', { panes: [manager.externalId] })).rejects.toThrow(
+      `unknown-pane: ${manager.externalId}`,
+    )
+    await expect(conn.sendRequest('pane.wake', { panes: [agent.externalId] })).rejects.toThrow(
+      'own-pane',
+    )
+    expect(woken).toEqual([])
+  })
+
+  it('refuses an empty pane list and is not available to extensions', async () => {
+    const conn = await client(agent)
+    await expect(conn.sendRequest('pane.wake', { panes: [] })).rejects.toThrow('bad-request: panes')
+    setCaps(extension.externalId, ['process', 'all-workspaces', 'type-other-pane'])
+    const ext = await client(extension)
+    await expect(
+      ext.sendRequest('pane.wake', { panes: [sibling.externalId], targetPaneId: agent.externalId }),
+    ).rejects.toThrow('not-available-to-extension')
+  })
+
+  it('refuses to type into a hibernated pane and says how to wake it', async () => {
+    asleepPanes.add('child-pane')
+    const conn = await client(agent)
+    await expect(
+      conn.sendRequest('pane.input', { pane: 'echo', text: 'hi', keys: ['enter'] }),
+    ).rejects.toThrow(`hibernated: ${child.externalId} is asleep; wake it with ostia pane wake`)
     expect(written).toEqual([])
   })
 })

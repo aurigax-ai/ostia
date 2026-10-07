@@ -169,3 +169,19 @@ describe('pane wait', () => {
     })
   })
 })
+
+describe('pane wake', () => {
+  it('takes one or more panes and --json', () => {
+    expect(parsePaneArgs(['wake', 'fixer', 'w2'])).toEqual({
+      method: 'pane.wake',
+      params: { panes: ['fixer', 'w2'] },
+      json: false,
+    })
+    expect(parsePaneArgs(['wake', 'fixer', '--json'])).toEqual({
+      method: 'pane.wake',
+      params: { panes: ['fixer'] },
+      json: true,
+    })
+    expect(() => parsePaneArgs(['wake'])).toThrow('ostia pane wake <pane>')
+  })
+})

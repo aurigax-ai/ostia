@@ -132,6 +132,34 @@ describe('paneList.listPanes', () => {
     })
   })
 
+  it('marks a hibernated pane hibernated: true and leaves the field off every other pane', async () => {
+    const asleep = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'p-asleep' })
+    const awake = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'p-awake' })
+    const execCommand = vi.fn().mockResolvedValue(
+      ok([
+        {
+          paneId: 'p-asleep',
+          workspaceId: 's1',
+          kind: 'terminal',
+          title: 'claude',
+          hibernated: true,
+        },
+        { paneId: 'p-awake', workspaceId: 's1', kind: 'terminal', title: 'zsh', hibernated: 'yes' },
+      ]),
+    )
+
+    const panes = await listPanes({
+      execCommand,
+      getTerminalState: vi.fn(),
+      ptyPid: vi.fn(),
+      windowIds: ONE_WINDOW,
+    })
+
+    expect(panes[0]).toMatchObject({ paneId: asleep.externalId, hibernated: true })
+    expect(panes[1].paneId).toBe(awake.externalId)
+    expect(panes[1]).not.toHaveProperty('hibernated')
+  })
+
   it("passes an agent pane's kind, session id and state through and drops malformed ones", async () => {
     const agent = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'p-agent' })
     const shell = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'p-agent-bad' })

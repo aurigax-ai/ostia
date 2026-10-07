@@ -19,6 +19,7 @@ interface RendererPaneEntry extends PaneAgentFields {
   filePath?: string
   splitTabId?: string
   splitTabName?: string
+  hibernated?: unknown
 }
 
 export interface WorkspaceEntry {
@@ -52,6 +53,7 @@ export interface PaneEntry extends PaneAgentFields {
   pid?: number
   splitTabId?: string
   splitTabName?: string
+  hibernated?: true
 }
 
 export interface PaneListDeps {
@@ -104,6 +106,7 @@ export async function listPanes(deps: PaneListDeps): Promise<PaneEntry[]> {
       blockCount: state?.blockCount ?? 0,
       lastExitCode: state?.lastExitCode,
       ...(pid ? { pid } : {}),
+      ...(p.hibernated === true ? { hibernated: true } : {}),
       ...agentFields(p),
       ...(typeof p.splitTabId === 'string' ? { splitTabId: p.splitTabId } : {}),
       ...(typeof p.splitTabName === 'string' ? { splitTabName: p.splitTabName } : {}),

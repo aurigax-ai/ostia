@@ -187,14 +187,13 @@ ostia pane send <pane> "text" [--enter]  # type text; no Enter unless --enter
 ostia pane key <pane> <key>...           # enter tab escape up down ctrl-c ...
 ostia pane read <pane> [--lines N] [--json]  # its screen as plain text
 ostia pane wait <pane>... [--until done|waiting|idle|exited]... [--timeout <s>] [--json]
+ostia pane wake <pane>... [--json]       # wake hibernated agent panes
 ```
 
 `<pane>` is a paneId from `ostia pane.list`, or a process id or name from `ostia process ls`.
 
-- A tab **you** opened with `ostia process run` is yours to type into and read, with no
-  question asked. This is how you dispatch a worker and talk to it:
-  `ostia process run "claude" --name worker`, then
-  `ostia pane send worker "summarise src/main" --enter`, then `ostia pane read worker`.
+- A tab **you** opened with `ostia process run` or `ostia agent run` is yours to type into,
+  read and wake, with no question asked.
 - Any other pane asks the human first: typing needs `type-other-pane`, reading needs
   `read-other-pane`, and a pane in another workspace also needs `all-workspaces`. A screen
   can hold secrets, so read only what the task needs.
@@ -211,10 +210,40 @@ ostia pane wait <pane>... [--until done|waiting|idle|exited]... [--timeout <s>] 
   3 timed out (default 10 minutes, `--timeout` up to 1800 s: run it again), 4 the pane
   closed. It needs the same asks as `read` and never reads the screen. A finished pane the
   human looked at reads `idle`, not `done`.
-- Coordinator pattern: `ostia agent run claude "fix the login bug" --name fixer`, then
-  `ostia pane wait fixer`, then `ostia pane read fixer` (or `ostia bus inbox`, if you asked it
-  to report with `ostia bus send`). On `waiting`, read the screen and answer it, or tell the
-  human; then wait again.
+- A pane Ostia hibernated (an idle agent it stopped to save memory; `hibernated: true` in
+  `ostia pane.list`) has no program running: `pane send` and `pane key` refuse it with
+  `hibernated:`. `ostia pane wake <pane>` starts a fresh shell there and types the agent's own
+  resume command, nothing else; it needs the same asks as `send` and answers `not-hibernated`
+  for a pane that is awake.
+
+## Coordinating worker agents
+
+1. **Dispatch.** When workers edit the same repo, give each one its own checkout:
+   `git worktree add ../<repo>-<branch> -b <branch>`. Start each with its task on stdin:
+   `ostia agent run claude - --name <name> --cwd <dir> < task.md`.
+   End every task with a report step, with your id (`externalId` in `ostia whoami`) filled in:
+   `ostia bus send <your id> "<branch> done|blocked: <sha> <summary>; tests: <result>"`.
+   The worker's first send to another pane asks the human once for `send-other-pane`.
+2. **Wait; don't poll screens.** Run `ostia pane wait <name>...` (returns on `done`,
+   `waiting` or `exited`) in the background or with a long `--timeout`, and/or
+   `ostia bus wait` for reports. Read reports with `ostia bus inbox`, then clear them with
+   `ostia bus inbox --drain`: messages stay in the inbox and come back on every read until
+   drained.
+3. **On `waiting`,** the worker needs the human or an answer. Read it with
+   `ostia pane read <name>`, then tell the human or answer it: a permission prompt with
+   `ostia pane key <name> <key>...`, a question that takes text with
+   `ostia pane send <name> "..." --enter --force --confirm` (text to a waiting agent needs
+   `--force`). Exit 2 means nothing happened on screen: press `ostia pane key <name> enter`.
+4. **Hibernated workers.** `ostia pane.list` shows `hibernated: true`. Run
+   `ostia pane wake <name>`, then send nothing until `ostia pane.list` shows that pane
+   `running: true` (its agent is back); before that, text would land at a bare shell prompt.
+5. **Follow-up work** goes to the same worker, whose context is warm:
+   `ostia pane send <name> "..." --enter --confirm`. Never type a task while it is `waiting`
+   on a permission prompt (`pane send` refuses); answer the prompt with `ostia pane key` first.
+6. **Review before merging.** Never trust a worker's "done": read its diff
+   (`git -C <dir> diff main...<branch>`) and its test results yourself.
+7. **Finish.** `ostia process kill <name>` stops the agent. Closing the tab is
+   `ostia pane.close '{"paneId":"<id>"}'` (needs `kill-pane`, asks the human).
 
 ## Workflows — the human's saved commands (read-only)
 
@@ -482,6 +511,8 @@ ostia bus done <id>                                           # mark a handoff c
   prompt, when the human presses Enter there, or when it runs `ostia bus inbox` / `ostia bus wait`
   itself. If you need an answer now, say so to the human (`ostia state waiting "…"`) or keep a
   worker you opened with `ostia process run` / `ostia agent run` moving with `ostia pane send`.
+- `asleep: true`: the receiver is hibernated and reads nothing until it is woken
+  (`ostia pane wake <pane>`).
 - `ostia bus sent` lists what you sent, newest last, as `<time> <to> seen <time>|unseen <first
   line>`. `seen` means the receiver's hook, `bus inbox` or `bus wait` showed it, not that the
   agent acted on it. Sending to an id no open pane holds answers `unknown-pane`.
@@ -869,8 +900,9 @@ you act. Commands without an explicit list default to the same default set above
 
 ## Multi-agent coordination recipe
 
-Two agents in different panes of the same Ostia window (e.g. Claude driving pane A,
-Codex driving pane B) can coordinate like this:
+Two peer agents in different panes of the same Ostia window (e.g. Claude driving pane A,
+Codex driving pane B) can coordinate like this. To start and supervise workers of your own,
+follow "Coordinating worker agents" instead.
 
 1. **Learn identities.** Run `ostia pane.list` to see every pane's `externalId`
    (its `paneId` field) plus `title`/`cwd`, which is often enough to tell panes
@@ -883,7 +915,8 @@ Codex driving pane B) can coordinate like this:
    unit of work. The receiver gets it without polling: at once if it is blocked
    in `ostia bus wait`, otherwise as context at its next prompt (and the human sees
    its pane marked unread). An idle agent is not woken, so check `ostia bus sent`:
-   `unseen` means it has not had a turn yet. The receiver then runs `ostia bus
+   `unseen` means it has not had a turn yet, and `asleep: true` in the send's answer means
+   it is hibernated. The receiver then runs `ostia bus
    claim <id>` and eventually `ostia bus done <id>`, and answers with `ostia bus
    send <yourExternalId> "..."`.
 3. **Plan shared work** on the project's Trellis board (the `trellis` CLI: cards,
