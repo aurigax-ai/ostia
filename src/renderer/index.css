@@ -99,6 +99,8 @@
   --rail-w-collapsed: 44px;
   --topbar-h: 36px;
   --tabstrip-h: 34px;
+  --tab-max-w: 200px;
+  --tab-min-w: 96px;
 
   --separator-border: var(--line);
   --focus-border: var(--brand);
@@ -1560,22 +1562,98 @@
   color: var(--fg-muted);
 }
 
-.pane-tabs {
+.pane-tab-row {
+  position: relative;
   display: flex;
   flex: 1;
   align-self: stretch;
   min-width: 0;
+}
+
+.pane-tabs {
+  --fade-start: 0px;
+  --fade-end: 0px;
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-width: 0;
   overflow-x: auto;
   scrollbar-width: none;
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    var(--fg) var(--fade-start),
+    var(--fg) calc(100% - var(--fade-end)),
+    transparent
+  );
+}
+
+.pane-tabs[data-fade-start] {
+  --fade-start: 24px;
+}
+
+.pane-tabs[data-fade-end] {
+  --fade-end: 24px;
+}
+
+.pane-tabs-attn {
+  position: absolute;
+  top: 50%;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 20px;
+  padding: 0 6px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: var(--surface-1);
+  color: var(--fg);
+  font-size: var(--text-ui-xs);
+  line-height: var(--text-ui-xs--line-height);
+  transform: translateY(-50%);
+}
+
+.pane-tabs-attn[data-edge="start"] {
+  left: 2px;
+}
+
+.pane-tabs-attn[data-edge="end"] {
+  right: 2px;
+}
+
+.pane-tabs-attn .pane-attn-mark {
+  background: var(--attn);
+}
+
+.pane-tabs-attn:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: -2px;
+}
+
+.pane-all-tabs {
+  flex: 0 0 auto;
+  color: var(--fg-muted);
+}
+
+.all-tabs-item .title {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.all-tabs-item[data-current] {
+  font-weight: var(--font-weight-medium);
 }
 
 .pane-tab {
   position: relative;
   display: flex;
-  flex: 0 1 auto;
+  flex: 0 1 var(--tab-max-w);
   align-items: center;
-  min-width: 72px;
-  max-width: 240px;
+  min-width: var(--tab-min-w);
+  max-width: var(--tab-max-w);
   padding-right: 4px;
   border-right: 1px solid var(--line);
   color: var(--fg-muted);
@@ -1687,8 +1765,10 @@
 }
 
 .pane-split-tab {
+  --split-tab-lead: 36px;
+  flex-basis: calc(var(--split-segments) * var(--tab-max-w) + var(--split-tab-lead));
   gap: 0;
-  min-width: auto;
+  min-width: calc(var(--split-segments) * var(--tab-min-w) + var(--split-tab-lead));
   max-width: none;
   padding-left: 10px;
 }
@@ -1759,11 +1839,11 @@
 .split-tab-segment {
   position: relative;
   display: flex;
-  flex: 0 1 auto;
+  flex: 1 1 0;
   align-items: center;
   align-self: stretch;
-  min-width: 96px;
-  max-width: 200px;
+  min-width: var(--tab-min-w);
+  max-width: var(--tab-max-w);
   padding-right: 2px;
   transition: background-color var(--motion-fast) var(--ease-out), color var(--motion-fast)
     var(--ease-out);
@@ -2937,16 +3017,19 @@ button.prompt-chip:focus-visible {
   background: var(--fg-muted);
 }
 
-.pane-tab[data-attention="waiting"] .pane-attn-mark {
+.pane-tab[data-attention="waiting"] .pane-attn-mark,
+.all-tabs-item[data-attention="waiting"] .pane-attn-mark {
   background: var(--attn);
 }
 
-.pane-tab[data-attention="error"] .pane-attn-mark {
+.pane-tab[data-attention="error"] .pane-attn-mark,
+.all-tabs-item[data-attention="error"] .pane-attn-mark {
   background: var(--attn);
   border-radius: 1px;
 }
 
-.pane-tab[data-attention="done"] .pane-attn-mark {
+.pane-tab[data-attention="done"] .pane-attn-mark,
+.all-tabs-item[data-attention="done"] .pane-attn-mark {
   background: var(--ok);
 }
 
