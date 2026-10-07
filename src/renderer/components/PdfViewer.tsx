@@ -185,9 +185,9 @@ export function PdfViewer({
   const pageCount = doc?.numPages ?? 0
 
   usePinchZoom({ stageRef, contentRef: pageRef, scale, onZoom: setZoom })
-  const renderScale = useSettled(scale, RENDER_SETTLE_MS)
+  const renderScale = useSettled(base ? scale : null, RENDER_SETTLE_MS)
 
-  const textVersion = usePageRender(page, renderScale, canvasRef, textRef)
+  const textVersion = usePageRender(page, renderScale ?? scale, canvasRef, textRef)
   const [finding, setFinding] = useState(false)
   const [query, setQuery] = useState('')
   const [active, setActive] = useState(0)
