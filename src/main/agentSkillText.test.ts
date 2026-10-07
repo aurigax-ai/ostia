@@ -4,9 +4,20 @@ import { describe, expect, it } from 'vitest'
 
 const SKILL_DESCRIPTION_MAX = 1024
 
+function skillText(file: string): string {
+  return readFileSync(join(__dirname, 'agent', file), 'utf8')
+}
+
 function descriptionOf(file: string): string {
-  const text = readFileSync(join(__dirname, 'agent', file), 'utf8')
-  return /^description: (.*)$/m.exec(text)?.[1] ?? ''
+  return /^description: (.*)$/m.exec(skillText(file))?.[1] ?? ''
+}
+
+function sectionOf(file: string, heading: string): string {
+  const text = skillText(file)
+  const start = text.indexOf(`\n## ${heading}\n`)
+  if (start === -1) return ''
+  const end = text.indexOf('\n## ', start + 1)
+  return text.slice(start, end === -1 ? undefined : end)
 }
 
 describe('Ostia agent skills', () => {
@@ -22,5 +33,30 @@ describe('Ostia agent skills', () => {
     const description = descriptionOf('ostia-skill.md')
     expect(description).toContain('ostia system install')
     expect(description).toContain('never sudo')
+  })
+
+  it('teaches a coordinator the whole worker loop in one section, with exact commands', () => {
+    const section = sectionOf('ostia-skill.md', 'Coordinating worker agents')
+    for (const command of [
+      'git worktree add',
+      'ostia agent run claude - --name <name> --cwd <dir>',
+      'ostia bus send <your id> "<branch> done|blocked: <sha> <summary>; tests:',
+      'ostia whoami',
+      'send-other-pane',
+      'ostia pane wait <name>',
+      'ostia bus wait',
+      'ostia bus inbox --drain',
+      'ostia pane read <name>',
+      '--enter --force --confirm',
+      'ostia pane key <name> enter',
+      'hibernated: true',
+      'ostia pane wake',
+      'running: true',
+      'ostia pane close <name>',
+    ]) {
+      expect(section, command).toContain(command)
+    }
+    expect(section).not.toMatch(/manager/i)
+    expect(skillText('ostia-skill.md').match(/Coordinator pattern/g)).toBeNull()
   })
 })

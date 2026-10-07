@@ -27,7 +27,7 @@ const contextFile = join(dir, 'session-context.md')
 const CODEX_CONTEXT = 'This Codex session runs in a ostia terminal pane.\n'
 
 const announce = vi.fn()
-registerBusMethods({ managerSendAllowed: () => true, announce })
+registerBusMethods({ managerSendAllowed: () => true, announce, hibernated: async () => false })
 
 const sender = registerPane({ windowId: 'w1', workspaceId: 'ws1', paneId: 'cli-bus-sender' })
 const agent = registerPane({ windowId: 'w1', workspaceId: 'ws1', paneId: 'cli-bus-agent' })

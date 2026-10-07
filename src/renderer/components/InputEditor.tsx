@@ -1,7 +1,6 @@
 import { ClipboardTextIcon, CopyIcon } from '@phosphor-icons/react'
 import type { CommandSuggestion } from '@shared/assist'
 import type { SpecCommand } from '@shared/completionSpec'
-import type { Terminal as Xterm } from '@xterm/xterm'
 import {
   type CSSProperties,
   type KeyboardEvent,
@@ -47,6 +46,7 @@ import {
   suggestionWord,
 } from '../lib/inputEditor'
 import { applyLineEdit, lineEditOp, shellKeyBytes } from '../lib/lineEditing'
+import type { OstiaTerminal as Xterm } from '../lib/ostiaTerminal'
 import { planDraftPaste } from '../lib/pasteGate'
 import { cellBox, rowsToMake } from '../lib/promptOverlay'
 import { historyHiddenFrom } from '../lib/scratchPanes'

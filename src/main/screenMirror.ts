@@ -11,6 +11,8 @@ export const HISTORY_LINES = 1000
 const SGR_RESET = '\x1b[0m'
 const PROMPT_START = 'A'
 const COMMAND_START = 'C'
+export const RESTORE_SEAM = '\x1b]133;D\x07\r\n\x1b[2m── workspace restored ──\x1b[0m\r\n'
+export const HIBERNATE_SEAM = '\x1b]133;D\x07\r\n\x1b[2m── woke from hibernation ──\x1b[0m\r\n'
 
 function isBlank(line: IBufferLine | undefined): boolean {
   return !line || line.translateToString(true).trim() === ''
@@ -86,6 +88,7 @@ export class ScreenMirror {
   private readonly term: Terminal
   private promptStart: IMarker | undefined
   private promptStartCol = 0
+  private untouched: { history: string; seamEnd: IMarker } | undefined
   private disposed = false
   private targetCols: number
   private targetRows: number
@@ -136,10 +139,24 @@ export class ScreenMirror {
     return new Promise((resolve) => this.term.write('', resolve))
   }
 
+  markRestored(history: string): void {
+    if (this.disposed || !history) return
+    this.term.write('', () => {
+      if (this.disposed) return
+      this.clearUntouched()
+      const seamEnd = this.term.registerMarker(0)
+      if (seamEnd) this.untouched = { history, seamEnd }
+    })
+  }
+
   serialize(): string {
     if (this.disposed) return ''
     const buffer = this.term.buffer.normal
     const end = this.historyEnd()
+    const untouched = this.untouched
+    if (untouched && !untouched.seamEnd.isDisposed && end < untouched.seamEnd.line) {
+      return untouched.history
+    }
     if (end < 0) return ''
     let start = Math.max(0, end - HISTORY_LINES + 1)
     while (start > 0 && buffer.getLine(start)?.isWrapped) start--
@@ -171,6 +188,7 @@ export class ScreenMirror {
     if (this.disposed) return
     this.disposed = true
     this.clearPromptStart()
+    this.clearUntouched()
     this.term.dispose()
   }
 
@@ -182,7 +200,13 @@ export class ScreenMirror {
       this.promptStartCol = this.term.buffer.active.cursorX
     } else if (kind === COMMAND_START) {
       this.clearPromptStart()
+      this.clearUntouched()
     }
+  }
+
+  private clearUntouched(): void {
+    this.untouched?.seamEnd.dispose()
+    this.untouched = undefined
   }
 
   private clearPromptStart(): void {

@@ -152,13 +152,15 @@ describe('WorkspaceSandboxes', () => {
     store.set('a', { enabled: true, allowRead: ['~/notes'], domains: [], controls: {} })
     store.set('b', { enabled: true, allowRead: [], domains: [], controls: {} })
     const readIn = async (manager: WorkspaceSandboxes, ws: string): Promise<string> => {
-      const wrapped = await manager.wrap(ws, `cat ${join(notes, 'n.txt')}; true`, 'bash')
+      const wrapped = await manager.wrap(ws, `cat ${join(notes, 'n.txt')} 2>&1; true`, 'bash')
       return execFileSync('/bin/sh', ['-c', wrapped], { cwd: workDir, encoding: 'utf8' })
     }
     const managerA = sandboxes(store)
     const managerB = sandboxes(store)
     expect(await readIn(managerA, 'a')).toContain('NOTE-CONTENT')
-    expect(await readIn(managerB, 'b')).not.toContain('NOTE-CONTENT')
+    const inB = await readIn(managerB, 'b')
+    expect(inB).not.toContain('NOTE-CONTENT')
+    expect(inB).toContain('No such file or directory')
     managerA.stopAll()
     managerB.stopAll()
   }, 30_000)

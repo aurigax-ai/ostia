@@ -41,7 +41,7 @@ describe('AgentSessionButton', () => {
     expect(container.innerHTML).toBe('')
   })
 
-  it('shows the running agent with its session title and id', () => {
+  it('shows the running agent with its session title and id', async () => {
     const pane = {
       ...createPane('terminal', '✳ Resume tokens'),
       resume: { agent: 'claude' as const, id: 'abc-123' },
@@ -53,7 +53,7 @@ describe('AgentSessionButton', () => {
       name: 'Claude Code session: Resume tokens · Resumable',
     })
     fireEvent.click(button)
-    expect(screen.getByText('abc-123')).toBeTruthy()
+    expect(await screen.findByText('abc-123')).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Copy resume command' })).toBeTruthy()
   })
 

@@ -3,6 +3,7 @@ import { PRODUCT_DISPLAY_NAME } from '@shared/productDisplay'
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { renderSettled } from '../../../test/render'
 import { useSettingsStore } from '../stores/settingsStore'
 import { PrivacySection } from './PrivacySection'
 
@@ -103,11 +104,11 @@ describe('PrivacySection', () => {
     expect(window.ostia.fs.write).not.toHaveBeenCalled()
   })
 
-  it('marks a hand-edited invalid pattern as ignored', () => {
+  it('marks a hand-edited invalid pattern as ignored', async () => {
     useSettingsStore.setState({
       privacy: { redaction: { enabled: true, patterns: ['ok-[0-9]{2}', 'ACME-['] } },
     })
-    render(<PrivacySection />)
+    await renderSettled(<PrivacySection />)
     const alerts = screen.getAllByRole('alert')
     expect(alerts).toHaveLength(1)
     expect(alerts[0]).toHaveTextContent('Ignored. This is not a valid regular expression.')

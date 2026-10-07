@@ -4,6 +4,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { runAgentIn } from '../../../test/mocks/agentPanes'
+import { renderSettled } from '../../../test/render'
 import { resetIds } from '../layout/tree'
 import { browserPaneOfGuest, runBrowserAction } from '../lib/browserHandles'
 import { startRegionCapture } from '../lib/regionCaptures'
@@ -83,7 +84,7 @@ function twoTerminals(): { workspaceId: string; a: string; b: string } {
 }
 
 function renderView(workspaceId: string) {
-  return render(
+  return renderSettled(
     <TooltipProvider>
       <BrowserView
         workspaceId={workspaceId}
@@ -110,7 +111,7 @@ describe('BrowserView pick toggle', () => {
     const { workspaceId } = twoTerminals()
     const pending = deferred<PickOutcome>()
     vi.mocked(window.ostia.browser.pickStart).mockReturnValue(pending.promise)
-    renderView(workspaceId)
+    await renderView(workspaceId)
     expect(pickButton()).toHaveAttribute('aria-pressed', 'false')
     await userEvent.click(pickButton())
     expect(window.ostia.browser.pickStart).toHaveBeenCalledWith(
@@ -125,20 +126,20 @@ describe('BrowserView pick toggle', () => {
   it('cancels the running pick when toggled off', async () => {
     const { workspaceId } = twoTerminals()
     vi.mocked(window.ostia.browser.pickStart).mockReturnValue(new Promise(() => {}))
-    renderView(workspaceId)
+    await renderView(workspaceId)
     await userEvent.click(pickButton())
     await userEvent.click(pickButton())
     expect(window.ostia.browser.pickCancel).toHaveBeenCalledWith(BROWSER)
   })
 
-  it('shows the agent prompt when an agent started the pick', () => {
+  it('shows the agent prompt when an agent started the pick', async () => {
     const { workspaceId } = twoTerminals()
     let emit: (s: PickState) => void = () => {}
     vi.mocked(window.ostia.browser.onPickState).mockImplementation((cb) => {
       emit = cb
       return () => {}
     })
-    renderView(workspaceId)
+    await renderView(workspaceId)
     act(() => emit({ paneId: 'other-pane', active: true, byAgent: true }))
     expect(pickButton()).toHaveAttribute('aria-pressed', 'false')
     act(() => emit({ paneId: BROWSER, active: true, byAgent: true }))
@@ -151,7 +152,7 @@ describe('BrowserView pick toggle', () => {
   it('reports a failed pick instead of failing silently', async () => {
     const { workspaceId } = twoTerminals()
     vi.mocked(window.ostia.browser.pickStart).mockResolvedValue({ ok: false, error: 'navigated' })
-    renderView(workspaceId)
+    await renderView(workspaceId)
     await userEvent.click(pickButton())
     expect(await screen.findByText(/could not capture an element \(navigated\)/i)).toBeVisible()
   })
@@ -163,7 +164,7 @@ describe('BrowserView send panel', () => {
     usePaneRecencyStore.getState().touch(panes.a, 100)
     usePaneRecencyStore.getState().touch(panes.b, 50)
     vi.mocked(window.ostia.browser.pickStart).mockResolvedValue({ ok: true, capture })
-    renderView(panes.workspaceId)
+    await renderView(panes.workspaceId)
     await userEvent.click(pickButton())
     await screen.findByRole('region', { name: /send to agent/i })
     return panes
@@ -250,7 +251,7 @@ describe('BrowserView region capture', () => {
 
   it('enters crop mode from the toolbar and leaves it on Escape without capturing', async () => {
     const { workspaceId } = twoTerminals()
-    renderView(workspaceId)
+    await renderView(workspaceId)
     expect(regionButton()).toHaveAttribute('aria-pressed', 'false')
     await userEvent.click(regionButton())
     expect(regionButton()).toHaveAttribute('aria-pressed', 'true')
@@ -264,7 +265,7 @@ describe('BrowserView region capture', () => {
 
   it('starts from the palette command only for its own pane', async () => {
     const { workspaceId } = twoTerminals()
-    renderView(workspaceId)
+    await renderView(workspaceId)
     expect(startRegionCapture('another-pane')).toBe(false)
     act(() => {
       expect(startRegionCapture(BROWSER)).toBe(true)
@@ -280,7 +281,7 @@ describe('BrowserView region capture', () => {
       path: '/tmp/ostia-reports-1000/capture-2-localhost.md',
       imagePath: '/tmp/ostia-reports-1000/capture-2-localhost.png',
     })
-    renderView(panes.workspaceId)
+    await renderView(panes.workspaceId)
     await userEvent.click(regionButton())
     drag()
 
@@ -309,7 +310,7 @@ describe('BrowserView region capture', () => {
   it('copies the image instead of sending when asked', async () => {
     const { workspaceId } = twoTerminals()
     vi.mocked(window.ostia.browser.regionCapture).mockResolvedValue({ ok: true, capture: region })
-    renderView(workspaceId)
+    await renderView(workspaceId)
     await userEvent.click(regionButton())
     drag()
     await screen.findByRole('region', { name: /send to agent/i })
@@ -322,7 +323,7 @@ describe('BrowserView region capture', () => {
   it('says why when main refuses the capture', async () => {
     const { workspaceId } = twoTerminals()
     vi.mocked(window.ostia.browser.regionCapture).mockResolvedValue({ ok: false, error: 'empty' })
-    renderView(workspaceId)
+    await renderView(workspaceId)
     await userEvent.click(regionButton())
     drag()
     expect(await screen.findByText(/could not capture the region \(empty\)/i)).toBeVisible()
@@ -340,7 +341,7 @@ describe('BrowserView address bar', () => {
 
   it('keeps what the user is typing when a slow page finishes loading', async () => {
     const { workspaceId } = twoTerminals()
-    const { container } = renderView(workspaceId)
+    const { container } = await renderView(workspaceId)
     const address = screen.getByRole('textbox', { name: /address/i })
     await waitFor(() => expect(container.querySelector('webview')).not.toBeNull())
     await userEvent.clear(address)
@@ -353,7 +354,7 @@ describe('BrowserView address bar', () => {
 
   it('follows navigation when the user is not typing, and Escape restores the page address', async () => {
     const { workspaceId } = twoTerminals()
-    const { container } = renderView(workspaceId)
+    const { container } = await renderView(workspaceId)
     const address = screen.getByRole('textbox', { name: /address/i })
     await waitFor(() => expect(container.querySelector('webview')).not.toBeNull())
 
@@ -381,7 +382,7 @@ describe('BrowserView address bar', () => {
 
   it('loads an address entered before the page was ready when the guest kept its first page', async () => {
     const { workspaceId } = twoTerminals()
-    const { container } = renderView(workspaceId)
+    const { container } = await renderView(workspaceId)
     const address = screen.getByRole('textbox', { name: /address/i })
     await waitFor(() => expect(container.querySelector('webview')).not.toBeNull())
     await userEvent.clear(address)
@@ -395,7 +396,7 @@ describe('BrowserView address bar', () => {
 
   it('does not load the address again when the guest already opened it', async () => {
     const { workspaceId } = twoTerminals()
-    const { container } = renderView(workspaceId)
+    const { container } = await renderView(workspaceId)
     const address = screen.getByRole('textbox', { name: /address/i })
     await waitFor(() => expect(container.querySelector('webview')).not.toBeNull())
     await userEvent.clear(address)
@@ -411,7 +412,7 @@ describe('BrowserView address bar', () => {
 describe('BrowserView storage panel', () => {
   it('opens the storage panel for this pane from the toolbar and closes it again', async () => {
     const { workspaceId } = twoTerminals()
-    renderView(workspaceId)
+    await renderView(workspaceId)
     expect(screen.queryByRole('region', { name: 'Storage' })).not.toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Show storage' }))
     expect(screen.getByRole('region', { name: 'Storage' })).toBeInTheDocument()
@@ -510,7 +511,7 @@ describe('BrowserView keys', () => {
 
   it('runs the browser keys pressed in its toolbar and leaves forward alone without history', async () => {
     const { workspaceId } = twoTerminals()
-    const { container } = renderView(workspaceId)
+    const { container } = await renderView(workspaceId)
     await waitFor(() => expect(container.querySelector('webview')).not.toBeNull())
     const { guest } = await readyGuest(container)
     const back = screen.getByRole('button', { name: 'Back' })
@@ -527,7 +528,7 @@ describe('BrowserView keys', () => {
 
   it('opens find in page, searches as you type, steps with Enter, and closes on Escape', async () => {
     const { workspaceId } = twoTerminals()
-    const { container } = renderView(workspaceId)
+    const { container } = await renderView(workspaceId)
     await waitFor(() => expect(container.querySelector('webview')).not.toBeNull())
     const { webview, guest } = await readyGuest(container)
     fireEvent.keyDown(screen.getByRole('button', { name: 'Back' }), {
@@ -561,7 +562,7 @@ describe('BrowserView keys', () => {
     useSettingsStore.setState({ keybindings: { 'find.next': 'Ctrl+Alt+G' } })
     try {
       const { workspaceId } = twoTerminals()
-      const { container } = renderView(workspaceId)
+      const { container } = await renderView(workspaceId)
       await waitFor(() => expect(container.querySelector('webview')).not.toBeNull())
       const { guest } = await readyGuest(container)
       const back = screen.getByRole('button', { name: 'Back' })
@@ -588,7 +589,7 @@ describe('BrowserView keys', () => {
 
   it('lets main find the pane of its guest', async () => {
     const { workspaceId } = twoTerminals()
-    const { container } = renderView(workspaceId)
+    const { container } = await renderView(workspaceId)
     await waitFor(() => expect(container.querySelector('webview')).not.toBeNull())
     await readyGuest(container)
     expect(browserPaneOfGuest(31)).toBe(BROWSER)
