@@ -20,20 +20,23 @@ import {
 } from '../lib/remoteFileSync'
 import { registerSelectionSender } from '../lib/selectionSenders'
 import { codeFontStack } from '../lib/uiFonts'
+import { usePaneVisible } from '../lib/usePaneVisible'
 import { attachWheelZoom } from '../lib/wheelZoom'
 import { documentSaved, openDocument } from '../lsp/client'
 import { useAskSelectionAction, useAssistCompletionsAction } from '../monaco/assistAction'
 import { langFor } from '../monaco/language'
+import { fileFeatureOptions, isLargeModel } from '../monaco/largeFile'
 import { useLiveEditorSelection } from '../monaco/liveSelection'
+import { holdModel } from '../monaco/modelHolds'
 import { monaco } from '../monaco/setup'
-import { initialMonacoTheme, useMonacoTheme } from '../monaco/useMonacoTheme'
+import { ensureMonacoTheme } from '../monaco/useMonacoTheme'
 import { isMac } from '../platform'
 import { useEditorRevealStore } from '../stores/editorRevealStore'
 import { useEditorStatus } from '../stores/editorStatusStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { IconButton } from './IconButton'
-import { LanguageNotice } from './LanguageNotice'
+import { LanguageNotice, LargeFileNotice } from './LanguageNotice'
 import { MarkdownPreview, type PreviewSelection, isMarkdownPath } from './MarkdownPreview'
 import { RemoteFileBar } from './RemoteFileBar'
 import { useSelectionSend } from './SelectionSend'
@@ -147,11 +150,18 @@ function createTrackedModel(filePath: string, content: string): monaco.editor.IT
   model.onDidChangeContent(() => useEditorStatus.getState().setDirty(filePath, isDirty(model)))
   model.onWillDispose(() => {
     savedVersions.delete(model.uri.toString())
+    diskBase.delete(model.uri.toString())
     remoteVersions.delete(model.uri.toString())
     diskVersions.delete(model.uri.toString())
     useEditorStatus.getState().setDirty(filePath, false)
   })
   return model
+}
+
+function holdShown(held: { current: () => void }, model: monaco.editor.ITextModel | null): void {
+  const previous = held.current
+  held.current = model ? holdModel(model, isDirty) : () => {}
+  previous()
 }
 
 export function useExternalEditorAction(paneId: string): {
@@ -202,6 +212,7 @@ export function EditorView({
   const reducedMotionRef = useRef(reducedMotion)
   reducedMotionRef.current = reducedMotion
   const [blocked, setBlocked] = useState<Blocked | null>(null)
+  const [large, setLarge] = useState(false)
   const [remoteProblem, setRemoteProblem] = useState<RemoteFileError | null>(null)
   const remote = isRemotePath(filePath)
   const [unsavedPath, setUnsavedPath] = useState<string | null>(null)
@@ -213,12 +224,15 @@ export function EditorView({
     (model: monaco.editor.ITextModel, text: string, version?: string) => void
   >(() => {})
   const checkDiskRef = useRef<() => Promise<void>>(async () => {})
+  const releaseShownRef = useRef<() => void>(() => {})
   const [preview, setPreview] = useState(() => useSettingsStore.getState().editor.markdownPreview)
   const markdown = isMarkdownPath(filePath) && !blocked
   const [liveEditor, setLiveEditor] = useState<monaco.editor.IStandaloneCodeEditor | null>(null)
   const previewText = useModelText(liveEditor, markdown && preview)
   const external = useExternalEditorAction(paneId)
-  useMonacoTheme()
+  const visible = usePaneVisible(paneId)
+  const visibleRef = useRef(visible)
+  const missedCheckRef = useRef(false)
   const openExternalRef = useRef(external.open)
   openExternalRef.current = external.open
   const selectionSend = useSelectionSend(workspaceId, paneId)
@@ -268,9 +282,9 @@ export function EditorView({
     if (!host) return
 
     const initial = useSettingsStore.getState().appearance.editor
+    ensureMonacoTheme()
     const editor = monaco.editor.create(host, {
-      theme: initialMonacoTheme(),
-      automaticLayout: true,
+      automaticLayout: false,
       fontFamily: codeFontStack(initial.family),
       fontSize: initial.size,
       fontWeight: String(initial.weight),
@@ -281,8 +295,7 @@ export function EditorView({
       ...behaviorOptions(useSettingsStore.getState().editor),
       renderWhitespace: 'selection',
       padding: { top: 8 },
-      inlineSuggest: { enabled: true },
-      'semanticHighlighting.enabled': true,
+      ...fileFeatureOptions(false),
     })
     editorRef.current = editor
     setLiveEditor(editor)
@@ -511,8 +524,13 @@ export function EditorView({
     const blurSub = editor.onDidBlurEditorText(() => saveIfDirty('onFocusChange'))
 
     const detachWheelZoom = attachWheelZoom(host, 'editor', isMac)
+    const resize = new ResizeObserver(() => {
+      if (visibleRef.current) editor.layout()
+    })
+    resize.observe(host)
 
     return () => {
+      resize.disconnect()
       clearTimeout(highlightTimer)
       autoSave.cancel()
       appChordKeys.dispose()
@@ -520,6 +538,8 @@ export function EditorView({
       blurSub.dispose()
       detachWheelZoom()
       editor.dispose()
+      releaseShownRef.current()
+      releaseShownRef.current = () => {}
       editorRef.current = null
       setLiveEditor(null)
     }
@@ -592,11 +612,13 @@ export function EditorView({
       setBlocked(blocked)
       if (blocked) {
         editor.setModel(null)
+        holdShown(releaseShownRef, null)
         return
       }
       const existing = monaco.editor.getModel(uriFor(filePath))
       if (problem) {
         editor.setModel(existing)
+        holdShown(releaseShownRef, existing)
         setRemoteProblem(problem)
         return
       }
@@ -609,9 +631,13 @@ export function EditorView({
         setDiskBase(model.uri.toString(), content, isRemote ? null : version)
         if (isRemote) remoteVersions.set(model.uri.toString(), version)
       }
+      const isLarge = isLargeModel(model)
+      setLarge(isLarge)
+      editor.updateOptions(fileFeatureOptions(isLarge))
       editor.setModel(model)
+      holdShown(releaseShownRef, model)
       applyReveal(editor, filePath)
-      if (!isRemote) releaseDocument = openDocument(model, paneId)
+      if (!isRemote && !isLarge) releaseDocument = openDocument(model, paneId)
     })
     if (!isRemote) void window.ostia.fs.watch(filePath)
     setDiskBar(null)
@@ -627,7 +653,8 @@ export function EditorView({
       if (change.path === pathRef.current) void checkDiskRef.current()
     })
     const onFocus = (): void => {
-      void checkDiskRef.current()
+      if (visibleRef.current) void checkDiskRef.current()
+      else missedCheckRef.current = true
     }
     window.addEventListener('focus', onFocus)
     return () => {
@@ -637,12 +664,24 @@ export function EditorView({
   }, [])
 
   useEffect(() => {
-    if (!remote) return
+    if (!remote || !visible) return
     const timer = setInterval(() => {
       if (document.visibilityState !== 'hidden') void checkDiskRef.current()
     }, REMOTE_POLL_MS)
     return () => clearInterval(timer)
-  }, [remote])
+  }, [remote, visible])
+
+  useEffect(() => {
+    visibleRef.current = visible
+    if (!visible) {
+      if (remote) missedCheckRef.current = true
+      return
+    }
+    editorRef.current?.layout()
+    if (!missedCheckRef.current) return
+    missedCheckRef.current = false
+    void checkDiskRef.current()
+  }, [visible, remote])
 
   useEffect(() => {
     if (!filePath) return
@@ -691,7 +730,11 @@ export function EditorView({
     <>
       {filePath && remote ? <RemoteFileBar filePath={filePath} problem={remoteProblem} /> : null}
       {filePath && !blocked && !remote ? (
-        <LanguageNotice paneId={paneId} filePath={filePath} />
+        large ? (
+          <LargeFileNotice />
+        ) : (
+          <LanguageNotice paneId={paneId} filePath={filePath} />
+        )
       ) : null}
       <div
         ref={hostRef}
@@ -807,6 +850,8 @@ export function EditorView({
   )
 }
 
+const PREVIEW_DEBOUNCE_MS = 150
+
 function useModelText(
   editor: monaco.editor.IStandaloneCodeEditor | null,
   enabled: boolean,
@@ -815,17 +860,23 @@ function useModelText(
   useEffect(() => {
     if (!enabled || !editor) return
     let content: monaco.IDisposable | undefined
+    let pending: ReturnType<typeof setTimeout> | undefined
     const follow = (): void => {
       content?.dispose()
+      clearTimeout(pending)
       const model = editor.getModel()
       setText(model?.getValue() ?? '')
-      content = model?.onDidChangeContent(() => setText(model.getValue()))
+      content = model?.onDidChangeContent(() => {
+        clearTimeout(pending)
+        pending = setTimeout(() => setText(model.getValue()), PREVIEW_DEBOUNCE_MS)
+      })
     }
     follow()
     const swap = editor.onDidChangeModel(follow)
     return () => {
       swap.dispose()
       content?.dispose()
+      clearTimeout(pending)
     }
   }, [editor, enabled])
   return text

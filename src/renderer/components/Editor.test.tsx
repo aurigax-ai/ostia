@@ -4,6 +4,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { TARGET_PANE, seedSendTarget } from '../../../test/mocks/sendTarget'
 import { commands } from '../commands/registry'
 import { openSelectionSend } from '../lib/selectionSenders'
+import { LARGE_FILE_LINES, fileFeatureOptions } from '../monaco/largeFile'
 import { useEditorStatus } from '../stores/editorStatusStore'
 import { useLiveSelectionStore } from '../stores/liveSelectionStore'
 import { useSettingsStore } from '../stores/settingsStore'
@@ -29,6 +30,12 @@ const fake = vi.hoisted(() => {
     }
     getAlternativeVersionId() {
       return this.version
+    }
+    getValueLength() {
+      return this.value.length
+    }
+    getLineCount() {
+      return this.value.split('\n').length
     }
     undoStack: string[] = []
     getFullModelRange() {
@@ -78,6 +85,17 @@ const fake = vi.hoisted(() => {
       this.disposeListeners.push(l)
       return { dispose() {} }
     }
+    disposed = false
+    isDisposed() {
+      return this.disposed
+    }
+    dispose() {
+      if (this.disposed) return
+      for (const l of this.disposeListeners) l()
+      this.disposed = true
+      if (models.get(this.uri.toString()) === this) models.delete(this.uri.toString())
+      if (state.model === this) editor.setModel(null)
+    }
   }
   const models = new Map<string, FakeModel>()
   interface FakeSelection {
@@ -105,7 +123,13 @@ const fake = vi.hoisted(() => {
     }[]
     createOptions: Record<string, unknown> | null
     optionUpdates: Record<string, unknown>[]
+    visible: boolean
+    layouts: number
+    themedAtCreate: boolean
   } = {
+    themedAtCreate: false,
+    visible: true,
+    layouts: 0,
     createOptions: null,
     optionUpdates: [],
     model: null,
@@ -174,6 +198,9 @@ const fake = vi.hoisted(() => {
         ? { run: async () => state.formatRuns?.() }
         : null,
     onDidChangeModel: (l: Listener) => listen(state.modelListeners, l),
+    layout: () => {
+      state.layouts += 1
+    },
     dispose: () => {},
   }
   const monaco = {
@@ -185,6 +212,7 @@ const fake = vi.hoisted(() => {
       defineTheme: vi.fn(),
       create: (_host: unknown, options: Record<string, unknown>) => {
         state.createOptions = options
+        state.themedAtCreate = monaco.editor.setTheme.mock.calls.length > 0
         return editor
       },
       getModel: (uri: { toString(): string }) => models.get(uri.toString()) ?? null,
@@ -201,12 +229,16 @@ const fake = vi.hoisted(() => {
 vi.mock('../monaco/setup', () => ({
   monaco: fake.monaco,
 }))
+vi.mock('../lib/usePaneVisible', () => ({
+  usePaneVisible: () => fake.state.visible,
+}))
 vi.mock('../lsp/client', () => ({
   openDocument: vi.fn(() => () => {}),
   documentSaved: vi.fn(),
 }))
 
 const { EditorView } = await import('./Editor')
+const { openDocument } = await import('../lsp/client')
 
 describe('EditorView', () => {
   let init: ReturnType<typeof useEditorStatus.getState>
@@ -226,6 +258,8 @@ describe('EditorView', () => {
     fake.state.decorations = []
     fake.state.createOptions = null
     fake.state.optionUpdates = []
+    fake.state.visible = true
+    fake.state.layouts = 0
     useSettingsStore.setState(initSettings, true)
     useEditorStatus.setState(init, true)
   })
@@ -294,6 +328,162 @@ describe('EditorView', () => {
 
     await waitFor(() => expect(fake.state.model?.getValue()).toBe('disk v2'))
     expect(useEditorStatus.getState().dirty['/w/a.txt']).toBeUndefined()
+  })
+
+  it('shares one model between two panes and disposes it when the last one closes', async () => {
+    vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, version: 'v1', text: 'disk v1' })
+    const first = render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.txt" />)
+    await waitFor(() => expect(fake.state.model?.getValue()).toBe('disk v1'))
+    const model = fake.models.get('file:///w/a.txt')
+    const second = render(<EditorView workspaceId="w1" paneId="p2" filePath="/w/a.txt" />)
+    await waitFor(() => expect(window.ostia.fs.read).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(fake.state.model).toBe(model))
+
+    first.unmount()
+    expect(model?.isDisposed()).toBe(false)
+    second.unmount()
+    expect(model?.isDisposed()).toBe(true)
+
+    vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, version: 'v1', text: 'disk v2' })
+    render(<EditorView workspaceId="w1" paneId="p3" filePath="/w/a.txt" />)
+    await waitFor(() => expect(fake.state.model?.getValue()).toBe('disk v2'))
+    expect(fake.state.model).not.toBe(model)
+  })
+
+  it('disposes the model of a clean file the pane moves away from', async () => {
+    vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, version: 'v1', text: 'text' })
+    const { rerender } = render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.txt" />)
+    await waitFor(() => expect(fake.state.model?.uri.path).toBe('/w/a.txt'))
+    const model = fake.state.model
+
+    rerender(<EditorView workspaceId="w1" paneId="p1" filePath="/w/b.txt" />)
+    await waitFor(() => expect(fake.state.model?.uri.path).toBe('/w/b.txt'))
+
+    expect(model?.isDisposed()).toBe(true)
+    expect(fake.models.has('file:///w/a.txt')).toBe(false)
+  })
+
+  it('keeps showing the old file until the next one has loaded', async () => {
+    vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, version: 'v1', text: 'text a' })
+    const { rerender } = render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.txt" />)
+    await waitFor(() => expect(fake.state.model?.uri.path).toBe('/w/a.txt'))
+    const shown: (string | null)[] = []
+    const record = (): void => {
+      shown.push(fake.state.model?.uri.path ?? null)
+    }
+    fake.state.modelListeners.push(record)
+    let finish: (text: string) => void = () => {}
+    vi.mocked(window.ostia.fs.read).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finish = (text) => resolve({ ok: true, version: 'v2', text })
+        }),
+    )
+
+    rerender(<EditorView workspaceId="w1" paneId="p1" filePath="/w/b.txt" />)
+    await waitFor(() => expect(window.ostia.fs.read).toHaveBeenLastCalledWith('/w/b.txt'))
+    expect(fake.state.model?.uri.path).toBe('/w/a.txt')
+    await act(async () => finish('text b'))
+
+    fake.state.modelListeners.splice(fake.state.modelListeners.indexOf(record), 1)
+    expect(shown).toEqual(['/w/b.txt'])
+    expect(fake.models.has('file:///w/a.txt')).toBe(false)
+  })
+
+  it('keeps the model of a file with unsaved edits after its last pane closes', async () => {
+    vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, version: 'v1', text: 'disk v1' })
+    const first = render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.txt" />)
+    await waitFor(() => expect(fake.state.model?.getValue()).toBe('disk v1'))
+    const model = fake.state.model
+    act(() => model?.setValue('my edit'))
+
+    first.unmount()
+    expect(model?.isDisposed()).toBe(false)
+
+    render(<EditorView workspaceId="w1" paneId="p2" filePath="/w/a.txt" />)
+    await waitFor(() => expect(fake.state.model).toBe(model))
+    expect(fake.state.model?.getValue()).toBe('my edit')
+  })
+
+  it('lays out only while shown, on resize and when it is shown again', async () => {
+    const resized: (() => void)[] = []
+    const original = globalThis.ResizeObserver
+    globalThis.ResizeObserver = class {
+      constructor(cb: () => void) {
+        resized.push(cb)
+      }
+      observe() {}
+      disconnect() {}
+    } as unknown as typeof ResizeObserver
+    try {
+      vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, version: 'v1', text: 'text' })
+      fake.state.visible = false
+      const { rerender } = render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.txt" />)
+      await waitFor(() => expect(fake.state.model).not.toBeNull())
+      expect(fake.state.createOptions?.automaticLayout).toBe(false)
+      for (const cb of resized) cb()
+      expect(fake.state.layouts).toBe(0)
+
+      fake.state.visible = true
+      rerender(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.txt" />)
+      expect(fake.state.layouts).toBe(1)
+      for (const cb of resized) cb()
+      expect(fake.state.layouts).toBe(2)
+    } finally {
+      globalThis.ResizeObserver = original
+    }
+  })
+
+  it('creates the editor once the scheme theme is set, without a theme of its own', async () => {
+    vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, version: 'v1', text: 'text' })
+    render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.txt" />)
+    await waitFor(() => expect(fake.state.model).not.toBeNull())
+    expect(fake.state.themedAtCreate).toBe(true)
+    expect(fake.state.createOptions?.theme).toBeUndefined()
+  })
+
+  it('opens a large file without the language server and costly features, with a notice', async () => {
+    vi.mocked(openDocument).mockClear()
+    vi.mocked(window.ostia.fs.read).mockResolvedValue({
+      ok: true,
+      version: 'v1',
+      text: 'x\n'.repeat(LARGE_FILE_LINES),
+    })
+    const { rerender } = render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/big.log" />)
+    expect(
+      await screen.findByText(
+        'Large file: language server, folding, bracket colors, highlights and suggestions are off.',
+      ),
+    ).toBeInTheDocument()
+    expect(fake.state.optionUpdates).toContainEqual(fileFeatureOptions(true))
+    expect(openDocument).not.toHaveBeenCalled()
+
+    vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, version: 'v1', text: 'small' })
+    rerender(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.ts" />)
+    await waitFor(() => expect(openDocument).toHaveBeenCalledTimes(1))
+    expect(fake.state.optionUpdates.at(-1)).toEqual(fileFeatureOptions(false))
+    expect(screen.queryByText(/Large file/)).toBeNull()
+  })
+
+  it('updates the Markdown preview once typing pauses', async () => {
+    useSettingsStore.setState({
+      editor: { ...useSettingsStore.getState().editor, markdownPreview: true },
+    })
+    vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, version: 'v1', text: 'first' })
+    render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/README.md" />)
+    expect(await screen.findByText('first')).toBeInTheDocument()
+    vi.useFakeTimers()
+    try {
+      act(() => fake.state.model?.setValue('second'))
+      act(() => fake.state.model?.setValue('third'))
+      expect(screen.getByText('first')).toBeInTheDocument()
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(200)
+      })
+      expect(screen.getByText('third')).toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('keeps the file dirty and shows an error when the write fails', async () => {
@@ -531,6 +721,23 @@ describe('EditorView', () => {
         window.dispatchEvent(new Event('focus'))
         await new Promise((r) => setTimeout(r, 0))
       })
+      await waitFor(() => expect(fake.state.model?.getValue()).toBe('disk v2'))
+    })
+
+    it('leaves the disk alone on focus while hidden, and checks it once it is shown', async () => {
+      fake.state.visible = false
+      const { rerender } = render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.txt" />)
+      await waitFor(() => expect(fake.state.model?.getValue()).toBe('disk v1'))
+      const reads = vi.mocked(window.ostia.fs.read).mock.calls.length
+      disk = 'disk v2'
+      await act(async () => {
+        window.dispatchEvent(new Event('focus'))
+        await new Promise((r) => setTimeout(r, 0))
+      })
+      expect(window.ostia.fs.read).toHaveBeenCalledTimes(reads)
+
+      fake.state.visible = true
+      rerender(<EditorView workspaceId="w1" paneId="p1" filePath="/w/a.txt" />)
       await waitFor(() => expect(fake.state.model?.getValue()).toBe('disk v2'))
     })
 

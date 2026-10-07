@@ -794,6 +794,8 @@ export const en = {
     externalNoEditor:
       'No external editor found. Set behavior.externalEditor in Settings (e.g. code -g {file}:{line}).',
     externalFailed: 'Could not open the external editor: {error}',
+    largeFile:
+      'Large file: language server, folding, bracket colors, highlights and suggestions are off.',
   },
   crash: {
     title: 'Something went wrong',
@@ -3793,6 +3795,7 @@ export const zhHant: Dict = {
     externalNoEditor:
       '找不到外部編輯器。請在設定中設定 behavior.externalEditor（例如 code -g {file}:{line}）。',
     externalFailed: '無法開啟外部編輯器：{error}',
+    largeFile: '大型檔案：已關閉語言伺服器、摺疊、括號配色、醒目提示與建議。',
   },
   crash: {
     title: '發生錯誤',
