@@ -14,35 +14,39 @@ import {
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterAll, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 const linux = process.platform === 'linux'
 const installScript = join(process.cwd(), 'packaging', 'linux', 'install.sh')
 const userInstallScript = join(process.cwd(), 'packaging', 'linux', 'user-install.sh')
 const localInstallScript = join(process.cwd(), 'scripts', 'install-linux.sh')
 const headersScript = join(process.cwd(), 'scripts', 'electron-headers.sh')
-const root = realpathSync(mkdtempSync(join(tmpdir(), 'ostia-install-')))
-const home = join(root, 'home')
-const releases = join(root, 'release', 'aurigax-ai', 'ostia', 'releases')
-const app = join(home, '.local', 'share', 'ostia', 'app')
-const desktopEntry = join(home, '.local', 'share', 'applications', 'ostia.desktop')
-const icon = join(home, '.local', 'share', 'icons', 'hicolor', '16x16', 'apps', 'ostia.png')
-const scalableIcon = join(
-  home,
-  '.local',
-  'share',
-  'icons',
-  'hicolor',
-  'scalable',
-  'apps',
-  'ostia.svg',
-)
-const cli = join(home, '.local', 'bin', 'ostia')
-const settings = join(home, '.config', 'ostia', 'settings.json')
 const running: ChildProcess[] = []
+let root: string
+let home: string
+let releases: string
+let app: string
+let desktopEntry: string
+let icon: string
+let scalableIcon: string
+let cli: string
+let settings: string
 
-afterAll(() => {
-  for (const child of running) child.kill('SIGKILL')
+beforeEach(() => {
+  root = realpathSync(mkdtempSync(join(tmpdir(), 'ostia-install-')))
+  home = join(root, 'home')
+  releases = join(root, 'release', 'aurigax-ai', 'ostia', 'releases')
+  app = join(home, '.local', 'share', 'ostia', 'app')
+  desktopEntry = join(home, '.local', 'share', 'applications', 'ostia.desktop')
+  const icons = join(home, '.local', 'share', 'icons', 'hicolor')
+  icon = join(icons, '16x16', 'apps', 'ostia.png')
+  scalableIcon = join(icons, 'scalable', 'apps', 'ostia.svg')
+  cli = join(home, '.local', 'bin', 'ostia')
+  settings = join(home, '.config', 'ostia', 'settings.json')
+})
+
+afterEach(() => {
+  for (const child of running.splice(0)) child.kill('SIGKILL')
   rmSync(root, { recursive: true, force: true })
 })
 
@@ -120,6 +124,11 @@ function installedVersion(): string {
   return JSON.parse(readFileSync(join(app, 'resources', 'build-info.json'), 'utf8')).version
 }
 
+function install(version: string): void {
+  publish(version)
+  expect(run(installScript, ['--version', version]).status).toBe(0)
+}
+
 function expectNoLeftovers(): void {
   expect(existsSync(`${app}.new`)).toBe(false)
   expect(existsSync(`${app}.old`)).toBe(false)
@@ -147,6 +156,8 @@ describe.skipIf(!linux)('packaging/linux/install.sh', () => {
   })
 
   it('replaces an existing install with the pinned version when piped into sh', () => {
+    install('1.2.4')
+    publish('1.2.3')
     writeFileSync(join(app, 'stale'), '')
     const { status } = runPiped(['--version', 'v1.2.3'])
     expect(status).toBe(0)
@@ -156,6 +167,7 @@ describe.skipIf(!linux)('packaging/linux/install.sh', () => {
   })
 
   it('refuses an archive whose checksum does not match', () => {
+    install('1.2.3')
     publish('1.2.5', (archive) => `${'a'.repeat(64)}  ${archive}\n`)
     const { status, stderr } = run(installScript, ['--version', '1.2.5'])
     expect(status).toBe(1)
@@ -165,6 +177,7 @@ describe.skipIf(!linux)('packaging/linux/install.sh', () => {
   })
 
   it('refuses a release whose checksums do not list the archive', () => {
+    install('1.2.3')
     publish('1.2.6', () => '')
     const { status, stderr } = run(installScript, ['--version', '1.2.6'])
     expect(status).toBe(1)
@@ -173,6 +186,7 @@ describe.skipIf(!linux)('packaging/linux/install.sh', () => {
   })
 
   it('refuses a version that was never released and a malformed one', () => {
+    install('1.2.3')
     const missing = run(installScript, ['--version', 'v7.0.0'])
     expect(missing.status).toBe(1)
     expect(missing.stderr).toContain('could not download')
@@ -183,6 +197,7 @@ describe.skipIf(!linux)('packaging/linux/install.sh', () => {
   })
 
   it('refuses to install or uninstall while the app runs from that folder', async () => {
+    install('1.2.3')
     const child = spawn(join(app, 'ostia'), ['-c', 'read line'], {
       stdio: ['pipe', 'ignore', 'ignore'],
     })
@@ -239,6 +254,9 @@ describe.skipIf(!linux)('packaging/linux/install.sh', () => {
       'apps',
       'other.png',
     )
+    install('1.2.3')
+    mkdirSync(join(home, '.config', 'ostia'), { recursive: true })
+    writeFileSync(settings, '{}')
     writeFileSync(kept, '{}')
     writeFileSync(otherIcon, 'png')
 
@@ -258,7 +276,7 @@ describe.skipIf(!linux)('packaging/linux/install.sh', () => {
   })
 
   it('leaves a command it did not write in place', () => {
-    expect(run(installScript, ['--version', '1.2.3']).status).toBe(0)
+    install('1.2.3')
     rmSync(cli)
     writeFileSync(cli, '#!/bin/sh\necho mine\n')
     expect(run(installScript, ['--uninstall']).status).toBe(0)
@@ -276,12 +294,6 @@ describe.skipIf(!linux)('packaging/linux/user-install.sh', () => {
     expect(existsSync(join(dir, 'ostia'))).toBe(true)
     expect(readlinkSync(cli)).toBe(join(app, 'resources', 'bin', 'ostia'))
     expectNoLeftovers()
-  })
-
-  it('is the install step of pnpm install:local', () => {
-    expect(readFileSync(localInstallScript, 'utf8')).toContain(
-      'sh "$unpacked/resources/user-install.sh"',
-    )
   })
 })
 

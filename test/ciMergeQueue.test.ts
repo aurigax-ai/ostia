@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { parse } from 'yaml'
-import { ROOT } from './quarantine.mjs'
+import { ROOT } from './affectedTests.mjs'
 
 type Job = {
   needs?: string | string[]
@@ -35,20 +35,14 @@ function fullFor(ctx: { event: string; code: string; e2eFull?: string }): boolea
   return evaluate('branch', ctx.event, false, ctx.code, ctx.e2eFull ?? '') === true
 }
 
-function ciResultAccepts(opts: {
-  code: boolean
-  full: boolean
-  e2e: string
-  platform?: string
-  verified?: boolean
-}): boolean {
+function ciResultAccepts(opts: { code: boolean; full: boolean; e2e: string }): boolean {
   const step = workflow.jobs['ci-result'].steps?.find((candidate) =>
     candidate.run?.includes('jq -e'),
   )
   const run = step?.run ?? ''
   const program = run.slice(run.indexOf("'") + 1, run.lastIndexOf("'"))
   const needs = [workflow.jobs['ci-result'].needs ?? []].flat()
-  const other = opts.code && !opts.verified ? 'success' : 'skipped'
+  const other = opts.code ? 'success' : 'skipped'
   const results = Object.fromEntries(
     needs.map((name) => [
       name,
@@ -80,7 +74,7 @@ function ciResultAccepts(opts: {
         'false',
         '--arg',
         'platform',
-        opts.platform ?? 'linux',
+        'linux',
         '--arg',
         'gate',
         'false',
@@ -89,7 +83,7 @@ function ciResultAccepts(opts: {
       {
         input: JSON.stringify(results),
         stdio: ['pipe', 'pipe', 'pipe'],
-        env: { ...process.env, VERIFIED: String(opts.verified ?? false) },
+        env: { ...process.env, VERIFIED: 'false' },
       },
     )
     return true
@@ -137,7 +131,7 @@ describe('merge queue e2e gating', () => {
     expect(ciResultAccepts({ code: true, full, e2e: 'failure' })).toBe(false)
   })
 
-  it('old condition (full for every merge_group) would fail a docs-only group', () => {
+  it('refuses a docs-only group that asked for the full run when e2e was skipped', () => {
     expect(ciResultAccepts({ code: false, full: true, e2e: 'skipped' })).toBe(false)
   })
 

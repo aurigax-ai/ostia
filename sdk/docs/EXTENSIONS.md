@@ -1206,7 +1206,7 @@ Three places check it:
 Set `api` to the version of the SDK you build with. Raise it only when you start using something
 newer; an extension that declares `1.0` keeps loading in every `1.x`.
 
-For people changing Ostia: `sdk-package/api-lock.json` holds the version and a digest of the
+For people changing Ostia: `sdk/api-lock.json` holds the version and a digest of the
 published contract (the SDK's type declarations and the two manifest schemas). A change to any of
 them fails `src/cli/sdkPackage.integration.test.ts` until you run `pnpm api:bump minor` (or
 `major`), which raises `EXTENSION_API_VERSION` and rewrites the lock in one step. There is no way
@@ -1409,11 +1409,11 @@ These live in the same source tree, but they wrap tools only some people have, s
 shipped in the app. They import the SDK only by its package name
 (`@aurigax-ai/ostia-extension-sdk`), never by a path into this tree, because they are published as
 a project of their own: `pnpm build:marketplace` (`scripts/build-marketplace.mjs`) assembles
-`out/marketplace/` from `marketplace-package/` (build script, `tsconfig.json`, CI,
+`out/marketplace/` from `marketplace/` (build script, `tsconfig.json`, CI,
 `ostia-marketplace.json`), the extensions listed there (shown or unlisted), their tests and
 `test/fixtures/tools`, writes its `package.json`, and builds it against `out/sdk`. One function
 builds an extension folder for both the app and that project (`buildExtension` in
-`marketplace-package/build-extension.mjs`, which `scripts/build-extensions.mjs` imports):
+`marketplace/build-extension.mjs`, which `scripts/build-extensions.mjs` imports):
 `ostia.json`, `locales/`, a bundled `main.js`, a panel's `panel.html`, `panel.css`, bundled
 `panel.js` and the SDK's `panel.css` as `base.css`, and the npm packages an extension's
 `vendor.json` names, copied unchanged (`packages` copies one package to a folder, `closures`

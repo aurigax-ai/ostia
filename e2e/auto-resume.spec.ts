@@ -2,7 +2,7 @@ import type { ChildProcess } from 'node:child_process'
 import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
-import { openWorkspace, pressQuit, waitForExit } from './helpers'
+import { PROMPT, openWorkspace, pressQuit, waitForExit } from './helpers'
 import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
 
 function seedAgentTabs(dataHome: string): void {
@@ -91,14 +91,13 @@ test('with auto-resume on, every agent resumes at startup: shown tab, background
 
 test('with auto-resume off, a restored agent waits until the human activates its tab', async () => {
   const dataHome = freshDataHome()
-  seedSettings(dataHome, DOM_RENDERER_SETTINGS)
   seedAgentTabs(dataHome)
   const app = await launchWithFakeClaude(dataHome)
   try {
     const win = await app.firstWindow()
     await win.waitForLoadState('domcontentloaded')
     const shown = win.locator('.pane-slot:not([data-hidden]) .xterm-rows')
-    await expect(shown).toContainText(/[❯$%#]/, { timeout: 20_000 })
+    await expect(shown).toContainText(PROMPT, { timeout: 20_000 })
     await win.waitForTimeout(1_500)
     await expect(win.locator('.xterm-rows').filter({ hasText: 'claude --resume' })).toHaveCount(0)
 
@@ -274,7 +273,7 @@ test('an agent that exited before the quit does not resume after the restart', a
   const second = await launchAgentApp(dataHome)
   try {
     const shown = second.win.locator('.pane-slot:not([data-hidden]) .xterm-rows')
-    await expect(shown).toContainText(/[❯$%#]/, { timeout: 20_000 })
+    await expect(shown).toContainText(PROMPT, { timeout: 20_000 })
     await second.win.waitForTimeout(1_500)
     await expect(shown).not.toContainText('fake-agent-resumed')
   } finally {

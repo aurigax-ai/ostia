@@ -17,6 +17,8 @@ export const DOM_RENDERER_SETTINGS = {
   workspaces: { confirmQuit: false },
 }
 
+export const HIBERNATE_FAST = { enabled: true, idleSeconds: 5, maxLiveTerminals: 0 }
+
 export function seedSettings(dataHome: string, settings: object): void {
   const userData = join(dataHome, 'userData')
   mkdirSync(userData, { recursive: true })

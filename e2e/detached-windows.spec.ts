@@ -1,6 +1,6 @@
 import { isMac } from './chords'
 import { freshDataHome, isolatedLaunch } from './dataHome'
-import { openWorkspace } from './helpers'
+import { PROMPT, openWorkspace, quitApp } from './helpers'
 import {
   type ElectronApplication,
   type Locator,
@@ -25,15 +25,6 @@ async function launchApp(dataHome: string): Promise<Launched> {
     await app.close()
     throw err
   }
-}
-
-async function quitApp(app: ElectronApplication): Promise<void> {
-  await app
-    .evaluate(({ app: electronApp }) => {
-      setTimeout(() => electronApp.quit(), 0)
-    })
-    .catch(() => {})
-  await app.close().catch(() => {})
 }
 
 async function closeWindow(page: Page): Promise<void> {
@@ -84,7 +75,7 @@ async function splitWithTicker(win: Page, marker: string): Promise<void> {
   await openWorkspace(win)
   await win.getByRole('button', { name: 'Split right' }).first().click()
   await expect(win.locator('.xterm')).toHaveCount(2, { timeout: 15_000 })
-  await expect(win.locator('.xterm-rows').nth(1)).toContainText(/[❯$%#]/, { timeout: 15_000 })
+  await expect(win.locator('.xterm-rows').nth(1)).toContainText(PROMPT, { timeout: 15_000 })
   await win.locator('.xterm').nth(1).click()
   await win.keyboard.type(`for i in $(seq 1 1000); do echo ${marker}-$i; sleep 0.2; done`)
   await win.keyboard.press('Enter')
@@ -253,7 +244,7 @@ test('an agent in a detached pane asks for approval in its own window', async ()
       win.getByRole('menuitem', { name: 'Move pane to new window' }).click(),
     ])
     await detached.waitForLoadState('domcontentloaded')
-    await expect(detached.locator('.xterm-rows').first()).toContainText(/[❯$%#]/, {
+    await expect(detached.locator('.xterm-rows').first()).toContainText(PROMPT, {
       timeout: 15_000,
     })
 

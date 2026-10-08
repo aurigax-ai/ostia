@@ -1,25 +1,13 @@
 import { resolve } from 'node:path'
 import { SOFTWARE_WEBGL, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { fakeAgentBin } from './fakeAgent'
-import { emptyState, emptyWorkspace } from './helpers'
-import { _electron as electron, expect, test } from './test'
+import { BENCH_ENGINES } from './ghostty'
+import { openWorkspace } from './helpers'
+import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
 
 const BUSY_AGENT = resolve(__dirname, '../test/fixtures/agents/busy-agent.mjs')
 const WINDOW_MS = 6_000
 const BULK_LINES = 200_000
-
-const ENGINES = [
-  { name: 'xterm-dom', settings: { behavior: { gpuAcceleration: false } } },
-  { name: 'xterm-webgl', settings: { behavior: { gpuAcceleration: true } } },
-  {
-    name: 'ghostty-canvas',
-    settings: { behavior: { gpuAcceleration: false }, terminal: { renderer: 'ghostty' } },
-  },
-  {
-    name: 'ghostty-gpu',
-    settings: { behavior: { gpuAcceleration: true }, terminal: { renderer: 'ghostty' } },
-  },
-]
 
 const PAGE_PROBE = `(() => {
   const p = { frames: 0, maxLag: 0, longTasks: 0, longMs: 0 }
@@ -37,7 +25,7 @@ const PAGE_PROBE = `(() => {
   }).observe({ type: 'longtask', buffered: false })
 })()`
 
-for (const engine of ENGINES) {
+for (const engine of BENCH_ENGINES) {
   for (const fps of [30, 60]) {
     test(`bench ${engine.name} busy agent ${fps}fps`, async () => {
       test.setTimeout(90_000)
@@ -119,7 +107,7 @@ for (const engine of ENGINES) {
   })
 }
 
-for (const engine of ENGINES) {
+for (const engine of BENCH_ENGINES) {
   test(`bench ${engine.name} keystroke latency`, async () => {
     test.setTimeout(90_000)
     const dataHome = freshDataHome()
@@ -210,7 +198,7 @@ for (const engine of ENGINES) {
 
 const AGENT_PANES = 6
 
-for (const engine of ENGINES) {
+for (const engine of BENCH_ENGINES) {
   test(`bench ${engine.name} ${AGENT_PANES} busy agents`, async () => {
     test.setTimeout(150_000)
     const dataHome = freshDataHome()
@@ -272,8 +260,8 @@ function MAIN_PROBE(): void {
 }
 
 async function measure(
-  app: import('@playwright/test').ElectronApplication,
-  win: import('@playwright/test').Page,
+  app: ElectronApplication,
+  win: Page,
   windowMs: number,
 ): Promise<Record<string, number>> {
   const cdp = await win.context().newCDPSession(win)
@@ -288,19 +276,8 @@ async function measure(
   await app.evaluate(MAIN_PROBE)
   await app.evaluate(({ app: electronApp }) => electronApp.getAppMetrics())
   const before = await read()
-  const profiling = process.env.BENCH_PROFILE === '1'
-  if (profiling) {
-    await cdp.send('Profiler.enable')
-    await cdp.send('Profiler.setSamplingInterval', { interval: 200 })
-    await cdp.send('Profiler.start')
-  }
   await win.waitForTimeout(windowMs)
   const after = await read()
-  if (profiling) {
-    const { profile } = (await cdp.send('Profiler.stop')) as { profile: unknown }
-    const { writeFileSync } = await import('node:fs')
-    writeFileSync(`/tmp/bench-${Date.now()}.cpuprofile`, JSON.stringify(profile))
-  }
   const cpu = await app.evaluate(({ app: electronApp }) => {
     const byType: Record<string, number> = {}
     for (const m of electronApp.getAppMetrics()) {
@@ -333,12 +310,7 @@ async function measure(
   }
 }
 
-async function openTerminal(win: import('@playwright/test').Page): Promise<void> {
-  await emptyState(win)
-    .getByRole('button', { name: /New workspace/ })
-    .click()
-  await emptyWorkspace(win).getByRole('button', { name: 'New terminal' }).click()
-  await expect(win.locator('.pane-tab .title').first()).toHaveText('zsh', { timeout: 15_000 })
+async function openTerminal(win: Page): Promise<void> {
+  await openWorkspace(win)
   await win.locator('.xterm, .ghostty-screen').first().click()
-  await win.waitForTimeout(2_500)
 }

@@ -8,7 +8,7 @@ import { copyBundledSources } from './bundled-sources.mjs'
 
 const out = 'out/sdk'
 const sdk = 'src/extensions/sdk'
-const assets = 'sdk-package'
+const assets = 'sdk'
 const packageName = '@aurigax-ai/ostia-extension-sdk'
 const repository = 'https://github.com/aurigax-ai/ostia'
 const app = JSON.parse(readFileSync('package.json', 'utf8'))
@@ -81,7 +81,7 @@ writeJson('template/package.json', {
   devDependencies: { [packageName]: `^${app.version}`, ...template.devDependencies },
 })
 mkdirSync(join(out, 'docs'))
-cpSync('sdk-package/docs/EXTENSIONS.md', join(out, 'docs/EXTENSIONS.md'))
+cpSync('sdk/docs/EXTENSIONS.md', join(out, 'docs/EXTENSIONS.md'))
 
 const types = (entry) => `./types/extensions/sdk/${entry}.d.ts`
 writeJson('package.json', {
@@ -92,7 +92,7 @@ writeJson('package.json', {
   keywords: ['ostia', 'terminal', 'extension', 'sdk', 'coding-agents'],
   ostiaExtensionApi: apiVersion(),
   license: 'MIT',
-  homepage: `${repository}/tree/main/sdk-package#readme`,
+  homepage: `${repository}/tree/main/sdk#readme`,
   bugs: `${repository}/issues`,
   repository: { type: 'git', url: `git+${repository}.git`, directory: sdk },
   publishConfig: { access: 'public' },

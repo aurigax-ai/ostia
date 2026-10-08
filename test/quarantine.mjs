@@ -2,27 +2,25 @@ import { existsSync, readFileSync } from 'node:fs'
 import { relative, resolve } from 'node:path'
 
 export const ROOT = process.cwd()
-export const REGISTRY = resolve(ROOT, 'test/quarantine.json')
-export const MAX_DAYS = 30
-export const REMIND_DAYS = 7
-export const PLATFORMS = ['linux', 'darwin']
+const REGISTRY = resolve(ROOT, 'test/quarantine.json')
+const MAX_DAYS = 30
+const REMIND_DAYS = 7
+const PLATFORMS = ['linux', 'darwin']
 const DAY_MS = 86_400_000
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
 
-export function loadQuarantine(path = REGISTRY) {
-  return JSON.parse(readFileSync(path, 'utf8'))
+export function loadQuarantine() {
+  return JSON.parse(readFileSync(REGISTRY, 'utf8'))
 }
 
 export function quarantineMode() {
   return process.env.TEST_QUARANTINE === 'only' ? 'only' : 'skip'
 }
 
-export function appliesHere(entry, platform = process.platform) {
-  return !entry.platforms || entry.platforms.includes(platform)
-}
-
-export function activeEntries(entries = loadQuarantine(), platform = process.platform) {
-  return entries.filter((entry) => appliesHere(entry, platform))
+export function activeEntries() {
+  return loadQuarantine().filter(
+    (entry) => !entry.platforms || entry.platforms.includes(process.platform),
+  )
 }
 
 export function entryKey(entry) {
@@ -38,8 +36,8 @@ function escapeRegExp(text) {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
-export function playwrightPattern(entry, testDir = 'e2e') {
-  const file = relative(resolve(ROOT, testDir), resolve(ROOT, entry.file))
+export function playwrightPattern(entry) {
+  const file = relative(resolve(ROOT, 'e2e'), resolve(ROOT, entry.file))
   const title = entry.name.split(' > ').join(' ')
   return new RegExp(`(^| )${escapeRegExp(file)} ${escapeRegExp(title)}$`)
 }
@@ -115,14 +113,16 @@ export function quarantineProblems(
   return problems
 }
 
-export function daysLeft(entry, today) {
+function daysLeft(entry, today) {
   return Math.round(
     (Date.parse(`${entry.until}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / DAY_MS,
   )
 }
 
-export function dueForReminder(entries, today, days = REMIND_DAYS) {
-  return entries.filter((entry) => ISO_DATE.test(entry.until) && daysLeft(entry, today) <= days)
+export function dueForReminder(entries, today) {
+  return entries.filter(
+    (entry) => ISO_DATE.test(entry.until) && daysLeft(entry, today) <= REMIND_DAYS,
+  )
 }
 
 export function reminderMarker(entry) {
@@ -152,7 +152,7 @@ export function reminderBody(entries, today) {
     ...lines,
     '',
     'Once a date passes, CI fails on pushes to main, the nightly run and release tags.',
-    'Fix the test and remove its entry, or give it a new date no more than 30 days out.',
+    `Fix the test and remove its entry, or give it a new date no more than ${MAX_DAYS} days out.`,
     '',
     ...entries.map(reminderMarker),
   ].join('\n')

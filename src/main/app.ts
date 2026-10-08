@@ -2869,8 +2869,8 @@ function registerFsIpc(): void {
     const safe = openFileGrants.confine(path)
     if (safe === null) return false
     try {
-      const stamp = await writeText(safe, content)
-      void fileWatches?.wrote(String(e.sender.id), safe, stamp, content)
+      const save = () => writeText(safe, content)
+      await (fileWatches?.write(String(e.sender.id), safe, content, save) ?? save())
       if (safe === settingsFile) {
         settingsChanged()
         telemetry?.settingsChanged()

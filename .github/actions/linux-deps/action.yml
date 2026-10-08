@@ -3,10 +3,6 @@ description: The system packages the Linux jobs need (packages.txt), the user-na
 runs:
   using: composite
   steps:
-    # GitHub-hosted: the .deb files are cached per image version and package
-    # list and installed with dpkg, so a warm job never asks the Ubuntu mirrors
-    # (apt-get update hung there for 30 min, #463). Self-hosted: the ARC runner
-    # image (homelab-infra ci/images/arc-runner) already carries packages.txt.
     - id: key
       if: runner.environment == 'github-hosted'
       shell: bash
@@ -32,9 +28,6 @@ runs:
       run: |
         debs=(~/debs/*.deb)
         [ ! -e "${debs[0]}" ] || sudo dpkg -i "${debs[@]}"
-    # The sysctls exist only on Ubuntu (GitHub-hosted); the ARC node runs SELinux.
-    # compaudit exits 1 when it lists insecure directories; that list is what
-    # xargs fixes, so its status must not fail the step under pipefail.
     - shell: bash
       run: |
         for k in apparmor_restrict_unprivileged_userns apparmor_restrict_unprivileged_unconfined; do

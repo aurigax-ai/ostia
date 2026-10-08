@@ -13,7 +13,6 @@ test('Escape right after the palette chord in a terminal closes the palette and 
     await win.locator('.xterm').first().click()
     await expect(win.locator('.xterm-helper-textarea').first()).toBeFocused()
     await win.keyboard.type('cat -v\n')
-    await win.waitForTimeout(300)
 
     await slowFrames(win)
     await win.keyboard.press(chords.palette)

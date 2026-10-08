@@ -2,7 +2,7 @@ import { readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { build } from 'esbuild'
-import { buildExtension } from '../marketplace-package/build-extension.mjs'
+import { buildExtension } from '../marketplace/build-extension.mjs'
 import { writeFigSpecs } from './completionSpecs.mjs'
 import { marketplaceIds } from './marketplace.mjs'
 

@@ -16,13 +16,11 @@ for (const order of ['enter-first', 'resize-first'] as const) {
       await win.waitForLoadState('domcontentloaded')
       await openWorkspace(win)
       const rows = win.locator('.xterm-rows').first()
-      await win.waitForTimeout(2_000)
       const paneId = await win.locator('.pane[data-pane-id]').first().getAttribute('data-pane-id')
       if (!paneId) throw new Error('no pane id')
 
       await win.evaluate((id) => window.ostia.pty.write(id, 'echo ostia_held_$((40+2))'), paneId)
       await expect(rows).toContainText('ostia_held_$((40+2))', { timeout: 10_000 })
-      await win.waitForTimeout(500)
 
       await win.evaluate(
         async ({ id, order }) => {

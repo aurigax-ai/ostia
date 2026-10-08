@@ -1,4 +1,4 @@
-import { type ChildProcess, execFileSync } from 'node:child_process'
+import type { ChildProcess } from 'node:child_process'
 import { existsSync, readFileSync, readdirSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import {
@@ -7,6 +7,8 @@ import {
   test as base,
   _electron as playwrightElectron,
 } from '@playwright/test'
+
+import { processRows } from './processes'
 
 export * from '@playwright/test'
 
@@ -110,37 +112,13 @@ async function exitedSoon(child: ChildProcess): Promise<boolean> {
 }
 
 function processTree(root: number): string {
-  let listing: string
   try {
-    listing = execFileSync('ps', ['-A', '-o', 'pid=,ppid=,stat=,etime=,comm='], {
-      encoding: 'utf8',
-    })
+    return processRows(root, 'stat=,etime=,comm=')
+      .map((row) => row.line)
+      .join('\n')
   } catch {
     return 'ps failed'
   }
-  const rows = listing
-    .split('\n')
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => ({
-      line,
-      pid: Number(line.split(/\s+/)[0]),
-      ppid: Number(line.split(/\s+/)[1]),
-    }))
-  const kept = new Set([root])
-  for (let grew = true; grew; ) {
-    grew = false
-    for (const row of rows) {
-      if (kept.has(row.ppid) && !kept.has(row.pid)) {
-        kept.add(row.pid)
-        grew = true
-      }
-    }
-  }
-  return rows
-    .filter((row) => kept.has(row.pid))
-    .map((row) => row.line)
-    .join('\n')
 }
 
 function quitLines(log: string): string {

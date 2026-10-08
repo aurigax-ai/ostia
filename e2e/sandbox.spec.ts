@@ -1,11 +1,10 @@
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { type Server, createServer } from 'node:http'
-import type { AddressInfo } from 'node:net'
 import { join } from 'node:path'
 import { buildSync } from 'esbuild'
 import { PRODUCT_NAME } from '../src/shared/product'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
-import { PROMPT, openWorkspace } from './helpers'
+import { PROMPT, openWorkspace, runInTerminal } from './helpers'
+import { UPSTREAM_BODY, fakeUpstream, freePort, sandboxedShell, setSandbox } from './sandboxShell'
 import { type Page, _electron as electron, expect, test } from './test'
 
 async function launch(env: Record<string, string> = {}) {
@@ -30,49 +29,10 @@ async function launch(env: Record<string, string> = {}) {
   return { app, win, home, project, dataHome }
 }
 
-const UPSTREAM_BODY = 'UPSTREAM-REACHED'
-
-async function fakeUpstream(): Promise<{ server: Server; url: string; requested: string[] }> {
-  const requested: string[] = []
-  const server = createServer((req, res) => {
-    requested.push(req.url ?? '')
-    res.writeHead(200, { 'content-type': 'text/plain' })
-    res.end(UPSTREAM_BODY)
-  })
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
-  const { port } = server.address() as AddressInfo
-  return { server, url: `http://127.0.0.1:${port}`, requested }
-}
-
-async function run(win: Page, command: string): Promise<void> {
-  await win.locator('.xterm').first().click()
-  await win.keyboard.type(command)
-  await win.keyboard.press('Enter')
-}
-
-async function setSandbox(win: Page, on: boolean): Promise<void> {
-  await win.locator('.rail-row').first().click({ button: 'right' })
-  const item = win.getByRole('menuitemcheckbox', { name: 'Sandbox' })
-  await expect(item).toHaveAttribute('aria-checked', on ? 'false' : 'true')
-  await item.click()
-}
-
-async function sandboxedShell(win: Page): Promise<void> {
-  await setSandbox(win, true)
-  const restart = win.getByRole('button', { name: 'Restart to apply' })
-  await restart.click()
-  await expect(restart).toHaveCount(0)
-  const rows = win.locator('.xterm-rows').first()
-  await expect(async () => {
-    await run(win, 'echo sandbox=${HTTPS_PROXY:+on}')
-    await expect(rows).toContainText('sandbox=on', { timeout: 2_000 })
-  }).toPass({ timeout: 30_000 })
-}
-
 test('SBX-C5 a workspace with the sandbox off spawns an unwrapped shell', async () => {
   const { app, win, home } = await launch()
   try {
-    await run(win, `cat ${home}/.ssh/id_ed25519; echo C5-DONE`)
+    await runInTerminal(win, `cat ${home}/.ssh/id_ed25519; echo C5-DONE`)
     await expect(win.locator('.xterm-rows').first()).toContainText('SECRET-KEY-MATERIAL', {
       timeout: 15_000,
     })
@@ -90,8 +50,8 @@ test('SBX-C6 turning the sandbox on asks running panes to restart, and the resta
     await expect(restart).toBeVisible({ timeout: 10_000 })
     await restart.click()
     await expect(restart).toHaveCount(0)
-    await expect(win.locator('.xterm-rows').first()).toContainText(/[❯$%#]/, { timeout: 20_000 })
-    await run(win, `cat ${home}/.ssh/id_ed25519 || echo C6-DENIED`)
+    await expect(win.locator('.xterm-rows').first()).toContainText(PROMPT, { timeout: 20_000 })
+    await runInTerminal(win, `cat ${home}/.ssh/id_ed25519 || echo C6-DENIED`)
     await expect(win.locator('.xterm-rows').first()).toContainText('C6-DENIED', {
       timeout: 15_000,
     })
@@ -109,7 +69,7 @@ test('SBX-C1 a new pane in a sandboxed workspace runs under srt and cannot read 
       .first()
       .getByRole('button', { name: 'New terminal tab' })
       .click()
-    await expect(win.locator('.xterm-rows:visible')).toContainText(/[❯$%#]/, { timeout: 20_000 })
+    await expect(win.locator('.xterm-rows:visible')).toContainText(PROMPT, { timeout: 20_000 })
     await win.locator('.xterm:visible').click()
     await win.keyboard.type(
       `cat ${home}/.ssh/id_ed25519 || echo C1-DENIED; echo "proxy=$HTTPS_PROXY"`,
@@ -136,7 +96,7 @@ test('a blocked connection waits on the card and completes once the human allows
   })
   try {
     await sandboxedShell(win)
-    await run(win, `curl -s -m 60 -w "\\ncode=%{http_code}\\n" ${target}`)
+    await runInTerminal(win, `curl -s -m 60 -w "\\ncode=%{http_code}\\n" ${target}`)
     const card = win.getByRole('region', { name: 'Agent permission request' })
     await expect(card).toBeVisible({ timeout: 20_000 })
     await expect(card).toContainText('allowed.ostia-e2e.test')
@@ -159,7 +119,7 @@ test('SBX-C21 reads the workspace folder and the shell rc, and blocks and cwd st
     writeFileSync(join(home, '.zshrc'), 'export C21_RC=loaded\n')
     mkdirSync(join(project, 'sub'), { recursive: true })
     await sandboxedShell(win)
-    await run(win, 'cat readme.txt; echo "rc=$C21_RC"; cat ~/.zshrc | head -1; cd sub')
+    await runInTerminal(win, 'cat readme.txt; echo "rc=$C21_RC"; cat ~/.zshrc | head -1; cd sub')
     const rows = win.locator('.xterm-rows').first()
     await expect(rows).toContainText('PROJECT-README', { timeout: 15_000 })
     await expect(rows).toContainText('export C21_RC=loaded')
@@ -177,7 +137,7 @@ test('SBX-C24 reaches Ostia from a sandboxed shell through the control socket', 
   const { app, win } = await launch()
   try {
     await sandboxedShell(win)
-    await run(win, 'ostia whoami && echo C24-OK')
+    await runInTerminal(win, 'ostia whoami && echo C24-OK')
     await expect(win.locator('.xterm-rows').first()).toContainText('C24-OK', { timeout: 15_000 })
   } finally {
     await app.close()
@@ -188,7 +148,7 @@ test('SBX-C2 ostia process run in a sandboxed workspace runs its command in a sa
   const { app, win, home } = await launch()
   try {
     await sandboxedShell(win)
-    await run(
+    await runInTerminal(
       win,
       `ostia process run "cat ${home}/.ssh/id_ed25519 || echo C2-\\$((1+1))-DENIED; echo proxy=\\\${HTTPS_PROXY:+on}" --name probe`,
     )
@@ -202,14 +162,6 @@ test('SBX-C2 ostia process run in a sandboxed workspace runs its command in a sa
     await app.close()
   }
 })
-
-async function freePort(): Promise<number> {
-  const probe = createServer()
-  await new Promise<void>((resolve) => probe.listen(0, '127.0.0.1', resolve))
-  const { port } = probe.address() as AddressInfo
-  await new Promise((resolve) => probe.close(resolve))
-  return port
-}
 
 function serveInside(port: number, body: string): string {
   const script = `require("http").createServer((q,r)=>r.end("${body}")).listen(${port},"127.0.0.1")`
@@ -226,13 +178,13 @@ for (const relay of [false, true]) {
     try {
       await sandboxedShell(win)
       const rows = win.locator('.xterm-rows').first()
-      await run(win, `ostia sandbox expose ${port}`)
+      await runInTerminal(win, `ostia sandbox expose ${port}`)
       const card = win.getByRole('region', { name: 'Agent permission request' })
       await expect(card).toContainText(`wants to expose port ${port}`, { timeout: 20_000 })
       await expect(fetch(`http://127.0.0.1:${port}/`)).rejects.toThrow()
       await card.getByRole('button', { name: 'Allow for this workspace' }).click()
       await expect(rows).toContainText(`exposed: 127.0.0.1:${port}`, { timeout: 15_000 })
-      await run(win, serveInside(port, 'INSIDE-C45'))
+      await runInTerminal(win, serveInside(port, 'INSIDE-C45'))
       await expect(async () => {
         expect(await (await fetch(`http://127.0.0.1:${port}/`)).text()).toBe('INSIDE-C45')
       }).toPass({ timeout: 30_000 })
@@ -287,7 +239,7 @@ test('SBX-C87 installs a system package from a sandbox in a Host pane that close
   try {
     await sandboxedShell(win)
     await answerDialogs(app, 0)
-    await run(win, 'ostia system install jq --manager pacman --reason c87')
+    await runInTerminal(win, 'ostia system install jq --manager pacman --reason c87')
     await expect
       .poll(() => (existsSync(log) ? readFileSync(log, 'utf8') : ''), { timeout: 30_000 })
       .toContain('pacman -S --needed jq')
@@ -310,7 +262,7 @@ test('SBX-C88 opens no pane when the human denies a system install from a sandbo
   try {
     await sandboxedShell(win)
     await answerDialogs(app, 1)
-    await run(win, 'ostia system install jq --manager pacman --reason c88')
+    await runInTerminal(win, 'ostia system install jq --manager pacman --reason c88')
     await expect(win.locator('.xterm-rows').first()).toContainText('denied', { timeout: 20_000 })
     await expect(win.locator('.xterm')).toHaveCount(1)
   } finally {
@@ -356,7 +308,10 @@ test('SBX-C3 sandboxes a terminal an extension opens in a sandboxed workspace', 
     await approval.getByRole('button', { name: 'Approve and enable' }).click()
     await openWorkspace(win)
     await sandboxedShell(win)
-    await run(win, `ostia opener run sh -c 'cat ${home}/.ssh/id_ed25519 || echo C3-$(echo DENIED)'`)
+    await runInTerminal(
+      win,
+      `ostia opener run sh -c 'cat ${home}/.ssh/id_ed25519 || echo C3-$(echo DENIED)'`,
+    )
     const opened = win.locator('.xterm-rows').filter({ hasText: 'C3-DENIED' })
     try {
       await expect(win.locator('.xterm')).toHaveCount(2, { timeout: 45_000 })
@@ -432,13 +387,13 @@ test('a sandboxed shell survives Ctrl+C, which still interrupts its command, and
     await expect(rows).toContainText(new RegExp(`half-typed.*${PROMPT.source}`), {
       timeout: 15_000,
     })
-    await run(win, "sh -c 'echo SLEEPING-$((1+2)); exec sleep 30'; echo SLEPT-$((2+3))")
+    await runInTerminal(win, "sh -c 'echo SLEEPING-$((1+2)); exec sleep 30'; echo SLEPT-$((2+3))")
     await expect(rows).toContainText('SLEEPING-3', { timeout: 15_000 })
     await win.keyboard.press('Control+c')
     await expect(rows).toContainText(new RegExp(`SLEEPING-3.*${PROMPT.source}`), {
       timeout: 15_000,
     })
-    await run(win, 'echo ALIVE-$((6*7))')
+    await runInTerminal(win, 'echo ALIVE-$((6*7))')
     await expect(rows).toContainText('ALIVE-42', { timeout: 15_000 })
     if (process.platform === 'darwin') {
       test.info().annotations.push({
@@ -449,7 +404,7 @@ test('a sandboxed shell survives Ctrl+C, which still interrupts its command, and
       await expect(rows).not.toContainText('SLEPT-5')
     }
 
-    await run(win, 'touch "$TMPDIR/probe" && test -d "$TMPDIR" && echo TMP-$((4+4))')
+    await runInTerminal(win, 'touch "$TMPDIR/probe" && test -d "$TMPDIR" && echo TMP-$((4+4))')
     await expect(rows).toContainText('TMP-8', { timeout: 15_000 })
   } finally {
     await app.close()
@@ -463,7 +418,7 @@ test('a sandboxed shell keeps its temp folder when another Ostia quits', async (
     const other = await electron.launch(isolatedLaunch())
     await other.firstWindow()
     await other.close()
-    await run(win, 'touch "$TMPDIR/probe" && test -d "$TMPDIR" && echo KEPT-$((5+4))')
+    await runInTerminal(win, 'touch "$TMPDIR/probe" && test -d "$TMPDIR" && echo KEPT-$((5+4))')
     await expect(win.locator('.xterm-rows').first()).toContainText('KEPT-9', { timeout: 15_000 })
   } finally {
     await app.close()
@@ -492,7 +447,7 @@ async function restartShell(win: Page, marker: string): Promise<void> {
   await expect(restart).toHaveCount(0)
   const rows = win.locator('.xterm-rows').first()
   await expect(async () => {
-    await run(win, `echo ${marker}=\${HTTPS_PROXY:+on}`)
+    await runInTerminal(win, `echo ${marker}=\${HTTPS_PROXY:+on}`)
     await expect(rows).toContainText(`${marker}=on`, { timeout: 2_000 })
   }).toPass({ timeout: 30_000 })
 }
@@ -504,7 +459,7 @@ test('a folder added as writable in Settings can be written from the sandbox onc
     mkdirSync(join(home, 'builds'))
     await sandboxedShell(win)
     const rows = win.locator('.xterm-rows').first()
-    await run(win, `echo early > ${home}/builds/early.txt; echo BEFORE-$((1+1))`)
+    await runInTerminal(win, `echo early > ${home}/builds/early.txt; echo BEFORE-$((1+1))`)
     await expect(rows).toContainText('BEFORE-2', { timeout: 15_000 })
     expect(existsSync(join(home, 'builds', 'early.txt'))).toBe(false)
 
@@ -515,7 +470,7 @@ test('a folder added as writable in Settings can be written from the sandbox onc
     await win.keyboard.press('Escape')
 
     await restartShell(win, 'rw')
-    await run(win, `echo built > ${home}/builds/out.txt && echo AFTER-$((2+2))`)
+    await runInTerminal(win, `echo built > ${home}/builds/out.txt && echo AFTER-$((2+2))`)
     await expect(rows).toContainText('AFTER-4', { timeout: 15_000 })
     expect(readFileSync(join(home, 'builds', 'out.txt'), 'utf8')).toBe('built\n')
   } finally {
@@ -531,7 +486,7 @@ test('a tool-folder preset switched on in Settings makes the tool readable once 
     writeFileSync(join(home, '.bun', 'bin', 'bun'), 'BUN-BINARY-STANDIN')
     await sandboxedShell(win)
     const rows = win.locator('.xterm-rows').first()
-    await run(win, 'cat ~/.bun/bin/bun; echo BEFORE-$((1+1))')
+    await runInTerminal(win, 'cat ~/.bun/bin/bun; echo BEFORE-$((1+1))')
     await expect(rows).toContainText('BEFORE-2', { timeout: 15_000 })
     await expect(rows).not.toContainText('BUN-BINARY-STANDIN')
 
@@ -546,7 +501,7 @@ test('a tool-folder preset switched on in Settings makes the tool readable once 
     await win.keyboard.press('Escape')
 
     await restartShell(win, 'preset')
-    await run(win, 'cat ~/.bun/bin/bun; echo AFTER-$((2+2))')
+    await runInTerminal(win, 'cat ~/.bun/bin/bun; echo AFTER-$((2+2))')
     await expect(rows).toContainText('AFTER-4', { timeout: 15_000 })
     await expect(rows).toContainText('BUN-BINARY-STANDIN')
   } finally {
@@ -563,7 +518,7 @@ test('tells a sandboxed shell that its home folder is hidden and that files writ
     const rows = win.locator('.xterm-rows').first()
     await expect(rows).toContainText('your home folder is hidden here')
     await expect(rows).toContainText('are discarded when this shell exits')
-    await run(win, 'echo kept > ~/lost.txt && cat ~/lost.txt && echo WROTE-$((3+3))')
+    await runInTerminal(win, 'echo kept > ~/lost.txt && cat ~/lost.txt && echo WROTE-$((3+3))')
     await expect(rows).toContainText('WROTE-6', { timeout: 15_000 })
     expect(existsSync(join(home, 'lost.txt'))).toBe(false)
   } finally {
@@ -573,7 +528,7 @@ test('tells a sandboxed shell that its home folder is hidden and that files writ
 
 async function sttySize(win: Page, marker: string): Promise<string> {
   const rows = win.locator('.xterm-rows').first()
-  await run(win, `echo ${marker}=$(stty size | tr -c 0-9 x)=`)
+  await runInTerminal(win, `echo ${marker}=$(stty size | tr -c 0-9 x)=`)
   const pattern = new RegExp(`${marker}=(\\d+x\\d+)x=`)
   await expect(rows).toContainText(pattern, { timeout: 15_000 })
   return pattern.exec((await rows.textContent()) ?? '')?.[1] ?? ''
@@ -586,21 +541,21 @@ test('behind the pty relay a sandboxed shell has its own terminal: Ctrl+C interr
   try {
     await sandboxedShell(win)
     const rows = win.locator('.xterm-rows').first()
-    await run(win, 'echo "parent=$(ps -o comm= -p $PPID) tty=$(tty)"')
+    await runInTerminal(win, 'echo "parent=$(ps -o comm= -p $PPID) tty=$(tty)"')
     await expect(rows).toContainText(/parent=script tty=\/dev\/pts\/\d+/, { timeout: 15_000 })
 
-    await run(win, "sh -c 'echo SLEEPING-$((1+2)); exec sleep 30'; echo SLEPT-$((2+3))")
+    await runInTerminal(win, "sh -c 'echo SLEEPING-$((1+2)); exec sleep 30'; echo SLEPT-$((2+3))")
     await expect(rows).toContainText('SLEEPING-3', { timeout: 15_000 })
     await win.keyboard.press('Control+c')
-    await run(win, 'echo ALIVE-$((6*7))')
+    await runInTerminal(win, 'echo ALIVE-$((6*7))')
     await expect(rows).toContainText('ALIVE-42', { timeout: 15_000 })
     await expect(rows).not.toContainText('SLEPT-5')
 
-    await run(win, "sh -c 'echo PAUSING-$((2+2)); exec sleep 30'")
+    await runInTerminal(win, "sh -c 'echo PAUSING-$((2+2)); exec sleep 30'")
     await expect(rows).toContainText('PAUSING-4', { timeout: 15_000 })
     await win.keyboard.press('Control+z')
     await expect(rows).toContainText(/suspended|Stopped/, { timeout: 15_000 })
-    await run(win, 'kill %1; echo JOBS-$((5+5))')
+    await runInTerminal(win, 'kill %1; echo JOBS-$((5+5))')
     await expect(rows).toContainText('JOBS-10', { timeout: 15_000 })
     await expect(win.locator('.block-gutter').first()).toBeAttached({ timeout: 10_000 })
 
@@ -628,9 +583,9 @@ test('a path hidden in Settings cannot be read from the sandbox, even inside the
     writeFileSync(join(project, 'secrets', 'token.txt'), 'WORKSPACE-TOKEN-VALUE')
     await sandboxedShell(win)
     const rows = win.locator('.xterm-rows').first()
-    await run(win, 'cat secrets/token.txt')
+    await runInTerminal(win, 'cat secrets/token.txt')
     await expect(rows).toContainText('WORKSPACE-TOKEN-VALUE', { timeout: 15_000 })
-    await run(win, 'clear')
+    await runInTerminal(win, 'clear')
     await expect(rows).not.toContainText('WORKSPACE-TOKEN-VALUE')
 
     const page = await openWorkspacePage(win, 'Files')
@@ -638,7 +593,7 @@ test('a path hidden in Settings cannot be read from the sandbox, even inside the
     await win.keyboard.press('Escape')
 
     await restartShell(win, 'hid')
-    await run(win, 'cat secrets/token.txt || echo HIDDEN-$((3+3))')
+    await runInTerminal(win, 'cat secrets/token.txt || echo HIDDEN-$((3+3))')
     await expect(rows).toContainText('HIDDEN-6', { timeout: 15_000 })
     await expect(rows).not.toContainText('WORKSPACE-TOKEN-VALUE')
   } finally {
@@ -660,7 +615,10 @@ test('a refused connection shows up under Blocked with its host, and Clear empti
     await expect(win.getByRole('button', { name: 'Restart to apply' })).toHaveCount(0)
 
     const rows = win.locator('.xterm-rows').first()
-    await run(win, 'curl -s -m 10 -o /dev/null http://unlisted.invalid/; echo CURL-$((5+5))')
+    await runInTerminal(
+      win,
+      'curl -s -m 10 -o /dev/null http://unlisted.invalid/; echo CURL-$((5+5))',
+    )
     await expect(rows).toContainText('CURL-10', { timeout: 20_000 })
     await expect(win.getByRole('region', { name: 'Agent permission request' })).toHaveCount(0)
 
@@ -687,7 +645,7 @@ test('with Unix sockets off the shell still starts, ostia cannot reach Ostia, a 
   try {
     await sandboxedShell(win)
     const rows = win.locator('.xterm-rows').first()
-    await run(win, 'ostia whoami >/dev/null && echo REACHED-$((7+7))')
+    await runInTerminal(win, 'ostia whoami >/dev/null && echo REACHED-$((7+7))')
     await expect(rows).toContainText('REACHED-14', { timeout: 15_000 })
 
     const page = await openWorkspacePage(win, 'Network')
@@ -698,14 +656,14 @@ test('with Unix sockets off the shell still starts, ostia cannot reach Ostia, a 
     await win.keyboard.press('Escape')
 
     await restartShell(win, 'nosock')
-    await run(win, 'ostia whoami >/dev/null 2>&1 || echo UNREACHABLE-$((8+8))')
+    await runInTerminal(win, 'ostia whoami >/dev/null 2>&1 || echo UNREACHABLE-$((8+8))')
     await expect(rows).toContainText('UNREACHABLE-16', { timeout: 15_000 })
-    await run(win, 'echo x > /etc/ostia-e2e-probe; echo PROBED-$((9+9))')
+    await runInTerminal(win, 'echo x > /etc/ostia-e2e-probe; echo PROBED-$((9+9))')
     await expect(rows).toContainText('PROBED-18', { timeout: 15_000 })
     await expect(win.locator('.block-gutter').first()).toBeAttached({ timeout: 10_000 })
 
     const port = await freePort()
-    await run(win, serveInside(port, 'INSIDE-NOSOCK'))
+    await runInTerminal(win, serveInside(port, 'INSIDE-NOSOCK'))
     const ports = await openWorkspacePage(win, 'Ports')
     const server = ports.getByRole('listitem').filter({ hasText: `:${port}` })
     await expect(server).toBeVisible({ timeout: 20_000 })
@@ -734,7 +692,6 @@ test('refuses to sandbox a workspace whose folder is the home folder, says why, 
   const dataHome = freshDataHome()
   const home = join(dataHome, 'home')
   mkdirSync(home, { recursive: true })
-  seedSettings(dataHome, DOM_RENDERER_SETTINGS)
   const launchOptions = isolatedLaunch(dataHome)
   const app = await electron.launch({ ...launchOptions, env: { ...launchOptions.env, HOME: home } })
   try {
@@ -742,7 +699,7 @@ test('refuses to sandbox a workspace whose folder is the home folder, says why, 
     await win.waitForLoadState('domcontentloaded')
     await openWorkspace(win)
     const rows = win.locator('.xterm-rows').first()
-    await run(win, 'echo ALIVE-$((6*7))')
+    await runInTerminal(win, 'echo ALIVE-$((6*7))')
     await expect(rows).toContainText('ALIVE-42', { timeout: 15_000 })
 
     await win.locator('.rail-row').first().click({ button: 'right' })
@@ -761,7 +718,7 @@ test('refuses to sandbox a workspace whose folder is the home folder, says why, 
       'false',
     )
     await win.keyboard.press('Escape')
-    await run(win, 'echo "still=${HTTPS_PROXY:-unsandboxed}"')
+    await runInTerminal(win, 'echo "still=${HTTPS_PROXY:-unsandboxed}"')
     await expect(rows).toContainText('still=unsandboxed', { timeout: 15_000 })
     await expect(rows).not.toContainText('process exited')
     await expect(rows).not.toContainText('chdir')

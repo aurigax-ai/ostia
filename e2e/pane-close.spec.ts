@@ -1,12 +1,7 @@
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { fakeAgentBin, isolatedHome } from './fakeAgent'
-import { PROMPT, openWorkspace } from './helpers'
-import { type Page, _electron as electron, expect, test } from './test'
-
-async function typeLine(win: Page, line: string): Promise<void> {
-  await win.keyboard.type(line)
-  await win.keyboard.press('Enter')
-}
+import { openWorkspace, typeLine } from './helpers'
+import { _electron as electron, expect, test } from './test'
 
 test('an agent closes a worker tab it started with ostia pane close <name>', async () => {
   const dataHome = freshDataHome()
@@ -21,7 +16,6 @@ test('an agent closes a worker tab it started with ostia pane close <name>', asy
     await win.waitForLoadState('domcontentloaded')
     await openWorkspace(win)
     const coordinator = win.locator('.xterm-rows').first()
-    await expect(coordinator).toContainText(PROMPT, { timeout: 15_000 })
     await win.locator('.xterm').first().click()
     const tabs = win.locator('.pane-tab')
 

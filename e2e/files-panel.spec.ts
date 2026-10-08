@@ -1,5 +1,5 @@
 import { isolatedLaunch } from './dataHome'
-import { PROMPT, emptyWorkspace, openWorkspace } from './helpers'
+import { newTerminalWorkspace, openWorkspace } from './helpers'
 import { _electron as electron, expect, test } from './test'
 
 test('the Files panel opens beside the workspace list and follows the active workspace', async () => {
@@ -19,12 +19,7 @@ test('the Files panel opens beside the workspace list and follows the active wor
     await expect(win.locator('.deck-rail .rail-tab')).toHaveCount(1)
     await expect(current).toHaveText('tmp', { timeout: 15_000 })
 
-    await win.locator('.topbar').getByRole('button', { name: 'New workspace' }).click()
-    await emptyWorkspace(win).getByRole('button', { name: 'New terminal' }).click()
-    await expect(win.locator('.pane-slot:not([data-hidden]) .xterm-rows').first()).toContainText(
-      PROMPT,
-      { timeout: 15_000 },
-    )
+    await newTerminalWorkspace(win)
     await expect(current).toHaveText('~')
 
     await win.locator('.deck-rail .rail-tab-main').first().click()

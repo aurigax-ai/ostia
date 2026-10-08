@@ -2,9 +2,10 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { join } from 'node:path'
-import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
-import { openWorkspace } from './helpers'
-import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
+import { freshDataHome, isolatedLaunch } from './dataHome'
+import { openWorkspace, openedExternally, stubExternalOpener } from './helpers'
+import { clickWith, linkPoint } from './terminalLinks'
+import { type Page, _electron as electron, expect, test } from './test'
 
 async function listen(
   onRequest: (url: string) => void,
@@ -16,58 +17,6 @@ async function listen(
   })
   await new Promise<void>((ready) => server.listen(0, '127.0.0.1', ready))
   return { port: (server.address() as AddressInfo).port, close: () => server.close() }
-}
-
-async function stubExternalOpener(app: ElectronApplication): Promise<void> {
-  await app.evaluate(({ shell }) => {
-    const opened: string[] = []
-    Object.assign(globalThis, { __openedExternally: opened })
-    shell.openExternal = async (url: string) => {
-      opened.push(url)
-    }
-  })
-}
-
-const openedExternally = (app: ElectronApplication): Promise<string[]> =>
-  app.evaluate(() => (globalThis as unknown as { __openedExternally: string[] }).__openedExternally)
-
-async function linkPoint(
-  win: Page,
-  rowText: RegExp,
-  needle: string,
-): Promise<{ x: number; y: number }> {
-  const row = win
-    .locator('.pane-slot:not([data-hidden]) .xterm-rows')
-    .first()
-    .locator('div', { hasText: rowText })
-    .first()
-  await expect(row).toHaveCount(1, { timeout: 15_000 })
-  const target = await row.evaluate((el, text) => {
-    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT)
-    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-      const at = node.textContent?.indexOf(text) ?? -1
-      if (at < 0) continue
-      const range = document.createRange()
-      range.setStart(node, at)
-      range.setEnd(node, at + 1)
-      const rect = range.getBoundingClientRect()
-      return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 }
-    }
-    return null
-  }, needle)
-  if (!target) throw new Error(`${needle} not found in the row`)
-  return target
-}
-
-async function clickWith(
-  win: Page,
-  point: { x: number; y: number },
-  keys: string[],
-): Promise<void> {
-  await win.mouse.move(point.x, point.y)
-  for (const key of keys) await win.keyboard.down(key)
-  await win.mouse.click(point.x, point.y)
-  for (const key of keys.reverse()) await win.keyboard.up(key)
 }
 
 const addresses = (win: Page) => win.locator('.browser-address')
@@ -83,7 +32,6 @@ test('a plain click opens the link in the browser pane and reuses it; Ctrl adds 
   const requests: string[] = []
   const server = await listen((url) => requests.push(url))
   const dataHome = freshDataHome()
-  seedSettings(dataHome, DOM_RENDERER_SETTINGS)
   const app = await electron.launch(isolatedLaunch(dataHome))
   try {
     const win = await app.firstWindow()
@@ -142,7 +90,6 @@ test('a plain click on a link never opens while a drag selected text', async () 
   test.setTimeout(60_000)
   const server = await listen(() => {})
   const dataHome = freshDataHome()
-  seedSettings(dataHome, DOM_RENDERER_SETTINGS)
   const app = await electron.launch(isolatedLaunch(dataHome))
   try {
     const win = await app.firstWindow()
@@ -172,7 +119,6 @@ test('a hyperlink in a mouse-reporting program leaves plain clicks to the progra
   const dataHome = freshDataHome()
   const reports = join(dataHome, 'mouse-reports')
   writeFileSync(reports, '')
-  seedSettings(dataHome, DOM_RENDERER_SETTINGS)
   const app = await electron.launch(isolatedLaunch(dataHome))
   try {
     const win = await app.firstWindow()

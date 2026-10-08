@@ -116,11 +116,11 @@ describe('CommandPalette', () => {
 
     const option = await screen.findByRole('option', { name: /Open Settings/ })
 
-    expect(within(option).getByText('app.openSettings')).toHaveAttribute(
-      'data-slot',
-      'palette-meta',
-    )
-    expect(option.querySelector('kbd')?.parentElement).toHaveClass('justify-end')
+    const id = within(option).getByText('app.openSettings')
+    const shortcut = option.querySelector('kbd')
+    expect(id).toHaveAttribute('data-slot', 'palette-meta')
+    expect(shortcut).not.toBeNull()
+    expect(id).not.toContainElement(shortcut as HTMLElement)
   })
 
   describe('prefixes', () => {

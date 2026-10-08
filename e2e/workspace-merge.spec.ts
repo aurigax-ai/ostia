@@ -1,19 +1,8 @@
 import { freshDataHome, isolatedLaunch } from './dataHome'
-import { PROMPT, emptyWorkspace, openWorkspace } from './helpers'
+import { newTerminalWorkspace, openWorkspace, quitApp } from './helpers'
 import { type Page, _electron as electron, expect, test } from './test'
 
 const shownTerminals = (win: Page) => win.locator('.pane-slot:not([data-hidden]) .xterm')
-
-async function newTerminalWorkspace(win: Page): Promise<void> {
-  const before = await win.locator('.xterm').count()
-  await win.locator('.topbar').getByRole('button', { name: 'New workspace' }).click()
-  await emptyWorkspace(win).getByRole('button', { name: 'New terminal' }).click()
-  await expect(win.locator('.xterm')).toHaveCount(before + 1, { timeout: 15_000 })
-  await expect(win.locator('.pane-slot:not([data-hidden]) .xterm-rows').last()).toContainText(
-    PROMPT,
-    { timeout: 15_000 },
-  )
-}
 
 async function highestTick(win: Page): Promise<number> {
   const text = (
@@ -66,11 +55,6 @@ test('merges a workspace into another one in the same folder after the human con
     const atMerge = await highestTick(win)
     await expect.poll(() => highestTick(win), { timeout: 15_000 }).toBeGreaterThan(atMerge + 5)
   } finally {
-    await app
-      .evaluate(({ app: electronApp }) => {
-        setTimeout(() => electronApp.quit(), 0)
-      })
-      .catch(() => {})
-    await app.close().catch(() => {})
+    await quitApp(app)
   }
 })

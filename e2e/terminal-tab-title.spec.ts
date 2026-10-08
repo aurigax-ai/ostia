@@ -1,7 +1,7 @@
 import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { freshDataHome, isolatedLaunch, testHome } from './dataHome'
-import { PROMPT, openWorkspace } from './helpers'
+import { PROMPT, openWorkspace, quitApp } from './helpers'
 import {
   type ElectronApplication,
   type Locator,
@@ -30,15 +30,6 @@ async function launchWith(shell: string, dataHome: string): Promise<Launched> {
     await app.close()
     throw err
   }
-}
-
-async function quitApp(app: ElectronApplication): Promise<void> {
-  await app
-    .evaluate(({ app: electronApp }) => {
-      setTimeout(() => electronApp.quit(), 0)
-    })
-    .catch(() => {})
-  await app.close().catch(() => {})
 }
 
 function tabTitles(win: Page): Locator {

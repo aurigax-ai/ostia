@@ -32,8 +32,6 @@ on:
         description: Playwright --repeat-each for the e2e jobs
         type: string
         default: '1'
-  # Nightly full run on main, so an e2e regression shows up within a day even
-  # when no release candidate is cut. 18:00 UTC = 02:00 Asia/Taipei.
   schedule:
     - cron: '0 18 * * *'
 
@@ -42,9 +40,6 @@ permissions:
 
 env:
   NODE_OPTIONS: --max-old-space-size=5120
-  # Tests that read a sandboxed process's memory (process_vm_readv). The
-  # self-hosted Linux node forbids that (kernel.yama.ptrace_scope=3), so they
-  # run on GitHub-hosted Ubuntu instead: the whole unit job, and this e2e test.
   PTRACE_E2E: with Unix sockets off the shell still starts
 
 concurrency:
@@ -62,20 +57,6 @@ jobs:
       actions: read
     outputs:
       code: ${{ github.ref_type == 'tag' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || steps.filter.outputs.code }}
-      # The e2e suites (Linux, macOS) are the slow part. They run for tags
-      # (v1.2.3 and pre-releases such as v1.2.3-rc.1, via release.yml), the
-      # nightly schedule and manual dispatch. A pull request runs the specs
-      # its plan selects (selected, scripts/affectedTests.mjs): the specs it
-      # changed, the specs importing a changed file, the specs of the areas
-      # in test/e2eAreas.json its changes touch, and the smoke set for any
-      # other code change. One that changes the e2e harness, or whose plan
-      # fails, runs the full Linux suite (macOS stays on the nightly and
-      # tags). The merge queue runs
-      # the full Linux suite when the group changes code, and skips e2e for a
-      # docs-only group. Pull requests and the merge queue also get static,
-      # unit, unit-dom and build; pushes to main run no e2e but also run
-      # unit-macos, and a push the merge queue already passed runs only
-      # unit-macos and quarantine (verified).
       full: ${{ github.ref_type == 'tag' || github.event_name == 'schedule' || (github.event_name == 'merge_group' && steps.filter.outputs.code == 'true') || (github.event_name == 'workflow_dispatch' && inputs.full) || (steps.filter.outputs.code == 'true' && steps.tests.outputs.e2e_full == 'true') }}
       selected: ${{ steps.tests.outputs.e2e_full != 'true' && steps.tests.outputs.e2e_specs != '' }}
       linux: ${{ steps.runner.outputs.linux }}
@@ -86,20 +67,9 @@ jobs:
       repeat: ${{ steps.plan.outputs.repeat }}
       shards: ${{ steps.tests.outputs.e2e_shards || steps.plan.outputs.shards }}
       macos_matrix: ${{ steps.plan.outputs.macos_matrix }}
-      # Pull requests run only the unit tests their diff against the base can
-      # affect (scripts/affectedTests.mjs); empty means every test, as in the
-      # merge queue, on main, the nightly run, tags and manual dispatch. The
-      # merge queue runs every test so that a main push can skip them.
       tests: ${{ steps.tests.outputs.plan }}
-      # A push to main whose sha already passed ci-result in the merge queue
-      # (scripts/mergeQueueVerified.mjs) skips static, unit, unit-dom and build.
-      # Any other push, or a failed lookup, runs them as before.
       verified: ${{ steps.verified.outputs.verified == 'true' }}
     steps:
-      # Routing only, not security: a PR can edit this step. The self-hosted
-      # runners enforce the same rule in their job-started hook, which a PR
-      # cannot touch (homelab-infra#137). Keep the two lists in sync.
-      # 1400096531 is this repository's ID; it survives the rename to Ostiaterm.
       - id: runner
         env:
           TRUSTED: ${{ github.repository_id == '1400096531'
@@ -109,8 +79,6 @@ jobs:
               || (github.event_name == 'pull_request'
                 && github.event.pull_request.head.repo.id == github.event.repository.id
                 && contains(fromJSON('["JustinHung0407","mtch3n"]'), github.event.pull_request.user.login))) }}
-          # Repo variables to fall back to GitHub-hosted without a code change,
-          # e.g. while the Mac mini is offline: set to "off".
           LINUX_SWITCH: ${{ vars.OSTIA_SELF_HOSTED_LINUX }}
           MACOS_SWITCH: ${{ vars.OSTIA_SELF_HOSTED_MACOS }}
           REF_TYPE: ${{ github.ref_type }}
@@ -128,8 +96,6 @@ jobs:
           echo "linux=$linux" >> "$GITHUB_OUTPUT"
           echo "linux_small=$linux_small" >> "$GITHUB_OUTPUT"
           echo "macos=$macos" >> "$GITHUB_OUTPUT"
-      # Only workflow_dispatch can fill these in; every other trigger gets the
-      # full shard and group lists and a single repeat.
       - id: plan
         env:
           SPECS: ${{ inputs.specs }}
@@ -177,13 +143,11 @@ jobs:
             echo "e2e: every Linux spec" >> "$GITHUB_STEP_SUMMARY"
           else
             count=$(jq '.e2e | length' <<< "$plan")
-            shards='[1]'
-            [ "$count" -le 12 ] || shards='[1,2,3,4]'
             {
               echo "e2e_specs=$(jq -r '.e2e | join(" ")' <<< "$plan")"
-              echo "e2e_shards=$shards"
+              echo "e2e_shards=$(jq -c '.e2eShards' <<< "$plan")"
             } >> "$GITHUB_OUTPUT"
-            { echo "e2e: $count specs"; jq -r '.e2e[] | "- " + .' <<< "$plan"; } >> "$GITHUB_STEP_SUMMARY"
+            { echo "e2e: $count specs in $(jq '.e2eShards | length' <<< "$plan") job(s)"; jq -r '.e2e[] | "- " + .' <<< "$plan"; } >> "$GITHUB_STEP_SUMMARY"
           fi
       - if: github.event_name == 'pull_request' || github.event_name == 'push' || github.event_name == 'merge_group'
         uses: dorny/paths-filter@v4
@@ -348,9 +312,6 @@ jobs:
       - if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
         with:
-          # Not blob-*: e2e-report merges those, and a GitHub-hosted blob has a
-          # different checkout path from the self-hosted shards, which
-          # merge-reports refuses.
           name: ptrace-blob-report
           path: blob-report
           retention-days: 3
@@ -457,8 +418,6 @@ jobs:
           path: playwright-report
           retention-days: 14
 
-  # Runs only the tests in test/quarantine.json, several times, and reports
-  # pass/fail counts per entry. Never part of ci-result.
   quarantine:
     needs: [changes, build, build-macos]
     if: ${{ !cancelled() && needs.changes.outputs.code == 'true' && github.event_name != 'merge_group' && github.event_name != 'pull_request' }}
@@ -502,11 +461,6 @@ jobs:
       - if: env.E2E == 'true' && steps.out.outcome == 'success'
         run: node scripts/quarantine.mjs e2e "$RUNS"
 
-  # Pull requests and the merge queue only check the format of
-  # test/quarantine.json (test/quarantine.test.ts). Pushes to main, the
-  # nightly run, manual runs and tags (release.yml) fail here once an entry's date has
-  # passed or its issue is closed. Not part of ci-result, so a PR is never
-  # held up by a date it did not touch.
   quarantine-dates:
     if: github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04

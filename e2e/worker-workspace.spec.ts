@@ -1,5 +1,5 @@
 import { freshDataHome, isolatedLaunch } from './dataHome'
-import { openWorkspace } from './helpers'
+import { openWorkspace, quitApp, typeLine } from './helpers'
 import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
 
 async function launch(dataHome: string): Promise<{ app: ElectronApplication; win: Page }> {
@@ -7,20 +7,6 @@ async function launch(dataHome: string): Promise<{ app: ElectronApplication; win
   const win = await app.firstWindow()
   await win.waitForLoadState('domcontentloaded')
   return { app, win }
-}
-
-async function quit(app: ElectronApplication): Promise<void> {
-  await app
-    .evaluate(({ app: electronApp }) => {
-      setTimeout(() => electronApp.quit(), 0)
-    })
-    .catch(() => {})
-  await app.close().catch(() => {})
-}
-
-async function run(win: Page, line: string): Promise<void> {
-  await win.keyboard.type(line)
-  await win.keyboard.press('Enter')
 }
 
 const coordinatorRows = (win: Page) => win.locator('.xterm-rows').first()
@@ -33,7 +19,7 @@ test('a coordinator makes a background workers workspace in its sidebar group an
     await openWorkspace(win)
     await win.locator('.xterm').first().click()
 
-    await run(
+    await typeLine(
       win,
       `ostia workspace group proj && ostia workspace.new '{"name":"proj · workers","focus":false,"group":"proj"}'`,
     )
@@ -43,7 +29,7 @@ test('a coordinator makes a background workers workspace in its sidebar group an
     await expect(win.locator('.rail-tab.active')).toHaveCount(1)
     await expect(win.locator('.rail-tab.active')).not.toContainText('proj · workers')
 
-    await run(
+    await typeLine(
       win,
       `ostia process run "echo hi-from-$((40+2)); sleep 30" --name fixer --workspace "proj · workers"`,
     )
@@ -59,6 +45,6 @@ test('a coordinator makes a background workers workspace in its sidebar group an
     await expect(win.getByRole('tab', { name: /fixer/ })).toBeVisible({ timeout: 15_000 })
     await expect(win.locator('.xterm-rows').last()).toContainText('hi-from-42', { timeout: 15_000 })
   } finally {
-    await quit(app)
+    await quitApp(app)
   }
 })
