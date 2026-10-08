@@ -15,24 +15,24 @@ const workflow = parse(readFileSync(join(ROOT, '.github/workflows/ci.yml'), 'utf
   jobs: Record<string, Job>
 }
 
-function fullFor(ctx: { event: string; code: string; harness?: string }): boolean {
+function fullFor(ctx: { event: string; code: string; e2eFull?: string }): boolean {
   const expression = (workflow.jobs.changes.outputs?.full ?? '')
     .replace(/^\$\{\{\s*|\s*\}\}$/g, '')
     .replaceAll('github.ref_type', 'refType')
     .replaceAll('github.event_name', 'event')
     .replaceAll('inputs.full', 'inputsFull')
     .replaceAll('steps.filter.outputs.code', 'code')
-    .replaceAll('steps.e2e_paths.outputs.harness', 'harness')
+    .replaceAll('steps.tests.outputs.e2e_full', 'e2eFull')
     .replaceAll('==', '===')
   const evaluate = new Function(
     'refType',
     'event',
     'inputsFull',
     'code',
-    'harness',
+    'e2eFull',
     `return ${expression}`,
   )
-  return evaluate('branch', ctx.event, false, ctx.code, ctx.harness ?? '') === true
+  return evaluate('branch', ctx.event, false, ctx.code, ctx.e2eFull ?? '') === true
 }
 
 function ciResultAccepts(opts: {
@@ -76,7 +76,7 @@ function ciResultAccepts(opts: {
         'full',
         String(opts.full),
         '--arg',
-        'changed',
+        'selected',
         'false',
         '--arg',
         'platform',
@@ -119,9 +119,10 @@ describe('merge queue e2e gating', () => {
     expect(fullFor({ event: 'merge_group', code: 'false' })).toBe(false)
   })
 
-  it('leaves pull requests without full unless the harness changed', () => {
+  it('leaves pull requests without full unless their plan asks for every spec', () => {
     expect(fullFor({ event: 'pull_request', code: 'true' })).toBe(false)
-    expect(fullFor({ event: 'pull_request', code: 'true', harness: 'true' })).toBe(true)
+    expect(fullFor({ event: 'pull_request', code: 'true', e2eFull: 'true' })).toBe(true)
+    expect(fullFor({ event: 'pull_request', code: 'false', e2eFull: 'true' })).toBe(false)
   })
 
   it('docs-only group: build and e2e skipped, ci-result accepts', () => {
