@@ -1,7 +1,6 @@
 name: Quarantine reminders
 
 on:
-  # Same time as the nightly CI run: 18:00 UTC = 02:00 Asia/Taipei.
   schedule:
     - cron: '0 18 * * *'
   workflow_dispatch:
@@ -19,9 +18,6 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # Comments once on the issue of every test/quarantine.json entry that
-  # expires within 7 days, so it gets fixed or renewed before the date fails
-  # main, nightly and release tags (the quarantine-dates job in ci.yml).
   remind:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
