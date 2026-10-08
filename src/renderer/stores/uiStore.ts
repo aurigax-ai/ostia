@@ -20,6 +20,7 @@ interface UIState {
   settingsExtension: string | null
   dashboardActive: boolean
   filesOpen: boolean
+  filesSearchOpen: boolean
   filesSearchFocus: boolean
   digitHints: boolean
   promptPreviewPaneId: string | null
@@ -40,6 +41,8 @@ interface UIState {
   toggleFiles: () => void
   showFiles: () => void
   searchFiles: () => void
+  hideFilesSearch: () => void
+  toggleFilesSearch: (focused: EventTarget | null) => void
   filesSearchFocused: () => void
   setDigitHints: (shown: boolean) => void
 }
@@ -55,6 +58,7 @@ export const useUIStore = create<UIState>((set, get) => ({
   settingsExtension: null,
   dashboardActive: false,
   filesOpen: false,
+  filesSearchOpen: false,
   filesSearchFocus: false,
   digitHints: false,
   promptPreviewPaneId: null,
@@ -96,9 +100,17 @@ export const useUIStore = create<UIState>((set, get) => ({
   openDashboard: () => set({ dashboardActive: true, settingsActive: false }),
   toggleDashboard: () =>
     set((s) => ({ dashboardActive: !s.dashboardActive, settingsActive: false })),
-  toggleFiles: () => set((s) => ({ filesOpen: !s.filesOpen, filesSearchFocus: false })),
+  toggleFiles: () =>
+    set((s) => ({ filesOpen: !s.filesOpen, filesSearchOpen: false, filesSearchFocus: false })),
   showFiles: () => set({ filesOpen: true }),
-  searchFiles: () => set({ filesOpen: true, filesSearchFocus: true }),
+  searchFiles: () => set({ filesOpen: true, filesSearchOpen: true, filesSearchFocus: true }),
+  hideFilesSearch: () => set({ filesSearchOpen: false, filesSearchFocus: false }),
+  toggleFilesSearch: (focused) => {
+    const s = get()
+    const inBox = focused instanceof Element && focused.closest('.files-search') !== null
+    if (s.filesOpen && s.filesSearchOpen && inBox) s.hideFilesSearch()
+    else s.searchFiles()
+  },
   filesSearchFocused: () => set({ filesSearchFocus: false }),
   setDigitHints: (digitHints) => set({ digitHints }),
 }))

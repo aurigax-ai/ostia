@@ -540,12 +540,21 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 4px;
   padding-top: 8px;
   padding-bottom: 0;
 }
 
+.files-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .files-toolbar {
   display: flex;
+  flex: none;
   align-items: center;
   gap: 2px;
   margin-right: -4px;

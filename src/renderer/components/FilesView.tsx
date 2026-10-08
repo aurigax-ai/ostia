@@ -4,6 +4,7 @@ import {
   EyeIcon,
   FilePlusIcon,
   FolderPlusIcon,
+  MagnifyingGlassIcon,
   SlidersHorizontalIcon,
   XIcon,
 } from '@phosphor-icons/react'
@@ -53,7 +54,7 @@ import { useWorkspacesStore } from '../stores/workspacesStore'
 import { FileMenu, type TreeVisibility } from './FileMenu'
 import { FileTrashDialog, NameInputRow, treeRowKey } from './FileTreeOps'
 import { FilesSearch } from './FilesSearch'
-import { Hint } from './Hint'
+import { Hint, useShortcutHint } from './Hint'
 import { IconButton } from './IconButton'
 import {
   DropdownMenu,
@@ -187,6 +188,16 @@ export function FilesView(): JSX.Element {
     () => allFolders.filter((folder) => folder.workspaceId === workspaceId),
     [allFolders, workspaceId],
   )
+  const searchOpen = useUIStore((s) => s.filesSearchOpen)
+  const searchButton = useRef<HTMLButtonElement>(null)
+  const searchWasOpen = useRef(searchOpen)
+  useEffect(() => {
+    const hidden = searchWasOpen.current && !searchOpen
+    searchWasOpen.current = searchOpen
+    const focused = document.activeElement
+    if (hidden && (!focused || focused === document.body)) searchButton.current?.focus()
+  }, [searchOpen])
+  const searchChord = useShortcutHint('view.searchFiles') ? 'view.searchFiles' : 'find'
 
   const local = (
     <>
@@ -212,8 +223,20 @@ export function FilesView(): JSX.Element {
   return (
     <>
       <div className="rail-section files-head">
-        <span>{d.rail.files}</span>
+        <span className="files-title">{d.rail.files}</span>
         <div className="files-toolbar">
+          <IconButton
+            ref={searchButton}
+            icon={MagnifyingGlassIcon}
+            label={d.filesView.showSearch}
+            command={searchChord}
+            aria-pressed={searchOpen}
+            onClick={() => {
+              const ui = useUIStore.getState()
+              if (searchOpen) ui.hideFilesSearch()
+              else ui.searchFiles()
+            }}
+          />
           <IconButton
             icon={FilePlusIcon}
             label={d.filesView.ops.newFile}

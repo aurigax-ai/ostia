@@ -29,6 +29,7 @@ import { runAppChord } from './lib/chords'
 import { collectQuitGroups, confirmQuit } from './lib/closeConfirm'
 import { handleDocumentClipboardChord, syncClipboardChords } from './lib/documentClipboard'
 import { wireGuestChords } from './lib/guestChordBridge'
+import { useIconStyle } from './lib/iconWeight'
 import { installMiddlePasteGuard } from './lib/middlePaste'
 import { useMotionAttribute } from './lib/motion'
 import { applyTheme, useEffectiveTheme } from './lib/theme'
@@ -42,8 +43,6 @@ import { isMac } from './platform'
 import { registerSettingsSchema } from './settings/registerSettingsSchema'
 import { useExtensionsStore } from './stores/extensionsStore'
 import { freezeSnapshots } from './stores/persistence'
-
-const ICON_STYLE = { weight: 'regular' } as const
 import { useSettingsStore } from './stores/settingsStore'
 import { useUIStore } from './stores/uiStore'
 import { useWindowsStore } from './stores/windowsStore'
@@ -57,6 +56,7 @@ export function App(): JSX.Element {
   const zoom = useSettingsStore((s) => s.appearance.zoom)
   const detached = useWindowsStore((s) => s.detached)
   const theme = useEffectiveTheme()
+  const iconStyle = useIconStyle()
   useMotionAttribute()
   useMonacoTheme()
 
@@ -120,7 +120,7 @@ export function App(): JSX.Element {
   }, [])
 
   return (
-    <IconContext.Provider value={ICON_STYLE}>
+    <IconContext.Provider value={iconStyle}>
       <TooltipProvider delay={350}>
         <div className={`app${isMac ? ' is-mac' : ''}${detached ? ' is-detached' : ''}`}>
           {detached ? <DetachedTitleBar /> : <TopBar />}
