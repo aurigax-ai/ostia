@@ -32,6 +32,12 @@ linux:
   extraResources:
     - from: packaging/bin/ostia
       to: bin/ostia
+    - from: packaging/linux/user-install.sh
+      to: user-install.sh
+    - from: resources/icons
+      to: icons
+    - from: resources/icon.svg
+      to: icon.svg
 deb:
   packageName: ostia
   artifactName: ostia_${version}_${arch}.${ext}

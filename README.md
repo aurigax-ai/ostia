@@ -62,6 +62,25 @@ Applications.
 The cask also links the `ostia` command into your PATH, so `ostia --help` works in any terminal.
 With the dmg, run `Ostia.app/Contents/Resources/bin/ostia` directly.
 
+### Linux (x64)
+
+```bash
+curl -fsSL https://github.com/aurigax-ai/ostia/releases/latest/download/install.sh | sh
+```
+
+The script installs the latest release for your user, without sudo and without a package manager:
+the app in `~/.local/share/ostia/app`, an entry in the app menu, and the `ostia` command in
+`~/.local/bin`. It checks the download against the release's `SHA256SUMS` first. Run it again to
+update, or use the update Ostia offers in the app.
+
+```bash
+curl -fsSL https://github.com/aurigax-ai/ostia/releases/latest/download/install.sh | sh -s -- --version v0.5.10
+curl -fsSL https://github.com/aurigax-ai/ostia/releases/latest/download/install.sh | sh -s -- --uninstall
+```
+
+`--version` installs that release instead of the latest one. `--uninstall` removes what the script
+installed and keeps your settings and data.
+
 ### Debian and Ubuntu (x64)
 
 ```bash
@@ -73,18 +92,20 @@ sudo apt update && sudo apt install ostia
 
 `sudo apt upgrade` picks up new releases. The package adds Ostia to the app menu and the `ostia` command.
 
-### Other Linux (x64)
+Without the repository, download `ostia_<version>_amd64.deb` from the
+[latest release](https://github.com/aurigax-ai/ostia/releases/latest) and run
+`sudo apt install ./ostia_<version>_amd64.deb`.
 
-Get the tarball from the
-[latest release](https://github.com/aurigax-ai/ostia/releases/latest).
+### By hand
+
+Every release carries `ostia-<version>-linux-x64.tar.gz` and `SHA256SUMS`. Download both from the
+[latest release](https://github.com/aurigax-ai/ostia/releases/latest), then:
 
 ```bash
+sha256sum -c --ignore-missing SHA256SUMS
 tar -xzf ostia-*-linux-x64.tar.gz
 ./ostia-*-linux-x64/ostia
 ```
-
-Every release also carries `SHA256SUMS`. To check the archive before extracting it, download that
-file beside it and run `sha256sum -c --ignore-missing SHA256SUMS`.
 
 ## Build from source
 
