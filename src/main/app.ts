@@ -5,7 +5,6 @@ import {
   mkdirSync,
   readFileSync,
   readdirSync,
-  renameSync,
   rmSync,
   statSync,
   writeFileSync,
@@ -207,7 +206,7 @@ import {
   pastedText,
   registerPaneIoMethods,
 } from './paneIo'
-import { writeOstiaLauncher } from './paneLauncher'
+import { replaceFile, writeOstiaLauncher } from './paneLauncher'
 import { listPanes, listWorkspaceGroups, listWorkspaces, registerPaneListMethods } from './paneList'
 import { registerPaneMoveIpc } from './paneMove'
 import { registerPaneMoveToMethods } from './paneMoveTo'
@@ -708,12 +707,6 @@ function paneLauncherDir(): string {
   return join(app.getPath('userData'), 'bin')
 }
 
-function replaceFile(path: string, content: string, mode: number): void {
-  const next = `${path}.${process.pid}.new`
-  writeFileSync(next, content, { mode })
-  renameSync(next, path)
-}
-
 function writeKeptLaunchers(): void {
   const dir = paneLauncherDir()
   mkdirSync(dir, { recursive: true, mode: 0o700 })
@@ -736,7 +729,12 @@ function ensureKeptPlumbing(): void {
   keptPlumbingReady = true
   try {
     writeKeptLaunchers()
-  } catch {}
+  } catch (err) {
+    appLog?.warn('launcher-write-failed', {
+      launcher: 'kept',
+      code: (err as NodeJS.ErrnoException).code ?? null,
+    })
+  }
   listenKeptControlSocket(keptControlSocketPath(app.getPath('userData')))
 }
 
@@ -796,8 +794,8 @@ async function paneOutput(paneId: string): Promise<PaneOutput | null> {
   if (!entry) return null
   const text = await entry.mirror.screenText(HISTORY_LINES)
   const report = entry.mirror.cwdReport
-  if (report && !isHostNamed(report.host, hostname())) return null
-  return { text, cwd: report?.path ?? null }
+  const remote = report !== null && !isHostNamed(report.host, hostname())
+  return { text, cwd: report?.path ?? null, remote }
 }
 
 function feedPty(entry: PtyEntry, data: string): void {
@@ -3301,7 +3299,12 @@ app.whenReady().then(() => {
     })
   try {
     writeOstiaLauncher(paneLauncherDir())
-  } catch {}
+  } catch (err) {
+    appLog?.warn('launcher-write-failed', {
+      launcher: 'pane',
+      code: (err as NodeJS.ErrnoException).code ?? null,
+    })
+  }
   scratchFolders.sweep()
   workspaceSandboxes.sweepTmp()
   registerScratchIpc(scratchFolders)

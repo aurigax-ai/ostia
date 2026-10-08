@@ -784,6 +784,30 @@ describe('createAssistTransport with tools', () => {
     ])
   })
 
+  it('asks again in the next chat while main has not stored an Always allow', async () => {
+    useChatToolsStore.getState().setMcp([
+      {
+        name: 'fake',
+        transport: 'stdio',
+        state: 'ready',
+        secretsSet: [],
+        tools: [{ name: 'echo', description: 'Echo', inputSchema: { type: 'object' } }],
+      },
+    ])
+    vi.mocked(window.ostia.chatTools.mcpCall).mockResolvedValue({ ok: true, output: 'echo: hi' })
+    vi.mocked(window.ostia.chatTools.grantAlways).mockReturnValueOnce(new Promise(() => {}))
+    replySequence([toolRound('m1', 'mcp__fake__echo', { text: 'hi' }), textRound('done')])
+    const first = sendWithTools([user('1', 'echo')]).then(drain)
+    answerApproval(await pendingApproval(), { approved: true, scope: 'always' })
+    await first
+    expect(useChatToolsStore.getState().standing).toEqual([])
+
+    replySequence([toolRound('m2', 'mcp__fake__echo', { text: 'again' }), textRound('done')])
+    const second = sendWithTools([user('1', 'echo')], undefined, 's2').then(drain)
+    answerApproval(await pendingApproval(), { approved: true, scope: 'once' })
+    expect((await second).filter((c) => c.type === 'tool-approval-request')).toHaveLength(1)
+  })
+
   it('runs a tool always allowed in one chat unasked in the next, until it is removed', async () => {
     useChatToolsStore.getState().setMcp([
       {

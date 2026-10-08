@@ -1,6 +1,7 @@
 import { type ChildProcessWithoutNullStreams, type StdioOptions, spawn } from 'node:child_process'
 import { closeSync, lstatSync, mkdirSync, openSync, readdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { processAlive } from '../processAlive'
 import { type ControlEvent, ControlModeParser } from './controlMode'
 import { SCREEN_INFO_FORMAT, screenReplay } from './screenReplay'
 import { type NewWindowSpec, newWindowCommand, sendKeysCommands, tmuxQuote } from './tmuxCommand'
@@ -13,6 +14,7 @@ const DEAD_SUBSCRIPTION = 'ostia-dead'
 const DEAD_FORMAT = '#{pane_dead}:#{pane_dead_status}:#{pane_dead_signal}'
 const EXIT_POLL_MS = 50
 const EXIT_POLL_TRIES = 40
+const LOST_EXIT_CODE = 1
 const COMMAND_SUBSCRIPTION = 'ostia-cmd'
 const SERVER_ENV_KEYS = ['PATH', 'HOME', 'USER', 'LOGNAME', 'LANG', 'LC_ALL', 'LC_CTYPE', 'TMPDIR']
 const FIELD_SEPARATOR = '\t'
@@ -62,15 +64,6 @@ interface Waiter {
 const RUN_TIMEOUT_MS = 5000
 const SERVER_EXIT_WAIT_MS = 3000
 const SERVER_EXIT_POLL_MS = 20
-
-function processAlive(pid: number): boolean {
-  try {
-    process.kill(pid, 0)
-    return true
-  } catch {
-    return false
-  }
-}
 
 async function processGone(pid: number, ms: number): Promise<void> {
   if (pid <= 0) return
@@ -376,17 +369,17 @@ export class TmuxServer {
       await new Promise((resolve) => setTimeout(resolve, EXIT_POLL_MS))
       if (this.closed || pane.hasExited) return
       this.nudgeReaper()
-      let lines: string[] = []
-      try {
-        lines = await this.command(`display-message -p -t ${pane.paneId} ${tmuxQuote(DEAD_FORMAT)}`)
-      } catch {}
+      const lines = await this.command(
+        `display-message -p -t ${pane.paneId} ${tmuxQuote(DEAD_FORMAT)}`,
+      ).catch(() => null)
+      if (lines === null) return
       const code = parseExit(lines[0] ?? '')
       if (code !== null) {
         pane.died(code)
         return
       }
     }
-    pane.died(0)
+    pane.died(LOST_EXIT_CODE)
   }
 
   private nudgeReaper(): void {
@@ -556,6 +549,6 @@ export class TmuxPane {
     if (this.exited) return
     this.exited = true
     if (this.detached) return
-    for (const listener of this.exitListeners) listener({ exitCode: 1 })
+    for (const listener of this.exitListeners) listener({ exitCode: LOST_EXIT_CODE })
   }
 }

@@ -134,13 +134,7 @@ function setStanding(keys: string[]): void {
 }
 
 function grantAlways(key: string): void {
-  useChatToolsStore.setState((s) => ({
-    standing: s.standing.includes(key) ? s.standing : [...s.standing, key],
-  }))
-  void window.ostia.chatTools
-    .grantAlways(key)
-    .then(setStanding)
-    .catch(() => {})
+  void window.ostia.chatTools.grantAlways(key).then(setStanding)
 }
 
 export async function removeAlwaysGrant(key: string): Promise<void> {

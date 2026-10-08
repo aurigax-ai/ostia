@@ -18,6 +18,7 @@ import {
   TmuxServer,
   type TmuxServerOptions,
   ensureTmuxSocketDir,
+  serverEnv,
 } from './tmuxServer'
 
 export interface KeptProcessMeta {
@@ -82,10 +83,11 @@ export function parseKeptHost(raw: unknown): KeptHostMeta | null {
   const channel = text(r.channel)
   const tmpDir = text(r.tmpDir)
   if (r.kind !== SANDBOX_HOST_KIND || !workspaceId || !channel || !tmpDir) return null
+  if (!Number.isInteger(r.protocol)) return null
+  const protocol = r.protocol as number
   const exposed = Array.isArray(r.exposed)
     ? r.exposed.map(parseExposure).filter((e): e is KeptExposure => e !== null)
     : []
-  const protocol = Number.isInteger(r.protocol) ? (r.protocol as number) : 0
   return { kind: SANDBOX_HOST_KIND, workspaceId, channel, tmpDir, protocol, exposed }
 }
 
@@ -303,7 +305,8 @@ export class KeptShells {
     const program = this.socketExists() ? this.deps.program() : null
     if (!program) return
     try {
-      execFileSync(program.tmux, ['-S', this.socketPath(), 'kill-server'], {
+      execFileSync(program.tmux, ['-u', '-S', this.socketPath(), 'kill-server'], {
+        env: serverEnv(program.env),
         stdio: 'ignore',
         timeout: 3000,
       })

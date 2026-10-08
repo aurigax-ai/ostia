@@ -23,6 +23,7 @@ export interface LinkSender {
 export interface PaneOutput {
   text: string
   cwd: string | null
+  remote: boolean
 }
 
 export interface TerminalPathLinksDeps {
@@ -56,11 +57,6 @@ function pathText(raw: unknown): string | null {
   return typeof raw === 'string' && raw.length <= PATH_MAX && !raw.includes('\0') ? raw : null
 }
 
-function absolutePath(raw: unknown): string | null {
-  const path = pathText(raw)
-  return path?.startsWith('/') ? path : null
-}
-
 function underHome(path: string): boolean {
   return path === '~' || path.startsWith('~/')
 }
@@ -79,8 +75,8 @@ export class TerminalPathLinks {
   constructor(private readonly deps: TerminalPathLinksDeps) {}
 
   async probe(sender: LinkSender, paneId: unknown, raw: unknown): Promise<FsKind | null> {
-    const path = absolutePath(raw)
-    if (!path || !this.allows(sender, paneId)) return null
+    const path = await this.printedPath(sender, paneId, raw)
+    if (!path) return null
     const cached = this.kinds.get(path)
     if (cached) return cached
     if (!this.withinRate(sender.id)) return null
@@ -113,7 +109,8 @@ export class TerminalPathLinks {
     const written = pathText(raw)
     if (!written || typeof paneId !== 'string' || !this.allows(sender, paneId)) return null
     const output = await this.deps.output(paneId)
-    if (!output || !findFileLinks(output.text).some((link) => link.path === written)) return null
+    if (!output || output.remote) return null
+    if (!findFileLinks(output.text).some((link) => link.path === written)) return null
     const anchored = written.startsWith('/') || underHome(written)
     if (!anchored && output.cwd === null) return null
     const resolved = resolveLinkPath(written, output.cwd ?? '/')

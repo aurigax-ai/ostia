@@ -173,13 +173,10 @@ const bridge: OstiaBridge = {
       return () => ipcRenderer.removeListener('window:maximized', handler)
     },
     onRunningQuery: (cb) => {
-      const handler = (_event: unknown, requestId: number, kept: unknown): void => {
-        const ids = Array.isArray(kept)
-          ? kept.filter((id): id is string => typeof id === 'string')
-          : []
-        void Promise.resolve(cb(ids))
-          .catch(() => [])
-          .then((groups) => ipcRenderer.send('window:close-answer', requestId, groups))
+      const handler = (_event: unknown, requestId: number, kept: string[]): void => {
+        void Promise.resolve(cb(kept)).then((groups) =>
+          ipcRenderer.send('window:close-answer', requestId, groups),
+        )
       }
       ipcRenderer.on('window:running', handler)
       return () => ipcRenderer.removeListener('window:running', handler)
