@@ -729,6 +729,9 @@ describe('setKeybindingSetting', () => {
     expect(() => setKeybindingSetting('keybindings.find', 'Ctrl+Nope', false)).toThrow(
       /is not a chord/,
     )
+    expect(() => setKeybindingSetting('keybindings.copy', 'Shift+Shift', false)).toThrow(
+      /keybindings\.copy: "Shift\+Shift"/,
+    )
     expect(useSettingsStore.getState().keybindings).toEqual({})
   })
 
@@ -1009,7 +1012,7 @@ describe('double Shift', () => {
     expect(ran).toEqual(['palette.searchEverywhere'])
   })
 
-  it('does nothing for Shift with a letter, or with a click between the taps', () => {
+  it('does nothing for Shift with a letter, or with a click or scroll between the taps', () => {
     tap()
     fire('keydown', 'Shift', { shiftKey: true })
     fire('keydown', 'A', { shiftKey: true })
@@ -1017,6 +1020,8 @@ describe('double Shift', () => {
     fire('keyup', 'Shift')
     tap()
     window.dispatchEvent(new Event('pointerdown'))
+    tap()
+    window.dispatchEvent(new Event('wheel'))
     tap()
     expect(ran).toEqual([])
   })

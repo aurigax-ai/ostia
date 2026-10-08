@@ -744,6 +744,26 @@ describe('KeyboardSection', () => {
     })
   })
 
+  it('refuses Shift twice for a terminal-only command and keeps recording', async () => {
+    render(<KeyboardSection />)
+    await change('Ctrl+Shift+C', 'Copy (terminal)')
+    tapShift()
+    tapShift()
+    expect(within(row(/Copy \(terminal\)/)).getByRole('alert')).toHaveTextContent(
+      /Shift\+Shift can’t be used/,
+    )
+    expect(useSettingsStore.getState().keybindings).toEqual({})
+    expect(screen.queryByRole('button', { name: /Replace/ })).toBeNull()
+  })
+
+  it('names Shift twice set on a terminal-only command in settings as ignored', () => {
+    useSettingsStore.setState({ keybindings: { 'terminal.scrollToTop': 'Shift+Shift' } })
+    render(<KeyboardSection />)
+    expect(
+      within(row(/Scroll to Top/)).getByText(/“Shift\+Shift” is ignored on this computer/),
+    ).toBeInTheDocument()
+  })
+
   it('re-records only the clicked chord and keeps it in the terminal scope', async () => {
     render(<KeyboardSection />)
     await change('Ctrl+Shift+Enter', 'Zoom Pane')
