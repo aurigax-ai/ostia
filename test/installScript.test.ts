@@ -6,6 +6,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  readlinkSync,
   realpathSync,
   rmSync,
   symlinkSync,
@@ -141,7 +142,7 @@ describe.skipIf(!linux)('packaging/linux/install.sh', () => {
     expect(readFileSync(desktopEntry, 'utf8')).toContain(`Exec=${app}/ostia %U`)
     expect(existsSync(icon)).toBe(true)
     expect(existsSync(scalableIcon)).toBe(true)
-    expect(readFileSync(cli, 'utf8')).toContain(`'${app}/resources/app.asar/out/cli/index.js'`)
+    expect(readlinkSync(cli)).toBe(join(app, 'resources', 'bin', 'ostia'))
     expectNoLeftovers()
   })
 
@@ -258,6 +259,7 @@ describe.skipIf(!linux)('packaging/linux/install.sh', () => {
 
   it('leaves a command it did not write in place', () => {
     expect(run(installScript, ['--version', '1.2.3']).status).toBe(0)
+    rmSync(cli)
     writeFileSync(cli, '#!/bin/sh\necho mine\n')
     expect(run(installScript, ['--uninstall']).status).toBe(0)
     expect(readFileSync(cli, 'utf8')).toContain('echo mine')
@@ -272,7 +274,7 @@ describe.skipIf(!linux)('packaging/linux/user-install.sh', () => {
     expect(stdout).toContain(`installed ostia to ${app}`)
     expect(installedVersion()).toBe('2.0.0')
     expect(existsSync(join(dir, 'ostia'))).toBe(true)
-    expect(readFileSync(cli, 'utf8')).toContain(`export OSTIA_APP_BIN='${app}/ostia'`)
+    expect(readlinkSync(cli)).toBe(join(app, 'resources', 'bin', 'ostia'))
     expectNoLeftovers()
   })
 

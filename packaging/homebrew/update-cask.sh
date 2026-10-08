@@ -35,14 +35,11 @@ rm -f "$cask.bak"
 binary='  binary "#{appdir}/Ostia.app/Contents/Resources/bin/ostia"'
 sed -i.bak '/^  binary /d' "$cask"
 rm -f "$cask.bak"
-if test -x "$mount/Ostia.app/Contents/Resources/bin/ostia"; then
-  sed -i.bak "s|^  app \"Ostia.app\"\$|&\n$binary|" "$cask"
-  rm -f "$cask.bak"
-  grep -qxF "$binary" "$cask"
-  echo "$cask: links the ostia command"
-else
-  echo "$cask: $version has no Contents/Resources/bin/ostia, no binary stanza"
-fi
+test -x "$mount/Ostia.app/Contents/Resources/bin/ostia"
+sed -i.bak "s|^  app \"Ostia.app\"\$|&\n$binary|" "$cask"
+rm -f "$cask.bak"
+grep -qxF "$binary" "$cask"
+echo "$cask: links the ostia command"
 
 grep -qx "  version \"$version\"" "$cask"
 grep -qx "  sha256 \"$sha\"" "$cask"
