@@ -54,7 +54,7 @@ import { useWorkspacesStore } from '../stores/workspacesStore'
 import { FileMenu, type TreeVisibility } from './FileMenu'
 import { FileTrashDialog, NameInputRow, treeRowKey } from './FileTreeOps'
 import { FilesSearch } from './FilesSearch'
-import { Hint } from './Hint'
+import { Hint, useShortcutHint } from './Hint'
 import { IconButton } from './IconButton'
 import {
   DropdownMenu,
@@ -190,10 +190,14 @@ export function FilesView(): JSX.Element {
   )
   const searchOpen = useUIStore((s) => s.filesSearchOpen)
   const searchButton = useRef<HTMLButtonElement>(null)
-  const closeSearch = (): void => {
-    useUIStore.getState().hideFilesSearch()
-    searchButton.current?.focus()
-  }
+  const searchWasOpen = useRef(searchOpen)
+  useEffect(() => {
+    const hidden = searchWasOpen.current && !searchOpen
+    searchWasOpen.current = searchOpen
+    const focused = document.activeElement
+    if (hidden && (!focused || focused === document.body)) searchButton.current?.focus()
+  }, [searchOpen])
+  const searchChord = useShortcutHint('view.searchFiles') ? 'view.searchFiles' : 'find'
 
   const local = (
     <>
@@ -208,7 +212,6 @@ export function FilesView(): JSX.Element {
           !tree.settings.showExcluded && isUnderExcluded(tree.isExcluded, path, cwd)
         }
         onReveal={(path) => useFileTreeStore.getState().reveal(cwd, path)}
-        onClose={closeSearch}
       >
         <div className="file-tree">
           <Dir key={cwd} path={cwd} depth={0} tree={tree} />
@@ -226,9 +229,13 @@ export function FilesView(): JSX.Element {
             ref={searchButton}
             icon={MagnifyingGlassIcon}
             label={d.filesView.showSearch}
-            command="view.searchFiles"
+            command={searchChord}
             aria-pressed={searchOpen}
-            onClick={() => (searchOpen ? closeSearch() : useUIStore.getState().searchFiles())}
+            onClick={() => {
+              const ui = useUIStore.getState()
+              if (searchOpen) ui.hideFilesSearch()
+              else ui.searchFiles()
+            }}
           />
           <IconButton
             icon={FilePlusIcon}

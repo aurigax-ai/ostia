@@ -12,6 +12,7 @@ import { useSettingsStore } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
 import { type Workspace, useWorkspacesStore } from '../stores/workspacesStore'
 import { FilesPanel } from './FilesPanel'
+import { SEARCH_DELAY_MS } from './FilesSearch'
 
 const ROOT = '/home/me/project'
 
@@ -268,6 +269,49 @@ describe('Files panel search', () => {
     expect(screen.getByRole('button', { name: 'Search' })).toHaveFocus()
   })
 
+  it('hides the search box with the find key pressed in it and keeps the panel open', async () => {
+    seed(false)
+    useUIStore.setState({ filesOpen: true })
+    render(<FilesPanel />)
+    await act(async () => {})
+    const panel = screen.getByRole('complementary', { name: 'Files' })
+
+    fireEvent.keyDown(panel, { key: 'F', code: 'KeyF', ctrlKey: true, shiftKey: true })
+    const input = screen.getByRole('textbox', { name: 'Search files' })
+    fireEvent.keyDown(input, { key: 'F', code: 'KeyF', ctrlKey: true, shiftKey: true })
+
+    expect(screen.queryByRole('textbox', { name: 'Search files' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Search' })).toHaveFocus()
+    expect(useUIStore.getState().filesOpen).toBe(true)
+  })
+
+  it('names the find key in the header button tooltip when Search Files has no chord', async () => {
+    seed(false)
+    render(<FilesPanel />)
+
+    await userEvent.setup().hover(screen.getByRole('button', { name: 'Search' }))
+
+    expect(await screen.findByText('Ctrl+Shift+F')).toBeInTheDocument()
+  })
+
+  it('does not search in the background while the box is hidden, and forgets the text', async () => {
+    seed()
+    vi.mocked(window.ostia.search.run).mockResolvedValue(RESULTS)
+    render(<FilesPanel />)
+    const user = userEvent.setup()
+    await user.type(screen.getByRole('textbox', { name: 'Search files' }), 'notes')
+    await screen.findByRole('region', { name: 'Files and folders' })
+    const runs = vi.mocked(window.ostia.search.run).mock.calls.length
+
+    await user.click(screen.getByRole('button', { name: 'Search' }))
+    act(() => useSettingsStore.getState().setFiles({ searchIgnored: true }))
+    await act(() => new Promise((resolve) => setTimeout(resolve, SEARCH_DELAY_MS * 2)))
+
+    expect(window.ostia.search.run).toHaveBeenCalledTimes(runs)
+    await user.click(screen.getByRole('button', { name: 'Search' }))
+    expect(screen.getByRole('textbox', { name: 'Search files' })).toHaveValue('')
+  })
+
   it('shows and focuses the search box from the header button and hides it again', async () => {
     seed(false)
     render(<FilesPanel />)
@@ -294,12 +338,18 @@ describe('Files panel search', () => {
     const user = userEvent.setup()
     await user.click(await screen.findByRole('button', { name: 'src' }))
     expect(await screen.findByRole('button', { name: 'todo.md' })).toBeInTheDocument()
+    const tree = screen.getByRole('button', { name: 'src' }).closest('.file-tree') as HTMLElement
+    tree.scrollTop = 120
+    const listed = vi.mocked(window.ostia.fs.list).mock.calls.length
 
     await user.click(screen.getByRole('button', { name: 'Search' }))
     expect(screen.getByRole('button', { name: 'src' })).toHaveAttribute('aria-expanded', 'true')
 
     await user.click(screen.getByRole('button', { name: 'Search' }))
     expect(screen.getByRole('button', { name: 'src' })).toHaveAttribute('aria-expanded', 'true')
-    await waitFor(() => expect(screen.getByRole('button', { name: 'todo.md' })).toBeInTheDocument())
+    expect(screen.getByRole('button', { name: 'todo.md' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'src' }).closest('.file-tree')).toBe(tree)
+    expect(tree.scrollTop).toBe(120)
+    expect(window.ostia.fs.list).toHaveBeenCalledTimes(listed)
   })
 })

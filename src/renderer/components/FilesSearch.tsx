@@ -281,13 +281,11 @@ export function FilesSearch({
   root,
   isHidden,
   onReveal,
-  onClose,
   children,
 }: {
   root: string
   isHidden: (path: string) => boolean
   onReveal: (path: string) => void
-  onClose: () => void
   children: ReactNode
 }): JSX.Element {
   const d = useDict()
@@ -297,18 +295,21 @@ export function FilesSearch({
   const open = useUIStore((s) => s.filesSearchOpen)
   const focusWanted = useUIStore((s) => s.filesSearchFocus)
   useEffect(() => {
+    if (!open) setText('')
+  }, [open])
+  useEffect(() => {
     if (!focusWanted || !open) return
     inputRef.current?.focus()
     inputRef.current?.select()
     useUIStore.getState().filesSearchFocused()
   }, [focusWanted, open])
-  const state = useSearch(root, text, toggles)
+  const state = useSearch(root, open ? text : '', toggles)
   const toggle = (key: keyof SearchToggles): void => setToggles((t) => ({ ...t, [key]: !t[key] }))
   const onKeyDown = (e: KeyboardEvent<HTMLInputElement>): void => {
     if (e.key !== 'Escape') return
     e.preventDefault()
     if (text) setText('')
-    else onClose()
+    else useUIStore.getState().hideFilesSearch()
   }
   const reveal = (path: string): void => {
     setText('')
