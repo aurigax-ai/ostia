@@ -6,7 +6,7 @@ import { refusalText } from './fileDrop'
 import { pathInTree } from './fileTree'
 import { homeDir } from './homeDir'
 import { openFileAt, reportFileProblem } from './openFile'
-import type { FileLinkAction } from './terminalFileLinks'
+import type { FileLinkAction, FileLinkTarget } from './terminalFileLinks'
 
 export interface LinkPane {
   workspaceId: string
@@ -33,34 +33,27 @@ export function linkRevealable(pane: LinkPane, path: string): boolean {
   return pathInTree(path, filesRoot(pane), homeDir()) !== null
 }
 
-async function admitAndOpen(
-  pane: LinkPane,
-  path: string,
-  line?: number,
-  column?: number,
-): Promise<void> {
-  const verdict = await window.ostia.terminalLinks.admit(pane.paneId, path)
+async function admitAndOpen(pane: LinkPane, target: FileLinkTarget): Promise<void> {
+  const verdict = await window.ostia.terminalLinks.admit(pane.paneId, target.written)
   if (!verdict) return
-  if (verdict.ok) openFileAt(verdict.path, line, column)
+  if (verdict.ok) openFileAt(verdict.path, target.line, target.column)
   else reportFileProblem(pane.workspaceId, refusalText(verdict))
 }
 
 export function activateFileLink(
   pane: LinkPane,
   action: FileLinkAction,
-  path: string,
-  line?: number,
-  column?: number,
+  target: FileLinkTarget,
 ): void {
   if (action === 'open-file') {
-    openFileAt(path, line, column)
+    openFileAt(target.path, target.line, target.column)
   } else if (action === 'admit-file') {
-    void admitAndOpen(pane, path, line, column)
+    void admitAndOpen(pane, target)
   } else if (action === 'open-folder') {
-    void window.ostia.terminalLinks.openFolder(pane.paneId, path)
+    void window.ostia.terminalLinks.openFolder(pane.paneId, target.written)
   } else {
     const root = filesRoot(pane)
-    const shown = pathInTree(path, root, homeDir())
+    const shown = pathInTree(target.path, root, homeDir())
     if (shown === null) return
     useFileTreeStore.getState().reveal(root, shown)
     useUIStore.getState().showFiles()

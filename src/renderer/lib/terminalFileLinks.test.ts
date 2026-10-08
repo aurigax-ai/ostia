@@ -90,7 +90,12 @@ describe('createFileLinkProvider', () => {
     link.activate(new MouseEvent('click'), link.text)
     expect(open).not.toHaveBeenCalled()
     link.activate(new MouseEvent('click', { ctrlKey: true }), link.text)
-    expect(open).toHaveBeenCalledWith('open-file', '/home/u/proj/src/app.ts', 12, 4)
+    expect(open).toHaveBeenCalledWith('open-file', {
+      written: 'src/app.ts',
+      path: '/home/u/proj/src/app.ts',
+      line: 12,
+      column: 4,
+    })
   })
 
   it('reports the hovered link range and when the pointer leaves it', async () => {
@@ -235,7 +240,12 @@ describe('createFileLinkProvider outside home and folders', () => {
     expect(hover.mock.calls[0][1]).toBe('admit-file')
 
     link.activate(humanClick, link.text)
-    expect(open).toHaveBeenCalledWith('admit-file', '/tmp/shots/a.png', 3, undefined)
+    expect(open).toHaveBeenCalledWith('admit-file', {
+      written: '/tmp/shots/a.png',
+      path: '/tmp/shots/a.png',
+      line: 3,
+      column: undefined,
+    })
   })
 
   it('never admits a file or opens the file manager for a click the human did not make', async () => {
@@ -286,23 +296,23 @@ describe('createFileLinkProvider outside home and folders', () => {
     revealed.hover?.(new MouseEvent('mousemove'), revealed.text)
     expect(inside.hover.mock.calls[0][1]).toBe('reveal-folder')
     revealed.activate(new MouseEvent('click', { ctrlKey: true }), revealed.text)
-    expect(inside.open).toHaveBeenCalledWith(
-      'reveal-folder',
-      '/home/u/proj/src/renderer',
-      undefined,
-      undefined,
-    )
+    expect(inside.open).toHaveBeenCalledWith('reveal-folder', {
+      written: 'src/renderer',
+      path: '/home/u/proj/src/renderer',
+      line: undefined,
+      column: undefined,
+    })
 
     const outside = await linksFor(term, 1, stat)
     const [opened] = outside.links ?? []
     opened.hover?.(new MouseEvent('mousemove'), opened.text)
     expect(outside.hover.mock.calls[0][1]).toBe('open-folder')
     opened.activate(humanClick, opened.text)
-    expect(outside.open).toHaveBeenCalledWith(
-      'open-folder',
-      '/home/u/proj/src/renderer',
-      undefined,
-      undefined,
-    )
+    expect(outside.open).toHaveBeenCalledWith('open-folder', {
+      written: 'src/renderer',
+      path: '/home/u/proj/src/renderer',
+      line: undefined,
+      column: undefined,
+    })
   })
 })

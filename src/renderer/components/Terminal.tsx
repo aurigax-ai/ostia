@@ -558,8 +558,7 @@ function TerminalSurface({
         revealable: (path) => linkRevealable(linkPane(), path),
         stat: (path) => window.ostia.fs.stat(path),
         probe: (path) => window.ostia.terminalLinks.probe(paneId, path),
-        activate: (action, path, line, column) =>
-          activateFileLink(linkPane(), action, path, line, column),
+        activate: (action, target) => activateFileLink(linkPane(), action, target),
         modifierHeld: (e) => linkModifierHeld(e, isMac),
         hover: (range, action) => showLinkHint(action, range),
         leave: hideLinkHint,

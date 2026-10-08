@@ -1,6 +1,6 @@
+import { findFileLinks, resolveLinkPath } from '@shared/fileLinks'
 import type { IBufferCellPosition, IBufferRange, ILink, ILinkProvider } from '@xterm/xterm'
 import { LRUCache } from 'lru-cache'
-import { findFileLinks, resolveLinkPath } from './fileLinks'
 import type { OstiaTerminal as Terminal } from './ostiaTerminal'
 
 interface LogicalLine {
@@ -54,6 +54,13 @@ export function needsHumanClick(action: FileLinkAction): boolean {
   return action === 'admit-file' || action === 'open-folder'
 }
 
+export interface FileLinkTarget {
+  written: string
+  path: string
+  line?: number
+  column?: number
+}
+
 export interface FileLinkDeps {
   cwd: () => string | null
   remote: () => boolean
@@ -61,7 +68,7 @@ export interface FileLinkDeps {
   revealable: (path: string) => boolean
   stat: (path: string) => Promise<Kind | null>
   probe: (path: string) => Promise<Kind | null>
-  activate: (action: FileLinkAction, path: string, line?: number, column?: number) => void
+  activate: (action: FileLinkAction, target: FileLinkTarget) => void
   modifierHeld: (event: MouseEvent) => boolean
   hover: (range: IBufferRange, action: FileLinkAction) => void
   leave: () => void
@@ -126,7 +133,7 @@ export function createFileLinkProvider(term: Terminal, deps: FileLinkDeps): ILin
             activate: (event) => {
               if (!deps.modifierHeld(event) || deps.remote()) return
               if (needsHumanClick(action) && !event.isTrusted) return
-              deps.activate(action, path, m.line, m.column)
+              deps.activate(action, { written: m.path, path, line: m.line, column: m.column })
             },
             hover: () => deps.hover({ start: cells[m.start], end: cells[m.end - 1] }, action),
             leave: () => deps.leave(),

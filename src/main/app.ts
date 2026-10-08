@@ -40,6 +40,7 @@ import { KEEP_SHELLS_FEATURE, parseKeepShells } from '../shared/keepShells'
 import { languageServerKey } from '../shared/languageServers'
 import { MANAGER_FEATURE, managerAgents, parseManagerSettings } from '../shared/managerSettings'
 import { OPEN_FILES_MAX } from '../shared/openFiles'
+import { isHostNamed } from '../shared/osc7'
 import { OFFICIAL_MARKETPLACE, PRODUCT_NAME } from '../shared/product'
 import { PRODUCT_DISPLAY_NAME } from '../shared/productDisplay'
 import { parsePrivacySettings } from '../shared/redaction'
@@ -289,7 +290,7 @@ import {
 } from './sandbox/visibility'
 import { SandboxUnavailableError, WorkspaceSandboxes } from './sandbox/workspaceSandboxes'
 import { ScratchFolders, registerScratchIpc } from './scratchFolders'
-import { HIBERNATE_SEAM, RESTORE_SEAM, ScreenMirror } from './screenMirror'
+import { HIBERNATE_SEAM, HISTORY_LINES, RESTORE_SEAM, ScreenMirror } from './screenMirror'
 import { registerScriptTokenMethods, verifyScriptToken } from './scriptTokens'
 import { registerSecretMethods } from './secrets/register'
 import { prepareSecrets } from './secrets/secretInjection'
@@ -312,7 +313,11 @@ import {
 } from './systemRequirements'
 import { registerSystemRequirementsIpc } from './systemRequirementsIpc'
 import { type SessionFacts, TELEMETRY_FILE, type Telemetry, registerTelemetry } from './telemetry'
-import { TerminalPathLinks, registerTerminalPathLinkIpc } from './terminalPathLinks'
+import {
+  type PaneOutput,
+  TerminalPathLinks,
+  registerTerminalPathLinkIpc,
+} from './terminalPathLinks'
 import { PTY_COLOR_ENV, PTY_TERM_NAME, paneShellEnv, ptyIdentityEnv } from './terminalType'
 import { SANDBOX_NOT_KEPT, TMUX_MISSING, keepShellsNotice } from './tmux/keepShellsBanner'
 import { KeptAttention } from './tmux/keptAttention'
@@ -756,6 +761,15 @@ function hibernatePty(paneId: string): boolean {
 
 function ptyPid(paneId: string): number | undefined {
   return ptys.get(paneId)?.pty.pid
+}
+
+async function paneOutput(paneId: string): Promise<PaneOutput | null> {
+  const entry = ptys.get(paneId)
+  if (!entry) return null
+  const text = await entry.mirror.screenText(HISTORY_LINES)
+  const report = entry.mirror.cwdReport
+  if (report && !isHostNamed(report.host, hostname())) return null
+  return { text, cwd: report?.path ?? null }
 }
 
 function feedPty(entry: PtyEntry, data: string): void {
@@ -2721,6 +2735,8 @@ function registerFsIpc(): void {
   registerTerminalPathLinkIpc(
     new TerminalPathLinks({
       grants: openFileGrants,
+      home: homedir(),
+      output: (paneId) => paneOutput(paneId),
       pane: (paneId) => getByPaneId(paneId),
       isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
       isScratch: (workspaceId) => scratchFolders.isScratch(workspaceId),

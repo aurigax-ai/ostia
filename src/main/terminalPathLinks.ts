@@ -1,7 +1,8 @@
 import { realpath, stat } from 'node:fs/promises'
-import { isAbsolute } from 'node:path'
+import { join } from 'node:path'
 import { ipcMain } from 'electron'
 import { LRUCache } from 'lru-cache'
+import { findFileLinks, resolveLinkPath } from '../shared/fileLinks'
 import type { OpenFileVerdict } from '../shared/openFiles'
 import type { FsKind, OpenPathResult } from '../shared/types'
 import type { OpenFileGrants } from './openFileGrants'
@@ -19,7 +20,14 @@ export interface LinkSender {
   getType: () => string
 }
 
+export interface PaneOutput {
+  text: string
+  cwd: string | null
+}
+
 export interface TerminalPathLinksDeps {
+  output: (paneId: string) => Promise<PaneOutput | null>
+  home: string
   grants: Pick<OpenFileGrants, 'admit'>
   pane: (paneId: string) => { windowId: string; workspaceId: string } | undefined
   isSandboxed: (workspaceId: string) => boolean
@@ -44,9 +52,17 @@ async function locate(path: string): Promise<Located | null> {
   }
 }
 
+function pathText(raw: unknown): string | null {
+  return typeof raw === 'string' && raw.length <= PATH_MAX && !raw.includes('\0') ? raw : null
+}
+
 function absolutePath(raw: unknown): string | null {
-  if (typeof raw !== 'string' || raw.length > PATH_MAX || raw.includes('\0')) return null
-  return isAbsolute(raw) ? raw : null
+  const path = pathText(raw)
+  return path?.startsWith('/') ? path : null
+}
+
+function underHome(path: string): boolean {
+  return path === '~' || path.startsWith('~/')
 }
 
 export class TerminalPathLinks {
@@ -73,20 +89,35 @@ export class TerminalPathLinks {
     return kind
   }
 
-  admit(sender: LinkSender, paneId: unknown, raw: unknown): OpenFileVerdict | null {
-    const path = absolutePath(raw)
-    if (!path || !this.allows(sender, paneId)) return null
+  async admit(sender: LinkSender, paneId: unknown, raw: unknown): Promise<OpenFileVerdict | null> {
+    const path = await this.printedPath(sender, paneId, raw)
+    if (!path) return null
     return this.deps.grants.admit(path, { sandboxed: false, remember: true })
   }
 
   async openFolder(sender: LinkSender, paneId: unknown, raw: unknown): Promise<OpenPathResult> {
-    const path = absolutePath(raw)
-    if (!path || !this.allows(sender, paneId)) return { ok: false, error: 'not-found' }
+    const path = await this.printedPath(sender, paneId, raw)
+    if (!path) return { ok: false, error: 'not-found' }
     const found = await locate(path)
     if (found?.kind !== 'dir') return { ok: false, error: 'not-found' }
     if (isProgram(found.real, found.mode, false)) return { ok: false, error: 'program' }
     const error = await this.deps.openFolder(found.real)
     return error ? { ok: false, error: 'failed' } : { ok: true }
+  }
+
+  private async printedPath(
+    sender: LinkSender,
+    paneId: unknown,
+    raw: unknown,
+  ): Promise<string | null> {
+    const written = pathText(raw)
+    if (!written || typeof paneId !== 'string' || !this.allows(sender, paneId)) return null
+    const output = await this.deps.output(paneId)
+    if (!output || !findFileLinks(output.text).some((link) => link.path === written)) return null
+    const anchored = written.startsWith('/') || underHome(written)
+    if (!anchored && output.cwd === null) return null
+    const resolved = resolveLinkPath(written, output.cwd ?? '/')
+    return underHome(resolved) ? join(this.deps.home, resolved.slice(1)) : resolved
   }
 
   private allows(sender: LinkSender, paneId: unknown): boolean {

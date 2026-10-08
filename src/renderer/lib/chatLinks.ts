@@ -1,4 +1,4 @@
-import { findFileLinks } from './fileLinks'
+import { findFileLinks } from '@shared/fileLinks'
 
 interface HastNode {
   type: string

@@ -802,8 +802,8 @@ export interface FilesApi {
 
 export interface TerminalLinksApi {
   probe: (paneId: string, path: string) => Promise<FsKind | null>
-  admit: (paneId: string, path: string) => Promise<OpenFileVerdict | null>
-  openFolder: (paneId: string, path: string) => Promise<OpenPathResult>
+  admit: (paneId: string, written: string) => Promise<OpenFileVerdict | null>
+  openFolder: (paneId: string, written: string) => Promise<OpenPathResult>
 }
 
 export interface ClipboardApi {

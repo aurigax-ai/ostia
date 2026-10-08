@@ -1,22 +1,11 @@
-export interface CwdReport {
-  host: string
-  path: string
-}
+import { isHostNamed } from '@shared/osc7'
 
-const LOOPBACK_NAMES = ['', 'localhost']
+export { type CwdReport, parseOsc7 } from '@shared/osc7'
 
 let localHostName: string | null = null
 
-export function parseOsc7(data: string): CwdReport | null {
-  const match = /^file:\/\/([^/]*)(\/.*)$/.exec(data)
-  return match ? { host: match[1], path: match[2] } : null
-}
-
 export function isLocalHost(host: string, local: string | null = localHostName): boolean {
-  const name = host.toLowerCase()
-  if (LOOPBACK_NAMES.includes(name) || local === null) return true
-  const full = local.toLowerCase()
-  return name === full || name === full.split('.')[0]
+  return isHostNamed(host, local)
 }
 
 export async function loadLocalHostName(): Promise<void> {
