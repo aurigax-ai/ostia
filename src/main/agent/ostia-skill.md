@@ -1,6 +1,6 @@
 ---
 name: ostia
-description: Use whenever you run inside Ostia (OSTIA_SOCKET and OSTIA_TOKEN are set). Read it before you tell the human to run a command or install something (ask with `ostia system install`, never sudo), ask the human a question (`ostia ask`), start a long or background command they should watch (`ostia process run`), read or type into another terminal pane, drive the in-app browser, open a file or URL for the human, notify them or mark your pane waiting/done, or hand work to another agent (`ostia bus`). Also covers sandboxed workspaces (asking for a domain, a port or a secret), the secret vault, settings, sidebar views, selection reports the human sends (@/tmp/ostia-reports-*), saved workflows, the LAN gateway and capabilities. Boards, cards and notes are Trellis, not Ostia.
+description: Use whenever you run inside Ostia (OSTIA_SOCKET and OSTIA_TOKEN or OSTIA_TOKEN_FILE are set). Read it before you tell the human to run a command or install something (ask with `ostia system install`, never sudo), ask the human a question (`ostia ask`), start a long or background command they should watch (`ostia process run`), read or type into another terminal pane, drive the in-app browser, open a file or URL for the human, notify them or mark your pane waiting/done, or hand work to another agent (`ostia bus`). Also covers sandboxed workspaces (asking for a domain, a port or a secret), the secret vault, settings, sidebar views, selection reports the human sends (@/tmp/ostia-reports-*), saved workflows, the LAN gateway and capabilities. Boards, cards and notes are Trellis, not Ostia.
 ---
 
 # Ostia — the agent toolbelt
@@ -9,7 +9,9 @@ Ostia is a terminal-workspace app (terminal + editor + agent panes). When a codi
 agent's shell is a pane inside Ostia, that pane's environment carries:
 
 - `OSTIA_SOCKET` — path to the app's control-plane Unix socket
-- `OSTIA_TOKEN` — a per-pane auth token (proves *this* pane, nothing else)
+- `OSTIA_TOKEN` — a per-pane auth token (proves *this* pane, nothing else). A pane kept
+  running across a restart has `OSTIA_TOKEN_FILE` instead: the path of a file holding the
+  token, which Ostia replaces with a new token each time it takes the pane back
 - `OSTIA_PANE_ID` — this pane's external id (a UUID — same value `whoami` calls `externalId`)
 - `OSTIA_START_DIR` — the workDir this pane/workspace was anchored to
 - `OSTIA_CLI` / `OSTIA_NODE` — the CLI's bundled JS and the app's own Electron binary. A shell
@@ -22,7 +24,7 @@ If those env vars are unset, you are not inside an Ostia pane — `ostia` has no
 dial and every command will fail with "not inside an Ostia pane (OSTIA_SOCKET unset)".
 
 Every `ostia` invocation dials the socket, authenticates with `hello` (using
-`OSTIA_TOKEN`), then sends one JSON-RPC request. `ostia docs` prints the same
+`OSTIA_TOKEN`, or the token read from `OSTIA_TOKEN_FILE`), then sends one JSON-RPC request. `ostia docs` prints the same
 reference this skill is based on — treat it as the live source of truth if the two
 ever disagree (e.g. after an app update).
 
@@ -49,7 +51,7 @@ JSON, one object per pane:
 | `workspaceId`, `kind`, `title`, `cwd`, `filePath?` | where it is and what it shows (`kind`: terminal, editor, browser, …) |
 | `running`, `blockCount`, `lastExitCode`, `pid?` | a command is running in its shell; how many commands ran; the last exit code |
 | `agent?` | `claude`, `codex`, … while an agent runs in the pane; absent at a shell prompt |
-| `agentState?`, `agentMessage?` | what that agent reported: `working`, `waiting`, `done`, `error`; absent when nothing is pending |
+| `agentState?`, `agentMessage?` | what that agent reported: `working`, `waiting`, `done`, `error`, or `unknown` for an agent that kept running across a restart and has not reported since; absent when nothing is pending |
 | `agentSessionId?` | the agent session a Resume or wake continues |
 | `hibernated?` | `true` when Ostia stopped the idle agent to save memory (wake it with `ostia pane wake`) |
 | `waking?` | `true` from `ostia pane wake` until the woken agent has started; `pane send` refuses it until then (`ostia pane wake --wait` waits for it) |

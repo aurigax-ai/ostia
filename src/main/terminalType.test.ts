@@ -1,7 +1,7 @@
 import { delimiter } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { GPU_RESTORE_ENV } from './discreteGpu'
-import { paneShellEnv } from './terminalType'
+import { paneShellEnv, withPaneToken } from './terminalType'
 import { newWindowCommand } from './tmux/tmuxCommand'
 
 const parts = {
@@ -84,5 +84,16 @@ describe('paneShellEnv launcher directory', () => {
 
   it('leaves PATH alone when no launcher directory is given', () => {
     expect(paneShellEnv(parts).PATH).toBe('/bin')
+  })
+})
+
+describe('withPaneToken', () => {
+  it('KSH-C72 gives a kept pane only its token file, never a token inherited from an Ostia it was started in', () => {
+    const inherited = { PATH: '/bin', OSTIA_TOKEN: 'outer', OSTIA_TOKEN_FILE: '/outer/file' }
+    expect(withPaneToken(inherited, 'mine', '/tmp/tokens/p1')).toEqual({
+      PATH: '/bin',
+      OSTIA_TOKEN_FILE: '/tmp/tokens/p1',
+    })
+    expect(withPaneToken(inherited, 'mine', null)).toEqual({ PATH: '/bin', OSTIA_TOKEN: 'mine' })
   })
 })

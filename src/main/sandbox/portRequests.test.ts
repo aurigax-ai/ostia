@@ -138,10 +138,10 @@ describe('PortRequests', () => {
     expect([...exposed]).toEqual([3000])
   })
 
-  it('KSH-C58 exposes a kept port seen before its restore finishes, without asking again', async () => {
+  it('KSH-C58 exposes a kept port again without asking while the same program listens on it', async () => {
     const { requests, asks, exposed, listen } = setup({ policy: 'ask' })
-    requests.keep('ws', [3000])
-    listen([{ port: 3000, process: 'node' }])
+    requests.keep('ws', [{ port: 3000, process: 'node', pid: 41 }])
+    listen([{ port: 3000, process: 'node', pid: 41 }])
     await requests.scan('ws')
     expect(asks).toEqual([])
     expect([...exposed]).toEqual([3000])
@@ -149,13 +149,115 @@ describe('PortRequests', () => {
 
   it('asks again about a kept port whose server stopped and started again', async () => {
     const { requests, asks, listen } = setup({ policy: 'ask' })
-    requests.keep('ws', [3000])
-    listen([{ port: 3000, process: 'node' }])
+    requests.keep('ws', [{ port: 3000, process: 'node', pid: 41 }])
+    listen([{ port: 3000, process: 'node', pid: 41 }])
     await requests.scan('ws')
     listen([])
     await requests.scan('ws')
-    listen([{ port: 3000, process: 'node' }])
+    listen([{ port: 3000, process: 'node', pid: 41 }])
     await requests.scan('ws')
     expect(asks).toEqual([3000])
+  })
+
+  it('KSH-C76 asks again about a kept port when another program listens on it now', async () => {
+    for (const listener of [
+      { port: 3000, process: 'python3', pid: 41 },
+      { port: 3000, process: 'node', pid: 77 },
+    ]) {
+      const { requests, asks, exposed, listen } = setup({ policy: 'ask', outcome: 'deny' })
+      requests.keep('ws', [{ port: 3000, process: 'node', pid: 41 }])
+      listen([listener])
+      await requests.scan('ws')
+      expect(asks).toEqual([3000])
+      expect(exposed.size).toBe(0)
+    }
+  })
+
+  it('KSH-C77 restores a kept port under the deny policy only when the human exposed it', async () => {
+    const byAgent = setup({ policy: 'deny' })
+    byAgent.requests.keep('ws', [{ port: 3000, process: 'node', pid: 41 }])
+    byAgent.listen([{ port: 3000, process: 'node', pid: 41 }])
+    await byAgent.requests.scan('ws')
+    expect(byAgent.exposed.size).toBe(0)
+    expect(byAgent.asks).toEqual([])
+
+    const byHuman = setup({ policy: 'deny' })
+    byHuman.requests.keep('ws', [{ port: 3000, process: 'node', pid: 41, byHuman: true }])
+    byHuman.listen([{ port: 3000, process: 'node', pid: 41 }])
+    await byHuman.requests.scan('ws')
+    expect([...byHuman.exposed]).toEqual([3000])
+    expect(byHuman.requests.exposures('ws')).toEqual([
+      { port: 3000, process: 'node', pid: 41, byHuman: true },
+    ])
+  })
+
+  it('waits to restore a kept port until it can be forwarded, then drops kept ports nobody listens on', async () => {
+    let refusal: 'not-running' | null = 'not-running'
+    const exposed = new Set<number>()
+    let listeners: SandboxListener[] = [{ port: 3000, process: 'node', pid: 41 }]
+    const asks: number[] = []
+    const requests = new PortRequests({
+      platform: 'linux',
+      isSandboxed: () => true,
+      policy: () => 'ask',
+      ask: async ({ port }) => {
+        asks.push(port)
+        return 'workspace'
+      },
+      forwarder: {
+        listeners: () => listeners,
+        exposed: () => [...exposed],
+        refusal: () => refusal,
+        expose: async (_ws, port): Promise<ExposeResult> => {
+          exposed.add(port)
+          return { ok: true, port }
+        },
+        unexpose: async (_ws, port) => {
+          exposed.delete(port)
+        },
+      },
+    })
+    requests.keep('ws', [
+      { port: 3000, process: 'node', pid: 41 },
+      { port: 4000, process: 'node', pid: 42 },
+    ])
+    await requests.scan('ws')
+    expect(exposed.size).toBe(0)
+    refusal = null
+    await requests.scan('ws')
+    expect([...exposed]).toEqual([3000])
+    expect(asks).toEqual([])
+    listeners = [...listeners, { port: 4000, process: 'node', pid: 42 }]
+    await requests.scan('ws')
+    expect(asks).toEqual([4000])
+  })
+
+  it('records the program serving an exposed port from listeners read now, before a scan saw it', async () => {
+    const { requests } = setup({ policy: 'ask' })
+    await requests.exposeByHuman('ws', 3000)
+    expect(requests.exposures('ws')).toEqual([])
+    expect(requests.exposures('ws', [{ port: 3000, process: 'node', pid: 41 }])).toEqual([
+      { port: 3000, process: 'node', pid: 41, byHuman: true },
+    ])
+  })
+
+  it('records what program serves each exposed port and whether the human exposed it', async () => {
+    const { requests, listen } = setup({ policy: 'allow' })
+    listen([
+      { port: 3000, process: 'node', pid: 41 },
+      { port: 4000, process: null },
+    ])
+    await requests.scan('ws')
+    await requests.exposeByHuman('ws', 5000)
+    expect(requests.exposures('ws')).toEqual([{ port: 3000, process: 'node', pid: 41 }])
+    listen([
+      { port: 3000, process: 'node', pid: 41 },
+      { port: 5000, process: 'vite', pid: 50 },
+    ])
+    await requests.scan('ws')
+    expect(requests.exposures('ws')).toEqual([
+      { port: 3000, process: 'node', pid: 41 },
+      { port: 5000, process: 'vite', pid: 50, byHuman: true },
+    ])
   })
 })

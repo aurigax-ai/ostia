@@ -33,6 +33,7 @@ describe('paneList.listPanes', () => {
       ptyPid: () => undefined,
       windowIds: ONE_WINDOW,
       waking: () => false,
+      unreported: () => false,
     }
 
     const panes = await listPanes(deps)
@@ -58,6 +59,42 @@ describe('paneList.listPanes', () => {
     )
   })
 
+  it('KSH-C79 shows an agent that kept running across a restart as unknown until it reports again', async () => {
+    const kept = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'p-kept-agent' })
+    const execCommand = vi.fn().mockResolvedValue(
+      ok([
+        {
+          paneId: 'p-kept-agent',
+          workspaceId: 's1',
+          kind: 'terminal',
+          title: 'claude',
+          agent: 'claude',
+          agentState: 'working',
+          agentMessage: 'stale',
+        },
+      ]),
+    )
+    let unreported = true
+    const deps: PaneListDeps = {
+      execCommand,
+      getTerminalState: vi.fn(),
+      ptyPid: () => undefined,
+      windowIds: ONE_WINDOW,
+      waking: () => false,
+      unreported: (paneId) => unreported && paneId === 'p-kept-agent',
+    }
+    const [before] = await listPanes(deps)
+    expect(before).toMatchObject({
+      paneId: kept.externalId,
+      agent: 'claude',
+      agentState: 'unknown',
+    })
+    expect(before?.agentMessage).toBeUndefined()
+    unreported = false
+    const [after] = await listPanes(deps)
+    expect(after).toMatchObject({ agentState: 'working', agentMessage: 'stale' })
+  })
+
   it('reports the pty pid for a live terminal pane and never for other kinds', async () => {
     const term = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'p-pid-term' })
     registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'p-pid-editor' })
@@ -75,6 +112,7 @@ describe('paneList.listPanes', () => {
       ptyPid,
       windowIds: ONE_WINDOW,
       waking: () => false,
+      unreported: () => false,
     })
 
     expect(panes.find((p) => p.paneId === term.externalId)?.pid).toBe(4242)
@@ -103,6 +141,7 @@ describe('paneList.listPanes', () => {
       ptyPid: vi.fn(),
       windowIds: ONE_WINDOW,
       waking: () => false,
+      unreported: () => false,
     })
 
     expect(panes[0]).toMatchObject({ paneId: editor.externalId, filePath: '/work/a.ts' })
@@ -128,6 +167,7 @@ describe('paneList.listPanes', () => {
       ptyPid: vi.fn(),
       windowIds: ONE_WINDOW,
       waking: () => false,
+      unreported: () => false,
     })
     expect(panes[0]).toMatchObject({
       paneId: inTab.externalId,
@@ -158,6 +198,7 @@ describe('paneList.listPanes', () => {
       ptyPid: vi.fn(),
       windowIds: ONE_WINDOW,
       waking: () => false,
+      unreported: () => false,
     })
 
     expect(panes[0]).toMatchObject({ paneId: asleep.externalId, hibernated: true })
@@ -181,6 +222,7 @@ describe('paneList.listPanes', () => {
       ptyPid: vi.fn(),
       windowIds: ONE_WINDOW,
       waking: (paneId) => paneId === 'p-woken',
+      unreported: () => false,
     })
 
     expect(panes[0]).toMatchObject({ paneId: woken.externalId, waking: true })
@@ -220,6 +262,7 @@ describe('paneList.listPanes', () => {
       ptyPid: vi.fn(),
       windowIds: ONE_WINDOW,
       waking: () => false,
+      unreported: () => false,
     })
 
     expect(panes.find((p) => p.paneId === agent.externalId)).toMatchObject({
@@ -247,6 +290,7 @@ describe('paneList.listPanes', () => {
       ptyPid: () => undefined,
       windowIds: ONE_WINDOW,
       waking: () => false,
+      unreported: () => false,
     })
 
     expect(panes).toEqual([])
@@ -269,6 +313,7 @@ describe('paneList.listPanes', () => {
       ptyPid: () => undefined,
       windowIds: ONE_WINDOW,
       waking: () => false,
+      unreported: () => false,
     })
 
     expect(panes).toEqual([
@@ -295,6 +340,7 @@ describe('paneList.listPanes', () => {
       ptyPid: () => undefined,
       windowIds: ONE_WINDOW,
       waking: () => false,
+      unreported: () => false,
     })
     expect(panes).toEqual([])
   })
@@ -394,6 +440,7 @@ describe('paneList across windows', () => {
       ptyPid: () => undefined,
       windowIds: () => ['1', '2'],
       waking: () => false,
+      unreported: () => false,
     })
 
     expect(panes.map((p) => p.workspaceId)).toEqual(['s9'])

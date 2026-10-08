@@ -30,7 +30,14 @@ import { clearStorage, listCookies, readWebStorage, writeCookie } from './browse
 import type { AuthedConn } from './controlAuth'
 import { ensureCaps } from './controlElevation'
 import { registerTargetableMethod } from './controlServer'
-import { clearRequestLog, networkIdleFor, requestsFor } from './guestNetwork'
+import {
+  type PausedReply,
+  type PausedRequest,
+  clearRequestLog,
+  networkIdleFor,
+  requestsFor,
+  setGuestRoutes,
+} from './guestNetwork'
 import { type PaneIdentity, getByPaneId, resolveExternal } from './idRegistry'
 import { resolveSafe } from './pathGuard'
 import { privateTmpDir } from './privateTmp'
@@ -100,7 +107,6 @@ const dialogInitAttached = new Set<number>()
 const reactGrabOn = new Set<number>()
 const mousePositions = new Map<number, { x: number; y: number }>()
 const guestRoutes = new Map<number, Route[]>()
-const routedGuests = new WeakSet<Electron.WebContents>()
 const activeTabs = new Map<string, string>()
 
 export function clearGuestBrowseState(wcId: number): void {
@@ -480,45 +486,38 @@ function jsonContentType(body: string): string {
   }
 }
 
-function watchRoutes(guest: Electron.WebContents): void {
-  if (routedGuests.has(guest)) return
-  routedGuests.add(guest)
-  const wcId = guest.id
-  guest.debugger.on('message', (_e, method, params) => {
-    if (method !== 'Fetch.requestPaused') return
-    const p = params as { requestId: string; request: { url: string } }
-    const route = [...(guestRoutes.get(wcId) ?? [])]
-      .reverse()
-      .find((r) => globMatches(r.pattern, p.request.url))
-    const reply = !route
-      ? guest.debugger.sendCommand('Fetch.continueRequest', { requestId: p.requestId })
-      : route.abort
-        ? guest.debugger.sendCommand('Fetch.failRequest', {
-            requestId: p.requestId,
-            errorReason: 'BlockedByClient',
-          })
-        : route.body !== undefined
-          ? guest.debugger.sendCommand('Fetch.fulfillRequest', {
-              requestId: p.requestId,
-              responseCode: 200,
-              responseHeaders: [{ name: 'Content-Type', value: jsonContentType(route.body) }],
-              body: Buffer.from(route.body).toString('base64'),
-            })
-          : guest.debugger.sendCommand('Fetch.continueRequest', { requestId: p.requestId })
-    reply.catch(() => {})
-  })
+function routeReply(wcId: number, paused: PausedRequest): PausedReply | null {
+  const route = [...(guestRoutes.get(wcId) ?? [])]
+    .reverse()
+    .find((r) => globMatches(r.pattern, paused.request.url))
+  if (!route) return null
+  if (route.abort) {
+    return {
+      method: 'Fetch.failRequest',
+      params: { requestId: paused.requestId, errorReason: 'BlockedByClient' },
+    }
+  }
+  if (route.body === undefined) return null
+  return {
+    method: 'Fetch.fulfillRequest',
+    params: {
+      requestId: paused.requestId,
+      responseCode: 200,
+      responseHeaders: [{ name: 'Content-Type', value: jsonContentType(route.body) }],
+      body: Buffer.from(route.body).toString('base64'),
+    },
+  }
 }
 
 async function applyRoutes(guest: Electron.WebContents): Promise<void> {
   const routes = guestRoutes.get(guest.id) ?? []
-  if (routes.length === 0) {
-    await debuggerCommand(guest, 'Fetch.disable')
-    return
-  }
-  watchRoutes(guest)
-  await debuggerCommand(guest, 'Fetch.enable', {
-    patterns: routes.map((r) => ({ urlPattern: r.pattern })),
-  })
+  const wcId = guest.id
+  if (!guest.debugger.isAttached()) guest.debugger.attach('1.3')
+  await setGuestRoutes(
+    guest,
+    routes.map((r) => r.pattern),
+    routes.length === 0 ? null : (paused) => routeReply(wcId, paused),
+  )
 }
 
 async function addInitScript(

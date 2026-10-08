@@ -1,7 +1,8 @@
 import { execFileSync, spawn } from 'node:child_process'
-import { mkdirSync, mkdtempSync, realpathSync, rmSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import type { SandboxRuntimeConfig } from '@anthropic-ai/sandbox-runtime'
 import { build } from 'esbuild'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { skipWithoutTmux, tmuxPath } from '../../../test/tmux'
@@ -17,9 +18,19 @@ let root: string
 let tmuxDir: string
 let socket: string
 let host: SandboxHost
+let config: SandboxRuntimeConfig
 
-function run(script: string): Promise<{ code: number; out: string }> {
-  return host.wrap(script, 'bash').then(
+function run(script: string, extraReads: string[] = []): Promise<{ code: number; out: string }> {
+  const custom =
+    extraReads.length > 0
+      ? {
+          filesystem: {
+            ...config.filesystem,
+            allowRead: [...(config.filesystem.allowRead ?? []), ...extraReads],
+          },
+        }
+      : undefined
+  return host.wrap(script, 'bash', custom).then(
     (wrapped) =>
       new Promise((resolve) => {
         const child = spawn('/bin/sh', ['-c', wrapped], { env: { ...process.env } })
@@ -53,23 +64,18 @@ beforeAll(async () => {
   socket = join(tmuxDir, 'kept')
   execFileSync(tmux, ['-S', socket, '-f', '/dev/null', 'new-session', '-d', '-s', 'k', 'sleep 120'])
   host = new SandboxHost({ nodePath: process.execPath, hostScript, onAsk: async () => false })
-  await host.start(
-    buildSrtConfig(
-      { allowRead: [], domains: [], controls: DEFAULT_CONTROLS },
-      {
-        ...withKeptShells(
-          { home, dataDirs: [], socketPath: join(root, 'ostia.sock'), runtimeReads: [] },
-          {
-            tmuxDir,
-            socketPath: join(root, 'kept.sock'),
-            launcherDir: join(root, 'bin'),
-          },
-        ),
-        workDir,
-        tmpDir: join(root, 'tmp'),
-      },
-    ),
+  config = buildSrtConfig(
+    { allowRead: [], domains: [], controls: DEFAULT_CONTROLS },
+    {
+      ...withKeptShells(
+        { home, dataDirs: [], socketPath: join(root, 'ostia.sock'), runtimeReads: [] },
+        { tmuxDir, socketPath: join(root, 'kept.sock') },
+      ),
+      workDir,
+      tmpDir: join(root, 'tmp'),
+    },
   )
+  await host.start(config)
 }, 60_000)
 
 afterAll(() => {
@@ -89,6 +95,41 @@ describe.skipIf(process.platform === 'darwin' || skipWithoutTmux)(
       )
       expect(listed.out).not.toContain('kept')
       expect(listed.out).toContain('socket-hidden')
+    })
+
+    it('KSH-C73 a sandboxed kept shell reads its own token file, a new token written in place, and nothing else in the folder', async () => {
+      const tokens = join(tmuxDir, 'tokens', 'kept')
+      mkdirSync(tokens, { recursive: true, mode: 0o700 })
+      const own = join(tokens, 'own')
+      const other = join(tokens, 'other')
+      writeFileSync(own, 'first-token', { mode: 0o600 })
+      writeFileSync(other, 'other-token', { mode: 0o600 })
+      const script = `cat ${own}; echo; cat ${other} 2>/dev/null || echo other-hidden; [ -S ${socket} ] && echo socket-visible || echo socket-hidden`
+      const first = await run(script, [own])
+      expect(first.out).toContain('first-token')
+      expect(first.out).toContain('other-hidden')
+      expect(first.out).not.toContain('other-token')
+      expect(first.out).toContain('socket-hidden')
+      const wrapped = await host.wrap(`echo ready; read -r _; cat ${own}`, 'bash', {
+        filesystem: {
+          ...config.filesystem,
+          allowRead: [...(config.filesystem.allowRead ?? []), own],
+        },
+      })
+      const child = spawn('/bin/sh', ['-c', wrapped])
+      let out = ''
+      const ready = new Promise<void>((resolve) => {
+        child.stdout.on('data', (d: Buffer) => {
+          out += d.toString('utf8')
+          if (out.includes('ready\n')) resolve()
+        })
+      })
+      await ready
+      writeFileSync(own, 'second-token', { mode: 0o600 })
+      child.stdin.end('\n')
+      await new Promise((resolve) => child.on('close', resolve))
+      out = out.replace('ready\n', '')
+      expect(out).toBe('second-token')
     })
 
     it('KSH-C55 a sandboxed shell cannot use tmux to type into a pane outside the sandbox', async () => {

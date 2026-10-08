@@ -83,6 +83,7 @@ describe('ExtensionHost over a real control socket with a fixture extension proc
       ptyPid: () => undefined,
       windowIds: () => ['1'],
       waking: () => false,
+      unreported: () => false,
     })
     registerControlServer(
       {

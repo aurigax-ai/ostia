@@ -6,6 +6,7 @@ import type { PortBridge } from './portBridge'
 export interface SandboxListener {
   port: number
   process: string | null
+  pid?: number
 }
 
 export type ExposeResult =
@@ -102,13 +103,13 @@ function listeningInodes(pid: number): Map<string, number> {
   return out
 }
 
-function processOfInode(pids: number[], inode: string): string | null {
+function processOfInode(pids: number[], inode: string): { pid: number; name: string } | null {
   const target = `socket:[${inode}]`
   for (const pid of pids) {
     try {
       for (const fd of readdirSync(`/proc/${pid}/fd`)) {
         if (readlinkSync(`/proc/${pid}/fd/${fd}`) === target) {
-          return readFileSync(`/proc/${pid}/comm`, 'utf8').trim()
+          return { pid, name: readFileSync(`/proc/${pid}/comm`, 'utf8').trim() }
         }
       }
     } catch {}
@@ -123,8 +124,8 @@ function listenersIn(tree: number[]): SandboxListener[] {
   for (const [inode, port] of listeningInodes(pid)) {
     if (seen.has(port)) continue
     const owner = processOfInode(tree, inode)
-    if (RUNTIME_BRIDGE_PORTS.has(port) && owner === RUNTIME_BRIDGE_PROCESS) continue
-    seen.set(port, { port, process: owner })
+    if (RUNTIME_BRIDGE_PORTS.has(port) && owner?.name === RUNTIME_BRIDGE_PROCESS) continue
+    seen.set(port, owner ? { port, process: owner.name, pid: owner.pid } : { port, process: null })
   }
   return [...seen.values()]
 }
