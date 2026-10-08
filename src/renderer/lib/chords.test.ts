@@ -13,7 +13,7 @@ import {
   usedByMonaco,
 } from '@shared/chordSpec'
 import { parseKeymapBindings } from '@shared/keymapFile'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { commands } from '../commands/registry'
 import { en } from '../i18n/dict'
 import { useKeymapStore } from '../stores/keymapStore'
@@ -36,6 +36,8 @@ import {
   defaultChords,
   effectiveBindings,
   findStep,
+  holdDoubleShift,
+  installDoubleShift,
   isAppChord,
   isBrowserChord,
   isTerminalCommandChord,
@@ -969,6 +971,71 @@ describe('runAppChord', () => {
     const preventDefault = vi.fn()
     expect(runAppChord({ ...key('k', { ctrlKey: true }), preventDefault }, false)).toBe(false)
     expect(preventDefault).not.toHaveBeenCalled()
+  })
+})
+
+describe('double Shift', () => {
+  const ran: string[] = []
+  let uninstall: () => void = () => {}
+
+  beforeEach(() => {
+    ran.length = 0
+    for (const id of ['palette.searchEverywhere', 'palette.toggle']) {
+      commands.register({ id, title: id, run: () => void ran.push(id) })
+    }
+    uninstall = installDoubleShift(window, false)
+  })
+
+  afterEach(() => {
+    uninstall()
+    commands.unregister('palette.searchEverywhere')
+    commands.unregister('palette.toggle')
+  })
+
+  const fire = (type: string, k: string, init: KeyboardEventInit = {}): void => {
+    window.dispatchEvent(new KeyboardEvent(type, { key: k, ...init }))
+  }
+  const tap = (): void => {
+    fire('keydown', 'Shift', { shiftKey: true })
+    fire('keyup', 'Shift')
+  }
+
+  it('opens Search Everywhere by default and shows the keys as Shift twice', () => {
+    expect(chordLabel('palette.searchEverywhere', true)).toBe('⇧⇧')
+    expect(chordLabel('palette.searchEverywhere', false)).toBe('Shift+Shift')
+    tap()
+    expect(ran).toEqual([])
+    tap()
+    expect(ran).toEqual(['palette.searchEverywhere'])
+  })
+
+  it('does nothing for Shift with a letter, or with a click between the taps', () => {
+    tap()
+    fire('keydown', 'Shift', { shiftKey: true })
+    fire('keydown', 'A', { shiftKey: true })
+    fire('keyup', 'A', { shiftKey: true })
+    fire('keyup', 'Shift')
+    tap()
+    window.dispatchEvent(new Event('pointerdown'))
+    tap()
+    expect(ran).toEqual([])
+  })
+
+  it('is off while held, when unbound, and follows a rebinding', () => {
+    const release = holdDoubleShift()
+    tap()
+    tap()
+    release()
+    release()
+    expect(ran).toEqual([])
+    bind({ 'palette.searchEverywhere': null })
+    tap()
+    tap()
+    expect(ran).toEqual([])
+    bind({ 'palette.toggle': 'Shift+Shift' })
+    tap()
+    tap()
+    expect(ran).toEqual(['palette.toggle'])
   })
 })
 

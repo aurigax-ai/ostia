@@ -1,5 +1,6 @@
 import type { IpcMain, WebContents } from 'electron'
-import { guestChordKey, normalizeGuestChords } from '../shared/guestChords'
+import { DOUBLE_SHIFT_KEY, doubleShiftDetector } from '../shared/chordSpec'
+import { guestChordKey, guestDoubleShift, normalizeGuestChords } from '../shared/guestChords'
 
 export interface GuestChordsDeps {
   ipc: Pick<IpcMain, 'on'>
@@ -25,12 +26,14 @@ export function registerGuestChords(deps: GuestChordsDeps): GuestChords {
 
   return {
     guardGuest: (guest) => {
+      const doubleShift = doubleShiftDetector()
       guest.on('before-input-event', (event, input) => {
-        const key = guestChordKey(input, chords, deps.mac)
+        const tapped = guestDoubleShift(input, chords, doubleShift, Date.now())
+        const key = tapped ? DOUBLE_SHIFT_KEY : guestChordKey(input, chords, deps.mac)
         if (!key) return
         const host = guest.hostWebContents
         if (!host || host.isDestroyed()) return
-        event.preventDefault()
+        if (!tapped) event.preventDefault()
         host.send(GUEST_CHORDS_FIRE, { guestId: guest.id, key })
       })
     },

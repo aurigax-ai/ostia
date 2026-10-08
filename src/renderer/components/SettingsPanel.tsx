@@ -51,7 +51,7 @@ import type { AppInfo, Platform } from '@shared/types'
 import { ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from '@shared/zoom'
 import { Fragment, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import appIcon from '../../../resources/icon.svg'
-import type { Locale } from '../i18n/dict'
+import type { Dict, Locale } from '../i18n/dict'
 import { fmt, useDict, withProductName } from '../i18n/useDict'
 import { ACCENT_PRESETS, normalizeHex } from '../lib/color'
 import { extensionMatchesQuery } from '../lib/extensionSettingText'
@@ -200,6 +200,77 @@ interface NavChild {
   current: boolean
 }
 
+interface SettingsSection {
+  id: SectionId
+  group: SettingsGroup
+  icon: IconComponent
+  label: string
+}
+
+export function settingsSections(d: Dict): SettingsSection[] {
+  return [
+    { id: 'appearance', group: 'general', icon: PaletteIcon, label: d.settings.appearance },
+    { id: 'language', group: 'general', icon: TranslateIcon, label: d.settings.language },
+    { id: 'notifications', group: 'general', icon: BellIcon, label: d.settings.notifications },
+    { id: 'sync', group: 'general', icon: ArrowsClockwiseIcon, label: d.sync.title },
+    { id: 'terminal', group: 'terminal', icon: TerminalWindowIcon, label: d.settings.terminal },
+    { id: 'prompt', group: 'terminal', icon: TerminalIcon, label: d.prompt.title },
+    { id: 'keyboard', group: 'terminal', icon: KeyboardIcon, label: d.keyboard.title },
+    {
+      id: 'panes',
+      group: 'terminal',
+      icon: SquareSplitHorizontalIcon,
+      label: d.settings.panes,
+    },
+    {
+      id: 'workspaces',
+      group: 'workspace',
+      icon: SquaresFourIcon,
+      label: d.workspaceSettings.title,
+    },
+    { id: 'sidebar', group: 'workspace', icon: SidebarSimpleIcon, label: d.settings.sidebar },
+    { id: 'files', group: 'workspace', icon: TreeStructureIcon, label: d.settings.files },
+    { id: 'views', group: 'workspace', icon: LayoutIcon, label: d.views.title },
+    { id: 'agents', group: 'agents', icon: RobotIcon, label: d.settings.agents },
+    {
+      id: 'assistant',
+      group: 'agents',
+      icon: ChatCircleDotsIcon,
+      label: d.assistantSettings.title,
+    },
+    ...(platform === 'linux'
+      ? [
+          {
+            id: 'manager' as const,
+            group: 'agents' as const,
+            icon: BroadcastIcon,
+            label: d.manager.settingsTitle,
+          },
+        ]
+      : []),
+    { id: 'editor', group: 'editor', icon: FileCodeIcon, label: d.editorSettings.title },
+    {
+      id: 'languageServers',
+      group: 'editor',
+      icon: BracketsCurlyIcon,
+      label: d.languageServers.title,
+    },
+    { id: 'browser', group: 'editor', icon: GlobeIcon, label: d.browserSettings.title },
+    { id: 'sandbox', group: 'security', icon: ShieldCheckIcon, label: d.sandbox.title },
+    { id: 'privacy', group: 'security', icon: EyeSlashIcon, label: d.privacy.title },
+    { id: 'passwords', group: 'security', icon: KeyIcon, label: d.passwords.title },
+    { id: 'extensions', group: 'more', icon: PuzzlePieceIcon, label: d.settings.extensions },
+    {
+      id: 'browseExtensions',
+      group: 'more',
+      icon: StorefrontIcon,
+      label: d.extensionsBrowse.title,
+    },
+    { id: 'remote', group: 'more', icon: DeviceMobileIcon, label: d.settings.remote },
+    { id: 'about', group: 'more', icon: InfoIcon, label: d.settings.about },
+  ]
+}
+
 export function SettingsPanel(): JSX.Element | null {
   const d = useDict()
   const open = useUIStore((s) => s.settingsActive)
@@ -207,6 +278,7 @@ export function SettingsPanel(): JSX.Element | null {
   const [active, setActive] = useState<SectionId>('appearance')
   const requested = useUIStore((s) => s.settingsSection)
   const requestedExtension = useUIStore((s) => s.settingsExtension)
+  const requestedQuery = useUIStore((s) => s.settingsQuery)
   const extensions = useExtensionsStore((s) => s.list)
   const [extensionsExpanded, setExtensionsExpanded] = useState(() =>
     navExpanded(EXTENSIONS_NAV_EXPANDED_KEY),
@@ -269,76 +341,7 @@ export function SettingsPanel(): JSX.Element | null {
     return () => prev?.focus?.()
   }, [open])
 
-  const sections = useMemo(
-    () =>
-      [
-        { id: 'appearance', group: 'general', icon: PaletteIcon, label: d.settings.appearance },
-        { id: 'language', group: 'general', icon: TranslateIcon, label: d.settings.language },
-        { id: 'notifications', group: 'general', icon: BellIcon, label: d.settings.notifications },
-        { id: 'sync', group: 'general', icon: ArrowsClockwiseIcon, label: d.sync.title },
-        { id: 'terminal', group: 'terminal', icon: TerminalWindowIcon, label: d.settings.terminal },
-        { id: 'prompt', group: 'terminal', icon: TerminalIcon, label: d.prompt.title },
-        { id: 'keyboard', group: 'terminal', icon: KeyboardIcon, label: d.keyboard.title },
-        {
-          id: 'panes',
-          group: 'terminal',
-          icon: SquareSplitHorizontalIcon,
-          label: d.settings.panes,
-        },
-        {
-          id: 'workspaces',
-          group: 'workspace',
-          icon: SquaresFourIcon,
-          label: d.workspaceSettings.title,
-        },
-        { id: 'sidebar', group: 'workspace', icon: SidebarSimpleIcon, label: d.settings.sidebar },
-        { id: 'files', group: 'workspace', icon: TreeStructureIcon, label: d.settings.files },
-        { id: 'views', group: 'workspace', icon: LayoutIcon, label: d.views.title },
-        { id: 'agents', group: 'agents', icon: RobotIcon, label: d.settings.agents },
-        {
-          id: 'assistant',
-          group: 'agents',
-          icon: ChatCircleDotsIcon,
-          label: d.assistantSettings.title,
-        },
-        ...(platform === 'linux'
-          ? [
-              {
-                id: 'manager' as const,
-                group: 'agents' as const,
-                icon: BroadcastIcon,
-                label: d.manager.settingsTitle,
-              },
-            ]
-          : []),
-        { id: 'editor', group: 'editor', icon: FileCodeIcon, label: d.editorSettings.title },
-        {
-          id: 'languageServers',
-          group: 'editor',
-          icon: BracketsCurlyIcon,
-          label: d.languageServers.title,
-        },
-        { id: 'browser', group: 'editor', icon: GlobeIcon, label: d.browserSettings.title },
-        { id: 'sandbox', group: 'security', icon: ShieldCheckIcon, label: d.sandbox.title },
-        { id: 'privacy', group: 'security', icon: EyeSlashIcon, label: d.privacy.title },
-        { id: 'passwords', group: 'security', icon: KeyIcon, label: d.passwords.title },
-        { id: 'extensions', group: 'more', icon: PuzzlePieceIcon, label: d.settings.extensions },
-        {
-          id: 'browseExtensions',
-          group: 'more',
-          icon: StorefrontIcon,
-          label: d.extensionsBrowse.title,
-        },
-        { id: 'remote', group: 'more', icon: DeviceMobileIcon, label: d.settings.remote },
-        { id: 'about', group: 'more', icon: InfoIcon, label: d.settings.about },
-      ] satisfies {
-        id: SectionId
-        group: SettingsGroup
-        icon: IconComponent
-        label: string
-      }[],
-    [d],
-  )
+  const sections = useMemo(() => settingsSections(d), [d])
 
   const expandExtensions = (expanded: boolean): void => {
     setExtensionsExpanded(expanded)
@@ -406,6 +409,12 @@ export function SettingsPanel(): JSX.Element | null {
     }
     useUIStore.setState({ settingsSection: null, settingsExtension: null })
   }, [requested, requestedExtension, sections, extensions])
+
+  useEffect(() => {
+    if (requestedQuery === null) return
+    changeQuery(requestedQuery)
+    useUIStore.setState({ settingsQuery: null })
+  }, [requestedQuery, changeQuery])
 
   const openSettingsFile = async (): Promise<void> => {
     const path = await window.ostia.settings.path()

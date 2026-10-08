@@ -5,6 +5,7 @@ import {
   type ChordSpec,
   type ChordValue,
   DIGIT_RANGE,
+  DOUBLE_SHIFT,
   type KeyLike,
   type KeybindingMap,
   WORKSPACE_GOTO,
@@ -12,6 +13,7 @@ import {
   checkBinding,
   chordText,
   chordTexts,
+  doubleShiftDetector,
   formatChord,
   formatScopedChord,
   overlaps,
@@ -32,6 +34,7 @@ export { WORKSPACE_GOTO, bindingProblem, checkBinding } from '@shared/chordSpec'
 export type AppChord =
   | 'app.quit'
   | 'palette.toggle'
+  | 'palette.searchEverywhere'
   | 'view.goToFile'
   | 'view.toggleRail'
   | 'app.openSettings'
@@ -113,6 +116,7 @@ export const DEFAULT_CHORDS: Readonly<
 > = {
   'app.quit': ['', 'Ctrl+Shift+Q'],
   'palette.toggle': [['Shift+Cmd+P', 'Cmd+K'], 'Ctrl+Shift+P'],
+  'palette.searchEverywhere': [DOUBLE_SHIFT, DOUBLE_SHIFT],
   'view.goToFile': ['Cmd+P', 'Ctrl+Alt+G'],
   'view.toggleRail': [['Cmd+B', 'Cmd+\\'], 'Ctrl+Shift+B'],
   'app.openSettings': ['Cmd+,', 'Ctrl+,'],
@@ -348,6 +352,45 @@ export function runAppChord(e: KeyLike & { preventDefault: () => void }, mac: bo
   if (isDefaultBinding(chord)) countUsage('features', 'chord', chord)
   execChord(chord, e)
   return true
+}
+
+export function runDoubleShift(mac: boolean): boolean {
+  const chord = currentBindings(mac).bySignature.get(DOUBLE_SHIFT) ?? null
+  if (!isAppChord(chord)) return false
+  if (isDefaultBinding(chord)) countUsage('features', 'chord', chord)
+  void commands.exec(chord)
+  return true
+}
+
+let doubleShiftHolds = 0
+
+export function holdDoubleShift(): () => void {
+  doubleShiftHolds += 1
+  let held = true
+  return () => {
+    if (!held) return
+    held = false
+    doubleShiftHolds -= 1
+  }
+}
+
+export function installDoubleShift(target: Window, mac: boolean): () => void {
+  const detector = doubleShiftDetector()
+  const down = (e: KeyboardEvent): void => detector.down(e, e.timeStamp)
+  const up = (e: KeyboardEvent): void => {
+    if (detector.up(e, e.timeStamp) && doubleShiftHolds === 0) runDoubleShift(mac)
+  }
+  const reset = (): void => detector.reset()
+  target.addEventListener('keydown', down, true)
+  target.addEventListener('keyup', up, true)
+  target.addEventListener('pointerdown', reset, true)
+  target.addEventListener('blur', reset)
+  return () => {
+    target.removeEventListener('keydown', down, true)
+    target.removeEventListener('keyup', up, true)
+    target.removeEventListener('pointerdown', reset, true)
+    target.removeEventListener('blur', reset)
+  }
 }
 
 export function isDefaultBinding(id: string): boolean {

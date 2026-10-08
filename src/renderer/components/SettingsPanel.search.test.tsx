@@ -136,6 +136,16 @@ describe('SettingsPanel search', () => {
     expect(searchBox()).toHaveFocus()
   })
 
+  it('searches for what another view asked for, once', async () => {
+    useUIStore.getState().openSettings(undefined, { query: 'blink' })
+    renderSettings()
+
+    const blink = await within(result('terminal')).findByRole('switch', { name: 'Cursor blink' })
+    expect(rowOf(blink)).toBeVisible()
+    expect(searchBox()).toHaveValue('blink')
+    expect(useUIStore.getState().settingsQuery).toBeNull()
+  })
+
   it('lists only sections with matches in the nav, with their match count', async () => {
     renderSettings()
     const user = userEvent.setup()

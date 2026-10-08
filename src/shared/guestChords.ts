@@ -1,5 +1,7 @@
 import {
   DIGIT_RANGE,
+  DOUBLE_SHIFT,
+  type DoubleShiftDetector,
   type KeyLike,
   formatChord,
   isNativeClipboardKey,
@@ -51,6 +53,25 @@ export function guestChordKey(
   if (chords.has(formatChord(spec, mac))) return key
   const digit = /^[1-9]$/.test(spec.key)
   return digit && chords.has(formatChord({ ...spec, key: DIGIT_RANGE }, mac)) ? key : null
+}
+
+export function guestDoubleShift(
+  input: GuestKeyInput,
+  chords: ReadonlySet<string>,
+  detector: DoubleShiftDetector,
+  now: number,
+): boolean {
+  const key = {
+    key: input.key,
+    ctrlKey: input.control,
+    metaKey: input.meta,
+    altKey: input.alt,
+    repeat: input.isAutoRepeat,
+    isComposing: input.isComposing,
+  }
+  if (input.type === 'keyDown') detector.down(key, now)
+  else if (input.type === 'keyUp') return detector.up(key, now) && chords.has(DOUBLE_SHIFT)
+  return false
 }
 
 export function isGuestChordFire(value: unknown): value is GuestChordFire {

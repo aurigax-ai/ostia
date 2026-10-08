@@ -998,6 +998,13 @@ export function registerBuiltinCommands(): void {
   })
 
   registerCore({
+    id: 'palette.searchEverywhere',
+    category: 'view',
+    target: 'none',
+    run: () => useUIStore.getState().openPalette('everywhere'),
+  })
+
+  registerCore({
     id: GO_TO_FILE_COMMAND,
     category: 'view',
     target: 'none',

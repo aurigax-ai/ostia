@@ -33,3 +33,31 @@ test('Escape right after the palette chord in a terminal closes the palette and 
     await app.close()
   }
 })
+
+test('Shift twice in a terminal opens Search Everywhere and runs the command picked there', async () => {
+  const app = await electron.launch(isolatedLaunch())
+  try {
+    const win = await app.firstWindow()
+    await openWorkspace(win)
+    const rows = win.locator('.xterm-rows').first()
+    await win.locator('.xterm').first().click()
+    await expect(win.locator('.xterm-helper-textarea').first()).toBeFocused()
+    await win.keyboard.type('cat -v\n')
+
+    await win.keyboard.press('Shift')
+    await win.keyboard.press('Shift')
+    const search = win.getByRole('dialog', { name: 'Search everywhere' })
+    const input = search.getByRole('combobox')
+    await expect(input).toBeFocused()
+    await win.keyboard.type('Open Settings')
+    await expect(search.getByRole('option').first()).toContainText('Open Settings')
+    await win.keyboard.press('Enter')
+
+    await expect(search).toBeHidden()
+    await expect(win.getByRole('textbox', { name: 'Search settings' })).toBeVisible()
+    await expect(rows).not.toContainText('Open Settings')
+    await expect(rows).not.toContainText('^[')
+  } finally {
+    await app.close()
+  }
+})
