@@ -29,7 +29,7 @@
     "icons": "bash scripts/icons.sh",
     "install:local": "pnpm package && bash scripts/install-linux.sh",
     "bump": "node scripts/bump-version.mjs",
-    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.node.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.e2e.json",
     "rebuild": "electron-rebuild -f -w node-pty",
     "lint": "biome check src && node scripts/comments.mjs --check",
     "format": "biome format --write src",

@@ -54,7 +54,7 @@ test('a new workspace lands at the top when placement is top', async () => {
 
 test('a new workspace starts in the focused pane folder when inheriting', async () => {
   test.setTimeout(60_000)
-  const { app, win, home } = await launch({ inheritFolder: true })
+  const { app, win } = await launch({ inheritFolder: true })
   try {
     await win.keyboard.type('cd projects && echo cd_$((20+22))_done')
     await win.keyboard.press('Enter')
