@@ -12,6 +12,7 @@ import { useLayoutStore } from '../stores/layoutStore'
 import { usePluginsStore } from '../stores/pluginsStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
+import { useWindowsStore } from '../stores/windowsStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
 import { CommandPalette } from './CommandPalette'
 
@@ -113,9 +114,11 @@ describe('CommandPalette', () => {
   describe('row layout', () => {
     const initialPlugins = usePluginsStore.getState()
     const initialSettings = useSettingsStore.getState()
+    const initialWindows = useWindowsStore.getState()
 
     afterEach(() => {
       cleanup()
+      useWindowsStore.setState(initialWindows, true)
       usePluginsStore.setState(initialPlugins, true)
       useSettingsStore.setState(initialSettings, true)
     })
@@ -150,43 +153,75 @@ describe('CommandPalette', () => {
       })
     }
 
-    it('puts a command’s keycap and id right after its title, in that order', async () => {
+    const SLOTS = ['palette-name', 'palette-keys', 'palette-meta']
+
+    const expectColumns = (option: HTMLElement) => {
+      const row = cells(option)
+      expect(row.map((cell) => cell.dataset.slot)).toEqual(SLOTS)
+      const grid = option.querySelector('[data-slot="palette-row"]') as HTMLElement
+      expect(grid).toHaveClass('grid')
+      expect(grid.className).toContain('var(--palette-name-w')
+      expect(grid.className).toContain('var(--palette-keys-w')
+      expect(row[2]).toHaveClass('justify-self-end', 'truncate', 'min-w-0')
+      return row
+    }
+
+    it('lays a command out as title, keycap, then id on the right', async () => {
       useUIStore.setState({ paletteOpen: true })
       render(<CommandPalette />)
 
-      const [title, keys, id] = cells(await screen.findByRole('option', { name: /Open Settings/ }))
+      const [title, keys, id] = expectColumns(
+        await screen.findByRole('option', { name: /Open Settings/ }),
+      )
 
       expect(title).toHaveTextContent('Open Settings')
-      expect(keys.tagName).toBe('KBD')
+      expect(keys.querySelector('kbd')).not.toBeNull()
       expect(id).toHaveTextContent('app.openSettings')
-      expect(id).toHaveAttribute('data-slot', 'palette-meta')
       expect(id).not.toContainElement(keys)
     })
 
-    it('puts a workspace’s path right after its name', async () => {
+    it('keeps the keycap column in place for a command without a keybinding', async () => {
+      useUIStore.setState({ paletteOpen: true })
+      render(<CommandPalette />)
+      const options = await screen.findAllByRole('option')
+
+      const unbound = options.find((o) => !o.querySelector('kbd'))
+      expect(unbound).toBeDefined()
+      const [, keys, id] = expectColumns(unbound as HTMLElement)
+
+      expect(keys).toBeEmptyDOMElement()
+      expect(id.textContent).not.toBe('')
+    })
+
+    it('lays a workspace out as name, empty keycap column, then path', async () => {
       seedPlaces()
       useUIStore.setState({ paletteOpen: true, paletteSeed: '@' })
       render(<CommandPalette />)
 
-      const [title, path] = cells(await screen.findByRole('option', { name: /payments/ }))
+      const [title, keys, path] = expectColumns(
+        await screen.findByRole('option', { name: /payments/ }),
+      )
 
       expect(title).toHaveTextContent('payments')
+      expect(keys).toBeEmptyDOMElement()
       expect(path).toHaveTextContent('/src/api')
-      expect(path).toHaveAttribute('data-slot', 'palette-meta')
     })
 
-    it('puts a tab’s workspace right after its title', async () => {
+    it('lays a tab out as title, empty keycap column, then its workspace', async () => {
       seedPlaces()
       useUIStore.setState({ paletteOpen: true, paletteSeed: '#' })
       render(<CommandPalette />)
 
-      const [title, where] = cells(await screen.findByRole('option', { name: /Fix refunds/ }))
+      const [title, keys, where] = expectColumns(
+        await screen.findByRole('option', { name: /Fix refunds/ }),
+      )
 
       expect(title).toHaveTextContent('Fix refunds')
+      expect(keys).toBeEmptyDOMElement()
       expect(where).toHaveTextContent('payments')
     })
 
-    it('puts a file’s folder right after its name', async () => {
+    it('lays a file out as name, empty keycap column, then folder', async () => {
       seedPlaces()
       vi.mocked(window.ostia.search.run).mockResolvedValue({
         ok: true,
@@ -202,10 +237,63 @@ describe('CommandPalette', () => {
       useUIStore.setState({ paletteOpen: true, paletteSeed: '/gre' })
       render(<CommandPalette />)
 
-      const [title, dir] = cells(await screen.findByRole('option', { name: /greet/ }))
+      const [title, keys, dir] = expectColumns(await screen.findByRole('option', { name: /greet/ }))
 
       expect(title).toHaveTextContent('greet.ts')
+      expect(keys).toBeEmptyDOMElement()
       expect(dir).toHaveTextContent('src/lib')
+    })
+
+    it('lays a workspace from another window out the same way', async () => {
+      useWindowsStore.setState({
+        windowId: 'win-a',
+        list: [
+          {
+            windowId: 'win-b',
+            detached: true,
+            workspaces: [
+              {
+                id: 'w9',
+                name: 'billing',
+                workDir: '/src/billing',
+                state: 'idle',
+                unreadAt: 0,
+                panes: [],
+              },
+            ],
+          },
+        ],
+      })
+      useUIStore.setState({ paletteOpen: true, paletteSeed: '@' })
+      render(<CommandPalette />)
+
+      const [title, keys, path] = expectColumns(
+        await screen.findByRole('option', { name: /billing/ }),
+      )
+
+      expect(title).toHaveTextContent('billing')
+      expect(keys).toBeEmptyDOMElement()
+      expect(path).toHaveTextContent('/src/billing')
+    })
+
+    it('lays an argument choice out in the same columns', async () => {
+      commands.register<{ argument?: string }, void>({
+        id: 'test.layout-card',
+        title: 'Test: Layout Card',
+        argument: 'Card id',
+        choices: async () => [{ value: 'shop-12', label: 'Fix checkout' }],
+        run: vi.fn(),
+      })
+      useUIStore.setState({ paletteOpen: true })
+      render(<CommandPalette />)
+      await userEvent.type(await screen.findByRole('combobox'), 'Test: Layout Card{Enter}')
+
+      const [title, keys] = expectColumns(
+        await screen.findByRole('option', { name: /Fix checkout/ }),
+      )
+
+      expect(title).toHaveTextContent('Fix checkout')
+      expect(keys).toBeEmptyDOMElement()
     })
 
     it('keeps the title whole and lets the secondary text give way first', async () => {
@@ -214,9 +302,8 @@ describe('CommandPalette', () => {
 
       const [title, , id] = cells(await screen.findByRole('option', { name: /Open Settings/ }))
 
-      expect(title).toHaveClass('shrink-0', 'truncate')
-      expect(id).toHaveClass('truncate', 'min-w-0')
-      expect(id).not.toHaveClass('justify-self-end')
+      expect(title).toHaveClass('overflow-hidden', 'max-w-full')
+      expect(id).toHaveClass('truncate', 'min-w-0', 'justify-self-end')
     })
 
     it('lays rows out the same way in Traditional Chinese', async () => {
@@ -229,7 +316,9 @@ describe('CommandPalette', () => {
       useUIStore.setState({ paletteOpen: true })
       render(<CommandPalette />)
 
-      const [title, , id] = cells(await screen.findByRole('option', { name: /向右分割窗格/ }))
+      const [title, , id] = expectColumns(
+        await screen.findByRole('option', { name: /向右分割窗格/ }),
+      )
 
       expect(title).toHaveTextContent('向右分割窗格')
       expect(id).toHaveAttribute('data-slot', 'palette-meta')

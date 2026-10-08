@@ -1,6 +1,6 @@
 import { cn } from '@/lib/utils'
 import { AppWindowIcon } from '@phosphor-icons/react'
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { ASK_COMMAND_ID } from '../commands/askCommand'
 import {
   type CommandChoice,
@@ -195,6 +195,7 @@ export function CommandPalette(): JSX.Element {
                 }}
               />
               <CommandList className={LIST_CLASS}>
+                <PaletteColumns />
                 {mode === 'symbols' ? (
                   <SymbolItems
                     query={paletteQuery(search)}
@@ -338,6 +339,7 @@ function ChoiceStep({
         onValueChange={onValueChange}
       />
       <CommandList className={LIST_CLASS}>
+        <PaletteColumns />
         {choices !== null && choices.length === 0 ? (
           <CommandEmpty>{command.emptyChoices?.() ?? command.argument}</CommandEmpty>
         ) : null}
@@ -461,6 +463,38 @@ function WorkspaceItems({
   )
 }
 
+const ROW_GAP_PX = 12
+const NAME_GAP_PX = 8
+
+function PaletteColumns(): JSX.Element {
+  const ref = useRef<HTMLSpanElement>(null)
+  useLayoutEffect(() => {
+    const host = ref.current?.closest<HTMLElement>('[data-slot="command-list"]')
+    if (!host) return
+    const measure = (): void => {
+      const cap = Math.floor(host.clientWidth / 2)
+      let name = 0
+      let keys = 0
+      for (const row of host.querySelectorAll('[data-slot="palette-row"]')) {
+        const cells = row.children
+        const parts = [...(cells[0]?.children ?? [])]
+        const width = parts.reduce((sum, part) => sum + part.scrollWidth, 0)
+        name = Math.max(name, width + Math.max(0, parts.length - 1) * NAME_GAP_PX)
+        keys = Math.max(keys, cells[1]?.scrollWidth ?? 0)
+      }
+      if (name > 0)
+        host.style.setProperty('--palette-name-w', `${cap > 0 ? Math.min(name, cap) : name}px`)
+      else host.style.removeProperty('--palette-name-w')
+      host.style.setProperty('--palette-keys-w', `${keys}px`)
+    }
+    measure()
+    const observer = new MutationObserver(measure)
+    observer.observe(host, { childList: true, subtree: true, characterData: true })
+    return () => observer.disconnect()
+  }, [])
+  return <span ref={ref} hidden />
+}
+
 function ItemRow({
   name,
   meta,
@@ -477,23 +511,32 @@ function ItemRow({
   nameMono?: boolean
 }): JSX.Element {
   return (
-    <span data-slot="palette-row" className="flex min-w-0 flex-1 items-center gap-x-3 tabular-nums">
-      <span className={cn('min-w-0 max-w-full shrink-0 truncate', nameMono && 'font-mono')}>
-        {name}
+    <span
+      data-slot="palette-row"
+      style={{ columnGap: ROW_GAP_PX }}
+      className="grid min-w-0 flex-1 grid-cols-[var(--palette-name-w,max-content)_var(--palette-keys-w,max-content)_minmax(0,1fr)] items-center tabular-nums"
+    >
+      <span
+        data-slot="palette-name"
+        className="flex max-w-full min-w-0 items-baseline gap-2 justify-self-start overflow-hidden"
+      >
+        <span className={cn('truncate', nameMono && 'font-mono')}>{name}</span>
+        {detail ? (
+          <span className="min-w-0 truncate text-fg-muted text-ui-xs">{detail}</span>
+        ) : null}
       </span>
-      {detail ? <span className="min-w-0 truncate text-fg-muted text-ui-xs">{detail}</span> : null}
-      {keys ? <Kbd className="shrink-0 whitespace-nowrap">{keys}</Kbd> : null}
-      {meta ? (
-        <span
-          data-slot="palette-meta"
-          className={cn(
-            'min-w-0 truncate text-fg-muted text-ui-xs group-data-selected/command-item:text-fg',
-            mono && 'font-mono',
-          )}
-        >
-          {meta}
-        </span>
-      ) : null}
+      <span data-slot="palette-keys" className="justify-self-start">
+        {keys ? <Kbd className="whitespace-nowrap">{keys}</Kbd> : null}
+      </span>
+      <span
+        data-slot="palette-meta"
+        className={cn(
+          'min-w-0 justify-self-end truncate text-right text-fg-muted text-ui-xs group-data-selected/command-item:text-fg',
+          mono && 'font-mono',
+        )}
+      >
+        {meta}
+      </span>
     </span>
   )
 }

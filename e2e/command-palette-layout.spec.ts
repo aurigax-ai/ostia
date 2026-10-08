@@ -3,33 +3,38 @@ import { isolatedLaunch } from './dataHome'
 import { openWorkspace } from './helpers'
 import { type Page, _electron as electron, expect, test } from './test'
 
-async function gaps(win: Page) {
+async function columns(win: Page) {
   return win.evaluate(() => {
-    const rows = [...document.querySelectorAll('[data-slot="command-item"]')]
-    const measured = rows.flatMap((row) => {
-      const title = row.querySelector('[data-slot="palette-row"] > :first-child')
-      const next = title?.nextElementSibling
-      if (!title || !next) return []
-      return [
-        {
-          gap: next.getBoundingClientRect().left - title.getBoundingClientRect().right,
-          sameLine:
-            Math.abs(next.getBoundingClientRect().top - title.getBoundingClientRect().top) < 20,
-          rowRight: row.getBoundingClientRect().right,
-          nextRight: next.getBoundingClientRect().right,
-        },
-      ]
+    const list = document.querySelector('[data-slot="command-list"]') as HTMLElement
+    const listRect = list.getBoundingClientRect()
+    const rows = [...document.querySelectorAll('[data-slot="palette-row"]')].map((row) => {
+      const name = row.querySelector('[data-slot="palette-name"]') as HTMLElement
+      const keys = row.querySelector('[data-slot="palette-keys"]') as HTMLElement
+      const meta = row.querySelector('[data-slot="palette-meta"]') as HTMLElement
+      const nameRect = name.getBoundingClientRect()
+      return {
+        nameRight: nameRect.left + name.scrollWidth,
+        keysLeft: keys.getBoundingClientRect().left,
+        hasKeys: keys.childElementCount > 0,
+        metaRight: meta.getBoundingClientRect().right,
+        sameLine: Math.abs(keys.getBoundingClientRect().top - nameRect.top) < 20,
+      }
     })
+    const spread = (values: number[]) => Math.max(...values) - Math.min(...values)
+    const widest = rows.reduce((a, b) => (b.nameRight > a.nameRight ? b : a))
     return {
-      count: measured.length,
-      sameLine: measured.every((m) => m.sameLine),
-      gapSpread: Math.max(...measured.map((m) => m.gap)) - Math.min(...measured.map((m) => m.gap)),
-      pushedRight: measured.some((m) => m.rowRight - m.nextRight < 4 && m.gap > 200),
+      count: rows.length,
+      keyed: rows.filter((r) => r.hasKeys).length,
+      sameLine: rows.every((r) => r.sameLine),
+      keysLeftSpread: spread(rows.map((r) => r.keysLeft)),
+      metaRightSpread: spread(rows.map((r) => r.metaRight)),
+      widestGap: widest.keysLeft - widest.nameRight,
+      keysWithinHalf: rows.every((r) => r.keysLeft - listRect.left <= listRect.width * 0.7),
     }
   })
 }
 
-test('the palette puts each row’s secondary text right after its title, with and without a query', async () => {
+test('the palette lines keycaps up in one column right after the names and secondary text up at the right edge, with and without a query', async () => {
   const app = await electron.launch(isolatedLaunch())
   try {
     const win = await app.firstWindow()
@@ -39,18 +44,22 @@ test('the palette puts each row’s secondary text right after its title, with a
     const palette = win.getByRole('dialog', { name: 'Command palette' })
     await expect(palette.getByRole('option').first()).toBeVisible()
 
-    const all = await gaps(win)
+    const all = await columns(win)
     expect(all.count).toBeGreaterThan(1)
+    expect(all.keyed).toBeGreaterThan(1)
     expect(all.sameLine).toBe(true)
-    expect(all.gapSpread).toBeLessThanOrEqual(1)
-    expect(all.pushedRight).toBe(false)
+    expect(all.keysLeftSpread).toBeLessThanOrEqual(1)
+    expect(all.metaRightSpread).toBeLessThanOrEqual(1)
+    expect(all.widestGap).toBeLessThanOrEqual(24)
+    expect(all.keysWithinHalf).toBe(true)
 
     await palette.getByRole('combobox').fill('pane')
     await expect(palette.getByRole('option', { name: /pane/i }).first()).toBeVisible()
-    const searched = await gaps(win)
+    const searched = await columns(win)
     expect(searched.count).toBeGreaterThan(1)
-    expect(searched.sameLine).toBe(true)
-    expect(searched.gapSpread).toBeLessThanOrEqual(1)
+    expect(searched.keysLeftSpread).toBeLessThanOrEqual(1)
+    expect(searched.metaRightSpread).toBeLessThanOrEqual(1)
+    expect(searched.widestGap).toBeLessThanOrEqual(24)
   } finally {
     await app.close()
   }
