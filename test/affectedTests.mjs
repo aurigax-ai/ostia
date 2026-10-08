@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { dirname, join, relative } from 'node:path'
+import { loadQuarantine } from './quarantine.mjs'
 
 export const ROOT = join(import.meta.dirname, '..')
 
@@ -12,7 +13,7 @@ const QUARANTINE = 'test/quarantine.json'
 const QUARANTINE_TEST = 'test/quarantine.test.ts'
 const NODE_TEST_DIRS = ['src/main', 'src/shared', 'src/cli', 'src/extensions']
 
-export const READ_FOLDERS = [
+const READ_FOLDERS = [
   { folder: 'e2e/', named: /['"`]e2e['"`/]/ },
   { folder: '.github/', named: /['"`]\.github\// },
 ]
@@ -36,7 +37,15 @@ const UNIT_ONLY_FILES = [
   'scripts/retry.sh',
 ]
 
-export const EVERY_TEST = { node: null, dom: null, e2e: null }
+const EVERY_TEST = { node: null, dom: null, e2e: null }
+
+export const E2E_SPECS_PER_SHARD = 20
+export const E2E_MAX_SHARDS = 4
+
+export function e2eShards(specCount) {
+  const shards = Math.min(E2E_MAX_SHARDS, Math.max(1, Math.ceil(specCount / E2E_SPECS_PER_SHARD)))
+  return Array.from({ length: shards }, (_, index) => index + 1)
+}
 
 function unique(files) {
   return [...new Set(files)]
@@ -116,12 +125,12 @@ export function planE2e(changed, map, imports, quarantined = []) {
   return [...specs].sort()
 }
 
-export function loadE2eMap(root = ROOT) {
-  return JSON.parse(readFileSync(join(root, 'test/e2eAreas.json'), 'utf8'))
+function loadE2eMap() {
+  return JSON.parse(readFileSync(join(ROOT, 'test/e2eAreas.json'), 'utf8'))
 }
 
-export function e2eSpecs(root = ROOT) {
-  return readdirSync(join(root, 'e2e'))
+export function e2eSpecs() {
+  return readdirSync(join(ROOT, 'e2e'))
     .filter((name) => name.endsWith('.spec.ts'))
     .map((name) => `e2e/${name}`)
     .sort()
@@ -130,68 +139,66 @@ export function e2eSpecs(root = ROOT) {
 const RELATIVE_IMPORT = /(?:from|import)\s*\(?\s*['"](\.{1,2}\/[^'"]+)['"]/g
 const IMPORT_SUFFIXES = ['', '.ts', '.tsx', '.mts', '.mjs', '.js', '/index.ts']
 
-function resolveImport(root, from, target) {
+function resolveImport(from, target) {
   for (const suffix of IMPORT_SUFFIXES) {
-    const path = join(root, dirname(from), target + suffix)
-    if (existsSync(path) && statSync(path).isFile()) return relative(root, path)
+    const path = join(ROOT, dirname(from), target + suffix)
+    if (existsSync(path) && statSync(path).isFile()) return relative(ROOT, path)
   }
   return null
 }
 
-function importsOf(root, file, seen) {
+function importsOf(file, seen) {
   if (seen.has(file)) return
   seen.add(file)
-  const text = readFileSync(join(root, file), 'utf8')
+  const text = readFileSync(join(ROOT, file), 'utf8')
   for (const [, target] of text.matchAll(RELATIVE_IMPORT)) {
-    const resolved = resolveImport(root, file, target)
-    if (resolved && !resolved.startsWith('..')) importsOf(root, resolved, seen)
+    const resolved = resolveImport(file, target)
+    if (resolved && !resolved.startsWith('..')) importsOf(resolved, seen)
   }
 }
 
-export function e2eImports(root = ROOT) {
+export function e2eImports() {
   return Object.fromEntries(
-    e2eSpecs(root).map((spec) => {
+    e2eSpecs().map((spec) => {
       const seen = new Set()
-      importsOf(root, spec, seen)
+      importsOf(spec, seen)
       seen.delete(spec)
       return [spec, [...seen].sort()]
     }),
   )
 }
 
-function testFiles(root, dir) {
-  return readdirSync(join(root, dir), { recursive: true, encoding: 'utf8' })
+function testFiles(dir) {
+  return readdirSync(join(ROOT, dir), { recursive: true, encoding: 'utf8' })
     .filter((file) => UNIT_TEST.test(file))
     .map((file) => `${dir}/${file}`)
 }
 
-function readsFiles(root, file) {
-  return READS_FILES.test(readFileSync(join(root, file), 'utf8'))
+function readsFiles(file) {
+  return READS_FILES.test(readFileSync(join(ROOT, file), 'utf8'))
 }
 
-export function domFileReaders(root = ROOT) {
-  return testFiles(root, 'src/renderer')
-    .filter((file) => readsFiles(root, file))
-    .sort()
+export function domFileReaders() {
+  return testFiles('src/renderer').filter(readsFiles).sort()
 }
 
-export function nodeFolderReaders(root = ROOT) {
+export function nodeFolderReaders() {
   const readers = [
-    ...NODE_TEST_DIRS.flatMap((dir) => testFiles(root, dir)),
-    ...readdirSync(join(root, 'test'))
+    ...NODE_TEST_DIRS.flatMap(testFiles),
+    ...readdirSync(join(ROOT, 'test'))
       .filter((name) => UNIT_TEST.test(name))
       .map((name) => `test/${name}`),
-  ].filter((file) => readsFiles(root, file))
+  ].filter(readsFiles)
   return Object.fromEntries(
     READ_FOLDERS.map(({ folder, named }) => [
       folder,
-      readers.filter((file) => named.test(readFileSync(join(root, file), 'utf8'))).sort(),
+      readers.filter((file) => named.test(readFileSync(join(ROOT, file), 'utf8'))).sort(),
     ]),
   )
 }
 
-export function fileReaders(root = ROOT) {
-  return { dom: domFileReaders(root), folders: nodeFolderReaders(root) }
+function fileReaders() {
+  return { dom: domFileReaders(), folders: nodeFolderReaders() }
 }
 
 export function changedQuarantineFiles(before, after) {
@@ -210,39 +217,34 @@ export function vitestArgs(project, files) {
   return ['related', '--run', '--project', project, '--passWithNoTests', ...files]
 }
 
-function git(root, ...args) {
-  return execFileSync('git', args, { cwd: root, encoding: 'utf8', stdio: 'pipe' }).trim()
+function git(...args) {
+  return execFileSync('git', args, { cwd: ROOT, encoding: 'utf8', stdio: 'pipe' }).trim()
 }
 
-function quarantineAt(root, base) {
+function quarantineAt(base) {
   try {
-    return JSON.parse(git(root, 'show', `${base}:${QUARANTINE}`))
+    return JSON.parse(git('show', `${base}:${QUARANTINE}`))
   } catch {
     return []
   }
 }
 
-export function planChanges(changed, root = ROOT, base = null) {
+export function planChanges(changed, base) {
   const quarantined = changed.includes(QUARANTINE)
-    ? changedQuarantineFiles(
-        base ? quarantineAt(root, base) : [],
-        existsSync(join(root, QUARANTINE))
-          ? JSON.parse(readFileSync(join(root, QUARANTINE), 'utf8'))
-          : [],
-      )
+    ? changedQuarantineFiles(quarantineAt(base), loadQuarantine())
     : []
-  const e2e = planE2e(changed, loadE2eMap(root), e2eImports(root), quarantined)
+  const e2e = planE2e(changed, loadE2eMap(), e2eImports(), quarantined)
   return {
-    ...planTests(changed, fileReaders(root), quarantined),
-    e2e: e2e === null ? null : e2e.filter((spec) => existsSync(join(root, spec))),
+    ...planTests(changed, fileReaders(), quarantined),
+    e2e: e2e === null ? null : e2e.filter((spec) => existsSync(join(ROOT, spec))),
   }
 }
 
-export function planAgainst(baseRef, root = ROOT) {
+export function planAgainst(baseRef) {
   try {
-    const base = git(root, 'merge-base', baseRef, 'HEAD')
-    const changed = git(root, 'diff', '--name-only', base, 'HEAD').split('\n').filter(Boolean)
-    return { tests: planChanges(changed, root, base), problem: null }
+    const base = git('merge-base', baseRef, 'HEAD')
+    const changed = git('diff', '--name-only', base, 'HEAD').split('\n').filter(Boolean)
+    return { tests: planChanges(changed, base), problem: null }
   } catch (error) {
     return { tests: EVERY_TEST, problem: String(error.stderr || error.message).trim() }
   }

@@ -2,7 +2,7 @@ import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { fakeAgentBin, isolatedHome, startFakeAgent } from './fakeAgent'
-import { PROMPT, emptyWorkspace, openWorkspace } from './helpers'
+import { newTerminalWorkspace, openWorkspace } from './helpers'
 import { type Page, _electron as electron, expect, test } from './test'
 
 const visibleRows = (win: Page) => win.locator('.pane-slot:not([data-hidden]) .xterm-rows')
@@ -43,10 +43,8 @@ test('a file path goes to an agent in another workspace of the sidebar group onc
     await openWorkspace(win)
     await startFakeAgent(win)
 
-    await win.locator('.topbar').getByRole('button', { name: 'New workspace' }).click()
-    await emptyWorkspace(win).getByRole('button', { name: 'New terminal' }).click()
+    await newTerminalWorkspace(win)
     await expect(win.locator('.rail-row')).toHaveCount(2)
-    await expect(visibleRows(win).last()).toContainText(PROMPT, { timeout: 15_000 })
 
     await win.locator('.topbar').getByRole('button', { name: 'Files', exact: true }).click()
     await openSendPathMenu(win, 'notes.md')

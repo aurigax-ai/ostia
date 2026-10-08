@@ -2,13 +2,8 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { fakeAgentBin, isolatedHome } from './fakeAgent'
-import { PROMPT, emptyWorkspace, openWorkspace } from './helpers'
-import { type Page, _electron as electron, expect, test } from './test'
-
-async function typeLine(win: Page, line: string): Promise<void> {
-  await win.keyboard.type(line)
-  await win.keyboard.press('Enter')
-}
+import { PROMPT, emptyWorkspace, openWorkspace, typeLine } from './helpers'
+import { _electron as electron, expect, test } from './test'
 
 function repoWithWorktree(home: string): { main: string; worktree: string; other: string } {
   const main = join(home, 'proj')

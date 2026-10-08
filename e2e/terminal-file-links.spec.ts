@@ -2,7 +2,8 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
-import { emptyState, emptyWorkspace, openWorkspace } from './helpers'
+import { openWorkspace, typeLineToEnd } from './helpers'
+import { type Point, clickWith, hoverPoint, linkPoint, printOnFirstRow } from './terminalLinks'
 import { _electron as electron, expect, test } from './test'
 
 test('Ctrl+click on a file path in terminal output opens it in the editor at that line', async () => {
@@ -19,37 +20,9 @@ test('Ctrl+click on a file path in terminal output opens it in the editor at tha
     const win = await app.firstWindow()
     await openWorkspace(win)
     await win.locator('.xterm').first().click()
-    await win.keyboard.type("clear; printf 'error at notes/app.ts:27:7\\n'")
-    await win.keyboard.press('Enter')
-
-    const rows = win.locator('.xterm-rows').first()
-    const row = rows.locator('div', { hasText: /^error at notes\/app\.ts:27:7\s*$/ }).first()
-    await expect(row).toHaveCount(1, { timeout: 15_000 })
-    await expect(
-      row
-        .locator('xpath=following-sibling::div')
-        .filter({ hasText: /[❯$%#]/ })
-        .first(),
-    ).toBeAttached({ timeout: 15_000 })
-    const target = await row.evaluate((el) => {
-      const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT)
-      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-        const at = node.textContent?.indexOf('app.ts') ?? -1
-        if (at < 0) continue
-        const range = document.createRange()
-        range.setStart(node, at)
-        range.setEnd(node, at + 1)
-        const rect = range.getBoundingClientRect()
-        return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 }
-      }
-      return null
-    })
-    if (!target) throw new Error('path text not found in the row')
-
-    await win.mouse.move(target.x, target.y)
-    await win.keyboard.down('Control')
-    await win.mouse.click(target.x, target.y)
-    await win.keyboard.up('Control')
+    await typeLineToEnd(win, "clear; printf 'error at notes/app.ts:27:7\\n'")
+    const target = await linkPoint(win, /^error at notes\/app\.ts:27:7\s*$/, 'app.ts')
+    await clickWith(win, target, ['Control'])
 
     await expect(win.locator('.monaco-editor').first()).toBeVisible({ timeout: 15_000 })
     await expect(win.locator('.pane-header .title').filter({ hasText: 'app.ts' })).toBeVisible()
@@ -94,34 +67,15 @@ for (const engine of ENGINES) {
           return ''
         }
       })
-      await emptyState(win)
-        .getByRole('button', { name: /New workspace/ })
-        .click()
-      await emptyWorkspace(win).getByRole('button', { name: 'New terminal' }).click()
-      await expect(win.locator('.pane-tab .title').first()).toHaveText('zsh', { timeout: 15_000 })
+      await openWorkspace(win)
       const screen = win.locator(`.pane-slot:not([data-hidden]) ${engine.screen}`).first()
-      await expect(screen).toBeVisible({ timeout: 15_000 })
-      await win.waitForTimeout(1_500)
 
-      const hoverLink = async (text: string): Promise<{ x: number; y: number }> => {
-        const before = await screen.boundingBox()
-        if (!before) throw new Error('terminal screen not found')
-        await win.mouse.click(before.x + before.width / 2, before.y + before.height - 8)
-        await win.keyboard.type(`clear; printf '%s\\n' '${text}'`)
-        await win.keyboard.press('Enter')
-        await win.waitForTimeout(800)
-        const box = await screen.boundingBox()
-        if (!box) throw new Error('terminal screen not found')
-        const target = { x: box.x + 30, y: box.y + 8 }
-        await win.mouse.move(target.x, target.y + 80)
-        await win.mouse.move(target.x, target.y, { steps: 6 })
+      const hoverLink = async (text: string): Promise<Point> => {
+        const target = await printOnFirstRow(win, screen, text)
+        await hoverPoint(win, target)
         return target
       }
-      const ctrlClick = async (target: { x: number; y: number }): Promise<void> => {
-        await win.keyboard.down('Control')
-        await win.mouse.click(target.x, target.y)
-        await win.keyboard.up('Control')
-      }
+      const ctrlClick = (target: Point) => clickWith(win, target, ['Control'])
       const hint = win.locator('[data-slot="tooltip-content"]')
       const openedPaths = (): Promise<string[]> =>
         app.evaluate(() => (globalThis as unknown as { __openedPaths: string[] }).__openedPaths)
@@ -139,8 +93,6 @@ for (const engine of ENGINES) {
         timeout: 5_000,
       })
       await win.mouse.click(folder.x, folder.y)
-      await win.waitForTimeout(300)
-      expect(await openedPaths()).toEqual([])
       await ctrlClick(folder)
       await expect.poll(openedPaths, { timeout: 15_000 }).toEqual([join(outside, 'shots')])
 

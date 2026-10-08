@@ -38,7 +38,6 @@
     "test:coverage": "vitest run --project node --project dom --coverage",
     "test:unit": "vitest run --project node",
     "test:dom": "vitest run --project dom",
-    "test:security": "vitest run --project security",
     "test:e2e": "bash scripts/e2e.sh",
     "bench:terminal": "OSTIA_E2E_BENCH=1 bash scripts/e2e.sh --workers=1",
     "postinstall": "install-electron"

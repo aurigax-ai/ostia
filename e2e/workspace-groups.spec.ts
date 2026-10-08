@@ -1,5 +1,5 @@
 import { freshDataHome, isolatedLaunch } from './dataHome'
-import { emptyWorkspace, openWorkspace } from './helpers'
+import { newTerminalWorkspace, openWorkspace, quitApp } from './helpers'
 import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
 
 interface Launched {
@@ -17,26 +17,6 @@ async function launchApp(dataHome: string): Promise<Launched> {
     await app.close()
     throw err
   }
-}
-
-async function quitApp(app: ElectronApplication): Promise<void> {
-  await app
-    .evaluate(({ app: electronApp }) => {
-      setTimeout(() => electronApp.quit(), 0)
-    })
-    .catch(() => {})
-  await app.close().catch(() => {})
-}
-
-async function newTerminalWorkspace(win: Page): Promise<void> {
-  const before = await win.locator('.xterm').count()
-  await win.locator('.topbar').getByRole('button', { name: 'New workspace' }).click()
-  await emptyWorkspace(win).getByRole('button', { name: 'New terminal' }).click()
-  await expect(win.locator('.xterm')).toHaveCount(before + 1, { timeout: 15_000 })
-  await expect(win.locator('.pane-slot:not([data-hidden]) .xterm-rows').last()).toContainText(
-    /[❯$%#]/,
-    { timeout: 15_000 },
-  )
 }
 
 const groupHead = (win: Page) => win.locator('.rail-group-head')

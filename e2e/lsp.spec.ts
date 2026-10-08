@@ -3,7 +3,7 @@ import { join, resolve } from 'node:path'
 import { PRODUCT_NAME } from '../src/shared/product'
 import { installFakeLanguageExtension } from '../test/fixtures/lsp/installFakeExtension'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
-import { PROMPT, emptyWorkspace, hoverInEditor, openWorkspace } from './helpers'
+import { PROMPT, hoverInEditor, newTerminalWorkspace, openWorkspace } from './helpers'
 import {
   type ElectronApplication,
   type Locator,
@@ -293,9 +293,7 @@ test('two windows showing the same folder each get their own server and their ow
     const first = await openFile(win, 'one.txt')
     await expect(first.locator('.squiggly-error')).toHaveCount(1, { timeout: 20_000 })
 
-    await win.locator('.topbar').getByRole('button', { name: 'New workspace' }).click()
-    await emptyWorkspace(win).getByRole('button', { name: 'New terminal' }).click()
-    await expect(win.locator('.xterm')).toHaveCount(2, { timeout: 15_000 })
+    await newTerminalWorkspace(win)
     await win.locator('.rail-row').nth(1).click({ button: 'right' })
     const [detached] = await Promise.all([
       app.waitForEvent('window'),
