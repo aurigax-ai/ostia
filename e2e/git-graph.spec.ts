@@ -74,7 +74,8 @@ function sendToPanel(app: ElectronApplication, events: PanelInput[]): Promise<vo
     const panel = webContents
       .getAllWebContents()
       .find((wc) => wc.getType() === 'webview' && wc.getURL().startsWith('http://127.0.0.1'))
-    for (const event of list) panel?.sendInputEvent(event as Electron.InputEvent)
+    for (const event of list)
+      panel?.sendInputEvent(event as Electron.MouseInputEvent | Electron.KeyboardInputEvent)
   }, events)
 }
 

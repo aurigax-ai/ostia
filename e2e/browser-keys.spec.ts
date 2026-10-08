@@ -4,7 +4,7 @@ import { isMac } from './chords'
 import { isolatedLaunch } from './dataHome'
 import { SLOW_FRAME_MS, fastFrames, slowFrames } from './frames'
 import { openWorkspace } from './helpers'
-import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
+import { type ElectronApplication, _electron as electron, expect, test } from './test'
 
 interface GuestKey {
   keyCode: string
