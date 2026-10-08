@@ -1,3 +1,4 @@
+import { isMac } from './chords'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { openWorkspace } from './helpers'
 import {
@@ -33,6 +34,11 @@ async function quitApp(app: ElectronApplication): Promise<void> {
     })
     .catch(() => {})
   await app.close().catch(() => {})
+}
+
+async function closeWindow(page: Page): Promise<void> {
+  if (isMac) await page.evaluate(() => window.ostia.window.close())
+  else await page.locator('.win-controls').getByRole('button', { name: 'Close' }).click()
 }
 
 async function typeInTerminal(win: Page, text: string): Promise<void> {
@@ -162,7 +168,7 @@ test('a detached workspace keeps its running command and comes back when its win
     await expect(remote).toContainText(project)
 
     const closed = detached.waitForEvent('close')
-    await detached.locator('.win-controls').getByRole('button', { name: 'Close' }).click()
+    await closeWindow(detached)
     await closed
 
     await expect(win.locator('.rail-row.remote')).toHaveCount(0)
@@ -181,7 +187,7 @@ test('a detached workspace keeps its running command and comes back when its win
 test('a detached window reopens where it was after a restart, idle', async () => {
   test.setTimeout(90_000)
   const marker = `ostia_detached_${Date.now()}`
-  const bounds = { x: 220, y: 140, width: 900, height: 640 }
+  const bounds = { x: 220, y: 120, width: 820, height: 520 }
   const first = await launchApp(dataHome)
   let project = ''
   try {
@@ -424,7 +430,7 @@ test('closing a detached window while the main window is in the tray keeps it th
     await expect.poll(() => visibleWindows(app).then((v) => v.sort())).toEqual([false, true])
 
     const closed = detached.waitForEvent('close')
-    await detached.locator('.win-controls').getByRole('button', { name: 'Close' }).click()
+    await closeWindow(detached)
     await closed
 
     await expect.poll(() => visibleWindows(app)).toEqual([false])

@@ -389,6 +389,34 @@ describe('helper protocol', () => {
     expect(readFileSync(file, 'utf8')).toBe('mine')
   })
 
+  it('returns the version of what it wrote when the host changes the file right after', async () => {
+    const tools = toolPath(['sh', 'env', ...HELPER_TOOLS.filter((tool) => tool !== 'mv')])
+    writeFileSync(
+      join(tools, 'mv'),
+      '#!/bin/sh\n/bin/mv "$@" || exit 1\nfor last; do :; done\ncase "$last" in */notes.txt) printf theirs >"$last" ;; esac\n',
+    )
+    chmodSync(join(tools, 'mv'), 0o755)
+    const remote = host(tools)
+    await install(remote)
+    const root = join(remote.home, 'project')
+    mkdirSync(root)
+    const file = join(root, 'notes.txt')
+    writeFileSync(file, 'before')
+    const channel = await open(remote)
+    const mine = Buffer.from('mine')
+    const reply = await channel.request({
+      op: 'write',
+      number: mine.length,
+      version: versionToken(Buffer.from('before')),
+      root,
+      path: file,
+      payload: mine,
+      maxReply: 0,
+    })
+    expect(readFileSync(file, 'utf8')).toBe('theirs')
+    expect(reply.meta).toBe(versionToken(mine))
+  })
+
   it('answers a large write and the request after it in order', async () => {
     const { channel, root } = await ready()
     const big = Buffer.from(Uint8Array.from({ length: 1_500_000 }, (_, i) => (i * 13) % 256))

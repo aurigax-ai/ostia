@@ -506,7 +506,7 @@ describe('LanguageServers sessions', () => {
   })
 
   it('stops with shutdown then exit once no document has been open for the idle delay', async () => {
-    const h = harness()
+    const h = harness({ stopGraceMs: 10_000 })
     const file = join(workDir, 'loose.txt')
     const [session] = await h.servers.open('w1', 'p1', file)
     await h.servers.open('w1', 'p1', file)
