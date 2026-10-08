@@ -5,6 +5,7 @@ import {
   TrashIcon,
   WrenchIcon,
 } from '@phosphor-icons/react'
+import type { Dict } from '@shared/dict'
 import type {
   LanguageServerInfo,
   LanguageServerOverrideProblem,
@@ -13,7 +14,6 @@ import type {
   LspLogEntry,
 } from '@shared/languageServers'
 import { type FormEvent, useEffect, useId, useState } from 'react'
-import type { Dict } from '../i18n/dict'
 import { fmt, useDict } from '../i18n/useDict'
 import { useLanguageServersStore } from '../stores/languageServersStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'

@@ -1,6 +1,6 @@
 import { readFileSync, writeFileSync } from 'node:fs'
 
-export const KEPT_ATTENTION_STATES = ['working', 'waiting', 'done', 'error'] as const
+const KEPT_ATTENTION_STATES = ['working', 'waiting', 'done', 'error'] as const
 
 export type KeptAttentionState = (typeof KEPT_ATTENTION_STATES)[number]
 

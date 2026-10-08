@@ -1,4 +1,4 @@
-export const SPLIT_TAB_NAME_MAX = 60
+const SPLIT_TAB_NAME_MAX = 60
 
 function hasControlCharacter(text: string): boolean {
   for (const ch of text) {

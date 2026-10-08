@@ -1,7 +1,7 @@
 import { chmodSync, mkdirSync, writeFileSync } from 'node:fs'
 import { createServer } from 'node:net'
 import { join } from 'node:path'
-import { freshDataHome, isolatedLaunch } from './dataHome'
+import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { extensionHosts } from './extensionHosts'
 import { openWorkspace } from './helpers'
 import { type ElectronApplication, _electron as electron, expect, test } from './test'
@@ -31,7 +31,7 @@ function browserUrls(app: ElectronApplication): Promise<string[]> {
   )
 }
 
-test('the ports extension puts ports and ssh chips on the pane, and a port chip opens the browser pane', async () => {
+test('listening ports show as a plug in the top bar that opens the browser pane, and an ssh login shows on its pane', async () => {
   const dataHome = freshDataHome()
   const home = join(dataHome, 'home')
   const bin = join(dataHome, 'bin')
@@ -42,6 +42,7 @@ test('the ports extension puts ports and ssh chips on the pane, and a port chip 
   chmodSync(join(bin, 'ssh'), 0o755)
   const port = await freePort()
 
+  seedSettings(dataHome, { ...DOM_RENDERER_SETTINGS, ports: { portHost: '127.0.0.1' } })
   const launch = isolatedLaunch(dataHome)
   const app = await electron.launch({
     ...launch,
@@ -51,7 +52,6 @@ test('the ports extension puts ports and ssh chips on the pane, and a port chip 
     const win = await app.firstWindow()
     await win.waitForLoadState('domcontentloaded')
     await openWorkspace(win)
-    await win.evaluate(() => window.ostia.extensions.setSetting('ports', 'portHost', '127.0.0.1'))
 
     const term = win.locator('.xterm').first()
     await term.click()
@@ -86,7 +86,7 @@ test('the ports extension puts ports and ssh chips on the pane, and a port chip 
     await expect(
       win.locator('.pane-header .pane-chip').filter({ hasText: 'deploy@build-box' }),
     ).toBeVisible({ timeout: 20_000 })
-    expect(extensionHosts(app)).not.toContain('ports')
+    expect(extensionHosts(app)).toEqual([])
   } finally {
     await app.close()
   }

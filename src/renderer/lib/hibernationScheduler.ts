@@ -9,6 +9,7 @@ import { countUsage } from './usageCounts'
 import { isPaneVisible, workspaceOfPane } from './workspaceActivity'
 
 export const HIBERNATION_CHECK_MS = 5000
+export const WAKE_WAVE_SIZE = 3
 
 export function hibernationCandidates(now: number): HibernationCandidate[] {
   const out: HibernationCandidate[] = []
@@ -36,18 +37,51 @@ export async function hibernatePane(workspaceId: string, paneId: string): Promis
   return stopped
 }
 
-export function wakePane(paneId: string): boolean {
+export function wakePane(paneId: string, onSettled: () => void = () => {}): boolean {
   const workspaceId = workspaceOfPane(paneId)
   const layout = workspaceId ? useLayoutStore.getState().byWorkspace[workspaceId] : undefined
   const pane = layout ? findPane(layout.root, paneId) : null
   if (!workspaceId || !pane?.hibernated) return false
   useLayoutStore.getState().setHibernated(workspaceId, paneId, false)
   countUsage('terminal', 'wake')
-  if (pane.resume) {
-    window.ostia.pty.reportWaking(paneId, true)
-    resumeWhenIdle(paneId, pane.resume, () => window.ostia.pty.reportWaking(paneId, false))
+  if (!pane.resume) {
+    onSettled()
+    return true
   }
+  window.ostia.pty.reportWaking(paneId, true)
+  resumeWhenIdle(
+    paneId,
+    pane.resume,
+    () => {
+      window.ostia.pty.reportWaking(paneId, false)
+      onSettled()
+    },
+    onSettled,
+  )
   return true
+}
+
+const wakeQueue: string[] = []
+let wakesInFlight = 0
+
+function wakeSettled(): void {
+  wakesInFlight -= 1
+  drainWakeQueue()
+}
+
+function drainWakeQueue(): void {
+  while (wakesInFlight < WAKE_WAVE_SIZE && wakeQueue.length > 0) {
+    const paneId = wakeQueue.shift() as string
+    wakesInFlight += 1
+    if (!wakePane(paneId, wakeSettled)) wakesInFlight -= 1
+  }
+}
+
+function wakeInWaves(paneIds: string[]): string[] {
+  const queued = paneIds.filter((paneId) => !wakeQueue.includes(paneId))
+  wakeQueue.push(...queued)
+  drainWakeQueue()
+  return queued
 }
 
 function workspacePanes(workspaceId: string) {
@@ -67,9 +101,9 @@ export function hibernatableAgentPanes(workspaceId: string): string[] {
     .map((pane) => pane.id)
 }
 
-export function hibernatedPanes(workspaceId: string): string[] {
+export function resumableAgentPanes(workspaceId: string): string[] {
   return workspacePanes(workspaceId)
-    .filter((pane) => pane.hibernated)
+    .filter((pane) => pane.hibernated && !pane.resumeFolderMissing)
     .map((pane) => pane.id)
 }
 
@@ -83,8 +117,14 @@ export async function hibernateWorkspace(workspaceId: string): Promise<string[]>
   return done
 }
 
-export function wakeWorkspace(workspaceId: string): string[] {
-  return hibernatedPanes(workspaceId).filter((paneId) => wakePane(paneId))
+export async function hibernateWorkspaces(workspaceIds: readonly string[]): Promise<string[]> {
+  const done: string[] = []
+  for (const workspaceId of workspaceIds) done.push(...(await hibernateWorkspace(workspaceId)))
+  return done
+}
+
+export function resumeWorkspaces(workspaceIds: readonly string[]): string[] {
+  return wakeInWaves(workspaceIds.flatMap(resumableAgentPanes))
 }
 
 export async function hibernateIdleAgents(now = Date.now()): Promise<string[]> {

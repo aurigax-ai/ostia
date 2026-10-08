@@ -1,4 +1,4 @@
-import type { Dict } from '../i18n/dict'
+import type { Dict } from '@shared/dict'
 import { fmt } from '../i18n/useDict'
 import { toggleAssistFeature, toggleCommandId } from '../lib/assistFeatures'
 import { useAssistStore } from '../stores/assistStore'

@@ -1,4 +1,5 @@
 import { XIcon } from '@phosphor-icons/react'
+import type { Dict } from '@shared/dict'
 import {
   CUSTOM_KIND,
   type PatternProblem,
@@ -12,7 +13,6 @@ import {
 } from '@shared/redaction'
 import { TELEMETRY_CATEGORIES, type TelemetryCategory } from '@shared/telemetry'
 import { useEffect, useState } from 'react'
-import type { Dict } from '../i18n/dict'
 import { fmt, useDict } from '../i18n/useDict'
 import { redactedCountLabel } from '../lib/chatRedaction'
 import { useSettingsStore } from '../stores/settingsStore'

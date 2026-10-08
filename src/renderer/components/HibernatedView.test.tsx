@@ -158,6 +158,7 @@ describe('hibernated terminal pane', () => {
       undefined,
       expect.any(Function),
       expect.any(Function),
+      expect.any(Function),
     )
     expect(window.ostia.pty.reportWaking).toHaveBeenCalledWith('h1', true)
     expect(within(host).getByTestId('terminal-h1')).toBeInTheDocument()

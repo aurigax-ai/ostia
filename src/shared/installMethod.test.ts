@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
+  isReplaceable,
   managedUpdateMethod,
-  offersUpdateChannels,
   updateChannelFor,
   updateCommandLine,
 } from './installMethod'
@@ -24,9 +24,9 @@ describe('updateCommandLine', () => {
 
 describe('updateChannelFor', () => {
   it('offers the main channel only to tarball and local installs', () => {
-    expect(['tarball', 'local'].every((m) => offersUpdateChannels(m as 'tarball'))).toBe(true)
+    expect(['tarball', 'local'].every((m) => isReplaceable(m as 'tarball'))).toBe(true)
     for (const method of ['apt', 'brew', 'dmg', 'dev'] as const) {
-      expect(offersUpdateChannels(method)).toBe(false)
+      expect(isReplaceable(method)).toBe(false)
       expect(updateChannelFor(method, 'main')).toBe('stable')
     }
     expect(updateChannelFor('tarball', 'main')).toBe('main')

@@ -1,3 +1,4 @@
+import { ArrowLeftIcon } from '@phosphor-icons/react'
 import { type ChordSpec, chordText } from '@shared/chordSpec'
 import type { TerminalSend } from '@shared/terminalKeys'
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react'
@@ -9,9 +10,9 @@ import { Button } from './ui/button'
 import { Kbd } from './ui/kbd'
 import { TableCell, TableRow } from './ui/table'
 
-export const ROW_TOGGLE = 'row-toggle'
+const ROW_TOGGLE = 'row-toggle'
 
-export function moveRowFocus(from: HTMLElement, step: 1 | -1): boolean {
+function moveRowFocus(from: HTMLElement, step: 1 | -1): boolean {
   const scope = from.closest('table')
   if (!scope) return false
   const toggles = [...scope.querySelectorAll<HTMLElement>(`[data-slot="${ROW_TOGGLE}"]`)]
@@ -21,7 +22,7 @@ export function moveRowFocus(from: HTMLElement, step: 1 | -1): boolean {
   return true
 }
 
-export function onToggleKey(
+function onToggleKey(
   e: ReactKeyboardEvent<HTMLElement>,
   expanded: boolean,
   collapse: () => void,
@@ -114,7 +115,7 @@ function DetailFrame({
           id={id}
           aria-label={label}
           className="key-reveal rounded-md border border-line bg-surface-1 p-2"
-          onKeyDown={(e) => {
+          onKeyDownCapture={(e) => {
             if (e.key !== 'Escape') return
             e.preventDefault()
             e.stopPropagation()
@@ -136,9 +137,14 @@ function DetailFrame({
                     className="grid grid-cols-[8rem_1fr_auto] items-center gap-2"
                   >
                     <span className={on ? 'text-fg' : 'text-fg-muted'}>{line.name}</span>
-                    <span className={on ? 'text-fg' : 'text-fg-dim'}>{line.value}</span>
-                    <span className="text-fg-muted text-ui-xs">
-                      {on ? `← ${d.keyboard.inEffect}` : ''}
+                    <span className={on ? 'text-fg' : 'text-fg-muted'}>{line.value}</span>
+                    <span className="flex items-center gap-1 text-fg-muted text-ui-xs">
+                      {on ? (
+                        <>
+                          <ArrowLeftIcon className="size-3 shrink-0" aria-hidden />
+                          {d.keyboard.inEffect}
+                        </>
+                      ) : null}
                     </span>
                   </li>
                 )

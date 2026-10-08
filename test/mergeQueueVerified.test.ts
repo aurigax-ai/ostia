@@ -3,9 +3,9 @@ import { type Server, createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
+import { githubRequest } from '../scripts/github.mjs'
 import {
   fromMergeQueue,
-  githubRequest,
   mergeQueueVerified,
   passingCheckRuns,
 } from '../scripts/mergeQueueVerified.mjs'

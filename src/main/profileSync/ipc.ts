@@ -1,5 +1,4 @@
 import { type FSWatcher, watch } from 'node:fs'
-import { hostname } from 'node:os'
 import { join } from 'node:path'
 import { BrowserWindow, app, dialog, ipcMain } from 'electron'
 import { debounce, throttle } from 'es-toolkit'
@@ -59,7 +58,6 @@ export function startProfileSync(deps: ProfileSyncIpcDeps): ProfileSyncHandle {
   const sync = new ProfileSync({
     userData: deps.userData,
     configDir: deps.configDir,
-    host: hostname(),
     method,
     targetLabel: configuredDir,
     installedExtensions: deps.installedExtensions,

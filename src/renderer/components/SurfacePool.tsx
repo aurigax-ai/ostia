@@ -19,6 +19,7 @@ import { ManagerView } from './ManagerView'
 import { SurfaceErrorBoundary } from './SurfaceErrorBoundary'
 import { TerminalView } from './Terminal'
 import { ViewSurface } from './ViewSurface'
+import { GitView } from './git/GitView'
 
 interface SurfaceRef {
   paneId: string
@@ -43,6 +44,7 @@ function collect(node: LayoutNode, workspaceId: string, out: SurfaceRef[]): void
       pane.kind === 'browser' ||
       pane.kind === 'diff' ||
       pane.kind === 'chat' ||
+      pane.kind === 'git' ||
       pane.kind === 'manager' ||
       (pane.kind === 'extension' && pane.extensionId) ||
       (pane.kind === 'view' && pane.viewName)
@@ -115,6 +117,8 @@ function Surface({
     <DiffView paneId={s.paneId} />
   ) : s.kind === 'chat' ? (
     <ChatPane workspaceId={s.workspaceId} paneId={s.paneId} sessionId={s.chatSessionId} />
+  ) : s.kind === 'git' ? (
+    <GitView workspaceId={s.workspaceId} paneId={s.paneId} />
   ) : s.kind === 'manager' ? (
     <ManagerView paneId={s.paneId} />
   ) : s.kind === 'browser' ? (

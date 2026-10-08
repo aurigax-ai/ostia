@@ -23,10 +23,10 @@ let base: string
 let home: string
 let outside: string
 
-const printed: Record<string, { text: string; cwd: string | null } | null> = {}
+const printed: Record<string, { text: string; cwd: string | null; remote: boolean } | null> = {}
 
-function print(paneId: string, text: string, cwd: string | null = null): void {
-  printed[paneId] = { text, cwd }
+function print(paneId: string, text: string, cwd: string | null = null, remote = false): void {
+  printed[paneId] = { text, cwd, remote }
 }
 
 function setup(workspace: { sandboxed?: boolean; scratch?: boolean } = {}) {
@@ -106,6 +106,7 @@ describe('TerminalPathLinks.probe', () => {
     try {
       const { links } = setup()
       const late = join(outside, 'late.txt')
+      print('p1', `soon ${late}`)
       expect(await links.probe(WINDOW, 'p1', late)).toBeNull()
       writeFileSync(late, 'x')
       await pass(4_900)
@@ -121,7 +122,9 @@ describe('TerminalPathLinks.probe', () => {
     const clock = vi.spyOn(performance, 'now').mockImplementation(() => now)
     try {
       const { links } = setup()
-      for (let i = 0; i < PROBE_RATE_MAX; i++) writeFileSync(join(outside, `f${i}.txt`), 'x')
+      const names = Array.from({ length: PROBE_RATE_MAX }, (_, i) => join(outside, `f${i}.txt`))
+      for (const name of names) writeFileSync(name, 'x')
+      print('p1', [...names, join(outside, 'shots', 'a.png')].join('\n'))
       for (let i = 0; i < PROBE_RATE_MAX; i++) {
         expect(await links.probe(WINDOW, 'p1', join(outside, `f${i}.txt`))).toBe('file')
       }
@@ -245,6 +248,33 @@ describe('a path is acted on only when its own pane printed it', () => {
     expect(await links.admit(WINDOW, 'p2', secret)).toEqual({ ok: true, path: secret })
     expect(await links.openFolder(WINDOW, 'p2', join(outside, 'private'))).toEqual({ ok: true })
     expect(openFolder).toHaveBeenCalledWith(join(outside, 'private'))
+  })
+
+  it('tells nothing about a path the pane never printed, and resolves a printed relative one in the pane’s own folder', async () => {
+    const { links } = setup()
+    const secret = join(outside, 'secret.txt')
+    writeFileSync(secret, 'x')
+    expect(await links.probe(WINDOW, 'p1', secret)).toBeNull()
+    print('p2', `made ${secret}`)
+    expect(await links.probe(WINDOW, 'p1', secret)).toBeNull()
+    expect(await links.probe(WINDOW, 'p2', secret)).toBe('file')
+
+    print('p1', 'wrote shots/a.png', outside)
+    expect(await links.probe(WINDOW, 'p1', 'shots/a.png')).toBe('file')
+    print('p1', 'wrote shots/a.png', home)
+    expect(await links.probe(WINDOW, 'p1', 'shots/a.png')).toBeNull()
+  })
+
+  it('does nothing for a pane whose shell reports another host', async () => {
+    const { links, grants, openFolder } = setup()
+    const file = join(outside, 'shots', 'a.png')
+    const folder = join(outside, 'shots')
+    print('p1', `saved ${file} in ${folder}`, null, true)
+    expect(await links.probe(WINDOW, 'p1', file)).toBeNull()
+    expect(await links.admit(WINDOW, 'p1', file)).toBeNull()
+    expect(await links.openFolder(WINDOW, 'p1', folder)).toEqual({ ok: false, error: 'not-found' })
+    expect(grants.confine(file)).toBeNull()
+    expect(openFolder).not.toHaveBeenCalled()
   })
 
   it('refuses a path that is only part of what the pane printed', async () => {

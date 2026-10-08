@@ -48,21 +48,6 @@ function clip(text: string): string {
   return text.replace(/\s+/g, ' ').trim().slice(0, DETAIL_MAX)
 }
 
-const CALLBACK_PAGES = {
-  en: {
-    done: `Signed in. You can close this tab and return to ${PRODUCT_DISPLAY_NAME}.`,
-    failed: `Sign-in did not finish. Return to ${PRODUCT_DISPLAY_NAME} and try again.`,
-  },
-  'zh-Hant': {
-    done: `已登入。你可以關閉此分頁並回到 ${PRODUCT_DISPLAY_NAME}。`,
-    failed: `登入未完成。請回到 ${PRODUCT_DISPLAY_NAME} 再試一次。`,
-  },
-} as const
-
-export function callbackPages(locale: string | undefined): { done: string; failed: string } {
-  return locale === 'zh-Hant' ? CALLBACK_PAGES['zh-Hant'] : CALLBACK_PAGES.en
-}
-
 function respond(res: ServerResponse, status: number, text: string): void {
   res.writeHead(status, {
     'content-type': 'text/html; charset=utf-8',
@@ -180,7 +165,7 @@ export interface McpOAuthDeps {
   store: McpOAuthStore
   openExternal: (url: string) => boolean
   browser: McpOAuthBrowser
-  locale: () => string | undefined
+  pages: () => { done: string; failed: string }
   onChange: () => void
   now?: () => number
   timeoutMs?: number
@@ -277,7 +262,7 @@ export class McpOAuth {
       listener = await openCallbackListener({
         state,
         timeoutMs: this.deps.timeoutMs ?? MCP_OAUTH_TIMEOUT_MS,
-        pages: callbackPages(this.deps.locale()),
+        pages: this.deps.pages(),
       })
       const opened = listener
       flow.cancel = () => {

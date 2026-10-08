@@ -352,7 +352,7 @@ export function usedByMonaco(spec: ChordSpec, mac: boolean): boolean {
 const parsesSomewhere = (text: string): boolean =>
   parseScopedChord(text, true) !== null || parseScopedChord(text, false) !== null
 
-export function parseChordValue(value: unknown): ChordValue | null {
+function parseChordValue(value: unknown): ChordValue | null {
   if (typeof value === 'string') return parsesSomewhere(value) ? value.trim() : null
   if (!Array.isArray(value)) return null
   const texts = value

@@ -1,9 +1,5 @@
 import { type KeybindingMap, parseKeybindings } from '@shared/chordSpec'
-import {
-  KEYBOARD_PLATFORMS,
-  type KeyboardPlatform,
-  isKeyboardPlatform,
-} from '@shared/keyboardPresets'
+import { KEYBOARD_PLATFORMS, type KeyboardPlatform } from '@shared/keyboardPresets'
 import { type TerminalKeyMap, parseTerminalKeys } from '@shared/terminalKeys'
 import { parseKeymapSetting, parseTerminalKeymapSetting } from './keymapSetting'
 
@@ -27,13 +23,8 @@ export type KeyboardFile = Record<KeyboardField, PerPlatform>
 const isRecord = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v)
 
-function byPlatform(raw: unknown, here: KeyboardPlatform): PerPlatform {
-  if (raw === undefined) return {}
-  if (isRecord(raw)) {
-    const keys = Object.keys(raw)
-    if (keys.length > 0 && keys.every(isKeyboardPlatform)) return raw
-  }
-  return { [here]: raw }
+function byPlatform(raw: unknown): PerPlatform {
+  return isRecord(raw) ? raw : {}
 }
 
 export function readKeyboard(
@@ -41,10 +32,10 @@ export function readKeyboard(
   here: KeyboardPlatform,
 ): { current: PlatformKeyboard; elsewhere: KeyboardElsewhere } {
   const parts = {
-    keymap: byPlatform(raw.keymap, here),
-    terminalKeymap: byPlatform(raw.terminalKeymap, here),
-    keybindings: byPlatform(raw.keybindings, here),
-    terminalKeys: byPlatform(raw.terminalKeys, here),
+    keymap: byPlatform(raw.keymap),
+    terminalKeymap: byPlatform(raw.terminalKeymap),
+    keybindings: byPlatform(raw.keybindings),
+    terminalKeys: byPlatform(raw.terminalKeys),
   }
   const read = (p: KeyboardPlatform): PlatformKeyboard => ({
     keymap: parseKeymapSetting(parts.keymap[p]),

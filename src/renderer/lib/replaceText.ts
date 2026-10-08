@@ -1,5 +1,5 @@
+import type { Dict } from '@shared/dict'
 import type { ReplaceProgress, ReplaceState } from '@shared/installMethod'
-import type { Dict } from '../i18n/dict'
 import { fmt } from '../i18n/useDict'
 
 const MIB = 1024 * 1024

@@ -26,7 +26,6 @@ export interface TailnetOptions {
   args?: string[]
   stateDir: string
   hostname: string
-  controlUrl?: string
   env?: NodeJS.ProcessEnv
   onChange?: (state: TailnetState) => void
   log?: (event: string, fields?: Record<string, string | number>) => void
@@ -47,19 +46,17 @@ export function tailnetNodeName(hostname: string): string {
   return slug ? `${PRODUCT_NAME}-${slug}` : PRODUCT_NAME
 }
 
-export function isAllowedLoginUrl(url: string, controlUrl?: string): boolean {
+export function isAllowedLoginUrl(url: string): boolean {
   let parsed: URL
   try {
     parsed = new URL(url)
   } catch {
     return false
   }
-  const expectedHost = controlUrl ? new URL(controlUrl).host : DEFAULT_LOGIN_HOST
-  const expectedProtocol = controlUrl ? new URL(controlUrl).protocol : 'https:'
-  return parsed.protocol === expectedProtocol && parsed.host === expectedHost
+  return parsed.protocol === 'https:' && parsed.host === DEFAULT_LOGIN_HOST
 }
 
-export function parseHelperLine(line: string): TailnetState | null {
+function parseHelperLine(line: string): TailnetState | null {
   let raw: unknown
   try {
     raw = JSON.parse(line)
@@ -132,13 +129,7 @@ export function createTailnet(options: TailnetOptions): Tailnet {
       stdio: ['pipe', 'pipe', 'pipe'],
     })
 
-  const baseArgs = (): string[] => [
-    '--dir',
-    options.stateDir,
-    '--hostname',
-    options.hostname,
-    ...(options.controlUrl ? ['--control-url', options.controlUrl] : []),
-  ]
+  const baseArgs = (): string[] => ['--dir', options.stateDir, '--hostname', options.hostname]
 
   const start: Tailnet['start'] = (target) => {
     if (child) return

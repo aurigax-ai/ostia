@@ -23,8 +23,7 @@ const RELATIVE_SCALE_FILES = new Map([
 const SETTINGS_FONT_FILES = new Map([
   ['src/renderer/components/Terminal.tsx', 'passes the terminal font settings to xterm'],
   ['src/renderer/lib/ghosttyTerminal.ts', 'passes the terminal font settings to Ghostty'],
-  ['src/renderer/components/ManagerView.tsx', 'passes the terminal font settings to xterm'],
-  ['src/renderer/components/HibernatedView.tsx', 'passes the terminal font settings to xterm'],
+  ['src/renderer/lib/readOnlyTerminal.ts', 'passes the terminal font settings to xterm'],
   ['src/renderer/components/Editor.tsx', 'passes the editor font settings to Monaco'],
   ['src/renderer/components/DiffView.tsx', 'passes the editor font settings to Monaco'],
   [
@@ -35,7 +34,6 @@ const SETTINGS_FONT_FILES = new Map([
   ['src/renderer/components/FontPicker.tsx', 'shows each family in its own face'],
   ['src/renderer/stores/settingsStore.ts', 'the font settings model itself'],
   ['src/renderer/settings/settingsSchema.ts', 'the JSON schema of the font settings'],
-  ['src/renderer/i18n/dict.ts', 'labels for the font settings'],
 ])
 
 const FONT_FACE_FILES = new Map([

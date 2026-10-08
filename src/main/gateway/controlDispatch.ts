@@ -37,7 +37,7 @@ export interface GatewayControlDeps {
   agentRunning: (rendererPaneId: string) => boolean
 }
 
-export const AGENT_PROMPT_MAX = 8000
+const PHONE_PROMPT_MAX = 8000
 export const AGENT_ENTER_DELAY_MS = 60
 
 const INTERRUPT_KEYS: Record<string, string> = { esc: '\x1b', 'ctrl-c': '\x03' }
@@ -258,7 +258,7 @@ export async function dispatchGatewayMethod(
       const paneId = agentPaneOf(p.paneId, deps)
       if (typeof paneId !== 'string') return paneId
       if (typeof p.text !== 'string') return invalidParams('missing text')
-      const text = plainBlock(p.text).slice(0, AGENT_PROMPT_MAX)
+      const text = plainBlock(p.text).slice(0, PHONE_PROMPT_MAX)
       if (!text) return invalidParams('missing text')
       deps.ptyWrite(paneId, bracketedPaste(text))
       setTimeout(() => {

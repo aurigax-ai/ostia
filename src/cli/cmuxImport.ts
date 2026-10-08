@@ -7,7 +7,7 @@ import { parseArgs } from './args'
 
 export const CMUX_IMPORT_USAGE = 'usage: ostia workspace import-cmux [session-file] [--json]'
 
-export const CMUX_IMPORT_COMMAND = 'workspace.importCmux'
+const CMUX_IMPORT_COMMAND = 'workspace.importCmux'
 
 const PROGRAMS =
   'running programs are not restarted: every terminal starts a new shell in its folder'
@@ -32,7 +32,7 @@ const LOSS_TEXT: Record<CmuxLoss, (detail: string) => string> = {
   layout: () => 'splits nested deeper than Ostia allows; the innermost ones open as tabs',
 }
 
-export interface CmuxImportArgs {
+interface CmuxImportArgs {
   path?: string
   json: boolean
 }

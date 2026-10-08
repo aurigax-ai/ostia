@@ -5,13 +5,13 @@ import { registerControlMethod } from './controlServer'
 import type { PaneIdentity } from './idRegistry'
 import { type PaneAttentionPeek, type PaneReachDeps, ensurePaneReach, paneTarget } from './paneIo'
 
-export const PANE_WAIT_STATES = ['done', 'waiting', 'idle', 'exited'] as const
+const PANE_WAIT_STATES = ['done', 'waiting', 'idle', 'exited'] as const
 export type PaneWaitState = (typeof PANE_WAIT_STATES)[number]
-export const PANE_WAIT_DEFAULT_UNTIL: readonly PaneWaitState[] = ['done', 'waiting', 'exited']
-export const PANE_WAIT_MIN_MS = 1000
-export const PANE_WAIT_DEFAULT_MS = 10 * 60_000
-export const PANE_WAIT_MAX_MS = 30 * 60_000
-export const PANE_WAIT_MAX_PANES = 32
+const PANE_WAIT_DEFAULT_UNTIL: readonly PaneWaitState[] = ['done', 'waiting', 'exited']
+const PANE_WAIT_MIN_MS = 1000
+const PANE_WAIT_DEFAULT_MS = 10 * 60_000
+const PANE_WAIT_MAX_MS = 30 * 60_000
+const PANE_WAIT_MAX_PANES = 32
 
 const ATTENTION_STATES: ReadonlySet<string> = new Set<AttentionState>([
   'none',
@@ -21,7 +21,7 @@ const ATTENTION_STATES: ReadonlySet<string> = new Set<AttentionState>([
   'error',
 ])
 
-export type PaneChange =
+type PaneChange =
   | { kind: 'attention'; attention: PaneAttentionPeek }
   | { kind: 'state' }
   | { kind: 'closed' }
@@ -55,7 +55,7 @@ export class PaneWatch {
   }
 }
 
-export interface PaneWaitView {
+interface PaneWaitView {
   attention: PaneAttentionPeek
   exited: boolean
 }

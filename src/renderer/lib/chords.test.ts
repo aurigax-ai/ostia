@@ -12,10 +12,10 @@ import {
   stealsTerminalKey,
   usedByMonaco,
 } from '@shared/chordSpec'
+import { en } from '@shared/dict'
 import { parseKeymapBindings } from '@shared/keymapFile'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { commands } from '../commands/registry'
-import { en } from '../i18n/dict'
 import { useKeymapStore } from '../stores/keymapStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import {
@@ -23,7 +23,6 @@ import {
   type KeyLike,
   type KeybindingMap,
   TERMINAL_COMMAND_CHORDS,
-  baseChord,
   baseChords,
   bindableIds,
   checkBinding,
@@ -382,8 +381,8 @@ describe('a keymap between the defaults and the user', () => {
     expect(conflictsWith('palette.toggle', chord('Ctrl+Alt+D', false), false)).toEqual([
       'pane.splitRight',
     ])
-    expect(baseChord('pane.splitRight', false)).toEqual(chord('Ctrl+Alt+D', false))
-    expect(baseChord('palette.toggle', false)).toEqual(chord('Ctrl+Shift+P', false))
+    expect(baseChords('pane.splitRight', false)[0]).toEqual(chord('Ctrl+Alt+D', false))
+    expect(baseChords('palette.toggle', false)[0]).toEqual(chord('Ctrl+Shift+P', false))
   })
 
   it('falls back to the keymap chord when the user’s override is reset, and to the default without it', () => {

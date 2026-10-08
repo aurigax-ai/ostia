@@ -1,6 +1,6 @@
+import type { Dict } from '@shared/dict'
 import type { SecretActionResult, SyncStatus } from '@shared/types'
 import { useState } from 'react'
-import type { Dict } from '../i18n/dict'
 import { useDict } from '../i18n/useDict'
 import { ControlRow, SectionHead, WarningNote } from './SettingsPanel'
 import {
@@ -20,7 +20,7 @@ import { Switch } from './ui/switch'
 type Form = 'unlock' | 'recover' | 'change' | 'reset' | null
 type Confirming = 'remove' | 'reset' | null
 
-export function secretErrorText(d: Dict, error: string | undefined): string {
+function secretErrorText(d: Dict, error: string | undefined): string {
   const t = d.sync.secrets.errors
   switch (error) {
     case 'too-short':

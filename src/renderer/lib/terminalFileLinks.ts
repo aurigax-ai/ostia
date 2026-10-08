@@ -50,7 +50,7 @@ export function fileLinkAction(facts: FileLinkFacts): FileLinkAction | null {
   return facts.probed === 'file' ? 'admit-file' : null
 }
 
-export function needsHumanClick(action: FileLinkAction): boolean {
+function needsHumanClick(action: FileLinkAction): boolean {
   return action === 'admit-file' || action === 'open-folder'
 }
 
@@ -67,7 +67,7 @@ export interface FileLinkDeps {
   confinedOnly: () => boolean
   revealable: (path: string) => boolean
   stat: (path: string) => Promise<Kind | null>
-  probe: (path: string) => Promise<Kind | null>
+  probe: (written: string) => Promise<Kind | null>
   activate: (action: FileLinkAction, target: FileLinkTarget) => void
   modifierHeld: (event: MouseEvent) => boolean
   hover: (range: IBufferRange, action: FileLinkAction) => void
@@ -84,16 +84,16 @@ export function createFileLinkProvider(term: Terminal, deps: FileLinkDeps): ILin
     ttl: STAT_TTL_MS,
     max: STAT_CACHE_MAX,
   })
-  const ask = async (path: string, confinedOnly: boolean): Promise<Kinds> => {
+  const ask = async (written: string, path: string, confinedOnly: boolean): Promise<Kinds> => {
     const confined = await deps.stat(path).catch(() => null)
     if (confined || confinedOnly || !path.startsWith('/')) return { confined, probed: null }
-    return { confined, probed: await deps.probe(path).catch(() => null) }
+    return { confined, probed: await deps.probe(written).catch(() => null) }
   }
-  const kindsCached = (path: string, confinedOnly: boolean): Promise<Kinds> => {
+  const kindsCached = (written: string, path: string, confinedOnly: boolean): Promise<Kinds> => {
     const key = `${confinedOnly ? 'c' : 'p'}${path}`
     const hit = cache.get(key)
     if (hit) return hit
-    const kinds = ask(path, confinedOnly)
+    const kinds = ask(written, path, confinedOnly)
     cache.set(key, kinds)
     return kinds
   }
@@ -119,7 +119,7 @@ export function createFileLinkProvider(term: Terminal, deps: FileLinkDeps): ILin
       void Promise.all(
         matches.map(async (m): Promise<ILink | null> => {
           const path = resolveLinkPath(m.path, cwd ?? '~')
-          const kinds = await kindsCached(path, confinedOnly)
+          const kinds = await kindsCached(m.path, path, confinedOnly)
           const action = fileLinkAction({
             ...kinds,
             confinedOnly,

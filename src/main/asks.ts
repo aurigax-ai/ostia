@@ -10,12 +10,11 @@ import type { Approvals } from './approvals'
 import type { PaneIdentity } from './idRegistry'
 import type { Questions } from './questions'
 
-export const ASK_KINDS = ['permission', 'question', 'approval'] as const
-export type AskKind = (typeof ASK_KINDS)[number]
+type AskKind = 'permission' | 'question' | 'approval'
 
-export type AskTone = 'primary' | 'neutral' | 'danger'
+type AskTone = 'primary' | 'neutral' | 'danger'
 
-export interface AskChoice {
+interface AskChoice {
   id: string
   label: string
   tone: AskTone

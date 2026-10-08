@@ -1,9 +1,9 @@
+import { withProductName } from '@shared/dict'
 import type {
   ExtensionInfo,
   ExtensionSecretContribution,
   ExtensionSettingContribution,
 } from '@shared/extensions'
-import { withProductName } from '../i18n/dict'
 
 function isAcronym(word: string): boolean {
   return word.length > 1 && word === word.toUpperCase() && /[A-Z]/.test(word)

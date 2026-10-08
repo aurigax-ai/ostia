@@ -14,14 +14,9 @@ export function isKeyboardPlatform(value: unknown): value is KeyboardPlatform {
 
 export type PresetKeys = Readonly<Record<string, TerminalSend>>
 
-export interface TerminalKeymap {
+interface TerminalKeymap {
   id: string
   keys: Readonly<Partial<Record<KeyboardPlatform, PresetKeys>>>
-}
-
-export interface AppKeymap {
-  id: string
-  platforms: readonly KeyboardPlatform[]
 }
 
 const hex = (value: string): TerminalSend => ({ type: 'hex', value })
@@ -67,46 +62,17 @@ export const TERMINAL_KEYMAPS: readonly TerminalKeymap[] = [
   { id: NO_TERMINAL_KEYMAP, keys: { mac: {}, linux: {} } },
 ]
 
-export const APP_KEYMAPS: readonly AppKeymap[] = [{ id: OSTIA_KEYMAP, platforms: ['mac', 'linux'] }]
-
 export function terminalKeymapsFor(platform: KeyboardPlatform): TerminalKeymap[] {
   return TERMINAL_KEYMAPS.filter((k) => k.keys[platform] !== undefined)
-}
-
-export function appKeymapsFor(platform: KeyboardPlatform): AppKeymap[] {
-  return APP_KEYMAPS.filter((k) => k.platforms.includes(platform))
 }
 
 export function isTerminalKeymap(value: unknown): value is string {
   return TERMINAL_KEYMAPS.some((k) => k.id === value)
 }
 
-export interface KeyboardDefaults {
-  app: string
-  terminal: string
-}
-
-export const PLATFORM_DEFAULTS: Readonly<Record<KeyboardPlatform, KeyboardDefaults>> = {
-  mac: { app: OSTIA_KEYMAP, terminal: OSTIA_KEYMAP },
-  linux: { app: OSTIA_KEYMAP, terminal: OSTIA_KEYMAP },
-}
-
-export interface KeyboardEnv {
-  platform: string
-}
-
-export function defaultPresetFor({ platform }: KeyboardEnv): KeyboardDefaults {
-  return PLATFORM_DEFAULTS[keyboardPlatform(platform)]
-}
-
-export function terminalKeymapIn(chosen: string | null, env: KeyboardEnv): string {
-  const offered = terminalKeymapsFor(keyboardPlatform(env.platform)).map((k) => k.id)
-  if (chosen !== null && offered.includes(chosen)) return chosen
-  return defaultPresetFor(env).terminal
-}
-
-export function appKeymapIn(chosen: string | null, env: KeyboardEnv): string {
-  return chosen ?? defaultPresetFor(env).app
+export function terminalKeymapIn(chosen: string | null, platform: KeyboardPlatform): string {
+  const offered = terminalKeymapsFor(platform).map((k) => k.id)
+  return chosen !== null && offered.includes(chosen) ? chosen : OSTIA_KEYMAP
 }
 
 export function terminalKeymapKeys(id: string, platform: KeyboardPlatform): PresetKeys {

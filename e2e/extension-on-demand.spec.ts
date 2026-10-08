@@ -3,7 +3,7 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { extensionHosts } from './extensionHosts'
-import { guestText, openWorkspace } from './helpers'
+import { openWorkspace } from './helpers'
 import { _electron as electron, expect, test } from './test'
 
 function dirtyRepoHome(dataHome: string): string {
@@ -23,7 +23,7 @@ function dirtyRepoHome(dataHome: string): string {
   return home
 }
 
-test('at idle no extension host runs while the branch still shows; the Git panel starts the git host, also when restored', async () => {
+test('no extension host runs for the branch, the diff stats or the Git panel, also when the panel is restored', async () => {
   const dataHome = freshDataHome()
   const home = dirtyRepoHome(dataHome)
   const launch = isolatedLaunch(dataHome)
@@ -46,10 +46,10 @@ test('at idle no extension host runs while the branch still shows; the Git panel
     await expect(win.locator('.pane-header .title').filter({ hasText: /^Git$/ })).toBeVisible({
       timeout: 15_000,
     })
-    await expect
-      .poll(() => guestText(app, 'http://127.0.0.1'), { timeout: 15_000 })
-      .toContain('notes.txt')
-    expect(extensionHosts(app)).toEqual(['git'])
+    await expect(win.locator('.git-surface button.change[data-path="notes.txt"]')).toBeVisible({
+      timeout: 15_000,
+    })
+    expect(extensionHosts(app)).toEqual([])
   } finally {
     await app.close()
   }
@@ -61,10 +61,10 @@ test('at idle no extension host runs while the branch still shows; the Git panel
     await expect(win.locator('.pane-header .title').filter({ hasText: /^Git$/ })).toBeVisible({
       timeout: 15_000,
     })
-    await expect
-      .poll(() => guestText(app, 'http://127.0.0.1'), { timeout: 15_000 })
-      .toContain('notes.txt')
-    expect(extensionHosts(app)).toContain('git')
+    await expect(win.locator('.git-surface button.change[data-path="notes.txt"]')).toBeVisible({
+      timeout: 15_000,
+    })
+    expect(extensionHosts(app)).toEqual([])
   } finally {
     await app.close()
   }

@@ -37,7 +37,8 @@ import {
 } from '../lib/closeConfirm'
 import { runCmuxImport } from '../lib/cmuxImport'
 import { focusActivePaneWhenReady } from '../lib/focusNewTerminal'
-import { wakePane } from '../lib/hibernationScheduler'
+import { groupMates } from '../lib/groupPeers'
+import { hibernateWorkspaces, resumeWorkspaces, wakePane } from '../lib/hibernationScheduler'
 import { mergeRefusalText } from '../lib/mergeRefusalText'
 import { startNewWorkspace, startScratchWorkspace } from '../lib/newWorkspace'
 import { openRequestedFiles } from '../lib/openFile'
@@ -93,6 +94,7 @@ import type { WorkspaceKind, WorkspaceState } from '../stores/workspacesStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
 import { registerBrowserCommands } from './browserCommands'
 import { type CoreCommandId, registerCore } from './core'
+import { registerGitCommands } from './gitCommands'
 import { type CommandContext, commands } from './registry'
 
 interface PaneListEntry extends PaneAgentReport {
@@ -198,6 +200,11 @@ const PANE_FOCUS_COMMANDS: readonly (readonly [CoreCommandId, FocusDirection])[]
   ['pane.focusDown', 'down'],
 ]
 
+function groupWorkspaceIds(workspaceId: string | null): string[] {
+  if (!workspaceId) return []
+  return groupMates(useWorkspacesStore.getState().workspaces, workspaceId).map((w) => w.id)
+}
+
 function workspaceWithoutPanes(ctx: CommandContext, paneId?: string): string | null {
   const workspaceId = ctx.activeWorkspaceId
   if (!workspaceId || paneId || ctx.activePaneId) return null
@@ -214,6 +221,7 @@ const PANE_LOCKED = 'pane-locked: the human locked this pane; only they can unlo
 
 export function registerBuiltinCommands(): void {
   registerBrowserCommands()
+  registerGitCommands()
   commands.setContextProvider((): CommandContext => {
     const workspaceId = useWorkspacesStore.getState().activeWorkspaceId
     const layout = workspaceId ? useLayoutStore.getState().byWorkspace[workspaceId] : undefined
@@ -813,6 +821,40 @@ export function registerBuiltinCommands(): void {
       const groupId = store.workspaces.find((w) => w.id === ctx.activeWorkspaceId)?.groupId
       if (groupId) store.deleteGroup(groupId)
     },
+  })
+
+  registerCore<undefined, { hibernated: string[] }>({
+    id: 'workspace.hibernateAgents',
+    category: 'workspace',
+    local: true,
+    run: async (_args, ctx) => ({
+      hibernated: await hibernateWorkspaces(ctx.activeWorkspaceId ? [ctx.activeWorkspaceId] : []),
+    }),
+  })
+
+  registerCore<undefined, { resumed: string[] }>({
+    id: 'workspace.resumeAgents',
+    category: 'workspace',
+    local: true,
+    run: (_args, ctx) => ({
+      resumed: resumeWorkspaces(ctx.activeWorkspaceId ? [ctx.activeWorkspaceId] : []),
+    }),
+  })
+
+  registerCore<undefined, { hibernated: string[] }>({
+    id: 'workspace.hibernateGroupAgents',
+    category: 'workspace',
+    local: true,
+    run: async (_args, ctx) => ({
+      hibernated: await hibernateWorkspaces(groupWorkspaceIds(ctx.activeWorkspaceId)),
+    }),
+  })
+
+  registerCore<undefined, { resumed: string[] }>({
+    id: 'workspace.resumeGroupAgents',
+    category: 'workspace',
+    local: true,
+    run: (_args, ctx) => ({ resumed: resumeWorkspaces(groupWorkspaceIds(ctx.activeWorkspaceId)) }),
   })
 
   registerCore({

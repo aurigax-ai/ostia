@@ -5,18 +5,18 @@ import { expandHome, resolveSafe } from '../pathGuard'
 import { HOME_HIDDEN_FILES, WORKDIR_HIDDEN_FILES, folderProblem } from '../sandbox/srtConfig'
 import { type SandboxReadRules, visibleInSandbox } from '../sandbox/visibility'
 
-export const FS_READ_MAX_BYTES = 256 * 1024
+const FS_READ_MAX_BYTES = 256 * 1024
 
-export type FileEntryKind = 'file' | 'dir' | 'link'
+type FileEntryKind = 'file' | 'dir' | 'link'
 
-export interface WorkspaceFileEntry {
+interface WorkspaceFileEntry {
   name: string
   kind: FileEntryKind
   size: number
   mtime: number
 }
 
-export interface WorkspaceFileRead {
+interface WorkspaceFileRead {
   text?: string
   base64?: string
   size: number
@@ -52,7 +52,7 @@ function containsRun(segments: readonly string[], run: readonly string[]): boole
   return false
 }
 
-export function isHiddenFromPhone(relativePath: string): boolean {
+function isHiddenFromPhone(relativePath: string): boolean {
   const segments = relativePath.split(sep).filter((part) => part !== '' && part !== '.')
   if (segments.some((part) => HIDDEN_NAME_PREFIXES.some((prefix) => part.startsWith(prefix)))) {
     return true
@@ -60,7 +60,7 @@ export function isHiddenFromPhone(relativePath: string): boolean {
   return PHONE_HIDDEN_PATHS.some((hidden) => containsRun(segments, hidden.split('/')))
 }
 
-export type WorkspaceFileError =
+type WorkspaceFileError =
   | 'workspace-too-broad'
   | 'outside-workspace'
   | 'not-found'

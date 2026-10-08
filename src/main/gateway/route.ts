@@ -6,7 +6,7 @@ function routePath(): string {
   return storePath('gateway-config', 'global')
 }
 
-export type RouteProblem = 'unknown-address' | 'invalid-phone-address'
+type RouteProblem = 'unknown-address' | 'invalid-phone-address'
 
 export function checkRoute(value: unknown): GatewayRoute | RouteProblem {
   if (typeof value !== 'object' || value === null) return 'unknown-address'

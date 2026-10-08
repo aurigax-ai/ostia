@@ -1,7 +1,7 @@
 export const REACH_MODES = ['workspace', 'project', 'group'] as const
 export type ReachMode = (typeof REACH_MODES)[number]
 
-export const DEFAULT_REACH_MODE: ReachMode = 'project'
+const DEFAULT_REACH_MODE: ReachMode = 'project'
 
 export interface AgentGroupPlacement {
   workspaceId: string
