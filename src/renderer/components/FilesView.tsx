@@ -220,7 +220,7 @@ export function FilesView(): JSX.Element {
   return (
     <>
       <div className="rail-section files-head">
-        <span>{d.rail.files}</span>
+        <span className="files-title">{d.rail.files}</span>
         <div className="files-toolbar">
           <IconButton
             ref={searchButton}
