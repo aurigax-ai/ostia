@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest'
 import type { SearchOutcome } from '@shared/search'
-import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { registerBuiltinCommands } from '../commands/builtins'
@@ -110,17 +110,130 @@ describe('CommandPalette', () => {
     expect(screen.getByRole('option', { name: /Open Settings/ })).toBeInTheDocument()
   })
 
-  it('puts the command id and its shortcut in separate right-hand cells', async () => {
-    useUIStore.setState({ paletteOpen: true })
-    render(<CommandPalette />)
+  describe('row layout', () => {
+    const initialPlugins = usePluginsStore.getState()
+    const initialSettings = useSettingsStore.getState()
 
-    const option = await screen.findByRole('option', { name: /Open Settings/ })
+    afterEach(() => {
+      cleanup()
+      usePluginsStore.setState(initialPlugins, true)
+      useSettingsStore.setState(initialSettings, true)
+    })
 
-    const id = within(option).getByText('app.openSettings')
-    const shortcut = option.querySelector('kbd')
-    expect(id).toHaveAttribute('data-slot', 'palette-meta')
-    expect(shortcut).not.toBeNull()
-    expect(id).not.toContainElement(shortcut as HTMLElement)
+    const cells = (option: HTMLElement): HTMLElement[] => {
+      const row = option.querySelector('[data-slot="palette-row"]') as HTMLElement
+      return [...row.children] as HTMLElement[]
+    }
+
+    const seedPlaces = () => {
+      useWorkspacesStore.setState({
+        workspaces: [
+          {
+            id: 'w1',
+            name: 'api',
+            customName: 'payments',
+            kind: 'terminal',
+            workDir: '/src/api',
+            state: 'idle',
+          },
+        ],
+        activeWorkspaceId: 'w1',
+      })
+      useLayoutStore.setState({
+        byWorkspace: {
+          w1: {
+            root: { type: 'pane', id: 'pane-7', title: 'Fix refunds', kind: 'terminal' },
+            activePaneId: 'pane-7',
+            zoomedPaneId: null,
+          },
+        },
+      })
+    }
+
+    it('puts a command’s keycap and id right after its title, in that order', async () => {
+      useUIStore.setState({ paletteOpen: true })
+      render(<CommandPalette />)
+
+      const [title, keys, id] = cells(await screen.findByRole('option', { name: /Open Settings/ }))
+
+      expect(title).toHaveTextContent('Open Settings')
+      expect(keys.tagName).toBe('KBD')
+      expect(id).toHaveTextContent('app.openSettings')
+      expect(id).toHaveAttribute('data-slot', 'palette-meta')
+      expect(id).not.toContainElement(keys)
+    })
+
+    it('puts a workspace’s path right after its name', async () => {
+      seedPlaces()
+      useUIStore.setState({ paletteOpen: true, paletteSeed: '@' })
+      render(<CommandPalette />)
+
+      const [title, path] = cells(await screen.findByRole('option', { name: /payments/ }))
+
+      expect(title).toHaveTextContent('payments')
+      expect(path).toHaveTextContent('/src/api')
+      expect(path).toHaveAttribute('data-slot', 'palette-meta')
+    })
+
+    it('puts a tab’s workspace right after its title', async () => {
+      seedPlaces()
+      useUIStore.setState({ paletteOpen: true, paletteSeed: '#' })
+      render(<CommandPalette />)
+
+      const [title, where] = cells(await screen.findByRole('option', { name: /Fix refunds/ }))
+
+      expect(title).toHaveTextContent('Fix refunds')
+      expect(where).toHaveTextContent('payments')
+    })
+
+    it('puts a file’s folder right after its name', async () => {
+      seedPlaces()
+      vi.mocked(window.ostia.search.run).mockResolvedValue({
+        ok: true,
+        results: {
+          root: '/src/api',
+          names: [{ path: 'src/lib/greet.ts', dir: false, positions: [0] }],
+          files: [],
+          pdfs: [],
+          matches: 0,
+          truncated: false,
+        },
+      })
+      useUIStore.setState({ paletteOpen: true, paletteSeed: '/gre' })
+      render(<CommandPalette />)
+
+      const [title, dir] = cells(await screen.findByRole('option', { name: /greet/ }))
+
+      expect(title).toHaveTextContent('greet.ts')
+      expect(dir).toHaveTextContent('src/lib')
+    })
+
+    it('keeps the title whole and lets the secondary text give way first', async () => {
+      useUIStore.setState({ paletteOpen: true })
+      render(<CommandPalette />)
+
+      const [title, , id] = cells(await screen.findByRole('option', { name: /Open Settings/ }))
+
+      expect(title).toHaveClass('shrink-0', 'truncate')
+      expect(id).toHaveClass('truncate', 'min-w-0')
+      expect(id).not.toHaveClass('justify-self-end')
+    })
+
+    it('lays rows out the same way in Traditional Chinese', async () => {
+      usePluginsStore.setState({
+        languages: languagesFrom([
+          { extId: 'langpack-zh-hant', id: 'zh-Hant', label: '繁體中文', catalog: zhHant },
+        ]),
+      })
+      useSettingsStore.setState({ locale: 'zh-Hant' })
+      useUIStore.setState({ paletteOpen: true })
+      render(<CommandPalette />)
+
+      const [title, , id] = cells(await screen.findByRole('option', { name: /向右分割窗格/ }))
+
+      expect(title).toHaveTextContent('向右分割窗格')
+      expect(id).toHaveAttribute('data-slot', 'palette-meta')
+    })
   })
 
   describe('prefixes', () => {

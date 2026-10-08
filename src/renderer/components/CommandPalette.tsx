@@ -477,25 +477,23 @@ function ItemRow({
   nameMono?: boolean
 }): JSX.Element {
   return (
-    <span className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto_7.5rem] items-center gap-x-3 tabular-nums">
-      <span className="flex min-w-0 items-baseline gap-2">
-        <span className={cn('truncate', nameMono && 'font-mono')}>{name}</span>
-        {detail ? (
-          <span className="min-w-0 truncate text-fg-muted text-ui-xs">{detail}</span>
-        ) : null}
+    <span data-slot="palette-row" className="flex min-w-0 flex-1 items-center gap-x-3 tabular-nums">
+      <span className={cn('min-w-0 max-w-full shrink-0 truncate', nameMono && 'font-mono')}>
+        {name}
       </span>
-      <span
-        data-slot="palette-meta"
-        className={cn(
-          'min-w-0 max-w-80 justify-self-end truncate text-fg-muted text-ui-xs group-data-selected/command-item:text-fg',
-          mono && 'font-mono',
-        )}
-      >
-        {meta}
-      </span>
-      <span className="flex justify-end">
-        {keys ? <Kbd className="whitespace-nowrap">{keys}</Kbd> : null}
-      </span>
+      {detail ? <span className="min-w-0 truncate text-fg-muted text-ui-xs">{detail}</span> : null}
+      {keys ? <Kbd className="shrink-0 whitespace-nowrap">{keys}</Kbd> : null}
+      {meta ? (
+        <span
+          data-slot="palette-meta"
+          className={cn(
+            'min-w-0 truncate text-fg-muted text-ui-xs group-data-selected/command-item:text-fg',
+            mono && 'font-mono',
+          )}
+        >
+          {meta}
+        </span>
+      ) : null}
     </span>
   )
 }
