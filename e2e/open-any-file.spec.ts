@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { freshDataHome, isolatedLaunch } from './dataHome'
-import { emptyState, openWorkspace } from './helpers'
+import { PROMPT, emptyState, openWorkspace } from './helpers'
 import { type Page, _electron as electron, expect, test } from './test'
 
 const PIXEL_PNG = Buffer.from(
@@ -186,7 +186,7 @@ test('a file dropped on the window opens in the viewer; dropped on a terminal it
     )
 
     await win.getByRole('button', { name: 'New terminal tab', exact: true }).first().click()
-    await expect(win.locator('.xterm-rows:visible')).toContainText(/[❯$%#]/, { timeout: 15_000 })
+    await expect(win.locator('.xterm-rows:visible')).toContainText(PROMPT, { timeout: 15_000 })
     const terminal = await centerOf(win, '.terminal-surface:visible')
     await dropFiles(win, [log], terminal.x, terminal.y)
     await expect(win.locator('.xterm-rows:visible')).toContainText(log, { timeout: 10_000 })

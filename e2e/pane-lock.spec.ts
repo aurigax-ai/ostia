@@ -1,15 +1,9 @@
 import { freshDataHome, isolatedLaunch } from './dataHome'
-import { PROMPT, openWorkspace } from './helpers'
+import { PROMPT, openWorkspace, runInTerminal } from './helpers'
 import { type Page, _electron as electron, expect, test } from './test'
 
-async function run(win: Page, line: string): Promise<void> {
-  await win.locator('.xterm').first().click()
-  await win.keyboard.type(line)
-  await win.keyboard.press('Enter')
-}
-
 async function closeFromAgent(win: Page, paneId: string, marker: string): Promise<void> {
-  await run(win, `ostia pane.close '{"paneId":"${paneId}"}'; echo ${marker}-$?`)
+  await runInTerminal(win, `ostia pane.close '{"paneId":"${paneId}"}'; echo ${marker}-$?`)
   const card = win.getByRole('region', { name: 'Agent permission request' })
   await expect(card).toBeVisible({ timeout: 20_000 })
   await card.getByRole('button', { name: 'Allow once' }).click()
@@ -107,7 +101,7 @@ test('suggestions come from the pane’s own shell only while it holds the termi
     await expect.poll(local).toBe(true)
     await expect.poll(names).toBeGreaterThan(0)
 
-    await run(win, 'sleep 30')
+    await runInTerminal(win, 'sleep 30')
     await expect.poll(local, { timeout: 10_000 }).toBe(false)
     expect(await names()).toBe(0)
     expect(await win.evaluate((id) => window.ostia.pty.listDir(id, '/'), paneId)).toEqual([])

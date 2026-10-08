@@ -70,10 +70,6 @@ test('a row of thirty tabs keeps tab widths in range, scrolls and points at a hi
     await expect.poll(() => inView(win, selected)).toBe(true)
     expect(await inView(win, waiting)).toBe(false)
 
-    await win
-      .locator('.pane-header')
-      .screenshot({ path: test.info().outputPath('tab-row-thirty.png') })
-
     const marker = win.getByRole('button', { name: 'Hidden tabs that need you: 1' })
     await expect(marker).toHaveAttribute('data-edge', 'start')
     await marker.click()
@@ -82,10 +78,6 @@ test('a row of thirty tabs keeps tab widths in range, scrolls and points at a hi
 
     await win.getByRole('button', { name: /^All tabs/ }).click()
     await expect(win.getByRole('option')).toHaveCount(TABS)
-    await win
-      .locator('.pane-header')
-      .screenshot({ path: test.info().outputPath('tab-row-scrolled.png') })
-    await win.screenshot({ path: test.info().outputPath('tab-row-all-tabs.png') })
     await win.getByRole('option').last().click()
     await expect(win.getByRole('option')).toHaveCount(0)
     await expect.poll(() => inView(win, tabs.last())).toBe(true)

@@ -1,10 +1,14 @@
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
-import { openWorkspace, pressQuit } from './helpers'
-import { type Page, _electron as electron, expect, test } from './test'
+import { openWorkspace, pressQuit, runInTerminal } from './helpers'
+import { _electron as electron, expect, test } from './test'
 
-const PLAIN_SHELL = {
+const CONFIRM_QUIT = {
   ...DOM_RENDERER_SETTINGS,
   workspaces: { ...DOM_RENDERER_SETTINGS.workspaces, confirmQuit: true },
+}
+
+const PLAIN_SHELL = {
+  ...CONFIRM_QUIT,
   terminal: { shell: '/bin/sh -i' },
 }
 
@@ -18,17 +22,8 @@ async function launch(settings: object) {
   return { app, win, proc: app.process() }
 }
 
-async function run(win: Page, command: string): Promise<void> {
-  await win.locator('.xterm').first().click()
-  await win.keyboard.type(command)
-  await win.keyboard.press('Enter')
-}
-
 test('quitting with only idle shells shows no dialog', async () => {
-  const { app, win, proc } = await launch({
-    ...DOM_RENDERER_SETTINGS,
-    workspaces: { ...DOM_RENDERER_SETTINGS.workspaces, confirmQuit: true },
-  })
+  const { app, win, proc } = await launch(CONFIRM_QUIT)
   try {
     expect(await pressQuit(app, win)).toBe('quit')
   } finally {
@@ -39,7 +34,7 @@ test('quitting with only idle shells shows no dialog', async () => {
 test('quitting with a program running in a shell without blocks asks and names it', async () => {
   const { app, win, proc } = await launch(PLAIN_SHELL)
   try {
-    await run(win, 'echo plain-$((6*7)); sleep 100')
+    await runInTerminal(win, 'echo plain-$((6*7)); sleep 100')
     await expect(win.locator('.xterm-rows').first()).toContainText('plain-42', { timeout: 15_000 })
     const paneId = await win.locator('.pane').first().getAttribute('data-pane-id')
     await expect
@@ -57,7 +52,7 @@ test('quitting with a program running in a shell without blocks asks and names i
 test('quitting with an idle shell without blocks shows no dialog', async () => {
   const { app, win, proc } = await launch(PLAIN_SHELL)
   try {
-    await run(win, 'echo idle-$((6*7))')
+    await runInTerminal(win, 'echo idle-$((6*7))')
     await expect(win.locator('.xterm-rows').first()).toContainText('idle-42', { timeout: 15_000 })
     expect(await pressQuit(app, win)).toBe('quit')
   } finally {
@@ -66,10 +61,7 @@ test('quitting with an idle shell without blocks shows no dialog', async () => {
 })
 
 test('quitting while the window is too busy to answer asks instead of quitting', async () => {
-  const { app, win, proc } = await launch({
-    ...DOM_RENDERER_SETTINGS,
-    workspaces: { ...DOM_RENDERER_SETTINGS.workspaces, confirmQuit: true },
-  })
+  const { app, win, proc } = await launch(CONFIRM_QUIT)
   try {
     await app.evaluate(({ dialog }) => {
       const asked: string[] = []

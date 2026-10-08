@@ -3,8 +3,8 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { extensionHosts } from './extensionHosts'
-import { openWorkspace } from './helpers'
-import { type ElectronApplication, _electron as electron, expect, test } from './test'
+import { guestText, openWorkspace } from './helpers'
+import { _electron as electron, expect, test } from './test'
 
 function dirtyRepoHome(dataHome: string): string {
   const home = join(dataHome, 'home')
@@ -21,15 +21,6 @@ function dirtyRepoHome(dataHome: string): string {
   vcs('commit', '-q', '-m', 'init')
   writeFileSync(join(home, 'notes.txt'), 'first line\nsecond line\n')
   return home
-}
-
-function guestText(app: ElectronApplication): Promise<string> {
-  return app.evaluate(async ({ webContents }) => {
-    const guest = webContents
-      .getAllWebContents()
-      .find((wc) => wc.getType() === 'webview' && wc.getURL().startsWith('http://127.0.0.1'))
-    return guest ? String(await guest.executeJavaScript('document.body.innerText')) : ''
-  })
 }
 
 test('at idle no extension host runs while the branch still shows; the Git panel starts the git host, also when restored', async () => {
@@ -55,7 +46,9 @@ test('at idle no extension host runs while the branch still shows; the Git panel
     await expect(win.locator('.pane-header .title').filter({ hasText: /^Git$/ })).toBeVisible({
       timeout: 15_000,
     })
-    await expect.poll(() => guestText(app), { timeout: 15_000 }).toContain('notes.txt')
+    await expect
+      .poll(() => guestText(app, 'http://127.0.0.1'), { timeout: 15_000 })
+      .toContain('notes.txt')
     expect(extensionHosts(app)).toEqual(['git'])
   } finally {
     await app.close()
@@ -68,7 +61,9 @@ test('at idle no extension host runs while the branch still shows; the Git panel
     await expect(win.locator('.pane-header .title').filter({ hasText: /^Git$/ })).toBeVisible({
       timeout: 15_000,
     })
-    await expect.poll(() => guestText(app), { timeout: 15_000 }).toContain('notes.txt')
+    await expect
+      .poll(() => guestText(app, 'http://127.0.0.1'), { timeout: 15_000 })
+      .toContain('notes.txt')
     expect(extensionHosts(app)).toContain('git')
   } finally {
     await app.close()

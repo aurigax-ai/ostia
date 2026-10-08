@@ -1,10 +1,9 @@
-import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
+import { freshDataHome, isolatedLaunch } from './dataHome'
 import { emptyState, openWorkspace } from './helpers'
 import { _electron as electron, expect, test } from './test'
 
 test('the terminal text stops before the scrollbar and inside the pane', async () => {
   const dataHome = freshDataHome()
-  seedSettings(dataHome, { ...DOM_RENDERER_SETTINGS })
   const app = await electron.launch(isolatedLaunch(dataHome))
   try {
     const win = await app.firstWindow()

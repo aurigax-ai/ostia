@@ -3,6 +3,7 @@ import {
   PROMPT,
   emptyState,
   emptyWorkspace,
+  newTerminalWorkspace,
   openWorkspace,
   waitForPaletteSelection,
 } from './helpers'
@@ -188,8 +189,7 @@ test('Ctrl+1 jumps to the first workspace from a focused terminal, and rows drag
   const { app, win } = await launchApp()
   try {
     await openWorkspace(win)
-    await win.locator('.topbar').getByRole('button', { name: 'New workspace' }).click()
-    await emptyWorkspace(win).getByRole('button', { name: 'New terminal' }).click()
+    await newTerminalWorkspace(win)
     const rows = win.locator('.rail-row')
     await expect(rows).toHaveCount(2)
     await win.locator('.rail-tab-main').nth(1).dblclick()

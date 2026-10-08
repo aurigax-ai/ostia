@@ -4,7 +4,7 @@ import { type Server, createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { join, resolve } from 'node:path'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
-import { openWorkspace } from './helpers'
+import { openWorkspace, quitApp } from './helpers'
 import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
 
 const CLI = resolve(__dirname, '../out/cli/index.js')
@@ -69,15 +69,6 @@ async function launch(dataHome: string): Promise<{ app: ElectronApplication; win
   const win = await app.firstWindow()
   await win.waitForLoadState('domcontentloaded')
   return { app, win }
-}
-
-async function quit(app: ElectronApplication): Promise<void> {
-  await app
-    .evaluate(({ app: electronApp }) => {
-      setTimeout(() => electronApp.quit(), 0)
-    })
-    .catch(() => {})
-  await app.close().catch(() => {})
 }
 
 async function openHumanTab(win: Page, url: string): Promise<void> {
@@ -146,7 +137,7 @@ test('the human’s browser panes share one profile that survives a restart; an 
     expect(denied.code).not.toBe(0)
     expect(denied.err).toContain('denied: credentials')
   } finally {
-    await quit(first.app)
+    await quitApp(first.app)
   }
 
   seen.length = 0
@@ -156,7 +147,7 @@ test('the human’s browser panes share one profile that survives a restart; an 
     await expect.poll(() => visited(seen, '/agent'), { timeout: 30_000 }).toBeTruthy()
     expect(visited(seen, '/agent')?.cookie).toBe('')
   } finally {
-    await quit(second.app)
+    await quitApp(second.app)
     server.close()
   }
 })

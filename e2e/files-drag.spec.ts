@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { freshDataHome, isolatedLaunch } from './dataHome'
-import { openWorkspace } from './helpers'
+import { PROMPT, openWorkspace } from './helpers'
 import { _electron as electron, expect, test } from './test'
 
 test('dragging a file from the Files panel types its quoted path at the terminal prompt', async () => {
@@ -15,7 +15,7 @@ test('dragging a file from the Files panel types its quoted path at the terminal
     const win = await app.firstWindow()
     await win.waitForLoadState('domcontentloaded')
     await openWorkspace(win)
-    await expect(win.locator('.xterm-rows')).toContainText(/[❯$%#]/, { timeout: 15_000 })
+    await expect(win.locator('.xterm-rows')).toContainText(PROMPT, { timeout: 15_000 })
     await win.locator('.topbar').getByRole('button', { name: 'Files', exact: true }).click()
 
     await win

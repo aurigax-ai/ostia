@@ -1,7 +1,14 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { freshDataHome, isolatedLaunch } from './dataHome'
-import { PROMPT, emptyState, emptyWorkspace } from './helpers'
+import {
+  PROMPT,
+  emptyState,
+  emptyWorkspace,
+  quitApp,
+  runInTerminal,
+  shownTerminal,
+} from './helpers'
 import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
 
 async function launchApp(dataHome: string): Promise<{ app: ElectronApplication; win: Page }> {
@@ -16,15 +23,6 @@ async function launchApp(dataHome: string): Promise<{ app: ElectronApplication; 
   }
 }
 
-async function quitApp(app: ElectronApplication): Promise<void> {
-  await app
-    .evaluate(({ app: electronApp }) => {
-      setTimeout(() => electronApp.quit(), 0)
-    })
-    .catch(() => {})
-  await app.close().catch(() => {})
-}
-
 async function newScratchWorkspace(win: Page): Promise<void> {
   await win
     .locator('.topbar')
@@ -37,14 +35,8 @@ function scratchRow(win: Page, name: string) {
   return win.locator('.rail-tab', { has: win.getByText(name, { exact: true }) })
 }
 
-async function run(win: Page, command: string): Promise<void> {
-  await win.locator('.xterm:visible').first().click()
-  await win.keyboard.type(command)
-  await win.keyboard.press('Enter')
-}
-
 async function printValue(win: Page, label: string, variable: string): Promise<string> {
-  await run(win, `echo "${label}:""$${variable}"":END"`)
+  await runInTerminal(win, `echo "${label}:""$${variable}"":END"`, shownTerminal(win))
   const rows = win.locator('.xterm:visible .xterm-rows').first()
   const pattern = new RegExp(`${label}:(/[^"]*?):END`)
   await expect(rows).toContainText(pattern, { timeout: 15_000 })
@@ -77,8 +69,8 @@ test('a scratch workspace keeps history in its private folder, deletes it on clo
 
     expect(await printValue(win, 'HF', 'HISTFILE')).toBe(join(folder, '.ostia_history'))
 
-    await run(win, 'echo hi > a.txt')
-    await run(win, `echo ${marker}`)
+    await runInTerminal(win, 'echo hi > a.txt', shownTerminal(win))
+    await runInTerminal(win, `echo ${marker}`, shownTerminal(win))
     await expect(win.locator('.xterm:visible .xterm-rows').first()).toContainText(marker, {
       timeout: 15_000,
     })

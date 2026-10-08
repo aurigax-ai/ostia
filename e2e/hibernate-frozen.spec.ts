@@ -1,8 +1,8 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
+import { freshDataHome, isolatedLaunch } from './dataHome'
 import { fakeAgentBin, isolatedHome } from './fakeAgent'
-import { PROMPT, openWorkspace } from './helpers'
+import { occurrences, openWorkspace } from './helpers'
 import {
   type ElectronApplication,
   type Locator,
@@ -47,10 +47,8 @@ async function launch(dataHome: string): Promise<Launched> {
 
 async function hibernatedAgent(): Promise<Launched & { dataHome: string; sleeping: Locator }> {
   const dataHome = freshDataHome()
-  seedSettings(dataHome, DOM_RENDERER_SETTINGS)
   const { app, win } = await launch(dataHome)
   await openWorkspace(win)
-  await expect(win.locator('.xterm-rows').first()).toContainText(PROMPT, { timeout: 15_000 })
   await win.locator('.xterm').first().click()
   await win.keyboard.type('claude')
   await win.keyboard.press('Enter')
@@ -66,10 +64,6 @@ async function hibernatedAgent(): Promise<Launched & { dataHome: string; sleepin
 
 function frozenScreen(win: Page): Locator {
   return win.locator('.pane-slot:not([data-hidden]) .hibernated-view')
-}
-
-function count(text: string, part: string): number {
-  return text.split(part).length - 1
 }
 
 test('a hibernated pane keeps its last screen frozen and read-only, and wakes with one copy of it', async () => {
@@ -89,10 +83,10 @@ test('a hibernated pane keeps its last screen frozen and read-only, and wakes wi
     await expect(frozen).toHaveCount(0)
     const rows = win.locator('.pane-slot:not([data-hidden]) .xterm-rows')
     await expect
-      .poll(async () => count((await rows.textContent()) ?? '', MARK), { timeout: 20_000 })
+      .poll(async () => occurrences((await rows.textContent()) ?? '', MARK), { timeout: 20_000 })
       .toBe(2)
     const text = (await rows.textContent()) ?? ''
-    expect(count(text, 'woke from hibernation')).toBe(1)
+    expect(occurrences(text, 'woke from hibernation')).toBe(1)
     expect(text.indexOf(MARK)).toBeLessThan(text.indexOf('woke from hibernation'))
     expect(text.indexOf('woke from hibernation')).toBeLessThan(text.lastIndexOf(MARK))
     expect(text).not.toContain('typed-while-asleep')
