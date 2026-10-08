@@ -6,7 +6,7 @@ Conventions for people and coding agents (Claude Code, Codex) working in this re
 
 1. **Open an issue first.** One problem per issue, in English: what is wrong, what is expected, and a "Done when" line. Label it (see below) and set the milestone.
 2. **Branch from the latest `main`**: `<type>/<short-description>`, where type is `fix`, `feat`, `docs`, `refactor`, `test` or `ci`. `main` is protected: every change, admins included, goes through a pull request, and force pushes and branch deletion are blocked.
-3. **Commit** with [Conventional Commits](https://www.conventionalcommits.org/) in English (`fix(terminal): …`, `feat(browser): …`). No code comments: `scripts/comments.mjs` rejects them.
+3. **Commit** with [Conventional Commits](https://www.conventionalcommits.org/) in English (`fix(terminal): …`, `feat(browser): …`). No comments in code, YAML (workflows, actions, config), shell scripts or other config; shebangs and tool directives stay. `scripts/comments.mjs` rejects them in code, and nothing checks the rest, so review it.
 4. **Check before pushing**:
     - `pnpm typecheck`, `pnpm lint` and `pnpm exec vitest related <changed files> --run`. CI runs on every PR the unit tests and Linux e2e specs your diff affects (see CI below), every test in the merge queue, and macOS e2e on release candidates and every night.
     - when a change needs e2e evidence, run only the specs you touched on CI: `gh workflow run ci.yml --ref <branch> -f full=true -f specs=e2e/<spec>.ts` (see CI below)
