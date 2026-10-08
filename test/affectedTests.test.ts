@@ -195,7 +195,7 @@ describe('e2eImports', () => {
 
 describe('planChanges', () => {
   it('plans unit tests and e2e specs together', () => {
-    expect(planChanges(['src/main/sandbox/ptyWrap.ts', 'e2e/smoke.spec.ts'])).toEqual({
+    expect(planChanges(['src/main/sandbox/ptyWrap.ts', 'e2e/smoke.spec.ts'], 'HEAD')).toEqual({
       node: null,
       dom: ['src/main/sandbox/ptyWrap.ts', ...domFileReaders()],
       e2e: ['e2e/keep-shells-sandbox.spec.ts', 'e2e/sandbox.spec.ts', 'e2e/smoke.spec.ts'],
@@ -203,7 +203,7 @@ describe('planChanges', () => {
   })
 
   it('drops a deleted spec from the e2e plan', () => {
-    expect(planChanges(['e2e/no-such.spec.ts']).e2e).toEqual([])
+    expect(planChanges(['e2e/no-such.spec.ts'], 'HEAD').e2e).toEqual([])
   })
 })
 

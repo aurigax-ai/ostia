@@ -1,6 +1,7 @@
 {
   "smoke": [
     "e2e/blocks.spec.ts",
+    "e2e/runner-display.spec.ts",
     "e2e/settings-gap.spec.ts",
     "e2e/smoke.spec.ts",
     "e2e/split-tabs.spec.ts",
@@ -106,8 +107,6 @@
         "src/main/loginFill.ts",
         "src/main/credentials.ts",
         "src/shared/browse",
-        "src/shared/browserProfile.ts",
-        "src/shared/browserStorage.ts",
         "src/shared/pick",
         "src/shared/regionCapture.ts",
         "src/shared/credentials.ts",
@@ -860,11 +859,6 @@
         "src/renderer/components/PrivacySection.tsx"
       ],
       "specs": ["e2e/secret-redaction.spec.ts"]
-    },
-    {
-      "name": "e2e runner",
-      "paths": ["scripts/e2e.sh"],
-      "specs": ["e2e/runner-display.spec.ts"]
     }
   ]
 }
