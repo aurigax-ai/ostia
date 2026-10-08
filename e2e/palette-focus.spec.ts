@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { chords } from './chords'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { SLOW_FRAME_MS, fastFrames, slowFrames } from './frames'
-import { openWorkspace } from './helpers'
+import { openWorkspace, waitForPaletteSelection } from './helpers'
 import { _electron as electron, expect, test } from './test'
 
 test('Escape right after the palette chord in a terminal closes the palette and never reaches the shell', async () => {
@@ -78,8 +78,9 @@ test('Shift twice in a terminal opens Search Everywhere and runs the command pic
     await expect(input).toBeFocused()
     await expect(win.locator('.xterm')).toHaveCount(1)
     await win.keyboard.type('Split Pane Right')
-    await expect(search.getByRole('option', { name: /Split Pane Right/ })).toHaveCount(1)
+    await expect(search.getByRole('option', { name: /^Split Pane Right/ })).toHaveCount(1)
     await expect(search.getByRole('option').first()).toContainText('Split Pane Right')
+    await waitForPaletteSelection(win, 'Split Pane Right')
     await win.keyboard.press('Enter')
 
     await expect(search).toBeHidden()
