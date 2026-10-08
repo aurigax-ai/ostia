@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { chords } from './chords'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { SLOW_FRAME_MS, fastFrames, slowFrames } from './frames'
-import { openWorkspace } from './helpers'
+import { openWorkspace, waitForPaletteSelection } from './helpers'
 import { _electron as electron, expect, test } from './test'
 
 test('Escape right after the palette chord in a terminal closes the palette and never reaches the shell', async () => {
@@ -78,6 +78,7 @@ test('Shift twice in a terminal opens Search Everywhere and runs the command pic
     await expect(input).toBeFocused()
     await win.keyboard.type('Open Settings')
     await expect(search.getByRole('option').first()).toContainText('Open Settings')
+    await waitForPaletteSelection(win, 'Open Settings')
     await win.keyboard.press('Enter')
 
     await expect(search).toBeHidden()
