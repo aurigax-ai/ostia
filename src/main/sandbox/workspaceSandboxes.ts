@@ -231,6 +231,7 @@ export class WorkspaceSandboxes {
         allowUnixSockets: policy(network.allowUnixSockets),
         allowAllUnixSockets: network.allowAllUnixSockets,
         allowLocalBinding: network.allowLocalBinding,
+        unixSockets: this.resolved(workspaceId).switches.unixSockets,
       }
       return createHash('sha256').update(JSON.stringify(baked)).digest('hex').slice(0, 16)
     } catch {

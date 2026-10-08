@@ -202,6 +202,11 @@
     margin: 0;
   }
 
+  html,
+  body {
+    overflow: hidden;
+  }
+
   body {
     font-family: var(--font-ui);
     font-size: var(--text-ui-base);
