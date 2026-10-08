@@ -1,7 +1,15 @@
 import { isolatedLaunch } from './dataHome'
-import { crashDumpsIn, _electron as electron, exitLine, expect, test } from './test'
+import {
+  crashDumpsIn,
+  crashDumpsPossible,
+  _electron as electron,
+  exitLine,
+  exitReport,
+  expect,
+  test,
+} from './test'
 
-test('a main process that crashes during a test leaves its signal and a crash dump for the report', async () => {
+test('a main process that crashes during a test leaves its signal and a crash dump for the report, or says why there is no dump', async () => {
   const dumps = test.info().outputPath('asked-crash-dumps')
   const launch = isolatedLaunch()
   const app = await electron.launch({
@@ -17,5 +25,11 @@ test('a main process that crashes during a test leaves its signal and a crash du
   await exited
 
   expect(exitLine(child)).toMatch(/was ended by SIG[A-Z]+/)
-  await expect.poll(() => crashDumpsIn(dumps).length, { timeout: 15_000 }).toBeGreaterThan(0)
+  if (crashDumpsPossible()) {
+    await expect.poll(() => crashDumpsIn(dumps).length, { timeout: 15_000 }).toBeGreaterThan(0)
+    expect(exitReport(child, crashDumpsIn(dumps))).toBe(exitLine(child))
+  } else {
+    expect(crashDumpsIn(dumps)).toEqual([])
+    expect(exitReport(child, [])).toContain('no crash dump: this machine forbids ptrace')
+  }
 })

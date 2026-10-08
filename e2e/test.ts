@@ -66,6 +66,22 @@ export function crashDumpsIn(dir: string): string[] {
     .sort()
 }
 
+const PTRACE_SCOPE_FILE = '/proc/sys/kernel/yama/ptrace_scope'
+const PTRACE_FORBIDDEN = '3'
+
+export function crashDumpsPossible(): boolean {
+  try {
+    return readFileSync(PTRACE_SCOPE_FILE, 'utf8').trim() !== PTRACE_FORBIDDEN
+  } catch {
+    return true
+  }
+}
+
+export function exitReport(child: ChildProcess, dumps: readonly string[]): string {
+  if (dumps.length > 0 || child.signalCode === null || crashDumpsPossible()) return exitLine(child)
+  return `${exitLine(child)}\nno crash dump: this machine forbids ptrace (kernel.yama.ptrace_scope=${PTRACE_FORBIDDEN}), which the crash handler needs`
+}
+
 function keepOutput(child: ChildProcess): string[] {
   const output: string[] = []
   child.stderr?.on('data', (chunk: Buffer) => output.push(chunk.toString('utf8')))
@@ -218,7 +234,7 @@ export const test = base.extend<{ appTraces: undefined }>({
           body: entry.output.join(''),
           contentType: 'text/plain',
         })
-        for (const path of crashDumpsIn(entry.crashDumps)) {
+        for (const path of dumps) {
           console.error(`crash dump of pid ${entry.child.pid}: ${path}`)
           await testInfo.attach('crash-dump', { path, contentType: 'application/octet-stream' })
         }
