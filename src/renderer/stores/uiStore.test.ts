@@ -61,6 +61,14 @@ describe('uiStore', () => {
       state().togglePalette()
       expect(state().paletteOpen).toBe(false)
     })
+
+    it('togglePalette opens the palette on the commands prefix and clears it on close', () => {
+      state().togglePalette()
+      expect(state()).toMatchObject({ paletteOpen: true, paletteMode: 'search', paletteSeed: '>' })
+
+      state().togglePalette()
+      expect(state()).toMatchObject({ paletteOpen: false, paletteSeed: '' })
+    })
   })
 
   describe('dashboard', () => {

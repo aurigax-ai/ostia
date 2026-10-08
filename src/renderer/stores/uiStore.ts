@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { releaseFocusForPalette } from '../lib/paletteFocus'
+import { COMMANDS_PREFIX } from '../lib/paletteModes'
 import { parseSettingsTarget } from '../lib/settingsNav'
 
 export type PaletteOpenMode = 'search' | 'everywhere' | 'ask'
@@ -71,7 +72,11 @@ export const useUIStore = create<UIState>((set, get) => ({
   closePalette: () => set({ paletteOpen: false, paletteMode: 'search', paletteSeed: '' }),
   togglePalette: () => {
     if (!get().paletteOpen) releaseFocusForPalette()
-    set((s) => ({ paletteOpen: !s.paletteOpen, paletteMode: 'search', paletteSeed: '' }))
+    set((s) => ({
+      paletteOpen: !s.paletteOpen,
+      paletteMode: 'search',
+      paletteSeed: s.paletteOpen ? '' : COMMANDS_PREFIX,
+    }))
   },
   toggleRail: () => set((s) => ({ railCollapsed: !s.railCollapsed })),
   setRailCollapsed: (railCollapsed) => set({ railCollapsed }),

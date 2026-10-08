@@ -34,6 +34,31 @@ test('Escape right after the palette chord in a terminal closes the palette and 
   }
 })
 
+test('the palette chord opens the palette on commands only, and removing the prefix lists everything', async () => {
+  const app = await electron.launch(isolatedLaunch())
+  try {
+    const win = await app.firstWindow()
+    await openWorkspace(win)
+    await win.locator('.xterm').first().click()
+    await expect(win.locator('.xterm-helper-textarea').first()).toBeFocused()
+
+    await win.keyboard.press(chords.palette)
+    const palette = win.getByRole('dialog', { name: 'Command palette' })
+    const input = palette.getByRole('combobox')
+    await expect(input).toBeFocused()
+    await expect(input).toHaveValue('>')
+    await expect(palette.getByRole('option').first()).toBeVisible()
+    await expect(palette.getByRole('group', { name: 'Workspaces' })).toHaveCount(0)
+    await expect(palette.getByRole('group', { name: 'Tabs' })).toHaveCount(0)
+
+    await win.keyboard.press('Backspace')
+    await expect(palette.getByRole('group', { name: 'Workspaces' })).toBeVisible()
+    await expect(palette.getByRole('group', { name: 'Tabs' })).toBeVisible()
+  } finally {
+    await app.close()
+  }
+})
+
 test('Shift twice in a terminal opens Search Everywhere and runs the command picked there', async () => {
   const app = await electron.launch(isolatedLaunch())
   try {

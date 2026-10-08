@@ -709,6 +709,30 @@ describe('CommandPalette', () => {
       })
     })
 
+    it('opens from the palette chord’s command filtered to commands, and on everything once the prefix is removed', async () => {
+      seed()
+      render(<CommandPalette />)
+      act(() => {
+        void commands.exec('palette.toggle')
+      })
+      const input = await screen.findByRole('combobox')
+
+      expect(await screen.findByRole('dialog', { name: 'Command palette' })).toBeInTheDocument()
+      expect(input).toHaveValue('>')
+      expect(screen.getByRole('option', { name: /Zoom Pane/ })).toBeInTheDocument()
+      expect(screen.queryByRole('option', { name: /zoom logs/ })).toBeNull()
+      expect(headings()).not.toContain('Workspaces')
+
+      await userEvent.type(input, 'zoom')
+      expect(input).toHaveValue('>zoom')
+      expect(screen.getByRole('option', { name: /Zoom Pane/ })).toBeInTheDocument()
+      expect(screen.queryByRole('option', { name: /zoom logs/ })).toBeNull()
+
+      await userEvent.clear(input)
+      expect(await screen.findByRole('option', { name: /zoom logs/ })).toBeInTheDocument()
+      expect(headings()).toEqual(expect.arrayContaining(['Workspaces', 'Tabs']))
+    })
+
     it('leaves files and settings out of the command palette', async () => {
       seed()
       useUIStore.setState({ paletteOpen: true })
