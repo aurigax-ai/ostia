@@ -1,5 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { chords } from './chords'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { emptyState, openWorkspace } from './helpers'
 import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
@@ -301,7 +302,7 @@ test('erases stored history when workspace restore is switched off', async () =>
   const second = await launchApp(dataHome)
   try {
     await waitForShellPrompt(second.win)
-    await second.win.keyboard.press('Control+,')
+    await second.win.keyboard.press(chords.openSettings)
     const settings = second.win.getByRole('region', { name: 'Settings' })
     await expect(settings).toBeVisible({ timeout: 10_000 })
     await settings.getByRole('button', { name: 'Terminal', exact: true }).click()
@@ -351,10 +352,10 @@ test('restores tabs and offers to resume the agent a tab was running', async () 
   try {
     await expect(second.win.getByRole('tab')).toHaveCount(2, { timeout: 15_000 })
     await expect(second.win.locator('.pane-slot:not([data-hidden]) .xterm-rows')).toContainText(
-      /[❯$%#]/,
+      /workspace restored ──[\s\S]*[❯$%#]/,
       { timeout: 15_000 },
     )
-    await second.win.keyboard.press('Control+Shift+R')
+    await second.win.keyboard.press(chords.resumeAgent)
     await expect(second.win.locator('.pane-slot:not([data-hidden]) .xterm-rows')).toContainText(
       'claude --resume ffe55127-cb1f-4efd',
       { timeout: 15_000 },
