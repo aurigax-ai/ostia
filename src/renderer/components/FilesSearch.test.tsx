@@ -35,7 +35,8 @@ const RESULTS: SearchOutcome = {
   },
 }
 
-function seed(): void {
+function seed(search = true): void {
+  useUIStore.setState({ filesSearchOpen: search })
   const workspace: Workspace = {
     id: 's1',
     name: 'project',
@@ -69,7 +70,7 @@ describe('Files panel search', () => {
     useLayoutStore.setState(layoutInit, true)
     useSettingsStore.setState(settingsInit, true)
     useEditorRevealStore.setState(revealInit, true)
-    useUIStore.setState({ filesOpen: false, filesSearchFocus: false })
+    useUIStore.setState({ filesOpen: false, filesSearchOpen: false, filesSearchFocus: false })
     vi.restoreAllMocks()
   })
 
@@ -247,16 +248,37 @@ describe('Files panel search', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Not a valid regular expression')
   })
 
-  it('focuses the search box with the find key and clears it with Escape', async () => {
-    seed()
+  it('shows the search box with the find key, clears it with Escape and hides it with a second', async () => {
+    seed(false)
     render(<FilesPanel />)
-    const input = screen.getByRole('textbox', { name: 'Search files' })
     const panel = screen.getByRole('complementary', { name: 'Files' })
+    expect(screen.queryByRole('textbox', { name: 'Search files' })).toBeNull()
 
     fireEvent.keyDown(panel, { key: 'F', code: 'KeyF', ctrlKey: true, shiftKey: true })
+    const input = screen.getByRole('textbox', { name: 'Search files' })
     expect(input).toHaveFocus()
 
-    await userEvent.setup().type(input, 'abc{Escape}')
+    const user = userEvent.setup()
+    await user.type(input, 'abc{Escape}')
     expect(input).toHaveValue('')
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('textbox', { name: 'Search files' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Search' })).toHaveFocus()
+  })
+
+  it('shows and focuses the search box from the header button and hides it again', async () => {
+    seed(false)
+    render(<FilesPanel />)
+    const user = userEvent.setup()
+    const button = screen.getByRole('button', { name: 'Search' })
+    expect(button).toHaveAttribute('aria-pressed', 'false')
+
+    await user.click(button)
+    expect(screen.getByRole('textbox', { name: 'Search files' })).toHaveFocus()
+    expect(button).toHaveAttribute('aria-pressed', 'true')
+
+    await user.click(button)
+    expect(screen.queryByRole('textbox', { name: 'Search files' })).toBeNull()
+    expect(button).toHaveAttribute('aria-pressed', 'false')
   })
 })

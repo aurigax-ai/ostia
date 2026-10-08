@@ -4,6 +4,7 @@ import {
   EyeIcon,
   FilePlusIcon,
   FolderPlusIcon,
+  MagnifyingGlassIcon,
   SlidersHorizontalIcon,
   XIcon,
 } from '@phosphor-icons/react'
@@ -187,6 +188,12 @@ export function FilesView(): JSX.Element {
     () => allFolders.filter((folder) => folder.workspaceId === workspaceId),
     [allFolders, workspaceId],
   )
+  const searchOpen = useUIStore((s) => s.filesSearchOpen)
+  const searchButton = useRef<HTMLButtonElement>(null)
+  const closeSearch = (): void => {
+    useUIStore.getState().hideFilesSearch()
+    searchButton.current?.focus()
+  }
 
   const local = (
     <>
@@ -201,6 +208,7 @@ export function FilesView(): JSX.Element {
           !tree.settings.showExcluded && isUnderExcluded(tree.isExcluded, path, cwd)
         }
         onReveal={(path) => useFileTreeStore.getState().reveal(cwd, path)}
+        onClose={closeSearch}
       >
         <div className="file-tree">
           <Dir key={cwd} path={cwd} depth={0} tree={tree} />
@@ -214,6 +222,14 @@ export function FilesView(): JSX.Element {
       <div className="rail-section files-head">
         <span>{d.rail.files}</span>
         <div className="files-toolbar">
+          <IconButton
+            ref={searchButton}
+            icon={MagnifyingGlassIcon}
+            label={d.filesView.showSearch}
+            command="view.searchFiles"
+            aria-pressed={searchOpen}
+            onClick={() => (searchOpen ? closeSearch() : useUIStore.getState().searchFiles())}
+          />
           <IconButton
             icon={FilePlusIcon}
             label={d.filesView.ops.newFile}

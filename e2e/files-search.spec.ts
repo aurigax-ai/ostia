@@ -22,6 +22,7 @@ test('the Files panel searches folder names, file names and text with the bundle
       timeout: 15_000,
     })
 
+    await win.locator('#files-panel').getByRole('button', { name: 'Search', exact: true }).click()
     const box = win.getByRole('textbox', { name: 'Search files' })
     await box.fill('needle')
     const text = win.getByRole('region', { name: 'Text' })
