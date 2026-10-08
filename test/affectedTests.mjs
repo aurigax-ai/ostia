@@ -38,6 +38,14 @@ const UNIT_ONLY_FILES = [
 
 export const EVERY_TEST = { node: null, dom: null, e2e: null }
 
+export const E2E_SPECS_PER_SHARD = 20
+export const E2E_MAX_SHARDS = 4
+
+export function e2eShards(specCount) {
+  const shards = Math.min(E2E_MAX_SHARDS, Math.max(1, Math.ceil(specCount / E2E_SPECS_PER_SHARD)))
+  return Array.from({ length: shards }, (_, index) => index + 1)
+}
+
 function unique(files) {
   return [...new Set(files)]
 }
