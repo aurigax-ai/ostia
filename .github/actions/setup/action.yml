@@ -32,4 +32,20 @@ runs:
     - shell: bash
       env:
         IGNORE_SCRIPTS: ${{ inputs.electron != 'true' && '--ignore-scripts' || '' }}
-      run: scripts/retry.sh pnpm install --frozen-lockfile $IGNORE_SCRIPTS
+      run: |
+        node_prefix=$(dirname "$(dirname "$(command -v node)")")
+        if [ -f "$node_prefix/include/node/node.h" ]; then
+          export npm_config_nodedir="$node_prefix"
+        fi
+        scripts/retry.sh pnpm install --frozen-lockfile $IGNORE_SCRIPTS
+    - if: inputs.electron == 'true' && runner.environment != 'github-hosted'
+      shell: bash
+      run: |
+        [ -w /opt/ci-cache ] || exit 0
+        cache=/opt/ci-cache/electron-gyp
+        version=$(node -p "require('electron/package.json').version")
+        if ! scripts/electron-headers.sh restore "$cache" "$version"; then
+          scripts/retry.sh node node_modules/.pnpm/node_modules/node-gyp/bin/node-gyp.js install \
+            "--target=$version" --dist-url=https://www.electronjs.org/headers "--devdir=$HOME/.electron-gyp"
+          scripts/electron-headers.sh publish "$cache" "$version"
+        fi

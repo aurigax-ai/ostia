@@ -24,6 +24,8 @@ export default defineWorkspace([
         'test/mergeQueueVerified.test.ts',
         'test/mainBuild.test.ts',
         'test/retry.test.ts',
+        'test/installScript.test.ts',
+        'test/electronHeaders.test.ts',
       ],
     },
   },

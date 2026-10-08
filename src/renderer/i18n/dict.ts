@@ -930,7 +930,7 @@ export const en = {
     installedWith: {
       apt: 'Installed with apt',
       brew: 'Installed with Homebrew',
-      local: 'Installed from source with install:local',
+      local: 'Installed for this user (install script or install:local)',
       tarball: 'Installed from the release tarball',
       dmg: 'Installed from the dmg',
       dev: 'Development build',
@@ -4093,7 +4093,7 @@ export const zhHant: Dict = {
     installedWith: {
       apt: '以 apt 安裝',
       brew: '以 Homebrew 安裝',
-      local: '以 install:local 從原始碼安裝',
+      local: '為目前使用者安裝（安裝腳本或 install:local）',
       tarball: '從發行版 tarball 安裝',
       dmg: '從 dmg 安裝',
       dev: '開發版本',
