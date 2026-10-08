@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { emptyState, emptyWorkspace, openWorkspace } from './helpers'
-import { type Page, _electron as electron, expect, test } from './test'
+import { _electron as electron, expect, test } from './test'
 
 test('Ctrl+click on a file path in terminal output opens it in the editor at that line', async () => {
   test.setTimeout(60_000)

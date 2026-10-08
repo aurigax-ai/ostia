@@ -225,11 +225,10 @@ export const test = base.extend<{ appTraces: undefined }>({
         if (!entry.reported && !(await exitedSoon(entry.child)))
           await reportStuck(entry, 'when the test ended')
         if (!failed) continue
-        console.error(exitLine(entry.child))
-        await testInfo.attach('app-exit', {
-          body: exitLine(entry.child),
-          contentType: 'text/plain',
-        })
+        const dumps = crashDumpsIn(entry.crashDumps)
+        const report = exitReport(entry.child, dumps)
+        console.error(report)
+        await testInfo.attach('app-exit', { body: report, contentType: 'text/plain' })
         await testInfo.attach('app-stderr', {
           body: entry.output.join(''),
           contentType: 'text/plain',
