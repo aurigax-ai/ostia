@@ -223,3 +223,46 @@ test('ostia shows a folder, opens a URL in an isolated browser pane, and an open
     await new Promise<void>((ok) => server.close(() => ok()))
   }
 })
+
+test('a CSV artifact opens as a table and a mermaid block in Markdown is drawn as an image', async () => {
+  test.setTimeout(120_000)
+  const dataHome = freshDataHome()
+  const home = join(dataHome, 'home')
+  mkdirSync(home, { recursive: true })
+  writeFileSync(join(home, 'cities.csv'), 'city,count\nTaipei,3\n"Hsinchu, East",4\n')
+  writeFileSync(
+    join(home, 'plan.md'),
+    '# Plan\n\n```mermaid\ngraph TD\n  Start --> Done\n```\n\n<script>document.title = "ran"</script>\n',
+  )
+  seedSettings(dataHome, { ...DOM_RENDERER_SETTINGS, editor: { markdownPreview: true } })
+  const { app, win } = await launch(dataHome)
+  try {
+    await openWorkspace(win)
+    await run(
+      win,
+      'cp ~/cities.csv ~/plan.md "$OSTIA_ARTIFACTS/" && ostia "$OSTIA_ARTIFACTS/cities.csv"',
+    )
+    const table = win.getByTestId('csv-table')
+    await expect(table.getByRole('columnheader', { name: 'city' })).toBeVisible({ timeout: 20_000 })
+    await expect(table.getByRole('cell', { name: 'Hsinchu, East' })).toBeVisible()
+    await win.getByRole('button', { name: 'Edit CSV source' }).click()
+    await expect(win.getByTestId('csv-table')).toHaveCount(0)
+    await expect(win.locator('.monaco-editor:visible .view-lines')).toContainText('Taipei,3')
+
+    await tab(win, 'zsh').getByRole('tab').click()
+    await run(win, 'ostia "$OSTIA_ARTIFACTS/plan.md"')
+    const diagram = win.getByTestId('mermaid-diagram')
+    await expect(diagram).toBeVisible({ timeout: 30_000 })
+    await expect
+      .poll(() => diagram.evaluate((img: HTMLImageElement) => img.naturalWidth), {
+        timeout: 15_000,
+      })
+      .toBeGreaterThan(20)
+    expect(await diagram.getAttribute('src')).toMatch(/^blob:/)
+    const preview = win.locator('.markdown-preview')
+    expect(await preview.locator('svg, script').count()).toBe(0)
+    expect(await win.title()).not.toBe('ran')
+  } finally {
+    await quitApp(app)
+  }
+})

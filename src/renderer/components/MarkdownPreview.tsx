@@ -5,6 +5,7 @@ import { findStep, matchChord } from '../lib/chords'
 import { sourceLinesOf, trackSelection } from '../lib/domSelection'
 import { isMac } from '../platform'
 import { DocumentFind } from './DocumentFind'
+import { MermaidDiagram } from './MermaidDiagram'
 
 interface HastNode {
   type: string
@@ -31,8 +32,25 @@ export function rehypeSourceLines() {
 const REMARK_PLUGINS = [remarkGfm]
 const REHYPE_PLUGINS = [rehypeSourceLines]
 
+function textOf(node: HastNode & { value?: string }): string {
+  if (typeof node.value === 'string') return node.value
+  return (node.children ?? []).map(textOf).join('')
+}
+
+export function mermaidSource(pre: HastNode | undefined): string | null {
+  const code = pre?.children?.[0] as (HastNode & { tagName?: string }) | undefined
+  if (!code || code.tagName !== 'code') return null
+  const classes = code.properties?.className
+  const names = Array.isArray(classes) ? classes : []
+  return names.includes('language-mermaid') ? textOf(code).replace(/\n$/, '') : null
+}
+
 const COMPONENTS: Components = {
   a: ({ node: _node, ...props }) => <a {...props} target="_blank" rel="noreferrer" />,
+  pre: ({ node, ...props }) => {
+    const diagram = mermaidSource(node as HastNode | undefined)
+    return diagram === null ? <pre {...props} /> : <MermaidDiagram code={diagram} />
+  },
   table: ({ node: _node, ...props }) => (
     <div className="typeset-scroll">
       <table {...props} />

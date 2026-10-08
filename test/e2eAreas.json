@@ -901,7 +901,11 @@
         "src/main/esbuildService.ts",
         "src/main/gateway/artifactFiles.ts",
         "src/shared/artifactRuntime.ts",
-        "scripts/build-artifact-runtime.mjs"
+        "scripts/build-artifact-runtime.mjs",
+        "src/renderer/components/CsvTable.tsx",
+        "src/renderer/components/MermaidDiagram.tsx",
+        "src/renderer/lib/csvTable.ts",
+        "src/renderer/lib/mermaidImage.ts"
       ],
       "specs": ["e2e/artifacts.spec.ts", "e2e/artifacts-preview.spec.ts"]
     }

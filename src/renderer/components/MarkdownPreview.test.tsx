@@ -5,6 +5,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { useSettingsStore } from '../stores/settingsStore'
 import { MarkdownPreview, isMarkdownPath } from './MarkdownPreview'
 
+const released = vi.hoisted(() => vi.fn())
+const drawn = vi.hoisted(() => vi.fn<(code: string, dark: boolean) => Promise<string>>())
+vi.mock('../lib/mermaidImage', () => ({
+  mermaidSvg: drawn,
+  svgImageUrl: () => 'blob:diagram-1',
+  releaseImageUrl: released,
+}))
+
 const initialSettings = useSettingsStore.getState()
 
 afterEach(() => {
@@ -90,6 +98,57 @@ describe('MarkdownPreview', () => {
   it('shows raw HTML as text instead of running it', () => {
     const { container } = render(<MarkdownPreview source={'<img src=x onerror="alert(1)">'} />)
     expect(container.querySelector('img')).toBeNull()
+  })
+})
+
+describe('MarkdownPreview with untrusted content', () => {
+  it('renders no script, no handler and no raw image from HTML in the text', () => {
+    const { container } = render(
+      <MarkdownPreview
+        source={
+          '<script>window.__ran = true</script>\n\n<img src="http://127.0.0.1:1/a.png" onerror="window.__ran = true">\n\n<iframe src="http://127.0.0.1:1/"></iframe>\n\ntext'
+        }
+      />,
+    )
+    expect(container.querySelector('script, iframe, img, [onerror]')).toBeNull()
+    expect((window as unknown as { __ran?: boolean }).__ran).toBeUndefined()
+    expect(container.textContent).toContain('<script>window.__ran = true</script>')
+  })
+
+  it('never turns a javascript: link into a link that runs', () => {
+    const { container } = render(<MarkdownPreview source="[x](javascript:alert(1))" />)
+    const hrefs = [...container.querySelectorAll('a')].map((a) => a.getAttribute('href') ?? '')
+    expect(hrefs.every((href) => !href.toLowerCase().startsWith('javascript:'))).toBe(true)
+  })
+})
+
+describe('MarkdownPreview diagrams', () => {
+  it('draws a mermaid block as an image, never as markup in the page', async () => {
+    drawn.mockResolvedValue(
+      '<svg xmlns="http://www.w3.org/2000/svg"><script>window.__ran = 1</script><g id="flow"/></svg>',
+    )
+    const { container } = render(
+      <MarkdownPreview
+        source={'# Plan\n\n```mermaid\ngraph TD\n  A-->B\n```\n\n```js\nconst a = 1\n```\n'}
+      />,
+    )
+    const image = await screen.findByTestId('mermaid-diagram')
+    expect(image.tagName).toBe('IMG')
+    expect(image.getAttribute('src')).toBe('blob:diagram-1')
+    expect(drawn).toHaveBeenCalledWith('graph TD\n  A-->B', expect.any(Boolean))
+    expect(container.querySelector('svg, script, #flow')).toBeNull()
+    expect(container.querySelectorAll('pre')).toHaveLength(1)
+    expect(container.querySelector('pre')?.textContent).toContain('const a = 1')
+    cleanup()
+    expect(released).toHaveBeenCalledWith('blob:diagram-1')
+  })
+
+  it('shows the source and the reason when a diagram cannot be drawn', async () => {
+    drawn.mockRejectedValue(new Error('Parse error on line 2'))
+    const { container } = render(<MarkdownPreview source={'```mermaid\ngraph TD\n  A--\n```\n'} />)
+    expect(await screen.findByTestId('mermaid-problem')).toHaveTextContent('Parse error on line 2')
+    expect(container.querySelector('pre')?.textContent).toContain('graph TD')
+    expect(screen.queryByTestId('mermaid-diagram')).toBeNull()
   })
 })
 

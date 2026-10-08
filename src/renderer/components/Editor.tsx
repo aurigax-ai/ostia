@@ -1,5 +1,5 @@
 import { cn } from '@/lib/utils'
-import { CodeIcon, EyeIcon, PaperPlaneTiltIcon, PlayIcon } from '@phosphor-icons/react'
+import { CodeIcon, EyeIcon, PaperPlaneTiltIcon, PlayIcon, TableIcon } from '@phosphor-icons/react'
 import {
   PAD_MAX_BYTES,
   PAD_SAVE_DELAY_MS,
@@ -17,6 +17,7 @@ import { externalEditorError, openPaneInExternalEditor } from '../commands/exter
 import { fmt, useDict } from '../i18n/useDict'
 import { useArtifactListing } from '../lib/artifacts'
 import { findStep, matchChord, runAppChord } from '../lib/chords'
+import { csvDelimiter, isCsvPath } from '../lib/csvTable'
 import { changedLines, minimalLineEdit } from '../lib/diskReload'
 import { registerEditorPosition } from '../lib/editorPositions'
 import { createAutoSave, saveFormatted } from '../lib/editorSave'
@@ -45,6 +46,7 @@ import { useEditorRevealStore } from '../stores/editorRevealStore'
 import { useEditorStatus } from '../stores/editorStatusStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useSettingsStore } from '../stores/settingsStore'
+import { CsvTable } from './CsvTable'
 import { HtmlPreview } from './HtmlPreview'
 import { IconButton } from './IconButton'
 import { LanguageNotice, LargeFileNotice } from './LanguageNotice'
@@ -251,6 +253,9 @@ export function EditorView({
   const inArtifacts = isInside(artifacts?.dir, filePath)
   const [runChoice, setRunChoice] = useState<{ file: string; on: boolean } | null>(null)
   const chosen = runChoice && runChoice.file === filePath ? runChoice.on : null
+  const tabular = isCsvPath(filePath) && !remote && !blocked
+  const tabled = tabular && (chosen ?? inArtifacts)
+  const tableText = useModelText(liveEditor, tabled)
   const running = runnable && (chosen ?? inArtifacts)
   const visible = usePaneVisible(paneId)
   const visibleRef = useRef(visible)
@@ -819,6 +824,18 @@ export function EditorView({
           onSendErrors={(count, text) =>
             selectionSend.open({ kind: 'preview-error', file: filePath, count, text })
           }
+        />
+      ) : null}
+      {tabled && filePath ? (
+        <CsvTable source={tableText} delimiter={csvDelimiter(filePath)} />
+      ) : null}
+      {tabular && filePath ? (
+        <IconButton
+          className="editor-mode"
+          icon={tabled ? CodeIcon : TableIcon}
+          label={tabled ? d.viewer.csvSource : d.viewer.csvTable}
+          hintSide="left"
+          onClick={() => setRunChoice({ file: filePath, on: !tabled })}
         />
       ) : null}
       {runnable && filePath ? (
