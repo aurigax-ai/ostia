@@ -145,7 +145,7 @@ import type { PhoneFileScope } from './gateway/workspaceFiles'
 import { GIT_EXTENSION, GitBoard } from './gitBoard'
 import { GlobalHotkey, toggleWindows } from './globalHotkey'
 import { type GuestChords, registerGuestChords } from './guestChords'
-import { clearGuestNetwork, watchGuestNetwork } from './guestNetwork'
+import { clearGuestNetwork, forgetGuestNetwork, watchGuestNetwork } from './guestNetwork'
 import { registerIconThemeIpc } from './iconThemes'
 import {
   type PaneIdentity,
@@ -1552,6 +1552,7 @@ function wireWindow(win: BrowserWindow): void {
     guest.once('destroyed', () => {
       consoleBuffers.delete(wcId)
       errorBuffers.delete(wcId)
+      forgetGuestNetwork(wcId)
     })
   })
 
@@ -1571,7 +1572,7 @@ function wireWindow(win: BrowserWindow): void {
         consoleBuffers.delete(wcId)
         errorBuffers.delete(wcId)
         clearGuestBrowseState(wcId)
-        clearGuestNetwork(wcId)
+        forgetGuestNetwork(wcId)
       }
     }
     removeWindow(wid)
