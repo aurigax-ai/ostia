@@ -1,9 +1,16 @@
 import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { connect as connectSocket } from 'node:net'
 import { join } from 'node:path'
 import type { KeptExposure } from '../sandbox/portRequests'
 import { HOST_PROTOCOL_VERSION } from '../sandbox/protocol'
+import {
+  type SavedAttention,
+  attentionFileFor,
+  readSavedAttention,
+  writeSavedAttention,
+} from './attentionFile'
 import type { NewWindowSpec } from './tmuxCommand'
 import {
   type KeptWindow,
@@ -249,17 +256,33 @@ export class KeptShells {
     return join(this.tokensDir(), tokenName(paneId))
   }
 
+  attentionFile(paneId: string): string {
+    return attentionFileFor(this.tokenFile(paneId))
+  }
+
   writeToken(paneId: string, token: string): string {
     const dir = this.tokensDir()
     ensureTmuxSocketDir(this.deps.dir, process.getuid?.() ?? 0)
     mkdirSync(dir, { recursive: true, mode: 0o700 })
     const file = this.tokenFile(paneId)
     writeFileSync(file, token, { mode: 0o600 })
+    if (!existsSync(this.attentionFile(paneId))) this.saveAttention(paneId, null)
     return file
   }
 
   removeToken(paneId: string): void {
     rmSync(this.tokenFile(paneId), { force: true })
+    rmSync(this.attentionFile(paneId), { force: true })
+  }
+
+  saveAttention(paneId: string, attention: SavedAttention | null): void {
+    try {
+      writeSavedAttention(this.attentionFile(paneId), attention)
+    } catch {}
+  }
+
+  savedAttention(paneId: string): SavedAttention | null {
+    return readSavedAttention(this.attentionFile(paneId))
   }
 
   async quit(): Promise<void> {
@@ -295,7 +318,7 @@ export class KeptShells {
   }
 
   private async reconcile(keep: boolean, saved: ReadonlySet<string> | null): Promise<void> {
-    if (!this.socketExists()) {
+    if (!(await this.socketAnswers())) {
       this.sweepTokens()
       return
     }
@@ -352,7 +375,14 @@ export class KeptShells {
       this.deps.log('sandbox-host-reap', { workspace: workspaceId, reason: 'unclaimed' })
       await server.killWindow(host.window.windowId)
     }
-    this.sweepTokens(new Set([...this.waiting.keys()].map(tokenName)))
+    this.sweepTokens(
+      new Set(
+        [...this.waiting.keys()].flatMap((paneId) => {
+          const name = tokenName(paneId)
+          return [name, attentionFileFor(name)]
+        }),
+      ),
+    )
   }
 
   private tokensDir(): string {
@@ -373,6 +403,20 @@ export class KeptShells {
 
   private socketPath(): string {
     return join(this.deps.dir, this.deps.name)
+  }
+
+  private async socketAnswers(): Promise<boolean> {
+    if (!this.socketExists()) return false
+    const answers = await new Promise<boolean>((resolve) => {
+      const socket = connectSocket(this.socketPath())
+      socket.once('connect', () => {
+        socket.destroy()
+        resolve(true)
+      })
+      socket.once('error', () => resolve(false))
+    })
+    if (!answers) rmSync(this.socketPath(), { force: true })
+    return answers
   }
 
   private socketExists(): boolean {

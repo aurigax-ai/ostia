@@ -39,6 +39,7 @@ import { buildCommandCall, parseCommandFlags, resolveWorkspaceRef } from './cros
 import { describeFailure } from './failure'
 import { type FileProbe, fileWord, isClaimedWord, parseFileArg, refusalLine } from './fileArgs'
 import { runManagerVerb } from './manager'
+import { STATE_VERBS, messageFromStdin, saveAttentionOffline } from './offlineAttention'
 import { parseWorkspaceRenameArgs, runPaneVerb } from './pane'
 import { paneToken } from './paneToken'
 import { runPermissionHook } from './permissionHook'
@@ -971,22 +972,6 @@ async function printSettingsCommand(
   }
 }
 
-const STATE_VERBS = ['waiting', 'done', 'working', 'error', 'clear']
-
-function messageFromStdin(raw: string): string {
-  const text = raw.trim()
-  if (!text.startsWith('{')) return text
-  try {
-    const parsed = JSON.parse(text) as { message?: unknown; tool_name?: unknown }
-    if (typeof parsed.message === 'string') return parsed.message
-    return typeof parsed.tool_name === 'string'
-      ? `Needs your permission to use ${parsed.tool_name}`
-      : ''
-  } catch {
-    return text
-  }
-}
-
 async function runStateVerb(conn: MessageConnection): Promise<void> {
   const { positional, values } = parseArgs(process.argv.slice(3), {
     values: { pane: '--pane' },
@@ -1355,6 +1340,7 @@ async function main(): Promise<void> {
   try {
     socket = await connectSocket(socketPath)
   } catch {
+    if (await saveAttentionOffline(process.argv.slice(2), readAllStdin)) return
     console.error(`ostia: app not reachable at ${socketPath}`)
     process.exit(1)
   }

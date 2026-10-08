@@ -26,19 +26,6 @@ export interface SandboxPaths {
   keptSocketPath?: string
 }
 
-export interface KeptShellPaths {
-  tmuxDir: string
-  socketPath: string
-}
-
-export function withKeptShells(paths: SandboxBasePaths, kept: KeptShellPaths): SandboxBasePaths {
-  return {
-    ...paths,
-    dataDirs: [...paths.dataDirs, kept.tmuxDir],
-    keptSocketPath: kept.socketPath,
-  }
-}
-
 export type SandboxBasePaths = Omit<SandboxPaths, 'workDir' | 'tmpDir'>
 
 export const SSH_AGENT_SOCKET_NAME = 'a.sock'
