@@ -26,6 +26,7 @@ import {
 import type { IPty } from 'node-pty'
 import appIcon from '../../resources/icon.png?asset'
 import type { AgentResume } from '../shared/agentResume'
+import type { HibernateOutcome } from '../shared/agentWork'
 import { appEnv } from '../shared/appEnv'
 import { SHARED_BROWSER_PARTITION, browserPartition } from '../shared/browserProfile'
 import { MANAGER_CAPABILITIES } from '../shared/capabilities'
@@ -78,6 +79,12 @@ import { AGENT_OFFER_RESULT_CHANNEL, createAgentOfferRelay } from './agentOfferR
 import { AgentRunningPanes } from './agentRunning'
 import { agentPluginContent } from './agentSkills'
 import { registerAgentTranscriptIpc } from './agentTranscript'
+import {
+  ReportedAgentWork,
+  backgroundWork,
+  readProcessTable,
+  registerAgentWorkMethods,
+} from './agentWork'
 import { type AppLog, LOG_FILE_NAME, createAppLog } from './appLog'
 import { installAppMenu } from './appMenu'
 import { registerAppUpdate } from './appUpdate'
@@ -783,6 +790,7 @@ function killPty(paneId: string, reason: ReapReason): void {
   removeStateFile(entry)
   keptShells.removeToken(paneId)
   ptys.delete(paneId)
+  agentWork.clear(paneId)
 }
 
 function hibernatePty(paneId: string): boolean {
@@ -1388,6 +1396,7 @@ let mcpHost: McpHost | null = null
 let mcpOAuth: McpOAuth | null = null
 let broker: WindowBroker | null = null
 const agentRunning = new AgentRunningPanes(() => broker?.persist())
+const agentWork = new ReportedAgentWork()
 
 const askHub = createAskHub({
   questions,
@@ -2494,7 +2503,14 @@ function registerPtyIpc(): void {
     entry.session.removeSubscriber(subId)
   })
 
-  ipcMain.handle('pty:hibernate', (_e, paneId: string): boolean => hibernatePty(String(paneId)))
+  ipcMain.handle('pty:hibernate', async (_e, raw: string): Promise<HibernateOutcome> => {
+    const paneId = String(raw)
+    const entry = ptys.get(paneId)
+    if (!entry) return 'no-terminal'
+    const busy = backgroundWork(agentWork.reason(paneId), await readProcessTable(), entry.pty.pid)
+    if (busy) return busy
+    return ptys.get(paneId) === entry && hibernatePty(paneId) ? 'hibernated' : 'no-terminal'
+  })
 
   ipcMain.handle('pty:stashed', (e, paneId: string): string | null =>
     stashedScreen(String(paneId), String(e.sender.id), windowOfPane(String(paneId))),
@@ -2642,6 +2658,7 @@ function trackPty(
         ptys.delete(paneId)
         movingPanes.delete(paneId)
         agentRunning.shellEnded(paneId)
+        agentWork.clear(paneId)
         keptAttention.reported(paneId)
         recoveryHeld.delete(paneId)
         closedPanes.delete(paneId)
@@ -3524,6 +3541,7 @@ app.whenReady().then(() => {
     )
   registerNotifyIpc(notifyDeps)
   registerAttentionMethods({ execCommand, reported: (paneId) => keptAttention.reported(paneId) })
+  registerAgentWorkMethods(agentWork)
   registerPaneRenameMethods({ execCommand, reach })
   registerPaneResumeMethods({
     execCommand,

@@ -1989,6 +1989,17 @@ export const en = {
     action: 'Merge',
     cancel: 'Cancel',
   },
+  hibernateSkipped: {
+    title: 'Agents left running: {n}',
+    body: 'They still have work that hibernating would end, so they were not hibernated.',
+    reasons: 'Why they were left running',
+    subagent: 'Running a subagent: {n}',
+    'background-task': 'Running a background task: {n}',
+    'scheduled-task': 'Waiting for a scheduled task: {n}',
+    'child-process': 'Running a command or a background process: {n}',
+    unknown: 'Could not tell whether it is still working: {n}',
+    ok: 'OK',
+  },
   tabMove: {
     menu: 'Move to workspace',
     into: 'Move tab to {name}',
@@ -3078,7 +3089,7 @@ export const en = {
       'Run codex sessions with {product}’s hooks: resume tokens, attention state and the CLI context. Turn it off if it clashes with your own hooks. Applies to new terminals.',
     hibernate: 'Hibernate idle agents',
     hibernateDesc:
-      'Stop the shell of an agent that is idle and out of sight once too many agents run. Only agents that stored a resume token; Resume brings them back.',
+      'Stop the shell of an agent that is idle and out of sight once too many agents run. Only agents that stored a resume token; Resume brings them back. An agent with a subagent, a background task or a command still running is left alone.',
     hibernateIdle: 'Idle seconds',
     hibernateIdleDesc: 'Time without output or input before a hidden agent may hibernate.',
     hibernateMaxLive: 'Agents kept running',
@@ -5281,6 +5292,17 @@ export const zhHant: Dict = {
     action: '合併',
     cancel: '取消',
   },
+  hibernateSkipped: {
+    title: '保持執行的代理程式：{n}',
+    body: '它們還有工作在進行，休眠會結束這些工作，因此沒有休眠。',
+    reasons: '保持執行的原因',
+    subagent: '正在執行子代理程式：{n}',
+    'background-task': '正在執行背景工作：{n}',
+    'scheduled-task': '正在等待排程工作：{n}',
+    'child-process': '正在執行指令或背景程序：{n}',
+    unknown: '無法判斷是否仍在工作：{n}',
+    ok: '確定',
+  },
   tabMove: {
     menu: '移到工作區',
     into: '將分頁移到 {name}',
@@ -6342,7 +6364,7 @@ export const zhHant: Dict = {
       '以 {product} 掛鉤執行 codex 工作階段：恢復權杖、注意力狀態與 CLI 情境。若與你自己的掛鉤衝突可關閉。套用於新終端機。',
     hibernate: '讓閒置的代理程式休眠',
     hibernateDesc:
-      '執行中的代理程式過多時，停止閒置且不在畫面上的代理程式的 shell。僅限已儲存繼續權杖的代理程式；按「繼續」即可恢復。',
+      '執行中的代理程式過多時，停止閒置且不在畫面上的代理程式的 shell。僅限已儲存繼續權杖的代理程式；按「繼續」即可恢復。仍有子代理程式、背景工作或指令在執行的代理程式不會休眠。',
     hibernateIdle: '閒置秒數',
     hibernateIdleDesc: '隱藏的代理程式在沒有輸出或輸入多久後可以休眠。',
     hibernateMaxLive: '保持執行的代理程式數',

@@ -4,6 +4,7 @@ import { commands } from '../commands/registry'
 import { findPane } from '../layout/tree'
 import type { LayoutNode, PaneNode } from '../layout/types'
 import { useBlocksStore } from '../stores/blocksStore'
+import { useHibernateSkippedStore } from '../stores/hibernateSkippedStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
@@ -11,7 +12,6 @@ import * as blockActions from './blockActions'
 import {
   WAKE_WAVE_SIZE,
   hibernateIdleAgents,
-  hibernateWorkspace,
   hibernateWorkspaces,
   resumeWorkspaces,
 } from './hibernationScheduler'
@@ -50,6 +50,7 @@ afterEach(() => {
   useBlocksStore.setState(blocksInit, true)
   useSettingsStore.setState(settingsInit, true)
   useWorkspacesStore.setState(workspacesInit, true)
+  useHibernateSkippedStore.setState({ skipped: null })
   for (const id of IDS) forgetPaneActivity(id)
   vi.mocked(window.ostia.pty.hibernate).mockClear()
   vi.restoreAllMocks()
@@ -157,18 +158,50 @@ describe('hibernateIdleAgents', () => {
 
   it('leaves the pane live when main had no pty to stop', async () => {
     seed(1)
-    vi.mocked(window.ostia.pty.hibernate).mockResolvedValueOnce(false)
+    vi.mocked(window.ostia.pty.hibernate).mockResolvedValueOnce('no-terminal')
     expect(await hibernateIdleAgents(NOW)).toEqual([])
     expect(hibernated('idle-claude')).toBe(false)
   })
+
+  it('leaves an idle agent with background work running and takes the next idle one', async () => {
+    seed(1)
+    markPaneActivity('fresh-claude', NOW - 1_800_000)
+    vi.mocked(window.ostia.pty.hibernate).mockImplementation(async (paneId) =>
+      paneId === 'idle-claude' ? 'subagent' : 'hibernated',
+    )
+    expect(await hibernateIdleAgents(NOW)).toEqual(['fresh-claude'])
+    expect(hibernated('idle-claude')).toBe(false)
+    expect(hibernated('fresh-claude')).toBe(true)
+  })
 })
 
-describe('hibernateWorkspace', () => {
+describe('hibernateWorkspaces', () => {
   it('stops every agent with a resume token in the workspace, shown or not, and nothing else', async () => {
     seed(10)
-    expect(await hibernateWorkspace('s2')).toEqual(['idle-claude', 'fresh-claude'])
-    expect(await hibernateWorkspace('s1')).toEqual(['shown'])
+    expect(await hibernateWorkspaces(['s2'])).toEqual({
+      hibernated: ['idle-claude', 'fresh-claude'],
+      skipped: {},
+    })
+    expect((await hibernateWorkspaces(['s1'])).hibernated).toEqual(['shown'])
     for (const id of ['no-token', 'npm', 'at-prompt']) expect(hibernated(id)).toBe(false)
+  })
+
+  it('skips the agents that still have background work and counts them by reason', async () => {
+    seed(10)
+    run('at-prompt', 'claude')
+    const busy: Record<string, 'subagent' | 'child-process'> = {
+      'idle-claude': 'subagent',
+      'at-prompt': 'child-process',
+    }
+    vi.mocked(window.ostia.pty.hibernate).mockImplementation(
+      async (paneId) => busy[paneId] ?? 'hibernated',
+    )
+    expect(await hibernateWorkspaces(['s2'])).toEqual({
+      hibernated: ['fresh-claude'],
+      skipped: { subagent: 1, 'child-process': 1 },
+    })
+    expect(hibernated('idle-claude')).toBe(false)
+    expect(hibernated('fresh-claude')).toBe(true)
   })
 
   it('works with automatic hibernation turned off', async () => {
@@ -176,13 +209,13 @@ describe('hibernateWorkspace', () => {
     useSettingsStore.setState((s) => ({
       agents: { ...s.agents, hibernation: { ...s.agents.hibernation, enabled: false } },
     }))
-    expect(await hibernateWorkspace('s1')).toEqual(['shown'])
+    expect((await hibernateWorkspaces(['s1'])).hibernated).toEqual(['shown'])
   })
 
   it('wakes only the panes it put to sleep in that workspace', async () => {
     seed(10)
-    await hibernateWorkspace('s2')
-    await hibernateWorkspace('s1')
+    await hibernateWorkspaces(['s2'])
+    await hibernateWorkspaces(['s1'])
     holdResumes()
     expect(resumeWorkspaces(['s2'])).toEqual(['idle-claude', 'fresh-claude'])
     expect(hibernated('idle-claude')).toBe(false)
@@ -241,15 +274,47 @@ const at = (workspaceId: string) => ({ activeWorkspaceId: workspaceId, activePan
 describe('hibernating and resuming agents in bulk', () => {
   it('hibernates the agents of every workspace of a group, and none outside it', async () => {
     seedGroups()
-    expect(await hibernateWorkspaces(['g1', 'g2'])).toEqual(GROUP_AGENTS)
+    expect(await hibernateWorkspaces(['g1', 'g2'])).toEqual({
+      hibernated: GROUP_AGENTS,
+      skipped: {},
+    })
     for (const id of ['g-shell', 'g-npm', 'solo-agent', 'solo-prompt', 'ops-agent'])
       expect(hibernated(id)).toBe(false)
     expect(vi.mocked(window.ostia.pty.hibernate).mock.calls.map(([id]) => id)).toEqual(GROUP_AGENTS)
   })
 
+  it('leaves the agents of a group that still have background work running, and counts them by reason', async () => {
+    seedGroups()
+    const busy: Record<string, 'subagent' | 'child-process'> = {
+      a2: 'subagent',
+      a3: 'child-process',
+      a5: 'child-process',
+    }
+    vi.mocked(window.ostia.pty.hibernate).mockImplementation(
+      async (paneId) => busy[paneId] ?? 'hibernated',
+    )
+    expect(await hibernateWorkspaces(['g1', 'g2'])).toEqual({
+      hibernated: ['a1', 'a4'],
+      skipped: { subagent: 1, 'child-process': 2 },
+    })
+    for (const id of Object.keys(busy)) expect(hibernated(id)).toBe(false)
+  })
+
+  it('from the palette says which agents of the group it left running', async () => {
+    seedGroups()
+    vi.mocked(window.ostia.pty.hibernate).mockImplementation(async (paneId) =>
+      paneId === 'a4' ? 'background-task' : 'hibernated',
+    )
+    expect(await commands.execWith(at('g1'), 'workspace.hibernateGroupAgents')).toEqual({
+      ok: true,
+      result: { hibernated: ['a1', 'a2', 'a3', 'a5'] },
+    })
+    expect(useHibernateSkippedStore.getState().skipped).toEqual({ 'background-task': 1 })
+  })
+
   it('in an ungrouped workspace takes the running agent and leaves the pane at a prompt', async () => {
     seedGroups()
-    expect(await hibernateWorkspaces(['solo'])).toEqual(['solo-agent'])
+    expect((await hibernateWorkspaces(['solo'])).hibernated).toEqual(['solo-agent'])
     expect(hibernated('solo-prompt')).toBe(false)
     expect(hibernated('a1')).toBe(false)
   })
@@ -378,7 +443,7 @@ describe('the pane.wake command an agent reaches through main', () => {
 
   it('wakes a hibernated pane and types only its stored resume command at the first idle prompt', async () => {
     seed(10)
-    await hibernateWorkspace('s2')
+    await hibernateWorkspaces(['s2'])
     const typed = vi.spyOn(blockActions, 'runWhenIdle').mockImplementation(() => () => {})
     expect(await commands.execWith(target('idle-claude'), 'pane.hibernated')).toEqual({
       ok: true,
@@ -403,7 +468,7 @@ describe('the pane.wake command an agent reaches through main', () => {
 
   it('reports the pane as waking to main, and as no longer waking when its resume cannot run', async () => {
     seed(10)
-    await hibernateWorkspace('s2')
+    await hibernateWorkspaces(['s2'])
     const typed = vi.spyOn(blockActions, 'runWhenIdle').mockImplementation(() => () => {})
     const report = vi.mocked(window.ostia.pty.reportWaking)
     report.mockClear()
@@ -421,7 +486,7 @@ describe('the pane.wake command an agent reaches through main', () => {
     useLayoutStore
       .getState()
       .setResume('s2', 'idle-claude', { agent: 'claude', id: 'tok-idle-claude', cwd: '/b/tree' })
-    await hibernateWorkspace('s2')
+    await hibernateWorkspaces(['s2'])
     const typed = vi.spyOn(blockActions, 'runWhenIdle').mockImplementation(() => () => {})
     await commands.execWith(target('idle-claude'), 'pane.wake')
     const pane = () =>

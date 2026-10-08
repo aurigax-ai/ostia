@@ -4,6 +4,7 @@ import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
+import { ReportedAgentWork, registerAgentWorkMethods } from '../main/agentWork'
 import { registerAttentionMethods } from '../main/attention'
 import { grant } from '../main/capabilityStore'
 import {
@@ -32,6 +33,7 @@ function nextSocketPath(): string {
 }
 
 const execCalls: { target: CommandTarget; id: string; args?: unknown }[] = []
+const agentWork = new ReportedAgentWork()
 
 const fakeDeps: ControlServerDeps = {
   execCommand: async (target, id, args) => {
@@ -148,6 +150,7 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
   beforeAll(() => {
     execSync('pnpm run build:cli', { cwd: repoRoot, stdio: 'ignore' })
     registerAttentionMethods({ execCommand: fakeDeps.execCommand })
+    registerAgentWorkMethods(agentWork)
   }, 60_000)
 
   let socketPath: string
@@ -391,6 +394,31 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
       expect(execCalls.map((c) => c.args)).toEqual([
         { state: 'waiting', message: 'Claude needs your permission to use Bash' },
       ])
+    })
+
+    it('holds the pane busy from a Claude subagent start until a Stop hook lists nothing in flight', async () => {
+      const hook = async (event: string, payload: object): Promise<number | null> => {
+        const child = spawn(process.execPath, [cliPath, 'claude-hook', event], { env: env() })
+        child.stdin.on('error', () => {})
+        child.stdin.end(JSON.stringify(payload))
+        return new Promise((resolve) => child.on('close', resolve))
+      }
+      expect(agentWork.reason('pE2E')).toBeNull()
+      expect(await hook('SubagentStart', { agent_id: 'agent-1', agent_type: 'Explore' })).toBe(0)
+      expect(agentWork.reason('pE2E')).toBe('subagent')
+      expect(execCalls).toEqual([])
+
+      expect(
+        await hook('Stop', {
+          background_tasks: [{ id: 't1', type: 'shell', status: 'running', command: 'sleep 600' }],
+          session_crons: [],
+        }),
+      ).toBe(0)
+      expect(agentWork.reason('pE2E')).toBe('background-task')
+      expect(execCalls.map((c) => c.args)).toEqual([{ state: 'done', message: undefined }])
+
+      expect(await hook('Stop', { background_tasks: [], session_crons: [] })).toBe(0)
+      expect(agentWork.reason('pE2E')).toBeNull()
     })
 
     it('names the tool from a Codex PermissionRequest hook payload on stdin with -', async () => {

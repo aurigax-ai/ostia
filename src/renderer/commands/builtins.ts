@@ -79,6 +79,7 @@ import { settingsSchemaAt } from '../settings/settingsSchema'
 import { useAgentTurnStore } from '../stores/agentTurnStore'
 import { useAttentionStore } from '../stores/attentionStore'
 import { useBlocksStore } from '../stores/blocksStore'
+import { useHibernateSkippedStore } from '../stores/hibernateSkippedStore'
 import { useHistorySearchStore } from '../stores/historySearchStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { saveSnapshotNow } from '../stores/persistence'
@@ -199,6 +200,12 @@ const PANE_FOCUS_COMMANDS: readonly (readonly [CoreCommandId, FocusDirection])[]
   ['pane.focusUp', 'up'],
   ['pane.focusDown', 'down'],
 ]
+
+async function hibernateAgents(workspaceIds: readonly string[]): Promise<string[]> {
+  const report = await hibernateWorkspaces(workspaceIds)
+  useHibernateSkippedStore.getState().show(report)
+  return report.hibernated
+}
 
 function groupWorkspaceIds(workspaceId: string | null): string[] {
   if (!workspaceId) return []
@@ -828,7 +835,7 @@ export function registerBuiltinCommands(): void {
     category: 'workspace',
     local: true,
     run: async (_args, ctx) => ({
-      hibernated: await hibernateWorkspaces(ctx.activeWorkspaceId ? [ctx.activeWorkspaceId] : []),
+      hibernated: await hibernateAgents(ctx.activeWorkspaceId ? [ctx.activeWorkspaceId] : []),
     }),
   })
 
@@ -846,7 +853,7 @@ export function registerBuiltinCommands(): void {
     category: 'workspace',
     local: true,
     run: async (_args, ctx) => ({
-      hibernated: await hibernateWorkspaces(groupWorkspaceIds(ctx.activeWorkspaceId)),
+      hibernated: await hibernateAgents(groupWorkspaceIds(ctx.activeWorkspaceId)),
     }),
   })
 

@@ -1,5 +1,6 @@
 import type { AgentResume, ResumableAgent } from './agentResume'
 import type { AgentSessionInfo } from './agentSessionInfo'
+import type { HibernateOutcome } from './agentWork'
 import type { AppMenuSpec } from './appMenu'
 import type { ApprovalAnswer, ApprovalState } from './approvals'
 import type { AssistApi } from './assist'
@@ -264,7 +265,7 @@ export interface SandboxApi {
 export interface PtyApi {
   attach: (paneId: string, opts: PtySpawnOptions) => Promise<PtyAttachResult>
   detach: (paneId: string) => void
-  hibernate: (paneId: string) => Promise<boolean>
+  hibernate: (paneId: string) => Promise<HibernateOutcome>
   stashed: (paneId: string) => Promise<string | null>
   restart: (paneId: string) => Promise<boolean>
   reportAgentRunning: (paneId: string, running: boolean) => void

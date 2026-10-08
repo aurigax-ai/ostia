@@ -14,6 +14,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { allPanes, createPane, tabsOf } from '../layout/tree'
 import { useAttentionStore } from '../stores/attentionStore'
 import { useBlocksStore } from '../stores/blocksStore'
+import { useHibernateSkippedStore } from '../stores/hibernateSkippedStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useMergeConfirmStore } from '../stores/mergeConfirmStore'
 import { useSandboxStore } from '../stores/sandboxStore'
@@ -21,6 +22,7 @@ import { useSettingsStore } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
 import { type Workspace, useWorkspacesStore } from '../stores/workspacesStore'
 import { DeckRail } from './DeckRail'
+import { HibernateSkippedDialog } from './HibernateSkippedDialog'
 
 function seedWorkspaces(): void {
   const workspaces: Workspace[] = [
@@ -66,6 +68,7 @@ describe('DeckRail', () => {
     useMergeConfirmStore.setState(mergeConfirmInit, true)
     useBlocksStore.setState(blocksInit, true)
     useSandboxStore.setState({ enabled: {} })
+    useHibernateSkippedStore.setState({ skipped: null })
     vi.restoreAllMocks()
   })
 
@@ -293,6 +296,37 @@ describe('DeckRail', () => {
 
     fireEvent.contextMenu(screen.getByRole('button', { name: /alpha/ }))
     await user.click(await screen.findByRole('menuitem', { name: 'Resume agents' }))
+    expect(within(rowFor(/alpha/)).queryByRole('img', { name: 'Hibernated' })).toBeNull()
+  })
+
+  it('says how many agents it left running, and why, when they still have background work', async () => {
+    seedWorkspaces()
+    const agent = {
+      ...createPane('terminal'),
+      resume: { agent: 'claude' as const, id: 'tok-1' },
+    }
+    useLayoutStore.setState({
+      byWorkspace: { s1: { root: agent, activePaneId: agent.id, zoomedPaneId: null } },
+    })
+    const blocks = useBlocksStore.getState()
+    blocks.promptStart(agent.id, { line: 0 }, null)
+    blocks.commandStart(agent.id, { line: 1 }, 'claude')
+    vi.mocked(window.ostia.pty.hibernate).mockResolvedValueOnce('subagent')
+    render(
+      <>
+        <DeckRail />
+        <HibernateSkippedDialog />
+      </>,
+    )
+    const user = userEvent.setup()
+
+    fireEvent.contextMenu(screen.getByRole('button', { name: /alpha/ }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Hibernate agents' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Agents left running: 1' })
+    expect(within(dialog).getByText('Running a subagent: 1')).toBeInTheDocument()
+
+    await user.click(within(dialog).getByRole('button', { name: 'OK' }))
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
     expect(within(rowFor(/alpha/)).queryByRole('img', { name: 'Hibernated' })).toBeNull()
   })
 

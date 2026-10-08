@@ -61,10 +61,13 @@ const CLI_HELP = `ostia — control-socket CLI
                                  remember this pane's agent session so a restored pane
                                  offers Resume (Ctrl+Shift+R); '-' reads a hook's JSON
                                  (session_id) from stdin
-  ostia claude-hook <Notification|PreToolUse|Stop|StopFailure>
+  ostia claude-hook <Notification|PreToolUse|Stop|StopFailure|SubagentStart|SubagentStop>
                                  set this pane's attention from a Claude Code hook's JSON on
                                  stdin: a permission prompt, a question or a plan to review
-                                 is waiting; the idle reminder and a finished subagent are not
+                                 is waiting; the idle reminder and a finished subagent are not.
+                                 Stop, SubagentStart and SubagentStop also tell Ostia about
+                                 running subagents, background tasks and scheduled wake-ups,
+                                 so the pane is not hibernated while they run
   ostia workflow list [--json]   saved command workflows this pane can use: this workspace's
                                  .ostia/workflows, the user's workflows
                                  folder and extensions;

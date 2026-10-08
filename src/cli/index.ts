@@ -10,6 +10,7 @@ import {
 } from 'vscode-jsonrpc/node'
 import { controlInfoPath, readControlSocket } from '../main/controlDiscovery'
 import { RESUMABLE_AGENTS, isResumableAgent, resumeFromHookPayload } from '../shared/agentResume'
+import { CLAUDE_WORK_EVENTS, claudeWorkReport, isClaudeWorkEvent } from '../shared/agentWork'
 import { readEnv } from '../shared/appEnv'
 import {
   CLAUDE_ATTENTION_EVENTS,
@@ -1188,12 +1189,17 @@ async function runWorkflowVerb(conn: MessageConnection): Promise<void> {
 
 async function runClaudeHookVerb(conn: MessageConnection): Promise<void> {
   const event = process.argv[3]
-  if (!isClaudeAttentionEvent(event)) {
-    console.error(`ostia claude-hook: usage: claude-hook <${CLAUDE_ATTENTION_EVENTS.join('|')}>`)
+  if (!isClaudeAttentionEvent(event) && !isClaudeWorkEvent(event)) {
+    const events = [...new Set([...CLAUDE_ATTENTION_EVENTS, ...CLAUDE_WORK_EVENTS])]
+    console.error(`ostia claude-hook: usage: claude-hook <${events.join('|')}>`)
     process.exitCode = 1
     return
   }
-  const attention = claudeAttention(event, await readAllStdin())
+  const input = await readAllStdin()
+  if (isClaudeWorkEvent(event)) {
+    await conn.sendRequest('pane.reportWork', claudeWorkReport(event, input))
+  }
+  const attention = isClaudeAttentionEvent(event) ? claudeAttention(event, input) : null
   if (!attention) return
   const res = await conn.sendRequest<{ ok: boolean; error?: string }>('pane.setAttention', {
     state: attention.state,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { type HibernationCandidate, commandAgent, pickHibernation } from './hibernation'
+import { type HibernationCandidate, commandAgent, planHibernation } from './hibernation'
 
 describe('commandAgent', () => {
   it('names the agent a command line starts, by program basename', () => {
@@ -29,15 +29,18 @@ const candidate = (
   ...over,
 })
 
-describe('pickHibernation', () => {
+describe('planHibernation', () => {
   const policy = { idleSeconds: 600, maxLiveTerminals: 2 }
 
-  it('hibernates nothing while the live agents fit under the limit', () => {
-    expect(pickHibernation([candidate('a'), candidate('b')], policy)).toEqual([])
+  it('plans nothing while the live agents fit under the limit', () => {
+    expect(planHibernation([candidate('a'), candidate('b')], policy)).toEqual({
+      excess: 0,
+      longestIdleFirst: [],
+    })
   })
 
-  it('hibernates the longest-idle hidden agents until the limit is met', () => {
-    const picked = pickHibernation(
+  it('orders the idle hidden agents longest idle first, with how many are over the limit', () => {
+    const plan = planHibernation(
       [
         candidate('a', { idleMs: 700_000 }),
         candidate('b', { idleMs: 5_000_000 }),
@@ -46,11 +49,12 @@ describe('pickHibernation', () => {
       ],
       policy,
     )
-    expect(picked.map((c) => c.paneId)).toEqual(['b', 'c'])
+    expect(plan.excess).toBe(2)
+    expect(plan.longestIdleFirst.map((c) => c.paneId)).toEqual(['b', 'c', 'd', 'a'])
   })
 
-  it('never picks a visible pane or one idle for less than the threshold', () => {
-    const picked = pickHibernation(
+  it('never offers a visible pane or one idle for less than the threshold', () => {
+    const plan = planHibernation(
       [
         candidate('shown', { visible: true }),
         candidate('busy', { idleMs: 599_000 }),
@@ -59,11 +63,12 @@ describe('pickHibernation', () => {
       ],
       policy,
     )
-    expect(picked.map((c) => c.paneId)).toEqual(['idle', 'also-idle'])
+    expect(plan.excess).toBe(2)
+    expect(plan.longestIdleFirst.map((c) => c.paneId)).toEqual(['idle', 'also-idle'])
   })
 
   it('counts only panes where the agent itself is running', () => {
-    const picked = pickHibernation(
+    const plan = planHibernation(
       [
         candidate('shell', { agentRunning: false }),
         candidate('other-cmd', { agentRunning: false }),
@@ -72,14 +77,15 @@ describe('pickHibernation', () => {
       ],
       policy,
     )
-    expect(picked).toEqual([])
+    expect(plan).toEqual({ excess: 0, longestIdleFirst: [] })
   })
 
-  it('hibernates every idle hidden agent when the limit is zero', () => {
-    const picked = pickHibernation([candidate('a'), candidate('b', { visible: true })], {
+  it('offers every idle hidden agent when the limit is zero', () => {
+    const plan = planHibernation([candidate('a'), candidate('b', { visible: true })], {
       idleSeconds: 600,
       maxLiveTerminals: 0,
     })
-    expect(picked.map((c) => c.paneId)).toEqual(['a'])
+    expect(plan.excess).toBe(2)
+    expect(plan.longestIdleFirst.map((c) => c.paneId)).toEqual(['a'])
   })
 })
