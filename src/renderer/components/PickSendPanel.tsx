@@ -5,13 +5,16 @@ import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react'
 import type { Dict } from '../i18n/dict'
 import { fmt, useDict } from '../i18n/useDict'
 import { sessionTitle } from '../lib/agentSession'
+import { groupMates, groupPeerIds } from '../lib/groupPeers'
 import { runningAgent } from '../lib/paneAgent'
 import { type PickTarget, pickTargets } from '../lib/pickTargets'
+import { useAgentGroupsStore } from '../stores/agentGroupsStore'
 import { useAttentionStore } from '../stores/attentionStore'
 import { useBlocksStore } from '../stores/blocksStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useOriginAgentsStore } from '../stores/originAgentsStore'
 import { usePaneRecencyStore } from '../stores/paneRecencyStore'
+import { useSandboxStore } from '../stores/sandboxStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
 import { IconButton } from './IconButton'
 import { Button } from './ui/button'
@@ -41,7 +44,7 @@ export function agentLabel(d: Dict, title: string, agent: ResumableAgent | 'othe
   return session ? `${name} · ${session}` : name
 }
 
-export function useLocalAgentTargets(workspaceId: string): PickTarget[] {
+function useWindowAgentTargets(workspaceId: string): PickTarget[] {
   const d = useDict()
   const workspaces = useWorkspacesStore((s) => s.workspaces)
   const layouts = useLayoutStore((s) => s.byWorkspace)
@@ -59,19 +62,48 @@ export function useLocalAgentTargets(workspaceId: string): PickTarget[] {
       attention,
       touchedAt,
     }).flatMap((target) => {
-      if (!target.sameWorkspace) return []
       const agent = runningAgent(target.paneId)
       return agent ? [{ ...target, title: agentLabel(d, target.title, agent) }] : []
     })
   }, [workspaces, layouts, workspaceId, attention, touchedAt, running, agentBlocks, d])
 }
 
+export function useLocalAgentTargets(workspaceId: string): PickTarget[] {
+  const inWindow = useWindowAgentTargets(workspaceId)
+  return useMemo(() => inWindow.filter((target) => target.sameWorkspace), [inWindow])
+}
+
+function useGroupPeerIds(workspaceId: string): string[] {
+  const workspaces = useWorkspacesStore((s) => s.workspaces)
+  const sandboxed = useSandboxStore((s) => s.enabled)
+  const agentPlacements = useAgentGroupsStore((s) => s.placements)
+  const unknown = groupMates(workspaces, workspaceId)
+    .filter((w) => sandboxed[w.id] === undefined)
+    .map((w) => w.id)
+    .join('\n')
+  useEffect(() => {
+    for (const id of unknown ? unknown.split('\n') : []) void useSandboxStore.getState().load(id)
+  }, [unknown])
+  return useMemo(
+    () => groupPeerIds({ workspaces, workspaceId, sandboxed, agentPlacements }),
+    [workspaces, workspaceId, sandboxed, agentPlacements],
+  )
+}
+
 export function useAgentTargets(workspaceId: string): PickTarget[] {
   const d = useDict()
-  const local = useLocalAgentTargets(workspaceId)
+  const inWindow = useWindowAgentTargets(workspaceId)
+  const peers = useGroupPeerIds(workspaceId)
   const origin = useOriginAgentsStore((s) => s.byWorkspace[workspaceId])
   return useMemo(() => {
-    if (!origin) return local
+    const local = inWindow.filter((target) => target.sameWorkspace)
+    const grouped = inWindow
+      .filter((target) => peers.includes(target.workspaceId))
+      .map((target) => ({
+        ...target,
+        title: fmt(d.send.groupTarget, { agent: target.title, workspace: target.workspaceName }),
+      }))
+    if (!origin) return [...local, ...grouped]
     const remote = origin.targets.map(
       (target): PickTarget => ({
         paneId: target.paneId,
@@ -87,14 +119,15 @@ export function useAgentTargets(workspaceId: string): PickTarget[] {
         via: workspaceId,
       }),
     )
-    return [...local, ...remote]
-  }, [local, origin, workspaceId, d])
+    return [...local, ...grouped, ...remote]
+  }, [inWindow, peers, origin, workspaceId, d])
 }
 
 export function useNoAgentsText(workspaceId: string): string {
   const d = useDict()
   const origin = useOriginAgentsStore((s) => s.byWorkspace[workspaceId])
-  if (origin === undefined) return d.send.noTargets
+  const peers = useGroupPeerIds(workspaceId)
+  if (origin === undefined) return peers.length > 0 ? d.send.noGroupTargets : d.send.noTargets
   if (origin === null) return d.send.originGone
   return fmt(d.send.noOriginTargets, { workspace: origin.workspaceName })
 }
@@ -199,9 +232,7 @@ export function PickSendPanel({
                     aria-label={stateLabel(d, t.state)}
                   />
                   <span className="flex min-w-0 flex-1 flex-col">
-                    <span className={checked ? 'truncate font-medium' : 'truncate'}>
-                      {t.sameWorkspace || t.via ? t.title : `${t.workspaceName} · ${t.title}`}
-                    </span>
+                    <span className={checked ? 'truncate font-medium' : 'truncate'}>{t.title}</span>
                     {t.cwd ? (
                       <span className="truncate font-mono text-fg-muted text-ui-xs">{t.cwd}</span>
                     ) : null}

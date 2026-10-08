@@ -130,4 +130,8 @@ export class AgentProvenance {
   forget(workspaceId: string): void {
     this.placed.delete(workspaceId)
   }
+
+  entries(): [workspaceId: string, value: string][] {
+    return [...this.placed]
+  }
 }

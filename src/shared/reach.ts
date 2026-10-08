@@ -3,6 +3,11 @@ export type ReachMode = (typeof REACH_MODES)[number]
 
 export const DEFAULT_REACH_MODE: ReachMode = 'project'
 
+export interface AgentGroupPlacement {
+  workspaceId: string
+  groupId: string
+}
+
 export function isReachMode(raw: unknown): raw is ReachMode {
   return REACH_MODES.includes(raw as ReachMode)
 }

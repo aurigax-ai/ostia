@@ -1,5 +1,5 @@
 import type { ApprovalOutcome } from '../shared/approvals'
-import type { ReachMode } from '../shared/reach'
+import type { AgentGroupPlacement, ReachMode } from '../shared/reach'
 import type { WorkspaceSandbox } from '../shared/sandbox'
 import type { ApprovalAsk } from './approvals'
 import { connHasCap } from './controlAuth'
@@ -29,6 +29,7 @@ export interface ReachDeps {
   sandbox: (workspaceId: string) => WorkspaceSandbox
   workspaces: () => Promise<ReachListing>
   ask: (ask: ApprovalAsk) => Promise<ApprovalOutcome> | null
+  agentGroupsChanged: (placements: AgentGroupPlacement[]) => void
 }
 
 export interface Reach {
@@ -36,6 +37,7 @@ export interface Reach {
   ensure: (ctx: ReachCaller, workspaceId: string, action: string, detail: string) => Promise<void>
   visible: (ctx: ReachCaller) => Promise<(workspaceId: string) => boolean>
   byAgent: <T>(run: () => Promise<T>) => Promise<T>
+  agentGroups: () => AgentGroupPlacement[]
   forget: (workspaceId: string) => void
 }
 
@@ -44,6 +46,18 @@ const NO_WORKSPACES: ReachListing = { workspaces: [], groups: [] }
 export function createReach(deps: ReachDeps): Reach {
   const groupsByAgent = new AgentProvenance()
   const foldersByAgent = new AgentProvenance()
+  let publishedGroups = '[]'
+
+  const agentGroups = (): AgentGroupPlacement[] =>
+    groupsByAgent.entries().map(([workspaceId, groupId]) => ({ workspaceId, groupId }))
+
+  const publishAgentGroups = (): void => {
+    const placements = agentGroups()
+    const next = JSON.stringify(placements)
+    if (next === publishedGroups) return
+    publishedGroups = next
+    deps.agentGroupsChanged(placements)
+  }
 
   const listing = async (mode: ReachMode): Promise<ReachListing> =>
     mode === 'group' ? await deps.workspaces().catch(() => NO_WORKSPACES) : NO_WORKSPACES
@@ -102,6 +116,7 @@ export function createReach(deps: ReachDeps): Reach {
     })
     if (!pending || (await pending) !== 'workspace') return false
     ;(mode === 'project' ? foldersByAgent : groupsByAgent).confirm(workspaceId)
+    publishAgentGroups()
     return true
   }
 
@@ -156,6 +171,7 @@ export function createReach(deps: ReachDeps): Reach {
           foldersByAgent.setByAgent(w.workspaceId, w.workDir)
         }
       }
+      publishAgentGroups()
     }
   }
 
@@ -164,9 +180,11 @@ export function createReach(deps: ReachDeps): Reach {
     ensure,
     visible,
     byAgent,
+    agentGroups,
     forget: (workspaceId) => {
       groupsByAgent.forget(workspaceId)
       foldersByAgent.forget(workspaceId)
+      publishAgentGroups()
     },
   }
 }

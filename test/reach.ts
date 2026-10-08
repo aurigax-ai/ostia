@@ -11,5 +11,6 @@ export function ownWorkspaceReach(): Reach {
     sandbox: () => emptyWorkspaceSandbox(),
     workspaces: async () => ({ workspaces: [], groups: [] }),
     ask: () => null,
+    agentGroupsChanged: () => {},
   })
 }

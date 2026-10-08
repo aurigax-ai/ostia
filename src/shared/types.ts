@@ -48,7 +48,7 @@ import type { PhoneGrantableCap } from './phoneCapabilities'
 import type { PickOutcome, PickSendRequest, PickSendResult, PickState, PickTheme } from './pick'
 import type { PromptSeparator } from './promptSettings'
 import type { QuestionReply, QuestionState } from './questions'
-import type { ReachMode } from './reach'
+import type { AgentGroupPlacement, ReachMode } from './reach'
 import type { PrivacyApi } from './redaction'
 import type {
   RegionCaptureOutcome,
@@ -867,6 +867,8 @@ export interface ApprovalsApi {
   removeAlways: (cap: Capability) => Promise<boolean>
   setReach: (mode: ReachMode) => Promise<boolean>
   onChange: (cb: (state: ApprovalState) => void) => () => void
+  agentGroups: () => Promise<AgentGroupPlacement[]>
+  onAgentGroupsChanged: (cb: (placements: AgentGroupPlacement[]) => void) => () => void
 }
 
 export interface QuestionsApi {
