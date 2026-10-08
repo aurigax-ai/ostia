@@ -9,6 +9,7 @@ import { useExtensionsStore } from '../stores/extensionsStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
+import { useCoreWatchAll } from './coreWatch'
 import { runningAgentOf } from './paneAgent'
 import { buildViewScope } from './viewData'
 
@@ -67,6 +68,10 @@ export function useViewScope(doc: ViewDoc): { scope: Record<string, unknown>; fo
   const agentBlocks = useBlocksStore((s) => s.agentBlocks)
   const locale = useSettingsStore((s) => s.locale)
   const notifications = useNotifications(doc.sources.includes('notifications'))
+  const workspaceIds = useMemo(() => workspaces.map((w) => w.id), [workspaces])
+  const listsWorkspaces = doc.sources.includes('workspaces') || doc.sources.includes('workspace')
+  useCoreWatchAll('git', workspaceIds, listsWorkspaces)
+  useCoreWatchAll('ports', workspaceIds, listsWorkspaces || doc.sources.includes('ports'))
   const now = useNow(doc.ticks)
 
   const scope = useMemo(() => {

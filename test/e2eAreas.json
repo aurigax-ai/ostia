@@ -157,9 +157,18 @@
     {
       "name": "git",
       "paths": [
-        "src/extensions/git/",
-        "src/main/gitBoard.ts",
-        "src/main/builtinGitExtension",
+        "src/main/git/",
+        "src/shared/git.ts",
+        "src/main/watchSets.ts",
+        "src/renderer/components/git/",
+        "src/renderer/lib/gitView.ts",
+        "src/renderer/lib/gitGraph.ts",
+        "src/renderer/lib/gitFileTree.ts",
+        "src/renderer/lib/gitPanel.ts",
+        "src/renderer/lib/coreWatch.ts",
+        "src/renderer/commands/gitCommands.ts",
+        "src/renderer/stores/gitViewStore.ts",
+        "src/cli/coreBoards.ts",
         "src/renderer/components/ChangesView.tsx",
         "src/renderer/components/DiffView.tsx",
         "src/renderer/stores/diffStore.ts"
@@ -235,9 +244,11 @@
     {
       "name": "ports",
       "paths": [
-        "src/extensions/ports/",
-        "src/main/portsBoard.ts",
-        "src/main/builtinPortsExtension",
+        "src/main/ports/",
+        "src/shared/ports.ts",
+        "src/main/watchSets.ts",
+        "src/renderer/lib/coreWatch.ts",
+        "src/cli/coreBoards.ts",
         "src/shared/procfs.ts",
         "test/fixtures/ports/"
       ],

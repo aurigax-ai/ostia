@@ -7,7 +7,9 @@ import {
 } from '@shared/approvals'
 import type { ChordValue, KeybindingMap } from '@shared/chordSpec'
 import type { Locale } from '@shared/dict'
+import { DEFAULT_GIT_SETTINGS, type GitSettings, parseGitSettings } from '@shared/git'
 import { keyboardPlatform } from '@shared/keyboardPresets'
+import { DEFAULT_PORTS_SETTINGS, type PortsSettings, parsePortsSettings } from '@shared/ports'
 import type { TerminalKeyMap, TerminalSend } from '@shared/terminalKeys'
 import { debounce } from 'es-toolkit'
 import { create } from 'zustand'
@@ -323,6 +325,8 @@ interface Persisted {
   trustedActions: string[]
   sandbox?: SandboxGlobals
   privacy: PrivacySettings
+  git: GitSettings
+  ports: PortsSettings
 }
 
 const DATA_KEYS: readonly string[] = [
@@ -409,6 +413,8 @@ const DEFAULTS: Persisted = {
   trustedActions: [],
   manager: DEFAULT_MANAGER_SETTINGS,
   privacy: DEFAULT_PRIVACY_SETTINGS,
+  git: DEFAULT_GIT_SETTINGS,
+  ports: DEFAULT_PORTS_SETTINGS,
 }
 
 interface SettingsState extends Persisted {
@@ -424,6 +430,8 @@ interface SettingsState extends Persisted {
   setSurfaceFont: (surface: FontSurface, patch: Partial<SurfaceFont>) => void
   setBehavior: (patch: Partial<Behavior>) => void
   setFiles: (patch: Partial<FileTreeSettings>) => void
+  setGit: (patch: Partial<GitSettings>) => void
+  setPorts: (patch: Partial<PortsSettings>) => void
   setTerminal: (patch: Partial<TerminalSettings>) => void
   setPanes: (patch: Partial<PaneSettings>) => void
   setNotifications: (patch: Partial<NotificationSettings>) => void
@@ -542,6 +550,8 @@ export function parsePersisted(p: Partial<Persisted>): Persisted {
       : [],
     sandbox: p.sandbox === undefined ? undefined : parseSandboxGlobals(p.sandbox),
     privacy: parsePrivacySettings(p.privacy),
+    git: parseGitSettings(p.git),
+    ports: parsePortsSettings(p.ports),
   }
 }
 
@@ -666,6 +676,8 @@ async function writeSettings(s: SettingsState): Promise<void> {
     trustedActions: s.trustedActions,
     sandbox: s.sandbox,
     privacy: s.privacy,
+    git: s.git,
+    ports: s.ports,
   }
   const text = `${JSON.stringify(snapshot, null, 2)}\n`
   lastWritten = text
@@ -791,6 +803,14 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   },
   setFiles: (patch) => {
     set((s) => ({ files: parseFileTreeSettings({ ...s.files, ...patch }) }))
+    scheduleSave(get)
+  },
+  setGit: (patch) => {
+    set((s) => ({ git: parseGitSettings({ ...s.git, ...patch }) }))
+    scheduleSave(get)
+  },
+  setPorts: (patch) => {
+    set((s) => ({ ports: parsePortsSettings({ ...s.ports, ...patch }) }))
     scheduleSave(get)
   },
   setTerminal: (patch) => {

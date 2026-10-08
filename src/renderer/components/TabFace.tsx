@@ -3,6 +3,7 @@ import {
   BroadcastIcon,
   ChatCircleTextIcon,
   FileCodeIcon,
+  GitBranchIcon,
   GitDiffIcon,
   GlobeIcon,
   type Icon as IconComponent,
@@ -29,6 +30,7 @@ const SURFACE_ICON: Record<SurfaceKind, IconComponent> = {
   extension: extensionIcon(undefined),
   diff: GitDiffIcon,
   chat: ChatCircleTextIcon,
+  git: GitBranchIcon,
   view: viewIcon(undefined),
   manager: BroadcastIcon,
 }

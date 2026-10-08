@@ -27,7 +27,7 @@ import {
   tabStep,
 } from '../lib/completionMatch'
 import { clipboardChordOf } from '../lib/documentClipboard'
-import { chipCatalog, promptExtensionChips, useChipCatalog } from '../lib/extensionChips'
+import { everyChip, promptExtensionChips, useChipCatalog } from '../lib/extensionChips'
 import {
   type CompletionItem,
   applyCompletionItem,
@@ -317,7 +317,7 @@ export function InputEditor({
       const chips = promptExtensionChips(
         ext.chips,
         ext.workspaceChips,
-        chipCatalog(ext.list),
+        everyChip(ext.list),
         pane,
         workspaceOfPane(pane) ?? null,
       )

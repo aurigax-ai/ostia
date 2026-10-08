@@ -160,6 +160,7 @@ const DENY_ALL_BUILTINS = [
   'list_directory',
   'search_files',
   'terminal_context',
+  'git_status',
   'propose_command',
   'edit_file',
   'write_file',

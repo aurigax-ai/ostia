@@ -1,0 +1,847 @@
+.git-surface {
+  --lane-0: color-mix(in srgb, var(--group-blue) 72%, var(--fg));
+  --lane-1: color-mix(in srgb, var(--group-purple) 72%, var(--fg));
+  --lane-2: color-mix(in srgb, var(--group-green) 72%, var(--fg));
+  --lane-3: color-mix(in srgb, var(--group-orange) 72%, var(--fg));
+  --lane-4: color-mix(in srgb, var(--group-pink) 72%, var(--fg));
+  --lane-5: color-mix(in srgb, var(--group-teal) 72%, var(--fg));
+  --lane-6: color-mix(in srgb, var(--group-yellow) 72%, var(--fg));
+  --lane-7: color-mix(in srgb, var(--group-red) 72%, var(--fg));
+  --status-modified: color-mix(in srgb, var(--group-yellow) 60%, var(--fg));
+  --status-renamed: color-mix(in srgb, var(--group-blue) 60%, var(--fg));
+  --row-h: 22px;
+  container-type: size;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  background: var(--surface-1);
+  color: var(--fg);
+  font-family: var(--font-ui);
+  font-size: var(--text-ui-sm);
+  line-height: var(--text-ui-sm--line-height);
+  font-weight: var(--font-weight-normal);
+}
+
+.git-surface .lane-0 {
+  --lane: var(--lane-0);
+}
+.git-surface .lane-1 {
+  --lane: var(--lane-1);
+}
+.git-surface .lane-2 {
+  --lane: var(--lane-2);
+}
+.git-surface .lane-3 {
+  --lane: var(--lane-3);
+}
+.git-surface .lane-4 {
+  --lane: var(--lane-4);
+}
+.git-surface .lane-5 {
+  --lane: var(--lane-5);
+}
+.git-surface .lane-6 {
+  --lane: var(--lane-6);
+}
+.git-surface .lane-7 {
+  --lane: var(--lane-7);
+}
+
+.git-surface .muted {
+  color: var(--fg-muted);
+}
+
+.git-surface .spacer {
+  flex: 1;
+}
+
+.git-surface .tabs {
+  flex: 0 0 auto;
+  align-items: stretch;
+  background: var(--surface-2);
+}
+
+.git-surface .tabs-end {
+  display: flex;
+  align-items: center;
+  padding: 0 6px;
+  border-bottom: 1px solid var(--line);
+}
+
+.git-surface .banner {
+  flex: 0 0 auto;
+  padding: 4px 12px;
+  border-bottom: 1px solid var(--line);
+  white-space: pre-wrap;
+}
+
+.git-surface .banner.ok {
+  color: var(--ok);
+}
+
+.git-surface .banner.error {
+  color: var(--attn-fg);
+}
+
+.git-surface .page {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.git-surface .loading {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 16px;
+}
+
+.git-surface .empty {
+  gap: 4px;
+  padding: 32px 16px;
+}
+
+.git-surface :is(.branch, .toolbar-branch, .tracking, .scope-trigger, .caret, .folder-icon) svg {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+}
+
+.git-surface .ostia-split {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.git-surface .ostia-split > .ostia-split-first {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 0;
+  flex-shrink: 0;
+}
+
+.git-surface .ostia-split > .ostia-split-second {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.git-surface .ostia-split[data-single] > .ostia-split-first,
+.git-surface .ostia-split[data-collapsed] > .ostia-split-first {
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+.git-surface .ostia-split[data-collapsed] > .ostia-split-second {
+  flex: 0 0 auto;
+  overflow: hidden;
+  border-top: 1px solid var(--line-strong);
+}
+
+.git-surface .ostia-split[data-collapsed] > .ostia-split-second > .detail > :not(.detail-head) {
+  display: none;
+}
+
+.git-surface .ostia-split-handle {
+  position: relative;
+  z-index: 3;
+  flex: 0 0 1px;
+  background: var(--line-strong);
+  cursor: row-resize;
+  touch-action: none;
+  user-select: none;
+}
+
+.git-surface .ostia-split-handle::before {
+  content: "";
+  position: absolute;
+  inset: -4px 0;
+}
+
+.git-surface .ostia-split-handle::after {
+  content: "";
+  position: absolute;
+  inset: -1px 0;
+  background: var(--brand);
+  opacity: 0;
+  transition: opacity var(--motion-fast) var(--ease-out);
+}
+
+.git-surface .ostia-split-handle:hover::after,
+.git-surface .ostia-split-handle:focus-visible::after,
+.ostia-split-dragging .git-surface .ostia-split-handle::after {
+  opacity: 1;
+}
+
+.git-surface .ostia-split-handle:focus-visible {
+  outline: none;
+}
+
+.ostia-split-dragging,
+.ostia-split-dragging * {
+  cursor: row-resize !important;
+  user-select: none !important;
+}
+
+.git-surface .changes-top {
+  overflow: clip;
+}
+
+.git-surface .changes-files {
+  overflow: auto;
+}
+
+.git-surface .graph-list-pane {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.git-surface .head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 8px 4px 12px;
+}
+
+.git-surface .branch,
+.git-surface .toolbar-branch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-family: var(--font-code);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+}
+
+.git-surface .branch svg,
+.git-surface .toolbar-branch svg {
+  color: var(--fg-muted);
+}
+
+.git-surface .tracking {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: var(--text-ui-xs);
+  line-height: var(--text-ui-xs--line-height);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.git-surface .tracking .upstream,
+.git-surface .tracking .count {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.git-surface .tracking .upstream {
+  font-family: var(--font-code);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.git-surface .tracking .ahead,
+.git-surface .tracking .behind {
+  color: var(--fg);
+  font-weight: var(--font-weight-medium);
+}
+
+.git-surface .tracking .synced {
+  color: var(--fg-muted);
+}
+
+.git-surface .segmented {
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 2px;
+  padding: 1px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+}
+
+.git-surface .root {
+  flex: 0 0 auto;
+  padding: 0 12px 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-code);
+  font-size: var(--text-ui-xs);
+  line-height: var(--text-ui-xs--line-height);
+}
+
+.git-surface .commit {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0 12px 12px;
+}
+
+.git-surface .commit .message {
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: calc(3 * var(--text-ui-sm--line-height) + 18px);
+  max-height: max(calc(3 * var(--text-ui-sm--line-height) + 18px), calc(100cqh - 240px));
+  field-sizing: content;
+  resize: none;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-code);
+  font-size: var(--text-ui-sm);
+  line-height: var(--text-ui-sm--line-height);
+}
+
+.git-surface .commit-bar {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.git-surface .commit-bar .hint {
+  font-size: var(--text-ui-xs);
+  line-height: var(--text-ui-xs--line-height);
+}
+
+.git-surface .area h2 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 22px;
+  margin: 0;
+  padding: 12px 8px 4px 12px;
+  font-size: var(--text-ui-xs);
+  line-height: var(--text-ui-xs--line-height);
+  font-weight: var(--font-weight-medium);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-caps);
+  color: var(--fg-muted);
+}
+
+.git-surface .area-count {
+  min-width: 16px;
+  padding: 0 5px;
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: normal;
+}
+
+.git-surface .area-conflicted .area-title {
+  color: var(--attn-fg);
+}
+
+.git-surface ul.files {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 4px;
+}
+
+.git-surface .row {
+  display: flex;
+  align-items: center;
+  min-height: var(--row-h);
+  padding-right: 8px;
+}
+
+.git-surface .row:hover {
+  background: var(--surface-2);
+}
+
+.git-surface .actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 2px;
+  opacity: 0;
+}
+
+.git-surface .row:hover .actions,
+.git-surface .row:focus-within .actions,
+.git-surface .area h2 .actions {
+  opacity: 1;
+}
+
+.git-surface button.change,
+.git-surface button.folder {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  height: var(--row-h);
+  padding: 0 12px;
+  text-align: left;
+}
+
+.git-surface button.folder {
+  gap: 4px;
+}
+
+.git-surface button.change .name,
+.git-surface button.folder .name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.git-surface button.change .dir {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-ui-xs);
+}
+
+.git-surface .caret,
+.git-surface .folder-icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  color: var(--fg-muted);
+}
+
+.git-surface .folder-count {
+  margin-left: 4px;
+  font-size: var(--text-ui-xs);
+  color: var(--fg-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.git-surface .code {
+  flex: 0 0 12px;
+  font-family: var(--font-code);
+  font-weight: var(--font-weight-medium);
+  text-align: center;
+  color: var(--fg-muted);
+}
+
+.git-surface .code-M,
+.git-surface .code-T {
+  color: var(--status-modified);
+}
+
+.git-surface .code-A,
+.git-surface .code-u {
+  color: var(--add);
+}
+
+.git-surface .code-D {
+  color: var(--del);
+}
+
+.git-surface .code-R,
+.git-surface .code-C {
+  color: var(--status-renamed);
+}
+
+.git-surface .code-U {
+  color: var(--attn-fg);
+}
+
+.git-surface .graph-toolbar {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.git-surface button.scope-trigger {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  font-weight: var(--font-weight-medium);
+}
+
+.git-surface button.scope-trigger:hover,
+.git-surface button.scope-trigger[aria-expanded="true"] {
+  background: var(--surface-3);
+}
+
+.git-surface .scope-trigger svg {
+  color: var(--fg-muted);
+}
+
+.git-surface .scope-trigger-label {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.git-surface .graph-scroll {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  container-type: inline-size;
+}
+
+.git-surface .graph-scroll:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: -2px;
+}
+
+.git-surface .graph-canvas {
+  position: relative;
+}
+
+.git-surface .graph-row {
+  --row-bg: var(--surface-1);
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 24px;
+  padding-right: 12px;
+  background: var(--row-bg);
+  white-space: nowrap;
+}
+
+.git-surface .graph-row:hover {
+  --row-bg: var(--surface-2);
+}
+
+.git-surface .graph-row.selected {
+  --row-bg: var(--surface-3);
+}
+
+.git-surface .graph-scroll:focus-visible .graph-row.selected {
+  box-shadow: inset 2px 0 0 var(--brand);
+}
+
+.git-surface .lanes-cell {
+  flex: 0 0 var(--graph-width);
+  height: 24px;
+  overflow: hidden;
+}
+
+.git-surface .lanes {
+  display: block;
+}
+
+.git-surface .edge {
+  fill: none;
+  stroke: var(--lane);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+}
+
+.git-surface .edge.pending {
+  stroke-dasharray: 2.5 2.5;
+}
+
+.git-surface .node {
+  fill: var(--lane);
+  stroke: var(--row-bg);
+  stroke-width: 1.5;
+}
+
+.git-surface .node.ring {
+  fill: var(--row-bg);
+  stroke: var(--lane);
+  stroke-width: 2;
+}
+
+.git-surface .node.pending {
+  fill: var(--row-bg);
+  stroke: var(--lane);
+  stroke-width: 1.6;
+  stroke-dasharray: 2.4 1.9;
+}
+
+.git-surface .refs {
+  display: inline-flex;
+  flex: 0 1 auto;
+  gap: 4px;
+  min-width: 0;
+  max-width: 50%;
+  overflow: hidden;
+}
+
+.git-surface .refs:empty {
+  display: none;
+}
+
+.git-surface .ref {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 1 auto;
+  gap: 3px;
+  min-width: 0;
+  max-width: 180px;
+  height: 18px;
+  padding: 0 6px;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  font-size: var(--text-ui-xs);
+  line-height: var(--text-ui-xs--line-height);
+  color: var(--fg-muted);
+}
+
+.git-surface .ref svg {
+  flex: 0 0 auto;
+  width: 12px;
+  height: 12px;
+}
+
+.git-surface .ref-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.git-surface .ref-branch,
+.git-surface .ref-head {
+  color: var(--fg);
+}
+
+.git-surface .ref-current,
+.git-surface .ref-head {
+  font-weight: var(--font-weight-medium);
+  border-color: var(--lane, var(--line-strong));
+  background: color-mix(in srgb, var(--lane, var(--fg)) 14%, transparent);
+}
+
+.git-surface .subject {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.git-surface .worktree-title {
+  flex: 0 0 auto;
+  font-weight: var(--font-weight-medium);
+}
+
+.git-surface .wt-counts {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-width: 0;
+}
+
+.git-surface .graph-row .wt-counts {
+  flex: 1 1 auto;
+  flex-wrap: nowrap;
+  overflow: hidden;
+}
+
+.git-surface .wt-count {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 9px;
+  background: var(--surface-2);
+  font-size: var(--text-ui-xs);
+  line-height: var(--text-ui-xs--line-height);
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-muted);
+}
+
+.git-surface .graph-row:hover .wt-count,
+.git-surface .graph-row.selected .wt-count {
+  background: var(--surface-1);
+}
+
+.git-surface .wt-count.staged {
+  color: var(--ok);
+}
+
+.git-surface .wt-count.conflicted {
+  color: var(--attn-fg);
+}
+
+.git-surface .who,
+.git-surface .when {
+  flex: 0 0 auto;
+  font-size: var(--text-ui-xs);
+}
+
+.git-surface .when {
+  font-variant-numeric: tabular-nums;
+}
+
+.git-surface .who {
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.git-surface .sha {
+  font-family: var(--font-code);
+  font-size: var(--text-ui-xs);
+}
+
+.git-surface .graph-more {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  height: 24px;
+  padding-left: calc(var(--graph-width) + 8px);
+  font-size: var(--text-ui-xs);
+  line-height: var(--text-ui-xs--line-height);
+}
+
+@container (max-width: 560px) {
+  .git-surface .graph-row .who {
+    display: none;
+  }
+}
+
+@container (max-width: 440px) {
+  .git-surface .graph-row .sha {
+    display: none;
+  }
+}
+
+@container (max-width: 340px) {
+  .git-surface .graph-row .when {
+    display: none;
+  }
+}
+
+.git-surface .detail {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  background: var(--surface-1);
+}
+
+.git-surface .detail-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 8px 8px 12px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--line);
+}
+
+.git-surface .detail-title {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.git-surface .detail-subject {
+  font-size: var(--text-ui-base);
+  line-height: var(--text-ui-base--line-height);
+  font-weight: var(--font-weight-medium);
+  overflow-wrap: anywhere;
+}
+
+.git-surface .detail-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  font-size: var(--text-ui-xs);
+  line-height: var(--text-ui-xs--line-height);
+}
+
+.git-surface .parents {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.git-surface button.link {
+  border-radius: 2px;
+  color: var(--brand);
+}
+
+.git-surface button.link:hover:not(:disabled) {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.git-surface button.link:disabled {
+  color: var(--fg-muted);
+}
+
+.git-surface .detail-status {
+  padding: 12px;
+}
+
+.git-surface .detail-status.error {
+  color: var(--attn-fg);
+}
+
+.git-surface .detail .area h2 {
+  padding-top: 8px;
+}
+
+.git-surface .blame-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding-top: 8px;
+  overflow: auto;
+}
+
+.git-surface table.blame {
+  border-collapse: collapse;
+  width: 100%;
+  font-family: var(--font-code);
+  font-size: var(--text-ui-sm);
+  line-height: var(--text-ui-sm--line-height);
+}
+
+.git-surface .blame td {
+  padding: 0 8px;
+  vertical-align: top;
+}
+
+.git-surface .blame tr.blame-first td {
+  border-top: 1px solid var(--line);
+}
+
+.git-surface .blame-who {
+  width: 1%;
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-ui);
+  font-size: var(--text-ui-xs);
+}
+
+.git-surface .blame-no {
+  width: 1%;
+  text-align: right;
+  user-select: none;
+}
+
+.git-surface .blame-text {
+  white-space: pre;
+}

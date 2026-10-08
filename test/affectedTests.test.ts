@@ -72,7 +72,7 @@ describe('planTests', () => {
       'src/main/paneIo.ts',
       'src/shared/types.ts',
       'src/cli/index.ts',
-      'src/extensions/git/main.ts',
+      'src/extensions/ssh/main.ts',
       'src/shared/dict.ts',
     ]) {
       expect(planTests([file], readers), file).toEqual({

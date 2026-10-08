@@ -1,8 +1,20 @@
+import type { Dict } from '@shared/dict'
 import type { ExtensionChip, ExtensionInfo, PaneChip, WorkspaceChip } from '@shared/extensions'
+import {
+  GIT_BRANCH_CHIP,
+  GIT_DIFF_STATS_CHIP,
+  GIT_SOURCE,
+  PORTS_CHIP,
+  PORTS_SOURCE,
+  SSH_CHIP,
+  isCoreSource,
+} from '@shared/git'
 import { useMemo } from 'react'
 import { extensionCommandId } from '../commands/extensionBridge'
 import { commands } from '../commands/registry'
+import { currentDict, useDict } from '../i18n/useDict'
 import { useExtensionsStore } from '../stores/extensionsStore'
+import { useCoreWatch } from './coreWatch'
 import { openSidebarUrl } from './sidebarItems'
 import { workspaceOfPane } from './workspaceActivity'
 
@@ -38,6 +50,23 @@ function catalogOf(
     )
 }
 
+export function corePaneChips(d: Dict): ChipCatalogEntry[] {
+  return [{ extId: PORTS_SOURCE, extName: d.ports.title, id: SSH_CHIP, title: d.ports.sshChip }]
+}
+
+export function coreWorkspaceChips(d: Dict): ChipCatalogEntry[] {
+  return [
+    { extId: GIT_SOURCE, extName: d.git.title, id: GIT_BRANCH_CHIP, title: d.git.branchChip },
+    {
+      extId: GIT_SOURCE,
+      extName: d.git.title,
+      id: GIT_DIFF_STATS_CHIP,
+      title: d.git.diffStatsChip,
+    },
+    { extId: PORTS_SOURCE, extName: d.ports.title, id: PORTS_CHIP, title: d.ports.portsChip },
+  ]
+}
+
 export function chipCatalog(list: ExtensionInfo[]): ChipCatalogEntry[] {
   return catalogOf(list, (ext) => [...ext.paneChips, ...ext.workspaceChips])
 }
@@ -48,6 +77,10 @@ export function paneChipCatalog(list: ExtensionInfo[]): ChipCatalogEntry[] {
 
 export function workspaceChipCatalog(list: ExtensionInfo[]): ChipCatalogEntry[] {
   return catalogOf(list, (ext) => ext.workspaceChips)
+}
+
+export function everyChip(list: ExtensionInfo[], d: Dict = currentDict()): ChipCatalogEntry[] {
+  return [...coreWorkspaceChips(d), ...corePaneChips(d), ...chipCatalog(list)]
 }
 
 function shown<C extends ExtensionChip>(
@@ -97,38 +130,61 @@ export function promptExtensionChips(
 
 export function useChipCatalog(): ChipCatalogEntry[] {
   const list = useExtensionsStore((s) => s.list)
-  return useMemo(() => chipCatalog(list), [list])
+  const d = useDict()
+  return useMemo(() => everyChip(list, d), [list, d])
 }
 
 export function usePaneChips(paneId: string | null): ShownChip[] {
   const list = useExtensionsStore((s) => s.list)
   const chips = useExtensionsStore((s) => s.chips)
-  return useMemo(() => chipsForPane(chips, paneChipCatalog(list), paneId), [chips, list, paneId])
+  const d = useDict()
+  useCoreWatch('ports', paneId ? workspaceOfPane(paneId) : null)
+  return useMemo(
+    () => chipsForPane(chips, [...corePaneChips(d), ...paneChipCatalog(list)], paneId),
+    [chips, list, paneId, d],
+  )
 }
 
 export function useWorkspaceChips(workspaceId: string | null): ShownChip[] {
   const list = useExtensionsStore((s) => s.list)
   const chips = useExtensionsStore((s) => s.workspaceChips)
+  const d = useDict()
+  useCoreWatch('git', workspaceId)
+  useCoreWatch('ports', workspaceId)
   return useMemo(
-    () => chipsForWorkspace(chips, workspaceChipCatalog(list), workspaceId),
-    [chips, list, workspaceId],
+    () =>
+      chipsForWorkspace(
+        chips,
+        [...coreWorkspaceChips(d), ...workspaceChipCatalog(list)],
+        workspaceId,
+      ),
+    [chips, list, workspaceId, d],
   )
 }
 
-export function usePromptExtensionChips(paneId: string | null): ShownChip[] {
+export function usePromptExtensionChips(
+  paneId: string | null,
+  order: readonly string[],
+  active: boolean,
+): ShownChip[] {
   const list = useExtensionsStore((s) => s.list)
   const paneChips = useExtensionsStore((s) => s.chips)
   const workspaceChips = useExtensionsStore((s) => s.workspaceChips)
   const workspaceId = paneId ? (workspaceOfPane(paneId) ?? null) : null
+  const d = useDict()
+  const wants = (source: string): boolean =>
+    active && order.some((id) => id.startsWith(`${source}.`))
+  useCoreWatch('git', workspaceId, wants(GIT_SOURCE))
+  useCoreWatch('ports', workspaceId, wants(PORTS_SOURCE))
   return useMemo(
-    () => promptExtensionChips(paneChips, workspaceChips, chipCatalog(list), paneId, workspaceId),
-    [paneChips, workspaceChips, list, paneId, workspaceId],
+    () => promptExtensionChips(paneChips, workspaceChips, everyChip(list, d), paneId, workspaceId),
+    [paneChips, workspaceChips, list, paneId, workspaceId, d],
   )
 }
 
 function chipCommandId(chip: ExtensionChip): string | null {
   if (!chip.command) return null
-  const id = extensionCommandId(chip.extId, chip.command)
+  const id = isCoreSource(chip.extId) ? chip.command : extensionCommandId(chip.extId, chip.command)
   return commands.has(id) ? id : null
 }
 

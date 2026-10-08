@@ -42,6 +42,7 @@ import { allPanes, hasLockedPane, paneIds } from '../layout/tree'
 import type { LayoutNode } from '../layout/types'
 import { aggregateWorkspaceState, latestWaitingAt, unreadCount } from '../lib/attention'
 import { requestCloseOthers, requestCloseWorkspace } from '../lib/closeConfirm'
+import { useCoreWatch } from '../lib/coreWatch'
 import {
   hibernatableAgentPanes,
   hibernateWorkspaces,
@@ -499,6 +500,8 @@ function useSidebarItems(workspaceId: string | undefined): ExtensionSidebarItem[
 function WorkspaceMeta({ workspace: w }: { workspace: Workspace }): JSX.Element {
   const sidebar = useSettingsStore((s) => s.sidebar)
   const items = useSidebarItems(w.id)
+  useCoreWatch('git', w.id, sidebar.showExtensionItems)
+  useCoreWatch('ports', w.id, sidebar.showExtensionItems && sidebar.showSSH)
   const lines = sidebarLines(sidebar.showExtensionItems ? items : [])
   return (
     <>

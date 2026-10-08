@@ -6,7 +6,7 @@ import { extensionHosts } from './extensionHosts'
 import { emptyState, emptyWorkspace, openWorkspace, waitForPaletteSelection } from './helpers'
 import { _electron as electron, expect, test } from './test'
 
-test('a dirty repo shows in the sidebar and the top bar, opens a diff, commits, and shows the graph', async () => {
+test('a dirty repo shows in the sidebar and the top bar, opens a diff, commits, and shows the graph, with no extension host', async () => {
   const dataHome = freshDataHome()
   const home = join(dataHome, 'home')
   mkdirSync(home, { recursive: true })
@@ -37,40 +37,21 @@ test('a dirty repo shows in the sidebar and the top bar, opens a diff, commits, 
     await expect(chips.filter({ hasText: '1 • +1' })).toBeVisible({ timeout: 15_000 })
     const branchChip = chips.filter({ hasText: /^main$/ })
     await expect(branchChip).toBeVisible()
-    expect(extensionHosts(app)).not.toContain('git')
     await branchChip.click()
 
     const panelTitle = win.locator('.pane-header .title').filter({ hasText: /^Git$/ })
     await expect(panelTitle).toBeVisible({ timeout: 15_000 })
-    expect(extensionHosts(app)).toContain('git')
-    const guestEval = (script: string): Promise<string> =>
-      app.evaluate(async ({ webContents }, code) => {
-        const guest = webContents
-          .getAllWebContents()
-          .find((wc) => wc.getType() === 'webview' && wc.getURL().startsWith('http://127.0.0.1'))
-        return guest ? String(await guest.executeJavaScript(code)) : ''
-      }, script)
-    const guestClick = (selector: string): Promise<void> => {
-      const script = `(() => {
-        const target = document.querySelector(${JSON.stringify(selector)})
-        if (!target) return 'missing'
-        target.click()
-        return 'clicked'
-      })()`
-      return expect.poll(() => guestEval(script), { timeout: 15_000 }).toBe('clicked')
-    }
-    await expect
-      .poll(() => guestEval('document.body.innerText'), { timeout: 15_000 })
-      .toContain('notes.txt')
+    const panel = win.locator('.git-surface')
+    await expect(panel).toHaveAttribute('data-page', 'changes')
+    const row = panel.locator('button.change[data-path="notes.txt"]')
+    await expect(row).toBeVisible({ timeout: 15_000 })
 
-    await guestEval(`(() => {
-      window.panelLoad = 'first'
-      const box = document.querySelector('textarea.message')
-      box.value = 'draft kept'
-      box.dispatchEvent(new Event('input'))
-      return 'ok'
-    })()`)
-    await guestClick('button.change[data-path="notes.txt"]')
+    await panel.evaluate((el) => {
+      ;(el as HTMLElement).dataset.e2eMount = 'first'
+    })
+    const message = panel.locator('.commit textarea.message')
+    await message.fill('draft kept')
+    await row.click()
 
     await expect(
       win.locator('.pane-header .title').filter({ hasText: 'notes.txt (unstaged)' }),
@@ -79,23 +60,15 @@ test('a dirty repo shows in the sidebar and the top bar, opens a diff, commits, 
     await expect(diff).toBeVisible({ timeout: 15_000 })
     await expect(diff).toContainText('second line from e2e', { timeout: 15_000 })
     await expect(win.locator('.diff-title')).toHaveText(join(home, 'notes.txt'))
-    expect(await guestEval('String(window.panelLoad)')).toBe('first')
-    expect(await guestEval(`document.querySelector('textarea.message').value`)).toBe('draft kept')
+    await expect(panel).toHaveAttribute('data-e2e-mount', 'first')
+    await expect(message).toHaveValue('draft kept')
 
-    await guestClick('[aria-label="Stage: notes.txt"]')
-    await expect
-      .poll(() => guestEval('document.body.innerText'), { timeout: 15_000 })
-      .toContain('STAGED')
-    await guestEval(`(() => {
-      const box = document.querySelector('textarea.message')
-      box.value = 'commit from e2e'
-      box.dispatchEvent(new Event('input'))
-      document.querySelector('.commit button.primary').click()
-      return 'ok'
-    })()`)
-    await expect
-      .poll(() => guestEval('document.body.innerText'), { timeout: 15_000 })
-      .toContain('No changes')
+    await panelTitle.click()
+    await panel.getByRole('button', { name: 'Stage: notes.txt' }).click()
+    await expect(panel.locator('section.area-staged')).toBeVisible({ timeout: 15_000 })
+    await message.fill('commit from e2e')
+    await panel.locator('.commit button.primary').click()
+    await expect(panel).toContainText('No changes', { timeout: 15_000 })
     const subject = execFileSync('git', ['log', '-1', '--format=%s'], { cwd: home })
     expect(subject.toString().trim()).toBe('commit from e2e')
     await expect(chips.filter({ hasText: '1 • +1' })).toHaveCount(0, { timeout: 15_000 })
@@ -104,10 +77,12 @@ test('a dirty repo shows in the sidebar and the top bar, opens a diff, commits, 
     await win.locator('[data-slot="command-input"]').fill('Show Graph')
     await waitForPaletteSelection(win, 'Show Graph')
     await win.keyboard.press('Enter')
-    await expect
-      .poll(() => guestEval('document.body.innerText'), { timeout: 15_000 })
-      .toContain('commit from e2e')
+    await expect(panel).toHaveAttribute('data-page', 'graph', { timeout: 15_000 })
+    await expect(panel.locator('.graph-row').filter({ hasText: 'commit from e2e' })).toBeVisible({
+      timeout: 15_000,
+    })
     await expect(panelTitle).toHaveCount(1)
+    expect(extensionHosts(app)).toEqual([])
   } finally {
     await app.close()
   }

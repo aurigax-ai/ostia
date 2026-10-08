@@ -94,6 +94,7 @@ import type { WorkspaceKind, WorkspaceState } from '../stores/workspacesStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
 import { registerBrowserCommands } from './browserCommands'
 import { type CoreCommandId, registerCore } from './core'
+import { registerGitCommands } from './gitCommands'
 import { type CommandContext, commands } from './registry'
 
 interface PaneListEntry extends PaneAgentReport {
@@ -220,6 +221,7 @@ const PANE_LOCKED = 'pane-locked: the human locked this pane; only they can unlo
 
 export function registerBuiltinCommands(): void {
   registerBrowserCommands()
+  registerGitCommands()
   commands.setContextProvider((): CommandContext => {
     const workspaceId = useWorkspacesStore.getState().activeWorkspaceId
     const layout = workspaceId ? useLayoutStore.getState().byWorkspace[workspaceId] : undefined

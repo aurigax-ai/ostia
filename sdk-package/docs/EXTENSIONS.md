@@ -5,7 +5,7 @@ you. The program talks JSON-RPC to Ostia over the same control socket the `ostia
 gives it palette and CLI commands, events, sidebar status items, pane and workspace chips, typed
 settings, encrypted secrets, the assist hook points (typo fix and prompt review, command
 suggestions, editor completions, the Ask conversation), notifications and a panel surface. The
-built-in Git, System, Ports, SSH and Assistant, and the marketplace's Trellis, Keeper and Model runtime
+built-in System, SSH and Assistant, and the marketplace's Trellis, Keeper and Model runtime
 (`src/extensions/`), use nothing else, so they are the reference
 implementations.
 
@@ -101,7 +101,7 @@ The manifest is `ostia.json`; a marketplace's is `ostia-marketplace.json`.
 
 ```json
 {
-  "id": "ports",
+  "id": "dev-ports",
   "name": "Ports",
   "version": "0.1.0",
   "description": "Shows listening dev servers per workspace.",
@@ -137,7 +137,7 @@ The manifest is `ostia.json`; a marketplace's is `ostia-marketplace.json`.
 
 | Field | Meaning |
 |---|---|
-| `id` | Lowercase letters, digits and dashes, 2–40 chars. It is the CLI verb (`ostia ports ls`) and the command prefix (`ports.open`). |
+| `id` | Lowercase letters, digits and dashes, 2–40 chars. It is the CLI verb (`ostia dev-ports ls`) and the command prefix (`dev-ports.open`). `git` and `ports` are taken: Git and Ports are part of Ostia, and a manifest with one of those ids is refused. |
 | `name`, `version`, `description` | Shown in Settings and the approval dialog. |
 | `locales` | Optional. Up to 32 language tags (`"zh-Hant"`, `"fr"`) you ship a catalog for, each read from `locales/<tag>.json` in the extension. See "Translations" below. |
 | `capabilities` | What the extension process may do through Ostia. It gets this list intersected with what the user approved. Names are Ostia's capability names (`shared/capabilities.ts`). |
@@ -176,11 +176,11 @@ Write the manifest in English, list the languages you translate into, and ship o
 language:
 
 ```json
-{ "id": "ports", "name": "Ports", "locales": ["zh-Hant"], "contributes": { … } }
+{ "id": "dev-ports", "name": "Ports", "locales": ["zh-Hant"], "contributes": { … } }
 ```
 
 ```
-ports/
+dev-ports/
   ostia.json
   main.js
   locales/
@@ -832,7 +832,7 @@ Connect to the unix socket and speak JSON-RPC 2.0 with LSP-style framing
 | `ext.setWorkspaceChip` | `{workspaceId, id, text, tooltip?, tone?, icon?, items?, command?, url?}` | Shows chip `id` (from your `contributes.workspaceChips`) in the top bar while that workspace is the active one. `workspaceId` comes from `workspace.list` or events; one that isn't open is refused with `unknown-workspace`. The value is checked exactly like `ext.setPaneChip`'s; `command` runs your palette command for the workspace's active pane, and `url` opens in that workspace's browser pane. Only the window that holds the workspace receives it. Chips vanish when the workspace closes or your process stops. |
 | `ext.clearWorkspaceChip` | `{workspaceId, id}` | Removes that chip. |
 | `ext.getSettings` | — | `{ok, values}`: every key of your `contributes.settings`, with the human's value when it is valid, else the default. You also get `settings.changed` (below) whenever the values change. |
-| `ext.setSetting` | `{key, value}` | Changes one of **your own** settings, for a control in your panel that mirrors it (Git's graph scope and changed-files view). Validated against your manifest exactly like Settings → Extensions (`unknown-setting`, `invalid-value`); `null` resets the key. Ostia saves it in `settings.json`, shows it in Settings, and sends you `settings.changed`. Returns `{ok, values}`. You can't touch another extension's settings or any core setting. |
+| `ext.setSetting` | `{key, value}` | Changes one of **your own** settings, for a control in your panel that mirrors it (a sort order or a layout toggle). Validated against your manifest exactly like Settings → Extensions (`unknown-setting`, `invalid-value`); `null` resets the key. Ostia saves it in `settings.json`, shows it in Settings, and sends you `settings.changed`. Returns `{ok, values}`. You can't touch another extension's settings or any core setting. |
 | `ext.openDiff` | `{title, original, modified, language?, path?, workspaceId?}` | Opens a read-only diff pane (Monaco's diff editor, side-by-side with an inline toggle) in that workspace, else the active one. Reuses the workspace's diff pane if it has one. Each side is capped at 5 MiB; `path` must be absolute and enables "Open in External Editor" at the cursor; `language` is a Monaco id, otherwise inferred from `path`. The content lives only in memory: a restored workspace drops diff panes. |
 | `ext.openFile` | `{workspaceId, path, line?, column?}` | Opens a file in that workspace's editor, at `line` and `column` (1-based) when given, the way `ostia <file>:<line>` does for the human. `path` must be absolute and name a regular file Ostia's file views may already read (inside the home folder, or a file the human opened before); this never grants access to anything else. Returns `{ok}`, or `unknown-workspace`, `outside-roots`, `not-a-file`. Use it for a result the human picked, such as a search hit in your panel. |
 | `workspace.list` | — | Needs `read-board`. `[{workspaceId, name, kind, workDir, state, activePaneId?}]`. |
@@ -929,7 +929,7 @@ Every command and panel request carries who is asking:
 
 Use `workDir` for project-scoped data (it is the workspace's anchor directory, possibly `~`).
 `cwd` is the live shell directory of the calling pane (CLI) or of the active pane (palette) when
-that is a terminal; use it for "where the user is" (the git extension finds the repo from it).
+that is a terminal; use it for "where the user is" (a tool that needs the repository finds it from there).
 Panel requests carry no `cwd`; derive one from `workspace.list` + `pane.list` if you need it.
 Enforce conditional rules yourself from `capabilities`, for example refuse a write outside the
 workspace's project unless the caller holds `all-workspaces`.
@@ -1361,9 +1361,9 @@ no script: Ostia validates the file and draws it with its own components, bound 
   icons), `list` (`for` a data path, `as` an item name), `button`, `link`, `progress`, `kv`,
   `divider`. Every node may carry `if: "{{path}}"`. Unknown properties are errors.
 - **Data** (read-only, live): `workspace` (the current one), `workspaces`, `panes` (of the current
-  workspace, with their agent and attention), `ports` (from the Ports extension), `approvals`
+  workspace, with their agent and attention), `ports` (the listening ports Ostia finds), `approvals`
   (`{pending}`), `notifications` (newest 50), `clock` (`{now}`, ticking each second). A
-  workspace also carries `git`: the Git extension's sidebar text for it.
+  workspace also carries `git`: the branch Ostia shows for it in the sidebar.
 - **Bindings.** `{{path | filter}}` inside strings: dot-separated names or indices only, own
   properties only (`__proto__`, `constructor`, `prototype` are refused), missing paths render
   empty. Filters: `upper`, `lower`, `count`, `not`, `relative`, `time`, `date`.
@@ -1390,12 +1390,15 @@ no script: Ostia validates the file and draws it with its own components, bound 
 `scripts/build-extensions.mjs` (part of `pnpm build`) bundles them into `out/extensions/<id>/`; electron-builder ships that dir as `resources/extensions`. They import
 only `src/extensions/sdk/` and `src/shared/` — never `src/main` or `src/renderer`.
 
+Git (the branch and diff stats chips, the Git panel, `ostia git …`) and Ports (the plug in the top
+bar, the ssh login chip, `ostia ports ls`) are part of Ostia itself, not extensions: they need no
+process, read nothing until a window shows one of their items or a verb is used, and their settings
+are Settings → Git and Settings → Ports.
+
 | Id | What it does |
 |---|---|
-| `git` | The branch per workspace in the sidebar; `git.branch` (`main • ↑2 ↓1`, click opens the panel) and `git.diff-stats` (`3 • +12 -4`) workspace chips in the top bar for the active workspace; a Git panel with Changes (stage, unstage, discard after `ext.confirm`, commit; flat list or folder tree), Graph (lanes, ref badges, an uncommitted-changes row, the current, all or chosen branches; a commit's files open as diffs) and Blame pages ("Show Changes", "Show Graph", "Blame File"); settings `pollSeconds`, `showDiffStats`, `graphScope`, `changesView` (the panel's controls write the last two with `ext.setSetting`); `ostia git status|changes|diff|open|log|blame|stage|unstage|commit` (discard is panel only) |
 | `keymap-macos` | Two macOS keymaps as `contributes.keymaps` entries with no process (`platform: "darwin"`). `cmux` (`assets/cmux.json`) follows cmux's default shortcuts and drops Ostia's older second keys: ⇧⌘P palette (⌘K no longer opens it), ⌘P jump to a workspace (Go to File has no key under it), ⌘B sidebar, ⌘N new workspace, ⌘T new tab, ⌥⌘D the dashboard, and in a terminal ⌘D split right, ⇧⌘D split down, ⌥⌘ and an arrow to move between panes, ⇧⌘↩ zoom, and ⌘K or ⇧⌘K to clear. `iterm2` (`assets/iterm2.json`) follows iTerm2's default global keys: ⌘↑ ⌘↓ scroll one line, ⇧⌘↑ ⇧⌘↓ select the previous and next block, ⌘N new workspace, ⌘T new tab. Enabled like every built-in but not chosen: the `keymap` setting stays `null` until the human picks one in Settings → Keyboard |
 | `langpack-zh-hant` | Traditional Chinese (`zh-Hant`) for the interface, as a `contributes.languages` pack with no process. Its `zh-Hant.json` is generated at build time from `zhHant` in `src/renderer/i18n/dict.ts`, which stays typed against the English catalog so a missing string fails the typecheck |
-| `ports` | Per workspace, a `ports` workspace chip in the top bar: a plug with the number of TCP ports its terminals' processes listen on; click it for the list, click a port to open it in the browser pane. A foreground `ssh` shows as its host in the sidebar and as an `ssh` chip with `user@host` on its pane. Polls only while Ostia is focused. `ostia ports ls [--all]`. Settings: `intervalSeconds` (default 3), `portHost` (`localhost` or `127.0.0.1`) |
 | `system` | `ostia system info` (OS, kernel, arch, shell, package managers on PATH and the default one) and `ostia system install <pkg...> [--manager <name>] [--reason <text>] [--wait]`: validates the names, shows the human the exact install command and the reason, and on Approve runs it in a new terminal next to the agent (`ext.openTerminal`). Returns `{approved, command, paneId?}`; a denial exits 1. With `--wait` it returns when the install ends (`ext.openTerminal`'s `waitMs`, within the command's 10 minutes) and adds `{finished, exitCode}`; a failed install or a closed terminal exits 1 |
 | `ssh` | The hosts of your ssh config and a session in a new terminal, with the system OpenSSH client. "SSH: Connect to Host…" and `ostia ssh connect [-J <hop>[,<hop>...]] [-p <port>] <[user@]host>` take ssh's own spelling and nothing else (any other option is refused), resolve the target with `ssh -G`, and open `ssh … -- <host>` beside the caller with `ext.openTerminal`; a pane caller is asked first, with the exact command, the resolved `user@host:port` and the bastion hops. `ostia ssh ls` lists the aliases (it reads `~/.ssh/config` and its `Include`s and runs nothing); `ostia ssh show <host>` resolves one. A caller in a sandboxed workspace is refused. Bastions come from `ProxyJump` in your config or from `-J`; the `user@host` chip is the Ports extension's. With the human's consent per host (a dialog naming the host and the exact path), it installs two readable shell files in `~/.ostia/helper/<version>/` there: `helper.sh`, which it talks to over `ssh -T`, and `session.sh`, the shell integration, so later sessions to that host type a short command that sources it (after a checksum check) instead of the whole integration: "SSH: Open Remote Folder", run from a session it opened, shows that session's current folder in Files through [Remote folders](#remote-folders). "SSH: Install Remote Helper on Host…" and "SSH: Remove Remote Helper…" are for the human only; `ostia ssh helpers` lists the answers. The helper connects without a terminal, so the host must accept a key or an ssh agent. Setting `remoteHelper` (on by default) turns all of it off |
 | `assistant` | The assist points on the providers the human adds in Settings → Assistant: `ollama`, any `openai-compatible` endpoint (LM Studio, llama.cpp server, …), `openrouter`, `openai` or `anthropic`, several at once, each with its own base URL, API key and models. Built on the AI SDK (`ai`, `@ai-sdk/openai-compatible`, `@ai-sdk/openai`, `@ai-sdk/anthropic`, `@openrouter/ai-sdk-provider`, zod for structured answers). Every request names its provider and model; the engine checks per model whether tools are native or described in the prompt. A switch per feature (`typos`, `promptReview`, `commandSuggest`, `terminalCompletions`, `editorCompletions`, `chat`, `explainError`) and a requests-per-minute limit are its own settings. Inert until a provider with a model exists. It has no panel: Settings → Assistant shows the models in use, each feature with its switch, model, readiness, shortcut and "Try it", and the providers; "Assistant: Chat" opens the chat pane |

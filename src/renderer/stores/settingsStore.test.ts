@@ -73,6 +73,8 @@ describe('settingsStore', () => {
       trustedActions: s.trustedActions,
       manager: s.manager,
       privacy: s.privacy,
+      git: s.git,
+      ports: s.ports,
     })
   })
 
@@ -565,6 +567,8 @@ describe('settingsStore', () => {
         trustedActions: s.trustedActions,
         manager: s.manager,
         privacy: s.privacy,
+        git: s.git,
+        ports: s.ports,
       }).toEqual(DEFAULTS)
     })
 
@@ -776,6 +780,8 @@ describe('settingsStore', () => {
         trustedActions: s.trustedActions,
         manager: s.manager,
         privacy: s.privacy,
+        git: s.git,
+        ports: s.ports,
       }).toEqual(DEFAULTS)
     })
   })

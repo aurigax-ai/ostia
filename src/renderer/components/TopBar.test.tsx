@@ -15,7 +15,7 @@ import { useWorkspacesStore } from '../stores/workspacesStore'
 import { TopBar } from './TopBar'
 
 const git: ExtensionInfo = {
-  id: 'git',
+  id: 'vcs',
   name: 'Git',
   version: '1.0.0',
   description: '',
@@ -226,7 +226,7 @@ describe('TopBar', () => {
     expect(files).toHaveAttribute('aria-pressed', 'true')
   })
 
-  it('puts the dashboard button after Files and before the extension panel toggles', () => {
+  it('puts the dashboard button after Files and before the Git and extension panel toggles', () => {
     seedWorkspace()
     useExtensionsStore.setState({ list: [git] })
     const { container } = render(<TopBar />)
@@ -234,7 +234,7 @@ describe('TopBar', () => {
     const names = Array.from(left?.querySelectorAll('button') ?? []).map((b) =>
       b.getAttribute('aria-label'),
     )
-    expect(names.slice(-3)).toEqual(['Files', 'Dashboard', 'Changes'])
+    expect(names.slice(-4)).toEqual(['Files', 'Dashboard', 'Git', 'Changes'])
   })
 
   it('opens and closes the dashboard from its button, pressed while open', async () => {
@@ -302,13 +302,13 @@ describe('TopBar', () => {
     const changes = screen.getByRole('button', { name: 'Changes' })
 
     await user.click(changes)
-    const opened = findExtensionPane(useLayoutStore.getState().byWorkspace.s1.root, 'git')
+    const opened = findExtensionPane(useLayoutStore.getState().byWorkspace.s1.root, 'vcs')
     expect(opened).not.toBeNull()
     expect(changes).toHaveAttribute('aria-pressed', 'true')
 
     await user.click(changes)
     const root = useLayoutStore.getState().byWorkspace.s1?.root
-    expect(root ? findExtensionPane(root, 'git') : null).toBeNull()
+    expect(root ? findExtensionPane(root, 'vcs') : null).toBeNull()
   })
 
   it('renders one button per top-bar control, with no nested buttons and no repeated names', () => {
@@ -345,7 +345,7 @@ describe('TopBar', () => {
       activeWorkspaceId: 's1',
     })
     const chip = (workspaceId: string, id: string, text: string): WorkspaceChip => ({
-      extId: 'git',
+      extId: 'vcs',
       id,
       workspaceId,
       text,
@@ -369,7 +369,7 @@ describe('TopBar', () => {
       ],
     })
     const run = vi.fn()
-    const showId = extensionCommandId('git', 'show')
+    const showId = extensionCommandId('vcs', 'show')
     commands.register({ id: showId, title: 'Show', run })
     try {
       const { container } = render(<TopBar />)

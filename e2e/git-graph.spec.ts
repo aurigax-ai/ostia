@@ -3,7 +3,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { openWorkspace, waitForPaletteSelection } from './helpers'
-import { type ElectronApplication, _electron as electron, expect, test } from './test'
+import { _electron as electron, expect, test } from './test'
 
 function makeRepo(home: string): void {
   let clock = Math.floor(Date.now() / 1000) - 3600
@@ -46,47 +46,6 @@ function makeRepo(home: string): void {
   vcs('add', 'src/deep/new.txt')
 }
 
-function guest(app: ElectronApplication) {
-  return (script: string): Promise<string> =>
-    app.evaluate(async ({ webContents }, code) => {
-      const panel = webContents
-        .getAllWebContents()
-        .find((wc) => wc.getType() === 'webview' && wc.getURL().startsWith('http://127.0.0.1'))
-      return panel ? String(await panel.executeJavaScript(code)) : ''
-    }, script)
-}
-
-type PanelInput =
-  | {
-      type: 'mouseMove' | 'mouseDown' | 'mouseUp'
-      x: number
-      y: number
-      button?: 'left'
-      clickCount?: number
-      modifiers?: string[]
-    }
-  | { type: 'keyDown' | 'keyUp'; keyCode: string }
-
-const HELD = ['leftButtonDown']
-
-function sendToPanel(app: ElectronApplication, events: PanelInput[]): Promise<void> {
-  return app.evaluate(({ webContents }, list) => {
-    const panel = webContents
-      .getAllWebContents()
-      .find((wc) => wc.getType() === 'webview' && wc.getURL().startsWith('http://127.0.0.1'))
-    for (const event of list) panel?.sendInputEvent(event as Electron.InputEvent)
-  }, events)
-}
-
-function reloadPanel(app: ElectronApplication): Promise<void> {
-  return app.evaluate(({ webContents }) => {
-    webContents
-      .getAllWebContents()
-      .find((wc) => wc.getType() === 'webview' && wc.getURL().startsWith('http://127.0.0.1'))
-      ?.reload()
-  })
-}
-
 test('the graph shows the uncommitted row, switches to all branches, and changes follow the tree view setting', async () => {
   const dataHome = freshDataHome()
   const home = join(dataHome, 'home')
@@ -99,153 +58,123 @@ test('the graph shows the uncommitted row, switches to all branches, and changes
     const win = await app.firstWindow()
     await win.waitForLoadState('domcontentloaded')
     await openWorkspace(win)
-    const inPanel = guest(app)
-    const panelText = (): Promise<string> => inPanel('document.body.innerText')
+    const panel = win.locator('.git-surface')
+    const showGraph = async (): Promise<void> => {
+      await win.keyboard.press('Control+Shift+P')
+      await win.locator('[data-slot="command-input"]').fill('Show Graph')
+      await waitForPaletteSelection(win, 'Show Graph')
+      await win.keyboard.press('Enter')
+      await expect(
+        panel.locator('.graph-row').filter({ hasText: 'merge feature into main' }),
+      ).toBeVisible({ timeout: 15_000 })
+    }
 
     await expect(
       win.locator('.topbar-right .workspace-chips .pane-chip').filter({ hasText: /^main$/ }),
     ).toBeVisible({
       timeout: 15_000,
     })
-    await win.keyboard.press('Control+Shift+P')
-    await win.locator('[data-slot="command-input"]').fill('Show Graph')
-    await waitForPaletteSelection(win, 'Show Graph')
-    await win.keyboard.press('Enter')
+    await showGraph()
 
-    await expect.poll(panelText, { timeout: 15_000 }).toContain('merge feature into main')
-    const worktreeRow = `document.querySelector('.graph-row.worktree')`
-    expect(await inPanel(`${worktreeRow}.innerText`)).toMatch(
-      /Uncommitted changes[\s\S]*1 staged[\s\S]*1 unstaged/,
-    )
-    expect(await inPanel(`${worktreeRow}.querySelectorAll('.node.pending').length`)).toBe('1')
-    expect(await inPanel(`document.querySelectorAll('.edge.pending').length > 0`)).toBe('true')
-    expect(await panelText()).not.toContain('side only work')
-    expect(await inPanel(`document.querySelector('.scope-trigger').innerText`)).toBe(
-      'Current branch',
-    )
+    const worktreeRow = panel.locator('.graph-row.worktree')
+    await expect(worktreeRow).toContainText(/Uncommitted changes[\s\S]*1 staged[\s\S]*1 unstaged/)
+    await expect(worktreeRow.locator('.node.pending')).toHaveCount(1)
+    expect(await panel.locator('.edge.pending').count()).toBeGreaterThan(0)
+    await expect(panel).not.toContainText('side only work')
+    const scope = panel.locator('.scope-trigger')
+    await expect(scope).toHaveText('Current branch')
 
-    await inPanel(`${worktreeRow}.click(); 'ok'`)
-    await expect
-      .poll(() => inPanel(`document.querySelector('.detail')?.innerText ?? ''`))
-      .toMatch(/STAGED[\s\S]*new\.txt/)
+    await worktreeRow.click()
+    const detail = panel.locator('.detail')
+    await expect(detail).toContainText(/staged[\s\S]*new\.txt/i)
 
     const detailHeight = async (): Promise<number> =>
-      Number(
-        await inPanel(
-          `Math.round(document.querySelector('.detail').getBoundingClientRect().height)`,
-        ),
-      )
-    const handle = `document.querySelector('.ostia-split-handle')`
-    expect(await inPanel(`${handle}.getAttribute('role')`)).toBe('separator')
-    expect(await inPanel(`${handle}.getAttribute('aria-orientation')`)).toBe('horizontal')
+      Math.round((await detail.boundingBox())?.height ?? 0)
+    const handle = panel.locator('[data-split="graph-details"] .ostia-split-handle')
+    await expect(handle).toHaveAttribute('role', 'separator')
+    await expect(handle).toHaveAttribute('aria-orientation', 'horizontal')
     const before = await detailHeight()
-    const [hx, hy] = JSON.parse(
-      await inPanel(
-        `JSON.stringify((() => { const r = ${handle}.getBoundingClientRect(); return [Math.round(r.left + r.width / 2), Math.round(r.top)] })())`,
-      ),
-    ) as [number, number]
-    await sendToPanel(app, [
-      { type: 'mouseMove', x: hx, y: hy },
-      { type: 'mouseDown', x: hx, y: hy, button: 'left', clickCount: 1, modifiers: HELD },
-      { type: 'mouseMove', x: hx, y: hy - 40, button: 'left', modifiers: HELD },
-      { type: 'mouseMove', x: hx, y: hy - 80, button: 'left', modifiers: HELD },
-      { type: 'mouseUp', x: hx, y: hy - 80, button: 'left', clickCount: 1 },
-    ])
+    const grip = await handle.boundingBox()
+    if (!grip) throw new Error('no split handle')
+    const hx = Math.round(grip.x + grip.width / 2)
+    const hy = Math.round(grip.y + grip.height / 2)
+    await win.mouse.move(hx, hy)
+    await win.mouse.down()
+    await win.mouse.move(hx, hy - 40)
+    await win.mouse.move(hx, hy - 80)
+    await win.mouse.up()
     await expect.poll(detailHeight).toBeGreaterThan(before + 60)
     const dragged = await detailHeight()
-    expect(await inPanel(`String(document.getSelection().toString())`)).toBe('')
-    await inPanel(`${handle}.focus(); 'ok'`)
-    await sendToPanel(app, [
-      { type: 'keyDown', keyCode: 'Up' },
-      { type: 'keyUp', keyCode: 'Up' },
-    ])
+    expect(await win.evaluate(() => String(document.getSelection()?.toString() ?? ''))).toBe('')
+    await handle.focus()
+    await win.keyboard.press('ArrowUp')
     const near = (target: number) => async (): Promise<boolean> =>
       Math.abs((await detailHeight()) - target) <= 2
     await expect.poll(near(dragged + 16)).toBe(true)
-    const sizesFile = join(
-      await app.evaluate(({ app: electronApp }) => electronApp.getPath('userData')),
-      'extension-data',
-      'git',
-      'panel-sizes.json',
-    )
-    const savedFraction = (): number | null => {
-      try {
-        return JSON.parse(readFileSync(sizesFile, 'utf8'))['graph-details'] ?? null
-      } catch {
-        return null
-      }
-    }
+    const savedFraction = (): Promise<number | null> =>
+      win.evaluate(() => {
+        try {
+          const sizes = JSON.parse(localStorage.getItem('panelSizes') ?? '{}')
+          return typeof sizes['git:graph-details'] === 'number' ? sizes['git:graph-details'] : null
+        } catch {
+          return null
+        }
+      })
     await expect.poll(savedFraction).not.toBeNull()
 
-    await reloadPanel(app)
-    await expect.poll(panelText, { timeout: 15_000 }).toContain('merge feature into main')
-    await inPanel(`${worktreeRow}.click(); 'ok'`)
+    const toggle = win.locator('.topbar').getByRole('button', { name: 'Git', exact: true })
+    await toggle.click()
+    await expect(panel).toHaveCount(0)
+    await showGraph()
+    await worktreeRow.click()
     await expect.poll(near(dragged + 16), { timeout: 15_000 }).toBe(true)
-    const press = (key: string): Promise<string> =>
-      inPanel(`(() => {
-        const list = document.querySelector('.graph-scroll')
-        list.focus()
-        list.dispatchEvent(new KeyboardEvent('keydown', { key: ${JSON.stringify(key)}, bubbles: true }))
-        return 'ok'
-      })()`)
-    const selectedRow = (): Promise<string> =>
-      inPanel(`document.querySelector('.graph-row[aria-selected="true"]')?.innerText ?? ''`)
-    await press('ArrowDown')
-    await expect.poll(selectedRow).toContain('merge feature into main')
-    await expect
-      .poll(() => inPanel(`document.querySelector('.detail')?.innerText ?? ''`))
-      .toContain('feature.txt')
-    await press('End')
-    await expect.poll(selectedRow).toContain('root commit')
-    await press('Escape')
-    await expect
-      .poll(() => inPanel(`String(document.querySelector('.detail') === null)`))
-      .toBe('true')
 
-    await inPanel(`document.querySelector('.scope-trigger').click(); 'ok'`)
-    await inPanel(`document.querySelector('input[type="radio"][value="all"]').click(); 'ok'`)
-    await expect.poll(panelText, { timeout: 15_000 }).toContain('side only work')
-    expect(await inPanel(`document.querySelector('.scope-trigger').innerText`)).toBe('All branches')
+    const list = panel.locator('.graph-scroll')
+    const selectedRow = panel.locator('.graph-row[aria-selected="true"]')
+    await list.focus()
+    await win.keyboard.press('ArrowDown')
+    await expect(selectedRow).toContainText('merge feature into main')
+    await expect(detail).toContainText('feature.txt')
+    await win.keyboard.press('End')
+    await expect(selectedRow).toContainText('root commit')
+    await win.keyboard.press('Escape')
+    await expect(detail).toHaveCount(0)
+
+    await scope.click()
+    await win.locator('.scope-menu [data-scope="all"]').click()
+    await expect(panel).toContainText('side only work', { timeout: 15_000 })
+    await expect(scope).toHaveText('All branches')
     const userData = await app.evaluate(({ app: electronApp }) => electronApp.getPath('userData'))
     const gitSetting = (key: string) => (): unknown => {
       try {
         const saved = JSON.parse(readFileSync(join(userData, 'settings.json'), 'utf8'))
-        return saved.extensionSettings?.git?.[key] ?? null
+        return saved.git?.[key] ?? null
       } catch {
         return null
       }
     }
     await expect.poll(gitSetting('graphScope'), { timeout: 10_000 }).toBe('all')
+    if (await win.locator('.scope-menu').isVisible()) await win.keyboard.press('Escape')
 
-    await inPanel(`document.querySelector('[data-key="tab-changes"]').click(); 'ok'`)
-    await expect.poll(panelText, { timeout: 15_000 }).toContain('feature.txt')
-    expect(
-      await inPanel(
-        `String(document.querySelector('[data-split="changes-commit"] [role="separator"]') !== null)`,
-      ),
-    ).toBe('true')
+    await panel.locator('[data-key="tab-changes"]').click()
+    await expect(panel).toHaveAttribute('data-page', 'changes')
+    await expect(panel.locator('button.change[data-path="src/deep/feature.txt"]')).toBeVisible({
+      timeout: 15_000,
+    })
+    await expect(panel.locator('[data-split="changes-commit"] [role="separator"]')).toHaveCount(1)
+    const message = panel.locator('.commit textarea.message')
     const boxHeight = async (): Promise<number> =>
-      Number(
-        await inPanel(
-          `Math.round(document.querySelector('textarea.message').getBoundingClientRect().height)`,
-        ),
-      )
+      Math.round((await message.boundingBox())?.height ?? 0)
     const emptyBox = await boxHeight()
-    await inPanel(`(() => {
-      const box = document.querySelector('textarea.message')
-      box.value = 'subject\\n\\n' + 'body line\\n'.repeat(8)
-      box.dispatchEvent(new Event('input', { bubbles: true }))
-      return 'ok'
-    })()`)
+    await message.fill(`subject\n\n${'body line\n'.repeat(8)}`)
     await expect.poll(boxHeight).toBeGreaterThan(emptyBox + 60)
-    expect(await panelText()).toContain('feature.txt')
-    expect(await inPanel(`document.querySelectorAll('button.folder').length`)).toBe('0')
-    await inPanel(`document.querySelector('[aria-label="Folder tree"]').click(); 'ok'`)
+    await expect(panel.locator('button.change[data-path="src/deep/feature.txt"]')).toBeVisible()
+    const folders = panel.locator('button.folder')
+    await expect(folders).toHaveCount(0)
+    await panel.getByRole('button', { name: 'Folder tree' }).click()
     await expect
-      .poll(() =>
-        inPanel(
-          `[...document.querySelectorAll('button.folder')].map((b) => b.innerText.replace(/\\s+/g, ' ').trim()).join('|')`,
-        ),
+      .poll(async () =>
+        (await folders.allInnerTexts()).map((t) => t.replace(/\s+/g, ' ').trim()).join('|'),
       )
       .toBe('src/deep 1|src/deep 1')
     await expect.poll(gitSetting('changesView'), { timeout: 10_000 }).toBe('tree')
@@ -254,26 +183,16 @@ test('the graph shows the uncommitted row, switches to all branches, and changes
     await win.keyboard.press('Control+,')
     const settings = win.getByRole('region', { name: 'Settings' })
     await expect(settings).toBeVisible({ timeout: 10_000 })
-    await settings.getByRole('button', { name: 'Extensions', exact: true }).click()
-    await settings
-      .getByRole('list', { name: 'Installed extensions' })
-      .getByRole('button', { name: 'Git', exact: true })
-      .click()
+    await settings.getByRole('button', { name: 'Git', exact: true }).click()
     const changesView = settings.getByRole('combobox', { name: 'Changed files layout' })
     await expect(changesView).toContainText('Folder tree')
     await expect(settings.getByRole('combobox', { name: 'Graph branches' })).toContainText(
       'All branches',
     )
     await changesView.click()
-    await win.getByRole('option', { name: 'List', exact: true }).click()
-    await expect
-      .poll(() => inPanel(`document.querySelectorAll('button.folder').length`), { timeout: 15_000 })
-      .toBe('0')
-    expect(
-      await inPanel(
-        `document.querySelector('[aria-label="Flat list"]').getAttribute('aria-pressed')`,
-      ),
-    ).toBe('true')
+    await win.getByRole('option', { name: 'Flat list', exact: true }).click()
+    await expect(folders).toHaveCount(0, { timeout: 15_000 })
+    await expect(panel.locator('[aria-label="Flat list"]')).toHaveAttribute('aria-pressed', 'true')
     await expect.poll(gitSetting('changesView'), { timeout: 10_000 }).toBe('list')
   } finally {
     await app.close()
