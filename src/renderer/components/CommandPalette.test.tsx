@@ -18,6 +18,20 @@ import { CommandPalette } from './CommandPalette'
 const searchWorkspaceSymbols = vi.hoisted(() => vi.fn())
 vi.mock('../lsp/client', () => ({ searchWorkspaceSymbols }))
 
+function expectSecondaryAfterTitle(option: HTMLElement, title: string, secondary: string[]): void {
+  const row = option.querySelector('[data-slot="palette-row"]')
+  const cells = [...(row?.children ?? [])]
+  expect(cells.map((cell) => cell.textContent)).toEqual([title, ...secondary])
+  expect(cells[0]).toHaveAttribute('data-slot', 'palette-title')
+  expect(cells[0]).toHaveClass('shrink-0', 'max-w-full', 'truncate')
+  expect(row).toHaveClass('flex', 'gap-x-3')
+  for (const cell of cells.slice(1)) {
+    expect(cell.className).not.toMatch(/ml-auto|justify-end|justify-self-end/)
+    if (cell.tagName === 'KBD') expect(cell).toHaveClass('shrink-0')
+    else expect(cell).toHaveClass('min-w-0', 'truncate', 'text-fg-muted')
+  }
+}
+
 describe('CommandPalette', () => {
   let uiInit: ReturnType<typeof useUIStore.getState>
 
@@ -110,17 +124,22 @@ describe('CommandPalette', () => {
     expect(screen.getByRole('option', { name: /Open Settings/ })).toBeInTheDocument()
   })
 
-  it('puts the command id and its shortcut in separate right-hand cells', async () => {
+  it('puts a command’s keycap and its id right after the title', async () => {
     useUIStore.setState({ paletteOpen: true })
     render(<CommandPalette />)
 
     const option = await screen.findByRole('option', { name: /Open Settings/ })
+    const keycap = option.querySelector('kbd')
 
+    expect(keycap).toHaveAttribute('data-slot', 'kbd')
+    expectSecondaryAfterTitle(option, 'Open Settings', [
+      keycap?.textContent ?? '',
+      'app.openSettings',
+    ])
     expect(within(option).getByText('app.openSettings')).toHaveAttribute(
       'data-slot',
       'palette-meta',
     )
-    expect(option.querySelector('kbd')?.parentElement).toHaveClass('justify-end')
   })
 
   describe('prefixes', () => {
@@ -193,6 +212,24 @@ describe('CommandPalette', () => {
       expect(screen.queryByRole('option', { name: /^payments/ })).toBeNull()
     })
 
+    it('puts a workspace’s folder and a tab’s workspace right after the title', async () => {
+      seed()
+      render(<CommandPalette />)
+      const input = await screen.findByRole('combobox')
+      await userEvent.type(input, '@pay')
+      expectSecondaryAfterTitle(screen.getByRole('option', { name: /payments/ }), 'payments', [
+        '/src/api',
+      ])
+
+      await userEvent.clear(input)
+      await userEvent.type(input, '#refunds')
+      expectSecondaryAfterTitle(
+        screen.getByRole('option', { name: /Fix refunds/ }),
+        '✳ Fix refunds',
+        ['payments'],
+      )
+    })
+
     it('shows only commands with >', async () => {
       seed()
       render(<CommandPalette />)
@@ -262,6 +299,27 @@ describe('CommandPalette', () => {
 
       expect(await screen.findByRole('option', { name: /Fix checkout/ })).toBeInTheDocument()
       expect(screen.getByPlaceholderText('Card id')).toHaveFocus()
+    })
+
+    it('puts the reason a choice is unavailable right after its label', async () => {
+      commands.register<{ argument?: string }, void>({
+        id: 'test.card',
+        title: 'Test: Open Card',
+        argument: 'Card id',
+        choices: async () => [
+          { value: 'shop-12', label: 'Fix checkout', disabledReason: 'Already open' },
+        ],
+        run: vi.fn(),
+      })
+      useUIStore.setState({ paletteOpen: true })
+      render(<CommandPalette />)
+      await userEvent.type(await screen.findByRole('combobox'), 'Test: Open Card{Enter}')
+
+      expectSecondaryAfterTitle(
+        await screen.findByRole('option', { name: /Fix checkout/ }),
+        'Fix checkout',
+        ['Already open'],
+      )
     })
 
     it('reopens on the command list after the palette chord closed it mid-argument', async () => {
@@ -421,6 +479,7 @@ describe('CommandPalette', () => {
 
       const option = await screen.findByRole('option', { name: /greet/ })
       expect(option).toHaveTextContent('lib/greet.ts:12')
+      expectSecondaryAfterTitle(option, 'greet', ['lib', 'lib/greet.ts:12'])
       await waitFor(() =>
         expect(searchWorkspaceSymbols).toHaveBeenLastCalledWith(new Set(['pane-3']), 'gre'),
       )
@@ -504,6 +563,8 @@ describe('CommandPalette', () => {
       expect(options).toHaveLength(2)
       expect(options[0]).toHaveTextContent('greet.ts')
       expect(options[0]).toHaveTextContent('src/lib')
+      expectSecondaryAfterTitle(options[0], 'greet.ts', ['src/lib'])
+      expectSecondaryAfterTitle(options[1], 'README.md', [])
       expect(options[1]).toHaveTextContent('README.md')
       await waitFor(() =>
         expect(window.ostia.search.run).toHaveBeenLastCalledWith({

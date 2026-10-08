@@ -22,10 +22,15 @@ async function measure(win: Page) {
     const list = document.querySelector('[data-slot="command-list"]')
     const heading = document.querySelector('[cmdk-group-heading]')
     const item = document.querySelector('[data-slot="command-item"]')
-    const rightEdges = (selector: string) =>
-      [...document.querySelectorAll(selector)].map((el) => el.getBoundingClientRect().right)
-    const metaEdges = rightEdges('[data-slot="command-item"] [data-slot="palette-meta"]')
-    const keyEdges = rightEdges('[data-slot="command-item"] kbd')
+    const rows = [...document.querySelectorAll('[data-slot="palette-row"]')].map((row) => {
+      const cells = [...row.children].map((cell) => cell.getBoundingClientRect())
+      return {
+        left: cells[0].left - row.getBoundingClientRect().left,
+        gaps: cells.slice(1).map((cell, i) => cell.left - cells[i].right),
+        overflow: Math.max(...cells.map((cell) => cell.right)) - row.getBoundingClientRect().right,
+      }
+    })
+    const gaps = rows.flatMap((row) => row.gaps)
     const style = (el: Element | null) => (el ? getComputedStyle(el) : null)
     return {
       dialogWidth: dialog?.getBoundingClientRect().width ?? 0,
@@ -33,16 +38,67 @@ async function measure(win: Page) {
       headingWeight: Number(style(heading)?.fontWeight ?? 0),
       headingSize: Number.parseFloat(style(heading)?.fontSize ?? '0'),
       itemSize: Number.parseFloat(style(item)?.fontSize ?? '0'),
-      numeric: style(item?.querySelector('span.grid') ?? null)?.fontVariantNumeric ?? '',
-      metaSpread: metaEdges.length ? Math.max(...metaEdges) - Math.min(...metaEdges) : 0,
-      keySpread: keyEdges.length ? Math.max(...keyEdges) - Math.min(...keyEdges) : 0,
-      keyCount: keyEdges.length,
+      numeric:
+        style(item?.querySelector('[data-slot="palette-row"]') ?? null)?.fontVariantNumeric ?? '',
+      titleInset: Math.max(...rows.map((row) => Math.abs(row.left))),
+      gapCount: gaps.length,
+      gapMin: Math.min(...gaps),
+      gapMax: Math.max(...gaps),
+      overflow: Math.max(...rows.map((row) => row.overflow)),
+      keyCount: document.querySelectorAll('[data-slot="palette-row"] > kbd').length,
+      metaColors: [
+        ...new Set(
+          [
+            ...document.querySelectorAll(
+              '[data-slot="command-item"]:not([data-selected="true"]) [data-slot="palette-meta"]',
+            ),
+          ].map((el) => getComputedStyle(el).color),
+        ),
+      ],
+      mutedColor: (() => {
+        const probe = document.createElement('span')
+        probe.className = 'text-fg-muted'
+        document.body.append(probe)
+        const color = getComputedStyle(probe).color
+        probe.remove()
+        return color
+      })(),
     }
   })
 }
 
+async function squeezeFirstMeta(win: Page) {
+  return win.evaluate(() => {
+    const meta = document.querySelector<HTMLElement>('[data-slot="palette-meta"]')
+    const row = meta?.closest<HTMLElement>('[data-slot="palette-row"]')
+    const title = row?.querySelector<HTMLElement>('[data-slot="palette-title"]')
+    const item = row?.closest<HTMLElement>('[data-slot="command-item"]')
+    if (!meta || !row || !title || !item) return null
+    const kept = item.style.width
+    item.style.width = `${title.getBoundingClientRect().width + 80}px`
+    const measured = {
+      titleCut: title.scrollWidth > title.clientWidth,
+      metaCut: meta.scrollWidth > meta.clientWidth,
+      metaOverflow: getComputedStyle(meta).textOverflow,
+      metaInside: meta.getBoundingClientRect().right <= row.getBoundingClientRect().right + 0.5,
+      metaStart: meta.getBoundingClientRect().left - title.getBoundingClientRect().right,
+    }
+    item.style.width = kept
+    return measured
+  })
+}
+
+function expectSecondaryAfterTitle(layout: Awaited<ReturnType<typeof measure>>): void {
+  expect(layout.gapCount).toBeGreaterThan(0)
+  expect(layout.titleInset).toBeLessThanOrEqual(0.5)
+  expect(layout.gapMin).toBeGreaterThan(0)
+  expect(layout.gapMax - layout.gapMin).toBeLessThanOrEqual(0.5)
+  expect(layout.overflow).toBeLessThanOrEqual(0.5)
+  expect(layout.metaColors).toEqual([layout.mutedColor])
+}
+
 for (const theme of ['adeberry', 'ostia-light']) {
-  test(`the palette is taller and wider, headings stand out and right-hand values align on ${theme}`, async () => {
+  test(`the palette is taller and wider, headings stand out and secondary text follows the title on ${theme}`, async () => {
     const { app, win } = await launch(theme)
     try {
       await openWorkspace(win)
@@ -64,8 +120,14 @@ for (const theme of ['adeberry', 'ostia-light']) {
       expect(all.headingSize).toBeGreaterThanOrEqual(all.itemSize)
       expect(all.numeric).toContain('tabular-nums')
       expect(all.keyCount).toBeGreaterThan(0)
-      expect(all.metaSpread).toBeLessThanOrEqual(1)
-      expect(all.keySpread).toBeLessThanOrEqual(1)
+      expectSecondaryAfterTitle(all)
+      expect(await squeezeFirstMeta(win)).toEqual({
+        titleCut: false,
+        metaCut: true,
+        metaOverflow: 'ellipsis',
+        metaInside: true,
+        metaStart: all.gapMin,
+      })
 
       await palette.getByRole('combobox').fill('pane')
       await expect(palette.getByRole('option').first()).toBeVisible()
@@ -75,8 +137,7 @@ for (const theme of ['adeberry', 'ostia-light']) {
         contentType: 'image/png',
       })
       const searched = await measure(win)
-      expect(searched.metaSpread).toBeLessThanOrEqual(1)
-      expect(searched.keySpread).toBeLessThanOrEqual(1)
+      expectSecondaryAfterTitle(searched)
     } finally {
       await app.close()
     }

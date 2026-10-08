@@ -476,26 +476,28 @@ function ItemRow({
   mono?: boolean
   nameMono?: boolean
 }): JSX.Element {
+  const secondary = 'text-fg-muted text-ui-xs group-data-selected/command-item:text-fg'
   return (
-    <span className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto_7.5rem] items-center gap-x-3 tabular-nums">
-      <span className="flex min-w-0 items-baseline gap-2">
-        <span className={cn('truncate', nameMono && 'font-mono')}>{name}</span>
-        {detail ? (
-          <span className="min-w-0 truncate text-fg-muted text-ui-xs">{detail}</span>
-        ) : null}
-      </span>
+    <span
+      data-slot="palette-row"
+      className="flex min-w-0 flex-1 items-center gap-x-3 overflow-hidden tabular-nums"
+    >
       <span
-        data-slot="palette-meta"
-        className={cn(
-          'min-w-0 max-w-80 justify-self-end truncate text-fg-muted text-ui-xs group-data-selected/command-item:text-fg',
-          mono && 'font-mono',
-        )}
+        data-slot="palette-title"
+        className={cn('max-w-full shrink-0 truncate', nameMono && 'font-mono')}
       >
-        {meta}
+        {name}
       </span>
-      <span className="flex justify-end">
-        {keys ? <Kbd className="whitespace-nowrap">{keys}</Kbd> : null}
-      </span>
+      {detail ? <span className={cn('min-w-0 truncate', secondary)}>{detail}</span> : null}
+      {keys ? <Kbd className="shrink-0 whitespace-nowrap">{keys}</Kbd> : null}
+      {meta ? (
+        <span
+          data-slot="palette-meta"
+          className={cn('min-w-0 truncate', secondary, mono && 'font-mono')}
+        >
+          {meta}
+        </span>
+      ) : null}
     </span>
   )
 }
