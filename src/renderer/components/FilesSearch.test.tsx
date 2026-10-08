@@ -86,6 +86,22 @@ describe('Files panel search', () => {
     expect(useUIStore.getState()).toMatchObject({ filesOpen: true, filesSearchFocus: false })
   })
 
+  it('searches for the text Search Files was given', async () => {
+    seed()
+    vi.mocked(window.ostia.search.run).mockResolvedValue(RESULTS)
+    render(<FilesPanel />)
+    const box = screen.getByRole('textbox', { name: 'Search files' })
+
+    act(() => useUIStore.getState().searchFiles('notes'))
+
+    expect(box).toHaveValue('notes')
+    expect(box).toHaveFocus()
+    expect(await screen.findByRole('region', { name: 'Text' })).toHaveTextContent(
+      'find the notes here',
+    )
+    expect(useUIStore.getState().filesSearchQuery).toBeNull()
+  })
+
   it('searches the tree folder for names and text and lists both', async () => {
     seed()
     vi.mocked(window.ostia.search.run).mockResolvedValue(RESULTS)

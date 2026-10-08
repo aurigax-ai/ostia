@@ -254,6 +254,7 @@ export function CommandPalette(): JSX.Element {
                       onDone={finish}
                       quiet
                     />
+                    <FilesTextItem query={search.trim()} onDone={finish} />
                     <SettingsItems query={search.trim()} onDone={finish} />
                   </>
                 ) : null}
@@ -620,6 +621,24 @@ function FileItems({
 }
 
 const SETTINGS_SYMBOL = '§'
+const FILES_TEXT_SYMBOL = '¶'
+
+function FilesTextItem({ query, onDone }: { query: string; onDone: () => void }): JSX.Element {
+  const d = useDict()
+  return (
+    <CommandItem
+      className="mx-1"
+      value={FILES_TEXT_SYMBOL}
+      forceMount
+      onSelect={() => {
+        useUIStore.getState().searchFiles(query)
+        onDone()
+      }}
+    >
+      <ItemRow name={fmt(d.palette.searchFilesText, { query })} />
+    </CommandItem>
+  )
+}
 
 function SettingsItems({ query, onDone }: { query: string; onDone: () => void }): JSX.Element {
   const d = useDict()

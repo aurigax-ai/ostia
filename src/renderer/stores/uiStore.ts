@@ -24,6 +24,7 @@ interface UIState {
   dashboardActive: boolean
   filesOpen: boolean
   filesSearchFocus: boolean
+  filesSearchQuery: string | null
   digitHints: boolean
   promptPreviewPaneId: string | null
   settingsWorkspaceId: string | null
@@ -42,7 +43,7 @@ interface UIState {
   toggleDashboard: () => void
   toggleFiles: () => void
   showFiles: () => void
-  searchFiles: () => void
+  searchFiles: (query?: string) => void
   filesSearchFocused: () => void
   setDigitHints: (shown: boolean) => void
 }
@@ -60,6 +61,7 @@ export const useUIStore = create<UIState>((set, get) => ({
   dashboardActive: false,
   filesOpen: false,
   filesSearchFocus: false,
+  filesSearchQuery: null,
   digitHints: false,
   promptPreviewPaneId: null,
   settingsWorkspaceId: null,
@@ -105,10 +107,12 @@ export const useUIStore = create<UIState>((set, get) => ({
   openDashboard: () => set({ dashboardActive: true, settingsActive: false }),
   toggleDashboard: () =>
     set((s) => ({ dashboardActive: !s.dashboardActive, settingsActive: false })),
-  toggleFiles: () => set((s) => ({ filesOpen: !s.filesOpen, filesSearchFocus: false })),
+  toggleFiles: () =>
+    set((s) => ({ filesOpen: !s.filesOpen, filesSearchFocus: false, filesSearchQuery: null })),
   showFiles: () => set({ filesOpen: true }),
-  searchFiles: () => set({ filesOpen: true, filesSearchFocus: true }),
-  filesSearchFocused: () => set({ filesSearchFocus: false }),
+  searchFiles: (query) =>
+    set({ filesOpen: true, filesSearchFocus: true, filesSearchQuery: query ?? null }),
+  filesSearchFocused: () => set({ filesSearchFocus: false, filesSearchQuery: null }),
   setDigitHints: (digitHints) => set({ digitHints }),
 }))
 

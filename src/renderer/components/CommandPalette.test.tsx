@@ -733,6 +733,50 @@ describe('CommandPalette', () => {
       expect(headings()).toEqual(expect.arrayContaining(['Workspaces', 'Tabs']))
     })
 
+    it('offers to search the text of files for what was typed and opens the Files search with it', async () => {
+      seed()
+      useUIStore.setState({ paletteOpen: true, paletteMode: 'everywhere' })
+      render(<CommandPalette />)
+      const input = await screen.findByRole('combobox')
+      expect(screen.queryByRole('option', { name: /Search text in files/ })).toBeNull()
+
+      await userEvent.type(input, 'zoom level')
+      await userEvent.click(
+        await screen.findByRole('option', { name: 'Search text in files for “zoom level”' }),
+      )
+
+      expect(useUIStore.getState()).toMatchObject({
+        paletteOpen: false,
+        filesOpen: true,
+        filesSearchFocus: true,
+        filesSearchQuery: 'zoom level',
+      })
+      act(() => useUIStore.setState({ filesOpen: false, filesSearchFocus: false }))
+    })
+
+    it('words the search-text row in Traditional Chinese', async () => {
+      usePluginsStore.setState({
+        languages: languagesFrom([
+          { extId: 'langpack-zh-hant', id: 'zh-Hant', label: '繁體中文', catalog: zhHant },
+        ]),
+      })
+      useSettingsStore.setState({ locale: 'zh-Hant' })
+      useUIStore.setState({ paletteOpen: true, paletteMode: 'everywhere' })
+      try {
+        render(<CommandPalette />)
+        await userEvent.type(await screen.findByRole('combobox'), 'zoom')
+
+        expect(
+          await screen.findByRole('option', { name: '在檔案中搜尋文字「zoom」' }),
+        ).toBeInTheDocument()
+      } finally {
+        act(() => {
+          usePluginsStore.setState({ languages: languagesFrom([]) })
+          useSettingsStore.setState({ locale: 'en' })
+        })
+      }
+    })
+
     it('leaves files and settings out of the command palette', async () => {
       seed()
       useUIStore.setState({ paletteOpen: true })
@@ -741,6 +785,7 @@ describe('CommandPalette', () => {
 
       expect(await screen.findByRole('option', { name: /Zoom Pane/ })).toBeInTheDocument()
       expect(screen.queryByRole('option', { name: /Search settings/ })).toBeNull()
+      expect(screen.queryByRole('option', { name: /Search text in files/ })).toBeNull()
       expect(headings()).not.toContain('Settings')
       expect(window.ostia.search.run).not.toHaveBeenCalled()
     })

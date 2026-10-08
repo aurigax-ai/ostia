@@ -1,5 +1,7 @@
+import { mkdirSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { chords } from './chords'
-import { isolatedLaunch } from './dataHome'
+import { freshDataHome, isolatedLaunch } from './dataHome'
 import { SLOW_FRAME_MS, fastFrames, slowFrames } from './frames'
 import { openWorkspace } from './helpers'
 import { _electron as electron, expect, test } from './test'
@@ -82,6 +84,38 @@ test('Shift twice in a terminal opens Search Everywhere and runs the command pic
     await expect(win.getByRole('textbox', { name: 'Search settings' })).toBeVisible()
     await expect(rows).not.toContainText('Open Settings')
     await expect(rows).not.toContainText('^[')
+  } finally {
+    await app.close()
+  }
+})
+
+test('Search Everywhere hands what was typed to the Files text search', async () => {
+  const dataHome = freshDataHome()
+  const home = join(dataHome, 'home')
+  mkdirSync(join(home, 'notes'), { recursive: true })
+  writeFileSync(join(home, 'notes', 'todo.md'), 'first line\nfind the needle here\n')
+  const launch = isolatedLaunch(dataHome)
+  const app = await electron.launch({ ...launch, env: { ...launch.env, HOME: home } })
+  try {
+    const win = await app.firstWindow()
+    await openWorkspace(win)
+    await win.locator('.xterm').first().click()
+    await expect(win.locator('.xterm-helper-textarea').first()).toBeFocused()
+
+    await win.keyboard.press('Shift')
+    await win.keyboard.press('Shift')
+    const search = win.getByRole('dialog', { name: 'Search everywhere' })
+    await expect(search.getByRole('combobox')).toBeFocused()
+    await win.keyboard.type('needle')
+    await search.getByRole('option', { name: 'Search text in files for “needle”' }).click()
+
+    await expect(search).toBeHidden()
+    const box = win.getByRole('textbox', { name: 'Search files' })
+    await expect(box).toHaveValue('needle')
+    await expect(box).toBeFocused()
+    await expect(win.getByRole('region', { name: 'Text' })).toContainText('find the needle here', {
+      timeout: 15_000,
+    })
   } finally {
     await app.close()
   }

@@ -148,6 +148,22 @@ describe('uiStore', () => {
     })
   })
 
+  describe('searchFiles with a query', () => {
+    it('hands the query to the search box once', () => {
+      state().searchFiles('needle')
+      expect(state()).toMatchObject({
+        filesOpen: true,
+        filesSearchFocus: true,
+        filesSearchQuery: 'needle',
+      })
+      state().filesSearchFocused()
+      expect(state()).toMatchObject({ filesSearchFocus: false, filesSearchQuery: null })
+      state().searchFiles()
+      expect(state().filesSearchQuery).toBeNull()
+      state().toggleFiles()
+    })
+  })
+
   describe('searchFiles', () => {
     it('opens the files panel and asks its search box for the focus once', () => {
       state().searchFiles()

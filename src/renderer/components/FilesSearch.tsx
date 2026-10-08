@@ -295,6 +295,8 @@ export function FilesSearch({
   const focusWanted = useUIStore((s) => s.filesSearchFocus)
   useEffect(() => {
     if (!focusWanted) return
+    const query = useUIStore.getState().filesSearchQuery
+    if (query !== null) setText(query)
     inputRef.current?.focus()
     inputRef.current?.select()
     useUIStore.getState().filesSearchFocused()
