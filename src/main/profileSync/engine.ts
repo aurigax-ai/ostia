@@ -55,7 +55,6 @@ export class SyncTargetError extends Error {
 export interface ProfileSyncDeps {
   userData: string
   configDir: string
-  host: string
   now?: () => Date
   method: () => SyncMethod | null
   targetLabel: () => string | null
@@ -71,10 +70,10 @@ export interface SyncRunResult {
   pulledSettings: boolean
 }
 
-export const STATE_FILE = 'sync-state.json'
+const STATE_FILE = 'sync-state.json'
 export const BASE_DIR = 'sync-base'
-export const BASE_FILE = 'base.json'
-export const WRITE_ATTEMPTS = 3
+const BASE_FILE = 'base.json'
+const WRITE_ATTEMPTS = 3
 const SHOWN_VALUE_MAX = 120
 
 type Held = { value: unknown } | null

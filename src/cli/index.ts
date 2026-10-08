@@ -35,6 +35,7 @@ import {
 } from './bus'
 import { runCmuxImportVerb } from './cmuxImport'
 import { commandHelp, wantsHelp } from './commandHelp'
+import { runGitVerb, runPortsVerb } from './coreBoards'
 import { buildCommandCall, parseCommandFlags, resolveWorkspaceRef } from './crossWorkspace'
 import { describeFailure } from './failure'
 import { type FileProbe, fileWord, isClaimedWord, parseFileArg, refusalLine } from './fileArgs'
@@ -414,6 +415,8 @@ const CORE_VERBS = new Set([
   'ext',
   'workflow',
   'view',
+  'git',
+  'ports',
 ])
 
 const FILE_PROBE: FileProbe = {
@@ -1273,9 +1276,12 @@ commands:
                             move those running tabs into another workspace of their window
                             (a tab you opened needs nothing more, any other asks for
                             type-other-pane; all-workspaces outside your reach)
-  vault | bus | settings | browse | gateway <subcommand> ...
+  vault | bus | settings | browse | gateway | token <subcommand> ...
   ext ls | ext <extId> <command> [args...]
-  <extId> <command> [args...]  an extension command, e.g. ostia git status
+  <extId> <command> [args...]  an extension command, e.g. ostia ssh hosts
+  git status | changes | diff | open | log | blame | stage | unstage | commit
+                            the repository of your folder (see: ostia git)
+  ports ls [--all]          listening ports and ssh hosts of your workspace
   <command.id> [json-args] [--workspace <id|name>]
                             run any registered command (see: ostia commands); --workspace runs
                             it in that workspace (needs all-workspaces)
@@ -1416,6 +1422,10 @@ async function main(): Promise<void> {
       })
     } else if (cmd === 'workflow') {
       await runWorkflowVerb(conn)
+    } else if (cmd === 'git') {
+      await runGitVerb(conn, process.argv.slice(3))
+    } else if (cmd === 'ports') {
+      await runPortsVerb(conn, process.argv.slice(3))
     } else if (cmd === 'view') {
       await runViewVerb(conn, process.argv.slice(3))
     } else if (cmd === 'open') {

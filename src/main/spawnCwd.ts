@@ -1,16 +1,10 @@
 import { statSync } from 'node:fs'
 import { homedir } from 'node:os'
-import { join } from 'node:path'
+import { expandHome } from './pathGuard'
 
 export interface SpawnFolder {
   cwd: string
   missing: boolean
-}
-
-function expandHome(p: string, home: string): string {
-  if (p === '~') return home
-  if (p.startsWith('~/')) return join(home, p.slice(2))
-  return p
 }
 
 function isDirectory(p: string): boolean {

@@ -396,7 +396,7 @@ Filters: `upper`, `lower`, `count`, `not`, `relative` (ms → "5 minutes ago"), 
 | Source | Shape |
 |---|---|
 | `workspace` | the current workspace, or null: `{id, index, name (the display name), project ({name, path} of its detected project, or null), dir, description, state (idle/working/waiting/done/error), unread, active, pinned, panes, git, ports: [{port, url}]}` |
-| `workspaces` | every workspace, same shape (`git` is the Git extension's sidebar text: the branch, e.g. `main`, or null) |
+| `workspaces` | every workspace, same shape (`git` is the branch shown in the sidebar, e.g. `main`, or null) |
 | `panes` | panes of the current workspace: `{id, title, kind, agent (claude/codex/null), attention (none/working/waiting/done/error), unread, message, active}` |
 | `ports` | listening ports: `{port, url, workspace, workspaceId}` |
 | `approvals` | `{pending}`: permission requests waiting on the human |
@@ -514,7 +514,18 @@ is Unix seconds. Outside a repo you get `not-a-repo`; a path with no changes giv
 staged to commit). `commit` never stages for you: stage first. There is no discard verb:
 throwing away uncommitted work is the human's call (the Git panel asks them first). Never
 checkout, reset or clean files the human didn't ask you to; the human sees your staged work and
-commits in the Git panel and on the terminal's branch chips.
+commits in the Git panel and on the terminal's branch chips. Git is part of Ostia, not an
+extension: these verbs always exist and start nothing that keeps running.
+
+## Ports — what your workspace's terminals listen on
+
+```sh
+ostia ports ls                       # {workspaces:[{workspaceId, ports:[3000], ssh:["host"]}]} for your workspace
+ostia ports ls --all                 # every workspace (asks the human for all-workspaces)
+```
+
+`ports` are the TCP ports the processes started from your workspace's terminals listen on;
+`ssh` are the hosts of ssh sessions in the foreground of a terminal. Each call scans once.
 
 ## System — what machine you're on, and installing packages
 
@@ -547,10 +558,10 @@ that is on PATH (e.g. `paru` for AUR packages); otherwise the distro's own manag
 ```sh
 ostia ext ls                         # enabled extensions + their commands (also appended to `ostia docs`)
 ostia ext <extId> <command> [args]   # run an extension command
-ostia <extId> <command> [args]       # same, when <extId> isn't a core verb (this is how `ostia git` works)
+ostia <extId> <command> [args]       # same, when <extId> isn't a core verb (this is how `ostia system` works)
 ```
 
-Git, trellis, keeper and system are built-in extensions, so their commands behave exactly as documented.
+System and ssh are built-in extensions, so their commands behave exactly as documented.
 If the user disabled one in Settings → Extensions you'll get `extension-disabled`; don't try to
 enable it yourself (there is no verb for that — only the human approves/enables extensions).
 `extension-unavailable` means its process didn't start or crashed; retry once, then tell the

@@ -37,6 +37,7 @@ const PANE_KINDS: readonly SurfaceKind[] = [
   'editor',
   'browser',
   'extension',
+  'git',
   'diff',
   'view',
 ]

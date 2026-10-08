@@ -1,5 +1,5 @@
-import { execFileSync, spawn } from 'node:child_process'
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import { spawn } from 'node:child_process'
+import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -128,88 +128,17 @@ describe('ostia CLI → extensions (real processes, real socket)', () => {
     }
   }, 30_000)
 
-  it('reports argument errors and unknown extensions with a non-zero exit', async () => {
-    const missing = await runOstia(['git', 'diff'])
-    expect(missing.code).toBe(1)
-    expect(missing.stderr).toContain('invalid-args: diff <path> [--staged]')
+  it('reports an unknown extension with a non-zero exit', async () => {
     const unknown = await runOstia(['nosuchext', 'go'])
     expect(unknown.code).toBe(1)
     expect(unknown.stderr).toContain("unknown command or extension 'nosuchext'")
   }, 30_000)
 
-  it('ostia git status/changes/diff print JSON for the workspace repo', async () => {
-    const vcs = (...args: string[]) =>
-      execFileSync('git', ['-c', 'commit.gpgsign=false', ...args], { cwd: workDir })
-    mkdirSync(workDir, { recursive: true })
-    vcs('init', '-q', '-b', 'trunk')
-    vcs('config', 'user.email', 't@example.com')
-    vcs('config', 'user.name', 'T')
-    writeFileSync(join(workDir, 'readme.md'), 'v1\n')
-    vcs('add', 'readme.md')
-    vcs('commit', '-q', '-m', 'init')
-    writeFileSync(join(workDir, 'readme.md'), 'v2\n')
-
-    const status = await runOstia(['git', 'status'])
-    expect(status.stderr).toBe('')
-    expect(JSON.parse(status.stdout)).toMatchObject({
-      root: realpathSync(workDir),
-      branch: { head: 'trunk' },
-      counts: { changed: 1 },
-    })
-
-    const changes = JSON.parse((await runOstia(['git', 'changes'])).stdout)
-    expect(changes.changes).toContainEqual({ path: 'readme.md', area: 'unstaged', code: 'M' })
-
-    const diff = JSON.parse((await runOstia(['git', 'diff', 'readme.md'])).stdout)
-    expect(diff).toMatchObject({ path: 'readme.md', area: 'unstaged' })
-    expect(diff.patch).toContain('-v1\n+v2')
-  }, 30_000)
-
-  it('ostia git stage/commit/log/blame work on the workspace repo; discard is not a verb', async () => {
-    const staged = await runOstia(['git', 'stage', 'readme.md'])
-    expect(staged.stderr).toBe('')
-    expect(JSON.parse(staged.stdout)).toMatchObject({
-      staged: ['readme.md'],
-      counts: { staged: 1 },
-    })
-
-    const committed = await runOstia(['git', 'commit', '-m', 'second version'])
-    expect(committed.stderr).toBe('')
-    expect(committed.stdout.trim()).toMatch(/^[0-9a-f]{40}$/)
-
-    const log = await runOstia(['git', 'log'])
-    expect(log.stdout.split('\n').map((l) => l.replace(/^\w+ \S+ /, ''))).toEqual([
-      'T  second version',
-      'T  init',
-      '',
-    ])
-    const logJson = JSON.parse((await runOstia(['git', 'log', '--limit', '1', '--json'])).stdout)
-    expect(logJson.commits).toHaveLength(1)
-    expect(logJson.commits[0]).toMatchObject({
-      sha: committed.stdout.trim(),
-      subject: 'second version',
-    })
-
-    const blame = JSON.parse((await runOstia(['git', 'blame', 'readme.md', '--json'])).stdout)
-    expect(blame.lines).toEqual([
-      expect.objectContaining({ line: 1, sha: committed.stdout.trim(), text: 'v2' }),
-    ])
-
-    const nothing = await runOstia(['git', 'unstage'])
-    expect(nothing.code).toBe(1)
-    expect(nothing.stderr).toContain('invalid-args')
-    const discard = await runOstia(['git', 'discard', 'readme.md'])
-    expect(discard.code).toBe(1)
-    expect(discard.stderr).toContain("unknown subcommand 'discard'")
-  }, 30_000)
-
   it('ostia ext ls lists the built-in extensions with their CLI usage', async () => {
     const res = await runOstia(['ext', 'ls'])
-    expect(res.stdout).toContain('git\t')
-    expect(res.stdout).toContain('ostia git diff <path> [--staged]')
-    expect(res.stdout).toContain('ostia git commit -m <message>')
-    expect(res.stdout).not.toContain('discard')
     expect(res.stdout).toContain('system\t')
+    expect(res.stdout).not.toContain('git\t')
+    expect(res.stdout).not.toContain('ports\t')
     expect(res.stdout).not.toContain('trellis\t')
     expect(res.stdout).not.toContain('kanban\t')
   }, 30_000)

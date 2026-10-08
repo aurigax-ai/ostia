@@ -2,13 +2,19 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { registerBuiltinCommands } from '../commands/builtins'
 import { commands } from '../commands/registry'
 import { findPane } from '../layout/tree'
-import type { PaneNode } from '../layout/types'
+import type { LayoutNode, PaneNode } from '../layout/types'
 import { useBlocksStore } from '../stores/blocksStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
 import * as blockActions from './blockActions'
-import { hibernateIdleAgents, hibernateWorkspace, wakeWorkspace } from './hibernationScheduler'
+import {
+  WAKE_WAVE_SIZE,
+  hibernateIdleAgents,
+  hibernateWorkspace,
+  hibernateWorkspaces,
+  resumeWorkspaces,
+} from './hibernationScheduler'
 import { forgetPaneActivity, markPaneActivity } from './paneActivity'
 
 let layoutInit: ReturnType<typeof useLayoutStore.getState>
@@ -27,7 +33,19 @@ beforeAll(() => {
   workspacesInit = useWorkspacesStore.getState()
 })
 
+const heldResumes: Array<{ typed: () => void; gaveUp: () => void }> = []
+
+function holdResumes() {
+  return vi
+    .spyOn(blockActions, 'runWhenIdle')
+    .mockImplementation((_paneId, _command, _timeoutMs, _allowed, onGiveUp, onTyped) => {
+      heldResumes.push({ typed: onTyped ?? (() => {}), gaveUp: onGiveUp ?? (() => {}) })
+      return () => {}
+    })
+}
+
 afterEach(() => {
+  while (heldResumes.length > 0) heldResumes.shift()?.typed()
   useLayoutStore.setState(layoutInit, true)
   useBlocksStore.setState(blocksInit, true)
   useSettingsStore.setState(settingsInit, true)
@@ -165,9 +183,193 @@ describe('hibernateWorkspace', () => {
     seed(10)
     await hibernateWorkspace('s2')
     await hibernateWorkspace('s1')
-    expect(wakeWorkspace('s2')).toEqual(['idle-claude', 'fresh-claude'])
+    holdResumes()
+    expect(resumeWorkspaces(['s2'])).toEqual(['idle-claude', 'fresh-claude'])
     expect(hibernated('idle-claude')).toBe(false)
     expect(hibernated('shown')).toBe(true)
+  })
+})
+
+const agentPane = (id: string): PaneNode => terminal(id)
+
+function row(...panes: PaneNode[]) {
+  const root: LayoutNode =
+    panes.length === 1
+      ? panes[0]
+      : {
+          type: 'split',
+          id: `split-${panes[0].id}`,
+          direction: 'horizontal',
+          sizes: panes.map(() => 1),
+          children: panes,
+        }
+  return { root, activePaneId: panes[0].id, zoomedPaneId: null }
+}
+
+const GROUP_AGENTS = ['a1', 'a2', 'a3', 'a4', 'a5']
+
+function seedGroups(): void {
+  useWorkspacesStore.setState({
+    workspaces: [
+      { id: 'g1', name: 'api', kind: 'terminal', workDir: '/api', state: 'idle', groupId: 'build' },
+      { id: 'solo', name: 'solo', kind: 'terminal', workDir: '/solo', state: 'idle' },
+      { id: 'g2', name: 'web', kind: 'terminal', workDir: '/web', state: 'idle', groupId: 'build' },
+      { id: 'o1', name: 'ops', kind: 'terminal', workDir: '/ops', state: 'idle', groupId: 'ops' },
+    ],
+    groups: [
+      { id: 'build', name: 'build' },
+      { id: 'ops', name: 'ops' },
+    ],
+    activeWorkspaceId: 'g1',
+  })
+  useLayoutStore.setState({
+    byWorkspace: {
+      g1: row(agentPane('a1'), agentPane('a2'), terminal('g-shell', false)),
+      g2: row(agentPane('a3'), agentPane('a4'), agentPane('a5'), agentPane('g-npm')),
+      solo: row(agentPane('solo-agent'), agentPane('solo-prompt')),
+      o1: row(agentPane('ops-agent')),
+    },
+  })
+  for (const id of [...GROUP_AGENTS, 'solo-agent', 'ops-agent']) run(id, 'claude')
+  run('g-shell', 'claude')
+  run('g-npm', 'npm test')
+  useBlocksStore.getState().promptStart('solo-prompt', { line: 0 }, null)
+}
+
+const at = (workspaceId: string) => ({ activeWorkspaceId: workspaceId, activePaneId: null })
+
+describe('hibernating and resuming agents in bulk', () => {
+  it('hibernates the agents of every workspace of a group, and none outside it', async () => {
+    seedGroups()
+    expect(await hibernateWorkspaces(['g1', 'g2'])).toEqual(GROUP_AGENTS)
+    for (const id of ['g-shell', 'g-npm', 'solo-agent', 'solo-prompt', 'ops-agent'])
+      expect(hibernated(id)).toBe(false)
+    expect(vi.mocked(window.ostia.pty.hibernate).mock.calls.map(([id]) => id)).toEqual(GROUP_AGENTS)
+  })
+
+  it('in an ungrouped workspace takes the running agent and leaves the pane at a prompt', async () => {
+    seedGroups()
+    expect(await hibernateWorkspaces(['solo'])).toEqual(['solo-agent'])
+    expect(hibernated('solo-prompt')).toBe(false)
+    expect(hibernated('a1')).toBe(false)
+  })
+
+  it('resumes a group a few panes at a time, each typing only its own resume command', async () => {
+    seedGroups()
+    await hibernateWorkspaces(['g1', 'g2', 'o1'])
+    const typed = holdResumes()
+    expect(resumeWorkspaces(['g1', 'g2'])).toEqual(GROUP_AGENTS)
+    expect(WAKE_WAVE_SIZE).toBe(3)
+    expect(typed.mock.calls.map(([id, command]) => [id, command])).toEqual([
+      ['a1', 'claude --resume tok-a1'],
+      ['a2', 'claude --resume tok-a2'],
+      ['a3', 'claude --resume tok-a3'],
+    ])
+    expect(GROUP_AGENTS.map(hibernated)).toEqual([false, false, false, true, true])
+
+    heldResumes.shift()?.typed()
+    expect(typed.mock.calls.map(([id]) => id)).toEqual(['a1', 'a2', 'a3', 'a4'])
+    expect(hibernated('a5')).toBe(true)
+
+    heldResumes.shift()?.gaveUp()
+    expect(typed.mock.calls.map(([id, command]) => [id, command])[4]).toEqual([
+      'a5',
+      'claude --resume tok-a5',
+    ])
+    expect(typed).toHaveBeenCalledTimes(5)
+    expect(GROUP_AGENTS.some(hibernated)).toBe(false)
+    expect(hibernated('ops-agent')).toBe(true)
+  })
+
+  it('reports every woken pane as waking, and no pane before its turn', async () => {
+    seedGroups()
+    await hibernateWorkspaces(['g1', 'g2'])
+    holdResumes()
+    const report = vi.mocked(window.ostia.pty.reportWaking)
+    report.mockClear()
+    resumeWorkspaces(['g1', 'g2'])
+    expect(report.mock.calls).toEqual([
+      ['a1', true],
+      ['a2', true],
+      ['a3', true],
+    ])
+    heldResumes.shift()?.gaveUp()
+    expect(report.mock.calls.slice(3)).toEqual([
+      ['a1', false],
+      ['a4', true],
+    ])
+  })
+
+  it('asked twice, wakes each pane once and keeps the wave size', async () => {
+    seedGroups()
+    await hibernateWorkspaces(['g1', 'g2'])
+    const typed = holdResumes()
+    resumeWorkspaces(['g1', 'g2'])
+    expect(resumeWorkspaces(['g1', 'g2'])).toEqual([])
+    expect(typed).toHaveBeenCalledTimes(3)
+    while (heldResumes.length > 0) heldResumes.shift()?.typed()
+    expect(typed.mock.calls.map(([id]) => id)).toEqual(GROUP_AGENTS)
+  })
+
+  it('skips a hibernated pane whose folder is gone and a queued pane that was closed', async () => {
+    seedGroups()
+    await hibernateWorkspaces(['g1', 'g2'])
+    useLayoutStore.setState((s) => ({
+      byWorkspace: {
+        ...s.byWorkspace,
+        g1: row(
+          { ...agentPane('a1'), hibernated: true, resumeFolderMissing: '/api/tree' },
+          { ...agentPane('a2'), hibernated: true },
+        ),
+      },
+    }))
+    const typed = holdResumes()
+    expect(resumeWorkspaces(['g1', 'g2'])).toEqual(['a2', 'a3', 'a4', 'a5'])
+    expect(hibernated('a1')).toBe(true)
+    useLayoutStore.getState().closePane('g2', 'a5')
+    while (heldResumes.length > 0) heldResumes.shift()?.typed()
+    expect(typed.mock.calls.map(([id]) => id)).toEqual(['a2', 'a3', 'a4'])
+  })
+
+  it('runs from the palette for the target workspace or its whole group, never for a socket caller', async () => {
+    seedGroups()
+    for (const id of [
+      'workspace.hibernateAgents',
+      'workspace.resumeAgents',
+      'workspace.hibernateGroupAgents',
+      'workspace.resumeGroupAgents',
+    ]) {
+      expect(commands.isLocal(id)).toBe(true)
+      expect(commands.describe().some((c) => c.id === id)).toBe(false)
+    }
+    expect(await commands.execWith(at('g2'), 'workspace.hibernateAgents')).toEqual({
+      ok: true,
+      result: { hibernated: ['a3', 'a4', 'a5'] },
+    })
+    expect(await commands.execWith(at('g2'), 'workspace.hibernateGroupAgents')).toEqual({
+      ok: true,
+      result: { hibernated: ['a1', 'a2'] },
+    })
+    expect(await commands.execWith(at('solo'), 'workspace.hibernateGroupAgents')).toEqual({
+      ok: true,
+      result: { hibernated: [] },
+    })
+    expect(hibernated('solo-agent')).toBe(false)
+
+    holdResumes()
+    expect(await commands.execWith(at('solo'), 'workspace.resumeGroupAgents')).toEqual({
+      ok: true,
+      result: { resumed: [] },
+    })
+    expect(await commands.execWith(at('g1'), 'workspace.resumeAgents')).toEqual({
+      ok: true,
+      result: { resumed: ['a1', 'a2'] },
+    })
+    expect(await commands.execWith(at('g1'), 'workspace.resumeGroupAgents')).toEqual({
+      ok: true,
+      result: { resumed: ['a3', 'a4', 'a5'] },
+    })
+    expect(hibernated('ops-agent')).toBe(false)
   })
 })
 
@@ -191,6 +393,7 @@ describe('the pane.wake command an agent reaches through main', () => {
       'idle-claude',
       'claude --resume tok-idle-claude',
       undefined,
+      expect.any(Function),
       expect.any(Function),
       expect.any(Function),
     )

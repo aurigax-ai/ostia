@@ -6,8 +6,8 @@ import {
   specFromEvent,
 } from '@shared/chordSpec'
 import {
+  type KeyboardPlatform,
   type PresetKeys,
-  keyboardPlatform,
   terminalKeymapIn,
   terminalKeymapKeys,
 } from '@shared/keyboardPresets'
@@ -21,15 +21,15 @@ import {
 import { useSettingsStore } from '../stores/settingsStore'
 import { isBrowserChord, matchChordInTerminal } from './chords'
 
-const envOf = (mac: boolean) => ({ platform: mac ? 'darwin' : 'linux' })
+const platformOf = (mac: boolean): KeyboardPlatform => (mac ? 'mac' : 'linux')
 
 export function terminalKeymapOf(chosen: string | null, mac: boolean): string {
-  return terminalKeymapIn(chosen, envOf(mac))
+  return terminalKeymapIn(chosen, platformOf(mac))
 }
 
 export function presetKeys(terminalKeymap: string | null, mac: boolean): PresetKeys {
-  const env = envOf(mac)
-  return terminalKeymapKeys(terminalKeymapIn(terminalKeymap, env), keyboardPlatform(env.platform))
+  const platform = platformOf(mac)
+  return terminalKeymapKeys(terminalKeymapIn(terminalKeymap, platform), platform)
 }
 
 export interface TerminalKeyRow {

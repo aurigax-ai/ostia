@@ -1,6 +1,6 @@
+import { en } from '@shared/dict'
 import { REDACT_TEXTS_MAX } from '@shared/redaction'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { en } from '../i18n/dict'
 import {
   redactOutgoing,
   redactToolOutput,

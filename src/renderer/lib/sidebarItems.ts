@@ -1,5 +1,6 @@
 import type { BrowserOpener } from '@shared/browserProfile'
 import type { ExtensionSidebarItem } from '@shared/extensions'
+import { PORTS_SOURCE } from '@shared/git'
 import type { SidebarSettings } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
@@ -7,10 +8,8 @@ import { openBrowserAs } from './browserProfile'
 
 type ItemToggles = Pick<SidebarSettings, 'showSSH'>
 
-const PORTS_EXTENSION = 'ports'
-
 function toggleFor(item: ExtensionSidebarItem): keyof ItemToggles | null {
-  if (item.extId !== PORTS_EXTENSION) return null
+  if (item.extId !== PORTS_SOURCE) return null
   return item.key === 'ssh' ? 'showSSH' : null
 }
 

@@ -2,6 +2,7 @@ import { readFileSync, realpathSync, statSync } from 'node:fs'
 import { dirname, isAbsolute, join, resolve, sep } from 'node:path'
 import type { ReachMode } from '../shared/reach'
 import { type WorkspaceSandbox, sandboxMergeRefusal } from '../shared/sandbox'
+import { expandHome } from './pathGuard'
 
 export interface ScopeGroup {
   id: string
@@ -97,8 +98,7 @@ function commonGitDir(dotGit: string): string | null {
 }
 
 export function projectKey(workDir: string, home: string): string | null {
-  const expanded =
-    workDir === '~' || workDir.startsWith('~/') ? join(home, workDir.slice(1)) : workDir
+  const expanded = expandHome(workDir, home)
   if (!isAbsolute(expanded)) return null
   const dir = realOr(resolve(expanded))
   const realHome = realOr(home)

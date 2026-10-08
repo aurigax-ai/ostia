@@ -83,7 +83,7 @@ function fromWindow(e: IpcMainInvokeEvent): boolean {
   return e.sender.getType() === 'window'
 }
 
-export function changeAlwaysGrant(
+function changeAlwaysGrant(
   deps: Pick<ChatToolsDeps, 'grants' | 'onGrants'>,
   e: IpcMainInvokeEvent,
   change: 'add' | 'remove',

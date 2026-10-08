@@ -1,18 +1,20 @@
 import { type ChildProcessWithoutNullStreams, type StdioOptions, spawn } from 'node:child_process'
 import { closeSync, lstatSync, mkdirSync, openSync, readdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { processAlive } from '../processAlive'
 import { type ControlEvent, ControlModeParser } from './controlMode'
 import { SCREEN_INFO_FORMAT, screenReplay } from './screenReplay'
 import { type NewWindowSpec, newWindowCommand, sendKeysCommands, tmuxQuote } from './tmuxCommand'
 import { tmuxConf } from './tmuxConf'
 
-export const TMUX_SESSION = 'ostia'
+const TMUX_SESSION = 'ostia'
 const HOLDER_META = 'holder'
 const META_OPTION = '@ostia-meta'
 const DEAD_SUBSCRIPTION = 'ostia-dead'
 const DEAD_FORMAT = '#{pane_dead}:#{pane_dead_status}:#{pane_dead_signal}'
 const EXIT_POLL_MS = 50
 const EXIT_POLL_TRIES = 40
+const LOST_EXIT_CODE = 1
 const COMMAND_SUBSCRIPTION = 'ostia-cmd'
 const SERVER_ENV_KEYS = ['PATH', 'HOME', 'USER', 'LOGNAME', 'LANG', 'LC_ALL', 'LC_CTYPE', 'TMPDIR']
 const FIELD_SEPARATOR = '\t'
@@ -63,15 +65,6 @@ const RUN_TIMEOUT_MS = 5000
 const SERVER_EXIT_WAIT_MS = 3000
 const SERVER_EXIT_POLL_MS = 20
 
-function processAlive(pid: number): boolean {
-  try {
-    process.kill(pid, 0)
-    return true
-  } catch {
-    return false
-  }
-}
-
 async function processGone(pid: number, ms: number): Promise<void> {
   if (pid <= 0) return
   const end = Date.now() + ms
@@ -82,9 +75,9 @@ async function processGone(pid: number, ms: number): Promise<void> {
 const RUN_DRAIN_MS = 200
 const RUN_STDERR_CAP = 2000
 
-export function inheritedFds(platform: NodeJS.Platform = process.platform): number[] {
+function inheritedFds(): number[] {
   try {
-    return readdirSync(platform === 'linux' ? '/proc/self/fd' : '/dev/fd')
+    return readdirSync(process.platform === 'linux' ? '/proc/self/fd' : '/dev/fd')
       .map(Number)
       .filter((fd) => Number.isInteger(fd) && fd > 2)
   } catch {
@@ -163,7 +156,6 @@ export class TmuxServer {
   private serverPid = 0
 
   private constructor(
-    private readonly options: TmuxServerOptions,
     private readonly socket: string,
     private readonly client: ChildProcessWithoutNullStreams,
     private readonly onGone: () => void,
@@ -212,7 +204,7 @@ export class TmuxServer {
       stdio: withoutInheritedFds(['pipe', 'pipe', 'pipe'], devNull),
     }) as ChildProcessWithoutNullStreams
     closeSync(devNull)
-    const server = new TmuxServer(options, socket, client, onGone)
+    const server = new TmuxServer(socket, client, onGone)
     await server.command(
       `refresh-client -B ${tmuxQuote(`${DEAD_SUBSCRIPTION}:%*:#{pane_dead}:#{pane_dead_status}:#{pane_dead_signal}`)}`,
     )
@@ -376,17 +368,17 @@ export class TmuxServer {
       await new Promise((resolve) => setTimeout(resolve, EXIT_POLL_MS))
       if (this.closed || pane.hasExited) return
       this.nudgeReaper()
-      let lines: string[] = []
-      try {
-        lines = await this.command(`display-message -p -t ${pane.paneId} ${tmuxQuote(DEAD_FORMAT)}`)
-      } catch {}
+      const lines = await this.command(
+        `display-message -p -t ${pane.paneId} ${tmuxQuote(DEAD_FORMAT)}`,
+      ).catch(() => null)
+      if (lines === null) return
       const code = parseExit(lines[0] ?? '')
       if (code !== null) {
         pane.died(code)
         return
       }
     }
-    pane.died(0)
+    pane.died(LOST_EXIT_CODE)
   }
 
   private nudgeReaper(): void {
@@ -411,15 +403,11 @@ export class TmuxServer {
     this.panes.clear()
     this.onGone()
   }
-
-  get defaultTerminal(): string {
-    return this.options.defaultTerminal
-  }
 }
 
 type Listener<T> = (value: T) => void
 
-export interface Disposable {
+interface Disposable {
   dispose(): void
 }
 
@@ -556,6 +544,6 @@ export class TmuxPane {
     if (this.exited) return
     this.exited = true
     if (this.detached) return
-    for (const listener of this.exitListeners) listener({ exitCode: 1 })
+    for (const listener of this.exitListeners) listener({ exitCode: LOST_EXIT_CODE })
   }
 }

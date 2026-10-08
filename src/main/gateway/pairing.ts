@@ -82,7 +82,7 @@ export function pairAuditLogPath(): string {
   return join(appDataDir(), 'gateway-pair-audit.log')
 }
 
-export function isLocalPeer(ip: string): boolean {
+function isLocalPeer(ip: string): boolean {
   return ip.startsWith('127.') || ip.startsWith('::ffff:127.') || ip === '::1'
 }
 

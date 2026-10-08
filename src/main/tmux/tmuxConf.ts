@@ -1,4 +1,4 @@
-export const TMUX_HISTORY_LIMIT = 20000
+const TMUX_HISTORY_LIMIT = 20000
 
 export function tmuxConf(defaultTerminal: string): string {
   return [

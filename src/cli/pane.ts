@@ -20,20 +20,20 @@ export type PaneCall =
   | { method: 'pane.close'; params: { panes: string[] }; json: boolean }
   | { method: 'pane.moveTo'; params: { panes: string[]; workspace: string }; json: boolean }
 
-export interface PaneWakeParams {
+interface PaneWakeParams {
   panes: string[]
   wait?: true
   timeoutMs?: number
 }
 
-export interface PaneWakeResult {
+interface PaneWakeResult {
   woke: string[]
   started?: true
   timedOut?: true
   closed?: string
 }
 
-export interface PaneWaitParams {
+interface PaneWaitParams {
   panes: string[]
   until?: string[]
   timeoutMs?: number
@@ -44,7 +44,7 @@ export type PaneWaitResult =
   | { timedOut: true }
   | { closed: true; paneId: string }
 
-export const PANE_WAIT_EXIT = { reached: 0, timedOut: 3, closed: 4 } as const
+const PANE_WAIT_EXIT = { reached: 0, timedOut: 3, closed: 4 } as const
 
 const USAGE = [
   'usage: ostia pane send <pane> [--enter] [--paste|--raw] [--force] [--confirm]',

@@ -1,7 +1,7 @@
 import { type Socket, isIP } from 'node:net'
 import { Duplex } from 'node:stream'
 
-export const PROXY_HEADER_MAX_BYTES = 107
+const PROXY_HEADER_MAX_BYTES = 107
 const HEADER_DEADLINE_MS = 10_000
 const FAMILY_IP_VERSION: Record<string, 4 | 6> = { TCP4: 4, TCP6: 6 }
 
@@ -10,7 +10,7 @@ function isPort(value: string): boolean {
   return Number(value) <= 65_535
 }
 
-export function parseProxyLine(line: string): string | null {
+function parseProxyLine(line: string): string | null {
   const [tag, family, src, dst, srcPort, dstPort, ...rest] = line.split(' ')
   if (tag !== 'PROXY' || rest.length > 0) return null
   const version = FAMILY_IP_VERSION[family ?? '']

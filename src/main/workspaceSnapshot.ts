@@ -40,6 +40,7 @@ const SURFACE_KINDS: ReadonlySet<string> = new Set<SnapshotSurfaceKind>([
   'browser',
   'extension',
   'chat',
+  'git',
   'view',
 ])
 const WORKSPACE_KINDS: ReadonlySet<string> = new Set(['agent', 'terminal', 'scratch'])

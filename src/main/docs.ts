@@ -72,6 +72,19 @@ const CLI_HELP = `ostia — control-socket CLI
   ostia workflow show <name> [--json]
                                  one workflow's command, arguments and defaults (read-only;
                                  fill the {{placeholders}} and run the command yourself)
+  ostia git status | changes     branch, upstream and change counts of the repository of your
+                                 folder; changes adds the changed files (JSON)
+  ostia git diff <path> [--staged]
+                                 unified diff of one changed file (JSON)
+  ostia git open <path> [--staged]
+                                 show that file's diff to the human in a diff pane
+  ostia git log [--limit <n>] [--json] | blame <file> [--json]
+                                 recent commits; who last changed each line of a file
+  ostia git stage <path...> | --all, unstage <path...> | --all, commit -m <message>
+                                 change the index and commit what is staged; discarding
+                                 changes is the human's, from the Git panel
+  ostia ports ls [--all]         listening ports and ssh hosts of your workspace's terminals
+                                 (JSON); --all needs all-workspaces
   ostia view schema              JSON Schema of a view file (~/.config/ostia/views/<name>.json)
   ostia view validate <file>     check a view file: file:line: path: message, exit 1 on problems
   ostia view list [--json]       view files and their status (pending until the human enables)

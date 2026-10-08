@@ -126,11 +126,11 @@ export function missingRequirements(
   return missing
 }
 
-export function foundVersion(output: string): string | null {
+function foundVersion(output: string): string | null {
   return /\d+\.\d+[0-9A-Za-z.-]*/.exec(output)?.[0] ?? null
 }
 
-export function versionAtLeast(output: string, wanted: string): boolean {
+function versionAtLeast(output: string, wanted: string): boolean {
   const found = /(\d+)\.(\d+)/.exec(output)
   const [major, minor] = wanted.split('.').map(Number)
   if (!found) return false

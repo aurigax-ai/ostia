@@ -14,6 +14,7 @@ export function resumeWhenIdle(
   paneId: string,
   resume: AgentResume,
   onGiveUp?: () => void,
+  onTyped?: () => void,
 ): () => void {
   return runWhenIdle(
     paneId,
@@ -21,5 +22,6 @@ export function resumeWhenIdle(
     undefined,
     () => !resumeFolderMissing(paneId),
     onGiveUp,
+    onTyped,
   )
 }

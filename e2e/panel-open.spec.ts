@@ -91,7 +91,7 @@ function makeRepo(home: string): void {
   vcs('commit', '-q', '-m', 'root commit')
 }
 
-test('an extension panel opened from its toggle is painted only at its split position', async () => {
+test('the Git panel opened from its toggle is painted only at its split position', async () => {
   const dataHome = freshDataHome()
   const launch = isolatedLaunch(dataHome)
   makeRepo(launch.home)
@@ -114,7 +114,7 @@ test('an extension panel opened from its toggle is painted only at its split pos
 
     await toggle.click()
     await expect(win.locator('.pane')).toHaveCount(1)
-    await win.evaluate(() => localStorage.setItem('panelSizes', '{"extension:git":0.3}'))
+    await win.evaluate(() => localStorage.setItem('panelSizes', '{"git":0.3}'))
     await watchNewPane(win)
     await toggle.click()
     const remembered = await paintedOnlyAtFinalRect(win)

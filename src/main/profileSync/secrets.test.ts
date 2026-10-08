@@ -123,7 +123,6 @@ function machine(target: string, existing?: { userData: string; configDir: strin
   const sync = new ProfileSync({
     userData,
     configDir,
-    host: 'test',
     now: () => new Date(clock.ms),
     method,
     targetLabel: () => target,

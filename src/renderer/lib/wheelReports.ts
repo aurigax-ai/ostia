@@ -2,7 +2,7 @@ import type { OstiaTerminal as Terminal } from './ostiaTerminal'
 
 export type WheelRoute = 'report' | 'arrows'
 
-export const WHEEL_NOTCH_DELTA = 50
+const WHEEL_NOTCH_DELTA = 50
 
 const WHEEL_TRACKING_MODES: ReadonlySet<string> = new Set(['vt200', 'drag', 'any'])
 

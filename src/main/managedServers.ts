@@ -1,5 +1,5 @@
 import { type ExecFileException, execFile as execFileProcess } from 'node:child_process'
-import { createHash, randomUUID } from 'node:crypto'
+import { randomUUID } from 'node:crypto'
 import {
   chmodSync,
   createReadStream,
@@ -12,7 +12,7 @@ import {
   rmSync,
 } from 'node:fs'
 import { dirname, join, resolve, sep } from 'node:path'
-import { Readable, Transform } from 'node:stream'
+import { type Readable, Transform } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { createGunzip } from 'node:zlib'
 import { type ReadEntry, extract as extractTar, list as listTar } from 'tar'
@@ -31,12 +31,12 @@ import {
   pinnedVersion,
 } from '../shared/languageServers'
 import { redactSecrets } from './appLog'
+import { DownloadError, downloadChecked, isAllowedHop } from './checkedDownload'
 
 export const DOWNLOAD_BASE_URL_ENV = 'LSP_DOWNLOAD_BASE_URL'
 export const DOWNLOAD_MAX_BYTES = 256 * 1024 * 1024
 export const EXTRACT_MAX_BYTES = 1024 * 1024 * 1024
 export const EXTRACT_MAX_FILES = 20_000
-export const DOWNLOAD_MAX_REDIRECTS = 5
 export const DOWNLOAD_TIMEOUT_MS = 10 * 60_000
 export const GO_INSTALL_TIMEOUT_MS = 15 * 60_000
 const GO_OUTPUT_MAX_BYTES = 1024 * 1024
@@ -344,14 +344,7 @@ export class ManagedServers {
   }
 
   private allowed(url: URL): boolean {
-    if (this.deps.baseUrl) return url.origin === new URL(this.deps.baseUrl).origin
-    return (
-      url.protocol === 'https:' &&
-      !url.username &&
-      !url.password &&
-      !url.port &&
-      LANGUAGE_SERVER_DOWNLOAD_HOSTS.includes(url.hostname)
-    )
+    return isAllowedHop(url, LANGUAGE_SERVER_DOWNLOAD_HOSTS, this.deps.baseUrl ?? null)
   }
 
   private async download(
@@ -359,63 +352,34 @@ export class ManagedServers {
     file: string,
     hooks: FetchHooks,
   ): Promise<void> {
-    const limit = this.deps.maxDownloadBytes ?? DOWNLOAD_MAX_BYTES
-    const signal = AbortSignal.timeout(this.deps.downloadTimeoutMs ?? DOWNLOAD_TIMEOUT_MS)
-    let url = this.requestUrl(asset.url)
-    if (!this.allowed(url)) throw new FetchError('host-not-allowed', url.hostname)
-    let response: Response
+    let reported = -1
     try {
-      for (let hop = 0; ; hop++) {
-        response = await (this.deps.fetch ?? fetch)(url, {
-          headers: { 'User-Agent': this.deps.userAgent },
-          redirect: 'manual',
-          signal,
-        })
-        if (response.status < 300 || response.status > 399) break
-        const location = response.headers.get('location')
-        await response.body?.cancel()
-        if (!location || hop >= DOWNLOAD_MAX_REDIRECTS) throw new FetchError('redirect-refused')
-        const next = new URL(location, url)
-        if (!this.allowed(next)) throw new FetchError('redirect-refused', next.hostname)
-        url = next
-      }
-      if (response.status !== 200 || !response.body) {
-        await response.body?.cancel()
-        throw new FetchError('http-error', String(response.status))
-      }
-      const expected = Number(response.headers.get('content-length') ?? 0)
-      if (expected > limit) {
-        await response.body.cancel()
-        throw new FetchError('too-large', 'the download is too large')
-      }
-      const hash = createHash('sha256')
-      let received = 0
-      let reported = -1
-      const meter = new Transform({
-        transform(chunk: Buffer, _encoding, done) {
-          received += chunk.byteLength
-          if (received > limit) {
-            done(new FetchError('too-large', 'the download is too large'))
-            return
-          }
-          hash.update(chunk)
-          const percent = expected > 0 ? Math.floor((received / expected) * 100) : 0
-          if (percent !== reported) {
-            reported = percent
-            hooks.onProgress?.(Math.min(percent, 100))
-          }
-          done(null, chunk)
+      mkdirSync(dirname(file), { recursive: true, mode: 0o700 })
+      const sha256 = await downloadChecked({
+        fetch: this.deps.fetch ?? fetch,
+        url: this.requestUrl(asset.url),
+        allowed: (url) => this.allowed(url),
+        userAgent: this.deps.userAgent,
+        signal: AbortSignal.timeout(this.deps.downloadTimeoutMs ?? DOWNLOAD_TIMEOUT_MS),
+        file,
+        exclusive: false,
+        maxBytes: this.deps.maxDownloadBytes ?? DOWNLOAD_MAX_BYTES,
+        onProgress: (received, total) => {
+          const percent = total > 0 ? Math.floor((received / total) * 100) : 0
+          if (percent === reported) return
+          reported = percent
+          hooks.onProgress?.(Math.min(percent, 100))
         },
       })
-      mkdirSync(dirname(file), { recursive: true, mode: 0o700 })
-      await pipeline(
-        Readable.fromWeb(response.body as Parameters<typeof Readable.fromWeb>[0]),
-        meter,
-        createWriteStream(file, { mode: 0o600 }),
-      )
-      if (hash.digest('hex') !== asset.sha256) throw new FetchError('checksum-mismatch')
+      if (sha256 !== asset.sha256) throw new FetchError('checksum-mismatch')
     } catch (err) {
       if (err instanceof FetchError) throw err
+      if (err instanceof DownloadError) {
+        throw new FetchError(
+          err.reason,
+          err.reason === 'too-large' ? 'the download is too large' : err.detail,
+        )
+      }
       const name = (err as Error).name
       throw new FetchError(
         name === 'TimeoutError' || name === 'AbortError' ? 'timeout' : 'offline',

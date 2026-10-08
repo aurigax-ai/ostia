@@ -1,5 +1,5 @@
+import { en, zhHant } from '@shared/dict'
 import { describe, expect, it, vi } from 'vitest'
-import { en, zhHant } from '../i18n/dict'
 import {
   SLASH_COMMANDS,
   type SlashActions,

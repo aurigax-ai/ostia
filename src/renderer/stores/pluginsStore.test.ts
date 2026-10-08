@@ -1,5 +1,5 @@
+import { en } from '@shared/dict'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import { en } from '../i18n/dict'
 import { BASE_LANGUAGE } from '../lib/languagePacks'
 import { BUILTIN_PLUGINS } from '../plugins/builtin'
 import { usePluginsStore } from './pluginsStore'

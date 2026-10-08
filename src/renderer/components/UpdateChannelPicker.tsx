@@ -1,4 +1,4 @@
-import { offersUpdateChannels } from '@shared/installMethod'
+import { isReplaceable } from '@shared/installMethod'
 import { UPDATE_CHANNELS, type UpdateChannel } from '@shared/releases'
 import { useDict } from '../i18n/useDict'
 import { saveSettingsNow, useSettingsStore } from '../stores/settingsStore'
@@ -11,7 +11,7 @@ export function UpdateChannelPicker(): JSX.Element | null {
   const channel = useSettingsStore((s) => s.behavior.updateChannel)
   const setBehavior = useSettingsStore((s) => s.setBehavior)
   if (method === 'dev') return null
-  const offered = offersUpdateChannels(method)
+  const offered = isReplaceable(method)
   const labels: Record<UpdateChannel, string> = {
     stable: d.update.channelStable,
     main: d.update.channelMain,

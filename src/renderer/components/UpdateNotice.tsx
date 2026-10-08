@@ -9,8 +9,8 @@ import { fmt, useDict } from '../i18n/useDict'
 import { replaceLabel } from '../lib/replaceText'
 import { restartReady, showsUpdate, updateAction, useUpdateStore } from '../stores/updateStore'
 import { Hint } from './Hint'
+import { SplitButton } from './SplitButton'
 import { Button } from './ui/button'
-import { ButtonGroup, ButtonGroupSeparator } from './ui/button-group'
 
 function NoticeGroup({
   icon: Icon,
@@ -31,20 +31,23 @@ function NoticeGroup({
 }): JSX.Element {
   return (
     <output className="update-notice no-drag">
-      <ButtonGroup aria-label={label}>
-        <Hint label={hint} side="bottom">
-          <Button size="xs" onClick={onAct} disabled={disabled}>
-            <Icon data-icon="inline-start" aria-hidden />
-            {label}
-          </Button>
-        </Hint>
-        <ButtonGroupSeparator className="bg-on-brand/25" />
+      <SplitButton
+        label={label}
+        main={
+          <Hint label={hint} side="bottom">
+            <Button size="xs" onClick={onAct} disabled={disabled}>
+              <Icon data-icon="inline-start" aria-hidden />
+              {label}
+            </Button>
+          </Hint>
+        }
+      >
         <Hint label={dismissLabel} side="bottom">
           <Button size="icon-xs" aria-label={dismissLabel} onClick={onDismiss}>
             <XIcon aria-hidden />
           </Button>
         </Hint>
-      </ButtonGroup>
+      </SplitButton>
     </output>
   )
 }

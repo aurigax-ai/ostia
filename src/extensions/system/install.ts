@@ -103,7 +103,7 @@ export function planInstall(req: InstallRequest, ctx: InstallContext, s: Strings
   return { ok: true, plan }
 }
 
-export type InstallOutcome =
+type InstallOutcome =
   | { ok: true; message: string }
   | { ok: false; error: 'install-failed' | 'terminal-closed'; message: string }
 

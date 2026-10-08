@@ -1,4 +1,5 @@
 import type { ExtensionPanelContext, ExtensionPanelSource } from '@shared/extensions'
+import { GIT_SOURCE } from '@shared/git'
 import type { WebviewTag } from 'electron'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { commands } from '../commands/registry'
@@ -117,7 +118,13 @@ export function ExtensionPanelView({
     }
   }, [webview, applyTheme, d])
 
-  if (!info) return <PanelMessage text={fmt(d.extensions.notInstalled, { id: extId })} />
+  if (!info) {
+    return (
+      <PanelMessage
+        text={extId === GIT_SOURCE ? d.git.oldPane : fmt(d.extensions.notInstalled, { id: extId })}
+      />
+    )
+  }
   if (!hasPanel) {
     return (
       <PanelMessage text={fmt(d.extensions.panelGone, { name: info.name })}>

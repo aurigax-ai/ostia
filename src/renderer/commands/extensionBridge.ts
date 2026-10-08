@@ -156,6 +156,8 @@ export function wireExtensionBridge(): void {
   api.onSettingsStored(({ extId, stored }) =>
     useSettingsStore.getState().setExtensionSettings(extId, stored),
   )
+  window.ostia.git?.onItems((items) => store.setGitItems(items))
+  window.ostia.ports?.onItems((items) => store.setPortsItems(items))
   api.onOpenPanel(openExtensionPanel)
   api.onOpenDiff(openExtensionDiff)
   api.onOpenTerminal(openExtensionTerminal)

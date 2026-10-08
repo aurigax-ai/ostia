@@ -147,11 +147,11 @@ describe('Ostia prompt in the input editor', () => {
         calls.push(`focus:${args.paneId}`)
       },
     })
-    commands.register({ id: 'git.branches', title: 'Branches', run: () => calls.push('branches') })
+    commands.register({ id: 'vcs.branches', title: 'Branches', run: () => calls.push('branches') })
     useExtensionsStore.setState({
       list: [
         {
-          id: 'git',
+          id: 'vcs',
           name: 'Git',
           version: '1.0.0',
           description: '',
@@ -184,7 +184,7 @@ describe('Ostia prompt in the input editor', () => {
         },
       ],
     })
-    useOstia(['git.dirty', 'cwd', 'git.branch'])
+    useOstia(['vcs.dirty', 'cwd', 'vcs.branch'])
     idlePrompt()
     await renderEditor()
     await within(chipRow()).findByText('~/proj')
@@ -196,15 +196,15 @@ describe('Ostia prompt in the input editor', () => {
     act(() =>
       useExtensionsStore.getState().setChips([
         {
-          extId: 'git',
+          extId: 'vcs',
           id: 'branch',
           paneId: PANE,
           text: 'main',
           tone: 'neutral',
           command: 'branches',
         },
-        { extId: 'git', id: 'dirty', paneId: PANE, text: '+2', tone: 'warn' },
-        { extId: 'git', id: 'branch', paneId: 'other-pane', text: 'dev', tone: 'neutral' },
+        { extId: 'vcs', id: 'dirty', paneId: PANE, text: '+2', tone: 'warn' },
+        { extId: 'vcs', id: 'branch', paneId: 'other-pane', text: 'dev', tone: 'neutral' },
       ]),
     )
     expect(
@@ -222,7 +222,7 @@ describe('Ostia prompt in the input editor', () => {
     )
     await waitFor(() => expect(calls).toEqual([`focus:${PANE}`, 'branches']))
     commands.unregister('pane.focus')
-    commands.unregister('git.branches')
+    commands.unregister('vcs.branches')
   })
 
   it('offers Edit prompt (Settings → Prompt for this pane), Copy prompt and Copy working directory on right-click', async () => {

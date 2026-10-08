@@ -34,7 +34,6 @@ import { type Tailnet, isAllowedLoginUrl } from './tailnet'
 
 export interface TailnetDeps {
   openExternal: (url: string) => void
-  controlUrl?: string
 }
 
 let announcer: Publisher | null = null
@@ -215,7 +214,7 @@ function answerPair(params: unknown): GatewayActionResult {
 function tailnetSignIn(): GatewayTailnetActionResult {
   const node = tailnetState()
   if (node.state !== 'needs-login') return { ok: false, error: 'no-login-link' }
-  if (!isAllowedLoginUrl(node.authUrl, tailnetDeps.controlUrl)) {
+  if (!isAllowedLoginUrl(node.authUrl)) {
     return { ok: false, error: 'login-link-refused' }
   }
   tailnetDeps.openExternal(node.authUrl)

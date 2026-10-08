@@ -359,7 +359,6 @@ describe('parseManifest', () => {
     for (const id of [
       'assistant',
       'completions',
-      'git',
       'keeper',
       'keymap-macos',
       'langpack-zh-hant',
@@ -373,7 +372,6 @@ describe('parseManifest', () => {
       'lsp-typescript',
       'lsp-yaml',
       'model-runtime',
-      'ports',
       'system',
       'trellis',
     ]) {
@@ -463,6 +461,16 @@ describe('parseManifest', () => {
     for (const id of ['Demo', '../x', 'a', '__proto__', 'x'.repeat(41), 7]) {
       expect(parseManifest(manifest({ id }), DIR).ok).toBe(false)
     }
+  })
+
+  it('refuses the ids of the built-in git and ports features', () => {
+    for (const id of ['git', 'ports']) {
+      expect(parseManifest(manifest({ id }), DIR)).toEqual({
+        ok: false,
+        error: `id '${id}' is a built-in feature`,
+      })
+    }
+    expect(parseManifest(manifest({ id: 'git-extras' }), DIR).ok).toBe(true)
   })
 
   it('rejects unknown capabilities, both top-level and per command', () => {
@@ -982,8 +990,8 @@ describe('discoverExtensions', () => {
   })
 
   it('lets a built-in win when a user extension reuses its id', () => {
-    const builtin = root({ git: manifest({ id: 'git', name: 'Builtin' }) })
-    const user = root({ git: manifest({ id: 'git', name: 'Impostor' }) })
+    const builtin = root({ system: manifest({ id: 'system', name: 'Builtin' }) })
+    const user = root({ system: manifest({ id: 'system', name: 'Impostor' }) })
     const errors: string[] = []
     const found = discoverExtensions(
       [
@@ -995,7 +1003,7 @@ describe('discoverExtensions', () => {
     expect(found).toHaveLength(1)
     expect(found[0].builtin).toBe(true)
     expect(found[0].manifest.name).toBe('Builtin')
-    expect(errors).toEqual(["duplicate extension id 'git'"])
+    expect(errors).toEqual(["duplicate extension id 'system'"])
   })
 
   it('treats a missing root as empty', () => {

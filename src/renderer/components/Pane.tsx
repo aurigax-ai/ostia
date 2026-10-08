@@ -53,7 +53,7 @@ interface PaneProps {
   split?: boolean
 }
 
-const SERVICE_SURFACES: ReadonlySet<SurfaceKind> = new Set(['extension', 'chat', 'view'])
+const SERVICE_SURFACES: ReadonlySet<SurfaceKind> = new Set(['extension', 'chat', 'git', 'view'])
 
 function holds(tab: TabNode, paneId: string): boolean {
   return tab.type === 'pane' ? tab.id === paneId : findPane(tab, paneId) !== null

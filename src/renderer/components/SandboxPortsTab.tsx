@@ -1,6 +1,6 @@
+import type { Dict } from '@shared/dict'
 import type { PortsPolicy, SandboxPortRow } from '@shared/sandbox'
 import { useCallback, useEffect, useState } from 'react'
-import type { Dict } from '../i18n/dict'
 import { fmt, useDict } from '../i18n/useDict'
 import { openBrowserAs } from '../lib/browserProfile'
 import { isMac } from '../platform'

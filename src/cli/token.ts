@@ -1,16 +1,17 @@
 import type { MessageConnection } from 'vscode-jsonrpc/node'
+import { SCRIPT_CAPABILITIES } from '../shared/scriptTokens'
 import { parseArgs } from './args'
 
-export type TokenCall =
+type TokenCall =
   | { method: 'token.create'; params: { name: string; caps: string[] } }
   | { method: 'token.list'; params: Record<string, never>; json: boolean }
   | { method: 'token.revoke'; params: { id: string } }
 
-export const TOKEN_USAGE = [
+const TOKEN_USAGE = [
   'usage: ostia token create <name> --cap <capability>…',
   '       ostia token list [--json]',
   '       ostia token revoke <id>',
-  'capabilities: read-board read-other-pane type-other-pane send-other-pane process all-workspaces',
+  `capabilities: ${SCRIPT_CAPABILITIES.join(' ')}`,
 ].join('\n')
 
 export function parseTokenArgs(argv: string[]): TokenCall {

@@ -8,10 +8,10 @@ import {
   permissionHookOutput,
 } from '../shared/agentPermissions'
 
-export const PERMISSION_HOOK_USAGE =
+const PERMISSION_HOOK_USAGE =
   'usage: ostia permission-hook <claude|codex>   (stdin: the PermissionRequest hook JSON)'
 
-export interface PermissionHookIo {
+interface PermissionHookIo {
   readInput: () => Promise<string>
   ask: (params: PermissionAskParams) => Promise<{ decision: PermissionChoice | null }>
   out: (line: string) => void
