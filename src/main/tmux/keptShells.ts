@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { connect as connectSocket } from 'node:net'
 import { join } from 'node:path'
 import type { KeptExposure } from '../sandbox/portRequests'
 import { HOST_PROTOCOL_VERSION } from '../sandbox/protocol'
@@ -295,7 +296,7 @@ export class KeptShells {
   }
 
   private async reconcile(keep: boolean, saved: ReadonlySet<string> | null): Promise<void> {
-    if (!this.socketExists()) {
+    if (!(await this.socketAnswers())) {
       this.sweepTokens()
       return
     }
@@ -373,6 +374,20 @@ export class KeptShells {
 
   private socketPath(): string {
     return join(this.deps.dir, this.deps.name)
+  }
+
+  private async socketAnswers(): Promise<boolean> {
+    if (!this.socketExists()) return false
+    const answers = await new Promise<boolean>((resolve) => {
+      const socket = connectSocket(this.socketPath())
+      socket.once('connect', () => {
+        socket.destroy()
+        resolve(true)
+      })
+      socket.once('error', () => resolve(false))
+    })
+    if (!answers) rmSync(this.socketPath(), { force: true })
+    return answers
   }
 
   private socketExists(): boolean {

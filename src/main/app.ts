@@ -10,7 +10,7 @@ import {
   statSync,
   writeFileSync,
 } from 'node:fs'
-import { homedir, hostname, tmpdir } from 'node:os'
+import { homedir, hostname } from 'node:os'
 import { basename, dirname, join } from 'node:path'
 import {
   BrowserWindow,
@@ -36,7 +36,7 @@ import type { DiscreteGpuInfo } from '../shared/discreteGpu'
 import { languageForPath } from '../shared/editorLanguages'
 import { EXTENSION_SUGGESTIONS } from '../shared/extensionSuggestions'
 import type { ExtensionPanelContext, ExtensionResult, WorkspaceChip } from '../shared/extensions'
-import { KEEP_SHELLS_FEATURE, parseKeepShells } from '../shared/keepShells'
+import { KEEP_SHELLS_FEATURE, KEPT_SHELLS_DIR, parseKeepShells } from '../shared/keepShells'
 import { languageServerKey } from '../shared/languageServers'
 import { MANAGER_FEATURE, managerAgents, parseManagerSettings } from '../shared/managerSettings'
 import { OPEN_FILES_MAX } from '../shared/openFiles'
@@ -279,12 +279,7 @@ import {
 import { hiddenHomeNotice, sandboxFailureBanner } from './sandbox/spawnBanner'
 import { sandboxSpawnEnv } from './sandbox/spawnEnv'
 import { reportSandboxSpawnFailure } from './sandbox/spawnFailureNotice'
-import {
-  type SandboxBasePaths,
-  reachableContainerSockets,
-  srtVendorDir,
-  withKeptShells,
-} from './sandbox/srtConfig'
+import { type SandboxBasePaths, reachableContainerSockets, srtVendorDir } from './sandbox/srtConfig'
 import { SandboxStore } from './sandbox/store'
 import { ViolationLog, recordViolations } from './sandbox/violations'
 import {
@@ -614,7 +609,7 @@ function openExternalSafe(url: string): boolean {
 }
 
 function keptTmuxDir(): string {
-  return join(tmpdir(), `${PRODUCT_NAME}-tmux-${process.getuid?.() ?? 0}`)
+  return join(app.getPath('userData'), KEPT_SHELLS_DIR)
 }
 
 function keptShellsName(): string {
@@ -884,10 +879,7 @@ const workspaceSandboxes: WorkspaceSandboxes = new WorkspaceSandboxes({
       ],
     }
     return keepShellsOn()
-      ? withKeptShells(base, {
-          tmuxDir: keptTmuxDir(),
-          socketPath: keptControlSocketPath(app.getPath('userData')),
-        })
+      ? { ...base, keptSocketPath: keptControlSocketPath(app.getPath('userData')) }
       : base
   },
   workDir: (workspaceId) => workDirForWorkspace(workspaceId),
