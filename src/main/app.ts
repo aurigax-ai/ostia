@@ -310,6 +310,7 @@ import { ExecutableIndex, commandNames, readShellState } from './shellCommands'
 import { closesPaneOnExit } from './shellExit'
 import { INTEGRATION_DIR, setAgentPlugins, shellIntegrationSpawnOptions } from './shellIntegration'
 import { sandboxCwd, spawnFolder } from './spawnCwd'
+import { createMainStrings } from './strings'
 import {
   SANDBOX_FEATURE,
   installHint,
@@ -3052,6 +3053,13 @@ function readLocale(): string | undefined {
   return typeof locale === 'string' ? locale : undefined
 }
 
+const languagePackDeps = {
+  languages: () => extensionHost?.languages() ?? [],
+  onError: (extId: string, error: string) => console.warn(`[language pack ${extId}] ${error}`),
+}
+
+const mainStrings = createMainStrings({ ...languagePackDeps, locale: readLocale })
+
 const agentOffers = createAgentOfferRelay({
   windowOf: (workspaceId) => workspaceWindowId(workspaceId),
   send: (windowId, channel, payload) => {
@@ -3348,6 +3356,7 @@ app.whenReady().then(() => {
   })
   updateRunner = createUpdateRunner({
     method: installMethod,
+    title: () => mainStrings().native.updateTitle,
     openTerminal: (req) => openTerminalInWindow(req),
     hostToken: (command) => {
       hostPaneGrants.offer(UPDATE_HOST_GRANT_ID, command)
@@ -3716,7 +3725,7 @@ app.whenReady().then(() => {
     store: createMcpOAuthStore(encryptedFile(mcpSecretsPath)),
     openExternal: openExternalSafe,
     browser: mcpOAuthBrowser(app.isPackaged, process.env),
-    locale: readLocale,
+    pages: () => mainStrings().native.signIn,
     onChange: () => mcpHost?.notify(),
   })
   mcpHost = new McpHost({
@@ -3765,10 +3774,7 @@ app.whenReady().then(() => {
     onSkipped: (ref, skipped) =>
       console.warn(`[keymap ${ref}] skipped entries: ${describeSkipped(skipped)}`),
   })
-  registerLanguagePackIpc({
-    languages: () => extensionHost?.languages() ?? [],
-    onError: (extId, error) => console.warn(`[language pack ${extId}] ${error}`),
-  })
+  registerLanguagePackIpc(languagePackDeps)
   registerEditorLanguageIpc({
     languages: () => extensionHost?.editorLanguages() ?? [],
     onError: (extId, error) => console.warn(`[editor language ${extId}] ${error}`),
@@ -3889,7 +3895,7 @@ app.whenReady().then(() => {
   appTray = new AppTray({
     iconPath: appIcon,
     tooltip: PRODUCT_DISPLAY_NAME,
-    locale: readLocale,
+    text: () => mainStrings().native.tray,
     windows: () => BrowserWindow.getAllWindows(),
     quit: requestQuit,
     setBadgeCount: (count) => app.setBadgeCount(count),
@@ -4033,7 +4039,7 @@ app.on('before-quit', (event) => {
           workspaceId: entry.workspaceId,
           ...paneActivity(entry),
         })),
-      confirmNative: (groups) => confirmQuitNatively(groups, readLocale() ?? 'en'),
+      confirmNative: (groups) => confirmQuitNatively(groups, mainStrings().native.quit),
     }).then((approved) => {
       quitAsking = false
       if (!approved) {

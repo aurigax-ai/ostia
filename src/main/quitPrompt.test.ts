@@ -4,6 +4,7 @@ const showMessageBox = vi.hoisted(() => vi.fn())
 vi.mock('electron', () => ({ dialog: { showMessageBox } }))
 
 const { confirmQuitNatively, quitPromptOptions } = await import('./quitPrompt')
+const { en, zhHant } = await import('../shared/dict')
 
 const GROUPS = [
   {
@@ -19,7 +20,7 @@ const GROUPS = [
 
 describe('quitPromptOptions', () => {
   it('lists what each workspace loses and defaults to Cancel', () => {
-    const options = quitPromptOptions(GROUPS, 'en')
+    const options = quitPromptOptions(GROUPS, en.native.quit)
     expect(options.buttons).toEqual(['Cancel', 'Quit'])
     expect(options.cancelId).toBe(0)
     expect(options.defaultId).toBe(0)
@@ -37,16 +38,16 @@ describe('quitPromptOptions', () => {
     ])
   })
 
-  it('speaks Traditional Chinese for a zh-Hant locale', () => {
-    expect(quitPromptOptions(GROUPS, 'zh-TW').buttons).toEqual(['取消', '結束'])
+  it('speaks the language of the catalog it is given', () => {
+    expect(quitPromptOptions(GROUPS, zhHant.native.quit).buttons).toEqual(['取消', '結束'])
   })
 })
 
 describe('confirmQuitNatively', () => {
   it('quits only on the Quit button', async () => {
     showMessageBox.mockResolvedValueOnce({ response: 1 })
-    expect(await confirmQuitNatively(GROUPS, 'en')).toBe(true)
+    expect(await confirmQuitNatively(GROUPS, en.native.quit)).toBe(true)
     showMessageBox.mockResolvedValueOnce({ response: 0 })
-    expect(await confirmQuitNatively(GROUPS, 'en')).toBe(false)
+    expect(await confirmQuitNatively(GROUPS, en.native.quit)).toBe(false)
   })
 })

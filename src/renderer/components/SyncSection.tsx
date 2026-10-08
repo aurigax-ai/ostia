@@ -1,6 +1,6 @@
+import type { Dict } from '@shared/dict'
 import type { SyncConflict, SyncStatus } from '@shared/types'
 import { useEffect, useMemo, useState } from 'react'
-import type { Dict } from '../i18n/dict'
 import { fmt, useDict } from '../i18n/useDict'
 import { useSettingsStore } from '../stores/settingsStore'
 import { Hint } from './Hint'

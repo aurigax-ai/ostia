@@ -32,11 +32,11 @@ import {
   XIcon,
   XSquareIcon,
 } from '@phosphor-icons/react'
+import type { Dict } from '@shared/dict'
 import type { ExtensionSidebarItem } from '@shared/extensions'
 import { WORKSPACE_GROUP_COLORS, type WorkspaceGroupColor } from '@shared/workspaceGroups'
 import { createContext, useContext, useEffect, useRef, useState } from 'react'
 import Markdown, { type Components } from 'react-markdown'
-import type { Dict } from '../i18n/dict'
 import { fmt, useDict } from '../i18n/useDict'
 import { allPanes, hasLockedPane, paneIds } from '../layout/tree'
 import type { LayoutNode } from '../layout/types'

@@ -7,6 +7,7 @@ import {
   startFakeMcpHttp,
 } from '../../test/fixtures/mcp/startHttpServer'
 import type { McpServerSettings, McpServerStatus } from '../shared/chatTools'
+import { en } from '../shared/dict'
 import { signInToMcp, signOutOfMcp } from './chatToolsIpc'
 import type { ExtensionSecretStore } from './extensionHost'
 import type { StoredSecrets } from './extensionSecrets'
@@ -86,7 +87,7 @@ function setup(
       return true
     },
     browser: opts.browser ?? 'fetch',
-    locale: () => undefined,
+    pages: () => en.native.signIn,
     onChange: () => host.notify(),
     timeoutMs: opts.timeoutMs,
     connectTimeoutMs: 10_000,

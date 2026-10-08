@@ -1,5 +1,6 @@
 import { cn } from '@/lib/utils'
 import { CaretRightIcon, CopyIcon } from '@phosphor-icons/react'
+import type { Dict } from '@shared/dict'
 import {
   DEFAULT_GATEWAY_ROUTE,
   LOOPBACK_ADDRESS,
@@ -20,7 +21,6 @@ import type {
 } from '@shared/types'
 import QRCode from 'qrcode'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { Dict } from '../i18n/dict'
 import { fmt, useDict } from '../i18n/useDict'
 import {
   ControlRow,

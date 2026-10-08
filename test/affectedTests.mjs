@@ -51,10 +51,7 @@ function runsEverything(file) {
 }
 
 function staysInRenderer(file) {
-  return (
-    !file.startsWith('src/') ||
-    (file.startsWith('src/renderer/') && !file.startsWith('src/renderer/i18n/'))
-  )
+  return !file.startsWith('src/') || file.startsWith('src/renderer/')
 }
 
 export function planTests(changed, readers, quarantined = []) {

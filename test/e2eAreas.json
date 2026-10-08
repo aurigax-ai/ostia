@@ -224,6 +224,7 @@
       "name": "language packs",
       "paths": [
         "src/main/languagePacks.ts",
+        "src/main/strings.ts",
         "src/shared/languagePack.ts",
         "src/shared/extensionLocales.ts",
         "src/renderer/lib/languagePacks.ts",

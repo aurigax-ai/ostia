@@ -12,10 +12,10 @@ import {
   stealsTerminalKey,
   usedByMonaco,
 } from '@shared/chordSpec'
+import { en } from '@shared/dict'
 import { parseKeymapBindings } from '@shared/keymapFile'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { commands } from '../commands/registry'
-import { en } from '../i18n/dict'
 import { useKeymapStore } from '../stores/keymapStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import {

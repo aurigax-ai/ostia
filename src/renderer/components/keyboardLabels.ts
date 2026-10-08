@@ -1,7 +1,7 @@
 import { type ChordProblem, chordText, parseChord } from '@shared/chordSpec'
+import type { Dict } from '@shared/dict'
 import type { TerminalSend } from '@shared/terminalKeys'
 import { commandWording, commands } from '../commands/registry'
-import type { Dict } from '../i18n/dict'
 import { sendActionKey } from '../lib/presetDiff'
 
 const TERMINAL_TITLES: Record<string, (d: Dict) => string> = {

@@ -1,5 +1,6 @@
-import { PRODUCT_PLACEHOLDER } from '../../shared/extensions'
-import { PRODUCT_DISPLAY_NAME } from '../../shared/productDisplay'
+import { PRODUCT_PLACEHOLDER } from './extensions'
+import type { LanguageCatalog } from './languagePack'
+import { PRODUCT_DISPLAY_NAME } from './productDisplay'
 
 export type Locale = string
 
@@ -3180,6 +3181,26 @@ export const en = {
     remoteDestructiveConfirm: 'Allow destructive',
     remoteCancel: 'Cancel',
   },
+  native: {
+    quit: {
+      title: 'Quit and lose this work?',
+      message: 'Quitting ends or discards everything listed here.',
+      command: 'Running: {name}',
+      agent: 'Agent: {name}',
+      unknown: 'a command',
+      file: 'Unsaved: {name}',
+      scratch: 'Files in the scratch folder: {count}',
+      unanswered: 'The window did not answer, so it may have running commands or unsaved files',
+      quit: 'Quit',
+      cancel: 'Cancel',
+    },
+    tray: { show: 'Show', quit: 'Quit', unread: '{count} unread' },
+    signIn: {
+      done: 'Signed in. You can close this tab and return to {product}.',
+      failed: 'Sign-in did not finish. Return to {product} and try again.',
+    },
+    updateTitle: 'Update {product}',
+  },
 }
 
 export type Dict = typeof en
@@ -6280,6 +6301,26 @@ export const zhHant: Dict = {
     remoteDestructiveConfirm: '允許破壞性指令',
     remoteCancel: '取消',
   },
+  native: {
+    quit: {
+      title: '要結束並捨棄這些工作嗎？',
+      message: '結束後，下列項目會被終止或捨棄。',
+      command: '執行中：{name}',
+      agent: '代理程式：{name}',
+      unknown: '一個指令',
+      file: '未儲存：{name}',
+      scratch: '暫存資料夾中的檔案：{count}',
+      unanswered: '視窗沒有回應，可能仍有執行中的指令或未儲存的檔案',
+      quit: '結束',
+      cancel: '取消',
+    },
+    tray: { show: '顯示', quit: '結束', unread: '{count} 則未讀' },
+    signIn: {
+      done: '已登入。你可以關閉此分頁並回到 {product}。',
+      failed: '登入未完成。請回到 {product} 再試一次。',
+    },
+    updateTitle: '更新 {product}',
+  },
 }
 
 export function resolveLocale(tag: string | undefined): Locale {
@@ -6297,4 +6338,23 @@ export function withProductName(text: string, product: string = PRODUCT_DISPLAY_
 
 export function fmt(template: string, vars: Record<string, string | number>): string {
   return template.replace(/\{(\w+)\}/g, (_, k) => String(vars[k] ?? `{${k}}`))
+}
+
+type Strings = { [key: string]: string | Strings }
+
+function mergeStrings(base: Strings, catalog: LanguageCatalog | undefined): Strings {
+  const out: Strings = {}
+  for (const [key, value] of Object.entries(base)) {
+    const translated = catalog && Object.hasOwn(catalog, key) ? catalog[key] : undefined
+    if (typeof value === 'string') {
+      out[key] = withProductName(typeof translated === 'string' ? translated : value)
+    } else {
+      out[key] = mergeStrings(value, typeof translated === 'object' ? translated : undefined)
+    }
+  }
+  return out
+}
+
+export function mergeCatalog(catalog: LanguageCatalog): Dict {
+  return mergeStrings(en as unknown as Strings, catalog) as unknown as Dict
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { PRODUCT_DISPLAY_NAME } from '../../shared/productDisplay'
 import { en, withProductName, zhHant } from './dict'
+import { PRODUCT_DISPLAY_NAME } from './productDisplay'
 
 type Strings = { [key: string]: string | Strings }
 

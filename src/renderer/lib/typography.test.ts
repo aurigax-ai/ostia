@@ -35,7 +35,6 @@ const SETTINGS_FONT_FILES = new Map([
   ['src/renderer/components/FontPicker.tsx', 'shows each family in its own face'],
   ['src/renderer/stores/settingsStore.ts', 'the font settings model itself'],
   ['src/renderer/settings/settingsSchema.ts', 'the JSON schema of the font settings'],
-  ['src/renderer/i18n/dict.ts', 'labels for the font settings'],
 ])
 
 const FONT_FACE_FILES = new Map([

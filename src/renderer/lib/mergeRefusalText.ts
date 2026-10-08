@@ -1,4 +1,4 @@
-import type { Dict } from '../i18n/dict'
+import type { Dict } from '@shared/dict'
 import type { MergeTarget } from './workspaceMerge'
 
 export function mergeRefusalText(d: Dict, refusal: MergeTarget['refusal']): string | undefined {

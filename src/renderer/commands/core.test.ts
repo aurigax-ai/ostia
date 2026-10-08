@@ -1,8 +1,7 @@
 import { readFileSync, readdirSync } from 'node:fs'
 import { join, relative, resolve } from 'node:path'
+import { en, mergeCatalog, zhHant } from '@shared/dict'
 import { describe, expect, it } from 'vitest'
-import { en, zhHant } from '../i18n/dict'
-import { mergeCatalog } from '../lib/languagePacks'
 import { registerCore } from './core'
 import { commandWording, commands } from './registry'
 
@@ -65,10 +64,7 @@ describe('core command wording', () => {
   })
 
   it('has a registration for every title in the dictionary', () => {
-    const code = sources
-      .filter(({ file }) => file !== 'src/renderer/i18n/dict.ts')
-      .map(({ text }) => text)
-      .join('\n')
+    const code = sources.map(({ text }) => text).join('\n')
     const shared = ['openFiles.ts', 'views.ts']
       .map((f) => readFileSync(resolve(ROOT, 'src/shared', f), 'utf8'))
       .join('\n')

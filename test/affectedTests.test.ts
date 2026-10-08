@@ -73,7 +73,7 @@ describe('planTests', () => {
       'src/shared/types.ts',
       'src/cli/index.ts',
       'src/extensions/git/main.ts',
-      'src/renderer/i18n/dict.ts',
+      'src/shared/dict.ts',
     ]) {
       expect(planTests([file], readers), file).toEqual({
         node: null,
@@ -134,7 +134,7 @@ describe('planE2e', () => {
   })
 
   it('runs the smoke set for a hub or any other unmapped file', () => {
-    for (const file of ['src/main/app.ts', 'src/renderer/i18n/dict.ts', 'package.json']) {
+    for (const file of ['src/main/app.ts', 'src/shared/dict.ts', 'package.json']) {
       expect(planE2e([file], map, imports), file).toEqual(['e2e/smoke.spec.ts'])
     }
   })

@@ -1,9 +1,9 @@
 import { cn } from '@/lib/utils'
 import { MagnifyingGlassIcon } from '@phosphor-icons/react'
+import type { Dict } from '@shared/dict'
 import type { ExtensionCategory } from '@shared/extensions'
 import type { MarketplaceExtension } from '@shared/marketplace'
 import { useMemo, useState } from 'react'
-import type { Dict } from '../i18n/dict'
 import { fmt, useDict, withProductName } from '../i18n/useDict'
 import {
   BROWSE_FILTERS,

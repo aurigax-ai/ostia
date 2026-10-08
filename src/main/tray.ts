@@ -1,4 +1,5 @@
 import { type BrowserWindow, Menu, Tray, nativeImage } from 'electron'
+import { type Dict, fmt } from '../shared/dict'
 import type { WindowSummary } from '../shared/types'
 
 export type CloseAction = 'close' | 'hide'
@@ -26,18 +27,7 @@ export function isHiddenLaunch(argv: readonly string[]): boolean {
   return argv.includes('--hidden')
 }
 
-const TRAY_LABELS = {
-  en: { show: 'Show', quit: 'Quit', unread: '{count} unread' },
-  'zh-Hant': { show: '顯示', quit: '結束', unread: '{count} 則未讀' },
-} as const
-
-export function trayLabels(locale: string | undefined): {
-  show: string
-  quit: string
-  unread: string
-} {
-  return locale === 'zh-Hant' ? TRAY_LABELS['zh-Hant'] : TRAY_LABELS.en
-}
+export type TrayText = Dict['native']['tray']
 
 export function unreadWorkspaces(list: readonly WindowSummary[]): number {
   let count = 0
@@ -47,15 +37,15 @@ export function unreadWorkspaces(list: readonly WindowSummary[]): number {
   return count
 }
 
-export function trayTooltip(base: string, unread: number, locale: string | undefined): string {
+export function trayTooltip(base: string, unread: number, text: TrayText): string {
   if (unread <= 0) return base
-  return `${base} · ${trayLabels(locale).unread.replace('{count}', String(unread))}`
+  return `${base} · ${fmt(text.unread, { count: unread })}`
 }
 
 export interface TrayDeps {
   iconPath: string
   tooltip: string
-  locale: () => string | undefined
+  text: () => TrayText
   windows: () => BrowserWindow[]
   quit: () => void
   setBadgeCount: (count: number) => void
@@ -101,7 +91,7 @@ export class AppTray {
     if (count === this.unread) return
     this.unread = count
     this.deps.setBadgeCount(count)
-    this.tray?.setToolTip(trayTooltip(this.deps.tooltip, count, this.deps.locale()))
+    this.tray?.setToolTip(trayTooltip(this.deps.tooltip, count, this.deps.text()))
   }
 
   remove(): void {
@@ -115,8 +105,8 @@ export class AppTray {
       .createFromPath(this.deps.iconPath)
       .resize({ width: TRAY_ICON_SIZE, height: TRAY_ICON_SIZE })
     const tray = new Tray(icon)
-    const labels = trayLabels(this.deps.locale())
-    tray.setToolTip(trayTooltip(this.deps.tooltip, this.unread, this.deps.locale()))
+    const labels = this.deps.text()
+    tray.setToolTip(trayTooltip(this.deps.tooltip, this.unread, labels))
     tray.setContextMenu(
       Menu.buildFromTemplate([
         { label: labels.show, click: () => this.showWindows() },

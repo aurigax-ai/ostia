@@ -1,6 +1,6 @@
+import type { Dict } from '@shared/dict'
 import type { SecretActionResult, SyncStatus } from '@shared/types'
 import { useState } from 'react'
-import type { Dict } from '../i18n/dict'
 import { useDict } from '../i18n/useDict'
 import { ControlRow, SectionHead, WarningNote } from './SettingsPanel'
 import {

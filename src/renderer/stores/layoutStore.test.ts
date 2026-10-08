@@ -1,5 +1,5 @@
+import { zhHant } from '@shared/dict'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { zhHant } from '../i18n/dict'
 import {
   allPanes,
   findPane,

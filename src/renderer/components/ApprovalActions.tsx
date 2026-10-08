@@ -5,7 +5,7 @@ import {
   type ApprovalRequest,
   offeredAnswers,
 } from '@shared/approvals'
-import type { Dict } from '../i18n/dict'
+import type { Dict } from '@shared/dict'
 import { useDict } from '../i18n/useDict'
 import { useApprovalsStore } from '../stores/approvalsStore'
 import { DropdownMenu, MenuItem } from './Menu'

@@ -16,6 +16,7 @@ import {
   usedByMonaco,
 } from '@shared/chordSpec'
 import { desktopTaking } from '@shared/desktopChords'
+import type { Dict } from '@shared/dict'
 import {
   TERMINAL_SEND_TYPES,
   type TerminalSend,
@@ -25,7 +26,6 @@ import {
 } from '@shared/terminalKeys'
 import { Fragment, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { commands } from '../commands/registry'
-import type { Dict } from '../i18n/dict'
 import { fmt, useDict } from '../i18n/useDict'
 import {
   WORKSPACE_GOTO,
