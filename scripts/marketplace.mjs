@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { basename, join } from 'node:path'
 
-export const marketplaceProject = 'marketplace-package'
+export const marketplaceProject = 'marketplace'
 
 export function marketplaceIds() {
   const manifest = JSON.parse(

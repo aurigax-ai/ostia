@@ -34,7 +34,7 @@ function manifestFiles(): string[] {
     ...readdirSync(extensions)
       .filter((id) => id !== 'sdk')
       .map((id) => join(extensions, id, 'ostia.json')),
-    join(repoRoot, 'sdk-package/template/ostia.json'),
+    join(repoRoot, 'sdk/template/ostia.json'),
     join(repoRoot, 'test/fixtures/extensions/echo/ostia.json'),
     join(repoRoot, 'test/fixtures/extensions-e2e/hello/ostia.json'),
     join(repoRoot, 'test/fixtures/extensions-agent/agent-kit/ostia.json'),
@@ -255,7 +255,7 @@ describe('manifest schemas', () => {
 describe('extension API version', () => {
   it('is bumped whenever the published contract changes', () => {
     const built = JSON.parse(readFileSync(join(sdkPackage, 'api.json'), 'utf8'))
-    const lock = JSON.parse(readFileSync(join(repoRoot, 'sdk-package/api-lock.json'), 'utf8'))
+    const lock = JSON.parse(readFileSync(join(repoRoot, 'sdk/api-lock.json'), 'utf8'))
     expect(lock.version, 'run pnpm api:bump <minor|major>').toBe(EXTENSION_API_VERSION)
     expect(
       built.digest,

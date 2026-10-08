@@ -53,7 +53,7 @@ describe('planTests', () => {
       'test/setup.ts',
       'test/mocks/ostia.ts',
       'scripts/build-extensions.mjs',
-      'sdk-package/docs/EXTENSIONS.md',
+      'sdk/docs/EXTENSIONS.md',
     ]) {
       expect(planTests(['src/renderer/lib/keyPresets.ts', file], readers), file).toEqual({
         node: null,

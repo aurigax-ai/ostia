@@ -216,7 +216,7 @@
         "src/renderer/components/BrowseExtensions.tsx",
         "src/renderer/components/MarketplaceSection.tsx",
         "src/renderer/stores/marketplaceStore.ts",
-        "marketplace-package/"
+        "marketplace/"
       ],
       "specs": ["e2e/marketplace.spec.ts"]
     },

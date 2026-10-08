@@ -9,7 +9,7 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
-import { vendoredPackages } from '../marketplace-package/build-extension.mjs'
+import { vendoredPackages } from '../marketplace/build-extension.mjs'
 import { marketplaceIds, marketplaceProject } from './marketplace.mjs'
 
 const out = 'out/marketplace'
