@@ -3,6 +3,7 @@ import {
   CHORDS_PER_COMMAND_MAX,
   type ChordSpec,
   DOUBLE_SHIFT,
+  TERMINAL_CHORD_IDS,
   type TapKey,
   bindingProblem,
   checkBinding,
@@ -325,6 +326,13 @@ describe('double Shift', () => {
     expect(bindingProblem('palette.toggle', chord(DOUBLE_SHIFT, true), true)).toBeNull()
     expect(checkBinding('palette.toggle', `terminal:${DOUBLE_SHIFT}`, false)).toBe('invalid')
     expect(checkBinding('browser.reload', DOUBLE_SHIFT, false)).toBe('invalid')
+  })
+
+  it('refuses every terminal-only command, which Shift twice could never run', () => {
+    for (const id of TERMINAL_CHORD_IDS) {
+      expect(checkBinding(id, DOUBLE_SHIFT, false), id).toBe('invalid')
+      expect(checkBinding(id, DOUBLE_SHIFT, true), id).toBe('invalid')
+    }
   })
 
   it('fires on the second of two lone Shift taps close together', () => {

@@ -69,6 +69,16 @@ describe('parseKeymapBindings', () => {
     ])
   })
 
+  it('skips Shift twice on a terminal-only command', () => {
+    const res = parseKeymapBindings(
+      { bindings: { copy: 'Shift+Shift', 'palette.toggle': 'Shift+Shift' } },
+      false,
+    )
+    if (!res.ok) throw new Error(res.error)
+    expect(res.bindings).toEqual({ 'palette.toggle': 'Shift+Shift' })
+    expect(res.skipped).toEqual([{ command: 'copy', value: 'Shift+Shift', problem: 'invalid' }])
+  })
+
   it('checks chords for the platform it loads on', () => {
     const raw = { bindings: { 'palette.toggle': 'Ctrl+Shift+P', 'pane.splitRight': 'Cmd+D' } }
     const mac = parseKeymapBindings(raw, true)

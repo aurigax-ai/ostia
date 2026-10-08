@@ -151,6 +151,14 @@ describe('WorkspaceSearch', () => {
     expect((await second).ok).toBe(true)
   })
 
+  it('keeps a caller’s full search running while it searches names only', async () => {
+    const search = new WorkspaceSearch(RG, [home])
+    const full = search.run(8, request(root, 'needle'))
+    const names = search.run(8, request(root, 'paper', { namesOnly: true }))
+    expect((await full).ok).toBe(true)
+    expect((await names).ok).toBe(true)
+  })
+
   it('refuses a folder outside the allowed roots', async () => {
     const search = new WorkspaceSearch(RG, [root])
     expect(await search.run(1, request(home, 'needle'))).toMatchObject({
