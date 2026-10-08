@@ -1,5 +1,5 @@
 import { type ChildProcess, execFileSync } from 'node:child_process'
-import { existsSync, readFileSync, rmSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   type Electron,
@@ -40,10 +40,36 @@ function processExit(app: ElectronApplication): Promise<void> {
 const CLOSE_DEADLINE_MS = 20_000
 const USER_DATA_FLAG = '--user-data-dir='
 
+const CRASH_DUMPS_ENV = 'OSTIA_E2E_CRASH_DUMPS'
+
 interface Launched {
   child: ChildProcess
   log: string | null
   reported: boolean
+  output: string[]
+  crashDumps: string
+}
+
+export function exitLine(child: ChildProcess): string {
+  if (child.signalCode !== null)
+    return `the app (pid ${child.pid}) was ended by ${child.signalCode}`
+  if (child.exitCode !== null)
+    return `the app (pid ${child.pid}) exited with code ${child.exitCode}`
+  return `the app (pid ${child.pid}) is still running`
+}
+
+export function crashDumpsIn(dir: string): string[] {
+  if (!existsSync(dir)) return []
+  return readdirSync(dir, { recursive: true, encoding: 'utf8' })
+    .filter((name) => name.endsWith('.dmp'))
+    .map((name) => join(dir, name))
+    .sort()
+}
+
+function keepOutput(child: ChildProcess): string[] {
+  const output: string[] = []
+  child.stderr?.on('data', (chunk: Buffer) => output.push(chunk.toString('utf8')))
+  return output
 }
 
 const launched = new Map<ElectronApplication, Launched>()
@@ -142,11 +168,18 @@ async function closeWithin(
 
 export const _electron: Electron = {
   async launch(options) {
-    const app = await playwrightElectron.launch(options)
+    const crashDumps = base.info().outputPath(`crash-dumps-${launched.size + 1}`)
+    const env = { ...(options?.env ?? (process.env as Record<string, string>)) }
+    const app = await playwrightElectron.launch({
+      ...options,
+      env: { ...env, [CRASH_DUMPS_ENV]: env[CRASH_DUMPS_ENV] ?? crashDumps },
+    })
     const userData = options?.args?.find((arg) => arg.startsWith(USER_DATA_FLAG))
     const entry: Launched = {
       child: app.process(),
       reported: false,
+      output: keepOutput(app.process()),
+      crashDumps: env[CRASH_DUMPS_ENV] ?? crashDumps,
       log: userData ? join(userData.slice(USER_DATA_FLAG.length), 'logs', 'main.log') : null,
     }
     launched.set(app, entry)
@@ -175,7 +208,21 @@ export const test = base.extend<{ appTraces: undefined }>({
       for (const entry of launched.values()) {
         if (!entry.reported && !(await exitedSoon(entry.child)))
           await reportStuck(entry, 'when the test ended')
-        if (failed && entry.log && existsSync(entry.log)) {
+        if (!failed) continue
+        console.error(exitLine(entry.child))
+        await testInfo.attach('app-exit', {
+          body: exitLine(entry.child),
+          contentType: 'text/plain',
+        })
+        await testInfo.attach('app-stderr', {
+          body: entry.output.join(''),
+          contentType: 'text/plain',
+        })
+        for (const path of crashDumpsIn(entry.crashDumps)) {
+          console.error(`crash dump of pid ${entry.child.pid}: ${path}`)
+          await testInfo.attach('crash-dump', { path, contentType: 'application/octet-stream' })
+        }
+        if (entry.log && existsSync(entry.log)) {
           console.error(`quit log of pid ${entry.child.pid}:\n${quitLines(entry.log)}`)
           await testInfo.attach('main-log', { path: entry.log, contentType: 'text/plain' })
         }

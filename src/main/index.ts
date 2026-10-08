@@ -6,6 +6,7 @@ import { readEnv } from '../shared/appEnv'
 import { parseDiscreteGpu } from '../shared/discreteGpu'
 import { discreteGpu, gpuStartPlan, readSwitcherooGpus } from './discreteGpu'
 import { offerOldDirsMove } from './oldDirsPrompt'
+import { keepTestCrashDumps } from './testCrashDumps'
 import {
   OLD_PRODUCT_NAME,
   appDataDir,
@@ -67,6 +68,8 @@ async function start(): Promise<void> {
   })
   await import('./app')
 }
+
+keepTestCrashDumps()
 
 if (app.isPackaged && !app.requestSingleInstanceLock()) app.exit(0)
 else void start()

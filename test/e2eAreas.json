@@ -830,11 +830,12 @@
       "paths": [
         "src/main/rendererReports.ts",
         "src/main/diagnostics.ts",
+        "src/main/testCrashDumps.ts",
         "src/renderer/components/AppErrorBoundary.tsx",
         "src/renderer/components/SurfaceErrorBoundary.tsx",
         "src/renderer/lib/errorReporting.ts"
       ],
-      "specs": ["e2e/crash-recovery.spec.ts"]
+      "specs": ["e2e/crash-dumps.spec.ts", "e2e/crash-recovery.spec.ts"]
     },
     {
       "name": "confinement",
