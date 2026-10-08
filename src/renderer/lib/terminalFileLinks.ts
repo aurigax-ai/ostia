@@ -1,6 +1,6 @@
+import { findFileLinks, resolveLinkPath } from '@shared/fileLinks'
 import type { IBufferCellPosition, IBufferRange, ILink, ILinkProvider } from '@xterm/xterm'
 import { LRUCache } from 'lru-cache'
-import { findFileLinks, resolveLinkPath } from './fileLinks'
 import type { OstiaTerminal as Terminal } from './ostiaTerminal'
 
 interface LogicalLine {
@@ -31,27 +31,71 @@ export function readLogicalLine(term: Terminal, row: number): LogicalLine {
   return { text, cells }
 }
 
+type Kind = 'file' | 'dir'
+
+export type FileLinkAction = 'open-file' | 'admit-file' | 'reveal-folder' | 'open-folder'
+
+export interface FileLinkFacts {
+  confined: Kind | null
+  probed: Kind | null
+  revealable: boolean
+  confinedOnly: boolean
+}
+
+export function fileLinkAction(facts: FileLinkFacts): FileLinkAction | null {
+  if (facts.confined === 'file') return 'open-file'
+  if (facts.confined === 'dir' && facts.revealable) return 'reveal-folder'
+  if (facts.confinedOnly) return null
+  if (facts.confined === 'dir' || facts.probed === 'dir') return 'open-folder'
+  return facts.probed === 'file' ? 'admit-file' : null
+}
+
+export function needsHumanClick(action: FileLinkAction): boolean {
+  return action === 'admit-file' || action === 'open-folder'
+}
+
+export interface FileLinkTarget {
+  written: string
+  path: string
+  line?: number
+  column?: number
+}
+
 export interface FileLinkDeps {
   cwd: () => string | null
   remote: () => boolean
-  stat: (path: string) => Promise<'file' | 'dir' | null>
-  open: (path: string, line?: number, column?: number) => void
+  confinedOnly: () => boolean
+  revealable: (path: string) => boolean
+  stat: (path: string) => Promise<Kind | null>
+  probe: (path: string) => Promise<Kind | null>
+  activate: (action: FileLinkAction, target: FileLinkTarget) => void
   modifierHeld: (event: MouseEvent) => boolean
-  hover: (range: IBufferRange) => void
+  hover: (range: IBufferRange, action: FileLinkAction) => void
   leave: () => void
 }
 
+interface Kinds {
+  confined: Kind | null
+  probed: Kind | null
+}
+
 export function createFileLinkProvider(term: Terminal, deps: FileLinkDeps): ILinkProvider {
-  const cache = new LRUCache<string, Promise<'file' | 'dir' | null>>({
+  const cache = new LRUCache<string, Promise<Kinds>>({
     ttl: STAT_TTL_MS,
     max: STAT_CACHE_MAX,
   })
-  const statCached = (path: string): Promise<'file' | 'dir' | null> => {
-    const hit = cache.get(path)
+  const ask = async (path: string, confinedOnly: boolean): Promise<Kinds> => {
+    const confined = await deps.stat(path).catch(() => null)
+    if (confined || confinedOnly || !path.startsWith('/')) return { confined, probed: null }
+    return { confined, probed: await deps.probe(path).catch(() => null) }
+  }
+  const kindsCached = (path: string, confinedOnly: boolean): Promise<Kinds> => {
+    const key = `${confinedOnly ? 'c' : 'p'}${path}`
+    const hit = cache.get(key)
     if (hit) return hit
-    const kind = deps.stat(path).catch(() => null)
-    cache.set(path, kind)
-    return kind
+    const kinds = ask(path, confinedOnly)
+    cache.set(key, kinds)
+    return kinds
   }
 
   return {
@@ -61,6 +105,7 @@ export function createFileLinkProvider(term: Terminal, deps: FileLinkDeps): ILin
         return
       }
       const cwd = deps.cwd()
+      const confinedOnly = deps.confinedOnly()
       const { text, cells } = readLogicalLine(term, row)
       const matches = findFileLinks(text).filter((m) => {
         const start = cells[m.start]
@@ -74,15 +119,23 @@ export function createFileLinkProvider(term: Terminal, deps: FileLinkDeps): ILin
       void Promise.all(
         matches.map(async (m): Promise<ILink | null> => {
           const path = resolveLinkPath(m.path, cwd ?? '~')
-          if ((await statCached(path)) !== 'file') return null
+          const kinds = await kindsCached(path, confinedOnly)
+          const action = fileLinkAction({
+            ...kinds,
+            confinedOnly,
+            revealable: kinds.confined === 'dir' && deps.revealable(path),
+          })
+          if (!action) return null
           return {
             range: { start: cells[m.start], end: cells[m.end - 1] },
             text: text.slice(m.start, m.end),
             decorations: { pointerCursor: true, underline: true },
             activate: (event) => {
-              if (deps.modifierHeld(event)) deps.open(path, m.line, m.column)
+              if (!deps.modifierHeld(event) || deps.remote()) return
+              if (needsHumanClick(action) && !event.isTrusted) return
+              deps.activate(action, { written: m.path, path, line: m.line, column: m.column })
             },
-            hover: () => deps.hover({ start: cells[m.start], end: cells[m.end - 1] }),
+            hover: () => deps.hover({ start: cells[m.start], end: cells[m.end - 1] }, action),
             leave: () => deps.leave(),
           }
         }),

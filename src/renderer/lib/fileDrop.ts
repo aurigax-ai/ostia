@@ -17,7 +17,7 @@ export function dropPaneId(target: EventTarget | null): string | undefined {
   return target.closest<HTMLElement>('.pane[data-pane-id]')?.dataset.paneId
 }
 
-function refusalText(verdict: OpenFileVerdict & { ok: false }): string {
+export function refusalText(verdict: OpenFileVerdict & { ok: false }): string {
   return fmt(currentDict().openFile[verdict.error], { path: verdict.path })
 }
 

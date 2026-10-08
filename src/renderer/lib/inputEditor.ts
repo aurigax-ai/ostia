@@ -1,7 +1,7 @@
+import { resolveLinkPath } from '@shared/fileLinks'
 import type { SpecCommand } from '../../shared/completionSpec'
 import type { FsEntry } from '../../shared/types'
 import type { CommandBlock } from '../stores/blocksStore'
-import { resolveLinkPath } from './fileLinks'
 import { firstCommand, isCommandPosition } from './shellTokens'
 import { type SpecItem, commandWords, specAnswer } from './specCompletion'
 

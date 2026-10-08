@@ -11,6 +11,7 @@ import {
   type SkillSummary,
   mcpToolName,
 } from '@shared/chatTools'
+import { resolveLinkPath } from '@shared/fileLinks'
 import { PRODUCT_DISPLAY_NAME } from '@shared/productDisplay'
 import { useBlocksStore } from '../stores/blocksStore'
 import {
@@ -37,7 +38,6 @@ import {
   decideTool,
   readsOutsideUnasked,
 } from './chatToolPermissions'
-import { resolveLinkPath } from './fileLinks'
 import { openFileAt } from './openFile'
 import { openSidebarUrl } from './sidebarItems'
 

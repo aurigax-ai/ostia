@@ -8,6 +8,7 @@ import {
   isUnderExcluded,
   nestEntries,
   nestingRules,
+  pathInTree,
   relativeToRoot,
   sortEntries,
 } from './fileTree'
@@ -273,5 +274,21 @@ describe('isUnderExcluded', () => {
     expect(isUnderExcluded(isExcluded, '/r/dist', '/r')).toBe(true)
     expect(isUnderExcluded(isExcluded, '/r/secret.txt', '/r')).toBe(true)
     expect(isUnderExcluded(isExcluded, '/r/src/dist.ts', '/r')).toBe(false)
+  })
+})
+
+describe('pathInTree', () => {
+  it('names a path under the root the way the tree names its rows, whichever side uses ~', () => {
+    expect(pathInTree('/home/u/proj/src', '/home/u/proj', '/home/u')).toBe('/home/u/proj/src')
+    expect(pathInTree('/home/u/proj/src', '~/proj', '/home/u')).toBe('~/proj/src')
+    expect(pathInTree('~/proj/src', '/home/u/proj', '/home/u')).toBe('/home/u/proj/src')
+    expect(pathInTree('/home/u/proj', '~/proj', '/home/u')).toBe('~/proj')
+  })
+
+  it('answers null for a path outside the root', () => {
+    expect(pathInTree('/home/u/other', '/home/u/proj', '/home/u')).toBeNull()
+    expect(pathInTree('/home/u/project', '/home/u/proj', '/home/u')).toBeNull()
+    expect(pathInTree('/tmp/x', '~', '/home/u')).toBeNull()
+    expect(pathInTree('/home/u/proj/src', '~/proj', null)).toBeNull()
   })
 })

@@ -1,4 +1,5 @@
 import type { IBufferRange } from '@xterm/xterm'
+import type { FileLinkAction } from './terminalFileLinks'
 
 export const LINK_MODIFIER_CLASS = 'link-modifier'
 
@@ -46,7 +47,7 @@ export function webLinkTarget(e: WebLinkClick, ctx: WebLinkClickContext): WebLin
   return 'same-tab'
 }
 
-export type LinkKind = 'web' | 'file'
+export type LinkKind = 'web' | FileLinkAction
 
 export interface LinkSpan {
   row: number

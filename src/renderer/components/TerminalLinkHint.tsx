@@ -1,8 +1,17 @@
 import { chordText } from '@shared/chordSpec'
+import type { Dict } from '../i18n/dict'
 import { useDict } from '../i18n/useDict'
 import type { LinkKind } from '../lib/linkModifier'
+import type { FileLinkAction } from '../lib/terminalFileLinks'
 import { isMac } from '../platform'
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip'
+
+const FILE_ACTION_TEXT: Record<FileLinkAction, (d: Dict) => string> = {
+  'open-file': (d) => d.terminalLinks.openFile,
+  'admit-file': (d) => d.terminalLinks.openFile,
+  'reveal-folder': (d) => d.terminalLinks.revealFolder,
+  'open-folder': (d) => d.terminalLinks.openFolder,
+}
 
 export interface LinkHintBox {
   kind: LinkKind
@@ -19,8 +28,8 @@ export function TerminalLinkHint({ hint }: { hint: LinkHintBox | null }): JSX.El
   const click = (shift: boolean): string =>
     chordText({ ctrl: !isMac, meta: isMac, shift, alt: false, key: d.terminalLinks.click }, isMac)
   const rows: [string, string][] =
-    hint.kind === 'file'
-      ? [[click(false), d.terminalLinks.openFile]]
+    hint.kind !== 'web'
+      ? [[click(false), FILE_ACTION_TEXT[hint.kind](d)]]
       : [
           ...(hint.plainClick
             ? [[d.terminalLinks.click, d.terminalLinks.openPane] as [string, string]]

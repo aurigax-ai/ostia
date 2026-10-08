@@ -5,6 +5,7 @@ import {
   type IMarker,
   Terminal,
 } from '@xterm/headless'
+import { type CwdReport, parseOsc7 } from '../shared/osc7'
 
 const MIRROR_SCROLLBACK = 2000
 export const HISTORY_LINES = 1000
@@ -94,6 +95,7 @@ export class ScreenMirror {
   private targetRows: number
   private changes = 0
   private serialized: { at: number; text: string } | undefined
+  private reportedCwd: CwdReport | null = null
 
   constructor(cols: number, rows: number) {
     this.targetCols = Math.max(1, cols)
@@ -108,7 +110,15 @@ export class ScreenMirror {
       this.onPromptMark(data.split(';')[0])
       return false
     })
+    this.term.parser.registerOscHandler(7, (data) => {
+      this.reportedCwd = parseOsc7(data) ?? this.reportedCwd
+      return false
+    })
     this.term.onWriteParsed(() => this.changes++)
+  }
+
+  get cwdReport(): CwdReport | null {
+    return this.reportedCwd
   }
 
   get revision(): number {

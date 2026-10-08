@@ -285,3 +285,15 @@ describe('ScreenMirror restored history', () => {
     expect(lines).toEqual(['old', '── workspace restored ──', 'new output', '$'])
   })
 })
+
+describe('ScreenMirror cwdReport', () => {
+  it('keeps the last folder the pane itself reported and ignores a malformed report', async () => {
+    const mirror = new ScreenMirror(80, 24)
+    expect(mirror.cwdReport).toBeNull()
+    mirror.write('\x1b]7;file://box/home/u/proj\x07')
+    mirror.write('\x1b]7;nonsense\x07')
+    await mirror.flush()
+    expect(mirror.cwdReport).toEqual({ host: 'box', path: '/home/u/proj' })
+    mirror.dispose()
+  })
+})

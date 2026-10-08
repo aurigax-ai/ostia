@@ -210,6 +210,11 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       pathForFile: vi.fn(() => ''),
       admitDropped: vi.fn().mockResolvedValue([]),
     },
+    terminalLinks: {
+      probe: vi.fn().mockResolvedValue(null),
+      admit: vi.fn().mockResolvedValue(null),
+      openFolder: vi.fn().mockResolvedValue({ ok: false, error: 'not-found' }),
+    },
     clipboard: {
       edit: vi.fn().mockResolvedValue(undefined),
       hasImage: vi.fn().mockResolvedValue(false),
@@ -388,7 +393,12 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
     telemetry: {
       state: vi
         .fn()
-        .mockResolvedValue({ installId: 'install-id', asked: true, available: true, newCategories: [] }),
+        .mockResolvedValue({
+          installId: 'install-id',
+          asked: true,
+          available: true,
+          newCategories: [],
+        }),
       consented: vi.fn().mockResolvedValue(undefined),
       categoriesSeen: vi.fn().mockResolvedValue(undefined),
       resetInstallId: vi.fn().mockResolvedValue('new-install-id'),

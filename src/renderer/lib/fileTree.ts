@@ -14,6 +14,19 @@ export function relativeToRoot(path: string, root: string): string | null {
   return path.startsWith(base) ? path.slice(base.length) : null
 }
 
+function expandHome(path: string, home: string | null): string {
+  if (!home || (path !== '~' && !path.startsWith('~/'))) return path
+  return `${home}${path.slice(1)}`
+}
+
+export function pathInTree(path: string, root: string, home: string | null): string | null {
+  const target = expandHome(path, home)
+  const base = expandHome(root, home)
+  if (target === base) return root
+  const rel = relativeToRoot(target, base)
+  return rel === null ? null : childPath(root, rel)
+}
+
 export function isUnderExcluded(isExcluded: ExcludeMatcher, path: string, root: string): boolean {
   const rel = relativeToRoot(path, root)
   if (rel === null) return isExcluded(path, root)

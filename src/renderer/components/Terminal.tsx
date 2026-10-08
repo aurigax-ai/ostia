@@ -54,7 +54,6 @@ import {
   webLinkTarget,
 } from '../lib/linkModifier'
 import { noteFittedGrid, offscreenGrid, registerOffscreenStarter } from '../lib/offscreenStart'
-import { openFileAt } from '../lib/openFile'
 import { isLocalHost, parseOsc7 } from '../lib/osc7'
 import { registerOsc52 } from '../lib/osc52'
 import {
@@ -77,6 +76,12 @@ import { createPtyAcker } from '../lib/ptyAck'
 import { registerSelectionSender } from '../lib/selectionSenders'
 import { createFileLinkProvider } from '../lib/terminalFileLinks'
 import { inputEditorFor, registerTerminal } from '../lib/terminalHandles'
+import {
+  type LinkPane,
+  activateFileLink,
+  linkRevealable,
+  linksConfinedOnly,
+} from '../lib/terminalLinkActions'
 import { terminalTitle } from '../lib/terminalTitle'
 import { createTitleCommitter } from '../lib/titleCommit'
 import { terminalFontStack } from '../lib/uiFonts'
@@ -540,14 +545,22 @@ function TerminalSurface({
       replaying: () => replaying,
       write: (text) => navigator.clipboard.writeText(text),
     })
+    const linkPane = (): LinkPane => ({
+      workspaceId: workspaceIdRef.current,
+      paneId,
+      cwd: cwdRef.current,
+    })
     const fileLinks = term.registerLinkProvider(
       createFileLinkProvider(term, {
         cwd: () => cwdRef.current,
         remote: () => remote,
+        confinedOnly: () => linksConfinedOnly(linkPane()),
+        revealable: (path) => linkRevealable(linkPane(), path),
         stat: (path) => window.ostia.fs.stat(path),
-        open: openFileAt,
+        probe: (path) => window.ostia.terminalLinks.probe(paneId, path),
+        activate: (action, target) => activateFileLink(linkPane(), action, target),
         modifierHeld: (e) => linkModifierHeld(e, isMac),
-        hover: (range) => showLinkHint('file', range),
+        hover: (range, action) => showLinkHint(action, range),
         leave: hideLinkHint,
       }),
     )

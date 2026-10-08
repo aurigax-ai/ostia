@@ -1,6 +1,11 @@
 import type { ILink, Terminal } from '@xterm/xterm'
 import { describe, expect, it, vi } from 'vitest'
-import { createFileLinkProvider, readLogicalLine } from './terminalFileLinks'
+import {
+  type FileLinkDeps,
+  createFileLinkProvider,
+  fileLinkAction,
+  readLogicalLine,
+} from './terminalFileLinks'
 
 function fakeTerminal(rows: { text: string; wrapped?: boolean; wide?: number[] }[]): Terminal {
   const lines = rows.map((row) => {
@@ -29,6 +34,7 @@ function linksFor(
   row: number,
   stat = vi.fn(async (): Promise<'file' | 'dir' | null> => 'file'),
   remote = false,
+  more: Partial<FileLinkDeps> = {},
 ) {
   const open = vi.fn()
   const hover = vi.fn()
@@ -36,11 +42,15 @@ function linksFor(
   const provider = createFileLinkProvider(term, {
     cwd: () => '/home/u/proj',
     remote: () => remote,
+    confinedOnly: () => false,
+    revealable: () => false,
     stat,
-    open,
+    probe: async () => null,
+    activate: open,
     modifierHeld: (e) => e.ctrlKey,
     hover,
     leave,
+    ...more,
   })
   return new Promise<{
     links: ILink[] | undefined
@@ -80,7 +90,12 @@ describe('createFileLinkProvider', () => {
     link.activate(new MouseEvent('click'), link.text)
     expect(open).not.toHaveBeenCalled()
     link.activate(new MouseEvent('click', { ctrlKey: true }), link.text)
-    expect(open).toHaveBeenCalledWith('/home/u/proj/src/app.ts', 12, 4)
+    expect(open).toHaveBeenCalledWith('open-file', {
+      written: 'src/app.ts',
+      path: '/home/u/proj/src/app.ts',
+      line: 12,
+      column: 4,
+    })
   })
 
   it('reports the hovered link range and when the pointer leaves it', async () => {
@@ -88,7 +103,7 @@ describe('createFileLinkProvider', () => {
     const { links, hover, leave } = await linksFor(term, 1)
     const [link] = links ?? []
     link.hover?.(new MouseEvent('mousemove'), link.text)
-    expect(hover).toHaveBeenCalledWith({ start: { x: 5, y: 1 }, end: { x: 14, y: 1 } })
+    expect(hover).toHaveBeenCalledWith({ start: { x: 5, y: 1 }, end: { x: 14, y: 1 } }, 'open-file')
     link.leave?.(new MouseEvent('mousemove'), link.text)
     expect(leave).toHaveBeenCalledTimes(1)
   })
@@ -124,8 +139,11 @@ describe('createFileLinkProvider', () => {
       const provider = createFileLinkProvider(term, {
         cwd: () => '/home/u/proj',
         remote: () => false,
+        confinedOnly: () => false,
+        revealable: () => false,
         stat,
-        open: vi.fn(),
+        probe: async () => null,
+        activate: vi.fn(),
         modifierHeld: () => false,
         hover: vi.fn(),
         leave: vi.fn(),
@@ -153,8 +171,11 @@ describe('createFileLinkProvider', () => {
     const provider = createFileLinkProvider(fakeTerminal(rows), {
       cwd: () => '/home/u/proj',
       remote: () => false,
+      confinedOnly: () => false,
+      revealable: () => false,
       stat,
-      open: vi.fn(),
+      probe: async () => null,
+      activate: vi.fn(),
       modifierHeld: () => false,
       hover: vi.fn(),
       leave: vi.fn(),
@@ -172,5 +193,126 @@ describe('createFileLinkProvider', () => {
     expect(stat).not.toHaveBeenCalled()
     await visit(1)
     expect(stat).toHaveBeenCalledWith('/home/u/proj/file0.ts')
+  })
+})
+
+const humanClick = { ctrlKey: true, isTrusted: true } as MouseEvent
+const noKind = async (): Promise<'file' | 'dir' | null> => null
+
+describe('fileLinkAction', () => {
+  const facts = { confined: null, probed: null, revealable: false, confinedOnly: false }
+
+  it('opens a file the confined stat sees and admits one only main can see', () => {
+    expect(fileLinkAction({ ...facts, confined: 'file' })).toBe('open-file')
+    expect(fileLinkAction({ ...facts, probed: 'file' })).toBe('admit-file')
+  })
+
+  it('reveals a folder under the Files root and hands any other folder to the file manager', () => {
+    expect(fileLinkAction({ ...facts, confined: 'dir', revealable: true })).toBe('reveal-folder')
+    expect(fileLinkAction({ ...facts, confined: 'dir' })).toBe('open-folder')
+    expect(fileLinkAction({ ...facts, probed: 'dir' })).toBe('open-folder')
+  })
+
+  it('leaves a path that is neither a file nor a folder as plain text', () => {
+    expect(fileLinkAction(facts)).toBeNull()
+  })
+
+  it('in a sandboxed or scratch workspace offers only what stays inside the app', () => {
+    const confinedOnly = { ...facts, confinedOnly: true }
+    expect(fileLinkAction({ ...confinedOnly, confined: 'file' })).toBe('open-file')
+    expect(fileLinkAction({ ...confinedOnly, confined: 'dir', revealable: true })).toBe(
+      'reveal-folder',
+    )
+    expect(fileLinkAction({ ...confinedOnly, confined: 'dir' })).toBeNull()
+    expect(fileLinkAction({ ...confinedOnly, probed: 'file' })).toBeNull()
+    expect(fileLinkAction({ ...confinedOnly, probed: 'dir' })).toBeNull()
+  })
+})
+
+describe('createFileLinkProvider outside home and folders', () => {
+  it('asks main about an absolute path the confined stat cannot see and admits it on a human Ctrl+click', async () => {
+    const term = fakeTerminal([{ text: 'saved /tmp/shots/a.png:3' }])
+    const probe = vi.fn(async (): Promise<'file' | 'dir' | null> => 'file')
+    const { links, open, hover } = await linksFor(term, 1, vi.fn(noKind), false, { probe })
+    expect(probe).toHaveBeenCalledWith('/tmp/shots/a.png')
+    const [link] = links ?? []
+    link.hover?.(new MouseEvent('mousemove'), link.text)
+    expect(hover.mock.calls[0][1]).toBe('admit-file')
+
+    link.activate(humanClick, link.text)
+    expect(open).toHaveBeenCalledWith('admit-file', {
+      written: '/tmp/shots/a.png',
+      path: '/tmp/shots/a.png',
+      line: 3,
+      column: undefined,
+    })
+  })
+
+  it('never admits a file or opens the file manager for a click the human did not make', async () => {
+    const scripted = new MouseEvent('click', { ctrlKey: true })
+    for (const kind of ['file', 'dir'] as const) {
+      const term = fakeTerminal([{ text: 'see /tmp/out' }])
+      const { links, open } = await linksFor(term, 1, vi.fn(noKind), false, {
+        probe: async () => kind,
+      })
+      const [link] = links ?? []
+      link.activate(scripted, link.text)
+      expect(open).not.toHaveBeenCalled()
+    }
+  })
+
+  it('never asks main while the pane is remote, sandboxed or scratch, or for a path under ~', async () => {
+    const probe = vi.fn(async (): Promise<'file' | 'dir' | null> => 'file')
+    const term = fakeTerminal([{ text: 'see /tmp/out.txt' }])
+    expect((await linksFor(term, 1, vi.fn(noKind), true, { probe })).links).toBeUndefined()
+    expect(
+      (await linksFor(term, 1, vi.fn(noKind), false, { probe, confinedOnly: () => true })).links,
+    ).toBeUndefined()
+    expect(
+      (await linksFor(term, 1, vi.fn(noKind), false, { probe, cwd: () => null })).links,
+    ).toHaveLength(1)
+    probe.mockClear()
+    const homeTerm = fakeTerminal([{ text: 'see ~/gone.txt' }])
+    expect((await linksFor(homeTerm, 1, vi.fn(noKind), false, { probe })).links).toBeUndefined()
+    expect(probe).not.toHaveBeenCalled()
+  })
+
+  it('does not act on a link whose pane turned remote after it was drawn', async () => {
+    let remote = false
+    const term = fakeTerminal([{ text: 'see src/app.ts' }])
+    const { links, open } = await linksFor(term, 1, undefined, false, { remote: () => remote })
+    remote = true
+    const [link] = links ?? []
+    link.activate(humanClick, link.text)
+    expect(open).not.toHaveBeenCalled()
+  })
+
+  it('links a folder and says whether a click reveals it in Files or opens the file manager', async () => {
+    const stat = vi.fn(async (): Promise<'file' | 'dir' | null> => 'dir')
+    const term = fakeTerminal([{ text: 'built src/renderer/ ok' }])
+    const inside = await linksFor(term, 1, stat, false, { revealable: () => true })
+    const [revealed] = inside.links ?? []
+    expect(revealed.text).toBe('src/renderer')
+    revealed.hover?.(new MouseEvent('mousemove'), revealed.text)
+    expect(inside.hover.mock.calls[0][1]).toBe('reveal-folder')
+    revealed.activate(new MouseEvent('click', { ctrlKey: true }), revealed.text)
+    expect(inside.open).toHaveBeenCalledWith('reveal-folder', {
+      written: 'src/renderer',
+      path: '/home/u/proj/src/renderer',
+      line: undefined,
+      column: undefined,
+    })
+
+    const outside = await linksFor(term, 1, stat)
+    const [opened] = outside.links ?? []
+    opened.hover?.(new MouseEvent('mousemove'), opened.text)
+    expect(outside.hover.mock.calls[0][1]).toBe('open-folder')
+    opened.activate(humanClick, opened.text)
+    expect(outside.open).toHaveBeenCalledWith('open-folder', {
+      written: 'src/renderer',
+      path: '/home/u/proj/src/renderer',
+      line: undefined,
+      column: undefined,
+    })
   })
 })

@@ -22,6 +22,7 @@ import {
   WarningCircleIcon,
 } from '@phosphor-icons/react'
 import type { ChatContextItem } from '@shared/assist'
+import { resolveLinkPath } from '@shared/fileLinks'
 import type { UIMessage } from 'ai'
 import {
   type KeyboardEvent,
@@ -79,7 +80,6 @@ import {
   isToolPart,
   messageText,
 } from '../lib/chatTransport'
-import { resolveLinkPath } from '../lib/fileLinks'
 import { openFileAt } from '../lib/openFile'
 import { openSidebarUrl } from '../lib/sidebarItems'
 import { useChatModel, wakeAssist } from '../stores/assistStore'
