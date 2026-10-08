@@ -139,6 +139,7 @@ test('a recorded notification runs the configured command with its placeholders 
     await win.evaluate(() =>
       window.ostia.notifications.post({
         paneId: 'pane-x',
+        kind: 'message',
         title: 'Build',
         body: 'all; green',
         desktop: false,
