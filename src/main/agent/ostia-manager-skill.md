@@ -23,7 +23,7 @@ Below, `ostia` means that command.
 - `ostia pane.list` — every pane in every workspace: `{paneId, workspaceId, kind, title, cwd,
   running, blockCount, lastExitCode, agent?, agentState?, agentMessage?, hibernated?}`.
   `paneId` is the id every other command takes. `agent` is set while an agent runs there;
-  `agentState` is what it reported (`working`, `waiting`, `done`, `error`, or `unknown` after a restart until it reports again); `hibernated: true`
+  `agentState` is what it reported (`working`, `waiting`, `done`, `error`); `hibernated: true`
   means Ostia stopped the idle agent to save memory. `ostia pane list` is not a command.
 - `ostia manager read <paneId> [--lines N]` — the pane's screen as plain text (last 200 lines by
   default, at most 2000), including a full-screen program such as another agent's TUI. This is
