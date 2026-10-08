@@ -453,7 +453,7 @@ function sandboxReadRules(entry: PtyEntry): SandboxReadRules | null {
   if (!entry.sandboxed) return null
   try {
     const { denyRead, allowRead } = workspaceSandboxes.config(entry.workspaceId).filesystem
-    return { denyRead, allowRead: allowRead ?? [] }
+    return { denyRead, allowRead }
   } catch {
     return { denyRead: ['/'], allowRead: [] }
   }
@@ -977,7 +977,7 @@ const managedServers = new ManagedServers({
 function sandboxCanRead(workspaceId: string, path: string): boolean {
   try {
     const { denyRead, allowRead } = workspaceSandboxes.config(workspaceId).filesystem
-    return visibleInSandbox(path, { denyRead, allowRead: allowRead ?? [] })
+    return visibleInSandbox(path, { denyRead, allowRead })
   } catch {
     return false
   }
@@ -987,7 +987,7 @@ function phoneReadRules(workspaceId: string): SandboxReadRules {
   if (!workspaceSandboxes.isEnabled(workspaceId)) return { denyRead: [], allowRead: [] }
   try {
     const { denyRead, allowRead } = workspaceSandboxes.config(workspaceId).filesystem
-    return { denyRead, allowRead: allowRead ?? [] }
+    return { denyRead, allowRead }
   } catch {
     return { denyRead: ['/'], allowRead: [] }
   }

@@ -111,7 +111,7 @@ function vendoredBinaries(
   vendorDir: string | undefined,
   platform: NodeJS.Platform,
   arch: string,
-): Partial<SandboxRuntimeConfig> {
+): Partial<Pick<SandboxRuntimeConfig, 'javaAgentJarPath' | 'seccomp'>> {
   if (!vendorDir) return {}
   return {
     javaAgentJarPath: join(vendorDir, 'java-proxy-agent', 'srt-proxy-agent.jar'),
@@ -230,6 +230,13 @@ export function fixedPolicy(
   }
 }
 
+type SrtFilesystem = Omit<
+  SandboxRuntimeConfig['filesystem'],
+  'denyRead' | 'allowRead' | 'allowWrite' | 'denyWrite'
+> & { denyRead: string[]; allowRead: string[]; allowWrite: string[]; denyWrite: string[] }
+
+export type SrtConfig = Omit<SandboxRuntimeConfig, 'filesystem'> & { filesystem: SrtFilesystem }
+
 export type SrtPolicy = Pick<ResolvedSandbox, 'allowRead' | 'domains'> &
   Partial<Omit<ResolvedSandbox, 'allowRead' | 'domains' | 'portsPolicy'>>
 
@@ -238,7 +245,7 @@ export function buildSrtConfig(
   paths: SandboxPaths,
   platform: NodeJS.Platform = process.platform,
   arch: string = process.arch,
-): SandboxRuntimeConfig {
+): SrtConfig {
   const { home, workDir, tmpDir } = paths
   const switches = { ...DEFAULT_SWITCHES, ...policy.switches }
   const fixed = fixedPolicy(paths, { workDir, tmpDir }, switches, platform, arch)

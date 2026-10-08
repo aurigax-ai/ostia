@@ -1,7 +1,6 @@
 import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readdirSync, rmSync } from 'node:fs'
 import { dirname, join } from 'node:path'
-import type { SandboxRuntimeConfig } from '@anthropic-ai/sandbox-runtime'
 import type { PackageRef } from '../../shared/packages'
 import { PRODUCT_DISPLAY_NAME } from '../../shared/productDisplay'
 import {
@@ -24,6 +23,7 @@ import type { SandboxPathEnv } from './pathChecks'
 import {
   SSH_AGENT_SOCKET_NAME,
   type SandboxPaths,
+  type SrtConfig,
   buildSrtConfig,
   expandHome,
   fixedPolicy,
@@ -338,7 +338,7 @@ export class WorkspaceSandboxes {
     return join(this.tmpDir(workspaceId), SSH_AGENT_SOCKET_NAME)
   }
 
-  config(workspaceId: string): SandboxRuntimeConfig {
+  config(workspaceId: string): SrtConfig {
     const workDir = this.workDir(workspaceId)
     if (!workDir) throw new SandboxUnavailableError('the workspace folder is not known yet')
     const problem = this.folderProblem(workspaceId)

@@ -5,7 +5,7 @@ allowBuilds:
   esbuild: true
   node-pty: true
 minimumReleaseAgeExclude:
-  - '@anthropic-ai/sandbox-runtime@0.0.78'
+  - '@anthropic-ai/sandbox-runtime@0.0.79'
   - '@aurigax-ai/ghostty-web@0.3.2'
 patchedDependencies:
   swr@2.5.1: patches/swr@2.5.1.patch
