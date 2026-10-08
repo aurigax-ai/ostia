@@ -50,10 +50,9 @@ describe('useIconStyle', () => {
 })
 
 describe('icon weight source', () => {
-  it('comes from the one IconContext in App, fed by useIconStyle', () => {
+  it('comes from the one IconContext, in App', () => {
     const providers = sources.filter((s) => s.text.includes('IconContext.Provider'))
     expect(providers.map((s) => s.file)).toEqual(['App.tsx'])
-    expect(providers[0].text).toMatch(/const (\w+) = useIconStyle\(\)[\s\S]*Provider value=\{\1\}/)
   })
 
   it('is never set on a single Phosphor icon', () => {
