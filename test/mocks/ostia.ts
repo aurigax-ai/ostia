@@ -157,6 +157,7 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       reveal: vi.fn(),
       onChanged: vi.fn(noopUnsub),
     },
+    openWaits: { onEnded: vi.fn(noopUnsub) },
     preview: {
       open: vi.fn().mockResolvedValue(null),
       shown: vi.fn(),

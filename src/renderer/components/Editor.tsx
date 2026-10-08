@@ -17,6 +17,7 @@ import { externalEditorError, openPaneInExternalEditor } from '../commands/exter
 import { fmt, useDict } from '../i18n/useDict'
 import { useArtifactListing } from '../lib/artifacts'
 import { findStep, matchChord, runAppChord } from '../lib/chords'
+import { requestClosePane } from '../lib/closeConfirm'
 import { csvDelimiter, isCsvPath } from '../lib/csvTable'
 import { changedLines, minimalLineEdit } from '../lib/diskReload'
 import { registerEditorPosition } from '../lib/editorPositions'
@@ -45,6 +46,7 @@ import { isMac } from '../platform'
 import { useEditorRevealStore } from '../stores/editorRevealStore'
 import { useEditorStatus } from '../stores/editorStatusStore'
 import { useLayoutStore } from '../stores/layoutStore'
+import { useOpenWaitsStore } from '../stores/openWaitsStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { CsvTable } from './CsvTable'
 import { HtmlPreview } from './HtmlPreview'
@@ -249,6 +251,7 @@ export function EditorView({
   padRef.current = pad
   const [padFull, setPadFull] = useState(false)
   const padHint = d.artifacts.padHint
+  const waitedBy = useOpenWaitsStore((s) => s.byPane[paneId])
   const runnable = isPreviewPath(filePath) && !remote && !blocked
   const inArtifacts = isInside(artifacts?.dir, filePath)
   const [runChoice, setRunChoice] = useState<{ file: string; on: boolean } | null>(null)
@@ -926,6 +929,24 @@ export function EditorView({
                 </Button>
               </>
             ) : null}
+          </div>
+        </Alert>
+      ) : null}
+      {waitedBy ? (
+        <Alert className={cn(ATTENTION_ALERT, 'editor-waited')} data-testid="editor-waited">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="min-w-0 flex-1">
+              {waitedBy.command
+                ? fmt(d.viewer.waitedBy, { command: waitedBy.command, pane: waitedBy.from })
+                : fmt(d.viewer.waitedByShell, { pane: waitedBy.from })}
+            </span>
+            <Button
+              variant="outline"
+              size="xs"
+              onClick={() => void requestClosePane(workspaceId, paneId)}
+            >
+              {d.viewer.waitedClose}
+            </Button>
           </div>
         </Alert>
       ) : null}

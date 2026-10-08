@@ -19,9 +19,46 @@ export type OpenFileVerdict =
   | { ok: true; path: string }
   | { ok: false; path: string; error: OpenFileError }
 
+export type WaitOutcome = 'closed' | 'gone'
+
 export type OpenFilesResult =
-  | { ok: true; results: OpenFileVerdict[] }
+  | { ok: true; results: OpenFileVerdict[]; waited?: WaitOutcome }
   | { ok: false; error: string; message: string }
+
+export const OPEN_DIFF_COMMAND = 'diff.openFiles'
+export const OPEN_PLACEMENTS = ['tab', 'right', 'down'] as const
+export type OpenPlacement = (typeof OPEN_PLACEMENTS)[number]
+
+export function parsePlacement(value: unknown): OpenPlacement | undefined {
+  return OPEN_PLACEMENTS.find((placement) => placement === value)
+}
+
+export interface OpenedPane {
+  path: string
+  paneId: string
+}
+
+export function openedPaneIds(result: unknown): string[] {
+  const opened = (result as { opened?: unknown } | null)?.opened
+  if (!Array.isArray(opened)) return []
+  return opened.flatMap((entry) =>
+    typeof (entry as OpenedPane | null)?.paneId === 'string' ? [(entry as OpenedPane).paneId] : [],
+  )
+}
+
+export type DiffFilesError =
+  | 'invalid-args'
+  | 'not-found'
+  | 'directory'
+  | 'not-a-file'
+  | 'unreadable'
+  | 'outside-sandbox'
+  | 'binary'
+  | 'too-large'
+
+export type DiffFilesResult =
+  | { ok: true; waited?: WaitOutcome }
+  | { ok: false; error: DiffFilesError | string; path?: string; message?: string }
 
 function position(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isInteger(value) && value > 0 ? value : undefined

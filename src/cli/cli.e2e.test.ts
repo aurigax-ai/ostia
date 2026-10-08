@@ -11,7 +11,7 @@ import {
 import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ReportedAgentWork, registerAgentWorkMethods } from '../main/agentWork'
 import { registerAttentionMethods } from '../main/attention'
 import { grant } from '../main/capabilityStore'
@@ -24,11 +24,12 @@ import {
 import { type PaneIdentity, registerPane } from '../main/idRegistry'
 import { OpenFileGrants } from '../main/openFileGrants'
 import { registerOpenFileMethods } from '../main/openFileMethods'
+import { OpenWaits } from '../main/openWaits'
 import { registerPaneListMethods } from '../main/paneList'
 import { ViewHost, ViewStore } from '../main/viewHost'
 import { registerViewMethods } from '../main/viewsIpc'
 import { registerWorkflowMethods, workspaceWorkflowsDir } from '../main/workflows'
-import { OPEN_FILES_COMMAND, REVEAL_FOLDER_COMMAND } from '../shared/openFiles'
+import { OPEN_DIFF_COMMAND, OPEN_FILES_COMMAND, REVEAL_FOLDER_COMMAND } from '../shared/openFiles'
 import type { CommandDescriptor, CommandResult, CommandTarget } from '../shared/types'
 
 const repoRoot = process.cwd()
@@ -41,12 +42,15 @@ function nextSocketPath(): string {
 }
 
 const execCalls: { target: CommandTarget; id: string; args?: unknown }[] = []
+let openedPanes: { path: string; paneId: string }[] = []
 const agentWork = new ReportedAgentWork()
 
 const fakeDeps: ControlServerDeps = {
   execCommand: async (target, id, args) => {
     execCalls.push({ target, id, args })
-    return { ok: true, result: { ran: id } } as CommandResult
+    const waited = (args as { wait?: boolean } | undefined)?.wait === true
+    const result = waited || id === OPEN_DIFF_COMMAND ? { opened: openedPanes } : { ran: id }
+    return { ok: true, result } as CommandResult
   },
   listCommandsFor: () =>
     [
@@ -857,6 +861,7 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
     const revealed = () =>
       execCalls.filter((c) => c.id === REVEAL_FOLDER_COMMAND).map((c) => c.args)
     const browsed: unknown[] = []
+    const openWaits = new OpenWaits()
 
     beforeAll(() => {
       base = realpathSync(mkdtempSync(join(tmpdir(), 'ostia-cli-open-')))
@@ -875,6 +880,7 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
         isSandboxed: (workspaceId) => sandboxed.has(workspaceId),
         isScratch: () => false,
         confineFolder: (path) => (path === home || path.startsWith(`${home}/`) ? path : null),
+        waits: openWaits,
         execCommand: fakeDeps.execCommand,
       })
       registerControlMethod('ext.list', {
@@ -891,6 +897,7 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
     afterEach(() => {
       sandboxed.clear()
       browsed.length = 0
+      openedPanes = []
     })
 
     afterAll(() => rmSync(base, { recursive: true, force: true }))
@@ -1043,6 +1050,95 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
       expect(stray.stderr).toContain('--name goes with -')
       expect(readdirSync(artifacts)).toEqual([])
       expect(opened()).toEqual([])
+    })
+
+    it('passes --tab and --split on, and refuses a split that waits or an unknown side', async () => {
+      await runOstia(['--tab', 'README'], env(), home)
+      await runOstia(['open', 'README', '--split', 'down'], env(), home)
+      expect(opened()).toEqual([
+        { files: [{ path: join(home, 'README') }], placement: 'tab' },
+        { files: [{ path: join(home, 'README') }], placement: 'down' },
+      ])
+      const sideways = await runOstia(['open', '--split', 'left', 'README'], env(), home)
+      expect(sideways.code).toBe(1)
+      expect(sideways.stderr).toContain('--split takes right or down')
+      const both = await runOstia(['open', '--wait', '--split', 'right', 'README'], env(), home)
+      expect(both.stderr).toContain('--wait opens a tab')
+      expect(opened()).toHaveLength(2)
+    })
+
+    it('--wait returns 0 only when the waited tab is closed', async () => {
+      openedPanes = [{ path: join(home, 'README'), paneId: 'ed-1' }]
+      const closing = runOstia(['--wait', 'README'], env(), home)
+      await vi.waitFor(() => expect(openWaits.size).toBe(1), { timeout: 5000 })
+      expect(opened()).toEqual([{ files: [{ path: join(home, 'README') }], wait: true }])
+      openWaits.paneClosed('ed-1')
+      const closed = await closing
+      expect(closed.code).toBe(0)
+      expect(closed.stdout).toBe('')
+
+      const leaving = runOstia(['-w', 'README'], env(), home)
+      await vi.waitFor(() => expect(openWaits.size).toBe(1), { timeout: 5000 })
+      openWaits.workspaceClosed('s1')
+      const left = await leaving
+      expect(left.code).toBe(1)
+      expect(left.stderr).toContain('the wait ended before the tab was closed')
+      expect(openWaits.size).toBe(0)
+    })
+
+    it('--wait ends at once when no tab was opened, and its wait goes when the command is interrupted', async () => {
+      openedPanes = []
+      const none = await runOstia(['--wait', 'README'], env(), home)
+      expect(none.code).toBe(1)
+
+      openedPanes = [{ path: join(home, 'README'), paneId: 'ed-2' }]
+      const child = spawn(process.execPath, [cliPath, '--wait', 'README'], {
+        env: env(),
+        cwd: home,
+      })
+      liveChildren.add(child)
+      await vi.waitFor(() => expect(openWaits.size).toBe(1), { timeout: 5000 })
+      child.kill('SIGINT')
+      await vi.waitFor(() => expect(openWaits.size).toBe(0), { timeout: 5000 })
+      liveChildren.delete(child)
+    })
+
+    it('ostia diff sends both texts to the diff surface and returns no content', async () => {
+      writeFileSync(join(home, 'old.txt'), 'one\n')
+      writeFileSync(join(home, 'new.txt'), 'two\n')
+      openedPanes = [{ path: join(home, 'new.txt'), paneId: 'diff-1' }]
+      const res = await runOstia(['diff', 'old.txt', 'new.txt'], env(), home)
+      expect(res.stderr).toBe('')
+      expect(res.stdout.trim()).toBe('ok')
+      expect(execCalls.filter((c) => c.id === OPEN_DIFF_COMMAND).map((c) => c.args)).toEqual([
+        {
+          title: 'old.txt ↔ new.txt',
+          original: 'one\n',
+          modified: 'two\n',
+          path: join(home, 'new.txt'),
+        },
+      ])
+      expect(res.stdout).not.toContain('two')
+    })
+
+    it('ostia diff refuses a binary, a missing file and anything but two files', async () => {
+      writeFileSync(join(home, 'blob.bin'), Buffer.from([1, 0, 2]))
+      const binary = await runOstia(['diff', 'README', 'blob.bin'], env(), home)
+      expect(binary.code).toBe(1)
+      expect(binary.stderr).toContain(`ostia diff: ${join(home, 'blob.bin')}: is not a text file`)
+      const missing = await runOstia(['diff', join(outside, 'nope.txt'), 'README'], env(), home)
+      expect(missing.stderr).toContain('no such file')
+      const one = await runOstia(['diff', 'README'], env(), home)
+      expect(one.stderr).toContain('takes two files')
+      expect(execCalls.filter((c) => c.id === OPEN_DIFF_COMMAND)).toEqual([])
+    })
+
+    it('ostia diff --wait returns when the diff tab closes', async () => {
+      openedPanes = [{ path: join(home, 'README'), paneId: 'diff-2' }]
+      const waiting = runOstia(['diff', '--wait', 'README', 'README'], env(), home)
+      await vi.waitFor(() => expect(openWaits.size).toBe(1), { timeout: 5000 })
+      openWaits.paneClosed('diff-2')
+      expect((await waiting).code).toBe(0)
     })
 
     it('reads stdin only for an explicit dash', async () => {

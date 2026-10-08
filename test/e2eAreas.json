@@ -905,9 +905,18 @@
         "src/renderer/components/CsvTable.tsx",
         "src/renderer/components/MermaidDiagram.tsx",
         "src/renderer/lib/csvTable.ts",
-        "src/renderer/lib/mermaidImage.ts"
+        "src/renderer/lib/mermaidImage.ts",
+        "src/main/openWaits.ts",
+        "src/main/openFileMethods.ts",
+        "src/renderer/lib/openWaits.ts",
+        "src/renderer/stores/openWaitsStore.ts",
+        "src/cli/fileArgs.ts"
       ],
-      "specs": ["e2e/artifacts.spec.ts", "e2e/artifacts-preview.spec.ts"]
+      "specs": [
+        "e2e/artifacts.spec.ts",
+        "e2e/artifacts-preview.spec.ts",
+        "e2e/open-from-shell.spec.ts"
+      ]
     }
   ]
 }

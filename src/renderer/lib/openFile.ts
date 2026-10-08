@@ -1,4 +1,4 @@
-import type { FileTarget } from '@shared/openFiles'
+import type { FileTarget, OpenPlacement, OpenedPane } from '@shared/openFiles'
 import { useEditorRevealStore } from '../stores/editorRevealStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
@@ -80,4 +80,37 @@ export function openFilesQuietly(workspaceId: string, files: FileTarget[], paneI
       beside = opened
     }
   })
+}
+
+export interface PlacedOpen {
+  placement: OpenPlacement
+  quiet: boolean
+  fresh: boolean
+}
+
+export function openPlaced(
+  workspaceId: string,
+  files: FileTarget[],
+  paneId: string | undefined,
+  how: PlacedOpen,
+): OpenedPane[] {
+  const opened: OpenedPane[] = []
+  const place = (): void => {
+    let beside = paneId
+    for (const file of files) {
+      requestReveal(file)
+      const layout = useLayoutStore.getState()
+      const pane =
+        how.placement === 'tab' || opened.length > 0
+          ? layout.openFileTab(workspaceId, file.path, beside, how.quiet, how.fresh)
+          : layout.openFileSplit(workspaceId, file.path, beside, how.placement, how.quiet)
+      if (!pane) continue
+      if (how.quiet) markOpenedQuietly(pane, file.path.split('/').pop() || file.path)
+      opened.push({ path: file.path, paneId: pane })
+      beside = pane
+    }
+  }
+  if (how.quiet) openKeepingFocus(place)
+  else place()
+  return opened
 }

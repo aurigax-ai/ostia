@@ -2801,6 +2801,16 @@ button.prompt-chip:focus-visible {
   line-height: var(--text-ui-sm--line-height);
 }
 
+.editor-waited {
+  position: absolute;
+  bottom: 6px;
+  left: 6px;
+  right: 6px;
+  z-index: 3;
+  width: auto;
+  background: color-mix(in srgb, var(--attn) 10%, var(--surface-1));
+}
+
 .editor-pad-full {
   position: absolute;
   bottom: 6px;

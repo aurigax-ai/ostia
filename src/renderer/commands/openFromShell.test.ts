@@ -1,12 +1,14 @@
-import { OPEN_FILES_COMMAND, REVEAL_FOLDER_COMMAND } from '@shared/openFiles'
+import { OPEN_DIFF_COMMAND, OPEN_FILES_COMMAND, REVEAL_FOLDER_COMMAND } from '@shared/openFiles'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { allPanes, findPane, paneBrowserProfile, tabsOfPane } from '../layout/tree'
 import { tabMark } from '../lib/attention'
 import { callerHasFocus, opensQuietly } from '../lib/callerFocus'
 import { followedFolder, treeRoot } from '../lib/revealFolder'
 import { useAttentionStore } from '../stores/attentionStore'
+import { useDiffStore } from '../stores/diffStore'
 import { useFileTreeStore } from '../stores/fileTreeStore'
 import { useLayoutStore } from '../stores/layoutStore'
+import { useOpenWaitsStore } from '../stores/openWaitsStore'
 import { useUIStore } from '../stores/uiStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
 import { registerBuiltinCommands } from './builtins'
@@ -35,6 +37,7 @@ afterEach(() => {
   useAttentionStore.setState(attentionInit, true)
   useFileTreeStore.setState(treeInit, true)
   useUIStore.setState(uiInit, true)
+  useOpenWaitsStore.setState({ byPane: {} })
 })
 
 function seed(workDir = '/home/me/project'): string {
@@ -206,5 +209,144 @@ describe('files.reveal', () => {
     const res = await commands.execWith(fromPane(caller), REVEAL_FOLDER_COMMAND, { path: 'src' })
     expect(res.ok).toBe(false)
     expect(useFileTreeStore.getState().shown).toBeNull()
+  })
+})
+
+describe('placement', () => {
+  const A = '/home/me/project/a.md'
+  const B = '/home/me/project/b.md'
+
+  it('--tab opens each file as a tab beside the caller, in order', async () => {
+    const caller = seed()
+    focusPane(caller)
+    const res = await commands.execWith(fromPane(caller), OPEN_FILES_COMMAND, {
+      files: [{ path: A }, { path: B }],
+      placement: 'tab',
+    })
+    const stack = tabsOfPane(layout().root, caller)
+    expect(stack?.children).toHaveLength(3)
+    expect(editors().map((p) => p.filePath)).toEqual([A, B])
+    expect(res.ok && res.result).toEqual({
+      opened: editors().map((p) => ({ path: p.filePath, paneId: p.id })),
+    })
+  })
+
+  it('--split right opens a split of the caller and reuses the editor already on that side', async () => {
+    const caller = seed()
+    focusPane(caller)
+    await commands.execWith(fromPane(caller), OPEN_FILES_COMMAND, {
+      files: [{ path: A }],
+      placement: 'right',
+    })
+    expect(tabsOfPane(layout().root, caller)).toBeNull()
+    const first = editors()[0]
+    expect(layout().activePaneId).toBe(first.id)
+    await commands.execWith(fromPane(caller), OPEN_FILES_COMMAND, {
+      files: [{ path: B }],
+      placement: 'right',
+    })
+    const second = editors().find((p) => p.filePath === B)
+    expect(editors()).toHaveLength(2)
+    expect(tabsOfPane(layout().root, first.id)?.children.map((t) => t.id)).toEqual([
+      first.id,
+      second?.id,
+    ])
+  })
+
+  it('a quiet split shows the file and leaves the caller active', async () => {
+    const caller = seed()
+    await commands.execWith(fromPane(caller), OPEN_FILES_COMMAND, {
+      files: [{ path: A }],
+      placement: 'down',
+    })
+    expect(layout().activePaneId).toBe(caller)
+    expect(editors()).toHaveLength(1)
+    expect(tabMark(useAttentionStore.getState().byPane[editors()[0].id])).toBe('unread')
+  })
+})
+
+describe('waited tabs', () => {
+  const A = '/home/me/project/COMMIT_EDITMSG'
+
+  it('gives a waited file its own tab, says who waits, and reports the pane to main', async () => {
+    const caller = seed()
+    focusPane(caller)
+    useLayoutStore.getState().openFileTab('s1', A, caller, true)
+    const res = await commands.execWith(fromPane(caller), OPEN_FILES_COMMAND, {
+      files: [{ path: A }],
+      wait: true,
+    })
+    expect(editors()).toHaveLength(2)
+    const waited = editors().find((p) => p.id === layout().activePaneId)
+    expect(res.ok && res.result).toEqual({ opened: [{ path: A, paneId: waited?.id }] })
+    expect(useOpenWaitsStore.getState().byPane[waited?.id ?? '']).toEqual({
+      from: expect.any(String),
+      command: null,
+    })
+    expect(useAttentionStore.getState().byPane[waited?.id ?? '']).toBeUndefined()
+  })
+
+  it('never puts a later open into a waited tab', async () => {
+    const caller = seed()
+    focusPane(caller)
+    await commands.execWith(fromPane(caller), OPEN_FILES_COMMAND, {
+      files: [{ path: A }],
+      wait: true,
+    })
+    const waited = editors()[0]
+    useLayoutStore.getState().openFile('s1', '/home/me/project/other.md')
+    expect(
+      editors()
+        .map((p) => p.filePath)
+        .sort(),
+    ).toEqual([A, '/home/me/project/other.md'].sort())
+    expect(findPane(layout().root, waited.id)).toMatchObject({ filePath: A })
+  })
+
+  it('drops the line when main says the wait ended', async () => {
+    const caller = seed()
+    await commands.execWith(fromPane(caller), OPEN_FILES_COMMAND, {
+      files: [{ path: A }],
+      wait: true,
+    })
+    const waited = editors()[0]
+    useOpenWaitsStore.getState().end([waited.id])
+    expect(useOpenWaitsStore.getState().byPane).toEqual({})
+  })
+})
+
+describe('diff.openFiles', () => {
+  const content = {
+    title: 'a ↔ b',
+    original: 'one',
+    modified: 'two',
+    path: '/home/me/project/b.md',
+  }
+
+  it('pushes both texts to the diff surface of the caller’s workspace and reports its pane', async () => {
+    const caller = seed()
+    focusPane(caller)
+    const res = await commands.execWith(fromPane(caller), OPEN_DIFF_COMMAND, content)
+    const diff = allPanes(layout().root).find((p) => p.kind === 'diff')
+    expect(diff).toBeDefined()
+    expect(useDiffStore.getState().byPane[diff?.id ?? '']).toMatchObject({
+      original: 'one',
+      modified: 'two',
+    })
+    expect(res.ok && res.result).toEqual({ opened: [{ path: content.path, paneId: diff?.id }] })
+    expect(layout().activePaneId).toBe(diff?.id)
+  })
+
+  it('opens quietly for a caller without focus', async () => {
+    const caller = seed()
+    await commands.execWith(fromPane(caller), OPEN_DIFF_COMMAND, content)
+    expect(layout().activePaneId).toBe(caller)
+    expect(allPanes(layout().root).some((p) => p.kind === 'diff')).toBe(true)
+  })
+
+  it('refuses a call without both texts', async () => {
+    const caller = seed()
+    const res = await commands.execWith(fromPane(caller), OPEN_DIFF_COMMAND, { title: 'x' })
+    expect(res.ok).toBe(false)
   })
 })

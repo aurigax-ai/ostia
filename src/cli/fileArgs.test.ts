@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import {
   type FileProbe,
+  diffRefusalLine,
   fileWord,
   isClaimedWord,
   openTarget,
   parseFileArg,
+  placementOf,
   refusalLine,
   revealRefusalLine,
 } from './fileArgs'
@@ -124,6 +126,41 @@ describe('open targets', () => {
     expect(revealRefusalLine('/home/u/x', 'not-found')).toBe('ostia: /home/u/x: no such folder')
     expect(revealRefusalLine('/home/u/x', 'command-failed', 'no window')).toBe(
       'ostia: /home/u/x: no window',
+    )
+  })
+})
+
+describe('placement and wait flags', () => {
+  it('lets every opener flag start the bare form', () => {
+    const p = probe([])
+    for (const word of ['-w', '--wait', '--tab', '--split', '-n', '--new']) {
+      expect(fileWord(word, p), word).toBe('path')
+    }
+  })
+
+  it('reads --tab and --split right|down, and refuses what cannot be combined', () => {
+    expect(placementOf({ tab: false, split: undefined, wait: false })).toEqual({
+      ok: true,
+      placement: undefined,
+    })
+    expect(placementOf({ tab: true, split: undefined, wait: false })).toEqual({
+      ok: true,
+      placement: 'tab',
+    })
+    expect(placementOf({ tab: false, split: 'down', wait: false })).toEqual({
+      ok: true,
+      placement: 'down',
+    })
+    expect(placementOf({ tab: false, split: 'left', wait: false }).ok).toBe(false)
+    expect(placementOf({ tab: true, split: 'right', wait: false }).ok).toBe(false)
+    expect(placementOf({ tab: false, split: 'right', wait: true }).ok).toBe(false)
+  })
+
+  it('names the side a diff could not read', () => {
+    expect(diffRefusalLine('/a/x.bin', 'binary')).toBe('ostia diff: /a/x.bin: is not a text file')
+    expect(diffRefusalLine('/a/x', 'not-found')).toBe('ostia diff: /a/x: no such file')
+    expect(diffRefusalLine(undefined, 'invalid-args', 'expected two files')).toBe(
+      'ostia diff: expected two files',
     )
   })
 })

@@ -1,6 +1,11 @@
 import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
-import { type FileTarget, type OpenFileError, openTargetKind } from '../shared/openFiles'
+import {
+  type FileTarget,
+  type OpenFileError,
+  type OpenPlacement,
+  openTargetKind,
+} from '../shared/openFiles'
 
 export interface FileProbe {
   cwd: string
@@ -35,7 +40,17 @@ export function parseFileArg(arg: string, probe: FileProbe): FileTarget {
 
 export type FileWord = 'path' | 'name' | null
 
-export const OPEN_FLAGS: readonly string[] = ['-b', '--background', '--name']
+export const OPEN_FLAGS: readonly string[] = [
+  '-b',
+  '--background',
+  '--name',
+  '-w',
+  '--wait',
+  '--tab',
+  '--split',
+  '-n',
+  '--new',
+]
 
 export function fileWord(word: string, probe: FileProbe): FileWord {
   if (word === '-' || OPEN_FLAGS.includes(word)) return 'path'
@@ -85,4 +100,33 @@ const REFUSALS: Record<OpenFileError, string> = {
 
 export function refusalLine(path: string, error: OpenFileError): string {
   return `ostia: ${path}: ${REFUSALS[error]}`
+}
+
+const DIFF_REFUSALS: Record<string, string> = {
+  ...REFUSALS,
+  binary: 'is not a text file',
+  'too-large': 'is too large to compare',
+}
+
+export function diffRefusalLine(path: string | undefined, error: string, message?: string): string {
+  const reason = DIFF_REFUSALS[error] ?? message ?? error
+  return path ? `ostia diff: ${path}: ${reason}` : `ostia diff: ${reason}`
+}
+
+export type PlacementVerdict =
+  | { ok: true; placement: OpenPlacement | undefined }
+  | { ok: false; message: string }
+
+export function placementOf(flags: {
+  tab: boolean
+  split: string | undefined
+  wait: boolean
+}): PlacementVerdict {
+  if (flags.split !== undefined && flags.split !== 'right' && flags.split !== 'down') {
+    return { ok: false, message: '--split takes right or down' }
+  }
+  if (flags.tab && flags.split) return { ok: false, message: 'use --tab or --split, not both' }
+  if (flags.wait && flags.split)
+    return { ok: false, message: '--wait opens a tab; it cannot split' }
+  return { ok: true, placement: flags.tab ? 'tab' : (flags.split as OpenPlacement | undefined) }
 }

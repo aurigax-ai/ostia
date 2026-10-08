@@ -13,6 +13,11 @@ const CLI_HELP = `ostia — control-socket CLI
                                  The new tab takes focus only when this pane has it.
                                  A sandboxed workspace opens only files under the home folder
   ostia open -b <target>...      --background: never take focus
+  ostia open --tab|--split right|down <file>...   a tab beside this pane, or a split of it
+  ostia --wait <file>            return when the tab is closed (EDITOR="ostia --wait"); exit 0
+                                 on a close, 1 when the wait ended any other way
+  ostia diff [--wait] <a> <b>    compare two text files, read-only
+  ostia -n <dir>                 new workspace on that folder
   <cmd> | ostia - [--name <f>]   save stdin (16 MiB at most) into $OSTIA_ARTIFACTS and open it
   ostia <target>...              same as open, when the first word has a /, starts with . or ~,
                                  is a URL or -, or names a file here that is no command or

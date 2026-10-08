@@ -398,6 +398,13 @@ const bridge: OstiaBridge = {
       return () => ipcRenderer.removeListener('artifacts:changed', handler)
     },
   },
+  openWaits: {
+    onEnded: (cb) => {
+      const handler = (_e: Electron.IpcRendererEvent, paneIds: string[]): void => cb(paneIds)
+      ipcRenderer.on('open-waits:ended', handler)
+      return () => ipcRenderer.removeListener('open-waits:ended', handler)
+    },
+  },
   preview: {
     open: (paneId, path, theme) =>
       ipcRenderer.invoke('preview:open', paneId, path, theme) as Promise<PreviewOpened | null>,

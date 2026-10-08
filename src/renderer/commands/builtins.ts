@@ -2,7 +2,14 @@ import { type AgentResume, resumeCommand } from '@shared/agentResume'
 import { PAD_COMMAND } from '@shared/artifacts'
 import type { CmuxImportReport } from '@shared/cmuxSession'
 import { wantsDesktopBanner } from '@shared/notificationSettings'
-import { OPEN_FILES_COMMAND, REVEAL_FOLDER_COMMAND, parseFileTargets } from '@shared/openFiles'
+import {
+  OPEN_DIFF_COMMAND,
+  OPEN_FILES_COMMAND,
+  type OpenedPane,
+  REVEAL_FOLDER_COMMAND,
+  parseFileTargets,
+  parsePlacement,
+} from '@shared/openFiles'
 import { PROGRAM_SETTINGS } from '@shared/programSettings'
 import type { AttentionState } from '@shared/types'
 import { type WorkspaceGroupColor, normalizeGroupName } from '@shared/workspaceGroups'
@@ -44,7 +51,13 @@ import { groupMates } from '../lib/groupPeers'
 import { hibernateWorkspaces, resumeWorkspaces, wakePane } from '../lib/hibernationScheduler'
 import { mergeRefusalText } from '../lib/mergeRefusalText'
 import { startNewWorkspace, startScratchWorkspace } from '../lib/newWorkspace'
-import { markOpenedQuietly, openFilesQuietly, openRequestedFiles } from '../lib/openFile'
+import {
+  markOpenedQuietly,
+  openFilesQuietly,
+  openPlaced,
+  openRequestedFiles,
+} from '../lib/openFile'
+import { waitOnPanes } from '../lib/openWaits'
 import {
   FILES_PREFIX,
   GO_TO_FILE_COMMAND,
@@ -1228,7 +1241,10 @@ export function registerBuiltinCommands(): void {
     },
   })
 
-  registerCore<{ files?: unknown; background?: unknown }>({
+  registerCore<
+    { files?: unknown; background?: unknown; placement?: unknown; wait?: unknown },
+    { opened: OpenedPane[] }
+  >({
     id: OPEN_FILES_COMMAND,
     hidden: true,
     capabilities: ['drive-self'],
@@ -1237,10 +1253,64 @@ export function registerBuiltinCommands(): void {
       const files = parseFileTargets(args?.files)
       if (!files) throw new Error('expected files: [{ path, line?, column? }]')
       const workspaceId = ctx.activeWorkspaceId
-      if (!workspaceId) return
+      if (!workspaceId) return { opened: [] }
       const paneId = ctx.activePaneId ?? undefined
-      if (opensQuietly(ctx, args?.background)) openFilesQuietly(workspaceId, files, paneId)
-      else openRequestedFiles(workspaceId, files, paneId)
+      const quiet = opensQuietly(ctx, args?.background)
+      const wait = args?.wait === true
+      const placement = wait ? 'tab' : parsePlacement(args?.placement)
+      if (!placement) {
+        if (quiet) openFilesQuietly(workspaceId, files, paneId)
+        else openRequestedFiles(workspaceId, files, paneId)
+        return { opened: [] }
+      }
+      const opened = openPlaced(workspaceId, files, paneId, { placement, quiet, fresh: wait })
+      if (wait) waitOnPanes(workspaceId, paneId, opened)
+      return { opened }
+    },
+  })
+
+  registerCore<
+    {
+      title?: unknown
+      original?: unknown
+      modified?: unknown
+      path?: unknown
+      background?: unknown
+    },
+    { opened: OpenedPane[] }
+  >({
+    id: OPEN_DIFF_COMMAND,
+    hidden: true,
+    capabilities: ['drive-self'],
+    target: 'active',
+    run: (args, ctx) => {
+      const workspaceId = ctx.activeWorkspaceId
+      if (
+        typeof args?.title !== 'string' ||
+        typeof args.original !== 'string' ||
+        typeof args.modified !== 'string' ||
+        typeof args.path !== 'string'
+      ) {
+        throw new Error('expected { title, original, modified, path }')
+      }
+      if (!workspaceId) return { opened: [] }
+      const content = {
+        title: args.title,
+        original: args.original,
+        modified: args.modified,
+        path: args.path,
+      }
+      const open = (): string | null => {
+        const before = useLayoutStore.getState().byWorkspace[workspaceId]?.activePaneId
+        const paneId = useLayoutStore.getState().openDiff(workspaceId, content)
+        if (quiet && before && paneId) useLayoutStore.getState().focusPane(workspaceId, before)
+        return paneId
+      }
+      const quiet = opensQuietly(ctx, args.background)
+      const paneId = quiet ? openKeepingFocus(open) : open()
+      if (!paneId) return { opened: [] }
+      if (quiet) markOpenedQuietly(paneId, content.title)
+      return { opened: [{ path: content.path, paneId }] }
     },
   })
 

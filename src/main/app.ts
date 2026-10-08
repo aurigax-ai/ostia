@@ -228,6 +228,7 @@ import {
 import { OpenFileGrants } from './openFileGrants'
 import { openFileForExtension, registerOpenFileMethods } from './openFileMethods'
 import { registerOpenPathIpc } from './openPath'
+import { OpenWaits } from './openWaits'
 import type { OriginReach } from './originAgents'
 import { loadPaneIdSalt } from './paneIdSalt'
 import {
@@ -918,6 +919,10 @@ const openFileGrants = new OpenFileGrants({
 const artifactCompiler = new ArtifactCompiler(
   () => loadEsbuild(app.isPackaged),
   `chrome${process.versions.chrome.split('.')[0]}`,
+)
+
+const openWaits = new OpenWaits((windowId, paneIds) =>
+  windows.get(windowId)?.webContents.send('open-waits:ended', paneIds),
 )
 
 const previews = new PreviewHost({
@@ -1689,6 +1694,7 @@ function wireWindow(win: BrowserWindow): void {
     portsService?.windowGone(wid)
     releaseWindowPtys(wid)
     previews.windowClosed(wid)
+    openWaits.windowGone(wid)
     fileWatches?.unwatchOwner(wid)
     commandsByWindow.delete(wid)
     for (const [paneId, wcId] of browserPanes) {
@@ -1805,6 +1811,7 @@ function registerIpc(): void {
       })
     } else if (event.type === 'pane-closed') {
       previews.paneClosed(event.paneId)
+      openWaits.paneClosed(event.paneId)
       const identity = getByPaneId(event.paneId)
       if (identity) {
         dropIdentity(identity.externalId)
@@ -1839,6 +1846,7 @@ function registerIpc(): void {
       processes?.workspaceClosed(event.workspaceId)
       extensionHost?.clearWorkspaceChips(event.workspaceId)
       extensionHost?.remoteFolders?.workspaceClosed(event.workspaceId)
+      openWaits.workspaceClosed(event.workspaceId)
       artifactFolders.close(event.workspaceId)
       scratchFolders.remove(event.workspaceId)
       forgetWorkspaceRequests(event.workspaceId)
@@ -2088,6 +2096,7 @@ function releaseMergedSandbox(workspaceId: string, exiting?: PtyEntry): void {
 }
 
 function movePanesToWorkspace(paneIds: string[], sourceId: string, targetId: string): void {
+  for (const paneId of paneIds) openWaits.paneMoved(paneId)
   for (const identity of moveToWorkspace(paneIds, targetId)) {
     emitPaneEvent('pane.created', {
       paneId: identity.externalId,
@@ -2598,7 +2607,10 @@ function registerPtyIpc(): void {
     if (typeof paneId !== 'string' || typeof chars !== 'number') return
     ptys.get(paneId)?.flow.ack(String(e.sender.id), chars)
   })
-  app.on('render-process-gone', (_e, contents) => releasePtyFlow(String(contents.id)))
+  app.on('render-process-gone', (_e, contents) => {
+    releasePtyFlow(String(contents.id))
+    openWaits.windowGone(String(contents.id))
+  })
 
   ipcMain.on('pty:waking', (e, paneId: unknown, waking: unknown) => {
     if (typeof paneId !== 'string' || typeof waking !== 'boolean') return
@@ -2721,6 +2733,7 @@ function trackPty(
       removeStateFile(entry)
       if (ptys.get(paneId) === entry) {
         ptys.delete(paneId)
+        openWaits.callerExited(paneId)
         movingPanes.delete(paneId)
         agentRunning.shellEnded(paneId)
         agentWork.clear(paneId)
@@ -3711,6 +3724,7 @@ app.whenReady().then(() => {
     isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
     isScratch: (workspaceId) => scratchFolders.isScratch(workspaceId),
     confineFolder: (path) => resolveSafe(path, fileRoots()),
+    waits: openWaits,
     execCommand,
   })
   registerBusMethods({

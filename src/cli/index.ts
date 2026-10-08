@@ -18,7 +18,13 @@ import {
   claudeAttention,
   isClaudeAttentionEvent,
 } from '../shared/claudeAttention'
-import type { FileTarget, OpenFilesResult, RevealFolderResult } from '../shared/openFiles'
+import type {
+  DiffFilesResult,
+  FileTarget,
+  OpenFilesResult,
+  OpenPlacement,
+  RevealFolderResult,
+} from '../shared/openFiles'
 import { SCRIPT_TOKEN_PREFIX } from '../shared/scriptTokens'
 import type { CommandDescriptor, CommandResult } from '../shared/types'
 import type { WorkflowEntry, WorkflowListing } from '../shared/workflows'
@@ -42,10 +48,13 @@ import { buildCommandCall, parseCommandFlags, resolveWorkspaceRef } from './cros
 import { describeFailure } from './failure'
 import {
   type FileProbe,
+  type OpenTarget,
+  diffRefusalLine,
   fileWord,
   isClaimedWord,
   openTarget,
   parseFileArg,
+  placementOf,
   refusalLine,
   revealRefusalLine,
 } from './fileArgs'
@@ -412,6 +421,7 @@ const CORE_VERBS = new Set([
   'permission-hook',
   'agent-hook',
   'open',
+  'diff',
   'docs',
   'process',
   'pane',
@@ -461,18 +471,30 @@ async function opensAsFile(conn: MessageConnection, word: string): Promise<boole
   })
 }
 
+interface OpenHow {
+  background: boolean
+  placement: OpenPlacement | undefined
+  wait: boolean
+}
+
 async function openFilesIn(
   conn: MessageConnection,
   files: FileTarget[],
-  background: boolean,
+  how: OpenHow,
 ): Promise<string[]> {
   if (files.length === 0) return []
   const res = await conn.sendRequest<OpenFilesResult>('file.open', {
     files,
-    ...(background ? { background: true } : {}),
+    ...(how.background ? { background: true } : {}),
+    ...(how.placement ? { placement: how.placement } : {}),
+    ...(how.wait ? { wait: true } : {}),
   })
   if (!res.ok) return [`ostia open: ${res.message}`]
-  return res.results.flatMap((r) => (r.ok ? [] : [refusalLine(r.path, r.error)]))
+  const refused = res.results.flatMap((r) => (r.ok ? [] : [refusalLine(r.path, r.error)]))
+  if (how.wait && res.waited !== 'closed' && refused.length < res.results.length) {
+    return [...refused, WAIT_ENDED]
+  }
+  return refused
 }
 
 async function revealFolderIn(conn: MessageConnection, path: string): Promise<string[]> {
@@ -492,32 +514,54 @@ async function openUrlIn(
   return res.ok ? [] : [`ostia: ${url}: ${res.message ?? res.error ?? 'failed'}`]
 }
 
+async function newWorkspaceIn(conn: MessageConnection, targets: OpenTarget[]): Promise<string[]> {
+  if (targets.length !== 1 || targets[0].kind !== 'folder') return ['ostia -n: takes one folder']
+  const res = await conn.sendRequest<CommandResult>('command.exec', {
+    id: 'workspace.new',
+    args: { dir: targets[0].path },
+  })
+  return res.ok ? [] : [`ostia -n: ${res.error.message}`]
+}
+
+const WAIT_ENDED = 'ostia: the wait ended before the tab was closed'
+
+function fail(message: string): void {
+  console.error(message)
+  process.exitCode = 1
+}
+
 async function runOpenFiles(conn: MessageConnection, args: string[]): Promise<void> {
-  let parsed: ParsedArgs<'name', never, 'background'>
+  let parsed: ParsedArgs<'name' | 'split', never, 'background' | 'wait' | 'tab' | 'fresh'>
   try {
     parsed = parseArgs(args, {
-      values: { name: '--name' },
-      booleans: { background: '-b, --background' },
+      values: { name: '--name', split: '--split' },
+      booleans: {
+        background: '-b, --background',
+        wait: '-w, --wait',
+        tab: '--tab',
+        fresh: '-n, --new',
+      },
     })
   } catch (err) {
     if (!(err instanceof FlagError)) throw err
-    console.error(`ostia open: ${err.message}`)
-    process.exitCode = 1
-    return
+    return fail(`ostia open: ${err.message}`)
   }
   const targets = parsed.positional.map((word) => openTarget(word, FILE_PROBE))
-  if (targets.length === 0) {
-    console.error('ostia open: missing <path>')
-    process.exitCode = 1
+  if (targets.length === 0) return fail('ostia open: missing <path>')
+  const { background, wait, tab, fresh } = parsed.booleans
+  if (fresh) {
+    const problems = await newWorkspaceIn(conn, targets)
+    for (const line of problems) console.error(line)
+    if (problems.length > 0) process.exitCode = 1
+    else console.log('ok')
     return
   }
+  const placed = placementOf({ tab, split: parsed.values.split, wait })
+  if (!placed.ok) return fail(`ostia open: ${placed.message}`)
   const fromStdin = targets.filter((t) => t.kind === 'stdin').length
-  if (fromStdin > 1 || (parsed.values.name !== undefined && fromStdin === 0)) {
-    console.error(
-      fromStdin > 1 ? 'ostia open: only one - reads stdin' : 'ostia open: --name goes with -',
-    )
-    process.exitCode = 1
-    return
+  if (fromStdin > 1) return fail('ostia open: only one - reads stdin')
+  if (parsed.values.name !== undefined && fromStdin === 0) {
+    return fail('ostia open: --name goes with -')
   }
   const problems: string[] = []
   const files: FileTarget[] = []
@@ -534,15 +578,43 @@ async function runOpenFiles(conn: MessageConnection, args: string[]): Promise<vo
     if (captured.ok) files.push({ path: captured.path })
     else problems.push(captured.message)
   }
-  const { background } = parsed.booleans
-  problems.push(...(await openFilesIn(conn, files, background)))
+  if (wait && files.length === 0 && problems.length === 0) {
+    return fail('ostia open: --wait needs a file')
+  }
   for (const target of targets) {
     if (target.kind === 'folder') problems.push(...(await revealFolderIn(conn, target.path)))
     if (target.kind === 'url') problems.push(...(await openUrlIn(conn, target.url, background)))
   }
+  problems.push(
+    ...(await openFilesIn(conn, files, { background, placement: placed.placement, wait })),
+  )
   for (const line of problems) console.error(line)
   if (problems.length > 0) process.exitCode = 1
-  else console.log('ok')
+  else if (!wait) console.log('ok')
+}
+
+async function runDiffFiles(conn: MessageConnection, args: string[]): Promise<void> {
+  let parsed: ParsedArgs<never, never, 'background' | 'wait'>
+  try {
+    parsed = parseArgs(args, {
+      booleans: { background: '-b, --background', wait: '-w, --wait' },
+    })
+  } catch (err) {
+    if (!(err instanceof FlagError)) throw err
+    return fail(`ostia diff: ${err.message}`)
+  }
+  if (parsed.positional.length !== 2) return fail('ostia diff: takes two files: ostia diff <a> <b>')
+  const [original, modified] = parsed.positional.map((word) => parseFileArg(word, FILE_PROBE).path)
+  const { background, wait } = parsed.booleans
+  const res = await conn.sendRequest<DiffFilesResult>('file.diff', {
+    original,
+    modified,
+    ...(background ? { background: true } : {}),
+    ...(wait ? { wait: true } : {}),
+  })
+  if (!res.ok) return fail(diffRefusalLine(res.path, res.error, res.message))
+  if (wait && res.waited !== 'closed') return fail(WAIT_ENDED)
+  if (!wait) console.log('ok')
 }
 
 interface BusOk {
@@ -1337,11 +1409,16 @@ commands:
   workflow list [--json] | show <name> [--json]   saved command workflows (read-only)
   view list [--json] | open <name>   declarative views (~/.config/ostia/views/<name>.json)
   view validate <file> | schema      check a view file / print its JSON schema (no app needed)
-  <target>... | open [-b|--background] <target>...
+  <target>... | open [-b|--background] [--tab | --split right|down] [-w|--wait] <target>...
                             show a file (file:line[:col] jumps), a folder (in the Files
                             panel), an http(s) URL (in a browser pane) or - (stdin, saved
                             into $OSTIA_ARTIFACTS; --name <file> names it). The new tab takes
-                            focus only when this pane has it; -b never takes it
+                            focus only when this pane has it; -b never takes it.
+                            --tab opens a tab beside this pane, --split a split of it.
+                            --wait returns when the tab is closed (EDITOR="ostia --wait"):
+                            exit 0 on a close, 1 when the wait ended any other way
+  diff [-b] [-w|--wait] <a> <b>   compare two text files, read-only
+  -n <dir>                  new workspace on that folder
   process run "<cmd>" [--name N] [--cwd DIR] [--workspace <id|name>]
               [--split-tab T [--split right|down]] | ls | logs | kill | restart <id|name>
                             run a command in a new terminal tab the human can watch;
@@ -1522,6 +1599,8 @@ async function main(): Promise<void> {
       await runViewVerb(conn, process.argv.slice(3))
     } else if (cmd === 'open') {
       await runOpenFiles(conn, process.argv.slice(3))
+    } else if (cmd === 'diff') {
+      await runDiffFiles(conn, process.argv.slice(3))
     } else if (cmd === 'docs') {
       const res = await conn.sendRequest<{ cli: string }>('docs')
       console.log(res.cli)

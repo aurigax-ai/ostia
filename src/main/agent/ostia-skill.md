@@ -81,6 +81,12 @@ ostia open <target>...              # show something to the human. A target is a
                                     # The new tab takes focus only when your pane has it; from a
                                     # background pane it opens quietly with an unread mark.
 ostia open -b <target>...           # --background: never take focus, even from the focused pane
+ostia open --tab <file>...          # a tab beside your pane; --split right|down a split of it
+ostia --wait <file>                 # returns when the human closes the tab: exit 0 on a close, 1 when
+                                    # the wait ended any other way. For editors:
+                                    # GIT_EDITOR="ostia --wait" git commit
+ostia diff <a> <b>                  # compare two text files side by side (read-only; --wait too)
+ostia -n <dir>                      # new workspace on that folder
 <cmd> | ostia - [--name <file>]     # save stdin (16 MiB at most) as a file in $OSTIA_ARTIFACTS and
                                     # open it; --name picks the name and so the viewer
                                     # (`git diff | ostia - --name change.diff`). Only the explicit -

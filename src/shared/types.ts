@@ -653,6 +653,10 @@ export interface ArtifactsApi {
   onChanged: (cb: (workspaceId: string) => void) => () => void
 }
 
+export interface OpenWaitsApi {
+  onEnded: (cb: (paneIds: string[]) => void) => () => void
+}
+
 export interface ScreenPoint {
   x: number
   y: number
@@ -1042,6 +1046,7 @@ export interface OstiaBridge {
   scratch: ScratchApi
   artifacts: ArtifactsApi
   preview: PreviewApi
+  openWaits: OpenWaitsApi
   windows: WindowsApi
   lifecycle: LifecycleApi
   commands: CommandsApi
