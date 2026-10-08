@@ -14,6 +14,8 @@ export const chords = {
   focusLeft: isMac ? 'Meta+Control+ArrowLeft' : 'Control+Shift+Alt+h',
   focusRight: isMac ? 'Meta+Control+ArrowRight' : 'Control+Shift+Alt+l',
   zoomPane: isMac ? 'Meta+Shift+x' : 'Control+Shift+x',
+  openSettings: 'ControlOrMeta+,',
+  resumeAgent: 'ControlOrMeta+Shift+R',
   nextTab: 'Control+Tab',
   previousTab: 'Control+Shift+Tab',
 }

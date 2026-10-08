@@ -146,7 +146,6 @@ describe.skipIf(process.platform !== 'linux')(
         ptyPid: (paneId) => pids[paneId],
         windowIds: () => ['1'],
         waking: () => false,
-        unreported: () => false,
       }
       registerPaneListMethods(paneDeps)
       host = new ExtensionHost({

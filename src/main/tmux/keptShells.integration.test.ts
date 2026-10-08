@@ -1,6 +1,6 @@
 import { execFileSync, spawn as spawnChild } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, afterEach, describe, expect, it } from 'vitest'
@@ -142,8 +142,13 @@ describe.skipIf(skipWithoutTmux)('KeptShells', () => {
     await spawn(first.kept, 'p2')
     const tokens = ['p1', 'p2'].map((paneId) => `secret-${paneId}-${randomUUID()}`)
     const files = ['p1', 'p2'].map((paneId, i) => first.kept.writeToken(paneId, tokens[i]))
+    first.kept.saveAttention('p1', { state: 'waiting', message: 'Run it?' })
+    first.kept.saveAttention('p2', { state: 'done' })
+    expect(statSync(first.kept.attentionFile('p1')).mode & 0o777).toBe(0o600)
     first.kept.release()
     const second = await restart(name, new Set(['p1']))
+    expect(second.kept.savedAttention('p1')).toEqual({ state: 'waiting', message: 'Run it?' })
+    expect(existsSync(second.kept.attentionFile('p2'))).toBe(false)
     const socket = join(root, 'sock', name)
     const dump = execFileSync(tmux, ['-S', socket, 'list-windows', '-a', '-F', '#{@ostia-meta}'], {
       encoding: 'utf8',
@@ -156,6 +161,35 @@ describe.skipIf(skipWithoutTmux)('KeptShells', () => {
     expect(existsSync(files[1])).toBe(false)
     await second.kept.quit()
     expect(existsSync(files[0])).toBe(false)
+    expect(existsSync(second.kept.attentionFile('p1'))).toBe(false)
+  })
+
+  it('removes a socket no server answers on without running tmux', async () => {
+    const name = `k${names++}`
+    const dir = join(root, 'sock')
+    mkdirSync(dir, { recursive: true, mode: 0o700 })
+    const stale = join(dir, name)
+    const holder = spawnChild(process.execPath, [
+      '-e',
+      `require('node:net').createServer().listen(${JSON.stringify(stale)}, () => console.log('up'))`,
+    ])
+    await new Promise((resolve) => holder.stdout.once('data', resolve))
+    holder.kill('SIGKILL')
+    await new Promise((resolve) => holder.once('exit', resolve))
+    expect(existsSync(stale)).toBe(true)
+    let asked = 0
+    const kept = new KeptShells({
+      dir,
+      name,
+      program: () => {
+        asked += 1
+        return { tmux, defaultTerminal: 'screen-256color', env: process.env }
+      },
+      log: () => undefined,
+    })
+    await kept.start(false, new Set())
+    expect(existsSync(stale)).toBe(false)
+    expect(asked).toBe(0)
   })
 
   it('hands a kept shell back once, with its identity', async () => {

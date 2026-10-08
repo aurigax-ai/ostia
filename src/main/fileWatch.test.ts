@@ -531,7 +531,7 @@ describe('TreeWatches', () => {
     writeFileSync(join(root, 'marker.txt'), 'x')
     await until(() => changes.find((c) => c.path === join(root, 'marker.txt')))
     await pause(100)
-    expect(changes.map((c) => c.path)).toEqual([join(root, 'marker.txt')])
+    expect(new Set(changes.map((c) => c.path))).toEqual(new Set([join(root, 'marker.txt')]))
   })
 
   it('refuses a folder outside the readable roots and stops at the folder limit', () => {

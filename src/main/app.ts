@@ -10,7 +10,7 @@ import {
   statSync,
   writeFileSync,
 } from 'node:fs'
-import { homedir, hostname, tmpdir } from 'node:os'
+import { homedir, hostname } from 'node:os'
 import { basename, dirname, join } from 'node:path'
 import {
   BrowserWindow,
@@ -36,7 +36,7 @@ import type { DiscreteGpuInfo } from '../shared/discreteGpu'
 import { languageForPath } from '../shared/editorLanguages'
 import { EXTENSION_SUGGESTIONS } from '../shared/extensionSuggestions'
 import type { ExtensionPanelContext, ExtensionResult, WorkspaceChip } from '../shared/extensions'
-import { KEEP_SHELLS_FEATURE, parseKeepShells } from '../shared/keepShells'
+import { KEEP_SHELLS_FEATURE, KEPT_SHELLS_DIR, parseKeepShells } from '../shared/keepShells'
 import { languageServerKey } from '../shared/languageServers'
 import { MANAGER_FEATURE, managerAgents, parseManagerSettings } from '../shared/managerSettings'
 import { OPEN_FILES_MAX } from '../shared/openFiles'
@@ -244,7 +244,14 @@ import { CoalescedOutput, PtyFlowControl } from './ptyFlow'
 import { type ReapReason, RecoveryBook, orphanVerdict, planRecovery } from './ptyReaper'
 import { PtySession, type Subscriber, type SubscriberRole } from './ptySession'
 import { questions, registerQuestions } from './questions'
-import { QUIT_SIGNALS, exitAfterDeadline, keptOnQuit, planQuit } from './quitPlan'
+import {
+  QUIT_SIGNALS,
+  createQuitTrace,
+  exitAfterDeadline,
+  keptOnQuit,
+  planQuit,
+  summarizeKinds,
+} from './quitPlan'
 import { confirmQuitNatively } from './quitPrompt'
 import { createReach } from './reach'
 import { createRedactor, createScrollbackRedactor } from './redaction'
@@ -280,12 +287,7 @@ import {
 import { hiddenHomeNotice, sandboxFailureBanner } from './sandbox/spawnBanner'
 import { sandboxSpawnEnv } from './sandbox/spawnEnv'
 import { reportSandboxSpawnFailure } from './sandbox/spawnFailureNotice'
-import {
-  type SandboxBasePaths,
-  reachableContainerSockets,
-  srtVendorDir,
-  withKeptShells,
-} from './sandbox/srtConfig'
+import { type SandboxBasePaths, reachableContainerSockets, srtVendorDir } from './sandbox/srtConfig'
 import { SandboxStore } from './sandbox/store'
 import { ViolationLog, recordViolations } from './sandbox/violations'
 import {
@@ -331,6 +333,7 @@ import {
   ptyIdentityEnv,
   withPaneToken,
 } from './terminalType'
+import { type SavedAttention, isKeptAttentionState } from './tmux/attentionFile'
 import { SANDBOX_NOT_KEPT, TMUX_MISSING, keepShellsNotice } from './tmux/keepShellsBanner'
 import { KeptAttention } from './tmux/keptAttention'
 import {
@@ -620,7 +623,7 @@ function openExternalSafe(url: string): boolean {
 }
 
 function keptTmuxDir(): string {
-  return join(tmpdir(), `${PRODUCT_NAME}-tmux-${process.getuid?.() ?? 0}`)
+  return join(app.getPath('userData'), KEPT_SHELLS_DIR)
 }
 
 function keptShellsName(): string {
@@ -899,10 +902,7 @@ const workspaceSandboxes: WorkspaceSandboxes = new WorkspaceSandboxes({
       ],
     }
     return keepShellsOn()
-      ? withKeptShells(base, {
-          tmuxDir: keptTmuxDir(),
-          socketPath: keptControlSocketPath(app.getPath('userData')),
-        })
+      ? { ...base, keptSocketPath: keptControlSocketPath(app.getPath('userData')) }
       : base
   },
   workDir: (workspaceId) => workDirForWorkspace(workspaceId),
@@ -1376,8 +1376,10 @@ const askHub = createAskHub({
 })
 const keptAttention = new KeptAttention()
 
-function keptUnreported(paneId: string): boolean {
-  return keptAttention.peek(paneId) !== undefined
+function restoreKeptAttention(identity: PaneIdentity, saved: SavedAttention): void {
+  void execCommand(targetOf(identity), 'attention.set', saved).then((res) => {
+    if (res.ok) keptAttention.reported(identity.paneId)
+  })
 }
 const paneWatch = new PaneWatch()
 const paneWaking = new PaneWaking()
@@ -1751,6 +1753,14 @@ function registerIpc(): void {
       emitSessionState(event.workspaceId, event.state)
     } else if (event.type === 'pane-attention') {
       paneWatch.attention(event.paneId, event.state, event.message)
+      if (ptys.get(event.paneId)?.kept) {
+        keptShells.saveAttention(
+          event.paneId,
+          isKeptAttentionState(event.state)
+            ? { state: event.state, ...(event.message ? { message: event.message } : {}) }
+            : null,
+        )
+      }
     }
   })
 
@@ -2227,8 +2237,8 @@ function registerPtyIpc(): void {
             portBridge?.command ?? null,
           ),
           'bash',
-          [stateFile],
-          tokenFile ? [tokenFile] : [],
+          tokenFile ? [stateFile, keptShells.attentionFile(paneId)] : [stateFile],
+          tokenFile ? [tokenFile, keptShells.attentionFile(paneId)] : [],
         )
         sandboxStamp = workspaceSandboxes.wrapStamp(workspaceId)
         file = '/bin/sh'
@@ -2379,6 +2389,7 @@ function registerPtyIpc(): void {
       appLog?.info('kept-pane-id-changed', { pane: paneId })
     }
     ensureKeptPlumbing()
+    const savedAttention = keptShells.savedAttention(paneId)
     keptShells.writeToken(paneId, identity.token)
     keptAttention.reattached(paneId, agentRunning.has(paneId))
     takeRestoredScrollback(paneId)
@@ -2439,6 +2450,7 @@ function registerPtyIpc(): void {
     pane.live()
     const { data, cursor, dropped } = entry.session.since(0)
     entry.session.addLiveSubscriber(mkSub(entry))
+    if (savedAttention) restoreKeptAttention(identity, savedAttention)
     return {
       created: false,
       buffer: data,
@@ -3532,7 +3544,6 @@ app.whenReady().then(() => {
               ptyPid,
               windowIds,
               waking: isWaking,
-              unreported: keptUnreported,
             }),
           listWorkspaces: () => listWorkspaces({ execCommand, windowIds }),
         },
@@ -3769,7 +3780,6 @@ app.whenReady().then(() => {
     ptyPid,
     windowIds,
     waking: isWaking,
-    unreported: keptUnreported,
   })
   registerGatewayMethods()
   const tailnet = createTailnet({
@@ -3800,7 +3810,6 @@ app.whenReady().then(() => {
         ptyPid,
         windowIds,
         waking: isWaking,
-        unreported: keptUnreported,
       }),
     listWorkspaces: () => listWorkspaces({ execCommand, windowIds }),
     fileScope: phoneFileScope,
@@ -3908,7 +3917,6 @@ app.whenReady().then(() => {
         ptyPid,
         windowIds,
         waking: isWaking,
-        unreported: keptUnreported,
       }),
     log: (line) => console.error(`[git] ${line}`),
   })
@@ -3922,7 +3930,6 @@ app.whenReady().then(() => {
         ptyPid,
         windowIds,
         waking: isWaking,
-        unreported: keptUnreported,
       }),
     log: (line) => console.error(`[ports] ${line}`),
   })
@@ -3958,6 +3965,7 @@ function persistScrollback(): Promise<void> {
   scrollbackSaves = scrollbackSaves
     .then(async () => {
       const redacted = await redactScrollback(toSave)
+      if (savingScrollbackForQuit && !scrollbackSavedForQuit) quitTrace.stage('scrollback-redacted')
       if (broker && !broker.persisting) return
       await saveScrollback(redacted)
     })
@@ -3980,6 +3988,17 @@ function autosaveScrollback(): void {
   void persistScrollback()
 }
 
+const quitTrace = createQuitTrace((event, fields) => appLog?.info(event, fields))
+
+function exitAtQuitDeadline(): void {
+  appLog?.warn('quit-deadline', {
+    stage: quitTrace.current(),
+    totalMs: quitTrace.elapsedMs(),
+    alive: summarizeKinds(process.getActiveResourcesInfo()),
+  })
+  app.exit(0)
+}
+
 app.on('before-quit', (event) => {
   const plan = planQuit({
     approved: quitApproved,
@@ -3988,10 +4007,11 @@ app.on('before-quit', (event) => {
     platform: process.platform,
   })
   quitRequested = false
+  quitTrace.stage(`plan-${plan}`)
   if (plan === 'unattended') {
     quitApproved = true
     freezeAll(BrowserWindow.getAllWindows())
-    exitAfterDeadline(() => app.exit(0))
+    exitAfterDeadline(exitAtQuitDeadline)
   }
   if (plan === 'ask') {
     event.preventDefault()
@@ -4028,6 +4048,7 @@ app.on('before-quit', (event) => {
     event.preventDefault()
     if (savingScrollbackForQuit) return
     savingScrollbackForQuit = true
+    quitTrace.stage('scrollback')
     void persistScrollback().finally(() => {
       scrollbackSavedForQuit = true
       app.quit()
@@ -4038,12 +4059,14 @@ app.on('before-quit', (event) => {
     event.preventDefault()
     if (sendingTelemetryForQuit) return
     sendingTelemetryForQuit = true
+    quitTrace.stage('telemetry')
     void (telemetry?.shutdown() ?? Promise.resolve()).finally(() => {
       telemetrySentForQuit = true
       app.quit()
     })
     return
   }
+  quitTrace.stage('teardown-windows')
   broker?.persist()
   managerService?.shutdown()
   appLog?.info('app-quit', { ptys: ptys.size })
@@ -4053,6 +4076,7 @@ app.on('before-quit', (event) => {
       syncKeptExposed(workspaceId, portForwarder.listeners(workspaceId))
     }
   }
+  quitTrace.stage('teardown-ptys')
   for (const entry of ptys.values()) {
     entry.mirror.dispose()
     if (keepingShells && entry.kept) {
@@ -4066,16 +4090,20 @@ app.on('before-quit', (event) => {
     removeStateFile(entry)
   }
   ptys.clear()
+  quitTrace.stage('teardown-kept-shells')
   if (keepingShells) keptShells.release()
   else keptShells.quitNow()
+  quitTrace.stage('teardown-language-servers')
   languageServers?.stopAll()
   languageServerWatches.closeAll()
+  quitTrace.stage('teardown-sandboxes')
   if (keepingShells) workspaceSandboxes.releaseAll()
   else workspaceSandboxes.stopAll()
   workspaceAgents.stopAll()
   for (const workspaceId of scratchFolders.workspaceIds()) workspaceSandboxes.forget(workspaceId)
   workspaceSandboxes.clearTmp(!keepingShells)
   scratchFolders.removeAll()
+  quitTrace.stage('teardown-hosts')
   portForwarder.stopAll()
   gitBoard?.stop()
   portsBoard?.stop()
@@ -4084,6 +4112,7 @@ app.on('before-quit', (event) => {
   mcpHost?.closeAll()
   viewHost?.stop()
   profileSync?.stop()
+  quitTrace.stage('teardown-network')
   stopControlServer()
   clearControlInfo(controlInfoPath(), controlSocketPath())
   portal?.stop()
@@ -4092,7 +4121,11 @@ app.on('before-quit', (event) => {
   void stopGateway()
   appTray?.remove()
   globalHotkey?.clear()
+  quitTrace.stage('teardown-done')
 })
+
+app.on('will-quit', () => quitTrace.stage('will-quit'))
+app.on('quit', () => quitTrace.stage('quit'))
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') requestQuit()

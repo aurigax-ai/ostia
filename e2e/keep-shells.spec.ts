@@ -1,7 +1,8 @@
 import { createHash } from 'node:crypto'
-import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { KEPT_SHELLS_DIR } from '../src/shared/keepShells'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import {
   PROMPT,
@@ -451,6 +452,94 @@ test('KSH-C36 an agent still running after a restart stays marked and is never r
     await expect(screen(second.win)).toContainText(PROMPT, { timeout: 15_000 })
     await second.win.waitForTimeout(2000)
     await expect(screen(second.win)).not.toContainText('--resume')
+  } finally {
+    await quit(second.app)
+  }
+})
+
+test('KSH-C87 the state an agent last reported is shown again after a restart', async () => {
+  const cli = 'ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" "$OSTIA_CLI"'
+  const bin = binWith(
+    'claude',
+    [
+      '#!/bin/sh',
+      `${cli} state waiting "Approve the plan?" >/dev/null 2>&1`,
+      'echo fake-agent-ready',
+      'exec cat',
+      '',
+    ].join('\n'),
+  )
+  const first = await launch(dataHome, pathWith(bin))
+  await openWorkspace(first.win)
+  await run(first.win, 'claude')
+  await expect(screen(first.win)).toContainText('fake-agent-ready', { timeout: 15_000 })
+  await expect(first.win.locator('.workspace-dot').first()).toHaveAttribute(
+    'aria-label',
+    'Waiting for input',
+    { timeout: 15_000 },
+  )
+  await savedLayout(first.win)
+  await restart(first)
+
+  const second = await launch(dataHome, pathWith(bin))
+  try {
+    await expect(screen(second.win)).toContainText('fake-agent-ready', { timeout: 15_000 })
+    await expect(second.win.locator('.workspace-dot').first()).toHaveAttribute(
+      'aria-label',
+      'Waiting for input',
+      { timeout: 15_000 },
+    )
+    await expect(second.win.locator('.pane-tab[data-attention="waiting"]')).toHaveCount(1)
+  } finally {
+    await quit(second.app)
+  }
+})
+
+test('KSH-C86 what an agent hook reports while Ostia is closed is shown once Ostia is back', async () => {
+  test.setTimeout(90_000)
+  const cli = 'ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" "$OSTIA_CLI"'
+  const trigger = join(dataHome, 'ask-now')
+  const payload = JSON.stringify({ notification_type: 'permission_prompt', message: 'Run deploy?' })
+  const bin = binWith(
+    'claude',
+    [
+      '#!/bin/sh',
+      'echo fake-agent-ready',
+      `while [ ! -e ${trigger} ]; do sleep 0.2; done`,
+      `echo '${payload}' | ${cli} claude-hook Notification`,
+      'echo "hook-rc=$?"',
+      'exec cat',
+      '',
+    ].join('\n'),
+  )
+  const first = await launch(dataHome, pathWith(bin))
+  await openWorkspace(first.win)
+  await run(first.win, 'claude')
+  await expect(screen(first.win)).toContainText('fake-agent-ready', { timeout: 15_000 })
+  await expect(first.win.locator('.pane-tab[data-attention]')).toHaveCount(0)
+  await savedLayout(first.win)
+  await crash(first)
+
+  const tokens = join(dataHome, 'userData', KEPT_SHELLS_DIR, 'tokens')
+  const stateFiles = (): string[] =>
+    readdirSync(tokens, { recursive: true, encoding: 'utf8' })
+      .filter((name) => name.endsWith('.state'))
+      .map((name) => join(tokens, name))
+  expect(stateFiles().map((file) => readFileSync(file, 'utf8'))).toEqual([''])
+  writeFileSync(trigger, '')
+  await expect
+    .poll(() => stateFiles().map((file) => readFileSync(file, 'utf8')), { timeout: 15_000 })
+    .toEqual([JSON.stringify({ state: 'waiting', message: 'Run deploy?' })])
+
+  const second = await launch(dataHome, pathWith(bin))
+  try {
+    await expect(screen(second.win)).toContainText('hook-rc=0', { timeout: 15_000 })
+    await expect(second.win.locator('.workspace-dot').first()).toHaveAttribute(
+      'aria-label',
+      'Waiting for input',
+      { timeout: 15_000 },
+    )
+    await expect(second.win.locator('.pane-tab[data-attention="waiting"]')).toHaveCount(1)
   } finally {
     await quit(second.app)
   }

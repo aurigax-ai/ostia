@@ -253,12 +253,17 @@ op_write() {
     fail denied
     return 0
   }
+  written=$(version_of "$tmp") || {
+    rm -f -- "$tmp"
+    fail failed
+    return 0
+  }
   mv -f -- "$tmp" "$target" 2>/dev/null || {
     rm -f -- "$tmp"
     fail failed
     return 0
   }
-  reply "$id" ok 0 "$(version_of "$target")"
+  reply "$id" ok 0 "$written"
 }
 
 printf 'OSTIA-HELPER ready %s\n' "$PROTOCOL"
