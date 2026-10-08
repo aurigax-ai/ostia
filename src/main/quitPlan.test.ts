@@ -1,5 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { type QuitState, exitAfterDeadline, keptOnQuit, planQuit } from './quitPlan'
+import {
+  type QuitState,
+  createQuitTrace,
+  exitAfterDeadline,
+  keptOnQuit,
+  planQuit,
+  summarizeKinds,
+} from './quitPlan'
 
 const IDLE: QuitState = {
   approved: false,
@@ -69,5 +76,40 @@ describe('keptOnQuit', () => {
 
   it('KSH-C40 names none when Ostia quits, so every running command is asked about', () => {
     expect(keptOnQuit(false, panes)).toEqual([])
+  })
+})
+
+describe('createQuitTrace', () => {
+  it('logs each stage with the stage before it, how long that one took and the time since the quit began', () => {
+    const entries: [string, Record<string, string | number>][] = []
+    let clock = 1000
+    const trace = createQuitTrace(
+      (event, fields) => entries.push([event, fields]),
+      () => clock,
+    )
+    expect(trace.current()).toBe('idle')
+    expect(trace.elapsedMs()).toBe(0)
+    trace.stage('scrollback')
+    clock += 40
+    trace.stage('telemetry')
+    clock += 5
+    trace.stage('teardown')
+    clock += 7
+    expect(entries).toEqual([
+      ['quit-stage', { stage: 'scrollback', after: 'idle', tookMs: 0, totalMs: 0 }],
+      ['quit-stage', { stage: 'telemetry', after: 'scrollback', tookMs: 40, totalMs: 40 }],
+      ['quit-stage', { stage: 'teardown', after: 'telemetry', tookMs: 5, totalMs: 45 }],
+    ])
+    expect(trace.current()).toBe('teardown')
+    expect(trace.elapsedMs()).toBe(52)
+  })
+})
+
+describe('summarizeKinds', () => {
+  it('counts the resources that keep the process alive by kind, in a stable order', () => {
+    expect(summarizeKinds(['TCPSocketWrap', 'ProcessWrap', 'TCPSocketWrap', 'Timeout'])).toBe(
+      'ProcessWrap:1,TCPSocketWrap:2,Timeout:1',
+    )
+    expect(summarizeKinds([])).toBe('')
   })
 })

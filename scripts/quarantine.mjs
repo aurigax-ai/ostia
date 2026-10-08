@@ -110,6 +110,19 @@ function count(counts, file, titles, status) {
   else if (status === 'failed' || status === 'timedOut' || status === 'interrupted') row.failed++
 }
 
+const FAILURE_DETAIL_MAX_CHARS = 6000
+const ANSI = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, 'g')
+
+function printFailure(key, run, parts) {
+  const detail = parts
+    .filter((part) => typeof part === 'string' && part.trim())
+    .join('\n')
+    .replace(ANSI, '')
+  console.log(
+    `quarantine: FAILED ${key} (run ${run})\n${detail.slice(0, FAILURE_DETAIL_MAX_CHARS)}\n`,
+  )
+}
+
 function report(counts, runner) {
   const lines = [...counts].map(([key, { passed, failed }]) =>
     passed + failed === 0
@@ -156,6 +169,14 @@ function runUnit(runs) {
       const result = JSON.parse(readFileSync(output, 'utf8'))
       for (const file of result.testResults) {
         for (const test of file.assertionResults) {
+          const titles = [...test.ancestorTitles, test.title]
+          if (test.status === 'failed') {
+            printFailure(
+              `${relative(ROOT, file.name)} › ${titles.join(' > ')}`,
+              run,
+              test.failureMessages ?? [],
+            )
+          }
           count(
             counts,
             relative(ROOT, file.name),
@@ -175,7 +196,14 @@ function collectSpecs(suite, titles, counts) {
   const inner = suite.title && suite.title !== suite.file ? [...titles, suite.title] : titles
   for (const spec of suite.specs ?? []) {
     for (const test of spec.tests) {
-      for (const result of test.results) {
+      for (const [index, result] of test.results.entries()) {
+        const key = `e2e/${spec.file} › ${[...inner, spec.title].join(' > ')}`
+        if (counts.has(key) && !['passed', 'skipped'].includes(result.status)) {
+          printFailure(key, `${test.repeatEachIndex ?? index}, ${result.status}`, [
+            ...(result.errors ?? []).map((error) => error.message),
+            ...(result.stderr ?? []).map((chunk) => chunk.text),
+          ])
+        }
         count(counts, `e2e/${spec.file}`, [...inner, spec.title], result.status)
       }
     }

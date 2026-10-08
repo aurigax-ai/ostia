@@ -243,7 +243,14 @@ import { CoalescedOutput, PtyFlowControl } from './ptyFlow'
 import { type ReapReason, RecoveryBook, orphanVerdict, planRecovery } from './ptyReaper'
 import { PtySession, type Subscriber, type SubscriberRole } from './ptySession'
 import { questions, registerQuestions } from './questions'
-import { QUIT_SIGNALS, exitAfterDeadline, keptOnQuit, planQuit } from './quitPlan'
+import {
+  QUIT_SIGNALS,
+  createQuitTrace,
+  exitAfterDeadline,
+  keptOnQuit,
+  planQuit,
+  summarizeKinds,
+} from './quitPlan'
 import { confirmQuitNatively } from './quitPrompt'
 import { createReach } from './reach'
 import { createRedactor, createScrollbackRedactor } from './redaction'
@@ -3932,6 +3939,7 @@ function persistScrollback(): Promise<void> {
   scrollbackSaves = scrollbackSaves
     .then(async () => {
       const redacted = await redactScrollback(toSave)
+      if (savingScrollbackForQuit && !scrollbackSavedForQuit) quitTrace.stage('scrollback-redacted')
       if (broker && !broker.persisting) return
       await saveScrollback(redacted)
     })
@@ -3954,6 +3962,17 @@ function autosaveScrollback(): void {
   void persistScrollback()
 }
 
+const quitTrace = createQuitTrace((event, fields) => appLog?.info(event, fields))
+
+function exitAtQuitDeadline(): void {
+  appLog?.warn('quit-deadline', {
+    stage: quitTrace.current(),
+    totalMs: quitTrace.elapsedMs(),
+    alive: summarizeKinds(process.getActiveResourcesInfo()),
+  })
+  app.exit(0)
+}
+
 app.on('before-quit', (event) => {
   const plan = planQuit({
     approved: quitApproved,
@@ -3962,10 +3981,11 @@ app.on('before-quit', (event) => {
     platform: process.platform,
   })
   quitRequested = false
+  quitTrace.stage(`plan-${plan}`)
   if (plan === 'unattended') {
     quitApproved = true
     freezeAll(BrowserWindow.getAllWindows())
-    exitAfterDeadline(() => app.exit(0))
+    exitAfterDeadline(exitAtQuitDeadline)
   }
   if (plan === 'ask') {
     event.preventDefault()
@@ -4002,6 +4022,7 @@ app.on('before-quit', (event) => {
     event.preventDefault()
     if (savingScrollbackForQuit) return
     savingScrollbackForQuit = true
+    quitTrace.stage('scrollback')
     void persistScrollback().finally(() => {
       scrollbackSavedForQuit = true
       app.quit()
@@ -4012,12 +4033,14 @@ app.on('before-quit', (event) => {
     event.preventDefault()
     if (sendingTelemetryForQuit) return
     sendingTelemetryForQuit = true
+    quitTrace.stage('telemetry')
     void (telemetry?.shutdown() ?? Promise.resolve()).finally(() => {
       telemetrySentForQuit = true
       app.quit()
     })
     return
   }
+  quitTrace.stage('teardown-windows')
   broker?.persist()
   managerService?.shutdown()
   appLog?.info('app-quit', { ptys: ptys.size })
@@ -4027,6 +4050,7 @@ app.on('before-quit', (event) => {
       syncKeptExposed(workspaceId, portForwarder.listeners(workspaceId))
     }
   }
+  quitTrace.stage('teardown-ptys')
   for (const entry of ptys.values()) {
     entry.mirror.dispose()
     if (keepingShells && entry.kept) {
@@ -4040,16 +4064,20 @@ app.on('before-quit', (event) => {
     removeStateFile(entry)
   }
   ptys.clear()
+  quitTrace.stage('teardown-kept-shells')
   if (keepingShells) keptShells.release()
   else keptShells.quitNow()
+  quitTrace.stage('teardown-language-servers')
   languageServers?.stopAll()
   languageServerWatches.closeAll()
+  quitTrace.stage('teardown-sandboxes')
   if (keepingShells) workspaceSandboxes.releaseAll()
   else workspaceSandboxes.stopAll()
   workspaceAgents.stopAll()
   for (const workspaceId of scratchFolders.workspaceIds()) workspaceSandboxes.forget(workspaceId)
   workspaceSandboxes.clearTmp(!keepingShells)
   scratchFolders.removeAll()
+  quitTrace.stage('teardown-hosts')
   portForwarder.stopAll()
   gitBoard?.stop()
   portsBoard?.stop()
@@ -4058,6 +4086,7 @@ app.on('before-quit', (event) => {
   mcpHost?.closeAll()
   viewHost?.stop()
   profileSync?.stop()
+  quitTrace.stage('teardown-network')
   stopControlServer()
   clearControlInfo(controlInfoPath(), controlSocketPath())
   portal?.stop()
@@ -4066,7 +4095,11 @@ app.on('before-quit', (event) => {
   void stopGateway()
   appTray?.remove()
   globalHotkey?.clear()
+  quitTrace.stage('teardown-done')
 })
+
+app.on('will-quit', () => quitTrace.stage('will-quit'))
+app.on('quit', () => quitTrace.stage('quit'))
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') requestQuit()
