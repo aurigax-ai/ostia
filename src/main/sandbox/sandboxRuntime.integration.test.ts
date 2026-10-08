@@ -200,20 +200,24 @@ describe('sandbox runtime', () => {
     expect(originHosts).not.toContain('blocked.localhost')
   }, 60_000)
 
-  it("reaches the proxy on a command's first connection even when the relays start slowly", async () => {
-    const slowBin = join(root, 'slow-socat')
-    mkdirSync(slowBin)
-    const realSocat = execFileSync('/bin/sh', ['-c', 'command -v socat'], {
-      encoding: 'utf8',
-    }).trim()
-    writeFileSync(join(slowBin, 'socat'), `#!/bin/sh\nsleep 0.1\nexec ${realSocat} "$@"\n`)
-    chmodSync(join(slowBin, 'socat'), 0o755)
-    const res = await run(
-      `env -u NO_PROXY -u no_proxy curl -s -m 20 -w "|first=%{http_code}\\n" http://allowed.localhost:${originPort}/`,
-      { ...process.env, PATH: `${slowBin}:${process.env.PATH}` },
-    )
-    expect(res.out).toContain('ORIGIN-REACHED|first=200')
-  }, 60_000)
+  it.skipIf(process.platform !== 'linux')(
+    "reaches the proxy on a command's first connection even when the relays start slowly",
+    async () => {
+      const slowBin = join(root, 'slow-socat')
+      mkdirSync(slowBin)
+      const realSocat = execFileSync('/bin/sh', ['-c', 'command -v socat'], {
+        encoding: 'utf8',
+      }).trim()
+      writeFileSync(join(slowBin, 'socat'), `#!/bin/sh\nsleep 0.1\nexec ${realSocat} "$@"\n`)
+      chmodSync(join(slowBin, 'socat'), 0o755)
+      const res = await run(
+        `env -u NO_PROXY -u no_proxy curl -s -m 20 -w "|first=%{http_code}\\n" http://allowed.localhost:${originPort}/`,
+        { ...process.env, PATH: `${slowBin}:${process.env.PATH}` },
+      )
+      expect(res.out).toContain('ORIGIN-REACHED|first=200')
+    },
+    60_000,
+  )
 
   it('SBX-C55 keeps other unix sockets out of reach while the ostia socket works', async () => {
     const res = await run(
