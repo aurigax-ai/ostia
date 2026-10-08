@@ -129,19 +129,29 @@ export class FileWatches {
     return true
   }
 
-  async wrote(
+  async write(
     writer: string,
     path: string,
-    stamp: FileStamp,
     data: string | Uint8Array,
-  ): Promise<void> {
+    save: () => Promise<FileStamp>,
+  ): Promise<FileStamp> {
     const safe = this.deps.confine(path)
-    if (safe === null) return
+    const previous = safe === null ? undefined : this.lastSeen.get(safe)
+    if (safe === null || previous === undefined) return save()
+    const saving = previous.then(save)
+    this.lastSeen.set(
+      safe,
+      saving.then(
+        (stamp) => ({ ...stamp, hash: digest(data) }),
+        () => previous,
+      ),
+    )
+    const stamp = await saving
     const written: Fingerprint = { ...stamp, hash: digest(data) }
-    const step = await this.advance(safe, async () => written)
-    if (!step || sameContent(step.before, written)) return
+    if (sameContent(await previous, written)) return stamp
     const others = [...this.ownersOf(safe)].filter((owner) => owner !== writer)
     if (others.length > 0) this.deps.onChange({ path: safe, exists: true, owners: others })
+    return stamp
   }
 
   private ownersOf(path: string): Set<string> {
