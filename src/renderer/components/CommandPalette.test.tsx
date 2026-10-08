@@ -162,7 +162,7 @@ describe('CommandPalette', () => {
       expect(grid).toHaveClass('grid')
       expect(grid.className).toContain('var(--palette-name-w')
       expect(grid.className).toContain('var(--palette-keys-w')
-      expect(row[2]).toHaveClass('justify-self-end', 'truncate', 'min-w-0')
+      expect(row[2]).toHaveClass('justify-self-end', 'truncate', 'min-w-0', 'max-w-full')
       return row
     }
 
@@ -304,6 +304,76 @@ describe('CommandPalette', () => {
 
       expect(title).toHaveClass('overflow-hidden', 'max-w-full')
       expect(id).toHaveClass('truncate', 'min-w-0', 'justify-self-end')
+    })
+
+    it('sizes the title column from the widest title, leaves fluid rows out and measures again on resize', async () => {
+      const resizes: { target: Element; measure: () => void }[] = []
+      const original = globalThis.ResizeObserver
+      globalThis.ResizeObserver = class {
+        measure: () => void
+        constructor(measure: () => void) {
+          this.measure = measure
+        }
+        observe(target: Element) {
+          resizes.push({ target, measure: this.measure })
+        }
+        unobserve() {}
+        disconnect() {}
+      } as unknown as typeof ResizeObserver
+      let listWidth = 2000
+      const scroll = vi.spyOn(Element.prototype, 'scrollWidth', 'get').mockImplementation(function (
+        this: Element,
+      ) {
+        return (this.textContent ?? '').length * 8
+      })
+      const client = vi
+        .spyOn(Element.prototype, 'clientWidth', 'get')
+        .mockImplementation(() => listWidth)
+      const span = (slot: string, text = ''): HTMLElement => {
+        const el = document.createElement('span')
+        el.dataset.slot = slot
+        if (text) el.append(Object.assign(document.createElement('span'), { textContent: text }))
+        return el
+      }
+      const longRow = (fluid: boolean): HTMLElement => {
+        const row = span('palette-row')
+        if (fluid) row.dataset.fluid = ''
+        row.append(
+          span('palette-name', 'x'.repeat(200)),
+          span('palette-keys'),
+          span('palette-meta'),
+        )
+        return row
+      }
+      try {
+        useUIStore.setState({ paletteOpen: true })
+        render(<CommandPalette />)
+        await screen.findByRole('option', { name: /Open Settings/ })
+        const list = document.querySelector('[data-slot="command-list"]') as HTMLElement
+        const widest = Math.max(
+          ...[...list.querySelectorAll('[data-slot="palette-name"]')].map(
+            (cell) => (cell.textContent ?? '').length * 8,
+          ),
+        )
+        const nameWidth = () => list.style.getPropertyValue('--palette-name-w')
+        expect(widest).toBeGreaterThan(0)
+        expect(nameWidth()).toBe(`${widest}px`)
+
+        act(() => list.append(longRow(true)))
+        await new Promise((resolve) => setTimeout(resolve, 0))
+        expect(nameWidth()).toBe(`${widest}px`)
+
+        act(() => list.append(longRow(false)))
+        await waitFor(() => expect(nameWidth()).toBe('1000px'))
+
+        listWidth = 600
+        for (const r of resizes.filter((r) => r.target === list)) r.measure()
+        expect(nameWidth()).toBe('300px')
+      } finally {
+        scroll.mockRestore()
+        client.mockRestore()
+        globalThis.ResizeObserver = original
+      }
     })
 
     it('lays rows out the same way in Traditional Chinese', async () => {

@@ -463,9 +463,6 @@ function WorkspaceItems({
   )
 }
 
-const ROW_GAP_PX = 12
-const NAME_GAP_PX = 8
-
 function PaletteColumns(): JSX.Element {
   const ref = useRef<HTMLSpanElement>(null)
   useLayoutEffect(() => {
@@ -475,12 +472,15 @@ function PaletteColumns(): JSX.Element {
       const cap = Math.floor(host.clientWidth / 2)
       let name = 0
       let keys = 0
-      for (const row of host.querySelectorAll('[data-slot="palette-row"]')) {
-        const cells = row.children
-        const parts = [...(cells[0]?.children ?? [])]
-        const width = parts.reduce((sum, part) => sum + part.scrollWidth, 0)
-        name = Math.max(name, width + Math.max(0, parts.length - 1) * NAME_GAP_PX)
-        keys = Math.max(keys, cells[1]?.scrollWidth ?? 0)
+      for (const row of host.querySelectorAll('[data-slot="palette-row"]:not([data-fluid])')) {
+        const cell = row.querySelector<HTMLElement>('[data-slot="palette-name"]')
+        if (cell) {
+          const parts = [...cell.children]
+          const gap = Number.parseFloat(getComputedStyle(cell).columnGap) || 0
+          const width = parts.reduce((sum, part) => sum + part.scrollWidth, 0)
+          name = Math.max(name, width + Math.max(0, parts.length - 1) * gap)
+        }
+        keys = Math.max(keys, row.querySelector('[data-slot="palette-keys"]')?.scrollWidth ?? 0)
       }
       if (name > 0)
         host.style.setProperty('--palette-name-w', `${cap > 0 ? Math.min(name, cap) : name}px`)
@@ -488,9 +488,14 @@ function PaletteColumns(): JSX.Element {
       host.style.setProperty('--palette-keys-w', `${keys}px`)
     }
     measure()
-    const observer = new MutationObserver(measure)
-    observer.observe(host, { childList: true, subtree: true, characterData: true })
-    return () => observer.disconnect()
+    const mutations = new MutationObserver(measure)
+    mutations.observe(host, { childList: true, subtree: true, characterData: true })
+    const resizes = new ResizeObserver(measure)
+    resizes.observe(host)
+    return () => {
+      mutations.disconnect()
+      resizes.disconnect()
+    }
   }, [])
   return <span ref={ref} hidden />
 }
@@ -502,6 +507,7 @@ function ItemRow({
   detail,
   mono,
   nameMono,
+  fluid,
 }: {
   name: string
   meta?: string
@@ -509,12 +515,18 @@ function ItemRow({
   detail?: string
   mono?: boolean
   nameMono?: boolean
+  fluid?: boolean
 }): JSX.Element {
   return (
     <span
       data-slot="palette-row"
-      style={{ columnGap: ROW_GAP_PX }}
-      className="grid min-w-0 flex-1 grid-cols-[var(--palette-name-w,max-content)_var(--palette-keys-w,max-content)_minmax(0,1fr)] items-center tabular-nums"
+      data-fluid={fluid ? '' : undefined}
+      className={cn(
+        'grid min-w-0 flex-1 items-center gap-x-3 tabular-nums',
+        fluid
+          ? 'grid-cols-[minmax(0,max-content)_var(--palette-keys-w,max-content)_minmax(0,1fr)]'
+          : 'grid-cols-[var(--palette-name-w,max-content)_var(--palette-keys-w,max-content)_minmax(0,1fr)]',
+      )}
     >
       <span
         data-slot="palette-name"
@@ -531,7 +543,7 @@ function ItemRow({
       <span
         data-slot="palette-meta"
         className={cn(
-          'min-w-0 justify-self-end truncate text-right text-fg-muted text-ui-xs group-data-selected/command-item:text-fg',
+          'min-w-0 max-w-full justify-self-end truncate text-right text-fg-muted text-ui-xs group-data-selected/command-item:text-fg',
           mono && 'font-mono',
         )}
       >
