@@ -345,23 +345,14 @@
   color: var(--fg-muted);
   font-size: var(--text-ui-sm);
   font-weight: var(--font-weight-medium);
-  line-height: 1;
   transition: background-color var(--motion-fast) var(--ease-out), color var(--motion-fast)
-    var(--ease-out), transform var(--motion-fast) var(--ease-out);
+    var(--ease-out);
   animation: zoom-chip-in var(--motion-base) var(--ease-out);
-}
-
-.zoom-chip svg {
-  color: var(--brand);
 }
 
 .zoom-chip:hover {
   background: color-mix(in srgb, var(--fg) 10%, transparent);
   color: var(--fg);
-}
-
-.zoom-chip:active {
-  transform: scale(0.97);
 }
 
 .zoom-chip:focus-visible {

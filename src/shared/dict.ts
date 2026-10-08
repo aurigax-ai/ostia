@@ -2100,6 +2100,7 @@ export const en = {
     previewLoading: 'Loading {name}…',
     previewFailed: '{name} couldn’t be loaded ({error}).',
     previewKept: 'Your custom keys stay on top: {names}',
+    listSeparator: ', ',
     previewKeptNone: 'Your custom keys always stay on top of the preset.',
     previewYoursStay: 'yours stays',
     apply: 'Apply {name}',
@@ -2533,7 +2534,6 @@ export const en = {
     allowOnce: 'Allow once',
     allowChat: 'Allow for this chat',
     allowAlways: 'Always allow this tool',
-    allowChoices: 'More ways to allow',
     always: {
       title: 'Always-allowed chat tools',
       desc: 'Every chat runs these without asking. Remove one to be asked again.',
@@ -3111,6 +3111,7 @@ export const en = {
       'Optional. The pairing code carries this host:port instead of the bind address, for a tunnel or forward you set up. It must pass TCP through unchanged: the phone pins this computer’s certificate, so a proxy that ends TLS will not work.',
     remotePhoneAddressInvalid:
       'Enter a host name or IPv4 address and a port, like host.example:8722.',
+    remotePhoneAddressPlaceholder: 'host:port',
     remoteLoopbackOnly:
       'A phone cannot reach 127.0.0.1. Set the address the phone uses, pick another bind address or use the Tailscale node.',
     remoteRouteAddress: '{iface} · {address}',
@@ -5256,6 +5257,7 @@ export const zhHant: Dict = {
     previewLoading: '正在載入 {name}…',
     previewFailed: '無法載入 {name}（{error}）。',
     previewKept: '你的自訂照舊在最上層：{names}',
+    listSeparator: '、',
     previewKeptNone: '你的自訂永遠疊在 preset 上層。',
     previewYoursStay: '你的照舊',
     apply: '套用 {name}',
@@ -5679,7 +5681,6 @@ export const zhHant: Dict = {
     allowOnce: '允許一次',
     allowChat: '此對話都允許',
     allowAlways: '一律允許此工具',
-    allowChoices: '更多允許方式',
     always: {
       title: '一律允許的對話工具',
       desc: '每個對話都會直接執行這些工具，不再詢問。移除後會再次詢問。',
@@ -6241,6 +6242,7 @@ export const zhHant: Dict = {
     remotePhoneAddressDesc:
       '選填。配對碼會帶著這個 host:port，而不是接聽位址，供您自己設定的通道或轉送使用。它必須原封不動地轉送 TCP：手機會釘選這台電腦的憑證，所以終止 TLS 的代理無法使用。',
     remotePhoneAddressInvalid: '請輸入主機名稱或 IPv4 位址與連接埠，例如 host.example:8722。',
+    remotePhoneAddressPlaceholder: '主機:連接埠',
     remoteLoopbackOnly:
       '手機無法連到 127.0.0.1。請設定手機使用的位址、選擇其他接聽位址，或使用 Tailscale 節點。',
     remoteRouteAddress: '{iface} · {address}',

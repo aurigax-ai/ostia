@@ -890,9 +890,9 @@ describe('KeyboardSection layered view', () => {
       expect(within(row(/Command Palette/)).getByText('Ctrl+Shift+P')).toBeInTheDocument()
       const items = within(preview()).getAllByRole('listitem')
       const palette = items.find((li) => li.textContent?.includes('Command Palette'))
-      expect(palette).toHaveTextContent('Ctrl+Shift+P→Ctrl+Alt+P')
+      expect(palette).toHaveTextContent('Ctrl+Shift+PCtrl+Alt+P')
       const sidebar = items.find((li) => li.textContent?.includes('Toggle Sidebar'))
-      expect(sidebar).toHaveTextContent('Ctrl+Shift+B→None')
+      expect(sidebar).toHaveTextContent('Ctrl+Shift+BNone')
       expect(within(sidebar as HTMLElement).getByText('yours stays')).toBeInTheDocument()
       expect(
         within(preview()).getByText('Your custom keys stay on top: Toggle Sidebar'),

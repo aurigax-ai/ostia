@@ -1,4 +1,4 @@
-import { CaretRightIcon } from '@phosphor-icons/react'
+import { ArrowRightIcon, CaretRightIcon } from '@phosphor-icons/react'
 import type { KeybindingMap } from '@shared/chordSpec'
 import {
   NATURAL_TEXT_EDITING,
@@ -94,14 +94,18 @@ function useAppPresetBindings(ref: string | null): Loaded {
 }
 
 function keysOrNone(keys: string | null, none: string): JSX.Element {
-  return keys ? <Kbd className="text-fg">{keys}</Kbd> : <span className="text-fg-dim">{none}</span>
+  return keys ? (
+    <Kbd className="text-fg">{keys}</Kbd>
+  ) : (
+    <span className="text-fg-muted">{none}</span>
+  )
 }
 
 function sendOrNone(send: TerminalSend | null, none: string, d: ReturnType<typeof useDict>) {
   return send ? (
     <span className="text-fg">{sendLabel(send, d)}</span>
   ) : (
-    <span className="text-fg-dim">{none}</span>
+    <span className="text-fg-muted">{none}</span>
   )
 }
 
@@ -145,7 +149,7 @@ export function PresetPreview({
             <span className="truncate text-fg">{commandTitle(c.id, d)}</span>
             <span className="flex flex-wrap items-center gap-1">
               {keysOrNone(c.before, d.keyboard.noKey)}
-              <span className="text-fg-dim">→</span>
+              <ArrowRightIcon className="size-3 shrink-0 text-fg-dim" aria-hidden />
               {keysOrNone(c.after, d.keyboard.noKey)}
               {plan.keptCustom.includes(c) ? (
                 <span className="text-brand text-ui-xs">{d.keyboard.previewYoursStay}</span>
@@ -168,7 +172,7 @@ export function PresetPreview({
             <Kbd className="w-fit text-fg">{c.keys}</Kbd>
             <span className="flex flex-wrap items-center gap-1">
               {sendOrNone(c.before, d.keyboard.notTranslated, d)}
-              <span className="text-fg-dim">→</span>
+              <ArrowRightIcon className="size-3 shrink-0 text-fg-dim" aria-hidden />
               {sendOrNone(c.after, d.keyboard.notTranslated, d)}
               {plan.keptCustom.includes(c) ? (
                 <span className="text-brand text-ui-xs">{d.keyboard.previewYoursStay}</span>
@@ -197,7 +201,7 @@ export function PresetPreview({
       {body}
       <p className="mt-1.5 text-fg-muted text-ui-xs">
         {customNames.length > 0
-          ? fmt(d.keyboard.previewKept, { names: customNames.join('、') })
+          ? fmt(d.keyboard.previewKept, { names: customNames.join(d.keyboard.listSeparator) })
           : d.keyboard.previewKeptNone}
       </p>
       <div className="mt-2 flex justify-end gap-1">
@@ -263,7 +267,7 @@ function ChoiceRow({
             )
           })}
         </fieldset>
-        <p className="mt-0.5 text-fg-dim text-ui-xs">{desc}</p>
+        <p className="mt-0.5 text-fg-muted text-ui-xs">{desc}</p>
       </div>
       <div className="pt-1 text-right">{status}</div>
     </div>
@@ -319,7 +323,7 @@ export function KeymapCombo({ onShowChanges }: { onShowChanges: () => void }): J
         <CaretRightIcon />
       </Button>
     ) : (
-      <span className="text-fg-dim text-ui-xs">{d.keyboard.sameAsDefault}</span>
+      <span className="text-fg-muted text-ui-xs">{d.keyboard.sameAsDefault}</span>
     )
 
   return (

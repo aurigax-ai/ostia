@@ -113,7 +113,7 @@ function CommandLine({
       </TableCell>
       <TableCell className="py-1.5 align-top whitespace-normal">
         {chordList(custom ? now : [], d.keyboard.unassigned)}
-        <div className="text-fg-dim text-ui-xs">
+        <div className="text-fg-muted text-ui-xs">
           {fromPreset
             ? fmt(d.keyboard.wasFrom, { keys: baseText, name: presetName })
             : fmt(d.keyboard.was, { keys: baseText })}
@@ -166,7 +166,7 @@ function TerminalLine({
             <span className="text-fg-muted text-ui-sm">{d.keyboard.notTranslated}</span>
           )}
         </span>
-        <div className="text-fg-dim text-ui-xs">
+        <div className="text-fg-muted text-ui-xs">
           {was && presetName
             ? fmt(d.keyboard.wasFrom, { keys: wasText, name: presetName })
             : fmt(d.keyboard.was, { keys: wasText })}
@@ -200,7 +200,7 @@ function PresetLine({
         {sub ? <div className="truncate font-mono text-fg-muted text-ui-xs">{sub}</div> : null}
       </TableCell>
       <TableCell className="py-1.5 align-top whitespace-normal">{after}</TableCell>
-      <TableCell className="py-1.5 align-top text-fg-dim text-ui-xs whitespace-normal">
+      <TableCell className="py-1.5 align-top text-fg-muted text-ui-xs whitespace-normal">
         {ostia}
       </TableCell>
     </TableRow>

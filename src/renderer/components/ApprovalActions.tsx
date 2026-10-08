@@ -1,4 +1,3 @@
-import { CaretDownIcon } from '@phosphor-icons/react'
 import {
   type ApprovalAnswer,
   type ApprovalKind,
@@ -8,9 +7,9 @@ import {
 import type { Dict } from '@shared/dict'
 import { useDict } from '../i18n/useDict'
 import { useApprovalsStore } from '../stores/approvalsStore'
-import { DropdownMenu, MenuItem } from './Menu'
+import { MenuItem } from './Menu'
+import { SplitButton, SplitButtonMenu } from './SplitButton'
 import { Button } from './ui/button'
-import { ButtonGroup, ButtonGroupSeparator } from './ui/button-group'
 
 function answerLabel(d: Dict, kind: ApprovalKind, answer: ApprovalAnswer): string {
   if (answer === 'once') return d.approvals.allowOnce
@@ -37,32 +36,24 @@ export function ApprovalActions({
         {d.approvals.deny}
       </Button>
       {main ? (
-        <ButtonGroup aria-label={d.approvals.allowChoices}>
-          <Button size={size} onClick={() => pick(main)}>
-            {answerLabel(d, kind, main)}
-          </Button>
+        <SplitButton
+          label={d.approvals.allowChoices}
+          main={
+            <Button size={size} onClick={() => pick(main)}>
+              {answerLabel(d, kind, main)}
+            </Button>
+          }
+        >
           {more.length > 0 ? (
-            <>
-              <ButtonGroupSeparator className="bg-on-brand/25" />
-              <DropdownMenu
-                trigger={
-                  <Button
-                    size={size === 'sm' ? 'icon-sm' : 'icon-xs'}
-                    aria-label={d.approvals.allowChoices}
-                  >
-                    <CaretDownIcon aria-hidden />
-                  </Button>
-                }
-              >
-                {more.map((choice) => (
-                  <MenuItem key={choice} onClick={() => pick(choice)}>
-                    {answerLabel(d, kind, choice)}
-                  </MenuItem>
-                ))}
-              </DropdownMenu>
-            </>
+            <SplitButtonMenu label={d.approvals.allowChoices} size={size}>
+              {more.map((choice) => (
+                <MenuItem key={choice} onClick={() => pick(choice)}>
+                  {answerLabel(d, kind, choice)}
+                </MenuItem>
+              ))}
+            </SplitButtonMenu>
           ) : null}
-        </ButtonGroup>
+        </SplitButton>
       ) : null}
     </div>
   )

@@ -117,7 +117,7 @@ function PhoneAddressRow({
       <Input
         value={text}
         spellCheck={false}
-        placeholder="host:port"
+        placeholder={d.settings.remotePhoneAddressPlaceholder}
         disabled={disabled}
         aria-label={d.settings.remotePhoneAddress}
         aria-invalid={invalid || undefined}
