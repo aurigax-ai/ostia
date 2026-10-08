@@ -17,6 +17,13 @@ function paletteRow(win: Page) {
     .filter({ hasText: 'palette.toggle' })
 }
 
+async function recordPaletteChord(win: Page, keys: string) {
+  await win.getByRole('button', { name: `Change ${keys} for Command Palette` }).click()
+  await expect(
+    win.getByRole('status', { name: 'Record a shortcut for Command Palette' }),
+  ).toBeVisible()
+}
+
 async function closeSettings(win: Page) {
   await win.keyboard.press('Escape')
   await expect(win.getByRole('region', { name: 'Settings' })).toHaveCount(0)
@@ -44,11 +51,11 @@ test('a rebound palette chord works from a focused terminal, refuses Ctrl+R, and
 
     await openKeyboardSettings(win)
     await expect(paletteRow(win)).toContainText('Ctrl+Shift+P')
-    await win.getByRole('button', { name: 'Change Ctrl+Shift+P for Command Palette' }).click()
+    await recordPaletteChord(win, 'Ctrl+Shift+P')
     await win.keyboard.press('Control+Shift+Y')
     await expect(paletteRow(win)).toContainText('Ctrl+Shift+Y')
 
-    await win.getByRole('button', { name: 'Change Ctrl+Shift+Y for Command Palette' }).click()
+    await recordPaletteChord(win, 'Ctrl+Shift+Y')
     await win.keyboard.press('Control+r')
     await expect(paletteRow(win).getByRole('alert')).toContainText(
       'Ctrl+R can’t be used: plain Ctrl keys belong to the shell',
@@ -82,6 +89,32 @@ test('a rebound palette chord works from a focused terminal, refuses Ctrl+R, and
   }
 })
 
+test('scrolling the Keyboard settings never gives the window a scrollbar of its own', async () => {
+  const app = await electron.launch(isolatedLaunch())
+  try {
+    const win = await app.firstWindow()
+    await win.waitForLoadState('domcontentloaded')
+    await openWorkspace(win)
+    await openKeyboardSettings(win)
+    await expect(paletteRow(win)).toBeVisible()
+
+    const row = await paletteRow(win).elementHandle()
+    const widths = await win.evaluate(async (target) => {
+      const framesWatched = 30
+      let narrowest = document.documentElement.clientWidth
+      target?.scrollIntoView({ block: 'center' })
+      for (let frame = 0; frame < framesWatched; frame++) {
+        await new Promise((next) => requestAnimationFrame(next))
+        narrowest = Math.min(narrowest, document.documentElement.clientWidth)
+      }
+      return { narrowest, window: window.innerWidth }
+    }, row)
+    expect(widths.narrowest).toBe(widths.window)
+  } finally {
+    await app.close()
+  }
+})
+
 test('on macOS the palette is ⇧⌘P everywhere and ⌘K outside a terminal, a rebound chord works from a terminal, a Ctrl chord is refused, and it resets', async () => {
   test.skip(!isMac, 'the Cmd chords exist only on macOS')
   const app = await electron.launch(isolatedLaunch())
@@ -92,12 +125,12 @@ test('on macOS the palette is ⇧⌘P everywhere and ⌘K outside a terminal, a 
 
     await openKeyboardSettings(win)
     await expect(paletteRow(win)).toContainText('⌘K')
-    await win.getByRole('button', { name: 'Change ⌘K for Command Palette' }).click()
+    await recordPaletteChord(win, '⌘K')
     await win.keyboard.press('Meta+Shift+Y')
     await expect(paletteRow(win)).toContainText('Y')
     await expect(win.getByRole('button', { name: 'Change ⌘K for Command Palette' })).toHaveCount(0)
 
-    await win.getByRole('button', { name: 'Change ⌘⇧Y for Command Palette' }).click()
+    await recordPaletteChord(win, '⌘⇧Y')
     await win.keyboard.press('Control+Shift+y')
     await expect(paletteRow(win).getByRole('alert')).toContainText('it needs ⌘')
     await win.keyboard.press('Escape')
