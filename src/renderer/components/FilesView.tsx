@@ -574,7 +574,6 @@ function RowShell({
       dir={dir}
       trigger={row}
       visibility={visibilityOf(tree, fullPath)}
-      editable
     />
   )
 }

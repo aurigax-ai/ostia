@@ -50,6 +50,7 @@ import {
   EXTENSION_SETTING_TYPES,
   EXTENSION_SETTING_UNITS,
 } from '../shared/extensions'
+import { isCoreSource } from '../shared/git'
 import { ICON_THEME_ID_PATTERN } from '../shared/iconTheme'
 import { KEYMAP_LABEL_MAX, KEYMAP_PLATFORMS } from '../shared/keymap'
 import { LANGUAGE_ID_PATTERN } from '../shared/languagePack'
@@ -293,7 +294,10 @@ const contributes = z.looseObject({
 })
 
 export const extensionManifestSchema = z.looseObject({
-  id: z.string().regex(EXTENSION_ID_PATTERN),
+  id: z
+    .string()
+    .regex(EXTENSION_ID_PATTERN)
+    .refine((id) => !isCoreSource(id)),
   name: text,
   version: z.string().min(1).max(VERSION_MAX),
   api: z.string().regex(EXTENSION_API_PATTERN),

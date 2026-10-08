@@ -109,7 +109,6 @@ test('new folder and rename fields sit in a tree row where the name would be', a
     const field = await input.boundingBox()
     expect(edit?.height).toBe(sibling?.height)
     expect(Math.abs((field?.x ?? 0) + 3 - (siblingName?.x ?? 0))).toBeLessThanOrEqual(1)
-    await win.screenshot({ path: test.info().outputPath('files-new-entry.png') })
 
     await input.fill('docs')
     await input.press('Enter')

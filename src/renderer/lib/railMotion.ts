@@ -5,13 +5,9 @@ export type RailMotionPhase = 'opening' | 'closing'
 
 export const RAIL_MOTION_FALLBACK_MS = 600
 
-export const RAIL_SLIDE_KEYFRAMES = 'rail-slide'
+const RAIL_SLIDE_KEYFRAMES = 'rail-slide'
 
-export const RAIL_MOTION_KEYFRAMES = new Set([
-  RAIL_SLIDE_KEYFRAMES,
-  'rail-content-fade',
-  'rail-follow',
-])
+const RAIL_MOTION_KEYFRAMES = new Set([RAIL_SLIDE_KEYFRAMES, 'rail-content-fade', 'rail-follow'])
 
 const RESIZING_ATTRIBUTE = 'data-rail-resizing'
 
@@ -29,11 +25,7 @@ function settled(s: RailMotionState): RailMotionState {
   return { shownCollapsed: s.phase === 'closing' ? true : s.shownCollapsed, phase: null }
 }
 
-export function nextRailMotion(
-  s: RailMotionState,
-  collapsed: boolean,
-  instant: boolean,
-): RailMotionState {
+function nextRailMotion(s: RailMotionState, collapsed: boolean, instant: boolean): RailMotionState {
   if (instant) {
     if (s.shownCollapsed === collapsed && s.phase === null) return s
     return { shownCollapsed: collapsed, phase: null }

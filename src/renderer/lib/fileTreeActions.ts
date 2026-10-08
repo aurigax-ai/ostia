@@ -16,7 +16,7 @@ function nameOf(path: string): string {
   return path.slice(path.lastIndexOf('/') + 1)
 }
 
-export function unsavedUnder(paths: string[]): string | null {
+function unsavedUnder(paths: string[]): string | null {
   const { dirty } = useEditorStatus.getState()
   for (const file of Object.keys(dirty)) {
     if (!dirty[file]) continue

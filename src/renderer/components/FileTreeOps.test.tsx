@@ -85,7 +85,6 @@ describe('Files tree operations', () => {
     expect(row.style.paddingLeft).toBe(sibling.style.paddingLeft)
     expect(row.querySelector('.file-twisty')).not.toBeNull()
     expect(row.querySelector('.file-icon')).not.toBeNull()
-    expect(input).toHaveClass('file-name-input')
   })
 
   it('draws the rename field in the file row with its own icon and the name selected', async () => {

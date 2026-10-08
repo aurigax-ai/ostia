@@ -1,6 +1,6 @@
 import { type ChordSpec, overlaps, parseChord } from './chordSpec'
 
-export interface DesktopKeys {
+interface DesktopKeys {
   name: string
   chords: readonly string[]
 }

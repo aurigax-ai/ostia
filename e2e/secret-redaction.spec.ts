@@ -2,7 +2,7 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { type FakeProvider, fakeAssistantSettings, startFakeProvider } from './fakeProvider'
-import { openWorkspace } from './helpers'
+import { openWorkspace, quitApp } from './helpers'
 import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
 
 const TOKEN = ['ghp_', 'wWPw5k4aXcaT4fNP0UcnZwJUVFk6LO0pINUx'].join('')
@@ -20,15 +20,6 @@ async function launch(dataHome: string): Promise<{ app: ElectronApplication; win
   }
 }
 
-async function quit(app: ElectronApplication): Promise<void> {
-  await app
-    .evaluate(({ app: electronApp }) => {
-      setTimeout(() => electronApp.quit(), 0)
-    })
-    .catch(() => {})
-  await app.close().catch(() => {})
-}
-
 async function typeInTerminal(win: Page, line: string): Promise<void> {
   await win.locator('.xterm').first().click()
   await expect
@@ -44,7 +35,6 @@ async function typeInTerminal(win: Page, line: string): Promise<void> {
 
 test('the live terminal keeps a secret, the saved scrollback and the restored history do not', async () => {
   const dataHome = freshDataHome()
-  seedSettings(dataHome, { ...DOM_RENDERER_SETTINGS })
   const scrollbackFile = join(dataHome, 'ostia', 'scrollback.json')
 
   const first = await launch(dataHome)
@@ -67,7 +57,7 @@ test('the live terminal keeps a secret, the saved scrollback and the restored hi
       timeout: 15_000,
     })
   } finally {
-    await quit(first.app)
+    await quitApp(first.app)
   }
 
   const saved = readFileSync(scrollbackFile, 'utf8')
@@ -82,7 +72,7 @@ test('the live terminal keeps a secret, the saved scrollback and the restored hi
     })
     await expect(second.win.locator('.workzone')).not.toContainText(TOKEN)
   } finally {
-    await quit(second.app)
+    await quitApp(second.app)
   }
 })
 

@@ -1,9 +1,9 @@
-import { APP_KEYMAPS, TERMINAL_KEYMAPS, isTerminalKeymap } from '@shared/keyboardPresets'
+import { OSTIA_KEYMAP, TERMINAL_KEYMAPS, isTerminalKeymap } from '@shared/keyboardPresets'
 
 export const KEYMAP_REF_PATTERN = /^[a-z][a-z0-9-]{1,39}\/[a-z][a-z0-9-]{0,39}$/
 
 export const KEYMAP_SETTING_PATTERN = new RegExp(
-  `^(?:${APP_KEYMAPS.map((k) => k.id).join('|')}|${KEYMAP_REF_PATTERN.source.slice(1, -1)})$`,
+  `^(?:${OSTIA_KEYMAP}|${KEYMAP_REF_PATTERN.source.slice(1, -1)})$`,
 )
 
 export function parseKeymapSetting(raw: unknown): string | null {

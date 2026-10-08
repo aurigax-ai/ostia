@@ -196,22 +196,18 @@ export function FileMenu({
   dir,
   trigger,
   visibility,
-  editable = false,
 }: {
   workspaceId: string
   path: string
-  dir?: boolean
+  dir: boolean
   trigger: ReactElement
   visibility?: TreeVisibility
-  editable?: boolean
 }): JSX.Element {
   return (
     <ContextMenu>
       <ContextMenuTrigger render={trigger} />
       <MenuContent>
-        {editable ? (
-          <FileOpsMenuItems workspaceId={workspaceId} path={path} dir={dir ?? false} />
-        ) : null}
+        <FileOpsMenuItems workspaceId={workspaceId} path={path} dir={dir} />
         <FileMenuItems workspaceId={workspaceId} path={path} dir={dir} visibility={visibility} />
       </MenuContent>
     </ContextMenu>

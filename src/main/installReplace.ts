@@ -1,10 +1,7 @@
 import { execFile } from 'node:child_process'
-import { createHash } from 'node:crypto'
-import { constants, createWriteStream } from 'node:fs'
+import { constants } from 'node:fs'
 import { access, lstat, mkdir, readFile, rename, rm, stat } from 'node:fs/promises'
 import { dirname, resolve, sep } from 'node:path'
-import { Readable, Transform } from 'node:stream'
-import { pipeline } from 'node:stream/promises'
 import { type ReadEntry, list as listTar } from 'tar'
 import { type EnvSource, readEnv } from '../shared/appEnv'
 import { parseBuildInfo, releaseVersion } from '../shared/buildInfo'
@@ -18,17 +15,25 @@ import {
 } from '../shared/installMethod'
 import { PRODUCT_NAME } from '../shared/product'
 import { RELEASE_REPOSITORY, parseVersion } from '../shared/releases'
+import {
+  DownloadError,
+  type DownloadRequest,
+  type Fetch,
+  bodyOf,
+  downloadChecked,
+  followAllowed,
+  isAllowedHop,
+} from './checkedDownload'
 
-export const UPDATE_ARCHIVE_MAX_BYTES = 1024 * 1024 * 1024
-export const CHECKSUMS_MAX_BYTES = 64 * 1024
-export const DOWNLOAD_MAX_REDIRECTS = 5
-export const UPDATE_DOWNLOAD_TIMEOUT_MS = 30 * 60_000
-export const EXTRACT_TIMEOUT_MS = 10 * 60_000
-export const RELEASE_DOWNLOAD_BASE_URL = 'https://github.com'
-export const RELEASE_DOWNLOAD_BASE_URL_ENV = 'RELEASE_DOWNLOAD_BASE_URL'
-export const CHECKSUMS_FILE = 'SHA256SUMS'
-export const PROGRESS_STEP_BYTES = 1024 * 1024
-export const SYSTEM_PARENTS = ['/opt', '/usr'] as const
+const UPDATE_ARCHIVE_MAX_BYTES = 1024 * 1024 * 1024
+const CHECKSUMS_MAX_BYTES = 64 * 1024
+const UPDATE_DOWNLOAD_TIMEOUT_MS = 30 * 60_000
+const EXTRACT_TIMEOUT_MS = 10 * 60_000
+const RELEASE_DOWNLOAD_BASE_URL = 'https://github.com'
+const RELEASE_DOWNLOAD_BASE_URL_ENV = 'RELEASE_DOWNLOAD_BASE_URL'
+const CHECKSUMS_FILE = 'SHA256SUMS'
+const PROGRESS_STEP_BYTES = 1024 * 1024
+const SYSTEM_PARENTS = ['/opt', '/usr'] as const
 
 const SAFE_TAR_TYPES: ReadonlySet<string> = new Set([
   'File',
@@ -45,9 +50,9 @@ export class ReplaceError extends Error {
   }
 }
 
-export const downloadPath = (appDir: string): string => `${appDir}.download`
-export const newPath = (appDir: string): string => `${appDir}.new`
-export const oldPath = (appDir: string): string => `${appDir}.old`
+const downloadPath = (appDir: string): string => `${appDir}.download`
+const newPath = (appDir: string): string => `${appDir}.new`
+const oldPath = (appDir: string): string => `${appDir}.old`
 
 export function archiveName(version: string): string {
   return `${PRODUCT_NAME}-${version}-linux-x64.tar.gz`
@@ -71,14 +76,7 @@ export function releaseAssetUrl(base: string, version: string, asset: string): U
 }
 
 export function allowedHop(url: URL, base: string): boolean {
-  if (base !== RELEASE_DOWNLOAD_BASE_URL) return url.origin === new URL(base).origin
-  return (
-    url.protocol === 'https:' &&
-    !url.username &&
-    !url.password &&
-    !url.port &&
-    UPDATE_DOWNLOAD_HOSTS.includes(url.hostname)
-  )
+  return isAllowedHop(url, UPDATE_DOWNLOAD_HOSTS, base === RELEASE_DOWNLOAD_BASE_URL ? null : base)
 }
 
 export function checksumFor(sums: string, asset: string): string | null {
@@ -128,7 +126,7 @@ export async function canReplaceInstall(appDir: string): Promise<ReplaceAvailabi
   return { ok: true }
 }
 
-export function strippedEntry(path: string): string | null {
+function strippedEntry(path: string): string | null {
   const parts = path.split('/').filter((part) => part !== '' && part !== '.')
   return parts.length > 1 ? parts.slice(1).join('/') : null
 }
@@ -178,7 +176,7 @@ export async function checkArchive(file: string): Promise<void> {
   if (bad) throw new ReplaceError('bad-archive')
 }
 
-export async function checkExtracted(dir: string, version: string): Promise<void> {
+async function checkExtracted(dir: string, version: string): Promise<void> {
   try {
     const binary = await stat(resolve(dir, PRODUCT_NAME))
     if (!binary.isFile() || (binary.mode & 0o111) === 0) throw new ReplaceError('not-executable')
@@ -194,64 +192,50 @@ export async function checkExtracted(dir: string, version: string): Promise<void
   if (!info || releaseVersion(info.version) !== version) throw new ReplaceError('wrong-version')
 }
 
-export type Fetch = typeof fetch
+function replaceFailure(err: unknown): ReplaceError {
+  if (err instanceof ReplaceError) return err
+  if (!(err instanceof DownloadError)) return new ReplaceError('offline')
+  return new ReplaceError(err.reason === 'host-not-allowed' ? 'redirect-refused' : err.reason)
+}
 
-async function follow(
+function releaseRequest(
   fetchImpl: Fetch,
-  start: URL,
+  url: URL,
   base: string,
   signal: AbortSignal,
-): Promise<Response> {
-  let url = start
-  for (let hop = 0; ; hop++) {
-    if (!allowedHop(url, base)) throw new ReplaceError('redirect-refused')
-    let response: Response
-    try {
-      response = await fetchImpl(url, {
-        headers: { 'User-Agent': PRODUCT_NAME },
-        redirect: 'manual',
-        signal,
-      })
-    } catch {
-      throw new ReplaceError('offline')
-    }
-    if (response.status < 300 || response.status > 399) {
-      if (response.status === 200 && response.body) return response
-      await response.body?.cancel()
-      throw new ReplaceError('http-error')
-    }
-    const location = response.headers.get('location')
-    await response.body?.cancel()
-    if (!location || hop >= DOWNLOAD_MAX_REDIRECTS) throw new ReplaceError('redirect-refused')
-    url = new URL(location, url)
+): DownloadRequest {
+  return {
+    fetch: fetchImpl,
+    url,
+    allowed: (hop) => allowedHop(hop, base),
+    userAgent: PRODUCT_NAME,
+    signal,
   }
 }
 
-export async function fetchText(
+async function fetchText(
   fetchImpl: Fetch,
   url: URL,
   base: string,
   maxBytes: number,
   signal: AbortSignal,
 ): Promise<string> {
-  const response = await follow(fetchImpl, url, base, signal)
   const chunks: Buffer[] = []
   let size = 0
   try {
-    for await (const chunk of Readable.fromWeb(
-      response.body as Parameters<typeof Readable.fromWeb>[0],
-    )) {
+    const response = await followAllowed(releaseRequest(fetchImpl, url, base, signal))
+    for await (const chunk of bodyOf(response)) {
       size += (chunk as Buffer).byteLength
       if (size > maxBytes) throw new ReplaceError('too-large')
       chunks.push(chunk as Buffer)
     }
   } catch (err) {
-    throw err instanceof ReplaceError ? err : new ReplaceError('offline')
+    throw replaceFailure(err)
   }
   return Buffer.concat(chunks).toString('utf8')
 }
 
-export async function downloadTo(opts: {
+async function downloadTo(opts: {
   fetch: Fetch
   url: URL
   base: string
@@ -260,40 +244,22 @@ export async function downloadTo(opts: {
   signal: AbortSignal
   onProgress: (progress: ReplaceProgress) => void
 }): Promise<string> {
-  const response = await follow(opts.fetch, opts.url, opts.base, opts.signal)
-  const total = Number(response.headers.get('content-length') ?? 0)
-  if (total > opts.maxBytes) {
-    await response.body?.cancel()
-    throw new ReplaceError('too-large')
-  }
-  const hash = createHash('sha256')
-  let received = 0
   let reported = 0
-  const meter = new Transform({
-    transform(chunk: Buffer, _encoding, done) {
-      received += chunk.byteLength
-      if (received > opts.maxBytes) {
-        done(new ReplaceError('too-large'))
-        return
-      }
-      hash.update(chunk)
-      if (received - reported >= PROGRESS_STEP_BYTES || received === total) {
+  try {
+    return await downloadChecked({
+      ...releaseRequest(opts.fetch, opts.url, opts.base, opts.signal),
+      file: opts.file,
+      exclusive: true,
+      maxBytes: opts.maxBytes,
+      onProgress: (received, total) => {
+        if (received - reported < PROGRESS_STEP_BYTES && received !== total) return
         reported = received
         opts.onProgress({ received, total })
-      }
-      done(null, chunk)
-    },
-  })
-  try {
-    await pipeline(
-      Readable.fromWeb(response.body as Parameters<typeof Readable.fromWeb>[0]),
-      meter,
-      createWriteStream(opts.file, { mode: 0o600, flags: 'wx' }),
-    )
+      },
+    })
   } catch (err) {
-    throw err instanceof ReplaceError ? err : new ReplaceError('offline')
+    throw replaceFailure(err)
   }
-  return hash.digest('hex')
 }
 
 export type RunTar = (args: string[]) => Promise<void>

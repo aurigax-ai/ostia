@@ -1,5 +1,5 @@
 import type { ExtensionInfo } from '@shared/extensions'
-import { appKeymapIn } from '@shared/keyboardPresets'
+import { OSTIA_KEYMAP } from '@shared/keyboardPresets'
 import { type KeymapInfo, keymapOffered, keymapRef } from '@shared/keymap'
 import type { LoadedKeymap } from '@shared/keymapFile'
 import { create } from 'zustand'
@@ -72,7 +72,7 @@ export function keymapProvider(
 }
 
 export function appKeymap(): string {
-  return appKeymapIn(useSettingsStore.getState().keymap, { platform })
+  return useSettingsStore.getState().keymap ?? OSTIA_KEYMAP
 }
 
 function syncKeymap(): void {

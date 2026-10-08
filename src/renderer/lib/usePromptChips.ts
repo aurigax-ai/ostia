@@ -39,7 +39,7 @@ export function usePromptChips(
   const locale = useSettingsStore((s) => s.locale)
   const promptLine = useBlocksStore((s) => (paneId ? s.drafts[paneId]?.promptLine : undefined))
   const blocks = useBlocksStore((s) => (paneId ? s.byPane[paneId] : undefined))
-  const contributed = usePromptExtensionChips(paneId)
+  const contributed = usePromptExtensionChips(paneId, order, active)
   const [context, setContext] = useState<PromptContext | null>(null)
   const want = contextRequest(order)
   const now = useClock(active && needsClock(order))

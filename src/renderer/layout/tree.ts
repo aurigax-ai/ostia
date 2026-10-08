@@ -43,6 +43,7 @@ const SURFACE_TITLE: Record<SurfaceKind, string> = {
   extension: 'Extension',
   diff: 'Diff',
   chat: 'Chat',
+  git: 'Git',
   view: 'View',
   manager: 'Manager',
 }
@@ -330,6 +331,10 @@ export function setPaneChat(
     title,
     ...(sessionId ? { chatSessionId: sessionId } : {}),
   }))
+}
+
+export function setPaneGit(root: LayoutNode, paneId: string, title: string): LayoutNode {
+  return mapPane(root, paneId, (p) => ({ type: 'pane', id: p.id, kind: 'git', title }))
 }
 
 export function setPaneView(

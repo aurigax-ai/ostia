@@ -1,9 +1,9 @@
 import { cn } from '@/lib/utils'
 import { MagnifyingGlassIcon } from '@phosphor-icons/react'
 import type { Capability } from '@shared/capabilities'
+import type { Dict } from '@shared/dict'
 import type { ExtensionInfo } from '@shared/extensions'
 import { useEffect, useState } from 'react'
-import type { Dict } from '../i18n/dict'
 import { fmt, useDict, withProductName } from '../i18n/useDict'
 import { entryTitle } from '../lib/extensionSettingText'
 import { useReducedMotion } from '../lib/motion'
@@ -32,7 +32,7 @@ const ANCHOR_HIGHLIGHT_MS = 2000
 
 type InstalledChip = 'enabled' | 'disabled' | 'needs-approval' | 'problem'
 
-export function installedChip(ext: ExtensionInfo): InstalledChip {
+function installedChip(ext: ExtensionInfo): InstalledChip {
   if (ext.status === 'pending-approval') return 'needs-approval'
   if (ext.status === 'crashed' || ext.unapproved.length > 0) return 'problem'
   return ext.enabled ? 'enabled' : 'disabled'

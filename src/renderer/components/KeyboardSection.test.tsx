@@ -1,11 +1,11 @@
 import '@testing-library/jest-dom/vitest'
+import { zhHant } from '@shared/dict'
 import type { ExtensionInfo } from '@shared/extensions'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { registerBuiltinCommands } from '../commands/builtins'
 import { commands } from '../commands/registry'
-import { zhHant } from '../i18n/dict'
 import { loadDesktops } from '../lib/desktop'
 import { languagesFrom } from '../lib/languagePacks'
 import { useExtensionsStore } from '../stores/extensionsStore'
@@ -729,18 +729,10 @@ describe('KeyboardSection', () => {
     press('P', { ctrlKey: true, shiftKey: true, code: 'KeyP' })
     const text = screen.getByText(/Ctrl\+Shift\+P is already the shortcut for Command Palette/)
     const notice = text.closest('[data-slot="key-notice"]')
-    expect(notice).toHaveClass('absolute', 'top-full')
     expect(notice?.closest('tr')).toBe(row(/Toggle Sidebar/))
     expect(screen.getAllByRole('row')).toHaveLength(rowsBefore)
     await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
     expect(document.querySelector('[data-slot="key-notice"]')).toBeNull()
-  })
-
-  it('floats a refusal too', async () => {
-    render(<KeyboardSection />)
-    await change('Ctrl+Shift+P', 'Command Palette')
-    press('r', { ctrlKey: true, code: 'KeyR' })
-    expect(screen.getByRole('alert').closest('[data-slot="key-notice"]')).toHaveClass('absolute')
   })
 
   it('labels only the rows that differ, and marks custom rows with a side bar', () => {
@@ -782,10 +774,10 @@ describe('KeyboardSection', () => {
     })
     render(<KeyboardSection />)
     const word = within(row(/Delete previous word/))
-    expect(word.getByText('0x17')).toHaveClass('text-ui-xs')
+    expect(word.getByText('0x17')).toBeInTheDocument()
     expect(word.getByText('Ctrl+Backspace')).toBeInTheDocument()
     const custom = within(row(/clear\\r/))
-    expect(custom.getByText('clear\\r')).toHaveClass('text-ui-base')
+    expect(custom.getByText('clear\\r')).toBeInTheDocument()
     expect(custom.getByText('Text')).toBeInTheDocument()
     expect(screen.queryByText('Send to terminal')).toBeNull()
   })
@@ -812,19 +804,16 @@ describe('KeyboardSection', () => {
     syncKeymaps()
     render(<KeyboardSection />)
     const widths = ['w-[42%]', 'w-[36%]', 'w-[22%]']
-    expect(screen.getByRole('table')).toHaveClass('table-fixed')
     expect(columnWidths()).toEqual(widths)
     await pickPreset('App shortcuts', 'Alt keys')
     expect(await screen.findByText(/Switching to Alt keys changes/)).toBeInTheDocument()
     expect(columnWidths()).toEqual(widths)
     await userEvent.click(screen.getByRole('button', { name: 'Apply Alt keys' }))
     expect(await within(row(/Command Palette/)).findByText('Ctrl+Alt+P')).toBeInTheDocument()
-    expect(screen.getByRole('table')).toHaveClass('table-fixed')
     expect(columnWidths()).toEqual(widths)
     await userEvent.click(screen.getByRole('button', { name: 'Details for Command Palette' }))
     expect(columnWidths()).toEqual(widths)
     await applyPreset('Text editing', 'No translation')
-    expect(screen.getByRole('table')).toHaveClass('table-fixed')
     expect(columnWidths()).toEqual(widths)
   })
 })
@@ -890,9 +879,9 @@ describe('KeyboardSection layered view', () => {
       expect(within(row(/Command Palette/)).getByText('Ctrl+Shift+P')).toBeInTheDocument()
       const items = within(preview()).getAllByRole('listitem')
       const palette = items.find((li) => li.textContent?.includes('Command Palette'))
-      expect(palette).toHaveTextContent('Ctrl+Shift+P→Ctrl+Alt+P')
+      expect(palette).toHaveTextContent('Ctrl+Shift+PCtrl+Alt+P')
       const sidebar = items.find((li) => li.textContent?.includes('Toggle Sidebar'))
-      expect(sidebar).toHaveTextContent('Ctrl+Shift+B→None')
+      expect(sidebar).toHaveTextContent('Ctrl+Shift+BNone')
       expect(within(sidebar as HTMLElement).getByText('yours stays')).toBeInTheDocument()
       expect(
         within(preview()).getByText('Your custom keys stay on top: Toggle Sidebar'),

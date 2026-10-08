@@ -5,8 +5,8 @@ import {
   type AppMenuSpec,
   electronAccelerator,
 } from '@shared/appMenu'
+import type { Dict } from '@shared/dict'
 import { type CommandDef, commandWording, commands } from '../commands/registry'
-import type { Dict } from '../i18n/dict'
 import { currentDict } from '../i18n/useDict'
 import { usePluginsStore } from '../stores/pluginsStore'
 import { useSettingsStore } from '../stores/settingsStore'

@@ -43,7 +43,7 @@ describe('test/e2eAreas.json', () => {
       'src/renderer/App.tsx',
       'src/renderer/main.tsx',
       'src/renderer/index.css',
-      'src/renderer/i18n/dict.ts',
+      'src/shared/dict.ts',
       'src/renderer/stores/layoutStore.ts',
       'src/renderer/stores/settingsStore.ts',
       'src/renderer/stores/workspacesStore.ts',

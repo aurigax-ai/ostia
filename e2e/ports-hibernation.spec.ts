@@ -1,25 +1,16 @@
 import { chmodSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { createServer } from 'node:net'
 import { join } from 'node:path'
-import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
+import {
+  DOM_RENDERER_SETTINGS,
+  HIBERNATE_FAST,
+  freshDataHome,
+  isolatedLaunch,
+  seedSettings,
+} from './dataHome'
 import { extensionHosts } from './extensionHosts'
-import { PROMPT, openWorkspace } from './helpers'
-import { type Page, _electron as electron, expect, test } from './test'
-
-async function freePort(): Promise<number> {
-  const server = createServer()
-  await new Promise<void>((r) => server.listen(0, '127.0.0.1', r))
-  const address = server.address()
-  const port = typeof address === 'object' && address ? address.port : 0
-  await new Promise<void>((r) => server.close(() => r()))
-  return port
-}
-
-async function typeLine(win: Page, line: string): Promise<void> {
-  await win.locator('.pane-slot:not([data-hidden]) .xterm').click()
-  await win.keyboard.type(line)
-  await win.keyboard.press('Enter')
-}
+import { PROMPT, openWorkspace, runInTerminal, shownTerminal } from './helpers'
+import { freePort } from './sandboxShell'
+import { _electron as electron, expect, test } from './test'
 
 function launchIn(dataHome: string, bin?: string) {
   const home = join(dataHome, 'home')
@@ -37,13 +28,13 @@ test('a port a terminal listens on shows in the top bar and opens in the browser
     const win = await app.firstWindow()
     await win.waitForLoadState('domcontentloaded')
     await openWorkspace(win)
-    await typeLine(win, `python3 -m http.server ${port} --bind 127.0.0.1`)
+    await runInTerminal(win, `python3 -m http.server ${port} --bind 127.0.0.1`, shownTerminal(win))
 
     const chip = win
       .locator('.topbar-right .workspace-chips')
       .getByRole('button', { name: 'Listening ports: 1. Click to list them.' })
     await expect(chip).toBeVisible({ timeout: 20_000 })
-    expect(extensionHosts(app)).not.toContain('ports')
+    expect(extensionHosts(app)).toEqual([])
     await chip.click()
     await win
       .getByRole('button', { name: `Open http://localhost:${port}/ in the browser pane` })
@@ -64,7 +55,7 @@ test('a port a terminal listens on shows in the top bar and opens in the browser
         { timeout: 15_000 },
       )
       .toContain(`http://localhost:${port}/`)
-    expect(extensionHosts(app)).not.toContain('ports')
+    expect(extensionHosts(app)).toEqual([])
 
     await win.getByRole('tablist').getByRole('tab').first().click()
     await win.locator('.xterm').first().click()
@@ -87,7 +78,7 @@ test('an idle hidden agent hibernates and resumes when the human opens its tab',
   chmodSync(join(bin, 'claude'), 0o755)
   seedSettings(dataHome, {
     ...DOM_RENDERER_SETTINGS,
-    agents: { hibernation: { enabled: true, idleSeconds: 5, maxLiveTerminals: 0 } },
+    agents: { hibernation: HIBERNATE_FAST },
   })
   const app = await launchIn(dataHome, bin)
   try {
@@ -95,11 +86,15 @@ test('an idle hidden agent hibernates and resumes when the human opens its tab',
     await win.waitForLoadState('domcontentloaded')
     await openWorkspace(win)
 
-    await typeLine(win, 'ostia resume-token claude e2e-tok-1 && echo token-$((6*7))')
+    await runInTerminal(
+      win,
+      'ostia resume-token claude e2e-tok-1 && echo token-$((6*7))',
+      shownTerminal(win),
+    )
     await expect(win.locator('.xterm-rows').first()).toContainText('token-42', {
       timeout: 15_000,
     })
-    await typeLine(win, 'claude')
+    await runInTerminal(win, 'claude', shownTerminal(win))
     await expect(win.locator('.xterm-rows').first()).toContainText('fake agent up:', {
       timeout: 15_000,
     })
@@ -137,7 +132,7 @@ test('a hibernated agent is still hibernated after a restart and wakes when the 
     ...DOM_RENDERER_SETTINGS,
     agents: {
       autoResume: true,
-      hibernation: { enabled: true, idleSeconds: 5, maxLiveTerminals: 0 },
+      hibernation: HIBERNATE_FAST,
     },
   })
   const first = await launchIn(dataHome, bin)
@@ -145,11 +140,15 @@ test('a hibernated agent is still hibernated after a restart and wakes when the 
     const win = await first.firstWindow()
     await win.waitForLoadState('domcontentloaded')
     await openWorkspace(win)
-    await typeLine(win, 'ostia resume-token claude e2e-tok-2 && echo token-$((6*7))')
+    await runInTerminal(
+      win,
+      'ostia resume-token claude e2e-tok-2 && echo token-$((6*7))',
+      shownTerminal(win),
+    )
     await expect(win.locator('.xterm-rows').first()).toContainText('token-42', {
       timeout: 15_000,
     })
-    await typeLine(win, 'claude')
+    await runInTerminal(win, 'claude', shownTerminal(win))
     await expect(win.locator('.xterm-rows').first()).toContainText('fake agent up:', {
       timeout: 15_000,
     })

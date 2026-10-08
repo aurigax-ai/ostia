@@ -1,6 +1,6 @@
 import { freshDataHome, isolatedLaunch } from './dataHome'
 import { fakeAgentBin } from './fakeAgent'
-import { PROMPT, openWorkspace } from './helpers'
+import { PROMPT, openWorkspace, runInTerminal } from './helpers'
 import {
   type ElectronApplication,
   type Locator,
@@ -24,12 +24,6 @@ async function launch(agentScript?: string): Promise<{ app: ElectronApplication;
   await win.waitForLoadState('domcontentloaded')
   await openWorkspace(win)
   return { app, win }
-}
-
-async function run(win: Page, command: string): Promise<void> {
-  await win.locator('.xterm').first().click()
-  await win.keyboard.type(command)
-  await win.keyboard.press('Enter')
 }
 
 function dashboard(win: Page): Locator {
@@ -56,7 +50,7 @@ test('ostia ask with choices waits, shows on the dashboard and prints the choice
     const workspaceName = (await win.locator('.rail-row .tab-title').first().textContent()) ?? ''
     expect(workspaceName).not.toBe('')
 
-    await run(
+    await runInTerminal(
       win,
       'ostia ask "Which database should the migration target?" --context "Adding the refunds table. Staging has last week\'s data." --choice staging --choice production; echo "ASK-EXIT:$?"',
     )
@@ -98,7 +92,7 @@ test('ostia ask with choices waits, shows on the dashboard and prints the choice
       win.locator('.rail-row').getByRole('img', { name: 'Waiting for input' }),
     ).toHaveCount(0)
 
-    await run(win, 'ostia ask "Continue with the deploy?"; echo "ASK-EXIT:$?"')
+    await runInTerminal(win, 'ostia ask "Continue with the deploy?"; echo "ASK-EXIT:$?"')
     await expect(notice).toBeVisible({ timeout: 20_000 })
     await notice.getByRole('button', { name: 'Answer' }).click()
     await expect(questionCard(win)).toContainText('Continue with the deploy?')
@@ -119,7 +113,7 @@ test('ostia ask takes a free-text reply and several choices with a comment', asy
   try {
     const rows = win.locator('.xterm-rows').first()
 
-    await run(win, 'ostia ask "What should the release note say?"; echo "ASK-EXIT:$?"')
+    await runInTerminal(win, 'ostia ask "What should the release note say?"; echo "ASK-EXIT:$?"')
     await openDashboard(win, 1)
     const card = questionCard(win)
     await expect(card.getByRole('radio')).toHaveCount(0)
@@ -131,7 +125,7 @@ test('ostia ask takes a free-text reply and several choices with a comment', asy
     await expect(rows).toContainText('Refunds now settle in one step', { timeout: 15_000 })
     await expect(rows).toContainText('ASK-EXIT:0')
 
-    await run(
+    await runInTerminal(
       win,
       'clear; ostia ask "Which checks?" --choice lint --choice unit --choice e2e --multi --json; echo "ASK-EXIT:$?"',
     )
@@ -164,7 +158,7 @@ test('a message sent from the dashboard reaches the agent pane and is submitted'
   try {
     const rows = win.locator('.xterm-rows').first()
     await expect(rows).toContainText(PROMPT, { timeout: 15_000 })
-    await run(win, 'claude')
+    await runInTerminal(win, 'claude')
     await expect(rows).toContainText('fake-agent-ready', { timeout: 15_000 })
 
     await win.locator('.topbar').getByRole('button', { name: 'Dashboard', exact: true }).click()

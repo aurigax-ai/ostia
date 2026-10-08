@@ -5,7 +5,8 @@ import {
   isolatedLaunch,
   seedSettings,
 } from './dataHome'
-import { emptyState, emptyWorkspace } from './helpers'
+import { openWorkspace } from './helpers'
+import { textPainted } from './pixels'
 import { type Page, _electron as electron, expect, test } from './test'
 
 interface Placement {
@@ -46,14 +47,8 @@ for (const renderer of ['WebGL', 'DOM'] as const) {
     )
     try {
       const win = await app.firstWindow()
-      await emptyState(win)
-        .getByRole('button', { name: /New workspace/ })
-        .click()
-      await emptyWorkspace(win).getByRole('button', { name: 'New terminal' }).click()
+      await openWorkspace(win)
       const screen = win.locator('.xterm-screen').first()
-      if (gpu) await expect(screen.locator('canvas').first()).toBeVisible({ timeout: 15_000 })
-      else await expect(win.locator('.xterm-rows').first()).toBeVisible({ timeout: 15_000 })
-      await win.waitForTimeout(1_500)
       await win.locator('.xterm').first().click()
 
       const cdp = await win.context().newCDPSession(win)
@@ -65,16 +60,14 @@ for (const renderer of ['WebGL', 'DOM'] as const) {
           mobile: false,
         })
         await expect.poll(() => win.evaluate(() => window.devicePixelRatio)).toBe(scale)
-        await win.waitForTimeout(800)
         await win.keyboard.type("printf '\\033[?1049h\\033[999C'; read -s")
         await win.keyboard.press('Enter')
-        await win.waitForTimeout(500)
+        await expect.poll(async () => textPainted(await screen.screenshot(), win)).toBe(false)
         await cdp.send('Input.imeSetComposition', {
           text: '中文',
           selectionStart: 2,
           selectionEnd: 2,
         })
-        await win.waitForTimeout(300)
         await expect.poll(() => placement(win)).toEqual({ pastRight: 0, pastLeft: 0, scrolled: 0 })
         await cdp.send('Input.insertText', { text: '中文' })
         await win.keyboard.press('Enter')

@@ -5,7 +5,6 @@ import {
   mkdirSync,
   readFileSync,
   readdirSync,
-  renameSync,
   rmSync,
   statSync,
   writeFileSync,
@@ -36,12 +35,20 @@ import { desktopsOf } from '../shared/desktopChords'
 import type { DiscreteGpuInfo } from '../shared/discreteGpu'
 import { languageForPath } from '../shared/editorLanguages'
 import { EXTENSION_SUGGESTIONS } from '../shared/extensionSuggestions'
-import type { ExtensionPanelContext, ExtensionResult, WorkspaceChip } from '../shared/extensions'
+import type {
+  ExtensionEventPayloads,
+  ExtensionEventType,
+  ExtensionPanelContext,
+  ExtensionResult,
+  WorkspaceChip,
+} from '../shared/extensions'
+import { parseGitSettings } from '../shared/git'
 import { KEEP_SHELLS_FEATURE, KEPT_SHELLS_DIR, parseKeepShells } from '../shared/keepShells'
 import { languageServerKey } from '../shared/languageServers'
 import { MANAGER_FEATURE, managerAgents, parseManagerSettings } from '../shared/managerSettings'
 import { OPEN_FILES_MAX } from '../shared/openFiles'
 import { isHostNamed } from '../shared/osc7'
+import { parsePortsSettings } from '../shared/ports'
 import { OFFICIAL_MARKETPLACE, PRODUCT_NAME } from '../shared/product'
 import { PRODUCT_DISPLAY_NAME } from '../shared/productDisplay'
 import { parsePrivacySettings } from '../shared/redaction'
@@ -150,7 +157,11 @@ import { listPairRequests, onPairRequestsChanged } from './gateway/pairRequests'
 import { configureGatewayControl, phoneCanRespond, stopGateway } from './gateway/server'
 import { createTailnet, tailnetNodeName, tsnetHelperPath } from './gateway/tailnet'
 import type { PhoneFileScope } from './gateway/workspaceFiles'
-import { GIT_EXTENSION, GitBoard } from './gitBoard'
+import { GitCommands } from './git/commands'
+import { confirmDiscard } from './git/confirmDiscard'
+import { registerGitIpc, registerGitMethods } from './git/register'
+import { GitService } from './git/service'
+import { ViewStateStore } from './git/viewState'
 import { GlobalHotkey, toggleWindows } from './globalHotkey'
 import { type GuestChords, registerGuestChords } from './guestChords'
 import { clearGuestNetwork, forgetGuestNetwork, watchGuestNetwork } from './guestNetwork'
@@ -214,7 +225,7 @@ import {
   pastedText,
   registerPaneIoMethods,
 } from './paneIo'
-import { writeOstiaLauncher } from './paneLauncher'
+import { replaceFile, writeOstiaLauncher } from './paneLauncher'
 import { listPanes, listWorkspaceGroups, listWorkspaces, registerPaneListMethods } from './paneList'
 import { registerPaneMoveIpc } from './paneMove'
 import { registerPaneMoveToMethods } from './paneMoveTo'
@@ -233,7 +244,8 @@ import {
   portalSupported,
 } from './portal'
 import { callerVerdict, procFs, ttysOf } from './portalCaller'
-import { PORTS_EXTENSION, PortsBoard } from './portsBoard'
+import { registerPortsIpc, registerPortsMethods } from './ports/register'
+import { PortsService } from './ports/service'
 import { acceptsPrimarySelection } from './primarySelection'
 import { registerPrivacyIpc } from './privacyIpc'
 import { privateTmpDir } from './privateTmp'
@@ -317,6 +329,7 @@ import { ExecutableIndex, commandNames, readShellState } from './shellCommands'
 import { closesPaneOnExit } from './shellExit'
 import { INTEGRATION_DIR, setAgentPlugins, shellIntegrationSpawnOptions } from './shellIntegration'
 import { sandboxCwd, spawnFolder } from './spawnCwd'
+import { createMainStrings } from './strings'
 import {
   SANDBOX_FEATURE,
   installHint,
@@ -714,12 +727,6 @@ function paneLauncherDir(): string {
   return join(app.getPath('userData'), 'bin')
 }
 
-function replaceFile(path: string, content: string, mode: number): void {
-  const next = `${path}.${process.pid}.new`
-  writeFileSync(next, content, { mode })
-  renameSync(next, path)
-}
-
 function writeKeptLaunchers(): void {
   const dir = paneLauncherDir()
   mkdirSync(dir, { recursive: true, mode: 0o700 })
@@ -742,7 +749,12 @@ function ensureKeptPlumbing(): void {
   keptPlumbingReady = true
   try {
     writeKeptLaunchers()
-  } catch {}
+  } catch (err) {
+    appLog?.warn('launcher-write-failed', {
+      launcher: 'kept',
+      code: (err as NodeJS.ErrnoException).code ?? null,
+    })
+  }
   listenKeptControlSocket(keptControlSocketPath(app.getPath('userData')))
 }
 
@@ -803,8 +815,8 @@ async function paneOutput(paneId: string): Promise<PaneOutput | null> {
   if (!entry) return null
   const text = await entry.mirror.screenText(HISTORY_LINES)
   const report = entry.mirror.cwdReport
-  if (report && !isHostNamed(report.host, hostname())) return null
-  return { text, cwd: report?.path ?? null }
+  const remote = report !== null && !isHostNamed(report.host, hostname())
+  return { text, cwd: report?.path ?? null, remote }
 }
 
 function feedPty(entry: PtyEntry, data: string): void {
@@ -1356,9 +1368,17 @@ const errorBuffers = new Map<number, ConsoleEntry[]>()
 const terminalState = new Map<string, TerminalStateSnapshot>()
 
 let extensionHost: ExtensionHost | null = null
-let gitBoard: GitBoard | null = null
-let portsBoard: PortsBoard | null = null
-const ON_DEMAND_EXTENSIONS = [GIT_EXTENSION, PORTS_EXTENSION, 'assistant']
+let gitService: GitService | null = null
+let portsService: PortsService | null = null
+
+function emitPaneEvent<T extends ExtensionEventType>(
+  type: T,
+  payload: ExtensionEventPayloads[T],
+): void {
+  extensionHost?.emitEvent(type, payload)
+  gitService?.activity(type)
+  portsService?.activity(type)
+}
 
 function refreshAgentPlugins(): void {
   try {
@@ -1606,6 +1626,8 @@ function wireWindow(win: BrowserWindow): void {
   win.on('minimize', () => hidePtyFlow(wid))
   win.on('closed', () => {
     windows.delete(wid)
+    gitService?.windowGone(wid)
+    portsService?.windowGone(wid)
     releaseWindowPtys(wid)
     fileWatches?.unwatchOwner(wid)
     commandsByWindow.delete(wid)
@@ -1717,7 +1739,7 @@ function registerIpc(): void {
         workspaceId: event.workspaceId,
         paneId: event.paneId,
       })
-      extensionHost?.emitEvent('pane.created', {
+      emitPaneEvent('pane.created', {
         paneId: identity.externalId,
         workspaceId: event.workspaceId,
       })
@@ -1728,7 +1750,7 @@ function registerIpc(): void {
         approvals()?.forget(identity.externalId)
         questions()?.forget(identity.externalId)
         updateRunner?.paneClosed(identity.externalId)
-        extensionHost?.emitEvent('pane.closed', {
+        emitPaneEvent('pane.closed', {
           paneId: identity.externalId,
           workspaceId: event.workspaceId,
         })
@@ -1843,15 +1865,13 @@ function emitTerminalExtensionEvents(
   prev: TerminalStateSnapshot | undefined,
   next: TerminalStateSnapshot,
 ): void {
-  const host = extensionHost
-  if (!host) return
   if (next.cwd && prev?.cwd !== next.cwd) {
-    host.emitEvent('cwd.changed', { paneId, workspaceId, cwd: next.cwd })
+    emitPaneEvent('cwd.changed', { paneId, workspaceId, cwd: next.cwd })
   }
   if (next.running && !prev?.running) {
-    host.emitEvent('command.started', { paneId, workspaceId, cwd: next.cwd })
+    emitPaneEvent('command.started', { paneId, workspaceId, cwd: next.cwd })
   } else if (!next.running && prev?.running) {
-    host.emitEvent('command.finished', {
+    emitPaneEvent('command.finished', {
       paneId,
       workspaceId,
       cwd: next.cwd,
@@ -2007,7 +2027,7 @@ function releaseMergedSandbox(workspaceId: string, exiting?: PtyEntry): void {
 
 function movePanesToWorkspace(paneIds: string[], sourceId: string, targetId: string): void {
   for (const identity of moveToWorkspace(paneIds, targetId)) {
-    extensionHost?.emitEvent('pane.created', {
+    emitPaneEvent('pane.created', {
       paneId: identity.externalId,
       workspaceId: targetId,
     })
@@ -2020,7 +2040,7 @@ function movePanesToWorkspace(paneIds: string[], sourceId: string, targetId: str
 
 function mergeWorkspace(sourceId: string, targetId: string): void {
   for (const identity of rehomeWorkspace(sourceId, targetId)) {
-    extensionHost?.emitEvent('pane.created', {
+    emitPaneEvent('pane.created', {
       paneId: identity.externalId,
       workspaceId: targetId,
     })
@@ -2866,14 +2886,16 @@ function registerFsIpc(): void {
     const safe = openFileGrants.confine(path)
     if (safe === null) return false
     try {
-      const stamp = await writeText(safe, content)
-      void fileWatches?.wrote(String(e.sender.id), safe, stamp, content)
+      const save = () => writeText(safe, content)
+      await (fileWatches?.write(String(e.sender.id), safe, content, save) ?? save())
       if (safe === settingsFile) {
         settingsChanged()
         telemetry?.settingsChanged()
         refreshCapabilitySettings()
         extensionHost?.refreshLocale()
         extensionHost?.reloadAssistSettings()
+        gitService?.settingsChanged()
+        portsService?.settingsChanged()
         applyGlobalHotkey()
         releaseChecks?.settingsChanged()
       }
@@ -3004,6 +3026,57 @@ function publishWorkspaceChips(chips: WorkspaceChip[]): void {
   }
 }
 
+function sendToWindow(windowId: string, channel: string, payload: unknown): void {
+  const win = windows.get(windowId)
+  if (win && !win.isDestroyed()) win.webContents.send(channel, payload)
+}
+
+function startCoreBoards(): void {
+  const panes = () =>
+    listPanes({ execCommand, getTerminalState, ptyPid, windowIds, waking: isWaking })
+  const service = new GitService({
+    settings: () => parseGitSettings(readSettingsFile().git),
+    listWorkspaces: () => listWorkspaces({ execCommand, windowIds }),
+    listPanes: panes,
+    send: sendToWindow,
+    log: (line) => console.error(`[git] ${line}`),
+  })
+  gitService = service
+  const commands = new GitCommands({
+    settings: () => parseGitSettings(readSettingsFile().git),
+    text: () => mainStrings().git,
+    cwdOf: (workspaceId) => service.cwdOf(workspaceId),
+    views: new ViewStateStore(join(app.getPath('userData'), 'git-view.json')),
+    openDiff: (req) => sendToWorkspaceWindow(req.workspaceId, 'extensions:open-diff', req),
+    confirmDiscard: (prompt) => confirmDiscard(prompt, windows.values()),
+    touched: () => service.touched(),
+  })
+  registerGitMethods({
+    commands,
+    callerOf: (identity) => ({
+      workspaceId: identity.workspaceId,
+      workDir: workDirForWorkspace(identity.workspaceId),
+      cwd: terminalState.get(identity.paneId)?.cwd,
+    }),
+  })
+  registerGitIpc({
+    commands,
+    service,
+    ownerWindow: workspaceWindowId,
+    workDirOf: workDirForWorkspace,
+  })
+  const ports = new PortsService({
+    settings: () => parsePortsSettings(readSettingsFile().ports),
+    listPanes: panes,
+    rendererPaneId: (externalId) => resolveExternal(externalId)?.paneId,
+    send: sendToWindow,
+    log: (line) => console.error(`[ports] ${line}`),
+  })
+  portsService = ports
+  registerPortsMethods(ports)
+  registerPortsIpc(ports)
+}
+
 function sendToWorkspaceWindow(
   workspaceId: string | undefined,
   channel: string,
@@ -3050,6 +3123,8 @@ function readSettingsFileOrNull(): { assistant?: unknown } | null {
 function readSettingsFile(): {
   locale?: unknown
   extensionSettings?: unknown
+  git?: unknown
+  ports?: unknown
   workspaces?: { globalHotkey?: unknown }
   manager?: unknown
   assistant?: unknown
@@ -3068,6 +3143,13 @@ function readLocale(): string | undefined {
   const locale = readSettingsFile().locale
   return typeof locale === 'string' ? locale : undefined
 }
+
+const languagePackDeps = {
+  languages: () => extensionHost?.languages() ?? [],
+  onError: (extId: string, error: string) => console.warn(`[language pack ${extId}] ${error}`),
+}
+
+const mainStrings = createMainStrings({ ...languagePackDeps, locale: readLocale })
 
 const agentOffers = createAgentOfferRelay({
   windowOf: (workspaceId) => workspaceWindowId(workspaceId),
@@ -3235,7 +3317,10 @@ function startPortal(): void {
 }
 
 function emitFocusChanged(): void {
-  extensionHost?.emitEvent('focus.changed', { focused: BrowserWindow.getFocusedWindow() !== null })
+  const focused = BrowserWindow.getFocusedWindow() !== null
+  extensionHost?.emitEvent('focus.changed', { focused })
+  gitService?.setFocused(focused)
+  portsService?.setFocused(focused)
 }
 
 function showWindow(win: BrowserWindow): void {
@@ -3310,7 +3395,12 @@ app.whenReady().then(() => {
     })
   try {
     writeOstiaLauncher(paneLauncherDir())
-  } catch {}
+  } catch (err) {
+    appLog?.warn('launcher-write-failed', {
+      launcher: 'pane',
+      code: (err as NodeJS.ErrnoException).code ?? null,
+    })
+  }
   scratchFolders.sweep()
   workspaceSandboxes.sweepTmp()
   registerScratchIpc(scratchFolders)
@@ -3365,6 +3455,7 @@ app.whenReady().then(() => {
   })
   updateRunner = createUpdateRunner({
     method: installMethod,
+    title: () => mainStrings().native.updateTitle,
     openTerminal: (req) => openTerminalInWindow(req),
     hostToken: (command) => {
       hostPaneGrants.offer(UPDATE_HOST_GRANT_ID, command)
@@ -3637,7 +3728,6 @@ app.whenReady().then(() => {
     agentNames: () => Object.keys(managerAgents(managerSettings())),
     offerToAgentIn: (offer) => agentOffers.offer(offer),
     focusPaneIn: focusPaneInWindow,
-    startOnDemand: ON_DEMAND_EXTENSIONS,
   })
   refreshAgentPlugins()
   registerExtensionMethods(() => extensionHost)
@@ -3734,7 +3824,7 @@ app.whenReady().then(() => {
     store: createMcpOAuthStore(encryptedFile(mcpSecretsPath)),
     openExternal: openExternalSafe,
     browser: mcpOAuthBrowser(app.isPackaged, process.env),
-    locale: readLocale,
+    pages: () => mainStrings().native.signIn,
     onChange: () => mcpHost?.notify(),
   })
   mcpHost = new McpHost({
@@ -3783,10 +3873,7 @@ app.whenReady().then(() => {
     onSkipped: (ref, skipped) =>
       console.warn(`[keymap ${ref}] skipped entries: ${describeSkipped(skipped)}`),
   })
-  registerLanguagePackIpc({
-    languages: () => extensionHost?.languages() ?? [],
-    onError: (extId, error) => console.warn(`[language pack ${extId}] ${error}`),
-  })
+  registerLanguagePackIpc(languagePackDeps)
   registerEditorLanguageIpc({
     languages: () => extensionHost?.editorLanguages() ?? [],
     onError: (extId, error) => console.warn(`[editor language ${extId}] ${error}`),
@@ -3907,11 +3994,12 @@ app.whenReady().then(() => {
   appTray = new AppTray({
     iconPath: appIcon,
     tooltip: PRODUCT_DISPLAY_NAME,
-    locale: readLocale,
+    text: () => mainStrings().native.tray,
     windows: () => BrowserWindow.getAllWindows(),
     quit: requestQuit,
     setBadgeCount: (count) => app.setBadgeCount(count),
   })
+  startCoreBoards()
   globalHotkey = new GlobalHotkey(globalShortcut, toggleAllWindows)
   applyGlobalHotkey()
   broker = new WindowBroker({
@@ -3927,33 +4015,6 @@ app.whenReady().then(() => {
   broker.register()
   broker.openAll()
   extensionHost.startEager()
-  gitBoard = new GitBoard({
-    host: extensionHost,
-    listWorkspaces: () => listWorkspaces({ execCommand, windowIds }),
-    listPanes: () =>
-      listPanes({
-        execCommand,
-        getTerminalState,
-        ptyPid,
-        windowIds,
-        waking: isWaking,
-      }),
-    log: (line) => console.error(`[git] ${line}`),
-  })
-  gitBoard.start()
-  portsBoard = new PortsBoard({
-    host: extensionHost,
-    listPanes: () =>
-      listPanes({
-        execCommand,
-        getTerminalState,
-        ptyPid,
-        windowIds,
-        waking: isWaking,
-      }),
-    log: (line) => console.error(`[ports] ${line}`),
-  })
-  portsBoard.start()
   extensionHost.watchUserExtensions()
   viewHost.watch()
   app.on('browser-window-focus', emitFocusChanged)
@@ -4051,7 +4112,7 @@ app.on('before-quit', (event) => {
           workspaceId: entry.workspaceId,
           ...paneActivity(entry),
         })),
-      confirmNative: (groups) => confirmQuitNatively(groups, readLocale() ?? 'en'),
+      confirmNative: (groups) => confirmQuitNatively(groups, mainStrings().native.quit),
     }).then((approved) => {
       quitAsking = false
       if (!approved) {
@@ -4125,8 +4186,8 @@ app.on('before-quit', (event) => {
   scratchFolders.removeAll()
   quitTrace.stage('teardown-hosts')
   portForwarder.stopAll()
-  gitBoard?.stop()
-  portsBoard?.stop()
+  gitService?.stop()
+  portsService?.stop()
   extensionHost?.stopAll()
   mcpOAuth?.closeAll()
   mcpHost?.closeAll()

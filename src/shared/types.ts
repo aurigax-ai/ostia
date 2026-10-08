@@ -30,6 +30,7 @@ import type { EditorLanguagesApi } from './editorLanguages'
 import type { SuggestionsApi } from './extensionSuggestions'
 import type { ExtensionOpenTerminalRequest, ExtensionResult, ExtensionsApi } from './extensions'
 import type { FileOpsApi } from './fileOps'
+import type { GitBridge } from './git'
 import type { GuestChordFire } from './guestChords'
 import type { IconThemesApi } from './iconTheme'
 import type {
@@ -47,6 +48,7 @@ import type { MarketplaceApi } from './marketplace'
 import type { OpenFileVerdict } from './openFiles'
 import type { PhoneGrantableCap } from './phoneCapabilities'
 import type { PickOutcome, PickSendRequest, PickSendResult, PickState, PickTheme } from './pick'
+import type { PortsBridge } from './ports'
 import type { PromptSeparator } from './promptSettings'
 import type { QuestionReply, QuestionState } from './questions'
 import type { AgentGroupPlacement, ReachMode } from './reach'
@@ -453,6 +455,7 @@ export type SnapshotSurfaceKind =
   | 'browser'
   | 'extension'
   | 'chat'
+  | 'git'
   | 'view'
 
 export interface SnapshotPaneNode {
@@ -1056,6 +1059,8 @@ export interface OstiaBridge {
   gateway: GatewayApi
   notifications: NotificationsApi
   workflows: WorkflowsApi
+  git: GitBridge
+  ports: PortsBridge
   completions: CompletionsApi
   assist: AssistApi & { wake: () => void }
   chatSessions: ChatSessionsApi

@@ -1,7 +1,7 @@
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
-import { PROMPT, emptyWorkspace, openWorkspace } from './helpers'
+import { askToQuit, newTerminalWorkspace, openWorkspace, runInTerminal } from './helpers'
 import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
 
 const WORKSPACES = 5
@@ -84,11 +84,7 @@ async function confirmQuitIfAsked(win: Page, done: Promise<boolean>): Promise<vo
 async function stopApp({ app, win }: Launched, how: 'quit' | NodeJS.Signals): Promise<void> {
   const done = exited(app)
   if (how === 'quit') {
-    await app
-      .evaluate(({ app: electronApp }) => {
-        setTimeout(() => electronApp.quit(), 0)
-      })
-      .catch(() => {})
+    await askToQuit(app)
     await confirmQuitIfAsked(win, done)
   } else {
     app.process().kill(how)
@@ -126,18 +122,8 @@ function saved(dataHome: string): Saved | null {
 
 const shownRows = (win: Page) => win.locator('.pane-slot:not([data-hidden]) .xterm-rows')
 
-async function newTerminalWorkspace(win: Page): Promise<void> {
-  const before = await win.locator('.xterm').count()
-  await win.locator('.topbar').getByRole('button', { name: 'New workspace' }).click()
-  await emptyWorkspace(win).getByRole('button', { name: 'New terminal' }).click()
-  await expect(win.locator('.xterm')).toHaveCount(before + 1, { timeout: 15_000 })
-  await expect(shownRows(win).last()).toContainText(PROMPT, { timeout: 15_000 })
-}
-
 async function runInShownTerminal(win: Page, command: string): Promise<void> {
-  await win.locator('.pane-slot:not([data-hidden]) .xterm').last().click()
-  await win.keyboard.type(command)
-  await win.keyboard.press('Enter')
+  await runInTerminal(win, command, win.locator('.pane-slot:not([data-hidden]) .xterm').last())
 }
 
 async function openWorkspaces(win: Page, dataHome: string): Promise<Saved> {

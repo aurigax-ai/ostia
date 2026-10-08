@@ -1,6 +1,6 @@
 export const TELEMETRY_URL_ENV = 'TELEMETRY_URL'
 export const TELEMETRY_MESSAGE_MAX = 1000
-export const TELEMETRY_FRAMES_MAX = 50
+const TELEMETRY_FRAMES_MAX = 50
 export const TELEMETRY_QUEUE_MAX = 50
 export const TELEMETRY_SENT_MAX = 20
 export const TELEMETRY_BATCH_MAX = 20
@@ -21,7 +21,7 @@ export type TelemetryCategory = (typeof TELEMETRY_CATEGORIES)[number]
 export const USAGE_CATEGORIES = ['usage', 'features', 'terminal', 'extensions', 'agents'] as const
 export type UsageCategory = (typeof USAGE_CATEGORIES)[number]
 
-export type UsageKeyKind = 'count' | 'ids' | 'value' | 'list'
+type UsageKeyKind = 'count' | 'ids' | 'value' | 'list'
 
 export const USAGE_KEYS: Record<UsageCategory, Record<string, UsageKeyKind>> = {
   usage: {
@@ -64,7 +64,7 @@ export const USAGE_KEYS: Record<UsageCategory, Record<string, UsageKeyKind>> = {
   },
 }
 
-export const ERROR_SOURCES = [
+const ERROR_SOURCES = [
   'main-exception',
   'main-rejection',
   'renderer-gone',
@@ -143,7 +143,7 @@ export interface InstallContext {
   channel: 'packaged' | 'source'
 }
 
-export interface ExceptionEntry {
+interface ExceptionEntry {
   type: string
   value: string
   mechanism: { handled: boolean }
@@ -201,7 +201,7 @@ export function stripPaths(text: string): string {
     .replace(PATH_PATTERN, '<path>')
 }
 
-export function clipMessage(text: string, max: number = TELEMETRY_MESSAGE_MAX): string {
+function clipMessage(text: string, max: number = TELEMETRY_MESSAGE_MAX): string {
   const clean = Array.from(text).filter(isKeptChar).join('')
   return clean.length > max ? clean.slice(0, max) : clean
 }
@@ -236,7 +236,7 @@ export function reduceStack(
   return frames.slice(0, max).reverse()
 }
 
-export function sanitizeText(text: string, redact: (text: string) => string): string {
+function sanitizeText(text: string, redact: (text: string) => string): string {
   return clipMessage(redact(stripPaths(text)))
 }
 
@@ -282,7 +282,7 @@ export function buildErrorReport(input: ErrorInput, ctx: ReportContext): ErrorRe
   }
 }
 
-export type CategoryCounts = Record<string, number | string | string[] | Record<string, number>>
+type CategoryCounts = Record<string, number | string | string[] | Record<string, number>>
 export type UsageCounts = Record<UsageCategory, CategoryCounts>
 
 export const emptyUsageCounts = (): UsageCounts => ({
@@ -293,7 +293,7 @@ export const emptyUsageCounts = (): UsageCounts => ({
   agents: {},
 })
 
-export function usageProperties(
+function usageProperties(
   counts: UsageCounts,
   enabled: TelemetrySettings,
 ): Record<string, UsageValue> {

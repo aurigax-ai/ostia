@@ -4,7 +4,6 @@ import {
   type UpdateRunState,
   updateCommandLine,
 } from '../shared/installMethod'
-import { PRODUCT_NAME } from '../shared/product'
 
 export interface UpdateTerminalRequest {
   command: string
@@ -19,12 +18,9 @@ export interface UpdateRunner {
   paneClosed: (paneId: string) => void
 }
 
-export function updateTerminalTitle(): string {
-  return `Update ${PRODUCT_NAME}`
-}
-
 export function createUpdateRunner(deps: {
   method: () => InstallMethod
+  title: () => string
   openTerminal: (req: UpdateTerminalRequest) => Promise<string | null>
   hostToken: (command: string) => string
   onChange: (state: UpdateRunState) => void
@@ -48,7 +44,7 @@ export function createUpdateRunner(deps: {
         const opened = await deps.openTerminal({
           command,
           hostToken: deps.hostToken(command),
-          title: updateTerminalTitle(),
+          title: deps.title(),
         })
         if (!opened) return 'not-opened'
         paneId = opened

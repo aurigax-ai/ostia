@@ -845,7 +845,7 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
       base = realpathSync(mkdtempSync(join(tmpdir(), 'ostia-cli-open-')))
       home = join(base, 'home')
       outside = join(base, 'outside')
-      mkdirSync(join(home, 'git'), { recursive: true })
+      mkdirSync(join(home, 'tools'), { recursive: true })
       mkdirSync(outside)
       writeFileSync(join(home, 'README'), 'readme')
       writeFileSync(join(home, 'echo'), 'a file named like an extension')
@@ -912,8 +912,8 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
       const command = await runOstia(['pane.splitRight'], env(), home)
       expect(command.stdout).toContain('{"ran":"pane.splitRight"}')
 
-      const folder = await runOstia(['git', 'status'], env(), home)
-      expect(folder.stderr).toContain("unknown command or extension 'git'")
+      const folder = await runOstia(['tools', 'status'], env(), home)
+      expect(folder.stderr).toContain("unknown command or extension 'tools'")
       expect(opened()).toEqual([])
     })
 

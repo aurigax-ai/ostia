@@ -2,7 +2,7 @@ import { PRODUCT_NAME } from './product'
 import { DEFAULT_UPDATE_CHANNEL, type ReleaseInfo, type UpdateChannel } from './releases'
 import { quoteArgv } from './shellQuote'
 
-export const INSTALL_METHODS = ['apt', 'brew', 'local', 'tarball', 'dmg', 'dev'] as const
+const INSTALL_METHODS = ['apt', 'brew', 'local', 'tarball', 'dmg', 'dev'] as const
 
 export type InstallMethod = (typeof INSTALL_METHODS)[number]
 
@@ -14,16 +14,16 @@ export const UPDATE_COMMANDS: Readonly<Record<'apt' | 'brew', readonly (readonly
   brew: [['brew', 'upgrade', '--cask', PRODUCT_NAME]],
 }
 
-export type ManagedInstallMethod = keyof typeof UPDATE_COMMANDS
+type ManagedInstallMethod = keyof typeof UPDATE_COMMANDS
 
-export const CHANNEL_INSTALL_METHODS: readonly InstallMethod[] = ['tarball', 'local']
+const REPLACEABLE_METHODS: readonly InstallMethod[] = ['local', 'tarball']
 
-export function offersUpdateChannels(method: InstallMethod): boolean {
-  return CHANNEL_INSTALL_METHODS.includes(method)
+export function isReplaceable(method: InstallMethod): boolean {
+  return REPLACEABLE_METHODS.includes(method)
 }
 
 export function updateChannelFor(method: InstallMethod, picked: UpdateChannel): UpdateChannel {
-  return offersUpdateChannels(method) ? picked : DEFAULT_UPDATE_CHANNEL
+  return isReplaceable(method) ? picked : DEFAULT_UPDATE_CHANNEL
 }
 
 export function isInstallMethod(value: unknown): value is InstallMethod {
@@ -54,9 +54,7 @@ export const UPDATE_DOWNLOAD_HOSTS: readonly string[] = [
   'release-assets.githubusercontent.com',
 ]
 
-export const REPLACEABLE_METHODS: readonly InstallMethod[] = ['local', 'tarball']
-
-export type ReplaceBlock = 'not-writable' | 'system-path' | 'symlink' | 'leftover'
+type ReplaceBlock = 'not-writable' | 'system-path' | 'symlink' | 'leftover'
 
 export type ReplaceAvailability = { ok: true } | { ok: false; reason: ReplaceBlock; path?: string }
 
@@ -87,10 +85,6 @@ export interface ReplaceProgress {
 }
 
 export type ReplaceStart = 'started' | 'busy' | 'no-action'
-
-export function isReplaceable(method: InstallMethod): boolean {
-  return REPLACEABLE_METHODS.includes(method)
-}
 
 export interface ReleaseState {
   release: ReleaseInfo | null

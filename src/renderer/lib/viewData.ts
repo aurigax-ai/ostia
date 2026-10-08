@@ -1,4 +1,5 @@
 import type { ExtensionSidebarItem, WorkspaceChip } from '@shared/extensions'
+import { GIT_SOURCE, PORTS_CHIP, PORTS_SOURCE } from '@shared/git'
 import type { NotificationEntry } from '@shared/types'
 import type { ViewSource } from '@shared/views'
 import { allPanes } from '../layout/tree'
@@ -7,10 +8,6 @@ import type { Workspace } from '../stores/workspacesStore'
 import { EMPTY_ATTENTION, type PaneAttention, unreadCount } from './attention'
 
 export const VIEW_NOTIFICATIONS_MAX = 50
-
-const PORTS_EXTENSION = 'ports'
-const PORTS_CHIP = 'ports'
-const GIT_EXTENSION = 'git'
 
 export interface ViewDataInputs {
   workspaces: readonly Workspace[]
@@ -46,7 +43,7 @@ function portsOf(inputs: ViewDataInputs): PortData[] {
   const names = new Map(inputs.workspaces.map((w) => [w.id, w.name]))
   const out: PortData[] = []
   for (const chip of inputs.workspaceChips) {
-    if (chip.extId !== PORTS_EXTENSION || chip.id !== PORTS_CHIP) continue
+    if (chip.extId !== PORTS_SOURCE || chip.id !== PORTS_CHIP) continue
     for (const item of chip.items ?? []) {
       const port = portOf(item.url)
       if (port === null) continue
@@ -63,7 +60,7 @@ function portsOf(inputs: ViewDataInputs): PortData[] {
 
 function gitOf(inputs: ViewDataInputs, workspaceId: string): string | null {
   const item = inputs.sidebar.find(
-    (i) => i.extId === GIT_EXTENSION && i.workspaceId === workspaceId && i.text,
+    (i) => i.extId === GIT_SOURCE && i.workspaceId === workspaceId && i.text,
   )
   return item?.text ?? null
 }

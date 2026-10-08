@@ -28,7 +28,7 @@ export function canInsertReference(paneId: string): boolean {
   return state !== undefined && AGENT_AT_PROMPT.has(state)
 }
 
-export function submitsReference(paneId: string): boolean {
+function submitsReference(paneId: string): boolean {
   return (
     useSettingsStore.getState().agents.autoSendReferences &&
     runningAgentOf(paneId) !== null &&

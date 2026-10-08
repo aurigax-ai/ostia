@@ -26,7 +26,6 @@ import {
   useChatToolsStore,
 } from '../stores/chatToolsStore'
 import { useEditorStatus } from '../stores/editorStatusStore'
-import { useExtensionsStore } from '../stores/extensionsStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
 import { workspaceTerminal } from './askContext'
@@ -63,7 +62,6 @@ export interface ChatToolDef {
 }
 
 const RECENT_COMMANDS = 10
-export const GIT_EXTENSION = 'git'
 export const SKILLS_GROUP = 'skills'
 
 export function mcpGroup(server: string): string {
@@ -539,13 +537,10 @@ function builtinRunners(): Record<
       }
     },
     git_status: async (_input, run) => {
-      const pane = workspaceTerminal(run.workspaceId)
-      const res = await window.ostia.extensions.invoke(GIT_EXTENSION, 'changes', {
-        workspaceId: run.workspaceId,
-        paneId: pane?.paneId ?? null,
-      })
+      if (!run.workspaceId) return { state: 'error', error: 'not-a-repo' }
+      const res = await window.ostia.git.changes(run.workspaceId)
       if (!res.ok) return { state: 'error', error: res.message ?? res.error }
-      return { state: 'done', output: res.data ?? res.text ?? null }
+      return { state: 'done', output: res.data }
     },
     load_skill: async (input) => {
       const res = await window.ostia.chatTools.loadSkill(str(input.name))
@@ -582,9 +577,7 @@ function skillsDescription(skills: SkillSummary[]): string {
 }
 
 export function gitAvailable(): boolean {
-  return useExtensionsStore
-    .getState()
-    .list.some((e) => e.id === GIT_EXTENSION && e.enabled && e.status !== 'pending-approval')
+  return useSettingsStore.getState().git.enabled
 }
 
 export function groupOf(name: BuiltinChatTool): string {

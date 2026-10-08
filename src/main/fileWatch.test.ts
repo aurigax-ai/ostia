@@ -153,8 +153,7 @@ describe('FileWatches', () => {
     watches.watch('win-2', file)
     await settle()
     await pause(120)
-    const stamp = await writeText(file, 'two')
-    await watches.wrote('win-1', file, stamp, 'two')
+    await watches.write('win-1', file, 'two', () => writeText(file, 'two'))
     await pause(200)
     expect(changes).toEqual([{ path: file, exists: true, owners: ['win-2'] }])
 
@@ -170,10 +169,40 @@ describe('FileWatches', () => {
     writeFileSync(file, 'one')
     watches.watch('win-1', file)
     await settle()
-    const stamp = await writeText(file, 'two')
-    await watches.wrote('win-1', file, stamp, 'two')
+    await watches.write('win-1', file, 'two', () => writeText(file, 'two'))
     await pause(200)
     expect(changes).toEqual([])
+  })
+
+  it('reports nothing to the writer when its save takes longer than the debounce', async () => {
+    const { root, changes, watches } = setup()
+    const file = join(root, 'a.txt')
+    writeFileSync(file, 'one')
+    watches.watch('win-1', file)
+    await settle()
+    await watches.write('win-1', file, 'two', async () => {
+      writeFileSync(file, '')
+      await pause(120)
+      return writeText(file, 'two')
+    })
+    await pause(200)
+    expect(changes).toEqual([])
+    expect(readFileSync(file, 'utf8')).toBe('two')
+  })
+
+  it('passes a failed save on and still reports what it left on disk', async () => {
+    const { root, changes, watches } = setup()
+    const file = join(root, 'a.txt')
+    writeFileSync(file, 'one')
+    watches.watch('win-1', file)
+    await settle()
+    const failed = watches.write('win-1', file, 'two', async () => {
+      writeFileSync(file, '')
+      throw new Error('disk full')
+    })
+    await expect(failed).rejects.toThrow('disk full')
+    await until(() => changes.find((c) => c.path === file))
+    expect(changes).toEqual([{ path: file, exists: true, owners: ['win-1'] }])
   })
 
   it('reports once for a burst of writes, with the last content on disk', async () => {

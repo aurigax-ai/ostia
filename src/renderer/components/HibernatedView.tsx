@@ -2,19 +2,21 @@ import { MoonIcon, PlayIcon } from '@phosphor-icons/react'
 import type { AgentResume } from '@shared/agentResume'
 import { FitAddon } from '@xterm/addon-fit'
 import { Unicode11Addon } from '@xterm/addon-unicode11'
-import { type FontWeight, Terminal as Xterm } from '@xterm/xterm'
 import { useEffect, useRef } from 'react'
 import { fmt, useDict } from '../i18n/useDict'
 import { matchChordInTerminal } from '../lib/chords'
 import { smartClipboardAction } from '../lib/clipboardKeys'
-import { currentScheme, terminalTheme, useScheme } from '../lib/colorScheme'
 import { wakePane } from '../lib/hibernationScheduler'
-import { terminalFontStack } from '../lib/uiFonts'
+import {
+  type ReadOnlyTerminal,
+  createReadOnlyTerminal,
+  useReadOnlyTerminalBackground,
+  useReadOnlyTerminalFont,
+} from '../lib/readOnlyTerminal'
 import { isMac } from '../platform'
 import { useSettingsStore } from '../stores/settingsStore'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
-import '@xterm/xterm/css/xterm.css'
 
 function wantsCopy(e: KeyboardEvent, hasSelection: boolean): boolean {
   const clipboardKeys = useSettingsStore.getState().terminal.clipboardKeys
@@ -31,27 +33,18 @@ export function HibernatedView({
 }): JSX.Element {
   const d = useDict()
   const hostRef = useRef<HTMLDivElement>(null)
-  const termRef = useRef<Xterm | null>(null)
-  const font = useSettingsStore((s) => s.appearance.terminal)
-  const palette = useScheme('terminal').colors
+  const termRef = useRef<ReadOnlyTerminal | null>(null)
+  const background = useReadOnlyTerminalBackground(termRef)
+  useReadOnlyTerminalFont(termRef)
 
   useEffect(() => {
     const host = hostRef.current
     if (!host) return
-    const initial = useSettingsStore.getState().appearance.terminal
     const terminalSettings = useSettingsStore.getState().terminal
-    const term = new Xterm({
-      theme: terminalTheme(currentScheme('terminal').colors),
-      fontFamily: terminalFontStack(initial.family),
-      fontSize: initial.size,
-      fontWeight: initial.weight as FontWeight,
-      lineHeight: initial.lineHeight,
-      scrollback: terminalSettings.scrollbackLines,
+    const term = createReadOnlyTerminal({
       scrollSensitivity: terminalSettings.scrollSpeed,
       minimumContrastRatio: terminalSettings.minimumContrast,
-      disableStdin: true,
       cursorInactiveStyle: 'none',
-      allowProposedApi: true,
     })
     const fit = new FitAddon()
     term.loadAddon(fit)
@@ -68,9 +61,7 @@ export function HibernatedView({
     termRef.current = term
     const refit = (): void => {
       if (host.offsetWidth === 0 || host.offsetHeight === 0) return
-      try {
-        fit.fit()
-      } catch {}
+      fit.fit()
     }
     refit()
     const observer = new ResizeObserver(refit)
@@ -87,27 +78,9 @@ export function HibernatedView({
     }
   }, [paneId])
 
-  useEffect(() => {
-    const term = termRef.current
-    if (!term) return
-    term.options.fontFamily = terminalFontStack(font.family)
-    term.options.fontSize = font.size
-    term.options.fontWeight = font.weight as FontWeight
-    term.options.lineHeight = font.lineHeight
-  }, [font.family, font.size, font.weight, font.lineHeight])
-
-  useEffect(() => {
-    const term = termRef.current
-    if (term) term.options.theme = terminalTheme(palette)
-  }, [palette])
-
   return (
     <div className="hibernated-view" data-hibernated="">
-      <div
-        ref={hostRef}
-        className="xterm-host hibernated-screen"
-        style={{ background: palette.background }}
-      />
+      <div ref={hostRef} className="xterm-host hibernated-screen" style={{ background }} />
       <div className="hibernated-mark">
         <Badge variant="outline" className="bg-bg text-fg-muted text-ui-xs">
           <MoonIcon aria-hidden />

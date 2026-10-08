@@ -3,8 +3,8 @@ import { type Server, createServer } from 'node:http'
 import { join, resolve } from 'node:path'
 import { PRODUCT_NAME } from '../src/shared/product'
 import { freshDataHome, isolatedLaunch } from './dataHome'
-import { waitForPaletteSelection } from './helpers'
-import { type ElectronApplication, _electron as electron, expect, test } from './test'
+import { guestText, waitForPaletteSelection } from './helpers'
+import { _electron as electron, expect, test } from './test'
 
 const FIXTURES = resolve(__dirname, '../test/fixtures/tools')
 const MARKETPLACE = resolve(__dirname, '../out/marketplace/extensions')
@@ -29,15 +29,6 @@ async function serve(label: string) {
   await new Promise<void>((r) => server.listen(0, '127.0.0.1', r))
   const addr = server.address()
   return { server, origin: `http://127.0.0.1:${typeof addr === 'object' && addr ? addr.port : 0}` }
-}
-
-function guestText(app: ElectronApplication, origin: string): Promise<string> {
-  return app.evaluate(async ({ webContents }, prefix) => {
-    const guest = webContents
-      .getAllWebContents()
-      .find((wc) => wc.getType() === 'webview' && wc.getURL().startsWith(prefix))
-    return guest ? String(await guest.executeJavaScript('document.body.innerText')) : ''
-  }, origin)
 }
 
 test('the keeper extension drives its panel and sidebar from the CLI', async () => {

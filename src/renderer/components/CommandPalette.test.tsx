@@ -1,11 +1,11 @@
 import '@testing-library/jest-dom/vitest'
+import { zhHant } from '@shared/dict'
 import type { SearchOutcome } from '@shared/search'
 import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { registerBuiltinCommands } from '../commands/builtins'
 import { commands } from '../commands/registry'
-import { zhHant } from '../i18n/dict'
 import { languagesFrom } from '../lib/languagePacks'
 import { useEditorRevealStore } from '../stores/editorRevealStore'
 import { useLayoutStore } from '../stores/layoutStore'
@@ -116,11 +116,11 @@ describe('CommandPalette', () => {
 
     const option = await screen.findByRole('option', { name: /Open Settings/ })
 
-    expect(within(option).getByText('app.openSettings')).toHaveAttribute(
-      'data-slot',
-      'palette-meta',
-    )
-    expect(option.querySelector('kbd')?.parentElement).toHaveClass('justify-end')
+    const id = within(option).getByText('app.openSettings')
+    const shortcut = option.querySelector('kbd')
+    expect(id).toHaveAttribute('data-slot', 'palette-meta')
+    expect(shortcut).not.toBeNull()
+    expect(id).not.toContainElement(shortcut as HTMLElement)
   })
 
   describe('prefixes', () => {

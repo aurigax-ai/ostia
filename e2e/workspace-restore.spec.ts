@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { chords } from './chords'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
-import { emptyState, openWorkspace } from './helpers'
+import { PROMPT, emptyState, openWorkspace, quitApp } from './helpers'
 import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
 
 interface Launched {
@@ -24,7 +24,7 @@ async function launchApp(dataHome: string): Promise<Launched> {
 
 async function waitForShellPrompt(win: Page): Promise<void> {
   await expect(win.locator('.xterm').first()).toBeVisible({ timeout: 15_000 })
-  await expect(win.locator('.xterm-rows').first()).toContainText(/[❯$%#]/, { timeout: 15_000 })
+  await expect(win.locator('.xterm-rows').first()).toContainText(PROMPT, { timeout: 15_000 })
 }
 
 async function waitForTerminalFocus(win: Page): Promise<void> {
@@ -35,15 +35,6 @@ async function waitForTerminalFocus(win: Page): Promise<void> {
       ),
     )
     .toBe(true)
-}
-
-async function quitApp(app: ElectronApplication): Promise<void> {
-  await app
-    .evaluate(({ app: electronApp }) => {
-      setTimeout(() => electronApp.quit(), 0)
-    })
-    .catch(() => {})
-  await app.close().catch(() => {})
 }
 
 let dataHome: string
@@ -222,7 +213,6 @@ test('adds no seam to a pane left unused across restarts', async () => {
         timeout: 15_000,
       })
       await waitForShellPrompt(idle.win)
-      await idle.win.waitForTimeout(1_000)
     } finally {
       await quitApp(idle.app)
     }
@@ -326,7 +316,7 @@ test('restores tabs and offers to resume the agent a tab was running', async () 
     await first.win.getByRole('button', { name: 'New terminal tab' }).click()
     await expect(first.win.getByRole('tab')).toHaveCount(2)
     await expect(first.win.locator('.pane-slot:not([data-hidden]) .xterm-rows')).toContainText(
-      /[❯$%#]/,
+      PROMPT,
       { timeout: 15_000 },
     )
 

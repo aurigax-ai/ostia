@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { createVitest } from 'vitest/node'
@@ -7,6 +8,7 @@ import {
   changedQuarantineFiles,
   domFileReaders,
   e2eImports,
+  e2eShards,
   e2eSpecs,
   nodeFolderReaders,
   planAgainst,
@@ -51,7 +53,7 @@ describe('planTests', () => {
       'test/setup.ts',
       'test/mocks/ostia.ts',
       'scripts/build-extensions.mjs',
-      'sdk-package/docs/EXTENSIONS.md',
+      'sdk/docs/EXTENSIONS.md',
     ]) {
       expect(planTests(['src/renderer/lib/keyPresets.ts', file], readers), file).toEqual({
         node: null,
@@ -72,8 +74,8 @@ describe('planTests', () => {
       'src/main/paneIo.ts',
       'src/shared/types.ts',
       'src/cli/index.ts',
-      'src/extensions/git/main.ts',
-      'src/renderer/i18n/dict.ts',
+      'src/extensions/ssh/main.ts',
+      'src/shared/dict.ts',
     ]) {
       expect(planTests([file], readers), file).toEqual({
         node: null,
@@ -134,7 +136,7 @@ describe('planE2e', () => {
   })
 
   it('runs the smoke set for a hub or any other unmapped file', () => {
-    for (const file of ['src/main/app.ts', 'src/renderer/i18n/dict.ts', 'package.json']) {
+    for (const file of ['src/main/app.ts', 'src/shared/dict.ts', 'package.json']) {
       expect(planE2e([file], map, imports), file).toEqual(['e2e/smoke.spec.ts'])
     }
   })
@@ -193,7 +195,7 @@ describe('e2eImports', () => {
 
 describe('planChanges', () => {
   it('plans unit tests and e2e specs together', () => {
-    expect(planChanges(['src/main/sandbox/ptyWrap.ts', 'e2e/smoke.spec.ts'])).toEqual({
+    expect(planChanges(['src/main/sandbox/ptyWrap.ts', 'e2e/smoke.spec.ts'], 'HEAD')).toEqual({
       node: null,
       dom: ['src/main/sandbox/ptyWrap.ts', ...domFileReaders()],
       e2e: ['e2e/keep-shells-sandbox.spec.ts', 'e2e/sandbox.spec.ts', 'e2e/smoke.spec.ts'],
@@ -201,7 +203,28 @@ describe('planChanges', () => {
   })
 
   it('drops a deleted spec from the e2e plan', () => {
-    expect(planChanges(['e2e/no-such.spec.ts']).e2e).toEqual([])
+    expect(planChanges(['e2e/no-such.spec.ts'], 'HEAD').e2e).toEqual([])
+  })
+})
+
+describe('e2eShards', () => {
+  it('runs up to 20 selected specs in one job and adds a shard per 20 more, up to four', () => {
+    expect(e2eShards(0)).toEqual([1])
+    expect(e2eShards(15)).toEqual([1])
+    expect(e2eShards(20)).toEqual([1])
+    expect(e2eShards(21)).toEqual([1, 2])
+    expect(e2eShards(36)).toEqual([1, 2])
+    expect(e2eShards(41)).toEqual([1, 2, 3])
+    expect(e2eShards(61)).toEqual([1, 2, 3, 4])
+    expect(e2eShards(126)).toEqual([1, 2, 3, 4])
+  })
+
+  it('is what the pull request plan step hands to the e2e matrix', () => {
+    const workflow = readFileSync(join(ROOT, '.github/workflows/ci.yml'), 'utf8')
+    expect(workflow).toContain(`echo "e2e_shards=$(jq -c '.e2eShards' <<< "$plan")"`)
+    expect(workflow).toContain(
+      'shards: ${{ steps.tests.outputs.e2e_shards || steps.plan.outputs.shards }}',
+    )
   })
 })
 

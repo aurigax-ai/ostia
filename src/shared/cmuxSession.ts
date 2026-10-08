@@ -2,13 +2,13 @@ import { type AgentResume, parseAgentResume } from './agentResume'
 
 export const CMUX_SESSION_FILE = 'Library/Application Support/cmux/session-com.cmuxterm.app.json'
 
-export const CMUX_SESSION_VERSION = 1
+const CMUX_SESSION_VERSION = 1
 
 const TEXT_MAX = 256
 const PATH_MAX = 4096
 const DEPTH_MAX = 32
 
-export type CmuxSplitDirection = 'horizontal' | 'vertical'
+type CmuxSplitDirection = 'horizontal' | 'vertical'
 
 export interface CmuxSurface {
   type: string
@@ -30,7 +30,7 @@ export interface CmuxPaneLayout {
   selected: number
 }
 
-export interface CmuxSplitLayout {
+interface CmuxSplitLayout {
   type: 'split'
   direction: CmuxSplitDirection
   divider: number
@@ -51,7 +51,7 @@ export interface CmuxWorkspace {
   canvas?: true
 }
 
-export interface CmuxWindow {
+interface CmuxWindow {
   workspaces: CmuxWorkspace[]
 }
 
@@ -91,7 +91,7 @@ export interface CmuxLossEntry {
   detail?: string
 }
 
-export interface CmuxImportedEntry {
+interface CmuxImportedEntry {
   workspaceId: string
   name: string
   panes: number

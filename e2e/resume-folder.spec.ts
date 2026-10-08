@@ -1,32 +1,30 @@
-import { chmodSync, mkdirSync, renameSync, writeFileSync } from 'node:fs'
+import { mkdirSync, renameSync } from 'node:fs'
 import { join } from 'node:path'
-import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
-import { PROMPT, openWorkspace } from './helpers'
-import { type Page, _electron as electron, expect, test } from './test'
+import {
+  DOM_RENDERER_SETTINGS,
+  HIBERNATE_FAST,
+  freshDataHome,
+  isolatedLaunch,
+  seedSettings,
+} from './dataHome'
+import { fakeAgentBin } from './fakeAgent'
+import { PROMPT, openWorkspace, runInTerminal, shownTerminal } from './helpers'
+import { _electron as electron, expect, test } from './test'
 
 test.describe.configure({ timeout: 90_000 })
-
-async function typeLine(win: Page, line: string): Promise<void> {
-  await win.locator('.pane-slot:not([data-hidden]) .xterm').click()
-  await win.keyboard.type(line)
-  await win.keyboard.press('Enter')
-}
 
 async function hibernatedAgentIn(tree: string, token: string) {
   const dataHome = freshDataHome()
   const home = join(dataHome, 'home')
-  const bin = join(dataHome, 'bin')
   mkdirSync(tree, { recursive: true })
   mkdirSync(home, { recursive: true })
-  mkdirSync(bin, { recursive: true })
-  writeFileSync(
-    join(bin, 'claude'),
+  const bin = fakeAgentBin(
+    dataHome,
     '#!/bin/sh\necho "fake agent up: $* in $(pwd)"\nexec sleep 600\n',
   )
-  chmodSync(join(bin, 'claude'), 0o755)
   seedSettings(dataHome, {
     ...DOM_RENDERER_SETTINGS,
-    agents: { hibernation: { enabled: true, idleSeconds: 5, maxLiveTerminals: 0 } },
+    agents: { hibernation: HIBERNATE_FAST },
   })
   const launch = isolatedLaunch(dataHome)
   const app = await electron.launch({
@@ -37,11 +35,15 @@ async function hibernatedAgentIn(tree: string, token: string) {
   await win.waitForLoadState('domcontentloaded')
   await openWorkspace(win)
   const payload = JSON.stringify({ session_id: token, cwd: tree })
-  await typeLine(win, `echo '${payload}' | ostia resume-token claude - && echo token-$((6*7))`)
+  await runInTerminal(
+    win,
+    `echo '${payload}' | ostia resume-token claude - && echo token-$((6*7))`,
+    shownTerminal(win),
+  )
   await expect(win.locator('.xterm-rows').first()).toContainText('token-42', {
     timeout: 15_000,
   })
-  await typeLine(win, 'claude')
+  await runInTerminal(win, 'claude', shownTerminal(win))
   await expect(win.locator('.xterm-rows').first()).toContainText('fake agent up:', {
     timeout: 15_000,
   })

@@ -32,21 +32,22 @@ import {
   XIcon,
   XSquareIcon,
 } from '@phosphor-icons/react'
+import type { Dict } from '@shared/dict'
 import type { ExtensionSidebarItem } from '@shared/extensions'
 import { WORKSPACE_GROUP_COLORS, type WorkspaceGroupColor } from '@shared/workspaceGroups'
 import { createContext, useContext, useEffect, useRef, useState } from 'react'
 import Markdown, { type Components } from 'react-markdown'
-import type { Dict } from '../i18n/dict'
 import { fmt, useDict } from '../i18n/useDict'
 import { allPanes, hasLockedPane, paneIds } from '../layout/tree'
 import type { LayoutNode } from '../layout/types'
 import { aggregateWorkspaceState, latestWaitingAt, unreadCount } from '../lib/attention'
 import { requestCloseOthers, requestCloseWorkspace } from '../lib/closeConfirm'
+import { useCoreWatch } from '../lib/coreWatch'
 import {
   hibernatableAgentPanes,
-  hibernateWorkspace,
-  hibernatedPanes,
-  wakeWorkspace,
+  hibernateWorkspaces,
+  resumableAgentPanes,
+  resumeWorkspaces,
 } from '../lib/hibernationScheduler'
 import { beginDrag, endWorkspaceDrag, isPaneDrag } from '../lib/paneDrag'
 import { RAIL_WIDTH } from '../lib/panelWidth'
@@ -467,6 +468,7 @@ function GroupBlock({
           <MenuItem icon={ChecksIcon} onClick={() => markGroupRead(members)}>
             {d.rail.markRead}
           </MenuItem>
+          <HibernateMenuItems workspaceIds={members.map((w) => w.id)} />
           <ContextMenuSeparator />
           <MenuItem icon={TrashIcon} onClick={() => store().deleteGroup(group.id)}>
             {d.rail.deleteGroup}
@@ -499,6 +501,8 @@ function useSidebarItems(workspaceId: string | undefined): ExtensionSidebarItem[
 function WorkspaceMeta({ workspace: w }: { workspace: Workspace }): JSX.Element {
   const sidebar = useSettingsStore((s) => s.sidebar)
   const items = useSidebarItems(w.id)
+  useCoreWatch('git', w.id, sidebar.showExtensionItems)
+  useCoreWatch('ports', w.id, sidebar.showExtensionItems && sidebar.showSSH)
   const lines = sidebarLines(sidebar.showExtensionItems ? items : [])
   return (
     <>
@@ -841,7 +845,7 @@ function WorkspaceRow({
         <MenuItem icon={ChecksIcon} onClick={() => markWorkspaceRead(w.id)}>
           {d.rail.markRead}
         </MenuItem>
-        <HibernateMenuItems workspaceId={w.id} />
+        <HibernateMenuItems workspaceIds={[w.id]} />
         <ContextMenuSeparator />
         <MenuItem
           icon={FolderSimplePlusIcon}
@@ -894,26 +898,26 @@ function WorkspaceRow({
   )
 }
 
-function HibernateMenuItems({ workspaceId }: { workspaceId: string }): JSX.Element {
+function HibernateMenuItems({ workspaceIds }: { workspaceIds: string[] }): JSX.Element {
   const d = useDict()
-  useLayoutStore((s) => s.byWorkspace[workspaceId])
+  useLayoutStore((s) => s.byWorkspace)
   useBlocksStore((s) => s.running)
-  const sleepable = hibernatableAgentPanes(workspaceId).length > 0
-  const asleep = hibernatedPanes(workspaceId).length > 0
+  const sleepable = workspaceIds.some((id) => hibernatableAgentPanes(id).length > 0)
+  const asleep = workspaceIds.some((id) => resumableAgentPanes(id).length > 0)
   return (
     <>
       <MenuItem
         icon={MoonIcon}
         disabled={!sleepable}
         onClick={() =>
-          void hibernateWorkspace(workspaceId).then(useHibernateSkippedStore.getState().show)
+          void hibernateWorkspaces(workspaceIds).then(useHibernateSkippedStore.getState().show)
         }
       >
         {d.rail.hibernateAgents}
       </MenuItem>
       {asleep ? (
-        <MenuItem icon={SunIcon} onClick={() => wakeWorkspace(workspaceId)}>
-          {d.rail.wakeAgents}
+        <MenuItem icon={SunIcon} onClick={() => resumeWorkspaces(workspaceIds)}>
+          {d.rail.resumeAgents}
         </MenuItem>
       ) : null}
     </>

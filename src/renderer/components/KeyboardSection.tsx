@@ -16,6 +16,7 @@ import {
   usedByMonaco,
 } from '@shared/chordSpec'
 import { desktopTaking } from '@shared/desktopChords'
+import type { Dict } from '@shared/dict'
 import {
   TERMINAL_SEND_TYPES,
   type TerminalSend,
@@ -25,7 +26,6 @@ import {
 } from '@shared/terminalKeys'
 import { Fragment, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { commands } from '../commands/registry'
-import type { Dict } from '../i18n/dict'
 import { fmt, useDict } from '../i18n/useDict'
 import {
   WORKSPACE_GOTO,
@@ -72,6 +72,7 @@ import { appKeymap, keymapChoices, useKeymapStore } from '../stores/keymapStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { BindingDetail, RowToggle, TerminalKeyDetail } from './BindingDetail'
 import { ChangesView, useChangeTotal } from './ChangesView'
+import { IconButton } from './IconButton'
 import { KeymapCombo } from './KeymapCombo'
 import { SectionHead, SelectField, WarningNote } from './SettingsPanel'
 import {
@@ -87,8 +88,6 @@ import { Input } from './ui/input'
 import { InputGroup, InputGroupAddon, InputGroupInput } from './ui/input-group'
 import { Kbd } from './ui/kbd'
 import { TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table'
-
-export { KEY_TABLE_COLUMNS, problemText }
 
 const subscribeCommands = (cb: () => void): (() => void) => commands.subscribe(cb)
 const commandsVersion = (): number => commands.version()
@@ -403,22 +402,19 @@ export function KeybindingRow({
               {spec.terminal ? (
                 <span className="text-fg-muted text-ui-xs">{d.keyboard.inTerminal}</span>
               ) : null}
-              <Button
-                variant="ghost"
-                size="icon-2xs"
+              <IconButton
+                icon={XIcon}
+                label={fmt(d.keyboard.removeChordFor, { keys, command: title })}
                 className={
                   expanded
-                    ? 'text-fg-muted'
+                    ? undefined
                     : 'text-fg-dim opacity-0 group-hover/chip:opacity-100 focus-visible:opacity-100'
                 }
-                aria-label={fmt(d.keyboard.removeChordFor, { keys, command: title })}
                 onClick={() => {
                   cancel()
                   apply(withChordRemoved(current, i, isMac))
                 }}
-              >
-                <XIcon />
-              </Button>
+              />
             </span>
           )
         })}
@@ -427,19 +423,16 @@ export function KeybindingRow({
         ) : null}
         {recordingAt(null) ? recorder : null}
         {canAddChord(current) && !recordingAt(null) ? (
-          <Button
-            variant="ghost"
-            size="icon-2xs"
+          <IconButton
+            icon={PlusIcon}
+            label={fmt(d.keyboard.addFor, { command: title })}
             className={
               current.length === 0 || expanded
-                ? 'text-fg-muted'
+                ? undefined
                 : 'text-fg-dim opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100'
             }
-            aria-label={fmt(d.keyboard.addFor, { command: title })}
             onClick={() => startRecording(null)}
-          >
-            <PlusIcon />
-          </Button>
+          />
         ) : null}
       </span>
       {refusal || mode.kind === 'pending' ? (
@@ -499,7 +492,7 @@ export function KeybindingRow({
             <div className="flex min-w-0 flex-1 flex-col">
               <SourceLabel label={sources.label} presetName={presetName} />
               {sources.label && sources.dropped.length > 0 ? (
-                <span className="text-fg-dim text-ui-xs">
+                <span className="text-fg-muted text-ui-xs">
                   {fmt(d.keyboard.dropped, {
                     keys: sources.dropped.map((spec) => chordText(spec, isMac)).join(' '),
                   })}
@@ -507,18 +500,14 @@ export function KeybindingRow({
               ) : null}
             </div>
             {override !== undefined ? (
-              <Button
-                variant="ghost"
-                size="icon-2xs"
-                className="text-fg-muted"
-                aria-label={fmt(d.keyboard.resetFor, { command: title })}
+              <IconButton
+                icon={ArrowCounterClockwiseIcon}
+                label={fmt(d.keyboard.resetFor, { command: title })}
                 onClick={() => {
                   cancel()
                   resetKeybinding(id)
                 }}
-              >
-                <ArrowCounterClockwiseIcon />
-              </Button>
+              />
             ) : null}
           </div>
         </TableCell>
@@ -791,19 +780,16 @@ function TerminalKeyLine({
         >
           <Kbd className="text-fg">{keys}</Kbd>
         </button>
-        <Button
-          variant="ghost"
-          size="icon-2xs"
+        <IconButton
+          icon={XIcon}
+          label={fmt(d.keyboard.removeFor, { keys })}
           className={
             expanded
-              ? 'text-fg-muted'
+              ? undefined
               : 'text-fg-dim opacity-0 group-hover/chip:opacity-100 focus-visible:opacity-100'
           }
-          aria-label={fmt(d.keyboard.removeFor, { keys })}
           onClick={() => removeTerminalKey(row, isMac)}
-        >
-          <XIcon />
-        </Button>
+        />
       </span>
       {shadowedBy ? (
         <WarningNote>
@@ -856,15 +842,11 @@ function TerminalKeyLine({
               <SourceLabel label={entry.label} presetName={presetName} />
             </div>
             {row.preset && row.userKey ? (
-              <Button
-                variant="ghost"
-                size="icon-2xs"
-                className="text-fg-muted"
-                aria-label={fmt(d.keyboard.resetFor, { command: keys })}
+              <IconButton
+                icon={ArrowCounterClockwiseIcon}
+                label={fmt(d.keyboard.resetFor, { command: keys })}
                 onClick={() => resetTerminalKey(row, isMac)}
-              >
-                <ArrowCounterClockwiseIcon />
-              </Button>
+              />
             ) : null}
           </div>
         </TableCell>

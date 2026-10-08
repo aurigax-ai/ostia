@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { freshDataHome, isolatedLaunch } from './dataHome'
-import { PROMPT, openWorkspace } from './helpers'
+import { PROMPT, openWorkspace, runInTerminal } from './helpers'
 import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
 
 const GRACE_OUTLIVED_MS = 5_000
@@ -38,14 +38,8 @@ function collectPageErrors(win: Page): string[] {
   return errors
 }
 
-async function run(win: Page, index: number, command: string): Promise<void> {
-  await win.locator('.xterm').nth(index).click()
-  await win.keyboard.type(command)
-  await win.keyboard.press('Enter')
-}
-
 async function shellPid(win: Page, index: number, tag: string): Promise<string> {
-  await run(win, index, `echo ${tag}-$$`)
+  await runInTerminal(win, `echo ${tag}-$$`, win.locator('.xterm').nth(index))
   const rows = win.locator('.xterm-rows').nth(index)
   await expect(rows).toContainText(new RegExp(`${tag}-\\d+`), { timeout: 15_000 })
   const match = (await rows.innerText()).match(new RegExp(`${tag}-(\\d+)`))
@@ -90,79 +84,66 @@ test('a renderer error shows the recovery screen, and Reload window brings the s
   }
 })
 
-test.describe('renderer crash', () => {
-  test.describe.configure({
-    retries: process.env.CI && process.platform === 'linux' ? 2 : 0,
-  })
-
-  test('a renderer process crash reloads the window and keeps the shells alive', async () => {
-    test.info().annotations.push({
-      type: 'PINE-63',
-      description:
-        'on the Ubuntu runner Ostia sometimes never sees the killed renderer; retried on Linux CI',
-    })
-    test.setTimeout(120_000)
-    const { app, win, dataHome } = await launch()
-    try {
-      await openWorkspace(win)
-      const before = await shellPid(win, 0, 'crashpid')
-      const snapshotFile = join(dataHome, 'ostia', 'workspaces.json')
-      await expect
-        .poll(() => (existsSync(snapshotFile) ? readFileSync(snapshotFile, 'utf8') : ''), {
-          timeout: 10_000,
-        })
-        .toContain('"kind": "terminal"')
-
-      const processFacts = () =>
-        app.evaluate(({ BrowserWindow, webContents, app: electronApp }) => ({
-          windows: BrowserWindow.getAllWindows().map((w) => ({
-            window: w.id,
-            contents: w.webContents.id,
-            pid: w.webContents.getOSProcessId(),
-            visible: w.isVisible(),
-            crashed: w.webContents.isCrashed(),
-          })),
-          contents: webContents
-            .getAllWebContents()
-            .map((c) => ({ id: c.id, type: c.getType(), pid: c.getOSProcessId() })),
-          metrics: electronApp
-            .getAppMetrics()
-            .map((m) => ({ pid: m.pid, type: m.type, name: m.name })),
-        }))
-      const factsBefore = await processFacts()
-      const killed = await app.evaluate(({ BrowserWindow }) => {
-        const pid = BrowserWindow.getAllWindows()[0]?.webContents.getOSProcessId()
-        if (pid) setImmediate(() => process.kill(pid, 'SIGKILL'))
-        return pid ?? 0
+test('a renderer process crash reloads the window and keeps the shells alive', async () => {
+  test.setTimeout(120_000)
+  const { app, win, dataHome } = await launch()
+  try {
+    await openWorkspace(win)
+    const before = await shellPid(win, 0, 'crashpid')
+    const snapshotFile = join(dataHome, 'ostia', 'workspaces.json')
+    await expect
+      .poll(() => (existsSync(snapshotFile) ? readFileSync(snapshotFile, 'utf8') : ''), {
+        timeout: 10_000,
       })
-      try {
-        await expect
-          .poll(() => mainLog(dataHome), { timeout: 15_000 })
-          .toMatch(/render-process-gone/)
-      } catch (error) {
-        const factsAfter = await processFacts().catch((e) => String(e))
-        throw new Error(
-          `PINE-63 killed pid ${killed}: ${JSON.stringify({ factsBefore, factsAfter })}\n${String(error)}`,
-        )
-      }
-      const terminalText = () =>
-        app
-          .evaluate(({ BrowserWindow }) =>
-            BrowserWindow.getAllWindows()[0]?.webContents.executeJavaScript(
-              "[...document.querySelectorAll('.xterm-rows')].map((r) => r.textContent).join('\\n')",
-            ),
-          )
-          .catch(() => '')
-      await expect
-        .poll(terminalText, { timeout: 30_000, message: 'terminal text after the crash reload' })
-        .toContain(`crashpid-${before}`)
-      await new Promise((resolve) => setTimeout(resolve, GRACE_OUTLIVED_MS))
-      expect(() => process.kill(Number(before), 0)).not.toThrow()
-      expect(mainLog(dataHome)).toMatch(/renderer-reload window=\d+/)
-    } finally {
-      await closeQuietly(app)
+      .toContain('"kind": "terminal"')
+
+    const processFacts = () =>
+      app.evaluate(({ BrowserWindow, webContents, app: electronApp }) => ({
+        windows: BrowserWindow.getAllWindows().map((w) => ({
+          window: w.id,
+          contents: w.webContents.id,
+          pid: w.webContents.getOSProcessId(),
+          visible: w.isVisible(),
+          crashed: w.webContents.isCrashed(),
+        })),
+        contents: webContents
+          .getAllWebContents()
+          .map((c) => ({ id: c.id, type: c.getType(), pid: c.getOSProcessId() })),
+        metrics: electronApp
+          .getAppMetrics()
+          .map((m) => ({ pid: m.pid, type: m.type, name: m.name })),
+      }))
+    const factsBefore = await processFacts()
+    const killed = await app.evaluate(({ BrowserWindow }) => {
+      const pid = BrowserWindow.getAllWindows()[0]?.webContents.getOSProcessId()
+      if (pid) setImmediate(() => process.kill(pid, 'SIGKILL'))
+      return pid ?? 0
+    })
+    try {
+      await expect.poll(() => mainLog(dataHome), { timeout: 15_000 }).toMatch(/render-process-gone/)
+    } catch (error) {
+      const factsAfter = await processFacts().catch((e) => String(e))
+      throw new Error(
+        `killed pid ${killed}: ${JSON.stringify({ factsBefore, factsAfter })}\n${String(error)}`,
+      )
     }
-  })
+    const terminalText = () =>
+      app
+        .evaluate(({ BrowserWindow }) =>
+          BrowserWindow.getAllWindows()[0]?.webContents.executeJavaScript(
+            "[...document.querySelectorAll('.xterm-rows')].map((r) => r.textContent).join('\\n')",
+          ),
+        )
+        .catch(() => '')
+    await expect
+      .poll(terminalText, { timeout: 30_000, message: 'terminal text after the crash reload' })
+      .toContain(`crashpid-${before}`)
+    await new Promise((resolve) => setTimeout(resolve, GRACE_OUTLIVED_MS))
+    expect(() => process.kill(Number(before), 0)).not.toThrow()
+    expect(mainLog(dataHome)).toMatch(/renderer-reload window=\d+/)
+  } finally {
+    await closeQuietly(app)
+  }
 })
 
 test('closing a diff tab keeps the window and the other terminals working', async () => {
@@ -181,7 +162,7 @@ test('closing a diff tab keeps the window and the other terminals working', asyn
     await openWorkspace(win)
     await win.locator('.pane.active').getByRole('button', { name: 'Split right' }).click()
     await expect(win.locator('.xterm')).toHaveCount(2, { timeout: 15_000 })
-    await run(win, 0, 'ostia git open a.txt')
+    await runInTerminal(win, 'ostia git open a.txt', win.locator('.xterm').nth(0))
     const diffTab = win.locator('.pane-tab', { hasText: 'a.txt' })
     await expect(win.locator('.diff-surface')).toBeVisible({ timeout: 15_000 })
 
@@ -192,7 +173,7 @@ test('closing a diff tab keeps the window and the other terminals working', asyn
 
     await expect(win.locator('.xterm')).toHaveCount(2)
     await expect(win.getByRole('heading', { name: 'Something went wrong' })).toHaveCount(0)
-    await run(win, 1, 'echo after_diff_$((6*7))')
+    await runInTerminal(win, 'echo after_diff_$((6*7))', win.locator('.xterm').nth(1))
     await expect(win.locator('.xterm-rows').nth(1)).toContainText('after_diff_42', {
       timeout: 15_000,
     })

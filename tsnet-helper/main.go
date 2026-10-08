@@ -215,7 +215,6 @@ func main() {
 	doLogout := flag.Bool("logout", false, "log the node out and exit")
 	flag.StringVar(&cfg.Dir, "dir", "", "state folder")
 	flag.StringVar(&cfg.Hostname, "hostname", "ostia", "tailnet node name")
-	flag.StringVar(&cfg.ControlURL, "control-url", "", "Tailscale control server URL")
 	flag.IntVar(&cfg.Port, "port", 0, "tailnet port to listen on")
 	flag.StringVar(&cfg.Target, "target", "", "loopback address to forward connections to")
 	flag.StringVar(&cfg.ListenLocal, "listen-local", "", "listen on this local address instead of the tailnet")

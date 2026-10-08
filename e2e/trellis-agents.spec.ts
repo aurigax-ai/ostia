@@ -11,7 +11,7 @@ import {
 import { join, resolve } from 'node:path'
 import { PRODUCT_NAME } from '../src/shared/product'
 import { freshDataHome, isolatedLaunch } from './dataHome'
-import { waitForPaletteSelection } from './helpers'
+import { occurrences, waitForPaletteSelection } from './helpers'
 import { type ElectronApplication, _electron as electron, expect, test } from './test'
 
 const FIXTURES = resolve(__dirname, '../test/fixtures/tools')
@@ -55,10 +55,6 @@ function panelEval(app: ElectronApplication, script: string): Promise<string> {
       .find((wc) => wc.getType() === 'webview' && wc.getURL().startsWith('http://127.0.0.1'))
     return guest ? String(await guest.executeJavaScript(code)) : ''
   }, script)
-}
-
-function occurrences(text: string, needle: string): number {
-  return text.split(needle).length - 1
 }
 
 test('a Trellis card goes to a new agent or to a running one, only on the human’s clicks', async () => {

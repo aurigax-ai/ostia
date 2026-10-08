@@ -11,7 +11,7 @@ import {
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import { createPane, tabsOf } from '../layout/tree'
+import { allPanes, createPane, tabsOf } from '../layout/tree'
 import { useAttentionStore } from '../stores/attentionStore'
 import { useBlocksStore } from '../stores/blocksStore'
 import { useHibernateSkippedStore } from '../stores/hibernateSkippedStore'
@@ -263,7 +263,7 @@ describe('DeckRail', () => {
     expect(within(rowFor(/alpha/)).queryByRole('img', { name: 'Hibernated' })).toBeNull()
   })
 
-  it('hibernates the workspace agents from its menu, and offers to wake them after', async () => {
+  it('hibernates the workspace agents from its menu, and offers to resume them after', async () => {
     seedWorkspaces()
     const agent = {
       ...createPane('terminal'),
@@ -295,7 +295,7 @@ describe('DeckRail', () => {
     expect(within(rowFor(/alpha/)).getByRole('img', { name: 'Hibernated' })).toBeInTheDocument()
 
     fireEvent.contextMenu(screen.getByRole('button', { name: /alpha/ }))
-    await user.click(await screen.findByRole('menuitem', { name: 'Wake agents' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Resume agents' }))
     expect(within(rowFor(/alpha/)).queryByRole('img', { name: 'Hibernated' })).toBeNull()
   })
 
@@ -328,6 +328,66 @@ describe('DeckRail', () => {
     await user.click(within(dialog).getByRole('button', { name: 'OK' }))
     await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
     expect(within(rowFor(/alpha/)).queryByRole('img', { name: 'Hibernated' })).toBeNull()
+  })
+
+  it('hibernates and resumes the agents of every workspace of a group from the group header', async () => {
+    const agentIn = (id: string) => ({
+      ...createPane('terminal'),
+      resume: { agent: 'claude' as const, id },
+    })
+    const api = agentIn('tok-api')
+    const web = agentIn('tok-web')
+    const outside = agentIn('tok-outside')
+    const shell = createPane('terminal')
+    useWorkspacesStore.setState({
+      workspaces: [
+        { id: 's1', name: 'api', kind: 'terminal', workDir: '/api', state: 'idle', groupId: 'g1' },
+        { id: 's2', name: 'web', kind: 'terminal', workDir: '/web', state: 'idle', groupId: 'g1' },
+        { id: 's3', name: 'notes', kind: 'terminal', workDir: '/notes', state: 'idle' },
+      ],
+      groups: [{ id: 'g1', name: 'backend' }],
+      activeWorkspaceId: 's3',
+    })
+    useLayoutStore.setState({
+      byWorkspace: {
+        s1: { root: api, activePaneId: api.id, zoomedPaneId: null },
+        s2: { root: tabsOf(web.id, web, shell), activePaneId: web.id, zoomedPaneId: null },
+        s3: { root: outside, activePaneId: outside.id, zoomedPaneId: null },
+      },
+    })
+    const blocks = useBlocksStore.getState()
+    for (const pane of [api, web, outside]) {
+      blocks.promptStart(pane.id, { line: 0 }, null)
+      blocks.commandStart(pane.id, { line: 1 }, 'claude')
+    }
+    blocks.promptStart(shell.id, { line: 0 }, null)
+    vi.mocked(window.ostia.pty.hibernate).mockClear()
+    render(<DeckRail />)
+    const user = userEvent.setup()
+    const header = screen.getByRole('button', { name: /backend/ })
+    const asleep = (): string[] =>
+      Object.values(useLayoutStore.getState().byWorkspace)
+        .flatMap((layout) => (layout ? allPanes(layout.root) : []))
+        .filter((pane) => pane.hibernated)
+        .map((pane) => pane.id)
+
+    fireEvent.contextMenu(header)
+    expect(await screen.findByRole('menuitem', { name: 'Hibernate agents' })).toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: 'Resume agents' })).toBeNull()
+    await user.click(screen.getByRole('menuitem', { name: 'Hibernate agents' }))
+    await waitFor(() => expect(asleep()).toEqual([api.id, web.id]))
+    expect(vi.mocked(window.ostia.pty.hibernate).mock.calls.map(([id]) => id)).toEqual([
+      api.id,
+      web.id,
+    ])
+
+    fireEvent.contextMenu(header)
+    expect(await screen.findByRole('menuitem', { name: 'Hibernate agents' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    )
+    await user.click(screen.getByRole('menuitem', { name: 'Resume agents' }))
+    expect(asleep()).toEqual([])
   })
 
   it('offers a merge when a workspace is dragged onto the middle of one with the same folder', async () => {

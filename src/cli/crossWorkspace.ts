@@ -1,4 +1,5 @@
 import type { MessageConnection } from 'vscode-jsonrpc/node'
+import { FlagError, parseArgs } from './args'
 
 export interface WorkspaceRow {
   workspaceId: string
@@ -37,35 +38,27 @@ export async function resolveWorkspaceRef(conn: MessageConnection, ref: string):
   return pickWorkspace(rows, ref)
 }
 
-export interface CommandFlags {
+interface CommandFlags {
   workspace?: string
   noFocus: boolean
   rest: string[]
 }
 
 export function parseCommandFlags(argv: readonly string[]): CommandFlags {
-  const rest: string[] = []
-  let workspace: string | undefined
-  let noFocus = false
-  for (let i = 0; i < argv.length; i++) {
-    const word = argv[i]
-    if (word === '--no-focus') {
-      noFocus = true
-    } else if (word === '--workspace') {
-      const value = argv[++i]
-      if (!value) throw new Error('--workspace needs a value')
-      workspace = value
-    } else if (word.startsWith('--workspace=')) {
-      workspace = word.slice('--workspace='.length)
-      if (!workspace) throw new Error('--workspace needs a value')
-    } else {
-      rest.push(word)
-    }
+  const { positional, values, booleans } = parseArgs(argv, {
+    values: { workspace: '--workspace' },
+    booleans: { noFocus: '--no-focus' },
+    unknown: 'keep',
+  })
+  if (values.workspace === '') throw new FlagError('missing-value', '--workspace')
+  return {
+    ...(values.workspace !== undefined ? { workspace: values.workspace } : {}),
+    noFocus: booleans.noFocus,
+    rest: positional,
   }
-  return { ...(workspace !== undefined ? { workspace } : {}), noFocus, rest }
 }
 
-export interface CommandCall {
+interface CommandCall {
   id: string
   args?: unknown
   target?: { workspaceId: string; paneId: null }
