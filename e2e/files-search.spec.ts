@@ -22,8 +22,15 @@ test('the Files panel searches folder names, file names and text with the bundle
       timeout: 15_000,
     })
 
-    await win.locator('#files-panel').getByRole('button', { name: 'Search', exact: true }).click()
+    const show = win.locator('#files-panel').getByRole('button', { name: 'Search', exact: true })
     const box = win.getByRole('textbox', { name: 'Search files' })
+    await expect(box).toHaveCount(0)
+    await show.click()
+    await expect(box).toBeFocused()
+    await win.keyboard.press('Escape')
+    await expect(box).toHaveCount(0)
+    await expect(show).toBeFocused()
+    await show.click()
     await box.fill('needle')
     const text = win.getByRole('region', { name: 'Text' })
     await expect(text).toContainText('find the needle here', { timeout: 15_000 })

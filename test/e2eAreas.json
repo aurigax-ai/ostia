@@ -766,9 +766,11 @@
       "paths": [
         "src/renderer/components/ThemeSettings.tsx",
         "src/renderer/components/FontPicker.tsx",
+        "src/renderer/components/IconButton.tsx",
         "src/renderer/components/ZoomReset.tsx",
         "src/renderer/lib/theme.ts",
         "src/renderer/lib/color",
+        "src/renderer/lib/iconWeight.ts",
         "src/renderer/lib/uiFonts.ts",
         "src/renderer/lib/localFonts.ts",
         "src/renderer/lib/panelFontFaces.ts",
@@ -781,6 +783,7 @@
       "specs": [
         "e2e/appearance.spec.ts",
         "e2e/fonts.spec.ts",
+        "e2e/icon-sharpness.spec.ts",
         "e2e/terminal-settings.spec.ts",
         "e2e/theme-axes.spec.ts"
       ]
