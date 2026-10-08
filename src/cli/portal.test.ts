@@ -3,7 +3,7 @@ import { type Server, createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { PassThrough } from 'node:stream'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   StreamMessageReader,
   StreamMessageWriter,
@@ -117,8 +117,12 @@ function fakeTty() {
 describe('runPortalCommand', () => {
   it('MGR-C22 keeps keys typed before the manager attaches and sends them after', async () => {
     const path = socketPath()
-    const inputs: string[] = []
+    const events: string[] = []
     let answerOpen: () => void = () => {}
+    let openAsked: () => void = () => {}
+    const asked = new Promise<void>((resolve) => {
+      openAsked = resolve
+    })
     server = createServer((socket) => {
       const conn = createMessageConnection(
         new StreamMessageReader(socket),
@@ -128,11 +132,15 @@ describe('runPortalCommand', () => {
         'portal.open',
         () =>
           new Promise((resolve) => {
-            answerOpen = () => resolve({ paneId: 'p', agent: 'claude', created: true })
+            answerOpen = () => {
+              events.push('open answered')
+              resolve({ paneId: 'p', agent: 'claude', created: true })
+            }
+            openAsked()
           }),
       )
       conn.onNotification('mirror.input', (p: { data: string }) => {
-        inputs.push(p.data)
+        events.push(p.data)
       })
       conn.listen()
     })
@@ -146,13 +154,12 @@ describe('runPortalCommand', () => {
       env: { OSTIA_PORTAL_SOCKET: path },
       cwd: '/home/u',
     })
-    await new Promise((r) => setTimeout(r, 50))
+    await asked
     stdin.write('early keys')
-    await new Promise((r) => setTimeout(r, 50))
-    expect(inputs).toEqual([])
+    await vi.waitFor(() => expect(stdin.readableLength).toBe(0))
+    expect(events).toEqual([])
     answerOpen()
-    await new Promise((r) => setTimeout(r, 50))
-    expect(inputs).toEqual(['early keys'])
+    await vi.waitFor(() => expect(events).toEqual(['open answered', 'early keys']))
 
     stdin.write('\x1c')
     await expect(run).resolves.toBe(0)
