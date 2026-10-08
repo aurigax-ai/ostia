@@ -169,7 +169,7 @@ async function sharpness(win: Page, icons: Omit<MountedIcon, 'paths'>[]): Promis
   return values.reduce((sum, value) => sum + value, 0) / values.length
 }
 
-for (const scale of [1, 2]) {
+for (const scale of [1, 1.5, 2]) {
   test(`icons are drawn sharp at display scale ${scale}`, async () => {
     test.setTimeout(120_000)
     const { byName, nameByPaths } = phosphorAssets()
@@ -185,9 +185,13 @@ for (const scale of [1, 2]) {
         const markup = match && byName.get(match.name)
         return match && markup ? [{ icon, weight: match.weight, markup }] : []
       })
+      expect(matched.length).toBe(icons.mounted.length)
       const used = new Set(matched.map((entry) => entry.weight))
       const mean: Record<'app' | Weight, number> = {
-        app: await sharpness(win, icons.mounted),
+        app: await sharpness(
+          win,
+          matched.map(({ icon }) => icon),
+        ),
         regular: 0,
         bold: 0,
       }
