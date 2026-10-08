@@ -90,6 +90,7 @@ import { installAppMenu } from './appMenu'
 import { registerAppUpdate } from './appUpdate'
 import { appVersion, runningBuild } from './appVersion'
 import { approvals, registerApprovals } from './approvals'
+import { ArtifactFolders, registerArtifactIpc } from './artifactFolders'
 import { createAskHub } from './asks'
 import { registerAssistIpc } from './assistIpc'
 import { registerAttentionMethods, targetOf } from './attention'
@@ -368,7 +369,7 @@ import {
 import type { TmuxPane } from './tmux/tmuxServer'
 import { AppTray, closeAction, isHiddenLaunch, readCloseToTray, unreadWorkspaces } from './tray'
 import { type UpdateRunner, createUpdateRunner } from './updateRun'
-import { OLD_PRODUCT_NAME, appConfigDir, configHome, dataHome } from './userDirs'
+import { OLD_PRODUCT_NAME, appConfigDir, appDataDir, configHome, dataHome } from './userDirs'
 import {
   deleteGlobalVaultValue,
   registerVaultMethods,
@@ -880,8 +881,19 @@ function resizePty(entry: PtyEntry | undefined, cols: number, rows: number): voi
 
 const scratchFolders = new ScratchFolders(privateTmpDir(`${PRODUCT_NAME}-scratch`))
 
+const artifactFolders = new ArtifactFolders(
+  {
+    root: join(appDataDir(), 'artifacts'),
+    scratchDirOf: (workspaceId) => scratchFolders.dirOf(workspaceId),
+  },
+  (workspaceId) => {
+    const windowId = windowForWorkspace(workspaceId)
+    if (windowId) windows.get(windowId)?.webContents.send('artifacts:changed', workspaceId)
+  },
+)
+
 function fileRoots(): string[] {
-  return [homedir(), app.getPath('userData'), scratchFolders.root]
+  return [homedir(), app.getPath('userData'), scratchFolders.root, artifactFolders.root]
 }
 
 const openFileGrants = new OpenFileGrants({
@@ -1778,6 +1790,7 @@ function registerIpc(): void {
       processes?.workspaceClosed(event.workspaceId)
       extensionHost?.clearWorkspaceChips(event.workspaceId)
       extensionHost?.remoteFolders?.workspaceClosed(event.workspaceId)
+      artifactFolders.close(event.workspaceId)
       scratchFolders.remove(event.workspaceId)
       forgetWorkspaceRequests(event.workspaceId)
       forgetSandboxRuntime(event.workspaceId)
@@ -2049,6 +2062,8 @@ function mergeWorkspace(sourceId: string, targetId: string): void {
     if (entry.workspaceId === sourceId) entry.workspaceId = targetId
   }
   workspaceSandboxes.merge(sourceId, targetId)
+  artifactFolders.merge(sourceId, targetId)
+  artifactFolders.close(sourceId)
   removeWorkspace(sourceId)
   forgetWorkspaceRequests(sourceId)
   mergedSandboxes.add(sourceId)
@@ -2225,6 +2240,7 @@ function registerPtyIpc(): void {
         SHELL_STATE: stateFile,
       }),
       agentHooks: settings.agents?.hooks,
+      artifactsDir: workspaceId ? artifactFolders.ensure(workspaceId) : null,
       launcherDir: paneLauncherDir(),
     })
     let secretNotice = ''
@@ -3402,8 +3418,13 @@ app.whenReady().then(() => {
     })
   }
   scratchFolders.sweep()
+  artifactFolders.sweep()
   workspaceSandboxes.sweepTmp()
   registerScratchIpc(scratchFolders)
+  registerArtifactIpc({
+    folders: artifactFolders,
+    ownsWorkspace: (windowId, workspaceId) => windowForWorkspace(workspaceId) === windowId,
+  })
   registerCmuxSessionIpc()
   clipboardEdits = registerClipboardEdits({
     ipc: ipcMain,
@@ -4183,6 +4204,7 @@ app.on('before-quit', (event) => {
   workspaceAgents.stopAll()
   for (const workspaceId of scratchFolders.workspaceIds()) workspaceSandboxes.forget(workspaceId)
   workspaceSandboxes.clearTmp(!keepingShells)
+  artifactFolders.dispose()
   scratchFolders.removeAll()
   quitTrace.stage('teardown-hosts')
   portForwarder.stopAll()

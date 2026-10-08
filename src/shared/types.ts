@@ -3,6 +3,7 @@ import type { AgentSessionInfo } from './agentSessionInfo'
 import type { HibernateOutcome } from './agentWork'
 import type { AppMenuSpec } from './appMenu'
 import type { ApprovalAnswer, ApprovalState } from './approvals'
+import type { ArtifactListing } from './artifacts'
 import type { AssistApi } from './assist'
 import type { BrowserProfile } from './browserProfile'
 import type {
@@ -644,6 +645,13 @@ export interface ScratchApi {
   reveal: (workspaceId: string) => void
 }
 
+export interface ArtifactsApi {
+  list: (workspaceId: string) => Promise<ArtifactListing | null>
+  pad: (workspaceId: string) => Promise<string | null>
+  reveal: (workspaceId: string) => void
+  onChanged: (cb: (workspaceId: string) => void) => () => void
+}
+
 export interface ScreenPoint {
   x: number
   y: number
@@ -1031,6 +1039,7 @@ export interface OstiaBridge {
   sync: SyncApi
   workspace: WorkspaceApi
   scratch: ScratchApi
+  artifacts: ArtifactsApi
   windows: WindowsApi
   lifecycle: LifecycleApi
   commands: CommandsApi

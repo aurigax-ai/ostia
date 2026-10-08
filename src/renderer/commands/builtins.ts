@@ -18,6 +18,7 @@ import {
 } from '../layout/tree'
 import type { Direction, SurfaceKind } from '../layout/types'
 import { postAgentNotification } from '../lib/agentNotification'
+import { openArtifact } from '../lib/artifacts'
 import {
   type BlockPart,
   copyBlock,
@@ -77,6 +78,7 @@ import { isMac } from '../platform'
 import { keymapSettingValue, terminalKeymapSettingValue } from '../settings/keymapSetting'
 import { settingsSchemaAt } from '../settings/settingsSchema'
 import { useAgentTurnStore } from '../stores/agentTurnStore'
+import { useArtifactsStore } from '../stores/artifactsStore'
 import { useAttentionStore } from '../stores/attentionStore'
 import { useBlocksStore } from '../stores/blocksStore'
 import { useHibernateSkippedStore } from '../stores/hibernateSkippedStore'
@@ -937,6 +939,39 @@ export function registerBuiltinCommands(): void {
       const target = args?.argument
       if (!ctx.activeWorkspaceId || !target) return { merged: false }
       return { merged: await requestMergeWorkspace(ctx.activeWorkspaceId, target) }
+    },
+  })
+
+  registerCore<{ argument?: string } | undefined, { opened: boolean }>({
+    id: 'artifacts.open',
+    local: true,
+    choices: async () => {
+      const workspaceId = useWorkspacesStore.getState().activeWorkspaceId
+      if (!workspaceId) return []
+      await useArtifactsStore.getState().refresh(workspaceId)
+      const entries = useArtifactsStore.getState().byWorkspace[workspaceId]?.entries ?? []
+      return entries.map((entry) => ({ value: entry.path, label: entry.name }))
+    },
+    emptyChoices: () => currentDict().artifacts.none,
+    run: (args, ctx) => {
+      const workspaceId = ctx.activeWorkspaceId
+      const entries = workspaceId
+        ? (useArtifactsStore.getState().byWorkspace[workspaceId]?.entries ?? [])
+        : []
+      const entry = entries.find((e) => e.path === args?.argument)
+      if (!workspaceId || !entry) return { opened: false }
+      openArtifact(workspaceId, entry)
+      return { opened: true }
+    },
+  })
+
+  registerCore<undefined, { revealed: boolean }>({
+    id: 'artifacts.reveal',
+    local: true,
+    run: (_args, ctx) => {
+      if (!ctx.activeWorkspaceId) return { revealed: false }
+      window.ostia.artifacts.reveal(ctx.activeWorkspaceId)
+      return { revealed: true }
     },
   })
 

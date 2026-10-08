@@ -27,6 +27,8 @@ export const en = {
       'app.openSettings': 'Open Settings',
       'app.browseExtensions': 'Browse Extensions',
       'app.quit': 'Quit {product}',
+      'artifacts.open': 'Artifacts: Open…',
+      'artifacts.reveal': 'Artifacts: Reveal Folder',
       'assist.ask': 'Ask Assistant',
       'assist.chat': 'Assistant: Chat',
       'assist.compose': 'Compose with Assistant',
@@ -144,6 +146,7 @@ export const en = {
       'workspace.useFocusedFolder': 'Use This Pane’s Folder for the Workspace',
     },
     arguments: {
+      'artifacts.open': 'Artifact to open',
       'tab.moveToWorkspace': 'Workspace to move the tab to',
       'workspace.mergeInto': 'Workspace to merge into',
     },
@@ -1105,6 +1108,12 @@ export const en = {
     effort: 'Effort',
     mode: 'Mode',
     version: 'Version',
+  },
+  artifacts: {
+    title: 'Artifacts',
+    reveal: 'Reveal artifacts folder',
+    unread: 'New or changed',
+    none: 'This workspace has no artifacts yet',
   },
   dashboard: {
     title: 'Dashboard',
@@ -3374,6 +3383,8 @@ export const zhHant: Dict = {
       'app.openSettings': '開啟設定',
       'app.browseExtensions': '瀏覽擴充功能',
       'app.quit': '結束 {product}',
+      'artifacts.open': '產出物：開啟…',
+      'artifacts.reveal': '產出物：顯示資料夾',
       'assist.ask': '詢問助理',
       'assist.chat': '助理：對話',
       'assist.compose': '使用助理撰寫',
@@ -3491,6 +3502,7 @@ export const zhHant: Dict = {
       'workspace.useFocusedFolder': '以此窗格的資料夾作為工作區資料夾',
     },
     arguments: {
+      'artifacts.open': '要開啟的產出物',
       'tab.moveToWorkspace': '要把分頁移到的工作區',
       'workspace.mergeInto': '要合併到的工作區',
     },
@@ -4433,6 +4445,12 @@ export const zhHant: Dict = {
     effort: '推理強度',
     mode: '模式',
     version: '版本',
+  },
+  artifacts: {
+    title: '產出物',
+    reveal: '顯示產出物資料夾',
+    unread: '新增或已變更',
+    none: '這個工作區還沒有產出物',
   },
   dashboard: {
     title: '儀表板',

@@ -51,6 +51,7 @@ import { useRemoteFoldersStore } from '../stores/remoteFoldersStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
+import { ArtifactsSection } from './ArtifactsSection'
 import { FileMenu, type TreeVisibility } from './FileMenu'
 import { FileTrashDialog, NameInputRow, treeRowKey } from './FileTreeOps'
 import { FilesSearch } from './FilesSearch'
@@ -278,6 +279,7 @@ export function FilesView(): JSX.Element {
           {local}
         </div>
       )}
+      <ArtifactsSection workspaceId={workspaceId} />
       <FileTrashDialog workspaceId={workspaceId} />
     </>
   )

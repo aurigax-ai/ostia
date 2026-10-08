@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type { AgentSessionInfo } from '../shared/agentSessionInfo'
 import type { HibernateOutcome } from '../shared/agentWork'
 import type { ApprovalState } from '../shared/approvals'
+import type { ArtifactListing } from '../shared/artifacts'
 import type {
   AssistAvailability,
   AssistCatalog,
@@ -383,6 +384,18 @@ const bridge: OstiaBridge = {
     create: () => ipcRenderer.invoke('scratch:create') as Promise<string | null>,
     files: (workspaceId) => ipcRenderer.invoke('scratch:files', workspaceId) as Promise<number>,
     reveal: (workspaceId) => ipcRenderer.send('scratch:reveal', workspaceId),
+  },
+  artifacts: {
+    list: (workspaceId) =>
+      ipcRenderer.invoke('artifacts:list', workspaceId) as Promise<ArtifactListing | null>,
+    pad: (workspaceId) =>
+      ipcRenderer.invoke('artifacts:pad', workspaceId) as Promise<string | null>,
+    reveal: (workspaceId) => ipcRenderer.send('artifacts:reveal', workspaceId),
+    onChanged: (cb) => {
+      const handler = (_e: Electron.IpcRendererEvent, workspaceId: string): void => cb(workspaceId)
+      ipcRenderer.on('artifacts:changed', handler)
+      return () => ipcRenderer.removeListener('artifacts:changed', handler)
+    },
   },
   windows: {
     info: () => ipcRenderer.invoke('windows:info') as Promise<WindowInfo>,

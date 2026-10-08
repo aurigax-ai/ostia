@@ -50,6 +50,19 @@ describe('paneShellEnv', () => {
     })
   })
 
+  it('tells the pane where its workspace’s artifact folder and pad are', () => {
+    const env = paneShellEnv({ ...parts, artifactsDir: '/data/artifacts/w1' })
+    expect(env.OSTIA_ARTIFACTS).toBe('/data/artifacts/w1')
+    expect(env.OSTIA_PAD).toBe('/data/artifacts/w1/PAD.md')
+  })
+
+  it('never passes on an artifact folder inherited from the parent environment', () => {
+    const parent = { ...parts.parent, OSTIA_ARTIFACTS: '/other/w9', OSTIA_PAD: '/other/w9/PAD.md' }
+    const env = paneShellEnv({ ...parts, parent, artifactsDir: null })
+    expect(env.OSTIA_ARTIFACTS).toBeUndefined()
+    expect(env.OSTIA_PAD).toBeUndefined()
+  })
+
   it('overrides a terminal identity inherited from the parent environment', () => {
     const parent = { ...parts.parent, TERM_PROGRAM: 'iTerm.app', TERM_PROGRAM_VERSION: '9' }
     const env = paneShellEnv({ ...parts, parent })
