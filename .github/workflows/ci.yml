@@ -177,11 +177,13 @@ jobs:
             echo "e2e: every Linux spec" >> "$GITHUB_STEP_SUMMARY"
           else
             count=$(jq '.e2e | length' <<< "$plan")
+            shards='[1]'
+            [ "$count" -le 12 ] || shards='[1,2,3,4]'
             {
               echo "e2e_specs=$(jq -r '.e2e | join(" ")' <<< "$plan")"
-              echo "e2e_shards=$(jq -c '.e2eShards' <<< "$plan")"
+              echo "e2e_shards=$shards"
             } >> "$GITHUB_OUTPUT"
-            { echo "e2e: $count specs in $(jq '.e2eShards | length' <<< "$plan") job(s)"; jq -r '.e2e[] | "- " + .' <<< "$plan"; } >> "$GITHUB_STEP_SUMMARY"
+            { echo "e2e: $count specs"; jq -r '.e2e[] | "- " + .' <<< "$plan"; } >> "$GITHUB_STEP_SUMMARY"
           fi
       - if: github.event_name == 'pull_request' || github.event_name == 'push' || github.event_name == 'merge_group'
         uses: dorny/paths-filter@v4

@@ -1,4 +1,3 @@
-import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { createVitest } from 'vitest/node'
@@ -8,7 +7,6 @@ import {
   changedQuarantineFiles,
   domFileReaders,
   e2eImports,
-  e2eShards,
   e2eSpecs,
   nodeFolderReaders,
   planAgainst,
@@ -204,27 +202,6 @@ describe('planChanges', () => {
 
   it('drops a deleted spec from the e2e plan', () => {
     expect(planChanges(['e2e/no-such.spec.ts']).e2e).toEqual([])
-  })
-})
-
-describe('e2eShards', () => {
-  it('runs up to 20 selected specs in one job and adds a shard per 20 more, up to four', () => {
-    expect(e2eShards(0)).toEqual([1])
-    expect(e2eShards(15)).toEqual([1])
-    expect(e2eShards(20)).toEqual([1])
-    expect(e2eShards(21)).toEqual([1, 2])
-    expect(e2eShards(36)).toEqual([1, 2])
-    expect(e2eShards(41)).toEqual([1, 2, 3])
-    expect(e2eShards(61)).toEqual([1, 2, 3, 4])
-    expect(e2eShards(126)).toEqual([1, 2, 3, 4])
-  })
-
-  it('is what the pull request plan step hands to the e2e matrix', () => {
-    const workflow = readFileSync(join(ROOT, '.github/workflows/ci.yml'), 'utf8')
-    expect(workflow).toContain(`echo "e2e_shards=$(jq -c '.e2eShards' <<< "$plan")"`)
-    expect(workflow).toContain(
-      'shards: ${{ steps.tests.outputs.e2e_shards || steps.plan.outputs.shards }}',
-    )
   })
 })
 

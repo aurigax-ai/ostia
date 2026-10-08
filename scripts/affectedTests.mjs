@@ -1,7 +1,7 @@
 import { spawnSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
-import { ROOT, e2eShards, planAgainst, vitestArgs } from '../test/affectedTests.mjs'
+import { ROOT, planAgainst, vitestArgs } from '../test/affectedTests.mjs'
 
 const USAGE = 'usage: node scripts/affectedTests.mjs plan <base-ref> | run <node|dom> [plan]'
 
@@ -15,8 +15,7 @@ function plan(baseRef) {
     )
   }
   console.error(`e2e: ${tests.e2e === null ? 'every spec' : `${tests.e2e.length} specs`}`)
-  const shards = tests.e2e === null ? null : e2eShards(tests.e2e.length)
-  console.log(JSON.stringify({ ...tests, e2eShards: shards }))
+  console.log(JSON.stringify(tests))
 }
 
 function run(project, planText) {
