@@ -29,7 +29,19 @@ runs:
           ~/Library/Caches/electron
           ~/Library/Caches/electron-builder
         key: electron-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+    - if: inputs.electron == 'true' && runner.environment != 'github-hosted'
+      shell: bash
+      run: |
+        if [ -w /opt/ci-cache ]; then
+          mkdir -p /opt/ci-cache/electron-gyp
+          ln -sfn /opt/ci-cache/electron-gyp ~/.electron-gyp
+        fi
     - shell: bash
       env:
         IGNORE_SCRIPTS: ${{ inputs.electron != 'true' && '--ignore-scripts' || '' }}
-      run: scripts/retry.sh pnpm install --frozen-lockfile $IGNORE_SCRIPTS
+      run: |
+        node_prefix=$(dirname "$(dirname "$(command -v node)")")
+        if [ -f "$node_prefix/include/node/node.h" ]; then
+          export npm_config_nodedir="$node_prefix"
+        fi
+        scripts/retry.sh pnpm install --frozen-lockfile $IGNORE_SCRIPTS
