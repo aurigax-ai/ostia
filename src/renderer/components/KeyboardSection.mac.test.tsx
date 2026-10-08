@@ -167,8 +167,8 @@ describe('KeyboardSection on macOS', () => {
     const items = within(preview).getAllByRole('listitem')
     expect(items.map((li) => li.textContent)).toEqual(
       expect.arrayContaining([
-        'DeleteNot translated→Delete character ahead',
-        '⌘DeleteDelete to end of line→Not translatedyours stays',
+        'DeleteNot translatedDelete character ahead',
+        '⌘DeleteDelete to end of lineNot translatedyours stays',
       ]),
     )
     expect(useSettingsStore.getState().terminalKeymap).toBeNull()

@@ -33,7 +33,7 @@ export function browseEntries(marketplaces: readonly MarketplaceInfo[]): BrowseE
   )
 }
 
-export function browseKey(marketplaceId: string, extId: string): string {
+function browseKey(marketplaceId: string, extId: string): string {
   return `${marketplaceId}/${extId}`
 }
 
@@ -51,7 +51,7 @@ export function browseChip(state: MarketplaceInstallState): BrowseChip | null {
   }
 }
 
-export function inFilter(state: MarketplaceInstallState, filter: BrowseFilter): boolean {
+function inFilter(state: MarketplaceInstallState, filter: BrowseFilter): boolean {
   switch (filter) {
     case 'all':
       return true

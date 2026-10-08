@@ -14,9 +14,9 @@ export const INPUT_MAX_LENGTH = 16 * 1024
 export const PASTE_SETTLE_MS = 100
 export const CONFIRM_DEFAULT_MS = 2000
 export const CONFIRM_MAX_MS = 10_000
-export const WAKE_WAIT_MIN_MS = 1000
-export const WAKE_WAIT_DEFAULT_MS = 2 * 60_000
-export const WAKE_WAIT_MAX_MS = 30 * 60_000
+const WAKE_WAIT_MIN_MS = 1000
+const WAKE_WAIT_DEFAULT_MS = 2 * 60_000
+const WAKE_WAIT_MAX_MS = 30 * 60_000
 const CONFIRM_POLL_MS = 50
 const PASTE_START = '\x1b[200~'
 const PASTE_END = '\x1b[201~'
@@ -130,7 +130,7 @@ export function confirmWindow(raw: unknown): number {
   return Math.min(ms, CONFIRM_MAX_MS)
 }
 
-export function wakeWaitTimeout(raw: unknown): number {
+function wakeWaitTimeout(raw: unknown): number {
   if (raw === undefined) return WAKE_WAIT_DEFAULT_MS
   if (typeof raw !== 'number' || !Number.isFinite(raw)) throw fail('bad-request: timeoutMs')
   return Math.min(WAKE_WAIT_MAX_MS, Math.max(WAKE_WAIT_MIN_MS, raw))
@@ -204,7 +204,7 @@ const REFUSALS: Readonly<Record<string, string>> = {
   sandboxed: SANDBOXED_REFUSAL,
 }
 
-export const PANE_REFS_MAX = 32
+const PANE_REFS_MAX = 32
 
 function asleep(to: PaneIdentity): ResponseError<void> {
   return fail(`hibernated: ${to.externalId} is asleep; wake it with ostia pane wake`)

@@ -49,7 +49,6 @@ interface Machine {
 }
 
 function machine(
-  name: string,
   target: string,
   detectSecrets: DetectSecrets = noSecrets,
   install: (id: string, marketplace: string) => Promise<boolean> = async () => true,
@@ -66,7 +65,6 @@ function machine(
   const sync = new ProfileSync({
     userData,
     configDir,
-    host: name,
     now: () => clock.now,
     method: () => (custom !== undefined ? custom : new FolderMethod(dir, [userData, configDir])),
     targetLabel: () => dir,
@@ -152,7 +150,7 @@ describe('FolderMethod', () => {
 describe('ProfileSync', () => {
   it('PSY-C1 records the version it wrote', async () => {
     const target = temp()
-    const a = machine('a', target)
+    const a = machine(target)
     a.writeSettings({ appearance: { theme: 'dusk' } }, 1)
     const res = await a.sync.run()
     expect(res.status.state).toBe('ok')
@@ -162,8 +160,8 @@ describe('ProfileSync', () => {
 
   it('PSY-C2 re-reads and re-merges when another machine wrote in between', async () => {
     const target = temp()
-    const a = machine('a', target)
-    const b = machine('b', target)
+    const a = machine(target)
+    const b = machine(target)
     a.writeSettings({ appearance: { theme: 'dusk' } }, 1)
     await a.sync.run()
     await b.sync.run()
@@ -185,8 +183,8 @@ describe('ProfileSync', () => {
 
   it('PSY-C3 changes nothing locally when the target fails mid-run, and finishes next time', async () => {
     const target = temp()
-    const a = machine('a', target)
-    const b = machine('b', target)
+    const a = machine(target)
+    const b = machine(target)
     b.writeSettings({ appearance: { theme: 'dusk' } }, 1)
     await b.sync.run()
     a.writeSettings({ terminal: { fontSize: 15 } }, 2)
@@ -210,8 +208,8 @@ describe('ProfileSync', () => {
 
   it('PSY-C4 carries settings, extensions, workflows, completion specs and views to another machine', async () => {
     const target = temp()
-    const a = machine('a', target)
-    const b = machine('b', target)
+    const a = machine(target)
+    const b = machine(target)
     a.writeSettings(
       { appearance: { theme: 'dusk' }, keybindings: { 'workspace.new': 'Ctrl+N' } },
       1,
@@ -234,7 +232,7 @@ describe('ProfileSync', () => {
 
   it('PSY-C5 leaves a project workflow out of the target', async () => {
     const target = temp()
-    const a = machine('a', target)
+    const a = machine(target)
     const project = join(dirname(a.configDir), 'project', '.ostia', 'workflows')
     mkdirSync(project, { recursive: true })
     writeFileSync(join(project, 'local.yaml'), 'name: local\ncommand: ls\n')
@@ -246,8 +244,8 @@ describe('ProfileSync', () => {
 
   it('PSY-C6 merges different settings changed on two machines without a conflict', async () => {
     const target = temp()
-    const a = machine('a', target)
-    const b = machine('b', target)
+    const a = machine(target)
+    const b = machine(target)
     a.writeSettings({ appearance: { theme: 'dusk' }, terminal: { fontSize: 13 } }, 1)
     await a.sync.run()
     await b.sync.run()
@@ -264,8 +262,8 @@ describe('ProfileSync', () => {
 
   it('PSY-C7 merges as a first sync when the stored base is missing or broken', async () => {
     const target = temp()
-    const a = machine('a', target)
-    const b = machine('b', target)
+    const a = machine(target)
+    const b = machine(target)
     a.writeSettings({ appearance: { theme: 'dusk' } }, 1)
     await a.sync.run()
     await b.sync.run()
@@ -280,8 +278,8 @@ describe('ProfileSync', () => {
 
   it('PSY-C8 neither pushes nor overwrites an invalid settings.json and names it', async () => {
     const target = temp()
-    const a = machine('a', target)
-    const b = machine('b', target)
+    const a = machine(target)
+    const b = machine(target)
     a.writeSettings({ appearance: { theme: 'dusk' } }, 1)
     await a.sync.run()
     b.writeSettings('{not json', 2)
@@ -295,8 +293,8 @@ describe('ProfileSync', () => {
   describe('conflicts', () => {
     async function clash(): Promise<{ target: string; a: Machine; b: Machine }> {
       const target = temp()
-      const a = machine('a', target)
-      const b = machine('b', target)
+      const a = machine(target)
+      const b = machine(target)
       a.writeSettings({ terminal: { fontSize: 13 } }, 1)
       await a.sync.run()
       await b.sync.run()
@@ -352,8 +350,8 @@ describe('ProfileSync', () => {
     it('PSY-C12 offers an extension another machine has and installs nothing', async () => {
       const target = temp()
       const install = vi.fn(async () => true)
-      const a = machine('a', target)
-      const b = machine('b', target, noSecrets, install)
+      const a = machine(target)
+      const b = machine(target, noSecrets, install)
       a.installed.push(TRELLIS)
       await a.sync.run()
       const res = await b.sync.run()
@@ -368,8 +366,8 @@ describe('ProfileSync', () => {
         b.installed.push(TRELLIS)
         return true
       })
-      const a = machine('a', target)
-      const b = machine('b', target, noSecrets, install)
+      const a = machine(target)
+      const b = machine(target, noSecrets, install)
       a.installed.push(TRELLIS)
       await a.sync.run()
       await b.sync.run()
@@ -382,7 +380,7 @@ describe('ProfileSync', () => {
 
     it('PSY-C14 does not offer an entry with a bad marketplace URL or a built-in id', async () => {
       const target = temp()
-      const b = machine('b', target)
+      const b = machine(target)
       writeFileSync(
         join(target, 'extensions.json'),
         JSON.stringify({
@@ -400,7 +398,7 @@ describe('ProfileSync', () => {
 
     it('PSY-C15 leaves built-in extensions out of the synced list', async () => {
       const target = temp()
-      const a = machine('a', target)
+      const a = machine(target)
       a.installed.push({ id: 'git', marketplace: MARKET }, TRELLIS)
       await a.sync.run()
       expect(targetJson(target, 'extensions.json')).toEqual({ extensions: [TRELLIS] })
@@ -408,8 +406,8 @@ describe('ProfileSync', () => {
 
     it('PSY-C23 never syncs approval or enabled state', async () => {
       const target = temp()
-      const a = machine('a', target)
-      const b = machine('b', target)
+      const a = machine(target)
+      const b = machine(target)
       const approvals = JSON.stringify({ trellis: { enabled: true, approved: ['shell'] } })
       writeFileSync(join(a.userData, 'extensions.json'), approvals)
       const pending = JSON.stringify({ trellis: { enabled: false, approved: null } })
@@ -424,7 +422,7 @@ describe('ProfileSync', () => {
 
     it('PSY-C24 ignores approval fields hand-written into the target', async () => {
       const target = temp()
-      const b = machine('b', target)
+      const b = machine(target)
       writeFileSync(
         join(target, 'extensions.json'),
         JSON.stringify({ extensions: [{ ...TRELLIS, approved: ['shell'], enabled: true }] }),
@@ -438,8 +436,8 @@ describe('ProfileSync', () => {
   describe('profile folders', () => {
     it('PSY-C16 brings a view over without enabling it', async () => {
       const target = temp()
-      const a = machine('a', target)
-      const b = machine('b', target)
+      const a = machine(target)
+      const b = machine(target)
       a.writeFile('views/board.json', '{"title":"Board"}', 1)
       writeFileSync(join(a.userData, 'views.json'), JSON.stringify({ board: { enabled: true } }))
       await a.sync.run()
@@ -451,7 +449,7 @@ describe('ProfileSync', () => {
 
     it('PSY-C27 ignores a views.json hand-placed in the target', async () => {
       const target = temp()
-      const b = machine('b', target)
+      const b = machine(target)
       writeFileSync(join(target, 'views.json'), JSON.stringify({ board: { enabled: true } }))
       mkdirSync(join(target, 'views'))
       writeFileSync(join(target, 'views', 'board.json'), '{"title":"Board"}')
@@ -462,8 +460,8 @@ describe('ProfileSync', () => {
 
     it('PSY-C17 deletes a file on the other machine after it was deleted on one', async () => {
       const target = temp()
-      const a = machine('a', target)
-      const b = machine('b', target)
+      const a = machine(target)
+      const b = machine(target)
       a.writeFile('completions/mytool.json', '{"name":"mytool"}', 1)
       await a.sync.run()
       await b.sync.run()
@@ -477,8 +475,8 @@ describe('ProfileSync', () => {
 
     it('PSY-C18 copies no symlink or oversized file and names them', async () => {
       const target = temp()
-      const a = machine('a', target)
-      const b = machine('b', target)
+      const a = machine(target)
+      const b = machine(target)
       const outside = join(temp(), 'secret.json')
       writeFileSync(outside, '{"title":"x"}')
       mkdirSync(join(a.configDir, 'views'), { recursive: true })
@@ -498,8 +496,8 @@ describe('ProfileSync', () => {
 
     it('PSY-C19 keeps a workflow edited on one machine and deleted on the other, as a conflict', async () => {
       const target = temp()
-      const a = machine('a', target)
-      const b = machine('b', target)
+      const a = machine(target)
+      const b = machine(target)
       a.writeFile('workflows/deploy.yaml', 'name: deploy\ncommand: make\n', 1)
       await a.sync.run()
       await b.sync.run()
@@ -519,8 +517,8 @@ describe('ProfileSync', () => {
   describe('first sync', () => {
     it('PSY-C21 keeps keys from both sides and lists the ones that differ', async () => {
       const target = temp()
-      const a = machine('a', target)
-      const b = machine('b', target)
+      const a = machine(target)
+      const b = machine(target)
       a.writeSettings({ appearance: { theme: 'dusk' }, terminal: { fontSize: 13 } }, 1)
       await a.sync.run()
       b.writeSettings({ sidebar: { width: 300 }, terminal: { fontSize: 15 } }, 2)
@@ -539,8 +537,8 @@ describe('ProfileSync', () => {
     it('PSY-C22 wipes neither profile when the folder is switched to one holding another', async () => {
       const first = temp()
       const second = temp()
-      const a = machine('a', first)
-      const c = machine('c', second)
+      const a = machine(first)
+      const c = machine(second)
       a.writeSettings({ appearance: { theme: 'dusk' } }, 1)
       a.writeFile('workflows/a.yaml', 'name: a\ncommand: ls\n', 1)
       await a.sync.run()
@@ -559,8 +557,8 @@ describe('ProfileSync', () => {
   describe('machine-only settings', () => {
     it('PSY-C25 keeps terminal.shell on its machine', async () => {
       const target = temp()
-      const a = machine('a', target)
-      const b = machine('b', target)
+      const a = machine(target)
+      const b = machine(target)
       a.writeSettings({ terminal: { shell: '/opt/homebrew/bin/fish', fontSize: 14 } }, 1)
       b.writeSettings({ terminal: { shell: '/usr/bin/zsh' } }, 1)
       await a.sync.run()
@@ -571,7 +569,7 @@ describe('ProfileSync', () => {
 
     it('PSY-C26 ignores a program setting hand-written into the target', async () => {
       const target = temp()
-      const b = machine('b', target)
+      const b = machine(target)
       writeFileSync(
         join(target, 'settings.json'),
         JSON.stringify({ notifications: { command: ['sh', '-c', 'id'], sound: true } }),
@@ -584,7 +582,7 @@ describe('ProfileSync', () => {
   describe('secret check before a push', () => {
     it('PSY-C30 holds back a setting whose value holds a secret and pushes the rest', async () => {
       const target = temp()
-      const a = machine('a', target, (text) => scanSecrets(text))
+      const a = machine(target, (text) => scanSecrets(text))
       a.writeSettings(
         {
           appearance: { theme: 'dusk' },
@@ -601,7 +599,7 @@ describe('ProfileSync', () => {
 
     it('PSY-C31 pushes nothing when the scan fails', async () => {
       const target = temp()
-      const a = machine('a', target, async () => {
+      const a = machine(target, async () => {
         throw new Error('deadline')
       })
       a.writeSettings({ appearance: { theme: 'dusk' } }, 1)

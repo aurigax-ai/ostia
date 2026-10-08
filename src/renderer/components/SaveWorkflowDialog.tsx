@@ -1,6 +1,6 @@
+import { fmt } from '@shared/dict'
 import { placeholderNames, workflowDocument } from '@shared/workflows'
 import { type FormEvent, useId, useState } from 'react'
-import { fmt } from '../i18n/dict'
 import { useDict } from '../i18n/useDict'
 import { parseTags, suggestedName } from '../lib/workflows'
 import { useWorkflowsStore } from '../stores/workflowsStore'

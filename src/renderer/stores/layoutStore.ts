@@ -42,6 +42,7 @@ import {
   setPaneDiff,
   setPaneEditor,
   setPaneExtension,
+  setPaneGit,
   setPaneHibernated,
   setPaneLocked,
   setPaneResume,
@@ -107,6 +108,7 @@ interface LayoutState {
   openBrowser: (workspaceId: string, url: string, profile: BrowserProfile) => void
   openBrowserTab: (workspaceId: string, url: string, profile: BrowserProfile) => void
   openExtensionPanel: (workspaceId: string, extensionId: string, title: string) => string | null
+  openGit: (workspaceId: string, title: string) => string | null
   openView: (workspaceId: string, viewName: string, title: string) => string | null
   openDiff: (workspaceId: string, content: DiffContent) => string | null
   openChat: (workspaceId: string, title: string) => string | null
@@ -673,6 +675,13 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
       workspaceId,
       (root) => findExtensionPane(root, extensionId),
       (root, paneId) => setPaneExtension(root, paneId, extensionId, title),
+    ),
+
+  openGit: (workspaceId, title) =>
+    openSingleton(
+      workspaceId,
+      (root) => firstPaneOfKind(root, 'git'),
+      (root, paneId) => setPaneGit(root, paneId, title),
     ),
 
   openView: (workspaceId, viewName, title) =>

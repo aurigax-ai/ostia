@@ -341,7 +341,7 @@ function forNewWindow(planned: readonly PlannedWorkspace[]): SnapshotWorkspace[]
   return [...pinned, ...rest]
 }
 
-export async function importCmuxSession(path?: string): Promise<CmuxImportReport> {
+async function importCmuxSession(path?: string): Promise<CmuxImportReport> {
   const read = await window.ostia.workspace.readCmux(path)
   if (!read.ok) throw new CmuxImportError(read.error, read.path)
   const plan = planCmuxImport(read.session, {

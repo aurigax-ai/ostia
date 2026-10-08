@@ -1,33 +1,22 @@
-import { type FontWeight, Terminal as Xterm } from '@xterm/xterm'
-import '@xterm/xterm/css/xterm.css'
 import { useEffect, useRef, useState } from 'react'
 import { useDict } from '../i18n/useDict'
-import { currentScheme, terminalTheme, useScheme } from '../lib/colorScheme'
-import { terminalFontStack } from '../lib/uiFonts'
-import { useSettingsStore } from '../stores/settingsStore'
+import {
+  type ReadOnlyTerminal,
+  createReadOnlyTerminal,
+  useReadOnlyTerminalBackground,
+} from '../lib/readOnlyTerminal'
 
 export function ManagerView({ paneId }: { paneId: string }): JSX.Element {
   const d = useDict()
   const hostRef = useRef<HTMLDivElement>(null)
-  const termRef = useRef<Xterm | null>(null)
+  const termRef = useRef<ReadOnlyTerminal | null>(null)
   const [ended, setEnded] = useState(false)
-  const palette = useScheme('terminal').colors
+  const background = useReadOnlyTerminalBackground(termRef)
 
   useEffect(() => {
     const host = hostRef.current
     if (!host) return
-    const font = useSettingsStore.getState().appearance.terminal
-    const term = new Xterm({
-      theme: terminalTheme(currentScheme('terminal').colors),
-      fontFamily: terminalFontStack(font.family),
-      fontSize: font.size,
-      fontWeight: font.weight as FontWeight,
-      lineHeight: font.lineHeight,
-      scrollback: useSettingsStore.getState().terminal.scrollbackLines,
-      disableStdin: true,
-      cursorBlink: false,
-      allowProposedApi: true,
-    })
+    const term = createReadOnlyTerminal({ cursorBlink: false })
     termRef.current = term
     term.open(host)
     let disposed = false
@@ -63,12 +52,6 @@ export function ManagerView({ paneId }: { paneId: string }): JSX.Element {
       termRef.current = null
     }
   }, [paneId])
-
-  useEffect(() => {
-    if (termRef.current) termRef.current.options.theme = terminalTheme(palette)
-  }, [palette])
-
-  const background = palette.background
 
   return (
     <div className="terminal-surface">

@@ -23,13 +23,13 @@ export interface SyncedExtension {
 }
 
 export const SETTINGS_FILE = 'settings.json'
-export const EXTENSIONS_FILE = 'extensions.json'
-export const META_FILE = 'profile.json'
+const EXTENSIONS_FILE = 'extensions.json'
+const META_FILE = 'profile.json'
 export const SECRETS_FILE = 'secrets.enc'
 export const TOP_FILES = [SETTINGS_FILE, EXTENSIONS_FILE, META_FILE, SECRETS_FILE] as const
 export const TOP_FILE_MAX_BYTES = 1024 * 1024
 export const SECRETS_FILE_MAX_BYTES = 16 * 1024 * 1024
-export const COMPLETION_FILES_MAX = 500
+const COMPLETION_FILES_MAX = 500
 
 export const LOCAL_ONLY_ROOTS: readonly string[] = [
   'sync',
@@ -73,7 +73,7 @@ export const PROFILE_FOLDERS: readonly ProfileFolder[] = [
 export const isObject = (v: unknown): v is JsonObject =>
   typeof v === 'object' && v !== null && !Array.isArray(v)
 
-export const LOCAL_ONLY_FIELDS: readonly { group: string; field: string }[] = [
+const LOCAL_ONLY_FIELDS: readonly { group: string; field: string }[] = [
   ...PROGRAM_SETTINGS,
   { group: 'privacy', field: 'telemetry' },
 ]
@@ -113,7 +113,7 @@ export function withLocalOnly(merged: JsonObject, local: JsonObject): JsonObject
   return out
 }
 
-export function parseSyncedExtensions(raw: unknown): SyncedExtension[] {
+function parseSyncedExtensions(raw: unknown): SyncedExtension[] {
   const list = isObject(raw) && Array.isArray(raw.extensions) ? raw.extensions : []
   const out: SyncedExtension[] = []
   for (const item of list) {
@@ -200,10 +200,6 @@ export function folderOf(path: string): ProfileFolder | null {
   if (slash < 0 || path.indexOf('/', slash + 1) >= 0) return null
   const folder = PROFILE_FOLDERS.find((f) => f.name === path.slice(0, slash))
   return folder?.accepts(path.slice(slash + 1)) ? folder : null
-}
-
-export function isProfilePath(path: string): boolean {
-  return (TOP_FILES as readonly string[]).includes(path) || folderOf(path) !== null
 }
 
 function lstatOrNull(path: string): Stats | null {

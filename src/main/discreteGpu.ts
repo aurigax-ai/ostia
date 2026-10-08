@@ -1,7 +1,7 @@
 import { execFile, execFileSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 
-export const GPU_ENV_KEYS: readonly string[] = [
+const GPU_ENV_KEYS: readonly string[] = [
   'DRI_PRIME',
   '__NV_PRIME_RENDER_OFFLOAD',
   '__GLX_VENDOR_LIBRARY_NAME',

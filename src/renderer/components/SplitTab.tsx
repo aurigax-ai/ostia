@@ -138,7 +138,7 @@ function SplitTabSegment({
   return <PaneTabMenu pane={pane} workspaceId={workspaceId} trigger={segment} />
 }
 
-export function useSplitTabLabel(tab: SplitNode): string {
+function useSplitTabLabel(tab: SplitNode): string {
   const d = useDict()
   const layout = {
     sideBySide: d.pane.splitTabSideBySide,

@@ -6,7 +6,7 @@ import { auditPairAttempt } from './pairing'
 export const PAIR_REQUEST_TTL_MS = 120_000
 const NONCE_BYTES = 32
 
-export type PairReply = (status: number, body: unknown) => void
+type PairReply = (status: number, body: unknown) => void
 
 export interface PairRequestView {
   requestId: string

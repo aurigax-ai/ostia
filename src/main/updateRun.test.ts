@@ -8,6 +8,7 @@ function harness(method: InstallMethod, paneId: string | null = 'pane-1') {
   let resolveOpen: ((id: string | null) => void) | null = null
   const runner = createUpdateRunner({
     method: () => method,
+    title: () => 'Update Ostia',
     openTerminal: (req) => {
       opened.push(req)
       return new Promise((resolve) => {
@@ -31,7 +32,7 @@ describe('createUpdateRunner', () => {
       {
         command: 'sudo apt update && sudo apt install --only-upgrade ostia',
         hostToken: 'token:sudo apt update && sudo apt install --only-upgrade ostia',
-        title: 'Update ostia',
+        title: 'Update Ostia',
       },
     ])
     expect(h.runner.state()).toEqual({ status: 'running' })

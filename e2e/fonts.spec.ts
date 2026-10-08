@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { type FakeProvider, fakeAssistantSettings, startFakeProvider } from './fakeProvider'
 import { openWorkspace } from './helpers'
-import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
+import { type Page, _electron as electron, expect, test } from './test'
 
 const UI_FAMILY = 'Geist Variable'
 const CODE_FAMILY = 'Geist Mono Variable'
@@ -25,21 +25,6 @@ async function probe(win: Page, selector: string): Promise<Probe> {
     async ([fn, sel]) => {
       await document.fonts.ready
       return (0, eval)(fn)(sel)
-    },
-    [FONT_PROBE, selector] as const,
-  )
-}
-
-async function probeGuest(app: ElectronApplication, selector: string): Promise<Probe> {
-  return app.evaluate(
-    async ({ webContents }, [fn, sel]) => {
-      const guest = webContents
-        .getAllWebContents()
-        .find((wc) => wc.getType() === 'webview' && wc.getURL().startsWith('http://127.0.0.1'))
-      if (!guest) return null
-      return guest.executeJavaScript(
-        `(async () => { await document.fonts.ready; return (${fn})(${JSON.stringify(sel)}) })()`,
-      )
     },
     [FONT_PROBE, selector] as const,
   )
@@ -126,9 +111,12 @@ test.describe('fonts follow the settings everywhere', () => {
       await expect(branchChip.first()).toBeVisible({ timeout: 15_000 })
       await branchChip.first().click()
       await expect
-        .poll(() => probeGuest(app, 'body'), { timeout: 15_000 })
+        .poll(() => probe(win, '.git-surface'), { timeout: 15_000 })
         .toEqual({ first: UI_FAMILY, size: '13px', loaded: true })
-      expect(await probeGuest(app, 'textarea.message')).toMatchObject({
+      await expect(win.locator('.git-surface .commit textarea.message')).toBeVisible({
+        timeout: 15_000,
+      })
+      expect(await probe(win, '.git-surface .commit textarea.message')).toMatchObject({
         first: CODE_FAMILY,
         loaded: true,
       })

@@ -1854,6 +1854,7 @@ describe('agent resume', () => {
       undefined,
       expect.any(Function),
       expect.any(Function),
+      expect.any(Function),
     )
     expect(insert).not.toHaveBeenCalled()
   })

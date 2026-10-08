@@ -1,7 +1,7 @@
 import { InfoIcon } from '@phosphor-icons/react'
+import type { Dict } from '@shared/dict'
 import type { MissingRequirement, RequirementsReport } from '@shared/systemRequirements'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { Dict } from '../i18n/dict'
 import { fmt, useDict } from '../i18n/useDict'
 import { useWorkspacesStore } from '../stores/workspacesStore'
 import { Button } from './ui/button'

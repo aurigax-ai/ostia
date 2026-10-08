@@ -42,11 +42,11 @@ import { type LogFields, redactSecrets } from './appLog'
 import { loadJson, saveJson } from './jsonStore'
 
 export const TELEMETRY_FILE = 'telemetry.json'
-export const TELEMETRY_FLUSH_DELAY_MS = 5_000
-export const TELEMETRY_RETRY_DELAY_MS = 60_000
-export const TELEMETRY_USAGE_INTERVAL_MS = 30 * 60 * 1000
-export const TELEMETRY_REQUEST_TIMEOUT_MS = 10_000
-export const TELEMETRY_QUIT_TIMEOUT_MS = 2_000
+const TELEMETRY_FLUSH_DELAY_MS = 5_000
+const TELEMETRY_RETRY_DELAY_MS = 60_000
+const TELEMETRY_USAGE_INTERVAL_MS = 30 * 60 * 1000
+const TELEMETRY_REQUEST_TIMEOUT_MS = 10_000
+const TELEMETRY_QUIT_TIMEOUT_MS = 2_000
 
 export function telemetryEndpoint(
   isPackaged: boolean,
@@ -65,15 +65,15 @@ export function readTelemetrySettings(settings: unknown): TelemetrySettings {
   return parseTelemetrySettings((privacy as { telemetry?: unknown }).telemetry)
 }
 
-export function telemetryClient(version: string): string {
+function telemetryClient(version: string): string {
   return `${PRODUCT_NAME}/${version}`
 }
 
-export function newInstallId(): string {
+function newInstallId(): string {
   return randomUUID()
 }
 
-export function newEventId(): string {
+function newEventId(): string {
   return randomUUID().replace(/-/g, '')
 }
 
@@ -129,7 +129,7 @@ function parseStored(raw: unknown): StoredTelemetry {
   }
 }
 
-export type SendOutcome = 'sent' | 'failed'
+type SendOutcome = 'sent' | 'failed'
 
 export async function sendBatch(opts: {
   endpoint: TelemetryEndpoint

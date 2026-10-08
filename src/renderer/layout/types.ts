@@ -11,6 +11,7 @@ export type SurfaceKind =
   | 'extension'
   | 'diff'
   | 'chat'
+  | 'git'
   | 'view'
   | 'manager'
 

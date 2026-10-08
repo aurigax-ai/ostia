@@ -2,8 +2,7 @@ import { homedir } from 'node:os'
 import { join, resolve, sep } from 'node:path'
 import { isRemotePath } from '../shared/remoteFolders'
 
-export function expandHome(p: string): string {
-  const home = homedir()
+export function expandHome(p: string, home = homedir()): string {
   if (p === '~') return home
   if (p.startsWith('~/')) return join(home, p.slice(2))
   return p

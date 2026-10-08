@@ -17,8 +17,8 @@ import {
   UserIcon,
   XCircleIcon,
 } from '@phosphor-icons/react'
+import type { Dict } from '@shared/dict'
 import { type CoreChipId, type PromptSeparator, separatorText } from '@shared/promptSettings'
-import type { Dict } from '../i18n/dict'
 import { fmt, useDict } from '../i18n/useDict'
 import { type ChipCatalogEntry, chipAction } from '../lib/extensionChips'
 import type { ResolvedChip } from '../lib/promptChips'

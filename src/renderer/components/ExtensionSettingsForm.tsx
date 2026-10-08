@@ -1,4 +1,5 @@
 import { cn } from '@/lib/utils'
+import type { Dict } from '@shared/dict'
 import type {
   ExtensionInfo,
   ExtensionSecretContribution,
@@ -6,7 +7,6 @@ import type {
   ExtensionSettingValue,
 } from '@shared/extensions'
 import { useEffect, useState } from 'react'
-import type { Dict } from '../i18n/dict'
 import { fmt, useDict, withProductName } from '../i18n/useDict'
 import { entryTitle, enumValueTitle } from '../lib/extensionSettingText'
 import { useExtensionsStore } from '../stores/extensionsStore'
