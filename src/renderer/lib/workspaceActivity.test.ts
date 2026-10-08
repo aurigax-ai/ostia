@@ -129,6 +129,11 @@ describe('workspace activity + attention', () => {
     expect(result.current).toBe(false)
     act(() => useUIStore.getState().showWorkspaces())
     expect(result.current).toBe(true)
+
+    act(() => {
+      useWorkspacesStore.getState().addWorkspace()
+    })
+    expect(result.current).toBe(false)
     unmount()
   })
 

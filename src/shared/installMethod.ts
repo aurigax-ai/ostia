@@ -16,14 +16,14 @@ export const UPDATE_COMMANDS: Readonly<Record<'apt' | 'brew', readonly (readonly
 
 export type ManagedInstallMethod = keyof typeof UPDATE_COMMANDS
 
-export const CHANNEL_INSTALL_METHODS: readonly InstallMethod[] = ['tarball', 'local']
+const REPLACEABLE_METHODS: readonly InstallMethod[] = ['local', 'tarball']
 
-export function offersUpdateChannels(method: InstallMethod): boolean {
-  return CHANNEL_INSTALL_METHODS.includes(method)
+export function isReplaceable(method: InstallMethod): boolean {
+  return REPLACEABLE_METHODS.includes(method)
 }
 
 export function updateChannelFor(method: InstallMethod, picked: UpdateChannel): UpdateChannel {
-  return offersUpdateChannels(method) ? picked : DEFAULT_UPDATE_CHANNEL
+  return isReplaceable(method) ? picked : DEFAULT_UPDATE_CHANNEL
 }
 
 export function isInstallMethod(value: unknown): value is InstallMethod {
@@ -53,8 +53,6 @@ export const UPDATE_DOWNLOAD_HOSTS: readonly string[] = [
   'objects.githubusercontent.com',
   'release-assets.githubusercontent.com',
 ]
-
-export const REPLACEABLE_METHODS: readonly InstallMethod[] = ['local', 'tarball']
 
 export type ReplaceBlock = 'not-writable' | 'system-path' | 'symlink' | 'leftover'
 
@@ -87,10 +85,6 @@ export interface ReplaceProgress {
 }
 
 export type ReplaceStart = 'started' | 'busy' | 'no-action'
-
-export function isReplaceable(method: InstallMethod): boolean {
-  return REPLACEABLE_METHODS.includes(method)
-}
 
 export interface ReleaseState {
   release: ReleaseInfo | null
