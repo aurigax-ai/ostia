@@ -1,8 +1,9 @@
-import { execFileSync } from 'node:child_process'
-import { appendFileSync, mkdirSync, readdirSync } from 'node:fs'
+import { mkdirSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { SOFTWARE_WEBGL, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
-import { emptyState, emptyWorkspace } from './helpers'
+import { BENCH_ENGINES } from './ghostty'
+import { newTerminal } from './helpers'
+import { processRows } from './processes'
 import { type ElectronApplication, _electron as electron, expect, test } from './test'
 
 const PANES = 10
@@ -11,21 +12,6 @@ const IDLE_S = 60
 const LOAD_S = 60
 const AFTER_S = 60
 const SAMPLE_S = 10
-const OUT = process.env.M158_OUT ?? '/tmp/gw-probe/m158'
-
-const ENGINES = [
-  { name: 'xterm-webgl', settings: { behavior: { gpuAcceleration: true } } },
-  {
-    name: 'ghostty-gpu',
-    settings: { behavior: { gpuAcceleration: true }, terminal: { renderer: 'ghostty' } },
-  },
-  { name: 'xterm-dom', settings: { behavior: { gpuAcceleration: false } } },
-  {
-    name: 'ghostty-canvas',
-    settings: { behavior: { gpuAcceleration: false }, terminal: { renderer: 'ghostty' } },
-  },
-]
-
 interface Proc {
   pid: number
   ppid: number
@@ -45,24 +31,13 @@ function cpuSeconds(t: string): number {
 }
 
 function tree(rootPid: number): Omit<Proc, 'cat'>[] {
-  const all = execFileSync('ps', ['-axo', 'pid=,ppid=,rss=,time=,comm='], { encoding: 'utf8' })
-    .trim()
-    .split('\n')
-    .map((line) => line.trim().match(/^(\d+)\s+(\d+)\s+(\d+)\s+(\S+)\s+(.*)$/))
-    .filter((m): m is RegExpMatchArray => m !== null)
-    .map((m) => ({ pid: +m[1], ppid: +m[2], rssKb: +m[3], cpuS: cpuSeconds(m[4]), comm: m[5] }))
-  const keep = new Set([rootPid])
-  let grew = true
-  while (grew) {
-    grew = false
-    for (const p of all) {
-      if (!keep.has(p.pid) && keep.has(p.ppid)) {
-        keep.add(p.pid)
-        grew = true
-      }
-    }
-  }
-  return all.filter((p) => keep.has(p.pid))
+  return processRows(rootPid, 'rss=,time=,comm=').map(({ pid, ppid, fields }) => ({
+    pid,
+    ppid,
+    rssKb: Number(fields[0]),
+    cpuS: cpuSeconds(fields[1]),
+    comm: fields.slice(2).join(' '),
+  }))
 }
 
 async function classify(app: ElectronApplication, rootPid: number): Promise<Proc[]> {
@@ -123,10 +98,9 @@ async function phase(app: ElectronApplication, rootPid: number, seconds: number)
   }
 }
 
-for (const engine of ENGINES) {
-  test(`m158 ${engine.name}`, async () => {
+for (const engine of BENCH_ENGINES) {
+  test(`bench ${engine.name} resources`, async () => {
     test.setTimeout(15 * 60_000)
-    mkdirSync(OUT, { recursive: true })
     const dataHome = freshDataHome()
     seedSettings(dataHome, { ...engine.settings, workspaces: { confirmQuit: false } })
     const launch = isolatedLaunch(dataHome)
@@ -135,10 +109,7 @@ for (const engine of ENGINES) {
     try {
       const win = await app.firstWindow()
       await win.waitForLoadState('domcontentloaded')
-      await emptyState(win)
-        .getByRole('button', { name: /New workspace/ })
-        .click()
-      await emptyWorkspace(win).getByRole('button', { name: 'New terminal' }).click()
+      await newTerminal(win)
       const surfaces = win.locator('.xterm-host, .ghostty-host')
       let count = 1
       await expect(surfaces).toHaveCount(count, { timeout: 15_000 })
@@ -169,9 +140,7 @@ for (const engine of ENGINES) {
       await expect.poll(() => readdirSync(doneDir).length, { timeout: 120_000 }).toBe(PANES)
       await sleep(15_000)
       const after = await phase(app, rootPid, AFTER_S)
-      const row = { engine: engine.name, idle, load, after }
-      appendFileSync(join(OUT, 'results.jsonl'), `${JSON.stringify(row)}\n`)
-      console.log(`M158 ${JSON.stringify(row)}`)
+      console.log(`BENCH ${engine.name} resources ${JSON.stringify({ idle, load, after })}`)
     } finally {
       await app.close()
     }
