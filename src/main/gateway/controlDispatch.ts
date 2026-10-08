@@ -10,6 +10,7 @@ import type { Ask, AskAnswerResult } from '../asks'
 import { internalPaneArgs } from '../commandArgs'
 import { resolveExternal } from '../idRegistry'
 import type { PaneEntry, WorkspaceEntry, WorkspaceGroupEntry } from '../paneList'
+import { listArtifactFiles, locateArtifactFile, readArtifactFile } from './artifactFiles'
 import {
   type PhoneFileScope,
   type WorkspaceFileOutcome,
@@ -24,6 +25,8 @@ export interface GatewayControlDeps {
   listPanes: () => Promise<PaneEntry[]>
   listWorkspaces: () => Promise<WorkspaceEntry[]>
   fileScope: (workspaceId: string) => PhoneFileScope
+  artifactsDir: (workspaceId: string) => string | null
+  openArtifact: (workspaceId: string, path: string) => Promise<boolean>
   listWorkspaceGroups: () => Promise<WorkspaceGroupEntry[]>
   primaryWindowId: () => string | undefined
   attachPhoneObserver: (
@@ -76,6 +79,13 @@ function invalidParams(message: string): RpcOutcome {
 
 function fileOutcome<T>(outcome: WorkspaceFileOutcome<T>, wrap: (value: T) => unknown): RpcOutcome {
   return outcome.ok ? { ok: true, result: wrap(outcome.value) } : invalidParams(outcome.error)
+}
+
+type FileRoot = 'workspace' | 'artifacts'
+
+function fileRootOf(root: unknown): FileRoot | null {
+  if (root === undefined || root === 'workspace') return 'workspace'
+  return root === 'artifacts' ? 'artifacts' : null
 }
 
 async function workspaceFolder(
@@ -221,6 +231,13 @@ export async function dispatchGatewayMethod(
       if (!hasCap('read')) return needsElevation('read')
       const folder = await workspaceFolder(p, deps)
       if ('ok' in folder) return folder
+      const root = fileRootOf(p.root)
+      if (!root) return invalidParams('invalid-root')
+      if (root === 'artifacts') {
+        const dir = deps.artifactsDir(folder.workspaceId)
+        if (!dir) return invalidParams('not-found')
+        return fileOutcome(await listArtifactFiles(dir, folder.path), (entries) => ({ entries }))
+      }
       const scope = deps.fileScope(folder.workspaceId)
       return fileOutcome(
         await listWorkspaceFiles(folder.workDir, folder.path, scope),
@@ -234,11 +251,33 @@ export async function dispatchGatewayMethod(
       if (!hasCap('read')) return needsElevation('read')
       const folder = await workspaceFolder(p, deps)
       if ('ok' in folder) return folder
+      const root = fileRootOf(p.root)
+      if (!root) return invalidParams('invalid-root')
+      if (root === 'artifacts') {
+        const dir = deps.artifactsDir(folder.workspaceId)
+        if (!dir) return invalidParams('not-found')
+        return fileOutcome(
+          await readArtifactFile(dir, folder.path, p.maxBytes, p.offset),
+          (read) => read,
+        )
+      }
       const scope = deps.fileScope(folder.workspaceId)
       return fileOutcome(
-        await readWorkspaceFile(folder.workDir, folder.path, p.maxBytes, scope),
+        await readWorkspaceFile(folder.workDir, folder.path, p.maxBytes, scope, p.offset),
         (read) => read,
       )
+    }
+
+    case 'artifact.open': {
+      if (!hasCap('command')) return needsElevation('command')
+      const folder = await workspaceFolder(p, deps)
+      if ('ok' in folder) return folder
+      const dir = deps.artifactsDir(folder.workspaceId)
+      if (!dir) return invalidParams('not-found')
+      const located = await locateArtifactFile(dir, folder.path)
+      if (!located.ok) return invalidParams(located.error)
+      const opened = await deps.openArtifact(folder.workspaceId, located.value)
+      return opened ? { ok: true, result: { ok: true } } : invalidParams('unknown-session')
     }
 
     case 'ask.list': {

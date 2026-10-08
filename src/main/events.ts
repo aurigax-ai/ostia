@@ -1,4 +1,5 @@
 import { EventEmitter } from 'node:events'
+import type { ArtifactChangeKind } from '../shared/artifacts'
 import type { WorkspaceLiveState } from '../shared/types'
 import type { Ask, AskResolved } from './asks'
 
@@ -25,6 +26,7 @@ export interface PlatformEventPayloads {
   'pane.state': PaneStateEventPayload
   'ask.created': { ask: Ask }
   'ask.resolved': AskResolved
+  'artifact.changed': { sessionId: string; path: string; change: ArtifactChangeKind }
 }
 
 export type PlatformEventType = keyof PlatformEventPayloads
@@ -37,6 +39,7 @@ export const PLATFORM_EVENT_TYPES: readonly PlatformEventType[] = [
   'pane.state',
   'ask.created',
   'ask.resolved',
+  'artifact.changed',
 ]
 
 export const platformEvents = new EventEmitter()

@@ -1,4 +1,13 @@
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -41,6 +50,8 @@ function fakeDeps(overrides: Partial<GatewayControlDeps> = {}): GatewayControlDe
     getTerminalState: vi.fn().mockReturnValue(undefined),
     listPanes: vi.fn().mockResolvedValue([]),
     listWorkspaces: vi.fn().mockResolvedValue([]),
+    artifactsDir: vi.fn().mockReturnValue(null),
+    openArtifact: vi.fn().mockResolvedValue(true),
     fileScope: vi.fn().mockReturnValue({
       home: '/nonexistent-home',
       dataDirs: [],
@@ -1123,5 +1134,211 @@ describe('dispatchGatewayMethod — asks and agent replies', () => {
         ['p-agent-3', '\x03'],
       ])
     })
+  })
+})
+
+describe('dispatchGatewayMethod — the artifacts root (contract v1.7)', () => {
+  let folder: string
+  let outside: string
+  const caps = ['read']
+
+  function deps(dir: string | null = folder) {
+    return fakeDeps({
+      listWorkspaces: vi
+        .fn()
+        .mockResolvedValue([
+          { workspaceId: 'w1', name: 'api', kind: 'terminal', workDir: '/', state: 'idle' },
+        ]),
+      artifactsDir: vi.fn((id: string) => (id === 'w1' ? dir : null)),
+    })
+  }
+
+  const call = (method: string, params: Record<string, unknown>, d = deps(), c = caps) =>
+    dispatchGatewayMethod(method, { sessionId: 'w1', root: 'artifacts', ...params }, c, d)
+
+  beforeEach(() => {
+    folder = mkdtempSync(join(tmpdir(), 'gw-artifacts-'))
+    outside = mkdtempSync(join(tmpdir(), 'gw-artifacts-out-'))
+    writeFileSync(join(folder, 'report.md'), '# report')
+    writeFileSync(join(folder, 'PAD.md'), 'pad')
+    mkdirSync(join(folder, 'page', 'deep'), { recursive: true })
+    writeFileSync(join(folder, 'page', 'index.html'), '<p>hi</p>')
+    writeFileSync(join(folder, 'page', 'deep', 'hidden.js'), 'x')
+    writeFileSync(join(outside, 'secret.txt'), 'nope')
+    symlinkSync(join(outside, 'secret.txt'), join(folder, 'leak.txt'))
+    symlinkSync(outside, join(folder, 'out'))
+  })
+
+  afterEach(() => {
+    rmSync(folder, { recursive: true, force: true })
+    rmSync(outside, { recursive: true, force: true })
+  })
+
+  it('lists regular files and folders of the artifact folder, never a symlink', async () => {
+    const res = await call('fs.list', { path: '' })
+    if (!res.ok) throw new Error(res.message)
+    const { entries } = res.result as { entries: { name: string; kind: string; size: number }[] }
+    expect(entries.map((e) => [e.name, e.kind])).toEqual([
+      ['PAD.md', 'file'],
+      ['page', 'dir'],
+      ['report.md', 'file'],
+    ])
+    expect(entries[2].size).toBe(8)
+  })
+
+  it('lists one level down and nothing deeper', async () => {
+    const page = await call('fs.list', { path: 'page' })
+    expect(page.ok && page.result).toEqual({
+      entries: [expect.objectContaining({ name: 'index.html', kind: 'file' })],
+    })
+    expect(await call('fs.list', { path: 'page/deep' })).toMatchObject({
+      ok: false,
+      message: 'not-found',
+    })
+    expect(await call('fs.read', { path: 'page/deep/hidden.js' })).toMatchObject({
+      ok: false,
+      message: 'not-found',
+    })
+  })
+
+  it('reads a file as text, and a symlink or a path that leaves answers an error with no content', async () => {
+    const read = await call('fs.read', { path: 'page/index.html' })
+    expect(read.ok && read.result).toEqual({ text: '<p>hi</p>', size: 9, truncated: false })
+    for (const path of [
+      'leak.txt',
+      'out/secret.txt',
+      '../secret.txt',
+      join(outside, 'secret.txt'),
+    ]) {
+      const res = await call('fs.read', { path })
+      expect(res.ok, path).toBe(false)
+      expect(JSON.stringify(res), path).not.toContain('nope')
+    }
+    expect(await call('fs.read', { path: 'leak.txt' })).toMatchObject({ message: 'not-found' })
+    expect(await call('fs.read', { path: '../secret.txt' })).toMatchObject({
+      message: 'outside-workspace',
+    })
+    expect(await call('fs.list', { path: 'out' })).toMatchObject({ message: 'not-found' })
+  })
+
+  it('reads a large file in slices with offset, as base64 past the start', async () => {
+    const bytes = Buffer.alloc(300 * 1024, 0x61)
+    bytes[262144] = 0x62
+    writeFileSync(join(folder, 'big.txt'), bytes)
+    const first = await call('fs.read', { path: 'big.txt' })
+    expect(first.ok && first.result).toMatchObject({ size: 307200, truncated: true })
+    expect(first.ok && (first.result as { text: string }).text).toHaveLength(262144)
+    const rest = await call('fs.read', { path: 'big.txt', offset: 262144 })
+    const result = rest.ok ? (rest.result as { base64: string; truncated: boolean }) : null
+    expect(result?.truncated).toBe(false)
+    const tail = Buffer.from(result?.base64 ?? '', 'base64')
+    expect(tail).toHaveLength(307200 - 262144)
+    expect(tail[0]).toBe(0x62)
+    const past = await call('fs.read', { path: 'big.txt', offset: 999_999_999 })
+    expect(past.ok && past.result).toMatchObject({ base64: '', size: 307200, truncated: false })
+  })
+
+  it('takes offset for the workspace root too', async () => {
+    const d = fakeDeps({
+      listWorkspaces: vi
+        .fn()
+        .mockResolvedValue([
+          { workspaceId: 'w1', name: 'api', kind: 'terminal', workDir: folder, state: 'idle' },
+        ]),
+      fileScope: vi.fn().mockReturnValue({
+        home: '/nonexistent-home',
+        dataDirs: [],
+        rules: { denyRead: [], allowRead: [] },
+      }),
+    })
+    const res = await dispatchGatewayMethod(
+      'fs.read',
+      { sessionId: 'w1', path: 'report.md', offset: 2 },
+      caps,
+      d,
+    )
+    expect(res.ok && res.result).toEqual({
+      base64: Buffer.from('report').toString('base64'),
+      size: 8,
+      truncated: false,
+    })
+  })
+
+  it('answers an empty list for a workspace whose folder does not exist yet, and never makes it', async () => {
+    const missing = join(folder, 'not-made')
+    const res = await call('fs.list', { path: '' }, deps(missing))
+    expect(res.ok && res.result).toEqual({ entries: [] })
+    expect(existsSync(missing)).toBe(false)
+    expect(await call('fs.read', { path: 'a.md' }, deps(missing))).toMatchObject({
+      message: 'not-found',
+    })
+  })
+
+  it('refuses an unknown root, an unknown workspace and a device without read', async () => {
+    expect(await call('fs.list', { path: '', root: 'home' })).toMatchObject({
+      ok: false,
+      message: 'invalid-root',
+    })
+    expect(await call('fs.list', { path: '', sessionId: 'w9' })).toMatchObject({
+      ok: false,
+      message: 'unknown-session',
+    })
+    expect(await call('fs.list', { path: '' }, deps(null))).toMatchObject({ message: 'not-found' })
+    for (const method of ['fs.list', 'fs.read']) {
+      expect(await call(method, { path: 'report.md' }, deps(), ['notify'])).toMatchObject({
+        ok: false,
+        data: { cap: 'read' },
+      })
+    }
+  })
+
+  it('artifact.open opens one regular file of the folder on the desktop, with the command cap only', async () => {
+    const d = deps()
+    const withCommand = ['read', 'command']
+    const res = await call('artifact.open', { path: 'page/index.html' }, d, withCommand)
+    expect(res).toEqual({ ok: true, result: { ok: true } })
+    expect(vi.mocked(d.openArtifact).mock.calls).toEqual([
+      ['w1', join(folder, 'page', 'index.html')],
+    ])
+    expect(await call('artifact.open', { path: 'report.md' }, deps(), ['read'])).toMatchObject({
+      ok: false,
+      code: -32003,
+      data: { cap: 'command' },
+    })
+  })
+
+  it('artifact.open refuses what fs.read refuses, and opens nothing then', async () => {
+    const d = deps()
+    const withCommand = ['read', 'command']
+    const cases: [Record<string, unknown>, string][] = [
+      [{ path: 'leak.txt' }, 'not-found'],
+      [{ path: 'out/secret.txt' }, 'not-found'],
+      [{ path: 'page/deep/hidden.js' }, 'not-found'],
+      [{ path: 'missing.md' }, 'not-found'],
+      [{ path: '../secret.txt' }, 'outside-workspace'],
+      [{ path: join(outside, 'secret.txt') }, 'outside-workspace'],
+      [{ path: 'page' }, 'not-a-file'],
+      [{ path: 'report.md', sessionId: 'w9' }, 'unknown-session'],
+    ]
+    for (const [params, message] of cases) {
+      expect(await call('artifact.open', params, d, withCommand), message).toMatchObject({
+        ok: false,
+        code: -32602,
+        message,
+      })
+    }
+    expect(d.openArtifact).not.toHaveBeenCalled()
+    expect(
+      await call('artifact.open', { path: 'report.md' }, deps(null), withCommand),
+    ).toMatchObject({
+      message: 'not-found',
+    })
+  })
+
+  it('has no write, rename or delete', async () => {
+    for (const method of ['fs.write', 'fs.rename', 'fs.delete', 'pad.append', 'artifact.write']) {
+      expect((await call(method, { path: 'report.md', text: 'x' })).ok, method).toBe(false)
+    }
+    expect(readFileSync(join(folder, 'report.md'), 'utf8')).toBe('# report')
   })
 })

@@ -62,6 +62,20 @@ describe('ArtifactFolders', () => {
     expect(existsSync(join(root, 'w-scratch'))).toBe(false)
   })
 
+  it('follows an existing folder for a reader without making a missing one', async () => {
+    const reports: string[] = []
+    const reading = new ArtifactFolders({ root, scratchDirOf: () => null }, (_id, changes) =>
+      reports.push(...changes.map((c) => `${c.change} ${c.path}`)),
+    )
+    expect(reading.followed('w7')).toBe(join(root, 'w7'))
+    expect(existsSync(join(root, 'w7'))).toBe(false)
+    mkdirSync(join(root, 'w8'), { recursive: true })
+    reading.followed('w8')
+    writeFileSync(join(root, 'w8', 'a.md'), 'a')
+    await vi.waitFor(() => expect(reports).toEqual(['added a.md']))
+    reading.dispose()
+  })
+
   it('refuses a workspace id that could leave the root', () => {
     for (const id of ['', '..', '../x', 'a/b', '.closed', 'w 1']) {
       expect(folders.ensure(id), id).toBeNull()
@@ -165,20 +179,40 @@ describe('ArtifactFolders', () => {
     expect(readFileSync(join(target, PAD_FILE), 'utf8')).toBe('target pad')
   })
 
-  it('reports a change in a watched folder, and stops once the workspace closes', async () => {
-    const changed: string[] = []
-    const watching = new ArtifactFolders({ root, scratchDirOf: () => null }, (id) =>
-      changed.push(id),
+  it('reports what was added, changed and removed in a watched folder, and stops once the workspace closes', async () => {
+    const reports: [string, { path: string; change: string }[]][] = []
+    const watching = new ArtifactFolders({ root, scratchDirOf: () => null }, (id, changes) =>
+      reports.push([id, changes]),
     )
     const dir = watching.ensure('w1') as string
-    writeFileSync(join(dir, 'a.md'), 'a')
-    await vi.waitFor(() => expect(changed).toEqual(['w1']))
+    const seen = (): { path: string; change: string }[] => reports.flatMap(([, changes]) => changes)
+    stamped(join(dir, 'a.md'), 100)
+    mkdirSync(join(dir, 'page'))
+    stamped(join(dir, 'page', 'index.html'), 100)
+    stamped(join(dir, 'PAD.md'), 100)
+    await vi.waitFor(() =>
+      expect(seen().sort((x, y) => x.path.localeCompare(y.path))).toEqual([
+        { path: 'a.md', change: 'added' },
+        { path: 'PAD.md', change: 'added' },
+        { path: 'page/index.html', change: 'added' },
+      ]),
+    )
+    expect(reports.every(([id]) => id === 'w1')).toBe(true)
+    reports.length = 0
+    stamped(join(dir, 'a.md'), 200)
+    rmSync(join(dir, 'page', 'index.html'))
+    await vi.waitFor(() =>
+      expect(seen().sort((x, y) => x.path.localeCompare(y.path))).toEqual([
+        { path: 'a.md', change: 'changed' },
+        { path: 'page/index.html', change: 'removed' },
+      ]),
+    )
     watching.close('w1')
-    changed.length = 0
+    reports.length = 0
     mkdirSync(dir, { recursive: true })
     writeFileSync(join(dir, 'b.md'), 'b')
     await new Promise((resolve) => setTimeout(resolve, 400))
-    expect(changed).toEqual([])
+    expect(reports).toEqual([])
     watching.dispose()
   })
 })

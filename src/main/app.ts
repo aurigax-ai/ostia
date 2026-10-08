@@ -28,6 +28,7 @@ import appIcon from '../../resources/icon.png?asset'
 import type { AgentResume } from '../shared/agentResume'
 import type { HibernateOutcome } from '../shared/agentWork'
 import { appEnv } from '../shared/appEnv'
+import { ARTIFACT_LIST_MAX } from '../shared/artifacts'
 import { SHARED_BROWSER_PARTITION, browserPartition } from '../shared/browserProfile'
 import { MANAGER_CAPABILITIES } from '../shared/capabilities'
 import { parseChatToolSettings } from '../shared/chatTools'
@@ -47,6 +48,7 @@ import { isPreviewPartition } from '../shared/htmlPreview'
 import { KEEP_SHELLS_FEATURE, KEPT_SHELLS_DIR, parseKeepShells } from '../shared/keepShells'
 import { languageServerKey } from '../shared/languageServers'
 import { MANAGER_FEATURE, managerAgents, parseManagerSettings } from '../shared/managerSettings'
+import { OPEN_FILES_COMMAND } from '../shared/openFiles'
 import { OPEN_FILES_MAX } from '../shared/openFiles'
 import { isHostNamed } from '../shared/osc7'
 import { parsePortsSettings } from '../shared/ports'
@@ -893,9 +895,12 @@ const artifactFolders = new ArtifactFolders(
     root: join(appDataDir(), 'artifacts'),
     scratchDirOf: (workspaceId) => scratchFolders.dirOf(workspaceId),
   },
-  (workspaceId) => {
+  (workspaceId, changes) => {
     const windowId = windowForWorkspace(workspaceId)
     if (windowId) windows.get(windowId)?.webContents.send('artifacts:changed', workspaceId)
+    for (const { path, change } of changes.slice(0, ARTIFACT_LIST_MAX)) {
+      emitPlatformEvent('artifact.changed', { sessionId: workspaceId, path, change })
+    }
   },
 )
 
@@ -3975,6 +3980,16 @@ app.whenReady().then(() => {
       }),
     listWorkspaces: () => listWorkspaces({ execCommand, windowIds }),
     fileScope: phoneFileScope,
+    artifactsDir: (workspaceId) => artifactFolders.followed(workspaceId),
+    openArtifact: async (workspaceId, path) => {
+      const windowId = windowForWorkspace(workspaceId)
+      if (!windowId) return false
+      const res = await execCommand({ windowId, workspaceId, paneId: null }, OPEN_FILES_COMMAND, {
+        files: [{ path }],
+        background: true,
+      })
+      return res.ok
+    },
     listWorkspaceGroups: () => listWorkspaceGroups({ execCommand, windowIds }),
     primaryWindowId,
     attachPhoneObserver,

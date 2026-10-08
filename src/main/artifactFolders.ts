@@ -16,9 +16,11 @@ import { ipcMain, shell } from 'electron'
 import {
   ARTIFACT_KEEP_CLOSED_MS,
   ARTIFACT_LIST_MAX,
+  type ArtifactChange,
   type ArtifactEntry,
   type ArtifactListing,
   PAD_FILE,
+  artifactChanges,
 } from '../shared/artifacts'
 
 const FOLDER_NAME = 'artifacts'
@@ -110,9 +112,11 @@ export class ArtifactFolders {
   private readonly timers = new Map<string, ReturnType<typeof setTimeout>>()
   private readonly now: () => number
 
+  private readonly seen = new Map<string, Map<string, number>>()
+
   constructor(
     private readonly deps: ArtifactFolderDeps,
-    private readonly changed: (workspaceId: string) => void = () => {},
+    private readonly changed: (workspaceId: string, changes: ArtifactChange[]) => void = () => {},
   ) {
     this.now = deps.now ?? Date.now
   }
@@ -131,6 +135,12 @@ export class ArtifactFolders {
     const dir = this.dirOf(workspaceId)
     if (!dir || !privateDir(dir)) return null
     this.watch(workspaceId, dir)
+    return dir
+  }
+
+  followed(workspaceId: string): string | null {
+    const dir = this.dirOf(workspaceId)
+    if (dir && isRealDir(dir)) this.watch(workspaceId, dir)
     return dir
   }
 
@@ -167,7 +177,24 @@ export class ArtifactFolders {
       const watcher = watch(dir, { recursive: true }, () => this.schedule(workspaceId))
       watcher.on('error', () => this.unwatch(workspaceId))
       this.watchers.set(workspaceId, watcher)
+      this.seen.set(workspaceId, this.snapshot(dir))
     } catch {}
+  }
+
+  private snapshot(dir: string): Map<string, number> {
+    const files = new Map(listArtifacts(dir).map((entry) => [entry.name, entry.modified]))
+    const pad = regularFile(join(dir, PAD_FILE), PAD_FILE)
+    if (pad) files.set(PAD_FILE, pad.modified)
+    return files
+  }
+
+  private report(workspaceId: string): void {
+    const dir = this.dirOf(workspaceId)
+    if (!dir) return
+    const after = this.snapshot(dir)
+    const changes = artifactChanges(this.seen.get(workspaceId) ?? new Map(), after)
+    this.seen.set(workspaceId, after)
+    this.changed(workspaceId, changes)
   }
 
   private schedule(workspaceId: string): void {
@@ -176,7 +203,7 @@ export class ArtifactFolders {
       workspaceId,
       setTimeout(() => {
         this.timers.delete(workspaceId)
-        if (this.watchers.has(workspaceId)) this.changed(workspaceId)
+        if (this.watchers.has(workspaceId)) this.report(workspaceId)
       }, WATCH_DEBOUNCE_MS),
     )
   }
@@ -184,6 +211,7 @@ export class ArtifactFolders {
   private unwatch(workspaceId: string): void {
     this.watchers.get(workspaceId)?.close()
     this.watchers.delete(workspaceId)
+    this.seen.delete(workspaceId)
     const timer = this.timers.get(workspaceId)
     if (timer) clearTimeout(timer)
     this.timers.delete(workspaceId)
@@ -217,7 +245,7 @@ export class ArtifactFolders {
         renameSync(join(source, entry.name), join(target, freeName(target, entry.name)))
       } catch {}
     }
-    this.changed(targetId)
+    this.report(targetId)
   }
 
   sweep(): string[] {

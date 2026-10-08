@@ -72,7 +72,7 @@ describe('platformEvents bus', () => {
     expect(needsInput).not.toHaveBeenCalled()
   })
 
-  it('PLATFORM_EVENT_TYPES lists exactly the 7 event types this bus carries', () => {
+  it('PLATFORM_EVENT_TYPES lists exactly the 8 event types this bus carries', () => {
     expect([...PLATFORM_EVENT_TYPES].sort()).toEqual(
       [
         'notify',
@@ -82,6 +82,7 @@ describe('platformEvents bus', () => {
         'pane.state',
         'ask.created',
         'ask.resolved',
+        'artifact.changed',
       ].sort(),
     )
   })

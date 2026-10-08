@@ -48,3 +48,26 @@ export function exceedsPad(text: string): boolean {
   if (text.length * 3 <= PAD_MAX_BYTES) return false
   return new TextEncoder().encode(text).length > PAD_MAX_BYTES
 }
+
+export type ArtifactChangeKind = 'added' | 'changed' | 'removed'
+
+export interface ArtifactChange {
+  path: string
+  change: ArtifactChangeKind
+}
+
+export function artifactChanges(
+  before: ReadonlyMap<string, number>,
+  after: ReadonlyMap<string, number>,
+): ArtifactChange[] {
+  const changes: ArtifactChange[] = []
+  for (const [path, modified] of after) {
+    const seen = before.get(path)
+    if (seen === undefined) changes.push({ path, change: 'added' })
+    else if (modified > seen) changes.push({ path, change: 'changed' })
+  }
+  for (const path of before.keys()) {
+    if (!after.has(path)) changes.push({ path, change: 'removed' })
+  }
+  return changes
+}

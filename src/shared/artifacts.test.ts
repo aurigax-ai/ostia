@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   type ArtifactEntry,
   PAD_MAX_BYTES,
+  artifactChanges,
   changedArtifacts,
   exceedsPad,
   isInside,
@@ -52,5 +53,26 @@ describe('the pad', () => {
     expect(isPadPath(listing, '/a/w1/PAD.md')).toBe(true)
     expect(isPadPath(listing, '/a/w1/page/PAD.md')).toBe(false)
     expect(isPadPath(null, '/a/w1/PAD.md')).toBe(false)
+  })
+})
+
+describe('artifactChanges', () => {
+  it('names each path once as added, changed or removed', () => {
+    const before = new Map([
+      ['a.md', 10],
+      ['b.md', 10],
+      ['gone.md', 10],
+    ])
+    const after = new Map([
+      ['a.md', 10],
+      ['b.md', 12],
+      ['new/c.html', 5],
+    ])
+    expect(artifactChanges(before, after)).toEqual([
+      { path: 'b.md', change: 'changed' },
+      { path: 'new/c.html', change: 'added' },
+      { path: 'gone.md', change: 'removed' },
+    ])
+    expect(artifactChanges(after, after)).toEqual([])
   })
 })
