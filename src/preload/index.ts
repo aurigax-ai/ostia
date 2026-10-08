@@ -66,6 +66,7 @@ import type { MarketplaceResult, MarketplaceState } from '../shared/marketplace'
 import type { OpenFileVerdict } from '../shared/openFiles'
 import type { PickOutcome, PickSendResult, PickState } from '../shared/pick'
 import type { QuestionState } from '../shared/questions'
+import type { AgentGroupPlacement } from '../shared/reach'
 import type { RegionCaptureOutcome, RegionCopyResult } from '../shared/regionCapture'
 import type { ReleaseCheckResult } from '../shared/releases'
 import type {
@@ -702,6 +703,12 @@ const bridge: OstiaBridge = {
       const handler = (_event: unknown, state: ApprovalState): void => cb(state)
       ipcRenderer.on('approvals:changed', handler)
       return () => ipcRenderer.removeListener('approvals:changed', handler)
+    },
+    agentGroups: () => ipcRenderer.invoke('reach:agent-groups') as Promise<AgentGroupPlacement[]>,
+    onAgentGroupsChanged: (cb) => {
+      const handler = (_event: unknown, placements: AgentGroupPlacement[]): void => cb(placements)
+      ipcRenderer.on('reach:agent-groups-changed', handler)
+      return () => ipcRenderer.removeListener('reach:agent-groups-changed', handler)
     },
   },
   questions: {

@@ -1313,7 +1313,9 @@ const reach = createReach({
     return { workspaces, groups }
   },
   ask: (ask) => approvals()?.request(ask) ?? null,
+  agentGroupsChanged: (placements) => broadcast('reach:agent-groups-changed', placements),
 })
+ipcMain.handle('reach:agent-groups', () => reach.agentGroups())
 
 function workspaceOfGuest(guest: Electron.WebContents): string | undefined {
   for (const [paneId, wcId] of browserPanes) {

@@ -902,6 +902,8 @@ export const en = {
     title: 'Send to agent',
     target: 'Send to',
     noTargets: 'No agent is running in this workspace.',
+    groupTarget: '{agent} ({workspace})',
+    noGroupTargets: 'No agent is running in this workspace or its group.',
     originTarget: '{agent} ({workspace}, other window)',
     originGone:
       'No agent is running in this workspace, and the workspace this pane came from is no longer open.',
@@ -4069,6 +4071,8 @@ export const zhHant: Dict = {
     title: '傳送給代理程式',
     target: '傳送至',
     noTargets: '此工作區沒有執行中的代理程式。',
+    groupTarget: '{agent}（{workspace}）',
+    noGroupTargets: '此工作區及其群組都沒有執行中的代理程式。',
     originTarget: '{agent}（{workspace}，其他視窗）',
     originGone: '此工作區沒有執行中的代理程式，而此窗格原本所在的工作區已不再開啟。',
     noOriginTargets: '此工作區和此窗格原本所在的 {workspace} 都沒有執行中的代理程式。',

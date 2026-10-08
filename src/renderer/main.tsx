@@ -50,6 +50,7 @@ import { startWorkspaceProjects } from './lib/workspaceProjects'
 import { loadEditorLanguages } from './monaco/contributedLanguages'
 import { setSettingsFile } from './monaco/language'
 import { isMac } from './platform'
+import { startAgentGroupsSync } from './stores/agentGroupsStore'
 import { startApprovals } from './stores/approvalsStore'
 import { startAssistAvailability } from './stores/assistStore'
 import { startChatTools } from './stores/chatToolsStore'
@@ -136,6 +137,7 @@ async function boot(): Promise<void> {
   startAgentRunningReport()
   startWorkspaceProjects()
   startApprovals()
+  startAgentGroupsSync()
   startQuestions()
   startUserActions()
   startViews()

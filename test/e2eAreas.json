@@ -138,6 +138,7 @@
         "e2e/browser-tab.spec.ts",
         "e2e/browser-width.spec.ts",
         "e2e/detached-send.spec.ts",
+        "e2e/group-send.spec.ts",
         "e2e/preview-send.spec.ts"
       ]
     },
@@ -411,6 +412,7 @@
         "e2e/files-panel.spec.ts",
         "e2e/files-search.spec.ts",
         "e2e/files-tree.spec.ts",
+        "e2e/group-send.spec.ts",
         "e2e/open-any-file.spec.ts",
         "e2e/pdf-search.spec.ts",
         "e2e/terminal-file-links.spec.ts"
@@ -502,6 +504,7 @@
       "specs": [
         "e2e/agent-reach.spec.ts",
         "e2e/bus-delivery.spec.ts",
+        "e2e/group-send.spec.ts",
         "e2e/pane-wake-wait.spec.ts",
         "e2e/processes.spec.ts",
         "e2e/stale-waiting.spec.ts",
@@ -601,9 +604,12 @@
         "src/renderer/lib/newWorkspace.ts",
         "src/renderer/components/Merge",
         "src/renderer/components/WorkspacesSection.tsx",
-        "src/renderer/stores/mergeConfirmStore.ts"
+        "src/renderer/stores/mergeConfirmStore.ts",
+        "src/renderer/lib/groupPeers.ts",
+        "src/renderer/stores/agentGroupsStore.ts"
       ],
       "specs": [
+        "e2e/group-send.spec.ts",
         "e2e/scratch-workspace.spec.ts",
         "e2e/workspace-groups.spec.ts",
         "e2e/workspace-merge.spec.ts",

@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ApprovalOutcome } from '../shared/approvals'
-import type { ReachMode } from '../shared/reach'
+import type { AgentGroupPlacement, ReachMode } from '../shared/reach'
 import { emptyWorkspaceSandbox } from '../shared/sandbox'
 import type { ApprovalAsk } from './approvals'
 
@@ -51,6 +51,7 @@ const reach = createReach({
   sandbox: () => emptyWorkspaceSandbox(),
   workspaces: async () => listing(),
   ask,
+  agentGroupsChanged: () => {},
 })
 
 let seq = 0
@@ -221,7 +222,48 @@ describe('createReach', () => {
         throw new Error('window gone')
       },
       ask,
+      agentGroupsChanged: () => {},
     })
     expect(await failing.inScope(caller(), 'workers')).toBe(false)
+  })
+
+  it('reports the group memberships agents set until the human confirms them or the workspace closes', async () => {
+    mode = 'group'
+    const published: AgentGroupPlacement[][] = []
+    const own = createReach({
+      mode: () => mode,
+      home,
+      workDir: (id) => workDirs[id],
+      isScratch: () => false,
+      hasManager: () => false,
+      sandbox: () => emptyWorkspaceSandbox(),
+      workspaces: async () => listing(),
+      ask,
+      agentGroupsChanged: (placements) => published.push(placements),
+    })
+    groupOf = { coord: 'g1' }
+    expect(own.agentGroups()).toEqual([])
+
+    await own.byAgent(async () => {})
+    expect(published).toEqual([])
+
+    await own.byAgent(async () => {
+      groupOf = { coord: 'g1', elsewhere: 'g1', workers: 'g1' }
+    })
+    const placed = [
+      { workspaceId: 'workers', groupId: 'g1' },
+      { workspaceId: 'elsewhere', groupId: 'g1' },
+    ]
+    expect(own.agentGroups()).toEqual(placed)
+    expect(published).toEqual([placed])
+
+    request.mockResolvedValue('workspace')
+    expect(await own.inScope(caller(), 'elsewhere')).toBe(true)
+    expect(own.agentGroups()).toEqual([placed[0]])
+    expect(published).toEqual([placed, [placed[0]]])
+
+    own.forget('workers')
+    expect(own.agentGroups()).toEqual([])
+    expect(published).toEqual([placed, [placed[0]], []])
   })
 })
