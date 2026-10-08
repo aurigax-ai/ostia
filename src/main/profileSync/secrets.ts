@@ -65,9 +65,9 @@ export interface SecretPlan {
   conflicts: SecretConflict[] | null
 }
 
-export const SECRET_STATE_FILE = 'secret-sync.json'
-export const SECRET_BASE_FILE = 'secrets.bin'
-export const PASSWORD_MIN = 12
+const SECRET_STATE_FILE = 'secret-sync.json'
+const SECRET_BASE_FILE = 'secrets.bin'
+const PASSWORD_MIN = 12
 
 type Pending = 'create' | 'rewrap' | 'reset' | 'remove' | null
 

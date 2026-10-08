@@ -3,7 +3,7 @@ import { basename, dirname, extname, join, sep } from 'node:path'
 import type { FileOpResult } from '../shared/fileOps'
 import { resolveSafe } from './pathGuard'
 
-export const FILE_OP_MAX_PATHS = 500
+const FILE_OP_MAX_PATHS = 500
 const NAME_MAX_BYTES = 255
 const COPY_NAME_TRIES = 1000
 

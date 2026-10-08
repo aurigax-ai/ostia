@@ -50,7 +50,7 @@ export function fileLinkAction(facts: FileLinkFacts): FileLinkAction | null {
   return facts.probed === 'file' ? 'admit-file' : null
 }
 
-export function needsHumanClick(action: FileLinkAction): boolean {
+function needsHumanClick(action: FileLinkAction): boolean {
   return action === 'admit-file' || action === 'open-folder'
 }
 

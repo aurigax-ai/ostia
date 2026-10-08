@@ -3,9 +3,9 @@ import { canonicalJson } from './merge'
 import { isObject } from './profile'
 
 export const BUNDLE_FORMAT = 1
-export const KDF_MEMORY_KIB = 64 * 1024
-export const KDF_PASSES = 3
-export const KDF_PARALLELISM = 1
+const KDF_MEMORY_KIB = 64 * 1024
+const KDF_PASSES = 3
+const KDF_PARALLELISM = 1
 const KDF_MEMORY_RANGE = [19 * 1024, 1024 * 1024] as const
 const KDF_PASSES_RANGE = [1, 10] as const
 const KDF_PARALLELISM_RANGE = [1, 8] as const
@@ -46,7 +46,7 @@ interface SealedBundle {
   tag: string
 }
 
-export const DEFAULT_KDF: Kdf = {
+const DEFAULT_KDF: Kdf = {
   name: 'argon2id',
   memory: KDF_MEMORY_KIB,
   passes: KDF_PASSES,
@@ -106,7 +106,7 @@ function unseal(key: Buffer, nonce: Buffer, data: Buffer, tag: Buffer, aad: Buff
 
 const WRAP_AAD = Buffer.from('ostia-secret-sync-key-v1')
 
-export async function wrapKey(dataKey: Buffer, secret: string, kdf: Kdf): Promise<Wrap> {
+async function wrapKey(dataKey: Buffer, secret: string, kdf: Kdf): Promise<Wrap> {
   const salt = randomBytes(SALT_BYTES)
   const sealed = seal(await deriveKey(secret, salt, kdf), dataKey, WRAP_AAD)
   return { salt: b64(salt), nonce: b64(sealed.nonce), data: b64(sealed.data), tag: b64(sealed.tag) }

@@ -38,7 +38,7 @@ export async function resolveWorkspaceRef(conn: MessageConnection, ref: string):
   return pickWorkspace(rows, ref)
 }
 
-export interface CommandFlags {
+interface CommandFlags {
   workspace?: string
   noFocus: boolean
   rest: string[]
@@ -58,7 +58,7 @@ export function parseCommandFlags(argv: readonly string[]): CommandFlags {
   }
 }
 
-export interface CommandCall {
+interface CommandCall {
   id: string
   args?: unknown
   target?: { workspaceId: string; paneId: null }

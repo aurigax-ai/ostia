@@ -25,15 +25,15 @@ import {
   isAllowedHop,
 } from './checkedDownload'
 
-export const UPDATE_ARCHIVE_MAX_BYTES = 1024 * 1024 * 1024
-export const CHECKSUMS_MAX_BYTES = 64 * 1024
-export const UPDATE_DOWNLOAD_TIMEOUT_MS = 30 * 60_000
-export const EXTRACT_TIMEOUT_MS = 10 * 60_000
-export const RELEASE_DOWNLOAD_BASE_URL = 'https://github.com'
-export const RELEASE_DOWNLOAD_BASE_URL_ENV = 'RELEASE_DOWNLOAD_BASE_URL'
-export const CHECKSUMS_FILE = 'SHA256SUMS'
-export const PROGRESS_STEP_BYTES = 1024 * 1024
-export const SYSTEM_PARENTS = ['/opt', '/usr'] as const
+const UPDATE_ARCHIVE_MAX_BYTES = 1024 * 1024 * 1024
+const CHECKSUMS_MAX_BYTES = 64 * 1024
+const UPDATE_DOWNLOAD_TIMEOUT_MS = 30 * 60_000
+const EXTRACT_TIMEOUT_MS = 10 * 60_000
+const RELEASE_DOWNLOAD_BASE_URL = 'https://github.com'
+const RELEASE_DOWNLOAD_BASE_URL_ENV = 'RELEASE_DOWNLOAD_BASE_URL'
+const CHECKSUMS_FILE = 'SHA256SUMS'
+const PROGRESS_STEP_BYTES = 1024 * 1024
+const SYSTEM_PARENTS = ['/opt', '/usr'] as const
 
 const SAFE_TAR_TYPES: ReadonlySet<string> = new Set([
   'File',
@@ -50,9 +50,9 @@ export class ReplaceError extends Error {
   }
 }
 
-export const downloadPath = (appDir: string): string => `${appDir}.download`
-export const newPath = (appDir: string): string => `${appDir}.new`
-export const oldPath = (appDir: string): string => `${appDir}.old`
+const downloadPath = (appDir: string): string => `${appDir}.download`
+const newPath = (appDir: string): string => `${appDir}.new`
+const oldPath = (appDir: string): string => `${appDir}.old`
 
 export function archiveName(version: string): string {
   return `${PRODUCT_NAME}-${version}-linux-x64.tar.gz`
@@ -126,7 +126,7 @@ export async function canReplaceInstall(appDir: string): Promise<ReplaceAvailabi
   return { ok: true }
 }
 
-export function strippedEntry(path: string): string | null {
+function strippedEntry(path: string): string | null {
   const parts = path.split('/').filter((part) => part !== '' && part !== '.')
   return parts.length > 1 ? parts.slice(1).join('/') : null
 }
@@ -176,7 +176,7 @@ export async function checkArchive(file: string): Promise<void> {
   if (bad) throw new ReplaceError('bad-archive')
 }
 
-export async function checkExtracted(dir: string, version: string): Promise<void> {
+async function checkExtracted(dir: string, version: string): Promise<void> {
   try {
     const binary = await stat(resolve(dir, PRODUCT_NAME))
     if (!binary.isFile() || (binary.mode & 0o111) === 0) throw new ReplaceError('not-executable')

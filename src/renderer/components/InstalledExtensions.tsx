@@ -32,7 +32,7 @@ const ANCHOR_HIGHLIGHT_MS = 2000
 
 type InstalledChip = 'enabled' | 'disabled' | 'needs-approval' | 'problem'
 
-export function installedChip(ext: ExtensionInfo): InstalledChip {
+function installedChip(ext: ExtensionInfo): InstalledChip {
   if (ext.status === 'pending-approval') return 'needs-approval'
   if (ext.status === 'crashed' || ext.unapproved.length > 0) return 'problem'
   return ext.enabled ? 'enabled' : 'disabled'

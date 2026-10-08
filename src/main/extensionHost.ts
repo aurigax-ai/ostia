@@ -421,7 +421,7 @@ function hasControlChar(text: string): boolean {
   return false
 }
 
-export function terminalWaitMs(raw: unknown): number | null | string {
+function terminalWaitMs(raw: unknown): number | null | string {
   if (raw === undefined) return null
   if (typeof raw !== 'number' || !Number.isFinite(raw) || raw <= 0) {
     return 'waitMs must be a positive number of milliseconds'

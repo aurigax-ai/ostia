@@ -3,7 +3,6 @@ import type { KeybindingMap } from '@shared/chordSpec'
 import {
   NATURAL_TEXT_EDITING,
   OSTIA_KEYMAP,
-  appKeymapsFor,
   keyboardPlatform,
   terminalKeymapsFor,
 } from '@shared/keyboardPresets'
@@ -43,7 +42,7 @@ interface Choice {
   label: string
 }
 
-export interface PresetChoice {
+interface PresetChoice {
   layer: PresetLayer
   value: string
   label: string
@@ -60,8 +59,7 @@ function useAppPresetBindings(ref: string | null): Loaded {
     ref: null,
     loaded: { status: 'loading' },
   })
-  const builtin =
-    ref !== null && appKeymapsFor(keyboardPlatform(platform)).some((k) => k.id === ref)
+  const builtin = ref === OSTIA_KEYMAP
   useEffect(() => {
     if (ref === null || builtin || current) return
     let live = true
@@ -109,7 +107,7 @@ function sendOrNone(send: TerminalSend | null, none: string, d: ReturnType<typeo
   )
 }
 
-export function PresetPreview({
+function PresetPreview({
   choice,
   onApply,
   onCancel,
@@ -292,7 +290,7 @@ export function KeymapCombo({ onShowChanges }: { onShowChanges: () => void }): J
   const error = useKeymapStore((s) => (chosen && s.ref === chosen.ref ? s.error : null))
   const terminal = terminalKeymapOf(chosenTerminal, isMac)
   const appOptions = [
-    ...appKeymapsFor(here).map((k) => ({ value: k.id, label: appKeymapLabel(k.id, d) })),
+    { value: OSTIA_KEYMAP, label: appKeymapLabel(OSTIA_KEYMAP, d) },
     ...choices.map((c) => ({ value: c.ref, label: c.label })),
   ]
   const appValue = appOptions.some((o) => o.value === ref) ? ref : OSTIA_KEYMAP

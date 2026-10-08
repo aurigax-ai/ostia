@@ -89,8 +89,6 @@ import { InputGroup, InputGroupAddon, InputGroupInput } from './ui/input-group'
 import { Kbd } from './ui/kbd'
 import { TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table'
 
-export { KEY_TABLE_COLUMNS, problemText }
-
 const subscribeCommands = (cb: () => void): (() => void) => commands.subscribe(cb)
 const commandsVersion = (): number => commands.version()
 

@@ -10,7 +10,7 @@ export const RESUMABLE_AGENTS: readonly ResumableAgent[] = ['claude', 'codex']
 
 const RESUME_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/
 
-export const RESUME_CWD_MAX = 4096
+const RESUME_CWD_MAX = 4096
 
 function hasControlCharacter(text: string): boolean {
   for (const ch of text) {
@@ -24,7 +24,7 @@ export function isResumableAgent(value: unknown): value is ResumableAgent {
   return typeof value === 'string' && (RESUMABLE_AGENTS as readonly string[]).includes(value)
 }
 
-export function isResumeCwd(value: unknown): value is string {
+function isResumeCwd(value: unknown): value is string {
   return (
     typeof value === 'string' &&
     value.startsWith('/') &&

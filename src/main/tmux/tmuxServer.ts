@@ -7,7 +7,7 @@ import { SCREEN_INFO_FORMAT, screenReplay } from './screenReplay'
 import { type NewWindowSpec, newWindowCommand, sendKeysCommands, tmuxQuote } from './tmuxCommand'
 import { tmuxConf } from './tmuxConf'
 
-export const TMUX_SESSION = 'ostia'
+const TMUX_SESSION = 'ostia'
 const HOLDER_META = 'holder'
 const META_OPTION = '@ostia-meta'
 const DEAD_SUBSCRIPTION = 'ostia-dead'
@@ -75,9 +75,9 @@ async function processGone(pid: number, ms: number): Promise<void> {
 const RUN_DRAIN_MS = 200
 const RUN_STDERR_CAP = 2000
 
-export function inheritedFds(platform: NodeJS.Platform = process.platform): number[] {
+function inheritedFds(): number[] {
   try {
-    return readdirSync(platform === 'linux' ? '/proc/self/fd' : '/dev/fd')
+    return readdirSync(process.platform === 'linux' ? '/proc/self/fd' : '/dev/fd')
       .map(Number)
       .filter((fd) => Number.isInteger(fd) && fd > 2)
   } catch {
@@ -156,7 +156,6 @@ export class TmuxServer {
   private serverPid = 0
 
   private constructor(
-    private readonly options: TmuxServerOptions,
     private readonly socket: string,
     private readonly client: ChildProcessWithoutNullStreams,
     private readonly onGone: () => void,
@@ -205,7 +204,7 @@ export class TmuxServer {
       stdio: withoutInheritedFds(['pipe', 'pipe', 'pipe'], devNull),
     }) as ChildProcessWithoutNullStreams
     closeSync(devNull)
-    const server = new TmuxServer(options, socket, client, onGone)
+    const server = new TmuxServer(socket, client, onGone)
     await server.command(
       `refresh-client -B ${tmuxQuote(`${DEAD_SUBSCRIPTION}:%*:#{pane_dead}:#{pane_dead_status}:#{pane_dead_signal}`)}`,
     )
@@ -404,15 +403,11 @@ export class TmuxServer {
     this.panes.clear()
     this.onGone()
   }
-
-  get defaultTerminal(): string {
-    return this.options.defaultTerminal
-  }
 }
 
 type Listener<T> = (value: T) => void
 
-export interface Disposable {
+interface Disposable {
   dispose(): void
 }
 

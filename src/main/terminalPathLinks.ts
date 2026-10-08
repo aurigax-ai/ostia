@@ -8,9 +8,9 @@ import type { FsKind, OpenPathResult } from '../shared/types'
 import type { OpenFileGrants } from './openFileGrants'
 import { isProgram } from './openPath'
 
-export const PROBE_TTL_MS = 5_000
-export const PROBE_CACHE_MAX = 500
-export const PROBE_RATE_WINDOW_MS = 1_000
+const PROBE_TTL_MS = 5_000
+const PROBE_CACHE_MAX = 500
+const PROBE_RATE_WINDOW_MS = 1_000
 export const PROBE_RATE_MAX = 40
 const PROBE_CALLERS_MAX = 64
 const PATH_MAX = 4096

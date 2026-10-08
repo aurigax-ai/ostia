@@ -161,7 +161,7 @@ export interface KeptShell {
   meta: KeptMeta
 }
 
-export type KeptShellsLog = (event: string, fields: Record<string, string>) => void
+type KeptShellsLog = (event: string, fields: Record<string, string>) => void
 
 export type KeptProgram = Omit<TmuxServerOptions, 'dir' | 'name'>
 
@@ -172,13 +172,13 @@ export interface KeptShellsDeps {
   log: KeptShellsLog
 }
 
-export type KeptSpawnSpec = Omit<NewWindowSpec, 'session'> & {
+type KeptSpawnSpec = Omit<NewWindowSpec, 'session'> & {
   cols: number
   rows: number
   meta: KeptMeta
 }
 
-export type KeptHostSpawnSpec = Omit<NewWindowSpec, 'session'> & { meta: KeptHostMeta }
+type KeptHostSpawnSpec = Omit<NewWindowSpec, 'session'> & { meta: KeptHostMeta }
 
 interface Waiting<M> {
   window: KeptWindow

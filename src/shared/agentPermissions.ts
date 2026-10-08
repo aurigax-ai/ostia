@@ -7,14 +7,14 @@ import {
   plainBlock,
 } from './questions'
 
-export const PERMISSION_AGENTS = ['claude', 'codex'] as const
+const PERMISSION_AGENTS = ['claude', 'codex'] as const
 export type PermissionAgent = (typeof PERMISSION_AGENTS)[number]
 
 export const PERMISSION_CHOICES = ['once', 'always', 'deny'] as const
 export type PermissionChoice = (typeof PERMISSION_CHOICES)[number]
 
 export const PERMISSION_WAIT_MS = 300_000
-export const PERMISSION_TOOL_MAX = 120
+const PERMISSION_TOOL_MAX = 120
 export const PERMISSION_HOOK_INPUT_MAX = 1024 * 1024
 
 export interface PermissionInfo {
@@ -22,7 +22,7 @@ export interface PermissionInfo {
   tool: string
 }
 
-export interface PermissionRequestPayload {
+interface PermissionRequestPayload {
   tool: string
   toolInput: unknown
   suggestions: unknown[]
@@ -103,7 +103,7 @@ export function permissionAskParams(
   }
 }
 
-export function permissionChoices(always: boolean): PermissionChoice[] {
+function permissionChoices(always: boolean): PermissionChoice[] {
   return always ? ['once', 'always', 'deny'] : ['once', 'deny']
 }
 

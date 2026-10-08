@@ -2,7 +2,7 @@ import { PRODUCT_NAME } from './product'
 import { DEFAULT_UPDATE_CHANNEL, type ReleaseInfo, type UpdateChannel } from './releases'
 import { quoteArgv } from './shellQuote'
 
-export const INSTALL_METHODS = ['apt', 'brew', 'local', 'tarball', 'dmg', 'dev'] as const
+const INSTALL_METHODS = ['apt', 'brew', 'local', 'tarball', 'dmg', 'dev'] as const
 
 export type InstallMethod = (typeof INSTALL_METHODS)[number]
 
@@ -14,7 +14,7 @@ export const UPDATE_COMMANDS: Readonly<Record<'apt' | 'brew', readonly (readonly
   brew: [['brew', 'upgrade', '--cask', PRODUCT_NAME]],
 }
 
-export type ManagedInstallMethod = keyof typeof UPDATE_COMMANDS
+type ManagedInstallMethod = keyof typeof UPDATE_COMMANDS
 
 const REPLACEABLE_METHODS: readonly InstallMethod[] = ['local', 'tarball']
 
@@ -54,7 +54,7 @@ export const UPDATE_DOWNLOAD_HOSTS: readonly string[] = [
   'release-assets.githubusercontent.com',
 ]
 
-export type ReplaceBlock = 'not-writable' | 'system-path' | 'symlink' | 'leftover'
+type ReplaceBlock = 'not-writable' | 'system-path' | 'symlink' | 'leftover'
 
 export type ReplaceAvailability = { ok: true } | { ok: false; reason: ReplaceBlock; path?: string }
 

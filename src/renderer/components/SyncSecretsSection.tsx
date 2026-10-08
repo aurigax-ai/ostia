@@ -20,7 +20,7 @@ import { Switch } from './ui/switch'
 type Form = 'unlock' | 'recover' | 'change' | 'reset' | null
 type Confirming = 'remove' | 'reset' | null
 
-export function secretErrorText(d: Dict, error: string | undefined): string {
+function secretErrorText(d: Dict, error: string | undefined): string {
   const t = d.sync.secrets.errors
   switch (error) {
     case 'too-short':

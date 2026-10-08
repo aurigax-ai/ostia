@@ -118,7 +118,7 @@ export interface GhosttyTerminal {
   setPaused: PauseTerminal
 }
 
-export function oneBasedRange(range: GhosttyRange) {
+function oneBasedRange(range: GhosttyRange) {
   return {
     start: { x: range.start.x + 1, y: range.start.y + 1 },
     end: { x: range.end.x + 1, y: range.end.y + 1 },

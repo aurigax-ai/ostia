@@ -11,7 +11,7 @@ export function readBuildInfo(path: string): BuildInfo | null {
   }
 }
 
-export function buildInfoPath(): string | null {
+function buildInfoPath(): string | null {
   if (app.isPackaged) return join(process.resourcesPath, 'build-info.json')
   if (process.env.ELECTRON_RENDERER_URL) return null
   return join(app.getAppPath(), 'out', 'build-info.json')

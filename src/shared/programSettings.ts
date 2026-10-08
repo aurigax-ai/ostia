@@ -1,9 +1,4 @@
-export type ProgramSettingGroup =
-  | 'behavior'
-  | 'notifications'
-  | 'agents'
-  | 'terminal'
-  | 'workspaces'
+type ProgramSettingGroup = 'behavior' | 'notifications' | 'agents' | 'terminal' | 'workspaces'
 
 export const PROGRAM_SETTINGS: readonly { group: ProgramSettingGroup; field: string }[] = [
   { group: 'behavior', field: 'externalEditor' },

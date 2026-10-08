@@ -10,9 +10,9 @@ import { Button } from './ui/button'
 import { Kbd } from './ui/kbd'
 import { TableCell, TableRow } from './ui/table'
 
-export const ROW_TOGGLE = 'row-toggle'
+const ROW_TOGGLE = 'row-toggle'
 
-export function moveRowFocus(from: HTMLElement, step: 1 | -1): boolean {
+function moveRowFocus(from: HTMLElement, step: 1 | -1): boolean {
   const scope = from.closest('table')
   if (!scope) return false
   const toggles = [...scope.querySelectorAll<HTMLElement>(`[data-slot="${ROW_TOGGLE}"]`)]
@@ -22,7 +22,7 @@ export function moveRowFocus(from: HTMLElement, step: 1 | -1): boolean {
   return true
 }
 
-export function onToggleKey(
+function onToggleKey(
   e: ReactKeyboardEvent<HTMLElement>,
   expanded: boolean,
   collapse: () => void,
