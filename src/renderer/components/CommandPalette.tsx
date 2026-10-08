@@ -469,22 +469,20 @@ function PaletteColumns(): JSX.Element {
     const host = ref.current?.closest<HTMLElement>('[data-slot="command-list"]')
     if (!host) return
     const measure = (): void => {
-      const cap = Math.floor(host.clientWidth / 2)
+      const cap = Math.floor(
+        (host.querySelector('[data-slot="palette-row"]')?.clientWidth ?? 0) / 2,
+      )
+      host.style.removeProperty('--palette-name-w')
       let name = 0
       let keys = 0
       for (const row of host.querySelectorAll('[data-slot="palette-row"]:not([data-fluid])')) {
-        const cell = row.querySelector<HTMLElement>('[data-slot="palette-name"]')
-        if (cell) {
-          const parts = [...cell.children]
-          const gap = Number.parseFloat(getComputedStyle(cell).columnGap) || 0
-          const width = parts.reduce((sum, part) => sum + part.scrollWidth, 0)
-          name = Math.max(name, width + Math.max(0, parts.length - 1) * gap)
-        }
+        const cell = row.querySelector('[data-slot="palette-name"]')
+        if (cell) name = Math.max(name, Number.parseFloat(getComputedStyle(cell).width) || 0)
         keys = Math.max(keys, row.querySelector('[data-slot="palette-keys"]')?.scrollWidth ?? 0)
       }
-      if (name > 0)
-        host.style.setProperty('--palette-name-w', `${cap > 0 ? Math.min(name, cap) : name}px`)
-      else host.style.removeProperty('--palette-name-w')
+      const width = Math.ceil(name)
+      if (width > 0)
+        host.style.setProperty('--palette-name-w', `${cap > 0 ? Math.min(width, cap) : width}px`)
       host.style.setProperty('--palette-keys-w', `${keys}px`)
     }
     measure()
@@ -524,7 +522,7 @@ function ItemRow({
       className={cn(
         'grid min-w-0 flex-1 items-center gap-x-3 tabular-nums',
         fluid
-          ? 'grid-cols-[minmax(0,max-content)_var(--palette-keys-w,max-content)_minmax(0,1fr)]'
+          ? 'grid-cols-[fit-content(50%)_var(--palette-keys-w,max-content)_minmax(0,1fr)]'
           : 'grid-cols-[var(--palette-name-w,max-content)_var(--palette-keys-w,max-content)_minmax(0,1fr)]',
       )}
     >

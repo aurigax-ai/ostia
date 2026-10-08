@@ -9,8 +9,14 @@ async function columns(win: Page) {
   return win.evaluate(() => {
     const list = document.querySelector('[data-slot="command-list"]') as HTMLElement
     const listRect = list.getBoundingClientRect()
-    const rows = [...document.querySelectorAll('[data-slot="palette-row"]')].map((row) => {
+    const rowEls = [...document.querySelectorAll('[data-slot="palette-row"]')] as HTMLElement[]
+    const cap = Math.floor(rowEls[0].clientWidth / 2)
+    const nameColumn = Number.parseFloat(list.style.getPropertyValue('--palette-name-w'))
+    const rows = rowEls.map((row) => {
       const name = row.querySelector('[data-slot="palette-name"]') as HTMLElement
+      const title = name.firstElementChild as HTMLElement
+      const text = document.createRange()
+      text.selectNodeContents(title)
       const keys = row.querySelector('[data-slot="palette-keys"]') as HTMLElement
       const meta = row.querySelector('[data-slot="palette-meta"]') as HTMLElement
       const nameRect = name.getBoundingClientRect()
@@ -24,6 +30,9 @@ async function columns(win: Page) {
         metaClear: metaRect.left >= keysRect.right - 0.5 && metaRect.right <= listRect.right + 0.5,
         metaCut: meta.scrollWidth > meta.clientWidth,
         sameLine: Math.abs(keysRect.top - nameRect.top) < 20,
+        titleCut:
+          !row.hasAttribute('data-fluid') &&
+          text.getBoundingClientRect().width > title.getBoundingClientRect().width + 0.01,
       }
     })
     const spread = (values: number[]) => Math.max(...values) - Math.min(...values)
@@ -34,6 +43,7 @@ async function columns(win: Page) {
       sameLine: rows.every((r) => r.sameLine),
       metaClear: rows.every((r) => r.metaClear),
       metaCut: rows.filter((r) => r.metaCut).length,
+      titleCut: nameColumn < cap ? rows.filter((r) => r.titleCut).length : 0,
       keysLeftSpread: spread(rows.map((r) => r.keysLeft)),
       metaRightSpread: spread(rows.map((r) => r.metaRight)),
       widestGap: widest.keysLeft - widest.nameRight,
@@ -61,6 +71,7 @@ test('the palette lines keycaps up in one column right after the names and secon
     expect(all.metaRightSpread).toBeLessThanOrEqual(1)
     expect(all.widestGap).toBeLessThanOrEqual(24)
     expect(all.keysWithinHalf).toBe(true)
+    expect(all.titleCut).toBe(0)
 
     await palette.getByRole('combobox').fill('pane')
     await expect(palette.getByRole('option', { name: /pane/i }).first()).toBeVisible()
@@ -70,6 +81,7 @@ test('the palette lines keycaps up in one column right after the names and secon
     expect(searched.keysLeftSpread).toBeLessThanOrEqual(1)
     expect(searched.metaRightSpread).toBeLessThanOrEqual(1)
     expect(searched.widestGap).toBeLessThanOrEqual(24)
+    expect(searched.titleCut).toBe(0)
   } finally {
     await app.close()
   }

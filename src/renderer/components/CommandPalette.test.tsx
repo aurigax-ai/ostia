@@ -306,7 +306,7 @@ describe('CommandPalette', () => {
       expect(id).toHaveClass('truncate', 'min-w-0', 'justify-self-end')
     })
 
-    it('sizes the title column from the widest title, leaves fluid rows out and measures again on resize', async () => {
+    it('sizes the title column from the widest title rounded up, caps it at half a row, leaves fluid rows out and measures again on resize', async () => {
       const resizes: { target: Element; measure: () => void }[] = []
       const original = globalThis.ResizeObserver
       globalThis.ResizeObserver = class {
@@ -321,14 +321,21 @@ describe('CommandPalette', () => {
         disconnect() {}
       } as unknown as typeof ResizeObserver
       let listWidth = 2000
-      const scroll = vi.spyOn(Element.prototype, 'scrollWidth', 'get').mockImplementation(function (
+      const natural = (cell: Element) => (cell.textContent ?? '').length * 7.37
+      const realStyle = window.getComputedStyle
+      const style = vi.spyOn(window, 'getComputedStyle').mockImplementation((el, pseudo) => {
+        const real = realStyle.call(window, el, pseudo)
+        if (!(el instanceof HTMLElement) || el.dataset.slot !== 'palette-name') return real
+        const host = el.closest<HTMLElement>('[data-slot="command-list"]')
+        const column = Number.parseFloat(host?.style.getPropertyValue('--palette-name-w') ?? '')
+        const width = `${Math.min(natural(el), column || Number.POSITIVE_INFINITY)}px`
+        return Object.defineProperty(real, 'width', { value: width })
+      })
+      const client = vi.spyOn(Element.prototype, 'clientWidth', 'get').mockImplementation(function (
         this: Element,
       ) {
-        return (this.textContent ?? '').length * 8
+        return (this as HTMLElement).dataset.slot === 'palette-row' ? listWidth - 48 : listWidth
       })
-      const client = vi
-        .spyOn(Element.prototype, 'clientWidth', 'get')
-        .mockImplementation(() => listWidth)
       const span = (slot: string, text = ''): HTMLElement => {
         const el = document.createElement('span')
         el.dataset.slot = slot
@@ -351,26 +358,32 @@ describe('CommandPalette', () => {
         await screen.findByRole('option', { name: /Open Settings/ })
         const list = document.querySelector('[data-slot="command-list"]') as HTMLElement
         const widest = Math.max(
-          ...[...list.querySelectorAll('[data-slot="palette-name"]')].map(
-            (cell) => (cell.textContent ?? '').length * 8,
-          ),
+          ...[...list.querySelectorAll('[data-slot="palette-name"]')].map(natural),
         )
         const nameWidth = () => list.style.getPropertyValue('--palette-name-w')
+        const remeasure = () => {
+          for (const r of resizes.filter((r) => r.target === list)) r.measure()
+        }
         expect(widest).toBeGreaterThan(0)
-        expect(nameWidth()).toBe(`${widest}px`)
+        expect(Number.isInteger(widest)).toBe(false)
+        expect(nameWidth()).toBe(`${Math.ceil(widest)}px`)
 
         act(() => list.append(longRow(true)))
         await new Promise((resolve) => setTimeout(resolve, 0))
-        expect(nameWidth()).toBe(`${widest}px`)
+        expect(nameWidth()).toBe(`${Math.ceil(widest)}px`)
 
         act(() => list.append(longRow(false)))
-        await waitFor(() => expect(nameWidth()).toBe('1000px'))
+        await waitFor(() => expect(nameWidth()).toBe('976px'))
 
         listWidth = 600
-        for (const r of resizes.filter((r) => r.target === list)) r.measure()
-        expect(nameWidth()).toBe('300px')
+        remeasure()
+        expect(nameWidth()).toBe('276px')
+
+        listWidth = 2000
+        remeasure()
+        expect(nameWidth()).toBe('976px')
       } finally {
-        scroll.mockRestore()
+        style.mockRestore()
         client.mockRestore()
         globalThis.ResizeObserver = original
       }
