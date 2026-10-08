@@ -19,6 +19,7 @@ const linux = process.platform === 'linux'
 const installScript = join(process.cwd(), 'packaging', 'linux', 'install.sh')
 const userInstallScript = join(process.cwd(), 'packaging', 'linux', 'user-install.sh')
 const localInstallScript = join(process.cwd(), 'scripts', 'install-linux.sh')
+const headersScript = join(process.cwd(), 'scripts', 'electron-headers.sh')
 const root = realpathSync(mkdtempSync(join(tmpdir(), 'ostia-install-')))
 const home = join(root, 'home')
 const releases = join(root, 'release', 'aurigax-ai', 'ostia', 'releases')
@@ -284,9 +285,13 @@ describe.skipIf(!linux)('packaging/linux/user-install.sh', () => {
 
 describe.skipIf(spawnSync('shellcheck', ['--version']).status !== 0)('shell scripts', () => {
   it('pass shellcheck', () => {
-    const result = spawnSync('shellcheck', [installScript, userInstallScript, localInstallScript], {
-      encoding: 'utf8',
-    })
+    const result = spawnSync(
+      'shellcheck',
+      [installScript, userInstallScript, localInstallScript, headersScript],
+      {
+        encoding: 'utf8',
+      },
+    )
     expect(result.stdout).toBe('')
     expect(result.status).toBe(0)
   })

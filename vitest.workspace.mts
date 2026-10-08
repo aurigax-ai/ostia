@@ -25,6 +25,7 @@ export default defineWorkspace([
         'test/mainBuild.test.ts',
         'test/retry.test.ts',
         'test/installScript.test.ts',
+        'test/electronHeaders.test.ts',
       ],
     },
   },

@@ -29,13 +29,6 @@ runs:
           ~/Library/Caches/electron
           ~/Library/Caches/electron-builder
         key: electron-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
-    - if: inputs.electron == 'true' && runner.environment != 'github-hosted'
-      shell: bash
-      run: |
-        if [ -w /opt/ci-cache ]; then
-          mkdir -p /opt/ci-cache/electron-gyp
-          ln -sfn /opt/ci-cache/electron-gyp ~/.electron-gyp
-        fi
     - shell: bash
       env:
         IGNORE_SCRIPTS: ${{ inputs.electron != 'true' && '--ignore-scripts' || '' }}
@@ -45,3 +38,14 @@ runs:
           export npm_config_nodedir="$node_prefix"
         fi
         scripts/retry.sh pnpm install --frozen-lockfile $IGNORE_SCRIPTS
+    - if: inputs.electron == 'true' && runner.environment != 'github-hosted'
+      shell: bash
+      run: |
+        [ -w /opt/ci-cache ] || exit 0
+        cache=/opt/ci-cache/electron-gyp
+        version=$(node -p "require('electron/package.json').version")
+        if ! scripts/electron-headers.sh restore "$cache" "$version"; then
+          scripts/retry.sh node node_modules/.pnpm/node_modules/node-gyp/bin/node-gyp.js install \
+            "--target=$version" --dist-url=https://www.electronjs.org/headers "--devdir=$HOME/.electron-gyp"
+          scripts/electron-headers.sh publish "$cache" "$version"
+        fi
