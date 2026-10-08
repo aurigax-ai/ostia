@@ -1273,7 +1273,7 @@ commands:
                             move those running tabs into another workspace of their window
                             (a tab you opened needs nothing more, any other asks for
                             type-other-pane; all-workspaces outside your reach)
-  vault | bus | settings | browse | gateway <subcommand> ...
+  vault | bus | settings | browse | gateway | token <subcommand> ...
   ext ls | ext <extId> <command> [args...]
   <extId> <command> [args...]  an extension command, e.g. ostia git status
   <command.id> [json-args] [--workspace <id|name>]
