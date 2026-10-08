@@ -153,6 +153,7 @@ describe('uiStore', () => {
       state().searchFiles('needle')
       expect(state()).toMatchObject({
         filesOpen: true,
+        filesSearchOpen: true,
         filesSearchFocus: true,
         filesSearchQuery: 'needle',
       })
