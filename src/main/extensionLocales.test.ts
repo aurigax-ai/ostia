@@ -356,7 +356,7 @@ describe('the catalogs shipped in this repository', () => {
     ...readdirSync(extensions)
       .filter((id) => id !== 'sdk')
       .map((id) => join(extensions, id)),
-    join(repoRoot, 'sdk-package/template'),
+    join(repoRoot, 'sdk/template'),
     join(repoRoot, 'test/fixtures/extensions-e2e/hello'),
   ]
 

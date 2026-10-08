@@ -4,7 +4,7 @@ import { join, relative } from 'node:path'
 
 const versionSource = 'src/shared/extensionApi.ts'
 const versionPattern = /EXTENSION_API_VERSION = '(\d+)\.(\d+)'/
-export const lockFile = 'sdk-package/api-lock.json'
+export const lockFile = 'sdk/api-lock.json'
 
 export function apiVersion() {
   const match = versionPattern.exec(readFileSync(versionSource, 'utf8'))
@@ -45,7 +45,7 @@ export function inTreeManifests() {
   const extensions = readdirSync('src/extensions', { withFileTypes: true })
     .filter((entry) => entry.isDirectory() && entry.name !== 'sdk')
     .map((entry) => join('src/extensions', entry.name, 'ostia.json'))
-  return [...extensions, 'sdk-package/template/ostia.json']
+  return [...extensions, 'sdk/template/ostia.json']
 }
 
 export function writeManifestApi(file, version) {

@@ -1,6 +1,6 @@
 import { chords, isMac } from './chords'
 import { isolatedLaunch } from './dataHome'
-import { openWorkspace } from './helpers'
+import { addTab, openWorkspace } from './helpers'
 import { type Page, _electron as electron, expect, test } from './test'
 
 const shownTerminalFocused = (win: Page) =>
@@ -17,12 +17,8 @@ test('Ctrl+Tab and Ctrl+Shift+Tab cycle the tabs of the focused pane', async () 
     const win = await app.firstWindow()
     await win.waitForLoadState('domcontentloaded')
     await openWorkspace(win)
-    const strip = win.getByRole('tablist')
-    const box = await strip.boundingBox()
-    const lastTab = await strip.locator('.pane-tab').last().boundingBox()
-    if (!lastTab || !box) throw new Error('tab strip is not laid out')
-    await win.mouse.dblclick(lastTab.x + lastTab.width + 40, box.y + box.height / 2)
-    const tabs = strip.getByRole('tab')
+    await addTab(win)
+    const tabs = win.getByRole('tablist').getByRole('tab')
     await expect(tabs).toHaveCount(2, { timeout: 15_000 })
     await expect(tabs.nth(1)).toHaveAttribute('aria-selected', 'true')
 
@@ -50,12 +46,8 @@ test('Ctrl+PageDown and Ctrl+PageUp cycle the tabs of the focused pane on Linux'
     const win = await app.firstWindow()
     await win.waitForLoadState('domcontentloaded')
     await openWorkspace(win)
-    const strip = win.getByRole('tablist')
-    const box = await strip.boundingBox()
-    const lastTab = await strip.locator('.pane-tab').last().boundingBox()
-    if (!lastTab || !box) throw new Error('tab strip is not laid out')
-    await win.mouse.dblclick(lastTab.x + lastTab.width + 40, box.y + box.height / 2)
-    const tabs = strip.getByRole('tab')
+    await addTab(win)
+    const tabs = win.getByRole('tablist').getByRole('tab')
     await expect(tabs).toHaveCount(2, { timeout: 15_000 })
     await expect(tabs.nth(1)).toHaveAttribute('aria-selected', 'true')
 

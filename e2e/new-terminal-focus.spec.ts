@@ -1,4 +1,4 @@
-import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
+import { freshDataHome, isolatedLaunch } from './dataHome'
 import { PROMPT, emptyState, emptyWorkspace } from './helpers'
 import { type Page, _electron as electron, expect, test } from './test'
 
@@ -13,7 +13,6 @@ async function typesIntoNewest(win: Page, count: number, marker: string): Promis
 
 test('a terminal the human creates takes the keyboard without a click', async () => {
   const dataHome = freshDataHome()
-  seedSettings(dataHome, { ...DOM_RENDERER_SETTINGS })
   const app = await electron.launch(isolatedLaunch(dataHome))
   try {
     const win = await app.firstWindow()

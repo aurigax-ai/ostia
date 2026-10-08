@@ -1,11 +1,18 @@
 import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync } from 'node:fs'
-import { type Server, createServer } from 'node:http'
-import type { AddressInfo } from 'node:net'
+import type { Server } from 'node:http'
 import { join } from 'node:path'
 import { KEPT_SHELLS_DIR } from '../src/shared/keepShells'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
-import { PROMPT, emptyWorkspace, openWorkspace } from './helpers'
+import {
+  PROMPT,
+  newTerminalWorkspace,
+  openWorkspace,
+  quitApp,
+  restartApp,
+  runInTerminal,
+} from './helpers'
+import { fakeUpstream, freePort, sandboxedShell } from './sandboxShell'
 import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
 
 test.skip(process.platform !== 'linux', 'sandboxed kept shells are exercised on Linux')
@@ -30,64 +37,8 @@ async function launch(): Promise<Launched> {
   return { app, win }
 }
 
-async function quit(app: ElectronApplication): Promise<void> {
-  await app
-    .evaluate(({ app: electronApp }) => {
-      setTimeout(() => electronApp.quit(), 0)
-    })
-    .catch(() => {})
-  await app.close().catch(() => {})
-}
-
-async function restart({ app, win }: Launched): Promise<void> {
-  await app.evaluate(({ app: electronApp }) => {
-    electronApp.relaunch = () => undefined
-  })
-  const closed = app.waitForEvent('close')
-  await win.evaluate(() => {
-    void window.ostia.update.restart()
-  })
-  await closed
-}
-
-async function run(win: Page, command: string): Promise<void> {
-  await win.locator('.xterm').first().click()
-  await win.keyboard.type(command)
-  await win.keyboard.press('Enter')
-}
-
 function screen(win: Page) {
   return win.locator('.xterm-rows').first()
-}
-
-async function sandboxedShell(win: Page): Promise<void> {
-  await win.locator('.rail-row').first().click({ button: 'right' })
-  await win.getByRole('menuitemcheckbox', { name: 'Sandbox' }).click()
-  const restartShell = win.getByRole('button', { name: 'Restart to apply' })
-  await restartShell.click()
-  await expect(restartShell).toHaveCount(0)
-  await expect(async () => {
-    await run(win, 'echo sandbox=${HTTPS_PROXY:+on}')
-    await expect(screen(win)).toContainText('sandbox=on', { timeout: 2_000 })
-  }).toPass({ timeout: 30_000 })
-}
-
-async function fakeUpstream(): Promise<{ server: Server; url: string }> {
-  const server = createServer((_req, res) => {
-    res.writeHead(200, { 'content-type': 'text/plain' })
-    res.end('UPSTREAM-REACHED')
-  })
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
-  const { port } = server.address() as AddressInfo
-  return { server, url: `http://127.0.0.1:${port}` }
-}
-
-async function freePort(): Promise<number> {
-  const probe = createServer()
-  await new Promise<void>((resolve) => probe.listen(0, '127.0.0.1', resolve))
-  const { port } = probe.address() as AddressInfo
-  await new Promise((resolve) => probe.close(resolve))
-  return port
 }
 
 function card(win: Page) {
@@ -120,18 +71,18 @@ test('KSH-C50 a sandboxed shell reaching an allowed domain keeps working across 
   try {
     await openWorkspace(first.win)
     await sandboxedShell(first.win)
-    await run(
+    await runInTerminal(
       first.win,
       'curl -s -m 30 -o /dev/null -w "first=%{http_code}\\n" http://kept.ostia-e2e.test/a',
     )
     await card(first.win).getByRole('button', { name: 'Allow for this workspace' }).click()
     await expect(screen(first.win)).toContainText('first=200', { timeout: 30_000 })
-    await run(
+    await runInTerminal(
       first.win,
       'clear; for i in $(seq 1 40); do curl -s -m 5 -o /dev/null -w "n$i=%{http_code} " http://kept.ostia-e2e.test/b; sleep 0.5; done',
     )
     await expect(screen(first.win)).toContainText('n2=200', { timeout: 15_000 })
-    await restart(first)
+    await restartApp(first.app, first.win)
 
     const second = await launch()
     try {
@@ -139,7 +90,7 @@ test('KSH-C50 a sandboxed shell reaching an allowed domain keeps working across 
       await expect(screen(second.win)).toContainText('n30=200', { timeout: 30_000 })
       await expect(second.win.getByRole('button', { name: 'Restart to apply' })).toHaveCount(0)
     } finally {
-      await quit(second.app)
+      await quitApp(second.app)
     }
   } finally {
     upstream.close()
@@ -148,17 +99,18 @@ test('KSH-C50 a sandboxed shell reaching an allowed domain keeps working across 
 
 test('KSH-C51 a request to a new domain made while Ostia is closed shows its card once Ostia is back', async () => {
   test.setTimeout(120_000)
+  const asking = join(home, 'project', 'asking')
   const upstream = await proxied()
   const first = await launch()
   try {
     await openWorkspace(first.win)
     await sandboxedShell(first.win)
-    await run(
+    await runInTerminal(
       first.win,
-      'sleep 3; curl -s -m 90 -o /dev/null -w "later=%{http_code}\\n" http://later.ostia-e2e.test/x',
+      `sleep 3; touch ${asking}; curl -s -m 90 -o /dev/null -w "later=%{http_code}\\n" http://later.ostia-e2e.test/x`,
     )
-    await restart(first)
-    await new Promise((r) => setTimeout(r, 5000))
+    await restartApp(first.app, first.win)
+    await expect.poll(() => existsSync(asking), { timeout: 15_000 }).toBe(true)
 
     const second = await launch()
     try {
@@ -166,7 +118,7 @@ test('KSH-C51 a request to a new domain made while Ostia is closed shows its car
       await card(second.win).getByRole('button', { name: 'Allow for this workspace' }).click()
       await expect(screen(second.win)).toContainText('later=200', { timeout: 30_000 })
     } finally {
-      await quit(second.app)
+      await quitApp(second.app)
     }
   } finally {
     upstream.close()
@@ -178,17 +130,17 @@ test('KSH-C56 a kept sandbox keeps its temp folder across a restart', async () =
   const first = await launch()
   await openWorkspace(first.win)
   await sandboxedShell(first.win)
-  await run(first.win, 'touch "$TMPDIR/kept-marker" && echo marked-$((1+1))')
+  await runInTerminal(first.win, 'touch "$TMPDIR/kept-marker" && echo marked-$((1+1))')
   await expect(screen(first.win)).toContainText('marked-2', { timeout: 15_000 })
-  await restart(first)
+  await restartApp(first.app, first.win)
 
   const second = await launch()
   try {
     await expect(screen(second.win)).toContainText(PROMPT, { timeout: 30_000 })
-    await run(second.win, 'clear; [ -f "$TMPDIR/kept-marker" ] && echo tmp-$((2+2))')
+    await runInTerminal(second.win, 'clear; [ -f "$TMPDIR/kept-marker" ] && echo tmp-$((2+2))')
     await expect(screen(second.win)).toContainText('tmp-4', { timeout: 15_000 })
   } finally {
-    await quit(second.app)
+    await quitApp(second.app)
   }
 })
 
@@ -198,15 +150,15 @@ test('KSH-C58 an exposed port answers again after a restart without a new approv
   const first = await launch()
   await openWorkspace(first.win)
   await sandboxedShell(first.win)
-  await run(first.win, `ostia sandbox expose ${port}`)
+  await runInTerminal(first.win, `ostia sandbox expose ${port}`)
   await card(first.win).getByRole('button', { name: 'Allow for this workspace' }).click()
   await expect(screen(first.win)).toContainText(`exposed: 127.0.0.1:${port}`, { timeout: 15_000 })
   const script = `require("http").createServer((q,r)=>r.end("INSIDE-C58")).listen(${port},"127.0.0.1")`
-  await run(first.win, `ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" -e '${script}' &`)
+  await runInTerminal(first.win, `ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" -e '${script}' &`)
   await expect(async () => {
     expect(await (await fetch(`http://127.0.0.1:${port}/`)).text()).toBe('INSIDE-C58')
   }).toPass({ timeout: 30_000 })
-  await restart(first)
+  await restartApp(first.app, first.win)
 
   const second = await launch()
   try {
@@ -216,7 +168,7 @@ test('KSH-C58 an exposed port answers again after a restart without a new approv
     }).toPass({ timeout: 30_000 })
     await expect(card(second.win)).toHaveCount(0)
   } finally {
-    await quit(second.app)
+    await quitApp(second.app)
   }
 })
 
@@ -228,14 +180,14 @@ test('KSH-C61 no socket a sandboxed shell can see is its sandbox host', async ()
     await sandboxedShell(first.win)
     const tmuxDir = join(dataHome, 'userData', KEPT_SHELLS_DIR)
     const name = createHash('sha256').update(join(dataHome, 'userData')).digest('hex').slice(0, 16)
-    await run(
+    await runInTerminal(
       first.win,
       `echo "host-in-tmp=$(find "$TMPDIR" -type s -name '*host*' 2>/dev/null | wc -l)"; ls ${tmuxDir} 2>/dev/null | grep -c -e ${name} -e '^host-' | sed 's/^/host-seen=/'`,
     )
     await expect(screen(first.win)).toContainText('host-in-tmp=0', { timeout: 15_000 })
     await expect(screen(first.win)).toContainText('host-seen=0')
   } finally {
-    await quit(first.app)
+    await quitApp(first.app)
   }
 })
 
@@ -253,8 +205,7 @@ test('KSH-C83 a sandboxed shell opened before keep shells was turned on cannot r
     expect(existsSync(tmuxDir)).toBe(false)
 
     seedSettings(dataHome, { ...DOM_RENDERER_SETTINGS, terminal: { keepShells: true }, workspaces })
-    await win.locator('.topbar').getByRole('button', { name: 'New workspace' }).click()
-    await emptyWorkspace(win).getByRole('button', { name: 'New terminal' }).click()
+    await newTerminalWorkspace(win)
     await expect.poll(() => existsSync(socket), { timeout: 30_000 }).toBe(true)
 
     await win.locator('.deck-rail .rail-tab-main').first().click()
@@ -269,6 +220,6 @@ test('KSH-C83 a sandboxed shell opened before keep shells was turned on cannot r
       { timeout: 15_000 },
     )
   } finally {
-    await quit(app)
+    await quitApp(app)
   }
 })

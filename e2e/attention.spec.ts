@@ -1,5 +1,5 @@
 import { isolatedLaunch } from './dataHome'
-import { openWorkspace } from './helpers'
+import { PROMPT, openWorkspace } from './helpers'
 import { _electron as electron, expect, test } from './test'
 
 test('a terminal notification in a background pane marks it unread and Ctrl+Shift+U jumps to it', async () => {
@@ -15,7 +15,7 @@ test('a terminal notification in a background pane marks it unread and Ctrl+Shif
     await expect(panes).toHaveCount(2)
     const first = panes.nth(0)
     const second = panes.nth(1)
-    await expect(second.locator('.xterm-rows')).toContainText(/[❯$%#]/, { timeout: 15_000 })
+    await expect(second.locator('.xterm-rows')).toContainText(PROMPT, { timeout: 15_000 })
 
     await first.locator('.xterm').click()
     await expect(first).toHaveClass(/\bactive\b/)

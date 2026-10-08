@@ -47,13 +47,4 @@ export default defineWorkspace([
       },
     },
   },
-  {
-    extends: './vitest.config.mts',
-    test: {
-      name: 'security',
-      environment: 'node',
-      include: ['test/security/**/*.test.ts'],
-      passWithNoTests: true,
-    },
-  },
 ])

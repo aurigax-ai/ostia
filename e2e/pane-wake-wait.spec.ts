@@ -1,7 +1,13 @@
-import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
+import {
+  DOM_RENDERER_SETTINGS,
+  HIBERNATE_FAST,
+  freshDataHome,
+  isolatedLaunch,
+  seedSettings,
+} from './dataHome'
 import { fakeAgentBin, isolatedHome } from './fakeAgent'
-import { PROMPT, openWorkspace } from './helpers'
-import { type Page, _electron as electron, expect, test } from './test'
+import { openWorkspace, typeLine } from './helpers'
+import { _electron as electron, expect, test } from './test'
 
 const SLOW_AGENT = [
   '#!/bin/sh',
@@ -13,18 +19,13 @@ const SLOW_AGENT = [
   '',
 ].join('\n')
 
-async function typeLine(win: Page, line: string): Promise<void> {
-  await win.keyboard.type(line)
-  await win.keyboard.press('Enter')
-}
-
 test('pane wake --wait returns once the woken agent started, and a send before that is refused', async () => {
   test.setTimeout(120_000)
   const dataHome = freshDataHome()
   const bin = fakeAgentBin(dataHome, SLOW_AGENT)
   seedSettings(dataHome, {
     ...DOM_RENDERER_SETTINGS,
-    agents: { hibernation: { enabled: true, idleSeconds: 5, maxLiveTerminals: 0 } },
+    agents: { hibernation: HIBERNATE_FAST },
   })
   const launch = isolatedLaunch(dataHome)
   const app = await electron.launch({
@@ -36,7 +37,6 @@ test('pane wake --wait returns once the woken agent started, and a send before t
     await win.waitForLoadState('domcontentloaded')
     await openWorkspace(win)
     const coordinator = win.locator('.xterm-rows').first()
-    await expect(coordinator).toContainText(PROMPT, { timeout: 15_000 })
     await win.locator('.xterm').first().click()
 
     await typeLine(win, 'ostia agent run claude "fix the login bug" --name fixer')

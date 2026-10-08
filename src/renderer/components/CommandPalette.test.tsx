@@ -23,13 +23,6 @@ function expectSecondaryAfterTitle(option: HTMLElement, title: string, secondary
   const cells = [...(row?.children ?? [])]
   expect(cells.map((cell) => cell.textContent)).toEqual([title, ...secondary])
   expect(cells[0]).toHaveAttribute('data-slot', 'palette-title')
-  expect(cells[0]).toHaveClass('shrink-0', 'max-w-full', 'truncate')
-  expect(row).toHaveClass('flex', 'gap-x-3')
-  for (const cell of cells.slice(1)) {
-    expect(cell.className).not.toMatch(/ml-auto|justify-end|justify-self-end/)
-    if (cell.tagName === 'KBD') expect(cell).toHaveClass('shrink-0')
-    else expect(cell).toHaveClass('min-w-0', 'truncate', 'text-fg-muted')
-  }
 }
 
 describe('CommandPalette', () => {

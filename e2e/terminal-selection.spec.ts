@@ -8,7 +8,7 @@ import {
   seedSettings,
 } from './dataHome'
 import { fakeAgentBin } from './fakeAgent'
-import { emptyState, emptyWorkspace } from './helpers'
+import { PROMPT, newTerminal } from './helpers'
 import { type Page, _electron as electron, expect, test } from './test'
 
 const AGENT_PANEL = [55, 55, 55]
@@ -79,15 +79,12 @@ for (const renderer of ['webgl', 'dom'] as const) {
     })
     try {
       const win = await app.firstWindow()
-      await emptyState(win)
-        .getByRole('button', { name: /New workspace/ })
-        .click()
-      await emptyWorkspace(win).getByRole('button', { name: 'New terminal' }).click()
+      await newTerminal(win)
       const screen = win.locator('.xterm-screen').first()
       if (renderer === 'webgl') {
         await expect(screen.locator('canvas').first()).toBeVisible({ timeout: 15_000 })
       } else {
-        await expect(win.locator('.xterm-rows').first()).toContainText(/[❯$%#]/, {
+        await expect(win.locator('.xterm-rows').first()).toContainText(PROMPT, {
           timeout: 15_000,
         })
       }

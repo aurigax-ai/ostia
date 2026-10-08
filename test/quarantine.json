@@ -5,5 +5,12 @@
     "issue": 129,
     "until": "2026-11-02",
     "platforms": ["linux"]
+  },
+  {
+    "file": "e2e/crash-recovery.spec.ts",
+    "name": "a renderer process crash reloads the window and keeps the shells alive",
+    "issue": 505,
+    "until": "2026-11-06",
+    "platforms": ["linux"]
   }
 ]

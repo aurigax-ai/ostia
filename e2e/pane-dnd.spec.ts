@@ -1,7 +1,7 @@
 import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { freshDataHome, isolatedLaunch } from './dataHome'
-import { openWorkspace } from './helpers'
+import { PROMPT, openWorkspace } from './helpers'
 import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
 
 interface PaneBox {
@@ -38,7 +38,7 @@ async function twoTabs(win: Page): Promise<string[]> {
   await openWorkspace(win)
   await win.getByRole('button', { name: 'New terminal tab' }).first().click()
   await expect(win.locator('.pane-tab:visible')).toHaveCount(2)
-  await expect(win.locator('.xterm-rows:visible')).toContainText(/[❯$%#]/, { timeout: 15_000 })
+  await expect(win.locator('.xterm-rows:visible')).toContainText(PROMPT, { timeout: 15_000 })
   return (await panes(win))[0].tabs
 }
 

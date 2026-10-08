@@ -13,7 +13,7 @@ import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
-import { PROMPT, emptyState, openWorkspace } from './helpers'
+import { PROMPT, emptyState, openWorkspace, openedExternally, stubExternalOpener } from './helpers'
 import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
 
 const VERSION = '999.0.0'
@@ -78,20 +78,11 @@ async function launch(
     env: { ...launchOptions.env, OSTIA_RELEASE_API_URL: github.url, ...env },
   })
   const win = await app.firstWindow()
-  await app.evaluate(({ shell }) => {
-    const opened: string[] = []
-    Object.assign(globalThis, { __openedExternally: opened })
-    shell.openExternal = async (url: string) => {
-      opened.push(url)
-    }
-  })
+  await stubExternalOpener(app)
   await win.waitForLoadState('domcontentloaded')
   await expect(emptyState(win)).toBeVisible({ timeout: 15_000 })
   return { app, win }
 }
-
-const openedExternally = (app: ElectronApplication): Promise<string[]> =>
-  app.evaluate(() => (globalThis as unknown as { __openedExternally: string[] }).__openedExternally)
 
 const releaseButton = (win: Page) =>
   win.locator('.update-notice').getByRole('button', { name: `Version ${VERSION} is available` })

@@ -8,8 +8,8 @@ import {
   seedSettings,
   testHome,
 } from './dataHome'
-import { openWorkspace } from './helpers'
-import { type Page, _electron as electron, expect, test } from './test'
+import { openWorkspace, runInTerminal } from './helpers'
+import { _electron as electron, expect, test } from './test'
 
 async function launch(settings: object, inProjectFolder = false) {
   const dataHome = freshDataHome()
@@ -26,16 +26,10 @@ async function launch(settings: object, inProjectFolder = false) {
   return { app, win }
 }
 
-async function run(win: Page, command: string): Promise<void> {
-  await win.locator('.xterm').first().click()
-  await win.keyboard.type(command)
-  await win.keyboard.press('Enter')
-}
-
 test('terminal.shell starts new terminals in the chosen program with its arguments', async () => {
   const { app, win } = await launch({ terminal: { shell: '/bin/sh -i' } })
   try {
-    await run(win, 'echo "shell=$0 flags=$-"')
+    await runInTerminal(win, 'echo "shell=$0 flags=$-"')
     await expect(win.locator('.xterm-rows').first()).toContainText(/shell=\/bin\/sh flags=\S*i/, {
       timeout: 15_000,
     })
@@ -48,7 +42,7 @@ test('an unusable terminal.shell falls back to the login shell', async () => {
   const { app, win } = await launch({ terminal: { shell: '"/bin/sh -i' } })
   try {
     const login = (process.env.SHELL ?? 'bash').split('/').pop()
-    await run(win, 'echo "proc=$(basename $(ps -p $$ -o comm= | tr -d \' -\'))"')
+    await runInTerminal(win, 'echo "proc=$(basename $(ps -p $$ -o comm= | tr -d \' -\'))"')
     await expect(win.locator('.xterm-rows').first()).toContainText(`proc=${login}`, {
       timeout: 15_000,
     })
@@ -68,7 +62,7 @@ test('a sandboxed workspace wraps the shell chosen in terminal.shell', async () 
     const rows = win.locator('.xterm-rows').first()
     await expect(async () => {
       await win.keyboard.press('Control+C')
-      await run(win, 'echo "sandbox=${HTTPS_PROXY:+on} flags=$-"')
+      await runInTerminal(win, 'echo "sandbox=${HTTPS_PROXY:+on} flags=$-"')
       await expect(rows).toContainText(/sandbox=on flags=\S*i/, { timeout: 2_000 })
     }).toPass({ timeout: 30_000 })
   } finally {
@@ -112,11 +106,11 @@ test('OSC 52 sets the clipboard only while terminal.osc52Write is on', async () 
   const { app, win } = await launch({ terminal: { osc52Write: true } })
   try {
     await app.evaluate(({ clipboard }) => clipboard.writeText('before'))
-    await run(win, 'printf \'\\033]52;c;%s\\a\' "$(printf ostia-osc52 | base64)"')
+    await runInTerminal(win, 'printf \'\\033]52;c;%s\\a\' "$(printf ostia-osc52 | base64)"')
     await expect
       .poll(() => app.evaluate(({ clipboard }) => clipboard.readText()), { timeout: 10_000 })
       .toBe('ostia-osc52')
-    await run(win, "printf '\\033]52;c;?\\a'")
+    await runInTerminal(win, "printf '\\033]52;c;?\\a'")
     await win.waitForTimeout(300)
     expect(await app.evaluate(({ clipboard }) => clipboard.readText())).toBe('ostia-osc52')
   } finally {
@@ -127,7 +121,7 @@ test('OSC 52 sets the clipboard only while terminal.osc52Write is on', async () 
 test('OSC 52 leaves the clipboard alone by default', async () => {
   const { app, win } = await launch({})
   try {
-    await run(
+    await runInTerminal(
       win,
       'printf \'\\033]52;c;%s\\a\' "$(printf ostia-osc52-off | base64)"; echo osc-sent',
     )
@@ -161,7 +155,7 @@ test('selecting terminal text fills the primary selection, and middle click past
   test.skip(isMac, 'the primary selection is X11 only')
   const { app, win } = await launch({})
   try {
-    await run(win, 'echo ostia-primary-word')
+    await runInTerminal(win, 'echo ostia-primary-word')
     const rows = win.locator('.xterm-rows').first()
     const line = rows.locator('div', { hasText: /^ostia-primary-word\s*$/ }).first()
     await expect(line).toBeAttached({ timeout: 15_000 })

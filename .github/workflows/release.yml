@@ -118,8 +118,6 @@ jobs:
 
   sdk:
     needs: publish
-    # Stays GitHub-hosted: npm trusted publishing (OIDC) does not support
-    # self-hosted runners (docs.npmjs.com/trusted-publishers).
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:

@@ -1,19 +1,15 @@
 import { freshDataHome, isolatedLaunch } from './dataHome'
-import { PROMPT, emptyWorkspace, openWorkspace } from './helpers'
+import {
+  PROMPT,
+  newTerminalWorkspace,
+  openWorkspace,
+  quitApp,
+  runInTerminal,
+  shownTerminal,
+} from './helpers'
 import { type Page, _electron as electron, expect, test } from './test'
 
 const visibleTabs = (win: Page) => win.locator('.pane-tab:visible')
-
-async function newTerminalWorkspace(win: Page): Promise<void> {
-  const before = await win.locator('.xterm').count()
-  await win.locator('.topbar').getByRole('button', { name: 'New workspace' }).click()
-  await emptyWorkspace(win).getByRole('button', { name: 'New terminal' }).click()
-  await expect(win.locator('.xterm')).toHaveCount(before + 1, { timeout: 15_000 })
-  await expect(win.locator('.pane-slot:not([data-hidden]) .xterm-rows').last()).toContainText(
-    PROMPT,
-    { timeout: 15_000 },
-  )
-}
 
 async function renameRow(win: Page, index: number, name: string): Promise<void> {
   await win.locator('.rail-tab-main').nth(index).dblclick()
@@ -25,9 +21,7 @@ async function renameRow(win: Page, index: number, name: string): Promise<void> 
 
 async function runIn(win: Page, tabId: string, command: string): Promise<void> {
   await win.locator(`.pane-tab[data-tab-id="${tabId}"]`).click()
-  await win.locator('.pane-slot:not([data-hidden]) .xterm:visible').first().click()
-  await win.keyboard.type(command)
-  await win.keyboard.press('Enter')
+  await runInTerminal(win, command, shownTerminal(win))
 }
 
 test('a running tab moves to another workspace by its menu and back by a rail drop, same process', async () => {
@@ -99,12 +93,7 @@ test('a running tab moves to another workspace by its menu and back by a rail dr
       { timeout: 10_000 },
     )
   } finally {
-    await app
-      .evaluate(({ app: electronApp }) => {
-        setTimeout(() => electronApp.quit(), 0)
-      })
-      .catch(() => {})
-    await app.close().catch(() => {})
+    await quitApp(app)
   }
 })
 
@@ -170,11 +159,6 @@ test('an agent moves a running tab to another workspace with ostia pane move, sa
       { timeout: 10_000 },
     )
   } finally {
-    await app
-      .evaluate(({ app: electronApp }) => {
-        setTimeout(() => electronApp.quit(), 0)
-      })
-      .catch(() => {})
-    await app.close().catch(() => {})
+    await quitApp(app)
   }
 })

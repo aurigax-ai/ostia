@@ -1,6 +1,6 @@
 import { chords, isMac } from './chords'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
-import { openWorkspace } from './helpers'
+import { PROMPT, openWorkspace } from './helpers'
 import { _electron as electron, expect, test } from './test'
 
 async function launch(clipboardKeys: 'shift' | 'smart') {
@@ -10,7 +10,7 @@ async function launch(clipboardKeys: 'shift' | 'smart') {
   const win = await app.firstWindow()
   await win.waitForLoadState('domcontentloaded')
   await openWorkspace(win)
-  await expect(win.locator('.xterm-rows')).toContainText(/[❯$%#]/, { timeout: 15_000 })
+  await expect(win.locator('.xterm-rows')).toContainText(PROMPT, { timeout: 15_000 })
   await app.evaluate(({ clipboard }) => clipboard.writeText('echo pasted_$((6*7))'))
   await win.locator('.xterm').first().click()
   return { app, win }

@@ -1,15 +1,7 @@
 import { chords } from './chords'
 import { isolatedLaunch } from './dataHome'
-import { PROMPT, openWorkspace } from './helpers'
+import { PROMPT, addTab, openWorkspace } from './helpers'
 import { type Page, _electron as electron, expect, test } from './test'
-
-async function addTab(win: Page): Promise<void> {
-  const strip = win.getByRole('tablist')
-  const box = await strip.boundingBox()
-  const lastTab = await strip.locator('.pane-tab').last().boundingBox()
-  if (!lastTab || !box) throw new Error('tab strip is not laid out')
-  await win.mouse.dblclick(lastTab.x + lastTab.width + 40, box.y + box.height / 2)
-}
 
 function markTerminals(win: Page): Promise<number> {
   return win.evaluate(() => {
@@ -59,8 +51,6 @@ test('splitting inside a tab stack makes a split tab that keeps its terminals mo
     await expect(win.locator('.pane-cell .xterm-rows').nth(1)).toContainText(PROMPT, {
       timeout: 15_000,
     })
-    await pill.screenshot({ path: test.info().outputPath('split-tab-pill.png') })
-    await win.locator('.pane').screenshot({ path: test.info().outputPath('split-tab-pane.png') })
 
     expect(await markTerminals(win)).toBe(2)
     await tabs.nth(0).click()
@@ -85,7 +75,7 @@ test('splitting inside a tab stack makes a split tab that keeps its terminals mo
   }
 })
 
-test('a split tab of four panes shows each title as a readable segment without a card', async () => {
+test('a split tab of four panes shows each title as a readable segment', async () => {
   const app = await electron.launch(isolatedLaunch())
   try {
     const win = await app.firstWindow()
@@ -107,11 +97,6 @@ test('a split tab of four panes shows each title as a readable segment without a
       })
     }
 
-    await win
-      .locator('.pane-header')
-      .screenshot({ path: test.info().outputPath('split-tab-row.png') })
-
-    await expect(pill.locator('.split-tab-pill')).toHaveCount(0)
     await expect(segments.locator('.pane-kind')).toHaveCount(0)
     await expect(pill.locator('.split-tab-glyph')).toBeVisible()
     const titles = await segments

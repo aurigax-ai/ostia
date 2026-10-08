@@ -10,7 +10,7 @@ import {
 } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { chords } from './chords'
-import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
+import { freshDataHome, isolatedLaunch } from './dataHome'
 import { openWorkspace, waitForPaletteSelection } from './helpers'
 import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
 
@@ -57,7 +57,6 @@ interface Session {
 
 async function sessionInProject(): Promise<Session> {
   const dataHome = freshDataHome()
-  seedSettings(dataHome, DOM_RENDERER_SETTINGS)
   const launch = isolatedLaunch(dataHome)
   const home = launch.env.HOME
   mkdirSync(join(home, '.ssh'), { recursive: true })
