@@ -1,3 +1,4 @@
+import { PAD_MAX_BYTES } from '@shared/artifacts'
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -5,6 +6,7 @@ import { TARGET_PANE, seedSendTarget } from '../../../test/mocks/sendTarget'
 import { commands } from '../commands/registry'
 import { openSelectionSend } from '../lib/selectionSenders'
 import { LARGE_FILE_LINES, fileFeatureOptions } from '../monaco/largeFile'
+import { useArtifactsStore } from '../stores/artifactsStore'
 import { useEditorStatus } from '../stores/editorStatusStore'
 import { useLiveSelectionStore } from '../stores/liveSelectionStore'
 import { useSettingsStore } from '../stores/settingsStore'
@@ -1121,5 +1123,113 @@ describe('EditorView → Send Selection to Agent', () => {
         }),
       ),
     )
+  })
+})
+
+describe('EditorView → Scratch Pad', () => {
+  const PAD = '/data/artifacts/w1/PAD.md'
+  let initSettings: ReturnType<typeof useSettingsStore.getState>
+  let initArtifacts: ReturnType<typeof useArtifactsStore.getState>
+
+  beforeAll(() => {
+    initSettings = useSettingsStore.getState()
+    initArtifacts = useArtifactsStore.getState()
+  })
+
+  beforeEach(() => {
+    useArtifactsStore.setState({
+      byWorkspace: {
+        w1: { dir: '/data/artifacts/w1', pad: PAD, padModified: 1, entries: [] },
+      },
+    })
+  })
+
+  afterEach(() => {
+    cleanup()
+    fake.models.clear()
+    fake.state.model = null
+    fake.state.optionUpdates = []
+    useSettingsStore.setState(initSettings, true)
+    useArtifactsStore.setState(initArtifacts, true)
+  })
+
+  const padWrites = () =>
+    vi.mocked(window.ostia.fs.write).mock.calls.filter(([path]) => path === PAD)
+
+  it('saves the pad one second after typing stops, whatever auto save is set to', async () => {
+    vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, version: 'v1', text: '' })
+    render(<EditorView workspaceId="w1" paneId="p1" filePath={PAD} />)
+    await waitFor(() => expect(fake.state.model).not.toBeNull())
+    expect(useSettingsStore.getState().editor.autoSave).toBe('off')
+    vi.useFakeTimers()
+    try {
+      act(() => fake.state.model?.setValue('one'))
+      await vi.advanceTimersByTimeAsync(700)
+      act(() => fake.state.model?.setValue('two'))
+      await vi.advanceTimersByTimeAsync(700)
+      expect(padWrites()).toEqual([])
+      await vi.advanceTimersByTimeAsync(400)
+      expect(padWrites()).toEqual([[PAD, 'two']])
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('does not save another artifact on that timer', async () => {
+    vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, version: 'v1', text: '' })
+    render(<EditorView workspaceId="w1" paneId="p1" filePath="/data/artifacts/w1/report.md" />)
+    await waitFor(() => expect(fake.state.model).not.toBeNull())
+    vi.useFakeTimers()
+    try {
+      act(() => fake.state.model?.setValue('one'))
+      await vi.advanceTimersByTimeAsync(5000)
+      expect(window.ostia.fs.write).not.toHaveBeenCalled()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('opens the pad as source with the working-note sentence as its placeholder', async () => {
+    vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, version: 'v1', text: '' })
+    useSettingsStore.setState({
+      editor: { ...useSettingsStore.getState().editor, markdownPreview: true },
+    })
+    render(<EditorView workspaceId="w1" paneId="p1" filePath={PAD} />)
+    await waitFor(() => expect(fake.state.model).not.toBeNull())
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Preview Markdown' })).toBeTruthy(),
+    )
+    expect(fake.state.optionUpdates).toContainEqual({
+      placeholder: expect.stringContaining('A working note for this workspace'),
+    })
+  })
+
+  it('says so once the pad is over 256 KiB, and stops saying it when it shrinks', async () => {
+    vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, version: 'v1', text: 'small' })
+    render(<EditorView workspaceId="w1" paneId="p1" filePath={PAD} />)
+    await waitFor(() => expect(fake.state.model).not.toBeNull())
+    expect(screen.queryByTestId('pad-full')).toBeNull()
+    act(() => fake.state.model?.setValue('x'.repeat(PAD_MAX_BYTES + 1)))
+    expect(screen.getByTestId('pad-full').textContent).toContain('over 256 KiB')
+    act(() => fake.state.model?.setValue('small again'))
+    expect(screen.queryByTestId('pad-full')).toBeNull()
+  })
+
+  it('keeps the changed-on-disk bar for a pad with unsaved edits an agent wrote under', async () => {
+    vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, version: 'v1', text: 'mine' })
+    let changed: (change: { path: string }) => void = () => {}
+    vi.mocked(window.ostia.fs.onChanged).mockImplementation((cb) => {
+      changed = cb as typeof changed
+      return () => {}
+    })
+    render(<EditorView workspaceId="w1" paneId="p1" filePath={PAD} />)
+    await waitFor(() => expect(fake.state.model).not.toBeNull())
+    act(() => fake.state.model?.setValue('mine, edited'))
+    vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, version: 'v2', text: 'agent' })
+    await act(async () => changed({ path: PAD }))
+    await waitFor(() =>
+      expect(screen.getByText('Changed on disk. Your unsaved edits are kept.')).toBeTruthy(),
+    )
+    expect(padWrites()).toEqual([])
   })
 })

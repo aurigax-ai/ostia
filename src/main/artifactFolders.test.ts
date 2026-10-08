@@ -88,6 +88,7 @@ describe('ArtifactFolders', () => {
     symlinkSync('/etc', join(dir, 'etc'))
     const listing = folders.listing('w1')
     expect(listing?.pad).toBe(join(dir, PAD_FILE))
+    expect(listing?.padModified).toBe(400_000)
     expect(listing?.entries.map((e) => e.name)).toEqual(['new.md', 'page/index.html', 'old.md'])
     expect(listing?.entries[0]).toMatchObject({ path: join(dir, 'new.md'), size: 1 })
   })
@@ -102,6 +103,7 @@ describe('ArtifactFolders', () => {
   })
 
   it('creates the pad once and never overwrites it', () => {
+    expect(folders.listing('w1')?.padModified).toBeNull()
     const pad = folders.ensurePad('w1') as string
     expect(pad).toBe(join(root, 'w1', PAD_FILE))
     expect(readFileSync(pad, 'utf8')).toBe('')

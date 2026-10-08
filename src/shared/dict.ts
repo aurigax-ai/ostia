@@ -133,6 +133,7 @@ export const en = {
       'workspace.new': 'New Workspace',
       'workspace.newGroup': 'Move Workspace to New Group',
       'workspace.newScratch': 'New Scratch Workspace',
+      'workspace.openPad': 'Open Scratch Pad',
       'workspace.next': 'Next Workspace',
       'workspace.previous': 'Previous Workspace',
       'workspace.rename': 'Rename Workspace',
@@ -1114,6 +1115,11 @@ export const en = {
     reveal: 'Reveal artifacts folder',
     unread: 'New or changed',
     none: 'This workspace has no artifacts yet',
+    pad: 'Scratch Pad',
+    padHint:
+      'A working note for this workspace, shared with its agents. It goes away with the workspace; move what you want to keep into the project or your notes.',
+    padFull:
+      'The scratch pad is over {limit} KiB. Move what you want to keep into the project or your notes.',
   },
   dashboard: {
     title: 'Dashboard',
@@ -3489,6 +3495,7 @@ export const zhHant: Dict = {
       'workspace.new': '新增工作區',
       'workspace.newGroup': '將工作區移到新群組',
       'workspace.newScratch': '新增暫存工作區',
+      'workspace.openPad': '開啟便箋',
       'workspace.next': '下一個工作區',
       'workspace.previous': '上一個工作區',
       'workspace.rename': '重新命名工作區',
@@ -4451,6 +4458,10 @@ export const zhHant: Dict = {
     reveal: '顯示產出物資料夾',
     unread: '新增或已變更',
     none: '這個工作區還沒有產出物',
+    pad: '便箋',
+    padHint:
+      '這個工作區的工作筆記，與工作區裡的代理程式共用。它會隨工作區一起消失；想保留的內容請移到專案或你自己的筆記。',
+    padFull: '便箋已超過 {limit} KiB。想保留的內容請移到專案或你自己的筆記。',
   },
   dashboard: {
     title: '儀表板',

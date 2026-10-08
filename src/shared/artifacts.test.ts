@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { type ArtifactEntry, changedArtifacts, isInside } from './artifacts'
+import {
+  type ArtifactEntry,
+  PAD_MAX_BYTES,
+  changedArtifacts,
+  exceedsPad,
+  isInside,
+  isPadPath,
+} from './artifacts'
 
 const entry = (name: string, modified: number): ArtifactEntry => ({
   name,
@@ -29,5 +36,21 @@ describe('isInside', () => {
     expect(isInside('/a/w1', '/a/w10/report.md')).toBe(false)
     expect(isInside(null, '/a/w1/report.md')).toBe(false)
     expect(isInside('/a/w1', undefined)).toBe(false)
+  })
+})
+
+describe('the pad', () => {
+  it('is over its cap by bytes, not characters', () => {
+    expect(exceedsPad('x'.repeat(PAD_MAX_BYTES))).toBe(false)
+    expect(exceedsPad('x'.repeat(PAD_MAX_BYTES + 1))).toBe(true)
+    expect(exceedsPad('字'.repeat(PAD_MAX_BYTES / 3))).toBe(false)
+    expect(exceedsPad('字'.repeat(PAD_MAX_BYTES / 3 + 1))).toBe(true)
+  })
+
+  it('is one exact path of the listing', () => {
+    const listing = { pad: '/a/w1/PAD.md' }
+    expect(isPadPath(listing, '/a/w1/PAD.md')).toBe(true)
+    expect(isPadPath(listing, '/a/w1/page/PAD.md')).toBe(false)
+    expect(isPadPath(null, '/a/w1/PAD.md')).toBe(false)
   })
 })

@@ -1,8 +1,8 @@
-import { CaretRightIcon, FolderOpenIcon } from '@phosphor-icons/react'
+import { CaretRightIcon, FolderOpenIcon, NotePencilIcon } from '@phosphor-icons/react'
 import type { ArtifactEntry } from '@shared/artifacts'
 import { useEffect, useMemo, useState } from 'react'
 import { useDict } from '../i18n/useDict'
-import { openArtifact, opensInOstia, sizeText } from '../lib/artifacts'
+import { openArtifact, openPad, opensInOstia, sizeText } from '../lib/artifacts'
 import { agoText } from '../lib/dashboard'
 import { useArtifactsStore } from '../stores/artifactsStore'
 import { useSettingsStore } from '../stores/settingsStore'
@@ -35,7 +35,7 @@ function ArtifactRow({
   return (
     <button
       type="button"
-      className="file-row artifact-row"
+      className="artifact-row"
       data-testid="artifact-row"
       data-unread={unread ? 'true' : undefined}
       onClick={() => openArtifact(workspaceId, entry)}
@@ -44,6 +44,24 @@ function ArtifactRow({
       <span className="file-name">{entry.name}</span>
       {unread ? <span className="unread-dot" role="img" aria-label={d.artifacts.unread} /> : null}
       <span className="artifact-meta">{opensInOstia(entry) ? age : sizeText(entry.size)}</span>
+    </button>
+  )
+}
+
+function PadRow({ workspaceId, path }: { workspaceId: string; path?: string }): JSX.Element {
+  const d = useDict()
+  const unread = useArtifactsStore((s) => path !== undefined && s.unread[path] === true)
+  return (
+    <button
+      type="button"
+      className="artifact-row"
+      data-testid="artifact-pad"
+      data-unread={unread ? 'true' : undefined}
+      onClick={() => void openPad(workspaceId)}
+    >
+      <NotePencilIcon size={16} className="file-icon" />
+      <span className="file-name">{d.artifacts.pad}</span>
+      {unread ? <span className="unread-dot" role="img" aria-label={d.artifacts.unread} /> : null}
     </button>
   )
 }
@@ -83,8 +101,9 @@ export function ArtifactsSection({ workspaceId }: { workspaceId: string | null }
           onClick={() => window.ostia.artifacts.reveal(workspaceId)}
         />
       </div>
-      {open && entries.length > 0 ? (
-        <div className="file-tree artifacts-list">
+      {open ? (
+        <div className="artifacts-list">
+          <PadRow workspaceId={workspaceId} path={listing?.pad} />
           {entries.map((entry) => (
             <ArtifactRow
               key={entry.path}

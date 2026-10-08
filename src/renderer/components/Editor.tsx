@@ -1,5 +1,6 @@
 import { cn } from '@/lib/utils'
 import { CodeIcon, EyeIcon, PaperPlaneTiltIcon } from '@phosphor-icons/react'
+import { PAD_MAX_BYTES, PAD_SAVE_DELAY_MS, exceedsPad, isPadPath } from '@shared/artifacts'
 import { AUTO_SAVE_DELAY_MS, type EditorSettings } from '@shared/browserEditorSettings'
 import { DIFF_TEXT_MAX } from '@shared/extensions'
 import { type RemoteFileError, isRemotePath, parseRemotePath } from '@shared/remoteFolders'
@@ -7,6 +8,7 @@ import type { FsTextResult } from '@shared/types'
 import { useEffect, useRef, useState } from 'react'
 import { externalEditorError, openPaneInExternalEditor } from '../commands/externalEditor'
 import { fmt, useDict } from '../i18n/useDict'
+import { useArtifactListing } from '../lib/artifacts'
 import { findStep, matchChord, runAppChord } from '../lib/chords'
 import { changedLines, minimalLineEdit } from '../lib/diskReload'
 import { registerEditorPosition } from '../lib/editorPositions'
@@ -231,6 +233,11 @@ export function EditorView({
   const [liveEditor, setLiveEditor] = useState<monaco.editor.IStandaloneCodeEditor | null>(null)
   const previewText = useModelText(liveEditor, markdown && preview)
   const external = useExternalEditorAction(paneId)
+  const pad = isPadPath(useArtifactListing(workspaceId) ?? null, filePath)
+  const padRef = useRef(pad)
+  padRef.current = pad
+  const [padFull, setPadFull] = useState(false)
+  const padHint = d.artifacts.padHint
   const visible = usePaneVisible(paneId)
   const visibleRef = useRef(visible)
   const missedCheckRef = useRef(false)
@@ -519,9 +526,19 @@ export function EditorView({
       if (model && isDirty(model)) void save()
     }
     const autoSave = createAutoSave(() => saveIfDirty('afterDelay'), AUTO_SAVE_DELAY_MS)
+    const padSave = createAutoSave(() => {
+      const model = editor.getModel()
+      if (padRef.current && !diskBarRef.current && model && isDirty(model)) void save()
+    }, PAD_SAVE_DELAY_MS)
+    const measurePad = (): void =>
+      setPadFull(padRef.current && exceedsPad(editor.getModel()?.getValue() ?? ''))
     const contentSub = editor.onDidChangeModelContent(() => {
       if (useSettingsStore.getState().editor.autoSave === 'afterDelay') autoSave.schedule()
+      if (!padRef.current) return
+      padSave.schedule()
+      measurePad()
     })
+    const modelSub = editor.onDidChangeModel(measurePad)
     const blurSub = editor.onDidBlurEditorText(() => saveIfDirty('onFocusChange'))
 
     const detachWheelZoom = attachWheelZoom(host, 'editor', isMac)
@@ -534,8 +551,10 @@ export function EditorView({
       resize.disconnect()
       clearTimeout(highlightTimer)
       autoSave.cancel()
+      padSave.cancel()
       appChordKeys.dispose()
       contentSub.dispose()
+      modelSub.dispose()
       blurSub.dispose()
       detachWheelZoom()
       editor.dispose()
@@ -720,6 +739,18 @@ export function EditorView({
   }, [editorSettings])
 
   useEffect(() => {
+    const editor = editorRef.current
+    if (!pad || !editor) {
+      setPadFull(false)
+      return
+    }
+    setPreview(false)
+    setPadFull(exceedsPad(editor.getModel()?.getValue() ?? ''))
+    editor.updateOptions({ placeholder: padHint })
+    return () => editor.updateOptions({ placeholder: '' })
+  }, [pad, padHint])
+
+  useEffect(() => {
     editorRef.current?.updateOptions({ smoothScrolling: !reducedMotion })
   }, [reducedMotion])
 
@@ -844,6 +875,11 @@ export function EditorView({
               </>
             ) : null}
           </div>
+        </Alert>
+      ) : null}
+      {padFull ? (
+        <Alert className={cn(ATTENTION_ALERT, 'editor-pad-full')} data-testid="pad-full">
+          {fmt(d.artifacts.padFull, { limit: PAD_MAX_BYTES / 1024 })}
         </Alert>
       ) : null}
       {unsavedPath ? (

@@ -1,4 +1,5 @@
 import { type AgentResume, resumeCommand } from '@shared/agentResume'
+import { PAD_COMMAND } from '@shared/artifacts'
 import type { CmuxImportReport } from '@shared/cmuxSession'
 import { wantsDesktopBanner } from '@shared/notificationSettings'
 import { OPEN_FILES_COMMAND, parseFileTargets } from '@shared/openFiles'
@@ -18,7 +19,7 @@ import {
 } from '../layout/tree'
 import type { Direction, SurfaceKind } from '../layout/types'
 import { postAgentNotification } from '../lib/agentNotification'
-import { openArtifact } from '../lib/artifacts'
+import { openArtifact, openPad } from '../lib/artifacts'
 import {
   type BlockPart,
   copyBlock,
@@ -963,6 +964,15 @@ export function registerBuiltinCommands(): void {
       openArtifact(workspaceId, entry)
       return { opened: true }
     },
+  })
+
+  registerCore<undefined, { opened: boolean }>({
+    id: PAD_COMMAND,
+    category: 'workspace',
+    local: true,
+    run: async (_args, ctx) => ({
+      opened: ctx.activeWorkspaceId ? await openPad(ctx.activeWorkspaceId) : false,
+    }),
   })
 
   registerCore<undefined, { revealed: boolean }>({

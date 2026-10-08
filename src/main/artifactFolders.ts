@@ -151,7 +151,14 @@ export class ArtifactFolders {
 
   listing(workspaceId: string): ArtifactListing | null {
     const dir = this.ensure(workspaceId)
-    return dir ? { dir, pad: join(dir, PAD_FILE), entries: listArtifacts(dir) } : null
+    if (!dir) return null
+    const pad = join(dir, PAD_FILE)
+    return {
+      dir,
+      pad,
+      padModified: regularFile(pad, PAD_FILE)?.modified ?? null,
+      entries: listArtifacts(dir),
+    }
   }
 
   private watch(workspaceId: string, dir: string): void {

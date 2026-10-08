@@ -16,6 +16,7 @@ function listing(...files: [name: string, modified: number, size?: number][]): A
   return {
     dir: DIR,
     pad: `${DIR}/PAD.md`,
+    padModified: null,
     entries: files.map(([name, modified, size]) => ({
       name,
       path: `${DIR}/${name}`,
@@ -80,13 +81,59 @@ describe('ArtifactsSection', () => {
     expect(screen.getAllByTestId('artifact-row')[1]).toHaveTextContent('2 min. ago')
   })
 
-  it('shows no rows and no placeholder when the folder is empty', async () => {
+  it('shows only the pad row when the folder is empty', async () => {
     seedWorkspace()
     lists(listing())
     await renderSettled(<ArtifactsSection workspaceId="s1" />)
-    expect(screen.getByTestId('artifacts-section')).toBeInTheDocument()
     expect(screen.queryAllByTestId('artifact-row')).toHaveLength(0)
-    expect(screen.getByTestId('artifacts-section').querySelector('.artifacts-list')).toBeNull()
+    const list = screen.getByTestId('artifacts-section').querySelector('.artifacts-list')
+    expect(list?.children).toHaveLength(1)
+    expect(screen.getByTestId('artifact-pad')).toHaveTextContent('Scratch Pad')
+  })
+
+  it('pins the pad above the newest artifact', async () => {
+    seedWorkspace()
+    lists(listing(['new.md', 300]))
+    await renderSettled(<ArtifactsSection workspaceId="s1" />)
+    const list = screen.getByTestId('artifacts-section').querySelector('.artifacts-list')
+    expect(list?.firstElementChild).toBe(screen.getByTestId('artifact-pad'))
+  })
+
+  it('opens the pad main made, never a path the window named', async () => {
+    seedWorkspace()
+    lists(listing())
+    vi.mocked(window.ostia.artifacts.pad).mockResolvedValue(`${DIR}/PAD.md`)
+    await renderSettled(<ArtifactsSection workspaceId="s1" />)
+    await userEvent.click(screen.getByTestId('artifact-pad'))
+    expect(window.ostia.artifacts.pad).toHaveBeenCalledWith('s1')
+    const layout = useLayoutStore.getState().byWorkspace.s1
+    expect(findPane(layout.root, layout.activePaneId)).toMatchObject({
+      kind: 'editor',
+      filePath: `${DIR}/PAD.md`,
+    })
+  })
+
+  it('opens nothing when main could not make the pad', async () => {
+    seedWorkspace()
+    lists(listing())
+    vi.mocked(window.ostia.artifacts.pad).mockResolvedValue(null)
+    await renderSettled(<ArtifactsSection workspaceId="s1" />)
+    await userEvent.click(screen.getByTestId('artifact-pad'))
+    const layout = useLayoutStore.getState().byWorkspace.s1
+    expect(findPane(layout.root, layout.activePaneId)?.kind).toBe('terminal')
+  })
+
+  it('marks the pad unread when an agent wrote it while it was closed, not while it is open', async () => {
+    seedWorkspace()
+    lists({ ...listing(), padModified: 100 })
+    await renderSettled(<ArtifactsSection workspaceId="s1" />)
+    await changedOnDisk({ ...listing(), padModified: 200 })
+    expect(screen.getByTestId('artifact-pad').dataset.unread).toBe('true')
+    vi.mocked(window.ostia.artifacts.pad).mockResolvedValue(`${DIR}/PAD.md`)
+    await userEvent.click(screen.getByTestId('artifact-pad'))
+    expect(screen.getByTestId('artifact-pad').dataset.unread).toBeUndefined()
+    await changedOnDisk({ ...listing(), padModified: 300 })
+    expect(screen.getByTestId('artifact-pad').dataset.unread).toBeUndefined()
   })
 
   it('renders nothing without a workspace', async () => {

@@ -1359,7 +1359,11 @@
 }
 
 .artifacts-list {
-  padding-top: 0;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  overflow-y: auto;
+  padding: 0 6px 8px;
 }
 
 .artifact-row {
@@ -1389,7 +1393,8 @@
   color: var(--fg-muted);
 }
 
-.file-row {
+.file-row,
+.artifact-row {
   display: flex;
   align-items: center;
   gap: 5px;
@@ -1444,7 +1449,8 @@
   opacity: 0.55;
 }
 
-.file-row:hover {
+.file-row:hover,
+.artifact-row:hover {
   background: var(--surface-2);
   color: var(--fg);
 }
@@ -2645,6 +2651,16 @@ button.prompt-chip:focus-visible {
   background: color-mix(in srgb, var(--attn) 10%, var(--surface-1));
 }
 
+.editor-pad-full {
+  position: absolute;
+  bottom: 6px;
+  left: 6px;
+  right: 6px;
+  z-index: 2;
+  width: auto;
+  background: color-mix(in srgb, var(--attn) 10%, var(--surface-1));
+}
+
 .diff-surface {
   display: flex;
   flex-direction: column;
@@ -3554,6 +3570,7 @@ button.prompt-chip:focus-visible {
 .rail-tab,
 .rail-group-head,
 .file-row,
+.artifact-row,
 .block-sticky {
   transition-property: color, background-color, border-color;
   transition-duration: var(--motion-fast);
