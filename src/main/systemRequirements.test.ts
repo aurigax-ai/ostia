@@ -1,4 +1,12 @@
-import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  chmodSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  utimesSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
@@ -143,6 +151,22 @@ describe('systemRequirements', () => {
         }),
       ).toEqual([{ program: 'tmux', package: 'tmux', needs: '3.2', found }])
     }
+  })
+
+  it('KSH-C80 asks tmux for its version once per program file, again only after the file changes', () => {
+    const dir = join(root, `tmux-${tmuxDirs++}`)
+    mkdirSync(dir, { recursive: true })
+    const runs = join(dir, 'runs')
+    const tmux = join(dir, 'tmux')
+    writeFileSync(tmux, `#!/bin/sh\necho run >> '${runs}'\necho 'tmux 3.4'\n`)
+    chmodSync(tmux, 0o755)
+    const check = () => missingRequirements(KEEP_SHELLS_FEATURE, { platform: 'linux', path: dir })
+    expect(check()).toEqual([])
+    expect(check()).toEqual([])
+    expect(readFileSync(runs, 'utf8')).toBe('run\n')
+    utimesSync(tmux, new Date(), new Date(Date.now() + 60_000))
+    expect(check()).toEqual([])
+    expect(readFileSync(runs, 'utf8')).toBe('run\nrun\n')
   })
 
   it('KSH-C19 names only the version needed when tmux will not say which it is', () => {

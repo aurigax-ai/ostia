@@ -63,6 +63,7 @@ export interface PaneListDeps {
   ptyPid: (paneId: string) => number | undefined
   windowIds: () => string[]
   waking: (paneId: string) => boolean
+  unreported: (paneId: string) => boolean
 }
 
 async function listFromEveryWindow<T>(
@@ -78,10 +79,16 @@ async function listFromEveryWindow<T>(
   return results.flatMap((res) => (res.ok && Array.isArray(res.result) ? (res.result as T[]) : []))
 }
 
-function agentFields(p: RendererPaneEntry): PaneAgentFields {
+export const UNREPORTED_AGENT_STATE = 'unknown'
+
+function agentFields(p: RendererPaneEntry, unreported: boolean): PaneAgentFields {
   const fields: PaneAgentFields = {}
   if (typeof p.agent === 'string') fields.agent = p.agent
   if (typeof p.agentSessionId === 'string') fields.agentSessionId = p.agentSessionId
+  if (unreported) {
+    fields.agentState = UNREPORTED_AGENT_STATE
+    return fields
+  }
   if (typeof p.agentState === 'string') fields.agentState = p.agentState
   if (typeof p.agentMessage === 'string') fields.agentMessage = p.agentMessage
   return fields
@@ -110,7 +117,7 @@ export async function listPanes(deps: PaneListDeps): Promise<PaneEntry[]> {
       ...(pid ? { pid } : {}),
       ...(p.hibernated === true ? { hibernated: true } : {}),
       ...(deps.waking(p.paneId) ? { waking: true } : {}),
-      ...agentFields(p),
+      ...agentFields(p, deps.unreported(p.paneId)),
       ...(typeof p.splitTabId === 'string' ? { splitTabId: p.splitTabId } : {}),
       ...(typeof p.splitTabName === 'string' ? { splitTabName: p.splitTabName } : {}),
     })

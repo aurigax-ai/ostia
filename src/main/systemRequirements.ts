@@ -138,16 +138,30 @@ export function versionAtLeast(output: string, wanted: string): boolean {
   return have > major || (have === major && haveMinor >= minor)
 }
 
-function versionOutput(path: string, args: string[]): string {
+const versionOutputs = new Map<string, string>()
+
+function versionKey(path: string, args: string[]): string | null {
   try {
-    return execFileSync(path, args, {
+    return [path, statSync(path).mtimeMs, ...args].join('\0')
+  } catch {
+    return null
+  }
+}
+
+function versionOutput(path: string, args: string[]): string {
+  const key = versionKey(path, args)
+  const cached = key === null ? undefined : versionOutputs.get(key)
+  if (cached !== undefined) return cached
+  let output = ''
+  try {
+    output = execFileSync(path, args, {
       encoding: 'utf8',
       timeout: 2000,
       stdio: ['ignore', 'pipe', 'ignore'],
     })
-  } catch {
-    return ''
-  }
+  } catch {}
+  if (key !== null) versionOutputs.set(key, output)
+  return output
 }
 
 const INSTALLERS: { manager: string; command: (packages: string) => string }[] = [

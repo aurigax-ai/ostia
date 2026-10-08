@@ -1,7 +1,6 @@
 import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readdirSync, rmSync } from 'node:fs'
-import { join } from 'node:path'
-import type { SandboxRuntimeConfig } from '@anthropic-ai/sandbox-runtime'
+import { dirname, join } from 'node:path'
 import type { PackageRef } from '../../shared/packages'
 import { PRODUCT_DISPLAY_NAME } from '../../shared/productDisplay'
 import {
@@ -16,6 +15,7 @@ import {
   resolveSandbox,
   sandboxMergeRefusal,
 } from '../../shared/sandbox'
+import { socketPathLimit } from '../privateTmp'
 import { processAlive } from '../processAlive'
 import { SandboxHost, SandboxHostError } from './hostClient'
 import type { PackageBlockReason, PackagePolicy } from './packagePolicy'
@@ -23,6 +23,7 @@ import type { SandboxPathEnv } from './pathChecks'
 import {
   SSH_AGENT_SOCKET_NAME,
   type SandboxPaths,
+  type SrtConfig,
   buildSrtConfig,
   expandHome,
   fixedPolicy,
@@ -216,9 +217,18 @@ export class WorkspaceSandboxes {
   wrapStamp(workspaceId: string): string | null {
     try {
       const { network, filesystem } = this.config(workspaceId)
+      const plumbing = new Set(this.plumbingPaths(workspaceId))
+      const policy = (list: readonly string[] | undefined): string[] | undefined =>
+        list?.filter((path) => !plumbing.has(path))
       const baked = {
-        filesystem,
-        allowUnixSockets: network.allowUnixSockets,
+        filesystem: {
+          ...filesystem,
+          denyRead: policy(filesystem.denyRead),
+          allowRead: policy(filesystem.allowRead),
+          allowWrite: policy(filesystem.allowWrite),
+          denyWrite: policy(filesystem.denyWrite),
+        },
+        allowUnixSockets: policy(network.allowUnixSockets),
         allowAllUnixSockets: network.allowAllUnixSockets,
         allowLocalBinding: network.allowLocalBinding,
       }
@@ -226,6 +236,22 @@ export class WorkspaceSandboxes {
     } catch {
       return null
     }
+  }
+
+  private plumbingPaths(workspaceId: string): string[] {
+    const base = this.basePaths()
+    const tmpDir = this.tmpDir(workspaceId)
+    return [
+      base.socketPath,
+      ...(base.keptSocketPath ? [base.keptSocketPath] : []),
+      ...base.runtimeReads,
+      ...base.dataDirs,
+      ...(base.agentSockets ?? []).map((sock) => dirname(sock)),
+      ...(base.runtimeDir ? [base.runtimeDir] : []),
+      ...(base.tmpRoot ? [base.tmpRoot] : []),
+      tmpDir,
+      join(tmpDir, SSH_AGENT_SOCKET_NAME),
+    ]
   }
 
   writeRefusal(workspaceId: string, path: string): WriteRefusal | null {
@@ -312,7 +338,7 @@ export class WorkspaceSandboxes {
     return join(this.tmpDir(workspaceId), SSH_AGENT_SOCKET_NAME)
   }
 
-  config(workspaceId: string): SandboxRuntimeConfig {
+  config(workspaceId: string): SrtConfig {
     const workDir = this.workDir(workspaceId)
     if (!workDir) throw new SandboxUnavailableError('the workspace folder is not known yet')
     const problem = this.folderProblem(workspaceId)
@@ -464,6 +490,7 @@ export class WorkspaceSandboxes {
 
   private async spawnKeptHost(workspaceId: string, kept: KeptSandboxHosts): Promise<string | null> {
     const channel = kept.channel(workspaceId)
+    if (Buffer.byteLength(channel) > socketPathLimit(process.platform)) return null
     const tmpDir = this.tmpDir(workspaceId)
     mkdirSync(tmpDir, { recursive: true, mode: 0o700 })
     rmSync(channel, { force: true })

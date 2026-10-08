@@ -2,6 +2,8 @@ import type { SandboxRuntimeConfig } from '@anthropic-ai/sandbox-runtime'
 import type { PackageRef } from '../../shared/packages'
 import type { PackageBlockReason, PackagePolicy } from './packagePolicy'
 
+export const HOST_PROTOCOL_VERSION = 1
+
 export type HostRequest =
   | { id: number; type: 'init'; config: SandboxRuntimeConfig; packages?: PackagePolicy }
   | {
@@ -31,6 +33,8 @@ export type HostPackageBlocked = {
 
 export type HostViolations = { type: 'violations'; lines: string[] }
 
-export type HostToMain = HostResponse | HostAsk | HostPackageBlocked | HostViolations
+export type HostHello = { type: 'hello'; protocol: number }
+
+export type HostToMain = HostResponse | HostAsk | HostPackageBlocked | HostViolations | HostHello
 
 export type MainToHost = HostRequest | HostAskAnswer

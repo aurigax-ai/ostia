@@ -1,5 +1,6 @@
 import { delimiter } from 'node:path'
 import { agentHooksEnv } from '../shared/agentHooks'
+import { appEnv, withoutEnv } from '../shared/appEnv'
 import { withoutGpuLaunchEnv } from './discreteGpu'
 import { withLauncherOnPath } from './paneLauncher'
 
@@ -30,4 +31,15 @@ export function paneShellEnv(parts: PaneShellEnvParts): Record<string, string> {
     ...ptyIdentityEnv(parts.version),
   } as Record<string, string>
   return parts.launcherDir ? withLauncherOnPath(env, parts.launcherDir, delimiter) : env
+}
+
+export function withPaneToken(
+  env: Record<string, string>,
+  token: string,
+  tokenFile: string | null,
+): Record<string, string> {
+  return {
+    ...(withoutEnv(env, ['TOKEN', 'TOKEN_FILE']) as Record<string, string>),
+    ...appEnv(tokenFile ? { TOKEN_FILE: tokenFile } : { TOKEN: token }),
+  }
 }

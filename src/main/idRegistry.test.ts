@@ -153,20 +153,17 @@ describe('idRegistry', () => {
     expect(workspaceHasManager('s-plain')).toBe(false)
   })
 
-  it('gives a reattached pane its old token and its stable id, dropping the minted token', () => {
+  it('KSH-C72 gives a reattached pane its stable id and a fresh token, and revokes the one before', () => {
     setPaneIdSalt(randomBytes(32))
     const minted = registerPane({ windowId: 'w9', workspaceId: 'ws9', paneId: 'kept-1' })
-    const adopted = adoptPane({
-      windowId: 'w9',
-      workspaceId: 'ws9',
-      paneId: 'kept-1',
-      token: 'tok-kept-1',
-    })
-    expect(adopted.externalId).toBe(stablePaneExternalId('kept-1'))
-    expect(resolveToken('tok-kept-1')).toBe(adopted)
-    expect(resolveExternal(adopted.externalId)?.paneId).toBe('kept-1')
+    const first = adoptPane({ windowId: 'w9', workspaceId: 'ws9', paneId: 'kept-1' })
+    const second = adoptPane({ windowId: 'w9', workspaceId: 'ws9', paneId: 'kept-1' })
+    expect(second.externalId).toBe(stablePaneExternalId('kept-1'))
+    expect(new Set([minted.token, first.token, second.token]).size).toBe(3)
+    expect(resolveToken(second.token)).toBe(second)
+    expect(resolveToken(first.token)).toBeUndefined()
     expect(resolveToken(minted.token)).toBeUndefined()
-    expect(getByPaneId('kept-1')?.token).toBe('tok-kept-1')
+    expect(resolveExternal(second.externalId)?.paneId).toBe('kept-1')
     removePane('kept-1')
   })
 

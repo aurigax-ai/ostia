@@ -3,7 +3,7 @@ import { join, resolve } from 'node:path'
 import { PRODUCT_NAME } from '../src/shared/product'
 import { installFakeLanguageExtension } from '../test/fixtures/lsp/installFakeExtension'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
-import { PROMPT, emptyWorkspace, openWorkspace } from './helpers'
+import { PROMPT, emptyWorkspace, hoverInEditor, openWorkspace } from './helpers'
 import {
   type ElectronApplication,
   type Locator,
@@ -99,7 +99,7 @@ function recorded(project: string): string[] {
 
 async function hoverText(win: Page, editor: Locator, text: string): Promise<Locator> {
   const target = editor.locator('.view-line span span').filter({ hasText: text }).first()
-  await target.hover({ position: { x: 4, y: 8 } })
+  await hoverInEditor(win, target, { x: 4, y: 8 })
   const hover = win.locator('.monaco-hover:visible')
   await expect(hover).toBeVisible({ timeout: 10_000 })
   return hover

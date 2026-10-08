@@ -4,7 +4,15 @@ import type { SandboxRuntimeConfig } from '@anthropic-ai/sandbox-runtime'
 import type { PackageRef } from '../../shared/packages'
 import { JsonLines, connectHostChannel, writeMessage } from './hostChannel'
 import type { PackageBlockReason, PackagePolicy } from './packagePolicy'
-import type { HostRequest, HostResponse, HostToMain, MainToHost } from './protocol'
+import {
+  HOST_PROTOCOL_VERSION,
+  type HostRequest,
+  type HostResponse,
+  type HostToMain,
+  type MainToHost,
+} from './protocol'
+
+const HELLO_WAIT_MS = 5000
 
 export class SandboxHostError extends Error {
   constructor(
@@ -34,6 +42,7 @@ export class SandboxHost {
   private seq = 0
   private readonly pending = new Map<number, (res: HostResponse) => void>()
   private dead = false
+  private hello: ((protocol: number) => void) | null = null
 
   constructor(private readonly deps: SandboxHostDeps) {}
 
@@ -57,10 +66,29 @@ export class SandboxHost {
   ): Promise<void> {
     const socket = await connectHostChannel(channel)
     this.socket = socket
+    const greeted = new Promise<number | null>((resolve) => {
+      const timer = setTimeout(() => resolve(null), HELLO_WAIT_MS)
+      this.hello = (protocol) => {
+        clearTimeout(timer)
+        resolve(protocol)
+      }
+      socket.once('close', () => {
+        clearTimeout(timer)
+        resolve(null)
+      })
+    })
     const lines = new JsonLines((message) => this.onMessage(message as HostToMain))
     socket.on('data', (chunk: Buffer) => lines.push(chunk))
     socket.on('error', () => socket.destroy())
     socket.on('close', () => this.gone())
+    const protocol = await greeted
+    this.hello = null
+    if (protocol !== HOST_PROTOCOL_VERSION) {
+      socket.destroy()
+      throw new SandboxHostError(
+        `the sandbox host speaks protocol ${protocol ?? 'unknown'}, this app speaks ${HOST_PROTOCOL_VERSION}`,
+      )
+    }
     await this.call({ type: fresh ? 'init' : 'update', config, ...(packages ? { packages } : {}) })
   }
 
@@ -136,6 +164,10 @@ export class SandboxHost {
   }
 
   private onMessage(message: HostToMain): void {
+    if ('type' in message && message.type === 'hello') {
+      if (Number.isInteger(message.protocol)) this.hello?.(message.protocol)
+      return
+    }
     if ('type' in message && message.type === 'package-blocked') {
       this.deps.onPackageBlocked?.(message.pkg, message.reason)
       return

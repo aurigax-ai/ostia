@@ -153,6 +153,18 @@ test('an agent drives the in-app browser with the agent-browser command contract
     const requests = await ostia('network', 'requests', '--filter', '/api/ping')
     expect(requests.out).toMatch(/GET\t200\t\w+\thttp:\/\/127\.0\.0\.1:\d+\/api\/ping/)
 
+    expect((await ostia('network', 'route', '**/api/ping', '--body', '{"routed":true}')).code).toBe(
+      0,
+    )
+    const routed = await json('eval', "fetch('/api/ping').then((r) => r.text())")
+    expect(routed.data?.result).toBe('{"routed":true}')
+    expect((await ostia('network', 'route', '**/api/ping', '--abort')).code).toBe(0)
+    const aborted = await json('eval', "fetch('/api/ping').then(() => 'sent', () => 'aborted')")
+    expect(aborted.data?.result).toBe('aborted')
+    expect((await ostia('network', 'unroute')).code).toBe(0)
+    const direct = await json('eval', "fetch('/api/ping').then((r) => r.status)")
+    expect(direct.data?.result).toBe(200)
+
     const tabs = await json('tab')
     expect(tabs.data?.tabs).toEqual([
       expect.objectContaining({ tabId: opened.data?.tabId, title: 'Agent fixture', active: true }),

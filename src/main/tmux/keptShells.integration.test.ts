@@ -1,12 +1,13 @@
-import { execFileSync } from 'node:child_process'
+import { execFileSync, spawn as spawnChild } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, afterEach, describe, expect, it } from 'vitest'
-import { skipWithoutTmux, tmuxPath } from '../../../test/tmux'
+import { running, skipWithoutTmux, tmuxPath } from '../../../test/tmux'
+import { HOST_PROTOCOL_VERSION } from '../sandbox/protocol'
 import { type KeptHostMeta, type KeptMeta, KeptShells, SANDBOX_HOST_KIND } from './keptShells'
-import type { TmuxPane, TmuxServerOptions } from './tmuxServer'
+import type { TmuxPane } from './tmuxServer'
 
 const tmux = tmuxPath ?? 'tmux'
 const root = mkdtempSync(join(tmpdir(), 'ostia-kept-'))
@@ -22,14 +23,12 @@ afterAll(() => rmSync(root, { recursive: true, force: true }))
 
 function instance(name: string): { kept: KeptShells; log: [string, Record<string, unknown>][] } {
   const log: [string, Record<string, unknown>][] = []
-  const options: TmuxServerOptions = {
-    tmux,
+  const kept = new KeptShells({
     dir: join(root, 'sock'),
     name,
-    defaultTerminal: 'screen-256color',
-    env: process.env,
-  }
-  const kept = new KeptShells({ options: () => options, log: (e, f) => log.push([e, f]) })
+    program: () => ({ tmux, defaultTerminal: 'screen-256color', env: process.env }),
+    log: (e, f) => log.push([e, f]),
+  })
   live.push(kept)
   return { kept, log }
 }
@@ -38,7 +37,6 @@ function meta(paneId: string): KeptMeta {
   return {
     paneId,
     externalId: `ext-${paneId}`,
-    token: `token-${paneId}`,
     workspaceId: 'w1',
     shell: '/bin/sh',
     stateFile: '',
@@ -58,17 +56,8 @@ function spawn(kept: KeptShells, paneId: string): Promise<TmuxPane> {
   })
 }
 
-function alive(pid: number): boolean {
-  try {
-    process.kill(pid, 0)
-    return true
-  } catch {
-    return false
-  }
-}
-
 async function ended(pid: number): Promise<void> {
-  await expect.poll(() => alive(pid), { timeout: PROCESS_END_MS }).toBe(false)
+  await expect.poll(() => running(pid), { timeout: PROCESS_END_MS }).toBe(false)
 }
 
 async function restart(name: string, saved: ReadonlySet<string> | null, keep = true) {
@@ -78,6 +67,16 @@ async function restart(name: string, saved: ReadonlySet<string> | null, keep = t
 }
 
 describe.skipIf(skipWithoutTmux)('KeptShells', () => {
+  it('counts a shell that exited but was not reaped yet as ended, as tmux 3.4 leaves one whose SIGCHLD it lost', async () => {
+    const parent = spawnChild('/bin/sh', ['-c', 'sleep 0.1 & echo $!; exec sleep 5'])
+    const pid = await new Promise<number>((resolve) =>
+      parent.stdout.once('data', (d: Buffer) => resolve(Number(d.toString('utf8').trim()))),
+    )
+    await ended(pid)
+    expect(() => process.kill(pid, 0)).not.toThrow()
+    parent.kill()
+  })
+
   it('KSH-C15 ends a kept shell the restored layout does not name and logs it', async () => {
     const name = `k${names++}`
     const first = instance(name)
@@ -88,7 +87,7 @@ describe.skipIf(skipWithoutTmux)('KeptShells', () => {
     expect(second.kept.isWaiting('p1')).toBe(true)
     expect(second.kept.isWaiting('p2')).toBe(false)
     expect(second.log).toContainEqual(['pty-reap', { pane: 'p2', reason: 'unclaimed' }])
-    expect(alive(named.pid)).toBe(true)
+    expect(running(named.pid)).toBe(true)
     await ended(unnamed.pid)
   })
 
@@ -136,6 +135,29 @@ describe.skipIf(skipWithoutTmux)('KeptShells', () => {
     expect(third.kept.isWaiting('p1')).toBe(false)
   })
 
+  it('KSH-C74 keeps a kept pane token out of tmux, and removes the token files of shells it ends', async () => {
+    const name = `k${names++}`
+    const first = instance(name)
+    await spawn(first.kept, 'p1')
+    await spawn(first.kept, 'p2')
+    const tokens = ['p1', 'p2'].map((paneId) => `secret-${paneId}-${randomUUID()}`)
+    const files = ['p1', 'p2'].map((paneId, i) => first.kept.writeToken(paneId, tokens[i]))
+    first.kept.release()
+    const second = await restart(name, new Set(['p1']))
+    const socket = join(root, 'sock', name)
+    const dump = execFileSync(tmux, ['-S', socket, 'list-windows', '-a', '-F', '#{@ostia-meta}'], {
+      encoding: 'utf8',
+    })
+      .split('\n')
+      .map((line) => Buffer.from(line, 'base64').toString('utf8'))
+      .join('\n')
+    for (const token of tokens) expect(dump).not.toContain(token)
+    expect(readFileSync(files[0], 'utf8')).toBe(tokens[0])
+    expect(existsSync(files[1])).toBe(false)
+    await second.kept.quit()
+    expect(existsSync(files[0])).toBe(false)
+  })
+
   it('hands a kept shell back once, with its identity', async () => {
     const name = `k${names++}`
     const first = instance(name)
@@ -144,7 +166,7 @@ describe.skipIf(skipWithoutTmux)('KeptShells', () => {
     const second = await restart(name, new Set(['p1']))
     const claimed = second.kept.claim('p1')
     expect(claimed?.pane.pid).toBe(pane.pid)
-    expect(claimed?.meta.token).toBe('token-p1')
+    expect(claimed?.meta.externalId).toBe('ext-p1')
     expect(second.kept.claim('p1')).toBeNull()
   })
 
@@ -160,13 +182,18 @@ describe.skipIf(skipWithoutTmux)('KeptShells', () => {
     })
   }
 
-  function host(kept: KeptShells, workspaceId = 'w1'): Promise<TmuxPane> {
+  function host(
+    kept: KeptShells,
+    workspaceId = 'w1',
+    protocol = HOST_PROTOCOL_VERSION,
+  ): Promise<TmuxPane> {
     const hostMeta: KeptHostMeta = {
       kind: SANDBOX_HOST_KIND,
       workspaceId,
       channel: join(root, `${workspaceId}.sock`),
       tmpDir: join(root, workspaceId),
-      exposed: [3000],
+      protocol,
+      exposed: [{ port: 3000, process: 'node', pid: 41 }],
     }
     return kept.spawnHost({
       file: '/bin/sh',
@@ -185,7 +212,7 @@ describe.skipIf(skipWithoutTmux)('KeptShells', () => {
     first.kept.release()
     const second = await restart(name, new Set(['p1']))
     expect(second.kept.isWaiting('p1')).toBe(true)
-    expect(second.kept.keptHost('w1')?.exposed).toEqual([3000])
+    expect(second.kept.keptHost('w1')?.exposed).toEqual([{ port: 3000, process: 'node', pid: 41 }])
     expect(second.kept.claimHost('w1')?.pane.pid).toBe(hostPane.pid)
   })
 
@@ -214,6 +241,25 @@ describe.skipIf(skipWithoutTmux)('KeptShells', () => {
     await ended(pane.pid)
     expect(second.kept.takeSandboxLost('p1')).toBe(true)
     expect(second.kept.takeSandboxLost('p1')).toBe(false)
+  })
+
+  it('KSH-C75 ends the sandbox host of another protocol version and the shells that use it, and marks them lost', async () => {
+    const name = `k${names++}`
+    const first = instance(name)
+    const hostPane = await host(first.kept, 'w1', HOST_PROTOCOL_VERSION + 1)
+    const pane = await sandboxed(first.kept, 'p1')
+    first.kept.release()
+    const second = await restart(name, new Set(['p1']))
+    expect(second.kept.isWaiting('p1')).toBe(false)
+    expect(second.kept.keptHost('w1')).toBeUndefined()
+    expect(second.log).toContainEqual([
+      'sandbox-host-reap',
+      { workspace: 'w1', reason: 'protocol' },
+    ])
+    expect(second.log).toContainEqual(['pty-reap', { pane: 'p1', reason: 'sandbox-gone' }])
+    expect(second.kept.takeSandboxLost('p1')).toBe(true)
+    await ended(hostPane.pid)
+    await ended(pane.pid)
   })
 
   it('KSH-C60 never writes an injected secret into a tmux option, environment or the config', async () => {

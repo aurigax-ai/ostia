@@ -10,7 +10,8 @@ import {
   connectHostChannel,
   listenHostChannel,
 } from './hostChannel'
-import type { HostToMain, MainToHost } from './protocol'
+import { SandboxHost } from './hostClient'
+import { HOST_PROTOCOL_VERSION, type HostToMain, type MainToHost } from './protocol'
 
 const root = mkdtempSync(join(tmpdir(), 'ostia-host-channel-'))
 afterAll(() => rmSync(root, { recursive: true, force: true }))
@@ -18,7 +19,10 @@ let n = 0
 
 function received(socket: Socket): HostToMain[] {
   const out: HostToMain[] = []
-  const lines = new JsonLines((m) => out.push(m as HostToMain))
+  const lines = new JsonLines((m) => {
+    const message = m as HostToMain
+    if (!('type' in message) || message.type !== 'hello') out.push(message)
+  })
   socket.on('data', (chunk: Buffer) => lines.push(chunk))
   return out
 }
@@ -97,6 +101,44 @@ describe('host channel', () => {
     expect(secondGot).toEqual([])
     second.destroy()
     listening.close()
+  })
+
+  it('greets every Ostia that connects with its protocol version first', async () => {
+    const { path, listening } = await channel()
+    listening.send({ type: 'violations', lines: ['denied write /x'] })
+    const socket = await connectHostChannel(path)
+    const got: unknown[] = []
+    const lines = new JsonLines((m) => got.push(m))
+    socket.on('data', (chunk: Buffer) => lines.push(chunk))
+    await until(() => got.length === 2)
+    expect(got[0]).toEqual({ type: 'hello', protocol: HOST_PROTOCOL_VERSION })
+    socket.destroy()
+    listening.close()
+  })
+
+  it('KSH-C75 refuses a sandbox host that speaks another protocol version', async () => {
+    const path = join(root, `old${n++}.sock`)
+    const server = createServer((socket) => {
+      socket.write(`${JSON.stringify({ type: 'hello', protocol: HOST_PROTOCOL_VERSION + 1 })}\n`)
+    })
+    await new Promise<void>((r) => server.listen(path, r))
+    const host = new SandboxHost({
+      nodePath: process.execPath,
+      hostScript: '',
+      onAsk: async () => false,
+    })
+    await expect(
+      host.attach(
+        path,
+        {
+          network: { allowedDomains: [], deniedDomains: [] },
+          filesystem: { denyRead: [], allowWrite: [], denyWrite: [] },
+        },
+        undefined,
+        false,
+      ),
+    ).rejects.toThrow(/protocol/)
+    server.close()
   })
 
   it('does not take a server that another process already listens on', async () => {
