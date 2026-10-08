@@ -1,6 +1,7 @@
 import type { KeyboardEvent } from 'react'
 import { useDict } from '../i18n/useDict'
 import { matchChord } from '../lib/chords'
+import { toggleFilesSearch } from '../lib/filesSearchToggle'
 import { FILES_WIDTH } from '../lib/panelWidth'
 import { isMac } from '../platform'
 import { FilesView } from './FilesView'
@@ -8,13 +9,10 @@ import { PanelResizer } from './PanelResizer'
 
 const FILES_PANEL_ID = 'files-panel'
 
-function focusSearch(e: KeyboardEvent<HTMLElement>): void {
+function toggleSearch(e: KeyboardEvent<HTMLElement>): void {
   if (matchChord(e, isMac) !== 'find') return
-  const input = e.currentTarget.querySelector<HTMLInputElement>('.files-search-input')
-  if (!input) return
   e.preventDefault()
-  input.focus()
-  input.select()
+  toggleFilesSearch()
 }
 
 export function FilesPanel(): JSX.Element {
@@ -24,7 +22,7 @@ export function FilesPanel(): JSX.Element {
       id={FILES_PANEL_ID}
       className="files-panel"
       aria-label={d.rail.files}
-      onKeyDown={focusSearch}
+      onKeyDown={toggleSearch}
     >
       <FilesView />
       <PanelResizer

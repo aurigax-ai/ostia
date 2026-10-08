@@ -25,6 +25,7 @@ test('PDF text is found from the Files panel and with find in the PDF viewer', a
       timeout: 15_000,
     })
 
+    await win.locator('.files-head').getByRole('button', { name: 'Search files' }).click()
     await win.getByRole('textbox', { name: 'Search files' }).fill('needle')
     const text = win.getByRole('region', { name: 'Text' })
     await expect(text).toContainText('docs/paper.pdf', { timeout: 15_000 })

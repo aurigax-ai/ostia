@@ -4,6 +4,7 @@ import {
   EyeIcon,
   FilePlusIcon,
   FolderPlusIcon,
+  MagnifyingGlassIcon,
   SlidersHorizontalIcon,
   XIcon,
 } from '@phosphor-icons/react'
@@ -72,6 +73,8 @@ import {
   ContextMenuSub,
 } from './ui/context-menu'
 import { Empty, EmptyDescription } from './ui/empty'
+
+const SEARCH_HINT_COMMAND = isMac ? 'view.searchFiles' : 'find'
 
 interface TreeFocus {
   workspaceId: string | null
@@ -188,6 +191,15 @@ export function FilesView(): JSX.Element {
     [allFolders, workspaceId],
   )
 
+  const searchOpen = useUIStore((s) => s.filesSearchOpen)
+  const searchButton = useRef<HTMLButtonElement>(null)
+  const searchWasOpen = useRef(searchOpen)
+  useEffect(() => {
+    const closed = searchWasOpen.current && !searchOpen
+    searchWasOpen.current = searchOpen
+    if (closed && document.activeElement === document.body) searchButton.current?.focus()
+  }, [searchOpen])
+
   const local = (
     <>
       <Hint label={cwd} side="bottom">
@@ -227,6 +239,18 @@ export function FilesView(): JSX.Element {
             onClick={() =>
               useFileTreeStore.getState().setEdit({ kind: 'create', entry: 'folder', dir: cwd })
             }
+          />
+          <IconButton
+            ref={searchButton}
+            icon={MagnifyingGlassIcon}
+            label={d.filesView.search}
+            command={SEARCH_HINT_COMMAND}
+            aria-pressed={searchOpen}
+            onClick={() => {
+              const ui = useUIStore.getState()
+              if (searchOpen) ui.closeFilesSearch()
+              else ui.searchFiles()
+            }}
           />
           <IconButton
             icon={EyeIcon}

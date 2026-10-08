@@ -1,6 +1,6 @@
 import { IconContext } from '@phosphor-icons/react'
 import { clampZoom } from '@shared/zoom'
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import { commands } from './commands/registry'
 import { ActionConfirmDialog } from './components/ActionConfirmDialog'
 import { AgentOfferDialog } from './components/AgentOfferDialog'
@@ -28,6 +28,7 @@ import { runAppChord } from './lib/chords'
 import { collectQuitGroups, confirmQuit } from './lib/closeConfirm'
 import { handleDocumentClipboardChord, syncClipboardChords } from './lib/documentClipboard'
 import { wireGuestChords } from './lib/guestChordBridge'
+import { useIconWeight } from './lib/iconWeight'
 import { installMiddlePasteGuard } from './lib/middlePaste'
 import { useMotionAttribute } from './lib/motion'
 import { applyTheme, useEffectiveTheme } from './lib/theme'
@@ -42,7 +43,6 @@ import { registerSettingsSchema } from './settings/registerSettingsSchema'
 import { useExtensionsStore } from './stores/extensionsStore'
 import { freezeSnapshots } from './stores/persistence'
 
-const ICON_STYLE = { weight: 'regular' } as const
 import { useSettingsStore } from './stores/settingsStore'
 import { useUIStore } from './stores/uiStore'
 import { useWindowsStore } from './stores/windowsStore'
@@ -56,6 +56,8 @@ export function App(): JSX.Element {
   const zoom = useSettingsStore((s) => s.appearance.zoom)
   const detached = useWindowsStore((s) => s.detached)
   const theme = useEffectiveTheme()
+  const iconWeight = useIconWeight()
+  const iconStyle = useMemo(() => ({ weight: iconWeight }), [iconWeight])
   useMotionAttribute()
   useMonacoTheme()
 
@@ -119,7 +121,7 @@ export function App(): JSX.Element {
   }, [])
 
   return (
-    <IconContext.Provider value={ICON_STYLE}>
+    <IconContext.Provider value={iconStyle}>
       <TooltipProvider delay={350}>
         <div className={`app${isMac ? ' is-mac' : ''}${detached ? ' is-detached' : ''}`}>
           {detached ? <DetachedTitleBar /> : <TopBar />}

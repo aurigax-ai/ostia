@@ -20,6 +20,7 @@ interface UIState {
   settingsExtension: string | null
   dashboardActive: boolean
   filesOpen: boolean
+  filesSearchOpen: boolean
   filesSearchFocus: boolean
   digitHints: boolean
   promptPreviewPaneId: string | null
@@ -40,6 +41,7 @@ interface UIState {
   toggleFiles: () => void
   showFiles: () => void
   searchFiles: () => void
+  closeFilesSearch: () => void
   filesSearchFocused: () => void
   setDigitHints: (shown: boolean) => void
 }
@@ -55,6 +57,7 @@ export const useUIStore = create<UIState>((set, get) => ({
   settingsExtension: null,
   dashboardActive: false,
   filesOpen: false,
+  filesSearchOpen: false,
   filesSearchFocus: false,
   digitHints: false,
   promptPreviewPaneId: null,
@@ -98,7 +101,8 @@ export const useUIStore = create<UIState>((set, get) => ({
     set((s) => ({ dashboardActive: !s.dashboardActive, settingsActive: false })),
   toggleFiles: () => set((s) => ({ filesOpen: !s.filesOpen, filesSearchFocus: false })),
   showFiles: () => set({ filesOpen: true }),
-  searchFiles: () => set({ filesOpen: true, filesSearchFocus: true }),
+  searchFiles: () => set({ filesOpen: true, filesSearchOpen: true, filesSearchFocus: true }),
+  closeFilesSearch: () => set({ filesSearchOpen: false, filesSearchFocus: false }),
   filesSearchFocused: () => set({ filesSearchFocus: false }),
   setDigitHints: (digitHints) => set({ digitHints }),
 }))
