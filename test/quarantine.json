@@ -5,12 +5,5 @@
     "issue": 129,
     "until": "2026-11-02",
     "platforms": ["linux"]
-  },
-  {
-    "file": "src/main/languageServers.test.ts",
-    "name": "LanguageServers sessions > stops with shutdown then exit once no document has been open for the idle delay",
-    "issue": 193,
-    "until": "2026-11-03",
-    "platforms": ["darwin"]
   }
 ]
