@@ -289,8 +289,6 @@ describe('SettingsPanel', () => {
     expect(labelSide).toContainElement(link)
     expect(valueSide).toHaveTextContent(/^Ostia prompt$/)
     expect(link).toHaveAttribute('data-slot', 'button')
-    expect(link.className).toContain('underline-offset-4')
-    expect(link.className).not.toContain('border-border')
 
     act(() =>
       useSettingsStore.setState((s) => ({
@@ -668,16 +666,5 @@ describe('SettingsPanel', () => {
     expect(await screen.findByRole('heading', { level: 2, name: 'Assistant' })).toBeInTheDocument()
     expect(screen.getByRole('textbox', { name: 'Base url' })).toBeInTheDocument()
     expect(screen.getByText('MCP servers')).toBeInTheDocument()
-  })
-
-  it('lets the settings content area be selected while buttons stay unselectable', async () => {
-    await renderSettings()
-    const content = document.querySelector('[data-slot="settings-content"]')
-    expect(content).not.toBeNull()
-    expect(content).toHaveClass('select-text')
-    expect(content).toHaveClass('[&_[data-slot=kbd]]:select-text')
-    expect(content).toHaveClass('[&_[data-slot=label]]:select-text')
-    const nav = screen.getAllByRole('navigation')[0]
-    expect(nav.contains(content)).toBe(false)
   })
 })

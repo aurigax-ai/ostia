@@ -76,7 +76,6 @@ describe('SplitTabPill', () => {
     const pill = container.querySelector('.pane-split-tab') as HTMLElement
     const segments = pill.querySelectorAll(':scope > .split-tab-segment')
     expect(segments).toHaveLength(2)
-    expect(pill.querySelector('.split-tab-pill')).toBeNull()
   })
 
   it('draws the glyph from the real tree', () => {

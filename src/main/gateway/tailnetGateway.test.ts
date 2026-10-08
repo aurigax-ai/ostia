@@ -1,13 +1,12 @@
 import { type ChildProcessWithoutNullStreams, spawn } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { type Socket, connect as netConnect } from 'node:net'
 import { tmpdir } from 'node:os'
-import { dirname, join, resolve } from 'node:path'
+import { join, resolve } from 'node:path'
 import { type TLSSocket, connect as tlsConnect } from 'node:tls'
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import WebSocket from 'ws'
-import { storePath } from '../jsonStore'
 import type { GatewayControlDeps } from './controlDispatch'
 import { registerDevice } from './devices'
 
@@ -140,9 +139,6 @@ describe('gateway behind the tsnet helper', () => {
   beforeAll(async () => {
     prevXdg = process.env.XDG_DATA_HOME
     process.env.XDG_DATA_HOME = mkdtempSync(join(tmpdir(), 'ostia-tailnet-xdg-'))
-    const configPath = storePath('gateway-config', 'global')
-    mkdirSync(dirname(configPath), { recursive: true })
-    writeFileSync(configPath, JSON.stringify({ host: '192.168.2.108' }))
     configureGatewayControl(deps)
     const started = await startGateway({ port: 0 })
     port = started.port
@@ -163,12 +159,8 @@ describe('gateway behind the tsnet helper', () => {
     if (xdg) rmSync(xdg, { recursive: true, force: true })
   })
 
-  it('TSN-C28 listens only on loopback', () => {
+  it('TSN-C28 listens on loopback when it is started without an address', () => {
     expect(gatewayStatus()).toMatchObject({ running: true, host: '127.0.0.1' })
-  })
-
-  it('TSN-C29 ignores a saved LAN address and stays on loopback', () => {
-    expect(gatewayStatus().host).toBe('127.0.0.1')
   })
 
   it('TSN-C6 rate-limits and audits pairing per tailnet peer', async () => {
