@@ -11,6 +11,7 @@ import { DeckRail } from './components/DeckRail'
 import { DetachedTitleBar } from './components/DetachedTitleBar'
 import { ExtensionApprovalDialog } from './components/ExtensionApprovalDialog'
 import { FilesPanel } from './components/FilesPanel'
+import { HibernateSkippedDialog } from './components/HibernateSkippedDialog'
 import { HistorySearch } from './components/HistorySearch'
 import { MergeConfirmDialog } from './components/MergeConfirmDialog'
 import { RemoteFolderDialog } from './components/RemoteFolderDialog'
@@ -131,6 +132,7 @@ export function App(): JSX.Element {
           <ExtensionApprovalDialog />
           <CloseConfirmDialog />
           <MergeConfirmDialog />
+          <HibernateSkippedDialog />
           <CmuxImportDialog />
           <ActionConfirmDialog />
           <UpdateConfirmDialog />

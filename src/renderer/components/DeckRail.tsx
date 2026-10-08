@@ -70,6 +70,7 @@ import { latestAttentionMessage, runningTitle } from '../lib/workspaceSummary'
 import { useAttentionStore } from '../stores/attentionStore'
 import { useBlocksStore } from '../stores/blocksStore'
 import { useExtensionsStore } from '../stores/extensionsStore'
+import { useHibernateSkippedStore } from '../stores/hibernateSkippedStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { usePaneDnd } from '../stores/paneDndStore'
 import { useSandboxStore } from '../stores/sandboxStore'
@@ -904,7 +905,9 @@ function HibernateMenuItems({ workspaceId }: { workspaceId: string }): JSX.Eleme
       <MenuItem
         icon={MoonIcon}
         disabled={!sleepable}
-        onClick={() => void hibernateWorkspace(workspaceId)}
+        onClick={() =>
+          void hibernateWorkspace(workspaceId).then(useHibernateSkippedStore.getState().show)
+        }
       >
         {d.rail.hibernateAgents}
       </MenuItem>

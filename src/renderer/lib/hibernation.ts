@@ -25,16 +25,23 @@ export function commandAgent(command: string): ResumableAgent | null {
   return null
 }
 
-export function pickHibernation(
+export interface HibernationPlan {
+  excess: number
+  longestIdleFirst: HibernationCandidate[]
+}
+
+export function planHibernation(
   candidates: HibernationCandidate[],
   policy: HibernationPolicy,
-): HibernationCandidate[] {
+): HibernationPlan {
   const live = candidates.filter((c) => c.agentRunning)
-  const excess = live.length - policy.maxLiveTerminals
-  if (excess <= 0) return []
+  const excess = Math.max(0, live.length - policy.maxLiveTerminals)
+  if (excess === 0) return { excess, longestIdleFirst: [] }
   const idleMs = policy.idleSeconds * 1000
-  return live
-    .filter((c) => !c.visible && c.idleMs >= idleMs)
-    .sort((a, b) => b.idleMs - a.idleMs)
-    .slice(0, excess)
+  return {
+    excess,
+    longestIdleFirst: live
+      .filter((c) => !c.visible && c.idleMs >= idleMs)
+      .sort((a, b) => b.idleMs - a.idleMs),
+  }
 }

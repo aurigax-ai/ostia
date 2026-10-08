@@ -327,6 +327,8 @@ function hooksFor(
 
 const commandHook = (command: string) => ({ type: 'command', command })
 
+const CLAUDE_SUBAGENT_EVENTS = ['SubagentStart', 'SubagentStop'] as const
+
 export function claudeHookSettings(extensionHooks: readonly ExtensionAgentHook[] = []): {
   hooks: Record<string, unknown[]>
 } {
@@ -350,6 +352,9 @@ export function claudeHookSettings(extensionHooks: readonly ExtensionAgentHook[]
     ...(hooks.PreToolUse ?? []),
   ]
   hooks.StopFailure = [{ hooks: [commandHook(hookCommand('claude-hook StopFailure'))] }]
+  for (const event of CLAUDE_SUBAGENT_EVENTS) {
+    hooks[event] = [{ hooks: [commandHook(hookCommand(`claude-hook ${event}`))] }]
+  }
   hooks.PermissionRequest = [{ hooks: [commandHook(permissionHookCommand('claude'))] }]
   return { hooks }
 }
