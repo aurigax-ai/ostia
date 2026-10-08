@@ -38,15 +38,64 @@ export type PreviewEvent =
   | { id: string; type: 'stopped'; reason: PreviewStopReason }
 
 export interface PreviewApi {
-  open: (paneId: string, path: string) => Promise<PreviewOpened | null>
+  open: (paneId: string, path: string, theme: PreviewTheme) => Promise<PreviewOpened | null>
   shown: (id: string, visible: boolean) => void
   stop: (id: string) => void
   close: (id: string) => void
   onEvent: (cb: (event: PreviewEvent) => void) => () => void
 }
 
+export const PREVIEW_PAGE_CSP = [
+  "default-src 'none'",
+  `script-src ${PREVIEW_SCHEME}: 'unsafe-inline'`,
+  `style-src ${PREVIEW_SCHEME}: 'unsafe-inline'`,
+  `img-src ${PREVIEW_SCHEME}: data: blob:`,
+  `font-src ${PREVIEW_SCHEME}: data:`,
+  `media-src ${PREVIEW_SCHEME}: data: blob:`,
+  `connect-src ${PREVIEW_SCHEME}:`,
+  "worker-src 'none'",
+  "frame-src 'none'",
+  "form-action 'none'",
+  "base-uri 'none'",
+  'sandbox allow-scripts',
+].join('; ')
+
+export function isComponentPath(path: string | undefined): boolean {
+  return path !== undefined && /\.[jt]sx$/i.test(path)
+}
+
 export function isPreviewPath(path: string | undefined): boolean {
-  return path !== undefined && /\.html?$/i.test(path)
+  return path !== undefined && (/\.html?$/i.test(path) || isComponentPath(path))
+}
+
+export const SHELL_MODULE_PATH = '/__ostia_shell.js'
+const THEME_NAME = /^--ostia-[a-z][a-z-]{0,31}$/
+const THEME_VALUE = /^[#\w\s(),.%"'-]{1,160}$/
+const THEME_VARS_MAX = 16
+
+export interface PreviewTheme {
+  dark: boolean
+  vars: Record<string, string>
+}
+
+export function normalizePreviewTheme(value: unknown): PreviewTheme {
+  const raw = (value && typeof value === 'object' ? value : {}) as Record<string, unknown>
+  const given = raw.vars && typeof raw.vars === 'object' ? raw.vars : {}
+  const vars: Record<string, string> = {}
+  for (const [name, text] of Object.entries(given as Record<string, unknown>)) {
+    if (Object.keys(vars).length >= THEME_VARS_MAX) break
+    if (typeof text === 'string' && THEME_NAME.test(name) && THEME_VALUE.test(text)) {
+      vars[name] = text.trim()
+    }
+  }
+  return { dark: raw.dark === true, vars }
+}
+
+export function shellCsp(nonce: string): string {
+  return PREVIEW_PAGE_CSP.replace(
+    `script-src ${PREVIEW_SCHEME}: 'unsafe-inline'`,
+    `script-src ${PREVIEW_SCHEME}: 'nonce-${nonce}'`,
+  )
 }
 
 export function previewPartition(nonce: string): string {
@@ -71,32 +120,17 @@ export function blockedHost(url: string): string {
 }
 
 const POLICY_MESSAGE = /Content Security Policy/i
-const REMOTE_URL = /'((?:https?|wss?|ftp):\/\/[^']+)'/i
+const REMOTE_URL = /((?:https?|wss?|ftp):\/\/[^\s'"]+)/i
 
 export function blockedByPolicy(message: string): string | null {
   if (!POLICY_MESSAGE.test(message)) return null
-  const url = REMOTE_URL.exec(message)?.[1]
+  const url = REMOTE_URL.exec(message)?.[1]?.replace(/[.,;:]+$/, '')
   return url ? blockedHost(url) : null
 }
 
 export function isWebLink(url: string): boolean {
   return /^https?:\/\//i.test(url)
 }
-
-export const PREVIEW_PAGE_CSP = [
-  "default-src 'none'",
-  `script-src ${PREVIEW_SCHEME}: 'unsafe-inline'`,
-  `style-src ${PREVIEW_SCHEME}: 'unsafe-inline'`,
-  `img-src ${PREVIEW_SCHEME}: data: blob:`,
-  `font-src ${PREVIEW_SCHEME}: data:`,
-  `media-src ${PREVIEW_SCHEME}: data: blob:`,
-  `connect-src ${PREVIEW_SCHEME}:`,
-  "worker-src 'none'",
-  "frame-src 'none'",
-  "form-action 'none'",
-  "base-uri 'none'",
-  'sandbox allow-scripts',
-].join('; ')
 
 export function keepErrors(
   errors: readonly PreviewError[],

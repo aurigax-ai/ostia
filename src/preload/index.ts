@@ -399,8 +399,8 @@ const bridge: OstiaBridge = {
     },
   },
   preview: {
-    open: (paneId, path) =>
-      ipcRenderer.invoke('preview:open', paneId, path) as Promise<PreviewOpened | null>,
+    open: (paneId, path, theme) =>
+      ipcRenderer.invoke('preview:open', paneId, path, theme) as Promise<PreviewOpened | null>,
     shown: (id, visible) => ipcRenderer.send('preview:shown', id, visible),
     stop: (id) => ipcRenderer.send('preview:stop', id),
     close: (id) => ipcRenderer.send('preview:close', id),

@@ -10,6 +10,7 @@ import {
 import { useEffect, useRef, useState } from 'react'
 import { fmt, useDict } from '../i18n/useDict'
 import { openBrowserAs } from '../lib/browserProfile'
+import { previewTheme } from '../lib/previewTheme'
 import { cn } from '../lib/utils'
 import { IconButton } from './IconButton'
 import { DropdownMenu, MenuItem } from './Menu'
@@ -55,7 +56,7 @@ export function HtmlPreview({
   useEffect(() => {
     if (!wanted || opened) return
     let alive = true
-    void window.ostia.preview.open(paneId, filePath).then((res) => {
+    void window.ostia.preview.open(paneId, filePath, previewTheme()).then((res) => {
       if (!alive) {
         if (res) window.ostia.preview.close(res.id)
         return

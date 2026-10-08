@@ -47,6 +47,9 @@ beforeEach(() => {
   writeFileSync(join(folder, 'data.json'), '{"a":1}')
   writeFileSync(join(folder, 'assets', 'app.js'), 'export const a = 1')
   writeFileSync(join(base, 'outside.txt'), 'outside')
+  mkdirSync(join(base, 'runtime'))
+  writeFileSync(join(base, 'runtime', 'react.js'), 'export default {}')
+  writeFileSync(join(base, 'runtime', 'secret.js'), 'not in the list')
 })
 
 afterEach(() => {
@@ -307,6 +310,8 @@ function rig(): Rig {
     ownsPane: (windowId, paneId) => paneId.startsWith(`${windowId}:`),
     send: (_windowId, event) => events.push(event),
     processes: () => processes,
+    runtimeDir: () => join(base, 'runtime'),
+    compile: async (file, source) => `/* compiled ${file} */${source.toString().length}`,
     now: () => clock.now,
   })
   const open = (paneId = '1:p1', path = page, windowId = '1'): PreviewOpened => {
@@ -531,7 +536,61 @@ describe('PreviewHost', () => {
     expect((await serve(new Request('ostia-preview://someone-else/'))).status).toBe(404)
     expect((await serve(new Request(`${opened.url}../outside.txt`))).status).toBe(404)
     expect((await serve(new Request(opened.url, { method: 'POST', body: 'x' }))).status).toBe(405)
-    expect((await serve(new Request(`${opened.url}runtime/react.js`))).status).toBe(404)
+  })
+
+  it('serves only the listed runtime files, to pages and components alike', async () => {
+    const opened = r.open()
+    const serve = r.sessionOf(opened).serve as (request: Request) => Promise<Response>
+    const react = await serve(new Request(`${opened.url}runtime/react.js`))
+    expect(react.status).toBe(200)
+    expect(react.headers.get('content-type')).toBe('text/javascript; charset=utf-8')
+    expect(await react.text()).toBe('export default {}')
+    for (const name of ['secret.js', '../outside.txt', 'recharts.js', 'react.js/..', '']) {
+      const res = await serve(new Request(`${opened.url}runtime/${name}`))
+      expect(res.status, name).toBe(404)
+    }
+  })
+
+  it('serves a component through the shell page with a fresh nonce and no inline scripts', async () => {
+    const app = join(folder, 'App.tsx')
+    writeFileSync(app, 'export default function App() { return null }')
+    writeFileSync(join(folder, 'Chart.tsx'), 'export const Chart = () => null')
+    const opened = r.open('1:p1', app)
+    const serve = r.sessionOf(opened).serve as (request: Request) => Promise<Response>
+    const first = await serve(new Request(opened.url))
+    const second = await serve(new Request(opened.url))
+    const csp = first.headers.get('content-security-policy') ?? ''
+    const nonce = /script-src ostia-preview: 'nonce-([^']+)'/.exec(csp)?.[1]
+    expect(nonce).toBeTruthy()
+    expect(csp).not.toContain("script-src ostia-preview: 'unsafe-inline'")
+    expect(csp).not.toContain('unsafe-eval')
+    expect(csp).toContain('sandbox allow-scripts')
+    expect(csp).not.toContain('allow-same-origin')
+    expect(second.headers.get('content-security-policy')).not.toBe(csp)
+    const html = await first.text()
+    expect(html).toContain(`<script type="importmap" nonce="${nonce}">`)
+    expect(html).toContain('"react":"/runtime/react.js"')
+    expect(html).not.toContain('export default function App')
+    expect(html.match(/<script(?![^>]*nonce=)/g)).toBeNull()
+
+    const shell = await serve(new Request(`${opened.url}__ostia_shell.js`))
+    expect(await shell.text()).toContain("import('/__ostia_entry.js')".replace(/'/g, '"'))
+    const entry = await serve(new Request(`${opened.url}__ostia_entry.js`))
+    expect(entry.headers.get('content-type')).toBe('text/javascript; charset=utf-8')
+    expect(await entry.text()).toBe('/* compiled App.tsx */45')
+    const bare = await serve(new Request(`${opened.url}Chart`))
+    expect(await bare.text()).toBe('/* compiled Chart.tsx */31')
+    expect((await serve(new Request(`${opened.url}Missing`))).status).toBe(404)
+    expect((await serve(new Request(`${opened.url}data.json`))).headers.get('content-type')).toBe(
+      'application/json; charset=utf-8',
+    )
+  })
+
+  it('keeps the shell for components: an HTML page never gets it', async () => {
+    const opened = r.open()
+    const serve = r.sessionOf(opened).serve as (request: Request) => Promise<Response>
+    expect((await serve(new Request(`${opened.url}__ostia_shell.js`))).status).toBe(404)
+    expect((await serve(new Request(`${opened.url}__ostia_entry.js`))).status).toBe(404)
   })
 
   it('serves at most 16 MiB per load and starts counting again with the page', async () => {

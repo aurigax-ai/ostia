@@ -67,7 +67,10 @@ describe('HtmlPreview', () => {
 
   it('asks main for a guest and mounts it on the partition and URL main returned', async () => {
     await renderSettled(preview())
-    expect(window.ostia.preview.open).toHaveBeenCalledWith('p1', FILE)
+    expect(window.ostia.preview.open).toHaveBeenCalledWith('p1', FILE, {
+      dark: false,
+      vars: {},
+    })
     expect(guest()).toHaveAttribute('src', 'ostia-preview://load1/')
     expect(guest()).toHaveAttribute('partition', 'ostia-preview-nonce')
     expect(guest()).not.toHaveAttribute('preload')

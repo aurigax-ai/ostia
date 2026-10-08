@@ -1,3 +1,4 @@
+import { runtimeHelp } from '../shared/artifactRuntime'
 import type { ExtensionInfo } from '../shared/extensions'
 import { registerControlMethod } from './controlServer'
 
@@ -340,7 +341,7 @@ export function registerDocsMethods(deps: {
 }): void {
   registerControlMethod('docs', {
     handler: (_params, ctx) => ({
-      cli: `${CLI_HELP}${extensionHelp(deps.extensions())}${ctx.identity.manager ? MANAGER_HELP : ''}`,
+      cli: `${CLI_HELP}\n${runtimeHelp()}\n${extensionHelp(deps.extensions())}${ctx.identity.manager ? MANAGER_HELP : ''}`,
       note: 'run `ostia commands --json` for the machine-readable command list',
     }),
   })

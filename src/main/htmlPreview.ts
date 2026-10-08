@@ -12,8 +12,10 @@ import {
   statSync,
   watch,
 } from 'node:fs'
+import { readFile } from 'node:fs/promises'
 import { basename, dirname, extname, join, relative, sep } from 'node:path'
 import { ipcMain } from 'electron'
+import { RUNTIME_PREFIX, runtimeFiles } from '../shared/artifactRuntime'
 import {
   PREVIEW_LIMITS,
   PREVIEW_PAGE_CSP,
@@ -22,14 +24,21 @@ import {
   type PreviewEvent,
   type PreviewOpened,
   type PreviewStopReason,
+  type PreviewTheme,
+  SHELL_MODULE_PATH,
   allowsPreviewRequest,
   blockedByPolicy,
   blockedHost,
+  isComponentPath,
   isPreviewPath,
+  normalizePreviewTheme,
   previewPartition,
+  shellCsp,
 } from '../shared/htmlPreview'
+import { compiles } from './artifactCompiler'
 import { isHiddenFromPhone } from './gateway/workspaceFiles'
 import { busySince, previewVerdict, previewsOverCap } from './previewLimits'
+import { ENTRY_MODULE_PATH, shellModule, shellPage } from './previewShell'
 
 const PING_MS = 1_000
 const METRICS_MS = 5_000
@@ -78,8 +87,12 @@ export function previewMime(path: string): string {
 }
 
 export function previewHeaders(path: string): Record<string, string> {
+  return typedHeaders(previewMime(path))
+}
+
+export function typedHeaders(type: string): Record<string, string> {
   return {
-    'content-type': previewMime(path),
+    'content-type': type,
     'content-security-policy': PREVIEW_PAGE_CSP,
     'access-control-allow-origin': '*',
     'cache-control': 'no-store',
@@ -91,6 +104,10 @@ export interface PreviewSource {
   file: string
   root: string | null
 }
+
+const MODULE_EXTENSIONS = ['.tsx', '.ts', '.jsx', '.js']
+const SCRIPT_TYPE = 'text/javascript; charset=utf-8'
+const PAGE_TYPE = 'text/html; charset=utf-8'
 
 export type PreviewFile = { ok: true; path: string; size: number } | { ok: false; status: number }
 
@@ -233,6 +250,8 @@ export interface PreviewHostDeps {
   ownsPane: (windowId: string, paneId: string) => boolean
   send: (windowId: string, event: PreviewEvent) => void
   processes: () => ProcessUse[]
+  runtimeDir: () => string
+  compile: (file: string, source: Buffer) => Promise<string>
   now?: () => number
 }
 
@@ -248,6 +267,7 @@ interface Live {
   windowId: string
   paneId: string
   source: PreviewSource
+  theme: PreviewTheme
   slot: Slot
   guest: PreviewGuest | null
   loaded: number
@@ -283,7 +303,12 @@ export class PreviewHost {
     this.now = deps.now ?? Date.now
   }
 
-  open(windowId: string, paneId: string, path: string): PreviewOpened | null {
+  open(
+    windowId: string,
+    paneId: string,
+    path: string,
+    theme: unknown = null,
+  ): PreviewOpened | null {
     if (!this.deps.ownsPane(windowId, paneId) || !isPreviewPath(path)) return null
     const confined = this.deps.confine(path)
     if (!confined) return null
@@ -303,6 +328,7 @@ export class PreviewHost {
       windowId,
       paneId,
       source: { file, root: this.deps.insideRoots(folder) ? folder : null },
+      theme: normalizePreviewTheme(theme),
       slot,
       guest: null,
       loaded: 0,
@@ -345,7 +371,7 @@ export class PreviewHost {
     const session = this.deps.sessionOf(partition)
     const slot: Slot = { nonce, partition, session, live: null }
     this.slots.set(partition, slot)
-    session.protocol.handle(PREVIEW_SCHEME, async (request) => this.serve(slot, request))
+    session.protocol.handle(PREVIEW_SCHEME, (request) => this.serve(slot, request))
     session.webRequest.onBeforeRequest((details, callback) => {
       const allowed = allowsPreviewRequest(details.url)
       if (!allowed) this.blocked(slot, details.url)
@@ -428,7 +454,7 @@ export class PreviewHost {
     const prefix = `${PREVIEW_SCHEME}://${live.id}/`
     if (!sourceId.startsWith(prefix)) return sourceId.slice(0, 200)
     const rest = sourceId.slice(prefix.length)
-    return rest === '' ? basename(live.source.file) : rest
+    return rest === '' || `/${rest}` === ENTRY_MODULE_PATH ? basename(live.source.file) : rest
   }
 
   private report(live: Live, error: PreviewError): void {
@@ -439,7 +465,7 @@ export class PreviewHost {
     if (slot.live) this.report(slot.live, { kind: 'blocked', message: blockedHost(url) })
   }
 
-  private serve(slot: Slot, request: Request): Response {
+  private async serve(slot: Slot, request: Request): Promise<Response> {
     const live = slot.live
     let url: URL
     try {
@@ -449,19 +475,54 @@ export class PreviewHost {
     }
     if (!live || url.host !== live.id) return notFound(404)
     if (request.method !== 'GET' && request.method !== 'HEAD') return notFound(405)
-    const main = url.pathname === '/' || url.pathname === ''
+    const send = (body: Buffer | string, headers: Record<string, string>): Response =>
+      new Response(request.method === 'HEAD' ? null : new Uint8Array(Buffer.from(body)), {
+        status: 200,
+        headers,
+      })
+    const path = url.pathname
+    if (path.startsWith(RUNTIME_PREFIX)) {
+      const library = await this.runtimeFile(path.slice(RUNTIME_PREFIX.length))
+      return library ? send(library, typedHeaders(SCRIPT_TYPE)) : notFound(404)
+    }
+    const component = isComponentPath(live.source.file)
+    const main = path === '/' || path === ''
     if (main) {
       live.loaded = 0
       this.deps.send(live.windowId, { id: live.id, type: 'loading' })
     }
-    const found = readPreviewFile(live.source, url.pathname, PREVIEW_LIMITS.loadBytes - live.loaded)
+    if (component && main) {
+      const nonce = randomBytes(16).toString('base64')
+      return send(shellPage(nonce, live.theme), {
+        ...typedHeaders(PAGE_TYPE),
+        'content-security-policy': shellCsp(nonce),
+      })
+    }
+    if (component && path === SHELL_MODULE_PATH)
+      return send(shellModule(), typedHeaders(SCRIPT_TYPE))
+    const found = this.read(live, component && path === ENTRY_MODULE_PATH ? '/' : path)
     if (!found.ok) return notFound(found.status)
     live.loaded += found.body.length
     this.follow(live, found.path)
-    return new Response(request.method === 'HEAD' ? null : new Uint8Array(found.body), {
-      status: 200,
-      headers: previewHeaders(found.path),
-    })
+    if (!compiles(found.path)) return send(found.body, previewHeaders(found.path))
+    const label = live.source.root ? relative(live.source.root, found.path) : basename(found.path)
+    return send(await this.deps.compile(label, found.body), typedHeaders(SCRIPT_TYPE))
+  }
+
+  private read(live: Live, pathname: string): PreviewRead {
+    const left = PREVIEW_LIMITS.loadBytes - live.loaded
+    const exact = readPreviewFile(live.source, pathname, left)
+    if (exact.ok || exact.status !== 404 || extname(pathname) !== '') return exact
+    for (const extension of MODULE_EXTENSIONS) {
+      const guess = readPreviewFile(live.source, `${pathname}${extension}`, left)
+      if (guess.ok || guess.status !== 404) return guess
+    }
+    return exact
+  }
+
+  private async runtimeFile(name: string): Promise<Buffer | null> {
+    if (!runtimeFiles().includes(name)) return null
+    return readFile(join(this.deps.runtimeDir(), name)).catch(() => null)
   }
 
   private follow(live: Live, path: string): void {
@@ -672,10 +733,12 @@ export function hardenPreviewAttach(
 }
 
 export function registerPreviewIpc(host: PreviewHost): void {
-  ipcMain.handle('preview:open', (e, paneId: unknown, path: unknown): PreviewOpened | null =>
-    typeof paneId === 'string' && typeof path === 'string'
-      ? host.open(String(e.sender.id), paneId, path)
-      : null,
+  ipcMain.handle(
+    'preview:open',
+    (e, paneId: unknown, path: unknown, theme: unknown): PreviewOpened | null =>
+      typeof paneId === 'string' && typeof path === 'string'
+        ? host.open(String(e.sender.id), paneId, path, theme)
+        : null,
   )
   ipcMain.on('preview:shown', (e, id: unknown, visible: unknown) => {
     if (typeof id === 'string') host.shown(String(e.sender.id), id, visible === true)

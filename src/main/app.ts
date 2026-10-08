@@ -93,6 +93,7 @@ import { installAppMenu } from './appMenu'
 import { registerAppUpdate } from './appUpdate'
 import { appVersion, runningBuild } from './appVersion'
 import { approvals, registerApprovals } from './approvals'
+import { ArtifactCompiler } from './artifactCompiler'
 import { ArtifactFolders, registerArtifactIpc } from './artifactFolders'
 import { createAskHub } from './asks'
 import { registerAssistIpc } from './assistIpc'
@@ -137,6 +138,7 @@ import { type Diagnostics, registerDiagnostics } from './diagnostics'
 import { discreteGpu, gpuStartPlan, querySwitcherooGpus } from './discreteGpu'
 import { registerDocsMethods } from './docs'
 import { registerEditorLanguageIpc } from './editorLanguages'
+import { loadEsbuild } from './esbuildService'
 import { emitPlatformEvent, emitSessionState, platformEvents } from './events'
 import { confirmForExtension } from './extensionConfirm'
 import { ExtensionHost, registerExtensionMethods } from './extensionHost'
@@ -913,6 +915,11 @@ const openFileGrants = new OpenFileGrants({
   file: join(app.getPath('userData'), 'opened-files.json'),
 })
 
+const artifactCompiler = new ArtifactCompiler(
+  () => loadEsbuild(app.isPackaged),
+  `chrome${process.versions.chrome.split('.')[0]}`,
+)
+
 const previews = new PreviewHost({
   sessionOf: (partition) => session.fromPartition(partition) as unknown as PreviewSession,
   confine: (path) => openFileGrants.confine(path),
@@ -925,6 +932,11 @@ const previews = new PreviewHost({
       memoryBytes: metric.memory.workingSetSize * 1024,
       cpuPercent: metric.cpu.percentCPUUsage,
     })),
+  runtimeDir: () =>
+    app.isPackaged
+      ? join(process.resourcesPath, 'artifact-runtime')
+      : join(app.getAppPath(), 'out', 'artifact-runtime'),
+  compile: (file, source) => artifactCompiler.compile(file, source),
 })
 
 function isScratchPane(paneId: string): boolean {

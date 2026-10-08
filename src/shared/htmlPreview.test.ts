@@ -5,12 +5,15 @@ import {
   allowsPreviewRequest,
   blockedByPolicy,
   blockedHost,
+  isComponentPath,
   isPreviewPartition,
   isPreviewPath,
   isWebLink,
   keepErrors,
+  normalizePreviewTheme,
   previewErrorLine,
   previewPartition,
+  shellCsp,
 } from './htmlPreview'
 
 describe('preview policy', () => {
@@ -53,11 +56,15 @@ describe('preview policy', () => {
     expect(isPreviewPartition(undefined)).toBe(false)
   })
 
-  it('previews only .html and .htm', () => {
+  it('previews .html, .htm, .jsx and .tsx', () => {
     expect(isPreviewPath('/a/page.html')).toBe(true)
     expect(isPreviewPath('/a/PAGE.HTM')).toBe(true)
     expect(isPreviewPath('/a/page.html.md')).toBe(false)
-    expect(isPreviewPath('/a/App.tsx')).toBe(false)
+    expect(isPreviewPath('/a/App.tsx')).toBe(true)
+    expect(isPreviewPath('/a/App.jsx')).toBe(true)
+    expect(isPreviewPath('/a/lib.ts')).toBe(false)
+    expect(isComponentPath('/a/App.tsx')).toBe(true)
+    expect(isComponentPath('/a/page.html')).toBe(false)
     expect(isPreviewPath(undefined)).toBe(false)
   })
 })
@@ -74,6 +81,11 @@ describe('preview errors', () => {
         'Loading the image \'https://example.com/a.png\' violates the following Content Security Policy directive: "img-src ostia-preview: data: blob:".',
       ),
     ).toBe('example.com')
+    expect(
+      blockedByPolicy(
+        "Fetch API cannot load http://127.0.0.1:40583/from-component. Refused to connect because it violates the document's Content Security Policy.",
+      ),
+    ).toBe('127.0.0.1:40583')
     expect(blockedByPolicy("Uncaught ReferenceError: x is not defined at 'http://a/'")).toBeNull()
     expect(
       blockedByPolicy(
@@ -115,5 +127,43 @@ describe('preview errors', () => {
     expect(isWebLink('HTTP://example.com/')).toBe(true)
     expect(isWebLink('file:///etc/passwd')).toBe(false)
     expect(isWebLink('javascript:alert(1)')).toBe(false)
+  })
+})
+
+describe('the component shell', () => {
+  it('allows scripts by nonce only, and nothing else the page policy forbids', () => {
+    const csp = shellCsp('abc123')
+    expect(csp).toContain("script-src ostia-preview: 'nonce-abc123'")
+    expect(csp).not.toContain("script-src ostia-preview: 'unsafe-inline'")
+    expect(csp).toContain("style-src ostia-preview: 'unsafe-inline'")
+    expect(csp).not.toContain('unsafe-eval')
+    expect(csp).toContain('sandbox allow-scripts')
+    expect(csp).toContain('connect-src ostia-preview:')
+  })
+
+  it('takes only --ostia-* names with plain values from the window', () => {
+    expect(
+      normalizePreviewTheme({
+        dark: true,
+        vars: {
+          '--ostia-bg': '#1d2022',
+          '--ostia-font': 'Inter, "Noto Sans", sans-serif',
+          '--ostia-fg': 'oklch(0.9 0.01 240)',
+          '--other': 'red',
+          '--ostia-x': 'red;}</style><script>alert(1)</script>',
+          '--ostia-url': 'url(http://example.com/a.png)',
+          '--ostia-n': 5,
+        },
+      }),
+    ).toEqual({
+      dark: true,
+      vars: {
+        '--ostia-bg': '#1d2022',
+        '--ostia-font': 'Inter, "Noto Sans", sans-serif',
+        '--ostia-fg': 'oklch(0.9 0.01 240)',
+      },
+    })
+    expect(normalizePreviewTheme(null)).toEqual({ dark: false, vars: {} })
+    expect(normalizePreviewTheme({ dark: 'yes', vars: 'x' })).toEqual({ dark: false, vars: {} })
   })
 })

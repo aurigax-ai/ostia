@@ -242,6 +242,17 @@ function guestTick(app: ElectronApplication): Promise<number> {
   }, PREVIEW_URL)
 }
 
+function guestTitle(app: ElectronApplication): Promise<string | null> {
+  return app.evaluate(
+    ({ webContents }, prefix) =>
+      webContents
+        .getAllWebContents()
+        .find((wc) => wc.getURL().startsWith(prefix))
+        ?.getTitle() ?? null,
+    PREVIEW_URL,
+  )
+}
+
 function inGuest<T>(app: ElectronApplication, expression: string): Promise<T | null> {
   return app.evaluate(
     async ({ webContents }, [prefix, code]) => {
@@ -464,6 +475,178 @@ test('a page outside the artifact folder previews only when asked, reloads on a 
     await expect(win.getByTestId('html-preview')).toHaveCount(0)
     await expect.poll(() => guestUrls(app), { timeout: 10_000 }).toEqual([])
     await expect(win.locator('.monaco-editor:visible .view-lines')).toContainText('setInterval')
+  } finally {
+    await app.close()
+  }
+})
+
+const WIDGET = `import { useEffect, useState } from 'react'
+import { Line, LineChart, XAxis } from 'recharts'
+import { Rocket } from 'lucide-react'
+import { HeartIcon } from '@phosphor-icons/react'
+import * as d3 from 'd3'
+import Papa from 'papaparse'
+import Part from './Part'
+
+const points = Papa.parse('x,y\\n1,2\\n2,5\\n3,3', { header: true, dynamicTyping: true }).data
+
+export default function Widget() {
+  const [count, setCount] = useState<number>(0)
+  const [loaded, setLoaded] = useState('')
+  useEffect(() => {
+    fetch('./data.json').then((r) => r.json()).then((d) => setLoaded(d.ok))
+  }, [])
+  useEffect(() => {
+    document.title = 'count ' + count + ' ' + loaded + ' max ' + d3.max(points, (p) => p.y)
+  }, [count, loaded])
+  const probe = async () => {
+    const r: Record<string, unknown> = { ostia: typeof (window as any).ostia, origin: window.origin }
+    try {
+      await fetch('http://127.0.0.1:__PORT__/from-component', { mode: 'no-cors' })
+      r.fetch = 'reached'
+    } catch (e) {
+      r.fetch = 'threw'
+    }
+    try {
+      localStorage.setItem('a', '1')
+      r.storage = 'stored'
+    } catch (e) {
+      r.storage = 'threw'
+    }
+    try {
+      r.evaluated = String(eval('1 + 1'))
+    } catch (e) {
+      r.evaluated = 'threw'
+    }
+    ;(window as any).__r = r
+  }
+  return (
+    <div id="box" className="p-4 text-3xl font-bold">
+      <button id="inc" style={{ position: 'fixed', left: 0, top: 0, width: 120, height: 40 }} onClick={() => setCount(count + 1)}>
+        add
+      </button>
+      <button id="probe" style={{ position: 'fixed', left: 130, top: 0, width: 120, height: 40 }} onClick={probe}>
+        probe
+      </button>
+      <button id="spin" style={{ position: 'fixed', left: 260, top: 0, width: 120, height: 40 }} onClick={() => { while (true) {} }}>
+        spin
+      </button>
+      <Rocket /> <HeartIcon /> <Part label="part" />
+      <LineChart width={300} height={120} data={points}>
+        <XAxis dataKey="x" />
+        <Line dataKey="y" isAnimationActive={false} />
+      </LineChart>
+    </div>
+  )
+}
+`
+
+test('a .tsx component runs with the bundled libraries, no eval, no network, and a runaway is stopped', async () => {
+  test.setTimeout(180_000)
+  const dataHome = freshDataHome()
+  const home = join(dataHome, 'home')
+  mkdirSync(join(home, 'widget'), { recursive: true })
+  const outside = await listen()
+  writeFileSync(
+    join(home, 'widget', 'Widget.tsx'),
+    WIDGET.replace('__PORT__', String(outside.port)),
+  )
+  writeFileSync(
+    join(home, 'widget', 'Part.tsx'),
+    'export default function Part({ label }: { label: string }) { return <span id="part">{label}</span> }\n',
+  )
+  writeFileSync(join(home, 'widget', 'data.json'), '{"ok":"sibling"}')
+  const { app, win } = await launch(dataHome)
+  try {
+    await runInTerminal(
+      win,
+      'mkdir "$OSTIA_ARTIFACTS/widget" && cp ~/widget/* "$OSTIA_ARTIFACTS/widget/" && ostia open "$OSTIA_ARTIFACTS/widget/Widget.tsx"',
+    )
+    await expect(win.getByTestId('html-preview')).toBeVisible({ timeout: 20_000 })
+    await expect.poll(() => guestTitle(app), { timeout: 30_000 }).toBe('count 0 sibling max 5')
+    expect(
+      await inGuest<Record<string, unknown>>(
+        app,
+        `({
+          padding: getComputedStyle(document.getElementById('box')).paddingTop,
+          weight: getComputedStyle(document.getElementById('box')).fontWeight,
+          part: document.getElementById('part').textContent,
+          lucide: document.querySelectorAll('svg.lucide').length,
+          chart: document.querySelectorAll('.recharts-surface').length,
+          line: document.querySelectorAll('.recharts-line path').length,
+          svgs: document.querySelectorAll('svg').length,
+          importMaps: document.querySelectorAll('script[type=importmap]').length,
+        })`,
+      ),
+    ).toEqual({
+      padding: '16px',
+      weight: '700',
+      part: 'part',
+      lucide: 1,
+      chart: 1,
+      line: 1,
+      svgs: 3,
+      importMaps: 1,
+    })
+    await expect(win.getByTestId('preview-errors')).toHaveCount(0)
+
+    await clickInGuest(app, 20, 20)
+    await clickInGuest(app, 20, 20)
+    await expect.poll(() => guestTitle(app)).toBe('count 2 sibling max 5')
+
+    await clickInGuest(app, 150, 20)
+    await expect
+      .poll(() => inGuest<string>(app, 'JSON.stringify(window.__r ?? null)'), { timeout: 15_000 })
+      .toBe(
+        JSON.stringify({
+          ostia: 'undefined',
+          origin: 'null',
+          fetch: 'threw',
+          storage: 'threw',
+          evaluated: 'threw',
+        }),
+      )
+    await expect(win.getByTestId('preview-errors')).toContainText('previews have no network')
+    expect(outside.hits()).toBe(0)
+
+    await clickInGuest(app, 280, 20)
+    await expect(win.getByTestId('preview-not-responding')).toBeVisible({ timeout: 20_000 })
+    await runInTerminal(win, 'echo alive-$((40 + 2))')
+    await expect(win.locator('.xterm-rows').first()).toContainText('alive-42', { timeout: 5_000 })
+    await expect(win.getByTestId('preview-stopped')).toContainText(
+      'did not respond for 15 seconds',
+      { timeout: 30_000 },
+    )
+    await expect.poll(() => guestUrls(app), { timeout: 10_000 }).toHaveLength(0)
+    expect(outside.hits()).toBe(0)
+  } finally {
+    await app.close()
+    await outside.close()
+  }
+})
+
+test('a component that does not compile, or imports what is not bundled, says so in the strip', async () => {
+  test.setTimeout(120_000)
+  const dataHome = freshDataHome()
+  const home = join(dataHome, 'home')
+  mkdirSync(home, { recursive: true })
+  writeFileSync(join(home, 'Broken.tsx'), 'export default function Broken() {\n  return <div>\n}\n')
+  const { app, win } = await launch(dataHome)
+  try {
+    await runInTerminal(
+      win,
+      'cp ~/Broken.tsx "$OSTIA_ARTIFACTS/" && ostia open "$OSTIA_ARTIFACTS/Broken.tsx"',
+    )
+    const strip = win.getByTestId('preview-errors')
+    await expect(strip).toContainText(/Broken\.tsx:3:\d+:/, { timeout: 30_000 })
+
+    await runInTerminal(
+      win,
+      `printf "import { motion } from 'framer-motion'\\nexport default () => <motion.div />\\n" > "$OSTIA_ARTIFACTS/Broken.tsx"`,
+    )
+    await expect(strip).toContainText('framer-motion', { timeout: 30_000 })
+    await expect(strip).not.toContainText('Broken.tsx:3:')
+    expect(await guestUrls(app)).toHaveLength(1)
   } finally {
     await app.close()
   }

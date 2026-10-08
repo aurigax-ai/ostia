@@ -895,7 +895,13 @@
         "src/renderer/lib/artifacts.ts",
         "src/renderer/lib/callerFocus.ts",
         "src/renderer/lib/revealFolder.ts",
-        "src/cli/stdinCapture.ts"
+        "src/cli/stdinCapture.ts",
+        "src/main/artifactCompiler.ts",
+        "src/main/previewShell.ts",
+        "src/main/esbuildService.ts",
+        "src/main/gateway/artifactFiles.ts",
+        "src/shared/artifactRuntime.ts",
+        "scripts/build-artifact-runtime.mjs"
       ],
       "specs": ["e2e/artifacts.spec.ts", "e2e/artifacts-preview.spec.ts"]
     }
