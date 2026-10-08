@@ -43,6 +43,7 @@ import type {
   WorkspaceChip,
 } from '../shared/extensions'
 import { parseGitSettings } from '../shared/git'
+import { isPreviewPartition } from '../shared/htmlPreview'
 import { KEEP_SHELLS_FEATURE, KEPT_SHELLS_DIR, parseKeepShells } from '../shared/keepShells'
 import { languageServerKey } from '../shared/languageServers'
 import { MANAGER_FEATURE, managerAgents, parseManagerSettings } from '../shared/managerSettings'
@@ -166,6 +167,12 @@ import { ViewStateStore } from './git/viewState'
 import { GlobalHotkey, toggleWindows } from './globalHotkey'
 import { type GuestChords, registerGuestChords } from './guestChords'
 import { clearGuestNetwork, forgetGuestNetwork, watchGuestNetwork } from './guestNetwork'
+import {
+  PreviewHost,
+  type PreviewSession,
+  hardenPreviewAttach,
+  registerPreviewIpc,
+} from './htmlPreview'
 import { registerIconThemeIpc } from './iconThemes'
 import {
   type PaneIdentity,
@@ -901,6 +908,20 @@ const openFileGrants = new OpenFileGrants({
   file: join(app.getPath('userData'), 'opened-files.json'),
 })
 
+const previews = new PreviewHost({
+  sessionOf: (partition) => session.fromPartition(partition) as unknown as PreviewSession,
+  confine: (path) => openFileGrants.confine(path),
+  insideRoots: (dir) => resolveSafe(dir, fileRoots()) !== null,
+  ownsPane: (windowId, paneId) => getByPaneId(paneId)?.windowId === windowId,
+  send: (windowId, event) => windows.get(windowId)?.webContents.send('preview:event', event),
+  processes: () =>
+    app.getAppMetrics().map((metric) => ({
+      pid: metric.pid,
+      memoryBytes: metric.memory.workingSetSize * 1024,
+      cpuPercent: metric.cpu.percentCPUUsage,
+    })),
+})
+
 function isScratchPane(paneId: string): boolean {
   return scratchFolders.isScratch(getByPaneId(paneId)?.workspaceId)
 }
@@ -1597,6 +1618,14 @@ function wireWindow(win: BrowserWindow): void {
   attachContextMenu(win.webContents, false)
 
   win.webContents.on('will-attach-webview', (event, webPreferences, params) => {
+    if (isPreviewPartition(params.partition)) {
+      if (previews.acceptsAttach(params.partition, params.src, String(win.webContents.id))) {
+        hardenPreviewAttach(webPreferences, params)
+      } else {
+        event.preventDefault()
+      }
+      return
+    }
     const extId = extensionOfPartition(params.partition)
     const allowed = extId
       ? (extensionHost?.isAllowedPanelUrl(extId, params.src) ?? false)
@@ -1613,6 +1642,7 @@ function wireWindow(win: BrowserWindow): void {
   win.webContents.on('did-attach-webview', (_e, guest) => {
     clipboardEdits?.guardGuest(guest)
     guestChords?.guardGuest(guest)
+    if (previews.adopt(guest)) return
     if (hardenExtensionGuest(guest)) {
       attachContextMenu(guest, false)
       return
@@ -1641,6 +1671,7 @@ function wireWindow(win: BrowserWindow): void {
     gitService?.windowGone(wid)
     portsService?.windowGone(wid)
     releaseWindowPtys(wid)
+    previews.windowClosed(wid)
     fileWatches?.unwatchOwner(wid)
     commandsByWindow.delete(wid)
     for (const [paneId, wcId] of browserPanes) {
@@ -1756,6 +1787,7 @@ function registerIpc(): void {
         workspaceId: event.workspaceId,
       })
     } else if (event.type === 'pane-closed') {
+      previews.paneClosed(event.paneId)
       const identity = getByPaneId(event.paneId)
       if (identity) {
         dropIdentity(identity.externalId)
@@ -3441,6 +3473,7 @@ app.whenReady().then(() => {
   registerPtyIpc()
   registerFsIpc()
   registerSelectionIpc(reachesPane, redactor.text)
+  registerPreviewIpc(previews)
   registerPrivacyIpc(redactor)
   const approvalCaps = new Map<string, readonly string[]>()
   registerApprovals(revealWindow, settingsChanged, {
@@ -4205,6 +4238,7 @@ app.on('before-quit', (event) => {
   for (const workspaceId of scratchFolders.workspaceIds()) workspaceSandboxes.forget(workspaceId)
   workspaceSandboxes.clearTmp(!keepingShells)
   artifactFolders.dispose()
+  previews.dispose()
   scratchFolders.removeAll()
   quitTrace.stage('teardown-hosts')
   portForwarder.stopAll()

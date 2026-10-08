@@ -104,6 +104,31 @@ describe('writeSelectionReport with secret redaction', () => {
 })
 
 describe('writeSelectionReport', () => {
+  it('writes a private Preview error report and redacts a secret a page logged', async () => {
+    const redactor = createRedactor(() => undefined, testScan)
+    const res = await writeSelectionReport(
+      request({
+        capture: {
+          kind: 'preview-error',
+          file: '/home/u/proj/page.html',
+          count: 1,
+          text: `Uncaught Error: token ${FAKE.githubClassic} (page.html:4)`,
+        },
+        note: '',
+      }),
+      'w1',
+      sameWindow,
+      AT,
+      redactor.text,
+    )
+    if (!res.ok) throw new Error(res.error)
+    const md = readFileSync(res.path, 'utf8')
+    expect(md).toContain('# Preview error: page.html, 1 error')
+    expect(md).toContain('- File: /home/u/proj/page.html')
+    expect(md).not.toContain(FAKE.githubClassic)
+    expect(statSync(res.path).mode & 0o777).toBe(0o600)
+  })
+
   it('writes a private text report with the file, range, selection and note', async () => {
     const res = await writeSelectionReport(request(), 'w1', sameWindow, AT)
     if (!res.ok) throw new Error(res.error)

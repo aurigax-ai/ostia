@@ -879,6 +879,22 @@
         "src/renderer/components/PrivacySection.tsx"
       ],
       "specs": ["e2e/secret-redaction.spec.ts"]
+    },
+    {
+      "name": "artifacts",
+      "paths": [
+        "src/main/artifactFolders.ts",
+        "src/main/htmlPreview.ts",
+        "src/main/previewLimits.ts",
+        "src/main/previewScheme.ts",
+        "src/shared/artifacts.ts",
+        "src/shared/htmlPreview.ts",
+        "src/renderer/components/ArtifactsSection.tsx",
+        "src/renderer/components/HtmlPreview.tsx",
+        "src/renderer/stores/artifactsStore.ts",
+        "src/renderer/lib/artifacts.ts"
+      ],
+      "specs": ["e2e/artifacts-preview.spec.ts"]
     }
   ]
 }

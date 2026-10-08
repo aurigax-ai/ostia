@@ -33,6 +33,7 @@ import type { ExtensionOpenTerminalRequest, ExtensionResult, ExtensionsApi } fro
 import type { FileOpsApi } from './fileOps'
 import type { GitBridge } from './git'
 import type { GuestChordFire } from './guestChords'
+import type { PreviewApi } from './htmlPreview'
 import type { IconThemesApi } from './iconTheme'
 import type {
   ReleaseState,
@@ -1040,6 +1041,7 @@ export interface OstiaBridge {
   workspace: WorkspaceApi
   scratch: ScratchApi
   artifacts: ArtifactsApi
+  preview: PreviewApi
   windows: WindowsApi
   lifecycle: LifecycleApi
   commands: CommandsApi

@@ -48,6 +48,7 @@ import type {
 import type { FileOpResult } from '../shared/fileOps'
 import type { CoreItems } from '../shared/git'
 import type { GuestChordFire } from '../shared/guestChords'
+import type { PreviewEvent, PreviewOpened } from '../shared/htmlPreview'
 import type { LoadedIconTheme } from '../shared/iconTheme'
 import type {
   ReleaseState,
@@ -395,6 +396,18 @@ const bridge: OstiaBridge = {
       const handler = (_e: Electron.IpcRendererEvent, workspaceId: string): void => cb(workspaceId)
       ipcRenderer.on('artifacts:changed', handler)
       return () => ipcRenderer.removeListener('artifacts:changed', handler)
+    },
+  },
+  preview: {
+    open: (paneId, path) =>
+      ipcRenderer.invoke('preview:open', paneId, path) as Promise<PreviewOpened | null>,
+    shown: (id, visible) => ipcRenderer.send('preview:shown', id, visible),
+    stop: (id) => ipcRenderer.send('preview:stop', id),
+    close: (id) => ipcRenderer.send('preview:close', id),
+    onEvent: (cb) => {
+      const handler = (_e: Electron.IpcRendererEvent, event: PreviewEvent): void => cb(event)
+      ipcRenderer.on('preview:event', handler)
+      return () => ipcRenderer.removeListener('preview:event', handler)
     },
   },
   windows: {

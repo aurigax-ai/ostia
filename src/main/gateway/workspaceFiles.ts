@@ -52,7 +52,7 @@ function containsRun(segments: readonly string[], run: readonly string[]): boole
   return false
 }
 
-function isHiddenFromPhone(relativePath: string): boolean {
+export function isHiddenFromPhone(relativePath: string): boolean {
   const segments = relativePath.split(sep).filter((part) => part !== '' && part !== '.')
   if (segments.some((part) => HIDDEN_NAME_PREFIXES.some((prefix) => part.startsWith(prefix)))) {
     return true

@@ -1,8 +1,15 @@
 import { cn } from '@/lib/utils'
-import { CodeIcon, EyeIcon, PaperPlaneTiltIcon } from '@phosphor-icons/react'
-import { PAD_MAX_BYTES, PAD_SAVE_DELAY_MS, exceedsPad, isPadPath } from '@shared/artifacts'
+import { CodeIcon, EyeIcon, PaperPlaneTiltIcon, PlayIcon } from '@phosphor-icons/react'
+import {
+  PAD_MAX_BYTES,
+  PAD_SAVE_DELAY_MS,
+  exceedsPad,
+  isInside,
+  isPadPath,
+} from '@shared/artifacts'
 import { AUTO_SAVE_DELAY_MS, type EditorSettings } from '@shared/browserEditorSettings'
 import { DIFF_TEXT_MAX } from '@shared/extensions'
+import { isPreviewPath } from '@shared/htmlPreview'
 import { type RemoteFileError, isRemotePath, parseRemotePath } from '@shared/remoteFolders'
 import type { FsTextResult } from '@shared/types'
 import { useEffect, useRef, useState } from 'react'
@@ -38,6 +45,7 @@ import { useEditorRevealStore } from '../stores/editorRevealStore'
 import { useEditorStatus } from '../stores/editorStatusStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useSettingsStore } from '../stores/settingsStore'
+import { HtmlPreview } from './HtmlPreview'
 import { IconButton } from './IconButton'
 import { LanguageNotice, LargeFileNotice } from './LanguageNotice'
 import { MarkdownPreview, type PreviewSelection, isMarkdownPath } from './MarkdownPreview'
@@ -233,11 +241,17 @@ export function EditorView({
   const [liveEditor, setLiveEditor] = useState<monaco.editor.IStandaloneCodeEditor | null>(null)
   const previewText = useModelText(liveEditor, markdown && preview)
   const external = useExternalEditorAction(paneId)
-  const pad = isPadPath(useArtifactListing(workspaceId) ?? null, filePath)
+  const artifacts = useArtifactListing(workspaceId)
+  const pad = isPadPath(artifacts ?? null, filePath)
   const padRef = useRef(pad)
   padRef.current = pad
   const [padFull, setPadFull] = useState(false)
   const padHint = d.artifacts.padHint
+  const runnable = isPreviewPath(filePath) && !remote && !blocked
+  const inArtifacts = isInside(artifacts?.dir, filePath)
+  const [runChoice, setRunChoice] = useState<{ file: string; on: boolean } | null>(null)
+  const chosen = runChoice && runChoice.file === filePath ? runChoice.on : null
+  const running = runnable && (chosen ?? inArtifacts)
   const visible = usePaneVisible(paneId)
   const visibleRef = useRef(visible)
   const missedCheckRef = useRef(false)
@@ -793,6 +807,27 @@ export function EditorView({
           hintSide="left"
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => sendSelectionRef.current()}
+        />
+      ) : null}
+      {running && filePath ? (
+        <HtmlPreview
+          key={filePath}
+          workspaceId={workspaceId}
+          paneId={paneId}
+          filePath={filePath}
+          visible={visible}
+          onSendErrors={(count, text) =>
+            selectionSend.open({ kind: 'preview-error', file: filePath, count, text })
+          }
+        />
+      ) : null}
+      {runnable && filePath ? (
+        <IconButton
+          className="editor-mode"
+          icon={running ? CodeIcon : PlayIcon}
+          label={running ? d.preview.editSource : d.preview.run}
+          hintSide="left"
+          onClick={() => setRunChoice({ file: filePath, on: !running })}
         />
       ) : null}
       {markdown ? (
