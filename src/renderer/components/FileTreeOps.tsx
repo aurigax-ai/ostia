@@ -1,4 +1,5 @@
 import {
+  CaretRightIcon,
   ClipboardIcon,
   CopyIcon,
   CopySimpleIcon,
@@ -130,12 +131,18 @@ function labelFor(edit: TreeEdit, d: ReturnType<typeof useDict>): string {
   return edit.entry === 'file' ? ops.newFileName : ops.newFolderName
 }
 
+const NAME_OFFSET = 38
+
 export function NameInputRow({
   edit,
   depth,
+  dir,
+  icon,
 }: {
   edit: TreeEdit
   depth: number
+  dir: boolean
+  icon: JSX.Element
 }): JSX.Element {
   const d = useDict()
   const initial = edit.kind === 'rename' ? nameOf(edit.path) : ''
@@ -165,37 +172,49 @@ export function NameInputRow({
         ? fmt(d.filesView.ops.unsaved, { name: initial })
         : d.filesView.ops.errors[problem]
   return (
-    <div className="file-name-edit" style={{ paddingLeft: 8 + depth * 13 }}>
-      <Input
-        autoFocus
-        aria-label={labelFor(edit, d)}
-        aria-invalid={problem !== null}
-        value={name}
-        disabled={busy}
-        className="h-6 px-1.5 text-ui-sm"
-        onFocus={(e) => {
-          const dot = initial.lastIndexOf('.')
-          e.currentTarget.setSelectionRange(0, dot > 0 ? dot : initial.length)
-        }}
-        onChange={(e) => {
-          setName(e.target.value)
-          setProblem(null)
-        }}
-        onBlur={() => {
-          if (!busy) close()
-        }}
-        onKeyDown={(e) => {
-          e.stopPropagation()
-          if (e.key === 'Enter') {
-            e.preventDefault()
-            void commit()
-          } else if (e.key === 'Escape') {
-            e.preventDefault()
-            close()
-          }
-        }}
-      />
-      {message ? <WarningNote>{message}</WarningNote> : null}
+    <div className="file-name-edit">
+      <div className="file-row editing" style={{ paddingLeft: 8 + depth * 13 }}>
+        {dir ? (
+          <CaretRightIcon size={12} className="file-twisty" />
+        ) : (
+          <span className="file-twisty-spacer" />
+        )}
+        {icon}
+        <Input
+          autoFocus
+          aria-label={labelFor(edit, d)}
+          aria-invalid={problem !== null}
+          value={name}
+          disabled={busy}
+          className="file-name-input"
+          onFocus={(e) => {
+            const dot = initial.lastIndexOf('.')
+            e.currentTarget.setSelectionRange(0, dot > 0 ? dot : initial.length)
+          }}
+          onChange={(e) => {
+            setName(e.target.value)
+            setProblem(null)
+          }}
+          onBlur={() => {
+            if (!busy) close()
+          }}
+          onKeyDown={(e) => {
+            e.stopPropagation()
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              void commit()
+            } else if (e.key === 'Escape') {
+              e.preventDefault()
+              close()
+            }
+          }}
+        />
+      </div>
+      {message ? (
+        <div style={{ paddingLeft: 8 + depth * 13 + NAME_OFFSET }}>
+          <WarningNote>{message}</WarningNote>
+        </div>
+      ) : null}
     </div>
   )
 }

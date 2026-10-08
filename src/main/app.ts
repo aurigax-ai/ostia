@@ -163,7 +163,15 @@ import {
   windowOfWorkspace,
   workspaceHasManager,
 } from './idRegistry'
-import { installMethod } from './installMethod'
+import { installAppDir, installMethod } from './installMethod'
+import {
+  type PendingSweep,
+  canReplaceInstall,
+  createInstallReplacer,
+  releaseDownloadBase,
+  runTar,
+  sweepOldInstall,
+} from './installReplace'
 import { loadJson, saveJson, storePath } from './jsonStore'
 import { describeSkipped, registerKeymapIpc } from './keymaps'
 import { registerLanguagePackIpc } from './languagePacks'
@@ -240,7 +248,13 @@ import { confirmQuitNatively } from './quitPrompt'
 import { createReach } from './reach'
 import { createRedactor, createScrollbackRedactor } from './redaction'
 import { createWorkerScan, redactionWorkerScript } from './redactionScan'
-import { announceUpdateRun, registerReleaseCheck, releaseUserAgent } from './releaseCheck'
+import {
+  announceReplace,
+  announceReplaceProgress,
+  announceUpdateRun,
+  registerReleaseCheck,
+  releaseUserAgent,
+} from './releaseCheck'
 import { confirmRemoteFolder, registerRemoteFolderConfirm } from './remoteFolderConfirm'
 import type { RemoteFolders } from './remoteFolders'
 import { ripgrepPath } from './ripgrep'
@@ -1482,6 +1496,7 @@ function handleQuitSignals(): void {
 const startedHidden = app.commandLine.hasSwitch('hidden')
 let appTray: AppTray | null = null
 let globalHotkey: GlobalHotkey | null = null
+let releaseChecks: { settingsChanged: () => void } | null = null
 let managerService: ManagerService | null = null
 let managerLimiter: ManagerLimiter | null = null
 let portal: Portal | null = null
@@ -2803,6 +2818,7 @@ function registerFsIpc(): void {
         extensionHost?.refreshLocale()
         extensionHost?.reloadAssistSettings()
         applyGlobalHotkey()
+        releaseChecks?.settingsChanged()
       }
       return true
     } catch {
@@ -3299,13 +3315,37 @@ app.whenReady().then(() => {
     },
     onChange: announceUpdateRun,
   })
-  registerReleaseCheck({
+  const sweepFile = storePath('install-replace', 'global')
+  void sweepOldInstall(
+    loadJson<PendingSweep | null>(sweepFile, null),
+    installAppDir(),
+    appVersion(),
+  ).then(
+    (swept) => {
+      if (swept) saveJson(sweepFile, null)
+    },
+    () => appLog?.warn('install-sweep-failed'),
+  )
+  releaseChecks = registerReleaseCheck({
     openExternal: openExternalSafe,
     readSettings: readSettingsFile,
     log: appLog,
     version: appVersion(),
     method: installMethod,
     updateRunner,
+    replaceAvailability: async () => {
+      const dir = installAppDir()
+      return dir ? canReplaceInstall(dir) : null
+    },
+    replacer: createInstallReplacer({
+      appDir: installAppDir,
+      base: releaseDownloadBase(app.isPackaged, process.env),
+      fetch,
+      tar: runTar,
+      onState: announceReplace,
+      onProgress: announceReplaceProgress,
+      onReplaced: (pending) => saveJson(sweepFile, pending),
+    }),
   })
   registerAgentTranscriptIpc()
   const notifyDeps = {

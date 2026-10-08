@@ -12,7 +12,7 @@ const RELEASE = {
 const APT_COMMAND = 'sudo apt update && sudo apt install --only-upgrade ostia'
 
 function state(release: typeof RELEASE | null, method: InstallMethod = 'tarball'): ReleaseState {
-  return { release, method, updateCommand: method === 'apt' ? APT_COMMAND : null }
+  return { release, method, updateCommand: method === 'apt' ? APT_COMMAND : null, replace: null }
 }
 
 describe('UpdateNotice', () => {

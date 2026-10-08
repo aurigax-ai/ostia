@@ -21,6 +21,7 @@ export default defineWorkspace([
         'test/affectedTests.test.ts',
         'test/ciMergeQueue.test.ts',
         'test/mergeQueueVerified.test.ts',
+        'test/mainBuild.test.ts',
         'test/retry.test.ts',
       ],
     },

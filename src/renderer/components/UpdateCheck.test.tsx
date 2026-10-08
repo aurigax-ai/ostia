@@ -14,6 +14,7 @@ const state = (release: typeof RELEASE | null): ReleaseState => ({
   release,
   method: 'tarball',
   updateCommand: null,
+  replace: null,
 })
 
 function answer(result: ReleaseCheckResult): void {
@@ -151,6 +152,7 @@ describe('UpdateCheck', () => {
       release: RELEASE,
       method: 'apt',
       updateCommand: 'sudo apt update && sudo apt install --only-upgrade ostia',
+      replace: null,
     })
     render(<UpdateCheck />)
     let stop = (): void => {}

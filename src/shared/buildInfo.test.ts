@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { buildVersion, telemetryStamp } from '../../scripts/buildVersion.mjs'
+import {
+  buildVersion,
+  mainBuildRun,
+  nextPatch,
+  telemetryStamp,
+} from '../../scripts/buildVersion.mjs'
 import { parseBuildInfo, parseTelemetryStamp, releaseVersion } from './buildInfo'
-import { isNewerVersion, parseVersion } from './releases'
+import { isMainChannelVersion, isNewerVersion, parseVersion } from './releases'
 
 describe('buildVersion', () => {
   it('is the plain version for a clean checkout at its release tag', () => {
@@ -36,6 +41,44 @@ describe('buildVersion', () => {
 
   it('falls back to the package version without git', () => {
     expect(buildVersion('0.5.9', null)).toBe('0.5.9')
+  })
+})
+
+describe('main builds', () => {
+  const git = { tags: [], commit: '1a2b3c', dirty: false }
+
+  it('is the next patch with the run number as main prerelease and the commit as metadata', () => {
+    const version = buildVersion('0.5.9', git, '412')
+    expect(version).toBe('0.5.10-main.412+sha.1a2b3c')
+    const parsed = parseVersion(version)
+    expect(parsed && isMainChannelVersion(parsed)).toBe(true)
+  })
+
+  it('sorts above the release it starts from, below the next one, and by run number', () => {
+    const build = (run: string) => releaseVersion(buildVersion('0.5.9', git, run))
+    expect(isNewerVersion(build('412'), '0.5.9')).toBe(true)
+    expect(isNewerVersion('0.5.10', build('412'))).toBe(true)
+    expect(isNewerVersion(build('1000'), build('999'))).toBe(true)
+  })
+
+  it('starts from the next patch of a prerelease base and ignores a release tag on the commit', () => {
+    expect(buildVersion('0.5.9-rc.3', { ...git, tags: ['v0.5.9-rc.3'] }, '7')).toBe(
+      '0.5.10-main.7+sha.1a2b3c',
+    )
+    expect(nextPatch('1.2.9')).toBe('1.2.10')
+  })
+
+  it('needs the commit', () => {
+    expect(() => buildVersion('0.5.9', null, '412')).toThrow()
+  })
+
+  it('reads the run number from OSTIA_MAIN_BUILD and refuses anything else', () => {
+    expect(mainBuildRun({})).toBeNull()
+    expect(mainBuildRun({ OSTIA_MAIN_BUILD: '' })).toBeNull()
+    expect(mainBuildRun({ OSTIA_MAIN_BUILD: '412' })).toBe('412')
+    for (const run of ['0', '012', '4.1', 'abc', '412 ']) {
+      expect(() => mainBuildRun({ OSTIA_MAIN_BUILD: run })).toThrow()
+    }
   })
 })
 

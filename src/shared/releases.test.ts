@@ -2,9 +2,12 @@ import { describe, expect, it } from 'vitest'
 import {
   type Version,
   compareVersions,
+  isMainChannelVersion,
   isNewerVersion,
   parseLatestRelease,
+  parseUpdateChannel,
   parseVersion,
+  pickMainChannelRelease,
 } from './releases'
 
 const version = (text: string): Version => {
@@ -137,5 +140,97 @@ describe('parseLatestRelease', () => {
     expect(parseLatestRelease({ ...RELEASE, tag_name: 14 })).toEqual(malformed)
     expect(parseLatestRelease({ ...RELEASE, draft: undefined })).toEqual(malformed)
     expect(parseLatestRelease({ ...RELEASE, prerelease: 'no' })).toEqual(malformed)
+  })
+})
+
+const release = (tag: string, prerelease = tag.includes('-')) => ({
+  tag_name: tag,
+  html_url: `https://github.com/aurigax-ai/ostia/releases/tag/${tag}`,
+  draft: false,
+  prerelease,
+})
+
+const page = (tag: string): string => `https://github.com/aurigax-ai/ostia/releases/tag/${tag}`
+
+describe('isMainChannelVersion', () => {
+  it('accepts main builds and release candidates, nothing else', () => {
+    expect(isMainChannelVersion(version('0.5.10-main.412'))).toBe(true)
+    expect(isMainChannelVersion(version('0.5.9-rc.3'))).toBe(true)
+    for (const text of [
+      '0.5.9',
+      '0.5.10-main',
+      '0.5.10-main.x',
+      '0.5.10-main.4.1',
+      '1.0.0-beta.1',
+    ]) {
+      expect(isMainChannelVersion(version(text))).toBe(false)
+    }
+  })
+})
+
+describe('pickMainChannelRelease', () => {
+  it('picks the highest main build, release candidate or stable release', () => {
+    const list = [
+      release('v0.5.10-main.411'),
+      release('v0.5.10-main.412'),
+      release('v0.5.9-rc.3'),
+      release('v0.5.9'),
+    ]
+    expect(pickMainChannelRelease(list)).toEqual({
+      ok: true,
+      release: { version: '0.5.10-main.412', url: page('v0.5.10-main.412') },
+    })
+  })
+
+  it('offers a stable release that is higher than every main build', () => {
+    const list = [release('v0.5.10-main.412'), release('v0.5.10'), release('v0.5.11-rc.1')]
+    expect(pickMainChannelRelease(list)).toEqual({
+      ok: true,
+      release: { version: '0.5.11-rc.1', url: page('v0.5.11-rc.1') },
+    })
+    expect(pickMainChannelRelease(list.slice(0, 2))).toEqual({
+      ok: true,
+      release: { version: '0.5.10', url: page('v0.5.10') },
+    })
+  })
+
+  it('orders main builds by run number, not as text', () => {
+    const list = [release('v0.5.10-main.99'), release('v0.5.10-main.100')]
+    expect(pickMainChannelRelease(list)).toMatchObject({ release: { version: '0.5.10-main.100' } })
+  })
+
+  it('skips drafts, other prereleases, unflagged main tags and build metadata', () => {
+    const list = [
+      { ...release('v0.6.0-main.1'), draft: true },
+      release('v0.6.0-beta.1'),
+      release('v0.6.0-main.2', false),
+      release('v0.6.0-main.3+sha.1a2b3c'),
+      release('v0.5.9'),
+    ]
+    expect(pickMainChannelRelease(list)).toMatchObject({ release: { version: '0.5.9' } })
+  })
+
+  it('skips an entry whose release page is not the exact tag page', () => {
+    const list = [
+      { ...release('v0.6.0-main.5'), html_url: 'https://evil.example/aurigax-ai/ostia' },
+      release('v0.5.10-main.4'),
+    ]
+    expect(pickMainChannelRelease(list)).toMatchObject({ release: { version: '0.5.10-main.4' } })
+  })
+
+  it('reports nothing offered for an empty list and malformed for anything but a list', () => {
+    expect(pickMainChannelRelease([])).toEqual({ ok: false, reason: 'not-stable' })
+    expect(pickMainChannelRelease([null, 'v1.0.0'])).toEqual({ ok: false, reason: 'not-stable' })
+    expect(pickMainChannelRelease(release('v0.5.9'))).toEqual({ ok: false, reason: 'malformed' })
+    expect(pickMainChannelRelease(null)).toEqual({ ok: false, reason: 'malformed' })
+  })
+})
+
+describe('parseUpdateChannel', () => {
+  it('is main only when set to exactly main, else stable', () => {
+    expect(parseUpdateChannel('main')).toBe('main')
+    for (const raw of ['stable', 'Main', 'nightly', undefined, null, 1]) {
+      expect(parseUpdateChannel(raw)).toBe('stable')
+    }
   })
 })

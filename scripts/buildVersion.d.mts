@@ -4,7 +4,11 @@ export interface GitState {
   dirty: boolean
 }
 
-export function buildVersion(base: string, git: GitState | null): string
+export function nextPatch(base: string): string
+
+export function buildVersion(base: string, git: GitState | null, mainRun?: string | null): string
+
+export function mainBuildRun(env: Record<string, string | undefined>): string | null
 
 export function telemetryStamp(
   env: Record<string, string | undefined>,

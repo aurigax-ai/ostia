@@ -2,6 +2,14 @@ export const RELEASE_REPOSITORY = { owner: 'aurigax-ai', name: 'ostia' } as cons
 
 export const RELEASE_API_BASE_URL = 'https://api.github.com'
 
+export const UPDATE_CHANNELS = ['stable', 'main'] as const
+
+export type UpdateChannel = (typeof UPDATE_CHANNELS)[number]
+
+export const DEFAULT_UPDATE_CHANNEL: UpdateChannel = 'stable'
+
+export const MAIN_CHANNEL_PRERELEASES = ['main', 'rc'] as const
+
 export interface Version {
   major: number
   minor: number
@@ -94,19 +102,66 @@ export function releasePageUrl(raw: unknown, tag: string): string | null {
   return trusted ? url.href : null
 }
 
-export function parseLatestRelease(raw: unknown): ParsedRelease {
-  if (typeof raw !== 'object' || raw === null) return { ok: false, reason: 'malformed' }
+interface ParsedEntry {
+  text: string
+  version: Version
+  url: string
+  stable: boolean
+  draft: boolean
+  flagged: boolean
+}
+
+function parseEntry(raw: unknown): ParsedEntry | null {
+  if (typeof raw !== 'object' || raw === null) return null
   const { tag_name: tag, html_url: page, draft, prerelease } = raw as Record<string, unknown>
   if (typeof tag !== 'string' || typeof draft !== 'boolean' || typeof prerelease !== 'boolean') {
-    return { ok: false, reason: 'malformed' }
+    return null
   }
   const text = tag.startsWith('v') ? tag.slice(1) : tag
   const version = parseVersion(text)
-  if (!version) return { ok: false, reason: 'malformed' }
+  if (!version) return null
   const url = releasePageUrl(page, tag)
-  if (!url) return { ok: false, reason: 'malformed' }
-  if (draft || prerelease || version.prerelease.length > 0 || text.includes('+')) {
-    return { ok: false, reason: 'not-stable' }
+  if (!url) return null
+  const plain = version.prerelease.length === 0 && !text.includes('+')
+  return { text, version, url, stable: plain && !prerelease, draft, flagged: prerelease }
+}
+
+export function isMainChannelVersion(version: Version): boolean {
+  const [kind, number, ...rest] = version.prerelease
+  return (
+    rest.length === 0 &&
+    (MAIN_CHANNEL_PRERELEASES as readonly string[]).includes(kind) &&
+    number !== undefined &&
+    isNumeric(number)
+  )
+}
+
+export function parseLatestRelease(raw: unknown): ParsedRelease {
+  const entry = parseEntry(raw)
+  if (!entry) return { ok: false, reason: 'malformed' }
+  if (entry.draft || !entry.stable) return { ok: false, reason: 'not-stable' }
+  return { ok: true, release: { version: entry.text, url: entry.url } }
+}
+
+function offeredOnMain(entry: ParsedEntry): boolean {
+  if (entry.draft) return false
+  if (entry.stable) return true
+  return entry.flagged && !entry.text.includes('+') && isMainChannelVersion(entry.version)
+}
+
+export function pickMainChannelRelease(raw: unknown): ParsedRelease {
+  if (!Array.isArray(raw)) return { ok: false, reason: 'malformed' }
+  let best: ParsedEntry | null = null
+  for (const item of raw) {
+    const entry = parseEntry(item)
+    if (!entry || !offeredOnMain(entry)) continue
+    if (!best || compareVersions(entry.version, best.version) > 0) best = entry
   }
-  return { ok: true, release: { version: text, url } }
+  return best
+    ? { ok: true, release: { version: best.text, url: best.url } }
+    : { ok: false, reason: 'not-stable' }
+}
+
+export function parseUpdateChannel(raw: unknown): UpdateChannel {
+  return raw === 'main' ? 'main' : DEFAULT_UPDATE_CHANNEL
 }

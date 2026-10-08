@@ -2,6 +2,9 @@ import { type BuildInfo, sameBuild } from '@shared/buildInfo'
 import {
   type InstallMethod,
   type ReleaseState,
+  type ReplaceAvailability,
+  type ReplaceProgress,
+  type ReplaceState,
   type UpdateRunState,
   managedUpdateMethod,
 } from '@shared/installMethod'
@@ -20,12 +23,18 @@ interface UpdateState {
   method: InstallMethod
   updateCommand: string | null
   updateRun: UpdateRunState
+  replace: ReplaceAvailability | null
+  replaceRun: ReplaceState
+  progress: ReplaceProgress | null
   confirming: boolean
   releaseCheck: ReleaseCheckState
   receive: (info: BuildInfo | null) => void
   dismiss: () => void
   receiveRelease: (state: ReleaseState) => void
   receiveUpdateRun: (state: UpdateRunState) => void
+  receiveReplace: (state: ReplaceState) => void
+  receiveProgress: (progress: ReplaceProgress) => void
+  replaceInstall: () => Promise<void>
   dismissRelease: () => void
   checkForUpdates: () => Promise<void>
   askUpdate: () => void
@@ -40,6 +49,9 @@ export const useUpdateStore = create<UpdateState>((set, get) => ({
   method: 'dev',
   updateCommand: null,
   updateRun: { status: 'idle' },
+  replace: null,
+  replaceRun: { status: 'idle' },
+  progress: null,
   confirming: false,
   releaseCheck: { status: 'idle' },
   receive: (info) => {
@@ -48,8 +60,18 @@ export const useUpdateStore = create<UpdateState>((set, get) => ({
     if (info && (!before || !sameBuild(before, info)) && !document.hasFocus()) notify(info)
   },
   dismiss: () => set((s) => ({ dismissed: s.available })),
-  receiveRelease: ({ release, method, updateCommand }) => set({ release, method, updateCommand }),
+  receiveRelease: ({ release, method, updateCommand, replace }) =>
+    set({ release, method, updateCommand, replace }),
   receiveUpdateRun: (updateRun) => set({ updateRun }),
+  receiveReplace: (replaceRun) =>
+    set(replaceRun.status === 'downloading' ? { replaceRun } : { replaceRun, progress: null }),
+  receiveProgress: (progress) => set({ progress }),
+  replaceInstall: async () => {
+    const start = await window.ostia.update.replaceInstall()
+    if (start === 'started' && get().replaceRun.status !== 'done') {
+      set({ replaceRun: { status: 'downloading' }, progress: null })
+    }
+  },
   dismissRelease: () => {
     set({ release: null })
     void window.ostia.update.dismissRelease()
@@ -79,10 +101,15 @@ export function showsUpdate(s: Pick<UpdateState, 'available' | 'dismissed'>): bo
 }
 
 export function updateAction(
-  s: Pick<UpdateState, 'release' | 'method'>,
-): 'apt' | 'brew' | 'release' | null {
+  s: Pick<UpdateState, 'release' | 'method' | 'replace'>,
+): 'apt' | 'brew' | 'replace' | 'release' | null {
   if (!s.release) return null
+  if (s.replace?.ok) return 'replace'
   return managedUpdateMethod(s.method) ?? 'release'
+}
+
+export function restartReady(s: Pick<UpdateState, 'updateRun' | 'replaceRun'>): boolean {
+  return s.updateRun.status === 'done' || s.replaceRun.status === 'done'
 }
 
 function notify(info: BuildInfo): void {
@@ -95,16 +122,20 @@ function notify(info: BuildInfo): void {
 }
 
 export function startUpdateWatch(): () => void {
-  const { receive, receiveRelease, receiveUpdateRun } = useUpdateStore.getState()
+  const { receive, receiveRelease, receiveUpdateRun, receiveReplace, receiveProgress } =
+    useUpdateStore.getState()
   void window.ostia.update.state().then(receive)
   void window.ostia.update.release().then(receiveRelease)
   void window.ostia.update.updateRun().then(receiveUpdateRun)
-  const stopBuilds = window.ostia.update.onAvailable(receive)
-  const stopReleases = window.ostia.update.onRelease(receiveRelease)
-  const stopRuns = window.ostia.update.onUpdateRun(receiveUpdateRun)
+  void window.ostia.update.replaceState().then(receiveReplace)
+  const stops = [
+    window.ostia.update.onAvailable(receive),
+    window.ostia.update.onRelease(receiveRelease),
+    window.ostia.update.onUpdateRun(receiveUpdateRun),
+    window.ostia.update.onReplace(receiveReplace),
+    window.ostia.update.onProgress(receiveProgress),
+  ]
   return () => {
-    stopBuilds()
-    stopReleases()
-    stopRuns()
+    for (const stop of stops) stop()
   }
 }

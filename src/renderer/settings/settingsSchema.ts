@@ -305,6 +305,16 @@ export const SETTINGS_JSON_SCHEMA = {
             'and show a notice when one does. Nothing is downloaded or installed. Only you can ' +
             'change this, in Settings → About. Default: true.',
         },
+        updateChannel: {
+          type: 'string',
+          enum: ['stable', 'main'],
+          description:
+            'Which builds the update check offers. "stable" offers releases only. "main" also ' +
+            'offers the daily build of the main branch and release candidates, and a newer ' +
+            'release when there is one. Offered only for an install from the tarball or a ' +
+            'local build; package managers stay on stable. Only you can change this, in ' +
+            'Settings → About. Default: stable.',
+        },
         discreteGpu: {
           type: 'boolean',
           description:
