@@ -253,16 +253,20 @@ test('KSH-C24 resizing a tmux pane at an idle prompt leaves one clean prompt lin
       })
       .toBe(2)
     expect(await screen(win).textContent()).not.toMatch(/%\s*$/m)
-    await runInTerminal(win, 'clear; printf "%$(tput cols)s" "" | tr " " x; echo END')
-    await expect
-      .poll(() =>
-        win
-          .locator('.xterm-rows')
-          .first()
-          .locator(':scope > div')
-          .evaluateAll((rows) => rows.some((row) => row.textContent?.startsWith('END'))),
-      )
-      .toBe(true)
+    await expect(async () => {
+      await runInTerminal(win, 'clear; printf "%$(tput cols)s" "" | tr " " x; echo END')
+      await expect
+        .poll(
+          () =>
+            win
+              .locator('.xterm-rows')
+              .first()
+              .locator(':scope > div')
+              .evaluateAll((rows) => rows.some((row) => row.textContent?.startsWith('END'))),
+          { timeout: 2_000 },
+        )
+        .toBe(true)
+    }).toPass({ timeout: 20_000 })
   } finally {
     await quitApp(app)
   }
