@@ -1,4 +1,5 @@
 export const OPEN_FILES_COMMAND = 'editor.openFiles'
+export const REVEAL_FOLDER_COMMAND = 'files.reveal'
 export const OPEN_FILES_MAX = 32
 
 export interface FileTarget {
@@ -37,4 +38,17 @@ export function parseFileTargets(raw: unknown): FileTarget[] | null {
     targets.push({ path: entry.path, ...(line ? { line } : {}), ...(column ? { column } : {}) })
   }
   return targets
+}
+
+export type RevealFolderError = 'invalid-args' | 'outside-home' | 'not-found' | 'not-a-directory'
+
+export type RevealFolderResult =
+  | { ok: true; path: string }
+  | { ok: false; error: RevealFolderError | string; message?: string }
+
+export type OpenTargetKind = 'url' | 'stdin' | 'path'
+
+export function openTargetKind(word: string): OpenTargetKind {
+  if (word === '-') return 'stdin'
+  return /^https?:\/\//i.test(word) ? 'url' : 'path'
 }

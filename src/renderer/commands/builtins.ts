@@ -2,7 +2,7 @@ import { type AgentResume, resumeCommand } from '@shared/agentResume'
 import { PAD_COMMAND } from '@shared/artifacts'
 import type { CmuxImportReport } from '@shared/cmuxSession'
 import { wantsDesktopBanner } from '@shared/notificationSettings'
-import { OPEN_FILES_COMMAND, parseFileTargets } from '@shared/openFiles'
+import { OPEN_FILES_COMMAND, REVEAL_FOLDER_COMMAND, parseFileTargets } from '@shared/openFiles'
 import { PROGRAM_SETTINGS } from '@shared/programSettings'
 import type { AttentionState } from '@shared/types'
 import { type WorkspaceGroupColor, normalizeGroupName } from '@shared/workspaceGroups'
@@ -29,6 +29,7 @@ import {
 } from '../lib/blockActions'
 import { browserProfileIn, openerOf } from '../lib/browserProfile'
 import { announceBusMessage } from '../lib/busNotice'
+import { openKeepingFocus, opensQuietly } from '../lib/callerFocus'
 import { setKeybindingSetting } from '../lib/chords'
 import { clearKeepingScrollback } from '../lib/clearTerminal'
 import {
@@ -43,7 +44,7 @@ import { groupMates } from '../lib/groupPeers'
 import { hibernateWorkspaces, resumeWorkspaces, wakePane } from '../lib/hibernationScheduler'
 import { mergeRefusalText } from '../lib/mergeRefusalText'
 import { startNewWorkspace, startScratchWorkspace } from '../lib/newWorkspace'
-import { openRequestedFiles } from '../lib/openFile'
+import { markOpenedQuietly, openFilesQuietly, openRequestedFiles } from '../lib/openFile'
 import {
   FILES_PREFIX,
   GO_TO_FILE_COMMAND,
@@ -53,6 +54,7 @@ import {
   WORKSPACES_PREFIX,
 } from '../lib/paletteModes'
 import { type PaneAgentReport, isStaleAgentReport, paneAgentReport } from '../lib/paneAgent'
+import { revealFolder } from '../lib/revealFolder'
 import { tabMoveRefusalText } from '../lib/tabMoveRefusalText'
 import {
   activeTabId,
@@ -1226,7 +1228,7 @@ export function registerBuiltinCommands(): void {
     },
   })
 
-  registerCore<{ files?: unknown }>({
+  registerCore<{ files?: unknown; background?: unknown }>({
     id: OPEN_FILES_COMMAND,
     hidden: true,
     capabilities: ['drive-self'],
@@ -1234,27 +1236,49 @@ export function registerBuiltinCommands(): void {
     run: (args, ctx) => {
       const files = parseFileTargets(args?.files)
       if (!files) throw new Error('expected files: [{ path, line?, column? }]')
-      if (ctx.activeWorkspaceId) {
-        openRequestedFiles(ctx.activeWorkspaceId, files, ctx.activePaneId ?? undefined)
-      }
+      const workspaceId = ctx.activeWorkspaceId
+      if (!workspaceId) return
+      const paneId = ctx.activePaneId ?? undefined
+      if (opensQuietly(ctx, args?.background)) openFilesQuietly(workspaceId, files, paneId)
+      else openRequestedFiles(workspaceId, files, paneId)
     },
   })
 
-  registerCore<{ url?: string } | undefined>({
+  registerCore<{ path?: unknown }, { revealed: boolean }>({
+    id: REVEAL_FOLDER_COMMAND,
+    hidden: true,
+    capabilities: ['drive-self'],
+    target: 'active',
+    run: (args, ctx) => {
+      if (typeof args?.path !== 'string' || !args.path.startsWith('/')) {
+        throw new Error('expected path: an absolute folder path')
+      }
+      if (!ctx.activeWorkspaceId) return { revealed: false }
+      revealFolder(ctx.activeWorkspaceId, args.path)
+      return { revealed: true }
+    },
+  })
+
+  registerCore<{ url?: string; background?: unknown } | undefined>({
     id: 'browser.new',
     hidden: true,
     capabilities: ['browse'],
     target: 'active',
     run: (args, ctx) => {
-      if (ctx.activeWorkspaceId) {
+      const workspaceId = ctx.activeWorkspaceId
+      if (!workspaceId) return
+      const url = args?.url || 'about:blank'
+      const profile = browserProfileIn(workspaceId, openerOf(ctx))
+      if (!opensQuietly(ctx, args?.background)) {
+        useLayoutStore.getState().openBrowser(workspaceId, url, profile)
+        return
+      }
+      const opened = openKeepingFocus(() =>
         useLayoutStore
           .getState()
-          .openBrowser(
-            ctx.activeWorkspaceId,
-            args?.url || 'about:blank',
-            browserProfileIn(ctx.activeWorkspaceId, openerOf(ctx)),
-          )
-      }
+          .openBrowserTab(workspaceId, url, profile, { beside: ctx.activePaneId ?? undefined }),
+      )
+      if (opened) markOpenedQuietly(opened, url)
     },
   })
 

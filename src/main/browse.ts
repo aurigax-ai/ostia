@@ -572,9 +572,12 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
     return ids
   }
 
-  const openTab = async (ctx: MethodCtx, url: string) => {
+  const openTab = async (ctx: MethodCtx, url: string, background: boolean) => {
     const before = workspaceBrowsers(ctx.identity.workspaceId)
-    const res = await deps.execCommand(commandTarget(ctx.identity), 'browser.new', { url })
+    const res = await deps.execCommand(commandTarget(ctx.identity), 'browser.new', {
+      url,
+      ...(background ? { background: true } : {}),
+    })
     if (!res.ok) return fail('browser-not-ready', res.error.message)
     let created: string | undefined
     await waitFor(async () => {
@@ -610,7 +613,7 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
         }
       }
       if (resolution.error !== 'no-browser-pane' || p.paneId) return resolution
-      return openTab(ctx, url ?? 'about:blank')
+      return openTab(ctx, url ?? 'about:blank', p.background === true)
     },
   })
 
@@ -650,7 +653,7 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
       const link = await world<{ url: string }>(guest, `href(${jsArgs(target)})`)
       if (!link.ok) return link
       if (!NEW_TAB_URL.test(link.url)) return fail('unsupported-url', link.url)
-      return openTab(ctx, link.url)
+      return openTab(ctx, link.url, false)
     }
     return clickTarget(guest, target, 1)
   })
@@ -1143,7 +1146,7 @@ export function registerBrowseMethods(deps: BrowseDeps): void {
     handler: async (params, ctx) => {
       const p = (params ?? {}) as Params
       const sub = p.sub ?? 'list'
-      if (sub === 'new') return openTab(ctx, normalizeUrl(str(p.url) ?? 'about:blank'))
+      if (sub === 'new') return openTab(ctx, normalizeUrl(str(p.url) ?? 'about:blank'), false)
       if (sub === 'list') {
         const activeId = defaultBrowserPane(deps, ctx)
         const tabs = [...workspaceBrowsers(ctx.identity.workspaceId)].flatMap((id) => {

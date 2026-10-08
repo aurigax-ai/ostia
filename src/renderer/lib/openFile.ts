@@ -2,7 +2,9 @@ import type { FileTarget } from '@shared/openFiles'
 import { useEditorRevealStore } from '../stores/editorRevealStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
+import { openKeepingFocus } from './callerFocus'
 import { startNewWorkspace } from './newWorkspace'
+import { signalPane } from './workspaceActivity'
 
 export function openFileInWorkspace(path: string): void {
   if (!useWorkspacesStore.getState().activeWorkspaceId) startNewWorkspace()
@@ -61,4 +63,21 @@ export function reportFileProblem(workspaceId: string | null, message: string): 
     return
   }
   window.ostia.notifications.post({ paneId, kind: 'error', title: message, desktop: false })
+}
+
+export function markOpenedQuietly(paneId: string, title: string): void {
+  signalPane(paneId, { type: 'notify', message: title, waiting: false, at: Date.now() })
+}
+
+export function openFilesQuietly(workspaceId: string, files: FileTarget[], paneId?: string): void {
+  openKeepingFocus(() => {
+    let beside = paneId
+    for (const file of files) {
+      requestReveal(file)
+      const opened = useLayoutStore.getState().openFileTab(workspaceId, file.path, beside, true)
+      if (!opened) continue
+      markOpenedQuietly(opened, file.path.split('/').pop() || file.path)
+      beside = opened
+    }
+  })
 }

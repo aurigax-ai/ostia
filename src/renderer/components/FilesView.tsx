@@ -22,7 +22,6 @@ import {
   useState,
 } from 'react'
 import { fmt, useDict } from '../i18n/useDict'
-import { findPane } from '../layout/tree'
 import { FOLDED_CRUMB, crumbsOf, fitCrumbs, maxFitLevel } from '../lib/breadcrumb'
 import { OSTIA_PATH_MIME } from '../lib/dropPaths'
 import {
@@ -41,6 +40,7 @@ import { copyInto, moveInto, parentOf } from '../lib/fileTreeActions'
 import { homeDir } from '../lib/homeDir'
 import { type IconVariant, themeIconSrc } from '../lib/iconTheme'
 import { openFileInWorkspace } from '../lib/openFile'
+import { followedFolder, treeRoot } from '../lib/revealFolder'
 import { useEffectiveTheme } from '../lib/theme'
 import { isMac } from '../platform'
 import type { FileSortBy, FileSortOrder, FileTreeSettings } from '../settings/fileTreeSettings'
@@ -101,18 +101,11 @@ interface TreeContext {
 
 function useTreeFocus(): TreeFocus {
   const workspaceId = useWorkspacesStore((s) => s.activeWorkspaceId)
-  const anchor = useWorkspacesStore(
-    (s) => s.workspaces.find((c) => c.id === workspaceId)?.workDir ?? '~',
-  )
-  const layout = useLayoutStore((s) => (workspaceId ? s.byWorkspace[workspaceId] : undefined))
-  const pane = layout ? findPane(layout.root, layout.activePaneId) : null
-  const editor = pane?.kind === 'editor'
-  return {
-    workspaceId,
-    cwd: editor ? anchor : (pane?.cwd ?? anchor),
-    activeFile: editor ? (pane.filePath ?? null) : null,
-    reveal: null,
-  }
+  useWorkspacesStore((s) => s.workspaces.find((c) => c.id === workspaceId)?.workDir)
+  useLayoutStore((s) => (workspaceId ? s.byWorkspace[workspaceId] : undefined))
+  const shown = useFileTreeStore((s) => s.shown)
+  const { cwd, activeFile } = followedFolder(workspaceId)
+  return { workspaceId, cwd: treeRoot(workspaceId, cwd, shown), activeFile, reveal: null }
 }
 
 function setExcluded(path: string, hidden: boolean): void {

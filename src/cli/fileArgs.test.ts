@@ -1,8 +1,21 @@
 import { describe, expect, it } from 'vitest'
-import { type FileProbe, fileWord, isClaimedWord, parseFileArg, refusalLine } from './fileArgs'
+import {
+  type FileProbe,
+  fileWord,
+  isClaimedWord,
+  openTarget,
+  parseFileArg,
+  refusalLine,
+  revealRefusalLine,
+} from './fileArgs'
 
-function probe(files: string[]): FileProbe {
-  return { cwd: '/w/project', home: '/home/u', isFile: (path) => files.includes(path) }
+function probe(files: string[], dirs: string[] = []): FileProbe {
+  return {
+    cwd: '/w/project',
+    home: '/home/u',
+    isFile: (path) => files.includes(path),
+    isDir: (path) => dirs.includes(path),
+  }
 }
 
 describe('fileWord', () => {
@@ -61,5 +74,56 @@ describe('refusalLine', () => {
   it('names the path and the reason', () => {
     expect(refusalLine('/tmp/dir', 'directory')).toBe('ostia: /tmp/dir: is a directory')
     expect(refusalLine('/etc/x', 'outside-sandbox')).toContain('sandboxed workspace')
+  })
+})
+
+describe('open targets', () => {
+  it('lets the opener’s own flags, a lone dash and a URL start the bare form', () => {
+    const p = probe([])
+    for (const word of ['-', '-b', '--background', '--name', 'https://example.com/']) {
+      expect(fileWord(word, p), word).toBe('path')
+    }
+    expect(fileWord('--json', p)).toBeNull()
+    expect(fileWord('-x', p)).toBeNull()
+  })
+
+  it('never takes a bare folder name for a target, so an unknown verb stays unknown', () => {
+    const p = probe([], ['/w/project/git', '/w/project/src'])
+    expect(fileWord('git', p)).toBeNull()
+    expect(fileWord('src', p)).toBeNull()
+    expect(fileWord('./src', p)).toBe('path')
+    expect(fileWord('src/', p)).toBe('path')
+    expect(fileWord('.', p)).toBe('path')
+  })
+
+  it('sorts each word into a URL, stdin, a folder or a file', () => {
+    const p = probe(['/w/project/a.ts'], ['/w/project', '/w/project/src', '/home/u'])
+    expect(openTarget('https://example.com/x?y=1', p)).toEqual({
+      kind: 'url',
+      url: 'https://example.com/x?y=1',
+    })
+    expect(openTarget('-', p)).toEqual({ kind: 'stdin' })
+    expect(openTarget('.', p)).toEqual({ kind: 'folder', path: '/w/project' })
+    expect(openTarget('src', p)).toEqual({ kind: 'folder', path: '/w/project/src' })
+    expect(openTarget('~', p)).toEqual({ kind: 'folder', path: '/home/u' })
+    expect(openTarget('a.ts:3:2', p)).toEqual({
+      kind: 'file',
+      file: { path: '/w/project/a.ts', line: 3, column: 2 },
+    })
+    expect(openTarget('example.com', p)).toEqual({
+      kind: 'file',
+      file: { path: '/w/project/example.com' },
+    })
+    expect(openTarget('missing', p)).toEqual({ kind: 'file', file: { path: '/w/project/missing' } })
+  })
+
+  it('names the folder and why it was not shown', () => {
+    expect(revealRefusalLine('/srv/x', 'outside-home')).toBe(
+      'ostia: /srv/x: folders show only under the home folder',
+    )
+    expect(revealRefusalLine('/home/u/x', 'not-found')).toBe('ostia: /home/u/x: no such folder')
+    expect(revealRefusalLine('/home/u/x', 'command-failed', 'no window')).toBe(
+      'ostia: /home/u/x: no window',
+    )
   })
 })

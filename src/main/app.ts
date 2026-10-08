@@ -3693,6 +3693,7 @@ app.whenReady().then(() => {
     grants: openFileGrants,
     isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
     isScratch: (workspaceId) => scratchFolders.isScratch(workspaceId),
+    confineFolder: (path) => resolveSafe(path, fileRoots()),
     execCommand,
   })
   registerBusMethods({

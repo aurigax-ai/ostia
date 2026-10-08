@@ -12,17 +12,18 @@ import { controlInfoPath, readControlSocket } from '../main/controlDiscovery'
 import { RESUMABLE_AGENTS, isResumableAgent, resumeFromHookPayload } from '../shared/agentResume'
 import { CLAUDE_WORK_EVENTS, claudeWorkReport, isClaudeWorkEvent } from '../shared/agentWork'
 import { readEnv } from '../shared/appEnv'
+import { ARTIFACTS_ENV } from '../shared/artifacts'
 import {
   CLAUDE_ATTENTION_EVENTS,
   claudeAttention,
   isClaudeAttentionEvent,
 } from '../shared/claudeAttention'
-import type { OpenFilesResult } from '../shared/openFiles'
+import type { FileTarget, OpenFilesResult, RevealFolderResult } from '../shared/openFiles'
 import { SCRIPT_TOKEN_PREFIX } from '../shared/scriptTokens'
 import type { CommandDescriptor, CommandResult } from '../shared/types'
 import type { WorkflowEntry, WorkflowListing } from '../shared/workflows'
 import { runAgentHook } from './agentHook'
-import { parseArgs } from './args'
+import { FlagError, type ParsedArgs, parseArgs } from './args'
 import { runAskVerb } from './ask'
 import { runBrowse } from './browse'
 import {
@@ -39,13 +40,22 @@ import { commandHelp, wantsHelp } from './commandHelp'
 import { runGitVerb, runPortsVerb } from './coreBoards'
 import { buildCommandCall, parseCommandFlags, resolveWorkspaceRef } from './crossWorkspace'
 import { describeFailure } from './failure'
-import { type FileProbe, fileWord, isClaimedWord, parseFileArg, refusalLine } from './fileArgs'
+import {
+  type FileProbe,
+  fileWord,
+  isClaimedWord,
+  openTarget,
+  parseFileArg,
+  refusalLine,
+  revealRefusalLine,
+} from './fileArgs'
 import { runManagerVerb } from './manager'
 import { STATE_VERBS, messageFromStdin, saveAttentionOffline } from './offlineAttention'
 import { parseWorkspaceRenameArgs, runPaneVerb } from './pane'
 import { paneToken } from './paneToken'
 import { runPermissionHook } from './permissionHook'
 import { runPortalCommand } from './portal'
+import { TTY_NOTICE, captureStdin } from './stdinCapture'
 import { runTokenVerb } from './token'
 import { buildVersionAt } from './version'
 import { isOfflineViewVerb, runOfflineViewVerb, runViewVerb } from './view'
@@ -429,6 +439,13 @@ const FILE_PROBE: FileProbe = {
       return false
     }
   },
+  isDir: (path) => {
+    try {
+      return statSync(path).isDirectory()
+    } catch {
+      return false
+    }
+  },
 }
 
 async function opensAsFile(conn: MessageConnection, word: string): Promise<boolean> {
@@ -444,22 +461,87 @@ async function opensAsFile(conn: MessageConnection, word: string): Promise<boole
   })
 }
 
+async function openFilesIn(
+  conn: MessageConnection,
+  files: FileTarget[],
+  background: boolean,
+): Promise<string[]> {
+  if (files.length === 0) return []
+  const res = await conn.sendRequest<OpenFilesResult>('file.open', {
+    files,
+    ...(background ? { background: true } : {}),
+  })
+  if (!res.ok) return [`ostia open: ${res.message}`]
+  return res.results.flatMap((r) => (r.ok ? [] : [refusalLine(r.path, r.error)]))
+}
+
+async function revealFolderIn(conn: MessageConnection, path: string): Promise<string[]> {
+  const res = await conn.sendRequest<RevealFolderResult>('file.reveal', { path })
+  return res.ok ? [] : [revealRefusalLine(path, res.error, res.message)]
+}
+
+async function openUrlIn(
+  conn: MessageConnection,
+  url: string,
+  background: boolean,
+): Promise<string[]> {
+  const res = await conn.sendRequest<{ ok: boolean; error?: string; message?: string }>(
+    'browse.open',
+    { url, ...(background ? { background: true } : {}) },
+  )
+  return res.ok ? [] : [`ostia: ${url}: ${res.message ?? res.error ?? 'failed'}`]
+}
+
 async function runOpenFiles(conn: MessageConnection, args: string[]): Promise<void> {
-  if (args.length === 0) {
+  let parsed: ParsedArgs<'name', never, 'background'>
+  try {
+    parsed = parseArgs(args, {
+      values: { name: '--name' },
+      booleans: { background: '-b, --background' },
+    })
+  } catch (err) {
+    if (!(err instanceof FlagError)) throw err
+    console.error(`ostia open: ${err.message}`)
+    process.exitCode = 1
+    return
+  }
+  const targets = parsed.positional.map((word) => openTarget(word, FILE_PROBE))
+  if (targets.length === 0) {
     console.error('ostia open: missing <path>')
     process.exitCode = 1
     return
   }
-  const files = args.map((arg) => parseFileArg(arg, FILE_PROBE))
-  const res = await conn.sendRequest<OpenFilesResult>('file.open', { files })
-  if (!res.ok) {
-    console.error(`ostia open: ${res.message}`)
+  const fromStdin = targets.filter((t) => t.kind === 'stdin').length
+  if (fromStdin > 1 || (parsed.values.name !== undefined && fromStdin === 0)) {
+    console.error(
+      fromStdin > 1 ? 'ostia open: only one - reads stdin' : 'ostia open: --name goes with -',
+    )
     process.exitCode = 1
     return
   }
-  const refused = res.results.flatMap((r) => (r.ok ? [] : [refusalLine(r.path, r.error)]))
-  for (const line of refused) console.error(line)
-  if (refused.length > 0) process.exitCode = 1
+  const problems: string[] = []
+  const files: FileTarget[] = []
+  for (const target of targets) {
+    if (target.kind === 'file') files.push(target.file)
+    if (target.kind !== 'stdin') continue
+    if (process.stdin.isTTY) console.error(TTY_NOTICE)
+    const captured = await captureStdin({
+      dir: readEnv(ARTIFACTS_ENV),
+      name: parsed.values.name,
+      stream: process.stdin,
+      now: new Date(),
+    })
+    if (captured.ok) files.push({ path: captured.path })
+    else problems.push(captured.message)
+  }
+  const { background } = parsed.booleans
+  problems.push(...(await openFilesIn(conn, files, background)))
+  for (const target of targets) {
+    if (target.kind === 'folder') problems.push(...(await revealFolderIn(conn, target.path)))
+    if (target.kind === 'url') problems.push(...(await openUrlIn(conn, target.url, background)))
+  }
+  for (const line of problems) console.error(line)
+  if (problems.length > 0) process.exitCode = 1
   else console.log('ok')
 }
 
@@ -1255,7 +1337,11 @@ commands:
   workflow list [--json] | show <name> [--json]   saved command workflows (read-only)
   view list [--json] | open <name>   declarative views (~/.config/ostia/views/<name>.json)
   view validate <file> | schema      check a view file / print its JSON schema (no app needed)
-  <file>... | open <file>...   show files in Ostia's viewer, any path (file:line[:col] jumps)
+  <target>... | open [-b|--background] <target>...
+                            show a file (file:line[:col] jumps), a folder (in the Files
+                            panel), an http(s) URL (in a browser pane) or - (stdin, saved
+                            into $OSTIA_ARTIFACTS; --name <file> names it). The new tab takes
+                            focus only when this pane has it; -b never takes it
   process run "<cmd>" [--name N] [--cwd DIR] [--workspace <id|name>]
               [--split-tab T [--split right|down]] | ls | logs | kill | restart <id|name>
                             run a command in a new terminal tab the human can watch;

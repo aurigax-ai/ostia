@@ -892,9 +892,12 @@
         "src/renderer/components/ArtifactsSection.tsx",
         "src/renderer/components/HtmlPreview.tsx",
         "src/renderer/stores/artifactsStore.ts",
-        "src/renderer/lib/artifacts.ts"
+        "src/renderer/lib/artifacts.ts",
+        "src/renderer/lib/callerFocus.ts",
+        "src/renderer/lib/revealFolder.ts",
+        "src/cli/stdinCapture.ts"
       ],
-      "specs": ["e2e/artifacts-preview.spec.ts"]
+      "specs": ["e2e/artifacts.spec.ts", "e2e/artifacts-preview.spec.ts"]
     }
   ]
 }

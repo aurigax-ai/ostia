@@ -1,5 +1,13 @@
 import { execSync, spawn } from 'node:child_process'
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
 import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -20,7 +28,7 @@ import { registerPaneListMethods } from '../main/paneList'
 import { ViewHost, ViewStore } from '../main/viewHost'
 import { registerViewMethods } from '../main/viewsIpc'
 import { registerWorkflowMethods, workspaceWorkflowsDir } from '../main/workflows'
-import { OPEN_FILES_COMMAND } from '../shared/openFiles'
+import { OPEN_FILES_COMMAND, REVEAL_FOLDER_COMMAND } from '../shared/openFiles'
 import type { CommandDescriptor, CommandResult, CommandTarget } from '../shared/types'
 
 const repoRoot = process.cwd()
@@ -104,10 +112,16 @@ function withEnv(overrides: Record<string, string | undefined>): NodeJS.ProcessE
 
 const liveChildren = new Set<ReturnType<typeof spawn>>()
 
-function runOstia(args: string[], env: NodeJS.ProcessEnv, cwd?: string): Promise<RunResult> {
+function runOstia(
+  args: string[],
+  env: NodeJS.ProcessEnv,
+  cwd?: string,
+  input?: string,
+): Promise<RunResult> {
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, [cliPath, ...args], { env, cwd })
     liveChildren.add(child)
+    if (input !== undefined) child.stdin?.end(input)
     let stdout = ''
     let stderr = ''
     let settled = false
@@ -840,6 +854,9 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
     const sandboxed = new Set<string>()
     const env = () => withEnv({ OSTIA_SOCKET: socketPath, OSTIA_TOKEN: identity.token })
     const opened = () => execCalls.filter((c) => c.id === OPEN_FILES_COMMAND).map((c) => c.args)
+    const revealed = () =>
+      execCalls.filter((c) => c.id === REVEAL_FOLDER_COMMAND).map((c) => c.args)
+    const browsed: unknown[] = []
 
     beforeAll(() => {
       base = realpathSync(mkdtempSync(join(tmpdir(), 'ostia-cli-open-')))
@@ -857,14 +874,24 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
         grants: new OpenFileGrants({ roots: () => [home], file: join(base, 'opened-files.json') }),
         isSandboxed: (workspaceId) => sandboxed.has(workspaceId),
         isScratch: () => false,
+        confineFolder: (path) => (path === home || path.startsWith(`${home}/`) ? path : null),
         execCommand: fakeDeps.execCommand,
       })
       registerControlMethod('ext.list', {
         handler: () => [{ id: 'echo', name: 'Echo', status: 'running', commands: [] }],
       })
+      registerControlMethod('browse.open', {
+        handler: (params: unknown) => {
+          browsed.push(params)
+          return { ok: true, url: (params as { url?: string }).url }
+        },
+      })
     })
 
-    afterEach(() => sandboxed.clear())
+    afterEach(() => {
+      sandboxed.clear()
+      browsed.length = 0
+    })
 
     afterAll(() => rmSync(base, { recursive: true, force: true }))
 
@@ -924,9 +951,108 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
       )
 
       expect(res.code).toBe(1)
-      expect(res.stderr).toContain(`ostia: ${outside}: is a directory`)
+      expect(res.stderr).toContain(`ostia: ${outside}: folders show only under the home folder`)
       expect(res.stderr).toContain(`ostia: ${join(outside, 'nope.txt')}: no such file`)
       expect(opened()).toEqual([{ files: [{ path: join(outside, 'app.log') }] }])
+      expect(revealed()).toEqual([])
+    })
+
+    it('shows a folder under the home folder in the Files panel, and never grants one outside', async () => {
+      const here = await runOstia(['.'], env(), home)
+      expect(here.stderr).toBe('')
+      expect(here.stdout.trim()).toBe('ok')
+      mkdirSync(join(home, 'docs'), { recursive: true })
+      const named = await runOstia(['open', 'docs'], env(), home)
+      expect(named.code).toBe(0)
+      expect(revealed()).toEqual([{ path: home }, { path: join(home, 'docs') }])
+      expect(execCalls.at(-1)?.target).toEqual({
+        windowId: 'w1',
+        workspaceId: 's1',
+        paneId: 'pE2E',
+      })
+
+      execCalls.length = 0
+      const away = await runOstia([`${outside}/`], env(), home)
+      expect(away.code).toBe(1)
+      expect(away.stderr).toContain('folders show only under the home folder')
+      expect(revealed()).toEqual([])
+      expect(opened()).toEqual([])
+    })
+
+    it('opens an http(s) URL as ostia browse open does, and takes anything else for a path', async () => {
+      const res = await runOstia(['https://example.com/docs?a=1'], env(), home)
+      expect(res.stderr).toBe('')
+      expect(res.code).toBe(0)
+      expect(browsed).toEqual([{ url: 'https://example.com/docs?a=1' }])
+
+      const bare = await runOstia(['open', 'example.com'], env(), home)
+      expect(bare.code).toBe(0)
+      expect(opened()).toEqual([{ files: [{ path: join(home, 'example.com') }] }])
+      expect(browsed).toHaveLength(1)
+    })
+
+    it('passes --background on to every kind of target, before or after them', async () => {
+      const res = await runOstia(['-b', 'README', 'https://example.com/'], env(), home)
+      expect(res.code).toBe(0)
+      const after = await runOstia(['open', 'README', '--background'], env(), home)
+      expect(after.code).toBe(0)
+      expect(opened()).toEqual([
+        { files: [{ path: join(home, 'README') }], background: true },
+        { files: [{ path: join(home, 'README') }], background: true },
+      ])
+      expect(browsed).toEqual([{ url: 'https://example.com/', background: true }])
+    })
+
+    it('saves stdin into the artifact folder and opens that file', async () => {
+      const artifacts = join(base, 'artifacts')
+      mkdirSync(artifacts, { recursive: true })
+      const withFolder = { ...env(), OSTIA_ARTIFACTS: artifacts }
+      const res = await runOstia(['-', '--name', 'a.md'], withFolder, home, '# piped\n')
+      expect(res.stderr).toBe('')
+      expect(res.code).toBe(0)
+      expect(readFileSync(join(artifacts, 'a.md'), 'utf8')).toBe('# piped\n')
+      expect(opened()).toEqual([{ files: [{ path: join(artifacts, 'a.md') }] }])
+
+      const unnamed = await runOstia(['open', '-'], withFolder, home, 'plain')
+      expect(unnamed.code).toBe(0)
+      const [, second] = opened() as { files: { path: string }[] }[]
+      expect(second.files[0].path).toMatch(/\/artifacts\/stdin-\d{8}-\d{6}\.txt$/)
+      expect(readFileSync(second.files[0].path, 'utf8')).toBe('plain')
+    })
+
+    it('refuses stdin without an artifact folder, a bad name, and --name without -', async () => {
+      const none = await runOstia(
+        ['-'],
+        withEnv({ ...env(), OSTIA_ARTIFACTS: undefined }),
+        home,
+        'x',
+      )
+      expect(none.code).toBe(1)
+      expect(none.stderr.trim()).toBe('ostia: stdin needs an artifact folder')
+
+      const artifacts = join(base, 'artifacts-2')
+      mkdirSync(artifacts, { recursive: true })
+      const withFolder = { ...env(), OSTIA_ARTIFACTS: artifacts }
+      const escaping = await runOstia(['-', '--name', '../x.md'], withFolder, home, 'x')
+      expect(escaping.code).toBe(1)
+      expect(escaping.stderr).toContain('--name is a file name, not a path')
+      const hidden = await runOstia(['-', '--name', '.bashrc'], withFolder, home, 'x')
+      expect(hidden.stderr).toContain('--name cannot start with a dot')
+      const stray = await runOstia(['open', 'README', '--name', 'a.md'], withFolder, home, 'x')
+      expect(stray.code).toBe(1)
+      expect(stray.stderr).toContain('--name goes with -')
+      expect(readdirSync(artifacts)).toEqual([])
+      expect(opened()).toEqual([])
+    })
+
+    it('reads stdin only for an explicit dash', async () => {
+      const artifacts = join(base, 'artifacts-3')
+      mkdirSync(artifacts, { recursive: true })
+      const withFolder = { ...env(), OSTIA_ARTIFACTS: artifacts }
+      const res = await runOstia(['README'], withFolder, home, 'piped but not asked for')
+      expect(res.code).toBe(0)
+      expect(readdirSync(artifacts)).toEqual([])
+      expect(opened()).toEqual([{ files: [{ path: join(home, 'README') }] }])
     })
 
     it('refuses a sandboxed workspace a file outside the home folder', async () => {

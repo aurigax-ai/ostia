@@ -1,10 +1,11 @@
 import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
-import type { FileTarget, OpenFileError } from '../shared/openFiles'
+import { type FileTarget, type OpenFileError, openTargetKind } from '../shared/openFiles'
 
 export interface FileProbe {
   cwd: string
   isFile: (path: string) => boolean
+  isDir?: (path: string) => boolean
   home?: string
 }
 
@@ -34,9 +35,37 @@ export function parseFileArg(arg: string, probe: FileProbe): FileTarget {
 
 export type FileWord = 'path' | 'name' | null
 
+export const OPEN_FLAGS: readonly string[] = ['-b', '--background', '--name']
+
 export function fileWord(word: string, probe: FileProbe): FileWord {
+  if (word === '-' || OPEN_FLAGS.includes(word)) return 'path'
+  if (word.startsWith('-')) return null
   if (word.includes('/') || word.startsWith('.') || word.startsWith('~')) return 'path'
   return probe.isFile(parseFileArg(word, probe).path) ? 'name' : null
+}
+
+export type OpenTarget =
+  | { kind: 'url'; url: string }
+  | { kind: 'stdin' }
+  | { kind: 'folder'; path: string }
+  | { kind: 'file'; file: FileTarget }
+
+export function openTarget(word: string, probe: FileProbe): OpenTarget {
+  const kind = openTargetKind(word)
+  if (kind === 'url') return { kind: 'url', url: word }
+  if (kind === 'stdin') return { kind: 'stdin' }
+  const file = parseFileArg(word, probe)
+  return probe.isDir?.(file.path) ? { kind: 'folder', path: file.path } : { kind: 'file', file }
+}
+
+const REVEAL_REFUSALS: Record<string, string> = {
+  'outside-home': 'folders show only under the home folder',
+  'not-found': 'no such folder',
+  'not-a-directory': 'not a folder',
+}
+
+export function revealRefusalLine(path: string, error: string, message?: string): string {
+  return `ostia: ${path}: ${REVEAL_REFUSALS[error] ?? message ?? error}`
 }
 
 export function isClaimedWord(

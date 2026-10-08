@@ -169,11 +169,19 @@ describe('builtins route to store actions', () => {
     it('keeps a pane opened over the control socket isolated, whatever the args say', async () => {
       workspaces('terminal')
       const openBrowser = openBrowserSpy()
+      const openBrowserTab = vi
+        .spyOn(useLayoutStore.getState(), 'openBrowserTab')
+        .mockImplementation(() => null)
       const remote: CommandContext = { ...ctx('s7', null), origin: 'remote' }
       await commands.execWith(remote, 'browser.new', { url: 'http://a.test/', profile: 'shared' })
       await commands.execWith(remote, 'browser.open')
-      expect(openBrowser).toHaveBeenNthCalledWith(1, 's7', 'http://a.test/', 'isolated')
-      expect(openBrowser).toHaveBeenNthCalledWith(2, 's7', 'about:blank', 'isolated')
+      expect(openBrowser).not.toHaveBeenCalled()
+      expect(
+        openBrowserTab.mock.calls.map(([workspace, url, profile]) => [workspace, url, profile]),
+      ).toEqual([
+        ['s7', 'http://a.test/', 'isolated'],
+        ['s7', 'about:blank', 'isolated'],
+      ])
     })
 
     it('keeps the human’s pane isolated in a scratch workspace', async () => {

@@ -70,11 +70,21 @@ longer have to: `ostia pane.list` shows every pane's external id directly).
 ## Everyday actions
 
 ```sh
-ostia open <file>...                # show files to the human in the editor (text, image, PDF); any path
-                                    # on disk, file:line[:col] jumps there, several get a tab each. `ostia <file>` is
-                                    # the same when the first word is a path (has a /, starts with . or ~)
-                                    # or names a file here that is no command or extension. From a
+ostia open <target>...              # show something to the human. A target is a file (text, image,
+                                    # PDF; any path on disk, file:line[:col] jumps there, several get
+                                    # a tab each), a folder (shown in the Files panel; under the home
+                                    # folder only), an http(s):// URL (a browser pane, as
+                                    # `ostia browse open`) or - (stdin, below). `ostia <target>` is the
+                                    # same when the first word has a /, starts with . or ~, is a URL or
+                                    # -, or names a file here that is no command or extension. From a
                                     # sandboxed workspace only files under the home folder open.
+                                    # The new tab takes focus only when your pane has it; from a
+                                    # background pane it opens quietly with an unread mark.
+ostia open -b <target>...           # --background: never take focus, even from the focused pane
+<cmd> | ostia - [--name <file>]     # save stdin (16 MiB at most) as a file in $OSTIA_ARTIFACTS and
+                                    # open it; --name picks the name and so the viewer
+                                    # (`git diff | ostia - --name change.diff`). Only the explicit -
+                                    # reads stdin; it needs $OSTIA_ARTIFACTS
 ostia notify "<title>" ["<body>"]   # desktop notification + marks this pane unread in Ostia's
                                     # sidebar/bell with that message (title required)
 ```

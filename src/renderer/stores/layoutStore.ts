@@ -102,11 +102,21 @@ interface LayoutState {
   rename: (workspaceId: string, paneId: string, title: string) => void
   setDefaultTitle: (workspaceId: string, paneId: string, title: string) => void
   openFile: (workspaceId: string, path: string) => void
-  openFileTab: (workspaceId: string, path: string, paneId?: string) => void
+  openFileTab: (
+    workspaceId: string,
+    path: string,
+    paneId?: string,
+    background?: boolean,
+  ) => string | null
   openFileBeside: (workspaceId: string, path: string) => void
   openTerminalTab: (workspaceId: string, cwd: string) => string | null
   openBrowser: (workspaceId: string, url: string, profile: BrowserProfile) => void
-  openBrowserTab: (workspaceId: string, url: string, profile: BrowserProfile) => void
+  openBrowserTab: (
+    workspaceId: string,
+    url: string,
+    profile: BrowserProfile,
+    background?: { beside?: string },
+  ) => string | null
   openExtensionPanel: (workspaceId: string, extensionId: string, title: string) => string | null
   openGit: (workspaceId: string, title: string) => string | null
   openView: (workspaceId: string, viewName: string, title: string) => string | null
@@ -571,28 +581,27 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     }
   },
 
-  openFileTab: (workspaceId, path, paneId) => {
+  openFileTab: (workspaceId, path, paneId, background = false) => {
     const title = path.split('/').pop() || path
-    if (seedLayout(workspaceId, (p) => setPaneEditor(p, p.id, title, path))) return
+    const seeded = seedLayout(workspaceId, (p) => setPaneEditor(p, p.id, title, path))
+    if (seeded) return seeded
     let createdPaneId: string | null = null
     set((s) => {
       const next = patch(s, workspaceId, (l) => {
         const showing = allPanes(l.root).find((p) => p.kind === 'editor' && p.filePath === path)
-        if (showing) return { ...l, activePaneId: showing.id }
+        if (showing) return background ? l : { ...l, activePaneId: showing.id }
         const target = paneId && findPane(l.root, paneId) ? paneId : l.activePaneId
         const pane = createPane('editor')
         createdPaneId = pane.id
-        return {
-          ...l,
-          root: setPaneEditor(addTab(l.root, target, pane), pane.id, title, path),
-          activePaneId: pane.id,
-        }
+        const root = setPaneEditor(addTab(l.root, target, pane, background), pane.id, title, path)
+        return background ? { ...l, root } : { ...l, root, activePaneId: pane.id }
       })
       return next ?? s
     })
     if (createdPaneId) {
       window.ostia?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId: createdPaneId })
     }
+    return createdPaneId
   },
 
   openFileBeside: (workspaceId, path) => {
@@ -649,25 +658,28 @@ export const useLayoutStore = create<LayoutState>((set, get) => ({
     }
   },
 
-  openBrowserTab: (workspaceId, url, profile) => {
-    if (seedLayout(workspaceId, (p) => setPaneBrowser(p, p.id, url, profile))) return
+  openBrowserTab: (workspaceId, url, profile, background) => {
+    const seeded = seedLayout(workspaceId, (p) => setPaneBrowser(p, p.id, url, profile))
+    if (seeded) return seeded
     let createdPaneId: string | null = null
     set((s) => {
       const next = patch(s, workspaceId, (l) => {
-        const beside = browserPaneInUse(l.root, l.activePaneId, profile)?.id ?? l.activePaneId
+        const asked = background?.beside && findPane(l.root, background.beside)
+        const beside = asked
+          ? asked.id
+          : (browserPaneInUse(l.root, l.activePaneId, profile)?.id ?? l.activePaneId)
         const pane = createPane('browser')
         createdPaneId = pane.id
-        return {
-          ...l,
-          root: setPaneBrowser(addTab(l.root, beside, pane), pane.id, url, profile),
-          activePaneId: pane.id,
-        }
+        const quiet = background !== undefined
+        const root = setPaneBrowser(addTab(l.root, beside, pane, quiet), pane.id, url, profile)
+        return quiet ? { ...l, root } : { ...l, root, activePaneId: pane.id }
       })
       return next ?? s
     })
     if (createdPaneId) {
       window.ostia?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId: createdPaneId })
     }
+    return createdPaneId
   },
 
   openExtensionPanel: (workspaceId, extensionId, title) =>

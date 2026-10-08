@@ -153,9 +153,10 @@ test('ostia <file> names what it cannot open and opens nothing for it', async ()
     await win.keyboard.type(`ostia ${dir} ${join(dir, 'nope.txt')}`)
     await win.keyboard.press('Enter')
 
-    await expect(win.locator('.xterm-rows')).toContainText(`${dir}: is a directory`, {
-      timeout: 15_000,
-    })
+    await expect(win.locator('.xterm-rows')).toContainText(
+      `${dir}: folders show only under the home folder`,
+      { timeout: 15_000 },
+    )
     await expect(win.locator('.xterm-rows')).toContainText('nope.txt: no such file')
     await expect(win.locator('.pane-tab')).toHaveCount(1)
   } finally {
