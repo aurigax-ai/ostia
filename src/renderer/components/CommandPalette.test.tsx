@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest'
 import { zhHant } from '@shared/dict'
 import type { SearchOutcome } from '@shared/search'
-import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { registerBuiltinCommands } from '../commands/builtins'
@@ -12,6 +12,7 @@ import { useLayoutStore } from '../stores/layoutStore'
 import { usePluginsStore } from '../stores/pluginsStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
+import { useWindowsStore } from '../stores/windowsStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
 import { CommandPalette } from './CommandPalette'
 
@@ -110,17 +111,301 @@ describe('CommandPalette', () => {
     expect(screen.getByRole('option', { name: /Open Settings/ })).toBeInTheDocument()
   })
 
-  it('puts the command id and its shortcut in separate right-hand cells', async () => {
-    useUIStore.setState({ paletteOpen: true })
-    render(<CommandPalette />)
+  describe('row layout', () => {
+    const initialPlugins = usePluginsStore.getState()
+    const initialSettings = useSettingsStore.getState()
+    const initialWindows = useWindowsStore.getState()
 
-    const option = await screen.findByRole('option', { name: /Open Settings/ })
+    afterEach(() => {
+      cleanup()
+      useWindowsStore.setState(initialWindows, true)
+      usePluginsStore.setState(initialPlugins, true)
+      useSettingsStore.setState(initialSettings, true)
+    })
 
-    const id = within(option).getByText('app.openSettings')
-    const shortcut = option.querySelector('kbd')
-    expect(id).toHaveAttribute('data-slot', 'palette-meta')
-    expect(shortcut).not.toBeNull()
-    expect(id).not.toContainElement(shortcut as HTMLElement)
+    const cells = (option: HTMLElement): HTMLElement[] => {
+      const row = option.querySelector('[data-slot="palette-row"]') as HTMLElement
+      return [...row.children] as HTMLElement[]
+    }
+
+    const seedPlaces = () => {
+      useWorkspacesStore.setState({
+        workspaces: [
+          {
+            id: 'w1',
+            name: 'api',
+            customName: 'payments',
+            kind: 'terminal',
+            workDir: '/src/api',
+            state: 'idle',
+          },
+        ],
+        activeWorkspaceId: 'w1',
+      })
+      useLayoutStore.setState({
+        byWorkspace: {
+          w1: {
+            root: { type: 'pane', id: 'pane-7', title: 'Fix refunds', kind: 'terminal' },
+            activePaneId: 'pane-7',
+            zoomedPaneId: null,
+          },
+        },
+      })
+    }
+
+    const SLOTS = ['palette-name', 'palette-keys', 'palette-meta']
+
+    const expectColumns = (option: HTMLElement) => {
+      const row = cells(option)
+      expect(row.map((cell) => cell.dataset.slot)).toEqual(SLOTS)
+      const grid = option.querySelector('[data-slot="palette-row"]') as HTMLElement
+      expect(grid).toHaveClass('grid')
+      expect(grid.className).toContain('var(--palette-name-w')
+      expect(grid.className).toContain('var(--palette-keys-w')
+      expect(row[2]).toHaveClass('justify-self-end', 'truncate', 'min-w-0', 'max-w-full')
+      return row
+    }
+
+    it('lays a command out as title, keycap, then id on the right', async () => {
+      useUIStore.setState({ paletteOpen: true })
+      render(<CommandPalette />)
+
+      const [title, keys, id] = expectColumns(
+        await screen.findByRole('option', { name: /Open Settings/ }),
+      )
+
+      expect(title).toHaveTextContent('Open Settings')
+      expect(keys.querySelector('kbd')).not.toBeNull()
+      expect(id).toHaveTextContent('app.openSettings')
+      expect(id).not.toContainElement(keys)
+    })
+
+    it('keeps the keycap column in place for a command without a keybinding', async () => {
+      useUIStore.setState({ paletteOpen: true })
+      render(<CommandPalette />)
+      const options = await screen.findAllByRole('option')
+
+      const unbound = options.find((o) => !o.querySelector('kbd'))
+      expect(unbound).toBeDefined()
+      const [, keys, id] = expectColumns(unbound as HTMLElement)
+
+      expect(keys).toBeEmptyDOMElement()
+      expect(id.textContent).not.toBe('')
+    })
+
+    it('lays a workspace out as name, empty keycap column, then path', async () => {
+      seedPlaces()
+      useUIStore.setState({ paletteOpen: true, paletteSeed: '@' })
+      render(<CommandPalette />)
+
+      const [title, keys, path] = expectColumns(
+        await screen.findByRole('option', { name: /payments/ }),
+      )
+
+      expect(title).toHaveTextContent('payments')
+      expect(keys).toBeEmptyDOMElement()
+      expect(path).toHaveTextContent('/src/api')
+    })
+
+    it('lays a tab out as title, empty keycap column, then its workspace', async () => {
+      seedPlaces()
+      useUIStore.setState({ paletteOpen: true, paletteSeed: '#' })
+      render(<CommandPalette />)
+
+      const [title, keys, where] = expectColumns(
+        await screen.findByRole('option', { name: /Fix refunds/ }),
+      )
+
+      expect(title).toHaveTextContent('Fix refunds')
+      expect(keys).toBeEmptyDOMElement()
+      expect(where).toHaveTextContent('payments')
+    })
+
+    it('lays a file out as name, empty keycap column, then folder', async () => {
+      seedPlaces()
+      vi.mocked(window.ostia.search.run).mockResolvedValue({
+        ok: true,
+        results: {
+          root: '/src/api',
+          names: [{ path: 'src/lib/greet.ts', dir: false, positions: [0] }],
+          files: [],
+          pdfs: [],
+          matches: 0,
+          truncated: false,
+        },
+      })
+      useUIStore.setState({ paletteOpen: true, paletteSeed: '/gre' })
+      render(<CommandPalette />)
+
+      const [title, keys, dir] = expectColumns(await screen.findByRole('option', { name: /greet/ }))
+
+      expect(title).toHaveTextContent('greet.ts')
+      expect(keys).toBeEmptyDOMElement()
+      expect(dir).toHaveTextContent('src/lib')
+    })
+
+    it('lays a workspace from another window out the same way', async () => {
+      useWindowsStore.setState({
+        windowId: 'win-a',
+        list: [
+          {
+            windowId: 'win-b',
+            detached: true,
+            workspaces: [
+              {
+                id: 'w9',
+                name: 'billing',
+                workDir: '/src/billing',
+                state: 'idle',
+                unreadAt: 0,
+                panes: [],
+              },
+            ],
+          },
+        ],
+      })
+      useUIStore.setState({ paletteOpen: true, paletteSeed: '@' })
+      render(<CommandPalette />)
+
+      const [title, keys, path] = expectColumns(
+        await screen.findByRole('option', { name: /billing/ }),
+      )
+
+      expect(title).toHaveTextContent('billing')
+      expect(keys).toBeEmptyDOMElement()
+      expect(path).toHaveTextContent('/src/billing')
+    })
+
+    it('lays an argument choice out in the same columns', async () => {
+      commands.register<{ argument?: string }, void>({
+        id: 'test.layout-card',
+        title: 'Test: Layout Card',
+        argument: 'Card id',
+        choices: async () => [{ value: 'shop-12', label: 'Fix checkout' }],
+        run: vi.fn(),
+      })
+      useUIStore.setState({ paletteOpen: true })
+      render(<CommandPalette />)
+      await userEvent.type(await screen.findByRole('combobox'), 'Test: Layout Card{Enter}')
+
+      const [title, keys] = expectColumns(
+        await screen.findByRole('option', { name: /Fix checkout/ }),
+      )
+
+      expect(title).toHaveTextContent('Fix checkout')
+      expect(keys).toBeEmptyDOMElement()
+    })
+
+    it('keeps the title whole and lets the secondary text give way first', async () => {
+      useUIStore.setState({ paletteOpen: true })
+      render(<CommandPalette />)
+
+      const [title, , id] = cells(await screen.findByRole('option', { name: /Open Settings/ }))
+
+      expect(title).toHaveClass('overflow-hidden', 'max-w-full')
+      expect(id).toHaveClass('truncate', 'min-w-0', 'justify-self-end')
+    })
+
+    it('sizes the title column from the widest title rounded up, caps it at half a row, leaves fluid rows out and measures again on resize', async () => {
+      const resizes: { target: Element; measure: () => void }[] = []
+      const original = globalThis.ResizeObserver
+      globalThis.ResizeObserver = class {
+        measure: () => void
+        constructor(measure: () => void) {
+          this.measure = measure
+        }
+        observe(target: Element) {
+          resizes.push({ target, measure: this.measure })
+        }
+        unobserve() {}
+        disconnect() {}
+      } as unknown as typeof ResizeObserver
+      let listWidth = 2000
+      const natural = (cell: Element) => (cell.textContent ?? '').length * 7.37
+      const realStyle = window.getComputedStyle
+      const style = vi.spyOn(window, 'getComputedStyle').mockImplementation((el, pseudo) => {
+        const real = realStyle.call(window, el, pseudo)
+        if (!(el instanceof HTMLElement) || el.dataset.slot !== 'palette-name') return real
+        const host = el.closest<HTMLElement>('[data-slot="command-list"]')
+        const column = Number.parseFloat(host?.style.getPropertyValue('--palette-name-w') ?? '')
+        const width = `${Math.min(natural(el), column || Number.POSITIVE_INFINITY)}px`
+        return Object.defineProperty(real, 'width', { value: width })
+      })
+      const client = vi.spyOn(Element.prototype, 'clientWidth', 'get').mockImplementation(function (
+        this: Element,
+      ) {
+        return (this as HTMLElement).dataset.slot === 'palette-row' ? listWidth - 48 : listWidth
+      })
+      const span = (slot: string, text = ''): HTMLElement => {
+        const el = document.createElement('span')
+        el.dataset.slot = slot
+        if (text) el.append(Object.assign(document.createElement('span'), { textContent: text }))
+        return el
+      }
+      const longRow = (fluid: boolean): HTMLElement => {
+        const row = span('palette-row')
+        if (fluid) row.dataset.fluid = ''
+        row.append(
+          span('palette-name', 'x'.repeat(200)),
+          span('palette-keys'),
+          span('palette-meta'),
+        )
+        return row
+      }
+      try {
+        useUIStore.setState({ paletteOpen: true })
+        render(<CommandPalette />)
+        await screen.findByRole('option', { name: /Open Settings/ })
+        const list = document.querySelector('[data-slot="command-list"]') as HTMLElement
+        const widest = Math.max(
+          ...[...list.querySelectorAll('[data-slot="palette-name"]')].map(natural),
+        )
+        const nameWidth = () => list.style.getPropertyValue('--palette-name-w')
+        const remeasure = () => {
+          for (const r of resizes.filter((r) => r.target === list)) r.measure()
+        }
+        expect(widest).toBeGreaterThan(0)
+        expect(Number.isInteger(widest)).toBe(false)
+        expect(nameWidth()).toBe(`${Math.ceil(widest)}px`)
+
+        act(() => list.append(longRow(true)))
+        await new Promise((resolve) => setTimeout(resolve, 0))
+        expect(nameWidth()).toBe(`${Math.ceil(widest)}px`)
+
+        act(() => list.append(longRow(false)))
+        await waitFor(() => expect(nameWidth()).toBe('976px'))
+
+        listWidth = 600
+        remeasure()
+        expect(nameWidth()).toBe('276px')
+
+        listWidth = 2000
+        remeasure()
+        expect(nameWidth()).toBe('976px')
+      } finally {
+        style.mockRestore()
+        client.mockRestore()
+        globalThis.ResizeObserver = original
+      }
+    })
+
+    it('lays rows out the same way in Traditional Chinese', async () => {
+      usePluginsStore.setState({
+        languages: languagesFrom([
+          { extId: 'langpack-zh-hant', id: 'zh-Hant', label: '繁體中文', catalog: zhHant },
+        ]),
+      })
+      useSettingsStore.setState({ locale: 'zh-Hant' })
+      useUIStore.setState({ paletteOpen: true })
+      render(<CommandPalette />)
+
+      const [title, , id] = expectColumns(
+        await screen.findByRole('option', { name: /向右分割窗格/ }),
+      )
+
+      expect(title).toHaveTextContent('向右分割窗格')
+      expect(id).toHaveAttribute('data-slot', 'palette-meta')
+    })
   })
 
   describe('prefixes', () => {
