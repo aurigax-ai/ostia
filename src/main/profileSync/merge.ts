@@ -87,15 +87,6 @@ export function unflatten(leaves: ReadonlyMap<string, unknown>): JsonObject {
   return root
 }
 
-export function valueAt(value: JsonObject | null, path: readonly string[]): unknown {
-  let cursor: unknown = value
-  for (const segment of path) {
-    if (!isObject(cursor) || !Object.hasOwn(cursor, segment)) return undefined
-    cursor = cursor[segment]
-  }
-  return cursor
-}
-
 export function withValueAt(value: JsonObject, path: readonly string[], next: unknown): JsonObject {
   const leaves = flatten(value)
   const prefix = pathKey(path).slice(0, -1)

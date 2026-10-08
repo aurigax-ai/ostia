@@ -36,7 +36,7 @@ test('Escape right after the palette chord in a terminal closes the palette and 
   }
 })
 
-test('the palette chord opens the palette on commands only, and removing the prefix lists everything', async () => {
+test('the palette chord lists commands only until the prefix is removed, and the top-bar search opens Search Everywhere', async () => {
   const app = await electron.launch(isolatedLaunch())
   try {
     const win = await app.firstWindow()
@@ -56,6 +56,21 @@ test('the palette chord opens the palette on commands only, and removing the pre
     await win.keyboard.press('Backspace')
     await expect(palette.getByRole('group', { name: 'Workspaces' })).toBeVisible()
     await expect(palette.getByRole('group', { name: 'Tabs' })).toBeVisible()
+
+    await win.keyboard.press('Escape')
+    await expect(palette).toBeHidden()
+    await win
+      .locator('.topbar-center')
+      .getByRole('button', { name: /Search or run a command/ })
+      .click()
+    const everywhere = win.getByRole('dialog', { name: 'Search everywhere' })
+    await expect(everywhere.getByRole('combobox')).toBeFocused()
+    await win.keyboard.type('zoom')
+    await expect(everywhere.getByRole('option', { name: /^Zoom Pane/ })).toBeVisible()
+    await expect(
+      everywhere.getByRole('option', { name: 'Search settings for “zoom”' }),
+    ).toBeVisible()
+    await expect(everywhere.getByRole('option', { name: 'Keyboard', exact: true })).toHaveCount(0)
   } finally {
     await app.close()
   }

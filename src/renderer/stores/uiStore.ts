@@ -23,6 +23,7 @@ interface UIState {
   settingsQuery: string | null
   dashboardActive: boolean
   filesOpen: boolean
+  filesSearchOpen: boolean
   filesSearchFocus: boolean
   filesSearchQuery: string | null
   digitHints: boolean
@@ -44,6 +45,8 @@ interface UIState {
   toggleFiles: () => void
   showFiles: () => void
   searchFiles: (query?: string) => void
+  hideFilesSearch: () => void
+  toggleFilesSearch: (focused: EventTarget | null) => void
   filesSearchFocused: () => void
   setDigitHints: (shown: boolean) => void
 }
@@ -60,6 +63,7 @@ export const useUIStore = create<UIState>((set, get) => ({
   settingsQuery: null,
   dashboardActive: false,
   filesOpen: false,
+  filesSearchOpen: false,
   filesSearchFocus: false,
   filesSearchQuery: null,
   digitHints: false,
@@ -108,10 +112,28 @@ export const useUIStore = create<UIState>((set, get) => ({
   toggleDashboard: () =>
     set((s) => ({ dashboardActive: !s.dashboardActive, settingsActive: false })),
   toggleFiles: () =>
-    set((s) => ({ filesOpen: !s.filesOpen, filesSearchFocus: false, filesSearchQuery: null })),
+    set((s) => ({
+      filesOpen: !s.filesOpen,
+      filesSearchOpen: false,
+      filesSearchFocus: false,
+      filesSearchQuery: null,
+    })),
   showFiles: () => set({ filesOpen: true }),
   searchFiles: (query) =>
-    set({ filesOpen: true, filesSearchFocus: true, filesSearchQuery: query ?? null }),
+    set({
+      filesOpen: true,
+      filesSearchOpen: true,
+      filesSearchFocus: true,
+      filesSearchQuery: query ?? null,
+    }),
+  hideFilesSearch: () =>
+    set({ filesSearchOpen: false, filesSearchFocus: false, filesSearchQuery: null }),
+  toggleFilesSearch: (focused) => {
+    const s = get()
+    const inBox = focused instanceof Element && focused.closest('.files-search') !== null
+    if (s.filesOpen && s.filesSearchOpen && inBox) s.hideFilesSearch()
+    else s.searchFiles()
+  },
   filesSearchFocused: () => set({ filesSearchFocus: false, filesSearchQuery: null }),
   setDigitHints: (digitHints) => set({ digitHints }),
 }))

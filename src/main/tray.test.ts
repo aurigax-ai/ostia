@@ -29,15 +29,9 @@ vi.mock('electron', () => ({
   nativeImage: { createFromPath: () => ({ resize: () => ({}) }) },
 }))
 
-const {
-  AppTray,
-  closeAction,
-  isHiddenLaunch,
-  readCloseToTray,
-  trayLabels,
-  trayTooltip,
-  unreadWorkspaces,
-} = await import('./tray')
+const { AppTray, closeAction, isHiddenLaunch, readCloseToTray, trayTooltip, unreadWorkspaces } =
+  await import('./tray')
+const { en, zhHant } = await import('../shared/dict')
 
 function fakeWindow(events: string[]) {
   let visible = true
@@ -69,7 +63,7 @@ function makeTray(
   return new AppTray({
     iconPath: '/icon.png',
     tooltip: 'Ostia',
-    locale: () => 'en',
+    text: () => en.native.tray,
     windows: () => [win],
     quit: () => events.push('quit'),
     setBadgeCount,
@@ -141,9 +135,9 @@ describe('unread count', () => {
   })
 
   it('puts the count in the tray tooltip and the badge, and drops it at zero', () => {
-    expect(trayTooltip('Ostia', 0, 'en')).toBe('Ostia')
-    expect(trayTooltip('Ostia', 2, 'en')).toBe('Ostia · 2 unread')
-    expect(trayTooltip('Ostia', 2, 'zh-Hant')).toBe('Ostia · 2 則未讀')
+    expect(trayTooltip('Ostia', 0, en.native.tray)).toBe('Ostia')
+    expect(trayTooltip('Ostia', 2, en.native.tray)).toBe('Ostia · 2 unread')
+    expect(trayTooltip('Ostia', 2, zhHant.native.tray)).toBe('Ostia · 2 則未讀')
     const events: string[] = []
     const win = fakeWindow(events)
     const badge = vi.fn()
@@ -236,13 +230,5 @@ describe('isHiddenLaunch', () => {
   it('MGR-C41 MGR-C42 reveals the running Ostia on a plain second launch but not on a hidden one', () => {
     expect(isHiddenLaunch(['/opt/ostia/ostia'])).toBe(false)
     expect(isHiddenLaunch(['/opt/ostia/ostia', '--hidden'])).toBe(true)
-  })
-})
-
-describe('trayLabels', () => {
-  it('uses Traditional Chinese labels for zh-Hant and English otherwise', () => {
-    expect(trayLabels('zh-Hant').quit).toBe('結束')
-    expect(trayLabels('fr').show).toBe('Show')
-    expect(trayLabels(undefined).show).toBe('Show')
   })
 })

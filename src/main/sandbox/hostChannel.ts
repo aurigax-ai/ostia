@@ -39,7 +39,7 @@ export function writeMessage(socket: Socket, message: unknown): void {
   if (!socket.destroyed) socket.write(`${JSON.stringify(message)}\n`)
 }
 
-export function checkHostChannel(path: string, uid: number): void {
+function checkHostChannel(path: string, uid: number): void {
   let st: ReturnType<typeof lstatSync>
   try {
     st = lstatSync(path)

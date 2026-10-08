@@ -12,6 +12,7 @@ import {
   reminderBody,
   unreminded,
 } from '../test/quarantine.mjs'
+import { githubRequestFrom } from './github.mjs'
 
 const USAGE = [
   'usage: node scripts/quarantine.mjs issues [--today=YYYY-MM-DD]',
@@ -19,21 +20,8 @@ const USAGE = [
   '       node scripts/quarantine.mjs unit <runs> | e2e <runs> [playwright args]',
 ].join('\n')
 
-const REPO = process.env.GITHUB_REPOSITORY || 'aurigax-ai/ostia'
-
-async function github(path, init = {}) {
-  const token = process.env.GH_TOKEN || process.env.GITHUB_TOKEN
-  const headers = { accept: 'application/vnd.github+json', 'user-agent': 'ostia-quarantine' }
-  if (token) headers.authorization = `Bearer ${token}`
-  const res = await fetch(`https://api.github.com/repos/${REPO}/${path}`, {
-    ...init,
-    headers: { ...headers, ...init.headers },
-  })
-  if (!res.ok) throw new Error(`${path}: GitHub answered ${res.status}`)
-  return res.json()
-}
-
 async function issueStates(entries) {
+  const github = githubRequestFrom(process.env)
   const states = {}
   for (const issue of new Set(entries.map((entry) => entry.issue))) {
     states[issue] = (await github(`issues/${issue}`)).state
@@ -56,7 +44,7 @@ function todayFrom(flags) {
   return today
 }
 
-async function commentBodies(issue) {
+async function commentBodies(github, issue) {
   const bodies = []
   for (let page = 1; ; page++) {
     const comments = await github(`issues/${issue}/comments?per_page=100&page=${page}`)
@@ -69,9 +57,10 @@ async function remind(flags) {
   const today = todayFrom(flags)
   const dryRun = flags.includes('--dry-run')
   const due = dueForReminder(loadQuarantine(), today)
+  const github = githubRequestFrom(process.env)
   const byIssue = Map.groupBy(due, (entry) => entry.issue)
   for (const [issue, entries] of byIssue) {
-    const pending = unreminded(entries, await commentBodies(issue))
+    const pending = unreminded(entries, await commentBodies(github, issue))
     if (!pending.length) {
       console.log(`quarantine: #${issue} already reminded`)
       continue

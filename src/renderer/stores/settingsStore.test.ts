@@ -73,6 +73,8 @@ describe('settingsStore', () => {
       trustedActions: s.trustedActions,
       manager: s.manager,
       privacy: s.privacy,
+      git: s.git,
+      ports: s.ports,
     })
   })
 
@@ -126,11 +128,13 @@ describe('settingsStore', () => {
         version: 'v1',
         text: JSON.stringify({
           keybindings: {
-            'palette.toggle': ' Ctrl+Shift+K ',
-            'view.toggleRail': null,
-            'history.search': 'Hyper+Q',
-            'workspace.new': 42,
-            'app.openSettings': 'Ctrl+R',
+            linux: {
+              'palette.toggle': ' Ctrl+Shift+K ',
+              'view.toggleRail': null,
+              'history.search': 'Hyper+Q',
+              'workspace.new': 42,
+              'app.openSettings': 'Ctrl+R',
+            },
           },
         }),
       })
@@ -148,18 +152,19 @@ describe('settingsStore', () => {
       vi.mocked(window.ostia.fs.read).mockResolvedValue({
         ok: true,
         version: 'v1',
-        text: JSON.stringify({ keymap: 'keymap-macos/cmux' }),
+        text: JSON.stringify({ keymap: { linux: 'keymap-macos/cmux' } }),
       })
       await store().init()
       expect(store().keymap).toBe('keymap-macos/cmux')
       for (const keymap of ['cmux', 'Keymap/cmux', 'a/b/c', '__proto__/x', 7, {}, '']) {
-        expect(parsePersisted({ keymap } as never).keymap, String(keymap)).toBeNull()
+        const file = { keymap: { linux: keymap } } as never
+        expect(parsePersisted(file).keymap, String(keymap)).toBeNull()
       }
     })
 
     it('keeps the built-in keymap and text editing presets and drops unknown ones', () => {
-      expect(parsePersisted({ keymap: 'ostia' } as never).keymap).toBe('ostia')
-      expect(parsePersisted({ keymap: 'ostia-2' } as never).keymap).toBeNull()
+      expect(parsePersisted({ keymap: { linux: 'ostia' } } as never).keymap).toBe('ostia')
+      expect(parsePersisted({ keymap: { linux: 'ostia-2' } } as never).keymap).toBeNull()
       const terminalKeymap = { linux: 'none', mac: 'natural-text-editing' }
       expect(parsePersisted({ terminalKeymap } as never).terminalKeymap).toBe('none')
       const unknown = { terminalKeymap: { linux: 'vim' } } as never
@@ -226,10 +231,12 @@ describe('settingsStore', () => {
         version: 'v1',
         text: JSON.stringify({
           terminalKeys: {
-            'Cmd+Delete': { type: 'hex', value: '0x0b' },
-            Delete: null,
-            'Alt+Left': { type: 'escape' },
-            'Cmd+Nope': { type: 'text', value: 'x' },
+            linux: {
+              'Cmd+Delete': { type: 'hex', value: '0x0b' },
+              Delete: null,
+              'Alt+Left': { type: 'escape' },
+              'Cmd+Nope': { type: 'text', value: 'x' },
+            },
           },
         }),
       })
@@ -560,6 +567,8 @@ describe('settingsStore', () => {
         trustedActions: s.trustedActions,
         manager: s.manager,
         privacy: s.privacy,
+        git: s.git,
+        ports: s.ports,
       }).toEqual(DEFAULTS)
     })
 
@@ -771,6 +780,8 @@ describe('settingsStore', () => {
         trustedActions: s.trustedActions,
         manager: s.manager,
         privacy: s.privacy,
+        git: s.git,
+        ports: s.ports,
       }).toEqual(DEFAULTS)
     })
   })

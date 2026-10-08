@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import { envName } from '../shared/appEnv'
+import { en } from '../shared/dict'
 import {
   MCP_OAUTH_BROWSER_ENV,
   SignInFailure,
-  callbackPages,
   mcpOAuthBrowser,
   openCallbackListener,
 } from './mcpOAuth'
 
-const pages = callbackPages(undefined)
+const pages = en.native.signIn
 
 async function listen(timeoutMs = 5_000) {
   return openCallbackListener({ state: 'expected-state', timeoutMs, pages })
@@ -28,13 +28,6 @@ describe('mcpOAuthBrowser', () => {
     expect(mcpOAuthBrowser(false, {})).toBe('system')
     expect(mcpOAuthBrowser(false, { [name]: '1' })).toBe('system')
     expect(mcpOAuthBrowser(false, { PINE_MCP_OAUTH_BROWSER: 'fetch' })).toBe('system')
-  })
-})
-
-describe('callbackPages', () => {
-  it('answers in the app language and falls back to English', () => {
-    expect(callbackPages('zh-Hant').done).toContain('已登入')
-    expect(callbackPages('fr').done).toContain('Signed in')
   })
 })
 

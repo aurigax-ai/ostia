@@ -5,7 +5,7 @@ import {
   RobotIcon,
   TerminalWindowIcon,
 } from '@phosphor-icons/react'
-import type { Dict } from '../i18n/dict'
+import type { Dict } from '@shared/dict'
 import { fmt, useDict } from '../i18n/useDict'
 import { type QuitLosses, quitLosses } from '../lib/closeConfirm'
 import {

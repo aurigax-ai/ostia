@@ -4,6 +4,7 @@ import type {
   PaneChip,
   WorkspaceChip,
 } from '@shared/extensions'
+import { type CoreItems, NO_CORE_ITEMS } from '@shared/git'
 import { create } from 'zustand'
 import { useSettingsStore } from './settingsStore'
 
@@ -12,8 +13,31 @@ export interface PanelNavigation {
   seq: number
 }
 
+interface Contributed {
+  sidebar: ExtensionSidebarItem[]
+  chips: PaneChip[]
+  workspaceChips: WorkspaceChip[]
+}
+
+function shown(
+  git: CoreItems,
+  ports: CoreItems,
+  contributed: Contributed,
+): Pick<ExtensionsState, 'sidebar' | 'chips' | 'workspaceChips'> {
+  return {
+    sidebar: [...git.sidebar, ...ports.sidebar, ...contributed.sidebar],
+    chips: [...git.paneChips, ...ports.paneChips, ...contributed.chips],
+    workspaceChips: [...git.workspaceChips, ...ports.workspaceChips, ...contributed.workspaceChips],
+  }
+}
+
 interface ExtensionsState {
   list: ExtensionInfo[]
+  git: CoreItems
+  ports: CoreItems
+  contributed: Contributed
+  setGitItems: (items: CoreItems) => void
+  setPortsItems: (items: CoreItems) => void
   sidebar: ExtensionSidebarItem[]
   chips: PaneChip[]
   workspaceChips: WorkspaceChip[]
@@ -38,6 +62,11 @@ let navSeq = 0
 
 export const useExtensionsStore = create<ExtensionsState>((set) => ({
   list: [],
+  git: NO_CORE_ITEMS,
+  ports: NO_CORE_ITEMS,
+  contributed: { sidebar: [], chips: [], workspaceChips: [] },
+  setGitItems: (git) => set((s) => ({ git, ...shown(git, s.ports, s.contributed) })),
+  setPortsItems: (ports) => set((s) => ({ ports, ...shown(s.git, ports, s.contributed) })),
   sidebar: [],
   chips: [],
   workspaceChips: [],
@@ -46,9 +75,21 @@ export const useExtensionsStore = create<ExtensionsState>((set) => ({
   dismissed: [],
 
   setList: (list) => set({ list }),
-  setSidebar: (sidebar) => set({ sidebar }),
-  setChips: (chips) => set({ chips }),
-  setWorkspaceChips: (workspaceChips) => set({ workspaceChips }),
+  setSidebar: (sidebar) =>
+    set((s) => {
+      const contributed = { ...s.contributed, sidebar }
+      return { contributed, ...shown(s.git, s.ports, contributed) }
+    }),
+  setChips: (chips) =>
+    set((s) => {
+      const contributed = { ...s.contributed, chips }
+      return { contributed, ...shown(s.git, s.ports, contributed) }
+    }),
+  setWorkspaceChips: (workspaceChips) =>
+    set((s) => {
+      const contributed = { ...s.contributed, workspaceChips }
+      return { contributed, ...shown(s.git, s.ports, contributed) }
+    }),
 
   navigatePanel: (paneId, path) =>
     set((s) => ({ panelNav: { ...s.panelNav, [paneId]: { path, seq: ++navSeq } } })),
@@ -60,7 +101,10 @@ export const useExtensionsStore = create<ExtensionsState>((set) => ({
       window.ostia.extensions.paneChips(),
       window.ostia.extensions.workspaceChips(),
     ])
-    set({ list, sidebar, chips, workspaceChips })
+    set((s) => {
+      const contributed = { sidebar, chips, workspaceChips }
+      return { list, contributed, ...shown(s.git, s.ports, contributed) }
+    })
   },
 
   setEnabled: async (extId, enabled) => {

@@ -37,7 +37,7 @@ export const RELEASE_CHECK_RETRY_MS = 60 * 60 * 1000
 export const RELEASE_REQUEST_TIMEOUT_MS = 10_000
 export const RELEASE_RESPONSE_MAX_BYTES = 1024 * 1024
 export const RELEASE_API_URL_ENV = 'RELEASE_API_URL'
-export const MAIN_CHANNEL_PAGE_SIZE = 30
+const MAIN_CHANNEL_PAGE_SIZE = 30
 
 export type LatestRelease =
   | { kind: 'release'; release: ReleaseInfo }
@@ -46,7 +46,7 @@ export type LatestRelease =
 
 export type ReleaseCheckTrigger = 'auto' | 'manual'
 
-export interface ReleaseEndpoint {
+interface ReleaseEndpoint {
   baseUrl: string
   automatic: boolean
 }
@@ -249,7 +249,7 @@ function loadDismissed(): string | null {
   return typeof version === 'string' && parseVersion(version) ? version : null
 }
 
-export function releaseState(
+function releaseState(
   release: ReleaseInfo | null,
   method: InstallMethod,
   replace: ReplaceAvailability | null,

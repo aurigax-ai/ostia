@@ -19,7 +19,7 @@ import { useWorkspacesStore } from '../stores/workspacesStore'
 import { DashboardPanel } from './DashboardPanel'
 
 const git: ExtensionInfo = {
-  id: 'git',
+  id: 'vcs',
   name: 'Git',
   version: '1.0.0',
   description: '',
@@ -307,7 +307,7 @@ describe('DashboardPanel', () => {
   it('shows extension status chips for every workspace, not only the active one', () => {
     seed()
     const chip = (workspaceId: string, text: string): WorkspaceChip => ({
-      extId: 'git',
+      extId: 'vcs',
       id: 'branch',
       workspaceId,
       text,

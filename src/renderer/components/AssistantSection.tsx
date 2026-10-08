@@ -13,9 +13,9 @@ import {
   modelRefKey,
   sameModelRef,
 } from '@shared/assist'
+import type { Dict } from '@shared/dict'
 import type { ExtensionInfo } from '@shared/extensions'
 import { useCallback, useEffect, useState } from 'react'
-import type { Dict } from '../i18n/dict'
 import { fmt, useDict } from '../i18n/useDict'
 import { featuresInUse, toggleAssistFeature } from '../lib/assistFeatures'
 import { openAssistUi } from '../lib/assistUi'

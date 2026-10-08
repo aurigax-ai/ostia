@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type { AgentSessionInfo } from '../shared/agentSessionInfo'
+import type { HibernateOutcome } from '../shared/agentWork'
 import type { ApprovalState } from '../shared/approvals'
 import type {
   AssistAvailability,
@@ -44,6 +45,7 @@ import type {
   WorkspaceChip,
 } from '../shared/extensions'
 import type { FileOpResult } from '../shared/fileOps'
+import type { CoreItems } from '../shared/git'
 import type { GuestChordFire } from '../shared/guestChords'
 import type { LoadedIconTheme } from '../shared/iconTheme'
 import type {
@@ -173,13 +175,10 @@ const bridge: OstiaBridge = {
       return () => ipcRenderer.removeListener('window:maximized', handler)
     },
     onRunningQuery: (cb) => {
-      const handler = (_event: unknown, requestId: number, kept: unknown): void => {
-        const ids = Array.isArray(kept)
-          ? kept.filter((id): id is string => typeof id === 'string')
-          : []
-        void Promise.resolve(cb(ids))
-          .catch(() => [])
-          .then((groups) => ipcRenderer.send('window:close-answer', requestId, groups))
+      const handler = (_event: unknown, requestId: number, kept: string[]): void => {
+        void Promise.resolve(cb(kept)).then((groups) =>
+          ipcRenderer.send('window:close-answer', requestId, groups),
+        )
       }
       ipcRenderer.on('window:running', handler)
       return () => ipcRenderer.removeListener('window:running', handler)
@@ -203,7 +202,7 @@ const bridge: OstiaBridge = {
     attach: (paneId, opts) =>
       ipcRenderer.invoke('pty:attach', paneId, opts) as Promise<PtyAttachResult>,
     detach: (paneId) => ipcRenderer.send('pty:detach', paneId),
-    hibernate: (paneId) => ipcRenderer.invoke('pty:hibernate', paneId) as Promise<boolean>,
+    hibernate: (paneId) => ipcRenderer.invoke('pty:hibernate', paneId) as Promise<HibernateOutcome>,
     stashed: (paneId) => ipcRenderer.invoke('pty:stashed', paneId) as Promise<string | null>,
     restart: (paneId) => ipcRenderer.invoke('pty:restart', paneId) as Promise<boolean>,
     reportAgentRunning: (paneId, running) => ipcRenderer.send('pty:agent-running', paneId, running),
@@ -1014,6 +1013,40 @@ const bridge: OstiaBridge = {
       const handler = (_e: unknown, paneId: string): void => cb(paneId)
       ipcRenderer.on('notifications:activate', handler)
       return () => ipcRenderer.removeListener('notifications:activate', handler)
+    },
+  },
+  git: {
+    watch: (workspaceIds) => ipcRenderer.send('git:watch', workspaceIds),
+    onItems: (cb) => {
+      const handler = (_e: unknown, items: CoreItems): void => cb(items)
+      ipcRenderer.on('git:items', handler)
+      return () => ipcRenderer.removeListener('git:items', handler)
+    },
+    onChanged: (cb) => {
+      const handler = (): void => cb()
+      ipcRenderer.on('git:changed', handler)
+      return () => ipcRenderer.removeListener('git:changed', handler)
+    },
+    changes: (workspaceId) => ipcRenderer.invoke('git:changes', workspaceId),
+    graph: (workspaceId, limit) => ipcRenderer.invoke('git:graph', workspaceId, limit),
+    commitFiles: (workspaceId, sha) => ipcRenderer.invoke('git:commit-files', workspaceId, sha),
+    blame: (workspaceId, file) => ipcRenderer.invoke('git:blame', workspaceId, file),
+    openChange: (workspaceId, path, area) =>
+      ipcRenderer.invoke('git:open-change', workspaceId, path, area),
+    openCommitFile: (workspaceId, sha, path) =>
+      ipcRenderer.invoke('git:open-commit-file', workspaceId, sha, path),
+    stage: (workspaceId, req) => ipcRenderer.invoke('git:stage', workspaceId, req),
+    unstage: (workspaceId, req) => ipcRenderer.invoke('git:unstage', workspaceId, req),
+    commit: (workspaceId, message) => ipcRenderer.invoke('git:commit', workspaceId, message),
+    discard: (workspaceId, req) => ipcRenderer.invoke('git:discard', workspaceId, req),
+    setScope: (workspaceId, scope) => ipcRenderer.invoke('git:set-scope', workspaceId, scope),
+  },
+  ports: {
+    watch: (workspaceIds) => ipcRenderer.send('ports:watch', workspaceIds),
+    onItems: (cb) => {
+      const handler = (_e: unknown, items: CoreItems): void => cb(items)
+      ipcRenderer.on('ports:items', handler)
+      return () => ipcRenderer.removeListener('ports:items', handler)
     },
   },
   workflows: {

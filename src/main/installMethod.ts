@@ -6,11 +6,11 @@ import { type EnvSource, readEnv } from '../shared/appEnv'
 import { type InstallMethod, isInstallMethod, isReplaceable } from '../shared/installMethod'
 import { PRODUCT_NAME } from '../shared/product'
 
-export const INSTALL_METHOD_ENV = 'INSTALL_METHOD'
-export const INSTALL_APP_DIR_ENV = 'INSTALL_APP_DIR'
-export const APT_APP_DIR = `/opt/${PRODUCT_NAME}`
-export const APT_PACKAGE_LIST = `/var/lib/dpkg/info/${PRODUCT_NAME}.list`
-export const HOMEBREW_PREFIXES = ['/opt/homebrew', '/usr/local'] as const
+const INSTALL_METHOD_ENV = 'INSTALL_METHOD'
+const INSTALL_APP_DIR_ENV = 'INSTALL_APP_DIR'
+const APT_APP_DIR = `/opt/${PRODUCT_NAME}`
+const APT_PACKAGE_LIST = `/var/lib/dpkg/info/${PRODUCT_NAME}.list`
+const HOMEBREW_PREFIXES = ['/opt/homebrew', '/usr/local'] as const
 
 export interface InstallProbe {
   execPath: string
@@ -23,7 +23,7 @@ export interface InstallProbe {
 
 const isUnder = (path: string, dir: string): boolean => path.startsWith(`${dir}${sep}`)
 
-export function localAppDir(env: EnvSource, home: string): string {
+function localAppDir(env: EnvSource, home: string): string {
   const dataHome = env.XDG_DATA_HOME || join(home, '.local', 'share')
   return join(dataHome, PRODUCT_NAME, 'app')
 }

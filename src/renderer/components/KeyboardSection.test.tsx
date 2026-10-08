@@ -1,11 +1,11 @@
 import '@testing-library/jest-dom/vitest'
+import { zhHant } from '@shared/dict'
 import type { ExtensionInfo } from '@shared/extensions'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { registerBuiltinCommands } from '../commands/builtins'
 import { commands } from '../commands/registry'
-import { zhHant } from '../i18n/dict'
 import { installDoubleShift } from '../lib/chords'
 import { loadDesktops } from '../lib/desktop'
 import { languagesFrom } from '../lib/languagePacks'
@@ -961,9 +961,9 @@ describe('KeyboardSection layered view', () => {
       expect(within(row(/Command Palette/)).getByText('Ctrl+Shift+P')).toBeInTheDocument()
       const items = within(preview()).getAllByRole('listitem')
       const palette = items.find((li) => li.textContent?.includes('Command Palette'))
-      expect(palette).toHaveTextContent('Ctrl+Shift+P→Ctrl+Alt+P')
+      expect(palette).toHaveTextContent('Ctrl+Shift+PCtrl+Alt+P')
       const sidebar = items.find((li) => li.textContent?.includes('Toggle Sidebar'))
-      expect(sidebar).toHaveTextContent('Ctrl+Shift+B→None')
+      expect(sidebar).toHaveTextContent('Ctrl+Shift+BNone')
       expect(within(sidebar as HTMLElement).getByText('yours stays')).toBeInTheDocument()
       expect(
         within(preview()).getByText('Your custom keys stay on top: Toggle Sidebar'),

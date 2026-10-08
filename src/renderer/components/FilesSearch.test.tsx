@@ -5,12 +5,14 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import * as pdfSearch from '../lib/pdfSearch'
 import { useEditorRevealStore } from '../stores/editorRevealStore'
+import { useFileTreeStore } from '../stores/fileTreeStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { usePdfFindStore } from '../stores/pdfFindStore'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
 import { type Workspace, useWorkspacesStore } from '../stores/workspacesStore'
 import { FilesPanel } from './FilesPanel'
+import { SEARCH_DELAY_MS } from './FilesSearch'
 
 const ROOT = '/home/me/project'
 
@@ -35,7 +37,8 @@ const RESULTS: SearchOutcome = {
   },
 }
 
-function seed(): void {
+function seed(search = true): void {
+  useUIStore.setState({ filesSearchOpen: search })
   const workspace: Workspace = {
     id: 's1',
     name: 'project',
@@ -69,7 +72,8 @@ describe('Files panel search', () => {
     useLayoutStore.setState(layoutInit, true)
     useSettingsStore.setState(settingsInit, true)
     useEditorRevealStore.setState(revealInit, true)
-    useUIStore.setState({ filesOpen: false, filesSearchFocus: false })
+    useUIStore.setState({ filesOpen: false, filesSearchOpen: false, filesSearchFocus: false })
+    useFileTreeStore.setState({ revealed: null })
     vi.restoreAllMocks()
   })
 
@@ -263,16 +267,105 @@ describe('Files panel search', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Not a valid regular expression')
   })
 
-  it('focuses the search box with the find key and clears it with Escape', async () => {
-    seed()
+  it('shows the search box with the find key, clears it with Escape and hides it with a second', async () => {
+    seed(false)
     render(<FilesPanel />)
+    const panel = screen.getByRole('complementary', { name: 'Files' })
+    expect(screen.queryByRole('textbox', { name: 'Search files' })).toBeNull()
+
+    fireEvent.keyDown(panel, { key: 'F', code: 'KeyF', ctrlKey: true, shiftKey: true })
     const input = screen.getByRole('textbox', { name: 'Search files' })
+    expect(input).toHaveFocus()
+
+    const user = userEvent.setup()
+    await user.type(input, 'abc{Escape}')
+    expect(input).toHaveValue('')
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('textbox', { name: 'Search files' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Search' })).toHaveFocus()
+  })
+
+  it('hides the search box with the find key pressed in it and keeps the panel open', async () => {
+    seed(false)
+    useUIStore.setState({ filesOpen: true })
+    render(<FilesPanel />)
+    await act(async () => {})
     const panel = screen.getByRole('complementary', { name: 'Files' })
 
     fireEvent.keyDown(panel, { key: 'F', code: 'KeyF', ctrlKey: true, shiftKey: true })
-    expect(input).toHaveFocus()
+    const input = screen.getByRole('textbox', { name: 'Search files' })
+    fireEvent.keyDown(input, { key: 'F', code: 'KeyF', ctrlKey: true, shiftKey: true })
 
-    await userEvent.setup().type(input, 'abc{Escape}')
-    expect(input).toHaveValue('')
+    expect(screen.queryByRole('textbox', { name: 'Search files' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Search' })).toHaveFocus()
+    expect(useUIStore.getState().filesOpen).toBe(true)
+  })
+
+  it('names the find key in the header button tooltip when Search Files has no chord', async () => {
+    seed(false)
+    render(<FilesPanel />)
+
+    await userEvent.setup().hover(screen.getByRole('button', { name: 'Search' }))
+
+    expect(await screen.findByText('Ctrl+Shift+F')).toBeInTheDocument()
+  })
+
+  it('does not search in the background while the box is hidden, and forgets the text', async () => {
+    seed()
+    vi.mocked(window.ostia.search.run).mockResolvedValue(RESULTS)
+    render(<FilesPanel />)
+    const user = userEvent.setup()
+    await user.type(screen.getByRole('textbox', { name: 'Search files' }), 'notes')
+    await screen.findByRole('region', { name: 'Files and folders' })
+    const runs = vi.mocked(window.ostia.search.run).mock.calls.length
+
+    await user.click(screen.getByRole('button', { name: 'Search' }))
+    act(() => useSettingsStore.getState().setFiles({ searchIgnored: true }))
+    await act(() => new Promise((resolve) => setTimeout(resolve, SEARCH_DELAY_MS * 2)))
+
+    expect(window.ostia.search.run).toHaveBeenCalledTimes(runs)
+    await user.click(screen.getByRole('button', { name: 'Search' }))
+    expect(screen.getByRole('textbox', { name: 'Search files' })).toHaveValue('')
+  })
+
+  it('shows and focuses the search box from the header button and hides it again', async () => {
+    seed(false)
+    render(<FilesPanel />)
+    const user = userEvent.setup()
+    const button = screen.getByRole('button', { name: 'Search' })
+    expect(button).toHaveAttribute('aria-pressed', 'false')
+
+    await user.click(button)
+    expect(screen.getByRole('textbox', { name: 'Search files' })).toHaveFocus()
+    expect(button).toHaveAttribute('aria-pressed', 'true')
+
+    await user.click(button)
+    expect(screen.queryByRole('textbox', { name: 'Search files' })).toBeNull()
+    expect(button).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  it('keeps the folders that are open in the tree when the search box is shown and hidden', async () => {
+    seed(false)
+    vi.mocked(window.ostia.fs.list).mockImplementation(async (p) =>
+      p === ROOT ? [{ name: 'src', dir: true }] : [{ name: 'todo.md', dir: false }],
+    )
+    useSettingsStore.getState().setFiles({ compactFolders: false })
+    render(<FilesPanel />)
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: 'src' }))
+    expect(await screen.findByRole('button', { name: 'todo.md' })).toBeInTheDocument()
+    const tree = screen.getByRole('button', { name: 'src' }).closest('.file-tree') as HTMLElement
+    tree.scrollTop = 120
+    const listed = vi.mocked(window.ostia.fs.list).mock.calls.length
+
+    await user.click(screen.getByRole('button', { name: 'Search' }))
+    expect(screen.getByRole('button', { name: 'src' })).toHaveAttribute('aria-expanded', 'true')
+
+    await user.click(screen.getByRole('button', { name: 'Search' }))
+    expect(screen.getByRole('button', { name: 'src' })).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByRole('button', { name: 'todo.md' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'src' }).closest('.file-tree')).toBe(tree)
+    expect(tree.scrollTop).toBe(120)
+    expect(window.ostia.fs.list).toHaveBeenCalledTimes(listed)
   })
 })

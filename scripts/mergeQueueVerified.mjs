@@ -1,4 +1,5 @@
 import { pathToFileURL } from 'node:url'
+import { githubRequestFrom } from './github.mjs'
 
 export const CHECK_NAME = 'ci-result'
 export const QUEUE_BRANCH_PREFIX = 'gh-readonly-queue/main/'
@@ -19,6 +20,13 @@ export function passingCheckRuns(sha, checkRuns) {
   )
 }
 
+export async function passingCiResultRuns(sha, request) {
+  const runs = await request(
+    `commits/${sha}/check-runs?check_name=${CHECK_NAME}&filter=latest&per_page=100`,
+  )
+  return passingCheckRuns(sha, runs?.check_runs)
+}
+
 export function fromMergeQueue(sha, suite, workflowRuns) {
   if (suite?.head_sha !== sha || suite.app?.slug !== APP) return false
   if (typeof suite.head_branch !== 'string') return false
@@ -37,10 +45,7 @@ export async function mergeQueueVerified(sha, request) {
     return { verified: false, reason: `not a full commit sha: ${JSON.stringify(sha)}` }
   }
   try {
-    const runs = await request(
-      `commits/${sha}/check-runs?check_name=${CHECK_NAME}&filter=latest&per_page=100`,
-    )
-    const passing = passingCheckRuns(sha, runs?.check_runs)
+    const passing = await passingCiResultRuns(sha, request)
     if (passing.length === 0) {
       return { verified: false, reason: `no successful ${CHECK_NAME} check run for ${sha}` }
     }
@@ -67,26 +72,6 @@ export async function mergeQueueVerified(sha, request) {
   }
 }
 
-export function githubRequest({ api, repository, token, fetchImpl = fetch, timeoutMs = 15_000 }) {
-  if (!api || !repository || !token) {
-    throw new Error('GITHUB_API_URL, GITHUB_REPOSITORY and GH_TOKEN must all be set')
-  }
-  return async (path) => {
-    const url = `${api.replace(/\/+$/, '')}/repos/${repository}/${path}`
-    const response = await fetchImpl(url, {
-      headers: {
-        Accept: 'application/vnd.github+json',
-        Authorization: `Bearer ${token}`,
-        'X-GitHub-Api-Version': '2022-11-28',
-        'User-Agent': 'ostia-ci',
-      },
-      signal: AbortSignal.timeout(timeoutMs),
-    })
-    if (!response.ok) throw new Error(`GET ${path} returned HTTP ${response.status}`)
-    return response.json()
-  }
-}
-
 async function main(args, env) {
   if (args.length !== 1) {
     console.error(USAGE)
@@ -95,12 +80,7 @@ async function main(args, env) {
   }
   let result
   try {
-    const request = githubRequest({
-      api: env.GITHUB_API_URL,
-      repository: env.GITHUB_REPOSITORY,
-      token: env.GH_TOKEN,
-    })
-    result = await mergeQueueVerified(args[0], request)
+    result = await mergeQueueVerified(args[0], githubRequestFrom(env))
   } catch (error) {
     result = { verified: false, reason: error?.message ?? String(error) }
   }

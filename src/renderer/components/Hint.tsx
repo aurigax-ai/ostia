@@ -9,7 +9,7 @@ export function useShortcutHint(command: string | undefined): string | null {
   return useChordLabel(command ?? '', isMac)
 }
 
-export function withShortcut(label: ReactNode, keys: string | null): ReactNode {
+function withShortcut(label: ReactNode, keys: string | null): ReactNode {
   if (!keys) return label
   return (
     <span className="inline-flex items-center gap-2">

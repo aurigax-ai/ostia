@@ -72,12 +72,7 @@ DESKTOP
 
 place_cli() {
   mkdir -p "$bin"
-  cat > "$bin/$name" <<LAUNCHER
-#!/bin/sh
-export OSTIA_APP_BIN='$dest/$exe'
-ELECTRON_RUN_AS_NODE=1 exec "\$OSTIA_APP_BIN" '$dest/resources/app.asar/out/cli/index.js' "\$@"
-LAUNCHER
-  chmod 755 "$bin/$name"
+  ln -sfn "$dest/resources/bin/$name" "$bin/$name"
 }
 
 install_app() {
@@ -100,7 +95,7 @@ uninstall() {
     rm -f "$icons/$(basename "$png" .png)/apps/$name.png"
   done
   rm -f "$icons/scalable/apps/$name.svg" "$apps/$name.desktop"
-  if grep -qsF "'$dest/$exe'" "$bin/$name"; then
+  if [ "$(readlink "$bin/$name" 2>/dev/null)" = "$dest/resources/bin/$name" ]; then
     rm -f "$bin/$name"
   fi
   rm -rf "$dest" "$dest.new" "$dest.old"

@@ -36,17 +36,7 @@ test('a diff pane is hidden with its workspace and behind Settings', async () =>
     await expect(win.locator('.pane-header .title').filter({ hasText: /^Git$/ })).toBeVisible({
       timeout: 15_000,
     })
-    const guestEval = (script: string): Promise<string> =>
-      app.evaluate(async ({ webContents }, code) => {
-        const guest = webContents
-          .getAllWebContents()
-          .find((wc) => wc.getType() === 'webview' && wc.getURL().startsWith('http://127.0.0.1'))
-        return guest ? String(await guest.executeJavaScript(code)) : ''
-      }, script)
-    await expect
-      .poll(() => guestEval('document.body.innerText'), { timeout: 15_000 })
-      .toContain('notes.txt')
-    await guestEval(`document.querySelector('button.change[data-path="notes.txt"]').click(); 'ok'`)
+    await win.locator('.git-surface button.change[data-path="notes.txt"]').click()
 
     const sides = win.locator('.diff-surface .monaco-diff-editor .editor')
     await expect(sides).toHaveCount(2, { timeout: 15_000 })

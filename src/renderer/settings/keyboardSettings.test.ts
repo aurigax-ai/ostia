@@ -45,17 +45,12 @@ describe('readKeyboard', () => {
     expect(onMac.elsewhere.linux?.keybindings['palette.toggle']).toBe('Ctrl+Shift+Y')
   })
 
-  it('reads the old format, one keymap and one set of shortcuts, as this platform’s only', () => {
-    const old = { keymap: 'keymap-macos/cmux', keybindings: { 'palette.toggle': 'Cmd+Shift+Y' } }
-    const onMac = readKeyboard(old, 'mac')
-    expect(onMac.current.keymap).toBe('keymap-macos/cmux')
-    expect({ ...onMac.current.keybindings }).toEqual({ 'palette.toggle': 'Cmd+Shift+Y' })
+  it('reads only settings filed under a platform', () => {
+    const flat = { keymap: 'keymap-macos/cmux', keybindings: { 'palette.toggle': 'Cmd+Shift+Y' } }
+    const onMac = readKeyboard(flat, 'mac')
+    expect(onMac.current.keymap).toBeNull()
+    expect({ ...onMac.current.keybindings }).toEqual({})
     expect(onMac.elsewhere).toEqual({})
-    const legacy = { keymap: null, keybindings: { 'view.toggleRail': null } }
-    const onLinux = readKeyboard(legacy, 'linux')
-    expect(onLinux.current.keymap).toBeNull()
-    expect({ ...onLinux.current.keybindings }).toEqual({ 'view.toggleRail': null })
-    expect(onLinux.elsewhere).toEqual({})
   })
 
   it('drops values that do not parse, per platform', () => {
@@ -88,19 +83,6 @@ describe('writeKeyboard', () => {
         linux: { 'palette.toggle': 'Ctrl+Shift+Y' },
       },
       terminalKeys: { linux: { 'Ctrl+Alt+K': { type: 'escape', value: 'k' } } },
-    })
-  })
-
-  it('turns the old format into this platform’s entry only', () => {
-    const { current, elsewhere } = readKeyboard(
-      { keymap: 'keymap-macos/cmux', keybindings: { 'palette.toggle': 'Cmd+Shift+Y' } },
-      'mac',
-    )
-    expect(plain(writeKeyboard(current, elsewhere, 'mac'))).toEqual({
-      keymap: { mac: 'keymap-macos/cmux' },
-      terminalKeymap: {},
-      keybindings: { mac: { 'palette.toggle': 'Cmd+Shift+Y' } },
-      terminalKeys: {},
     })
   })
 

@@ -12,6 +12,7 @@ export function panelKey(pane: PaneNode): string | null {
   if (pane.kind === 'extension' && pane.extensionId) return `extension:${pane.extensionId}`
   if (pane.kind === 'view' && pane.viewName) return `view:${pane.viewName}`
   if (pane.kind === 'chat') return 'chat'
+  if (pane.kind === 'git') return 'git'
   return null
 }
 

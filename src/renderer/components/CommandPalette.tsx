@@ -648,20 +648,27 @@ function SettingsItems({ query, onDone }: { query: string; onDone: () => void })
     onDone()
   }
   return (
-    <CommandGroup heading={d.palette.settings} className={GROUP_CLASS} forceMount>
-      {sections.map((s) => (
-        <CommandItem
-          key={s.id}
-          value={`${SETTINGS_SYMBOL} ${s.label} ${s.id}`}
-          onSelect={() => open(s.id, '')}
-        >
-          <ItemRow name={s.label} />
-        </CommandItem>
-      ))}
-      <CommandItem value={SETTINGS_SYMBOL} forceMount onSelect={() => open(undefined, query)}>
+    <>
+      <CommandGroup heading={d.palette.settings} className={GROUP_CLASS}>
+        {sections.map((s) => (
+          <CommandItem
+            key={s.id}
+            value={`${SETTINGS_SYMBOL} ${s.label} ${s.id}`}
+            onSelect={() => open(s.id, '')}
+          >
+            <ItemRow name={s.label} />
+          </CommandItem>
+        ))}
+      </CommandGroup>
+      <CommandItem
+        className="mx-1"
+        value={SETTINGS_SYMBOL}
+        forceMount
+        onSelect={() => open(undefined, query)}
+      >
         <ItemRow name={fmt(d.palette.searchSettings, { query })} />
       </CommandItem>
-    </CommandGroup>
+    </>
   )
 }
 

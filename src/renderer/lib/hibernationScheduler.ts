@@ -1,7 +1,8 @@
+import { type AgentBusyReason, type HibernateOutcome, isAgentBusyReason } from '@shared/agentWork'
 import { allPanes, findPane } from '../layout/tree'
 import { useLayoutStore } from '../stores/layoutStore'
 import { clampIdleSeconds, clampMaxLive, useSettingsStore } from '../stores/settingsStore'
-import { type HibernationCandidate, pickHibernation } from './hibernation'
+import { type HibernationCandidate, planHibernation } from './hibernation'
 import { paneActivityAt } from './paneActivity'
 import { runningAgentOf } from './paneAgent'
 import { resumeWhenIdle } from './resumeFolder'
@@ -9,6 +10,7 @@ import { countUsage } from './usageCounts'
 import { isPaneVisible, workspaceOfPane } from './workspaceActivity'
 
 export const HIBERNATION_CHECK_MS = 5000
+export const WAKE_WAVE_SIZE = 3
 
 export function hibernationCandidates(now: number): HibernationCandidate[] {
   const out: HibernationCandidate[] = []
@@ -29,25 +31,69 @@ export function hibernationCandidates(now: number): HibernationCandidate[] {
   return out
 }
 
-export async function hibernatePane(workspaceId: string, paneId: string): Promise<boolean> {
-  if (isPaneVisible(paneId)) return false
-  const stopped = await window.ostia.pty.hibernate(paneId)
-  if (stopped) useLayoutStore.getState().setHibernated(workspaceId, paneId, true)
-  return stopped
+export type SkippedAgents = Partial<Record<AgentBusyReason, number>>
+
+export interface HibernateReport {
+  hibernated: string[]
+  skipped: SkippedAgents
 }
 
-export function wakePane(paneId: string): boolean {
+async function stopPane(workspaceId: string, paneId: string): Promise<HibernateOutcome> {
+  const outcome = await window.ostia.pty.hibernate(paneId)
+  if (outcome === 'hibernated') useLayoutStore.getState().setHibernated(workspaceId, paneId, true)
+  return outcome
+}
+
+export async function hibernatePane(workspaceId: string, paneId: string): Promise<boolean> {
+  if (isPaneVisible(paneId)) return false
+  return (await stopPane(workspaceId, paneId)) === 'hibernated'
+}
+
+export function wakePane(paneId: string, onSettled: () => void = () => {}): boolean {
   const workspaceId = workspaceOfPane(paneId)
   const layout = workspaceId ? useLayoutStore.getState().byWorkspace[workspaceId] : undefined
   const pane = layout ? findPane(layout.root, paneId) : null
   if (!workspaceId || !pane?.hibernated) return false
   useLayoutStore.getState().setHibernated(workspaceId, paneId, false)
   countUsage('terminal', 'wake')
-  if (pane.resume) {
-    window.ostia.pty.reportWaking(paneId, true)
-    resumeWhenIdle(paneId, pane.resume, () => window.ostia.pty.reportWaking(paneId, false))
+  if (!pane.resume) {
+    onSettled()
+    return true
   }
+  window.ostia.pty.reportWaking(paneId, true)
+  resumeWhenIdle(
+    paneId,
+    pane.resume,
+    () => {
+      window.ostia.pty.reportWaking(paneId, false)
+      onSettled()
+    },
+    onSettled,
+  )
   return true
+}
+
+const wakeQueue: string[] = []
+let wakesInFlight = 0
+
+function wakeSettled(): void {
+  wakesInFlight -= 1
+  drainWakeQueue()
+}
+
+function drainWakeQueue(): void {
+  while (wakesInFlight < WAKE_WAVE_SIZE && wakeQueue.length > 0) {
+    const paneId = wakeQueue.shift() as string
+    wakesInFlight += 1
+    if (!wakePane(paneId, wakeSettled)) wakesInFlight -= 1
+  }
+}
+
+function wakeInWaves(paneIds: string[]): string[] {
+  const queued = paneIds.filter((paneId) => !wakeQueue.includes(paneId))
+  wakeQueue.push(...queued)
+  drainWakeQueue()
+  return queued
 }
 
 function workspacePanes(workspaceId: string) {
@@ -67,35 +113,42 @@ export function hibernatableAgentPanes(workspaceId: string): string[] {
     .map((pane) => pane.id)
 }
 
-export function hibernatedPanes(workspaceId: string): string[] {
+export function resumableAgentPanes(workspaceId: string): string[] {
   return workspacePanes(workspaceId)
-    .filter((pane) => pane.hibernated)
+    .filter((pane) => pane.hibernated && !pane.resumeFolderMissing)
     .map((pane) => pane.id)
 }
 
-export async function hibernateWorkspace(workspaceId: string): Promise<string[]> {
-  const done: string[] = []
-  for (const paneId of hibernatableAgentPanes(workspaceId)) {
-    if (!(await window.ostia.pty.hibernate(paneId))) continue
-    useLayoutStore.getState().setHibernated(workspaceId, paneId, true)
-    done.push(paneId)
+export async function hibernateWorkspaces(
+  workspaceIds: readonly string[],
+): Promise<HibernateReport> {
+  const report: HibernateReport = { hibernated: [], skipped: {} }
+  for (const workspaceId of workspaceIds) {
+    for (const paneId of hibernatableAgentPanes(workspaceId)) {
+      const outcome = await stopPane(workspaceId, paneId)
+      if (outcome === 'hibernated') report.hibernated.push(paneId)
+      else if (isAgentBusyReason(outcome)) {
+        report.skipped[outcome] = (report.skipped[outcome] ?? 0) + 1
+      }
+    }
   }
-  return done
+  return report
 }
 
-export function wakeWorkspace(workspaceId: string): string[] {
-  return hibernatedPanes(workspaceId).filter((paneId) => wakePane(paneId))
+export function resumeWorkspaces(workspaceIds: readonly string[]): string[] {
+  return wakeInWaves(workspaceIds.flatMap(resumableAgentPanes))
 }
 
 export async function hibernateIdleAgents(now = Date.now()): Promise<string[]> {
   const settings = useSettingsStore.getState().agents.hibernation
   if (!settings.enabled) return []
-  const picked = pickHibernation(hibernationCandidates(now), {
+  const plan = planHibernation(hibernationCandidates(now), {
     idleSeconds: clampIdleSeconds(settings.idleSeconds),
     maxLiveTerminals: clampMaxLive(settings.maxLiveTerminals),
   })
   const done: string[] = []
-  for (const c of picked) {
+  for (const c of plan.longestIdleFirst) {
+    if (done.length >= plan.excess) break
     if (await hibernatePane(c.workspaceId, c.paneId)) done.push(c.paneId)
   }
   return done

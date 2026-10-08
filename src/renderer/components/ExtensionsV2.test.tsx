@@ -47,7 +47,7 @@ function ext(overrides: Partial<ExtensionInfo>): ExtensionInfo {
 }
 
 const chip = (overrides: Partial<PaneChip>): PaneChip => ({
-  extId: 'git',
+  extId: 'vcs',
   id: 'branch',
   paneId: 'p1',
   text: 'main',
@@ -56,7 +56,7 @@ const chip = (overrides: Partial<PaneChip>): PaneChip => ({
 })
 
 const git = ext({
-  id: 'git',
+  id: 'vcs',
   name: 'Git',
   paneChips: [
     { id: 'branch', title: 'Branch' },
@@ -84,8 +84,8 @@ describe('Extension API v2 UI', () => {
     it('lists the chips of enabled extensions in manifest order', () => {
       const catalog = paneChipCatalog([git, ext({ ...env, enabled: false })])
       expect(catalog).toEqual([
-        { extId: 'git', extName: 'Git', id: 'branch', title: 'Branch' },
-        { extId: 'git', extName: 'Git', id: 'dirty', title: 'Changes' },
+        { extId: 'vcs', extName: 'Git', id: 'branch', title: 'Branch' },
+        { extId: 'vcs', extName: 'Git', id: 'dirty', title: 'Changes' },
       ])
     })
 
@@ -135,13 +135,13 @@ describe('Extension API v2 UI', () => {
           calls.push(`focus:${args.paneId}`)
         },
       })
-      commands.register({ id: 'git.status', title: 'Status', run: () => calls.push('status') })
+      commands.register({ id: 'vcs.status', title: 'Status', run: () => calls.push('status') })
       useExtensionsStore.setState({ list: [git], chips: [chip({ command: 'status' })] })
       render(<PaneChips paneId="p1" />)
       await userEvent.setup().click(screen.getByRole('button', { name: /Branch: main/ }))
       await waitFor(() => expect(calls).toEqual(['focus:p1', 'status']))
       commands.unregister('pane.focus')
-      commands.unregister('git.status')
+      commands.unregister('vcs.status')
     })
 
     it('opens the url of a link chip in the browser pane of that pane’s workspace', async () => {

@@ -1,3 +1,5 @@
+import { GIT_POLL_SECONDS } from '@shared/git'
+import { PORTS_INTERVAL_SECONDS } from '@shared/ports'
 import { CHORDS_PER_COMMAND_MAX } from '../../shared/chordSpec'
 import { GLOBAL_HOTKEY_MAX_LENGTH } from '../../shared/globalHotkey'
 import {
@@ -915,6 +917,55 @@ export const SETTINGS_JSON_SCHEMA = {
         },
       },
     },
+    git: {
+      type: 'object',
+      additionalProperties: false,
+      description:
+        'Git: the branch and diff stats of each workspace and the Git panel. Only you can change this (Settings → Git).',
+      properties: {
+        enabled: { type: 'boolean', description: 'Default: true.' },
+        pollSeconds: {
+          type: 'number',
+          minimum: GIT_POLL_SECONDS.min,
+          maximum: GIT_POLL_SECONDS.max,
+          description: 'Seconds between refreshes while a window is focused. Default: 10.',
+        },
+        showDiffStats: {
+          type: 'boolean',
+          description: 'Diff stats of the active workspace in the top bar. Default: true.',
+        },
+        graphScope: {
+          type: 'string',
+          enum: ['current', 'all'],
+          description: 'Branches the commit graph shows. Default: current.',
+        },
+        changesView: {
+          type: 'string',
+          enum: ['list', 'tree'],
+          description: 'Changed files as a flat list or a folder tree. Default: list.',
+        },
+      },
+    },
+    ports: {
+      type: 'object',
+      additionalProperties: false,
+      description:
+        'Listening ports and ssh logins of your terminals. Only you can change this (Settings → Ports).',
+      properties: {
+        enabled: { type: 'boolean', description: 'Default: true.' },
+        intervalSeconds: {
+          type: 'number',
+          minimum: PORTS_INTERVAL_SECONDS.min,
+          maximum: PORTS_INTERVAL_SECONDS.max,
+          description: 'Seconds between scans while a window is focused. Default: 3.',
+        },
+        portHost: {
+          type: 'string',
+          enum: ['localhost', '127.0.0.1'],
+          description: 'Host used to open a port in the browser pane. Default: localhost.',
+        },
+      },
+    },
     extensionSettings: {
       type: 'object',
       description:
@@ -978,7 +1029,7 @@ export const SETTINGS_JSON_SCHEMA = {
             type: 'array',
             items: {
               type: 'string',
-              enum: ['terminal', 'editor', 'browser', 'extension', 'diff', 'view'],
+              enum: ['terminal', 'editor', 'browser', 'extension', 'git', 'diff', 'view'],
             },
             description: 'Only show it on these pane kinds. Default: all.',
           },

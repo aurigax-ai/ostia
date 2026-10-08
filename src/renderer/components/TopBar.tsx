@@ -41,7 +41,7 @@ export function TopBar(): JSX.Element {
   const showWorkspaces = useUIStore((s) => s.showWorkspaces)
   const filesOpen = useUIStore((s) => s.filesOpen)
   const toggleFiles = useUIStore((s) => s.toggleFiles)
-  const paletteKeys = useChordLabel('palette.toggle', isMac)
+  const paletteKeys = useChordLabel('palette.searchEverywhere', isMac)
   const activeWorkspaceId = useWorkspacesStore((s) => s.activeWorkspaceId)
   const dashboardActive = useUIStore((s) => s.dashboardActive)
 
@@ -81,11 +81,15 @@ export function TopBar(): JSX.Element {
       </div>
 
       <div className="topbar-center">
-        <Hint label={d.search.placeholder} command="palette.toggle" side="bottom">
+        <Hint
+          label={d.palette.everywherePlaceholder}
+          command="palette.searchEverywhere"
+          side="bottom"
+        >
           <Button
             variant="ghost"
             className="h-6 min-w-0 flex-1 justify-start gap-1 rounded-sm bg-fg/6 pr-1 pl-2 font-normal text-fg-muted text-ui-base hover:bg-fg/10 hover:text-fg dark:hover:bg-fg/10"
-            onClick={() => openPalette()}
+            onClick={() => openPalette('everywhere')}
           >
             <MagnifyingGlassIcon className="size-3.5" />
             <span className="flex-1 truncate text-left">{d.search.command}</span>

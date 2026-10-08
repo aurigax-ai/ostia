@@ -88,7 +88,7 @@ export function parseArgs<
       string[]
     >,
     booleans: Object.fromEntries(
-      booleans.map(([key, option]) => [key, read(option) === true]),
+      booleans.map(([key, option]) => [key, read(option) === !option.negate]),
     ) as Record<B, boolean>,
   }
 }

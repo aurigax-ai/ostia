@@ -24,7 +24,7 @@ export function messageFromStdin(raw: string): string {
   }
 }
 
-export type OfflineAttention = { save?: SavedAttention | null } | null
+type OfflineAttention = { save?: SavedAttention | null } | null
 
 export async function offlineAttention(
   args: readonly string[],

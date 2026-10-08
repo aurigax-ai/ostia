@@ -1,11 +1,11 @@
 import '@testing-library/jest-dom/vitest'
+import { zhHant } from '@shared/dict'
 import type { SearchOutcome } from '@shared/search'
 import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { registerBuiltinCommands } from '../commands/builtins'
 import { commands } from '../commands/registry'
-import { zhHant } from '../i18n/dict'
 import { languagesFrom } from '../lib/languagePacks'
 import { useEditorRevealStore } from '../stores/editorRevealStore'
 import { useLayoutStore } from '../stores/layoutStore'
@@ -683,6 +683,26 @@ describe('CommandPalette', () => {
 
       expect(exec).toHaveBeenCalledWith('app.openSettings', undefined)
       expect(useUIStore.getState().paletteOpen).toBe(false)
+    })
+
+    it('lists a settings page only when it matches what was typed', async () => {
+      useUIStore.setState({ paletteOpen: true, paletteMode: 'everywhere' })
+      render(<CommandPalette />)
+      const input = await screen.findByRole('combobox')
+
+      await userEvent.type(input, 'zoom')
+      expect(
+        await screen.findByRole('option', { name: /Search settings for “zoom”/ }),
+      ).toBeVisible()
+      expect(screen.queryByRole('option', { name: /^Keyboard$/ })).toBeNull()
+      expect(screen.queryByRole('option', { name: /^Appearance$/ })).toBeNull()
+      expect(screen.queryByRole('group', { name: 'Settings' })).toBeNull()
+
+      await userEvent.clear(input)
+      await userEvent.type(input, 'keyb')
+      expect(await screen.findByRole('option', { name: /^Keyboard$/ })).toBeInTheDocument()
+      expect(screen.queryByRole('option', { name: /^Appearance$/ })).toBeNull()
+      expect(screen.getByRole('group', { name: 'Settings' })).toBeInTheDocument()
     })
 
     it('opens a settings page, or the settings search with what was typed', async () => {

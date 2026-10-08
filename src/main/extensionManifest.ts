@@ -38,6 +38,7 @@ import {
   type ExtensionSettingsPageContribution,
   validSettingValue,
 } from '../shared/extensions'
+import { isCoreSource } from '../shared/git'
 import { ICON_THEME_ID_PATTERN, type IconThemeContribution } from '../shared/iconTheme'
 import {
   KEYMAP_LABEL_MAX,
@@ -524,6 +525,7 @@ export function parseManifest(raw: unknown, dir: string): ManifestResult {
   if (typeof id !== 'string' || !EXTENSION_ID_PATTERN.test(id)) {
     return { ok: false, error: 'invalid id (lowercase letters, digits, dashes)' }
   }
+  if (isCoreSource(id)) return { ok: false, error: `id '${id}' is a built-in feature` }
   const name = text(raw.name)
   const version = text(raw.version, 40)
   if (!name) return { ok: false, error: 'missing name' }

@@ -229,7 +229,8 @@ const fake = vi.hoisted(() => {
 vi.mock('../monaco/setup', () => ({
   monaco: fake.monaco,
 }))
-vi.mock('../lib/usePaneVisible', () => ({
+vi.mock('../lib/workspaceActivity', async (original) => ({
+  ...(await original<typeof import('../lib/workspaceActivity')>()),
   usePaneVisible: () => fake.state.visible,
 }))
 vi.mock('../lsp/client', () => ({

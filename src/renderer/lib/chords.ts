@@ -83,9 +83,7 @@ const TERMINAL_SET: ReadonlySet<string> = new Set(TERMINAL_CHORDS)
 
 const TERMINAL_COMMAND_SET: ReadonlySet<string> = new Set(TERMINAL_COMMAND_CHORDS)
 
-export const BROWSER_CHORDS: readonly BrowserChord[] = BROWSER_CHORD_IDS
-
-const BROWSER_SET: ReadonlySet<string> = new Set(BROWSER_CHORDS)
+const BROWSER_SET: ReadonlySet<string> = new Set(BROWSER_CHORD_IDS)
 
 export const DEFAULT_CHORDS: Readonly<
   Record<AppChord | TerminalChord | BrowserChord, [mac: ChordValue, other: ChordValue]>
@@ -169,10 +167,6 @@ export function defaultChords(id: string, mac: boolean): ChordSpec[] {
   return pair ? specsOf(pair[mac ? 0 : 1], mac) : []
 }
 
-export function defaultChord(id: string, mac: boolean): ChordSpec | null {
-  return defaultChords(id, mac)[0] ?? null
-}
-
 export interface BindingTable {
   byId: ReadonlyMap<string, readonly ChordSpec[]>
   bySignature: ReadonlyMap<string, string>
@@ -245,10 +239,6 @@ export function currentBindings(mac: boolean): BindingTable {
 
 export function baseChords(id: string, mac: boolean): readonly ChordSpec[] {
   return effectiveBindings(NO_KEYMAP, mac, keymapBindings()).byId.get(id) ?? []
-}
-
-export function baseChord(id: string, mac: boolean): ChordSpec | null {
-  return baseChords(id, mac)[0] ?? null
 }
 
 export function useBindings(): void {
@@ -371,7 +361,7 @@ export function installDoubleShift(target: Window, mac: boolean): () => void {
   }
 }
 
-export function isDefaultBinding(id: string): boolean {
+function isDefaultBinding(id: string): boolean {
   return id in DEFAULT_CHORDS && useSettingsStore.getState().keybindings[id] === undefined
 }
 

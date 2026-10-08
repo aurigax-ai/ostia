@@ -13,7 +13,7 @@ export interface Publisher {
   unpublish: () => void
 }
 
-export interface AnnounceInput {
+interface AnnounceInput {
   discoverable: boolean
   liveCodes: number
   name: string

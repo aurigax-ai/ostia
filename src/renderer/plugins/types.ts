@@ -1,4 +1,4 @@
-import type { Dict } from '../i18n/dict'
+import type { Dict } from '@shared/dict'
 
 export type Appearance = 'dark' | 'light'
 

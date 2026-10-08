@@ -1,4 +1,5 @@
 import type { ChatContextItem } from '@shared/assist'
+import { type Dict, fmt } from '@shared/dict'
 import {
   REDACT_TEXTS_MAX,
   REDACT_TEXT_MAX,
@@ -6,7 +7,6 @@ import {
   countPlaceholders,
   unchanged,
 } from '@shared/redaction'
-import { type Dict, fmt } from '../i18n/dict'
 
 function batches(texts: readonly string[]): string[][] {
   const out: string[][] = []

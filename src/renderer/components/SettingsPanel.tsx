@@ -12,6 +12,7 @@ import {
   EyeSlashIcon,
   FileCodeIcon,
   FolderOpenIcon,
+  GitBranchIcon,
   GlobeIcon,
   type Icon as IconComponent,
   InfoIcon,
@@ -20,6 +21,7 @@ import {
   LayoutIcon,
   MagnifyingGlassIcon,
   PaletteIcon,
+  PlugsIcon,
   PlusIcon,
   PuzzlePieceIcon,
   RobotIcon,
@@ -36,6 +38,7 @@ import {
 } from '@phosphor-icons/react'
 import type { ApprovalMode } from '@shared/approvals'
 import type { Capability } from '@shared/capabilities'
+import type { Dict, Locale } from '@shared/dict'
 import { type ExtensionInfo, PRODUCT_PLACEHOLDER } from '@shared/extensions'
 import { KEEP_SHELLS_FEATURE, TMUX_MIN_VERSION } from '@shared/keepShells'
 import {
@@ -51,7 +54,6 @@ import type { AppInfo, Platform } from '@shared/types'
 import { ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from '@shared/zoom'
 import { Fragment, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import appIcon from '../../../resources/icon.svg'
-import type { Dict, Locale } from '../i18n/dict'
 import { fmt, useDict, withProductName } from '../i18n/useDict'
 import { ACCENT_PRESETS, normalizeHex } from '../lib/color'
 import { extensionMatchesQuery } from '../lib/extensionSettingText'
@@ -102,6 +104,7 @@ import { type Workspace, useWorkspacesStore } from '../stores/workspacesStore'
 import { ActionsSection } from './ActionsSection'
 import { capLabel } from './ApprovalCard'
 import { AssistantSection } from './AssistantSection'
+import { GitSection, PortsSection } from './BoardSettings'
 import { BrowseExtensions } from './BrowseExtensions'
 import { BrowserSettingsSection, EditorSettingsSection } from './BrowserEditorSettings'
 import { DiscreteGpuRow } from './DiscreteGpuRow'
@@ -173,6 +176,8 @@ type SectionId =
   | 'agents'
   | 'assistant'
   | 'files'
+  | 'git'
+  | 'ports'
   | 'browser'
   | 'passwords'
   | 'privacy'
@@ -230,6 +235,8 @@ export function settingsSections(d: Dict): SettingsSection[] {
     },
     { id: 'sidebar', group: 'workspace', icon: SidebarSimpleIcon, label: d.settings.sidebar },
     { id: 'files', group: 'workspace', icon: TreeStructureIcon, label: d.settings.files },
+    { id: 'git', group: 'workspace', icon: GitBranchIcon, label: d.git.title },
+    { id: 'ports', group: 'workspace', icon: PlugsIcon, label: d.ports.title },
     { id: 'views', group: 'workspace', icon: LayoutIcon, label: d.views.title },
     { id: 'agents', group: 'agents', icon: RobotIcon, label: d.settings.agents },
     {
@@ -672,6 +679,8 @@ const SettingsPages = memo(function SettingsPages({
       {id === 'assistant' ? <AssistantSection /> : null}
       {id === 'manager' ? <ManagerSection /> : null}
       {id === 'files' ? <FilesSection /> : null}
+      {id === 'git' ? <GitSection /> : null}
+      {id === 'ports' ? <PortsSection /> : null}
       {id === 'browser' ? <BrowserSettingsSection /> : null}
       {id === 'passwords' ? <PasswordsSection /> : null}
       {id === 'privacy' ? <PrivacySection /> : null}

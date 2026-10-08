@@ -156,9 +156,18 @@
     {
       "name": "git",
       "paths": [
-        "src/extensions/git/",
-        "src/main/gitBoard.ts",
-        "src/main/builtinGitExtension",
+        "src/main/git/",
+        "src/shared/git.ts",
+        "src/main/watchSets.ts",
+        "src/renderer/components/git/",
+        "src/renderer/lib/gitView.ts",
+        "src/renderer/lib/gitGraph.ts",
+        "src/renderer/lib/gitFileTree.ts",
+        "src/renderer/lib/gitPanel.ts",
+        "src/renderer/lib/coreWatch.ts",
+        "src/renderer/commands/gitCommands.ts",
+        "src/renderer/stores/gitViewStore.ts",
+        "src/cli/coreBoards.ts",
         "src/renderer/components/ChangesView.tsx",
         "src/renderer/components/DiffView.tsx",
         "src/renderer/stores/diffStore.ts"
@@ -223,6 +232,7 @@
       "name": "language packs",
       "paths": [
         "src/main/languagePacks.ts",
+        "src/main/strings.ts",
         "src/shared/languagePack.ts",
         "src/shared/extensionLocales.ts",
         "src/renderer/lib/languagePacks.ts",
@@ -233,9 +243,11 @@
     {
       "name": "ports",
       "paths": [
-        "src/extensions/ports/",
-        "src/main/portsBoard.ts",
-        "src/main/builtinPortsExtension",
+        "src/main/ports/",
+        "src/shared/ports.ts",
+        "src/main/watchSets.ts",
+        "src/renderer/lib/coreWatch.ts",
+        "src/cli/coreBoards.ts",
         "src/shared/procfs.ts",
         "test/fixtures/ports/"
       ],
@@ -452,17 +464,22 @@
         "src/main/paneResume.ts",
         "src/main/spawnCwd.ts",
         "src/main/agentRunning.ts",
+        "src/main/agentWork.ts",
         "src/shared/agentResume.ts",
+        "src/shared/agentWork.ts",
         "src/renderer/lib/hibernation",
         "src/renderer/lib/activationResume.ts",
         "src/renderer/lib/autoResume.ts",
         "src/renderer/lib/resumeFolder.ts",
         "src/renderer/components/HibernatedView.tsx",
+        "src/renderer/components/HibernateSkippedDialog.tsx",
         "src/renderer/components/ResumeFolderNotice.tsx"
       ],
       "specs": [
         "e2e/auto-resume.spec.ts",
+        "e2e/hibernate-background-work.spec.ts",
         "e2e/hibernate-frozen.spec.ts",
+        "e2e/hibernate-group.spec.ts",
         "e2e/pane-wake.spec.ts",
         "e2e/pane-wake-wait.spec.ts",
         "e2e/ports-hibernation.spec.ts",
@@ -766,9 +783,11 @@
       "paths": [
         "src/renderer/components/ThemeSettings.tsx",
         "src/renderer/components/FontPicker.tsx",
+        "src/renderer/components/IconButton.tsx",
         "src/renderer/components/ZoomReset.tsx",
         "src/renderer/lib/theme.ts",
         "src/renderer/lib/color",
+        "src/renderer/lib/iconWeight.ts",
         "src/renderer/lib/uiFonts.ts",
         "src/renderer/lib/localFonts.ts",
         "src/renderer/lib/panelFontFaces.ts",
@@ -781,6 +800,7 @@
       "specs": [
         "e2e/appearance.spec.ts",
         "e2e/fonts.spec.ts",
+        "e2e/icon-sharpness.spec.ts",
         "e2e/terminal-settings.spec.ts",
         "e2e/theme-axes.spec.ts"
       ]

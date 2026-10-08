@@ -1,5 +1,5 @@
 import type { ApprovalKind, ApprovalOutcome, ApprovalRequest } from '@shared/approvals'
-import type { Dict } from '../i18n/dict'
+import type { Dict } from '@shared/dict'
 import { useDict } from '../i18n/useDict'
 import { revealPane } from '../lib/workspaceActivity'
 import { useApprovalsStore } from '../stores/approvalsStore'

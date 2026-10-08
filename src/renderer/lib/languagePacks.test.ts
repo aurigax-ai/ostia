@@ -1,7 +1,7 @@
+import { en, mergeCatalog, withProductName, zhHant } from '@shared/dict'
 import { PRODUCT_DISPLAY_NAME } from '@shared/productDisplay'
 import { describe, expect, it } from 'vitest'
-import { en, withProductName, zhHant } from '../i18n/dict'
-import { BASE_LANGUAGE, languagesFrom, mergeCatalog } from './languagePacks'
+import { BASE_LANGUAGE, languagesFrom } from './languagePacks'
 
 describe('mergeCatalog', () => {
   it('uses the translation where there is one and English everywhere else', () => {

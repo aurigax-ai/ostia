@@ -292,22 +292,26 @@ export function FilesSearch({
   const [text, setText] = useState('')
   const [toggles, setToggles] = useState<SearchToggles>(NO_TOGGLES)
   const inputRef = useRef<HTMLInputElement>(null)
+  const open = useUIStore((s) => s.filesSearchOpen)
   const focusWanted = useUIStore((s) => s.filesSearchFocus)
   useEffect(() => {
-    if (!focusWanted) return
+    if (!open) setText('')
+  }, [open])
+  useEffect(() => {
+    if (!focusWanted || !open) return
     const query = useUIStore.getState().filesSearchQuery
     if (query !== null) setText(query)
     inputRef.current?.focus()
     inputRef.current?.select()
     useUIStore.getState().filesSearchFocused()
-  }, [focusWanted])
-  const state = useSearch(root, text, toggles)
+  }, [focusWanted, open])
+  const state = useSearch(root, open ? text : '', toggles)
   const toggle = (key: keyof SearchToggles): void => setToggles((t) => ({ ...t, [key]: !t[key] }))
   const onKeyDown = (e: KeyboardEvent<HTMLInputElement>): void => {
-    if (e.key === 'Escape' && text) {
-      e.preventDefault()
-      setText('')
-    }
+    if (e.key !== 'Escape') return
+    e.preventDefault()
+    if (text) setText('')
+    else useUIStore.getState().hideFilesSearch()
   }
   const reveal = (path: string): void => {
     setText('')
@@ -315,51 +319,53 @@ export function FilesSearch({
   }
   return (
     <>
-      <div className="files-search">
-        <InputGroup className="h-7">
-          <InputGroupAddon>
-            <MagnifyingGlassIcon />
-          </InputGroupAddon>
-          <InputGroupInput
-            ref={inputRef}
-            className="files-search-input text-ui-sm md:text-ui-sm"
-            aria-label={d.filesView.search}
-            placeholder={d.filesView.searchPlaceholder}
-            spellCheck={false}
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={onKeyDown}
-          />
-          <InputGroupAddon align="inline-end" className="gap-0">
-            {text ? (
+      {open ? (
+        <div className="files-search">
+          <InputGroup className="h-7">
+            <InputGroupAddon>
+              <MagnifyingGlassIcon />
+            </InputGroupAddon>
+            <InputGroupInput
+              ref={inputRef}
+              className="files-search-input text-ui-sm md:text-ui-sm"
+              aria-label={d.filesView.search}
+              placeholder={d.filesView.searchPlaceholder}
+              spellCheck={false}
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              onKeyDown={onKeyDown}
+            />
+            <InputGroupAddon align="inline-end" className="gap-0">
+              {text ? (
+                <IconButton
+                  icon={XIcon}
+                  label={d.filesView.searchClear}
+                  onClick={() => setText('')}
+                />
+              ) : null}
               <IconButton
-                icon={XIcon}
-                label={d.filesView.searchClear}
-                onClick={() => setText('')}
+                icon={TextAaIcon}
+                label={d.filesView.matchCase}
+                aria-pressed={toggles.caseSensitive}
+                onClick={() => toggle('caseSensitive')}
               />
-            ) : null}
-            <IconButton
-              icon={TextAaIcon}
-              label={d.filesView.matchCase}
-              aria-pressed={toggles.caseSensitive}
-              onClick={() => toggle('caseSensitive')}
-            />
-            <IconButton
-              icon={TextUnderlineIcon}
-              label={d.filesView.wholeWord}
-              aria-pressed={toggles.wholeWord}
-              onClick={() => toggle('wholeWord')}
-            />
-            <IconButton
-              icon={AsteriskIcon}
-              label={d.filesView.useRegex}
-              aria-pressed={toggles.regex}
-              onClick={() => toggle('regex')}
-            />
-          </InputGroupAddon>
-        </InputGroup>
-      </div>
-      {text.trim() ? (
+              <IconButton
+                icon={TextUnderlineIcon}
+                label={d.filesView.wholeWord}
+                aria-pressed={toggles.wholeWord}
+                onClick={() => toggle('wholeWord')}
+              />
+              <IconButton
+                icon={AsteriskIcon}
+                label={d.filesView.useRegex}
+                aria-pressed={toggles.regex}
+                onClick={() => toggle('regex')}
+              />
+            </InputGroupAddon>
+          </InputGroup>
+        </div>
+      ) : null}
+      {open && text.trim() ? (
         <SearchResults state={state} isHidden={isHidden} onReveal={reveal} />
       ) : (
         children

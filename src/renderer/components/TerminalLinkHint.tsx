@@ -1,5 +1,5 @@
 import { chordText } from '@shared/chordSpec'
-import type { Dict } from '../i18n/dict'
+import type { Dict } from '@shared/dict'
 import { useDict } from '../i18n/useDict'
 import type { LinkKind } from '../lib/linkModifier'
 import type { FileLinkAction } from '../lib/terminalFileLinks'

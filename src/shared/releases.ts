@@ -8,7 +8,7 @@ export type UpdateChannel = (typeof UPDATE_CHANNELS)[number]
 
 export const DEFAULT_UPDATE_CHANNEL: UpdateChannel = 'stable'
 
-export const MAIN_CHANNEL_PRERELEASES = ['main', 'rc'] as const
+const MAIN_CHANNEL_PRERELEASES = ['main', 'rc'] as const
 
 export interface Version {
   major: number
