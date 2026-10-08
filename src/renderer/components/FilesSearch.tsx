@@ -314,54 +314,55 @@ export function FilesSearch({
     setText('')
     onReveal(path)
   }
-  if (!open) return <>{children}</>
   return (
     <>
-      <div className="files-search">
-        <InputGroup className="h-7">
-          <InputGroupAddon>
-            <MagnifyingGlassIcon />
-          </InputGroupAddon>
-          <InputGroupInput
-            ref={inputRef}
-            className="files-search-input text-ui-sm md:text-ui-sm"
-            aria-label={d.filesView.search}
-            placeholder={d.filesView.searchPlaceholder}
-            spellCheck={false}
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={onKeyDown}
-          />
-          <InputGroupAddon align="inline-end" className="gap-0">
-            {text ? (
+      {open ? (
+        <div className="files-search">
+          <InputGroup className="h-7">
+            <InputGroupAddon>
+              <MagnifyingGlassIcon />
+            </InputGroupAddon>
+            <InputGroupInput
+              ref={inputRef}
+              className="files-search-input text-ui-sm md:text-ui-sm"
+              aria-label={d.filesView.search}
+              placeholder={d.filesView.searchPlaceholder}
+              spellCheck={false}
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              onKeyDown={onKeyDown}
+            />
+            <InputGroupAddon align="inline-end" className="gap-0">
+              {text ? (
+                <IconButton
+                  icon={XIcon}
+                  label={d.filesView.searchClear}
+                  onClick={() => setText('')}
+                />
+              ) : null}
               <IconButton
-                icon={XIcon}
-                label={d.filesView.searchClear}
-                onClick={() => setText('')}
+                icon={TextAaIcon}
+                label={d.filesView.matchCase}
+                aria-pressed={toggles.caseSensitive}
+                onClick={() => toggle('caseSensitive')}
               />
-            ) : null}
-            <IconButton
-              icon={TextAaIcon}
-              label={d.filesView.matchCase}
-              aria-pressed={toggles.caseSensitive}
-              onClick={() => toggle('caseSensitive')}
-            />
-            <IconButton
-              icon={TextUnderlineIcon}
-              label={d.filesView.wholeWord}
-              aria-pressed={toggles.wholeWord}
-              onClick={() => toggle('wholeWord')}
-            />
-            <IconButton
-              icon={AsteriskIcon}
-              label={d.filesView.useRegex}
-              aria-pressed={toggles.regex}
-              onClick={() => toggle('regex')}
-            />
-          </InputGroupAddon>
-        </InputGroup>
-      </div>
-      {text.trim() ? (
+              <IconButton
+                icon={TextUnderlineIcon}
+                label={d.filesView.wholeWord}
+                aria-pressed={toggles.wholeWord}
+                onClick={() => toggle('wholeWord')}
+              />
+              <IconButton
+                icon={AsteriskIcon}
+                label={d.filesView.useRegex}
+                aria-pressed={toggles.regex}
+                onClick={() => toggle('regex')}
+              />
+            </InputGroupAddon>
+          </InputGroup>
+        </div>
+      ) : null}
+      {open && text.trim() ? (
         <SearchResults state={state} isHidden={isHidden} onReveal={reveal} />
       ) : (
         children

@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import * as pdfSearch from '../lib/pdfSearch'
 import { useEditorRevealStore } from '../stores/editorRevealStore'
+import { useFileTreeStore } from '../stores/fileTreeStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { usePdfFindStore } from '../stores/pdfFindStore'
 import { useSettingsStore } from '../stores/settingsStore'
@@ -71,6 +72,7 @@ describe('Files panel search', () => {
     useSettingsStore.setState(settingsInit, true)
     useEditorRevealStore.setState(revealInit, true)
     useUIStore.setState({ filesOpen: false, filesSearchOpen: false, filesSearchFocus: false })
+    useFileTreeStore.setState({ revealed: null })
     vi.restoreAllMocks()
   })
 
@@ -280,5 +282,24 @@ describe('Files panel search', () => {
     await user.click(button)
     expect(screen.queryByRole('textbox', { name: 'Search files' })).toBeNull()
     expect(button).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  it('keeps the folders that are open in the tree when the search box is shown and hidden', async () => {
+    seed(false)
+    vi.mocked(window.ostia.fs.list).mockImplementation(async (p) =>
+      p === ROOT ? [{ name: 'src', dir: true }] : [{ name: 'todo.md', dir: false }],
+    )
+    useSettingsStore.getState().setFiles({ compactFolders: false })
+    render(<FilesPanel />)
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: 'src' }))
+    expect(await screen.findByRole('button', { name: 'todo.md' })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Search' }))
+    expect(screen.getByRole('button', { name: 'src' })).toHaveAttribute('aria-expanded', 'true')
+
+    await user.click(screen.getByRole('button', { name: 'Search' }))
+    expect(screen.getByRole('button', { name: 'src' })).toHaveAttribute('aria-expanded', 'true')
+    await waitFor(() => expect(screen.getByRole('button', { name: 'todo.md' })).toBeInTheDocument())
   })
 })
