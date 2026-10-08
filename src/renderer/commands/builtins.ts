@@ -37,7 +37,8 @@ import {
 } from '../lib/closeConfirm'
 import { runCmuxImport } from '../lib/cmuxImport'
 import { focusActivePaneWhenReady } from '../lib/focusNewTerminal'
-import { wakePane } from '../lib/hibernationScheduler'
+import { groupMates } from '../lib/groupPeers'
+import { hibernateWorkspaces, resumeWorkspaces, wakePane } from '../lib/hibernationScheduler'
 import { mergeRefusalText } from '../lib/mergeRefusalText'
 import { startNewWorkspace, startScratchWorkspace } from '../lib/newWorkspace'
 import { openRequestedFiles } from '../lib/openFile'
@@ -197,6 +198,11 @@ const PANE_FOCUS_COMMANDS: readonly (readonly [CoreCommandId, FocusDirection])[]
   ['pane.focusUp', 'up'],
   ['pane.focusDown', 'down'],
 ]
+
+function groupWorkspaceIds(workspaceId: string | null): string[] {
+  if (!workspaceId) return []
+  return groupMates(useWorkspacesStore.getState().workspaces, workspaceId).map((w) => w.id)
+}
 
 function workspaceWithoutPanes(ctx: CommandContext, paneId?: string): string | null {
   const workspaceId = ctx.activeWorkspaceId
@@ -813,6 +819,40 @@ export function registerBuiltinCommands(): void {
       const groupId = store.workspaces.find((w) => w.id === ctx.activeWorkspaceId)?.groupId
       if (groupId) store.deleteGroup(groupId)
     },
+  })
+
+  registerCore<undefined, { hibernated: string[] }>({
+    id: 'workspace.hibernateAgents',
+    category: 'workspace',
+    local: true,
+    run: async (_args, ctx) => ({
+      hibernated: await hibernateWorkspaces(ctx.activeWorkspaceId ? [ctx.activeWorkspaceId] : []),
+    }),
+  })
+
+  registerCore<undefined, { resumed: string[] }>({
+    id: 'workspace.resumeAgents',
+    category: 'workspace',
+    local: true,
+    run: (_args, ctx) => ({
+      resumed: resumeWorkspaces(ctx.activeWorkspaceId ? [ctx.activeWorkspaceId] : []),
+    }),
+  })
+
+  registerCore<undefined, { hibernated: string[] }>({
+    id: 'workspace.hibernateGroupAgents',
+    category: 'workspace',
+    local: true,
+    run: async (_args, ctx) => ({
+      hibernated: await hibernateWorkspaces(groupWorkspaceIds(ctx.activeWorkspaceId)),
+    }),
+  })
+
+  registerCore<undefined, { resumed: string[] }>({
+    id: 'workspace.resumeGroupAgents',
+    category: 'workspace',
+    local: true,
+    run: (_args, ctx) => ({ resumed: resumeWorkspaces(groupWorkspaceIds(ctx.activeWorkspaceId)) }),
   })
 
   registerCore({
