@@ -5,15 +5,9 @@ import { describe, expect, it } from 'vitest'
 const MAIN_DIR = __dirname
 const PRELOAD_FILE = join(__dirname, '..', 'preload', 'index.ts')
 
-const HANDLER_CALLS = [
-  'ipcMain.handle',
-  'ipcMain.on',
-  'ipcMain.once',
-  'ipc.handle',
-  'ipc.on',
-  'owned',
-  'secretAction',
-]
+const HANDLE_CALLS = ['ipcMain.handle', 'ipc.handle', 'owned', 'secretAction']
+
+const ON_CALLS = ['ipcMain.on', 'ipcMain.once', 'ipc.on']
 
 const SENT_BY_TESTS_ONLY = ['diagnostics:test-crash']
 
@@ -106,68 +100,98 @@ function constants(sources: string[]): Map<string, string> {
   return found
 }
 
-function handledChannels(sources: string[]): Set<string> {
-  const consts = constants(sources)
-  const calls = HANDLER_CALLS.map((c) => c.replace('.', '\\.')).join('|')
-  const re = new RegExp(`(?:${calls})\\(\\s*(?:'([^'\\n]+)'|([A-Z_]+))`, 'g')
-  const handled = new Set<string>()
-  for (const text of sources) {
-    for (const m of text.matchAll(re)) {
-      const channel = m[1] ?? consts.get(m[2])
-      if (channel) handled.add(channel)
-    }
-  }
-  return handled
+function registrations(calls: string[]): RegExp {
+  const names = calls.map((c) => c.replace('.', '\\.')).join('|')
+  return new RegExp(`\\b(?:${names})\\(\\s*(?:'([^'\\n]+)'|([A-Z_]+)\\b)`, 'g')
 }
 
-function preloadChannels(): { requests: Set<string>; pushes: Set<string>; dynamic: Set<string> } {
+function registeredChannels(sources: string[], calls: string[]): Set<string> {
+  const consts = constants(sources)
+  const found = new Set<string>()
+  for (const text of sources) {
+    for (const m of text.matchAll(registrations(calls))) {
+      const channel = m[1] ?? consts.get(m[2])
+      if (channel) found.add(channel)
+    }
+  }
+  return found
+}
+
+function withoutRegistrations(sources: string[]): string {
+  const handlers = registrations([...HANDLE_CALLS, ...ON_CALLS])
+  return sources
+    .map((text) => text.replace(handlers, '').replace(/const \w+ = '[^'\n]+'/g, ''))
+    .join('\n')
+}
+
+function sentChannels(sources: string[]): Set<string> {
+  const rest = withoutRegistrations(sources)
+  const sent = new Set<string>()
+  for (const m of rest.matchAll(/'([^'\n]+)'/g)) sent.add(m[1])
+  for (const m of rest.matchAll(/`([^`$\n]+)\$\{/g)) sent.add(m[1])
+  for (const [name, value] of constants(sources)) {
+    if (new RegExp(`\\b${name}\\b`).test(rest)) sent.add(value)
+  }
+  return sent
+}
+
+type PreloadKind = 'invoke' | 'send' | 'listen'
+
+function preloadChannels(): Record<PreloadKind, Set<string>> & { dynamic: Set<string> } {
   const text = readFileSync(PRELOAD_FILE, 'utf8')
-  const requests = new Set<string>()
-  const pushes = new Set<string>()
-  const dynamic = new Set<string>()
+  const found = {
+    invoke: new Set<string>(),
+    send: new Set<string>(),
+    listen: new Set<string>(),
+    dynamic: new Set<string>(),
+  }
   for (const m of text.matchAll(
     /ipcRenderer\.(invoke|send|sendSync|on|once)\(\s*(['`])([^'`]+)\2/g,
   )) {
     const [, kind, quote, channel] = m
-    if (kind === 'on' || kind === 'once') {
-      if (quote === '`') dynamic.add(channel.slice(0, channel.indexOf('${')))
-      else pushes.add(channel)
-    } else {
-      requests.add(channel)
-    }
+    if (kind === 'invoke') found.invoke.add(channel)
+    else if (kind === 'send' || kind === 'sendSync') found.send.add(channel)
+    else if (quote === '`') found.dynamic.add(channel.slice(0, channel.indexOf('${')))
+    else found.listen.add(channel)
   }
-  return { requests, pushes, dynamic }
+  return found
+}
+
+function missingFrom(wanted: Iterable<string>, have: Set<string>): string[] {
+  return [...wanted].filter((c) => !have.has(c)).sort()
 }
 
 describe('preload and main IPC wiring', () => {
   const sources = mainSources()
   const preload = preloadChannels()
-  const handled = handledChannels(sources)
+  const handled = registeredChannels(sources, HANDLE_CALLS)
+  const listened = registeredChannels(sources, ON_CALLS)
+  const sent = sentChannels(sources)
 
   it('reads a plausible number of channels from both sides', () => {
-    expect(preload.requests.size).toBeGreaterThan(100)
+    expect(preload.invoke.size).toBeGreaterThan(100)
+    expect(preload.send.size).toBeGreaterThan(30)
     expect(handled.size).toBeGreaterThan(100)
+    expect(listened.size).toBeGreaterThan(30)
   })
 
-  it('has a main handler for every channel the preload invokes or sends', () => {
-    const missing = [...preload.requests].filter((c) => !handled.has(c)).sort()
-    expect(missing).toEqual([])
+  it('has a main handle for every channel the preload invokes', () => {
+    expect(missingFrom(preload.invoke, handled)).toEqual([])
+  })
+
+  it('has a main listener for every channel the preload sends', () => {
+    expect(missingFrom(preload.send, listened)).toEqual([])
   })
 
   it('lists exactly the channels the preload listens on', () => {
-    expect([...preload.pushes].sort()).toEqual(PUSHED)
+    expect([...preload.listen].sort()).toEqual(PUSHED)
     expect([...preload.dynamic].sort()).toEqual(PUSHED_DYNAMIC)
   })
 
-  it('sends every listened-on channel from main', () => {
-    const joined = sources.join('\n')
-    const consts = [...constants(sources).values()]
-    const silent = [...PUSHED, ...PUSHED_DYNAMIC].filter(
-      (c) =>
-        !SENT_BY_TESTS_ONLY.includes(c) &&
-        !joined.includes(`'${c}`) &&
-        !joined.includes(`\`${c}`) &&
-        !consts.includes(c),
+  it('sends every listened-on channel from main outside its handler registration', () => {
+    const silent = missingFrom(
+      [...PUSHED, ...PUSHED_DYNAMIC].filter((c) => !SENT_BY_TESTS_ONLY.includes(c)),
+      sent,
     )
     expect(silent).toEqual([])
   })

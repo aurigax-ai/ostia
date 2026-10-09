@@ -337,6 +337,9 @@ describe('keptControlSocketPath', () => {
 })
 
 const SRC_DIR = join(__dirname, '..', '..')
+const CLI_PORTAL = join(SRC_DIR, 'cli', 'verbs', 'portal.ts')
+const MAIN_PORTAL = join(SRC_DIR, 'main', 'manager', 'portal.ts')
+const CLI_GIT = join(SRC_DIR, 'cli', 'verbs', 'coreBoards.ts')
 
 function productionFiles(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
@@ -348,8 +351,10 @@ function productionFiles(dir: string): string[] {
   })
 }
 
-function readSources(dir: string): Map<string, string> {
-  return new Map(productionFiles(join(SRC_DIR, dir)).map((f) => [f, readFileSync(f, 'utf8')]))
+function controlSources(dir: string, portal: string): string[] {
+  return productionFiles(join(SRC_DIR, dir))
+    .filter((f) => f !== portal)
+    .map((f) => readFileSync(f, 'utf8'))
 }
 
 function literals(text: string, re: RegExp): string[] {
@@ -358,7 +363,7 @@ function literals(text: string, re: RegExp): string[] {
 
 function registeredMethods(): Set<string> {
   const names = new Set<string>()
-  for (const text of readSources('main').values()) {
+  for (const text of controlSources('main', MAIN_PORTAL)) {
     for (const name of literals(
       text,
       /(?:registerControlMethod|registerTargetableMethod|conn\.onRequest)\(\s*'([^'\n]+)'/g,
@@ -376,9 +381,24 @@ function registeredMethods(): Set<string> {
   return names
 }
 
+function gitSubcommands(): string[] {
+  const text = readFileSync(CLI_GIT, 'utf8')
+  const start = text.indexOf('export function gitRequest(')
+  const body = text.slice(start, text.indexOf('\n}\n', start))
+  return literals(body, /\bcase '([\w-]+)':/g)
+}
+
+function gitMethod(sub: string): string | null {
+  for (const argv of [[sub], [sub, 'path'], [sub, '-m', 'message']]) {
+    const request = gitRequest(argv)
+    if (request) return request.method
+  }
+  return null
+}
+
 function sentMethods(): Set<string> {
   const names = new Set<string>()
-  for (const text of readSources('cli').values()) {
+  for (const text of controlSources('cli', CLI_PORTAL)) {
     for (const name of literals(text, /sendRequest\b[^(]*\(\s*'([^'\n]+)'/g)) names.add(name)
     for (const name of literals(text, /method: '([a-z]+\.[a-zA-Z.]+)'/g)) names.add(name)
     for (const name of literals(text, /\bok\([^,\n]+,\s*'([a-z]+\.[a-zA-Z]+)'/g)) names.add(name)
@@ -388,15 +408,20 @@ function sentMethods(): Set<string> {
       names.add(`browse.${m[2] ?? m[1]}`)
     }
   }
-  for (const sub of ['status', 'changes', 'diff', 'open', 'log', 'blame', 'stage', 'unstage']) {
-    for (const argv of [[sub], [sub, 'path']]) {
-      const request = gitRequest(argv)
-      if (request) names.add(request.method)
-    }
+  for (const sub of gitSubcommands()) {
+    const method = gitMethod(sub)
+    if (method) names.add(method)
   }
-  const commit = gitRequest(['commit', '-m', 'message'])
-  if (commit) names.add(commit.method)
   return names
+}
+
+function portalNames(file: string, call: string): Set<string> {
+  const re = new RegExp(`\\b${call}\\b[^(]*\\(\\s*'([^'\\n]+)'`, 'g')
+  return new Set(literals(readFileSync(file, 'utf8'), re))
+}
+
+function missingFrom(wanted: Set<string>, have: Set<string>): string[] {
+  return [...wanted].filter((name) => !have.has(name)).sort()
 }
 
 describe('CLI and control server wiring', () => {
@@ -408,7 +433,45 @@ describe('CLI and control server wiring', () => {
     expect(sent.size).toBeGreaterThan(60)
   })
 
+  it('turns every git subcommand the CLI parses into a request', () => {
+    const subs = gitSubcommands()
+    expect(subs.length).toBeGreaterThan(8)
+    expect(subs.filter((sub) => gitMethod(sub) === null)).toEqual([])
+  })
+
   it('registers every method the CLI sends', () => {
-    expect([...sent].filter((name) => !registered.has(name)).sort()).toEqual([])
+    expect(missingFrom(sent, registered)).toEqual([])
+  })
+})
+
+describe('CLI and manager portal wiring', () => {
+  it('reads both ends of the portal socket', () => {
+    expect(portalNames(CLI_PORTAL, 'sendRequest').size).toBeGreaterThan(0)
+    expect(portalNames(CLI_PORTAL, 'sendNotification').size).toBeGreaterThan(0)
+    expect(portalNames(MAIN_PORTAL, 'sendNotification').size).toBeGreaterThan(0)
+  })
+
+  it('handles every request the CLI sends', () => {
+    expect(
+      missingFrom(portalNames(CLI_PORTAL, 'sendRequest'), portalNames(MAIN_PORTAL, 'onRequest')),
+    ).toEqual([])
+  })
+
+  it('handles every notification the CLI sends', () => {
+    expect(
+      missingFrom(
+        portalNames(CLI_PORTAL, 'sendNotification'),
+        portalNames(MAIN_PORTAL, 'onNotification'),
+      ),
+    ).toEqual([])
+  })
+
+  it('listens for every notification main sends', () => {
+    expect(
+      missingFrom(
+        portalNames(MAIN_PORTAL, 'sendNotification'),
+        portalNames(CLI_PORTAL, 'onNotification'),
+      ),
+    ).toEqual([])
   })
 })
