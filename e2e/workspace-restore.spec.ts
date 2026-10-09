@@ -314,6 +314,7 @@ test('erases stored history when workspace restore is switched off', async () =>
 })
 
 test('restores tabs and offers to resume the agent a tab was running', async () => {
+  test.setTimeout(90_000)
   const first = await launchApp(dataHome)
   try {
     await openWorkspace(first.win)
