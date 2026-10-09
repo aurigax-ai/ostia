@@ -1,21 +1,45 @@
 import '@testing-library/jest-dom/vitest'
+import { registerBuiltinCommands } from '@/commands/builtins'
 import { commands } from '@/commands/registry'
-import type { PaneNode } from '@/layout/types'
+import { tabsOf } from '@/layout/tree'
+import type { PaneNode, TabsNode } from '@/layout/types'
 import { PANE_DND, startPaneDragTracking } from '@/lib/panes/paneDrag'
 import { useQuestionsStore } from '@/stores/agents/questionsStore'
 import { useUIStore } from '@/stores/app/uiStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { usePaneDnd } from '@/stores/workspaces/paneDndStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
-import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import {
+  act,
+  cleanup,
+  createEvent,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createPortal } from 'react-dom'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { Pane } from './Pane'
+import { PaneTree } from './PaneTree'
 
 const pane: PaneNode = { type: 'pane', id: 'p9', kind: 'terminal', title: 'zsh' }
 
+let layoutInit: ReturnType<typeof useLayoutStore.getState>
+let workspacesInit: ReturnType<typeof useWorkspacesStore.getState>
+
+beforeAll(() => {
+  layoutInit = useLayoutStore.getState()
+  workspacesInit = useWorkspacesStore.getState()
+})
+
 afterEach(() => {
   cleanup()
+  useLayoutStore.setState(layoutInit, true)
+  useWorkspacesStore.setState(workspacesInit, true)
+  usePaneDnd.getState().reset()
   vi.restoreAllMocks()
 })
 
@@ -98,7 +122,6 @@ describe('Pane', () => {
   })
 
   it('dropping a detached pane onto the main window moves it there and closes the empty window', () => {
-    const workspaces = useWorkspacesStore.getState()
     useWorkspacesStore.setState({
       workspaces: [
         { id: 'w', name: 'api', kind: 'terminal', workDir: '/home/u/api', state: 'idle' },
@@ -133,10 +156,6 @@ describe('Pane', () => {
       })
     } finally {
       stop()
-      act(() => {
-        usePaneDnd.getState().reset()
-        useWorkspacesStore.setState(workspaces, true)
-      })
     }
   })
 
@@ -236,6 +255,123 @@ describe('Pane', () => {
       expect(exec).not.toHaveBeenCalledWith('tab.new', expect.anything())
       await user.dblClick(screen.getByRole('tablist'))
       expect(exec).toHaveBeenCalledWith('tab.new', { paneId: 'pb' })
+    })
+
+    const first: PaneNode = { type: 'pane', id: 't1', kind: 'terminal', title: 'zsh' }
+    const second: PaneNode = { type: 'pane', id: 't2', kind: 'terminal', title: 'zsh' }
+
+    function workspace(root: TabsNode): () => void {
+      if (!commands.has('pane.move')) registerBuiltinCommands()
+      useWorkspacesStore.setState({
+        workspaces: [{ id: 'w', name: 'w', kind: 'terminal', workDir: '/w', state: 'idle' }],
+        activeWorkspaceId: 'w',
+      })
+      useLayoutStore.setState({
+        byWorkspace: { w: { root, activePaneId: root.activeId, zoomedPaneId: null } },
+      })
+      const stop = startPaneDragTracking()
+      render(<PaneTree workspaceId="w" />)
+      return stop
+    }
+
+    function panes(): string[][] {
+      return [...document.querySelectorAll('.pane')].map((p) =>
+        [...p.querySelectorAll('.pane-tab')].map((t) => t.getAttribute('data-tab-id') ?? ''),
+      )
+    }
+
+    function tabEl(id: string): HTMLElement {
+      return document.querySelector(`.pane-tab[data-tab-id="${id}"]`) as HTMLElement
+    }
+
+    function transfer() {
+      const data = new Map<string, string>()
+      return {
+        get types() {
+          return [...data.keys()]
+        },
+        setData: (type: string, value: string) => data.set(type, value),
+        getData: (type: string) => data.get(type) ?? '',
+        effectAllowed: '',
+        dropEffect: 'none',
+      }
+    }
+
+    function at(event: Event, clientX: number, clientY: number): Event {
+      Object.defineProperty(event, 'clientX', { value: clientX })
+      Object.defineProperty(event, 'clientY', { value: clientY })
+      return event
+    }
+
+    async function drag(id: string, target: () => Element, x: number, y: number): Promise<void> {
+      const source = tabEl(id)
+      const dataTransfer = transfer()
+      fireEvent.dragStart(source, { dataTransfer })
+      await waitFor(() => expect(usePaneDnd.getState().sourceId).toBe(id))
+      const into = target()
+      fireEvent(into, at(createEvent.dragOver(into, { dataTransfer }), x, y))
+      fireEvent(into, at(createEvent.drop(into, { dataTransfer }), x, y))
+      if (source.isConnected) fireEvent.dragEnd(source, { dataTransfer })
+    }
+
+    async function dragToEdge(id: string, edge: 'right' | 'bottom'): Promise<void> {
+      const frame = tabEl(id).closest('.pane') as HTMLElement
+      vi.spyOn(frame, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 0, 800, 600))
+      const [x, y] = edge === 'right' ? [800 - 16, 300] : [400, 600 - 16]
+      await drag(id, () => frame.querySelector('.pane-drop-layer') as Element, x, y)
+    }
+
+    async function dragOntoTab(id: string, targetId: string): Promise<void> {
+      vi.spyOn(tabEl(targetId), 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 0, 120, 28))
+      await drag(id, () => tabEl(targetId), 6, 10)
+    }
+
+    it('dragging a tab to a terminal pane’s bottom edge splits it with the tab below', async () => {
+      const stop = workspace(tabsOf(second.id, first, second))
+      try {
+        await dragToEdge(second.id, 'bottom')
+
+        expect(panes()).toEqual([[first.id], [second.id]])
+        expect(useLayoutStore.getState().byWorkspace.w.root).toMatchObject({
+          type: 'split',
+          direction: 'vertical',
+        })
+        expect(document.querySelector('.pane-drop-layer')).toBeNull()
+      } finally {
+        stop()
+      }
+    })
+
+    it('tabs reorder within their tab bar', async () => {
+      const stop = workspace(tabsOf(second.id, first, second))
+      try {
+        await dragOntoTab(second.id, first.id)
+
+        expect(panes()).toEqual([[second.id, first.id]])
+        expect(document.querySelector('.pane-drop-layer')).toBeNull()
+      } finally {
+        stop()
+      }
+    })
+
+    it('an editor tab dropped on a terminal’s tab bar joins that stack', async () => {
+      const editor: PaneNode = {
+        type: 'pane',
+        id: 'e1',
+        kind: 'editor',
+        title: 'notes.md',
+        filePath: '/w/notes.md',
+      }
+      const stop = workspace(tabsOf(editor.id, first, editor))
+      try {
+        await dragToEdge(editor.id, 'right')
+        expect(panes()).toEqual([[first.id], [editor.id]])
+
+        await dragOntoTab(editor.id, first.id)
+        expect(panes()).toEqual([[editor.id, first.id]])
+      } finally {
+        stop()
+      }
     })
   })
 })
