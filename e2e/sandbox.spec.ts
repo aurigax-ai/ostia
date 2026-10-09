@@ -271,10 +271,6 @@ test('SBX-C88 opens no pane when the human denies a system install from a sandbo
 })
 
 test('SBX-C3 sandboxes a terminal an extension opens in a sandboxed workspace', async () => {
-  test.fixme(
-    !!process.env.CI && process.platform === 'linux',
-    'PINE-62: on the Ubuntu runner the last output line of the extension terminal is missing',
-  )
   test.setTimeout(120_000)
   const dataHome = freshDataHome()
   const home = join(dataHome, 'home')

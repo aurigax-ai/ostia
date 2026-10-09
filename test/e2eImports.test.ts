@@ -13,3 +13,12 @@ describe('e2e imports', () => {
     expect(direct).toEqual([])
   })
 })
+
+describe('e2e specs', () => {
+  it('keep no retries and no test.fixme, so a flaky or skipped test goes through test/quarantine.json', () => {
+    const offenders = readdirSync(E2E)
+      .filter((name) => name.endsWith('.spec.ts'))
+      .filter((name) => /\bretries\b|test\.fixme\(/.test(readFileSync(join(E2E, name), 'utf8')))
+    expect(offenders).toEqual([])
+  })
+})
