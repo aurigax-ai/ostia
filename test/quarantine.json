@@ -12,5 +12,12 @@
     "issue": 505,
     "until": "2026-11-06",
     "platforms": ["linux"]
+  },
+  {
+    "file": "e2e/trellis-agents.spec.ts",
+    "name": "a Trellis card goes to a new agent or to a running one, only on the human’s clicks",
+    "issue": 547,
+    "until": "2026-11-07",
+    "platforms": ["linux"]
   }
 ]
