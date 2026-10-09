@@ -46,7 +46,6 @@ interface UIState {
   showFiles: () => void
   searchFiles: (query?: string) => void
   hideFilesSearch: () => void
-  toggleFilesSearch: (focused: EventTarget | null) => void
   filesSearchFocused: () => void
   setDigitHints: (shown: boolean) => void
 }
@@ -128,12 +127,6 @@ export const useUIStore = create<UIState>((set, get) => ({
     }),
   hideFilesSearch: () =>
     set({ filesSearchOpen: false, filesSearchFocus: false, filesSearchQuery: null }),
-  toggleFilesSearch: (focused) => {
-    const s = get()
-    const inBox = focused instanceof Element && focused.closest('.files-search') !== null
-    if (s.filesOpen && s.filesSearchOpen && inBox) s.hideFilesSearch()
-    else s.searchFiles()
-  },
   filesSearchFocused: () => set({ filesSearchFocus: false, filesSearchQuery: null }),
   setDigitHints: (digitHints) => set({ digitHints }),
 }))

@@ -417,19 +417,20 @@ describe('Files panel search', () => {
     expect(screen.getByRole('button', { name: 'Search' })).toHaveFocus()
   })
 
-  it('hides the search box with the find key pressed in it and keeps the panel open', async () => {
+  it('keeps the panel open when the header button or Escape hides the search box', async () => {
     seed(false)
     useUIStore.setState({ filesOpen: true })
     render(<FilesPanel />)
-    await act(async () => {})
-    const panel = screen.getByRole('complementary', { name: 'Files' })
+    const user = userEvent.setup()
 
-    fireEvent.keyDown(panel, { key: 'F', code: 'KeyF', ctrlKey: true, shiftKey: true })
-    const input = screen.getByRole('textbox', { name: 'Search files' })
-    fireEvent.keyDown(input, { key: 'F', code: 'KeyF', ctrlKey: true, shiftKey: true })
-
+    await user.click(screen.getByRole('button', { name: 'Search' }))
+    await user.click(screen.getByRole('button', { name: 'Search' }))
     expect(screen.queryByRole('textbox', { name: 'Search files' })).toBeNull()
-    expect(screen.getByRole('button', { name: 'Search' })).toHaveFocus()
+    expect(useUIStore.getState().filesOpen).toBe(true)
+
+    await user.click(screen.getByRole('button', { name: 'Search' }))
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('textbox', { name: 'Search files' })).toBeNull()
     expect(useUIStore.getState().filesOpen).toBe(true)
   })
 

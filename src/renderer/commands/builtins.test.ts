@@ -1473,33 +1473,30 @@ describe('builtins route to store actions', () => {
       })
     })
 
-    it('hides the search box and keeps the Files panel when focus is in the box', async () => {
-      useUIStore.setState({ filesOpen: true, filesSearchOpen: true, filesSearchFocus: false })
-      mountPanel().search.focus()
-
-      await commands.execWith(ctx(null, null), 'view.searchFiles')
-
-      expect(useUIStore.getState()).toMatchObject({
-        filesOpen: true,
-        filesSearchOpen: false,
-        filesSearchFocus: false,
-      })
-    })
-
-    it('moves focus to the search box when focus is in the tree or outside the panel', async () => {
-      const { tree } = mountPanel()
-      for (const target of [tree, outside()]) {
+    it('closes the Files panel when focus is in the search box or the tree', async () => {
+      const { search, tree } = mountPanel()
+      for (const target of [search, tree]) {
         useUIStore.setState({ filesOpen: true, filesSearchOpen: true, filesSearchFocus: false })
         target.focus()
 
         await commands.execWith(ctx(null, null), 'view.searchFiles')
 
-        expect(useUIStore.getState()).toMatchObject({
-          filesOpen: true,
-          filesSearchOpen: true,
-          filesSearchFocus: true,
-        })
+        expect(useUIStore.getState()).toMatchObject({ filesOpen: false, filesSearchFocus: false })
       }
+    })
+
+    it('moves focus to the search box without closing when focus is outside the panel', async () => {
+      useUIStore.setState({ filesOpen: true, filesSearchOpen: true, filesSearchFocus: false })
+      mountPanel()
+      outside().focus()
+
+      await commands.execWith(ctx(null, null), 'view.searchFiles')
+
+      expect(useUIStore.getState()).toMatchObject({
+        filesOpen: true,
+        filesSearchOpen: true,
+        filesSearchFocus: true,
+      })
     })
   })
 

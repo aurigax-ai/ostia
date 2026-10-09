@@ -9,10 +9,10 @@ import { FilesView } from './FilesView'
 
 const FILES_PANEL_ID = 'files-panel'
 
-function toggleSearch(e: KeyboardEvent<HTMLElement>): void {
+function focusSearch(e: KeyboardEvent<HTMLElement>): void {
   if (matchChord(e, isMac) !== 'find') return
   e.preventDefault()
-  useUIStore.getState().toggleFilesSearch(e.target)
+  useUIStore.getState().searchFiles()
 }
 
 export function FilesPanel(): JSX.Element {
@@ -22,7 +22,7 @@ export function FilesPanel(): JSX.Element {
       id={FILES_PANEL_ID}
       className="files-panel"
       aria-label={d.rail.files}
-      onKeyDown={toggleSearch}
+      onKeyDown={focusSearch}
     >
       <FilesView />
       <PanelResizer
