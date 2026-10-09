@@ -1,5 +1,6 @@
 import { createPane, paneIds as paneIdsOf, resetIds, splitPane } from '@/layout/tree'
 import { goToWorkspace, jumpToLatestUnread } from '@/lib/attention/workspaceActivity'
+import { beginDrag, endPaneDrag } from '@/lib/panes/paneDrag'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { useEditorStatus } from '@/stores/files/editorStatusStore'
@@ -18,6 +19,7 @@ import {
   movePaneToNewWindow,
   moveWorkspaceToNewWindow,
   returnToMainWindow,
+  startWindowSync,
   workspaceSummaries,
 } from './windowHandoff'
 
@@ -159,6 +161,37 @@ describe('movePaneToNewWindow', () => {
     expect(layout.root).toMatchObject({ type: 'pane', id: left })
     expect(emitted().some((e) => e.type === 'pane-closed')).toBe(false)
   })
+
+  it('dragging a tab out of the window opens it in a new window with its command still running', async () => {
+    const { workspaceId, left, right } = seedTwoPanes()
+    vi.mocked(window.ostia.windows.landing).mockResolvedValue(false)
+    const start = { clientX: 600, clientY: 50, screenX: 600, screenY: 50 }
+    const end = (screenX: number, screenY: number) => ({
+      ...start,
+      screenX,
+      screenY,
+      dataTransfer: { dropEffect: 'none' },
+    })
+
+    beginDrag(start)
+    endPaneDrag(workspaceId, right, end(600, 300))
+    await vi.waitFor(() => expect(window.ostia.windows.landing).toHaveBeenCalledTimes(1))
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(window.ostia.windows.detach).not.toHaveBeenCalled()
+
+    beginDrag(start)
+    endPaneDrag(workspaceId, right, end(1600, 120))
+    await vi.waitFor(() => expect(window.ostia.windows.detach).toHaveBeenCalledTimes(1))
+
+    const [handoff, point] = vi.mocked(window.ostia.windows.detach).mock.calls[0]
+    expect(handoff.root).toMatchObject({ type: 'pane', id: right })
+    expect(point).toEqual({ x: 1600, y: 120 })
+    expect(useLayoutStore.getState().byWorkspace[workspaceId].root).toMatchObject({
+      type: 'pane',
+      id: left,
+    })
+    expect(emitted().some((e) => e.type === 'pane-closed')).toBe(false)
+  })
 })
 
 describe('moving a pane remembers where it came from', () => {
@@ -239,6 +272,34 @@ describe('returning panes and workspaces', () => {
     expect(layout.activePaneId).toBe(right)
     expect(emitted()).toContainEqual({ type: 'pane-created', workspaceId, paneId: right })
     expect(emitted()).toContainEqual({ type: 'workspace-closed', workspaceId: detachedId })
+  })
+
+  it('dropping a detached pane onto the main window moves it there and closes the empty window', async () => {
+    useWindowsStore.getState().setInfo('2', true)
+    useWorkspacesStore.getState().addWorkspace('/home/u/api')
+    const workspaceId = useWorkspacesStore.getState().activeWorkspaceId as string
+    useLayoutStore.getState().ensure(workspaceId)
+    const only = useLayoutStore.getState().byWorkspace[workspaceId].activePaneId
+    const stop = startWindowSync()
+
+    beginDrag({ clientX: 600, clientY: 50, screenX: 600, screenY: 50 })
+    endPaneDrag(workspaceId, only, {
+      clientX: 600,
+      clientY: 50,
+      screenX: 300,
+      screenY: 300,
+      dataTransfer: { dropEffect: 'none' },
+    })
+    await vi.waitFor(() => expect(window.ostia.window.close).toHaveBeenCalled())
+    stop()
+
+    expect(window.ostia.windows.landing).toHaveBeenCalledWith(only)
+    expect(vi.mocked(window.ostia.windows.give).mock.calls[0][0]).toMatchObject({
+      id: workspaceId,
+      root: { type: 'pane', id: only },
+    })
+    expect(window.ostia.windows.detach).not.toHaveBeenCalled()
+    expect(useWorkspacesStore.getState().workspaces).toEqual([])
   })
 
   it('returns a whole workspace to its old place in the list and its group', () => {
@@ -353,6 +414,20 @@ describe('returnToMainWindow', () => {
     const { workspaceId } = seedTwoPanes()
 
     expect(await returnToMainWindow()).toBe(true)
+
+    const sent = vi.mocked(window.ostia.windows.returnToMain).mock.calls[0][0]
+    expect(sent.map((w) => w.id)).toEqual([workspaceId])
+  })
+
+  it('closing a detached window while the main window is in the tray keeps it there', async () => {
+    useWindowsStore.getState().setInfo('2', true)
+    const { workspaceId } = seedTwoPanes()
+    const stop = startWindowSync()
+
+    const [onReturnRequest] = vi.mocked(window.ostia.windows.onReturnRequest).mock.calls[0]
+    onReturnRequest()
+    await vi.waitFor(() => expect(window.ostia.windows.returnToMain).toHaveBeenCalled())
+    stop()
 
     const sent = vi.mocked(window.ostia.windows.returnToMain).mock.calls[0][0]
     expect(sent.map((w) => w.id)).toEqual([workspaceId])

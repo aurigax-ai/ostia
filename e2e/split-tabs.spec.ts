@@ -78,39 +78,3 @@ test(
     }
   },
 )
-
-test('a split tab of four panes shows each title as a readable segment', async () => {
-  const app = await electron.launch(isolatedLaunch())
-  try {
-    const win = await app.firstWindow()
-    await win.waitForLoadState('domcontentloaded')
-    await openWorkspace(win)
-    await addTab(win)
-    const strip = win.getByRole('tablist')
-    await expect(strip.getByRole('tab')).toHaveCount(2, { timeout: 15_000 })
-    await expect(win.locator('.xterm-rows:visible')).toContainText(PROMPT, { timeout: 15_000 })
-    await win.locator('.xterm:visible').click()
-
-    const pill = strip.locator('.pane-split-tab')
-    const segments = pill.locator('.split-tab-segment')
-    for (const count of [2, 3, 4]) {
-      await win.keyboard.press(chords.splitRight)
-      await expect(segments).toHaveCount(count, { timeout: 15_000 })
-      await expect(win.locator('.pane-cell .xterm-rows').nth(count - 1)).toContainText(PROMPT, {
-        timeout: 15_000,
-      })
-    }
-
-    await expect(segments.locator('.pane-kind')).toHaveCount(0)
-    await expect(pill.locator('.split-tab-glyph')).toBeVisible()
-    const titles = await segments
-      .locator('.title')
-      .evaluateAll((els) =>
-        els.map((el) => ({ width: el.clientWidth, cut: el.scrollWidth > el.clientWidth })),
-      )
-    expect(titles).toHaveLength(4)
-    for (const title of titles) if (title.cut) expect(title.width).toBeGreaterThanOrEqual(80)
-  } finally {
-    await app.close()
-  }
-})

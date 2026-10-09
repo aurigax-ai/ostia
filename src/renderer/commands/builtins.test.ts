@@ -290,6 +290,12 @@ describe('builtins route to store actions', () => {
     })
   })
 
+  it('settings.set needs settings-write, which a pane does not hold by default', () => {
+    const described = commands.describe().find((c) => c.id === 'settings.set')
+    expect(described?.capabilities).toEqual(['settings-write'])
+    expect(DEFAULT_CAPABILITIES).not.toContain('settings-write')
+  })
+
   it('settings.set reports a rejected path as a failed command', async () => {
     const r = await commands.execWith(ctx(null, null), 'settings.set', {
       key: 'init',
@@ -1013,6 +1019,38 @@ describe('builtins route to store actions', () => {
 
     await commands.execWith(ctx('s1', pane.id), 'pane.toggleLock')
     expect(useLayoutStore.getState().isLocked('s1', pane.id)).toBe(false)
+  })
+
+  it('an agent closes a busy tab without a confirm, but never a tab the human locked', async () => {
+    const ask = vi.spyOn(useCloseConfirmStore.getState(), 'ask').mockResolvedValue(false)
+    const first = createPane('terminal')
+    const busy = createPane('terminal')
+    useWorkspacesStore.setState({
+      workspaces: [{ id: 's1', name: 'w', kind: 'terminal', workDir: '/w', state: 'idle' }],
+    })
+    useLayoutStore.setState({
+      byWorkspace: {
+        s1: { root: tabsOf(first.id, first, busy), activePaneId: first.id, zoomedPaneId: null },
+      },
+    })
+    useBlocksStore.setState({ running: { [busy.id]: 'b1' } })
+    const fromSocket = { ...ctx('s1', first.id), target: { workspaceId: 's1', paneId: first.id } }
+    try {
+      await commands.execWith(ctx('s1', busy.id), 'pane.toggleLock')
+      const refused = await commands.execWith(fromSocket, 'pane.close', { paneId: busy.id })
+      expect(refused.ok ? '' : refused.error.message).toContain('pane-locked')
+      expect(useLayoutStore.getState().byWorkspace.s1.root).toMatchObject({
+        children: [{ id: first.id }, { id: busy.id, locked: true }],
+      })
+
+      await commands.execWith(ctx('s1', busy.id), 'pane.toggleLock')
+      const closed = await commands.execWith(fromSocket, 'pane.close', { paneId: busy.id })
+      expect(closed.ok).toBe(true)
+      expect(useLayoutStore.getState().byWorkspace.s1.root).toMatchObject({ id: first.id })
+      expect(ask).not.toHaveBeenCalled()
+    } finally {
+      useBlocksStore.setState({ running: {} })
+    }
   })
 
   describe('opening the first pane of an empty workspace', () => {

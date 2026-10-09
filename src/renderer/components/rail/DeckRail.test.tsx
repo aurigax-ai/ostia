@@ -11,6 +11,7 @@ import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useHibernateSkippedStore } from '@/stores/workspaces/hibernateSkippedStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useMergeConfirmStore } from '@/stores/workspaces/mergeConfirmStore'
+import { useWindowsStore } from '@/stores/workspaces/windowsStore'
 import { type Workspace, useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { zhHant } from '@shared/app/dict'
 import {
@@ -36,6 +37,22 @@ function seedWorkspaces(): void {
   useWorkspacesStore.setState({ workspaces, activeWorkspaceId: 's1' })
 }
 
+const resizeHandle = (): HTMLElement => screen.getByRole('separator', { name: 'Resize sidebar' })
+
+function dragRailEdge(dx: number): boolean {
+  const el = resizeHandle()
+  const at = (type: string, clientX: number): boolean => {
+    const event = new MouseEvent(type, { bubbles: true, cancelable: true, clientX, button: 0 })
+    Object.defineProperty(event, 'pointerId', { value: 1 })
+    return fireEvent(el, event)
+  }
+  const proceeded = at('pointerdown', 500)
+  at('pointermove', 500 + dx / 2)
+  at('pointermove', 500 + dx)
+  at('pointerup', 500 + dx)
+  return proceeded
+}
+
 function rowFor(name: RegExp): HTMLElement {
   const main = screen.getByRole('button', { name })
   const tab = main.closest('.rail-tab')
@@ -52,6 +69,7 @@ describe('DeckRail', () => {
   let mergeConfirmInit: ReturnType<typeof useMergeConfirmStore.getState>
   let blocksInit: ReturnType<typeof useBlocksStore.getState>
   let pluginsInit: ReturnType<typeof usePluginsStore.getState>
+  let windowsInit: ReturnType<typeof useWindowsStore.getState>
 
   beforeAll(() => {
     workspacesInit = useWorkspacesStore.getState()
@@ -62,6 +80,7 @@ describe('DeckRail', () => {
     mergeConfirmInit = useMergeConfirmStore.getState()
     blocksInit = useBlocksStore.getState()
     pluginsInit = usePluginsStore.getState()
+    windowsInit = useWindowsStore.getState()
   })
 
   afterEach(() => {
@@ -74,6 +93,7 @@ describe('DeckRail', () => {
     useMergeConfirmStore.setState(mergeConfirmInit, true)
     useBlocksStore.setState(blocksInit, true)
     usePluginsStore.setState(pluginsInit, true)
+    useWindowsStore.setState(windowsInit, true)
     useSandboxStore.setState({ enabled: {} })
     useHibernateSkippedStore.setState({ skipped: null })
     vi.restoreAllMocks()
@@ -125,6 +145,35 @@ describe('DeckRail', () => {
     expect(screen.queryByText('/home/alpha')).toBeNull()
     expect(screen.queryByText('fix login')).toBeNull()
     expect(rowFor(/alpha/).querySelector('.rail-meta')).toBeNull()
+  })
+
+  it('a pane moved to a new window rejoins its workspace when it comes back', () => {
+    seedWorkspaces()
+    useWindowsStore.getState().setInfo('1', false)
+    const moved = {
+      id: 'w-moved',
+      name: 'api',
+      workDir: '/home/api',
+      state: 'idle' as const,
+      unreadAt: 0,
+      panes: [],
+    }
+    useWindowsStore.getState().setList([
+      { windowId: '1', detached: false, workspaces: [] },
+      { windowId: '2', detached: true, workspaces: [moved] },
+    ])
+    render(<DeckRail />)
+
+    expect(screen.getAllByLabelText('In another window')).toHaveLength(1)
+    expect(screen.getByRole('button', { name: /api/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /alpha/ })).toBeInTheDocument()
+
+    act(() =>
+      useWindowsStore.getState().setList([{ windowId: '1', detached: false, workspaces: [] }]),
+    )
+
+    expect(screen.queryByLabelText('In another window')).toBeNull()
+    expect(screen.queryByRole('button', { name: /api/ })).toBeNull()
   })
 
   it('collapses each row to its icon with no close button or details', () => {
@@ -461,6 +510,92 @@ describe('DeckRail', () => {
 
     expect(screen.getByRole('button', { name: /alpha/ }).tagName).toBe('BUTTON')
     expect(screen.getAllByRole('button', { name: 'Close' })).toHaveLength(2)
+  })
+
+  it('the rail edge drags wider, shows more of the folder, survives a restart and resets', () => {
+    const deepDir = '~/alpha-projects/beta-clients/gamma-service/delta-api'
+    useWorkspacesStore.setState({
+      workspaces: [
+        {
+          id: 's1',
+          name: 'deep',
+          kind: 'terminal',
+          workDir: '/home/me/alpha-projects/beta-clients/gamma-service/delta-api',
+          projectDir: deepDir,
+          state: 'idle',
+        },
+      ],
+      activeWorkspaceId: 's1',
+    })
+    vi.stubGlobal('innerWidth', 1280)
+    HTMLElement.prototype.setPointerCapture = () => {}
+    const observed: (() => void)[] = []
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        constructor(cb: () => void) {
+          observed.push(cb)
+        }
+        observe() {}
+        disconnect() {}
+      },
+    )
+    const railWidth = (): number =>
+      Number.parseFloat(document.documentElement.style.getPropertyValue('--rail-w'))
+    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      return this.classList.contains('rail-meta') ? railWidth() - 40 : 0
+    })
+    vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      return this.classList.contains('rail-meta-path') ? (this.textContent?.length ?? 0) * 7 : 0
+    })
+    const relayout = (): void =>
+      act(() => {
+        for (const cb of observed) cb()
+      })
+
+    const first = render(<DeckRail />)
+    relayout()
+    const path = (): HTMLElement => rowFor(/deep/).querySelector('.rail-meta-path') as HTMLElement
+    expect(railWidth()).toBe(240)
+    expect(path()).toHaveTextContent('delta-api')
+    expect(path()).toHaveTextContent('…')
+    const narrowText = path().textContent ?? ''
+
+    expect(dragRailEdge(200)).toBe(false)
+    relayout()
+    expect(railWidth()).toBe(440)
+    expect(resizeHandle()).toHaveAttribute('aria-valuenow', '440')
+    expect(path().textContent).toBe(deepDir)
+    expect(narrowText.length).toBeLessThan(deepDir.length)
+    first.unmount()
+
+    document.documentElement.style.removeProperty('--rail-w')
+    render(<DeckRail />)
+    expect(railWidth()).toBe(440)
+    fireEvent.doubleClick(resizeHandle())
+    expect(railWidth()).toBe(240)
+  })
+
+  it('dragging the rail far left collapses it and hides the handle; toggling restores the width', () => {
+    seedWorkspaces()
+    HTMLElement.prototype.setPointerCapture = () => {}
+    const { container } = render(<DeckRail />)
+    const rail = container.querySelector('.deck-rail') as HTMLElement
+    dragRailEdge(60)
+    expect(resizeHandle()).toHaveAttribute('aria-valuenow', '300')
+
+    dragRailEdge(-260)
+    expect(rail).toHaveClass('collapsed')
+    expect(screen.queryByRole('separator', { name: 'Resize sidebar' })).toBeNull()
+
+    act(() => useUIStore.getState().toggleRail())
+    expect(rail).not.toHaveClass('collapsed')
+    expect(resizeHandle()).toHaveAttribute('aria-valuenow', '300')
+    expect(document.documentElement.style.getPropertyValue('--rail-w')).toBe('300px')
   })
 
   describe('cmux-style rows', () => {

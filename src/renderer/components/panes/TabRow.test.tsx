@@ -1,13 +1,15 @@
 import '@testing-library/jest-dom/vitest'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { registerBuiltinCommands } from '@/commands/builtins'
 import { commands } from '@/commands/registry'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { createPane, resetIds, splitPane, tabsOf } from '@/layout/tree'
 import type { PaneNode, TabsNode } from '@/layout/types'
 import { hiddenTabs, revealScroll } from '@/lib/panes/tabRow'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { Pane } from './Pane'
@@ -16,14 +18,19 @@ const TAB_W = 100
 const ROW_W = 300
 
 let attentionInit: ReturnType<typeof useAttentionStore.getState>
+let layoutInit: ReturnType<typeof useLayoutStore.getState>
 
 beforeAll(() => {
+  registerBuiltinCommands()
   attentionInit = useAttentionStore.getState()
+  layoutInit = useLayoutStore.getState()
 })
 
 afterEach(() => {
   cleanup()
   useAttentionStore.setState(attentionInit, true)
+  useLayoutStore.setState(layoutInit, true)
+  commands.setContextProvider(() => ({ activeWorkspaceId: null, activePaneId: null }))
   resetIds()
   vi.restoreAllMocks()
 })
@@ -171,11 +178,79 @@ describe('TabRow', () => {
     expect(tablist().scrollLeft).toBe(6 * TAB_W + TAB_W - ROW_W)
   })
 
+  it('a row of thirty tabs keeps tab widths in range, scrolls and points at a hidden tab that needs you', async () => {
+    layOut()
+    const exec = vi.spyOn(commands, 'exec').mockResolvedValue({ ok: true, result: undefined })
+    const { panes, root } = stackOf(30, 29)
+    useAttentionStore.setState({
+      byPane: { [panes[0].id]: { state: 'waiting', unread: true, at: 1 } },
+    })
+    renderStack(root)
+    const inView = (el: Element | null) => {
+      const box = el?.getBoundingClientRect()
+      return !!box && box.left >= 0 && box.right <= ROW_W
+    }
+    const tabs = () => tablist().querySelectorAll('.pane-tab')
+    const waiting = tablist().querySelector('.pane-tab[data-attention="waiting"]')
+    expect(tablist().querySelectorAll('.pane-tab[data-attention="waiting"]')).toHaveLength(1)
+    expect(tabs()).toHaveLength(30)
+    expect(inView(tablist().querySelector('.pane-tab.selected'))).toBe(true)
+    expect(inView(waiting)).toBe(false)
+
+    const marker = screen.getByRole('button', { name: 'Hidden tabs that need you: 1' })
+    expect(marker).toHaveAttribute('data-edge', 'start')
+    await userEvent.click(marker)
+    fireEvent.scroll(tablist())
+    expect(inView(waiting)).toBe(true)
+    expect(screen.queryByRole('button', { name: /Hidden tabs that need you/ })).toBeNull()
+
+    await userEvent.click(screen.getByRole('button', { name: /^All tabs/ }))
+    const options = await screen.findAllByRole('option')
+    expect(options).toHaveLength(30)
+    await userEvent.click(options[options.length - 1])
+    await waitFor(() => expect(screen.queryAllByRole('option')).toHaveLength(0))
+    expect(exec).toHaveBeenCalledWith('pane.focus', { paneId: panes[29].id })
+    expect(inView(tabs()[29])).toBe(true)
+    expect(tabs()[29]).toHaveClass('selected')
+  })
+
   it('does not mark an edge for a hidden tab that needs nothing', () => {
     layOut()
     const { root } = stackOf(8)
     renderStack(root)
     expect(screen.queryByRole('button', { name: /Hidden tabs that need you/ })).toBeNull()
+  })
+
+  it('double-clicking the empty part of the tab strip opens a new terminal tab', async () => {
+    const first = createPane('terminal', 'shell')
+    useLayoutStore.setState({
+      byWorkspace: { w: { root: first, activePaneId: first.id, zoomedPaneId: null } },
+    })
+    commands.setContextProvider(() => ({ activeWorkspaceId: 'w', activePaneId: first.id }))
+    const stack = () => {
+      const root = useLayoutStore.getState().byWorkspace.w.root
+      return root.type === 'tabs' ? root.children : [root]
+    }
+    const { rerender } = renderStack(tabsOf(first.id, first))
+
+    await userEvent.dblClick(tablist())
+    await vi.waitFor(() => expect(stack()).toHaveLength(2))
+    expect(stack()[1]).toMatchObject({ type: 'pane', kind: 'terminal' })
+
+    const root = useLayoutStore.getState().byWorkspace.w.root as TabsNode
+    rerender(
+      <TooltipProvider delay={0}>
+        <Pane
+          tabs={root.children}
+          shownId={root.activeId}
+          activePaneId={root.activeId}
+          workspaceId="w"
+        />
+      </TooltipProvider>,
+    )
+    expect(screen.getAllByRole('tab')).toHaveLength(2)
+    await userEvent.dblClick(screen.getAllByRole('tab')[0])
+    expect(stack()).toHaveLength(2)
   })
 
   it('holds tab widths while the pointer is on the row and lets go when it leaves', () => {

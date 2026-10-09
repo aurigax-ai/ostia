@@ -898,8 +898,6 @@
         "e2e/panel-open.spec.ts",
         "e2e/split-tabs.spec.ts",
         "e2e/surface-persistence.spec.ts",
-        "e2e/tab-row.spec.ts",
-        "e2e/tab-strip.spec.ts",
         "e2e/tab-switch.spec.ts"
       ]
     },
@@ -916,7 +914,7 @@
         "src/renderer/lib/workspaces/workspaceSummary.ts",
         "src/renderer/lib/attention/workspaceActivity.ts"
       ],
-      "specs": ["e2e/rail-resize.spec.ts", "e2e/workspace-groups.spec.ts"]
+      "specs": ["e2e/workspace-groups.spec.ts"]
     },
     {
       "name": "appearance",
