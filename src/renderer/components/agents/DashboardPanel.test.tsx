@@ -2,7 +2,7 @@ import { createPane } from '@/layout/tree'
 import { registerTerminal } from '@/lib/terminal/terminalHandles'
 import { useApprovalsStore } from '@/stores/agents/approvalsStore'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
-import { useQuestionsStore } from '@/stores/agents/questionsStore'
+import { SENT_LINGER_MS, useQuestionsStore } from '@/stores/agents/questionsStore'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
@@ -17,6 +17,7 @@ import userEvent from '@testing-library/user-event'
 import type { Terminal } from '@xterm/xterm'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { DashboardPanel } from './DashboardPanel'
+import { QuestionNotice } from './QuestionNotice'
 
 const git: ExtensionInfo = {
   id: 'vcs',
@@ -85,6 +86,7 @@ describe('DashboardPanel', () => {
     cleanup()
     for (const off of offTerminals) off()
     offTerminals = []
+    vi.useRealTimers()
     stores.forEach((store, i) => {
       store.setState(inits[i] as never, true)
     })
@@ -395,5 +397,164 @@ describe('DashboardPanel', () => {
     open()
     await user.click(screen.getByRole('button', { name: 'Close dashboard' }))
     expect(useUIStore.getState().dashboardActive).toBe(false)
+  })
+
+  it('ostia ask with choices waits, shows on the dashboard and prints the choice and comment', async () => {
+    seed()
+    const asked: QuestionRequest = {
+      id: 'q1',
+      paneId: 'p-api',
+      question: 'Which database should the migration target?',
+      context: "Adding the refunds table. Staging has last week's data.",
+      choices: ['staging', 'production'],
+      mode: 'single',
+      at: 10,
+    }
+    useQuestionsStore.getState().apply({ pending: [asked] })
+    render(<DashboardPanel />)
+    open()
+    const user = userEvent.setup()
+    const card = screen.getByRole('article', { name: /^Question from/ })
+    expect(card).toHaveTextContent('api')
+    expect(card).toHaveTextContent('Which database should the migration target?')
+    expect(card).toHaveTextContent("Adding the refunds table. Staging has last week's data.")
+    expect(card).toHaveTextContent('~/work/api')
+    expect(within(card).getAllByRole('radio')[0]).toHaveFocus()
+    expect(within(card).getByRole('button', { name: 'Send' })).toBeDisabled()
+
+    await user.click(within(card).getByRole('radio', { name: 'production' }))
+    await user.type(within(card).getByLabelText('Comment or reply'), 'after the 02:00 backup')
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    await user.click(within(card).getByRole('button', { name: 'Send' }))
+    expect(window.ostia.questions.answer).toHaveBeenCalledWith('q1', {
+      choices: [1],
+      text: 'after the 02:00 backup',
+    })
+
+    act(() => useQuestionsStore.getState().apply({ pending: [] }))
+    expect(screen.getByRole('status')).toHaveTextContent('Sent to the agent')
+    act(() => vi.advanceTimersByTime(SENT_LINGER_MS))
+    vi.useRealTimers()
+    expect(screen.queryByRole('article')).toBeNull()
+    expect(screen.getByRole('region', { name: 'Needs you' })).toHaveTextContent(
+      'Nothing is waiting for you',
+    )
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('region', { name: 'Dashboard' })).toBeNull()
+
+    const deploy: QuestionRequest = {
+      id: 'q2',
+      paneId: 'p-api',
+      question: 'Continue with the deploy?',
+      context: '',
+      choices: [],
+      mode: 'text',
+      at: 20,
+    }
+    act(() => useQuestionsStore.getState().apply({ pending: [deploy] }))
+    render(<QuestionNotice question={deploy} />)
+    const notice = screen.getByRole('region', { name: 'Agent asks' })
+    expect(notice).toHaveTextContent('Continue with the deploy?')
+    await user.click(within(notice).getByRole('button', { name: 'Answer' }))
+    const next = screen.getByRole('article', { name: /^Question from/ })
+    expect(next).toHaveTextContent('Continue with the deploy?')
+    expect(within(next).getByLabelText('Reply')).toHaveFocus()
+    await user.click(within(next).getByRole('button', { name: 'Dismiss' }))
+    expect(window.ostia.questions.dismiss).toHaveBeenCalledWith('q2')
+    act(() => useQuestionsStore.getState().apply({ pending: [] }))
+    expect(screen.queryByRole('article')).toBeNull()
+    await user.click(screen.getByRole('button', { name: 'Close dashboard' }))
+    expect(screen.queryByRole('region', { name: 'Dashboard' })).toBeNull()
+  })
+
+  it('ostia ask takes a free-text reply and several choices with a comment', async () => {
+    seed()
+    const text: QuestionRequest = {
+      id: 'q-text',
+      paneId: 'p-api',
+      question: 'What should the release note say?',
+      context: '',
+      choices: [],
+      mode: 'text',
+      at: 10,
+    }
+    useQuestionsStore.getState().apply({ pending: [text] })
+    render(<DashboardPanel />)
+    open()
+    const user = userEvent.setup()
+    const card = screen.getByRole('article', { name: /^Question from/ })
+    expect(within(card).queryAllByRole('radio')).toHaveLength(0)
+    expect(within(card).queryAllByRole('checkbox')).toHaveLength(0)
+    await user.type(within(card).getByLabelText('Reply'), 'Refunds now settle in one step')
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    await user.keyboard('{Control>}{Enter}{/Control}')
+    expect(window.ostia.questions.answer).toHaveBeenCalledWith('q-text', {
+      choices: [],
+      text: 'Refunds now settle in one step',
+    })
+    act(() => useQuestionsStore.getState().apply({ pending: [] }))
+    act(() => vi.advanceTimersByTime(SENT_LINGER_MS))
+    vi.useRealTimers()
+    expect(screen.queryByRole('article')).toBeNull()
+    await user.keyboard('{Escape}')
+
+    const multi: QuestionRequest = {
+      id: 'q-multi',
+      paneId: 'p-api',
+      question: 'Which checks?',
+      context: '',
+      choices: ['lint', 'unit', 'e2e'],
+      mode: 'multi',
+      at: 20,
+    }
+    act(() => useQuestionsStore.getState().apply({ pending: [multi] }))
+    open()
+    const checks = screen.getByRole('article', { name: /^Question from/ })
+    expect(within(checks).getAllByRole('checkbox')).toHaveLength(3)
+    await user.click(within(checks).getByRole('checkbox', { name: 'lint' }))
+    await user.click(within(checks).getByRole('checkbox', { name: 'e2e' }))
+    await user.type(
+      within(checks).getByLabelText('Comment or reply'),
+      'skip unit, it is red on main',
+    )
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    await user.click(within(checks).getByRole('button', { name: 'Send' }))
+    expect(window.ostia.questions.answer).toHaveBeenLastCalledWith('q-multi', {
+      choices: [0, 2],
+      text: 'skip unit, it is red on main',
+    })
+    act(() => useQuestionsStore.getState().apply({ pending: [] }))
+    act(() => vi.advanceTimersByTime(SENT_LINGER_MS))
+    expect(screen.queryByRole('article')).toBeNull()
+  })
+
+  it('a message sent from the dashboard reaches the agent pane and is submitted', async () => {
+    seed()
+    const term = { paste: vi.fn() }
+    offTerminals.push(registerTerminal('p-api', term as unknown as Terminal))
+    useBlocksStore.setState({
+      running: { 'p-api': 'b1' },
+      agentBlocks: { 'p-api': { blockId: 'b1', agent: 'claude' } },
+    })
+    render(<DashboardPanel />)
+    open()
+    const user = userEvent.setup()
+    expect(
+      within(screen.getByRole('list', { name: 'Agents' })).getAllByRole('button'),
+    ).toHaveLength(1)
+    await user.click(screen.getByRole('button', { name: 'Message an agent' }))
+    const composer = screen.getByRole('region', { name: 'Message an agent' })
+    await user.type(within(composer).getByLabelText('Message'), 'rebase onto main first')
+    await user.click(within(composer).getByRole('button', { name: 'Send' }))
+    expect(composer).toHaveTextContent('Sent to')
+    expect(term.paste).toHaveBeenCalledWith('rebase onto main first')
+    await waitFor(() => expect(window.ostia.pty.write).toHaveBeenCalledWith('p-api', '\r'))
+    expect(term.paste.mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(window.ostia.pty.write).mock.invocationCallOrder[0] as number,
+    )
+
+    await user.click(screen.getByRole('button', { name: 'Open workspace api' }))
+    expect(screen.queryByRole('region', { name: 'Dashboard' })).toBeNull()
+    expect(useWorkspacesStore.getState().activeWorkspaceId).toBe('w-api')
   })
 })
