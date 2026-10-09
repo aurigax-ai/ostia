@@ -4,6 +4,7 @@ import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
+import type { SnapshotPaneNode } from '@shared/types'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/terminal/blockActions', () => ({ runWhenIdle: vi.fn(() => vi.fn()) }))
@@ -11,6 +12,7 @@ vi.mock('@/lib/terminal/blockActions', () => ({ runWhenIdle: vi.fn(() => vi.fn()
 const { runWhenIdle } = await import('@/lib/terminal/blockActions')
 const { keptShellReattached, resumeOnActivation, startAutoResume, workspacesAwaitingResume } =
   await import('./autoResume')
+const { startActivationResume } = await import('./activationResume')
 
 const resume = { agent: 'claude' as const, id: 'abc-1' }
 
@@ -27,6 +29,54 @@ const scheduled = () =>
   vi.mocked(runWhenIdle).mock.calls.map(([paneId, command]) => [paneId, command])
 
 const pending = (id: string) => findPane(useLayoutStore.getState().byWorkspace.w1.root, id)
+
+function savedAgent(id: string, resumeId: string, agentRunning: boolean): SnapshotPaneNode {
+  return {
+    type: 'pane',
+    id,
+    title: 'claude',
+    kind: 'terminal',
+    cwd: '/w',
+    resume: { agent: 'claude', id: resumeId },
+    ...(agentRunning ? { agentRunning: true } : {}),
+  }
+}
+
+function restart(autoResume: boolean, agentRunning = true): void {
+  useSettingsStore.setState((s) => ({ agents: { ...s.agents, autoResume } }))
+  useWorkspacesStore.getState().hydrate({
+    v: 1,
+    savedAt: '',
+    activeWorkspaceId: 's1',
+    groups: [],
+    workspaces: [
+      {
+        id: 's1',
+        name: 'agents',
+        kind: 'terminal',
+        workDir: '/w',
+        root: {
+          type: 'tabs',
+          id: 'tabs-1',
+          activeId: 'pane-1',
+          children: [
+            savedAgent('pane-1', 'front-1111', agentRunning),
+            savedAgent('pane-2', 'back-2222', agentRunning),
+          ],
+        },
+        activePaneId: 'pane-1',
+      },
+      {
+        id: 's2',
+        name: 'elsewhere',
+        kind: 'terminal',
+        workDir: '/w',
+        root: savedAgent('pane-3', 'other-3333', agentRunning),
+        activePaneId: 'pane-3',
+      },
+    ],
+  })
+}
 
 describe('startAutoResume', () => {
   let stop: (() => void) | null = null
@@ -193,6 +243,50 @@ describe('startAutoResume', () => {
     resumeOnActivation(pane.id)
     expect(pending(pane.id)?.hibernated).toBeUndefined()
     expect(scheduled()).toEqual([[pane.id, 'claude --resume abc-1']])
+  })
+
+  it('with auto-resume on, every agent resumes at startup: shown tab, background tab and unopened workspace', () => {
+    restart(true)
+    stop = startAutoResume()
+
+    expect(scheduled()).toEqual([
+      ['pane-1', 'claude --resume front-1111'],
+      ['pane-2', 'claude --resume back-2222'],
+      ['pane-3', 'claude --resume other-3333'],
+    ])
+  })
+
+  it('with auto-resume off, a restored agent waits until the human activates its tab', () => {
+    const listeners = new Map<string, EventListener>()
+    const add = window.addEventListener.bind(window)
+    const spy = vi
+      .spyOn(window, 'addEventListener')
+      .mockImplementation((type, listener, options) => {
+        if (typeof listener === 'function') listeners.set(type, listener)
+        add(type, listener, options)
+      })
+    restart(false)
+    const stopAuto = startAutoResume()
+    const stopActivation = startActivationResume()
+    spy.mockRestore()
+    stop = () => {
+      stopActivation()
+      stopAuto()
+    }
+    expect(runWhenIdle).not.toHaveBeenCalled()
+
+    listeners.get('pointerdown')?.({ type: 'pointerdown', isTrusted: true } as Event)
+    useLayoutStore.getState().focusPane('s1', 'pane-2')
+
+    expect(scheduled()).toEqual([['pane-2', 'claude --resume back-2222']])
+  })
+
+  it('an agent that exited before the quit does not resume after the restart', () => {
+    restart(true, false)
+    stop = startAutoResume()
+
+    expect(runWhenIdle).not.toHaveBeenCalled()
+    expect(workspacesAwaitingResume(useLayoutStore.getState().byWorkspace)).toEqual([])
   })
 
   it('drops the resume when the human runs something in the pane first', () => {

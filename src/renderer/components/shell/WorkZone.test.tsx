@@ -114,6 +114,60 @@ describe('WorkZone', () => {
     expect(showWorkspaces).toHaveBeenCalled()
   })
 
+  it('with auto-resume on, every agent resumes at startup: shown tab, background tab and unopened workspace', () => {
+    const before = useSettingsStore.getState().agents
+    useSettingsStore.setState({ agents: { ...before, autoResume: true } })
+    const agent = (id: string) => ({
+      type: 'pane' as const,
+      id,
+      title: 'claude',
+      kind: 'terminal' as const,
+      resume: { agent: 'claude' as const, id: `resume-${id}` },
+      agentRunning: true as const,
+    })
+    try {
+      useWorkspacesStore.getState().hydrate({
+        v: 1,
+        savedAt: '',
+        activeWorkspaceId: 's1',
+        groups: [],
+        workspaces: [
+          {
+            id: 's1',
+            name: 'agents',
+            kind: 'terminal',
+            workDir: '/w',
+            root: {
+              type: 'tabs',
+              id: 'tabs-1',
+              activeId: 'pane-1',
+              children: [agent('pane-1'), agent('pane-2')],
+            },
+            activePaneId: 'pane-1',
+          },
+          {
+            id: 's2',
+            name: 'elsewhere',
+            kind: 'terminal',
+            workDir: '/w',
+            root: agent('pane-3'),
+            activePaneId: 'pane-3',
+          },
+        ],
+      })
+      renderZone()
+
+      for (const id of ['pane-1', 'pane-2', 'pane-3']) {
+        expect(screen.getByTestId(`terminal-${id}`)).toBeInTheDocument()
+      }
+      expect(screen.getAllByRole('tab', { selected: true })).toHaveLength(1)
+    } finally {
+      act(() => {
+        useSettingsStore.setState({ agents: before })
+      })
+    }
+  })
+
   it('returns to the empty state when the last workspace closes', () => {
     useWorkspacesStore.getState().addWorkspace()
     renderZone()

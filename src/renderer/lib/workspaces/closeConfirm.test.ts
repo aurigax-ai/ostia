@@ -199,6 +199,15 @@ describe('what a quit loses', () => {
       expect(quitGroups()).toEqual([])
     })
 
+    it('quitting with an agent idle at its prompt and auto-resume on asks nothing', async () => {
+      idleAgent()
+      vi.mocked(window.ostia.pty.activity).mockResolvedValueOnce({
+        program: 'claude',
+        agentRunning: true,
+      })
+      expect(await collectQuitGroups(new Set())).toEqual([])
+    })
+
     it('still asks when session restore is off, since nothing brings the pane back', () => {
       idleAgent()
       useSettingsStore.getState().setBehavior({ restoreWorkspace: false })
