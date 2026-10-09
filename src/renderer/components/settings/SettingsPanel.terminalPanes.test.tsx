@@ -5,6 +5,7 @@ import { HOVER_FOCUS_DELAY_MS } from '@/lib/terminal/hoverFocus'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { startSnapshotAutosave } from '@/stores/workspaces/persistence'
 import { KEEP_SHELLS_FEATURE } from '@shared/terminal/keepShells'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -75,6 +76,18 @@ describe('SettingsPanel terminal and pane rows', () => {
     const user = await openSection('Terminal')
     await user.click(screen.getByRole('switch', { name: 'Confirm multi-line paste' }))
     expect(useSettingsStore.getState().terminal.warnOnRiskyPaste).toBe(false)
+  })
+
+  it('erases stored history when workspace restore is switched off', async () => {
+    const stop = startSnapshotAutosave()
+    try {
+      const user = await openSection('Terminal')
+      vi.mocked(window.ostia.workspace.save).mockClear()
+      await user.click(screen.getByRole('switch', { name: 'Restore workspace on launch' }))
+      await waitFor(() => expect(window.ostia.workspace.save).toHaveBeenCalledWith(null))
+    } finally {
+      stop()
+    }
   })
 
   it('lists the Panes page with its four switches and their defaults', async () => {
