@@ -15,6 +15,9 @@ import { join } from 'node:path'
 import { build } from 'esbuild'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { DEFAULT_SANDBOX_GLOBALS } from '../../shared/sandbox/sandbox'
+import { quoteArgv } from '../../shared/terminal/shellQuote'
+import { shellArgv } from '../../shared/terminal/terminalShell'
+import { sandboxedShellCommand, wrapForTerminal } from './ptyWrap'
 import { sandboxFailureBanner } from './spawnBanner'
 import { sandboxSpawnEnv } from './spawnEnv'
 import { SandboxStore } from './store'
@@ -165,6 +168,22 @@ describe('WorkspaceSandboxes', () => {
     )
     managerA.stopAll()
     managerB.stopAll()
+  }, 30_000)
+
+  it('a sandboxed workspace wraps the shell chosen in terminal.shell', async () => {
+    const store = new SandboxStore(join(root, 'shell.json'))
+    store.set('ws', { enabled: true, allowRead: [], domains: [], controls: {} })
+    const manager = sandboxes(store)
+    const shell = quoteArgv(shellArgv('/bin/sh -i', '/bin/false'))
+    const wrapped = await manager.wrap('ws', sandboxedShellCommand(shell, undefined, null), 'bash')
+    const out = execFileSync('/bin/sh', ['-c', wrapForTerminal(wrapped, null)], {
+      cwd: workDir,
+      encoding: 'utf8',
+      stdio: 'pipe',
+      input: 'echo "sandbox=${HTTPS_PROXY:+on} flags=$-"\nexit\n',
+    })
+    expect(out).toMatch(/sandbox=on flags=\S*i/)
+    manager.stopAll()
   }, 30_000)
 
   it('SBX-C56 keeps an inherited ssh-agent socket out of reach and out of the environment', async () => {

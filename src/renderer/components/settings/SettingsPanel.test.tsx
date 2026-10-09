@@ -698,6 +698,19 @@ describe('SettingsPanel', () => {
     expect(useSettingsStore.getState().notifications.command).toBe('say {title}')
   })
 
+  it('clears the show or hide hotkey from the Workspaces page', async () => {
+    useSettingsStore.getState().setWorkspaces({ globalHotkey: 'Ctrl+Alt+F9' })
+    await renderSettings()
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole('button', { name: 'Workspaces' }))
+    fireEvent.change(screen.getByRole('textbox', { name: 'Show or hide hotkey' }), {
+      target: { value: '' },
+    })
+
+    expect(useSettingsStore.getState().workspaces.globalHotkey).toBe('')
+  })
+
   it('exposes accessible names on its controls (a11y)', async () => {
     await renderSettings()
     const user = userEvent.setup()

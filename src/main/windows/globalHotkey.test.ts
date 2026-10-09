@@ -49,6 +49,17 @@ describe('GlobalHotkey', () => {
     expect(hotkey.apply('Ctrl+Alt+T')).toBe('taken')
     expect(reg.register).toHaveBeenCalledTimes(1)
   })
+
+  it('workspaces.globalHotkey registers a system-wide shortcut and drops it when cleared', () => {
+    const reg = registry()
+    const hotkey = new GlobalHotkey(reg, () => undefined)
+    expect(hotkey.apply('Ctrl+Alt+F9')).toBe('registered')
+    expect(reg.register).toHaveBeenCalledWith('Ctrl+Alt+F9', expect.any(Function))
+    expect([...reg.live.keys()]).toEqual(['Ctrl+Alt+F9'])
+    expect(hotkey.apply('')).toBe('off')
+    expect(reg.unregister).toHaveBeenCalledWith('Ctrl+Alt+F9')
+    expect(reg.live.size).toBe(0)
+  })
 })
 
 describe('shouldHideWindows', () => {
