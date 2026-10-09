@@ -205,7 +205,7 @@
     {
       "name": "trellis and keeper",
       "paths": ["src/extensions/trellis/", "src/extensions/keeper/", "test/fixtures/tools/"],
-      "specs": ["e2e/tools.spec.ts", "e2e/trellis.spec.ts", "e2e/trellis-agents.spec.ts"]
+      "specs": ["e2e/trellis-agents.spec.ts"]
     },
     {
       "name": "extensions",
@@ -252,8 +252,7 @@
       "specs": [
         "e2e/extension-locales.spec.ts",
         "e2e/extension-on-demand.spec.ts",
-        "e2e/extensions-v2.spec.ts",
-        "e2e/tools.spec.ts"
+        "e2e/extensions-v2.spec.ts"
       ]
     },
     {
@@ -982,7 +981,7 @@
         "src/renderer/lib/palette/paletteFocus.ts",
         "src/renderer/lib/palette/paletteModes."
       ],
-      "specs": ["e2e/command-palette-layout.spec.ts", "e2e/palette-focus.spec.ts"]
+      "specs": ["e2e/palette-focus.spec.ts"]
     },
     {
       "name": "crash recovery",
