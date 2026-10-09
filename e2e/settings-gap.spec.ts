@@ -8,7 +8,7 @@ import {
   seedSettings,
   testHome,
 } from './dataHome'
-import { openWorkspace, runInTerminal } from './helpers'
+import { PROMPT, openWorkspace, runInTerminal } from './helpers'
 import { _electron as electron, expect, test } from './test'
 
 async function launch(settings: object, inProjectFolder = false) {
@@ -90,6 +90,12 @@ test(
       const panes = win.locator('.pane')
       await expect(panes).toHaveCount(1)
       const first = await panes.first().getAttribute('data-pane-id')
+      const leftRows = win.locator(`.pane[data-pane-id="${first}"] .xterm-rows`)
+      const leftWidth = () =>
+        win
+          .locator(`.pane[data-pane-id="${first}"] .xterm-screen`)
+          .evaluate((screen) => screen.getBoundingClientRect().width)
+      const unsplit = await leftWidth()
 
       await win.keyboard.press(chords.splitRight)
       await expect(panes).toHaveCount(2)
@@ -100,10 +106,10 @@ test(
       await win.keyboard.press(chords.focusLeft)
       await expect(active).toHaveAttribute('data-pane-id', first ?? '')
       await expect(active.locator('.xterm-helper-textarea')).toBeFocused()
+      await expect.poll(leftWidth).toBeLessThan(unsplit)
+      await expect(leftRows).toContainText(PROMPT)
       await win.keyboard.type('echo typed-in-left')
-      await expect(win.locator(`.pane[data-pane-id="${first}"] .xterm-rows`)).toContainText(
-        'echo typed-in-left',
-      )
+      await expect(leftRows).toContainText('echo typed-in-left')
 
       await win.keyboard.press(chords.focusRight)
       await expect(active).toHaveAttribute('data-pane-id', second ?? '')
