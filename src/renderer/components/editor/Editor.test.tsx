@@ -489,6 +489,26 @@ describe('EditorView', () => {
     }
   })
 
+  it('a Markdown file can be previewed and switched back to its source', async () => {
+    vi.mocked(window.ostia.fs.read).mockResolvedValue({
+      ok: true,
+      version: 'v1',
+      text: '# Databases\n\n| Field | Value |\n|---|---|\n| Port | 5433 |\n',
+    })
+    const { container } = render(
+      <EditorView workspaceId="w1" paneId="p1" filePath="/w/DATABASE.md" />,
+    )
+    await waitFor(() => expect(fake.state.model).not.toBeNull())
+
+    await userEvent.click(screen.getByRole('button', { name: 'Preview Markdown' }))
+    expect(await screen.findByRole('heading', { name: 'Databases' })).toBeInTheDocument()
+    expect(screen.getByRole('cell', { name: '5433' })).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Edit Markdown source' }))
+    expect(container.querySelector('.markdown-preview')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Preview Markdown' })).toBeInTheDocument()
+  })
+
   it('keeps the file dirty and shows an error when the write fails', async () => {
     vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, version: 'v1', text: 'text' })
     vi.mocked(window.ostia.fs.write).mockResolvedValue(false)
