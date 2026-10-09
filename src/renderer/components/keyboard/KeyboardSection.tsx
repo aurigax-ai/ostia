@@ -10,6 +10,12 @@ import { fmt, useDict } from '@/i18n/useDict'
 import { currentDesktops } from '@/lib/app/desktop'
 import { BASE_LANGUAGE } from '@/lib/extensions/languagePacks'
 import {
+  SEND_ACTION_KEYS,
+  type SendActionKey,
+  actionSend,
+  sendActionKey,
+} from '@/lib/keys/actionSends'
+import {
   WORKSPACE_GOTO,
   baseChords,
   bindableIds,
@@ -46,12 +52,6 @@ import {
   withChordRemoved,
   withChordReplaced,
 } from '@/lib/keys/keySources'
-import {
-  SEND_ACTION_KEYS,
-  type SendActionKey,
-  actionSend,
-  sendActionKey,
-} from '@/lib/keys/presetDiff'
 import { isMac, platform } from '@/platform'
 import { appKeymap, keymapChoices, useKeymapStore } from '@/stores/app/keymapStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
