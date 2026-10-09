@@ -1,9 +1,8 @@
-import { cpSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { cpSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { PRODUCT_NAME } from '../src/shared/product'
-import { installFakeLanguageExtension } from '../test/fixtures/lsp/installFakeExtension'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
-import { PROMPT, hoverInEditor, openWorkspace } from './helpers'
+import { hoverInEditor, openWorkspace } from './helpers'
 import {
   type ElectronApplication,
   type Locator,
@@ -19,7 +18,6 @@ interface Launched {
   app: ElectronApplication
   win: Page
   project: string
-  settingsFile: string
 }
 
 async function launch(
@@ -32,7 +30,6 @@ async function launch(
   const project = join(home, 'project')
   mkdirSync(project, { recursive: true })
   for (const [name, text] of Object.entries(files)) writeFileSync(join(project, name), text)
-  const settingsFile = join(dataHome, 'userData', 'settings.json')
   seedSettings(dataHome, {
     ...DOM_RENDERER_SETTINGS,
     workspaces: { ...DOM_RENDERER_SETTINGS.workspaces, defaultFolder: project },
@@ -43,7 +40,7 @@ async function launch(
   const app = await electron.launch({ ...options, env: { ...options.env, HOME: home } })
   const win = await app.firstWindow()
   await win.waitForLoadState('domcontentloaded')
-  return { app, win, project, settingsFile }
+  return { app, win, project }
 }
 
 function fromMarketplace(id: string): (extensionsDir: string) => void {
@@ -162,62 +159,6 @@ test('the TypeScript extension’s bundled server checks a .ts file; without it 
   }
 })
 
-test('the TypeScript server folds an import block, counts references above a function and finds a symbol in the workspace', async () => {
-  test.setTimeout(120_000)
-  const { app, win } = await launch(
-    {
-      'tsconfig.json': '{ "compilerOptions": { "strict": true } }\n',
-      'main.ts': [
-        "import { one } from './lib'",
-        "import { two } from './lib'",
-        "import { three } from './lib'",
-        'export function greetEveryone(name: string): string {',
-        '  return `hi ${name} ${one}${two}${three}`',
-        '}',
-        "export const greeting = greetEveryone('a')",
-        '',
-      ].join('\n'),
-      'lib.ts': 'export const one = 1\nexport const two = 2\nexport const three = 3\n',
-    },
-    fromMarketplace('lsp-typescript'),
-    { extensionSettings: { 'lsp-typescript': { referencesCodeLens: true } } },
-  )
-  try {
-    await approve(win, 'TypeScript and JavaScript', 'server/typescript-language-server/lib/cli.mjs')
-    await openWorkspace(win)
-    const editor = await openFile(win, 'main.ts')
-    const lines = editor.locator('.view-lines')
-
-    const lens = editor.locator('.codelens-decoration')
-    await expect(lens.filter({ hasText: '1 reference' }).first()).toBeVisible({ timeout: 60_000 })
-    await expect(lens.locator('a')).toHaveCount(0)
-
-    await expect(lines).toContainText('two')
-    await expect(async () => {
-      await editor
-        .locator('.view-line')
-        .filter({ hasText: 'one' })
-        .first()
-        .click({ position: { x: 30, y: 8 } })
-      await win.keyboard.press('Control+Shift+BracketLeft')
-      await expect(lines).not.toContainText('three }', { timeout: 2_000 })
-    }).toPass({ timeout: 30_000 })
-    await expect(lines).toContainText('greetEveryone')
-    await win.keyboard.press('Control+Shift+BracketRight')
-    await expect(lines).toContainText('three }', { timeout: 10_000 })
-
-    await win.keyboard.press('Control+Shift+P')
-    const palette = win.getByRole('dialog').filter({ has: win.getByRole('combobox') })
-    await palette.getByRole('combobox').fill('%greetEvery')
-    const symbol = palette.getByRole('option', { name: /greetEveryone/ }).first()
-    await expect(symbol).toContainText('main.ts:4', { timeout: 30_000 })
-    await symbol.click()
-    await expect(palette).toBeHidden()
-  } finally {
-    await app.close()
-  }
-})
-
 test('the Pyright extension’s bundled server checks a .py file', async () => {
   test.setTimeout(120_000)
   const { app, win } = await launch(
@@ -259,38 +200,6 @@ test('the Pyright extension’s bundled server checks a .py file', async () => {
 
     const row = await serverRow(win, 'Pyright')
     await expect(row.getByTestId('language-server-status')).toHaveText('Running (1 folder)')
-  } finally {
-    await app.close()
-  }
-})
-
-test('a server that claims JSON replaces Monaco’s JSON features, except in the settings file', async () => {
-  const { app, win, settingsFile } = await launch(
-    { 'data.json': '{ "a": ERROR }\n' },
-    (extensionsDir) => installFakeLanguageExtension(extensionsDir, 'fake-json'),
-    { locale: 5, noteERROR: true },
-  )
-  try {
-    await approve(win, 'Fake JSON', 'server/fake-server.cjs')
-    await openWorkspace(win)
-    const data = await openFile(win, 'data.json')
-    await expect(data.locator('.squiggly-error')).toHaveCount(1, { timeout: 20_000 })
-    const fromServer = await hoverOn(win, data.locator('.squiggly-error').first())
-    await expect(fromServer).toContainText('fake error on line 1')
-    await win.keyboard.press('Escape')
-
-    expect(JSON.parse(readFileSync(settingsFile, 'utf8')).locale).toBe(5)
-    await expect(win.locator('.xterm-rows').first()).toContainText(PROMPT, { timeout: 15_000 })
-    await win.locator('.pane-tab').filter({ hasNotText: 'data.json' }).first().click()
-    await win.locator('.xterm:visible').first().click()
-    await win.keyboard.type(`ostia open ${settingsFile}`)
-    await win.keyboard.press('Enter')
-    const settings = win.locator('.monaco-editor:visible').first()
-    await expect(settings.locator('.view-lines')).toContainText('noteERROR', { timeout: 15_000 })
-    await expect(settings.locator('.squiggly-warning').first()).toBeVisible({ timeout: 20_000 })
-    await expect(settings.locator('.squiggly-error')).toHaveCount(0)
-    const fromSchema = await hoverOn(win, settings.locator('.squiggly-warning').first())
-    await expect(fromSchema).toContainText(/Incorrect type|not allowed/)
   } finally {
     await app.close()
   }

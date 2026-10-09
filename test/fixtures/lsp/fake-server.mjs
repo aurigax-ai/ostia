@@ -250,7 +250,15 @@ function symbolLines(text) {
 function foldingRanges(text) {
   const ranges = []
   const open = []
+  let imports = null
   text.split('\n').forEach((line, index) => {
+    if (line.startsWith('import ')) imports ??= index
+    else {
+      if (imports !== null && index - 1 > imports) {
+        ranges.push({ startLine: imports, endLine: index - 1, kind: 'imports' })
+      }
+      imports = null
+    }
     if (line.includes('BEGIN')) open.push(index)
     if (line.includes('END') && open.length > 0) {
       ranges.push({ startLine: open.pop(), endLine: index, kind: 'region' })

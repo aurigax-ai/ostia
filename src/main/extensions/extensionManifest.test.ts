@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { MAX_AGENT_HOOKS, MAX_AGENT_SKILLS, MAX_AGENT_SKILL_FILES } from '../../shared/agentPlugins'
 import { EXTENSION_API_VERSION } from '../../shared/extensionApi'
+import { overlaySettings } from '../../shared/languageServers'
 import { discoverExtensions, parseManifest, readManifest } from './extensionManifest'
 
 const DIR = '/ext/demo'
@@ -380,6 +381,19 @@ describe('parseManifest', () => {
       const res = parseManifest(raw, dir)
       expect(res.ok ? null : res.error, id).toBeNull()
     }
+  })
+
+  it('turns on the TypeScript server’s reference counts when the human turns on Reference counts', () => {
+    const dir = join(__dirname, '..', '..', 'extensions', 'lsp-typescript')
+    const res = parseManifest(JSON.parse(readFileSync(join(dir, 'ostia.json'), 'utf8')), dir)
+    if (!res.ok) throw new Error(res.error)
+    const server = res.manifest.contributes.languageServers?.[0]
+    if (!server) throw new Error('lsp-typescript has no language server')
+    expect(
+      overlaySettings(server.settings ?? {}, server.settingPaths ?? {}, {
+        referencesCodeLens: true,
+      }),
+    ).toMatchObject({ typescript: { referencesCodeLens: { enabled: true } } })
   })
 
   it('rejects a setting whose default does not match its type', () => {
