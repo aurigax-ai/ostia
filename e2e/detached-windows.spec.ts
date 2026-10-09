@@ -178,10 +178,17 @@ test('a detached workspace keeps its running command and comes back when its win
 test('a detached window reopens where it was after a restart, idle', async () => {
   test.setTimeout(90_000)
   const marker = `ostia_detached_${Date.now()}`
-  const bounds = { x: 220, y: 120, width: 820, height: 520 }
   const first = await launchApp(dataHome)
   let project = ''
+  let bounds = { x: 0, y: 0, width: 0, height: 0 }
   try {
+    const area = await first.app.evaluate(({ screen }) => screen.getPrimaryDisplay().workArea)
+    bounds = {
+      x: area.x + 40,
+      y: area.y + 40,
+      width: Math.min(820, area.width - 80),
+      height: Math.min(520, area.height - 80),
+    }
     await openWorkspace(first.win)
     project = (await first.win.locator('.rail-row .tab-title').first().innerText()).trim()
     await typeInTerminal(first.win, `echo ${marker}`)
