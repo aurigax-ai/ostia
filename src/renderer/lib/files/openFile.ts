@@ -6,21 +6,23 @@ import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type { FileTarget, OpenPlacement, OpenedPane } from '@shared/files/openFiles'
 
-export function openFileInWorkspace(path: string): void {
+function activeOrNewWorkspaceId(): string | null {
   if (!useWorkspacesStore.getState().activeWorkspaceId) startNewWorkspace()
-  const workspaceId = useWorkspacesStore.getState().activeWorkspaceId
+  return useWorkspacesStore.getState().activeWorkspaceId
+}
+
+export function openFileInWorkspace(path: string): void {
+  const workspaceId = activeOrNewWorkspaceId()
   if (workspaceId) useLayoutStore.getState().openFile(workspaceId, path)
 }
 
 export function openFileBeside(path: string): void {
-  if (!useWorkspacesStore.getState().activeWorkspaceId) startNewWorkspace()
-  const workspaceId = useWorkspacesStore.getState().activeWorkspaceId
+  const workspaceId = activeOrNewWorkspaceId()
   if (workspaceId) useLayoutStore.getState().openFileBeside(workspaceId, path)
 }
 
 export function openTerminalIn(dir: string): void {
-  if (!useWorkspacesStore.getState().activeWorkspaceId) startNewWorkspace()
-  const workspaceId = useWorkspacesStore.getState().activeWorkspaceId
+  const workspaceId = activeOrNewWorkspaceId()
   if (workspaceId) useLayoutStore.getState().openTerminalTab(workspaceId, dir)
 }
 

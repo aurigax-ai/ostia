@@ -29,7 +29,7 @@ import type {
 import { type WorkspaceGroupColor, normalizeGroupName } from '@shared/workspaces/workspaceGroups'
 import { normalizeDescription } from '@shared/workspaces/workspaceText'
 import { create } from 'zustand'
-import { useLayoutStore } from './layoutStore'
+import { setWorkspaceLookup, useLayoutStore } from './layoutStore'
 
 export type { WorkspaceGroup }
 
@@ -438,3 +438,7 @@ export const useWorkspacesStore = create<WorkspacesState>((set, get) => ({
     })
   },
 }))
+
+setWorkspaceLookup((workspaceId) =>
+  useWorkspacesStore.getState().workspaces.find((w) => w.id === workspaceId),
+)

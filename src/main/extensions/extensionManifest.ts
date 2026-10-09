@@ -1,5 +1,5 @@
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
-import { isAbsolute, join, relative, resolve } from 'node:path'
+import { join } from 'node:path'
 import {
   AGENT_PLUGIN_CAPABILITY,
   AGENT_SKILL_ENTRY,
@@ -49,6 +49,7 @@ import {
 import { LANGUAGE_ID_PATTERN, type LanguageContribution } from '../../shared/languagePack'
 import { parseLanguageServers } from '../../shared/languageServers'
 import { type Workflow, parseWorkflow } from '../../shared/workflows'
+import { isInsideDir } from '../platform/pathGuard'
 
 export const EXTENSION_ID_PATTERN = /^[a-z][a-z0-9-]{1,39}$/
 export const COMMAND_ID_PATTERN = /^[a-z][a-z0-9-]{0,39}$/
@@ -87,11 +88,6 @@ function isRecord(v: unknown): v is Record<string, unknown> {
 
 function text(v: unknown, max = MAX_TEXT): string | null {
   return typeof v === 'string' && v.trim() && v.length <= max ? v : null
-}
-
-export function isInsideDir(dir: string, path: string): boolean {
-  const rel = relative(resolve(dir), resolve(dir, path))
-  return rel !== '' && !rel.startsWith('..') && !isAbsolute(rel)
 }
 
 function capabilities(v: unknown, where: string): Capability[] | string {

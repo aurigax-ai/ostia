@@ -4,13 +4,7 @@ import {
   OSTIA_TERMINAL_KEYS,
 } from '@shared/keyboard/keyboardPresets'
 import { describe, expect, it } from 'vitest'
-import {
-  SEND_ACTION_KEYS,
-  actionSend,
-  appKeyChanges,
-  sendActionKey,
-  terminalKeyChanges,
-} from './presetDiff'
+import { appKeyChanges, terminalKeyChanges } from './presetDiff'
 
 describe('terminalKeyChanges', () => {
   it('lists keys that differ between two presets on macOS', () => {
@@ -61,18 +55,5 @@ describe('appKeyChanges', () => {
   it('reports nothing when both sides bind the same chords', () => {
     const same = { 'tab.new': 'Ctrl+Shift+Y' }
     expect(appKeyChanges(same, same, false)).toEqual([])
-  })
-})
-
-describe('sendActionKey', () => {
-  it('names the common line editing sends and leaves others unnamed', () => {
-    expect(sendActionKey({ type: 'hex', value: '0x01' })).toBe('lineStart')
-    expect(sendActionKey({ type: 'escape', value: 'd' })).toBe('deleteWordForward')
-    expect(sendActionKey({ type: 'text', value: 'clear\n' })).toBeNull()
-  })
-
-  it('reads every action’s own send back as that action, and Ctrl+W as delete previous word', () => {
-    for (const key of SEND_ACTION_KEYS) expect(sendActionKey(actionSend(key))).toBe(key)
-    expect(sendActionKey({ type: 'hex', value: '0x17' })).toBe('deleteWordBack')
   })
 })

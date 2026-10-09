@@ -1,3 +1,5 @@
+import { readPref, writePref } from './localPrefs'
+
 export const EXTENSIONS_NAV_EXPANDED_KEY = 'settingsNav.extensionsExpanded'
 export const SANDBOX_NAV_EXPANDED_KEY = 'settingsNav.sandboxExpanded'
 export const EXTENSIONS_SECTION = 'extensions'
@@ -24,15 +26,9 @@ export function extensionAnchorId(extId: string): string {
 }
 
 export function navExpanded(key: string): boolean {
-  try {
-    return window.localStorage.getItem(key) === 'true'
-  } catch {
-    return false
-  }
+  return readPref(key) === true
 }
 
 export function rememberNavExpanded(key: string, expanded: boolean): void {
-  try {
-    window.localStorage.setItem(key, String(expanded))
-  } catch {}
+  writePref(key, expanded)
 }

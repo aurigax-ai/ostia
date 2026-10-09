@@ -2,7 +2,7 @@ import { Hint } from '@/components/common/Hint'
 import { SplitButton } from '@/components/common/SplitButton'
 import { Button } from '@/components/ui/button'
 import { fmt, useDict } from '@/i18n/useDict'
-import { replaceLabel } from '@/lib/app/replaceText'
+import { replaceLabel } from '@/lib/app/updateProgressLabel'
 import { restartReady, showsUpdate, updateAction, useUpdateStore } from '@/stores/app/updateStore'
 import {
   ArrowClockwiseIcon,

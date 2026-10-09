@@ -1,4 +1,5 @@
 import { type PanelFraction, clampFraction } from '@/layout/panelSize'
+import { readPref, writePref } from '@/lib/app/localPrefs'
 
 export const PANEL_SIZES_KEY = 'panelSizes'
 export const PANEL_SIZES_WRITE_DELAY_MS = 300
@@ -7,18 +8,14 @@ const pending = new Map<string, number>()
 let writeTimer: ReturnType<typeof setTimeout> | null = null
 
 function readStored(): Record<string, number> {
-  try {
-    const parsed: unknown = JSON.parse(window.localStorage.getItem(PANEL_SIZES_KEY) ?? '{}')
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {}
-    const stored: Record<string, number> = {}
-    for (const [key, value] of Object.entries(parsed)) {
-      const fraction = typeof value === 'number' ? clampFraction(value) : null
-      if (fraction !== null) stored[key] = fraction
-    }
-    return stored
-  } catch {
-    return {}
+  const parsed = readPref(PANEL_SIZES_KEY)
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {}
+  const stored: Record<string, number> = {}
+  for (const [key, value] of Object.entries(parsed)) {
+    const fraction = typeof value === 'number' ? clampFraction(value) : null
+    if (fraction !== null) stored[key] = fraction
   }
+  return stored
 }
 
 function writePending(): void {
@@ -26,9 +23,7 @@ function writePending(): void {
   if (pending.size === 0) return
   const stored = { ...readStored(), ...Object.fromEntries(pending) }
   pending.clear()
-  try {
-    window.localStorage.setItem(PANEL_SIZES_KEY, JSON.stringify(stored))
-  } catch {}
+  writePref(PANEL_SIZES_KEY, stored)
 }
 
 export function rememberedPanelFraction(key: string): number | null {

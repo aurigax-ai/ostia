@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { homedir, tmpdir } from 'node:os'
 import { join, sep } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
-import { expandHome, isPathAllowed, resolveSafe } from './pathGuard'
+import { expandHome, isInsideDir, isPathAllowed, resolveSafe } from './pathGuard'
 
 const root = mkdtempSync(join(tmpdir(), 'ostia-guard-'))
 
@@ -99,5 +99,15 @@ describe('resolveSafe — trailing slashes', () => {
   it('handles a trailing slash on the input path', () => {
     const target = join(root, 'sub')
     expect(resolveSafe(`${target}${sep}`, [root])).toBe(target)
+  })
+})
+
+describe('isInsideDir', () => {
+  it('is true only for paths strictly below the directory', () => {
+    expect(isInsideDir('/a/b', 'c.html')).toBe(true)
+    expect(isInsideDir('/a/b', '/a/b/c/d.html')).toBe(true)
+    expect(isInsideDir('/a/b', '/a/b')).toBe(false)
+    expect(isInsideDir('/a/b', '/a/bc/d.html')).toBe(false)
+    expect(isInsideDir('/a/b', '../b2/x')).toBe(false)
   })
 })

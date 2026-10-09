@@ -1,5 +1,5 @@
 import { homedir } from 'node:os'
-import { join, resolve, sep } from 'node:path'
+import { isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { isRemotePath } from '../../shared/remoteFolders'
 
 export function expandHome(p: string, home = homedir()): string {
@@ -26,4 +26,9 @@ export function resolveSafe(inputPath: string, roots: string[]): string | null {
 
 export function isPathAllowed(inputPath: string, roots: string[]): boolean {
   return resolveSafe(inputPath, roots) !== null
+}
+
+export function isInsideDir(dir: string, path: string): boolean {
+  const rel = relative(resolve(dir), resolve(dir, path))
+  return rel !== '' && !rel.startsWith('..') && !isAbsolute(rel)
 }

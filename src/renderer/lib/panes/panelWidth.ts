@@ -1,3 +1,5 @@
+import { readPref, writePref } from '@/lib/app/localPrefs'
+
 export interface PanelWidthSpec {
   storageKey: string
   cssVar: string
@@ -81,23 +83,17 @@ export function panelKeyWidth(
 }
 
 export function storedPanelWidth(spec: PanelWidthSpec): number {
-  try {
-    const value: unknown = JSON.parse(window.localStorage.getItem(spec.storageKey) ?? 'null')
-    const inRange =
-      typeof value === 'number' &&
-      Number.isFinite(value) &&
-      value >= spec.minWidth &&
-      value <= spec.maxWidth
-    return inRange ? Math.round(value) : spec.defaultWidth
-  } catch {
-    return spec.defaultWidth
-  }
+  const value = readPref(spec.storageKey)
+  const inRange =
+    typeof value === 'number' &&
+    Number.isFinite(value) &&
+    value >= spec.minWidth &&
+    value <= spec.maxWidth
+  return inRange ? Math.round(value) : spec.defaultWidth
 }
 
 export function storePanelWidth(spec: PanelWidthSpec, width: number): void {
-  try {
-    window.localStorage.setItem(spec.storageKey, JSON.stringify(Math.round(width)))
-  } catch {}
+  writePref(spec.storageKey, Math.round(width))
 }
 
 export function applyPanelWidth(spec: PanelWidthSpec, width: number): void {

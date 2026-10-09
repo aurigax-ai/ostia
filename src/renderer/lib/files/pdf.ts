@@ -7,10 +7,15 @@ export type PdfPage = import('pdfjs-dist').PDFPageProxy
 let loading: Promise<Pdfjs> | null = null
 
 export function loadPdfjs(): Promise<Pdfjs> {
-  loading ??= import('pdfjs-dist/legacy/build/pdf.mjs').then((pdfjs) => {
-    pdfjs.GlobalWorkerOptions.workerSrc = workerUrl
-    return pdfjs
-  })
+  loading ??= import('pdfjs-dist/legacy/build/pdf.mjs')
+    .then((pdfjs) => {
+      pdfjs.GlobalWorkerOptions.workerSrc = workerUrl
+      return pdfjs
+    })
+    .catch((err: unknown) => {
+      loading = null
+      throw err
+    })
   return loading
 }
 

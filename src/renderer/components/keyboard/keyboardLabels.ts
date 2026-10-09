@@ -1,5 +1,5 @@
 import { commandWording, commands } from '@/commands/registry'
-import { sendActionKey } from '@/lib/keys/presetDiff'
+import { sendActionKey } from '@/lib/keys/actionSends'
 import type { Dict } from '@shared/app/dict'
 import { type ChordProblem, chordText, parseChord } from '@shared/keyboard/chordSpec'
 import type { TerminalSend } from '@shared/keyboard/terminalKeys'

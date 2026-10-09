@@ -5,8 +5,8 @@ import { DISCRETE_GPU_FEATURE } from '../../shared/app/discreteGpu'
 import type { InstallHint, MissingRequirement } from '../../shared/app/systemRequirements'
 import { MARKETPLACE_FEATURE } from '../../shared/extensions/marketplace'
 import { KEEP_SHELLS_FEATURE, TMUX_MIN_VERSION } from '../../shared/terminal/keepShells'
-import { needsPtyRelay } from '../sandbox/ptyWrap'
 import { findOnPath } from './pathLookup'
+import { needsPtyRelay } from './ptyRelay'
 
 export interface Requirement {
   program: string

@@ -157,12 +157,12 @@ import {
 } from '../files/remoteFolders'
 import type { EditorLanguageSource } from '../lsp/editorLanguages'
 import type { LanguageServerSource } from '../lsp/languageServers'
+import { isInsideDir } from '../platform/pathGuard'
 import { loadLocaleCatalogs, manifestIn } from './extensionLocales'
 import {
   type DiscoveredExtension,
   type ExtensionRoot,
   discoverExtensions,
-  isInsideDir,
   parseCommand,
 } from './extensionManifest'
 import { type ExtensionStore, effectiveRecord, grantedCaps, needsApproval } from './extensionStore'

@@ -124,6 +124,27 @@ describe('moveWorkspaceToNewWindow', () => {
   })
 })
 
+describe('moving a workspace whose panes changed while the dialog was open', () => {
+  function closedPanes(): string[] {
+    return emitted().flatMap((e) => (e.type === 'pane-closed' ? [e.paneId] : []))
+  }
+
+  it('reports a pane closed during the dialog only once', async () => {
+    const { workspaceId, right } = seedTwoPanes()
+    useLayoutStore.getState().openFile(workspaceId, '/home/u/api/a.ts')
+    useEditorStatus.getState().setDirty('/home/u/api/a.ts', true)
+    vi.mocked(window.ostia.lifecycle.emit).mockClear()
+
+    const moving = moveWorkspaceToNewWindow(workspaceId)
+    await vi.waitFor(() => expect(useCloseConfirmStore.getState().pending?.kind).toBe('move'))
+    useLayoutStore.getState().closePane(workspaceId, right)
+    useCloseConfirmStore.getState().answer(true)
+
+    expect(await moving).toBe(true)
+    expect(closedPanes()).toEqual([right])
+  })
+})
+
 describe('movePaneToNewWindow', () => {
   it('moves one pane into a new workspace on the same folder and leaves the rest', async () => {
     const { workspaceId, left, right } = seedTwoPanes()

@@ -65,7 +65,6 @@ import type { DiffContent } from '@shared/extensions'
 import type { PanePlacement } from '@shared/types'
 import type { SplitTabPlacement } from '@shared/workspaces/splitTabs'
 import { create } from 'zustand'
-import { useWorkspacesStore } from './workspacesStore'
 
 export interface WorkspaceLayout {
   root: LayoutNode
@@ -177,8 +176,16 @@ function describeTerminal(root: LayoutNode, paneId: string, opts: OpenTerminalPl
   return opts.title ? setPaneTitle(withCwd, paneId, opts.title) : withCwd
 }
 
+export type WorkspaceLookup = (workspaceId: string) => { workDir: string } | undefined
+
+let workspaceOf: WorkspaceLookup = () => undefined
+
+export function setWorkspaceLookup(lookup: WorkspaceLookup): void {
+  workspaceOf = lookup
+}
+
 function workDirOf(workspaceId: string): string | undefined {
-  return useWorkspacesStore.getState().workspaces.find((w) => w.id === workspaceId)?.workDir
+  return workspaceOf(workspaceId)?.workDir
 }
 
 export type NewTabKind = Extract<SurfaceKind, 'terminal' | 'browser'>
@@ -230,7 +237,7 @@ function newTerminalPane(cwd?: string): PaneNode {
 
 function seedLayout(workspaceId: string, make: (pane: PaneNode) => LayoutNode): string | null {
   if (useLayoutStore.getState().byWorkspace[workspaceId]) return null
-  if (!useWorkspacesStore.getState().workspaces.some((w) => w.id === workspaceId)) return null
+  if (!workspaceOf(workspaceId)) return null
   const pane = newTerminalPane()
   useLayoutStore.setState((s) => ({
     byWorkspace: { ...s.byWorkspace, [workspaceId]: layoutOf(make(pane)) },

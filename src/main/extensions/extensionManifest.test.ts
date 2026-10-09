@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { MAX_AGENT_HOOKS, MAX_AGENT_SKILLS, MAX_AGENT_SKILL_FILES } from '../../shared/agentPlugins'
 import { EXTENSION_API_VERSION } from '../../shared/extensionApi'
-import { discoverExtensions, isInsideDir, parseManifest, readManifest } from './extensionManifest'
+import { discoverExtensions, parseManifest, readManifest } from './extensionManifest'
 
 const DIR = '/ext/demo'
 
@@ -943,16 +943,6 @@ describe('parseManifest — agent skills and hooks', () => {
     const hook = { event: 'Stop', command: 'on-hook' }
     const res = parseManifest(agentManifest({ agentHooks: [hook, hook] }), DIR)
     expect(res).toEqual({ ok: false, error: expect.stringContaining('duplicate hook') })
-  })
-})
-
-describe('isInsideDir', () => {
-  it('is true only for paths strictly below the directory', () => {
-    expect(isInsideDir('/a/b', 'c.html')).toBe(true)
-    expect(isInsideDir('/a/b', '/a/b/c/d.html')).toBe(true)
-    expect(isInsideDir('/a/b', '/a/b')).toBe(false)
-    expect(isInsideDir('/a/b', '/a/bc/d.html')).toBe(false)
-    expect(isInsideDir('/a/b', '../b2/x')).toBe(false)
   })
 })
 

@@ -1,7 +1,7 @@
 import { ToggleRow } from '@/components/settings/SettingsPanel'
 import { Button } from '@/components/ui/button'
 import { fmt, useDict } from '@/i18n/useDict'
-import { replaceLabel } from '@/lib/app/replaceText'
+import { replaceLabel } from '@/lib/app/updateProgressLabel'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { restartReady, updateAction, useUpdateStore } from '@/stores/app/updateStore'
 import { ArrowClockwiseIcon, ArrowSquareOutIcon, DownloadSimpleIcon } from '@phosphor-icons/react'

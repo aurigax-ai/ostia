@@ -67,6 +67,31 @@ describe('startWorkspaceProjects', () => {
     })
   })
 
+  it('asks for the project again after the lookup fails', async () => {
+    vi.mocked(window.ostia.openPath.project)
+      .mockRejectedValueOnce(new Error('ipc failed'))
+      .mockImplementation(async (dir) => ({ name: 'api', display: '~/api', dir, repo: true }))
+    const pane = createPane('terminal', undefined, '/home/u/api')
+    useWorkspacesStore.setState({
+      workspaces: [{ id: 'w1', name: 'home', kind: 'terminal', workDir: '~', state: 'idle' }],
+    })
+    useLayoutStore.setState({
+      byWorkspace: { w1: { root: pane, activePaneId: pane.id, zoomedPaneId: null } },
+    })
+
+    stop = startWorkspaceProjects()
+    await vi.waitFor(() => expect(window.ostia.openPath.project).toHaveBeenCalledTimes(1))
+    await new Promise((r) => setTimeout(r, 0))
+    useLayoutStore.getState().setTitle('w1', pane.id, 'zsh')
+
+    await vi.waitFor(() =>
+      expect(useWorkspacesStore.getState().workspaces[0]).toMatchObject({
+        name: 'api',
+        workDir: '/home/u/api',
+      }),
+    )
+  })
+
   it('follows a pane through plain folders and sticks at the first git repository', async () => {
     vi.mocked(window.ostia.openPath.project).mockImplementation(async (dir) => ({
       name: dir.split('/').pop() ?? dir,

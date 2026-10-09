@@ -33,6 +33,7 @@ import { PRODUCT_DISPLAY_NAME } from '@shared/productDisplay'
 import { workspaceTerminal } from './askContext'
 import { idleTerminals, insertInto, runInNewTerminal } from './chatActions'
 import { contentWith, editHunks, hunkCounts, settle } from './chatHunks'
+import { isWebUrl } from './chatLinks'
 import {
   type ApprovalAnswer,
   type ToolCheck,
@@ -302,15 +303,6 @@ function recentCommands(paneId: string): { command: string; exitCode: number | n
     .filter((b) => b.endLine && b.command.trim())
     .slice(-RECENT_COMMANDS)
     .map((b) => ({ command: b.command, exitCode: b.exitCode }))
-}
-
-function isWebUrl(url: string): boolean {
-  try {
-    const parsed = new URL(url)
-    return parsed.protocol === 'http:' || parsed.protocol === 'https:'
-  } catch {
-    return false
-  }
 }
 
 async function proposeCommand(input: Record<string, unknown>, run: ToolRun): Promise<ToolOutcome> {

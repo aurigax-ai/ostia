@@ -1,5 +1,5 @@
 import { lstatSync, readFileSync, realpathSync } from 'node:fs'
-import { isInsideDir } from '../extensions/extensionManifest'
+import { isInsideDir } from './pathGuard'
 
 export type FileRead = { ok: true; data: Buffer } | { ok: false; error: string }
 
