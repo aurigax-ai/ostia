@@ -434,6 +434,37 @@ describe('BrowserView address bar', () => {
     expect(guest.setZoomFactor).toHaveBeenCalled()
     expect(guest.loadURL).not.toHaveBeenCalled()
   })
+
+  it('gives a page opened in the pane and an address typed into a new browser tab the same default zoom', async () => {
+    const initialSettings = useSettingsStore.getState()
+    useSettingsStore.setState({ browser: { ...initialSettings.browser, defaultZoom: 125 } })
+    try {
+      const { workspaceId } = twoTerminals()
+      const opened = await renderView(workspaceId)
+      await waitFor(() => expect(opened.container.querySelector('webview')).not.toBeNull())
+      const page = guestReadyOn(opened.container, 'http://localhost/')
+      expect(page.setZoomFactor).toHaveBeenCalledWith(1.25)
+      opened.unmount()
+
+      const tab = await renderSettled(
+        <TooltipProvider>
+          <BrowserView workspaceId={workspaceId} paneId={BROWSER} profile="isolated" />
+        </TooltipProvider>,
+      )
+      const address = screen.getByRole('textbox', { name: /address/i })
+      await waitFor(() => expect(tab.container.querySelector('webview')).not.toBeNull())
+      await userEvent.clear(address)
+      await userEvent.type(address, 'http://localhost/human{Enter}')
+      const human = guestReadyOn(tab.container, 'about:blank')
+
+      expect(human.loadURL).toHaveBeenCalledWith('http://localhost/human')
+      expect(human.setZoomFactor.mock.calls).toEqual(page.setZoomFactor.mock.calls)
+    } finally {
+      act(() => {
+        useSettingsStore.setState(initialSettings, true)
+      })
+    }
+  })
 })
 
 describe('BrowserView storage panel', () => {
