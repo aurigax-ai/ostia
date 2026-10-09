@@ -1,6 +1,6 @@
 {
   "name": "ostia",
-  "version": "0.5.10-rc.2",
+  "version": "0.5.10-rc.3",
   "description": "Terminal Workspace — the ultimate CLI workspace (terminal + IDE + agents)",
   "private": true,
   "type": "commonjs",
