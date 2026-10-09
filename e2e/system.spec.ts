@@ -30,67 +30,71 @@ function askedDialogs(app: ElectronApplication): Promise<AskedDialog[]> {
   )
 }
 
-test('ostia system install asks the human, then runs the command in a new terminal beside the agent', async () => {
-  const dataHome = freshDataHome()
-  const home = join(dataHome, 'home')
-  mkdirSync(home, { recursive: true })
-  writeFileSync(join(home, '.bashrc'), "PS1='runner@ostia-linux-runner-pqdgm:\\w\\$ '\n")
-  const log = join(dataHome, 'system-calls.log')
-  const launch = isolatedLaunch(dataHome)
-  const app = await electron.launch({
-    ...launch,
-    env: {
-      ...launch.env,
-      HOME: home,
-      PATH: `${FAKE_BIN}:${process.env.PATH}`,
-      FAKE_SYSTEM_LOG: log,
-    },
-  })
-  try {
-    const win = await app.firstWindow()
-    await win.waitForLoadState('domcontentloaded')
-    await openWorkspace(win)
-    await answerDialogsWith(app, 0)
-
-    const agent = win.locator('.xterm').first()
-    await agent.click()
-    await win.keyboard.type('ostia system install ripgrep --manager pacman --reason e2e-check')
-    await win.keyboard.press('Enter')
-
-    await expect(win.locator('.xterm')).toHaveCount(2, { timeout: 20_000 })
-    const installer = win.locator('.xterm-rows').filter({ hasText: 'fake pacman installed' })
-    await expect(installer).toContainText('fake pacman installed: -S --needed ripgrep', {
-      timeout: 20_000,
+test(
+  'ostia system install asks the human, then runs the command in a new terminal beside the agent',
+  { tag: ['@core', '@race'] },
+  async () => {
+    const dataHome = freshDataHome()
+    const home = join(dataHome, 'home')
+    mkdirSync(home, { recursive: true })
+    writeFileSync(join(home, '.bashrc'), "PS1='runner@ostia-linux-runner-pqdgm:\\w\\$ '\n")
+    const log = join(dataHome, 'system-calls.log')
+    const launch = isolatedLaunch(dataHome)
+    const app = await electron.launch({
+      ...launch,
+      env: {
+        ...launch.env,
+        HOME: home,
+        PATH: `${FAKE_BIN}:${process.env.PATH}`,
+        FAKE_SYSTEM_LOG: log,
+      },
     })
-    const agentRows = win.locator('.xterm-rows').filter({ hasText: 'e2e-check' })
-    await expect(agentRows).toContainText('"approved": true', { timeout: 15_000 })
-    await expect(agentRows).toContainText('pacman -S --needed ripgrep')
-    const agentBox = await win.locator('.xterm').filter({ hasText: 'e2e-check' }).boundingBox()
-    const installerBox = await win
-      .locator('.xterm')
-      .filter({ hasText: 'fake pacman installed' })
-      .boundingBox()
-    expect(installerBox?.x ?? 0).toBeGreaterThan(agentBox?.x ?? Number.POSITIVE_INFINITY)
+    try {
+      const win = await app.firstWindow()
+      await win.waitForLoadState('domcontentloaded')
+      await openWorkspace(win)
+      await answerDialogsWith(app, 0)
 
-    const asked = await askedDialogs(app)
-    expect(asked).toHaveLength(1)
-    expect(asked[0].message).toContain('ripgrep')
-    expect(asked[0].detail).toContain('pacman -S --needed ripgrep')
-    expect(asked[0].detail).toContain('e2e-check')
-    expect(asked[0].buttons).toEqual(['Approve', 'Deny'])
-    expect(readFileSync(log, 'utf8')).toContain('pacman -S --needed ripgrep')
+      const agent = win.locator('.xterm').first()
+      await agent.click()
+      await win.keyboard.type('ostia system install ripgrep --manager pacman --reason e2e-check')
+      await win.keyboard.press('Enter')
 
-    await answerDialogsWith(app, 1)
-    await win.locator('.xterm').filter({ hasText: 'e2e-check' }).click()
-    await win.keyboard.type('ostia system install fd --manager pacman --reason e2e-deny')
-    await win.keyboard.press('Enter')
-    const denyRows = win.locator('.xterm-rows').filter({ hasText: 'e2e-deny' })
-    await expect(denyRows).toContainText('"approved": false', { timeout: 15_000 })
-    await expect(denyRows).toContainText('denied')
-    expect(await askedDialogs(app)).toHaveLength(1)
-    await expect(win.locator('.xterm')).toHaveCount(2)
-    expect(existsSync(log) && readFileSync(log, 'utf8')).not.toContain('--needed fd')
-  } finally {
-    await app.close()
-  }
-})
+      await expect(win.locator('.xterm')).toHaveCount(2, { timeout: 20_000 })
+      const installer = win.locator('.xterm-rows').filter({ hasText: 'fake pacman installed' })
+      await expect(installer).toContainText('fake pacman installed: -S --needed ripgrep', {
+        timeout: 20_000,
+      })
+      const agentRows = win.locator('.xterm-rows').filter({ hasText: 'e2e-check' })
+      await expect(agentRows).toContainText('"approved": true', { timeout: 15_000 })
+      await expect(agentRows).toContainText('pacman -S --needed ripgrep')
+      const agentBox = await win.locator('.xterm').filter({ hasText: 'e2e-check' }).boundingBox()
+      const installerBox = await win
+        .locator('.xterm')
+        .filter({ hasText: 'fake pacman installed' })
+        .boundingBox()
+      expect(installerBox?.x ?? 0).toBeGreaterThan(agentBox?.x ?? Number.POSITIVE_INFINITY)
+
+      const asked = await askedDialogs(app)
+      expect(asked).toHaveLength(1)
+      expect(asked[0].message).toContain('ripgrep')
+      expect(asked[0].detail).toContain('pacman -S --needed ripgrep')
+      expect(asked[0].detail).toContain('e2e-check')
+      expect(asked[0].buttons).toEqual(['Approve', 'Deny'])
+      expect(readFileSync(log, 'utf8')).toContain('pacman -S --needed ripgrep')
+
+      await answerDialogsWith(app, 1)
+      await win.locator('.xterm').filter({ hasText: 'e2e-check' }).click()
+      await win.keyboard.type('ostia system install fd --manager pacman --reason e2e-deny')
+      await win.keyboard.press('Enter')
+      const denyRows = win.locator('.xterm-rows').filter({ hasText: 'e2e-deny' })
+      await expect(denyRows).toContainText('"approved": false', { timeout: 15_000 })
+      await expect(denyRows).toContainText('denied')
+      expect(await askedDialogs(app)).toHaveLength(1)
+      await expect(win.locator('.xterm')).toHaveCount(2)
+      expect(existsSync(log) && readFileSync(log, 'utf8')).not.toContain('--needed fd')
+    } finally {
+      await app.close()
+    }
+  },
+)
