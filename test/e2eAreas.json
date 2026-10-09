@@ -733,11 +733,7 @@
         "src/renderer/lib/sidebar/groupPeers.ts",
         "src/renderer/stores/agents/agentGroupsStore.ts"
       ],
-      "specs": [
-        "e2e/scratch-workspace.spec.ts",
-        "e2e/workspace-groups.spec.ts",
-        "e2e/workspace-settings.spec.ts"
-      ]
+      "specs": ["e2e/scratch-workspace.spec.ts", "e2e/workspace-groups.spec.ts"]
     },
     {
       "name": "restore and user folders",
@@ -948,8 +944,7 @@
       "specs": [
         "e2e/settings-gap.spec.ts",
         "e2e/terminal-pane-settings.spec.ts",
-        "e2e/terminal-settings.spec.ts",
-        "e2e/workspace-settings.spec.ts"
+        "e2e/terminal-settings.spec.ts"
       ]
     },
     {

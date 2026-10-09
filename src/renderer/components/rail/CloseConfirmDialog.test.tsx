@@ -95,6 +95,28 @@ describe('close confirmation', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
   })
 
+  it('asks again after a cancelled quit and quits on Quit', async () => {
+    seed('sleep 100')
+    render(<CloseConfirmDialog />)
+    const user = userEvent.setup()
+
+    let quit: Promise<boolean> = Promise.resolve(true)
+    act(() => {
+      quit = confirmQuit(quitGroups())
+    })
+    await screen.findByRole('dialog')
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    await expect(quit).resolves.toBe(false)
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+
+    act(() => {
+      quit = confirmQuit(quitGroups())
+    })
+    await screen.findByRole('dialog')
+    await user.click(screen.getByRole('button', { name: 'Quit' }))
+    await expect(quit).resolves.toBe(true)
+  })
+
   it('closes the workspace when the dialog is confirmed', async () => {
     seed('sleep 100')
     render(<CloseConfirmDialog />)
