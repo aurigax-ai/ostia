@@ -778,7 +778,7 @@ export const SETTINGS_JSON_SCHEMA = {
         },
         closeToTray: {
           type: 'boolean',
-          description: `Closing the window hides ${PRODUCT_DISPLAY_NAME} instead of quitting; your terminals keep running and a tray icon brings the window back. Quit from the tray icon. Needs a desktop with a system tray. Default: false.`,
+          description: `Closing the window hides ${PRODUCT_DISPLAY_NAME} instead of quitting; your terminals keep running and a tray icon brings the window back. Quit from the tray icon. Needs a desktop with a system tray. Default: true.`,
         },
         globalHotkey: {
           type: 'string',
