@@ -121,6 +121,25 @@ describe('TerminalView engines', () => {
     expect(container.querySelector('.ghostty-host')).toBeNull()
   })
 
+  it('smart copy/paste keys paste with Ctrl+V', async () => {
+    useSettingsStore.setState({
+      terminal: { ...useSettingsStore.getState().terminal, clipboardKeys: 'smart' },
+    })
+    const readText = vi.fn().mockResolvedValue('echo pasted_$((6*7))')
+    const realClipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard')
+    Object.defineProperty(navigator, 'clipboard', { value: { readText }, configurable: true })
+    onTestFinished(() => {
+      if (realClipboard) Object.defineProperty(navigator, 'clipboard', realClipboard)
+      else Reflect.deleteProperty(navigator, 'clipboard')
+    })
+    const { container } = await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
+    const textarea = container.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement
+    fireEvent.keyDown(textarea, { key: 'v', code: 'KeyV', ctrlKey: true })
+    await waitFor(() =>
+      expect(window.ostia.pty.write).toHaveBeenCalledWith('p1', 'echo pasted_$((6*7))'),
+    )
+  })
+
   it('asks before pasting several lines into a Ghostty terminal', async () => {
     const { container } = await renderGhostty(<TerminalView workspaceId="w1" paneId="p1" />)
     await waitFor(() => expect(container.querySelector('.ghostty-host textarea')).not.toBeNull())

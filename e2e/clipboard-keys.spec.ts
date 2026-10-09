@@ -1,4 +1,4 @@
-import { chords, isMac } from './chords'
+import { chords } from './chords'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { PROMPT, openWorkspace } from './helpers'
 import { _electron as electron, expect, test } from './test'
@@ -15,19 +15,6 @@ async function launch(clipboardKeys: 'shift' | 'smart') {
   await win.locator('.xterm').first().click()
   return { app, win }
 }
-
-test('smart copy/paste keys paste with Ctrl+V', async () => {
-  test.skip(isMac, 'smart Ctrl+C and Ctrl+V do not exist on macOS, which uses the Cmd keys')
-  const { app, win } = await launch('smart')
-  try {
-    await win.keyboard.press('Control+v')
-    await expect(win.locator('.xterm-rows')).toContainText('echo pasted_')
-    await win.keyboard.press('Enter')
-    await expect(win.locator('.xterm-rows')).toContainText('pasted_42', { timeout: 10_000 })
-  } finally {
-    await app.close()
-  }
-})
 
 test(
   'the paste chord pastes in the default mode, and Ctrl+V goes to the shell',

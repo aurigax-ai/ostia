@@ -81,6 +81,10 @@ describe('parseTerminalSettings', () => {
     expect(parseTerminalSettings({ renderer: 1 }).renderer).toBe('xterm')
   })
 
+  it('keeps the smart clipboard keys mode', () => {
+    expect(parseTerminalSettings({ clipboardKeys: 'smart' }).clipboardKeys).toBe('smart')
+  })
+
   it('keeps the shell command as trimmed text and drops a non-string one', () => {
     expect(parseTerminalSettings({ shell: '  /usr/bin/fish -l ' }).shell).toBe('/usr/bin/fish -l')
     expect(parseTerminalSettings({ shell: ['fish'] }).shell).toBe('')
