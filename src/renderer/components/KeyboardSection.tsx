@@ -9,9 +9,12 @@ import {
   type ChordSpec,
   type ChordValue,
   DIGIT_RANGE,
+  DOUBLE_SHIFT,
   chordText,
   chordTexts,
+  doubleShiftDetector,
   formatScopedChord,
+  parseChord,
   specFromEvent,
   usedByMonaco,
 } from '@shared/chordSpec'
@@ -37,6 +40,7 @@ import {
   chordsWithout,
   chordsWithoutKey,
   conflictsWith,
+  holdDoubleShift,
   keymapBindings,
   terminalKeyConflicts,
   useBindings,
@@ -144,10 +148,13 @@ export function ChordRecorder({
   onCancel: () => void
 }): JSX.Element {
   const d = useDict()
+  const [doubleShift] = useState(doubleShiftDetector)
   useEffect(() => {
+    const release = holdDoubleShift()
     const onKey = (e: KeyboardEvent): void => {
       e.preventDefault()
       e.stopPropagation()
+      doubleShift.down(e, e.timeStamp)
       const plain = !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey
       if (e.key === 'Escape' && plain) {
         onCancel()
@@ -156,9 +163,19 @@ export function ChordRecorder({
       const spec = specFromEvent(e)
       if (spec) onRecord(spec)
     }
+    const onKeyUp = (e: KeyboardEvent): void => {
+      if (!doubleShift.up(e, e.timeStamp)) return
+      const spec = parseChord(DOUBLE_SHIFT, isMac)
+      if (spec) onRecord(spec)
+    }
     window.addEventListener('keydown', onKey, true)
-    return () => window.removeEventListener('keydown', onKey, true)
-  }, [onRecord, onCancel])
+    window.addEventListener('keyup', onKeyUp, true)
+    return () => {
+      release()
+      window.removeEventListener('keydown', onKey, true)
+      window.removeEventListener('keyup', onKeyUp, true)
+    }
+  }, [onRecord, onCancel, doubleShift])
   return (
     <output aria-label={label} aria-live="polite" className="text-fg text-ui-sm">
       {d.keyboard.recording}

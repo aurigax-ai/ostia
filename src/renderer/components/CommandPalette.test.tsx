@@ -598,4 +598,216 @@ describe('CommandPalette', () => {
       ).toBeInTheDocument()
     })
   })
+
+  describe('search everywhere', () => {
+    beforeEach(() => {
+      vi.mocked(window.ostia.search.run).mockReset()
+    })
+
+    const hits = (paths: string[]): SearchOutcome => ({
+      ok: true,
+      results: {
+        root: '/src/zoomer',
+        names: paths.map((path) => ({ path, dir: false, positions: [0] })),
+        files: [],
+        pdfs: [],
+        matches: 0,
+        truncated: false,
+      },
+    })
+
+    const seed = (): void => {
+      useWorkspacesStore.setState({
+        workspaces: [
+          { id: 'w2', name: 'zoomer', kind: 'terminal', workDir: '/src/zoomer', state: 'idle' },
+        ],
+        activeWorkspaceId: 'w2',
+      })
+      useLayoutStore.setState({
+        byWorkspace: {
+          w2: {
+            root: { type: 'pane', id: 'pane-3', title: 'zoom logs', kind: 'terminal' },
+            activePaneId: 'pane-3',
+            zoomedPaneId: null,
+          },
+        },
+      })
+      vi.mocked(window.ostia.search.run).mockResolvedValue(hits(['src/zoom.ts']))
+    }
+
+    const headings = (): string[] =>
+      [...document.querySelectorAll('[cmdk-group-heading]')].map((h) => h.textContent ?? '')
+
+    it('opens from its command with its own title and placeholder', async () => {
+      render(<CommandPalette />)
+      act(() => {
+        void commands.exec('palette.searchEverywhere')
+      })
+      expect(await screen.findByRole('dialog', { name: 'Search everywhere' })).toBeInTheDocument()
+      expect(screen.getByRole('combobox')).toHaveAttribute(
+        'placeholder',
+        'Search commands, files, settings, workspaces and tabs…',
+      )
+    })
+
+    it('puts commands, files, settings, workspaces and tabs in one list grouped by kind', async () => {
+      seed()
+      useUIStore.setState({ paletteOpen: true, paletteMode: 'everywhere' })
+      render(<CommandPalette />)
+      await userEvent.type(await screen.findByRole('combobox'), 'zoom')
+
+      expect(await screen.findByRole('option', { name: /zoom\.ts/ })).toBeInTheDocument()
+      expect(screen.getByRole('option', { name: /Zoom Pane/ })).toBeInTheDocument()
+      expect(screen.getByRole('option', { name: /zoom logs/ })).toBeInTheDocument()
+      expect(screen.getByRole('option', { name: /\/src\/zoomer/ })).toBeInTheDocument()
+      expect(screen.getByRole('option', { name: /Search settings for “zoom”/ })).toBeInTheDocument()
+      expect(headings()).toEqual(
+        expect.arrayContaining([
+          'Commands',
+          'Files in this workspace',
+          'Settings',
+          'Workspaces',
+          'Tabs',
+        ]),
+      )
+      expect(window.ostia.search.run).toHaveBeenLastCalledWith(
+        expect.objectContaining({ root: '/src/zoomer', text: 'zoom', namesOnly: true }),
+      )
+    })
+
+    it('runs the command picked with Enter', async () => {
+      useUIStore.setState({ paletteOpen: true, paletteMode: 'everywhere' })
+      const exec = vi.spyOn(commands, 'exec').mockResolvedValue({ ok: true, result: undefined })
+      render(<CommandPalette />)
+      await userEvent.type(await screen.findByRole('combobox'), 'Open Settings{Enter}')
+
+      expect(exec).toHaveBeenCalledWith('app.openSettings', undefined)
+      expect(useUIStore.getState().paletteOpen).toBe(false)
+    })
+
+    it('lists a settings page only when it matches what was typed', async () => {
+      useUIStore.setState({ paletteOpen: true, paletteMode: 'everywhere' })
+      render(<CommandPalette />)
+      const input = await screen.findByRole('combobox')
+
+      await userEvent.type(input, 'zoom')
+      expect(
+        await screen.findByRole('option', { name: /Search settings for “zoom”/ }),
+      ).toBeVisible()
+      expect(screen.queryByRole('option', { name: /^Keyboard$/ })).toBeNull()
+      expect(screen.queryByRole('option', { name: /^Appearance$/ })).toBeNull()
+      expect(screen.queryByRole('group', { name: 'Settings' })).toBeNull()
+
+      await userEvent.clear(input)
+      await userEvent.type(input, 'keyb')
+      expect(await screen.findByRole('option', { name: /^Keyboard$/ })).toBeInTheDocument()
+      expect(screen.queryByRole('option', { name: /^Appearance$/ })).toBeNull()
+      expect(screen.getByRole('group', { name: 'Settings' })).toBeInTheDocument()
+    })
+
+    it('opens a settings page, or the settings search with what was typed', async () => {
+      useUIStore.setState({ paletteOpen: true, paletteMode: 'everywhere' })
+      render(<CommandPalette />)
+      await userEvent.type(await screen.findByRole('combobox'), 'keyboard')
+      await userEvent.click(await screen.findByRole('option', { name: /^Keyboard$/ }))
+      expect(useUIStore.getState()).toMatchObject({
+        paletteOpen: false,
+        settingsActive: true,
+        settingsSection: 'keyboard',
+        settingsQuery: '',
+      })
+
+      act(() => useUIStore.getState().openPalette('everywhere'))
+      await userEvent.type(await screen.findByRole('combobox'), 'font size')
+      await userEvent.click(
+        await screen.findByRole('option', { name: /Search settings for “font size”/ }),
+      )
+      expect(useUIStore.getState()).toMatchObject({
+        paletteOpen: false,
+        settingsActive: true,
+        settingsQuery: 'font size',
+      })
+    })
+
+    it('opens from the palette chord’s command filtered to commands, and on everything once the prefix is removed', async () => {
+      seed()
+      render(<CommandPalette />)
+      act(() => {
+        void commands.exec('palette.toggle')
+      })
+      const input = await screen.findByRole('combobox')
+
+      expect(await screen.findByRole('dialog', { name: 'Command palette' })).toBeInTheDocument()
+      expect(input).toHaveValue('>')
+      expect(screen.getByRole('option', { name: /Zoom Pane/ })).toBeInTheDocument()
+      expect(screen.queryByRole('option', { name: /zoom logs/ })).toBeNull()
+      expect(headings()).not.toContain('Workspaces')
+
+      await userEvent.type(input, 'zoom')
+      expect(input).toHaveValue('>zoom')
+      expect(screen.getByRole('option', { name: /Zoom Pane/ })).toBeInTheDocument()
+      expect(screen.queryByRole('option', { name: /zoom logs/ })).toBeNull()
+
+      await userEvent.clear(input)
+      expect(await screen.findByRole('option', { name: /zoom logs/ })).toBeInTheDocument()
+      expect(headings()).toEqual(expect.arrayContaining(['Workspaces', 'Tabs']))
+    })
+
+    it('offers to search the text of files for what was typed and opens the Files search with it', async () => {
+      seed()
+      useUIStore.setState({ paletteOpen: true, paletteMode: 'everywhere' })
+      render(<CommandPalette />)
+      const input = await screen.findByRole('combobox')
+      expect(screen.queryByRole('option', { name: /Search text in files/ })).toBeNull()
+
+      await userEvent.type(input, 'zoom level')
+      await userEvent.click(
+        await screen.findByRole('option', { name: 'Search text in files for “zoom level”' }),
+      )
+
+      expect(useUIStore.getState()).toMatchObject({
+        paletteOpen: false,
+        filesOpen: true,
+        filesSearchFocus: true,
+        filesSearchQuery: 'zoom level',
+      })
+      act(() => useUIStore.setState({ filesOpen: false, filesSearchFocus: false }))
+    })
+
+    it('words the search-text row in Traditional Chinese', async () => {
+      usePluginsStore.setState({
+        languages: languagesFrom([
+          { extId: 'langpack-zh-hant', id: 'zh-Hant', label: '繁體中文', catalog: zhHant },
+        ]),
+      })
+      useSettingsStore.setState({ locale: 'zh-Hant' })
+      useUIStore.setState({ paletteOpen: true, paletteMode: 'everywhere' })
+      try {
+        render(<CommandPalette />)
+        await userEvent.type(await screen.findByRole('combobox'), 'zoom')
+
+        expect(
+          await screen.findByRole('option', { name: '在檔案中搜尋文字「zoom」' }),
+        ).toBeInTheDocument()
+      } finally {
+        act(() => {
+          usePluginsStore.setState({ languages: languagesFrom([]) })
+          useSettingsStore.setState({ locale: 'en' })
+        })
+      }
+    })
+
+    it('leaves files and settings out of the command palette', async () => {
+      seed()
+      useUIStore.setState({ paletteOpen: true })
+      render(<CommandPalette />)
+      await userEvent.type(await screen.findByRole('combobox'), 'zoom')
+
+      expect(await screen.findByRole('option', { name: /Zoom Pane/ })).toBeInTheDocument()
+      expect(screen.queryByRole('option', { name: /Search settings/ })).toBeNull()
+      expect(screen.queryByRole('option', { name: /Search text in files/ })).toBeNull()
+      expect(headings()).not.toContain('Settings')
+      expect(window.ostia.search.run).not.toHaveBeenCalled()
+    })
+  })
 })

@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
+import { DOUBLE_SHIFT, doubleShiftDetector } from './chordSpec'
 import {
   MAX_GUEST_CHORDS,
   guestChordKey,
+  guestDoubleShift,
   isGuestChordFire,
   normalizeGuestChords,
 } from './guestChords'
@@ -69,6 +71,38 @@ describe('guestChordKey', () => {
     expect(guestChordKey(cmd('c'), mac, true)).toBeNull()
     expect(guestChordKey(cmd('v'), mac, true)).toBeNull()
     expect(guestChordKey(cmd('k'), mac, true)?.key).toBe('k')
+  })
+})
+
+describe('guestDoubleShift', () => {
+  const shift = (type: string, over: Record<string, unknown> = {}) =>
+    input({ type, key: 'Shift', code: 'ShiftLeft', control: false, ...over })
+
+  it('reports two quick lone Shift taps when Shift+Shift is bound', () => {
+    const detector = doubleShiftDetector()
+    const bound = new Set([DOUBLE_SHIFT])
+    expect(normalizeGuestChords([DOUBLE_SHIFT], true)).toEqual([DOUBLE_SHIFT])
+    expect(guestDoubleShift(shift('keyDown'), bound, detector, 0)).toBe(false)
+    expect(guestDoubleShift(shift('keyUp'), bound, detector, 60)).toBe(false)
+    expect(guestDoubleShift(shift('keyDown'), bound, detector, 150)).toBe(false)
+    expect(guestDoubleShift(shift('keyUp'), bound, detector, 210)).toBe(true)
+  })
+
+  it('ignores the taps when nothing is bound to them or Shift repeats', () => {
+    const unbound = doubleShiftDetector()
+    const taps = [shift('keyDown'), shift('keyUp'), shift('keyDown'), shift('keyUp')]
+    expect(taps.map((t, i) => guestDoubleShift(t, new Set(), unbound, i * 50))).not.toContain(true)
+    const repeating = doubleShiftDetector()
+    const bound = new Set([DOUBLE_SHIFT])
+    const held = [
+      shift('keyDown'),
+      shift('keyDown', { isAutoRepeat: true }),
+      shift('keyDown', { isAutoRepeat: true }),
+      shift('keyUp'),
+      shift('keyDown'),
+      shift('keyUp'),
+    ]
+    expect(held.map((t, i) => guestDoubleShift(t, bound, repeating, i * 40))).not.toContain(true)
   })
 })
 

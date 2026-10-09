@@ -1,3 +1,4 @@
+import { DOUBLE_SHIFT, DOUBLE_SHIFT_KEY } from '@shared/chordSpec'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { commands } from '../commands/registry'
 import { createPane } from '../layout/tree'
@@ -80,6 +81,7 @@ describe('guestChordSignatures', () => {
     expect(sigs).not.toContain('Ctrl+Shift+Up')
     expect(sigs).not.toContain('Ctrl+Shift+K')
     expect(sigs).not.toContain('Ctrl+Shift+Enter')
+    expect(sigs).toContain(DOUBLE_SHIFT)
   })
 
   it('forwards ⌘G and ⇧⌘G so a page’s find bar steps on macOS', () => {
@@ -122,6 +124,21 @@ describe('handleGuestChord', () => {
       expect(useLayoutStore.getState().byWorkspace.s1.activePaneId).toBe(web.id)
       handleGuestChord({ guestId: 7, key: key('f', { ctrlKey: true, shiftKey: true }) }, false)
       expect(handle.find).toHaveBeenCalled()
+    } finally {
+      off()
+    }
+  })
+
+  it('runs what Shift twice is bound to after focusing the pane the taps came from', () => {
+    const { web, off } = browserPane()
+    const exec = vi.spyOn(commands, 'exec').mockResolvedValue({ ok: true, result: undefined })
+    try {
+      expect(handleGuestChord({ guestId: 7, key: DOUBLE_SHIFT_KEY }, false)).toBe(true)
+      expect(exec).toHaveBeenCalledWith('palette.searchEverywhere')
+      expect(useLayoutStore.getState().byWorkspace.s1.activePaneId).toBe(web.id)
+      useSettingsStore.setState({ keybindings: { 'palette.searchEverywhere': null } })
+      expect(handleGuestChord({ guestId: 7, key: DOUBLE_SHIFT_KEY }, false)).toBe(false)
+      expect(exec).toHaveBeenCalledTimes(1)
     } finally {
       off()
     }

@@ -66,6 +66,38 @@ describe('registerGuestChords', () => {
     expect(press({}).preventDefault).toHaveBeenCalled()
   })
 
+  it('tells the host about two quick Shift taps without holding the keys back from the page', () => {
+    vi.useFakeTimers({ now: 0 })
+    try {
+      const { app, host, set, press } = setup(true)
+      set(app, ['Shift+Shift'])
+      const tap = (at: number) => {
+        vi.setSystemTime(at)
+        const shift = { key: 'Shift', code: 'ShiftLeft', control: false, shift: true }
+        const down = press(shift)
+        vi.setSystemTime(at + 50)
+        const up = press({ ...shift, type: 'keyUp' })
+        return [down, up]
+      }
+      const events = [...tap(0), ...tap(150)]
+      for (const event of events) expect(event.preventDefault).not.toHaveBeenCalled()
+      expect(host.send).toHaveBeenCalledTimes(1)
+      expect(host.send).toHaveBeenCalledWith(GUEST_CHORDS_FIRE, {
+        guestId: 9,
+        key: {
+          key: 'Shift',
+          code: 'ShiftLeft',
+          ctrlKey: false,
+          metaKey: false,
+          shiftKey: true,
+          altKey: false,
+        },
+      })
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('does nothing when the host window is gone', () => {
     const { app, guest, set, press } = setup()
     set(app, ['Ctrl+Shift+P'])

@@ -68,6 +68,7 @@ const NAMED_KEYS: Record<string, string> = {
   pageup: 'pageup',
   pagedown: 'pagedown',
   insert: 'insert',
+  shift: 'shift',
   [DIGIT_RANGE]: DIGIT_RANGE,
 }
 
@@ -130,6 +131,7 @@ const KEY_TITLES: Record<string, string> = {
   pageup: 'PageUp',
   pagedown: 'PageDown',
   insert: 'Insert',
+  shift: 'Shift',
 }
 
 const ARROW_GLYPHS: Record<string, string> = { up: '↑', down: '↓', left: '←', right: '→' }
@@ -168,7 +170,78 @@ export function parseChord(text: string, mac: boolean): ChordSpec | null {
   const key = normalizeKey(rawKey)
   if (!key) return null
   spec.key = key
+  if (key === 'shift' && !isDoubleShift(spec)) return null
   return spec
+}
+
+export const DOUBLE_SHIFT = 'Shift+Shift'
+
+export const DOUBLE_SHIFT_MS = 300
+
+export const DOUBLE_SHIFT_KEY: KeyLike = {
+  key: 'Shift',
+  code: 'ShiftLeft',
+  ctrlKey: false,
+  metaKey: false,
+  shiftKey: true,
+  altKey: false,
+}
+
+export function isDoubleShift(spec: ChordSpec): boolean {
+  return spec.key === 'shift' && spec.shift && !spec.ctrl && !spec.alt && !spec.meta
+}
+
+export function isDoubleShiftKey(e: KeyLike): boolean {
+  return e.key === 'Shift'
+}
+
+export interface TapKey {
+  key: string
+  ctrlKey: boolean
+  metaKey: boolean
+  altKey: boolean
+  repeat?: boolean
+  isComposing?: boolean
+}
+
+export interface DoubleShiftDetector {
+  down: (e: TapKey, now: number) => void
+  up: (e: TapKey, now: number) => boolean
+  reset: () => void
+}
+
+export function doubleShiftDetector(windowMs = DOUBLE_SHIFT_MS): DoubleShiftDetector {
+  let downAt: number | null = null
+  let tappedAt: number | null = null
+  let armed = false
+  const reset = (): void => {
+    downAt = null
+    tappedAt = null
+    armed = false
+  }
+  return {
+    down: (e, now) => {
+      const lone = e.key === 'Shift' && !e.ctrlKey && !e.metaKey && !e.altKey
+      if (!lone || e.repeat || e.isComposing) {
+        reset()
+        return
+      }
+      armed = tappedAt !== null && now - tappedAt <= windowMs
+      tappedAt = null
+      downAt = now
+    },
+    up: (e, now) => {
+      if (e.key !== 'Shift') return false
+      const tap = downAt !== null && now - downAt <= windowMs
+      const second = armed
+      reset()
+      if (!tap) return false
+      if (second) return true
+      tappedAt = now
+      return false
+    },
+    reset,
+  }
 }
 
 const metaName = (mac: boolean): string => (mac ? 'Cmd' : 'Super')
@@ -197,6 +270,7 @@ export function chordText(spec: ChordSpec, mac: boolean): string {
     parts.push(key)
     return parts.join('+')
   }
+  if (isDoubleShift(spec)) return '⇧⇧'
   return `${spec.ctrl ? '⌃' : ''}${spec.alt ? '⌥' : ''}${spec.meta ? '⌘' : ''}${spec.shift ? '⇧' : ''}${key}`
 }
 
@@ -268,6 +342,30 @@ export const BROWSER_CHORD_IDS = [
 
 const BROWSER_IDS: ReadonlySet<string> = new Set(BROWSER_CHORD_IDS)
 
+export const TERMINAL_COMMAND_CHORD_IDS = [
+  'terminal.scrollToTop',
+  'terminal.scrollToBottom',
+  'terminal.scrollPageUp',
+  'terminal.scrollPageDown',
+  'terminal.scrollLineUp',
+  'terminal.scrollLineDown',
+  'tab.moveLeft',
+  'tab.moveRight',
+] as const
+
+export const TERMINAL_CHORD_IDS = [
+  'copy',
+  'paste',
+  'find',
+  'find.next',
+  'find.previous',
+  'block.selectPrev',
+  'block.selectNext',
+  ...TERMINAL_COMMAND_CHORD_IDS,
+] as const
+
+const TERMINAL_IDS: ReadonlySet<string> = new Set(TERMINAL_CHORD_IDS)
+
 const notShellOwned = (spec: ChordSpec): boolean => spec.key !== 'escape' && spec.key !== 'tab'
 
 const altChord = (spec: ChordSpec): boolean =>
@@ -277,6 +375,9 @@ const ctrlChord = (spec: ChordSpec): boolean =>
   spec.ctrl && !spec.alt && !spec.shift && !spec.meta && notShellOwned(spec)
 
 export function bindingProblem(id: string, spec: ChordSpec, mac: boolean): ChordProblem | null {
+  if (isDoubleShift(spec)) {
+    return spec.terminal || BROWSER_IDS.has(id) || TERMINAL_IDS.has(id) ? 'invalid' : null
+  }
   const browserOnly = BROWSER_IDS.has(id) && (altChord(spec) || ctrlChord(spec))
   const steal = browserOnly ? null : stealsTerminalKey(spec, mac)
   if (steal) return steal

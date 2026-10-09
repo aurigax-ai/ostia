@@ -61,6 +61,14 @@ describe('uiStore', () => {
       state().togglePalette()
       expect(state().paletteOpen).toBe(false)
     })
+
+    it('togglePalette opens the palette on the commands prefix and clears it on close', () => {
+      state().togglePalette()
+      expect(state()).toMatchObject({ paletteOpen: true, paletteMode: 'search', paletteSeed: '>' })
+
+      state().togglePalette()
+      expect(state()).toMatchObject({ paletteOpen: false, paletteSeed: '' })
+    })
   })
 
   describe('dashboard', () => {
@@ -137,6 +145,23 @@ describe('uiStore', () => {
       expect(state().filesOpen).toBe(true)
       state().toggleFiles()
       expect(state().filesOpen).toBe(false)
+    })
+  })
+
+  describe('searchFiles with a query', () => {
+    it('hands the query to the search box once', () => {
+      state().searchFiles('needle')
+      expect(state()).toMatchObject({
+        filesOpen: true,
+        filesSearchOpen: true,
+        filesSearchFocus: true,
+        filesSearchQuery: 'needle',
+      })
+      state().filesSearchFocused()
+      expect(state()).toMatchObject({ filesSearchFocus: false, filesSearchQuery: null })
+      state().searchFiles()
+      expect(state().filesSearchQuery).toBeNull()
+      state().toggleFiles()
     })
   })
 

@@ -1,4 +1,10 @@
-import { type ChordProblem, type ChordSpec, DIGIT_RANGE, parseChord } from './chordSpec'
+import {
+  type ChordProblem,
+  type ChordSpec,
+  DIGIT_RANGE,
+  isDoubleShift,
+  parseChord,
+} from './chordSpec'
 import { isDangerousSegment } from './protoGuard'
 
 export const TERMINAL_SEND_TYPES = ['text', 'escape', 'hex'] as const
@@ -75,6 +81,7 @@ const PLAIN_KEY_PROBLEMS: Readonly<Record<string, ChordProblem>> = {
 
 export function sendChordProblem(spec: ChordSpec): ChordProblem | null {
   if (spec.key === DIGIT_RANGE) return 'digit-range'
+  if (isDoubleShift(spec)) return 'invalid'
   if (spec.ctrl || spec.alt || spec.meta) return null
   if (spec.key.length === 1 || spec.key === 'space') return 'bare'
   if (spec.shift) return null

@@ -173,6 +173,7 @@ const GROUP_BY_ID: Readonly<Record<string, CommandGroup>> = {
   'app.quit': 'app',
   'app.openSettings': 'app',
   'palette.toggle': 'app',
+  'palette.searchEverywhere': 'app',
   'attention.jumpToLatest': 'app',
   'history.search': 'app',
   'workflows.search': 'app',

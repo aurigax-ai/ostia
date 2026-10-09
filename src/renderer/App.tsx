@@ -25,7 +25,7 @@ import { WindowControls } from './components/WindowControls'
 import { WorkZone } from './components/WorkZone'
 import { WorkflowPicker } from './components/WorkflowPicker'
 import { TooltipProvider } from './components/ui/tooltip'
-import { runAppChord } from './lib/chords'
+import { installDoubleShift, runAppChord } from './lib/chords'
 import { collectQuitGroups, confirmQuit } from './lib/closeConfirm'
 import { handleDocumentClipboardChord, syncClipboardChords } from './lib/documentClipboard'
 import { wireGuestChords } from './lib/guestChordBridge'
@@ -82,6 +82,7 @@ export function App(): JSX.Element {
 
   useEffect(() => syncClipboardChords(isMac), [])
   useEffect(() => wireGuestChords(isMac), [])
+  useEffect(() => installDoubleShift(window, isMac), [])
 
   useEffect(() => installMiddlePasteGuard(window), [])
 

@@ -1,12 +1,14 @@
 import { create } from 'zustand'
 import { releaseFocusForPalette } from '../lib/paletteFocus'
+import { COMMANDS_PREFIX } from '../lib/paletteModes'
 import { parseSettingsTarget } from '../lib/settingsNav'
 
-export type PaletteOpenMode = 'search' | 'ask'
+export type PaletteOpenMode = 'search' | 'everywhere' | 'ask'
 
 export interface OpenSettingsOptions {
   previewPaneId?: string
   extension?: string
+  query?: string
 }
 
 interface UIState {
@@ -18,10 +20,12 @@ interface UIState {
   settingsActive: boolean
   settingsSection: string | null
   settingsExtension: string | null
+  settingsQuery: string | null
   dashboardActive: boolean
   filesOpen: boolean
   filesSearchOpen: boolean
   filesSearchFocus: boolean
+  filesSearchQuery: string | null
   digitHints: boolean
   promptPreviewPaneId: string | null
   settingsWorkspaceId: string | null
@@ -40,7 +44,7 @@ interface UIState {
   toggleDashboard: () => void
   toggleFiles: () => void
   showFiles: () => void
-  searchFiles: () => void
+  searchFiles: (query?: string) => void
   hideFilesSearch: () => void
   toggleFilesSearch: (focused: EventTarget | null) => void
   filesSearchFocused: () => void
@@ -56,10 +60,12 @@ export const useUIStore = create<UIState>((set, get) => ({
   settingsActive: false,
   settingsSection: null,
   settingsExtension: null,
+  settingsQuery: null,
   dashboardActive: false,
   filesOpen: false,
   filesSearchOpen: false,
   filesSearchFocus: false,
+  filesSearchQuery: null,
   digitHints: false,
   promptPreviewPaneId: null,
   settingsWorkspaceId: null,
@@ -72,7 +78,11 @@ export const useUIStore = create<UIState>((set, get) => ({
   closePalette: () => set({ paletteOpen: false, paletteMode: 'search', paletteSeed: '' }),
   togglePalette: () => {
     if (!get().paletteOpen) releaseFocusForPalette()
-    set((s) => ({ paletteOpen: !s.paletteOpen, paletteMode: 'search', paletteSeed: '' }))
+    set((s) => ({
+      paletteOpen: !s.paletteOpen,
+      paletteMode: 'search',
+      paletteSeed: s.paletteOpen ? '' : COMMANDS_PREFIX,
+    }))
   },
   toggleRail: () => set((s) => ({ railCollapsed: !s.railCollapsed })),
   setRailCollapsed: (railCollapsed) => set({ railCollapsed }),
@@ -84,6 +94,7 @@ export const useUIStore = create<UIState>((set, get) => ({
       dashboardActive: false,
       settingsSection: target.section,
       settingsExtension: target.extension,
+      settingsQuery: options.query ?? null,
       promptPreviewPaneId: options.previewPaneId ?? null,
     })
   },
@@ -101,17 +112,29 @@ export const useUIStore = create<UIState>((set, get) => ({
   toggleDashboard: () =>
     set((s) => ({ dashboardActive: !s.dashboardActive, settingsActive: false })),
   toggleFiles: () =>
-    set((s) => ({ filesOpen: !s.filesOpen, filesSearchOpen: false, filesSearchFocus: false })),
+    set((s) => ({
+      filesOpen: !s.filesOpen,
+      filesSearchOpen: false,
+      filesSearchFocus: false,
+      filesSearchQuery: null,
+    })),
   showFiles: () => set({ filesOpen: true }),
-  searchFiles: () => set({ filesOpen: true, filesSearchOpen: true, filesSearchFocus: true }),
-  hideFilesSearch: () => set({ filesSearchOpen: false, filesSearchFocus: false }),
+  searchFiles: (query) =>
+    set({
+      filesOpen: true,
+      filesSearchOpen: true,
+      filesSearchFocus: true,
+      filesSearchQuery: query ?? null,
+    }),
+  hideFilesSearch: () =>
+    set({ filesSearchOpen: false, filesSearchFocus: false, filesSearchQuery: null }),
   toggleFilesSearch: (focused) => {
     const s = get()
     const inBox = focused instanceof Element && focused.closest('.files-search') !== null
     if (s.filesOpen && s.filesSearchOpen && inBox) s.hideFilesSearch()
     else s.searchFiles()
   },
-  filesSearchFocused: () => set({ filesSearchFocus: false }),
+  filesSearchFocused: () => set({ filesSearchFocus: false, filesSearchQuery: null }),
   setDigitHints: (digitHints) => set({ digitHints }),
 }))
 

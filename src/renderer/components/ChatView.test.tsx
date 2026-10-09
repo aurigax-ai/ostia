@@ -202,6 +202,19 @@ describe('chat', () => {
     vi.mocked(window.ostia.chatSessions.exportMarkdown).mockClear()
   })
 
+  it('carries only the typed text to Ask when the palette was opened on the commands prefix', async () => {
+    render(<CommandPalette />)
+    act(() => useUIStore.getState().togglePalette())
+    const input = await screen.findByRole('combobox')
+    expect(input).toHaveValue('>')
+    await userEvent.type(input, 'find big files')
+    await userEvent.keyboard('{Tab}')
+
+    expect(await screen.findByRole('combobox', { name: 'Your question' })).toHaveValue(
+      'find big files',
+    )
+  })
+
   it('switches the palette to Ask on Tab, carrying the typed text and naming the model', async () => {
     useUIStore.setState({ paletteOpen: true })
     render(<CommandPalette />)

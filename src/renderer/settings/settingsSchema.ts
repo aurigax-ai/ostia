@@ -85,8 +85,8 @@ const CHORD_VALUE = {
     'elsewhere), a list of chords that all run the command (menus show the first one that ' +
     'works everywhere), or null to unbind. A chord written "terminal:Cmd+K" runs the ' +
     'command only while a terminal has the focus, and elsewhere the key keeps its other ' +
-    'use. Chords the shell needs are ignored: plain Ctrl+letter, plain or Ctrl arrows, ' +
-    'Escape, Tab and keys without Ctrl/Cmd.',
+    'use. "Shift+Shift" is Shift pressed twice on its own. Chords the shell needs are ' +
+    'ignored: plain Ctrl+letter, plain or Ctrl arrows, Escape, Tab and keys without Ctrl/Cmd.',
 }
 
 export function keybindingsSchema(ids: readonly string[]) {

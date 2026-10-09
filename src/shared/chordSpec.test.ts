@@ -2,9 +2,13 @@ import { describe, expect, it } from 'vitest'
 import {
   CHORDS_PER_COMMAND_MAX,
   type ChordSpec,
+  DOUBLE_SHIFT,
+  TERMINAL_CHORD_IDS,
+  type TapKey,
   bindingProblem,
   checkBinding,
   chordText,
+  doubleShiftDetector,
   formatChord,
   formatScopedChord,
   overlaps,
@@ -286,5 +290,172 @@ describe('parseKeybindings', () => {
   it('returns an empty map for a non-object', () => {
     expect({ ...parseKeybindings(['Ctrl+K']) }).toEqual({})
     expect({ ...parseKeybindings('Ctrl+K') }).toEqual({})
+  })
+})
+
+describe('double Shift', () => {
+  const shift: TapKey = { key: 'Shift', ctrlKey: false, metaKey: false, altKey: false }
+  const other = (key: string, mods: Partial<TapKey> = {}): TapKey => ({ ...shift, key, ...mods })
+  const run = (steps: [kind: 'down' | 'up', key: TapKey, at: number][]): number => {
+    const detector = doubleShiftDetector()
+    let fired = 0
+    for (const [kind, key, at] of steps) {
+      if (kind === 'down') detector.down(key, at)
+      else if (detector.up(key, at)) fired += 1
+    }
+    return fired
+  }
+
+  it('parses Shift+Shift as its own chord and prints it back', () => {
+    const spec = chord(DOUBLE_SHIFT)
+    expect(formatChord(spec, false)).toBe('Shift+Shift')
+    expect(chordText(spec, true)).toBe('⇧⇧')
+    expect(chordText(spec, false)).toBe('Shift+Shift')
+    expect(specFromEvent(event('Shift', { shiftKey: true }, 'ShiftLeft'))).toBeNull()
+  })
+
+  it('refuses Shift on its own or with another modifier', () => {
+    expect(parseChord('Shift', false)).toBeNull()
+    expect(parseChord('Ctrl+Shift', false)).toBeNull()
+    expect(parseChord('Cmd+Shift', true)).toBeNull()
+    expect(parseChord('Shift+Shift+Shift', false)).toBeNull()
+  })
+
+  it('binds to app commands only, never in the terminal scope or to browser keys', () => {
+    expect(bindingProblem('palette.searchEverywhere', chord(DOUBLE_SHIFT), false)).toBeNull()
+    expect(bindingProblem('palette.toggle', chord(DOUBLE_SHIFT, true), true)).toBeNull()
+    expect(checkBinding('palette.toggle', `terminal:${DOUBLE_SHIFT}`, false)).toBe('invalid')
+    expect(checkBinding('browser.reload', DOUBLE_SHIFT, false)).toBe('invalid')
+  })
+
+  it('refuses every terminal-only command, which Shift twice could never run', () => {
+    for (const id of TERMINAL_CHORD_IDS) {
+      expect(checkBinding(id, DOUBLE_SHIFT, false), id).toBe('invalid')
+      expect(checkBinding(id, DOUBLE_SHIFT, true), id).toBe('invalid')
+    }
+  })
+
+  it('fires on the second of two lone Shift taps close together', () => {
+    expect(
+      run([
+        ['down', shift, 0],
+        ['up', shift, 80],
+        ['down', shift, 300],
+        ['up', shift, 380],
+      ]),
+    ).toBe(1)
+  })
+
+  it('does not fire for a single tap or taps too far apart', () => {
+    expect(
+      run([
+        ['down', shift, 0],
+        ['up', shift, 80],
+      ]),
+    ).toBe(0)
+    expect(
+      run([
+        ['down', shift, 0],
+        ['up', shift, 80],
+        ['down', shift, 381],
+        ['up', shift, 450],
+      ]),
+    ).toBe(0)
+  })
+
+  it('does not fire when Shift is held', () => {
+    expect(
+      run([
+        ['down', shift, 0],
+        ['up', shift, 80],
+        ['down', shift, 150],
+        ['up', shift, 451],
+      ]),
+    ).toBe(0)
+    expect(
+      run([
+        ['down', shift, 0],
+        ['up', shift, 400],
+        ['down', shift, 450],
+        ['up', shift, 500],
+      ]),
+    ).toBe(0)
+  })
+
+  it('does not count a Shift held with key repeat as a tap', () => {
+    const repeats = [30, 60, 90, 120].map((at): [kind: 'down' | 'up', key: TapKey, at: number] => [
+      'down',
+      { ...shift, repeat: true },
+      at,
+    ])
+    expect(
+      run([
+        ['down', shift, 0],
+        ...repeats,
+        ['up', shift, 140],
+        ['down', shift, 200],
+        ['up', shift, 250],
+      ]),
+    ).toBe(0)
+  })
+
+  it('does not fire when another key comes between or rides on Shift', () => {
+    expect(
+      run([
+        ['down', shift, 0],
+        ['up', shift, 80],
+        ['down', other('a'), 100],
+        ['up', other('a'), 120],
+        ['down', shift, 150],
+        ['up', shift, 200],
+      ]),
+    ).toBe(0)
+    expect(
+      run([
+        ['down', shift, 0],
+        ['up', shift, 80],
+        ['down', shift, 150],
+        ['down', other('A'), 160],
+        ['up', other('A'), 170],
+        ['up', shift, 200],
+      ]),
+    ).toBe(0)
+    expect(
+      run([
+        ['down', shift, 0],
+        ['up', shift, 80],
+        ['down', { ...shift, ctrlKey: true }, 150],
+        ['up', shift, 200],
+      ]),
+    ).toBe(0)
+  })
+
+  it('does not fire while an input method is composing', () => {
+    expect(
+      run([
+        ['down', shift, 0],
+        ['up', shift, 80],
+        ['down', { ...shift, isComposing: true }, 150],
+        ['up', shift, 200],
+      ]),
+    ).toBe(0)
+  })
+
+  it('fires once for three quick taps and again for a fourth', () => {
+    const tap = (at: number): [kind: 'down' | 'up', key: TapKey, at: number][] => [
+      ['down', shift, at],
+      ['up', shift, at + 50],
+    ]
+    expect(run([...tap(0), ...tap(100), ...tap(200)])).toBe(1)
+    expect(run([...tap(0), ...tap(100), ...tap(200), ...tap(300)])).toBe(2)
+  })
+
+  it('starts over after reset', () => {
+    const detector = doubleShiftDetector()
+    detector.down(shift, 0)
+    detector.up(shift, 50)
+    detector.reset()
+    detector.down(shift, 100)
+    expect(detector.up(shift, 150)).toBe(false)
   })
 })

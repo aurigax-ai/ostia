@@ -86,6 +86,7 @@ describe('sendChordProblem', () => {
   it('refuses keys that type, plain Escape, Tab and Enter, and the 1-9 range', () => {
     expect(sendChordProblem(chord('a'))).toBe('bare')
     expect(sendChordProblem(chord('Shift+a'))).toBe('bare')
+    expect(checkSendChord('Shift+Shift', false)).toBe('invalid')
     expect(sendChordProblem(chord('Space'))).toBe('bare')
     expect(sendChordProblem(chord('Enter'))).toBe('bare')
     expect(sendChordProblem(chord('Escape'))).toBe('escape')

@@ -26,6 +26,8 @@ export interface GuestKeyInput {
   shift: boolean
   alt: boolean
   meta: boolean
+  isAutoRepeat?: boolean
+  isComposing?: boolean
 }
 
 export function isClipboardEdit(value: unknown): value is ClipboardEdit {

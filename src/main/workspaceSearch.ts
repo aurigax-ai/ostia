@@ -90,7 +90,7 @@ function isDirectory(path: string): boolean {
 
 export class WorkspaceSearch {
   private lists = new Map<string, { at: number; list: Promise<RgOutcome<FileList>> }>()
-  private running = new Map<number, AbortController>()
+  private running = new Map<string, AbortController>()
 
   constructor(
     private readonly bin: string,
@@ -116,9 +116,10 @@ export class WorkspaceSearch {
     if (root === null || !isDirectory(root)) {
       return { ok: false, error: 'outside-roots', message: '' }
     }
-    this.running.get(caller)?.abort()
+    const slot = `${caller}:${req.namesOnly ? 'names' : 'text'}`
+    this.running.get(slot)?.abort()
     const controller = new AbortController()
-    this.running.set(caller, controller)
+    this.running.set(slot, controller)
     try {
       if (req.namesOnly) {
         const list = await this.fileList(root, req.includeIgnored)
@@ -152,7 +153,7 @@ export class WorkspaceSearch {
       }
       return { ok: true, results }
     } finally {
-      if (this.running.get(caller) === controller) this.running.delete(caller)
+      if (this.running.get(slot) === controller) this.running.delete(slot)
     }
   }
 }

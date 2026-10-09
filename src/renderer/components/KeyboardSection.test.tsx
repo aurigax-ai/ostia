@@ -6,6 +6,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { registerBuiltinCommands } from '../commands/builtins'
 import { commands } from '../commands/registry'
+import { installDoubleShift } from '../lib/chords'
 import { loadDesktops } from '../lib/desktop'
 import { languagesFrom } from '../lib/languagePacks'
 import { useExtensionsStore } from '../stores/extensionsStore'
@@ -57,6 +58,13 @@ const keymapExtension: ExtensionInfo = {
 const press = (key: string, init: KeyboardEventInit = {}): void => {
   act(() => {
     fireEvent.keyDown(window, { key, ...init })
+  })
+}
+
+const tapShift = (): void => {
+  act(() => {
+    fireEvent.keyDown(window, { key: 'Shift', shiftKey: true, code: 'ShiftLeft' })
+    fireEvent.keyUp(window, { key: 'Shift', code: 'ShiftLeft' })
   })
 }
 
@@ -157,6 +165,38 @@ describe('ChordRecorder', () => {
       expect(behind).not.toHaveBeenCalled()
     } finally {
       window.removeEventListener('keydown', behind)
+    }
+  })
+})
+
+describe('ChordRecorder and Shift twice', () => {
+  afterEach(cleanup)
+
+  it('records two lone Shift taps and keeps them from opening anything meanwhile', () => {
+    const onRecord = vi.fn()
+    const searched = vi.fn()
+    commands.register({ id: 'palette.searchEverywhere', title: 'Search', run: searched })
+    const uninstall = installDoubleShift(window, false)
+    try {
+      render(<ChordRecorder label="rec" onRecord={onRecord} onCancel={vi.fn()} />)
+      tapShift()
+      expect(onRecord).not.toHaveBeenCalled()
+      tapShift()
+      expect(onRecord).toHaveBeenCalledWith({
+        ctrl: false,
+        shift: true,
+        alt: false,
+        meta: false,
+        key: 'shift',
+      })
+      expect(searched).not.toHaveBeenCalled()
+      cleanup()
+      tapShift()
+      tapShift()
+      expect(searched).toHaveBeenCalledTimes(1)
+    } finally {
+      uninstall()
+      commands.unregister('palette.searchEverywhere')
     }
   })
 })
@@ -680,6 +720,48 @@ describe('KeyboardSection', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Reset Zoom Pane' }))
     expect(useSettingsStore.getState().keybindings).toEqual({})
     expect(within(row(/Zoom Pane/)).getByText('Ctrl+Shift+X')).toBeInTheDocument()
+  })
+
+  it('binds Search Everywhere to Shift twice and turns it off with ×', async () => {
+    render(<KeyboardSection />)
+    expect(within(row(/Search Everywhere/)).getByText('Shift+Shift')).toBeInTheDocument()
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Remove Shift+Shift from Search Everywhere' }),
+    )
+    expect(useSettingsStore.getState().keybindings['palette.searchEverywhere']).toBeNull()
+    expect(within(row(/Search Everywhere/)).getByText('Unassigned')).toBeInTheDocument()
+  })
+
+  it('records Shift twice for another command and takes it from Search Everywhere on confirm', async () => {
+    render(<KeyboardSection />)
+    await change('Ctrl+Shift+P', 'Command Palette')
+    tapShift()
+    tapShift()
+    await userEvent.click(await screen.findByRole('button', { name: /Replace/ }))
+    expect(useSettingsStore.getState().keybindings).toEqual({
+      'palette.toggle': 'Shift+Shift',
+      'palette.searchEverywhere': null,
+    })
+  })
+
+  it('refuses Shift twice for a terminal-only command and keeps recording', async () => {
+    render(<KeyboardSection />)
+    await change('Ctrl+Shift+C', 'Copy (terminal)')
+    tapShift()
+    tapShift()
+    expect(within(row(/Copy \(terminal\)/)).getByRole('alert')).toHaveTextContent(
+      /Shift\+Shift can’t be used/,
+    )
+    expect(useSettingsStore.getState().keybindings).toEqual({})
+    expect(screen.queryByRole('button', { name: /Replace/ })).toBeNull()
+  })
+
+  it('names Shift twice set on a terminal-only command in settings as ignored', () => {
+    useSettingsStore.setState({ keybindings: { 'terminal.scrollToTop': 'Shift+Shift' } })
+    render(<KeyboardSection />)
+    expect(
+      within(row(/Scroll to Top/)).getByText(/“Shift\+Shift” is ignored on this computer/),
+    ).toBeInTheDocument()
   })
 
   it('re-records only the clicked chord and keeps it in the terminal scope', async () => {

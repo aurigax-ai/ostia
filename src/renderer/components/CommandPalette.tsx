@@ -42,6 +42,7 @@ import { useUIStore } from '../stores/uiStore'
 import { useWindowsStore } from '../stores/windowsStore'
 import { type Workspace, useWorkspacesStore } from '../stores/workspacesStore'
 import { ChatView } from './ChatView'
+import { settingsSections } from './SettingsPanel'
 import {
   Command,
   CommandEmpty,
@@ -89,6 +90,9 @@ export function CommandPalette(): JSX.Element {
   const mode = paletteMode(search)
   const places = useMemo(() => (open ? snapshotPlaces() : EMPTY_PLACES), [open])
   const askMode = openMode === 'ask' && chat !== null
+  const everywhere = openMode === 'everywhere' && mode === 'all' && search.trim() !== ''
+  const placeholder =
+    openMode === 'everywhere' ? d.palette.everywherePlaceholder : d.palette.placeholder
   const activeWorkspaceId = useWorkspacesStore((s) => s.activeWorkspaceId)
   const activeWorkDir = useWorkspacesStore(
     (s) => s.workspaces.find((w) => w.id === s.activeWorkspaceId)?.workDir ?? null,
@@ -140,9 +144,13 @@ export function CommandPalette(): JSX.Element {
     >
       <DialogHeader className="sr-only">
         <DialogTitle>
-          {askMode && chat ? fmt(d.ask.tabHint, { name: chat.name }) : d.palette.title}
+          {askMode && chat
+            ? fmt(d.ask.tabHint, { name: chat.name })
+            : openMode === 'everywhere'
+              ? d.palette.everywhereTitle
+              : d.palette.title}
         </DialogTitle>
-        <DialogDescription>{askMode ? d.ask.placeholder : d.palette.placeholder}</DialogDescription>
+        <DialogDescription>{askMode ? d.ask.placeholder : placeholder}</DialogDescription>
       </DialogHeader>
       <DialogContent
         className={cn(
@@ -176,7 +184,7 @@ export function CommandPalette(): JSX.Element {
           ) : (
             <>
               <CommandInput
-                placeholder={d.palette.placeholder}
+                placeholder={placeholder}
                 value={search}
                 onValueChange={setSearch}
                 onKeyDown={(e) => {
@@ -191,7 +199,7 @@ export function CommandPalette(): JSX.Element {
                     return
                   }
                   e.preventDefault()
-                  enterAsk(mode === 'help' ? '' : search)
+                  enterAsk(mode === 'help' ? '' : mode === 'all' ? search : paletteQuery(search))
                 }}
               />
               <CommandList className={LIST_CLASS}>
@@ -231,10 +239,24 @@ export function CommandPalette(): JSX.Element {
                 {mode === 'all' || mode === 'commands' ? (
                   <CommandItems
                     grouped={search.trim().length <= (mode === 'all' ? 0 : 1)}
+                    heading={everywhere ? d.palette.modes.commands : undefined}
                     onDone={finish}
                     onAsk={ask}
                     onAskAssistant={() => enterAsk('')}
                   />
+                ) : null}
+                {everywhere ? (
+                  <>
+                    <FileItems
+                      query={search.trim()}
+                      workDir={activeWorkDir}
+                      onSelect={setSelected}
+                      onDone={finish}
+                      quiet
+                    />
+                    <FilesTextItem query={search.trim()} onDone={finish} />
+                    <SettingsItems query={search.trim()} onDone={finish} />
+                  </>
                 ) : null}
               </CommandList>
             </>
@@ -536,11 +558,13 @@ function FileItems({
   workDir,
   onSelect,
   onDone,
+  quiet = false,
 }: {
   query: string
   workDir: string | null
   onSelect: (value: string) => void
   onDone: () => void
+  quiet?: boolean
 }): JSX.Element | null {
   const d = useDict()
   const includeIgnored = useSettingsStore((s) => s.files.searchIgnored)
@@ -564,9 +588,10 @@ function FileItems({
       clearTimeout(timer)
     }
   }, [workDir, query, includeIgnored, onSelect])
-  const status = (text: string): JSX.Element => (
-    <output className="block px-3 py-6 text-center text-fg-muted text-ui-sm">{text}</output>
-  )
+  const status = (text: string): JSX.Element | null =>
+    quiet ? null : (
+      <output className="block px-3 py-6 text-center text-fg-muted text-ui-sm">{text}</output>
+    )
   if (!workDir) return status(d.palette.filesNoWorkspace)
   if (!query) return status(d.palette.filesHint)
   if (!result) return null
@@ -592,6 +617,58 @@ function FileItems({
         )
       })}
     </CommandGroup>
+  )
+}
+
+const SETTINGS_SYMBOL = '§'
+const FILES_TEXT_SYMBOL = '¶'
+
+function FilesTextItem({ query, onDone }: { query: string; onDone: () => void }): JSX.Element {
+  const d = useDict()
+  return (
+    <CommandItem
+      className="mx-1"
+      value={FILES_TEXT_SYMBOL}
+      forceMount
+      onSelect={() => {
+        useUIStore.getState().searchFiles(query)
+        onDone()
+      }}
+    >
+      <ItemRow name={fmt(d.palette.searchFilesText, { query })} />
+    </CommandItem>
+  )
+}
+
+function SettingsItems({ query, onDone }: { query: string; onDone: () => void }): JSX.Element {
+  const d = useDict()
+  const sections = useMemo(() => settingsSections(d), [d])
+  const open = (section: string | undefined, text: string): void => {
+    useUIStore.getState().openSettings(section, { query: text })
+    onDone()
+  }
+  return (
+    <>
+      <CommandGroup heading={d.palette.settings} className={GROUP_CLASS}>
+        {sections.map((s) => (
+          <CommandItem
+            key={s.id}
+            value={`${SETTINGS_SYMBOL} ${s.label} ${s.id}`}
+            onSelect={() => open(s.id, '')}
+          >
+            <ItemRow name={s.label} />
+          </CommandItem>
+        ))}
+      </CommandGroup>
+      <CommandItem
+        className="mx-1"
+        value={SETTINGS_SYMBOL}
+        forceMount
+        onSelect={() => open(undefined, query)}
+      >
+        <ItemRow name={fmt(d.palette.searchSettings, { query })} />
+      </CommandItem>
+    </>
   )
 }
 
@@ -670,11 +747,13 @@ function searchValue(symbol: string, command: RegisteredCommand, shown: CommandW
 
 function CommandItems({
   grouped,
+  heading,
   onDone,
   onAsk,
   onAskAssistant,
 }: {
   grouped: boolean
+  heading?: string
   onDone: () => void
   onAsk: (command: ArgumentCommand) => void
   onAskAssistant: () => void
@@ -696,7 +775,7 @@ function CommandItems({
     return (
       <CommandItem
         key={c.id}
-        className={grouped ? undefined : 'mx-1'}
+        className={grouped || heading ? undefined : 'mx-1'}
         value={searchValue(symbol, c, shown)}
         onSelect={() => {
           if (c.id === ASK_COMMAND_ID) {
@@ -721,7 +800,15 @@ function CommandItems({
       </CommandItem>
     )
   }
-  if (!grouped) return <>{[...groups.values()].flatMap((group) => group.items).map(renderItem)}</>
+  if (!grouped) {
+    const items = [...groups.values()].flatMap((group) => group.items).map(renderItem)
+    if (!heading) return <>{items}</>
+    return (
+      <CommandGroup heading={heading} className={GROUP_CLASS}>
+        {items}
+      </CommandGroup>
+    )
+  }
   return (
     <>
       {[...groups.entries()].map(([key, group]) => (

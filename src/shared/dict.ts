@@ -63,6 +63,7 @@ export const en = {
       'history.insert': 'Insert Command',
       'history.search': 'Search Command History',
       'palette.toggle': 'Command Palette',
+      'palette.searchEverywhere': 'Search Everywhere',
       'pane.close': 'Close Pane',
       'tab.next': 'Next Tab',
       'tab.previous': 'Previous Tab',
@@ -181,7 +182,6 @@ export const en = {
     } as Record<string, string>,
   },
   search: {
-    placeholder: 'Search commands, workspaces, tabs…',
     command: 'Search or run a command',
   },
   rail: {
@@ -628,8 +628,13 @@ export const en = {
   },
   palette: {
     title: 'Command palette',
+    everywhereTitle: 'Search everywhere',
     general: 'General',
     placeholder: 'Search commands, workspaces, tabs… (? for help)',
+    everywherePlaceholder: 'Search commands, files, settings, workspaces and tabs…',
+    settings: 'Settings',
+    searchSettings: 'Search settings for “{query}”',
+    searchFilesText: 'Search text in files for “{query}”',
     empty: 'Nothing matches',
     helpHeading: 'Type a prefix to narrow the search',
     argumentEmpty: 'Type a value, then press Enter',
@@ -3410,6 +3415,7 @@ export const zhHant: Dict = {
       'history.insert': '插入指令',
       'history.search': '搜尋指令歷史',
       'palette.toggle': '指令面板',
+      'palette.searchEverywhere': '搜尋全部',
       'pane.close': '關閉窗格',
       'tab.next': '下一個分頁',
       'tab.previous': '上一個分頁',
@@ -3528,7 +3534,6 @@ export const zhHant: Dict = {
     } as Record<string, string>,
   },
   search: {
-    placeholder: '搜尋指令、工作區、分頁…',
     command: '搜尋或執行指令',
   },
   rail: {
@@ -3966,8 +3971,13 @@ export const zhHant: Dict = {
   },
   palette: {
     title: '指令面板',
+    everywhereTitle: '搜尋全部',
     general: '一般',
     placeholder: '搜尋指令、工作區、分頁…（輸入 ? 查看說明）',
+    everywherePlaceholder: '搜尋指令、檔案、設定、工作區與分頁…',
+    settings: '設定',
+    searchSettings: '在設定中搜尋「{query}」',
+    searchFilesText: '在檔案中搜尋文字「{query}」',
     empty: '沒有符合的項目',
     helpHeading: '輸入前綴以縮小搜尋範圍',
     argumentEmpty: '輸入一個值，然後按 Enter',
