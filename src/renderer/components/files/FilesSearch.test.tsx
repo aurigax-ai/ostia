@@ -11,10 +11,15 @@ import type { SearchOutcome } from '@shared/files/search'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { textPdf } from '../../../../e2e/pdfFixture'
 import { FilesPanel } from './FilesPanel'
 import { SEARCH_DELAY_MS } from './FilesSearch'
 
 const ROOT = '/home/me/project'
+
+vi.mock('pdfjs-dist/legacy/build/pdf.worker.min.mjs?url', () => ({
+  default: 'pdfjs-dist/legacy/build/pdf.worker.min.mjs',
+}))
 
 const RESULTS: SearchOutcome = {
   ok: true,
@@ -334,6 +339,47 @@ describe('Files panel search', () => {
     expect(usePdfFindStore.getState().pending[`${ROOT}/docs/paper.pdf`]).toEqual({
       page: 4,
       query: 'Notes',
+    })
+  })
+
+  it('PDF text is found from the Files panel and with find in the PDF viewer', async () => {
+    seed()
+    const pdf = textPdf(
+      'Introduction',
+      'A needle on page two',
+      'Another needle and one more needle',
+    )
+    vi.mocked(window.ostia.fs.readBinary).mockImplementation(async (path) =>
+      path === `${ROOT}/docs/paper.pdf`
+        ? { ok: true, data: new Uint8Array(pdf) }
+        : { ok: false, error: 'unreadable' },
+    )
+    vi.mocked(window.ostia.search.run).mockResolvedValue({
+      ok: true,
+      results: {
+        root: ROOT,
+        names: [],
+        files: [],
+        pdfs: [{ path: 'docs/paper.pdf', size: 10, mtimeMs: 7 }],
+        matches: 0,
+        truncated: false,
+      },
+    })
+    const openFile = vi.spyOn(useLayoutStore.getState(), 'openFile').mockImplementation(() => {})
+    render(<FilesPanel />)
+    const user = userEvent.setup()
+
+    await user.type(screen.getByRole('textbox', { name: 'Search files' }), 'needle')
+
+    const text = await screen.findByRole('region', { name: 'Text' }, { timeout: 5000 })
+    expect(text).toHaveTextContent('docs/paper.pdf')
+    expect(text).toHaveTextContent('p. 2')
+    expect(text).toHaveTextContent('p. 3')
+    await user.click(screen.getByRole('button', { name: /Another needle/ }))
+    expect(openFile).toHaveBeenCalledWith('s1', `${ROOT}/docs/paper.pdf`)
+    expect(usePdfFindStore.getState().pending[`${ROOT}/docs/paper.pdf`]).toEqual({
+      page: 3,
+      query: 'needle',
     })
   })
 

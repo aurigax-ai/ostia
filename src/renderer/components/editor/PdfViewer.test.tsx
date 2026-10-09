@@ -6,7 +6,7 @@ import { TARGET_PANE, seedSendTarget } from '../../../../test/mocks/sendTarget'
 const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 9])
 
 const fake = vi.hoisted(() => {
-  const pageText: Record<number, string> = { 1: 'Invoice total: 42', 2: 'Second page' }
+  const pageText = ['Invoice total: 42', 'Second page']
   const makePage = (n: number) => ({
     getViewport: ({ scale }: { scale: number }) => ({
       width: 600 * scale,
@@ -15,23 +15,26 @@ const fake = vi.hoisted(() => {
     }),
     render: vi.fn(() => ({ promise: Promise.resolve(), cancel: vi.fn() })),
     streamTextContent: () => n,
+    getTextContent: () => Promise.resolve({ items: [{ str: pageText[n - 1] }] }),
   })
   class TextLayer {
     constructor(private opts: { textContentSource: number; container: HTMLElement }) {}
     render() {
       const span = document.createElement('span')
-      span.textContent = pageText[this.opts.textContentSource]
+      span.textContent = pageText[this.opts.textContentSource - 1]
       this.opts.container.appendChild(span)
       return Promise.resolve()
     }
     cancel() {}
   }
   const doc = {
-    numPages: 2,
+    get numPages() {
+      return pageText.length
+    },
     getPage: vi.fn((n: number) => Promise.resolve(makePage(n))),
     loadingTask: { destroy: vi.fn(() => Promise.resolve()) },
   }
-  return { doc, TextLayer, openPdf: vi.fn(() => Promise.resolve(doc)) }
+  return { doc, pageText, TextLayer, openPdf: vi.fn(() => Promise.resolve(doc)) }
 })
 
 vi.mock('@/lib/files/pdf', () => ({
@@ -42,6 +45,7 @@ vi.mock('@/lib/browser/cropImage', () => ({ cropToPng: vi.fn() }))
 
 const { cropToPng } = await import('@/lib/browser/cropImage')
 const { PdfViewer } = await import('./PdfViewer')
+const { usePdfFindStore } = await import('@/stores/files/pdfFindStore')
 
 let unseed: () => void
 
@@ -253,6 +257,52 @@ describe('PdfViewer', () => {
       expect(Math.abs(Number.parseFloat(region.style.height) - 40)).toBeLessThan(6)
     } finally {
       width.mockRestore()
+    }
+  })
+
+  it('PDF text is found from the Files panel and with find in the PDF viewer', async () => {
+    const pages = fake.pageText.splice(
+      0,
+      fake.pageText.length,
+      'Introduction',
+      'A needle on page two',
+      'Another needle and one more needle',
+    )
+    const highlights = new Map<string, { size: number }>()
+    vi.stubGlobal('CSS', { highlights })
+    vi.stubGlobal(
+      'Highlight',
+      class {
+        size: number
+        constructor(...ranges: Range[]) {
+          this.size = ranges.length
+        }
+      },
+    )
+    try {
+      usePdfFindStore.getState().request('/w/docs/paper.pdf', { page: 3, query: 'needle' })
+      render(<PdfViewer workspaceId="w1" paneId="pdf-pane" filePath="/w/docs/paper.pdf" />)
+      const input = screen.getByRole('textbox', { name: 'Find in PDF' })
+      expect(input).toHaveValue('needle')
+      expect(await screen.findByText('Page 3 of 3')).toBeInTheDocument()
+      const find = document.querySelector('.pdf-find') as HTMLElement
+      await waitFor(() => expect(find).toHaveTextContent('2/3'))
+
+      fireEvent.keyDown(input, { key: 'Enter', shiftKey: true })
+      expect(find).toHaveTextContent('1/3')
+      expect(await screen.findByText('Page 2 of 3')).toBeInTheDocument()
+      await screen.findByText('A needle on page two')
+      await waitFor(() => expect(highlights.get('ostia-find')?.size).toBe(1))
+
+      fireEvent.keyDown(input, { key: 'Escape' })
+      expect(document.querySelector('.pdf-find')).toBeNull()
+      const textLayer = document.querySelector('.pdf-text') as HTMLElement
+      await userEvent.click(textLayer)
+      fireEvent.keyDown(textLayer, { key: 'f', ctrlKey: true })
+      expect(screen.getByRole('textbox', { name: 'Find in PDF' })).toHaveFocus()
+    } finally {
+      vi.unstubAllGlobals()
+      fake.pageText.splice(0, fake.pageText.length, ...pages)
     }
   })
 

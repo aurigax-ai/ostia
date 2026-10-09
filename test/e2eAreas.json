@@ -106,7 +106,6 @@
       "specs": [
         "e2e/markdown-preview.spec.ts",
         "e2e/open-any-file.spec.ts",
-        "e2e/pdf-search.spec.ts",
         "e2e/preview-send.spec.ts"
       ]
     },
@@ -517,7 +516,6 @@
         "e2e/files-panel.spec.ts",
         "e2e/open-any-file.spec.ts",
         "e2e/palette-focus.spec.ts",
-        "e2e/pdf-search.spec.ts",
         "e2e/terminal-file-links.spec.ts"
       ]
     },
