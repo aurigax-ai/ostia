@@ -4,10 +4,15 @@ import { Command, CommandItem, CommandList } from '@/components/ui/command'
 import { ContextMenu, ContextMenuSeparator, ContextMenuTrigger } from '@/components/ui/context-menu'
 import { Textarea } from '@/components/ui/textarea'
 import { useDict } from '@/i18n/useDict'
-import { latestRequest, naturalCommandQuery } from '@/lib/assistComposer'
-import { featureEnabled, setAssistFeature, useAssistFeature } from '@/lib/assistFeatures'
-import { execChord, isAppChord, matchTerminalChord } from '@/lib/chords'
-import { smartClipboardAction } from '@/lib/clipboardKeys'
+import { latestRequest, naturalCommandQuery } from '@/lib/assist/assistComposer'
+import { featureEnabled, setAssistFeature, useAssistFeature } from '@/lib/assist/assistFeatures'
+import { workspaceOfPane } from '@/lib/attention/workspaceActivity'
+import { everyChip, promptExtensionChips, useChipCatalog } from '@/lib/extensions/extensionChips'
+import { execChord, isAppChord, matchTerminalChord } from '@/lib/keys/chords'
+import { smartClipboardAction } from '@/lib/keys/clipboardKeys'
+import { clipboardChordOf } from '@/lib/keys/documentClipboard'
+import { planDraftPaste } from '@/lib/keys/pasteGate'
+import { historyHiddenFrom } from '@/lib/panes/scratchPanes'
 import {
   type CompletionMatch,
   type CompletionOrigin,
@@ -16,9 +21,7 @@ import {
   keepSelection,
   markRuns,
   tabStep,
-} from '@/lib/completionMatch'
-import { clipboardChordOf } from '@/lib/documentClipboard'
-import { everyChip, promptExtensionChips, useChipCatalog } from '@/lib/extensionChips'
+} from '@/lib/prompt/completionMatch'
 import {
   type CompletionItem,
   applyCompletionItem,
@@ -35,13 +38,10 @@ import {
   recentCommands,
   splitPathWord,
   suggestionWord,
-} from '@/lib/inputEditor'
-import { applyLineEdit, lineEditOp, shellKeyBytes } from '@/lib/lineEditing'
-import type { OstiaTerminal as Xterm } from '@/lib/ostiaTerminal'
-import { planDraftPaste } from '@/lib/pasteGate'
-import { cellBox, rowsToMake } from '@/lib/promptOverlay'
-import { historyHiddenFrom } from '@/lib/scratchPanes'
-import { type ShellToken, tokenizeShell } from '@/lib/shellTokens'
+} from '@/lib/prompt/inputEditor'
+import { applyLineEdit, lineEditOp, shellKeyBytes } from '@/lib/prompt/lineEditing'
+import { cellBox, rowsToMake } from '@/lib/prompt/promptOverlay'
+import { type ShellToken, tokenizeShell } from '@/lib/prompt/shellTokens'
 import {
   type AiGhost,
   type GhostBlockers,
@@ -52,10 +52,9 @@ import {
   pickGhost,
   recentHistory,
   terminalRequest,
-} from '@/lib/terminalGhost'
-import { registerInputEditor } from '@/lib/terminalHandles'
-import { usePromptChips } from '@/lib/usePromptChips'
-import { usePromptGeometry } from '@/lib/usePromptGeometry'
+} from '@/lib/prompt/terminalGhost'
+import { usePromptChips } from '@/lib/prompt/usePromptChips'
+import { usePromptGeometry } from '@/lib/prompt/usePromptGeometry'
 import {
   type VimBuffer,
   type VimMode,
@@ -64,8 +63,9 @@ import {
   clampNormal,
   enterNormal,
   parseVimKeys,
-} from '@/lib/vimMode'
-import { workspaceOfPane } from '@/lib/workspaceActivity'
+} from '@/lib/prompt/vimMode'
+import type { OstiaTerminal as Xterm } from '@/lib/terminal/ostiaTerminal'
+import { registerInputEditor } from '@/lib/terminal/terminalHandles'
 import { isMac, platform } from '@/platform'
 import type { TerminalColors } from '@/plugins/types'
 import { assistRequest, useAssistProvider } from '@/stores/assistStore'

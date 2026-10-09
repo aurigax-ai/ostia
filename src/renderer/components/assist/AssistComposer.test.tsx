@@ -1,5 +1,5 @@
 import { commands } from '@/commands/registry'
-import { registerTerminal } from '@/lib/terminalHandles'
+import { registerTerminal } from '@/lib/terminal/terminalHandles'
 import { useAssistComposerStore } from '@/stores/assistComposerStore'
 import { useAssistStore } from '@/stores/assistStore'
 import { useBlocksStore } from '@/stores/blocksStore'
@@ -15,12 +15,12 @@ const agentState = vi.hoisted(() => ({
   insertable: true,
 }))
 
-vi.mock('@/lib/sendPick', () => ({
+vi.mock('@/lib/agents/sendPick', () => ({
   canInsertReference: () => agentState.insertable,
 }))
 
-vi.mock('@/lib/paneAgent', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@/lib/paneAgent')>()),
+vi.mock('@/lib/agents/paneAgent', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/agents/paneAgent')>()),
   runningAgent: () => agentState.agent,
 }))
 

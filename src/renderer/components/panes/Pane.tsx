@@ -8,8 +8,9 @@ import { HostPaneBadge, SandboxRestartButton } from '@/components/sandbox/Sandbo
 import { useDict } from '@/i18n/useDict'
 import { allPanes, findPane, firstPaneId } from '@/layout/tree'
 import type { PaneNode, SurfaceKind, TabNode } from '@/layout/types'
-import { type TabDrop, dropZoneAt, paneDropTarget, tabDropTarget } from '@/lib/dropZone'
-import { HOVER_FOCUS_DELAY_MS, canFocusOnHover } from '@/lib/hoverFocus'
+import { leavePane } from '@/lib/attention/pointerView'
+import { viewPointedPane } from '@/lib/attention/workspaceActivity'
+import { type TabDrop, dropZoneAt, paneDropTarget, tabDropTarget } from '@/lib/panes/dropZone'
 import {
   PANE_DND,
   beginPaneDrag,
@@ -17,10 +18,9 @@ import {
   endPaneDrag,
   isPaneDrag,
   reportForeignDrop,
-} from '@/lib/paneDrag'
-import { leavePane } from '@/lib/pointerView'
+} from '@/lib/panes/paneDrag'
+import { HOVER_FOCUS_DELAY_MS, canFocusOnHover } from '@/lib/terminal/hoverFocus'
 import { cn } from '@/lib/utils'
-import { viewPointedPane } from '@/lib/workspaceActivity'
 import { useApprovalsStore } from '@/stores/approvalsStore'
 import { useAttentionStore } from '@/stores/attentionStore'
 import { usePaneDnd } from '@/stores/paneDndStore'

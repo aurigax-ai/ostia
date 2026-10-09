@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest'
-import { RAIL_MOTION_FALLBACK_MS } from '@/lib/railMotion'
+import { RAIL_MOTION_FALLBACK_MS } from '@/lib/sidebar/railMotion'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useUIStore } from '@/stores/uiStore'
 import { type Workspace, useWorkspacesStore } from '@/stores/workspacesStore'

@@ -1,8 +1,8 @@
+import { BASE_LANGUAGE } from '@/lib/extensions/languagePacks'
 import type { Dict } from '@shared/dict'
 import type { Capability } from '../../shared/capabilities'
 import { DEFAULT_CAPABILITIES } from '../../shared/capabilities'
 import type { CommandDescriptor, CommandResult, JSONSchema, TargetMode } from '../../shared/types'
-import { BASE_LANGUAGE } from '../lib/languagePacks'
 
 export type {
   CommandResult,

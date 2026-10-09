@@ -7,7 +7,7 @@ import {
   panelMaxWidth,
   storePanelWidth,
   storedPanelWidth,
-} from '@/lib/panelWidth'
+} from '@/lib/panes/panelWidth'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 const RESIZING_ATTRIBUTE = 'data-rail-resizing'

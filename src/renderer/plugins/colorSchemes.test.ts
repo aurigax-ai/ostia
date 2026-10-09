@@ -1,6 +1,6 @@
+import { normalizeHex } from '@/lib/theme/color'
 import { wcagContrast } from 'culori'
 import { describe, expect, it } from 'vitest'
-import { normalizeHex } from '../lib/color'
 import { BUILTIN_PLUGINS } from './builtin'
 import { BUILTIN_COLOR_SCHEMES } from './colorSchemes'
 import { ANSI_NAMES } from './types'

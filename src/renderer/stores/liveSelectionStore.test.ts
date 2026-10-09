@@ -1,5 +1,5 @@
+import { liveSelectionContext, selectionRef } from '@/lib/assist/askContext'
 import { afterEach, describe, expect, it } from 'vitest'
-import { liveSelectionContext, selectionRef } from '../lib/askContext'
 import { useLiveSelectionStore } from './liveSelectionStore'
 
 const editorAt = (file: string, startLine: number, endLine: number) =>

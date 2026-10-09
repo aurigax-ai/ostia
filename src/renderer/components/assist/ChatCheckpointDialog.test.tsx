@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest'
-import type { OstiaChatMessage } from '@/lib/chatTransport'
+import type { OstiaChatMessage } from '@/lib/assist/chatTransport'
 import { type ChatEditRecord, resetChatTools, useChatToolsStore } from '@/stores/chatToolsStore'
 import { useWorkspacesStore } from '@/stores/workspacesStore'
 import type { ChatRestoreRequest } from '@shared/chatTools'

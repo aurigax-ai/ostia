@@ -1,4 +1,4 @@
-import type { PaneWhere } from '@/lib/dashboard'
+import type { PaneWhere } from '@/lib/sidebar/dashboard'
 import { useLayoutStore } from '@/stores/layoutStore'
 import { useQuestionsStore } from '@/stores/questionsStore'
 import { useUIStore } from '@/stores/uiStore'

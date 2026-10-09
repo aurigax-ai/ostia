@@ -3,7 +3,7 @@ import {
   type ReadOnlyTerminal,
   createReadOnlyTerminal,
   useReadOnlyTerminalBackground,
-} from '@/lib/readOnlyTerminal'
+} from '@/lib/terminal/readOnlyTerminal'
 import { useEffect, useRef, useState } from 'react'
 
 export function ManagerView({ paneId }: { paneId: string }): JSX.Element {

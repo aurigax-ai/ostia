@@ -1,8 +1,12 @@
 import { MenuItem, MenuSubContent, MenuSubTrigger } from '@/components/common/Menu'
 import { ContextMenuSub } from '@/components/ui/context-menu'
 import { fmt, useDict } from '@/i18n/useDict'
-import { mergeRefusalText } from '@/lib/mergeRefusalText'
-import { type MergeTarget, loadMergeTargets, requestMergeWorkspace } from '@/lib/workspaceMerge'
+import { mergeRefusalText } from '@/lib/workspaces/mergeRefusalText'
+import {
+  type MergeTarget,
+  loadMergeTargets,
+  requestMergeWorkspace,
+} from '@/lib/workspaces/workspaceMerge'
 import { ArrowsMergeIcon, type Icon } from '@phosphor-icons/react'
 import { useEffect, useState } from 'react'
 

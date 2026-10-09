@@ -1,6 +1,6 @@
+import type { TabDrop } from '@/lib/panes/dropZone'
 import { create } from 'zustand'
 import type { DropZone } from '../layout/tree'
-import type { TabDrop } from '../lib/dropZone'
 
 interface PaneDndState {
   dragging: boolean

@@ -7,7 +7,7 @@ import {
   ComboboxList,
 } from '@/components/ui/combobox'
 import { useDict } from '@/i18n/useDict'
-import { localFontFamilies } from '@/lib/localFonts'
+import { localFontFamilies } from '@/lib/theme/localFonts'
 import { useState } from 'react'
 
 export function FontPicker({

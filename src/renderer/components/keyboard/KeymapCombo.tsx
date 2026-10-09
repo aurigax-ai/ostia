@@ -3,7 +3,7 @@ import { useSearchLeaf } from '@/components/settings/SettingsSearch'
 import { Button } from '@/components/ui/button'
 import { Kbd } from '@/components/ui/kbd'
 import { fmt, useDict } from '@/i18n/useDict'
-import { keymapBindings } from '@/lib/chords'
+import { keymapBindings } from '@/lib/keys/chords'
 import {
   type PresetLayer,
   appPresetChanges,
@@ -12,8 +12,8 @@ import {
   textPreview,
   userChangeCount,
   userChanges,
-} from '@/lib/keyChanges'
-import { terminalKeymapOf } from '@/lib/keyPresets'
+} from '@/lib/keys/keyChanges'
+import { terminalKeymapOf } from '@/lib/keys/keyPresets'
 import { isMac, platform } from '@/platform'
 import { useExtensionsStore } from '@/stores/extensionsStore'
 import { appKeymap, keymapChoices, useKeymapStore } from '@/stores/keymapStore'

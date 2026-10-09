@@ -1,5 +1,5 @@
+import { registerEditorPosition } from '@/lib/files/editorPositions'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import { registerEditorPosition } from '../lib/editorPositions'
 import { useSettingsStore } from '../stores/settingsStore'
 import { OPEN_EXTERNAL_COMMAND, registerExternalEditorCommand } from './externalEditor'
 import { commands } from './registry'

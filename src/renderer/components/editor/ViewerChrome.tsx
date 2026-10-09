@@ -1,7 +1,7 @@
 import { IconButton } from '@/components/common/IconButton'
 import { fmt, useDict } from '@/i18n/useDict'
-import { stepZoom, zoomPercent } from '@/lib/regionSelect'
-import type { FileBytes } from '@/lib/viewerHooks'
+import { stepZoom, zoomPercent } from '@/lib/browser/regionSelect'
+import type { FileBytes } from '@/lib/files/viewerHooks'
 import {
   ArrowsInIcon,
   MagnifyingGlassMinusIcon,

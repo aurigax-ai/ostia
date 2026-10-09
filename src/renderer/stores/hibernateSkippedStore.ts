@@ -1,5 +1,5 @@
+import type { HibernateReport, SkippedAgents } from '@/lib/agents/hibernationScheduler'
 import { create } from 'zustand'
-import type { HibernateReport, SkippedAgents } from '../lib/hibernationScheduler'
 
 interface HibernateSkippedState {
   skipped: SkippedAgents | null

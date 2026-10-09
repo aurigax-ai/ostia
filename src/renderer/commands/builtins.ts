@@ -1,3 +1,72 @@
+import { hibernateWorkspaces, resumeWorkspaces, wakePane } from '@/lib/agents/hibernationScheduler'
+import { type PaneAgentReport, isStaleAgentReport, paneAgentReport } from '@/lib/agents/paneAgent'
+import { resetZoom } from '@/lib/app/wheelZoom'
+import { postAgentNotification } from '@/lib/attention/agentNotification'
+import { announceBusMessage } from '@/lib/attention/busNotice'
+import {
+  focusAdjacentTab,
+  focusPaneInDirection,
+  goToWorkspace,
+  isPaneViewed,
+  jumpToLatestUnread,
+  markWorkspaceRead,
+  signalPane,
+  stepWorkspace,
+} from '@/lib/attention/workspaceActivity'
+import { browserProfileIn, openerOf } from '@/lib/browser/browserProfile'
+import { openArtifact, openPad } from '@/lib/files/artifacts'
+import {
+  markOpenedQuietly,
+  openFilesQuietly,
+  openPlaced,
+  openRequestedFiles,
+} from '@/lib/files/openFile'
+import { waitOnPanes } from '@/lib/files/openWaits'
+import { revealFolder } from '@/lib/files/revealFolder'
+import { setKeybindingSetting } from '@/lib/keys/chords'
+import {
+  FILES_PREFIX,
+  GO_TO_FILE_COMMAND,
+  GO_TO_WORKSPACE_COMMAND,
+  GO_TO_WORKSPACE_SYMBOL_COMMAND,
+  SYMBOLS_PREFIX,
+  WORKSPACES_PREFIX,
+} from '@/lib/palette/paletteModes'
+import { openWorkflowPicker } from '@/lib/palette/workflows'
+import { callerHasFocus, openKeepingFocus, opensQuietly } from '@/lib/panes/callerFocus'
+import { groupMates } from '@/lib/sidebar/groupPeers'
+import {
+  type BlockPart,
+  copyBlock,
+  insertCommand,
+  rerunBlock,
+  stepBlock,
+} from '@/lib/terminal/blockActions'
+import { clearKeepingScrollback } from '@/lib/terminal/clearTerminal'
+import { focusActivePaneWhenReady } from '@/lib/terminal/focusNewTerminal'
+import { terminalFor } from '@/lib/terminal/terminalHandles'
+import {
+  closePaneForAgent,
+  requestCloseOthers,
+  requestClosePane,
+  requestCloseWorkspace,
+} from '@/lib/workspaces/closeConfirm'
+import { runCmuxImport } from '@/lib/workspaces/cmuxImport'
+import { mergeRefusalText } from '@/lib/workspaces/mergeRefusalText'
+import { startNewWorkspace, startScratchWorkspace } from '@/lib/workspaces/newWorkspace'
+import { tabMoveRefusalText } from '@/lib/workspaces/tabMoveRefusalText'
+import {
+  activeTabId,
+  moveTabToWorkspace,
+  tabMoveRefusalFor,
+  tabMoveTargets,
+} from '@/lib/workspaces/tabWorkspaceMove'
+import { loadMergeTargets, requestMergeWorkspace } from '@/lib/workspaces/workspaceMerge'
+import {
+  anchorToFocusedPane,
+  canMoveWorkspace,
+  moveWorkspaceTo,
+} from '@/lib/workspaces/workspaceProjects'
 import { type AgentResume, resumeCommand } from '@shared/agentResume'
 import { PAD_COMMAND } from '@shared/artifacts'
 import type { CmuxImportReport } from '@shared/cmuxSession'
@@ -25,71 +94,6 @@ import {
   tabNeighbor,
 } from '../layout/tree'
 import type { Direction, SurfaceKind } from '../layout/types'
-import { postAgentNotification } from '../lib/agentNotification'
-import { openArtifact, openPad } from '../lib/artifacts'
-import {
-  type BlockPart,
-  copyBlock,
-  insertCommand,
-  rerunBlock,
-  stepBlock,
-} from '../lib/blockActions'
-import { browserProfileIn, openerOf } from '../lib/browserProfile'
-import { announceBusMessage } from '../lib/busNotice'
-import { callerHasFocus, openKeepingFocus, opensQuietly } from '../lib/callerFocus'
-import { setKeybindingSetting } from '../lib/chords'
-import { clearKeepingScrollback } from '../lib/clearTerminal'
-import {
-  closePaneForAgent,
-  requestCloseOthers,
-  requestClosePane,
-  requestCloseWorkspace,
-} from '../lib/closeConfirm'
-import { runCmuxImport } from '../lib/cmuxImport'
-import { focusActivePaneWhenReady } from '../lib/focusNewTerminal'
-import { groupMates } from '../lib/groupPeers'
-import { hibernateWorkspaces, resumeWorkspaces, wakePane } from '../lib/hibernationScheduler'
-import { mergeRefusalText } from '../lib/mergeRefusalText'
-import { startNewWorkspace, startScratchWorkspace } from '../lib/newWorkspace'
-import {
-  markOpenedQuietly,
-  openFilesQuietly,
-  openPlaced,
-  openRequestedFiles,
-} from '../lib/openFile'
-import { waitOnPanes } from '../lib/openWaits'
-import {
-  FILES_PREFIX,
-  GO_TO_FILE_COMMAND,
-  GO_TO_WORKSPACE_COMMAND,
-  GO_TO_WORKSPACE_SYMBOL_COMMAND,
-  SYMBOLS_PREFIX,
-  WORKSPACES_PREFIX,
-} from '../lib/paletteModes'
-import { type PaneAgentReport, isStaleAgentReport, paneAgentReport } from '../lib/paneAgent'
-import { revealFolder } from '../lib/revealFolder'
-import { tabMoveRefusalText } from '../lib/tabMoveRefusalText'
-import {
-  activeTabId,
-  moveTabToWorkspace,
-  tabMoveRefusalFor,
-  tabMoveTargets,
-} from '../lib/tabWorkspaceMove'
-import { terminalFor } from '../lib/terminalHandles'
-import { resetZoom } from '../lib/wheelZoom'
-import { openWorkflowPicker } from '../lib/workflows'
-import {
-  focusAdjacentTab,
-  focusPaneInDirection,
-  goToWorkspace,
-  isPaneViewed,
-  jumpToLatestUnread,
-  markWorkspaceRead,
-  signalPane,
-  stepWorkspace,
-} from '../lib/workspaceActivity'
-import { loadMergeTargets, requestMergeWorkspace } from '../lib/workspaceMerge'
-import { anchorToFocusedPane, canMoveWorkspace, moveWorkspaceTo } from '../lib/workspaceProjects'
 import { isMac } from '../platform'
 import { keymapSettingValue, terminalKeymapSettingValue } from '../settings/keymapSetting'
 import { settingsSchemaAt } from '../settings/settingsSchema'

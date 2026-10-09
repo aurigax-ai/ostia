@@ -1,5 +1,5 @@
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { useChordLabel } from '@/lib/chords'
+import { useChordLabel } from '@/lib/keys/chords'
 import { isMac } from '@/platform'
 import type { ReactElement, ReactNode } from 'react'
 

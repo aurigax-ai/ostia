@@ -1,5 +1,5 @@
+import { currentScheme, useScheme } from '@/lib/theme/colorScheme'
 import { useEffect } from 'react'
-import { currentScheme, useScheme } from '../lib/colorScheme'
 import type { ColorScheme } from '../plugins/types'
 import { monacoThemeData, monacoThemeId } from './monacoTheme'
 import { monaco } from './setup'

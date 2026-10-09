@@ -1,4 +1,4 @@
-import * as clearTerminal from '@/lib/clearTerminal'
+import * as clearTerminal from '@/lib/terminal/clearTerminal'
 import { useBlocksStore } from '@/stores/blocksStore'
 import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'

@@ -5,7 +5,7 @@ import {
   quitGroups,
   requestClosePane,
   requestCloseWorkspace,
-} from '@/lib/closeConfirm'
+} from '@/lib/workspaces/closeConfirm'
 import { type CommandBlock, useBlocksStore } from '@/stores/blocksStore'
 import { useCloseConfirmStore } from '@/stores/closeConfirmStore'
 import { useEditorStatus } from '@/stores/editorStatusStore'

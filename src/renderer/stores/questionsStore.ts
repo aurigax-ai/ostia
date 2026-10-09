@@ -1,8 +1,8 @@
+import { isPaneViewed, signalPane } from '@/lib/attention/workspaceActivity'
 import { wantsDesktopBanner } from '@shared/notificationSettings'
 import type { QuestionReply, QuestionRequest, QuestionState } from '@shared/questions'
 import { create } from 'zustand'
 import { currentDict } from '../i18n/useDict'
-import { isPaneViewed, signalPane } from '../lib/workspaceActivity'
 import { useAttentionStore } from './attentionStore'
 import { useSettingsStore } from './settingsStore'
 

@@ -1,6 +1,6 @@
 import { commands } from '@/commands/registry'
 import { SurfaceErrorBoundary } from '@/components/panes/SurfaceErrorBoundary'
-import { startErrorReporting } from '@/lib/errorReporting'
+import { startErrorReporting } from '@/lib/app/errorReporting'
 import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'

@@ -1,4 +1,4 @@
-import { editorPositionOf } from '@/lib/editorPositions'
+import { editorPositionOf } from '@/lib/files/editorPositions'
 import { useDiffStore } from '@/stores/diffStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'

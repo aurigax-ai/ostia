@@ -20,8 +20,8 @@ import {
   saveCodeAsFile,
   sendToAgent,
   workspaceTerminals,
-} from '@/lib/chatActions'
-import { confirmsGeneratedText } from '@/lib/pasteGate'
+} from '@/lib/assist/chatActions'
+import { confirmsGeneratedText } from '@/lib/keys/pasteGate'
 import { useBlocksStore } from '@/stores/blocksStore'
 import { useLayoutStore } from '@/stores/layoutStore'
 import { useWorkflowsStore } from '@/stores/workflowsStore'

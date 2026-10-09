@@ -1,5 +1,5 @@
 import { commands } from '@/commands/registry'
-import { chipsForPane, paneChipCatalog } from '@/lib/extensionChips'
+import { chipsForPane, paneChipCatalog } from '@/lib/extensions/extensionChips'
 import { useExtensionsStore } from '@/stores/extensionsStore'
 import { useLayoutStore } from '@/stores/layoutStore'
 import { useSettingsStore } from '@/stores/settingsStore'

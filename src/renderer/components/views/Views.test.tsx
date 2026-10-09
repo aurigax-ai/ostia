@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest'
 import { commands } from '@/commands/registry'
 import { ActionConfirmDialog } from '@/components/settings/ActionConfirmDialog'
-import { registerViewCommands } from '@/lib/views'
+import { registerViewCommands } from '@/lib/extensions/views'
 import { useActionConfirmStore } from '@/stores/actionConfirmStore'
 import { useLayoutStore } from '@/stores/layoutStore'
 import { useSettingsStore } from '@/stores/settingsStore'

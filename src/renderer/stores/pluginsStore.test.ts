@@ -1,6 +1,6 @@
+import { BASE_LANGUAGE } from '@/lib/extensions/languagePacks'
 import { en } from '@shared/dict'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import { BASE_LANGUAGE } from '../lib/languagePacks'
 import { BUILTIN_PLUGINS } from '../plugins/builtin'
 import { usePluginsStore } from './pluginsStore'
 

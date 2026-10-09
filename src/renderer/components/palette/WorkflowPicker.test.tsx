@@ -16,8 +16,8 @@ const actions = vi.hoisted(() => ({
   canTypeInto: vi.fn().mockReturnValue(true),
 }))
 
-vi.mock('@/lib/blockActions', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@/lib/blockActions')>()),
+vi.mock('@/lib/terminal/blockActions', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/terminal/blockActions')>()),
   ...actions,
 }))
 

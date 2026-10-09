@@ -2,7 +2,7 @@ import '@testing-library/jest-dom/vitest'
 import { registerBuiltinCommands } from '@/commands/builtins'
 import { commands } from '@/commands/registry'
 import { CommandPalette } from '@/components/CommandPalette'
-import { runConfirmed } from '@/lib/chatActions'
+import { runConfirmed } from '@/lib/assist/chatActions'
 import { useAssistStore } from '@/stores/assistStore'
 import { useBlocksStore } from '@/stores/blocksStore'
 import { resetChats, useChatStore } from '@/stores/chatStore'
@@ -17,7 +17,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ChatPane } from './ChatPane'
 
-vi.mock('@/lib/colorize', () => ({ colorizeCode: async () => null }))
+vi.mock('@/lib/theme/colorize', () => ({ colorizeCode: async () => null }))
 
 const blockActions = vi.hoisted(() => ({
   canTypeInto: vi.fn().mockReturnValue(true),
@@ -25,21 +25,21 @@ const blockActions = vi.hoisted(() => ({
   runWhenIdle: vi.fn(),
 }))
 
-vi.mock('@/lib/blockActions', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@/lib/blockActions')>()),
+vi.mock('@/lib/terminal/blockActions', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/terminal/blockActions')>()),
   ...blockActions,
 }))
 
 const agentPaste = vi.hoisted(() => vi.fn())
 
-vi.mock('@/lib/terminalHandles', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@/lib/terminalHandles')>()),
+vi.mock('@/lib/terminal/terminalHandles', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/terminal/terminalHandles')>()),
   terminalFor: (paneId: string) =>
     paneId === 'agent-pane' ? { paste: agentPaste, getSelection: () => '' } : undefined,
 }))
 
-vi.mock('@/lib/sendPick', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@/lib/sendPick')>()),
+vi.mock('@/lib/agents/sendPick', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/agents/sendPick')>()),
   canInsertReference: (paneId: string) => paneId === 'agent-pane',
 }))
 
@@ -59,8 +59,8 @@ vi.mock('@/components/agents/PickSendPanel', async (importOriginal) => ({
 
 const opened = vi.hoisted(() => ({ file: vi.fn(), at: vi.fn() }))
 
-vi.mock('@/lib/openFile', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@/lib/openFile')>()),
+vi.mock('@/lib/files/openFile', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/files/openFile')>()),
   openFileInWorkspace: opened.file,
   openFileAt: opened.at,
 }))

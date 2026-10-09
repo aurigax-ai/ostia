@@ -1,3 +1,5 @@
+import type { GroupRule } from '@/lib/sidebar/workspaceGroups'
+import { normalizeHex } from '@/lib/theme/color'
 import { type AgentHooks, DEFAULT_AGENT_HOOKS, parseAgentHooks } from '@shared/agentHooks'
 import {
   type ApprovalMode,
@@ -63,8 +65,6 @@ import { type SandboxGlobals, parseSandboxGlobals } from '../../shared/sandbox'
 import { type TelemetrySettings, parseTelemetrySettings } from '../../shared/telemetry'
 import { normalizeGroupName } from '../../shared/workspaceGroups'
 import { ZOOM_DEFAULT, clampZoom } from '../../shared/zoom'
-import { normalizeHex } from '../lib/color'
-import type { GroupRule } from '../lib/workspaceGroups'
 import { isMac } from '../platform'
 import { platform } from '../platform'
 import { type UserAction, parseActions } from '../settings/actions'

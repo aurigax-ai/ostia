@@ -1,4 +1,4 @@
-import { TERMINAL_INPUT_SELECTOR } from '../lib/ostiaTerminal'
+import { TERMINAL_INPUT_SELECTOR } from '@/lib/terminal/ostiaTerminal'
 
 const hosts = new Map<string, HTMLDivElement>()
 let holder: HTMLDivElement | null = null

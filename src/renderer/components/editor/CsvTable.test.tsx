@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest'
-import { CSV_ROWS_MAX } from '@/lib/csvTable'
+import { CSV_ROWS_MAX } from '@/lib/files/csvTable'
 import { cleanup, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 import { renderSettled } from '../../../../test/render'

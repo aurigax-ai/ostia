@@ -21,7 +21,7 @@ import { renderSettled } from '../../../../test/render'
 import { ChatPane } from './ChatPane'
 import { ChatView, REDACTION_PREVIEW_MS, hasVisibleContent } from './ChatView'
 
-vi.mock('@/lib/colorize', () => ({ colorizeCode: async () => null }))
+vi.mock('@/lib/theme/colorize', () => ({ colorizeCode: async () => null }))
 
 const PANE = 'p-chat-term'
 const CHAT = {

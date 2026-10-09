@@ -9,7 +9,7 @@ import {
   openChipUrl,
   usePaneChips,
   useWorkspaceChips,
-} from '@/lib/extensionChips'
+} from '@/lib/extensions/extensionChips'
 import { CopyIcon } from '@phosphor-icons/react'
 import type { PaneChipItem } from '@shared/extensions'
 import { extensionIcon } from './extensionIcons'

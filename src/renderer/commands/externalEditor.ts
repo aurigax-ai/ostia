@@ -1,6 +1,6 @@
+import { editorPositionOf } from '@/lib/files/editorPositions'
 import { isRemotePath } from '@shared/remoteFolders'
 import type { ExternalEditorResult } from '@shared/types'
-import { editorPositionOf } from '../lib/editorPositions'
 import { useSettingsStore } from '../stores/settingsStore'
 import { registerCore } from './core'
 

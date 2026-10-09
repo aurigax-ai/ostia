@@ -13,8 +13,8 @@ import {
   checkCheckpoint,
   checkpointFiles,
   restoreCheckpoint,
-} from '@/lib/chatCheckpoint'
-import type { OstiaChatMessage } from '@/lib/chatTransport'
+} from '@/lib/assist/chatCheckpoint'
+import type { OstiaChatMessage } from '@/lib/assist/chatTransport'
 import { sessionEdits } from '@/stores/chatToolsStore'
 import { useEffect, useState } from 'react'
 import { shownPath } from './ChatEditCard'

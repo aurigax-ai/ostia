@@ -41,7 +41,7 @@ vi.mock('@xterm/addon-unicode11', () => ({ Unicode11Addon: class {} }))
 import { commands } from '@/commands/registry'
 import { findPane } from '@/layout/tree'
 import type { PaneNode } from '@/layout/types'
-import * as blockActions from '@/lib/blockActions'
+import * as blockActions from '@/lib/terminal/blockActions'
 import { useLayoutStore } from '@/stores/layoutStore'
 import { surfaceHost } from '@/stores/surfaceSlotsStore'
 import { useWorkspacesStore } from '@/stores/workspacesStore'

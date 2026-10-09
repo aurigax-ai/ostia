@@ -14,7 +14,7 @@ import {
   errorDetails,
   reportDetails,
   withComponentStack,
-} from '@/lib/errorReporting'
+} from '@/lib/app/errorReporting'
 import { WarningIcon, XIcon } from '@phosphor-icons/react'
 import { Component, type ErrorInfo, type ReactNode } from 'react'
 

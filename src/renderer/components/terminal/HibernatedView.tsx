@@ -1,15 +1,15 @@
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { fmt, useDict } from '@/i18n/useDict'
-import { matchChordInTerminal } from '@/lib/chords'
-import { smartClipboardAction } from '@/lib/clipboardKeys'
-import { wakePane } from '@/lib/hibernationScheduler'
+import { wakePane } from '@/lib/agents/hibernationScheduler'
+import { matchChordInTerminal } from '@/lib/keys/chords'
+import { smartClipboardAction } from '@/lib/keys/clipboardKeys'
 import {
   type ReadOnlyTerminal,
   createReadOnlyTerminal,
   useReadOnlyTerminalBackground,
   useReadOnlyTerminalFont,
-} from '@/lib/readOnlyTerminal'
+} from '@/lib/terminal/readOnlyTerminal'
 import { isMac } from '@/platform'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { MoonIcon, PlayIcon } from '@phosphor-icons/react'

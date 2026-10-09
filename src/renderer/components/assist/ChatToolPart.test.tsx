@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest'
-import type { ApprovalAnswer } from '@/lib/chatToolPermissions'
-import { decideTool } from '@/lib/chatToolPermissions'
+import type { ApprovalAnswer } from '@/lib/assist/chatToolPermissions'
+import { decideTool } from '@/lib/assist/chatToolPermissions'
 import {
   type PendingApproval,
   requestApproval,

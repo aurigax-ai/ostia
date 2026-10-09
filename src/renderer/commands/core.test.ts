@@ -21,8 +21,8 @@ const CORE_FILE = 'src/renderer/commands/core.ts'
 
 const WORDED_FILES = new Map([
   ['src/renderer/commands/assistToggles.ts', 'titles are built from the feature names'],
-  ['src/renderer/lib/userActions.ts', 'the title is the human’s own; the category is ours'],
-  ['src/renderer/lib/views.ts', 'titles are built from the view’s own title'],
+  ['src/renderer/lib/palette/userActions.ts', 'the title is the human’s own; the category is ours'],
+  ['src/renderer/lib/extensions/views.ts', 'titles are built from the view’s own title'],
 ])
 
 const TRANSLATED_ELSEWHERE = new Map([

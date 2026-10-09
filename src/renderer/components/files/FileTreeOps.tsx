@@ -21,7 +21,7 @@ import {
   pasteInto,
   renameEntry,
   trashEntries,
-} from '@/lib/fileTreeActions'
+} from '@/lib/files/fileTreeActions'
 import { isMac } from '@/platform'
 import { type TreeEdit, useFileTreeStore } from '@/stores/fileTreeStore'
 import {

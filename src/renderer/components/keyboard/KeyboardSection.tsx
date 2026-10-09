@@ -7,6 +7,8 @@ import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/in
 import { Kbd } from '@/components/ui/kbd'
 import { TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { fmt, useDict } from '@/i18n/useDict'
+import { currentDesktops } from '@/lib/app/desktop'
+import { BASE_LANGUAGE } from '@/lib/extensions/languagePacks'
 import {
   WORKSPACE_GOTO,
   baseChords,
@@ -22,8 +24,7 @@ import {
   terminalKeyConflicts,
   useBindings,
   workspaceDigit,
-} from '@/lib/chords'
-import { currentDesktops } from '@/lib/desktop'
+} from '@/lib/keys/chords'
 import {
   type TerminalKeyRow,
   removeTerminalKey,
@@ -31,7 +32,7 @@ import {
   saveTerminalKey,
   terminalKeyFor,
   terminalKeymapOf,
-} from '@/lib/keyPresets'
+} from '@/lib/keys/keyPresets'
 import {
   type KeySource,
   type TerminalKeySources,
@@ -44,9 +45,13 @@ import {
   withChordAdded,
   withChordRemoved,
   withChordReplaced,
-} from '@/lib/keySources'
-import { BASE_LANGUAGE } from '@/lib/languagePacks'
-import { SEND_ACTION_KEYS, type SendActionKey, actionSend, sendActionKey } from '@/lib/presetDiff'
+} from '@/lib/keys/keySources'
+import {
+  SEND_ACTION_KEYS,
+  type SendActionKey,
+  actionSend,
+  sendActionKey,
+} from '@/lib/keys/presetDiff'
 import { isMac, platform } from '@/platform'
 import { useExtensionsStore } from '@/stores/extensionsStore'
 import { appKeymap, keymapChoices, useKeymapStore } from '@/stores/keymapStore'

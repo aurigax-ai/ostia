@@ -1,3 +1,9 @@
+import { workspaceFolder } from '@/lib/assist/chatTools'
+import {
+  type OstiaChatMessage,
+  createAssistTransport,
+  messageText,
+} from '@/lib/assist/chatTransport'
 import { Chat } from '@ai-sdk/react'
 import { type AssistModelRef, CHAT_CONTEXT_MAX, type ChatContextItem } from '@shared/assist'
 import {
@@ -10,8 +16,6 @@ import {
   chatTitle,
 } from '@shared/chatSessions'
 import { create } from 'zustand'
-import { workspaceFolder } from '../lib/chatTools'
-import { type OstiaChatMessage, createAssistTransport, messageText } from '../lib/chatTransport'
 import { type ChatEditRecord, sessionEdits, useChatToolsStore } from './chatToolsStore'
 import { useSettingsStore } from './settingsStore'
 import { useWorkspacesStore } from './workspacesStore'

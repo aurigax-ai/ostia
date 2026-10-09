@@ -1,5 +1,5 @@
-import { findStep, matchChord } from '@/lib/chords'
-import { sourceLinesOf, trackSelection } from '@/lib/domSelection'
+import { sourceLinesOf, trackSelection } from '@/lib/browser/domSelection'
+import { findStep, matchChord } from '@/lib/keys/chords'
 import { isMac } from '@/platform'
 import { type KeyboardEvent, useEffect, useRef, useState } from 'react'
 import Markdown, { type Components } from 'react-markdown'

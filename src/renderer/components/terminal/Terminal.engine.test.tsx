@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest'
-import { loadGhostty } from '@/lib/ghosttyEngine'
+import { loadGhostty } from '@/lib/terminal/ghosttyEngine'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { type RenderResult, act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import type { ReactElement } from 'react'

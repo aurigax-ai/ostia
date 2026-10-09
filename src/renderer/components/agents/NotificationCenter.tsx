@@ -6,9 +6,9 @@ import {
   type NotificationTab,
   groupNotifications,
   inTab,
-} from '@/lib/notificationGroups'
-import { remoteWorkspacesOf } from '@/lib/windowWorkspaces'
-import { revealPane } from '@/lib/workspaceActivity'
+} from '@/lib/attention/notificationGroups'
+import { revealPane } from '@/lib/attention/workspaceActivity'
+import { remoteWorkspacesOf } from '@/lib/workspaces/windowWorkspaces'
 import { useApprovalsStore } from '@/stores/approvalsStore'
 import { useAttentionStore } from '@/stores/attentionStore'
 import { useExtensionsStore } from '@/stores/extensionsStore'

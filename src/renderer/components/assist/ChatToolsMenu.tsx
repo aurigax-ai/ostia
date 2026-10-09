@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/popover'
 import { Switch } from '@/components/ui/switch'
 import { fmt, useDict } from '@/i18n/useDict'
-import { SKILLS_GROUP, builtinAvailable, groupOf, mcpGroup } from '@/lib/chatTools'
+import { SKILLS_GROUP, builtinAvailable, groupOf, mcpGroup } from '@/lib/assist/chatTools'
 import { cn } from '@/lib/utils'
 import { refreshMcp, refreshSkills, useChatToolsStore } from '@/stores/chatToolsStore'
 import { useExtensionsStore } from '@/stores/extensionsStore'

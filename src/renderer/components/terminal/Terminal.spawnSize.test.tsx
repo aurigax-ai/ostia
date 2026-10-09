@@ -1,5 +1,9 @@
-import { loadGhostty } from '@/lib/ghosttyEngine'
-import { noteFittedGrid, resetOffscreenStartForTests, startOffscreen } from '@/lib/offscreenStart'
+import { loadGhostty } from '@/lib/terminal/ghosttyEngine'
+import {
+  noteFittedGrid,
+  resetOffscreenStartForTests,
+  startOffscreen,
+} from '@/lib/terminal/offscreenStart'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { act, cleanup, render, waitFor } from '@testing-library/react'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'

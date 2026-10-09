@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest'
 import { createPane } from '@/layout/tree'
-import { loadHomeDir } from '@/lib/homeDir'
+import { loadHomeDir } from '@/lib/files/homeDir'
 import { useExtensionsStore } from '@/stores/extensionsStore'
 import { useIconThemeStore } from '@/stores/iconThemeStore'
 import { useLayoutStore } from '@/stores/layoutStore'

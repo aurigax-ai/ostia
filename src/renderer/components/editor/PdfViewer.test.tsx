@@ -34,13 +34,13 @@ const fake = vi.hoisted(() => {
   return { doc, TextLayer, openPdf: vi.fn(() => Promise.resolve(doc)) }
 })
 
-vi.mock('@/lib/pdf', () => ({
+vi.mock('@/lib/files/pdf', () => ({
   openPdf: fake.openPdf,
   loadPdfjs: () => Promise.resolve({ TextLayer: fake.TextLayer }),
 }))
-vi.mock('@/lib/cropImage', () => ({ cropToPng: vi.fn() }))
+vi.mock('@/lib/browser/cropImage', () => ({ cropToPng: vi.fn() }))
 
-const { cropToPng } = await import('@/lib/cropImage')
+const { cropToPng } = await import('@/lib/browser/cropImage')
 const { PdfViewer } = await import('./PdfViewer')
 
 let unseed: () => void

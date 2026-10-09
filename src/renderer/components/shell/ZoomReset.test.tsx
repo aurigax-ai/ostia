@@ -1,4 +1,4 @@
-import { zoomFont } from '@/lib/wheelZoom'
+import { zoomFont } from '@/lib/app/wheelZoom'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'

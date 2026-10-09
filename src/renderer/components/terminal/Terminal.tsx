@@ -1,5 +1,5 @@
-import { keptShellReattached } from '@/lib/autoResume'
-import { silenceQueryReplies } from '@/lib/tmuxQueries'
+import { keptShellReattached } from '@/lib/agents/autoResume'
+import { silenceQueryReplies } from '@/lib/terminal/tmuxQueries'
 import type { TerminalRenderer } from '@/settings/terminalPaneSettings'
 import { CHAT_CONTEXT_TEXT_MAX } from '@shared/assist'
 import { FitAddon } from '@xterm/addon-fit'
@@ -13,7 +13,10 @@ import { useSelectionSend } from '@/components/agents/SelectionSend'
 import { AssistComposer } from '@/components/assist/AssistComposer'
 import { RiskyPasteDialog } from '@/components/common/RiskyPasteDialog'
 import { currentDict, fmt } from '@/i18n/useDict'
-import { tail } from '@/lib/askContext'
+import { terminalNotification } from '@/lib/agents/paneAgent'
+import { registerSelectionSender } from '@/lib/agents/selectionSenders'
+import { attachWheelZoom } from '@/lib/app/wheelZoom'
+import { tail } from '@/lib/assist/askContext'
 import {
   KittyNotificationAssembler,
   type OscNotification,
@@ -21,11 +24,17 @@ import {
   parseOsc9,
   parseOsc99,
   parseOsc777,
-} from '@/lib/attention'
-import { bellActions, createBellThrottle } from '@/lib/bell'
-import { canTypeInto, insertCommand, selectedBlockOutput, stepBlock } from '@/lib/blockActions'
-import { decodeCommandLine, readCommandText } from '@/lib/blockText'
-import { openBrowserAs, openBrowserTabAs } from '@/lib/browserProfile'
+} from '@/lib/attention/attention'
+import { bellActions, createBellThrottle } from '@/lib/attention/bell'
+import { forgetPaneActivity, markPaneActivity } from '@/lib/attention/paneActivity'
+import {
+  isPaneViewed,
+  isPaneVisible,
+  shouldNotifyCommandEnd,
+  signalPane,
+  usePaneVisible,
+} from '@/lib/attention/workspaceActivity'
+import { openBrowserAs, openBrowserTabAs } from '@/lib/browser/browserProfile'
 import {
   execChord,
   findStep,
@@ -34,17 +43,27 @@ import {
   isTerminalCommandChord,
   matchChord,
   matchTerminalChord,
-} from '@/lib/chords'
+} from '@/lib/keys/chords'
 import {
   PROGRAM_PASTE_KEY,
   keyPastePlan,
   pasteEventReadsClipboard,
   smartClipboardAction,
-} from '@/lib/clipboardKeys'
-import { currentScheme, terminalTheme, useScheme } from '@/lib/colorScheme'
-import { acceptsPathDrop, droppedPaths, pathsAsInput } from '@/lib/dropPaths'
-import { ghosttyModule, loadGhostty } from '@/lib/ghosttyEngine'
-import { terminalKeyData } from '@/lib/keyPresets'
+} from '@/lib/keys/clipboardKeys'
+import { acceptsPathDrop, droppedPaths, pathsAsInput } from '@/lib/keys/dropPaths'
+import { terminalKeyData } from '@/lib/keys/keyPresets'
+import { planDraftPaste, planHumanPaste } from '@/lib/keys/pasteGate'
+import { spawnPromptOption } from '@/lib/prompt/promptChips'
+import { scrollUpSequence } from '@/lib/prompt/promptOverlay'
+import { measureCells } from '@/lib/prompt/usePromptGeometry'
+import {
+  canTypeInto,
+  insertCommand,
+  selectedBlockOutput,
+  stepBlock,
+} from '@/lib/terminal/blockActions'
+import { decodeCommandLine, readCommandText } from '@/lib/terminal/blockText'
+import { ghosttyModule, loadGhostty } from '@/lib/terminal/ghosttyEngine'
 import {
   type LinkKind,
   attachLinkClaim,
@@ -52,10 +71,14 @@ import {
   linkModifierHeld,
   linkSpan,
   webLinkTarget,
-} from '@/lib/linkModifier'
-import { noteFittedGrid, offscreenGrid, registerOffscreenStarter } from '@/lib/offscreenStart'
-import { isLocalHost, parseOsc7 } from '@/lib/osc7'
-import { registerOsc52 } from '@/lib/osc52'
+} from '@/lib/terminal/linkModifier'
+import {
+  noteFittedGrid,
+  offscreenGrid,
+  registerOffscreenStarter,
+} from '@/lib/terminal/offscreenStart'
+import { isLocalHost, parseOsc7 } from '@/lib/terminal/osc7'
+import { registerOsc52 } from '@/lib/terminal/osc52'
 import {
   type OstiaTerminal,
   type PauseTerminal,
@@ -64,39 +87,25 @@ import {
   type TerminalSearch,
   type WebLinkHandler,
   terminalScreen,
-} from '@/lib/ostiaTerminal'
-import { forgetPaneActivity, markPaneActivity } from '@/lib/paneActivity'
-import { terminalNotification } from '@/lib/paneAgent'
-import { commitProgramTitle, commitShellTitle } from '@/lib/paneTitle'
-import { planDraftPaste, planHumanPaste } from '@/lib/pasteGate'
-import { installPrimarySelection } from '@/lib/primarySelection'
-import { spawnPromptOption } from '@/lib/promptChips'
-import { scrollUpSequence } from '@/lib/promptOverlay'
-import { createPtyAcker } from '@/lib/ptyAck'
-import { registerSelectionSender } from '@/lib/selectionSenders'
-import { createFileLinkProvider } from '@/lib/terminalFileLinks'
-import { inputEditorFor, registerTerminal } from '@/lib/terminalHandles'
+} from '@/lib/terminal/ostiaTerminal'
+import { commitProgramTitle, commitShellTitle } from '@/lib/terminal/paneTitle'
+import { installPrimarySelection } from '@/lib/terminal/primarySelection'
+import { createPtyAcker } from '@/lib/terminal/ptyAck'
+import { createFileLinkProvider } from '@/lib/terminal/terminalFileLinks'
+import { inputEditorFor, registerTerminal } from '@/lib/terminal/terminalHandles'
 import {
   type LinkPane,
   activateFileLink,
   linkRevealable,
   linksConfinedOnly,
-} from '@/lib/terminalLinkActions'
-import { terminalTitle } from '@/lib/terminalTitle'
-import { createTitleCommitter } from '@/lib/titleCommit'
-import { terminalFontStack } from '@/lib/uiFonts'
-import { keepDrawing, usePauseWhenHidden } from '@/lib/usePauseWhenHidden'
-import { measureCells } from '@/lib/usePromptGeometry'
-import { loadWebglRenderer } from '@/lib/webglRenderer'
-import { attachWheelReports } from '@/lib/wheelReports'
-import { attachWheelZoom } from '@/lib/wheelZoom'
-import {
-  isPaneViewed,
-  isPaneVisible,
-  shouldNotifyCommandEnd,
-  signalPane,
-  usePaneVisible,
-} from '@/lib/workspaceActivity'
+} from '@/lib/terminal/terminalLinkActions'
+import { terminalTitle } from '@/lib/terminal/terminalTitle'
+import { createTitleCommitter } from '@/lib/terminal/titleCommit'
+import { keepDrawing, usePauseWhenHidden } from '@/lib/terminal/usePauseWhenHidden'
+import { loadWebglRenderer } from '@/lib/terminal/webglRenderer'
+import { attachWheelReports } from '@/lib/terminal/wheelReports'
+import { currentScheme, terminalTheme, useScheme } from '@/lib/theme/colorScheme'
+import { terminalFontStack } from '@/lib/theme/uiFonts'
 import { isLinux, isMac } from '@/platform'
 import { useAttentionStore } from '@/stores/attentionStore'
 import { type LineAnchor, useBlocksStore } from '@/stores/blocksStore'

@@ -2,7 +2,7 @@ import { Button } from '@/components/ui/button'
 import { Kbd } from '@/components/ui/kbd'
 import { TableBody, TableCell, TableHead, TableRow } from '@/components/ui/table'
 import { fmt, useDict } from '@/i18n/useDict'
-import { baseChords, chordsOf, keymapBindings, useBindings } from '@/lib/chords'
+import { baseChords, chordsOf, keymapBindings, useBindings } from '@/lib/keys/chords'
 import {
   type CommandChange,
   type TerminalChange,
@@ -11,8 +11,8 @@ import {
   textPresetChanges,
   userChangeCount,
   userChanges,
-} from '@/lib/keyChanges'
-import { layerOf } from '@/lib/keySources'
+} from '@/lib/keys/keyChanges'
+import { layerOf } from '@/lib/keys/keySources'
 import { isMac } from '@/platform'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { ArrowCounterClockwiseIcon } from '@phosphor-icons/react'

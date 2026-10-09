@@ -12,8 +12,8 @@ vi.mock('@/platform', () => ({ platform: 'darwin', isMac: true, isLinux: false }
 
 const labelReads = vi.hoisted(() => ({ count: 0 }))
 
-vi.mock('@/lib/chords', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/lib/chords')>()
+vi.mock('@/lib/keys/chords', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/keys/chords')>()
   return {
     ...actual,
     useChordLabel: (id: string, mac: boolean) => {

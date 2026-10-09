@@ -25,19 +25,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/u
 import { Switch } from '@/components/ui/switch'
 import { ViewsSection } from '@/components/views/ViewsSection'
 import { fmt, useDict, withProductName } from '@/i18n/useDict'
-import { ACCENT_PRESETS, normalizeHex } from '@/lib/color'
-import { extensionMatchesQuery } from '@/lib/extensionSettingText'
-import { ghosttyFailure } from '@/lib/ghosttyEngine'
-import { openFileInWorkspace } from '@/lib/openFile'
 import {
   EXTENSIONS_NAV_EXPANDED_KEY,
   SANDBOX_NAV_EXPANDED_KEY,
   navExpanded,
   rememberNavExpanded,
-} from '@/lib/settingsNav'
-import { firstMatchControl, matchesQuery } from '@/lib/settingsSearch'
-import { useEffectiveTheme } from '@/lib/theme'
-import { countUsage } from '@/lib/usageCounts'
+} from '@/lib/app/settingsNav'
+import { firstMatchControl, matchesQuery } from '@/lib/app/settingsSearch'
+import { countUsage } from '@/lib/app/usageCounts'
+import { extensionMatchesQuery } from '@/lib/extensions/extensionSettingText'
+import { openFileInWorkspace } from '@/lib/files/openFile'
+import { ghosttyFailure } from '@/lib/terminal/ghosttyEngine'
+import { ACCENT_PRESETS, normalizeHex } from '@/lib/theme/color'
+import { useEffectiveTheme } from '@/lib/theme/theme'
 import { cn } from '@/lib/utils'
 import { isLinux, isMac, platform } from '@/platform'
 import type { ClipboardKeys, TerminalRenderer } from '@/settings/terminalPaneSettings'

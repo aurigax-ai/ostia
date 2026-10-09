@@ -1,6 +1,6 @@
 import { IconButton } from '@/components/common/IconButton'
 import { useDict } from '@/i18n/useDict'
-import { returnToMainWindow } from '@/lib/windowHandoff'
+import { returnToMainWindow } from '@/lib/workspaces/windowHandoff'
 import { useWorkspacesStore } from '@/stores/workspacesStore'
 import { ArrowSquareInIcon } from '@phosphor-icons/react'
 

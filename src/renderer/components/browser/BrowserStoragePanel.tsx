@@ -22,7 +22,7 @@ import {
 import { Tabs, TabsContent } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { fmt, useDict } from '@/i18n/useDict'
-import { cookieRowKey, filterCookies, filterEntries, formatExpiry } from '@/lib/storageRows'
+import { cookieRowKey, filterCookies, filterEntries, formatExpiry } from '@/lib/browser/storageRows'
 import {
   ArrowClockwiseIcon,
   CheckIcon,

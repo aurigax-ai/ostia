@@ -2,21 +2,21 @@ import { useSelectionSend } from '@/components/agents/SelectionSend'
 import { FindBar, findStatus } from '@/components/common/FindBar'
 import { IconButton } from '@/components/common/IconButton'
 import { fmt, useDict } from '@/i18n/useDict'
-import { findStep, matchChord } from '@/lib/chords'
-import { cropToPng } from '@/lib/cropImage'
-import { clearFind, findRanges, paintFind } from '@/lib/domFind'
-import { trackSelection } from '@/lib/domSelection'
-import { type PdfDocument, type PdfPage, loadPdfjs, openPdf } from '@/lib/pdf'
-import { itemTexts, pageItems, pdfMatches } from '@/lib/pdfText'
-import { type Size, fitWidthScale, pixelRect } from '@/lib/regionSelect'
-import { registerSelectionSender } from '@/lib/selectionSenders'
+import { registerSelectionSender } from '@/lib/agents/selectionSenders'
+import { cropToPng } from '@/lib/browser/cropImage'
+import { trackSelection } from '@/lib/browser/domSelection'
+import { type Size, fitWidthScale, pixelRect } from '@/lib/browser/regionSelect'
+import { clearFind, findRanges, paintFind } from '@/lib/files/domFind'
+import { type PdfDocument, type PdfPage, loadPdfjs, openPdf } from '@/lib/files/pdf'
+import { itemTexts, pageItems, pdfMatches } from '@/lib/files/pdfText'
 import {
   useElementSize,
   useFileBytes,
   usePinchZoom,
   useRegionDrag,
   useSettled,
-} from '@/lib/viewerHooks'
+} from '@/lib/files/viewerHooks'
+import { findStep, matchChord } from '@/lib/keys/chords'
 import { isMac } from '@/platform'
 import { usePdfFindStore } from '@/stores/pdfFindStore'
 import {

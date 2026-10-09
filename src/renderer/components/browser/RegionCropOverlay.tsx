@@ -1,4 +1,4 @@
-import { type Point, dragRegion } from '@/lib/regionSelect'
+import { type Point, dragRegion } from '@/lib/browser/regionSelect'
 import type { PickBox } from '@shared/pick'
 import { REGION_MIN, type RegionView } from '@shared/regionCapture'
 import {

@@ -5,19 +5,19 @@ import { WorkspaceChips } from '@/components/extensions/ExtensionChips'
 import { Button } from '@/components/ui/button'
 import { fmt, useDict } from '@/i18n/useDict'
 import { allPanes, paneIds } from '@/layout/tree'
-import { unreadCount } from '@/lib/attention'
+import { unreadCount } from '@/lib/attention/attention'
+import { markWorkspaceRead, revealPane } from '@/lib/attention/workspaceActivity'
 import {
   DASHBOARD_PATH_CHARS,
   type NeedsYouItem,
   type PaneWhere,
   needsYouItems,
   paneWhere,
-} from '@/lib/dashboard'
-import { shortenPath } from '@/lib/railMeta'
+} from '@/lib/sidebar/dashboard'
+import { shortenPath } from '@/lib/sidebar/railMeta'
 import { cn } from '@/lib/utils'
-import { type RemoteWorkspace, remoteWorkspacesOf } from '@/lib/windowWorkspaces'
-import { markWorkspaceRead, revealPane } from '@/lib/workspaceActivity'
-import { latestAttentionMessage, runningTitle } from '@/lib/workspaceSummary'
+import { type RemoteWorkspace, remoteWorkspacesOf } from '@/lib/workspaces/windowWorkspaces'
+import { latestAttentionMessage, runningTitle } from '@/lib/workspaces/workspaceSummary'
 import { useApprovalsStore } from '@/stores/approvalsStore'
 import { useAttentionStore } from '@/stores/attentionStore'
 import { useBlocksStore } from '@/stores/blocksStore'

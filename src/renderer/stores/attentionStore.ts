@@ -1,10 +1,10 @@
-import { create } from 'zustand'
 import {
   type AttentionEvent,
   EMPTY_ATTENTION,
   type PaneAttention,
   reduceAttention,
-} from '../lib/attention'
+} from '@/lib/attention/attention'
+import { create } from 'zustand'
 
 interface AttentionStoreState {
   byPane: Record<string, PaneAttention>

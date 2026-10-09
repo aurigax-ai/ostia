@@ -15,7 +15,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ChatPane } from './ChatPane'
 
-vi.mock('@/lib/colorize', () => ({ colorizeCode: async () => null }))
+vi.mock('@/lib/theme/colorize', () => ({ colorizeCode: async () => null }))
 
 if (!Element.prototype.getAnimations) {
   Element.prototype.getAnimations = () => []

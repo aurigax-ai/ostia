@@ -14,7 +14,7 @@ import {
   errorReport,
   reportDetails,
   withComponentStack,
-} from '@/lib/errorReporting'
+} from '@/lib/app/errorReporting'
 import { ArrowClockwiseIcon, CopyIcon, FolderOpenIcon, WarningIcon } from '@phosphor-icons/react'
 import { Component, type ErrorInfo, type ReactNode, useEffect, useState } from 'react'
 

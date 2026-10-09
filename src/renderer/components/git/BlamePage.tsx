@@ -1,6 +1,6 @@
+import { absoluteTime, relativeTime, shortSha } from '@/lib/git/gitView'
 import { type GitBlameData, isUncommitted } from '@shared/git'
 import { useDict } from '../../i18n/useDict'
-import { absoluteTime, relativeTime, shortSha } from '../../lib/gitView'
 import { useSettingsStore } from '../../stores/settingsStore'
 
 export function BlamePage({ data }: { data: GitBlameData }): JSX.Element {

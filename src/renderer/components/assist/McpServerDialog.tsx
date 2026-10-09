@@ -20,7 +20,7 @@ import {
   draftFromServer,
   newRow,
   serverFromDraft,
-} from '@/lib/mcpServerForm'
+} from '@/lib/assist/mcpServerForm'
 import { refreshMcp } from '@/stores/chatToolsStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { PlusIcon, XIcon } from '@phosphor-icons/react'

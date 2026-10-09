@@ -1,4 +1,27 @@
 import { IconButton } from '@/components/common/IconButton'
+import type { GraphRow } from '@/lib/git/gitGraph'
+import {
+  type GraphEntry,
+  type GraphModel,
+  LANE_COLORS,
+  LOAD_MORE_MARGIN,
+  ROW_HEIGHT,
+  SELECTION_KEYS,
+  WORKTREE,
+  absoluteTime,
+  branchLabel,
+  buildGraphModel,
+  edgePath,
+  entryKey,
+  failureText,
+  indexOfKey,
+  laneX,
+  relativeTime,
+  scrollTopToShow,
+  selectionTarget,
+  shortSha,
+  visibleRange,
+} from '@/lib/git/gitView'
 import { CloudIcon, GitBranchIcon, TagIcon, XIcon } from '@phosphor-icons/react'
 import type {
   CommitRef,
@@ -22,29 +45,6 @@ import {
   useState,
 } from 'react'
 import { useDict } from '../../i18n/useDict'
-import type { GraphRow } from '../../lib/gitGraph'
-import {
-  type GraphEntry,
-  type GraphModel,
-  LANE_COLORS,
-  LOAD_MORE_MARGIN,
-  ROW_HEIGHT,
-  SELECTION_KEYS,
-  WORKTREE,
-  absoluteTime,
-  branchLabel,
-  buildGraphModel,
-  edgePath,
-  entryKey,
-  failureText,
-  indexOfKey,
-  laneX,
-  relativeTime,
-  scrollTopToShow,
-  selectionTarget,
-  shortSha,
-  visibleRange,
-} from '../../lib/gitView'
 import { useSettingsStore } from '../../stores/settingsStore'
 import {
   type ChangeHandlers,

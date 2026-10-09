@@ -7,7 +7,7 @@ import {
   ContextMenuSeparator,
 } from '@/components/ui/context-menu'
 import { fmt, useDict } from '@/i18n/useDict'
-import { CHAT_MODES, type ChatMode } from '@/lib/chatToolPermissions'
+import { CHAT_MODES, type ChatMode } from '@/lib/assist/chatToolPermissions'
 import { cn } from '@/lib/utils'
 import { chatChoices, useAssistStore, useChatModel } from '@/stores/assistStore'
 import { setSessionModel, useChatStore } from '@/stores/chatStore'

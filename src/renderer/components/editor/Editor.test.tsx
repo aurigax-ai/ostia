@@ -1,5 +1,5 @@
 import { commands } from '@/commands/registry'
-import { openSelectionSend } from '@/lib/selectionSenders'
+import { openSelectionSend } from '@/lib/agents/selectionSenders'
 import { LARGE_FILE_LINES, fileFeatureOptions } from '@/monaco/largeFile'
 import { useArtifactsStore } from '@/stores/artifactsStore'
 import { useEditorStatus } from '@/stores/editorStatusStore'
@@ -231,8 +231,8 @@ const fake = vi.hoisted(() => {
 vi.mock('@/monaco/setup', () => ({
   monaco: fake.monaco,
 }))
-vi.mock('@/lib/workspaceActivity', async (original) => ({
-  ...(await original<typeof import('@/lib/workspaceActivity')>()),
+vi.mock('@/lib/attention/workspaceActivity', async (original) => ({
+  ...(await original<typeof import('@/lib/attention/workspaceActivity')>()),
   usePaneVisible: () => fake.state.visible,
 }))
 vi.mock('@/lsp/client', () => ({

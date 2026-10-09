@@ -10,9 +10,14 @@ import { ButtonGroup } from '@/components/ui/button-group'
 import { ContextMenuSeparator, ContextMenuSub } from '@/components/ui/context-menu'
 import { Kbd } from '@/components/ui/kbd'
 import { useDict } from '@/i18n/useDict'
-import { useChordLabel } from '@/lib/chords'
-import { startNewWorkspace, startScratchWorkspace } from '@/lib/newWorkspace'
-import { type SshHosts, listSshHosts, openSshWorkspace, sshEnabled } from '@/lib/sshWorkspace'
+import { useChordLabel } from '@/lib/keys/chords'
+import { startNewWorkspace, startScratchWorkspace } from '@/lib/workspaces/newWorkspace'
+import {
+  type SshHosts,
+  listSshHosts,
+  openSshWorkspace,
+  sshEnabled,
+} from '@/lib/workspaces/sshWorkspace'
 import { isMac } from '@/platform'
 import { useExtensionsStore } from '@/stores/extensionsStore'
 import { useUIStore } from '@/stores/uiStore'

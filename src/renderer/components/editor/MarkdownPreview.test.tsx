@@ -7,7 +7,7 @@ import { MarkdownPreview, isMarkdownPath } from './MarkdownPreview'
 
 const released = vi.hoisted(() => vi.fn())
 const drawn = vi.hoisted(() => vi.fn<(code: string, dark: boolean) => Promise<string>>())
-vi.mock('@/lib/mermaidImage', () => ({
+vi.mock('@/lib/files/mermaidImage', () => ({
   mermaidSvg: drawn,
   svgImageUrl: () => 'blob:diagram-1',
   releaseImageUrl: released,

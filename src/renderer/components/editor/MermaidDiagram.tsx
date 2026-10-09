@@ -1,6 +1,6 @@
 import { useDict } from '@/i18n/useDict'
-import { mermaidSvg, releaseImageUrl, svgImageUrl } from '@/lib/mermaidImage'
-import { useEffectiveTheme } from '@/lib/theme'
+import { mermaidSvg, releaseImageUrl, svgImageUrl } from '@/lib/files/mermaidImage'
+import { useEffectiveTheme } from '@/lib/theme/theme'
 import { useEffect, useState } from 'react'
 
 type Drawn = { url: string } | { problem: string } | null

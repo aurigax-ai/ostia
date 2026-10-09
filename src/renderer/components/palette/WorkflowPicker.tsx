@@ -19,9 +19,9 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useDict } from '@/i18n/useDict'
-import { canTypeInto } from '@/lib/blockActions'
-import { isIdlePrompt } from '@/lib/blocks'
-import { deliverCommand } from '@/lib/workflows'
+import { deliverCommand } from '@/lib/palette/workflows'
+import { canTypeInto } from '@/lib/terminal/blockActions'
+import { isIdlePrompt } from '@/lib/terminal/blocks'
 import { useBlocksStore } from '@/stores/blocksStore'
 import { useWorkflowsStore } from '@/stores/workflowsStore'
 import {

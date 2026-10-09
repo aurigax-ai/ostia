@@ -1,4 +1,4 @@
-import { fileViewKind } from '@/lib/fileKinds'
+import { fileViewKind } from '@/lib/files/fileKinds'
 import { isRemotePath } from '@shared/remoteFolders'
 import { EditorView } from './Editor'
 import { ImageViewer } from './ImageViewer'

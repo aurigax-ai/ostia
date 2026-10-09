@@ -1,6 +1,6 @@
 import { fmt, useDict } from '@/i18n/useDict'
-import type { PickTarget } from '@/lib/pickTargets'
-import { sendSelectionToPane } from '@/lib/sendPick'
+import type { PickTarget } from '@/lib/agents/pickTargets'
+import { sendSelectionToPane } from '@/lib/agents/sendPick'
 import { type SelectionCapture, selectionLabel } from '@shared/selection'
 import { type ReactNode, useCallback, useEffect, useState } from 'react'
 import { PickSendPanel, useAgentTargets, useNoAgentsText } from './PickSendPanel'

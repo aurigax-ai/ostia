@@ -1,3 +1,4 @@
+import { DEFAULT_CHORDS, bindableIds } from '@/lib/keys/chords'
 import { GIT_POLL_SECONDS } from '@shared/git'
 import { PORTS_INTERVAL_SECONDS } from '@shared/ports'
 import { CHORDS_PER_COMMAND_MAX } from '../../shared/chordSpec'
@@ -26,7 +27,6 @@ import { REDACTION_PATTERNS_MAX, REDACTION_PATTERN_MAX } from '../../shared/reda
 import { TERMINAL_SEND_MAX, TERMINAL_SEND_TYPES } from '../../shared/terminalKeys'
 import { SHELL_SETTING_MAX_LENGTH } from '../../shared/terminalShell'
 import { MATCH_OSTIA_THEME } from '../../shared/themeChoice'
-import { DEFAULT_CHORDS, bindableIds } from '../lib/chords'
 import { platform } from '../platform'
 import { BUILTIN_COLOR_SCHEMES } from '../plugins/colorSchemes'
 import { ACTIONS_MAX, ACTION_ICONS, ACTION_ID, ACTION_PLACES, ACTION_TITLE_MAX } from './actions'

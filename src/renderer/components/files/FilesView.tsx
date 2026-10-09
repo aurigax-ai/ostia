@@ -17,8 +17,8 @@ import {
 } from '@/components/ui/context-menu'
 import { Empty, EmptyDescription } from '@/components/ui/empty'
 import { fmt, useDict } from '@/i18n/useDict'
-import { FOLDED_CRUMB, crumbsOf, fitCrumbs, maxFitLevel } from '@/lib/breadcrumb'
-import { OSTIA_PATH_MIME } from '@/lib/dropPaths'
+import { type IconVariant, themeIconSrc } from '@/lib/extensions/iconTheme'
+import { FOLDED_CRUMB, crumbsOf, fitCrumbs, maxFitLevel } from '@/lib/files/breadcrumb'
 import {
   type CompactChain,
   type ExcludeMatcher,
@@ -30,13 +30,13 @@ import {
   nestEntries,
   nestingRules,
   sortEntries,
-} from '@/lib/fileTree'
-import { copyInto, moveInto, parentOf } from '@/lib/fileTreeActions'
-import { homeDir } from '@/lib/homeDir'
-import { type IconVariant, themeIconSrc } from '@/lib/iconTheme'
-import { openFileInWorkspace } from '@/lib/openFile'
-import { followedFolder, treeRoot } from '@/lib/revealFolder'
-import { useEffectiveTheme } from '@/lib/theme'
+} from '@/lib/files/fileTree'
+import { copyInto, moveInto, parentOf } from '@/lib/files/fileTreeActions'
+import { homeDir } from '@/lib/files/homeDir'
+import { openFileInWorkspace } from '@/lib/files/openFile'
+import { followedFolder, treeRoot } from '@/lib/files/revealFolder'
+import { OSTIA_PATH_MIME } from '@/lib/keys/dropPaths'
+import { useEffectiveTheme } from '@/lib/theme/theme'
 import { isMac } from '@/platform'
 import type { FileSortBy, FileSortOrder, FileTreeSettings } from '@/settings/fileTreeSettings'
 import { useFileTreeStore } from '@/stores/fileTreeStore'

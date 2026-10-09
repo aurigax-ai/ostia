@@ -23,35 +23,39 @@ import { ViewsRail } from '@/components/views/ViewsRail'
 import { fmt, useDict } from '@/i18n/useDict'
 import { allPanes, hasLockedPane, paneIds } from '@/layout/tree'
 import type { LayoutNode } from '@/layout/types'
-import { aggregateWorkspaceState, latestWaitingAt, unreadCount } from '@/lib/attention'
-import { requestCloseOthers, requestCloseWorkspace } from '@/lib/closeConfirm'
-import { useCoreWatch } from '@/lib/coreWatch'
 import {
   hibernatableAgentPanes,
   hibernateWorkspaces,
   resumableAgentPanes,
   resumeWorkspaces,
-} from '@/lib/hibernationScheduler'
-import { beginDrag, endWorkspaceDrag, isPaneDrag } from '@/lib/paneDrag'
-import { RAIL_WIDTH } from '@/lib/panelWidth'
-import { type RowDropZone, rowDropZone } from '@/lib/railDropZone'
-import { useRailMotion } from '@/lib/railMotion'
-import { sidebarLines, visibleSidebarItems } from '@/lib/sidebarItems'
-import { canMoveTabTo, moveTabToWorkspace, workspaceOfTab } from '@/lib/tabWorkspaceMove'
-import { cn } from '@/lib/utils'
-import { moveWorkspaceToNewWindow } from '@/lib/windowHandoff'
-import { type RemoteWorkspace, remoteWorkspacesOf } from '@/lib/windowWorkspaces'
-import { markWorkspaceRead } from '@/lib/workspaceActivity'
+} from '@/lib/agents/hibernationScheduler'
+import { aggregateWorkspaceState, latestWaitingAt, unreadCount } from '@/lib/attention/attention'
+import { markWorkspaceRead } from '@/lib/attention/workspaceActivity'
+import { beginDrag, endWorkspaceDrag, isPaneDrag } from '@/lib/panes/paneDrag'
+import { RAIL_WIDTH } from '@/lib/panes/panelWidth'
+import { type RowDropZone, rowDropZone } from '@/lib/sidebar/railDropZone'
+import { useRailMotion } from '@/lib/sidebar/railMotion'
+import { sidebarLines, visibleSidebarItems } from '@/lib/sidebar/sidebarItems'
 import {
   type DragSource,
   type DropTarget,
   type WorkspaceGroup,
   moveWorkspaceBy,
   toBlocks,
-} from '@/lib/workspaceGroups'
-import { loadMergeTargets, requestMergeWorkspace } from '@/lib/workspaceMerge'
-import { anchorToFocusedPane, canMoveWorkspace, focusedDir } from '@/lib/workspaceProjects'
-import { latestAttentionMessage, runningTitle } from '@/lib/workspaceSummary'
+} from '@/lib/sidebar/workspaceGroups'
+import { cn } from '@/lib/utils'
+import { requestCloseOthers, requestCloseWorkspace } from '@/lib/workspaces/closeConfirm'
+import { useCoreWatch } from '@/lib/workspaces/coreWatch'
+import { canMoveTabTo, moveTabToWorkspace, workspaceOfTab } from '@/lib/workspaces/tabWorkspaceMove'
+import { moveWorkspaceToNewWindow } from '@/lib/workspaces/windowHandoff'
+import { type RemoteWorkspace, remoteWorkspacesOf } from '@/lib/workspaces/windowWorkspaces'
+import { loadMergeTargets, requestMergeWorkspace } from '@/lib/workspaces/workspaceMerge'
+import {
+  anchorToFocusedPane,
+  canMoveWorkspace,
+  focusedDir,
+} from '@/lib/workspaces/workspaceProjects'
+import { latestAttentionMessage, runningTitle } from '@/lib/workspaces/workspaceSummary'
 import { useAttentionStore } from '@/stores/attentionStore'
 import { useBlocksStore } from '@/stores/blocksStore'
 import { useExtensionsStore } from '@/stores/extensionsStore'

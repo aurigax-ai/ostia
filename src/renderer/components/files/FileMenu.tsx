@@ -8,18 +8,18 @@ import {
   ContextMenuTrigger,
 } from '@/components/ui/context-menu'
 import { currentDict, fmt, useDict } from '@/i18n/useDict'
-import { askAboutFile } from '@/lib/askContext'
-import { useChatAvailable } from '@/lib/assistFeatures'
-import { relativePath } from '@/lib/fileReference'
-import { startNewWorkspace } from '@/lib/newWorkspace'
+import { relativePath } from '@/lib/agents/fileReference'
+import type { PickTarget } from '@/lib/agents/pickTargets'
+import { insertPathReference } from '@/lib/agents/sendPick'
+import { askAboutFile } from '@/lib/assist/askContext'
+import { useChatAvailable } from '@/lib/assist/assistFeatures'
 import {
   openFileBeside,
   openFileInWorkspace,
   openTerminalIn,
   reportFileProblem,
-} from '@/lib/openFile'
-import type { PickTarget } from '@/lib/pickTargets'
-import { insertPathReference } from '@/lib/sendPick'
+} from '@/lib/files/openFile'
+import { startNewWorkspace } from '@/lib/workspaces/newWorkspace'
 import { useLayoutStore } from '@/stores/layoutStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { focusSurface } from '@/stores/surfaceSlotsStore'

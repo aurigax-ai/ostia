@@ -1,5 +1,5 @@
 import { fmt, useDict } from '@/i18n/useDict'
-import { CSV_COLUMNS_MAX, CSV_ROWS_MAX, type CsvTableData, parseCsv } from '@/lib/csvTable'
+import { CSV_COLUMNS_MAX, CSV_ROWS_MAX, type CsvTableData, parseCsv } from '@/lib/files/csvTable'
 import { useEffect, useState } from 'react'
 
 export function CsvTable({

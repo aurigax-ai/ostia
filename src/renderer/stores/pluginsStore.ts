@@ -1,5 +1,5 @@
+import { BASE_LANGUAGE, languagesFrom } from '@/lib/extensions/languagePacks'
 import { create } from 'zustand'
-import { BASE_LANGUAGE, languagesFrom } from '../lib/languagePacks'
 import { BUILTIN_PLUGINS } from '../plugins/builtin'
 import type { ColorScheme, LanguageContribution, PluginManifest, Theme } from '../plugins/types'
 

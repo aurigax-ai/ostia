@@ -1,7 +1,7 @@
+import { parseSettingsTarget } from '@/lib/app/settingsNav'
+import { releaseFocusForPalette } from '@/lib/palette/paletteFocus'
+import { COMMANDS_PREFIX } from '@/lib/palette/paletteModes'
 import { create } from 'zustand'
-import { releaseFocusForPalette } from '../lib/paletteFocus'
-import { COMMANDS_PREFIX } from '../lib/paletteModes'
-import { parseSettingsTarget } from '../lib/settingsNav'
 
 export type PaletteOpenMode = 'search' | 'everywhere' | 'ask'
 

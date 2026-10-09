@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest'
-import * as pdfSearch from '@/lib/pdfSearch'
+import * as pdfSearch from '@/lib/files/pdfSearch'
 import { useEditorRevealStore } from '@/stores/editorRevealStore'
 import { useFileTreeStore } from '@/stores/fileTreeStore'
 import { useLayoutStore } from '@/stores/layoutStore'

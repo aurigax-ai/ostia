@@ -9,7 +9,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { fmt, useDict } from '@/i18n/useDict'
-import { type QuitLosses, quitLosses } from '@/lib/closeConfirm'
+import { type QuitLosses, quitLosses } from '@/lib/workspaces/closeConfirm'
 import {
   type CloseConfirmKind,
   type RunningGroup,

@@ -1,5 +1,5 @@
 import { createPane } from '@/layout/tree'
-import { registerTerminal } from '@/lib/terminalHandles'
+import { registerTerminal } from '@/lib/terminal/terminalHandles'
 import { useAgentOfferStore } from '@/stores/agentOfferStore'
 import { useBlocksStore } from '@/stores/blocksStore'
 import { useLayoutStore } from '@/stores/layoutStore'

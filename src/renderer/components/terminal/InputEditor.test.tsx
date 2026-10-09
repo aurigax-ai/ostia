@@ -1,6 +1,6 @@
 import { commands } from '@/commands/registry'
-import { insertCommand } from '@/lib/blockActions'
-import { inputEditorFor, registerTerminal } from '@/lib/terminalHandles'
+import { insertCommand } from '@/lib/terminal/blockActions'
+import { inputEditorFor, registerTerminal } from '@/lib/terminal/terminalHandles'
 import { type LineAnchor, useBlocksStore } from '@/stores/blocksStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react'

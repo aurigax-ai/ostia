@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { fmt, useDict } from '@/i18n/useDict'
-import { type PasteSource, countLines, pastePreview } from '@/lib/pasteGate'
+import { type PasteSource, countLines, pastePreview } from '@/lib/keys/pasteGate'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useEffect, useRef, useState } from 'react'
 

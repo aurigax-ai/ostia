@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest'
-import type { ApprovalAnswer, WriteAskReason } from '@/lib/chatToolPermissions'
-import { decideTool } from '@/lib/chatToolPermissions'
+import type { ApprovalAnswer, WriteAskReason } from '@/lib/assist/chatToolPermissions'
+import { decideTool } from '@/lib/assist/chatToolPermissions'
 import {
   type ChatEditRecord,
   requestApproval,

@@ -1,7 +1,7 @@
+import { runningAgentOf } from '@/lib/agents/paneAgent'
 import { debounce } from 'es-toolkit/compat'
 import { type RestorableWorkspace, buildSnapshot } from '../layout/snapshot'
 import { allPanes } from '../layout/tree'
-import { runningAgentOf } from '../lib/paneAgent'
 import { useBlocksStore } from './blocksStore'
 import { useLayoutStore } from './layoutStore'
 import { useSettingsStore } from './settingsStore'

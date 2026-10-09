@@ -1,3 +1,4 @@
+import { rememberedPanelFraction } from '@/lib/panes/panelSizes'
 import type { AgentResume } from '@shared/agentResume'
 import type { BrowserProfile } from '@shared/browserProfile'
 import type { DiffContent } from '@shared/extensions'
@@ -61,7 +62,6 @@ import {
   takeTab,
 } from '../layout/tree'
 import type { Direction, LayoutNode, PaneNode, SurfaceKind } from '../layout/types'
-import { rememberedPanelFraction } from '../lib/panelSizes'
 import { useDiffStore } from './diffStore'
 import { isWaitedPane } from './openWaitsStore'
 import { useSettingsStore } from './settingsStore'

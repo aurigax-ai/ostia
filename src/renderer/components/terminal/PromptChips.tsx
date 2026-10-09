@@ -2,9 +2,9 @@ import { Hint } from '@/components/common/Hint'
 import { MenuContent, MenuItem } from '@/components/common/Menu'
 import { ContextMenu, ContextMenuSeparator, ContextMenuTrigger } from '@/components/ui/context-menu'
 import { fmt, useDict } from '@/i18n/useDict'
-import { type ChipCatalogEntry, chipAction } from '@/lib/extensionChips'
-import type { ResolvedChip } from '@/lib/promptChips'
-import { promptLine } from '@/lib/promptChips'
+import { type ChipCatalogEntry, chipAction } from '@/lib/extensions/extensionChips'
+import type { ResolvedChip } from '@/lib/prompt/promptChips'
+import { promptLine } from '@/lib/prompt/promptChips'
 import { useUIStore } from '@/stores/uiStore'
 import {
   CalendarBlankIcon,

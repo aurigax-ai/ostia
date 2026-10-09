@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/command'
 import { useDict } from '@/i18n/useDict'
 import { allPanes } from '@/layout/tree'
-import { type PaneOrigin, collectHistory } from '@/lib/blocks'
+import { type PaneOrigin, collectHistory } from '@/lib/terminal/blocks'
 import { useBlocksStore } from '@/stores/blocksStore'
 import { useHistorySearchStore } from '@/stores/historySearchStore'
 import { useLayoutStore } from '@/stores/layoutStore'

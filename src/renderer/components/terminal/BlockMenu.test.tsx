@@ -19,7 +19,7 @@ const actions = vi.hoisted(() => ({
   insertCommand: vi.fn().mockReturnValue(false),
 }))
 
-vi.mock('@/lib/blockActions', () => actions)
+vi.mock('@/lib/terminal/blockActions', () => actions)
 
 const PANE = 'pane-menu'
 

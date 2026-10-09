@@ -1,4 +1,4 @@
-import { chatAvailable } from '../lib/assistFeatures'
+import { chatAvailable } from '@/lib/assist/assistFeatures'
 import { useAssistStore } from '../stores/assistStore'
 import { useUIStore } from '../stores/uiStore'
 import { registerCore } from './core'

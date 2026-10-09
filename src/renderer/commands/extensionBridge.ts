@@ -1,14 +1,14 @@
+import { revealPane } from '@/lib/attention/workspaceActivity'
+import { openKeepingFocus } from '@/lib/panes/callerFocus'
+import { runWhenIdle } from '@/lib/terminal/blockActions'
+import { startOffscreen } from '@/lib/terminal/offscreenStart'
+import { pinTitle } from '@/lib/terminal/pinnedTitles'
 import type {
   ExtensionInfo,
   ExtensionOpenDiffRequest,
   ExtensionOpenPanelRequest,
 } from '@shared/extensions'
 import type { ProcessTerminalRequest } from '@shared/types'
-import { runWhenIdle } from '../lib/blockActions'
-import { openKeepingFocus } from '../lib/callerFocus'
-import { startOffscreen } from '../lib/offscreenStart'
-import { pinTitle } from '../lib/pinnedTitles'
-import { revealPane } from '../lib/workspaceActivity'
 import { useAgentOfferStore } from '../stores/agentOfferStore'
 import { useExtensionsStore } from '../stores/extensionsStore'
 import { useLayoutStore } from '../stores/layoutStore'

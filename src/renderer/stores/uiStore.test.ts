@@ -1,5 +1,5 @@
+import { paletteReturnFocus } from '@/lib/palette/paletteFocus'
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
-import { paletteReturnFocus } from '../lib/paletteFocus'
 import { coversWorkspaces, useUIStore } from './uiStore'
 
 const state = () => useUIStore.getState()

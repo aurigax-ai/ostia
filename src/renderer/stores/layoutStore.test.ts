@@ -1,3 +1,4 @@
+import { BASE_LANGUAGE } from '@/lib/extensions/languagePacks'
 import { zhHant } from '@shared/dict'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
@@ -10,7 +11,6 @@ import {
   tabsOfPane,
 } from '../layout/tree'
 import type { SplitNode } from '../layout/types'
-import { BASE_LANGUAGE } from '../lib/languagePacks'
 import { useLayoutStore } from './layoutStore'
 import { usePluginsStore } from './pluginsStore'
 import { useSettingsStore } from './settingsStore'

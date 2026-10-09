@@ -1,8 +1,8 @@
 import '@testing-library/jest-dom/vitest'
 import { startAssistToggleCommands } from '@/commands/assistToggles'
 import { commands } from '@/commands/registry'
-import { shortcutMap, startShortcutReporting } from '@/lib/assistShortcuts'
-import { openChatPane } from '@/lib/chatPane'
+import { shortcutMap, startShortcutReporting } from '@/lib/assist/assistShortcuts'
+import { openChatPane } from '@/lib/assist/chatPane'
 import { useAssistStore } from '@/stores/assistStore'
 import { useExtensionsStore } from '@/stores/extensionsStore'
 import { useUIStore } from '@/stores/uiStore'
@@ -13,7 +13,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { AssistantMenu } from './AssistantMenu'
 
-vi.mock('@/lib/chatPane', () => ({ openChatPane: vi.fn() }))
+vi.mock('@/lib/assist/chatPane', () => ({ openChatPane: vi.fn() }))
 
 const assistant: ExtensionInfo = {
   id: 'assistant',

@@ -16,7 +16,7 @@ import {
   browseEntries,
   filterBrowseEntries,
   firstSentence,
-} from '@/lib/extensionBrowse'
+} from '@/lib/extensions/extensionBrowse'
 import { cn } from '@/lib/utils'
 import { useExtensionsStore } from '@/stores/extensionsStore'
 import { useMarketplaceStore } from '@/stores/marketplaceStore'

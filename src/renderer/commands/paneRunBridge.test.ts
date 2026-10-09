@@ -1,6 +1,6 @@
+import { registerTerminal } from '@/lib/terminal/terminalHandles'
 import type { Terminal } from '@xterm/xterm'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import { registerTerminal } from '../lib/terminalHandles'
 import { useBlocksStore } from '../stores/blocksStore'
 import { wirePaneRunBridge } from './paneRunBridge'
 

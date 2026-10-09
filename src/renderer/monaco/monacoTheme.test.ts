@@ -1,6 +1,6 @@
+import { mix } from '@/lib/theme/color'
 import { wcagContrast } from 'culori'
 import { describe, expect, it } from 'vitest'
-import { mix } from '../lib/color'
 import { BUILTIN_COLOR_SCHEMES } from '../plugins/colorSchemes'
 import type { ColorScheme } from '../plugins/types'
 import {

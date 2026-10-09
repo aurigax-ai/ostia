@@ -15,8 +15,8 @@ import {
   fileAttachment,
   lastBlockCommand,
   terminalSelectionContext,
-} from '@/lib/askContext'
-import { byteSize, formatSize, workspaceTerminals } from '@/lib/chatActions'
+} from '@/lib/assist/askContext'
+import { byteSize, formatSize, workspaceTerminals } from '@/lib/assist/chatActions'
 import { useBlocksStore } from '@/stores/blocksStore'
 import { useLayoutStore } from '@/stores/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspacesStore'

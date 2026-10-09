@@ -1,9 +1,9 @@
-import { openNewWindow } from '../lib/newWorkspace'
+import { openNewWindow } from '@/lib/workspaces/newWorkspace'
 import {
   movePaneToNewWindow,
   moveWorkspaceToNewWindow,
   returnToMainWindow,
-} from '../lib/windowHandoff'
+} from '@/lib/workspaces/windowHandoff'
 import { registerCore } from './core'
 
 export function registerWindowCommands(detached: boolean): void {

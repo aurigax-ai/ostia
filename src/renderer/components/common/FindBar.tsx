@@ -5,7 +5,7 @@ import {
   InputGroupText,
 } from '@/components/ui/input-group'
 import { useDict } from '@/i18n/useDict'
-import { type KeyLike, findStep, matchChord } from '@/lib/chords'
+import { type KeyLike, findStep, matchChord } from '@/lib/keys/chords'
 import { isMac } from '@/platform'
 import { CaretDownIcon, CaretUpIcon, XIcon } from '@phosphor-icons/react'
 import { type KeyboardEvent, type MutableRefObject, useEffect, useRef } from 'react'

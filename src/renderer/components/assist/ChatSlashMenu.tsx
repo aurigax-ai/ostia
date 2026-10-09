@@ -1,8 +1,8 @@
 import { IconButton } from '@/components/common/IconButton'
 import { Command, CommandItem, CommandList } from '@/components/ui/command'
 import { fmt, useDict } from '@/i18n/useDict'
-import type { MenuAnchor } from '@/lib/caretPoint'
-import { SLASH_COMMANDS, type SlashMenu, type SlashRow } from '@/lib/chatSlash'
+import type { MenuAnchor } from '@/lib/assist/caretPoint'
+import { SLASH_COMMANDS, type SlashMenu, type SlashRow } from '@/lib/assist/chatSlash'
 import { XIcon } from '@phosphor-icons/react'
 import { type RefObject, useLayoutEffect, useRef } from 'react'
 

@@ -6,7 +6,7 @@ import { useSettingsStore } from '../../stores/settingsStore'
 import { CodeBlockContent } from './code-block'
 
 const colorizeCode = vi.fn(async () => null)
-vi.mock('../../lib/colorize', () => ({
+vi.mock('@/lib/theme/colorize', () => ({
   colorizeCode: (...args: unknown[]) => colorizeCode(...(args as [])),
 }))
 

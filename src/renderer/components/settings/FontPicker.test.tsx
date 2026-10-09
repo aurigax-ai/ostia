@@ -1,9 +1,9 @@
-import { localFontFamilies } from '@/lib/localFonts'
+import { localFontFamilies } from '@/lib/theme/localFonts'
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { FontPicker } from './FontPicker'
 
-vi.mock('@/lib/localFonts', () => ({ localFontFamilies: vi.fn() }))
+vi.mock('@/lib/theme/localFonts', () => ({ localFontFamilies: vi.fn() }))
 
 const families = vi.mocked(localFontFamilies)
 

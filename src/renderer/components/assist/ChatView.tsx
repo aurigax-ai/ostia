@@ -50,19 +50,19 @@ import {
   liveSelectionContext,
   selectionRef,
   useWorkspaceEditorFile,
-} from '@/lib/askContext'
-import { type MenuAnchor, menuAnchor } from '@/lib/caretPoint'
-import { insertInto, looksLikeCommand } from '@/lib/chatActions'
-import { checkpointFiles } from '@/lib/chatCheckpoint'
-import { fileLinkOf, isWebUrl, rehypeFileLinks, wholeFileLink } from '@/lib/chatLinks'
-import type { FileLinkTarget } from '@/lib/chatLinks'
-import { openChatPane } from '@/lib/chatPane'
+} from '@/lib/assist/askContext'
+import { type MenuAnchor, menuAnchor } from '@/lib/assist/caretPoint'
+import { insertInto, looksLikeCommand } from '@/lib/assist/chatActions'
+import { checkpointFiles } from '@/lib/assist/chatCheckpoint'
+import { fileLinkOf, isWebUrl, rehypeFileLinks, wholeFileLink } from '@/lib/assist/chatLinks'
+import type { FileLinkTarget } from '@/lib/assist/chatLinks'
+import { openChatPane } from '@/lib/assist/chatPane'
 import {
   redactOutgoing,
   redactedCount,
   redactedCountLabel,
   redactionsIn,
-} from '@/lib/chatRedaction'
+} from '@/lib/assist/chatRedaction'
 import {
   type SlashActions,
   type SlashContext,
@@ -77,17 +77,17 @@ import {
   slashMenu,
   slashRows,
   stepRow,
-} from '@/lib/chatSlash'
-import { SKILLS_GROUP } from '@/lib/chatTools'
+} from '@/lib/assist/chatSlash'
+import { SKILLS_GROUP } from '@/lib/assist/chatTools'
 import {
   type OstiaChatMessage,
   type ToolPartLike,
   decodeChatError,
   isToolPart,
   messageText,
-} from '@/lib/chatTransport'
-import { openFileAt } from '@/lib/openFile'
-import { openSidebarUrl } from '@/lib/sidebarItems'
+} from '@/lib/assist/chatTransport'
+import { openFileAt } from '@/lib/files/openFile'
+import { openSidebarUrl } from '@/lib/sidebar/sidebarItems'
 import { cn } from '@/lib/utils'
 import { useChatModel, wakeAssist } from '@/stores/assistStore'
 import {

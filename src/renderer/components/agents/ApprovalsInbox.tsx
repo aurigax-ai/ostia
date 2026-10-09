@@ -1,7 +1,7 @@
 import { TextLink } from '@/components/common/TextLink'
 import { Button } from '@/components/ui/button'
 import { useDict } from '@/i18n/useDict'
-import { revealPane } from '@/lib/workspaceActivity'
+import { revealPane } from '@/lib/attention/workspaceActivity'
 import { useApprovalsStore } from '@/stores/approvalsStore'
 import type { ApprovalKind, ApprovalOutcome, ApprovalRequest } from '@shared/approvals'
 import type { Dict } from '@shared/dict'

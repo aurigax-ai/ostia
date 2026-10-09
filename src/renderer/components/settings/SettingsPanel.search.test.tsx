@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest'
-import { languagesFrom } from '@/lib/languagePacks'
+import { languagesFrom } from '@/lib/extensions/languagePacks'
 import { useExtensionsStore } from '@/stores/extensionsStore'
 import { usePluginsStore } from '@/stores/pluginsStore'
 import { useSettingsStore } from '@/stores/settingsStore'

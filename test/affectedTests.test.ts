@@ -19,7 +19,7 @@ import {
 } from './affectedTests.mjs'
 
 const readers = {
-  dom: ['src/renderer/lib/motion.test.tsx'],
+  dom: ['src/renderer/lib/app/motion.test.tsx'],
   folders: {
     'e2e/': ['test/e2eImports.test.ts'],
     '.github/': ['src/main/updates/releasePackaging.test.ts'],
@@ -55,7 +55,7 @@ describe('planTests', () => {
       'scripts/build-extensions.mjs',
       'sdk/docs/EXTENSIONS.md',
     ]) {
-      expect(planTests(['src/renderer/lib/keyPresets.ts', file], readers), file).toEqual({
+      expect(planTests(['src/renderer/lib/keys/keyPresets.ts', file], readers), file).toEqual({
         node: null,
         dom: null,
       })
@@ -63,9 +63,9 @@ describe('planTests', () => {
   })
 
   it('runs only related tests for a renderer change, plus the dom tests that read files', () => {
-    expect(planTests(['src/renderer/lib/keyPresets.ts'], readers)).toEqual({
-      node: ['src/renderer/lib/keyPresets.ts'],
-      dom: ['src/renderer/lib/keyPresets.ts', 'src/renderer/lib/motion.test.tsx'],
+    expect(planTests(['src/renderer/lib/keys/keyPresets.ts'], readers)).toEqual({
+      node: ['src/renderer/lib/keys/keyPresets.ts'],
+      dom: ['src/renderer/lib/keys/keyPresets.ts', 'src/renderer/lib/app/motion.test.tsx'],
     })
   })
 
@@ -148,7 +148,7 @@ describe('planE2e', () => {
           'README.md',
           '.github/workflows/ci.yml',
           'src/main/sandbox/ptyWrap.test.ts',
-          'src/renderer/lib/chords.test.ts',
+          'src/renderer/lib/keys/chords.test.ts',
           'test/mocks/ostia.ts',
           'test/quarantine.json',
           'scripts/retry.sh',
@@ -245,8 +245,8 @@ describe('planAgainst', () => {
 describe('domFileReaders', () => {
   it('lists the dom tests that read the source tree at run time', () => {
     const found = domFileReaders()
-    expect(found).toContain('src/renderer/lib/motion.test.tsx')
-    expect(found).toContain('src/renderer/lib/typography.test.ts')
+    expect(found).toContain('src/renderer/lib/app/motion.test.tsx')
+    expect(found).toContain('src/renderer/lib/theme/typography.test.ts')
     expect(found).not.toContain('src/renderer/layout/tree.test.ts')
   })
 })
