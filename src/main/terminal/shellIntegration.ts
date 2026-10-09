@@ -660,18 +660,41 @@ export function agentPluginDigest(content: AgentPluginContent): string {
   return hash.digest('hex').slice(0, 32)
 }
 
+function agentPluginFiles(content: AgentPluginContent): string[] {
+  return [
+    join('claude-plugin', '.claude-plugin', 'plugin.json'),
+    join('claude-plugin', 'hooks', 'hooks.json'),
+    join('claude-plugin', 'skills', AGENT_SKILL_NAME, 'SKILL.md'),
+    join('codex', 'SKILL.md'),
+    join('codex', 'session-context.md'),
+    join('codex', CODEX_HOOK_ARGS_FILE),
+    ...content.skills.flatMap((skill) =>
+      skill.files.flatMap((file) => [
+        join('claude-plugin', 'skills', skill.id, file.name),
+        join('codex', 'skills', skill.id, file.name),
+      ]),
+    ),
+  ]
+}
+
+function hasFiles(dir: string, names: string[]): boolean {
+  return names.every((name) => existsSync(join(dir, name)))
+}
+
 export function writeAgentPlugin(root: string, content: AgentPluginContent): string {
   mkdirSync(root, { recursive: true, mode: 0o700 })
   const dir = join(root, agentPluginDigest(content))
-  if (existsSync(dir)) return dir
+  const names = agentPluginFiles(content)
+  if (hasFiles(dir, names)) return dir
   const staging = mkdtempSync(join(root, '.staging-'))
   try {
     writeClaudePlugin(join(staging, 'claude-plugin'), content)
     writeCodexIntegration(join(staging, 'codex'), content, join(dir, 'codex'))
+    rmSync(dir, { recursive: true, force: true })
     renameSync(staging, dir)
   } catch (err) {
     rmSync(staging, { recursive: true, force: true })
-    if (!existsSync(dir)) throw err
+    if (!hasFiles(dir, names)) throw err
   }
   return dir
 }
@@ -753,16 +776,18 @@ export function writeShellIntegration(
 ): string {
   mkdirSync(root, { recursive: true, mode: 0o700 })
   const dir = join(root, shellIntegrationDigest(files))
-  if (existsSync(dir)) return dir
+  const names = Object.keys(files(dir))
+  if (hasFiles(dir, names)) return dir
   const staging = mkdtempSync(join(root, '.staging-'))
   try {
     for (const [name, text] of Object.entries(files(dir))) {
       writeFileSync(join(staging, name), text, 'utf8')
     }
+    rmSync(dir, { recursive: true, force: true })
     renameSync(staging, dir)
   } catch (err) {
     rmSync(staging, { recursive: true, force: true })
-    if (!existsSync(dir)) throw err
+    if (!hasFiles(dir, names)) throw err
   }
   return dir
 }

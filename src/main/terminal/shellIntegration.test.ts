@@ -80,6 +80,15 @@ describe('writeShellIntegration', () => {
       `source "${join(dir, 'init.bash')}"`,
     )
   })
+
+  it('rewrites the files the system cleaned out of a kept folder', () => {
+    const dir = writeShellIntegration(root)
+    rmSync(join(dir, '.zshrc'))
+    rmSync(join(dir, 'init.zsh'))
+    expect(writeShellIntegration(root)).toBe(dir)
+    expect(readFileSync(join(dir, '.zshrc'), 'utf8')).toBe(shellIntegrationFiles(dir)['.zshrc'])
+    expect(existsSync(join(dir, 'init.zsh'))).toBe(true)
+  })
 })
 
 describe('shellIntegrationSpawnOptions', () => {
@@ -1125,6 +1134,17 @@ describe('shellIntegrationSpawnOptions', () => {
         `- kit-review (${join(codexDir, 'skills', 'kit-review', 'SKILL.md')}): Use when reviewing.`,
       )
       expect(existsSync(join(codexDir, 'skills', 'kit-review', 'checklist.md'))).toBe(true)
+    })
+
+    it('rewrites the files the system cleaned out of a kept generation', () => {
+      const dir = writeAgentPlugin(root, content)
+      const hooks = join(dir, 'claude-plugin', 'hooks', 'hooks.json')
+      const context = join(dir, 'codex', 'session-context.md')
+      rmSync(hooks)
+      rmSync(context)
+      expect(writeAgentPlugin(root, content)).toBe(dir)
+      expect(JSON.parse(readFileSync(hooks, 'utf8'))).toEqual(claudeHookSettings(content.hooks))
+      expect(existsSync(context)).toBe(true)
     })
 
     it.skipIf(process.getuid?.() === 0)(
