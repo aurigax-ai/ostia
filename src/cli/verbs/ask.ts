@@ -1,6 +1,6 @@
 import type { MessageConnection } from 'vscode-jsonrpc/node'
-import type { QuestionAskResult, QuestionEnd } from '../shared/questions'
-import { FlagError, parseArgs } from './args'
+import type { QuestionAskResult, QuestionEnd } from '../../shared/questions'
+import { FlagError, parseArgs } from '../common/args'
 
 export const ASK_EXIT = {
   answered: 0,

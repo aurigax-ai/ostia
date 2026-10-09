@@ -13,18 +13,18 @@ import {
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
-import { registerControlServer, stopControlServer } from '../main/control/controlServer'
-import { ExtensionHost, registerExtensionMethods } from '../main/extensions/extensionHost'
-import { parseManifest } from '../main/extensions/extensionManifest'
-import { ExtensionStore } from '../main/extensions/extensionStore'
-import { EXTENSION_API_VERSION } from '../shared/extensionApi'
-import type { ExtensionCaller } from '../shared/extensions'
-import { MARKETPLACE_CODE_PATTERN, MARKETPLACE_MANIFEST_FILE } from '../shared/marketplace'
-import type { CommandResult } from '../shared/types'
+import { registerControlServer, stopControlServer } from '../../main/control/controlServer'
+import { ExtensionHost, registerExtensionMethods } from '../../main/extensions/extensionHost'
+import { parseManifest } from '../../main/extensions/extensionManifest'
+import { ExtensionStore } from '../../main/extensions/extensionStore'
+import { EXTENSION_API_VERSION } from '../../shared/extensionApi'
+import type { ExtensionCaller } from '../../shared/extensions'
+import { MARKETPLACE_CODE_PATTERN, MARKETPLACE_MANIFEST_FILE } from '../../shared/marketplace'
+import type { CommandResult } from '../../shared/types'
 import { extensionManifestSchema, marketplaceManifestSchema } from './manifestSchema'
 import { SDK_CLI_USAGE, newInstallCode, runSdkCli } from './sdkCli'
 
-const repoRoot = resolve(__dirname, '../..')
+const repoRoot = resolve(__dirname, '../../..')
 const sdkPackage = join(repoRoot, 'out/sdk')
 const sdkCli = join(sdkPackage, 'dist/cli.cjs')
 
@@ -269,7 +269,7 @@ describe('extension API version', () => {
       'src/extensions/sdk/assist/service.ts',
       'src/shared/extensions.ts',
       'src/main/extensions/extensionManifest.ts',
-      'src/cli/manifestSchema.ts',
+      'src/cli/sdk/manifestSchema.ts',
     ]) {
       expect(readFileSync(join(sdkPackage, file), 'utf8'), file).toBe(
         readFileSync(join(repoRoot, file), 'utf8'),

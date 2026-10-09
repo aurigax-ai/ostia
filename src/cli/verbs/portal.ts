@@ -9,8 +9,8 @@ import {
   StreamMessageWriter,
   createMessageConnection,
 } from 'vscode-jsonrpc/node'
-import { readEnv } from '../shared/appEnv'
-import { MIRROR_DETACH_KEY, portalSocketPath } from '../shared/portal'
+import { readEnv } from '../../shared/appEnv'
+import { MIRROR_DETACH_KEY, portalSocketPath } from '../../shared/portal'
 
 export const PORTAL_USAGE = `usage: ostia <agent> [args…]
 

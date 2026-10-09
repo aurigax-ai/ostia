@@ -1,6 +1,6 @@
 import type { MessageConnection } from 'vscode-jsonrpc/node'
+import { failureHint } from '../common/failure'
 import { type BrowseCall, extractGlobals, parseBrowseCommand, splitCommandLine } from './browseArgs'
-import { failureHint } from './failure'
 
 export interface BrowseResponse {
   success: boolean

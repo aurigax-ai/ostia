@@ -28,24 +28,10 @@ import type {
 import { SCRIPT_TOKEN_PREFIX } from '../shared/scriptTokens'
 import type { CommandDescriptor, CommandResult } from '../shared/types'
 import type { WorkflowEntry, WorkflowListing } from '../shared/workflows'
-import { runAgentHook } from './agentHook'
-import { FlagError, type ParsedArgs, parseArgs } from './args'
-import { runAskVerb } from './ask'
-import { runBrowse } from './browse'
-import {
-  BUS_ASLEEP_HINT,
-  BUS_QUEUED_HINT,
-  type BusSendOk,
-  type SentMessage,
-  busWaitTimeoutMs,
-  runBusHook,
-  sentLines,
-} from './bus'
-import { runCmuxImportVerb } from './cmuxImport'
-import { commandHelp, wantsHelp } from './commandHelp'
-import { runGitVerb, runPortsVerb } from './coreBoards'
-import { buildCommandCall, parseCommandFlags, resolveWorkspaceRef } from './crossWorkspace'
-import { describeFailure } from './failure'
+import { FlagError, type ParsedArgs, parseArgs } from './common/args'
+import { commandHelp, wantsHelp } from './common/commandHelp'
+import { buildCommandCall, parseCommandFlags, resolveWorkspaceRef } from './common/crossWorkspace'
+import { describeFailure } from './common/failure'
 import {
   type FileProbe,
   type OpenTarget,
@@ -57,17 +43,31 @@ import {
   placementOf,
   refusalLine,
   revealRefusalLine,
-} from './fileArgs'
-import { runManagerVerb } from './manager'
-import { STATE_VERBS, messageFromStdin, saveAttentionOffline } from './offlineAttention'
-import { parseWorkspaceRenameArgs, runPaneVerb } from './pane'
-import { paneToken } from './paneToken'
-import { runPermissionHook } from './permissionHook'
-import { runPortalCommand } from './portal'
-import { TTY_NOTICE, captureStdin } from './stdinCapture'
-import { runTokenVerb } from './token'
-import { buildVersionAt } from './version'
-import { isOfflineViewVerb, runOfflineViewVerb, runViewVerb } from './view'
+} from './common/fileArgs'
+import { paneToken } from './common/paneToken'
+import { TTY_NOTICE, captureStdin } from './common/stdinCapture'
+import { buildVersionAt } from './common/version'
+import { runAgentHook } from './hooks/agentHook'
+import { STATE_VERBS, messageFromStdin, saveAttentionOffline } from './hooks/offlineAttention'
+import { runPermissionHook } from './hooks/permissionHook'
+import { runTokenVerb } from './hooks/token'
+import { runAskVerb } from './verbs/ask'
+import { runBrowse } from './verbs/browse'
+import {
+  BUS_ASLEEP_HINT,
+  BUS_QUEUED_HINT,
+  type BusSendOk,
+  type SentMessage,
+  busWaitTimeoutMs,
+  runBusHook,
+  sentLines,
+} from './verbs/bus'
+import { runCmuxImportVerb } from './verbs/cmuxImport'
+import { runGitVerb, runPortsVerb } from './verbs/coreBoards'
+import { runManagerVerb } from './verbs/manager'
+import { parseWorkspaceRenameArgs, runPaneVerb } from './verbs/pane'
+import { runPortalCommand } from './verbs/portal'
+import { isOfflineViewVerb, runOfflineViewVerb, runViewVerb } from './verbs/view'
 
 interface ProcInfo {
   id: string

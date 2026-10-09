@@ -13,12 +13,12 @@ import {
   MAX_TEXT,
   MAX_WORKFLOWS,
   SETTING_KEY_PATTERN,
-} from '../main/extensions/extensionManifest'
+} from '../../main/extensions/extensionManifest'
 import {
   MARKETPLACE_DESCRIPTION_MAX,
   MARKETPLACE_MAX_EXTENSIONS,
   MARKETPLACE_NAME_MAX,
-} from '../main/extensions/marketplace'
+} from '../../main/extensions/marketplace'
 import {
   AGENT_HOOK_EVENTS,
   AGENT_SKILL_ENTRY,
@@ -27,9 +27,9 @@ import {
   MAX_AGENT_HOOKS,
   MAX_AGENT_SKILLS,
   MAX_AGENT_SKILL_FILES,
-} from '../shared/agentPlugins'
-import { ASSIST_POINTS } from '../shared/assist'
-import { ALL_CAPABILITIES } from '../shared/capabilities'
+} from '../../shared/agentPlugins'
+import { ASSIST_POINTS } from '../../shared/assist'
+import { ALL_CAPABILITIES } from '../../shared/capabilities'
 import {
   BUILTIN_EDITOR_LANGUAGE_IDS,
   EDITOR_LANGUAGE_EXTENSION_PATTERN,
@@ -39,9 +39,9 @@ import {
   EDITOR_LANGUAGE_NAME_MAX,
   MAX_EDITOR_LANGUAGES,
   MAX_LANGUAGE_FILE_PATTERNS,
-} from '../shared/editorLanguages'
-import { EXTENSION_API_PATTERN } from '../shared/extensionApi'
-import { EXTENSION_LOCALES_MAX } from '../shared/extensionLocales'
+} from '../../shared/editorLanguages'
+import { EXTENSION_API_PATTERN } from '../../shared/extensionApi'
+import { EXTENSION_LOCALES_MAX } from '../../shared/extensionLocales'
 import {
   COMMAND_ARGUMENT_LABEL_MAX,
   EXTENSION_CATEGORIES,
@@ -49,11 +49,11 @@ import {
   EXTENSION_SETTING_TITLE_MAX,
   EXTENSION_SETTING_TYPES,
   EXTENSION_SETTING_UNITS,
-} from '../shared/extensions'
-import { isCoreSource } from '../shared/git'
-import { ICON_THEME_ID_PATTERN } from '../shared/iconTheme'
-import { KEYMAP_LABEL_MAX, KEYMAP_PLATFORMS } from '../shared/keymap'
-import { LANGUAGE_ID_PATTERN } from '../shared/languagePack'
+} from '../../shared/extensions'
+import { isCoreSource } from '../../shared/git'
+import { ICON_THEME_ID_PATTERN } from '../../shared/iconTheme'
+import { KEYMAP_LABEL_MAX, KEYMAP_PLATFORMS } from '../../shared/keymap'
+import { LANGUAGE_ID_PATTERN } from '../../shared/languagePack'
 import {
   DOWNLOAD_URL_MAX,
   GO_MODULE_MAX,
@@ -77,8 +77,8 @@ import {
   MAX_SERVER_LANGUAGES,
   SERVER_ARG_MAX,
   SERVER_NAME_MAX,
-} from '../shared/languageServers'
-import { MARKETPLACE_CODE_PATTERN } from '../shared/marketplace'
+} from '../../shared/languageServers'
+import { MARKETPLACE_CODE_PATTERN } from '../../shared/marketplace'
 
 const VERSION_MAX = 40
 

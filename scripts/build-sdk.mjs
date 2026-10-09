@@ -38,7 +38,7 @@ const library = await build({
 
 const cli = await build({
   metafile: true,
-  entryPoints: ['src/cli/sdkCliEntry.ts'],
+  entryPoints: ['src/cli/sdk/sdkCliEntry.ts'],
   outfile: join(out, 'dist/cli.cjs'),
   bundle: true,
   platform: 'node',
@@ -53,7 +53,7 @@ execFileSync('pnpm', ['exec', 'tsc', '-p', 'tsconfig.sdk.json'], { stdio: 'inher
 const schemaModule = resolve(out, 'schema-build.mjs')
 const schema = await build({
   metafile: true,
-  entryPoints: ['src/cli/manifestSchema.ts'],
+  entryPoints: ['src/cli/sdk/manifestSchema.ts'],
   outfile: schemaModule,
   bundle: true,
   platform: 'node',

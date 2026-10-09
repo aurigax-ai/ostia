@@ -1,4 +1,4 @@
-import { COMMAND_ID_PATTERN, EXTENSION_ID_PATTERN } from '../main/extensions/extensionManifest'
+import { COMMAND_ID_PATTERN, EXTENSION_ID_PATTERN } from '../../main/extensions/extensionManifest'
 import {
   AGENT_HOOK_INPUT_MAX,
   type AgentHookEvent,
@@ -6,7 +6,7 @@ import {
   agentHookOutput,
   isAgentHookEvent,
   isHookAgent,
-} from '../shared/agentPlugins'
+} from '../../shared/agentPlugins'
 
 export interface AgentHookCall {
   extId: string

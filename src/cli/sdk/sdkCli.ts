@@ -9,13 +9,13 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { join, normalize, relative, resolve } from 'node:path'
-import { agentSkillProblems } from '../main/agents/agentSkills'
-import { localeProblems } from '../main/extensions/extensionLocales'
-import { EXTENSION_ID_PATTERN, readManifest } from '../main/extensions/extensionManifest'
-import { parseMarketplaceManifest, planCopy } from '../main/extensions/marketplace'
-import { EXTENSION_MANIFEST_FILE, type ExtensionManifest } from '../shared/extensions'
-import { MARKETPLACE_MANIFEST_FILE } from '../shared/marketplace'
-import { PRODUCT_NAME } from '../shared/product'
+import { agentSkillProblems } from '../../main/agents/agentSkills'
+import { localeProblems } from '../../main/extensions/extensionLocales'
+import { EXTENSION_ID_PATTERN, readManifest } from '../../main/extensions/extensionManifest'
+import { parseMarketplaceManifest, planCopy } from '../../main/extensions/marketplace'
+import { EXTENSION_MANIFEST_FILE, type ExtensionManifest } from '../../shared/extensions'
+import { MARKETPLACE_MANIFEST_FILE } from '../../shared/marketplace'
+import { PRODUCT_NAME } from '../../shared/product'
 
 export interface SdkCliResult {
   code: number

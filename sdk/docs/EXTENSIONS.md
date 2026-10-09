@@ -1208,7 +1208,7 @@ newer; an extension that declares `1.0` keeps loading in every `1.x`.
 
 For people changing Ostia: `sdk/api-lock.json` holds the version and a digest of the
 published contract (the SDK's type declarations and the two manifest schemas). A change to any of
-them fails `src/cli/sdkPackage.integration.test.ts` until you run `pnpm api:bump minor` (or
+them fails `src/cli/sdk/sdkPackage.integration.test.ts` until you run `pnpm api:bump minor` (or
 `major`), which raises `EXTENSION_API_VERSION` and rewrites the lock in one step. There is no way
 to refresh the digest without bumping.
 
@@ -1233,7 +1233,7 @@ pnpm add -D @aurigax-ai/ostia-extension-sdk
 
 It is generated from this repository by `pnpm build:sdk` (`scripts/build-sdk.mjs`) and published
 to npm by `release.yml` on every `v*` tag; its version is the app's version. The JSON
-Schemas come from `src/cli/manifestSchema.ts`; the loader (`parseManifest`) stays the authority,
+Schemas come from `src/cli/sdk/manifestSchema.ts`; the loader (`parseManifest`) stays the authority,
 and `validate` runs that loader.
 
 ## Example: a minimal extension

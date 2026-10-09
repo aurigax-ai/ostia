@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { PermissionChoice } from '../shared/agentPermissions'
+import type { PermissionChoice } from '../../shared/agentPermissions'
 import { runPermissionHook } from './permissionHook'
 
 const SUGGESTION = {

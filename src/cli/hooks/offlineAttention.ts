@@ -3,10 +3,10 @@ import {
   attentionFileFor,
   isKeptAttentionState,
   writeSavedAttention,
-} from '../main/tmux/attentionFile'
-import { type EnvSource, readEnv } from '../shared/appEnv'
-import { claudeAttention, isClaudeAttentionEvent } from '../shared/claudeAttention'
-import { parseArgs } from './args'
+} from '../../main/tmux/attentionFile'
+import { type EnvSource, readEnv } from '../../shared/appEnv'
+import { claudeAttention, isClaudeAttentionEvent } from '../../shared/claudeAttention'
+import { parseArgs } from '../common/args'
 
 export const STATE_VERBS = ['waiting', 'done', 'working', 'error', 'clear']
 

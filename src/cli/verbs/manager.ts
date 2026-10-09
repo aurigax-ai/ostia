@@ -1,6 +1,6 @@
 import { resolve as resolvePath } from 'node:path'
 import type { MessageConnection } from 'vscode-jsonrpc/node'
-import { FlagError, parseArgs } from './args'
+import { FlagError, parseArgs } from '../common/args'
 
 export type ManagerCall =
   | { method: 'manager.read'; params: { paneId: string; lines?: number } }

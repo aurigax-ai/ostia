@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { CommandDescriptor } from '../shared/types'
+import type { CommandDescriptor } from '../../shared/types'
 import { commandHelp, wantsHelp } from './commandHelp'
 
 const descriptor = (argsSchema: CommandDescriptor['argsSchema']): CommandDescriptor => ({

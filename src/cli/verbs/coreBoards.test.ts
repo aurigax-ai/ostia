@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { FlagError } from './args'
+import { FlagError } from '../common/args'
 import { gitRequest, portsRequest } from './coreBoards'
 
 describe('gitRequest', () => {

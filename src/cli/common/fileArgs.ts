@@ -5,7 +5,7 @@ import {
   type OpenFileError,
   type OpenPlacement,
   openTargetKind,
-} from '../shared/openFiles'
+} from '../../shared/openFiles'
 
 export interface FileProbe {
   cwd: string

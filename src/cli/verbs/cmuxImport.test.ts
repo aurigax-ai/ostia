@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { MessageConnection } from 'vscode-jsonrpc/node'
-import type { CmuxImportReport } from '../shared/cmuxSession'
+import type { CmuxImportReport } from '../../shared/cmuxSession'
 import {
   CMUX_IMPORT_USAGE,
   formatCmuxImport,

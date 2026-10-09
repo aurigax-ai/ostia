@@ -1,6 +1,6 @@
 import type { MessageConnection } from 'vscode-jsonrpc/node'
-import { FlagError, parseArgs } from './args'
-import { resolveWorkspaceRef } from './crossWorkspace'
+import { FlagError, parseArgs } from '../common/args'
+import { resolveWorkspaceRef } from '../common/crossWorkspace'
 
 export interface PaneInputParams {
   pane: string

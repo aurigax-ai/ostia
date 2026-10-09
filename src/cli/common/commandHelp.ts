@@ -1,4 +1,4 @@
-import type { CommandDescriptor } from '../shared/types'
+import type { CommandDescriptor } from '../../shared/types'
 
 const HELP_FLAGS = new Set(['--help', '-h'])
 

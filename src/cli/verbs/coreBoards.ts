@@ -1,5 +1,5 @@
 import type { MessageConnection } from 'vscode-jsonrpc/node'
-import { FlagError, parseArgs } from './args'
+import { FlagError, parseArgs } from '../common/args'
 
 export const GIT_USAGE = `usage: ostia git <command>
   status                         branch, upstream and change counts (JSON)
