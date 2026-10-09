@@ -519,7 +519,6 @@
         "src/renderer/settings/fileTreeSettings.ts"
       ],
       "specs": [
-        "e2e/files-drag.spec.ts",
         "e2e/files-panel.spec.ts",
         "e2e/files-search.spec.ts",
         "e2e/files-tree.spec.ts",
