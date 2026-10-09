@@ -1,20 +1,27 @@
+import { registerBuiltinCommands } from '@/commands/builtins'
+import { commands } from '@/commands/registry'
 import { NotificationCenter } from '@/components/agents/NotificationCenter'
 import { Pane } from '@/components/panes/Pane'
+import { TerminalView } from '@/components/terminal/Terminal'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { findPane, resetIds } from '@/layout/tree'
 import type { PaneNode } from '@/layout/types'
 import { resetPointerView } from '@/lib/attention/pointerView'
 import { signalPane } from '@/lib/attention/workspaceActivity'
+import { runAppChord } from '@/lib/keys/chords'
+import { resetOffscreenStartForTests, startOffscreen } from '@/lib/terminal/offscreenStart'
 import { useApprovalsStore } from '@/stores/agents/approvalsStore'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { surfaceHost } from '@/stores/workspaces/surfaceSlotsStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type { ApprovalRecord } from '@shared/permissions/approvals'
 import type { NotificationEntry } from '@shared/types'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { createPortal } from 'react-dom'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { DeckRail } from './DeckRail'
 
@@ -48,6 +55,7 @@ afterEach(() => {
   useUIStore.setState(uiInit, true)
   resetIds()
   resetPointerView()
+  resetOffscreenStartForTests()
   vi.restoreAllMocks()
 })
 
@@ -463,5 +471,53 @@ describe('NotificationCenter', () => {
     } finally {
       act(() => useExtensionsStore.setState(extInit, true))
     }
+  })
+
+  it('a terminal notification in a background pane marks it unread and Ctrl+Shift+U jumps to it', async () => {
+    if (!commands.has('attention.jumpToLatest')) registerBuiltinCommands()
+    const { workspaceId, a, b } = twoPanes()
+    const view = render(
+      <TooltipProvider>
+        <DeckRail />
+        <NotificationCenter />
+        <Pane
+          tabs={[paneNode(workspaceId, a)]}
+          shownId={a}
+          activePaneId={b}
+          workspaceId={workspaceId}
+        />
+        {createPortal(<TerminalView workspaceId={workspaceId} paneId={a} />, surfaceHost(a))}
+      </TooltipProvider>,
+    )
+    act(() => startOffscreen(a))
+    await waitFor(() => expect(window.ostia.pty.attach).toHaveBeenCalledWith(a, expect.anything()))
+    const feed = vi.mocked(window.ostia.pty.onData).mock.calls.find(([id]) => id === a)?.[1]
+    if (!feed) throw new Error('pane output not subscribed')
+    act(() => feed('\x1b]9;build finished\x07'))
+
+    await waitFor(() =>
+      expect(view.container.querySelector('.pane-attn-msg')).toHaveTextContent('build finished'),
+    )
+    expect(view.container.querySelector('.pane-kind-blink')).toBeNull()
+    expect(screen.getByRole('img', { name: 'Unread' })).toBeInTheDocument()
+    expect(screen.getByRole('img', { name: '1 unread' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Notifications, 1 unread' })).toBeInTheDocument()
+    expect(window.ostia.notifications.post).toHaveBeenCalledWith(
+      expect.objectContaining({ paneId: a, title: 'build finished' }),
+    )
+    expect(useLayoutStore.getState().byWorkspace[workspaceId].activePaneId).toBe(b)
+
+    act(() => {
+      runAppChord(new KeyboardEvent('keydown', { key: 'U', ctrlKey: true, shiftKey: true }), false)
+    })
+
+    expect(useLayoutStore.getState().byWorkspace[workspaceId].activePaneId).toBe(a)
+    expect(view.container.querySelector('.pane-attn-msg')).toBeNull()
+    expect(screen.queryByRole('img', { name: '1 unread' })).toBeNull()
+    await waitFor(() =>
+      expect(document.activeElement).toBe(
+        view.container.querySelector('.pane .xterm-helper-textarea'),
+      ),
+    )
   })
 })

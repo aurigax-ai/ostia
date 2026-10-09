@@ -676,7 +676,7 @@
         "src/renderer/components/agents/NotificationCenter.tsx",
         "src/renderer/components/agents/attentionStyles.ts"
       ],
-      "specs": ["e2e/attention.spec.ts", "e2e/stale-waiting.spec.ts", "e2e/dashboard.spec.ts"]
+      "specs": ["e2e/stale-waiting.spec.ts", "e2e/dashboard.spec.ts"]
     },
     {
       "name": "dashboard and questions",
