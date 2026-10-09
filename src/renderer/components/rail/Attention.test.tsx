@@ -7,13 +7,14 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import { findPane, resetIds } from '@/layout/tree'
 import type { PaneNode } from '@/layout/types'
 import { resetPointerView } from '@/lib/attention/pointerView'
-import { signalPane } from '@/lib/attention/workspaceActivity'
+import { signalPane, startAttentionSync } from '@/lib/attention/workspaceActivity'
 import { runAppChord } from '@/lib/keys/chords'
 import { resetOffscreenStartForTests, startOffscreen } from '@/lib/terminal/offscreenStart'
 import { useApprovalsStore } from '@/stores/agents/approvalsStore'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
+import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { surfaceHost } from '@/stores/workspaces/surfaceSlotsStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
@@ -262,6 +263,54 @@ describe('pane tab attention mark', () => {
     expect(window.ostia.notifications.post).toHaveBeenCalledWith(
       expect.objectContaining({ paneId: a, title: 'Message from sender', body: 'review-42-done' }),
     )
+  })
+
+  it('a notification from a plain command in zsh is a message, not a wait for input', async () => {
+    vi.spyOn(document, 'hasFocus').mockReturnValue(true)
+    const workspaceId = homeWorkspaceId()
+    useLayoutStore.getState().ensure(workspaceId)
+    const paneId = useLayoutStore.getState().byWorkspace[workspaceId].activePaneId
+    let output: (data: string) => void = () => {}
+    vi.mocked(window.ostia.pty.onData).mockImplementation((_id, cb) => {
+      output = cb
+      return () => {}
+    })
+    const blocksInit = useBlocksStore.getState()
+    const stopSync = startAttentionSync()
+    startOffscreen(paneId)
+    try {
+      const view = render(
+        <>
+          <DeckRail />
+          <Pane
+            tabs={[paneNode(workspaceId, paneId)]}
+            shownId={paneId}
+            activePaneId={paneId}
+            workspaceId={workspaceId}
+          />
+          <TerminalView workspaceId={workspaceId} paneId={paneId} />
+        </>,
+      )
+      await waitFor(() => expect(window.ostia.pty.attach).toHaveBeenCalled())
+      act(() => {
+        output("\x1b]133;A\x07\x1b]133;B\x07printf '\\e]9;hello\\a'\r\n\x1b]133;C\x07")
+        output('\x1b]9;hello\x07\x1b]133;D;0\x07\x1b]133;A\x07\x1b]133;B\x07')
+      })
+
+      await waitFor(() =>
+        expect(window.ostia.notifications.post).toHaveBeenCalledWith(
+          expect.objectContaining({ paneId, kind: 'message', title: 'hello' }),
+        ),
+      )
+      expect(window.ostia.notifications.post).not.toHaveBeenCalledWith(
+        expect.objectContaining({ title: 'Agent needs your input' }),
+      )
+      expect(screen.getByRole('img', { name: 'Idle' })).toHaveClass('workspace-dot')
+      expect(view.container.querySelector('.pane .pane-attn-mark')).toBeNull()
+    } finally {
+      stopSync()
+      act(() => useBlocksStore.setState(blocksInit, true))
+    }
   })
 })
 
