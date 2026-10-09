@@ -852,6 +852,25 @@
   border-radius: inherit;
 }
 
+.rail-group-head:has(.rail-group-actions) .rail-group-main {
+  padding-right: 28px;
+}
+
+.rail-group-actions {
+  position: absolute;
+  top: 0;
+  right: 4px;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  opacity: 0;
+}
+
+.rail-group-head:hover .rail-group-actions,
+.rail-group-head:focus-within .rail-group-actions {
+  opacity: 1;
+}
+
 .rail-group-main:focus-visible {
   outline: 2px solid var(--brand);
   outline-offset: -2px;

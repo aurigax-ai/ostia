@@ -235,9 +235,8 @@ describe('group membership', () => {
     ])
   })
 
-  it('inserts a new grouped workspace right after the anchor, or at the group’s end', () => {
+  it('inserts a new grouped workspace as its group’s last member, an ungrouped one at the end', () => {
     const g = state('a:g', 'b:g', 'c')
-    expect(layout(insertWorkspace(g, parse('n:g'), 'a'))).toEqual(['a:g', 'n:g', 'b:g', 'c'])
     expect(layout(insertWorkspace(g, parse('n:g')))).toEqual(['a:g', 'b:g', 'n:g', 'c'])
     expect(layout(insertWorkspace(g, parse('n')))).toEqual(['a:g', 'b:g', 'c', 'n'])
   })

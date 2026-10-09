@@ -68,7 +68,8 @@ test('a group hibernates and resumes the agents of all its workspaces from its h
     await name.fill('build')
     await name.press('Enter')
 
-    await win.locator('.topbar').getByRole('button', { name: 'New workspace' }).click()
+    await win.locator('.rail-group-head').hover()
+    await win.getByRole('button', { name: 'New workspace in group' }).click()
     await emptyWorkspace(win).getByRole('button', { name: 'New terminal' }).click()
     const members = win.locator('.rail-group-members .rail-row')
     await expect(members).toHaveCount(2)

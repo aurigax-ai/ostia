@@ -453,25 +453,71 @@ describe('workspacesStore', () => {
       expect(workspaces()[0].groupId).toBe(groupId)
     })
 
-    it('opens a new workspace inside the active workspace’s group, right after it', () => {
+    it('opens a new workspace ungrouped and outside the group when the active one is grouped', () => {
       const a = open('/a')
       const b = open('/b')
-      open('/c')
+      const c = open('/c')
       const groupId = store().createGroup(a.id, 'team')
       store().moveToGroup(b.id, groupId as string)
-      store().setActive(a.id)
 
-      store().addWorkspace('/d')
+      const team = [`${a.id}:team`, `${b.id}:team`]
+      const add = (placement: 'end' | 'afterCurrent' | 'top'): string => {
+        store().setActive(a.id)
+        store().addWorkspace('/d', placement)
+        return activeId() as string
+      }
+
+      const atEnd = add('end')
+      expect(order()).toEqual([...team, c.id, atEnd])
+      store().closeWorkspace(atEnd)
+
+      const afterGroup = add('afterCurrent')
+      expect(order()).toEqual([...team, afterGroup, c.id])
+      store().closeWorkspace(afterGroup)
+
+      const atTop = add('top')
+      expect(order()).toEqual([atTop, ...team, c.id])
+    })
+
+    it('adds a workspace as the last member of the group that asked for it, and expands it', () => {
+      const a = open('/a')
+      const b = open('/b')
+      const c = open('/c')
+      const groupId = store().createGroup(a.id, 'team') as string
+      store().moveToGroup(b.id, groupId)
+      store().setGroupCollapsed(groupId, true)
+      store().setActive(c.id)
+
+      store().addWorkspace('/d', 'top', 'terminal', groupId)
       const added = activeId()
 
-      expect(order()).toEqual([`${a.id}:team`, `${added}:team`, `${b.id}:team`, 'w3'])
+      expect(order()).toEqual([`${a.id}:team`, `${b.id}:team`, `${added}:team`, c.id])
+      expect(store().groups).toEqual([{ id: groupId, name: 'team' }])
+    })
+
+    it('opens a new workspace ungrouped when the group that asked for it is gone', () => {
+      const a = open('/a')
+      store().addWorkspace('/d', 'end', 'terminal', 'g404')
+      expect(order()).toEqual([a.id, activeId()])
+    })
+
+    it('lets a folder rule win over the group that asked for the workspace', () => {
+      useSettingsStore.setState({
+        workspaceGroups: { byCwd: [{ pattern: '/work/**', group: 'Work' }] },
+      })
+      const a = open('/a')
+      const groupId = store().createGroup(a.id, 'team') as string
+
+      store().addWorkspace('/work/api', 'end', 'terminal', groupId)
+
+      expect(order()).toEqual([`${a.id}:team`, `${activeId()}:Work`])
     })
 
     it('opens a new workspace ungrouped at the end when the active one is ungrouped', () => {
       const a = open('/a')
       store().createGroup(a.id, 'team')
       const b = open('/b')
-      store().leaveGroup(b.id)
+      store().setActive(b.id)
       const c = open('/c')
       expect(order()).toEqual([`${a.id}:team`, b.id, c.id])
     })

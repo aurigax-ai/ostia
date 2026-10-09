@@ -1,14 +1,18 @@
 import '@testing-library/jest-dom/vitest'
 import { allPanes, createPane, tabsOf } from '@/layout/tree'
+import { languagesFrom } from '@/lib/extensions/languagePacks'
+import { startNewWorkspace } from '@/lib/workspaces/newWorkspace'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useUIStore } from '@/stores/app/uiStore'
+import { usePluginsStore } from '@/stores/extensions/pluginsStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useHibernateSkippedStore } from '@/stores/workspaces/hibernateSkippedStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useMergeConfirmStore } from '@/stores/workspaces/mergeConfirmStore'
 import { type Workspace, useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
+import { zhHant } from '@shared/app/dict'
 import {
   act,
   cleanup,
@@ -47,6 +51,7 @@ describe('DeckRail', () => {
   let attentionInit: ReturnType<typeof useAttentionStore.getState>
   let mergeConfirmInit: ReturnType<typeof useMergeConfirmStore.getState>
   let blocksInit: ReturnType<typeof useBlocksStore.getState>
+  let pluginsInit: ReturnType<typeof usePluginsStore.getState>
 
   beforeAll(() => {
     workspacesInit = useWorkspacesStore.getState()
@@ -56,6 +61,7 @@ describe('DeckRail', () => {
     attentionInit = useAttentionStore.getState()
     mergeConfirmInit = useMergeConfirmStore.getState()
     blocksInit = useBlocksStore.getState()
+    pluginsInit = usePluginsStore.getState()
   })
 
   afterEach(() => {
@@ -67,6 +73,7 @@ describe('DeckRail', () => {
     useAttentionStore.setState(attentionInit, true)
     useMergeConfirmStore.setState(mergeConfirmInit, true)
     useBlocksStore.setState(blocksInit, true)
+    usePluginsStore.setState(pluginsInit, true)
     useSandboxStore.setState({ enabled: {} })
     useHibernateSkippedStore.setState({ skipped: null })
     vi.restoreAllMocks()
@@ -601,6 +608,63 @@ describe('DeckRail', () => {
       expect(screen.queryByRole('button', { name: /api/ })).toBeNull()
       expect(within(header()).getByRole('img', { name: 'Waiting for input' })).toBeInTheDocument()
       expect(within(header()).getByRole('img', { name: '1 unread' })).toBeInTheDocument()
+    })
+
+    it('adds a workspace to the group from the header button', async () => {
+      seedGroups()
+      render(<DeckRail />)
+      const group = header().closest('.rail-group') as HTMLElement
+
+      await userEvent
+        .setup()
+        .click(within(group).getByRole('button', { name: 'New workspace in group' }))
+
+      const { workspaces, activeWorkspaceId } = useWorkspacesStore.getState()
+      expect(workspaces.map((w) => w.groupId)).toEqual([undefined, 'g90', 'g90', 'g90'])
+      expect(workspaces[3].id).toBe(activeWorkspaceId)
+      expect(header()).toHaveAttribute('aria-expanded', 'true')
+    })
+
+    it('names the group’s new workspace action in zh-Hant on the header and in its menu', async () => {
+      seedGroups()
+      usePluginsStore.setState({
+        languages: languagesFrom([
+          { extId: 'langpack-zh-hant', id: 'zh-Hant', label: '繁體中文', catalog: zhHant },
+        ]),
+      })
+      useSettingsStore.setState({ locale: 'zh-Hant' })
+      render(<DeckRail />)
+
+      expect(screen.getByRole('button', { name: '在群組中新增工作區' })).toBeInTheDocument()
+      fireEvent.contextMenu(header())
+      expect(
+        await screen.findByRole('menuitem', { name: '在群組中新增工作區' }),
+      ).toBeInTheDocument()
+    })
+
+    it('adds a workspace to a collapsed group from the header menu and expands it', async () => {
+      seedGroups()
+      useWorkspacesStore.getState().setGroupCollapsed('g90', true)
+      render(<DeckRail />)
+
+      fireEvent.contextMenu(header())
+      await userEvent
+        .setup()
+        .click(await screen.findByRole('menuitem', { name: 'New workspace in group' }))
+
+      const { workspaces, groups } = useWorkspacesStore.getState()
+      expect(workspaces.map((w) => w.groupId)).toEqual([undefined, 'g90', 'g90', 'g90'])
+      expect(groups[0].collapsed).toBeUndefined()
+    })
+
+    it('leaves a workspace opened from inside a group ungrouped', () => {
+      seedGroups()
+      useWorkspacesStore.setState({ activeWorkspaceId: 's2' })
+
+      startNewWorkspace()
+
+      const { workspaces } = useWorkspacesStore.getState()
+      expect(workspaces.map((w) => w.groupId)).toEqual([undefined, 'g90', 'g90', undefined])
     })
 
     it('moves a workspace to a new group from its menu and names it right away', async () => {
