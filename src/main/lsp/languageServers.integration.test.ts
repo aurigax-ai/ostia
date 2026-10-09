@@ -1,20 +1,40 @@
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
+import { type IncomingHttpHeaders, createServer } from 'node:http'
+import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { gzipSync } from 'node:zlib'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   FAKE_LSP_BIN,
   installFakeLanguageExtension,
 } from '../../../test/fixtures/lsp/installFakeExtension'
+import { appEnv } from '../../shared/appEnv'
 import { type EditorLanguage, languageForPath } from '../../shared/editorLanguages'
 import type { LanguageServerContribution } from '../../shared/languageServers'
 import { readManifest } from '../extensions/extensionManifest'
 import { TreeWatches } from '../files/fileWatch'
 import { programPath } from '../platform/systemRequirements'
+import { releaseUserAgent } from '../updates/releaseCheck'
 import { loadEditorLanguages } from './editorLanguages'
-import { type LanguageServerSource, LanguageServers } from './languageServers'
+import {
+  type LanguageServerSource,
+  LanguageServers,
+  type ManagedServerFiles,
+} from './languageServers'
 import { chooseServerProgram } from './languageServersIpc'
+import { DOWNLOAD_BASE_URL_ENV, ManagedServers, downloadBaseUrl } from './managedServers'
 import { ServerOverrides } from './serverOverrides'
 
 vi.mock('electron', () => ({ ipcMain: { handle: vi.fn(), on: vi.fn() } }))
@@ -107,30 +127,25 @@ function exited(sessionId: string): boolean {
   return posts.some((p) => p.channel === `lsp:exit:${sessionId}`)
 }
 
-beforeEach(() => {
-  tmp = realpathSync(mkdtempSync(join(tmpdir(), 'ostia-lsp-int-')))
-  workDir = join(tmp, 'work')
-  mkdirSync(workDir)
-  writeFileSync(join(workDir, 'notes.txt'), 'hello')
-  extensionDir = installFakeLanguageExtension(join(tmp, 'extensions'))
-  const manifest = readManifest(extensionDir)
+function source(dir: string): LanguageServerSource {
+  const manifest = readManifest(dir)
   if (!manifest.ok) throw new Error(manifest.error)
   const [server] = manifest.manifest.contributes.languageServers ?? []
-  sources = [
-    {
-      extId: manifest.manifest.id,
-      extName: manifest.manifest.name,
-      dir: extensionDir,
-      builtin: false,
-      state: 'on',
-      server,
-      settingValues: { mode: 'loud' },
-    },
-  ]
+  return {
+    extId: manifest.manifest.id,
+    extName: manifest.manifest.name,
+    dir,
+    builtin: false,
+    state: 'on',
+    server,
+    settingValues: { mode: 'loud' },
+  }
+}
+
+function languageServers(managed: ManagedServerFiles): LanguageServers {
   const posted: Posted[] = []
   posts = posted
-  editorLanguages = []
-  servers = new LanguageServers({
+  return new LanguageServers({
     sources: () => sources,
     nodePath: process.execPath,
     env: () => ({ ...process.env, OSTIA_TOKEN: 'must-not-leak', OSTIA_SOCKET: '/nope' }),
@@ -151,14 +166,7 @@ beforeEach(() => {
     },
     findProgram: (program) => programPath(program, FAKE_LSP_BIN),
     languageOf: (path) => languageForPath(path, editorLanguages),
-    managed: {
-      canFetch: () => false,
-      executable: () => null,
-      folder: () => '',
-      fetch: async () => '',
-      remove: () => {},
-      retain: () => {},
-    },
+    managed,
     registerRequirements: () => {},
     watchTree: (root, onChange) => treeWatches.watch(root, onChange),
     post: (windowId, channel, message) =>
@@ -166,6 +174,24 @@ beforeEach(() => {
     changed: () => {},
     idleMs: 50,
     restartDelayMs: 10,
+  })
+}
+
+beforeEach(() => {
+  tmp = realpathSync(mkdtempSync(join(tmpdir(), 'ostia-lsp-int-')))
+  workDir = join(tmp, 'work')
+  mkdirSync(workDir)
+  writeFileSync(join(workDir, 'notes.txt'), 'hello')
+  extensionDir = installFakeLanguageExtension(join(tmp, 'extensions'))
+  sources = [source(extensionDir)]
+  editorLanguages = []
+  servers = languageServers({
+    canFetch: () => false,
+    executable: () => null,
+    folder: () => '',
+    fetch: async () => '',
+    remove: () => {},
+    retain: () => {},
   })
 })
 
@@ -558,5 +584,123 @@ describe('a real language server process', () => {
     expect(servers.log('fake-lang/fake').entries).toContainEqual(
       expect.objectContaining({ kind: 'initialized', name: 'chosen-by-human' }),
     )
+  })
+
+  it('fetches nothing while a server waits for approval, then downloads it once, runs that copy and removes it', async () => {
+    const assetPath = '/ostia-test/fake-native/releases/download/1.0.0/fake-native.gz'
+    const asset = gzipSync(
+      Buffer.from(
+        `#!/bin/sh\nexec "${process.execPath}" "${join(FAKE_LSP_BIN, '..', 'fake-server.mjs')}" "$@"\n`,
+      ),
+    )
+    const requests: { url: string; headers: IncomingHttpHeaders }[] = []
+    const http = createServer((req, res) => {
+      requests.push({ url: req.url ?? '', headers: req.headers })
+      if (req.url !== assetPath) {
+        res.writeHead(404)
+        res.end()
+        return
+      }
+      res.writeHead(200, { 'content-length': asset.length })
+      res.end(asset)
+    })
+    await new Promise<void>((done) => http.listen(0, '127.0.0.1', done))
+    try {
+      const { port } = http.address() as AddressInfo
+      const installed = join(tmp, 'extensions', 'fake-native')
+      mkdirSync(installed)
+      writeFileSync(
+        join(installed, 'ostia.json'),
+        JSON.stringify({
+          id: 'fake-native',
+          name: 'Fake native',
+          version: '1.0.0',
+          api: '3.0',
+          category: 'languages',
+          capabilities: ['language-server'],
+          contributes: {
+            languageServers: [
+              {
+                id: 'native',
+                name: 'Fake native server',
+                languages: ['plaintext'],
+                run: {
+                  download: {
+                    program: 'ostia-fake-native-lsp',
+                    version: '1.0.0',
+                    assets: {
+                      [`${process.platform}-${process.arch}`]: {
+                        url: `https://github.com${assetPath}`,
+                        sha256: createHash('sha256').update(asset).digest('hex'),
+                        archive: 'gz',
+                        executable: 'fake-native',
+                      },
+                    },
+                  },
+                  args: ['--record={root}/.fake-lsp-record.jsonl'],
+                },
+              },
+            ],
+          },
+        }),
+      )
+      const copies = join(tmp, 'language-servers')
+      servers.stopAll()
+      servers = languageServers(
+        new ManagedServers({
+          dir: copies,
+          userAgent: releaseUserAgent('1.0.0'),
+          findProgram: (program) => programPath(program, FAKE_LSP_BIN),
+          env: () => process.env,
+          baseUrl: downloadBaseUrl(
+            false,
+            appEnv({ [DOWNLOAD_BASE_URL_ENV]: `http://127.0.0.1:${port}` }),
+          ),
+        }),
+      )
+      const file = join(workDir, 'notes.txt')
+      sources = [{ ...source(installed), state: 'pending' }]
+      expect(await servers.open('w1', 'p1', file)).toEqual([])
+      expect(requests).toHaveLength(0)
+      expect(existsSync(copies)).toBe(false)
+
+      sources = [source(installed)]
+      const [session] = await servers.open('w1', 'p1', file)
+      await initialize(session.sessionId)
+      didOpen(session.sessionId, file, 'first ERROR\n')
+      await vi.waitFor(
+        () => expect(diagnostics(session.sessionId)).toEqual(['fake error on line 1']),
+        { timeout: 10_000 },
+      )
+
+      expect(requests.map((r) => r.url)).toEqual([assetPath])
+      expect(requests[0].headers['user-agent']).toMatch(/^ostia\/\d+\.\d+\.\d+/)
+      expect(requests[0].headers.cookie).toBeUndefined()
+      const copy = join(copies, 'fake-native', 'native')
+      expect(readdirSync(copy)).toEqual(['1.0.0'])
+      expect(readdirSync(join(copy, '1.0.0'))).toEqual(['fake-native'])
+
+      expect(servers.servers()).toEqual([
+        expect.objectContaining({
+          key: 'fake-native/native',
+          name: 'Fake native server',
+          status: 'running',
+          folders: 1,
+          binary: { source: 'managed', version: '1.0.0' },
+          managedCopy: true,
+        }),
+      ])
+      expect(servers.log('fake-native/native').entries).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ kind: 'fetch-start', how: 'download', version: '1.0.0' }),
+          expect.objectContaining({ kind: 'fetch-done', version: '1.0.0' }),
+        ]),
+      )
+
+      await servers.removeDownload('fake-native/native')
+      expect(existsSync(copy)).toBe(false)
+    } finally {
+      await new Promise((done) => http.close(done))
+    }
   })
 })
