@@ -153,6 +153,28 @@ describe('TerminalView engines', () => {
     )
   })
 
+  it('Ctrl+scroll over a terminal zooms its font in and out', async () => {
+    const { container } = await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
+    const target = container.querySelector('.xterm') as HTMLElement
+    const fontSize = () => terminalFor('p1')?.options.fontSize ?? 0
+    const scroll = (deltaY: number) =>
+      act(() => {
+        for (let i = 0; i < 4; i++) {
+          target.dispatchEvent(
+            new WheelEvent('wheel', { deltaY, ctrlKey: true, cancelable: true, bubbles: true }),
+          )
+        }
+      })
+
+    const before = fontSize()
+    scroll(-100)
+    expect(fontSize()).toBeGreaterThan(before)
+
+    const zoomed = fontSize()
+    scroll(100)
+    expect(fontSize()).toBeLessThan(zoomed)
+  })
+
   it('asks before pasting several lines into a Ghostty terminal', async () => {
     const { container } = await renderGhostty(<TerminalView workspaceId="w1" paneId="p1" />)
     await waitFor(() => expect(container.querySelector('.ghostty-host textarea')).not.toBeNull())
