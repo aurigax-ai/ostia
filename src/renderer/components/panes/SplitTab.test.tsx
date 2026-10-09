@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest'
 import { commands } from '@/commands/registry'
-import { createPane, nameSplitTabOf, resetIds, splitPane, tabsOf } from '@/layout/tree'
+import { allPanes, createPane, nameSplitTabOf, resetIds, splitPane, tabsOf } from '@/layout/tree'
 import type { LayoutNode, PaneNode, TabsNode } from '@/layout/types'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
@@ -191,6 +191,26 @@ describe('split tab in the workspace tree', () => {
     act(() => useLayoutStore.getState().split('w', b.id, 'horizontal'))
     expect(document.querySelector('.pane-split-tab')).toBeInTheDocument()
     expect(document.querySelectorAll('.pane')).toHaveLength(1)
+  })
+
+  it('a split tab of four panes shows each title as a readable segment', () => {
+    const [a, b] = [terminal('alpha'), terminal('beta')]
+    seed(tabsOf(b.id, a, b), b.id)
+    render(<PaneTree workspaceId="w" />)
+    for (const count of [2, 3, 4]) {
+      act(() => {
+        const { split, byWorkspace } = useLayoutStore.getState()
+        split('w', byWorkspace.w.activePaneId, 'horizontal')
+      })
+      expect(document.querySelectorAll('.split-tab-segment')).toHaveLength(count)
+    }
+    const segments = [...document.querySelectorAll('.split-tab-segment')]
+    expect(document.querySelectorAll('.split-tab-segment .pane-kind')).toHaveLength(0)
+    expect(document.querySelector('.pane-split-tab .split-tab-glyph')).toBeInTheDocument()
+    const split = (useLayoutStore.getState().byWorkspace.w.root as TabsNode).children[1]
+    expect(segments.map((s) => s.querySelector('.title')?.textContent)).toEqual(
+      allPanes(split).map((p) => p.title),
+    )
   })
 
   it('goes back to a plain tab when its panes close down to one', () => {
