@@ -166,10 +166,30 @@ describe('a @core test', () => {
     ])
   })
 
+  const visibleLines = (body: string) =>
+    body.split('\n').filter((line) => line.trim() && !line.startsWith('<!--'))
+
   it('shows the 7 day limit in the reminder', () => {
     const body = reminderBody([entry('core test', '2026-10-12')], '2026-10-08', root)
-    expect(body).toContain('@core, at most 7 days out')
-    expect(body.split('\n').length).toBeLessThanOrEqual(10)
+    expect(body).toContain('no more than 30 days out, or 7 for a `@core` test.')
+    expect(body).not.toContain('(@core')
+    expect(reminderBody([entry('plain test', '2026-10-12')], '2026-10-08', root)).not.toContain(
+      '@core',
+    )
+  })
+
+  it('keeps the reminder to 3 to 5 visible lines for one or two entries', () => {
+    const one = reminderBody([entry('core test', '2026-10-12')], '2026-10-08', root)
+    const two = reminderBody(
+      [entry('core test', '2026-10-12'), entry('plain test', '2026-10-14')],
+      '2026-10-08',
+      root,
+    )
+    for (const body of [one, two]) {
+      expect(visibleLines(body).length).toBeGreaterThanOrEqual(3)
+      expect(visibleLines(body).length).toBeLessThanOrEqual(5)
+    }
+    expect(visibleLines(two)).toHaveLength(5)
   })
 })
 

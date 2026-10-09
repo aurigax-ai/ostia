@@ -159,16 +159,18 @@ export function reminderBody(entries, today, root = ROOT) {
         : left === 0
           ? 'expires today'
           : `expires on ${entry.until}`
-    const core = isCoreTest(root, entry) ? ` (@core, at most ${CORE_MAX_DAYS} days out)` : ''
-    return `- \`${entryKey(entry)}\` ${when}${core}`
+    return `- \`${entryKey(entry)}\` ${when}`
   })
+  const core = entries.some((entry) => isCoreTest(root, entry))
+    ? `, or ${CORE_MAX_DAYS} for a \`@core\` test`
+    : ''
   return [
     'Quarantined tests for this issue in `test/quarantine.json`:',
     '',
     ...lines,
     '',
     'Once a date passes, CI fails on pushes to main, the nightly run and release tags.',
-    `Fix the test and remove its entry, or give it a new date no more than ${MAX_DAYS} days out.`,
+    `Fix the test and remove its entry, or give it a new date no more than ${MAX_DAYS} days out${core}.`,
     '',
     ...entries.map(reminderMarker),
   ].join('\n')
