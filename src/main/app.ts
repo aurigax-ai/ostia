@@ -2499,6 +2499,7 @@ function registerPtyIpc(): void {
     }
 
     const history = takeRestoredScrollback(paneId)
+    if (history) appLog?.info('scrollback-replay', { pane: paneId, chars: history.length })
     const seam = hibernatedPanes.delete(paneId) ? HIBERNATE_SEAM : RESTORE_SEAM
     if (history) feedPty(entry, `${history}${seam}`)
     if (secretNotice) feedPty(entry, secretNotice)
@@ -3509,6 +3510,10 @@ app.whenReady().then(() => {
   })
   handleQuitSignals()
   restoreOutcome = loadRestoredScrollback()
+  appLog?.info('scrollback-load', {
+    outcome: restoreOutcome,
+    panes: Object.keys(pendingRestoredScrollback()).length,
+  })
   void keptShells
     .start(parseKeepShells(readSettingsFile().terminal?.keepShells), savedPaneIds())
     .then(() => {
