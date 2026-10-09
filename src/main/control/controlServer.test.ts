@@ -1,4 +1,4 @@
-import { existsSync, lstatSync } from 'node:fs'
+import { existsSync, lstatSync, readFileSync, readdirSync } from 'node:fs'
 import { createConnection } from 'node:net'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
@@ -9,6 +9,7 @@ import {
   StreamMessageWriter,
   createMessageConnection,
 } from 'vscode-jsonrpc/node'
+import { gitRequest } from '../../cli/verbs/coreBoards'
 import type {
   CommandDescriptor,
   CommandResult,
@@ -332,5 +333,82 @@ describe('keptControlSocketPath', () => {
     expect(folder.uid).toBe(process.getuid?.())
     expect(keptControlSocketPath('/data/ostia-a')).toBe(path)
     expect(keptControlSocketPath('/data/ostia-b')).not.toBe(path)
+  })
+})
+
+const SRC_DIR = join(__dirname, '..', '..')
+
+function productionFiles(dir: string): string[] {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const path = join(dir, entry.name)
+    if (entry.isDirectory()) return productionFiles(path)
+    return path.endsWith('.ts') && !path.endsWith('.test.ts') && !path.endsWith('.d.ts')
+      ? [path]
+      : []
+  })
+}
+
+function readSources(dir: string): Map<string, string> {
+  return new Map(productionFiles(join(SRC_DIR, dir)).map((f) => [f, readFileSync(f, 'utf8')]))
+}
+
+function literals(text: string, re: RegExp): string[] {
+  return [...text.matchAll(re)].map((m) => m[1])
+}
+
+function registeredMethods(): Set<string> {
+  const names = new Set<string>()
+  for (const text of readSources('main').values()) {
+    for (const name of literals(
+      text,
+      /(?:registerControlMethod|registerTargetableMethod|conn\.onRequest)\(\s*'([^'\n]+)'/g,
+    )) {
+      names.add(name)
+    }
+    for (const prefix of literals(
+      text,
+      /(?:registerControlMethod|registerTargetableMethod)\(\s*`([a-z]+\.)\$\{name\}`/g,
+    )) {
+      for (const name of literals(text, /^\s*(?:method|keyMethod|bufferMethod)\(\s*'([^'\n]+)'/gm))
+        names.add(prefix + name)
+    }
+  }
+  return names
+}
+
+function sentMethods(): Set<string> {
+  const names = new Set<string>()
+  for (const text of readSources('cli').values()) {
+    for (const name of literals(text, /sendRequest\b[^(]*\(\s*'([^'\n]+)'/g)) names.add(name)
+    for (const name of literals(text, /method: '([a-z]+\.[a-zA-Z.]+)'/g)) names.add(name)
+    for (const name of literals(text, /\bok\([^,\n]+,\s*'([a-z]+\.[a-zA-Z]+)'/g)) names.add(name)
+    for (const m of text.matchAll(
+      /\b(?:plainVerb|targetVerb|keyVerb|textVerb|bufferVerb)\(\s*'([\w-]+)'(?:,\s*'(\w+)')?\)/g,
+    )) {
+      names.add(`browse.${m[2] ?? m[1]}`)
+    }
+  }
+  for (const sub of ['status', 'changes', 'diff', 'open', 'log', 'blame', 'stage', 'unstage']) {
+    for (const argv of [[sub], [sub, 'path']]) {
+      const request = gitRequest(argv)
+      if (request) names.add(request.method)
+    }
+  }
+  const commit = gitRequest(['commit', '-m', 'message'])
+  if (commit) names.add(commit.method)
+  return names
+}
+
+describe('CLI and control server wiring', () => {
+  const registered = registeredMethods()
+  const sent = sentMethods()
+
+  it('reads a plausible number of methods from both sides', () => {
+    expect(registered.size).toBeGreaterThan(90)
+    expect(sent.size).toBeGreaterThan(60)
+  })
+
+  it('registers every method the CLI sends', () => {
+    expect([...sent].filter((name) => !registered.has(name)).sort()).toEqual([])
   })
 })
