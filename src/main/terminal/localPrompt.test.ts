@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { shellArgv } from '../../shared/terminal/terminalShell'
 import { atLocalPrompt, busyProgram } from './localPrompt'
 
 describe('atLocalPrompt', () => {
@@ -34,5 +35,10 @@ describe('busyProgram', () => {
     expect(busyProgram({ foreground: 'fish', shell: '/usr/bin/fish', sandboxed: false })).toBeNull()
     expect(busyProgram({ foreground: 'sleep', shell: '/bin/sh', sandboxed: true })).toBeNull()
     expect(busyProgram({ foreground: '', shell: '/bin/zsh', sandboxed: false })).toBeNull()
+  })
+
+  it('quitting with an idle shell without blocks shows no dialog', () => {
+    const [shell] = shellArgv('/bin/sh -i', '/bin/zsh')
+    expect(busyProgram({ foreground: 'sh', shell, sandboxed: false })).toBeNull()
   })
 })

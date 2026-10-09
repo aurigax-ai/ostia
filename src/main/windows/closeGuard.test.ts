@@ -196,6 +196,14 @@ describe('confirmQuit', () => {
     expect(win.focus).toHaveBeenCalled()
     expect(spec.asked).toEqual([])
   })
+
+  it('quits without asking when every window answers that nothing runs', async () => {
+    const win = answeringWindow(9, [], false)
+    const spec = check()
+    expect(await confirmQuit([win], win, spec.check)).toBe(true)
+    expect(win.focus).not.toHaveBeenCalled()
+    expect(spec.asked).toEqual([])
+  })
 })
 
 describe('groupsFromPtys', () => {
