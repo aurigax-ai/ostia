@@ -1,3 +1,4 @@
+import { openExtensionTerminal } from '@/commands/extensionBridge'
 import { createPane } from '@/layout/tree'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
@@ -88,5 +89,32 @@ describe('sshWorkspace', () => {
     const added = state.workspaces.find((w) => w.id !== 'seed')
     expect(added?.customName).toBe('db')
     expect(state.activeWorkspaceId).toBe(added?.id)
+  })
+
+  it('SSH-C79 the human picks a host from the New workspace menu and gets a workspace that is just that ssh session', async () => {
+    seedWorkspace()
+    window.ostia.extensions.invoke = vi.fn(
+      async (_ext: string, _command: string, ctx: { workspaceId: string | null }) => {
+        const paneId = openExtensionTerminal({
+          requestId: 'ssh-db',
+          workspaceId: ctx.workspaceId ?? undefined,
+          command: 'ssh -t -- db',
+          title: 'db',
+        })
+        return paneId ? { ok: true, data: { paneId } } : { ok: false, error: 'not-opened' }
+      },
+    ) as typeof window.ostia.extensions.invoke
+
+    expect(await openSshWorkspace('db')).toBe(true)
+
+    const state = useWorkspacesStore.getState()
+    const added = state.workspaces.filter((w) => w.id !== 'seed')
+    expect(added.map((w) => w.customName)).toEqual(['db'])
+    expect(state.activeWorkspaceId).toBe(added[0].id)
+    expect(useLayoutStore.getState().byWorkspace[added[0].id].root).toMatchObject({
+      type: 'pane',
+      kind: 'terminal',
+      title: 'db',
+    })
   })
 })

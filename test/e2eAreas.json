@@ -51,7 +51,7 @@
         "src/renderer/stores/terminal/remoteCwdStore.ts",
         "test/fixtures/ssh/"
       ],
-      "specs": ["e2e/ssh.spec.ts", "e2e/ssh-entry.spec.ts", "e2e/ssh-remote-files.spec.ts"]
+      "specs": ["e2e/ssh.spec.ts", "e2e/ssh-remote-files.spec.ts"]
     },
     {
       "name": "language servers",

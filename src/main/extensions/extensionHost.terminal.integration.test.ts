@@ -94,6 +94,22 @@ describe('ExtensionHost ext.openTerminal and interactive commands (real socket)'
     })
   })
 
+  it('SSH-C79 opens into the workspace it names when no pane is given', async () => {
+    openTerminalIn.mockResolvedValue('ssh-external-id')
+    const res = await host.invoke(
+      'opener',
+      'open',
+      { command: ['ssh', '-t', '--', 'db'], workspaceId: 'w2', title: 'db' },
+      { kind: 'user', capabilities: [] },
+    )
+    expect(res).toEqual({ ok: true, data: { ok: true, paneId: 'ssh-external-id' } })
+    expect(openTerminalIn).toHaveBeenCalledWith({
+      command: 'ssh -t -- db',
+      workspaceId: 'w2',
+      title: 'db',
+    })
+  })
+
   it('refuses bad requests without opening anything', async () => {
     const attempts: unknown[] = [
       { command: [] },
