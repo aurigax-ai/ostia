@@ -10,7 +10,8 @@ const CLI_HELP = `ostia — control-socket CLI
                                  path on disk; file:line[:col] jumps there; several files get
                                  a tab each), a folder (in the Files panel, under the home
                                  folder only), an http(s):// URL (a browser pane) or - (stdin).
-                                 The new tab takes focus only when this pane has it.
+                                 The new tab takes focus only when this pane has it (a browser
+                                 pane is still shown, without the keyboard).
                                  A sandboxed workspace opens only files under the home folder
   ostia open -b <target>...      --background: never take focus
   ostia open --tab|--split right|down <file>...   a tab beside this pane, or a split of it

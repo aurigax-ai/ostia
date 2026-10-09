@@ -36,7 +36,7 @@ import {
 } from '../lib/blockActions'
 import { browserProfileIn, openerOf } from '../lib/browserProfile'
 import { announceBusMessage } from '../lib/busNotice'
-import { openKeepingFocus, opensQuietly } from '../lib/callerFocus'
+import { callerHasFocus, openKeepingFocus, opensQuietly } from '../lib/callerFocus'
 import { setKeybindingSetting } from '../lib/chords'
 import { clearKeepingScrollback } from '../lib/clearTerminal'
 import {
@@ -1347,8 +1347,10 @@ export function registerBuiltinCommands(): void {
       if (!workspaceId) return
       const url = args?.url || 'about:blank'
       const profile = browserProfileIn(workspaceId, openerOf(ctx))
-      if (!opensQuietly(ctx, args?.background)) {
-        useLayoutStore.getState().openBrowser(workspaceId, url, profile)
+      const show = (): void => useLayoutStore.getState().openBrowser(workspaceId, url, profile)
+      if (args?.background !== true) {
+        if (callerHasFocus(ctx)) show()
+        else openKeepingFocus(show)
         return
       }
       const opened = openKeepingFocus(() =>

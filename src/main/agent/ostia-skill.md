@@ -79,7 +79,8 @@ ostia open <target>...              # show something to the human. A target is a
                                     # -, or names a file here that is no command or extension. From a
                                     # sandboxed workspace only files under the home folder open.
                                     # The new tab takes focus only when your pane has it; from a
-                                    # background pane it opens quietly with an unread mark.
+                                    # background pane a file opens quietly with an unread mark, and a
+                                    # browser pane is shown but leaves the keyboard where it was.
 ostia open -b <target>...           # --background: never take focus, even from the focused pane
 ostia open --tab <file>...          # a tab beside your pane; --split right|down a split of it
 ostia --wait <file>                 # returns when the human closes the tab: exit 0 on a close, 1 when

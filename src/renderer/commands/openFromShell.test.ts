@@ -10,6 +10,7 @@ import { useFileTreeStore } from '../stores/fileTreeStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useOpenWaitsStore } from '../stores/openWaitsStore'
 import { useSandboxStore } from '../stores/sandboxStore'
+import * as surfaceSlots from '../stores/surfaceSlotsStore'
 import { useUIStore } from '../stores/uiStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
 import { registerBuiltinCommands } from './builtins'
@@ -153,10 +154,35 @@ describe('editor.openFiles from a pane', () => {
 describe('browser.new from a pane', () => {
   const browsers = () => allPanes(layout().root).filter((p) => p.kind === 'browser')
 
-  it('opens a background tab on the isolated profile for a caller without focus', async () => {
+  it('shows the browser a caller without focus opened, without taking the keyboard from the pane that has it', async () => {
     const caller = seed()
+    const other = document.createElement('div')
+    other.className = 'surface-host'
+    other.dataset.paneId = 'typing-here'
+    const input = document.createElement('textarea')
+    other.append(input)
+    document.body.append(other)
+    input.focus()
+    const refocused = vi.spyOn(surfaceSlots, 'focusSurface').mockImplementation(() => input.focus())
     await commands.execWith(fromPane(caller), 'browser.new', { url: 'https://example.com/' })
+    const shown = findPane(layout().root, layout().activePaneId)
+    expect(shown).toMatchObject({ kind: 'browser', url: 'https://example.com/' })
+    expect(shown && paneBrowserProfile(shown)).toBe('isolated')
+    expect(tabsOfPane(layout().root, caller)?.activeId).toBe(shown?.id)
+    expect(document.activeElement).toBe(input)
+    expect(tabMark(useAttentionStore.getState().byPane[shown?.id ?? ''])).toBeNull()
+    refocused.mockRestore()
+  })
+
+  it('opens a background tab with the unread mark only when asked with --background', async () => {
+    const caller = seed()
+    focusPane(caller)
+    await commands.execWith(fromPane(caller), 'browser.new', {
+      url: 'https://example.com/',
+      background: true,
+    })
     expect(layout().activePaneId).toBe(caller)
+    expect(tabsOfPane(layout().root, caller)?.activeId).toBe(caller)
     expect(browsers()).toMatchObject([{ url: 'https://example.com/' }])
     expect(paneBrowserProfile(browsers()[0])).toBe('isolated')
     expect(tabMark(useAttentionStore.getState().byPane[browsers()[0].id])).toBe('unread')
