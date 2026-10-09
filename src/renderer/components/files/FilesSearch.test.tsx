@@ -8,7 +8,7 @@ import { usePdfFindStore } from '@/stores/files/pdfFindStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { type Workspace, useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type { SearchOutcome } from '@shared/files/search'
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { FilesPanel } from './FilesPanel'
@@ -75,6 +75,90 @@ describe('Files panel search', () => {
     useUIStore.setState({ filesOpen: false, filesSearchOpen: false, filesSearchFocus: false })
     useFileTreeStore.setState({ revealed: null })
     vi.restoreAllMocks()
+  })
+
+  it('the Files panel searches folder names, file names and text with the bundled ripgrep', async () => {
+    seed(false)
+    vi.mocked(window.ostia.search.run).mockImplementation(async (req) => ({
+      ok: true,
+      results: {
+        root: ROOT,
+        names:
+          req.text === 'notes/'
+            ? [{ path: 'src/notes', dir: true, positions: [4, 5, 6, 7, 8] }]
+            : [],
+        files:
+          req.text === 'needle'
+            ? [
+                {
+                  path: 'src/notes/todo.md',
+                  matches: [
+                    { line: 2, column: 10, text: 'find the needle here', ranges: [[9, 15]] },
+                  ],
+                },
+              ]
+            : [],
+        pdfs: [],
+        matches: req.text === 'needle' ? 1 : 0,
+        truncated: false,
+      },
+    }))
+    vi.mocked(window.ostia.fs.list).mockImplementation(async (p) =>
+      p === ROOT
+        ? [
+            { name: 'src', dir: true },
+            { name: 'index.ts', dir: false },
+          ]
+        : p === `${ROOT}/src`
+          ? [{ name: 'notes', dir: true }]
+          : [{ name: 'todo.md', dir: false }],
+    )
+    useSettingsStore.getState().setFiles({ compactFolders: false })
+    const openFile = vi.spyOn(useLayoutStore.getState(), 'openFile').mockImplementation(() => {})
+    render(<FilesPanel />)
+    const user = userEvent.setup()
+    expect(await screen.findByRole('button', { name: 'index.ts' })).toBeInTheDocument()
+
+    const show = screen.getByRole('button', { name: 'Search' })
+    expect(screen.queryByRole('textbox', { name: 'Search files' })).toBeNull()
+    await user.click(show)
+    expect(screen.getByRole('textbox', { name: 'Search files' })).toHaveFocus()
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('textbox', { name: 'Search files' })).toBeNull()
+    expect(show).toHaveFocus()
+    await user.click(show)
+    const box = screen.getByRole('textbox', { name: 'Search files' })
+    await user.type(box, 'needle')
+    const text = await screen.findByRole('region', { name: 'Text' }, { timeout: 3000 })
+    expect(text).toHaveTextContent('find the needle here')
+    expect(text).toHaveTextContent('src/notes/todo.md')
+
+    await user.clear(box)
+    await user.type(box, 'notes/')
+    const names = await screen.findByRole(
+      'region',
+      { name: 'Files and folders' },
+      { timeout: 3000 },
+    )
+    expect(
+      within(names)
+        .getAllByRole('button')
+        .map((b) => b.textContent),
+    ).toEqual(['src/notes'])
+
+    await user.click(within(names).getByRole('button', { name: 'src/notes' }))
+    expect(box).toHaveValue('')
+    const folder = await screen.findByRole('button', { name: 'notes' }, { timeout: 3000 })
+    await waitFor(() => expect(folder).toHaveAttribute('aria-expanded', 'true'), { timeout: 3000 })
+    expect(
+      await screen.findByRole('button', { name: 'todo.md' }, { timeout: 3000 }),
+    ).toBeInTheDocument()
+
+    await user.type(box, 'needle')
+    await user.click(
+      await screen.findByRole('button', { name: /find the needle here/ }, { timeout: 3000 }),
+    )
+    expect(openFile).toHaveBeenCalledWith('s1', `${ROOT}/src/notes/todo.md`)
   })
 
   it('takes the focus and selects its text when Search Files runs', async () => {
