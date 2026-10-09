@@ -9,6 +9,8 @@ const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 7])
 vi.mock('@/lib/browser/cropImage', () => ({ cropToPng: vi.fn() }))
 
 const { cropToPng } = await import('@/lib/browser/cropImage')
+const { cropToPng: realCropToPng } =
+  await vi.importActual<typeof import('@/lib/browser/cropImage')>('@/lib/browser/cropImage')
 const { ImageViewer } = await import('./ImageViewer')
 
 let unseed: () => void
@@ -172,6 +174,112 @@ describe('ImageViewer', () => {
     await screen.findByRole('region', { name: 'Send to agent' })
     expect(cropToPng).toHaveBeenCalledWith(img, { x: 0, y: 0, width: 64, height: 32 })
     expect(screen.getByRole('button', { name: 'Send image to agent' })).toBeInTheDocument()
+  })
+
+  it('open an image and send a dragged region to a terminal pane', async () => {
+    const drawImage = vi.fn()
+    const getContext = vi
+      .spyOn(HTMLCanvasElement.prototype, 'getContext')
+      .mockReturnValue({ drawImage } as unknown as CanvasRenderingContext2D)
+    const toBlob = vi
+      .spyOn(HTMLCanvasElement.prototype, 'toBlob')
+      .mockImplementation((done, type) => done(new Blob([PNG], { type })))
+    vi.mocked(cropToPng).mockImplementation(realCropToPng)
+    try {
+      const img = await renderLoaded(240, 120)
+      expect(screen.getByText('Zoom 100%')).toBeInTheDocument()
+      const canvas = canvasAt(0, 0)
+      expect(canvas).toHaveClass('region-select')
+      canvas.setPointerCapture = vi.fn()
+
+      fireEvent.pointerDown(canvas, { button: 0, clientX: 20, clientY: 10, pointerId: 1 })
+      expect(canvas.setPointerCapture).toHaveBeenCalledWith(1)
+      fireEvent.pointerMove(canvas, { clientX: 80, clientY: 40, pointerId: 1 })
+      fireEvent.pointerMove(canvas, { clientX: 248, clientY: 128, pointerId: 1 })
+      const region = document.querySelector('.viewer-region') as HTMLElement
+      expect(region.style.width).toBe('220px')
+      expect(region.style.height).toBe('110px')
+      fireEvent.pointerMove(canvas, { clientX: 120, clientY: 60, pointerId: 1 })
+      fireEvent.pointerUp(canvas, { clientX: 120, clientY: 60, pointerId: 1 })
+      expect(region.style.width).toBe('100px')
+      expect(region.style.height).toBe('50px')
+
+      await userEvent.click(screen.getByRole('button', { name: 'Send region to agent' }))
+      await screen.findByRole('region', { name: 'Send to agent' })
+      expect(drawImage).toHaveBeenCalledWith(img, 20, 10, 100, 50, 0, 0, 100, 50)
+      expect(toBlob).toHaveBeenCalledWith(expect.any(Function), 'image/png')
+      await userEvent.click(screen.getByRole('button', { name: 'Send' }))
+      await waitFor(() =>
+        expect(window.ostia.selection.send).toHaveBeenCalledWith(
+          expect.objectContaining({
+            capture: {
+              kind: 'image',
+              file: '/w/shots/login.png',
+              imageWidth: 240,
+              imageHeight: 120,
+              region: { x: 20, y: 10, width: 100, height: 50 },
+            },
+            image: PNG,
+          }),
+        ),
+      )
+    } finally {
+      getContext.mockRestore()
+      toBlob.mockRestore()
+    }
+  })
+
+  it('a pinch zooms the image around the pointer and a drag still selects', async () => {
+    const width = vi
+      .spyOn(HTMLElement.prototype, 'clientWidth', 'get')
+      .mockImplementation(function (this: HTMLElement) {
+        return this.classList.contains('viewer-stage') ? 632 : 0
+      })
+    const height = vi
+      .spyOn(HTMLElement.prototype, 'clientHeight', 'get')
+      .mockImplementation(function (this: HTMLElement) {
+        return this.classList.contains('viewer-stage') ? 432 : 0
+      })
+    try {
+      await renderLoaded(1200, 800)
+      expect(screen.getByText('Zoom 50%')).toBeInTheDocument()
+      const stage = document.querySelector('.viewer-stage') as HTMLElement
+      const canvas = canvasAt(16, 16)
+      const x = 16 + 600 * 0.4
+      const y = 16 + 400 * 0.6
+      const content = { x: (x - 16) / 0.5, y: (y - 16) / 0.5 }
+
+      expect(fireEvent.wheel(stage, { deltaY: -50, ctrlKey: true, clientX: x, clientY: y })).toBe(
+        false,
+      )
+      const zoomed = 0.5 * Math.exp(0.5)
+      expect(await screen.findByText(`Zoom ${Math.round(zoomed * 100)}%`)).toBeInTheDocument()
+      expect(Number.parseFloat(canvas.style.width)).toBeCloseTo(1200 * zoomed, 0)
+      const left = 16 - stage.scrollLeft
+      const top = 16 - stage.scrollTop
+      expect(Math.abs((x - left) / zoomed - content.x)).toBeLessThan(2)
+      expect(Math.abs((y - top) / zoomed - content.y)).toBeLessThan(2)
+
+      expect(fireEvent.wheel(stage, { deltaY: 60, clientX: x, clientY: y })).toBe(true)
+      expect(screen.getByText(`Zoom ${Math.round(zoomed * 100)}%`)).toBeInTheDocument()
+
+      canvasAt(left, top - 60)
+      fireEvent.pointerDown(canvas, { button: 0, clientX: x, clientY: y, pointerId: 1 })
+      fireEvent.pointerMove(canvas, { clientX: x + 120, clientY: y + 60, pointerId: 1 })
+      fireEvent.pointerUp(canvas, { clientX: x + 120, clientY: y + 60, pointerId: 1 })
+      await userEvent.click(screen.getByRole('button', { name: 'Send region to agent' }))
+      await userEvent.click(await screen.findByRole('button', { name: 'Send' }))
+      await waitFor(() => expect(window.ostia.selection.send).toHaveBeenCalled())
+      const [{ capture }] = vi.mocked(window.ostia.selection.send).mock.calls[0]
+      if (capture.kind !== 'image' || !capture.region) throw new Error('no region sent')
+      expect(Math.abs(capture.region.x - (x - left) / zoomed)).toBeLessThanOrEqual(2)
+      expect(Math.abs(capture.region.y - (y - (top - 60)) / zoomed)).toBeLessThanOrEqual(2)
+      expect(Math.abs(capture.region.width - 120 / zoomed)).toBeLessThanOrEqual(2)
+      expect(Math.abs(capture.region.height - 60 / zoomed)).toBeLessThanOrEqual(2)
+    } finally {
+      width.mockRestore()
+      height.mockRestore()
+    }
   })
 
   it('ignores a click that does not drag out a region', async () => {

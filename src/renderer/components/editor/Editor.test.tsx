@@ -1,13 +1,17 @@
 import { commands } from '@/commands/registry'
+import { SEND_SELECTION_COMMAND, registerSelectionSendCommand } from '@/commands/selectionSend'
 import { openSelectionSend } from '@/lib/agents/selectionSenders'
+import { registerTerminal } from '@/lib/terminal/terminalHandles'
 import { LARGE_FILE_LINES, fileFeatureOptions } from '@/monaco/largeFile'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useArtifactsStore } from '@/stores/files/artifactsStore'
 import { useEditorStatus } from '@/stores/files/editorStatusStore'
 import { useLiveSelectionStore } from '@/stores/terminal/liveSelectionStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { PAD_MAX_BYTES } from '@shared/artifacts/artifacts'
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import type { Terminal } from '@xterm/xterm'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { TARGET_PANE, seedSendTarget } from '../../../../test/mocks/sendTarget'
 import { EditorSettingsSection } from '../settings/BrowserEditorSettings'
@@ -1125,6 +1129,85 @@ describe('EditorView → Send Selection to Agent', () => {
     )
     expect(await screen.findByText(/Sent to agent shell/)).toBeInTheDocument()
     expect(screen.queryByRole('region', { name: 'Send to agent' })).toBeNull()
+  })
+
+  it('select text in a file and send it to a terminal pane', async () => {
+    registerSelectionSendCommand()
+    const term = { paste: vi.fn(), focus: vi.fn() }
+    const unregister = registerTerminal(TARGET_PANE, term as unknown as Terminal)
+    try {
+      const target = useLayoutStore.getState().byWorkspace.w1.root
+      useLayoutStore.setState({
+        byWorkspace: {
+          w1: {
+            root: {
+              type: 'split',
+              id: 'sp',
+              direction: 'horizontal',
+              children: [
+                {
+                  type: 'pane',
+                  id: 'p1',
+                  kind: 'editor',
+                  title: 'prices.ts',
+                  filePath: '/w/prices.ts',
+                },
+                target,
+              ],
+              sizes: [50, 50],
+            },
+            activePaneId: 'p1',
+            zoomedPaneId: null,
+          },
+        },
+      })
+      commands.setContextProvider(() => ({ activeWorkspaceId: 'w1', activePaneId: 'p1' }))
+      vi.mocked(window.ostia.fs.read).mockResolvedValue({
+        ok: true,
+        version: 'v1',
+        text: 'export const base = 10\nexport const tax = 0.2\nexport const total = 12\n',
+      })
+      render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/prices.ts" />)
+      await waitFor(() => expect(fake.state.model).not.toBeNull())
+      select(2, 1, 2, 23)
+
+      const browserEvent = new KeyboardEvent('keydown', {
+        key: 'E',
+        code: 'KeyE',
+        ctrlKey: true,
+        shiftKey: true,
+      })
+      act(() => {
+        for (const listener of fake.state.keyListeners)
+          listener({ browserEvent, stopPropagation() {} })
+      })
+
+      const panel = await screen.findByRole('region', { name: 'Send to agent' })
+      expect(within(panel).getAllByRole('radio')).toHaveLength(1)
+      await userEvent.type(screen.getByLabelText('Note for the agent'), 'is this tax rate right?')
+      await userEvent.click(screen.getByRole('button', { name: 'Send' }))
+
+      await waitFor(() =>
+        expect(window.ostia.selection.send).toHaveBeenCalledWith({
+          capture: {
+            kind: 'text',
+            file: '/w/prices.ts',
+            view: 'source',
+            range: { startLine: 2, startColumn: 1, endLine: 2, endColumn: 23 },
+            text: 'export const tax = 0.2',
+          },
+          sourcePaneId: 'p1',
+          targetPaneId: TARGET_PANE,
+          note: 'is this tax rate right?',
+        }),
+      )
+      expect(await screen.findByText(/The report is at its prompt/)).toBeInTheDocument()
+      expect(term.paste).toHaveBeenCalledWith('@/tmp/ostia-reports-1/selection-1.md ')
+    } finally {
+      unregister()
+      commands.setContextProvider(() => ({ activeWorkspaceId: null, activePaneId: null }))
+      commands.unregister(SEND_SELECTION_COMMAND)
+    }
   })
 
   it('answers the palette command for its pane and says so when nothing is selected', async () => {

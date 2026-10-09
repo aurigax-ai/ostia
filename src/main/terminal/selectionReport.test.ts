@@ -143,6 +143,56 @@ describe('writeSelectionReport', () => {
     expect(statSync(res.path).mode & 0o777).toBe(0o600)
   })
 
+  it('writes the file, line span, fenced text and note of a text selection', async () => {
+    const res = await writeSelectionReport(
+      request({
+        capture: {
+          kind: 'text',
+          file: '/home/u/prices.ts',
+          view: 'source',
+          range: { startLine: 2, startColumn: 1, endLine: 2, endColumn: 23 },
+          text: 'export const tax = 0.2',
+        },
+        note: 'is this tax rate right?',
+      }),
+      'w1',
+      sameWindow,
+      AT,
+    )
+    if (!res.ok) throw new Error(res.error)
+    const md = readFileSync(res.path, 'utf8')
+    expect(md).toContain('- File: /home/u/prices.ts\n')
+    expect(md).toContain('- Lines: 2:1-2:23')
+    expect(md).toContain('```ts\nexport const tax = 0.2\n```')
+    expect(md).toContain('is this tax rate right?')
+  })
+
+  it('writes the title, image size, region and snapshot of an image region', async () => {
+    const res = await writeSelectionReport(
+      request({
+        capture: {
+          kind: 'image',
+          file: '/home/u/chart.png',
+          imageWidth: 240,
+          imageHeight: 120,
+          region: { x: 20, y: 10, width: 100, height: 50 },
+        },
+        image: PNG,
+        note: 'the bar is the wrong color',
+      }),
+      'w1',
+      sameWindow,
+      AT,
+    )
+    if (!res.ok) throw new Error(res.error)
+    const md = readFileSync(res.path, 'utf8')
+    expect(md).toContain('# Image region: chart.png')
+    expect(md).toContain('- Image size: 240 × 120 px')
+    expect(md).toContain('- Region: x 20, y 10, 100 × 50')
+    expect(md).toContain(`- Snapshot: ${res.imagePath}`)
+    expect(existsSync(res.imagePath as string)).toBe(true)
+  })
+
   it('posts a selection bus message from the source pane to the target pane', async () => {
     const res = await writeSelectionReport(request(), 'w1', sameWindow, AT)
     if (!res.ok) throw new Error(res.error)

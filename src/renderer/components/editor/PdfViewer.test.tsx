@@ -207,6 +207,55 @@ describe('PdfViewer', () => {
     )
   })
 
+  it('a pinch zooms the PDF page and a region drag still selects', async () => {
+    const width = vi
+      .spyOn(HTMLElement.prototype, 'clientWidth', 'get')
+      .mockImplementation(function (this: HTMLElement) {
+        return this.classList.contains('viewer-stage') ? 1232 : 0
+      })
+    try {
+      await renderPdf()
+      const pdfPage = await (fake.doc.getPage.mock.results.at(-1)?.value as Promise<{
+        render: ReturnType<typeof vi.fn>
+      }>)
+      await waitFor(() => expect(pdfPage.render).toHaveBeenCalled())
+      const drawn = pdfPage.render.mock.calls.length
+      expect(screen.getByText('Zoom 200%')).toBeInTheDocument()
+      const page = document.querySelector('.pdf-page') as HTMLElement
+      const start = Number.parseFloat(page.style.width)
+      const stage = document.querySelector('.viewer-stage') as HTMLElement
+
+      fireEvent.wheel(stage, { deltaY: 40, ctrlKey: true, clientX: 40, clientY: 40 })
+      expect(
+        await screen.findByText(`Zoom ${Math.round(200 * Math.exp(-0.4))}%`),
+      ).toBeInTheDocument()
+      expect(Number.parseFloat(page.style.width)).toBeLessThan(start)
+      await waitFor(() => expect(pdfPage.render).toHaveBeenCalledTimes(drawn + 1))
+
+      await userEvent.click(screen.getByRole('button', { name: 'Select a region' }))
+      const layer = document.querySelector('.pdf-region-layer') as HTMLElement
+      layer.getBoundingClientRect = () =>
+        ({
+          left: 0,
+          top: 0,
+          width: 600,
+          height: 800,
+          right: 600,
+          bottom: 800,
+          x: 0,
+          y: 0,
+        }) as DOMRect
+      fireEvent.pointerDown(layer, { button: 0, clientX: 10, clientY: 10, pointerId: 1 })
+      fireEvent.pointerMove(layer, { clientX: 70, clientY: 50, pointerId: 1 })
+      fireEvent.pointerUp(layer, { clientX: 70, clientY: 50, pointerId: 1 })
+      const region = document.querySelector('.viewer-region') as HTMLElement
+      expect(Math.abs(Number.parseFloat(region.style.width) - 60)).toBeLessThan(6)
+      expect(Math.abs(Number.parseFloat(region.style.height) - 40)).toBeLessThan(6)
+    } finally {
+      width.mockRestore()
+    }
+  })
+
   it('sends the whole page when nothing is selected', async () => {
     await renderPdf()
     await userEvent.click(screen.getByRole('button', { name: 'Send page to agent' }))
