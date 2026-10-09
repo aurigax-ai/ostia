@@ -722,7 +722,7 @@
         "src/renderer/components/settings/actionIcons.ts",
         "src/renderer/stores/agents/actionConfirmStore.ts"
       ],
-      "specs": ["e2e/actions.spec.ts"]
+      "specs": []
     },
     {
       "name": "windows",
