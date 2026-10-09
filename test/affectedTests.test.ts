@@ -6,10 +6,12 @@ import {
   E2E_HARNESS,
   ROOT,
   changedQuarantineFiles,
+  coreTests,
   domFileReaders,
   e2eImports,
   e2eShards,
   e2eSpecs,
+  e2eWeight,
   nodeFolderReaders,
   planAgainst,
   planChanges,
@@ -27,7 +29,7 @@ const readers = {
 }
 
 const map = {
-  smoke: ['e2e/smoke.spec.ts'],
+  core: ['e2e/smoke.spec.ts:5', 'e2e/workflows.spec.ts:41'],
   areas: [
     { name: 'sandbox', paths: ['src/main/sandbox/'], specs: ['e2e/sandbox.spec.ts'] },
     {
@@ -134,10 +136,20 @@ describe('planE2e', () => {
     ).toEqual(['e2e/sandbox.spec.ts', 'e2e/ssh.spec.ts'])
   })
 
-  it('runs the smoke set for a hub or any other unmapped file', () => {
+  it('runs the @core tests for a hub or any other unmapped file', () => {
     for (const file of ['src/main/app.ts', 'src/shared/app/dict.ts', 'package.json']) {
-      expect(planE2e([file], map, imports), file).toEqual(['e2e/smoke.spec.ts'])
+      expect(planE2e([file], map, imports), file).toEqual([
+        'e2e/smoke.spec.ts:5',
+        'e2e/workflows.spec.ts:41',
+      ])
     }
+  })
+
+  it('runs a whole planned spec instead of its @core tests', () => {
+    expect(planE2e(['src/main/app.ts', 'e2e/smoke.spec.ts'], map, imports)).toEqual([
+      'e2e/smoke.spec.ts',
+      'e2e/workflows.spec.ts:41',
+    ])
   })
 
   it('runs no e2e for docs, unit tests, workflows and test tooling', () => {
@@ -203,6 +215,40 @@ describe('planChanges', () => {
 
   it('drops a deleted spec from the e2e plan', () => {
     expect(planChanges(['e2e/no-such.spec.ts'], 'HEAD').e2e).toEqual([])
+  })
+
+  it('runs the @core tests of the real specs for a hub change, never an empty list', () => {
+    const { e2e } = planChanges(['src/main/app.ts'], 'HEAD')
+    expect(e2e).toEqual(coreTests().sort())
+    expect(e2e?.length).toBeGreaterThan(0)
+    expect(e2e?.some((entry) => entry.includes('sandbox'))).toBe(false)
+  })
+})
+
+describe('coreTests', () => {
+  it('names every @core test by the file and line of its test call', () => {
+    const found = coreTests()
+    const marks = e2eSpecs().flatMap(
+      (spec) => readFileSync(join(ROOT, spec), 'utf8').match(/@core\b/g) ?? [],
+    )
+    expect(found).toHaveLength(marks.length)
+    expect(found).toContain('e2e/smoke.spec.ts:5')
+    for (const entry of found) {
+      const [spec, line] = entry.split(':')
+      const source = readFileSync(join(ROOT, spec), 'utf8').split('\n')
+      expect(source[Number(line) - 1], entry).toMatch(/^test\(/)
+    }
+  })
+})
+
+describe('e2eWeight', () => {
+  it('counts a spec as one and every five single tests as one more', () => {
+    expect(e2eWeight([])).toBe(0)
+    expect(e2eWeight(['e2e/a.spec.ts', 'e2e/b.spec.ts'])).toBe(2)
+    expect(e2eWeight(['e2e/a.spec.ts', 'e2e/b.spec.ts:3'])).toBe(2)
+    const tests = Array.from({ length: 33 }, (_, index) => `e2e/c.spec.ts:${index + 1}`)
+    expect(e2eWeight(tests)).toBe(7)
+    expect(e2eShards(e2eWeight(tests))).toEqual([1])
   })
 })
 

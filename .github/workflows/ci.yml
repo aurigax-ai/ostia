@@ -66,6 +66,8 @@ jobs:
       specs: ${{ steps.plan.outputs.specs || steps.tests.outputs.e2e_specs }}
       repeat: ${{ steps.plan.outputs.repeat }}
       shards: ${{ steps.tests.outputs.e2e_shards || steps.plan.outputs.shards }}
+      grep: ${{ steps.plan.outputs.grep }}
+      grep_invert: ${{ steps.plan.outputs.grep_invert }}
       macos_matrix: ${{ steps.plan.outputs.macos_matrix }}
       tests: ${{ steps.tests.outputs.plan }}
       verified: ${{ steps.verified.outputs.verified == 'true' }}
@@ -100,6 +102,8 @@ jobs:
         env:
           SPECS: ${{ inputs.specs }}
           REPEAT: ${{ inputs.repeat }}
+          EVENT: ${{ github.event_name }}
+          REF_TYPE: ${{ github.ref_type }}
         run: |
           repeat=${REPEAT:-1}
           if ! [[ $repeat =~ ^[1-9][0-9]*$ ]]; then
@@ -109,6 +113,8 @@ jobs:
           SPECS=$(printf '%s' "$SPECS" | tr '\r\n\t' '   ' | tr -s ' ')
           SPECS=${SPECS# }
           SPECS=${SPECS% }
+          grep=
+          grep_invert=
           if [ -n "$SPECS" ]; then
             shards='[1]'
             macos_matrix=$(jq -cn --arg specs "$SPECS" '{include: [{group: "custom", specs: $specs}]}')
@@ -121,11 +127,22 @@ jobs:
               {group: "ssh", specs: "e2e/ssh.spec.ts e2e/ssh-remote-files.spec.ts"},
               {group: "windows", specs: "e2e/detached-windows.spec.ts e2e/workspace-restore.spec.ts"}
             ]}')
+            if [ "$EVENT" = merge_group ]; then
+              shards='[1,2]'
+              grep=@core
+            elif [ "$REF_TYPE" = tag ]; then
+              shards='[1,2,3,4,5,6]'
+              grep_invert=@experimental
+            elif [ "$EVENT" = schedule ]; then
+              shards='[1,2,3,4,5,6]'
+            fi
           fi
           {
             echo "specs=$SPECS"
             echo "repeat=$repeat"
             echo "shards=$shards"
+            echo "grep=$grep"
+            echo "grep_invert=$grep_invert"
             echo "macos_matrix=$macos_matrix"
           } >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v7
@@ -268,10 +285,15 @@ jobs:
           SELF_HOSTED: ${{ runner.environment == 'self-hosted' }}
           SPECS: ${{ needs.changes.outputs.specs }}
           REPEAT: ${{ needs.changes.outputs.repeat }}
+          GREP: ${{ needs.changes.outputs.grep }}
+          GREP_INVERT: ${{ needs.changes.outputs.grep_invert }}
         run: |
           read -ra specs <<< "$SPECS"
           args=("${specs[@]}" --shard=${{ matrix.shard }}/${{ strategy.job-total }} --repeat-each="$REPEAT")
-          if [ "$SELF_HOSTED" = true ]; then args+=(--grep-invert "$PTRACE_E2E"); fi
+          if [ -n "$GREP" ]; then args+=(--grep "$GREP"); fi
+          invert=$GREP_INVERT
+          if [ "$SELF_HOSTED" = true ]; then invert=${invert:+$invert|}$PTRACE_E2E; fi
+          if [ -n "$invert" ]; then args+=(--grep-invert "$invert"); fi
           pnpm test:e2e "${args[@]}"
       - if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
@@ -313,6 +335,37 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: ptrace-blob-report
+          path: blob-report
+          retention-days: 3
+
+  e2e-race:
+    needs: [changes, build]
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/linux-deps
+      - uses: ./.github/actions/setup
+        timeout-minutes: 10
+      - uses: actions/cache@v6
+        id: pty
+        with:
+          path: node_modules/node-pty/build
+          key: node-pty-electron-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+      - if: steps.pty.outputs.cache-hit != 'true'
+        run: pnpm rebuild
+      - uses: actions/download-artifact@v8
+        with:
+          name: out
+          path: out
+      - timeout-minutes: 30
+        run: pnpm test:e2e --grep @race --repeat-each=10
+      - if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: race-blob-report
           path: blob-report
           retention-days: 3
 
@@ -393,6 +446,36 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: macos-blob-${{ matrix.group }}
+          path: blob-report
+          retention-days: 3
+
+  e2e-macos-core:
+    needs: [changes, build-macos]
+    if: github.event_name == 'schedule' || github.ref_type == 'tag'
+    runs-on: macos-26
+    timeout-minutes: 30
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+      - run: |
+          command -v rg >/dev/null || brew install ripgrep
+          command -v tmux >/dev/null || brew install tmux
+          zsh -fc 'autoload -U compaudit; compaudit' | xargs chmod go-w
+          git config --global user.name 'Ostia CI'
+          git config --global user.email 'ci@ostia.invalid'
+      - uses: ./.github/actions/setup
+        timeout-minutes: 10
+      - run: pnpm rebuild
+      - uses: actions/download-artifact@v8
+        with:
+          name: out-macos
+          path: out
+      - timeout-minutes: 15
+        run: pnpm test:e2e --grep @core
+      - if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: macos-core-blob-report
           path: blob-report
           retention-days: 3
 
