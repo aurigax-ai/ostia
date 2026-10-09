@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -280,6 +280,19 @@ describe('ExtensionHost — workflows', () => {
 
     host.setEnabled('ops', false)
     expect(host.workflows().map((w) => w.extId)).toEqual(['mine'])
+  })
+})
+
+describe('ExtensionHost — completions', () => {
+  it('serves completion specs from the folder an enabled extension contributes', () => {
+    const manifest = JSON.parse(
+      readFileSync(new URL('../../extensions/completions/ostia.json', import.meta.url), 'utf8'),
+    )
+    writeExt(join(base, 'builtin'), 'completions', { contributes: manifest.contributes })
+    const { host } = makeHost()
+    expect(host.completionDirs()).toEqual([join(base, 'builtin', 'completions', 'specs')])
+    host.setEnabled('completions', false)
+    expect(host.completionDirs()).toEqual([])
   })
 })
 

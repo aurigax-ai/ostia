@@ -23,6 +23,13 @@ function lines(term: Terminal): string[] {
   return out
 }
 
+function screenText(term: Terminal): string {
+  const buf = term.buffer.active
+  return lines(term)
+    .slice(buf.viewportY, buf.viewportY + term.rows)
+    .join('\n')
+}
+
 afterEach(() => {
   for (const t of terms.splice(0)) t.dispose()
 })
@@ -70,5 +77,20 @@ describe('clearKeepingScrollback on a real xterm buffer', () => {
     expect(await clearKeepingScrollback(term, true)).toBe(false)
     expect(term.buffer.active.getLine(0)?.translateToString(true)).toBe('vim')
     expect(sent).toEqual([])
+  })
+
+  it('Clear Terminal clears the screen, keeps the scrollback, and the shell redraws its prompt', async () => {
+    const { term, sent } = open()
+    await write(term, '$ echo ostia_before_clear\r\nostia_before_clear\r\n$ ')
+    expect(screenText(term)).toContain('ostia_before_clear')
+    await clearKeepingScrollback(term, true)
+    expect(screenText(term)).not.toContain('ostia_before_clear')
+    expect(sent).toEqual([FORM_FEED])
+
+    await write(term, '$ echo ostia_after_42\r\nostia_after_42\r\n$ ')
+    expect(screenText(term)).toContain('ostia_after_42')
+
+    term.scrollLines(-term.rows)
+    expect(screenText(term)).toContain('ostia_before_clear')
   })
 })

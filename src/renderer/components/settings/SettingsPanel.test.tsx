@@ -350,6 +350,8 @@ describe('SettingsPanel', () => {
     await user.click(await screen.findByRole('option', { name: 'Input editor' }))
 
     expect(setBehavior).toHaveBeenCalledWith({ inputMode: 'editor' })
+    await user.click(screen.getByRole('switch', { name: 'Vim keys in the input editor' }))
+    expect(setBehavior).toHaveBeenCalledWith({ inputEditorVim: true })
   })
 
   it('shows the prompt mode on the right of the Prompt row and Edit prompt as a link below the label', async () => {

@@ -1,10 +1,15 @@
 import '@testing-library/jest-dom/vitest'
+import { commands } from '@/commands/registry'
+import { createPane } from '@/layout/tree'
+import { HOVER_FOCUS_DELAY_MS } from '@/lib/terminal/hoverFocus'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useUIStore } from '@/stores/app/uiStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { KEEP_SHELLS_FEATURE } from '@shared/terminal/keepShells'
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { PaneTree } from '../panes/PaneTree'
 import { SettingsPanel } from './SettingsPanel'
 
 if (!Element.prototype.getAnimations) {
@@ -14,16 +19,20 @@ if (!Element.prototype.getAnimations) {
 describe('SettingsPanel terminal and pane rows', () => {
   let settingsInit: ReturnType<typeof useSettingsStore.getState>
   let uiInit: ReturnType<typeof useUIStore.getState>
+  let layoutInit: ReturnType<typeof useLayoutStore.getState>
 
   beforeAll(() => {
     settingsInit = useSettingsStore.getState()
     uiInit = useUIStore.getState()
+    layoutInit = useLayoutStore.getState()
   })
 
   afterEach(() => {
     cleanup()
     useSettingsStore.setState(settingsInit, true)
     useUIStore.setState(uiInit, true)
+    useLayoutStore.setState(layoutInit, true)
+    vi.restoreAllMocks()
   })
 
   async function openSection(name: string) {
@@ -80,6 +89,45 @@ describe('SettingsPanel terminal and pane rows', () => {
     await user.click(screen.getByRole('switch', { name: 'Dim inactive panes' }))
     expect(useSettingsStore.getState().panes.focusOnHover).toBe(true)
     expect(useSettingsStore.getState().panes.dimInactive).toBe(false)
+  })
+
+  function renderSplit() {
+    const left = createPane()
+    useLayoutStore.setState({
+      byWorkspace: { w: { root: left, activePaneId: left.id, zoomedPaneId: null } },
+    })
+    render(<PaneTree workspaceId="w" />)
+    act(() => useLayoutStore.getState().split('w', left.id, 'horizontal'))
+    return left
+  }
+
+  it('Dim inactive panes turns the split pane dimming off', async () => {
+    renderSplit()
+    expect(document.querySelectorAll('.pane')).toHaveLength(2)
+    expect(document.querySelectorAll('.pane.dimmed')).toHaveLength(1)
+
+    const user = await openSection('Panes')
+    await user.click(screen.getByRole('switch', { name: 'Dim inactive panes' }))
+    expect(document.querySelectorAll('.pane.dimmed')).toHaveLength(0)
+    await user.click(screen.getByRole('switch', { name: 'Dim inactive panes' }))
+    expect(document.querySelectorAll('.pane.dimmed')).toHaveLength(1)
+  })
+
+  it('Focus pane on hover activates a pane the pointer rests on', async () => {
+    const exec = vi.spyOn(commands, 'exec').mockResolvedValue({ ok: true, result: undefined })
+    const left = renderSplit()
+    const [leftPane, rightPane] = document.querySelectorAll<HTMLElement>('.pane')
+    expect(rightPane).toHaveClass('active')
+
+    const user = await openSection('Panes')
+    await user.hover(leftPane)
+    await act(() => new Promise((resolve) => setTimeout(resolve, HOVER_FOCUS_DELAY_MS * 4)))
+    expect(exec).not.toHaveBeenCalledWith('pane.focus', expect.anything())
+
+    await user.click(screen.getByRole('switch', { name: 'Focus pane on hover' }))
+    await user.hover(rightPane)
+    await user.hover(leftPane)
+    await waitFor(() => expect(exec).toHaveBeenCalledWith('pane.focus', { paneId: left.id }))
   })
 
   function tmuxReport(

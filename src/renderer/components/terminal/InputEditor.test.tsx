@@ -1,4 +1,5 @@
 import { commands } from '@/commands/registry'
+import { handleDocumentClipboardChord } from '@/lib/keys/documentClipboard'
 import { insertCommand } from '@/lib/terminal/blockActions'
 import { inputEditorFor, registerTerminal } from '@/lib/terminal/terminalHandles'
 import { useSettingsStore } from '@/stores/app/settingsStore'
@@ -362,6 +363,51 @@ describe('InputEditor', () => {
     expect(props.onSubmit).not.toHaveBeenCalled()
   })
 
+  it('the input editor copies on the chord and on smart Ctrl+C, and pastes on both', async () => {
+    setMode('editor')
+    setClipboardKeys('smart')
+    idlePrompt()
+    const { props } = renderEditor()
+    const fromWindow = vi.fn((e: KeyboardEvent) => {
+      const prevented = e.defaultPrevented
+      handleDocumentClipboardChord(e, false)
+      return `${e.key}:${prevented}`
+    })
+    window.addEventListener('keydown', fromWindow)
+    try {
+      const user = userEvent.setup()
+      await user.type(editor() as HTMLElement, 'echo editor_copy')
+      const area = editor() as HTMLTextAreaElement
+      area.setSelectionRange(0, 16)
+      await user.keyboard('{Control>}{Shift>}C{/Shift}{/Control}')
+      await expect(navigator.clipboard.readText()).resolves.toBe('echo editor_copy')
+
+      area.setSelectionRange(5, 16)
+      await user.keyboard('{Control>}c{/Control}')
+      await expect(navigator.clipboard.readText()).resolves.toBe('editor_copy')
+      expect(editor()).toHaveValue('echo editor_copy')
+
+      area.setSelectionRange(0, 0)
+      await user.keyboard('{Control>}c{/Control}')
+      expect(editor()).toHaveValue('')
+
+      await user.keyboard('{Control>}{Shift>}V{/Shift}{/Control}')
+      expect(window.ostia.clipboard.edit).toHaveBeenLastCalledWith('paste')
+      await user.paste('echo from_chord')
+      expect(editor()).toHaveValue('echo from_chord')
+
+      await user.keyboard('{Control>}c{/Control}')
+      await user.keyboard('{Control>}v{/Control}')
+      expect(fromWindow.mock.results.at(-1)?.value).toBe('v:false')
+      await user.paste('echo from_ctrl_v\u0007')
+      expect(editor()).toHaveValue('echo from_ctrl_v')
+      expect(props.onShellKeys).not.toHaveBeenCalled()
+      expect(props.onHandOff).not.toHaveBeenCalled()
+    } finally {
+      window.removeEventListener('keydown', fromWindow)
+    }
+  })
+
   it('edits with readline keys and a kill ring', async () => {
     setMode('editor')
     idlePrompt()
@@ -522,6 +568,81 @@ describe('InputEditor', () => {
     expect(editor()).toHaveValue('docker ps')
     expect(editor()).toHaveFocus()
     unregister()
+  })
+
+  it('the input editor suggests from history, completes commands, highlights and edits with vim keys', async () => {
+    setMode('editor')
+    idlePrompt()
+    runCommand('echo ostia_suggest_one')
+    finishCommand()
+    vi.mocked(window.ostia.pty.commands).mockResolvedValue([
+      'ostiafake-tool',
+      'ostiafake-alpha',
+      'ostiafake-alps',
+    ])
+    const { props } = renderEditor()
+    await waitFor(() => expect(window.ostia.pty.commands).toHaveBeenCalledWith(PANE))
+    const user = userEvent.setup()
+    const ghost = () => document.querySelector('.input-editor-ghost')
+    const token = (kind: string) => [
+      ...screen.getByTestId('input-editor-highlight').querySelectorAll(`[data-token="${kind}"]`),
+    ]
+    const texts = (kind: string) => token(kind).map((el) => el.textContent)
+    const mode = () => screen.getByLabelText('Vim mode').textContent
+
+    await user.type(editor() as HTMLElement, 'echo ostia_sug')
+    expect(ghost()?.textContent).toBe('gest_one')
+    await user.keyboard('{End}')
+    expect(editor()).toHaveValue('echo ostia_suggest_one')
+    expect(ghost()).toBeNull()
+    await user.keyboard('{Enter}')
+    expect(props.onSubmit).toHaveBeenLastCalledWith('echo ostia_suggest_one')
+    expect(editor()).toHaveFocus()
+
+    await user.keyboard('ostiafake-to{Tab}')
+    await waitFor(() => expect(editor()).toHaveValue('ostiafake-tool '))
+    expect(token('command')[0]).toHaveAttribute('data-known', 'true')
+    await user.keyboard('{Enter}')
+    expect(props.onSubmit).toHaveBeenLastCalledWith('ostiafake-tool ')
+    expect(editor()).toHaveFocus()
+
+    await user.keyboard('ostiafake-al{Tab}')
+    await screen.findByRole('listbox', { name: 'Completions' })
+    expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual([
+      'ostiafake-alps',
+      'ostiafake-alpha',
+    ])
+    await user.keyboard('{ArrowDown}{Enter}')
+    expect(screen.queryByRole('listbox')).toBeNull()
+    expect(editor()).toHaveValue('ostiafake-alpha ')
+    await user.keyboard('{Control>}c{/Control}')
+
+    await user.keyboard('ostiafake-tool --verbose "a b" $HOME | ostia_no_such_cmd > out # note')
+    expect(texts('command')).toEqual(['ostiafake-tool', 'ostia_no_such_cmd'])
+    expect(token('command').map((el) => el.getAttribute('data-known'))).toEqual(['true', 'false'])
+    expect(texts('flag')).toEqual(['--verbose'])
+    expect(texts('string')).toEqual(['"a b"'])
+    expect(texts('variable')).toEqual(['$HOME'])
+    expect(texts('operator')).toEqual(['|', '>'])
+    expect(texts('comment')).toEqual(['# note'])
+    expect(token('command')[1].className).not.toBe(token('command')[0].className)
+    expect(token('flag')[0].className).not.toBe(token('argument')[0].className)
+    await user.keyboard('{Control>}c{/Control}')
+
+    act(() => useSettingsStore.getState().setBehavior({ inputEditorVim: true }))
+    expect(mode()).toBe('INSERT')
+    await user.keyboard('eecho ostia_vim_bad{Escape}')
+    expect(mode()).toBe('NORMAL')
+    await user.keyboard('0x$bcw')
+    expect(mode()).toBe('INSERT')
+    await user.keyboard('ostia_vim_good{Escape}')
+    expect(editor()).toHaveValue('echo ostia_vim_good')
+    await user.keyboard('{Enter}')
+    expect(props.onSubmit).toHaveBeenLastCalledWith('echo ostia_vim_good')
+    expect(vi.mocked(props.onSubmit).mock.calls.flat().join('\n')).not.toContain('ostia_vim_bad')
+    expect(editor()).toHaveFocus()
+    expect(mode()).toBe('INSERT')
+    vi.mocked(window.ostia.pty.commands).mockReset()
   })
 
   describe('autosuggestions', () => {
@@ -803,6 +924,54 @@ describe('InputEditor', () => {
       expect(options()).toEqual(['docs/'])
       await user.keyboard('{Tab}')
       expect(editor()).toHaveValue('cd avail/docs/')
+    })
+
+    it('the completion menu stays open and narrows while typing, and a slash lists the folder', async () => {
+      setMode('editor')
+      idlePrompt()
+      vi.mocked(window.ostia.pty.listDir).mockReset()
+      vi.mocked(window.ostia.pty.listDir).mockImplementation(async (_pane, path) => {
+        if (path === '~/Work/goji') {
+          return [
+            { name: 'avail', dir: true },
+            { name: 'avail-mock-feat', dir: true },
+            { name: 'avail-mock-qa', dir: true },
+          ]
+        }
+        if (path === '~/Work/goji/avail') return [{ name: 'src', dir: true }]
+        return []
+      })
+      const { props } = renderEditor()
+      const user = userEvent.setup()
+
+      await user.type(editor() as HTMLElement, 'cd ~/Work/goji/av')
+      await user.keyboard('{Tab}')
+      await waitFor(() => expect(editor()).toHaveValue('cd ~/Work/goji/avail'))
+      expect(options()).toEqual(['avail/', 'avail-mock-feat/', 'avail-mock-qa/'])
+      await user.keyboard('-m')
+      expect(options()).toEqual(['avail-mock-feat/', 'avail-mock-qa/'])
+      await user.keyboard('q')
+      expect(options()).toEqual(['avail-mock-qa/'])
+      await user.keyboard('{Backspace}')
+      expect(options()).toEqual(['avail-mock-feat/', 'avail-mock-qa/'])
+      expect(screen.getByRole('option', { name: 'avail-mock-qa/' })).toHaveAttribute(
+        'aria-selected',
+        'true',
+      )
+      await user.keyboard('{Enter}')
+      expect(editor()).toHaveValue('cd ~/Work/goji/avail-mock-qa/')
+      expect(screen.queryByRole('listbox')).toBeNull()
+      await user.keyboard('{Control>}c{/Control}')
+
+      await user.keyboard('cd ~/Work/goji/av{Tab}')
+      await screen.findByRole('listbox', { name: 'Completions' })
+      await user.keyboard('/')
+      await waitFor(() => expect(options()).toEqual(['src/']))
+      expect(editor()).toHaveValue('cd ~/Work/goji/avail/')
+      await user.keyboard('{Enter}')
+      expect(editor()).toHaveValue('cd ~/Work/goji/avail/src/')
+      await user.keyboard('{Enter}')
+      expect(props.onSubmit).toHaveBeenCalledWith('cd ~/Work/goji/avail/src/')
     })
 
     it('filters command names live too', async () => {

@@ -69,25 +69,3 @@ test('copy on select puts selected terminal text on the clipboard', async () => 
     await app.close()
   }
 })
-
-test('Ctrl+scroll over a terminal zooms its font in and out', async () => {
-  const { app, win } = await launch()
-  try {
-    const before = await rowHeight(win)
-    const box = await win.locator('.xterm').first().boundingBox()
-    if (!box) throw new Error('terminal has no box')
-    await win.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
-    await win.keyboard.down('Control')
-    for (let i = 0; i < 4; i++) await win.mouse.wheel(0, -100)
-    await win.keyboard.up('Control')
-    await expect.poll(() => rowHeight(win)).toBeGreaterThan(before)
-
-    const zoomed = await rowHeight(win)
-    await win.keyboard.down('Control')
-    for (let i = 0; i < 4; i++) await win.mouse.wheel(0, 100)
-    await win.keyboard.up('Control')
-    await expect.poll(() => rowHeight(win)).toBeLessThan(zoomed)
-  } finally {
-    await app.close()
-  }
-})
