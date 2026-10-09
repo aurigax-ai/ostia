@@ -243,6 +243,19 @@ describe('TerminalView engines', () => {
     expect(fontSize()).toBeLessThan(zoomed)
   })
 
+  it('moves the pane cwd to the folder an xterm shell reports with OSC 7', async () => {
+    useLayoutStore.getState().ensure('w1')
+    const { activePaneId } = useLayoutStore.getState().byWorkspace.w1
+    await renderSettled(<TerminalView workspaceId="w1" paneId={activePaneId} />)
+    await waitFor(() => expect(window.ostia.pty.onData).toHaveBeenCalled())
+    const deliver = vi.mocked(window.ostia.pty.onData).mock.calls[0][1]
+    act(() => deliver('\x1b]7;file:///tmp\x07'))
+    await waitFor(() => {
+      const { root } = useLayoutStore.getState().byWorkspace.w1
+      expect(findPane(root, activePaneId)).toMatchObject({ cwd: '/tmp' })
+    })
+  })
+
   it('asks before pasting several lines into a Ghostty terminal', async () => {
     const { container } = await renderGhostty(<TerminalView workspaceId="w1" paneId="p1" />)
     await waitFor(() => expect(container.querySelector('.ghostty-host textarea')).not.toBeNull())

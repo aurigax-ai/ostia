@@ -224,6 +224,9 @@ describe('TopBar', () => {
     await user.click(files)
     expect(useUIStore.getState().filesOpen).toBe(true)
     expect(files).toHaveAttribute('aria-pressed', 'true')
+    await user.click(files)
+    expect(useUIStore.getState().filesOpen).toBe(false)
+    expect(files).toHaveAttribute('aria-pressed', 'false')
   })
 
   it('puts the dashboard button after Files and before the Git and extension panel toggles', () => {

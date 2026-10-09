@@ -271,6 +271,29 @@ describe('FilesView', () => {
     expect(screen.queryByRole('button', { name: 'here.ts' })).not.toBeInTheDocument()
   })
 
+  it('the Files panel follows the active workspace', async () => {
+    seedWorkspace(CWD, '/tmp')
+    listReturns([])
+
+    render(<FilesView />)
+    await act(async () => {})
+    expect(screen.getByText('tmp')).toHaveClass('current')
+
+    act(() => {
+      useWorkspacesStore.getState().addWorkspace()
+    })
+    await act(async () => {})
+    expect(screen.getByText('~')).toHaveClass('current')
+    expect(screen.queryByText('tmp')).not.toBeInTheDocument()
+
+    act(() => {
+      useWorkspacesStore.getState().setActive('s1')
+    })
+    await act(async () => {})
+    expect(screen.getByText('tmp')).toHaveClass('current')
+    expect(window.ostia.fs.list).toHaveBeenLastCalledWith('/tmp')
+  })
+
   it('falls back to the workspace workDir anchor when the focused pane has no cwd', async () => {
     useWorkspacesStore.setState({
       workspaces: [
