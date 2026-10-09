@@ -8,6 +8,7 @@ import {
   realpathSync,
   rmSync,
   symlinkSync,
+  watch,
   writeFileSync,
 } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -15,6 +16,10 @@ import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('electron', () => ({ ipcMain: { handle: vi.fn(), on: vi.fn() } }))
+vi.mock('node:fs', async (importOriginal) => {
+  const fs = await importOriginal<typeof import('node:fs')>()
+  return { ...fs, watch: vi.fn(fs.watch) }
+})
 
 import {
   PREVIEW_LIMITS,
@@ -388,6 +393,7 @@ describe('PreviewHost', () => {
   })
 
   afterEach(() => {
+    vi.useRealTimers()
     r.host.dispose()
   })
 
@@ -766,11 +772,14 @@ describe('PreviewHost', () => {
     const guest = r.attach(opened)
     const serve = r.sessionOf(opened).serve as (request: Request) => Promise<Response>
     await serve(new Request(opened.url))
+    const changed = vi.mocked(watch).mock.lastCall?.[1]
+    if (!changed) throw new Error('not watched')
     r.host.shown('1', opened.id, false)
     await r.advance(2_000)
     expect(guest.lifecycle).toEqual(['paused'])
-    writeFileSync(page, '<!doctype html><title>changed</title>')
-    await new Promise((resolve) => setTimeout(resolve, 700))
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    changed('change', 'page.html')
+    vi.advanceTimersByTime(PREVIEW_LIMITS.reloadDebounceMs)
     expect(guest.reloads).toBe(0)
     r.host.shown('1', opened.id, true)
     await vi.waitFor(() => expect(guest.reloads).toBe(1))
