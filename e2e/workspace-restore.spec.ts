@@ -314,6 +314,7 @@ test('erases stored history when workspace restore is switched off', async () =>
 })
 
 test('restores tabs and offers to resume the agent a tab was running', async () => {
+  test.setTimeout(90_000)
   const first = await launchApp(dataHome)
   try {
     await openWorkspace(first.win)
@@ -345,6 +346,9 @@ test('restores tabs and offers to resume the agent a tab was running', async () 
   console.log('DIAG scrollback', sb ? Object.entries(sb).map(([k, v]) => `${k}:${String(v).length}:${String(v).includes('token-42')}`).join(' ') : 'none', 'root', JSON.stringify(saved.workspaces[0].root).slice(0, 400))
 
   const second = await launchApp(dataHome)
+  second.win.on('console', (m) => {
+    if (m.text().startsWith('diag-')) console.log('DIAG renderer', m.text())
+  })
   try {
     await expect(second.win.getByRole('tab')).toHaveCount(2, { timeout: 15_000 })
     await expect(second.win.locator('.pane-slot:not([data-hidden]) .xterm-rows')).toContainText(

@@ -723,6 +723,7 @@ function TerminalSurface({
           ...spawnPromptOption(useSettingsStore.getState()),
         })
         .then(({ buffer, sandboxed, sandboxStamp, host, shell, kept, reattached, cwdMissing }) => {
+          console.log(`diag-attach pane=${paneId} disposed=${disposed} chars=${buffer?.length ?? 0} cols=${cols} rows=${rows} seam=${buffer?.includes('workspace restored') ? 1 : 0} pending=${pending.length}`)
           if (disposed) return
           useLayoutStore
             .getState()
@@ -869,6 +870,7 @@ function TerminalSurface({
     if (screenElement) ro.observe(screenElement)
 
     return () => {
+      console.log(`diag-dispose pane=${paneId} attached=${attached}`)
       disposed = true
       unregisterOffscreen()
       querySilencer?.dispose()
