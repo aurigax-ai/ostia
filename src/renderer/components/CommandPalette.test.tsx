@@ -670,8 +670,10 @@ describe('CommandPalette', () => {
           'Tabs',
         ]),
       )
-      expect(window.ostia.search.run).toHaveBeenLastCalledWith(
-        expect.objectContaining({ root: '/src/zoomer', text: 'zoom', namesOnly: true }),
+      await waitFor(() =>
+        expect(window.ostia.search.run).toHaveBeenLastCalledWith(
+          expect.objectContaining({ root: '/src/zoomer', text: 'zoom', namesOnly: true }),
+        ),
       )
     })
 
