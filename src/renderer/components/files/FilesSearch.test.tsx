@@ -121,8 +121,9 @@ describe('Files panel search', () => {
     useSettingsStore.getState().setFiles({ compactFolders: false })
     const openFile = vi.spyOn(useLayoutStore.getState(), 'openFile').mockImplementation(() => {})
     render(<FilesPanel />)
+    await act(() => vi.mocked(window.ostia.fs.list).mock.results[0]?.value)
     const user = userEvent.setup()
-    expect(await screen.findByRole('button', { name: 'index.ts' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'index.ts' })).toBeInTheDocument()
 
     const show = screen.getByRole('button', { name: 'Search' })
     expect(screen.queryByRole('textbox', { name: 'Search files' })).toBeNull()
