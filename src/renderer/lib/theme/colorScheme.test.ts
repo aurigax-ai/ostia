@@ -124,4 +124,19 @@ describe('currentScheme', () => {
     expect(currentScheme('terminal').id).toBe('gruvbox-dark')
     expect(currentScheme('editor').id).toBe('one-dark-vivid')
   })
+
+  it('an unlinked terminal theme changes the terminal colors while the ostia theme stays', () => {
+    useSettingsStore.setState((s) => ({
+      appearance: { ...s.appearance, theme: 'adeberry', followSystem: false },
+      terminal: { ...s.terminal, theme: 'match' },
+      editor: { ...s.editor, theme: 'match' },
+    }))
+    expect(currentScheme('terminal').colors.background).toBe('#1d2022')
+    useSettingsStore.setState((s) => ({
+      terminal: { ...s.terminal, theme: 'catppuccin-mocha' },
+    }))
+    expect(currentScheme('terminal').colors.background).toBe('#1e1e2e')
+    expect(currentScheme('terminal').id).toBe('catppuccin-mocha')
+    expect(currentScheme('editor').id).toBe('adeberry')
+  })
 })

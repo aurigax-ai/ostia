@@ -49,6 +49,15 @@ describe('ApprovalCard', () => {
     expect(screen.getByText(/claude wants to act on other panes and workspaces/)).toBeTruthy()
   })
 
+  it('fills Allow once with the brand color and on-brand text', () => {
+    render(<ApprovalCard request={REQUEST} paneTitle="claude" />)
+
+    expect(screen.getByRole('button', { name: 'Allow once' })).toHaveClass(
+      'bg-primary',
+      'text-primary-foreground',
+    )
+  })
+
   it.each([
     ['Allow for this pane', 'session'],
     ['Always allow', 'always'],

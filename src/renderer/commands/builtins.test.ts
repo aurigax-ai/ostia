@@ -217,6 +217,11 @@ describe('builtins route to store actions', () => {
     expect(failed).toEqual({ ok: false, error: { code: 'command-failed', message: 'no browser' } })
   })
 
+  it('settings.set needs settings-write, so a pane asks the human before it changes a setting', () => {
+    const described = commands.describe().find((c) => c.id === 'settings.set')
+    expect(described?.capabilities).toEqual(['settings-write'])
+  })
+
   it('terminal.toggleInputEditor flips behavior.inputMode and needs settings-write', async () => {
     const described = commands.describe().find((c) => c.id === 'terminal.toggleInputEditor')
     expect(described?.capabilities).toEqual(['settings-write'])

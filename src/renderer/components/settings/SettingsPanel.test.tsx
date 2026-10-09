@@ -648,10 +648,23 @@ describe('SettingsPanel', () => {
     await user.click(await screen.findByRole('option', { name: /Catppuccin Mocha/ }))
 
     expect(useSettingsStore.getState().terminal.theme).toBe('catppuccin-mocha')
+    expect(useSettingsStore.getState().appearance.theme).toBe('dracula')
     expect(useSettingsStore.getState().editor.theme).toBe('match')
 
     await user.click(screen.getByRole('switch', { name: 'Terminal colors: Match Ostia theme' }))
     expect(useSettingsStore.getState().terminal.theme).toBe('match')
+  })
+
+  it('keeps the ostia theme when an unlinked terminal theme is picked', async () => {
+    await renderSettings()
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole('switch', { name: 'Terminal colors: Match Ostia theme' }))
+    await user.click(screen.getByRole('combobox', { name: 'Terminal colors' }))
+    await user.click(await screen.findByRole('option', { name: /Catppuccin Mocha/ }))
+
+    expect(useSettingsStore.getState().terminal.theme).toBe('catppuccin-mocha')
+    expect(useSettingsStore.getState().appearance.theme).toBe('adeberry')
   })
 
   it('previews the resolved terminal and editor schemes with their own backgrounds', async () => {

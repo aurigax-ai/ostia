@@ -102,4 +102,16 @@ describe('applyTheme', () => {
     expect(root.style.getPropertyValue('--color-brand')).toBe(dark.tokens.brand)
     expect(root.style.getPropertyValue('--primary-foreground')).toBe('')
   })
+
+  for (const [id, expected] of [
+    ['adeberry', { fill: '#f2b347', ink: '#1d2022' }],
+    ['ostia-light', { fill: null, ink: '#f6f7f9' }],
+  ] as const) {
+    it(`a custom accent sets the brand fill and its on-brand ink on ${id}`, () => {
+      const root = document.documentElement
+      applyTheme(root, themes.find((t) => t.id === id) as Theme, '#f2b347')
+      if (expected.fill) expect(root.style.getPropertyValue('--color-brand')).toBe(expected.fill)
+      expect(root.style.getPropertyValue('--color-on-brand')).toBe(expected.ink)
+    })
+  }
 })

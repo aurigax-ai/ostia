@@ -132,6 +132,16 @@ describe('TabRow', () => {
     expect(rule('.pane-tab')).not.toMatch(/font-(?:family|size):/)
   })
 
+  it('draws the active tab underline, the working dot and primary buttons with the brand token', () => {
+    const css = readFileSync(join(__dirname, '..', '..', 'index.css'), 'utf8')
+    const rule = (selector: string) => css.slice(css.indexOf(`\n${selector} {`)).split('}')[0]
+    expect(css).toMatch(/--brand: var\(--color-brand\);/)
+    expect(css).toMatch(/--primary: var\(--color-brand\);/)
+    expect(css).toMatch(/--primary-foreground: var\(--color-on-brand\);/)
+    expect(rule('.pane.active .pane-tab.selected')).toMatch(/box-shadow: [^;]*var\(--brand\)/)
+    expect(rule('.dot.working')).toMatch(/background: var\(--brand\);/)
+  })
+
   it('shows the full title and the folder of a terminal on hover', async () => {
     const { root } = stackOf(2)
     renderStack(root)

@@ -47,6 +47,16 @@ describe('UpdateNotice', () => {
     expect(screen.getByRole('button', { name: 'Restart to update' })).toBeTruthy()
   })
 
+  it('fills Restart to update with the brand color and on-brand text', () => {
+    render(<UpdateNotice />)
+    act(() => useUpdateStore.getState().receive(BUILD))
+
+    expect(screen.getByRole('button', { name: 'Restart to update' })).toHaveClass(
+      'bg-primary',
+      'text-primary-foreground',
+    )
+  })
+
   it('names a newer release and asks main to open its page, never a URL of its own', () => {
     render(<UpdateNotice />)
     act(() => useUpdateStore.getState().receiveRelease(state(RELEASE)))
