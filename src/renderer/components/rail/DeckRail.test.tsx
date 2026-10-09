@@ -1,6 +1,7 @@
 import '@testing-library/jest-dom/vitest'
 import { allPanes, createPane, tabsOf } from '@/layout/tree'
 import { languagesFrom } from '@/lib/extensions/languagePacks'
+import * as blockActions from '@/lib/terminal/blockActions'
 import { startNewWorkspace } from '@/lib/workspaces/newWorkspace'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
 import { needsSandboxRestart, useSandboxStore } from '@/stores/app/sandboxStore'
@@ -52,6 +53,15 @@ function dragRailEdge(dx: number): boolean {
   at('pointermove', 500 + dx)
   at('pointerup', 500 + dx)
   return proceeded
+}
+
+function typeResumesAtOnce() {
+  return vi
+    .spyOn(blockActions, 'runWhenIdle')
+    .mockImplementation((_paneId, _command, _timeoutMs, _allowed, _onGiveUp, onTyped) => {
+      onTyped?.()
+      return () => {}
+    })
 }
 
 function rowFor(name: RegExp): HTMLElement {
@@ -389,9 +399,13 @@ describe('DeckRail', () => {
     await waitFor(() => expect(window.ostia.pty.hibernate).toHaveBeenCalledWith(agent.id))
     expect(within(rowFor(/alpha/)).getByRole('img', { name: 'Hibernated' })).toBeInTheDocument()
 
+    const typed = typeResumesAtOnce()
     fireEvent.contextMenu(screen.getByRole('button', { name: /alpha/ }))
     await user.click(await screen.findByRole('menuitem', { name: 'Resume agents' }))
     expect(within(rowFor(/alpha/)).queryByRole('img', { name: 'Hibernated' })).toBeNull()
+    expect(typed.mock.calls.map(([id, command]) => [id, command])).toEqual([
+      [agent.id, 'claude --resume tok-1'],
+    ])
   })
 
   it('says how many agents it left running, and why, when they still have background work', async () => {
@@ -481,8 +495,13 @@ describe('DeckRail', () => {
       'aria-disabled',
       'true',
     )
+    const typed = typeResumesAtOnce()
     await user.click(screen.getByRole('menuitem', { name: 'Resume agents' }))
     expect(asleep()).toEqual([])
+    expect(typed.mock.calls.map(([id, command]) => [id, command])).toEqual([
+      [api.id, 'claude --resume tok-api'],
+      [web.id, 'claude --resume tok-web'],
+    ])
   })
 
   it('offers a merge when a workspace is dragged onto the middle of one with the same folder', async () => {
