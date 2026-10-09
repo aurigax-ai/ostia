@@ -87,4 +87,18 @@ describe('Fig spec conversion', () => {
     expect(checkout?.description).toBeTruthy()
     expect(checkout?.options?.some((o) => o.names.includes('-b'))).toBe(true)
   }, 60_000)
+
+  it('Tab completes subcommands and options with descriptions from the built-in specs', async () => {
+    const { writeFigSpecs } = await import('../../../scripts/completionSpecs.mjs')
+    const out = join(base, 'fig')
+    await writeFigSpecs(out)
+    const git = loadCompletionSpec('git', [user, out])
+    const subcommands = git?.subcommands?.flatMap((c) => c.names) ?? []
+    expect(subcommands.filter((name) => name.startsWith('chec'))).toEqual(['checkout'])
+    const checkout = git?.subcommands?.find((c) => c.names.includes('checkout'))
+    const force = checkout?.options?.find((o) => o.names.includes('--force'))
+    expect(force?.description).toMatch(/\S+\s+\S+/)
+    const tar = loadCompletionSpec('tar', [user, out])
+    expect(tar?.options?.some((o) => o.names.some((n) => n.startsWith('--exclude')))).toBe(true)
+  }, 60_000)
 })
