@@ -1,7 +1,8 @@
-import { useUpdateStore } from '@/stores/app/updateStore'
+import { startUpdateWatch, useUpdateStore } from '@/stores/app/updateStore'
 import type { InstallMethod, ReleaseState } from '@shared/app/installMethod'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, beforeAll, describe, expect, it } from 'vitest'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { UpdateCheck } from './UpdateCheck'
 import { UpdateNotice } from './UpdateNotice'
 
 const BUILD = { version: '1.0.0+sha.defdef', builtAt: '2026-09-30T11:00:00Z' }
@@ -103,6 +104,31 @@ describe('UpdateNotice', () => {
     act(() => useUpdateStore.getState().receiveUpdateRun({ status: 'done' }))
     fireEvent.click(screen.getByRole('button', { name: 'Restart Ostia' }))
     expect(window.ostia.update.restart).toHaveBeenCalled()
+  })
+
+  it('after a restart the manual check names the release without bringing back the notice', async () => {
+    vi.mocked(window.ostia.update.checkRelease).mockResolvedValue({
+      status: 'available',
+      release: RELEASE,
+    })
+    render(
+      <>
+        <UpdateNotice />
+        <UpdateCheck />
+      </>,
+    )
+    let stop = (): void => {}
+    await act(async () => {
+      stop = startUpdateWatch()
+    })
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Check for updates' }))
+    })
+
+    expect(screen.getByText('Version 1.1.0 is available')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Version 1.1.0 is available' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Skip this version' })).toBeNull()
+    stop()
   })
 
   it('offers the update again after a failed run', () => {

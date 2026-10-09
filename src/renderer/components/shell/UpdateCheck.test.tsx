@@ -172,4 +172,24 @@ describe('UpdateCheck', () => {
     expect(screen.getByRole('button', { name: 'Restart Ostia' })).toBeInTheDocument()
     stop()
   })
+
+  it('with the automatic check off nothing is asked until the human checks from About', async () => {
+    useSettingsStore.setState({
+      behavior: { ...useSettingsStore.getState().behavior, checkForUpdates: false },
+    })
+    answer({ status: 'available', release: RELEASE })
+    render(<UpdateCheck />)
+
+    expect(
+      screen.getByRole('switch', { name: 'Check for updates automatically' }),
+    ).not.toBeChecked()
+    expect(window.ostia.update.checkRelease).not.toHaveBeenCalled()
+
+    await check()
+    expect(screen.getByRole('status')).toHaveTextContent('Version 1.1.0 is available')
+    expect(window.ostia.update.checkRelease).toHaveBeenCalledTimes(1)
+
+    fireEvent.click(screen.getByRole('button', { name: 'View release' }))
+    expect(window.ostia.update.openRelease).toHaveBeenCalledWith()
+  })
 })

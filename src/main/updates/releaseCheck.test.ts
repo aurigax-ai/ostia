@@ -609,4 +609,89 @@ describe('registerReleaseCheck', () => {
     expect(await invoke('app:release-state')).toEqual(state(null))
     expect(sent).toEqual([])
   })
+
+  it('a newer release shows a notice that opens its page and stays skipped after a restart', async () => {
+    github.reply = { status: 200, body: body('0.3.0') }
+    register()
+    await vi.advanceTimersByTimeAsync(10_000)
+    await vi.waitFor(() => expect(sent).toEqual([['app:release-available', state('0.3.0')]]))
+    expect(github.requests.map((r) => r.url)).toEqual(['/repos/aurigax-ai/ostia/releases/latest'])
+    expect(github.requests[0].headers['user-agent']).toBe('ostia/0.2.0')
+
+    expect(await invoke('app:release-open')).toBe(true)
+    expect(openExternal.mock.calls).toEqual([[release('0.3.0').url]])
+    await invoke('app:release-dismiss')
+    await vi.waitFor(() => expect(sent.at(-1)).toEqual(['app:release-available', state(null)]))
+
+    handlers.clear()
+    sent.length = 0
+    register()
+    await vi.advanceTimersByTimeAsync(10_000)
+    await vi.waitFor(() => expect(github.requests).toHaveLength(2))
+    expect(await invoke('app:release-check')).toEqual({
+      status: 'available',
+      release: release('0.3.0'),
+    })
+    expect(await invoke('app:release-state')).toEqual(state(null))
+    expect(sent).toEqual([])
+  })
+
+  it('with the automatic check off nothing is asked until the human checks from About', async () => {
+    github.reply = { status: 200, body: body('0.3.0') }
+    register({ behavior: { checkForUpdates: false } })
+    await vi.advanceTimersByTimeAsync(10_000)
+    expect(github.requests).toHaveLength(0)
+
+    expect(await invoke('app:release-check')).toEqual({
+      status: 'available',
+      release: release('0.3.0'),
+    })
+    expect(github.requests).toHaveLength(1)
+    expect(info.mock.calls).toEqual([
+      ['release-check', { trigger: 'manual', outcome: 'available', latest: '0.3.0' }],
+    ])
+
+    expect(await invoke('app:release-open')).toBe(true)
+    expect(openExternal.mock.calls).toEqual([[release('0.3.0').url]])
+  })
+
+  it('a tarball install on the Main channel is offered the newest main build, and Stable again only releases', async () => {
+    const settings = { behavior: { checkForUpdates: false, updateChannel: 'stable' } }
+    const checks = register(settings, '0.2.0', 'tarball')
+    settings.behavior.updateChannel = 'main'
+    checks.settingsChanged()
+    github.reply = {
+      status: 200,
+      body: `[${body('0.3.1-main.5', { prerelease: true })},${body('0.3.0')}]`,
+    }
+    expect(await invoke('app:release-check')).toEqual({
+      status: 'available',
+      release: release('0.3.1-main.5'),
+    })
+    expect(github.requests.map((r) => r.url)).toEqual([
+      '/repos/aurigax-ai/ostia/releases?per_page=30',
+    ])
+
+    settings.behavior.updateChannel = 'stable'
+    checks.settingsChanged()
+    await vi.waitFor(async () =>
+      expect(await invoke('app:release-state')).toMatchObject({ release: null }),
+    )
+    github.reply = { status: 200, body: body('0.3.0') }
+    expect(await invoke('app:release-check')).toEqual({
+      status: 'available',
+      release: release('0.3.0'),
+    })
+    expect(github.requests.at(-1)?.url).toBe('/repos/aurigax-ai/ostia/releases/latest')
+  })
+
+  it('an apt install keeps the channel picker on Stable and says why', async () => {
+    github.reply = { status: 200, body: body('0.3.0') }
+    register({ behavior: { checkForUpdates: false, updateChannel: 'main' } }, '0.2.0', 'apt')
+    expect(await invoke('app:release-check')).toEqual({
+      status: 'available',
+      release: release('0.3.0'),
+    })
+    expect(github.requests.map((r) => r.url)).toEqual(['/repos/aurigax-ai/ostia/releases/latest'])
+  })
 })

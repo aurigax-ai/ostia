@@ -1,12 +1,23 @@
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useUpdateStore } from '@/stores/app/updateStore'
 import type { InstallMethod } from '@shared/app/installMethod'
+import type { ReleaseCheckResult } from '@shared/app/releases'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { UpdateChannelPicker } from './UpdateChannelPicker'
+import { UpdateCheck } from './UpdateCheck'
 
 const installedWith = (method: InstallMethod): void => useUpdateStore.setState({ method })
+
+const answer = (result: ReleaseCheckResult): void => {
+  vi.mocked(window.ostia.update.checkRelease).mockResolvedValue(result)
+}
+
+const release = (version: string) => ({
+  version,
+  url: `https://github.com/aurigax-ai/ostia/releases/tag/v${version}`,
+})
 
 describe('UpdateChannelPicker', () => {
   let updateInit: ReturnType<typeof useUpdateStore.getState>
@@ -68,6 +79,48 @@ describe('UpdateChannelPicker', () => {
       ).toBeInTheDocument()
     },
   )
+
+  it('a tarball install on the Main channel is offered the newest main build, and Stable again only releases', async () => {
+    const user = userEvent.setup()
+    installedWith('tarball')
+    render(<UpdateCheck />)
+
+    const picker = screen.getByRole('combobox', { name: 'Update channel' })
+    expect(picker).toHaveTextContent('Stable')
+    await user.click(picker)
+    await user.click(await screen.findByRole('option', { name: 'Main' }))
+    expect(screen.getByRole('combobox', { name: 'Update channel' })).toHaveTextContent('Main')
+
+    answer({ status: 'available', release: release('1.1.1-main.5') })
+    await user.click(screen.getByRole('button', { name: 'Check for updates' }))
+    expect(await screen.findByText('Version 1.1.1-main.5 is available')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('combobox', { name: 'Update channel' }))
+    await user.click(await screen.findByRole('option', { name: 'Stable' }))
+    expect(screen.queryByText('Version 1.1.1-main.5 is available')).toBeNull()
+
+    answer({ status: 'available', release: release('1.1.0') })
+    await user.click(screen.getByRole('button', { name: 'Check for updates' }))
+    expect(await screen.findByText('Version 1.1.0 is available')).toBeInTheDocument()
+  })
+
+  it('an apt install keeps the channel picker on Stable and says why', async () => {
+    const user = userEvent.setup()
+    installedWith('apt')
+    useSettingsStore.setState({
+      behavior: { ...useSettingsStore.getState().behavior, updateChannel: 'main' },
+    })
+    render(<UpdateCheck />)
+
+    const picker = screen.getByRole('combobox', { name: 'Update channel' })
+    expect(picker).toHaveTextContent('Stable')
+    expect(picker).toBeDisabled()
+    expect(screen.getByText(/stay on Stable/)).toBeInTheDocument()
+
+    answer({ status: 'available', release: release('1.1.0') })
+    await user.click(screen.getByRole('button', { name: 'Check for updates' }))
+    expect(await screen.findByText('Version 1.1.0 is available')).toBeInTheDocument()
+  })
 
   it('shows nothing in a development run', () => {
     installedWith('dev')
