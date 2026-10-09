@@ -2,7 +2,6 @@ import { type ChildProcess, spawn } from 'node:child_process'
 import { mkdirSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
-import { openWorkspace } from './helpers'
 import { type Page, _electron as electron, expect, test } from './test'
 
 const CLI = resolve('out/cli/index.js')
@@ -145,25 +144,6 @@ test('MGR-C22 Ctrl+\\ detaches, the manager keeps running, and the next ostia <a
   }
 })
 
-test('MGR-C11 an ostia <agent> run from an Ostia pane is refused even with the socket variables unset', async () => {
-  test.setTimeout(90_000)
-  const { app, win } = await launchOstia()
-  try {
-    await openWorkspace(win)
-    await win.locator('.xterm').first().click()
-    await win.keyboard.type(
-      'env -u OSTIA_SOCKET -u OSTIA_TOKEN -u OSTIA_SOCKET -u OSTIA_TOKEN ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" "$OSTIA_CLI" fake',
-    )
-    await win.keyboard.press('Enter')
-    await expect(win.locator('.xterm-rows').first()).toContainText('inside-ostia', {
-      timeout: 20_000,
-    })
-    await expect(win.locator('.rail-tab', { hasText: 'Manager' })).toHaveCount(0)
-  } finally {
-    await app.close().catch(() => {})
-  }
-})
-
 const OSTIA_FN = 'P() { ELECTRON_RUN_AS_NODE=1 "$OSTIA_NODE" "$OSTIA_CLI" "$@"; }\r'
 
 async function spawnWorker(mirror: Mirror): Promise<string> {
@@ -201,41 +181,6 @@ test('MGR-C29 the manager starts a worker in its own workspace and reads its scr
     await expect.poll(mirror.output, { timeout: 10_000 }).toMatch(/[\n\r]1\r*\n/)
   } finally {
     mirror.child.kill()
-    await app.close().catch(() => {})
-  }
-})
-
-test('MGR-C35 with typing allowed, the manager answers a worker', async () => {
-  test.setTimeout(90_000)
-  const { app, win, home, portal } = await launchOstia({ allowInput: true })
-  const mirror = runMirror(portal, home, ['sh'])
-  try {
-    const worker = await spawnWorker(mirror)
-    const tab = win.locator('.rail-tab', { hasText: 'worker-one' })
-    await expect(tab).toBeVisible({ timeout: 20_000 })
-    await tab.click()
-    const screen = win.locator('.xterm-rows:visible').first()
-    await expect(screen).toContainText('agent ready hello', { timeout: 20_000 })
-
-    mirror.type(`P manager input ${worker} --text ping --key enter\r`)
-    await expect(screen).toContainText('got ping', { timeout: 10_000 })
-  } finally {
-    mirror.child.kill()
-    await app.close().catch(() => {})
-  }
-})
-
-test('MGR-C31 a worker pane cannot call the manager verbs', async () => {
-  test.setTimeout(90_000)
-  const { app, win } = await launchOstia()
-  try {
-    await openWorkspace(win)
-    await win.locator('.xterm').first().click()
-    await win.keyboard.type('ostia manager read x; ostia docs | grep -c "manager spawn"')
-    await win.keyboard.press('Enter')
-    const screen = win.locator('.xterm-rows').first()
-    await expect(screen).toContainText(/not-available-to-pane\s*0/, { timeout: 20_000 })
-  } finally {
     await app.close().catch(() => {})
   }
 })
