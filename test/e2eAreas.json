@@ -104,8 +104,6 @@
         "src/main/files/watchedFiles.ts"
       ],
       "specs": [
-        "e2e/browser-editor-settings.spec.ts",
-        "e2e/document-find.spec.ts",
         "e2e/markdown-preview.spec.ts",
         "e2e/open-any-file.spec.ts",
         "e2e/pdf-search.spec.ts",
@@ -160,7 +158,6 @@
       ],
       "specs": [
         "e2e/browser-agent.spec.ts",
-        "e2e/browser-editor-settings.spec.ts",
         "e2e/browser-keys.spec.ts",
         "e2e/browser-login.spec.ts",
         "e2e/browser-pick.spec.ts",

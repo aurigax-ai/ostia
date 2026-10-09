@@ -1,15 +1,20 @@
 import { commands } from '@/commands/registry'
+import { SEND_SELECTION_COMMAND, registerSelectionSendCommand } from '@/commands/selectionSend'
 import { openSelectionSend } from '@/lib/agents/selectionSenders'
+import { registerTerminal } from '@/lib/terminal/terminalHandles'
 import { LARGE_FILE_LINES, fileFeatureOptions } from '@/monaco/largeFile'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useArtifactsStore } from '@/stores/files/artifactsStore'
 import { useEditorStatus } from '@/stores/files/editorStatusStore'
 import { useLiveSelectionStore } from '@/stores/terminal/liveSelectionStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { PAD_MAX_BYTES } from '@shared/artifacts/artifacts'
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import type { Terminal } from '@xterm/xterm'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { TARGET_PANE, seedSendTarget } from '../../../../test/mocks/sendTarget'
+import { EditorSettingsSection } from '../settings/BrowserEditorSettings'
 
 const fake = vi.hoisted(() => {
   type Listener = () => void
@@ -111,6 +116,7 @@ const fake = vi.hoisted(() => {
     model: FakeModel | null
     save: (() => void) | null
     actions: { id: string; label: string; run: () => void }[]
+    ranActions: string[]
     position: { lineNumber: number; column: number } | null
     selection: FakeSelection | null
     contentListeners: Listener[]
@@ -137,6 +143,7 @@ const fake = vi.hoisted(() => {
     model: null,
     save: null,
     actions: [],
+    ranActions: [],
     position: null,
     selection: null,
     contentListeners: [],
@@ -195,10 +202,16 @@ const fake = vi.hoisted(() => {
     onDidChangeCursorSelection: (l: Listener) => listen(state.selectionListeners, l),
     onDidBlurEditorText: (l: Listener) => listen(state.blurListeners, l),
     onKeyDown: (l: (e: unknown) => void) => listen(state.keyListeners as Listener[], l as Listener),
-    getAction: (id: string) =>
-      id === 'editor.action.formatDocument' && state.formatRuns
-        ? { run: async () => state.formatRuns?.() }
-        : null,
+    getAction: (id: string) => {
+      if (id === 'editor.action.formatDocument') {
+        return state.formatRuns ? { run: async () => state.formatRuns?.() } : null
+      }
+      return {
+        run: async () => {
+          state.ranActions.push(id)
+        },
+      }
+    },
     onDidChangeModel: (l: Listener) => listen(state.modelListeners, l),
     layout: () => {
       state.layouts += 1
@@ -256,6 +269,7 @@ describe('EditorView', () => {
     fake.state.model = null
     fake.state.save = null
     fake.state.actions = []
+    fake.state.ranActions = []
     fake.state.position = null
     fake.state.formatRuns = null
     fake.state.decorations = []
@@ -290,6 +304,26 @@ describe('EditorView', () => {
     expect(screen.queryByRole('button', { name: 'Edit Markdown source' })).toBeNull()
   })
 
+  it('the find key opens find in the code editor', async () => {
+    vi.mocked(window.ostia.fs.read).mockResolvedValue({
+      ok: true,
+      version: 'v1',
+      text: '# Needle\n\nOne needle, then another needle.\n',
+    })
+    render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/notes.md" />)
+    await waitFor(() => expect(fake.state.model).not.toBeNull())
+    const browserEvent = new KeyboardEvent('keydown', {
+      key: 'F',
+      code: 'KeyF',
+      ctrlKey: true,
+      shiftKey: true,
+    })
+    for (const listener of fake.state.keyListeners) {
+      listener({ browserEvent, preventDefault: vi.fn(), stopPropagation: vi.fn() })
+    }
+    await waitFor(() => expect(fake.state.ranActions).toEqual(['actions.find']))
+  })
+
   it('scrolls without smooth animation while motion is reduced', async () => {
     vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, version: 'v1', text: 'text' })
     act(() => useSettingsStore.getState().setMotion('reduced'))
@@ -299,6 +333,28 @@ describe('EditorView', () => {
 
     act(() => useSettingsStore.getState().setMotion('full'))
     expect(fake.state.optionUpdates.at(-1)).toEqual({ smoothScrolling: true })
+  })
+
+  it('word wrap and tab width from Settings apply to the open editor', async () => {
+    vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, version: 'v1', text: 'text' })
+    render(
+      <>
+        <EditorView workspaceId="w1" paneId="p1" filePath="/w/a.txt" />
+        <EditorSettingsSection />
+      </>,
+    )
+    await waitFor(() => expect(fake.state.model).not.toBeNull())
+    expect(fake.state.createOptions).toMatchObject({ wordWrap: 'off', tabSize: 2 })
+
+    await userEvent.click(screen.getByRole('switch', { name: 'Word wrap' }))
+    await userEvent.click(screen.getByRole('combobox', { name: 'Tab width' }))
+    await userEvent.click(await screen.findByRole('option', { name: '4' }))
+
+    expect(fake.state.optionUpdates.at(-1)).toMatchObject({
+      wordWrap: 'on',
+      tabSize: 4,
+      insertSpaces: true,
+    })
   })
 
   it('does not overwrite a model with unsaved edits when the file is reopened', async () => {
@@ -1073,6 +1129,85 @@ describe('EditorView → Send Selection to Agent', () => {
     )
     expect(await screen.findByText(/Sent to agent shell/)).toBeInTheDocument()
     expect(screen.queryByRole('region', { name: 'Send to agent' })).toBeNull()
+  })
+
+  it('select text in a file and send it to a terminal pane', async () => {
+    registerSelectionSendCommand()
+    const term = { paste: vi.fn(), focus: vi.fn() }
+    const unregister = registerTerminal(TARGET_PANE, term as unknown as Terminal)
+    try {
+      const target = useLayoutStore.getState().byWorkspace.w1.root
+      useLayoutStore.setState({
+        byWorkspace: {
+          w1: {
+            root: {
+              type: 'split',
+              id: 'sp',
+              direction: 'horizontal',
+              children: [
+                {
+                  type: 'pane',
+                  id: 'p1',
+                  kind: 'editor',
+                  title: 'prices.ts',
+                  filePath: '/w/prices.ts',
+                },
+                target,
+              ],
+              sizes: [50, 50],
+            },
+            activePaneId: 'p1',
+            zoomedPaneId: null,
+          },
+        },
+      })
+      commands.setContextProvider(() => ({ activeWorkspaceId: 'w1', activePaneId: 'p1' }))
+      vi.mocked(window.ostia.fs.read).mockResolvedValue({
+        ok: true,
+        version: 'v1',
+        text: 'export const base = 10\nexport const tax = 0.2\nexport const total = 12\n',
+      })
+      render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/prices.ts" />)
+      await waitFor(() => expect(fake.state.model).not.toBeNull())
+      select(2, 1, 2, 23)
+
+      const browserEvent = new KeyboardEvent('keydown', {
+        key: 'E',
+        code: 'KeyE',
+        ctrlKey: true,
+        shiftKey: true,
+      })
+      act(() => {
+        for (const listener of fake.state.keyListeners)
+          listener({ browserEvent, stopPropagation() {} })
+      })
+
+      const panel = await screen.findByRole('region', { name: 'Send to agent' })
+      expect(within(panel).getAllByRole('radio')).toHaveLength(1)
+      await userEvent.type(screen.getByLabelText('Note for the agent'), 'is this tax rate right?')
+      await userEvent.click(screen.getByRole('button', { name: 'Send' }))
+
+      await waitFor(() =>
+        expect(window.ostia.selection.send).toHaveBeenCalledWith({
+          capture: {
+            kind: 'text',
+            file: '/w/prices.ts',
+            view: 'source',
+            range: { startLine: 2, startColumn: 1, endLine: 2, endColumn: 23 },
+            text: 'export const tax = 0.2',
+          },
+          sourcePaneId: 'p1',
+          targetPaneId: TARGET_PANE,
+          note: 'is this tax rate right?',
+        }),
+      )
+      expect(await screen.findByText(/The report is at its prompt/)).toBeInTheDocument()
+      expect(term.paste).toHaveBeenCalledWith('@/tmp/ostia-reports-1/selection-1.md ')
+    } finally {
+      unregister()
+      commands.setContextProvider(() => ({ activeWorkspaceId: null, activePaneId: null }))
+      commands.unregister(SEND_SELECTION_COMMAND)
+    }
   })
 
   it('answers the palette command for its pane and says so when nothing is selected', async () => {

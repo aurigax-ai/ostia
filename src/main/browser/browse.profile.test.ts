@@ -1,15 +1,21 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { ControlMethod } from '../control/controlServer'
 
 const guests = new Map<number, { id: number; isDestroyed: () => boolean }>()
+const methods = new Map<string, ControlMethod>()
 
 vi.mock('electron', () => ({
   ipcMain: { handle: vi.fn(), on: vi.fn() },
   webContents: { fromId: (id: number) => guests.get(id) ?? null },
 }))
 vi.mock('../approvals/controlElevation', () => ({ ensureCaps: vi.fn(async () => {}) }))
+vi.mock('../control/controlServer', () => ({
+  registerTargetableMethod: (name: string, m: ControlMethod) => methods.set(name, m),
+}))
 
 const { ensureCaps } = await import('../approvals/controlElevation')
-const { SHARED_PROFILE_DETAIL, defaultBrowserPane, resolveGuest } = await import('./browse')
+const { SHARED_PROFILE_DETAIL, defaultBrowserPane, registerBrowseMethods, resolveGuest } =
+  await import('./browse')
 const { registerPane, removePane } = await import('../control/idRegistry')
 const { ownWorkspaceReach } = await import('../../../test/reach')
 
@@ -97,5 +103,46 @@ describe('the default browser pane', () => {
     expect(defaultBrowserPane(deps, ctx())).toBe('agent-tab')
     expect(await resolveGuest(deps, ctx())).toMatchObject({ ok: true, rendererPaneId: 'agent-tab' })
     expect(ensureCaps).not.toHaveBeenCalled()
+  })
+})
+
+describe('ostia browse open and close on an existing pane', () => {
+  it('loads a second url into the open pane and closes that pane', async () => {
+    let url = 'http://x/first'
+    const guest = {
+      id: 2,
+      isDestroyed: () => false,
+      loadURL: vi.fn(async (next: string) => {
+        url = next
+      }),
+      getURL: () => url,
+      getTitle: () => 't',
+    }
+    guests.set(2, guest)
+    browserPanes.set('agent-tab', 2)
+    const execCommand = vi.fn(async () => ({ ok: true as const, value: undefined }))
+    registerBrowseMethods({
+      ...deps,
+      execCommand: execCommand as never,
+      screenshotRoots: [],
+      consoleBuffers: new Map(),
+      errorBuffers: new Map(),
+    })
+
+    expect(
+      await methods.get('browse.open')?.handler({ url: 'http://x/again' }, ctx() as never),
+    ).toMatchObject({
+      ok: true,
+      url: 'http://x/again',
+    })
+    expect(guest.loadURL).toHaveBeenCalledWith('http://x/again')
+    expect(execCommand).not.toHaveBeenCalled()
+
+    expect(await methods.get('browse.close')?.handler({}, ctx() as never)).toEqual({ ok: true })
+    expect(execCommand).toHaveBeenCalledWith(
+      { windowId: 'w1', workspaceId: 'ws', paneId: 'agent-tab' },
+      'pane.close',
+      { paneId: 'agent-tab' },
+    )
   })
 })

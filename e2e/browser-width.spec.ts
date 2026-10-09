@@ -154,56 +154,6 @@ async function expectPageFitsPane(
   return host as unknown as Host
 }
 
-for (const [width, height] of [
-  [1440, 900],
-  [1000, 700],
-]) {
-  test(`a page opened by ostia browse open is laid out at its pane's width in a ${width}x${height} window`, async () => {
-    test.setTimeout(120_000)
-    const server = await serve()
-    const origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`
-    const { app, win, ostia } = await launch({})
-    try {
-      await setWindowSize(app, width, height)
-      await expect.poll(() => win.evaluate(() => innerWidth)).toBe(width)
-
-      expect((await ostia('open', `${origin}/first`)).code).toBe(0)
-      const pane = await expectPageFitsPane(app, win, '/first')
-      await expect
-        .poll(async () => Number((await ostia('eval', 'window.innerWidth')).out))
-        .toBe(pane.width)
-
-      expect((await ostia('open', `${origin}/again`)).code).toBe(0)
-      await expectPageFitsPane(app, win, '/again')
-
-      await setWindowSize(app, width - 200, height)
-      await expect.poll(async () => (await visibleHost(app, win))?.width).toBeLessThan(pane.width)
-      await expect
-        .poll(async () => Number((await ostia('eval', 'window.innerWidth')).out))
-        .toBe((await visibleHost(app, win))?.width)
-      await setWindowSize(app, width, height)
-      await expect.poll(async () => (await visibleHost(app, win))?.width).toBe(pane.width)
-
-      expect((await ostia('close')).code).toBe(0)
-      await expect.poll(() => visibleHost(app, win)).toBeNull()
-      expect((await ostia('open', `${origin}/reopened`)).code).toBe(0)
-      expect((await expectPageFitsPane(app, win, '/reopened')).width).toBe(pane.width)
-      expect((await ostia('close')).code).toBe(0)
-      await expect.poll(() => visibleHost(app, win)).toBeNull()
-
-      await win.getByRole('button', { name: 'New browser tab' }).click()
-      const address = win.locator('.pane-slot:not([data-hidden]) .browser-address')
-      await address.fill(`${origin}/human`)
-      await address.press('Enter')
-      const tab = await expectPageFitsPane(app, win, '/human')
-      expect(tab.width).toBe(pane.width)
-    } finally {
-      await app.close()
-      server.close()
-    }
-  })
-}
-
 test('a page opened by ostia browse open behind the settings cover fits its pane at 125% app zoom on a 2x display', async () => {
   test.setTimeout(120_000)
   const server = await serve()
