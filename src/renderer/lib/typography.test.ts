@@ -21,17 +21,17 @@ const RELATIVE_SCALE_FILES = new Map([
 ])
 
 const SETTINGS_FONT_FILES = new Map([
-  ['src/renderer/components/Terminal.tsx', 'passes the terminal font settings to xterm'],
+  ['src/renderer/components/terminal/Terminal.tsx', 'passes the terminal font settings to xterm'],
   ['src/renderer/lib/ghosttyTerminal.ts', 'passes the terminal font settings to Ghostty'],
   ['src/renderer/lib/readOnlyTerminal.ts', 'passes the terminal font settings to xterm'],
-  ['src/renderer/components/Editor.tsx', 'passes the editor font settings to Monaco'],
-  ['src/renderer/components/DiffView.tsx', 'passes the editor font settings to Monaco'],
+  ['src/renderer/components/editor/Editor.tsx', 'passes the editor font settings to Monaco'],
+  ['src/renderer/components/editor/DiffView.tsx', 'passes the editor font settings to Monaco'],
   [
-    'src/renderer/components/InputEditor.tsx',
+    'src/renderer/components/terminal/InputEditor.tsx',
     'draws over xterm cells, so it takes the terminal font, cell height and cell width',
   ],
-  ['src/renderer/components/ThemeSettings.tsx', 'previews the terminal and editor fonts'],
-  ['src/renderer/components/FontPicker.tsx', 'shows each family in its own face'],
+  ['src/renderer/components/settings/ThemeSettings.tsx', 'previews the terminal and editor fonts'],
+  ['src/renderer/components/settings/FontPicker.tsx', 'shows each family in its own face'],
   ['src/renderer/stores/settingsStore.ts', 'the font settings model itself'],
   ['src/renderer/settings/settingsSchema.ts', 'the JSON schema of the font settings'],
 ])

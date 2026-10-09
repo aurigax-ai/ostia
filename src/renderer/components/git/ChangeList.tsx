@@ -1,3 +1,4 @@
+import { IconButton } from '@/components/common/IconButton'
 import {
   ArrowCounterClockwiseIcon,
   ArrowDownIcon,
@@ -28,7 +29,6 @@ import { fmt, useDict } from '../../i18n/useDict'
 import { type TreeNode, buildFileTree } from '../../lib/gitFileTree'
 import { AREA_ORDER, leaves, rowIndent, splitPath } from '../../lib/gitView'
 import { useSettingsStore } from '../../stores/settingsStore'
-import { IconButton } from '../IconButton'
 
 type GitDict = Dict['git']
 

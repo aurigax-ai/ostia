@@ -1,4 +1,4 @@
-import { IconButton, type IconButtonProps } from '@/components/IconButton'
+import { IconButton, type IconButtonProps } from '@/components/common/IconButton'
 import { cn } from '@/lib/utils'
 import type { UIMessage } from 'ai'
 import type { ComponentProps, HTMLAttributes } from 'react'

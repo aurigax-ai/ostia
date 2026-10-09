@@ -101,12 +101,12 @@ describe('planTests', () => {
     expect(
       planTests(['test/quarantine.json'], readers, [
         'src/main/tmux/keptShells.integration.test.ts',
-        'src/renderer/components/SettingsPanel.test.tsx',
+        'src/renderer/components/settings/SettingsPanel.test.tsx',
         'e2e/sandbox.spec.ts',
       ]),
     ).toEqual({
       node: ['test/quarantine.test.ts', 'src/main/tmux/keptShells.integration.test.ts'],
-      dom: ['src/renderer/components/SettingsPanel.test.tsx'],
+      dom: ['src/renderer/components/settings/SettingsPanel.test.tsx'],
     })
   })
 

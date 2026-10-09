@@ -7,6 +7,11 @@ import 'allotment/dist/style.css'
 import './index.css'
 import './findHighlight.css'
 
+import {
+  AppErrorBoundary,
+  CrashTestHook,
+  RecoveryScreen,
+} from '@/components/shell/AppErrorBoundary'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { App } from './App'
@@ -24,7 +29,6 @@ import { registerRegionCaptureCommand } from './commands/regionCapture'
 import { registerSelectionSendCommand } from './commands/selectionSend'
 import { wireTerminalStateBridge } from './commands/terminalStateBridge'
 import { registerWindowCommands } from './commands/windowCommands'
-import { AppErrorBoundary, CrashTestHook, RecoveryScreen } from './components/AppErrorBoundary'
 import { startActivationResume } from './lib/activationResume'
 import { startAgentRunningReport } from './lib/agentRunningReport'
 import { startAppMenu } from './lib/appMenu'

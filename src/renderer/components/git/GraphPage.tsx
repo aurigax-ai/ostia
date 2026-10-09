@@ -1,3 +1,4 @@
+import { IconButton } from '@/components/common/IconButton'
 import { CloudIcon, GitBranchIcon, TagIcon, XIcon } from '@phosphor-icons/react'
 import type {
   CommitRef,
@@ -45,7 +46,6 @@ import {
   visibleRange,
 } from '../../lib/gitView'
 import { useSettingsStore } from '../../stores/settingsStore'
-import { IconButton } from '../IconButton'
 import {
   type ChangeHandlers,
   ChangeSections,

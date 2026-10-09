@@ -1,3 +1,5 @@
+import { ChatView } from '@/components/assist/ChatView'
+import { settingsSections } from '@/components/settings/SettingsPanel'
 import { cn } from '@/lib/utils'
 import { AppWindowIcon } from '@phosphor-icons/react'
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
@@ -41,8 +43,6 @@ import { useSettingsStore } from '../stores/settingsStore'
 import { useUIStore } from '../stores/uiStore'
 import { useWindowsStore } from '../stores/windowsStore'
 import { type Workspace, useWorkspacesStore } from '../stores/workspacesStore'
-import { ChatView } from './ChatView'
-import { settingsSections } from './SettingsPanel'
 import {
   Command,
   CommandEmpty,
