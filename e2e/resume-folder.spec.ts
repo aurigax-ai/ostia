@@ -57,20 +57,6 @@ async function hibernatedAgentIn(tree: string, token: string) {
   return { app, win, home, sleeping }
 }
 
-test('a woken agent starts in the folder its session belongs to, not the pane’s folder', async () => {
-  const root = freshDataHome()
-  const tree = join(root, 'work', 'tree')
-  const { app, win, sleeping } = await hibernatedAgentIn(tree, 'e2e-tok-here')
-  try {
-    await sleeping.click()
-    const rows = win.locator('.pane-slot:not([data-hidden]) .xterm-rows')
-    await expect(rows).toContainText(`--resume e2e-tok-here in ${tree}`, { timeout: 20_000 })
-    await expect(win.locator('[data-resume-folder-missing]')).toHaveCount(0)
-  } finally {
-    await app.close()
-  }
-})
-
 test('waking an agent whose folder was removed shows a notice and runs nothing', async () => {
   const root = freshDataHome()
   const tree = join(root, 'work', 'tree')

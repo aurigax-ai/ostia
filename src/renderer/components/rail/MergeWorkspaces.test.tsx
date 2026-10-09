@@ -235,4 +235,42 @@ describe('merging workspaces', () => {
 
     expect(await screen.findByText('zsh: tail -f log keeps running')).toBeInTheDocument()
   })
+
+  it('merges a workspace into another one in the same folder after the human confirms', async () => {
+    seed(['api', 'web'])
+    const loop = 'for i in $(seq 1 600); do echo tick-$i; sleep 0.1; done'
+    useBlocksStore.setState({
+      running: { 'web-p': 'b1' },
+      byPane: { 'web-p': [{ id: 'b1', paneId: 'web-p', command: loop } as CommandBlock] },
+    })
+    render(
+      <>
+        <DeckRail />
+        <MergeConfirmDialog />
+      </>,
+    )
+    const user = userEvent.setup()
+    fireEvent.contextMenu(screen.getByRole('button', { name: /web/ }))
+    await user.click(await screen.findByRole('menuitem', { name: /^Merge into / }))
+
+    const dialog = await screen.findByRole('alertdialog', { name: 'Merge “web” into “api”?' })
+    expect(dialog).toHaveTextContent('Terminals: 1')
+    expect(dialog).toHaveTextContent(/seq 1 600.* keeps running/)
+    const merge = screen.getByRole('button', { name: 'Merge' })
+    await waitFor(() => expect(merge).toHaveFocus())
+    await user.click(merge)
+
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
+    expect(window.ostia.workspace.merge).toHaveBeenCalledWith('web', 'api')
+    expect(screen.queryByRole('button', { name: /web/ })).toBeNull()
+    expect(screen.getByRole('button', { name: /api/ })).toBeInTheDocument()
+    const target = useLayoutStore.getState().byWorkspace.api
+    expect(target.root).toMatchObject({
+      type: 'split',
+      children: [
+        { type: 'pane', id: 'api-p' },
+        { type: 'pane', id: 'web-p' },
+      ],
+    })
+  })
 })

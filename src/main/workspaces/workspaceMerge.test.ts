@@ -1,6 +1,7 @@
+import { ipcMain } from 'electron'
 import { describe, expect, it, vi } from 'vitest'
 import type { SandboxMergeRefusal } from '../../shared/sandbox/sandbox'
-import { checkMerge } from './workspaceMerge'
+import { checkMerge, registerWorkspaceMergeIpc } from './workspaceMerge'
 
 vi.mock('electron', () => ({ ipcMain: { handle: vi.fn() } }))
 
@@ -47,5 +48,17 @@ describe('checkMerge', () => {
     const d = deps({ sandbox: 'sandbox-differs' })
     expect(checkMerge(d, '7', 'a', 'b')).toEqual({ ok: false, error: 'sandbox-differs' })
     expect(d.sandboxRefusal).toHaveBeenCalledWith('a', 'b')
+  })
+
+  it('merges in main over workspace:merge only when the check allows it', () => {
+    const merge = vi.fn()
+    registerWorkspaceMergeIpc({ ...deps(), merge })
+    const call = vi.mocked(ipcMain.handle).mock.calls.find(([name]) => name === 'workspace:merge')
+    const handle = call?.[1] as (e: unknown, ...args: unknown[]) => unknown
+
+    expect(handle({ sender: { id: 7 } }, 'a', 'c')).toEqual({ ok: false, error: 'not-owned' })
+    expect(merge).not.toHaveBeenCalled()
+    expect(handle({ sender: { id: 7 } }, 'a', 'b')).toEqual({ ok: true })
+    expect(merge).toHaveBeenCalledWith('a', 'b')
   })
 })

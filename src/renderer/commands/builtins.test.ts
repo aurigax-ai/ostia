@@ -14,6 +14,7 @@ import { useEditorStatus } from '@/stores/files/editorStatusStore'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useCloseConfirmStore } from '@/stores/workspaces/closeConfirmStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { saveSnapshotNow } from '@/stores/workspaces/persistence'
 import * as surfaceSlots from '@/stores/workspaces/surfaceSlotsStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { SCRIPT_CAPABILITIES } from '@shared/permissions/scriptTokens'
@@ -1931,6 +1932,45 @@ describe('agent resume', () => {
     const r = await commands.execWith(ctx('s1', pane.id), 'agent.resume')
     expect(insert).not.toHaveBeenCalled()
     expect(r).toMatchObject({ ok: true, result: { resumed: false } })
+  })
+
+  it('restores tabs and offers to resume the agent a tab was running', async () => {
+    useWorkspacesStore.getState().addWorkspace('/w')
+    const sid = useWorkspacesStore.getState().activeWorkspaceId ?? ''
+    useLayoutStore.getState().ensure(sid)
+    await commands.execWith(ctx(sid, null), 'tab.new')
+    const tab = useLayoutStore.getState().byWorkspace[sid].activePaneId
+    await commands.execWith(ctx(sid, tab), 'resume.set', {
+      agent: 'claude',
+      id: 'ffe55127-cb1f-4efd',
+    })
+
+    saveSnapshotNow()
+    const saved = JSON.parse(
+      JSON.stringify(vi.mocked(window.ostia.workspace.save).mock.calls.at(-1)?.[0]),
+    )
+    expect(saved.workspaces[0].root).toMatchObject({ type: 'tabs' })
+    useWorkspacesStore.setState(workspacesInit, true)
+    useLayoutStore.setState(layoutInit, true)
+    useWorkspacesStore.getState().hydrate(saved)
+
+    const layout = useLayoutStore.getState().byWorkspace[sid]
+    expect(layout.root.type === 'tabs' && layout.root.children).toHaveLength(2)
+    expect(layout.activePaneId).toBe(tab)
+    const insert = vi.spyOn(blockActions, 'insertCommand').mockReturnValue(true)
+    commands.setContextProvider(() => ({ activeWorkspaceId: sid, activePaneId: tab }))
+    try {
+      for (const mac of [false, true]) {
+        insert.mockClear()
+        const press = { key: 'R', ctrlKey: !mac, metaKey: mac, shiftKey: true, altKey: false }
+        expect(runAppChord({ ...press, preventDefault: () => {} }, mac)).toBe(true)
+        await vi.waitFor(() =>
+          expect(insert).toHaveBeenCalledWith(tab, 'claude --resume ffe55127-cb1f-4efd', true),
+        )
+      }
+    } finally {
+      commands.setContextProvider(() => ({ activeWorkspaceId: null, activePaneId: null }))
+    }
   })
 })
 

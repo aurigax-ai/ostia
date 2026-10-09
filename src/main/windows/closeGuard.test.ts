@@ -185,6 +185,17 @@ describe('confirmQuit', () => {
     expect(spec.asked).toEqual([])
   })
 
+  it('quitting with an agent idle at its prompt and auto-resume on asks nothing', async () => {
+    const win = answeringWindow(9, [], false)
+    const spec = check({
+      workspaces: { 9: [{ id: 'w1', name: 'api' }] },
+      processes: [{ paneId: 'p1', workspaceId: 'w1', program: 'claude', agentRunning: true }],
+    })
+    expect(await confirmQuit([win], win, spec.check)).toBe(true)
+    expect(win.focus).not.toHaveBeenCalled()
+    expect(spec.asked).toEqual([])
+  })
+
   it('asks in the window that answered with what it runs', async () => {
     const win = answeringWindow(
       9,

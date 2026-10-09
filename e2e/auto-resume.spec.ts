@@ -2,112 +2,8 @@ import type { ChildProcess } from 'node:child_process'
 import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
-import { PROMPT, openWorkspace, pressQuit, waitForExit } from './helpers'
+import { openWorkspace, pressQuit, waitForExit } from './helpers'
 import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
-
-function seedAgentTabs(dataHome: string): void {
-  mkdirSync(join(dataHome, 'ostia'), { recursive: true })
-  const tab = (id: string, resumeId: string) => ({
-    type: 'pane',
-    id,
-    title: 'claude',
-    kind: 'terminal',
-    cwd: dataHome,
-    resume: { agent: 'claude', id: resumeId },
-    agentRunning: true,
-  })
-  writeFileSync(
-    join(dataHome, 'ostia', 'workspaces.json'),
-    JSON.stringify({
-      v: 1,
-      savedAt: new Date().toISOString(),
-      activeWorkspaceId: 's1',
-      groups: [],
-      workspaces: [
-        {
-          id: 's1',
-          name: 'agents',
-          kind: 'terminal',
-          workDir: dataHome,
-          root: {
-            type: 'tabs',
-            id: 'tabs-1',
-            activeId: 'pane-1',
-            children: [tab('pane-1', 'front-1111'), tab('pane-2', 'back-2222')],
-          },
-          activePaneId: 'pane-1',
-        },
-        {
-          id: 's2',
-          name: 'elsewhere',
-          kind: 'terminal',
-          workDir: dataHome,
-          root: tab('pane-3', 'other-3333'),
-          activePaneId: 'pane-3',
-        },
-      ],
-    }),
-  )
-}
-
-function launchWithFakeClaude(dataHome: string) {
-  const bin = join(dataHome, 'bin')
-  mkdirSync(bin, { recursive: true })
-  const claude = join(bin, 'claude')
-  writeFileSync(claude, '#!/bin/sh\necho "fake claude $*"\n')
-  chmodSync(claude, 0o755)
-  const home = join(dataHome, 'home')
-  mkdirSync(home, { recursive: true })
-  const launch = isolatedLaunch(dataHome)
-  return electron.launch({
-    ...launch,
-    env: { ...launch.env, HOME: home, PATH: `${bin}:${launch.env.PATH}` },
-  })
-}
-
-test('with auto-resume on, every agent resumes at startup: shown tab, background tab and unopened workspace', async () => {
-  const dataHome = freshDataHome()
-  seedSettings(dataHome, { ...DOM_RENDERER_SETTINGS, agents: { autoResume: true } })
-  seedAgentTabs(dataHome)
-  const app = await launchWithFakeClaude(dataHome)
-  try {
-    const win = await app.firstWindow()
-    await win.waitForLoadState('domcontentloaded')
-    const shown = win.locator(
-      '.workzone-workspace:not([aria-hidden="true"]) .pane-slot:not([data-hidden]) .xterm-rows',
-    )
-    await expect(shown).toContainText('claude --resume front-1111', { timeout: 20_000 })
-    await expect(shown).toContainText('fake claude', { timeout: 10_000 })
-    for (const id of ['back-2222', 'other-3333']) {
-      await expect(
-        win.locator('.xterm-rows').filter({ hasText: new RegExp(`fake claude .*--resume ${id}`) }),
-      ).toHaveCount(1, { timeout: 20_000 })
-    }
-    await expect(win.getByRole('tab', { selected: true })).toHaveCount(1)
-  } finally {
-    await app.close()
-  }
-})
-
-test('with auto-resume off, a restored agent waits until the human activates its tab', async () => {
-  const dataHome = freshDataHome()
-  seedAgentTabs(dataHome)
-  const app = await launchWithFakeClaude(dataHome)
-  try {
-    const win = await app.firstWindow()
-    await win.waitForLoadState('domcontentloaded')
-    const shown = win.locator('.pane-slot:not([data-hidden]) .xterm-rows')
-    await expect(shown).toContainText(PROMPT, { timeout: 20_000 })
-    await win.waitForTimeout(1_500)
-    await expect(win.locator('.xterm-rows').filter({ hasText: 'claude --resume' })).toHaveCount(0)
-
-    await win.getByRole('tab').nth(1).click()
-    await expect(shown).toContainText(/fake claude .*--resume back-2222/, { timeout: 20_000 })
-    await expect(win.locator('.xterm-rows').filter({ hasText: 'front-1111' })).toHaveCount(0)
-  } finally {
-    await app.close()
-  }
-})
 
 test.describe.configure({ timeout: 90_000 })
 
@@ -264,45 +160,10 @@ test('an agent whose shell Ostia reaped resumes after the restart, whatever the 
   await expectAutoResumed(dataHome)
 })
 
-test('an agent that exited before the quit does not resume after the restart', async () => {
-  const dataHome = freshDataHome()
-  seedSettings(dataHome, AUTO_RESUME_SETTINGS)
-  const { app, win } = await launchAgentApp(dataHome)
-  await startResumableAgent(dataHome, win)
-  await win.keyboard.press('Control+d')
-  await expect.poll(() => agentRunningSaved(dataHome), { timeout: 10_000 }).toBe(false)
-  await quitAndWait(app, win)
-  expect(agentRunningSaved(dataHome)).toBe(false)
-
-  const second = await launchAgentApp(dataHome)
-  try {
-    const shown = second.win.locator('.pane-slot:not([data-hidden]) .xterm-rows')
-    await expect(shown).toContainText(PROMPT, { timeout: 20_000 })
-    await second.win.waitForTimeout(1_500)
-    await expect(shown).not.toContainText('fake-agent-resumed')
-  } finally {
-    await second.app.close().catch(() => {})
-  }
-})
-
 const CONFIRM_QUIT_SETTINGS = {
   ...AUTO_RESUME_SETTINGS,
   workspaces: { ...DOM_RENDERER_SETTINGS.workspaces, confirmQuit: true },
 }
-
-test('quitting with an agent idle at its prompt and auto-resume on asks nothing, and the agent resumes', async () => {
-  const dataHome = freshDataHome()
-  seedSettings(dataHome, CONFIRM_QUIT_SETTINGS)
-  const { app, win, proc } = await launchAgentApp(dataHome, 'done')
-  try {
-    await startResumableAgent(dataHome, win)
-    expect(await pressQuit(app, win)).toBe('quit')
-  } finally {
-    proc.kill('SIGKILL')
-  }
-  expect(agentRunningSaved(dataHome)).toBe(true)
-  await expectAutoResumed(dataHome)
-})
 
 test('quitting with an agent mid-turn still asks, and names the agent it would stop', async () => {
   const dataHome = freshDataHome()

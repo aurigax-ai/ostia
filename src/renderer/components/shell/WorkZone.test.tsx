@@ -1,11 +1,14 @@
 import '@testing-library/jest-dom/vitest'
 import { registerBuiltinCommands } from '@/commands/builtins'
+import { DeckRail } from '@/components/rail/DeckRail'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { resetIds } from '@/layout/tree'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { saveSnapshotNow } from '@/stores/workspaces/persistence'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
+import type { AppSnapshot } from '@shared/types'
 import { act, cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
@@ -20,6 +23,15 @@ vi.mock('@/components/editor/DiffView', () => ({ DiffView: () => null }))
 function renderZone(): void {
   render(
     <TooltipProvider>
+      <WorkZone />
+    </TooltipProvider>,
+  )
+}
+
+function renderShell(): void {
+  render(
+    <TooltipProvider>
+      <DeckRail />
       <WorkZone />
     </TooltipProvider>,
   )
@@ -45,6 +57,22 @@ describe('WorkZone', () => {
     resetIds()
     vi.restoreAllMocks()
   })
+
+  function restart(): AppSnapshot | null {
+    saveSnapshotNow()
+    const saved = vi.mocked(window.ostia.workspace.save).mock.calls.at(-1)?.[0] ?? null
+    cleanup()
+    useWorkspacesStore.setState(workspacesInit, true)
+    useLayoutStore.setState(layoutInit, true)
+    useWorkspacesStore.getState().hydrate(saved && JSON.parse(JSON.stringify(saved)))
+    renderShell()
+    return saved
+  }
+
+  function openTerminalWorkspace(): void {
+    useWorkspacesStore.getState().addWorkspace()
+    useLayoutStore.getState().ensure(useWorkspacesStore.getState().workspaces[0].id)
+  }
 
   it('shows the empty state with the new-workspace shortcut when there are no workspaces', () => {
     renderZone()
@@ -114,6 +142,60 @@ describe('WorkZone', () => {
     expect(showWorkspaces).toHaveBeenCalled()
   })
 
+  it('with auto-resume on, every agent resumes at startup: shown tab, background tab and unopened workspace', () => {
+    const before = useSettingsStore.getState().agents
+    useSettingsStore.setState({ agents: { ...before, autoResume: true } })
+    const agent = (id: string) => ({
+      type: 'pane' as const,
+      id,
+      title: 'claude',
+      kind: 'terminal' as const,
+      resume: { agent: 'claude' as const, id: `resume-${id}` },
+      agentRunning: true as const,
+    })
+    try {
+      useWorkspacesStore.getState().hydrate({
+        v: 1,
+        savedAt: '',
+        activeWorkspaceId: 's1',
+        groups: [],
+        workspaces: [
+          {
+            id: 's1',
+            name: 'agents',
+            kind: 'terminal',
+            workDir: '/w',
+            root: {
+              type: 'tabs',
+              id: 'tabs-1',
+              activeId: 'pane-1',
+              children: [agent('pane-1'), agent('pane-2')],
+            },
+            activePaneId: 'pane-1',
+          },
+          {
+            id: 's2',
+            name: 'elsewhere',
+            kind: 'terminal',
+            workDir: '/w',
+            root: agent('pane-3'),
+            activePaneId: 'pane-3',
+          },
+        ],
+      })
+      renderZone()
+
+      for (const id of ['pane-1', 'pane-2', 'pane-3']) {
+        expect(screen.getByTestId(`terminal-${id}`)).toBeInTheDocument()
+      }
+      expect(screen.getAllByRole('tab', { selected: true })).toHaveLength(1)
+    } finally {
+      act(() => {
+        useSettingsStore.setState({ agents: before })
+      })
+    }
+  })
+
   it('returns to the empty state when the last workspace closes', () => {
     useWorkspacesStore.getState().addWorkspace()
     renderZone()
@@ -125,5 +207,48 @@ describe('WorkZone', () => {
     expect(screen.getByRole('heading', { name: 'No workspaces' })).toBeInTheDocument()
     expect(screen.queryByTestId(/^terminal-/)).toBeNull()
     expect(useWorkspacesStore.getState().workspaces).toEqual([])
+  })
+
+  it('boots with no workspaces when there is nothing to restore', () => {
+    useWorkspacesStore.getState().hydrate(null)
+    renderShell()
+
+    expect(screen.getByRole('heading', { name: 'No workspaces' })).toBeInTheDocument()
+    expect(screen.queryByTestId(/^terminal-/)).toBeNull()
+    expect(document.querySelector('.rail-tab')).toBeNull()
+  })
+
+  it('restores zero workspaces after the last workspace was closed', async () => {
+    openTerminalWorkspace()
+    renderShell()
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Close' }))
+    expect(screen.getByRole('heading', { name: 'No workspaces' })).toBeInTheDocument()
+
+    expect(restart()?.workspaces).toEqual([])
+
+    expect(screen.getByRole('heading', { name: 'No workspaces' })).toBeInTheDocument()
+    expect(screen.queryByTestId(/^terminal-/)).toBeNull()
+    expect(document.querySelector('.rail-tab')).toBeNull()
+  })
+
+  it('keeps an emptied, renamed workspace across a restart', async () => {
+    openTerminalWorkspace()
+    renderShell()
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'Close tab' }))
+    expect(screen.queryByTestId(/^terminal-/)).toBeNull()
+    expect(screen.getByRole('button', { name: /New terminal/ })).toBeInTheDocument()
+
+    await user.dblClick(screen.getByText('home'))
+    const name = screen.getByRole('textbox', { name: 'Workspace name' })
+    await user.clear(name)
+    await user.type(name, 'payments{Enter}')
+    expect(screen.getByText('payments')).toHaveClass('tab-title')
+
+    restart()
+
+    expect(screen.getByText('payments')).toHaveClass('tab-title')
+    expect(screen.getByRole('button', { name: /New terminal/ })).toBeInTheDocument()
+    expect(screen.queryByTestId(/^terminal-/)).toBeNull()
   })
 })

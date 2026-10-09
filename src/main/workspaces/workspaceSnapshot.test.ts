@@ -1,8 +1,12 @@
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { type BrowserWindow, ipcMain } from 'electron'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AppSnapshot, SnapshotNode } from '../../shared/types'
+import { AgentRunningPanes } from '../agents/agentRunning'
+import { MAIN_SLOT } from '../windows/windowBook'
+import { WindowBroker } from '../windows/windowBroker'
 import {
   SCROLLBACK_CAP_BYTES,
   clearPersisted,
@@ -10,6 +14,7 @@ import {
   loadSnapshot,
   parseHandoff,
   parseSnapshot,
+  pendingRestoredScrollback,
   saveScrollback,
   saveSnapshot,
   scrollbackPath,
@@ -19,6 +24,8 @@ import {
   takeRestoredScrollback,
   trimScrollback,
 } from './workspaceSnapshot'
+
+vi.mock('electron', () => ({ ipcMain: { handle: vi.fn(), on: vi.fn() }, screen: {} }))
 
 function snap(overrides?: Partial<AppSnapshot>): AppSnapshot {
   return {
@@ -587,6 +594,29 @@ describe('clearPersisted', () => {
     loadRestoredScrollback()
     expect(takeRestoredScrollback('pane-1')).toBe('after')
   })
+
+  it('erases stored history when workspace restore is switched off', () => {
+    const broker = new WindowBroker({
+      createWindow: vi.fn(),
+      holdPtys: vi.fn(),
+      execCommand: vi.fn(),
+      agents: new AgentRunningPanes(() => {}),
+      isSandboxed: () => false,
+      isScratch: () => false,
+      reveal: vi.fn(),
+      onList: vi.fn(),
+    })
+    broker.register()
+    broker.track({ webContents: { id: 7 }, on: vi.fn() } as unknown as BrowserWindow, MAIN_SLOT)
+    const save = vi.mocked(ipcMain.on).mock.calls.find(([ch]) => ch === 'workspace:save')?.[1]
+    if (!save) throw new Error('workspace:save is not handled')
+    const sender = { sender: { id: 7 } } as Electron.IpcMainEvent
+
+    save(sender, snap())
+    expect(existsSync(snapshotPath())).toBe(true)
+    save(sender, null)
+    expect(existsSync(snapshotPath())).toBe(false)
+  })
 })
 
 describe('trimScrollback', () => {
@@ -627,6 +657,13 @@ describe('saveScrollback / takeRestoredScrollback', () => {
     expect(stashedScreen('pane-peek', 'w1', 'w1')).toBe('asleep output')
     expect(takeRestoredScrollback('pane-peek')).toBe('asleep output')
     expect(stashedScreen('pane-peek', 'w1', 'w1')).toBeNull()
+  })
+
+  it('a hibernated pane shows its saved screen after a restart', async () => {
+    stashScrollback('pane-asleep', 'frozen-screen-381 up')
+    await saveScrollback(pendingRestoredScrollback())
+    loadRestoredScrollback()
+    expect(stashedScreen('pane-asleep', 'w1', 'w1')).toBe('frozen-screen-381 up')
   })
 
   it('refuses a stashed screen to a window that does not own the pane', () => {

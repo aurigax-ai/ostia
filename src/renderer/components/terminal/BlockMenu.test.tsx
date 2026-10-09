@@ -1,3 +1,4 @@
+import { SaveWorkflowDialog } from '@/components/palette/SaveWorkflowDialog'
 import { createPane, firstPaneOfKind } from '@/layout/tree'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useAssistStore } from '@/stores/assist/assistStore'
@@ -119,9 +120,11 @@ describe('BlockMenu', () => {
     renderMenu()
     fireEvent.contextMenu(screen.getByRole('button', { name: 'gutter' }))
 
+    render(<SaveWorkflowDialog />)
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Save as workflow…' }))
 
     expect(useWorkflowsStore.getState().saveCommand).toBe('make build')
+    expect(await screen.findByLabelText('Name')).toHaveValue('make build')
   })
 
   it('opens the chat pane with the block output attached, without sending it', async () => {
