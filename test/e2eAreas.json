@@ -390,12 +390,7 @@
         "test/fixtures/mcp/",
         "test/fixtures/extensions-assist"
       ],
-      "specs": [
-        "e2e/assistant.spec.ts",
-        "e2e/assistant-chat.spec.ts",
-        "e2e/chat-editing.spec.ts",
-        "e2e/mcp-oauth.spec.ts"
-      ]
+      "specs": ["e2e/assistant.spec.ts", "e2e/assistant-chat.spec.ts", "e2e/chat-editing.spec.ts"]
     },
     {
       "name": "completions",

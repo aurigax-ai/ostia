@@ -289,6 +289,79 @@ describe('ChatToolsSettings', () => {
     ).toHaveAttribute('role', 'alert')
   })
 
+  it('the human adds the server in Settings, signs in, tests it, and a chat lists its tools', async () => {
+    const url = 'http://127.0.0.1:4100/mcp'
+    const tools = ['echo', 'env', 'fail', 'slow', 'exit'].map((name) => ({
+      name,
+      description: '',
+      inputSchema: {},
+    }))
+    const required = status({
+      name: 'fake',
+      transport: 'http',
+      state: 'error',
+      error: 'HTTP 401',
+      auth: 'required',
+    })
+    const signedIn = status({
+      name: 'fake',
+      transport: 'http',
+      state: 'ready',
+      auth: 'signed-in',
+      tools,
+    })
+    let live: McpServerStatus[] = []
+    const push = (next: McpServerStatus[]): void => {
+      live = next
+      useChatToolsStore.getState().setMcp(next)
+    }
+    vi.mocked(window.ostia.chatTools.mcpRefresh).mockImplementation(async () => live)
+    vi.mocked(window.ostia.chatTools.mcpTest)
+      .mockResolvedValueOnce({ ok: false, error: 'HTTP 401' })
+      .mockResolvedValueOnce({ ok: true, tools: 5 })
+    vi.mocked(window.ostia.chatTools.mcpSignIn).mockImplementation(async () => {
+      push([signedIn])
+      return { ok: true }
+    })
+    vi.mocked(window.ostia.chatTools.mcpSignOut).mockImplementation(async () => {
+      push([required])
+      return [required]
+    })
+    const user = userEvent.setup()
+    render(<ChatToolsSettings />)
+    await user.click(screen.getByRole('button', { name: 'Add server' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Add MCP server' })
+    await user.type(within(dialog).getByLabelText('Name'), 'fake')
+    await user.click(within(dialog).getByRole('combobox', { name: 'Type' }))
+    await user.click(await screen.findByRole('option', { name: 'URL' }))
+    await user.type(within(dialog).getByLabelText('URL'), url)
+    live = [required]
+    await user.click(within(dialog).getByRole('button', { name: 'Add server' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+
+    const row = screen.getByRole('listitem')
+    expect(row).toHaveAttribute('data-mcp', 'fake')
+    await waitFor(() => expect(row).toHaveTextContent('Sign-in required'))
+    await user.click(within(row).getByRole('button', { name: 'Test fake' }))
+    expect(await within(row).findByText(/^Test failed: .*401/)).toBeInTheDocument()
+
+    await user.click(within(row).getByRole('button', { name: 'Sign in to fake' }))
+    expect(window.ostia.chatTools.mcpSignIn).toHaveBeenCalledWith('fake')
+    await waitFor(() => expect(row).toHaveTextContent('Signed in'))
+    expect(row).toHaveTextContent('Connected · 5 tools')
+    expect(within(row).queryByRole('button', { name: 'Sign in to fake' })).toBeNull()
+
+    await user.click(within(row).getByRole('button', { name: 'Test fake' }))
+    expect(await within(row).findByText('Test passed · 5 tools')).toBeInTheDocument()
+    const saved = JSON.stringify(useSettingsStore.getState().assistant.mcpServers)
+    expect(saved).toContain(url)
+    expect(saved).not.toMatch(/oauth|token|client-/i)
+
+    await user.click(within(row).getByRole('button', { name: 'Sign out of fake' }))
+    expect(window.ostia.chatTools.mcpSignOut).toHaveBeenCalledWith('fake')
+    await waitFor(() => expect(row).toHaveTextContent('Sign-in required'))
+  })
+
   it('adds a skill folder from the folder picker, counts its skills and removes it', async () => {
     vi.mocked(window.ostia.sync.pickFolder).mockResolvedValue('/home/u/skills/')
     vi.mocked(window.ostia.chatTools.skills).mockResolvedValue([
