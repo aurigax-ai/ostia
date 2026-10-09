@@ -7,6 +7,7 @@ files:
   - "!out/extensions/**"
   - "!out/marketplace/**"
   - "!out/artifact-runtime/**"
+  - "!node_modules/esbuild/bin/**"
   - package.json
   - resources/icon.png
 extraResources:
@@ -23,7 +24,6 @@ asarUnpack:
   - out/tsnet/**
   - node_modules/@anthropic-ai/sandbox-runtime/**
   - node_modules/@vscode/ripgrep-*/**
-  - node_modules/esbuild/**
   - node_modules/@esbuild/**
 npmRebuild: true
 linux:

@@ -41,9 +41,8 @@ describe('release packaging', () => {
       to: 'artifact-runtime',
     })
     expect(builder.files).toContain('!out/artifact-runtime/**')
-    expect(builder.asarUnpack).toEqual(
-      expect.arrayContaining(['node_modules/esbuild/**', 'node_modules/@esbuild/**']),
-    )
+    expect(builder.asarUnpack).toContain('node_modules/@esbuild/**')
+    expect(builder.files).toContain('!node_modules/esbuild/bin/**')
     const build = JSON.parse(readFileSync(join(process.cwd(), 'package.json'), 'utf8')).scripts
       .build
     expect(build).toContain('build:artifact-runtime')
