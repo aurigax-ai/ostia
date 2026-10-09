@@ -10,6 +10,7 @@ import {
   loadSnapshot,
   parseHandoff,
   parseSnapshot,
+  pendingRestoredScrollback,
   saveScrollback,
   saveSnapshot,
   scrollbackPath,
@@ -627,6 +628,13 @@ describe('saveScrollback / takeRestoredScrollback', () => {
     expect(stashedScreen('pane-peek', 'w1', 'w1')).toBe('asleep output')
     expect(takeRestoredScrollback('pane-peek')).toBe('asleep output')
     expect(stashedScreen('pane-peek', 'w1', 'w1')).toBeNull()
+  })
+
+  it('a hibernated pane shows its saved screen after a restart', async () => {
+    stashScrollback('pane-asleep', 'frozen-screen-381 up')
+    await saveScrollback(pendingRestoredScrollback())
+    loadRestoredScrollback()
+    expect(stashedScreen('pane-asleep', 'w1', 'w1')).toBe('frozen-screen-381 up')
   })
 
   it('refuses a stashed screen to a window that does not own the pane', () => {

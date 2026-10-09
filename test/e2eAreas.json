@@ -576,7 +576,6 @@
       "specs": [
         "e2e/auto-resume.spec.ts",
         "e2e/hibernate-background-work.spec.ts",
-        "e2e/hibernate-frozen.spec.ts",
         "e2e/hibernate-group.spec.ts",
         "e2e/pane-wake.spec.ts",
         "e2e/ports-hibernation.spec.ts",

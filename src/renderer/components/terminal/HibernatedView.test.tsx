@@ -213,6 +213,38 @@ describe('hibernated terminal pane', () => {
     expect(exec).toHaveBeenCalledWith('pane.close', { paneId: 'h1' })
   })
 
+  it('a hibernated pane keeps its last screen frozen and read-only, and wakes with one copy of it', async () => {
+    seed()
+    vi.mocked(window.ostia.pty.stashed).mockResolvedValue('frozen-screen-381 up\r\n')
+    vi.spyOn(blockActions, 'runWhenIdle').mockReturnValue(() => {})
+    render(
+      <>
+        <Pane tabs={[sleeping]} shownId="h1" activePaneId="h1" workspaceId="s1" />
+        <SurfacePool />
+      </>,
+    )
+    const host = surfaceHost('h1')
+    document.body.appendChild(host)
+    expect(within(host).getByText('Asleep')).toBeInTheDocument()
+    const [frozen] = terms
+    await vi.waitFor(() => expect(frozen?.written).toEqual(['frozen-screen-381 up\r\n']))
+    for (const key of [...'typed-while-asleep', 'Enter']) {
+      expect(frozen?.keyHandler?.(new KeyboardEvent('keydown', { key }))).toBe(false)
+    }
+    expect(frozen?.options.disableStdin).toBe(true)
+    expect(window.ostia.pty.write).not.toHaveBeenCalled()
+    expect(screen.getByLabelText('Hibernated')).toBeInTheDocument()
+
+    await userEvent.click(within(host).getByRole('button', { name: 'Resume claude' }))
+    expect(within(host).queryByText('Asleep')).toBeNull()
+    expect(within(host).getByTestId('terminal-h1')).toBeInTheDocument()
+    expect(frozen?.disposed).toBe(true)
+    expect(terms).toHaveLength(1)
+    expect(frozen?.written).toEqual(['frozen-screen-381 up\r\n'])
+    expect(window.ostia.pty.write).not.toHaveBeenCalled()
+    host.remove()
+  })
+
   it('marks the tab hibernated', () => {
     seed()
     render(<Pane tabs={[sleeping]} shownId="h1" activePaneId={'h1'} workspaceId="w" />)
