@@ -11,6 +11,7 @@ import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useHibernateSkippedStore } from '@/stores/workspaces/hibernateSkippedStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useMergeConfirmStore } from '@/stores/workspaces/mergeConfirmStore'
+import { useWindowsStore } from '@/stores/workspaces/windowsStore'
 import { type Workspace, useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { zhHant } from '@shared/app/dict'
 import {
@@ -52,6 +53,7 @@ describe('DeckRail', () => {
   let mergeConfirmInit: ReturnType<typeof useMergeConfirmStore.getState>
   let blocksInit: ReturnType<typeof useBlocksStore.getState>
   let pluginsInit: ReturnType<typeof usePluginsStore.getState>
+  let windowsInit: ReturnType<typeof useWindowsStore.getState>
 
   beforeAll(() => {
     workspacesInit = useWorkspacesStore.getState()
@@ -62,6 +64,7 @@ describe('DeckRail', () => {
     mergeConfirmInit = useMergeConfirmStore.getState()
     blocksInit = useBlocksStore.getState()
     pluginsInit = usePluginsStore.getState()
+    windowsInit = useWindowsStore.getState()
   })
 
   afterEach(() => {
@@ -74,6 +77,7 @@ describe('DeckRail', () => {
     useMergeConfirmStore.setState(mergeConfirmInit, true)
     useBlocksStore.setState(blocksInit, true)
     usePluginsStore.setState(pluginsInit, true)
+    useWindowsStore.setState(windowsInit, true)
     useSandboxStore.setState({ enabled: {} })
     useHibernateSkippedStore.setState({ skipped: null })
     vi.restoreAllMocks()
@@ -125,6 +129,35 @@ describe('DeckRail', () => {
     expect(screen.queryByText('/home/alpha')).toBeNull()
     expect(screen.queryByText('fix login')).toBeNull()
     expect(rowFor(/alpha/).querySelector('.rail-meta')).toBeNull()
+  })
+
+  it('a pane moved to a new window rejoins its workspace when it comes back', () => {
+    seedWorkspaces()
+    useWindowsStore.getState().setInfo('1', false)
+    const moved = {
+      id: 'w-moved',
+      name: 'api',
+      workDir: '/home/api',
+      state: 'idle' as const,
+      unreadAt: 0,
+      panes: [],
+    }
+    useWindowsStore.getState().setList([
+      { windowId: '1', detached: false, workspaces: [] },
+      { windowId: '2', detached: true, workspaces: [moved] },
+    ])
+    render(<DeckRail />)
+
+    expect(screen.getAllByLabelText('In another window')).toHaveLength(1)
+    expect(screen.getByRole('button', { name: /api/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /alpha/ })).toBeInTheDocument()
+
+    act(() =>
+      useWindowsStore.getState().setList([{ windowId: '1', detached: false, workspaces: [] }]),
+    )
+
+    expect(screen.queryByLabelText('In another window')).toBeNull()
+    expect(screen.queryByRole('button', { name: /api/ })).toBeNull()
   })
 
   it('collapses each row to its icon with no close button or details', () => {

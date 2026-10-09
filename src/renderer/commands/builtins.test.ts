@@ -290,6 +290,12 @@ describe('builtins route to store actions', () => {
     })
   })
 
+  it('settings.set needs settings-write, which a pane does not hold by default', () => {
+    const described = commands.describe().find((c) => c.id === 'settings.set')
+    expect(described?.capabilities).toEqual(['settings-write'])
+    expect(DEFAULT_CAPABILITIES).not.toContain('settings-write')
+  })
+
   it('settings.set reports a rejected path as a failed command', async () => {
     const r = await commands.execWith(ctx(null, null), 'settings.set', {
       key: 'init',

@@ -1,8 +1,11 @@
 import '@testing-library/jest-dom/vitest'
 import { commands } from '@/commands/registry'
 import type { PaneNode } from '@/layout/types'
+import { PANE_DND, startPaneDragTracking } from '@/lib/panes/paneDrag'
 import { useQuestionsStore } from '@/stores/agents/questionsStore'
 import { useUIStore } from '@/stores/app/uiStore'
+import { usePaneDnd } from '@/stores/workspaces/paneDndStore'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createPortal } from 'react-dom'
@@ -92,6 +95,49 @@ describe('Pane', () => {
   it('shows no question notice on a pane that asked nothing', () => {
     render(<Pane tabs={[pane]} shownId={pane.id} activePaneId={pane.id} workspaceId="w" />)
     expect(screen.queryByRole('region', { name: 'Agent asks' })).toBeNull()
+  })
+
+  it('dropping a detached pane onto the main window moves it there and closes the empty window', () => {
+    const workspaces = useWorkspacesStore.getState()
+    useWorkspacesStore.setState({
+      workspaces: [
+        { id: 'w', name: 'api', kind: 'terminal', workDir: '/home/u/api', state: 'idle' },
+      ],
+      activeWorkspaceId: 'w',
+    })
+    const stop = startPaneDragTracking()
+    try {
+      const { container } = render(
+        <Pane tabs={[pane]} shownId={pane.id} activePaneId={pane.id} workspaceId="w" />,
+      )
+      const frame = container.querySelector('.pane') as HTMLElement
+      vi.spyOn(frame, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 0, 800, 600))
+      const drag = (type: string, target: Element, at: MouseEventInit = {}): void => {
+        const event = new MouseEvent(type, { bubbles: true, cancelable: true, ...at })
+        Object.defineProperty(event, 'dataTransfer', {
+          value: { types: [PANE_DND], getData: () => 'pane-x', dropEffect: 'none' },
+        })
+        fireEvent(target, event)
+      }
+
+      drag('dragenter', document.body)
+      const layer = container.querySelector('.pane-drop-layer') as HTMLElement
+      drag('dragover', layer, { clientX: 790, clientY: 300 })
+      expect(container.querySelector('.pane-drop-right')).toBeInTheDocument()
+      drag('drop', layer, { clientX: 790, clientY: 300 })
+
+      expect(window.ostia.windows.dropPane).toHaveBeenCalledWith({
+        paneId: 'pane-x',
+        workspaceId: 'w',
+        placement: { paneId: 'p9', zone: 'right' },
+      })
+    } finally {
+      stop()
+      act(() => {
+        usePaneDnd.getState().reset()
+        useWorkspacesStore.setState(workspaces, true)
+      })
+    }
   })
 
   describe('tabs', () => {
