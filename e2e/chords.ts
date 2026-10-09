@@ -1,6 +1,7 @@
 export const isMac = process.platform === 'darwin'
 
 export const chords = {
+  newWorkspace: isMac ? 'Meta+n' : 'Control+Shift+N',
   palette: isMac ? 'Meta+Shift+p' : 'Control+Shift+p',
   find: isMac ? 'Meta+f' : 'Control+Shift+f',
   copy: isMac ? 'Meta+c' : 'Control+Shift+c',
@@ -19,4 +20,8 @@ export const chords = {
   resumeAgent: 'ControlOrMeta+Shift+R',
   nextTab: 'Control+Tab',
   previousTab: 'Control+Shift+Tab',
+}
+
+export const labels = {
+  newWorkspace: isMac ? '⌘N' : 'Ctrl+Shift+N',
 }
