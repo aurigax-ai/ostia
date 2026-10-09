@@ -5,11 +5,13 @@ import { findPane, resetIds } from '@/layout/tree'
 import type { PaneNode } from '@/layout/types'
 import { resetPointerView } from '@/lib/attention/pointerView'
 import { signalPane } from '@/lib/attention/workspaceActivity'
+import { useApprovalsStore } from '@/stores/agents/approvalsStore'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
+import type { ApprovalRecord } from '@shared/permissions/approvals'
 import type { NotificationEntry } from '@shared/types'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -361,6 +363,38 @@ describe('NotificationCenter', () => {
     ])
     act(() => changed())
     expect(await screen.findByText('fresh')).toBeInTheDocument()
+  })
+
+  it('lists answered permission requests with how each was answered', async () => {
+    const { workspaceId, a } = twoPanes()
+    const approvalsInit = useApprovalsStore.getState()
+    const answered = (id: string, outcome: ApprovalRecord['outcome']): ApprovalRecord => ({
+      id,
+      kind: 'capability',
+      paneId: a,
+      workspaceId,
+      caps: ['settings-write'],
+      action: 'Set Setting',
+      detail: '',
+      at: 0,
+      outcome,
+      answeredAt: 0,
+      revocable: false,
+    })
+    useApprovalsStore.setState({
+      history: [answered('approval-2', 'deny'), answered('approval-1', 'once')],
+    })
+    vi.mocked(window.ostia.notifications.list).mockResolvedValue([])
+    try {
+      renderBell()
+      await userEvent.setup().click(screen.getByRole('button', { name: /Notifications/ }))
+      const inbox = await screen.findByRole('region', { name: 'Permission requests' })
+      expect(inbox).toHaveTextContent('change settings')
+      expect(inbox).toHaveTextContent('Allowed once')
+      expect(inbox).toHaveTextContent('Denied')
+    } finally {
+      act(() => useApprovalsStore.setState(approvalsInit, true))
+    }
   })
 
   it('names the extension on its notifications and opens its panel at their path on click', async () => {

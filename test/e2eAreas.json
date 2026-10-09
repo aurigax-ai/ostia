@@ -709,7 +709,7 @@
         "src/renderer/components/agents/ApprovalsInbox.tsx",
         "src/renderer/stores/agents/approvalsStore.ts"
       ],
-      "specs": ["e2e/approvals.spec.ts"]
+      "specs": []
     },
     {
       "name": "user actions",
