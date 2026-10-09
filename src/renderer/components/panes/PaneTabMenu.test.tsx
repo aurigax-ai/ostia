@@ -68,6 +68,14 @@ describe('PaneTabMenu zoom', () => {
     expect(await screen.findByRole('menuitem', { name: 'Lock tab' })).toBeInTheDocument()
     expect(screen.queryByRole('menuitem', { name: /Zoom pane/ })).toBeNull()
   })
+
+  it('an agent closes a busy tab without a confirm, but never a tab the human locked', async () => {
+    seed(split, null)
+    const exec = vi.spyOn(commands, 'exec').mockResolvedValue({ ok: true, result: undefined })
+    openMenu()
+    await userEvent.setup().click(await screen.findByRole('menuitem', { name: 'Lock tab' }))
+    expect(exec).toHaveBeenCalledWith('pane.toggleLock', { paneId: 'left' })
+  })
 })
 
 describe('user actions in the pane header and tab menu', () => {
