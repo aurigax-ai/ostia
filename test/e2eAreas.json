@@ -271,7 +271,6 @@
       "specs": [
         "e2e/extension-locales.spec.ts",
         "e2e/extension-on-demand.spec.ts",
-        "e2e/extensions.spec.ts",
         "e2e/extensions-v2.spec.ts",
         "e2e/tools.spec.ts"
       ]
