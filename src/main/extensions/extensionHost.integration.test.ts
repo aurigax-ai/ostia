@@ -1,9 +1,10 @@
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { EXTENSION_API_VERSION } from '../../shared/extensionApi'
-import type { ExtensionCaller, ExtensionSidebarItem } from '../../shared/extensions'
+import type { ExtensionCaller, ExtensionInfo, ExtensionSidebarItem } from '../../shared/extensions'
 import type { CommandResult } from '../../shared/types'
 import { registerControlServer, stopControlServer } from '../control/controlServer'
 import { registerPaneListMethods } from '../panes/paneList'
@@ -11,6 +12,7 @@ import { ExtensionHost, MAX_RESTARTS, registerExtensionMethods } from './extensi
 import { ExtensionStore } from './extensionStore'
 
 const fixtures = resolve(__dirname, '../../../test/fixtures/extensions')
+const userFixtures = resolve(__dirname, '../../../test/fixtures/extensions-e2e')
 
 const caller: ExtensionCaller = {
   kind: 'pane',
@@ -47,7 +49,10 @@ describe('ExtensionHost over a real control socket with a fixture extension proc
     dir = mkdtempSync(join(tmpdir(), 'ostia-ext-int-'))
     const socketPath = join(dir, 'control.sock')
     host = new ExtensionHost({
-      roots: [{ dir: fixtures, builtin: true }],
+      roots: [
+        { dir: fixtures, builtin: true },
+        { dir: userFixtures, builtin: false },
+      ],
       store: new ExtensionStore(join(dir, 'extensions.json')),
       socketPath: () => socketPath,
       nodePath: process.execPath,
@@ -229,5 +234,34 @@ describe('ExtensionHost over a real control socket with a fixture extension proc
       ok: false,
       error: 'extension-disabled',
     })
+  })
+
+  it('a user extension is approved, opens its panel from the palette, and runs a ostia command', async () => {
+    const hello = (): ExtensionInfo | undefined => host.list().find((e) => e.id === 'hello')
+    expect(hello()).toMatchObject({ status: 'pending-approval', enabled: false })
+    expect(await host.invoke('hello', 'greet', { argv: ['e2e'] }, caller)).toMatchObject({
+      ok: false,
+      error: 'extension-disabled',
+    })
+
+    host.approve('hello')
+    expect(hello()).toMatchObject({ enabled: true, granted: ['notify'], panel: { title: 'Hello' } })
+    expect(hello()?.commands).toContainEqual(
+      expect.objectContaining({ id: 'open', title: 'Hello: Open Panel', palette: true }),
+    )
+
+    expect(await host.invoke('hello', 'open', null, host.userCaller('s1'))).toEqual({ ok: true })
+    expect(openPanelIn).toHaveBeenCalledWith({ extId: 'hello', workspaceId: 's1' })
+    const panel = await host.resolvePanel('hello', { workspaceId: 's1', locale: 'en' })
+    expect(panel.ok && readFileSync(fileURLToPath(panel.src), 'utf8')).toContain(
+      'Hello from a file panel',
+    )
+
+    expect(await host.invoke('hello', 'greet', { argv: ['e2e'] }, caller)).toMatchObject({
+      ok: true,
+      text: 'greeted e2e',
+    })
+    const item = await until(() => sidebar().find((i) => i.extId === 'hello'))
+    expect(item).toMatchObject({ key: 'greeting', text: 'hello e2e' })
   })
 })

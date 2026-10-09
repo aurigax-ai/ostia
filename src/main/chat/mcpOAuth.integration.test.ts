@@ -331,6 +331,36 @@ describe('MCP OAuth sign-in against the fake protected server', () => {
     expect(await signInToMcp(deps, 'local')).toEqual({ ok: false, error: 'not-http' })
     expect(await signInToMcp(deps, 'nope')).toEqual({ ok: false, error: 'unknown-server' })
   })
+
+  it('the human adds the server in Settings, signs in, tests it, and a chat lists its tools', async () => {
+    const server = await fake()
+    const { host, deps, stored } = setup([http(server.url)])
+    host.refresh()
+    expect((await waitFor(host, 'error')).auth).toBe('required')
+    expect(await server.stats()).toMatchObject({ registrations: 0, authorizations: 0 })
+    const refused = await host.test('remote')
+    expect(refused.ok ? '' : refused.error).toMatch(/401/)
+
+    expect(await signInToMcp(deps, 'remote')).toEqual({ ok: true })
+    const ready = await waitFor(host, 'ready')
+    expect(ready.auth).toBe('signed-in')
+    expect(ready.tools).toHaveLength(5)
+    expect(await server.stats()).toMatchObject({
+      registrations: 1,
+      authorizations: 1,
+      exchanges: 1,
+    })
+    expect(await host.test('remote')).toEqual({ ok: true, tools: 5 })
+
+    expect(Object.keys(stored().remote)).toEqual([MCP_OAUTH_KEY])
+    expect(JSON.stringify(stored())).not.toContain('access_token')
+    expect(JSON.stringify(deps.settings())).toContain(server.url)
+    expect(JSON.stringify(deps.settings())).not.toMatch(/oauth|token|client-/i)
+
+    signOutOfMcp(deps, 'remote')
+    expect(stored()).toEqual({})
+    expect((await waitFor(host, 'error')).auth).toBe('required')
+  })
 })
 
 describe('McpHost.test', () => {

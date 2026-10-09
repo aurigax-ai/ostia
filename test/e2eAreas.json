@@ -260,10 +260,8 @@
         "test/fixtures/extensions"
       ],
       "specs": [
-        "e2e/agent-plugin.spec.ts",
         "e2e/extension-locales.spec.ts",
         "e2e/extension-on-demand.spec.ts",
-        "e2e/extensions.spec.ts",
         "e2e/extensions-v2.spec.ts",
         "e2e/tools.spec.ts"
       ]
@@ -383,12 +381,7 @@
         "test/fixtures/mcp/",
         "test/fixtures/extensions-assist"
       ],
-      "specs": [
-        "e2e/assistant.spec.ts",
-        "e2e/assistant-chat.spec.ts",
-        "e2e/chat-editing.spec.ts",
-        "e2e/mcp-oauth.spec.ts"
-      ]
+      "specs": ["e2e/assistant.spec.ts", "e2e/assistant-chat.spec.ts", "e2e/chat-editing.spec.ts"]
     },
     {
       "name": "completions",

@@ -400,6 +400,39 @@ describe('BrowseExtensions', () => {
     ).toBeVisible()
     expect(field).toHaveValue('wrong')
   })
+
+  it('an unlisted extension stays out of Settings until its install code is typed', async () => {
+    const info = marketplace({ unlisted: true, extensions: [] })
+    await browse(stateWith(info))
+    const card = within(screen.getByRole('region', { name: 'Marketplaces' })).getByRole(
+      'listitem',
+      { name: 'Acme extensions' },
+    )
+    expect(within(card).getByText('This marketplace lists no extensions.')).toBeVisible()
+    expect(screen.queryByRole('listitem', { name: 'Tides' })).toBeNull()
+    vi.mocked(window.ostia.marketplace.installCode).mockResolvedValue({
+      ok: false,
+      error: 'unknown-code',
+      state: stateWith(info),
+    })
+    const code = within(card).getByRole('textbox', { name: 'Install code for Acme extensions' })
+    await userEvent.type(code, 'hello{Enter}')
+    expect(
+      await screen.findByText('No unlisted extension in this marketplace has this install code.'),
+    ).toBeVisible()
+    vi.mocked(window.ostia.marketplace.installCode).mockResolvedValue({
+      ok: true,
+      state: stateWith(marketplace({ unlisted: true, extensions: [TIDES] }), ['tides']),
+    })
+    await userEvent.clear(code)
+    await userEvent.type(code, 'abcdefghijklmnopqrstuvwx23{Enter}')
+    expect(window.ostia.marketplace.installCode).toHaveBeenLastCalledWith(
+      'abc123',
+      'abcdefghijklmnopqrstuvwx23',
+    )
+    const row = await within(results()).findByRole('listitem', { name: 'Tides' })
+    expect(within(row).getByText('Installed', { exact: true })).toBeVisible()
+  })
 })
 
 describe('Uninstall and source on the Extensions page', () => {

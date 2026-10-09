@@ -2,6 +2,8 @@ import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { ExtensionHost } from './extensionHost'
+import { ExtensionStore } from './extensionStore'
 import {
   LANGUAGE_FILE_MAX_BYTES,
   LANGUAGE_STRING_MAX,
@@ -101,6 +103,48 @@ describe('loadLanguagePacks', () => {
       'list.json: must be a JSON object',
       '../secret.json: outside the extension',
     ])
+  })
+
+  it('the Traditional Chinese pack is an extension: pick it, keep it across a restart, lose it when disabled', () => {
+    const root = extension({
+      'langpack-zh-hant/ostia.json': JSON.stringify({
+        id: 'langpack-zh-hant',
+        name: '繁體中文 (Traditional Chinese)',
+        version: '1.0.0',
+        api: '3.0',
+        category: 'langpack',
+        locales: ['zh-Hant'],
+        contributes: { languages: [{ id: 'zh-Hant', label: '繁體中文', path: 'zh-Hant.json' }] },
+      }),
+      'langpack-zh-hant/zh-Hant.json': JSON.stringify({ settings: { title: '設定' } }),
+    })
+    const broadcast = vi.fn()
+    const host = new ExtensionHost({
+      roots: [{ dir: root, builtin: true }],
+      store: new ExtensionStore(join(extension({}), 'extensions.json')),
+      socketPath: () => join(root, 'none.sock'),
+      nodePath: process.execPath,
+      workDirForWorkspace: () => undefined,
+      broadcast,
+      openPanelIn: vi.fn(),
+      notify: vi.fn(),
+      log: () => {},
+    })
+    const deps = { languages: () => host.languages(), onError: vi.fn() }
+    expect(loadLanguagePacks(deps)).toEqual([
+      {
+        extId: 'langpack-zh-hant',
+        id: 'zh-Hant',
+        label: '繁體中文',
+        catalog: { settings: { title: '設定' } },
+      },
+    ])
+
+    const list = host.setEnabled('langpack-zh-hant', false)
+
+    expect(broadcast).toHaveBeenCalledWith('extensions:changed', list)
+    expect(loadLanguagePacks(deps)).toEqual([])
+    expect(deps.onError).not.toHaveBeenCalled()
   })
 
   it('keeps the first extension that provides a language', () => {
