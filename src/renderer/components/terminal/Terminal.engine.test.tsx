@@ -1,6 +1,7 @@
 import '@testing-library/jest-dom/vitest'
 import { loadGhostty } from '@/lib/terminal/ghosttyEngine'
 import { createFileLinkProvider } from '@/lib/terminal/terminalFileLinks'
+import { terminalFor } from '@/lib/terminal/terminalHandles'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useEditorRevealStore } from '@/stores/files/editorRevealStore'
@@ -329,4 +330,47 @@ describe('TerminalView engines', () => {
       }
     })
   }
+
+  it('a single-line paste goes straight in without its newline, and confirmation can be turned off', async () => {
+    const user = userEvent.setup()
+    const { container } = await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
+    await waitFor(() => expect(window.ostia.pty.attach).toHaveBeenCalled())
+    const input = container.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement
+    input.focus()
+
+    await navigator.clipboard.writeText('echo ostiaplain\n')
+    await user.keyboard('{Control>}{Shift>}V{/Shift}{/Control}')
+    await waitFor(() =>
+      expect(window.ostia.pty.write).toHaveBeenCalledWith('p1', 'echo ostiaplain'),
+    )
+    expect(screen.queryByRole('dialog')).toBeNull()
+
+    act(() => useSettingsStore.getState().setTerminal({ warnOnRiskyPaste: false }))
+    await navigator.clipboard.writeText('\necho ostiaquiet77\n')
+    await user.keyboard('{Control>}{Shift>}V{/Shift}{/Control}')
+    await waitFor(() =>
+      expect(window.ostia.pty.write).toHaveBeenCalledWith(
+        'p1',
+        expect.stringContaining('echo ostiaquiet77'),
+      ),
+    )
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('lowering scrollback in Settings trims history in an open terminal', async () => {
+    const lines = Array.from({ length: 2000 }, (_, i) => `${i + 1}`)
+    vi.mocked(window.ostia.pty.attach).mockResolvedValue({
+      created: true,
+      buffer: `${lines.join('\r\n')}\r\nscrolldone`,
+      cursor: 0,
+      dropped: false,
+    })
+    await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
+    const topLine = (): number =>
+      Number(terminalFor('p1')?.buffer.active.getLine(0)?.translateToString(true))
+    await waitFor(() => expect(topLine()).toBe(1))
+
+    act(() => useSettingsStore.getState().setTerminal({ scrollbackLines: 1000 }))
+    expect(topLine()).toBeGreaterThan(900)
+  })
 })
