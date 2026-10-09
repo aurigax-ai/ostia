@@ -1,8 +1,12 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { registerBuiltinCommands } from '@/commands/builtins'
 import { commands } from '@/commands/registry'
+import { createPane, tabsOf } from '@/layout/tree'
 import { useKeymapStore } from '@/stores/app/keymapStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { en } from '@shared/app/dict'
 import {
   type ChordSpec,
@@ -52,10 +56,14 @@ import {
 
 const initialSettings = useSettingsStore.getState()
 const initialKeymap = useKeymapStore.getState()
+const initialLayout = useLayoutStore.getState()
+const initialWorkspaces = useWorkspacesStore.getState()
 
 afterEach(() => {
   useSettingsStore.setState(initialSettings, true)
   useKeymapStore.setState(initialKeymap, true)
+  useLayoutStore.setState(initialLayout, true)
+  useWorkspacesStore.setState(initialWorkspaces, true)
 })
 
 const bind = (keybindings: KeybindingMap): void => useSettingsStore.setState({ keybindings })
@@ -1203,6 +1211,29 @@ describe('Linux tab, browser and quit chords', () => {
     expect(preventDefault).toHaveBeenCalledTimes(1)
     expect(exec).toHaveBeenCalledWith('app.quit')
     exec.mockRestore()
+  })
+
+  it('Ctrl+PageDown and Ctrl+PageUp cycle the tabs of the focused pane on Linux', () => {
+    if (!commands.has('palette.toggle')) registerBuiltinCommands()
+    const first = createPane('terminal')
+    const second = createPane('terminal')
+    useWorkspacesStore.setState({
+      workspaces: [{ id: 's1', name: 's1', kind: 'terminal', workDir: '/w', state: 'idle' }],
+      activeWorkspaceId: 's1',
+    })
+    useLayoutStore.setState({
+      byWorkspace: {
+        s1: { root: tabsOf(second.id, first, second), activePaneId: second.id, zoomedPaneId: null },
+      },
+    })
+    const press = (k: string, mods: Partial<KeyLike>): string | null => {
+      expect(runAppChord({ ...key(k, mods), preventDefault: vi.fn() }, false), k).toBe(true)
+      const { root } = useLayoutStore.getState().byWorkspace.s1
+      return root.type === 'tabs' ? root.activeId : null
+    }
+    expect(press('PageDown', ctrl)).toBe(first.id)
+    expect(press('PageUp', ctrl)).toBe(second.id)
+    expect(press('Tab', ctrl)).toBe(first.id)
   })
 
   it('go to the address bar with Ctrl+L and reload with Ctrl+R, keeping the older keys', () => {
