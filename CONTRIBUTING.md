@@ -12,7 +12,7 @@ Conventions for people and coding agents (Claude Code, Codex) working in this re
     - when a change needs e2e evidence, run only the specs you touched on CI: `gh workflow run ci.yml --ref <branch> -f full=true -f specs=e2e/<spec>.ts` (see CI below)
     - macOS-only behaviour (menus, Cmd keys) on a real Mac. For a bug fix, revert only the code, keep the new test, and confirm the test fails.
     - scan the whole branch for secrets (tokens, keys, certificates); nothing may match
-5. **Open a PR.** First line of the description: `Closes #N` (one line per issue). Then why, what changed, how it was tested, and what is not verified yet. Same labels and milestone as the issue. Check the link with `gh pr view <N> --json closingIssuesReferences`.
+5. **Open a PR.** First line of the description: `Closes #N` (one line per issue). Then 3–5 lines of conclusions: why, what changed, how it was tested, and what is not verified yet; no process notes or raw output. PR comments follow the same rule. Same labels and milestone as the issue. Check the link with `gh pr view <N> --json closingIssuesReferences`.
 6. **Merge** only when CI is green and a maintainer says so, by adding the PR to the merge queue. Agents never merge or approve on their own. Use a merge commit (no squash) and delete the branch. If two PRs conflict, the author of the later one merges `main` into their branch; no force pushes.
 7. **Release**: bump `package.json` in a pull request, then tag `v*` on `main` (a `-rc.N` tag cuts a pre-release). The tag runs the full CI, e2e included, and the macOS signing job waits for a maintainer to approve the `release-macos` environment.
 
