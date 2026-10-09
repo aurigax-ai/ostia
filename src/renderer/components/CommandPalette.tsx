@@ -199,7 +199,7 @@ export function CommandPalette(): JSX.Element {
                     return
                   }
                   e.preventDefault()
-                  enterAsk(mode === 'help' ? '' : search)
+                  enterAsk(mode === 'help' ? '' : mode === 'all' ? search : paletteQuery(search))
                 }}
               />
               <CommandList className={LIST_CLASS}>
