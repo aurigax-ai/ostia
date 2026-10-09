@@ -1,10 +1,13 @@
 import '@testing-library/jest-dom/vitest'
+import { wireExtensionBridge } from '@/commands/extensionBridge'
 import { languagesFrom } from '@/lib/extensions/languagePacks'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { usePluginsStore } from '@/stores/extensions/pluginsStore'
-import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { zhHant } from '@shared/app/dict'
+import type { ExtensionInfo } from '@shared/extensions'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { renderSettled } from '../../../../test/render'
@@ -153,6 +156,82 @@ describe('SettingsPanel', () => {
     await user.click(screen.getByRole('option', { name: '繁體中文' }))
 
     expect(setLocale).toHaveBeenCalledWith('zh-Hant')
+  })
+
+  it('the Traditional Chinese pack is an extension: pick it, keep it across a restart, lose it when disabled', async () => {
+    const pack: ExtensionInfo = {
+      id: 'langpack-zh-hant',
+      name: '繁體中文 (Traditional Chinese)',
+      version: '1.0.0',
+      description: '',
+      builtin: true,
+      enabled: true,
+      status: 'idle',
+      requested: [],
+      granted: [],
+      unapproved: [],
+      commands: [],
+      panel: null,
+      paneChips: [],
+      workspaceChips: [],
+      settings: [],
+      settingValues: {},
+      assist: [],
+      secrets: [],
+      secretsSet: [],
+      settingsPage: null,
+      category: 'langpack',
+      languages: [{ id: 'zh-Hant', label: '繁體中文' }],
+      languageServers: [],
+      agentSkills: [],
+      agentHooks: [],
+      iconThemes: [],
+      keymaps: [],
+    }
+    let changed: (list: ExtensionInfo[]) => void = () => {}
+    let enabled = true
+    vi.mocked(window.ostia.extensions.onChanged).mockImplementation((cb) => {
+      changed = cb
+      return () => {}
+    })
+    vi.mocked(window.ostia.extensions.list).mockImplementation(async () => [{ ...pack, enabled }])
+    vi.mocked(window.ostia.languagePacks.load).mockImplementation(async () =>
+      enabled ? [{ extId: pack.id, id: 'zh-Hant', label: '繁體中文', catalog: zhHant }] : [],
+    )
+    vi.mocked(window.ostia.extensions.setEnabled).mockImplementation(async (_extId, next) => {
+      enabled = next
+      const list = [{ ...pack, enabled }]
+      changed(list)
+      return list
+    })
+    wireExtensionBridge()
+    await usePluginsStore.getState().loadLanguages()
+    await renderSettings()
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole('button', { name: 'Language' }))
+    await user.click(screen.getByRole('combobox', { name: 'Display language' }))
+    await user.click(await screen.findByRole('option', { name: '繁體中文' }))
+
+    expect(screen.getByRole('region', { name: '設定' })).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: '顯示語言' })).toBeInTheDocument()
+    await waitFor(() =>
+      expect(
+        JSON.parse(String(vi.mocked(window.ostia.fs.write).mock.calls.at(-1)?.[1])).locale,
+      ).toBe('zh-Hant'),
+    )
+
+    await user.click(screen.getByRole('button', { name: '擴充功能' }))
+    const row = await screen.findByRole('listitem', { name: '繁體中文 (Traditional Chinese)' })
+    expect(within(row).getByRole('switch')).toBeChecked()
+    await user.click(within(row).getByRole('switch'))
+
+    expect(window.ostia.extensions.setEnabled).toHaveBeenCalledWith('langpack-zh-hant', false)
+    const english = await screen.findByRole('region', { name: 'Settings' })
+    await user.click(within(english).getByRole('button', { name: 'Language' }))
+    await user.click(within(english).getByRole('combobox', { name: 'Display language' }))
+    expect(await screen.findByRole('option', { name: 'English' })).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: '繁體中文' })).toBeNull()
   })
 
   it('edits the Files tree switches and hidden file patterns from Settings → Files', async () => {
