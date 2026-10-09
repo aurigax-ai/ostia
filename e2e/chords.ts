@@ -17,6 +17,7 @@ export const chords = {
   closePane: isMac ? 'Meta+w' : 'Control+Shift+w',
   zoomPane: isMac ? 'Meta+Shift+x' : 'Control+Shift+x',
   openSettings: 'ControlOrMeta+,',
+  firstWorkspace: isMac ? 'Meta+1' : 'Control+1',
   resumeAgent: 'ControlOrMeta+Shift+R',
   nextTab: 'Control+Tab',
   previousTab: 'Control+Shift+Tab',
