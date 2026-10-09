@@ -77,6 +77,24 @@ const rowWhere = (matches: (text: string) => boolean, name: string): HTMLElement
 
 const row = (name: RegExp): HTMLElement => rowWhere((text) => name.test(text), String(name))
 
+const slot = (name: string): HTMLElement => {
+  const el = document.querySelector<HTMLElement>(`[data-slot="${name}"]`)
+  if (!el) throw new Error(`no ${name}`)
+  return el
+}
+
+const keyNotice = (): HTMLElement => slot('key-notice')
+
+const combo = (): HTMLElement => slot('keymap-combo')
+
+const keyEditor = (): HTMLElement => {
+  const tr = screen.getByRole('combobox', { name: 'Action' }).closest('tr')
+  if (!tr) throw new Error('no terminal key editor')
+  return tr
+}
+
+const viewSwitch = (): HTMLElement => screen.getByRole('group', { name: 'View' })
+
 const change = async (keys: string, command: string): Promise<void> => {
   await userEvent.click(
     screen.getByLabelText(`Change ${keys} for ${command}`, { selector: 'button' }),
@@ -110,7 +128,7 @@ const pickPreset = async (layer: string, name: string): Promise<void> => {
 
 const applyPreset = async (layer: string, name: string): Promise<void> => {
   await pickPreset(layer, name)
-  await userEvent.click(await screen.findByRole('button', { name: `Apply ${name}` }))
+  await userEvent.click(await within(combo()).findByRole('button', { name: `Apply ${name}` }))
 }
 
 const pickAction = async (name: string): Promise<void> => {
@@ -256,7 +274,7 @@ describe('KeyboardSection', () => {
         'pane.zoom “Ctrl+X”: plain Ctrl keys belong to the shell. Add Shift or Alt.',
       ),
     ).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Reset Command Palette' })).toBeNull()
+    expect(screen.queryByLabelText('Reset Command Palette', { selector: 'button' })).toBeNull()
     expect(within(row(/Command Palette/)).getByText('Alt keys')).toBeInTheDocument()
     expect(within(row(/Toggle Sidebar/)).getByText('Alt keys')).toBeInTheDocument()
     expect(within(row(/Toggle Sidebar/)).getByText('removes Ctrl+Shift+B')).toBeInTheDocument()
@@ -288,7 +306,9 @@ describe('KeyboardSection', () => {
     await change('Ctrl+Alt+P', 'Command Palette')
     press('Y', { ctrlKey: true, shiftKey: true, code: 'KeyY' })
     expect(within(row(/Command Palette/)).getByText('Ctrl+Shift+Y')).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Reset Command Palette' }))
+    await userEvent.click(
+      within(row(/Command Palette/)).getByRole('button', { name: 'Reset Command Palette' }),
+    )
     expect(useSettingsStore.getState().keybindings).toEqual({})
     expect(within(row(/Command Palette/)).getByText('Ctrl+Alt+P')).toBeInTheDocument()
 
@@ -411,7 +431,7 @@ describe('KeyboardSection', () => {
       screen.getByText(/Ctrl\+Shift\+P is already the shortcut for Command Palette/),
     ).toBeInTheDocument()
     expect(useSettingsStore.getState().keybindings).toEqual({})
-    await userEvent.click(screen.getByRole('button', { name: 'Replace' }))
+    await userEvent.click(within(keyNotice()).getByRole('button', { name: 'Replace' }))
     expect(useSettingsStore.getState().keybindings).toEqual({
       'palette.toggle': null,
       'view.toggleRail': 'Ctrl+Shift+P',
@@ -427,7 +447,7 @@ describe('KeyboardSection', () => {
     expect(palette.getByText('Ctrl+Alt+P')).toBeInTheDocument()
     await change('Ctrl+Shift+B', 'Toggle Sidebar')
     press('P', { ctrlKey: true, altKey: true, code: 'KeyP' })
-    await userEvent.click(screen.getByRole('button', { name: 'Replace' }))
+    await userEvent.click(within(keyNotice()).getByRole('button', { name: 'Replace' }))
     expect(useSettingsStore.getState().keybindings).toEqual({
       'palette.toggle': 'Ctrl+Shift+Y',
       'view.toggleRail': 'Ctrl+Alt+P',
@@ -473,17 +493,21 @@ describe('KeyboardSection', () => {
     await change('Ctrl+Shift+P', 'Command Palette')
     press('K', { ctrlKey: true, shiftKey: true, code: 'KeyK' })
     expect(screen.getByText(/The code editor also uses Ctrl\+Shift\+K/)).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    await userEvent.click(within(keyNotice()).getByRole('button', { name: 'Cancel' }))
     expect(useSettingsStore.getState().keybindings).toEqual({})
     await change('Ctrl+Shift+P', 'Command Palette')
     press('K', { ctrlKey: true, shiftKey: true, code: 'KeyK' })
-    await userEvent.click(screen.getByRole('button', { name: 'Use anyway' }))
+    await userEvent.click(within(keyNotice()).getByRole('button', { name: 'Use anyway' }))
     expect(useSettingsStore.getState().keybindings['palette.toggle']).toBe('Ctrl+Shift+K')
   })
 
   it('records any digit as the 1-9 range for the workspace jump', async () => {
     render(<KeyboardSection />)
-    await userEvent.click(screen.getByRole('button', { name: /^Change .+ for Go to Workspace$/ }))
+    await userEvent.click(
+      within(row(/Go to Workspace/)).getByRole('button', {
+        name: /^Change .+ for Go to Workspace$/,
+      }),
+    )
     press('#', { ctrlKey: true, altKey: true, code: 'Digit3' })
     expect(useSettingsStore.getState().keybindings['workspace.goto']).toBe('Ctrl+Alt+1-9')
   })
@@ -493,11 +517,13 @@ describe('KeyboardSection', () => {
       keybindings: { 'palette.toggle': 'Ctrl+Shift+Y', find: 'Ctrl+Alt+F' },
     })
     render(<KeyboardSection />)
-    expect(screen.queryByRole('button', { name: 'Reset Toggle Sidebar' })).toBeNull()
-    await userEvent.click(screen.getByRole('button', { name: 'Reset Command Palette' }))
+    expect(screen.queryByLabelText('Reset Toggle Sidebar', { selector: 'button' })).toBeNull()
+    await userEvent.click(
+      within(row(/Command Palette/)).getByRole('button', { name: 'Reset Command Palette' }),
+    )
     expect(useSettingsStore.getState().keybindings).toEqual({ find: 'Ctrl+Alt+F' })
     expect(within(row(/Command Palette/)).getByText('Ctrl+Shift+P')).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'My changes (1)' }))
+    await userEvent.click(within(viewSwitch()).getByRole('button', { name: 'My changes (1)' }))
     await userEvent.click(screen.getByRole('button', { name: 'Revert everything to Ostia' }))
     await userEvent.click(screen.getByRole('button', { name: 'Revert everything' }))
     expect(useSettingsStore.getState().keybindings).toEqual({})
@@ -541,7 +567,7 @@ describe('KeyboardSection', () => {
   it('offers Ostia standard and No translation for text editing on Linux, Ostia standard first', async () => {
     render(<KeyboardSection />)
     expect(applied('Text editing')).toBe('Ostia standard')
-    const buttons = screen.getAllByRole('button', { name: /^Edit / })
+    const buttons = screen.getAllByLabelText(/^Edit /, { selector: 'button' })
     expect(buttons.map((b) => b.getAttribute('aria-label'))).toEqual([
       'Edit Alt+←',
       'Edit Alt+→',
@@ -555,12 +581,12 @@ describe('KeyboardSection', () => {
     expect(choices).toEqual(['Ostia standard', 'No translation'])
     await applyPreset('Text editing', 'No translation')
     expect(useSettingsStore.getState().terminalKeymap).toBe('none')
-    expect(screen.queryAllByRole('button', { name: /^Edit / })).toEqual([])
+    expect(screen.queryAllByLabelText(/^Edit /, { selector: 'button' })).toEqual([])
   })
 
   it('flags no default Linux terminal key, though browser back and forward share Alt+arrows', () => {
     render(<KeyboardSection />)
-    expect(screen.getByRole('button', { name: 'Edit Alt+←' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Edit Alt+←', { selector: 'button' })).toBeInTheDocument()
     expect(screen.queryByText(/Key conflict with/)).toBeNull()
   })
 
@@ -572,31 +598,33 @@ describe('KeyboardSection', () => {
 
   it('adds a key that sends text to the terminal, refusing keys that type, and removes it', async () => {
     render(<KeyboardSection />)
-    await userEvent.click(screen.getByRole('button', { name: 'Add a terminal key' }))
+    await userEvent.click(screen.getByText('Add a terminal key', { selector: 'button' }))
     press('k', { code: 'KeyK' })
     expect(screen.getByRole('alert')).toHaveTextContent(/K can’t be used: single keys/)
     press('K', { ctrlKey: true, altKey: true, code: 'KeyK' })
     await pickAction('Custom bytes (advanced)')
     await userEvent.type(screen.getByRole('textbox', { name: 'What to send' }), 'clear\\r')
-    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+    await userEvent.click(within(keyEditor()).getByRole('button', { name: 'Save' }))
     expect(useSettingsStore.getState().terminalKeys).toEqual({
       'Ctrl+Alt+K': { type: 'text', value: 'clear\\r' },
     })
     expect(within(row(/clear\\r/)).getByText('Ctrl+Alt+K')).toBeInTheDocument()
     expect(within(row(/clear\\r/)).getByText('Custom')).toBeInTheDocument()
 
-    await userEvent.click(screen.getByRole('button', { name: 'Remove Ctrl+Alt+K' }))
+    await userEvent.click(
+      within(row(/clear\\r/)).getByRole('button', { name: 'Remove Ctrl+Alt+K' }),
+    )
     expect(useSettingsStore.getState().terminalKeys).toEqual({})
     expect(screen.queryByText('clear\\r')).toBeNull()
   })
 
   it('adds a key by recording it and picking an action, with no bytes to type', async () => {
     render(<KeyboardSection />)
-    await userEvent.click(screen.getByRole('button', { name: 'Add a terminal key' }))
+    await userEvent.click(screen.getByText('Add a terminal key', { selector: 'button' }))
     press('K', { ctrlKey: true, altKey: true, code: 'KeyK' })
     expect(screen.queryByRole('textbox', { name: 'What to send' })).toBeNull()
     await pickAction('Delete previous word')
-    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+    await userEvent.click(within(keyEditor()).getByRole('button', { name: 'Save' }))
     expect(useSettingsStore.getState().terminalKeys).toEqual({
       'Ctrl+Alt+K': { type: 'hex', value: '0x1b 0x7f' },
     })
@@ -611,16 +639,18 @@ describe('KeyboardSection', () => {
       },
     })
     render(<KeyboardSection />)
-    await userEvent.click(screen.getByRole('button', { name: 'Edit Ctrl+Alt+K' }))
+    await userEvent.click(
+      within(row(/Start of line/)).getByRole('button', { name: 'Edit Ctrl+Alt+K' }),
+    )
     expect(screen.getByRole('combobox', { name: 'Action' })).toHaveTextContent('Start of line')
     expect(screen.queryByRole('textbox', { name: 'What to send' })).toBeNull()
     await pickAction('End of line')
-    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+    await userEvent.click(within(keyEditor()).getByRole('button', { name: 'Save' }))
     expect(useSettingsStore.getState().terminalKeys['Ctrl+Alt+K']).toEqual({
       type: 'hex',
       value: '0x05',
     })
-    await userEvent.click(screen.getByRole('button', { name: 'Edit Ctrl+Alt+J' }))
+    await userEvent.click(within(row(/ls\\r/)).getByRole('button', { name: 'Edit Ctrl+Alt+J' }))
     expect(screen.getByRole('combobox', { name: 'Action' })).toHaveTextContent(
       'Custom bytes (advanced)',
     )
@@ -629,18 +659,18 @@ describe('KeyboardSection', () => {
 
   it('says what is wrong with a value it cannot send and keeps the editor open', async () => {
     render(<KeyboardSection />)
-    await userEvent.click(screen.getByRole('button', { name: 'Add a terminal key' }))
+    await userEvent.click(screen.getByText('Add a terminal key', { selector: 'button' }))
     press('K', { ctrlKey: true, altKey: true, code: 'KeyK' })
     await pickAction('Custom bytes (advanced)')
     await userEvent.click(screen.getByRole('combobox', { name: 'Send' }))
     await userEvent.click(await screen.findByRole('option', { name: 'Hex codes' }))
     await userEvent.type(screen.getByRole('textbox', { name: 'What to send' }), '0x80')
-    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+    await userEvent.click(within(keyEditor()).getByRole('button', { name: 'Save' }))
     expect(screen.getByRole('alert')).toHaveTextContent(/bytes from 0x00 to 0x7F/)
     expect(useSettingsStore.getState().terminalKeys).toEqual({})
     await userEvent.clear(screen.getByRole('textbox', { name: 'What to send' }))
     await userEvent.type(screen.getByRole('textbox', { name: 'What to send' }), '0x1b 0x7f')
-    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+    await userEvent.click(within(keyEditor()).getByRole('button', { name: 'Save' }))
     expect(useSettingsStore.getState().terminalKeys).toEqual({
       'Ctrl+Alt+K': { type: 'hex', value: '0x1b 0x7f' },
     })
@@ -648,16 +678,16 @@ describe('KeyboardSection', () => {
 
   it('asks before giving a terminal key a command’s chord, and unbinds the command on Replace', async () => {
     render(<KeyboardSection />)
-    await userEvent.click(screen.getByRole('button', { name: 'Add a terminal key' }))
+    await userEvent.click(screen.getByText('Add a terminal key', { selector: 'button' }))
     press('P', { ctrlKey: true, shiftKey: true, code: 'KeyP' })
     await pickAction('Custom bytes (advanced)')
     await userEvent.type(screen.getByRole('textbox', { name: 'What to send' }), 'x')
-    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+    await userEvent.click(within(keyEditor()).getByRole('button', { name: 'Save' }))
     expect(
       screen.getByText(/Ctrl\+Shift\+P is already the shortcut for Command Palette/),
     ).toBeInTheDocument()
     expect(useSettingsStore.getState().terminalKeys).toEqual({})
-    await userEvent.click(screen.getByRole('button', { name: 'Replace' }))
+    await userEvent.click(within(keyEditor()).getByRole('button', { name: 'Replace' }))
     expect(useSettingsStore.getState().keybindings).toEqual({ 'palette.toggle': null })
     expect(useSettingsStore.getState().terminalKeys).toEqual({
       'Ctrl+Shift+P': { type: 'text', value: 'x' },
@@ -674,7 +704,7 @@ describe('KeyboardSection', () => {
       screen.getByText('Ctrl+Alt+K sends ESC k to the terminal. Replacing removes it there.'),
     ).toBeInTheDocument()
     expect(useSettingsStore.getState().keybindings).toEqual({})
-    await userEvent.click(screen.getByRole('button', { name: 'Replace' }))
+    await userEvent.click(within(keyNotice()).getByRole('button', { name: 'Replace' }))
     expect(useSettingsStore.getState().keybindings['palette.toggle']).toBe('Ctrl+Alt+K')
     expect(useSettingsStore.getState().terminalKeys).toEqual({})
   })
@@ -685,16 +715,16 @@ describe('KeyboardSection', () => {
     await userEvent.type(screen.getByRole('textbox', { name: 'Search shortcuts' }), 'esc k')
     expect(groupNames()).toEqual(['Text editing (sent to the terminal)'])
     expect(screen.getAllByRole('row')).toHaveLength(3)
-    await userEvent.click(screen.getByRole('button', { name: 'Edit Ctrl+Alt+K' }))
+    await userEvent.click(within(row(/ESC k/)).getByRole('button', { name: 'Edit Ctrl+Alt+K' }))
     const value = screen.getByRole('textbox', { name: 'What to send' })
     expect(value).toHaveValue('k')
     await userEvent.clear(value)
     await userEvent.type(value, 'j')
-    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+    await userEvent.click(within(keyEditor()).getByRole('button', { name: 'Save' }))
     expect(useSettingsStore.getState().terminalKeys).toEqual({
       'Ctrl+Alt+K': { type: 'escape', value: 'j' },
     })
-    await userEvent.click(screen.getByRole('button', { name: 'My changes (1)' }))
+    await userEvent.click(within(viewSwitch()).getByRole('button', { name: 'My changes (1)' }))
     await userEvent.click(screen.getByRole('button', { name: 'Revert Ctrl+Alt+K' }))
     expect(useSettingsStore.getState().terminalKeys).toEqual({})
   })
@@ -702,7 +732,7 @@ describe('KeyboardSection', () => {
   it('removes only the chord whose × is pressed, down to unassigned, and reset brings them back', async () => {
     render(<KeyboardSection />)
     await userEvent.click(
-      screen.getByRole('button', { name: 'Remove Ctrl+Shift+X from Zoom Pane' }),
+      within(row(/Zoom Pane/)).getByRole('button', { name: 'Remove Ctrl+Shift+X from Zoom Pane' }),
     )
     expect(useSettingsStore.getState().keybindings['pane.zoom']).toBe('terminal:Ctrl+Shift+Enter')
     const zoom = within(row(/Zoom Pane/))
@@ -712,12 +742,14 @@ describe('KeyboardSection', () => {
     expect(zoom.getByText('removes Ctrl+Shift+X')).toBeInTheDocument()
 
     await userEvent.click(
-      screen.getByRole('button', { name: 'Remove Ctrl+Shift+Enter from Zoom Pane' }),
+      within(row(/Zoom Pane/)).getByRole('button', {
+        name: 'Remove Ctrl+Shift+Enter from Zoom Pane',
+      }),
     )
     expect(useSettingsStore.getState().keybindings['pane.zoom']).toBeNull()
     expect(within(row(/Zoom Pane/)).getByText('Unassigned')).toBeInTheDocument()
 
-    await userEvent.click(screen.getByRole('button', { name: 'Reset Zoom Pane' }))
+    await userEvent.click(within(row(/Zoom Pane/)).getByRole('button', { name: 'Reset Zoom Pane' }))
     expect(useSettingsStore.getState().keybindings).toEqual({})
     expect(within(row(/Zoom Pane/)).getByText('Ctrl+Shift+X')).toBeInTheDocument()
   })
@@ -726,7 +758,9 @@ describe('KeyboardSection', () => {
     render(<KeyboardSection />)
     expect(within(row(/Search Everywhere/)).getByText('Shift+Shift')).toBeInTheDocument()
     await userEvent.click(
-      screen.getByRole('button', { name: 'Remove Shift+Shift from Search Everywhere' }),
+      within(row(/Search Everywhere/)).getByRole('button', {
+        name: 'Remove Shift+Shift from Search Everywhere',
+      }),
     )
     expect(useSettingsStore.getState().keybindings['palette.searchEverywhere']).toBeNull()
     expect(within(row(/Search Everywhere/)).getByText('Unassigned')).toBeInTheDocument()
@@ -737,7 +771,9 @@ describe('KeyboardSection', () => {
     await change('Ctrl+Shift+P', 'Command Palette')
     tapShift()
     tapShift()
-    await userEvent.click(await screen.findByRole('button', { name: /Replace/ }))
+    await userEvent.click(
+      await within(row(/Command Palette/)).findByRole('button', { name: /Replace/ }),
+    )
     expect(useSettingsStore.getState().keybindings).toEqual({
       'palette.toggle': 'Shift+Shift',
       'palette.searchEverywhere': null,
@@ -753,7 +789,7 @@ describe('KeyboardSection', () => {
       /Shift\+Shift can’t be used/,
     )
     expect(useSettingsStore.getState().keybindings).toEqual({})
-    expect(screen.queryByRole('button', { name: /Replace/ })).toBeNull()
+    expect(screen.queryByText(/Replace/, { selector: 'button' })).toBeNull()
   })
 
   it('names Shift twice set on a terminal-only command in settings as ignored', () => {
@@ -813,7 +849,7 @@ describe('KeyboardSection', () => {
     const notice = text.closest('[data-slot="key-notice"]')
     expect(notice?.closest('tr')).toBe(row(/Toggle Sidebar/))
     expect(screen.getAllByRole('row')).toHaveLength(rowsBefore)
-    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    await userEvent.click(within(keyNotice()).getByRole('button', { name: 'Cancel' }))
     expect(document.querySelector('[data-slot="key-notice"]')).toBeNull()
   })
 
@@ -890,10 +926,12 @@ describe('KeyboardSection', () => {
     await pickPreset('App shortcuts', 'Alt keys')
     expect(await screen.findByText(/Switching to Alt keys changes/)).toBeInTheDocument()
     expect(columnWidths()).toEqual(widths)
-    await userEvent.click(screen.getByRole('button', { name: 'Apply Alt keys' }))
+    await userEvent.click(within(combo()).getByRole('button', { name: 'Apply Alt keys' }))
     expect(await within(row(/Command Palette/)).findByText('Ctrl+Alt+P')).toBeInTheDocument()
     expect(columnWidths()).toEqual(widths)
-    await userEvent.click(screen.getByRole('button', { name: 'Details for Command Palette' }))
+    await userEvent.click(
+      within(row(/Command Palette/)).getByRole('button', { name: 'Details for Command Palette' }),
+    )
     expect(columnWidths()).toEqual(widths)
     await applyPreset('Text editing', 'No translation')
     expect(columnWidths()).toEqual(widths)
@@ -930,7 +968,9 @@ const layer = (name: string): HTMLElement => {
 }
 
 const toggleFor = (command: string): HTMLElement =>
-  screen.getByRole('button', { name: `Details for ${command}` })
+  within(rowWhere((text) => text.includes(command), command)).getByRole('button', {
+    name: `Details for ${command}`,
+  })
 
 describe('KeyboardSection layered view', () => {
   beforeAll(() => {
@@ -1037,7 +1077,9 @@ describe('KeyboardSection layered view', () => {
       vi.mocked(window.ostia.keymaps.load).mockResolvedValue(altKeys)
       syncKeymaps()
       render(<KeyboardSection />)
-      await userEvent.click(await screen.findByRole('button', { name: '2 keys differ from Ostia' }))
+      await userEvent.click(
+        await within(combo()).findByRole('button', { name: '2 keys differ from Ostia' }),
+      )
       expect(screen.getByRole('button', { name: 'My changes (7)' })).toHaveAttribute(
         'aria-pressed',
         'true',
@@ -1079,7 +1121,7 @@ describe('KeyboardSection layered view', () => {
         terminalKeys: { 'Ctrl+Alt+K': { type: 'text', value: 'k' } },
       })
       render(<KeyboardSection />)
-      await userEvent.click(screen.getByRole('button', { name: 'My changes (7)' }))
+      await userEvent.click(within(viewSwitch()).getByRole('button', { name: 'My changes (7)' }))
       await userEvent.click(screen.getByRole('button', { name: 'Revert everything to Ostia' }))
       expect(
         screen.getByText('This removes your 7 changes and switches both presets back to Ostia.'),
@@ -1145,7 +1187,7 @@ describe('KeyboardSection layered view', () => {
       vi.mocked(window.ostia.keymaps.load).mockResolvedValue(altKeys)
       syncKeymaps()
       render(<KeyboardSection />)
-      await screen.findByRole('button', { name: '2 keys differ from Ostia' })
+      await within(combo()).findByRole('button', { name: '2 keys differ from Ostia' })
       await userEvent.click(toggleFor('Command Palette'))
       expect(layer('preset')).toHaveTextContent('Alt keys')
       expect(layer('preset')).toHaveTextContent('Ctrl+Alt+P')
@@ -1163,7 +1205,7 @@ describe('KeyboardSection layered view', () => {
       try {
         render(<KeyboardSection />)
         const toggles = screen
-          .getAllByRole('button', { name: /^Details for / })
+          .getAllByLabelText(/^Details for /, { selector: 'button' })
           .map((b) => b.getAttribute('aria-label'))
         const first = toggleFor(toggles[0]?.replace('Details for ', '') ?? '')
         act(() => first.focus())
