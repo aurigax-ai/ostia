@@ -133,8 +133,9 @@ describe('merging workspaces', () => {
       render(<DeckRail />)
       fireEvent.contextMenu(screen.getByRole('button', { name: /api/ }))
 
-      await screen.findByRole('menuitem', { name: 'Rename' })
-      await new Promise((r) => setTimeout(r, 0))
+      const menu = await screen.findByRole('menu')
+      await waitFor(() => expect(menu).not.toHaveAttribute('data-starting-style'))
+      expect(screen.getByRole('menuitem', { name: 'Rename' })).toBeInTheDocument()
       expect(screen.queryByRole('menuitem', { name: /Merge into/ })).toBeNull()
     })
   })
