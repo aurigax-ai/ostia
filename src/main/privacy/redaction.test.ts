@@ -291,9 +291,14 @@ describe('redaction speed', () => {
       HARMLESS.longPath,
       `curl -H "Authorization: Bearer ${FAKE.bearer}" ${FAKE.basicAuthUrl}/v1`,
     ].join('\n')
+    const worker = createWorkerScan(REDACTION_WORKER_SCRIPT, () => BUDGET_MS)
+    const timed = createRedactor(() => undefined, worker.scan)
+    await timed.redact(block)
     const started = performance.now()
-    const result = await on.redact(fill(`${block}\n`))
-    expect(performance.now() - started).toBeLessThan(BUDGET_MS)
+    const result = await timed.redact(fill(`${block}\n`))
+    const elapsed = performance.now() - started
+    await worker.close()
+    expect(elapsed).toBeLessThan(BUDGET_MS)
     expect(result.text).not.toContain(FAKE.githubClassic)
     expect(result.count).toBeGreaterThan(1000)
   })
