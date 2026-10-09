@@ -7,7 +7,7 @@ import { createPane, resetIds, splitPane, tabsOf } from '@/layout/tree'
 import type { PaneNode, TabsNode } from '@/layout/types'
 import { hiddenTabs, revealScroll } from '@/lib/panes/tabRow'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { Pane } from './Pane'
@@ -169,6 +169,42 @@ describe('TabRow', () => {
     expect(screen.queryByRole('button', { name: /Hidden tabs.*start/ })).toBeNull()
     fireEvent.click(marker)
     expect(tablist().scrollLeft).toBe(6 * TAB_W + TAB_W - ROW_W)
+  })
+
+  it('a row of thirty tabs keeps tab widths in range, scrolls and points at a hidden tab that needs you', async () => {
+    layOut()
+    const exec = vi.spyOn(commands, 'exec').mockResolvedValue({ ok: true, result: undefined })
+    const { panes, root } = stackOf(30, 29)
+    useAttentionStore.setState({
+      byPane: { [panes[0].id]: { state: 'waiting', unread: true, at: 1 } },
+    })
+    renderStack(root)
+    const inView = (el: Element | null) => {
+      const box = el?.getBoundingClientRect()
+      return !!box && box.left >= 0 && box.right <= ROW_W
+    }
+    const tabs = () => tablist().querySelectorAll('.pane-tab')
+    const waiting = tablist().querySelector('.pane-tab[data-attention="waiting"]')
+    expect(tablist().querySelectorAll('.pane-tab[data-attention="waiting"]')).toHaveLength(1)
+    expect(tabs()).toHaveLength(30)
+    expect(inView(tablist().querySelector('.pane-tab.selected'))).toBe(true)
+    expect(inView(waiting)).toBe(false)
+
+    const marker = screen.getByRole('button', { name: 'Hidden tabs that need you: 1' })
+    expect(marker).toHaveAttribute('data-edge', 'start')
+    await userEvent.click(marker)
+    fireEvent.scroll(tablist())
+    expect(inView(waiting)).toBe(true)
+    expect(screen.queryByRole('button', { name: /Hidden tabs that need you/ })).toBeNull()
+
+    await userEvent.click(screen.getByRole('button', { name: /^All tabs/ }))
+    const options = await screen.findAllByRole('option')
+    expect(options).toHaveLength(30)
+    await userEvent.click(options[options.length - 1])
+    await waitFor(() => expect(screen.queryAllByRole('option')).toHaveLength(0))
+    expect(exec).toHaveBeenCalledWith('pane.focus', { paneId: panes[29].id })
+    expect(inView(tabs()[29])).toBe(true)
+    expect(tabs()[29]).toHaveClass('selected')
   })
 
   it('does not mark an edge for a hidden tab that needs nothing', () => {
