@@ -1,5 +1,6 @@
 import '@testing-library/jest-dom/vitest'
 import { allPanes, createPane, tabsOf } from '@/layout/tree'
+import { startAttentionSync } from '@/lib/attention/workspaceActivity'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
 import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
@@ -8,6 +9,7 @@ import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useHibernateSkippedStore } from '@/stores/workspaces/hibernateSkippedStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useMergeConfirmStore } from '@/stores/workspaces/mergeConfirmStore'
+import { saveSnapshotNow } from '@/stores/workspaces/persistence'
 import { type Workspace, useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import {
   act,
@@ -691,6 +693,73 @@ describe('DeckRail', () => {
       const head = header().closest('.rail-group-head') as HTMLElement
       drag(head, rowTrigger(/solo/), GROUP_DND, -1)
       expect(useWorkspacesStore.getState().workspaces.map((w) => w.id)).toEqual(['s2', 's3', 's1'])
+    })
+
+    it('workspace groups: create, add, collapse with attention, restore, drag out', async () => {
+      useWorkspacesStore.setState({
+        workspaces: [
+          { id: 's1', name: 'solo', kind: 'terminal', workDir: '/solo', state: 'idle' },
+          { id: 's2', name: 'api', kind: 'terminal', workDir: '/api', state: 'idle' },
+        ],
+        activeWorkspaceId: 's2',
+      })
+      const build = () => screen.getByRole('button', { name: /build/ })
+      const members = () => document.querySelectorAll('.rail-group-members .rail-row')
+      const ungrouped = () => document.querySelectorAll('.workspaces > .rail-row')
+      const user = userEvent.setup()
+      const stop = startAttentionSync()
+      try {
+        const first = render(<DeckRail />)
+        fireEvent.contextMenu(screen.getByRole('button', { name: /api/ }))
+        await user.click(await screen.findByRole('menuitem', { name: 'Move to new group' }))
+        const name = screen.getByRole('textbox', { name: 'Group name' })
+        await user.clear(name)
+        await user.type(name, 'build{Enter}')
+        expect(build()).toBeVisible()
+        expect(members()).toHaveLength(1)
+
+        act(() => useWorkspacesStore.getState().addWorkspace('/web'))
+        expect(members()).toHaveLength(2)
+        expect(ungrouped()).toHaveLength(1)
+        expect(within(build()).getByLabelText('Members: 2')).toHaveTextContent('2')
+
+        const web = useWorkspacesStore.getState().activeWorkspaceId as string
+        act(() => useLayoutStore.getState().ensure(web))
+        const pane = useLayoutStore.getState().byWorkspace[web].activePaneId
+        await user.click(screen.getByRole('button', { name: /solo/ }))
+        await user.click(build())
+        expect(build()).toHaveAttribute('aria-expanded', 'false')
+        expect(members()).toHaveLength(0)
+        act(() =>
+          useAttentionStore
+            .getState()
+            .dispatch(pane, { type: 'commandEnd', exitCode: 1, long: false, at: Date.now() }),
+        )
+        expect(within(build()).getByRole('img', { name: 'Error' })).toBeInTheDocument()
+        expect(within(build()).getByRole('img', { name: '1 unread' })).toBeInTheDocument()
+
+        saveSnapshotNow()
+        first.unmount()
+      } finally {
+        stop()
+      }
+      const snapshot = vi.mocked(window.ostia.workspace.save).mock.calls.at(-1)?.[0] ?? null
+      useWorkspacesStore.setState(workspacesInit, true)
+      useLayoutStore.setState(layoutInit, true)
+      useAttentionStore.setState(attentionInit, true)
+      useWorkspacesStore.getState().hydrate(snapshot)
+      render(<DeckRail />)
+
+      expect(build()).toHaveAttribute('aria-expanded', 'false')
+      expect(within(build()).getByLabelText('Members: 2')).toHaveTextContent('2')
+      expect(ungrouped()).toHaveLength(1)
+      await user.click(build())
+      expect(members()).toHaveLength(2)
+
+      drag(rowTrigger(/web/), rowTrigger(/solo/), WORKSPACE_DND, -1)
+      expect(members()).toHaveLength(1)
+      expect(ungrouped()).toHaveLength(2)
+      expect(within(build()).getByLabelText('Members: 1')).toHaveTextContent('1')
     })
   })
 })

@@ -772,7 +772,6 @@
       "specs": [
         "e2e/group-send.spec.ts",
         "e2e/scratch-workspace.spec.ts",
-        "e2e/workspace-groups.spec.ts",
         "e2e/workspace-merge.spec.ts",
         "e2e/workspace-settings.spec.ts"
       ]
@@ -943,7 +942,7 @@
         "src/renderer/lib/workspaces/workspaceSummary.ts",
         "src/renderer/lib/attention/workspaceActivity.ts"
       ],
-      "specs": ["e2e/rail-resize.spec.ts", "e2e/workspace-groups.spec.ts"]
+      "specs": ["e2e/rail-resize.spec.ts"]
     },
     {
       "name": "appearance",
