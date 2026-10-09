@@ -1,3 +1,4 @@
+import { chords } from './chords'
 import { isolatedLaunch } from './dataHome'
 import {
   PROMPT,
@@ -5,6 +6,7 @@ import {
   emptyWorkspace,
   newTerminalWorkspace,
   openWorkspace,
+  runInTerminal,
   waitForPaletteSelection,
 } from './helpers'
 import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
@@ -72,6 +74,40 @@ test('splitting a pane adds a second terminal', async () => {
     await app.close()
   }
 })
+
+test(
+  'the default close-pane chord closes only the focused pane and leaves the other shell running',
+  { tag: '@core' },
+  async () => {
+    const { app, win } = await launchApp()
+    try {
+      await openWorkspace(win)
+      await win.locator('.pane.active').getByRole('button', { name: 'Split right' }).click()
+      await expect(win.locator('.xterm')).toHaveCount(2, { timeout: 15_000 })
+      await expect(win.locator('.xterm-rows').nth(1)).toContainText(PROMPT, { timeout: 15_000 })
+
+      await runInTerminal(win, 'echo keep-$$', win.locator('.xterm').nth(1))
+      const keptRows = win.locator('.xterm-rows').nth(1)
+      await expect(keptRows).toContainText(/keep-\d+/, { timeout: 15_000 })
+      const keptPid = (await keptRows.innerText()).match(/keep-(\d+)/)?.[1] ?? ''
+      expect(keptPid).not.toBe('')
+
+      await win.locator('.xterm').nth(0).click()
+      await waitForTerminalFocus(win)
+      await win.keyboard.press(chords.closePane)
+
+      await expect(win.locator('.xterm')).toHaveCount(1, { timeout: 15_000 })
+      await expect(win.locator('.pane')).toHaveCount(1)
+
+      await runInTerminal(win, 'echo still-$$')
+      const rows = win.locator('.xterm-rows').first()
+      await expect(rows).toContainText(`still-${keptPid}`, { timeout: 15_000 })
+      expect(win.isClosed()).toBe(false)
+    } finally {
+      await app.close()
+    }
+  },
+)
 
 test('command palette opens, filters, and runs a command', async () => {
   const { app, win } = await launchApp()
