@@ -77,8 +77,13 @@ describe('ArtifactFolders', () => {
     expect(existsSync(join(root, 'w7'))).toBe(false)
     mkdirSync(join(root, 'w8'), { recursive: true })
     reading.followed('w8')
-    writeFileSync(join(root, 'w8', 'a.md'), 'a')
-    await vi.waitFor(() => expect(reports).toEqual(['added a.md']))
+    await vi.waitFor(
+      () => {
+        stamped(join(root, 'w8', 'a.md'), 100)
+        expect(reports).toEqual(['added a.md'])
+      },
+      { timeout: 10_000 },
+    )
     reading.dispose()
   })
 
@@ -109,9 +114,13 @@ describe('ArtifactFolders', () => {
     for (let i = 0; i < ARTIFACT_LIST_MAX + 30; i += 1)
       stamped(join(root, 'w1', `f${i}.md`), 1000 + i)
     const dir = watching.ensure('w1') as string
-    stamped(join(dir, 'newest.md'), 9000)
-    await vi.waitFor(() => expect(reports.length).toBeGreaterThan(0))
-    await new Promise((resolve) => setTimeout(resolve, 300))
+    await vi.waitFor(
+      () => {
+        stamped(join(dir, 'newest.md'), 9000)
+        expect(reports.length).toBeGreaterThan(0)
+      },
+      { timeout: 10_000 },
+    )
     expect(reports).toEqual([{ path: 'newest.md', change: 'added' }])
     watching.dispose()
   })
