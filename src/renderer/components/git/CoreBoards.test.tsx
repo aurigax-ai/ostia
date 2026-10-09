@@ -1,10 +1,11 @@
 import '@testing-library/jest-dom/vitest'
 import { registerGitCommands } from '@/commands/gitCommands'
 import { commands } from '@/commands/registry'
-import { WorkspaceChips } from '@/components/extensions/ExtensionChips'
+import { PaneChips, WorkspaceChips } from '@/components/extensions/ExtensionChips'
 import { ExtensionPanelView } from '@/components/extensions/ExtensionPanelView'
 import { GitSection, PortsSection } from '@/components/settings/BoardSettings'
 import { PanelToggles } from '@/components/shell/PanelToggles'
+import { TopBar } from '@/components/shell/TopBar'
 import { createPane, firstPaneOfKind, setPaneEditor } from '@/layout/tree'
 import { resetCoreWatch } from '@/lib/workspaces/coreWatch'
 import { useSettingsStore } from '@/stores/app/settingsStore'
@@ -14,7 +15,7 @@ import { useGitViewStore } from '@/stores/files/gitViewStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type { CoreItems } from '@shared/boards/git'
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -161,6 +162,53 @@ describe('core git and ports in the window', () => {
     const pane = gitPane()
     expect(pane?.title).toBe('Git')
     expect(useGitViewStore.getState().nav[pane?.id ?? '']).toMatchObject({ page: 'changes' })
+  })
+
+  it('listening ports show as a plug in the top bar that opens the browser pane, and an ssh login shows on its pane', async () => {
+    const paneId = useLayoutStore.getState().byWorkspace.s1.activePaneId
+    const { container } = render(
+      <>
+        <TopBar />
+        <PaneChips paneId={paneId} />
+      </>,
+    )
+    const sent = (workspaceChips: CoreItems['workspaceChips']): CoreItems => ({
+      sidebar: [],
+      paneChips: [{ extId: 'ports', paneId, id: 'ssh', text: 'deploy@build-box', tone: 'brand' }],
+      workspaceChips,
+    })
+    act(() =>
+      useExtensionsStore.getState().setPortsItems(
+        sent([
+          {
+            ...PORTS_ITEMS.workspaceChips[0],
+            items: [{ text: ':3000', url: 'http://127.0.0.1:3000/' }],
+          },
+        ]),
+      ),
+    )
+    const topBar = container.querySelector('.topbar-right') as HTMLElement
+    const chip = within(topBar).getByRole('button', {
+      name: 'Listening ports: 1. Click to list them.',
+    })
+    const header = screen.getByRole('list', { name: 'Extension status' })
+    expect(within(header).getByText('deploy@build-box')).toBeVisible()
+    expect(within(header).queryByRole('button', { name: /Listening ports/ })).toBeNull()
+
+    const user = userEvent.setup()
+    await user.click(chip)
+    await user.click(
+      await screen.findByRole('button', {
+        name: 'Open http://127.0.0.1:3000/ in the browser pane',
+      }),
+    )
+    expect(firstPaneOfKind(useLayoutStore.getState().byWorkspace.s1.root, 'browser')?.url).toBe(
+      'http://127.0.0.1:3000/',
+    )
+
+    act(() => useExtensionsStore.getState().setPortsItems(sent([])))
+    expect(screen.queryByRole('button', { name: /Listening ports/ })).toBeNull()
+    expect(within(header).getByText('deploy@build-box')).toBeVisible()
   })
 
   it('toggles the Git panel from the top bar, and hides the button when Git is off', async () => {
