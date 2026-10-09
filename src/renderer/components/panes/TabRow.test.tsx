@@ -1,12 +1,14 @@
 import '@testing-library/jest-dom/vitest'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { registerBuiltinCommands } from '@/commands/builtins'
 import { commands } from '@/commands/registry'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { createPane, resetIds, splitPane, tabsOf } from '@/layout/tree'
 import type { PaneNode, TabsNode } from '@/layout/types'
 import { hiddenTabs, revealScroll } from '@/lib/panes/tabRow'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
@@ -16,14 +18,19 @@ const TAB_W = 100
 const ROW_W = 300
 
 let attentionInit: ReturnType<typeof useAttentionStore.getState>
+let layoutInit: ReturnType<typeof useLayoutStore.getState>
 
 beforeAll(() => {
+  registerBuiltinCommands()
   attentionInit = useAttentionStore.getState()
+  layoutInit = useLayoutStore.getState()
 })
 
 afterEach(() => {
   cleanup()
   useAttentionStore.setState(attentionInit, true)
+  useLayoutStore.setState(layoutInit, true)
+  commands.setContextProvider(() => ({ activeWorkspaceId: null, activePaneId: null }))
   resetIds()
   vi.restoreAllMocks()
 })
@@ -212,6 +219,38 @@ describe('TabRow', () => {
     const { root } = stackOf(8)
     renderStack(root)
     expect(screen.queryByRole('button', { name: /Hidden tabs that need you/ })).toBeNull()
+  })
+
+  it('double-clicking the empty part of the tab strip opens a new terminal tab', async () => {
+    const first = createPane('terminal', 'shell')
+    useLayoutStore.setState({
+      byWorkspace: { w: { root: first, activePaneId: first.id, zoomedPaneId: null } },
+    })
+    commands.setContextProvider(() => ({ activeWorkspaceId: 'w', activePaneId: first.id }))
+    const stack = () => {
+      const root = useLayoutStore.getState().byWorkspace.w.root
+      return root.type === 'tabs' ? root.children : [root]
+    }
+    const { rerender } = renderStack(tabsOf(first.id, first))
+
+    await userEvent.dblClick(tablist())
+    await vi.waitFor(() => expect(stack()).toHaveLength(2))
+    expect(stack()[1]).toMatchObject({ type: 'pane', kind: 'terminal' })
+
+    const root = useLayoutStore.getState().byWorkspace.w.root as TabsNode
+    rerender(
+      <TooltipProvider delay={0}>
+        <Pane
+          tabs={root.children}
+          shownId={root.activeId}
+          activePaneId={root.activeId}
+          workspaceId="w"
+        />
+      </TooltipProvider>,
+    )
+    expect(screen.getAllByRole('tab')).toHaveLength(2)
+    await userEvent.dblClick(screen.getAllByRole('tab')[0])
+    expect(stack()).toHaveLength(2)
   })
 
   it('holds tab widths while the pointer is on the row and lets go when it leaves', () => {
