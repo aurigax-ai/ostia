@@ -2499,6 +2499,7 @@ function registerPtyIpc(): void {
     }
 
     const history = takeRestoredScrollback(paneId)
+    appLog?.info('diag-restore-history', { pane: paneId, chars: history?.length ?? 0, pending: Object.keys(pendingRestoredScrollback()).join('+') || '-' })
     const seam = hibernatedPanes.delete(paneId) ? HIBERNATE_SEAM : RESTORE_SEAM
     if (history) feedPty(entry, `${history}${seam}`)
     if (secretNotice) feedPty(entry, secretNotice)
@@ -3509,6 +3510,7 @@ app.whenReady().then(() => {
   })
   handleQuitSignals()
   restoreOutcome = loadRestoredScrollback()
+  appLog?.info('diag-restore-load', { outcome: restoreOutcome, panes: Object.keys(pendingRestoredScrollback()).join('+') || '-' })
   void keptShells
     .start(parseKeepShells(readSettingsFile().terminal?.keepShells), savedPaneIds())
     .then(() => {
@@ -4192,6 +4194,7 @@ function persistScrollback(): Promise<void> {
       const redacted = await redactScrollback(toSave)
       if (savingScrollbackForQuit && !scrollbackSavedForQuit) quitTrace.stage('scrollback-redacted')
       if (broker && !broker.persisting) return
+      appLog?.info('diag-scrollback-save', { panes: Object.entries(redacted).map(([k, v]) => `${k}:${v.length}`).join('+') || '-', quit: savingScrollbackForQuit ? 1 : 0 })
       await saveScrollback(redacted)
     })
     .catch((err: unknown) => console.error('[workspace] scrollback save failed', err))

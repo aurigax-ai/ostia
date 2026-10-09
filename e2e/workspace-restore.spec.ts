@@ -341,6 +341,8 @@ test('restores tabs and offers to resume the agent a tab was running', async () 
 
   const saved = JSON.parse(readFileSync(join(dataHome, 'ostia', 'workspaces.json'), 'utf8'))
   expect(saved.workspaces[0].root).toMatchObject({ type: 'tabs' })
+  const sb = existsSync(join(dataHome, 'ostia', 'scrollback.json')) ? JSON.parse(readFileSync(join(dataHome, 'ostia', 'scrollback.json'), 'utf8')) : null
+  console.log('DIAG scrollback', sb ? Object.entries(sb).map(([k, v]) => `${k}:${String(v).length}:${String(v).includes('token-42')}`).join(' ') : 'none', 'root', JSON.stringify(saved.workspaces[0].root).slice(0, 400))
 
   const second = await launchApp(dataHome)
   try {
