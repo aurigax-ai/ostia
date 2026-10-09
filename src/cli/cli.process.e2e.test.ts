@@ -1,10 +1,10 @@
 import { spawn } from 'node:child_process'
-import { mkdirSync, mkdtempSync, realpathSync, rmSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ApprovalOutcome } from '../shared/permissions/approvals'
-import type { CommandResult } from '../shared/types'
+import type { CommandDescriptor, CommandResult, CommandTarget } from '../shared/types'
 
 let answer: ApprovalOutcome = 'deny'
 const request = vi.fn(async () => answer)
@@ -16,7 +16,12 @@ const { getByPaneId, registerPane } = await import('../main/control/idRegistry')
 const { registerPaneIoMethods } = await import('../main/panes/paneIo')
 const { PaneWaking } = await import('../main/panes/paneWaking')
 const { registerProcessMethods } = await import('../main/panes/processManager')
-const { ownWorkspaceReach } = await import('../../test/reach')
+const { approvals } = await import('../main/approvals/approvals')
+const { createReach } = await import('../main/approvals/reach')
+const { listWorkspaceGroups, listWorkspaces, registerPaneListMethods } = await import(
+  '../main/panes/paneList'
+)
+const { emptyWorkspaceSandbox } = await import('../shared/sandbox/sandbox')
 const { PtyRingBuffer } = await import('../main/terminal/ptyRingBuffer')
 
 type OpenRequest = Parameters<Parameters<typeof registerProcessMethods>[0]['openTab']>[0]
@@ -33,7 +38,71 @@ const reruns: { paneId: string; command: string }[] = []
 const closedPanes: string[] = []
 let tabSeq = 0
 
-const reach = ownWorkspaceReach()
+type WorkspaceRow = Awaited<ReturnType<typeof listWorkspaces>>[number]
+let workspaces: WorkspaceRow[] = []
+
+const COMMANDS = [
+  { id: 'workspace.new', capabilities: [] as string[] },
+  { id: 'workspace.setFolder', capabilities: ['drive-self'] },
+].map((c) => ({
+  ...c,
+  title: c.id,
+  category: null,
+  hidden: false,
+  argsSchema: null,
+})) as unknown as CommandDescriptor[]
+
+async function execRenderer(
+  target: CommandTarget,
+  id: string,
+  args?: unknown,
+): Promise<CommandResult> {
+  const given = (args ?? {}) as { dir?: string; name?: string }
+  if (id === 'workspace.list') return { ok: true, result: workspaces }
+  if (id === 'workspace.groups') return { ok: true, result: [] }
+  if (id === 'workspace.new') {
+    const workspaceId = `ws${workspaces.length + 1}`
+    workspaces.push({
+      workspaceId,
+      name: given.name ?? '',
+      kind: 'terminal',
+      workDir: given.dir ?? '',
+      state: 'idle',
+    })
+    return { ok: true, result: { workspaceId } }
+  }
+  if (id === 'workspace.setFolder') {
+    const row = workspaces.find((w) => w.workspaceId === target.workspaceId)
+    if (row) row.workDir = given.dir ?? row.workDir
+  }
+  return { ok: true } as CommandResult
+}
+
+const windows = { execCommand: execRenderer, windowIds: () => ['w1'] }
+registerPaneListMethods({
+  ...windows,
+  getTerminalState: () => undefined,
+  ptyPid: () => undefined,
+  waking: () => false,
+})
+
+const reach = createReach({
+  mode: () => 'project',
+  home: '/nonexistent-home',
+  workDir: (workspaceId) => workspaces.find((w) => w.workspaceId === workspaceId)?.workDir,
+  isScratch: () => false,
+  hasManager: () => false,
+  sandbox: () => emptyWorkspaceSandbox(),
+  workspaces: async () => {
+    const [listed, groups] = await Promise.all([
+      listWorkspaces(windows),
+      listWorkspaceGroups(windows),
+    ])
+    return { workspaces: listed, groups }
+  },
+  ask: (ask) => approvals()?.request(ask) ?? null,
+  agentGroupsChanged: () => {},
+})
 const registry = registerProcessMethods({
   isSandboxed: () => false,
   reach,
@@ -163,13 +232,15 @@ beforeEach(() => {
   socketPath = join(tmpdir(), `ostia-cli-proc-${process.pid}-${seq}.sock`)
   registerControlServer(
     {
-      execCommand: async () => ({ ok: true }) as CommandResult,
-      listCommandsFor: () => [],
+      execCommand: execRenderer,
+      listCommandsFor: () => COMMANDS,
       getTerminalState: () => undefined,
       isSandboxed: () => false,
+      byAgent: reach.byAgent,
     },
     socketPath,
   )
+  workspaces = [{ workspaceId: 'ws1', name: 'ws1', kind: 'terminal', workDir: home, state: 'idle' }]
   answer = 'deny'
   request.mockClear()
   opened.length = 0
@@ -180,7 +251,10 @@ beforeEach(() => {
 
 afterEach(() => {
   stopControlServer()
-  registry.workspaceClosed('ws1')
+  for (const w of workspaces) {
+    registry.workspaceClosed(w.workspaceId)
+    reach.forget(w.workspaceId)
+  }
 })
 
 describe('ostia process (the real CLI against a live control server)', () => {
@@ -282,6 +356,89 @@ describe('ostia process (the real CLI against a live control server)', () => {
     expect(unknown.code).toBe(1)
     expect(unknown.stderr).toContain('unknown-agent')
     expect((await ostia(['agent', 'run', 'claude'])).stderr).toContain('usage: ostia agent run')
+    expect(opened).toHaveLength(count)
+  })
+
+  it('an agent starts a worker in a workspace of its own project without asking, and asks for another project or one it moved its folder into', async () => {
+    const main = join(home, 'proj')
+    const worktree = join(home, 'proj-workers')
+    const gitDir = join(main, '.git', 'worktrees', 'proj-workers')
+    mkdirSync(gitDir, { recursive: true })
+    mkdirSync(worktree, { recursive: true })
+    writeFileSync(join(gitDir, 'commondir'), '../..\n')
+    writeFileSync(join(worktree, '.git'), `gitdir: ${gitDir}\n`)
+    const elsewhere = join(home, 'other')
+    mkdirSync(join(elsewhere, '.git'), { recursive: true })
+    workspaces[0].workDir = main
+
+    const workers = JSON.stringify({ dir: worktree, name: 'proj workers', focus: false })
+    expect((await ostia(['workspace.new', workers])).code).toBe(0)
+    const fixer = await ostia([
+      'agent',
+      'run',
+      'claude',
+      'fix the login bug',
+      '--name',
+      'fixer',
+      '--workspace',
+      'proj workers',
+    ])
+    expect(fixer.stderr).toBe('')
+    expect(fixer.code).toBe(0)
+    expect(JSON.parse(fixer.stdout)).toMatchObject({ name: 'fixer' })
+    expect(opened.at(-1)).toMatchObject({ workspaceId: 'ws2', title: 'fixer' })
+    expect(request).not.toHaveBeenCalled()
+    emit(`tab-${tabSeq}`, `${PROMPT}claude 'fix the login bug'\r\n${C}`)
+    expect((await ostia(['process', 'ls'])).stdout).toMatch(/fixer\s+running/)
+
+    const count = opened.length
+    expect(
+      (
+        await ostia([
+          'workspace.new',
+          JSON.stringify({ dir: elsewhere, name: 'other', focus: false }),
+        ])
+      ).code,
+    ).toBe(0)
+    const stranger = await ostia([
+      'agent',
+      'run',
+      'claude',
+      'look around',
+      '--name',
+      'stranger',
+      '--workspace',
+      'other',
+    ])
+    expect(stranger.code).toBe(1)
+    expect(stranger.stderr).toContain('denied: all-workspaces')
+    expect(stranger.stderr).toContain('act on other panes and workspaces')
+    expect(request).toHaveBeenCalledTimes(1)
+    expect(request).toHaveBeenLastCalledWith(expect.objectContaining({ caps: ['all-workspaces'] }))
+
+    request.mockClear()
+    expect((await ostia(['workspace', 'dir', elsewhere])).code).toBe(0)
+    const drifter = await ostia([
+      'agent',
+      'run',
+      'claude',
+      'look again',
+      '--name',
+      'drifter',
+      '--workspace',
+      'other',
+    ])
+    expect(drifter.code).toBe(1)
+    expect(drifter.stderr).toContain('denied: all-workspaces')
+    expect(request).toHaveBeenCalledTimes(2)
+    expect(request).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ kind: 'reach-project', subject: elsewhere, caps: [] }),
+    )
+    expect(request).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ caps: ['all-workspaces'] }),
+    )
     expect(opened).toHaveLength(count)
   })
 

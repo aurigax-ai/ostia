@@ -653,7 +653,6 @@
         "test/fixtures/agents/"
       ],
       "specs": [
-        "e2e/agent-reach.spec.ts",
         "e2e/bus-delivery.spec.ts",
         "e2e/group-send.spec.ts",
         "e2e/pane-wake-wait.spec.ts",
@@ -710,7 +709,7 @@
         "src/renderer/components/agents/ApprovalsInbox.tsx",
         "src/renderer/stores/agents/approvalsStore.ts"
       ],
-      "specs": ["e2e/approvals.spec.ts", "e2e/agent-reach.spec.ts"]
+      "specs": ["e2e/approvals.spec.ts"]
     },
     {
       "name": "user actions",
