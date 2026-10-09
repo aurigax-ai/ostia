@@ -8,6 +8,7 @@ import {
   _electron as playwrightElectron,
 } from '@playwright/test'
 
+import { isolatedLaunch } from './dataHome'
 import { processRows } from './processes'
 
 export * from '@playwright/test'
@@ -192,7 +193,44 @@ export const _electron: Electron = {
   },
 }
 
-export const test = base.extend<{ appTraces: undefined }>({
+const WARM_UP_WAIT_MS = 60_000
+
+async function warmUp(): Promise<void> {
+  const started = Date.now()
+  const app = await playwrightElectron.launch(isolatedLaunch())
+  try {
+    const win = await app.firstWindow({ timeout: WARM_UP_WAIT_MS })
+    await win
+      .locator('.workzone-empty')
+      .getByRole('button', { name: /New workspace/ })
+      .click({ timeout: WARM_UP_WAIT_MS })
+    await win
+      .locator('.workspace-empty:visible')
+      .getByRole('button', { name: 'New terminal' })
+      .click({ timeout: WARM_UP_WAIT_MS })
+    await win.locator('.xterm, .ghostty-host').first().waitFor({ timeout: WARM_UP_WAIT_MS })
+    console.log(`e2e warm-up: the app opened a terminal in ${Date.now() - started} ms`)
+  } catch (error) {
+    console.log(`e2e warm-up: gave up after ${Date.now() - started} ms: ${error}`)
+  } finally {
+    const exited = processExit(app)
+    await Promise.race([
+      app.close().then(() => exited),
+      new Promise((resolve) => setTimeout(resolve, CLOSE_DEADLINE_MS)),
+    ]).catch(() => {})
+    if (!hasExited(app.process())) app.process().kill('SIGKILL')
+  }
+}
+
+export const test = base.extend<{ appTraces: undefined }, { warmApp: undefined }>({
+  warmApp: [
+    // biome-ignore lint/correctness/noEmptyPattern: Playwright reads fixture dependencies from this pattern
+    async ({}, use) => {
+      if (process.platform === 'darwin' && process.env.CI) await warmUp()
+      await use(undefined)
+    },
+    { scope: 'worker', auto: true, timeout: 3 * WARM_UP_WAIT_MS },
+  ],
   appTraces: [
     // biome-ignore lint/correctness/noEmptyPattern: Playwright reads fixture dependencies from this pattern
     async ({}, use, testInfo) => {
