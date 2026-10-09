@@ -198,6 +198,7 @@ const WARM_UP_WAIT_MS = 60_000
 async function warmUp(): Promise<void> {
   const started = Date.now()
   const app = await playwrightElectron.launch(isolatedLaunch())
+  const child = app.process()
   try {
     const win = await app.firstWindow({ timeout: WARM_UP_WAIT_MS })
     await win
@@ -218,7 +219,7 @@ async function warmUp(): Promise<void> {
       app.close().then(() => exited),
       new Promise((resolve) => setTimeout(resolve, CLOSE_DEADLINE_MS)),
     ]).catch(() => {})
-    if (!hasExited(app.process())) app.process().kill('SIGKILL')
+    if (!hasExited(child)) child.kill('SIGKILL')
   }
 }
 
