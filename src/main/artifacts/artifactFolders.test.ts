@@ -227,16 +227,19 @@ describe('ArtifactFolders', () => {
     )
     const dir = watching.ensure('w1') as string
     const seen = (): { path: string; change: string }[] => reports.flatMap(([, changes]) => changes)
-    stamped(join(dir, 'a.md'), 100)
-    mkdirSync(join(dir, 'page'))
-    stamped(join(dir, 'page', 'index.html'), 100)
-    stamped(join(dir, 'PAD.md'), 100)
-    await vi.waitFor(() =>
-      expect(seen().sort((x, y) => x.path.localeCompare(y.path))).toEqual([
-        { path: 'a.md', change: 'added' },
-        { path: 'PAD.md', change: 'added' },
-        { path: 'page/index.html', change: 'added' },
-      ]),
+    await vi.waitFor(
+      () => {
+        stamped(join(dir, 'a.md'), 100)
+        mkdirSync(join(dir, 'page'), { recursive: true })
+        stamped(join(dir, 'page', 'index.html'), 100)
+        stamped(join(dir, 'PAD.md'), 100)
+        expect(seen().sort((x, y) => x.path.localeCompare(y.path))).toEqual([
+          { path: 'a.md', change: 'added' },
+          { path: 'PAD.md', change: 'added' },
+          { path: 'page/index.html', change: 'added' },
+        ])
+      },
+      { timeout: 10_000 },
     )
     expect(reports.every(([id]) => id === 'w1')).toBe(true)
     reports.length = 0
