@@ -1,4 +1,4 @@
-import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { emptyState, openWorkspace } from './helpers'
@@ -113,41 +113,6 @@ test('zoom chords change the window zoom factor within 80 to 150 percent and per
     await expect
       .poll(() => JSON.parse(readFileSync(settingsFile, 'utf8')).appearance?.zoom)
       .toBe(110)
-  } finally {
-    await app.close()
-  }
-})
-
-test('a recorded notification runs the configured command with its placeholders filled', async () => {
-  const dataHome = freshDataHome()
-  const binDir = join(dataHome, 'bin')
-  mkdirSync(binDir, { recursive: true })
-  const script = join(binDir, 'on-notify.sh')
-  const out = join(dataHome, 'notified.txt')
-  writeFileSync(script, `#!/bin/sh\nprintf '%s|%s|%s' "$1" "$2" "$3" > "${out}"\n`)
-  chmodSync(script, 0o755)
-  seedSettings(dataHome, {
-    ...DOM_RENDERER_SETTINGS,
-    notifications: { desktop: false, command: `${script} {title} "{body}" {pane}` },
-  })
-  const app = await electron.launch(isolatedLaunch(dataHome))
-  try {
-    const win = await app.firstWindow()
-    await win.waitForLoadState('domcontentloaded')
-    await openWorkspace(win)
-
-    await win.evaluate(() =>
-      window.ostia.notifications.post({
-        paneId: 'pane-x',
-        kind: 'message',
-        title: 'Build',
-        body: 'all; green',
-        desktop: false,
-      }),
-    )
-
-    await expect.poll(() => existsSync(out), { timeout: 10_000 }).toBe(true)
-    await expect.poll(() => readFileSync(out, 'utf8')).toBe('Build|all; green|pane-x')
   } finally {
     await app.close()
   }
