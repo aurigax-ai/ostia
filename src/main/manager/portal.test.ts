@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync, statSync } from 'node:fs'
 import { createConnection } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   type MessageConnection,
   StreamMessageReader,
@@ -140,14 +140,12 @@ describe('Portal', () => {
 
     await c.conn.sendNotification('mirror.input', { data: 'hi\r' })
     await c.conn.sendNotification('mirror.resize', { cols: 90, rows: 20 })
-    await settle()
     const pty = ptys.get('pane-1')
+    await vi.waitFor(() => expect(pty?.sizes.at(-1)).toEqual([90, 20]), { timeout: 10_000 })
     expect(pty?.input).toEqual(['hi\r'])
-    expect(pty?.sizes.at(-1)).toEqual([90, 20])
 
     for (const sink of pty?.sinks ?? []) sink.data('out')
-    await settle()
-    expect(c.data.at(-1)).toBe('out')
+    await vi.waitFor(() => expect(c.data.at(-1)).toBe('out'), { timeout: 10_000 })
   })
 
   it('MGR-C39 refuses before checking the caller when ss is missing, naming the package and command', async () => {
