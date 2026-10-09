@@ -1,4 +1,6 @@
 import { spawnSync } from 'node:child_process'
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
@@ -116,6 +118,58 @@ describe('quarantineProblems', () => {
       expect.stringContaining('listed twice'),
       expect.stringContaining('platforms must list some of linux, darwin'),
     ])
+  })
+})
+
+describe('a @core test', () => {
+  const root = mkdtempSync(join(tmpdir(), 'quarantine-core-'))
+  mkdirSync(join(root, 'e2e'))
+  writeFileSync(
+    join(root, 'e2e/core.spec.ts'),
+    [
+      "test('plain test', async () => {})",
+      "test('core test', { tag: '@core' }, async () => {})",
+      "test('both tags', { tag: ['@core', '@race'] }, async () => {})",
+      "test.describe('core group', { tag: '@core' }, () => {",
+      "  test('inner test', async () => {})",
+      '})',
+      '',
+    ].join('\n'),
+  )
+  const entry = (name: string, until: string) => ({
+    file: 'e2e/core.spec.ts',
+    name,
+    issue: 1,
+    until,
+  })
+  const check = (name: string, days: number) =>
+    quarantineProblems([entry(name, daysFrom('2026-10-08', days))], {
+      today: '2026-10-08',
+      root,
+    })
+
+  it('may be quarantined for 7 days and not for 8', () => {
+    expect(check('core test', 7)).toEqual([])
+    expect(check('core test', 8)).toEqual([expect.stringContaining('more than 7 days out')])
+    expect(check('both tags', 8)).toEqual([expect.stringContaining('more than 7 days out')])
+  })
+
+  it('keeps 30 days for a test without the tag', () => {
+    expect(check('plain test', 30)).toEqual([])
+    expect(check('plain test', 31)).toEqual([expect.stringContaining('more than 30 days out')])
+  })
+
+  it('counts the tag of its describe', () => {
+    expect(check('core group > inner test', 7)).toEqual([])
+    expect(check('core group > inner test', 8)).toEqual([
+      expect.stringContaining('more than 7 days out'),
+    ])
+  })
+
+  it('shows the 7 day limit in the reminder', () => {
+    const body = reminderBody([entry('core test', '2026-10-12')], '2026-10-08', root)
+    expect(body).toContain('@core, at most 7 days out')
+    expect(body.split('\n').length).toBeLessThanOrEqual(10)
   })
 })
 

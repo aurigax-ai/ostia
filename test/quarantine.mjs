@@ -4,6 +4,7 @@ import { relative, resolve } from 'node:path'
 export const ROOT = process.cwd()
 const REGISTRY = resolve(ROOT, 'test/quarantine.json')
 const MAX_DAYS = 30
+const CORE_MAX_DAYS = 7
 const REMIND_DAYS = 7
 const PLATFORMS = ['linux', 'darwin']
 const DAY_MS = 86_400_000
@@ -56,6 +57,18 @@ export function announce(entries, runner) {
   console.warn(`${runner}: quarantined by test/quarantine.json, skipped:\n${lines.join('\n')}`)
 }
 
+export function isCoreTest(root, entry) {
+  const path = resolve(root, entry.file)
+  if (typeof entry.name !== 'string' || !existsSync(path)) return false
+  const source = readFileSync(path, 'utf8')
+  return entry.name.split(' > ').some((title) => {
+    const start = source.indexOf(title)
+    if (start < 0) return false
+    const end = source.indexOf('=>', start)
+    return /['"`]@core['"`]/.test(source.slice(start, end < 0 ? source.length : end))
+  })
+}
+
 export function quarantineProblems(
   entries,
   { today, issueStates = {}, root = ROOT, enforceExpiry = true },
@@ -91,8 +104,10 @@ export function quarantineProblems(
     if (Number.isNaN(untilMs)) fail('until must be a date like 2026-10-31')
     else if (untilMs < todayMs) {
       if (enforceExpiry) fail(`expired on ${entry.until}`)
-    } else if (untilMs - todayMs > MAX_DAYS * DAY_MS)
-      fail(`until is more than ${MAX_DAYS} days out`)
+    } else {
+      const limit = isCoreTest(root, entry) ? CORE_MAX_DAYS : MAX_DAYS
+      if (untilMs - todayMs > limit * DAY_MS) fail(`until is more than ${limit} days out`)
+    }
     if (
       entry.platforms !== undefined &&
       (!Array.isArray(entry.platforms) ||
@@ -135,7 +150,7 @@ export function unreminded(entries, commentBodies) {
   )
 }
 
-export function reminderBody(entries, today) {
+export function reminderBody(entries, today, root = ROOT) {
   const lines = entries.map((entry) => {
     const left = daysLeft(entry, today)
     const when =
@@ -144,7 +159,8 @@ export function reminderBody(entries, today) {
         : left === 0
           ? 'expires today'
           : `expires on ${entry.until}`
-    return `- \`${entryKey(entry)}\` ${when}`
+    const core = isCoreTest(root, entry) ? ` (@core, at most ${CORE_MAX_DAYS} days out)` : ''
+    return `- \`${entryKey(entry)}\` ${when}${core}`
   })
   return [
     'Quarantined tests for this issue in `test/quarantine.json`:',
