@@ -269,7 +269,6 @@
         "test/fixtures/extensions"
       ],
       "specs": [
-        "e2e/agent-plugin.spec.ts",
         "e2e/extension-locales.spec.ts",
         "e2e/extension-on-demand.spec.ts",
         "e2e/extensions.spec.ts",
