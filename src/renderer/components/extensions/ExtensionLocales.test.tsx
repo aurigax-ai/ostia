@@ -1,6 +1,12 @@
-import { syncExtensionCommands, wireExtensionBridge } from '@/commands/extensionBridge'
+import {
+  openExtensionPanel,
+  syncExtensionCommands,
+  wireExtensionBridge,
+} from '@/commands/extensionBridge'
 import { CommandPalette } from '@/components/CommandPalette'
+import { TabFace } from '@/components/panes/TabFace'
 import { PanelToggles } from '@/components/shell/PanelToggles'
+import { findPane } from '@/layout/tree'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { useMarketplaceStore } from '@/stores/extensions/marketplaceStore'
@@ -163,6 +169,23 @@ describe('extension wording follows the list main resolved for the language', ()
     await act(async () => announce([TRADITIONAL_CHINESE]))
     expect(screen.getByRole('button', { name: '問候面板' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Greeter Panel' })).toBeNull()
+  })
+
+  it('the open panel tab is titled in the language, then English again', async () => {
+    useWorkspacesStore.setState({ workspaces: [WORKSPACE], activeWorkspaceId: WORKSPACE.id })
+    const paneId = openExtensionPanel({ extId: 'greeter' }) as string
+    const pane = findPane(useLayoutStore.getState().byWorkspace[WORKSPACE.id].root, paneId)
+    if (!pane) throw new Error('no panel pane')
+    render(<TabFace pane={pane} />)
+    expect(screen.getByText('Greeter Panel')).toBeInTheDocument()
+
+    await act(async () => announce([TRADITIONAL_CHINESE]))
+    expect(screen.getByText('問候面板')).toBeInTheDocument()
+    expect(screen.queryByText('Greeter Panel')).toBeNull()
+
+    await act(async () => announce([ENGLISH]))
+    expect(screen.getByText('Greeter Panel')).toBeInTheDocument()
+    expect(screen.queryByText('問候面板')).toBeNull()
   })
 
   it('the approval dialog names a waiting extension in the language', async () => {
