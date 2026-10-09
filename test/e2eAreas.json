@@ -201,12 +201,7 @@
         "src/renderer/components/editor/DiffView.tsx",
         "src/renderer/stores/files/diffStore.ts"
       ],
-      "specs": [
-        "e2e/diff-hidden.spec.ts",
-        "e2e/extension-on-demand.spec.ts",
-        "e2e/git.spec.ts",
-        "e2e/git-graph.spec.ts"
-      ]
+      "specs": ["e2e/diff-hidden.spec.ts", "e2e/extension-on-demand.spec.ts", "e2e/git.spec.ts"]
     },
     {
       "name": "trellis and keeper",

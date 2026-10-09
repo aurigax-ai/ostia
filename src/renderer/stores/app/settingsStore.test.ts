@@ -799,6 +799,14 @@ describe('settingsStore', () => {
       })
     })
 
+    it('setGit saves the graph branches and the changed files layout to settings.json', async () => {
+      store().setGit({ graphScope: 'all' })
+      store().setGit({ changesView: 'tree' })
+      await vi.advanceTimersByTimeAsync(300)
+      const written = JSON.parse(String(vi.mocked(window.ostia.fs.write).mock.calls.at(-1)?.[1]))
+      expect(written.git).toMatchObject({ graphScope: 'all', changesView: 'tree' })
+    })
+
     it('setTheme updates appearance.theme immediately (before the debounce fires)', () => {
       store().setTheme('dracula')
       expect(store().appearance.theme).toBe('dracula')
