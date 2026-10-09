@@ -827,4 +827,36 @@ describe('Marketplace', () => {
     })
     expect(existsSync(join(h.extensionsDir, 'tides'))).toBe(false)
   })
+
+  it('an unlisted extension stays out of Settings until its install code is typed', async () => {
+    const repo = repoWithUnlisted()
+    writeFileSync(
+      join(repo, MARKETPLACE_MANIFEST_FILE),
+      JSON.stringify({
+        name: 'Test marketplace',
+        extensions: [],
+        unlisted: [{ path: 'extensions/tides', code: CODE }],
+      }),
+    )
+    commit(repo)
+    const h = harness()
+    const { state } = await h.marketplace.add(repo)
+    const id = state.marketplaces[0]?.id
+    expect(state.marketplaces[0]).toMatchObject({ unlisted: true, extensions: [] })
+    const before = h.rescans()
+    expect(await h.marketplace.installCode(id, 'hello')).toMatchObject({
+      ok: false,
+      error: 'unknown-code',
+    })
+    expect(existsSync(join(h.extensionsDir, 'tides', 'ostia.json'))).toBe(false)
+    expect(h.rescans()).toBe(before)
+    const res = await h.marketplace.installCode(id, CODE)
+    expect(res.ok).toBe(true)
+    expect(existsSync(join(h.extensionsDir, 'tides', 'ostia.json'))).toBe(true)
+    expect(h.forgotten).toEqual(['tides'])
+    expect(h.rescans()).toBe(before + 1)
+    expect(res.state.marketplaces[0]?.extensions.map((e) => [e.id, e.state])).toEqual([
+      ['tides', 'installed'],
+    ])
+  })
 })
