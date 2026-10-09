@@ -5,10 +5,12 @@ import { tabsOf } from '@/layout/tree'
 import type { PaneNode, TabsNode } from '@/layout/types'
 import { PANE_DND, startPaneDragTracking } from '@/lib/panes/paneDrag'
 import { useQuestionsStore } from '@/stores/agents/questionsStore'
+import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { usePaneDnd } from '@/stores/workspaces/paneDndStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
+import type { WorkspaceSandbox } from '@shared/sandbox/sandbox'
 import {
   act,
   cleanup,
@@ -26,6 +28,7 @@ import { Pane } from './Pane'
 import { PaneTree } from './PaneTree'
 
 const pane: PaneNode = { type: 'pane', id: 'p9', kind: 'terminal', title: 'zsh' }
+const SANDBOX_OFF: WorkspaceSandbox = { enabled: false, allowRead: [], domains: [], controls: {} }
 
 let layoutInit: ReturnType<typeof useLayoutStore.getState>
 let workspacesInit: ReturnType<typeof useWorkspacesStore.getState>
@@ -156,6 +159,48 @@ describe('Pane', () => {
       })
     } finally {
       stop()
+    }
+  })
+
+  it('SBX-C5 a workspace with the sandbox off spawns an unwrapped shell', async () => {
+    const sandbox = useSandboxStore.getState()
+    useWorkspacesStore.setState({ activeWorkspaceId: 'w' })
+    try {
+      useSandboxStore.getState().notePane(pane.id, false)
+      vi.mocked(window.ostia.sandbox.get).mockResolvedValue(SANDBOX_OFF)
+      await act(async () => {
+        render(<Pane tabs={[pane]} shownId={pane.id} activePaneId={pane.id} workspaceId="w" />)
+      })
+      expect(useSandboxStore.getState().enabled.w).toBe(false)
+      expect(screen.queryByRole('button', { name: 'Restart to apply' })).toBeNull()
+    } finally {
+      cleanup()
+      useSandboxStore.setState(sandbox, true)
+    }
+  })
+
+  it('SBX-C6 turning the sandbox on asks running panes to restart, and the restart sandboxes them', async () => {
+    const sandbox = useSandboxStore.getState()
+    useWorkspacesStore.setState({ activeWorkspaceId: 'w' })
+    try {
+      useSandboxStore.getState().notePane(pane.id, false)
+      vi.mocked(window.ostia.sandbox.get).mockResolvedValue(SANDBOX_OFF)
+      await act(async () => {
+        render(<Pane tabs={[pane]} shownId={pane.id} activePaneId={pane.id} workspaceId="w" />)
+      })
+      expect(useSandboxStore.getState().enabled.w).toBe(false)
+      const on = { ...SANDBOX_OFF, enabled: true }
+      vi.mocked(window.ostia.sandbox.setEnabled).mockResolvedValue({ ok: true, settings: on })
+      vi.mocked(window.ostia.sandbox.get).mockResolvedValue(on)
+      await act(() => useSandboxStore.getState().setEnabled('w', true))
+      await userEvent.click(await screen.findByRole('button', { name: 'Restart to apply' }))
+      expect(window.ostia.pty.restart).toHaveBeenCalledWith(pane.id)
+      expect(screen.queryByRole('button', { name: 'Restart to apply' })).toBeNull()
+      act(() => useSandboxStore.getState().notePane(pane.id, true))
+      expect(screen.queryByRole('button', { name: 'Restart to apply' })).toBeNull()
+    } finally {
+      cleanup()
+      useSandboxStore.setState(sandbox, true)
     }
   })
 

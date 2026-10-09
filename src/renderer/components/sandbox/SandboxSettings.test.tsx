@@ -362,6 +362,48 @@ describe('workspace sandbox page layout', () => {
       expect(within(panel).getByRole('heading', { level: 3, name: heading })).toBeInTheDocument()
     }
   })
+
+  it('SBX-C57 shows every sandbox setting on the workspace page and in Settings › Sandbox', async () => {
+    vi.mocked(window.ostia.sandbox.get).mockResolvedValue(WORKSPACE)
+    render(<WorkspaceSandboxPage workspaceId="ws" workspaceName="project" />)
+    expect(
+      await screen.findByRole('heading', { level: 2, name: 'Workspace: project' }),
+    ).toBeVisible()
+    const controls: [string, string][] = [
+      ['General', 'Sandbox this workspace'],
+      ['Files', 'Readable folders'],
+      ['Files', 'Writable folders'],
+      ['Files', 'Hidden paths'],
+      ['Files', 'Read-only paths'],
+      ['Network', 'Allowed domains'],
+      ['Network', 'Blocked domains'],
+      ['Network', 'Allow Unix sockets'],
+      ['Ports', 'When a new server starts'],
+      ['Secrets', 'Env and file grants'],
+      ['Packages', 'Cooldown (days)'],
+      [`${PRODUCT_DISPLAY_NAME} access`, 'Act on other workspaces'],
+      ['Blocked', 'Nothing was blocked.'],
+    ]
+    for (const [tab, control] of controls) {
+      await userEvent.click(screen.getByRole('tab', { name: tab }))
+      expect(await screen.findByRole('tabpanel', { name: tab })).toHaveTextContent(control)
+    }
+    cleanup()
+    await act(async () => {
+      render(<SandboxSection />)
+    })
+    expect(screen.getByRole('group', { name: 'Allowed domains' })).toHaveTextContent(
+      'api.anthropic.com',
+    )
+    for (const group of [
+      'Readable folders',
+      'Writable folders',
+      'Allow Unix sockets',
+      'Cooldown (days)',
+    ]) {
+      expect(screen.getByRole('group', { name: group })).toBeVisible()
+    }
+  })
 })
 
 const FOUND = [

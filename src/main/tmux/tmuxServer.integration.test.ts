@@ -5,9 +5,12 @@ import { basename, join } from 'node:path'
 import { Terminal } from '@xterm/headless'
 import { afterAll, afterEach, describe, expect, it, vi } from 'vitest'
 import { skipWithoutTmux, tmuxPath } from '../../../test/tmux'
+import { programPath } from '../platform/systemRequirements'
+import { shellIntegrationSpawnOptions } from '../terminal/shellIntegration'
 import { type TmuxPane, TmuxServer, TmuxSocketDirError, serverEnv } from './tmuxServer'
 
 const tmux = tmuxPath ?? 'tmux'
+const zsh = programPath('zsh') ?? 'zsh'
 const tmuxVersion = skipWithoutTmux
   ? 0
   : Number(/(\d+\.\d+)/.exec(execFileSync(tmux, ['-V'], { encoding: 'utf8' }))?.[1])
@@ -270,6 +273,61 @@ describe.skipIf(skipWithoutTmux)('TmuxServer', () => {
     servers.splice(servers.indexOf(server), 1)
     await server.killServer()
     expect(() => process.kill(Number(pid), 0)).toThrow()
+  })
+
+  it('KSH-C31 with clipboard writes off a program in a tmux pane cannot set the clipboard', async () => {
+    const server = await connect()
+    const pane = await spawnSh(
+      server,
+      'printf \'\\033]52;c;%s\\a\' "$(printf ostia-osc52-tmux | base64)"; echo osc-sent; sleep 5',
+    )
+    const out = collect(pane)
+    await until(() => out.text().includes('osc-sent'))
+    expect(await server.command('list-buffers')).toEqual([])
+  })
+
+  it('KSH-C24 resizing a tmux pane at an idle prompt leaves one clean prompt line', async () => {
+    writeFileSync(join(home, '.zshrc'), "PROMPT='%~ ❯ '\n")
+    const server = await connect()
+    const integration = shellIntegrationSpawnOptions(zsh, env)
+    const term = new Terminal({ cols: 100, rows: 30, allowProposedApi: true })
+    const pane = await server.spawn({
+      file: zsh,
+      args: integration.args,
+      cwd: home,
+      env: { PATH: process.env.PATH ?? '/usr/bin:/bin', HOME: home, ...integration.env },
+      cols: 100,
+      rows: 30,
+      meta: { paneId: 'p1' },
+    })
+    pane.onData((d) => term.write(d))
+    const rows = (): string[] => {
+      const buffer = term.buffer.active
+      return Array.from(
+        { length: buffer.length },
+        (_, y) => buffer.getLine(y)?.translateToString(true) ?? '',
+      )
+    }
+    const shown = (): string => rows().join('\n')
+    const settled = async (check: () => boolean): Promise<void> => {
+      await until(check, 10_000)
+      await new Promise((r) => setTimeout(r, 300))
+      await new Promise<void>((resolve) => term.write('', resolve))
+    }
+    await settled(() => shown().includes('❯'))
+    pane.write('echo before-resize\r')
+    await settled(() => /^before-resize$/m.test(shown()) && shown().split('❯').length - 1 === 2)
+    for (const cols of [120, 140, 110]) {
+      term.resize(cols, 30)
+      pane.resize(cols, 30)
+      await new Promise((r) => setTimeout(r, 300))
+    }
+    await settled(() => true)
+    expect(shown().split('❯').length - 1).toBe(2)
+    expect(shown()).not.toMatch(/%\s*$/m)
+    pane.write('clear; printf "%$(tput cols)s" "" | tr " " x; echo END\r')
+    await settled(() => rows().some((row) => row.startsWith('END')))
+    term.dispose()
   })
 
   it('reports a shell that exits with its code', async () => {

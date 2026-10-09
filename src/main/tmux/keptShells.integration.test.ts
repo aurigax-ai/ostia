@@ -1,16 +1,31 @@
 import { execFileSync, spawn as spawnChild } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, afterEach, describe, expect, it } from 'vitest'
 import { running, skipWithoutTmux, tmuxPath } from '../../../test/tmux'
+import { programPath } from '../platform/systemRequirements'
 import { HOST_PROTOCOL_VERSION } from '../sandbox/protocol'
+import { shellIntegrationSpawnOptions } from '../terminal/shellIntegration'
 import { type KeptHostMeta, type KeptMeta, KeptShells, SANDBOX_HOST_KIND } from './keptShells'
 import type { TmuxPane } from './tmuxServer'
 
 const tmux = tmuxPath ?? 'tmux'
+const zsh = programPath('zsh') ?? 'zsh'
+const cliPath = join(process.cwd(), 'out', 'cli', 'index.js')
 const root = mkdtempSync(join(tmpdir(), 'ostia-kept-'))
+const home = join(root, 'home')
+mkdirSync(home, { recursive: true })
+writeFileSync(join(home, '.zshrc'), "PROMPT='%~ ❯ '\n")
 const live: KeptShells[] = []
 let names = 0
 const PROCESS_END_MS = 10_000
@@ -54,6 +69,42 @@ function spawn(kept: KeptShells, paneId: string): Promise<TmuxPane> {
     rows: 24,
     meta: meta(paneId),
   })
+}
+
+function spawnZsh(kept: KeptShells, paneId: string): Promise<TmuxPane> {
+  const integration = shellIntegrationSpawnOptions(zsh, { HOME: home })
+  return kept.spawn({
+    file: zsh,
+    args: integration.args,
+    cwd: home,
+    env: { PATH: process.env.PATH ?? '/usr/bin:/bin', HOME: home, ...integration.env },
+    cols: 80,
+    rows: 24,
+    meta: meta(paneId),
+  })
+}
+
+function collect(pane: TmuxPane): () => string {
+  let text = ''
+  pane.onData((d) => {
+    text += d
+  })
+  return () => text
+}
+
+function marks(text: string, mark: string): number {
+  return text.split(`\x1b]133;${mark}`).length - 1
+}
+
+async function deadSocket(path: string): Promise<void> {
+  mkdirSync(join(path, '..'), { recursive: true, mode: 0o700 })
+  const holder = spawnChild(process.execPath, [
+    '-e',
+    `require('node:net').createServer().listen(${JSON.stringify(path)}, () => console.log('up'))`,
+  ])
+  await new Promise((resolve) => holder.stdout.once('data', resolve))
+  holder.kill('SIGKILL')
+  await new Promise((resolve) => holder.once('exit', resolve))
 }
 
 async function ended(pid: number): Promise<void> {
@@ -167,15 +218,8 @@ describe.skipIf(skipWithoutTmux)('KeptShells', () => {
   it('removes a socket no server answers on without running tmux', async () => {
     const name = `k${names++}`
     const dir = join(root, 'sock')
-    mkdirSync(dir, { recursive: true, mode: 0o700 })
     const stale = join(dir, name)
-    const holder = spawnChild(process.execPath, [
-      '-e',
-      `require('node:net').createServer().listen(${JSON.stringify(stale)}, () => console.log('up'))`,
-    ])
-    await new Promise((resolve) => holder.stdout.once('data', resolve))
-    holder.kill('SIGKILL')
-    await new Promise((resolve) => holder.once('exit', resolve))
+    await deadSocket(stale)
     expect(existsSync(stale)).toBe(true)
     let asked = 0
     const kept = new KeptShells({
@@ -202,6 +246,84 @@ describe.skipIf(skipWithoutTmux)('KeptShells', () => {
     expect(claimed?.pane.pid).toBe(pane.pid)
     expect(claimed?.meta.externalId).toBe('ext-p1')
     expect(second.kept.claim('p1')).toBeNull()
+  })
+
+  it('KSH-C11 earlier commands come back as text and new commands get blocks', async () => {
+    const name = `k${names++}`
+    const first = instance(name)
+    const pane = await spawnZsh(first.kept, 'p1')
+    const before = collect(pane)
+    await expect.poll(() => marks(before(), 'A'), { timeout: 10_000 }).toBe(1)
+    pane.write('echo one-$((0+1))\r')
+    await expect.poll(() => marks(before(), 'D'), { timeout: 10_000 }).toBe(1)
+    pane.write('echo two-$((1+1))\r')
+    await expect.poll(() => marks(before(), 'D'), { timeout: 10_000 }).toBe(2)
+    first.kept.release()
+    const second = await restart(name, new Set(['p1']))
+    const claimed = second.kept.claim('p1')
+    if (!claimed) throw new Error('the kept shell was not handed back')
+    const after = collect(claimed.pane)
+    const screen = await claimed.pane.snapshot(80, 24)
+    claimed.pane.live()
+    expect(screen).toContain('one-1')
+    expect(screen).toContain('two-2')
+    expect(screen).not.toContain('\x1b]133;')
+    claimed.pane.write('echo three-$((2+1))\r')
+    await expect.poll(() => marks(after(), 'D'), { timeout: 10_000 }).toBe(1)
+    expect(after()).toContain('three-3')
+    expect(marks(after(), 'C')).toBe(1)
+  })
+
+  it('KSH-C26 blocks and the folder follow a tmux pane as they do a plain one', async () => {
+    const { kept } = instance(`k${names++}`)
+    const pane = await spawnZsh(kept, 'p1')
+    const out = collect(pane)
+    await expect.poll(() => marks(out(), 'A'), { timeout: 10_000 }).toBe(1)
+    pane.write('mkdir -p ~/proj && cd ~/proj && echo moved-$((1+1))\r')
+    await expect.poll(() => marks(out(), 'D'), { timeout: 10_000 }).toBe(1)
+    expect(marks(out(), 'C')).toBe(1)
+    expect(out()).toContain('moved-2')
+    const folders = out()
+      .split('\x1b]7;file://')
+      .slice(1)
+      .map((osc) => osc.slice(osc.indexOf('/'), osc.indexOf('\x1b\\')))
+    expect(folders.at(-1)).toBe(join(home, 'proj'))
+  })
+
+  it('KSH-C35 calling ostia while Ostia is closed fails cleanly and the shell stays', async () => {
+    const name = `k${names++}`
+    const first = instance(name)
+    const socket = join(root, 'closed', `${name}.sock`)
+    await deadSocket(socket)
+    const answered = join(root, `${name}-answered`)
+    const tokenFile = first.kept.writeToken('p1', `token-${randomUUID()}`)
+    await first.kept.spawn({
+      file: '/bin/sh',
+      args: [
+        '-c',
+        `sleep 1; "${process.execPath}" "${cliPath}" whoami; echo "rc=$?"; touch "${answered}"; exec /bin/sh`,
+      ],
+      cwd: root,
+      env: {
+        PATH: process.env.PATH ?? '/usr/bin:/bin',
+        OSTIA_SOCKET: socket,
+        OSTIA_TOKEN_FILE: tokenFile,
+      },
+      cols: 80,
+      rows: 24,
+      meta: meta('p1'),
+    })
+    first.kept.release()
+    await expect.poll(() => existsSync(answered), { timeout: 15_000 }).toBe(true)
+    const second = await restart(name, new Set(['p1']))
+    const claimed = second.kept.claim('p1')
+    if (!claimed) throw new Error('the kept shell was not handed back')
+    const after = collect(claimed.pane)
+    const screen = await claimed.pane.snapshot(80, 24)
+    claimed.pane.live()
+    expect(screen).toMatch(/rc=[1-9]/)
+    claimed.pane.write('echo alive-$((3*3))\r')
+    await expect.poll(after).toContain('alive-9')
   })
 
   function sandboxed(kept: KeptShells, paneId: string): Promise<TmuxPane> {

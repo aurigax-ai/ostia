@@ -13,6 +13,7 @@ import {
 } from '../main/extensions/extensionHost'
 import { ExtensionStore } from '../main/extensions/extensionStore'
 import { requirementsInstallArgs } from '../main/platform/systemRequirementsIpc'
+import { HostPaneGrants } from '../main/sandbox/hostPanes'
 import type { CommandResult } from '../shared/types'
 
 const repoRoot = process.cwd()
@@ -31,16 +32,18 @@ describe('ostia CLI → extensions (real processes, real socket)', () => {
   let workDir: string
   let socketPath: string
   let identity: PaneIdentity
+  let sandboxed: PaneIdentity
   let host: ExtensionHost
+  const hostGrants = new HostPaneGrants({ now: Date.now, ttlMs: 60_000 })
   const savedDataHome = process.env.XDG_DATA_HOME
   const savedPath = process.env.PATH
   const confirm = vi.fn<(req: ExtensionConfirmRequest) => Promise<boolean>>()
   const openTerminalIn = vi.fn<(req: TerminalOpenRequest) => Promise<string | null>>()
 
-  function runOstia(args: string[], input?: string): Promise<RunResult> {
+  function runOstia(args: string[], input?: string, caller = identity): Promise<RunResult> {
     return new Promise((resolve, reject) => {
       const child = spawn(process.execPath, [cliPath, ...args], {
-        env: { ...process.env, OSTIA_SOCKET: socketPath, OSTIA_TOKEN: identity.token },
+        env: { ...process.env, OSTIA_SOCKET: socketPath, OSTIA_TOKEN: caller.token },
       })
       let stdout = ''
       let stderr = ''
@@ -70,6 +73,7 @@ describe('ostia CLI → extensions (real processes, real socket)', () => {
     process.env.PATH = `${fakeSystemBin}:${savedPath}`
     socketPath = join(dir, 'control.sock')
     identity = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'pCliExt' })
+    sandboxed = registerPane({ windowId: 'w1', workspaceId: 'sbx', paneId: 'pCliExtSbx' })
     host = new ExtensionHost({
       roots: [
         { dir: join(repoRoot, 'out', 'extensions'), builtin: true },
@@ -84,6 +88,8 @@ describe('ostia CLI → extensions (real processes, real socket)', () => {
       notify: () => {},
       confirm,
       openTerminalIn,
+      isSandboxed: (workspaceId) => workspaceId === 'sbx',
+      hostGrants,
       requestTimeoutMs: REQUEST_TIMEOUT_MS,
       log: () => {},
     })
@@ -227,6 +233,41 @@ describe('ostia CLI → extensions (real processes, real socket)', () => {
       expect(confirm).toHaveBeenCalledTimes(1)
       expect(confirm.mock.calls[0][0].detail).toContain(command)
       expect(openTerminalIn).not.toHaveBeenCalled()
+    }, 30_000)
+
+    it('SBX-C87 installs a system package from a sandbox in a Host pane that closes when done', async () => {
+      confirm.mockResolvedValue(true)
+      openTerminalIn.mockResolvedValue('host-pane')
+      const res = await runOstia(
+        ['system', 'install', 'jq', '--manager', 'pacman', '--reason', 'c87'],
+        undefined,
+        sandboxed,
+      )
+      expect(res.code).toBe(0)
+      const command = `${sudo}pacman -S --needed jq`
+      expect(JSON.parse(res.stdout)).toEqual({ approved: true, command, paneId: 'host-pane' })
+      expect(confirm.mock.calls[0][0].detail).toContain('Runs outside the sandbox')
+      const opened = openTerminalIn.mock.calls[0][0]
+      expect(opened).toMatchObject({
+        command: `${command}; exit`,
+        workspaceId: 'sbx',
+        afterPaneId: 'pCliExtSbx',
+      })
+      expect(hostGrants.consume(opened.hostToken ?? '')).toBe(true)
+    }, 30_000)
+
+    it('SBX-C88 opens no pane when the human denies a system install from a sandbox', async () => {
+      confirm.mockResolvedValue(false)
+      const res = await runOstia(
+        ['system', 'install', 'jq', '--manager', 'pacman', '--reason', 'c88'],
+        undefined,
+        sandboxed,
+      )
+      expect(res.code).toBe(1)
+      expect(JSON.parse(res.stdout)).toMatchObject({ approved: false })
+      expect(res.stderr).toContain('denied')
+      expect(openTerminalIn).not.toHaveBeenCalled()
+      expect(hostGrants.claim('system', `${sudo}pacman -S --needed jq`)).toBeNull()
     }, 30_000)
 
     it('rejects a package name that could smuggle a flag or shell syntax before asking', async () => {

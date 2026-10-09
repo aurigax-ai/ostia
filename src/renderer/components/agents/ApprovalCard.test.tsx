@@ -80,6 +80,25 @@ describe('ApprovalCard', () => {
     },
   )
 
+  it('SBX-C45 asks to expose a sandboxed port to this computer and allows it for the workspace', () => {
+    render(
+      <ApprovalCard
+        request={{
+          ...REQUEST,
+          caps: [],
+          kind: 'sandbox-port',
+          subject: '5173',
+          action: 'ostia sandbox expose 5173',
+        }}
+        paneTitle="zsh"
+      />,
+    )
+
+    expect(screen.getByText('zsh wants to expose port 5173 to this computer')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Allow for this workspace' }))
+    expect(window.ostia.approvals.answer).toHaveBeenCalledWith('approval-1', 'workspace')
+  })
+
   it('never offers Always allow for a request that is not a capability', async () => {
     render(
       <ApprovalCard

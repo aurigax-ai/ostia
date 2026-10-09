@@ -17,10 +17,12 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { DEFAULT_SANDBOX_GLOBALS } from '../../shared/sandbox/sandbox'
 import { quoteArgv } from '../../shared/terminal/shellQuote'
 import { shellArgv } from '../../shared/terminal/terminalShell'
+import { availableReadPresets } from './presets'
 import { sandboxedShellCommand, wrapForTerminal } from './ptyWrap'
-import { sandboxFailureBanner } from './spawnBanner'
+import { hiddenHomeNotice, sandboxFailureBanner } from './spawnBanner'
 import { sandboxSpawnEnv } from './spawnEnv'
 import { SandboxStore } from './store'
+import { ViolationLog, recordViolations } from './violations'
 import { SandboxUnavailableError, WorkspaceSandboxes } from './workspaceSandboxes'
 
 const repoRoot = process.cwd()
@@ -47,6 +49,15 @@ function sandboxes(store: SandboxStore, env?: NodeJS.ProcessEnv): WorkspaceSandb
     hostScript,
     hostEnv: env,
     onAsk: async () => false,
+  })
+}
+
+async function shellIn(manager: WorkspaceSandboxes, ws: string, script: string): Promise<string> {
+  const wrapped = await manager.wrap(ws, `{ ${script}; } 2>&1; true`, 'bash')
+  return execFileSync('/bin/sh', ['-c', wrapped], {
+    cwd: workDir,
+    encoding: 'utf8',
+    env: { ...process.env, HOME: join(root, 'home') },
   })
 }
 
@@ -222,4 +233,157 @@ describe('WorkspaceSandboxes', () => {
       rmSync(agentDir, { recursive: true, force: true })
     }
   }, 30_000)
+
+  it('SBX-C5 a workspace with the sandbox off spawns an unwrapped shell', () => {
+    const manager = sandboxes(new SandboxStore(join(root, 'c5.json')))
+    expect(manager.isEnabled('ws')).toBe(false)
+    expect(manager.settings('ws').enabled).toBe(false)
+  })
+
+  it('SBX-C6 turning the sandbox on asks running panes to restart, and the restart sandboxes them', async () => {
+    const home = join(root, 'home')
+    mkdirSync(join(home, '.ssh'), { recursive: true })
+    writeFileSync(join(home, '.ssh', 'id_ed25519'), 'SECRET-KEY-MATERIAL')
+    const manager = sandboxes(new SandboxStore(join(root, 'c6.json')))
+    expect(manager.isEnabled('ws')).toBe(false)
+    manager.update('ws', (current) => ({ ...current, enabled: true }))
+    expect(manager.isEnabled('ws')).toBe(true)
+    const out = await shellIn(
+      manager,
+      'ws',
+      `cat ${home}/.ssh/id_ed25519 || echo C6-DENIED; echo proxy=\${HTTPS_PROXY:+on}`,
+    )
+    expect(out).toContain('C6-DENIED')
+    expect(out).toContain('proxy=on')
+    expect(out).not.toContain('SECRET-KEY-MATERIAL')
+    manager.stopAll()
+  }, 30_000)
+
+  it('a folder added as writable in Settings can be written from the sandbox once the shell restarts', async () => {
+    const builds = join(root, 'home', 'builds')
+    mkdirSync(builds, { recursive: true })
+    const store = new SandboxStore(join(root, 'writable.json'))
+    store.set('ws', { enabled: true, allowRead: [], domains: [], controls: {} })
+    const manager = sandboxes(store)
+    expect(await shellIn(manager, 'ws', `echo early > ${builds}/early.txt; echo BEFORE`)).toContain(
+      'BEFORE',
+    )
+    expect(existsSync(join(builds, 'early.txt'))).toBe(false)
+    manager.update('ws', (current) => ({ ...current, allowWrite: ['~/builds'] }))
+    await manager.refresh('ws')
+    expect(await shellIn(manager, 'ws', `echo built > ${builds}/out.txt && echo AFTER`)).toContain(
+      'AFTER',
+    )
+    expect(readFileSync(join(builds, 'out.txt'), 'utf8')).toBe('built\n')
+    manager.stopAll()
+  }, 30_000)
+
+  it('a tool-folder preset switched on in Settings makes the tool readable once the shell restarts', async () => {
+    const bun = join(root, 'home', '.bun', 'bin', 'bun')
+    mkdirSync(join(root, 'home', '.bun', 'bin'), { recursive: true })
+    writeFileSync(bun, 'BUN-BINARY-STANDIN')
+    const store = new SandboxStore(join(root, 'preset.json'))
+    store.set('ws', { enabled: true, allowRead: [], domains: [], controls: {} })
+    const manager = sandboxes(store)
+    const before = await shellIn(manager, 'ws', `cat ${bun}; echo BEFORE`)
+    expect(before).toContain('BEFORE')
+    expect(before).not.toContain('BUN-BINARY-STANDIN')
+    const presets = availableReadPresets(manager.pathEnv(), {})
+    expect(presets.map((preset) => preset.id)).not.toContain('deno')
+    const paths = presets.find((preset) => preset.id === 'bun')?.paths ?? []
+    expect(paths).toEqual(['~/.bun'])
+    manager.update('ws', (current) => ({ ...current, allowRead: [...current.allowRead, ...paths] }))
+    await manager.refresh('ws')
+    expect(await shellIn(manager, 'ws', `cat ${bun}; echo AFTER`)).toContain('BUN-BINARY-STANDIN')
+    manager.stopAll()
+  }, 30_000)
+
+  it('a path hidden in Settings cannot be read from the sandbox, even inside the workspace folder', async () => {
+    mkdirSync(join(workDir, 'secrets'), { recursive: true })
+    writeFileSync(join(workDir, 'secrets', 'token.txt'), 'WORKSPACE-TOKEN-VALUE')
+    const store = new SandboxStore(join(root, 'hidden.json'))
+    store.set('ws', { enabled: true, allowRead: [], domains: [], controls: {} })
+    const manager = sandboxes(store)
+    expect(await shellIn(manager, 'ws', 'cat secrets/token.txt')).toContain('WORKSPACE-TOKEN-VALUE')
+    manager.update('ws', (current) => ({ ...current, denyRead: [join(workDir, 'secrets')] }))
+    await manager.refresh('ws')
+    const after = await shellIn(manager, 'ws', 'cat secrets/token.txt || echo HIDDEN')
+    expect(after).toContain('HIDDEN')
+    expect(after).not.toContain('WORKSPACE-TOKEN-VALUE')
+    manager.stopAll()
+  }, 30_000)
+
+  it('a refused connection shows up under Blocked with its host, and Clear empties the list', async () => {
+    const store = new SandboxStore(join(root, 'blocked.json'))
+    store.set('ws', {
+      enabled: true,
+      allowRead: [],
+      domains: [],
+      controls: {},
+      switches: { strictDomains: true },
+    })
+    const log = new ViolationLog()
+    const asked: string[] = []
+    const manager: WorkspaceSandboxes = new WorkspaceSandboxes({
+      store,
+      globals: () => DEFAULT_SANDBOX_GLOBALS,
+      basePaths: () => ({
+        home: join(root, 'home'),
+        dataDirs: [],
+        socketPath: join(root, 'ostia.sock'),
+        runtimeReads: [],
+      }),
+      workDir: () => workDir,
+      tmpRoot: join(root, 'tmp'),
+      nodePath: process.execPath,
+      hostScript,
+      onAsk: async (_ws, host) => {
+        asked.push(host)
+        return false
+      },
+      onViolations: (ws, lines) =>
+        recordViolations(log, (path) => manager.writeRefusal(ws, path), ws, lines),
+    })
+    const out = await shellIn(
+      manager,
+      'ws',
+      'curl -s -m 10 -o /dev/null http://unlisted.invalid/; echo CURL-DONE',
+    )
+    expect(out).toContain('CURL-DONE')
+    await expect
+      .poll(() => log.list('ws').map((row) => row.target), { timeout: 10_000 })
+      .toContain('unlisted.invalid:80')
+    expect(log.list('ws').find((row) => row.target === 'unlisted.invalid:80')).toMatchObject({
+      kind: 'network',
+      reason: 'not-allowed',
+      allowHost: 'unlisted.invalid',
+    })
+    expect(asked).toEqual([])
+    log.clear('ws')
+    expect(log.list('ws')).toEqual([])
+    manager.stopAll()
+  }, 30_000)
+
+  it.skipIf(process.platform !== 'linux')(
+    'tells a sandboxed shell that its home folder is hidden and that files written there are discarded',
+    async () => {
+      const store = new SandboxStore(join(root, 'home-notice.json'))
+      store.set('ws', { enabled: true, allowRead: [], domains: [], controls: {} })
+      const manager = sandboxes(store)
+      expect(manager.claimHomeNotice('ws')).toBe(true)
+      expect(manager.claimHomeNotice('ws')).toBe(false)
+      expect(hiddenHomeNotice()).toContain('your home folder is hidden here')
+      expect(hiddenHomeNotice()).toContain('are discarded when this shell exits')
+      const home = join(root, 'home')
+      const out = await shellIn(
+        manager,
+        'ws',
+        `echo kept > ${home}/lost.txt && cat ${home}/lost.txt && echo WROTE`,
+      )
+      expect(out).toContain('WROTE')
+      expect(existsSync(join(home, 'lost.txt'))).toBe(false)
+      manager.stopAll()
+    },
+    30_000,
+  )
 })

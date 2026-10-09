@@ -1,10 +1,14 @@
 import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync } from 'node:fs'
+import { type AddressInfo, createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { build } from 'esbuild'
 import type { IPty } from 'node-pty'
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { DEFAULT_SANDBOX_GLOBALS, type SandboxSwitches } from '../../shared/sandbox/sandbox'
+import { PortBridge } from './portBridge'
+import { PortForwarder } from './portForwarder'
+import { PortRequests } from './portRequests'
 import { sandboxedShellCommand, wrapForTerminal } from './ptyWrap'
 import { SandboxStore } from './store'
 import { WorkspaceSandboxes } from './workspaceSandboxes'
@@ -23,7 +27,8 @@ let workDir: string
 
 interface Session {
   term: IPty
-  pipe: string
+  pipe: string | null
+  bridge: PortBridge | null
   sandboxes: WorkspaceSandboxes
   output: () => string
   seen: (text: string | RegExp, from?: number) => Promise<number>
@@ -32,7 +37,11 @@ interface Session {
 
 const open: Session[] = []
 
-async function start(name: string, switches: Partial<SandboxSwitches> = {}): Promise<Session> {
+async function start(
+  name: string,
+  switches: Partial<SandboxSwitches> = {},
+  { relay = true, ports = false } = {},
+): Promise<Session> {
   if (!nodePty) throw new Error('node-pty is not available')
   const store = new SandboxStore(join(root, `${name}.json`))
   store.set('ws', { enabled: true, allowRead: [], domains: [], controls: {}, switches })
@@ -51,13 +60,15 @@ async function start(name: string, switches: Partial<SandboxSwitches> = {}): Pro
     hostScript,
     onAsk: async () => false,
   })
-  const pipe = join(sandboxes.tmpDir('ws'), 'resize-test')
+  const pipe = relay ? join(sandboxes.tmpDir('ws'), 'resize-test') : null
+  if (ports) await sandboxes.connect('ws')
+  const bridge = ports ? await PortBridge.open(sandboxes.tmpDir('ws')) : null
   const wrapped = await sandboxes.wrap(
     'ws',
-    sandboxedShellCommand(SHELL_ARGV, '/bin/bash', pipe),
+    sandboxedShellCommand(SHELL_ARGV, '/bin/bash', pipe, bridge?.command ?? null),
     'bash',
   )
-  const term = nodePty.spawn('/bin/sh', ['-c', wrapForTerminal(wrapped, pipe, 'linux')], {
+  const term = nodePty.spawn('/bin/sh', ['-c', wrapForTerminal(wrapped, pipe)], {
     name: 'xterm-256color',
     cols: 80,
     rows: 24,
@@ -79,7 +90,7 @@ async function start(name: string, switches: Partial<SandboxSwitches> = {}): Pro
     throw new Error(`never saw ${String(text)} in ${JSON.stringify(buffer.slice(from))}`)
   }
   const exited = new Promise<number>((resolve) => term.onExit((e) => resolve(e.exitCode)))
-  const session = { term, pipe, sandboxes, output: () => buffer, seen, exited }
+  const session = { term, pipe, bridge, sandboxes, output: () => buffer, seen, exited }
   open.push(session)
   await seen(PROMPT)
   return session
@@ -97,6 +108,56 @@ async function startSleep(session: Session): Promise<number> {
   const from = session.output().length
   session.term.write(`sh -c 'echo SLEEPING; exec sleep 30'\r`)
   return session.seen('SLEEPING\r', from)
+}
+
+function freePort(): Promise<number> {
+  return new Promise((resolve) => {
+    const probe = createServer().listen(0, '127.0.0.1', () => {
+      const { port } = probe.address() as AddressInfo
+      probe.close(() => resolve(port))
+    })
+  })
+}
+
+async function exposeAndServe(session: Session, marker: string): Promise<string> {
+  const port = await freePort()
+  const url = `http://127.0.0.1:${port}/`
+  const forwarder = new PortForwarder({
+    panesOf: () => [{ pid: session.term.pid, bridge: session.bridge }],
+    unixSocketsOff: () => false,
+  })
+  const requests = new PortRequests({
+    platform: 'linux',
+    isSandboxed: () => true,
+    policy: () => 'ask',
+    ask: async () => {
+      await expect(fetch(url)).rejects.toThrow()
+      return 'workspace'
+    },
+    forwarder,
+  })
+  await expect.poll(() => session.bridge?.connected, { timeout: 10_000 }).toBe(true)
+  try {
+    expect(await requests.request('ws', 'pane', String(port))).toEqual({ ok: true, port })
+    const server = `require("http").createServer((q,r)=>r.end("${marker}")).listen(${port},"127.0.0.1")`
+    session.term.write(`${process.execPath} -e '${server}' &\r`)
+    let body = ''
+    await expect
+      .poll(
+        async () => {
+          body = await fetch(url).then(
+            (res) => res.text(),
+            () => '',
+          )
+          return body
+        },
+        { timeout: 20_000 },
+      )
+      .toBe(marker)
+    return body
+  } finally {
+    forwarder.stopAll()
+  }
 }
 
 beforeAll(async () => {
@@ -118,6 +179,7 @@ beforeAll(async () => {
 afterEach(() => {
   for (const session of open.splice(0)) {
     session.term.kill()
+    session.bridge?.close()
     session.sandboxes.stopAll()
   }
 })
@@ -220,10 +282,15 @@ describe.skipIf(!runnable)(
 
     it('exits with the shell’s code and removes the resize pipe', async () => {
       const session = await start('exit')
-      expect(existsSync(session.pipe)).toBe(true)
+      expect(existsSync(session.pipe ?? '')).toBe(true)
       session.term.write('exit 7\r')
       expect(await session.exited).toBe(7)
-      expect(existsSync(session.pipe)).toBe(false)
+      expect(existsSync(session.pipe ?? '')).toBe(false)
+    }, 60_000)
+
+    it('SBX-C45 ostia sandbox expose forwards the port on this computer to a server in the sandbox once the human allows it, behind the pty relay', async () => {
+      const session = await start('expose-relay', {}, { ports: true })
+      expect(await exposeAndServe(session, 'INSIDE-C45')).toBe('INSIDE-C45')
     }, 60_000)
 
     it('works with Unix sockets blocked, where srt runs the shell under its seccomp helper', async () => {
@@ -236,3 +303,40 @@ describe.skipIf(!runnable)(
     }, 60_000)
   },
 )
+
+describe.skipIf(nodePty === null)('a sandboxed shell on the pane’s own terminal', () => {
+  it('a sandboxed shell survives Ctrl+C, which still interrupts its command, and has a temp folder that exists', async () => {
+    const session = await start('own-signals', {}, { relay: false })
+    const typed = session.output().length
+    session.term.write('half-typed')
+    const half = await session.seen('half-typed', typed)
+    session.term.write('\x03')
+    await session.seen(PROMPT, half)
+
+    const sleeping = session.output().length
+    session.term.write(`sh -c 'echo SLEEPING-$((1+2)); exec sleep 30'; echo SLEPT-$((2+3))\r`)
+    await session.seen('SLEEPING-3', sleeping)
+    session.term.write('\x03')
+    await run(session, 'echo ALIVE-$((6*7))', 'ALIVE-42')
+    if (process.platform !== 'darwin') {
+      expect(session.output().slice(sleeping)).not.toContain('SLEPT-5')
+    }
+
+    expect(
+      await run(
+        session,
+        'touch "$TMPDIR/probe" && test -d "$TMPDIR" && echo TMP-$((4+4))',
+        'TMP-8',
+      ),
+    ).toContain('TMP-8')
+  }, 60_000)
+
+  it.skipIf(process.platform !== 'linux')(
+    'SBX-C45 ostia sandbox expose forwards the port on this computer to a server in the sandbox once the human allows it, on the pane’s own terminal',
+    async () => {
+      const session = await start('expose-own', {}, { relay: false, ports: true })
+      expect(await exposeAndServe(session, 'INSIDE-C45')).toBe('INSIDE-C45')
+    },
+    60_000,
+  )
+})
