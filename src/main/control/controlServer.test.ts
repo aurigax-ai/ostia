@@ -104,6 +104,36 @@ describe('controlServer (socket auth, end-to-end)', () => {
     ])
   })
 
+  it('runs a socket command inside byAgent, so what it changes counts as the agent’s doing', async () => {
+    socketPath = nextSocketPath()
+    const id = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'pGrouper' })
+    const steps: string[] = []
+    registerControlServer(
+      {
+        ...fakeDeps,
+        execCommand: async () => {
+          steps.push('exec')
+          return { ok: true } as CommandResult
+        },
+        byAgent: async (run) => {
+          steps.push('agent-start')
+          try {
+            return await run()
+          } finally {
+            steps.push('agent-end')
+          }
+        },
+      },
+      socketPath,
+    )
+    client = connectClient(socketPath)
+    await client.conn.sendRequest('hello', { token: id.token })
+
+    await client.conn.sendRequest('command.exec', { id: 'pane.splitRight' })
+
+    expect(steps).toEqual(['agent-start', 'exec', 'agent-end'])
+  })
+
   it('requires all-workspaces to target another workspace, even from the caller own pane', async () => {
     socketPath = nextSocketPath()
     const id = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'pTest1' })
