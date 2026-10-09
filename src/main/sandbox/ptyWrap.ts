@@ -1,36 +1,14 @@
-import { readFileSync } from 'node:fs'
 import { readEnv } from '../../shared/appEnv'
 import { quoteArg } from '../../shared/terminal/shellQuote'
 
-const LEGACY_TIOCSTI = '/proc/sys/dev/tty/legacy_tiocsti'
 const NEW_SESSION = ' --new-session --die-with-parent '
 const OUTER_TERMIOS = 'OSTIA_RELAY_TTY'
 const RELAY_SHELL = '/bin/sh'
 
 export const PTY_RELAY_ENV = 'SANDBOX_PTY_RELAY'
 
-export function terminalInjectionOff(read: (path: string) => string = readProc): boolean {
-  try {
-    return read(LEGACY_TIOCSTI).trim() === '0'
-  } catch {
-    return false
-  }
-}
-
-function readProc(path: string): string {
-  return readFileSync(path, 'utf8')
-}
-
 export function relayForced(isPackaged: boolean, env: Record<string, string | undefined>): boolean {
   return !isPackaged && readEnv(PTY_RELAY_ENV, env) === '1'
-}
-
-export function needsPtyRelay(
-  forced: boolean,
-  read: (path: string) => string = readProc,
-  platform: NodeJS.Platform = process.platform,
-): boolean {
-  return platform === 'linux' && (forced || !terminalInjectionOff(read))
 }
 
 function relayedShell(shellCommand: string, shellEnv: string | undefined): string {

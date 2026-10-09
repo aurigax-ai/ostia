@@ -282,6 +282,7 @@ import { discreteGpu, gpuStartPlan, querySwitcherooGpus } from './platform/discr
 import { loadJson, saveJson, storePath } from './platform/jsonStore'
 import { resolveSafe } from './platform/pathGuard'
 import { privateTmpDir } from './platform/privateTmp'
+import { needsPtyRelay } from './platform/ptyRelay'
 import {
   SANDBOX_FEATURE,
   installHint,
@@ -318,12 +319,7 @@ import { PortBridge, bridgesPorts } from './sandbox/portBridge'
 import { PortForwarder, type SandboxListener, type SandboxPane } from './sandbox/portForwarder'
 import { PortRequests } from './sandbox/portRequests'
 import { HOST_PROTOCOL_VERSION } from './sandbox/protocol'
-import {
-  needsPtyRelay,
-  relayForced,
-  sandboxedShellCommand,
-  wrapForTerminal,
-} from './sandbox/ptyWrap'
+import { relayForced, sandboxedShellCommand, wrapForTerminal } from './sandbox/ptyWrap'
 import { hiddenHomeNotice, sandboxFailureBanner } from './sandbox/spawnBanner'
 import { sandboxSpawnEnv } from './sandbox/spawnEnv'
 import { reportSandboxSpawnFailure } from './sandbox/spawnFailureNotice'
