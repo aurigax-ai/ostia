@@ -1,6 +1,11 @@
 import '@testing-library/jest-dom/vitest'
 import { loadGhostty } from '@/lib/terminal/ghosttyEngine'
+import { createFileLinkProvider } from '@/lib/terminal/terminalFileLinks'
 import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useUIStore } from '@/stores/app/uiStore'
+import { useEditorRevealStore } from '@/stores/files/editorRevealStore'
+import { useFileTreeStore } from '@/stores/files/fileTreeStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import {
   type RenderResult,
   act,
@@ -11,6 +16,7 @@ import {
   waitFor,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import type { ILink, ILinkProvider } from '@xterm/xterm'
 import type { ReactElement } from 'react'
 import { afterAll, afterEach, beforeAll, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { renderSettled } from '../../../../test/render'
@@ -29,6 +35,11 @@ vi.mock('@/platform', () => ({
     return !os.mac
   },
 }))
+
+vi.mock('@/lib/terminal/terminalFileLinks', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/terminal/terminalFileLinks')>()
+  return { ...actual, createFileLinkProvider: vi.fn(actual.createFileLinkProvider) }
+})
 
 if (!Element.prototype.getAnimations) {
   Element.prototype.getAnimations = () => []
@@ -224,6 +235,98 @@ describe('TerminalView engines', () => {
       )
       fireEvent.keyDown(input, { key: 'Escape' })
       expect(screen.queryByRole('textbox', { name: 'Find in terminal' })).toBeNull()
+    })
+  }
+
+  for (const engine of ['xterm', 'Ghostty']) {
+    it(`${engine}: Ctrl+click reveals a folder in Files, opens an outside folder in the file manager and opens an outside file`, async () => {
+      useFileTreeStore.setState({ revealed: null })
+      useUIStore.setState({ filesOpen: false })
+      useEditorRevealStore.setState({ pending: {} })
+      vi.mocked(window.ostia.pty.attach).mockResolvedValue({
+        created: true,
+        buffer: 'notes/sub\r\n/out/shots/\r\n/out/shots/report.txt:7\r\n',
+        cursor: 0,
+        dropped: false,
+      })
+      vi.mocked(window.ostia.fs.stat).mockImplementation(async (path) =>
+        path === '/home/me/notes/sub' ? 'dir' : null,
+      )
+      vi.mocked(window.ostia.terminalLinks.probe).mockImplementation(async (_pane, path) =>
+        path === '/out/shots' ? 'dir' : path === '/out/shots/report.txt' ? 'file' : null,
+      )
+      vi.mocked(window.ostia.terminalLinks.admit).mockResolvedValue({
+        ok: true,
+        path: '/out/shots/report.txt',
+      })
+      vi.mocked(window.ostia.terminalLinks.openFolder).mockResolvedValue({ ok: true })
+      const openFile = vi.spyOn(useLayoutStore.getState(), 'openFile')
+      const rect = vi
+        .spyOn(Element.prototype, 'getBoundingClientRect')
+        .mockReturnValue(new DOMRect(0, 0, 800, 600))
+      try {
+        const ui = <TerminalView workspaceId="w1" paneId="p1" cwd="/home/me" />
+        if (engine === 'Ghostty') await renderGhostty(ui)
+        else await renderSettled(ui)
+        await waitFor(() => expect(createFileLinkProvider).toHaveBeenCalled())
+        const provider = vi.mocked(createFileLinkProvider).mock.results[0].value as ILinkProvider
+        const linkOn = async (row: number): Promise<ILink> => {
+          let found: ILink | undefined
+          await waitFor(async () => {
+            const links = await new Promise<ILink[] | undefined>((resolve) =>
+              provider.provideLinks(row, resolve),
+            )
+            found = links?.[0]
+            expect(found).toBeDefined()
+          })
+          return found as ILink
+        }
+        const hint = (): Element | null => document.querySelector('[data-slot="tooltip-content"]')
+        const hover = (link: ILink): void => {
+          act(() => link.hover?.(new MouseEvent('mousemove'), link.text))
+        }
+        const ctrlClick = (link: ILink): void => {
+          act(() => link.activate({ ctrlKey: true, isTrusted: true } as MouseEvent, link.text))
+        }
+
+        const inside = await linkOn(1)
+        hover(inside)
+        await waitFor(() => expect(hint()).toHaveTextContent('Ctrl+Click Show the folder in Files'))
+        ctrlClick(inside)
+        expect(useFileTreeStore.getState().revealed).toEqual({
+          root: '/home/me',
+          path: '/home/me/notes/sub',
+        })
+        expect(useUIStore.getState().filesOpen).toBe(true)
+        expect(window.ostia.terminalLinks.openFolder).not.toHaveBeenCalled()
+
+        const folder = await linkOn(2)
+        hover(folder)
+        await waitFor(() =>
+          expect(hint()).toHaveTextContent('Ctrl+Click Open the folder in the file manager'),
+        )
+        act(() => folder.activate({ ctrlKey: false, isTrusted: true } as MouseEvent, folder.text))
+        expect(window.ostia.terminalLinks.openFolder).not.toHaveBeenCalled()
+        ctrlClick(folder)
+        expect(window.ostia.terminalLinks.openFolder).toHaveBeenCalledWith('p1', '/out/shots')
+
+        const file = await linkOn(3)
+        hover(file)
+        await waitFor(() => expect(hint()).toHaveTextContent('Ctrl+Click Open the file'))
+        ctrlClick(file)
+        await waitFor(() =>
+          expect(openFile).toHaveBeenCalledWith(expect.any(String), '/out/shots/report.txt'),
+        )
+        expect(useEditorRevealStore.getState().pending['/out/shots/report.txt']).toEqual({
+          line: 7,
+          column: 1,
+        })
+        expect(window.ostia.terminalLinks.admit).toHaveBeenCalledWith('p1', '/out/shots/report.txt')
+        expect(window.ostia.terminalLinks.openFolder).toHaveBeenCalledTimes(1)
+      } finally {
+        rect.mockRestore()
+        openFile.mockRestore()
+      }
     })
   }
 })
