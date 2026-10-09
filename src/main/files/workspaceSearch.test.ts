@@ -112,6 +112,19 @@ describe('WorkspaceSearch', () => {
     ])
   })
 
+  it('the Files panel searches folder names, file names and text with the bundled ripgrep', async () => {
+    const search = new WorkspaceSearch(RG, [home])
+    const text = await search.run(1, request(root, 'needle'))
+    if (!text.ok) throw new Error(text.message)
+    expect(text.results.files.map((f) => [f.path, f.matches.map((m) => m.text)])).toEqual([
+      ['src/notes/todo.md', ['find the needle here']],
+    ])
+
+    const folders = await search.run(1, request(root, 'notes/'))
+    if (!folders.ok) throw new Error(folders.message)
+    expect(folders.results.names.map((n) => [n.path, n.dir])).toEqual([['src/notes', true]])
+  })
+
   it('lists the PDFs under the folder with their size and time', async () => {
     const search = new WorkspaceSearch(RG, [home])
     const res = await search.run(1, request(root, 'paper'))

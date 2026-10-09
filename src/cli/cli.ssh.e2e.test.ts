@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 import {
   existsSync,
   mkdirSync,
@@ -21,6 +21,8 @@ import {
   registerExtensionMethods,
 } from '../main/extensions/extensionHost'
 import { ExtensionStore } from '../main/extensions/extensionStore'
+import type { RemoteFolderConfirm } from '../main/files/remoteFolders'
+import type { RemoteFolder } from '../shared/remoteFolders'
 import type { CommandResult } from '../shared/types'
 
 const repoRoot = process.cwd()
@@ -52,6 +54,8 @@ describe('ostia ssh (real extension process, real socket, fake ssh)', () => {
   let remoteHome: string
   const confirm = vi.fn<(req: ExtensionConfirmRequest) => Promise<boolean>>()
   const openTerminalIn = vi.fn<(req: TerminalOpenRequest) => Promise<string | null>>()
+  const folderConfirm = vi.fn<(req: RemoteFolderConfirm) => Promise<boolean>>()
+  const published: RemoteFolder[][] = []
 
   function restore(name: string, value: string | undefined): void {
     if (value === undefined) Reflect.deleteProperty(process.env, name)
@@ -114,6 +118,12 @@ describe('ostia ssh (real extension process, real socket, fake ssh)', () => {
       confirm,
       openTerminalIn,
       log: () => {},
+      remoteFolders: {
+        windowOfWorkspace: (id) => (id === 's1' ? 'w1' : undefined),
+        refusal: () => null,
+        confirm: folderConfirm,
+        publish: (all) => published.push(all.forWindow('w1')),
+      },
     })
     registerExtensionMethods(() => host)
     registerControlServer(
@@ -233,4 +243,87 @@ describe('ostia ssh (real extension process, real socket, fake ssh)', () => {
     ])
     confirm.mockClear()
   }, 30_000)
+
+  it('SSH-C65 SSH-C72 opens the folder of a session in Files after the human installs the helper, and the next session types the short command', async () => {
+    const project = join(remoteHome, 'project')
+    mkdirSync(join(project, 'conf'), { recursive: true })
+    writeFileSync(join(project, 'app.conf'), 'port=8080\n')
+    writeFileSync(join(project, 'conf', 'db.yaml'), 'name: main\n')
+    const session = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'pPxSession' })
+    confirm.mockReset()
+    confirm.mockResolvedValue(true)
+    folderConfirm.mockResolvedValue(true)
+    openTerminalIn.mockResolvedValue(session.externalId)
+
+    const first = await runOstia(['ssh', 'connect', 'px'])
+    expect(first.code).toBe(0)
+    const opened = await host.invoke(
+      'ssh',
+      'open-folder',
+      undefined,
+      host.userCaller('s1', { paneId: session.externalId, remote: { host: 'px', cwd: project } }),
+    )
+    expect(opened).toMatchObject({ ok: true, data: { host: 'px', path: project } })
+    const folderId = (opened.data as { folderId: string }).folderId
+    expect(folderConfirm).toHaveBeenCalledWith({
+      extId: 'ssh',
+      extName: 'SSH',
+      workspaceId: 's1',
+      host: 'px',
+      path: project,
+    })
+    expect(published.at(-1)).toEqual([
+      { id: folderId, workspaceId: 's1', extId: 'ssh', extName: 'SSH', host: 'px', root: project },
+    ])
+
+    const versions = readdirSync(join(remoteHome, '.ostia', 'helper'))
+    expect(versions).toHaveLength(1)
+    const installed = readFileSync(join(remoteHome, '.ostia', 'helper', versions[0], 'helper.sh'))
+    const shipped = readFileSync(join(repoRoot, 'src/extensions/ssh/assets/helper.sh'))
+    expect(installed.equals(shipped)).toBe(true)
+    expect(confirm).toHaveBeenCalledTimes(2)
+    const asked = confirm.mock.calls[1][0]
+    expect(asked.message).toContain('px')
+    expect(asked.detail).toContain(`~/.ostia/helper/${versions[0]}/helper.sh`)
+    expect([asked.confirmLabel, asked.cancelLabel]).toEqual(['Install', 'Don’t install'])
+
+    const root = `remote://${folderId}${project}`
+    const listed = await host.remoteFolders?.list('w1', root)
+    expect(listed?.ok && listed.entries.map((e) => `${e.name}:${e.dir}`).sort()).toEqual([
+      'app.conf:false',
+      'conf:true',
+    ])
+    expect(await host.remoteFolders?.list('w1', `${root}/conf`)).toMatchObject({
+      ok: true,
+      entries: [{ name: 'db.yaml', dir: false }],
+    })
+    expect(await host.remoteFolders?.read('w1', `${root}/app.conf`)).toMatchObject({
+      ok: true,
+      content: 'port=8080\n',
+    })
+
+    const second = await runOstia(['ssh', 'connect', 'px'])
+    expect(second.code).toBe(0)
+    const command = openTerminalIn.mock.calls.at(-1)?.[0].command ?? ''
+    const ran = spawnSync('sh', ['-c', command], {
+      env: { ...process.env, FAKE_SSH_REMOTE_SHELL: 'bash', TERM: 'dumb' },
+      input: 'echo short-$((40+2))\n',
+      encoding: 'utf8',
+      timeout: 20_000,
+    })
+    const typed = readFileSync(sshLog, 'utf8').trim().split('\n').at(-1) ?? ''
+    expect(typed).toContain(
+      `ssh -t -- px exec sh -c 'f="$HOME/.ostia/helper/${versions[0]}/session.sh"`,
+    )
+    expect(typed).not.toContain('base64')
+    expect(typed.length).toBeLessThan(320)
+    expect(ran.stdout).toContain('short-42')
+    expect(ran.stdout).toContain('\u001b]133;C')
+
+    expect(host.remoteFolders?.closeByWindow('w1', folderId)).toBe(true)
+    expect(published.at(-1)).toEqual([])
+    expect(existsSync(join(project, 'app.conf'))).toBe(true)
+    confirm.mockReset()
+    openTerminalIn.mockReset()
+  }, 60_000)
 })

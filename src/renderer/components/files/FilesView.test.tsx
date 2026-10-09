@@ -271,6 +271,29 @@ describe('FilesView', () => {
     expect(screen.queryByRole('button', { name: 'here.ts' })).not.toBeInTheDocument()
   })
 
+  it('the Files panel follows the active workspace', async () => {
+    seedWorkspace(CWD, '/tmp')
+    listReturns([])
+
+    render(<FilesView />)
+    await act(async () => {})
+    expect(screen.getByText('tmp')).toHaveClass('current')
+
+    act(() => {
+      useWorkspacesStore.getState().addWorkspace()
+    })
+    await act(async () => {})
+    expect(screen.getByText('~')).toHaveClass('current')
+    expect(screen.queryByText('tmp')).not.toBeInTheDocument()
+
+    act(() => {
+      useWorkspacesStore.getState().setActive('s1')
+    })
+    await act(async () => {})
+    expect(screen.getByText('tmp')).toHaveClass('current')
+    expect(window.ostia.fs.list).toHaveBeenLastCalledWith('/tmp')
+  })
+
   it('falls back to the workspace workDir anchor when the focused pane has no cwd', async () => {
     useWorkspacesStore.setState({
       workspaces: [
@@ -651,6 +674,98 @@ describe('FilesView', () => {
     })
     expect(row.querySelector('img')).toBeNull()
     expect(row.querySelector('svg.file-icon')).not.toBeNull()
+  })
+
+  it('a VS Code icon theme from an extension, compact folders, nesting and hiding in the Files tree', async () => {
+    seedWorkspace(CWD)
+    vi.mocked(window.ostia.fs.list).mockImplementation(async (p) => {
+      if (p === CWD) {
+        return [
+          { name: 'src', dir: true },
+          { name: 'package.json', dir: false },
+          { name: 'pnpm-lock.yaml', dir: false },
+          { name: 'index.ts', dir: false },
+          { name: 'index.test.ts', dir: false },
+          { name: 'secret.txt', dir: false },
+        ]
+      }
+      if (p === `${CWD}/src`) return [{ name: 'main', dir: true }]
+      if (p === `${CWD}/src/main`) return [{ name: 'java', dir: true }]
+      if (p === `${CWD}/src/main/java`) return [{ name: 'App.java', dir: false }]
+      return []
+    })
+    const theme: LoadedIconTheme = {
+      id: 'fixture-icons',
+      label: 'Fixture Icons',
+      icons: {
+        _file: 'data:image/svg+xml;base64,file',
+        _folder: 'data:image/svg+xml;base64,folder',
+        _folder_open: 'data:image/svg+xml;base64,folder-open',
+        _typescript: 'data:image/svg+xml;base64,typescript',
+        _typescript_test: 'data:image/svg+xml;base64,typescript-test',
+        _npm: 'data:image/png;base64,npm',
+        _folder_src: 'data:image/svg+xml;base64,folder-src',
+        _folder_src_open: 'data:image/svg+xml;base64,folder-src-open',
+      },
+      base: {
+        file: '_file',
+        folder: '_folder',
+        folderExpanded: '_folder_open',
+        fileExtensions: { ts: '_typescript', 'test.ts': '_typescript_test' },
+        fileNames: { 'package.json': '_npm' },
+        folderNames: { src: '_folder_src' },
+        folderNamesExpanded: { src: '_folder_src_open' },
+        languageIds: {},
+      },
+    }
+    useExtensionsStore.setState({ list: [iconThemeExtension()] })
+    vi.mocked(window.ostia.iconThemes.load).mockResolvedValue(theme)
+    const user = userEvent.setup()
+    const row = (name: string) => screen.getByRole('button', { name })
+    const icon = (name: string) => row(name).querySelector('img.file-icon-theme')
+
+    render(<FilesView />)
+    expect(await screen.findByRole('button', { name: 'package.json' })).toBeInTheDocument()
+    expect(row('package.json').querySelector('img')).toBeNull()
+
+    act(() => {
+      useSettingsStore.getState().setFiles({ iconTheme: 'fixture-icons' })
+    })
+    await waitFor(() =>
+      expect(icon('package.json')).toHaveAttribute(
+        'src',
+        expect.stringMatching(/^data:image\/png;base64,/),
+      ),
+    )
+    expect(icon('index.ts')).toHaveAttribute(
+      'src',
+      expect.stringMatching(/^data:image\/svg\+xml;base64,/),
+    )
+    const srcFolderIcon = icon('src')?.getAttribute('src')
+
+    expect(screen.queryByRole('button', { name: 'pnpm-lock.yaml' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'index.test.ts' })).not.toBeInTheDocument()
+    await user.click(row('index.ts').querySelector('.file-twisty') as Element)
+    expect(row('index.test.ts')).toBeInTheDocument()
+    expect(icon('index.test.ts')?.getAttribute('src')).not.toBe(
+      icon('index.ts')?.getAttribute('src'),
+    )
+
+    await user.click(row('src'))
+    expect(
+      await screen.findByRole('button', { name: 'src/main/java' }, { timeout: 3000 }),
+    ).toBeInTheDocument()
+    expect(row('App.java')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'main' })).not.toBeInTheDocument()
+    expect(icon('src/main/java')?.getAttribute('src')).not.toBe(srcFolderIcon)
+
+    fireEvent.contextMenu(row('secret.txt'))
+    await user.click(await screen.findByRole('menuitem', { name: 'Hide in tree' }))
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: 'secret.txt' })).not.toBeInTheDocument(),
+    )
+    await user.click(screen.getByRole('button', { name: 'Show hidden files' }))
+    expect(row('secret.txt')).toHaveClass('excluded')
   })
 
   it('shows the empty-folder state when the directory has no entries', async () => {

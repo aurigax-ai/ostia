@@ -1,9 +1,13 @@
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import { helperSource } from '../../../test/fixtures/ssh/remoteHost'
 import type { ExtensionCaller, OpenTerminalOptions } from '../../shared/extensions'
 import type { ConfirmRequest, OpenTerminalResult, ToolRun } from '../sdk'
 import { type SshDeps, sshCommands } from './commands'
 import { shippedHelper } from './helper'
+import { discoverHosts } from './hosts'
 import { REMOTE_COMMAND } from './remote'
 import { CONNECT_USAGE, SHOW_USAGE } from './strings'
 
@@ -347,6 +351,43 @@ describe('ssh connect with shell integration', () => {
 })
 
 describe('ssh ls and show', () => {
+  it('SSH-C79 lists the ssh config hosts without the wildcard and opens the picked one as the new workspace session after resolving it', async () => {
+    const home = mkdtempSync(join(tmpdir(), 'ostia-ssh-entry-'))
+    try {
+      mkdirSync(join(home, '.ssh'))
+      writeFileSync(
+        join(home, '.ssh', 'config'),
+        'Host db\n  HostName 10.0.0.5\nHost px\n  HostName 10.0.0.6\nHost *\n  User dev\n',
+      )
+      const { deps } = setup(undefined, true)
+      const commands = sshCommands({ ...deps, discover: () => discoverHosts(home) })
+      const menu = userCaller({ paneId: undefined, workspaceId: undefined })
+      expect(await commands.ls({}, menu)).toEqual({
+        ok: true,
+        data: { hosts: [{ alias: 'db' }, { alias: 'px' }], truncated: false },
+      })
+
+      const result = await commands.connect(
+        { argv: ['db'] },
+        userCaller({ paneId: undefined, workspaceId: 'ws-new' }),
+      )
+      expect(result).toMatchObject({ ok: true, data: { command: 'ssh -t -- db' } })
+      expect(deps.run.mock.calls).toEqual([[['-G', '--', 'db']]])
+      expect(deps.run.mock.invocationCallOrder[0]).toBeLessThan(
+        deps.openTerminal.mock.invocationCallOrder[0],
+      )
+      expect(deps.openTerminal).toHaveBeenCalledTimes(1)
+      expect(deps.openTerminal).toHaveBeenCalledWith({
+        command: ['ssh', '-t', '--', 'db', REMOTE_COMMAND],
+        workspaceId: 'ws-new',
+        afterPaneId: undefined,
+        title: 'db',
+      })
+    } finally {
+      rmSync(home, { recursive: true, force: true })
+    }
+  })
+
   it('SSH-C21 refuses show without exactly one plain alias and never runs ssh', async () => {
     for (const argv of [[], ['db', 'web'], ['-x'], ['a;b'], ['dev@db']]) {
       const { deps, commands } = setup()

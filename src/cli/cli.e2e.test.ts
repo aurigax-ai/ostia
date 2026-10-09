@@ -1105,6 +1105,16 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
       expect(revealed()).toEqual([])
     })
 
+    it('ostia <file> names what it cannot open and opens nothing for it', async () => {
+      const res = await runOstia([outside, join(outside, 'nope.txt')], env())
+
+      expect(res.code).toBe(1)
+      expect(res.stderr).toContain(`ostia: ${outside}: folders show only under the home folder`)
+      expect(res.stderr).toContain(`ostia: ${join(outside, 'nope.txt')}: no such file`)
+      expect(opened()).toEqual([])
+      expect(revealed()).toEqual([])
+    })
+
     it('shows a folder under the home folder in the Files panel, and never grants one outside', async () => {
       const here = await runOstia(['.'], env(), home)
       expect(here.stderr).toBe('')

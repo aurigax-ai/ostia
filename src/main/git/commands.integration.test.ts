@@ -287,4 +287,22 @@ describe('git commands against a real repository', () => {
     settings = { ...settings, graphScope: 'current' }
     expect(await subjects()).toEqual(['stage b', 'init'])
   })
+
+  it('lists the files a merge brought in against its first parent', async () => {
+    git('checkout', '-q', '-b', 'topic')
+    writeFileSync(join(repo, 't.txt'), 'topic\n')
+    git('add', 't.txt')
+    git('commit', '-q', '-m', 'topic work')
+    git('checkout', '-q', 'main')
+    writeFileSync(join(repo, 'm.txt'), 'main\n')
+    git('add', 'm.txt')
+    git('commit', '-q', '-m', 'main work')
+    git('merge', '-q', '--no-ff', '-m', 'merge topic', 'topic')
+    const merge = git('rev-parse', 'HEAD').trim()
+
+    const res = await commands.commitFiles(panel, merge)
+
+    expect(res.ok && res.data.parent).toBe(git('rev-parse', 'HEAD^1').trim())
+    expect(res.ok && res.data.files).toEqual([{ path: 't.txt', code: 'A' }])
+  })
 })

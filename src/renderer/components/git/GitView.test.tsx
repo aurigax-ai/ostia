@@ -371,6 +371,32 @@ describe('GitView', () => {
       fireEvent.keyDown(folder, { key: 'ArrowRight' })
       expect(fileRow('src/deep/new.ts')).not.toBeNull()
     })
+
+    it('puts the files of one folder under it in each area and follows a layout chosen in the settings', async () => {
+      useSettingsStore.getState().setGit({ changesView: 'tree' })
+      showChanges(
+        changesData([
+          { path: 'src/deep/new.txt', area: 'staged', code: 'A' },
+          { path: 'src/deep/feature.txt', area: 'unstaged', code: 'M' },
+        ]),
+      )
+      await renderSettled(<GitView workspaceId="w1" paneId="p1" />)
+      const folders = (): string[] =>
+        [...root().querySelectorAll('button.folder')].map(
+          (b) =>
+            `${b.querySelector('.name')?.textContent} ${b.querySelector('.folder-count')?.textContent}`,
+        )
+      expect(folders()).toEqual(['src/deep 1', 'src/deep 1'])
+
+      act(() => useSettingsStore.getState().setGit({ changesView: 'list' }))
+
+      expect(folders()).toEqual([])
+      expect(fileRow('src/deep/feature.txt')).not.toBeNull()
+      expect(screen.getByRole('button', { name: 'Flat list' })).toHaveAttribute(
+        'aria-pressed',
+        'true',
+      )
+    })
   })
 
   describe('failures', () => {
@@ -749,6 +775,60 @@ describe('GitView', () => {
       })
       const saved = JSON.parse(window.localStorage.getItem(PANEL_SIZES_KEY) ?? '{}')
       expect(saved['git:graph-details']).toBeCloseTo(0.46)
+    })
+
+    it('drags the details taller without selecting text and keeps the size when the graph opens again', async () => {
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+      const basis = vi.spyOn(Object.getPrototypeOf(document.body.style), 'flexBasis', 'set')
+      showGraph()
+      const view = await renderSettled(<GitView workspaceId="w1" paneId="p1" />)
+      await act(async () => useGitViewStore.getState().navigate('p1', 'graph'))
+      await act(async () => {})
+      await click(graphRow('worktree'))
+      const split = root().querySelector('[data-split="graph-details"]') as HTMLElement
+      vi.spyOn(split, 'clientHeight', 'get').mockReturnValue(400)
+      const first = split.querySelector('.ostia-split-first') as HTMLElement
+      vi.spyOn(first, 'getBoundingClientRect').mockReturnValue({ height: 200 } as DOMRect)
+      const handle = screen.getByRole('separator', { name: 'Resize details' })
+      Object.assign(handle, { setPointerCapture: () => {}, hasPointerCapture: () => true })
+      const pointer = (type: string, clientY: number): boolean => {
+        const event = new MouseEvent(type, { bubbles: true, cancelable: true, clientY, button: 0 })
+        Object.defineProperty(event, 'pointerId', { value: 1 })
+        return fireEvent(handle, event)
+      }
+
+      expect(pointer('pointerdown', 300)).toBe(false)
+      expect(document.documentElement).toHaveClass('ostia-split-dragging')
+      act(() => {
+        pointer('pointermove', 260)
+        pointer('pointermove', 200)
+      })
+      fireEvent(handle, new Event('lostpointercapture'))
+
+      expect(document.documentElement).not.toHaveClass('ostia-split-dragging')
+      expect(basis).toHaveBeenLastCalledWith(expect.stringContaining(' 25%,'))
+      act(() => {
+        vi.advanceTimersByTime(PANEL_SIZES_WRITE_DELAY_MS)
+      })
+      const saved = JSON.parse(window.localStorage.getItem(PANEL_SIZES_KEY) ?? '{}')
+      expect(saved['git:graph-details']).toBe(0.25)
+
+      view.unmount()
+      await renderSettled(<GitView workspaceId="w1" paneId="p1" />)
+      await act(async () => {})
+      basis.mockClear()
+      await click(graphRow('worktree'))
+      expect(basis).toHaveBeenLastCalledWith(expect.stringContaining(' 25%,'))
+      basis.mockRestore()
+    })
+
+    it('keeps a handle between the commit box and the changed files', async () => {
+      showChanges()
+      await renderSettled(<GitView workspaceId="w1" paneId="p1" />)
+
+      expect(
+        root().querySelectorAll('[data-split="changes-commit"] [role="separator"]'),
+      ).toHaveLength(1)
     })
   })
 })

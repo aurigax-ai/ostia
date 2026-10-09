@@ -6,6 +6,7 @@ import { LARGE_FILE_LINES, fileFeatureOptions } from '@/monaco/largeFile'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useArtifactsStore } from '@/stores/files/artifactsStore'
 import { useEditorStatus } from '@/stores/files/editorStatusStore'
+import { useRemoteFoldersStore } from '@/stores/files/remoteFoldersStore'
 import { useLiveSelectionStore } from '@/stores/terminal/liveSelectionStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { PAD_MAX_BYTES } from '@shared/artifacts/artifacts'
@@ -221,7 +222,13 @@ const fake = vi.hoisted(() => {
   const monaco = {
     KeyMod: { CtrlCmd: 1 },
     KeyCode: { KeyS: 2 },
-    Uri: { file: (p: string) => ({ path: p, toString: () => `file://${p}` }) },
+    Uri: {
+      file: (p: string) => ({ path: p, toString: () => `file://${p}` }),
+      from: (u: { scheme: string; authority: string; path: string }) => ({
+        path: u.path,
+        toString: () => `${u.scheme}://${u.authority}${u.path}`,
+      }),
+    },
     editor: {
       setTheme: vi.fn(),
       defineTheme: vi.fn(),
@@ -739,6 +746,37 @@ describe('EditorView', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Could not save /w/a.txt')
     expect(window.ostia.fs.write).not.toHaveBeenCalled()
     expect(useEditorStatus.getState().dirty['/w/a.txt']).toBe(true)
+  })
+
+  it('SSH-C65 opens a remote file under a bar naming its host, and says so once the folder is closed', async () => {
+    const file = 'remote://abcdef012345/srv/app/app.conf'
+    useRemoteFoldersStore.setState({
+      folders: [
+        {
+          id: 'abcdef012345',
+          workspaceId: 'w1',
+          extId: 'ssh',
+          extName: 'SSH',
+          host: 'db',
+          root: '/srv/app',
+        },
+      ],
+    })
+    vi.mocked(window.ostia.remoteFiles.read).mockResolvedValue({
+      ok: true,
+      content: 'port=8080\n',
+      version: '1-10',
+    })
+    render(<EditorView workspaceId="w1" paneId="p1" filePath={file} />)
+
+    await waitFor(() => expect(fake.state.model?.getValue()).toBe('port=8080\n'))
+    expect(window.ostia.remoteFiles.read).toHaveBeenCalledWith(file)
+    expect(window.ostia.fs.read).not.toHaveBeenCalled()
+    const bar = screen.getByTestId('remote-file-bar')
+    expect(bar).toHaveTextContent('Remote file on db')
+
+    act(() => useRemoteFoldersStore.setState({ folders: [] }))
+    expect(bar).toHaveTextContent('This remote folder is closed')
   })
 
   describe('following the file on disk', () => {

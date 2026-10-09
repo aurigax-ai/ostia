@@ -51,7 +51,7 @@
         "src/renderer/stores/terminal/remoteCwdStore.ts",
         "test/fixtures/ssh/"
       ],
-      "specs": ["e2e/ssh.spec.ts", "e2e/ssh-entry.spec.ts", "e2e/ssh-remote-files.spec.ts"]
+      "specs": ["e2e/ssh.spec.ts", "e2e/ssh-remote-files.spec.ts"]
     },
     {
       "name": "language servers",
@@ -106,7 +106,6 @@
       "specs": [
         "e2e/markdown-preview.spec.ts",
         "e2e/open-any-file.spec.ts",
-        "e2e/pdf-search.spec.ts",
         "e2e/preview-send.spec.ts"
       ]
     },
@@ -201,12 +200,7 @@
         "src/renderer/components/editor/DiffView.tsx",
         "src/renderer/stores/files/diffStore.ts"
       ],
-      "specs": [
-        "e2e/diff-hidden.spec.ts",
-        "e2e/extension-on-demand.spec.ts",
-        "e2e/git.spec.ts",
-        "e2e/git-graph.spec.ts"
-      ]
+      "specs": ["e2e/diff-hidden.spec.ts", "e2e/extension-on-demand.spec.ts", "e2e/git.spec.ts"]
     },
     {
       "name": "trellis and keeper",
@@ -519,12 +513,9 @@
         "src/renderer/settings/fileTreeSettings.ts"
       ],
       "specs": [
-        "e2e/files-drag.spec.ts",
         "e2e/files-panel.spec.ts",
-        "e2e/files-search.spec.ts",
-        "e2e/files-tree.spec.ts",
         "e2e/open-any-file.spec.ts",
-        "e2e/pdf-search.spec.ts",
+        "e2e/palette-focus.spec.ts",
         "e2e/terminal-file-links.spec.ts"
       ]
     },

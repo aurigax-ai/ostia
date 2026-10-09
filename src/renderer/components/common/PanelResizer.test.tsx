@@ -185,4 +185,22 @@ describe('Files panel resizer', () => {
     expect(filesVar()).toBe(`${FILES_WIDTH.minWidth}px`)
     expect(filesSeparator()).toBeInTheDocument()
   })
+
+  it('the Files panel edge drags wider and keeps its width after closing and reopening', async () => {
+    const first = render(<FilesPanel />)
+    await act(async () => {})
+    pointer('pointerdown', filesSeparator(), 500)
+    pointer('pointermove', filesSeparator(), 700)
+    pointer('pointerup', filesSeparator(), 700)
+    expect(filesSeparator()).toHaveAttribute('aria-valuenow', '460')
+
+    first.unmount()
+    document.documentElement.style.removeProperty('--files-w')
+    expect(screen.queryByRole('separator', { name: 'Resize Files' })).toBeNull()
+
+    render(<FilesPanel />)
+    await act(async () => {})
+    expect(filesSeparator()).toHaveAttribute('aria-valuenow', '460')
+    expect(filesVar()).toBe('460px')
+  })
 })

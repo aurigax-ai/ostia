@@ -103,6 +103,55 @@ describe('Files tree operations', () => {
     expect(input.selectionStart).toBe(0)
   })
 
+  it('new folder and rename fields sit in a tree row where the name would be', async () => {
+    seed()
+    let created = false
+    vi.mocked(window.ostia.fs.list).mockImplementation(async (dir) =>
+      dir === CWD
+        ? [
+            { name: 'src', dir: true },
+            { name: 'notes.md', dir: false },
+            ...(created ? [{ name: 'docs', dir: true }] : []),
+          ]
+        : [],
+    )
+    vi.mocked(window.ostia.fileOps.create).mockImplementation(async () => {
+      created = true
+      return { ok: true, paths: [`${CWD}/docs`] }
+    })
+    render(<FilesView />)
+    const sibling = await screen.findByRole('button', { name: 'src' })
+    const parts = (row: Element) => Array.from(row.children, (c) => c.getAttribute('class'))
+
+    await userEvent.click(screen.getByRole('button', { name: 'New folder' }))
+    const input = await screen.findByRole('textbox', { name: 'New folder name' })
+    expect(input).toHaveFocus()
+    const row = input.closest('.file-row') as HTMLElement
+    expect(row).toHaveClass('file-row', 'editing')
+    expect(row.querySelectorAll('.file-icon')).toHaveLength(1)
+    expect(row.style.paddingLeft).toBe(sibling.style.paddingLeft)
+    expect(parts(row).slice(0, 2)).toEqual(parts(sibling).slice(0, 2))
+    expect(row.lastElementChild).toBe(input)
+    expect(input).toHaveClass('file-name-input')
+
+    await userEvent.type(input, 'docs{Enter}')
+    expect(window.ostia.fileOps.create).toHaveBeenCalledWith(CWD, 'docs', 'folder')
+    expect(
+      await screen.findByRole('button', { name: 'docs' }, { timeout: 3000 }),
+    ).toBeInTheDocument()
+
+    screen.getByRole('button', { name: 'notes.md' }).focus()
+    await userEvent.keyboard('{F2}')
+    const rename = (await screen.findByRole('textbox', {
+      name: 'New name for notes.md',
+    })) as HTMLInputElement
+    expect(rename).toHaveFocus()
+    await waitFor(() => expect([rename.selectionStart, rename.selectionEnd]).toEqual([0, 5]))
+    await userEvent.keyboard('{Escape}')
+    expect(screen.queryByRole('textbox', { name: 'New name for notes.md' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'notes.md' })).toBeInTheDocument()
+  })
+
   it('keeps the name field open with a warning when the name is taken', async () => {
     seed()
     vi.mocked(window.ostia.fileOps.create).mockResolvedValue({ ok: false, error: 'exists' })

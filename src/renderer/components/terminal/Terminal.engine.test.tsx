@@ -1,4 +1,5 @@
 import '@testing-library/jest-dom/vitest'
+import { FilesView } from '@/components/files/FilesView'
 import { allPanes, findPane, firstPaneId } from '@/layout/tree'
 import { loadGhostty } from '@/lib/terminal/ghosttyEngine'
 import { createFileLinkProvider } from '@/lib/terminal/terminalFileLinks'
@@ -8,6 +9,7 @@ import { useUIStore } from '@/stores/app/uiStore'
 import { useEditorRevealStore } from '@/stores/files/editorRevealStore'
 import { useFileTreeStore } from '@/stores/files/fileTreeStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import {
   type RenderResult,
   act,
@@ -106,12 +108,28 @@ const shownUrl = (): string | undefined => {
   return allPanes(layout.root).find((pane) => pane.id === layout.activePaneId)?.url
 }
 
+function dataTransfer(): DataTransfer {
+  const data = new Map<string, string>()
+  return {
+    get types() {
+      return [...data.keys()]
+    },
+    files: [],
+    dropEffect: 'none',
+    effectAllowed: 'all',
+    setData: (type: string, value: string) => data.set(type, value),
+    getData: (type: string) => data.get(type) ?? '',
+  } as unknown as DataTransfer
+}
+
 describe('TerminalView engines', () => {
   let settingsInit: ReturnType<typeof useSettingsStore.getState>
+  let workspacesInit: ReturnType<typeof useWorkspacesStore.getState>
   let layoutInit: ReturnType<typeof useLayoutStore.getState>
 
   beforeAll(() => {
     settingsInit = useSettingsStore.getState()
+    workspacesInit = useWorkspacesStore.getState()
     layoutInit = useLayoutStore.getState()
     HTMLCanvasElement.prototype.getContext = function getContext(
       this: HTMLCanvasElement,
@@ -140,6 +158,7 @@ describe('TerminalView engines', () => {
   afterEach(() => {
     cleanup()
     useSettingsStore.setState(settingsInit, true)
+    useWorkspacesStore.setState(workspacesInit, true)
     useLayoutStore.setState(layoutInit, true)
     vi.clearAllMocks()
   })
@@ -222,6 +241,19 @@ describe('TerminalView engines', () => {
     const zoomed = fontSize()
     scroll(100)
     expect(fontSize()).toBeLessThan(zoomed)
+  })
+
+  it('moves the pane cwd to the folder an xterm shell reports with OSC 7', async () => {
+    useLayoutStore.getState().ensure('w1')
+    const { activePaneId } = useLayoutStore.getState().byWorkspace.w1
+    await renderSettled(<TerminalView workspaceId="w1" paneId={activePaneId} />)
+    await waitFor(() => expect(window.ostia.pty.onData).toHaveBeenCalled())
+    const deliver = vi.mocked(window.ostia.pty.onData).mock.calls[0][1]
+    act(() => deliver('\x1b]7;file:///tmp\x07'))
+    await waitFor(() => {
+      const { root } = useLayoutStore.getState().byWorkspace.w1
+      expect(findPane(root, activePaneId)).toMatchObject({ cwd: '/tmp' })
+    })
   })
 
   it('asks before pasting several lines into a Ghostty terminal', async () => {
@@ -500,5 +532,30 @@ describe('TerminalView engines', () => {
     expect(term.hasSelection()).toBe(true)
     act(() => links.activate(click(), 'http://127.0.0.1:8000/drag', linkRange))
     expect(browserUrls()).toEqual([])
+  })
+
+  it('dragging a file from the Files panel types its quoted path at the terminal prompt', async () => {
+    useWorkspacesStore.setState({
+      workspaces: [{ id: 'w1', name: 'me', kind: 'terminal', workDir: '/home/me', state: 'idle' }],
+      activeWorkspaceId: 'w1',
+    })
+    useLayoutStore.getState().ensure('w1')
+    vi.mocked(window.ostia.fs.list).mockResolvedValue([{ name: 'notes file.md', dir: false }])
+    const { container } = await renderSettled(
+      <>
+        <FilesView />
+        <TerminalView workspaceId="w1" paneId="p1" />
+      </>,
+    )
+    const transfer = dataTransfer()
+
+    fireEvent.dragStart(await screen.findByRole('button', { name: 'notes file.md' }), {
+      dataTransfer: transfer,
+    })
+    fireEvent.drop(container.querySelector('.terminal-surface') as HTMLElement, {
+      dataTransfer: transfer,
+    })
+
+    expect(window.ostia.pty.write).toHaveBeenCalledWith('p1', "'/home/me/notes file.md' ")
   })
 })

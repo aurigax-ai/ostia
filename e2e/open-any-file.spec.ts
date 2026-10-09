@@ -140,30 +140,6 @@ test('ostia <file> shows a text file and an image from outside the home folder, 
   }
 })
 
-test('ostia <file> names what it cannot open and opens nothing for it', async () => {
-  const dataHome = freshDataHome()
-  const { dir } = outsideFiles(dataHome)
-  const app = await electron.launch(isolatedLaunch(dataHome))
-  try {
-    const win = await app.firstWindow()
-    await win.waitForLoadState('domcontentloaded')
-    await openWorkspace(win)
-    await win.locator('.xterm').first().click()
-
-    await win.keyboard.type(`ostia ${dir} ${join(dir, 'nope.txt')}`)
-    await win.keyboard.press('Enter')
-
-    await expect(win.locator('.xterm-rows')).toContainText(
-      `${dir}: folders show only under the home folder`,
-      { timeout: 15_000 },
-    )
-    await expect(win.locator('.xterm-rows')).toContainText('nope.txt: no such file')
-    await expect(win.locator('.pane-tab')).toHaveCount(1)
-  } finally {
-    await app.close()
-  }
-})
-
 test('a file dropped on the window opens in the viewer; dropped on a terminal it pastes its path', async () => {
   const dataHome = freshDataHome()
   const { log, image, dir } = outsideFiles(dataHome)

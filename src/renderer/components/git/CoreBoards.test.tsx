@@ -283,4 +283,20 @@ describe('core git and ports in the window', () => {
     await user.type(interval, '600{Enter}')
     expect(useSettingsStore.getState().ports.intervalSeconds).toBe(60)
   })
+
+  it('shows the graph branches and file layout chosen in the panel, and switches back to a flat list', async () => {
+    const user = userEvent.setup()
+    useSettingsStore.getState().setGit({ graphScope: 'all', changesView: 'tree' })
+    render(<GitSection />)
+    expect(screen.getByRole('combobox', { name: 'Graph branches' })).toHaveTextContent(
+      'All branches',
+    )
+    const layout = screen.getByRole('combobox', { name: 'Changed files layout' })
+    expect(layout).toHaveTextContent('Folder tree')
+
+    await user.click(layout)
+    await user.click(await screen.findByRole('option', { name: 'Flat list' }))
+
+    expect(useSettingsStore.getState().git.changesView).toBe('list')
+  })
 })
