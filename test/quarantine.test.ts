@@ -133,6 +133,13 @@ describe('playwrightPattern', () => {
     expect(pattern.test('  b.spec.ts group does (x)')).toBe(false)
     expect(pattern.test('  a.spec.ts group does (x) too')).toBe(false)
   })
+
+  it('matches the same test when Playwright appends its tags to the title', () => {
+    const pattern = playwrightPattern({ ...valid, file: 'e2e/a.spec.ts', name: 'group > does (x)' })
+    expect(pattern.test('  a.spec.ts group does (x) @core')).toBe(true)
+    expect(pattern.test('  a.spec.ts group does (x) @core @race')).toBe(true)
+    expect(pattern.test('  a.spec.ts group does (x) too @core')).toBe(false)
+  })
 })
 
 describe('reminders', () => {

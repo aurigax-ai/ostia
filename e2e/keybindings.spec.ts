@@ -41,53 +41,57 @@ async function expectPaletteOpen(win: Page) {
   await expect(palette(win).getByRole('combobox')).toBeFocused()
 }
 
-test('a rebound palette chord works from a focused terminal, refuses Ctrl+R, and resets', async () => {
-  test.skip(isMac, 'the macOS chords are covered by the next test')
-  const app = await electron.launch(isolatedLaunch())
-  try {
-    const win = await app.firstWindow()
-    await win.waitForLoadState('domcontentloaded')
-    await openWorkspace(win)
+test(
+  'a rebound palette chord works from a focused terminal, refuses Ctrl+R, and resets',
+  { tag: '@core' },
+  async () => {
+    test.skip(isMac, 'the macOS chords are covered by the next test')
+    const app = await electron.launch(isolatedLaunch())
+    try {
+      const win = await app.firstWindow()
+      await win.waitForLoadState('domcontentloaded')
+      await openWorkspace(win)
 
-    await openKeyboardSettings(win)
-    await expect(paletteRow(win)).toContainText('Ctrl+Shift+P')
-    await recordPaletteChord(win, 'Ctrl+Shift+P')
-    await win.keyboard.press('Control+Shift+Y')
-    await expect(paletteRow(win)).toContainText('Ctrl+Shift+Y')
+      await openKeyboardSettings(win)
+      await expect(paletteRow(win)).toContainText('Ctrl+Shift+P')
+      await recordPaletteChord(win, 'Ctrl+Shift+P')
+      await win.keyboard.press('Control+Shift+Y')
+      await expect(paletteRow(win)).toContainText('Ctrl+Shift+Y')
 
-    await recordPaletteChord(win, 'Ctrl+Shift+Y')
-    await win.keyboard.press('Control+r')
-    await expect(paletteRow(win).getByRole('alert')).toContainText(
-      'Ctrl+R can’t be used: plain Ctrl keys belong to the shell',
-    )
-    await win.keyboard.press('Escape')
-    await expect(paletteRow(win)).toContainText('Ctrl+Shift+Y')
-    await closeSettings(win)
+      await recordPaletteChord(win, 'Ctrl+Shift+Y')
+      await win.keyboard.press('Control+r')
+      await expect(paletteRow(win).getByRole('alert')).toContainText(
+        'Ctrl+R can’t be used: plain Ctrl keys belong to the shell',
+      )
+      await win.keyboard.press('Escape')
+      await expect(paletteRow(win)).toContainText('Ctrl+Shift+Y')
+      await closeSettings(win)
 
-    await focusTerminal(win)
-    await win.keyboard.press('Control+Shift+P')
-    await win.waitForTimeout(400)
-    await expect(palette(win)).toHaveCount(0)
-    await win.keyboard.press('Control+Shift+Y')
-    await expectPaletteOpen(win)
-    await win.keyboard.press('Escape')
-    await expect(palette(win)).toHaveCount(0)
+      await focusTerminal(win)
+      await win.keyboard.press('Control+Shift+P')
+      await win.waitForTimeout(400)
+      await expect(palette(win)).toHaveCount(0)
+      await win.keyboard.press('Control+Shift+Y')
+      await expectPaletteOpen(win)
+      await win.keyboard.press('Escape')
+      await expect(palette(win)).toHaveCount(0)
 
-    await openKeyboardSettings(win)
-    await win.getByRole('button', { name: 'Reset Command Palette' }).click()
-    await expect(paletteRow(win)).toContainText('Ctrl+Shift+P')
-    await closeSettings(win)
+      await openKeyboardSettings(win)
+      await win.getByRole('button', { name: 'Reset Command Palette' }).click()
+      await expect(paletteRow(win)).toContainText('Ctrl+Shift+P')
+      await closeSettings(win)
 
-    await focusTerminal(win)
-    await win.keyboard.press('Control+Shift+Y')
-    await win.waitForTimeout(400)
-    await expect(palette(win)).toHaveCount(0)
-    await win.keyboard.press('Control+Shift+P')
-    await expect(palette(win)).toBeVisible()
-  } finally {
-    await app.close()
-  }
-})
+      await focusTerminal(win)
+      await win.keyboard.press('Control+Shift+Y')
+      await win.waitForTimeout(400)
+      await expect(palette(win)).toHaveCount(0)
+      await win.keyboard.press('Control+Shift+P')
+      await expect(palette(win)).toBeVisible()
+    } finally {
+      await app.close()
+    }
+  },
+)
 
 test('scrolling the Keyboard settings never gives the window a scrollbar of its own', async () => {
   const app = await electron.launch(isolatedLaunch())
@@ -115,83 +119,93 @@ test('scrolling the Keyboard settings never gives the window a scrollbar of its 
   }
 })
 
-test('on macOS the palette is ⇧⌘P everywhere and ⌘K outside a terminal, a rebound chord works from a terminal, a Ctrl chord is refused, and it resets', async () => {
-  test.skip(!isMac, 'the Cmd chords exist only on macOS')
-  const app = await electron.launch(isolatedLaunch())
-  try {
-    const win = await app.firstWindow()
-    await win.waitForLoadState('domcontentloaded')
-    await openWorkspace(win)
+test(
+  'on macOS the palette is ⇧⌘P everywhere and ⌘K outside a terminal, a rebound chord works from a terminal, a Ctrl chord is refused, and it resets',
+  { tag: '@core' },
+  async () => {
+    test.skip(!isMac, 'the Cmd chords exist only on macOS')
+    const app = await electron.launch(isolatedLaunch())
+    try {
+      const win = await app.firstWindow()
+      await win.waitForLoadState('domcontentloaded')
+      await openWorkspace(win)
 
-    await openKeyboardSettings(win)
-    await expect(paletteRow(win)).toContainText('⌘K')
-    await recordPaletteChord(win, '⌘K')
-    await win.keyboard.press('Meta+Shift+Y')
-    await expect(paletteRow(win)).toContainText('Y')
-    await expect(win.getByRole('button', { name: 'Change ⌘K for Command Palette' })).toHaveCount(0)
+      await openKeyboardSettings(win)
+      await expect(paletteRow(win)).toContainText('⌘K')
+      await recordPaletteChord(win, '⌘K')
+      await win.keyboard.press('Meta+Shift+Y')
+      await expect(paletteRow(win)).toContainText('Y')
+      await expect(win.getByRole('button', { name: 'Change ⌘K for Command Palette' })).toHaveCount(
+        0,
+      )
 
-    await recordPaletteChord(win, '⌘⇧Y')
-    await win.keyboard.press('Control+Shift+y')
-    await expect(paletteRow(win).getByRole('alert')).toContainText('it needs ⌘')
-    await win.keyboard.press('Escape')
-    await closeSettings(win)
+      await recordPaletteChord(win, '⌘⇧Y')
+      await win.keyboard.press('Control+Shift+y')
+      await expect(paletteRow(win).getByRole('alert')).toContainText('it needs ⌘')
+      await win.keyboard.press('Escape')
+      await closeSettings(win)
 
-    await focusTerminal(win)
-    await win.keyboard.press('Meta+k')
-    await win.waitForTimeout(400)
-    await expect(palette(win)).toHaveCount(0)
-    await win.keyboard.press('Meta+Shift+Y')
-    await expectPaletteOpen(win)
-    await win.keyboard.press('Escape')
-    await expect(palette(win)).toHaveCount(0)
+      await focusTerminal(win)
+      await win.keyboard.press('Meta+k')
+      await win.waitForTimeout(400)
+      await expect(palette(win)).toHaveCount(0)
+      await win.keyboard.press('Meta+Shift+Y')
+      await expectPaletteOpen(win)
+      await win.keyboard.press('Escape')
+      await expect(palette(win)).toHaveCount(0)
 
-    await openKeyboardSettings(win)
-    await win.getByRole('button', { name: 'Reset Command Palette' }).click()
-    await expect(paletteRow(win)).toContainText('⌘⇧P')
-    await expect(paletteRow(win)).toContainText('⌘K')
-    await closeSettings(win)
+      await openKeyboardSettings(win)
+      await win.getByRole('button', { name: 'Reset Command Palette' }).click()
+      await expect(paletteRow(win)).toContainText('⌘⇧P')
+      await expect(paletteRow(win)).toContainText('⌘K')
+      await closeSettings(win)
 
-    await focusTerminal(win)
-    await win.keyboard.press('Meta+Shift+p')
-    await expectPaletteOpen(win)
-    await win.keyboard.press('Escape')
-    await expect(palette(win)).toHaveCount(0)
+      await focusTerminal(win)
+      await win.keyboard.press('Meta+Shift+p')
+      await expectPaletteOpen(win)
+      await win.keyboard.press('Escape')
+      await expect(palette(win)).toHaveCount(0)
 
-    await focusTerminal(win)
-    await win.keyboard.press('Meta+k')
-    await win.waitForTimeout(400)
-    await expect(palette(win)).toHaveCount(0)
+      await focusTerminal(win)
+      await win.keyboard.press('Meta+k')
+      await win.waitForTimeout(400)
+      await expect(palette(win)).toHaveCount(0)
 
-    await win.getByRole('button', { name: 'Toggle sidebar' }).focus()
-    await win.keyboard.press('Meta+k')
-    await expect(palette(win)).toBeVisible()
-  } finally {
-    await app.close()
-  }
-})
+      await win.getByRole('button', { name: 'Toggle sidebar' }).focus()
+      await win.keyboard.press('Meta+k')
+      await expect(palette(win)).toBeVisible()
+    } finally {
+      await app.close()
+    }
+  },
+)
 
-test('on macOS Cmd+Backspace deletes the typed line in the shell, as in Terminal and iTerm', async () => {
-  test.skip(!isMac, 'Cmd+Backspace is a macOS line-editing key')
-  const app = await electron.launch(isolatedLaunch())
-  try {
-    const win = await app.firstWindow()
-    await win.waitForLoadState('domcontentloaded')
-    await openWorkspace(win)
-    await focusTerminal(win)
-    const rows = win.locator('.xterm-rows').first()
+test(
+  'on macOS Cmd+Backspace deletes the typed line in the shell, as in Terminal and iTerm',
+  { tag: '@core' },
+  async () => {
+    test.skip(!isMac, 'Cmd+Backspace is a macOS line-editing key')
+    const app = await electron.launch(isolatedLaunch())
+    try {
+      const win = await app.firstWindow()
+      await win.waitForLoadState('domcontentloaded')
+      await openWorkspace(win)
+      await focusTerminal(win)
+      const rows = win.locator('.xterm-rows').first()
 
-    await win.keyboard.type('echo ostia_wrong_line')
-    await expect(rows).toContainText('echo ostia_wrong_line')
-    await win.keyboard.press('Meta+Backspace')
-    await win.keyboard.type('echo ostia_$((40+2))_ok')
-    await win.keyboard.press('Enter')
-    await expect(rows).toContainText('ostia_42_ok')
-    await expect(rows).not.toContainText('ostia_wrong_line')
-    expect(app.windows()).toHaveLength(1)
-  } finally {
-    await app.close()
-  }
-})
+      await win.keyboard.type('echo ostia_wrong_line')
+      await expect(rows).toContainText('echo ostia_wrong_line')
+      await win.keyboard.press('Meta+Backspace')
+      await win.keyboard.type('echo ostia_$((40+2))_ok')
+      await win.keyboard.press('Enter')
+      await expect(rows).toContainText('ostia_42_ok')
+      await expect(rows).not.toContainText('ostia_wrong_line')
+      expect(app.windows()).toHaveLength(1)
+    } finally {
+      await app.close()
+    }
+  },
+)
 
 test('on macOS Cmd+Left/Right jump to the line ends and Option+Left/Right move by words in the shell', async () => {
   test.skip(!isMac, 'Cmd and Option arrows are macOS line-editing keys')
@@ -222,45 +236,49 @@ test('on macOS Cmd+Left/Right jump to the line ends and Option+Left/Right move b
   }
 })
 
-test('on macOS Cmd+W closes the focused pane and leaves the app running, and the menu closes the window with Cmd+Shift+W', async () => {
-  test.skip(!isMac, 'the macOS application menu and Cmd chords only exist on macOS')
-  const app = await electron.launch(isolatedLaunch())
-  try {
-    const win = await app.firstWindow()
-    await win.waitForLoadState('domcontentloaded')
-    await openWorkspace(win)
+test(
+  'on macOS Cmd+W closes the focused pane and leaves the app running, and the menu closes the window with Cmd+Shift+W',
+  { tag: '@core' },
+  async () => {
+    test.skip(!isMac, 'the macOS application menu and Cmd chords only exist on macOS')
+    const app = await electron.launch(isolatedLaunch())
+    try {
+      const win = await app.firstWindow()
+      await win.waitForLoadState('domcontentloaded')
+      await openWorkspace(win)
 
-    const accelerators = await app.evaluate(({ Menu }) => {
-      const found: { label: string; role: string; accelerator: string }[] = []
-      const walk = (menu: Electron.Menu | null): void => {
-        for (const item of menu?.items ?? []) {
-          found.push({
-            label: item.label,
-            role: item.role ?? '',
-            accelerator: String(item.accelerator ?? ''),
-          })
-          walk(item.submenu ?? null)
+      const accelerators = await app.evaluate(({ Menu }) => {
+        const found: { label: string; role: string; accelerator: string }[] = []
+        const walk = (menu: Electron.Menu | null): void => {
+          for (const item of menu?.items ?? []) {
+            found.push({
+              label: item.label,
+              role: item.role ?? '',
+              accelerator: String(item.accelerator ?? ''),
+            })
+            walk(item.submenu ?? null)
+          }
         }
-      }
-      walk(Menu.getApplicationMenu())
-      return found
-    })
-    expect(accelerators.map((item) => item.accelerator)).not.toContain('CmdOrCtrl+W')
-    expect(accelerators.map((item) => item.accelerator)).not.toContain('Cmd+W')
-    expect(accelerators.find((item) => item.role === 'close')?.accelerator).toBe('Cmd+Shift+W')
+        walk(Menu.getApplicationMenu())
+        return found
+      })
+      expect(accelerators.map((item) => item.accelerator)).not.toContain('CmdOrCtrl+W')
+      expect(accelerators.map((item) => item.accelerator)).not.toContain('Cmd+W')
+      expect(accelerators.find((item) => item.role === 'close')?.accelerator).toBe('Cmd+Shift+W')
 
-    await focusTerminal(win)
-    await win.keyboard.press('Meta+Alt+Backslash')
-    await expect(win.locator('.xterm')).toHaveCount(2)
-    await win.locator('.xterm').nth(1).click()
-    await win.keyboard.press('Meta+w')
-    await expect(win.locator('.xterm')).toHaveCount(1)
-    expect(win.isClosed()).toBe(false)
-    expect(app.windows()).toHaveLength(1)
-  } finally {
-    await app.close()
-  }
-})
+      await focusTerminal(win)
+      await win.keyboard.press('Meta+Alt+Backslash')
+      await expect(win.locator('.xterm')).toHaveCount(2)
+      await win.locator('.xterm').nth(1).click()
+      await win.keyboard.press('Meta+w')
+      await expect(win.locator('.xterm')).toHaveCount(1)
+      expect(win.isClosed()).toBe(false)
+      expect(app.windows()).toHaveLength(1)
+    } finally {
+      await app.close()
+    }
+  },
+)
 
 test('on macOS the app menu is named Ostia, its Settings item opens Settings, and it has no Reload', async () => {
   test.skip(!isMac, 'the macOS application menu only exists on macOS')
@@ -337,7 +355,7 @@ test('on macOS the cmux keymap is opt-in: picking it drops ⌘K for the palette,
   }
 })
 
-test('Ctrl+Shift+Q quits Ostia from a focused terminal on Linux', async () => {
+test('Ctrl+Shift+Q quits Ostia from a focused terminal on Linux', { tag: '@core' }, async () => {
   test.skip(isMac, 'macOS quits with Cmd+Q from the app menu')
   const app = await electron.launch(isolatedLaunch())
   try {

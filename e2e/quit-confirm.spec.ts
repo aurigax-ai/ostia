@@ -22,7 +22,7 @@ async function launch(settings: object) {
   return { app, win, proc: app.process() }
 }
 
-test('quitting with only idle shells shows no dialog', async () => {
+test('quitting with only idle shells shows no dialog', { tag: '@core' }, async () => {
   const { app, win, proc } = await launch(CONFIRM_QUIT)
   try {
     expect(await pressQuit(app, win)).toBe('quit')
@@ -31,23 +31,29 @@ test('quitting with only idle shells shows no dialog', async () => {
   }
 })
 
-test('quitting with a program running in a shell without blocks asks and names it', async () => {
-  const { app, win, proc } = await launch(PLAIN_SHELL)
-  try {
-    await runInTerminal(win, 'echo plain-$((6*7)); sleep 100')
-    await expect(win.locator('.xterm-rows').first()).toContainText('plain-42', { timeout: 15_000 })
-    const paneId = await win.locator('.pane').first().getAttribute('data-pane-id')
-    await expect
-      .poll(() => win.evaluate((id) => window.ostia.pty.foreground(id ?? ''), paneId))
-      .toBe('sleep')
-    expect(await pressQuit(app, win)).toBe('asked')
-    const dialog = win.getByRole('dialog')
-    await expect(dialog).toContainText('1 shell process will be ended')
-    await expect(dialog).toContainText('sleep')
-  } finally {
-    proc.kill('SIGKILL')
-  }
-})
+test(
+  'quitting with a program running in a shell without blocks asks and names it',
+  { tag: '@core' },
+  async () => {
+    const { app, win, proc } = await launch(PLAIN_SHELL)
+    try {
+      await runInTerminal(win, 'echo plain-$((6*7)); sleep 100')
+      await expect(win.locator('.xterm-rows').first()).toContainText('plain-42', {
+        timeout: 15_000,
+      })
+      const paneId = await win.locator('.pane').first().getAttribute('data-pane-id')
+      await expect
+        .poll(() => win.evaluate((id) => window.ostia.pty.foreground(id ?? ''), paneId))
+        .toBe('sleep')
+      expect(await pressQuit(app, win)).toBe('asked')
+      const dialog = win.getByRole('dialog')
+      await expect(dialog).toContainText('1 shell process will be ended')
+      await expect(dialog).toContainText('sleep')
+    } finally {
+      proc.kill('SIGKILL')
+    }
+  },
+)
 
 test('quitting with an idle shell without blocks shows no dialog', async () => {
   const { app, win, proc } = await launch(PLAIN_SHELL)

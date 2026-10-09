@@ -11,6 +11,7 @@ export default defineConfig({
   ...playwrightFilter(quarantined),
   timeout: 30_000,
   expect: { timeout: 10_000 },
+  forbidOnly: !!process.env.CI,
   fullyParallel: false,
   workers: 1,
   reporter: process.env.CI ? [['list'], ['blob']] : [['list']],

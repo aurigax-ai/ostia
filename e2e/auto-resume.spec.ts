@@ -201,15 +201,19 @@ async function expectAutoResumed(dataHome: string): Promise<void> {
   }
 }
 
-test('an agent running when the human quits Ostia resumes after the restart', async () => {
-  const dataHome = freshDataHome()
-  seedSettings(dataHome, AUTO_RESUME_SETTINGS)
-  const { app, win } = await launchAgentApp(dataHome)
-  await startResumableAgent(dataHome, win)
-  await quitAndWait(app, win)
-  expect(agentRunningSaved(dataHome)).toBe(true)
-  await expectAutoResumed(dataHome)
-})
+test(
+  'an agent running when the human quits Ostia resumes after the restart',
+  { tag: '@core' },
+  async () => {
+    const dataHome = freshDataHome()
+    seedSettings(dataHome, AUTO_RESUME_SETTINGS)
+    const { app, win } = await launchAgentApp(dataHome)
+    await startResumableAgent(dataHome, win)
+    await quitAndWait(app, win)
+    expect(agentRunningSaved(dataHome)).toBe(true)
+    await expectAutoResumed(dataHome)
+  },
+)
 
 test('an agent running when the window closes with close-to-tray off resumes after the restart', async () => {
   const dataHome = freshDataHome()

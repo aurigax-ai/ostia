@@ -12,4 +12,14 @@ describe('e2e imports', () => {
       .filter((name) => PLAYWRIGHT_IMPORT.test(readFileSync(join(E2E, name), 'utf8')))
     expect(direct).toEqual([])
   })
+
+  it('tags at most 34 e2e tests @core, so the merge queue runs a small set', () => {
+    const tagged = readdirSync(E2E)
+      .filter((name) => name.endsWith('.spec.ts'))
+      .flatMap((name) => {
+        const source = readFileSync(join(E2E, name), 'utf8')
+        return source.match(/tag:\s*(?:'@core'|\[[^\]]*'@core'[^\]]*\])/g) ?? []
+      })
+    expect(tagged.length).toBeLessThanOrEqual(34)
+  })
 })

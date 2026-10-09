@@ -24,18 +24,22 @@ async function rowHeight(win: import('@playwright/test').Page): Promise<number> 
     .evaluate((el) => el.getBoundingClientRect().height)
 }
 
-test('changing the terminal line height in Settings resizes terminal rows', async () => {
-  const { app, win } = await launch()
-  try {
-    const before = await rowHeight(win)
-    const settings = await openSettings(win, 'Appearance')
-    await settings.getByRole('spinbutton', { name: 'Terminal line height' }).fill('2')
-    await win.keyboard.press('Escape')
-    await expect.poll(() => rowHeight(win)).toBeGreaterThan(before * 1.5)
-  } finally {
-    await app.close()
-  }
-})
+test(
+  'changing the terminal line height in Settings resizes terminal rows',
+  { tag: '@core' },
+  async () => {
+    const { app, win } = await launch()
+    try {
+      const before = await rowHeight(win)
+      const settings = await openSettings(win, 'Appearance')
+      await settings.getByRole('spinbutton', { name: 'Terminal line height' }).fill('2')
+      await win.keyboard.press('Escape')
+      await expect.poll(() => rowHeight(win)).toBeGreaterThan(before * 1.5)
+    } finally {
+      await app.close()
+    }
+  },
+)
 
 test('copy on select puts selected terminal text on the clipboard', async () => {
   const { app, win } = await launch()
