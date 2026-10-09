@@ -214,6 +214,8 @@ describe('pane.moveToWorkspace command', () => {
   it('moves the target pane through the same move path', async () => {
     const source = seed('/home/u/api', 2)
     const target = seed('/home/u/web', 1)
+    useWorkspacesStore.getState().setActive(source.id)
+    vi.mocked(window.ostia.lifecycle.emit).mockClear()
     const ctx = { activeWorkspaceId: source.id, activePaneId: source.panes[1] }
 
     const res = await commands.execWith(ctx, 'pane.moveToWorkspace', { workspaceId: target.id })
@@ -222,7 +224,13 @@ describe('pane.moveToWorkspace command', () => {
     expect(window.ostia.workspace.movePanes).toHaveBeenCalledWith(source.id, target.id, [
       source.panes[1],
     ])
+    expect(paneIds(rootOf(source.id))).toEqual([source.panes[0]])
     expect(paneIds(rootOf(target.id))).toEqual([...target.panes, source.panes[1]])
+    expect(useWorkspacesStore.getState().workspaces.map((w) => w.id)).toEqual([
+      source.id,
+      target.id,
+    ])
+    expect(emitted()).toEqual([])
   })
 
   it('answers the refusal instead of moving', async () => {

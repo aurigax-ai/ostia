@@ -14,6 +14,7 @@ import { join } from 'node:path'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ReportedAgentWork, registerAgentWorkMethods } from '../main/agents/agentWork'
 import { grant } from '../main/approvals/capabilityStore'
+import { createReach } from '../main/approvals/reach'
 import { registerAttentionMethods } from '../main/attention/attention'
 import {
   type ControlServerDeps,
@@ -22,21 +23,29 @@ import {
   stopControlServer,
 } from '../main/control/controlServer'
 import { registerDocsMethods } from '../main/control/docs'
-import { type PaneIdentity, markManager, registerPane } from '../main/control/idRegistry'
+import {
+  type PaneIdentity,
+  getByPaneId,
+  markManager,
+  registerPane,
+} from '../main/control/idRegistry'
 import { OpenFileGrants } from '../main/files/openFileGrants'
 import { registerOpenFileMethods } from '../main/files/openFileMethods'
 import { OpenWaits } from '../main/files/openWaits'
 import { type WorkerRequest, registerManagerMethods } from '../main/manager/managerMethods'
 import { registerPaneListMethods } from '../main/panes/paneList'
+import { registerPaneMoveToMethods } from '../main/panes/paneMoveTo'
 import { ViewHost, ViewStore } from '../main/workspaces/viewHost'
 import { registerViewMethods } from '../main/workspaces/viewsIpc'
 import { registerWorkflowMethods, workspaceWorkflowsDir } from '../main/workspaces/workflows'
+import { setWorkspaceWorkDir, windowForWorkspace } from '../main/workspaces/workspaceRegistry'
 import { managerAgents, parseManagerSettings } from '../shared/agents/managerSettings'
 import {
   OPEN_DIFF_COMMAND,
   OPEN_FILES_COMMAND,
   REVEAL_FOLDER_COMMAND,
 } from '../shared/files/openFiles'
+import { emptyWorkspaceSandbox } from '../shared/sandbox/sandbox'
 import type { CommandDescriptor, CommandResult, CommandTarget } from '../shared/types'
 
 const repoRoot = process.cwd()
@@ -49,8 +58,10 @@ function nextSocketPath(): string {
 }
 
 const execCalls: { target: CommandTarget; id: string; args?: unknown }[] = []
+const moves: { paneId: string; workspaceId: string }[] = []
 let openedPanes: { path: string; paneId: string }[] = []
 const agentWork = new ReportedAgentWork()
+let listed: { workspaces: object[]; groups: object[] } = { workspaces: [], groups: [] }
 
 const fakeDeps: ControlServerDeps = {
   execCommand: async (target, id, args) => {
@@ -176,6 +187,43 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
     execSync('pnpm run build:cli', { cwd: repoRoot, stdio: 'ignore' })
     registerAttentionMethods({ execCommand: fakeDeps.execCommand })
     registerAgentWorkMethods(agentWork)
+    registerPaneListMethods({
+      execCommand: async (_target, id) =>
+        ({
+          ok: true,
+          result: id === 'workspace.groups' ? listed.groups : listed.workspaces,
+        }) as CommandResult,
+      getTerminalState: () => undefined,
+      ptyPid: () => undefined,
+      windowIds: () => ['1'],
+      waking: () => false,
+    })
+    const reach = createReach({
+      mode: () => 'workspace',
+      home: '/home/u',
+      workDir: () => undefined,
+      isScratch: () => false,
+      hasManager: () => false,
+      sandbox: emptyWorkspaceSandbox,
+      workspaces: async () => ({ workspaces: [], groups: [] }),
+      ask: () => null,
+      agentGroupsChanged: () => {},
+    })
+    registerPaneMoveToMethods({
+      processPane: async () => undefined,
+      inScope: reach.inScope,
+      isChild: () => false,
+      isSandboxed: () => false,
+      isConfined: () => false,
+      ownerWindow: windowForWorkspace,
+      paneOf: getByPaneId,
+      isScratch: () => false,
+      ensureReach: reach.ensure,
+      move: async (to, workspaceId) => {
+        moves.push({ paneId: to.paneId, workspaceId })
+        return { ok: true, result: undefined }
+      },
+    })
   }, 60_000)
 
   let socketPath: string
@@ -190,6 +238,7 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
   afterEach(() => {
     stopControlServer()
     execCalls.length = 0
+    moves.length = 0
   })
 
   afterAll(() => {
@@ -353,6 +402,37 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
 
     expect(res.code).toBe(1)
     expect(res.stderr).toContain("--timeout expects seconds, got 'soon'")
+  })
+
+  it('an agent moves a running tab to another workspace with ostia pane move, same process', async () => {
+    setWorkspaceWorkDir('s1', '/home/u/api', 'w1')
+    setWorkspaceWorkDir('s2', '/home/u/web', 'w1')
+    listed = {
+      workspaces: [
+        { workspaceId: 's1', name: 'api', kind: 'terminal', workDir: '/home/u/api', state: 'idle' },
+        {
+          workspaceId: 's2',
+          name: 'web',
+          customName: 'workers',
+          kind: 'terminal',
+          workDir: '/home/u/web',
+          state: 'idle',
+        },
+      ],
+      groups: [],
+    }
+    const home = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'pHome' })
+    const moving = registerPane({ windowId: 'w1', workspaceId: 's1', paneId: 'pMoving' })
+    const env = withEnv({ OSTIA_SOCKET: socketPath, OSTIA_TOKEN: home.token })
+    grant(home.externalId, 'all-workspaces')
+    grant(home.externalId, 'type-other-pane')
+
+    const res = await runOstia(['pane', 'move', moving.externalId, '--workspace', 'workers'], env)
+
+    expect(res.stderr).toBe('')
+    expect(res.code).toBe(0)
+    expect(res.stdout.trim()).toBe(moving.externalId)
+    expect(moves).toEqual([{ paneId: 'pMoving', workspaceId: 's2' }])
   })
 
   describe('ostia state', () => {
@@ -652,14 +732,7 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
         { workspaceId: 's2', name: 'web', kind: 'terminal', workDir: '/b', state: 'working' },
       ]
       const groups = [{ groupId: 'g1', name: 'backend', collapsed: false, workspaceIds: ['s1'] }]
-      registerPaneListMethods({
-        execCommand: async (_target, id) =>
-          ({ ok: true, result: id === 'workspace.groups' ? groups : workspaces }) as CommandResult,
-        getTerminalState: () => undefined,
-        ptyPid: () => undefined,
-        windowIds: () => ['1'],
-        waking: () => false,
-      })
+      listed = { workspaces, groups }
 
       const json = await runOstia(['workspace', 'list', '--json'], env())
       expect(json.stderr).toBe('')
