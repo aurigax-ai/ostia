@@ -112,6 +112,7 @@ const fake = vi.hoisted(() => {
     model: FakeModel | null
     save: (() => void) | null
     actions: { id: string; label: string; run: () => void }[]
+    ranActions: string[]
     position: { lineNumber: number; column: number } | null
     selection: FakeSelection | null
     contentListeners: Listener[]
@@ -138,6 +139,7 @@ const fake = vi.hoisted(() => {
     model: null,
     save: null,
     actions: [],
+    ranActions: [],
     position: null,
     selection: null,
     contentListeners: [],
@@ -196,10 +198,16 @@ const fake = vi.hoisted(() => {
     onDidChangeCursorSelection: (l: Listener) => listen(state.selectionListeners, l),
     onDidBlurEditorText: (l: Listener) => listen(state.blurListeners, l),
     onKeyDown: (l: (e: unknown) => void) => listen(state.keyListeners as Listener[], l as Listener),
-    getAction: (id: string) =>
-      id === 'editor.action.formatDocument' && state.formatRuns
-        ? { run: async () => state.formatRuns?.() }
-        : null,
+    getAction: (id: string) => {
+      if (id === 'editor.action.formatDocument') {
+        return state.formatRuns ? { run: async () => state.formatRuns?.() } : null
+      }
+      return {
+        run: async () => {
+          state.ranActions.push(id)
+        },
+      }
+    },
     onDidChangeModel: (l: Listener) => listen(state.modelListeners, l),
     layout: () => {
       state.layouts += 1
@@ -257,6 +265,7 @@ describe('EditorView', () => {
     fake.state.model = null
     fake.state.save = null
     fake.state.actions = []
+    fake.state.ranActions = []
     fake.state.position = null
     fake.state.formatRuns = null
     fake.state.decorations = []
@@ -289,6 +298,26 @@ describe('EditorView', () => {
     render(<EditorView workspaceId="w1" paneId="p2" filePath="/w/a.ts" />)
     await waitFor(() => expect(fake.state.model).not.toBeNull())
     expect(screen.queryByRole('button', { name: 'Edit Markdown source' })).toBeNull()
+  })
+
+  it('the find key opens find in the code editor', async () => {
+    vi.mocked(window.ostia.fs.read).mockResolvedValue({
+      ok: true,
+      version: 'v1',
+      text: '# Needle\n\nOne needle, then another needle.\n',
+    })
+    render(<EditorView workspaceId="w1" paneId="p1" filePath="/w/notes.md" />)
+    await waitFor(() => expect(fake.state.model).not.toBeNull())
+    const browserEvent = new KeyboardEvent('keydown', {
+      key: 'F',
+      code: 'KeyF',
+      ctrlKey: true,
+      shiftKey: true,
+    })
+    for (const listener of fake.state.keyListeners) {
+      listener({ browserEvent, preventDefault: vi.fn(), stopPropagation: vi.fn() })
+    }
+    await waitFor(() => expect(fake.state.ranActions).toEqual(['actions.find']))
   })
 
   it('scrolls without smooth animation while motion is reduced', async () => {

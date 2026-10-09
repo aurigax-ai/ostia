@@ -156,6 +156,17 @@ describe('MarkdownPreview find', () => {
   const SOURCE = '# Needle\n\nOne needle, then another needle.\n'
 
   it('opens with the find key, counts matches and steps through them', async () => {
+    const highlights = new Map<string, { size: number }>()
+    vi.stubGlobal('CSS', { highlights })
+    vi.stubGlobal(
+      'Highlight',
+      class {
+        size: number
+        constructor(...ranges: Range[]) {
+          this.size = ranges.length
+        }
+      },
+    )
     render(<MarkdownPreview source={SOURCE} />)
     const preview = document.querySelector('.markdown-preview') as HTMLElement
     const user = userEvent.setup()
@@ -168,6 +179,7 @@ describe('MarkdownPreview find', () => {
     expect(screen.getByText('1/3')).toBeInTheDocument()
     await user.keyboard('{Enter}')
     expect(screen.getByText('2/3')).toBeInTheDocument()
+    expect(highlights.get('ostia-find')?.size).toBe(3)
     await user.keyboard('{Shift>}{Enter}{/Shift}{Shift>}{Enter}{/Shift}')
     expect(screen.getByText('3/3')).toBeInTheDocument()
 
