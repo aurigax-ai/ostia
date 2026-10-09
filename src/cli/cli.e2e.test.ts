@@ -986,6 +986,14 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
       expect(opened()).toEqual([])
     })
 
+    it('shows no folder for a sandboxed workspace', async () => {
+      sandboxed.add('s1')
+      const res = await runOstia(['.'], env(), home)
+      expect(res.code).toBe(1)
+      expect(res.stderr).toContain('a sandboxed workspace cannot show folders')
+      expect(revealed()).toEqual([])
+    })
+
     it('opens an http(s) URL as ostia browse open does, and takes anything else for a path', async () => {
       const res = await runOstia(['https://example.com/docs?a=1'], env(), home)
       expect(res.stderr).toBe('')

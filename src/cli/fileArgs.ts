@@ -77,6 +77,7 @@ const REVEAL_REFUSALS: Record<string, string> = {
   'outside-home': 'folders show only under the home folder',
   'not-found': 'no such folder',
   'not-a-directory': 'not a folder',
+  'outside-sandbox': 'a sandboxed workspace cannot show folders',
 }
 
 export function revealRefusalLine(path: string, error: string, message?: string): string {

@@ -651,3 +651,58 @@ test('a component that does not compile, or imports what is not bundled, says so
     await app.close()
   }
 })
+
+test('a page cannot make the resolver look up a host name: no DNS prefetch, preconnect or anchor lookup', async () => {
+  test.setTimeout(120_000)
+  const dataHome = freshDataHome()
+  const home = join(dataHome, 'home')
+  mkdirSync(home, { recursive: true })
+  writeFileSync(
+    join(home, 'names.html'),
+    [
+      '<!doctype html><title>names</title>',
+      '<meta http-equiv="x-dns-prefetch-control" content="on">',
+      '<link rel="dns-prefetch" href="//prefetch-probe.ostia-test.invalid">',
+      '<link rel="preconnect" href="https://preconnect-probe.ostia-test.invalid">',
+      '<link rel="prerender" href="https://prerender-probe.ostia-test.invalid/">',
+      '<a href="http://anchor-probe.ostia-test.invalid/">a link</a>',
+      '<script>',
+      'for (const rel of ["dns-prefetch", "preconnect"]) {',
+      '  const link = document.createElement("link")',
+      '  link.rel = rel',
+      '  link.href = "https://" + rel + "-script-probe.ostia-test.invalid/"',
+      '  document.head.append(link)',
+      '}',
+      'new Image().src = "https://image-probe.ostia-test.invalid/a.png"',
+      'fetch("https://fetch-probe.ostia-test.invalid/").catch(() => {})',
+      '</script>',
+    ].join('\n'),
+  )
+  const log = join(dataHome, 'preview-netlog.json')
+  const { app, win } = await launch(dataHome)
+  try {
+    await runInTerminal(
+      win,
+      'cp ~/names.html "$OSTIA_ARTIFACTS/" && ostia open "$OSTIA_ARTIFACTS/names.html"',
+    )
+    await expect.poll(() => guestTitle(app), { timeout: 30_000 }).toBe('names')
+    await app.evaluate(
+      async ({ webContents }, [prefix, path]) => {
+        const guest = webContents.getAllWebContents().find((wc) => wc.getURL().startsWith(prefix))
+        if (!guest) throw new Error('no preview guest')
+        await guest.session.netLog.startLogging(path, { captureMode: 'everything' })
+        guest.reload()
+        await new Promise((resolve) => setTimeout(resolve, 4_000))
+        await guest.session.resolveHost('control-probe.ostia-test.invalid').catch(() => null)
+        await guest.session.netLog.stopLogging()
+      },
+      [PREVIEW_URL, log] as const,
+    )
+    const recorded = readFileSync(log, 'utf8')
+    expect(recorded).toContain('control-probe.ostia-test.invalid')
+    const looked = [...recorded.matchAll(/([a-z-]+-probe)\.ostia-test\.invalid/g)].map((m) => m[1])
+    expect([...new Set(looked)]).toEqual(['control-probe'])
+  } finally {
+    await app.close()
+  }
+})

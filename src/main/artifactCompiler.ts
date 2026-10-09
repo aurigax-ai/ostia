@@ -54,6 +54,12 @@ function problemsOf(error: unknown, file: string): CompileProblem[] {
   }))
 }
 
+type Compiled = { ok: true; code: string } | { ok: false; problems: CompileProblem[] }
+
+function failed(problems: CompileProblem[]): Compiled {
+  return { ok: false, problems }
+}
+
 export class ArtifactCompiler {
   private readonly cache = new Map<string, string>()
 
@@ -71,24 +77,31 @@ export class ArtifactCompiler {
         { file, line: 1, column: 1, message: 'is over 1 MiB, the most a preview compiles' },
       ])
     }
-    const key = createHash('sha256').update(loader).update('\0').update(source).digest('hex')
+    const key = createHash('sha256')
+      .update(loader)
+      .update('\0')
+      .update(file)
+      .update('\0')
+      .update(source)
+      .digest('hex')
     const cached = this.cache.get(key)
     if (cached !== undefined) return cached
-    const code = await this.transform(file, source.toString('utf8'), loader)
-    this.cache.set(key, code)
+    const result = await this.transform(file, source.toString('utf8'), loader)
+    if (!result.ok) return reportingModule(result.problems)
+    this.cache.set(key, result.code)
     if (this.cache.size > CACHE_MAX) {
       const oldest = this.cache.keys().next().value
       if (oldest !== undefined) this.cache.delete(oldest)
     }
-    return code
+    return result.code
   }
 
-  private async transform(file: string, source: string, loader: string): Promise<string> {
+  private async transform(file: string, source: string, loader: string): Promise<Compiled> {
     let transformer: Transformer
     try {
       transformer = await this.load()
     } catch {
-      return reportingModule([
+      return failed([
         { file, line: 1, column: 1, message: 'the compiler is not available in this build' },
       ])
     }
@@ -111,13 +124,11 @@ export class ArtifactCompiler {
       ])
       if (result === 'late') {
         void transformer.stop?.()
-        return reportingModule([
-          { file, line: 1, column: 1, message: 'took over 5 seconds to compile' },
-        ])
+        return failed([{ file, line: 1, column: 1, message: 'took over 5 seconds to compile' }])
       }
-      return result.code
+      return { ok: true, code: result.code }
     } catch (error) {
-      return reportingModule(problemsOf(error, file))
+      return failed(problemsOf(error, file))
     } finally {
       clearTimeout(timer)
     }

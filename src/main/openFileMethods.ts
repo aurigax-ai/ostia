@@ -158,6 +158,7 @@ export function registerOpenFileMethods(deps: OpenFileDeps): void {
       if (typeof raw !== 'string' || raw.length === 0) {
         return { ok: false, error: 'invalid-args', message: 'expected a folder path' }
       }
+      if (deps.isSandboxed(ctx.identity.workspaceId)) return { ok: false, error: 'outside-sandbox' }
       const path = deps.confineFolder(raw)
       if (!path) return { ok: false, error: 'outside-home' }
       const kind = folderKind(path)

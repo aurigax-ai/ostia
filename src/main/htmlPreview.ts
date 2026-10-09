@@ -1,18 +1,6 @@
 import { randomBytes } from 'node:crypto'
-import {
-  constants,
-  type FSWatcher,
-  type Stats,
-  closeSync,
-  fstatSync,
-  lstatSync,
-  openSync,
-  readSync,
-  realpathSync,
-  statSync,
-  watch,
-} from 'node:fs'
-import { readFile } from 'node:fs/promises'
+import { constants, type FSWatcher, type Stats, lstatSync, realpathSync, watch } from 'node:fs'
+import { open, readFile, realpath, stat } from 'node:fs/promises'
 import { basename, dirname, extname, join, relative, sep } from 'node:path'
 import { ipcMain } from 'electron'
 import { RUNTIME_PREFIX, runtimeFiles } from '../shared/artifactRuntime'
@@ -97,6 +85,7 @@ export function typedHeaders(type: string): Record<string, string> {
     'access-control-allow-origin': '*',
     'cache-control': 'no-store',
     'x-content-type-options': 'nosniff',
+    'x-dns-prefetch-control': 'off',
   }
 }
 
@@ -159,44 +148,45 @@ function sameFile(a: Stats, b: Stats): boolean {
   return a.dev === b.dev && a.ino === b.ino
 }
 
-function stillAt(path: string, opened: Stats): boolean {
+async function stillAt(path: string, opened: Stats): Promise<boolean> {
   try {
-    return realpathSync(path) === path && sameFile(statSync(path), opened)
+    return (await realpath(path)) === path && sameFile(await stat(path), opened)
   } catch {
     return false
   }
 }
 
-export function readPreviewFile(
-  source: PreviewSource,
-  pathname: string,
-  maxBytes: number,
-): PreviewRead {
-  const found = resolvePreviewFile(source, pathname)
-  if (!found.ok) return found
-  let fd: number
+const READ_FLAGS = constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK
+
+export async function readRegularFile(path: string, maxBytes: number): Promise<PreviewRead> {
+  const handle = await open(path, READ_FLAGS).catch(() => null)
+  if (!handle) return { ok: false, status: 404 }
   try {
-    fd = openSync(found.path, constants.O_RDONLY | constants.O_NOFOLLOW)
-  } catch {
-    return { ok: false, status: 404 }
-  }
-  try {
-    const opened = fstatSync(fd)
-    if (!opened.isFile() || !stillAt(found.path, opened)) return { ok: false, status: 404 }
+    const opened = await handle.stat()
+    if (!opened.isFile() || !(await stillAt(path, opened))) return { ok: false, status: 404 }
     if (opened.size > maxBytes) return { ok: false, status: 413 }
     const body = Buffer.alloc(opened.size)
     let read = 0
     while (read < body.length) {
-      const got = readSync(fd, body, read, body.length - read, read)
-      if (got === 0) break
-      read += got
+      const { bytesRead } = await handle.read(body, read, body.length - read, read)
+      if (bytesRead === 0) break
+      read += bytesRead
     }
-    return { ok: true, path: found.path, body: body.subarray(0, read) }
+    return { ok: true, path, body: body.subarray(0, read) }
   } catch {
     return { ok: false, status: 404 }
   } finally {
-    closeSync(fd)
+    await handle.close()
   }
+}
+
+export async function readPreviewFile(
+  source: PreviewSource,
+  pathname: string,
+  maxBytes: number,
+): Promise<PreviewRead> {
+  const found = resolvePreviewFile(source, pathname)
+  return found.ok ? readRegularFile(found.path, maxBytes) : found
 }
 
 export interface PreviewSession {
@@ -246,7 +236,7 @@ export interface ProcessUse {
 export interface PreviewHostDeps {
   sessionOf: (partition: string) => PreviewSession
   confine: (path: string) => string | null
-  insideRoots: (dir: string) => boolean
+  servesFolder: (dir: string) => boolean
   ownsPane: (windowId: string, paneId: string) => boolean
   send: (windowId: string, event: PreviewEvent) => void
   processes: () => ProcessUse[]
@@ -327,7 +317,7 @@ export class PreviewHost {
       id: randomBytes(12).toString('hex'),
       windowId,
       paneId,
-      source: { file, root: this.deps.insideRoots(folder) ? folder : null },
+      source: { file, root: this.deps.servesFolder(folder) ? folder : null },
       theme: normalizePreviewTheme(theme),
       slot,
       guest: null,
@@ -500,7 +490,7 @@ export class PreviewHost {
     }
     if (component && path === SHELL_MODULE_PATH)
       return send(shellModule(), typedHeaders(SCRIPT_TYPE))
-    const found = this.read(live, component && path === ENTRY_MODULE_PATH ? '/' : path)
+    const found = await this.read(live, component && path === ENTRY_MODULE_PATH ? '/' : path)
     if (!found.ok) return notFound(found.status)
     live.loaded += found.body.length
     this.follow(live, found.path)
@@ -509,12 +499,12 @@ export class PreviewHost {
     return send(await this.deps.compile(label, found.body), typedHeaders(SCRIPT_TYPE))
   }
 
-  private read(live: Live, pathname: string): PreviewRead {
+  private async read(live: Live, pathname: string): Promise<PreviewRead> {
     const left = PREVIEW_LIMITS.loadBytes - live.loaded
-    const exact = readPreviewFile(live.source, pathname, left)
+    const exact = await readPreviewFile(live.source, pathname, left)
     if (exact.ok || exact.status !== 404 || extname(pathname) !== '') return exact
     for (const extension of MODULE_EXTENSIONS) {
-      const guess = readPreviewFile(live.source, `${pathname}${extension}`, left)
+      const guess = await readPreviewFile(live.source, `${pathname}${extension}`, left)
       if (guess.ok || guess.status !== 404) return guess
     }
     return exact
@@ -711,6 +701,21 @@ export class PreviewHost {
   }
 }
 
+const HOST_SET_ATTRIBUTES = [
+  'preload',
+  'allowpopups',
+  'nodeintegration',
+  'nodeintegrationinsubframes',
+  'plugins',
+  'disablewebsecurity',
+  'webpreferences',
+  'blinkfeatures',
+  'disableblinkfeatures',
+  'enableblinkfeatures',
+  'useragent',
+  'httpreferrer',
+]
+
 export function hardenPreviewAttach(
   webPreferences: Electron.WebPreferences,
   params: Record<string, string>,
@@ -727,7 +732,12 @@ export function hardenPreviewAttach(
   webPreferences.navigateOnDragDrop = false
   webPreferences.autoplayPolicy = 'user-gesture-required'
   webPreferences.transparent = false
-  for (const name of ['preload', 'allowpopups', 'nodeintegration', 'webpreferences']) {
+  webPreferences.experimentalFeatures = false
+  webPreferences.plugins = false
+  webPreferences.allowRunningInsecureContent = false
+  webPreferences.enableBlinkFeatures = undefined
+  webPreferences.disableBlinkFeatures = undefined
+  for (const name of HOST_SET_ATTRIBUTES) {
     delete params[name]
   }
 }

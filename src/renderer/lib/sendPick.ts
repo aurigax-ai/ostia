@@ -96,11 +96,12 @@ async function deliverReport(
   references: string,
   note: string,
   fallback: string,
+  pointedByHuman = true,
 ): Promise<boolean> {
   const summary = note.trim().replace(/\s+/g, ' ').slice(0, ATTENTION_NOTE_MAX)
   const inserted = await sendReference(target, references, {
     note: summary || fallback,
-    pointedByHuman: true,
+    pointedByHuman,
   })
   if (!inserted) {
     await navigator.clipboard?.writeText(references.trim()).catch(() => undefined)
@@ -184,6 +185,7 @@ export async function sendSelectionToPane(opts: {
     reportReference(res.path),
     opts.note,
     selectionLabel(opts.capture),
+    opts.capture.kind !== 'preview-error',
   )
   return { ok: true, path: res.path, imagePath: res.imagePath, inserted }
 }

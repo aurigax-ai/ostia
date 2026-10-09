@@ -101,6 +101,7 @@ import { useHibernateSkippedStore } from '../stores/hibernateSkippedStore'
 import { useHistorySearchStore } from '../stores/historySearchStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { saveSnapshotNow } from '../stores/persistence'
+import { useSandboxStore } from '../stores/sandboxStore'
 import {
   type InputMode,
   type SettingChange,
@@ -1319,12 +1320,19 @@ export function registerBuiltinCommands(): void {
     hidden: true,
     capabilities: ['drive-self'],
     target: 'active',
-    run: (args, ctx) => {
+    run: async (args, ctx) => {
       if (typeof args?.path !== 'string' || !args.path.startsWith('/')) {
         throw new Error('expected path: an absolute folder path')
       }
-      if (!ctx.activeWorkspaceId) return { revealed: false }
-      revealFolder(ctx.activeWorkspaceId, args.path)
+      const workspaceId = ctx.activeWorkspaceId
+      if (!workspaceId) return { revealed: false }
+      if (ctx.origin === 'remote' && useSandboxStore.getState().enabled[workspaceId] === true) {
+        throw new Error('outside-sandbox: a sandboxed workspace cannot show folders')
+      }
+      if ((await window.ostia.fs.stat(args.path)) !== 'dir') {
+        throw new Error('not-a-directory: no such folder inside the file roots')
+      }
+      revealFolder(workspaceId, args.path)
       return { revealed: true }
     },
   })

@@ -52,8 +52,14 @@ function containsRun(segments: readonly string[], run: readonly string[]): boole
   return false
 }
 
-export function isHiddenFromPhone(relativePath: string): boolean {
-  const segments = relativePath.split(sep).filter((part) => part !== '' && part !== '.')
+const FOLDS_CASE: readonly string[] = ['darwin', 'win32']
+
+export function isHiddenFromPhone(
+  relativePath: string,
+  platform: string = process.platform,
+): boolean {
+  const folded = FOLDS_CASE.includes(platform) ? relativePath.toLowerCase() : relativePath
+  const segments = folded.split(sep).filter((part) => part !== '' && part !== '.')
   if (segments.some((part) => HIDDEN_NAME_PREFIXES.some((prefix) => part.startsWith(prefix)))) {
     return true
   }
@@ -181,7 +187,10 @@ export async function readFileSlice(
   maxBytes: unknown,
   offset: unknown,
 ): Promise<WorkspaceFileOutcome<WorkspaceFileRead>> {
-  const handle = await open(real, constants.O_RDONLY | constants.O_NOFOLLOW).catch(() => null)
+  const handle = await open(
+    real,
+    constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
+  ).catch(() => null)
   if (!handle) return fail('not-found')
   try {
     const info = await handle.stat()

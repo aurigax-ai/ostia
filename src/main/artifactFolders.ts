@@ -11,7 +11,7 @@ import {
   rmdirSync,
   watch,
 } from 'node:fs'
-import { extname, join } from 'node:path'
+import { extname, join, sep } from 'node:path'
 import { ipcMain, shell } from 'electron'
 import {
   ARTIFACT_KEEP_CLOSED_MS,
@@ -28,10 +28,12 @@ const CLOSED_DIR = '.closed'
 const CLOSED_NAME = /^(.+)-(\d+)$/
 const WORKSPACE_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/
 const WATCH_DEBOUNCE_MS = 150
+const SNAPSHOT_MAX = 20_000
 
 export interface ArtifactFolderDeps {
   root: string
   scratchDirOf: (workspaceId: string) => string | null
+  scratchDirs: () => string[]
   now?: () => number
 }
 
@@ -70,7 +72,7 @@ function privateDir(dir: string): boolean {
   return isRealDir(dir)
 }
 
-export function listArtifacts(dir: string): ArtifactEntry[] {
+export function listArtifacts(dir: string, max: number = ARTIFACT_LIST_MAX): ArtifactEntry[] {
   const found: ArtifactEntry[] = []
   for (const entry of entriesOf(dir)) {
     const path = join(dir, entry.name)
@@ -85,9 +87,7 @@ export function listArtifacts(dir: string): ArtifactEntry[] {
       }
     }
   }
-  return found
-    .sort((a, b) => b.modified - a.modified || a.name.localeCompare(b.name))
-    .slice(0, ARTIFACT_LIST_MAX)
+  return found.sort((a, b) => b.modified - a.modified || a.name.localeCompare(b.name)).slice(0, max)
 }
 
 function freeName(dir: string, name: string): string {
@@ -140,8 +140,21 @@ export class ArtifactFolders {
 
   followed(workspaceId: string): string | null {
     const dir = this.dirOf(workspaceId)
-    if (dir && isRealDir(dir)) this.watch(workspaceId, dir)
+    if (!dir) return null
+    if (!pathExists(dir)) return dir
+    if (!isRealDir(dir)) return null
+    this.watch(workspaceId, dir)
     return dir
+  }
+
+  holds(path: string): boolean {
+    const closed = join(this.deps.root, CLOSED_DIR)
+    if (path === closed || path.startsWith(`${closed}${sep}`)) return false
+    if (path.startsWith(`${this.deps.root}${sep}`)) return true
+    return this.deps.scratchDirs().some((scratch) => {
+      const folder = join(scratch, FOLDER_NAME)
+      return path === folder || path.startsWith(`${folder}${sep}`)
+    })
   }
 
   padOf(workspaceId: string): string | null {
@@ -182,7 +195,9 @@ export class ArtifactFolders {
   }
 
   private snapshot(dir: string): Map<string, number> {
-    const files = new Map(listArtifacts(dir).map((entry) => [entry.name, entry.modified]))
+    const files = new Map(
+      listArtifacts(dir, SNAPSHOT_MAX).map((entry) => [entry.name, entry.modified]),
+    )
     const pad = regularFile(join(dir, PAD_FILE), PAD_FILE)
     if (pad) files.set(PAD_FILE, pad.modified)
     return files

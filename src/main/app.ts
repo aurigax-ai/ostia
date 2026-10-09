@@ -897,6 +897,7 @@ const artifactFolders = new ArtifactFolders(
   {
     root: join(appDataDir(), 'artifacts'),
     scratchDirOf: (workspaceId) => scratchFolders.dirOf(workspaceId),
+    scratchDirs: () => scratchFolders.dirs(),
   },
   (workspaceId, changes) => {
     const windowId = windowForWorkspace(workspaceId)
@@ -928,7 +929,7 @@ const openWaits = new OpenWaits((windowId, paneIds) =>
 const previews = new PreviewHost({
   sessionOf: (partition) => session.fromPartition(partition) as unknown as PreviewSession,
   confine: (path) => openFileGrants.confine(path),
-  insideRoots: (dir) => resolveSafe(dir, fileRoots()) !== null,
+  servesFolder: (dir) => artifactFolders.holds(dir),
   ownsPane: (windowId, paneId) => getByPaneId(paneId)?.windowId === windowId,
   send: (windowId, event) => windows.get(windowId)?.webContents.send('preview:event', event),
   processes: () =>

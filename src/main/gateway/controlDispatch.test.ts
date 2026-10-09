@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process'
 import {
   existsSync,
   mkdirSync,
@@ -18,6 +19,7 @@ import {
   type GatewayControlDeps,
   dispatchGatewayMethod,
 } from './controlDispatch'
+import { isHiddenFromPhone, readFileSlice } from './workspaceFiles'
 
 vi.mock('electron', () => ({
   app: { getPath: () => '/nonexistent' },
@@ -1335,10 +1337,71 @@ describe('dispatchGatewayMethod — the artifacts root (contract v1.7)', () => {
     })
   })
 
+  it('answers not-a-file for the folder itself and not-found for a folder that is a symlink', async () => {
+    expect(await call('fs.read', { path: '' })).toMatchObject({ ok: false, message: 'not-a-file' })
+    const linked = join(outside, 'linked-root')
+    symlinkSync(folder, linked)
+    for (const [method, params] of [
+      ['fs.list', { path: '' }],
+      ['fs.read', { path: 'report.md' }],
+    ] as const) {
+      expect(await call(method, params, deps(linked)), method).toMatchObject({
+        ok: false,
+        message: 'not-found',
+      })
+    }
+    const opened = deps(linked)
+    expect(
+      await call('artifact.open', { path: 'report.md' }, opened, ['read', 'command']),
+    ).toMatchObject({
+      message: 'not-found',
+    })
+    expect(opened.openArtifact).not.toHaveBeenCalled()
+  })
+
+  it('hides credential names in an artifact folder too', async () => {
+    mkdirSync(join(folder, '.ssh'))
+    writeFileSync(join(folder, '.ssh', 'id_ed25519'), 'key')
+    writeFileSync(join(folder, '.env'), 'A=1')
+    const res = await call('fs.list', { path: '' })
+    const names = res.ok
+      ? (res.result as { entries: { name: string }[] }).entries.map((e) => e.name)
+      : []
+    expect(names).not.toContain('.ssh')
+    expect(names).not.toContain('.env')
+    for (const path of ['.env', '.ssh/id_ed25519']) {
+      const read = await call('fs.read', { path })
+      expect(read, path).toMatchObject({ ok: false, message: 'not-found' })
+    }
+    expect(await call('fs.list', { path: '.ssh' })).toMatchObject({ message: 'not-found' })
+  })
+
+  it('reads a FIFO as not-a-file instead of waiting on it', async () => {
+    execFileSync('mkfifo', [join(folder, 'pipe')])
+    const started = Date.now()
+    const res = await readFileSlice(join(folder, 'pipe'), undefined, 0)
+    expect(res).toEqual({ ok: false, error: 'not-a-file' })
+    expect(Date.now() - started).toBeLessThan(2000)
+  })
+
   it('has no write, rename or delete', async () => {
     for (const method of ['fs.write', 'fs.rename', 'fs.delete', 'pad.append', 'artifact.write']) {
       expect((await call(method, { path: 'report.md', text: 'x' })).ok, method).toBe(false)
     }
     expect(readFileSync(join(folder, 'report.md'), 'utf8')).toBe('# report')
+  })
+})
+
+describe('isHiddenFromPhone', () => {
+  it('matches hidden names whatever their case on macOS and Windows, exactly on Linux', () => {
+    for (const platform of ['darwin', 'win32']) {
+      expect(isHiddenFromPhone('.SSH/id_ed25519', platform), platform).toBe(true)
+      expect(isHiddenFromPhone('sub/.Env', platform), platform).toBe(true)
+      expect(isHiddenFromPhone('.ENV.local', platform), platform).toBe(true)
+      expect(isHiddenFromPhone('.AWS/credentials', platform), platform).toBe(true)
+    }
+    expect(isHiddenFromPhone('.SSH/id_ed25519', 'linux')).toBe(false)
+    expect(isHiddenFromPhone('.ssh/id_ed25519', 'linux')).toBe(true)
+    expect(isHiddenFromPhone('notes/readme.md', 'darwin')).toBe(false)
   })
 })

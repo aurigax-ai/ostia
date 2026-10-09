@@ -39,6 +39,7 @@ beforeEach(() => {
   folders = new ArtifactFolders({
     root,
     scratchDirOf: (id) => (id === 'w-scratch' ? scratch : null),
+    scratchDirs: () => [scratch],
     now: () => now,
   })
 })
@@ -64,8 +65,9 @@ describe('ArtifactFolders', () => {
 
   it('follows an existing folder for a reader without making a missing one', async () => {
     const reports: string[] = []
-    const reading = new ArtifactFolders({ root, scratchDirOf: () => null }, (_id, changes) =>
-      reports.push(...changes.map((c) => `${c.change} ${c.path}`)),
+    const reading = new ArtifactFolders(
+      { root, scratchDirOf: () => null, scratchDirs: () => [] },
+      (_id, changes) => reports.push(...changes.map((c) => `${c.change} ${c.path}`)),
     )
     expect(reading.followed('w7')).toBe(join(root, 'w7'))
     expect(existsSync(join(root, 'w7'))).toBe(false)
@@ -74,6 +76,40 @@ describe('ArtifactFolders', () => {
     writeFileSync(join(root, 'w8', 'a.md'), 'a')
     await vi.waitFor(() => expect(reports).toEqual(['added a.md']))
     reading.dispose()
+  })
+
+  it('gives a reader nothing when the artifact folder was replaced by a symlink', () => {
+    mkdirSync(root, { recursive: true })
+    symlinkSync(base, join(root, 'w5'))
+    expect(folders.followed('w5')).toBeNull()
+  })
+
+  it('knows which folders are artifact folders: its own and a scratch workspace’s, never closed ones', () => {
+    expect(folders.holds(join(root, 'w1'))).toBe(true)
+    expect(folders.holds(join(root, 'w1', 'page'))).toBe(true)
+    expect(folders.holds(join(scratch, 'artifacts'))).toBe(true)
+    expect(folders.holds(scratch)).toBe(false)
+    expect(folders.holds(root)).toBe(false)
+    expect(folders.holds(join(root, '.closed', 'w1-5'))).toBe(false)
+    expect(folders.holds(base)).toBe(false)
+    expect(folders.holds(`${root}-other/w1`)).toBe(false)
+  })
+
+  it('reports no change for files beyond the 200 the list shows', async () => {
+    const reports: { path: string; change: string }[] = []
+    const watching = new ArtifactFolders(
+      { root, scratchDirOf: () => null, scratchDirs: () => [] },
+      (_id, changes) => reports.push(...changes),
+    )
+    mkdirSync(join(root, 'w1'), { recursive: true })
+    for (let i = 0; i < ARTIFACT_LIST_MAX + 30; i += 1)
+      stamped(join(root, 'w1', `f${i}.md`), 1000 + i)
+    const dir = watching.ensure('w1') as string
+    stamped(join(dir, 'newest.md'), 9000)
+    await vi.waitFor(() => expect(reports.length).toBeGreaterThan(0))
+    await new Promise((resolve) => setTimeout(resolve, 300))
+    expect(reports).toEqual([{ path: 'newest.md', change: 'added' }])
+    watching.dispose()
   })
 
   it('refuses a workspace id that could leave the root', () => {
@@ -181,8 +217,9 @@ describe('ArtifactFolders', () => {
 
   it('reports what was added, changed and removed in a watched folder, and stops once the workspace closes', async () => {
     const reports: [string, { path: string; change: string }[]][] = []
-    const watching = new ArtifactFolders({ root, scratchDirOf: () => null }, (id, changes) =>
-      reports.push([id, changes]),
+    const watching = new ArtifactFolders(
+      { root, scratchDirOf: () => null, scratchDirs: () => [] },
+      (id, changes) => reports.push([id, changes]),
     )
     const dir = watching.ensure('w1') as string
     const seen = (): { path: string; change: string }[] => reports.flatMap(([, changes]) => changes)

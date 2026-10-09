@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process'
 import {
   closeSync,
   ftruncateSync,
@@ -29,6 +30,7 @@ import {
   hardenPreviewAttach,
   previewHeaders,
   readPreviewFile,
+  readRegularFile,
   resolvePreviewFile,
 } from './htmlPreview'
 
@@ -107,32 +109,48 @@ describe('resolvePreviewFile', () => {
 describe('readPreviewFile', () => {
   const source = (): { file: string; root: string | null } => ({ file: page, root: folder })
 
-  it('reads the file it resolved, within what is left of the load', () => {
-    const read = readPreviewFile(source(), '/data.json', 100)
+  it('reads the file it resolved, within what is left of the load', async () => {
+    const read = await readPreviewFile(source(), '/data.json', 100)
     expect(read.ok && read.body.toString()).toBe('{"a":1}')
-    expect(readPreviewFile(source(), '/data.json', 6)).toEqual({ ok: false, status: 413 })
-    expect(readPreviewFile(source(), '/../outside.txt', 100)).toEqual({ ok: false, status: 404 })
+    expect(await readPreviewFile(source(), '/data.json', 6)).toEqual({ ok: false, status: 413 })
+    expect(await readPreviewFile(source(), '/../outside.txt', 100)).toEqual({
+      ok: false,
+      status: 404,
+    })
   })
 
-  it('refuses a page that became a symlink after the preview was opened', () => {
+  it('never waits on a FIFO put where a file was, also when it appears after the check', async () => {
+    const pipe = join(folder, 'pipe.json')
+    execFileSync('mkfifo', [pipe])
+    const started = Date.now()
+    expect(await readPreviewFile(source(), '/pipe.json', 100)).toEqual({ ok: false, status: 404 })
+    expect(await readRegularFile(pipe, 100)).toEqual({ ok: false, status: 404 })
+    expect(Date.now() - started).toBeLessThan(2000)
+  })
+
+  it('refuses a page that became a symlink after the preview was opened', async () => {
     rmSync(page)
     symlinkSync(join(base, 'outside.txt'), page)
-    expect(readPreviewFile(source(), '/', 100)).toEqual({ ok: false, status: 404 })
+    expect(await readPreviewFile(source(), '/', 100)).toEqual({ ok: false, status: 404 })
   })
 
-  it('refuses a file whose folder was replaced by a symlink to somewhere else', () => {
+  it('refuses a file whose folder was replaced by a symlink to somewhere else', async () => {
     const elsewhere = join(base, 'elsewhere')
     mkdirSync(elsewhere)
     writeFileSync(join(elsewhere, 'app.js'), 'secret')
     rmSync(join(folder, 'assets'), { recursive: true })
     symlinkSync(elsewhere, join(folder, 'assets'))
-    expect(readPreviewFile(source(), '/assets/app.js', 100)).toEqual({ ok: false, status: 404 })
+    expect(await readPreviewFile(source(), '/assets/app.js', 100)).toEqual({
+      ok: false,
+      status: 404,
+    })
   })
 })
 
 describe('previewHeaders', () => {
   it('carries the sandbox policy and an open CORS header on every response', () => {
     expect(previewHeaders('/a/page.html')).toMatchObject({
+      'x-dns-prefetch-control': 'off',
       'content-type': 'text/html; charset=utf-8',
       'content-security-policy': PREVIEW_PAGE_CSP,
       'access-control-allow-origin': '*',
@@ -158,7 +176,17 @@ describe('hardenPreviewAttach', () => {
       allowpopups: 'true',
       nodeintegration: 'true',
       webpreferences: 'contextIsolation=no',
+      blinkfeatures: 'SharedArrayBuffer',
+      disableblinkfeatures: 'Sandbox',
+      plugins: 'true',
+      disablewebsecurity: 'true',
     }
+    Object.assign(prefs, {
+      experimentalFeatures: true,
+      plugins: true,
+      allowRunningInsecureContent: true,
+      enableBlinkFeatures: 'SharedArrayBuffer',
+    })
     hardenPreviewAttach(prefs, params)
     expect(prefs).toMatchObject({
       preload: undefined,
@@ -170,6 +198,11 @@ describe('hardenPreviewAttach', () => {
       disableDialogs: true,
       autoplayPolicy: 'user-gesture-required',
       transparent: false,
+      experimentalFeatures: false,
+      plugins: false,
+      allowRunningInsecureContent: false,
+      enableBlinkFeatures: undefined,
+      disableBlinkFeatures: undefined,
     })
     expect(Object.keys(params).sort()).toEqual(['partition', 'src'])
   })
@@ -306,7 +339,7 @@ function rig(): Rig {
       return session
     },
     confine: (path) => (path.startsWith(`${base}/`) ? path : null),
-    insideRoots: (dir) => dir.startsWith(base),
+    servesFolder: (dir) => dir === folder || dir.startsWith(`${folder}/`),
     ownsPane: (windowId, paneId) => paneId.startsWith(`${windowId}:`),
     send: (_windowId, event) => events.push(event),
     processes: () => processes,
@@ -536,6 +569,18 @@ describe('PreviewHost', () => {
     expect((await serve(new Request('ostia-preview://someone-else/'))).status).toBe(404)
     expect((await serve(new Request(`${opened.url}../outside.txt`))).status).toBe(404)
     expect((await serve(new Request(opened.url, { method: 'POST', body: 'x' }))).status).toBe(405)
+  })
+
+  it('serves a page outside an artifact folder alone: no sibling, whatever folder it sits in', async () => {
+    const elsewhere = join(base, 'home')
+    mkdirSync(elsewhere)
+    writeFileSync(join(elsewhere, 'x.html'), '<!doctype html><title>x</title>')
+    writeFileSync(join(elsewhere, 'notes.txt'), 'private notes')
+    const opened = r.open('1:p1', join(elsewhere, 'x.html'))
+    const serve = r.sessionOf(opened).serve as (request: Request) => Promise<Response>
+    expect((await serve(new Request(opened.url))).status).toBe(200)
+    expect((await serve(new Request(`${opened.url}notes.txt`))).status).toBe(404)
+    expect((await serve(new Request(`${opened.url}x.html`))).status).toBe(404)
   })
 
   it('serves only the listed runtime files, to pages and components alike', async () => {

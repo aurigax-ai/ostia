@@ -9,6 +9,7 @@ import { useDiffStore } from '../stores/diffStore'
 import { useFileTreeStore } from '../stores/fileTreeStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useOpenWaitsStore } from '../stores/openWaitsStore'
+import { useSandboxStore } from '../stores/sandboxStore'
 import { useUIStore } from '../stores/uiStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
 import { registerBuiltinCommands } from './builtins'
@@ -41,6 +42,7 @@ afterEach(() => {
 })
 
 function seed(workDir = '/home/me/project'): string {
+  vi.mocked(window.ostia.fs.stat).mockResolvedValue('dir')
   useWorkspacesStore.setState({
     workspaces: [{ id: 's1', name: 'project', kind: 'terminal', workDir, state: 'idle' }],
     activeWorkspaceId: 's1',
@@ -202,6 +204,29 @@ describe('files.reveal', () => {
     const caller = seed()
     await commands.execWith(fromPane(caller), REVEAL_FOLDER_COMMAND, { path: '/home/me/other' })
     expect(useWorkspacesStore.getState().workspaces[0].workDir).toBe('/home/me/project')
+  })
+
+  it('refuses a folder main does not confirm, and a sandboxed workspace', async () => {
+    const caller = seed()
+    vi.mocked(window.ostia.fs.stat).mockResolvedValue(null)
+    const outside = await commands.execWith(fromPane(caller), REVEAL_FOLDER_COMMAND, {
+      path: '/etc',
+    })
+    expect(outside.ok).toBe(false)
+    vi.mocked(window.ostia.fs.stat).mockResolvedValue('file')
+    const file = await commands.execWith(fromPane(caller), REVEAL_FOLDER_COMMAND, {
+      path: '/home/me/project/a.md',
+    })
+    expect(file.ok).toBe(false)
+    vi.mocked(window.ostia.fs.stat).mockResolvedValue('dir')
+    useSandboxStore.setState({ enabled: { s1: true } })
+    const sandboxed = await commands.execWith(fromPane(caller), REVEAL_FOLDER_COMMAND, {
+      path: '/home/me/other',
+    })
+    expect(sandboxed.ok).toBe(false)
+    useSandboxStore.setState({ enabled: {} })
+    expect(useFileTreeStore.getState().shown).toBeNull()
+    expect(useUIStore.getState().filesOpen).toBe(false)
   })
 
   it('refuses anything that is not an absolute path', async () => {
