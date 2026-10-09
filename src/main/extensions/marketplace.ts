@@ -26,9 +26,10 @@ import {
   type MarketplaceState,
 } from '../../shared/extensions/marketplace'
 import { loadJson, saveJson } from '../platform/jsonStore'
+import { isInsideDir } from '../platform/pathGuard'
 import { missingRequirements } from '../platform/systemRequirements'
 import { loadLocaleCatalogs, manifestIn } from './extensionLocales'
-import { EXTENSION_ID_PATTERN, isInsideDir, readManifest } from './extensionManifest'
+import { EXTENSION_ID_PATTERN, readManifest } from './extensionManifest'
 
 export const MARKETPLACE_MANIFEST_MAX_BYTES = 64 * 1024
 export const MARKETPLACE_MAX_EXTENSIONS = 200
