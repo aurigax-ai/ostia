@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest'
-import { findPane, firstPaneId } from '@/layout/tree'
+import { allPanes, findPane, firstPaneId } from '@/layout/tree'
 import { loadGhostty } from '@/lib/terminal/ghosttyEngine'
 import { createFileLinkProvider } from '@/lib/terminal/terminalFileLinks'
 import { terminalFor } from '@/lib/terminal/terminalHandles'
@@ -18,7 +18,7 @@ import {
   waitFor,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import type { ILink, ILinkProvider } from '@xterm/xterm'
+import type { ILink, ILinkHandler, ILinkProvider, Terminal as Xterm } from '@xterm/xterm'
 import type { ReactElement } from 'react'
 import { afterAll, afterEach, beforeAll, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { renderSettled } from '../../../../test/render'
@@ -77,6 +77,33 @@ async function renderGhostty(ui: ReactElement): Promise<RenderResult> {
   const result = render(ui)
   await act(() => loadGhostty())
   return result
+}
+
+const linkRange = { start: { x: 1, y: 1 }, end: { x: 30, y: 1 } }
+
+const click = (init: MouseEventInit = {}): MouseEvent =>
+  new MouseEvent('click', { detail: 1, ...init })
+
+async function renderLinkTerminal(): Promise<{
+  term: Xterm
+  links: ILinkHandler
+  paneId: string
+}> {
+  useLayoutStore.getState().ensure('w1')
+  const paneId = firstPaneId(useLayoutStore.getState().byWorkspace.w1.root)
+  await renderSettled(<TerminalView workspaceId="w1" paneId={paneId} />)
+  const term = terminalFor(paneId) as unknown as Xterm
+  return { term, links: term.options.linkHandler as ILinkHandler, paneId }
+}
+
+const browserUrls = (): (string | undefined)[] =>
+  allPanes(useLayoutStore.getState().byWorkspace.w1.root)
+    .filter((pane) => pane.kind === 'browser')
+    .map((pane) => pane.url)
+
+const shownUrl = (): string | undefined => {
+  const layout = useLayoutStore.getState().byWorkspace.w1
+  return allPanes(layout.root).find((pane) => pane.id === layout.activePaneId)?.url
 }
 
 describe('TerminalView engines', () => {
@@ -416,5 +443,62 @@ describe('TerminalView engines', () => {
 
     act(() => useSettingsStore.getState().setTerminal({ scrollbackLines: 1000 }))
     expect(topLine()).toBeGreaterThan(900)
+  })
+
+  it('a plain click opens the link in the browser pane and reuses it; Ctrl adds a tab; Ctrl+Shift goes outside', async () => {
+    const systemOpen = vi.spyOn(window, 'open').mockReturnValue(null)
+    const box = vi
+      .spyOn(Element.prototype, 'getBoundingClientRect')
+      .mockReturnValue(DOMRect.fromRect({ x: 0, y: 0, width: 800, height: 600 }))
+    onTestFinished(() => {
+      systemOpen.mockRestore()
+      box.mockRestore()
+    })
+    const { links, paneId } = await renderLinkTerminal()
+    const backToTerminal = () => act(() => useLayoutStore.getState().focusPane('w1', paneId))
+    const first = 'http://127.0.0.1:8000/first'
+    const second = 'http://127.0.0.1:8000/second'
+
+    act(() => links.hover?.(new MouseEvent('mousemove'), first, linkRange))
+    const hint = await waitFor(() => {
+      const shown = document.querySelector('[data-slot="tooltip-content"]')
+      expect(shown).not.toBeNull()
+      return shown as HTMLElement
+    })
+    expect(hint).toHaveTextContent('Click Open in the browser pane')
+    expect(hint).toHaveTextContent('Ctrl+Click Open in a new browser tab')
+    expect(hint).toHaveTextContent('Ctrl+Shift+Click Open in the system browser')
+
+    act(() => links.activate(click(), first, linkRange))
+    expect(browserUrls()).toEqual([first])
+    expect(shownUrl()).toBe(first)
+
+    backToTerminal()
+    act(() => links.activate(click(), second, linkRange))
+    expect(browserUrls()).toEqual([second])
+    expect(shownUrl()).toBe(second)
+
+    backToTerminal()
+    act(() => links.activate(click({ ctrlKey: true }), first, linkRange))
+    expect(browserUrls()).toHaveLength(2)
+    expect(shownUrl()).toBe(first)
+
+    backToTerminal()
+    act(() => links.activate(click({ ctrlKey: true, shiftKey: true }), second, linkRange))
+    expect(systemOpen).toHaveBeenCalledTimes(1)
+    expect(systemOpen).toHaveBeenCalledWith(second, '_blank')
+    expect(browserUrls()).toHaveLength(2)
+    expect(useLayoutStore.getState().byWorkspace.w1.activePaneId).toBe(paneId)
+  })
+
+  it('a plain click on a link never opens while a drag selected text', async () => {
+    const { term, links } = await renderLinkTerminal()
+    await act(
+      () => new Promise<void>((done) => term.write('see http://127.0.0.1:8000/drag\r\n', done)),
+    )
+    act(() => term.selectAll())
+    expect(term.hasSelection()).toBe(true)
+    act(() => links.activate(click(), 'http://127.0.0.1:8000/drag', linkRange))
+    expect(browserUrls()).toEqual([])
   })
 })
