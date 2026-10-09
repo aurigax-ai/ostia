@@ -173,6 +173,106 @@ test('the copy and paste chords work in Monaco and in a text field', async () =>
   }
 })
 
+interface GuestClipboardRecord {
+  inputs: string[]
+  edits: string[]
+  hostMessages: string[]
+}
+
+const GUEST_PAGE_STATE = `(() => {
+  const source = document.getElementById('source')
+  const sink = document.getElementById('sink')
+  return {
+    hasFocus: document.hasFocus(),
+    visibility: document.visibilityState,
+    activeElement: document.activeElement && document.activeElement.id,
+    sourceSelection: [source.selectionStart, source.selectionEnd],
+    pageSelection: String(getSelection()),
+    sinkValue: sink.value,
+  }
+})()`
+
+const recordGuestClipboard = (app: ElectronApplication, url: string) =>
+  app.evaluate(({ webContents }, url) => {
+    const guest = webContents
+      .getAllWebContents()
+      .find((wc) => wc.getType() === 'webview' && wc.getURL() === url)
+    if (!guest) return
+    const record: GuestClipboardRecord = { inputs: [], edits: [], hostMessages: [] }
+    ;(globalThis as { guestClipboardRecord?: GuestClipboardRecord }).guestClipboardRecord = record
+    guest.on('before-input-event', (event, input) => {
+      const modifiers = [
+        input.control ? 'ctrl' : '',
+        input.shift ? 'shift' : '',
+        input.alt ? 'alt' : '',
+        input.meta ? 'meta' : '',
+      ].filter(Boolean)
+      record.inputs.push(
+        `${input.type} ${input.key} [${modifiers.join('+')}] prevented=${event.defaultPrevented}`,
+      )
+    })
+    for (const edit of ['copy', 'paste', 'pasteAndMatchStyle'] as const) {
+      const run = guest[edit].bind(guest)
+      guest[edit] = () => {
+        record.edits.push(edit)
+        run()
+      }
+    }
+    const host = guest.hostWebContents
+    if (!host) return
+    const send = host.send.bind(host)
+    host.send = (channel, ...args) => {
+      if (channel.startsWith('guest-chords:')) record.hostMessages.push(channel)
+      send(channel, ...args)
+    }
+  }, url)
+
+const guestClipboardState = (app: ElectronApplication, url: string) =>
+  app.evaluate(
+    async ({ webContents, BrowserWindow, clipboard }, { url, pageState }) => {
+      const guest = webContents
+        .getAllWebContents()
+        .find((wc) => wc.getType() === 'webview' && wc.getURL() === url)
+      const host = guest?.hostWebContents
+      return {
+        record: (globalThis as { guestClipboardRecord?: GuestClipboardRecord })
+          .guestClipboardRecord,
+        guestFound: guest !== undefined,
+        guestFocused: guest?.isFocused(),
+        hostFocused: host?.isFocused(),
+        windowFocused: BrowserWindow.getAllWindows().map((w) => w.isFocused()),
+        guestUrls: webContents
+          .getAllWebContents()
+          .filter((wc) => wc.getType() === 'webview')
+          .map((wc) => wc.getURL()),
+        clipboardFormats: (await clipboard.read()).flatMap((item) => item.types),
+        clipboardText: await clipboard.readText(),
+        page: await guest?.executeJavaScript(pageState).catch((error) => String(error)),
+      }
+    },
+    { url, pageState: GUEST_PAGE_STATE },
+  )
+
+async function attachingGuestState(
+  step: string,
+  app: ElectronApplication,
+  url: string,
+  check: () => Promise<void>,
+): Promise<void> {
+  try {
+    await check()
+  } catch (error) {
+    const state = await guestClipboardState(app, url).catch((failed) => ({
+      failed: String(failed),
+    }))
+    await test.info().attach(`guest-clipboard-${step}`, {
+      body: JSON.stringify(state, null, 2),
+      contentType: 'application/json',
+    })
+    throw error
+  }
+}
+
 test('the copy and paste chords work inside a browser pane', async () => {
   const server = createServer((_req, res) => {
     res.setHeader('content-type', 'text/html')
@@ -249,14 +349,19 @@ test('the copy and paste chords work inside a browser pane', async () => {
         .toBe('guest_pasted')
       return
     }
+    await recordGuestClipboard(app, url)
     await guestRun("document.getElementById('source').select()")
     await guestChord('C')
-    await expect.poll(() => readClipboard(app)).toBe('guest_copy')
+    await attachingGuestState('copy', app, url, () =>
+      expect.poll(() => readClipboard(app)).toBe('guest_copy'),
+    )
 
     await writeClipboard(app, 'guest_pasted')
     await guestRun("document.getElementById('sink').focus()")
     await guestChord('V')
-    await expect.poll(() => guestRun("document.getElementById('sink').value")).toBe('guest_pasted')
+    await attachingGuestState('paste', app, url, () =>
+      expect.poll(() => guestRun("document.getElementById('sink').value")).toBe('guest_pasted'),
+    )
   } finally {
     await app.close()
     server.close()
