@@ -51,10 +51,15 @@ export function startWorkspaceProjects(): () => void {
     for (const [workspaceId, dir] of focusedDirs()) {
       if (asked.get(workspaceId) === dir) continue
       asked.set(workspaceId, dir)
-      void window.ostia.openPath.project(dir).then((project) => {
-        if (!project || asked.get(workspaceId) !== dir) return
-        useWorkspacesStore.getState().setProject(workspaceId, project)
-      })
+      void window.ostia.openPath
+        .project(dir)
+        .then((project) => {
+          if (!project || asked.get(workspaceId) !== dir) return
+          useWorkspacesStore.getState().setProject(workspaceId, project)
+        })
+        .catch(() => {
+          if (asked.get(workspaceId) === dir) asked.delete(workspaceId)
+        })
     }
   }
   sync()
