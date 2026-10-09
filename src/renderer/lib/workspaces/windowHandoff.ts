@@ -79,7 +79,8 @@ export async function moveWorkspaceToNewWindow(
   if (!(await confirmMove(workspace, layout ? allPanes(layout.root) : []))) return false
   const current = findWorkspace(workspaceId)
   if (!current || !isMovable(current)) return false
-  const before = layout ? paneIds(layout.root) : []
+  const moving = useLayoutStore.getState().byWorkspace[workspaceId]
+  const before = moving ? paneIds(moving.root) : []
   const handoff = { ...handoffOf(current), origin: current.origin ?? originOf(current) }
   if (!(await window.ostia.windows.detach(handoff, at))) return false
   useWorkspacesStore.getState().release(workspaceId)
