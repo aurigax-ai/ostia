@@ -37,6 +37,22 @@ function seedWorkspaces(): void {
   useWorkspacesStore.setState({ workspaces, activeWorkspaceId: 's1' })
 }
 
+const resizeHandle = (): HTMLElement => screen.getByRole('separator', { name: 'Resize sidebar' })
+
+function dragRailEdge(dx: number): boolean {
+  const el = resizeHandle()
+  const at = (type: string, clientX: number): boolean => {
+    const event = new MouseEvent(type, { bubbles: true, cancelable: true, clientX, button: 0 })
+    Object.defineProperty(event, 'pointerId', { value: 1 })
+    return fireEvent(el, event)
+  }
+  const proceeded = at('pointerdown', 500)
+  at('pointermove', 500 + dx / 2)
+  at('pointermove', 500 + dx)
+  at('pointerup', 500 + dx)
+  return proceeded
+}
+
 function rowFor(name: RegExp): HTMLElement {
   const main = screen.getByRole('button', { name })
   const tab = main.closest('.rail-tab')
@@ -494,6 +510,92 @@ describe('DeckRail', () => {
 
     expect(screen.getByRole('button', { name: /alpha/ }).tagName).toBe('BUTTON')
     expect(screen.getAllByRole('button', { name: 'Close' })).toHaveLength(2)
+  })
+
+  it('the rail edge drags wider, shows more of the folder, survives a restart and resets', () => {
+    const deepDir = '~/alpha-projects/beta-clients/gamma-service/delta-api'
+    useWorkspacesStore.setState({
+      workspaces: [
+        {
+          id: 's1',
+          name: 'deep',
+          kind: 'terminal',
+          workDir: '/home/me/alpha-projects/beta-clients/gamma-service/delta-api',
+          projectDir: deepDir,
+          state: 'idle',
+        },
+      ],
+      activeWorkspaceId: 's1',
+    })
+    vi.stubGlobal('innerWidth', 1280)
+    HTMLElement.prototype.setPointerCapture = () => {}
+    const observed: (() => void)[] = []
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        constructor(cb: () => void) {
+          observed.push(cb)
+        }
+        observe() {}
+        disconnect() {}
+      },
+    )
+    const railWidth = (): number =>
+      Number.parseFloat(document.documentElement.style.getPropertyValue('--rail-w'))
+    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      return this.classList.contains('rail-meta') ? railWidth() - 40 : 0
+    })
+    vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      return this.classList.contains('rail-meta-path') ? (this.textContent?.length ?? 0) * 7 : 0
+    })
+    const relayout = (): void =>
+      act(() => {
+        for (const cb of observed) cb()
+      })
+
+    const first = render(<DeckRail />)
+    relayout()
+    const path = (): HTMLElement => rowFor(/deep/).querySelector('.rail-meta-path') as HTMLElement
+    expect(railWidth()).toBe(240)
+    expect(path()).toHaveTextContent('delta-api')
+    expect(path()).toHaveTextContent('…')
+    const narrowText = path().textContent ?? ''
+
+    expect(dragRailEdge(200)).toBe(false)
+    relayout()
+    expect(railWidth()).toBe(440)
+    expect(resizeHandle()).toHaveAttribute('aria-valuenow', '440')
+    expect(path().textContent).toBe(deepDir)
+    expect(narrowText.length).toBeLessThan(deepDir.length)
+    first.unmount()
+
+    document.documentElement.style.removeProperty('--rail-w')
+    render(<DeckRail />)
+    expect(railWidth()).toBe(440)
+    fireEvent.doubleClick(resizeHandle())
+    expect(railWidth()).toBe(240)
+  })
+
+  it('dragging the rail far left collapses it and hides the handle; toggling restores the width', () => {
+    seedWorkspaces()
+    HTMLElement.prototype.setPointerCapture = () => {}
+    const { container } = render(<DeckRail />)
+    const rail = container.querySelector('.deck-rail') as HTMLElement
+    dragRailEdge(60)
+    expect(resizeHandle()).toHaveAttribute('aria-valuenow', '300')
+
+    dragRailEdge(-260)
+    expect(rail).toHaveClass('collapsed')
+    expect(screen.queryByRole('separator', { name: 'Resize sidebar' })).toBeNull()
+
+    act(() => useUIStore.getState().toggleRail())
+    expect(rail).not.toHaveClass('collapsed')
+    expect(resizeHandle()).toHaveAttribute('aria-valuenow', '300')
+    expect(document.documentElement.style.getPropertyValue('--rail-w')).toBe('300px')
   })
 
   describe('cmux-style rows', () => {

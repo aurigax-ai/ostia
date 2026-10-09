@@ -916,7 +916,7 @@
         "src/renderer/lib/workspaces/workspaceSummary.ts",
         "src/renderer/lib/attention/workspaceActivity.ts"
       ],
-      "specs": ["e2e/rail-resize.spec.ts", "e2e/workspace-groups.spec.ts"]
+      "specs": ["e2e/workspace-groups.spec.ts"]
     },
     {
       "name": "appearance",
