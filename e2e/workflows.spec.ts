@@ -14,14 +14,16 @@ import { type ElectronApplication, type Page, _electron as electron, expect, tes
 interface Launched {
   app: ElectronApplication
   win: Page
+  home: string
 }
 
 async function launchApp(): Promise<Launched> {
-  const app = await electron.launch(isolatedLaunch())
+  const launch = isolatedLaunch()
+  const app = await electron.launch(launch)
   try {
     const win = await app.firstWindow()
     await win.waitForLoadState('domcontentloaded')
-    return { app, win }
+    return { app, win, home: launch.home }
   } catch (err) {
     await app.close()
     throw err
@@ -198,7 +200,7 @@ test(
   { tag: '@core' },
   async () => {
     test.setTimeout(60_000)
-    const { app, win } = await launchApp()
+    const { app, win, home } = await launchApp()
     try {
       await openWorkspace(win)
       const tab = win.locator('.rail-tab')
@@ -219,7 +221,6 @@ test(
       await waitForTerminalFocus(win)
       await win.keyboard.type('echo "ostia_cwd:$PWD:"')
       await win.keyboard.press('Enter')
-      const home = await app.evaluate(({ app: electronApp }) => electronApp.getPath('home'))
       await expect(win.locator('.xterm-rows').first()).toContainText(`ostia_cwd:${home}:`, {
         timeout: 15_000,
       })
