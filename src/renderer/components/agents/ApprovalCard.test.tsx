@@ -32,6 +32,23 @@ describe('ApprovalCard', () => {
     expect(window.ostia.approvals.answer).toHaveBeenCalledWith('approval-1', 'deny')
   })
 
+  it('asks first about the folder an agent set, then for all workspaces, and denies with the button', () => {
+    const { rerender } = render(
+      <ApprovalCard
+        request={{ ...REQUEST, caps: [], kind: 'reach-project', subject: '/home/me/other' }}
+        paneTitle="claude"
+      />,
+    )
+    expect(
+      screen.getByText(/An agent set a workspace’s folder to \/home\/me\/other\. claude can reach/),
+    ).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Deny' }))
+    expect(window.ostia.approvals.answer).toHaveBeenCalledWith('approval-1', 'deny')
+
+    rerender(<ApprovalCard request={{ ...REQUEST, caps: ['all-workspaces'] }} paneTitle="claude" />)
+    expect(screen.getByText(/claude wants to act on other panes and workspaces/)).toBeTruthy()
+  })
+
   it.each([
     ['Allow for this pane', 'session'],
     ['Always allow', 'always'],

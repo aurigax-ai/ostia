@@ -300,6 +300,11 @@ describe('builtins route to store actions', () => {
     if (!r.ok) expect(r.error.message).toMatch(/unknown settings key: init/)
   })
 
+  it('settings.set needs settings-write', () => {
+    const byId = Object.fromEntries(commands.describe().map((c) => [c.id, c]))
+    expect(byId['settings.set'].capabilities).toContain('settings-write')
+  })
+
   it('settings.set refuses to change the external editor command, directly or via behavior', async () => {
     const direct = await commands.execWith(ctx(null, null), 'settings.set', {
       key: 'behavior.externalEditor',

@@ -683,6 +683,22 @@ describe('DeckRail', () => {
       expect(screen.getByRole('button', { name: /tools/ })).toBeInTheDocument()
     })
 
+    it('moves a workspace into another group from its menu and drops the group it emptied', async () => {
+      seedGroups()
+      useWorkspacesStore.getState().createGroup('s1', 'tools')
+      render(<DeckRail />)
+      fireEvent.contextMenu(screen.getByRole('button', { name: /solo/ }))
+      const user = userEvent.setup()
+      const trigger = await screen.findByRole('menuitem', { name: 'Move to group' })
+      act(() => trigger.focus())
+      await user.keyboard('{ArrowRight}')
+      await user.click(await screen.findByRole('menuitem', { name: 'backend' }))
+
+      const { groups, workspaces } = useWorkspacesStore.getState()
+      expect(groups.map((g) => g.id)).toEqual(['g90'])
+      expect(workspaces.find((w) => w.id === 's1')?.groupId).toBe('g90')
+    })
+
     it('renames a group on double-click', async () => {
       seedGroups()
       render(<DeckRail />)

@@ -151,6 +151,34 @@ describe('ostia ask (the real CLI against a live control server)', () => {
     expect(JSON.parse(res.stdout)).toEqual({ answered: true, choices: ['lint', 'unit'], text: '' })
   })
 
+  it('ostia ask takes a free-text reply and several choices with a comment', async () => {
+    const run = ostia([
+      'ask',
+      'Which checks?',
+      '--choice',
+      'lint',
+      '--choice',
+      'unit',
+      '--choice',
+      'e2e',
+      '--multi',
+      '--json',
+    ])
+    const question = await nextQuestion()
+    expect(question.mode).toBe('multi')
+    questions()?.answer(WINDOW_ID, question.id, {
+      choices: [2, 0],
+      text: 'skip unit, it is red on main',
+    })
+    const res = await run.done
+    expect(res.code).toBe(0)
+    expect(JSON.parse(res.stdout)).toEqual({
+      answered: true,
+      choices: ['lint', 'e2e'],
+      text: 'skip unit, it is red on main',
+    })
+  })
+
   it('reads the context from stdin only for --context -', async () => {
     const run = ostia(['ask', 'Ship this?', '--context', '-'], ' 3 files changed\n 40 insertions\n')
     const question = await nextQuestion()

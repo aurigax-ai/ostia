@@ -1,16 +1,22 @@
 import '@testing-library/jest-dom/vitest'
 import { createPane } from '@/layout/tree'
 import { loadHomeDir } from '@/lib/files/homeDir'
+import { registerTerminal } from '@/lib/terminal/terminalHandles'
+import { startAgentGroupsSync, useAgentGroupsStore } from '@/stores/agents/agentGroupsStore'
+import { useSandboxStore } from '@/stores/app/sandboxStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { useIconThemeStore } from '@/stores/extensions/iconThemeStore'
 import { useRemoteFoldersStore } from '@/stores/files/remoteFoldersStore'
+import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { type Workspace, useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type { ExtensionInfo } from '@shared/extensions'
 import type { LoadedIconTheme } from '@shared/iconTheme'
+import type { AgentGroupPlacement } from '@shared/permissions/reach'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import type { Terminal } from '@xterm/xterm'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { FilesView } from './FilesView'
 
@@ -92,6 +98,9 @@ describe('FilesView', () => {
   let settingsInit: ReturnType<typeof useSettingsStore.getState>
   let extensionsInit: ReturnType<typeof useExtensionsStore.getState>
   let iconThemeInit: ReturnType<typeof useIconThemeStore.getState>
+  let blocksInit: ReturnType<typeof useBlocksStore.getState>
+  let sandboxInit: ReturnType<typeof useSandboxStore.getState>
+  let agentGroupsInit: ReturnType<typeof useAgentGroupsStore.getState>
 
   beforeAll(() => {
     extensionsInit = useExtensionsStore.getState()
@@ -99,6 +108,9 @@ describe('FilesView', () => {
     workspacesInit = useWorkspacesStore.getState()
     layoutInit = useLayoutStore.getState()
     settingsInit = useSettingsStore.getState()
+    blocksInit = useBlocksStore.getState()
+    sandboxInit = useSandboxStore.getState()
+    agentGroupsInit = useAgentGroupsStore.getState()
   })
 
   afterEach(() => {
@@ -108,6 +120,9 @@ describe('FilesView', () => {
     useSettingsStore.setState(settingsInit, true)
     useExtensionsStore.setState(extensionsInit, true)
     useIconThemeStore.setState(iconThemeInit, true)
+    useBlocksStore.setState(blocksInit, true)
+    useSandboxStore.setState(sandboxInit, true)
+    useAgentGroupsStore.setState(agentGroupsInit, true)
     useRemoteFoldersStore.setState({ folders: [], pending: null })
     vi.restoreAllMocks()
   })
@@ -440,6 +455,75 @@ describe('FilesView', () => {
     await user.click(await screen.findByRole('menuitem', { name: 'Show in tree' }))
 
     expect(useSettingsStore.getState().files.exclude).not.toContain(`${CWD}/secret.txt`)
+  })
+
+  it('a file path goes to an agent in another workspace of the sidebar group once the human grouped them', async () => {
+    useWorkspacesStore.setState({
+      workspaces: [
+        { id: 's1', name: 'project', kind: 'terminal', workDir: CWD, state: 'idle' },
+        { id: 's2', name: 'agents', kind: 'terminal', workDir: CWD, state: 'idle' },
+      ],
+      activeWorkspaceId: 's1',
+    })
+    useLayoutStore.getState().ensure('s1')
+    useLayoutStore.getState().ensure('s2')
+    const agentPane = useLayoutStore.getState().byWorkspace.s2.activePaneId
+    useBlocksStore.setState({
+      running: { [agentPane]: 'b-agent' },
+      agentBlocks: { [agentPane]: { blockId: 'b-agent', agent: 'claude' } },
+    })
+    const term = { paste: vi.fn(), focus: vi.fn() }
+    const unregister = registerTerminal(agentPane, term as unknown as Terminal)
+    vi.mocked(window.ostia.sandbox.get).mockResolvedValue({ enabled: false } as never)
+    const stopSync = startAgentGroupsSync()
+    const publish = vi.mocked(window.ostia.approvals.onAgentGroupsChanged).mock.calls[0][0] as (
+      placements: AgentGroupPlacement[],
+    ) => void
+    listReturns([{ name: 'notes.md', dir: false }])
+    const user = userEvent.setup()
+
+    render(<FilesView />)
+    const openSendPath = async (): Promise<void> => {
+      fireEvent.contextMenu(await screen.findByRole('button', { name: 'notes.md' }))
+      const trigger = await screen.findByRole('menuitem', { name: 'Send path to agent' })
+      act(() => trigger.focus())
+      await user.keyboard('{ArrowRight}')
+    }
+    await waitFor(() => expect(useAgentGroupsStore.getState().placements).toEqual([]))
+
+    await openSendPath()
+    expect(
+      await screen.findByRole('menuitem', { name: 'No agent is running in this workspace.' }),
+    ).toBeVisible()
+    await user.keyboard('{Escape}{Escape}')
+
+    let home = ''
+    act(() => {
+      home = useWorkspacesStore.getState().createGroup('s2') ?? ''
+      useWorkspacesStore.getState().moveToGroup('s1', home)
+      publish([{ workspaceId: 's1', groupId: home }])
+    })
+
+    await openSendPath()
+    expect(
+      await screen.findByRole('menuitem', { name: 'No agent is running in this workspace.' }),
+    ).toBeVisible()
+    await user.keyboard('{Escape}{Escape}')
+
+    act(() => {
+      const own = useWorkspacesStore.getState().createGroup('s1') ?? ''
+      useWorkspacesStore.getState().moveToGroup('s2', own)
+    })
+    expect(useWorkspacesStore.getState().groups).toHaveLength(1)
+
+    await openSendPath()
+    fireEvent.click(
+      await screen.findByRole('menuitem', { name: 'Claude Code · Terminal (agents)' }),
+    )
+
+    await waitFor(() => expect(term.paste).toHaveBeenCalledWith(`@${CWD}/notes.md `))
+    stopSync()
+    unregister()
   })
 
   it('compacts a single-folder chain into one row when it is expanded', async () => {

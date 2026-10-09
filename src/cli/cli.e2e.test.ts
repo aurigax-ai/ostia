@@ -21,14 +21,17 @@ import {
   registerControlServer,
   stopControlServer,
 } from '../main/control/controlServer'
-import { type PaneIdentity, registerPane } from '../main/control/idRegistry'
+import { registerDocsMethods } from '../main/control/docs'
+import { type PaneIdentity, markManager, registerPane } from '../main/control/idRegistry'
 import { OpenFileGrants } from '../main/files/openFileGrants'
 import { registerOpenFileMethods } from '../main/files/openFileMethods'
 import { OpenWaits } from '../main/files/openWaits'
+import { type WorkerRequest, registerManagerMethods } from '../main/manager/managerMethods'
 import { registerPaneListMethods } from '../main/panes/paneList'
 import { ViewHost, ViewStore } from '../main/workspaces/viewHost'
 import { registerViewMethods } from '../main/workspaces/viewsIpc'
 import { registerWorkflowMethods, workspaceWorkflowsDir } from '../main/workspaces/workflows'
+import { managerAgents, parseManagerSettings } from '../shared/agents/managerSettings'
 import {
   OPEN_DIFF_COMMAND,
   OPEN_FILES_COMMAND,
@@ -852,6 +855,67 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
       const sidebar = await runOstia(['view', 'open', 'side'], env())
       expect(sidebar.code).toBe(1)
       expect(sidebar.stderr).toContain('only placement "panel" views open as a pane')
+    })
+  })
+
+  describe('ostia manager', () => {
+    const written: { paneId: string; data: string }[] = []
+    const opened: WorkerRequest[] = []
+    let manager: PaneIdentity
+    const env = (pane: PaneIdentity) =>
+      withEnv({ OSTIA_SOCKET: socketPath, OSTIA_TOKEN: pane.token })
+
+    beforeAll(() => {
+      const settings = parseManagerSettings({ agents: { fake: ['fake-agent'] }, allowInput: true })
+      registerManagerMethods({
+        settings: () => settings,
+        agents: () => managerAgents(settings),
+        io: {
+          read: async () => null,
+          write: (paneId, data) => {
+            written.push({ paneId, data })
+            return true
+          },
+          bracketedPaste: () => false,
+          outputCursor: () => undefined,
+        },
+        openWorker: async (req) => {
+          opened.push(req)
+          return registerPane({ windowId: 'w1', workspaceId: 's2', paneId: 'pWorker' }).externalId
+        },
+        paneAlive: () => true,
+        now: Date.now,
+      })
+      registerDocsMethods({ extensions: () => [] })
+      manager = registerPane({ windowId: 'w1', workspaceId: 's3', paneId: 'pManager' })
+      markManager('pManager')
+    })
+
+    it('MGR-C35 with typing allowed, the manager answers a worker', async () => {
+      const spawned = await runOstia(
+        ['manager', 'spawn', 'fake', '--name', 'worker-one', '--', 'hello'],
+        env(manager),
+      )
+      expect(spawned.code).toBe(0)
+      expect(opened).toEqual([{ argv: ['fake-agent', 'hello'], name: 'worker-one' }])
+      const { paneId } = JSON.parse(spawned.stdout) as { paneId: string }
+
+      const typed = await runOstia(
+        ['manager', 'input', paneId, '--text', 'ping', '--key', 'enter'],
+        env(manager),
+      )
+      expect(typed.code).toBe(0)
+      expect(written).toEqual([{ paneId: 'pWorker', data: 'ping\r' }])
+    })
+
+    it('MGR-C31 a worker pane cannot call the manager verbs', async () => {
+      const read = await runOstia(['manager', 'read', 'x'], env(identity))
+      expect(read.code).toBe(1)
+      expect(read.stderr).toContain('not-available-to-pane')
+
+      const docs = await runOstia(['docs'], env(identity))
+      expect(docs.code).toBe(0)
+      expect(docs.stdout).not.toContain('manager spawn')
     })
   })
 

@@ -9,6 +9,9 @@ import {
   StreamMessageWriter,
   createMessageConnection,
 } from 'vscode-jsonrpc/node'
+import { ManagerService } from '../../main/manager/manager'
+import { Portal } from '../../main/manager/portal'
+import { managerAgents, parseManagerSettings } from '../../shared/agents/managerSettings'
 import { connectPortal, runPortalCommand, stripDetach } from './portal'
 
 let dir = ''
@@ -157,11 +160,50 @@ describe('runPortalCommand', () => {
     await asked
     stdin.write('early keys')
     await vi.waitFor(() => expect(stdin.readableLength).toBe(0))
+    await new Promise((resolve) => setTimeout(resolve, 50))
     expect(events).toEqual([])
     answerOpen()
     await vi.waitFor(() => expect(events).toEqual(['open answered', 'early keys']))
 
     stdin.write('\x1c')
     await expect(run).resolves.toBe(0)
+  })
+
+  it('MGR-C11 an ostia <agent> run from an Ostia pane is refused even with the socket variables unset', async () => {
+    const path = socketPath()
+    const panes: string[] = []
+    const portal = new Portal(path, {
+      missing: () => [],
+      hint: () => ({ command: null, packages: [] }),
+      judge: async () => 'inside',
+      manager: new ManagerService({
+        loadResume: () => null,
+        saveResume: () => {},
+        agents: () => managerAgents(parseManagerSettings({ agents: { fake: ['fake-agent'] } })),
+        createPane: async (req) => {
+          panes.push(req.agent)
+          return 'p'
+        },
+        spawn: () => true,
+      }),
+      attachMirror: () => null,
+    })
+    await portal.start()
+    try {
+      const { stdin, stdout } = fakeTty()
+      const stderr = new PassThrough()
+      const code = await runPortalCommand(['fake'], {
+        stdin,
+        stdout,
+        stderr,
+        env: { OSTIA_PORTAL_SOCKET: path },
+        cwd: '/home/u',
+      })
+      expect(code).toBe(1)
+      expect(String(stderr.read())).toContain('inside-ostia')
+      expect(panes).toEqual([])
+    } finally {
+      portal.stop()
+    }
   })
 })

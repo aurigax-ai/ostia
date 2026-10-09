@@ -50,6 +50,7 @@ describe('announceBusMessage', () => {
       'attention.message',
       { from: 'claude', text: 'done' },
     )
+    expect(d.execCommand).toHaveBeenCalledOnce()
   })
 
   it('still marks the pane when the sender cannot be named', async () => {
