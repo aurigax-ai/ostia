@@ -47,6 +47,19 @@ describe('sandbox settings', () => {
     expect(window.ostia.fs.write).toHaveBeenCalled()
   })
 
+  it('the UI, settings lists, keycaps, chat code and the git panel use the chosen UI and code fonts', async () => {
+    useSettingsStore.setState({
+      sandbox: { allowRead: [], allowedDomains: ['api.github.com'], controls: DEFAULT_CONTROLS },
+    })
+    await act(async () => {
+      render(<SandboxSection />)
+    })
+    const domains = screen.getByRole('group', { name: 'Allowed domains' })
+    const name = within(domains).getByText('api.github.com')
+    expect(name).toHaveClass('font-mono')
+    expect(name.closest('li')).toHaveClass('text-ui-sm')
+  })
+
   it('SBX-C60 shows global domains as inherited next to the workspace own domains', async () => {
     useSettingsStore.setState({
       sandbox: { allowRead: [], allowedDomains: ['api.github.com'], controls: DEFAULT_CONTROLS },

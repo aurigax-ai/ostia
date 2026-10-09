@@ -1,5 +1,11 @@
+import { spawnSync } from 'node:child_process'
 import { describe, expect, it } from 'vitest'
 import { parseShellSetting, shellArgv, shellName } from './terminalShell'
+
+const run = (setting: string, fallback: string, script: string): string => {
+  const [file, ...args] = shellArgv(setting, fallback)
+  return spawnSync(file, args, { input: script, encoding: 'utf8' }).stdout
+}
 
 describe('shellArgv', () => {
   it('falls back to the login shell when the setting is empty or not a string', () => {
@@ -27,6 +33,18 @@ describe('shellArgv', () => {
     expect(shellArgv('"" -l', '/bin/zsh')).toEqual(['/bin/zsh'])
     expect(shellArgv('fish\0', '/bin/zsh')).toEqual(['/bin/zsh'])
     expect(shellArgv(`fish ${'x'.repeat(2000)}`, '/bin/zsh')).toEqual(['/bin/zsh'])
+  })
+
+  it('terminal.shell starts new terminals in the chosen program with its arguments', () => {
+    const out = run('/bin/sh -i', '/bin/false', 'echo "shell=$0 flags=$-"\nexit\n')
+    expect(out).toMatch(/shell=\/bin\/sh flags=\S*i/)
+  })
+
+  it('an unusable terminal.shell falls back to the login shell', () => {
+    const out = run('"/bin/sh -i', '/bin/sh', 'echo "shell=$0 flags=$-"\nexit\n')
+    expect(out).toMatch(/shell=\/bin\/sh/)
+    expect(out).not.toMatch(/flags=\S*i/)
+    expect(shellArgv('"/bin/sh -i', '/bin/sh')).toEqual(['/bin/sh'])
   })
 })
 

@@ -1,7 +1,10 @@
 import '@testing-library/jest-dom/vitest'
+import { registerBuiltinCommands } from '@/commands/builtins'
 import { commands } from '@/commands/registry'
+import { CommandPalette } from '@/components/CommandPalette'
 import { ActionConfirmDialog } from '@/components/settings/ActionConfirmDialog'
-import { registerViewCommands } from '@/lib/extensions/views'
+import { findViewPane } from '@/layout/tree'
+import { registerViewCommands, startViews } from '@/lib/extensions/views'
 import { useActionConfirmStore } from '@/stores/agents/actionConfirmStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useUIStore } from '@/stores/app/uiStore'
@@ -11,6 +14,7 @@ import { type Workspace, useWorkspacesStore } from '@/stores/workspaces/workspac
 import {
   VIEW_MAX_LIST_ITEMS,
   type ViewInfo,
+  type ViewListing,
   type ViewStatus,
   parseViewText,
 } from '@shared/views/views'
@@ -49,6 +53,38 @@ const SIDEBAR = {
       { type: 'button', label: 'Risky', action: { command: 'test.view.risky', args: { x: 1 } } },
     ],
   },
+}
+
+const AGENTS = {
+  version: 1,
+  title: 'Agents',
+  placement: 'sidebar',
+  icon: 'robot',
+  root: {
+    type: 'stack',
+    children: [
+      { type: 'text', text: '{{workspaces | count}} open', tone: 'muted', size: 'xs' },
+      {
+        type: 'list',
+        for: 'workspaces',
+        as: 'ws',
+        item: { type: 'text', text: 'ws: {{ws.name}}' },
+      },
+      {
+        type: 'button',
+        label: 'Start from view',
+        icon: 'plus',
+        action: { command: 'workspace.new', args: { name: 'from-view' } },
+      },
+    ],
+  },
+}
+
+const BOARD = {
+  version: 1,
+  title: 'Board',
+  placement: 'panel',
+  root: { type: 'kv', items: [{ key: 'Current', value: '{{workspace.name}}' }] },
 }
 
 function info(
@@ -94,6 +130,7 @@ describe('declarative views', () => {
   let uiInit: ReturnType<typeof useUIStore.getState>
 
   beforeAll(() => {
+    if (!commands.has('palette.toggle')) registerBuiltinCommands()
     workspacesInit = useWorkspacesStore.getState()
     viewsInit = useViewsStore.getState()
     layoutInit = useLayoutStore.getState()
@@ -237,5 +274,73 @@ describe('declarative views', () => {
 
     await userEvent.click(within(agents).getByRole('button', { name: 'Reveal file' }))
     expect(window.ostia.views.reveal).toHaveBeenCalledWith('agents')
+  })
+
+  it('a view file shows in the sidebar only after the human enables it, with live data and working buttons', async () => {
+    useWorkspacesStore.getState().addWorkspace('/home/u/alpha')
+    const dir = '/home/u/.config/ostia/views'
+    const files: Record<string, object> = { agents: AGENTS }
+    const status: Record<string, ViewStatus> = {}
+    const listing = (): ViewListing => ({
+      dir,
+      views: Object.entries(files).map(([name, raw]) => info(name, raw, status[name] ?? 'pending')),
+    })
+    let push: (next: ViewListing) => void = () => {}
+    const api = vi.mocked(window.ostia.views)
+    api.list.mockImplementation(async () => listing())
+    api.setEnabled.mockImplementation(async (name, enabled) => {
+      status[name] = enabled ? 'enabled' : 'disabled'
+      return listing()
+    })
+    api.onChanged.mockImplementation((cb) => {
+      push = cb
+      return () => {}
+    })
+    const stop = startViews()
+    try {
+      render(
+        <>
+          <ViewsSection />
+          <ViewsRail />
+          <CommandPalette />
+        </>,
+      )
+      const agents = (await screen.findByText('agents.json')).closest('li') as HTMLElement
+      expect(agents).toHaveTextContent('New')
+      expect(screen.queryByRole('region', { name: 'Agents' })).not.toBeInTheDocument()
+
+      await userEvent.click(within(agents).getByRole('switch', { name: 'Show Agents' }))
+      await vi.waitFor(() => expect(agents).not.toHaveTextContent('New'))
+
+      files.board = BOARD
+      act(() => push(listing()))
+      const board = screen.getByText('board.json').closest('li') as HTMLElement
+      expect(board).toHaveTextContent('New')
+      await userEvent.click(within(board).getByRole('switch', { name: 'Show Board' }))
+
+      const rail = await screen.findByRole('region', { name: 'Agents' })
+      expect(rail).toHaveTextContent('1 open')
+      expect(rail).toHaveTextContent('ws: alpha')
+
+      await userEvent.click(within(rail).getByRole('button', { name: 'Start from view' }))
+      await vi.waitFor(() => expect(rail).toHaveTextContent('2 open'))
+      expect(rail).toHaveTextContent('ws: from-view')
+      expect(useWorkspacesStore.getState().workspaces).toHaveLength(2)
+
+      act(() => useUIStore.setState({ paletteOpen: true }))
+      await userEvent.type(await screen.findByRole('combobox'), 'Views: Open Board')
+      await userEvent.keyboard('{Enter}')
+      const workspaceId = useWorkspacesStore.getState().activeWorkspaceId as string
+      const root = useLayoutStore.getState().byWorkspace[workspaceId]?.root
+      const pane = root ? findViewPane(root, 'board') : null
+      expect(pane).not.toBeNull()
+      const { container } = render(
+        <ViewSurface paneId={pane?.id ?? ''} workspaceId={workspaceId} viewName="board" />,
+      )
+      expect(container).toHaveTextContent('Current')
+      expect(container).toHaveTextContent('from-view')
+    } finally {
+      stop()
+    }
   })
 })

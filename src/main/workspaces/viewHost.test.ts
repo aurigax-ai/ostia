@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   VIEW_FILE_MAX_BYTES,
   type ViewInfo,
@@ -9,6 +9,17 @@ import {
   parseViewText,
 } from '../../shared/views/views'
 import { ViewHost, ViewStore } from './viewHost'
+
+const handlers = new Map<string, (...args: unknown[]) => unknown>()
+
+vi.mock('electron', () => ({
+  ipcMain: {
+    handle: (channel: string, fn: (...args: unknown[]) => unknown) => handlers.set(channel, fn),
+  },
+  shell: { showItemInFolder: () => {} },
+}))
+
+const { registerViewsIpc } = await import('./viewsIpc')
 
 const VIEW = {
   version: 1,
@@ -146,6 +157,17 @@ describe('ViewHost', () => {
     rmSync(join(dir, 'agents.json'))
     await until(() => (info('agents') === undefined ? true : undefined))
     expect(changes.length).toBeGreaterThanOrEqual(3)
+  })
+
+  it('a view file shows in the sidebar only after the human enables it, with live data and working buttons', async () => {
+    write('agents.json', VIEW)
+    registerViewsIpc(start())
+    const listed = (await handlers.get('views:list')?.()) as ViewListing
+    expect(listed.views).toMatchObject([{ name: 'agents', status: 'pending', doc: null }])
+    const enabled = (await handlers.get('views:set-enabled')?.({}, 'agents', true)) as ViewListing
+    expect(enabled.views).toMatchObject([{ name: 'agents', status: 'enabled' }])
+    expect(enabled.views[0].doc?.root.type).toBe('list')
+    expect(changes.at(-1)).toEqual(enabled)
   })
 
   it('creates the views folder when it does not exist yet', async () => {

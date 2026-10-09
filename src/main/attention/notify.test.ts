@@ -1,4 +1,4 @@
-import { mkdtempSync, writeFileSync } from 'node:fs'
+import { chmodSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -164,5 +164,23 @@ describe('the notification log', () => {
     await notificationsRecorded()
     expect(saved).toHaveLength(2)
     expect((saved[1] as { body?: string }[])[0].body).toBe('second')
+  })
+
+  it('a recorded notification runs the configured command with its placeholders filled', async () => {
+    const script = join(userData, 'on-notify.sh')
+    const out = join(userData, 'notified.txt')
+    writeFileSync(
+      script,
+      `#!/bin/sh\nprintf '%s|%s|%s' "$1" "$2" "$3" > "${out}.part" && mv "${out}.part" "${out}"\n`,
+    )
+    chmodSync(script, 0o755)
+    settings({ desktop: false, command: `${script} {title} "{body}" {pane}` })
+
+    post(false, 'pane-x', 'all; green')
+    await notificationsRecorded()
+    await vi.waitFor(
+      () => expect(readFileSync(out, 'utf8')).toBe('Agent finished|all; green|pane-x'),
+      { timeout: 3000 },
+    )
   })
 })

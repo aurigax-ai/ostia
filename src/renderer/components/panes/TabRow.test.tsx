@@ -129,6 +129,26 @@ describe('TabRow', () => {
     expect(split?.style.getPropertyValue('--split-segments')).toBe('2')
   })
 
+  it('the UI, settings lists, keycaps, chat code and the git panel use the chosen UI and code fonts', () => {
+    const css = readFileSync(join(__dirname, '..', '..', 'index.css'), 'utf8')
+    const rule = (selector: string) => css.slice(css.indexOf(`${selector} {`)).split('}')[0]
+    const { container } = renderStack(tabsOf('a', createPane('terminal', 'a')))
+    const tab = container.querySelector('.pane-tab') as HTMLElement
+    expect(tab.closest('.pane-header')).not.toBeNull()
+    expect(rule('.pane-header')).toMatch(/font-size: var\(--text-ui-sm\);/)
+    expect(rule('.pane-tab')).not.toMatch(/font-(?:family|size):/)
+  })
+
+  it('draws the active tab underline, the working dot and primary buttons with the brand token', () => {
+    const css = readFileSync(join(__dirname, '..', '..', 'index.css'), 'utf8')
+    const rule = (selector: string) => css.slice(css.indexOf(`\n${selector} {`)).split('}')[0]
+    expect(css).toMatch(/--brand: var\(--color-brand\);/)
+    expect(css).toMatch(/--primary: var\(--color-brand\);/)
+    expect(css).toMatch(/--primary-foreground: var\(--color-on-brand\);/)
+    expect(rule('.pane.active .pane-tab.selected')).toMatch(/box-shadow: [^;]*var\(--brand\)/)
+    expect(rule('.dot.working')).toMatch(/background: var\(--brand\);/)
+  })
+
   it('shows the full title and the folder of a terminal on hover', async () => {
     const { root } = stackOf(2)
     renderStack(root)

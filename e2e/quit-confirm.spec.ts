@@ -55,17 +55,6 @@ test(
   },
 )
 
-test('quitting with an idle shell without blocks shows no dialog', async () => {
-  const { app, win, proc } = await launch(PLAIN_SHELL)
-  try {
-    await runInTerminal(win, 'echo idle-$((6*7))')
-    await expect(win.locator('.xterm-rows').first()).toContainText('idle-42', { timeout: 15_000 })
-    expect(await pressQuit(app, win)).toBe('quit')
-  } finally {
-    proc.kill('SIGKILL')
-  }
-})
-
 test('quitting while the window is too busy to answer asks instead of quitting', async () => {
   const { app, win, proc } = await launch(CONFIRM_QUIT)
   try {

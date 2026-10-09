@@ -146,6 +146,14 @@ function styleKeyProblem(line: string): string | null {
 
 const rel = (file: string): string => relative(ROOT, file)
 
+function declarations(file: string, selector: string): string {
+  const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const rule = new RegExp(`(?:^|\\n)\\s*${escaped} \\{([^}]*)\\}`, 'g')
+  return [...readFileSync(resolve(ROOT, file), 'utf8').matchAll(rule)]
+    .map(([, body]) => body)
+    .join('')
+}
+
 const styleFiles = [
   ...sourceFiles('src/renderer', ['.css']),
   ...sourceFiles('src/extensions', ['.css']),
@@ -196,6 +204,24 @@ describe('typography guard', () => {
           }),
       )
     expect(offenders).toEqual([])
+  })
+
+  it('the UI, settings lists, keycaps, chat code and the git panel use the chosen UI and code fonts', () => {
+    const index = 'src/renderer/index.css'
+    const git = 'src/renderer/components/git/git.css'
+    const tokens = readFileSync(resolve(ROOT, index), 'utf8')
+    expect(tokens).toMatch(/--font-sans: var\(--font-ui\);/)
+    expect(tokens).toMatch(/--font-mono: var\(--font-code\);/)
+    expect(tokens).toMatch(/--text-ui-base: var\(--font-ui-size\b/)
+    expect(tokens).toMatch(/--text-ui-sm: [^;]*var\(--font-ui-size\b/)
+    expect(declarations(index, 'body')).toMatch(/font-family: var\(--font-ui\);/)
+    expect(declarations(index, 'body')).toMatch(/font-size: var\(--text-ui-base\);/)
+    expect(declarations(index, '.code-block-body')).toMatch(/font-family: var\(--font-code\);/)
+    expect(declarations(git, '.git-surface')).toMatch(/font-family: var\(--font-ui\);/)
+    expect(declarations(git, '.git-surface')).toMatch(/font-size: var\(--text-ui-sm\);/)
+    expect(declarations(git, '.git-surface .commit .message')).toMatch(
+      /font-family: var\(--font-code\);/,
+    )
   })
 
   it('still points at real files for every exception', () => {

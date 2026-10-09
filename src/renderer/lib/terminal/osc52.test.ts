@@ -1,3 +1,4 @@
+import { parseTerminalSettings } from '@/settings/terminalPaneSettings'
 import { describe, expect, it, vi } from 'vitest'
 import { OSC52_MAX_PAYLOAD, decodeOsc52, registerOsc52 } from './osc52'
 
@@ -53,5 +54,11 @@ describe('registerOsc52', () => {
     const replay = setup(true, true)
     replay.send(`c;${b64('old')}`)
     expect(replay.write).not.toHaveBeenCalled()
+  })
+
+  it('OSC 52 leaves the clipboard alone by default', () => {
+    const fresh = setup(parseTerminalSettings(undefined).osc52Write)
+    fresh.send(`c;${b64('ostia-osc52-off')}`)
+    expect(fresh.write).not.toHaveBeenCalled()
   })
 })

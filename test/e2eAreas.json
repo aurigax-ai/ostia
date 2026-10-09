@@ -930,10 +930,8 @@
       ],
       "specs": [
         "e2e/appearance.spec.ts",
-        "e2e/fonts.spec.ts",
         "e2e/icon-sharpness.spec.ts",
-        "e2e/terminal-settings.spec.ts",
-        "e2e/theme-axes.spec.ts"
+        "e2e/terminal-settings.spec.ts"
       ]
     },
     {
