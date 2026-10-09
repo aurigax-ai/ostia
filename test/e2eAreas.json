@@ -736,7 +736,6 @@
       "specs": [
         "e2e/scratch-workspace.spec.ts",
         "e2e/workspace-groups.spec.ts",
-        "e2e/workspace-merge.spec.ts",
         "e2e/workspace-settings.spec.ts"
       ]
     },
