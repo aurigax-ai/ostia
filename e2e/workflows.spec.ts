@@ -1,4 +1,4 @@
-import { chords } from './chords'
+import { chords, labels } from './chords'
 import { isolatedLaunch } from './dataHome'
 import {
   PROMPT,
@@ -172,12 +172,12 @@ test(
       await expect(emptyState(win)).toBeVisible({ timeout: 15_000 })
       await expect(emptyState(win).getByRole('heading', { name: 'No workspaces' })).toBeVisible()
       await expect(emptyState(win).getByRole('button', { name: /New workspace/ })).toContainText(
-        'Ctrl+Shift+N',
+        labels.newWorkspace,
       )
       await win.waitForTimeout(1_000)
       await expect(win.locator('.xterm')).toHaveCount(0)
 
-      await win.keyboard.press('Control+Shift+N')
+      await win.keyboard.press(chords.newWorkspace)
 
       await expect(win.locator('.rail-tab')).toHaveCount(1)
       await expect(win.locator('.xterm')).toHaveCount(0)
