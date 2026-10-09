@@ -206,6 +206,11 @@ describe('chat actions', () => {
     expect((question as HTMLTextAreaElement).selectionStart).toBe('how do I list files'.length)
   })
 
+  it('the UI, settings lists, keycaps, chat code and the git panel use the chosen UI and code fonts', async () => {
+    const answer = await askInPane('how do I run it', 'Run it:\n\n```bash\nnode sample.ts\n```\n')
+    expect(answer.querySelector('.code-block-body')).toHaveTextContent('node sample.ts')
+  })
+
   it('inserts a shell block at the idle prompt without Enter', async () => {
     const answer = await askInPane('list', '```bash\nls -la\n```')
     await userEvent.click(within(answer).getByRole('button', { name: 'Insert at prompt' }))

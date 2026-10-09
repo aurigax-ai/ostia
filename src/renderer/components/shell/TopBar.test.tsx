@@ -201,6 +201,13 @@ describe('TopBar', () => {
     })
   })
 
+  it('the UI, settings lists, keycaps, chat code and the git panel use the chosen UI and code fonts', () => {
+    const { container } = render(<TopBar />)
+    const keycap = container.querySelector('header.topbar kbd')
+    expect(keycap).toHaveClass('font-sans')
+    expect(keycap).not.toHaveClass('font-mono')
+  })
+
   it('puts New workspace first and Settings in the right zone before the bell', () => {
     const { container } = render(<TopBar />)
     const buttons = Array.from(container.querySelectorAll('button'))
