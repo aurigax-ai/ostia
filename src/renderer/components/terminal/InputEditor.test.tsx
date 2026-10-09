@@ -1,4 +1,5 @@
 import { commands } from '@/commands/registry'
+import { handleDocumentClipboardChord } from '@/lib/keys/documentClipboard'
 import { insertCommand } from '@/lib/terminal/blockActions'
 import { inputEditorFor, registerTerminal } from '@/lib/terminal/terminalHandles'
 import { useSettingsStore } from '@/stores/app/settingsStore'
@@ -360,6 +361,51 @@ describe('InputEditor', () => {
     await user.paste('echo hi\x1b[201~\n')
     expect(editor()).toHaveValue('echo hi[201~')
     expect(props.onSubmit).not.toHaveBeenCalled()
+  })
+
+  it('the input editor copies on the chord and on smart Ctrl+C, and pastes on both', async () => {
+    setMode('editor')
+    setClipboardKeys('smart')
+    idlePrompt()
+    const { props } = renderEditor()
+    const fromWindow = vi.fn((e: KeyboardEvent) => {
+      const prevented = e.defaultPrevented
+      handleDocumentClipboardChord(e, false)
+      return `${e.key}:${prevented}`
+    })
+    window.addEventListener('keydown', fromWindow)
+    try {
+      const user = userEvent.setup()
+      await user.type(editor() as HTMLElement, 'echo editor_copy')
+      const area = editor() as HTMLTextAreaElement
+      area.setSelectionRange(0, 16)
+      await user.keyboard('{Control>}{Shift>}C{/Shift}{/Control}')
+      await expect(navigator.clipboard.readText()).resolves.toBe('echo editor_copy')
+
+      area.setSelectionRange(5, 16)
+      await user.keyboard('{Control>}c{/Control}')
+      await expect(navigator.clipboard.readText()).resolves.toBe('editor_copy')
+      expect(editor()).toHaveValue('echo editor_copy')
+
+      area.setSelectionRange(0, 0)
+      await user.keyboard('{Control>}c{/Control}')
+      expect(editor()).toHaveValue('')
+
+      await user.keyboard('{Control>}{Shift>}V{/Shift}{/Control}')
+      expect(window.ostia.clipboard.edit).toHaveBeenLastCalledWith('paste')
+      await user.paste('echo from_chord')
+      expect(editor()).toHaveValue('echo from_chord')
+
+      await user.keyboard('{Control>}c{/Control}')
+      await user.keyboard('{Control>}v{/Control}')
+      expect(fromWindow.mock.results.at(-1)?.value).toBe('v:false')
+      await user.paste('echo from_ctrl_v\u0007')
+      expect(editor()).toHaveValue('echo from_ctrl_v')
+      expect(props.onShellKeys).not.toHaveBeenCalled()
+      expect(props.onHandOff).not.toHaveBeenCalled()
+    } finally {
+      window.removeEventListener('keydown', fromWindow)
+    }
   })
 
   it('edits with readline keys and a kill ring', async () => {

@@ -10,6 +10,7 @@ import {
   screen,
   waitFor,
 } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import type { ReactElement } from 'react'
 import { afterAll, afterEach, beforeAll, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { renderSettled } from '../../../../test/render'
@@ -181,4 +182,17 @@ describe('TerminalView engines', () => {
       expect(vi.mocked(window.ostia.pty.write).mock.calls).toEqual(sent.map((data) => ['p1', data]))
     })
   }
+
+  it('smart Ctrl+V hands an image-only clipboard to the program as Ctrl+V', async () => {
+    useSettingsStore.setState({
+      terminal: { ...useSettingsStore.getState().terminal, clipboardKeys: 'smart' },
+    })
+    vi.mocked(window.ostia.clipboard.hasImage).mockResolvedValueOnce(true)
+    const user = userEvent.setup()
+    const { container } = await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
+    const textarea = container.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement
+    act(() => textarea.focus())
+    await user.keyboard('{Control>}v{/Control}')
+    await waitFor(() => expect(window.ostia.pty.write).toHaveBeenCalledWith('p1', '\x16'))
+  })
 })

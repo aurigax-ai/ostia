@@ -92,57 +92,6 @@ test(
   },
 )
 
-test('smart Ctrl+V hands an image-only clipboard to the program as Ctrl+V', async () => {
-  test.skip(isMac, 'smart Ctrl+C and Ctrl+V do not exist on macOS, which uses the Cmd keys')
-  const { app, win } = await launch({ clipboardKeys: 'smart' })
-  try {
-    const rows = win.locator('.xterm-rows').first()
-    await win.locator('.xterm').first().click()
-    await win.keyboard.type(READ_ONE_BYTE)
-    await win.keyboard.press('Enter')
-    await expect(rows).toContainText('reading_7')
-    await writeClipboardImage(app)
-    await win.keyboard.press('Control+v')
-    await expect(rows).toContainText('byte_16', { timeout: 10_000 })
-  } finally {
-    await app.close()
-  }
-})
-
-test('the input editor copies on the chord and on smart Ctrl+C, and pastes on both', async () => {
-  test.skip(isMac, 'smart Ctrl+C and Ctrl+V do not exist on macOS, which uses the Cmd keys')
-  const { app, win } = await launch({ clipboardKeys: 'smart', inputMode: 'editor' })
-  try {
-    const input = win.getByRole('textbox', { name: 'Command input' })
-    await expect(input).toBeVisible({ timeout: 15_000 })
-    await input.click()
-    await win.keyboard.type('echo editor_copy')
-    await win.keyboard.press('Shift+Home')
-    await win.keyboard.press(chords.copy)
-    await expect.poll(() => readClipboard(app)).toBe('echo editor_copy')
-
-    await writeClipboard(app, 'nothing')
-    await input.evaluate((el: HTMLTextAreaElement) => el.setSelectionRange(5, 16))
-    await win.keyboard.press('Control+c')
-    await expect.poll(() => readClipboard(app)).toBe('editor_copy')
-    await expect(input).toHaveValue('echo editor_copy')
-
-    await input.evaluate((el: HTMLTextAreaElement) => el.setSelectionRange(0, 0))
-    await win.keyboard.press('Control+c')
-    await expect(input).toHaveValue('')
-
-    await writeClipboard(app, 'echo from_chord')
-    await win.keyboard.press(chords.paste)
-    await expect(input).toHaveValue('echo from_chord')
-    await win.keyboard.press('Control+c')
-    await writeClipboard(app, 'echo from_ctrl_v\u0007')
-    await win.keyboard.press('Control+v')
-    await expect(input).toHaveValue('echo from_ctrl_v')
-  } finally {
-    await app.close()
-  }
-})
-
 test('the copy and paste chords work in Monaco and in a text field', async () => {
   const { app, win, home } = await launch()
   try {
