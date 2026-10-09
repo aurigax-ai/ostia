@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { freshDataHome, isolatedLaunch } from './dataHome'
-import { PROMPT, openWorkspace, quitApp, runInTerminal } from './helpers'
+import { PROMPT, openWorkspace, quitApp, runInTerminal, terminalTab } from './helpers'
 import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
 
 async function launch(dataHome: string): Promise<{ app: ElectronApplication; win: Page }> {
@@ -22,7 +22,7 @@ function terminal(win: Page) {
 }
 
 async function backToTerminal(win: Page): Promise<void> {
-  await tab(win, 'zsh').getByRole('tab').click()
+  await terminalTab(win).click()
 }
 
 test('GIT_EDITOR="ostia --wait" commits when the tab is closed, and Ctrl+C ends a wait without closing the tab', async () => {
@@ -142,7 +142,7 @@ test('ostia diff, --split and -n open a comparison, a split and a new workspace'
     await expect(diff).toContainText('changed line')
     await expect(tab(win, 'old.txt ↔ new.txt')).toBeVisible()
 
-    await tab(win, 'zsh').getByRole('tab').click()
+    await terminalTab(win).click()
     await runInTerminal(win, 'ostia diff ~/old.txt ~/missing.txt')
     await expect(win.locator('.xterm:visible .xterm-rows').first()).toContainText(
       'missing.txt: no such file',

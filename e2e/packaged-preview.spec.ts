@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { freshDataHome, isolatedLaunch } from './dataHome'
-import { openWorkspace, quitApp, runInTerminal } from './helpers'
+import { openWorkspace, quitApp, runInTerminal, terminalTab } from './helpers'
 import { type ElectronApplication, _electron as electron, expect, test } from './test'
 
 const PACKAGED = process.env.OSTIA_E2E_PACKAGED ?? ''
@@ -88,13 +88,13 @@ test('the packaged app compiles a component, serves the bundled runtime and repo
       'the compiler path never stays in the app environment',
     ).toBeNull()
 
-    await win.locator('.pane-tab').filter({ hasText: 'zsh' }).getByRole('tab').click()
+    await terminalTab(win).click()
     await runInTerminal(
       win,
       'echo "esbuild-env:[${ESBUILD_BINARY_PATH}]"; ostia open "$OSTIA_ARTIFACTS/page.html"',
     )
     await expect.poll(() => guestTitle(app), { timeout: 60_000 }).toBe('d3 max 7')
-    await win.locator('.pane-tab').filter({ hasText: 'zsh' }).getByRole('tab').click()
+    await terminalTab(win).click()
     await expect(win.locator('.xterm-rows').first()).toContainText('esbuild-env:[]')
 
     await runInTerminal(win, 'ostia open "$OSTIA_ARTIFACTS/Broken.tsx"')

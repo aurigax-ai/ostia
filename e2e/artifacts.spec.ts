@@ -10,6 +10,7 @@ import {
   openWorkspace,
   quitApp,
   runInTerminal,
+  terminalTab,
 } from './helpers'
 import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
 
@@ -82,7 +83,7 @@ test('a shell writes artifacts that are listed, opened and kept across a restart
       timeout: 15_000,
     })
 
-    await tab(win, 'zsh').getByRole('tab').click()
+    await terminalTab(win).click()
     await run(win, 'printf "piped text" | ostia - --name piped.txt')
     await expect(tab(win, 'piped.txt')).toBeVisible({ timeout: 15_000 })
     await expect(artifactRow(win, 'piped.txt')).toBeVisible()
@@ -249,7 +250,7 @@ test('a CSV artifact opens as a table and a mermaid block in Markdown is drawn a
     await expect(win.getByTestId('csv-table')).toHaveCount(0)
     await expect(win.locator('.monaco-editor:visible .view-lines')).toContainText('Taipei,3')
 
-    await tab(win, 'zsh').getByRole('tab').click()
+    await terminalTab(win).click()
     await run(win, 'ostia "$OSTIA_ARTIFACTS/plan.md"')
     const diagram = win.getByTestId('mermaid-diagram')
     await expect(diagram).toBeVisible({ timeout: 30_000 })
