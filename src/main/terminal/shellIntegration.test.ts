@@ -5,6 +5,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  realpathSync,
   rmSync,
   writeFileSync,
 } from 'node:fs'
@@ -12,6 +13,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import type { AgentPluginContent } from '../agents/agentSkills'
+import { KubeContextReader, NodeVersionResolver, promptContext } from './promptContext'
 import { type ShellState, parseShellState } from './shellCommands'
 import {
   CLAUDE_PLUGIN_MANIFEST,
@@ -297,6 +299,65 @@ describe('shellIntegrationSpawnOptions', () => {
         expect(ps1({})).toBe(`|framework> ${BASH_B_MARK}|`)
       })
     })
+
+    const SHELLS = [
+      {
+        shell: 'zsh',
+        rc: '.zshrc',
+        body: "export VIRTUAL_ENV=\"$HOME/.venv-ostia\"\nPROMPT='fancy_left❯ '\nRPROMPT='fancy_right'\n",
+        show: '__ostia_precmd >/dev/null; print -rn -- "<${(%)PROMPT}|$RPROMPT>"',
+        prompts: [`<~\n$ ${B_MARK}|>`, `<~/ostia_sub\n$ ${B_MARK}|>`],
+      },
+      {
+        shell: 'bash',
+        rc: '.bashrc',
+        body: 'export VIRTUAL_ENV="$HOME/.venv-ostia"\nPS1=\'fancy_left❯ \'\n',
+        show: '__ostia_prompt_command >/dev/null; printf "<%s>" "$PS1"',
+        prompts: [`<\\w\\n$ ${BASH_B_MARK}>`, `<\\w\\n$ ${BASH_B_MARK}>`],
+      },
+    ]
+
+    for (const { shell, rc, body, show, prompts } of SHELLS) {
+      it(`the Ostia prompt replaces the ${rc} prompt with a plain one and reports the virtualenv`, async () => {
+        const home = realpathSync(mkdtempSync(join(tmpdir(), 'ostia-prompt-home-')))
+        try {
+          writeFileSync(join(home, rc), body)
+          const stateFile = join(home, 'state')
+          const { args, env } = shellIntegrationSpawnOptions(
+            shell,
+            { HOME: home },
+            { separator: '$', sameLine: false },
+          )
+          const out = spawnSync(
+            shell,
+            [...args, '-i', '-c', `${show}; mkdir -p ostia_sub && cd ostia_sub && false; ${show}`],
+            {
+              cwd: home,
+              env: {
+                PATH: '/usr/bin:/bin',
+                HOME: home,
+                TERM: 'dumb',
+                OSTIA_SHELL_STATE: stateFile,
+                ...env,
+              },
+              encoding: 'utf8',
+            },
+          ).stdout
+          expect(out.match(/<[^<>]*>/g)).toEqual(prompts)
+          expect(out).not.toContain('fancy_')
+          const context = await promptContext(
+            parseShellState(readFileSync(stateFile, 'utf8')),
+            '/usr/bin:/bin',
+            home,
+            { node: false, kube: false },
+            { node: new NodeVersionResolver(), kube: new KubeContextReader(), home },
+          )
+          expect(context.virtualEnv).toBe('.venv-ostia')
+        } finally {
+          rmSync(home, { recursive: true, force: true })
+        }
+      })
+    }
   })
 
   describe('scratch history', () => {

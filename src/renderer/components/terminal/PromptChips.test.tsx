@@ -1,13 +1,17 @@
 import { commands } from '@/commands/registry'
+import type { PaneNode } from '@/layout/types'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { type LineAnchor, useBlocksStore } from '@/stores/terminal/blocksStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type { PromptContext } from '@shared/types'
 import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { renderSettled } from '../../../../test/render'
+import { SettingsPanel } from '../settings/SettingsPanel'
 import { InputEditor } from './InputEditor'
 
 const PANE = 'pane-prompt'
@@ -39,11 +43,11 @@ function useOstia(chips: string[], patch: { sameLine?: boolean; separator?: '$' 
   }))
 }
 
-function renderEditor() {
-  return renderSettled(
+function editor(cwd = '/home/u/proj') {
+  return (
     <InputEditor
       paneId={PANE}
-      cwd="/home/u/proj"
+      cwd={cwd}
       fontFamily="monospace"
       fontSize={13}
       alternateScreen={false}
@@ -56,8 +60,12 @@ function renderEditor() {
       onHandOff={vi.fn()}
       onShellKeys={vi.fn()}
       onNeedRows={vi.fn()}
-    />,
+    />
   )
+}
+
+function renderEditor() {
+  return renderSettled(editor())
 }
 
 const chipRow = () => screen.getByRole('list', { name: 'Prompt' })
@@ -67,12 +75,16 @@ describe('Ostia prompt in the input editor', () => {
   let settingsInit: ReturnType<typeof useSettingsStore.getState>
   let uiInit: ReturnType<typeof useUIStore.getState>
   let chipsInit: ReturnType<typeof useExtensionsStore.getState>
+  let layoutInit: ReturnType<typeof useLayoutStore.getState>
+  let workspacesInit: ReturnType<typeof useWorkspacesStore.getState>
 
   beforeAll(() => {
     blocksInit = useBlocksStore.getState()
     settingsInit = useSettingsStore.getState()
     uiInit = useUIStore.getState()
     chipsInit = useExtensionsStore.getState()
+    layoutInit = useLayoutStore.getState()
+    workspacesInit = useWorkspacesStore.getState()
   })
 
   beforeEach(() => {
@@ -85,6 +97,8 @@ describe('Ostia prompt in the input editor', () => {
     useSettingsStore.setState(settingsInit, true)
     useUIStore.setState(uiInit, true)
     useExtensionsStore.setState(chipsInit, true)
+    useLayoutStore.setState(layoutInit, true)
+    useWorkspacesStore.setState(workspacesInit, true)
     vi.mocked(window.ostia.pty.promptContext).mockReset()
   })
 
@@ -262,5 +276,66 @@ describe('Ostia prompt in the input editor', () => {
     })
     expect(await within(chipRow()).findByText('root')).toBeVisible()
     expect(vi.mocked(window.ostia.pty.promptContext).mock.calls.length).toBeGreaterThan(calls)
+  })
+
+  it('the Ostia prompt shows chips in the input editor', async () => {
+    vi.mocked(window.ostia.pty.promptContext).mockResolvedValue({
+      ...CONTEXT,
+      virtualEnv: '.venv-ostia',
+    })
+    const pane = (id: string, cwd: string): PaneNode => ({
+      type: 'pane',
+      id,
+      title: id,
+      kind: 'terminal',
+      cwd,
+    })
+    useWorkspacesStore.setState({ activeWorkspaceId: 'w2' })
+    useLayoutStore.setState({
+      byWorkspace: {
+        w1: { root: pane(PANE, '/home/u/ostia_sub'), activePaneId: PANE, zoomedPaneId: null },
+        w2: { root: pane('p2', '/home/u/other'), activePaneId: 'p2', zoomedPaneId: null },
+      },
+    })
+    useOstia(['virtualenv', 'cwd', 'exitCode'], { separator: '$' })
+    idlePrompt()
+    const { rerender } = await renderSettled(
+      <>
+        {editor('/home/u')}
+        <SettingsPanel />
+      </>,
+    )
+    expect(await within(chipRow()).findByLabelText('Python virtualenv: .venv-ostia')).toBeVisible()
+    expect(within(chipRow()).getByLabelText('Working directory: ~')).toBeVisible()
+    expect(within(chipRow()).queryByLabelText(/Last exit code/)).toBeNull()
+
+    act(() => {
+      useBlocksStore
+        .getState()
+        .commandStart(PANE, { line: 1 }, 'mkdir -p ostia_sub && cd ostia_sub && false')
+      useBlocksStore.getState().commandEnd(PANE, { line: 2 }, 1)
+      useBlocksStore.getState().promptStart(PANE, { line: 3 }, '/home/u/ostia_sub')
+      useBlocksStore.getState().promptEnd(PANE, { line: 3 })
+    })
+    rerender(
+      <>
+        {editor('/home/u/ostia_sub')}
+        <SettingsPanel />
+      </>,
+    )
+    expect(await within(chipRow()).findByLabelText('Last exit code: 1')).toBeVisible()
+    expect(within(chipRow()).getByLabelText('Working directory: ~/ostia_sub')).toBeVisible()
+
+    fireEvent.contextMenu(chipRow())
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Edit prompt…' }))
+    const settings = screen.getByRole('region', { name: 'Settings' })
+    expect(within(settings).getByRole('heading', { name: 'Prompt', level: 2 })).toBeVisible()
+    const preview = within(settings).getByRole('region', { name: 'Preview' })
+    expect(await within(preview).findByLabelText('Working directory: ~/ostia_sub')).toBeVisible()
+    await userEvent.click(within(settings).getByRole('button', { name: 'Add User' }))
+    expect(preview.querySelector('[data-chip="user"]')).not.toBeNull()
+    await userEvent.keyboard('{Escape}')
+    expect(screen.queryByRole('region', { name: 'Settings' })).toBeNull()
+    await waitFor(() => expect(chipRow().querySelector('[data-chip="user"]')).not.toBeNull())
   })
 })
