@@ -388,6 +388,7 @@ describe('claimed languages against a real fake language server', () => {
     const proc = spawn(process.execPath, [FAKE_SERVER, '--caps='])
     const reader = new StreamMessageReader(proc.stdout)
     const writer = new StreamMessageWriter(proc.stdin)
+    const writeErrors: unknown[] = []
     cleanups.push(() => {
       resetLspClient()
       setSettingsFile(null)
@@ -426,7 +427,7 @@ describe('claimed languages against a real fake language server', () => {
       return () => {}
     })
     vi.mocked(lsp.send).mockImplementation((_sessionId, message) => {
-      void writer.write(message as never)
+      void writer.write(message as never).catch((error: unknown) => writeErrors.push(error))
     })
     const dataPath = join(root, 'data.json')
     const settingsPath = join(root, 'settings.json')
@@ -453,5 +454,6 @@ describe('claimed languages against a real fake language server', () => {
     expect([...fake.markers.keys()].filter((key) => key.endsWith(settings.uri.toString()))).toEqual(
       [],
     )
+    expect(writeErrors).toEqual([])
   })
 })
