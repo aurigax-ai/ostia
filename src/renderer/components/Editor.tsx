@@ -1,13 +1,24 @@
 import { cn } from '@/lib/utils'
-import { CodeIcon, EyeIcon, PaperPlaneTiltIcon } from '@phosphor-icons/react'
+import { CodeIcon, EyeIcon, PaperPlaneTiltIcon, PlayIcon, TableIcon } from '@phosphor-icons/react'
+import {
+  PAD_MAX_BYTES,
+  PAD_SAVE_DELAY_MS,
+  exceedsPad,
+  isInside,
+  isPadPath,
+} from '@shared/artifacts'
 import { AUTO_SAVE_DELAY_MS, type EditorSettings } from '@shared/browserEditorSettings'
 import { DIFF_TEXT_MAX } from '@shared/extensions'
+import { isPreviewPath } from '@shared/htmlPreview'
 import { type RemoteFileError, isRemotePath, parseRemotePath } from '@shared/remoteFolders'
 import type { FsTextResult } from '@shared/types'
 import { useEffect, useRef, useState } from 'react'
 import { externalEditorError, openPaneInExternalEditor } from '../commands/externalEditor'
 import { fmt, useDict } from '../i18n/useDict'
+import { useArtifactListing } from '../lib/artifacts'
 import { findStep, matchChord, runAppChord } from '../lib/chords'
+import { requestClosePane } from '../lib/closeConfirm'
+import { csvDelimiter, isCsvPath } from '../lib/csvTable'
 import { changedLines, minimalLineEdit } from '../lib/diskReload'
 import { registerEditorPosition } from '../lib/editorPositions'
 import { createAutoSave, saveFormatted } from '../lib/editorSave'
@@ -35,7 +46,10 @@ import { isMac } from '../platform'
 import { useEditorRevealStore } from '../stores/editorRevealStore'
 import { useEditorStatus } from '../stores/editorStatusStore'
 import { useLayoutStore } from '../stores/layoutStore'
+import { useOpenWaitsStore } from '../stores/openWaitsStore'
 import { useSettingsStore } from '../stores/settingsStore'
+import { CsvTable } from './CsvTable'
+import { HtmlPreview } from './HtmlPreview'
 import { IconButton } from './IconButton'
 import { LanguageNotice, LargeFileNotice } from './LanguageNotice'
 import { MarkdownPreview, type PreviewSelection, isMarkdownPath } from './MarkdownPreview'
@@ -231,6 +245,21 @@ export function EditorView({
   const [liveEditor, setLiveEditor] = useState<monaco.editor.IStandaloneCodeEditor | null>(null)
   const previewText = useModelText(liveEditor, markdown && preview)
   const external = useExternalEditorAction(paneId)
+  const artifacts = useArtifactListing(workspaceId)
+  const pad = isPadPath(artifacts ?? null, filePath)
+  const padRef = useRef(pad)
+  padRef.current = pad
+  const [padFull, setPadFull] = useState(false)
+  const padHint = d.artifacts.padHint
+  const waitedBy = useOpenWaitsStore((s) => s.byPane[paneId])
+  const runnable = isPreviewPath(filePath) && !remote && !blocked
+  const inArtifacts = isInside(artifacts?.dir, filePath)
+  const [runChoice, setRunChoice] = useState<{ file: string; on: boolean } | null>(null)
+  const chosen = runChoice && runChoice.file === filePath ? runChoice.on : null
+  const tabular = isCsvPath(filePath) && !remote && !blocked
+  const tabled = tabular && (chosen ?? inArtifacts)
+  const tableText = useModelText(liveEditor, tabled)
+  const running = runnable && (chosen ?? inArtifacts)
   const visible = usePaneVisible(paneId)
   const visibleRef = useRef(visible)
   const missedCheckRef = useRef(false)
@@ -519,9 +548,19 @@ export function EditorView({
       if (model && isDirty(model)) void save()
     }
     const autoSave = createAutoSave(() => saveIfDirty('afterDelay'), AUTO_SAVE_DELAY_MS)
+    const padSave = createAutoSave(() => {
+      const model = editor.getModel()
+      if (padRef.current && !diskBarRef.current && model && isDirty(model)) void save()
+    }, PAD_SAVE_DELAY_MS)
+    const measurePad = (): void =>
+      setPadFull(padRef.current && exceedsPad(editor.getModel()?.getValue() ?? ''))
     const contentSub = editor.onDidChangeModelContent(() => {
       if (useSettingsStore.getState().editor.autoSave === 'afterDelay') autoSave.schedule()
+      if (!padRef.current) return
+      padSave.schedule()
+      measurePad()
     })
+    const modelSub = editor.onDidChangeModel(measurePad)
     const blurSub = editor.onDidBlurEditorText(() => saveIfDirty('onFocusChange'))
 
     const detachWheelZoom = attachWheelZoom(host, 'editor', isMac)
@@ -534,8 +573,10 @@ export function EditorView({
       resize.disconnect()
       clearTimeout(highlightTimer)
       autoSave.cancel()
+      padSave.cancel()
       appChordKeys.dispose()
       contentSub.dispose()
+      modelSub.dispose()
       blurSub.dispose()
       detachWheelZoom()
       editor.dispose()
@@ -720,6 +761,18 @@ export function EditorView({
   }, [editorSettings])
 
   useEffect(() => {
+    const editor = editorRef.current
+    if (!pad || !editor) {
+      setPadFull(false)
+      return
+    }
+    setPreview(false)
+    setPadFull(exceedsPad(editor.getModel()?.getValue() ?? ''))
+    editor.updateOptions({ placeholder: padHint })
+    return () => editor.updateOptions({ placeholder: '' })
+  }, [pad, padHint])
+
+  useEffect(() => {
     editorRef.current?.updateOptions({ smoothScrolling: !reducedMotion })
   }, [reducedMotion])
 
@@ -762,6 +815,39 @@ export function EditorView({
           hintSide="left"
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => sendSelectionRef.current()}
+        />
+      ) : null}
+      {running && filePath ? (
+        <HtmlPreview
+          key={filePath}
+          workspaceId={workspaceId}
+          paneId={paneId}
+          filePath={filePath}
+          visible={visible}
+          onSendErrors={(count, text) =>
+            selectionSend.open({ kind: 'preview-error', file: filePath, count, text })
+          }
+        />
+      ) : null}
+      {tabled && filePath ? (
+        <CsvTable source={tableText} delimiter={csvDelimiter(filePath)} />
+      ) : null}
+      {tabular && filePath ? (
+        <IconButton
+          className="editor-mode"
+          icon={tabled ? CodeIcon : TableIcon}
+          label={tabled ? d.viewer.csvSource : d.viewer.csvTable}
+          hintSide="left"
+          onClick={() => setRunChoice({ file: filePath, on: !tabled })}
+        />
+      ) : null}
+      {runnable && filePath ? (
+        <IconButton
+          className="editor-mode"
+          icon={running ? CodeIcon : PlayIcon}
+          label={running ? d.preview.editSource : d.preview.run}
+          hintSide="left"
+          onClick={() => setRunChoice({ file: filePath, on: !running })}
         />
       ) : null}
       {markdown ? (
@@ -844,6 +930,29 @@ export function EditorView({
               </>
             ) : null}
           </div>
+        </Alert>
+      ) : null}
+      {waitedBy ? (
+        <Alert className={cn(ATTENTION_ALERT, 'editor-waited')} data-testid="editor-waited">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="min-w-0 flex-1">
+              {waitedBy.command
+                ? fmt(d.viewer.waitedBy, { command: waitedBy.command, pane: waitedBy.from })
+                : fmt(d.viewer.waitedByShell, { pane: waitedBy.from })}
+            </span>
+            <Button
+              variant="outline"
+              size="xs"
+              onClick={() => void requestClosePane(workspaceId, paneId)}
+            >
+              {d.viewer.waitedClose}
+            </Button>
+          </div>
+        </Alert>
+      ) : null}
+      {padFull ? (
+        <Alert className={cn(ATTENTION_ALERT, 'editor-pad-full')} data-testid="pad-full">
+          {fmt(d.artifacts.padFull, { limit: PAD_MAX_BYTES / 1024 })}
         </Alert>
       ) : null}
       {unsavedPath ? (

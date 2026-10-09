@@ -879,6 +879,45 @@
         "src/renderer/components/PrivacySection.tsx"
       ],
       "specs": ["e2e/secret-redaction.spec.ts"]
+    },
+    {
+      "name": "artifacts",
+      "paths": [
+        "src/main/artifactFolders.ts",
+        "src/main/htmlPreview.ts",
+        "src/main/previewLimits.ts",
+        "src/main/previewScheme.ts",
+        "src/shared/artifacts.ts",
+        "src/shared/htmlPreview.ts",
+        "src/renderer/components/ArtifactsSection.tsx",
+        "src/renderer/components/HtmlPreview.tsx",
+        "src/renderer/stores/artifactsStore.ts",
+        "src/renderer/lib/artifacts.ts",
+        "src/renderer/lib/callerFocus.ts",
+        "src/renderer/lib/revealFolder.ts",
+        "src/cli/stdinCapture.ts",
+        "src/main/artifactCompiler.ts",
+        "src/main/previewShell.ts",
+        "src/main/esbuildService.ts",
+        "src/main/gateway/artifactFiles.ts",
+        "src/shared/artifactRuntime.ts",
+        "scripts/build-artifact-runtime.mjs",
+        "src/renderer/components/CsvTable.tsx",
+        "src/renderer/components/MermaidDiagram.tsx",
+        "src/renderer/lib/csvTable.ts",
+        "src/renderer/lib/mermaidImage.ts",
+        "src/main/openWaits.ts",
+        "src/main/openFileMethods.ts",
+        "src/renderer/lib/openWaits.ts",
+        "src/renderer/stores/openWaitsStore.ts",
+        "src/cli/fileArgs.ts"
+      ],
+      "specs": [
+        "e2e/artifacts.spec.ts",
+        "e2e/artifacts-preview.spec.ts",
+        "e2e/open-from-shell.spec.ts",
+        "e2e/packaged-preview.spec.ts"
+      ]
     }
   ]
 }

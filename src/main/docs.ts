@@ -1,3 +1,4 @@
+import { runtimeHelp } from '../shared/artifactRuntime'
 import type { ExtensionInfo } from '../shared/extensions'
 import { registerControlMethod } from './controlServer'
 
@@ -5,12 +6,23 @@ const CLI_HELP = `ostia — control-socket CLI
 
   ostia whoami                   show this pane's identity
   ostia commands                 list commands available in this window
-  ostia open <file>...           show files to the human in the editor (text, image or PDF),
-                                 any path on disk; file:line[:col] jumps there. Several files
-                                 get a tab each.
+  ostia open <target>...         show something to the human: a file (text, image or PDF, any
+                                 path on disk; file:line[:col] jumps there; several files get
+                                 a tab each), a folder (in the Files panel, under the home
+                                 folder only), an http(s):// URL (a browser pane) or - (stdin).
+                                 The new tab takes focus only when this pane has it (a browser
+                                 pane is still shown, without the keyboard).
                                  A sandboxed workspace opens only files under the home folder
-  ostia <file>...                same, when the first word is a path (has a /, or starts with
-                                 . or ~) or names a file here that is no command or extension
+  ostia open -b <target>...      --background: never take focus
+  ostia open --tab|--split right|down <file>...   a tab beside this pane, or a split of it
+  ostia --wait <file>            return when the tab is closed (EDITOR="ostia --wait"); exit 0
+                                 on a close, 1 when the wait ended any other way
+  ostia diff [--wait] <a> <b>    compare two text files, read-only
+  ostia -n <dir>                 new workspace on that folder
+  <cmd> | ostia - [--name <f>]   save stdin (16 MiB at most) into $OSTIA_ARTIFACTS and open it
+  ostia <target>...              same as open, when the first word has a /, starts with . or ~,
+                                 is a URL or -, or names a file here that is no command or
+                                 extension
   ostia pane.list                 every pane, every workspace — {paneId(external),workspaceId,
                                   kind,title,cwd,running,blockCount,lastExitCode,agent,
                                   agentSessionId,agentState,agentMessage,splitTabId,
@@ -335,7 +347,7 @@ export function registerDocsMethods(deps: {
 }): void {
   registerControlMethod('docs', {
     handler: (_params, ctx) => ({
-      cli: `${CLI_HELP}${extensionHelp(deps.extensions())}${ctx.identity.manager ? MANAGER_HELP : ''}`,
+      cli: `${CLI_HELP}\n${runtimeHelp()}\n${extensionHelp(deps.extensions())}${ctx.identity.manager ? MANAGER_HELP : ''}`,
       note: 'run `ostia commands --json` for the machine-readable command list',
     }),
   })

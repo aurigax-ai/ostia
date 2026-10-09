@@ -81,6 +81,10 @@ export async function runInTerminal(
   await typeLine(win, line)
 }
 
+export function terminalTab(win: Page): Locator {
+  return win.locator('.pane-tab').first().getByRole('tab')
+}
+
 export async function addTab(win: Page): Promise<void> {
   const strip = win.getByRole('tablist')
   const box = await strip.boundingBox()

@@ -45,6 +45,7 @@ export type AppChord =
   | 'history.search'
   | 'workflows.search'
   | 'workspace.new'
+  | 'workspace.openPad'
   | 'window.new'
   | 'tab.new'
   | 'terminal.clear'
@@ -99,6 +100,7 @@ export const DEFAULT_CHORDS: Readonly<
   'history.search': ['Cmd+Shift+H', 'Ctrl+Shift+H'],
   'workflows.search': ['Cmd+Shift+S', 'Ctrl+Shift+S'],
   'workspace.new': ['Cmd+N', 'Ctrl+Shift+N'],
+  'workspace.openPad': ['Cmd+Alt+N', 'Ctrl+Alt+N'],
   'window.new': ['Cmd+Shift+N', 'Ctrl+Shift+Alt+N'],
   'tab.new': ['Cmd+T', 'Ctrl+Shift+T'],
   'terminal.clear': ['terminal:Cmd+K', 'terminal:Ctrl+Shift+K'],

@@ -455,6 +455,25 @@ describe('pressing Enter after a reference the human pointed at', () => {
     expect(window.ostia.pty.write).toHaveBeenCalledOnce()
   })
 
+  it('never presses Enter after a preview’s errors, whose text the page wrote', async () => {
+    claudeRunning()
+    vi.mocked(window.ostia.selection.send).mockResolvedValue({
+      ok: true,
+      path: REPORT,
+      imagePath: null,
+    })
+    const res = await sendSelectionToPane({
+      capture: { kind: 'preview-error', file: '/a/page.html', count: 1, text: 'boom' },
+      sourcePaneId: 'pane-editor',
+      targetPaneId: TARGET,
+      note: '',
+    })
+    expect(res.ok && res.inserted).toBe(true)
+    await settle()
+    expect(term.paste).toHaveBeenCalledWith(`@${REPORT} `)
+    expect(window.ostia.pty.write).not.toHaveBeenCalled()
+  })
+
   it('presses Enter after a region capture and a sent selection too', async () => {
     claudeRunning()
     vi.mocked(window.ostia.browser.regionSend).mockResolvedValue({

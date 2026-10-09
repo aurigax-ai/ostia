@@ -1,10 +1,16 @@
 import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
-import type { FileTarget, OpenFileError } from '../shared/openFiles'
+import {
+  type FileTarget,
+  type OpenFileError,
+  type OpenPlacement,
+  openTargetKind,
+} from '../shared/openFiles'
 
 export interface FileProbe {
   cwd: string
   isFile: (path: string) => boolean
+  isDir?: (path: string) => boolean
   home?: string
 }
 
@@ -34,9 +40,48 @@ export function parseFileArg(arg: string, probe: FileProbe): FileTarget {
 
 export type FileWord = 'path' | 'name' | null
 
+export const OPEN_FLAGS: readonly string[] = [
+  '-b',
+  '--background',
+  '--name',
+  '-w',
+  '--wait',
+  '--tab',
+  '--split',
+  '-n',
+  '--new',
+]
+
 export function fileWord(word: string, probe: FileProbe): FileWord {
+  if (word === '-' || OPEN_FLAGS.includes(word)) return 'path'
+  if (word.startsWith('-')) return null
   if (word.includes('/') || word.startsWith('.') || word.startsWith('~')) return 'path'
   return probe.isFile(parseFileArg(word, probe).path) ? 'name' : null
+}
+
+export type OpenTarget =
+  | { kind: 'url'; url: string }
+  | { kind: 'stdin' }
+  | { kind: 'folder'; path: string }
+  | { kind: 'file'; file: FileTarget }
+
+export function openTarget(word: string, probe: FileProbe): OpenTarget {
+  const kind = openTargetKind(word)
+  if (kind === 'url') return { kind: 'url', url: word }
+  if (kind === 'stdin') return { kind: 'stdin' }
+  const file = parseFileArg(word, probe)
+  return probe.isDir?.(file.path) ? { kind: 'folder', path: file.path } : { kind: 'file', file }
+}
+
+const REVEAL_REFUSALS: Record<string, string> = {
+  'outside-home': 'folders show only under the home folder',
+  'not-found': 'no such folder',
+  'not-a-directory': 'not a folder',
+  'outside-sandbox': 'a sandboxed workspace cannot show folders',
+}
+
+export function revealRefusalLine(path: string, error: string, message?: string): string {
+  return `ostia: ${path}: ${REVEAL_REFUSALS[error] ?? message ?? error}`
 }
 
 export function isClaimedWord(
@@ -56,4 +101,33 @@ const REFUSALS: Record<OpenFileError, string> = {
 
 export function refusalLine(path: string, error: OpenFileError): string {
   return `ostia: ${path}: ${REFUSALS[error]}`
+}
+
+const DIFF_REFUSALS: Record<string, string> = {
+  ...REFUSALS,
+  binary: 'is not a text file',
+  'too-large': 'is too large to compare',
+}
+
+export function diffRefusalLine(path: string | undefined, error: string, message?: string): string {
+  const reason = DIFF_REFUSALS[error] ?? message ?? error
+  return path ? `ostia diff: ${path}: ${reason}` : `ostia diff: ${reason}`
+}
+
+export type PlacementVerdict =
+  | { ok: true; placement: OpenPlacement | undefined }
+  | { ok: false; message: string }
+
+export function placementOf(flags: {
+  tab: boolean
+  split: string | undefined
+  wait: boolean
+}): PlacementVerdict {
+  if (flags.split !== undefined && flags.split !== 'right' && flags.split !== 'down') {
+    return { ok: false, message: '--split takes right or down' }
+  }
+  if (flags.tab && flags.split) return { ok: false, message: 'use --tab or --split, not both' }
+  if (flags.wait && flags.split)
+    return { ok: false, message: '--wait opens a tab; it cannot split' }
+  return { ok: true, placement: flags.tab ? 'tab' : (flags.split as OpenPlacement | undefined) }
 }

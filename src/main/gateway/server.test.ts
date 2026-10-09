@@ -19,9 +19,8 @@ vi.mock('../controlServer', () => ({
   registerControlMethod: (name: string) => registeredMethods.push(name),
 }))
 
-const { configureGatewayControl, phoneCanRespond, startGateway, stopGateway } = await import(
-  './server'
-)
+const { capForPlatformEvent, configureGatewayControl, phoneCanRespond, startGateway, stopGateway } =
+  await import('./server')
 const { gatewaySetCap, registerGatewayMethods } = await import('./index')
 
 type Json = {
@@ -58,6 +57,8 @@ const deps = {
   getTerminalState: vi.fn(),
   listPanes: vi.fn().mockResolvedValue([]),
   listWorkspaces: vi.fn().mockResolvedValue([]),
+  artifactsDir: vi.fn().mockReturnValue(null),
+  openArtifact: vi.fn().mockResolvedValue(true),
   fileScope: vi.fn().mockReturnValue({
     home: '/nonexistent-home',
     dataDirs: [],
@@ -232,6 +233,18 @@ describe('gateway server over a real WebSocket', () => {
     expect(state.params?.payload).toEqual({ sessionId: 's1', state: 'waiting' })
     const notify = await c.next((m) => m.params?.type === 'notify')
     expect(notify.params?.payload).toEqual({ title: 'Build done', from: externalPaneId })
+  })
+
+  it('sends artifact.changed to a phone with read', async () => {
+    const c = await connect(registerDevice({ name: 'Phone', pubkey: 'pk' }).token)
+    expect(capForPlatformEvent('artifact.changed')).toBe('read')
+    emitPlatformEvent('artifact.changed', { sessionId: 's1', path: 'report.md', change: 'added' })
+    const changed = await c.next((m) => m.params?.type === 'artifact.changed')
+    expect(changed.params?.payload).toEqual({
+      sessionId: 's1',
+      path: 'report.md',
+      change: 'added',
+    })
   })
 
   it('sends ask.created and ask.resolved to every phone with read', async () => {

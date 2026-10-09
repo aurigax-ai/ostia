@@ -27,6 +27,7 @@ export type SelectionCapture =
       region: Region | null
     }
   | { kind: 'terminal'; cwd: string | null; command: string | null; text: string }
+  | { kind: 'preview-error'; file: string; count: number; text: string }
 
 export const SELECTION_COMMAND_MAX = 2000
 
@@ -48,6 +49,7 @@ export const SELECTION_TEXT_MAX = 50_000
 export const SELECTION_PATH_MAX = 4096
 export const SELECTION_NOTE_MAX = 4000
 export const SELECTION_IMAGE_MAX = 25 * 1024 * 1024
+export const PREVIEW_ERROR_MAX = 8 * 1024
 
 const ABSOLUTE_PATH = /^(\/|[A-Za-z]:[\\/])/
 
@@ -154,6 +156,12 @@ export function normalizeSelection(value: unknown): SelectionCapture | null {
       }
       return { kind: 'pdf-region', file, page, pageWidth, pageHeight, region }
     }
+    case 'preview-error': {
+      const errors = count(c.count)
+      const body = text(c.text)
+      if (errors === null || body === null) return null
+      return { kind: 'preview-error', file, count: errors, text: clip(body, PREVIEW_ERROR_MAX) }
+    }
     default:
       return null
   }
@@ -198,6 +206,8 @@ export function selectionLabel(capture: SelectionCapture): string {
       return `${name}, ${pageSpan(capture.firstPage, capture.lastPage)}`
     case 'pdf-region':
       return `${name}, page ${capture.page}${capture.region ? ` (${regionText(capture.region)})` : ''}`
+    case 'preview-error':
+      return `${name}, ${capture.count} ${capture.count === 1 ? 'error' : 'errors'}`
   }
 }
 
@@ -224,6 +234,8 @@ function title(capture: SelectionCapture): string {
       return capture.region ? 'PDF page region' : 'PDF page'
     case 'terminal':
       return capture.command ? 'Terminal output' : 'Terminal text'
+    case 'preview-error':
+      return 'Preview error'
   }
 }
 
@@ -258,6 +270,11 @@ function sourceLines(capture: SelectionCapture, imagePath: string | null): strin
         `- Directory: ${capture.cwd ?? '(unknown)'}`,
         ...(capture.command ? [`- Command: ${capture.command}`] : []),
       ]
+    case 'preview-error':
+      return [
+        `- Errors: ${capture.count} (console errors of the page running in Ostia's preview, newest last)`,
+        '- The preview has no network; a line starting with "blocked" names a host the page tried to reach',
+      ]
   }
 }
 
@@ -277,6 +294,8 @@ export function renderSelectionReport(
   lines.push(`- Captured: ${capturedAt.toISOString()}`, '')
   if (capture.kind === 'terminal') {
     lines.push('## Terminal text', '', fence(capture.text), '')
+  } else if (capture.kind === 'preview-error') {
+    lines.push('## Errors', '', fence(capture.text), '')
   } else if (capture.kind === 'text' || capture.kind === 'pdf-text') {
     const lang = capture.kind === 'text' && capture.view === 'source' ? fenceLang(capture.file) : ''
     lines.push('## Selected text', '', fence(capture.text, lang), '')

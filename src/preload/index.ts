@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type { AgentSessionInfo } from '../shared/agentSessionInfo'
 import type { HibernateOutcome } from '../shared/agentWork'
 import type { ApprovalState } from '../shared/approvals'
+import type { ArtifactListing } from '../shared/artifacts'
 import type {
   AssistAvailability,
   AssistCatalog,
@@ -47,6 +48,7 @@ import type {
 import type { FileOpResult } from '../shared/fileOps'
 import type { CoreItems } from '../shared/git'
 import type { GuestChordFire } from '../shared/guestChords'
+import type { PreviewEvent, PreviewOpened } from '../shared/htmlPreview'
 import type { LoadedIconTheme } from '../shared/iconTheme'
 import type {
   ReleaseState,
@@ -383,6 +385,37 @@ const bridge: OstiaBridge = {
     create: () => ipcRenderer.invoke('scratch:create') as Promise<string | null>,
     files: (workspaceId) => ipcRenderer.invoke('scratch:files', workspaceId) as Promise<number>,
     reveal: (workspaceId) => ipcRenderer.send('scratch:reveal', workspaceId),
+  },
+  artifacts: {
+    list: (workspaceId) =>
+      ipcRenderer.invoke('artifacts:list', workspaceId) as Promise<ArtifactListing | null>,
+    pad: (workspaceId) =>
+      ipcRenderer.invoke('artifacts:pad', workspaceId) as Promise<string | null>,
+    reveal: (workspaceId) => ipcRenderer.send('artifacts:reveal', workspaceId),
+    onChanged: (cb) => {
+      const handler = (_e: Electron.IpcRendererEvent, workspaceId: string): void => cb(workspaceId)
+      ipcRenderer.on('artifacts:changed', handler)
+      return () => ipcRenderer.removeListener('artifacts:changed', handler)
+    },
+  },
+  openWaits: {
+    onEnded: (cb) => {
+      const handler = (_e: Electron.IpcRendererEvent, paneIds: string[]): void => cb(paneIds)
+      ipcRenderer.on('open-waits:ended', handler)
+      return () => ipcRenderer.removeListener('open-waits:ended', handler)
+    },
+  },
+  preview: {
+    open: (paneId, path, theme) =>
+      ipcRenderer.invoke('preview:open', paneId, path, theme) as Promise<PreviewOpened | null>,
+    shown: (id, visible) => ipcRenderer.send('preview:shown', id, visible),
+    stop: (id) => ipcRenderer.send('preview:stop', id),
+    close: (id) => ipcRenderer.send('preview:close', id),
+    onEvent: (cb) => {
+      const handler = (_e: Electron.IpcRendererEvent, event: PreviewEvent): void => cb(event)
+      ipcRenderer.on('preview:event', handler)
+      return () => ipcRenderer.removeListener('preview:event', handler)
+    },
   },
   windows: {
     info: () => ipcRenderer.invoke('windows:info') as Promise<WindowInfo>,

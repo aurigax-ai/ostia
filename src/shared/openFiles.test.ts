@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { OPEN_FILES_MAX, parseFileTargets } from './openFiles'
+import { OPEN_FILES_MAX, openTargetKind, parseFileTargets } from './openFiles'
 
 describe('parseFileTargets', () => {
   it('keeps a path with a positive line and column', () => {
@@ -25,5 +25,27 @@ describe('parseFileTargets', () => {
     expect(parseFileTargets([{ path: 7 }])).toBeNull()
     const many = Array.from({ length: OPEN_FILES_MAX + 1 }, (_, i) => ({ path: `/f${i}` }))
     expect(parseFileTargets(many)).toBeNull()
+  })
+})
+
+describe('openTargetKind', () => {
+  it('takes a word for a URL only when it starts with http:// or https://', () => {
+    expect(openTargetKind('https://example.com/a')).toBe('url')
+    expect(openTargetKind('HTTP://127.0.0.1:3000')).toBe('url')
+    for (const word of [
+      'example.com',
+      'localhost:3000',
+      'www.example.com/a',
+      'ftp://x/',
+      'http:',
+    ]) {
+      expect(openTargetKind(word), word).toBe('path')
+    }
+  })
+
+  it('reads a lone dash as stdin and nothing else', () => {
+    expect(openTargetKind('-')).toBe('stdin')
+    expect(openTargetKind('--')).toBe('path')
+    expect(openTargetKind('-x')).toBe('path')
   })
 })

@@ -16,7 +16,9 @@ interface FileTreeState {
   edit: TreeEdit | null
   trashing: string[] | null
   revealed: { root: string; path: string } | null
+  shown: { workspaceId: string; dir: string; from: string } | null
   reveal: (root: string, path: string) => void
+  show: (workspaceId: string, dir: string, from: string) => void
   reload: (dirs: string[]) => void
   setClipboard: (clipboard: TreeClipboard | null) => void
   setEdit: (edit: TreeEdit | null) => void
@@ -29,7 +31,9 @@ export const useFileTreeStore = create<FileTreeState>((set) => ({
   edit: null,
   trashing: null,
   revealed: null,
+  shown: null,
   reveal: (root, path) => set({ revealed: { root, path } }),
+  show: (workspaceId, dir, from) => set({ shown: { workspaceId, dir, from }, revealed: null }),
   reload: (dirs) =>
     set((s) => {
       const versions = { ...s.versions }

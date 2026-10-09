@@ -52,9 +52,11 @@ import { setSettingsFile } from './monaco/language'
 import { isMac } from './platform'
 import { startAgentGroupsSync } from './stores/agentGroupsStore'
 import { startApprovals } from './stores/approvalsStore'
+import { wireArtifacts } from './stores/artifactsStore'
 import { startAssistAvailability } from './stores/assistStore'
 import { startChatTools } from './stores/chatToolsStore'
 import { startKeymapSync } from './stores/keymapStore'
+import { wireOpenWaits } from './stores/openWaitsStore'
 import { startPaneRecencySync } from './stores/paneRecencyStore'
 import { startSnapshotAutosave } from './stores/persistence'
 import { usePluginsStore } from './stores/pluginsStore'
@@ -75,6 +77,8 @@ registerViewCommands()
 wireCommandBridge()
 wireTerminalStateBridge()
 wireExtensionBridge()
+wireArtifacts()
+wireOpenWaits()
 wirePaneRunBridge()
 wireManagerBridge()
 wireRemoteFolders()

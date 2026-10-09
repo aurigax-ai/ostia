@@ -4,7 +4,7 @@ import { dataUrl } from './scripts/dataUrl.mjs'
 
 export default defineConfig({
   plugins: [dataUrl()],
-  assetsInclude: ['**/*.md'],
+  assetsInclude: ['**/*.md', '**/*.txt'],
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src/renderer'),

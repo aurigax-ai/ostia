@@ -222,6 +222,20 @@ describe('block chords', () => {
   })
 })
 
+describe('the scratch pad chord', () => {
+  it('is Ctrl+Alt+N (Alt+Cmd+N on macOS), free of Monaco, the shell and every other default', () => {
+    for (const mac of [false, true]) {
+      const [spec] = defaultChords('workspace.openPad', mac)
+      expect(formatChord(spec, mac)).toBe(mac ? 'Alt+Cmd+N' : 'Ctrl+Alt+N')
+      expect(usedByMonaco(spec, mac)).toBe(false)
+      expect(bindingProblem('workspace.openPad', spec, mac)).toBeNull()
+      expect(conflictsWith('workspace.openPad', spec, mac)).toEqual([])
+    }
+    expect(matchChord(key('n', { ctrlKey: true, altKey: true }), false)).toBe('workspace.openPad')
+    expect(matchChord(key('n', { metaKey: true, altKey: true }), true)).toBe('workspace.openPad')
+  })
+})
+
 describe('isAppChord', () => {
   it('separates app-level chords from terminal-local ones', () => {
     expect(isAppChord('palette.toggle')).toBe(true)

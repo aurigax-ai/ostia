@@ -28,6 +28,7 @@ import appIcon from '../../resources/icon.png?asset'
 import type { AgentResume } from '../shared/agentResume'
 import type { HibernateOutcome } from '../shared/agentWork'
 import { appEnv } from '../shared/appEnv'
+import { ARTIFACT_LIST_MAX } from '../shared/artifacts'
 import { SHARED_BROWSER_PARTITION, browserPartition } from '../shared/browserProfile'
 import { MANAGER_CAPABILITIES } from '../shared/capabilities'
 import { parseChatToolSettings } from '../shared/chatTools'
@@ -43,9 +44,11 @@ import type {
   WorkspaceChip,
 } from '../shared/extensions'
 import { parseGitSettings } from '../shared/git'
+import { isPreviewPartition } from '../shared/htmlPreview'
 import { KEEP_SHELLS_FEATURE, KEPT_SHELLS_DIR, parseKeepShells } from '../shared/keepShells'
 import { languageServerKey } from '../shared/languageServers'
 import { MANAGER_FEATURE, managerAgents, parseManagerSettings } from '../shared/managerSettings'
+import { OPEN_FILES_COMMAND } from '../shared/openFiles'
 import { OPEN_FILES_MAX } from '../shared/openFiles'
 import { isHostNamed } from '../shared/osc7'
 import { parsePortsSettings } from '../shared/ports'
@@ -90,6 +93,8 @@ import { installAppMenu } from './appMenu'
 import { registerAppUpdate } from './appUpdate'
 import { appVersion, runningBuild } from './appVersion'
 import { approvals, registerApprovals } from './approvals'
+import { ArtifactCompiler } from './artifactCompiler'
+import { ArtifactFolders, registerArtifactIpc } from './artifactFolders'
 import { createAskHub } from './asks'
 import { registerAssistIpc } from './assistIpc'
 import { registerAttentionMethods, targetOf } from './attention'
@@ -133,6 +138,7 @@ import { type Diagnostics, registerDiagnostics } from './diagnostics'
 import { discreteGpu, gpuStartPlan, querySwitcherooGpus } from './discreteGpu'
 import { registerDocsMethods } from './docs'
 import { registerEditorLanguageIpc } from './editorLanguages'
+import { loadEsbuild } from './esbuildService'
 import { emitPlatformEvent, emitSessionState, platformEvents } from './events'
 import { confirmForExtension } from './extensionConfirm'
 import { ExtensionHost, registerExtensionMethods } from './extensionHost'
@@ -165,6 +171,12 @@ import { ViewStateStore } from './git/viewState'
 import { GlobalHotkey, toggleWindows } from './globalHotkey'
 import { type GuestChords, registerGuestChords } from './guestChords'
 import { clearGuestNetwork, forgetGuestNetwork, watchGuestNetwork } from './guestNetwork'
+import {
+  PreviewHost,
+  type PreviewSession,
+  hardenPreviewAttach,
+  registerPreviewIpc,
+} from './htmlPreview'
 import { registerIconThemeIpc } from './iconThemes'
 import {
   type PaneIdentity,
@@ -216,6 +228,7 @@ import {
 import { OpenFileGrants } from './openFileGrants'
 import { openFileForExtension, registerOpenFileMethods } from './openFileMethods'
 import { registerOpenPathIpc } from './openPath'
+import { OpenWaits } from './openWaits'
 import type { OriginReach } from './originAgents'
 import { loadPaneIdSalt } from './paneIdSalt'
 import {
@@ -368,7 +381,7 @@ import {
 import type { TmuxPane } from './tmux/tmuxServer'
 import { AppTray, closeAction, isHiddenLaunch, readCloseToTray, unreadWorkspaces } from './tray'
 import { type UpdateRunner, createUpdateRunner } from './updateRun'
-import { OLD_PRODUCT_NAME, appConfigDir, configHome, dataHome } from './userDirs'
+import { OLD_PRODUCT_NAME, appConfigDir, appDataDir, configHome, dataHome } from './userDirs'
 import {
   deleteGlobalVaultValue,
   registerVaultMethods,
@@ -880,13 +893,56 @@ function resizePty(entry: PtyEntry | undefined, cols: number, rows: number): voi
 
 const scratchFolders = new ScratchFolders(privateTmpDir(`${PRODUCT_NAME}-scratch`))
 
+const artifactFolders = new ArtifactFolders(
+  {
+    root: join(appDataDir(), 'artifacts'),
+    scratchDirOf: (workspaceId) => scratchFolders.dirOf(workspaceId),
+    scratchDirs: () => scratchFolders.dirs(),
+  },
+  (workspaceId, changes) => {
+    const windowId = windowForWorkspace(workspaceId)
+    if (windowId) windows.get(windowId)?.webContents.send('artifacts:changed', workspaceId)
+    for (const { path, change } of changes.slice(0, ARTIFACT_LIST_MAX)) {
+      emitPlatformEvent('artifact.changed', { sessionId: workspaceId, path, change })
+    }
+  },
+)
+
 function fileRoots(): string[] {
-  return [homedir(), app.getPath('userData'), scratchFolders.root]
+  return [homedir(), app.getPath('userData'), scratchFolders.root, artifactFolders.root]
 }
 
 const openFileGrants = new OpenFileGrants({
   roots: fileRoots,
   file: join(app.getPath('userData'), 'opened-files.json'),
+})
+
+const artifactCompiler = new ArtifactCompiler(
+  () => loadEsbuild(app.isPackaged),
+  `chrome${process.versions.chrome.split('.')[0]}`,
+)
+
+const openWaits = new OpenWaits((windowId, paneIds) =>
+  windows.get(windowId)?.webContents.send('open-waits:ended', paneIds),
+)
+
+const previews = new PreviewHost({
+  sessionOf: (partition) => session.fromPartition(partition) as unknown as PreviewSession,
+  confine: (path) => openFileGrants.confine(path),
+  servesFolder: (dir) => artifactFolders.holds(dir),
+  ownsPane: (windowId, paneId) => getByPaneId(paneId)?.windowId === windowId,
+  send: (windowId, event) => windows.get(windowId)?.webContents.send('preview:event', event),
+  processes: () =>
+    app.getAppMetrics().map((metric) => ({
+      pid: metric.pid,
+      memoryBytes: metric.memory.workingSetSize * 1024,
+      cpuPercent: metric.cpu.percentCPUUsage,
+    })),
+  runtimeDir: () =>
+    app.isPackaged
+      ? join(process.resourcesPath, 'artifact-runtime')
+      : join(app.getAppPath(), 'out', 'artifact-runtime'),
+  compile: (file, source) => artifactCompiler.compile(file, source),
 })
 
 function isScratchPane(paneId: string): boolean {
@@ -1585,6 +1641,14 @@ function wireWindow(win: BrowserWindow): void {
   attachContextMenu(win.webContents, false)
 
   win.webContents.on('will-attach-webview', (event, webPreferences, params) => {
+    if (isPreviewPartition(params.partition)) {
+      if (previews.acceptsAttach(params.partition, params.src, String(win.webContents.id))) {
+        hardenPreviewAttach(webPreferences, params)
+      } else {
+        event.preventDefault()
+      }
+      return
+    }
     const extId = extensionOfPartition(params.partition)
     const allowed = extId
       ? (extensionHost?.isAllowedPanelUrl(extId, params.src) ?? false)
@@ -1601,6 +1665,7 @@ function wireWindow(win: BrowserWindow): void {
   win.webContents.on('did-attach-webview', (_e, guest) => {
     clipboardEdits?.guardGuest(guest)
     guestChords?.guardGuest(guest)
+    if (previews.adopt(guest)) return
     if (hardenExtensionGuest(guest)) {
       attachContextMenu(guest, false)
       return
@@ -1629,6 +1694,8 @@ function wireWindow(win: BrowserWindow): void {
     gitService?.windowGone(wid)
     portsService?.windowGone(wid)
     releaseWindowPtys(wid)
+    previews.windowClosed(wid)
+    openWaits.windowGone(wid)
     fileWatches?.unwatchOwner(wid)
     commandsByWindow.delete(wid)
     for (const [paneId, wcId] of browserPanes) {
@@ -1744,6 +1811,8 @@ function registerIpc(): void {
         workspaceId: event.workspaceId,
       })
     } else if (event.type === 'pane-closed') {
+      previews.paneClosed(event.paneId)
+      openWaits.paneClosed(event.paneId)
       const identity = getByPaneId(event.paneId)
       if (identity) {
         dropIdentity(identity.externalId)
@@ -1778,6 +1847,8 @@ function registerIpc(): void {
       processes?.workspaceClosed(event.workspaceId)
       extensionHost?.clearWorkspaceChips(event.workspaceId)
       extensionHost?.remoteFolders?.workspaceClosed(event.workspaceId)
+      openWaits.workspaceClosed(event.workspaceId)
+      artifactFolders.close(event.workspaceId)
       scratchFolders.remove(event.workspaceId)
       forgetWorkspaceRequests(event.workspaceId)
       forgetSandboxRuntime(event.workspaceId)
@@ -2026,6 +2097,7 @@ function releaseMergedSandbox(workspaceId: string, exiting?: PtyEntry): void {
 }
 
 function movePanesToWorkspace(paneIds: string[], sourceId: string, targetId: string): void {
+  for (const paneId of paneIds) openWaits.paneMoved(paneId)
   for (const identity of moveToWorkspace(paneIds, targetId)) {
     emitPaneEvent('pane.created', {
       paneId: identity.externalId,
@@ -2049,6 +2121,8 @@ function mergeWorkspace(sourceId: string, targetId: string): void {
     if (entry.workspaceId === sourceId) entry.workspaceId = targetId
   }
   workspaceSandboxes.merge(sourceId, targetId)
+  artifactFolders.merge(sourceId, targetId)
+  artifactFolders.close(sourceId)
   removeWorkspace(sourceId)
   forgetWorkspaceRequests(sourceId)
   mergedSandboxes.add(sourceId)
@@ -2225,6 +2299,7 @@ function registerPtyIpc(): void {
         SHELL_STATE: stateFile,
       }),
       agentHooks: settings.agents?.hooks,
+      artifactsDir: workspaceId ? artifactFolders.ensure(workspaceId) : null,
       launcherDir: paneLauncherDir(),
     })
     let secretNotice = ''
@@ -2533,7 +2608,10 @@ function registerPtyIpc(): void {
     if (typeof paneId !== 'string' || typeof chars !== 'number') return
     ptys.get(paneId)?.flow.ack(String(e.sender.id), chars)
   })
-  app.on('render-process-gone', (_e, contents) => releasePtyFlow(String(contents.id)))
+  app.on('render-process-gone', (_e, contents) => {
+    releasePtyFlow(String(contents.id))
+    openWaits.windowGone(String(contents.id))
+  })
 
   ipcMain.on('pty:waking', (e, paneId: unknown, waking: unknown) => {
     if (typeof paneId !== 'string' || typeof waking !== 'boolean') return
@@ -2656,6 +2734,7 @@ function trackPty(
       removeStateFile(entry)
       if (ptys.get(paneId) === entry) {
         ptys.delete(paneId)
+        openWaits.callerExited(paneId)
         movingPanes.delete(paneId)
         agentRunning.shellEnded(paneId)
         agentWork.clear(paneId)
@@ -3402,8 +3481,13 @@ app.whenReady().then(() => {
     })
   }
   scratchFolders.sweep()
+  artifactFolders.sweep()
   workspaceSandboxes.sweepTmp()
   registerScratchIpc(scratchFolders)
+  registerArtifactIpc({
+    folders: artifactFolders,
+    ownsWorkspace: (windowId, workspaceId) => windowForWorkspace(workspaceId) === windowId,
+  })
   registerCmuxSessionIpc()
   clipboardEdits = registerClipboardEdits({
     ipc: ipcMain,
@@ -3420,6 +3504,7 @@ app.whenReady().then(() => {
   registerPtyIpc()
   registerFsIpc()
   registerSelectionIpc(reachesPane, redactor.text)
+  registerPreviewIpc(previews)
   registerPrivacyIpc(redactor)
   const approvalCaps = new Map<string, readonly string[]>()
   registerApprovals(revealWindow, settingsChanged, {
@@ -3639,6 +3724,8 @@ app.whenReady().then(() => {
     grants: openFileGrants,
     isSandboxed: (workspaceId) => workspaceSandboxes.isEnabled(workspaceId),
     isScratch: (workspaceId) => scratchFolders.isScratch(workspaceId),
+    confineFolder: (path) => resolveSafe(path, fileRoots()),
+    waits: openWaits,
     execCommand,
   })
   registerBusMethods({
@@ -3920,6 +4007,16 @@ app.whenReady().then(() => {
       }),
     listWorkspaces: () => listWorkspaces({ execCommand, windowIds }),
     fileScope: phoneFileScope,
+    artifactsDir: (workspaceId) => artifactFolders.followed(workspaceId),
+    openArtifact: async (workspaceId, path) => {
+      const windowId = windowForWorkspace(workspaceId)
+      if (!windowId) return false
+      const res = await execCommand({ windowId, workspaceId, paneId: null }, OPEN_FILES_COMMAND, {
+        files: [{ path }],
+        background: true,
+      })
+      return res.ok
+    },
     listWorkspaceGroups: () => listWorkspaceGroups({ execCommand, windowIds }),
     primaryWindowId,
     attachPhoneObserver,
@@ -4183,6 +4280,8 @@ app.on('before-quit', (event) => {
   workspaceAgents.stopAll()
   for (const workspaceId of scratchFolders.workspaceIds()) workspaceSandboxes.forget(workspaceId)
   workspaceSandboxes.clearTmp(!keepingShells)
+  artifactFolders.dispose()
+  previews.dispose()
   scratchFolders.removeAll()
   quitTrace.stage('teardown-hosts')
   portForwarder.stopAll()

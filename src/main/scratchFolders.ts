@@ -93,6 +93,10 @@ export class ScratchFolders {
     return dir ? join(dir, SCRATCH_HISTORY_FILE) : null
   }
 
+  dirs(): string[] {
+    return [...this.folders.keys()]
+  }
+
   workspaceIds(): string[] {
     return [...this.folders.values()].flatMap((f) => (f.workspaceId ? [f.workspaceId] : []))
   }

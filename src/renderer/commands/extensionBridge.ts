@@ -4,8 +4,8 @@ import type {
   ExtensionOpenPanelRequest,
 } from '@shared/extensions'
 import type { ProcessTerminalRequest } from '@shared/types'
-import { flushSync } from 'react-dom'
 import { runWhenIdle } from '../lib/blockActions'
+import { openKeepingFocus } from '../lib/callerFocus'
 import { startOffscreen } from '../lib/offscreenStart'
 import { pinTitle } from '../lib/pinnedTitles'
 import { revealPane } from '../lib/workspaceActivity'
@@ -15,7 +15,6 @@ import { useLayoutStore } from '../stores/layoutStore'
 import { usePluginsStore } from '../stores/pluginsStore'
 import { useSandboxStore } from '../stores/sandboxStore'
 import { useSettingsStore } from '../stores/settingsStore'
-import { focusSurface } from '../stores/surfaceSlotsStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
 import { commands } from './registry'
 
@@ -103,17 +102,6 @@ export function openExtensionDiff(req: ExtensionOpenDiffRequest): string | null 
   const { extId: _extId, workspaceId: requested, ...content } = req
   const workspaceId = targetWorkspace(requested)
   return workspaceId ? useLayoutStore.getState().openDiff(workspaceId, content) : null
-}
-
-function focusedPaneId(): string | undefined {
-  return document.activeElement?.closest<HTMLElement>('.surface-host')?.dataset.paneId
-}
-
-function openKeepingFocus(open: () => string | null): string | null {
-  const focused = focusedPaneId()
-  const paneId = flushSync(open)
-  if (focused && focusedPaneId() !== focused) focusSurface(focused)
-  return paneId
 }
 
 export function openExtensionTerminal(req: ProcessTerminalRequest): string | null {

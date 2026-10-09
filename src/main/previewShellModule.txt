@@ -1,0 +1,27 @@
+import { Component, createElement } from 'react'
+import { createRoot } from 'react-dom/client'
+
+class Boundary extends Component {
+  constructor(props) {
+    super(props)
+    this.state = { error: null }
+  }
+  static getDerivedStateFromError(error) {
+    return { error }
+  }
+  componentDidCatch(error, info) {
+    console.error(String((error && error.stack) || error) + (info && info.componentStack ? info.componentStack : ''))
+  }
+  render() {
+    if (!this.state.error) return this.props.children
+    return createElement('pre', { style: { margin: 16, whiteSpace: 'pre-wrap' } }, String(this.state.error))
+  }
+}
+
+const loaded = await import("__ENTRY__")
+if (typeof loaded.default !== 'function' && typeof loaded.default !== 'object') {
+  throw new Error('The file has no default export; export a React component as default')
+}
+createRoot(document.getElementById('root')).render(
+  createElement(Boundary, null, createElement(loaded.default)),
+)

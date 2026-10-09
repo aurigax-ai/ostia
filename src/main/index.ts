@@ -6,6 +6,7 @@ import { readEnv } from '../shared/appEnv'
 import { parseDiscreteGpu } from '../shared/discreteGpu'
 import { discreteGpu, gpuStartPlan, readSwitcherooGpus } from './discreteGpu'
 import { offerOldDirsMove } from './oldDirsPrompt'
+import { registerPreviewScheme } from './previewScheme'
 import { keepTestCrashDumps } from './testCrashDumps'
 import {
   OLD_PRODUCT_NAME,
@@ -51,6 +52,7 @@ function relaunchedOnDiscreteGpu(): boolean {
 
 async function start(): Promise<void> {
   if (relaunchedOnDiscreteGpu()) return
+  registerPreviewScheme()
   await app.whenReady()
   const preset = presetAnswer()
   const folders = savedWorkspaceFolders([

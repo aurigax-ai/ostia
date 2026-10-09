@@ -1,8 +1,10 @@
-import type { FileTarget } from '@shared/openFiles'
+import type { FileTarget, OpenPlacement, OpenedPane } from '@shared/openFiles'
 import { useEditorRevealStore } from '../stores/editorRevealStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { useWorkspacesStore } from '../stores/workspacesStore'
+import { openKeepingFocus } from './callerFocus'
 import { startNewWorkspace } from './newWorkspace'
+import { signalPane } from './workspaceActivity'
 
 export function openFileInWorkspace(path: string): void {
   if (!useWorkspacesStore.getState().activeWorkspaceId) startNewWorkspace()
@@ -61,4 +63,54 @@ export function reportFileProblem(workspaceId: string | null, message: string): 
     return
   }
   window.ostia.notifications.post({ paneId, kind: 'error', title: message, desktop: false })
+}
+
+export function markOpenedQuietly(paneId: string, title: string): void {
+  signalPane(paneId, { type: 'notify', message: title, waiting: false, at: Date.now() })
+}
+
+export function openFilesQuietly(workspaceId: string, files: FileTarget[], paneId?: string): void {
+  openKeepingFocus(() => {
+    let beside = paneId
+    for (const file of files) {
+      requestReveal(file)
+      const opened = useLayoutStore.getState().openFileTab(workspaceId, file.path, beside, true)
+      if (!opened) continue
+      markOpenedQuietly(opened, file.path.split('/').pop() || file.path)
+      beside = opened
+    }
+  })
+}
+
+export interface PlacedOpen {
+  placement: OpenPlacement
+  quiet: boolean
+  fresh: boolean
+}
+
+export function openPlaced(
+  workspaceId: string,
+  files: FileTarget[],
+  paneId: string | undefined,
+  how: PlacedOpen,
+): OpenedPane[] {
+  const opened: OpenedPane[] = []
+  const place = (): void => {
+    let beside = paneId
+    for (const file of files) {
+      requestReveal(file)
+      const layout = useLayoutStore.getState()
+      const pane =
+        how.placement === 'tab' || opened.length > 0
+          ? layout.openFileTab(workspaceId, file.path, beside, how.quiet, how.fresh)
+          : layout.openFileSplit(workspaceId, file.path, beside, how.placement, how.quiet)
+      if (!pane) continue
+      if (how.quiet) markOpenedQuietly(pane, file.path.split('/').pop() || file.path)
+      opened.push({ path: file.path, paneId: pane })
+      beside = pane
+    }
+  }
+  if (how.quiet) openKeepingFocus(place)
+  else place()
+  return opened
 }

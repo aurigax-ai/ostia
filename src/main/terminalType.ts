@@ -1,6 +1,7 @@
-import { delimiter } from 'node:path'
+import { delimiter, join } from 'node:path'
 import { agentHooksEnv } from '../shared/agentHooks'
 import { appEnv, withoutEnv } from '../shared/appEnv'
+import { ARTIFACTS_ENV, PAD_ENV, PAD_FILE } from '../shared/artifacts'
 import { withoutGpuLaunchEnv } from './discreteGpu'
 import { withLauncherOnPath } from './paneLauncher'
 
@@ -18,14 +19,20 @@ export interface PaneShellEnvParts {
   integration: Record<string, string>
   pane: Record<string, string>
   agentHooks: unknown
+  artifactsDir?: string | null
   launcherDir?: string
+}
+
+export function artifactsEnv(dir: string | null | undefined): Record<string, string> {
+  return dir ? appEnv({ [ARTIFACTS_ENV]: dir, [PAD_ENV]: join(dir, PAD_FILE) }) : {}
 }
 
 export function paneShellEnv(parts: PaneShellEnvParts): Record<string, string> {
   const env = {
-    ...withoutGpuLaunchEnv(parts.parent),
+    ...withoutEnv(withoutGpuLaunchEnv(parts.parent), [ARTIFACTS_ENV, PAD_ENV]),
     ...parts.integration,
     ...parts.pane,
+    ...artifactsEnv(parts.artifactsDir),
     ...agentHooksEnv(parts.agentHooks),
     ...PTY_COLOR_ENV,
     ...ptyIdentityEnv(parts.version),

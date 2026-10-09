@@ -151,6 +151,20 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       files: vi.fn().mockResolvedValue(0),
       reveal: vi.fn(),
     },
+    artifacts: {
+      list: vi.fn().mockResolvedValue(null),
+      pad: vi.fn().mockResolvedValue(null),
+      reveal: vi.fn(),
+      onChanged: vi.fn(noopUnsub),
+    },
+    openWaits: { onEnded: vi.fn(noopUnsub) },
+    preview: {
+      open: vi.fn().mockResolvedValue(null),
+      shown: vi.fn(),
+      stop: vi.fn(),
+      close: vi.fn(),
+      onEvent: vi.fn(noopUnsub),
+    },
     windows: {
       info: vi.fn().mockResolvedValue({ windowId: '1', detached: false }),
       detach: vi.fn().mockResolvedValue(true),

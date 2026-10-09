@@ -1,7 +1,15 @@
 import { type AgentResume, resumeCommand } from '@shared/agentResume'
+import { PAD_COMMAND } from '@shared/artifacts'
 import type { CmuxImportReport } from '@shared/cmuxSession'
 import { wantsDesktopBanner } from '@shared/notificationSettings'
-import { OPEN_FILES_COMMAND, parseFileTargets } from '@shared/openFiles'
+import {
+  OPEN_DIFF_COMMAND,
+  OPEN_FILES_COMMAND,
+  type OpenedPane,
+  REVEAL_FOLDER_COMMAND,
+  parseFileTargets,
+  parsePlacement,
+} from '@shared/openFiles'
 import { PROGRAM_SETTINGS } from '@shared/programSettings'
 import type { AttentionState } from '@shared/types'
 import { type WorkspaceGroupColor, normalizeGroupName } from '@shared/workspaceGroups'
@@ -18,6 +26,7 @@ import {
 } from '../layout/tree'
 import type { Direction, SurfaceKind } from '../layout/types'
 import { postAgentNotification } from '../lib/agentNotification'
+import { openArtifact, openPad } from '../lib/artifacts'
 import {
   type BlockPart,
   copyBlock,
@@ -27,6 +36,7 @@ import {
 } from '../lib/blockActions'
 import { browserProfileIn, openerOf } from '../lib/browserProfile'
 import { announceBusMessage } from '../lib/busNotice'
+import { callerHasFocus, openKeepingFocus, opensQuietly } from '../lib/callerFocus'
 import { setKeybindingSetting } from '../lib/chords'
 import { clearKeepingScrollback } from '../lib/clearTerminal'
 import {
@@ -41,7 +51,13 @@ import { groupMates } from '../lib/groupPeers'
 import { hibernateWorkspaces, resumeWorkspaces, wakePane } from '../lib/hibernationScheduler'
 import { mergeRefusalText } from '../lib/mergeRefusalText'
 import { startNewWorkspace, startScratchWorkspace } from '../lib/newWorkspace'
-import { openRequestedFiles } from '../lib/openFile'
+import {
+  markOpenedQuietly,
+  openFilesQuietly,
+  openPlaced,
+  openRequestedFiles,
+} from '../lib/openFile'
+import { waitOnPanes } from '../lib/openWaits'
 import {
   FILES_PREFIX,
   GO_TO_FILE_COMMAND,
@@ -51,6 +67,7 @@ import {
   WORKSPACES_PREFIX,
 } from '../lib/paletteModes'
 import { type PaneAgentReport, isStaleAgentReport, paneAgentReport } from '../lib/paneAgent'
+import { revealFolder } from '../lib/revealFolder'
 import { tabMoveRefusalText } from '../lib/tabMoveRefusalText'
 import {
   activeTabId,
@@ -77,12 +94,14 @@ import { isMac } from '../platform'
 import { keymapSettingValue, terminalKeymapSettingValue } from '../settings/keymapSetting'
 import { settingsSchemaAt } from '../settings/settingsSchema'
 import { useAgentTurnStore } from '../stores/agentTurnStore'
+import { useArtifactsStore } from '../stores/artifactsStore'
 import { useAttentionStore } from '../stores/attentionStore'
 import { useBlocksStore } from '../stores/blocksStore'
 import { useHibernateSkippedStore } from '../stores/hibernateSkippedStore'
 import { useHistorySearchStore } from '../stores/historySearchStore'
 import { useLayoutStore } from '../stores/layoutStore'
 import { saveSnapshotNow } from '../stores/persistence'
+import { useSandboxStore } from '../stores/sandboxStore'
 import {
   type InputMode,
   type SettingChange,
@@ -940,6 +959,48 @@ export function registerBuiltinCommands(): void {
     },
   })
 
+  registerCore<{ argument?: string } | undefined, { opened: boolean }>({
+    id: 'artifacts.open',
+    local: true,
+    choices: async () => {
+      const workspaceId = useWorkspacesStore.getState().activeWorkspaceId
+      if (!workspaceId) return []
+      await useArtifactsStore.getState().refresh(workspaceId)
+      const entries = useArtifactsStore.getState().byWorkspace[workspaceId]?.entries ?? []
+      return entries.map((entry) => ({ value: entry.path, label: entry.name }))
+    },
+    emptyChoices: () => currentDict().artifacts.none,
+    run: (args, ctx) => {
+      const workspaceId = ctx.activeWorkspaceId
+      const entries = workspaceId
+        ? (useArtifactsStore.getState().byWorkspace[workspaceId]?.entries ?? [])
+        : []
+      const entry = entries.find((e) => e.path === args?.argument)
+      if (!workspaceId || !entry) return { opened: false }
+      openArtifact(workspaceId, entry)
+      return { opened: true }
+    },
+  })
+
+  registerCore<undefined, { opened: boolean }>({
+    id: PAD_COMMAND,
+    category: 'workspace',
+    local: true,
+    run: async (_args, ctx) => ({
+      opened: ctx.activeWorkspaceId ? await openPad(ctx.activeWorkspaceId) : false,
+    }),
+  })
+
+  registerCore<undefined, { revealed: boolean }>({
+    id: 'artifacts.reveal',
+    local: true,
+    run: (_args, ctx) => {
+      if (!ctx.activeWorkspaceId) return { revealed: false }
+      window.ostia.artifacts.reveal(ctx.activeWorkspaceId)
+      return { revealed: true }
+    },
+  })
+
   registerCore<{ index: number }, { switched: boolean }>({
     id: 'workspace.goto',
     category: 'workspace',
@@ -1188,7 +1249,10 @@ export function registerBuiltinCommands(): void {
     },
   })
 
-  registerCore<{ files?: unknown }>({
+  registerCore<
+    { files?: unknown; background?: unknown; placement?: unknown; wait?: unknown },
+    { opened: OpenedPane[] }
+  >({
     id: OPEN_FILES_COMMAND,
     hidden: true,
     capabilities: ['drive-self'],
@@ -1196,27 +1260,112 @@ export function registerBuiltinCommands(): void {
     run: (args, ctx) => {
       const files = parseFileTargets(args?.files)
       if (!files) throw new Error('expected files: [{ path, line?, column? }]')
-      if (ctx.activeWorkspaceId) {
-        openRequestedFiles(ctx.activeWorkspaceId, files, ctx.activePaneId ?? undefined)
+      const workspaceId = ctx.activeWorkspaceId
+      if (!workspaceId) return { opened: [] }
+      const paneId = ctx.activePaneId ?? undefined
+      const quiet = opensQuietly(ctx, args?.background)
+      const wait = args?.wait === true
+      const placement = wait ? 'tab' : parsePlacement(args?.placement)
+      if (!placement) {
+        if (quiet) openFilesQuietly(workspaceId, files, paneId)
+        else openRequestedFiles(workspaceId, files, paneId)
+        return { opened: [] }
       }
+      const opened = openPlaced(workspaceId, files, paneId, { placement, quiet, fresh: wait })
+      if (wait) waitOnPanes(workspaceId, paneId, opened)
+      return { opened }
     },
   })
 
-  registerCore<{ url?: string } | undefined>({
+  registerCore<
+    {
+      title?: unknown
+      original?: unknown
+      modified?: unknown
+      path?: unknown
+      background?: unknown
+    },
+    { opened: OpenedPane[] }
+  >({
+    id: OPEN_DIFF_COMMAND,
+    hidden: true,
+    capabilities: ['drive-self'],
+    target: 'active',
+    run: (args, ctx) => {
+      const workspaceId = ctx.activeWorkspaceId
+      if (
+        typeof args?.title !== 'string' ||
+        typeof args.original !== 'string' ||
+        typeof args.modified !== 'string' ||
+        typeof args.path !== 'string'
+      ) {
+        throw new Error('expected { title, original, modified, path }')
+      }
+      if (!workspaceId) return { opened: [] }
+      const content = {
+        title: args.title,
+        original: args.original,
+        modified: args.modified,
+        path: args.path,
+      }
+      const open = (): string | null => {
+        const before = useLayoutStore.getState().byWorkspace[workspaceId]?.activePaneId
+        const paneId = useLayoutStore.getState().openDiff(workspaceId, content)
+        if (quiet && before && paneId) useLayoutStore.getState().focusPane(workspaceId, before)
+        return paneId
+      }
+      const quiet = opensQuietly(ctx, args.background)
+      const paneId = quiet ? openKeepingFocus(open) : open()
+      if (!paneId) return { opened: [] }
+      if (quiet) markOpenedQuietly(paneId, content.title)
+      return { opened: [{ path: content.path, paneId }] }
+    },
+  })
+
+  registerCore<{ path?: unknown }, { revealed: boolean }>({
+    id: REVEAL_FOLDER_COMMAND,
+    hidden: true,
+    capabilities: ['drive-self'],
+    target: 'active',
+    run: async (args, ctx) => {
+      if (typeof args?.path !== 'string' || !args.path.startsWith('/')) {
+        throw new Error('expected path: an absolute folder path')
+      }
+      const workspaceId = ctx.activeWorkspaceId
+      if (!workspaceId) return { revealed: false }
+      if (ctx.origin === 'remote' && useSandboxStore.getState().enabled[workspaceId] === true) {
+        throw new Error('outside-sandbox: a sandboxed workspace cannot show folders')
+      }
+      if ((await window.ostia.fs.stat(args.path)) !== 'dir') {
+        throw new Error('not-a-directory: no such folder inside the file roots')
+      }
+      revealFolder(workspaceId, args.path)
+      return { revealed: true }
+    },
+  })
+
+  registerCore<{ url?: string; background?: unknown } | undefined>({
     id: 'browser.new',
     hidden: true,
     capabilities: ['browse'],
     target: 'active',
     run: (args, ctx) => {
-      if (ctx.activeWorkspaceId) {
+      const workspaceId = ctx.activeWorkspaceId
+      if (!workspaceId) return
+      const url = args?.url || 'about:blank'
+      const profile = browserProfileIn(workspaceId, openerOf(ctx))
+      const show = (): void => useLayoutStore.getState().openBrowser(workspaceId, url, profile)
+      if (args?.background !== true) {
+        if (callerHasFocus(ctx)) show()
+        else openKeepingFocus(show)
+        return
+      }
+      const opened = openKeepingFocus(() =>
         useLayoutStore
           .getState()
-          .openBrowser(
-            ctx.activeWorkspaceId,
-            args?.url || 'about:blank',
-            browserProfileIn(ctx.activeWorkspaceId, openerOf(ctx)),
-          )
-      }
+          .openBrowserTab(workspaceId, url, profile, { beside: ctx.activePaneId ?? undefined }),
+      )
+      if (opened) markOpenedQuietly(opened, url)
     },
   })
 

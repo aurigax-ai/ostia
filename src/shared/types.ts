@@ -3,6 +3,7 @@ import type { AgentSessionInfo } from './agentSessionInfo'
 import type { HibernateOutcome } from './agentWork'
 import type { AppMenuSpec } from './appMenu'
 import type { ApprovalAnswer, ApprovalState } from './approvals'
+import type { ArtifactListing } from './artifacts'
 import type { AssistApi } from './assist'
 import type { BrowserProfile } from './browserProfile'
 import type {
@@ -32,6 +33,7 @@ import type { ExtensionOpenTerminalRequest, ExtensionResult, ExtensionsApi } fro
 import type { FileOpsApi } from './fileOps'
 import type { GitBridge } from './git'
 import type { GuestChordFire } from './guestChords'
+import type { PreviewApi } from './htmlPreview'
 import type { IconThemesApi } from './iconTheme'
 import type {
   ReleaseState,
@@ -644,6 +646,17 @@ export interface ScratchApi {
   reveal: (workspaceId: string) => void
 }
 
+export interface ArtifactsApi {
+  list: (workspaceId: string) => Promise<ArtifactListing | null>
+  pad: (workspaceId: string) => Promise<string | null>
+  reveal: (workspaceId: string) => void
+  onChanged: (cb: (workspaceId: string) => void) => () => void
+}
+
+export interface OpenWaitsApi {
+  onEnded: (cb: (paneIds: string[]) => void) => () => void
+}
+
 export interface ScreenPoint {
   x: number
   y: number
@@ -1031,6 +1044,9 @@ export interface OstiaBridge {
   sync: SyncApi
   workspace: WorkspaceApi
   scratch: ScratchApi
+  artifacts: ArtifactsApi
+  preview: PreviewApi
+  openWaits: OpenWaitsApi
   windows: WindowsApi
   lifecycle: LifecycleApi
   commands: CommandsApi

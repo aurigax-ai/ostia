@@ -1,22 +1,22 @@
-import type { Dirent, Stats } from 'node:fs'
+import { constants, type Dirent, type Stats } from 'node:fs'
 import { lstat, open, readdir, realpath, stat } from 'node:fs/promises'
 import { isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { expandHome, resolveSafe } from '../pathGuard'
 import { HOME_HIDDEN_FILES, WORKDIR_HIDDEN_FILES, folderProblem } from '../sandbox/srtConfig'
 import { type SandboxReadRules, visibleInSandbox } from '../sandbox/visibility'
 
-const FS_READ_MAX_BYTES = 256 * 1024
+export const FS_READ_MAX_BYTES = 256 * 1024
 
 type FileEntryKind = 'file' | 'dir' | 'link'
 
-interface WorkspaceFileEntry {
+export interface WorkspaceFileEntry {
   name: string
   kind: FileEntryKind
   size: number
   mtime: number
 }
 
-interface WorkspaceFileRead {
+export interface WorkspaceFileRead {
   text?: string
   base64?: string
   size: number
@@ -52,8 +52,14 @@ function containsRun(segments: readonly string[], run: readonly string[]): boole
   return false
 }
 
-function isHiddenFromPhone(relativePath: string): boolean {
-  const segments = relativePath.split(sep).filter((part) => part !== '' && part !== '.')
+const FOLDS_CASE: readonly string[] = ['darwin', 'win32']
+
+export function isHiddenFromPhone(
+  relativePath: string,
+  platform: string = process.platform,
+): boolean {
+  const folded = FOLDS_CASE.includes(platform) ? relativePath.toLowerCase() : relativePath
+  const segments = folded.split(sep).filter((part) => part !== '' && part !== '.')
   if (segments.some((part) => HIDDEN_NAME_PREFIXES.some((prefix) => part.startsWith(prefix)))) {
     return true
   }
@@ -73,7 +79,7 @@ export type WorkspaceFileOutcome<T> =
 
 const utf8 = new TextDecoder('utf-8', { fatal: true })
 
-function fail<T>(error: WorkspaceFileError): WorkspaceFileOutcome<T> {
+export function fail<T>(error: WorkspaceFileError): WorkspaceFileOutcome<T> {
   return { ok: false, error }
 }
 
@@ -172,25 +178,29 @@ function readLimit(maxBytes: unknown): number {
   return Math.min(maxBytes, FS_READ_MAX_BYTES)
 }
 
-export async function readWorkspaceFile(
-  workDir: string,
-  path: string,
+function readOffset(offset: unknown): number {
+  return typeof offset === 'number' && Number.isInteger(offset) && offset > 0 ? offset : 0
+}
+
+export async function readFileSlice(
+  real: string,
   maxBytes: unknown,
-  scope: PhoneFileScope,
+  offset: unknown,
 ): Promise<WorkspaceFileOutcome<WorkspaceFileRead>> {
-  const located = await locate(workDir, path, scope)
-  if (!located.ok) return located
-  const handle = await open(located.value.real, 'r').catch(() => null)
+  const handle = await open(
+    real,
+    constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
+  ).catch(() => null)
   if (!handle) return fail('not-found')
   try {
     const info = await handle.stat()
     if (!info.isFile()) return fail('not-a-file')
-    const limit = readLimit(maxBytes)
-    const buffer = Buffer.alloc(Math.min(limit, info.size))
-    const { bytesRead } = await handle.read(buffer, 0, buffer.length, 0)
+    const start = Math.min(readOffset(offset), info.size)
+    const buffer = Buffer.alloc(Math.min(readLimit(maxBytes), info.size - start))
+    const { bytesRead } = await handle.read(buffer, 0, buffer.length, start)
     const bytes = buffer.subarray(0, bytesRead)
-    const truncated = info.size > bytesRead
-    const text = decodeText(bytes, truncated)
+    const truncated = info.size > start + bytesRead
+    const text = start === 0 ? decodeText(bytes, truncated) : null
     return {
       ok: true,
       value: {
@@ -202,4 +212,16 @@ export async function readWorkspaceFile(
   } finally {
     await handle.close()
   }
+}
+
+export async function readWorkspaceFile(
+  workDir: string,
+  path: string,
+  maxBytes: unknown,
+  scope: PhoneFileScope,
+  offset?: unknown,
+): Promise<WorkspaceFileOutcome<WorkspaceFileRead>> {
+  const located = await locate(workDir, path, scope)
+  if (!located.ok) return located
+  return readFileSlice(located.value.real, maxBytes, offset)
 }
