@@ -195,4 +195,35 @@ describe('TerminalView engines', () => {
     await user.keyboard('{Control>}v{/Control}')
     await waitFor(() => expect(window.ostia.pty.write).toHaveBeenCalledWith('p1', '\x16'))
   })
+
+  for (const [system, chord] of [
+    ['Linux', { key: 'F', code: 'KeyF', ctrlKey: true, shiftKey: true }],
+    ['macOS', { key: 'f', code: 'KeyF', metaKey: true }],
+  ] as const) {
+    it(`the find chord opens the find bar and Escape closes it: ${system}`, async () => {
+      os.mac = system === 'macOS'
+      onTestFinished(() => {
+        os.mac = false
+      })
+      vi.mocked(window.ostia.pty.attach).mockResolvedValueOnce({
+        created: true,
+        buffer: '$ echo ostia_find_target\r\nostia_find_target\r\n$ ',
+        cursor: 0,
+        dropped: false,
+      })
+      const { container } = await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
+      await waitFor(() => expect(window.ostia.pty.attach).toHaveBeenCalled())
+      const textarea = container.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement
+      act(() => textarea.focus())
+      fireEvent.keyDown(textarea, chord)
+      const input = await screen.findByRole('textbox', { name: 'Find in terminal' })
+      expect(input).toHaveFocus()
+      fireEvent.change(input, { target: { value: 'ostia_find_target' } })
+      await waitFor(() =>
+        expect(container.querySelector('.term-find-count')).toHaveTextContent(/\d+\/\d+|\d+/),
+      )
+      fireEvent.keyDown(input, { key: 'Escape' })
+      expect(screen.queryByRole('textbox', { name: 'Find in terminal' })).toBeNull()
+    })
+  }
 })
