@@ -12,6 +12,7 @@ import {
   registerExtensionMethods,
 } from '../main/extensions/extensionHost'
 import { ExtensionStore } from '../main/extensions/extensionStore'
+import { requirementsInstallArgs } from '../main/platform/systemRequirementsIpc'
 import type { CommandResult } from '../shared/types'
 
 const repoRoot = process.cwd()
@@ -207,6 +208,24 @@ describe('ostia CLI → extensions (real processes, real socket)', () => {
         command: `${sudo}apt install ripgrep`,
       })
       expect(res.stderr).toContain('denied')
+      expect(openTerminalIn).not.toHaveBeenCalled()
+    }, 30_000)
+
+    it('a missing program is offered for install, with the exact command shown before anything runs', async () => {
+      confirm.mockResolvedValue(false)
+      const res = await host.invoke(
+        'system',
+        'install',
+        requirementsInstallArgs('Absent server', [
+          { program: 'ostia-absent-lsp', package: 'ostia-absent-lsp' },
+        ]),
+        { kind: 'user', workspaceId: 's1', workDir, cwd: workDir, capabilities: ['shell'] },
+      )
+      expect(res).toMatchObject({ ok: false, error: 'denied', data: { approved: false } })
+      const { command } = (res as { data: { command: string } }).data
+      expect(command).toContain('ostia-absent-lsp')
+      expect(confirm).toHaveBeenCalledTimes(1)
+      expect(confirm.mock.calls[0][0].detail).toContain(command)
       expect(openTerminalIn).not.toHaveBeenCalled()
     }, 30_000)
 

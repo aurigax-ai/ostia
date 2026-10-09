@@ -1,5 +1,5 @@
 import { type ChildProcessWithoutNullStreams, spawn } from 'node:child_process'
-import { mkdtempSync, readFileSync, realpathSync, rmSync } from 'node:fs'
+import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -39,11 +39,11 @@ const cleanups: (() => void)[] = []
 async function start(args: string[], text = TEXT): Promise<Started> {
   const root = realpathSync(mkdtempSync(join(tmpdir(), 'ostia-lsp-features-')))
   const recordFile = join(root, 'record.jsonl')
-  const proc: ChildProcessWithoutNullStreams = spawn(process.execPath, [
-    FAKE_SERVER,
-    `--record=${recordFile}`,
-    ...args,
-  ])
+  const proc: ChildProcessWithoutNullStreams = spawn(
+    process.execPath,
+    [FAKE_SERVER, `--record=${recordFile}`, ...args],
+    { cwd: root },
+  )
   const published: Diagnostic[][] = []
   const changes = { count: 0 }
   let registration: { dispose: () => void } | null = null
@@ -284,6 +284,62 @@ describe('dynamic registration against a real fake language server', () => {
       arguments: ['hover', 'folding'],
     })
     await vi.waitFor(() => expect(kinds()).toEqual(['CodeLensProvider']), { timeout: 10_000 })
+  })
+
+  it('folding, code lens, pulled diagnostics, watched files and workspace symbols work for a server that registers them late', async () => {
+    const { changes, model, published, recorded, root, session, uri } = await start([
+      '--caps=symbols,executeCommand',
+      '--late-caps=hover,folding,codeLens,workspaceSymbols,pullDiagnostics',
+    ])
+    await vi.waitFor(() => expect(changes.count).toBe(1), { timeout: 10_000 })
+    await vi.waitFor(
+      () => expect(recorded().some((e) => e.method === 'textDocument/diagnostic')).toBe(true),
+      { timeout: 10_000 },
+    )
+    await vi.waitFor(() => expect(messages(published)).toEqual(['fake error on line 2']), {
+      timeout: 10_000,
+    })
+    expect(session.diagnosticsFor(uri)).toHaveLength(1)
+
+    const list = (await provider('CodeLensProvider', 'provideCodeLenses')(model)) as {
+      lenses: { command?: { id: string; title: string } }[]
+    }
+    expect(list.lenses[1].command).toEqual({ id: '', title: 'alpha: client only' })
+    const lens = async (index: number): Promise<{ id: string; title: string; arguments: [] }> =>
+      (
+        (await provider('CodeLensProvider', 'resolveCodeLens')(model, list.lenses[index])) as {
+          command: { id: string; title: string; arguments: [] }
+        }
+      ).command
+    const run = await lens(0)
+    expect(run.title).toBe('Run alpha (0 runs)')
+    expect((await lens(2)).title).toBe('Run beta (0 runs)')
+    expect(
+      await provider('HoverProvider', 'provideHover')(model, { lineNumber: 1, column: 5 }),
+    ).toMatchObject({ contents: [{ value: 'fake hover: **alpha**' }] })
+    fake.commands.get(run.id)?.(null, ...run.arguments)
+    await vi.waitFor(
+      () =>
+        expect(recorded().find((e) => e.method === 'workspace/executeCommand')?.params).toEqual({
+          command: 'fake.countRun',
+          arguments: ['alpha'],
+        }),
+      { timeout: 10_000 },
+    )
+    expect((await lens(0)).title).toBe('Run alpha (1 runs)')
+
+    expect(await provider('FoldingRangeProvider', 'provideFoldingRanges')(model, {})).toEqual([
+      { start: 1, end: 3, kind: { value: 'region' } },
+    ])
+
+    writeFileSync(join(root, 'other.txt'), 'fn gamma here\n')
+    expect(session.effectiveCapabilities().workspaceSymbolProvider).toBeTruthy()
+    expect(
+      toWorkspaceSymbolHits(
+        'fake-more/fake',
+        await session.request('workspace/symbol', { query: 'gam' }),
+      ),
+    ).toMatchObject([{ name: 'gamma', path: join(root, 'other.txt'), line: 1 }])
   })
 
   it('serves a late feature only to documents its selector matches', async () => {
