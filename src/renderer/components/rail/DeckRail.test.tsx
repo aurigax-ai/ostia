@@ -3,7 +3,7 @@ import { allPanes, createPane, tabsOf } from '@/layout/tree'
 import { languagesFrom } from '@/lib/extensions/languagePacks'
 import { startNewWorkspace } from '@/lib/workspaces/newWorkspace'
 import { useAttentionStore } from '@/stores/agents/attentionStore'
-import { useSandboxStore } from '@/stores/app/sandboxStore'
+import { needsSandboxRestart, useSandboxStore } from '@/stores/app/sandboxStore'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useUIStore } from '@/stores/app/uiStore'
 import { usePluginsStore } from '@/stores/extensions/pluginsStore'
@@ -26,6 +26,7 @@ import {
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { SandboxFolderDialog } from '../sandbox/SandboxFolderDialog'
 import { DeckRail } from './DeckRail'
 import { HibernateSkippedDialog } from './HibernateSkippedDialog'
 
@@ -94,7 +95,7 @@ describe('DeckRail', () => {
     useBlocksStore.setState(blocksInit, true)
     usePluginsStore.setState(pluginsInit, true)
     useWindowsStore.setState(windowsInit, true)
-    useSandboxStore.setState({ enabled: {} })
+    useSandboxStore.setState({ enabled: {}, paneSandboxed: {} })
     useHibernateSkippedStore.setState({ skipped: null })
     vi.restoreAllMocks()
   })
@@ -236,6 +237,44 @@ describe('DeckRail', () => {
     render(<DeckRail />)
     expect(await within(rowFor(/alpha/)).findByRole('img', { name: 'Sandboxed' })).toBeVisible()
     expect(within(rowFor(/beta/)).queryByRole('img', { name: 'Sandboxed' })).toBeNull()
+  })
+
+  it('refuses to sandbox a workspace whose folder is the home folder, says why, and leaves the shell alone', async () => {
+    seedWorkspaces()
+    vi.mocked(window.ostia.sandbox.get).mockResolvedValue({
+      enabled: false,
+      allowRead: [],
+      domains: [],
+      controls: {},
+    })
+    vi.mocked(window.ostia.sandbox.setEnabled).mockResolvedValue({
+      ok: false,
+      reason: 'folder',
+      problem: { folder: '/home/alpha', reason: 'home' },
+    })
+    useSandboxStore.getState().notePane('pa', false)
+    const user = userEvent.setup()
+    render(
+      <>
+        <DeckRail />
+        <SandboxFolderDialog />
+      </>,
+    )
+    fireEvent.contextMenu(screen.getByRole('button', { name: /alpha/ }))
+    await user.click(await screen.findByRole('menuitemcheckbox', { name: 'Sandbox' }))
+    expect(window.ostia.sandbox.setEnabled).toHaveBeenCalledWith('s1', true)
+    const dialog = await screen.findByRole('dialog')
+    expect(dialog).toHaveTextContent('This folder cannot be sandboxed')
+    expect(dialog).toHaveTextContent('/home/alpha is your home folder')
+    expect(dialog).toHaveTextContent('Open a project folder')
+    await user.click(within(dialog).getByRole('button', { name: 'Close' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(needsSandboxRestart(useSandboxStore.getState(), 's1', 'pa')).toBe(false)
+    fireEvent.contextMenu(screen.getByRole('button', { name: /alpha/ }))
+    expect(await screen.findByRole('menuitemcheckbox', { name: 'Sandbox' })).toHaveAttribute(
+      'aria-checked',
+      'false',
+    )
   })
 
   it('keeps the close button on expanded rows', () => {

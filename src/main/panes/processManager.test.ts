@@ -366,6 +366,19 @@ describe('process.run across a sandbox', () => {
     expect(opened[0]).toMatchObject({ workspaceId: 'ws1', windowId: 'w1' })
   })
 
+  it('SBX-C2 ostia process run in a sandboxed workspace runs its command in a sandboxed tab', async () => {
+    sandboxedWorkspaces.add('ws1')
+    const conn = await client(freshPane('ws1'))
+    const cmd = 'cat ~/.ssh/id_ed25519 || echo C2-DENIED; echo proxy=${HTTPS_PROXY:+on}'
+    const started = await start(conn, cmd, 'probe')
+    expect(opened).toHaveLength(1)
+    expect(opened[0]).toMatchObject({ command: cmd, workspaceId: 'ws1', title: 'probe' })
+    expect(opened[0]).not.toHaveProperty('hostToken')
+    const pane = resolveExternal(started.paneId)
+    const paneId = pane?.kind === 'pane' ? pane.paneId : ''
+    expect(getByPaneId(paneId)?.workspaceId).toBe('ws1')
+  })
+
   it('opens a tab in a sandboxed workspace as that workspace pane, so its shell spawns wrapped', async () => {
     sandboxedWorkspaces.add('ws2')
     const me = freshPane('ws1')

@@ -35,6 +35,9 @@ import { OpenWaits } from '../main/files/openWaits'
 import { type WorkerRequest, registerManagerMethods } from '../main/manager/managerMethods'
 import { registerPaneListMethods } from '../main/panes/paneList'
 import { registerPaneMoveToMethods } from '../main/panes/paneMoveTo'
+import { registerSandboxMethods } from '../main/sandbox/controlMethods'
+import { DomainRequests } from '../main/sandbox/domainRequests'
+import { PortRequests } from '../main/sandbox/portRequests'
 import { ViewHost, ViewStore } from '../main/workspaces/viewHost'
 import { registerViewMethods } from '../main/workspaces/viewsIpc'
 import { registerWorkflowMethods, workspaceWorkflowsDir } from '../main/workspaces/workflows'
@@ -1327,6 +1330,52 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
 
       expect(res.code).toBe(1)
       expect(res.stderr).toContain('files open from a terminal inside Ostia')
+    })
+  })
+
+  describe('ostia sandbox', () => {
+    const steps: string[] = []
+
+    beforeAll(() => {
+      registerSandboxMethods({
+        domains: new DomainRequests({
+          isSandboxed: () => true,
+          ask: async () => 'deny',
+          allowWorkspace: () => {},
+          allowUntilRestart: () => {},
+          now: Date.now,
+        }),
+        ports: new PortRequests({
+          platform: 'linux',
+          isSandboxed: (workspaceId) => workspaceId === 's1',
+          policy: () => 'ask',
+          ask: async ({ port }) => {
+            steps.push(`asked ${port}`)
+            return 'workspace'
+          },
+          forwarder: {
+            listeners: () => [],
+            exposed: () => [],
+            refusal: () => null,
+            expose: async (_workspaceId, port) => {
+              steps.push(`exposed ${port}`)
+              return { ok: true, port }
+            },
+            unexpose: async () => {},
+          },
+        }),
+      })
+    })
+
+    it('SBX-C45 ostia sandbox expose asks the human, forwards the port and says where it is reachable', async () => {
+      const res = await runOstia(
+        ['sandbox', 'expose', '5173'],
+        withEnv({ OSTIA_SOCKET: socketPath, OSTIA_TOKEN: identity.token }),
+      )
+      expect(res.stderr).toBe('')
+      expect(res.code).toBe(0)
+      expect(res.stdout.trim()).toBe('exposed: 127.0.0.1:5173')
+      expect(steps).toEqual(['asked 5173', 'exposed 5173'])
     })
   })
 })
