@@ -1,11 +1,33 @@
 import '@testing-library/jest-dom/vitest'
 import { loadGhostty } from '@/lib/terminal/ghosttyEngine'
 import { useSettingsStore } from '@/stores/app/settingsStore'
-import { type RenderResult, act, cleanup, render, screen, waitFor } from '@testing-library/react'
+import {
+  type RenderResult,
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react'
 import type { ReactElement } from 'react'
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, beforeAll, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { renderSettled } from '../../../../test/render'
 import { TerminalView } from './Terminal'
+
+const os = vi.hoisted(() => ({ mac: false }))
+
+vi.mock('@/platform', () => ({
+  get platform() {
+    return os.mac ? 'darwin' : 'linux'
+  },
+  get isMac() {
+    return os.mac
+  },
+  get isLinux() {
+    return !os.mac
+  },
+}))
 
 if (!Element.prototype.getAnimations) {
   Element.prototype.getAnimations = () => []
@@ -113,4 +135,31 @@ describe('TerminalView engines', () => {
     expect(await screen.findByRole('button', { name: 'Paste' })).toBeVisible()
     expect(window.ostia.pty.write).not.toHaveBeenCalled()
   })
+
+  for (const [system, reload, sent] of [
+    ['Linux', { key: 'F5', code: 'F5', keyCode: 116, ctrlKey: true }, ['\x1b[15;5~', '\x15']],
+    ['macOS', { key: 'r', code: 'KeyR', keyCode: 82, metaKey: true }, ['\x15']],
+  ] as const) {
+    it(`a browser key pressed in a terminal goes to the shell as an unbound key and pastes nothing: ${system}`, async () => {
+      os.mac = system === 'macOS'
+      onTestFinished(() => {
+        os.mac = false
+      })
+      const readText = vi.fn().mockResolvedValue('echo ostia_should_not_paste')
+      const realClipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard')
+      Object.defineProperty(navigator, 'clipboard', { value: { readText }, configurable: true })
+      onTestFinished(() => {
+        if (realClipboard) Object.defineProperty(navigator, 'clipboard', realClipboard)
+        else Reflect.deleteProperty(navigator, 'clipboard')
+      })
+      const { container } = await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
+      await waitFor(() => expect(window.ostia.pty.attach).toHaveBeenCalled())
+      const textarea = container.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement
+      fireEvent.keyDown(textarea, reload)
+      fireEvent.keyDown(textarea, { key: 'u', code: 'KeyU', keyCode: 85, ctrlKey: true })
+      await act(() => new Promise((resolve) => setTimeout(resolve, 50)))
+      expect(readText).not.toHaveBeenCalled()
+      expect(vi.mocked(window.ostia.pty.write).mock.calls).toEqual(sent.map((data) => ['p1', data]))
+    })
+  }
 })

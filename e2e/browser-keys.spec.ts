@@ -20,8 +20,6 @@ const pageKeys: Record<'palette' | 'focusAddress' | 'reload' | 'back' | 'find', 
   find: { keyCode: 'F', modifiers: mod },
 }
 
-const terminalReload = isMac ? 'Meta+r' : 'Control+F5'
-
 async function pressInPage(app: ElectronApplication, key: GuestKey): Promise<void> {
   await app.evaluate(({ webContents }, k) => {
     const guest = webContents.getAllWebContents().find((w) => w.getType() === 'webview')
@@ -85,61 +83,6 @@ test('inside a web page, Ostia shortcuts still work and browser keys drive the p
     await expect(win.locator('.browser-find .term-find-count')).toHaveText('1/1')
     await find.press('Escape')
     await expect(find).toBeHidden()
-  } finally {
-    await app.close()
-    server.close()
-  }
-})
-
-test('a browser key pressed in a terminal goes to the shell as an unbound key and pastes nothing', async () => {
-  const app = await electron.launch(isolatedLaunch())
-  try {
-    const win = await app.firstWindow()
-    await openWorkspace(win)
-    await app.evaluate(({ clipboard }) => clipboard.writeText('echo ostia_should_not_paste'))
-    await win.locator('.xterm').first().click()
-    await win.keyboard.press(terminalReload)
-    const rows = win.locator('.xterm-rows').first()
-    await win.waitForTimeout(500)
-    await expect(rows).not.toContainText('ostia_should_not_paste')
-    await win.keyboard.press('Control+u')
-    await win.keyboard.type('echo ostia_after_$((40+2))')
-    await win.keyboard.press('Enter')
-    await expect(rows).toContainText('ostia_after_42', { timeout: 15_000 })
-    await expect(rows).not.toContainText('ostia_should_not_paste')
-  } finally {
-    await app.close()
-  }
-})
-
-test('on Linux, Ctrl+L and Ctrl+R drive a browser pane', async () => {
-  test.skip(isMac, 'Ctrl+L and Ctrl+R are only bound on Linux')
-  test.setTimeout(90_000)
-  let hits = 0
-  const server = createServer((_req, res) => {
-    hits++
-    res.setHeader('content-type', 'text/html')
-    res.end('<title>Plain page</title><p>plain</p>')
-  })
-  await new Promise<void>((ready) => server.listen(0, '127.0.0.1', ready))
-  const { port } = server.address() as AddressInfo
-  const app = await electron.launch(isolatedLaunch())
-  try {
-    const win = await app.firstWindow()
-    await openWorkspace(win)
-    await win.getByRole('button', { name: 'New browser tab' }).click()
-    const address = win.locator('.pane-slot:not([data-hidden]) .browser-address')
-    await address.fill(`http://127.0.0.1:${port}/`)
-    await address.press('Enter')
-    await expect(win.getByRole('tab', { name: /Plain page/ })).toBeVisible({ timeout: 15_000 })
-
-    const before = hits
-    await pressInPage(app, { keyCode: 'R', modifiers: ['control'] })
-    await expect.poll(() => hits).toBeGreaterThan(before)
-
-    await win.locator('.pane-slot:not([data-hidden]) .browser-address').blur()
-    await pressInPage(app, { keyCode: 'L', modifiers: ['control'] })
-    await expect(address).toBeFocused()
   } finally {
     await app.close()
     server.close()

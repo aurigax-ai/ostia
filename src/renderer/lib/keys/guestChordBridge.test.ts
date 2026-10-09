@@ -5,6 +5,7 @@ import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { DOUBLE_SHIFT, DOUBLE_SHIFT_KEY } from '@shared/keyboard/chordSpec'
+import { guestChordKey } from '@shared/keyboard/guestChords'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { guestChordSignatures, handleGuestChord, syncGuestChords } from './guestChordBridge'
 
@@ -124,6 +125,37 @@ describe('handleGuestChord', () => {
       expect(useLayoutStore.getState().byWorkspace.s1.activePaneId).toBe(web.id)
       handleGuestChord({ guestId: 7, key: key('f', { ctrlKey: true, shiftKey: true }) }, false)
       expect(handle.find).toHaveBeenCalled()
+    } finally {
+      off()
+    }
+  })
+
+  it('on Linux, Ctrl+L and Ctrl+R drive a browser pane', () => {
+    const { handle, off } = browserPane()
+    const sigs = new Set(guestChordSignatures(false))
+    const press = (k: string) =>
+      guestChordKey(
+        {
+          type: 'keyDown',
+          key: k,
+          code: `Key${k.toUpperCase()}`,
+          control: true,
+          shift: false,
+          alt: false,
+          meta: false,
+        },
+        sigs,
+        false,
+      )
+    try {
+      const reload = press('r')
+      expect(reload).not.toBeNull()
+      expect(handleGuestChord({ guestId: 7, key: reload }, false)).toBe(true)
+      expect(handle.reload).toHaveBeenCalledTimes(1)
+      const address = press('l')
+      expect(address).not.toBeNull()
+      expect(handleGuestChord({ guestId: 7, key: address }, false)).toBe(true)
+      expect(handle.focusAddress).toHaveBeenCalledTimes(1)
     } finally {
       off()
     }
