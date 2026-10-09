@@ -5,8 +5,7 @@ import { workspaceOfPane } from '@/lib/attention/workspaceActivity'
 import { openSidebarUrl } from '@/lib/sidebar/sidebarItems'
 import { useCoreWatch } from '@/lib/workspaces/coreWatch'
 import { useExtensionsStore } from '@/stores/extensionsStore'
-import type { Dict } from '@shared/dict'
-import type { ExtensionChip, ExtensionInfo, PaneChip, WorkspaceChip } from '@shared/extensions'
+import type { Dict } from '@shared/app/dict'
 import {
   GIT_BRANCH_CHIP,
   GIT_DIFF_STATS_CHIP,
@@ -15,7 +14,8 @@ import {
   PORTS_SOURCE,
   SSH_CHIP,
   isCoreSource,
-} from '@shared/git'
+} from '@shared/boards/git'
+import type { ExtensionChip, ExtensionInfo, PaneChip, WorkspaceChip } from '@shared/extensions'
 import { useMemo } from 'react'
 
 export interface ChipCatalogEntry {

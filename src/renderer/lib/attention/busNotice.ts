@@ -1,7 +1,7 @@
 import { currentDict, fmt } from '@/i18n/useDict'
 import { useSettingsStore } from '@/stores/settingsStore'
-import { busLabel, busPreview } from '@shared/busMessages'
-import { wantsDesktopBanner } from '@shared/notificationSettings'
+import { busLabel, busPreview } from '@shared/agents/busMessages'
+import { wantsDesktopBanner } from '@shared/app/notificationSettings'
 import { isPaneViewed, signalPane } from './workspaceActivity'
 
 export function announceBusMessage(paneId: string, from: unknown, text: unknown): void {

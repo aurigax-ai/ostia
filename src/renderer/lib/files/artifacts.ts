@@ -4,7 +4,7 @@ import {
   ARTIFACT_FILE_MAX_BYTES,
   type ArtifactEntry,
   type ArtifactListing,
-} from '@shared/artifacts'
+} from '@shared/artifacts/artifacts'
 import { useEffect } from 'react'
 
 const KIB = 1024

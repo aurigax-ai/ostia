@@ -1,4 +1,4 @@
-import type { StorageCookie, StorageEntry } from '@shared/browserStorage'
+import type { StorageCookie, StorageEntry } from '@shared/browser/browserStorage'
 
 function matchesQuery(query: string, ...fields: string[]): boolean {
   const q = query.trim().toLowerCase()

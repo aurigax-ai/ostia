@@ -7,7 +7,7 @@ import { useMergeConfirmStore } from '@/stores/mergeConfirmStore'
 import { useUIStore } from '@/stores/uiStore'
 import { useWindowsStore } from '@/stores/windowsStore'
 import { type Workspace, useWorkspacesStore } from '@/stores/workspacesStore'
-import { type WorkspaceSandbox, emptyWorkspaceSandbox } from '@shared/sandbox'
+import { type WorkspaceSandbox, emptyWorkspaceSandbox } from '@shared/sandbox/sandbox'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { loadMergeTargets, requestMergeWorkspace } from './workspaceMerge'
 

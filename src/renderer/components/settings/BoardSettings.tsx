@@ -1,7 +1,7 @@
 import { useDict } from '@/i18n/useDict'
 import { useSettingsStore } from '@/stores/settingsStore'
-import { GIT_POLL_SECONDS } from '@shared/git'
-import { PORTS_INTERVAL_SECONDS, type PortHost } from '@shared/ports'
+import { GIT_POLL_SECONDS } from '@shared/boards/git'
+import { PORTS_INTERVAL_SECONDS, type PortHost } from '@shared/boards/ports'
 import {
   ControlRow,
   NumberRow,

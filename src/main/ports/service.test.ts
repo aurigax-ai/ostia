@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { CoreItems } from '../../shared/git'
-import { DEFAULT_PORTS_SETTINGS, type PortsSettings } from '../../shared/ports'
+import type { CoreItems } from '../../shared/boards/git'
+import { DEFAULT_PORTS_SETTINGS, type PortsSettings } from '../../shared/boards/ports'
 import type { PaneEntry } from '../panes/paneList'
 import type { TreeInfo } from './scan'
 import { PORTS_ITEMS_CHANNEL, PortsService } from './service'

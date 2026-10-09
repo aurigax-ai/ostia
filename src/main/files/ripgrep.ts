@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process'
 import { join } from 'node:path'
 import { createInterface } from 'node:readline'
-import type { FileMatches, LineMatch } from '../../shared/search'
+import type { FileMatches, LineMatch } from '../../shared/files/search'
 
 export interface TextQuery {
   text: string

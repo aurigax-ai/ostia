@@ -1,4 +1,4 @@
-import type { BellMode } from '@shared/notificationSettings'
+import type { BellMode } from '@shared/app/notificationSettings'
 
 export const BELL_SOUND_INTERVAL_MS = 500
 

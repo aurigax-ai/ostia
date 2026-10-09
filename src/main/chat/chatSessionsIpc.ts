@@ -6,8 +6,8 @@ import {
   type ChatSaveResult,
   chatMarkdown,
   normalizeChatSession,
-} from '../../shared/chatSessions'
-import { type RedactText, redactChatSession } from '../../shared/redactionTargets'
+} from '../../shared/assist/chatSessions'
+import { type RedactText, redactChatSession } from '../../shared/privacy/redactionTargets'
 import type { ChatSessionStore } from './chatSessions'
 
 const SAVE_FILE_MAX = 5 * 1024 * 1024

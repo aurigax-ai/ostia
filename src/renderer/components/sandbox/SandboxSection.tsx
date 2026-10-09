@@ -12,7 +12,7 @@ import {
   type SandboxGlobals,
   checkDomainPattern,
   parseSandboxGlobals,
-} from '@shared/sandbox'
+} from '@shared/sandbox/sandbox'
 import { useEffect, useState } from 'react'
 import { PackagesEditor } from './SandboxPackagesTab'
 import {

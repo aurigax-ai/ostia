@@ -109,22 +109,22 @@ import {
   TreeStructureIcon,
   WarningIcon,
 } from '@phosphor-icons/react'
-import type { ApprovalMode } from '@shared/approvals'
-import type { Capability } from '@shared/capabilities'
-import type { Dict, Locale } from '@shared/dict'
-import { type ExtensionInfo, PRODUCT_PLACEHOLDER } from '@shared/extensions'
-import { KEEP_SHELLS_FEATURE, TMUX_MIN_VERSION } from '@shared/keepShells'
+import type { Dict, Locale } from '@shared/app/dict'
 import {
   BELL_MODES,
   type BellMode,
   LONG_COMMAND_MAX_SECONDS,
   LONG_COMMAND_MIN_SECONDS,
   clampLongCommandSeconds,
-} from '@shared/notificationSettings'
+} from '@shared/app/notificationSettings'
+import { ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from '@shared/app/zoom'
+import type { Capability } from '@shared/capabilities'
+import { type ExtensionInfo, PRODUCT_PLACEHOLDER } from '@shared/extensions'
+import type { ApprovalMode } from '@shared/permissions/approvals'
+import { REACH_MODES, type ReachMode, parseReachMode } from '@shared/permissions/reach'
 import { PRODUCT_DISPLAY_NAME } from '@shared/productDisplay'
-import { REACH_MODES, type ReachMode, parseReachMode } from '@shared/reach'
+import { KEEP_SHELLS_FEATURE, TMUX_MIN_VERSION } from '@shared/terminal/keepShells'
 import type { AppInfo, Platform } from '@shared/types'
-import { ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from '@shared/zoom'
 import { Fragment, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import appIcon from '../../../../resources/icon.svg'
 import { ActionsSection } from './ActionsSection'

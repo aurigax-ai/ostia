@@ -1,4 +1,4 @@
-import type { ResumableAgent } from '@shared/agentResume'
+import type { ResumableAgent } from '@shared/agents/agentResume'
 import { create } from 'zustand'
 
 export interface LineAnchor {

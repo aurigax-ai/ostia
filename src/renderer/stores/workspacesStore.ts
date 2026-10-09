@@ -24,8 +24,8 @@ import type {
   WorkspaceOrigin,
   WorkspaceProject,
 } from '@shared/types'
-import { type WorkspaceGroupColor, normalizeGroupName } from '@shared/workspaceGroups'
-import { normalizeDescription } from '@shared/workspaceText'
+import { type WorkspaceGroupColor, normalizeGroupName } from '@shared/workspaces/workspaceGroups'
+import { normalizeDescription } from '@shared/workspaces/workspaceText'
 import { create } from 'zustand'
 import { restoreSnapshot } from '../layout/snapshot'
 import { useLayoutStore } from './layoutStore'

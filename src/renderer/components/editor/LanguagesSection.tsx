@@ -26,7 +26,7 @@ import {
   TrashIcon,
   WrenchIcon,
 } from '@phosphor-icons/react'
-import type { Dict } from '@shared/dict'
+import type { Dict } from '@shared/app/dict'
 import type {
   LanguageServerInfo,
   LanguageServerOverrideProblem,

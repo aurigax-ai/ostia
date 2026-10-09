@@ -36,6 +36,7 @@ import { useExtensionsStore } from '@/stores/extensionsStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useUIStore } from '@/stores/uiStore'
 import { ArrowClockwiseIcon } from '@phosphor-icons/react'
+import type { Dict } from '@shared/app/dict'
 import {
   type AssistFeatureId,
   type AssistFeatureState,
@@ -50,7 +51,6 @@ import {
   modelRefKey,
   sameModelRef,
 } from '@shared/assist'
-import type { Dict } from '@shared/dict'
 import type { ExtensionInfo } from '@shared/extensions'
 import { useCallback, useEffect, useState } from 'react'
 import { AssistantProviders } from './AssistantProviders'

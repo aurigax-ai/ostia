@@ -4,7 +4,7 @@ import {
   type WorkspaceSandbox,
   emptyWorkspaceSandbox,
   sandboxMergeRefusal,
-} from '@shared/sandbox'
+} from '@shared/sandbox/sandbox'
 
 export interface MergeSide {
   id: string

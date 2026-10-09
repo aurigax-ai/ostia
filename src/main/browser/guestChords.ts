@@ -1,6 +1,10 @@
 import type { IpcMain, WebContents } from 'electron'
-import { DOUBLE_SHIFT_KEY, doubleShiftDetector } from '../../shared/chordSpec'
-import { guestChordKey, guestDoubleShift, normalizeGuestChords } from '../../shared/guestChords'
+import { DOUBLE_SHIFT_KEY, doubleShiftDetector } from '../../shared/keyboard/chordSpec'
+import {
+  guestChordKey,
+  guestDoubleShift,
+  normalizeGuestChords,
+} from '../../shared/keyboard/guestChords'
 
 export interface GuestChordsDeps {
   ipc: Pick<IpcMain, 'on'>

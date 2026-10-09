@@ -1,8 +1,7 @@
 import { existsSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { ipcMain } from 'electron'
-import { clip } from '../../shared/pick'
-import type { RedactText } from '../../shared/redactionTargets'
+import { clip } from '../../shared/browser/pick'
 import {
   SELECTION_IMAGE_MAX,
   SELECTION_NOTE_MAX,
@@ -13,7 +12,8 @@ import {
   normalizeSelection,
   renderSelectionReport,
   selectionBusMessage,
-} from '../../shared/selection'
+} from '../../shared/browser/selection'
+import type { RedactText } from '../../shared/privacy/redactionTargets'
 import { postBusMessage } from '../agents/bus'
 import type { OriginReach } from '../agents/originAgents'
 import { REPORT_DIR_NAME } from '../browser/browsePick'

@@ -1,10 +1,10 @@
+import { type CoreItems, NO_CORE_ITEMS } from '@shared/boards/git'
 import type {
   ExtensionInfo,
   ExtensionSidebarItem,
   PaneChip,
   WorkspaceChip,
 } from '@shared/extensions'
-import { type CoreItems, NO_CORE_ITEMS } from '@shared/git'
 import { create } from 'zustand'
 import { useSettingsStore } from './settingsStore'
 

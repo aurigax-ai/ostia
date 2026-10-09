@@ -3,7 +3,7 @@ import { existsSync, realpathSync } from 'node:fs'
 import { lstat, mkdir, open, readFile, readdir, stat, unlink, writeFile } from 'node:fs/promises'
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { CHAT_TOOL_OUTPUT_MAX } from '../../shared/assist'
-import { CHAT_EDITS_MAX, applyEdits } from '../../shared/chatEdits'
+import { CHAT_EDITS_MAX, applyEdits } from '../../shared/assist/chatEdits'
 import {
   CHAT_DIRTY_PATHS_MAX,
   CHAT_LIST_MAX,
@@ -33,7 +33,7 @@ import {
   type ChatSearchRequest,
   type ChatWriteOutput,
   type ChatWriteRequest,
-} from '../../shared/chatTools'
+} from '../../shared/assist/chatTools'
 import { expandHome, resolveSafe } from '../platform/pathGuard'
 
 const PATH_MAX = 4096

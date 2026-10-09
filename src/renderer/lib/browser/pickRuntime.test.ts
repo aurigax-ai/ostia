@@ -1,4 +1,4 @@
-import { PICK_RUNTIME_GLOBAL, pickRuntime, pickRuntimeScript } from '@shared/pickRuntime'
+import { PICK_RUNTIME_GLOBAL, pickRuntime, pickRuntimeScript } from '@shared/browser/pickRuntime'
 import { afterEach, describe, expect, it } from 'vitest'
 
 const FIXTURE = `

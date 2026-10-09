@@ -2,7 +2,7 @@ import { type ChildProcess, spawn } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { QuestionRequest, QuestionState } from '../shared/questions'
+import type { QuestionRequest, QuestionState } from '../shared/agents/questions'
 import type { CommandResult } from '../shared/types'
 
 const WINDOW_ID = '7'

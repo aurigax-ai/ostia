@@ -1,5 +1,5 @@
-import type { ApprovalOutcome } from '../../shared/approvals'
-import { type PortsPolicy, checkExposePort } from '../../shared/sandbox'
+import type { ApprovalOutcome } from '../../shared/permissions/approvals'
+import { type PortsPolicy, checkExposePort } from '../../shared/sandbox/sandbox'
 import type { ExposeRefusal, ExposeResult, SandboxListener } from './portForwarder'
 
 export interface PortAsk {

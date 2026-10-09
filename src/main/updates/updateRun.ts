@@ -3,7 +3,7 @@ import {
   type UpdateRunStart,
   type UpdateRunState,
   updateCommandLine,
-} from '../../shared/installMethod'
+} from '../../shared/app/installMethod'
 
 export interface UpdateTerminalRequest {
   command: string

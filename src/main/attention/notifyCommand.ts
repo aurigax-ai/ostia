@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process'
-import { splitArgs } from '../../shared/argv'
+import { splitArgs } from '../../shared/terminal/argv'
 
 export interface NotifyCommandValues {
   title: string

@@ -1,4 +1,4 @@
-import { fillScript, readScript } from '@shared/loginScripts'
+import { fillScript, readScript } from '@shared/browser/loginScripts'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const runScript = (code: string): unknown => new Function(`return ${code}`)()

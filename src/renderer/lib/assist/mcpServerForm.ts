@@ -1,4 +1,3 @@
-import { splitArgs } from '@shared/argv'
 import {
   MCP_ENV_KEY,
   MCP_ENV_MAX,
@@ -10,9 +9,10 @@ import {
   isMcpSecretKey,
   isMcpUrl,
   mcpTransportOf,
-} from '@shared/chatTools'
+} from '@shared/assist/chatTools'
 import { isDangerousSegment } from '@shared/protoGuard'
-import { quoteArgv } from '@shared/shellQuote'
+import { splitArgs } from '@shared/terminal/argv'
+import { quoteArgv } from '@shared/terminal/shellQuote'
 
 export interface KeyValueRow {
   id: number

@@ -1,7 +1,7 @@
 import { type ChildProcess, spawn } from 'node:child_process'
 import type { Socket } from 'node:net'
 import type { SandboxRuntimeConfig } from '@anthropic-ai/sandbox-runtime'
-import type { PackageRef } from '../../shared/packages'
+import type { PackageRef } from '../../shared/sandbox/packages'
 import { JsonLines, connectHostChannel, writeMessage } from './hostChannel'
 import type { PackageBlockReason, PackagePolicy } from './packagePolicy'
 import {

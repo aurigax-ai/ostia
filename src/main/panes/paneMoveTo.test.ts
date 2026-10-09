@@ -8,7 +8,7 @@ import {
   StreamMessageWriter,
   createMessageConnection,
 } from 'vscode-jsonrpc/node'
-import type { ApprovalOutcome } from '../../shared/approvals'
+import type { ApprovalOutcome } from '../../shared/permissions/approvals'
 import type { CommandResult } from '../../shared/types'
 import type { ApprovalAsk } from '../approvals/approvals'
 import type { ReachCaller } from '../approvals/reach'

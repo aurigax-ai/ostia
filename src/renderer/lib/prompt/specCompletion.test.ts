@@ -1,4 +1,4 @@
-import type { SpecCommand } from '@shared/completionSpec'
+import type { SpecCommand } from '@shared/terminal/completionSpec'
 import { describe, expect, it } from 'vitest'
 import { commandWords, specAnswer } from './specCompletion'
 

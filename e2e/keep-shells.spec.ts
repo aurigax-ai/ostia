@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto'
 import { chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { KEPT_SHELLS_DIR } from '../src/shared/keepShells'
+import { KEPT_SHELLS_DIR } from '../src/shared/terminal/keepShells'
 import {
   DOM_RENDERER_SETTINGS,
   HIBERNATE_FAST,

@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest'
 import { useWorkspacesStore } from '@/stores/workspacesStore'
-import type { RequirementsReport } from '@shared/systemRequirements'
+import type { RequirementsReport } from '@shared/app/systemRequirements'
 import { act, cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'

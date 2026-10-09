@@ -25,17 +25,24 @@ import {
 } from 'electron'
 import type { IPty } from 'node-pty'
 import appIcon from '../../resources/icon.png?asset'
-import type { AgentResume } from '../shared/agentResume'
-import type { HibernateOutcome } from '../shared/agentWork'
+import type { AgentResume } from '../shared/agents/agentResume'
+import type { HibernateOutcome } from '../shared/agents/agentWork'
+import {
+  MANAGER_FEATURE,
+  managerAgents,
+  parseManagerSettings,
+} from '../shared/agents/managerSettings'
+import type { DiscreteGpuInfo } from '../shared/app/discreteGpu'
+import { clampZoom, zoomFactor } from '../shared/app/zoom'
 import { appEnv } from '../shared/appEnv'
-import { ARTIFACT_LIST_MAX } from '../shared/artifacts'
-import { SHARED_BROWSER_PARTITION, browserPartition } from '../shared/browserProfile'
+import { ARTIFACT_LIST_MAX } from '../shared/artifacts/artifacts'
+import { isPreviewPartition } from '../shared/artifacts/htmlPreview'
+import { parseChatToolSettings } from '../shared/assist/chatTools'
+import { parseGitSettings } from '../shared/boards/git'
+import { parsePortsSettings } from '../shared/boards/ports'
+import { SHARED_BROWSER_PARTITION, browserPartition } from '../shared/browser/browserProfile'
 import { MANAGER_CAPABILITIES } from '../shared/capabilities'
-import { parseChatToolSettings } from '../shared/chatTools'
-import { desktopsOf } from '../shared/desktopChords'
-import type { DiscreteGpuInfo } from '../shared/discreteGpu'
 import { languageForPath } from '../shared/editorLanguages'
-import { EXTENSION_SUGGESTIONS } from '../shared/extensionSuggestions'
 import type {
   ExtensionEventPayloads,
   ExtensionEventType,
@@ -43,23 +50,25 @@ import type {
   ExtensionResult,
   WorkspaceChip,
 } from '../shared/extensions'
-import { parseGitSettings } from '../shared/git'
-import { isPreviewPartition } from '../shared/htmlPreview'
-import { KEEP_SHELLS_FEATURE, KEPT_SHELLS_DIR, parseKeepShells } from '../shared/keepShells'
+import { EXTENSION_SUGGESTIONS } from '../shared/extensions/extensionSuggestions'
+import { OPEN_FILES_COMMAND } from '../shared/files/openFiles'
+import { OPEN_FILES_MAX } from '../shared/files/openFiles'
+import { desktopsOf } from '../shared/keyboard/desktopChords'
 import { languageServerKey } from '../shared/languageServers'
-import { MANAGER_FEATURE, managerAgents, parseManagerSettings } from '../shared/managerSettings'
-import { OPEN_FILES_COMMAND } from '../shared/openFiles'
-import { OPEN_FILES_MAX } from '../shared/openFiles'
-import { isHostNamed } from '../shared/osc7'
-import { parsePortsSettings } from '../shared/ports'
+import { parsePrivacySettings } from '../shared/privacy/redaction'
+import { bucketCount } from '../shared/privacy/telemetry'
 import { OFFICIAL_MARKETPLACE, PRODUCT_NAME } from '../shared/product'
 import { PRODUCT_DISPLAY_NAME } from '../shared/productDisplay'
-import { parsePrivacySettings } from '../shared/redaction'
 import { type RemoteCwd, normalizeRemoteCwd } from '../shared/remoteFolders'
-import { parseSandboxGlobals } from '../shared/sandbox'
-import { quoteArg, quoteArgv } from '../shared/shellQuote'
-import { bucketCount } from '../shared/telemetry'
-import { shellArgv, shellName } from '../shared/terminalShell'
+import { parseSandboxGlobals } from '../shared/sandbox/sandbox'
+import {
+  KEEP_SHELLS_FEATURE,
+  KEPT_SHELLS_DIR,
+  parseKeepShells,
+} from '../shared/terminal/keepShells'
+import { isHostNamed } from '../shared/terminal/osc7'
+import { quoteArg, quoteArgv } from '../shared/terminal/shellQuote'
+import { shellArgv, shellName } from '../shared/terminal/terminalShell'
 import type {
   AppInfo,
   CommandDescriptor,
@@ -77,7 +86,6 @@ import type {
   TerminalStateSnapshot,
   WindowBounds,
 } from '../shared/types'
-import { clampZoom, zoomFactor } from '../shared/zoom'
 import { AGENT_OFFER_RESULT_CHANNEL, createAgentOfferRelay } from './agents/agentOfferRelay'
 import { AgentRunningPanes } from './agents/agentRunning'
 import { agentPluginContent } from './agents/agentSkills'

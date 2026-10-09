@@ -1,6 +1,5 @@
 import { BrowserWindow, app, ipcMain } from 'electron'
-import { readEnv } from '../../shared/appEnv'
-import { releaseVersion } from '../../shared/buildInfo'
+import { releaseVersion } from '../../shared/app/buildInfo'
 import {
   type InstallMethod,
   type ReleaseState,
@@ -10,8 +9,7 @@ import {
   type UpdateRunState,
   updateChannelFor,
   updateCommandLine,
-} from '../../shared/installMethod'
-import { PRODUCT_NAME } from '../../shared/product'
+} from '../../shared/app/installMethod'
 import {
   type ParsedRelease,
   RELEASE_API_BASE_URL,
@@ -25,7 +23,9 @@ import {
   parseUpdateChannel,
   parseVersion,
   pickMainChannelRelease,
-} from '../../shared/releases'
+} from '../../shared/app/releases'
+import { readEnv } from '../../shared/appEnv'
+import { PRODUCT_NAME } from '../../shared/product'
 import type { AppLog } from '../diagnostics/appLog'
 import { loadJson, saveJson, storePath } from '../platform/jsonStore'
 import type { InstallReplacer } from './installReplace'

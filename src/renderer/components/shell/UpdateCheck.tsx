@@ -5,7 +5,7 @@ import { replaceLabel } from '@/lib/app/replaceText'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { restartReady, updateAction, useUpdateStore } from '@/stores/updateStore'
 import { ArrowClockwiseIcon, ArrowSquareOutIcon, DownloadSimpleIcon } from '@phosphor-icons/react'
-import type { ReleaseCheckError } from '@shared/releases'
+import type { ReleaseCheckError } from '@shared/app/releases'
 import { UpdateChannelPicker } from './UpdateChannelPicker'
 
 export function UpdateCheck(): JSX.Element {

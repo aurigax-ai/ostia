@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process'
 import { constants, accessSync } from 'node:fs'
 import { isAbsolute } from 'node:path'
-import { splitArgs } from '../../shared/argv'
+import { splitArgs } from '../../shared/terminal/argv'
 import type { ExternalEditorRequest, ExternalEditorResult } from '../../shared/types'
 import { findOnPath } from '../platform/pathLookup'
 

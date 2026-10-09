@@ -664,7 +664,7 @@ copies already on disk; it never fetches for this) for an extension whose
 copies the extension from the marketplace, exactly like the button in Settings → Extensions;
 your extension then waits for approval like any other. No is remembered per extension.
 
-Ostia also carries a small compiled table (`src/shared/extensionSuggestions.ts`) of the language
+Ostia also carries a small compiled table (`src/shared/extensions/extensionSuggestions.ts`) of the language
 extensions it publishes itself and the file names and suffixes each is suggested for, so the
 offer works before any marketplace has been added; Install then adds the official marketplace
 first. An id in that table is only ever taken from the official marketplace, whatever another

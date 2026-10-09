@@ -2,7 +2,7 @@ import { findPane } from '@/layout/tree'
 import { useBlocksStore } from '@/stores/blocksStore'
 import { useLayoutStore } from '@/stores/layoutStore'
 import { useOpenWaitsStore } from '@/stores/openWaitsStore'
-import type { OpenedPane } from '@shared/openFiles'
+import type { OpenedPane } from '@shared/files/openFiles'
 
 const COMMAND_SHOWN_MAX = 60
 

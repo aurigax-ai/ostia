@@ -1,6 +1,6 @@
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useUpdateStore } from '@/stores/updateStore'
-import type { InstallMethod } from '@shared/installMethod'
+import type { InstallMethod } from '@shared/app/installMethod'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'

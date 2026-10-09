@@ -1,4 +1,8 @@
-import type { MarketplaceError, MarketplaceResult, MarketplaceState } from '@shared/marketplace'
+import type {
+  MarketplaceError,
+  MarketplaceResult,
+  MarketplaceState,
+} from '@shared/extensions/marketplace'
 import { create } from 'zustand'
 
 export interface MarketplaceFailure {

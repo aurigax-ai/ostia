@@ -2,14 +2,14 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { useKeymapStore } from '@/stores/keymapStore'
 import { useSettingsStore } from '@/stores/settingsStore'
-import { type ChordSpec, type KeyLike, parseChord } from '@shared/chordSpec'
+import { type ChordSpec, type KeyLike, parseChord } from '@shared/keyboard/chordSpec'
 import {
   NATURAL_TEXT_EDITING,
   NATURAL_TEXT_EDITING_KEYS,
   NO_TERMINAL_KEYMAP,
   OSTIA_TERMINAL_KEYS,
-} from '@shared/keyboardPresets'
-import { parseKeymapBindings } from '@shared/keymapFile'
+} from '@shared/keyboard/keyboardPresets'
+import { parseKeymapBindings } from '@shared/keyboard/keymapFile'
 import { afterEach, describe, expect, it } from 'vitest'
 import { matchChord, matchChordInTerminal } from './chords'
 import {

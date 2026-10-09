@@ -27,7 +27,7 @@ import {
   type PromptSettings,
   type PromptStyle,
   isCoreChipId,
-} from '@shared/promptSettings'
+} from '@shared/terminal/promptSettings'
 import { type KeyboardEvent, useEffect, useRef, useState } from 'react'
 import {
   ControlRow,

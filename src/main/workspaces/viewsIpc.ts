@@ -1,6 +1,6 @@
 import { ipcMain, shell } from 'electron'
 import type { CommandResult, CommandTarget } from '../../shared/types'
-import { OPEN_VIEW_COMMAND, type ViewInfo } from '../../shared/views'
+import { OPEN_VIEW_COMMAND, type ViewInfo } from '../../shared/views/views'
 import { targetOf } from '../attention/attention'
 import { registerControlMethod } from '../control/controlServer'
 import type { ViewHost } from './viewHost'

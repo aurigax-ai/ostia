@@ -2,7 +2,11 @@ import { readFileSync, realpathSync, statSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { isAbsolute, join, relative } from 'node:path'
 import { ipcMain } from 'electron'
-import { CMUX_SESSION_FILE, type CmuxSessionRead, parseCmuxSession } from '../../shared/cmuxSession'
+import {
+  CMUX_SESSION_FILE,
+  type CmuxSessionRead,
+  parseCmuxSession,
+} from '../../shared/workspaces/cmuxSession'
 
 export const CMUX_SESSION_MAX_BYTES = 32 * 1024 * 1024
 

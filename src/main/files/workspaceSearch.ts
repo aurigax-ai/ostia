@@ -7,7 +7,7 @@ import type {
   SearchPdf,
   SearchRequest,
   SearchResults,
-} from '../../shared/search'
+} from '../../shared/files/search'
 import { resolveSafe } from '../platform/pathGuard'
 import { fuzzyMatch } from './fuzzyPaths'
 import { type FileList, type RgOutcome, listFiles, searchText } from './ripgrep'

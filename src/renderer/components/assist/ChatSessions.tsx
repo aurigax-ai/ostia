@@ -29,8 +29,8 @@ import {
   PencilSimpleIcon,
   TrashIcon,
 } from '@phosphor-icons/react'
-import type { ChatSessionSummary } from '@shared/chatSessions'
-import { type RelativeStep, formatRelative } from '@shared/relativeTime'
+import type { ChatSessionSummary } from '@shared/assist/chatSessions'
+import { type RelativeStep, formatRelative } from '@shared/common/relativeTime'
 import { useEffect, useMemo, useState } from 'react'
 
 const RELATIVE_STEPS: RelativeStep[] = [

@@ -13,7 +13,7 @@ import {
 import { isMac } from '@/platform'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { MoonIcon, PlayIcon } from '@phosphor-icons/react'
-import type { AgentResume } from '@shared/agentResume'
+import type { AgentResume } from '@shared/agents/agentResume'
 import { FitAddon } from '@xterm/addon-fit'
 import { Unicode11Addon } from '@xterm/addon-unicode11'
 import { useEffect, useRef } from 'react'

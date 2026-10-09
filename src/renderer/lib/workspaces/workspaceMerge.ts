@@ -7,7 +7,7 @@ import { useSandboxStore } from '@/stores/sandboxStore'
 import { useUIStore } from '@/stores/uiStore'
 import { useWindowsStore } from '@/stores/windowsStore'
 import { type Workspace, useWorkspacesStore } from '@/stores/workspacesStore'
-import type { WorkspaceSandbox } from '@shared/sandbox'
+import type { WorkspaceSandbox } from '@shared/sandbox/sandbox'
 import { runningCommandsOf } from './closeConfirm'
 import {
   type MergeOption,

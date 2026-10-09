@@ -16,7 +16,7 @@ import type {
   McpServerSettings,
   McpSignInError,
   McpSignInResult,
-} from '../../shared/chatTools'
+} from '../../shared/assist/chatTools'
 import { PRODUCT_DISPLAY_NAME } from '../../shared/productDisplay'
 import type { McpOAuthStore } from './mcpOAuthStore'
 

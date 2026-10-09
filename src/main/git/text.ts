@@ -1,4 +1,4 @@
-import type { Dict } from '../../shared/dict'
+import type { Dict } from '../../shared/app/dict'
 
 export type GitText = Dict['git']
 

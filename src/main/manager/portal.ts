@@ -8,9 +8,9 @@ import {
   StreamMessageWriter,
   createMessageConnection,
 } from 'vscode-jsonrpc/node'
-import { portalSocketPath as sharedPortalSocketPath } from '../../shared/portal'
+import { portalSocketPath as sharedPortalSocketPath } from '../../shared/agents/portal'
+import type { InstallHint, MissingRequirement } from '../../shared/app/systemRequirements'
 import { PRODUCT_DISPLAY_NAME } from '../../shared/productDisplay'
-import type { InstallHint, MissingRequirement } from '../../shared/systemRequirements'
 import { ManagerError, type ManagerService, parseOpenRequest } from './manager'
 import type { CallerVerdict } from './portalCaller'
 

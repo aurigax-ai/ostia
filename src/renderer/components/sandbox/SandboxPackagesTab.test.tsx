@@ -5,7 +5,7 @@ import {
   DEFAULT_PACKAGE_SETTINGS,
   type WorkspaceSandbox,
   resolvePackages,
-} from '@shared/sandbox'
+} from '@shared/sandbox/sandbox'
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'

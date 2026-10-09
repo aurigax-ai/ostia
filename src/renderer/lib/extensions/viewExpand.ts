@@ -1,4 +1,4 @@
-import { childPath } from '@shared/jsonLocated'
+import { childPath } from '@shared/common/jsonLocated'
 import {
   type ViewFormat,
   type ViewScope,
@@ -6,7 +6,7 @@ import {
   resolveText,
   resolveValue,
   truthy,
-} from '@shared/viewBindings'
+} from '@shared/views/viewBindings'
 import {
   VIEW_MAX_LIST_ITEMS,
   VIEW_MAX_RENDERED_NODES,
@@ -21,7 +21,7 @@ import {
   type ViewTone,
   type ViewWeight,
   isHttpUrl,
-} from '@shared/views'
+} from '@shared/views/views'
 
 export type ViewActionTarget =
   | {

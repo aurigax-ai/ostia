@@ -1,4 +1,4 @@
-import { type ArtifactListing, changedArtifacts } from '@shared/artifacts'
+import { type ArtifactListing, changedArtifacts } from '@shared/artifacts/artifacts'
 import { create } from 'zustand'
 import { allPanes, findPane } from '../layout/tree'
 import { useLayoutStore } from './layoutStore'

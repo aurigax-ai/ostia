@@ -1,5 +1,5 @@
 import { envName } from '../../shared/appEnv'
-import { ARTIFACTS_ENV, PAD_ENV } from '../../shared/artifacts'
+import { ARTIFACTS_ENV, PAD_ENV } from '../../shared/artifacts/artifacts'
 
 export const AGENT_SOCKET_VARS = ['SSH_AUTH_SOCK', 'SSH_AGENT_PID', 'GPG_AGENT_INFO']
 

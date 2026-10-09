@@ -39,7 +39,7 @@ const map = {
 }
 
 const imports = {
-  'e2e/marketplace.spec.ts': ['e2e/helpers.ts', 'src/shared/marketplace.ts'],
+  'e2e/marketplace.spec.ts': ['e2e/helpers.ts', 'src/shared/extensions/marketplace.ts'],
   'e2e/smoke.spec.ts': ['e2e/helpers.ts'],
 }
 
@@ -75,7 +75,7 @@ describe('planTests', () => {
       'src/shared/types.ts',
       'src/cli/index.ts',
       'src/extensions/ssh/main.ts',
-      'src/shared/dict.ts',
+      'src/shared/app/dict.ts',
     ]) {
       expect(planTests([file], readers), file).toEqual({
         node: null,
@@ -123,10 +123,9 @@ describe('planE2e', () => {
   })
 
   it('runs a changed spec and the specs importing a changed file', () => {
-    expect(planE2e(['e2e/ssh.spec.ts', 'src/shared/marketplace.ts'], map, imports)).toEqual([
-      'e2e/marketplace.spec.ts',
-      'e2e/ssh.spec.ts',
-    ])
+    expect(
+      planE2e(['e2e/ssh.spec.ts', 'src/shared/extensions/marketplace.ts'], map, imports),
+    ).toEqual(['e2e/marketplace.spec.ts', 'e2e/ssh.spec.ts'])
   })
 
   it('runs the specs of every area a changed file belongs to', () => {
@@ -136,7 +135,7 @@ describe('planE2e', () => {
   })
 
   it('runs the smoke set for a hub or any other unmapped file', () => {
-    for (const file of ['src/main/app.ts', 'src/shared/dict.ts', 'package.json']) {
+    for (const file of ['src/main/app.ts', 'src/shared/app/dict.ts', 'package.json']) {
       expect(planE2e([file], map, imports), file).toEqual(['e2e/smoke.spec.ts'])
     }
   })
@@ -188,7 +187,7 @@ describe('e2eImports', () => {
   it('follows a spec through the e2e helpers into the shared code they import', () => {
     const graph = e2eImports()
     expect(graph['e2e/marketplace.spec.ts']).toContain('e2e/helpers.ts')
-    expect(graph['e2e/marketplace.spec.ts']).toContain('src/shared/marketplace.ts')
+    expect(graph['e2e/marketplace.spec.ts']).toContain('src/shared/extensions/marketplace.ts')
     expect(Object.keys(graph)).toEqual(e2eSpecs())
   })
 })

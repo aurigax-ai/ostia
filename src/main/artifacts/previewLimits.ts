@@ -2,7 +2,7 @@ import {
   PREVIEW_LIMITS,
   type PreviewLimits,
   type PreviewStopReason,
-} from '../../shared/htmlPreview'
+} from '../../shared/artifacts/htmlPreview'
 
 export interface PreviewVitals {
   visible: boolean

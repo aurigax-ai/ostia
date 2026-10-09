@@ -16,7 +16,7 @@ import { type CodeColors, codeColors, monacoThemeData } from '@/monaco/monacoThe
 import { ANSI_NAMES, type ColorScheme } from '@/plugins/types'
 import { usePluginsStore } from '@/stores/pluginsStore'
 import { useSettingsStore } from '@/stores/settingsStore'
-import { MATCH_OSTIA_THEME, isLinkedTheme } from '@shared/themeChoice'
+import { MATCH_OSTIA_THEME, isLinkedTheme } from '@shared/app/themeChoice'
 import { ControlRow, SelectField, ToggleRow } from './SettingsPanel'
 
 const SWATCH_HUES = ['red', 'green', 'yellow', 'blue', 'magenta', 'cyan'] as const

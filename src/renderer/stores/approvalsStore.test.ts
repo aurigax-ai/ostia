@@ -1,4 +1,4 @@
-import type { ApprovalRequest, ApprovalState } from '@shared/approvals'
+import type { ApprovalRequest, ApprovalState } from '@shared/permissions/approvals'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { startApprovals, useApprovalsStore } from './approvalsStore'
 import { useAttentionStore } from './attentionStore'

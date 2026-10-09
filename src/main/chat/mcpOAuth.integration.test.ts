@@ -6,8 +6,8 @@ import {
   type FakeMcpHttp,
   startFakeMcpHttp,
 } from '../../../test/fixtures/mcp/startHttpServer'
-import type { McpServerSettings, McpServerStatus } from '../../shared/chatTools'
-import { en } from '../../shared/dict'
+import { en } from '../../shared/app/dict'
+import type { McpServerSettings, McpServerStatus } from '../../shared/assist/chatTools'
 import type { ExtensionSecretStore } from '../extensions/extensionHost'
 import type { StoredSecrets } from '../extensions/extensionSecrets'
 import { signInToMcp, signOutOfMcp } from './chatToolsIpc'

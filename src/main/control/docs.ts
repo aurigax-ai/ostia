@@ -1,4 +1,4 @@
-import { runtimeHelp } from '../../shared/artifactRuntime'
+import { runtimeHelp } from '../../shared/artifacts/artifactRuntime'
 import type { ExtensionInfo } from '../../shared/extensions'
 import { registerControlMethod } from './controlServer'
 

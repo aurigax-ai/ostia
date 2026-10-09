@@ -4,7 +4,7 @@ import { registerBrowserHandle } from '@/lib/browser/browserHandles'
 import { useLayoutStore } from '@/stores/layoutStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useWorkspacesStore } from '@/stores/workspacesStore'
-import { DOUBLE_SHIFT, DOUBLE_SHIFT_KEY } from '@shared/chordSpec'
+import { DOUBLE_SHIFT, DOUBLE_SHIFT_KEY } from '@shared/keyboard/chordSpec'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { guestChordSignatures, handleGuestChord, syncGuestChords } from './guestChordBridge'
 

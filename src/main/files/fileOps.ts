@@ -1,6 +1,6 @@
 import { cpSync, lstatSync, mkdirSync, realpathSync, renameSync, writeFileSync } from 'node:fs'
 import { basename, dirname, extname, join, sep } from 'node:path'
-import type { FileOpResult } from '../../shared/fileOps'
+import type { FileOpResult } from '../../shared/files/fileOps'
 import { resolveSafe } from '../platform/pathGuard'
 
 const FILE_OP_MAX_PATHS = 500

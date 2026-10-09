@@ -9,23 +9,27 @@ import {
   createMessageConnection,
 } from 'vscode-jsonrpc/node'
 import { controlInfoPath, readControlSocket } from '../main/control/controlDiscovery'
-import { RESUMABLE_AGENTS, isResumableAgent, resumeFromHookPayload } from '../shared/agentResume'
-import { CLAUDE_WORK_EVENTS, claudeWorkReport, isClaudeWorkEvent } from '../shared/agentWork'
-import { readEnv } from '../shared/appEnv'
-import { ARTIFACTS_ENV } from '../shared/artifacts'
+import {
+  RESUMABLE_AGENTS,
+  isResumableAgent,
+  resumeFromHookPayload,
+} from '../shared/agents/agentResume'
+import { CLAUDE_WORK_EVENTS, claudeWorkReport, isClaudeWorkEvent } from '../shared/agents/agentWork'
 import {
   CLAUDE_ATTENTION_EVENTS,
   claudeAttention,
   isClaudeAttentionEvent,
-} from '../shared/claudeAttention'
+} from '../shared/agents/claudeAttention'
+import { readEnv } from '../shared/appEnv'
+import { ARTIFACTS_ENV } from '../shared/artifacts/artifacts'
 import type {
   DiffFilesResult,
   FileTarget,
   OpenFilesResult,
   OpenPlacement,
   RevealFolderResult,
-} from '../shared/openFiles'
-import { SCRIPT_TOKEN_PREFIX } from '../shared/scriptTokens'
+} from '../shared/files/openFiles'
+import { SCRIPT_TOKEN_PREFIX } from '../shared/permissions/scriptTokens'
 import type { CommandDescriptor, CommandResult } from '../shared/types'
 import type { WorkflowEntry, WorkflowListing } from '../shared/workflows'
 import { FlagError, type ParsedArgs, parseArgs } from './common/args'

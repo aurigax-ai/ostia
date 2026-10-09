@@ -1,4 +1,4 @@
-import { type Dict, mergeCatalog } from '../../shared/dict'
+import { type Dict, mergeCatalog } from '../../shared/app/dict'
 import { type LanguagePackDeps, loadLanguagePacks } from './languagePacks'
 
 export interface MainStringsDeps extends LanguagePackDeps {

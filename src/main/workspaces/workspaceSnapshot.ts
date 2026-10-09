@@ -1,8 +1,7 @@
 import { existsSync, rmSync } from 'node:fs'
-import { parseAgentResume } from '../../shared/agentResume'
+import { parseAgentResume } from '../../shared/agents/agentResume'
 import { isDangerousSegment } from '../../shared/protoGuard'
 import { isRemotePath } from '../../shared/remoteFolders'
-import { normalizeSplitTabName } from '../../shared/splitTabs'
 import type {
   AppSnapshot,
   PaneDrop,
@@ -18,10 +17,15 @@ import type {
   WindowBounds,
   WorkspaceOrigin,
 } from '../../shared/types'
-import { VIEW_NAME } from '../../shared/views'
-import { isWorkspaceGroupColor, normalizeGroupName } from '../../shared/workspaceGroups'
-import { MAX_LAYOUT_DEPTH, MAX_PANES, MAX_WORKSPACES } from '../../shared/workspaceLimits'
-import { normalizeDescription } from '../../shared/workspaceText'
+import { VIEW_NAME } from '../../shared/views/views'
+import { normalizeSplitTabName } from '../../shared/workspaces/splitTabs'
+import { isWorkspaceGroupColor, normalizeGroupName } from '../../shared/workspaces/workspaceGroups'
+import {
+  MAX_LAYOUT_DEPTH,
+  MAX_PANES,
+  MAX_WORKSPACES,
+} from '../../shared/workspaces/workspaceLimits'
+import { normalizeDescription } from '../../shared/workspaces/workspaceText'
 import { loadJson, saveJson, saveJsonAsync, storePath } from '../platform/jsonStore'
 import { tailCut } from '../terminal/ptyRingBuffer'
 

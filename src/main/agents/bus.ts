@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { ErrorCodes, ResponseError } from 'vscode-jsonrpc/node'
-import { type BusDelivery, busContext, busPreview } from '../../shared/busMessages'
+import { type BusDelivery, busContext, busPreview } from '../../shared/agents/busMessages'
 import { ensureCaps } from '../approvals/controlElevation'
 import { registerControlMethod } from '../control/controlServer'
 import { type PaneIdentity, resolveExternal } from '../control/idRegistry'

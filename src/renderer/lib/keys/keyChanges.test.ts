@@ -1,4 +1,8 @@
-import { NATURAL_TEXT_EDITING, NO_TERMINAL_KEYMAP, OSTIA_KEYMAP } from '@shared/keyboardPresets'
+import {
+  NATURAL_TEXT_EDITING,
+  NO_TERMINAL_KEYMAP,
+  OSTIA_KEYMAP,
+} from '@shared/keyboard/keyboardPresets'
 import { describe, expect, it } from 'vitest'
 import {
   appPresetChanges,

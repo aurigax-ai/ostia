@@ -20,7 +20,7 @@ import {
   type TelemetryCategory,
   type TelemetrySettings,
   anyTelemetryOn,
-} from '@shared/telemetry'
+} from '@shared/privacy/telemetry'
 import { useEffect, useState } from 'react'
 
 export function CategoryDetails({ category }: { category: TelemetryCategory }): JSX.Element {

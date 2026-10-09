@@ -1,25 +1,34 @@
 import type { GroupRule } from '@/lib/sidebar/workspaceGroups'
 import { normalizeHex } from '@/lib/theme/color'
-import { type AgentHooks, DEFAULT_AGENT_HOOKS, parseAgentHooks } from '@shared/agentHooks'
+import { type AgentHooks, DEFAULT_AGENT_HOOKS, parseAgentHooks } from '@shared/agents/agentHooks'
 import {
-  type ApprovalMode,
-  type ApprovalSettings,
-  DEFAULT_APPROVAL_SETTINGS,
-  parseApprovalSettings,
-} from '@shared/approvals'
-import type { ChordValue, KeybindingMap } from '@shared/chordSpec'
-import type { Locale } from '@shared/dict'
-import { DEFAULT_GIT_SETTINGS, type GitSettings, parseGitSettings } from '@shared/git'
-import { keyboardPlatform } from '@shared/keyboardPresets'
-import { DEFAULT_PORTS_SETTINGS, type PortsSettings, parsePortsSettings } from '@shared/ports'
-import type { TerminalKeyMap, TerminalSend } from '@shared/terminalKeys'
-import { debounce } from 'es-toolkit'
-import { create } from 'zustand'
+  DEFAULT_MANAGER_SETTINGS,
+  type ManagerSettings,
+  parseManagerSettings,
+} from '@shared/agents/managerSettings'
+import type { Locale } from '@shared/app/dict'
 import {
-  type AssistModelSettings,
-  DEFAULT_ASSIST_MODEL_SETTINGS,
-  parseAssistModelSettings,
-} from '../../shared/assist'
+  DEFAULT_NOTIFICATION_SETTINGS,
+  type NotificationSettings,
+  parseNotificationSettings,
+} from '@shared/app/notificationSettings'
+import {
+  DEFAULT_UPDATE_CHANNEL,
+  type UpdateChannel,
+  parseUpdateChannel,
+} from '@shared/app/releases'
+import { ZOOM_DEFAULT, clampZoom } from '@shared/app/zoom'
+import {
+  type ChatToolSettings,
+  DEFAULT_CHAT_TOOL_SETTINGS,
+  parseChatToolSettings,
+} from '@shared/assist/chatTools'
+import { DEFAULT_GIT_SETTINGS, type GitSettings, parseGitSettings } from '@shared/boards/git'
+import {
+  DEFAULT_PORTS_SETTINGS,
+  type PortsSettings,
+  parsePortsSettings,
+} from '@shared/boards/ports'
 import {
   type BrowserSettings,
   DEFAULT_BROWSER_SETTINGS,
@@ -27,44 +36,39 @@ import {
   type EditorSettings,
   parseBrowserSettings,
   parseEditorSettings,
-} from '../../shared/browserEditorSettings'
-import type { Capability } from '../../shared/capabilities'
+} from '@shared/browser/browserEditorSettings'
+import type { ChordValue, KeybindingMap } from '@shared/keyboard/chordSpec'
+import { parseGlobalHotkey } from '@shared/keyboard/globalHotkey'
+import { keyboardPlatform } from '@shared/keyboard/keyboardPresets'
+import type { TerminalKeyMap, TerminalSend } from '@shared/keyboard/terminalKeys'
 import {
-  type ChatToolSettings,
-  DEFAULT_CHAT_TOOL_SETTINGS,
-  parseChatToolSettings,
-} from '../../shared/chatTools'
-import type { ExtensionSettingValues } from '../../shared/extensions'
-import { parseGlobalHotkey } from '../../shared/globalHotkey'
-import {
-  DEFAULT_MANAGER_SETTINGS,
-  type ManagerSettings,
-  parseManagerSettings,
-} from '../../shared/managerSettings'
-import {
-  DEFAULT_NOTIFICATION_SETTINGS,
-  type NotificationSettings,
-  parseNotificationSettings,
-} from '../../shared/notificationSettings'
-import { parsePromptSettings } from '../../shared/promptSettings'
-import { isDangerousSegment } from '../../shared/protoGuard'
-import type { ReachMode } from '../../shared/reach'
+  type ApprovalMode,
+  type ApprovalSettings,
+  DEFAULT_APPROVAL_SETTINGS,
+  parseApprovalSettings,
+} from '@shared/permissions/approvals'
+import type { ReachMode } from '@shared/permissions/reach'
 import {
   DEFAULT_PRIVACY_SETTINGS,
   type PrivacySettings,
   type RedactionSettings,
   parsePrivacySettings,
   parseRedactionSettings,
-} from '../../shared/redaction'
+} from '@shared/privacy/redaction'
+import { type TelemetrySettings, parseTelemetrySettings } from '@shared/privacy/telemetry'
+import { type SandboxGlobals, parseSandboxGlobals } from '@shared/sandbox/sandbox'
+import { parsePromptSettings } from '@shared/terminal/promptSettings'
+import { normalizeGroupName } from '@shared/workspaces/workspaceGroups'
+import { debounce } from 'es-toolkit'
+import { create } from 'zustand'
 import {
-  DEFAULT_UPDATE_CHANNEL,
-  type UpdateChannel,
-  parseUpdateChannel,
-} from '../../shared/releases'
-import { type SandboxGlobals, parseSandboxGlobals } from '../../shared/sandbox'
-import { type TelemetrySettings, parseTelemetrySettings } from '../../shared/telemetry'
-import { normalizeGroupName } from '../../shared/workspaceGroups'
-import { ZOOM_DEFAULT, clampZoom } from '../../shared/zoom'
+  type AssistModelSettings,
+  DEFAULT_ASSIST_MODEL_SETTINGS,
+  parseAssistModelSettings,
+} from '../../shared/assist'
+import type { Capability } from '../../shared/capabilities'
+import type { ExtensionSettingValues } from '../../shared/extensions'
+import { isDangerousSegment } from '../../shared/protoGuard'
 import { isMac } from '../platform'
 import { platform } from '../platform'
 import { type UserAction, parseActions } from '../settings/actions'

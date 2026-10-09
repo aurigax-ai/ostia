@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { parseBuildInfo } from '../../shared/buildInfo'
+import { parseBuildInfo } from '../../shared/app/buildInfo'
 
 export function buildVersionAt(cliDir: string): string | null {
   try {

@@ -4,7 +4,7 @@ import { PANE_DND } from '@/lib/panes/paneDrag'
 import { useEditorRevealStore } from '@/stores/editorRevealStore'
 import { useLayoutStore } from '@/stores/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspacesStore'
-import type { OpenFileVerdict } from '@shared/openFiles'
+import type { OpenFileVerdict } from '@shared/files/openFiles'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { FILE_DRAG_ATTRIBUTE, startFileDropTracking } from './fileDrop'
 

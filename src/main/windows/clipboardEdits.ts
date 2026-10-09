@@ -6,7 +6,7 @@ import {
   guestClipboardEdit,
   isClipboardEdit,
   normalizeClipboardChords,
-} from '../../shared/clipboardChords'
+} from '../../shared/keyboard/clipboardChords'
 
 export interface ClipboardEditsDeps {
   ipc: Pick<IpcMain, 'handle' | 'on'>

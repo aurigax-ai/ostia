@@ -2,8 +2,8 @@ import { Button } from '@/components/ui/button'
 import { fmt, useDict } from '@/i18n/useDict'
 import { useWorkspacesStore } from '@/stores/workspacesStore'
 import { InfoIcon } from '@phosphor-icons/react'
-import type { Dict } from '@shared/dict'
-import type { MissingRequirement, RequirementsReport } from '@shared/systemRequirements'
+import type { Dict } from '@shared/app/dict'
+import type { MissingRequirement, RequirementsReport } from '@shared/app/systemRequirements'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 export interface Requirements {

@@ -3,7 +3,7 @@ import {
   VIEW_MAX_RENDERED_NODES,
   type ViewDoc,
   parseViewText,
-} from '@shared/views'
+} from '@shared/views/views'
 import { describe, expect, it } from 'vitest'
 import { type RenderNode, expandView } from './viewExpand'
 

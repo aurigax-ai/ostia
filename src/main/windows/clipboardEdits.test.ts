@@ -1,7 +1,7 @@
 import { EventEmitter } from 'node:events'
 import type { IpcMain, WebContents } from 'electron'
 import { describe, expect, it, vi } from 'vitest'
-import { parseChord } from '../../shared/chordSpec'
+import { parseChord } from '../../shared/keyboard/chordSpec'
 import { registerClipboardEdits } from './clipboardEdits'
 
 type Handler = (event: { sender: WebContents }, ...args: unknown[]) => unknown

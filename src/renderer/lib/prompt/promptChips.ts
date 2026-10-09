@@ -6,7 +6,7 @@ import {
   type PromptSettings,
   isCoreChipId,
   separatorText,
-} from '@shared/promptSettings'
+} from '@shared/terminal/promptSettings'
 import type { PromptContext, PromptContextRequest, PtySpawnOptions } from '@shared/types'
 
 export type ChipTone = 'default' | 'ok' | 'warn' | 'error'

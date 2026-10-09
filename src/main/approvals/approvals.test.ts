@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { ApprovalMode, ApprovalState } from '../../shared/approvals'
 import type { Capability } from '../../shared/capabilities'
+import type { ApprovalMode, ApprovalState } from '../../shared/permissions/approvals'
 
 vi.mock('electron', () => ({
   app: { getPath: () => '/nonexistent' },

@@ -21,7 +21,7 @@ import {
   chatTitle,
   normalizeChatSession,
   toolCallIdsOf,
-} from '../../shared/chatSessions'
+} from '../../shared/assist/chatSessions'
 
 export interface ChatSessionStoreOptions {
   dir: string

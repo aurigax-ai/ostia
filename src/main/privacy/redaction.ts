@@ -7,8 +7,8 @@ import {
   applyRedactions,
   parsePrivacySettings,
   unchanged,
-} from '../../shared/redaction'
-import type { RedactText } from '../../shared/redactionTargets'
+} from '../../shared/privacy/redaction'
+import type { RedactText } from '../../shared/privacy/redactionTargets'
 import type { SecretScan } from './redactionScan'
 import { libraryKinds } from './secretScanner'
 

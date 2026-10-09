@@ -1,4 +1,3 @@
-import type { ExtensionSidebarItem, WorkspaceChip } from '../../shared/extensions'
 import {
   type CoreItems,
   GIT_BRANCH_CHIP,
@@ -8,7 +7,8 @@ import {
   type GitSettings,
   NO_CORE_ITEMS,
   type RepoStatus,
-} from '../../shared/git'
+} from '../../shared/boards/git'
+import type { ExtensionSidebarItem, WorkspaceChip } from '../../shared/extensions'
 import type { PaneEntry, WorkspaceEntry } from '../panes/paneList'
 import { WatchSets } from '../platform/watchSets'
 import { lineChanges, readStatus, repoRoot } from './repo'

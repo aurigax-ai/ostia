@@ -3,7 +3,7 @@ import { constants, type FSWatcher, type Stats, lstatSync, realpathSync, watch }
 import { open, readFile, realpath, stat } from 'node:fs/promises'
 import { basename, dirname, extname, join, relative, sep } from 'node:path'
 import { ipcMain } from 'electron'
-import { RUNTIME_PREFIX, runtimeFiles } from '../../shared/artifactRuntime'
+import { RUNTIME_PREFIX, runtimeFiles } from '../../shared/artifacts/artifactRuntime'
 import {
   PREVIEW_LIMITS,
   PREVIEW_PAGE_CSP,
@@ -22,7 +22,7 @@ import {
   normalizePreviewTheme,
   previewPartition,
   shellCsp,
-} from '../../shared/htmlPreview'
+} from '../../shared/artifacts/htmlPreview'
 import { isHiddenFromPhone } from '../gateway/workspaceFiles'
 import { compiles } from './artifactCompiler'
 import { busySince, previewVerdict, previewsOverCap } from './previewLimits'

@@ -17,7 +17,7 @@ import { fmt, useDict } from '@/i18n/useDict'
 import { useExtensionsStore } from '@/stores/extensionsStore'
 import { useMarketplaceStore } from '@/stores/marketplaceStore'
 import { ArrowsClockwiseIcon, TrashIcon } from '@phosphor-icons/react'
-import { MARKETPLACE_FEATURE, type MarketplaceInfo } from '@shared/marketplace'
+import { MARKETPLACE_FEATURE, type MarketplaceInfo } from '@shared/extensions/marketplace'
 import { useEffect, useState } from 'react'
 
 export function UninstallExtensionButton({

@@ -12,7 +12,7 @@ import {
   type ChatMessage,
   type ChatToolCall,
 } from '@shared/assist'
-import type { ChatMessageMetadata } from '@shared/chatSessions'
+import type { ChatMessageMetadata } from '@shared/assist/chatSessions'
 import type { ChatTransport, UIMessage, UIMessageChunk } from 'ai'
 import { redactToolOutput } from './chatRedaction'
 import { type ChatToolDef, type ToolOutcome, type ToolRun, chatToolDefs } from './chatTools'

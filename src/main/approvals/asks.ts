@@ -1,11 +1,11 @@
-import type { PermissionAgent } from '../../shared/agentPermissions'
+import type { PermissionAgent } from '../../shared/agents/agentPermissions'
+import type { QuestionRequest } from '../../shared/agents/questions'
 import {
   ALWAYS_ASK,
   type ApprovalAnswer,
   type ApprovalRequest,
   offeredAnswers,
-} from '../../shared/approvals'
-import type { QuestionRequest } from '../../shared/questions'
+} from '../../shared/permissions/approvals'
 import type { PaneIdentity } from '../control/idRegistry'
 import type { Approvals } from './approvals'
 import type { Questions } from './questions'

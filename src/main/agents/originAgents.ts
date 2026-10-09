@@ -1,4 +1,4 @@
-import { isResumableAgent } from '../../shared/agentResume'
+import { isResumableAgent } from '../../shared/agents/agentResume'
 import type {
   AttentionState,
   OriginAgentTarget,

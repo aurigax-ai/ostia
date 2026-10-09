@@ -67,10 +67,10 @@ import {
   canMoveWorkspace,
   moveWorkspaceTo,
 } from '@/lib/workspaces/workspaceProjects'
-import { type AgentResume, resumeCommand } from '@shared/agentResume'
-import { PAD_COMMAND } from '@shared/artifacts'
-import type { CmuxImportReport } from '@shared/cmuxSession'
-import { wantsDesktopBanner } from '@shared/notificationSettings'
+import { type AgentResume, resumeCommand } from '@shared/agents/agentResume'
+import { wantsDesktopBanner } from '@shared/app/notificationSettings'
+import { stepZoom } from '@shared/app/zoom'
+import { PAD_COMMAND } from '@shared/artifacts/artifacts'
 import {
   OPEN_DIFF_COMMAND,
   OPEN_FILES_COMMAND,
@@ -78,11 +78,11 @@ import {
   REVEAL_FOLDER_COMMAND,
   parseFileTargets,
   parsePlacement,
-} from '@shared/openFiles'
-import { PROGRAM_SETTINGS } from '@shared/programSettings'
+} from '@shared/files/openFiles'
+import { PROGRAM_SETTINGS } from '@shared/permissions/programSettings'
 import type { AttentionState } from '@shared/types'
-import { type WorkspaceGroupColor, normalizeGroupName } from '@shared/workspaceGroups'
-import { stepZoom } from '@shared/zoom'
+import type { CmuxImportReport } from '@shared/workspaces/cmuxSession'
+import { type WorkspaceGroupColor, normalizeGroupName } from '@shared/workspaces/workspaceGroups'
 import { currentDict } from '../i18n/useDict'
 import {
   type DropZone,

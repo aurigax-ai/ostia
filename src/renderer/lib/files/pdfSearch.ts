@@ -1,4 +1,4 @@
-import type { SearchPdf } from '@shared/search'
+import type { SearchPdf } from '@shared/files/search'
 import { childPath } from './fileTree'
 import { openPdf } from './pdf'
 import { PDF_MAX_PAGES, itemLines, pageItems } from './pdfText'

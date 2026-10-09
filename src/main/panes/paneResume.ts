@@ -1,4 +1,4 @@
-import { type AgentResume, parseAgentResume } from '../../shared/agentResume'
+import { type AgentResume, parseAgentResume } from '../../shared/agents/agentResume'
 import type { CommandResult, CommandTarget } from '../../shared/types'
 import { targetOf } from '../attention/attention'
 import { registerControlMethod } from '../control/controlServer'

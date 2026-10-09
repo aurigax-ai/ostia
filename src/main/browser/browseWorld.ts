@@ -1,4 +1,4 @@
-import { BROWSE_RUNTIME_GLOBAL, browseRuntimeScript } from '../../shared/browseRuntime'
+import { BROWSE_RUNTIME_GLOBAL, browseRuntimeScript } from '../../shared/browser/browseRuntime'
 
 export const BROWSE_WORLD_ID = 1025
 

@@ -6,7 +6,7 @@ import {
   SPEC_FILE_MAX_BYTES,
   type SpecCommand,
   parseCompletionSpec,
-} from '../../shared/completionSpec'
+} from '../../shared/terminal/completionSpec'
 
 export interface CompletionSpecDeps {
   userDir: string

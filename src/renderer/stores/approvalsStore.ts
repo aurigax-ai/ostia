@@ -1,11 +1,11 @@
 import { isPaneViewed, signalPane } from '@/lib/attention/workspaceActivity'
+import { wantsDesktopBanner } from '@shared/app/notificationSettings'
 import type {
   ApprovalAnswer,
   ApprovalRecord,
   ApprovalRequest,
   ApprovalState,
-} from '@shared/approvals'
-import { wantsDesktopBanner } from '@shared/notificationSettings'
+} from '@shared/permissions/approvals'
 import { create } from 'zustand'
 import { currentDict, fmt } from '../i18n/useDict'
 import { useAttentionStore } from './attentionStore'

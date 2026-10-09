@@ -11,17 +11,21 @@ import {
   normalizeUrl,
   parseKeyCombo,
   scrollDelta,
-} from '../../shared/browseInput'
-import { type NetworkFilter, filterRequests, summarizeRequest } from '../../shared/browseNetwork'
+} from '../../shared/browser/browseInput'
+import {
+  type NetworkFilter,
+  filterRequests,
+  summarizeRequest,
+} from '../../shared/browser/browseNetwork'
 import type {
   BrowseOutcome,
   ElementState,
   FindQuery,
   StorageArea,
   WebStorageDump,
-} from '../../shared/browseRuntime'
-import { type SnapshotNode, formatSnapshot } from '../../shared/browseSnapshot'
-import type { StorageCookie } from '../../shared/browserStorage'
+} from '../../shared/browser/browseRuntime'
+import { type SnapshotNode, formatSnapshot } from '../../shared/browser/browseSnapshot'
+import type { StorageCookie } from '../../shared/browser/browserStorage'
 import { PRODUCT_NAME } from '../../shared/product'
 import { PRODUCT_DISPLAY_NAME } from '../../shared/productDisplay'
 import type { CommandResult, CommandTarget } from '../../shared/types'

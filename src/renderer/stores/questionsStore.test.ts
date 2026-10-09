@@ -1,4 +1,4 @@
-import type { QuestionRequest, QuestionState } from '@shared/questions'
+import type { QuestionRequest, QuestionState } from '@shared/agents/questions'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAttentionStore } from './attentionStore'
 import { SENT_LINGER_MS, addedQuestions, startQuestions, useQuestionsStore } from './questionsStore'

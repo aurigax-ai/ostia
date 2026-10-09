@@ -1,4 +1,4 @@
-import type { PreviewTheme } from '@shared/htmlPreview'
+import type { PreviewTheme } from '@shared/artifacts/htmlPreview'
 
 const TOKENS: Readonly<Record<string, string>> = {
   '--ostia-bg': '--surface-1',

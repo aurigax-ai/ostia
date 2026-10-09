@@ -1,5 +1,5 @@
-import type { SandboxFolderProblem } from '@shared/sandbox'
-import type { RequirementsReport } from '@shared/systemRequirements'
+import type { RequirementsReport } from '@shared/app/systemRequirements'
+import type { SandboxFolderProblem } from '@shared/sandbox/sandbox'
 import { create } from 'zustand'
 
 export const SANDBOX_FEATURE = 'sandbox'

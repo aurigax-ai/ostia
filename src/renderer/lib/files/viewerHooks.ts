@@ -7,7 +7,7 @@ import {
   pinchZoom,
   toContentPoint,
 } from '@/lib/browser/regionSelect'
-import type { Region } from '@shared/selection'
+import type { Region } from '@shared/browser/selection'
 import type { FsBinaryResult } from '@shared/types'
 import {
   type PointerEvent as ReactPointerEvent,

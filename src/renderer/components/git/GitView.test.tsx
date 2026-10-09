@@ -7,7 +7,7 @@ import type {
   GitCommitFilesData,
   GitGraphData,
   GraphCommit,
-} from '@shared/git'
+} from '@shared/boards/git'
 import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { renderSettled } from '../../../../test/render'

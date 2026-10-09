@@ -16,7 +16,7 @@ import {
   ZOOM_MIN,
   clampZoom,
   isValidSearchTemplate,
-} from '@shared/browserEditorSettings'
+} from '@shared/browser/browserEditorSettings'
 import { useState } from 'react'
 import {
   ControlRow,

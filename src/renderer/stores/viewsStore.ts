@@ -1,4 +1,4 @@
-import type { ViewInfo, ViewListing } from '@shared/views'
+import type { ViewInfo, ViewListing } from '@shared/views/views'
 import { create } from 'zustand'
 
 interface ViewsState {

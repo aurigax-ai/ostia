@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useTelemetryConsentStore } from '@/stores/telemetryConsentStore'
-import { DEFAULT_TELEMETRY_SETTINGS } from '@shared/telemetry'
+import { DEFAULT_TELEMETRY_SETTINGS } from '@shared/privacy/telemetry'
 import { act, cleanup, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'

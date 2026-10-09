@@ -15,7 +15,7 @@ import {
   openedPaneIds,
   parseFileTargets,
   parsePlacement,
-} from '../../shared/openFiles'
+} from '../../shared/files/openFiles'
 import type { CommandResult, CommandTarget } from '../../shared/types'
 import { targetOf } from '../attention/attention'
 import { type ControlMethodContext, registerControlMethod } from '../control/controlServer'

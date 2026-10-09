@@ -16,7 +16,7 @@ import {
   isWebLink,
   keepErrors,
   previewErrorLine,
-} from '@shared/htmlPreview'
+} from '@shared/artifacts/htmlPreview'
 import { useEffect, useRef, useState } from 'react'
 
 type Stopped = PreviewStopReason | 'failed'

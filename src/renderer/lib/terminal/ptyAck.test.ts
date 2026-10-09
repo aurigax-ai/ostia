@@ -1,4 +1,4 @@
-import { PTY_ACK_CHARS } from '@shared/ptyFlow'
+import { PTY_ACK_CHARS } from '@shared/terminal/ptyFlow'
 import { describe, expect, it } from 'vitest'
 import { createPtyAcker } from './ptyAck'
 

@@ -3,8 +3,8 @@ import {
   type BrowseRuntime,
   browseRuntime,
   browseRuntimeScript,
-} from '@shared/browseRuntime'
-import { formatSnapshot } from '@shared/browseSnapshot'
+} from '@shared/browser/browseRuntime'
+import { formatSnapshot } from '@shared/browser/browseSnapshot'
 import { afterEach, describe, expect, it } from 'vitest'
 import { MemoryStorage } from '../../../../test/mocks/memoryStorage'
 

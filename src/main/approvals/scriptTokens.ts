@@ -1,7 +1,7 @@
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto'
 import { ErrorCodes, ResponseError } from 'vscode-jsonrpc/node'
 import type { Capability } from '../../shared/capabilities'
-import { SCRIPT_CAPABILITIES, SCRIPT_TOKEN_PREFIX } from '../../shared/scriptTokens'
+import { SCRIPT_CAPABILITIES, SCRIPT_TOKEN_PREFIX } from '../../shared/permissions/scriptTokens'
 import { registerControlMethod } from '../control/controlServer'
 import { removeScript } from '../control/idRegistry'
 import { loadJson, saveJson } from '../platform/jsonStore'

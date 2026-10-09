@@ -9,9 +9,9 @@ import {
   StreamMessageWriter,
   createMessageConnection,
 } from 'vscode-jsonrpc/node'
-import { managerAgents, parseManagerSettings } from '../../shared/managerSettings'
+import { managerAgents, parseManagerSettings } from '../../shared/agents/managerSettings'
+import type { MissingRequirement } from '../../shared/app/systemRequirements'
 import { PRODUCT_DISPLAY_NAME } from '../../shared/productDisplay'
-import type { MissingRequirement } from '../../shared/systemRequirements'
 import { ManagerService } from './manager'
 import { type MirrorSink, Portal, portalSupported } from './portal'
 import type { CallerVerdict } from './portalCaller'

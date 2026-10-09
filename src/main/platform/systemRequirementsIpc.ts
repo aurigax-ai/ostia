@@ -1,7 +1,7 @@
 import { ipcMain } from 'electron'
+import type { MissingRequirement, RequirementsReport } from '../../shared/app/systemRequirements'
 import type { ExtensionCaller, ExtensionResult } from '../../shared/extensions'
 import { PRODUCT_DISPLAY_NAME } from '../../shared/productDisplay'
-import type { MissingRequirement, RequirementsReport } from '../../shared/systemRequirements'
 import { installHint } from './systemRequirements'
 
 export interface SystemRequirementsIpcDeps {

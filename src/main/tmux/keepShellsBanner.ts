@@ -1,4 +1,4 @@
-import { TMUX_MIN_VERSION } from '../../shared/keepShells'
+import { TMUX_MIN_VERSION } from '../../shared/terminal/keepShells'
 
 export const TMUX_MISSING = `tmux ${TMUX_MIN_VERSION} or newer is not installed`
 export const SANDBOX_NOT_KEPT = "this workspace's sandbox was started without tmux"

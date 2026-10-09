@@ -6,7 +6,7 @@ import {
   type NewWorkspacePlacement,
   useSettingsStore,
 } from '@/stores/settingsStore'
-import { toAccelerator } from '@shared/globalHotkey'
+import { toAccelerator } from '@shared/keyboard/globalHotkey'
 import { useEffect, useState } from 'react'
 import { ControlRow, SectionHead, SettingsGroup, ToggleRow, WarningNote } from './SettingsPanel'
 

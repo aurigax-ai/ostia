@@ -1,6 +1,6 @@
 import { join } from 'node:path'
 import { Worker } from 'node:worker_threads'
-import type { SecretSpan } from '../../shared/redaction'
+import type { SecretSpan } from '../../shared/privacy/redaction'
 
 export type SecretScan = (text: string, patterns: string[]) => Promise<SecretSpan[]>
 

@@ -1,13 +1,13 @@
 import { realpathSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { ipcMain } from 'electron'
-import { type KeymapContribution, keymapOffered, keymapRef } from '../../shared/keymap'
 import {
   KEYMAP_FILE_MAX_BYTES,
   type KeymapLoad,
   type KeymapSkip,
   parseKeymapBindings,
-} from '../../shared/keymapFile'
+} from '../../shared/keyboard/keymapFile'
+import { type KeymapContribution, keymapOffered, keymapRef } from '../../shared/keymap'
 import { readConfined } from '../platform/confinedRead'
 
 export interface KeymapSource {

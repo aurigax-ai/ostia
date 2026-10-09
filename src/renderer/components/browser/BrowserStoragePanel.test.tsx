@@ -1,5 +1,5 @@
 import { TooltipProvider } from '@/components/ui/tooltip'
-import type { BrowserStorageSnapshot } from '@shared/browserStorage'
+import type { BrowserStorageSnapshot } from '@shared/browser/browserStorage'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'

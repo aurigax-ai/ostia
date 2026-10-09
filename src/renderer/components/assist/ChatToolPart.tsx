@@ -20,7 +20,7 @@ import { workspaceFolder } from '@/lib/assist/chatTools'
 import { type ToolPartLike, outputText, toolNameOf } from '@/lib/assist/chatTransport'
 import { confirmsGeneratedText } from '@/lib/keys/pasteGate'
 import { type PendingApproval, answerApproval, useChatToolsStore } from '@/stores/chatToolsStore'
-import { BUILTIN_TOOL_ACCESS, isBuiltinChatTool, mcpToolName } from '@shared/chatTools'
+import { BUILTIN_TOOL_ACCESS, isBuiltinChatTool, mcpToolName } from '@shared/assist/chatTools'
 import { useState } from 'react'
 import { ChatEditCard } from './ChatEditCard'
 

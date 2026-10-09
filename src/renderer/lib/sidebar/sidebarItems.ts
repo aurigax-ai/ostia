@@ -2,9 +2,9 @@ import { openBrowserAs } from '@/lib/browser/browserProfile'
 import type { SidebarSettings } from '@/stores/settingsStore'
 import { useUIStore } from '@/stores/uiStore'
 import { useWorkspacesStore } from '@/stores/workspacesStore'
-import type { BrowserOpener } from '@shared/browserProfile'
+import { PORTS_SOURCE } from '@shared/boards/git'
+import type { BrowserOpener } from '@shared/browser/browserProfile'
 import type { ExtensionSidebarItem } from '@shared/extensions'
-import { PORTS_SOURCE } from '@shared/git'
 
 type ItemToggles = Pick<SidebarSettings, 'showSSH'>
 

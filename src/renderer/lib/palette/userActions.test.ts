@@ -2,7 +2,7 @@ import { commandWording, commands } from '@/commands/registry'
 import type { UserAction } from '@/settings/actions'
 import { useActionConfirmStore } from '@/stores/actionConfirmStore'
 import { useSettingsStore } from '@/stores/settingsStore'
-import { mergeCatalog, zhHant } from '@shared/dict'
+import { mergeCatalog, zhHant } from '@shared/app/dict'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { runUserAction, startUserActions } from './userActions'
 

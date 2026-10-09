@@ -74,7 +74,7 @@ import { useExtensionsStore } from '@/stores/extensionsStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { ClipboardTextIcon, CopyIcon } from '@phosphor-icons/react'
 import type { CommandSuggestion } from '@shared/assist'
-import type { SpecCommand } from '@shared/completionSpec'
+import type { SpecCommand } from '@shared/terminal/completionSpec'
 import {
   type CSSProperties,
   type KeyboardEvent,

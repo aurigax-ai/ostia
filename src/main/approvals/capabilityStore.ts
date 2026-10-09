@@ -1,9 +1,9 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { app } from 'electron'
-import { ALWAYS_ASK } from '../../shared/approvals'
 import { ALL_CAPABILITIES, type Capability, DEFAULT_CAPABILITIES } from '../../shared/capabilities'
-import { type ReachMode, isReachMode, parseReachMode } from '../../shared/reach'
+import { ALWAYS_ASK } from '../../shared/permissions/approvals'
+import { type ReachMode, isReachMode, parseReachMode } from '../../shared/permissions/reach'
 
 const grants = new Map<string, Set<Capability>>()
 const followsSettings = new Set<string>()

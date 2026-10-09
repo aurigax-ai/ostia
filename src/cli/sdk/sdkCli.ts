@@ -14,7 +14,7 @@ import { localeProblems } from '../../main/extensions/extensionLocales'
 import { EXTENSION_ID_PATTERN, readManifest } from '../../main/extensions/extensionManifest'
 import { parseMarketplaceManifest, planCopy } from '../../main/extensions/marketplace'
 import { EXTENSION_MANIFEST_FILE, type ExtensionManifest } from '../../shared/extensions'
-import { MARKETPLACE_MANIFEST_FILE } from '../../shared/marketplace'
+import { MARKETPLACE_MANIFEST_FILE } from '../../shared/extensions/marketplace'
 import { PRODUCT_NAME } from '../../shared/product'
 
 export interface SdkCliResult {

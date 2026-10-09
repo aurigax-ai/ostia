@@ -6,8 +6,8 @@ import { Switch } from '@/components/ui/switch'
 import { fmt, useDict } from '@/i18n/useDict'
 import { useViewsStore } from '@/stores/viewsStore'
 import { FolderOpenIcon } from '@phosphor-icons/react'
-import type { Dict } from '@shared/dict'
-import type { ViewInfo } from '@shared/views'
+import type { Dict } from '@shared/app/dict'
+import type { ViewInfo } from '@shared/views/views'
 import { viewIcon } from './viewIcons'
 
 function placementLabel(d: Dict, view: ViewInfo): string | null {

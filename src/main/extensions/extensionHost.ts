@@ -120,15 +120,15 @@ import {
 } from '../../shared/extensions'
 import type { IconThemeContribution } from '../../shared/iconTheme'
 import { LANGUAGE_SERVER_CAPABILITY, languageServerSummary } from '../../shared/languageServers'
-import type { RedactionResult } from '../../shared/redaction'
-import { redactAssistRequest } from '../../shared/redactionTargets'
+import type { RedactionResult } from '../../shared/privacy/redaction'
+import { redactAssistRequest } from '../../shared/privacy/redactionTargets'
 import {
   FOLDER_CLOSED_EVENT,
   type RemoteCwd,
   type RemoteFilesRequest,
   type RemoteFolder,
 } from '../../shared/remoteFolders'
-import { quoteArgv } from '../../shared/shellQuote'
+import { quoteArgv } from '../../shared/terminal/shellQuote'
 import type { Workflow } from '../../shared/workflows'
 import type { AgentPluginSource } from '../agents/agentSkills'
 import {

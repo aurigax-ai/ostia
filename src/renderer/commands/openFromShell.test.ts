@@ -1,7 +1,11 @@
 import { tabMark } from '@/lib/attention/attention'
 import { followedFolder, treeRoot } from '@/lib/files/revealFolder'
 import { callerHasFocus, opensQuietly } from '@/lib/panes/callerFocus'
-import { OPEN_DIFF_COMMAND, OPEN_FILES_COMMAND, REVEAL_FOLDER_COMMAND } from '@shared/openFiles'
+import {
+  OPEN_DIFF_COMMAND,
+  OPEN_FILES_COMMAND,
+  REVEAL_FOLDER_COMMAND,
+} from '@shared/files/openFiles'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { allPanes, findPane, paneBrowserProfile, tabsOfPane } from '../layout/tree'
 import { useAttentionStore } from '../stores/attentionStore'

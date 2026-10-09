@@ -8,7 +8,12 @@ import { useSettingsStore } from '@/stores/settingsStore'
 import { useUIStore } from '@/stores/uiStore'
 import { useViewsStore } from '@/stores/viewsStore'
 import { type Workspace, useWorkspacesStore } from '@/stores/workspacesStore'
-import { VIEW_MAX_LIST_ITEMS, type ViewInfo, type ViewStatus, parseViewText } from '@shared/views'
+import {
+  VIEW_MAX_LIST_ITEMS,
+  type ViewInfo,
+  type ViewStatus,
+  parseViewText,
+} from '@shared/views/views'
 import { act, cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'

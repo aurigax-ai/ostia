@@ -7,7 +7,7 @@ import { useLayoutStore } from '@/stores/layoutStore'
 import { useUIStore } from '@/stores/uiStore'
 import { enabledViews, useViewsStore } from '@/stores/viewsStore'
 import { useWorkspacesStore } from '@/stores/workspacesStore'
-import { OPEN_VIEW_COMMAND, type ViewInfo } from '@shared/views'
+import { OPEN_VIEW_COMMAND, type ViewInfo } from '@shared/views/views'
 import type { ViewActionTarget } from './viewExpand'
 
 const OPEN_VIEW_PREFIX = `${OPEN_VIEW_COMMAND}.`

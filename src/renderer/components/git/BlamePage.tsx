@@ -1,5 +1,5 @@
 import { absoluteTime, relativeTime, shortSha } from '@/lib/git/gitView'
-import { type GitBlameData, isUncommitted } from '@shared/git'
+import { type GitBlameData, isUncommitted } from '@shared/boards/git'
 import { useDict } from '../../i18n/useDict'
 import { useSettingsStore } from '../../stores/settingsStore'
 

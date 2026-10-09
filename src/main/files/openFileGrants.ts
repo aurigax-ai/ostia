@@ -1,6 +1,6 @@
 import { constants, type Stats, accessSync, realpathSync, statSync } from 'node:fs'
 import { isAbsolute, resolve } from 'node:path'
-import type { OpenFileVerdict } from '../../shared/openFiles'
+import type { OpenFileVerdict } from '../../shared/files/openFiles'
 import { loadJson, saveJson } from '../platform/jsonStore'
 import { expandHome, resolveSafe } from '../platform/pathGuard'
 

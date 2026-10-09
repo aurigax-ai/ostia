@@ -5,7 +5,7 @@ import { agoText } from '@/lib/sidebar/dashboard'
 import { useArtifactsStore } from '@/stores/artifactsStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { CaretRightIcon, FolderOpenIcon, NotePencilIcon } from '@phosphor-icons/react'
-import type { ArtifactEntry } from '@shared/artifacts'
+import type { ArtifactEntry } from '@shared/artifacts/artifacts'
 import { useEffect, useMemo, useState } from 'react'
 import { fileIcon } from './fileIcon'
 

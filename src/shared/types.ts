@@ -1,40 +1,10 @@
-import type { AgentResume, ResumableAgent } from './agentResume'
-import type { AgentSessionInfo } from './agentSessionInfo'
-import type { HibernateOutcome } from './agentWork'
-import type { AppMenuSpec } from './appMenu'
-import type { ApprovalAnswer, ApprovalState } from './approvals'
-import type { ArtifactListing } from './artifacts'
-import type { AssistApi } from './assist'
-import type { BrowserProfile } from './browserProfile'
-import type {
-  BrowserStorageRead,
-  StorageEdit,
-  StorageKind,
-  StorageRemoval,
-  StorageWriteResult,
-} from './browserStorage'
-import type { BuildInfo } from './buildInfo'
-import type { Capability } from './capabilities'
-import type { ChatSessionsApi } from './chatSessions'
-import type { ChatToolsApi } from './chatTools'
-import type { ClipboardChords, ClipboardEdit } from './clipboardChords'
-import type { CmuxSessionRead } from './cmuxSession'
-import type { SpecCommand } from './completionSpec'
-import type {
-  CredentialImportResult,
-  CredentialInput,
-  CredentialSaveResult,
-  CredentialSummary,
-} from './credentials'
-import type { DiscreteGpuInfo } from './discreteGpu'
-import type { EditorLanguagesApi } from './editorLanguages'
-import type { SuggestionsApi } from './extensionSuggestions'
-import type { ExtensionOpenTerminalRequest, ExtensionResult, ExtensionsApi } from './extensions'
-import type { FileOpsApi } from './fileOps'
-import type { GitBridge } from './git'
-import type { GuestChordFire } from './guestChords'
-import type { PreviewApi } from './htmlPreview'
-import type { IconThemesApi } from './iconTheme'
+import type { AgentResume, ResumableAgent } from './agents/agentResume'
+import type { AgentSessionInfo } from './agents/agentSessionInfo'
+import type { HibernateOutcome } from './agents/agentWork'
+import type { QuestionReply, QuestionState } from './agents/questions'
+import type { AppMenuSpec } from './app/appMenu'
+import type { BuildInfo } from './app/buildInfo'
+import type { DiscreteGpuInfo } from './app/discreteGpu'
 import type {
   ReleaseState,
   ReplaceProgress,
@@ -42,26 +12,63 @@ import type {
   ReplaceState,
   UpdateRunStart,
   UpdateRunState,
-} from './installMethod'
-import type { KeymapsApi } from './keymapFile'
-import type { LanguagePacksApi } from './languagePack'
-import type { LspApi } from './languageServers'
-import type { MarketplaceApi } from './marketplace'
-import type { OpenFileVerdict } from './openFiles'
-import type { PhoneGrantableCap } from './phoneCapabilities'
-import type { PickOutcome, PickSendRequest, PickSendResult, PickState, PickTheme } from './pick'
-import type { PortsBridge } from './ports'
-import type { PromptSeparator } from './promptSettings'
-import type { QuestionReply, QuestionState } from './questions'
-import type { AgentGroupPlacement, ReachMode } from './reach'
-import type { PrivacyApi } from './redaction'
+} from './app/installMethod'
+import type { ReleaseCheckResult } from './app/releases'
+import type { RequirementsReport } from './app/systemRequirements'
+import type { ArtifactListing } from './artifacts/artifacts'
+import type { PreviewApi } from './artifacts/htmlPreview'
+import type { AssistApi } from './assist'
+import type { ChatSessionsApi } from './assist/chatSessions'
+import type { ChatToolsApi } from './assist/chatTools'
+import type { GitBridge } from './boards/git'
+import type { PortsBridge } from './boards/ports'
+import type { BrowserProfile } from './browser/browserProfile'
+import type {
+  BrowserStorageRead,
+  StorageEdit,
+  StorageKind,
+  StorageRemoval,
+  StorageWriteResult,
+} from './browser/browserStorage'
+import type {
+  CredentialImportResult,
+  CredentialInput,
+  CredentialSaveResult,
+  CredentialSummary,
+} from './browser/credentials'
+import type {
+  PickOutcome,
+  PickSendRequest,
+  PickSendResult,
+  PickState,
+  PickTheme,
+} from './browser/pick'
 import type {
   RegionCaptureOutcome,
   RegionCaptureRequest,
   RegionCopyResult,
   RegionSendRequest,
-} from './regionCapture'
-import type { ReleaseCheckResult } from './releases'
+} from './browser/regionCapture'
+import type { SelectionSendRequest, SelectionSendResult } from './browser/selection'
+import type { Capability } from './capabilities'
+import type { EditorLanguagesApi } from './editorLanguages'
+import type { ExtensionOpenTerminalRequest, ExtensionResult, ExtensionsApi } from './extensions'
+import type { SuggestionsApi } from './extensions/extensionSuggestions'
+import type { MarketplaceApi } from './extensions/marketplace'
+import type { FileOpsApi } from './files/fileOps'
+import type { OpenFileVerdict } from './files/openFiles'
+import type { SearchApi } from './files/search'
+import type { PhoneGrantableCap } from './gateway/phoneCapabilities'
+import type { IconThemesApi } from './iconTheme'
+import type { ClipboardChords, ClipboardEdit } from './keyboard/clipboardChords'
+import type { GuestChordFire } from './keyboard/guestChords'
+import type { KeymapsApi } from './keyboard/keymapFile'
+import type { LanguagePacksApi } from './languagePack'
+import type { LspApi } from './languageServers'
+import type { ApprovalAnswer, ApprovalState } from './permissions/approvals'
+import type { AgentGroupPlacement, ReachMode } from './permissions/reach'
+import type { PrivacyApi } from './privacy/redaction'
+import type { TelemetryApi } from './privacy/telemetry'
 import type {
   RemoteCwd,
   RemoteFolder,
@@ -86,17 +93,16 @@ import type {
   SandboxViolation,
   WorkspacePackages,
   WorkspaceSandbox,
-} from './sandbox'
-import type { SandboxReadPreset } from './sandboxPresets'
-import type { SearchApi } from './search'
-import type { SecretEntry, SecretGrant } from './secrets'
-import type { SelectionSendRequest, SelectionSendResult } from './selection'
-import type { SplitTabPlacement } from './splitTabs'
-import type { RequirementsReport } from './systemRequirements'
-import type { TelemetryApi } from './telemetry'
-import type { ViewsApi } from './views'
+} from './sandbox/sandbox'
+import type { SandboxReadPreset } from './sandbox/sandboxPresets'
+import type { SecretEntry, SecretGrant } from './sandbox/secrets'
+import type { SpecCommand } from './terminal/completionSpec'
+import type { PromptSeparator } from './terminal/promptSettings'
+import type { ViewsApi } from './views/views'
 import type { WorkflowDocument, WorkflowListing, WorkflowSaveResult } from './workflows'
-import type { WorkspaceGroupColor } from './workspaceGroups'
+import type { CmuxSessionRead } from './workspaces/cmuxSession'
+import type { SplitTabPlacement } from './workspaces/splitTabs'
+import type { WorkspaceGroupColor } from './workspaces/workspaceGroups'
 
 export type Platform = 'darwin' | 'linux' | 'win32' | (string & {})
 

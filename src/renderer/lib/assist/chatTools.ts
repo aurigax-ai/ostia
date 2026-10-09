@@ -16,7 +16,7 @@ import { useEditorStatus } from '@/stores/editorStatusStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useWorkspacesStore } from '@/stores/workspacesStore'
 import { CHAT_TOOL_DESCRIPTION_MAX, type ChatToolSpec } from '@shared/assist'
-import { parseEdits } from '@shared/chatEdits'
+import { parseEdits } from '@shared/assist/chatEdits'
 import {
   BUILTIN_TOOL_ACCESS,
   type BuiltinChatTool,
@@ -27,8 +27,8 @@ import {
   type McpServerStatus,
   type SkillSummary,
   mcpToolName,
-} from '@shared/chatTools'
-import { resolveLinkPath } from '@shared/fileLinks'
+} from '@shared/assist/chatTools'
+import { resolveLinkPath } from '@shared/files/fileLinks'
 import { PRODUCT_DISPLAY_NAME } from '@shared/productDisplay'
 import { workspaceTerminal } from './askContext'
 import { idleTerminals, insertInto, runInNewTerminal } from './chatActions'

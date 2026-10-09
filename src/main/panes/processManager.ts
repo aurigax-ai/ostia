@@ -1,14 +1,14 @@
 import { isAbsolute } from 'node:path'
 import { ErrorCodes, ResponseError } from 'vscode-jsonrpc/node'
-import { MANAGER_AGENT_NAME } from '../../shared/managerSettings'
+import { MANAGER_AGENT_NAME } from '../../shared/agents/managerSettings'
 import { PRODUCT_DISPLAY_NAME } from '../../shared/productDisplay'
-import { quoteArgv } from '../../shared/shellQuote'
+import { quoteArgv } from '../../shared/terminal/shellQuote'
 import {
   type SplitTabPlacement,
   type SplitTabSide,
   normalizeSplitTabName,
   parseSplitTabSide,
-} from '../../shared/splitTabs'
+} from '../../shared/workspaces/splitTabs'
 import type { Reach } from '../approvals/reach'
 import {
   type ControlMethodContext,

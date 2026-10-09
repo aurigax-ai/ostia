@@ -10,8 +10,8 @@ import {
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import type { ChatEdit } from '../../shared/chatEdits'
-import { CHAT_READ_FILE_MAX, CHAT_WRITE_MAX } from '../../shared/chatTools'
+import type { ChatEdit } from '../../shared/assist/chatEdits'
+import { CHAT_READ_FILE_MAX, CHAT_WRITE_MAX } from '../../shared/assist/chatTools'
 import {
   listTool,
   planEditTool,

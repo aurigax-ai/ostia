@@ -14,7 +14,7 @@ import {
   TELEMETRY_SEND_ATTEMPTS,
   TELEMETRY_URL_ENV,
   type TelemetrySettings,
-} from '../../shared/telemetry'
+} from '../../shared/privacy/telemetry'
 
 const handlers = new Map<string, (...args: unknown[]) => unknown>()
 

@@ -5,7 +5,7 @@ import {
   type IMarker,
   Terminal,
 } from '@xterm/headless'
-import { type CwdReport, parseOsc7 } from '../../shared/osc7'
+import { type CwdReport, parseOsc7 } from '../../shared/terminal/osc7'
 
 const MIRROR_SCROLLBACK = 2000
 export const HISTORY_LINES = 1000

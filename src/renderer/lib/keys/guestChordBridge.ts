@@ -1,8 +1,8 @@
 import { workspaceOfPane } from '@/lib/attention/workspaceActivity'
 import { browserActionOf, browserPaneOfGuest, runBrowserAction } from '@/lib/browser/browserHandles'
 import { useLayoutStore } from '@/stores/layoutStore'
-import { isDoubleShiftKey } from '@shared/chordSpec'
-import { isGuestChordFire } from '@shared/guestChords'
+import { isDoubleShiftKey } from '@shared/keyboard/chordSpec'
+import { isGuestChordFire } from '@shared/keyboard/guestChords'
 import {
   currentBindings,
   findStep,

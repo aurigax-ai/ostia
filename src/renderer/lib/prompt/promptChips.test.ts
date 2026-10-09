@@ -1,6 +1,6 @@
 import type { ShownChip } from '@/lib/extensions/extensionChips'
 import type { CommandBlock } from '@/stores/blocksStore'
-import { DEFAULT_PROMPT_SETTINGS } from '@shared/promptSettings'
+import { DEFAULT_PROMPT_SETTINGS } from '@shared/terminal/promptSettings'
 import type { PromptContext } from '@shared/types'
 import { describe, expect, it } from 'vitest'
 import {

@@ -132,7 +132,7 @@ import {
   WarningCircleIcon,
 } from '@phosphor-icons/react'
 import type { ChatContextItem } from '@shared/assist'
-import { resolveLinkPath } from '@shared/fileLinks'
+import { resolveLinkPath } from '@shared/files/fileLinks'
 import type { UIMessage } from 'ai'
 import {
   type KeyboardEvent,

@@ -4,8 +4,12 @@ import {
   type KeybindingMap,
   formatScopedChord,
   parseScopedChord,
-} from '@shared/chordSpec'
-import { NATURAL_TEXT_EDITING, NO_TERMINAL_KEYMAP, OSTIA_KEYMAP } from '@shared/keyboardPresets'
+} from '@shared/keyboard/chordSpec'
+import {
+  NATURAL_TEXT_EDITING,
+  NO_TERMINAL_KEYMAP,
+  OSTIA_KEYMAP,
+} from '@shared/keyboard/keyboardPresets'
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_CHORDS, effectiveBindings } from './chords'
 import {

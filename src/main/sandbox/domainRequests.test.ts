@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { ApprovalOutcome } from '../../shared/approvals'
+import type { ApprovalOutcome } from '../../shared/permissions/approvals'
 import { DomainRequests } from './domainRequests'
 
 function setup(opts: { sandboxed?: boolean; blocked?: string[] } = {}) {

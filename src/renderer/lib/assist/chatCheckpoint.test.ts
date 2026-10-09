@@ -1,6 +1,6 @@
 import { type ChatEditRecord, resetChatTools, useChatToolsStore } from '@/stores/chatToolsStore'
 import { useEditorStatus } from '@/stores/editorStatusStore'
-import type { ChatRestoreRequest } from '@shared/chatTools'
+import type { ChatRestoreRequest } from '@shared/assist/chatTools'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { checkCheckpoint, checkpointFiles, restoreCheckpoint } from './chatCheckpoint'
 

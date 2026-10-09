@@ -1,5 +1,5 @@
 import { BASE_LANGUAGE } from '@/lib/extensions/languagePacks'
-import { zhHant } from '@shared/dict'
+import { zhHant } from '@shared/app/dict'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   allPanes,

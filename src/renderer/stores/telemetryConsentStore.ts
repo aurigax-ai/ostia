@@ -1,4 +1,4 @@
-import { DEFAULT_TELEMETRY_SETTINGS, type TelemetrySettings } from '@shared/telemetry'
+import { DEFAULT_TELEMETRY_SETTINGS, type TelemetrySettings } from '@shared/privacy/telemetry'
 import { create } from 'zustand'
 
 interface TelemetryConsentState {

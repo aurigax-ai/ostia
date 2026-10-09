@@ -1,4 +1,4 @@
-import type { WaitOutcome } from '../../shared/openFiles'
+import type { WaitOutcome } from '../../shared/files/openFiles'
 
 export interface WaitRequest {
   windowId: string

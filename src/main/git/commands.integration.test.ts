@@ -12,9 +12,9 @@ import {
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { en, zhHant } from '../../shared/dict'
+import { en, zhHant } from '../../shared/app/dict'
+import { DEFAULT_GIT_SETTINGS, type GitSettings } from '../../shared/boards/git'
 import type { ExtensionOpenDiffRequest } from '../../shared/extensions'
-import { DEFAULT_GIT_SETTINGS, type GitSettings } from '../../shared/git'
 import { type DiscardPrompt, type GitCaller, GitCommands } from './commands'
 import { ViewStateStore } from './viewState'
 

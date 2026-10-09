@@ -11,9 +11,9 @@ import { type PaneWhere, agoText, isLongContext } from '@/lib/sidebar/dashboard'
 import { EMPTY_DRAFT, type QuestionDraft, useQuestionsStore } from '@/stores/questionsStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { ArrowSquareOutIcon, ChatCircleTextIcon, CheckCircleIcon } from '@phosphor-icons/react'
-import type { PermissionChoice } from '@shared/agentPermissions'
-import type { Dict } from '@shared/dict'
-import type { QuestionRequest } from '@shared/questions'
+import type { PermissionChoice } from '@shared/agents/agentPermissions'
+import type { QuestionRequest } from '@shared/agents/questions'
+import type { Dict } from '@shared/app/dict'
 import { type KeyboardEvent, useEffect, useMemo, useState } from 'react'
 
 const AGO_TICK_MS = 30_000

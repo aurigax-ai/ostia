@@ -12,7 +12,7 @@ import {
   type ChatAssistRequest,
   EMPTY_ASSIST_CATALOG,
 } from '@shared/assist'
-import type { ChatPlanOutput, ChatPreviewOutput, ChatWriteOutput } from '@shared/chatTools'
+import type { ChatPlanOutput, ChatPreviewOutput, ChatWriteOutput } from '@shared/assist/chatTools'
 import type { UIMessageChunk } from 'ai'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { decideHunk, undoEdit } from './chatReview'

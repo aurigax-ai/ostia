@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { app } from 'electron'
-import { type BuildInfo, parseBuildInfo } from '../../shared/buildInfo'
+import { type BuildInfo, parseBuildInfo } from '../../shared/app/buildInfo'
 
 export function readBuildInfo(path: string): BuildInfo | null {
   try {

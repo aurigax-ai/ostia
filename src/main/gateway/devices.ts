@@ -4,7 +4,7 @@ import {
   PHONE_GRANTABLE_CAPS,
   type PhoneCap,
   type PhoneGrantableCap,
-} from '../../shared/phoneCapabilities'
+} from '../../shared/gateway/phoneCapabilities'
 import type { GatewaySetCapResult } from '../../shared/types'
 import { loadJson, saveJson, storePath } from '../platform/jsonStore'
 

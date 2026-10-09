@@ -1,4 +1,4 @@
-import type { NewEntryKind } from '@shared/fileOps'
+import type { NewEntryKind } from '@shared/files/fileOps'
 import { create } from 'zustand'
 
 export type TreeEdit =

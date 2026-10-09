@@ -5,8 +5,8 @@ import { type BrowserWindow, Notification, app, ipcMain } from 'electron'
 import {
   type NotificationSettings,
   parseNotificationSettings,
-} from '../../shared/notificationSettings'
-import type { RedactText } from '../../shared/redactionTargets'
+} from '../../shared/app/notificationSettings'
+import type { RedactText } from '../../shared/privacy/redactionTargets'
 import {
   type NotificationEntry,
   type NotificationKind,

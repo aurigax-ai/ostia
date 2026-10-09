@@ -1,4 +1,4 @@
-import type { McpServerSettings } from '@shared/chatTools'
+import type { McpServerSettings } from '@shared/assist/chatTools'
 import { describe, expect, it } from 'vitest'
 import {
   type McpServerDraft,

@@ -3,7 +3,7 @@ import { useDict } from '@/i18n/useDict'
 import { useQuestionsStore } from '@/stores/questionsStore'
 import { useUIStore } from '@/stores/uiStore'
 import { ChatCircleTextIcon } from '@phosphor-icons/react'
-import type { QuestionRequest } from '@shared/questions'
+import type { QuestionRequest } from '@shared/agents/questions'
 import { questionTitle } from './QuestionCard'
 
 export function QuestionNotice({ question }: { question: QuestionRequest }): JSX.Element {

@@ -14,7 +14,7 @@ import {
   type ChatSessionMessage,
   type ChatSessionSummary,
   chatTitle,
-} from '@shared/chatSessions'
+} from '@shared/assist/chatSessions'
 import { create } from 'zustand'
 import { type ChatEditRecord, sessionEdits, useChatToolsStore } from './chatToolsStore'
 import { useSettingsStore } from './settingsStore'

@@ -2,9 +2,9 @@ import { mkdirSync, mkdtempSync, realpathSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { ApprovalOutcome } from '../../shared/approvals'
-import type { AgentGroupPlacement, ReachMode } from '../../shared/reach'
-import { emptyWorkspaceSandbox } from '../../shared/sandbox'
+import type { ApprovalOutcome } from '../../shared/permissions/approvals'
+import type { AgentGroupPlacement, ReachMode } from '../../shared/permissions/reach'
+import { emptyWorkspaceSandbox } from '../../shared/sandbox/sandbox'
 import type { ApprovalAsk } from './approvals'
 
 const request = vi.fn(async (_ask: ApprovalAsk): Promise<ApprovalOutcome> => 'deny')

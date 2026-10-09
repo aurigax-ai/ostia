@@ -1,5 +1,5 @@
 import { newRequests, useApprovalsStore } from '@/stores/approvalsStore'
-import type { ApprovalRequest } from '@shared/approvals'
+import type { ApprovalRequest } from '@shared/permissions/approvals'
 import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'

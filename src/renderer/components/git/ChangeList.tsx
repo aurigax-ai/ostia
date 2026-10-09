@@ -16,7 +16,7 @@ import {
   PlusIcon,
   TreeStructureIcon,
 } from '@phosphor-icons/react'
-import type { Dict } from '@shared/dict'
+import type { Dict } from '@shared/app/dict'
 import type {
   BranchInfo,
   ChangeArea,
@@ -25,7 +25,7 @@ import type {
   GitChangesData,
   GitPathsRequest,
   StatusSummary,
-} from '@shared/git'
+} from '@shared/boards/git'
 import { Fragment, type KeyboardEvent, type ReactNode, useMemo } from 'react'
 import { fmt, useDict } from '../../i18n/useDict'
 import { useSettingsStore } from '../../stores/settingsStore'

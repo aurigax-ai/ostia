@@ -1,8 +1,12 @@
 import { resolve as resolvePath } from 'node:path'
 import type { MessageConnection } from 'vscode-jsonrpc/node'
-import type { CmuxImportReport, CmuxLoss, CmuxSkipReason } from '../../shared/cmuxSession'
 import type { CommandResult } from '../../shared/types'
-import { MAX_PANES, MAX_WORKSPACES } from '../../shared/workspaceLimits'
+import type {
+  CmuxImportReport,
+  CmuxLoss,
+  CmuxSkipReason,
+} from '../../shared/workspaces/cmuxSession'
+import { MAX_PANES, MAX_WORKSPACES } from '../../shared/workspaces/workspaceLimits'
 import { parseArgs } from '../common/args'
 
 export const CMUX_IMPORT_USAGE = 'usage: ostia workspace import-cmux [session-file] [--json]'

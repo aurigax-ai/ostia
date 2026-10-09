@@ -5,7 +5,7 @@ import {
   QUESTION_RATE_WINDOW_MS,
   type QuestionOutcome,
   type QuestionState,
-} from '../../shared/questions'
+} from '../../shared/agents/questions'
 
 vi.mock('electron', () => ({
   ipcMain: { handle: vi.fn() },

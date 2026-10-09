@@ -31,7 +31,7 @@ vi.mock('electron', () => ({
 
 const { AppTray, closeAction, isHiddenLaunch, readCloseToTray, trayTooltip, unreadWorkspaces } =
   await import('./tray')
-const { en, zhHant } = await import('../../shared/dict')
+const { en, zhHant } = await import('../../shared/app/dict')
 
 function fakeWindow(events: string[]) {
   let visible = true

@@ -27,11 +27,11 @@ import {
   sameChord,
   sameScope,
   specFromEvent,
-} from '@shared/chordSpec'
+} from '@shared/keyboard/chordSpec'
 import { isDangerousSegment } from '@shared/protoGuard'
 
-export type { KeyLike, KeybindingMap } from '@shared/chordSpec'
-export { WORKSPACE_GOTO, bindingProblem, checkBinding } from '@shared/chordSpec'
+export type { KeyLike, KeybindingMap } from '@shared/keyboard/chordSpec'
+export { WORKSPACE_GOTO, bindingProblem, checkBinding } from '@shared/keyboard/chordSpec'
 
 export type AppChord =
   | 'app.quit'

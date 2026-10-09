@@ -5,8 +5,8 @@ import type {
   GitFailure,
   GitGraphData,
   GraphCommit,
-} from '@shared/git'
-import { type RelativeStep, formatRelative } from '@shared/relativeTime'
+} from '@shared/boards/git'
+import { type RelativeStep, formatRelative } from '@shared/common/relativeTime'
 import type { TreeNode } from './gitFileTree'
 import { type GraphEdge, type GraphNode, type GraphRow, layoutGraph } from './gitGraph'
 

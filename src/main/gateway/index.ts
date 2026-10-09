@@ -1,6 +1,6 @@
 import { hostname } from 'node:os'
 import { type IpcMainInvokeEvent, ipcMain } from 'electron'
-import { LOOPBACK_ADDRESS } from '../../shared/gatewayRoute'
+import { LOOPBACK_ADDRESS } from '../../shared/gateway/gatewayRoute'
 import type {
   GatewayActionResult,
   GatewayDevice,

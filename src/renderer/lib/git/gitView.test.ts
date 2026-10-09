@@ -1,4 +1,4 @@
-import type { BranchRef, GitGraphData, GraphCommit } from '@shared/git'
+import type { BranchRef, GitGraphData, GraphCommit } from '@shared/boards/git'
 import { describe, expect, it } from 'vitest'
 import {
   clampPosition,

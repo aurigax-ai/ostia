@@ -46,10 +46,10 @@ import {
   exceedsPad,
   isInside,
   isPadPath,
-} from '@shared/artifacts'
-import { AUTO_SAVE_DELAY_MS, type EditorSettings } from '@shared/browserEditorSettings'
+} from '@shared/artifacts/artifacts'
+import { isPreviewPath } from '@shared/artifacts/htmlPreview'
+import { AUTO_SAVE_DELAY_MS, type EditorSettings } from '@shared/browser/browserEditorSettings'
 import { DIFF_TEXT_MAX } from '@shared/extensions'
-import { isPreviewPath } from '@shared/htmlPreview'
 import { type RemoteFileError, isRemotePath, parseRemotePath } from '@shared/remoteFolders'
 import type { FsTextResult } from '@shared/types'
 import { useEffect, useRef, useState } from 'react'

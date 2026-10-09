@@ -4,7 +4,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Separator } from '@/components/ui/separator'
 import { fmt, useDict } from '@/i18n/useDict'
 import { FloppyDiskIcon, KeyIcon, UserIcon } from '@phosphor-icons/react'
-import type { CredentialSummary } from '@shared/credentials'
+import type { CredentialSummary } from '@shared/browser/credentials'
 import { useEffect, useState } from 'react'
 
 export function LoginButton({

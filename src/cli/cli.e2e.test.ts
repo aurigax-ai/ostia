@@ -29,7 +29,11 @@ import { registerPaneListMethods } from '../main/panes/paneList'
 import { ViewHost, ViewStore } from '../main/workspaces/viewHost'
 import { registerViewMethods } from '../main/workspaces/viewsIpc'
 import { registerWorkflowMethods, workspaceWorkflowsDir } from '../main/workspaces/workflows'
-import { OPEN_DIFF_COMMAND, OPEN_FILES_COMMAND, REVEAL_FOLDER_COMMAND } from '../shared/openFiles'
+import {
+  OPEN_DIFF_COMMAND,
+  OPEN_FILES_COMMAND,
+  REVEAL_FOLDER_COMMAND,
+} from '../shared/files/openFiles'
 import type { CommandDescriptor, CommandResult, CommandTarget } from '../shared/types'
 
 const repoRoot = process.cwd()

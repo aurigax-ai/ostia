@@ -24,7 +24,7 @@ import {
   type MarketplaceInstallState,
   type MarketplaceResult,
   type MarketplaceState,
-} from '../../shared/marketplace'
+} from '../../shared/extensions/marketplace'
 import { loadJson, saveJson } from '../platform/jsonStore'
 import { missingRequirements } from '../platform/systemRequirements'
 import { loadLocaleCatalogs, manifestIn } from './extensionLocales'

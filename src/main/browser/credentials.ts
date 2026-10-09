@@ -9,7 +9,7 @@ import {
   type CredentialSummary,
   normalizeOrigin,
   passwordRowsFromCsv,
-} from '../../shared/credentials'
+} from '../../shared/browser/credentials'
 import { loadJson, saveJson, storePath } from '../platform/jsonStore'
 
 interface StoredCredential extends CredentialSummary {

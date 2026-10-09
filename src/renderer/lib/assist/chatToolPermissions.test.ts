@@ -1,4 +1,4 @@
-import { READ_OUTSIDE_GRANT } from '@shared/chatTools'
+import { READ_OUTSIDE_GRANT } from '@shared/assist/chatTools'
 import { describe, expect, it } from 'vitest'
 import {
   CHAT_MODES,

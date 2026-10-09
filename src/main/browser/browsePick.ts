@@ -17,10 +17,10 @@ import {
   pickReportName,
   renderPickReport,
   screenshotRect,
-} from '../../shared/pick'
-import { PICK_RUNTIME_GLOBAL, pickRuntimeScript } from '../../shared/pickRuntime'
+} from '../../shared/browser/pick'
+import { PICK_RUNTIME_GLOBAL, pickRuntimeScript } from '../../shared/browser/pickRuntime'
+import type { RedactText } from '../../shared/privacy/redactionTargets'
 import { PRODUCT_NAME } from '../../shared/product'
-import type { RedactText } from '../../shared/redactionTargets'
 import { postBusMessage } from '../agents/bus'
 import type { OriginReach } from '../agents/originAgents'
 import type { Reach } from '../approvals/reach'

@@ -3,7 +3,7 @@ import { appendFileSync, mkdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { appDataDir } from '../platform/userDirs'
 
-export { formatCode } from '../../shared/pairCode'
+export { formatCode } from '../../shared/gateway/pairCode'
 
 const CODE_TTL_MS = 120_000
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'

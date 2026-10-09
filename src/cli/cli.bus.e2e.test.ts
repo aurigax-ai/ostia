@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { HookAgent } from '../shared/agentPlugins'
-import type { ApprovalOutcome } from '../shared/approvals'
+import type { ApprovalOutcome } from '../shared/permissions/approvals'
 import type { CommandResult } from '../shared/types'
 
 const dir = mkdtempSync(join(tmpdir(), 'ostia-cli-bus-'))

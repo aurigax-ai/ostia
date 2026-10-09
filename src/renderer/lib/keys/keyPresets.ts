@@ -5,20 +5,20 @@ import {
   formatChord,
   parseChord,
   specFromEvent,
-} from '@shared/chordSpec'
+} from '@shared/keyboard/chordSpec'
 import {
   type KeyboardPlatform,
   type PresetKeys,
   terminalKeymapIn,
   terminalKeymapKeys,
-} from '@shared/keyboardPresets'
+} from '@shared/keyboard/keyboardPresets'
 import {
   type TerminalKeyMap,
   type TerminalSend,
   sameSend,
   sendChordProblem,
   sendData,
-} from '@shared/terminalKeys'
+} from '@shared/keyboard/terminalKeys'
 import { isBrowserChord, matchChordInTerminal } from './chords'
 
 const platformOf = (mac: boolean): KeyboardPlatform => (mac ? 'mac' : 'linux')

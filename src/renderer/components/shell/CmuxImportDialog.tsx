@@ -9,9 +9,9 @@ import {
 } from '@/components/ui/alert-dialog'
 import { fmt, useDict } from '@/i18n/useDict'
 import { useCmuxImportStore } from '@/stores/cmuxImportStore'
-import type { CmuxImportReport, CmuxLossEntry } from '@shared/cmuxSession'
-import type { Dict } from '@shared/dict'
-import { MAX_PANES, MAX_WORKSPACES } from '@shared/workspaceLimits'
+import type { Dict } from '@shared/app/dict'
+import type { CmuxImportReport, CmuxLossEntry } from '@shared/workspaces/cmuxSession'
+import { MAX_PANES, MAX_WORKSPACES } from '@shared/workspaces/workspaceLimits'
 import { useId } from 'react'
 
 function lossLine(d: Dict, entry: CmuxLossEntry): string {

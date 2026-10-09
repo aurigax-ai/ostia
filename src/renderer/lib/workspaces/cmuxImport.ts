@@ -14,6 +14,7 @@ import { isRestorable } from '@/stores/persistence'
 import { useSandboxStore } from '@/stores/sandboxStore'
 import { useWindowsStore } from '@/stores/windowsStore'
 import { nameFromWorkDir, nextWorkspaceId, useWorkspacesStore } from '@/stores/workspacesStore'
+import type { SnapshotWorkspace } from '@shared/types'
 import type {
   CmuxImportReport,
   CmuxLayout,
@@ -25,10 +26,9 @@ import type {
   CmuxSkippedEntry,
   CmuxSurface,
   CmuxWorkspace,
-} from '@shared/cmuxSession'
-import type { SnapshotWorkspace } from '@shared/types'
-import { MAX_LAYOUT_DEPTH, MAX_PANES, MAX_WORKSPACES } from '@shared/workspaceLimits'
-import { normalizeDescription } from '@shared/workspaceText'
+} from '@shared/workspaces/cmuxSession'
+import { MAX_LAYOUT_DEPTH, MAX_PANES, MAX_WORKSPACES } from '@shared/workspaces/workspaceLimits'
+import { normalizeDescription } from '@shared/workspaces/workspaceText'
 
 const NAME_MAX = 120
 const FLATTEN_DEPTH = MAX_LAYOUT_DEPTH - 1

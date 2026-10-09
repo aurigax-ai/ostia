@@ -1,5 +1,9 @@
-import { RUNTIME_PREFIX, TAILWIND_RUNTIME, runtimeImportMap } from '../../shared/artifactRuntime'
-import { type PreviewTheme, SHELL_MODULE_PATH } from '../../shared/htmlPreview'
+import {
+  RUNTIME_PREFIX,
+  TAILWIND_RUNTIME,
+  runtimeImportMap,
+} from '../../shared/artifacts/artifactRuntime'
+import { type PreviewTheme, SHELL_MODULE_PATH } from '../../shared/artifacts/htmlPreview'
 import shellSource from './previewShellModule.txt?raw'
 
 export const ENTRY_MODULE_PATH = '/__ostia_entry.js'

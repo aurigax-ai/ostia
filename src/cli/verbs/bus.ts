@@ -3,7 +3,7 @@ import {
   type AgentHookEvent,
   agentHookOutput,
 } from '../../shared/agentPlugins'
-import type { BusDelivery } from '../../shared/busMessages'
+import type { BusDelivery } from '../../shared/agents/busMessages'
 
 export const BUS_HOOK_USAGE = `usage: ostia bus hook <${AGENT_HOOK_CONTEXT_EVENTS.join('|')}>`
 

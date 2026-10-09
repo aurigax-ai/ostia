@@ -4,7 +4,7 @@ import { startNewWorkspace } from '@/lib/workspaces/newWorkspace'
 import { useEditorRevealStore } from '@/stores/editorRevealStore'
 import { useLayoutStore } from '@/stores/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspacesStore'
-import type { FileTarget, OpenPlacement, OpenedPane } from '@shared/openFiles'
+import type { FileTarget, OpenPlacement, OpenedPane } from '@shared/files/openFiles'
 
 export function openFileInWorkspace(path: string): void {
   if (!useWorkspacesStore.getState().activeWorkspaceId) startNewWorkspace()

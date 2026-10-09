@@ -6,7 +6,7 @@ import {
   nextSeq,
   useChatToolsStore,
 } from '@/stores/chatToolsStore'
-import type { ChatFsResult, ChatRestoreOutput } from '@shared/chatTools'
+import type { ChatFsResult, ChatRestoreOutput } from '@shared/assist/chatTools'
 import { type HunkDecision, allDecided, contentWith, editHunks } from './chatHunks'
 import { dirtyPaths } from './chatTools'
 

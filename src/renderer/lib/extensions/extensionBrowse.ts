@@ -3,7 +3,7 @@ import type {
   MarketplaceExtension,
   MarketplaceInfo,
   MarketplaceInstallState,
-} from '@shared/marketplace'
+} from '@shared/extensions/marketplace'
 
 export const BROWSE_FILTERS = ['all', 'installed', 'not-installed', 'updates'] as const
 

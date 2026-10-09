@@ -1,4 +1,4 @@
-import type { AgentGroupPlacement } from '@shared/reach'
+import type { AgentGroupPlacement } from '@shared/permissions/reach'
 import { create } from 'zustand'
 
 interface AgentGroupsState {

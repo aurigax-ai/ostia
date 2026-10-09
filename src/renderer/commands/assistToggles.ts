@@ -1,5 +1,5 @@
 import { toggleAssistFeature, toggleCommandId } from '@/lib/assist/assistFeatures'
-import type { Dict } from '@shared/dict'
+import type { Dict } from '@shared/app/dict'
 import { fmt } from '../i18n/useDict'
 import { useAssistStore } from '../stores/assistStore'
 import { type CommandWording, commands, wordedBy } from './registry'

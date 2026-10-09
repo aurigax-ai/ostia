@@ -1,5 +1,5 @@
 import type { LanguageContribution } from '@/plugins/types'
-import { mergeCatalog } from '@shared/dict'
+import { mergeCatalog } from '@shared/app/dict'
 import type { LanguagePack } from '@shared/languagePack'
 
 export const BASE_LANGUAGE: LanguageContribution = {

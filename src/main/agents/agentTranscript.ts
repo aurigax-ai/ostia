@@ -2,12 +2,12 @@ import { closeSync, lstatSync, openSync, readSync, readdirSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { ipcMain } from 'electron'
-import { type AgentResume, parseAgentResume } from '../../shared/agentResume'
+import { type AgentResume, parseAgentResume } from '../../shared/agents/agentResume'
 import {
   type AgentSessionInfo,
   claudeSessionInfo,
   codexSessionInfo,
-} from '../../shared/agentSessionInfo'
+} from '../../shared/agents/agentSessionInfo'
 
 export const TRANSCRIPT_TAIL_BYTES = 512 * 1024
 const HEAD_BYTES = 64 * 1024

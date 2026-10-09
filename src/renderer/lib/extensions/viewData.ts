@@ -2,10 +2,10 @@ import { allPanes } from '@/layout/tree'
 import { EMPTY_ATTENTION, type PaneAttention, unreadCount } from '@/lib/attention/attention'
 import type { WorkspaceLayout } from '@/stores/layoutStore'
 import type { Workspace } from '@/stores/workspacesStore'
+import { GIT_SOURCE, PORTS_CHIP, PORTS_SOURCE } from '@shared/boards/git'
 import type { ExtensionSidebarItem, WorkspaceChip } from '@shared/extensions'
-import { GIT_SOURCE, PORTS_CHIP, PORTS_SOURCE } from '@shared/git'
 import type { NotificationEntry } from '@shared/types'
-import type { ViewSource } from '@shared/views'
+import type { ViewSource } from '@shared/views/views'
 
 export const VIEW_NOTIFICATIONS_MAX = 50
 

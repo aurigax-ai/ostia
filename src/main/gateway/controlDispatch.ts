@@ -1,5 +1,5 @@
+import { plainBlock } from '../../shared/agents/questions'
 import type { Capability } from '../../shared/capabilities'
-import { plainBlock } from '../../shared/questions'
 import type {
   CommandDescriptor,
   CommandResult,

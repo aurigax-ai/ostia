@@ -9,7 +9,7 @@ import type {
   SandboxFixedPolicy,
   SandboxPathKind,
   SandboxSwitches,
-} from '@shared/sandbox'
+} from '@shared/sandbox/sandbox'
 import {
   SANDBOX_READ_PRESETS,
   type SandboxReadPreset,
@@ -17,7 +17,7 @@ import {
   presetState,
   withPreset,
   withoutPreset,
-} from '@shared/sandboxPresets'
+} from '@shared/sandbox/sandboxPresets'
 import { useEffect, useState } from 'react'
 import { type ListEditResult, SandboxListEditor } from './SandboxListEditor'
 

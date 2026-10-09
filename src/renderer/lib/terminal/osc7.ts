@@ -1,6 +1,6 @@
-import { isHostNamed } from '@shared/osc7'
+import { isHostNamed } from '@shared/terminal/osc7'
 
-export { type CwdReport, parseOsc7 } from '@shared/osc7'
+export { type CwdReport, parseOsc7 } from '@shared/terminal/osc7'
 
 let localHostName: string | null = null
 

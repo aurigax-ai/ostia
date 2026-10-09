@@ -2,7 +2,6 @@ import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, mkdtempSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { basename, join } from 'node:path'
 import { version } from '../../../package.json'
-import { AGENT_HOOKS_OFF_ENV } from '../../shared/agentHooks'
 import {
   AGENT_HOOK_EVENTS,
   AGENT_SKILL_ENTRY,
@@ -11,10 +10,11 @@ import {
   hookAgentsFor,
   isAgentHookEvent,
 } from '../../shared/agentPlugins'
+import { AGENT_HOOKS_OFF_ENV } from '../../shared/agents/agentHooks'
+import { CLAUDE_QUESTION_TOOLS } from '../../shared/agents/claudeAttention'
 import { appEnv, shellEnv } from '../../shared/appEnv'
-import { CLAUDE_QUESTION_TOOLS } from '../../shared/claudeAttention'
 import { PRODUCT_NAME } from '../../shared/product'
-import { type PromptSeparator, isPromptSeparator } from '../../shared/promptSettings'
+import { type PromptSeparator, isPromptSeparator } from '../../shared/terminal/promptSettings'
 import {
   type AgentPluginContent,
   type ExtensionAgentHook,

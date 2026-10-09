@@ -31,7 +31,7 @@ import type {
   GraphCommit,
   GraphScope,
   StatusSummary,
-} from '@shared/git'
+} from '@shared/boards/git'
 import {
   type CSSProperties,
   type KeyboardEvent,

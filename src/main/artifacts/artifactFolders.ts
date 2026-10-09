@@ -21,7 +21,7 @@ import {
   type ArtifactListing,
   PAD_FILE,
   artifactChanges,
-} from '../../shared/artifacts'
+} from '../../shared/artifacts/artifacts'
 
 const FOLDER_NAME = 'artifacts'
 const CLOSED_DIR = '.closed'

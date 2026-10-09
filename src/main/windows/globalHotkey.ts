@@ -1,4 +1,4 @@
-import { toAccelerator } from '../../shared/globalHotkey'
+import { toAccelerator } from '../../shared/keyboard/globalHotkey'
 
 export interface ShortcutRegistry {
   register: (accelerator: string, callback: () => void) => boolean

@@ -7,7 +7,7 @@ import {
   type ViewInfo,
   type ViewListing,
   parseViewText,
-} from '../../shared/views'
+} from '../../shared/views/views'
 import { ViewHost, ViewStore } from './viewHost'
 
 const VIEW = {

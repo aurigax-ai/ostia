@@ -1,5 +1,5 @@
 import { parentPort } from 'node:worker_threads'
-import { compilePatterns, customSpans, extraSpans } from '../../shared/redaction'
+import { compilePatterns, customSpans, extraSpans } from '../../shared/privacy/redaction'
 import type { ScanReply, ScanRequest } from './redactionScan'
 import { scanSecrets } from './secretScanner'
 

@@ -1,6 +1,6 @@
 import { join } from 'node:path'
 import { BrowserWindow, app, ipcMain } from 'electron'
-import { type BuildInfo, sameBuild } from '../../shared/buildInfo'
+import { type BuildInfo, sameBuild } from '../../shared/app/buildInfo'
 import { restoreGpuLaunchEnv } from '../platform/discreteGpu'
 import { readBuildInfo, runningBuild } from './appVersion'
 

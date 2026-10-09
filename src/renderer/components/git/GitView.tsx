@@ -10,7 +10,7 @@ import type {
   GitGraphData,
   GitReply,
   GraphScope,
-} from '@shared/git'
+} from '@shared/boards/git'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { fmt, useDict } from '../../i18n/useDict'
 import { type GitPage, useGitViewStore } from '../../stores/gitViewStore'

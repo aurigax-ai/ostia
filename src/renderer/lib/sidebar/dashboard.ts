@@ -1,7 +1,7 @@
 import { findPane } from '@/layout/tree'
 import type { LayoutNode } from '@/layout/types'
-import type { ApprovalRequest } from '@shared/approvals'
-import type { QuestionRequest } from '@shared/questions'
+import type { QuestionRequest } from '@shared/agents/questions'
+import type { ApprovalRequest } from '@shared/permissions/approvals'
 import { shortenPath } from './railMeta'
 
 export const DASHBOARD_PATH_CHARS = 44

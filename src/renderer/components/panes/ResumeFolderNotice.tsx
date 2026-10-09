@@ -3,7 +3,7 @@ import { WarningNote } from '@/components/settings/SettingsPanel'
 import { Button } from '@/components/ui/button'
 import { fmt, useDict } from '@/i18n/useDict'
 import { XIcon } from '@phosphor-icons/react'
-import type { AgentResume } from '@shared/agentResume'
+import type { AgentResume } from '@shared/agents/agentResume'
 
 export function ResumeFolderNotice({
   paneId,

@@ -1,5 +1,5 @@
 import { useUIStore } from '@/stores/uiStore'
-import type { ChordSpec } from '@shared/chordSpec'
+import type { ChordSpec } from '@shared/keyboard/chordSpec'
 import { useEffect } from 'react'
 import { WORKSPACE_GOTO, chordOf } from './chords'
 

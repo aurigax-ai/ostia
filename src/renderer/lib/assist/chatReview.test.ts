@@ -5,8 +5,8 @@ import {
   resetChatTools,
   useChatToolsStore,
 } from '@/stores/chatToolsStore'
-import { CHAT_EDIT_TEXT_MAX, type ChatSession } from '@shared/chatSessions'
-import type { ChatRestoreRequest } from '@shared/chatTools'
+import { CHAT_EDIT_TEXT_MAX, type ChatSession } from '@shared/assist/chatSessions'
+import type { ChatRestoreRequest } from '@shared/assist/chatTools'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { acceptAll, rejectAll, reviewItems } from './chatReview'
 import { decideTool } from './chatToolPermissions'

@@ -8,15 +8,15 @@ import { useLayoutStore } from '@/stores/layoutStore'
 import { useSandboxStore } from '@/stores/sandboxStore'
 import { useWindowsStore } from '@/stores/windowsStore'
 import { resetWorkspaceIds, useWorkspacesStore } from '@/stores/workspacesStore'
+import type { SnapshotNode, SnapshotWorkspace, WindowSummary } from '@shared/types'
 import {
   type CmuxImportReport,
   type CmuxLayout,
   type CmuxSession,
   type CmuxSurface,
   parseCmuxSession,
-} from '@shared/cmuxSession'
-import type { SnapshotNode, SnapshotWorkspace, WindowSummary } from '@shared/types'
-import { MAX_LAYOUT_DEPTH, MAX_PANES, MAX_WORKSPACES } from '@shared/workspaceLimits'
+} from '@shared/workspaces/cmuxSession'
+import { MAX_LAYOUT_DEPTH, MAX_PANES, MAX_WORKSPACES } from '@shared/workspaces/workspaceLimits'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import {
   CmuxImportError,

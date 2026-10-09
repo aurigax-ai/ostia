@@ -1,4 +1,4 @@
-import type { SearchNameHit } from '@shared/search'
+import type { SearchNameHit } from '@shared/files/search'
 
 export const FILE_SEARCH_DELAY_MS = 100
 

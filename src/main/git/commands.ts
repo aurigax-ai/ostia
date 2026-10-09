@@ -1,5 +1,4 @@
 import { basename, dirname, isAbsolute, join, resolve } from 'node:path'
-import type { ExtensionOpenDiffRequest } from '../../shared/extensions'
 import {
   type BlameLine,
   type ChangeArea,
@@ -15,7 +14,8 @@ import {
   type GitSettings,
   type GraphScope,
   isUncommitted,
-} from '../../shared/git'
+} from '../../shared/boards/git'
+import type { ExtensionOpenDiffRequest } from '../../shared/extensions'
 import { expandHome } from '../platform/pathGuard'
 import {
   RepoError,

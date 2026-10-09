@@ -25,15 +25,15 @@ import { Textarea } from '@/components/ui/textarea'
 import { fmt, useDict } from '@/i18n/useDict'
 import { cn } from '@/lib/utils'
 import { CaretRightIcon, CopyIcon } from '@phosphor-icons/react'
-import type { Dict } from '@shared/dict'
+import type { Dict } from '@shared/app/dict'
 import {
   DEFAULT_GATEWAY_ROUTE,
   LOOPBACK_ADDRESS,
   formatPhoneAddress,
   parsePhoneAddress,
-} from '@shared/gatewayRoute'
-import { formatCode } from '@shared/pairCode'
-import { PHONE_GRANTABLE_CAPS, type PhoneGrantableCap } from '@shared/phoneCapabilities'
+} from '@shared/gateway/gatewayRoute'
+import { formatCode } from '@shared/gateway/pairCode'
+import { PHONE_GRANTABLE_CAPS, type PhoneGrantableCap } from '@shared/gateway/phoneCapabilities'
 import type {
   GatewayBindAddress,
   GatewayDevice,

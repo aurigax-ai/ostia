@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { readEnv } from '../../shared/appEnv'
-import { quoteArg } from '../../shared/shellQuote'
+import { quoteArg } from '../../shared/terminal/shellQuote'
 
 const LEGACY_TIOCSTI = '/proc/sys/dev/tty/legacy_tiocsti'
 const NEW_SESSION = ' --new-session --die-with-parent '

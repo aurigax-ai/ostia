@@ -27,9 +27,9 @@ import {
   CursorClickIcon,
   DatabaseIcon,
 } from '@phosphor-icons/react'
-import { type BrowserProfile, browserPartition } from '@shared/browserProfile'
-import type { PickBox, PickCapture, PickTheme } from '@shared/pick'
-import type { RegionCapture, RegionView } from '@shared/regionCapture'
+import { type BrowserProfile, browserPartition } from '@shared/browser/browserProfile'
+import type { PickBox, PickCapture, PickTheme } from '@shared/browser/pick'
+import type { RegionCapture, RegionView } from '@shared/browser/regionCapture'
 import type { WebviewTag } from 'electron'
 import { type KeyboardEvent, useCallback, useEffect, useRef, useState } from 'react'
 import { BrowserFind, type FindRequest, type FindResult } from './BrowserFind'

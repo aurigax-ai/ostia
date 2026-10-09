@@ -13,7 +13,7 @@ import {
   type McpSignInResult,
   isMcpSecretKey,
   mcpTransportOf,
-} from '../../shared/chatTools'
+} from '../../shared/assist/chatTools'
 import type { ExtensionSecretStore } from '../extensions/extensionHost'
 import {
   listTool,

@@ -2,7 +2,11 @@ import { Button } from '@/components/ui/button'
 import { fmt, useDict } from '@/i18n/useDict'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { InfoIcon } from '@phosphor-icons/react'
-import { DISCRETE_GPU_FEATURE, type DiscreteGpuInfo, rendererDeviceName } from '@shared/discreteGpu'
+import {
+  DISCRETE_GPU_FEATURE,
+  type DiscreteGpuInfo,
+  rendererDeviceName,
+} from '@shared/app/discreteGpu'
 import { PRODUCT_DISPLAY_NAME } from '@shared/productDisplay'
 import { useEffect, useState } from 'react'
 import { RequirementsNoteView, useRequirements } from './RequirementsNote'

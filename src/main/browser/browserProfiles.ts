@@ -2,7 +2,7 @@ import {
   type BrowserProfile,
   SHARED_BROWSER_PARTITION,
   isIsolatedBrowserPartition,
-} from '../../shared/browserProfile'
+} from '../../shared/browser/browserProfile'
 
 export interface BrowserPaneOwner {
   windowId: string

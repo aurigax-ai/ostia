@@ -3,7 +3,7 @@ import {
   type AgentBusyReason,
   type AgentWorkReport,
   normalizeWorkReport,
-} from '../../shared/agentWork'
+} from '../../shared/agents/agentWork'
 import { registerControlMethod } from '../control/controlServer'
 
 interface ReportedWork {

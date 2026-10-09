@@ -1,4 +1,4 @@
-import type { UsageCategory } from '@shared/telemetry'
+import type { UsageCategory } from '@shared/privacy/telemetry'
 
 export function countUsage(category: UsageCategory, key: string, id?: string): void {
   try {

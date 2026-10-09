@@ -3,7 +3,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { fmt, useDict } from '@/i18n/useDict'
 import { isMac } from '@/platform'
-import type { SandboxViolation } from '@shared/sandbox'
+import type { SandboxViolation } from '@shared/sandbox/sandbox'
 import { useCallback, useEffect, useState } from 'react'
 
 const REFRESH_MS = 3000

@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, realpathSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { type WorkspaceSandbox, emptyWorkspaceSandbox } from '../../shared/sandbox'
+import { type WorkspaceSandbox, emptyWorkspaceSandbox } from '../../shared/sandbox/sandbox'
 import {
   AgentProvenance,
   type ScopeWorkspace,

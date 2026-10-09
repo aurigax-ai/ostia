@@ -3,8 +3,7 @@ import { constants } from 'node:fs'
 import { access, lstat, mkdir, readFile, rename, rm, stat } from 'node:fs/promises'
 import { dirname, resolve, sep } from 'node:path'
 import { type ReadEntry, list as listTar } from 'tar'
-import { type EnvSource, readEnv } from '../../shared/appEnv'
-import { parseBuildInfo, releaseVersion } from '../../shared/buildInfo'
+import { parseBuildInfo, releaseVersion } from '../../shared/app/buildInfo'
 import {
   type ReplaceAvailability,
   type ReplaceFailure,
@@ -12,9 +11,10 @@ import {
   type ReplaceStart,
   type ReplaceState,
   UPDATE_DOWNLOAD_HOSTS,
-} from '../../shared/installMethod'
+} from '../../shared/app/installMethod'
+import { RELEASE_REPOSITORY, parseVersion } from '../../shared/app/releases'
+import { type EnvSource, readEnv } from '../../shared/appEnv'
 import { PRODUCT_NAME } from '../../shared/product'
-import { RELEASE_REPOSITORY, parseVersion } from '../../shared/releases'
 import {
   DownloadError,
   type DownloadRequest,

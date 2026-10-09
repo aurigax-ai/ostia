@@ -1,5 +1,5 @@
 import { ipcMain } from 'electron'
-import type { SandboxMergeRefusal } from '../../shared/sandbox'
+import type { SandboxMergeRefusal } from '../../shared/sandbox/sandbox'
 import type { WorkspaceMergeResult } from '../../shared/types'
 
 export interface WorkspaceMergeDeps {

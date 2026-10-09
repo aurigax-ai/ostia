@@ -10,9 +10,9 @@ import { registerGitMethods } from '../main/git/register'
 import { ViewStateStore } from '../main/git/viewState'
 import { registerPortsMethods } from '../main/ports/register'
 import { PortsService } from '../main/ports/service'
-import { en } from '../shared/dict'
-import { DEFAULT_GIT_SETTINGS } from '../shared/git'
-import { DEFAULT_PORTS_SETTINGS } from '../shared/ports'
+import { en } from '../shared/app/dict'
+import { DEFAULT_GIT_SETTINGS } from '../shared/boards/git'
+import { DEFAULT_PORTS_SETTINGS } from '../shared/boards/ports'
 import type { CommandResult } from '../shared/types'
 
 const cliPath = join(process.cwd(), 'out', 'cli', 'index.js')

@@ -1,5 +1,5 @@
 import { startNewWorkspace } from '@/lib/workspaces/newWorkspace'
-import { type BuildInfo, sameBuild } from '@shared/buildInfo'
+import { type BuildInfo, sameBuild } from '@shared/app/buildInfo'
 import {
   type InstallMethod,
   type ReleaseState,
@@ -8,8 +8,8 @@ import {
   type ReplaceState,
   type UpdateRunState,
   managedUpdateMethod,
-} from '@shared/installMethod'
-import type { ReleaseCheckResult, ReleaseInfo } from '@shared/releases'
+} from '@shared/app/installMethod'
+import type { ReleaseCheckResult, ReleaseInfo } from '@shared/app/releases'
 import { create } from 'zustand'
 import { currentDict, fmt } from '../i18n/useDict'
 import { useWorkspacesStore } from './workspacesStore'

@@ -2,7 +2,11 @@ import { useExtensionsStore } from '@/stores/extensionsStore'
 import { useMarketplaceStore } from '@/stores/marketplaceStore'
 import { useUIStore } from '@/stores/uiStore'
 import type { ExtensionInfo } from '@shared/extensions'
-import type { MarketplaceExtension, MarketplaceInfo, MarketplaceState } from '@shared/marketplace'
+import type {
+  MarketplaceExtension,
+  MarketplaceInfo,
+  MarketplaceState,
+} from '@shared/extensions/marketplace'
 import { cleanup, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'

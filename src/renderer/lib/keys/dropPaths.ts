@@ -1,4 +1,4 @@
-import { quoteArg } from '@shared/shellQuote'
+import { quoteArg } from '@shared/terminal/shellQuote'
 
 export const OSTIA_PATH_MIME = 'application/x-ostia-path'
 

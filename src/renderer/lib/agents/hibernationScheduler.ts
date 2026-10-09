@@ -4,7 +4,11 @@ import { paneActivityAt } from '@/lib/attention/paneActivity'
 import { isPaneVisible, workspaceOfPane } from '@/lib/attention/workspaceActivity'
 import { useLayoutStore } from '@/stores/layoutStore'
 import { clampIdleSeconds, clampMaxLive, useSettingsStore } from '@/stores/settingsStore'
-import { type AgentBusyReason, type HibernateOutcome, isAgentBusyReason } from '@shared/agentWork'
+import {
+  type AgentBusyReason,
+  type HibernateOutcome,
+  isAgentBusyReason,
+} from '@shared/agents/agentWork'
 import { type HibernationCandidate, planHibernation } from './hibernation'
 import { runningAgentOf } from './paneAgent'
 import { resumeWhenIdle } from './resumeFolder'

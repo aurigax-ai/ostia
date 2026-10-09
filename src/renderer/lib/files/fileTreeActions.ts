@@ -2,7 +2,7 @@ import { currentDict, fmt } from '@/i18n/useDict'
 import { useEditorStatus } from '@/stores/editorStatusStore'
 import { useFileTreeStore } from '@/stores/fileTreeStore'
 import { useLayoutStore } from '@/stores/layoutStore'
-import type { FileOpError, FileOpResult, NewEntryKind } from '@shared/fileOps'
+import type { FileOpError, FileOpResult, NewEntryKind } from '@shared/files/fileOps'
 import { openFileInWorkspace, reportFileProblem } from './openFile'
 
 export type TreeEditError = FileOpError | 'unsaved'

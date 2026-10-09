@@ -10,8 +10,8 @@ import {
   type AppMenuSection,
   type AppMenuSpec,
   electronAccelerator,
-} from '@shared/appMenu'
-import type { Dict } from '@shared/dict'
+} from '@shared/app/appMenu'
+import type { Dict } from '@shared/app/dict'
 
 export const SSH_CONNECT_ITEM = 'menu.sshConnect'
 const SSH_CONNECT_COMMAND = 'ssh.connect'

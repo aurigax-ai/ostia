@@ -2,8 +2,8 @@ import { ControlRow, SelectField } from '@/components/settings/SettingsPanel'
 import { useDict } from '@/i18n/useDict'
 import { saveSettingsNow, useSettingsStore } from '@/stores/settingsStore'
 import { useUpdateStore } from '@/stores/updateStore'
-import { isReplaceable } from '@shared/installMethod'
-import { UPDATE_CHANNELS, type UpdateChannel } from '@shared/releases'
+import { isReplaceable } from '@shared/app/installMethod'
+import { UPDATE_CHANNELS, type UpdateChannel } from '@shared/app/releases'
 
 export function UpdateChannelPicker(): JSX.Element | null {
   const d = useDict()

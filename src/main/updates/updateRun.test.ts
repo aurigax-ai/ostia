@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { InstallMethod, UpdateRunState } from '../../shared/installMethod'
+import type { InstallMethod, UpdateRunState } from '../../shared/app/installMethod'
 import { type UpdateTerminalRequest, createUpdateRunner } from './updateRun'
 
 function harness(method: InstallMethod, paneId: string | null = 'pane-1') {

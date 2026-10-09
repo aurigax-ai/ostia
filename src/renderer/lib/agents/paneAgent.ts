@@ -2,7 +2,7 @@ import type { AttentionEvent } from '@/lib/attention/attention'
 import { isIdlePrompt } from '@/lib/terminal/blocks'
 import { useAttentionStore } from '@/stores/attentionStore'
 import { useBlocksStore } from '@/stores/blocksStore'
-import { type AgentResume, type ResumableAgent, isResumableAgent } from '@shared/agentResume'
+import { type AgentResume, type ResumableAgent, isResumableAgent } from '@shared/agents/agentResume'
 import type { AttentionState } from '@shared/types'
 import { commandAgent } from './hibernation'
 

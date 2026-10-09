@@ -1,5 +1,5 @@
+import type { PortHost } from '../../shared/boards/ports'
 import type { ExtensionIcon, SidebarKind } from '../../shared/extensions'
-import type { PortHost } from '../../shared/ports'
 import type { PaneEntry } from '../panes/paneList'
 import type { TreeInfo } from './scan'
 

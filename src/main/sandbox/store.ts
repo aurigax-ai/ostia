@@ -3,7 +3,7 @@ import {
   type WorkspaceSandbox,
   emptyWorkspaceSandbox,
   parseWorkspaceSandbox,
-} from '../../shared/sandbox'
+} from '../../shared/sandbox/sandbox'
 import { saveJson } from '../platform/jsonStore'
 
 export class SandboxStore {

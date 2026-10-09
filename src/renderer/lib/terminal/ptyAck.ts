@@ -1,4 +1,4 @@
-import { PTY_ACK_CHARS } from '@shared/ptyFlow'
+import { PTY_ACK_CHARS } from '@shared/terminal/ptyFlow'
 
 export interface PtyAcker {
   written(chars: number): void

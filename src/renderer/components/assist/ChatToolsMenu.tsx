@@ -21,7 +21,7 @@ import {
   type BuiltinChatTool,
   type McpServerState,
   type McpServerStatus,
-} from '@shared/chatTools'
+} from '@shared/assist/chatTools'
 import { type ReactNode, useEffect, useId } from 'react'
 
 const STATE_DOT: Record<McpServerState, string> = {

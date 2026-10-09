@@ -1,5 +1,5 @@
 import type { MessageConnection } from 'vscode-jsonrpc/node'
-import { SCRIPT_CAPABILITIES } from '../../shared/scriptTokens'
+import { SCRIPT_CAPABILITIES } from '../../shared/permissions/scriptTokens'
 import { parseArgs } from '../common/args'
 
 type TokenCall =

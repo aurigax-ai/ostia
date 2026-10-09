@@ -38,7 +38,7 @@ import {
   substituteJson,
   substitutePlaceholders,
 } from '../../shared/languageServers'
-import { quoteArgv } from '../../shared/shellQuote'
+import { quoteArgv } from '../../shared/terminal/shellQuote'
 import { type LogFields, redactSecrets } from '../diagnostics/appLog'
 import type { TreeChange } from '../files/fileWatch'
 import {

@@ -41,7 +41,7 @@ import {
   WrenchIcon,
   XIcon,
 } from '@phosphor-icons/react'
-import type { ViewIcon } from '@shared/views'
+import type { ViewIcon } from '@shared/views/views'
 
 const ICONS: Record<ViewIcon, Icon> = {
   lightning: LightningIcon,

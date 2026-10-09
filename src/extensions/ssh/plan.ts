@@ -1,4 +1,4 @@
-import { quoteArgv } from '../../shared/shellQuote'
+import { quoteArgv } from '../../shared/terminal/shellQuote'
 import type { HelperBundle } from './helper'
 import { ALIAS_PATTERN } from './hosts'
 import { REMOTE_COMMAND } from './remote'

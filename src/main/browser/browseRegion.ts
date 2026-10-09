@@ -7,8 +7,7 @@ import {
   captureStem,
   clip,
   nextPickReportNumber,
-} from '../../shared/pick'
-import type { RedactText } from '../../shared/redactionTargets'
+} from '../../shared/browser/pick'
 import {
   REGION_IMAGE_MAX,
   type RegionCapture,
@@ -21,7 +20,8 @@ import {
   regionCaptureRect,
   regionPageRect,
   renderRegionReport,
-} from '../../shared/regionCapture'
+} from '../../shared/browser/regionCapture'
+import type { RedactText } from '../../shared/privacy/redactionTargets'
 import { postBusMessage } from '../agents/bus'
 import type { OriginReach } from '../agents/originAgents'
 import { getByPaneId } from '../control/idRegistry'

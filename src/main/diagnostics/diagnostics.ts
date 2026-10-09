@@ -1,7 +1,7 @@
 import { mkdirSync } from 'node:fs'
 import { basename } from 'node:path'
 import { type BrowserWindow, app, ipcMain } from 'electron'
-import type { ErrorInput } from '../../shared/telemetry'
+import type { ErrorInput } from '../../shared/privacy/telemetry'
 import type { AppLog } from './appLog'
 import { ReportLimiter, normalizePaneIds, normalizeRendererReport } from './rendererReports'
 

@@ -13,6 +13,7 @@ import {
   isAgentHookEvent,
 } from '../../shared/agentPlugins'
 import { type AssistPoint, isAssistPoint } from '../../shared/assist'
+import { isCoreSource } from '../../shared/boards/git'
 import { ALL_CAPABILITIES, type Capability } from '../../shared/capabilities'
 import { parseEditorLanguages } from '../../shared/editorLanguages'
 import { apiProblem } from '../../shared/extensionApi'
@@ -38,7 +39,6 @@ import {
   type ExtensionSettingsPageContribution,
   validSettingValue,
 } from '../../shared/extensions'
-import { isCoreSource } from '../../shared/git'
 import { ICON_THEME_ID_PATTERN, type IconThemeContribution } from '../../shared/iconTheme'
 import {
   KEYMAP_LABEL_MAX,

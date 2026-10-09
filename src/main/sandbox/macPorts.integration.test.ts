@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { build } from 'esbuild'
 import { describe, expect, it } from 'vitest'
-import { DEFAULT_CONTROLS } from '../../shared/sandbox'
+import { DEFAULT_CONTROLS } from '../../shared/sandbox/sandbox'
 import { SandboxHost } from './hostClient'
 import { buildSrtConfig } from './srtConfig'
 

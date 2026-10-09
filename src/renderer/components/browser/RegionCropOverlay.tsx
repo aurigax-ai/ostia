@@ -1,6 +1,6 @@
 import { type Point, dragRegion } from '@/lib/browser/regionSelect'
-import type { PickBox } from '@shared/pick'
-import { REGION_MIN, type RegionView } from '@shared/regionCapture'
+import type { PickBox } from '@shared/browser/pick'
+import { REGION_MIN, type RegionView } from '@shared/browser/regionCapture'
 import {
   type KeyboardEvent,
   type PointerEvent as ReactPointerEvent,

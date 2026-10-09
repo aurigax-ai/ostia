@@ -6,9 +6,9 @@ import {
   formatScopedChord,
   sameChord,
   sameScope,
-} from '@shared/chordSpec'
-import type { TerminalKeyMap, TerminalSend } from '@shared/terminalKeys'
-import { sendData } from '@shared/terminalKeys'
+} from '@shared/keyboard/chordSpec'
+import type { TerminalKeyMap, TerminalSend } from '@shared/keyboard/terminalKeys'
+import { sendData } from '@shared/keyboard/terminalKeys'
 import { defaultChords, specsOf } from './chords'
 import {
   type TerminalKeyRow,

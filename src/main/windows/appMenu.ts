@@ -1,5 +1,5 @@
 import { Menu, type MenuItemConstructorOptions, app } from 'electron'
-import { type AppMenuEntry, type AppMenuSpec, parseAppMenuSpec } from '../../shared/appMenu'
+import { type AppMenuEntry, type AppMenuSpec, parseAppMenuSpec } from '../../shared/app/appMenu'
 
 export const MAC_CLOSE_WINDOW_ACCELERATOR = 'Cmd+Shift+W'
 export const MAC_SETTINGS_ACCELERATOR = 'Cmd+,'

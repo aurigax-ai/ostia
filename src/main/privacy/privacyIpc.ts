@@ -1,5 +1,5 @@
 import { ipcMain } from 'electron'
-import { REDACT_TEXT_MAX, unchanged } from '../../shared/redaction'
+import { REDACT_TEXT_MAX, unchanged } from '../../shared/privacy/redaction'
 import { type Redactor, redactRequestedTexts } from './redaction'
 
 export function registerPrivacyIpc(redactor: Redactor): void {

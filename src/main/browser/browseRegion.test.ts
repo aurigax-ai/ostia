@@ -25,7 +25,7 @@ const { captureRegion, copyRegionImage, registerRegionIpc, writeRegionReport } =
 )
 const { getByPaneId, registerPane, removePane } = await import('../control/idRegistry')
 
-const { PICK_NOTE_MAX } = await import('../../shared/pick')
+const { PICK_NOTE_MAX } = await import('../../shared/browser/pick')
 
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3])
 

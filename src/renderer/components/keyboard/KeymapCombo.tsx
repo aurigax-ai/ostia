@@ -19,14 +19,14 @@ import { useExtensionsStore } from '@/stores/extensionsStore'
 import { appKeymap, keymapChoices, useKeymapStore } from '@/stores/keymapStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { ArrowRightIcon, CaretRightIcon } from '@phosphor-icons/react'
-import type { KeybindingMap } from '@shared/chordSpec'
+import type { KeybindingMap } from '@shared/keyboard/chordSpec'
 import {
   NATURAL_TEXT_EDITING,
   OSTIA_KEYMAP,
   keyboardPlatform,
   terminalKeymapsFor,
-} from '@shared/keyboardPresets'
-import type { TerminalSend } from '@shared/terminalKeys'
+} from '@shared/keyboard/keyboardPresets'
+import type { TerminalSend } from '@shared/keyboard/terminalKeys'
 import { useEffect, useState } from 'react'
 import {
   appKeymapLabel,

@@ -3,8 +3,8 @@ import { useDict } from '@/i18n/useDict'
 import type { LinkKind } from '@/lib/terminal/linkModifier'
 import type { FileLinkAction } from '@/lib/terminal/terminalFileLinks'
 import { isMac } from '@/platform'
-import { chordText } from '@shared/chordSpec'
-import type { Dict } from '@shared/dict'
+import type { Dict } from '@shared/app/dict'
+import { chordText } from '@shared/keyboard/chordSpec'
 
 const FILE_ACTION_TEXT: Record<FileLinkAction, (d: Dict) => string> = {
   'open-file': (d) => d.terminalLinks.openFile,

@@ -1,8 +1,8 @@
 import { fmt, useDict } from '@/i18n/useDict'
 import { cn } from '@/lib/utils'
 import { ShieldWarningIcon } from '@phosphor-icons/react'
-import type { ApprovalKind, ApprovalRequest } from '@shared/approvals'
-import type { Dict } from '@shared/dict'
+import type { Dict } from '@shared/app/dict'
+import type { ApprovalKind, ApprovalRequest } from '@shared/permissions/approvals'
 import type { ReactNode } from 'react'
 import { ApprovalActions } from './ApprovalActions'
 

@@ -1,6 +1,6 @@
 import { branchLabel } from '@/lib/git/gitView'
 import { GitBranchIcon } from '@phosphor-icons/react'
-import type { GitChangesData } from '@shared/git'
+import type { GitChangesData } from '@shared/boards/git'
 import { fmt, useDict } from '../../i18n/useDict'
 import { isMac } from '../../platform'
 import { Button } from '../ui/button'

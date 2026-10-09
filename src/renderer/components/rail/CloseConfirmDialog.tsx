@@ -22,7 +22,7 @@ import {
   RobotIcon,
   TerminalWindowIcon,
 } from '@phosphor-icons/react'
-import type { Dict } from '@shared/dict'
+import type { Dict } from '@shared/app/dict'
 
 export function CloseConfirmDialog(): JSX.Element {
   const d = useDict()

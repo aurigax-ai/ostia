@@ -1,5 +1,5 @@
 import { ipcMain } from 'electron'
-import type { WebStorageDump } from '../../shared/browseRuntime'
+import type { WebStorageDump } from '../../shared/browser/browseRuntime'
 import {
   type BrowserStorageRead,
   type BrowserStorageSnapshot,
@@ -13,7 +13,7 @@ import {
   isStorageKind,
   normalizeStorageEdit,
   normalizeStorageRemoval,
-} from '../../shared/browserStorage'
+} from '../../shared/browser/browserStorage'
 import { jsArgs, runInBrowseWorld } from './browseWorld'
 
 type Outcome = { ok: true } | { ok: false; error: string; message?: string }

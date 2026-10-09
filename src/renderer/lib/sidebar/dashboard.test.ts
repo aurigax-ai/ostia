@@ -1,6 +1,6 @@
 import { createPane } from '@/layout/tree'
-import type { ApprovalRequest } from '@shared/approvals'
-import type { QuestionRequest } from '@shared/questions'
+import type { QuestionRequest } from '@shared/agents/questions'
+import type { ApprovalRequest } from '@shared/permissions/approvals'
 import { describe, expect, it } from 'vitest'
 import { CONTEXT_FOLD_CHARS, agoText, isLongContext, needsYouItems, paneWhere } from './dashboard'
 

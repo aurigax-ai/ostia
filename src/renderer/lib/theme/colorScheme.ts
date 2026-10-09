@@ -1,7 +1,7 @@
 import type { ColorScheme, TerminalColors, Theme } from '@/plugins/types'
 import { usePluginsStore } from '@/stores/pluginsStore'
 import { useSettingsStore } from '@/stores/settingsStore'
-import { isLinkedTheme } from '@shared/themeChoice'
+import { isLinkedTheme } from '@shared/app/themeChoice'
 import { useMemo } from 'react'
 import { normalizeHex, visibleSelection } from './color'
 import { currentTheme, themedTokens, useEffectiveTheme } from './theme'

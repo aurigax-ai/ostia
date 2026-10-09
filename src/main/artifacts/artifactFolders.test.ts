@@ -16,7 +16,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('electron', () => ({ ipcMain: { handle: vi.fn(), on: vi.fn() }, shell: {} }))
 
-import { ARTIFACT_KEEP_CLOSED_MS, ARTIFACT_LIST_MAX, PAD_FILE } from '../../shared/artifacts'
+import {
+  ARTIFACT_KEEP_CLOSED_MS,
+  ARTIFACT_LIST_MAX,
+  PAD_FILE,
+} from '../../shared/artifacts/artifacts'
 import { ArtifactFolders, listArtifacts } from './artifactFolders'
 
 let base: string

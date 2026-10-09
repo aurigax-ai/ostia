@@ -5,9 +5,9 @@ import { useExtensionsStore } from '@/stores/extensionsStore'
 import { useLanguageNoticeStore } from '@/stores/languageNoticeStore'
 import { useLanguageServersStore } from '@/stores/languageServersStore'
 import { useUIStore } from '@/stores/uiStore'
-import type { ExtensionSuggestion } from '@shared/extensionSuggestions'
+import type { ExtensionSuggestion } from '@shared/extensions/extensionSuggestions'
+import type { MarketplaceError } from '@shared/extensions/marketplace'
 import type { LanguageServerInfo } from '@shared/languageServers'
-import type { MarketplaceError } from '@shared/marketplace'
 import { useEffect, useState } from 'react'
 
 const SERVER_NOTICES = [

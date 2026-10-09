@@ -1,5 +1,5 @@
 import { type Reach, createReach } from '../src/main/approvals/reach'
-import { emptyWorkspaceSandbox } from '../src/shared/sandbox'
+import { emptyWorkspaceSandbox } from '../src/shared/sandbox/sandbox'
 
 export function ownWorkspaceReach(): Reach {
   return createReach({

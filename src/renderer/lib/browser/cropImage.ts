@@ -1,4 +1,4 @@
-import type { Region } from '@shared/selection'
+import type { Region } from '@shared/browser/selection'
 
 export async function cropToPng(source: CanvasImageSource, rect: Region): Promise<Uint8Array> {
   const canvas = document.createElement('canvas')

@@ -1,4 +1,4 @@
-import { busLabel, busPreview } from '../../shared/busMessages'
+import { busLabel, busPreview } from '../../shared/agents/busMessages'
 import type { CommandResult, CommandTarget } from '../../shared/types'
 import type { PaneIdentity } from '../control/idRegistry'
 import type { PaneEntry, WorkspaceEntry } from '../panes/paneList'

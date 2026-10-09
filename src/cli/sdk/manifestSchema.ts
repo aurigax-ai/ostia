@@ -29,6 +29,7 @@ import {
   MAX_AGENT_SKILL_FILES,
 } from '../../shared/agentPlugins'
 import { ASSIST_POINTS } from '../../shared/assist'
+import { isCoreSource } from '../../shared/boards/git'
 import { ALL_CAPABILITIES } from '../../shared/capabilities'
 import {
   BUILTIN_EDITOR_LANGUAGE_IDS,
@@ -50,7 +51,7 @@ import {
   EXTENSION_SETTING_TYPES,
   EXTENSION_SETTING_UNITS,
 } from '../../shared/extensions'
-import { isCoreSource } from '../../shared/git'
+import { MARKETPLACE_CODE_PATTERN } from '../../shared/extensions/marketplace'
 import { ICON_THEME_ID_PATTERN } from '../../shared/iconTheme'
 import { KEYMAP_LABEL_MAX, KEYMAP_PLATFORMS } from '../../shared/keymap'
 import { LANGUAGE_ID_PATTERN } from '../../shared/languagePack'
@@ -78,7 +79,6 @@ import {
   SERVER_ARG_MAX,
   SERVER_NAME_MAX,
 } from '../../shared/languageServers'
-import { MARKETPLACE_CODE_PATTERN } from '../../shared/marketplace'
 
 const VERSION_MAX = 40
 

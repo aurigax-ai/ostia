@@ -39,7 +39,7 @@ import type {
   StorageKind,
   StorageRemoval,
   StorageWriteResult,
-} from '@shared/browserStorage'
+} from '@shared/browser/browserStorage'
 import { useCallback, useEffect, useState } from 'react'
 
 type Editing =

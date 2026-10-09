@@ -8,7 +8,7 @@ import {
   type SandboxFixedPolicy,
   type SandboxFolderReason,
   type SandboxSwitches,
-} from '../../shared/sandbox'
+} from '../../shared/sandbox/sandbox'
 import { OLD_PRODUCT_NAME } from '../platform/userDirs'
 
 export interface SandboxPaths {

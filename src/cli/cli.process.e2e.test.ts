@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { ApprovalOutcome } from '../shared/approvals'
+import type { ApprovalOutcome } from '../shared/permissions/approvals'
 import type { CommandResult } from '../shared/types'
 
 let answer: ApprovalOutcome = 'deny'

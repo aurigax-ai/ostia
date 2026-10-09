@@ -21,7 +21,7 @@ import {
   PREVIEW_PAGE_CSP,
   type PreviewEvent,
   type PreviewOpened,
-} from '../../shared/htmlPreview'
+} from '../../shared/artifacts/htmlPreview'
 import {
   type PreviewGuest,
   PreviewHost,

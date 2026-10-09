@@ -24,7 +24,7 @@ import {
 import { refreshMcp } from '@/stores/chatToolsStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { PlusIcon, XIcon } from '@phosphor-icons/react'
-import type { McpServerSettings, McpTransportKind } from '@shared/chatTools'
+import type { McpServerSettings, McpTransportKind } from '@shared/assist/chatTools'
 import { type FormEvent, useEffect, useId, useState } from 'react'
 
 export async function saveMcpServers(servers: McpServerSettings[]): Promise<void> {

@@ -4,7 +4,11 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { useDict } from '@/i18n/useDict'
-import { type PackageSettings, type WorkspacePackages, checkPackageKey } from '@shared/sandbox'
+import {
+  type PackageSettings,
+  type WorkspacePackages,
+  checkPackageKey,
+} from '@shared/sandbox/sandbox'
 import { type ListEditResult, SandboxListEditor } from './SandboxListEditor'
 
 function packageErrors(next: string[]): ListEditResult {

@@ -12,7 +12,7 @@ import {
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import { MARKETPLACE_MANIFEST_FILE } from '../../shared/marketplace'
+import { MARKETPLACE_MANIFEST_FILE } from '../../shared/extensions/marketplace'
 import {
   EXTENSION_MAX_FILES,
   GitError,

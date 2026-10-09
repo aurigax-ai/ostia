@@ -14,7 +14,7 @@ import type {
   WindowWorkspaceReport,
   WorkspaceLiveState,
 } from '../../shared/types'
-import { MAX_WORKSPACES } from '../../shared/workspaceLimits'
+import { MAX_WORKSPACES } from '../../shared/workspaces/workspaceLimits'
 import type { AgentRunningPanes } from '../agents/agentRunning'
 import {
   type OriginRules,

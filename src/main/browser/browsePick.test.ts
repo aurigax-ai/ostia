@@ -3,7 +3,7 @@ import { mkdtempSync, readFileSync, statSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import type { RawPick } from '../../shared/pick'
+import type { RawPick } from '../../shared/browser/pick'
 
 vi.mock('electron', () => ({ ipcMain: { handle: vi.fn(), on: vi.fn() }, webContents: {} }))
 vi.mock('../agents/bus', () => ({ postBusMessage: vi.fn(() => 'msg-1') }))

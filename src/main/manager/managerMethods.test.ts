@@ -12,7 +12,7 @@ import {
   DEFAULT_MANAGER_SETTINGS,
   type ManagerSettings,
   managerAgents,
-} from '../../shared/managerSettings'
+} from '../../shared/agents/managerSettings'
 import type { CommandResult } from '../../shared/types'
 import { registerControlServer, stopControlServer } from '../control/controlServer'
 import { registerDocsMethods } from '../control/docs'

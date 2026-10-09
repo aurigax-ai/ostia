@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { PERMISSION_WAIT_MS } from '../../shared/agentPermissions'
-import type { QuestionRequest } from '../../shared/questions'
+import { PERMISSION_WAIT_MS } from '../../shared/agents/agentPermissions'
+import type { QuestionRequest } from '../../shared/agents/questions'
 
 vi.mock('electron', () => ({
   ipcMain: { handle: vi.fn() },

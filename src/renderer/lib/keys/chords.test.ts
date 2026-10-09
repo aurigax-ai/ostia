@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import { commands } from '@/commands/registry'
 import { useKeymapStore } from '@/stores/keymapStore'
 import { useSettingsStore } from '@/stores/settingsStore'
+import { en } from '@shared/app/dict'
 import {
   type ChordSpec,
   TERMINAL_SCOPE,
@@ -14,9 +15,8 @@ import {
   parseScopedChord,
   stealsTerminalKey,
   usedByMonaco,
-} from '@shared/chordSpec'
-import { en } from '@shared/dict'
-import { parseKeymapBindings } from '@shared/keymapFile'
+} from '@shared/keyboard/chordSpec'
+import { parseKeymapBindings } from '@shared/keyboard/keymapFile'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   DEFAULT_CHORDS,

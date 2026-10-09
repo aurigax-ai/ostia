@@ -10,7 +10,7 @@ import {
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { parseCompletionSpec } from '../../shared/completionSpec'
+import { parseCompletionSpec } from '../../shared/terminal/completionSpec'
 import { loadCompletionSpec } from './completionSpecs'
 
 let base: string

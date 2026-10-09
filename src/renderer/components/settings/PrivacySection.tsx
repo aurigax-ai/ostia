@@ -8,7 +8,7 @@ import { redactedCountLabel } from '@/lib/assist/chatRedaction'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useTelemetryConsentStore } from '@/stores/telemetryConsentStore'
 import { XIcon } from '@phosphor-icons/react'
-import type { Dict } from '@shared/dict'
+import type { Dict } from '@shared/app/dict'
 import {
   CUSTOM_KIND,
   type PatternProblem,
@@ -19,8 +19,8 @@ import {
   type RedactionResult,
   patternProblem,
   placeholderFor,
-} from '@shared/redaction'
-import { TELEMETRY_CATEGORIES, type TelemetryCategory } from '@shared/telemetry'
+} from '@shared/privacy/redaction'
+import { TELEMETRY_CATEGORIES, type TelemetryCategory } from '@shared/privacy/telemetry'
 import { useEffect, useState } from 'react'
 import { ControlRow, SectionHead, SettingsGroup, ToggleRow, WarningNote } from './SettingsPanel'
 import { CategoryDetails } from './TelemetryConsentDialog'

@@ -1,6 +1,6 @@
-import { type KeybindingMap, chordText, formatChord, parseChord } from '@shared/chordSpec'
-import type { PresetKeys } from '@shared/keyboardPresets'
-import { type TerminalSend, sameSend, sendData } from '@shared/terminalKeys'
+import { type KeybindingMap, chordText, formatChord, parseChord } from '@shared/keyboard/chordSpec'
+import type { PresetKeys } from '@shared/keyboard/keyboardPresets'
+import { type TerminalSend, sameSend, sendData } from '@shared/keyboard/terminalKeys'
 import { effectiveBindings } from './chords'
 
 export interface TerminalKeyChange {

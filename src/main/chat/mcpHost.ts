@@ -16,7 +16,7 @@ import {
   type McpTestResult,
   type McpToolInfo,
   mcpTransportOf,
-} from '../../shared/chatTools'
+} from '../../shared/assist/chatTools'
 import { PRODUCT_DISPLAY_NAME } from '../../shared/productDisplay'
 
 export const MCP_CONNECT_TIMEOUT_MS = 15_000

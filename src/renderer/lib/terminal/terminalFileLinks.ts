@@ -1,4 +1,4 @@
-import { findFileLinks, resolveLinkPath } from '@shared/fileLinks'
+import { findFileLinks, resolveLinkPath } from '@shared/files/fileLinks'
 import type { IBufferCellPosition, IBufferRange, ILink, ILinkProvider } from '@xterm/xterm'
 import { LRUCache } from 'lru-cache'
 import type { OstiaTerminal as Terminal } from './ostiaTerminal'

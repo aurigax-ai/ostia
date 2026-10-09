@@ -4,7 +4,7 @@ const showMessageBox = vi.hoisted(() => vi.fn())
 vi.mock('electron', () => ({ dialog: { showMessageBox } }))
 
 const { confirmQuitNatively, quitPromptOptions } = await import('./quitPrompt')
-const { en, zhHant } = await import('../../shared/dict')
+const { en, zhHant } = await import('../../shared/app/dict')
 
 const GROUPS = [
   {

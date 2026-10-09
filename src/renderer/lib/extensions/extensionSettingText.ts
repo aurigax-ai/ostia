@@ -1,4 +1,4 @@
-import { withProductName } from '@shared/dict'
+import { withProductName } from '@shared/app/dict'
 import type {
   ExtensionInfo,
   ExtensionSecretContribution,

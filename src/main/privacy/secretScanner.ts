@@ -1,6 +1,6 @@
 import { lintSource } from '@secretlint/core'
 import { rules as recommendedRules } from '@secretlint/secretlint-rule-preset-recommend'
-import type { RedactionKindInfo, SecretSpan } from '../../shared/redaction'
+import type { RedactionKindInfo, SecretSpan } from '../../shared/privacy/redaction'
 
 type LintConfig = Parameters<typeof lintSource>[0]['options']['config']
 type LintRule = LintConfig['rules'][number]

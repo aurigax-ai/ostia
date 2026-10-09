@@ -3,13 +3,13 @@ import { SplitButton, SplitButtonMenu } from '@/components/common/SplitButton'
 import { Button } from '@/components/ui/button'
 import { useDict } from '@/i18n/useDict'
 import { useApprovalsStore } from '@/stores/approvalsStore'
+import type { Dict } from '@shared/app/dict'
 import {
   type ApprovalAnswer,
   type ApprovalKind,
   type ApprovalRequest,
   offeredAnswers,
-} from '@shared/approvals'
-import type { Dict } from '@shared/dict'
+} from '@shared/permissions/approvals'
 
 function answerLabel(d: Dict, kind: ApprovalKind, answer: ApprovalAnswer): string {
   if (answer === 'once') return d.approvals.allowOnce

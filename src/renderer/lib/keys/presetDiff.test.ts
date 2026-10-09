@@ -2,7 +2,7 @@ import {
   NATURAL_TEXT_EDITING_KEYS,
   OSTIA_LINUX_TERMINAL_KEYS,
   OSTIA_TERMINAL_KEYS,
-} from '@shared/keyboardPresets'
+} from '@shared/keyboard/keyboardPresets'
 import { describe, expect, it } from 'vitest'
 import {
   SEND_ACTION_KEYS,

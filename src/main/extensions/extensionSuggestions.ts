@@ -1,11 +1,11 @@
 import { languageForPath } from '../../shared/editorLanguages'
+import type { ExtensionInfo } from '../../shared/extensions'
 import {
   EXTENSION_SUGGESTIONS,
   type ExtensionSuggestion,
   filesLabel,
   suggestedExtension,
-} from '../../shared/extensionSuggestions'
-import type { ExtensionInfo } from '../../shared/extensions'
+} from '../../shared/extensions/extensionSuggestions'
 import type { LanguageServerSource } from '../lsp/languageServers'
 import { loadJson, saveJson } from '../platform/jsonStore'
 import type { LanguageListing } from './marketplace'

@@ -62,6 +62,7 @@ import {
   PlusIcon,
   XIcon,
 } from '@phosphor-icons/react'
+import type { Dict } from '@shared/app/dict'
 import {
   type ChordProblem,
   type ChordSpec,
@@ -75,16 +76,15 @@ import {
   parseChord,
   specFromEvent,
   usedByMonaco,
-} from '@shared/chordSpec'
-import { desktopTaking } from '@shared/desktopChords'
-import type { Dict } from '@shared/dict'
+} from '@shared/keyboard/chordSpec'
+import { desktopTaking } from '@shared/keyboard/desktopChords'
 import {
   TERMINAL_SEND_TYPES,
   type TerminalSend,
   type TerminalSendType,
   sendChordProblem,
   sendData,
-} from '@shared/terminalKeys'
+} from '@shared/keyboard/terminalKeys'
 import { Fragment, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { BindingDetail, RowToggle, TerminalKeyDetail } from './BindingDetail'
 import { ChangesView, useChangeTotal } from './ChangesView'

@@ -1,4 +1,4 @@
-import { CHAT_TOOL_GRANTS_MAX, isStandingChatGrant } from '../../shared/chatTools'
+import { CHAT_TOOL_GRANTS_MAX, isStandingChatGrant } from '../../shared/assist/chatTools'
 import { loadJson, saveJson } from '../platform/jsonStore'
 
 function storedKeys(file: string): string[] {

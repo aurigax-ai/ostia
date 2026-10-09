@@ -2,7 +2,11 @@ import type { CommandContext } from '@/commands/registry'
 import { useLayoutStore } from '@/stores/layoutStore'
 import { useSandboxStore } from '@/stores/sandboxStore'
 import { useWorkspacesStore } from '@/stores/workspacesStore'
-import { type BrowserOpener, type BrowserProfile, browserProfileFor } from '@shared/browserProfile'
+import {
+  type BrowserOpener,
+  type BrowserProfile,
+  browserProfileFor,
+} from '@shared/browser/browserProfile'
 
 export function openerOf(ctx: Pick<CommandContext, 'origin'>): BrowserOpener {
   return ctx.origin === 'remote' ? 'agent' : 'human'

@@ -1,10 +1,10 @@
 import { isAbsolute, join } from 'node:path'
+import { MANAGER_AGENT_NAME } from '../../shared/agents/managerSettings'
 import {
   AGENT_OFFER_LABEL_MAX,
   AGENT_OFFER_TEXT_MAX,
   AGENT_PROMPT_MAX,
 } from '../../shared/extensions'
-import { MANAGER_AGENT_NAME } from '../../shared/managerSettings'
 import { ReportLimiter } from '../diagnostics/rendererReports'
 
 export const AGENT_TASKS_PER_MINUTE = 6

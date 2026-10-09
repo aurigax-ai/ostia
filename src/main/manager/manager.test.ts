@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type { AgentResume } from '../../shared/agentResume'
-import { managerAgents, parseManagerSettings } from '../../shared/managerSettings'
+import type { AgentResume } from '../../shared/agents/agentResume'
+import { managerAgents, parseManagerSettings } from '../../shared/agents/managerSettings'
 import {
   ManagerError,
   type ManagerOpenRequest,

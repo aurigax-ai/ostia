@@ -14,8 +14,8 @@ import {
   type ChatToolCall,
   normalizeAssistRequest,
 } from '../../shared/assist'
-import { parseEdits } from '../../shared/chatEdits'
-import { mcpToolName } from '../../shared/chatTools'
+import { parseEdits } from '../../shared/assist/chatEdits'
+import { mcpToolName } from '../../shared/assist/chatTools'
 import { McpHost } from './mcpHost'
 
 const FAKE_SERVER = join(__dirname, '../../../test/fixtures/mcp/fake-server.mjs')

@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
-import type { ApprovalOutcome } from '../../shared/approvals'
+import type { ApprovalOutcome } from '../../shared/permissions/approvals'
 import { SecretService } from './secretService'
 
 const home = mkdtempSync(join(tmpdir(), 'ostia-secrets-home-'))

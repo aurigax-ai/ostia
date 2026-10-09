@@ -1,4 +1,4 @@
-import { type ResumableAgent, isResumableAgent } from '@shared/agentResume'
+import { type ResumableAgent, isResumableAgent } from '@shared/agents/agentResume'
 
 export interface HibernationPolicy {
   idleSeconds: number

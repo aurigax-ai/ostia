@@ -1,4 +1,4 @@
-import { en, zhHant } from '@shared/dict'
+import { en, zhHant } from '@shared/app/dict'
 import { describe, expect, it, vi } from 'vitest'
 import {
   SLASH_COMMANDS,

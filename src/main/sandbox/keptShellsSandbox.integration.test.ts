@@ -7,7 +7,7 @@ import type { SandboxRuntimeConfig } from '@anthropic-ai/sandbox-runtime'
 import { build } from 'esbuild'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { skipWithoutTmux, tmuxPath } from '../../../test/tmux'
-import { DEFAULT_CONTROLS } from '../../shared/sandbox'
+import { DEFAULT_CONTROLS } from '../../shared/sandbox/sandbox'
 import { SandboxHost } from './hostClient'
 import { buildSrtConfig } from './srtConfig'
 

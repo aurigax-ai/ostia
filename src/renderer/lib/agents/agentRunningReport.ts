@@ -2,7 +2,7 @@ import { allPanes } from '@/layout/tree'
 import { countUsage } from '@/lib/app/usageCounts'
 import { useBlocksStore } from '@/stores/blocksStore'
 import { useLayoutStore } from '@/stores/layoutStore'
-import type { ResumableAgent } from '@shared/agentResume'
+import type { ResumableAgent } from '@shared/agents/agentResume'
 import { runningAgentOf } from './paneAgent'
 
 export function paneAgentRunning(paneId: string, agent: ResumableAgent): boolean | null {

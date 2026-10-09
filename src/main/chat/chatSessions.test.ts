@@ -6,7 +6,7 @@ import {
   CHAT_EDIT_TEXT_MAX,
   type ChatSession,
   type ChatSessionMessage,
-} from '../../shared/chatSessions'
+} from '../../shared/assist/chatSessions'
 import { createChatSessionStore } from './chatSessions'
 
 function msg(i: number, role: 'user' | 'assistant', text: string): ChatSessionMessage {

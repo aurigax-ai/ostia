@@ -1,7 +1,7 @@
 import type { CommandDef } from '@/commands/registry'
 import { commands } from '@/commands/registry'
 import { useUIStore } from '@/stores/uiStore'
-import { en } from '@shared/dict'
+import { en } from '@shared/app/dict'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { SSH_CONNECT_ITEM, buildAppMenuSpec, runAppMenuItem } from './appMenu'
 

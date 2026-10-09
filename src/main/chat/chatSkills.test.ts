@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { SKILL_FILE_MAX } from '../../shared/chatTools'
+import { SKILL_FILE_MAX } from '../../shared/assist/chatTools'
 import { listSkills, loadSkill, parseSkillText } from './chatSkills'
 
 let base: string

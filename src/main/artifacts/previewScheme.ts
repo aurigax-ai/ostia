@@ -1,5 +1,5 @@
 import { app, protocol } from 'electron'
-import { PREVIEW_SCHEME } from '../../shared/htmlPreview'
+import { PREVIEW_SCHEME } from '../../shared/artifacts/htmlPreview'
 
 export const NO_DNS_PREFETCH = ['blink-settings', 'dnsPrefetchingEnabled=false'] as const
 

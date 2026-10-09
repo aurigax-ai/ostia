@@ -6,7 +6,7 @@ import {
   parsePermissionPayload,
   permissionAskParams,
   permissionHookOutput,
-} from '../../shared/agentPermissions'
+} from '../../shared/agents/agentPermissions'
 
 const PERMISSION_HOOK_USAGE =
   'usage: ostia permission-hook <claude|codex>   (stdin: the PermissionRequest hook JSON)'

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { SHARED_BROWSER_PARTITION } from '../../shared/browserProfile'
+import { SHARED_BROWSER_PARTITION } from '../../shared/browser/browserProfile'
 import { type BrowserPaneOwner, BrowserProfiles } from './browserProfiles'
 
 let owners: Map<string, BrowserPaneOwner>

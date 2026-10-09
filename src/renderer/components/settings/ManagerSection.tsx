@@ -5,7 +5,6 @@ import { Input } from '@/components/ui/input'
 import { fmt, useDict } from '@/i18n/useDict'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { XIcon } from '@phosphor-icons/react'
-import { splitArgs } from '@shared/argv'
 import {
   BUILTIN_MANAGER_AGENTS,
   MANAGER_AGENT_NAME,
@@ -14,8 +13,9 @@ import {
   type ManagerLimits,
   isManagerArgv,
   isSkillPath,
-} from '@shared/managerSettings'
-import { quoteArgv } from '@shared/shellQuote'
+} from '@shared/agents/managerSettings'
+import { splitArgs } from '@shared/terminal/argv'
+import { quoteArgv } from '@shared/terminal/shellQuote'
 import { useEffect, useState } from 'react'
 import { RequirementsNote } from './RequirementsNote'
 import { NumberRow, SectionHead, SettingsGroup, ToggleRow, WarningNote } from './SettingsPanel'

@@ -8,7 +8,7 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { basename, join } from 'node:path'
-import type { AgentResume, ResumableAgent } from '../../shared/agentResume'
+import type { AgentResume, ResumableAgent } from '../../shared/agents/agentResume'
 import { PRODUCT_NAME } from '../../shared/product'
 import managerSkill from '../agents/ostia-manager-skill.md?raw'
 import {

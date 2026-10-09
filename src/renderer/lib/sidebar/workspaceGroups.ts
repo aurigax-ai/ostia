@@ -1,5 +1,5 @@
 import { setPinned, withPinned } from '@/lib/workspaces/workspaceOrder'
-import type { WorkspaceGroupColor } from '@shared/workspaceGroups'
+import type { WorkspaceGroupColor } from '@shared/workspaces/workspaceGroups'
 import picomatch from 'picomatch/posix'
 
 export interface WorkspaceGroup {

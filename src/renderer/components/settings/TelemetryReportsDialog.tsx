@@ -12,7 +12,7 @@ import {
   type TelemetryReport,
   type TelemetryReports,
   reportCategories,
-} from '@shared/telemetry'
+} from '@shared/privacy/telemetry'
 import { useEffect, useState } from 'react'
 import { SelectField } from './SettingsPanel'
 

@@ -1,9 +1,9 @@
 import { BASE_LANGUAGE } from '@/lib/extensions/languagePacks'
-import type { Dict } from '@shared/dict'
+import type { Dict } from '@shared/app/dict'
 import { usePluginsStore } from '../stores/pluginsStore'
 import { useSettingsStore } from '../stores/settingsStore'
 
-export { fmt, withProductName } from '@shared/dict'
+export { fmt, withProductName } from '@shared/app/dict'
 
 export function currentDict(): Dict {
   const locale = useSettingsStore.getState().locale

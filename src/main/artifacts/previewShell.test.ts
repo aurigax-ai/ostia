@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { runtimeImportMap } from '../../shared/artifactRuntime'
+import { runtimeImportMap } from '../../shared/artifacts/artifactRuntime'
 import { BINARY_ENV, binaryPackage, startEsbuild, unpackedPath } from './esbuildService'
 import { ENTRY_MODULE_PATH, shellModule, shellPage } from './previewShell'
 

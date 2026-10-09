@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { fmt, useDict } from '@/i18n/useDict'
 import { TrashIcon } from '@phosphor-icons/react'
-import type { SecretEntry, SecretGrant, SecretGrantMode } from '@shared/secrets'
+import type { SecretEntry, SecretGrant, SecretGrantMode } from '@shared/sandbox/secrets'
 import { useCallback, useEffect, useState } from 'react'
 
 type ModeChoice = SecretGrantMode | 'none'

@@ -1,6 +1,6 @@
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import type { McpServerSettings, McpServerStatus } from '../../shared/chatTools'
+import type { McpServerSettings, McpServerStatus } from '../../shared/assist/chatTools'
 import type { ExtensionSecretStore } from '../extensions/extensionHost'
 import { setMcpSecret } from './chatToolsIpc'
 import { McpHost, formatCallResult } from './mcpHost'

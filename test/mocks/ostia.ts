@@ -1,4 +1,4 @@
-import type { BrowserProfile } from '@shared/browserProfile'
+import type { BrowserProfile } from '@shared/browser/browserProfile'
 import type { OstiaBridge, SyncStatus } from '@shared/types'
 import { vi } from 'vitest'
 

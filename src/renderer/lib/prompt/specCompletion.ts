@@ -1,4 +1,4 @@
-import type { SpecArg, SpecCommand, SpecOption } from '@shared/completionSpec'
+import type { SpecArg, SpecCommand, SpecOption } from '@shared/terminal/completionSpec'
 import { tokenizeShell } from './shellTokens'
 
 export type SpecItemKind = 'subcommand' | 'option' | 'value'

@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events'
-import type { ArtifactChangeKind } from '../../shared/artifacts'
+import type { ArtifactChangeKind } from '../../shared/artifacts/artifacts'
 import type { WorkspaceLiveState } from '../../shared/types'
 import type { Ask, AskResolved } from '../approvals/asks'
 

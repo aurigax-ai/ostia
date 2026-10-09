@@ -1,7 +1,7 @@
 import { delimiter, join } from 'node:path'
-import { agentHooksEnv } from '../../shared/agentHooks'
+import { agentHooksEnv } from '../../shared/agents/agentHooks'
 import { appEnv, withoutEnv } from '../../shared/appEnv'
-import { ARTIFACTS_ENV, PAD_ENV, PAD_FILE } from '../../shared/artifacts'
+import { ARTIFACTS_ENV, PAD_ENV, PAD_FILE } from '../../shared/artifacts/artifacts'
 import { withoutGpuLaunchEnv } from '../platform/discreteGpu'
 import { withLauncherOnPath } from './paneLauncher'
 

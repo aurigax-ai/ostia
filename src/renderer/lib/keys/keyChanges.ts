@@ -1,5 +1,5 @@
-import type { ChordValue, KeybindingMap } from '@shared/chordSpec'
-import type { TerminalKeyMap, TerminalSend } from '@shared/terminalKeys'
+import type { ChordValue, KeybindingMap } from '@shared/keyboard/chordSpec'
+import type { TerminalKeyMap, TerminalSend } from '@shared/keyboard/terminalKeys'
 import { presetKeys, signatureOf } from './keyPresets'
 import {
   type AppKeyChange,

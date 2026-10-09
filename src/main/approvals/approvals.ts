@@ -1,6 +1,8 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { app, ipcMain, webContents } from 'electron'
+import { clip } from '../../shared/browser/pick'
+import { ALL_CAPABILITIES, type Capability } from '../../shared/capabilities'
 import {
   APPROVAL_ANSWERS,
   APPROVAL_DETAIL_MAX,
@@ -16,9 +18,7 @@ import {
   autoApproves,
   offeredAnswers,
   parseApprovalSettings,
-} from '../../shared/approvals'
-import { ALL_CAPABILITIES, type Capability } from '../../shared/capabilities'
-import { clip } from '../../shared/pick'
+} from '../../shared/permissions/approvals'
 import {
   addStandingGrants,
   grant,

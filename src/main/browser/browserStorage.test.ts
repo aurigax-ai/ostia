@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { WebStorageDump } from '../../shared/browseRuntime'
+import type { WebStorageDump } from '../../shared/browser/browseRuntime'
 
 const handlers = new Map<string, (...args: unknown[]) => unknown>()
 vi.mock('electron', () => ({

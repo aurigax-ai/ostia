@@ -11,7 +11,7 @@ import {
   type ViewStatus,
   parseViewText,
   viewNameOf,
-} from '../../shared/views'
+} from '../../shared/views/views'
 import { loadJson, saveJson } from '../platform/jsonStore'
 
 const RESCAN_DEBOUNCE_MS = 150

@@ -19,7 +19,10 @@ import { parseManifest } from '../../main/extensions/extensionManifest'
 import { ExtensionStore } from '../../main/extensions/extensionStore'
 import { EXTENSION_API_VERSION } from '../../shared/extensionApi'
 import type { ExtensionCaller } from '../../shared/extensions'
-import { MARKETPLACE_CODE_PATTERN, MARKETPLACE_MANIFEST_FILE } from '../../shared/marketplace'
+import {
+  MARKETPLACE_CODE_PATTERN,
+  MARKETPLACE_MANIFEST_FILE,
+} from '../../shared/extensions/marketplace'
 import type { CommandResult } from '../../shared/types'
 import { extensionManifestSchema, marketplaceManifestSchema } from './manifestSchema'
 import { SDK_CLI_USAGE, newInstallCode, runSdkCli } from './sdkCli'

@@ -10,8 +10,8 @@ import {
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
-import { KEEP_SHELLS_FEATURE } from '../../shared/keepShells'
-import { MANAGER_FEATURE } from '../../shared/managerSettings'
+import { MANAGER_FEATURE } from '../../shared/agents/managerSettings'
+import { KEEP_SHELLS_FEATURE } from '../../shared/terminal/keepShells'
 import {
   SANDBOX_FEATURE,
   installHint,

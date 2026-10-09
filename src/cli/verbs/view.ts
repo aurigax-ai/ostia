@@ -1,7 +1,7 @@
 import { readFileSync, statSync } from 'node:fs'
 import { basename, resolve as resolvePath } from 'node:path'
 import type { MessageConnection } from 'vscode-jsonrpc/node'
-import { viewJsonSchema } from '../../shared/viewSchema'
+import { viewJsonSchema } from '../../shared/views/viewSchema'
 import {
   VIEW_FILE_MAX_BYTES,
   type ViewPlacement,
@@ -10,7 +10,7 @@ import {
   formatViewProblem,
   parseViewText,
   viewNameOf,
-} from '../../shared/views'
+} from '../../shared/views/views'
 import { parseArgs } from '../common/args'
 
 export const VIEW_USAGE =

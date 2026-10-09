@@ -22,9 +22,9 @@ import { useExtensionsStore } from '@/stores/extensionsStore'
 import { useMarketplaceStore } from '@/stores/marketplaceStore'
 import { useUIStore } from '@/stores/uiStore'
 import { MagnifyingGlassIcon } from '@phosphor-icons/react'
-import type { Dict } from '@shared/dict'
+import type { Dict } from '@shared/app/dict'
 import type { ExtensionCategory } from '@shared/extensions'
-import type { MarketplaceExtension } from '@shared/marketplace'
+import type { MarketplaceExtension } from '@shared/extensions/marketplace'
 import { useMemo, useState } from 'react'
 import {
   MarketplaceFailureNote,

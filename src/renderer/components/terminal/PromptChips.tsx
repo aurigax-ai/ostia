@@ -25,8 +25,12 @@ import {
   UserIcon,
   XCircleIcon,
 } from '@phosphor-icons/react'
-import type { Dict } from '@shared/dict'
-import { type CoreChipId, type PromptSeparator, separatorText } from '@shared/promptSettings'
+import type { Dict } from '@shared/app/dict'
+import {
+  type CoreChipId,
+  type PromptSeparator,
+  separatorText,
+} from '@shared/terminal/promptSettings'
 
 const CORE_CHIP_ICONS: Record<CoreChipId, Icon> = {
   conda: PackageIcon,

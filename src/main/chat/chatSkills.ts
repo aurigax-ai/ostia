@@ -9,7 +9,7 @@ import {
   SKILL_NAME,
   type SkillLoadResult,
   type SkillSummary,
-} from '../../shared/chatTools'
+} from '../../shared/assist/chatTools'
 
 export const SKILL_FILE = 'SKILL.md'
 

@@ -1,7 +1,7 @@
 import { SandboxManager } from '@anthropic-ai/sandbox-runtime'
 import type { SandboxRuntimeConfig } from '@anthropic-ai/sandbox-runtime'
-import { REGISTRY_HOSTS, parsePackageDownload } from '../../shared/packages'
 import { PRODUCT_DISPLAY_NAME } from '../../shared/productDisplay'
+import { REGISTRY_HOSTS, parsePackageDownload } from '../../shared/sandbox/packages'
 import { type ListeningChannel, type Respond, listenHostChannel } from './hostChannel'
 import { cachedLookups } from './packageLookups'
 import { type PackagePolicy, decidePackage } from './packagePolicy'

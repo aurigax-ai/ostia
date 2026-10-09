@@ -1,4 +1,4 @@
-import type { Region } from '@shared/selection'
+import type { Region } from '@shared/browser/selection'
 
 export interface Point {
   x: number

@@ -9,8 +9,8 @@ import {
   alwaysGrantAfter,
   grantsAfter,
 } from '@/lib/assist/chatToolPermissions'
-import type { ChatSessionEdit } from '@shared/chatSessions'
-import type { ChatFsError, McpServerStatus, SkillSummary } from '@shared/chatTools'
+import type { ChatSessionEdit } from '@shared/assist/chatSessions'
+import type { ChatFsError, McpServerStatus, SkillSummary } from '@shared/assist/chatTools'
 import { create } from 'zustand'
 
 export interface ApprovalDetail {

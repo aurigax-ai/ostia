@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { FAKE } from '../../../test/fixtures/secrets/samples'
-import type { SelectionCapture, SelectionSendRequest } from '../../shared/selection'
+import type { SelectionCapture, SelectionSendRequest } from '../../shared/browser/selection'
 
 vi.mock('electron', () => ({ ipcMain: { handle: vi.fn(), on: vi.fn() }, webContents: {} }))
 vi.mock('../agents/bus', () => ({ postBusMessage: vi.fn(() => 'msg-1') }))
@@ -12,7 +12,7 @@ const { postBusMessage } = await import('../agents/bus')
 const { writeSelectionReport } = await import('./selectionReport')
 const { createRedactor } = await import('../privacy/redaction')
 const { testScan } = await import('../../../test/redactionScan')
-const { SELECTION_IMAGE_MAX } = await import('../../shared/selection')
+const { SELECTION_IMAGE_MAX } = await import('../../shared/browser/selection')
 const { getByPaneId, registerPane, removePane } = await import('../control/idRegistry')
 
 const sameWindow = (sender: string, _source: string, target: string): boolean =>

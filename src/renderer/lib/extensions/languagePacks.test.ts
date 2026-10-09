@@ -1,4 +1,4 @@
-import { en, mergeCatalog, withProductName, zhHant } from '@shared/dict'
+import { en, mergeCatalog, withProductName, zhHant } from '@shared/app/dict'
 import { PRODUCT_DISPLAY_NAME } from '@shared/productDisplay'
 import { describe, expect, it } from 'vitest'
 import { BASE_LANGUAGE, languagesFrom } from './languagePacks'

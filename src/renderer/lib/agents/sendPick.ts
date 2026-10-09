@@ -9,9 +9,13 @@ import {
   type PickSendResult,
   captureReferences,
   reportReference,
-} from '@shared/pick'
-import type { RegionCapture } from '@shared/regionCapture'
-import { type SelectionCapture, type SelectionSendError, selectionLabel } from '@shared/selection'
+} from '@shared/browser/pick'
+import type { RegionCapture } from '@shared/browser/regionCapture'
+import {
+  type SelectionCapture,
+  type SelectionSendError,
+  selectionLabel,
+} from '@shared/browser/selection'
 import type { ReferenceInsert } from '@shared/types'
 import { pressEnterAfterPaste } from './agentEnter'
 import { runningAgentOf } from './paneAgent'

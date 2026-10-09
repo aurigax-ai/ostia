@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { SandboxMergeRefusal } from '../../shared/sandbox'
+import type { SandboxMergeRefusal } from '../../shared/sandbox/sandbox'
 import { checkMerge } from './workspaceMerge'
 
 vi.mock('electron', () => ({ ipcMain: { handle: vi.fn() } }))

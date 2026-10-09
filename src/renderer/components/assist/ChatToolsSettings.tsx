@@ -40,6 +40,7 @@ import {
   TrashIcon,
   XIcon,
 } from '@phosphor-icons/react'
+import { isSkillPath } from '@shared/agents/managerSettings'
 import {
   type McpAuthState,
   type McpServerSettings,
@@ -49,9 +50,8 @@ import {
   type McpTestResult,
   READ_OUTSIDE_GRANT,
   mcpTransportOf,
-} from '@shared/chatTools'
-import { isSkillPath } from '@shared/managerSettings'
-import { quoteArgv } from '@shared/shellQuote'
+} from '@shared/assist/chatTools'
+import { quoteArgv } from '@shared/terminal/shellQuote'
 import { useEffect, useState } from 'react'
 import { toolTitle } from './ChatToolPart'
 import { McpServerDialog, saveMcpServers } from './McpServerDialog'

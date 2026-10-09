@@ -4,9 +4,9 @@ import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { InstallMethod } from '../../shared/app/installMethod'
+import type { ReleaseInfo, UpdateChannel } from '../../shared/app/releases'
 import { envName } from '../../shared/appEnv'
-import type { InstallMethod } from '../../shared/installMethod'
-import type { ReleaseInfo, UpdateChannel } from '../../shared/releases'
 
 const handlers = new Map<string, (...args: unknown[]) => unknown>()
 const sent: Array<[string, unknown]> = []

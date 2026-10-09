@@ -1,4 +1,4 @@
-import type { CmuxImportReport, CmuxSessionError } from '@shared/cmuxSession'
+import type { CmuxImportReport, CmuxSessionError } from '@shared/workspaces/cmuxSession'
 import { create } from 'zustand'
 
 export type CmuxImportOutcome =
