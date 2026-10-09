@@ -9,15 +9,15 @@ import type { CommandResult } from '../shared/types'
 let answer: ApprovalOutcome = 'deny'
 const request = vi.fn(async () => answer)
 
-vi.mock('../main/approvals', () => ({ approvals: () => ({ request }) }))
+vi.mock('../main/approvals/approvals', () => ({ approvals: () => ({ request }) }))
 
-const { registerControlServer, stopControlServer } = await import('../main/controlServer')
-const { getByPaneId, registerPane } = await import('../main/idRegistry')
-const { registerPaneIoMethods } = await import('../main/paneIo')
-const { PaneWaking } = await import('../main/paneWaking')
-const { registerProcessMethods } = await import('../main/processManager')
+const { registerControlServer, stopControlServer } = await import('../main/control/controlServer')
+const { getByPaneId, registerPane } = await import('../main/control/idRegistry')
+const { registerPaneIoMethods } = await import('../main/panes/paneIo')
+const { PaneWaking } = await import('../main/panes/paneWaking')
+const { registerProcessMethods } = await import('../main/panes/processManager')
 const { ownWorkspaceReach } = await import('../../test/reach')
-const { PtyRingBuffer } = await import('../main/ptyRingBuffer')
+const { PtyRingBuffer } = await import('../main/terminal/ptyRingBuffer')
 
 type OpenRequest = Parameters<Parameters<typeof registerProcessMethods>[0]['openTab']>[0]
 

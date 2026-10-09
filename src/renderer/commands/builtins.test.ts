@@ -1,6 +1,6 @@
 import { Terminal } from '@xterm/xterm'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import { SCRIPT_COMMANDS } from '../../main/commandArgs'
+import { SCRIPT_COMMANDS } from '../../main/control/commandArgs'
 import { type Capability, DEFAULT_CAPABILITIES } from '../../shared/capabilities'
 import { SCRIPT_CAPABILITIES } from '../../shared/scriptTokens'
 import { createPane, splitOf, tabsOf } from '../layout/tree'

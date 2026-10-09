@@ -12,13 +12,13 @@ process.env.XDG_DATA_HOME = join(dir, 'data')
 
 let answer: ApprovalOutcome = 'once'
 const request = vi.fn(async () => answer)
-vi.mock('../main/approvals', () => ({ approvals: () => ({ request }) }))
+vi.mock('../main/approvals/approvals', () => ({ approvals: () => ({ request }) }))
 
-const { postBusMessage, registerBusMethods } = await import('../main/bus')
-const { registerControlServer, stopControlServer } = await import('../main/controlServer')
-const { registerPane } = await import('../main/idRegistry')
+const { postBusMessage, registerBusMethods } = await import('../main/agents/bus')
+const { registerControlServer, stopControlServer } = await import('../main/control/controlServer')
+const { registerPane } = await import('../main/control/idRegistry')
 const { busHookCommand, claudeHookSettings, codexHookCommands } = await import(
-  '../main/shellIntegration'
+  '../main/terminal/shellIntegration'
 )
 
 const cliPath = join(process.cwd(), 'out', 'cli', 'index.js')

@@ -13,7 +13,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { CommandDescriptor, CommandResult } from '../../shared/types'
-import { registerPane } from '../idRegistry'
+import { registerPane } from '../control/idRegistry'
 import {
   AGENT_ENTER_DELAY_MS,
   type GatewayControlDeps,
@@ -27,10 +27,10 @@ vi.mock('electron', () => ({
   webContents: { fromId: vi.fn() },
 }))
 
-const { createApprovals } = await import('../approvals')
-const { createQuestions } = await import('../questions')
-const { createAskHub } = await import('../asks')
-const { askPermission } = await import('../permissionAsk')
+const { createApprovals } = await import('../approvals/approvals')
+const { createQuestions } = await import('../approvals/questions')
+const { createAskHub } = await import('../approvals/asks')
+const { askPermission } = await import('../approvals/permissionAsk')
 
 function descriptor(overrides: Partial<CommandDescriptor> & { id: string }): CommandDescriptor {
   return {

@@ -13,12 +13,12 @@ import {
   MAX_TEXT,
   MAX_WORKFLOWS,
   SETTING_KEY_PATTERN,
-} from '../main/extensionManifest'
+} from '../main/extensions/extensionManifest'
 import {
   MARKETPLACE_DESCRIPTION_MAX,
   MARKETPLACE_MAX_EXTENSIONS,
   MARKETPLACE_NAME_MAX,
-} from '../main/marketplace'
+} from '../main/extensions/marketplace'
 import {
   AGENT_HOOK_EVENTS,
   AGENT_SKILL_ENTRY,

@@ -1,7 +1,7 @@
 import { type ChildProcessWithoutNullStreams, type StdioOptions, spawn } from 'node:child_process'
 import { closeSync, lstatSync, mkdirSync, openSync, readdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { processAlive } from '../processAlive'
+import { processAlive } from '../platform/processAlive'
 import { type ControlEvent, ControlModeParser } from './controlMode'
 import { SCREEN_INFO_FORMAT, screenReplay } from './screenReplay'
 import { type NewWindowSpec, newWindowCommand, sendKeysCommands, tmuxQuote } from './tmuxCommand'

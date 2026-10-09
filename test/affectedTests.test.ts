@@ -22,7 +22,7 @@ const readers = {
   dom: ['src/renderer/lib/motion.test.tsx'],
   folders: {
     'e2e/': ['test/e2eImports.test.ts'],
-    '.github/': ['src/main/releasePackaging.test.ts'],
+    '.github/': ['src/main/updates/releasePackaging.test.ts'],
   },
 }
 
@@ -32,7 +32,7 @@ const map = {
     { name: 'sandbox', paths: ['src/main/sandbox/'], specs: ['e2e/sandbox.spec.ts'] },
     {
       name: 'ssh',
-      paths: ['src/extensions/ssh/', 'src/main/remoteFolder'],
+      paths: ['src/extensions/ssh/', 'src/main/files/remoteFolder'],
       specs: ['e2e/ssh.spec.ts'],
     },
   ],
@@ -71,7 +71,7 @@ describe('planTests', () => {
 
   it('runs every node test when a change reaches the built CLI, extensions or SDK', () => {
     for (const file of [
-      'src/main/paneIo.ts',
+      'src/main/panes/paneIo.ts',
       'src/shared/types.ts',
       'src/cli/index.ts',
       'src/extensions/ssh/main.ts',
@@ -94,7 +94,7 @@ describe('planTests', () => {
   it('runs only the tests that read workflows when only .github changes', () => {
     expect(
       planTests(['.github/workflows/ci.yml', '.github/actions/setup/action.yml'], readers),
-    ).toEqual({ node: ['src/main/releasePackaging.test.ts'], dom: [] })
+    ).toEqual({ node: ['src/main/updates/releasePackaging.test.ts'], dom: [] })
   })
 
   it('runs the quarantine check and the tests whose entries changed for a quarantine change', () => {
@@ -131,7 +131,7 @@ describe('planE2e', () => {
 
   it('runs the specs of every area a changed file belongs to', () => {
     expect(
-      planE2e(['src/main/sandbox/ptyWrap.ts', 'src/main/remoteFolders.ts'], map, imports),
+      planE2e(['src/main/sandbox/ptyWrap.ts', 'src/main/files/remoteFolders.ts'], map, imports),
     ).toEqual(['e2e/sandbox.spec.ts', 'e2e/ssh.spec.ts'])
   })
 
@@ -256,9 +256,9 @@ describe('nodeFolderReaders', () => {
     const found = nodeFolderReaders()
     expect(found['e2e/']).toContain('test/e2eImports.test.ts')
     expect(found['e2e/']).toContain('test/e2eAreas.test.ts')
-    expect(found['.github/']).toContain('src/main/releasePackaging.test.ts')
+    expect(found['.github/']).toContain('src/main/updates/releasePackaging.test.ts')
     expect(found['.github/']).toContain('test/ciMergeQueue.test.ts')
-    expect(found['.github/']).not.toContain('src/main/releaseCheck.test.ts')
+    expect(found['.github/']).not.toContain('src/main/updates/releaseCheck.test.ts')
   })
 })
 
@@ -278,7 +278,7 @@ describe('vitestArgs', () => {
 
 describe('vitest related', () => {
   it('follows a ?raw import of a markdown file to the test that imports it', async () => {
-    const skill = join(ROOT, 'src/main/agent/ostia-skill.md')
+    const skill = join(ROOT, 'src/main/agents/ostia-skill.md')
     const vitest = await createVitest(
       'test',
       { root: ROOT, watch: false, project: ['node'], related: [skill] },
@@ -286,10 +286,10 @@ describe('vitest related', () => {
       {},
     )
     try {
-      const specs = await vitest.globTestSpecs(['src/main/managerAgent.test.ts'])
+      const specs = await vitest.globTestSpecs(['src/main/manager/managerAgent.test.ts'])
       const related = await vitest.filterTestsBySource(specs)
       expect(related.map((spec) => spec.moduleId)).toEqual([
-        join(ROOT, 'src/main/managerAgent.test.ts'),
+        join(ROOT, 'src/main/manager/managerAgent.test.ts'),
       ])
     } finally {
       await vitest.close()

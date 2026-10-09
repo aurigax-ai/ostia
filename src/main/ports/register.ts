@@ -1,7 +1,7 @@
 import { ipcMain } from 'electron'
 import type { Capability } from '../../shared/capabilities'
-import { ensureCaps } from '../controlElevation'
-import { registerControlMethod } from '../controlServer'
+import { ensureCaps } from '../approvals/controlElevation'
+import { registerControlMethod } from '../control/controlServer'
 import type { PortsService } from './service'
 
 const READ_BOARD: Capability = 'read-board'

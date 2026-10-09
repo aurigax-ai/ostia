@@ -1,4 +1,4 @@
-import { COMMAND_ID_PATTERN, EXTENSION_ID_PATTERN } from '../main/extensionManifest'
+import { COMMAND_ID_PATTERN, EXTENSION_ID_PATTERN } from '../main/extensions/extensionManifest'
 import {
   AGENT_HOOK_INPUT_MAX,
   type AgentHookEvent,

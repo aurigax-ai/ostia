@@ -13,10 +13,10 @@ import {
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
-import { registerControlServer, stopControlServer } from '../main/controlServer'
-import { ExtensionHost, registerExtensionMethods } from '../main/extensionHost'
-import { parseManifest } from '../main/extensionManifest'
-import { ExtensionStore } from '../main/extensionStore'
+import { registerControlServer, stopControlServer } from '../main/control/controlServer'
+import { ExtensionHost, registerExtensionMethods } from '../main/extensions/extensionHost'
+import { parseManifest } from '../main/extensions/extensionManifest'
+import { ExtensionStore } from '../main/extensions/extensionStore'
 import { EXTENSION_API_VERSION } from '../shared/extensionApi'
 import type { ExtensionCaller } from '../shared/extensions'
 import { MARKETPLACE_CODE_PATTERN, MARKETPLACE_MANIFEST_FILE } from '../shared/marketplace'
@@ -268,7 +268,7 @@ describe('extension API version', () => {
       'src/extensions/sdk/index.ts',
       'src/extensions/sdk/assist/service.ts',
       'src/shared/extensions.ts',
-      'src/main/extensionManifest.ts',
+      'src/main/extensions/extensionManifest.ts',
       'src/cli/manifestSchema.ts',
     ]) {
       expect(readFileSync(join(sdkPackage, file), 'utf8'), file).toBe(

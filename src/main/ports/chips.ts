@@ -6,7 +6,7 @@ import {
 } from '../../shared/extensions'
 import { PORTS_CHIP, SSH_CHIP } from '../../shared/git'
 import type { PortHost } from '../../shared/ports'
-import type { PaneEntry } from '../paneList'
+import type { PaneEntry } from '../panes/paneList'
 import type { TreeInfo } from './scan'
 import { type WorkspaceProcesses, portUrl } from './sidebar'
 import { sshLabel } from './ssh'

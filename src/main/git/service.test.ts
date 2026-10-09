@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { type CoreItems, DEFAULT_GIT_SETTINGS, type GitSettings } from '../../shared/git'
-import type { PaneEntry, WorkspaceEntry } from '../paneList'
+import type { PaneEntry, WorkspaceEntry } from '../panes/paneList'
 import { GIT_CHANGED_CHANNEL, GIT_ITEMS_CHANNEL, GitService, type Repo } from './service'
 
 const workspace = (workspaceId: string, workDir: string): WorkspaceEntry => ({

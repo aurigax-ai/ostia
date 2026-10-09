@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto'
 import { appendFileSync, mkdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
-import { appDataDir } from '../userDirs'
+import { appDataDir } from '../platform/userDirs'
 
 export { formatCode } from '../../shared/pairCode'
 

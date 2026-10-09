@@ -10,8 +10,8 @@ import {
   createMessageConnection,
 } from 'vscode-jsonrpc/node'
 import type { CommandDescriptor, CommandResult } from '../../shared/types'
-import { registerControlServer, stopControlServer } from '../controlServer'
-import { registerPane } from '../idRegistry'
+import { registerControlServer, stopControlServer } from '../control/controlServer'
+import { registerPane } from '../control/idRegistry'
 import { registerSandboxMethods } from './controlMethods'
 import { DomainRequests } from './domainRequests'
 

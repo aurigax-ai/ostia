@@ -15,8 +15,8 @@ import {
   resolveSandbox,
   sandboxMergeRefusal,
 } from '../../shared/sandbox'
-import { socketPathLimit } from '../privateTmp'
-import { processAlive } from '../processAlive'
+import { socketPathLimit } from '../platform/privateTmp'
+import { processAlive } from '../platform/processAlive'
 import { SandboxHost, SandboxHostError } from './hostClient'
 import type { PackageBlockReason, PackagePolicy } from './packagePolicy'
 import type { SandboxPathEnv } from './pathChecks'

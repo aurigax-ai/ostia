@@ -3,15 +3,15 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { registerControlServer, stopControlServer } from '../main/controlServer'
+import { registerControlServer, stopControlServer } from '../main/control/controlServer'
+import { type PaneIdentity, registerPane } from '../main/control/idRegistry'
 import {
   type ExtensionConfirmRequest,
   ExtensionHost,
   type TerminalOpenRequest,
   registerExtensionMethods,
-} from '../main/extensionHost'
-import { ExtensionStore } from '../main/extensionStore'
-import { type PaneIdentity, registerPane } from '../main/idRegistry'
+} from '../main/extensions/extensionHost'
+import { ExtensionStore } from '../main/extensions/extensionStore'
 import type { CommandResult } from '../shared/types'
 
 const repoRoot = process.cwd()

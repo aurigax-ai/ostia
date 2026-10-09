@@ -6,7 +6,7 @@ import {
   parseSecretGrants,
 } from '../../shared/sandbox'
 import type { SecretEntry } from '../../shared/secrets'
-import { registerControlMethod } from '../controlServer'
+import { registerControlMethod } from '../control/controlServer'
 import type { WorkspaceSandboxes } from '../sandbox/workspaceSandboxes'
 import type { SecretService } from './secretService'
 

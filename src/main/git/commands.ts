@@ -16,7 +16,7 @@ import {
   type GraphScope,
   isUncommitted,
 } from '../../shared/git'
-import { expandHome } from '../pathGuard'
+import { expandHome } from '../platform/pathGuard'
 import {
   RepoError,
   blame,

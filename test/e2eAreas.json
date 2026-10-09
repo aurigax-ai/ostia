@@ -14,8 +14,8 @@
       "paths": [
         "src/main/sandbox/",
         "src/main/secrets/",
-        "src/main/sandboxedCaller.ts",
-        "src/main/vault.ts",
+        "src/main/sandbox/sandboxedCaller.ts",
+        "src/main/secrets/vault.ts",
         "src/shared/sandbox",
         "src/shared/packages.ts",
         "src/shared/secrets.ts",
@@ -34,7 +34,8 @@
       "name": "ssh",
       "paths": [
         "src/extensions/ssh/",
-        "src/main/remoteFolder",
+        "src/main/files/remoteFolderConfirm.ts",
+        "src/main/files/remoteFolders.",
         "src/shared/remoteFolders.ts",
         "src/renderer/components/RemoteF",
         "src/renderer/lib/remoteFileSync.ts",
@@ -47,11 +48,12 @@
     {
       "name": "language servers",
       "paths": [
-        "src/main/languageServers",
-        "src/main/managedServers.ts",
-        "src/main/serverOverrides.ts",
-        "src/main/editorLanguages.ts",
-        "src/main/extensionSuggestions.ts",
+        "src/main/lsp/languageServers.",
+        "src/main/lsp/languageServersIpc.ts",
+        "src/main/lsp/managedServers.ts",
+        "src/main/lsp/serverOverrides.ts",
+        "src/main/lsp/editorLanguages.ts",
+        "src/main/extensions/extensionSuggestions.ts",
         "src/shared/languageServers.ts",
         "src/shared/editorLanguages.ts",
         "src/shared/extensionSuggestions.ts",
@@ -86,9 +88,9 @@
         "src/renderer/stores/editor",
         "src/renderer/stores/pdfFindStore.ts",
         "src/shared/browserEditorSettings.ts",
-        "src/main/fsText.ts",
-        "src/main/fsBinary.ts",
-        "src/main/watchedFiles.ts"
+        "src/main/files/fsText.ts",
+        "src/main/files/fsBinary.ts",
+        "src/main/files/watchedFiles.ts"
       ],
       "specs": [
         "e2e/browser-editor-settings.spec.ts",
@@ -102,10 +104,16 @@
     {
       "name": "browser",
       "paths": [
-        "src/main/browse",
-        "src/main/guestNetwork.ts",
-        "src/main/loginFill.ts",
-        "src/main/credentials.ts",
+        "src/main/browser/browse.",
+        "src/main/browser/browsePick.",
+        "src/main/browser/browseRegion.",
+        "src/main/browser/browseWorld.ts",
+        "src/main/browser/browserProfiles.",
+        "src/main/browser/browserStorage.",
+        "src/main/browser/browserUserAgent.",
+        "src/main/browser/guestNetwork.ts",
+        "src/main/browser/loginFill.ts",
+        "src/main/browser/credentials.ts",
         "src/shared/browse",
         "src/shared/pick",
         "src/shared/regionCapture.ts",
@@ -144,7 +152,7 @@
     {
       "name": "selection reports",
       "paths": [
-        "src/main/selectionReport.ts",
+        "src/main/terminal/selectionReport.ts",
         "src/shared/selection.ts",
         "src/renderer/components/SelectionSend.tsx",
         "src/renderer/lib/selectionSenders.ts",
@@ -158,7 +166,7 @@
       "paths": [
         "src/main/git/",
         "src/shared/git.ts",
-        "src/main/watchSets.ts",
+        "src/main/platform/watchSets.ts",
         "src/renderer/components/git/",
         "src/renderer/lib/gitView.ts",
         "src/renderer/lib/gitGraph.ts",
@@ -187,10 +195,17 @@
     {
       "name": "extensions",
       "paths": [
-        "src/main/extension",
-        "src/main/agentOfferRelay.ts",
-        "src/main/agentSkills.ts",
-        "src/main/iconThemes.ts",
+        "src/main/agents/extensionAgents.",
+        "src/main/extensions/extensionConfirm.ts",
+        "src/main/extensions/extensionHost.",
+        "src/main/extensions/extensionLocales.",
+        "src/main/extensions/extensionManifest.",
+        "src/main/extensions/extensionSecrets.",
+        "src/main/extensions/extensionStore.",
+        "src/main/extensions/extensionSuggestions.",
+        "src/main/agents/agentOfferRelay.ts",
+        "src/main/agents/agentSkills.ts",
+        "src/main/extensions/iconThemes.ts",
         "src/shared/extension",
         "src/shared/agentPlugins.ts",
         "src/shared/iconTheme.ts",
@@ -219,7 +234,7 @@
     {
       "name": "marketplace",
       "paths": [
-        "src/main/marketplace.ts",
+        "src/main/extensions/marketplace.ts",
         "src/shared/marketplace.ts",
         "src/renderer/components/BrowseExtensions.tsx",
         "src/renderer/components/MarketplaceSection.tsx",
@@ -231,8 +246,8 @@
     {
       "name": "language packs",
       "paths": [
-        "src/main/languagePacks.ts",
-        "src/main/strings.ts",
+        "src/main/extensions/languagePacks.ts",
+        "src/main/extensions/strings.ts",
         "src/shared/languagePack.ts",
         "src/shared/extensionLocales.ts",
         "src/renderer/lib/languagePacks.ts",
@@ -245,7 +260,7 @@
       "paths": [
         "src/main/ports/",
         "src/shared/ports.ts",
-        "src/main/watchSets.ts",
+        "src/main/platform/watchSets.ts",
         "src/renderer/lib/coreWatch.ts",
         "src/cli/coreBoards.ts",
         "src/shared/procfs.ts",
@@ -257,7 +272,8 @@
       "name": "system",
       "paths": [
         "src/extensions/system/",
-        "src/main/systemRequirements",
+        "src/main/platform/systemRequirements.",
+        "src/main/platform/systemRequirementsIpc.",
         "src/shared/systemRequirements.ts",
         "src/renderer/components/RequirementsNote.tsx",
         "test/fixtures/system/"
@@ -269,9 +285,17 @@
       "paths": [
         "src/extensions/assistant/",
         "src/extensions/model-runtime/",
-        "src/main/assistIpc.ts",
-        "src/main/chat",
-        "src/main/mcp",
+        "src/main/chat/assistIpc.ts",
+        "src/main/chat/chatFsTools.",
+        "src/main/chat/chatSessions.",
+        "src/main/chat/chatSessionsIpc.",
+        "src/main/chat/chatSkills.",
+        "src/main/chat/chatToolGrants.",
+        "src/main/chat/chatTools.integration.test.ts",
+        "src/main/chat/chatToolsIpc.ts",
+        "src/main/chat/mcpHost.",
+        "src/main/chat/mcpOAuth.",
+        "src/main/chat/mcpOAuthStore.",
         "src/shared/assist.ts",
         "src/shared/chat",
         "src/renderer/components/Chat",
@@ -299,7 +323,7 @@
       "name": "completions",
       "paths": [
         "src/extensions/completions/",
-        "src/main/completionSpecs.ts",
+        "src/main/terminal/completionSpecs.ts",
         "src/shared/completionSpec.ts",
         "src/renderer/lib/specCompletion.ts",
         "src/renderer/lib/completionMatch.ts",
@@ -311,10 +335,10 @@
       "name": "keys and clipboard",
       "paths": [
         "src/extensions/keymap-macos/",
-        "src/main/keymaps.ts",
-        "src/main/clipboardEdits.ts",
-        "src/main/guestChords.ts",
-        "src/main/primarySelection.ts",
+        "src/main/extensions/keymaps.ts",
+        "src/main/windows/clipboardEdits.ts",
+        "src/main/browser/guestChords.ts",
+        "src/main/windows/primarySelection.ts",
         "src/shared/keymap",
         "src/shared/keyboardPresets.ts",
         "src/shared/chordSpec.ts",
@@ -350,8 +374,11 @@
     {
       "name": "manager",
       "paths": [
-        "src/main/manager",
-        "src/main/portal",
+        "src/main/manager/manager.",
+        "src/main/manager/managerAgent.",
+        "src/main/manager/managerMethods.",
+        "src/main/manager/portal.",
+        "src/main/manager/portalCaller.",
         "src/shared/managerSettings.ts",
         "src/shared/portal.ts",
         "src/cli/manager.ts",
@@ -364,7 +391,7 @@
     {
       "name": "telemetry",
       "paths": [
-        "src/main/telemetry.ts",
+        "src/main/diagnostics/telemetry.ts",
         "src/shared/telemetry.ts",
         "src/renderer/components/Telemetry",
         "src/renderer/stores/telemetryConsentStore.ts",
@@ -375,11 +402,11 @@
     {
       "name": "updates",
       "paths": [
-        "src/main/releaseCheck.ts",
-        "src/main/appUpdate.ts",
-        "src/main/installMethod.ts",
-        "src/main/installReplace.ts",
-        "src/main/updateRun.ts",
+        "src/main/updates/releaseCheck.ts",
+        "src/main/updates/appUpdate.ts",
+        "src/main/updates/installMethod.ts",
+        "src/main/updates/installReplace.ts",
+        "src/main/updates/updateRun.ts",
         "src/shared/installMethod.ts",
         "src/shared/releases.ts",
         "src/renderer/components/Update",
@@ -390,14 +417,15 @@
     {
       "name": "files",
       "paths": [
-        "src/main/fileOps.ts",
-        "src/main/fileWatch.ts",
-        "src/main/workspaceSearch.ts",
-        "src/main/ripgrep.ts",
-        "src/main/fuzzyPaths.ts",
-        "src/main/openPath.ts",
-        "src/main/openFile",
-        "src/main/terminalPathLinks.ts",
+        "src/main/files/fileOps.ts",
+        "src/main/files/fileWatch.ts",
+        "src/main/files/workspaceSearch.ts",
+        "src/main/files/ripgrep.ts",
+        "src/main/files/fuzzyPaths.ts",
+        "src/main/files/openPath.ts",
+        "src/main/files/openFileGrants.",
+        "src/main/files/openFileMethods.",
+        "src/main/terminal/terminalPathLinks.ts",
         "src/shared/fileOps.ts",
         "src/shared/search.ts",
         "src/shared/openFiles.ts",
@@ -432,8 +460,8 @@
     {
       "name": "views",
       "paths": [
-        "src/main/viewHost.ts",
-        "src/main/viewsIpc.ts",
+        "src/main/workspaces/viewHost.ts",
+        "src/main/workspaces/viewsIpc.ts",
         "src/shared/view",
         "src/cli/view.ts",
         "src/renderer/components/DeclarativeView.tsx",
@@ -448,7 +476,7 @@
     {
       "name": "workflows",
       "paths": [
-        "src/main/workflows.ts",
+        "src/main/workspaces/workflows.ts",
         "src/shared/workflows.ts",
         "src/renderer/components/WorkflowPicker.tsx",
         "src/renderer/components/SaveWorkflowDialog.tsx",
@@ -460,11 +488,11 @@
     {
       "name": "hibernation and resume",
       "paths": [
-        "src/main/paneWaking.ts",
-        "src/main/paneResume.ts",
-        "src/main/spawnCwd.ts",
-        "src/main/agentRunning.ts",
-        "src/main/agentWork.ts",
+        "src/main/panes/paneWaking.ts",
+        "src/main/panes/paneResume.ts",
+        "src/main/terminal/spawnCwd.ts",
+        "src/main/agents/agentRunning.ts",
+        "src/main/agents/agentWork.ts",
         "src/shared/agentResume.ts",
         "src/shared/agentWork.ts",
         "src/renderer/lib/hibernation",
@@ -489,19 +517,22 @@
     {
       "name": "agent control",
       "paths": [
-        "src/main/bus",
-        "src/main/paneIo.ts",
-        "src/main/paneWait.ts",
-        "src/main/paneList.ts",
-        "src/main/paneRename.ts",
-        "src/main/paneMoveTo.ts",
-        "src/main/paneLauncher.ts",
-        "src/main/paneProcess.ts",
-        "src/main/processManager.ts",
-        "src/main/reach",
-        "src/main/agentTranscript.ts",
-        "src/main/permissionAsk.ts",
-        "src/main/agent/",
+        "src/main/agents/bus.",
+        "src/main/attention/busNotice.",
+        "src/main/panes/paneIo.ts",
+        "src/main/panes/paneWait.ts",
+        "src/main/panes/paneList.ts",
+        "src/main/panes/paneRename.ts",
+        "src/main/panes/paneMoveTo.ts",
+        "src/main/terminal/paneLauncher.ts",
+        "src/main/panes/paneProcess.ts",
+        "src/main/panes/processManager.ts",
+        "src/main/approvals/reach.",
+        "src/main/approvals/reachScope.",
+        "src/main/agents/agentTranscript.ts",
+        "src/main/approvals/permissionAsk.ts",
+        "src/main/agents/ostia-manager-skill.md",
+        "src/main/agents/ostia-skill.md",
         "src/shared/busMessages.ts",
         "src/shared/reach.ts",
         "src/shared/agentPermissions.ts",
@@ -530,8 +561,9 @@
     {
       "name": "attention",
       "paths": [
-        "src/main/attention.ts",
-        "src/main/notify",
+        "src/main/attention/attention.ts",
+        "src/main/attention/notify.",
+        "src/main/attention/notifyCommand.",
         "src/shared/notificationSettings.ts",
         "src/renderer/lib/attention.ts",
         "src/renderer/lib/bell.ts",
@@ -546,8 +578,8 @@
     {
       "name": "dashboard and questions",
       "paths": [
-        "src/main/questions.ts",
-        "src/main/asks.ts",
+        "src/main/approvals/questions.ts",
+        "src/main/approvals/asks.ts",
         "src/shared/questions.ts",
         "src/cli/ask.ts",
         "src/renderer/components/Dashboard",
@@ -562,9 +594,9 @@
     {
       "name": "approvals",
       "paths": [
-        "src/main/approvals.ts",
-        "src/main/capabilityStore.ts",
-        "src/main/controlElevation.ts",
+        "src/main/approvals/approvals.ts",
+        "src/main/approvals/capabilityStore.ts",
+        "src/main/approvals/controlElevation.ts",
         "src/shared/approvals.ts",
         "src/shared/capabilities.ts",
         "src/renderer/components/Approval",
@@ -586,9 +618,10 @@
     {
       "name": "windows",
       "paths": [
-        "src/main/windowB",
-        "src/main/paneMove.ts",
-        "src/main/originAgents.ts",
+        "src/main/windows/windowBook.",
+        "src/main/windows/windowBroker.ts",
+        "src/main/panes/paneMove.ts",
+        "src/main/agents/originAgents.ts",
         "src/renderer/lib/windowHandoff.ts",
         "src/renderer/lib/windowWorkspaces.ts",
         "src/renderer/lib/originAgents.ts",
@@ -608,8 +641,8 @@
     {
       "name": "workspaces",
       "paths": [
-        "src/main/workspaceMerge.ts",
-        "src/main/scratchFolders.ts",
+        "src/main/workspaces/workspaceMerge.ts",
+        "src/main/workspaces/scratchFolders.ts",
         "src/shared/workspaceGroups.ts",
         "src/renderer/lib/workspaceGroups.ts",
         "src/renderer/lib/workspaceMerge.ts",
@@ -635,10 +668,11 @@
     {
       "name": "restore and user folders",
       "paths": [
-        "src/main/workspaceSnapshot.ts",
-        "src/main/screenMirror.ts",
-        "src/main/userDirs",
-        "src/main/oldDirsPrompt.ts",
+        "src/main/workspaces/workspaceSnapshot.ts",
+        "src/main/terminal/screenMirror.ts",
+        "src/main/platform/userDirs.",
+        "src/main/platform/userDirsBoot.ts",
+        "src/main/platform/oldDirsPrompt.ts",
         "src/renderer/layout/snapshot.ts",
         "src/renderer/stores/persistence.ts"
       ],
@@ -651,10 +685,10 @@
     {
       "name": "terminal",
       "paths": [
-        "src/main/ptyFlow.ts",
-        "src/main/ptySession.ts",
-        "src/main/ptyRingBuffer.ts",
-        "src/main/ptyReaper.ts",
+        "src/main/terminal/ptyFlow.ts",
+        "src/main/terminal/ptySession.ts",
+        "src/main/terminal/ptyRingBuffer.ts",
+        "src/main/terminal/ptyReaper.ts",
         "src/shared/ptyFlow.ts",
         "src/shared/terminalShell.ts",
         "src/shared/osc7.ts",
@@ -698,12 +732,12 @@
     {
       "name": "shell integration and blocks",
       "paths": [
-        "src/main/shellIntegration.ts",
-        "src/main/terminalType.ts",
-        "src/main/shellCommands.ts",
-        "src/main/shellExit.ts",
-        "src/main/localPrompt.ts",
-        "src/main/promptContext.ts",
+        "src/main/terminal/shellIntegration.ts",
+        "src/main/terminal/terminalType.ts",
+        "src/main/terminal/shellCommands.ts",
+        "src/main/terminal/shellExit.ts",
+        "src/main/terminal/localPrompt.ts",
+        "src/main/terminal/promptContext.ts",
         "src/shared/promptSettings.ts",
         "src/renderer/components/Blocks.tsx",
         "src/renderer/components/BlockMenu.tsx",
@@ -826,13 +860,15 @@
     {
       "name": "app shell",
       "paths": [
-        "src/main/tray.ts",
-        "src/main/globalHotkey.ts",
-        "src/main/appMenu.ts",
-        "src/main/closeGuard.ts",
-        "src/main/quit",
-        "src/main/contextMenu",
-        "src/main/discreteGpu.ts",
+        "src/main/windows/tray.ts",
+        "src/main/windows/globalHotkey.ts",
+        "src/main/windows/appMenu.ts",
+        "src/main/windows/closeGuard.ts",
+        "src/main/windows/quitPlan.",
+        "src/main/windows/quitPrompt.",
+        "src/main/windows/contextMenu.ts",
+        "src/main/windows/contextMenuTemplate.",
+        "src/main/platform/discreteGpu.ts",
         "src/shared/globalHotkey.ts",
         "src/shared/appMenu.ts",
         "src/shared/discreteGpu.ts",
@@ -856,9 +892,9 @@
     {
       "name": "crash recovery",
       "paths": [
-        "src/main/rendererReports.ts",
-        "src/main/diagnostics.ts",
-        "src/main/testCrashDumps.ts",
+        "src/main/diagnostics/rendererReports.ts",
+        "src/main/diagnostics/diagnostics.ts",
+        "src/main/diagnostics/testCrashDumps.ts",
         "src/renderer/components/AppErrorBoundary.tsx",
         "src/renderer/components/SurfaceErrorBoundary.tsx",
         "src/renderer/lib/errorReporting.ts"
@@ -867,14 +903,20 @@
     },
     {
       "name": "confinement",
-      "paths": ["src/main/pathGuard.ts", "src/main/confinedRead.ts", "src/main/controlAuth.ts"],
+      "paths": [
+        "src/main/platform/pathGuard.ts",
+        "src/main/platform/confinedRead.ts",
+        "src/main/control/controlAuth.ts"
+      ],
       "specs": ["e2e/security.spec.ts"]
     },
     {
       "name": "redaction",
       "paths": [
-        "src/main/secretScanner.ts",
-        "src/main/redaction",
+        "src/main/privacy/secretScanner.ts",
+        "src/main/privacy/redaction.",
+        "src/main/privacy/redactionScan.ts",
+        "src/main/privacy/redactionWorker.ts",
         "src/shared/redaction",
         "src/renderer/components/PrivacySection.tsx"
       ],
@@ -883,10 +925,10 @@
     {
       "name": "artifacts",
       "paths": [
-        "src/main/artifactFolders.ts",
-        "src/main/htmlPreview.ts",
-        "src/main/previewLimits.ts",
-        "src/main/previewScheme.ts",
+        "src/main/artifacts/artifactFolders.ts",
+        "src/main/artifacts/htmlPreview.ts",
+        "src/main/artifacts/previewLimits.ts",
+        "src/main/artifacts/previewScheme.ts",
         "src/shared/artifacts.ts",
         "src/shared/htmlPreview.ts",
         "src/renderer/components/ArtifactsSection.tsx",
@@ -896,9 +938,9 @@
         "src/renderer/lib/callerFocus.ts",
         "src/renderer/lib/revealFolder.ts",
         "src/cli/stdinCapture.ts",
-        "src/main/artifactCompiler.ts",
-        "src/main/previewShell.ts",
-        "src/main/esbuildService.ts",
+        "src/main/artifacts/artifactCompiler.ts",
+        "src/main/artifacts/previewShell.ts",
+        "src/main/artifacts/esbuildService.ts",
         "src/main/gateway/artifactFiles.ts",
         "src/shared/artifactRuntime.ts",
         "scripts/build-artifact-runtime.mjs",
@@ -906,8 +948,8 @@
         "src/renderer/components/MermaidDiagram.tsx",
         "src/renderer/lib/csvTable.ts",
         "src/renderer/lib/mermaidImage.ts",
-        "src/main/openWaits.ts",
-        "src/main/openFileMethods.ts",
+        "src/main/files/openWaits.ts",
+        "src/main/files/openFileMethods.ts",
         "src/renderer/lib/openWaits.ts",
         "src/renderer/stores/openWaitsStore.ts",
         "src/cli/fileArgs.ts"

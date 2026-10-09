@@ -9,8 +9,8 @@ import {
   NO_CORE_ITEMS,
   type RepoStatus,
 } from '../../shared/git'
-import type { PaneEntry, WorkspaceEntry } from '../paneList'
-import { WatchSets } from '../watchSets'
+import type { PaneEntry, WorkspaceEntry } from '../panes/paneList'
+import { WatchSets } from '../platform/watchSets'
 import { lineChanges, readStatus, repoRoot } from './repo'
 import { branchChipText, branchLabel, diffStatsChipText } from './status'
 import { WorkspaceCwds } from './workspaceCwds'

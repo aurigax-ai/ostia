@@ -12,7 +12,7 @@ import {
 } from './artifactRuntime'
 
 const built = join(process.cwd(), 'out', 'artifact-runtime')
-const skill = readFileSync(join(process.cwd(), 'src/main/agent/ostia-skill.md'), 'utf8')
+const skill = readFileSync(join(process.cwd(), 'src/main/agents/ostia-skill.md'), 'utf8')
 const manifest = JSON.parse(readFileSync(join(process.cwd(), 'package.json'), 'utf8')) as {
   dependencies: Record<string, string>
   devDependencies: Record<string, string>

@@ -11,11 +11,11 @@ import {
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { agentPluginContent } from '../main/agentSkills'
-import { registerControlServer, stopControlServer } from '../main/controlServer'
-import { ExtensionHost, registerExtensionMethods } from '../main/extensionHost'
-import { ExtensionStore } from '../main/extensionStore'
-import { type PaneIdentity, registerPane } from '../main/idRegistry'
+import { agentPluginContent } from '../main/agents/agentSkills'
+import { registerControlServer, stopControlServer } from '../main/control/controlServer'
+import { type PaneIdentity, registerPane } from '../main/control/idRegistry'
+import { ExtensionHost, registerExtensionMethods } from '../main/extensions/extensionHost'
+import { ExtensionStore } from '../main/extensions/extensionStore'
 import {
   codexHookKey,
   codexHookTrustHash,
@@ -23,7 +23,7 @@ import {
   setAgentPlugins,
   shellIntegrationDir,
   shellIntegrationSpawnOptions,
-} from '../main/shellIntegration'
+} from '../main/terminal/shellIntegration'
 import type { CommandResult } from '../shared/types'
 
 const repoRoot = process.cwd()

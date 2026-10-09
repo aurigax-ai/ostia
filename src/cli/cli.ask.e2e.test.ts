@@ -21,10 +21,10 @@ vi.mock('electron', () => ({
   },
 }))
 
-const { registerControlServer, stopControlServer } = await import('../main/controlServer')
-const { registerPane, removePane } = await import('../main/idRegistry')
-const { questions, registerQuestions } = await import('../main/questions')
-const { registerPermissionAsk } = await import('../main/permissionAsk')
+const { registerControlServer, stopControlServer } = await import('../main/control/controlServer')
+const { registerPane, removePane } = await import('../main/control/idRegistry')
+const { questions, registerQuestions } = await import('../main/approvals/questions')
+const { registerPermissionAsk } = await import('../main/approvals/permissionAsk')
 
 let phoneCanAnswer = true
 registerQuestions({ opened: () => {}, settled: () => {} })

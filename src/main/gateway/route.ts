@@ -1,6 +1,6 @@
 import { DEFAULT_GATEWAY_ROUTE, isBindAddress, phoneAddressOf } from '../../shared/gatewayRoute'
 import type { GatewayRoute } from '../../shared/types'
-import { loadJson, saveJson, storePath } from '../jsonStore'
+import { loadJson, saveJson, storePath } from '../platform/jsonStore'
 
 function routePath(): string {
   return storePath('gateway-config', 'global')

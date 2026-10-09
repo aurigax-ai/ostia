@@ -6,7 +6,7 @@ import {
   type PhoneGrantableCap,
 } from '../../shared/phoneCapabilities'
 import type { GatewaySetCapResult } from '../../shared/types'
-import { loadJson, saveJson, storePath } from '../jsonStore'
+import { loadJson, saveJson, storePath } from '../platform/jsonStore'
 
 export const DEFAULT_PHONE_CAPS: readonly string[] = PHONE_BASE_CAPS
 

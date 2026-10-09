@@ -8,7 +8,7 @@ import {
   StreamMessageWriter,
   createMessageConnection,
 } from 'vscode-jsonrpc/node'
-import { controlInfoPath, readControlSocket } from '../main/controlDiscovery'
+import { controlInfoPath, readControlSocket } from '../main/control/controlDiscovery'
 import { RESUMABLE_AGENTS, isResumableAgent, resumeFromHookPayload } from '../shared/agentResume'
 import { CLAUDE_WORK_EVENTS, claudeWorkReport, isClaudeWorkEvent } from '../shared/agentWork'
 import { readEnv } from '../shared/appEnv'

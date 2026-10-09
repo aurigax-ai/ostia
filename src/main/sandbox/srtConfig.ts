@@ -9,7 +9,7 @@ import {
   type SandboxFolderReason,
   type SandboxSwitches,
 } from '../../shared/sandbox'
-import { OLD_PRODUCT_NAME } from '../userDirs'
+import { OLD_PRODUCT_NAME } from '../platform/userDirs'
 
 export interface SandboxPaths {
   home: string

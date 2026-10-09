@@ -78,26 +78,48 @@ import type {
   WindowBounds,
 } from '../shared/types'
 import { clampZoom, zoomFactor } from '../shared/zoom'
-import { AGENT_OFFER_RESULT_CHANNEL, createAgentOfferRelay } from './agentOfferRelay'
-import { AgentRunningPanes } from './agentRunning'
-import { agentPluginContent } from './agentSkills'
-import { registerAgentTranscriptIpc } from './agentTranscript'
+import { AGENT_OFFER_RESULT_CHANNEL, createAgentOfferRelay } from './agents/agentOfferRelay'
+import { AgentRunningPanes } from './agents/agentRunning'
+import { agentPluginContent } from './agents/agentSkills'
+import { registerAgentTranscriptIpc } from './agents/agentTranscript'
 import {
   ReportedAgentWork,
   backgroundWork,
   readProcessTable,
   registerAgentWorkMethods,
-} from './agentWork'
-import { type AppLog, LOG_FILE_NAME, createAppLog } from './appLog'
-import { installAppMenu } from './appMenu'
-import { registerAppUpdate } from './appUpdate'
-import { appVersion, runningBuild } from './appVersion'
-import { approvals, registerApprovals } from './approvals'
-import { ArtifactCompiler } from './artifactCompiler'
-import { ArtifactFolders, registerArtifactIpc } from './artifactFolders'
-import { createAskHub } from './asks'
-import { registerAssistIpc } from './assistIpc'
-import { registerAttentionMethods, targetOf } from './attention'
+} from './agents/agentWork'
+import { registerBusMethods } from './agents/bus'
+import type { OriginReach } from './agents/originAgents'
+import { approvals, registerApprovals } from './approvals/approvals'
+import { createAskHub } from './approvals/asks'
+import {
+  dropIdentity,
+  loadReachMode,
+  refreshCapabilitySettings,
+  setCaps,
+} from './approvals/capabilityStore'
+import { registerPermissionAsk } from './approvals/permissionAsk'
+import { questions, registerQuestions } from './approvals/questions'
+import { createReach } from './approvals/reach'
+import { registerScriptTokenMethods, verifyScriptToken } from './approvals/scriptTokens'
+import { ArtifactCompiler } from './artifacts/artifactCompiler'
+import { ArtifactFolders, registerArtifactIpc } from './artifacts/artifactFolders'
+import { loadEsbuild } from './artifacts/esbuildService'
+import {
+  PreviewHost,
+  type PreviewSession,
+  hardenPreviewAttach,
+  registerPreviewIpc,
+} from './artifacts/htmlPreview'
+import { registerAttentionMethods, targetOf } from './attention/attention'
+import { announceBusMessage } from './attention/busNotice'
+import {
+  postActionNotification,
+  postNotification,
+  postPanelNotification,
+  registerNotifyIpc,
+  registerNotifyMethods,
+} from './attention/notify'
 import {
   type ConsoleEntry,
   OSTIA_ERROR_PREFIX,
@@ -106,51 +128,85 @@ import {
   ownedGuest,
   pushConsoleEntry,
   registerBrowseMethods,
-} from './browse'
-import { cancelPick, registerPickIpc, registerPickMethods } from './browsePick'
-import { registerRegionIpc } from './browseRegion'
-import { BrowserProfiles } from './browserProfiles'
-import { registerBrowserStorageIpc } from './browserStorage'
-import { browserUserAgent } from './browserUserAgent'
-import { registerBusMethods } from './bus'
-import { announceBusMessage } from './busNotice'
-import { dropIdentity, loadReachMode, refreshCapabilitySettings, setCaps } from './capabilityStore'
-import { createChatSessionStore } from './chatSessions'
-import { registerChatSessionIpc } from './chatSessionsIpc'
-import { ChatToolGrants } from './chatToolGrants'
-import { registerChatToolsIpc } from './chatToolsIpc'
-import { type ClipboardEdits, registerClipboardEdits } from './clipboardEdits'
-import { confirmQuit, freezeAll, registerCloseGuard } from './closeGuard'
-import { registerCmuxSessionIpc } from './cmuxSession'
-import { registerCompletionIpc } from './completionSpecs'
-import { attachContextMenu } from './contextMenu'
-import { setCapFilter, setScriptTokenCheck } from './controlAuth'
-import { clearControlInfo, controlInfoPath, writeControlInfo } from './controlDiscovery'
+} from './browser/browse'
+import { cancelPick, registerPickIpc, registerPickMethods } from './browser/browsePick'
+import { registerRegionIpc } from './browser/browseRegion'
+import { BrowserProfiles } from './browser/browserProfiles'
+import { registerBrowserStorageIpc } from './browser/browserStorage'
+import { browserUserAgent } from './browser/browserUserAgent'
+import { credentials, registerCredentials } from './browser/credentials'
+import { type GuestChords, registerGuestChords } from './browser/guestChords'
+import { clearGuestNetwork, forgetGuestNetwork, watchGuestNetwork } from './browser/guestNetwork'
+import { registerLoginFill } from './browser/loginFill'
+import { registerAssistIpc } from './chat/assistIpc'
+import { createChatSessionStore } from './chat/chatSessions'
+import { registerChatSessionIpc } from './chat/chatSessionsIpc'
+import { ChatToolGrants } from './chat/chatToolGrants'
+import { registerChatToolsIpc } from './chat/chatToolsIpc'
+import { McpHost } from './chat/mcpHost'
+import { McpOAuth, mcpOAuthBrowser } from './chat/mcpOAuth'
+import { createMcpOAuthStore } from './chat/mcpOAuthStore'
+import { setCapFilter, setScriptTokenCheck } from './control/controlAuth'
+import { clearControlInfo, controlInfoPath, writeControlInfo } from './control/controlDiscovery'
 import {
   controlSocketPath,
   keptControlSocketPath,
   listenKeptControlSocket,
   registerControlServer,
   stopControlServer,
-} from './controlServer'
-import { credentials, registerCredentials } from './credentials'
-import { type Diagnostics, registerDiagnostics } from './diagnostics'
-import { discreteGpu, gpuStartPlan, querySwitcherooGpus } from './discreteGpu'
-import { registerDocsMethods } from './docs'
-import { registerEditorLanguageIpc } from './editorLanguages'
-import { loadEsbuild } from './esbuildService'
-import { emitPlatformEvent, emitSessionState, platformEvents } from './events'
-import { confirmForExtension } from './extensionConfirm'
-import { ExtensionHost, registerExtensionMethods } from './extensionHost'
-import type { ExtensionRoot } from './extensionManifest'
-import { type SecretStoreDeps, createSecretStore } from './extensionSecrets'
-import { ExtensionStore } from './extensionStore'
-import { DismissedSuggestions, suggestionFor } from './extensionSuggestions'
-import { openInExternalEditor } from './externalEditor'
-import { FileOps } from './fileOps'
-import { FileWatches, TreeWatches } from './fileWatch'
-import { readBinaryConfined } from './fsBinary'
-import { readTextConfined, versionConfined, writeText } from './fsText'
+} from './control/controlServer'
+import { registerDocsMethods } from './control/docs'
+import { emitPlatformEvent, emitSessionState, platformEvents } from './control/events'
+import {
+  type PaneIdentity,
+  adoptPane,
+  getByPaneId,
+  markManager,
+  moveToWorkspace,
+  panesOwnedBy,
+  registerPane,
+  rehomeWorkspace,
+  removePane,
+  removeWindow,
+  resolveExternal,
+  setPaneIdSalt,
+  windowOfWorkspace,
+  workspaceHasManager,
+} from './control/idRegistry'
+import { loadPaneIdSalt } from './control/paneIdSalt'
+import { type AppLog, LOG_FILE_NAME, createAppLog } from './diagnostics/appLog'
+import { type Diagnostics, registerDiagnostics } from './diagnostics/diagnostics'
+import {
+  type SessionFacts,
+  TELEMETRY_FILE,
+  type Telemetry,
+  registerTelemetry,
+} from './diagnostics/telemetry'
+import { confirmForExtension } from './extensions/extensionConfirm'
+import { ExtensionHost, registerExtensionMethods } from './extensions/extensionHost'
+import type { ExtensionRoot } from './extensions/extensionManifest'
+import { type SecretStoreDeps, createSecretStore } from './extensions/extensionSecrets'
+import { ExtensionStore } from './extensions/extensionStore'
+import { DismissedSuggestions, suggestionFor } from './extensions/extensionSuggestions'
+import { registerIconThemeIpc } from './extensions/iconThemes'
+import { describeSkipped, registerKeymapIpc } from './extensions/keymaps'
+import { registerLanguagePackIpc } from './extensions/languagePacks'
+import { Marketplace, marketplaceId, normalizeMarketplaceUrl } from './extensions/marketplace'
+import { createMainStrings } from './extensions/strings'
+import { firstKnownOwner, workspaceChipsForWindow } from './extensions/workspaceChips'
+import { openInExternalEditor } from './files/externalEditor'
+import { FileOps } from './files/fileOps'
+import { FileWatches, TreeWatches } from './files/fileWatch'
+import { readBinaryConfined } from './files/fsBinary'
+import { readTextConfined, versionConfined, writeText } from './files/fsText'
+import { OpenFileGrants } from './files/openFileGrants'
+import { openFileForExtension, registerOpenFileMethods } from './files/openFileMethods'
+import { registerOpenPathIpc } from './files/openPath'
+import { OpenWaits } from './files/openWaits'
+import { confirmRemoteFolder, registerRemoteFolderConfirm } from './files/remoteFolderConfirm'
+import type { RemoteFolders } from './files/remoteFolders'
+import { ripgrepPath } from './files/ripgrep'
+import { registerSearchIpc } from './files/workspaceSearch'
 import {
   configureAnnouncer,
   configureTailnet,
@@ -168,136 +224,80 @@ import { confirmDiscard } from './git/confirmDiscard'
 import { registerGitIpc, registerGitMethods } from './git/register'
 import { GitService } from './git/service'
 import { ViewStateStore } from './git/viewState'
-import { GlobalHotkey, toggleWindows } from './globalHotkey'
-import { type GuestChords, registerGuestChords } from './guestChords'
-import { clearGuestNetwork, forgetGuestNetwork, watchGuestNetwork } from './guestNetwork'
+import { registerEditorLanguageIpc } from './lsp/editorLanguages'
+import { LanguageServers, scrubbedEnv } from './lsp/languageServers'
+import { registerLanguageServersIpc } from './lsp/languageServersIpc'
+import { ManagedServers, downloadBaseUrl } from './lsp/managedServers'
+import { ServerOverrides } from './lsp/serverOverrides'
+import { ManagerService, managerWindowId } from './manager/manager'
 import {
-  PreviewHost,
-  type PreviewSession,
-  hardenPreviewAttach,
-  registerPreviewIpc,
-} from './htmlPreview'
-import { registerIconThemeIpc } from './iconThemes'
-import {
-  type PaneIdentity,
-  adoptPane,
-  getByPaneId,
-  markManager,
-  moveToWorkspace,
-  panesOwnedBy,
-  registerPane,
-  rehomeWorkspace,
-  removePane,
-  removeWindow,
-  resolveExternal,
-  setPaneIdSalt,
-  windowOfWorkspace,
-  workspaceHasManager,
-} from './idRegistry'
-import { installAppDir, installMethod } from './installMethod'
-import {
-  type PendingSweep,
-  canReplaceInstall,
-  createInstallReplacer,
-  releaseDownloadBase,
-  runTar,
-  sweepOldInstall,
-} from './installReplace'
-import { loadJson, saveJson, storePath } from './jsonStore'
-import { describeSkipped, registerKeymapIpc } from './keymaps'
-import { registerLanguagePackIpc } from './languagePacks'
-import { LanguageServers, scrubbedEnv } from './languageServers'
-import { registerLanguageServersIpc } from './languageServersIpc'
-import { atLocalPrompt, busyProgram } from './localPrompt'
-import { registerLoginFill } from './loginFill'
-import { ManagedServers, downloadBaseUrl } from './managedServers'
-import { ManagerService, managerWindowId } from './manager'
-import { managerArgv, writeManagerClaudePlugin, writeManagerCodexContext } from './managerAgent'
-import { type ManagerLimiter, registerManagerMethods } from './managerMethods'
-import { Marketplace, marketplaceId, normalizeMarketplaceUrl } from './marketplace'
-import { McpHost } from './mcpHost'
-import { McpOAuth, mcpOAuthBrowser } from './mcpOAuth'
-import { createMcpOAuthStore } from './mcpOAuthStore'
-import {
-  postActionNotification,
-  postNotification,
-  postPanelNotification,
-  registerNotifyIpc,
-  registerNotifyMethods,
-} from './notify'
-import { OpenFileGrants } from './openFileGrants'
-import { openFileForExtension, registerOpenFileMethods } from './openFileMethods'
-import { registerOpenPathIpc } from './openPath'
-import { OpenWaits } from './openWaits'
-import type { OriginReach } from './originAgents'
-import { loadPaneIdSalt } from './paneIdSalt'
-import {
-  type PaneAttentionPeek,
-  type PaneIo,
-  type PaneReachDeps,
-  pastedText,
-  registerPaneIoMethods,
-} from './paneIo'
-import { replaceFile, writeOstiaLauncher } from './paneLauncher'
-import { listPanes, listWorkspaceGroups, listWorkspaces, registerPaneListMethods } from './paneList'
-import { registerPaneMoveIpc } from './paneMove'
-import { registerPaneMoveToMethods } from './paneMoveTo'
-import type { PaneProcess } from './paneProcess'
-import { registerPaneRenameMethods } from './paneRename'
-import { registerPaneResumeMethods } from './paneResume'
-import { PaneWatch, registerPaneWaitMethods } from './paneWait'
-import { PaneWaking } from './paneWaking'
-import { resolveSafe } from './pathGuard'
-import { registerPermissionAsk } from './permissionAsk'
+  managerArgv,
+  writeManagerClaudePlugin,
+  writeManagerCodexContext,
+} from './manager/managerAgent'
+import { type ManagerLimiter, registerManagerMethods } from './manager/managerMethods'
 import {
   type MirrorHandle,
   type MirrorSink,
   Portal,
   portalSocketPath,
   portalSupported,
-} from './portal'
-import { callerVerdict, procFs, ttysOf } from './portalCaller'
-import { registerPortsIpc, registerPortsMethods } from './ports/register'
-import { PortsService } from './ports/service'
-import { acceptsPrimarySelection } from './primarySelection'
-import { registerPrivacyIpc } from './privacyIpc'
-import { privateTmpDir } from './privateTmp'
+} from './manager/portal'
+import { callerVerdict, procFs, ttysOf } from './manager/portalCaller'
+import {
+  type PaneAttentionPeek,
+  type PaneIo,
+  type PaneReachDeps,
+  pastedText,
+  registerPaneIoMethods,
+} from './panes/paneIo'
+import {
+  listPanes,
+  listWorkspaceGroups,
+  listWorkspaces,
+  registerPaneListMethods,
+} from './panes/paneList'
+import { registerPaneMoveIpc } from './panes/paneMove'
+import { registerPaneMoveToMethods } from './panes/paneMoveTo'
+import type { PaneProcess } from './panes/paneProcess'
+import { registerPaneRenameMethods } from './panes/paneRename'
+import { registerPaneResumeMethods } from './panes/paneResume'
+import { PaneWatch, registerPaneWaitMethods } from './panes/paneWait'
+import { PaneWaking } from './panes/paneWaking'
 import {
   INTERRUPT_GRACE_MS,
   type ProcessRegistry,
   type ProcessTabRequest,
   registerProcessMethods,
-} from './processManager'
+} from './panes/processManager'
+import { discreteGpu, gpuStartPlan, querySwitcherooGpus } from './platform/discreteGpu'
+import { loadJson, saveJson, storePath } from './platform/jsonStore'
+import { resolveSafe } from './platform/pathGuard'
+import { privateTmpDir } from './platform/privateTmp'
+import {
+  SANDBOX_FEATURE,
+  installHint,
+  missingRequirements,
+  onPath,
+  programPath,
+  registerRequirements,
+  requirementLabel,
+} from './platform/systemRequirements'
+import { registerSystemRequirementsIpc } from './platform/systemRequirementsIpc'
+import {
+  OLD_PRODUCT_NAME,
+  appConfigDir,
+  appDataDir,
+  configHome,
+  dataHome,
+} from './platform/userDirs'
+import { registerPortsIpc, registerPortsMethods } from './ports/register'
+import { PortsService } from './ports/service'
+import { registerPrivacyIpc } from './privacy/privacyIpc'
+import { createRedactor, createScrollbackRedactor } from './privacy/redaction'
+import { createWorkerScan, redactionWorkerScript } from './privacy/redactionScan'
 import { type ProfileSyncHandle, startProfileSync } from './profileSync/ipc'
 import { flatSource, groupedSource, loginsSource } from './profileSync/secrets'
-import { registerProjectRootIpc } from './projectRoot'
-import { KubeContextReader, NodeVersionResolver, promptContext } from './promptContext'
-import { CoalescedOutput, PtyFlowControl } from './ptyFlow'
-import { type ReapReason, RecoveryBook, orphanVerdict, planRecovery } from './ptyReaper'
-import { PtySession, type Subscriber, type SubscriberRole } from './ptySession'
-import { questions, registerQuestions } from './questions'
-import {
-  QUIT_SIGNALS,
-  createQuitTrace,
-  exitAfterDeadline,
-  keptOnQuit,
-  planQuit,
-  summarizeKinds,
-} from './quitPlan'
-import { confirmQuitNatively } from './quitPrompt'
-import { createReach } from './reach'
-import { createRedactor, createScrollbackRedactor } from './redaction'
-import { createWorkerScan, redactionWorkerScript } from './redactionScan'
-import {
-  announceReplace,
-  announceReplaceProgress,
-  announceUpdateRun,
-  registerReleaseCheck,
-  releaseUserAgent,
-} from './releaseCheck'
-import { confirmRemoteFolder, registerRemoteFolderConfirm } from './remoteFolderConfirm'
-import type { RemoteFolders } from './remoteFolders'
-import { ripgrepPath } from './ripgrep'
 import { attachWorkspace } from './sandbox/attachWorkspace'
 import { BrowserFence } from './sandbox/browserFence'
 import { registerSandboxMethods } from './sandbox/controlMethods'
@@ -329,43 +329,46 @@ import {
   visibleInSandbox,
 } from './sandbox/visibility'
 import { SandboxUnavailableError, WorkspaceSandboxes } from './sandbox/workspaceSandboxes'
-import { ScratchFolders, registerScratchIpc } from './scratchFolders'
-import { HIBERNATE_SEAM, HISTORY_LINES, RESTORE_SEAM, ScreenMirror } from './screenMirror'
-import { registerScriptTokenMethods, verifyScriptToken } from './scriptTokens'
 import { registerSecretMethods } from './secrets/register'
 import { prepareSecrets } from './secrets/secretInjection'
 import { SecretService } from './secrets/secretService'
-import { WorkspaceAgents } from './secrets/workspaceAgents'
-import { registerSelectionIpc } from './selectionReport'
-import { ServerOverrides } from './serverOverrides'
-import { ExecutableIndex, commandNames, readShellState } from './shellCommands'
-import { closesPaneOnExit } from './shellExit'
-import { INTEGRATION_DIR, setAgentPlugins, shellIntegrationSpawnOptions } from './shellIntegration'
-import { sandboxCwd, spawnFolder } from './spawnCwd'
-import { createMainStrings } from './strings'
 import {
-  SANDBOX_FEATURE,
-  installHint,
-  missingRequirements,
-  onPath,
-  programPath,
-  registerRequirements,
-  requirementLabel,
-} from './systemRequirements'
-import { registerSystemRequirementsIpc } from './systemRequirementsIpc'
-import { type SessionFacts, TELEMETRY_FILE, type Telemetry, registerTelemetry } from './telemetry'
+  deleteGlobalVaultValue,
+  registerVaultMethods,
+  setGlobalVaultValue,
+  vaultKeys,
+  vaultValue,
+} from './secrets/vault'
+import { WorkspaceAgents } from './secrets/workspaceAgents'
+import { registerCompletionIpc } from './terminal/completionSpecs'
+import { atLocalPrompt, busyProgram } from './terminal/localPrompt'
+import { replaceFile, writeOstiaLauncher } from './terminal/paneLauncher'
+import { KubeContextReader, NodeVersionResolver, promptContext } from './terminal/promptContext'
+import { CoalescedOutput, PtyFlowControl } from './terminal/ptyFlow'
+import { type ReapReason, RecoveryBook, orphanVerdict, planRecovery } from './terminal/ptyReaper'
+import { PtySession, type Subscriber, type SubscriberRole } from './terminal/ptySession'
+import { HIBERNATE_SEAM, HISTORY_LINES, RESTORE_SEAM, ScreenMirror } from './terminal/screenMirror'
+import { registerSelectionIpc } from './terminal/selectionReport'
+import { ExecutableIndex, commandNames, readShellState } from './terminal/shellCommands'
+import { closesPaneOnExit } from './terminal/shellExit'
+import {
+  INTEGRATION_DIR,
+  setAgentPlugins,
+  shellIntegrationSpawnOptions,
+} from './terminal/shellIntegration'
+import { sandboxCwd, spawnFolder } from './terminal/spawnCwd'
 import {
   type PaneOutput,
   TerminalPathLinks,
   registerTerminalPathLinkIpc,
-} from './terminalPathLinks'
+} from './terminal/terminalPathLinks'
 import {
   PTY_COLOR_ENV,
   PTY_TERM_NAME,
   paneShellEnv,
   ptyIdentityEnv,
   withPaneToken,
-} from './terminalType'
+} from './terminal/terminalType'
 import { type SavedAttention, isKeptAttentionState } from './tmux/attentionFile'
 import { SANDBOX_NOT_KEPT, TMUX_MISSING, keepShellsNotice } from './tmux/keepShellsBanner'
 import { KeptAttention } from './tmux/keptAttention'
@@ -379,30 +382,66 @@ import {
   SANDBOX_HOST_KIND,
 } from './tmux/keptShells'
 import type { TmuxPane } from './tmux/tmuxServer'
-import { AppTray, closeAction, isHiddenLaunch, readCloseToTray, unreadWorkspaces } from './tray'
-import { type UpdateRunner, createUpdateRunner } from './updateRun'
-import { OLD_PRODUCT_NAME, appConfigDir, appDataDir, configHome, dataHome } from './userDirs'
+import { registerAppUpdate } from './updates/appUpdate'
+import { appVersion, runningBuild } from './updates/appVersion'
+import { installAppDir, installMethod } from './updates/installMethod'
 import {
-  deleteGlobalVaultValue,
-  registerVaultMethods,
-  setGlobalVaultValue,
-  vaultKeys,
-  vaultValue,
-} from './vault'
-import { ViewHost, ViewStore } from './viewHost'
-import { registerViewMethods, registerViewsIpc } from './viewsIpc'
-import { MAIN_SLOT } from './windowBook'
-import { WindowBroker } from './windowBroker'
-import { type WorkflowDeps, registerWorkflowIpc, registerWorkflowMethods } from './workflows'
-import { firstKnownOwner, workspaceChipsForWindow } from './workspaceChips'
-import { registerWorkspaceMergeIpc } from './workspaceMerge'
+  type PendingSweep,
+  canReplaceInstall,
+  createInstallReplacer,
+  releaseDownloadBase,
+  runTar,
+  sweepOldInstall,
+} from './updates/installReplace'
+import {
+  announceReplace,
+  announceReplaceProgress,
+  announceUpdateRun,
+  registerReleaseCheck,
+  releaseUserAgent,
+} from './updates/releaseCheck'
+import { type UpdateRunner, createUpdateRunner } from './updates/updateRun'
+import { installAppMenu } from './windows/appMenu'
+import { type ClipboardEdits, registerClipboardEdits } from './windows/clipboardEdits'
+import { confirmQuit, freezeAll, registerCloseGuard } from './windows/closeGuard'
+import { attachContextMenu } from './windows/contextMenu'
+import { GlobalHotkey, toggleWindows } from './windows/globalHotkey'
+import { acceptsPrimarySelection } from './windows/primarySelection'
+import {
+  QUIT_SIGNALS,
+  createQuitTrace,
+  exitAfterDeadline,
+  keptOnQuit,
+  planQuit,
+  summarizeKinds,
+} from './windows/quitPlan'
+import { confirmQuitNatively } from './windows/quitPrompt'
+import {
+  AppTray,
+  closeAction,
+  isHiddenLaunch,
+  readCloseToTray,
+  unreadWorkspaces,
+} from './windows/tray'
+import { MAIN_SLOT } from './windows/windowBook'
+import { WindowBroker } from './windows/windowBroker'
+import { registerCmuxSessionIpc } from './workspaces/cmuxSession'
+import { registerProjectRootIpc } from './workspaces/projectRoot'
+import { ScratchFolders, registerScratchIpc } from './workspaces/scratchFolders'
+import { ViewHost, ViewStore } from './workspaces/viewHost'
+import { registerViewMethods, registerViewsIpc } from './workspaces/viewsIpc'
+import {
+  type WorkflowDeps,
+  registerWorkflowIpc,
+  registerWorkflowMethods,
+} from './workspaces/workflows'
+import { registerWorkspaceMergeIpc } from './workspaces/workspaceMerge'
 import {
   removeWorkspace,
   setWorkspaceWorkDir,
   windowForWorkspace,
   workDirForWorkspace,
-} from './workspaceRegistry'
-import { registerSearchIpc } from './workspaceSearch'
+} from './workspaces/workspaceRegistry'
 import {
   type RestoreOutcome,
   dropRestoredScrollback,
@@ -415,7 +454,7 @@ import {
   stashScrollback,
   stashedScreen,
   takeRestoredScrollback,
-} from './workspaceSnapshot'
+} from './workspaces/workspaceSnapshot'
 
 const devServerUrl = process.env.ELECTRON_RENDERER_URL
 
