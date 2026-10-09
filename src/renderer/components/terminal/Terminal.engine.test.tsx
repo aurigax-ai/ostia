@@ -1,4 +1,5 @@
 import '@testing-library/jest-dom/vitest'
+import { findPane, firstPaneId } from '@/layout/tree'
 import { loadGhostty } from '@/lib/terminal/ghosttyEngine'
 import { createFileLinkProvider } from '@/lib/terminal/terminalFileLinks'
 import { terminalFor } from '@/lib/terminal/terminalHandles'
@@ -80,9 +81,11 @@ async function renderGhostty(ui: ReactElement): Promise<RenderResult> {
 
 describe('TerminalView engines', () => {
   let settingsInit: ReturnType<typeof useSettingsStore.getState>
+  let layoutInit: ReturnType<typeof useLayoutStore.getState>
 
   beforeAll(() => {
     settingsInit = useSettingsStore.getState()
+    layoutInit = useLayoutStore.getState()
     HTMLCanvasElement.prototype.getContext = function getContext(
       this: HTMLCanvasElement,
       kind: string,
@@ -110,8 +113,27 @@ describe('TerminalView engines', () => {
   afterEach(() => {
     cleanup()
     useSettingsStore.setState(settingsInit, true)
+    useLayoutStore.setState(layoutInit, true)
     vi.clearAllMocks()
   })
+
+  for (const name of ['zsh', 'bash']) {
+    it(`a new terminal tab is named after the shell it runs: ${name}`, async () => {
+      useLayoutStore.getState().ensure('w1')
+      const paneId = firstPaneId(useLayoutStore.getState().byWorkspace.w1.root)
+      vi.mocked(window.ostia.pty.attach).mockResolvedValueOnce({
+        created: true,
+        buffer: '',
+        cursor: 0,
+        dropped: false,
+        shell: name,
+      })
+      await renderSettled(<TerminalView workspaceId="w1" paneId={paneId} />)
+      await waitFor(() =>
+        expect(findPane(useLayoutStore.getState().byWorkspace.w1.root, paneId)?.title).toBe(name),
+      )
+    })
+  }
 
   it('draws a new terminal with Ghostty and starts its shell through the shared path', async () => {
     const { container } = await renderGhostty(
