@@ -206,14 +206,16 @@ describe('Files panel search', () => {
     expect(names).toHaveTextContent('src/notes')
     expect(screen.getByRole('region', { name: 'Text' })).toHaveTextContent('find the notes here')
     expect(screen.getByText('1 match in 1 file')).toBeInTheDocument()
-    expect(window.ostia.search.run).toHaveBeenLastCalledWith({
-      root: ROOT,
-      text: 'notes',
-      caseSensitive: false,
-      wholeWord: false,
-      regex: false,
-      includeIgnored: false,
-    })
+    await waitFor(() =>
+      expect(window.ostia.search.run).toHaveBeenLastCalledWith({
+        root: ROOT,
+        text: 'notes',
+        caseSensitive: false,
+        wholeWord: false,
+        regex: false,
+        includeIgnored: false,
+      }),
+    )
   })
 
   it('leaves out what the tree hides', async () => {
