@@ -35,6 +35,7 @@ import { OpenWaits } from '../main/files/openWaits'
 import { type WorkerRequest, registerManagerMethods } from '../main/manager/managerMethods'
 import { registerPaneListMethods } from '../main/panes/paneList'
 import { registerPaneMoveToMethods } from '../main/panes/paneMoveTo'
+import { registerPaneResumeMethods } from '../main/panes/paneResume'
 import { registerSandboxMethods } from '../main/sandbox/controlMethods'
 import { DomainRequests } from '../main/sandbox/domainRequests'
 import { PortRequests } from '../main/sandbox/portRequests'
@@ -588,6 +589,25 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
         args: { state: 'waiting', message: '- pick a branch' },
       })
     })
+  })
+
+  it('resume-token keeps the folder from the hook payload so a woken agent starts there', async () => {
+    registerPaneResumeMethods({ execCommand: fakeDeps.execCommand, onResume: () => {} })
+    const res = await runOstia(
+      ['resume-token', 'claude', '-'],
+      withEnv({ OSTIA_SOCKET: socketPath, OSTIA_TOKEN: identity.token }),
+      undefined,
+      JSON.stringify({ session_id: 'e2e-tok-here', cwd: '/work/tree' }),
+    )
+    expect(res.stderr).toBe('')
+    expect(res.code).toBe(0)
+    expect(execCalls).toEqual([
+      {
+        target: { windowId: 'w1', workspaceId: 's1', paneId: 'pE2E' },
+        id: 'resume.set',
+        args: { agent: 'claude', id: 'e2e-tok-here', cwd: '/work/tree' },
+      },
+    ])
   })
 
   describe('ostia browse storage', () => {

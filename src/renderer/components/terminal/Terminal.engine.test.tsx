@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest'
 import { FilesView } from '@/components/files/FilesView'
-import { allPanes, findPane, firstPaneId } from '@/layout/tree'
+import { allPanes, createPane, findPane, firstPaneId } from '@/layout/tree'
 import { loadGhostty } from '@/lib/terminal/ghosttyEngine'
 import { createFileLinkProvider } from '@/lib/terminal/terminalFileLinks'
 import { terminalFor } from '@/lib/terminal/terminalHandles'
@@ -192,6 +192,28 @@ describe('TerminalView engines', () => {
         'p1',
         expect.objectContaining({ cwd: '/home/me', role: 'owner' }),
       ),
+    )
+  })
+
+  it('a woken agent starts in the folder its session belongs to, not the pane’s folder', async () => {
+    const pane = { ...createPane('terminal'), id: 'p1', cwd: '/w', spawnDir: '/w/tree' }
+    useLayoutStore.setState({
+      byWorkspace: { w1: { root: pane, activePaneId: 'p1', zoomedPaneId: null } },
+    })
+    await renderSettled(<TerminalView workspaceId="w1" paneId="p1" cwd="/w/tree" />)
+    await waitFor(() =>
+      expect(window.ostia.pty.attach).toHaveBeenCalledWith(
+        'p1',
+        expect.objectContaining({ cwd: '/w/tree' }),
+      ),
+    )
+    await waitFor(() =>
+      expect(findPane(useLayoutStore.getState().byWorkspace.w1.root, 'p1')).not.toHaveProperty(
+        'spawnDir',
+      ),
+    )
+    expect(findPane(useLayoutStore.getState().byWorkspace.w1.root, 'p1')).not.toHaveProperty(
+      'resumeFolderMissing',
     )
   })
 

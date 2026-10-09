@@ -289,6 +289,25 @@ describe('startAutoResume', () => {
     expect(workspacesAwaitingResume(useLayoutStore.getState().byWorkspace)).toEqual([])
   })
 
+  it('a woken agent starts in the folder its session belongs to, not the pane’s folder', () => {
+    const pane = {
+      ...createPane('terminal'),
+      cwd: '/w',
+      resume: { ...resume, cwd: '/w/tree' },
+      hibernated: true as const,
+    }
+    seed(pane, pane.id, false)
+    stop = startAutoResume()
+    resumeOnActivation(pane.id)
+    expect(pending(pane.id)?.spawnDir).toBe('/w/tree')
+    expect(scheduled()).toEqual([[pane.id, 'claude --resume abc-1']])
+
+    useLayoutStore.getState().settleSpawnDir('w1', pane.id, false)
+    const typeable = vi.mocked(runWhenIdle).mock.calls[0][3]
+    expect(typeable?.()).toBe(true)
+    expect(pending(pane.id)?.resumeFolderMissing).toBeUndefined()
+  })
+
   it('drops the resume when the human runs something in the pane first', () => {
     const front = createPane('terminal')
     const back = { ...createPane('terminal'), resume, resumePending: true as const }
