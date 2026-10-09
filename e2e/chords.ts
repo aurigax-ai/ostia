@@ -13,6 +13,7 @@ export const chords = {
   splitRight: isMac ? 'Meta+Alt+Backslash' : 'Control+Alt+Backslash',
   focusLeft: isMac ? 'Meta+Control+ArrowLeft' : 'Control+Shift+Alt+h',
   focusRight: isMac ? 'Meta+Control+ArrowRight' : 'Control+Shift+Alt+l',
+  closePane: isMac ? 'Meta+w' : 'Control+Shift+w',
   zoomPane: isMac ? 'Meta+Shift+x' : 'Control+Shift+x',
   openSettings: 'ControlOrMeta+,',
   resumeAgent: 'ControlOrMeta+Shift+R',

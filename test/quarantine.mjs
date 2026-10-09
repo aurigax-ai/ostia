@@ -39,7 +39,7 @@ function escapeRegExp(text) {
 export function playwrightPattern(entry) {
   const file = relative(resolve(ROOT, 'e2e'), resolve(ROOT, entry.file))
   const title = entry.name.split(' > ').join(' ')
-  return new RegExp(`(^| )${escapeRegExp(file)} ${escapeRegExp(title)}$`)
+  return new RegExp(`(^| )${escapeRegExp(file)} ${escapeRegExp(title)}( @\\S+)*$`)
 }
 
 export function playwrightFilter(entries) {

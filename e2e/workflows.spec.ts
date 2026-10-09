@@ -1,3 +1,4 @@
+import { chords } from './chords'
 import { isolatedLaunch } from './dataHome'
 import {
   PROMPT,
@@ -5,6 +6,7 @@ import {
   emptyWorkspace,
   newTerminalWorkspace,
   openWorkspace,
+  runInTerminal,
   waitForPaletteSelection,
 } from './helpers'
 import { type ElectronApplication, type Page, _electron as electron, expect, test } from './test'
@@ -36,7 +38,7 @@ async function waitForTerminalFocus(win: Page): Promise<void> {
     .toBe(true)
 }
 
-test('terminal spawns and runs a command', async () => {
+test('terminal spawns and runs a command', { tag: '@core' }, async () => {
   const { app, win } = await launchApp()
   try {
     await openWorkspace(win)
@@ -56,7 +58,7 @@ test('terminal spawns and runs a command', async () => {
   }
 })
 
-test('splitting a pane adds a second terminal', async () => {
+test('splitting a pane adds a second terminal', { tag: '@core' }, async () => {
   const { app, win } = await launchApp()
   try {
     await openWorkspace(win)
@@ -72,6 +74,40 @@ test('splitting a pane adds a second terminal', async () => {
     await app.close()
   }
 })
+
+test(
+  'the default close-pane chord closes only the focused pane and leaves the other shell running',
+  { tag: '@core' },
+  async () => {
+    const { app, win } = await launchApp()
+    try {
+      await openWorkspace(win)
+      await win.locator('.pane.active').getByRole('button', { name: 'Split right' }).click()
+      await expect(win.locator('.xterm')).toHaveCount(2, { timeout: 15_000 })
+      await expect(win.locator('.xterm-rows').nth(1)).toContainText(PROMPT, { timeout: 15_000 })
+
+      await runInTerminal(win, 'echo keep-$$', win.locator('.xterm').nth(1))
+      const keptRows = win.locator('.xterm-rows').nth(1)
+      await expect(keptRows).toContainText(/keep-\d+/, { timeout: 15_000 })
+      const keptPid = (await keptRows.innerText()).match(/keep-(\d+)/)?.[1] ?? ''
+      expect(keptPid).not.toBe('')
+
+      await win.locator('.xterm').nth(0).click()
+      await waitForTerminalFocus(win)
+      await win.keyboard.press(chords.closePane)
+
+      await expect(win.locator('.xterm')).toHaveCount(1, { timeout: 15_000 })
+      await expect(win.locator('.pane')).toHaveCount(1)
+
+      await runInTerminal(win, 'echo still-$$')
+      const rows = win.locator('.xterm-rows').first()
+      await expect(rows).toContainText(`still-${keptPid}`, { timeout: 15_000 })
+      expect(win.isClosed()).toBe(false)
+    } finally {
+      await app.close()
+    }
+  },
+)
 
 test('command palette opens, filters, and runs a command', async () => {
   const { app, win } = await launchApp()
@@ -122,68 +158,76 @@ test('opening a file shows the Monaco editor', async () => {
   }
 })
 
-test('boots with no workspace, and Ctrl+Shift+T opens an empty one that offers a terminal', async () => {
-  const { app, win } = await launchApp()
-  const errors: string[] = []
-  win.on('pageerror', (err) => errors.push(err.message))
-  win.on('console', (msg) => {
-    if (msg.type() === 'error') errors.push(msg.text())
-  })
-  try {
-    await expect(emptyState(win)).toBeVisible({ timeout: 15_000 })
-    await expect(emptyState(win).getByRole('heading', { name: 'No workspaces' })).toBeVisible()
-    await expect(emptyState(win).getByRole('button', { name: /New workspace/ })).toContainText(
-      'Ctrl+Shift+N',
-    )
-    await win.waitForTimeout(1_000)
-    await expect(win.locator('.xterm')).toHaveCount(0)
-
-    await win.keyboard.press('Control+Shift+N')
-
-    await expect(win.locator('.rail-tab')).toHaveCount(1)
-    await expect(win.locator('.xterm')).toHaveCount(0)
-    await emptyWorkspace(win).getByRole('button', { name: 'New terminal' }).click()
-    await expect(win.locator('.xterm')).toHaveCount(1, { timeout: 15_000 })
-    await expect(win.locator('.xterm-rows').first()).toContainText(PROMPT, { timeout: 15_000 })
-    await expect(win.locator('.rail-tab')).toHaveCount(1)
-    await expect(emptyState(win)).toHaveCount(0)
-    expect(errors).toEqual([])
-  } finally {
-    await app.close()
-  }
-})
-
-test('closing the only workspace shows the empty state, and New workspace opens a terminal at ~', async () => {
-  test.setTimeout(60_000)
-  const { app, win } = await launchApp()
-  try {
-    await openWorkspace(win)
-    const tab = win.locator('.rail-tab')
-    await expect(tab).toHaveCount(1)
-
-    await tab.hover()
-    await tab.getByRole('button', { name: 'Close' }).click()
-
-    await expect(emptyState(win)).toBeVisible({ timeout: 5_000 })
-    await expect(tab).toHaveCount(0)
-    await win.waitForTimeout(1_000)
-    await expect(win.locator('.xterm')).toHaveCount(0)
-    await expect(tab).toHaveCount(0)
-
-    await openWorkspace(win)
-    await expect(tab).toHaveCount(1)
-    await win.locator('.xterm').first().click()
-    await waitForTerminalFocus(win)
-    await win.keyboard.type('echo "ostia_cwd:$PWD:"')
-    await win.keyboard.press('Enter')
-    const home = await app.evaluate(({ app: electronApp }) => electronApp.getPath('home'))
-    await expect(win.locator('.xterm-rows').first()).toContainText(`ostia_cwd:${home}:`, {
-      timeout: 15_000,
+test(
+  'boots with no workspace, and Ctrl+Shift+T opens an empty one that offers a terminal',
+  { tag: '@core' },
+  async () => {
+    const { app, win } = await launchApp()
+    const errors: string[] = []
+    win.on('pageerror', (err) => errors.push(err.message))
+    win.on('console', (msg) => {
+      if (msg.type() === 'error') errors.push(msg.text())
     })
-  } finally {
-    await app.close()
-  }
-})
+    try {
+      await expect(emptyState(win)).toBeVisible({ timeout: 15_000 })
+      await expect(emptyState(win).getByRole('heading', { name: 'No workspaces' })).toBeVisible()
+      await expect(emptyState(win).getByRole('button', { name: /New workspace/ })).toContainText(
+        'Ctrl+Shift+N',
+      )
+      await win.waitForTimeout(1_000)
+      await expect(win.locator('.xterm')).toHaveCount(0)
+
+      await win.keyboard.press('Control+Shift+N')
+
+      await expect(win.locator('.rail-tab')).toHaveCount(1)
+      await expect(win.locator('.xterm')).toHaveCount(0)
+      await emptyWorkspace(win).getByRole('button', { name: 'New terminal' }).click()
+      await expect(win.locator('.xterm')).toHaveCount(1, { timeout: 15_000 })
+      await expect(win.locator('.xterm-rows').first()).toContainText(PROMPT, { timeout: 15_000 })
+      await expect(win.locator('.rail-tab')).toHaveCount(1)
+      await expect(emptyState(win)).toHaveCount(0)
+      expect(errors).toEqual([])
+    } finally {
+      await app.close()
+    }
+  },
+)
+
+test(
+  'closing the only workspace shows the empty state, and New workspace opens a terminal at ~',
+  { tag: '@core' },
+  async () => {
+    test.setTimeout(60_000)
+    const { app, win } = await launchApp()
+    try {
+      await openWorkspace(win)
+      const tab = win.locator('.rail-tab')
+      await expect(tab).toHaveCount(1)
+
+      await tab.hover()
+      await tab.getByRole('button', { name: 'Close' }).click()
+
+      await expect(emptyState(win)).toBeVisible({ timeout: 5_000 })
+      await expect(tab).toHaveCount(0)
+      await win.waitForTimeout(1_000)
+      await expect(win.locator('.xterm')).toHaveCount(0)
+      await expect(tab).toHaveCount(0)
+
+      await openWorkspace(win)
+      await expect(tab).toHaveCount(1)
+      await win.locator('.xterm').first().click()
+      await waitForTerminalFocus(win)
+      await win.keyboard.type('echo "ostia_cwd:$PWD:"')
+      await win.keyboard.press('Enter')
+      const home = await app.evaluate(({ app: electronApp }) => electronApp.getPath('home'))
+      await expect(win.locator('.xterm-rows').first()).toContainText(`ostia_cwd:${home}:`, {
+        timeout: 15_000,
+      })
+    } finally {
+      await app.close()
+    }
+  },
+)
 
 test('Ctrl+1 jumps to the first workspace from a focused terminal, and rows drag to reorder', async () => {
   const { app, win } = await launchApp()

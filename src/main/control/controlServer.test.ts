@@ -1,4 +1,4 @@
-import { existsSync, lstatSync } from 'node:fs'
+import { existsSync, lstatSync, readFileSync, readdirSync } from 'node:fs'
 import { createConnection } from 'node:net'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
@@ -9,6 +9,7 @@ import {
   StreamMessageWriter,
   createMessageConnection,
 } from 'vscode-jsonrpc/node'
+import { gitRequest } from '../../cli/verbs/coreBoards'
 import type {
   CommandDescriptor,
   CommandResult,
@@ -332,5 +333,145 @@ describe('keptControlSocketPath', () => {
     expect(folder.uid).toBe(process.getuid?.())
     expect(keptControlSocketPath('/data/ostia-a')).toBe(path)
     expect(keptControlSocketPath('/data/ostia-b')).not.toBe(path)
+  })
+})
+
+const SRC_DIR = join(__dirname, '..', '..')
+const CLI_PORTAL = join(SRC_DIR, 'cli', 'verbs', 'portal.ts')
+const MAIN_PORTAL = join(SRC_DIR, 'main', 'manager', 'portal.ts')
+const CLI_GIT = join(SRC_DIR, 'cli', 'verbs', 'coreBoards.ts')
+
+function productionFiles(dir: string): string[] {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const path = join(dir, entry.name)
+    if (entry.isDirectory()) return productionFiles(path)
+    return path.endsWith('.ts') && !path.endsWith('.test.ts') && !path.endsWith('.d.ts')
+      ? [path]
+      : []
+  })
+}
+
+function controlSources(dir: string, portal: string): string[] {
+  return productionFiles(join(SRC_DIR, dir))
+    .filter((f) => f !== portal)
+    .map((f) => readFileSync(f, 'utf8'))
+}
+
+function literals(text: string, re: RegExp): string[] {
+  return [...text.matchAll(re)].map((m) => m[1])
+}
+
+function registeredMethods(): Set<string> {
+  const names = new Set<string>()
+  for (const text of controlSources('main', MAIN_PORTAL)) {
+    for (const name of literals(
+      text,
+      /(?:registerControlMethod|registerTargetableMethod|conn\.onRequest)\(\s*'([^'\n]+)'/g,
+    )) {
+      names.add(name)
+    }
+    for (const prefix of literals(
+      text,
+      /(?:registerControlMethod|registerTargetableMethod)\(\s*`([a-z]+\.)\$\{name\}`/g,
+    )) {
+      for (const name of literals(text, /^\s*(?:method|keyMethod|bufferMethod)\(\s*'([^'\n]+)'/gm))
+        names.add(prefix + name)
+    }
+  }
+  return names
+}
+
+function gitSubcommands(): string[] {
+  const text = readFileSync(CLI_GIT, 'utf8')
+  const start = text.indexOf('export function gitRequest(')
+  const body = text.slice(start, text.indexOf('\n}\n', start))
+  return literals(body, /\bcase '([\w-]+)':/g)
+}
+
+function gitMethod(sub: string): string | null {
+  for (const argv of [[sub], [sub, 'path'], [sub, '-m', 'message']]) {
+    const request = gitRequest(argv)
+    if (request) return request.method
+  }
+  return null
+}
+
+function sentMethods(): Set<string> {
+  const names = new Set<string>()
+  for (const text of controlSources('cli', CLI_PORTAL)) {
+    for (const name of literals(text, /sendRequest\b[^(]*\(\s*'([^'\n]+)'/g)) names.add(name)
+    for (const name of literals(text, /method: '([a-z]+\.[a-zA-Z.]+)'/g)) names.add(name)
+    for (const name of literals(text, /\bok\([^,\n]+,\s*'([a-z]+\.[a-zA-Z]+)'/g)) names.add(name)
+    for (const m of text.matchAll(
+      /\b(?:plainVerb|targetVerb|keyVerb|textVerb|bufferVerb)\(\s*'([\w-]+)'(?:,\s*'(\w+)')?\)/g,
+    )) {
+      names.add(`browse.${m[2] ?? m[1]}`)
+    }
+  }
+  for (const sub of gitSubcommands()) {
+    const method = gitMethod(sub)
+    if (method) names.add(method)
+  }
+  return names
+}
+
+function portalNames(file: string, call: string): Set<string> {
+  const re = new RegExp(`\\b${call}\\b[^(]*\\(\\s*'([^'\\n]+)'`, 'g')
+  return new Set(literals(readFileSync(file, 'utf8'), re))
+}
+
+function missingFrom(wanted: Set<string>, have: Set<string>): string[] {
+  return [...wanted].filter((name) => !have.has(name)).sort()
+}
+
+describe('CLI and control server wiring', () => {
+  const registered = registeredMethods()
+  const sent = sentMethods()
+
+  it('reads a plausible number of methods from both sides', () => {
+    expect(registered.size).toBeGreaterThan(90)
+    expect(sent.size).toBeGreaterThan(60)
+  })
+
+  it('turns every git subcommand the CLI parses into a request', () => {
+    const subs = gitSubcommands()
+    expect(subs.length).toBeGreaterThan(8)
+    expect(subs.filter((sub) => gitMethod(sub) === null)).toEqual([])
+  })
+
+  it('registers every method the CLI sends', () => {
+    expect(missingFrom(sent, registered)).toEqual([])
+  })
+})
+
+describe('CLI and manager portal wiring', () => {
+  it('reads both ends of the portal socket', () => {
+    expect(portalNames(CLI_PORTAL, 'sendRequest').size).toBeGreaterThan(0)
+    expect(portalNames(CLI_PORTAL, 'sendNotification').size).toBeGreaterThan(0)
+    expect(portalNames(MAIN_PORTAL, 'sendNotification').size).toBeGreaterThan(0)
+  })
+
+  it('handles every request the CLI sends', () => {
+    expect(
+      missingFrom(portalNames(CLI_PORTAL, 'sendRequest'), portalNames(MAIN_PORTAL, 'onRequest')),
+    ).toEqual([])
+  })
+
+  it('handles every notification the CLI sends', () => {
+    expect(
+      missingFrom(
+        portalNames(CLI_PORTAL, 'sendNotification'),
+        portalNames(MAIN_PORTAL, 'onNotification'),
+      ),
+    ).toEqual([])
+  })
+
+  it('listens for every notification main sends', () => {
+    expect(
+      missingFrom(
+        portalNames(MAIN_PORTAL, 'sendNotification'),
+        portalNames(CLI_PORTAL, 'onNotification'),
+      ),
+    ).toEqual([])
   })
 })

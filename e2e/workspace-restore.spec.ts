@@ -43,48 +43,52 @@ test.beforeEach(() => {
   dataHome = freshDataHome()
 })
 
-test('restores the pane layout and terminal history after a restart', async () => {
-  const marker = `ostia_restore_${Date.now()}`
+test(
+  'restores the pane layout and terminal history after a restart',
+  { tag: '@core' },
+  async () => {
+    const marker = `ostia_restore_${Date.now()}`
 
-  const first = await launchApp(dataHome)
-  try {
-    await openWorkspace(first.win)
-    await expect(first.win.locator('.pane.active')).toBeVisible({ timeout: 15_000 })
+    const first = await launchApp(dataHome)
+    try {
+      await openWorkspace(first.win)
+      await expect(first.win.locator('.pane.active')).toBeVisible({ timeout: 15_000 })
 
-    const term = first.win.locator('.xterm').first()
-    await term.click()
-    await waitForTerminalFocus(first.win)
-    await first.win.keyboard.type(`echo ${marker}`)
-    await first.win.keyboard.press('Enter')
-    await expect(first.win.locator('.xterm-rows').first()).toContainText(marker, {
-      timeout: 15_000,
-    })
+      const term = first.win.locator('.xterm').first()
+      await term.click()
+      await waitForTerminalFocus(first.win)
+      await first.win.keyboard.type(`echo ${marker}`)
+      await first.win.keyboard.press('Enter')
+      await expect(first.win.locator('.xterm-rows').first()).toContainText(marker, {
+        timeout: 15_000,
+      })
 
-    await first.win.locator('.pane.active').getByRole('button', { name: 'Split right' }).click()
-    await expect(first.win.locator('.pane')).toHaveCount(2)
-  } finally {
-    await quitApp(first.app)
-  }
+      await first.win.locator('.pane.active').getByRole('button', { name: 'Split right' }).click()
+      await expect(first.win.locator('.pane')).toHaveCount(2)
+    } finally {
+      await quitApp(first.app)
+    }
 
-  const snapshotFile = join(dataHome, 'ostia', 'workspaces.json')
-  const scrollbackFile = join(dataHome, 'ostia', 'scrollback.json')
-  expect(existsSync(snapshotFile), 'workspace snapshot was not written at quit').toBe(true)
-  expect(existsSync(scrollbackFile), 'scrollback was not written at quit').toBe(true)
-  expect(readFileSync(scrollbackFile, 'utf8')).toContain(marker)
+    const snapshotFile = join(dataHome, 'ostia', 'workspaces.json')
+    const scrollbackFile = join(dataHome, 'ostia', 'scrollback.json')
+    expect(existsSync(snapshotFile), 'workspace snapshot was not written at quit').toBe(true)
+    expect(existsSync(scrollbackFile), 'scrollback was not written at quit').toBe(true)
+    expect(readFileSync(scrollbackFile, 'utf8')).toContain(marker)
 
-  const second = await launchApp(dataHome)
-  try {
-    await expect(second.win.locator('.pane')).toHaveCount(2, { timeout: 15_000 })
-    await expect(second.win.locator('.workzone')).toContainText(marker, { timeout: 15_000 })
-    await expect(second.win.locator('.workzone')).toContainText('workspace restored', {
-      timeout: 15_000,
-    })
-  } finally {
-    await quitApp(second.app)
-  }
-})
+    const second = await launchApp(dataHome)
+    try {
+      await expect(second.win.locator('.pane')).toHaveCount(2, { timeout: 15_000 })
+      await expect(second.win.locator('.workzone')).toContainText(marker, { timeout: 15_000 })
+      await expect(second.win.locator('.workzone')).toContainText('workspace restored', {
+        timeout: 15_000,
+      })
+    } finally {
+      await quitApp(second.app)
+    }
+  },
+)
 
-test('restores terminal history after a crash (no before-quit)', async () => {
+test('restores terminal history after a crash (no before-quit)', { tag: '@core' }, async () => {
   const marker = `ostia_crash_${Date.now()}`
   const first = await launchApp(dataHome)
   try {
