@@ -1,3 +1,4 @@
+import { reportError } from '@/lib/app/errorReporting'
 import { useUIStore } from '@/stores/app/uiStore'
 import {
   chatFor,
@@ -33,15 +34,20 @@ export function openChatPane(opts: OpenChatOptions = {}): string | null {
   const paneId = useLayoutStore.getState().openChat(workspaceId, title)
   const prompt = opts.prompt?.trim()
   if (prompt && opts.send) {
-    void ensureSession(workspaceId).then((id) => {
-      nameSession(id, prompt)
-      return chatFor(id).sendMessage({
-        text: prompt,
-        metadata: opts.context?.length
-          ? { createdAt: Date.now(), context: opts.context }
-          : { createdAt: Date.now() },
+    void ensureSession(workspaceId)
+      .then((id) => {
+        nameSession(id, prompt)
+        return chatFor(id).sendMessage({
+          text: prompt,
+          metadata: opts.context?.length
+            ? { createdAt: Date.now(), context: opts.context }
+            : { createdAt: Date.now() },
+        })
       })
-    })
+      .catch((err: unknown) => {
+        useChatStore.getState().setDraft(key, prompt)
+        reportError('rejection', err, 'openChatPane')
+      })
   } else if (prompt) {
     useChatStore.getState().setDraft(key, prompt)
   }
