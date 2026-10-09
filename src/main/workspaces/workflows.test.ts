@@ -10,16 +10,20 @@ import {
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { ipcMain } from 'electron'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { parse } from 'yaml'
 import {
   WORKFLOW_FILE_MAX_BYTES,
   loadWorkflows,
   parseWorkflowFile,
   readWorkflowDir,
+  registerWorkflowIpc,
   saveWorkflow,
   workspaceWorkflowsDir,
 } from './workflows'
+
+vi.mock('electron', () => ({ ipcMain: { handle: vi.fn() } }))
 
 let base: string
 let userDir: string
@@ -190,6 +194,38 @@ describe('saveWorkflow', () => {
     const res = saveWorkflow(userDir, { name: '../../../evil', command: 'ls' })
     expect(res).toEqual({ ok: true, file: 'evil.yaml' })
     expect(readdirSync(userDir)).toEqual(['evil.yaml'])
+  })
+
+  it('saves a workflow from the dialog next to the existing ones and lists it', () => {
+    writeFileSync(join(userDir, 'greet.yaml'), 'name: Greet someone\ncommand: echo hi\n')
+    registerWorkflowIpc({
+      userDir,
+      roots: () => [base],
+      workDirForWorkspace: () => undefined,
+      extensionWorkflows: () => [],
+    })
+    const handler = (channel: string) =>
+      vi.mocked(ipcMain.handle).mock.calls.find(([c]) => c === channel)?.[1] as (
+        e: unknown,
+        arg: unknown,
+      ) => unknown
+
+    expect(
+      handler('workflows:save')(null, {
+        name: 'Greet again',
+        command: 'echo again_{{name}}',
+        arguments: [{ name: 'name', default_value: 'ostia' }],
+      }),
+    ).toEqual({ ok: true, file: 'greet-again.yaml' })
+    expect(readdirSync(userDir).sort()).toEqual(['greet-again.yaml', 'greet.yaml'])
+    expect(readFileSync(join(userDir, 'greet-again.yaml'), 'utf8')).toBe(
+      'name: Greet again\ncommand: echo again_{{name}}\narguments:\n  - name: name\n    default_value: ostia\n',
+    )
+    expect(
+      (handler('workflows:list')(null, null) as ReturnType<typeof loadWorkflows>).workflows.map(
+        (w) => w.name,
+      ),
+    ).toEqual(['Greet again', 'Greet someone'])
   })
 
   it('refuses an invalid workflow', () => {

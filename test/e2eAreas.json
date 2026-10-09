@@ -552,7 +552,7 @@
         "src/renderer/lib/palette/workflows.ts",
         "src/renderer/stores/terminal/workflowsStore.ts"
       ],
-      "specs": ["e2e/saved-workflows.spec.ts", "e2e/workflows.spec.ts"]
+      "specs": ["e2e/workflows.spec.ts"]
     },
     {
       "name": "hibernation and resume",

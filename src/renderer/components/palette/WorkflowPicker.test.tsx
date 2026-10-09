@@ -1,6 +1,7 @@
 import { registerBuiltinCommands } from '@/commands/builtins'
 import { commands } from '@/commands/registry'
 import { allPanes } from '@/layout/tree'
+import { registerTerminal } from '@/lib/terminal/terminalHandles'
 import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useWorkflowsStore } from '@/stores/terminal/workflowsStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
@@ -113,6 +114,11 @@ describe('WorkflowPicker', () => {
     await userEvent.type(input, 'into a folder')
     expect(screen.getByText('Clone a repository')).toBeInTheDocument()
     expect(screen.queryByText('Disk usage')).not.toBeInTheDocument()
+
+    await userEvent.clear(input)
+    await userEvent.type(input, 'fs')
+    expect(screen.queryByText('Clone a repository')).not.toBeInTheDocument()
+    expect(screen.getByText('Disk usage')).toBeInTheDocument()
   })
 
   it('fills the arguments and inserts the rendered command without running it', async () => {
@@ -138,6 +144,35 @@ describe('WorkflowPicker', () => {
 
     expect(actions.insertCommand).toHaveBeenCalledWith(paneId, 'git clone https://x/y.git src')
     expect(useWorkflowsStore.getState().pickerOpen).toBe(false)
+  })
+
+  it('fills the arguments of a picked workflow and pastes it without running', async () => {
+    const real = await vi.importActual<typeof import('@/lib/terminal/blockActions')>(
+      '@/lib/terminal/blockActions',
+    )
+    actions.insertCommand.mockImplementation(real.insertCommand)
+    actions.canTypeInto.mockImplementation(real.canTypeInto)
+    const term = { paste: vi.fn(), focus: vi.fn() }
+    const unregister = registerTerminal(paneId, term as never)
+    useBlocksStore.getState().promptStart(paneId, { line: 0 }, '/w')
+    useBlocksStore.getState().promptEnd(paneId, { line: 0 })
+    await openPicker()
+    await userEvent.type(
+      await screen.findByPlaceholderText('Search workflows by name, tag or command…'),
+      'git',
+    )
+    await userEvent.click(screen.getByText('Clone a repository'))
+
+    const url = await screen.findByLabelText('url')
+    expect(url).toHaveFocus()
+    expect(screen.getByLabelText('dir')).toHaveValue('src')
+    expect(screen.getByLabelText('Command')).toHaveTextContent('git clone {{url}} src')
+    await userEvent.type(url, 'https://x/y.git{Enter}')
+
+    expect(term.paste).toHaveBeenCalledWith('git clone https://x/y.git src')
+    expect(window.ostia.pty.write).not.toHaveBeenCalled()
+    expect(screen.queryByLabelText('url')).not.toBeInTheDocument()
+    unregister()
   })
 
   it('shows empty arguments as their placeholder in the preview', async () => {

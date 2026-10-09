@@ -60,6 +60,26 @@ describe('SaveWorkflowDialog', () => {
     await waitFor(() => expect(useWorkflowsStore.getState().saveCommand).toBeNull())
   })
 
+  it('saves a block with a renamed name, an edited command and an argument default', async () => {
+    open('echo ostia_wf_tester_$((20+1))')
+    const name = await screen.findByLabelText('Name')
+    expect(name).toHaveValue('echo ostia_wf_tester_$((20+1))')
+    await userEvent.clear(name)
+    await userEvent.type(name, 'Greet again')
+    fireEvent.change(screen.getByLabelText('Command'), {
+      target: { value: 'echo again_{{name}}' },
+    })
+    await userEvent.type(screen.getByLabelText('Default value of name'), 'ostia')
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    expect(window.ostia.workflows.save).toHaveBeenCalledWith({
+      name: 'Greet again',
+      command: 'echo again_{{name}}',
+      arguments: [{ name: 'name', default_value: 'ostia' }],
+    })
+    await waitFor(() => expect(screen.queryByLabelText('Name')).not.toBeInTheDocument())
+  })
+
   it('keeps the dialog open and shows why saving failed', async () => {
     vi.mocked(window.ostia.workflows.save).mockResolvedValue({ ok: false, error: 'disk full' })
     open('make')

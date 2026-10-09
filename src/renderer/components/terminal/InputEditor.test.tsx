@@ -1,9 +1,11 @@
 import { commands } from '@/commands/registry'
+import { WorkflowPicker } from '@/components/palette/WorkflowPicker'
 import { handleDocumentClipboardChord } from '@/lib/keys/documentClipboard'
 import { insertCommand } from '@/lib/terminal/blockActions'
 import { inputEditorFor, registerTerminal } from '@/lib/terminal/terminalHandles'
 import { useSettingsStore } from '@/stores/app/settingsStore'
 import { type LineAnchor, useBlocksStore } from '@/stores/terminal/blocksStore'
+import { useWorkflowsStore } from '@/stores/terminal/workflowsStore'
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { Terminal as Xterm } from '@xterm/xterm'
@@ -643,6 +645,42 @@ describe('InputEditor', () => {
     expect(editor()).toHaveFocus()
     expect(mode()).toBe('INSERT')
     vi.mocked(window.ostia.pty.commands).mockReset()
+  })
+
+  it('workflows: fill the input editor when it is shown', async () => {
+    setMode('editor')
+    idlePrompt()
+    const paste = vi.fn()
+    const unregister = registerTerminal(PANE, { paste, focus: vi.fn() } as never)
+    renderEditor()
+    render(<WorkflowPicker />)
+    act(() =>
+      useWorkflowsStore.getState().showPicker(
+        {
+          workflows: [
+            {
+              name: 'Greet someone',
+              command: 'echo ostia_wf_{{who}}_$((20+1))',
+              tags: ['demo'],
+              arguments: [{ name: 'who', defaultValue: 'world' }],
+              source: 'user',
+              origin: 'greet.yaml',
+            },
+          ],
+          problems: [],
+        },
+        PANE,
+      ),
+    )
+    await userEvent.click(await screen.findByText('Greet someone'))
+    const who = await screen.findByLabelText('who')
+    await userEvent.clear(who)
+    await userEvent.type(who, 'editor{Enter}')
+
+    await waitFor(() => expect(editor()).toHaveValue('echo ostia_wf_editor_$((20+1))'))
+    expect(paste).not.toHaveBeenCalled()
+    expect(window.ostia.pty.write).not.toHaveBeenCalled()
+    unregister()
   })
 
   describe('autosuggestions', () => {
