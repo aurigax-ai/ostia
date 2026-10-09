@@ -69,58 +69,6 @@ test('a port a terminal listens on shows in the top bar and opens in the browser
   }
 })
 
-test('an idle hidden agent hibernates and resumes when the human opens its tab', async () => {
-  test.setTimeout(90_000)
-  const dataHome = freshDataHome()
-  const bin = join(dataHome, 'bin')
-  mkdirSync(bin, { recursive: true })
-  writeFileSync(join(bin, 'claude'), '#!/bin/sh\necho "fake agent up: $*"\nexec sleep 600\n')
-  chmodSync(join(bin, 'claude'), 0o755)
-  seedSettings(dataHome, {
-    ...DOM_RENDERER_SETTINGS,
-    agents: { hibernation: HIBERNATE_FAST },
-  })
-  const app = await launchIn(dataHome, bin)
-  try {
-    const win = await app.firstWindow()
-    await win.waitForLoadState('domcontentloaded')
-    await openWorkspace(win)
-
-    await runInTerminal(
-      win,
-      'ostia resume-token claude e2e-tok-1 && echo token-$((6*7))',
-      shownTerminal(win),
-    )
-    await expect(win.locator('.xterm-rows').first()).toContainText('token-42', {
-      timeout: 15_000,
-    })
-    await runInTerminal(win, 'claude', shownTerminal(win))
-    await expect(win.locator('.xterm-rows').first()).toContainText('fake agent up:', {
-      timeout: 15_000,
-    })
-
-    await win.getByRole('button', { name: 'New terminal tab' }).click()
-    await expect(win.getByRole('tab')).toHaveCount(2)
-    await expect(win.locator('.pane-slot:not([data-hidden]) .xterm-rows')).toContainText(PROMPT, {
-      timeout: 15_000,
-    })
-
-    const sleeping = win.getByRole('tab').first()
-    await expect(sleeping.getByLabel('Hibernated')).toBeVisible({ timeout: 30_000 })
-    await expect(win.locator('.terminal-surface .xterm')).toHaveCount(1)
-
-    await sleeping.click()
-
-    const rows = win.locator('.pane-slot:not([data-hidden]) .xterm-rows')
-    await expect(rows).toContainText('woke from hibernation', { timeout: 15_000 })
-    await expect(rows).toContainText('fake agent up:')
-    await expect(rows).toContainText(/fake agent up: .*--resume e2e-tok-1/, { timeout: 15_000 })
-    await expect(win.locator('.hibernated-view')).toHaveCount(0)
-  } finally {
-    await app.close()
-  }
-})
-
 test('a hibernated agent is still hibernated after a restart and wakes when the human opens its tab', async () => {
   test.setTimeout(120_000)
   const dataHome = freshDataHome()

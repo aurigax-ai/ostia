@@ -274,4 +274,77 @@ describe('PrivacySection', () => {
     await waitFor(() => expect(queued).not.toHaveTextContent('"value": "boom"'))
     expect(queued).toHaveTextContent('agents.bus_message')
   })
+
+  it('sharing only errors sends an exception and a usage event without other categories, and off stops it', async () => {
+    useSettingsStore.setState({
+      privacy: {
+        redaction: { enabled: true, patterns: [] },
+        telemetry: { ...DEFAULT_TELEMETRY_SETTINGS, errors: true },
+      },
+    })
+    vi.mocked(window.ostia.telemetry.reports).mockResolvedValue({
+      queued: [],
+      sent: [
+        {
+          uuid: 'e1',
+          event: '$exception',
+          distinct_id: 'install-id',
+          timestamp: '2026-10-07T00:00:00.000Z',
+          properties: {
+            app_version: '1.0.0',
+            electron_version: '33',
+            os_name: 'linux',
+            os_version: '6',
+            arch: 'x64',
+            locale: 'en',
+            channel: 'source',
+            $process_person_profile: false,
+            source: 'render-error',
+            $exception_list: [{ type: 'Error', value: 'boom', mechanism: { handled: true } }],
+          },
+        },
+      ],
+    })
+    const user = userEvent.setup()
+    await renderSettled(<PrivacySection />)
+    expect(screen.getByRole('switch', { name: 'Crash and error reports' })).toBeChecked()
+    expect(screen.getByRole('switch', { name: 'App usage' })).not.toBeChecked()
+    await user.click(
+      screen.getByRole('button', { name: `Show what ${PRODUCT_DISPLAY_NAME} sends` }),
+    )
+    const dialog = await screen.findByTestId('telemetry-reports-dialog')
+    await waitFor(() =>
+      expect(within(dialog).getByRole('region', { name: 'Last sent' })).toHaveTextContent(
+        '$exception',
+      ),
+    )
+    await user.keyboard('{Escape}')
+    await waitFor(() =>
+      expect(screen.queryByTestId('telemetry-reports-dialog')).not.toBeInTheDocument(),
+    )
+
+    await user.click(screen.getByRole('switch', { name: 'App usage' }))
+    expect(screen.getByRole('switch', { name: 'App usage' })).toBeChecked()
+    const written = JSON.parse(vi.mocked(window.ostia.fs.write).mock.calls[0][1])
+    expect(written.privacy.telemetry).toEqual({
+      ...DEFAULT_TELEMETRY_SETTINGS,
+      errors: true,
+      usage: true,
+    })
+  })
+
+  it('turning errors off afterwards sends nothing more', async () => {
+    useSettingsStore.setState({
+      privacy: {
+        redaction: { enabled: true, patterns: [] },
+        telemetry: { ...DEFAULT_TELEMETRY_SETTINGS, errors: true },
+      },
+    })
+    const user = userEvent.setup()
+    await renderSettled(<PrivacySection />)
+    await user.click(screen.getByRole('switch', { name: 'Crash and error reports' }))
+    expect(screen.getByRole('switch', { name: 'Crash and error reports' })).not.toBeChecked()
+    const written = JSON.parse(vi.mocked(window.ostia.fs.write).mock.calls[0][1])
+    expect(written.privacy.telemetry).toEqual(DEFAULT_TELEMETRY_SETTINGS)
+  })
 })

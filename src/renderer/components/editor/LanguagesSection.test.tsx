@@ -180,6 +180,9 @@ describe('LanguagesSection', () => {
         { at: 6, kind: 'stop', reason: 'idle' },
         { at: 7, kind: 'exit', code: null, signal: 'SIGTERM' },
         { at: 8, kind: 'crashed' },
+        { at: 9, kind: 'stop', reason: 'off' },
+        { at: 10, kind: 'fetch-start', how: 'download', version: '1.0.0' },
+        { at: 11, kind: 'fetch-done', version: '1.0.0' },
       ],
       errors: { 'textDocument/hover': 3 },
     }
@@ -202,6 +205,9 @@ describe('LanguagesSection', () => {
       'Stopping: no open files',
       'Exited (SIGTERM)',
       'Crashed too often; not restarting',
+      'Stopping: turned off',
+      'Downloading version 1.0.0',
+      'Version 1.0.0 is ready',
       'textDocument/hover',
     ]) {
       expect(await within(dialog).findByText(line)).toBeInTheDocument()

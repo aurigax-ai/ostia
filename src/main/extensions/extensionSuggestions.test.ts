@@ -159,4 +159,20 @@ describe('DismissedSuggestions', () => {
     writeFileSync(file, JSON.stringify({ dismissed: ['ok-id', 7, '../x'] }))
     expect(new DismissedSuggestions(file).list()).toEqual(['ok-id'])
   })
+
+  it('saying No hides the offer for that extension, also after reopening the file', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ostia-suggest-'))
+    dirs.push(dir)
+    const store = new DismissedSuggestions(join(dir, 'extension-suggestions.json'))
+    const listings = [
+      { marketplaceId: 'm1', extId: 'fake-native', name: 'Fake native', languages: ['plaintext'] },
+    ]
+    const offers = { ...sources({ listings }), dismissed: () => store.list() }
+    expect(suggestionFor('/p/notes.txt', offers)).toMatchObject({
+      kind: 'install',
+      extId: 'fake-native',
+    })
+    store.dismiss('fake-native')
+    expect(suggestionFor('/p/notes.txt', offers)).toBeNull()
+  })
 })

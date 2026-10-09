@@ -1,5 +1,5 @@
 import { type ChildProcessWithoutNullStreams, spawn } from 'node:child_process'
-import { mkdtempSync, readFileSync, realpathSync, rmSync } from 'node:fs'
+import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -8,7 +8,11 @@ import type { Command, Diagnostic } from 'vscode-languageserver-protocol'
 import { FakeModel, createFakeMonaco } from '../../../test/mocks/monaco'
 
 const fake = createFakeMonaco()
-vi.mock('../monaco/setup', () => ({ monaco: fake.monaco }))
+const applyBuiltin = vi.fn()
+vi.mock('../monaco/setup', () => ({
+  monaco: fake.monaco,
+  builtinFeatures: { apply: applyBuiltin },
+}))
 vi.mock('vscode-jsonrpc/browser', async () => await import('vscode-jsonrpc/node'))
 
 const { APPLY_CODE_ACTION_COMMAND, refreshCodeLenses, registerProviders } = await import(
@@ -16,6 +20,8 @@ const { APPLY_CODE_ACTION_COMMAND, refreshCodeLenses, registerProviders } = awai
 )
 const { LspSession } = await import('./session')
 const { toWorkspaceSymbolHits } = await import('./workspaceSymbols')
+const { openDocument, resetLspClient, startLanguageServices } = await import('./client')
+const { langFor, setSettingsFile } = await import('../monaco/language')
 
 const FAKE_SERVER = resolve(__dirname, '../../../test/fixtures/lsp/fake-server.mjs')
 const TEXT = ['fn alpha BEGIN', '  body ERROR', 'END', 'fn beta', 'tail'].join('\n')
@@ -39,11 +45,11 @@ const cleanups: (() => void)[] = []
 async function start(args: string[], text = TEXT): Promise<Started> {
   const root = realpathSync(mkdtempSync(join(tmpdir(), 'ostia-lsp-features-')))
   const recordFile = join(root, 'record.jsonl')
-  const proc: ChildProcessWithoutNullStreams = spawn(process.execPath, [
-    FAKE_SERVER,
-    `--record=${recordFile}`,
-    ...args,
-  ])
+  const proc: ChildProcessWithoutNullStreams = spawn(
+    process.execPath,
+    [FAKE_SERVER, `--record=${recordFile}`, ...args],
+    { cwd: root },
+  )
   const published: Diagnostic[][] = []
   const changes = { count: 0 }
   let registration: { dispose: () => void } | null = null
@@ -186,6 +192,32 @@ describe('folding ranges and code lens against a real fake language server', () 
     )) as { command: { id: string; title: string } }
     expect(resolved.command).toEqual({ id: '', title: 'Run alpha (0 runs)' })
   })
+
+  it('folds an import block, shows a lens above the function as text and finds a symbol in the workspace', async () => {
+    const { model, session } = await start(
+      ['--caps=folding,codeLens,workspaceSymbols'],
+      ['import one', 'import two', 'import three', 'fn greetEveryone', 'tail'].join('\n'),
+    )
+    expect(await provider('FoldingRangeProvider', 'provideFoldingRanges')(model, {})).toEqual([
+      { start: 1, end: 3, kind: { value: 'imports' } },
+    ])
+    const list = (await provider('CodeLensProvider', 'provideCodeLenses')(model)) as {
+      lenses: { range: { startLineNumber: number } }[]
+    }
+    expect(list.lenses.map((lens) => lens.range.startLineNumber)).toEqual([4, 4])
+    const shown = (await Promise.all(
+      list.lenses.map((lens) => provider('CodeLensProvider', 'resolveCodeLens')(model, lens)),
+    )) as { command: unknown }[]
+    expect(shown.map((lens) => lens.command)).toEqual([
+      { id: '', title: 'Run greetEveryone (0 runs)' },
+      { id: '', title: 'greetEveryone: client only' },
+    ])
+    const symbols = toWorkspaceSymbolHits(
+      'fake-lang/fake',
+      await session.request('workspace/symbol', { query: 'greetEvery' }),
+    )
+    expect(symbols).toMatchObject([{ name: 'greetEveryone', path: model.uri.path, line: 4 }])
+  })
 })
 
 describe('pull diagnostics against a real fake language server', () => {
@@ -286,10 +318,140 @@ describe('dynamic registration against a real fake language server', () => {
     await vi.waitFor(() => expect(kinds()).toEqual(['CodeLensProvider']), { timeout: 10_000 })
   })
 
+  it('folding, code lens, pulled diagnostics, watched files and workspace symbols work for a server that registers them late', async () => {
+    const { changes, model, published, recorded, root, session, uri } = await start([
+      '--caps=symbols,executeCommand',
+      '--late-caps=hover,folding,codeLens,workspaceSymbols,pullDiagnostics',
+    ])
+    await vi.waitFor(() => expect(changes.count).toBe(1), { timeout: 10_000 })
+    await vi.waitFor(
+      () => expect(recorded().some((e) => e.method === 'textDocument/diagnostic')).toBe(true),
+      { timeout: 10_000 },
+    )
+    await vi.waitFor(() => expect(messages(published)).toEqual(['fake error on line 2']), {
+      timeout: 10_000,
+    })
+    expect(session.diagnosticsFor(uri)).toHaveLength(1)
+
+    const list = (await provider('CodeLensProvider', 'provideCodeLenses')(model)) as {
+      lenses: { command?: { id: string; title: string } }[]
+    }
+    expect(list.lenses[1].command).toEqual({ id: '', title: 'alpha: client only' })
+    const lens = async (index: number): Promise<{ id: string; title: string; arguments: [] }> =>
+      (
+        (await provider('CodeLensProvider', 'resolveCodeLens')(model, list.lenses[index])) as {
+          command: { id: string; title: string; arguments: [] }
+        }
+      ).command
+    const run = await lens(0)
+    expect(run.title).toBe('Run alpha (0 runs)')
+    expect((await lens(2)).title).toBe('Run beta (0 runs)')
+    expect(
+      await provider('HoverProvider', 'provideHover')(model, { lineNumber: 1, column: 5 }),
+    ).toMatchObject({ contents: [{ value: 'fake hover: **alpha**' }] })
+    fake.commands.get(run.id)?.(null, ...run.arguments)
+    await vi.waitFor(
+      () =>
+        expect(recorded().find((e) => e.method === 'workspace/executeCommand')?.params).toEqual({
+          command: 'fake.countRun',
+          arguments: ['alpha'],
+        }),
+      { timeout: 10_000 },
+    )
+    expect((await lens(0)).title).toBe('Run alpha (1 runs)')
+
+    expect(await provider('FoldingRangeProvider', 'provideFoldingRanges')(model, {})).toEqual([
+      { start: 1, end: 3, kind: { value: 'region' } },
+    ])
+
+    writeFileSync(join(root, 'other.txt'), 'fn gamma here\n')
+    expect(session.effectiveCapabilities().workspaceSymbolProvider).toBeTruthy()
+    expect(
+      toWorkspaceSymbolHits(
+        'fake-more/fake',
+        await session.request('workspace/symbol', { query: 'gam' }),
+      ),
+    ).toMatchObject([{ name: 'gamma', path: join(root, 'other.txt'), line: 1 }])
+  })
+
   it('serves a late feature only to documents its selector matches', async () => {
     const { changes, session, uri } = await start(['--caps=', '--late-caps=txtOnlyDefinition'])
     await vi.waitFor(() => expect(changes.count).toBe(1), { timeout: 10_000 })
     expect(session.supports('textDocument/definition', uri)).toBe(true)
     expect(session.supports('textDocument/definition', uri.replace('.txt', '.md'))).toBe(false)
+  })
+})
+
+describe('claimed languages against a real fake language server', () => {
+  it('a server that claims JSON replaces Monaco’s JSON features, except in the settings file', async () => {
+    const root = realpathSync(mkdtempSync(join(tmpdir(), 'ostia-lsp-json-')))
+    const proc = spawn(process.execPath, [FAKE_SERVER, '--caps='])
+    const reader = new StreamMessageReader(proc.stdout)
+    const writer = new StreamMessageWriter(proc.stdin)
+    cleanups.push(() => {
+      resetLspClient()
+      setSettingsFile(null)
+      reader.dispose()
+      proc.kill()
+      rmSync(root, { recursive: true, force: true })
+    })
+    const { lsp } = window.ostia
+    vi.mocked(lsp.servers).mockResolvedValue([
+      {
+        key: 'fake-json/fake',
+        extId: 'fake-json',
+        extName: 'Fake JSON',
+        serverId: 'fake',
+        name: 'Fake JSON server',
+        languages: ['json'],
+        kind: 'bundled',
+        command: 'server/fake-server.cjs',
+        enabled: true,
+        status: 'running',
+        folders: 1,
+      },
+    ])
+    vi.mocked(lsp.open).mockResolvedValue([
+      {
+        sessionId: 'json-1',
+        serverKey: 'fake-json/fake',
+        root,
+        editRoot: root,
+        languageId: 'json',
+        initializationOptions: {},
+      },
+    ])
+    vi.mocked(lsp.onMessage).mockImplementation((_sessionId, cb) => {
+      reader.listen(cb as never)
+      return () => {}
+    })
+    vi.mocked(lsp.send).mockImplementation((_sessionId, message) => {
+      void writer.write(message as never)
+    })
+    const dataPath = join(root, 'data.json')
+    const settingsPath = join(root, 'settings.json')
+    setSettingsFile(settingsPath)
+
+    await startLanguageServices()
+    expect(applyBuiltin).toHaveBeenLastCalledWith(new Set(['json']))
+
+    const data = fake.addModel(new FakeModel(dataPath, '{ "a": ERROR }\n', langFor(dataPath)))
+    const settings = fake.addModel(
+      new FakeModel(settingsPath, '{ "locale": 5, "noteERROR": true }\n', langFor(settingsPath)),
+    )
+    openDocument(data as never, 'pane-1')
+    openDocument(settings as never, 'pane-1')
+    await vi.waitFor(
+      () =>
+        expect(fake.markers.get(`lsp:fake-json/fake ${data.uri.toString()}`)).toMatchObject([
+          { message: 'fake error on line 1' },
+        ]),
+      { timeout: 10_000 },
+    )
+    expect(lsp.open).toHaveBeenCalledTimes(1)
+    expect(lsp.open).toHaveBeenCalledWith('pane-1', dataPath)
+    expect([...fake.markers.keys()].filter((key) => key.endsWith(settings.uri.toString()))).toEqual(
+      [],
+    )
   })
 })

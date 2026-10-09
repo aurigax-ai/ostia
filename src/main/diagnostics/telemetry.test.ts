@@ -19,7 +19,7 @@ import {
 const handlers = new Map<string, (...args: unknown[]) => unknown>()
 
 vi.mock('electron', () => ({
-  app: { isPackaged: false },
+  app: { isPackaged: false, on: () => {} },
   ipcMain: {
     handle: (channel: string, handler: (...args: unknown[]) => unknown) =>
       handlers.set(channel, handler),
@@ -30,7 +30,9 @@ vi.mock('electron', () => ({
 
 const { createTelemetry, readTelemetrySettings, registerTelemetry, telemetryEndpoint } =
   await import('./telemetry')
+const { registerDiagnostics } = await import('./diagnostics')
 type SessionFacts = import('./telemetry').SessionFacts
+type Telemetry = import('./telemetry').Telemetry
 
 const context: InstallContext = {
   app_version: '1.0.0',
@@ -377,6 +379,7 @@ describe('sendBatch over http', () => {
   const received: Array<{ path: string | undefined; body: string }> = []
 
   beforeEach(async () => {
+    received.length = 0
     server = createServer((req, res) => {
       let body = ''
       req.on('data', (chunk) => {
@@ -392,9 +395,47 @@ describe('sendBatch over http', () => {
   })
 
   afterEach(async () => {
+    vi.unstubAllEnvs()
     server.closeAllConnections()
     await new Promise<void>((resolve) => server.close(() => resolve()))
   })
+
+  const launch = (settings: { privacy: { telemetry: TelemetrySettings } }): Telemetry => {
+    vi.stubEnv(envName(TELEMETRY_URL_ENV), url)
+    const telemetry = registerTelemetry({
+      file: join(dir, 'telemetry.json'),
+      version: '1.0.0',
+      stamp: undefined,
+      readSettings: () => settings,
+      locale: () => 'en',
+      session: () => facts,
+    })
+    const on = vi.spyOn(process, 'on').mockReturnValue(process)
+    registerDiagnostics({
+      log: { file: join(dir, 'app.log'), info: () => {}, warn: () => {}, error: () => {} },
+      telemetry,
+      version: '1.0.0',
+      logDir: dir,
+      testHooks: true,
+      startRecovery: () => {},
+      finishRecovery: () => {},
+      openPath: async () => '',
+    })
+    on.mockRestore()
+    return telemetry
+  }
+
+  const crashRenderer = () =>
+    handlers.get('diagnostics:report')?.(
+      { sender: { id: 1 } },
+      {
+        kind: 'render',
+        message: 'test crash requested by the E2E hook',
+        stack: `Error: test crash requested by the E2E hook\n    at CrashTestHook (/home/runner/ostia/out/renderer/index.js:1:2)\n    at render (${dir}/renderer.js:3:4)`,
+      },
+    )
+
+  const sentEvents = () => received.flatMap((r) => batchEvents(r.body))
 
   it('posts the batch to the ingest host', async () => {
     const h = harness(only('errors'))
@@ -408,6 +449,54 @@ describe('sendBatch over http', () => {
     expect(received[0].path).toBe('/batch/')
     expect(JSON.parse(received[0].body).api_key).toBe('phc_e2e')
     expect(batchEvents(received[0].body)[0].properties.$exception_list?.[0].value).toBe('boom')
+  })
+
+  it('sharing only errors sends an exception and a usage event without other categories, and off stops it', async () => {
+    const settings = { privacy: { telemetry: only('errors') } }
+    const first = launch(settings)
+    crashRenderer()
+    await first.flush()
+    expect(received).toHaveLength(1)
+    expect(received[0].path).toBe('/batch/')
+    expect(JSON.parse(received[0].body).api_key).toBe('phc_e2e')
+    const [report] = batchEvents(received[0].body)
+    expect(report.event).toBe('$exception')
+    expect(report.properties.source).toBe('render-error')
+    expect(report.properties.$process_person_profile).toBe(false)
+    expect(report.properties.channel).toBe('source')
+    expect(report.properties.$exception_list?.[0].value).toContain(
+      'test crash requested by the E2E hook',
+    )
+    expect(received[0].body).not.toContain(dir)
+    expect(received[0].body).not.toContain('/home/')
+    expect(report.distinct_id).toMatch(/^[0-9a-f-]{36}$/)
+    expect(first.reports().sent.map((r) => r.event)).toEqual(['$exception'])
+    await first.shutdown()
+    expect(sentEvents().filter((e) => e.event === 'usage')).toHaveLength(0)
+
+    const second = launch(settings)
+    settings.privacy.telemetry = only('errors', 'usage')
+    second.settingsChanged()
+    await second.shutdown()
+    const usage = sentEvents().filter((e) => e.event === 'usage')
+    expect(usage).toHaveLength(1)
+    const keys = Object.keys(usage[0].properties)
+    expect(usage[0].properties['usage.app_starts']).toBe(1)
+    expect(keys.some((k) => k.startsWith('features.'))).toBe(false)
+    expect(keys.some((k) => k.startsWith('agents.'))).toBe(false)
+    expect(keys.some((k) => k.startsWith('terminal.'))).toBe(false)
+    expect(JSON.stringify(usage[0])).not.toContain(dir)
+  })
+
+  it('turning errors off afterwards sends nothing more', async () => {
+    const settings = { privacy: { telemetry: only('errors') } }
+    const telemetry = launch(settings)
+    settings.privacy.telemetry = DEFAULT_TELEMETRY_SETTINGS
+    telemetry.settingsChanged()
+    crashRenderer()
+    await telemetry.flush()
+    await telemetry.shutdown()
+    expect(received).toEqual([])
   })
 })
 

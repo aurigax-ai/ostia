@@ -298,7 +298,7 @@
         "src/shared/common/procfs.ts",
         "test/fixtures/ports/"
       ],
-      "specs": ["e2e/ports.spec.ts", "e2e/ports-hibernation.spec.ts"]
+      "specs": ["e2e/ports-hibernation.spec.ts"]
     },
     {
       "name": "system",

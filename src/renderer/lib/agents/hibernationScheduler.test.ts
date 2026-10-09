@@ -10,11 +10,14 @@ import { useHibernateSkippedStore } from '@/stores/workspaces/hibernateSkippedSt
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { startActivationResume } from './activationResume'
 import {
+  HIBERNATION_CHECK_MS,
   WAKE_WAVE_SIZE,
   hibernateIdleAgents,
   hibernateWorkspaces,
   resumeWorkspaces,
+  startHibernation,
 } from './hibernationScheduler'
 
 let layoutInit: ReturnType<typeof useLayoutStore.getState>
@@ -34,6 +37,7 @@ beforeAll(() => {
 })
 
 const heldResumes: Array<{ typed: () => void; gaveUp: () => void }> = []
+const stops: Array<() => void> = []
 
 function holdResumes() {
   return vi
@@ -45,6 +49,8 @@ function holdResumes() {
 }
 
 afterEach(() => {
+  while (stops.length > 0) stops.pop()?.()
+  vi.useRealTimers()
   while (heldResumes.length > 0) heldResumes.shift()?.typed()
   useLayoutStore.setState(layoutInit, true)
   useBlocksStore.setState(blocksInit, true)
@@ -172,6 +178,54 @@ describe('hibernateIdleAgents', () => {
     expect(await hibernateIdleAgents(NOW)).toEqual(['fresh-claude'])
     expect(hibernated('idle-claude')).toBe(false)
     expect(hibernated('fresh-claude')).toBe(true)
+  })
+
+  it('an idle hidden agent hibernates and resumes when the human opens its tab', async () => {
+    vi.useFakeTimers({ now: NOW })
+    const inputListeners = new Map<string, EventListener>()
+    const addListener = window.addEventListener.bind(window)
+    const listening = vi
+      .spyOn(window, 'addEventListener')
+      .mockImplementation((type, listener, options) => {
+        if (typeof listener === 'function') inputListeners.set(type, listener)
+        addListener(type, listener, options)
+      })
+    stops.push(() => listening.mockRestore())
+    useSettingsStore.setState((s) => ({
+      agents: { ...s.agents, hibernation: { enabled: true, idleSeconds: 5, maxLiveTerminals: 0 } },
+    }))
+    useWorkspacesStore.setState({
+      workspaces: [{ id: 's1', name: 'a', kind: 'terminal', workDir: '/a', state: 'idle' }],
+      activeWorkspaceId: 's1',
+    })
+    useLayoutStore.setState({
+      byWorkspace: {
+        s1: {
+          root: terminal('idle-claude', false),
+          activePaneId: 'idle-claude',
+          zoomedPaneId: null,
+        },
+      },
+    })
+    stops.push(startHibernation(), startActivationResume())
+
+    await commands.exec('resume.set', { agent: 'claude', id: 'e2e-tok-1' })
+    run('idle-claude', 'claude')
+    markPaneActivity('idle-claude')
+    await commands.exec('tab.new', { paneId: 'idle-claude' })
+    await vi.advanceTimersByTimeAsync(HIBERNATION_CHECK_MS)
+
+    expect(window.ostia.pty.hibernate).toHaveBeenCalledWith('idle-claude')
+    expect(hibernated('idle-claude')).toBe(true)
+
+    const typed = holdResumes()
+    inputListeners.get('pointerdown')?.({ type: 'pointerdown', isTrusted: true } as Event)
+    await commands.exec('pane.focus', { paneId: 'idle-claude' })
+
+    expect(hibernated('idle-claude')).toBe(false)
+    expect(typed.mock.calls.map(([id, command]) => [id, command])).toEqual([
+      ['idle-claude', 'claude --resume e2e-tok-1'],
+    ])
   })
 })
 

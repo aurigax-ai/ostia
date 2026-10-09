@@ -494,6 +494,12 @@ describe('SettingsPanel', () => {
     expect(screen.getByRole('spinbutton', { name: 'UI font, Size' })).toHaveValue(20)
   })
 
+  it('opens the Privacy page from the section nav', async () => {
+    await renderSettings()
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Privacy' }))
+    expect(await screen.findByLabelText('Text to check')).toBeInTheDocument()
+  })
+
   it('shows the full build version on About and copies it', async () => {
     vi.mocked(window.ostia.info).mockResolvedValue({
       name: 'Ostia',
