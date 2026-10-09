@@ -653,7 +653,6 @@
         "test/fixtures/agents/"
       ],
       "specs": [
-        "e2e/bus-delivery.spec.ts",
         "e2e/group-send.spec.ts",
         "e2e/pane-wake-wait.spec.ts",
         "e2e/processes.spec.ts",

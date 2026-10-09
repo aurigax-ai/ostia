@@ -243,6 +243,26 @@ describe('pane tab attention mark', () => {
     expect(tab).toHaveAttribute('data-attention', 'done')
     expect(screen.getByRole('img', { name: 'Unread' })).toBeInTheDocument()
   })
+
+  it('marks the pane tab unread, never waiting, with who sent a bus message', async () => {
+    if (!commands.has('attention.message')) registerBuiltinCommands()
+    const { workspaceId, a, container, tab, blinking } = setup()
+    await act(() =>
+      commands.execWith({ activeWorkspaceId: workspaceId, activePaneId: a }, 'attention.message', {
+        from: 'sender',
+        text: 'review-42-done',
+      }),
+    )
+    expect(tab).toHaveAttribute('data-attention', 'unread')
+    expect(screen.getByRole('img', { name: 'Unread' })).toBeInTheDocument()
+    expect(blinking()).toBeNull()
+    expect(container.querySelector('.pane-attn-msg')).toHaveTextContent(
+      /^Message from sender: review-42-done$/,
+    )
+    expect(window.ostia.notifications.post).toHaveBeenCalledWith(
+      expect.objectContaining({ paneId: a, title: 'Message from sender', body: 'review-42-done' }),
+    )
+  })
 })
 
 describe('NotificationCenter', () => {
