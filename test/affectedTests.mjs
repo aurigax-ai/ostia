@@ -9,6 +9,8 @@ const ROOT_DOC = /^[^/]+\.md$/
 const READS_FILES = /from ['"](node:)?fs(\/promises)?['"]/
 const UNIT_TEST = /\.test\.tsx?$/
 const SPEC = /^e2e\/[^/]+\.spec\.ts$/
+const CORE_TAG = /@core\b/
+const TEST_CALL = /^\s*test(?:\.(?:only|skip|fixme|fail|slow))?\(/
 const QUARANTINE = 'test/quarantine.json'
 const QUARANTINE_TEST = 'test/quarantine.test.ts'
 const NODE_TEST_DIRS = ['src/main', 'src/shared', 'src/cli', 'src/extensions']
@@ -41,6 +43,16 @@ const EVERY_TEST = { node: null, dom: null, e2e: null }
 
 export const E2E_SPECS_PER_SHARD = 20
 export const E2E_MAX_SHARDS = 4
+export const E2E_TESTS_PER_SPEC = 5
+
+export function specOf(entry) {
+  return entry.replace(/:\d+$/, '')
+}
+
+export function e2eWeight(entries) {
+  const tests = entries.filter((entry) => entry !== specOf(entry)).length
+  return entries.length - tests + Math.ceil(tests / E2E_TESTS_PER_SPEC)
+}
 
 export function e2eShards(specCount) {
   const shards = Math.min(E2E_MAX_SHARDS, Math.max(1, Math.ceil(specCount / E2E_SPECS_PER_SHARD)))
@@ -117,9 +129,9 @@ export function planE2e(changed, map, imports, quarantined = []) {
     if (file.startsWith('e2e/') || skipsE2e(file)) continue
     const areas = areasOf(file, map)
     for (const area of areas) for (const spec of area.specs) specs.add(spec)
-    if (areas.length === 0 && importers.length === 0) for (const spec of map.smoke) specs.add(spec)
+    if (areas.length === 0 && importers.length === 0) for (const test of map.core) specs.add(test)
   }
-  return [...specs].sort()
+  return [...specs].filter((entry) => entry === specOf(entry) || !specs.has(specOf(entry))).sort()
 }
 
 function loadE2eMap() {
@@ -131,6 +143,20 @@ export function e2eSpecs() {
     .filter((name) => name.endsWith('.spec.ts'))
     .map((name) => `e2e/${name}`)
     .sort()
+}
+
+export function coreTests() {
+  return e2eSpecs().flatMap((spec) => {
+    const lines = readFileSync(join(ROOT, spec), 'utf8').split('\n')
+    const calls = new Set()
+    lines.forEach((line, index) => {
+      if (!CORE_TAG.test(line)) return
+      let call = index
+      while (call >= 0 && !TEST_CALL.test(lines[call])) call--
+      if (call >= 0) calls.add(`${spec}:${call + 1}`)
+    })
+    return [...calls]
+  })
 }
 
 const RELATIVE_IMPORT = /(?:from|import)\s*\(?\s*['"](\.{1,2}\/[^'"]+)['"]/g
@@ -230,10 +256,11 @@ export function planChanges(changed, base) {
   const quarantined = changed.includes(QUARANTINE)
     ? changedQuarantineFiles(quarantineAt(base), loadQuarantine())
     : []
-  const e2e = planE2e(changed, loadE2eMap(), e2eImports(), quarantined)
+  const map = { ...loadE2eMap(), core: coreTests() }
+  const e2e = planE2e(changed, map, e2eImports(), quarantined)
   return {
     ...planTests(changed, fileReaders(), quarantined),
-    e2e: e2e === null ? null : e2e.filter((spec) => existsSync(join(ROOT, spec))),
+    e2e: e2e === null ? null : e2e.filter((entry) => existsSync(join(ROOT, specOf(entry)))),
   }
 }
 

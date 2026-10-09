@@ -1,13 +1,4 @@
 {
-  "smoke": [
-    "e2e/blocks.spec.ts",
-    "e2e/runner-display.spec.ts",
-    "e2e/settings-gap.spec.ts",
-    "e2e/smoke.spec.ts",
-    "e2e/split-tabs.spec.ts",
-    "e2e/terminal-basics.spec.ts",
-    "e2e/workspace-restore.spec.ts"
-  ],
   "areas": [
     {
       "name": "sandbox",
@@ -1103,6 +1094,11 @@
         "e2e/open-from-shell.spec.ts",
         "e2e/packaged-preview.spec.ts"
       ]
+    },
+    {
+      "name": "e2e runner",
+      "paths": ["scripts/e2e.sh"],
+      "specs": ["e2e/runner-display.spec.ts"]
     }
   ]
 }
