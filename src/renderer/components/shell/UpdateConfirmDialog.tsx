@@ -8,7 +8,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { fmt, useDict } from '@/i18n/useDict'
-import { useUpdateStore } from '@/stores/updateStore'
+import { useUpdateStore } from '@/stores/app/updateStore'
 
 export function UpdateConfirmDialog(): JSX.Element {
   const d = useDict()

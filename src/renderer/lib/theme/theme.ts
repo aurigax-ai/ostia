@@ -1,7 +1,7 @@
 import type { Theme } from '@/plugins/types'
-import { usePluginsStore } from '@/stores/pluginsStore'
-import { useSettingsStore } from '@/stores/settingsStore'
-import { useSystemThemeStore } from '@/stores/systemThemeStore'
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useSystemThemeStore } from '@/stores/app/systemThemeStore'
+import { usePluginsStore } from '@/stores/extensions/pluginsStore'
 import { deriveAccent, normalizeHex, readableOn } from './color'
 
 export interface ThemeChoice {

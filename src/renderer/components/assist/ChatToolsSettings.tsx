@@ -25,13 +25,13 @@ import { Switch } from '@/components/ui/switch'
 import { fmt, useDict } from '@/i18n/useDict'
 import { skillsInFolder } from '@/lib/assist/mcpServerForm'
 import { cn } from '@/lib/utils'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import {
   refreshMcp,
   refreshSkills,
   removeAlwaysGrant,
   useChatToolsStore,
-} from '@/stores/chatToolsStore'
-import { useSettingsStore } from '@/stores/settingsStore'
+} from '@/stores/assist/chatToolsStore'
 import {
   CaretRightIcon,
   FolderSimpleIcon,

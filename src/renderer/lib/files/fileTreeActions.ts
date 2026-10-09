@@ -1,7 +1,7 @@
 import { currentDict, fmt } from '@/i18n/useDict'
-import { useEditorStatus } from '@/stores/editorStatusStore'
-import { useFileTreeStore } from '@/stores/fileTreeStore'
-import { useLayoutStore } from '@/stores/layoutStore'
+import { useEditorStatus } from '@/stores/files/editorStatusStore'
+import { useFileTreeStore } from '@/stores/files/fileTreeStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import type { FileOpError, FileOpResult, NewEntryKind } from '@shared/files/fileOps'
 import { openFileInWorkspace, reportFileProblem } from './openFile'
 

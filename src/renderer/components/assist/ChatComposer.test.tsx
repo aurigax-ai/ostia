@@ -2,13 +2,18 @@ import '@testing-library/jest-dom/vitest'
 import { registerBuiltinCommands } from '@/commands/builtins'
 import { commands } from '@/commands/registry'
 import { CommandPalette } from '@/components/CommandPalette'
-import { useAssistStore } from '@/stores/assistStore'
-import { currentSessionId, resetChats, startNewSession, useChatStore } from '@/stores/chatStore'
-import { modeFor, resetChatTools } from '@/stores/chatToolsStore'
-import { useLayoutStore } from '@/stores/layoutStore'
-import { useSettingsStore } from '@/stores/settingsStore'
-import { useUIStore } from '@/stores/uiStore'
-import { useWorkspacesStore } from '@/stores/workspacesStore'
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useUIStore } from '@/stores/app/uiStore'
+import { useAssistStore } from '@/stores/assist/assistStore'
+import {
+  currentSessionId,
+  resetChats,
+  startNewSession,
+  useChatStore,
+} from '@/stores/assist/chatStore'
+import { modeFor, resetChatTools } from '@/stores/assist/chatToolsStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type { AssistCatalog, AssistChunk } from '@shared/assist'
 import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'

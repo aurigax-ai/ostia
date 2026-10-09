@@ -1,6 +1,7 @@
+import { resetIds } from '@/layout/tree'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import type { AppSnapshot } from '@shared/types'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { resetIds } from '../layout/tree'
 import { useLayoutStore } from './layoutStore'
 import {
   SAVE_DEBOUNCE_MS,
@@ -8,7 +9,6 @@ import {
   saveSnapshotNow,
   startSnapshotAutosave,
 } from './persistence'
-import { useSettingsStore } from './settingsStore'
 import { useWorkspacesStore } from './workspacesStore'
 
 const save = () => vi.mocked(window.ostia.workspace.save)

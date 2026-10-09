@@ -1,8 +1,8 @@
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import type { QuestionRequest, QuestionState } from '@shared/agents/questions'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAttentionStore } from './attentionStore'
 import { SENT_LINGER_MS, addedQuestions, startQuestions, useQuestionsStore } from './questionsStore'
-import { useSettingsStore } from './settingsStore'
 
 function question(id: string, paneId: string, text: string, at = 1): QuestionRequest {
   return { id, paneId, question: text, context: '', choices: [], mode: 'text', at }

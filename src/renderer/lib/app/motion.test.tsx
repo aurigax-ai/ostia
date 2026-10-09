@@ -1,6 +1,6 @@
 import { readFileSync, readdirSync } from 'node:fs'
 import { join, resolve } from 'node:path'
-import { useSettingsStore } from '@/stores/settingsStore'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import { act, cleanup, renderHook } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { useMotionAttribute, useReducedMotion } from './motion'

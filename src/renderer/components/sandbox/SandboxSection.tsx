@@ -2,8 +2,8 @@ import { ControlRow, SectionHead, SettingsGroup } from '@/components/settings/Se
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { useDict } from '@/i18n/useDict'
-import { useSandboxStore } from '@/stores/sandboxStore'
-import { useSettingsStore } from '@/stores/settingsStore'
+import { useSandboxStore } from '@/stores/app/sandboxStore'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import {
   DEFAULT_PACKAGE_SETTINGS,
   DEFAULT_SWITCHES,

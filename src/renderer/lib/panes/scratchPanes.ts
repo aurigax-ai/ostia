@@ -1,7 +1,7 @@
 import { findPane, paneIds } from '@/layout/tree'
-import { useLayoutStore } from '@/stores/layoutStore'
-import { useSandboxStore } from '@/stores/sandboxStore'
-import { useWorkspacesStore } from '@/stores/workspacesStore'
+import { useSandboxStore } from '@/stores/app/sandboxStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 
 export function scratchPaneIds(): Set<string> {
   const ids = new Set<string>()

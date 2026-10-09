@@ -6,7 +6,7 @@ import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent } from '@/components/ui/tabs'
 import { fmt, useDict } from '@/i18n/useDict'
 import { isMac } from '@/platform'
-import { useSandboxStore } from '@/stores/sandboxStore'
+import { useSandboxStore } from '@/stores/app/sandboxStore'
 import {
   DEFAULT_PACKAGE_SETTINGS,
   type PortsPolicy,

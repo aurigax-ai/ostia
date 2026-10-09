@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { useKeymapStore } from '@/stores/keymapStore'
-import { useSettingsStore } from '@/stores/settingsStore'
+import { useKeymapStore } from '@/stores/app/keymapStore'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import { type ChordSpec, type KeyLike, parseChord } from '@shared/keyboard/chordSpec'
 import {
   NATURAL_TEXT_EDITING,

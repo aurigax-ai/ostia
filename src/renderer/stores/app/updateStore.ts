@@ -1,4 +1,6 @@
+import { currentDict, fmt } from '@/i18n/useDict'
 import { startNewWorkspace } from '@/lib/workspaces/newWorkspace'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { type BuildInfo, sameBuild } from '@shared/app/buildInfo'
 import {
   type InstallMethod,
@@ -11,8 +13,6 @@ import {
 } from '@shared/app/installMethod'
 import type { ReleaseCheckResult, ReleaseInfo } from '@shared/app/releases'
 import { create } from 'zustand'
-import { currentDict, fmt } from '../i18n/useDict'
-import { useWorkspacesStore } from './workspacesStore'
 
 export type ReleaseCheckState = { status: 'idle' } | { status: 'checking' } | ReleaseCheckResult
 

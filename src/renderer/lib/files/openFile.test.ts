@@ -1,7 +1,7 @@
 import { allPanes, findPane, resetIds } from '@/layout/tree'
-import { useEditorRevealStore } from '@/stores/editorRevealStore'
-import { useLayoutStore } from '@/stores/layoutStore'
-import { useWorkspacesStore } from '@/stores/workspacesStore'
+import { useEditorRevealStore } from '@/stores/files/editorRevealStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import {
   openFileInWorkspace,

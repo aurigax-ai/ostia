@@ -1,7 +1,7 @@
 import { findPane } from '@/layout/tree'
 import { workspaceOfPane } from '@/lib/attention/workspaceActivity'
 import { runWhenIdle } from '@/lib/terminal/blockActions'
-import { useLayoutStore } from '@/stores/layoutStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { type AgentResume, resumeCommand } from '@shared/agents/agentResume'
 
 export function resumeFolderMissing(paneId: string): string | undefined {

@@ -2,12 +2,12 @@ import '@testing-library/jest-dom/vitest'
 import { commands } from '@/commands/registry'
 import { ActionConfirmDialog } from '@/components/settings/ActionConfirmDialog'
 import { registerViewCommands } from '@/lib/extensions/views'
-import { useActionConfirmStore } from '@/stores/actionConfirmStore'
-import { useLayoutStore } from '@/stores/layoutStore'
-import { useSettingsStore } from '@/stores/settingsStore'
-import { useUIStore } from '@/stores/uiStore'
-import { useViewsStore } from '@/stores/viewsStore'
-import { type Workspace, useWorkspacesStore } from '@/stores/workspacesStore'
+import { useActionConfirmStore } from '@/stores/agents/actionConfirmStore'
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useUIStore } from '@/stores/app/uiStore'
+import { useViewsStore } from '@/stores/extensions/viewsStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { type Workspace, useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import {
   VIEW_MAX_LIST_ITEMS,
   type ViewInfo,

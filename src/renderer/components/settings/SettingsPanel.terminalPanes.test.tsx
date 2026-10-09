@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest'
-import { useSettingsStore } from '@/stores/settingsStore'
-import { useUIStore } from '@/stores/uiStore'
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useUIStore } from '@/stores/app/uiStore'
 import { KEEP_SHELLS_FEATURE } from '@shared/terminal/keepShells'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'

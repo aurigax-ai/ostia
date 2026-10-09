@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { fmt, useDict } from '@/i18n/useDict'
 import { planAgentMessage, sendToAgent } from '@/lib/agents/agentMessage'
 import type { PickTarget } from '@/lib/agents/pickTargets'
-import { useSettingsStore } from '@/stores/settingsStore'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import { PaperPlaneTiltIcon } from '@phosphor-icons/react'
 import { type KeyboardEvent, useState } from 'react'
 

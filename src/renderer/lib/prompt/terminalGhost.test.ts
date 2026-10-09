@@ -1,4 +1,4 @@
-import type { CommandBlock } from '@/stores/blocksStore'
+import type { CommandBlock } from '@/stores/terminal/blocksStore'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   GHOST_DEBOUNCE_MS,

@@ -1,10 +1,10 @@
+import { currentDict } from '@/i18n/useDict'
 import { isPaneViewed, signalPane } from '@/lib/attention/workspaceActivity'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import type { QuestionReply, QuestionRequest, QuestionState } from '@shared/agents/questions'
 import { wantsDesktopBanner } from '@shared/app/notificationSettings'
 import { create } from 'zustand'
-import { currentDict } from '../i18n/useDict'
 import { useAttentionStore } from './attentionStore'
-import { useSettingsStore } from './settingsStore'
 
 export const SENT_LINGER_MS = 1600
 

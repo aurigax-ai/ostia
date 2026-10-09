@@ -8,7 +8,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { fmt, useDict } from '@/i18n/useDict'
-import { useSandboxStore } from '@/stores/sandboxStore'
+import { useSandboxStore } from '@/stores/app/sandboxStore'
 
 export function SandboxFolderDialog(): JSX.Element {
   const d = useDict()

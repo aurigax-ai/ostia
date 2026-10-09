@@ -1,7 +1,7 @@
 import { toggleAssistFeature, toggleCommandId } from '@/lib/assist/assistFeatures'
+import { useAssistStore } from '@/stores/assist/assistStore'
 import type { Dict } from '@shared/app/dict'
 import { fmt } from '../i18n/useDict'
-import { useAssistStore } from '../stores/assistStore'
 import { type CommandWording, commands, wordedBy } from './registry'
 
 const registered = new Set<string>()

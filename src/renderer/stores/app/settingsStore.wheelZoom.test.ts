@@ -4,13 +4,13 @@ type Store = typeof import('./settingsStore')
 
 async function storeOn(mac: boolean): Promise<Store> {
   vi.resetModules()
-  vi.doMock('../platform', () => ({
+  vi.doMock('@/platform', () => ({
     platform: mac ? 'darwin' : 'linux',
     isMac: mac,
     isLinux: !mac,
   }))
   const store = await import('./settingsStore')
-  vi.doUnmock('../platform')
+  vi.doUnmock('@/platform')
   return store
 }
 

@@ -1,11 +1,11 @@
+import { panelFractions } from '@/layout/panelSize'
+import { findPane, firstPaneId, paneIds } from '@/layout/tree'
+import type { SplitNode } from '@/layout/types'
 import { rememberPanelFractions } from '@/lib/panes/panelSizes'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { installLocalStorage } from '../../../test/mocks/memoryStorage'
-import { panelFractions } from '../layout/panelSize'
-import { findPane, firstPaneId, paneIds } from '../layout/tree'
-import type { SplitNode } from '../layout/types'
+import { installLocalStorage } from '../../../../test/mocks/memoryStorage'
 import { useLayoutStore } from './layoutStore'
-import { useSettingsStore } from './settingsStore'
 
 const layoutOf = () => useLayoutStore.getState().byWorkspace.s1
 const rootSplit = () => layoutOf().root as SplitNode

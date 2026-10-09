@@ -1,6 +1,6 @@
 import { TooltipProvider } from '@/components/ui/tooltip'
-import { useLanguageServersStore } from '@/stores/languageServersStore'
-import { useWorkspacesStore } from '@/stores/workspacesStore'
+import { useLanguageServersStore } from '@/stores/extensions/languageServersStore'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type { LanguageServerInfo, LspLog } from '@shared/languageServers'
 import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'

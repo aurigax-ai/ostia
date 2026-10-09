@@ -1,8 +1,8 @@
 import { findPane } from '@/layout/tree'
 import { formatWindowTitle } from '@/settings/windowTitle'
-import { useLayoutStore } from '@/stores/layoutStore'
-import { useSettingsStore } from '@/stores/settingsStore'
-import { useWorkspacesStore } from '@/stores/workspacesStore'
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { PRODUCT_DISPLAY_NAME } from '@shared/productDisplay'
 import { useEffect } from 'react'
 

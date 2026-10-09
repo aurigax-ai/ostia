@@ -18,7 +18,7 @@ import {
 } from '@/lib/files/viewerHooks'
 import { findStep, matchChord } from '@/lib/keys/chords'
 import { isMac } from '@/platform'
-import { usePdfFindStore } from '@/stores/pdfFindStore'
+import { usePdfFindStore } from '@/stores/files/pdfFindStore'
 import {
   BoundingBoxIcon,
   CaretLeftIcon,

@@ -1,5 +1,5 @@
 import type { ShownChip } from '@/lib/extensions/extensionChips'
-import type { CommandBlock } from '@/stores/blocksStore'
+import type { CommandBlock } from '@/stores/terminal/blocksStore'
 import {
   type CoreChipId,
   type PromptSeparator,

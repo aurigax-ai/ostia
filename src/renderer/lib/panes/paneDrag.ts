@@ -6,8 +6,8 @@ import {
   movePaneToNewWindow,
   moveWorkspaceToNewWindow,
 } from '@/lib/workspaces/windowHandoff'
-import { usePaneDnd } from '@/stores/paneDndStore'
-import { useWorkspacesStore } from '@/stores/workspacesStore'
+import { usePaneDnd } from '@/stores/workspaces/paneDndStore'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type { PanePlacement, ScreenPoint } from '@shared/types'
 import { endedOutside } from './dropZone'
 

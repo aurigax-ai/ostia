@@ -19,7 +19,11 @@ import type { ApprovalAnswer } from '@/lib/assist/chatToolPermissions'
 import { workspaceFolder } from '@/lib/assist/chatTools'
 import { type ToolPartLike, outputText, toolNameOf } from '@/lib/assist/chatTransport'
 import { confirmsGeneratedText } from '@/lib/keys/pasteGate'
-import { type PendingApproval, answerApproval, useChatToolsStore } from '@/stores/chatToolsStore'
+import {
+  type PendingApproval,
+  answerApproval,
+  useChatToolsStore,
+} from '@/stores/assist/chatToolsStore'
 import { BUILTIN_TOOL_ACCESS, isBuiltinChatTool, mcpToolName } from '@shared/assist/chatTools'
 import { useState } from 'react'
 import { ChatEditCard } from './ChatEditCard'

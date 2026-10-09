@@ -1,10 +1,10 @@
 import { commands } from '@/commands/registry'
 import { openSelectionSend } from '@/lib/agents/selectionSenders'
 import { LARGE_FILE_LINES, fileFeatureOptions } from '@/monaco/largeFile'
-import { useArtifactsStore } from '@/stores/artifactsStore'
-import { useEditorStatus } from '@/stores/editorStatusStore'
-import { useLiveSelectionStore } from '@/stores/liveSelectionStore'
-import { useSettingsStore } from '@/stores/settingsStore'
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useArtifactsStore } from '@/stores/files/artifactsStore'
+import { useEditorStatus } from '@/stores/files/editorStatusStore'
+import { useLiveSelectionStore } from '@/stores/terminal/liveSelectionStore'
 import { PAD_MAX_BYTES } from '@shared/artifacts/artifacts'
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -775,7 +775,7 @@ describe('EditorView', () => {
     })
 
     it('ERL-C8 compares my text with the disk, or reloads the disk text', async () => {
-      const { useLayoutStore } = await import('@/stores/layoutStore')
+      const { useLayoutStore } = await import('@/stores/workspaces/layoutStore')
       const openDiff = vi.spyOn(useLayoutStore.getState(), 'openDiff').mockReturnValue('d1')
       await open()
       act(() => fake.state.model?.setValue('my edit'))

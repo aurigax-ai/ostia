@@ -1,8 +1,8 @@
+import { allPanes, findPane } from '@/layout/tree'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { type ArtifactListing, changedArtifacts } from '@shared/artifacts/artifacts'
 import { create } from 'zustand'
-import { allPanes, findPane } from '../layout/tree'
-import { useLayoutStore } from './layoutStore'
-import { useWorkspacesStore } from './workspacesStore'
 
 interface ArtifactsState {
   byWorkspace: Record<string, ArtifactListing>

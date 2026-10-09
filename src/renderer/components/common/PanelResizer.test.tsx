@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest'
 import { FilesPanel } from '@/components/files/FilesPanel'
 import { FILES_WIDTH, PANEL_KEY_STEP, RAIL_WIDTH, panelMaxWidth } from '@/lib/panes/panelWidth'
-import { useUIStore } from '@/stores/uiStore'
+import { useUIStore } from '@/stores/app/uiStore'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { installLocalStorage } from '../../../../test/mocks/memoryStorage'

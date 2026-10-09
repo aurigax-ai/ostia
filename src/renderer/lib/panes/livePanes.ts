@@ -1,5 +1,5 @@
 import { allPanes } from '@/layout/tree'
-import { useLayoutStore } from '@/stores/layoutStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 
 export function livePaneIds(): string[] {
   const ids: string[] = []

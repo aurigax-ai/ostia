@@ -14,7 +14,7 @@ import {
 } from '@/lib/keys/keyChanges'
 import { layerOf } from '@/lib/keys/keySources'
 import { isMac } from '@/platform'
-import { useSettingsStore } from '@/stores/settingsStore'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import { ArrowCounterClockwiseIcon } from '@phosphor-icons/react'
 import { chordText } from '@shared/keyboard/chordSpec'
 import { OSTIA_KEYMAP } from '@shared/keyboard/keyboardPresets'

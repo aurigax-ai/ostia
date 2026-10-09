@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button'
 import { fmt, useDict } from '@/i18n/useDict'
 import { editHunks, hunkCounts } from '@/lib/assist/chatHunks'
 import { type ReviewItem, acceptAll, rejectAll, reviewItems } from '@/lib/assist/chatReview'
-import { useChatToolsStore } from '@/stores/chatToolsStore'
+import { useChatToolsStore } from '@/stores/assist/chatToolsStore'
 import { CaretDownIcon, CaretUpIcon } from '@phosphor-icons/react'
 import { useMemo, useState } from 'react'
 

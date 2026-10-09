@@ -1,6 +1,6 @@
 import type { PaneNode } from '@/layout/types'
 import type { PaneAttention } from '@/lib/attention/attention'
-import type { CommandBlock } from '@/stores/blocksStore'
+import type { CommandBlock } from '@/stores/terminal/blocksStore'
 import type { ResumableAgent } from '@shared/agents/agentResume'
 import type { AttentionState } from '@shared/types'
 

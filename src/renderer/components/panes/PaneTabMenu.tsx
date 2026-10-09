@@ -12,8 +12,8 @@ import { runUserAction } from '@/lib/palette/userActions'
 import { canMovePane, movePaneToNewWindow } from '@/lib/workspaces/windowHandoff'
 import { isMac } from '@/platform'
 import { actionsFor } from '@/settings/actions'
-import { useLayoutStore } from '@/stores/layoutStore'
-import { useSettingsStore } from '@/stores/settingsStore'
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import {
   AppWindowIcon,
   ArrowsInIcon,

@@ -1,4 +1,4 @@
-import { useSettingsStore } from '@/stores/settingsStore'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import { afterEach, describe, expect, it } from 'vitest'
 import {
   CODE_FONT_FALLBACK,

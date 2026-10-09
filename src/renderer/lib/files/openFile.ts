@@ -1,9 +1,9 @@
 import { signalPane } from '@/lib/attention/workspaceActivity'
 import { openKeepingFocus } from '@/lib/panes/callerFocus'
 import { startNewWorkspace } from '@/lib/workspaces/newWorkspace'
-import { useEditorRevealStore } from '@/stores/editorRevealStore'
-import { useLayoutStore } from '@/stores/layoutStore'
-import { useWorkspacesStore } from '@/stores/workspacesStore'
+import { useEditorRevealStore } from '@/stores/files/editorRevealStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type { FileTarget, OpenPlacement, OpenedPane } from '@shared/files/openFiles'
 
 export function openFileInWorkspace(path: string): void {

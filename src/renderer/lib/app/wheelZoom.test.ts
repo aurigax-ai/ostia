@@ -1,4 +1,4 @@
-import { parsePersisted, useSettingsStore } from '@/stores/settingsStore'
+import { parsePersisted, useSettingsStore } from '@/stores/app/settingsStore'
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import {
   activeFontZoom,

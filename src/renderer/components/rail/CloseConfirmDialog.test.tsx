@@ -6,12 +6,12 @@ import {
   requestClosePane,
   requestCloseWorkspace,
 } from '@/lib/workspaces/closeConfirm'
-import { type CommandBlock, useBlocksStore } from '@/stores/blocksStore'
-import { useCloseConfirmStore } from '@/stores/closeConfirmStore'
-import { useEditorStatus } from '@/stores/editorStatusStore'
-import { useLayoutStore } from '@/stores/layoutStore'
-import { useSettingsStore } from '@/stores/settingsStore'
-import { useWorkspacesStore } from '@/stores/workspacesStore'
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useEditorStatus } from '@/stores/files/editorStatusStore'
+import { type CommandBlock, useBlocksStore } from '@/stores/terminal/blocksStore'
+import { useCloseConfirmStore } from '@/stores/workspaces/closeConfirmStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'

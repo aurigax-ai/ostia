@@ -1,12 +1,12 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { chordLabel } from '@/lib/keys/chords'
+import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import type { ExtensionInfo } from '@shared/extensions'
 import type { KeymapLoad } from '@shared/keyboard/keymapFile'
 import type { KeymapInfo } from '@shared/keymap'
 import { act, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { useExtensionsStore } from './extensionsStore'
 import { keymapChoices, keymapProvider, startKeymapSync, useKeymapStore } from './keymapStore'
 import { useSettingsStore } from './settingsStore'
 
@@ -84,7 +84,7 @@ describe('keymapChoices', () => {
   })
 
   it('offers the shipped cmux and iTerm2 keymaps under App shortcuts on macOS only', () => {
-    const dir = join(__dirname, '../../extensions/keymap-macos')
+    const dir = join(__dirname, '../../../extensions/keymap-macos')
     const manifest = JSON.parse(readFileSync(join(dir, 'ostia.json'), 'utf8'))
     const list = [provider(manifest.id, manifest.contributes.keymaps)]
     expect(keymapChoices(list, 'darwin').map((c) => [c.ref, c.label])).toEqual([

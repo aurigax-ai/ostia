@@ -8,7 +8,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { fmt, useDict } from '@/i18n/useDict'
-import { useActionConfirmStore } from '@/stores/actionConfirmStore'
+import { useActionConfirmStore } from '@/stores/agents/actionConfirmStore'
 
 export function ActionConfirmDialog(): JSX.Element {
   const d = useDict()

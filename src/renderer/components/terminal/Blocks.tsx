@@ -4,7 +4,7 @@ import { blockSpan, commandLine, stickyBlock } from '@/lib/terminal/blocks'
 import { createCellBoxCache } from '@/lib/terminal/cellBox'
 import type { OstiaTerminal as Xterm } from '@/lib/terminal/ostiaTerminal'
 import { terminalScreen } from '@/lib/terminal/ostiaTerminal'
-import { useBlocksStore } from '@/stores/blocksStore'
+import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { throttle } from 'es-toolkit'
 import {
   type RefObject,

@@ -1,7 +1,7 @@
 import { findPane } from '@/layout/tree'
-import { useLayoutStore } from '@/stores/layoutStore'
-import { useSandboxStore } from '@/stores/sandboxStore'
-import { type Workspace, useWorkspacesStore } from '@/stores/workspacesStore'
+import { useSandboxStore } from '@/stores/app/sandboxStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { type Workspace, useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 
 export function isAnchored(workspace: Pick<Workspace, 'anchored'>): boolean {
   return workspace.anchored === true

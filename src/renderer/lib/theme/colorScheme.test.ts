@@ -1,8 +1,8 @@
 import { BUILTIN_PLUGINS } from '@/plugins/builtin'
 import type { ColorScheme, Theme } from '@/plugins/types'
-import { usePluginsStore } from '@/stores/pluginsStore'
-import { useSettingsStore } from '@/stores/settingsStore'
-import { useSystemThemeStore } from '@/stores/systemThemeStore'
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useSystemThemeStore } from '@/stores/app/systemThemeStore'
+import { usePluginsStore } from '@/stores/extensions/pluginsStore'
 import { afterEach, describe, expect, it } from 'vitest'
 import { SELECTION_MIN_DISTANCE, selectionVisibility } from './color'
 import {

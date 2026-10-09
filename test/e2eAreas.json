@@ -32,7 +32,7 @@
         "src/renderer/components/sandbox/SandboxSettings.test.tsx",
         "src/renderer/components/sandbox/SandboxViolations.",
         "src/renderer/components/sandbox/WorkspaceSandboxPage.tsx",
-        "src/renderer/stores/sandboxStore.ts"
+        "src/renderer/stores/app/sandboxStore.ts"
       ],
       "specs": ["e2e/sandbox.spec.ts", "e2e/keep-shells-sandbox.spec.ts"]
     },
@@ -56,7 +56,8 @@
         "src/renderer/components/files/RemoteFolderDialog.",
         "src/renderer/lib/files/remoteFileSync.ts",
         "src/renderer/lib/workspaces/sshWorkspace.ts",
-        "src/renderer/stores/remote",
+        "src/renderer/stores/files/remoteFoldersStore.ts",
+        "src/renderer/stores/terminal/remoteCwdStore.ts",
         "test/fixtures/ssh/"
       ],
       "specs": ["e2e/ssh.spec.ts", "e2e/ssh-entry.spec.ts", "e2e/ssh-remote-files.spec.ts"]
@@ -76,8 +77,8 @@
         "src/renderer/lsp/",
         "src/renderer/components/editor/LanguagesSection.tsx",
         "src/renderer/components/editor/LanguageNotice.tsx",
-        "src/renderer/stores/languageServersStore.ts",
-        "src/renderer/stores/languageNoticeStore.ts",
+        "src/renderer/stores/extensions/languageServersStore.ts",
+        "src/renderer/stores/extensions/languageNoticeStore.ts",
         "src/extensions/lsp-",
         "test/fixtures/lsp/",
         "test/fixtures/extensions-lsp/"
@@ -103,8 +104,9 @@
         "src/renderer/lib/files/pdfSearch.",
         "src/renderer/lib/files/pdfText.",
         "src/renderer/lib/files/viewerHooks.ts",
-        "src/renderer/stores/editor",
-        "src/renderer/stores/pdfFindStore.ts",
+        "src/renderer/stores/files/editorRevealStore.",
+        "src/renderer/stores/files/editorStatusStore.",
+        "src/renderer/stores/files/pdfFindStore.ts",
         "src/shared/browser/browserEditorSettings.ts",
         "src/main/files/fsText.ts",
         "src/main/files/fsBinary.ts",
@@ -206,11 +208,11 @@
         "src/renderer/lib/git/gitPanel.ts",
         "src/renderer/lib/workspaces/coreWatch.ts",
         "src/renderer/commands/gitCommands.ts",
-        "src/renderer/stores/gitViewStore.ts",
+        "src/renderer/stores/files/gitViewStore.ts",
         "src/cli/verbs/coreBoards.ts",
         "src/renderer/components/keyboard/ChangesView.tsx",
         "src/renderer/components/editor/DiffView.tsx",
-        "src/renderer/stores/diffStore.ts"
+        "src/renderer/stores/files/diffStore.ts"
       ],
       "specs": [
         "e2e/diff-hidden.spec.ts",
@@ -259,10 +261,10 @@
         "src/renderer/lib/extensions/extensionChips.",
         "src/renderer/lib/extensions/extensionSettingText.",
         "src/renderer/lib/extensions/iconTheme.ts",
-        "src/renderer/stores/extensionsStore.ts",
-        "src/renderer/stores/pluginsStore.ts",
-        "src/renderer/stores/agentOfferStore.ts",
-        "src/renderer/stores/iconThemeStore.ts",
+        "src/renderer/stores/extensions/extensionsStore.ts",
+        "src/renderer/stores/extensions/pluginsStore.ts",
+        "src/renderer/stores/agents/agentOfferStore.ts",
+        "src/renderer/stores/extensions/iconThemeStore.ts",
         "src/cli/hooks/agentHook.ts",
         "test/fixtures/extensions"
       ],
@@ -282,7 +284,7 @@
         "src/shared/extensions/marketplace.ts",
         "src/renderer/components/extensions/BrowseExtensions.tsx",
         "src/renderer/components/extensions/MarketplaceSection.tsx",
-        "src/renderer/stores/marketplaceStore.ts",
+        "src/renderer/stores/extensions/marketplaceStore.ts",
         "marketplace/"
       ],
       "specs": ["e2e/marketplace.spec.ts"]
@@ -382,9 +384,11 @@
         "src/renderer/lib/assist/assistUi.ts",
         "src/renderer/lib/assist/mcpServerForm.ts",
         "src/renderer/lib/assist/askContext.ts",
-        "src/renderer/stores/chat",
-        "src/renderer/stores/assist",
-        "src/renderer/stores/liveSelectionStore.ts",
+        "src/renderer/stores/assist/chatStore.ts",
+        "src/renderer/stores/assist/chatToolsStore.ts",
+        "src/renderer/stores/assist/assistComposerStore.ts",
+        "src/renderer/stores/assist/assistStore.",
+        "src/renderer/stores/terminal/liveSelectionStore.ts",
         "test/fixtures/mcp/",
         "test/fixtures/extensions-assist"
       ],
@@ -438,7 +442,7 @@
         "src/renderer/components/keyboard/KeymapCombo.tsx",
         "src/renderer/components/keyboard/BindingDetail.tsx",
         "src/renderer/components/common/RiskyPasteDialog.tsx",
-        "src/renderer/stores/keymapStore.ts",
+        "src/renderer/stores/app/keymapStore.ts",
         "src/renderer/settings/key"
       ],
       "specs": [
@@ -475,7 +479,7 @@
         "src/shared/privacy/telemetry.ts",
         "src/renderer/components/settings/TelemetryConsentDialog.",
         "src/renderer/components/settings/TelemetryReportsDialog.tsx",
-        "src/renderer/stores/telemetryConsentStore.ts",
+        "src/renderer/stores/app/telemetryConsentStore.ts",
         "src/renderer/lib/app/usageCounts.ts"
       ],
       "specs": ["e2e/telemetry.spec.ts"]
@@ -494,7 +498,7 @@
         "src/renderer/components/shell/UpdateCheck.",
         "src/renderer/components/shell/UpdateConfirmDialog.tsx",
         "src/renderer/components/shell/UpdateNotice.",
-        "src/renderer/stores/updateStore.ts"
+        "src/renderer/stores/app/updateStore.ts"
       ],
       "specs": ["e2e/update-check.spec.ts"]
     },
@@ -531,7 +535,7 @@
         "src/renderer/lib/files/workspaceSymbolSearch.ts",
         "src/renderer/lib/terminal/terminalFileLinks.ts",
         "src/renderer/lib/terminal/terminalLinkActions.ts",
-        "src/renderer/stores/fileTreeStore.ts",
+        "src/renderer/stores/files/fileTreeStore.ts",
         "src/renderer/settings/fileTreeSettings.ts"
       ],
       "specs": [
@@ -564,7 +568,7 @@
         "src/renderer/lib/extensions/views.ts",
         "src/renderer/lib/files/viewerHooks.ts",
         "src/renderer/lib/panes/panelWidth.ts",
-        "src/renderer/stores/viewsStore.ts"
+        "src/renderer/stores/extensions/viewsStore.ts"
       ],
       "specs": ["e2e/views.spec.ts"]
     },
@@ -576,7 +580,7 @@
         "src/renderer/components/palette/WorkflowPicker.tsx",
         "src/renderer/components/palette/SaveWorkflowDialog.tsx",
         "src/renderer/lib/palette/workflows.ts",
-        "src/renderer/stores/workflowsStore.ts"
+        "src/renderer/stores/terminal/workflowsStore.ts"
       ],
       "specs": ["e2e/saved-workflows.spec.ts", "e2e/workflows.spec.ts"]
     },
@@ -669,7 +673,7 @@
         "src/renderer/lib/attention/bell.ts",
         "src/renderer/lib/attention/notificationGroups.ts",
         "src/renderer/lib/attention/pointerView.ts",
-        "src/renderer/stores/attentionStore.ts",
+        "src/renderer/stores/agents/attentionStore.ts",
         "src/renderer/components/agents/NotificationCenter.tsx",
         "src/renderer/components/agents/attentionStyles.ts"
       ],
@@ -688,8 +692,8 @@
         "src/renderer/components/agents/QuestionCard.",
         "src/renderer/components/agents/QuestionNotice.tsx",
         "src/renderer/lib/sidebar/dashboard.ts",
-        "src/renderer/stores/questionsStore.ts",
-        "src/renderer/stores/agentTurnStore.ts"
+        "src/renderer/stores/agents/questionsStore.ts",
+        "src/renderer/stores/terminal/agentTurnStore.ts"
       ],
       "specs": ["e2e/dashboard.spec.ts"]
     },
@@ -704,7 +708,7 @@
         "src/renderer/components/agents/ApprovalActions.tsx",
         "src/renderer/components/agents/ApprovalCard.",
         "src/renderer/components/agents/ApprovalsInbox.tsx",
-        "src/renderer/stores/approvalsStore.ts"
+        "src/renderer/stores/agents/approvalsStore.ts"
       ],
       "specs": ["e2e/approvals.spec.ts", "e2e/agent-reach.spec.ts"]
     },
@@ -716,7 +720,7 @@
         "src/renderer/components/settings/ActionConfirmDialog.tsx",
         "src/renderer/components/settings/ActionsSection.tsx",
         "src/renderer/components/settings/actionIcons.ts",
-        "src/renderer/stores/actionConfirmStore.ts"
+        "src/renderer/stores/agents/actionConfirmStore.ts"
       ],
       "specs": ["e2e/actions.spec.ts"]
     },
@@ -734,8 +738,8 @@
         "src/renderer/lib/workspaces/tabMoveRefusalText.ts",
         "src/renderer/components/shell/DetachedTitleBar.tsx",
         "src/renderer/components/panes/TabMoveMenuItems.tsx",
-        "src/renderer/stores/windowsStore.ts",
-        "src/renderer/stores/originAgentsStore.ts"
+        "src/renderer/stores/workspaces/windowsStore.ts",
+        "src/renderer/stores/agents/originAgentsStore.ts"
       ],
       "specs": [
         "e2e/detached-send.spec.ts",
@@ -761,9 +765,9 @@
         "src/renderer/components/rail/MergeMenuItems.tsx",
         "src/renderer/components/rail/MergeWorkspaces.test.tsx",
         "src/renderer/components/settings/WorkspacesSection.tsx",
-        "src/renderer/stores/mergeConfirmStore.ts",
+        "src/renderer/stores/workspaces/mergeConfirmStore.ts",
         "src/renderer/lib/sidebar/groupPeers.ts",
-        "src/renderer/stores/agentGroupsStore.ts"
+        "src/renderer/stores/agents/agentGroupsStore.ts"
       ],
       "specs": [
         "e2e/group-send.spec.ts",
@@ -782,7 +786,7 @@
         "src/main/platform/userDirsBoot.ts",
         "src/main/platform/oldDirsPrompt.ts",
         "src/renderer/layout/snapshot.ts",
-        "src/renderer/stores/persistence.ts"
+        "src/renderer/stores/workspaces/persistence.ts"
       ],
       "specs": [
         "e2e/session-restore.spec.ts",
@@ -870,8 +874,8 @@
         "src/renderer/lib/prompt/lineEditing.ts",
         "src/renderer/lib/prompt/shellTokens.ts",
         "src/renderer/lib/prompt/vimMode.ts",
-        "src/renderer/stores/blocksStore.ts",
-        "src/renderer/stores/historySearchStore.ts"
+        "src/renderer/stores/terminal/blocksStore.ts",
+        "src/renderer/stores/terminal/historySearchStore.ts"
       ],
       "specs": [
         "e2e/blocks.spec.ts",
@@ -908,9 +912,9 @@
         "src/renderer/lib/panes/panelSizes.ts",
         "src/renderer/lib/terminal/focusNewTerminal.ts",
         "src/renderer/lib/workspaces/closeConfirm.ts",
-        "src/renderer/stores/paneDndStore.ts",
-        "src/renderer/stores/surfaceSlotsStore.ts",
-        "src/renderer/stores/closeConfirmStore.ts",
+        "src/renderer/stores/workspaces/paneDndStore.ts",
+        "src/renderer/stores/workspaces/surfaceSlotsStore.ts",
+        "src/renderer/stores/workspaces/closeConfirmStore.ts",
         "src/shared/workspaces/splitTabs.ts"
       ],
       "specs": [
@@ -958,7 +962,7 @@
         "src/renderer/lib/theme/panelFontFaces.ts",
         "src/renderer/lib/theme/panelTheme.ts",
         "src/renderer/plugins/",
-        "src/renderer/stores/systemThemeStore.ts",
+        "src/renderer/stores/app/systemThemeStore.ts",
         "src/shared/app/themeChoice.ts",
         "src/shared/app/zoom.ts"
       ],
@@ -1072,7 +1076,7 @@
         "src/shared/artifacts/htmlPreview.ts",
         "src/renderer/components/files/ArtifactsSection.tsx",
         "src/renderer/components/editor/HtmlPreview.tsx",
-        "src/renderer/stores/artifactsStore.ts",
+        "src/renderer/stores/files/artifactsStore.ts",
         "src/renderer/lib/files/artifacts.ts",
         "src/renderer/lib/panes/callerFocus.ts",
         "src/renderer/lib/files/revealFolder.ts",
@@ -1090,7 +1094,7 @@
         "src/main/files/openWaits.ts",
         "src/main/files/openFileMethods.ts",
         "src/renderer/lib/files/openWaits.ts",
-        "src/renderer/stores/openWaitsStore.ts",
+        "src/renderer/stores/files/openWaitsStore.ts",
         "src/cli/common/fileArgs.ts"
       ],
       "specs": [

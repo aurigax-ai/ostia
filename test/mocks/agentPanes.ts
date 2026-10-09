@@ -1,5 +1,5 @@
-import { useAttentionStore } from '../../src/renderer/stores/attentionStore'
-import { type CommandBlock, useBlocksStore } from '../../src/renderer/stores/blocksStore'
+import { useAttentionStore } from '../../src/renderer/stores/agents/attentionStore'
+import { type CommandBlock, useBlocksStore } from '../../src/renderer/stores/terminal/blocksStore'
 
 export function runAgentIn(paneIds: readonly string[]): () => void {
   const blocksInit = useBlocksStore.getState()

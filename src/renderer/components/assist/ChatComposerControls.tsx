@@ -9,10 +9,10 @@ import {
 import { fmt, useDict } from '@/i18n/useDict'
 import { CHAT_MODES, type ChatMode } from '@/lib/assist/chatToolPermissions'
 import { cn } from '@/lib/utils'
-import { chatChoices, useAssistStore, useChatModel } from '@/stores/assistStore'
-import { setSessionModel, useChatStore } from '@/stores/chatStore'
-import { useChatMode, useChatToolsStore } from '@/stores/chatToolsStore'
-import { useUIStore } from '@/stores/uiStore'
+import { useUIStore } from '@/stores/app/uiStore'
+import { chatChoices, useAssistStore, useChatModel } from '@/stores/assist/assistStore'
+import { setSessionModel, useChatStore } from '@/stores/assist/chatStore'
+import { useChatMode, useChatToolsStore } from '@/stores/assist/chatToolsStore'
 import {
   CaretDownIcon,
   ChatCircleIcon,

@@ -44,9 +44,9 @@ describe('test/e2eAreas.json', () => {
       'src/renderer/main.tsx',
       'src/renderer/index.css',
       'src/shared/app/dict.ts',
-      'src/renderer/stores/layoutStore.ts',
-      'src/renderer/stores/settingsStore.ts',
-      'src/renderer/stores/workspacesStore.ts',
+      'src/renderer/stores/workspaces/layoutStore.ts',
+      'src/renderer/stores/app/settingsStore.ts',
+      'src/renderer/stores/workspaces/workspacesStore.ts',
     ]) {
       expect(areasOf(hub, declared), hub).toEqual([])
     }

@@ -1,8 +1,8 @@
 import { allPanes } from '@/layout/tree'
 import type { LayoutNode, PaneNode } from '@/layout/types'
-import { useBlocksStore } from '@/stores/blocksStore'
-import { useLayoutStore } from '@/stores/layoutStore'
-import { useSettingsStore } from '@/stores/settingsStore'
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useBlocksStore } from '@/stores/terminal/blocksStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { wakePane } from './hibernationScheduler'
 import { resumeWhenIdle } from './resumeFolder'
 

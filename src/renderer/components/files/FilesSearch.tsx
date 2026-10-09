@@ -5,9 +5,9 @@ import { childPath } from '@/lib/files/fileTree'
 import { openFileAt, openFileInWorkspace } from '@/lib/files/openFile'
 import { type PdfSearchResults, searchPdfs } from '@/lib/files/pdfSearch'
 import { textMatcher } from '@/lib/files/textMatch'
-import { usePdfFindStore } from '@/stores/pdfFindStore'
-import { useSettingsStore } from '@/stores/settingsStore'
-import { useUIStore } from '@/stores/uiStore'
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useUIStore } from '@/stores/app/uiStore'
+import { usePdfFindStore } from '@/stores/files/pdfFindStore'
 import {
   AsteriskIcon,
   MagnifyingGlassIcon,

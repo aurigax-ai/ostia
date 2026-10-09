@@ -3,19 +3,19 @@ import { openKeepingFocus } from '@/lib/panes/callerFocus'
 import { runWhenIdle } from '@/lib/terminal/blockActions'
 import { startOffscreen } from '@/lib/terminal/offscreenStart'
 import { pinTitle } from '@/lib/terminal/pinnedTitles'
+import { useAgentOfferStore } from '@/stores/agents/agentOfferStore'
+import { useSandboxStore } from '@/stores/app/sandboxStore'
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
+import { usePluginsStore } from '@/stores/extensions/pluginsStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type {
   ExtensionInfo,
   ExtensionOpenDiffRequest,
   ExtensionOpenPanelRequest,
 } from '@shared/extensions'
 import type { ProcessTerminalRequest } from '@shared/types'
-import { useAgentOfferStore } from '../stores/agentOfferStore'
-import { useExtensionsStore } from '../stores/extensionsStore'
-import { useLayoutStore } from '../stores/layoutStore'
-import { usePluginsStore } from '../stores/pluginsStore'
-import { useSandboxStore } from '../stores/sandboxStore'
-import { useSettingsStore } from '../stores/settingsStore'
-import { useWorkspacesStore } from '../stores/workspacesStore'
 import { commands } from './registry'
 
 const registered = new Map<string, string>()

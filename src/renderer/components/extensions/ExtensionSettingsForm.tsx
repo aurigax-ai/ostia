@@ -5,7 +5,7 @@ import { Switch } from '@/components/ui/switch'
 import { fmt, useDict, withProductName } from '@/i18n/useDict'
 import { entryTitle, enumValueTitle } from '@/lib/extensions/extensionSettingText'
 import { cn } from '@/lib/utils'
-import { useExtensionsStore } from '@/stores/extensionsStore'
+import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import type { Dict } from '@shared/app/dict'
 import type {
   ExtensionInfo,

@@ -14,8 +14,8 @@ import { allPanes, firstPaneId } from '@/layout/tree'
 import type { PaneNode, SplitNode, TabNode } from '@/layout/types'
 import { tabMark } from '@/lib/attention/attention'
 import { type HiddenTabs, hiddenTabs, revealScroll } from '@/lib/panes/tabRow'
-import { useAttentionStore } from '@/stores/attentionStore'
-import { focusSurface } from '@/stores/surfaceSlotsStore'
+import { useAttentionStore } from '@/stores/agents/attentionStore'
+import { focusSurface } from '@/stores/workspaces/surfaceSlotsStore'
 import { CaretDownIcon } from '@phosphor-icons/react'
 import {
   type ReactNode,

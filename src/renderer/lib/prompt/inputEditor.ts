@@ -1,4 +1,4 @@
-import type { CommandBlock } from '@/stores/blocksStore'
+import type { CommandBlock } from '@/stores/terminal/blocksStore'
 import { resolveLinkPath } from '@shared/files/fileLinks'
 import type { SpecCommand } from '@shared/terminal/completionSpec'
 import type { FsEntry } from '@shared/types'

@@ -10,7 +10,7 @@ import {
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { fmt, useDict } from '@/i18n/useDict'
 import { sendReference } from '@/lib/agents/sendPick'
-import { useAgentOfferStore } from '@/stores/agentOfferStore'
+import { useAgentOfferStore } from '@/stores/agents/agentOfferStore'
 import type { ExtensionAgentOffer } from '@shared/extensions'
 import { useState } from 'react'
 import { stateLabel, useAgentTargets, useNoAgentsText } from './PickSendPanel'

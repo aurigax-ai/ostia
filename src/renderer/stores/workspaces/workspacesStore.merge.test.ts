@@ -1,8 +1,8 @@
+import { paneIds, resetIds, tabsOf } from '@/layout/tree'
+import type { LayoutNode, PaneNode } from '@/layout/types'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import { paneIds, resetIds, tabsOf } from '../layout/tree'
-import type { LayoutNode, PaneNode } from '../layout/types'
 import { useLayoutStore } from './layoutStore'
-import { useSettingsStore } from './settingsStore'
 import { type Workspace, useWorkspacesStore } from './workspacesStore'
 
 const pane = (id: string): PaneNode => ({ type: 'pane', id, title: 'zsh', kind: 'terminal' })

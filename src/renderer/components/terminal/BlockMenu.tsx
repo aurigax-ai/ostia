@@ -7,9 +7,9 @@ import { featureEnabled, useAssistFeature, useChatAvailable } from '@/lib/assist
 import { copyBlock, rerunBlock } from '@/lib/terminal/blockActions'
 import { isIdlePrompt } from '@/lib/terminal/blocks'
 import { terminalFor } from '@/lib/terminal/terminalHandles'
-import { useAssistProvider } from '@/stores/assistStore'
-import { useBlocksStore } from '@/stores/blocksStore'
-import { useWorkflowsStore } from '@/stores/workflowsStore'
+import { useAssistProvider } from '@/stores/assist/assistStore'
+import { useBlocksStore } from '@/stores/terminal/blocksStore'
+import { useWorkflowsStore } from '@/stores/terminal/workflowsStore'
 import {
   ArrowClockwiseIcon,
   BookmarkSimpleIcon,

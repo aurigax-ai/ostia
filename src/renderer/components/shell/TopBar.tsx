@@ -19,9 +19,9 @@ import {
   sshEnabled,
 } from '@/lib/workspaces/sshWorkspace'
 import { isMac } from '@/platform'
-import { useExtensionsStore } from '@/stores/extensionsStore'
-import { useUIStore } from '@/stores/uiStore'
-import { useWorkspacesStore } from '@/stores/workspacesStore'
+import { useUIStore } from '@/stores/app/uiStore'
+import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import {
   CaretDownIcon,
   FlaskIcon,

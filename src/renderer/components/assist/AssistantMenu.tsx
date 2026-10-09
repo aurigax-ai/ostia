@@ -10,9 +10,9 @@ import { featuresInUse, toggleAssistFeature, useChatAvailable } from '@/lib/assi
 import { openChatPane } from '@/lib/assist/chatPane'
 import { useChordLabel } from '@/lib/keys/chords'
 import { isMac } from '@/platform'
-import { useAssistStore, wakeAssist } from '@/stores/assistStore'
-import { useExtensionsStore } from '@/stores/extensionsStore'
-import { useUIStore } from '@/stores/uiStore'
+import { useUIStore } from '@/stores/app/uiStore'
+import { useAssistStore, wakeAssist } from '@/stores/assist/assistStore'
+import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import {
   CaretDownIcon,
   ChatCircleDotsIcon,

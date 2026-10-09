@@ -1,7 +1,7 @@
 import type { CommandContext } from '@/commands/registry'
-import { useLayoutStore } from '@/stores/layoutStore'
-import { useSandboxStore } from '@/stores/sandboxStore'
-import { useWorkspacesStore } from '@/stores/workspacesStore'
+import { useSandboxStore } from '@/stores/app/sandboxStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import {
   type BrowserOpener,
   type BrowserProfile,

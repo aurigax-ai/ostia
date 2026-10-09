@@ -1,5 +1,5 @@
-import { useLayoutStore } from '@/stores/layoutStore'
-import { useWorkspacesStore } from '@/stores/workspacesStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { resumeOnActivation } from './autoResume'
 
 const HUMAN_INPUT = ['pointerdown', 'mousedown', 'click', 'keydown', 'keyup'] as const

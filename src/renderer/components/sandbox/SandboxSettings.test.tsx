@@ -1,6 +1,6 @@
 import { PRODUCT_DISPLAY_NAME } from '@shared/productDisplay'
 import '@testing-library/jest-dom/vitest'
-import { useSettingsStore } from '@/stores/settingsStore'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import {
   DEFAULT_CONTROLS,
   type SandboxFixedPolicy,

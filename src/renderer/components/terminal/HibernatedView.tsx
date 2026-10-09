@@ -11,7 +11,7 @@ import {
   useReadOnlyTerminalFont,
 } from '@/lib/terminal/readOnlyTerminal'
 import { isMac } from '@/platform'
-import { useSettingsStore } from '@/stores/settingsStore'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import { MoonIcon, PlayIcon } from '@phosphor-icons/react'
 import type { AgentResume } from '@shared/agents/agentResume'
 import { FitAddon } from '@xterm/addon-fit'

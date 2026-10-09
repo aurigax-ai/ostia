@@ -5,7 +5,7 @@ import { fmt, useDict } from '@/i18n/useDict'
 import { type ChipCatalogEntry, chipAction } from '@/lib/extensions/extensionChips'
 import type { ResolvedChip } from '@/lib/prompt/promptChips'
 import { promptLine } from '@/lib/prompt/promptChips'
-import { useUIStore } from '@/stores/uiStore'
+import { useUIStore } from '@/stores/app/uiStore'
 import {
   CalendarBlankIcon,
   CheckCircleIcon,

@@ -1,13 +1,13 @@
 import '@testing-library/jest-dom/vitest'
 import type { ApprovalAnswer } from '@/lib/assist/chatToolPermissions'
 import { decideTool } from '@/lib/assist/chatToolPermissions'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import {
   type PendingApproval,
   requestApproval,
   resetChatTools,
   useChatToolsStore,
-} from '@/stores/chatToolsStore'
-import { useSettingsStore } from '@/stores/settingsStore'
+} from '@/stores/assist/chatToolsStore'
 import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'

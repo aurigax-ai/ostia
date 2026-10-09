@@ -1,8 +1,8 @@
+import { firstPaneId } from '@/layout/tree'
+import type { SplitNode } from '@/layout/types'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
-import { firstPaneId } from '../layout/tree'
-import type { SplitNode } from '../layout/types'
 import { useLayoutStore } from './layoutStore'
-import { useSettingsStore } from './settingsStore'
 
 const layoutOf = () => useLayoutStore.getState().byWorkspace.s1
 

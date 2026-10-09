@@ -1,4 +1,4 @@
-import { useLayoutStore } from '@/stores/layoutStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { isTitlePinned } from './pinnedTitles'
 import { terminalTitle } from './terminalTitle'
 

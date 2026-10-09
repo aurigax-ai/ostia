@@ -1,8 +1,8 @@
+import { useLiveSelectionStore } from '@/stores/terminal/liveSelectionStore'
 import { CHAT_CONTEXT_TEXT_MAX } from '@shared/assist'
 import { debounce } from 'es-toolkit'
 import type * as monaco from 'monaco-editor'
 import { type RefObject, useEffect } from 'react'
-import { useLiveSelectionStore } from '../stores/liveSelectionStore'
 
 export const LIVE_SELECTION_DELAY_MS = 150
 

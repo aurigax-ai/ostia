@@ -4,7 +4,7 @@ import {
   type FontSurface,
   type SurfaceFont,
   useSettingsStore,
-} from '@/stores/settingsStore'
+} from '@/stores/app/settingsStore'
 import { ZOOM_DEFAULT } from '@shared/app/zoom'
 
 const ZOOMABLE_SURFACES: readonly FontSurface[] = ['terminal', 'editor']

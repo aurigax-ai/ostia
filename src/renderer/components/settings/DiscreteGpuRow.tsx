@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button'
 import { fmt, useDict } from '@/i18n/useDict'
-import { useSettingsStore } from '@/stores/settingsStore'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import { InfoIcon } from '@phosphor-icons/react'
 import {
   DISCRETE_GPU_FEATURE,

@@ -6,10 +6,10 @@ import {
   requestApproval,
   resetChatTools,
   useChatToolsStore,
-} from '@/stores/chatToolsStore'
-import { useDiffStore } from '@/stores/diffStore'
-import { useLayoutStore } from '@/stores/layoutStore'
-import { useWorkspacesStore } from '@/stores/workspacesStore'
+} from '@/stores/assist/chatToolsStore'
+import { useDiffStore } from '@/stores/files/diffStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'

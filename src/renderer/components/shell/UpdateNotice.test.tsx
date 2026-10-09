@@ -1,4 +1,4 @@
-import { useUpdateStore } from '@/stores/updateStore'
+import { useUpdateStore } from '@/stores/app/updateStore'
 import type { InstallMethod, ReleaseState } from '@shared/app/installMethod'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'

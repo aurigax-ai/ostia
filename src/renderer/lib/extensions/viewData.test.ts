@@ -1,5 +1,5 @@
 import type { LayoutNode } from '@/layout/types'
-import type { Workspace } from '@/stores/workspacesStore'
+import type { Workspace } from '@/stores/workspaces/workspacesStore'
 import type { ExtensionSidebarItem, WorkspaceChip } from '@shared/extensions'
 import type { NotificationEntry } from '@shared/types'
 import { describe, expect, it } from 'vitest'

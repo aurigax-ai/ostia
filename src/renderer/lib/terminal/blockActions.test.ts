@@ -1,4 +1,4 @@
-import { useBlocksStore } from '@/stores/blocksStore'
+import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import type { Terminal } from '@xterm/xterm'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { copyBlock, insertCommand, rerunBlock, runWhenIdle, stepBlock } from './blockActions'

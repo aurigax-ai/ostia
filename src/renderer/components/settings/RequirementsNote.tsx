@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button'
 import { fmt, useDict } from '@/i18n/useDict'
-import { useWorkspacesStore } from '@/stores/workspacesStore'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { InfoIcon } from '@phosphor-icons/react'
 import type { Dict } from '@shared/app/dict'
 import type { MissingRequirement, RequirementsReport } from '@shared/app/systemRequirements'

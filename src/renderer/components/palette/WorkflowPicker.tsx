@@ -22,8 +22,8 @@ import { useDict } from '@/i18n/useDict'
 import { deliverCommand } from '@/lib/palette/workflows'
 import { canTypeInto } from '@/lib/terminal/blockActions'
 import { isIdlePrompt } from '@/lib/terminal/blocks'
-import { useBlocksStore } from '@/stores/blocksStore'
-import { useWorkflowsStore } from '@/stores/workflowsStore'
+import { useBlocksStore } from '@/stores/terminal/blocksStore'
+import { useWorkflowsStore } from '@/stores/terminal/workflowsStore'
 import {
   type WorkflowArgument,
   type WorkflowEntry,

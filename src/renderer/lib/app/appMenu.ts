@@ -1,9 +1,9 @@
 import { type CommandDef, commandWording, commands } from '@/commands/registry'
 import { currentDict } from '@/i18n/useDict'
 import { chordOf, onBindingsChange } from '@/lib/keys/chords'
-import { usePluginsStore } from '@/stores/pluginsStore'
-import { useSettingsStore } from '@/stores/settingsStore'
-import { useUIStore } from '@/stores/uiStore'
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useUIStore } from '@/stores/app/uiStore'
+import { usePluginsStore } from '@/stores/extensions/pluginsStore'
 import {
   APP_MENU_SECTIONS,
   type AppMenuEntry,

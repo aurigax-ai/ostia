@@ -1,8 +1,8 @@
 import { IconButton } from '@/components/common/IconButton'
 import { fmt, useDict } from '@/i18n/useDict'
-import { useApprovalsStore } from '@/stores/approvalsStore'
-import { useQuestionsStore } from '@/stores/questionsStore'
-import { useUIStore } from '@/stores/uiStore'
+import { useApprovalsStore } from '@/stores/agents/approvalsStore'
+import { useQuestionsStore } from '@/stores/agents/questionsStore'
+import { useUIStore } from '@/stores/app/uiStore'
 import { SquaresFourIcon } from '@phosphor-icons/react'
 
 export function useNeedsYouCount(): number {

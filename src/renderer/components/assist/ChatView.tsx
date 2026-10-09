@@ -89,7 +89,9 @@ import {
 import { openFileAt } from '@/lib/files/openFile'
 import { openSidebarUrl } from '@/lib/sidebar/sidebarItems'
 import { cn } from '@/lib/utils'
-import { useChatModel, wakeAssist } from '@/stores/assistStore'
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useUIStore } from '@/stores/app/uiStore'
+import { useChatModel, wakeAssist } from '@/stores/assist/assistStore'
 import {
   type ChatNotice,
   chatFor,
@@ -103,12 +105,10 @@ import {
   saveSession,
   startNewSession,
   useChatStore,
-} from '@/stores/chatStore'
-import { refreshSkills, useChatToolsStore } from '@/stores/chatToolsStore'
-import { useLiveSelectionStore } from '@/stores/liveSelectionStore'
-import { useSettingsStore } from '@/stores/settingsStore'
-import { useUIStore } from '@/stores/uiStore'
-import { useWorkspacesStore } from '@/stores/workspacesStore'
+} from '@/stores/assist/chatStore'
+import { refreshSkills, useChatToolsStore } from '@/stores/assist/chatToolsStore'
+import { useLiveSelectionStore } from '@/stores/terminal/liveSelectionStore'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { useChat } from '@ai-sdk/react'
 import {
   ArrowClockwiseIcon,

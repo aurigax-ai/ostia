@@ -1,7 +1,7 @@
 import { absoluteTime, relativeTime, shortSha } from '@/lib/git/gitView'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import { type GitBlameData, isUncommitted } from '@shared/boards/git'
 import { useDict } from '../../i18n/useDict'
-import { useSettingsStore } from '../../stores/settingsStore'
 
 export function BlamePage({ data }: { data: GitBlameData }): JSX.Element {
   const t = useDict().git

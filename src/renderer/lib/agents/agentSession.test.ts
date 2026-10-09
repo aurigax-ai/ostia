@@ -1,5 +1,5 @@
 import { createPane } from '@/layout/tree'
-import type { CommandBlock } from '@/stores/blocksStore'
+import type { CommandBlock } from '@/stores/terminal/blocksStore'
 import { describe, expect, it } from 'vitest'
 import { agentSession, sessionTitle } from './agentSession'
 

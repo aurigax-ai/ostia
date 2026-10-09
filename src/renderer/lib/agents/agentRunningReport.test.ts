@@ -1,6 +1,6 @@
 import type { PaneNode } from '@/layout/types'
-import { useBlocksStore } from '@/stores/blocksStore'
-import { useLayoutStore } from '@/stores/layoutStore'
+import { useBlocksStore } from '@/stores/terminal/blocksStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { startAgentRunningReport } from './agentRunningReport'
 

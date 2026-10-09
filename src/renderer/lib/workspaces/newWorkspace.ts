@@ -1,9 +1,13 @@
 import { findPane } from '@/layout/tree'
-import { useLayoutStore } from '@/stores/layoutStore'
-import { useSandboxStore } from '@/stores/sandboxStore'
-import { useSettingsStore } from '@/stores/settingsStore'
-import { useWindowsStore } from '@/stores/windowsStore'
-import { nameFromWorkDir, nextWorkspaceId, useWorkspacesStore } from '@/stores/workspacesStore'
+import { useSandboxStore } from '@/stores/app/sandboxStore'
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { useWindowsStore } from '@/stores/workspaces/windowsStore'
+import {
+  nameFromWorkDir,
+  nextWorkspaceId,
+  useWorkspacesStore,
+} from '@/stores/workspaces/workspacesStore'
 import { codeName } from './codeName'
 
 export function newWorkspaceDir(

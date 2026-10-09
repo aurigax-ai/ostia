@@ -1,5 +1,5 @@
 import { fmt, useDict } from '@/i18n/useDict'
-import { enabledViews, useViewsStore } from '@/stores/viewsStore'
+import { enabledViews, useViewsStore } from '@/stores/extensions/viewsStore'
 import { CaretDownIcon, CaretRightIcon } from '@phosphor-icons/react'
 import { DeclarativeView, type RenderableView } from './DeclarativeView'
 import { viewIcon } from './viewIcons'

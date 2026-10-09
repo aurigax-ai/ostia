@@ -1,9 +1,9 @@
 import { registerBuiltinCommands } from '@/commands/builtins'
 import { commands } from '@/commands/registry'
 import { findPane, paneIds, splitTabOfPane, tabsOfPane } from '@/layout/tree'
-import { useLayoutStore } from '@/stores/layoutStore'
-import { useSandboxStore } from '@/stores/sandboxStore'
-import { resetWorkspaceIds, useWorkspacesStore } from '@/stores/workspacesStore'
+import { useSandboxStore } from '@/stores/app/sandboxStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { resetWorkspaceIds, useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type { LifecycleEvent } from '@shared/types'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import {

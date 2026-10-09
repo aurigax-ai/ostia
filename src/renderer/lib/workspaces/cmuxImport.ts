@@ -9,11 +9,15 @@ import {
   tabsOf,
 } from '@/layout/tree'
 import type { LayoutNode, PaneNode } from '@/layout/types'
-import { useCmuxImportStore } from '@/stores/cmuxImportStore'
-import { isRestorable } from '@/stores/persistence'
-import { useSandboxStore } from '@/stores/sandboxStore'
-import { useWindowsStore } from '@/stores/windowsStore'
-import { nameFromWorkDir, nextWorkspaceId, useWorkspacesStore } from '@/stores/workspacesStore'
+import { useSandboxStore } from '@/stores/app/sandboxStore'
+import { useCmuxImportStore } from '@/stores/workspaces/cmuxImportStore'
+import { isRestorable } from '@/stores/workspaces/persistence'
+import { useWindowsStore } from '@/stores/workspaces/windowsStore'
+import {
+  nameFromWorkDir,
+  nextWorkspaceId,
+  useWorkspacesStore,
+} from '@/stores/workspaces/workspacesStore'
 import type { SnapshotWorkspace } from '@shared/types'
 import type {
   CmuxImportReport,

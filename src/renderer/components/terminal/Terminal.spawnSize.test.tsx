@@ -4,7 +4,7 @@ import {
   resetOffscreenStartForTests,
   startOffscreen,
 } from '@/lib/terminal/offscreenStart'
-import { useSettingsStore } from '@/stores/settingsStore'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import { act, cleanup, render, waitFor } from '@testing-library/react'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { TerminalView } from './Terminal'

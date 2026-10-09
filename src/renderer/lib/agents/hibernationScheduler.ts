@@ -2,8 +2,8 @@ import { allPanes, findPane } from '@/layout/tree'
 import { countUsage } from '@/lib/app/usageCounts'
 import { paneActivityAt } from '@/lib/attention/paneActivity'
 import { isPaneVisible, workspaceOfPane } from '@/lib/attention/workspaceActivity'
-import { useLayoutStore } from '@/stores/layoutStore'
-import { clampIdleSeconds, clampMaxLive, useSettingsStore } from '@/stores/settingsStore'
+import { clampIdleSeconds, clampMaxLive, useSettingsStore } from '@/stores/app/settingsStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import {
   type AgentBusyReason,
   type HibernateOutcome,

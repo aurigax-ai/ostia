@@ -1,5 +1,5 @@
-import { useAssistStore } from '@/stores/assistStore'
-import { useExtensionsStore } from '@/stores/extensionsStore'
+import { useAssistStore } from '@/stores/assist/assistStore'
+import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import type { ExtensionInfo } from '@shared/extensions'
 import { PRODUCT_DISPLAY_NAME } from '@shared/productDisplay'
 import { render, screen, waitFor } from '@testing-library/react'

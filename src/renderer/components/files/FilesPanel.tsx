@@ -3,7 +3,7 @@ import { useDict } from '@/i18n/useDict'
 import { matchChord } from '@/lib/keys/chords'
 import { FILES_WIDTH } from '@/lib/panes/panelWidth'
 import { isMac } from '@/platform'
-import { useUIStore } from '@/stores/uiStore'
+import { useUIStore } from '@/stores/app/uiStore'
 import type { KeyboardEvent } from 'react'
 import { FilesView } from './FilesView'
 

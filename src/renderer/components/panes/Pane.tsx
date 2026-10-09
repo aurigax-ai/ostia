@@ -21,13 +21,13 @@ import {
 } from '@/lib/panes/paneDrag'
 import { HOVER_FOCUS_DELAY_MS, canFocusOnHover } from '@/lib/terminal/hoverFocus'
 import { cn } from '@/lib/utils'
-import { useApprovalsStore } from '@/stores/approvalsStore'
-import { useAttentionStore } from '@/stores/attentionStore'
-import { usePaneDnd } from '@/stores/paneDndStore'
-import { useQuestionsStore } from '@/stores/questionsStore'
-import { useSettingsStore } from '@/stores/settingsStore'
-import { focusSurface } from '@/stores/surfaceSlotsStore'
-import { useWorkspacesStore } from '@/stores/workspacesStore'
+import { useApprovalsStore } from '@/stores/agents/approvalsStore'
+import { useAttentionStore } from '@/stores/agents/attentionStore'
+import { useQuestionsStore } from '@/stores/agents/questionsStore'
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { usePaneDnd } from '@/stores/workspaces/paneDndStore'
+import { focusSurface } from '@/stores/workspaces/surfaceSlotsStore'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import {
   GlobeIcon,
   LockSimpleIcon,

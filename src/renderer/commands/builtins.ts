@@ -67,6 +67,25 @@ import {
   canMoveWorkspace,
   moveWorkspaceTo,
 } from '@/lib/workspaces/workspaceProjects'
+import { useAttentionStore } from '@/stores/agents/attentionStore'
+import { useSandboxStore } from '@/stores/app/sandboxStore'
+import {
+  type InputMode,
+  type SettingChange,
+  getByPath,
+  useSettingsStore,
+} from '@/stores/app/settingsStore'
+import { useUIStore } from '@/stores/app/uiStore'
+import { useUpdateStore } from '@/stores/app/updateStore'
+import { useArtifactsStore } from '@/stores/files/artifactsStore'
+import { useAgentTurnStore } from '@/stores/terminal/agentTurnStore'
+import { useBlocksStore } from '@/stores/terminal/blocksStore'
+import { useHistorySearchStore } from '@/stores/terminal/historySearchStore'
+import { useHibernateSkippedStore } from '@/stores/workspaces/hibernateSkippedStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { saveSnapshotNow } from '@/stores/workspaces/persistence'
+import type { WorkspaceKind, WorkspaceState } from '@/stores/workspaces/workspacesStore'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { type AgentResume, resumeCommand } from '@shared/agents/agentResume'
 import { wantsDesktopBanner } from '@shared/app/notificationSettings'
 import { stepZoom } from '@shared/app/zoom'
@@ -97,25 +116,6 @@ import type { Direction, SurfaceKind } from '../layout/types'
 import { isMac } from '../platform'
 import { keymapSettingValue, terminalKeymapSettingValue } from '../settings/keymapSetting'
 import { settingsSchemaAt } from '../settings/settingsSchema'
-import { useAgentTurnStore } from '../stores/agentTurnStore'
-import { useArtifactsStore } from '../stores/artifactsStore'
-import { useAttentionStore } from '../stores/attentionStore'
-import { useBlocksStore } from '../stores/blocksStore'
-import { useHibernateSkippedStore } from '../stores/hibernateSkippedStore'
-import { useHistorySearchStore } from '../stores/historySearchStore'
-import { useLayoutStore } from '../stores/layoutStore'
-import { saveSnapshotNow } from '../stores/persistence'
-import { useSandboxStore } from '../stores/sandboxStore'
-import {
-  type InputMode,
-  type SettingChange,
-  getByPath,
-  useSettingsStore,
-} from '../stores/settingsStore'
-import { useUIStore } from '../stores/uiStore'
-import { useUpdateStore } from '../stores/updateStore'
-import type { WorkspaceKind, WorkspaceState } from '../stores/workspacesStore'
-import { useWorkspacesStore } from '../stores/workspacesStore'
 import { registerBrowserCommands } from './browserCommands'
 import { type CoreCommandId, registerCore } from './core'
 import { registerGitCommands } from './gitCommands'

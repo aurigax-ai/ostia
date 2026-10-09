@@ -1,8 +1,8 @@
+import { useBlocksStore } from '@/stores/terminal/blocksStore'
+import { useRemoteCwdStore } from '@/stores/terminal/remoteCwdStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { LayoutNode } from '../layout/types'
-import { useBlocksStore } from '../stores/blocksStore'
-import { useLayoutStore } from '../stores/layoutStore'
-import { useRemoteCwdStore } from '../stores/remoteCwdStore'
 import { wireTerminalStateBridge } from './terminalStateBridge'
 
 const blocks = () => useBlocksStore.getState()

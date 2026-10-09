@@ -1,9 +1,13 @@
 import { allPanes, findPane, findSplitTab, tabIdOf, takeTab } from '@/layout/tree'
 import type { PaneNode } from '@/layout/types'
-import { useLayoutStore } from '@/stores/layoutStore'
-import { useSandboxStore } from '@/stores/sandboxStore'
-import { focusSurfaceWhenReady } from '@/stores/surfaceSlotsStore'
-import { type Workspace, type WorkspaceKind, useWorkspacesStore } from '@/stores/workspacesStore'
+import { useSandboxStore } from '@/stores/app/sandboxStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { focusSurfaceWhenReady } from '@/stores/workspaces/surfaceSlotsStore'
+import {
+  type Workspace,
+  type WorkspaceKind,
+  useWorkspacesStore,
+} from '@/stores/workspaces/workspacesStore'
 
 export type TabMoveRefusal = 'same' | 'unknown' | 'manager' | 'scratch' | 'sandbox'
 

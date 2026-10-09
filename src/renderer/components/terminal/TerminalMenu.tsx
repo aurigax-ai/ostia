@@ -3,7 +3,7 @@ import { ContextMenu, ContextMenuSeparator, ContextMenuTrigger } from '@/compone
 import { useDict } from '@/i18n/useDict'
 import { clearKeepingScrollback } from '@/lib/terminal/clearTerminal'
 import type { OstiaTerminal as Xterm } from '@/lib/terminal/ostiaTerminal'
-import { useBlocksStore } from '@/stores/blocksStore'
+import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { BroomIcon, ClipboardTextIcon, CopyIcon, SelectionAllIcon } from '@phosphor-icons/react'
 import { type MutableRefObject, type ReactElement, useState } from 'react'
 

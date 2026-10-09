@@ -1,7 +1,7 @@
 import { ASSIST_COMPOSE_COMMAND } from '@/commands/assistCompose'
 import { commands } from '@/commands/registry'
-import { useUIStore } from '@/stores/uiStore'
-import { useWorkspacesStore } from '@/stores/workspacesStore'
+import { useUIStore } from '@/stores/app/uiStore'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type { AssistOpenUiRequest } from '@shared/assist'
 import { openChatPane } from './chatPane'
 

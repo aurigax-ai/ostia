@@ -21,8 +21,8 @@ import {
   newRow,
   serverFromDraft,
 } from '@/lib/assist/mcpServerForm'
-import { refreshMcp } from '@/stores/chatToolsStore'
-import { useSettingsStore } from '@/stores/settingsStore'
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { refreshMcp } from '@/stores/assist/chatToolsStore'
 import { PlusIcon, XIcon } from '@phosphor-icons/react'
 import type { McpServerSettings, McpTransportKind } from '@shared/assist/chatTools'
 import { type FormEvent, useEffect, useId, useState } from 'react'

@@ -1,5 +1,5 @@
-import { useSettingsStore } from '@/stores/settingsStore'
-import { useUpdateStore } from '@/stores/updateStore'
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useUpdateStore } from '@/stores/app/updateStore'
 import type { InstallMethod } from '@shared/app/installMethod'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'

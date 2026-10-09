@@ -15,9 +15,9 @@ import {
 } from '@/lib/keys/keyChanges'
 import { terminalKeymapOf } from '@/lib/keys/keyPresets'
 import { isMac, platform } from '@/platform'
-import { useExtensionsStore } from '@/stores/extensionsStore'
-import { appKeymap, keymapChoices, useKeymapStore } from '@/stores/keymapStore'
-import { useSettingsStore } from '@/stores/settingsStore'
+import { appKeymap, keymapChoices, useKeymapStore } from '@/stores/app/keymapStore'
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import { ArrowRightIcon, CaretRightIcon } from '@phosphor-icons/react'
 import type { KeybindingMap } from '@shared/keyboard/chordSpec'
 import {

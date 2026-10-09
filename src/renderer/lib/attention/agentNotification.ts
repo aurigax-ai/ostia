@@ -1,7 +1,7 @@
 import { currentDict } from '@/i18n/useDict'
 import { findPane } from '@/layout/tree'
-import { useLayoutStore } from '@/stores/layoutStore'
-import { useSettingsStore } from '@/stores/settingsStore'
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { wantsDesktopBanner } from '@shared/app/notificationSettings'
 
 function paneTitle(paneId: string): string | undefined {

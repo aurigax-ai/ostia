@@ -1,6 +1,6 @@
 import { Input } from '@/components/ui/input'
 import { useDict } from '@/i18n/useDict'
-import { useSettingsStore } from '@/stores/settingsStore'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import {
   type AutoSaveMode,
   DIFF_LAYOUTS,

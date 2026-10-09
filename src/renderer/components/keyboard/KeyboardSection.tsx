@@ -53,9 +53,9 @@ import {
   sendActionKey,
 } from '@/lib/keys/presetDiff'
 import { isMac, platform } from '@/platform'
-import { useExtensionsStore } from '@/stores/extensionsStore'
-import { appKeymap, keymapChoices, useKeymapStore } from '@/stores/keymapStore'
-import { useSettingsStore } from '@/stores/settingsStore'
+import { appKeymap, keymapChoices, useKeymapStore } from '@/stores/app/keymapStore'
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import {
   ArrowCounterClockwiseIcon,
   MagnifyingGlassIcon,

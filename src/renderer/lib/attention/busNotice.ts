@@ -1,5 +1,5 @@
 import { currentDict, fmt } from '@/i18n/useDict'
-import { useSettingsStore } from '@/stores/settingsStore'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import { busLabel, busPreview } from '@shared/agents/busMessages'
 import { wantsDesktopBanner } from '@shared/app/notificationSettings'
 import { isPaneViewed, signalPane } from './workspaceActivity'

@@ -1,6 +1,6 @@
 import { ItemDescription, ItemTitle } from '@/components/ui/item'
 import { TooltipProvider } from '@/components/ui/tooltip'
-import { useSettingsStore } from '@/stores/settingsStore'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import { act, cleanup, renderHook, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createRef } from 'react'

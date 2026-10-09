@@ -1,9 +1,9 @@
 import { signalPane } from '@/lib/attention/workspaceActivity'
 import { canTypeInto } from '@/lib/terminal/blockActions'
 import { terminalFor } from '@/lib/terminal/terminalHandles'
-import { useAttentionStore } from '@/stores/attentionStore'
-import { useBlocksStore } from '@/stores/blocksStore'
-import { useSettingsStore } from '@/stores/settingsStore'
+import { useAttentionStore } from '@/stores/agents/attentionStore'
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import {
   type PickCapture,
   type PickSendResult,

@@ -1,7 +1,7 @@
 import { currentDict } from '@/i18n/useDict'
-import { type GitPage, useGitViewStore } from '@/stores/gitViewStore'
-import { useLayoutStore } from '@/stores/layoutStore'
-import { useUIStore } from '@/stores/uiStore'
+import { useUIStore } from '@/stores/app/uiStore'
+import { type GitPage, useGitViewStore } from '@/stores/files/gitViewStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 
 export function openGit(workspaceId: string, page: GitPage, file?: string): string | null {
   useUIStore.getState().showWorkspaces()

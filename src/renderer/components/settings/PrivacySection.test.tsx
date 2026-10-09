@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest'
-import { useSettingsStore } from '@/stores/settingsStore'
-import { useTelemetryConsentStore } from '@/stores/telemetryConsentStore'
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useTelemetryConsentStore } from '@/stores/app/telemetryConsentStore'
 import { en } from '@shared/app/dict'
 import { DEFAULT_TELEMETRY_SETTINGS, TELEMETRY_CATEGORIES } from '@shared/privacy/telemetry'
 import { PRODUCT_DISPLAY_NAME } from '@shared/productDisplay'

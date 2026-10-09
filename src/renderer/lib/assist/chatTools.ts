@@ -1,6 +1,6 @@
 import { openFileAt } from '@/lib/files/openFile'
 import { openSidebarUrl } from '@/lib/sidebar/sidebarItems'
-import { useBlocksStore } from '@/stores/blocksStore'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import {
   type ApprovalDetail,
   grantsFor,
@@ -11,10 +11,10 @@ import {
   requestApproval,
   standingGrants,
   useChatToolsStore,
-} from '@/stores/chatToolsStore'
-import { useEditorStatus } from '@/stores/editorStatusStore'
-import { useSettingsStore } from '@/stores/settingsStore'
-import { useWorkspacesStore } from '@/stores/workspacesStore'
+} from '@/stores/assist/chatToolsStore'
+import { useEditorStatus } from '@/stores/files/editorStatusStore'
+import { useBlocksStore } from '@/stores/terminal/blocksStore'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { CHAT_TOOL_DESCRIPTION_MAX, type ChatToolSpec } from '@shared/assist'
 import { parseEdits } from '@shared/assist/chatEdits'
 import {

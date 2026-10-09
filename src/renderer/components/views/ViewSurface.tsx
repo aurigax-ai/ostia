@@ -1,8 +1,8 @@
 import { Button } from '@/components/ui/button'
 import { Empty, EmptyDescription, EmptyHeader } from '@/components/ui/empty'
 import { useDict } from '@/i18n/useDict'
-import { useUIStore } from '@/stores/uiStore'
-import { useViewsStore } from '@/stores/viewsStore'
+import { useUIStore } from '@/stores/app/uiStore'
+import { useViewsStore } from '@/stores/extensions/viewsStore'
 import { DeclarativeView } from './DeclarativeView'
 
 export function ViewSurface({

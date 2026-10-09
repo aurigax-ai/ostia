@@ -22,10 +22,10 @@ import {
   workspaceTerminals,
 } from '@/lib/assist/chatActions'
 import { confirmsGeneratedText } from '@/lib/keys/pasteGate'
-import { useBlocksStore } from '@/stores/blocksStore'
-import { useLayoutStore } from '@/stores/layoutStore'
-import { useWorkflowsStore } from '@/stores/workflowsStore'
-import { useWorkspacesStore } from '@/stores/workspacesStore'
+import { useBlocksStore } from '@/stores/terminal/blocksStore'
+import { useWorkflowsStore } from '@/stores/terminal/workflowsStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import {
   BookmarkSimpleIcon,
   CheckIcon,

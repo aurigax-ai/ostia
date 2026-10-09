@@ -51,8 +51,6 @@ import {
   TERMINAL_RENDERERS,
 } from '@/settings/terminalPaneSettings'
 import { WINDOW_TITLE_MAX } from '@/settings/windowTitle'
-import { useExtensionsStore } from '@/stores/extensionsStore'
-import { usePluginsStore } from '@/stores/pluginsStore'
 import {
   CURSOR_STYLES,
   type CursorStyle,
@@ -69,9 +67,11 @@ import {
   type MotionMode,
   motionMode,
   useSettingsStore,
-} from '@/stores/settingsStore'
-import { useUIStore } from '@/stores/uiStore'
-import { type Workspace, useWorkspacesStore } from '@/stores/workspacesStore'
+} from '@/stores/app/settingsStore'
+import { useUIStore } from '@/stores/app/uiStore'
+import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
+import { usePluginsStore } from '@/stores/extensions/pluginsStore'
+import { type Workspace, useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import {
   ArrowsClockwiseIcon,
   BellIcon,

@@ -17,9 +17,9 @@ import {
   terminalSelectionContext,
 } from '@/lib/assist/askContext'
 import { byteSize, formatSize, workspaceTerminals } from '@/lib/assist/chatActions'
-import { useBlocksStore } from '@/stores/blocksStore'
-import { useLayoutStore } from '@/stores/layoutStore'
-import { useWorkspacesStore } from '@/stores/workspacesStore'
+import { useBlocksStore } from '@/stores/terminal/blocksStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import {
   AtIcon,
   BrowserIcon,

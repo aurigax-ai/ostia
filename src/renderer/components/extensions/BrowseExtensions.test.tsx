@@ -1,6 +1,6 @@
-import { useExtensionsStore } from '@/stores/extensionsStore'
-import { useMarketplaceStore } from '@/stores/marketplaceStore'
-import { useUIStore } from '@/stores/uiStore'
+import { useUIStore } from '@/stores/app/uiStore'
+import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
+import { useMarketplaceStore } from '@/stores/extensions/marketplaceStore'
 import type { ExtensionInfo } from '@shared/extensions'
 import type {
   MarketplaceExtension,

@@ -1,4 +1,4 @@
-import { type CommandBlock, useBlocksStore } from '@/stores/blocksStore'
+import { type CommandBlock, useBlocksStore } from '@/stores/terminal/blocksStore'
 import { readBufferText } from './blockText'
 import {
   type StepDirection,

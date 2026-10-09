@@ -2,6 +2,8 @@ import { IconButton } from '@/components/common/IconButton'
 import { SectionTab, SectionTabsList } from '@/components/common/SectionTabs'
 import { GRAPH_PAGE, failureText, shortSha } from '@/lib/git/gitView'
 import { useCoreWatch } from '@/lib/workspaces/coreWatch'
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { type GitPage, useGitViewStore } from '@/stores/files/gitViewStore'
 import { ArrowClockwiseIcon } from '@phosphor-icons/react'
 import type {
   GitBlameData,
@@ -13,8 +15,6 @@ import type {
 } from '@shared/boards/git'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { fmt, useDict } from '../../i18n/useDict'
-import { type GitPage, useGitViewStore } from '../../stores/gitViewStore'
-import { useSettingsStore } from '../../stores/settingsStore'
 import { Tabs } from '../ui/tabs'
 import { BlamePage } from './BlamePage'
 import type { ChangeHandlers, FolderState } from './ChangeList'

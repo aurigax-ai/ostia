@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest'
-import { useWorkspacesStore } from '@/stores/workspacesStore'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type { RequirementsReport } from '@shared/app/systemRequirements'
 import { act, cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'

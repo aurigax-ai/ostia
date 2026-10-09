@@ -1,6 +1,6 @@
 import type { ColorScheme, TerminalColors, Theme } from '@/plugins/types'
-import { usePluginsStore } from '@/stores/pluginsStore'
-import { useSettingsStore } from '@/stores/settingsStore'
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { usePluginsStore } from '@/stores/extensions/pluginsStore'
 import { isLinkedTheme } from '@shared/app/themeChoice'
 import { useMemo } from 'react'
 import { normalizeHex, visibleSelection } from './color'

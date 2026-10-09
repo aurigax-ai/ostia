@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest'
 import { commands } from '@/commands/registry'
 import type { PaneNode } from '@/layout/types'
-import { useSettingsStore } from '@/stores/settingsStore'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import { act, cleanup, render, screen } from '@testing-library/react'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Pane } from './Pane'

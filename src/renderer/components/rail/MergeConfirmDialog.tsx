@@ -9,7 +9,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { fmt, useDict } from '@/i18n/useDict'
-import { useMergeConfirmStore } from '@/stores/mergeConfirmStore'
+import { useMergeConfirmStore } from '@/stores/workspaces/mergeConfirmStore'
 import { TerminalWindowIcon } from '@phosphor-icons/react'
 import { useId } from 'react'
 

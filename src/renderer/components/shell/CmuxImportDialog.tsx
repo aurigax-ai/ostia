@@ -8,7 +8,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { fmt, useDict } from '@/i18n/useDict'
-import { useCmuxImportStore } from '@/stores/cmuxImportStore'
+import { useCmuxImportStore } from '@/stores/workspaces/cmuxImportStore'
 import type { Dict } from '@shared/app/dict'
 import type { CmuxImportReport, CmuxLossEntry } from '@shared/workspaces/cmuxSession'
 import { MAX_PANES, MAX_WORKSPACES } from '@shared/workspaces/workspaceLimits'

@@ -1,5 +1,5 @@
-import { useLayoutStore } from '../../src/renderer/stores/layoutStore'
-import { useWorkspacesStore } from '../../src/renderer/stores/workspacesStore'
+import { useLayoutStore } from '../../src/renderer/stores/workspaces/layoutStore'
+import { useWorkspacesStore } from '../../src/renderer/stores/workspaces/workspacesStore'
 import { runAgentIn } from './agentPanes'
 
 export const TARGET_PANE = 'term-target'

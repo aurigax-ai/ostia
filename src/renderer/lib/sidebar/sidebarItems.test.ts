@@ -1,5 +1,5 @@
-import { useLayoutStore } from '@/stores/layoutStore'
-import { useWorkspacesStore } from '@/stores/workspacesStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type { ExtensionSidebarItem } from '@shared/extensions'
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { openSidebarUrl, sidebarLines, visibleSidebarItems } from './sidebarItems'

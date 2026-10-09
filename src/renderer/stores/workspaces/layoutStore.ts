@@ -1,12 +1,5 @@
-import { rememberedPanelFraction } from '@/lib/panes/panelSizes'
-import type { AgentResume } from '@shared/agents/agentResume'
-import type { BrowserProfile } from '@shared/browser/browserProfile'
-import type { DiffContent } from '@shared/extensions'
-import type { PanePlacement } from '@shared/types'
-import type { SplitTabPlacement } from '@shared/workspaces/splitTabs'
-import { create } from 'zustand'
-import { currentDict } from '../i18n/useDict'
-import { panelKey, sizePanel } from '../layout/panelSize'
+import { currentDict } from '@/i18n/useDict'
+import { panelKey, sizePanel } from '@/layout/panelSize'
 import {
   type DropZone,
   addTab,
@@ -60,11 +53,18 @@ import {
   splitPane,
   tabsOfPane,
   takeTab,
-} from '../layout/tree'
-import type { Direction, LayoutNode, PaneNode, SurfaceKind } from '../layout/types'
-import { useDiffStore } from './diffStore'
-import { isWaitedPane } from './openWaitsStore'
-import { useSettingsStore } from './settingsStore'
+} from '@/layout/tree'
+import type { Direction, LayoutNode, PaneNode, SurfaceKind } from '@/layout/types'
+import { rememberedPanelFraction } from '@/lib/panes/panelSizes'
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useDiffStore } from '@/stores/files/diffStore'
+import { isWaitedPane } from '@/stores/files/openWaitsStore'
+import type { AgentResume } from '@shared/agents/agentResume'
+import type { BrowserProfile } from '@shared/browser/browserProfile'
+import type { DiffContent } from '@shared/extensions'
+import type { PanePlacement } from '@shared/types'
+import type { SplitTabPlacement } from '@shared/workspaces/splitTabs'
+import { create } from 'zustand'
 import { useWorkspacesStore } from './workspacesStore'
 
 export interface WorkspaceLayout {

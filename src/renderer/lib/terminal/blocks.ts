@@ -1,4 +1,4 @@
-import type { CommandBlock } from '@/stores/blocksStore'
+import type { CommandBlock } from '@/stores/terminal/blocksStore'
 
 export interface LineSpan {
   start: number

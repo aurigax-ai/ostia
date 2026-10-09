@@ -1,7 +1,13 @@
-import { chatFor, chatKey, ensureSession, nameSession, useChatStore } from '@/stores/chatStore'
-import { useLayoutStore } from '@/stores/layoutStore'
-import { useUIStore } from '@/stores/uiStore'
-import { useWorkspacesStore } from '@/stores/workspacesStore'
+import { useUIStore } from '@/stores/app/uiStore'
+import {
+  chatFor,
+  chatKey,
+  ensureSession,
+  nameSession,
+  useChatStore,
+} from '@/stores/assist/chatStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type { ChatContextItem } from '@shared/assist'
 
 export interface OpenChatOptions {

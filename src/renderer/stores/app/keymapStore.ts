@@ -1,10 +1,10 @@
+import { platform } from '@/platform'
+import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import type { ExtensionInfo } from '@shared/extensions'
 import { OSTIA_KEYMAP } from '@shared/keyboard/keyboardPresets'
 import type { LoadedKeymap } from '@shared/keyboard/keymapFile'
 import { type KeymapInfo, keymapOffered, keymapRef } from '@shared/keymap'
 import { create } from 'zustand'
-import { platform } from '../platform'
-import { useExtensionsStore } from './extensionsStore'
 import { useSettingsStore } from './settingsStore'
 
 export interface KeymapChoice {

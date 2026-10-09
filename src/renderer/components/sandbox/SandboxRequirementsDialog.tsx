@@ -8,7 +8,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { fmt, useDict } from '@/i18n/useDict'
-import { SANDBOX_FEATURE, useSandboxStore } from '@/stores/sandboxStore'
+import { SANDBOX_FEATURE, useSandboxStore } from '@/stores/app/sandboxStore'
 import { useEffect } from 'react'
 
 export function SandboxRequirementsDialog(): JSX.Element {

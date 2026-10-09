@@ -1,6 +1,6 @@
 import { chatAvailable } from '@/lib/assist/assistFeatures'
-import { useAssistStore } from '../stores/assistStore'
-import { useUIStore } from '../stores/uiStore'
+import { useUIStore } from '@/stores/app/uiStore'
+import { useAssistStore } from '@/stores/assist/assistStore'
 import { registerCore } from './core'
 import { commands } from './registry'
 

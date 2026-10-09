@@ -1,7 +1,7 @@
 import { commands } from '@/commands/registry'
 import { countUsage } from '@/lib/app/usageCounts'
-import { useKeymapStore } from '@/stores/keymapStore'
-import { useSettingsStore } from '@/stores/settingsStore'
+import { useKeymapStore } from '@/stores/app/keymapStore'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import {
   BROWSER_CHORD_IDS,
   CHORDS_PER_COMMAND_MAX,

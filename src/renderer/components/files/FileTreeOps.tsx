@@ -23,7 +23,7 @@ import {
   trashEntries,
 } from '@/lib/files/fileTreeActions'
 import { isMac } from '@/platform'
-import { type TreeEdit, useFileTreeStore } from '@/stores/fileTreeStore'
+import { type TreeEdit, useFileTreeStore } from '@/stores/files/fileTreeStore'
 import {
   CaretRightIcon,
   ClipboardIcon,

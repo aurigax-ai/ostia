@@ -1,6 +1,6 @@
 import { findPane, firstPaneId } from '@/layout/tree'
-import { useLayoutStore } from '@/stores/layoutStore'
-import { useWorkspacesStore } from '@/stores/workspacesStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { commitProgramTitle, commitShellTitle } from './paneTitle'
 import { pinTitle, resetPinnedTitles } from './pinnedTitles'

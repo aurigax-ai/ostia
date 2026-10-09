@@ -16,9 +16,9 @@ import { registerRegionCapture } from '@/lib/browser/regionCaptures'
 import { matchChord } from '@/lib/keys/chords'
 import { terminalTitle } from '@/lib/terminal/terminalTitle'
 import { isMac } from '@/platform'
-import { useLayoutStore } from '@/stores/layoutStore'
-import { useSandboxStore } from '@/stores/sandboxStore'
-import { useSettingsStore } from '@/stores/settingsStore'
+import { useSandboxStore } from '@/stores/app/sandboxStore'
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import {
   ArrowClockwiseIcon,
   ArrowLeftIcon,

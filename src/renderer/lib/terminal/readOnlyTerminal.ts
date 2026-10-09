@@ -2,7 +2,7 @@ import { type FontWeight, type ITerminalOptions, Terminal as Xterm } from '@xter
 import '@xterm/xterm/css/xterm.css'
 import { currentScheme, terminalTheme, useScheme } from '@/lib/theme/colorScheme'
 import { terminalFontStack } from '@/lib/theme/uiFonts'
-import { useSettingsStore } from '@/stores/settingsStore'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import { type RefObject, useEffect } from 'react'
 
 export type ReadOnlyTerminal = Xterm

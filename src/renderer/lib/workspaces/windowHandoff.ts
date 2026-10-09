@@ -6,15 +6,19 @@ import { originWorkspaceId, startOriginAgentsSync } from '@/lib/agents/originAge
 import { runningAgent } from '@/lib/agents/paneAgent'
 import { receiveReference } from '@/lib/agents/sendPick'
 import { jumpToLatestUnreadIn, revealPane } from '@/lib/attention/workspaceActivity'
-import { useAttentionStore } from '@/stores/attentionStore'
-import { useBlocksStore } from '@/stores/blocksStore'
-import { useLayoutStore } from '@/stores/layoutStore'
-import { isMovable, liveAgentPanes } from '@/stores/persistence'
-import { useSandboxStore } from '@/stores/sandboxStore'
-import { focusSurfaceWhenReady } from '@/stores/surfaceSlotsStore'
-import { useUIStore } from '@/stores/uiStore'
-import { useWindowsStore } from '@/stores/windowsStore'
-import { type Workspace, nextWorkspaceId, useWorkspacesStore } from '@/stores/workspacesStore'
+import { useAttentionStore } from '@/stores/agents/attentionStore'
+import { useSandboxStore } from '@/stores/app/sandboxStore'
+import { useUIStore } from '@/stores/app/uiStore'
+import { useBlocksStore } from '@/stores/terminal/blocksStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { isMovable, liveAgentPanes } from '@/stores/workspaces/persistence'
+import { focusSurfaceWhenReady } from '@/stores/workspaces/surfaceSlotsStore'
+import { useWindowsStore } from '@/stores/workspaces/windowsStore'
+import {
+  type Workspace,
+  nextWorkspaceId,
+  useWorkspacesStore,
+} from '@/stores/workspaces/workspacesStore'
 import type {
   AttentionState,
   ScreenPoint,

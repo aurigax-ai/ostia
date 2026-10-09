@@ -1,11 +1,11 @@
-import { saveSession } from '@/stores/chatStore'
+import { saveSession } from '@/stores/assist/chatStore'
 import {
   type ChatEditRecord,
   type PendingApproval,
   answerApproval,
   nextSeq,
   useChatToolsStore,
-} from '@/stores/chatToolsStore'
+} from '@/stores/assist/chatToolsStore'
 import type { ChatFsResult, ChatRestoreOutput } from '@shared/assist/chatTools'
 import { type HunkDecision, allDecided, contentWith, editHunks } from './chatHunks'
 import { dirtyPaths } from './chatTools'

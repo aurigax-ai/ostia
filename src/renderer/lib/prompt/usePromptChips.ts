@@ -1,6 +1,6 @@
 import { usePromptExtensionChips } from '@/lib/extensions/extensionChips'
-import { useBlocksStore } from '@/stores/blocksStore'
-import { useSettingsStore } from '@/stores/settingsStore'
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import type { PromptContext } from '@shared/types'
 import { useEffect, useMemo, useState } from 'react'
 import {

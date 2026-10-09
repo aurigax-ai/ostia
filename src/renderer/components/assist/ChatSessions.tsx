@@ -13,6 +13,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Switch } from '@/components/ui/switch'
 import { fmt, useDict } from '@/i18n/useDict'
 import { cn } from '@/lib/utils'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import {
   deleteSession,
   openSession,
@@ -20,8 +21,7 @@ import {
   renameSession,
   startNewSession,
   useChatStore,
-} from '@/stores/chatStore'
-import { useSettingsStore } from '@/stores/settingsStore'
+} from '@/stores/assist/chatStore'
 import {
   CaretDownIcon,
   DownloadSimpleIcon,

@@ -20,11 +20,11 @@ import {
   reportFileProblem,
 } from '@/lib/files/openFile'
 import { startNewWorkspace } from '@/lib/workspaces/newWorkspace'
-import { useLayoutStore } from '@/stores/layoutStore'
-import { useSettingsStore } from '@/stores/settingsStore'
-import { focusSurface } from '@/stores/surfaceSlotsStore'
-import { useUIStore } from '@/stores/uiStore'
-import { useWorkspacesStore } from '@/stores/workspacesStore'
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useUIStore } from '@/stores/app/uiStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { focusSurface } from '@/stores/workspaces/surfaceSlotsStore'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import {
   ArrowSquareOutIcon,
   ChatCircleTextIcon,

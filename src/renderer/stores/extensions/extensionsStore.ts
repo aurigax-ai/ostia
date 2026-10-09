@@ -1,3 +1,4 @@
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import { type CoreItems, NO_CORE_ITEMS } from '@shared/boards/git'
 import type {
   ExtensionInfo,
@@ -6,7 +7,6 @@ import type {
   WorkspaceChip,
 } from '@shared/extensions'
 import { create } from 'zustand'
-import { useSettingsStore } from './settingsStore'
 
 export interface PanelNavigation {
   path: string

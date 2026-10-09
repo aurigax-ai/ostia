@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button'
 import { useDict } from '@/i18n/useDict'
 import { useReducedMotion } from '@/lib/app/motion'
 import { activeZoom, resetZoom } from '@/lib/app/wheelZoom'
-import { useSettingsStore } from '@/stores/settingsStore'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import { MagnifyingGlassMinusIcon, MagnifyingGlassPlusIcon } from '@phosphor-icons/react'
 import { useEffect, useRef, useState } from 'react'
 

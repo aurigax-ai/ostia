@@ -1,4 +1,4 @@
-import type { CommandBlock } from '@/stores/blocksStore'
+import type { CommandBlock } from '@/stores/terminal/blocksStore'
 import { describe, expect, it } from 'vitest'
 import {
   blockSpan,

@@ -1,5 +1,33 @@
 import type { GroupRule } from '@/lib/sidebar/workspaceGroups'
 import { normalizeHex } from '@/lib/theme/color'
+import { isMac } from '@/platform'
+import { platform } from '@/platform'
+import { type UserAction, parseActions } from '@/settings/actions'
+import {
+  DEFAULT_FILE_TREE_SETTINGS,
+  type FileTreeSettings,
+  parseFileTreeSettings,
+} from '@/settings/fileTreeSettings'
+import {
+  type KeyboardElsewhere,
+  type KeyboardField,
+  type KeyboardFile,
+  readKeyboard,
+  writeKeyboard,
+} from '@/settings/keyboardSettings'
+import { parseKeymapSetting, parseTerminalKeymapSetting } from '@/settings/keymapSetting'
+import {
+  DEFAULT_PANE_SETTINGS,
+  DEFAULT_TERMINAL_SETTINGS,
+  type PaneSettings,
+  type TerminalSettings,
+  clampContrast,
+  clampScrollSpeed,
+  clampScrollback,
+  parsePaneSettings,
+  parseTerminalSettings,
+} from '@/settings/terminalPaneSettings'
+import { DEFAULT_WINDOW_TITLE, parseWindowTitle } from '@/settings/windowTitle'
 import { type AgentHooks, DEFAULT_AGENT_HOOKS, parseAgentHooks } from '@shared/agents/agentHooks'
 import {
   DEFAULT_MANAGER_SETTINGS,
@@ -19,6 +47,11 @@ import {
 } from '@shared/app/releases'
 import { ZOOM_DEFAULT, clampZoom } from '@shared/app/zoom'
 import {
+  type AssistModelSettings,
+  DEFAULT_ASSIST_MODEL_SETTINGS,
+  parseAssistModelSettings,
+} from '@shared/assist'
+import {
   type ChatToolSettings,
   DEFAULT_CHAT_TOOL_SETTINGS,
   parseChatToolSettings,
@@ -37,6 +70,8 @@ import {
   parseBrowserSettings,
   parseEditorSettings,
 } from '@shared/browser/browserEditorSettings'
+import type { Capability } from '@shared/capabilities'
+import type { ExtensionSettingValues } from '@shared/extensions'
 import type { ChordValue, KeybindingMap } from '@shared/keyboard/chordSpec'
 import { parseGlobalHotkey } from '@shared/keyboard/globalHotkey'
 import { keyboardPlatform } from '@shared/keyboard/keyboardPresets'
@@ -56,47 +91,12 @@ import {
   parseRedactionSettings,
 } from '@shared/privacy/redaction'
 import { type TelemetrySettings, parseTelemetrySettings } from '@shared/privacy/telemetry'
+import { isDangerousSegment } from '@shared/protoGuard'
 import { type SandboxGlobals, parseSandboxGlobals } from '@shared/sandbox/sandbox'
 import { parsePromptSettings } from '@shared/terminal/promptSettings'
 import { normalizeGroupName } from '@shared/workspaces/workspaceGroups'
 import { debounce } from 'es-toolkit'
 import { create } from 'zustand'
-import {
-  type AssistModelSettings,
-  DEFAULT_ASSIST_MODEL_SETTINGS,
-  parseAssistModelSettings,
-} from '../../shared/assist'
-import type { Capability } from '../../shared/capabilities'
-import type { ExtensionSettingValues } from '../../shared/extensions'
-import { isDangerousSegment } from '../../shared/protoGuard'
-import { isMac } from '../platform'
-import { platform } from '../platform'
-import { type UserAction, parseActions } from '../settings/actions'
-import {
-  DEFAULT_FILE_TREE_SETTINGS,
-  type FileTreeSettings,
-  parseFileTreeSettings,
-} from '../settings/fileTreeSettings'
-import {
-  type KeyboardElsewhere,
-  type KeyboardField,
-  type KeyboardFile,
-  readKeyboard,
-  writeKeyboard,
-} from '../settings/keyboardSettings'
-import { parseKeymapSetting, parseTerminalKeymapSetting } from '../settings/keymapSetting'
-import {
-  DEFAULT_PANE_SETTINGS,
-  DEFAULT_TERMINAL_SETTINGS,
-  type PaneSettings,
-  type TerminalSettings,
-  clampContrast,
-  clampScrollSpeed,
-  clampScrollback,
-  parsePaneSettings,
-  parseTerminalSettings,
-} from '../settings/terminalPaneSettings'
-import { DEFAULT_WINDOW_TITLE, parseWindowTitle } from '../settings/windowTitle'
 
 export type ThemeId = string
 

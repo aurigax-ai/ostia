@@ -42,9 +42,9 @@ import { commands } from '@/commands/registry'
 import { findPane } from '@/layout/tree'
 import type { PaneNode } from '@/layout/types'
 import * as blockActions from '@/lib/terminal/blockActions'
-import { useLayoutStore } from '@/stores/layoutStore'
-import { surfaceHost } from '@/stores/surfaceSlotsStore'
-import { useWorkspacesStore } from '@/stores/workspacesStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { surfaceHost } from '@/stores/workspaces/surfaceSlotsStore'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 
 vi.mock('@/components/editor/FileView', () => ({ FileView: () => null }))
 vi.mock('@/components/editor/DiffView', () => ({ DiffView: () => null }))

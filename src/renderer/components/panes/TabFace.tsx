@@ -5,10 +5,10 @@ import { useDict } from '@/i18n/useDict'
 import type { PaneNode, SurfaceKind } from '@/layout/types'
 import { needsYou, tabMark } from '@/lib/attention/attention'
 import { cn } from '@/lib/utils'
-import { useAttentionStore } from '@/stores/attentionStore'
-import { useEditorStatus } from '@/stores/editorStatusStore'
-import { useExtensionsStore } from '@/stores/extensionsStore'
-import { useViewsStore } from '@/stores/viewsStore'
+import { useAttentionStore } from '@/stores/agents/attentionStore'
+import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
+import { useViewsStore } from '@/stores/extensions/viewsStore'
+import { useEditorStatus } from '@/stores/files/editorStatusStore'
 import {
   BroadcastIcon,
   ChatCircleTextIcon,

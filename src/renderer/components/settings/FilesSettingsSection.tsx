@@ -12,8 +12,8 @@ import {
   type FileSortBy,
   type FileSortOrder,
 } from '@/settings/fileTreeSettings'
-import { useAvailableIconThemes } from '@/stores/iconThemeStore'
-import { useSettingsStore } from '@/stores/settingsStore'
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useAvailableIconThemes } from '@/stores/extensions/iconThemeStore'
 import { PlusIcon, XIcon } from '@phosphor-icons/react'
 import { BUILTIN_ICON_THEME } from '@shared/iconTheme'
 import { type FormEvent, useState } from 'react'

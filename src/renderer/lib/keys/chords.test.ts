@@ -1,8 +1,8 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { commands } from '@/commands/registry'
-import { useKeymapStore } from '@/stores/keymapStore'
-import { useSettingsStore } from '@/stores/settingsStore'
+import { useKeymapStore } from '@/stores/app/keymapStore'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import { en } from '@shared/app/dict'
 import {
   type ChordSpec,

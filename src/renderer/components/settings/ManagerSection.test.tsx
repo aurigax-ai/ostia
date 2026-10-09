@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest'
-import { useSettingsStore } from '@/stores/settingsStore'
-import { useWorkspacesStore } from '@/stores/workspacesStore'
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'

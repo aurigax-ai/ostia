@@ -2,7 +2,7 @@ import { MenuItem } from '@/components/common/Menu'
 import { SplitButton, SplitButtonMenu } from '@/components/common/SplitButton'
 import { Button } from '@/components/ui/button'
 import { useDict } from '@/i18n/useDict'
-import { useApprovalsStore } from '@/stores/approvalsStore'
+import { useApprovalsStore } from '@/stores/agents/approvalsStore'
 import type { Dict } from '@shared/app/dict'
 import {
   type ApprovalAnswer,

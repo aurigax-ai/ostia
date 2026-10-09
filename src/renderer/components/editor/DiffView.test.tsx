@@ -1,6 +1,6 @@
 import { editorPositionOf } from '@/lib/files/editorPositions'
-import { useDiffStore } from '@/stores/diffStore'
-import { useSettingsStore } from '@/stores/settingsStore'
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useDiffStore } from '@/stores/files/diffStore'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 

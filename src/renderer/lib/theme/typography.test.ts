@@ -32,7 +32,7 @@ const SETTINGS_FONT_FILES = new Map([
   ],
   ['src/renderer/components/settings/ThemeSettings.tsx', 'previews the terminal and editor fonts'],
   ['src/renderer/components/settings/FontPicker.tsx', 'shows each family in its own face'],
-  ['src/renderer/stores/settingsStore.ts', 'the font settings model itself'],
+  ['src/renderer/stores/app/settingsStore.ts', 'the font settings model itself'],
   ['src/renderer/settings/settingsSchema.ts', 'the JSON schema of the font settings'],
 ])
 

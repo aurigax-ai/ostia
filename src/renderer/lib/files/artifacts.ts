@@ -1,5 +1,5 @@
-import { useArtifactsStore } from '@/stores/artifactsStore'
-import { useLayoutStore } from '@/stores/layoutStore'
+import { useArtifactsStore } from '@/stores/files/artifactsStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import {
   ARTIFACT_FILE_MAX_BYTES,
   type ArtifactEntry,

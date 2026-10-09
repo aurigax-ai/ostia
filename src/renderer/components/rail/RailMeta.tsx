@@ -5,7 +5,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { fmt, useDict } from '@/i18n/useDict'
 import { fitCount, shortenPath } from '@/lib/sidebar/railMeta'
 import { openSidebarUrl } from '@/lib/sidebar/sidebarItems'
-import { useExtensionsStore } from '@/stores/extensionsStore'
+import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import type { ExtensionSidebarItem } from '@shared/extensions'
 import { useLayoutEffect, useRef, useState } from 'react'
 

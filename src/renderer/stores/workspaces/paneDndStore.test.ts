@@ -1,5 +1,5 @@
+import type { DropZone } from '@/layout/tree'
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
-import type { DropZone } from '../layout/tree'
 import { usePaneDnd } from './paneDndStore'
 
 const get = () => usePaneDnd.getState()

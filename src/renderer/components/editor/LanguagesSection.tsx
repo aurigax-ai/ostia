@@ -17,8 +17,8 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { fmt, useDict } from '@/i18n/useDict'
-import { useLanguageServersStore } from '@/stores/languageServersStore'
-import { useWorkspacesStore } from '@/stores/workspacesStore'
+import { useLanguageServersStore } from '@/stores/extensions/languageServersStore'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import {
   ArrowClockwiseIcon,
   DownloadSimpleIcon,

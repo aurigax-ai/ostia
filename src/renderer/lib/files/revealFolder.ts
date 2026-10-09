@@ -1,8 +1,8 @@
 import { findPane } from '@/layout/tree'
-import { useFileTreeStore } from '@/stores/fileTreeStore'
-import { useLayoutStore } from '@/stores/layoutStore'
-import { useUIStore } from '@/stores/uiStore'
-import { useWorkspacesStore } from '@/stores/workspacesStore'
+import { useUIStore } from '@/stores/app/uiStore'
+import { useFileTreeStore } from '@/stores/files/fileTreeStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 
 export interface FollowedFolder {
   cwd: string

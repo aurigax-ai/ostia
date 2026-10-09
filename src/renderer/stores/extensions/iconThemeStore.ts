@@ -1,8 +1,8 @@
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import { BUILTIN_ICON_THEME, type IconThemeInfo, type LoadedIconTheme } from '@shared/iconTheme'
 import { useEffect } from 'react'
 import { create } from 'zustand'
 import { useExtensionsStore } from './extensionsStore'
-import { useSettingsStore } from './settingsStore'
 
 interface IconThemeState {
   key: string | null

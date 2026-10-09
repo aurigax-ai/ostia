@@ -1,7 +1,7 @@
 import { BASE_LANGUAGE } from '@/lib/extensions/languagePacks'
+import { BUILTIN_PLUGINS } from '@/plugins/builtin'
 import { en } from '@shared/app/dict'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import { BUILTIN_PLUGINS } from '../plugins/builtin'
 import { usePluginsStore } from './pluginsStore'
 
 const store = () => usePluginsStore.getState()

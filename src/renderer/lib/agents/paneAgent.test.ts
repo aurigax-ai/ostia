@@ -1,6 +1,6 @@
-import { useAttentionStore } from '@/stores/attentionStore'
-import type { CommandBlock } from '@/stores/blocksStore'
-import { useBlocksStore } from '@/stores/blocksStore'
+import { useAttentionStore } from '@/stores/agents/attentionStore'
+import type { CommandBlock } from '@/stores/terminal/blocksStore'
+import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   isStaleAgentReport,

@@ -1,4 +1,4 @@
-import { type LineAnchor, useBlocksStore } from '@/stores/blocksStore'
+import { type LineAnchor, useBlocksStore } from '@/stores/terminal/blocksStore'
 import { act, cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { Terminal as Xterm } from '@xterm/xterm'

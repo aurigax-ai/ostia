@@ -1,6 +1,6 @@
 import { allPanes } from '@/layout/tree'
 import type { WorkspaceSymbolHit } from '@/lsp/workspaceSymbols'
-import { useLayoutStore } from '@/stores/layoutStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 
 export const SYMBOL_SEARCH_DELAY_MS = 150
 

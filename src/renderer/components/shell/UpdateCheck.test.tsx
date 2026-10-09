@@ -1,5 +1,5 @@
-import { useSettingsStore } from '@/stores/settingsStore'
-import { startUpdateWatch, useUpdateStore } from '@/stores/updateStore'
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { startUpdateWatch, useUpdateStore } from '@/stores/app/updateStore'
 import type { ReleaseState } from '@shared/app/installMethod'
 import type { ReleaseCheckResult } from '@shared/app/releases'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'

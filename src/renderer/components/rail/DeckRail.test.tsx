@@ -1,14 +1,14 @@
 import '@testing-library/jest-dom/vitest'
 import { allPanes, createPane, tabsOf } from '@/layout/tree'
-import { useAttentionStore } from '@/stores/attentionStore'
-import { useBlocksStore } from '@/stores/blocksStore'
-import { useHibernateSkippedStore } from '@/stores/hibernateSkippedStore'
-import { useLayoutStore } from '@/stores/layoutStore'
-import { useMergeConfirmStore } from '@/stores/mergeConfirmStore'
-import { useSandboxStore } from '@/stores/sandboxStore'
-import { useSettingsStore } from '@/stores/settingsStore'
-import { useUIStore } from '@/stores/uiStore'
-import { type Workspace, useWorkspacesStore } from '@/stores/workspacesStore'
+import { useAttentionStore } from '@/stores/agents/attentionStore'
+import { useSandboxStore } from '@/stores/app/sandboxStore'
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useUIStore } from '@/stores/app/uiStore'
+import { useBlocksStore } from '@/stores/terminal/blocksStore'
+import { useHibernateSkippedStore } from '@/stores/workspaces/hibernateSkippedStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { useMergeConfirmStore } from '@/stores/workspaces/mergeConfirmStore'
+import { type Workspace, useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import {
   act,
   cleanup,

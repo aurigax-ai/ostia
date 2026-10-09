@@ -1,7 +1,7 @@
 import { openGit } from '@/lib/git/gitPanel'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { currentDict } from '../i18n/useDict'
 import { findPane } from '../layout/tree'
-import { useLayoutStore } from '../stores/layoutStore'
 import { registerCore } from './core'
 import type { CommandContext } from './registry'
 

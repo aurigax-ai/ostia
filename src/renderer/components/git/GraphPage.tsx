@@ -22,6 +22,7 @@ import {
   shortSha,
   visibleRange,
 } from '@/lib/git/gitView'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import { CloudIcon, GitBranchIcon, TagIcon, XIcon } from '@phosphor-icons/react'
 import type {
   CommitRef,
@@ -45,7 +46,6 @@ import {
   useState,
 } from 'react'
 import { useDict } from '../../i18n/useDict'
-import { useSettingsStore } from '../../stores/settingsStore'
 import {
   type ChangeHandlers,
   ChangeSections,

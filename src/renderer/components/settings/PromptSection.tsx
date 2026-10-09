@@ -7,10 +7,10 @@ import type { PaneNode } from '@/layout/types'
 import { useChipCatalog } from '@/lib/extensions/extensionChips'
 import { addChip, contributedChipId, moveChip, removeChip } from '@/lib/prompt/promptChips'
 import { usePromptChips } from '@/lib/prompt/usePromptChips'
-import { type WorkspaceLayout, useLayoutStore } from '@/stores/layoutStore'
-import { useSettingsStore } from '@/stores/settingsStore'
-import { useUIStore } from '@/stores/uiStore'
-import { useWorkspacesStore } from '@/stores/workspacesStore'
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useUIStore } from '@/stores/app/uiStore'
+import { type WorkspaceLayout, useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import {
   ArrowDownIcon,
   ArrowUpIcon,

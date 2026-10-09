@@ -1,6 +1,6 @@
 import { workspaceOfPane } from '@/lib/attention/workspaceActivity'
 import { browserActionOf, browserPaneOfGuest, runBrowserAction } from '@/lib/browser/browserHandles'
-import { useLayoutStore } from '@/stores/layoutStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { isDoubleShiftKey } from '@shared/keyboard/chordSpec'
 import { isGuestChordFire } from '@shared/keyboard/guestChords'
 import {

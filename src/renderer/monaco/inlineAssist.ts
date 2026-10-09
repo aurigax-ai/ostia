@@ -1,3 +1,4 @@
+import { assistProvider, assistRequest } from '@/stores/assist/assistStore'
 import {
   COMPLETION_NEIGHBOR_TEXT_MAX,
   COMPLETION_PREFIX_MAX,
@@ -5,7 +6,6 @@ import {
   type CompletionAssistRequest,
 } from '@shared/assist'
 import type * as Monaco from 'monaco-editor'
-import { assistProvider, assistRequest } from '../stores/assistStore'
 import { isLargeModel } from './largeFile'
 
 export const INLINE_DEBOUNCE_MS = 300

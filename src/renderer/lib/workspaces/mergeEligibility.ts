@@ -1,4 +1,4 @@
-import type { WorkspaceKind } from '@/stores/workspacesStore'
+import type { WorkspaceKind } from '@/stores/workspaces/workspacesStore'
 import {
   type SandboxMergeRefusal,
   type WorkspaceSandbox,

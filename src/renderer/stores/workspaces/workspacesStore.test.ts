@@ -1,7 +1,7 @@
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import type { AppSnapshot } from '@shared/types'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useLayoutStore } from './layoutStore'
-import { useSettingsStore } from './settingsStore'
 import { resetWorkspaceIds, useWorkspacesStore } from './workspacesStore'
 
 const ensureMock = () => vi.mocked(useLayoutStore.getState().ensure)

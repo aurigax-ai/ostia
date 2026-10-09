@@ -1,5 +1,5 @@
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
-import { useSettingsStore } from '../stores/settingsStore'
 import {
   DEFAULT_FILE_TREE_SETTINGS,
   DEFAULT_NESTING_PATTERNS,

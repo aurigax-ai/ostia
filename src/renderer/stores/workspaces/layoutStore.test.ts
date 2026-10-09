@@ -1,6 +1,3 @@
-import { BASE_LANGUAGE } from '@/lib/extensions/languagePacks'
-import { zhHant } from '@shared/app/dict'
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   allPanes,
   findPane,
@@ -9,11 +6,14 @@ import {
   paneIds,
   splitTabOfPane,
   tabsOfPane,
-} from '../layout/tree'
-import type { SplitNode } from '../layout/types'
+} from '@/layout/tree'
+import type { SplitNode } from '@/layout/types'
+import { BASE_LANGUAGE } from '@/lib/extensions/languagePacks'
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { usePluginsStore } from '@/stores/extensions/pluginsStore'
+import { zhHant } from '@shared/app/dict'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useLayoutStore } from './layoutStore'
-import { usePluginsStore } from './pluginsStore'
-import { useSettingsStore } from './settingsStore'
 import { useWorkspacesStore } from './workspacesStore'
 
 const emit = () => vi.mocked(window.ostia.lifecycle.emit)

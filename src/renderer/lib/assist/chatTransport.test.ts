@@ -1,4 +1,4 @@
-import { useAssistStore } from '@/stores/assistStore'
+import { useAssistStore } from '@/stores/assist/assistStore'
 import type { AssistChunk } from '@shared/assist'
 import type { UIMessageChunk } from 'ai'
 import { afterEach, describe, expect, it, vi } from 'vitest'

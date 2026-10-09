@@ -1,11 +1,11 @@
-import { useAssistStore } from '@/stores/assistStore'
+import { useAssistStore } from '@/stores/assist/assistStore'
 import {
   answerApproval,
   removeAlwaysGrant,
   resetChatTools,
   useChatToolsStore,
-} from '@/stores/chatToolsStore'
-import { useEditorStatus } from '@/stores/editorStatusStore'
+} from '@/stores/assist/chatToolsStore'
+import { useEditorStatus } from '@/stores/files/editorStatusStore'
 import {
   type AssistChunk,
   type AssistModelRef,

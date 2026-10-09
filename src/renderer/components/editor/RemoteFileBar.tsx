@@ -1,6 +1,6 @@
 import { Badge } from '@/components/ui/badge'
 import { fmt, useDict } from '@/i18n/useDict'
-import { remoteFolderOf, useRemoteFoldersStore } from '@/stores/remoteFoldersStore'
+import { remoteFolderOf, useRemoteFoldersStore } from '@/stores/files/remoteFoldersStore'
 import { type RemoteFileError, parseRemotePath } from '@shared/remoteFolders'
 
 export function RemoteFileBar({

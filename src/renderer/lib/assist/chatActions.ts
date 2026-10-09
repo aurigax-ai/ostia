@@ -3,10 +3,10 @@ import { type ReferenceTarget, sendReference } from '@/lib/agents/sendPick'
 import { openFileInWorkspace } from '@/lib/files/openFile'
 import { canTypeInto, insertCommand, runWhenIdle } from '@/lib/terminal/blockActions'
 import { isIdlePrompt } from '@/lib/terminal/blocks'
-import { useBlocksStore } from '@/stores/blocksStore'
-import { useLayoutStore } from '@/stores/layoutStore'
-import { usePaneRecencyStore } from '@/stores/paneRecencyStore'
-import { useWorkspacesStore } from '@/stores/workspacesStore'
+import { useBlocksStore } from '@/stores/terminal/blocksStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { usePaneRecencyStore } from '@/stores/workspaces/paneRecencyStore'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 
 export interface TerminalTarget {
   paneId: string

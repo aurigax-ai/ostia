@@ -1,3 +1,4 @@
+import { restoreSnapshot } from '@/layout/snapshot'
 import {
   type DragSource,
   type DropTarget,
@@ -17,6 +18,7 @@ import {
 } from '@/lib/sidebar/workspaceGroups'
 import { namespacedId } from '@/lib/workspaces/idNamespace'
 import { insertIndex } from '@/lib/workspaces/workspaceOrder'
+import { type NewWorkspacePlacement, useSettingsStore } from '@/stores/app/settingsStore'
 import type {
   AppSnapshot,
   SnapshotWorkspace,
@@ -27,9 +29,7 @@ import type {
 import { type WorkspaceGroupColor, normalizeGroupName } from '@shared/workspaces/workspaceGroups'
 import { normalizeDescription } from '@shared/workspaces/workspaceText'
 import { create } from 'zustand'
-import { restoreSnapshot } from '../layout/snapshot'
 import { useLayoutStore } from './layoutStore'
-import { type NewWorkspacePlacement, useSettingsStore } from './settingsStore'
 
 export type { WorkspaceGroup }
 

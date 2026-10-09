@@ -1,4 +1,4 @@
-import { assistRequest, chatModel } from '@/stores/assistStore'
+import { assistRequest, chatModel } from '@/stores/assist/assistStore'
 import {
   ASSIST_ERRORS,
   type AssistError,

@@ -4,6 +4,8 @@ import {
   createAssistTransport,
   messageText,
 } from '@/lib/assist/chatTransport'
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { Chat } from '@ai-sdk/react'
 import { type AssistModelRef, CHAT_CONTEXT_MAX, type ChatContextItem } from '@shared/assist'
 import {
@@ -17,8 +19,6 @@ import {
 } from '@shared/assist/chatSessions'
 import { create } from 'zustand'
 import { type ChatEditRecord, sessionEdits, useChatToolsStore } from './chatToolsStore'
-import { useSettingsStore } from './settingsStore'
-import { useWorkspacesStore } from './workspacesStore'
 
 export type ChatNotice = 'trimmed' | 'evicted' | 'saveFailed'
 

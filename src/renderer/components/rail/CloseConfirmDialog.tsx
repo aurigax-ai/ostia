@@ -14,7 +14,7 @@ import {
   type CloseConfirmKind,
   type RunningGroup,
   useCloseConfirmStore,
-} from '@/stores/closeConfirmStore'
+} from '@/stores/workspaces/closeConfirmStore'
 import {
   FileDashedIcon,
   FlaskIcon,

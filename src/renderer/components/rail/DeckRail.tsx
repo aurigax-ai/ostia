@@ -56,22 +56,22 @@ import {
   focusedDir,
 } from '@/lib/workspaces/workspaceProjects'
 import { latestAttentionMessage, runningTitle } from '@/lib/workspaces/workspaceSummary'
-import { useAttentionStore } from '@/stores/attentionStore'
-import { useBlocksStore } from '@/stores/blocksStore'
-import { useExtensionsStore } from '@/stores/extensionsStore'
-import { useHibernateSkippedStore } from '@/stores/hibernateSkippedStore'
-import { useLayoutStore } from '@/stores/layoutStore'
-import { usePaneDnd } from '@/stores/paneDndStore'
-import { useSandboxStore } from '@/stores/sandboxStore'
-import { useSettingsStore } from '@/stores/settingsStore'
-import { coversWorkspaces, useUIStore } from '@/stores/uiStore'
-import { useWindowsStore } from '@/stores/windowsStore'
+import { useAttentionStore } from '@/stores/agents/attentionStore'
+import { useSandboxStore } from '@/stores/app/sandboxStore'
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { coversWorkspaces, useUIStore } from '@/stores/app/uiStore'
+import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
+import { useBlocksStore } from '@/stores/terminal/blocksStore'
+import { useHibernateSkippedStore } from '@/stores/workspaces/hibernateSkippedStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { usePaneDnd } from '@/stores/workspaces/paneDndStore'
+import { useWindowsStore } from '@/stores/workspaces/windowsStore'
 import {
   type Workspace,
   type WorkspaceKind,
   type WorkspaceState,
   useWorkspacesStore,
-} from '@/stores/workspacesStore'
+} from '@/stores/workspaces/workspacesStore'
 import {
   AppWindowIcon,
   ArrowDownIcon,

@@ -1,6 +1,6 @@
 import { currentDict, fmt } from '@/i18n/useDict'
-import { useLayoutStore } from '@/stores/layoutStore'
-import { useWorkspacesStore } from '@/stores/workspacesStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type { ExtensionInfo } from '@shared/extensions'
 import { startNewWorkspace } from './newWorkspace'
 

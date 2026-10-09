@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest'
-import { useSettingsStore } from '@/stores/settingsStore'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import {
   DEFAULT_CONTROLS,
   DEFAULT_PACKAGE_SETTINGS,

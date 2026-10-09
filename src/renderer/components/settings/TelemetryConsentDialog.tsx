@@ -12,8 +12,8 @@ import {
 } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { useDict } from '@/i18n/useDict'
-import { useSettingsStore } from '@/stores/settingsStore'
-import { useTelemetryConsentStore } from '@/stores/telemetryConsentStore'
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useTelemetryConsentStore } from '@/stores/app/telemetryConsentStore'
 import {
   DEFAULT_TELEMETRY_SETTINGS,
   TELEMETRY_CATEGORIES,

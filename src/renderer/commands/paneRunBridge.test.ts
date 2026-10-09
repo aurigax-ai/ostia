@@ -1,7 +1,7 @@
 import { registerTerminal } from '@/lib/terminal/terminalHandles'
+import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import type { Terminal } from '@xterm/xterm'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import { useBlocksStore } from '../stores/blocksStore'
 import { wirePaneRunBridge } from './paneRunBridge'
 
 const PANE = 'pane-rerun'

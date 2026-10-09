@@ -4,7 +4,7 @@ import { currentDict, useDict } from '@/i18n/useDict'
 import { workspaceOfPane } from '@/lib/attention/workspaceActivity'
 import { openSidebarUrl } from '@/lib/sidebar/sidebarItems'
 import { useCoreWatch } from '@/lib/workspaces/coreWatch'
-import { useExtensionsStore } from '@/stores/extensionsStore'
+import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import type { Dict } from '@shared/app/dict'
 import {
   GIT_BRANCH_CHIP,

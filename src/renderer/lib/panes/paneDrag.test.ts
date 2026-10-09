@@ -1,5 +1,5 @@
-import { usePaneDnd } from '@/stores/paneDndStore'
-import { useWorkspacesStore } from '@/stores/workspacesStore'
+import { usePaneDnd } from '@/stores/workspaces/paneDndStore'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { reportForeignDrop, startPaneDragTracking } from './paneDrag'
 

@@ -14,8 +14,8 @@ import { insertCommand } from '@/lib/terminal/blockActions'
 import type { OstiaTerminal as Xterm } from '@/lib/terminal/ostiaTerminal'
 import { terminalFor } from '@/lib/terminal/terminalHandles'
 import { isMac, platform } from '@/platform'
-import { useAssistComposerStore } from '@/stores/assistComposerStore'
-import { assistRequest, useAssistProvider } from '@/stores/assistStore'
+import { useAssistComposerStore } from '@/stores/assist/assistComposerStore'
+import { assistRequest, useAssistProvider } from '@/stores/assist/assistStore'
 import { ChatCircleDotsIcon, XIcon } from '@phosphor-icons/react'
 import type {
   AssistFeatureId,

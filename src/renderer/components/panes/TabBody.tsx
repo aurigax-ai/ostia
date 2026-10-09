@@ -1,5 +1,5 @@
 import type { PaneNode, SurfaceKind } from '@/layout/types'
-import { mountSurface, parkSurface } from '@/stores/surfaceSlotsStore'
+import { mountSurface, parkSurface } from '@/stores/workspaces/surfaceSlotsStore'
 import { useCallback, useLayoutEffect, useRef } from 'react'
 
 function hasSurface(kind: SurfaceKind): boolean {

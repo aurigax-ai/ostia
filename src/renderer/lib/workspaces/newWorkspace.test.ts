@@ -1,6 +1,6 @@
-import { useLayoutStore } from '@/stores/layoutStore'
-import { useSettingsStore } from '@/stores/settingsStore'
-import { useWorkspacesStore } from '@/stores/workspacesStore'
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { newWorkspaceDir, startNewWorkspace } from './newWorkspace'
 

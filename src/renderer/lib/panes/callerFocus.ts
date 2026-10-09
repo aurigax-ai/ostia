@@ -1,5 +1,5 @@
 import type { CommandContext } from '@/commands/registry'
-import { focusSurface } from '@/stores/surfaceSlotsStore'
+import { focusSurface } from '@/stores/workspaces/surfaceSlotsStore'
 import { flushSync } from 'react-dom'
 
 export function focusedPaneId(): string | undefined {

@@ -1,5 +1,5 @@
-import { useAssistStore } from '@/stores/assistStore'
-import { useExtensionsStore } from '@/stores/extensionsStore'
+import { useAssistStore } from '@/stores/assist/assistStore'
+import { useExtensionsStore } from '@/stores/extensions/extensionsStore'
 import {
   ASSIST_FEATURES,
   type AssistCatalog,

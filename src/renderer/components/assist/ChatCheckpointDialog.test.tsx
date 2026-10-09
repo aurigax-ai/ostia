@@ -1,7 +1,11 @@
 import '@testing-library/jest-dom/vitest'
 import type { OstiaChatMessage } from '@/lib/assist/chatTransport'
-import { type ChatEditRecord, resetChatTools, useChatToolsStore } from '@/stores/chatToolsStore'
-import { useWorkspacesStore } from '@/stores/workspacesStore'
+import {
+  type ChatEditRecord,
+  resetChatTools,
+  useChatToolsStore,
+} from '@/stores/assist/chatToolsStore'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type { ChatRestoreRequest } from '@shared/assist/chatTools'
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'

@@ -2,21 +2,21 @@ import { allPanes, findPane } from '@/layout/tree'
 import type { PaneNode } from '@/layout/types'
 import { commandAgent } from '@/lib/agents/hibernation'
 import { runningAgent, runningAgentOf } from '@/lib/agents/paneAgent'
-import { agentTurnOf } from '@/stores/agentTurnStore'
-import { useApprovalsStore } from '@/stores/approvalsStore'
-import { useAttentionStore } from '@/stores/attentionStore'
-import { type CommandBlock, useBlocksStore } from '@/stores/blocksStore'
+import { useApprovalsStore } from '@/stores/agents/approvalsStore'
+import { useAttentionStore } from '@/stores/agents/attentionStore'
+import { useQuestionsStore } from '@/stores/agents/questionsStore'
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { type DiskProblem, useEditorStatus } from '@/stores/files/editorStatusStore'
+import { agentTurnOf } from '@/stores/terminal/agentTurnStore'
+import { type CommandBlock, useBlocksStore } from '@/stores/terminal/blocksStore'
 import {
   type CloseConfirmKind,
   type RunningGroup,
   useCloseConfirmStore,
-} from '@/stores/closeConfirmStore'
-import { type DiskProblem, useEditorStatus } from '@/stores/editorStatusStore'
-import { useLayoutStore } from '@/stores/layoutStore'
-import { isRestorable } from '@/stores/persistence'
-import { useQuestionsStore } from '@/stores/questionsStore'
-import { useSettingsStore } from '@/stores/settingsStore'
-import { type Workspace, useWorkspacesStore } from '@/stores/workspacesStore'
+} from '@/stores/workspaces/closeConfirmStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { isRestorable } from '@/stores/workspaces/persistence'
+import { type Workspace, useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type { PaneActivity } from '@shared/types'
 
 export function runningCommandsOf(
