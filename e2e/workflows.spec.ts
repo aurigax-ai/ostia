@@ -115,7 +115,7 @@ test('command palette opens, filters, and runs a command', async () => {
     await expect(emptyState(win)).toBeVisible({ timeout: 15_000 })
     await expect(win.locator('.rail-tab')).toHaveCount(0)
 
-    await win.keyboard.press('Control+Shift+P')
+    await win.keyboard.press(chords.palette)
     const dialog = win.getByRole('dialog')
     await expect(dialog).toBeVisible({ timeout: 5_000 })
 
@@ -243,7 +243,7 @@ test('Ctrl+1 jumps to the first workspace from a focused terminal, and rows drag
 
     await win.locator('.pane-slot:not([data-hidden]) .xterm').last().click()
     await waitForTerminalFocus(win)
-    await win.keyboard.press('Control+1')
+    await win.keyboard.press(chords.firstWorkspace)
     await expect(win.locator('.rail-tab.active .tab-title')).toHaveText('home')
 
     await rows.nth(1).dragTo(rows.nth(0), { targetPosition: { x: 40, y: 4 } })
