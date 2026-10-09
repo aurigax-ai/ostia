@@ -14,6 +14,7 @@ vi.mock('../main/approvals/approvals', () => ({ approvals: () => ({ request }) }
 const { registerControlServer, stopControlServer } = await import('../main/control/controlServer')
 const { getByPaneId, registerPane } = await import('../main/control/idRegistry')
 const { registerPaneIoMethods } = await import('../main/panes/paneIo')
+const { registerPaneResumeMethods } = await import('../main/panes/paneResume')
 const { PaneWaking } = await import('../main/panes/paneWaking')
 const { registerProcessMethods } = await import('../main/panes/processManager')
 const { approvals } = await import('../main/approvals/approvals')
@@ -36,6 +37,8 @@ const opened: OpenRequest[] = []
 const written: { paneId: string; data: string }[] = []
 const reruns: { paneId: string; command: string }[] = []
 const closedPanes: string[] = []
+const asleep = new Set<string>()
+const waking = new PaneWaking()
 let tabSeq = 0
 
 type WorkspaceRow = Awaited<ReturnType<typeof listWorkspaces>>[number]
@@ -58,6 +61,17 @@ async function execRenderer(
   args?: unknown,
 ): Promise<CommandResult> {
   const given = (args ?? {}) as { dir?: string; name?: string }
+  if (id === 'pane.list')
+    return {
+      ok: true,
+      result: [...rings.keys()].map((paneId) => ({
+        paneId,
+        workspaceId: 'ws1',
+        kind: 'terminal',
+        title: paneId,
+        cwd: '/w',
+      })),
+    }
   if (id === 'workspace.list') return { ok: true, result: workspaces }
   if (id === 'workspace.groups') return { ok: true, result: [] }
   if (id === 'workspace.new') {
@@ -83,7 +97,7 @@ registerPaneListMethods({
   ...windows,
   getTerminalState: () => undefined,
   ptyPid: () => undefined,
-  waking: () => false,
+  waking: (paneId) => waking.has(paneId),
 })
 
 const reach = createReach({
@@ -157,14 +171,19 @@ registerPaneIoMethods({
   managerAllowsInput: () => false,
   attention: async () => ({}),
   inputSent: () => {},
-  hibernated: async () => false,
-  wake: async () => false,
-  waking: new PaneWaking(),
+  hibernated: async (pane) => asleep.has(pane.paneId),
+  wake: async (pane) => asleep.delete(pane.paneId),
+  waking,
   close: async (pane) => {
     closedPanes.push(pane.paneId)
     return { ok: true, result: undefined }
   },
   delay: async () => {},
+})
+
+registerPaneResumeMethods({
+  execCommand: async () => ({ ok: true }) as CommandResult,
+  onResume: (identity) => waking.end(identity.paneId, 'started'),
 })
 
 function emit(paneId: string, data: string): void {
@@ -188,11 +207,11 @@ let seq = 0
 let home = ''
 const liveChildren = new Set<ReturnType<typeof spawn>>()
 
-function ostia(args: string[], cwd = home): Promise<RunResult> {
+function ostia(args: string[], cwd = home, token = agent.token): Promise<RunResult> {
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, [cliPath, ...args], {
       cwd,
-      env: { ...process.env, OSTIA_SOCKET: socketPath, OSTIA_TOKEN: agent.token },
+      env: { ...process.env, OSTIA_SOCKET: socketPath, OSTIA_TOKEN: token },
     })
     liveChildren.add(child)
     let stdout = ''
@@ -247,6 +266,7 @@ beforeEach(() => {
   written.length = 0
   reruns.length = 0
   closedPanes.length = 0
+  asleep.clear()
 })
 
 afterEach(() => {
@@ -568,6 +588,43 @@ describe('ostia pane (the real CLI against a live control server)', () => {
     expect(unknown.code).toBe(1)
     expect(unknown.stderr).toContain('unknown-pane: nobody')
     expect(closedPanes).toEqual([])
+  })
+
+  it('pane wake --wait returns once the woken agent started, and a send before that is refused', async () => {
+    const { tab } = await run('claude', '--name', 'fixer')
+    const fixer = getByPaneId(tab)
+    asleep.add(tab)
+    const wakingPanes = async (): Promise<string[]> =>
+      JSON.parse((await ostia(['pane.list'])).stdout)
+        .filter((p: { waking?: true }) => p.waking)
+        .map((p: { paneId: string }) => p.paneId)
+
+    const woke = await ostia(['pane', 'wake', 'fixer'])
+    expect(woke.code).toBe(0)
+    expect(woke.stdout.trim()).toBe(fixer?.externalId)
+    const early = await ostia(['pane', 'send', 'fixer', 'early', '--enter'])
+    expect(early.code).toBe(1)
+    expect(early.stderr).toContain(`waking: ${fixer?.externalId} is starting its agent`)
+    expect(await wakingPanes()).toEqual([fixer?.externalId])
+
+    const waited = ostia(['pane', 'wake', 'fixer', '--wait'])
+    const beforeStart = await Promise.race([
+      waited.then(() => 'returned'),
+      new Promise((resolve) => setTimeout(resolve, 1000, 'waiting')),
+    ])
+    expect(beforeStart).toBe('waiting')
+    expect(await wakingPanes()).toEqual([fixer?.externalId])
+    const token = await ostia(['resume-token', 'claude', 'e2e-wake-wait'], home, fixer?.token)
+    expect(token.stdout.trim()).toBe('ok')
+    expect((await waited).code).toBe(0)
+
+    const sent = await ostia(['pane', 'send', 'fixer', 'hi', '--enter'])
+    expect(sent.stdout.trim()).toBe('ok')
+    expect(written).toEqual([
+      { paneId: tab, data: 'hi' },
+      { paneId: tab, data: '\r' },
+    ])
+    expect(await wakingPanes()).toEqual([])
   })
 
   it('prints usage for a missing pane or an unknown key', async () => {
