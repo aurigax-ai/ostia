@@ -8,44 +8,34 @@ import {
   StreamMessageWriter,
   createMessageConnection,
 } from 'vscode-jsonrpc/node'
-import { controlInfoPath, readControlSocket } from '../main/controlDiscovery'
-import { RESUMABLE_AGENTS, isResumableAgent, resumeFromHookPayload } from '../shared/agentResume'
-import { CLAUDE_WORK_EVENTS, claudeWorkReport, isClaudeWorkEvent } from '../shared/agentWork'
-import { readEnv } from '../shared/appEnv'
-import { ARTIFACTS_ENV } from '../shared/artifacts'
+import { controlInfoPath, readControlSocket } from '../main/control/controlDiscovery'
+import {
+  RESUMABLE_AGENTS,
+  isResumableAgent,
+  resumeFromHookPayload,
+} from '../shared/agents/agentResume'
+import { CLAUDE_WORK_EVENTS, claudeWorkReport, isClaudeWorkEvent } from '../shared/agents/agentWork'
 import {
   CLAUDE_ATTENTION_EVENTS,
   claudeAttention,
   isClaudeAttentionEvent,
-} from '../shared/claudeAttention'
+} from '../shared/agents/claudeAttention'
+import { readEnv } from '../shared/appEnv'
+import { ARTIFACTS_ENV } from '../shared/artifacts/artifacts'
 import type {
   DiffFilesResult,
   FileTarget,
   OpenFilesResult,
   OpenPlacement,
   RevealFolderResult,
-} from '../shared/openFiles'
-import { SCRIPT_TOKEN_PREFIX } from '../shared/scriptTokens'
+} from '../shared/files/openFiles'
+import { SCRIPT_TOKEN_PREFIX } from '../shared/permissions/scriptTokens'
 import type { CommandDescriptor, CommandResult } from '../shared/types'
 import type { WorkflowEntry, WorkflowListing } from '../shared/workflows'
-import { runAgentHook } from './agentHook'
-import { FlagError, type ParsedArgs, parseArgs } from './args'
-import { runAskVerb } from './ask'
-import { runBrowse } from './browse'
-import {
-  BUS_ASLEEP_HINT,
-  BUS_QUEUED_HINT,
-  type BusSendOk,
-  type SentMessage,
-  busWaitTimeoutMs,
-  runBusHook,
-  sentLines,
-} from './bus'
-import { runCmuxImportVerb } from './cmuxImport'
-import { commandHelp, wantsHelp } from './commandHelp'
-import { runGitVerb, runPortsVerb } from './coreBoards'
-import { buildCommandCall, parseCommandFlags, resolveWorkspaceRef } from './crossWorkspace'
-import { describeFailure } from './failure'
+import { FlagError, type ParsedArgs, parseArgs } from './common/args'
+import { commandHelp, wantsHelp } from './common/commandHelp'
+import { buildCommandCall, parseCommandFlags, resolveWorkspaceRef } from './common/crossWorkspace'
+import { describeFailure } from './common/failure'
 import {
   type FileProbe,
   type OpenTarget,
@@ -57,17 +47,31 @@ import {
   placementOf,
   refusalLine,
   revealRefusalLine,
-} from './fileArgs'
-import { runManagerVerb } from './manager'
-import { STATE_VERBS, messageFromStdin, saveAttentionOffline } from './offlineAttention'
-import { parseWorkspaceRenameArgs, runPaneVerb } from './pane'
-import { paneToken } from './paneToken'
-import { runPermissionHook } from './permissionHook'
-import { runPortalCommand } from './portal'
-import { TTY_NOTICE, captureStdin } from './stdinCapture'
-import { runTokenVerb } from './token'
-import { buildVersionAt } from './version'
-import { isOfflineViewVerb, runOfflineViewVerb, runViewVerb } from './view'
+} from './common/fileArgs'
+import { paneToken } from './common/paneToken'
+import { TTY_NOTICE, captureStdin } from './common/stdinCapture'
+import { buildVersionAt } from './common/version'
+import { runAgentHook } from './hooks/agentHook'
+import { STATE_VERBS, messageFromStdin, saveAttentionOffline } from './hooks/offlineAttention'
+import { runPermissionHook } from './hooks/permissionHook'
+import { runTokenVerb } from './hooks/token'
+import { runAskVerb } from './verbs/ask'
+import { runBrowse } from './verbs/browse'
+import {
+  BUS_ASLEEP_HINT,
+  BUS_QUEUED_HINT,
+  type BusSendOk,
+  type SentMessage,
+  busWaitTimeoutMs,
+  runBusHook,
+  sentLines,
+} from './verbs/bus'
+import { runCmuxImportVerb } from './verbs/cmuxImport'
+import { runGitVerb, runPortsVerb } from './verbs/coreBoards'
+import { runManagerVerb } from './verbs/manager'
+import { parseWorkspaceRenameArgs, runPaneVerb } from './verbs/pane'
+import { runPortalCommand } from './verbs/portal'
+import { isOfflineViewVerb, runOfflineViewVerb, runViewVerb } from './verbs/view'
 
 interface ProcInfo {
   id: string

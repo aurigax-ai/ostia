@@ -17,7 +17,7 @@ import {
   DEFAULT_SANDBOX_GLOBALS,
   type SandboxViolation,
   type WorkspaceSandbox,
-} from '../../shared/sandbox'
+} from '../../shared/sandbox/sandbox'
 import { sandboxFailureBanner } from './spawnBanner'
 import { SandboxStore } from './store'
 import { ViolationLog, recordViolations } from './violations'

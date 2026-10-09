@@ -1,0 +1,988 @@
+import { currentDict } from '@/i18n/useDict'
+import { panelKey, sizePanel } from '@/layout/panelSize'
+import {
+  type DropZone,
+  addTab,
+  allPanes,
+  backgroundTabAnchor,
+  browserPaneInUse,
+  closePane,
+  createPane,
+  createTerminalPane,
+  equalizeSizes,
+  findExtensionPane,
+  findPane,
+  findSplitTabByName,
+  findViewPane,
+  firstPaneId,
+  firstPaneOfKind,
+  focusIdOf,
+  followMovedFile,
+  graftNode,
+  hasLockedPane,
+  landTab,
+  mergeLayouts,
+  movePane,
+  moveTab,
+  nameSplitTabOf,
+  paneIds,
+  paneInDirection,
+  renamePane,
+  selectTab,
+  setDefaultPaneTitle,
+  setDefaultPaneTitles,
+  setPaneBrowser,
+  setPaneChat,
+  setPaneCwd,
+  setPaneDiff,
+  setPaneEditor,
+  setPaneExtension,
+  setPaneGit,
+  setPaneHibernated,
+  setPaneLocked,
+  setPaneResume,
+  setPaneTitle,
+  setPaneUrl,
+  setPaneView,
+  setResumePending,
+  setSizes,
+  settleSpawnDir,
+  slotCount,
+  slotPaneOfKind,
+  splitBeside,
+  splitPane,
+  tabsOfPane,
+  takeTab,
+} from '@/layout/tree'
+import type { Direction, LayoutNode, PaneNode, SurfaceKind } from '@/layout/types'
+import { rememberedPanelFraction } from '@/lib/panes/panelSizes'
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useDiffStore } from '@/stores/files/diffStore'
+import { isWaitedPane } from '@/stores/files/openWaitsStore'
+import type { AgentResume } from '@shared/agents/agentResume'
+import type { BrowserProfile } from '@shared/browser/browserProfile'
+import type { DiffContent } from '@shared/extensions'
+import type { PanePlacement } from '@shared/types'
+import type { SplitTabPlacement } from '@shared/workspaces/splitTabs'
+import { create } from 'zustand'
+import { useWorkspacesStore } from './workspacesStore'
+
+export interface WorkspaceLayout {
+  root: LayoutNode
+  activePaneId: string
+  zoomedPaneId: string | null
+  equalized?: number
+}
+
+interface LayoutState {
+  byWorkspace: Record<string, WorkspaceLayout>
+  ensure: (workspaceId: string) => void
+  hydrate: (layouts: Record<string, WorkspaceLayout>) => void
+  split: (workspaceId: string, paneId: string, direction: Direction) => void
+  newTab: (
+    workspaceId: string,
+    paneId: string,
+    kind: NewTabKind,
+    browserProfile?: BrowserProfile,
+  ) => string | null
+  closePane: (workspaceId: string, paneId: string) => void
+  focusPane: (workspaceId: string, paneId: string) => void
+  resize: (workspaceId: string, splitId: string, sizes: number[]) => void
+  zoomPane: (workspaceId: string, paneId: string, zoom?: boolean) => void
+  movePane: (workspaceId: string, sourceId: string, targetId: string, zone: DropZone) => void
+  moveTab: (workspaceId: string, sourceId: string, targetId: string, after: boolean) => void
+  setCwd: (workspaceId: string, paneId: string, cwd: string) => void
+  setUrl: (workspaceId: string, paneId: string, url: string) => void
+  setResume: (workspaceId: string, paneId: string, resume: AgentResume) => void
+  setResumePending: (workspaceId: string, paneId: string, pending: boolean) => void
+  setHibernated: (workspaceId: string, paneId: string, hibernated: boolean) => void
+  settleSpawnDir: (workspaceId: string, paneId: string, missing: boolean) => void
+  setLocked: (workspaceId: string, paneId: string, locked: boolean) => void
+  isLocked: (workspaceId: string, paneId?: string) => boolean
+  setTitle: (workspaceId: string, paneId: string, title: string) => void
+  followMovedFile: (from: string, to: string) => void
+  rename: (workspaceId: string, paneId: string, title: string) => void
+  setDefaultTitle: (workspaceId: string, paneId: string, title: string) => void
+  openFile: (workspaceId: string, path: string) => void
+  openFileTab: (
+    workspaceId: string,
+    path: string,
+    paneId?: string,
+    background?: boolean,
+    fresh?: boolean,
+  ) => string | null
+  openFileSplit: (
+    workspaceId: string,
+    path: string,
+    paneId: string | undefined,
+    side: 'right' | 'down',
+    background?: boolean,
+  ) => string | null
+  openFileBeside: (workspaceId: string, path: string) => void
+  openTerminalTab: (workspaceId: string, cwd: string) => string | null
+  openBrowser: (workspaceId: string, url: string, profile: BrowserProfile) => void
+  openBrowserTab: (
+    workspaceId: string,
+    url: string,
+    profile: BrowserProfile,
+    background?: { beside?: string },
+  ) => string | null
+  openExtensionPanel: (workspaceId: string, extensionId: string, title: string) => string | null
+  openGit: (workspaceId: string, title: string) => string | null
+  openView: (workspaceId: string, viewName: string, title: string) => string | null
+  openDiff: (workspaceId: string, content: DiffContent) => string | null
+  openChat: (workspaceId: string, title: string) => string | null
+  setChatSession: (workspaceId: string, paneId: string, sessionId: string, title: string) => void
+  openTerminal: (workspaceId: string, opts: OpenTerminalPlacement) => string | null
+  openManager: (workspaceId: string, opts: { cwd: string; title: string }) => string | null
+  removeWorkspace: (workspaceId: string) => void
+  release: (workspaceId: string) => void
+  releasePane: (workspaceId: string, paneId: string) => void
+  merge: (sourceId: string, targetId: string) => void
+  moveTabTo: (sourceId: string, targetId: string, tabId: string) => string[]
+  adopt: (layouts: Record<string, WorkspaceLayout>) => void
+  graft: (workspaceId: string, layout: WorkspaceLayout, beside?: PanePlacement) => void
+}
+
+export interface OpenTerminalPlacement {
+  afterPaneId?: string
+  openedPaneIds?: string[]
+  cwd?: string
+  title?: string
+  backgroundTab?: boolean
+  splitTab?: SplitTabPlacement
+}
+
+function splitTabAnchor(root: LayoutNode, splitTab: SplitTabPlacement): string | null {
+  const named = findSplitTabByName(root, splitTab.name)
+  if (named) {
+    const panes = allPanes(named)
+    return panes[panes.length - 1].id
+  }
+  return splitTab.joinPaneId && findPane(root, splitTab.joinPaneId) ? splitTab.joinPaneId : null
+}
+
+function joinSplitTab(
+  root: LayoutNode,
+  anchor: string,
+  pane: PaneNode,
+  splitTab: SplitTabPlacement,
+): LayoutNode {
+  const direction: Direction = splitTab.side === 'down' ? 'vertical' : 'horizontal'
+  return nameSplitTabOf(splitPane(root, anchor, direction, pane).root, pane.id, splitTab.name)
+}
+
+function describeTerminal(root: LayoutNode, paneId: string, opts: OpenTerminalPlacement) {
+  const withCwd = opts.cwd ? setPaneCwd(root, paneId, opts.cwd) : root
+  return opts.title ? setPaneTitle(withCwd, paneId, opts.title) : withCwd
+}
+
+function workDirOf(workspaceId: string): string | undefined {
+  return useWorkspacesStore.getState().workspaces.find((w) => w.id === workspaceId)?.workDir
+}
+
+export type NewTabKind = Extract<SurfaceKind, 'terminal' | 'browser'>
+
+function layoutOf(root: LayoutNode): WorkspaceLayout {
+  return { root, activePaneId: firstPaneId(root), zoomedPaneId: null }
+}
+
+function patch(
+  state: LayoutState,
+  workspaceId: string,
+  fn: (layout: WorkspaceLayout) => WorkspaceLayout,
+): Pick<LayoutState, 'byWorkspace'> | null {
+  const layout = state.byWorkspace[workspaceId]
+  if (!layout) return null
+  const next = fn(layout)
+  const selected = selectTab(next.root, next.activePaneId)
+  const created = slotCount(selected) > slotCount(layout.root)
+  const equalize = created && useSettingsStore.getState().panes.equalizeOnSplit
+  const root = equalize ? equalizeSizes(selected) : selected
+  const equalized = equalize ? (next.equalized ?? layout.equalized ?? 0) + 1 : undefined
+  const carried = equalized ?? next.equalized ?? layout.equalized
+  const result: WorkspaceLayout = { ...next, root }
+  if (carried !== undefined) result.equalized = carried
+  return {
+    byWorkspace: {
+      ...state.byWorkspace,
+      [workspaceId]: root === next.root && carried === next.equalized ? next : result,
+    },
+  }
+}
+
+function insertSplit(
+  root: LayoutNode,
+  targetId: string,
+  pane: PaneNode,
+  side: 'right' | 'down',
+): LayoutNode {
+  return splitBeside(root, targetId, side === 'right' ? 'horizontal' : 'vertical', pane).root
+}
+
+function neutralTerminalTitle(): string {
+  return currentDict().pane.terminalTitle
+}
+
+function newTerminalPane(cwd?: string): PaneNode {
+  return createTerminalPane(neutralTerminalTitle(), cwd)
+}
+
+function seedLayout(workspaceId: string, make: (pane: PaneNode) => LayoutNode): string | null {
+  if (useLayoutStore.getState().byWorkspace[workspaceId]) return null
+  if (!useWorkspacesStore.getState().workspaces.some((w) => w.id === workspaceId)) return null
+  const pane = newTerminalPane()
+  useLayoutStore.setState((s) => ({
+    byWorkspace: { ...s.byWorkspace, [workspaceId]: layoutOf(make(pane)) },
+  }))
+  window.ostia?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId: pane.id })
+  return pane.id
+}
+
+function withRememberedPanelSize(layout: WorkspaceLayout, paneId: string): WorkspaceLayout {
+  const pane = findPane(layout.root, paneId)
+  const key = pane ? panelKey(pane) : null
+  const fraction = key ? rememberedPanelFraction(key) : null
+  if (fraction === null) return layout
+  const root = sizePanel(layout.root, paneId, fraction)
+  return root === layout.root ? layout : { ...layout, root }
+}
+
+function openSingleton(
+  workspaceId: string,
+  find: (root: LayoutNode) => PaneNode | null,
+  apply: (root: LayoutNode, paneId: string) => LayoutNode,
+): string | null {
+  const seeded = seedLayout(workspaceId, (p) => apply(p, p.id))
+  if (seeded) return seeded
+  let createdPaneId: string | null = null
+  let targetPaneId: string | null = null
+  useLayoutStore.setState((s) => {
+    const next = patch(s, workspaceId, (l) => {
+      const existing = find(l.root)
+      if (existing) {
+        targetPaneId = existing.id
+        return { ...l, activePaneId: existing.id }
+      }
+      const { root, newPaneId } = splitBeside(l.root, l.activePaneId, 'horizontal')
+      if (!newPaneId) return l
+      createdPaneId = newPaneId
+      targetPaneId = newPaneId
+      return { ...l, root: apply(root, newPaneId), activePaneId: newPaneId }
+    })
+    if (!next) return s
+    if (!createdPaneId) return next
+    const created = next.byWorkspace[workspaceId]
+    const sized = withRememberedPanelSize(created, createdPaneId)
+    return sized === created ? next : { byWorkspace: { ...next.byWorkspace, [workspaceId]: sized } }
+  })
+  if (createdPaneId) {
+    window.ostia?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId: createdPaneId })
+  }
+  return targetPaneId
+}
+
+function successorOf(before: LayoutNode, after: LayoutNode, closedId: string): string {
+  const tabs = tabsOfPane(before, closedId)
+  const survivor = tabs ? closePane(tabs, closedId) : null
+  return survivor && survivor !== tabs ? firstPaneId(survivor) : firstPaneId(after)
+}
+
+export const useLayoutStore = create<LayoutState>((set, get) => ({
+  byWorkspace: {},
+
+  ensure: (workspaceId) => {
+    let createdPaneId: string | null = null
+    set((s) => {
+      if (s.byWorkspace[workspaceId]) return s
+      const root = newTerminalPane(workDirOf(workspaceId))
+      createdPaneId = firstPaneId(root)
+      return {
+        byWorkspace: {
+          ...s.byWorkspace,
+          [workspaceId]: layoutOf(root),
+        },
+      }
+    })
+    if (createdPaneId) {
+      window.ostia?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId: createdPaneId })
+    }
+  },
+
+  hydrate: (layouts) => {
+    const title = neutralTerminalTitle()
+    set({
+      byWorkspace: Object.fromEntries(
+        Object.entries(layouts).map(([workspaceId, layout]) => [
+          workspaceId,
+          { ...layout, root: setDefaultPaneTitles(layout.root, title) },
+        ]),
+      ),
+    })
+    for (const [workspaceId, layout] of Object.entries(layouts)) {
+      for (const paneId of paneIds(layout.root)) {
+        window.ostia?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId })
+      }
+    }
+  },
+
+  split: (workspaceId, paneId, direction) => {
+    let createdPaneId: string | null = null
+    set((s) => {
+      const next = patch(s, workspaceId, (l) => {
+        const result = splitPane(l.root, paneId, direction, newTerminalPane())
+        createdPaneId = result.newPaneId
+        const workDir = workDirOf(workspaceId)
+        const root =
+          result.newPaneId && workDir
+            ? setPaneCwd(result.root, result.newPaneId, workDir)
+            : result.root
+        return { ...l, root, activePaneId: result.newPaneId ?? l.activePaneId }
+      })
+      return next ?? s
+    })
+    if (createdPaneId) {
+      window.ostia?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId: createdPaneId })
+    }
+  },
+
+  newTab: (workspaceId, paneId, kind, browserProfile = 'isolated') => {
+    let createdPaneId: string | null = null
+    set((s) => {
+      const next = patch(s, workspaceId, (l) => {
+        const target = findPane(l.root, paneId)
+        if (!target) return l
+        const pane =
+          kind === 'terminal' ? newTerminalPane(workDirOf(workspaceId)) : createPane(kind)
+        const root =
+          kind === 'browser'
+            ? setPaneBrowser(addTab(l.root, paneId, pane), pane.id, 'about:blank', browserProfile)
+            : addTab(l.root, paneId, pane)
+        createdPaneId = pane.id
+        return { ...l, root, activePaneId: pane.id, zoomedPaneId: null }
+      })
+      return next ?? s
+    })
+    if (createdPaneId) {
+      window.ostia?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId: createdPaneId })
+    }
+    return createdPaneId
+  },
+
+  closePane: (workspaceId, paneId) => {
+    if (get().isLocked(workspaceId, paneId)) return
+    const current = get().byWorkspace[workspaceId]
+    if (current?.root.type === 'pane' && current.root.id === paneId) {
+      set((s) => {
+        const { [workspaceId]: _emptied, ...byWorkspace } = s.byWorkspace
+        return { byWorkspace }
+      })
+      window.ostia?.lifecycle?.emit?.({ type: 'pane-closed', workspaceId, paneId })
+      return
+    }
+    let removed = false
+    set((s) => {
+      const next = patch(s, workspaceId, (l) => {
+        const root = closePane(l.root, paneId)
+        removed = findPane(l.root, paneId) !== null && findPane(root, paneId) === null
+        const activePaneId =
+          removed && paneId === l.activePaneId ? successorOf(l.root, root, paneId) : l.activePaneId
+        const zoomedPaneId = removed && l.zoomedPaneId === paneId ? null : l.zoomedPaneId
+        return { root, activePaneId, zoomedPaneId }
+      })
+      return next ?? s
+    })
+    if (removed) {
+      window.ostia?.lifecycle?.emit?.({ type: 'pane-closed', workspaceId, paneId })
+    }
+  },
+
+  focusPane: (workspaceId, paneId) =>
+    set((s) => patch(s, workspaceId, (l) => ({ ...l, activePaneId: paneId })) ?? s),
+
+  zoomPane: (workspaceId, paneId, zoom) =>
+    set(
+      (s) =>
+        patch(s, workspaceId, (l) => {
+          const zoomedPaneId =
+            zoom === undefined
+              ? l.zoomedPaneId === paneId
+                ? null
+                : paneId
+              : zoom
+                ? paneId
+                : l.zoomedPaneId === paneId
+                  ? null
+                  : l.zoomedPaneId
+          return { ...l, zoomedPaneId }
+        }) ?? s,
+    ),
+
+  resize: (workspaceId, splitId, sizes) =>
+    set(
+      (s) => patch(s, workspaceId, (l) => ({ ...l, root: setSizes(l.root, splitId, sizes) })) ?? s,
+    ),
+
+  movePane: (workspaceId, sourceId, targetId, zone) =>
+    set(
+      (s) =>
+        patch(s, workspaceId, (l) => {
+          const root = movePane(l.root, sourceId, targetId, zone)
+          return { ...l, root, activePaneId: focusIdOf(root, sourceId) ?? l.activePaneId }
+        }) ?? s,
+    ),
+
+  moveTab: (workspaceId, sourceId, targetId, after) =>
+    set(
+      (s) =>
+        patch(s, workspaceId, (l) => {
+          const root = moveTab(l.root, sourceId, targetId, after)
+          return { ...l, root, activePaneId: focusIdOf(root, sourceId) ?? l.activePaneId }
+        }) ?? s,
+    ),
+
+  setCwd: (workspaceId, paneId, cwd) =>
+    set((s) => {
+      const layout = s.byWorkspace[workspaceId]
+      if (!layout) return s
+      const root = setPaneCwd(layout.root, paneId, cwd)
+      return root === layout.root
+        ? s
+        : { byWorkspace: { ...s.byWorkspace, [workspaceId]: { ...layout, root } } }
+    }),
+
+  setUrl: (workspaceId, paneId, url) =>
+    set((s) => {
+      const layout = s.byWorkspace[workspaceId]
+      if (!layout) return s
+      const root = setPaneUrl(layout.root, paneId, url)
+      return root === layout.root
+        ? s
+        : { byWorkspace: { ...s.byWorkspace, [workspaceId]: { ...layout, root } } }
+    }),
+
+  followMovedFile: (from, to) =>
+    set((s) => {
+      let changed = false
+      const byWorkspace: Record<string, WorkspaceLayout> = {}
+      for (const [id, layout] of Object.entries(s.byWorkspace)) {
+        const root = followMovedFile(layout.root, from, to)
+        changed ||= root !== layout.root
+        byWorkspace[id] = root === layout.root ? layout : { ...layout, root }
+      }
+      return changed ? { byWorkspace } : s
+    }),
+
+  setTitle: (workspaceId, paneId, title) =>
+    set((s) => {
+      const layout = s.byWorkspace[workspaceId]
+      if (!layout) return s
+      const root = setPaneTitle(layout.root, paneId, title)
+      return root === layout.root
+        ? s
+        : { byWorkspace: { ...s.byWorkspace, [workspaceId]: { ...layout, root } } }
+    }),
+
+  rename: (workspaceId, paneId, title) =>
+    set((s) => {
+      const layout = s.byWorkspace[workspaceId]
+      if (!layout) return s
+      const root = renamePane(layout.root, paneId, title)
+      return root === layout.root
+        ? s
+        : { byWorkspace: { ...s.byWorkspace, [workspaceId]: { ...layout, root } } }
+    }),
+
+  setDefaultTitle: (workspaceId, paneId, title) =>
+    set((s) => {
+      const layout = s.byWorkspace[workspaceId]
+      if (!layout) return s
+      const root = setDefaultPaneTitle(layout.root, paneId, title)
+      return root === layout.root
+        ? s
+        : { byWorkspace: { ...s.byWorkspace, [workspaceId]: { ...layout, root } } }
+    }),
+
+  setResume: (workspaceId, paneId, resume) =>
+    set((s) => {
+      const layout = s.byWorkspace[workspaceId]
+      if (!layout) return s
+      const root = setPaneResume(layout.root, paneId, resume)
+      return root === layout.root
+        ? s
+        : { byWorkspace: { ...s.byWorkspace, [workspaceId]: { ...layout, root } } }
+    }),
+
+  setResumePending: (workspaceId, paneId, pending) =>
+    set((s) => {
+      const layout = s.byWorkspace[workspaceId]
+      if (!layout) return s
+      const root = setResumePending(layout.root, paneId, pending)
+      return root === layout.root
+        ? s
+        : { byWorkspace: { ...s.byWorkspace, [workspaceId]: { ...layout, root } } }
+    }),
+
+  setHibernated: (workspaceId, paneId, hibernated) =>
+    set((s) => {
+      const layout = s.byWorkspace[workspaceId]
+      if (!layout) return s
+      const asleep = setPaneHibernated(layout.root, paneId, hibernated)
+      const root = hibernated ? setDefaultPaneTitle(asleep, paneId, neutralTerminalTitle()) : asleep
+      return root === layout.root
+        ? s
+        : { byWorkspace: { ...s.byWorkspace, [workspaceId]: { ...layout, root } } }
+    }),
+
+  settleSpawnDir: (workspaceId, paneId, missing) =>
+    set((s) => {
+      const layout = s.byWorkspace[workspaceId]
+      if (!layout) return s
+      const root = settleSpawnDir(layout.root, paneId, missing)
+      return root === layout.root
+        ? s
+        : { byWorkspace: { ...s.byWorkspace, [workspaceId]: { ...layout, root } } }
+    }),
+
+  setLocked: (workspaceId, paneId, locked) =>
+    set((s) => {
+      const layout = s.byWorkspace[workspaceId]
+      if (!layout || findPane(layout.root, paneId)?.kind === 'manager') return s
+      const root = setPaneLocked(layout.root, paneId, locked)
+      return root === layout.root
+        ? s
+        : { byWorkspace: { ...s.byWorkspace, [workspaceId]: { ...layout, root } } }
+    }),
+
+  isLocked: (workspaceId, paneId) => {
+    const root = get().byWorkspace[workspaceId]?.root
+    if (!root) return false
+    return paneId === undefined ? hasLockedPane(root) : findPane(root, paneId)?.locked === true
+  },
+
+  openFile: (workspaceId, path) => {
+    const title = path.split('/').pop() || path
+    if (seedLayout(workspaceId, (p) => setPaneEditor(p, p.id, title, path))) return
+    let createdPaneId: string | null = null
+    set((s) => {
+      const next = patch(s, workspaceId, (l) => {
+        const inTab = useSettingsStore.getState().editor.openFilesIn === 'tab'
+        const showing = allPanes(l.root).find((p) => p.kind === 'editor' && p.filePath === path)
+        if (inTab && showing) return { ...l, activePaneId: showing.id }
+        const reusable = inTab
+          ? slotPaneOfKind(l.root, l.activePaneId, 'editor')
+          : (allPanes(l.root).find((p) => p.kind === 'editor' && !isWaitedPane(p.id)) ?? null)
+        const existing = reusable && !isWaitedPane(reusable.id) ? reusable : null
+        if (existing) {
+          return {
+            ...l,
+            root: setPaneEditor(l.root, existing.id, title, path),
+            activePaneId: existing.id,
+          }
+        }
+        if (inTab) {
+          const pane = createPane('editor')
+          createdPaneId = pane.id
+          return {
+            ...l,
+            root: setPaneEditor(addTab(l.root, l.activePaneId, pane), pane.id, title, path),
+            activePaneId: pane.id,
+          }
+        }
+        const { root, newPaneId } = splitBeside(l.root, l.activePaneId, 'horizontal')
+        if (!newPaneId) return l
+        createdPaneId = newPaneId
+        return { ...l, root: setPaneEditor(root, newPaneId, title, path), activePaneId: newPaneId }
+      })
+      return next ?? s
+    })
+    if (createdPaneId) {
+      window.ostia?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId: createdPaneId })
+    }
+  },
+
+  openFileSplit: (workspaceId, path, paneId, side, background = false) => {
+    const title = path.split('/').pop() || path
+    const seeded = seedLayout(workspaceId, (p) => setPaneEditor(p, p.id, title, path))
+    if (seeded) return seeded
+    let createdPaneId: string | null = null
+    let shownPaneId: string | null = null
+    set((s) => {
+      const next = patch(s, workspaceId, (l) => {
+        const target = paneId && findPane(l.root, paneId) ? paneId : l.activePaneId
+        const besideId = paneInDirection(l.root, target, side)
+        const beside = besideId ? findPane(l.root, besideId) : null
+        const showing = allPanes(l.root).find((p) => p.kind === 'editor' && p.filePath === path)
+        if (showing && beside && tabsOfPane(l.root, showing.id) === tabsOfPane(l.root, beside.id)) {
+          shownPaneId = showing.id
+          return background ? l : { ...l, activePaneId: showing.id }
+        }
+        const pane = createPane('editor')
+        createdPaneId = pane.id
+        const placed =
+          beside?.kind === 'editor' && !isWaitedPane(beside.id)
+            ? addTab(l.root, beside.id, pane, false)
+            : insertSplit(l.root, target, pane, side)
+        const root = setPaneEditor(placed, pane.id, title, path)
+        return background ? { ...l, root } : { ...l, root, activePaneId: pane.id }
+      })
+      return next ?? s
+    })
+    if (createdPaneId) {
+      window.ostia?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId: createdPaneId })
+    }
+    return createdPaneId ?? shownPaneId
+  },
+
+  openFileTab: (workspaceId, path, paneId, background = false, fresh = false) => {
+    const title = path.split('/').pop() || path
+    const seeded = seedLayout(workspaceId, (p) => setPaneEditor(p, p.id, title, path))
+    if (seeded) return seeded
+    let createdPaneId: string | null = null
+    set((s) => {
+      const next = patch(s, workspaceId, (l) => {
+        const showing = fresh
+          ? undefined
+          : allPanes(l.root).find((p) => p.kind === 'editor' && p.filePath === path)
+        if (showing) return background ? l : { ...l, activePaneId: showing.id }
+        const target = paneId && findPane(l.root, paneId) ? paneId : l.activePaneId
+        const pane = createPane('editor')
+        createdPaneId = pane.id
+        const root = setPaneEditor(addTab(l.root, target, pane, background), pane.id, title, path)
+        return background ? { ...l, root } : { ...l, root, activePaneId: pane.id }
+      })
+      return next ?? s
+    })
+    if (createdPaneId) {
+      window.ostia?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId: createdPaneId })
+    }
+    return createdPaneId
+  },
+
+  openFileBeside: (workspaceId, path) => {
+    const title = path.split('/').pop() || path
+    if (seedLayout(workspaceId, (p) => setPaneEditor(p, p.id, title, path))) return
+    let createdPaneId: string | null = null
+    set((s) => {
+      const next = patch(s, workspaceId, (l) => {
+        const { root, newPaneId } = splitBeside(l.root, l.activePaneId, 'horizontal')
+        if (!newPaneId) return l
+        createdPaneId = newPaneId
+        return { ...l, root: setPaneEditor(root, newPaneId, title, path), activePaneId: newPaneId }
+      })
+      return next ?? s
+    })
+    if (createdPaneId) {
+      window.ostia?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId: createdPaneId })
+    }
+  },
+
+  openTerminalTab: (workspaceId, cwd) => {
+    const layout = get().byWorkspace[workspaceId]
+    if (!layout) return get().openTerminal(workspaceId, { cwd })
+    const paneId = get().newTab(workspaceId, layout.activePaneId, 'terminal')
+    if (paneId) get().setCwd(workspaceId, paneId, cwd)
+    return paneId
+  },
+
+  openBrowser: (workspaceId, url, profile) => {
+    if (seedLayout(workspaceId, (p) => setPaneBrowser(p, p.id, url, profile))) return
+    let createdPaneId: string | null = null
+    set((s) => {
+      const next = patch(s, workspaceId, (l) => {
+        const existing = browserPaneInUse(l.root, l.activePaneId, profile)
+        if (existing) {
+          return {
+            ...l,
+            root: setPaneBrowser(l.root, existing.id, url),
+            activePaneId: existing.id,
+          }
+        }
+        const pane = createPane('browser')
+        createdPaneId = pane.id
+        return {
+          ...l,
+          root: setPaneBrowser(addTab(l.root, l.activePaneId, pane), pane.id, url, profile),
+          activePaneId: pane.id,
+        }
+      })
+      return next ?? s
+    })
+    if (createdPaneId) {
+      window.ostia?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId: createdPaneId })
+    }
+  },
+
+  openBrowserTab: (workspaceId, url, profile, background) => {
+    const seeded = seedLayout(workspaceId, (p) => setPaneBrowser(p, p.id, url, profile))
+    if (seeded) return seeded
+    let createdPaneId: string | null = null
+    set((s) => {
+      const next = patch(s, workspaceId, (l) => {
+        const asked = background?.beside && findPane(l.root, background.beside)
+        const beside = asked
+          ? asked.id
+          : (browserPaneInUse(l.root, l.activePaneId, profile)?.id ?? l.activePaneId)
+        const pane = createPane('browser')
+        createdPaneId = pane.id
+        const quiet = background !== undefined
+        const root = setPaneBrowser(addTab(l.root, beside, pane, quiet), pane.id, url, profile)
+        return quiet ? { ...l, root } : { ...l, root, activePaneId: pane.id }
+      })
+      return next ?? s
+    })
+    if (createdPaneId) {
+      window.ostia?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId: createdPaneId })
+    }
+    return createdPaneId
+  },
+
+  openExtensionPanel: (workspaceId, extensionId, title) =>
+    openSingleton(
+      workspaceId,
+      (root) => findExtensionPane(root, extensionId),
+      (root, paneId) => setPaneExtension(root, paneId, extensionId, title),
+    ),
+
+  openGit: (workspaceId, title) =>
+    openSingleton(
+      workspaceId,
+      (root) => firstPaneOfKind(root, 'git'),
+      (root, paneId) => setPaneGit(root, paneId, title),
+    ),
+
+  openView: (workspaceId, viewName, title) =>
+    openSingleton(
+      workspaceId,
+      (root) => findViewPane(root, viewName),
+      (root, paneId) => setPaneView(root, paneId, viewName, title),
+    ),
+
+  openChat: (workspaceId, title) =>
+    openSingleton(
+      workspaceId,
+      (root) => firstPaneOfKind(root, 'chat'),
+      (root, paneId) => setPaneChat(root, paneId, title),
+    ),
+
+  setChatSession: (workspaceId, paneId, sessionId, title) =>
+    set((s) => {
+      const layout = s.byWorkspace[workspaceId]
+      const pane = layout ? findPane(layout.root, paneId) : null
+      if (!layout || pane?.kind !== 'chat') return s
+      if (pane.chatSessionId === sessionId && pane.title === title) return s
+      return {
+        byWorkspace: {
+          ...s.byWorkspace,
+          [workspaceId]: { ...layout, root: setPaneChat(layout.root, paneId, title, sessionId) },
+        },
+      }
+    }),
+
+  openDiff: (workspaceId, content) => {
+    let createdPaneId: string | null = null
+    let diffPaneId: string | null = null
+    const slash = content.path ? content.path.lastIndexOf('/') : -1
+    const cwd = content.path && slash > 0 ? content.path.slice(0, slash) : undefined
+    const seeded = seedLayout(workspaceId, (p) => setPaneDiff(p, p.id, content.title, cwd))
+    if (seeded) {
+      useDiffStore.getState().set(seeded, content)
+      return seeded
+    }
+    set((s) => {
+      const next = patch(s, workspaceId, (l) => {
+        const existing = firstPaneOfKind(l.root, 'diff')
+        if (existing) {
+          diffPaneId = existing.id
+          return {
+            ...l,
+            root: setPaneDiff(l.root, existing.id, content.title, cwd),
+            activePaneId: existing.id,
+          }
+        }
+        const pane = createPane('diff')
+        createdPaneId = pane.id
+        diffPaneId = pane.id
+        return {
+          ...l,
+          root: setPaneDiff(addTab(l.root, l.activePaneId, pane), pane.id, content.title, cwd),
+          activePaneId: pane.id,
+        }
+      })
+      return next ?? s
+    })
+    if (diffPaneId) useDiffStore.getState().set(diffPaneId, content)
+    if (createdPaneId) {
+      window.ostia?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId: createdPaneId })
+    }
+    return diffPaneId
+  },
+
+  openManager: (workspaceId, opts) =>
+    seedLayout(workspaceId, (p) => ({
+      type: 'pane',
+      id: p.id,
+      kind: 'manager',
+      cwd: opts.cwd,
+      title: opts.title,
+    })),
+
+  openTerminal: (workspaceId, opts) => {
+    const seeded = seedLayout(workspaceId, (p) => describeTerminal(p, p.id, opts))
+    if (seeded) return seeded
+    let createdPaneId: string | null = null
+    set((s) => {
+      const next = patch(s, workspaceId, (l) => {
+        const beside =
+          opts.afterPaneId && findPane(l.root, opts.afterPaneId) ? opts.afterPaneId : l.activePaneId
+        const anchor = opts.splitTab ? splitTabAnchor(l.root, opts.splitTab) : null
+        if (anchor && opts.splitTab) {
+          const pane = newTerminalPane()
+          createdPaneId = pane.id
+          const root = joinSplitTab(l.root, anchor, pane, opts.splitTab)
+          return { ...l, root: describeTerminal(root, pane.id, opts) }
+        }
+        if (opts.backgroundTab) {
+          const pane = newTerminalPane()
+          createdPaneId = pane.id
+          const after = backgroundTabAnchor(l.root, beside, opts.openedPaneIds ?? [])
+          return { ...l, root: describeTerminal(addTab(l.root, after, pane, true), pane.id, opts) }
+        }
+        const { root, newPaneId } = splitBeside(l.root, beside, 'horizontal', newTerminalPane())
+        if (!newPaneId) return l
+        createdPaneId = newPaneId
+        return {
+          root: describeTerminal(root, newPaneId, opts),
+          activePaneId: newPaneId,
+          zoomedPaneId: null,
+        }
+      })
+      return next ?? s
+    })
+    if (createdPaneId) {
+      window.ostia?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId: createdPaneId })
+    }
+    return createdPaneId
+  },
+
+  removeWorkspace: (workspaceId) => {
+    const layout = get().byWorkspace[workspaceId]
+    set((s) => {
+      if (!(workspaceId in s.byWorkspace)) return s
+      const { [workspaceId]: _removed, ...byWorkspace } = s.byWorkspace
+      return { byWorkspace }
+    })
+    if (layout) {
+      for (const paneId of paneIds(layout.root)) {
+        window.ostia?.lifecycle?.emit?.({ type: 'pane-closed', workspaceId, paneId })
+      }
+    }
+  },
+
+  release: (workspaceId) =>
+    set((s) => {
+      if (!(workspaceId in s.byWorkspace)) return s
+      const { [workspaceId]: _released, ...byWorkspace } = s.byWorkspace
+      return { byWorkspace }
+    }),
+
+  releasePane: (workspaceId, paneId) => {
+    const current = get().byWorkspace[workspaceId]
+    if (!current || !findPane(current.root, paneId)) return
+    if (current.root.type === 'pane') {
+      get().release(workspaceId)
+      return
+    }
+    set(
+      (s) =>
+        patch(s, workspaceId, (l) => {
+          const root = closePane(l.root, paneId)
+          const activePaneId =
+            paneId === l.activePaneId ? successorOf(l.root, root, paneId) : l.activePaneId
+          return {
+            root,
+            activePaneId,
+            zoomedPaneId: l.zoomedPaneId === paneId ? null : l.zoomedPaneId,
+          }
+        }) ?? s,
+    )
+  },
+
+  graft: (workspaceId, incoming, beside) => {
+    set((s) => {
+      if (!s.byWorkspace[workspaceId]) {
+        return { byWorkspace: { ...s.byWorkspace, [workspaceId]: { ...incoming } } }
+      }
+      return (
+        patch(s, workspaceId, (l) => ({
+          ...l,
+          root: graftNode(l.root, incoming.root, beside),
+          activePaneId: incoming.activePaneId,
+          zoomedPaneId: null,
+        })) ?? s
+      )
+    })
+    for (const paneId of paneIds(incoming.root)) {
+      window.ostia?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId })
+    }
+  },
+  merge: (sourceId, targetId) =>
+    set((s) => {
+      const source = s.byWorkspace[sourceId]
+      if (sourceId === targetId || !source) return s
+      const { [sourceId]: _moved, ...byWorkspace } = s.byWorkspace
+      if (!byWorkspace[targetId]) return { byWorkspace: { ...byWorkspace, [targetId]: source } }
+      return (
+        patch({ ...s, byWorkspace }, targetId, (l) => ({
+          ...l,
+          root: mergeLayouts(l.root, source.root),
+          activePaneId: source.activePaneId,
+          zoomedPaneId: null,
+        })) ?? s
+      )
+    }),
+
+  moveTabTo: (sourceId, targetId, tabId) => {
+    const source = get().byWorkspace[sourceId]
+    const taken = source && sourceId !== targetId ? takeTab(source.root, tabId) : null
+    if (!source || !taken) return []
+    const moved = paneIds(taken.tab)
+    const shown = focusIdOf(source.root, tabId) ?? firstPaneId(taken.tab)
+    set((s) => {
+      const target = s.byWorkspace[targetId]
+      const landed: WorkspaceLayout = {
+        ...target,
+        root: landTab(target?.root ?? null, taken.tab, target?.activePaneId ?? shown),
+        activePaneId: shown,
+        zoomedPaneId: null,
+      }
+      const seeded = { ...s, byWorkspace: { ...s.byWorkspace, [targetId]: target ?? landed } }
+      const next = { ...seeded, ...patch(seeded, targetId, () => landed) }
+      const rest = taken.rest
+      if (!rest) {
+        const { [sourceId]: _moved, ...byWorkspace } = next.byWorkspace
+        return { byWorkspace }
+      }
+      return (
+        patch(next, sourceId, (l) => ({
+          ...l,
+          root: rest,
+          activePaneId: moved.includes(l.activePaneId)
+            ? (taken.successor ?? firstPaneId(rest))
+            : l.activePaneId,
+          zoomedPaneId: l.zoomedPaneId && moved.includes(l.zoomedPaneId) ? null : l.zoomedPaneId,
+        })) ?? next
+      )
+    })
+    return moved
+  },
+
+  adopt: (layouts) => {
+    set((s) => ({ byWorkspace: { ...s.byWorkspace, ...layouts } }))
+    for (const [workspaceId, layout] of Object.entries(layouts)) {
+      for (const paneId of paneIds(layout.root)) {
+        window.ostia?.lifecycle?.emit?.({ type: 'pane-created', workspaceId, paneId })
+      }
+    }
+  },
+}))

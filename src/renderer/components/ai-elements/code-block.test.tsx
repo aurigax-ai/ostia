@@ -1,12 +1,12 @@
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import { act, cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { BUILTIN_PLUGINS } from '../../plugins/builtin'
 import type { ColorScheme } from '../../plugins/types'
-import { useSettingsStore } from '../../stores/settingsStore'
 import { CodeBlockContent } from './code-block'
 
 const colorizeCode = vi.fn(async () => null)
-vi.mock('../../lib/colorize', () => ({
+vi.mock('@/lib/theme/colorize', () => ({
   colorizeCode: (...args: unknown[]) => colorizeCode(...(args as [])),
 }))
 

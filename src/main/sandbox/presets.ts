@@ -3,7 +3,7 @@ import {
   SANDBOX_READ_PRESETS,
   type SandboxReadPreset,
   type SandboxReadPresetId,
-} from '../../shared/sandboxPresets'
+} from '../../shared/sandbox/sandboxPresets'
 import { type SandboxPathEnv, checkSandboxPath } from './pathChecks'
 import { within } from './srtConfig'
 

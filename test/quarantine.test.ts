@@ -20,7 +20,7 @@ function daysFrom(date: string, days: number): string {
 }
 
 const valid = {
-  file: 'src/main/notifyCommand.test.ts',
+  file: 'src/main/attention/notifyCommand.test.ts',
   name: 'runNotifyCommand > runs the program directly with the expanded argv, so shell metacharacters stay data',
   issue: 122,
   until: '2026-10-20',

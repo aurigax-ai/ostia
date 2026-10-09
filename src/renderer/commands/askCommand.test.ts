@@ -1,6 +1,6 @@
+import { useUIStore } from '@/stores/app/uiStore'
+import { useAssistStore } from '@/stores/assist/assistStore'
 import { afterEach, describe, expect, it } from 'vitest'
-import { useAssistStore } from '../stores/assistStore'
-import { useUIStore } from '../stores/uiStore'
 import { ASK_COMMAND_ID, startAskCommand } from './askCommand'
 import { commands } from './registry'
 

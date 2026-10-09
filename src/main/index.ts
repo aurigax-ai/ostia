@@ -1,13 +1,13 @@
-import './userDirsBoot'
+import './platform/userDirsBoot'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { app, dialog } from 'electron'
+import { parseDiscreteGpu } from '../shared/app/discreteGpu'
 import { readEnv } from '../shared/appEnv'
-import { parseDiscreteGpu } from '../shared/discreteGpu'
-import { discreteGpu, gpuStartPlan, readSwitcherooGpus } from './discreteGpu'
-import { offerOldDirsMove } from './oldDirsPrompt'
-import { registerPreviewScheme } from './previewScheme'
-import { keepTestCrashDumps } from './testCrashDumps'
+import { registerPreviewScheme } from './artifacts/previewScheme'
+import { keepTestCrashDumps } from './diagnostics/testCrashDumps'
+import { discreteGpu, gpuStartPlan, readSwitcherooGpus } from './platform/discreteGpu'
+import { offerOldDirsMove } from './platform/oldDirsPrompt'
 import {
   OLD_PRODUCT_NAME,
   appDataDir,
@@ -15,7 +15,7 @@ import {
   oldDirMoves,
   projectDirMoves,
   savedWorkspaceFolders,
-} from './userDirs'
+} from './platform/userDirs'
 
 const ANSWERS: Readonly<Record<string, number>> = { move: 0, later: 1 }
 

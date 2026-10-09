@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { programPath } from '../src/main/systemRequirements'
+import { programPath } from '../src/main/platform/systemRequirements'
 
 export const tmuxPath = programPath('tmux')
 

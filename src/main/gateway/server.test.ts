@@ -3,8 +3,8 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import WebSocket from 'ws'
-import { emitPlatformEvent } from '../events'
-import { registerPane } from '../idRegistry'
+import { emitPlatformEvent } from '../control/events'
+import { registerPane } from '../control/idRegistry'
 import type { GatewayControlDeps } from './controlDispatch'
 import { registerDevice } from './devices'
 
@@ -15,7 +15,7 @@ vi.mock('electron', () => ({
   ipcMain: { handle: () => {} },
 }))
 
-vi.mock('../controlServer', () => ({
+vi.mock('../control/controlServer', () => ({
   registerControlMethod: (name: string) => registeredMethods.push(name),
 }))
 

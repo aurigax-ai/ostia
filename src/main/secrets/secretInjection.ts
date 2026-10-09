@@ -1,7 +1,7 @@
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { appEnv } from '../../shared/appEnv'
-import type { SecretEntry, SecretGrant } from '../../shared/secrets'
+import type { SecretEntry, SecretGrant } from '../../shared/sandbox/secrets'
 
 export interface PreparedSecrets {
   env: Record<string, string>

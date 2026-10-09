@@ -1,4 +1,4 @@
-import { OSTIA_KEYMAP, TERMINAL_KEYMAPS, isTerminalKeymap } from '@shared/keyboardPresets'
+import { OSTIA_KEYMAP, TERMINAL_KEYMAPS, isTerminalKeymap } from '@shared/keyboard/keyboardPresets'
 
 export const KEYMAP_REF_PATTERN = /^[a-z][a-z0-9-]{1,39}\/[a-z][a-z0-9-]{0,39}$/
 

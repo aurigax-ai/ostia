@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync } from 'node:
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
-import { DEFAULT_ALLOW_READ, DEFAULT_CONTROLS } from '../../shared/sandbox'
+import { DEFAULT_ALLOW_READ, DEFAULT_CONTROLS } from '../../shared/sandbox/sandbox'
 import {
   HOME_HIDDEN_FILES,
   buildSrtConfig,

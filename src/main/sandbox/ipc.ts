@@ -1,4 +1,5 @@
 import { ipcMain } from 'electron'
+import type { MissingRequirement } from '../../shared/app/systemRequirements'
 import {
   PORTS_POLICIES,
   type PortsPolicy,
@@ -16,9 +17,8 @@ import {
   checkExposePort,
   parseSwitches,
   parseWorkspacePackages,
-} from '../../shared/sandbox'
-import type { SandboxReadPreset } from '../../shared/sandboxPresets'
-import type { MissingRequirement } from '../../shared/systemRequirements'
+} from '../../shared/sandbox/sandbox'
+import type { SandboxReadPreset } from '../../shared/sandbox/sandboxPresets'
 import type { DomainRequests } from './domainRequests'
 import { checkSandboxPaths } from './pathChecks'
 import type { PortRequests, PortRow } from './portRequests'

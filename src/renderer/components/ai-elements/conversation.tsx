@@ -1,4 +1,4 @@
-import { IconButton } from '@/components/IconButton'
+import { IconButton } from '@/components/common/IconButton'
 import { cn } from '@/lib/utils'
 import { ArrowDownIcon } from '@phosphor-icons/react'
 import type { ComponentProps, ReactNode } from 'react'

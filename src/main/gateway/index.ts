@@ -1,6 +1,6 @@
 import { hostname } from 'node:os'
 import { type IpcMainInvokeEvent, ipcMain } from 'electron'
-import { LOOPBACK_ADDRESS } from '../../shared/gatewayRoute'
+import { LOOPBACK_ADDRESS } from '../../shared/gateway/gatewayRoute'
 import type {
   GatewayActionResult,
   GatewayDevice,
@@ -13,7 +13,7 @@ import type {
   GatewayTailnetActionResult,
   GatewayTailnetState,
 } from '../../shared/types'
-import { registerControlMethod } from '../controlServer'
+import { registerControlMethod } from '../control/controlServer'
 import { type Announcement, type Publisher, announcementFor, sameAnnouncement } from './announce'
 import type { Device } from './devices'
 import { list as listDevices, revoke as revokeDevice, setDeviceCap } from './devices'

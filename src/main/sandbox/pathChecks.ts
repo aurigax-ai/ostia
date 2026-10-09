@@ -1,6 +1,10 @@
 import { existsSync } from 'node:fs'
 import { isAbsolute, normalize } from 'node:path'
-import { SANDBOX_PATH_MAX, type SandboxEditError, type SandboxPathKind } from '../../shared/sandbox'
+import {
+  SANDBOX_PATH_MAX,
+  type SandboxEditError,
+  type SandboxPathKind,
+} from '../../shared/sandbox/sandbox'
 import { expandHome, realPath, touches, within } from './srtConfig'
 
 export type PathCheckReason =

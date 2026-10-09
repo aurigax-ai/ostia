@@ -1,15 +1,15 @@
+import { plainBlock } from '../../shared/agents/questions'
 import type { Capability } from '../../shared/capabilities'
-import { plainBlock } from '../../shared/questions'
 import type {
   CommandDescriptor,
   CommandResult,
   CommandTarget,
   TerminalStateSnapshot,
 } from '../../shared/types'
-import type { Ask, AskAnswerResult } from '../asks'
-import { internalPaneArgs } from '../commandArgs'
-import { resolveExternal } from '../idRegistry'
-import type { PaneEntry, WorkspaceEntry, WorkspaceGroupEntry } from '../paneList'
+import type { Ask, AskAnswerResult } from '../approvals/asks'
+import { internalPaneArgs } from '../control/commandArgs'
+import { resolveExternal } from '../control/idRegistry'
+import type { PaneEntry, WorkspaceEntry, WorkspaceGroupEntry } from '../panes/paneList'
 import { listArtifactFiles, locateArtifactFile, readArtifactFile } from './artifactFiles'
 import {
   type PhoneFileScope,

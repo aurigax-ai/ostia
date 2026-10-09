@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { zhHant } from '../src/shared/dict'
+import { zhHant } from '../src/shared/app/dict'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import { emptyState, emptyWorkspace, openWorkspace, waitForPaletteSelection } from './helpers'
 import { _electron as electron, expect, test } from './test'

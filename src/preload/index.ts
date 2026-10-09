@@ -1,8 +1,21 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
-import type { AgentSessionInfo } from '../shared/agentSessionInfo'
-import type { HibernateOutcome } from '../shared/agentWork'
-import type { ApprovalState } from '../shared/approvals'
-import type { ArtifactListing } from '../shared/artifacts'
+import type { AgentSessionInfo } from '../shared/agents/agentSessionInfo'
+import type { HibernateOutcome } from '../shared/agents/agentWork'
+import type { QuestionState } from '../shared/agents/questions'
+import type { BuildInfo } from '../shared/app/buildInfo'
+import type { DiscreteGpuInfo } from '../shared/app/discreteGpu'
+import type {
+  ReleaseState,
+  ReplaceProgress,
+  ReplaceStart,
+  ReplaceState,
+  UpdateRunStart,
+  UpdateRunState,
+} from '../shared/app/installMethod'
+import type { ReleaseCheckResult } from '../shared/app/releases'
+import type { RequirementsReport } from '../shared/app/systemRequirements'
+import type { ArtifactListing } from '../shared/artifacts/artifacts'
+import type { PreviewEvent, PreviewOpened } from '../shared/artifacts/htmlPreview'
 import type {
   AssistAvailability,
   AssistCatalog,
@@ -10,26 +23,25 @@ import type {
   AssistExtensionState,
   AssistOpenUiRequest,
 } from '../shared/assist'
-import type { BrowserProfile } from '../shared/browserProfile'
-import type { BrowserStorageRead, StorageWriteResult } from '../shared/browserStorage'
-import type { BuildInfo } from '../shared/buildInfo'
 import type {
   ChatExportResult,
   ChatSaveResult,
   ChatSession,
   ChatSessionSummary,
-} from '../shared/chatSessions'
-import type { McpServerStatus } from '../shared/chatTools'
-import type { CmuxSessionRead } from '../shared/cmuxSession'
-import type { SpecCommand } from '../shared/completionSpec'
+} from '../shared/assist/chatSessions'
+import type { McpServerStatus } from '../shared/assist/chatTools'
+import type { CoreItems } from '../shared/boards/git'
+import type { BrowserProfile } from '../shared/browser/browserProfile'
+import type { BrowserStorageRead, StorageWriteResult } from '../shared/browser/browserStorage'
 import type {
   CredentialImportResult,
   CredentialSaveResult,
   CredentialSummary,
-} from '../shared/credentials'
-import type { DiscreteGpuInfo } from '../shared/discreteGpu'
+} from '../shared/browser/credentials'
+import type { PickOutcome, PickSendResult, PickState } from '../shared/browser/pick'
+import type { RegionCaptureOutcome, RegionCopyResult } from '../shared/browser/regionCapture'
+import type { SelectionSendResult } from '../shared/browser/selection'
 import type { EditorLanguage } from '../shared/editorLanguages'
-import type { ExtensionSuggestion } from '../shared/extensionSuggestions'
 import type {
   ExtensionAgentOffer,
   ExtensionInfo,
@@ -45,20 +57,14 @@ import type {
   PaneChip,
   WorkspaceChip,
 } from '../shared/extensions'
-import type { FileOpResult } from '../shared/fileOps'
-import type { CoreItems } from '../shared/git'
-import type { GuestChordFire } from '../shared/guestChords'
-import type { PreviewEvent, PreviewOpened } from '../shared/htmlPreview'
+import type { ExtensionSuggestion } from '../shared/extensions/extensionSuggestions'
+import type { MarketplaceResult, MarketplaceState } from '../shared/extensions/marketplace'
+import type { FileOpResult } from '../shared/files/fileOps'
+import type { OpenFileVerdict } from '../shared/files/openFiles'
+import type { SearchOutcome } from '../shared/files/search'
 import type { LoadedIconTheme } from '../shared/iconTheme'
-import type {
-  ReleaseState,
-  ReplaceProgress,
-  ReplaceStart,
-  ReplaceState,
-  UpdateRunStart,
-  UpdateRunState,
-} from '../shared/installMethod'
-import type { KeymapLoad } from '../shared/keymapFile'
+import type { GuestChordFire } from '../shared/keyboard/guestChords'
+import type { KeymapLoad } from '../shared/keyboard/keymapFile'
 import type { LanguagePack } from '../shared/languagePack'
 import type {
   LanguageServerInfo,
@@ -66,13 +72,8 @@ import type {
   LspLog,
   LspSessionInfo,
 } from '../shared/languageServers'
-import type { MarketplaceResult, MarketplaceState } from '../shared/marketplace'
-import type { OpenFileVerdict } from '../shared/openFiles'
-import type { PickOutcome, PickSendResult, PickState } from '../shared/pick'
-import type { QuestionState } from '../shared/questions'
-import type { AgentGroupPlacement } from '../shared/reach'
-import type { RegionCaptureOutcome, RegionCopyResult } from '../shared/regionCapture'
-import type { ReleaseCheckResult } from '../shared/releases'
+import type { ApprovalState } from '../shared/permissions/approvals'
+import type { AgentGroupPlacement } from '../shared/permissions/reach'
 import type {
   RemoteFolder,
   RemoteFolderAsk,
@@ -90,12 +91,10 @@ import type {
   SandboxPortRow,
   SandboxViolation,
   WorkspaceSandbox,
-} from '../shared/sandbox'
-import type { SandboxReadPreset } from '../shared/sandboxPresets'
-import type { SearchOutcome } from '../shared/search'
-import type { SecretEntry, SecretGrant } from '../shared/secrets'
-import type { SelectionSendResult } from '../shared/selection'
-import type { RequirementsReport } from '../shared/systemRequirements'
+} from '../shared/sandbox/sandbox'
+import type { SandboxReadPreset } from '../shared/sandbox/sandboxPresets'
+import type { SecretEntry, SecretGrant } from '../shared/sandbox/secrets'
+import type { SpecCommand } from '../shared/terminal/completionSpec'
 import type {
   AppInfo,
   AppSnapshot,
@@ -136,8 +135,9 @@ import type {
   WorkspaceMergeResult,
   WorkspaceProject,
 } from '../shared/types'
-import type { ViewListing } from '../shared/views'
+import type { ViewListing } from '../shared/views/views'
 import type { WorkflowListing, WorkflowSaveResult } from '../shared/workflows'
+import type { CmuxSessionRead } from '../shared/workspaces/cmuxSession'
 
 const bridge: OstiaBridge = {
   ping: () => ipcRenderer.invoke('app:ping') as Promise<'pong'>,

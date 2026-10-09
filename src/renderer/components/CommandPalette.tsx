@@ -1,4 +1,40 @@
+import { ChatView } from '@/components/assist/ChatView'
+import { settingsSections } from '@/components/settings/SettingsPanel'
+import { countUsage } from '@/lib/app/usageCounts'
+import { useChatAvailable } from '@/lib/assist/assistFeatures'
+import { revealPane } from '@/lib/attention/workspaceActivity'
+import { childPath } from '@/lib/files/fileTree'
+import { openFileAt, openFileInWorkspace } from '@/lib/files/openFile'
+import {
+  FILE_SEARCH_DELAY_MS,
+  type WorkspaceFileResult,
+  findWorkspaceFiles,
+  splitFilePath,
+} from '@/lib/files/workspaceFileSearch'
+import {
+  SYMBOL_SEARCH_DELAY_MS,
+  type WorkspaceSymbolResult,
+  findWorkspaceSymbols,
+  symbolPlace,
+} from '@/lib/files/workspaceSymbolSearch'
+import { chordLabel, useBindings } from '@/lib/keys/chords'
+import { paletteFilter } from '@/lib/palette/paletteFilter'
+import { paletteReturnFocus } from '@/lib/palette/paletteFocus'
+import {
+  PALETTE_MODES,
+  type PaletteMode,
+  paletteMode,
+  paletteQuery,
+} from '@/lib/palette/paletteModes'
 import { cn } from '@/lib/utils'
+import { type RemoteWorkspace, remoteWorkspacesOf } from '@/lib/workspaces/windowWorkspaces'
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useUIStore } from '@/stores/app/uiStore'
+import { useAssistProvider } from '@/stores/assist/assistStore'
+import { chatFor, currentSessionId } from '@/stores/assist/chatStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { useWindowsStore } from '@/stores/workspaces/windowsStore'
+import { type Workspace, useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { AppWindowIcon } from '@phosphor-icons/react'
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { ASK_COMMAND_ID } from '../commands/askCommand'
@@ -11,38 +47,7 @@ import {
 import { fmt, useDict } from '../i18n/useDict'
 import { allPanes, firstPaneOfKind } from '../layout/tree'
 import type { PaneNode } from '../layout/types'
-import { useChatAvailable } from '../lib/assistFeatures'
-import { chordLabel, useBindings } from '../lib/chords'
-import { childPath } from '../lib/fileTree'
-import { openFileAt, openFileInWorkspace } from '../lib/openFile'
-import { paletteFilter } from '../lib/paletteFilter'
-import { paletteReturnFocus } from '../lib/paletteFocus'
-import { PALETTE_MODES, type PaletteMode, paletteMode, paletteQuery } from '../lib/paletteModes'
-import { countUsage } from '../lib/usageCounts'
-import { type RemoteWorkspace, remoteWorkspacesOf } from '../lib/windowWorkspaces'
-import { revealPane } from '../lib/workspaceActivity'
-import {
-  FILE_SEARCH_DELAY_MS,
-  type WorkspaceFileResult,
-  findWorkspaceFiles,
-  splitFilePath,
-} from '../lib/workspaceFileSearch'
-import {
-  SYMBOL_SEARCH_DELAY_MS,
-  type WorkspaceSymbolResult,
-  findWorkspaceSymbols,
-  symbolPlace,
-} from '../lib/workspaceSymbolSearch'
 import { isMac } from '../platform'
-import { useAssistProvider } from '../stores/assistStore'
-import { chatFor, currentSessionId } from '../stores/chatStore'
-import { useLayoutStore } from '../stores/layoutStore'
-import { useSettingsStore } from '../stores/settingsStore'
-import { useUIStore } from '../stores/uiStore'
-import { useWindowsStore } from '../stores/windowsStore'
-import { type Workspace, useWorkspacesStore } from '../stores/workspacesStore'
-import { ChatView } from './ChatView'
-import { settingsSections } from './SettingsPanel'
 import {
   Command,
   CommandEmpty,

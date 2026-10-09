@@ -1,8 +1,8 @@
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { resetWorkspaceIds, useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import type { SnapshotWorkspace } from '@shared/types'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import { useLayoutStore } from '../stores/layoutStore'
-import { useSettingsStore } from '../stores/settingsStore'
-import { resetWorkspaceIds, useWorkspacesStore } from '../stores/workspacesStore'
 import { commands } from './registry'
 import { registerWindowCommands } from './windowCommands'
 

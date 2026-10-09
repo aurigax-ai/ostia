@@ -1,3 +1,6 @@
+import { PANEL_SIZES_KEY, PANEL_SIZES_WRITE_DELAY_MS } from '@/lib/panes/panelSizes'
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useGitViewStore } from '@/stores/files/gitViewStore'
 import type {
   BranchRef,
   FileChange,
@@ -6,13 +9,10 @@ import type {
   GitCommitFilesData,
   GitGraphData,
   GraphCommit,
-} from '@shared/git'
+} from '@shared/boards/git'
 import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { renderSettled } from '../../../../test/render'
-import { PANEL_SIZES_KEY, PANEL_SIZES_WRITE_DELAY_MS } from '../../lib/panelSizes'
-import { useGitViewStore } from '../../stores/gitViewStore'
-import { useSettingsStore } from '../../stores/settingsStore'
 import { GitView } from './GitView'
 
 const ROOT = '/repo'

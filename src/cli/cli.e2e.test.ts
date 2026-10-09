@@ -12,24 +12,28 @@ import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { ReportedAgentWork, registerAgentWorkMethods } from '../main/agentWork'
-import { registerAttentionMethods } from '../main/attention'
-import { grant } from '../main/capabilityStore'
+import { ReportedAgentWork, registerAgentWorkMethods } from '../main/agents/agentWork'
+import { grant } from '../main/approvals/capabilityStore'
+import { registerAttentionMethods } from '../main/attention/attention'
 import {
   type ControlServerDeps,
   registerControlMethod,
   registerControlServer,
   stopControlServer,
-} from '../main/controlServer'
-import { type PaneIdentity, registerPane } from '../main/idRegistry'
-import { OpenFileGrants } from '../main/openFileGrants'
-import { registerOpenFileMethods } from '../main/openFileMethods'
-import { OpenWaits } from '../main/openWaits'
-import { registerPaneListMethods } from '../main/paneList'
-import { ViewHost, ViewStore } from '../main/viewHost'
-import { registerViewMethods } from '../main/viewsIpc'
-import { registerWorkflowMethods, workspaceWorkflowsDir } from '../main/workflows'
-import { OPEN_DIFF_COMMAND, OPEN_FILES_COMMAND, REVEAL_FOLDER_COMMAND } from '../shared/openFiles'
+} from '../main/control/controlServer'
+import { type PaneIdentity, registerPane } from '../main/control/idRegistry'
+import { OpenFileGrants } from '../main/files/openFileGrants'
+import { registerOpenFileMethods } from '../main/files/openFileMethods'
+import { OpenWaits } from '../main/files/openWaits'
+import { registerPaneListMethods } from '../main/panes/paneList'
+import { ViewHost, ViewStore } from '../main/workspaces/viewHost'
+import { registerViewMethods } from '../main/workspaces/viewsIpc'
+import { registerWorkflowMethods, workspaceWorkflowsDir } from '../main/workspaces/workflows'
+import {
+  OPEN_DIFF_COMMAND,
+  OPEN_FILES_COMMAND,
+  REVEAL_FOLDER_COMMAND,
+} from '../shared/files/openFiles'
 import type { CommandDescriptor, CommandResult, CommandTarget } from '../shared/types'
 
 const repoRoot = process.cwd()

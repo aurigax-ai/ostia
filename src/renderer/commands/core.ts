@@ -1,4 +1,4 @@
-import type { Dict } from '@shared/dict'
+import type { Dict } from '@shared/app/dict'
 import { type CommandDef, commands, wordedBy } from './registry'
 
 export type CoreCommandId = keyof Dict['commands']['titles']

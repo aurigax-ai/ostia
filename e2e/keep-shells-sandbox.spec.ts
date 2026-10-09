@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync } from 'node:fs'
 import type { Server } from 'node:http'
 import { join } from 'node:path'
-import { KEPT_SHELLS_DIR } from '../src/shared/keepShells'
+import { KEPT_SHELLS_DIR } from '../src/shared/terminal/keepShells'
 import { DOM_RENDERER_SETTINGS, freshDataHome, isolatedLaunch, seedSettings } from './dataHome'
 import {
   PROMPT,

@@ -13,7 +13,7 @@ const LICENSE_NAMES = ['LICENSE', 'LICENSE.md', 'LICENSE.txt', 'license', 'licen
 
 async function runtimeList() {
   const result = await build({
-    entryPoints: [join(root, 'src', 'shared', 'artifactRuntime.ts')],
+    entryPoints: [join(root, 'src', 'shared', 'artifacts', 'artifactRuntime.ts')],
     bundle: true,
     write: false,
     format: 'esm',
@@ -39,7 +39,9 @@ async function exportsOf(specifier) {
 function entrySource(specifier, { names, hasDefault }) {
   const from = JSON.stringify(specifier)
   const lines = [`import * as library from ${from}`]
-  lines.push('const source = library.default && !library.__esModule ? { ...library.default, ...library } : library')
+  lines.push(
+    'const source = library.default && !library.__esModule ? { ...library.default, ...library } : library',
+  )
   if (hasDefault) lines.push('export default library.default')
   if (names.length > 0) {
     lines.push(`const { ${names.map((name) => `${name}: $${name}`).join(', ')} } = source`)

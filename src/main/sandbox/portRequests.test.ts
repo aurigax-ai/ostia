@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type { ApprovalOutcome } from '../../shared/approvals'
-import type { PortsPolicy } from '../../shared/sandbox'
+import type { ApprovalOutcome } from '../../shared/permissions/approvals'
+import type { PortsPolicy } from '../../shared/sandbox/sandbox'
 import type { ExposeRefusal, ExposeResult, SandboxListener } from './portForwarder'
 import { PortRequests } from './portRequests'
 

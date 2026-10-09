@@ -1,27 +1,5 @@
-import { CloudIcon, GitBranchIcon, TagIcon, XIcon } from '@phosphor-icons/react'
-import type {
-  CommitRef,
-  GitCommitFilesData,
-  GitFailure,
-  GitGraphData,
-  GraphCommit,
-  GraphScope,
-  StatusSummary,
-} from '@shared/git'
-import {
-  type CSSProperties,
-  type KeyboardEvent,
-  type ReactNode,
-  type RefObject,
-  memo,
-  useEffect,
-  useId,
-  useMemo,
-  useRef,
-  useState,
-} from 'react'
-import { useDict } from '../../i18n/useDict'
-import type { GraphRow } from '../../lib/gitGraph'
+import { IconButton } from '@/components/common/IconButton'
+import type { GraphRow } from '@/lib/git/gitGraph'
 import {
   type GraphEntry,
   type GraphModel,
@@ -43,9 +21,31 @@ import {
   selectionTarget,
   shortSha,
   visibleRange,
-} from '../../lib/gitView'
-import { useSettingsStore } from '../../stores/settingsStore'
-import { IconButton } from '../IconButton'
+} from '@/lib/git/gitView'
+import { useSettingsStore } from '@/stores/app/settingsStore'
+import { CloudIcon, GitBranchIcon, TagIcon, XIcon } from '@phosphor-icons/react'
+import type {
+  CommitRef,
+  GitCommitFilesData,
+  GitFailure,
+  GitGraphData,
+  GraphCommit,
+  GraphScope,
+  StatusSummary,
+} from '@shared/boards/git'
+import {
+  type CSSProperties,
+  type KeyboardEvent,
+  type ReactNode,
+  type RefObject,
+  memo,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
+import { useDict } from '../../i18n/useDict'
 import {
   type ChangeHandlers,
   ChangeSections,

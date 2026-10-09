@@ -1,7 +1,14 @@
-import { GIT_POLL_SECONDS } from '@shared/git'
-import { PORTS_INTERVAL_SECONDS } from '@shared/ports'
-import { CHORDS_PER_COMMAND_MAX } from '../../shared/chordSpec'
-import { GLOBAL_HOTKEY_MAX_LENGTH } from '../../shared/globalHotkey'
+import { DEFAULT_CHORDS, bindableIds } from '@/lib/keys/chords'
+import {
+  BELL_MODES,
+  LONG_COMMAND_MAX_SECONDS,
+  LONG_COMMAND_MIN_SECONDS,
+} from '@shared/app/notificationSettings'
+import { MATCH_OSTIA_THEME } from '@shared/app/themeChoice'
+import { GIT_POLL_SECONDS } from '@shared/boards/git'
+import { PORTS_INTERVAL_SECONDS } from '@shared/boards/ports'
+import { CHORDS_PER_COMMAND_MAX } from '@shared/keyboard/chordSpec'
+import { GLOBAL_HOTKEY_MAX_LENGTH } from '@shared/keyboard/globalHotkey'
 import {
   KEYBOARD_PLATFORMS,
   type KeyboardPlatform,
@@ -9,24 +16,17 @@ import {
   TERMINAL_KEYMAPS,
   isKeyboardPlatform,
   keyboardPlatform,
-} from '../../shared/keyboardPresets'
-import {
-  BELL_MODES,
-  LONG_COMMAND_MAX_SECONDS,
-  LONG_COMMAND_MIN_SECONDS,
-} from '../../shared/notificationSettings'
-import { PRODUCT_DISPLAY_NAME } from '../../shared/productDisplay'
+} from '@shared/keyboard/keyboardPresets'
+import { TERMINAL_SEND_MAX, TERMINAL_SEND_TYPES } from '@shared/keyboard/terminalKeys'
+import { REDACTION_PATTERNS_MAX, REDACTION_PATTERN_MAX } from '@shared/privacy/redaction'
 import {
   CORE_CHIP_IDS,
   MAX_PROMPT_CHIPS,
   PROMPT_SEPARATORS,
   PROMPT_STYLES,
-} from '../../shared/promptSettings'
-import { REDACTION_PATTERNS_MAX, REDACTION_PATTERN_MAX } from '../../shared/redaction'
-import { TERMINAL_SEND_MAX, TERMINAL_SEND_TYPES } from '../../shared/terminalKeys'
-import { SHELL_SETTING_MAX_LENGTH } from '../../shared/terminalShell'
-import { MATCH_OSTIA_THEME } from '../../shared/themeChoice'
-import { DEFAULT_CHORDS, bindableIds } from '../lib/chords'
+} from '@shared/terminal/promptSettings'
+import { SHELL_SETTING_MAX_LENGTH } from '@shared/terminal/terminalShell'
+import { PRODUCT_DISPLAY_NAME } from '../../shared/productDisplay'
 import { platform } from '../platform'
 import { BUILTIN_COLOR_SCHEMES } from '../plugins/colorSchemes'
 import { ACTIONS_MAX, ACTION_ICONS, ACTION_ID, ACTION_PLACES, ACTION_TITLE_MAX } from './actions'

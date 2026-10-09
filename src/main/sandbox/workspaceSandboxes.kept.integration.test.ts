@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { build } from 'esbuild'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { DEFAULT_SANDBOX_GLOBALS } from '../../shared/sandbox'
+import { DEFAULT_SANDBOX_GLOBALS } from '../../shared/sandbox/sandbox'
 import { SandboxStore } from './store'
 import { type KeptSandboxHosts, WorkspaceSandboxes } from './workspaceSandboxes'
 

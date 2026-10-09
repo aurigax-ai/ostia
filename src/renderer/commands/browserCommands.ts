@@ -1,4 +1,4 @@
-import { type BrowserAction, runBrowserAction } from '../lib/browserHandles'
+import { type BrowserAction, runBrowserAction } from '@/lib/browser/browserHandles'
 import { type CoreCommandId, registerCore } from './core'
 
 const BROWSER_COMMANDS: readonly [CoreCommandId, BrowserAction][] = [

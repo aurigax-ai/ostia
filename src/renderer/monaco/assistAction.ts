@@ -1,8 +1,8 @@
+import { attachAndOpenChat } from '@/lib/assist/askContext'
+import { setAssistFeature, useAssistFeature, useChatAvailable } from '@/lib/assist/assistFeatures'
 import { CHAT_CONTEXT_TEXT_MAX } from '@shared/assist'
 import { type RefObject, useEffect } from 'react'
 import { fmt, useDict } from '../i18n/useDict'
-import { attachAndOpenChat } from '../lib/askContext'
-import { setAssistFeature, useAssistFeature, useChatAvailable } from '../lib/assistFeatures'
 import type { monaco } from './setup'
 
 export const ASSIST_COMPLETIONS_ACTION_ID = 'ostia.assist.toggleEditorCompletions'

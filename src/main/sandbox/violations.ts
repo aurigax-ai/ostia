@@ -3,7 +3,7 @@ import {
   type SandboxViolationKind,
   type SandboxViolationReason,
   checkDomainPattern,
-} from '../../shared/sandbox'
+} from '../../shared/sandbox/sandbox'
 
 export const VIOLATIONS_PER_WORKSPACE = 200
 export const VIOLATION_TEXT_MAX = 400

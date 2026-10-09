@@ -1,4 +1,4 @@
-import type { RequirementsReport } from '../../shared/systemRequirements'
+import type { RequirementsReport } from '../../shared/app/systemRequirements'
 import { missingPackages } from './spawnBanner'
 
 export interface SpawnFailureDeps {

@@ -1,4 +1,4 @@
-import { startRegionCapture } from '../lib/regionCaptures'
+import { startRegionCapture } from '@/lib/browser/regionCaptures'
 import { registerCore } from './core'
 
 export const CAPTURE_REGION_COMMAND = 'browser.captureRegion'

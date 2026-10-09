@@ -1,7 +1,7 @@
+import { editorPositionOf } from '@/lib/files/editorPositions'
+import { useSettingsStore } from '@/stores/app/settingsStore'
 import { isRemotePath } from '@shared/remoteFolders'
 import type { ExternalEditorResult } from '@shared/types'
-import { editorPositionOf } from '../lib/editorPositions'
-import { useSettingsStore } from '../stores/settingsStore'
 import { registerCore } from './core'
 
 export const OPEN_EXTERNAL_COMMAND = 'editor.openExternal'

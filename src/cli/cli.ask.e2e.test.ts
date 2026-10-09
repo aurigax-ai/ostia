@@ -2,7 +2,7 @@ import { type ChildProcess, spawn } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { QuestionRequest, QuestionState } from '../shared/questions'
+import type { QuestionRequest, QuestionState } from '../shared/agents/questions'
 import type { CommandResult } from '../shared/types'
 
 const WINDOW_ID = '7'
@@ -21,10 +21,10 @@ vi.mock('electron', () => ({
   },
 }))
 
-const { registerControlServer, stopControlServer } = await import('../main/controlServer')
-const { registerPane, removePane } = await import('../main/idRegistry')
-const { questions, registerQuestions } = await import('../main/questions')
-const { registerPermissionAsk } = await import('../main/permissionAsk')
+const { registerControlServer, stopControlServer } = await import('../main/control/controlServer')
+const { registerPane, removePane } = await import('../main/control/idRegistry')
+const { questions, registerQuestions } = await import('../main/approvals/questions')
+const { registerPermissionAsk } = await import('../main/approvals/permissionAsk')
 
 let phoneCanAnswer = true
 registerQuestions({ opened: () => {}, settled: () => {} })

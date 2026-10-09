@@ -1,7 +1,95 @@
-import { type AgentResume, resumeCommand } from '@shared/agentResume'
-import { PAD_COMMAND } from '@shared/artifacts'
-import type { CmuxImportReport } from '@shared/cmuxSession'
-import { wantsDesktopBanner } from '@shared/notificationSettings'
+import { hibernateWorkspaces, resumeWorkspaces, wakePane } from '@/lib/agents/hibernationScheduler'
+import { type PaneAgentReport, isStaleAgentReport, paneAgentReport } from '@/lib/agents/paneAgent'
+import { resetZoom } from '@/lib/app/wheelZoom'
+import { postAgentNotification } from '@/lib/attention/agentNotification'
+import { announceBusMessage } from '@/lib/attention/busNotice'
+import {
+  focusAdjacentTab,
+  focusPaneInDirection,
+  goToWorkspace,
+  isPaneViewed,
+  jumpToLatestUnread,
+  markWorkspaceRead,
+  signalPane,
+  stepWorkspace,
+} from '@/lib/attention/workspaceActivity'
+import { browserProfileIn, openerOf } from '@/lib/browser/browserProfile'
+import { openArtifact, openPad } from '@/lib/files/artifacts'
+import {
+  markOpenedQuietly,
+  openFilesQuietly,
+  openPlaced,
+  openRequestedFiles,
+} from '@/lib/files/openFile'
+import { waitOnPanes } from '@/lib/files/openWaits'
+import { revealFolder } from '@/lib/files/revealFolder'
+import { setKeybindingSetting } from '@/lib/keys/chords'
+import {
+  FILES_PREFIX,
+  GO_TO_FILE_COMMAND,
+  GO_TO_WORKSPACE_COMMAND,
+  GO_TO_WORKSPACE_SYMBOL_COMMAND,
+  SYMBOLS_PREFIX,
+  WORKSPACES_PREFIX,
+} from '@/lib/palette/paletteModes'
+import { openWorkflowPicker } from '@/lib/palette/workflows'
+import { callerHasFocus, openKeepingFocus, opensQuietly } from '@/lib/panes/callerFocus'
+import { groupMates } from '@/lib/sidebar/groupPeers'
+import {
+  type BlockPart,
+  copyBlock,
+  insertCommand,
+  rerunBlock,
+  stepBlock,
+} from '@/lib/terminal/blockActions'
+import { clearKeepingScrollback } from '@/lib/terminal/clearTerminal'
+import { focusActivePaneWhenReady } from '@/lib/terminal/focusNewTerminal'
+import { terminalFor } from '@/lib/terminal/terminalHandles'
+import {
+  closePaneForAgent,
+  requestCloseOthers,
+  requestClosePane,
+  requestCloseWorkspace,
+} from '@/lib/workspaces/closeConfirm'
+import { runCmuxImport } from '@/lib/workspaces/cmuxImport'
+import { mergeRefusalText } from '@/lib/workspaces/mergeRefusalText'
+import { startNewWorkspace, startScratchWorkspace } from '@/lib/workspaces/newWorkspace'
+import { tabMoveRefusalText } from '@/lib/workspaces/tabMoveRefusalText'
+import {
+  activeTabId,
+  moveTabToWorkspace,
+  tabMoveRefusalFor,
+  tabMoveTargets,
+} from '@/lib/workspaces/tabWorkspaceMove'
+import { loadMergeTargets, requestMergeWorkspace } from '@/lib/workspaces/workspaceMerge'
+import {
+  anchorToFocusedPane,
+  canMoveWorkspace,
+  moveWorkspaceTo,
+} from '@/lib/workspaces/workspaceProjects'
+import { useAttentionStore } from '@/stores/agents/attentionStore'
+import { useSandboxStore } from '@/stores/app/sandboxStore'
+import {
+  type InputMode,
+  type SettingChange,
+  getByPath,
+  useSettingsStore,
+} from '@/stores/app/settingsStore'
+import { useUIStore } from '@/stores/app/uiStore'
+import { useUpdateStore } from '@/stores/app/updateStore'
+import { useArtifactsStore } from '@/stores/files/artifactsStore'
+import { useAgentTurnStore } from '@/stores/terminal/agentTurnStore'
+import { useBlocksStore } from '@/stores/terminal/blocksStore'
+import { useHistorySearchStore } from '@/stores/terminal/historySearchStore'
+import { useHibernateSkippedStore } from '@/stores/workspaces/hibernateSkippedStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { saveSnapshotNow } from '@/stores/workspaces/persistence'
+import type { WorkspaceKind, WorkspaceState } from '@/stores/workspaces/workspacesStore'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
+import { type AgentResume, resumeCommand } from '@shared/agents/agentResume'
+import { wantsDesktopBanner } from '@shared/app/notificationSettings'
+import { stepZoom } from '@shared/app/zoom'
+import { PAD_COMMAND } from '@shared/artifacts/artifacts'
 import {
   OPEN_DIFF_COMMAND,
   OPEN_FILES_COMMAND,
@@ -9,11 +97,11 @@ import {
   REVEAL_FOLDER_COMMAND,
   parseFileTargets,
   parsePlacement,
-} from '@shared/openFiles'
-import { PROGRAM_SETTINGS } from '@shared/programSettings'
+} from '@shared/files/openFiles'
+import { PROGRAM_SETTINGS } from '@shared/permissions/programSettings'
 import type { AttentionState } from '@shared/types'
-import { type WorkspaceGroupColor, normalizeGroupName } from '@shared/workspaceGroups'
-import { stepZoom } from '@shared/zoom'
+import type { CmuxImportReport } from '@shared/workspaces/cmuxSession'
+import { type WorkspaceGroupColor, normalizeGroupName } from '@shared/workspaces/workspaceGroups'
 import { currentDict } from '../i18n/useDict'
 import {
   type DropZone,
@@ -25,93 +113,9 @@ import {
   tabNeighbor,
 } from '../layout/tree'
 import type { Direction, SurfaceKind } from '../layout/types'
-import { postAgentNotification } from '../lib/agentNotification'
-import { openArtifact, openPad } from '../lib/artifacts'
-import {
-  type BlockPart,
-  copyBlock,
-  insertCommand,
-  rerunBlock,
-  stepBlock,
-} from '../lib/blockActions'
-import { browserProfileIn, openerOf } from '../lib/browserProfile'
-import { announceBusMessage } from '../lib/busNotice'
-import { callerHasFocus, openKeepingFocus, opensQuietly } from '../lib/callerFocus'
-import { setKeybindingSetting } from '../lib/chords'
-import { clearKeepingScrollback } from '../lib/clearTerminal'
-import {
-  closePaneForAgent,
-  requestCloseOthers,
-  requestClosePane,
-  requestCloseWorkspace,
-} from '../lib/closeConfirm'
-import { runCmuxImport } from '../lib/cmuxImport'
-import { focusActivePaneWhenReady } from '../lib/focusNewTerminal'
-import { groupMates } from '../lib/groupPeers'
-import { hibernateWorkspaces, resumeWorkspaces, wakePane } from '../lib/hibernationScheduler'
-import { mergeRefusalText } from '../lib/mergeRefusalText'
-import { startNewWorkspace, startScratchWorkspace } from '../lib/newWorkspace'
-import {
-  markOpenedQuietly,
-  openFilesQuietly,
-  openPlaced,
-  openRequestedFiles,
-} from '../lib/openFile'
-import { waitOnPanes } from '../lib/openWaits'
-import {
-  FILES_PREFIX,
-  GO_TO_FILE_COMMAND,
-  GO_TO_WORKSPACE_COMMAND,
-  GO_TO_WORKSPACE_SYMBOL_COMMAND,
-  SYMBOLS_PREFIX,
-  WORKSPACES_PREFIX,
-} from '../lib/paletteModes'
-import { type PaneAgentReport, isStaleAgentReport, paneAgentReport } from '../lib/paneAgent'
-import { revealFolder } from '../lib/revealFolder'
-import { tabMoveRefusalText } from '../lib/tabMoveRefusalText'
-import {
-  activeTabId,
-  moveTabToWorkspace,
-  tabMoveRefusalFor,
-  tabMoveTargets,
-} from '../lib/tabWorkspaceMove'
-import { terminalFor } from '../lib/terminalHandles'
-import { resetZoom } from '../lib/wheelZoom'
-import { openWorkflowPicker } from '../lib/workflows'
-import {
-  focusAdjacentTab,
-  focusPaneInDirection,
-  goToWorkspace,
-  isPaneViewed,
-  jumpToLatestUnread,
-  markWorkspaceRead,
-  signalPane,
-  stepWorkspace,
-} from '../lib/workspaceActivity'
-import { loadMergeTargets, requestMergeWorkspace } from '../lib/workspaceMerge'
-import { anchorToFocusedPane, canMoveWorkspace, moveWorkspaceTo } from '../lib/workspaceProjects'
 import { isMac } from '../platform'
 import { keymapSettingValue, terminalKeymapSettingValue } from '../settings/keymapSetting'
 import { settingsSchemaAt } from '../settings/settingsSchema'
-import { useAgentTurnStore } from '../stores/agentTurnStore'
-import { useArtifactsStore } from '../stores/artifactsStore'
-import { useAttentionStore } from '../stores/attentionStore'
-import { useBlocksStore } from '../stores/blocksStore'
-import { useHibernateSkippedStore } from '../stores/hibernateSkippedStore'
-import { useHistorySearchStore } from '../stores/historySearchStore'
-import { useLayoutStore } from '../stores/layoutStore'
-import { saveSnapshotNow } from '../stores/persistence'
-import { useSandboxStore } from '../stores/sandboxStore'
-import {
-  type InputMode,
-  type SettingChange,
-  getByPath,
-  useSettingsStore,
-} from '../stores/settingsStore'
-import { useUIStore } from '../stores/uiStore'
-import { useUpdateStore } from '../stores/updateStore'
-import type { WorkspaceKind, WorkspaceState } from '../stores/workspacesStore'
-import { useWorkspacesStore } from '../stores/workspacesStore'
 import { registerBrowserCommands } from './browserCommands'
 import { type CoreCommandId, registerCore } from './core'
 import { registerGitCommands } from './gitCommands'

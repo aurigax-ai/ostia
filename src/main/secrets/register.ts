@@ -4,9 +4,9 @@ import {
   type SandboxEditResult,
   type WorkspaceSandbox,
   parseSecretGrants,
-} from '../../shared/sandbox'
-import type { SecretEntry } from '../../shared/secrets'
-import { registerControlMethod } from '../controlServer'
+} from '../../shared/sandbox/sandbox'
+import type { SecretEntry } from '../../shared/sandbox/secrets'
+import { registerControlMethod } from '../control/controlServer'
 import type { WorkspaceSandboxes } from '../sandbox/workspaceSandboxes'
 import type { SecretService } from './secretService'
 

@@ -1,4 +1,4 @@
-import { type PackageRef, packageKey, packageVersionKey } from '../../shared/packages'
+import { type PackageRef, packageKey, packageVersionKey } from '../../shared/sandbox/packages'
 
 export interface PackagePolicy {
   malware: boolean

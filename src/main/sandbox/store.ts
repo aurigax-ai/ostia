@@ -3,8 +3,8 @@ import {
   type WorkspaceSandbox,
   emptyWorkspaceSandbox,
   parseWorkspaceSandbox,
-} from '../../shared/sandbox'
-import { saveJson } from '../jsonStore'
+} from '../../shared/sandbox/sandbox'
+import { saveJson } from '../platform/jsonStore'
 
 export class SandboxStore {
   private entries = new Map<string, WorkspaceSandbox>()

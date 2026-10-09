@@ -1,8 +1,8 @@
-import type { AgentResume } from '@shared/agentResume'
-import { type BrowserProfile, parseBrowserProfile } from '@shared/browserProfile'
+import { namespacedId } from '@/lib/workspaces/idNamespace'
+import type { AgentResume } from '@shared/agents/agentResume'
+import { type BrowserProfile, parseBrowserProfile } from '@shared/browser/browserProfile'
 import { isRemotePath } from '@shared/remoteFolders'
 import type { PanePlacement } from '@shared/types'
-import { namespacedId } from '../lib/idNamespace'
 import type {
   Direction,
   DropZone,

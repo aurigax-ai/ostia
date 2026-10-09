@@ -1,8 +1,8 @@
 import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readdirSync, rmSync } from 'node:fs'
 import { dirname, join } from 'node:path'
-import type { PackageRef } from '../../shared/packages'
 import { PRODUCT_DISPLAY_NAME } from '../../shared/productDisplay'
+import type { PackageRef } from '../../shared/sandbox/packages'
 import {
   type ResolvedSandbox,
   type SandboxFixedPolicy,
@@ -14,9 +14,9 @@ import {
   resolvePackages,
   resolveSandbox,
   sandboxMergeRefusal,
-} from '../../shared/sandbox'
-import { socketPathLimit } from '../privateTmp'
-import { processAlive } from '../processAlive'
+} from '../../shared/sandbox/sandbox'
+import { socketPathLimit } from '../platform/privateTmp'
+import { processAlive } from '../platform/processAlive'
 import { SandboxHost, SandboxHostError } from './hostClient'
 import type { PackageBlockReason, PackagePolicy } from './packagePolicy'
 import type { SandboxPathEnv } from './pathChecks'

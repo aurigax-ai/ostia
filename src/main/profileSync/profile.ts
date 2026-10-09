@@ -9,11 +9,11 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { dirname, join } from 'node:path'
-import { SPEC_COMMAND_PATTERN, SPEC_FILE_MAX_BYTES } from '../../shared/completionSpec'
-import { PROGRAM_SETTINGS } from '../../shared/programSettings'
-import { VIEW_FILES_MAX, VIEW_FILE_MAX_BYTES, VIEW_NAME } from '../../shared/views'
-import { normalizeMarketplaceUrl } from '../marketplace'
-import { WORKFLOW_FILES_MAX, WORKFLOW_FILE_MAX_BYTES } from '../workflows'
+import { PROGRAM_SETTINGS } from '../../shared/permissions/programSettings'
+import { SPEC_COMMAND_PATTERN, SPEC_FILE_MAX_BYTES } from '../../shared/terminal/completionSpec'
+import { VIEW_FILES_MAX, VIEW_FILE_MAX_BYTES, VIEW_NAME } from '../../shared/views/views'
+import { normalizeMarketplaceUrl } from '../extensions/marketplace'
+import { WORKFLOW_FILES_MAX, WORKFLOW_FILE_MAX_BYTES } from '../workspaces/workflows'
 
 export type JsonObject = Record<string, unknown>
 
