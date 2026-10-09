@@ -37,6 +37,7 @@ export interface NewWorkspaceOptions {
   dir?: string
   name?: string
   focus?: boolean
+  groupId?: string
 }
 
 export function startNewWorkspace(opts: NewWorkspaceOptions = {}): string | null {
@@ -48,7 +49,7 @@ export function startNewWorkspace(opts: NewWorkspaceOptions = {}): string | null
   }
   const store = useWorkspacesStore.getState()
   const before = store.activeWorkspaceId
-  store.addWorkspace(dir, placement)
+  store.addWorkspace(dir, placement, 'terminal', opts.groupId)
   const created = useWorkspacesStore.getState().activeWorkspaceId
   const name = opts.name?.trim()
   if (created && name) store.rename(created, name)

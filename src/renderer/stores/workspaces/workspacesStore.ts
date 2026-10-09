@@ -57,7 +57,12 @@ interface WorkspacesState {
   groups: WorkspaceGroup[]
   activeWorkspaceId: string | null
   setActive: (id: string) => void
-  addWorkspace: (workDir?: string, placement?: NewWorkspacePlacement, kind?: WorkspaceKind) => void
+  addWorkspace: (
+    workDir?: string,
+    placement?: NewWorkspacePlacement,
+    kind?: WorkspaceKind,
+    groupId?: string,
+  ) => void
   closeWorkspace: (id: string) => void
   setWorkDir: (id: string, workDir: string) => void
   rename: (id: string, name: string) => void
@@ -154,6 +159,7 @@ function placeNewWorkspace(
   s: WorkspacesState,
   created: Workspace,
   placement: NewWorkspacePlacement,
+  groupId?: string,
 ): Grouping<Workspace> {
   const ruleGroup = normalizeGroupName(
     matchGroupRule(useSettingsStore.getState().workspaceGroups.byCwd, created.workDir),
@@ -162,9 +168,9 @@ function placeNewWorkspace(
     const named = withNamedGroup(grouping(s), ruleGroup)
     return insertWorkspace(named.grouping, { ...created, groupId: named.groupId })
   }
-  const active = s.workspaces.find((w) => w.id === s.activeWorkspaceId)
-  if (active?.groupId) {
-    return insertWorkspace(grouping(s), { ...created, groupId: active.groupId }, active.id)
+  if (groupId && s.groups.some((group) => group.id === groupId)) {
+    const expanded = patchGroup(grouping(s), groupId, { collapsed: false })
+    return insertWorkspace(expanded, { ...created, groupId })
   }
   const at = insertIndex(s.workspaces, placement, s.activeWorkspaceId)
   return normalizeGroups({
@@ -182,10 +188,10 @@ export const useWorkspacesStore = create<WorkspacesState>((set, get) => ({
     window.ostia?.lifecycle?.emit?.({ type: 'workspace-activated', workspaceId: id })
   },
 
-  addWorkspace: (workDir = '~', placement = 'end', kind = 'terminal') => {
+  addWorkspace: (workDir = '~', placement = 'end', kind = 'terminal', groupId?: string) => {
     const workspace = makeWorkspace(workDir, kind)
     set((s) => {
-      const next = placeNewWorkspace(s, workspace, placement)
+      const next = placeNewWorkspace(s, workspace, placement, groupId)
       return { workspaces: next.workspaces, groups: next.groups, activeWorkspaceId: workspace.id }
     })
     window.ostia?.lifecycle?.emit?.({ type: 'workspace-added', workspaceId: workspace.id, workDir })

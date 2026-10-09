@@ -277,17 +277,13 @@ export function pinWorkspace<W extends Groupable>(
   return settle(g, setPinned(workspaces, workspaceId, pinned))
 }
 
-export function insertWorkspace<W extends Groupable>(
-  g: Grouping<W>,
-  workspace: W,
-  afterId?: string,
-): Grouping<W> {
+export function insertWorkspace<W extends Groupable>(g: Grouping<W>, workspace: W): Grouping<W> {
   const appended = { ...g, workspaces: [...g.workspaces, workspace] }
   if (!workspace.groupId) return appended
   const members = groupMembers(g.workspaces, workspace.groupId)
-  const anchor = members.find((w) => w.id === afterId) ?? members[members.length - 1]
-  if (!anchor) return appended
-  return dropWorkspace(appended, workspace.id, { kind: 'workspace', id: anchor.id, place: 'after' })
+  const last = members[members.length - 1]
+  if (!last) return appended
+  return dropWorkspace(appended, workspace.id, { kind: 'workspace', id: last.id, place: 'after' })
 }
 
 function trimSlash(path: string): string {

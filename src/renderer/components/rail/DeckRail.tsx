@@ -46,6 +46,7 @@ import {
 import { cn } from '@/lib/utils'
 import { requestCloseOthers, requestCloseWorkspace } from '@/lib/workspaces/closeConfirm'
 import { useCoreWatch } from '@/lib/workspaces/coreWatch'
+import { startNewWorkspace } from '@/lib/workspaces/newWorkspace'
 import { canMoveTabTo, moveTabToWorkspace, workspaceOfTab } from '@/lib/workspaces/tabWorkspaceMove'
 import { moveWorkspaceToNewWindow } from '@/lib/workspaces/windowHandoff'
 import { type RemoteWorkspace, remoteWorkspacesOf } from '@/lib/workspaces/windowWorkspaces'
@@ -93,6 +94,7 @@ import {
   MoonIcon,
   PaletteIcon,
   PencilSimpleIcon,
+  PlusIcon,
   PushPinIcon,
   PushPinSimpleIcon,
   PushPinSlashIcon,
@@ -369,6 +371,11 @@ function GroupBlock({
   const d = useDict()
   const store = useWorkspacesStore.getState
   const toggle = (): void => store().setGroupCollapsed(group.id, !group.collapsed)
+  const collapsed = useContext(RailCollapsedContext)
+  const addWorkspace = (): void => {
+    useUIStore.getState().showWorkspaces()
+    startNewWorkspace({ groupId: group.id })
+  }
   const Caret = group.collapsed ? CaretRightIcon : CaretDownIcon
 
   return (
@@ -439,8 +446,21 @@ function GroupBlock({
               <GroupStatus members={members} />
             </button>
           )}
+          {renaming || collapsed ? null : (
+            <span className="rail-group-actions">
+              <IconButton
+                icon={PlusIcon}
+                label={d.rail.newWorkspaceInGroup}
+                hintSide="right"
+                onClick={addWorkspace}
+              />
+            </span>
+          )}
         </ContextMenuTrigger>
         <MenuContent>
+          <MenuItem icon={PlusIcon} onClick={addWorkspace}>
+            {d.rail.newWorkspaceInGroup}
+          </MenuItem>
           <MenuItem icon={PencilSimpleIcon} onClick={() => onRenaming(true)}>
             {d.rail.rename}
           </MenuItem>
