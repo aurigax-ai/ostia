@@ -352,6 +352,33 @@ describe('BrowserView address bar', () => {
     expect(address).toHaveValue('proxmox.example.com')
   })
 
+  it('the address bar searches with the chosen engine template', async () => {
+    const initialSettings = useSettingsStore.getState()
+    useSettingsStore.setState({
+      browser: {
+        ...initialSettings.browser,
+        searchEngine: 'custom',
+        customSearchUrl: 'http://127.0.0.1:9/find?term={query}',
+      },
+    })
+    try {
+      const { workspaceId } = twoTerminals()
+      const { container } = await renderView(workspaceId)
+      const address = screen.getByRole('textbox', { name: /address/i })
+      await waitFor(() => expect(container.querySelector('webview')).not.toBeNull())
+      await userEvent.clear(address)
+      await userEvent.type(address, 'hello ostia world{Enter}')
+
+      const searched = 'http://127.0.0.1:9/find?term=hello%20ostia%20world'
+      expect(container.querySelector('webview')).toHaveAttribute('src', searched)
+      expect(address).toHaveValue(searched)
+    } finally {
+      act(() => {
+        useSettingsStore.setState(initialSettings, true)
+      })
+    }
+  })
+
   it('follows navigation when the user is not typing, and Escape restores the page address', async () => {
     const { workspaceId } = twoTerminals()
     const { container } = await renderView(workspaceId)

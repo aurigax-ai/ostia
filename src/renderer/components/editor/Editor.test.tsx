@@ -10,6 +10,7 @@ import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { TARGET_PANE, seedSendTarget } from '../../../../test/mocks/sendTarget'
+import { EditorSettingsSection } from '../settings/BrowserEditorSettings'
 
 const fake = vi.hoisted(() => {
   type Listener = () => void
@@ -299,6 +300,28 @@ describe('EditorView', () => {
 
     act(() => useSettingsStore.getState().setMotion('full'))
     expect(fake.state.optionUpdates.at(-1)).toEqual({ smoothScrolling: true })
+  })
+
+  it('word wrap and tab width from Settings apply to the open editor', async () => {
+    vi.mocked(window.ostia.fs.read).mockResolvedValue({ ok: true, version: 'v1', text: 'text' })
+    render(
+      <>
+        <EditorView workspaceId="w1" paneId="p1" filePath="/w/a.txt" />
+        <EditorSettingsSection />
+      </>,
+    )
+    await waitFor(() => expect(fake.state.model).not.toBeNull())
+    expect(fake.state.createOptions).toMatchObject({ wordWrap: 'off', tabSize: 2 })
+
+    await userEvent.click(screen.getByRole('switch', { name: 'Word wrap' }))
+    await userEvent.click(screen.getByRole('combobox', { name: 'Tab width' }))
+    await userEvent.click(await screen.findByRole('option', { name: '4' }))
+
+    expect(fake.state.optionUpdates.at(-1)).toMatchObject({
+      wordWrap: 'on',
+      tabSize: 4,
+      insertSpaces: true,
+    })
   })
 
   it('does not overwrite a model with unsaved edits when the file is reopened', async () => {
