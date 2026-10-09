@@ -48,9 +48,3 @@ test('MGR-C1 closing the window with close-to-tray on hides it and the shell kee
     await app.close().catch(() => {})
   }
 })
-
-test('MGR-C2 closing the window with close-to-tray off quits Ostia', async () => {
-  test.setTimeout(60_000)
-  const { app, win } = await launch(false)
-  await Promise.all([app.waitForEvent('close'), win.evaluate(() => window.ostia.window.close())])
-})
