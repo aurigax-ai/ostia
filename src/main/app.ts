@@ -4318,6 +4318,7 @@ app.on('before-quit', (event) => {
     removeStateFile(entry)
   }
   ptys.clear()
+  if (process.env.OSTIA_DIAG_LATE_AUTOSAVE !== '0') autosaveScrollback()
   quitTrace.stage('teardown-kept-shells')
   if (keepingShells) keptShells.release()
   else keptShells.quitNow()
