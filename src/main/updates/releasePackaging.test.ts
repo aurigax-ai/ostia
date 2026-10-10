@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { parse } from 'yaml'
+import { POLKIT_POLICY } from '../../cli/verbs/installPolkit'
 import { POLKIT_ACTION, POLKIT_POLICY_FILE } from '../../shared/permissions/scriptTokens'
 
 interface Step {
@@ -59,6 +60,7 @@ describe('release packaging', () => {
       to: `polkit/${file}`,
     })
     const policy = readFileSync(join(process.cwd(), 'packaging/linux', file), 'utf8')
+    expect(policy).toBe(POLKIT_POLICY)
     expect(policy).toContain(`<action id="${POLKIT_ACTION}">`)
     expect(policy).toContain('<allow_active>auth_self</allow_active>')
     expect(policy).toContain('<allow_any>no</allow_any>')

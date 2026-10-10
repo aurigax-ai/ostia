@@ -1363,3 +1363,47 @@ describe('token.create scope and expiry', () => {
     expect(listScriptTokens(storeFile)).toEqual([])
   })
 })
+
+describe('without a user presence check', () => {
+  it('refuses token.create and a regenerating token.update', async () => {
+    vi.resetModules()
+    const server = await import('../control/controlServer')
+    const ids = await import('../control/idRegistry')
+    const auth = await import('../control/controlAuth')
+    const tokens = await import('./scriptTokens')
+    tokens.registerScriptTokenMethods({
+      path: () => storeFile,
+      retiredPath: () => retiredFile,
+      listing: async () => listing,
+    })
+    auth.setCapFilter(() => true)
+    const path = join(tmpdir(), `ostia-script-fresh-${process.pid}-${seq}.sock`)
+    server.registerControlServer(
+      {
+        execCommand: async () => ({ ok: true }) as CommandResult,
+        listCommandsFor: () => [],
+        getTerminalState: () => undefined,
+        isSandboxed: () => false,
+      },
+      path,
+    )
+    try {
+      const pane = ids.registerPane({ windowId: 'w1', workspaceId: 'ws1', paneId: 'fresh-admin' })
+      socketPath = path
+      const admin = await client(pane.token)
+      answer = 'once'
+      await expect(
+        admin.sendRequest('token.create', { name: 'x', caps: ['read-board'], scope: ALL }),
+      ).rejects.toThrow('presence-unavailable: could not confirm it is you to generate')
+      const created = tokens.createScriptToken(storeFile, 'ceo', ['read-board'])
+      await expect(
+        admin.sendRequest('token.update', { id: created.id, expires: '7d' }),
+      ).rejects.toThrow('presence-unavailable: could not confirm it is you to regenerate')
+      expect(tokens.listScriptTokens(storeFile).map((t) => t.name)).toEqual(['ceo'])
+      expect(tokens.verifyScriptToken(storeFile, created.token)).toBeDefined()
+      expect(request).toHaveBeenCalledTimes(2)
+    } finally {
+      server.stopControlServer()
+    }
+  })
+})

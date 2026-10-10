@@ -68,7 +68,7 @@ import {
 } from './verbs/bus'
 import { runCmuxImportVerb } from './verbs/cmuxImport'
 import { runGitVerb, runPortsVerb } from './verbs/coreBoards'
-import { cliResources, runInstallPolkit } from './verbs/installPolkit'
+import { runInstallPolkit } from './verbs/installPolkit'
 import { runManagerVerb } from './verbs/manager'
 import {
   parseGroupColorArgs,
@@ -1573,7 +1573,6 @@ async function main(): Promise<void> {
     process.exitCode = runInstallPolkit(process.argv.slice(3), {
       platform: process.platform,
       uid: process.getuid?.(),
-      resources: cliResources(__dirname),
       out: (line) => console.log(line),
       err: (line) => console.error(line),
     })

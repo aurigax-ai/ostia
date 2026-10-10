@@ -3414,6 +3414,7 @@ export const en = {
       regenerate: 'regenerate the script token "{name}"',
       title: 'Confirm it is you',
       message: 'Allow {product} to {reason}?',
+      typeName: 'Type "{name}" to allow it',
       detailMac: 'This Mac has no Touch ID, so {product} asks here instead.',
       detailLinux:
         'System authentication is not set up for {product}, so it asks here instead. To confirm with your password or fingerprint through polkit, run: {command}',
@@ -6750,6 +6751,7 @@ export const zhHant: Dict = {
       regenerate: '重新產生腳本權杖「{name}」',
       title: '確認是你本人',
       message: '要讓 {product} {reason}嗎？',
+      typeName: '輸入「{name}」才能允許',
       detailMac: '這台 Mac 沒有 Touch ID，所以 {product} 改在這裡確認。',
       detailLinux:
         '這台電腦沒有啟用 {product} 的系統驗證，所以改在這裡確認。要改用密碼或指紋（polkit）確認，請執行：{command}',

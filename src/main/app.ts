@@ -4154,7 +4154,10 @@ app.whenReady().then(() => {
     process.resourcesPath,
   )
   setUserPresenceCheck(({ action, name }) =>
-    verifyUserPresence(fmt(mainStrings().native.userPresence[action], { name }), presenceDeps),
+    verifyUserPresence(
+      { reason: fmt(mainStrings().native.userPresence[action], { name }), name },
+      presenceDeps,
+    ),
   )
   registerControlServer({
     execCommand,
