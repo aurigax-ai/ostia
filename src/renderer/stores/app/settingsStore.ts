@@ -354,7 +354,7 @@ const DEFAULTS: Persisted = {
   locale: 'en',
   appearance: {
     theme: 'adeberry',
-    followSystem: false,
+    followSystem: true,
     lightTheme: 'ostia-light',
     darkTheme: 'adeberry',
     accent: '',
@@ -505,7 +505,10 @@ export function parsePersisted(p: Partial<Persisted>): Persisted {
     locale: p.locale ?? DEFAULTS.locale,
     appearance: {
       theme: p.appearance?.theme ?? DEFAULTS.appearance.theme,
-      followSystem: p.appearance?.followSystem === true,
+      followSystem:
+        typeof p.appearance?.followSystem === 'boolean'
+          ? p.appearance.followSystem
+          : DEFAULTS.appearance.followSystem,
       lightTheme: p.appearance?.lightTheme ?? DEFAULTS.appearance.lightTheme,
       darkTheme: p.appearance?.darkTheme ?? DEFAULTS.appearance.darkTheme,
       accent: normalizeHex(p.appearance?.accent) ?? '',
