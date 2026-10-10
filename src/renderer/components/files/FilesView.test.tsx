@@ -92,6 +92,12 @@ function listReturns(entries: { name: string; dir: boolean }[]): void {
   vi.mocked(window.ostia.fs.list).mockResolvedValue(entries)
 }
 
+async function listed(path: string): Promise<void> {
+  const list = vi.mocked(window.ostia.fs.list)
+  expect(list).toHaveBeenCalledWith(path)
+  await act(() => list.mock.results[list.mock.calls.findIndex(([p]) => p === path)].value)
+}
+
 describe('FilesView', () => {
   let workspacesInit: ReturnType<typeof useWorkspacesStore.getState>
   let layoutInit: ReturnType<typeof useLayoutStore.getState>
@@ -344,8 +350,10 @@ describe('FilesView', () => {
       useLayoutStore.getState().openFile('s1', `${CWD}/notes/deep.json`)
     })
     render(<FilesView />)
+    await listed(CWD)
+    await listed(`${CWD}/notes`)
 
-    const row = await screen.findByRole('button', { name: 'deep.json' })
+    const row = screen.getByRole('button', { name: 'deep.json' })
     expect(row).toHaveAttribute('aria-current', 'true')
     expect(screen.getByRole('button', { name: 'notes' })).toHaveAttribute('aria-expanded', 'true')
     expect(screen.getByRole('button', { name: 'other' })).toHaveAttribute('aria-expanded', 'false')
@@ -562,8 +570,11 @@ describe('FilesView', () => {
 
     render(<FilesView />)
     await user.click(await screen.findByRole('button', { name: 'src' }))
+    await listed(`${CWD}/src`)
+    await listed(`${CWD}/src/main`)
+    await listed(`${CWD}/src/main/java`)
 
-    expect(await screen.findByRole('button', { name: 'src/main/java' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'src/main/java' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'App.java' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'main' })).not.toBeInTheDocument()
   })
@@ -752,9 +763,10 @@ describe('FilesView', () => {
     )
 
     await user.click(row('src'))
-    expect(
-      await screen.findByRole('button', { name: 'src/main/java' }, { timeout: 3000 }),
-    ).toBeInTheDocument()
+    await listed(`${CWD}/src`)
+    await listed(`${CWD}/src/main`)
+    await listed(`${CWD}/src/main/java`)
+    expect(row('src/main/java')).toBeInTheDocument()
     expect(row('App.java')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'main' })).not.toBeInTheDocument()
     expect(icon('src/main/java')?.getAttribute('src')).not.toBe(srcFolderIcon)
