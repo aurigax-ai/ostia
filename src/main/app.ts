@@ -1760,12 +1760,18 @@ function wireWindow(win: BrowserWindow): void {
   })
 }
 
+function initialBackground(): string {
+  const follow = (readSettingsFile() as { appearance?: { followSystem?: unknown } }).appearance
+    ?.followSystem
+  return follow !== false && !nativeTheme.shouldUseDarkColors ? '#fbfcfd' : '#1d2022'
+}
+
 function createWindow(slot: string, bounds?: WindowBounds): BrowserWindow {
   const win = new BrowserWindow({
     ...(bounds ?? { width: 1280, height: 800 }),
     minWidth: 720,
     minHeight: 480,
-    backgroundColor: '#1d2022',
+    backgroundColor: initialBackground(),
     show: false,
     autoHideMenuBar: true,
     title: PRODUCT_DISPLAY_NAME,

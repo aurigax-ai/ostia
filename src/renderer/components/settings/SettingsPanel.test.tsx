@@ -40,6 +40,7 @@ describe('SettingsPanel', () => {
           family,
         })),
     })
+    useSettingsStore.setState((s) => ({ appearance: { ...s.appearance, followSystem: false } }))
     settingsInit = useSettingsStore.getState()
     uiInit = useUIStore.getState()
     pluginsInit = usePluginsStore.getState()

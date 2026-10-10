@@ -117,7 +117,7 @@ describe('currentScheme', () => {
 
   it('resolves the terminal and editor axes independently from the settings', () => {
     useSettingsStore.setState((s) => ({
-      appearance: { ...s.appearance, theme: 'one-dark-vivid' },
+      appearance: { ...s.appearance, theme: 'one-dark-vivid', followSystem: false },
       terminal: { ...s.terminal, theme: 'gruvbox-dark' },
       editor: { ...s.editor, theme: 'match' },
     }))

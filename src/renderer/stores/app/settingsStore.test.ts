@@ -407,7 +407,21 @@ describe('settingsStore', () => {
         text: JSON.stringify({ appearance: { followSystem: 'yes', accent: 'red', zoom: 'big' } }),
       })
       await store().init()
-      expect(store().appearance).toMatchObject({ followSystem: false, accent: '', zoom: 100 })
+      expect(store().appearance).toMatchObject({ followSystem: true, accent: '', zoom: 100 })
+    })
+    it.each([
+      ['nothing is saved', {}, true],
+      ['theme is saved without followSystem', { appearance: { theme: 'dracula' } }, true],
+      ['false is saved', { appearance: { followSystem: false } }, false],
+      ['true is saved', { appearance: { followSystem: true } }, true],
+    ])('follow-system is resolved when %s', async (_n, saved, expected) => {
+      vi.mocked(window.ostia.fs.read).mockResolvedValue({
+        ok: true,
+        version: 'v1',
+        text: JSON.stringify(saved),
+      })
+      await store().init()
+      expect(store().appearance.followSystem).toBe(expected)
     })
     it('reads hibernation settings off by default and clamps idle seconds and max live', async () => {
       expect(store().agents.hibernation).toEqual({

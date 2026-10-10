@@ -187,7 +187,7 @@ export const SETTINGS_JSON_SCHEMA = {
           type: 'boolean',
           description:
             'Switch between lightTheme and darkTheme when the operating system switches. When ' +
-            'off, "theme" is used. Default: false.',
+            'off, "theme" is used. Default: true.',
         },
         lightTheme: {
           type: 'string',
