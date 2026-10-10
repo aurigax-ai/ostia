@@ -66,6 +66,12 @@ const CLI_HELP = `ostia — control-socket CLI
   ostia workspace group-color <group> <red|orange|yellow|green|teal|blue|purple|pink>
                                  colour an existing sidebar group; --clear instead of a colour
                                  removes it
+  ostia workspace close [--workspace <id>]
+                                 close that workspace and its tabs (kill-pane, plus
+                                 all-workspaces outside your reach). Only when nothing runs
+                                 there: a running command, a live agent, unsaved files or
+                                 scratch files answer busy: with what is left; a locked pane
+                                 answers pane-locked, the manager workspace manager:
   ostia workspace rename [--workspace <id>] <name…> | --clear  rename your workspace in the
                                  sidebar (--clear goes back to its default name); another
                                  workspace asks the human (send-other-pane, plus
@@ -225,7 +231,8 @@ const CLI_HELP = `ostia — control-socket CLI
                                  process.run, process.list, process.info, process.output,
                                  process.kill, process.restart, agent.run, agent.resume, notify
                                  (a desktop notification only) and bus.send; and these commands:
-                                 workspace.new, workspace.newScratch, pane.close, workspace.group,
+                                 workspace.new, workspace.newScratch, pane.close,
+                                 workspace.close (kill-pane), workspace.group,
                                  workspace.ungroup, workspace.groupColor, workspace.describe,
                                  workspace.hibernateAgents, workspace.hibernateGroupAgents
                                  (kill-pane), workspace.resumeAgents and
@@ -236,9 +243,9 @@ const CLI_HELP = `ostia — control-socket CLI
                                  all-workspaces on the token, and it must name its target: a
                                  pane (pane read, pane rename, pane.info, agent resume), a
                                  workspace (--workspace for process run, agent run, workspace
-                                 rename, group, ungroup, describe and the hibernate commands; a
-                                 paneId for pane.close) or an id (process info, logs, kill,
-                                 restart); a missing one is refused with bad-request
+                                 rename, close, group, ungroup, describe and the hibernate
+                                 commands; a paneId for pane.close) or an id (process info,
+                                 logs, kill, restart); a missing one is refused with bad-request
   ostia token list [--json]      the tokens (never their values)
   ostia token revoke <id>        delete a token; scripts using it are cut off at once
   ostia vault set <KEY> [--global]  store a secret (value read from stdin, no echo)

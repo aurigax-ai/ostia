@@ -251,6 +251,8 @@ describe('script tokens on command.exec', () => {
   const COMMANDS = [
     descriptor('workspace.new', DEFAULT_CAPABILITIES, 'none'),
     descriptor('pane.close', ['kill-pane']),
+    descriptor('workspace.close', ['kill-pane']),
+    descriptor('workspace.closeOthers', ['kill-pane']),
     descriptor('tab.new', []),
     descriptor('workspace.group', ['drive-self']),
     descriptor('workspace.ungroup', ['drive-self']),
@@ -443,6 +445,28 @@ describe('script tokens on command.exec', () => {
     expect(executed).toEqual([])
   })
 
+  it('closes the workspace it names only with kill-pane and all-workspaces', async () => {
+    const id = 'workspace.close'
+    const noKill = await client(createScriptToken(storeFile, 'a', ['all-workspaces']).token)
+    await expect(noKill.sendRequest('command.exec', { id, target: WS2 })).rejects.toThrow(
+      'needs-elevation: kill-pane',
+    )
+    const noReach = await client(createScriptToken(storeFile, 'b', ['kill-pane']).token)
+    await expect(noReach.sendRequest('command.exec', { id, target: WS2 })).rejects.toThrow(
+      'needs-elevation: all-workspaces',
+    )
+    const full = await client(
+      createScriptToken(storeFile, 'c', ['all-workspaces', 'kill-pane']).token,
+    )
+    await expect(full.sendRequest('command.exec', { id })).rejects.toThrow(
+      'bad-request: workspace.close from a script token needs a workspace',
+    )
+    expect(executed).toEqual([])
+    await full.sendRequest('command.exec', { id, target: WS2 })
+    expect(executed).toEqual([{ target: inWs2, id }])
+    expect(request).not.toHaveBeenCalled()
+  })
+
   it('refuses a workspace command without all-workspaces', async () => {
     const conn = await client(createScriptToken(storeFile, 'k', ['kill-pane']).token)
     await expect(
@@ -451,16 +475,19 @@ describe('script tokens on command.exec', () => {
     expect(executed).toEqual([])
   })
 
-  it.each(['settings.set', 'workspace.deleteGroup', 'workspace.goto', 'tab.new'])(
-    'still refuses %s to a token holding every script capability',
-    async (id) => {
-      const conn = await client(createScriptToken(storeFile, 'all', [...SCRIPT_CAPABILITIES]).token)
-      await expect(conn.sendRequest('command.exec', { id, target: WS2 })).rejects.toThrow(
-        'not-available-to-script',
-      )
-      expect(executed).toEqual([])
-    },
-  )
+  it.each([
+    'settings.set',
+    'workspace.deleteGroup',
+    'workspace.goto',
+    'workspace.closeOthers',
+    'tab.new',
+  ])('still refuses %s to a token holding every script capability', async (id) => {
+    const conn = await client(createScriptToken(storeFile, 'all', [...SCRIPT_CAPABILITIES]).token)
+    await expect(conn.sendRequest('command.exec', { id, target: WS2 })).rejects.toThrow(
+      'not-available-to-script',
+    )
+    expect(executed).toEqual([])
+  })
 
   it('lists only the commands open to scripts, from the primary window', async () => {
     const conn = await client(createScriptToken(storeFile, 'l', ['read-board']).token)

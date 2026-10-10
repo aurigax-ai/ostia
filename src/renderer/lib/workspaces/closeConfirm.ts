@@ -252,6 +252,14 @@ export async function requestCloseWorkspace(id: string): Promise<void> {
   }
 }
 
+export async function closeBlockers(workspace: Workspace): Promise<RunningGroup | null> {
+  const scratch =
+    workspace.kind === 'scratch' ? await window.ostia.scratch.files(workspace.id).catch(() => 0) : 0
+  const activity = await paneActivities(panesOf([workspace]))
+  const groups = runningGroups([workspace], { ...PLAIN, activity })
+  return withScratchGroups([workspace], groups, { [workspace.id]: scratch })[0] ?? null
+}
+
 export async function requestCloseOthers(id: string): Promise<void> {
   const others = useWorkspacesStore
     .getState()
