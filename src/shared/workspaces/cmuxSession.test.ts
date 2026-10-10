@@ -1,7 +1,12 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { type CmuxLayout, type CmuxSession, parseCmuxSession } from './cmuxSession'
+import {
+  type CmuxLayout,
+  type CmuxSession,
+  nearestGroupColor,
+  parseCmuxSession,
+} from './cmuxSession'
 
 const FIXTURE = resolve(__dirname, '../../../test/fixtures/cmux/session-com.cmuxterm.app.json')
 
@@ -255,5 +260,34 @@ describe('parseCmuxSession on damaged or foreign input', () => {
       agent: 'claude',
     })
     expect(layout.surfaces[1]).toEqual({ type: 'browser' })
+  })
+})
+
+describe('nearestGroupColor', () => {
+  it('picks the palette colour with the closest hue', () => {
+    expect(nearestGroupColor('#1565C0')).toBe('blue')
+    expect(nearestGroupColor('#E53935')).toBe('red')
+    expect(nearestGroupColor('#FB8C00')).toBe('orange')
+    expect(nearestGroupColor('#FDD835')).toBe('yellow')
+    expect(nearestGroupColor('#43A047')).toBe('green')
+    expect(nearestGroupColor('#00ACC1')).toBe('teal')
+    expect(nearestGroupColor('#8E24AA')).toBe('purple')
+    expect(nearestGroupColor('#EC407A')).toBe('pink')
+  })
+
+  it('leaves grey, black, white and malformed values uncoloured', () => {
+    for (const value of ['#808080', '#000000', '#FFFFFF', '#7A7F80', '#0A0F14', 'blue', '#12', 7]) {
+      expect(nearestGroupColor(value)).toBeUndefined()
+    }
+  })
+})
+
+describe('parseCmuxSession workspace colour', () => {
+  it('reads customColor as the nearest palette colour', () => {
+    const ws = (customColor: unknown) =>
+      parse(session({ currentDirectory: '/home/u/app', customColor })).windows[0].workspaces[0]
+    expect(ws('#1565C0').color).toBe('blue')
+    expect(ws('#888888').color).toBeUndefined()
+    expect(ws(undefined).color).toBeUndefined()
   })
 })

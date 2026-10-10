@@ -31,6 +31,7 @@ import type {
   CmuxSurface,
   CmuxWorkspace,
 } from '@shared/workspaces/cmuxSession'
+import type { WorkspaceGroupColor } from '@shared/workspaces/workspaceGroups'
 import { MAX_LAYOUT_DEPTH, MAX_PANES, MAX_WORKSPACES } from '@shared/workspaces/workspaceLimits'
 import { normalizeDescription } from '@shared/workspaces/workspaceText'
 
@@ -50,6 +51,7 @@ export interface PlannedWorkspace {
   panes: number
   pinned?: true
   group?: string
+  color?: WorkspaceGroupColor
   losses: CmuxLossEntry[]
 }
 
@@ -262,6 +264,7 @@ function planWorkspace(cmux: CmuxWorkspace, name: string, windowIndex: number): 
     window: windowIndex,
     panes: paneIds(root).length,
     ...(cmux.pinned ? { pinned: true as const } : {}),
+    ...(cmux.color ? { color: cmux.color } : {}),
     losses: build.losses,
   }
 }
@@ -335,6 +338,11 @@ function adoptHere(planned: readonly PlannedWorkspace[]): void {
     const store = useWorkspacesStore.getState()
     if (p.pinned) store.setPinned(p.workspace.id, true)
     else if (p.group) store.moveToGroupNamed(p.workspace.id, p.group)
+    if (p.group && p.color && !p.pinned) {
+      const state = useWorkspacesStore.getState()
+      const group = state.groups.find((g) => g.name === p.group)
+      if (group && !group.color) state.setGroupColor(group.id, p.color)
+    }
   }
   useWorkspacesStore.getState().setActive(planned[0].workspace.id)
 }

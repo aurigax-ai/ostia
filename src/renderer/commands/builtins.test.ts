@@ -2072,6 +2072,34 @@ describe('workspace row commands', () => {
     })
   })
 
+  it('colours a group by name, clears it, and refuses an unknown group or colour', async () => {
+    seed()
+    useWorkspacesStore.getState().createGroup('w1', 'api')
+    const group = () => useWorkspacesStore.getState().groups[0]
+
+    const set = await commands.execWith(ctx(null, null), 'workspace.groupColor', {
+      group: ' api ',
+      color: 'teal',
+    })
+    expect(set).toEqual({ ok: true, result: undefined })
+    expect(group().color).toBe('teal')
+
+    await commands.execWith(ctx(null, null), 'workspace.groupColor', { group: 'api', color: null })
+    expect(group().color).toBeUndefined()
+
+    const missing = await commands.execWith(ctx(null, null), 'workspace.groupColor', {
+      group: 'nope',
+      color: 'red',
+    })
+    expect(missing).toMatchObject({ ok: false })
+    const bad = await commands.execWith(ctx(null, null), 'workspace.groupColor', {
+      group: 'api',
+      color: 'magenta',
+    })
+    expect(bad).toMatchObject({ ok: false })
+    expect(group().color).toBeUndefined()
+  })
+
   it('lists groups with their members and tags grouped workspaces in workspace.list', async () => {
     seed()
     useWorkspacesStore.getState().createGroup('w1', 'api')

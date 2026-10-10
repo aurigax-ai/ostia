@@ -57,9 +57,14 @@ const CLI_HELP = `ostia — control-socket CLI
   ostia workspace list [--json]  every workspace with its sidebar group; --json prints
                                  {workspaces,groups} (groups: {groupId,name,color,collapsed,
                                  workspaceIds})
-  ostia workspace group <name>   move this pane's workspace into the sidebar group <name>
-                                 (created if missing)
-  ostia workspace ungroup        take this pane's workspace out of its group
+  ostia workspace group [--workspace <id>] <name>
+                                 move this pane's workspace (or --workspace) into the sidebar
+                                 group <name> (created if missing)
+  ostia workspace ungroup [--workspace <id>]
+                                 take this pane's workspace (or --workspace) out of its group
+  ostia workspace group-color <group> <red|orange|yellow|green|teal|blue|purple|pink>
+                                 colour an existing sidebar group; --clear instead of a colour
+                                 removes it
   ostia workspace rename [--workspace <id>] <name…> | --clear  rename your workspace in the
                                  sidebar (--clear goes back to its default name); another
                                  workspace asks the human (send-other-pane, plus

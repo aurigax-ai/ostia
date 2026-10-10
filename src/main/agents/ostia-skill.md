@@ -154,6 +154,8 @@ ostia resume-token claude <session-id>       # after a restart this pane resumes
 ostia workspace describe "PR [#512](https://github.com/o/r/pull/512): fix refunds"  # sidebar summary; --clear removes it
 ostia workspace group "payments"              # put this workspace in a sidebar group (created if missing)
 ostia workspace ungroup                       # take it out again
+ostia workspace group --workspace <id> "payments"   # same, for another workspace (ids from `ostia workspace list`)
+ostia workspace group-color "payments" blue   # colour the group: red orange yellow green teal blue purple pink; --clear removes it
 ostia workspace list --json                   # {workspaces, groups}: who is grouped with whom
 ```
 

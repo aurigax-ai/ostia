@@ -101,7 +101,12 @@ import {
 import { PROGRAM_SETTINGS } from '@shared/permissions/programSettings'
 import type { AttentionState } from '@shared/types'
 import type { CmuxImportReport } from '@shared/workspaces/cmuxSession'
-import { type WorkspaceGroupColor, normalizeGroupName } from '@shared/workspaces/workspaceGroups'
+import {
+  WORKSPACE_GROUP_COLORS,
+  type WorkspaceGroupColor,
+  isWorkspaceGroupColor,
+  normalizeGroupName,
+} from '@shared/workspaces/workspaceGroups'
 import { currentDict } from '../i18n/useDict'
 import {
   type DropZone,
@@ -829,6 +834,25 @@ export function registerBuiltinCommands(): void {
     run: (_args, ctx) => {
       if (!ctx.activeWorkspaceId) throw new Error('no target workspace')
       useWorkspacesStore.getState().leaveGroup(ctx.activeWorkspaceId)
+    },
+  })
+
+  registerCore<{ group: string; color: string | null }>({
+    id: 'workspace.groupColor',
+    category: 'workspace',
+    hidden: true,
+    capabilities: ['drive-self'],
+    target: 'none',
+    run: (args) => {
+      const color = args?.color ?? null
+      if (color !== null && !isWorkspaceGroupColor(color)) {
+        throw new Error(`unknown color '${color}' (one of ${WORKSPACE_GROUP_COLORS.join(', ')})`)
+      }
+      const name = normalizeGroupName(args?.group)
+      const store = useWorkspacesStore.getState()
+      const group = store.groups.find((g) => g.name === name)
+      if (!group) throw new Error(`no group named '${args?.group}'`)
+      store.setGroupColor(group.id, color)
     },
   })
 

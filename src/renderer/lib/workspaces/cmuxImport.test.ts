@@ -327,6 +327,56 @@ describe('planCmuxImport on a recorded cmux session', () => {
   })
 })
 
+describe('cmux workspace colours', () => {
+  const coloured = (color: 'blue' | 'red' | undefined, group = 'Work'): CmuxSession => ({
+    windows: [
+      {
+        workspaces: [
+          {
+            title: 'a',
+            directory: '/home/u/a',
+            group,
+            layout: { type: 'pane', surfaces: [], selected: 0 },
+          },
+          {
+            title: 'b',
+            directory: '/home/u/b',
+            group,
+            ...(color ? { color } : {}),
+            layout: { type: 'pane', surfaces: [], selected: 0 },
+          },
+        ],
+      },
+    ],
+  })
+
+  it('carries a workspace colour into the plan', () => {
+    const [a, b] = planCmuxImport(coloured('blue'), { existing: [], groups: true }).windows[0]
+    expect(a.color).toBeUndefined()
+    expect(b.color).toBe('blue')
+  })
+
+  it('colours the group the workspaces land in, and leaves a group that has no colour alone', async () => {
+    serveSession(coloured('blue'))
+    await runCmuxImport({ callerWorkspaceId: null, remote: false })
+    expect(useWorkspacesStore.getState().groups).toMatchObject([{ name: 'Work', color: 'blue' }])
+
+    useWorkspacesStore.setState(workspacesInit, true)
+    resetWorkspaceIds()
+    serveSession(coloured(undefined))
+    await runCmuxImport({ callerWorkspaceId: null, remote: false })
+    expect(useWorkspacesStore.getState().groups[0].color).toBeUndefined()
+  })
+
+  it('gives the group the colour of its first coloured workspace', async () => {
+    const session = coloured('blue')
+    session.windows[0].workspaces[0].color = 'red'
+    serveSession(session)
+    await runCmuxImport({ callerWorkspaceId: null, remote: false })
+    expect(useWorkspacesStore.getState().groups).toMatchObject([{ name: 'Work', color: 'red' }])
+  })
+})
+
 describe('runCmuxImport', () => {
   it('creates the workspaces here, opens a window for cmux’s second one, and reports', async () => {
     serveSession()
