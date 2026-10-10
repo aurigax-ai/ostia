@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseTokenArgs } from './token'
+import { asksPresence, parseTokenArgs } from './token'
 
 describe('parseTokenArgs', () => {
   it('creates a token with a name and one or more capabilities', () => {
@@ -143,5 +143,19 @@ describe('parseTokenArgs', () => {
     expect(() => parseTokenArgs(['revoke'])).toThrow('usage: ostia token')
     expect(() => parseTokenArgs(['show'])).toThrow('usage: ostia token')
     expect(() => parseTokenArgs(['rotate', 'x'])).toThrow('usage: ostia token')
+  })
+})
+
+describe('asksPresence', () => {
+  it('warns that creating or regenerating a token asks the human twice, and renaming does not', () => {
+    expect(
+      asksPresence(parseTokenArgs(['create', 'ceo', '--preset', 'readonly', '--scope', 'all'])),
+    ).toBe(true)
+    expect(asksPresence(parseTokenArgs(['update', 'ceo', '--expires', '7d']))).toBe(true)
+    expect(asksPresence(parseTokenArgs(['update', 'ceo', '--cap', 'notify']))).toBe(true)
+    expect(asksPresence(parseTokenArgs(['update', 'ceo', '--scope', 'all']))).toBe(true)
+    expect(asksPresence(parseTokenArgs(['update', 'ceo', '--name', 'boss']))).toBe(false)
+    expect(asksPresence(parseTokenArgs(['revoke', 'ceo']))).toBe(false)
+    expect(asksPresence(parseTokenArgs(['list']))).toBe(false)
   })
 })

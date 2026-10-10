@@ -6,6 +6,10 @@ else
     rm -f '/usr/bin/${executable}'
 fi
 
+case "$1" in
+  remove|purge) rm -f /usr/share/polkit-1/actions/ai.aurigax.ostia.manage-script-tokens.policy ;;
+esac
+
 APPARMOR_PROFILE_DEST='/etc/apparmor.d/${executable}'
 
 if [ -f "$APPARMOR_PROFILE_DEST" ]; then

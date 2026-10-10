@@ -172,6 +172,16 @@ function pick(tokens: ListedToken[], ref: string): ListedToken {
   )
 }
 
+export const PRESENCE_NOTICE =
+  'ostia token: approve the card in Ostia, then confirm it is you (Touch ID, polkit or an Ostia dialog)'
+
+export function asksPresence(call: TokenCall): boolean {
+  if (call.method === 'token.create') return true
+  if (call.method !== 'token.update') return false
+  const { caps, scope, expires } = call.params
+  return caps !== undefined || scope !== undefined || expires !== undefined
+}
+
 export async function runTokenVerb(conn: MessageConnection, argv: string[]): Promise<number> {
   let call: TokenCall
   try {
@@ -213,6 +223,7 @@ export async function runTokenVerb(conn: MessageConnection, argv: string[]): Pro
     }
     return 0
   }
+  if (asksPresence(call)) console.error(PRESENCE_NOTICE)
   const result = await conn.sendRequest<unknown>(call.method, call.params)
   if (call.method === 'token.create' || call.method === 'token.update') {
     const done = result as ListedToken & { token?: string }

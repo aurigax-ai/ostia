@@ -3409,6 +3409,19 @@ export const en = {
       title: '{count} old script tokens stopped working after the {product} upgrade',
       body: '{names} can no longer connect. Generate new tokens and put them in your scripts.',
     },
+    userPresence: {
+      generate: 'generate the script token "{name}"',
+      regenerate: 'regenerate the script token "{name}"',
+      title: 'Confirm it is you',
+      message: 'Allow {product} to {reason}?',
+      detailMac: 'This Mac has no Touch ID, so {product} asks here instead.',
+      detailLinux:
+        'System authentication is not set up for {product}, so it asks here instead. To confirm with your password or fingerprint through polkit, run: {command}',
+      detailOther:
+        'This computer has no system authentication {product} can use, so it asks here instead.',
+      confirm: 'Allow',
+      cancel: 'Cancel',
+    },
   },
 }
 
@@ -6731,6 +6744,18 @@ export const zhHant: Dict = {
     scriptTokensRetired: {
       title: '升級 {product} 後，{count} 個舊版腳本權杖已失效',
       body: '{names} 無法再連線。請產生新權杖並更新腳本裡的權杖。',
+    },
+    userPresence: {
+      generate: '產生腳本權杖「{name}」',
+      regenerate: '重新產生腳本權杖「{name}」',
+      title: '確認是你本人',
+      message: '要讓 {product} {reason}嗎？',
+      detailMac: '這台 Mac 沒有 Touch ID，所以 {product} 改在這裡確認。',
+      detailLinux:
+        '這台電腦沒有啟用 {product} 的系統驗證，所以改在這裡確認。要改用密碼或指紋（polkit）確認，請執行：{command}',
+      detailOther: '這台電腦沒有 {product} 能用的系統驗證，所以改在這裡確認。',
+      confirm: '允許',
+      cancel: '取消',
     },
   },
 }

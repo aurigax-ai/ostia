@@ -39,6 +39,8 @@ linux:
       to: bin/ostia
     - from: packaging/linux/user-install.sh
       to: user-install.sh
+    - from: packaging/linux/ai.aurigax.ostia.manage-script-tokens.policy
+      to: polkit/ai.aurigax.ostia.manage-script-tokens.policy
     - from: resources/icons
       to: icons
     - from: resources/icon.svg

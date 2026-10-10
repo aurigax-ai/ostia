@@ -15,6 +15,7 @@ import { removeScript } from '../control/idRegistry'
 import { loadJson, saveJson } from '../platform/jsonStore'
 import { ensureCaps } from './controlElevation'
 import type { ReachListing } from './reach'
+import type { PresenceResult } from './userPresence'
 
 const NAME_MAX = 60
 const RETIRED_KEEP_MS = 30 * 86_400_000
@@ -491,14 +492,34 @@ export function checkScriptToken(
   return undefined
 }
 
-let requireUserPresence: (reason: string) => Promise<boolean> = async () => true
+export interface PresenceRequest {
+  action: 'generate' | 'regenerate'
+  name: string
+}
 
-export function setUserPresenceCheck(check: (reason: string) => Promise<boolean>): void {
+export type UserPresenceCheck = (request: PresenceRequest) => Promise<PresenceResult>
+
+let requireUserPresence: UserPresenceCheck = async () => ({
+  ok: false,
+  code: 'unavailable',
+  detail: 'no user presence check is set up',
+})
+
+export function setUserPresenceCheck(check: UserPresenceCheck): void {
   requireUserPresence = check
 }
 
-async function confirmUser(reason: string): Promise<void> {
-  if (!(await requireUserPresence(reason))) throw fail(`cancelled: ${reason}`)
+export async function confirmUserPresence(request: PresenceRequest): Promise<void> {
+  const what = `${request.action} the script token "${request.name}"`
+  let result: PresenceResult
+  try {
+    result = await requireUserPresence(request)
+  } catch (err) {
+    result = { ok: false, code: 'failed', detail: (err as Error).message }
+  }
+  if (!result.ok) {
+    throw fail(`presence-${result.code}: could not confirm it is you to ${what} (${result.detail})`)
+  }
 }
 
 function describeScope(scope: ScriptTokenScope): string {
@@ -540,7 +561,7 @@ export function registerScriptTokenMethods(deps: ScriptTokenDeps): void {
         'token.create',
         `let scripts outside Ostia use the token "${request.name}" with ${request.caps.join(', ') || 'no capability'} on ${describeScope(scope)}; it ${describeExpiry(expiresAt)}`,
       )
-      await confirmUser(`generate the script token "${request.name}"`)
+      await confirmUserPresence({ action: 'generate', name: request.name })
       return createScriptToken(deps.path(), request.name, request.caps, {
         scope,
         expiresAt,
@@ -580,7 +601,7 @@ export function registerScriptTokenMethods(deps: ScriptTokenDeps): void {
         'token.update',
         `regenerate the script token "${name}" with ${caps.join(', ') || 'no capability'} on ${describeScope(scope)}; it ${describeExpiry(expiresAt)}. The old value stops working at once`,
       )
-      await confirmUser(`regenerate the script token "${name}"`)
+      await confirmUserPresence({ action: 'regenerate', name })
       return updateScriptToken(deps.path(), current.id, {
         name,
         caps,
