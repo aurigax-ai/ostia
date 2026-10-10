@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -101,9 +101,14 @@ function fakeWindow(bounds: WindowBounds): FakeWindow {
   return win
 }
 
-function start() {
+function start(saved?: unknown) {
+  if (dataDir) rmSync(dataDir, { recursive: true, force: true })
   dataDir = mkdtempSync(join(tmpdir(), 'ostia-broker-'))
   vi.stubEnv('XDG_DATA_HOME', dataDir)
+  if (saved) {
+    mkdirSync(join(dataDir, 'ostia'), { recursive: true })
+    writeFileSync(join(dataDir, 'ostia', 'workspaces.json'), JSON.stringify(saved))
+  }
   const opened: FakeWindow[] = []
   const holdPtys = vi.fn()
   const reveal = vi.fn()
@@ -130,6 +135,10 @@ function start() {
       ...args,
     )
   return { broker, main: opened[0], opened, holdPtys, reveal, send }
+}
+
+function savedFile(): { bounds?: WindowBounds } {
+  return JSON.parse(readFileSync(join(dataDir ?? '', 'ostia', 'workspaces.json'), 'utf8'))
 }
 
 function workspace(id: string, paneId: string, extra?: Partial<SnapshotWorkspace>) {
@@ -305,6 +314,23 @@ describe('WindowBroker', () => {
     ])
     expect(reveal).toHaveBeenCalledWith(main)
     expect(getByPaneId(right)?.windowId).toBe(mainId)
+  })
+
+  it('the main window reopens where it was after a restart', () => {
+    const where = { x: 76, y: 80, width: 1361, height: 854 }
+    const first = start()
+    first.main.bounds = where
+    first.main.close()
+    expect(savedFile().bounds).toEqual(where)
+
+    const second = start(savedFile())
+    expect(second.main.bounds).toEqual(where)
+  })
+
+  it('pulls a saved main window back onto the screen', () => {
+    const saved = { v: 1, savedAt: 't', activeWorkspaceId: null, workspaces: [], groups: [] }
+    const { main } = start({ ...saved, bounds: { x: 2800, y: 1900, width: 1361, height: 854 } })
+    expect(main.bounds).toEqual({ x: 1639, y: 1146, width: 1361, height: 854 })
   })
 
   it('closing a detached window while the main window is in the tray keeps it there', () => {

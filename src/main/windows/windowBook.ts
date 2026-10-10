@@ -240,14 +240,26 @@ export class Landings {
   }
 }
 
+function withoutBounds(snapshot: AppSnapshot): AppSnapshot {
+  const { bounds: _bounds, windows: _windows, ...rest } = snapshot
+  return rest
+}
+
 export class WindowBook {
   private main: AppSnapshot | null
+  private mainBounds: WindowBounds | null
   private readonly detached = new Map<string, DetachedSlot>()
 
   constructor(file: AppSnapshot | null) {
     const split = splitSnapshot(file)
-    this.main = split.main
+    this.main = split.main ? withoutBounds(split.main) : null
+    this.mainBounds = split.main?.bounds ?? null
     for (const slot of split.detached) this.detached.set(slot.id, slot)
+  }
+
+  boundsOf(slot: string): WindowBounds | null {
+    if (slot === MAIN_SLOT) return this.mainBounds
+    return this.detached.get(slot)?.bounds ?? null
   }
 
   slots(): DetachedSlot[] {
@@ -261,8 +273,7 @@ export class WindowBook {
 
   save(slot: string, snapshot: AppSnapshot): void {
     if (slot === MAIN_SLOT) {
-      const { windows: _ignored, ...own } = snapshot
-      this.main = own
+      this.main = withoutBounds(snapshot)
       return
     }
     const entry = this.detached.get(slot)
@@ -270,6 +281,10 @@ export class WindowBook {
   }
 
   setBounds(slot: string, bounds: WindowBounds): void {
+    if (slot === MAIN_SLOT) {
+      this.mainBounds = bounds
+      return
+    }
     const entry = this.detached.get(slot)
     if (entry) this.detached.set(slot, { ...entry, bounds })
   }
@@ -289,6 +304,7 @@ export class WindowBook {
   }
 
   merged(savedAt: string): AppSnapshot {
-    return mergeSnapshots(this.main, this.slots(), savedAt)
+    const merged = mergeSnapshots(this.main, this.slots(), savedAt)
+    return this.mainBounds ? { ...merged, bounds: this.mainBounds } : merged
   }
 }

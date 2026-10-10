@@ -358,12 +358,14 @@ export function parseSnapshot(raw: unknown): AppSnapshot | null {
   const claims: Claims = { panes: new Set(), workspaces: new Set() }
   const workspaces = parseWorkspaceList(raw.workspaces, knownGroups, claims, SAVED, MAX_WORKSPACES)
   const windows = parseWindows(raw.windows, claims, MAX_WORKSPACES - workspaces.length)
+  const bounds = parseBounds(raw.bounds)
   return {
     v: SNAPSHOT_VERSION,
     savedAt: typeof raw.savedAt === 'string' ? raw.savedAt : '',
     activeWorkspaceId: activeOf(raw.activeWorkspaceId, workspaces),
     workspaces,
     groups: knownGroups.filter((g) => workspaces.some((w) => w.groupId === g.id)),
+    ...(bounds ? { bounds } : {}),
     ...(windows.length > 0 ? { windows } : {}),
   }
 }

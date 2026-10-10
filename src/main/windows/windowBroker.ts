@@ -164,31 +164,34 @@ export class WindowBroker {
   }
 
   openAll(): void {
-    this.deps.createWindow(MAIN_SLOT)
+    this.deps.createWindow(MAIN_SLOT, this.restoredBounds(MAIN_SLOT))
     for (const slot of this.book.slots()) {
-      this.deps.createWindow(slot.id, clampBounds(slot.bounds, workAreas()))
+      this.deps.createWindow(slot.id, this.restoredBounds(slot.id))
     }
+  }
+
+  restoredBounds(slot: string): WindowBounds | undefined {
+    const bounds = this.book.boundsOf(slot)
+    return bounds ? clampBounds(bounds, workAreas()) : undefined
   }
 
   track(win: BrowserWindow, slot: string): void {
     const windowId = windowIdOf(win)
     this.slots.set(windowId, slot)
     this.windows.set(windowId, win)
-    if (slot !== MAIN_SLOT) {
-      const capture = (): boolean => {
-        if (win.isDestroyed() || win.isMinimized()) return false
-        this.book.setBounds(slot, win.getNormalBounds())
-        return true
-      }
-      const remember = (): void => {
-        if (capture()) this.debouncedPersist()
-      }
-      win.on('move', remember)
-      win.on('resize', remember)
-      win.on('close', () => {
-        if (capture()) this.persist()
-      })
+    const capture = (): boolean => {
+      if (win.isDestroyed() || win.isMinimized()) return false
+      this.book.setBounds(slot, win.getNormalBounds())
+      return true
     }
+    const remember = (): void => {
+      if (capture()) this.debouncedPersist()
+    }
+    win.on('move', remember)
+    win.on('resize', remember)
+    win.on('close', () => {
+      if (capture()) this.persist()
+    })
     win.on('closed', () => {
       this.slots.delete(windowId)
       this.windows.delete(windowId)
