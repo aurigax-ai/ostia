@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { parsePaneArgs, parseWorkspaceRenameArgs, waitOutcome, wakeOutcome } from './pane'
+import {
+  parseGroupColorArgs,
+  parsePaneArgs,
+  parseWorkspaceGroupArgs,
+  parseWorkspaceRenameArgs,
+  waitOutcome,
+  wakeOutcome,
+} from './pane'
 
 describe('parsePaneArgs', () => {
   it('joins the words of send into one text and adds Enter only when asked', () => {
@@ -262,5 +269,45 @@ describe('pane move', () => {
   it('needs a pane and a workspace', () => {
     expect(() => parsePaneArgs(['move', 'fixer'])).toThrow('ostia pane move <pane>')
     expect(() => parsePaneArgs(['move', '--workspace', 'w3'])).toThrow('ostia pane move <pane>')
+  })
+})
+
+describe('parseWorkspaceGroupArgs', () => {
+  it('groups your own workspace, or the one named with --workspace', () => {
+    expect(parseWorkspaceGroupArgs(['code', 'review'], true)).toEqual({ name: 'code review' })
+    expect(parseWorkspaceGroupArgs(['--workspace', 'ws2', 'Work'], true)).toEqual({
+      workspace: 'ws2',
+      name: 'Work',
+    })
+    expect(parseWorkspaceGroupArgs(['--workspace', 'ws2'], false)).toEqual({
+      workspace: 'ws2',
+      name: '',
+    })
+    expect(parseWorkspaceGroupArgs([], false)).toEqual({ name: '' })
+  })
+
+  it('refuses group without a name and ungroup with one', () => {
+    expect(() => parseWorkspaceGroupArgs(['--workspace', 'ws2'], true)).toThrow('missing <name>')
+    expect(() => parseWorkspaceGroupArgs(['Work'], false)).toThrow('usage: ostia workspace ungroup')
+  })
+})
+
+describe('parseGroupColorArgs', () => {
+  it('takes the group name, which may hold spaces, then a palette colour', () => {
+    expect(parseGroupColorArgs(['Work', 'blue'])).toEqual({ group: 'Work', color: 'blue' })
+    expect(parseGroupColorArgs(['code', 'review', 'teal'])).toEqual({
+      group: 'code review',
+      color: 'teal',
+    })
+    expect(parseGroupColorArgs(['Work', '--clear'])).toEqual({ group: 'Work', color: null })
+  })
+
+  it('refuses a colour outside the palette, a missing colour or group', () => {
+    expect(() => parseGroupColorArgs(['Work', 'magenta'])).toThrow(
+      'usage: ostia workspace group-color',
+    )
+    expect(() => parseGroupColorArgs(['Work'])).toThrow('usage: ostia workspace group-color')
+    expect(() => parseGroupColorArgs(['blue'])).toThrow('usage: ostia workspace group-color')
+    expect(() => parseGroupColorArgs(['--clear'])).toThrow('usage: ostia workspace group-color')
   })
 })

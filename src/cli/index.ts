@@ -69,7 +69,12 @@ import {
 import { runCmuxImportVerb } from './verbs/cmuxImport'
 import { runGitVerb, runPortsVerb } from './verbs/coreBoards'
 import { runManagerVerb } from './verbs/manager'
-import { parseWorkspaceRenameArgs, runPaneVerb } from './verbs/pane'
+import {
+  parseGroupColorArgs,
+  parseWorkspaceGroupArgs,
+  parseWorkspaceRenameArgs,
+  runPaneVerb,
+} from './verbs/pane'
 import { runPortalCommand } from './verbs/portal'
 import { isOfflineViewVerb, runOfflineViewVerb, runViewVerb } from './verbs/view'
 
@@ -1161,7 +1166,8 @@ async function runStateVerb(conn: MessageConnection): Promise<void> {
 
 const WORKSPACE_USAGE =
   'ostia workspace: usage: workspace list [--json] | describe <text|-> | describe --clear | ' +
-  'group <name> | ungroup | dir [path] | rename [--workspace <id>] <name…> | rename --clear | ' +
+  'group [--workspace <id>] <name> | ungroup [--workspace <id>] | group-color <group> <color> | ' +
+  'group-color <group> --clear | dir [path] | rename [--workspace <id>] <name…> | rename --clear | ' +
   'import-cmux [session-file] [--json]'
 
 interface WorkspaceListing {
@@ -1198,8 +1204,13 @@ async function runWorkspaceCommand(
   verb: string,
   id: string,
   args?: unknown,
+  workspace?: string,
 ): Promise<void> {
-  const res = await conn.sendRequest<CommandResult>('command.exec', { id, args })
+  const res = await conn.sendRequest<CommandResult>('command.exec', {
+    id,
+    args,
+    ...(workspace ? { target: { workspaceId: workspace, paneId: null } } : {}),
+  })
   if (res.ok) {
     console.log('ok')
   } else {
@@ -1214,18 +1225,36 @@ async function runWorkspaceVerb(conn: MessageConnection): Promise<void> {
     await runWorkspaceList(conn, parseArgs(rest, { booleans: { json: '--json' } }).booleans.json)
     return
   }
-  if (sub === 'group') {
-    const name = rest.join(' ').trim()
-    if (!name) {
-      console.error('ostia workspace group: missing <name>')
+  if (sub === 'group' || sub === 'ungroup') {
+    let params: { workspace?: string; name: string }
+    try {
+      params = parseWorkspaceGroupArgs(rest, sub === 'group')
+    } catch (err) {
+      console.error(`ostia workspace ${sub}: ${err instanceof Error ? err.message : String(err)}`)
       process.exitCode = 1
       return
     }
-    await runWorkspaceCommand(conn, 'group', 'workspace.group', { name })
+    await runWorkspaceCommand(
+      conn,
+      sub,
+      sub === 'group' ? 'workspace.group' : 'workspace.ungroup',
+      sub === 'group' ? { name: params.name } : undefined,
+      params.workspace,
+    )
     return
   }
-  if (sub === 'ungroup') {
-    await runWorkspaceCommand(conn, 'ungroup', 'workspace.ungroup')
+  if (sub === 'group-color') {
+    let params: { group: string; color: string | null }
+    try {
+      params = parseGroupColorArgs(rest)
+    } catch (err) {
+      console.error(
+        `ostia workspace group-color: ${err instanceof Error ? err.message : String(err)}`,
+      )
+      process.exitCode = 1
+      return
+    }
+    await runWorkspaceCommand(conn, 'group-color', 'workspace.groupColor', params)
     return
   }
   if (sub === 'import-cmux') {
@@ -1407,7 +1436,10 @@ commands:
   workspace describe <text|-> | --clear   one-line summary under this workspace in the sidebar
   workspace dir [path]      make this folder (default: the current one) the workspace's folder
   workspace list [--json]   every workspace with its sidebar group (--json adds the groups)
-  workspace group <name> | ungroup   move this workspace into a sidebar group, or out of it
+  workspace group [--workspace <id>] <name> | ungroup [--workspace <id>]
+                            move a workspace (default: this one) into a sidebar group, or out of it
+  workspace group-color <group> <red|orange|yellow|green|teal|blue|purple|pink> | <group> --clear
+                            set or clear a sidebar group's color
   workspace import-cmux [file] [--json]   recreate cmux's saved workspaces, splits and tabs
   resume-token <claude|codex> <id|->  remember how to resume this pane's agent after a restart
   workflow list [--json] | show <name> [--json]   saved command workflows (read-only)

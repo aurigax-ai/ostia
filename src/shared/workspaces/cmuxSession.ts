@@ -1,4 +1,5 @@
 import { type AgentResume, parseAgentResume } from '../agents/agentResume'
+import type { WorkspaceGroupColor } from './workspaceGroups'
 
 export const CMUX_SESSION_FILE = 'Library/Application Support/cmux/session-com.cmuxterm.app.json'
 
@@ -45,6 +46,7 @@ export interface CmuxWorkspace {
   description?: string
   pinned?: true
   group?: string
+  color?: WorkspaceGroupColor
   directory: string
   layout: CmuxLayout
   remote?: true
@@ -225,6 +227,48 @@ function panelsById(raw: unknown): Map<string, Record<string, unknown>> {
   return panels
 }
 
+const COLOR_HUES: readonly (readonly [WorkspaceGroupColor, number])[] = [
+  ['red', 0],
+  ['orange', 30],
+  ['yellow', 52],
+  ['green', 92],
+  ['teal', 187],
+  ['blue', 207],
+  ['purple', 286],
+  ['pink', 330],
+]
+
+const MIN_SATURATION = 0.25
+const MIN_LIGHTNESS = 0.12
+const MAX_LIGHTNESS = 0.92
+
+export function nearestGroupColor(hex: unknown): WorkspaceGroupColor | undefined {
+  if (typeof hex !== 'string') return undefined
+  const m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex.trim())
+  if (!m) return undefined
+  const [r, g, b] = [m[1], m[2], m[3]].map((h) => Number.parseInt(h, 16) / 255)
+  const max = Math.max(r, g, b)
+  const min = Math.min(r, g, b)
+  const lightness = (max + min) / 2
+  const chroma = max - min
+  if (chroma === 0 || lightness < MIN_LIGHTNESS || lightness > MAX_LIGHTNESS) return undefined
+  if (chroma / (1 - Math.abs(2 * lightness - 1)) < MIN_SATURATION) return undefined
+  const sector =
+    max === r ? ((g - b) / chroma + 6) % 6 : max === g ? (b - r) / chroma + 2 : (r - g) / chroma + 4
+  const hue = sector * 60
+  let best: WorkspaceGroupColor | undefined
+  let bestDistance = 361
+  for (const [color, anchor] of COLOR_HUES) {
+    const diff = Math.abs(hue - anchor)
+    const distance = Math.min(diff, 360 - diff)
+    if (distance < bestDistance) {
+      best = color
+      bestDistance = distance
+    }
+  }
+  return best
+}
+
 function parseWorkspace(raw: unknown, groups: Map<string, string>): CmuxWorkspace | null {
   if (!isRecord(raw)) return null
   const directory = absolutePath(raw.currentDirectory)
@@ -247,6 +291,8 @@ function parseWorkspace(raw: unknown, groups: Map<string, string>): CmuxWorkspac
   if (raw.isPinned === true) workspace.pinned = true
   const group = typeof raw.groupId === 'string' ? groups.get(raw.groupId) : undefined
   if (group) workspace.group = group
+  const color = nearestGroupColor(raw.customColor)
+  if (color) workspace.color = color
   if (isRecord(raw.remote)) workspace.remote = true
   if (raw.layoutMode === 'canvas') workspace.canvas = true
   return workspace

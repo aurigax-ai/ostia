@@ -116,6 +116,16 @@ const fakeDeps: ControlServerDeps = {
         capabilities: ['drive-self'],
         target: 'active',
       },
+      {
+        id: 'workspace.groupColor',
+        title: 'Set Workspace Group Color',
+        category: 'Workspace',
+        hidden: true,
+        argsSchema: null,
+        resultSchema: null,
+        capabilities: ['drive-self'],
+        target: 'none',
+      },
     ] as CommandDescriptor[],
   getTerminalState: () => undefined,
   isSandboxed: () => false,
@@ -740,6 +750,43 @@ describe('ostia CLI end-to-end (spawns the real out/cli/index.js against a live 
         target: { workspaceId: 's1', paneId: 'pE2E' },
         id: 'workspace.ungroup',
       })
+    })
+
+    it('groups and ungroups another workspace with --workspace', async () => {
+      grant(identity.externalId, 'all-workspaces')
+      const grouped = await runOstia(['workspace', 'group', '--workspace', 's9', 'Work'], env())
+      expect(grouped.code).toBe(0)
+      expect(execCalls.at(-1)).toMatchObject({
+        target: { workspaceId: 's9', paneId: null },
+        id: 'workspace.group',
+        args: { name: 'Work' },
+      })
+      const ungrouped = await runOstia(['workspace', 'ungroup', '--workspace', 's9'], env())
+      expect(ungrouped.code).toBe(0)
+      expect(execCalls.at(-1)).toMatchObject({
+        target: { workspaceId: 's9', paneId: null },
+        id: 'workspace.ungroup',
+      })
+    })
+
+    it('sets and clears a group colour, and refuses a colour outside the palette', async () => {
+      const set = await runOstia(['workspace', 'group-color', 'Work', 'blue'], env())
+      expect(set.code).toBe(0)
+      expect(execCalls.at(-1)).toMatchObject({
+        id: 'workspace.groupColor',
+        args: { group: 'Work', color: 'blue' },
+      })
+      const cleared = await runOstia(['workspace', 'group-color', 'Work', '--clear'], env())
+      expect(cleared.code).toBe(0)
+      expect(execCalls.at(-1)).toMatchObject({
+        id: 'workspace.groupColor',
+        args: { group: 'Work', color: null },
+      })
+      execCalls.length = 0
+      const bad = await runOstia(['workspace', 'group-color', 'Work', 'magenta'], env())
+      expect(bad.code).toBe(1)
+      expect(bad.stderr).toContain('usage: ostia workspace group-color')
+      expect(execCalls).toEqual([])
     })
 
     it('lists workspaces with their groups as JSON and as text', async () => {
