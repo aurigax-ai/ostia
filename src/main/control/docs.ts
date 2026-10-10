@@ -71,7 +71,7 @@ const CLI_HELP = `ostia — control-socket CLI
                                  all-workspaces outside your reach). Only when nothing runs
                                  there: a running command, a live agent, unsaved files or
                                  scratch files answer busy: with what is left; a locked pane
-                                 answers pane-locked, the manager workspace manager:
+                                 answers pane-locked
   ostia workspace rename [--workspace <id>] <name…> | --clear  rename your workspace in the
                                  sidebar (--clear goes back to its default name); another
                                  workspace asks the human (send-other-pane, plus
