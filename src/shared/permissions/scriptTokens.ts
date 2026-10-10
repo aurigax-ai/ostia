@@ -21,6 +21,80 @@ export type ScriptTokenScope =
   | { kind: 'all' }
   | { kind: 'limited'; groups: string[]; workspaces: string[]; ownWorkspaces: boolean }
 
+export type ScriptTokenSource = 'settings' | 'cli'
+
+export interface ScriptTokenInfo {
+  id: string
+  name: string
+  caps: Capability[]
+  scope: ScriptTokenScope
+  createdAt: string
+  updatedAt: string
+  expiresAt: string | null
+  lastUsedAt: string | null
+  source: ScriptTokenSource
+}
+
+export interface RetiredScriptToken {
+  name: string
+  retiredAt: string
+}
+
+export interface ScriptTokenWorkspace {
+  id: string
+  name: string
+  groupId?: string
+}
+
+export interface ScriptTokenGroup {
+  id: string
+  name: string
+  color?: string
+}
+
+export interface ScriptTokensState {
+  tokens: ScriptTokenInfo[]
+  retired: RetiredScriptToken[]
+  workspaces: ScriptTokenWorkspace[]
+  groups: ScriptTokenGroup[]
+}
+
+export interface ScriptTokenCreateInput {
+  name: string
+  caps: Capability[]
+  scope: ScriptTokenScope
+  expires: string
+  confirmNeverExpires?: boolean
+}
+
+export interface ScriptTokenUpdateInput {
+  id: string
+  ifUpdatedAt: string
+  name?: string
+  caps?: Capability[]
+  scope?: ScriptTokenScope
+  expires?: string
+  confirmNeverExpires?: boolean
+}
+
+export type ScriptTokenSaveResult =
+  | { ok: true; token: ScriptTokenInfo; value?: string }
+  | { ok: false; error: string; presence?: 'cancelled' | 'refused' | 'polkit-agent' }
+
+export const SCRIPT_TOKEN_UI_CAPS = [
+  'read-board',
+  'notify',
+  'read-other-pane',
+  'send-other-pane',
+  'kill-pane',
+  'type-other-pane',
+  'process',
+] as const satisfies readonly Capability[]
+
+export type ScriptTokenUiCap = (typeof SCRIPT_TOKEN_UI_CAPS)[number]
+
+export const SCRIPT_TOKEN_RUN_CAPS: readonly Capability[] = ['type-other-pane', 'process']
+
 export const SCRIPT_TOKEN_PRESETS = {
   readonly: ['read-board', 'read-other-pane'],
   coordinator: [

@@ -67,6 +67,12 @@ import type { LanguagePacksApi } from './languagePack'
 import type { LspApi } from './languageServers'
 import type { ApprovalAnswer, ApprovalState } from './permissions/approvals'
 import type { AgentGroupPlacement, ReachMode } from './permissions/reach'
+import type {
+  ScriptTokenCreateInput,
+  ScriptTokenSaveResult,
+  ScriptTokenUpdateInput,
+  ScriptTokensState,
+} from './permissions/scriptTokens'
 import type { PrivacyApi } from './privacy/redaction'
 import type { TelemetryApi } from './privacy/telemetry'
 import type {
@@ -885,6 +891,14 @@ export interface CredentialsApi {
   import: () => Promise<CredentialImportResult>
 }
 
+export interface ScriptTokensApi {
+  list: () => Promise<ScriptTokensState>
+  create: (input: ScriptTokenCreateInput) => Promise<ScriptTokenSaveResult>
+  update: (input: ScriptTokenUpdateInput) => Promise<ScriptTokenSaveResult>
+  revoke: (id: string) => Promise<boolean>
+  onChanged: (cb: () => void) => () => void
+}
+
 export interface ApprovalsApi {
   state: () => Promise<ApprovalState>
   answer: (id: string, answer: ApprovalAnswer) => Promise<boolean>
@@ -1065,6 +1079,7 @@ export interface OstiaBridge {
   approvals: ApprovalsApi
   questions: QuestionsApi
   credentials: CredentialsApi
+  scriptTokens: ScriptTokensApi
   sandbox: SandboxApi
   secrets: SecretsApi
   system: SystemApi

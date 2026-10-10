@@ -110,6 +110,7 @@ import {
 import { registerPermissionAsk } from './approvals/permissionAsk'
 import { questions, registerQuestions } from './approvals/questions'
 import { type ReachListing, createReach } from './approvals/reach'
+import { registerScriptTokenIpc } from './approvals/scriptTokenIpc'
 import {
   checkScriptToken,
   recordCreatedWorkspace,
@@ -4140,11 +4141,14 @@ app.whenReady().then(() => {
       from: 'script-tokens',
     })
   }
-  registerScriptTokenMethods({
+  const scriptTokenDeps = {
     path: scriptTokensPath,
     retiredPath: retiredScriptTokensPath,
     listing: workspaceListing,
-  })
+    changed: () => broadcast('scriptTokens:changed', null),
+  }
+  registerScriptTokenMethods(scriptTokenDeps)
+  registerScriptTokenIpc(scriptTokenDeps)
   setScriptTokenCheck((token) =>
     checkScriptToken({ path: scriptTokensPath(), retiredPath: retiredScriptTokensPath() }, token),
   )

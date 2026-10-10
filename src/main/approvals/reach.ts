@@ -19,7 +19,7 @@ export type ReachCaller = Pick<ControlMethodContext, 'identity' | 'authed'>
 
 export interface ReachListing {
   workspaces: { workspaceId: string; name: string; workDir: string; groupId?: string }[]
-  groups: { groupId: string; name: string }[]
+  groups: { groupId: string; name: string; color?: string }[]
 }
 
 export interface ReachDeps {
