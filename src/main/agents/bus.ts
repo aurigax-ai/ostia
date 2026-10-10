@@ -192,19 +192,30 @@ export function registerBusMethods(deps: BusDeps): void {
   }
 
   registerControlMethod('bus.send', {
+    scripts: true,
     handler: async (params, ctx) => {
       const { to, text } = (params ?? {}) as { to: string; text: string }
       const from = ctx.identity.externalId
+      const script = ctx.identity.kind === 'script'
       if (ctx.identity.manager && !deps.managerSendAllowed()) {
         throw new ResponseError(
           ErrorCodes.InvalidRequest,
           'limit: the manager sent too many bus messages this minute',
         )
       }
+      if (script && (typeof to !== 'string' || !to)) {
+        throw new ResponseError(ErrorCodes.InvalidParams, 'bad-request: to')
+      }
       const receiver = receiverOf(to)
-      if (!receiver) return UNKNOWN_PANE
+      if (!receiver || (script && receiver.manager)) return UNKNOWN_PANE
       if (to !== from) {
-        await ensureCaps(ctx.authed, ctx.identity, ['send-other-pane'], 'bus.send', `to ${to}`)
+        await ensureCaps(
+          ctx.authed,
+          ctx.identity,
+          script ? ['send-other-pane', 'all-workspaces'] : ['send-other-pane'],
+          'bus.send',
+          `to ${to}`,
+        )
       }
       const data = loadBus()
       const id = randomUUID()

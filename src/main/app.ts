@@ -3753,6 +3753,7 @@ app.whenReady().then(() => {
     wake: wakeHibernatedPane,
     waking: paneWaking,
     close: (to) => execCommand(targetOf(to), 'pane.close'),
+    resume: (to) => execCommand(targetOf(to), 'agent.resume'),
     delay: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
   })
   registerPaneMoveToMethods({

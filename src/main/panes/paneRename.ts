@@ -88,11 +88,16 @@ export function registerPaneRenameMethods(deps: PaneRenameDeps): void {
   })
 
   registerControlMethod('workspace.rename', {
+    scripts: true,
     handler: async (raw, ctx) => {
       const p = record(raw)
       const name = cleanName(p.name, 'name')
       const me = ctx.identity
-      if (p.workspace !== undefined && (typeof p.workspace !== 'string' || !p.workspace)) {
+      const missing = me.kind === 'script' && p.workspace === undefined
+      if (
+        missing ||
+        (p.workspace !== undefined && (typeof p.workspace !== 'string' || !p.workspace))
+      ) {
         throw fail('bad-request: workspace')
       }
       const workspaceId = (p.workspace as string | undefined) ?? me.workspaceId

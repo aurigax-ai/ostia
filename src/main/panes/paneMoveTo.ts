@@ -19,6 +19,7 @@ const REFUSALS: Readonly<Record<PaneMoveError, string>> = {
 
 export function registerPaneMoveToMethods(deps: PaneMoveToDeps): void {
   registerControlMethod('pane.moveTo', {
+    scripts: true,
     handler: async (raw, ctx) => {
       const p = record(raw)
       const refs = paneRefs(p.panes)

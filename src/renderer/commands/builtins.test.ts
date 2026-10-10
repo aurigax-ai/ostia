@@ -2351,7 +2351,52 @@ describe('commands open to script tokens', () => {
       relaxed: [],
       reason: 'declares only kill-pane, so no default capability is relaxed',
     },
+    'workspace.newScratch': {
+      relaxed: DEFAULT_CAPABILITIES,
+      reason: 'like workspace.new; a scratch workspace is never in anyone’s reach',
+    },
+    'workspace.group': {
+      relaxed: ['drive-self'],
+      reason: 'runs inside byAgent, so a group a script makes widens no pane’s reach',
+    },
+    'workspace.ungroup': {
+      relaxed: ['drive-self'],
+      reason: 'the reverse of workspace.group, with the same risk',
+    },
+    'workspace.groupColor': {
+      relaxed: ['drive-self'],
+      reason: 'changes only the colour of an existing group',
+    },
+    'workspace.describe': {
+      relaxed: ['drive-self'],
+      reason: 'a sidebar summary, the same risk as renaming the workspace',
+    },
+    'workspace.hibernateAgents': {
+      relaxed: [],
+      reason: 'declares only kill-pane; a busy agent is skipped and pane wake brings it back',
+    },
+    'workspace.hibernateGroupAgents': {
+      relaxed: [],
+      reason: 'declares only kill-pane, like workspace.hibernateAgents for a whole group',
+    },
+    'workspace.resumeAgents': {
+      relaxed: [],
+      reason: 'declares only type-other-pane, the same as pane.wake on each pane',
+    },
+    'workspace.resumeGroupAgents': {
+      relaxed: [],
+      reason: 'declares only type-other-pane, like workspace.resumeAgents for a whole group',
+    },
   }
+
+  it.each([
+    ['workspace.hibernateAgents', 'kill-pane'],
+    ['workspace.hibernateGroupAgents', 'kill-pane'],
+    ['workspace.resumeAgents', 'type-other-pane'],
+    ['workspace.resumeGroupAgents', 'type-other-pane'],
+  ])('%s asks every socket caller for %s', (id, cap) => {
+    expect(commands.describe().find((c) => c.id === id)?.capabilities).toEqual([cap])
+  })
 
   it('SCRIPT_COMMANDS matches the relaxed-capability allowlist', () => {
     expect(

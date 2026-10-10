@@ -419,6 +419,63 @@ describe('process.run from a script token', () => {
     )
   })
 
+  it('lists, reads, restarts and kills processes of every workspace', async () => {
+    const theirs = await start(await client(agent), 'pnpm dev', 'web')
+    const conn = await client({ token: 'ostia_full' } as PaneIdentity)
+    const mine = await conn.sendRequest<Started>('process.run', {
+      cmd: 'make',
+      name: 'build',
+      workspace: 'ws2',
+    })
+    const tab = `tab-${tabSeq}`
+
+    const list = await conn.sendRequest<ProcessInfo[]>('process.list')
+    expect(list.map((p) => p.name)).toEqual(['web', 'build'])
+    await expect(conn.sendRequest('process.info', { id: theirs.id })).resolves.toMatchObject({
+      name: 'web',
+    })
+    emit(tab, `${PROMPT}make\r\n${C}compiling\r\n`)
+    await expect(
+      conn.sendRequest<ProcessOutput>('process.output', { id: 'build' }),
+    ).resolves.toMatchObject({ data: 'compiling\n' })
+    await expect(conn.sendRequest('process.restart', { id: mine.id })).resolves.toMatchObject({
+      error: 'still-running',
+    })
+    await expect(conn.sendRequest('process.kill', { id: mine.id })).resolves.toMatchObject({
+      ok: true,
+    })
+    expect(written.filter((w) => w.paneId === tab).map((w) => w.data)).toEqual(['\x03', '\x03'])
+    expect(ended).toEqual([tab])
+  })
+
+  it('must name the process it reads or stops', async () => {
+    const conn = await client({ token: 'ostia_full' } as PaneIdentity)
+    for (const method of ['process.info', 'process.output', 'process.kill', 'process.restart']) {
+      await expect(conn.sendRequest(method, {})).rejects.toThrow('bad-request: id')
+    }
+  })
+
+  it('needs process and all-workspaces to see or stop any process', async () => {
+    const { id } = await start(await client(agent), 'pnpm dev', 'web')
+    const noReach = await client({ token: 'ostia_no_reach' } as PaneIdentity)
+    const noProcess = await client({ token: 'ostia_no_process' } as PaneIdentity)
+    for (const method of [
+      'process.list',
+      'process.info',
+      'process.output',
+      'process.kill',
+      'process.restart',
+    ]) {
+      await expect(noReach.sendRequest(method, { id })).rejects.toThrow(
+        'needs-elevation: all-workspaces',
+      )
+      await expect(noProcess.sendRequest(method, { id })).rejects.toThrow(
+        'needs-elevation: process',
+      )
+    }
+    expect(written).toEqual([])
+  })
+
   it('is refused without all-workspaces or without process', async () => {
     const noReach = await client({ token: 'ostia_no_reach' } as PaneIdentity)
     await expect(

@@ -922,7 +922,26 @@ function splitTabParams(flags: {
   }
 }
 
+async function runAgentResume(conn: MessageConnection): Promise<void> {
+  const [pane, ...extra] = process.argv.slice(4)
+  if (!pane || extra.length > 0) {
+    console.error('usage: ostia agent resume <pane>')
+    process.exitCode = 1
+    return
+  }
+  const res = await conn.sendRequest<{ paneId: string; resumed: boolean }>('agent.resume', { pane })
+  console.log(JSON.stringify(res))
+  if (!res.resumed) {
+    console.error(`ostia agent resume: ${res.paneId} has no agent session to resume`)
+    process.exitCode = 1
+  }
+}
+
 async function runAgentVerb(conn: MessageConnection): Promise<void> {
+  if (process.argv[3] === 'resume') {
+    await runAgentResume(conn)
+    return
+  }
   const { values: flags, positional } = parseArgs(process.argv.slice(4), {
     values: { name: '--name', cwd: '--cwd', workspace: '--workspace', ...SPLIT_TAB_FLAGS },
     unknown: 'keep',
@@ -930,7 +949,7 @@ async function runAgentVerb(conn: MessageConnection): Promise<void> {
   const [agent, given] = positional
   if (process.argv[3] !== 'run' || !agent || given === undefined) {
     console.error(
-      'usage: ostia agent run <agent> [--name N] [--cwd DIR] [--workspace <id|name>] [--split-tab T [--split right|down]] <prompt|->',
+      'usage: ostia agent run <agent> [--name N] [--cwd DIR] [--workspace <id|name>] [--split-tab T [--split right|down]] <prompt|-> | agent resume <pane>',
     )
     process.exitCode = 1
     return
@@ -1165,7 +1184,7 @@ async function runStateVerb(conn: MessageConnection): Promise<void> {
 }
 
 const WORKSPACE_USAGE =
-  'ostia workspace: usage: workspace list [--json] | describe <text|-> | describe --clear | ' +
+  'ostia workspace: usage: workspace list [--json] | describe [--workspace <id>] <text|-> | describe --clear | ' +
   'group [--workspace <id>] <name> | ungroup [--workspace <id>] | group-color <group> <color> | ' +
   'group-color <group> --clear | dir [path] | rename [--workspace <id>] <name…> | rename --clear | ' +
   'import-cmux [session-file] [--json]'
@@ -1293,7 +1312,8 @@ async function runWorkspaceVerb(conn: MessageConnection): Promise<void> {
     process.exitCode = 1
     return
   }
-  const { positional, booleans } = parseArgs(rest, {
+  const { positional, booleans, values } = parseArgs(rest, {
+    values: { workspace: '--workspace' },
     booleans: { clear: '--clear' },
     unknown: 'keep',
   })
@@ -1308,6 +1328,7 @@ async function runWorkspaceVerb(conn: MessageConnection): Promise<void> {
   const res = await conn.sendRequest<CommandResult>('command.exec', {
     id: 'workspace.describe',
     args: { text },
+    ...(values.workspace ? { target: { workspaceId: values.workspace, paneId: null } } : {}),
   })
   if (res.ok) {
     console.log('ok')
@@ -1433,7 +1454,8 @@ commands:
                             ask the human and wait for the answer (exit 2 dismissed, 3 timed
                             out, 4 pane closed)
   state <waiting|done|working|error|clear> [message|-] [--pane <externalId>]
-  workspace describe <text|-> | --clear   one-line summary under this workspace in the sidebar
+  workspace describe [--workspace <id>] <text|-> | --clear
+                            one-line summary under this workspace (or --workspace) in the sidebar
   workspace dir [path]      make this folder (default: the current one) the workspace's folder
   workspace list [--json]   every workspace with its sidebar group (--json adds the groups)
   workspace group [--workspace <id>] <name> | ungroup [--workspace <id>]
@@ -1463,6 +1485,8 @@ commands:
             [--split-tab T [--split right|down]] <prompt|->
                             start claude, codex or an agent the human configured in a new
                             terminal tab with that prompt; talk to it with ostia pane
+  agent resume <pane>       type that pane's recorded resume command (wakes it when hibernated);
+                            same asks as pane send
   pane send <pane> <text> [--enter] | key <pane> <key>… | read <pane> [--lines N]
                             type into or read another terminal pane (asks the human unless
                             you opened it with ostia process run)
@@ -1491,6 +1515,10 @@ commands:
                             run any registered command (see: ostia commands); --workspace runs
                             it in that workspace (needs all-workspaces)
   workspace.new [json-args] [--no-focus]   open a workspace without switching to it
+  workspace.hibernateAgents | workspace.resumeAgents --workspace <id|name>
+                            hibernate the idle agents of a workspace (kill-pane), or wake them
+                            (type-other-pane); hibernateGroupAgents and resumeGroupAgents act on
+                            its whole sidebar group
 
 run 'ostia docs' inside an Ostia pane for the full reference.`
 

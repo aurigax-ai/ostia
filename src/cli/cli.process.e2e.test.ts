@@ -178,6 +178,7 @@ registerPaneIoMethods({
     closedPanes.push(pane.paneId)
     return { ok: true, result: undefined }
   },
+  resume: async () => ({ ok: true, result: { resumed: true } }),
   delay: async () => {},
 })
 

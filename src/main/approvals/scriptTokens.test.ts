@@ -9,8 +9,9 @@ import {
   StreamMessageWriter,
   createMessageConnection,
 } from 'vscode-jsonrpc/node'
-import { DEFAULT_CAPABILITIES } from '../../shared/capabilities'
+import { type Capability, DEFAULT_CAPABILITIES } from '../../shared/capabilities'
 import type { ApprovalOutcome } from '../../shared/permissions/approvals'
+import { SCRIPT_CAPABILITIES } from '../../shared/permissions/scriptTokens'
 import type { CommandResult } from '../../shared/types'
 
 let answer: ApprovalOutcome = 'deny'
@@ -19,10 +20,12 @@ const request = vi.fn(async () => answer)
 vi.mock('./approvals', () => ({ approvals: () => ({ request }) }))
 
 const { setCapFilter, setScriptTokenCheck } = await import('../control/controlAuth')
+const { SCRIPT_COMMANDS } = await import('../control/commandArgs')
 const { registerControlMethod, registerControlServer, stopControlServer } = await import(
   '../control/controlServer'
 )
-const { registerPane } = await import('../control/idRegistry')
+const { markManager, registerPane } = await import('../control/idRegistry')
+const { registerDocsMethods } = await import('../control/docs')
 const {
   createScriptToken,
   listScriptTokens,
@@ -42,6 +45,7 @@ function tempStore(): string {
 }
 
 registerScriptTokenMethods(() => storeFile)
+registerDocsMethods({ extensions: () => [] })
 setScriptTokenCheck((token) => verifyScriptToken(storeFile, token))
 registerControlMethod('test.scriptsOpen', {
   cap: 'read-board',
@@ -146,13 +150,16 @@ describe('script token store', () => {
     expect(() => parseTokenRequest({ name: 'x', caps: ['destructive'] })).toThrow('can hold only')
   })
 
-  it('lets a token hold process, send-other-pane and kill-pane, but never shell', () => {
+  it('lets a token hold process, send-other-pane, kill-pane and notify, but never shell', () => {
     expect(
       parseTokenRequest({
         name: 'cron',
-        caps: ['process', 'send-other-pane', 'all-workspaces', 'kill-pane'],
+        caps: ['notify', 'process', 'send-other-pane', 'all-workspaces', 'kill-pane'],
       }),
-    ).toEqual({ name: 'cron', caps: ['all-workspaces', 'process', 'send-other-pane', 'kill-pane'] })
+    ).toEqual({
+      name: 'cron',
+      caps: ['all-workspaces', 'process', 'send-other-pane', 'kill-pane', 'notify'],
+    })
     expect(() => parseTokenRequest({ name: 'x', caps: ['shell'] })).toThrow('can hold only')
     expect(() => parseTokenRequest({ name: 'x', caps: ['destructive'] })).toThrow('can hold only')
   })
@@ -169,8 +176,14 @@ describe('script callers on the control socket', () => {
       'needs-elevation: type-other-pane',
     )
     await expect(conn.sendRequest('test.panesOnly')).rejects.toThrow('not-available-to-script')
-    await expect(conn.sendRequest('command.list')).rejects.toThrow('not-available-to-script')
     expect(request).not.toHaveBeenCalled()
+  })
+
+  it('reads the CLI reference', async () => {
+    const conn = await client(createScriptToken(storeFile, 'docs', ['read-board']).token)
+    const res = await conn.sendRequest<{ cli: string }>('docs')
+    expect(res.cli).toContain('Scripts reach only these methods')
+    expect(res.cli).not.toContain('Manager only')
   })
 
   it('refuses an unknown token and cuts a revoked one off at once', async () => {
@@ -225,7 +238,7 @@ describe('script callers on the control socket', () => {
 })
 
 describe('script tokens on command.exec', () => {
-  const descriptor = (id: string, capabilities: string[]) => ({
+  const descriptor = (id: string, capabilities: string[], target = 'active') => ({
     id,
     title: id,
     category: null,
@@ -233,8 +246,27 @@ describe('script tokens on command.exec', () => {
     argsSchema: null,
     resultSchema: null,
     capabilities,
-    target: 'active',
+    target,
   })
+  const COMMANDS = [
+    descriptor('workspace.new', DEFAULT_CAPABILITIES, 'none'),
+    descriptor('pane.close', ['kill-pane']),
+    descriptor('tab.new', []),
+    descriptor('workspace.group', ['drive-self']),
+    descriptor('workspace.ungroup', ['drive-self']),
+    descriptor('workspace.describe', ['drive-self']),
+    descriptor('workspace.groupColor', ['drive-self'], 'none'),
+    descriptor('workspace.newScratch', DEFAULT_CAPABILITIES, 'none'),
+    descriptor('workspace.hibernateAgents', ['kill-pane']),
+    descriptor('workspace.hibernateGroupAgents', ['kill-pane']),
+    descriptor('workspace.resumeAgents', ['type-other-pane']),
+    descriptor('workspace.resumeGroupAgents', ['type-other-pane']),
+    descriptor('workspace.deleteGroup', DEFAULT_CAPABILITIES),
+    descriptor('settings.set', ['settings-write']),
+    descriptor('workspace.goto', DEFAULT_CAPABILITIES),
+  ]
+  const WS2 = { workspaceId: 'ws2', paneId: null }
+  const inWs2 = { windowId: 'w1', workspaceId: 'ws2', paneId: null }
   let executed: { target: unknown; id: string; args: unknown }[] = []
 
   beforeEach(() => {
@@ -246,15 +278,11 @@ describe('script tokens on command.exec', () => {
           executed.push({ target, id, args })
           return { ok: true, result: { workspaceId: 'ws-new' } } as CommandResult
         },
-        listCommandsFor: (windowId) =>
-          windowId === 'w1'
-            ? ([
-                descriptor('workspace.new', DEFAULT_CAPABILITIES),
-                descriptor('pane.close', ['kill-pane']),
-                descriptor('tab.new', []),
-              ] as never)
-            : [],
-        getTerminalState: () => undefined,
+        listCommandsFor: (windowId) => (windowId === 'w1' ? (COMMANDS as never) : []),
+        getTerminalState: (paneId) =>
+          paneId === 'inner-info'
+            ? { paneId, generation: 1, cwd: '/w', running: true, blockCount: 2 }
+            : undefined,
         isSandboxed: () => false,
         windowOfWorkspace: (workspaceId) => (workspaceId === 'ws2' ? 'w1' : undefined),
         primaryWindow: () => 'w1',
@@ -349,5 +377,113 @@ describe('script tokens on command.exec', () => {
       'not-available-to-script',
     )
     expect(executed).toEqual([])
+  })
+
+  it.each([
+    ['workspace.group', { name: 'AurigaX' }],
+    ['workspace.ungroup', undefined],
+    ['workspace.describe', { text: 'tracker#24' }],
+  ])('runs %s on the workspace it names, with all-workspaces', async (id, args) => {
+    const conn = await client(createScriptToken(storeFile, 'ceo', ['all-workspaces']).token)
+    await expect(conn.sendRequest('command.exec', { id, args, target: WS2 })).resolves.toEqual({
+      ok: true,
+      result: { workspaceId: 'ws-new' },
+    })
+    expect(executed).toEqual([{ target: inWs2, id, args }])
+    expect(request).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['workspace.groupColor', { group: 'AurigaX', color: 'blue' }],
+    ['workspace.newScratch', undefined],
+  ])('runs %s, which needs no workspace, in the primary window', async (id, args) => {
+    const conn = await client(createScriptToken(storeFile, 'ceo', ['all-workspaces']).token)
+    await conn.sendRequest('command.exec', { id, args })
+    expect(executed).toEqual([
+      { target: { windowId: 'w1', workspaceId: '', paneId: null }, id, args },
+    ])
+  })
+
+  it.each<[string, Capability]>([
+    ['workspace.hibernateAgents', 'kill-pane'],
+    ['workspace.hibernateGroupAgents', 'kill-pane'],
+    ['workspace.resumeAgents', 'type-other-pane'],
+    ['workspace.resumeGroupAgents', 'type-other-pane'],
+  ])('runs %s on a named workspace only with %s and all-workspaces', async (id, cap) => {
+    const without = await client(createScriptToken(storeFile, 'a', ['all-workspaces']).token)
+    await expect(without.sendRequest('command.exec', { id, target: WS2 })).rejects.toThrow(
+      `needs-elevation: ${cap}`,
+    )
+    const noReach = await client(createScriptToken(storeFile, 'b', [cap]).token)
+    await expect(noReach.sendRequest('command.exec', { id, target: WS2 })).rejects.toThrow(
+      'needs-elevation: all-workspaces',
+    )
+    expect(executed).toEqual([])
+    const full = await client(createScriptToken(storeFile, 'c', ['all-workspaces', cap]).token)
+    await full.sendRequest('command.exec', { id, target: WS2 })
+    expect(executed).toEqual([{ target: inWs2, id }])
+    expect(request).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    'workspace.group',
+    'workspace.ungroup',
+    'workspace.describe',
+    'workspace.hibernateAgents',
+    'workspace.hibernateGroupAgents',
+    'workspace.resumeAgents',
+    'workspace.resumeGroupAgents',
+  ])('refuses %s without a workspace instead of picking one', async (id) => {
+    const conn = await client(
+      createScriptToken(storeFile, 'c', ['all-workspaces', 'kill-pane', 'type-other-pane']).token,
+    )
+    await expect(conn.sendRequest('command.exec', { id, args: { name: 'x' } })).rejects.toThrow(
+      `bad-request: ${id} from a script token needs a workspace`,
+    )
+    expect(executed).toEqual([])
+  })
+
+  it('refuses a workspace command without all-workspaces', async () => {
+    const conn = await client(createScriptToken(storeFile, 'k', ['kill-pane']).token)
+    await expect(
+      conn.sendRequest('command.exec', { id: 'workspace.group', args: { name: 'x' }, target: WS2 }),
+    ).rejects.toThrow('needs-elevation: all-workspaces')
+    expect(executed).toEqual([])
+  })
+
+  it.each(['settings.set', 'workspace.deleteGroup', 'workspace.goto', 'tab.new'])(
+    'still refuses %s to a token holding every script capability',
+    async (id) => {
+      const conn = await client(createScriptToken(storeFile, 'all', [...SCRIPT_CAPABILITIES]).token)
+      await expect(conn.sendRequest('command.exec', { id, target: WS2 })).rejects.toThrow(
+        'not-available-to-script',
+      )
+      expect(executed).toEqual([])
+    },
+  )
+
+  it('lists only the commands open to scripts, from the primary window', async () => {
+    const conn = await client(createScriptToken(storeFile, 'l', ['read-board']).token)
+    const list = await conn.sendRequest<{ id: string }[]>('command.list')
+    expect(list.map((d) => d.id).sort()).toEqual([...SCRIPT_COMMANDS].sort())
+  })
+
+  it('reads the terminal state of a named pane, never its own or the manager', async () => {
+    const pane = registerPane({ windowId: 'w1', workspaceId: 'ws2', paneId: 'inner-info' })
+    registerPane({ windowId: 'w1', workspaceId: 'ws2', paneId: 'inner-info-mgr' })
+    const manager = markManager('inner-info-mgr')
+    const conn = await client(createScriptToken(storeFile, 'i', ['read-board']).token)
+    await expect(conn.sendRequest('pane.info', { paneId: pane.externalId })).resolves.toMatchObject(
+      {
+        cwd: '/w',
+        running: true,
+      },
+    )
+    await expect(conn.sendRequest('pane.info', {})).rejects.toThrow('bad-request: paneId')
+    await expect(conn.sendRequest('pane.info', { paneId: manager?.externalId })).resolves.toBeNull()
+    const blind = await client(createScriptToken(storeFile, 'j', ['process']).token)
+    await expect(blind.sendRequest('pane.info', { paneId: pane.externalId })).rejects.toThrow(
+      'needs-elevation: read-board',
+    )
   })
 })

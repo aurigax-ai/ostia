@@ -1,6 +1,18 @@
 import { type PaneIdentity, resolveExternal } from './idRegistry'
 
-export const SCRIPT_COMMANDS: ReadonlySet<string> = new Set(['workspace.new', 'pane.close'])
+export const SCRIPT_COMMANDS: ReadonlySet<string> = new Set([
+  'workspace.new',
+  'pane.close',
+  'workspace.group',
+  'workspace.groupColor',
+  'workspace.ungroup',
+  'workspace.describe',
+  'workspace.newScratch',
+  'workspace.hibernateAgents',
+  'workspace.resumeAgents',
+  'workspace.hibernateGroupAgents',
+  'workspace.resumeGroupAgents',
+])
 
 export type PaneArgs =
   | { ok: true; args: unknown; pane: PaneIdentity | null }

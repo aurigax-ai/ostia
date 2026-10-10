@@ -194,6 +194,7 @@ export function postPanelNotification(
 export function registerNotifyMethods(deps: NotifyDeps): void {
   registerControlMethod('notify', {
     cap: 'notify',
+    scripts: true,
     handler: async (params: unknown, ctx) => {
       const { title: rawTitle, body: rawBody } = (params ?? {}) as {
         title?: unknown
@@ -203,6 +204,11 @@ export function registerNotifyMethods(deps: NotifyDeps): void {
       const body = clampMessage(rawBody)
       if (!title) return { ok: false, error: 'missing-title' }
       const { paneId, externalId } = ctx.identity
+      if (ctx.identity.kind === 'script') {
+        showDesktop(deps, title, body)
+        await record(deps, { title, body, from: externalId })
+        return { ok: true }
+      }
       await record(deps, { title, body, paneId, from: externalId })
       const res = await deps.execCommand(targetOf(ctx.identity), 'attention.notify', {
         message: body ? `${title}: ${body}` : title,

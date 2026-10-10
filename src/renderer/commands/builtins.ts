@@ -880,7 +880,7 @@ export function registerBuiltinCommands(): void {
   registerCore<undefined, { hibernated: string[] }>({
     id: 'workspace.hibernateAgents',
     category: 'workspace',
-    local: true,
+    capabilities: ['kill-pane'],
     run: async (_args, ctx) => ({
       hibernated: await hibernateAgents(ctx.activeWorkspaceId ? [ctx.activeWorkspaceId] : []),
     }),
@@ -889,7 +889,7 @@ export function registerBuiltinCommands(): void {
   registerCore<undefined, { resumed: string[] }>({
     id: 'workspace.resumeAgents',
     category: 'workspace',
-    local: true,
+    capabilities: ['type-other-pane'],
     run: (_args, ctx) => ({
       resumed: resumeWorkspaces(ctx.activeWorkspaceId ? [ctx.activeWorkspaceId] : []),
     }),
@@ -898,7 +898,7 @@ export function registerBuiltinCommands(): void {
   registerCore<undefined, { hibernated: string[] }>({
     id: 'workspace.hibernateGroupAgents',
     category: 'workspace',
-    local: true,
+    capabilities: ['kill-pane'],
     run: async (_args, ctx) => ({
       hibernated: await hibernateAgents(groupWorkspaceIds(ctx.activeWorkspaceId)),
     }),
@@ -907,7 +907,7 @@ export function registerBuiltinCommands(): void {
   registerCore<undefined, { resumed: string[] }>({
     id: 'workspace.resumeGroupAgents',
     category: 'workspace',
-    local: true,
+    capabilities: ['type-other-pane'],
     run: (_args, ctx) => ({ resumed: resumeWorkspaces(groupWorkspaceIds(ctx.activeWorkspaceId)) }),
   })
 

@@ -9,6 +9,7 @@ import {
   normalizeSplitTabName,
   parseSplitTabSide,
 } from '../../shared/workspaces/splitTabs'
+import { ensureCaps } from '../approvals/controlElevation'
 import type { Reach } from '../approvals/reach'
 import {
   type ControlMethodContext,
@@ -464,11 +465,25 @@ export function registerProcessMethods(deps: ProcessDeps): ProcessRegistry {
     ...(deps.onChange ? { onChange: deps.onChange } : {}),
   })
 
+  const scriptReach = async (ctx: ControlMethodContext, method: string): Promise<void> => {
+    if (ctx.identity.kind !== 'script') return
+    await ensureCaps(
+      ctx.authed,
+      ctx.identity,
+      ['all-workspaces'],
+      method,
+      'processes of every workspace',
+    )
+  }
+
   const find = async (
     raw: unknown,
     ctx: ControlMethodContext,
+    method: string,
   ): Promise<ProcessEntry | undefined> => {
     const { id } = record(raw)
+    if (ctx.identity.kind === 'script' && (typeof id !== 'string' || !id)) throw badRequest('id')
+    await scriptReach(ctx, method)
     return typeof id === 'string'
       ? registry.resolve(id, ctx.identity.workspaceId, await deps.reach.visible(ctx))
       : undefined
@@ -591,7 +606,9 @@ export function registerProcessMethods(deps: ProcessDeps): ProcessRegistry {
 
   registerTargetableMethod('process.list', {
     cap: 'process',
+    scripts: true,
     handler: async (_params, ctx) => {
+      await scriptReach(ctx, 'process.list')
       const reaches = await deps.reach.visible(ctx)
       const home = ctx.identity.workspaceId
       return registry
@@ -606,16 +623,18 @@ export function registerProcessMethods(deps: ProcessDeps): ProcessRegistry {
 
   registerTargetableMethod('process.info', {
     cap: 'process',
+    scripts: true,
     handler: async (params, ctx) => {
-      const entry = await find(params, ctx)
+      const entry = await find(params, ctx, 'process.info')
       return entry ? registry.info(entry) : NOT_FOUND
     },
   })
 
   registerTargetableMethod('process.output', {
     cap: 'process',
+    scripts: true,
     handler: async (params, ctx) => {
-      const entry = await find(params, ctx)
+      const entry = await find(params, ctx, 'process.output')
       if (!entry) return NOT_FOUND
       if (entry.status === 'closed') return CLOSED
       const since = Number(record(params).sinceCursor ?? 0)
@@ -632,8 +651,9 @@ export function registerProcessMethods(deps: ProcessDeps): ProcessRegistry {
 
   registerControlMethod('process.kill', {
     cap: 'process',
+    scripts: true,
     handler: async (params, ctx) => {
-      const entry = await find(params, ctx)
+      const entry = await find(params, ctx, 'process.kill')
       if (!entry) return NOT_FOUND
       if (entry.status === 'closed') return CLOSED
       if (entry.status === 'exited') return { ok: true, status: entry.status }
@@ -644,8 +664,9 @@ export function registerProcessMethods(deps: ProcessDeps): ProcessRegistry {
 
   registerControlMethod('process.restart', {
     cap: 'process',
+    scripts: true,
     handler: async (params, ctx) => {
-      const entry = await find(params, ctx)
+      const entry = await find(params, ctx, 'process.restart')
       if (!entry) return NOT_FOUND
       if (entry.status === 'closed') return CLOSED
       if (!deps.hasShell(entry.paneId)) {

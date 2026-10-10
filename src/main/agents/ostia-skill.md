@@ -154,7 +154,8 @@ ostia resume-token claude <session-id>       # after a restart this pane resumes
 ostia workspace describe "PR [#512](https://github.com/o/r/pull/512): fix refunds"  # sidebar summary; --clear removes it
 ostia workspace group "payments"              # put this workspace in a sidebar group (created if missing)
 ostia workspace ungroup                       # take it out again
-ostia workspace group --workspace <id> "payments"   # same, for another workspace (ids from `ostia workspace list`)
+ostia workspace group --workspace <id> "payments"   # same, for another workspace (ids from `ostia workspace list`); a script token needs --workspace and all-workspaces
+ostia workspace describe --workspace <id> "..."     # describe, ungroup and group-color work from a script token too
 ostia workspace group-color "payments" blue   # colour the group: red orange yellow green teal blue purple pink; --clear removes it
 ostia workspace list --json                   # {workspaces, groups}: who is grouped with whom
 ```
@@ -268,6 +269,8 @@ ostia pane key <pane> <key>...           # enter tab escape up down ctrl-c ...
 ostia pane read <pane> [--lines N] [--json]  # its screen as plain text
 ostia pane wait <pane>... [--until done|waiting|idle|exited]... [--timeout <s>] [--json]
 ostia pane wake <pane>... [--wait [--timeout <s>]] [--json]  # wake hibernated agent panes
+ostia agent resume <pane>                # type its recorded resume command (wakes it when hibernated)
+ostia workspace.hibernateAgents --workspace <id|name>  # hibernate its idle agents (kill-pane); resumeAgents wakes them
 ostia pane close <pane>... [--json]      # close those panes
 ostia pane move <pane>... --workspace <id|name> [--json]  # move running tabs to another workspace
 ostia pane rename <pane> <title...> | --clear  # name its tab (your own needs nothing)

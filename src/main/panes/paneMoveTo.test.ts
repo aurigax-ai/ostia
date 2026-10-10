@@ -8,6 +8,7 @@ import {
   StreamMessageWriter,
   createMessageConnection,
 } from 'vscode-jsonrpc/node'
+import type { Capability } from '../../shared/capabilities'
 import type { ApprovalOutcome } from '../../shared/permissions/approvals'
 import type { CommandResult } from '../../shared/types'
 import type { ApprovalAsk } from '../approvals/approvals'
@@ -23,7 +24,7 @@ const request = vi.fn(async (ask: ApprovalAsk) => {
 vi.mock('../approvals/approvals', () => ({ approvals: () => ({ request }) }))
 vi.mock('electron', () => ({ ipcMain: { handle: vi.fn() } }))
 
-const { setCapFilter } = await import('../control/controlAuth')
+const { setCapFilter, setScriptTokenCheck } = await import('../control/controlAuth')
 const { ensureCaps } = await import('../approvals/controlElevation')
 const { registerControlServer, stopControlServer } = await import('../control/controlServer')
 const { markManager, registerPane } = await import('../control/idRegistry')
@@ -78,6 +79,16 @@ const child = registerPane({ windowId: 'w1', workspaceId: 'ws1', paneId: 'child-
 const sibling = registerPane({ windowId: 'w1', workspaceId: 'ws1', paneId: 'sibling-pane' })
 const managerPane = registerPane({ windowId: 'w1', workspaceId: 'ws1', paneId: 'mgr-pane' })
 markManager('mgr-pane')
+
+const SCRIPT_TOKENS: Record<string, Capability[]> = {
+  'ostia_move-full': ['type-other-pane', 'all-workspaces'],
+  'ostia_move-no-type': ['all-workspaces'],
+  'ostia_move-no-reach': ['type-other-pane'],
+}
+setScriptTokenCheck((token) => {
+  const caps = SCRIPT_TOKENS[token]
+  return caps ? { id: `script_${token}`, caps } : undefined
+})
 
 let socketPath = ''
 let seq = 0
@@ -204,5 +215,39 @@ describe('pane.moveTo', () => {
       workspaceId: 'ws1',
     })
     expect(moved).toEqual([])
+  })
+})
+
+describe('pane.moveTo from a script token', () => {
+  it('moves a pane into another workspace with type-other-pane and all-workspaces', async () => {
+    const conn = await client({ token: 'ostia_move-full' })
+    await expect(move(conn, [sibling.externalId], 'ws2')).resolves.toEqual({
+      ok: true,
+      moved: [sibling.externalId],
+      workspaceId: 'ws2',
+    })
+    expect(moved).toEqual([{ paneId: 'sibling-pane', workspaceId: 'ws2' }])
+    expect(request).not.toHaveBeenCalled()
+  })
+
+  it('needs both capabilities, names its panes and workspace, and never moves the manager', async () => {
+    const noType = await client({ token: 'ostia_move-no-type' })
+    await expect(move(noType, [sibling.externalId], 'ws2')).rejects.toThrow(
+      'needs-elevation: type-other-pane',
+    )
+    const noReach = await client({ token: 'ostia_move-no-reach' })
+    await expect(move(noReach, [sibling.externalId], 'ws2')).rejects.toThrow(
+      'needs-elevation: all-workspaces',
+    )
+    const full = await client({ token: 'ostia_move-full' })
+    await expect(full.sendRequest('pane.moveTo', { panes: [sibling.externalId] })).rejects.toThrow(
+      'bad-request: workspace',
+    )
+    await expect(full.sendRequest('pane.moveTo', { workspace: 'ws2' })).rejects.toThrow(
+      'bad-request: panes',
+    )
+    await expect(move(full, [managerPane.externalId], 'ws2')).rejects.toThrow('unknown-pane')
+    expect(moved).toEqual([])
+    expect(request).not.toHaveBeenCalled()
   })
 })

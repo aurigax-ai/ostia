@@ -46,6 +46,7 @@ const typedInto: string[] = []
 const asleepPanes = new Set<string>()
 const woken: string[] = []
 const closed: string[] = []
+const resumed: string[] = []
 const lockedPanes = new Set<string>()
 const delays: number[] = []
 let cursor = 0
@@ -99,6 +100,10 @@ registerPaneIoMethods({
     closed.push(pane.paneId)
     return { ok: true, result: undefined }
   },
+  resume: async (pane) => {
+    resumed.push(pane.paneId)
+    return { ok: true, result: { resumed: pane.paneId !== 'no-pty' } }
+  },
   delay: async (ms) => {
     delays.push(ms)
   },
@@ -114,11 +119,15 @@ markManager('mgr-pane')
 const extension = registerExtension('probe')
 
 const SCRIPT_TOKEN = 'ostia_pane-io-script'
-setScriptTokenCheck((token) =>
-  token === SCRIPT_TOKEN
+const SCRIPT_NO_TYPE = 'ostia_pane-io-no-type'
+const SCRIPT_NO_REACH = 'ostia_pane-io-no-reach'
+setScriptTokenCheck((token) => {
+  if (token === SCRIPT_NO_TYPE) return { id: 'script_pane_io_no_type', caps: ['all-workspaces'] }
+  if (token === SCRIPT_NO_REACH) return { id: 'script_pane_io_no_reach', caps: ['type-other-pane'] }
+  return token === SCRIPT_TOKEN
     ? { id: 'script_pane_io', caps: ['type-other-pane', 'all-workspaces'] }
-    : undefined,
-)
+    : undefined
+})
 
 let socketPath = ''
 let seq = 0
@@ -171,6 +180,7 @@ beforeEach(() => {
   asleepPanes.clear()
   woken.length = 0
   closed.length = 0
+  resumed.length = 0
   lockedPanes.clear()
   delays.length = 0
   cursor = 0
@@ -706,6 +716,65 @@ describe('pane.close', () => {
         targetPaneId: agent.externalId,
       }),
     ).rejects.toThrow('not-available-to-extension')
+  })
+})
+
+describe('agent.resume', () => {
+  it('lets a script token resume an agent pane in any workspace, and says when there was none', async () => {
+    const conn = await client({ token: SCRIPT_TOKEN })
+    await expect(conn.sendRequest('agent.resume', { pane: sibling.externalId })).resolves.toEqual({
+      ok: true,
+      paneId: sibling.externalId,
+      resumed: true,
+    })
+    await expect(conn.sendRequest('agent.resume', { pane: foreign.externalId })).resolves.toEqual({
+      ok: true,
+      paneId: foreign.externalId,
+      resumed: true,
+    })
+    await expect(conn.sendRequest('agent.resume', { pane: noPty.externalId })).resolves.toEqual({
+      ok: true,
+      paneId: noPty.externalId,
+      resumed: false,
+    })
+    expect(resumed).toEqual(['sibling-pane', 'foreign-pane', 'no-pty'])
+    expect(request).not.toHaveBeenCalled()
+  })
+
+  it('refuses a script token without type-other-pane or all-workspaces', async () => {
+    const noType = await client({ token: SCRIPT_NO_TYPE })
+    await expect(noType.sendRequest('agent.resume', { pane: sibling.externalId })).rejects.toThrow(
+      'needs-elevation: type-other-pane',
+    )
+    const noReach = await client({ token: SCRIPT_NO_REACH })
+    await expect(noReach.sendRequest('agent.resume', { pane: sibling.externalId })).rejects.toThrow(
+      'needs-elevation: all-workspaces',
+    )
+    expect(resumed).toEqual([])
+    expect(request).not.toHaveBeenCalled()
+  })
+
+  it('needs a pane, never the manager, and refuses a pane whose agent is starting', async () => {
+    const conn = await client({ token: SCRIPT_TOKEN })
+    await expect(conn.sendRequest('agent.resume', {})).rejects.toThrow('bad-request: pane')
+    await expect(conn.sendRequest('agent.resume', { pane: manager.externalId })).rejects.toThrow(
+      `unknown-pane: ${manager.externalId}`,
+    )
+    waking.start('sibling-pane')
+    await expect(conn.sendRequest('agent.resume', { pane: sibling.externalId })).rejects.toThrow(
+      'waking:',
+    )
+    expect(resumed).toEqual([])
+  })
+
+  it('asks a pane caller for type-other-pane, as pane wake does', async () => {
+    const conn = await client(agent)
+    await expect(conn.sendRequest('agent.resume', { pane: sibling.externalId })).rejects.toThrow(
+      'denied: type-other-pane',
+    )
+    answer = 'once'
+    await conn.sendRequest('agent.resume', { pane: sibling.externalId })
+    expect(resumed).toEqual(['sibling-pane'])
   })
 })
 
