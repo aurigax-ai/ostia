@@ -1186,7 +1186,7 @@ async function runStateVerb(conn: MessageConnection): Promise<void> {
 const WORKSPACE_USAGE =
   'ostia workspace: usage: workspace list [--json] | describe [--workspace <id>] <text|-> | describe --clear | ' +
   'group [--workspace <id>] <name> | ungroup [--workspace <id>] | group-color <group> <color> | ' +
-  'group-color <group> --clear | dir [path] | rename [--workspace <id>] <name…> | rename --clear | ' +
+  'group-color <group> --clear | close [--workspace <id>] | dir [path] | rename [--workspace <id>] <name…> | rename --clear | ' +
   'import-cmux [session-file] [--json]'
 
 interface WorkspaceListing {
@@ -1260,6 +1260,16 @@ async function runWorkspaceVerb(conn: MessageConnection): Promise<void> {
       sub === 'group' ? { name: params.name } : undefined,
       params.workspace,
     )
+    return
+  }
+  if (sub === 'close') {
+    const { positional, values } = parseArgs(rest, { values: { workspace: '--workspace' } })
+    if (positional.length > 0) {
+      console.error('ostia workspace close: usage: workspace close [--workspace <id>]')
+      process.exitCode = 1
+      return
+    }
+    await runWorkspaceCommand(conn, 'close', 'workspace.close', undefined, values.workspace)
     return
   }
   if (sub === 'group-color') {
@@ -1462,6 +1472,10 @@ commands:
                             move a workspace (default: this one) into a sidebar group, or out of it
   workspace group-color <group> <red|orange|yellow|green|teal|blue|purple|pink> | <group> --clear
                             set or clear a sidebar group's color
+  workspace close [--workspace <id>]
+                            close a workspace where nothing runs (kill-pane; another workspace
+                            needs all-workspaces); one with a running command, a live agent or
+                            unsaved files is refused with busy:
   workspace import-cmux [file] [--json]   recreate cmux's saved workspaces, splits and tabs
   resume-token <claude|codex> <id|->  remember how to resume this pane's agent after a restart
   workflow list [--json] | show <name> [--json]   saved command workflows (read-only)

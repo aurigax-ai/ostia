@@ -3,6 +3,7 @@ import { type PaneIdentity, resolveExternal } from './idRegistry'
 export const SCRIPT_COMMANDS: ReadonlySet<string> = new Set([
   'workspace.new',
   'pane.close',
+  'workspace.close',
   'workspace.group',
   'workspace.groupColor',
   'workspace.ungroup',

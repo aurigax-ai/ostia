@@ -46,6 +46,7 @@ import { clearKeepingScrollback } from '@/lib/terminal/clearTerminal'
 import { focusActivePaneWhenReady } from '@/lib/terminal/focusNewTerminal'
 import { terminalFor } from '@/lib/terminal/terminalHandles'
 import {
+  closeBlockers,
   closePaneForAgent,
   requestCloseOthers,
   requestClosePane,
@@ -954,6 +955,40 @@ export function registerBuiltinCommands(): void {
       if (!(await moveWorkspaceTo(ctx.activeWorkspaceId, args.dir))) {
         throw new Error('not-a-folder: the folder must exist under your home folder')
       }
+    },
+  })
+
+  registerCore({
+    id: 'workspace.close',
+    category: 'workspace',
+    capabilities: ['kill-pane'],
+    run: async (_args, ctx) => {
+      if (!ctx.activeWorkspaceId) throw new Error('no target workspace')
+      if (!ctx.target) {
+        await requestCloseWorkspace(ctx.activeWorkspaceId)
+        return
+      }
+      const workspace = useWorkspacesStore
+        .getState()
+        .workspaces.find((w) => w.id === ctx.activeWorkspaceId)
+      if (!workspace) throw new Error(`unknown-workspace: ${ctx.activeWorkspaceId}`)
+      if (workspace.kind === 'manager') throw new Error('manager: the manager workspace stays open')
+      if (useLayoutStore.getState().isLocked(workspace.id)) {
+        throw new Error('pane-locked: the human locked a pane in this workspace')
+      }
+      const blockers = await closeBlockers(workspace)
+      if (blockers) {
+        const still = [
+          ...(blockers.agents ?? []).map((a) => `agent ${a || '?'}`),
+          ...blockers.commands.map((c) => `command ${c || '?'}`),
+          ...blockers.files.map((f) => `unsaved ${f}`),
+          ...(blockers.scratchFiles ? [`${blockers.scratchFiles} scratch files`] : []),
+        ]
+        throw new Error(
+          `busy: workspace ${workspace.id} still has ${still.join(', ')}; stop or close those first, or let the human close it`,
+        )
+      }
+      useWorkspacesStore.getState().closeWorkspace(workspace.id)
     },
   })
 

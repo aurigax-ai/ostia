@@ -1059,6 +1059,90 @@ describe('builtins route to store actions', () => {
     }
   })
 
+  describe('workspace.close', () => {
+    const fromSocket = { ...ctx('s1', null), target: { workspaceId: 's1', paneId: null } }
+    const seed = (kind: 'terminal' | 'manager' = 'terminal') => {
+      const pane = createPane('terminal')
+      useWorkspacesStore.setState({
+        workspaces: [
+          { id: 's0', name: 'keep', kind: 'terminal', workDir: '/k', state: 'idle' },
+          { id: 's1', name: 'line', kind, workDir: '/w', state: 'idle' },
+        ],
+      })
+      useLayoutStore.setState({
+        byWorkspace: { s1: { root: pane, activePaneId: pane.id, zoomedPaneId: null } },
+      })
+      return pane
+    }
+    const open = () => useWorkspacesStore.getState().workspaces.map((w) => w.id)
+    const message = (r: Awaited<ReturnType<typeof commands.execWith>>) =>
+      r.ok ? '' : r.error.message
+
+    it('asks every socket caller for kill-pane on the workspace it targets', () => {
+      const described = commands.describe().find((c) => c.id === 'workspace.close')
+      expect(described).toMatchObject({ capabilities: ['kill-pane'], target: 'active' })
+    })
+
+    it('closes a socket caller an idle workspace without asking the human', async () => {
+      const ask = vi.spyOn(useCloseConfirmStore.getState(), 'ask')
+      seed()
+      expect((await commands.execWith(fromSocket, 'workspace.close')).ok).toBe(true)
+      expect(open()).toEqual(['s0'])
+      expect(ask).not.toHaveBeenCalled()
+    })
+
+    it('refuses a socket caller a workspace where a command or an agent still runs', async () => {
+      const ask = vi.spyOn(useCloseConfirmStore.getState(), 'ask')
+      const pane = seed()
+      useBlocksStore.setState({
+        running: { [pane.id]: 'b1' },
+        byPane: { [pane.id]: [{ id: 'b1', command: 'pnpm dev' } as never] },
+      })
+      try {
+        expect(message(await commands.execWith(fromSocket, 'workspace.close'))).toContain(
+          'busy: workspace s1 still has command pnpm dev',
+        )
+      } finally {
+        useBlocksStore.setState({ running: {}, byPane: {} })
+      }
+      vi.mocked(window.ostia.pty.activity).mockResolvedValueOnce({
+        program: 'claude',
+        agentRunning: true,
+      })
+      expect(message(await commands.execWith(fromSocket, 'workspace.close'))).toContain(
+        'still has agent',
+      )
+      expect(open()).toEqual(['s0', 's1'])
+      expect(ask).not.toHaveBeenCalled()
+    })
+
+    it('never closes the manager workspace or a workspace with a locked pane', async () => {
+      seed('manager')
+      expect(message(await commands.execWith(fromSocket, 'workspace.close'))).toContain('manager:')
+      const pane = seed()
+      await commands.execWith(ctx('s1', pane.id), 'pane.toggleLock')
+      expect(message(await commands.execWith(fromSocket, 'workspace.close'))).toContain(
+        'pane-locked',
+      )
+      expect(open()).toEqual(['s0', 's1'])
+    })
+
+    it('answers unknown-workspace for a workspace that is gone', async () => {
+      seed()
+      const gone = { ...ctx('s9', null), target: { workspaceId: 's9', paneId: null } }
+      expect(message(await commands.execWith(gone, 'workspace.close'))).toContain(
+        'unknown-workspace: s9',
+      )
+    })
+
+    it('goes through the close confirm for the human in the palette', async () => {
+      const request = vi.spyOn(closeConfirm, 'requestCloseWorkspace').mockResolvedValue()
+      seed()
+      await commands.execWith(ctx('s1', null), 'workspace.close')
+      expect(request).toHaveBeenCalledWith('s1')
+    })
+  })
+
   describe('opening the first pane of an empty workspace', () => {
     const newTabKeys: [string, boolean, Partial<KeyLike>][] = [
       ['macOS', true, { key: 't', metaKey: true }],
@@ -2350,6 +2434,10 @@ describe('commands open to script tokens', () => {
     'pane.close': {
       relaxed: [],
       reason: 'declares only kill-pane, so no default capability is relaxed',
+    },
+    'workspace.close': {
+      relaxed: [],
+      reason: 'declares only kill-pane; a socket caller closes only a workspace where nothing runs',
     },
     'workspace.newScratch': {
       relaxed: DEFAULT_CAPABILITIES,
