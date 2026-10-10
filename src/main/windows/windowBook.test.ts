@@ -158,6 +158,37 @@ describe('WindowBook', () => {
     expect(book.load(MAIN_SLOT)?.workspaces.map((w) => w.id)).toEqual(['w1'])
   })
 
+  it('keeps the main window bounds out of the renderer snapshot and in the merged file', () => {
+    const book = new WindowBook(snapshot([workspace('w1', 'pane-1')], { bounds: BOUNDS }))
+    expect(book.boundsOf(MAIN_SLOT)).toEqual(BOUNDS)
+    expect(book.load(MAIN_SLOT)?.bounds).toBeUndefined()
+
+    const moved = { x: 76, y: 80, width: 1361, height: 854 }
+    book.setBounds(MAIN_SLOT, moved)
+    book.save(MAIN_SLOT, snapshot([workspace('w1', 'pane-1')], { bounds: BOUNDS }))
+    expect(book.merged('t').bounds).toEqual(moved)
+    expect(new WindowBook(parseSnapshot(book.merged('t'))).boundsOf(MAIN_SLOT)).toEqual(moved)
+  })
+
+  it('remembers where a workspace last was in its own window', () => {
+    const book = new WindowBook(snapshot([workspace('w1', 'pane-1'), workspace('w2', 'pane-2')]))
+    book.open('d1', BOUNDS)
+    book.move(workspace('w2', 'pane-2'), MAIN_SLOT, 'd1')
+    expect(book.lastDetachedBounds('w2')).toBeNull()
+
+    const moved = { x: 20, y: 40, width: 800, height: 500 }
+    book.setBounds('d1', moved)
+    book.move(workspace('w2', 'pane-2'), 'd1', MAIN_SLOT)
+    book.drop('d1')
+    expect(book.lastDetachedBounds('w2')).toEqual(moved)
+    expect(book.merged('t').detachedBounds).toEqual({ w2: moved })
+    expect(new WindowBook(parseSnapshot(book.merged('t'))).lastDetachedBounds('w2')).toEqual(moved)
+    expect(book.load(MAIN_SLOT)?.detachedBounds).toBeUndefined()
+
+    book.save(MAIN_SLOT, snapshot([workspace('w1', 'pane-1')]))
+    expect(book.merged('t').detachedBounds).toBeUndefined()
+  })
+
   it('ignores saves from a slot that was never opened', () => {
     const book = new WindowBook(null)
     book.save('ghost', snapshot([workspace('w9', 'pane-9')]))
@@ -206,6 +237,21 @@ describe('parseSnapshot windows', () => {
       }),
     )
     expect(parsed?.windows?.map((w) => w.id)).toEqual(['d1'])
+  })
+
+  it('keeps last detached bounds only for workspaces in the file', () => {
+    const parsed = parseSnapshot(
+      snapshot([workspace('w1', 'pane-1')], {
+        detachedBounds: { w1: BOUNDS, gone: BOUNDS, w9: { ...BOUNDS, height: 1 } },
+      }),
+    )
+    expect(parsed?.detachedBounds).toEqual({ w1: BOUNDS })
+  })
+
+  it('keeps valid main window bounds and drops invalid ones', () => {
+    expect(parseSnapshot(snapshot([], { bounds: BOUNDS }))?.bounds).toEqual(BOUNDS)
+    const tiny = { ...BOUNDS, width: 10 }
+    expect(parseSnapshot(snapshot([], { bounds: tiny }))).not.toHaveProperty('bounds')
   })
 
   it('drops a window with invalid bounds or id', () => {

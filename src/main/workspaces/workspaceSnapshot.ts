@@ -352,18 +352,40 @@ function parseWindows(raw: unknown, claims: Claims, budget: number): SnapshotWin
   return windows
 }
 
+function parseDetachedBounds(
+  raw: unknown,
+  known: ReadonlySet<string>,
+): Record<string, WindowBounds> | null {
+  if (!isRecord(raw)) return null
+  const out: Record<string, WindowBounds> = {}
+  let kept = 0
+  for (const [id, value] of Object.entries(raw)) {
+    if (kept >= MAX_WORKSPACES) break
+    const bounds = known.has(id) ? parseBounds(value) : null
+    if (!bounds) continue
+    out[id] = bounds
+    kept++
+  }
+  return kept > 0 ? out : null
+}
+
 export function parseSnapshot(raw: unknown): AppSnapshot | null {
   if (!isRecord(raw) || raw.v !== SNAPSHOT_VERSION || !Array.isArray(raw.workspaces)) return null
   const knownGroups = parseGroups(raw.groups)
   const claims: Claims = { panes: new Set(), workspaces: new Set() }
   const workspaces = parseWorkspaceList(raw.workspaces, knownGroups, claims, SAVED, MAX_WORKSPACES)
   const windows = parseWindows(raw.windows, claims, MAX_WORKSPACES - workspaces.length)
+  const bounds = parseBounds(raw.bounds)
+  const known = new Set([...workspaces, ...windows.flatMap((w) => w.workspaces)].map((w) => w.id))
+  const detachedBounds = parseDetachedBounds(raw.detachedBounds, known)
   return {
     v: SNAPSHOT_VERSION,
     savedAt: typeof raw.savedAt === 'string' ? raw.savedAt : '',
     activeWorkspaceId: activeOf(raw.activeWorkspaceId, workspaces),
     workspaces,
     groups: knownGroups.filter((g) => workspaces.some((w) => w.groupId === g.id)),
+    ...(bounds ? { bounds } : {}),
+    ...(detachedBounds ? { detachedBounds } : {}),
     ...(windows.length > 0 ? { windows } : {}),
   }
 }

@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -54,6 +54,7 @@ interface FakeWindow {
   getBounds: () => WindowBounds
   getNormalBounds: () => WindowBounds
   on: (event: string, listener: () => void) => void
+  emit: (event: string) => void
   close: () => void
 }
 
@@ -91,6 +92,7 @@ function fakeWindow(bounds: WindowBounds): FakeWindow {
     getBounds: () => win.bounds,
     getNormalBounds: () => win.bounds,
     on: (event, listener) => listeners.set(event, [...(listeners.get(event) ?? []), listener]),
+    emit,
     close: () => {
       emit('close')
       destroyed = true
@@ -101,9 +103,14 @@ function fakeWindow(bounds: WindowBounds): FakeWindow {
   return win
 }
 
-function start() {
+function start(saved?: unknown) {
+  if (dataDir) rmSync(dataDir, { recursive: true, force: true })
   dataDir = mkdtempSync(join(tmpdir(), 'ostia-broker-'))
   vi.stubEnv('XDG_DATA_HOME', dataDir)
+  if (saved) {
+    mkdirSync(join(dataDir, 'ostia'), { recursive: true })
+    writeFileSync(join(dataDir, 'ostia', 'workspaces.json'), JSON.stringify(saved))
+  }
   const opened: FakeWindow[] = []
   const holdPtys = vi.fn()
   const reveal = vi.fn()
@@ -130,6 +137,10 @@ function start() {
       ...args,
     )
   return { broker, main: opened[0], opened, holdPtys, reveal, send }
+}
+
+function savedFile(): { bounds?: WindowBounds } {
+  return JSON.parse(readFileSync(join(dataDir ?? '', 'ostia', 'workspaces.json'), 'utf8'))
 }
 
 function workspace(id: string, paneId: string, extra?: Partial<SnapshotWorkspace>) {
@@ -305,6 +316,61 @@ describe('WindowBroker', () => {
     ])
     expect(reveal).toHaveBeenCalledWith(main)
     expect(getByPaneId(right)?.windowId).toBe(mainId)
+  })
+
+  it('the main window reopens where it was after a restart', () => {
+    const where = { x: 76, y: 80, width: 1361, height: 854 }
+    const first = start()
+    first.main.bounds = where
+    first.main.close()
+    expect(savedFile().bounds).toEqual(where)
+
+    const second = start(savedFile())
+    expect(second.main.bounds).toEqual(where)
+  })
+
+  it('pulls a saved main window back onto the screen', () => {
+    const saved = { v: 1, savedAt: 't', activeWorkspaceId: null, workspaces: [], groups: [] }
+    const { main } = start({ ...saved, bounds: { x: 2800, y: 1900, width: 1361, height: 854 } })
+    expect(main.bounds).toEqual({ x: 1639, y: 1146, width: 1361, height: 854 })
+  })
+
+  it('a workspace moved to its own window again opens where its window last was', () => {
+    const { main, opened, send } = start()
+    const mainId = String(main.webContents.id)
+    registerPane({ windowId: mainId, workspaceId: 'w-again', paneId: 'pane-again' })
+    send(main, 'windows:report', [report('w-again')])
+    send(main, 'windows:detach', workspace('w-again', 'pane-again'))
+    const first = opened[1]
+    send(first, 'windows:report', [report('w-again')])
+    const where = { x: 30, y: 60, width: 900, height: 600 }
+    first.bounds = where
+    first.emit('move')
+    expect(send(first, 'windows:return', [workspace('w-again', 'pane-again')])).toBe(true)
+    send(main, 'windows:report', [report('w-again')])
+
+    send(main, 'windows:detach', workspace('w-again', 'pane-again'))
+    expect(opened[2].bounds).toEqual(where)
+  })
+
+  it('a remembered detached window that no longer fits is pulled onto the screen', () => {
+    const saved = {
+      v: 1,
+      savedAt: 't',
+      activeWorkspaceId: 'w-off',
+      workspaces: [workspace('w-off', 'pane-off')],
+      groups: [],
+      detachedBounds: { 'w-off': { x: 2800, y: 1900, width: 900, height: 600 } },
+    }
+    const { main, opened, send } = start(saved)
+    registerPane({
+      windowId: String(main.webContents.id),
+      workspaceId: 'w-off',
+      paneId: 'pane-off',
+    })
+    send(main, 'windows:report', [report('w-off')])
+    send(main, 'windows:detach', workspace('w-off', 'pane-off'))
+    expect(opened[1].bounds).toEqual({ x: 2100, y: 1400, width: 900, height: 600 })
   })
 
   it('closing a detached window while the main window is in the tray keeps it there', () => {

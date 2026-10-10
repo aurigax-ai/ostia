@@ -164,31 +164,34 @@ export class WindowBroker {
   }
 
   openAll(): void {
-    this.deps.createWindow(MAIN_SLOT)
+    this.deps.createWindow(MAIN_SLOT, this.restoredBounds(MAIN_SLOT))
     for (const slot of this.book.slots()) {
-      this.deps.createWindow(slot.id, clampBounds(slot.bounds, workAreas()))
+      this.deps.createWindow(slot.id, this.restoredBounds(slot.id))
     }
+  }
+
+  restoredBounds(slot: string): WindowBounds | undefined {
+    const bounds = this.book.boundsOf(slot)
+    return bounds ? clampBounds(bounds, workAreas()) : undefined
   }
 
   track(win: BrowserWindow, slot: string): void {
     const windowId = windowIdOf(win)
     this.slots.set(windowId, slot)
     this.windows.set(windowId, win)
-    if (slot !== MAIN_SLOT) {
-      const capture = (): boolean => {
-        if (win.isDestroyed() || win.isMinimized()) return false
-        this.book.setBounds(slot, win.getNormalBounds())
-        return true
-      }
-      const remember = (): void => {
-        if (capture()) this.debouncedPersist()
-      }
-      win.on('move', remember)
-      win.on('resize', remember)
-      win.on('close', () => {
-        if (capture()) this.persist()
-      })
+    const capture = (): boolean => {
+      if (win.isDestroyed() || win.isMinimized()) return false
+      this.book.setBounds(slot, win.getNormalBounds())
+      return true
     }
+    const remember = (): void => {
+      if (capture()) this.debouncedPersist()
+    }
+    win.on('move', remember)
+    win.on('resize', remember)
+    win.on('close', () => {
+      if (capture()) this.persist()
+    })
     win.on('closed', () => {
       this.slots.delete(windowId)
       this.windows.delete(windowId)
@@ -312,6 +315,11 @@ export class WindowBroker {
     )
   }
 
+  private reopenedBounds(workspaceId: string, source: BrowserWindow): WindowBounds {
+    const last = this.book.lastDetachedBounds(workspaceId)
+    return last ? clampBounds(last, workAreas()) : this.detachedBounds(source)
+  }
+
   private leavesSandbox(workspace: SnapshotWorkspace, destination: string): boolean {
     const from = handoffPaneIds(workspace).map((paneId) => getByPaneId(paneId)?.workspaceId)
     return crossesSandbox(from, destination, this.deps.isSandboxed)
@@ -325,7 +333,9 @@ export class WindowBroker {
     if (this.leavesSandbox(workspace, workspace.id)) return false
     const slot = randomUUID().slice(0, 8)
     const point = parsePoint(rawPoint)
-    const bounds = point ? boundsAt(point, DETACHED_SIZE, workAreas()) : this.detachedBounds(source)
+    const bounds = point
+      ? boundsAt(point, DETACHED_SIZE, workAreas())
+      : this.reopenedBounds(workspace.id, source)
     this.book.open(slot, bounds)
     this.book.move(workspace, sourceSlot, slot)
     this.boot.set(slot, {
@@ -352,7 +362,7 @@ export class WindowBroker {
     if (workspaces.some((w) => this.windowOfWorkspace(w.id) !== undefined)) return false
     if (paneIds.some((paneId) => getByPaneId(paneId) !== undefined)) return false
     const slot = randomUUID().slice(0, 8)
-    const bounds = this.detachedBounds(source)
+    const bounds = this.reopenedBounds(workspaces[0].id, source)
     const snapshot: AppSnapshot = {
       v: 1,
       savedAt: '',

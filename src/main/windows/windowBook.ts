@@ -240,14 +240,32 @@ export class Landings {
   }
 }
 
+function withoutBounds(snapshot: AppSnapshot): AppSnapshot {
+  const { bounds: _bounds, detachedBounds: _detached, windows: _windows, ...rest } = snapshot
+  return rest
+}
+
 export class WindowBook {
   private main: AppSnapshot | null
+  private mainBounds: WindowBounds | null
   private readonly detached = new Map<string, DetachedSlot>()
+  private readonly lastDetached: Map<string, WindowBounds>
 
   constructor(file: AppSnapshot | null) {
     const split = splitSnapshot(file)
-    this.main = split.main
+    this.main = split.main ? withoutBounds(split.main) : null
+    this.mainBounds = split.main?.bounds ?? null
+    this.lastDetached = new Map(Object.entries(split.main?.detachedBounds ?? {}))
     for (const slot of split.detached) this.detached.set(slot.id, slot)
+  }
+
+  lastDetachedBounds(workspaceId: string): WindowBounds | null {
+    return this.lastDetached.get(workspaceId) ?? null
+  }
+
+  boundsOf(slot: string): WindowBounds | null {
+    if (slot === MAIN_SLOT) return this.mainBounds
+    return this.detached.get(slot)?.bounds ?? null
   }
 
   slots(): DetachedSlot[] {
@@ -261,8 +279,7 @@ export class WindowBook {
 
   save(slot: string, snapshot: AppSnapshot): void {
     if (slot === MAIN_SLOT) {
-      const { windows: _ignored, ...own } = snapshot
-      this.main = own
+      this.main = withoutBounds(snapshot)
       return
     }
     const entry = this.detached.get(slot)
@@ -270,6 +287,10 @@ export class WindowBook {
   }
 
   setBounds(slot: string, bounds: WindowBounds): void {
+    if (slot === MAIN_SLOT) {
+      this.mainBounds = bounds
+      return
+    }
     const entry = this.detached.get(slot)
     if (entry) this.detached.set(slot, { ...entry, bounds })
   }
@@ -283,12 +304,25 @@ export class WindowBook {
   }
 
   move(workspace: SnapshotWorkspace, from: string, to: string): void {
+    const left = from === MAIN_SLOT ? null : this.boundsOf(from)
+    if (left) this.lastDetached.set(workspace.id, left)
     const source = this.load(from)
     if (source) this.save(from, withoutWorkspace(source, workspace.id))
     this.save(to, withWorkspace(this.load(to) ?? emptySnapshot(), workspace))
   }
 
   merged(savedAt: string): AppSnapshot {
-    return mergeSnapshots(this.main, this.slots(), savedAt)
+    const merged = mergeSnapshots(this.main, this.slots(), savedAt)
+    const ids = new Set(
+      [...merged.workspaces, ...(merged.windows ?? []).flatMap((w) => w.workspaces)].map(
+        (w) => w.id,
+      ),
+    )
+    const detachedBounds = Object.fromEntries([...this.lastDetached].filter(([id]) => ids.has(id)))
+    return {
+      ...merged,
+      ...(this.mainBounds ? { bounds: this.mainBounds } : {}),
+      ...(Object.keys(detachedBounds).length > 0 ? { detachedBounds } : {}),
+    }
   }
 }

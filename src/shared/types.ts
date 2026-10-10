@@ -554,6 +554,8 @@ export interface AppSnapshot {
   activeWorkspaceId: string | null
   workspaces: SnapshotWorkspace[]
   groups: SnapshotGroup[]
+  bounds?: WindowBounds
+  detachedBounds?: Record<string, WindowBounds>
   windows?: SnapshotWindow[]
 }
 

@@ -3463,8 +3463,9 @@ function applyGlobalHotkey(): void {
 }
 
 function revealApp(): void {
-  if (BrowserWindow.getAllWindows().length === 0) createWindow(MAIN_SLOT)
-  else appTray?.showWindows()
+  if (BrowserWindow.getAllWindows().length === 0) {
+    createWindow(MAIN_SLOT, broker?.restoredBounds(MAIN_SLOT))
+  } else appTray?.showWindows()
 }
 
 app.on('second-instance', (_event, argv) => {
