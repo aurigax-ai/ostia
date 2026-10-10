@@ -30,7 +30,25 @@ const { PaneWatch, reachedState, registerPaneWaitMethods, waitTimeout, waitUntil
 
 type Identity = ReturnType<typeof registerPane>
 
-const watch = new PaneWatch()
+class ObservedWatch extends PaneWatch {
+  private readonly waiters = new Map<string, () => void>()
+
+  override watch(
+    paneId: string,
+    listener: Parameters<InstanceType<typeof PaneWatch>['watch']>[1],
+  ): () => void {
+    const off = super.watch(paneId, listener)
+    this.waiters.get(paneId)?.()
+    this.waiters.delete(paneId)
+    return off
+  }
+
+  watched(paneId: string): Promise<void> {
+    return new Promise((resolve) => this.waiters.set(paneId, resolve))
+  }
+}
+
+const watch = new ObservedWatch()
 const children = new Map<string, string>()
 const processes = new Map<string, string>()
 const attentionOf = new Map<string, { state?: string; message?: string }>()
@@ -144,8 +162,9 @@ describe('pane.wait', () => {
     const { me, worker } = caller()
     attentionOf.set(worker.paneId, { state: 'working' })
     const conn = await client(me)
+    const watched = watch.watched(worker.paneId)
     const pending = conn.sendRequest('pane.wait', { panes: [worker.externalId] })
-    await tick()
+    await watched
     watch.attention(worker.paneId, 'waiting', 'Allow Bash(rm -rf build)?')
     await expect(pending).resolves.toEqual({
       reached: true,
@@ -159,8 +178,9 @@ describe('pane.wait', () => {
     const { me, worker } = caller()
     attentionOf.set(worker.paneId, { state: 'working' })
     const conn = await client(me)
+    const watched = watch.watched(worker.paneId)
     const pending = conn.sendRequest('pane.wait', { panes: [worker.externalId] })
-    await tick()
+    await watched
     exitedPanes.add(worker.paneId)
     watch.emit(worker.paneId, { kind: 'state' })
     await expect(pending).resolves.toEqual({
@@ -174,6 +194,7 @@ describe('pane.wait', () => {
     const { me, worker } = caller()
     attentionOf.set(worker.paneId, { state: 'done' })
     const conn = await client(me)
+    const watched = watch.watched(worker.paneId)
     const pending = conn.sendRequest('pane.wait', {
       panes: [worker.externalId],
       until: ['waiting'],
@@ -182,7 +203,7 @@ describe('pane.wait', () => {
     void pending.then(() => {
       settled = true
     })
-    await tick()
+    await watched
     watch.attention(worker.paneId, 'done', 'again')
     await tick()
     expect(settled).toBe(false)
@@ -195,10 +216,11 @@ describe('pane.wait', () => {
     const other = pane('ws1')
     children.set(other.paneId, me.paneId)
     const conn = await client(me)
+    const watched = watch.watched(other.paneId)
     const pending = conn.sendRequest('pane.wait', {
       panes: [worker.externalId, other.externalId],
     })
-    await tick()
+    await watched
     watch.attention(other.paneId, 'done', undefined)
     await expect(pending).resolves.toEqual({
       reached: true,
@@ -220,8 +242,9 @@ describe('pane.wait', () => {
     const { me, worker } = caller()
     attentionOf.set(worker.paneId, { state: 'working' })
     const conn = await client(me)
+    const watched = watch.watched(worker.paneId)
     const pending = conn.sendRequest('pane.wait', { panes: [worker.externalId] })
-    await tick()
+    await watched
     watch.emit(worker.paneId, { kind: 'closed' })
     await expect(pending).resolves.toEqual({ closed: true, paneId: worker.externalId })
   })
