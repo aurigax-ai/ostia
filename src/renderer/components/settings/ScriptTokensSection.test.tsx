@@ -215,6 +215,30 @@ describe('ScriptTokensSection', () => {
     expect(document.body.textContent).not.toContain(VALUE)
   })
 
+  it('keeps the new value up through Escape and clicks outside until Done', async () => {
+    const user = userEvent.setup()
+    vi.mocked(api().create).mockResolvedValue({
+      ok: true,
+      token: token({ id: 't9', name: 'cron' }),
+      value: VALUE,
+    })
+    render(<ScriptTokensSection />)
+    const dialog = await openGenerate(user)
+    await user.type(within(dialog).getByLabelText('Name'), 'cron')
+    await user.click(within(dialog).getByRole('radio', { name: /All workspaces/ }))
+    await user.click(within(dialog).getByRole('button', { name: 'Generate token' }))
+    const shown = await screen.findByRole('dialog', { name: 'Generated "cron"' })
+
+    await user.keyboard('{Escape}')
+    await user.click(document.body)
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(screen.getByRole('dialog', { name: 'Generated "cron"' })).toBe(shown)
+    expect(within(shown).getByRole('textbox', { name: 'Token value' })).toHaveValue(VALUE)
+
+    await user.click(within(shown).getByRole('button', { name: 'Done' }))
+    await waitFor(() => expect(screen.queryByDisplayValue(VALUE)).toBeNull())
+  })
+
   it('switches to 90 days from the never-expires confirmation', async () => {
     const user = userEvent.setup()
     vi.mocked(api().create).mockResolvedValue({

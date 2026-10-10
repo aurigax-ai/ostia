@@ -906,7 +906,13 @@ function ShownDialog({
   const { token, value } = shown
   const caps = shownCaps(token.caps)
   return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
+    <Dialog
+      open
+      disablePointerDismissal
+      onOpenChange={(open, details) => {
+        if (!open) details.cancel()
+      }}
+    >
       <DialogContent className="sm:max-w-2xl" showCloseButton={false}>
         <DialogHeader className="flex-row items-start gap-3">
           <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-surface-2 text-brand">
