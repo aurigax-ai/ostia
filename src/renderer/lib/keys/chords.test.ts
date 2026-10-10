@@ -488,7 +488,7 @@ describe('the macOS keymap that follows cmux', () => {
   it('changes nothing until it is the chosen keymap', () => {
     expect(chordLabel('pane.splitRight', true)).toBe('⌥⌘\\')
     expect(matchChord(key('k', { metaKey: true }), true)).toBe('palette.toggle')
-    expect(matchTerminalChord(key('K', { metaKey: true, shiftKey: true }), true)).toBeNull()
+    expect(matchTerminalChord(key('k', { metaKey: true }), true)).toBeNull()
     expect(matchChord(key('p', { metaKey: true }), true)).toBe('view.goToFile')
   })
 })
@@ -703,7 +703,9 @@ describe('terminalKeyConflicts', () => {
   it('names a command that takes the key only in a terminal first, since it wins there', () => {
     expect(terminalKeyConflicts(spec('Ctrl+Shift+K'), false)).toEqual(['terminal.clear'])
     const cmdK = parseChord('Cmd+K', true) as ChordSpec
-    expect(terminalKeyConflicts(cmdK, true)).toEqual(['terminal.clear', 'palette.toggle'])
+    expect(terminalKeyConflicts(cmdK, true)).toEqual(['palette.toggle'])
+    const shiftCmdK = parseChord('Shift+Cmd+K', true) as ChordSpec
+    expect(terminalKeyConflicts(shiftCmdK, true)).toEqual(['terminal.clear'])
   })
 
   it('lets a terminal key take a chord from a command in either scope', () => {
@@ -774,10 +776,7 @@ describe('setKeybindingSetting', () => {
 })
 
 describe('DEFAULT_CHORDS', () => {
-  const MAC_SHADOWED = [
-    'terminal:Cmd+K terminal.clear over palette.toggle',
-    'terminal:Shift+Cmd+D pane.splitDown over dashboard.toggle',
-  ]
+  const MAC_SHADOWED = ['terminal:Shift+Cmd+D pane.splitDown over dashboard.toggle']
   const PANE_WORK = [
     'pane.splitRight',
     'pane.splitDown',
@@ -896,13 +895,16 @@ describe('chords that act only in a terminal', () => {
     return spec
   }
 
-  it('clear the screen with ⌘K in a terminal, open the palette with ⌘K elsewhere and ⇧⌘P anywhere', () => {
-    expect(matchChordInTerminal(key('k', cmd), true)).toBe('terminal.clear')
+  it('open the palette with ⌘K and ⇧⌘P anywhere, and clear the screen with ⇧⌘K in a terminal', () => {
+    expect(matchChordInTerminal(key('k', cmd), true)).toBe('palette.toggle')
+    expect(matchTerminalChord(key('k', cmd), true)).toBeNull()
     expect(matchChord(key('k', cmd), true)).toBe('palette.toggle')
+    expect(matchTerminalChord(key('K', cmdShift), true)).toBe('terminal.clear')
+    expect(matchChord(key('K', cmdShift), true)).toBeNull()
     expect(matchChordInTerminal(key('P', cmdShift), true)).toBe('palette.toggle')
     expect(matchChord(key('P', cmdShift), true)).toBe('palette.toggle')
     expect(isAppChord('terminal.clear')).toBe(true)
-    expect(chordLabel('terminal.clear', true)).toBe('⌘K')
+    expect(chordLabel('terminal.clear', true)).toBe('⌘⇧K')
   })
 
   it('split, move focus and zoom with cmux’s keys in a terminal and keep the old keys everywhere', () => {
@@ -965,7 +967,9 @@ describe('chords that act only in a terminal', () => {
   })
 
   it('conflict only with chords of the same scope', () => {
-    expect(conflictsWith('find', scoped('terminal:Cmd+K', true), true)).toEqual(['terminal.clear'])
+    expect(conflictsWith('find', scoped('terminal:Shift+Cmd+K', true), true)).toEqual([
+      'terminal.clear',
+    ])
     expect(conflictsWith('find', scoped('Cmd+K', true), true)).toEqual(['palette.toggle'])
     expect(conflictsWith('find', scoped('terminal:Cmd+Alt+\\', true), true)).toEqual([])
     expect(chordsWithout('pane.splitRight', scoped('Cmd+Alt+\\', true), true)).toEqual([

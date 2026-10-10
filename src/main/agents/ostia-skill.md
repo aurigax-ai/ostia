@@ -706,9 +706,9 @@ ostia settings get keybindings                                  # the user's ove
 `Ctrl+Shift+K`, `Cmd+Alt+P` or `Mod+Shift+K` (Cmd on macOS, Ctrl elsewhere), a list of
 chords that all run it (`'["Shift+Cmd+P", "Cmd+K"]'`; menus show the first one that works
 everywhere), or `null`. A chord written `terminal:Cmd+K` runs the command only while a
-terminal has the focus, and elsewhere the key keeps its other use: by default ⌘K clears
-the terminal in a terminal and opens the palette everywhere else, and ⌘D, ⇧⌘D, ⌥⌘ with
-an arrow and ⇧⌘↩ split, move between and zoom panes from a terminal only.
+terminal has the focus, and elsewhere the key keeps its other use: by default ⇧⌘K clears
+the terminal, and ⌘D, ⇧⌘D, ⌥⌘ with an arrow and ⇧⌘↩ split, move between and zoom panes
+from a terminal only.
 Chords the shell needs are refused with an error: plain Ctrl+letter (Ctrl+R included),
 plain or Ctrl arrows, Escape, Tab, and keys without Ctrl/Cmd. Unlisted commands keep
 their default.
