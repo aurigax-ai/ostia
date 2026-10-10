@@ -446,11 +446,17 @@ describe('Files panel search', () => {
 
   it('does not search in the background while the box is hidden, and forgets the text', async () => {
     seed()
-    vi.mocked(window.ostia.search.run).mockResolvedValue(RESULTS)
+    const searched = new Promise<void>((resolve) => {
+      vi.mocked(window.ostia.search.run).mockImplementation(async (req) => {
+        if (req.text === 'notes') resolve()
+        return RESULTS
+      })
+    })
     render(<FilesPanel />)
     const user = userEvent.setup()
     await user.type(screen.getByRole('textbox', { name: 'Search files' }), 'notes')
-    await screen.findByRole('region', { name: 'Files and folders' })
+    await act(() => searched)
+    expect(screen.getByRole('region', { name: 'Files and folders' })).toBeInTheDocument()
     const runs = vi.mocked(window.ostia.search.run).mock.calls.length
 
     await user.click(screen.getByRole('button', { name: 'Search' }))
