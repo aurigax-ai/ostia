@@ -4146,6 +4146,7 @@ app.whenReady().then(() => {
     retiredPath: retiredScriptTokensPath,
     listing: workspaceListing,
     changed: () => broadcast('scriptTokens:changed', null),
+    appWindows: () => windows.values(),
   }
   registerScriptTokenMethods(scriptTokenDeps)
   registerScriptTokenIpc(scriptTokenDeps)

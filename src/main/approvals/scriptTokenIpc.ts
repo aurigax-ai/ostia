@@ -1,4 +1,4 @@
-import { ipcMain } from 'electron'
+import { BrowserWindow, type IpcMainInvokeEvent, ipcMain } from 'electron'
 import {
   type ScriptTokenSaveResult,
   type ScriptTokensState,
@@ -26,6 +26,7 @@ export interface ScriptTokenIpcDeps {
   retiredPath: () => string
   listing: () => Promise<ReachListing>
   changed: () => void
+  appWindows: () => Iterable<BrowserWindow>
 }
 
 function refusal(err: unknown): ScriptTokenSaveResult {
@@ -130,9 +131,35 @@ export function revokeFromSettings(deps: ScriptTokenIpcDeps, id: unknown): boole
   return true
 }
 
+export function fromAppWindow(deps: ScriptTokenIpcDeps, e: IpcMainInvokeEvent): boolean {
+  if (!e.senderFrame || e.senderFrame !== e.sender.mainFrame) return false
+  const win = BrowserWindow.fromWebContents(e.sender)
+  return win !== null && [...deps.appWindows()].includes(win)
+}
+
 export function registerScriptTokenIpc(deps: ScriptTokenIpcDeps): void {
-  ipcMain.handle('scriptTokens:list', () => scriptTokensState(deps))
-  ipcMain.handle('scriptTokens:create', (_e, input: unknown) => createFromSettings(deps, input))
-  ipcMain.handle('scriptTokens:update', (_e, input: unknown) => updateFromSettings(deps, input))
-  ipcMain.handle('scriptTokens:revoke', (_e, id: unknown) => revokeFromSettings(deps, id))
+  const guarded =
+    <A extends unknown[], R>(fn: (...args: A) => R) =>
+    (e: IpcMainInvokeEvent, ...args: A): R => {
+      if (!fromAppWindow(deps, e)) {
+        throw new Error('forbidden: script tokens are managed only from an Ostia window')
+      }
+      return fn(...args)
+    }
+  ipcMain.handle(
+    'scriptTokens:list',
+    guarded(() => scriptTokensState(deps)),
+  )
+  ipcMain.handle(
+    'scriptTokens:create',
+    guarded((input: unknown) => createFromSettings(deps, input)),
+  )
+  ipcMain.handle(
+    'scriptTokens:update',
+    guarded((input: unknown) => updateFromSettings(deps, input)),
+  )
+  ipcMain.handle(
+    'scriptTokens:revoke',
+    guarded((id: unknown) => revokeFromSettings(deps, id)),
+  )
 }

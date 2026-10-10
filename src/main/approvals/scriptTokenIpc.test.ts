@@ -8,11 +8,13 @@ import type { PresenceRequest } from './scriptTokens'
 import type { PresenceResult } from './userPresence'
 
 const handlers = vi.hoisted(() => new Map<string, (...args: unknown[]) => unknown>())
+const owners = vi.hoisted(() => new Map<unknown, unknown>())
 
 vi.mock('electron', () => ({
   ipcMain: {
     handle: (channel: string, fn: (...args: unknown[]) => unknown) => handlers.set(channel, fn),
   },
+  BrowserWindow: { fromWebContents: (wc: unknown) => owners.get(wc) ?? null },
 }))
 vi.mock('./approvals', () => ({ approvals: () => null }))
 
@@ -46,17 +48,33 @@ const presence = vi.fn(
   }),
 )
 
+function sender(win: unknown) {
+  const mainFrame = { url: 'app://index.html' }
+  const wc = { mainFrame }
+  owners.set(wc, win)
+  return { sender: wc, senderFrame: mainFrame }
+}
+
+const appWindow = { id: 'app' }
+const otherWindow = { id: 'telemetry' }
+const fromApp = sender(appWindow)
+
 registerScriptTokenIpc({
   path: () => path,
   retiredPath: () => join(dir, 'retired.json'),
   listing: async () => LISTING,
   changed,
+  appWindows: () => [appWindow as never],
 })
 
-function call<T>(channel: string, ...args: unknown[]): Promise<T> {
+function callAs<T>(event: unknown, channel: string, ...args: unknown[]): Promise<T> {
   const fn = handlers.get(channel)
   if (!fn) throw new Error(`no handler for ${channel}`)
-  return Promise.resolve(fn({}, ...args) as T)
+  return Promise.resolve().then(() => fn(event, ...args) as T)
+}
+
+function call<T>(channel: string, ...args: unknown[]): Promise<T> {
+  return callAs(fromApp, channel, ...args)
 }
 
 const list = () => call<{ tokens: Record<string, unknown>[] }>('scriptTokens:list')
@@ -96,6 +114,27 @@ describe('script token IPC', () => {
       'scriptTokens:revoke',
       'scriptTokens:update',
     ])
+  })
+
+  it.each([
+    ['a subframe of an Ostia window', { ...sender(appWindow), senderFrame: { url: 'x' } }],
+    ['a sender without a frame', { ...sender(appWindow), senderFrame: null }],
+    ['another window', sender(otherWindow)],
+    ['a guest page with no window', sender(null)],
+  ])('refuses every channel from %s', async (_what, event) => {
+    const { token, value } = await created()
+    presence.mockClear()
+    for (const [channel, arg] of [
+      ['scriptTokens:list', undefined],
+      ['scriptTokens:create', { name: 'x', caps: ['read-board'], scope: LIMITED, expires: '7d' }],
+      ['scriptTokens:update', { id: token.id, ifUpdatedAt: token.updatedAt, caps: ['notify'] }],
+      ['scriptTokens:revoke', token.id],
+    ] as const) {
+      await expect(callAs(event, channel, arg)).rejects.toThrow(/^forbidden/)
+    }
+    expect(presence).not.toHaveBeenCalled()
+    expect(verifyScriptToken(path, value)?.caps).toEqual(token.caps)
+    expect((await list()).tokens).toHaveLength(1)
   })
 
   it('is the only way the preload reaches script tokens', () => {
