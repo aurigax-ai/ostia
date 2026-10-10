@@ -103,7 +103,7 @@ export const DEFAULT_CHORDS: Readonly<
   'workspace.openPad': ['Cmd+Alt+N', 'Ctrl+Alt+N'],
   'window.new': ['Cmd+Shift+N', 'Ctrl+Shift+Alt+N'],
   'tab.new': ['Cmd+T', 'Ctrl+Shift+T'],
-  'terminal.clear': ['terminal:Cmd+K', 'terminal:Ctrl+Shift+K'],
+  'terminal.clear': ['terminal:Shift+Cmd+K', 'terminal:Ctrl+Shift+K'],
   'agent.resume': ['Cmd+Shift+R', 'Ctrl+Shift+R'],
   'workspace.goto': [`Cmd+${DIGIT_RANGE}`, `Ctrl+${DIGIT_RANGE}`],
   'selection.sendToAgent': ['Cmd+Shift+E', 'Ctrl+Shift+E'],

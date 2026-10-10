@@ -120,7 +120,7 @@ test('scrolling the Keyboard settings never gives the window a scrollbar of its 
 })
 
 test(
-  'on macOS the palette is ⇧⌘P everywhere and ⌘K outside a terminal, a rebound chord works from a terminal, a Ctrl chord is refused, and it resets',
+  'on macOS the palette is ⇧⌘P and ⌘K everywhere, a rebound chord works from a terminal, a Ctrl chord is refused, and it resets',
   { tag: '@core' },
   async () => {
     test.skip(!isMac, 'the Cmd chords exist only on macOS')
@@ -168,7 +168,8 @@ test(
 
       await focusTerminal(win)
       await win.keyboard.press('Meta+k')
-      await win.waitForTimeout(400)
+      await expectPaletteOpen(win)
+      await win.keyboard.press('Escape')
       await expect(palette(win)).toHaveCount(0)
 
       await win.getByRole('button', { name: 'Toggle sidebar' }).focus()
