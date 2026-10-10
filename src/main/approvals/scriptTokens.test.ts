@@ -59,10 +59,13 @@ function tempDir(): string {
   return dir
 }
 
+const changed = vi.fn()
+
 registerScriptTokenMethods({
   path: () => storeFile,
   retiredPath: () => retiredFile,
   listing: async () => listing,
+  changed,
 })
 registerDocsMethods({ extensions: () => [] })
 setScriptTokenCheck((token) =>
@@ -1342,6 +1345,20 @@ describe('token.create scope and expiry', () => {
     )
     expect(created.scope).toEqual(limited([WORK], ['wsC', 'wsD']))
     expect(Date.parse(created.expiresAt) - Date.now()).toBeGreaterThan(6.9 * 86_400_000)
+  })
+
+  it('tells Settings when the CLI generates, edits or revokes a token', async () => {
+    changed.mockClear()
+    const created = await admin.sendRequest<{ id: string }>('token.create', {
+      name: 'board',
+      caps: ['read-board'],
+      scope: ALL,
+    })
+    expect(changed).toHaveBeenCalledTimes(1)
+    await admin.sendRequest('token.update', { id: created.id, name: 'board-2' })
+    expect(changed).toHaveBeenCalledTimes(2)
+    await admin.sendRequest('token.revoke', { id: created.id })
+    expect(changed).toHaveBeenCalledTimes(3)
   })
 
   it.each<[Record<string, unknown>, string]>([
