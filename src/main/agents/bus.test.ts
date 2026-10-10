@@ -15,7 +15,7 @@ const ensureCaps = vi.fn(async () => {})
 vi.mock('../approvals/controlElevation', () => ({ ensureCaps }))
 
 const { postBusMessage, registerBusMethods } = await import('./bus')
-const { markManager, registerPane } = await import('../control/idRegistry')
+const { markManager, registerPane, registerScript } = await import('../control/idRegistry')
 
 const announce = vi.fn()
 let managerMaySend = true
@@ -167,6 +167,43 @@ describe('bus delivery', () => {
       receiver,
       'fix the flaky test — it fails one run in five',
     )
+  })
+})
+
+describe('bus.send from a script token', () => {
+  const script = registerScript('script_bus')
+
+  it('is open to script tokens and delivers with send-other-pane and all-workspaces', async () => {
+    expect(methods.get('bus.send')?.scripts).toBe(true)
+    const res = await send('next task', receiver.externalId, script)
+    expect(res).toMatchObject({ ok: true, delivered: 'queued' })
+    expect(inbox().map((m) => m.text)).toEqual(['next task'])
+    expect(ensureCaps).toHaveBeenCalledWith(
+      {},
+      script,
+      ['send-other-pane', 'all-workspaces'],
+      'bus.send',
+      `to ${receiver.externalId}`,
+    )
+  })
+
+  it('stores nothing when the token lacks a capability', async () => {
+    ensureCaps.mockRejectedValueOnce(new Error('needs-elevation: all-workspaces'))
+    await expect(send('psst', receiver.externalId, script)).rejects.toThrow(
+      'needs-elevation: all-workspaces',
+    )
+    expect(inbox()).toEqual([])
+  })
+
+  it('must name a receiver, and never reaches the manager pane', async () => {
+    await expect(send('x', '', script)).rejects.toThrow('bad-request: to')
+    const manager = registerPane({ windowId: 'w1', workspaceId: 'mgr', paneId: 'bus-manager-2' })
+    markManager('bus-manager-2')
+    expect(await send('x', manager.externalId, script)).toMatchObject({
+      ok: false,
+      error: 'unknown-pane',
+    })
+    expect(ensureCaps).not.toHaveBeenCalled()
   })
 })
 

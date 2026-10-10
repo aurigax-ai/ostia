@@ -1,7 +1,15 @@
 import { chmodSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { createConnection } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import {
+  type MessageConnection,
+  StreamMessageReader,
+  StreamMessageWriter,
+  createMessageConnection,
+} from 'vscode-jsonrpc/node'
+import type { CommandResult } from '../../shared/types'
 
 const userData = mkdtempSync(join(tmpdir(), 'ostia-notify-'))
 const ipcHandlers = new Map<string, (...args: unknown[]) => void>()
@@ -32,6 +40,7 @@ vi.mock('../platform/jsonStore', () => ({
   storePath: () => 'log',
 }))
 vi.mock('../control/events', () => ({ emitPlatformEvent: vi.fn() }))
+vi.mock('../approvals/approvals', () => ({ approvals: () => null }))
 
 const listHandlers = new Map<string, () => unknown>()
 const electron = await import('electron')
@@ -39,7 +48,9 @@ vi.mocked(electron.ipcMain.handle).mockImplementation((channel, fn) => {
   listHandlers.set(channel, fn as () => unknown)
 })
 
-const { registerNotifyIpc, notificationsRecorded } = await import('./notify')
+const { registerNotifyIpc, registerNotifyMethods, notificationsRecorded } = await import('./notify')
+const { setScriptTokenCheck } = await import('../control/controlAuth')
+const { registerControlServer, stopControlServer } = await import('../control/controlServer')
 
 let windows: {
   isDestroyed: () => boolean
@@ -57,13 +68,19 @@ function ostiaWindow(state: { visible: boolean; focused: boolean }) {
   }
 }
 
-registerNotifyIpc({
+const notifyDeps = {
   windows: () => windows,
   windowById: () => undefined,
   execCommand: vi.fn(),
   isScratchPane: (paneId: string) => paneId === 'scratch-pane',
   redact: async (text: string) => text.replaceAll(SECRET, '[redacted:test]'),
-} as unknown as Parameters<typeof registerNotifyIpc>[0])
+} as unknown as Parameters<typeof registerNotifyIpc>[0]
+registerNotifyIpc(notifyDeps)
+registerNotifyMethods(notifyDeps)
+setScriptTokenCheck((token) => {
+  if (token === 'ostia_notify') return { id: 'script_notify', caps: ['notify'] }
+  return token === 'ostia_quiet' ? { id: 'script_quiet', caps: ['read-board'] } : undefined
+})
 
 const SECRET = 'hunter2hunter2'
 
@@ -182,5 +199,57 @@ describe('the notification log', () => {
       () => expect(readFileSync(out, 'utf8')).toBe('Agent finished|all; green|pane-x'),
       { timeout: 3000 },
     )
+  })
+})
+
+describe('notify from a script token', () => {
+  const socketPath = join(tmpdir(), `ostia-notify-${process.pid}.sock`)
+
+  async function script(token: string): Promise<MessageConnection> {
+    registerControlServer(
+      {
+        execCommand: async () => ({ ok: true }) as CommandResult,
+        listCommandsFor: () => [],
+        getTerminalState: () => undefined,
+        isSandboxed: () => false,
+      },
+      socketPath,
+    )
+    const socket = createConnection(socketPath)
+    const conn = createMessageConnection(
+      new StreamMessageReader(socket),
+      new StreamMessageWriter(socket),
+    )
+    conn.listen()
+    await conn.sendRequest('hello', { token })
+    return conn
+  }
+
+  afterEach(() => stopControlServer())
+
+  it('shows a desktop notification and logs it under the token, without a pane', async () => {
+    settings({})
+    const conn = await script('ostia_notify')
+    await expect(
+      conn.sendRequest('notify', { title: 'Line done', body: 'tracker#24' }),
+    ).resolves.toEqual({
+      ok: true,
+    })
+    await notificationsRecorded()
+    conn.dispose()
+    expect(shown).toEqual([{ title: 'Line done', body: 'tracker#24', silent: false }])
+    expect(saved[0]).toEqual([
+      expect.objectContaining({ title: 'Line done', from: 'script_notify', paneId: undefined }),
+    ])
+    expect(notifyDeps.execCommand).not.toHaveBeenCalled()
+  })
+
+  it('needs notify on the token', async () => {
+    const conn = await script('ostia_quiet')
+    await expect(conn.sendRequest('notify', { title: 'x' })).rejects.toThrow(
+      'needs-elevation: notify',
+    )
+    conn.dispose()
+    expect(shown).toEqual([])
   })
 })

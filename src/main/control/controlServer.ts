@@ -157,8 +157,10 @@ export function registerControlServer(deps: ControlServerDeps, socketPathOverrid
     })
 
     conn.onRequest('command.list', (): CommandDescriptor[] => {
-      const me = requireIdentity('panes')
-      return deps.listCommandsFor(me.windowId)
+      const me = requireIdentity('panes', true)
+      if (me.kind !== 'script') return deps.listCommandsFor(me.windowId)
+      const windowId = deps.primaryWindow?.()
+      return windowId ? deps.listCommandsFor(windowId).filter((d) => SCRIPT_COMMANDS.has(d.id)) : []
     })
 
     conn.onRequest(
@@ -225,6 +227,12 @@ export function registerControlServer(deps: ControlServerDeps, socketPathOverrid
             error: { code: 'unknown-command', message: `unknown command '${params.id}'` },
           }
         }
+        if (script && desc.target !== 'none' && !target.workspaceId) {
+          throw new ResponseError(
+            ErrorCodes.InvalidParams,
+            `bad-request: ${params.id} from a script token needs a workspace: pass --workspace <id> (ostia workspace list)`,
+          )
+        }
         const caps: Capability[] = [
           ...(crossTarget ? (['all-workspaces'] as const) : []),
           ...(script
@@ -256,11 +264,16 @@ export function registerControlServer(deps: ControlServerDeps, socketPathOverrid
     )
 
     conn.onRequest('pane.info', (params?: { paneId?: string }): TerminalStateSnapshot | null => {
-      const me = requireIdentity('panes')
+      const me = requireIdentity('panes', true)
       if (authed && !connHasCap(authed, 'read-board')) throw needsElevation('read-board')
-      if (!params?.paneId) return deps.getTerminalState(me.paneId) ?? null
+      const script = me.kind === 'script'
+      if (!params?.paneId) {
+        if (script) throw new ResponseError(ErrorCodes.InvalidParams, 'bad-request: paneId')
+        return deps.getTerminalState(me.paneId) ?? null
+      }
       const other = resolveExternal(params.paneId)
-      return other ? (deps.getTerminalState(other.paneId) ?? null) : null
+      if (other?.kind !== 'pane' || (script && other.manager)) return null
+      return deps.getTerminalState(other.paneId) ?? null
     })
 
     conn.onRequest('cwd.get', (): { cwd: string | null } => {

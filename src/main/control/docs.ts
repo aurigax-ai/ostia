@@ -51,9 +51,10 @@ const CLI_HELP = `ostia — control-socket CLI
   ostia workspace dir [path]     make this folder (default: your current one) the workspace's folder:
                                  its name, where new tabs start, and what its vault and chat tools
                                  are scoped to. Refused for a sandboxed or scratch workspace
-  ostia workspace describe <text|-> | --clear
+  ostia workspace describe [--workspace <id>] <text|-> | --clear
                                  show a short summary (Markdown links allowed) under this
-                                 pane's workspace in the sidebar, e.g. the PR you're on
+                                 pane's workspace (or --workspace) in the sidebar, e.g. the PR
+                                 you're on
   ostia workspace list [--json]  every workspace with its sidebar group; --json prints
                                  {workspaces,groups} (groups: {groupId,name,color,collapsed,
                                  workspaceIds})
@@ -124,6 +125,9 @@ const CLI_HELP = `ostia — control-socket CLI
                                  --split right (default) or down, so one tab shows them side
                                  by side (a split tab named T). It never types into a pane
                                  that is already open
+  ostia agent resume <pane>      type the pane's recorded resume command at its prompt, or wake
+                                 it when hibernated; prints {paneId,resumed}, exit 1 when it
+                                 has nothing to resume. Same asks as pane send
   ostia agent run <agent> [--name X] [--cwd P] [--workspace <id|name>]
                                  [--split-tab T [--split right|down]] <prompt|->
                                  start another agent (claude, codex or
@@ -209,19 +213,32 @@ const CLI_HELP = `ostia — control-socket CLI
   ostia token create <name> --cap <capability>…  make a token for scripts outside Ostia
                                  (launchd jobs, cron, a dispatcher). It can hold only
                                  read-board, read-other-pane, type-other-pane, send-other-pane,
-                                 process, kill-pane and all-workspaces, asks the human first
+                                 process, kill-pane, notify and all-workspaces, asks the human
+                                 first
                                  (settings-write plus those capabilities) and is printed once.
                                  A script sets OSTIA_TOKEN to it; with OSTIA_SOCKET unset, ostia
                                  finds the socket in control.json in the app data folder.
-                                 Scripts reach only pane.list, workspace.list, workspace.groups,
-                                 pane.read, pane.input, pane.rename, process.run, agent.run and
-                                 two commands: ostia workspace.new (all-workspaces) and
-                                 ostia pane.close '{"paneId":"<id from pane list>"}'
-                                 (all-workspaces plus kill-pane). They never ask the human and
-                                 get needs-elevation for a capability the token lacks.
-                                 A script has no workspace of its own: process run and agent run
-                                 must name one with --workspace, so opening a terminal needs
-                                 process and all-workspaces on the token
+                                 Scripts reach only these methods: whoami, docs, command.list
+                                 (the commands below), pane.list, pane.info, workspace.list,
+                                 workspace.groups, pane.read, pane.input, pane.wait, pane.wake,
+                                 pane.close, pane.rename, pane.moveTo, workspace.rename,
+                                 process.run, process.list, process.info, process.output,
+                                 process.kill, process.restart, agent.run, agent.resume, notify
+                                 (a desktop notification only) and bus.send; and these commands:
+                                 workspace.new, workspace.newScratch, pane.close, workspace.group,
+                                 workspace.ungroup, workspace.groupColor, workspace.describe,
+                                 workspace.hibernateAgents, workspace.hibernateGroupAgents
+                                 (kill-pane), workspace.resumeAgents and
+                                 workspace.resumeGroupAgents (type-other-pane). They never ask
+                                 the human and get needs-elevation for a capability the token
+                                 lacks. A script has no workspace or pane of its own, so every
+                                 other pane, workspace and process is outside its reach and needs
+                                 all-workspaces on the token, and it must name its target: a
+                                 pane (pane read, pane rename, pane.info, agent resume), a
+                                 workspace (--workspace for process run, agent run, workspace
+                                 rename, group, ungroup, describe and the hibernate commands; a
+                                 paneId for pane.close) or an id (process info, logs, kill,
+                                 restart); a missing one is refused with bad-request
   ostia token list [--json]      the tokens (never their values)
   ostia token revoke <id>        delete a token; scripts using it are cut off at once
   ostia vault set <KEY> [--global]  store a secret (value read from stdin, no echo)
@@ -318,6 +335,11 @@ const CLI_HELP = `ostia — control-socket CLI
                                   another workspace needs all-workspaces
   ostia workspace.new [jsonArgs] [--no-focus]  open a workspace without switching to it
                                   (same as {"focus":false}); prints its workspaceId
+  ostia workspace.hibernateAgents --workspace <id|name>  hibernate that workspace's idle
+                                  agents (a busy one is skipped; pane wake brings it back);
+                                  needs kill-pane. workspace.resumeAgents wakes them
+                                  (type-other-pane); hibernateGroupAgents and resumeGroupAgents
+                                  do the same for the workspace's whole sidebar group
 `
 
 export const MANAGER_HELP = `
@@ -351,6 +373,7 @@ export function registerDocsMethods(deps: {
   extensions: () => Pick<ExtensionInfo, 'id' | 'name' | 'commands'>[]
 }): void {
   registerControlMethod('docs', {
+    scripts: true,
     handler: (_params, ctx) => ({
       cli: `${CLI_HELP}\n${runtimeHelp()}\n${extensionHelp(deps.extensions())}${ctx.identity.manager ? MANAGER_HELP : ''}`,
       note: 'run `ostia commands --json` for the machine-readable command list',

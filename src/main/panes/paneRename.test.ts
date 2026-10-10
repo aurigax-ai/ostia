@@ -270,12 +270,36 @@ describe('rename from a script token', () => {
     expect(calls).toEqual([])
   })
 
-  it('still cannot rename a workspace', async () => {
+  it('renames a named workspace with send-other-pane and all-workspaces on the token', async () => {
     const conn = await client({ token: GRANTED })
 
     await expect(
-      conn.sendRequest('workspace.rename', { workspace: 'ws1', name: 'x' }),
-    ).rejects.toThrow('not-available-to-script')
+      conn.sendRequest('workspace.rename', { workspace: 'ws1', name: 'Payments' }),
+    ).resolves.toEqual({ ok: true, workspaceId: 'ws1', name: 'Payments' })
+    expect(calls).toEqual([
+      {
+        target: { windowId: 'w1', workspaceId: 'ws1', paneId: null },
+        id: 'workspace.rename',
+        args: { name: 'Payments' },
+      },
+    ])
+    expect(request).not.toHaveBeenCalled()
+  })
+
+  it('must name the workspace, and needs both capabilities to rename it', async () => {
+    const granted = await client({ token: GRANTED })
+    await expect(granted.sendRequest('workspace.rename', { name: 'x' })).rejects.toThrow(
+      'bad-request: workspace',
+    )
+    const noReach = await client({ token: NO_REACH })
+    await expect(
+      noReach.sendRequest('workspace.rename', { workspace: 'ws1', name: 'x' }),
+    ).rejects.toThrow('needs-elevation: all-workspaces')
+    const bare = await client({ token: BARE })
+    await expect(
+      bare.sendRequest('workspace.rename', { workspace: 'ws1', name: 'x' }),
+    ).rejects.toThrow('needs-elevation: send-other-pane')
     expect(calls).toEqual([])
+    expect(request).not.toHaveBeenCalled()
   })
 })

@@ -10,4 +10,5 @@ export const SCRIPT_CAPABILITIES: readonly Capability[] = [
   'process',
   'send-other-pane',
   'kill-pane',
+  'notify',
 ]

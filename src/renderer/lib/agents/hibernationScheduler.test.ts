@@ -450,7 +450,7 @@ describe('hibernating and resuming agents in bulk', () => {
     expect(typed.mock.calls.map(([id]) => id)).toEqual(['a2', 'a3', 'a4'])
   })
 
-  it('runs from the palette for the target workspace or its whole group, never for a socket caller', async () => {
+  it('runs for the target workspace or its whole group, and is open to socket callers', async () => {
     seedGroups()
     for (const id of [
       'workspace.hibernateAgents',
@@ -458,8 +458,8 @@ describe('hibernating and resuming agents in bulk', () => {
       'workspace.hibernateGroupAgents',
       'workspace.resumeGroupAgents',
     ]) {
-      expect(commands.isLocal(id)).toBe(true)
-      expect(commands.describe().some((c) => c.id === id)).toBe(false)
+      expect(commands.isLocal(id)).toBe(false)
+      expect(commands.describe().some((c) => c.id === id)).toBe(true)
     }
     expect(await commands.execWith(at('g2'), 'workspace.hibernateAgents')).toEqual({
       ok: true,

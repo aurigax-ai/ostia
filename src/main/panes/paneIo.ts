@@ -196,6 +196,7 @@ export interface PaneIoDeps extends PaneReachDeps {
   wake: (pane: PaneIdentity) => Promise<boolean>
   waking: PaneWaking
   close: (pane: PaneIdentity) => Promise<CommandResult>
+  resume: (pane: PaneIdentity) => Promise<CommandResult>
   delay: (ms: number) => Promise<void>
 }
 
@@ -392,6 +393,25 @@ export function registerPaneIoMethods(deps: PaneIoDeps): void {
       throw fail(
         `resume-failed: ${external(ended.paneId)} could not start its agent; read it with ostia pane read`,
       )
+    },
+  })
+
+  registerControlMethod('agent.resume', {
+    scripts: true,
+    handler: async (raw, ctx) => {
+      const p = record(raw)
+      const to = await target(p.pane, ctx)
+      ensureManagerInput(ctx)
+      await ensurePaneReach(deps, 'input', to, ctx, {
+        ref: String(p.pane),
+        method: 'agent.resume',
+        detail: `resume the agent of ${to.externalId}: type its recorded resume command`,
+      })
+      if (deps.waking.has(to.paneId)) throw starting(to)
+      const res = await deps.resume(to)
+      if (!res.ok) throw fail(res.error.message)
+      const resumed = (res.result as { resumed?: unknown } | undefined)?.resumed === true
+      return { ok: true, paneId: to.externalId, resumed }
     },
   })
 
