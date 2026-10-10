@@ -68,6 +68,7 @@ import {
 } from './verbs/bus'
 import { runCmuxImportVerb } from './verbs/cmuxImport'
 import { runGitVerb, runPortsVerb } from './verbs/coreBoards'
+import { runInstallPolkit } from './verbs/installPolkit'
 import { runManagerVerb } from './verbs/manager'
 import {
   parseGroupColorArgs,
@@ -1520,6 +1521,8 @@ commands:
                             (a tab you opened needs nothing more, any other asks for
                             type-other-pane; all-workspaces outside your reach)
   vault | bus | settings | browse | gateway | token <subcommand> ...
+  install-polkit            (Linux, run with sudo) let polkit confirm new script tokens with
+                            your password or fingerprint
   ext ls | ext <extId> <command> [args...]
   <extId> <command> [args...]  an extension command, e.g. ostia ssh hosts
   git status | changes | diff | open | log | blame | stage | unstage | commit
@@ -1564,6 +1567,15 @@ async function main(): Promise<void> {
       console.error('ostia: build-info.json is missing')
       process.exitCode = 1
     }
+    return
+  }
+  if (cmd === 'install-polkit') {
+    process.exitCode = runInstallPolkit(process.argv.slice(3), {
+      platform: process.platform,
+      uid: process.getuid?.(),
+      out: (line) => console.log(line),
+      err: (line) => console.error(line),
+    })
     return
   }
   if (isOfflineViewVerb(process.argv.slice(2))) {

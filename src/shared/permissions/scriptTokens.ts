@@ -2,6 +2,10 @@ import type { Capability } from '../capabilities'
 
 export const SCRIPT_TOKEN_PREFIX = 'ostia_'
 
+export const POLKIT_ACTION = 'ai.aurigax.ostia.manage-script-tokens'
+export const POLKIT_POLICY_FILE = `${POLKIT_ACTION}.policy`
+export const POLKIT_ACTIONS_DIR = '/usr/share/polkit-1/actions'
+
 export const SCRIPT_CAPABILITIES: readonly Capability[] = [
   'read-board',
   'read-other-pane',

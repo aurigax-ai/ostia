@@ -16,6 +16,7 @@ import { SCRIPT_CAPABILITIES, type ScriptTokenScope } from '../../shared/permiss
 import { emptyWorkspaceSandbox } from '../../shared/sandbox/sandbox'
 import type { CommandResult } from '../../shared/types'
 import type { ReachListing } from './reach'
+import type { PresenceFailure, PresenceResult } from './userPresence'
 
 let answer: ApprovalOutcome = 'deny'
 const request = vi.fn(async () => answer)
@@ -83,6 +84,7 @@ registerControlMethod('test.panesOnly', {
 })
 
 const ALL = { kind: 'all' } as const
+const PRESENT: PresenceResult = { ok: true, via: 'touch-id' }
 
 let socketPath = ''
 let seq = 0
@@ -119,6 +121,7 @@ beforeEach(() => {
   answer = 'deny'
   request.mockClear()
   setCapFilter(() => true)
+  setUserPresenceCheck(async () => PRESENT)
 })
 
 afterEach(() => {
@@ -1090,10 +1093,6 @@ describe('token.update', () => {
     )
   })
 
-  afterEach(() => {
-    setUserPresenceCheck(async () => true)
-  })
-
   async function refused(token: string): Promise<void> {
     const socket = createConnection(socketPath)
     const conn = createMessageConnection(
@@ -1177,21 +1176,74 @@ describe('token.update', () => {
     expect(verifyScriptToken(storeFile, created.token)?.caps).toEqual(['read-board'])
   })
 
-  it('creates and regenerates nothing when the user presence check fails, and renaming skips it', async () => {
-    const check = vi.fn(async () => false)
-    setUserPresenceCheck(check)
+  it.each<PresenceFailure>(['cancelled', 'failed', 'timeout', 'unavailable'])(
+    'creates and regenerates nothing when the card is approved but the user presence check is %s',
+    async (code) => {
+      const check = vi.fn(async (): Promise<PresenceResult> => {
+        expect(request).toHaveBeenCalledTimes(check.mock.calls.length)
+        return { ok: false, code, detail: 'said no' }
+      })
+      setUserPresenceCheck(check)
+      await expect(
+        admin.sendRequest('token.create', { name: 'x', caps: ['read-board'], scope: ALL }),
+      ).rejects.toThrow(
+        `presence-${code}: could not confirm it is you to generate the script token "x" (said no)`,
+      )
+      expect(listScriptTokens(storeFile)).toEqual([])
+      const created = createScriptToken(storeFile, 'ceo', ['read-board'])
+      const script = await client(created.token)
+      await expect(
+        admin.sendRequest('token.update', { id: created.id, expires: '7d', caps: ['notify'] }),
+      ).rejects.toThrow(`presence-${code}: could not confirm it is you to regenerate`)
+      expect(verifyScriptToken(storeFile, created.token)).toMatchObject({ caps: ['read-board'] })
+      await expect(script.sendRequest('test.scriptsOpen')).resolves.toEqual({ kind: 'script' })
+      expect(check.mock.calls).toEqual([
+        [{ action: 'generate', name: 'x' }],
+        [{ action: 'regenerate', name: 'ceo' }],
+      ])
+      expect(request).toHaveBeenCalledTimes(2)
+    },
+  )
+
+  it('refuses when the user presence check itself throws', async () => {
+    setUserPresenceCheck(async () => {
+      throw new Error('LAContext died')
+    })
     await expect(
       admin.sendRequest('token.create', { name: 'x', caps: ['read-board'], scope: ALL }),
-    ).rejects.toThrow('cancelled: generate the script token "x"')
+    ).rejects.toThrow(
+      'presence-failed: could not confirm it is you to generate the script token "x" (LAContext died)',
+    )
     expect(listScriptTokens(storeFile)).toEqual([])
-    const created = createScriptToken(storeFile, 'ceo', ['read-board'])
+  })
+
+  it('asks for user presence only after the card, and never for a refused card', async () => {
+    const check = vi.fn(async () => PRESENT)
+    setUserPresenceCheck(check)
+    answer = 'deny'
     await expect(
-      admin.sendRequest('token.update', { id: created.id, expires: '7d' }),
-    ).rejects.toThrow('cancelled: regenerate the script token "ceo"')
-    expect(verifyScriptToken(storeFile, created.token)).toBeDefined()
-    expect(check).toHaveBeenCalledTimes(2)
+      admin.sendRequest('token.create', { name: 'x', caps: ['read-board'], scope: ALL }),
+    ).rejects.toThrow('denied')
+    expect(check).not.toHaveBeenCalled()
+    answer = 'once'
+    await admin.sendRequest('token.create', { name: 'x', caps: ['read-board'], scope: ALL })
+    expect(check).toHaveBeenCalledWith({ action: 'generate', name: 'x' })
+    expect(listScriptTokens(storeFile)).toHaveLength(1)
+  })
+
+  it('renaming asks neither for user presence nor regenerates', async () => {
+    const check = vi.fn(
+      async (): Promise<PresenceResult> => ({
+        ok: false,
+        code: 'cancelled',
+        detail: 'no',
+      }),
+    )
+    setUserPresenceCheck(check)
+    const created = createScriptToken(storeFile, 'ceo', ['read-board'])
     await admin.sendRequest('token.update', { id: created.id, name: 'renamed' })
-    expect(check).toHaveBeenCalledTimes(2)
+    expect(check).not.toHaveBeenCalled()
+    expect(verifyScriptToken(storeFile, created.token)?.name).toBe('renamed')
   })
 
   it('refuses an update with nothing to change, or a name two tokens share', async () => {
@@ -1309,5 +1361,49 @@ describe('token.create scope and expiry', () => {
       admin.sendRequest('token.create', { name: 'x', caps: ['read-board'], ...extra }),
     ).rejects.toThrow(message)
     expect(listScriptTokens(storeFile)).toEqual([])
+  })
+})
+
+describe('without a user presence check', () => {
+  it('refuses token.create and a regenerating token.update', async () => {
+    vi.resetModules()
+    const server = await import('../control/controlServer')
+    const ids = await import('../control/idRegistry')
+    const auth = await import('../control/controlAuth')
+    const tokens = await import('./scriptTokens')
+    tokens.registerScriptTokenMethods({
+      path: () => storeFile,
+      retiredPath: () => retiredFile,
+      listing: async () => listing,
+    })
+    auth.setCapFilter(() => true)
+    const path = join(tmpdir(), `ostia-script-fresh-${process.pid}-${seq}.sock`)
+    server.registerControlServer(
+      {
+        execCommand: async () => ({ ok: true }) as CommandResult,
+        listCommandsFor: () => [],
+        getTerminalState: () => undefined,
+        isSandboxed: () => false,
+      },
+      path,
+    )
+    try {
+      const pane = ids.registerPane({ windowId: 'w1', workspaceId: 'ws1', paneId: 'fresh-admin' })
+      socketPath = path
+      const admin = await client(pane.token)
+      answer = 'once'
+      await expect(
+        admin.sendRequest('token.create', { name: 'x', caps: ['read-board'], scope: ALL }),
+      ).rejects.toThrow('presence-unavailable: could not confirm it is you to generate')
+      const created = tokens.createScriptToken(storeFile, 'ceo', ['read-board'])
+      await expect(
+        admin.sendRequest('token.update', { id: created.id, expires: '7d' }),
+      ).rejects.toThrow('presence-unavailable: could not confirm it is you to regenerate')
+      expect(tokens.listScriptTokens(storeFile).map((t) => t.name)).toEqual(['ceo'])
+      expect(tokens.verifyScriptToken(storeFile, created.token)).toBeDefined()
+      expect(request).toHaveBeenCalledTimes(2)
+    } finally {
+      server.stopControlServer()
+    }
   })
 })

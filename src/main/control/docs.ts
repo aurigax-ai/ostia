@@ -221,9 +221,13 @@ const CLI_HELP = `ostia — control-socket CLI
                                  read-board, read-other-pane, type-other-pane, send-other-pane,
                                  process, kill-pane and notify (--preset readonly|coordinator
                                  picks a set), asks the human first (settings-write plus those
-                                 capabilities) and is printed once. --scope all reaches every
-                                 workspace (as all-workspaces); --scope group:<name|id> and
-                                 --scope workspace:<name|id> (repeatable) limit it to those, and
+                                 capabilities), then has them confirm it is them (Touch ID on
+                                 macOS, polkit on Linux, else an Ostia dialog; refused with
+                                 presence-cancelled, presence-failed, presence-timeout or
+                                 presence-unavailable) and is printed once. --scope all
+                                 reaches every workspace (as all-workspaces); --scope
+                                 group:<name|id> and --scope workspace:<name|id> (repeatable)
+                                 limit it to those, and
                                  --own-workspaces adds the workspaces it creates in those groups.
                                  Outside its scope a workspace is hidden from lists and refused
                                  with needs-elevation. --expires 7d|30d|90d|1y|YYYY-MM-DD|never
@@ -258,8 +262,11 @@ const CLI_HELP = `ostia — control-socket CLI
   ostia token show <id|name> [--json]  one token
   ostia token update <id|name> [--name <name>] [--cap …] [--scope …] [--expires …]  change a
                                  token. Changing its capabilities, scope or expiry prints a new
-                                 value and cuts the old one off at once; --name alone keeps it
+                                 value and cuts the old one off at once, after the same two
+                                 asks; --name alone keeps it and skips the second
   ostia token revoke <id|name>   delete a token; scripts using it are cut off at once
+  sudo ostia install-polkit      Linux: install the polkit action so confirming a token asks
+                                 for your password (or fingerprint) instead of an Ostia dialog
   ostia vault set <KEY> [--global]  store a secret (value read from stdin, no echo)
   ostia vault get <KEY> [--global]  print a stored secret
   ostia vault ls [--global]        list stored secret keys (never values)

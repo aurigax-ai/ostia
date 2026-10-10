@@ -116,7 +116,9 @@ import {
   registerScriptTokenMethods,
   retireLegacyScriptTokens,
   scriptTokenScope,
+  setUserPresenceCheck,
 } from './approvals/scriptTokens'
+import { electronPresenceDeps, verifyUserPresence } from './approvals/userPresence'
 import { ArtifactCompiler } from './artifacts/artifactCompiler'
 import { ArtifactFolders, registerArtifactIpc } from './artifacts/artifactFolders'
 import { loadEsbuild } from './artifacts/esbuildService'
@@ -4145,6 +4147,17 @@ app.whenReady().then(() => {
   })
   setScriptTokenCheck((token) =>
     checkScriptToken({ path: scriptTokensPath(), retiredPath: retiredScriptTokensPath() }, token),
+  )
+  const presenceDeps = electronPresenceDeps(
+    () => windows.values(),
+    () => mainStrings().native.userPresence,
+    process.resourcesPath,
+  )
+  setUserPresenceCheck(({ action, name }) =>
+    verifyUserPresence(
+      { reason: fmt(mainStrings().native.userPresence[action], { name }), name },
+      presenceDeps,
+    ),
   )
   registerControlServer({
     execCommand,
