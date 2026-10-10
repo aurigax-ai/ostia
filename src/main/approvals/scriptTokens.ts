@@ -4,6 +4,7 @@ import { ErrorCodes, ResponseError } from 'vscode-jsonrpc/node'
 import type { Capability } from '../../shared/capabilities'
 import {
   DEFAULT_TOKEN_EXPIRY,
+  NEVER_EXPIRES,
   SCRIPT_CAPABILITIES,
   SCRIPT_TOKEN_PREFIX,
   type ScriptTokenScope,
@@ -189,8 +190,11 @@ function cleanCaps(raw: unknown): Capability[] {
   return SCRIPT_CAPABILITIES.filter((cap) => raw.includes(cap))
 }
 
-function cleanExpires(raw: unknown): string {
+function cleanExpires(raw: unknown, confirmNever: unknown): string {
   if (typeof raw !== 'string' || !raw) throw fail('bad-request: expires')
+  if (raw === NEVER_EXPIRES && confirmNever !== true) {
+    throw fail('bad-request: expires never needs confirmNeverExpires: true')
+  }
   try {
     tokenExpiry(raw, new Date())
   } catch (err) {
@@ -232,7 +236,8 @@ export function parseTokenRequest(raw: unknown): TokenRequest {
   if (!scope) {
     throw fail('bad-request: scope (pass --scope all, group:<name|id> or workspace:<name|id>)')
   }
-  const expires = p.expires === undefined ? DEFAULT_TOKEN_EXPIRY : cleanExpires(p.expires)
+  const expires =
+    p.expires === undefined ? DEFAULT_TOKEN_EXPIRY : cleanExpires(p.expires, p.confirmNeverExpires)
   return { name, caps: heldCaps(caps), scope, expires }
 }
 
@@ -253,7 +258,7 @@ export function parseTokenChanges(raw: unknown): TokenChanges {
   if (caps) changes.caps = heldCaps(caps)
   const scope = cleanScope(p.scope, caps ?? [])
   if (scope) changes.scope = scope
-  if (p.expires !== undefined) changes.expires = cleanExpires(p.expires)
+  if (p.expires !== undefined) changes.expires = cleanExpires(p.expires, p.confirmNeverExpires)
   if (Object.keys(changes).length === 1) {
     throw fail('bad-request: nothing to change (name, caps, scope or expires)')
   }
@@ -331,6 +336,7 @@ export interface ScriptTokenUpdate {
   caps?: readonly Capability[]
   scope?: ScriptTokenScope
   expiresAt?: string | null
+  ifUpdatedAt?: string
 }
 
 export function updateScriptToken(
@@ -341,6 +347,9 @@ export function updateScriptToken(
 ): ScriptToken & { token?: string } {
   const store = load(path)
   const stored = findIn(store, ref)
+  if (update.ifUpdatedAt !== undefined && stored.updatedAt !== update.ifUpdatedAt) {
+    throw fail(`conflict: the script token "${stored.name}" changed meanwhile; try again`)
+  }
   if (update.name !== undefined) stored.name = update.name
   const regenerate =
     update.caps !== undefined || update.scope !== undefined || update.expiresAt !== undefined
@@ -419,12 +428,17 @@ export function retireLegacyScriptTokens(
     null,
   )
   const at = now.toISOString()
+  const kept = loadRetired(retiredPath, now)
   const moved = Object.values(legacy ?? {}).flatMap((t) =>
     typeof t?.name === 'string' && typeof t.hash === 'string'
       ? [{ name: t.name, hash: t.hash, retiredAt: at }]
       : [],
   )
-  saveJson(retiredPath, [...loadRetired(retiredPath, now), ...moved], { secure: true })
+  const fresh = moved.filter(
+    (t, i) =>
+      !kept.some((k) => k.hash === t.hash) && moved.findIndex((m) => m.hash === t.hash) === i,
+  )
+  saveJson(retiredPath, [...kept, ...fresh], { secure: true })
   rmSync(legacyPath, { force: true })
   return moved.map((t) => t.name)
 }
@@ -498,7 +512,9 @@ function describeScope(scope: ScriptTokenScope): string {
 }
 
 function describeExpiry(expiresAt: string | null): string {
-  return expiresAt === null ? 'never expires' : `expires ${expiresAt}`
+  return expiresAt === null
+    ? 'NEVER expires (warning: it stays valid until revoked)'
+    : `expires ${expiresAt}`
 }
 
 function approvalCaps(caps: readonly Capability[], scope: ScriptTokenScope): Capability[] {
@@ -546,7 +562,10 @@ export function registerScriptTokenMethods(deps: ScriptTokenDeps): void {
           'token.update',
           `rename the script token "${current.name}" to "${name}"`,
         )
-        return updateScriptToken(deps.path(), current.id, { name })
+        return updateScriptToken(deps.path(), current.id, {
+          name,
+          ifUpdatedAt: current.updatedAt,
+        })
       }
       const caps = changes.caps ?? current.caps
       const scope = changes.scope
@@ -562,7 +581,13 @@ export function registerScriptTokenMethods(deps: ScriptTokenDeps): void {
         `regenerate the script token "${name}" with ${caps.join(', ') || 'no capability'} on ${describeScope(scope)}; it ${describeExpiry(expiresAt)}. The old value stops working at once`,
       )
       await confirmUser(`regenerate the script token "${name}"`)
-      return updateScriptToken(deps.path(), current.id, { name, caps, scope, expiresAt })
+      return updateScriptToken(deps.path(), current.id, {
+        name,
+        caps,
+        scope,
+        expiresAt,
+        ifUpdatedAt: current.updatedAt,
+      })
     },
   })
 

@@ -39,9 +39,11 @@ const {
   recordCreatedWorkspace,
   registerScriptTokenMethods,
   retireLegacyScriptTokens,
+  retiredScriptTokens,
   revokeScriptToken,
   scriptTokenScope,
   setUserPresenceCheck,
+  updateScriptToken,
   verifyScriptToken,
 } = await import('./scriptTokens')
 
@@ -809,6 +811,66 @@ describe('scoped script tokens', () => {
     ])
   })
 
+  it.each<[string, Record<string, unknown>, boolean]>([
+    ['workspace.groupColor', { group: 'Other', color: 'blue' }, false],
+    ['workspace.new', { group: 'Work' }, false],
+    ['workspace.new', { group: 'Other' }, true],
+    ['workspace.newScratch', {}, true],
+  ])(
+    'judges %s by its arguments, not by an in-scope target (%j)',
+    async (id, args, ownWorkspaces) => {
+      const { token } = createScriptToken(storeFile, 'work', ['read-board'], {
+        scope: limited([WORK], [], ownWorkspaces),
+      })
+      const conn = await client(token)
+      await expect(
+        conn.sendRequest('command.exec', { id, args, target: on('wsA') }),
+      ).rejects.toThrow('needs-elevation: all-workspaces')
+      expect(executed).toEqual([])
+    },
+  )
+
+  it('moves a workspace only into a group of its scope', async () => {
+    const { token } = createScriptToken(storeFile, 'work', ['read-board'], {
+      scope: limited([WORK], ['wsD']),
+    })
+    const conn = await client(token)
+    for (const name of ['Other', 'Brand new']) {
+      await expect(
+        conn.sendRequest('command.exec', {
+          id: 'workspace.group',
+          args: { name },
+          target: on('wsD'),
+        }),
+      ).rejects.toThrow('needs-elevation: all-workspaces')
+    }
+    expect(executed).toEqual([])
+    await conn.sendRequest('command.exec', {
+      id: 'workspace.group',
+      args: { name: 'Work' },
+      target: on('wsD'),
+    })
+    expect(executed.map((e) => e.id)).toEqual(['workspace.group'])
+  })
+
+  it('loses a workspace it created once that workspace leaves the scope groups', async () => {
+    const { token } = createScriptToken(storeFile, 'maker', ['read-board'], {
+      scope: limited([WORK], [], true),
+    })
+    const conn = await client(token)
+    await conn.sendRequest('command.exec', { id: 'workspace.new', args: { group: 'Work' } })
+    const createdId = `ws-new-${made}`
+    const admin = await client(createScriptToken(storeFile, 'admin', ['all-workspaces']).token)
+    await admin.sendRequest('command.exec', {
+      id: 'workspace.group',
+      args: { name: 'Other' },
+      target: on(createdId),
+    })
+    await expect(
+      conn.sendRequest('command.exec', { id: 'workspace.describe', target: on(createdId) }),
+    ).rejects.toThrow('needs-elevation: all-workspaces')
+  })
+
   it('lists only the panes, workspaces and groups in its scope', async () => {
     const { token } = createScriptToken(storeFile, 'board', ['read-board'], {
       scope: limited([], ['wsA']),
@@ -954,6 +1016,15 @@ describe('tokens from before the upgrade', () => {
     ).toBeUndefined()
   })
 
+  it('keeps one entry per token, with its first retirement time, when it runs again', () => {
+    const first = new Date('2026-10-11T00:00:00.000Z')
+    retireLegacyScriptTokens(writeLegacy(), retiredFile, first)
+    retireLegacyScriptTokens(writeLegacy(), retiredFile, new Date(first.getTime() + 86_400_000))
+    expect(retiredScriptTokens(retiredFile, first)).toEqual([
+      { name: 'ostia-ceo', retiredAt: first.toISOString() },
+    ])
+  })
+
   it('lists the retired names for the human', async () => {
     retireLegacyScriptTokens(writeLegacy(), retiredFile)
     const admin = await client(
@@ -1026,6 +1097,7 @@ describe('token.update', () => {
       caps: ['type-other-pane'],
       scope: { kind: 'limited', groups: ['Work'], ownWorkspaces: true },
       expires: 'never',
+      confirmNeverExpires: true,
     })
     expect(listScriptTokens(storeFile)[0]).toMatchObject({
       caps: ['type-other-pane'],
@@ -1091,6 +1163,54 @@ describe('token.update', () => {
     )
     await expect(admin.sendRequest('token.revoke', { id: 'twin' })).rejects.toThrow(
       'ambiguous-token: twin',
+    )
+  })
+
+  it('refuses to write back a token revoked or regenerated while the human was asked', async () => {
+    const gone = createScriptToken(storeFile, 'gone', ['read-board'])
+    request.mockImplementationOnce(async () => {
+      revokeScriptToken(storeFile, gone.id)
+      return 'once'
+    })
+    await expect(
+      admin.sendRequest('token.update', { id: gone.id, caps: ['notify'] }),
+    ).rejects.toThrow(`unknown-token: ${gone.id}`)
+    expect(listScriptTokens(storeFile)).toEqual([])
+
+    const raced = createScriptToken(storeFile, 'raced', ['read-board'])
+    let other = ''
+    request.mockImplementationOnce(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 2))
+      other = updateScriptToken(storeFile, raced.id, { expiresAt: null }).token as string
+      return 'once'
+    })
+    await expect(
+      admin.sendRequest('token.update', { id: raced.id, name: 'renamed' }),
+    ).rejects.toThrow('conflict: the script token "raced"')
+    expect(verifyScriptToken(storeFile, other)).toMatchObject({ name: 'raced', expiresAt: null })
+  })
+
+  it('needs confirmNeverExpires for a token that never expires, and warns on the card', async () => {
+    const created = createScriptToken(storeFile, 'ceo', ['read-board'])
+    for (const [method, params] of [
+      ['token.create', { name: 'x', caps: ['read-board'], scope: ALL, expires: 'never' }],
+      ['token.update', { id: created.id, expires: 'never' }],
+    ] as const) {
+      await expect(admin.sendRequest(method, params)).rejects.toThrow(
+        'expires never needs confirmNeverExpires: true',
+      )
+    }
+    expect(listScriptTokens(storeFile).map((t) => t.name)).toEqual(['ceo'])
+    request.mockClear()
+    await admin.sendRequest('token.create', {
+      name: 'forever',
+      caps: ['read-board'],
+      scope: ALL,
+      expires: 'never',
+      confirmNeverExpires: true,
+    })
+    expect(request).toHaveBeenCalledWith(
+      expect.objectContaining({ detail: expect.stringContaining('NEVER expires (warning') }),
     )
   })
 

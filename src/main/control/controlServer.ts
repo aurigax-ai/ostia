@@ -91,26 +91,31 @@ const GROUP_COMMANDS: ReadonlySet<string> = new Set([
   'workspace.resumeGroupAgents',
 ])
 
-function groupArg(args: unknown): unknown {
-  return typeof args === 'object' && args !== null ? (args as { group?: unknown }).group : undefined
+function argOf(args: unknown, key: 'group' | 'name'): unknown {
+  return typeof args === 'object' && args !== null
+    ? (args as Record<string, unknown>)[key]
+    : undefined
 }
 
 function scriptTargetInScope(
   scoped: ScriptReach | null,
   id: string,
+  targetless: boolean,
   target: CommandTarget,
   args: unknown,
 ): boolean {
   if (!scoped) return false
-  if (target.workspaceId) {
-    if (!scoped.covers(target.workspaceId)) return false
-    return (
-      !GROUP_COMMANDS.has(id) || scoped.hasGroup(scoped.confirmedGroup(target.workspaceId) ?? '')
-    )
+  if (targetless) {
+    const group = scoped.groupNamed(argOf(args, 'group'))
+    if (id === 'workspace.new') return scoped.ownWorkspaces && scoped.hasGroup(group ?? '')
+    return id === 'workspace.groupColor' && scoped.hasGroup(group ?? '')
   }
-  const group = scoped.groupNamed(groupArg(args))
-  if (id === 'workspace.new') return scoped.ownWorkspaces && scoped.hasGroup(group ?? '')
-  return id === 'workspace.groupColor' && scoped.hasGroup(group ?? '')
+  if (!target.workspaceId || !scoped.covers(target.workspaceId)) return false
+  if (GROUP_COMMANDS.has(id)) {
+    return scoped.hasGroup(scoped.confirmedGroup(target.workspaceId) ?? '')
+  }
+  if (id === 'workspace.group') return scoped.hasGroup(scoped.groupNamed(argOf(args, 'name')) ?? '')
+  return true
 }
 
 function actingPane(
@@ -243,18 +248,18 @@ export function registerControlServer(deps: ControlServerDeps, socketPathOverrid
         if (!script && target.workspaceId !== me.workspaceId && deps.isSandboxed(me.workspaceId)) {
           throw new ResponseError(ErrorCodes.InvalidRequest, SANDBOXED_REFUSAL)
         }
-        const scoped = script
-          ? ((await deps.reach?.scriptReach({ identity: me, authed })) ?? null)
-          : null
-        const crossTarget = script
-          ? !scriptTargetInScope(scoped, params.id, target, args)
-          : target.paneId !== me.paneId ||
-            target.windowId !== me.windowId ||
-            target.workspaceId !== me.workspaceId
-
         const desc = deps
           .listCommandsFor(target.windowId ?? me.windowId)
           .find((d) => d.id === params.id)
+        const scoped = script
+          ? ((await deps.reach?.scriptReach({ identity: me, authed })) ?? null)
+          : null
+        const targetless = desc ? desc.target === 'none' : !target.workspaceId
+        const crossTarget = script
+          ? !scriptTargetInScope(scoped, params.id, targetless, target, args)
+          : target.paneId !== me.paneId ||
+            target.windowId !== me.windowId ||
+            target.workspaceId !== me.workspaceId
         if (!desc) {
           if (crossTarget && !connHasCap(authed, 'all-workspaces')) {
             throw needsElevation('all-workspaces')

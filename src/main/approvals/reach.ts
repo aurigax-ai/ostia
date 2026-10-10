@@ -140,8 +140,10 @@ export function createReach(deps: ReachDeps): Reach {
     if (view?.scope.kind !== 'limited') return null
     const { groups, workspaces, ownWorkspaces } = view.scope
     const listed = await deps.workspaces().catch(() => NO_WORKSPACES)
+    const groupOf = (workspaceId: string): string | undefined =>
+      listed.workspaces.find((w) => w.workspaceId === workspaceId)?.groupId
     const confirmedGroup = (workspaceId: string): string | undefined => {
-      const groupId = listed.workspaces.find((w) => w.workspaceId === workspaceId)?.groupId
+      const groupId = groupOf(workspaceId)
       return groupId && !groupsByAgent.byAgent(workspaceId, groupId) ? groupId : undefined
     }
     const hasGroup = (groupId: string): boolean => groups.includes(groupId)
@@ -149,8 +151,8 @@ export function createReach(deps: ReachDeps): Reach {
       covers: (workspaceId) => {
         if (!workspaceId) return false
         if (workspaces.includes(workspaceId)) return true
-        if (ownWorkspaces && view.created.includes(workspaceId)) return true
-        const groupId = confirmedGroup(workspaceId)
+        const own = ownWorkspaces && view.created.includes(workspaceId)
+        const groupId = own ? groupOf(workspaceId) : confirmedGroup(workspaceId)
         return groupId !== undefined && hasGroup(groupId)
       },
       hasGroup,

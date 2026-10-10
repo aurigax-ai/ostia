@@ -16,6 +16,7 @@ interface TokenSettings {
   caps?: string[]
   scope?: ScopeParam
   expires?: string
+  confirmNeverExpires?: true
 }
 
 type TokenCall =
@@ -80,6 +81,7 @@ function settingsOf(rest: string[], create: boolean) {
     )
   }
   if (values.expires !== undefined) settings.expires = values.expires
+  if (values.expires === NEVER_EXPIRES) settings.confirmNeverExpires = true
   if (create && values.name !== undefined) throw new Error(TOKEN_USAGE)
   return { positional, settings, name: values.name }
 }

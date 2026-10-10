@@ -326,6 +326,10 @@ describe('createReach for script tokens', () => {
   })
 
   it('reaches the workspaces the token created only when its scope says so', async () => {
+    groupOf = {}
+    await scripted.byAgent(async () => {
+      groupOf = { elsewhere: 'g1' }
+    })
     const own = script({ kind: 'limited', groups: ['g1'], workspaces: [], ownWorkspaces: true }, [
       'elsewhere',
     ])
@@ -338,6 +342,16 @@ describe('createReach for script tokens', () => {
     expect(created).toContainEqual([own.identity.externalId, 'fresh'])
     scripted.recordCreated(caller(), 'fresh')
     expect(created).toHaveLength(1)
+  })
+
+  it('stops reaching a workspace the token created once it leaves the scope groups', async () => {
+    groupOf = { elsewhere: 'g2' }
+    const own = script({ kind: 'limited', groups: ['g1'], workspaces: [], ownWorkspaces: true }, [
+      'elsewhere',
+    ])
+    expect(await scripted.inScope(own, 'elsewhere')).toBe(false)
+    groupOf = {}
+    expect(await scripted.inScope(own, 'elsewhere')).toBe(false)
   })
 
   it('leaves a token whose scope is all to all-workspaces, and gives a pane no script scope', async () => {

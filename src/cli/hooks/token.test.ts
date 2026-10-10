@@ -85,7 +85,7 @@ describe('parseTokenArgs', () => {
         'never',
         '--yes-never-expires',
       ]).params,
-    ).toMatchObject({ expires: 'never' })
+    ).toMatchObject({ expires: 'never', confirmNeverExpires: true })
   })
 
   it('refuses a scope it cannot read', () => {
