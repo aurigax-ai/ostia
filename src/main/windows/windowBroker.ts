@@ -315,6 +315,11 @@ export class WindowBroker {
     )
   }
 
+  private reopenedBounds(workspaceId: string, source: BrowserWindow): WindowBounds {
+    const last = this.book.lastDetachedBounds(workspaceId)
+    return last ? clampBounds(last, workAreas()) : this.detachedBounds(source)
+  }
+
   private leavesSandbox(workspace: SnapshotWorkspace, destination: string): boolean {
     const from = handoffPaneIds(workspace).map((paneId) => getByPaneId(paneId)?.workspaceId)
     return crossesSandbox(from, destination, this.deps.isSandboxed)
@@ -328,7 +333,9 @@ export class WindowBroker {
     if (this.leavesSandbox(workspace, workspace.id)) return false
     const slot = randomUUID().slice(0, 8)
     const point = parsePoint(rawPoint)
-    const bounds = point ? boundsAt(point, DETACHED_SIZE, workAreas()) : this.detachedBounds(source)
+    const bounds = point
+      ? boundsAt(point, DETACHED_SIZE, workAreas())
+      : this.reopenedBounds(workspace.id, source)
     this.book.open(slot, bounds)
     this.book.move(workspace, sourceSlot, slot)
     this.boot.set(slot, {
@@ -355,7 +362,7 @@ export class WindowBroker {
     if (workspaces.some((w) => this.windowOfWorkspace(w.id) !== undefined)) return false
     if (paneIds.some((paneId) => getByPaneId(paneId) !== undefined)) return false
     const slot = randomUUID().slice(0, 8)
-    const bounds = this.detachedBounds(source)
+    const bounds = this.reopenedBounds(workspaces[0].id, source)
     const snapshot: AppSnapshot = {
       v: 1,
       savedAt: '',

@@ -54,6 +54,7 @@ interface FakeWindow {
   getBounds: () => WindowBounds
   getNormalBounds: () => WindowBounds
   on: (event: string, listener: () => void) => void
+  emit: (event: string) => void
   close: () => void
 }
 
@@ -91,6 +92,7 @@ function fakeWindow(bounds: WindowBounds): FakeWindow {
     getBounds: () => win.bounds,
     getNormalBounds: () => win.bounds,
     on: (event, listener) => listeners.set(event, [...(listeners.get(event) ?? []), listener]),
+    emit,
     close: () => {
       emit('close')
       destroyed = true
@@ -331,6 +333,44 @@ describe('WindowBroker', () => {
     const saved = { v: 1, savedAt: 't', activeWorkspaceId: null, workspaces: [], groups: [] }
     const { main } = start({ ...saved, bounds: { x: 2800, y: 1900, width: 1361, height: 854 } })
     expect(main.bounds).toEqual({ x: 1639, y: 1146, width: 1361, height: 854 })
+  })
+
+  it('a workspace moved to its own window again opens where its window last was', () => {
+    const { main, opened, send } = start()
+    const mainId = String(main.webContents.id)
+    registerPane({ windowId: mainId, workspaceId: 'w-again', paneId: 'pane-again' })
+    send(main, 'windows:report', [report('w-again')])
+    send(main, 'windows:detach', workspace('w-again', 'pane-again'))
+    const first = opened[1]
+    send(first, 'windows:report', [report('w-again')])
+    const where = { x: 30, y: 60, width: 900, height: 600 }
+    first.bounds = where
+    first.emit('move')
+    expect(send(first, 'windows:return', [workspace('w-again', 'pane-again')])).toBe(true)
+    send(main, 'windows:report', [report('w-again')])
+
+    send(main, 'windows:detach', workspace('w-again', 'pane-again'))
+    expect(opened[2].bounds).toEqual(where)
+  })
+
+  it('a remembered detached window that no longer fits is pulled onto the screen', () => {
+    const saved = {
+      v: 1,
+      savedAt: 't',
+      activeWorkspaceId: 'w-off',
+      workspaces: [workspace('w-off', 'pane-off')],
+      groups: [],
+      detachedBounds: { 'w-off': { x: 2800, y: 1900, width: 900, height: 600 } },
+    }
+    const { main, opened, send } = start(saved)
+    registerPane({
+      windowId: String(main.webContents.id),
+      workspaceId: 'w-off',
+      paneId: 'pane-off',
+    })
+    send(main, 'windows:report', [report('w-off')])
+    send(main, 'windows:detach', workspace('w-off', 'pane-off'))
+    expect(opened[1].bounds).toEqual({ x: 2100, y: 1400, width: 900, height: 600 })
   })
 
   it('closing a detached window while the main window is in the tray keeps it there', () => {
