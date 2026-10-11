@@ -1,3 +1,4 @@
+import { firstPaneId } from '@/layout/tree'
 import { loadGhostty } from '@/lib/terminal/ghosttyEngine'
 import {
   noteFittedGrid,
@@ -5,8 +6,21 @@ import {
   startOffscreen,
 } from '@/lib/terminal/offscreenStart'
 import { useSettingsStore } from '@/stores/app/settingsStore'
+import { useLayoutStore } from '@/stores/workspaces/layoutStore'
+import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
 import { act, cleanup, render, waitFor } from '@testing-library/react'
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { FitAddon } from '@xterm/addon-fit'
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  onTestFinished,
+  vi,
+} from 'vitest'
 import { TerminalView } from './Terminal'
 
 if (!Element.prototype.getAnimations) {
@@ -51,9 +65,13 @@ const realResizeObserver = globalThis.ResizeObserver
 
 describe('TerminalView spawn size', () => {
   let settingsInit: ReturnType<typeof useSettingsStore.getState>
+  let workspacesInit: ReturnType<typeof useWorkspacesStore.getState>
+  let layoutInit: ReturnType<typeof useLayoutStore.getState>
 
   beforeAll(() => {
     settingsInit = useSettingsStore.getState()
+    workspacesInit = useWorkspacesStore.getState()
+    layoutInit = useLayoutStore.getState()
     HTMLCanvasElement.prototype.getContext = function getContext(
       this: HTMLCanvasElement,
       kind: string,
@@ -95,6 +113,8 @@ describe('TerminalView spawn size', () => {
     observers.clear()
     resetOffscreenStartForTests()
     useSettingsStore.setState(settingsInit, true)
+    useWorkspacesStore.setState(workspacesInit, true)
+    useLayoutStore.setState(layoutInit, true)
     vi.clearAllMocks()
   })
 
@@ -134,6 +154,44 @@ describe('TerminalView spawn size', () => {
       'p1',
       expect.objectContaining({ cols: 129 }),
     )
+  })
+
+  it('leaves a hidden xterm grid alone and fits it once the pane is shown', async () => {
+    useSettingsStore.setState({
+      terminal: { ...useSettingsStore.getState().terminal, renderer: 'xterm' },
+    })
+    const fitted = vi.spyOn(FitAddon.prototype, 'proposeDimensions').mockImplementation(() => ({
+      cols: Math.floor(box.width / 10),
+      rows: Math.floor(box.height / 20),
+    }))
+    onTestFinished(() => fitted.mockRestore())
+    useLayoutStore.getState().ensure('w1')
+    const paneId = firstPaneId(useLayoutStore.getState().byWorkspace.w1.root)
+    box.width = 520
+    box.height = 600
+    const { container } = render(<TerminalView workspaceId="w1" paneId={paneId} />)
+    await act(async () => {
+      layOut(520, 600)
+      await nextFrame()
+    })
+    await waitFor(() => expect(window.ostia.pty.attach).toHaveBeenCalledTimes(1))
+    expect(container.querySelector('.xterm-screen')).toBeNull()
+
+    await act(async () => {
+      layOut(900, 600)
+      await new Promise((resolve) => setTimeout(resolve, 150))
+      await nextFrame()
+    })
+    expect(window.ostia.pty.resize).not.toHaveBeenCalled()
+
+    act(() => useWorkspacesStore.setState({ activeWorkspaceId: 'w1' }))
+    expect(container.querySelector('.xterm-screen')).not.toBeNull()
+    await act(async () => {
+      layOut(900, 600)
+      await new Promise((resolve) => setTimeout(resolve, 150))
+      await nextFrame()
+    })
+    expect(window.ostia.pty.resize).toHaveBeenCalledWith(paneId, 90, 30)
   })
 
   it('starts a parked terminal an extension opened at the last remembered grid', async () => {
