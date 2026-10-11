@@ -1,3 +1,4 @@
+import { Terminal as Xterm } from '@xterm/xterm'
 import type { Terminal } from '@xterm/xterm'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -302,5 +303,17 @@ describe('createWebglRenderer', () => {
     expect(t.loaded).toHaveLength(1)
     expect(first.disposed).toBe(true)
     expect(first.loseContext).toHaveBeenCalledTimes(1)
+  })
+
+  it('relies on a render service pause hook that the real xterm still has', () => {
+    const host = document.createElement('div')
+    document.body.appendChild(host)
+    const term = new Xterm()
+    term.open(host)
+    const internals = term as unknown as {
+      _core: { _renderService: Record<string, unknown> }
+    }
+    expect(typeof internals._core._renderService._handleIntersectionChange).toBe('function')
+    term.dispose()
   })
 })

@@ -157,13 +157,11 @@ describe('TerminalView engines', () => {
     Object.defineProperty(HTMLElement.prototype, 'offsetWidth', { configurable: true, value: 800 })
     Object.defineProperty(HTMLElement.prototype, 'offsetHeight', { configurable: true, value: 600 })
     globalThis.ResizeObserver = InitialObservation as unknown as typeof ResizeObserver
-    vi.spyOn(FitAddon.prototype, 'proposeDimensions').mockReturnValue(undefined)
   })
 
   afterAll(() => {
     HTMLCanvasElement.prototype.getContext = realGetContext
     globalThis.ResizeObserver = realResizeObserver
-    vi.mocked(FitAddon.prototype.proposeDimensions).mockRestore()
   })
 
   afterEach(() => {
@@ -275,10 +273,10 @@ describe('TerminalView engines', () => {
     act(() => deliver(prompt))
     await waitFor(() => expect(useBlocksStore.getState().drafts.p1).toBeDefined())
     await act(() => new Promise((resolve) => setTimeout(resolve, 50)))
-    vi.mocked(FitAddon.prototype.proposeDimensions).mockReturnValue({ cols: 100, rows: 30 })
-    onTestFinished(() => {
-      vi.mocked(FitAddon.prototype.proposeDimensions).mockReturnValue(undefined)
-    })
+    const fitted = vi
+      .spyOn(FitAddon.prototype, 'proposeDimensions')
+      .mockReturnValue({ cols: 100, rows: 30 })
+    onTestFinished(() => fitted.mockRestore())
     act(() =>
       useSettingsStore.setState((s) => ({
         appearance: {
@@ -308,10 +306,10 @@ describe('TerminalView engines', () => {
     const chunks = ['first', 'second', 'third'].map(
       (word) => `${word}-out\r\n${' '.repeat(PTY_ACK_CHARS)}\r\n`,
     )
-    vi.mocked(FitAddon.prototype.proposeDimensions).mockReturnValue({ cols: 100, rows: 30 })
-    onTestFinished(() => {
-      vi.mocked(FitAddon.prototype.proposeDimensions).mockReturnValue(undefined)
-    })
+    const fitted = vi
+      .spyOn(FitAddon.prototype, 'proposeDimensions')
+      .mockReturnValue({ cols: 100, rows: 30 })
+    onTestFinished(() => fitted.mockRestore())
     let now = performance.now()
     const clock = vi.spyOn(performance, 'now').mockImplementation(() => {
       now += 20
@@ -517,6 +515,8 @@ describe('TerminalView engines', () => {
 
   for (const engine of ['xterm', 'Ghostty']) {
     it(`${engine}: Ctrl+click reveals a folder in Files, opens an outside folder in the file manager and opens an outside file`, async () => {
+      const fitted = vi.spyOn(FitAddon.prototype, 'proposeDimensions').mockReturnValue(undefined)
+      onTestFinished(() => fitted.mockRestore())
       useFileTreeStore.setState({ revealed: null })
       useUIStore.setState({ filesOpen: false })
       useEditorRevealStore.setState({ pending: {} })
@@ -634,6 +634,8 @@ describe('TerminalView engines', () => {
   })
 
   it('lowering scrollback in Settings trims history in an open terminal', async () => {
+    const fitted = vi.spyOn(FitAddon.prototype, 'proposeDimensions').mockReturnValue(undefined)
+    onTestFinished(() => fitted.mockRestore())
     const lines = Array.from({ length: 2000 }, (_, i) => `${i + 1}`)
     vi.mocked(window.ostia.pty.attach).mockResolvedValue({
       created: true,
