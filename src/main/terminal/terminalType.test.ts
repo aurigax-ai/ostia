@@ -2,7 +2,7 @@ import { delimiter } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { GPU_RESTORE_ENV } from '../platform/discreteGpu'
 import { newWindowCommand } from '../tmux/tmuxCommand'
-import { paneShellEnv, ptyLocaleEnv, withPaneToken } from './terminalType'
+import { paneShellEnv, ptyHyperlinkEnv, ptyLocaleEnv, withPaneToken } from './terminalType'
 
 const parts = {
   version: '1.2.3',
@@ -46,6 +46,7 @@ describe('paneShellEnv', () => {
       OSTIA_NO_CLAUDE_HOOKS: '1',
       OSTIA_NO_CODEX_HOOKS: '',
       LANG: 'en_US.UTF-8',
+      FORCE_HYPERLINK: '1',
       COLORTERM: 'truecolor',
       TERM_PROGRAM: 'ostia',
       TERM_PROGRAM_VERSION: '1.2.3',
@@ -106,6 +107,28 @@ describe('paneShellEnv locale', () => {
     const env = paneShellEnv({ ...parts, parent, locale: 'zh-TW' })
     expect(env.LANG).toBeUndefined()
     expect(env.LC_ALL).toBe('en_GB.UTF-8')
+  })
+})
+
+describe('paneShellEnv hyperlinks', () => {
+  it('turns on FORCE_HYPERLINK for a pane that did not set it', () => {
+    expect(paneShellEnv(parts).FORCE_HYPERLINK).toBe('1')
+  })
+
+  it.each(['0', '1', 'false', ''])(
+    'keeps FORCE_HYPERLINK=%j from the parent environment',
+    (value) => {
+      const parent = { ...parts.parent, FORCE_HYPERLINK: value }
+      expect(paneShellEnv({ ...parts, parent }).FORCE_HYPERLINK).toBe(value)
+    },
+  )
+})
+
+describe('ptyHyperlinkEnv', () => {
+  it('adds FORCE_HYPERLINK only when the parent has none', () => {
+    expect(ptyHyperlinkEnv({})).toEqual({ FORCE_HYPERLINK: '1' })
+    expect(ptyHyperlinkEnv({ FORCE_HYPERLINK: '0' })).toEqual({})
+    expect(ptyHyperlinkEnv({ FORCE_HYPERLINK: '' })).toEqual({})
   })
 })
 

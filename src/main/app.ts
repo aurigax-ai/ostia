@@ -379,6 +379,7 @@ import {
   PTY_COLOR_ENV,
   PTY_TERM_NAME,
   paneShellEnv,
+  ptyHyperlinkEnv,
   ptyIdentityEnv,
   ptyLocaleEnv,
   withPaneToken,
@@ -2883,6 +2884,7 @@ function spawnManagerPty(req: {
     ...(req.path === undefined ? {} : { PATH: req.path }),
     ...paneEnv(req.paneId, windowId, cwd),
     ...ptyLocaleEnv(process.env, app.getLocale()),
+    ...ptyHyperlinkEnv(process.env),
     ...PTY_COLOR_ENV,
     ...ptyIdentityEnv(app.getVersion()),
   } as Record<string, string>
