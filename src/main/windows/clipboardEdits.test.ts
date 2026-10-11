@@ -2,7 +2,12 @@ import { EventEmitter } from 'node:events'
 import type { IpcMain, WebContents } from 'electron'
 import { describe, expect, it, vi } from 'vitest'
 import { parseChord } from '../../shared/keyboard/chordSpec'
-import { registerClipboardEdits } from './clipboardEdits'
+import {
+  clipboardContents,
+  filePathsFromUriList,
+  isImageFormat,
+  registerClipboardEdits,
+} from './clipboardEdits'
 
 type Handler = (event: { sender: WebContents }, ...args: unknown[]) => unknown
 
@@ -29,13 +34,13 @@ const linuxChords = {
   paste: parseChord('Ctrl+Shift+V', false),
 }
 
-function setup(formats: string[] = [], mac = false) {
+function setup(formats: string[] = [], mac = false, uriList = '') {
   const app = fakeContents()
   const { ipc, call } = fakeIpc()
   const edits = registerClipboardEdits({
     ipc,
     isAppWindow: (sender) => sender === app,
-    availableFormats: async () => formats,
+    snapshot: async () => ({ formats, uriList }),
     mac,
   })
   return { app, call, edits }
@@ -69,12 +74,28 @@ describe('registerClipboardEdits', () => {
     expect(stranger.pasteAndMatchStyle).not.toHaveBeenCalled()
   })
 
-  it('reports an image on the clipboard only to an app window', async () => {
+  it('reports the clipboard contents only to an app window', async () => {
     const { app, call } = setup(['image/png'])
-    expect(await call('clipboard:has-image', app)).toBe(true)
-    expect(await call('clipboard:has-image', fakeContents())).toBe(false)
+    expect(await call('clipboard:contents', app)).toEqual({ files: [], image: true })
+    expect(await call('clipboard:contents', fakeContents())).toEqual({ files: [], image: false })
     const text = setup(['text/plain'])
-    expect(await text.call('clipboard:has-image', text.app)).toBe(false)
+    expect(await text.call('clipboard:contents', text.app)).toEqual({ files: [], image: false })
+  })
+
+  it('reports a copied file and its native image types the way Finder leaves them', async () => {
+    const finder = setup(
+      [
+        'text/uri-list',
+        'electron application/osclipboard;format="Apple PNG pasteboard type"',
+        'electron application/osclipboard;format="NeXT TIFF v4.0 pasteboard type"',
+      ],
+      true,
+      'file:///Users/me/Desktop/my%20shot.png\r\n',
+    )
+    expect(await finder.call('clipboard:contents', finder.app)).toEqual({
+      files: ['/Users/me/Desktop/my shot.png'],
+      image: true,
+    })
   })
 
   it('runs the chords the renderer sent inside a guest page', () => {
@@ -134,5 +155,49 @@ describe('registerClipboardEdits', () => {
     expect(paste.preventDefault).not.toHaveBeenCalled()
     expect(guest.copy).not.toHaveBeenCalled()
     expect(guest.pasteAndMatchStyle).not.toHaveBeenCalled()
+  })
+})
+
+describe('clipboardContents', () => {
+  it('sees an image in the native macOS types Electron reports when no image MIME type exists', () => {
+    for (const format of [
+      'electron application/osclipboard;format="public.png"',
+      'electron application/osclipboard;format="public.tiff"',
+      'electron application/osclipboard;format="Apple PNG pasteboard type"',
+      'electron application/osclipboard;format="NeXT TIFF v4.0 pasteboard type"',
+    ]) {
+      expect(clipboardContents({ formats: ['text/uri-list', format], uriList: '' }).image).toBe(
+        true,
+      )
+    }
+  })
+
+  it('does not take other raw formats or plain text for an image', () => {
+    expect(isImageFormat('electron application/osclipboard;format="public.utf8-plain-text"')).toBe(
+      false,
+    )
+    expect(isImageFormat('text/plain')).toBe(false)
+    expect(clipboardContents({ formats: ['text/plain'], uriList: '' })).toEqual({
+      files: [],
+      image: false,
+    })
+  })
+
+  it('lists every local file in the URI list and skips comments and web links', () => {
+    expect(
+      filePathsFromUriList(
+        '# copied\r\nfile:///tmp/a%20b.png\r\nhttps://example.com/x.png\nfile:///tmp/c.txt\n',
+      ),
+    ).toEqual(['/tmp/a b.png', '/tmp/c.txt'])
+  })
+
+  it('skips a file URL that names another host', () => {
+    expect(filePathsFromUriList('file://server/share/a.png')).toEqual([])
+  })
+
+  it('reports a file together with an image, which the renderer pastes as a path', () => {
+    expect(
+      clipboardContents({ formats: ['image/png', 'text/uri-list'], uriList: 'file:///tmp/a.png' }),
+    ).toEqual({ files: ['/tmp/a.png'], image: true })
   })
 })

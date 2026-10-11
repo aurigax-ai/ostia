@@ -831,9 +831,14 @@ export interface TerminalLinksApi {
   openFolder: (paneId: string, written: string) => Promise<OpenPathResult>
 }
 
+export interface ClipboardContents {
+  files: string[]
+  image: boolean
+}
+
 export interface ClipboardApi {
   edit: (edit: ClipboardEdit) => Promise<void>
-  hasImage: () => Promise<boolean>
+  contents: () => Promise<ClipboardContents>
   setChords: (chords: ClipboardChords) => void
 }
 

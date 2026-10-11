@@ -231,7 +231,7 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
     },
     clipboard: {
       edit: vi.fn().mockResolvedValue(undefined),
-      hasImage: vi.fn().mockResolvedValue(false),
+      contents: vi.fn().mockResolvedValue({ files: [], image: false }),
       setChords: vi.fn(),
     },
     guestChords: {

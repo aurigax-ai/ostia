@@ -324,13 +324,32 @@ describe('TerminalView engines', () => {
     useSettingsStore.setState({
       terminal: { ...useSettingsStore.getState().terminal, clipboardKeys: 'smart' },
     })
-    vi.mocked(window.ostia.clipboard.hasImage).mockResolvedValueOnce(true)
+    vi.mocked(window.ostia.clipboard.contents).mockResolvedValueOnce({ files: [], image: true })
     const user = userEvent.setup()
     const { container } = await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
     const textarea = container.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement
     act(() => textarea.focus())
     await user.keyboard('{Control>}v{/Control}')
     await waitFor(() => expect(window.ostia.pty.write).toHaveBeenCalledWith('p1', '\x16'))
+  })
+
+  it('smart Ctrl+V pastes the quoted path of a copied file even when its image is on the clipboard too', async () => {
+    useSettingsStore.setState({
+      terminal: { ...useSettingsStore.getState().terminal, clipboardKeys: 'smart' },
+    })
+    vi.mocked(window.ostia.clipboard.contents).mockResolvedValueOnce({
+      files: ['/tmp/my shot.png'],
+      image: true,
+    })
+    const user = userEvent.setup()
+    const { container } = await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
+    const textarea = container.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement
+    act(() => textarea.focus())
+    await user.keyboard('{Control>}v{/Control}')
+    await waitFor(() =>
+      expect(window.ostia.pty.write).toHaveBeenCalledWith('p1', "'/tmp/my shot.png' "),
+    )
+    expect(window.ostia.pty.write).not.toHaveBeenCalledWith('p1', '\x16')
   })
 
   for (const [system, chord] of [

@@ -1,4 +1,5 @@
 import type { ClipboardKeys } from '@/settings/terminalPaneSettings'
+import type { ClipboardContents } from '@shared/types'
 
 interface KeyLike {
   key: string
@@ -24,13 +25,17 @@ export function smartClipboardAction(
 
 export const PROGRAM_PASTE_KEY = '\x16'
 
+export const NO_CLIPBOARD_CONTENTS: ClipboardContents = { files: [], image: false }
+
 export function keyPastePlan(
   text: string,
   editorShown: boolean,
-  hasImage: boolean,
-): 'text' | 'program' | 'none' {
+  contents: ClipboardContents,
+): 'text' | 'files' | 'program' | 'none' {
   if (text) return 'text'
-  return !editorShown && hasImage ? 'program' : 'none'
+  if (editorShown) return 'none'
+  if (contents.files.length > 0) return 'files'
+  return contents.image ? 'program' : 'none'
 }
 
 export function pasteEventReadsClipboard(

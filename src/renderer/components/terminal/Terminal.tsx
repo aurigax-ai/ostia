@@ -45,6 +45,7 @@ import {
   matchTerminalChord,
 } from '@/lib/keys/chords'
 import {
+  NO_CLIPBOARD_CONTENTS,
   PROGRAM_PASTE_KEY,
   keyPastePlan,
   pasteEventReadsClipboard,
@@ -344,11 +345,14 @@ function TerminalSurface({
       const text = await navigator.clipboard.readText().catch(() => '')
       if (disposed) return
       const editorShown = Boolean(inputEditorFor(paneId))
-      const hasImage =
-        !text && !editorShown && (await window.ostia.clipboard.hasImage().catch(() => false))
+      const contents =
+        !text && !editorShown
+          ? await window.ostia.clipboard.contents().catch(() => NO_CLIPBOARD_CONTENTS)
+          : NO_CLIPBOARD_CONTENTS
       if (disposed) return
-      const plan = keyPastePlan(text, editorShown, hasImage)
+      const plan = keyPastePlan(text, editorShown, contents)
       if (plan === 'text') requestPaste(text)
+      else if (plan === 'files') pasteConfirmed(pathsAsInput(contents.files))
       else if (plan === 'program') term.input(PROGRAM_PASTE_KEY, true)
     }
     pasteClipboardRef.current = () => void pasteFromClipboard()

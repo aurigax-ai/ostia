@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process'
 import { writeFileSync } from 'node:fs'
 import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
@@ -49,6 +50,29 @@ const writeClipboardImage = (app: ElectronApplication) =>
     await clipboard.write([new ClipboardItem({ 'image/png': png })])
   }, RED_DOT_PNG)
 
+const READ_PATH_ARGS =
+  'sh -c \'echo ready_$((3+4)); read -r line; eval "set -- $line"; echo "arg_$#_$(basename "$1")"\''
+
+const copyFileOnMac = (path: string, flavors: 'file' | 'image' | 'file-and-image') => {
+  const png = 'read p as «class PNGf»'
+  const clipboard = {
+    file: 'set the clipboard to p',
+    image: `set the clipboard to (${png})`,
+    'file-and-image': `set the clipboard to {«class furl»:p, «class PNGf»:(${png})}`,
+  }[flavors]
+  execFileSync('osascript', [
+    '-e',
+    'on run argv',
+    '-e',
+    'set p to POSIX file (item 1 of argv)',
+    '-e',
+    clipboard,
+    '-e',
+    'end run',
+    path,
+  ])
+}
+
 async function selectTerminalWord(win: Page, word: string): Promise<void> {
   const row = win
     .locator('.xterm-rows > div')
@@ -91,6 +115,42 @@ test(
     }
   },
 )
+
+test('Cmd+V pastes the quoted path of a copied image file and still hands a bare image to the program', async () => {
+  test.skip(!isMac, 'the native pasteboard types only exist on macOS')
+  const { app, win, home } = await launch()
+  try {
+    const rows = win.locator('.xterm-rows').first()
+    const shot = join(home, 'my shot.png')
+    writeFileSync(shot, Buffer.from(RED_DOT_PNG.split(',')[1], 'base64'))
+    await win.locator('.xterm').first().click()
+
+    copyFileOnMac(shot, 'file-and-image')
+    expect(await win.evaluate(() => window.ostia.clipboard.contents())).toEqual({
+      files: [shot],
+      image: true,
+    })
+    await win.keyboard.type(READ_PATH_ARGS)
+    await win.keyboard.press('Enter')
+    await expect(rows).toContainText('ready_7')
+    await win.keyboard.press(chords.paste)
+    await win.keyboard.press('Enter')
+    await expect(rows).toContainText('arg_1_my shot.png', { timeout: 10_000 })
+
+    copyFileOnMac(shot, 'image')
+    expect(await win.evaluate(() => window.ostia.clipboard.contents())).toEqual({
+      files: [],
+      image: true,
+    })
+    await win.keyboard.type(READ_ONE_BYTE)
+    await win.keyboard.press('Enter')
+    await expect(rows).toContainText('reading_7')
+    await win.keyboard.press(chords.paste)
+    await expect(rows).toContainText('byte_16', { timeout: 10_000 })
+  } finally {
+    await app.close()
+  }
+})
 
 test('the copy and paste chords work in Monaco and in a text field', async () => {
   const { app, win, home } = await launch()
