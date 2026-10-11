@@ -58,6 +58,7 @@ export interface TerminalOptions {
   scrollback?: number
   minimumContrastRatio?: number
   macOptionIsMeta?: boolean
+  macOptionClickForcesSelection?: boolean
 }
 
 export interface TerminalSearch {

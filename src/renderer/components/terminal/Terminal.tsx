@@ -234,6 +234,7 @@ function TerminalSurface({
       scrollSensitivity: terminalSettings.scrollSpeed,
       minimumContrastRatio: terminalSettings.minimumContrast,
       macOptionIsMeta: terminalSettings.macOptionIsMeta,
+      macOptionClickForcesSelection: true,
     }
     let term: OstiaTerminal
     let fit: TerminalFit

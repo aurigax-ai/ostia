@@ -1,3 +1,4 @@
+import { isMac } from '@/platform'
 import {
   FitAddon,
   Ghostty,
@@ -130,6 +131,22 @@ function fontWeightOf(weight: TerminalOptions['fontWeight']): 'normal' | 'bold' 
   return Number(weight)
 }
 
+function forceSelectionOnOptionDrag(canvas: HTMLCanvasElement): void {
+  let forced = false
+  const filter = (event: MouseEvent): void => {
+    if (event.type === 'mousedown') {
+      forced = isMac && event.button === 0 && event.altKey
+    } else if (event.type === 'mousemove' && event.buttons === 0) {
+      forced = false
+    }
+    if (forced) event.stopPropagation()
+    if (event.type === 'mouseup') forced = false
+  }
+  for (const type of ['mousedown', 'mousemove', 'mouseup'] as const) {
+    canvas.addEventListener(type, filter)
+  }
+}
+
 export function createGhosttyTerminal(
   options: TerminalOptions,
   gpu: boolean,
@@ -234,7 +251,9 @@ export function createGhosttyTerminal(
     onRender: t.onRender,
     open: (parent) => {
       t.open(parent)
-      parent.querySelector('canvas')?.classList.add('ghostty-screen')
+      const canvas = parent.querySelector('canvas')
+      canvas?.classList.add('ghostty-screen')
+      if (canvas && options.macOptionClickForcesSelection) forceSelectionOnOptionDrag(canvas)
     },
     write: (data, callback) => t.write(data, callback),
     writeln: (data, callback) => t.writeln(data, callback),
