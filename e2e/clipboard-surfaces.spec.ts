@@ -50,8 +50,7 @@ const writeClipboardImage = (app: ElectronApplication) =>
     await clipboard.write([new ClipboardItem({ 'image/png': png })])
   }, RED_DOT_PNG)
 
-const READ_PATH_ARGS =
-  'sh -c \'echo ready_$((3+4)); read -r line; eval "set -- $line"; echo "arg_$#_$(basename "$1")"\''
+const READ_LINE = 'sh -c \'echo ready_$((3+4)); IFS= read -r line; echo "got<$line>"\''
 
 const copyFileOnMac = (path: string, flavors: 'file' | 'image' | 'file-and-image') => {
   const png = 'read p as «class PNGf»'
@@ -130,12 +129,13 @@ test('Cmd+V pastes the quoted path of a copied image file and still hands a bare
       files: [shot],
       image: true,
     })
-    await win.keyboard.type(READ_PATH_ARGS)
+    await win.keyboard.type(READ_LINE)
     await win.keyboard.press('Enter')
     await expect(rows).toContainText('ready_7')
     await win.keyboard.press(chords.paste)
+    await expect(rows).toContainText(`'${shot}' `, { timeout: 10_000 })
     await win.keyboard.press('Enter')
-    await expect(rows).toContainText('arg_1_my shot.png', { timeout: 10_000 })
+    await expect(rows).toContainText(`got<'${shot}' >`, { timeout: 10_000 })
 
     copyFileOnMac(shot, 'image')
     expect(await win.evaluate(() => window.ostia.clipboard.contents())).toEqual({
