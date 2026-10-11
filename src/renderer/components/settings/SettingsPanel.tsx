@@ -91,6 +91,7 @@ import {
   InfoIcon,
   KeyIcon,
   KeyboardIcon,
+  KeyholeIcon,
   LayoutIcon,
   MagnifyingGlassIcon,
   PaletteIcon,
@@ -139,6 +140,7 @@ import { PasswordsSection } from './PasswordsSection'
 import { PrivacySection } from './PrivacySection'
 import { PromptSection } from './PromptSection'
 import { RequirementsNoteView, useRequirements } from './RequirementsNote'
+import { ScriptTokensSection } from './ScriptTokensSection'
 import {
   Highlight,
   SearchScopeProvider,
@@ -183,6 +185,7 @@ type SectionId =
   | 'ports'
   | 'browser'
   | 'passwords'
+  | 'scriptTokens'
   | 'privacy'
   | 'editor'
   | 'extensions'
@@ -269,6 +272,7 @@ export function settingsSections(d: Dict): SettingsSection[] {
     { id: 'sandbox', group: 'security', icon: ShieldCheckIcon, label: d.sandbox.title },
     { id: 'privacy', group: 'security', icon: EyeSlashIcon, label: d.privacy.title },
     { id: 'passwords', group: 'security', icon: KeyIcon, label: d.passwords.title },
+    { id: 'scriptTokens', group: 'security', icon: KeyholeIcon, label: d.scriptTokens.title },
     { id: 'extensions', group: 'more', icon: PuzzlePieceIcon, label: d.settings.extensions },
     {
       id: 'browseExtensions',
@@ -686,6 +690,7 @@ const SettingsPages = memo(function SettingsPages({
       {id === 'ports' ? <PortsSection /> : null}
       {id === 'browser' ? <BrowserSettingsSection /> : null}
       {id === 'passwords' ? <PasswordsSection /> : null}
+      {id === 'scriptTokens' ? <ScriptTokensSection /> : null}
       {id === 'privacy' ? <PrivacySection /> : null}
       {id === 'editor' ? <EditorSettingsSection /> : null}
       {id === 'extensions' || (id === 'extensionPage' && !shownPage) ? (

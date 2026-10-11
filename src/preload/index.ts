@@ -75,6 +75,11 @@ import type {
 import type { ApprovalState } from '../shared/permissions/approvals'
 import type { AgentGroupPlacement } from '../shared/permissions/reach'
 import type {
+  ScriptTokenSaveResult,
+  ScriptTokenUsage,
+  ScriptTokensState,
+} from '../shared/permissions/scriptTokens'
+import type {
   RemoteFolder,
   RemoteFolderAsk,
   RemoteListResult,
@@ -725,6 +730,20 @@ const bridge: OstiaBridge = {
     remove: (id) => ipcRenderer.invoke('credentials:remove', id) as Promise<boolean>,
     copyPassword: (id) => ipcRenderer.invoke('credentials:copy-password', id) as Promise<boolean>,
     import: () => ipcRenderer.invoke('credentials:import') as Promise<CredentialImportResult>,
+  },
+  scriptTokens: {
+    list: () => ipcRenderer.invoke('scriptTokens:list') as Promise<ScriptTokensState>,
+    create: (input) =>
+      ipcRenderer.invoke('scriptTokens:create', input) as Promise<ScriptTokenSaveResult>,
+    update: (input) =>
+      ipcRenderer.invoke('scriptTokens:update', input) as Promise<ScriptTokenSaveResult>,
+    revoke: (id) => ipcRenderer.invoke('scriptTokens:revoke', id) as Promise<boolean>,
+    usage: (id) => ipcRenderer.invoke('scriptTokens:usage', id) as Promise<ScriptTokenUsage | null>,
+    onChanged: (cb) => {
+      const handler = (): void => cb()
+      ipcRenderer.on('scriptTokens:changed', handler)
+      return () => ipcRenderer.removeListener('scriptTokens:changed', handler)
+    },
   },
   approvals: {
     state: () => ipcRenderer.invoke('approvals:state') as Promise<ApprovalState>,

@@ -50,6 +50,8 @@ const chord = (text: string, mac = true): ChordSpec => {
   return spec
 }
 
+const shiftEnter: [string, KeyLike, string] = ['⇧↵', key('Enter', { shiftKey: true }), '\x1b\r']
+
 const OSTIA_SENDS: [string, KeyLike, string][] = [
   ['⌘⌫', key('Backspace', cmd), '\x15'],
   ['⌘←', key('ArrowLeft', cmd), '\x01'],
@@ -59,6 +61,7 @@ const OSTIA_SENDS: [string, KeyLike, string][] = [
   ['⌥⌫', key('Backspace', opt), '\x1b\x7f'],
   ['⌥⌦', key('Delete', opt), '\x1bd'],
   ['⌘⌦', key('Delete', cmd), '\x0b'],
+  shiftEnter,
 ]
 
 const LINUX_SENDS: [string, KeyLike, string][] = [
@@ -67,6 +70,7 @@ const LINUX_SENDS: [string, KeyLike, string][] = [
   ['Alt+Left', key('ArrowLeft', opt), '\x1bb'],
   ['Alt+Right', key('ArrowRight', opt), '\x1bf'],
   ['Ctrl+Backspace', key('Backspace', { ctrlKey: true }), '\x17'],
+  shiftEnter,
 ]
 
 const NATURAL_SENDS: [string, KeyLike, string][] = [
@@ -78,6 +82,7 @@ const NATURAL_SENDS: [string, KeyLike, string][] = [
   ['⌘←', key('ArrowLeft', cmd), '\x01'],
   ['⌘→', key('ArrowRight', cmd), '\x05'],
   ['⌦', key('Delete'), '\x04'],
+  shiftEnter,
 ]
 
 describe('Ostia default preset', () => {
@@ -116,6 +121,10 @@ describe('Ostia default preset', () => {
       key('ArrowLeft', { metaKey: true, ctrlKey: true }),
       key('ArrowLeft', { metaKey: true, altKey: true }),
       key('Backspace', { metaKey: true, altKey: true }),
+      key('Enter'),
+      key('Enter', cmd),
+      key('Enter', opt),
+      key('Enter', { shiftKey: true, altKey: true }),
     ]) {
       expect(terminalKeyData(event, true), JSON.stringify(event)).toBeNull()
     }
@@ -133,6 +142,7 @@ describe('Ostia default preset', () => {
   it('leaves every other key on Linux to the terminal, macOS keys included', () => {
     for (const [name, event] of [...OSTIA_SENDS, ...NATURAL_SENDS]) {
       if (event.altKey && !event.metaKey && event.key.startsWith('Arrow')) continue
+      if (event === shiftEnter[1]) continue
       expect(terminalKeyData(event, false), name).toBeNull()
     }
     for (const event of [
@@ -143,9 +153,19 @@ describe('Ostia default preset', () => {
       key('Delete', { ctrlKey: true }),
       key('Home'),
       key('End'),
+      key('Enter'),
+      key('Enter', { ctrlKey: true }),
+      key('Enter', { shiftKey: true, ctrlKey: true }),
     ]) {
       expect(terminalKeyData(event, false), JSON.stringify(event)).toBeNull()
     }
+  })
+
+  it('sends ESC CR for Shift+Enter on both platforms and leaves a plain Enter alone', () => {
+    expect(terminalKeyData(shiftEnter[1], true)).toBe('\x1b\r')
+    expect(terminalKeyData(shiftEnter[1], false)).toBe('\x1b\r')
+    expect(terminalKeyData(key('Enter'), true)).toBeNull()
+    expect(terminalKeyData(key('Enter'), false)).toBeNull()
   })
 
   it('sends nothing on Linux with No translation, as before', () => {
@@ -174,7 +194,7 @@ describe('Ostia default preset', () => {
 })
 
 describe('Natural Text Editing preset', () => {
-  it('sends exactly the eight keys of iTerm2’s preset', () => {
+  it('sends the eight keys of iTerm2’s preset plus Ostia’s Shift+Enter newline fix', () => {
     useSettingsStore.setState({ terminalKeymap: NATURAL_TEXT_EDITING })
     for (const [name, event, sent] of NATURAL_SENDS) {
       expect(terminalKeyData(event, true), name).toBe(sent)

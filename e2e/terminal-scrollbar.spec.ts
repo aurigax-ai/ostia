@@ -11,7 +11,7 @@ test('the terminal text stops before the scrollbar and inside the pane', async (
     await openWorkspace(win)
     await win.locator('.xterm-helper-textarea').first().focus()
     await win.keyboard.type('seq 1 400\n')
-    const bar = win.locator('.xterm-scrollable-element > .scrollbar.vertical').first()
+    const bar = win.locator('.xterm-scrollable-element > .xterm-scrollbar.xterm-vertical').first()
     await expect(win.locator('.xterm-rows')).toContainText('400')
     await win.locator('.xterm-screen').first().hover()
     await win.mouse.wheel(0, -300)

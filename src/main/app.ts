@@ -110,8 +110,11 @@ import {
 import { registerPermissionAsk } from './approvals/permissionAsk'
 import { questions, registerQuestions } from './approvals/questions'
 import { type ReachListing, createReach } from './approvals/reach'
+import { registerScriptTokenIpc } from './approvals/scriptTokenIpc'
+import { createScriptTokenUsage } from './approvals/scriptTokenUsage'
 import {
   checkScriptToken,
+  listScriptTokens,
   recordCreatedWorkspace,
   registerScriptTokenMethods,
   retireLegacyScriptTokens,
@@ -379,7 +382,9 @@ import {
   PTY_COLOR_ENV,
   PTY_TERM_NAME,
   paneShellEnv,
+  ptyHyperlinkEnv,
   ptyIdentityEnv,
+  ptyLocaleEnv,
   withPaneToken,
 } from './terminal/terminalType'
 import { type SavedAttention, isKeptAttentionState } from './tmux/attentionFile'
@@ -2351,6 +2356,7 @@ function registerPtyIpc(): void {
     const stateFile = join(privateTmpDir(`${PRODUCT_NAME}-shell-state`), randomUUID())
     let env = paneShellEnv({
       version: app.getVersion(),
+      locale: app.getLocale(),
       parent: process.env,
       integration: integration.env,
       pane: appEnv({
@@ -2860,6 +2866,9 @@ function managerLaunchArgv(argv: string[], resume: AgentResume | null): string[]
 const managerResumePath = (): string => storePath('manager-resume', 'global')
 const scriptTokensPath = (): string => storePath('script-tokens-v2', 'global')
 const retiredScriptTokensPath = (): string => storePath('retired-script-tokens', 'global')
+const scriptTokenUsage = createScriptTokenUsage(() => storePath('script-token-usage', 'global'), {
+  known: () => new Set(listScriptTokens(scriptTokensPath()).map((t) => t.id)),
+})
 
 function spawnManagerPty(req: {
   paneId: string
@@ -2880,6 +2889,8 @@ function spawnManagerPty(req: {
     ...process.env,
     ...(req.path === undefined ? {} : { PATH: req.path }),
     ...paneEnv(req.paneId, windowId, cwd),
+    ...ptyLocaleEnv(process.env, app.getLocale()),
+    ...ptyHyperlinkEnv(process.env),
     ...PTY_COLOR_ENV,
     ...ptyIdentityEnv(app.getVersion()),
   } as Record<string, string>
@@ -3088,6 +3099,12 @@ function runMenuCommandInFocusedWindow(command: string): void {
   const focused = BrowserWindow.getFocusedWindow()
   const win = focused && [...windows.values()].includes(focused) ? focused : mainWindow()
   if (win && !win.isDestroyed()) win.webContents.send('app-menu:run', command)
+}
+
+function reloadFocusedWindow(): void {
+  const focused = BrowserWindow.getFocusedWindow()
+  const win = focused && [...windows.values()].includes(focused) ? focused : mainWindow()
+  if (win && !win.isDestroyed()) diagnostics?.reloadWindow(win.webContents)
 }
 
 function mainWindow(): BrowserWindow | undefined {
@@ -3500,6 +3517,7 @@ app.whenReady().then(() => {
     productName: PRODUCT_DISPLAY_NAME,
     openSettings: openSettingsInFocusedWindow,
     runCommand: runMenuCommandInFocusedWindow,
+    reloadWindow: reloadFocusedWindow,
   })
   ipcMain.on('app-menu:set', (e, spec: unknown) => {
     const win = BrowserWindow.fromWebContents(e.sender)
@@ -4147,11 +4165,17 @@ app.whenReady().then(() => {
       from: 'script-tokens',
     })
   }
-  registerScriptTokenMethods({
+  const scriptTokenDeps = {
     path: scriptTokensPath,
     retiredPath: retiredScriptTokensPath,
     listing: workspaceListing,
-  })
+    changed: () => broadcast('scriptTokens:changed', null),
+    appWindows: () => windows.values(),
+    usage: scriptTokenUsage,
+    panes: () => listPanes({ execCommand, getTerminalState, ptyPid, windowIds, waking: isWaking }),
+  }
+  registerScriptTokenMethods(scriptTokenDeps)
+  registerScriptTokenIpc(scriptTokenDeps)
   setScriptTokenCheck((token) =>
     checkScriptToken({ path: scriptTokensPath(), retiredPath: retiredScriptTokensPath() }, token),
   )
@@ -4175,6 +4199,7 @@ app.whenReady().then(() => {
     primaryWindow: primaryWindowId,
     byAgent: reach.byAgent,
     reach,
+    usage: scriptTokenUsage,
   })
   writeControlInfo(controlInfoPath(), controlSocketPath(), process.pid)
   if (keepShellsOn()) ensureKeptPlumbing()
@@ -4414,7 +4439,10 @@ app.on('before-quit', (event) => {
   quitTrace.stage('teardown-done')
 })
 
-app.on('will-quit', () => quitTrace.stage('will-quit'))
+app.on('will-quit', () => {
+  quitTrace.stage('will-quit')
+  scriptTokenUsage.close()
+})
 app.on('quit', () => quitTrace.stage('quit'))
 
 app.on('window-all-closed', () => {

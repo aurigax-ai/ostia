@@ -1626,7 +1626,7 @@ async function main(): Promise<void> {
   conn.onClose(onLost)
   conn.listen()
   try {
-    await conn.sendRequest('hello', { token })
+    await conn.sendRequest('hello', { token, pid: process.ppid })
     if (cmd === 'whoami') {
       const who = await conn.sendRequest('whoami')
       console.log(JSON.stringify(who, null, 2))

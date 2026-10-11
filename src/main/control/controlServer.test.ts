@@ -396,7 +396,7 @@ function registeredMethods(): Set<string> {
   for (const text of controlSources('main', MAIN_PORTAL)) {
     for (const name of literals(
       text,
-      /(?:registerControlMethod|registerTargetableMethod|conn\.onRequest)\(\s*'([^'\n]+)'/g,
+      /(?:registerControlMethod|registerTargetableMethod|conn\.onRequest|onCall)\(\s*'([^'\n]+)'/g,
     )) {
       names.add(name)
     }

@@ -8,8 +8,10 @@ import { useSettingsStore } from '@/stores/app/settingsStore'
 import { useUIStore } from '@/stores/app/uiStore'
 import { useEditorRevealStore } from '@/stores/files/editorRevealStore'
 import { useFileTreeStore } from '@/stores/files/fileTreeStore'
+import { useBlocksStore } from '@/stores/terminal/blocksStore'
 import { useLayoutStore } from '@/stores/workspaces/layoutStore'
 import { useWorkspacesStore } from '@/stores/workspaces/workspacesStore'
+import { PTY_ACK_CHARS } from '@shared/terminal/ptyFlow'
 import type { ClipboardContents } from '@shared/types'
 import {
   type RenderResult,
@@ -21,6 +23,7 @@ import {
   waitFor,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { FitAddon } from '@xterm/addon-fit'
 import type { ILink, ILinkHandler, ILinkProvider, Terminal as Xterm } from '@xterm/xterm'
 import type { ReactElement } from 'react'
 import { afterAll, afterEach, beforeAll, describe, expect, it, onTestFinished, vi } from 'vitest'
@@ -39,6 +42,12 @@ vi.mock('@/platform', () => ({
   get isLinux() {
     return !os.mac
   },
+}))
+
+const webgl = vi.hoisted(() => ({ pause: vi.fn(), dispose: vi.fn() }))
+
+vi.mock('@/lib/terminal/webglRenderer', () => ({
+  createWebglRenderer: () => webgl,
 }))
 
 vi.mock('@/lib/terminal/terminalFileLinks', async (importOriginal) => {
@@ -182,6 +191,13 @@ describe('TerminalView engines', () => {
     })
   }
 
+  it('an xterm pane hands its GPU renderer to the hidden-pane pause and drops it on unmount', async () => {
+    const { unmount } = await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
+    expect(webgl.pause).toHaveBeenLastCalledWith(true)
+    unmount()
+    expect(webgl.dispose).toHaveBeenCalledTimes(1)
+  })
+
   it('draws a new terminal with Ghostty and starts its shell through the shared path', async () => {
     const { container } = await renderGhostty(
       <TerminalView workspaceId="w1" paneId="p1" cwd="/home/me" />,
@@ -223,6 +239,139 @@ describe('TerminalView engines', () => {
     act(() => useGhostty())
     expect(container.querySelector('.xterm-host')).not.toBeNull()
     expect(container.querySelector('.ghostty-host')).toBeNull()
+  })
+
+  it('lets Option-drag fall back to native selection under mouse tracking in xterm.js', async () => {
+    await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
+    expect(terminalFor('p1')?.options.macOptionClickForcesSelection).toBe(true)
+  })
+
+  it('rescales glyphs that overlap their cell in xterm.js', async () => {
+    await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
+    expect(terminalFor('p1')?.options.rescaleOverlappingGlyphs).toBe(true)
+  })
+
+  it('keeps the kitty keyboard protocol off in xterm.js', async () => {
+    await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
+    const xterm = terminalFor('p1') as unknown as Xterm
+    expect(xterm.options.vtExtensions?.kittyKeyboard).toBe(false)
+  })
+
+  it('sends ESC CR for Shift+Enter in xterm.js', async () => {
+    const { container } = await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
+    await waitFor(() => expect(window.ostia.pty.attach).toHaveBeenCalled())
+    const textarea = container.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement
+    fireEvent.keyDown(textarea, { key: 'Enter', code: 'Enter', keyCode: 13, shiftKey: true })
+    await waitFor(() => expect(window.ostia.pty.write).toHaveBeenCalledWith('p1', '\x1b\r'))
+    expect(window.ostia.pty.write).not.toHaveBeenCalledWith('p1', '\r')
+  })
+
+  it('repaints a held prompt once and acks it once after a resize in xterm.js', async () => {
+    await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
+    await waitFor(() => expect(window.ostia.pty.attach).toHaveBeenCalled())
+    const deliver = vi.mocked(window.ostia.pty.onData).mock.calls[0][1]
+    const prompt = '\x1b]133;A\x07$ '
+    act(() => deliver(prompt))
+    await waitFor(() => expect(useBlocksStore.getState().drafts.p1).toBeDefined())
+    await act(() => new Promise((resolve) => setTimeout(resolve, 50)))
+    const fitted = vi
+      .spyOn(FitAddon.prototype, 'proposeDimensions')
+      .mockReturnValue({ cols: 100, rows: 30 })
+    onTestFinished(() => fitted.mockRestore())
+    act(() =>
+      useSettingsStore.setState((s) => ({
+        appearance: {
+          ...s.appearance,
+          terminal: { ...s.appearance.terminal, size: s.appearance.terminal.size + 1 },
+        },
+      })),
+    )
+    await waitFor(() => expect(window.ostia.pty.resize).toHaveBeenCalledWith('p1', 100, 30))
+    const xterm = terminalFor('p1') as unknown as Xterm
+    const writes = vi.spyOn(xterm, 'write')
+    const redraw = `\r\x1b[K$ ${'r'.repeat(PTY_ACK_CHARS)}`
+    act(() => deliver(redraw))
+    await waitFor(() => expect(xterm.cols).toBe(100))
+    await act(() => new Promise((resolve) => setTimeout(resolve, 100)))
+    expect(writes.mock.calls.filter(([data]) => data === redraw)).toHaveLength(1)
+    expect(vi.mocked(window.ostia.pty.ack).mock.calls).toEqual([
+      ['p1', prompt.length + redraw.length],
+    ])
+  })
+
+  it('draws and acks output once when a resize lands between write slices in xterm.js', async () => {
+    await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
+    await waitFor(() => expect(window.ostia.pty.attach).toHaveBeenCalled())
+    await act(() => new Promise((resolve) => setTimeout(resolve, 50)))
+    const deliver = vi.mocked(window.ostia.pty.onData).mock.calls[0][1]
+    const chunks = ['first', 'second', 'third'].map(
+      (word) => `${word}-out\r\n${' '.repeat(PTY_ACK_CHARS)}\r\n`,
+    )
+    const fitted = vi
+      .spyOn(FitAddon.prototype, 'proposeDimensions')
+      .mockReturnValue({ cols: 100, rows: 30 })
+    onTestFinished(() => fitted.mockRestore())
+    let now = performance.now()
+    const clock = vi.spyOn(performance, 'now').mockImplementation(() => {
+      now += 20
+      return now
+    })
+    act(() => {
+      for (const chunk of chunks) deliver(chunk)
+    })
+    await new Promise<void>((resolve) =>
+      setTimeout(() => {
+        clock.mockRestore()
+        act(() =>
+          useSettingsStore.setState((s) => ({
+            appearance: {
+              ...s.appearance,
+              terminal: { ...s.appearance.terminal, size: s.appearance.terminal.size + 1 },
+            },
+          })),
+        )
+        resolve()
+      }),
+    )
+    const xterm = terminalFor('p1') as unknown as Xterm
+    await waitFor(() => expect(xterm.cols).toBe(100))
+    await act(() => new Promise((resolve) => setTimeout(resolve, 100)))
+    const lines = Array.from({ length: xterm.buffer.active.length }, (_, y) =>
+      xterm.buffer.active.getLine(y)?.translateToString(true),
+    )
+    expect(lines.filter((line) => line?.endsWith('-out'))).toEqual([
+      'first-out',
+      'second-out',
+      'third-out',
+    ])
+    expect(vi.mocked(window.ostia.pty.ack).mock.calls).toEqual(
+      chunks.map((chunk) => ['p1', chunk.length]),
+    )
+  })
+
+  it('keeps Option-drag away from the program in a Ghostty terminal on macOS only', async () => {
+    const { container } = await renderGhostty(<TerminalView workspaceId="w1" paneId="p1" />)
+    await waitFor(() => expect(container.querySelector('.ghostty-host canvas')).not.toBeNull())
+    const canvas = container.querySelector('.ghostty-host canvas') as HTMLCanvasElement
+    const reported: string[] = []
+    const report = (e: Event) => reported.push(e.type)
+    const host = canvas.parentElement as HTMLElement
+    for (const type of ['mousedown', 'mousemove', 'mouseup']) host.addEventListener(type, report)
+    const drag = (altKey: boolean) => {
+      reported.length = 0
+      canvas.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, altKey }))
+      canvas.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, altKey, buttons: 1 }))
+      canvas.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, altKey }))
+      return [...reported]
+    }
+    os.mac = true
+    onTestFinished(() => {
+      os.mac = false
+    })
+    expect(drag(true)).toEqual([])
+    expect(drag(false)).toEqual(['mousedown', 'mousemove', 'mouseup'])
+    os.mac = false
+    expect(drag(true)).toEqual(['mousedown', 'mousemove', 'mouseup'])
   })
 
   it('smart copy/paste keys paste with Ctrl+V', async () => {
@@ -538,6 +687,8 @@ describe('TerminalView engines', () => {
 
   for (const engine of ['xterm', 'Ghostty']) {
     it(`${engine}: Ctrl+click reveals a folder in Files, opens an outside folder in the file manager and opens an outside file`, async () => {
+      const fitted = vi.spyOn(FitAddon.prototype, 'proposeDimensions').mockReturnValue(undefined)
+      onTestFinished(() => fitted.mockRestore())
       useFileTreeStore.setState({ revealed: null })
       useUIStore.setState({ filesOpen: false })
       useEditorRevealStore.setState({ pending: {} })
@@ -655,6 +806,8 @@ describe('TerminalView engines', () => {
   })
 
   it('lowering scrollback in Settings trims history in an open terminal', async () => {
+    const fitted = vi.spyOn(FitAddon.prototype, 'proposeDimensions').mockReturnValue(undefined)
+    onTestFinished(() => fitted.mockRestore())
     const lines = Array.from({ length: 2000 }, (_, i) => `${i + 1}`)
     vi.mocked(window.ostia.pty.attach).mockResolvedValue({
       created: true,

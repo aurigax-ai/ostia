@@ -49,7 +49,17 @@ describe('KeyboardSection on macOS', () => {
 
   it('lists the default terminal keys and switches to Natural Text Editing', async () => {
     render(<KeyboardSection />)
-    const defaults = ['⌘Backspace', '⌘←', '⌘→', '⌥←', '⌥→', '⌥Backspace', '⌥Delete', '⌘Delete']
+    const defaults = [
+      '⌘Backspace',
+      '⌘←',
+      '⌘→',
+      '⌥←',
+      '⌥→',
+      '⌥Backspace',
+      '⌥Delete',
+      '⌘Delete',
+      '⇧Enter',
+    ]
     expect(editButtons()).toEqual(defaults.map((keys) => `Edit ${keys}`).sort())
     expect(applied('App shortcuts')).toBe('Ostia')
     expect(applied('Text editing')).toBe('Ostia standard')

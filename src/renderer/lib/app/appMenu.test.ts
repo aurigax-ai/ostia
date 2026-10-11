@@ -1,7 +1,7 @@
 import type { CommandDef } from '@/commands/registry'
 import { commands } from '@/commands/registry'
 import { useUIStore } from '@/stores/app/uiStore'
-import { en } from '@shared/app/dict'
+import { en, zhHant } from '@shared/app/dict'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { SSH_CONNECT_ITEM, buildAppMenuSpec, runAppMenuItem } from './appMenu'
 
@@ -44,6 +44,20 @@ describe('buildAppMenuSpec', () => {
       { command: 'workspace.new', label: 'T workspace.new' },
       { command: 'window.new', label: 'T window.new', accelerator: 'Shift+Cmd+N' },
     ])
+  })
+
+  it('ends the View menu with Reload Window and gives it no shortcut', () => {
+    const spec = buildAppMenuSpec(en, registry(['pane.zoom', 'window.reload']), () => null)
+    expect(spec.view.items).toEqual([
+      { command: 'pane.zoom', label: 'T pane.zoom' },
+      { separator: true },
+      { command: 'window.reload', label: 'T window.reload' },
+    ])
+  })
+
+  it('labels Reload Window from the dictionary in English and Traditional Chinese', () => {
+    const labels = [en, zhHant].map((dict) => dict.commands.titles['window.reload'])
+    expect(labels).toEqual(['Reload Window', '重新載入視窗'])
   })
 
   it('shows Find in Page with the find shortcut', () => {

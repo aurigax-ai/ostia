@@ -13,6 +13,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { registerBuiltinCommands } from '../commands/builtins'
 import { commands } from '../commands/registry'
+import { registerWindowCommands } from '../commands/windowCommands'
 import { CommandPalette } from './CommandPalette'
 
 const searchWorkspaceSymbols = vi.hoisted(() => vi.fn())
@@ -51,6 +52,28 @@ describe('CommandPalette', () => {
     expect(screen.getByRole('option', { name: /Toggle Sidebar/ })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: /Open Settings/ })).toBeInTheDocument()
     expect(screen.queryByText('pane.split')).toBeNull()
+  })
+
+  it('lists Reload Window and runs it through main, with no shortcut shown', async () => {
+    act(() => registerWindowCommands(false))
+    try {
+      useUIStore.setState({ paletteOpen: true })
+      render(<CommandPalette />)
+      await userEvent.type(await screen.findByRole('combobox'), 'reload window')
+
+      const option = await screen.findByRole('option', { name: /Reload Window/ })
+      expect(option.querySelector('kbd')).toBeNull()
+      await userEvent.click(option)
+
+      await waitFor(() => expect(window.ostia.diagnostics.reloadWindow).toHaveBeenCalledTimes(1))
+    } finally {
+      act(() => {
+        commands.unregister('window.reload')
+        commands.unregister('window.new')
+        commands.unregister('workspace.moveToNewWindow')
+        commands.unregister('pane.moveToNewWindow')
+      })
+    }
   })
 
   it('filters the list to matching commands as the user types', async () => {

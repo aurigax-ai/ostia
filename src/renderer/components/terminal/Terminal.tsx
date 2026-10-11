@@ -105,7 +105,7 @@ import {
 import { terminalTitle } from '@/lib/terminal/terminalTitle'
 import { createTitleCommitter } from '@/lib/terminal/titleCommit'
 import { keepDrawing, usePauseWhenHidden } from '@/lib/terminal/usePauseWhenHidden'
-import { loadWebglRenderer } from '@/lib/terminal/webglRenderer'
+import { type WebglRenderer, createWebglRenderer } from '@/lib/terminal/webglRenderer'
 import { attachWheelReports } from '@/lib/terminal/wheelReports'
 import { currentScheme, terminalTheme, useScheme } from '@/lib/theme/colorScheme'
 import { terminalFontStack } from '@/lib/theme/uiFonts'
@@ -237,6 +237,8 @@ function TerminalSurface({
       scrollSensitivity: terminalSettings.scrollSpeed,
       minimumContrastRatio: terminalSettings.minimumContrast,
       macOptionIsMeta: terminalSettings.macOptionIsMeta,
+      macOptionClickForcesSelection: true,
+      rescaleOverlappingGlyphs: true,
     }
     let term: OstiaTerminal
     let fit: TerminalFit
@@ -281,6 +283,7 @@ function TerminalSurface({
       leave: hideLinkHint,
     }
     let searchAddon: TerminalSearch | null = null
+    let webgl: WebglRenderer | null = null
     let silenceReplies: () => { dispose(): void }
     const ghostty = engine === 'ghostty' ? ghosttyModule() : null
     if (ghostty) {
@@ -291,7 +294,11 @@ function TerminalSurface({
       silenceReplies = created.silenceQueryReplies
       pauseRef.current = created.setPaused
     } else {
-      const xterm = new Xterm({ ...options, allowProposedApi: true })
+      const xterm = new Xterm({
+        ...options,
+        allowProposedApi: true,
+        vtExtensions: { kittyKeyboard: false },
+      })
       const xtermFit = new FitAddon()
       xterm.loadAddon(xtermFit)
       xterm.loadAddon(new Unicode11Addon())
@@ -307,7 +314,10 @@ function TerminalSurface({
       xterm.loadAddon(xtermSearch)
       searchAddon = xtermSearch
       xterm.open(host)
-      if (behavior.gpuAcceleration) loadWebglRenderer(xterm)
+      if (behavior.gpuAcceleration) {
+        webgl = createWebglRenderer(xterm)
+        pauseRef.current = webgl.pause
+      }
       term = xterm
       fit = xtermFit
       silenceReplies = () => silenceQueryReplies(xterm)
@@ -821,6 +831,7 @@ function TerminalSurface({
     }
     const syncSize = (): void => {
       if (holdForRedraw || awaitingParse) return
+      if (attached && screenElement && !screenElement.isConnected) return
       if (attached && host && fit && host.offsetWidth > 0 && host.offsetHeight > 0) {
         const dims = fit.proposeDimensions()
         const last = lastSizeRef.current
@@ -945,6 +956,7 @@ function TerminalSurface({
       useBlocksStore.getState().dropPane(paneId)
       window.ostia.pty.detach(paneId)
       pauseRef.current = keepDrawing
+      webgl?.dispose()
       term.dispose()
       termRef.current = null
       setSearch(null)

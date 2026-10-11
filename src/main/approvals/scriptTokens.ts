@@ -5,9 +5,13 @@ import type { Capability } from '../../shared/capabilities'
 import {
   DEFAULT_TOKEN_EXPIRY,
   NEVER_EXPIRES,
+  type RetiredScriptToken,
   SCRIPT_CAPABILITIES,
   SCRIPT_TOKEN_PREFIX,
+  type ScriptTokenInfo,
   type ScriptTokenScope,
+  type ScriptTokenSource,
+  type ScriptTokenUsage,
   tokenExpiry,
 } from '../../shared/permissions/scriptTokens'
 import { registerControlMethod } from '../control/controlServer'
@@ -15,13 +19,14 @@ import { removeScript } from '../control/idRegistry'
 import { loadJson, saveJson } from '../platform/jsonStore'
 import { ensureCaps } from './controlElevation'
 import type { ReachListing } from './reach'
+import { type ScriptTokenUsageLog, type UsageLookups, usageView } from './scriptTokenUsage'
 import type { PresenceResult } from './userPresence'
 
 const NAME_MAX = 60
 const RETIRED_KEEP_MS = 30 * 86_400_000
 const LAST_USED_EVERY_MS = 60_000
 
-type TokenSource = 'settings' | 'cli'
+type TokenSource = ScriptTokenSource
 
 interface StoredToken {
   id: string
@@ -37,22 +42,9 @@ interface StoredToken {
   source: TokenSource
 }
 
-export interface ScriptToken {
-  id: string
-  name: string
-  caps: Capability[]
-  scope: ScriptTokenScope
-  createdAt: string
-  updatedAt: string
-  expiresAt: string | null
-  lastUsedAt: string | null
-  source: TokenSource
-}
+export type ScriptToken = ScriptTokenInfo
 
-export interface RetiredToken {
-  name: string
-  retiredAt: string
-}
+export type RetiredToken = RetiredScriptToken
 
 interface StoredRetired extends RetiredToken {
   hash: string
@@ -248,6 +240,7 @@ export interface TokenChanges {
   caps?: Capability[]
   scope?: ScopeRequest
   expires?: string
+  confirmNeverExpires?: true
 }
 
 export function parseTokenChanges(raw: unknown): TokenChanges {
@@ -263,7 +256,20 @@ export function parseTokenChanges(raw: unknown): TokenChanges {
   if (Object.keys(changes).length === 1) {
     throw fail('bad-request: nothing to change (name, caps, scope or expires)')
   }
+  if (p.confirmNeverExpires === true) changes.confirmNeverExpires = true
   return changes
+}
+
+export function confirmStillNever(
+  changes: TokenChanges,
+  expiresAt: string | null,
+  name: string,
+): void {
+  if (expiresAt === null && changes.confirmNeverExpires !== true) {
+    throw fail(
+      `bad-request: the script token "${name}" never expires, so regenerating it needs confirmNeverExpires: true (ostia token update --yes-never-expires)`,
+    )
+  }
 }
 
 export function regenerates(changes: TokenChanges): boolean {
@@ -509,14 +515,17 @@ export function setUserPresenceCheck(check: UserPresenceCheck): void {
   requireUserPresence = check
 }
 
+export async function checkUserPresence(request: PresenceRequest): Promise<PresenceResult> {
+  try {
+    return await requireUserPresence(request)
+  } catch (err) {
+    return { ok: false, code: 'failed', detail: (err as Error).message }
+  }
+}
+
 export async function confirmUserPresence(request: PresenceRequest): Promise<void> {
   const what = `${request.action} the script token "${request.name}"`
-  let result: PresenceResult
-  try {
-    result = await requireUserPresence(request)
-  } catch (err) {
-    result = { ok: false, code: 'failed', detail: (err as Error).message }
-  }
+  const result = await checkUserPresence(request)
   if (!result.ok) {
     throw fail(`presence-${result.code}: could not confirm it is you to ${what} (${result.detail})`)
   }
@@ -546,9 +555,33 @@ export interface ScriptTokenDeps {
   path: () => string
   retiredPath: () => string
   listing: () => Promise<ReachListing>
+  changed?: () => void
+  usage?: ScriptTokenUsageLog
+  panes?: UsageLookups['panes']
+}
+
+export async function scriptTokenUsage(
+  deps: ScriptTokenDeps,
+  ref: string,
+  withNames: boolean,
+): Promise<{ token: ScriptToken; usage: ScriptTokenUsage }> {
+  const token = findScriptToken(deps.path(), ref)
+  const usage = deps.usage
+    ? await usageView(deps.usage, token.id, withNames ? deps : null)
+    : {
+        calls: [],
+        connections: [],
+        last24h: { calls: 0, refused: 0 },
+        names: { workspaces: {}, panes: {} },
+      }
+  return { token, usage }
 }
 
 export function registerScriptTokenMethods(deps: ScriptTokenDeps): void {
+  const changed = <T>(result: T): T => {
+    deps.changed?.()
+    return result
+  }
   registerControlMethod('token.create', {
     handler: async (raw, ctx) => {
       const request = parseTokenRequest(raw)
@@ -562,11 +595,13 @@ export function registerScriptTokenMethods(deps: ScriptTokenDeps): void {
         `let scripts outside Ostia use the token "${request.name}" with ${request.caps.join(', ') || 'no capability'} on ${describeScope(scope)}; it ${describeExpiry(expiresAt)}`,
       )
       await confirmUserPresence({ action: 'generate', name: request.name })
-      return createScriptToken(deps.path(), request.name, request.caps, {
-        scope,
-        expiresAt,
-        source: 'cli',
-      })
+      return changed(
+        createScriptToken(deps.path(), request.name, request.caps, {
+          scope,
+          expiresAt,
+          source: 'cli',
+        }),
+      )
     },
   })
 
@@ -583,10 +618,12 @@ export function registerScriptTokenMethods(deps: ScriptTokenDeps): void {
           'token.update',
           `rename the script token "${current.name}" to "${name}"`,
         )
-        return updateScriptToken(deps.path(), current.id, {
-          name,
-          ifUpdatedAt: current.updatedAt,
-        })
+        return changed(
+          updateScriptToken(deps.path(), current.id, {
+            name,
+            ifUpdatedAt: current.updatedAt,
+          }),
+        )
       }
       const caps = changes.caps ?? current.caps
       const scope = changes.scope
@@ -594,6 +631,7 @@ export function registerScriptTokenMethods(deps: ScriptTokenDeps): void {
         : current.scope
       const expiresAt =
         changes.expires === undefined ? current.expiresAt : tokenExpiry(changes.expires, new Date())
+      confirmStillNever(changes, expiresAt, name)
       await ensureCaps(
         ctx.authed,
         ctx.identity,
@@ -602,19 +640,30 @@ export function registerScriptTokenMethods(deps: ScriptTokenDeps): void {
         `regenerate the script token "${name}" with ${caps.join(', ') || 'no capability'} on ${describeScope(scope)}; it ${describeExpiry(expiresAt)}. The old value stops working at once`,
       )
       await confirmUserPresence({ action: 'regenerate', name })
-      return updateScriptToken(deps.path(), current.id, {
+      const updated = updateScriptToken(deps.path(), current.id, {
         name,
         caps,
         scope,
         expiresAt,
         ifUpdatedAt: current.updatedAt,
       })
+      deps.usage?.regenerated(current.id)
+      return changed(updated)
     },
   })
 
   registerControlMethod('token.list', {
     cap: 'settings-read',
     handler: () => listScriptTokens(deps.path()),
+  })
+
+  registerControlMethod('token.usage', {
+    cap: 'settings-read',
+    handler: (raw) => {
+      const ref = typeof raw === 'object' && raw !== null ? (raw as { id?: unknown }).id : undefined
+      if (typeof ref !== 'string' || !ref) throw fail('bad-request: id')
+      return scriptTokenUsage(deps, ref, false)
+    },
   })
 
   registerControlMethod('token.retired', {
@@ -630,7 +679,8 @@ export function registerScriptTokenMethods(deps: ScriptTokenDeps): void {
       const { id } = findScriptToken(deps.path(), ref)
       revokeScriptToken(deps.path(), id)
       removeScript(id)
-      return { ok: true, id }
+      deps.usage?.clear(id)
+      return changed({ ok: true, id })
     },
   })
 }

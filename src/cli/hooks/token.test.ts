@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { asksPresence, parseTokenArgs } from './token'
+import { asksPresence, parseTokenArgs, shownUsage } from './token'
 
 describe('parseTokenArgs', () => {
   it('creates a token with a name and one or more capabilities', () => {
@@ -112,6 +112,13 @@ describe('parseTokenArgs', () => {
       method: 'token.update',
       params: { id: 'ceo', caps: ['notify'], expires: '1y' },
     })
+    expect(parseTokenArgs(['update', 'ceo', '--cap', 'notify', '--yes-never-expires'])).toEqual({
+      method: 'token.update',
+      params: { id: 'ceo', caps: ['notify'], confirmNeverExpires: true },
+    })
+    expect(() => parseTokenArgs(['update', 'ceo', '--yes-never-expires'])).toThrow(
+      'usage: ostia token',
+    )
     expect(() => parseTokenArgs(['update', 'ceo'])).toThrow('usage: ostia token')
     expect(() => parseTokenArgs(['update', '--name', 'x'])).toThrow('usage: ostia token')
     expect(() => parseTokenArgs(['create', 'x', '--cap', 'notify', '--name', 'y'])).toThrow(
@@ -125,11 +132,10 @@ describe('parseTokenArgs', () => {
       params: {},
       json: true,
     })
-    expect(parseTokenArgs(['show', 'ceo'])).toEqual({
-      method: 'token.list',
-      params: {},
-      json: false,
-      show: 'ceo',
+    expect(parseTokenArgs(['show', 'ceo', '--json'])).toEqual({
+      method: 'token.usage',
+      params: { id: 'ceo' },
+      json: true,
     })
     expect(parseTokenArgs(['revoke', 'script_1'])).toEqual({
       method: 'token.revoke',
@@ -157,5 +163,55 @@ describe('asksPresence', () => {
     expect(asksPresence(parseTokenArgs(['update', 'ceo', '--name', 'boss']))).toBe(false)
     expect(asksPresence(parseTokenArgs(['revoke', 'ceo']))).toBe(false)
     expect(asksPresence(parseTokenArgs(['list']))).toBe(false)
+  })
+})
+
+describe('shownUsage', () => {
+  const token = {
+    id: 'script_1',
+    name: 'ceo',
+    caps: ['read-board'],
+    scope: { kind: 'all' as const },
+    createdAt: '2026-10-10T00:00:00.000Z',
+    expiresAt: null,
+    lastUsedAt: '2026-10-11T06:02:11.000Z',
+  }
+
+  it('prints the connections, the last 24 hours and the recent calls with names', () => {
+    const lines = shownUsage(token, {
+      calls: [
+        {
+          at: '2026-10-11T06:02:11.000Z',
+          method: 'pane.read',
+          target: { workspaceId: 'w1', paneId: 'p1' },
+          outcome: 'out-of-scope',
+          code: 'needs-elevation: all-workspaces',
+        },
+        { at: '2026-10-11T06:01:00.000Z', method: '', target: {}, outcome: 'regenerated' },
+        { at: '2026-10-11T06:00:00.000Z', method: 'notify', target: {}, outcome: 'ok' },
+      ],
+      connections: [{ pid: 48211 }],
+      last24h: { calls: 142, refused: 2 },
+      names: { workspaces: { w1: 'homelab' }, panes: {} },
+    })
+    expect(lines).toContain('connected  1 (self-reported pid 48211)')
+    expect(lines).toContain('last ~24h  142 calls, 2 refused')
+    expect(lines.slice(-4)).toEqual([
+      'TIME  ACTION  TARGET  RESULT',
+      '2026-10-11T06:02:11.000Z  pane.read  homelab / p1  out-of-scope (needs-elevation: all-workspaces)',
+      '2026-10-11T06:01:00.000Z  regenerated',
+      '2026-10-11T06:00:00.000Z  notify  -  ok',
+    ])
+  })
+
+  it('says when nothing was called', () => {
+    const lines = shownUsage(token, {
+      calls: [],
+      connections: [],
+      last24h: { calls: 0, refused: 0 },
+      names: { workspaces: {}, panes: {} },
+    })
+    expect(lines).toContain('connected  0')
+    expect(lines.at(-1)).toBe('no calls recorded')
   })
 })
