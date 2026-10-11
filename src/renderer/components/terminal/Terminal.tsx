@@ -235,6 +235,7 @@ function TerminalSurface({
       minimumContrastRatio: terminalSettings.minimumContrast,
       macOptionIsMeta: terminalSettings.macOptionIsMeta,
       macOptionClickForcesSelection: true,
+      rescaleOverlappingGlyphs: true,
     }
     let term: OstiaTerminal
     let fit: TerminalFit

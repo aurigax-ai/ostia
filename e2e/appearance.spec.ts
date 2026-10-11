@@ -49,7 +49,7 @@ test('follow-system switches the theme live with the OS color scheme', async () 
 })
 
 test('a custom accent color overrides the brand color on real elements', async () => {
-  const { app, win } = await launch({})
+  const { app, win } = await launch({ appearance: { followSystem: false } })
   try {
     await app.evaluate(({ nativeTheme }) => {
       nativeTheme.themeSource = 'dark'
