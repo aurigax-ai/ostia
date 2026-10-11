@@ -795,6 +795,7 @@ function TerminalSurface({
     }
     const syncSize = (): void => {
       if (holdForRedraw || awaitingParse) return
+      if (attached && screenElement && !screenElement.isConnected) return
       if (attached && host && fit && host.offsetWidth > 0 && host.offsetHeight > 0) {
         const dims = fit.proposeDimensions()
         const last = lastSizeRef.current
