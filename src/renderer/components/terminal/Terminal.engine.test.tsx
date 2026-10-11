@@ -40,6 +40,12 @@ vi.mock('@/platform', () => ({
   },
 }))
 
+const webgl = vi.hoisted(() => ({ pause: vi.fn(), dispose: vi.fn() }))
+
+vi.mock('@/lib/terminal/webglRenderer', () => ({
+  createWebglRenderer: () => webgl,
+}))
+
 vi.mock('@/lib/terminal/terminalFileLinks', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/terminal/terminalFileLinks')>()
   return { ...actual, createFileLinkProvider: vi.fn(actual.createFileLinkProvider) }
@@ -180,6 +186,13 @@ describe('TerminalView engines', () => {
       )
     })
   }
+
+  it('an xterm pane hands its GPU renderer to the hidden-pane pause and drops it on unmount', async () => {
+    const { unmount } = await renderSettled(<TerminalView workspaceId="w1" paneId="p1" />)
+    expect(webgl.pause).toHaveBeenLastCalledWith(true)
+    unmount()
+    expect(webgl.dispose).toHaveBeenCalledTimes(1)
+  })
 
   it('draws a new terminal with Ghostty and starts its shell through the shared path', async () => {
     const { container } = await renderGhostty(
