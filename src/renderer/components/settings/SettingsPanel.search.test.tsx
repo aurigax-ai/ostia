@@ -229,6 +229,26 @@ describe('SettingsPanel search', () => {
     expect(within(rowOf(blink)).getByText('游標閃爍', { selector: 'mark' })).toBeInTheDocument()
   })
 
+  it('finds the script tokens page in English and in Traditional Chinese', async () => {
+    renderSettings()
+    const user = userEvent.setup()
+    await user.click(searchBox())
+    await user.paste('Script tokens')
+    expect(result('scriptTokens')).toBeVisible()
+    cleanup()
+
+    usePluginsStore.setState({
+      languages: languagesFrom([
+        { extId: 'langpack-zh-hant', id: 'zh-Hant', label: '繁體中文', catalog: zhHant },
+      ]),
+    })
+    useSettingsStore.setState({ locale: 'zh-Hant' })
+    renderSettings()
+    await user.click(screen.getByRole('textbox', { name: zhHant.settings.search }))
+    await user.paste('腳本權杖')
+    expect(result('scriptTokens')).toBeVisible()
+  })
+
   it("finds a setting on an extension's own settings page", async () => {
     useExtensionsStore.setState({ list: [BOARD] })
     renderSettings()

@@ -309,6 +309,13 @@ export function makeOstiaMock(overrides?: Partial<OstiaBridge>): OstiaBridge {
       copyPassword: vi.fn().mockResolvedValue(true),
       import: vi.fn().mockResolvedValue({ ok: false, error: 'cancelled' }),
     },
+    scriptTokens: {
+      list: vi.fn().mockResolvedValue({ tokens: [], retired: [], workspaces: [], groups: [] }),
+      create: vi.fn().mockResolvedValue({ ok: false, error: 'not mocked' }),
+      update: vi.fn().mockResolvedValue({ ok: false, error: 'not mocked' }),
+      revoke: vi.fn().mockResolvedValue(true),
+      onChanged: vi.fn(noopUnsub),
+    },
     approvals: {
       state: vi.fn().mockResolvedValue({ pending: [], history: [] }),
       answer: vi.fn().mockResolvedValue(true),

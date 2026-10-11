@@ -112,6 +112,13 @@ describe('parseTokenArgs', () => {
       method: 'token.update',
       params: { id: 'ceo', caps: ['notify'], expires: '1y' },
     })
+    expect(parseTokenArgs(['update', 'ceo', '--cap', 'notify', '--yes-never-expires'])).toEqual({
+      method: 'token.update',
+      params: { id: 'ceo', caps: ['notify'], confirmNeverExpires: true },
+    })
+    expect(() => parseTokenArgs(['update', 'ceo', '--yes-never-expires'])).toThrow(
+      'usage: ostia token',
+    )
     expect(() => parseTokenArgs(['update', 'ceo'])).toThrow('usage: ostia token')
     expect(() => parseTokenArgs(['update', '--name', 'x'])).toThrow('usage: ostia token')
     expect(() => parseTokenArgs(['create', 'x', '--cap', 'notify', '--name', 'y'])).toThrow(

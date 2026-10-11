@@ -141,7 +141,7 @@ describe('verifyUserPresence on macOS', () => {
     const d = deps({ touchId: { canPrompt, prompt: vi.fn(async () => {}) } })
     await expect(verifyUserPresence(ASK, d)).resolves.toEqual({ ok: true, via: 'confirm' })
     expect(d.prompt).not.toHaveBeenCalled()
-    expect(d.confirm).toHaveBeenCalledWith({ ...ASK, polkitHint: false })
+    expect(d.confirm).toHaveBeenCalledWith({ ...ASK, polkitHint: false }, expect.any(AbortSignal))
   })
 })
 
@@ -177,11 +177,20 @@ describe('verifyUserPresence on Linux', () => {
     },
   )
 
+  it('tells the user to install an agent when the action is installed but no agent answers', async () => {
+    const d = linux({ code: 2, stderr: 'No authentication agent found.' })
+    const result = await verifyUserPresence(ASK, d)
+    expect(result).toMatchObject({ ok: false, code: 'unavailable', hint: 'polkit-agent' })
+    expect(result.ok === false && result.detail).toMatch(
+      /install and start the one for your desktop/,
+    )
+  })
+
   it('asks with the Ostia dialog and the install hint only when the polkit action is not installed', async () => {
     const d = linux({ code: 0, stderr: '' }, { policyInstalled: () => false })
     await expect(verifyUserPresence(ASK, d)).resolves.toEqual({ ok: true, via: 'confirm' })
     expect(d.pkcheck).not.toHaveBeenCalled()
-    expect(d.confirm).toHaveBeenCalledWith({ ...ASK, polkitHint: true })
+    expect(d.confirm).toHaveBeenCalledWith({ ...ASK, polkitHint: true }, expect.any(AbortSignal))
   })
 
   it('refuses with failed when running pkcheck throws', async () => {
@@ -367,17 +376,18 @@ describe('electronPresenceDeps', () => {
   }
 
   const prompt = { ...ASK, polkitHint: false }
+  const live = () => new AbortController().signal
   const title = (w: FakeWindow, value: string) => {
     w.webContents.emit('page-title-updated', { preventDefault() {} }, value)
   }
 
   it('cannot ask without a window', async () => {
-    await expect(real([]).confirm(prompt)).resolves.toBeUndefined()
+    await expect(real([]).confirm(prompt, live())).resolves.toBeUndefined()
     expect(opened).toEqual([])
   })
 
   it('opens a sandboxed modal page over the focused window and allows only the exact name', async () => {
-    const answer = real([other, focused]).confirm(prompt)
+    const answer = real([other, focused]).confirm(prompt, live())
     await Promise.resolve()
     const [w] = opened
     expect(w.options).toMatchObject({
@@ -399,15 +409,30 @@ describe('electronPresenceDeps', () => {
       (w: FakeWindow) => w.events.emit('closed'),
     ]) {
       opened.length = 0
-      const answer = real([focused]).confirm(prompt)
+      const answer = real([focused]).confirm(prompt, live())
       await Promise.resolve()
       end(opened[0])
       await expect(answer).resolves.toBe(false)
     }
   })
 
+  it('closes the page when the confirmation times out', async () => {
+    const d = { ...real([focused]), platform: 'win32' as const, timeoutMs: 20 }
+    const result = verifyUserPresence(ASK, d)
+    await vi.waitFor(() => expect(opened).toHaveLength(1))
+    await expect(result).resolves.toMatchObject({ ok: false, code: 'timeout' })
+    expect(opened[0].closed).toBe(true)
+  })
+
+  it('does not open a page once the ask is already over', async () => {
+    const over = new AbortController()
+    over.abort()
+    await expect(real([focused]).confirm(prompt, over.signal)).resolves.toBe(false)
+    expect(opened).toEqual([])
+  })
+
   it('blocks navigation and new windows from the page', async () => {
-    void real([focused]).confirm(prompt)
+    void real([focused]).confirm(prompt, live())
     await Promise.resolve()
     const [w] = opened
     const nav = { preventDefault: vi.fn() }

@@ -19,7 +19,7 @@ export type PresenceFailure = 'cancelled' | 'failed' | 'timeout' | 'unavailable'
 
 export type PresenceResult =
   | { ok: true; via: 'touch-id' | 'polkit' | 'confirm' }
-  | { ok: false; code: PresenceFailure; detail: string }
+  | { ok: false; code: PresenceFailure; detail: string; hint?: 'polkit-agent' }
 
 export interface PresenceAsk {
   reason: string
@@ -42,7 +42,7 @@ export interface UserPresenceDeps {
   touchId: { canPrompt: () => boolean; prompt: (reason: string) => Promise<void> }
   policyInstalled: () => boolean
   pkcheck: (args: string[], timeoutMs: number) => Promise<PkcheckRun>
-  confirm: (prompt: FallbackPrompt) => Promise<boolean | undefined>
+  confirm: (prompt: FallbackPrompt, signal: AbortSignal) => Promise<boolean | undefined>
   pid: number
   timeoutMs?: number
 }
@@ -100,7 +100,14 @@ async function viaPolkit(deps: UserPresenceDeps, timeoutMs: number): Promise<Sys
   if (run.timedOut) return refused('timeout', 'polkit got no answer in time')
   if (run.code === 0) return { ok: true, via: 'polkit' }
   if (run.code === 1) return refused('failed', `polkit refused${why}`)
-  if (run.code === 2) return refused('unavailable', `no polkit authentication agent answered${why}`)
+  if (run.code === 2) {
+    return {
+      ok: false,
+      code: 'unavailable',
+      detail: `no polkit authentication agent is running; install and start the one for your desktop (polkit-gnome, polkit-kde-agent-1, lxqt-policykit or mate-polkit) and try again${why}`,
+      hint: 'polkit-agent',
+    }
+  }
   if (run.code === 3) return refused('cancelled', 'the polkit prompt was dismissed')
   return refused('failed', `pkcheck exited with ${run.code ?? 'a signal'}${why}`)
 }
@@ -128,9 +135,10 @@ export async function verifyUserPresence(
   }
   if (!('ask' in system)) return system
   const timer = timeoutAfter(timeoutMs)
+  const stop = new AbortController()
   try {
     const answer = await Promise.race([
-      deps.confirm({ ...request, polkitHint: deps.platform === 'linux' }),
+      deps.confirm({ ...request, polkitHint: deps.platform === 'linux' }, stop.signal),
       timer.promise,
     ])
     if (answer === 'timeout') return refused('timeout', 'the confirmation got no answer in time')
@@ -144,6 +152,7 @@ export async function verifyUserPresence(
     return refused('failed', `the confirmation failed: ${(err as Error).message}`)
   } finally {
     timer.clear()
+    stop.abort()
   }
 }
 
@@ -256,8 +265,17 @@ export function fallbackAnswer(title: string, name: string): boolean | undefined
   return title.slice(ALLOW_TITLE.length) === name
 }
 
-function askInWindow(parent: BrowserWindow, page: string, name: string): Promise<boolean> {
+function askInWindow(
+  parent: BrowserWindow,
+  page: string,
+  name: string,
+  signal: AbortSignal,
+): Promise<boolean> {
   return new Promise((resolve) => {
+    if (signal.aborted) {
+      resolve(false)
+      return
+    }
     const win = new BrowserWindow({
       parent,
       modal: true,
@@ -285,6 +303,7 @@ function askInWindow(parent: BrowserWindow, page: string, name: string): Promise
       if (answer !== undefined) done(answer)
     })
     win.once('closed', () => done(false))
+    signal.addEventListener('abort', () => done(false), { once: true })
     win.once('ready-to-show', () => win.show())
     win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(page)}`).catch(() => done(false))
   })
@@ -303,7 +322,7 @@ export function electronPresenceDeps(
     },
     policyInstalled: () => existsSync(join(POLKIT_ACTIONS_DIR, POLKIT_POLICY_FILE)),
     pkcheck: (args, timeoutMs) => runPkcheck(args, timeoutMs),
-    confirm: async (prompt) => {
+    confirm: async (prompt, signal) => {
       const all = [...windows()].filter((w) => !w.isDestroyed())
       const parent = all.find((w) => w.isFocused()) ?? all[0]
       if (!parent) return undefined
@@ -313,7 +332,7 @@ export function electronPresenceDeps(
         text(),
         installPolkitCommand(resourcesPath),
       )
-      return askInWindow(parent, page, prompt.name)
+      return askInWindow(parent, page, prompt.name, signal)
     },
     pid: process.pid,
   }

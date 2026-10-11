@@ -29,7 +29,7 @@ const TOKEN_USAGE = [
   'usage: ostia token create <name> (--cap <capability>… | --preset readonly|coordinator)',
   '         [--scope all | --scope group:<name|id> | --scope workspace:<name|id>]… [--own-workspaces]',
   '         [--expires 7d|30d|90d|1y|YYYY-MM-DD|never [--yes-never-expires]]',
-  '       ostia token update <id|name> [--name <name>] [--cap …] [--preset …] [--scope …]… [--own-workspaces] [--expires …]',
+  '       ostia token update <id|name> [--name <name>] [--cap …] [--preset …] [--scope …]… [--own-workspaces] [--expires …] [--yes-never-expires]',
   '       ostia token show <id|name> [--json]',
   '       ostia token list [--json]',
   '       ostia token revoke <id|name>',
@@ -81,7 +81,7 @@ function settingsOf(rest: string[], create: boolean) {
     )
   }
   if (values.expires !== undefined) settings.expires = values.expires
-  if (values.expires === NEVER_EXPIRES) settings.confirmNeverExpires = true
+  if (booleans.never) settings.confirmNeverExpires = true
   if (create && values.name !== undefined) throw new Error(TOKEN_USAGE)
   return { positional, settings, name: values.name }
 }
@@ -97,7 +97,8 @@ export function parseTokenArgs(argv: string[]): TokenCall {
   if (sub === 'update') {
     const { positional, settings, name } = settingsOf(rest, false)
     if (positional.length !== 1 || !positional[0]) throw new Error(TOKEN_USAGE)
-    if (name === undefined && Object.keys(settings).length === 0) throw new Error(TOKEN_USAGE)
+    const changes = Object.keys(settings).filter((key) => key !== 'confirmNeverExpires')
+    if (name === undefined && changes.length === 0) throw new Error(TOKEN_USAGE)
     return {
       method: 'token.update',
       params: { id: positional[0], ...(name !== undefined ? { name } : {}), ...settings },
